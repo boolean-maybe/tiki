@@ -1,0 +1,1 @@
+This is a linked doki. Press `<-` to go back or add a link [back to root](index.md)

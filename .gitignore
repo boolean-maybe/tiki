@@ -1,0 +1,22 @@
+.gocache
+.gomodcache
+
+# IntelliJ IDEA
+.idea/
+*.iml
+*.iws
+*.ipr
+out/
+.DS_Store
+
+# AI
+.cursor
+.cursorindexingignore
+.specstory/
+.claude
+
+# Tiki binary
+/tiki
+
+# GoReleaser output
+/dist/

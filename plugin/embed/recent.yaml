@@ -1,0 +1,6 @@
+name: Recent
+foreground: "##ffff99"
+background: "#996600"
+key: Ctrl-R
+filter: NOW - UpdatedAt < 2hours
+sort: UpdatedAt DESC

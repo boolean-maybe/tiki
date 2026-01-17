@@ -1,0 +1,6 @@
+name: Backlog
+foreground: "#5fff87"
+background: "#005f00"
+key: "F3"
+filter: status = 'backlog'
+sort: Priority, ID

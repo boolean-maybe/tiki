@@ -1,0 +1,56 @@
+package testutil
+
+import (
+	"fmt"
+	"os"
+	"path/filepath"
+	"strings"
+
+	"github.com/boolean-maybe/tiki/task"
+)
+
+// CreateTestTask creates a markdown task file with YAML frontmatter
+func CreateTestTask(dir, id, title string, status task.Status, taskType task.Type) error {
+	// Task files are lowercase (e.g., test-1.md)
+	filename := strings.ToLower(id) + ".md"
+	filename = strings.ReplaceAll(filename, "-", "-") // already hyphenated
+	filepath := filepath.Join(dir, filename)
+
+	// Build YAML frontmatter
+	content := fmt.Sprintf(`---
+id: %s
+title: %s
+type: %s
+status: %s
+priority: 3
+points: 1
+---
+%s
+`, id, title, taskType, status, title)
+
+	return os.WriteFile(filepath, []byte(content), 0644)
+}
+
+// CreateBoardTasks creates sample tasks across all board columns
+func CreateBoardTasks(dir string) error {
+	tasks := []struct {
+		id       string
+		title    string
+		status   task.Status
+		taskType task.Type
+	}{
+		{"TEST-1", "Todo Task", task.StatusTodo, task.TypeStory},
+		{"TEST-2", "In Progress Task", task.StatusInProgress, task.TypeStory},
+		{"TEST-3", "Review Task", task.StatusReview, task.TypeStory},
+		{"TEST-4", "Done Task", task.StatusDone, task.TypeStory},
+		{"TEST-5", "Another Todo", task.StatusTodo, task.TypeBug},
+	}
+
+	for _, task := range tasks {
+		if err := CreateTestTask(dir, task.id, task.title, task.status, task.taskType); err != nil {
+			return fmt.Errorf("failed to create task %s: %w", task.id, err)
+		}
+	}
+
+	return nil
+}

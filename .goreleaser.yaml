@@ -1,0 +1,82 @@
+version: 2
+
+before:
+  hooks:
+    - go mod tidy
+
+builds:
+  - id: tiki
+    main: .
+    binary: tiki
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - linux
+      - darwin
+      - windows
+    goarch:
+      - amd64
+      - arm64
+    ldflags:
+      - -s -w
+      - -X github.com/boolean-maybe/tiki/config.Version={{.Version}}
+      - -X github.com/boolean-maybe/tiki/config.GitCommit={{.FullCommit}}
+      - -X github.com/boolean-maybe/tiki/config.BuildDate={{.Date}}
+
+archives:
+  - id: tiki
+    format: tar.gz
+    name_template: >-
+      {{ .ProjectName }}_
+      {{- .Version }}_
+      {{- .Os }}_
+      {{- .Arch }}
+    format_overrides:
+      - goos: windows
+        format: zip
+    files:
+      - LICENSE
+      - README.md
+
+checksum:
+  name_template: 'checksums.txt'
+  algorithm: sha256
+
+changelog:
+  sort: asc
+  filters:
+    exclude:
+      - '^docs:'
+      - '^test:'
+      - '^chore:'
+      - typo
+  groups:
+    - title: Features
+      regexp: '^.*?feat(\([[:word:]]+\))??!?:.+$'
+      order: 0
+    - title: Bug Fixes
+      regexp: '^.*?fix(\([[:word:]]+\))??!?:.+$'
+      order: 1
+    - title: Others
+      order: 999
+
+brews:
+  - name: tiki
+    repository:
+      owner: boolean-maybe
+      name: homebrew-tap
+      token: "{{ .Env.HOMEBREW_TAP_GITHUB_TOKEN }}"
+    directory: Formula
+    homepage: https://github.com/boolean-maybe/tiki
+    description: Terminal-based kanban/scrum board application
+    license: Apache-2.0
+    test: |
+      system "#{bin}/tiki --version"
+
+release:
+  github:
+    owner: boolean-maybe
+    name: tiki
+  draft: false
+  prerelease: auto
+  name_template: "{{.ProjectName}} {{.Version}}"
