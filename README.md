@@ -11,21 +11,36 @@ and take them through an agile lifecycle
 
 ## Installation
 
-### Mac OS
+### Mac OS and Linux
+```bash
+curl -fsSL https://raw.githubusercontent.com/boolean-maybe/tiki/main/install.sh | bash
+```
+
+
+### Mac OS via brew
 ```bash
 # Add the tap (one-time)
 brew tap boolean-maybe/tap
 
 # Install tiki
 brew install tiki
-
-# Verify installation
-tiki --version
 ```
-### Linux and Windows
+
+### Windows
+```powershell
+# Windows PowerShell
+iwr -useb https://raw.githubusercontent.com/boolean-maybe/tiki/main/install.ps1 | iex
+```
+
+### Manual install
 
 Download the latest distribution from the [releases page](https://github.com/boolean-maybe/tiki/releases) 
 and simply copy the `tiki` executable to any location and make it available via `PATH`
+
+### Verify installation
+```bash
+tiki --version
+```
 
 ## Quick start
 
