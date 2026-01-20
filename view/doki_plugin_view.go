@@ -31,7 +31,7 @@ var customMd string
 // DokiView renders a documentation plugin (navigable markdown)
 type DokiView struct {
 	root        *tview.Flex
-	titleBar    *tview.TextView
+	titleBar    tview.Primitive
 	contentView *navtview.Viewer
 	pluginDef   *plugin.DokiPlugin
 	registry    *controller.ActionRegistry
@@ -54,17 +54,13 @@ func NewDokiView(
 }
 
 func (dv *DokiView) build() {
-	// title bar
-	dv.titleBar = tview.NewTextView().
-		SetText(dv.pluginDef.Name).
-		SetTextAlign(tview.AlignCenter)
-
-	if dv.pluginDef.Background != tcell.ColorDefault {
-		dv.titleBar.SetBackgroundColor(dv.pluginDef.Background)
-	}
+	// title bar with gradient background using plugin color
+	textColor := tcell.ColorDefault
 	if dv.pluginDef.Foreground != tcell.ColorDefault {
-		dv.titleBar.SetTextColor(dv.pluginDef.Foreground)
+		textColor = dv.pluginDef.Foreground
 	}
+	titleGradient := gradientFromPrimaryColor(dv.pluginDef.Background, config.GetColors().BoardColumnTitleGradient)
+	dv.titleBar = NewGradientCaptionRow([]string{dv.pluginDef.Name}, titleGradient, textColor)
 
 	// content view (Navigable Markdown)
 	dv.contentView = navtview.New()

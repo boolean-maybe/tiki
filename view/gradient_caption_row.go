@@ -117,3 +117,36 @@ func interpolateColor(gradient config.Gradient, t float64) tcell.Color {
 	//nolint:gosec // G115: RGB values are 0-255, safe to convert to int32
 	return tcell.NewRGBColor(int32(r), int32(g), int32(b))
 }
+
+func gradientFromPrimaryColor(primary tcell.Color, fallback config.Gradient) config.Gradient {
+	if primary == tcell.ColorDefault || !primary.Valid() {
+		return fallback
+	}
+
+	r, g, b := primary.TrueColor().RGB()
+	base := [3]int{int(r), int(g), int(b)}
+	edge := lightenRGB(base, 0.35)
+
+	return config.Gradient{
+		Start: base,
+		End:   edge,
+	}
+}
+
+func lightenRGB(rgb [3]int, ratio float64) [3]int {
+	return [3]int{
+		clampRGB(int(float64(rgb[0]) + (255.0-float64(rgb[0]))*ratio)),
+		clampRGB(int(float64(rgb[1]) + (255.0-float64(rgb[1]))*ratio)),
+		clampRGB(int(float64(rgb[2]) + (255.0-float64(rgb[2]))*ratio)),
+	}
+}
+
+func clampRGB(value int) int {
+	if value < 0 {
+		return 0
+	}
+	if value > 255 {
+		return 255
+	}
+	return value
+}

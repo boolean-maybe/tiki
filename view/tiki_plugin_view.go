@@ -19,7 +19,7 @@ import (
 // PluginView renders a filtered/sorted list of tasks in a 4-column grid
 type PluginView struct {
 	root                *tview.Flex
-	titleBar            *tview.TextView
+	titleBar            tview.Primitive
 	searchHelper        *SearchHelper
 	grid                *ScrollableList // rows container
 	taskStore           store.Store
@@ -52,18 +52,13 @@ func NewPluginView(
 }
 
 func (pv *PluginView) build() {
-	// title bar with plugin colors
-	pv.titleBar = tview.NewTextView().
-		SetText(pv.pluginDef.Name).
-		SetTextAlign(tview.AlignCenter)
-
-	// Apply plugin colors
-	if pv.pluginDef.Background != tcell.ColorDefault {
-		pv.titleBar.SetBackgroundColor(pv.pluginDef.Background)
-	}
+	// title bar with gradient background using plugin color
+	textColor := tcell.ColorDefault
 	if pv.pluginDef.Foreground != tcell.ColorDefault {
-		pv.titleBar.SetTextColor(pv.pluginDef.Foreground)
+		textColor = pv.pluginDef.Foreground
 	}
+	titleGradient := gradientFromPrimaryColor(pv.pluginDef.Background, config.GetColors().BoardColumnTitleGradient)
+	pv.titleBar = NewGradientCaptionRow([]string{pv.pluginDef.Name}, titleGradient, textColor)
 
 	// determine item height based on view mode
 	itemHeight := config.TaskBoxHeight
