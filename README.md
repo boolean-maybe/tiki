@@ -19,11 +19,7 @@ curl -fsSL https://raw.githubusercontent.com/boolean-maybe/tiki/main/install.sh 
 
 ### Mac OS via brew
 ```bash
-# Add the tap (one-time)
-brew tap boolean-maybe/tap
-
-# Install tiki
-brew install tiki
+brew install boolean-maybe/tap/tiki
 ```
 
 ### Windows
