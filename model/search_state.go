@@ -11,8 +11,8 @@ type SearchState struct {
 	mu             sync.RWMutex
 	searchResults  []task.SearchResult // nil = no active search
 	preSearchIndex int                 // for grid views (backlog, plugin)
-	preSearchCol   string              // for board view (column ID)
-	preSearchRow   int                 // for board view (row within column)
+	preSearchPane  string              // for board view (pane ID)
+	preSearchRow   int                 // for board view (row within pane)
 	searchQuery    string              // current search term (for UI restoration)
 }
 
@@ -23,11 +23,11 @@ func (ss *SearchState) SavePreSearchState(index int) {
 	ss.preSearchIndex = index
 }
 
-// SavePreSearchColumnState saves the current column and row for board view
-func (ss *SearchState) SavePreSearchColumnState(colID string, row int) {
+// SavePreSearchPaneState saves the current pane and row for board view
+func (ss *SearchState) SavePreSearchPaneState(paneID string, row int) {
 	ss.mu.Lock()
 	defer ss.mu.Unlock()
-	ss.preSearchCol = colID
+	ss.preSearchPane = paneID
 	ss.preSearchRow = row
 }
 
@@ -40,7 +40,7 @@ func (ss *SearchState) SetSearchResults(results []task.SearchResult, query strin
 }
 
 // ClearSearchResults clears search and returns the pre-search state
-// Returns: (preSearchIndex, preSearchCol, preSearchRow)
+// Returns: (preSearchIndex, preSearchPane, preSearchRow)
 func (ss *SearchState) ClearSearchResults() (int, string, int) {
 	ss.mu.Lock()
 	defer ss.mu.Unlock()
@@ -48,7 +48,7 @@ func (ss *SearchState) ClearSearchResults() (int, string, int) {
 	ss.searchResults = nil
 	ss.searchQuery = ""
 
-	return ss.preSearchIndex, ss.preSearchCol, ss.preSearchRow
+	return ss.preSearchIndex, ss.preSearchPane, ss.preSearchRow
 }
 
 // IsSearchActive returns true if search is currently active

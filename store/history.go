@@ -270,8 +270,8 @@ func parseStatusFromContent(content string, fallbackID string) (task.Status, str
 }
 
 func isActiveStatus(status task.Status) bool {
-	column := task.StatusColumn(status)
-	return column == task.StatusTodo || column == task.StatusInProgress || column == task.StatusReview
+	pane := task.StatusPane(status)
+	return pane == task.StatusTodo || pane == task.StatusInProgress || pane == task.StatusReview
 }
 
 func deriveTaskID(fileName string) string {

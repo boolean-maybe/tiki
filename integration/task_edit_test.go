@@ -178,7 +178,7 @@ func TestTaskEdit_EnterInPointsFieldDoesNotSave(t *testing.T) {
 	defer ta.Cleanup()
 
 	// Create a task
-	taskID := "TEST-1"
+	taskID := "TIKI-1"
 	originalTitle := "Original Title"
 	if err := testutil.CreateTestTask(ta.TaskDir, taskID, originalTitle, taskpkg.StatusTodo, taskpkg.TypeStory); err != nil {
 		t.Fatalf("failed to create test task: %v", err)
@@ -225,7 +225,7 @@ func TestTaskEdit_TitleChangesSaved(t *testing.T) {
 	defer ta.Cleanup()
 
 	// Create a task
-	taskID := "TEST-1"
+	taskID := "TIKI-1"
 	originalTitle := "Original Title"
 	if err := testutil.CreateTestTask(ta.TaskDir, taskID, originalTitle, taskpkg.StatusTodo, taskpkg.TypeStory); err != nil {
 		t.Fatalf("failed to create test task: %v", err)
@@ -272,7 +272,7 @@ func TestTaskEdit_CtrlS_FromPointsField_Saves(t *testing.T) {
 	defer ta.Cleanup()
 
 	// Create a task
-	taskID := "TEST-1"
+	taskID := "TIKI-1"
 	originalTitle := "Original Title"
 	if err := testutil.CreateTestTask(ta.TaskDir, taskID, originalTitle, taskpkg.StatusTodo, taskpkg.TypeStory); err != nil {
 		t.Fatalf("failed to create test task: %v", err)
@@ -319,7 +319,7 @@ func TestTaskEdit_Escape_FromTitleField_Cancels(t *testing.T) {
 	defer ta.Cleanup()
 
 	// Create a task
-	taskID := "TEST-1"
+	taskID := "TIKI-1"
 	originalTitle := "Original Title"
 	if err := testutil.CreateTestTask(ta.TaskDir, taskID, originalTitle, taskpkg.StatusTodo, taskpkg.TypeStory); err != nil {
 		t.Fatalf("failed to create test task: %v", err)
@@ -361,7 +361,7 @@ func TestTaskEdit_Escape_ClearsEditSessionState(t *testing.T) {
 	defer ta.Cleanup()
 
 	// Create a task
-	taskID := "TEST-1"
+	taskID := "TIKI-1"
 	originalTitle := "Original Title"
 	if err := testutil.CreateTestTask(ta.TaskDir, taskID, originalTitle, taskpkg.StatusTodo, taskpkg.TypeStory); err != nil {
 		t.Fatalf("failed to create test task: %v", err)
@@ -399,7 +399,7 @@ func TestTaskEdit_Escape_FromPointsField_Cancels(t *testing.T) {
 	defer ta.Cleanup()
 
 	// Create a task
-	taskID := "TEST-1"
+	taskID := "TIKI-1"
 	originalTitle := "Original Title"
 	if err := testutil.CreateTestTask(ta.TaskDir, taskID, originalTitle, taskpkg.StatusTodo, taskpkg.TypeStory); err != nil {
 		t.Fatalf("failed to create test task: %v", err)
@@ -450,7 +450,7 @@ func TestTaskEdit_Tab_NavigatesForward(t *testing.T) {
 	defer ta.Cleanup()
 
 	// Create a task
-	taskID := "TEST-1"
+	taskID := "TIKI-1"
 	if err := testutil.CreateTestTask(ta.TaskDir, taskID, "Test Task", taskpkg.StatusTodo, taskpkg.TypeStory); err != nil {
 		t.Fatalf("failed to create test task: %v", err)
 	}
@@ -511,7 +511,7 @@ func TestTaskEdit_Navigation_PreservesChanges(t *testing.T) {
 	defer ta.Cleanup()
 
 	// Create a task
-	taskID := "TEST-1"
+	taskID := "TIKI-1"
 	if err := testutil.CreateTestTask(ta.TaskDir, taskID, "Original Title", taskpkg.StatusTodo, taskpkg.TypeStory); err != nil {
 		t.Fatalf("failed to create test task: %v", err)
 	}
@@ -569,7 +569,7 @@ func TestTaskEdit_MultipleFields_AllSaved(t *testing.T) {
 	defer ta.Cleanup()
 
 	// Create a task with initial values
-	taskID := "TEST-1"
+	taskID := "TIKI-1"
 	if err := testutil.CreateTestTask(ta.TaskDir, taskID, "Original Title", taskpkg.StatusTodo, taskpkg.TypeStory); err != nil {
 		t.Fatalf("failed to create test task: %v", err)
 	}
@@ -634,7 +634,7 @@ func TestTaskEdit_MultipleFields_AllDiscarded(t *testing.T) {
 	defer ta.Cleanup()
 
 	// Create a task with initial values
-	taskID := "TEST-1"
+	taskID := "TIKI-1"
 	if err := testutil.CreateTestTask(ta.TaskDir, taskID, "Original Title", taskpkg.StatusTodo, taskpkg.TypeStory); err != nil {
 		t.Fatalf("failed to create test task: %v", err)
 	}
@@ -762,7 +762,7 @@ func TestNewTask_AfterEditingExistingTask_StatusAndTypeNotCorrupted(t *testing.T
 	defer ta.Cleanup()
 
 	// Create and edit an existing task first
-	taskID := "TEST-1"
+	taskID := "TIKI-1"
 	if err := testutil.CreateTestTask(ta.TaskDir, taskID, "Existing Task", taskpkg.StatusTodo, taskpkg.TypeStory); err != nil {
 		t.Fatalf("failed to create test task: %v", err)
 	}

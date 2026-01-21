@@ -16,19 +16,20 @@ import (
 
 // Note: tcell import is still used for pv.pluginDef.Background/Foreground checks
 
-// PluginView renders a filtered/sorted list of tasks in a 4-column grid
+// PluginView renders a filtered/sorted list of tasks across panes
 type PluginView struct {
 	root                *tview.Flex
 	titleBar            tview.Primitive
 	searchHelper        *SearchHelper
-	grid                *ScrollableList // rows container
+	panes               *tview.Flex
+	paneBoxes           []*ScrollableList
 	taskStore           store.Store
 	pluginConfig        *model.PluginConfig
 	pluginDef           *plugin.TikiPlugin
 	registry            *controller.ActionRegistry
 	storeListenerID     int
 	selectionListenerID int
-	getFilteredTasks    func() []*task.Task // injected from controller
+	getPaneTasks        func(pane int) []*task.Task // injected from controller
 }
 
 // NewPluginView creates a plugin view
@@ -36,14 +37,14 @@ func NewPluginView(
 	taskStore store.Store,
 	pluginConfig *model.PluginConfig,
 	pluginDef *plugin.TikiPlugin,
-	getFilteredTasks func() []*task.Task,
+	getPaneTasks func(pane int) []*task.Task,
 ) *PluginView {
 	pv := &PluginView{
-		taskStore:        taskStore,
-		pluginConfig:     pluginConfig,
-		pluginDef:        pluginDef,
-		registry:         controller.PluginViewActions(),
-		getFilteredTasks: getFilteredTasks,
+		taskStore:    taskStore,
+		pluginConfig: pluginConfig,
+		pluginDef:    pluginDef,
+		registry:     controller.PluginViewActions(),
+		getPaneTasks: getPaneTasks,
 	}
 
 	pv.build()
@@ -57,20 +58,19 @@ func (pv *PluginView) build() {
 	if pv.pluginDef.Foreground != tcell.ColorDefault {
 		textColor = pv.pluginDef.Foreground
 	}
-	titleGradient := gradientFromPrimaryColor(pv.pluginDef.Background, config.GetColors().BoardColumnTitleGradient)
-	pv.titleBar = NewGradientCaptionRow([]string{pv.pluginDef.Name}, titleGradient, textColor)
-
-	// determine item height based on view mode
-	itemHeight := config.TaskBoxHeight
-	if pv.pluginConfig.GetViewMode() == model.ViewModeExpanded {
-		itemHeight = config.TaskBoxHeightExpanded
+	titleGradient := gradientFromPrimaryColor(pv.pluginDef.Background, config.GetColors().BoardPaneTitleGradient)
+	paneNames := make([]string, len(pv.pluginDef.Panes))
+	for i, pane := range pv.pluginDef.Panes {
+		paneNames[i] = pane.Name
 	}
+	pv.titleBar = NewGradientCaptionRow(paneNames, titleGradient, textColor)
 
-	// grid container (rows)
-	pv.grid = NewScrollableList().SetItemHeight(itemHeight)
+	// panes container (rows)
+	pv.panes = tview.NewFlex().SetDirection(tview.FlexColumn)
+	pv.paneBoxes = make([]*ScrollableList, 0, len(pv.pluginDef.Panes))
 
-	// search helper - focus returns to grid
-	pv.searchHelper = NewSearchHelper(pv.grid)
+	// search helper - focus returns to panes container
+	pv.searchHelper = NewSearchHelper(pv.panes)
 	pv.searchHelper.SetCancelHandler(func() {
 		pv.HideSearch()
 	})
@@ -92,9 +92,9 @@ func (pv *PluginView) rebuildLayout() {
 		query := pv.pluginConfig.GetSearchQuery()
 		pv.searchHelper.ShowSearch(query)
 		pv.root.AddItem(pv.searchHelper.GetSearchBox(), config.SearchBoxHeight, 0, false)
-		pv.root.AddItem(pv.grid, 0, 1, false)
+		pv.root.AddItem(pv.panes, 0, 1, false)
 	} else {
-		pv.root.AddItem(pv.grid, 0, 1, true)
+		pv.root.AddItem(pv.panes, 0, 1, true)
 	}
 }
 
@@ -106,53 +106,60 @@ func (pv *PluginView) refresh() {
 	if viewMode == model.ViewModeExpanded {
 		itemHeight = config.TaskBoxHeightExpanded
 	}
-	pv.grid.SetItemHeight(itemHeight)
-	pv.grid.Clear()
+	pv.panes.Clear()
+	pv.paneBoxes = pv.paneBoxes[:0]
 
-	// Get filtered and sorted tasks from controller
-	tasks := pv.getFilteredTasks()
-	columns := pv.pluginConfig.GetColumns()
+	selectedPane := pv.pluginConfig.GetSelectedPane()
 
-	if len(tasks) == 0 {
-		// Show nothing when there are no tasks
-		return
-	}
+	for paneIdx := range pv.pluginDef.Panes {
+		// task container for this pane
+		paneContainer := NewScrollableList().SetItemHeight(itemHeight)
+		pv.paneBoxes = append(pv.paneBoxes, paneContainer)
 
-	// clamp selection
-	pv.pluginConfig.ClampSelection(len(tasks))
-	selectedIndex := pv.pluginConfig.GetSelectedIndex()
+		isSelectedPane := paneIdx == selectedPane
+		pv.panes.AddItem(paneContainer, 0, 1, isSelectedPane)
 
-	// set selection on grid (by row)
-	selectedRow := selectedIndex / columns
-	pv.grid.SetSelection(selectedRow)
-
-	// build grid row by row
-	numRows := (len(tasks) + columns - 1) / columns
-
-	for row := 0; row < numRows; row++ {
-		rowFlex := tview.NewFlex().SetDirection(tview.FlexColumn)
-
-		for col := 0; col < columns; col++ {
-			idx := row*columns + col
-
-			if idx < len(tasks) {
-				task := tasks[idx]
-				isSelected := idx == selectedIndex
-				var taskBox *tview.Frame
-				if viewMode == model.ViewModeCompact {
-					taskBox = CreateCompactTaskBox(task, isSelected, config.GetColors())
-				} else {
-					taskBox = CreateExpandedTaskBox(task, isSelected, config.GetColors())
-				}
-				rowFlex.AddItem(taskBox, 0, 1, false)
-			} else {
-				// empty placeholder for incomplete row
-				spacer := tview.NewBox()
-				rowFlex.AddItem(spacer, 0, 1, false)
-			}
+		tasks := pv.getPaneTasks(paneIdx)
+		if isSelectedPane {
+			pv.pluginConfig.ClampSelection(len(tasks))
+		}
+		if len(tasks) == 0 {
+			paneContainer.SetSelection(-1)
+			continue
 		}
 
-		pv.grid.AddItem(rowFlex)
+		columns := pv.pluginConfig.GetColumnsForPane(paneIdx)
+		selectedIndex := pv.pluginConfig.GetSelectedIndexForPane(paneIdx)
+		selectedRow := selectedIndex / columns
+
+		if isSelectedPane {
+			paneContainer.SetSelection(selectedRow)
+		} else {
+			paneContainer.SetSelection(-1)
+		}
+
+		numRows := (len(tasks) + columns - 1) / columns
+		for row := 0; row < numRows; row++ {
+			rowFlex := tview.NewFlex().SetDirection(tview.FlexColumn)
+			for col := 0; col < columns; col++ {
+				idx := row*columns + col
+				if idx < len(tasks) {
+					task := tasks[idx]
+					isSelected := isSelectedPane && idx == selectedIndex
+					var taskBox *tview.Frame
+					if viewMode == model.ViewModeCompact {
+						taskBox = CreateCompactTaskBox(task, isSelected, config.GetColors())
+					} else {
+						taskBox = CreateExpandedTaskBox(task, isSelected, config.GetColors())
+					}
+					rowFlex.AddItem(taskBox, 0, 1, false)
+				} else {
+					spacer := tview.NewBox()
+					rowFlex.AddItem(spacer, 0, 1, false)
+				}
+			}
+			paneContainer.AddItem(rowFlex)
+		}
 	}
 }
 
@@ -186,8 +193,9 @@ func (pv *PluginView) OnBlur() {
 
 // GetSelectedID returns the selected task ID
 func (pv *PluginView) GetSelectedID() string {
-	tasks := pv.getFilteredTasks()
-	idx := pv.pluginConfig.GetSelectedIndex()
+	pane := pv.pluginConfig.GetSelectedPane()
+	tasks := pv.getPaneTasks(pane)
+	idx := pv.pluginConfig.GetSelectedIndexForPane(pane)
 	if idx >= 0 && idx < len(tasks) {
 		return tasks[idx].ID
 	}
@@ -196,11 +204,14 @@ func (pv *PluginView) GetSelectedID() string {
 
 // SetSelectedID sets the selection to a task
 func (pv *PluginView) SetSelectedID(id string) {
-	tasks := pv.getFilteredTasks()
-	for i, t := range tasks {
-		if t.ID == id {
-			pv.pluginConfig.SetSelectedIndex(i)
-			break
+	for pane := range pv.pluginDef.Panes {
+		tasks := pv.getPaneTasks(pane)
+		for i, t := range tasks {
+			if t.ID == id {
+				pv.pluginConfig.SetSelectedPane(pane)
+				pv.pluginConfig.SetSelectedIndexForPane(pane, i)
+				return
+			}
 		}
 	}
 }
@@ -218,7 +229,7 @@ func (pv *PluginView) ShowSearch() tview.Primitive {
 	pv.root.Clear()
 	pv.root.AddItem(pv.titleBar, 1, 0, false)
 	pv.root.AddItem(pv.searchHelper.GetSearchBox(), config.SearchBoxHeight, 0, true)
-	pv.root.AddItem(pv.grid, 0, 1, false)
+	pv.root.AddItem(pv.panes, 0, 1, false)
 
 	return searchBox
 }
@@ -237,7 +248,7 @@ func (pv *PluginView) HideSearch() {
 	// Rebuild layout without search box
 	pv.root.Clear()
 	pv.root.AddItem(pv.titleBar, 1, 0, false)
-	pv.root.AddItem(pv.grid, 0, 1, true)
+	pv.root.AddItem(pv.panes, 0, 1, true)
 }
 
 // IsSearchVisible returns whether the search box is currently visible
@@ -262,8 +273,12 @@ func (pv *PluginView) SetFocusSetter(setter func(p tview.Primitive)) {
 
 // GetStats returns stats for the header (Total count of filtered tasks)
 func (pv *PluginView) GetStats() []store.Stat {
-	tasks := pv.getFilteredTasks()
+	total := 0
+	for pane := range pv.pluginDef.Panes {
+		tasks := pv.getPaneTasks(pane)
+		total += len(tasks)
+	}
 	return []store.Stat{
-		{Name: "Total", Value: fmt.Sprintf("%d", len(tasks)), Order: 5},
+		{Name: "Total", Value: fmt.Sprintf("%d", total), Order: 5},
 	}
 }

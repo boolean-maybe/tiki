@@ -94,6 +94,20 @@ const (
 	DefaultPriority = 3 // Medium
 )
 
+func IsValidPriority(priority int) bool {
+	return priority >= MinPriority && priority <= MaxPriority
+}
+
+func IsValidPoints(points int) bool {
+	if points == 0 {
+		return true
+	}
+	if points < 0 {
+		return false
+	}
+	return points <= config.GetMaxPoints()
+}
+
 // PriorityValidator validates priority range (1-5)
 type PriorityValidator struct{}
 

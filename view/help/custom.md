@@ -5,14 +5,16 @@ how Backlog is defined:
 
 ```text
         name: Backlog
-        type: tiki
-        filter: status = 'backlog'
-        sort: Priority, ID
         foreground: "#5fff87"
         background: "#005f00"
         key: "F3"
+        panes:
+          - name: Backlog
+            columns: 4
+            filter: status = 'backlog'
+        sort: Priority, ID
 ```
-that translates to - show all tikis of in the status `backlog`, sort by priority and then by ID
+that translates to - show all tikis of in the status `backlog`, sort by priority and then by ID arranged visually in 4 columns in a single pane
 You define the name, caption colors, hotkey, tiki filter and sorting. Save this into a yaml file and add this line:
 
 ```text
@@ -37,9 +39,72 @@ Likewise the documentation is just a plugin:
 that translates to - show `index.md` file located under `.doc/doki`
 installed in the same way
 
+## Multi-pane plugin
+
+Backlog is a pretty simple plugin in that it displays all tikis in a single pane. Multi-pane tiki plugins offer functionality
+similar to that of the board. You can define multiple panes per view and move tikis around with Shift-Left/Shift-Right
+much like in the board. You can create a multi-pane plugin by defining multiple panes in its definition and assigning
+actions to each pane. An action defines what happens when you move a tiki into the pane. Here is a multi-pane plugin
+definition that roughly mimics the board:
+
+```yaml
+name: Custom
+foreground: "#5fff87"
+background: "#005f00"
+key: "F4"
+sort: Priority, Title
+panes:
+  - name: To Do
+    columns: 1
+    filter: status = 'todo'
+    action: status = 'todo'
+  - name: In Progress
+    columns: 1
+    filter: status = 'in_progress'
+    action: status = 'in_progress'
+  - name: Review
+    columns: 1
+    filter: status = 'review'
+    action: status = 'review'
+  - name: Done
+    columns: 1
+    filter: status = 'done'
+    action: status = 'done'
+```
+
+## Action expression
+
+The `action: status = 'backlog'` statement in a plugin is an action to be run when a tiki is moved into the pane. Here `=`
+means `assign` so status is assigned `backlog` when the tiki is moved. Likewise you can manipulate tags using `+-` (add)
+or `-=` (remove) expressions. For example, `tags += [idea, UI]` adds `idea` and `UI` tags to a tiki
+
+### Supported Fields
+
+- `status` - set workflow status (case-insensitive)
+- `type` - set task type: `story`, `bug`, `spike`, `epic` (case-insensitive)
+- `priority` - set numeric priority (1-5)
+- `points` - set numeric points (0 or positive, up to max points)
+- `assignee` - set assignee string
+- `tags` - add/remove tags (list)
+
+### Operators
+
+- `=` assigns a value to `status`, `type`, `priority`, `points`, `assignee`
+- `+=` adds tags, `-=` removes tags
+- multiple operations are separated by commas: `status=done, tags+=[moved]`
+
+### Literals
+
+- strings can be quoted (`'in_progress'`, `"alex"`) or bare (`done`, `alex`)
+- use quotes when the value has spaces
+- integers are used for `priority` and `points`
+- tag lists use brackets: `tags += [ui, frontend]`
+- `CURRENT_USER` assigns the current git user to `assignee`
+- example: `assignee = CURRENT_USER`
+
 ## Filter expression
 
-The `status = 'backlog'` statement in the backlog plugin is a filter expression that determines which tikis appear in the view.
+The `filter: status = 'backlog'` statement in a plugin is a filter expression that determines which tikis appear in the view.
 
 ### Supported Fields
 

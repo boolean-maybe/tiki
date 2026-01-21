@@ -14,7 +14,9 @@ name: UI Tasks
 foreground: "#ffffff"
 background: "#0000ff"
 key: U
-filter: tags IN ['ui', 'ux', 'design']
+panes:
+  - name: UI
+    filter: tags IN ['ui', 'ux', 'design']
 `
 
 	def, err := parsePluginYAML([]byte(pluginYAML), "test")
@@ -31,8 +33,8 @@ filter: tags IN ['ui', 'ux', 'design']
 		t.Fatalf("Expected TikiPlugin, got %T", def)
 	}
 
-	if tp.Filter == nil {
-		t.Fatal("Expected filter to be parsed")
+	if len(tp.Panes) != 1 || tp.Panes[0].Filter == nil {
+		t.Fatal("Expected pane filter to be parsed")
 	}
 
 	// Test filter evaluation with matching tasks
@@ -43,7 +45,7 @@ filter: tags IN ['ui', 'ux', 'design']
 		Status: task.StatusTodo,
 	}
 
-	if !tp.Filter.Evaluate(matchingTask, time.Now(), "testuser") {
+	if !tp.Panes[0].Filter.Evaluate(matchingTask, time.Now(), "testuser") {
 		t.Error("Expected filter to match task with 'ui' and 'design' tags")
 	}
 
@@ -55,7 +57,7 @@ filter: tags IN ['ui', 'ux', 'design']
 		Status: task.StatusTodo,
 	}
 
-	if tp.Filter.Evaluate(nonMatchingTask, time.Now(), "testuser") {
+	if tp.Panes[0].Filter.Evaluate(nonMatchingTask, time.Now(), "testuser") {
 		t.Error("Expected filter to NOT match task with 'backend' and 'api' tags")
 	}
 
@@ -67,7 +69,7 @@ filter: tags IN ['ui', 'ux', 'design']
 		Status: task.StatusTodo,
 	}
 
-	if !tp.Filter.Evaluate(partialMatchTask, time.Now(), "testuser") {
+	if !tp.Panes[0].Filter.Evaluate(partialMatchTask, time.Now(), "testuser") {
 		t.Error("Expected filter to match task with 'ux' tag")
 	}
 }
@@ -77,7 +79,9 @@ func TestPluginWithComplexInFilter(t *testing.T) {
 	pluginYAML := `
 name: Active Work
 key: A
-filter: tags IN ['ui', 'backend'] AND status NOT IN ['done', 'cancelled']
+panes:
+  - name: Active
+    filter: tags IN ['ui', 'backend'] AND status NOT IN ['done', 'cancelled']
 `
 
 	def, err := parsePluginYAML([]byte(pluginYAML), "test")
@@ -97,7 +101,7 @@ filter: tags IN ['ui', 'backend'] AND status NOT IN ['done', 'cancelled']
 		Status: task.StatusTodo,
 	}
 
-	if !tp.Filter.Evaluate(matchingTask, time.Now(), "testuser") {
+	if !tp.Panes[0].Filter.Evaluate(matchingTask, time.Now(), "testuser") {
 		t.Error("Expected filter to match active UI task")
 	}
 
@@ -108,7 +112,7 @@ filter: tags IN ['ui', 'backend'] AND status NOT IN ['done', 'cancelled']
 		Status: task.StatusDone,
 	}
 
-	if tp.Filter.Evaluate(doneTask, time.Now(), "testuser") {
+	if tp.Panes[0].Filter.Evaluate(doneTask, time.Now(), "testuser") {
 		t.Error("Expected filter to NOT match done UI task")
 	}
 
@@ -119,7 +123,7 @@ filter: tags IN ['ui', 'backend'] AND status NOT IN ['done', 'cancelled']
 		Status: task.StatusInProgress,
 	}
 
-	if tp.Filter.Evaluate(noTagsTask, time.Now(), "testuser") {
+	if tp.Panes[0].Filter.Evaluate(noTagsTask, time.Now(), "testuser") {
 		t.Error("Expected filter to NOT match task without matching tags")
 	}
 }
@@ -129,7 +133,9 @@ func TestPluginWithStatusInFilter(t *testing.T) {
 	pluginYAML := `
 name: In Progress Work
 key: W
-filter: status IN ['todo', 'in_progress', 'blocked']
+panes:
+  - name: Active
+    filter: status IN ['todo', 'in_progress', 'blocked']
 `
 
 	def, err := parsePluginYAML([]byte(pluginYAML), "test")
@@ -161,7 +167,7 @@ filter: status IN ['todo', 'in_progress', 'blocked']
 				Status: tc.status,
 			}
 
-			result := tp.Filter.Evaluate(task, time.Now(), "testuser")
+			result := tp.Panes[0].Filter.Evaluate(task, time.Now(), "testuser")
 			if result != tc.expect {
 				t.Errorf("Expected %v for status %s, got %v", tc.expect, tc.status, result)
 			}

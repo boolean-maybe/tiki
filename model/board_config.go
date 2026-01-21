@@ -8,107 +8,107 @@ import (
 	"github.com/boolean-maybe/tiki/task"
 )
 
-// BoardConfig defines board columns, status-to-column mappings, and selection state.
-// It tracks which column and row is currently selected.
+// BoardConfig defines board panes, status-to-pane mappings, and selection state.
+// It tracks which pane and row is currently selected.
 
 // SelectionListener is called when board selection changes
 type SelectionListener func()
 
-// BoardConfig holds column definitions and status mappings for the board view
+// BoardConfig holds pane definitions and status mappings for the board view
 type BoardConfig struct {
-	mu             sync.RWMutex // protects selectedColID and selectedRow
-	columns        []*Column
-	statusToCol    map[task.Status]string    // status -> column ID
-	colToStatus    map[string]task.Status    // column ID -> status
-	selectedColID  string                    // currently selected column
-	selectedRow    int                       // selected task index within column
+	mu             sync.RWMutex // protects selectedPaneID and selectedRow
+	panes          []*Pane
+	statusToPane   map[task.Status]string    // status -> pane ID
+	paneToStatus   map[string]task.Status    // pane ID -> status
+	selectedPaneID string                    // currently selected pane
+	selectedRow    int                       // selected task index within pane
 	viewMode       ViewMode                  // compact or expanded display
 	listeners      map[int]SelectionListener // listener ID -> listener
 	nextListenerID int
 	searchState    SearchState // search state (embedded)
 }
 
-// NewBoardConfig creates a board config with default columns
+// NewBoardConfig creates a board config with default panes
 func NewBoardConfig() *BoardConfig {
 	bc := &BoardConfig{
-		statusToCol:    make(map[task.Status]string),
-		colToStatus:    make(map[string]task.Status),
+		statusToPane:   make(map[task.Status]string),
+		paneToStatus:   make(map[string]task.Status),
 		viewMode:       ViewModeCompact,
 		listeners:      make(map[int]SelectionListener),
 		nextListenerID: 1, // Start at 1 to avoid conflict with zero-value sentinel
 	}
 
-	// default kanban columns
-	defaultColumns := []*Column{
+	// default kanban panes
+	defaultPanes := []*Pane{
 		{ID: "col-todo", Name: "To Do", Status: string(task.StatusTodo), Position: 0},
 		{ID: "col-progress", Name: "In Progress", Status: string(task.StatusInProgress), Position: 1},
 		{ID: "col-review", Name: "Review", Status: string(task.StatusReview), Position: 2},
 		{ID: "col-done", Name: "Done", Status: string(task.StatusDone), Position: 3},
 	}
 
-	for _, col := range defaultColumns {
-		bc.AddColumn(col)
+	for _, pane := range defaultPanes {
+		bc.AddPane(pane)
 	}
 
-	if len(bc.columns) > 0 {
-		bc.selectedColID = bc.columns[0].ID
+	if len(bc.panes) > 0 {
+		bc.selectedPaneID = bc.panes[0].ID
 	}
 
 	return bc
 }
 
-// AddColumn adds a column and updates mappings
-func (bc *BoardConfig) AddColumn(col *Column) {
-	bc.columns = append(bc.columns, col)
-	bc.statusToCol[task.Status(col.Status)] = col.ID
-	bc.colToStatus[col.ID] = task.Status(col.Status)
+// AddPane adds a pane and updates mappings
+func (bc *BoardConfig) AddPane(pane *Pane) {
+	bc.panes = append(bc.panes, pane)
+	bc.statusToPane[task.Status(pane.Status)] = pane.ID
+	bc.paneToStatus[pane.ID] = task.Status(pane.Status)
 }
 
-// GetColumns returns all columns in position order
-func (bc *BoardConfig) GetColumns() []*Column {
-	return bc.columns
+// GetPanes returns all panes in position order
+func (bc *BoardConfig) GetPanes() []*Pane {
+	return bc.panes
 }
 
-// GetColumnByID returns a column by its ID
-func (bc *BoardConfig) GetColumnByID(id string) *Column {
-	for _, col := range bc.columns {
-		if col.ID == id {
-			return col
+// GetPaneByID returns a pane by its ID
+func (bc *BoardConfig) GetPaneByID(id string) *Pane {
+	for _, pane := range bc.panes {
+		if pane.ID == id {
+			return pane
 		}
 	}
 	return nil
 }
 
-// GetColumnByStatus returns the column for a given status
-func (bc *BoardConfig) GetColumnByStatus(status task.Status) *Column {
-	colID, ok := bc.statusToCol[task.StatusColumn(status)]
+// GetPaneByStatus returns the pane for a given status
+func (bc *BoardConfig) GetPaneByStatus(status task.Status) *Pane {
+	paneID, ok := bc.statusToPane[task.StatusPane(status)]
 	if !ok {
 		return nil
 	}
-	return bc.GetColumnByID(colID)
+	return bc.GetPaneByID(paneID)
 }
 
-// GetStatusForColumn returns the status mapped to a column
-func (bc *BoardConfig) GetStatusForColumn(colID string) task.Status {
-	return bc.colToStatus[colID]
+// GetStatusForPane returns the status mapped to a pane
+func (bc *BoardConfig) GetStatusForPane(paneID string) task.Status {
+	return bc.paneToStatus[paneID]
 }
 
-// GetSelectedColumnID returns the currently selected column ID
-func (bc *BoardConfig) GetSelectedColumnID() string {
+// GetSelectedPaneID returns the currently selected pane ID
+func (bc *BoardConfig) GetSelectedPaneID() string {
 	bc.mu.RLock()
 	defer bc.mu.RUnlock()
-	return bc.selectedColID
+	return bc.selectedPaneID
 }
 
-// SetSelectedColumn sets the selected column by ID
-func (bc *BoardConfig) SetSelectedColumn(colID string) {
+// SetSelectedPane sets the selected pane by ID
+func (bc *BoardConfig) SetSelectedPane(paneID string) {
 	bc.mu.Lock()
-	bc.selectedColID = colID
+	bc.selectedPaneID = paneID
 	bc.mu.Unlock()
 	bc.notifyListeners()
 }
 
-// GetSelectedRow returns the selected task index within current column
+// GetSelectedRow returns the selected task index within current pane
 func (bc *BoardConfig) GetSelectedRow() int {
 	bc.mu.RLock()
 	defer bc.mu.RUnlock()
@@ -123,11 +123,11 @@ func (bc *BoardConfig) SetSelectedRow(row int) {
 	bc.notifyListeners()
 }
 
-// SetSelection sets both column and row atomically with a single notification.
+// SetSelection sets both pane and row atomically with a single notification.
 // use when changing both values together to avoid double refresh.
-func (bc *BoardConfig) SetSelection(colID string, row int) {
+func (bc *BoardConfig) SetSelection(paneID string, row int) {
 	bc.mu.Lock()
-	bc.selectedColID = colID
+	bc.selectedPaneID = paneID
 	bc.selectedRow = row
 	bc.mu.Unlock()
 	bc.notifyListeners()
@@ -171,50 +171,50 @@ func (bc *BoardConfig) notifyListeners() {
 	}
 }
 
-// MoveSelectionLeft moves selection to the previous column
+// MoveSelectionLeft moves selection to the previous pane
 func (bc *BoardConfig) MoveSelectionLeft() bool {
-	idx := bc.getColumnIndex(bc.selectedColID)
+	idx := bc.getPaneIndex(bc.selectedPaneID)
 	if idx > 0 {
-		bc.SetSelection(bc.columns[idx-1].ID, 0)
+		bc.SetSelection(bc.panes[idx-1].ID, 0)
 		return true
 	}
 	return false
 }
 
-// MoveSelectionRight moves selection to the next column
+// MoveSelectionRight moves selection to the next pane
 func (bc *BoardConfig) MoveSelectionRight() bool {
-	idx := bc.getColumnIndex(bc.selectedColID)
-	if idx < len(bc.columns)-1 {
-		bc.SetSelection(bc.columns[idx+1].ID, 0)
+	idx := bc.getPaneIndex(bc.selectedPaneID)
+	if idx < len(bc.panes)-1 {
+		bc.SetSelection(bc.panes[idx+1].ID, 0)
 		return true
 	}
 	return false
 }
 
-// getColumnIndex returns the index of a column by ID
-func (bc *BoardConfig) getColumnIndex(colID string) int {
-	for i, col := range bc.columns {
-		if col.ID == colID {
+// getPaneIndex returns the index of a pane by ID
+func (bc *BoardConfig) getPaneIndex(paneID string) int {
+	for i, pane := range bc.panes {
+		if pane.ID == paneID {
 			return i
 		}
 	}
 	return -1
 }
 
-// GetNextColumnID returns the column to the right, or empty if at edge
-func (bc *BoardConfig) GetNextColumnID(colID string) string {
-	idx := bc.getColumnIndex(colID)
-	if idx >= 0 && idx < len(bc.columns)-1 {
-		return bc.columns[idx+1].ID
+// GetNextPaneID returns the pane to the right, or empty if at edge
+func (bc *BoardConfig) GetNextPaneID(paneID string) string {
+	idx := bc.getPaneIndex(paneID)
+	if idx >= 0 && idx < len(bc.panes)-1 {
+		return bc.panes[idx+1].ID
 	}
 	return ""
 }
 
-// GetPreviousColumnID returns the column to the left, or empty if at edge
-func (bc *BoardConfig) GetPreviousColumnID(colID string) string {
-	idx := bc.getColumnIndex(colID)
+// GetPreviousPaneID returns the pane to the left, or empty if at edge
+func (bc *BoardConfig) GetPreviousPaneID(paneID string) string {
+	idx := bc.getPaneIndex(paneID)
 	if idx > 0 {
-		return bc.columns[idx-1].ID
+		return bc.panes[idx-1].ID
 	}
 	return ""
 }
@@ -249,9 +249,9 @@ func (bc *BoardConfig) SetViewMode(mode string) {
 	}
 }
 
-// SavePreSearchState saves current column and row for later restoration
+// SavePreSearchState saves current pane and row for later restoration
 func (bc *BoardConfig) SavePreSearchState() {
-	bc.searchState.SavePreSearchColumnState(bc.selectedColID, bc.selectedRow)
+	bc.searchState.SavePreSearchPaneState(bc.selectedPaneID, bc.selectedRow)
 }
 
 // SetSearchResults sets filtered search results and query
@@ -262,8 +262,8 @@ func (bc *BoardConfig) SetSearchResults(results []task.SearchResult, query strin
 
 // ClearSearchResults clears search and restores pre-search selection
 func (bc *BoardConfig) ClearSearchResults() {
-	_, preSearchCol, preSearchRow := bc.searchState.ClearSearchResults()
-	bc.selectedColID = preSearchCol
+	_, preSearchPane, preSearchRow := bc.searchState.ClearSearchResults()
+	bc.selectedPaneID = preSearchPane
 	bc.selectedRow = preSearchRow
 	bc.notifyListeners()
 }

@@ -32,19 +32,19 @@ func setupPluginTestData(t *testing.T, ta *testutil.TestApp) {
 		recent   bool // needs UpdatedAt within 2 hours
 	}{
 		// Backlog plugin: status = 'backlog'
-		{"TEST-1", "Backlog Task 1", taskpkg.StatusBacklog, taskpkg.TypeStory, false},
-		{"TEST-2", "Backlog Task 2", taskpkg.StatusBacklog, taskpkg.TypeBug, false},
+		{"TIKI-1", "Backlog Task 1", taskpkg.StatusBacklog, taskpkg.TypeStory, false},
+		{"TIKI-2", "Backlog Task 2", taskpkg.StatusBacklog, taskpkg.TypeBug, false},
 
 		// Recent plugin: UpdatedAt within 2 hours
-		{"TEST-3", "Recent Task 1", taskpkg.StatusTodo, taskpkg.TypeStory, true},
-		{"TEST-4", "Recent Task 2", taskpkg.StatusInProgress, taskpkg.TypeBug, true},
+		{"TIKI-3", "Recent Task 1", taskpkg.StatusTodo, taskpkg.TypeStory, true},
+		{"TIKI-4", "Recent Task 2", taskpkg.StatusInProgress, taskpkg.TypeBug, true},
 
 		// Roadmap plugin: type = 'epic'
-		{"TEST-5", "Roadmap Epic 1", taskpkg.StatusTodo, taskpkg.TypeEpic, false},
-		{"TEST-6", "Roadmap Epic 2", taskpkg.StatusInProgress, taskpkg.TypeEpic, false},
+		{"TIKI-5", "Roadmap Epic 1", taskpkg.StatusTodo, taskpkg.TypeEpic, false},
+		{"TIKI-6", "Roadmap Epic 2", taskpkg.StatusInProgress, taskpkg.TypeEpic, false},
 
 		// Multi-plugin match
-		{"TEST-7", "Recent Backlog", taskpkg.StatusBacklog, taskpkg.TypeStory, true},
+		{"TIKI-7", "Recent Backlog", taskpkg.StatusBacklog, taskpkg.TypeStory, true},
 	}
 
 	for _, task := range tasks {
@@ -270,7 +270,7 @@ func TestPluginActions_Navigation_ArrowKeys(t *testing.T) {
 	ta := setupTestAppWithPlugins(t)
 	defer ta.Cleanup()
 
-	// Navigate to Backlog plugin (has at least 3 tasks: TEST-1, TEST-2, TEST-7)
+	// Navigate to Backlog plugin (has at least 3 tasks: TIKI-1, TIKI-2, TIKI-7)
 	ta.NavController.PushView(model.MakePluginViewID("Backlog"), nil)
 	ta.Draw()
 

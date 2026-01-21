@@ -9,8 +9,7 @@ import (
 	"github.com/boolean-maybe/tiki/task"
 )
 
-// BoardController handles board view actions: column/task navigation, moving tasks, create/delete.
-
+// BoardController handles board view actions: pane/task navigation, moving tasks, create/delete.
 // BoardController handles board-specific actions
 type BoardController struct {
 	taskStore     store.Store
@@ -68,12 +67,12 @@ func (bc *BoardController) HandleAction(actionID ActionID) bool {
 }
 
 func (bc *BoardController) handleNavLeft() bool {
-	columns := bc.boardConfig.GetColumns()
+	panes := bc.boardConfig.GetPanes()
 	currentIdx := -1
-	currentColID := bc.boardConfig.GetSelectedColumnID()
+	currentPaneID := bc.boardConfig.GetSelectedPaneID()
 
-	for i, col := range columns {
-		if col.ID == currentColID {
+	for i, pane := range panes {
+		if pane.ID == currentPaneID {
 			currentIdx = i
 			break
 		}
@@ -83,12 +82,12 @@ func (bc *BoardController) handleNavLeft() bool {
 		return false
 	}
 
-	// find first non-empty column to the left
+	// find first non-empty pane to the left
 	for i := currentIdx - 1; i >= 0; i-- {
-		status := bc.boardConfig.GetStatusForColumn(columns[i].ID)
+		status := bc.boardConfig.GetStatusForPane(panes[i].ID)
 		tasks := bc.taskStore.GetTasksByStatus(status)
 		if len(tasks) > 0 {
-			bc.boardConfig.SetSelection(columns[i].ID, 0)
+			bc.boardConfig.SetSelection(panes[i].ID, 0)
 			return true
 		}
 	}
@@ -96,12 +95,12 @@ func (bc *BoardController) handleNavLeft() bool {
 }
 
 func (bc *BoardController) handleNavRight() bool {
-	columns := bc.boardConfig.GetColumns()
+	panes := bc.boardConfig.GetPanes()
 	currentIdx := -1
-	currentColID := bc.boardConfig.GetSelectedColumnID()
+	currentPaneID := bc.boardConfig.GetSelectedPaneID()
 
-	for i, col := range columns {
-		if col.ID == currentColID {
+	for i, pane := range panes {
+		if pane.ID == currentPaneID {
 			currentIdx = i
 			break
 		}
@@ -111,12 +110,12 @@ func (bc *BoardController) handleNavRight() bool {
 		return false
 	}
 
-	// find first non-empty column to the right
-	for i := currentIdx + 1; i < len(columns); i++ {
-		status := bc.boardConfig.GetStatusForColumn(columns[i].ID)
+	// find first non-empty pane to the right
+	for i := currentIdx + 1; i < len(panes); i++ {
+		status := bc.boardConfig.GetStatusForPane(panes[i].ID)
 		tasks := bc.taskStore.GetTasksByStatus(status)
 		if len(tasks) > 0 {
-			bc.boardConfig.SetSelection(columns[i].ID, 0)
+			bc.boardConfig.SetSelection(panes[i].ID, 0)
 			return true
 		}
 	}
@@ -133,9 +132,9 @@ func (bc *BoardController) handleNavUp() bool {
 }
 
 func (bc *BoardController) handleNavDown() bool {
-	// get task count for current column to validate
-	colID := bc.boardConfig.GetSelectedColumnID()
-	status := bc.boardConfig.GetStatusForColumn(colID)
+	// get task count for current pane to validate
+	paneID := bc.boardConfig.GetSelectedPaneID()
+	status := bc.boardConfig.GetStatusForPane(paneID)
 	tasks := bc.taskStore.GetTasksByStatus(status)
 
 	row := bc.boardConfig.GetSelectedRow()
@@ -165,21 +164,21 @@ func (bc *BoardController) handleMoveTaskLeft() bool {
 		return false
 	}
 
-	colID := bc.boardConfig.GetSelectedColumnID()
-	prevColID := bc.boardConfig.GetPreviousColumnID(colID)
-	if prevColID == "" {
+	paneID := bc.boardConfig.GetSelectedPaneID()
+	prevPaneID := bc.boardConfig.GetPreviousPaneID(paneID)
+	if prevPaneID == "" {
 		return false
 	}
 
-	newStatus := bc.boardConfig.GetStatusForColumn(prevColID)
+	newStatus := bc.boardConfig.GetStatusForPane(prevPaneID)
 	if !bc.taskStore.UpdateStatus(taskID, newStatus) {
 		slog.Error("failed to move task left", "task_id", taskID, "error", "update status failed")
 		return false
 	}
-	slog.Info("task moved left", "task_id", taskID, "from_col_id", colID, "to_col_id", prevColID, "new_status", newStatus)
+	slog.Info("task moved left", "task_id", taskID, "from_pane_id", paneID, "to_pane_id", prevPaneID, "new_status", newStatus)
 
 	// move selection to follow the task
-	bc.selectTaskInColumn(prevColID, taskID)
+	bc.selectTaskInPane(prevPaneID, taskID)
 	return true
 }
 
@@ -189,27 +188,27 @@ func (bc *BoardController) handleMoveTaskRight() bool {
 		return false
 	}
 
-	colID := bc.boardConfig.GetSelectedColumnID()
-	nextColID := bc.boardConfig.GetNextColumnID(colID)
-	if nextColID == "" {
+	paneID := bc.boardConfig.GetSelectedPaneID()
+	nextPaneID := bc.boardConfig.GetNextPaneID(paneID)
+	if nextPaneID == "" {
 		return false
 	}
 
-	newStatus := bc.boardConfig.GetStatusForColumn(nextColID)
+	newStatus := bc.boardConfig.GetStatusForPane(nextPaneID)
 	if !bc.taskStore.UpdateStatus(taskID, newStatus) {
 		slog.Error("failed to move task right", "task_id", taskID, "error", "update status failed")
 		return false
 	}
-	slog.Info("task moved right", "task_id", taskID, "from_col_id", colID, "to_col_id", nextColID, "new_status", newStatus)
+	slog.Info("task moved right", "task_id", taskID, "from_pane_id", paneID, "to_pane_id", nextPaneID, "new_status", newStatus)
 
 	// move selection to follow the task
-	bc.selectTaskInColumn(nextColID, taskID)
+	bc.selectTaskInPane(nextPaneID, taskID)
 	return true
 }
 
-// selectTaskInColumn moves selection to a specific task in a column
-func (bc *BoardController) selectTaskInColumn(colID, taskID string) {
-	status := bc.boardConfig.GetStatusForColumn(colID)
+// selectTaskInPane moves selection to a specific task in a pane
+func (bc *BoardController) selectTaskInPane(paneID, taskID string) {
+	status := bc.boardConfig.GetStatusForPane(paneID)
 	tasks := bc.taskStore.GetTasksByStatus(status)
 
 	row := 0
@@ -220,8 +219,8 @@ func (bc *BoardController) selectTaskInColumn(colID, taskID string) {
 		}
 	}
 
-	// always update selection to target column, even if task not found (use row 0)
-	bc.boardConfig.SetSelection(colID, row)
+	// always update selection to target pane, even if task not found (use row 0)
+	bc.boardConfig.SetSelection(paneID, row)
 }
 
 func (bc *BoardController) handleNewTask() bool {
@@ -252,8 +251,8 @@ func (bc *BoardController) handleDeleteTask() bool {
 
 // getSelectedTaskID returns the ID of the currently selected task
 func (bc *BoardController) getSelectedTaskID() string {
-	colID := bc.boardConfig.GetSelectedColumnID()
-	status := bc.boardConfig.GetStatusForColumn(colID)
+	paneID := bc.boardConfig.GetSelectedPaneID()
+	status := bc.boardConfig.GetStatusForPane(paneID)
 	allTasks := bc.taskStore.GetTasksByStatus(status)
 
 	// Filter tasks by search results if search is active
@@ -286,7 +285,7 @@ func (bc *BoardController) handleToggleViewMode() bool {
 }
 
 // HandleSearch processes a search query for the board view, filtering tasks by title.
-// It saves the current selection, searches all board columns, and displays matching results.
+// It saves the current selection, searches all board panes, and displays matching results.
 // Empty queries are ignored.
 func (bc *BoardController) HandleSearch(query string) {
 	query = strings.TrimSpace(query)
@@ -294,14 +293,14 @@ func (bc *BoardController) HandleSearch(query string) {
 		return // Don't search empty/whitespace
 	}
 
-	// Save current position (column + row)
+	// Save current position (pane + row)
 	bc.boardConfig.SavePreSearchState()
 
-	// Search all tasks visible on the board (all board columns: todo, in_progress, review, done, etc.)
-	// Build set of statuses from board columns
+	// Search all tasks visible on the board (all board panes: todo, in_progress, review, done, etc.)
+	// Build set of statuses from board panes
 	boardStatuses := make(map[task.Status]bool)
-	for _, col := range bc.boardConfig.GetColumns() {
-		boardStatuses[task.Status(col.Status)] = true
+	for _, pane := range bc.boardConfig.GetPanes() {
+		boardStatuses[task.Status(pane.Status)] = true
 	}
 
 	// Filter: tasks with board statuses only
@@ -314,12 +313,12 @@ func (bc *BoardController) HandleSearch(query string) {
 	// Store results
 	bc.boardConfig.SetSearchResults(results, query)
 
-	// Jump to first result's column
+	// Jump to first result's pane
 	if len(results) > 0 {
 		firstTask := results[0].Task
-		col := bc.boardConfig.GetColumnByStatus(firstTask.Status)
-		if col != nil {
-			bc.boardConfig.SetSelection(col.ID, 0)
+		pane := bc.boardConfig.GetPaneByStatus(firstTask.Status)
+		if pane != nil {
+			bc.boardConfig.SetSelection(pane.ID, 0)
 		}
 	}
 }

@@ -37,22 +37,26 @@ func normalizeType(s string) string {
 	return s
 }
 
-// NormalizeType standardizes a raw type string into a Type.
-func NormalizeType(t string) Type {
+func ParseType(t string) (Type, bool) {
 	normalized := normalizeType(t)
-
 	switch normalized {
 	case "bug":
-		return TypeBug
+		return TypeBug, true
 	case "spike":
-		return TypeSpike
+		return TypeSpike, true
 	case "epic":
-		return TypeEpic
+		return TypeEpic, true
 	case "story", "feature", "task":
-		return TypeStory
+		return TypeStory, true
 	default:
-		return TypeStory
+		return TypeStory, false
 	}
+}
+
+// NormalizeType standardizes a raw type string into a Type.
+func NormalizeType(t string) Type {
+	normalized, _ := ParseType(t)
+	return normalized
 }
 
 // TypeLabel returns a human-readable label for a task type.

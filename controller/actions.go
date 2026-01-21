@@ -400,6 +400,8 @@ func PluginViewActions() *ActionRegistry {
 
 	// plugin actions (shown in header)
 	r.Register(Action{ID: ActionOpenFromPlugin, Key: tcell.KeyEnter, Label: "Open", ShowInHeader: true})
+	r.Register(Action{ID: ActionMoveTaskLeft, Key: tcell.KeyLeft, Modifier: tcell.ModShift, Label: "Move ←", ShowInHeader: true})
+	r.Register(Action{ID: ActionMoveTaskRight, Key: tcell.KeyRight, Modifier: tcell.ModShift, Label: "Move →", ShowInHeader: true})
 	r.Register(Action{ID: ActionNewTask, Key: tcell.KeyRune, Rune: 'n', Label: "New", ShowInHeader: true})
 	r.Register(Action{ID: ActionDeleteTask, Key: tcell.KeyRune, Rune: 'd', Label: "Delete", ShowInHeader: true})
 	r.Register(Action{ID: ActionSearch, Key: tcell.KeyRune, Rune: '/', Label: "Search", ShowInHeader: true})

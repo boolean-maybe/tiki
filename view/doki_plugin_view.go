@@ -59,7 +59,7 @@ func (dv *DokiView) build() {
 	if dv.pluginDef.Foreground != tcell.ColorDefault {
 		textColor = dv.pluginDef.Foreground
 	}
-	titleGradient := gradientFromPrimaryColor(dv.pluginDef.Background, config.GetColors().BoardColumnTitleGradient)
+	titleGradient := gradientFromPrimaryColor(dv.pluginDef.Background, config.GetColors().BoardPaneTitleGradient)
 	dv.titleBar = NewGradientCaptionRow([]string{dv.pluginDef.Name}, titleGradient, textColor)
 
 	// content view (Navigable Markdown)

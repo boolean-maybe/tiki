@@ -14,9 +14,11 @@ func TestMergePluginConfigs(t *testing.T) {
 		Foreground: "#ff0000",
 		Background: "#0000ff",
 		Key:        "L",
-		Filter:     "status = 'todo'",
-		Sort:       "Priority",
-		View:       "compact",
+		Panes: []PluginPaneConfig{
+			{Name: "Todo", Filter: "status = 'todo'"},
+		},
+		Sort: "Priority",
+		View: "compact",
 	}
 
 	overrides := PluginRef{
@@ -30,8 +32,8 @@ func TestMergePluginConfigs(t *testing.T) {
 	if result.Name != "Base" {
 		t.Errorf("Expected name 'Base', got '%s'", result.Name)
 	}
-	if result.Filter != "status = 'todo'" {
-		t.Errorf("Expected filter from base, got '%s'", result.Filter)
+	if len(result.Panes) != 1 || result.Panes[0].Filter != "status = 'todo'" {
+		t.Errorf("Expected panes from base, got %+v", result.Panes)
 	}
 	if result.Foreground != "#ff0000" {
 		t.Errorf("Expected foreground from base, got '%s'", result.Foreground)
@@ -52,9 +54,11 @@ func TestMergePluginConfigs_AllOverrides(t *testing.T) {
 		Foreground: "#ff0000",
 		Background: "#0000ff",
 		Key:        "L",
-		Filter:     "status = 'todo'",
-		Sort:       "Priority",
-		View:       "compact",
+		Panes: []PluginPaneConfig{
+			{Name: "Todo", Filter: "status = 'todo'"},
+		},
+		Sort: "Priority",
+		View: "compact",
 	}
 
 	overrides := PluginRef{
@@ -62,9 +66,11 @@ func TestMergePluginConfigs_AllOverrides(t *testing.T) {
 		Foreground: "#00ff00",
 		Background: "#000000",
 		Key:        "O",
-		Filter:     "status = 'done'",
-		Sort:       "UpdatedAt DESC",
-		View:       "expanded",
+		Panes: []PluginPaneConfig{
+			{Name: "Done", Filter: "status = 'done'"},
+		},
+		Sort: "UpdatedAt DESC",
+		View: "expanded",
 	}
 
 	result := mergePluginConfigs(base, overrides)
@@ -82,8 +88,8 @@ func TestMergePluginConfigs_AllOverrides(t *testing.T) {
 	if result.Key != "O" {
 		t.Errorf("Expected key 'O', got '%s'", result.Key)
 	}
-	if result.Filter != "status = 'done'" {
-		t.Errorf("Expected filter 'status = 'done'', got '%s'", result.Filter)
+	if len(result.Panes) != 1 || result.Panes[0].Filter != "status = 'done'" {
+		t.Errorf("Expected pane filter 'status = 'done'', got %+v", result.Panes)
 	}
 	if result.Sort != "UpdatedAt DESC" {
 		t.Errorf("Expected sort 'UpdatedAt DESC', got '%s'", result.Sort)
@@ -118,8 +124,10 @@ func TestValidatePluginRef_Hybrid(t *testing.T) {
 
 func TestValidatePluginRef_InlineValid(t *testing.T) {
 	ref := PluginRef{
-		Name:   "Test",
-		Filter: "status = 'todo'",
+		Name: "Test",
+		Panes: []PluginPaneConfig{
+			{Name: "Todo", Filter: "status = 'todo'"},
+		},
 	}
 
 	err := validatePluginRef(ref)
@@ -130,7 +138,9 @@ func TestValidatePluginRef_InlineValid(t *testing.T) {
 
 func TestValidatePluginRef_InlineNoName(t *testing.T) {
 	ref := PluginRef{
-		Filter: "status = 'todo'",
+		Panes: []PluginPaneConfig{
+			{Name: "Todo", Filter: "status = 'todo'"},
+		},
 	}
 
 	err := validatePluginRef(ref)
@@ -173,7 +183,9 @@ func TestMergePluginDefinitions_TikiToTiki(t *testing.T) {
 			Background: tcell.ColorBlue,
 			Type:       "tiki",
 		},
-		Filter:   baseFilter,
+		Panes: []TikiPane{
+			{Name: "Todo", Columns: 1, Filter: baseFilter},
+		},
 		Sort:     baseSort,
 		ViewMode: "compact",
 	}
@@ -191,7 +203,9 @@ func TestMergePluginDefinitions_TikiToTiki(t *testing.T) {
 			ConfigIndex: 1,
 			Type:        "tiki",
 		},
-		Filter:   overrideFilter,
+		Panes: []TikiPane{
+			{Name: "Bugs", Columns: 1, Filter: overrideFilter},
+		},
 		Sort:     nil,
 		ViewMode: "expanded",
 	}
@@ -215,8 +229,8 @@ func TestMergePluginDefinitions_TikiToTiki(t *testing.T) {
 	if resultTiki.ViewMode != "expanded" {
 		t.Errorf("Expected expanded view, got %q", resultTiki.ViewMode)
 	}
-	if resultTiki.Filter == nil {
-		t.Error("Expected filter to be overridden")
+	if len(resultTiki.Panes) != 1 || resultTiki.Panes[0].Filter == nil {
+		t.Error("Expected pane filter to be overridden")
 	}
 
 	// Check that base sort is kept when override has nil
@@ -239,7 +253,9 @@ func TestMergePluginDefinitions_PreservesModifier(t *testing.T) {
 			Background: tcell.ColorDefault,
 			Type:       "tiki",
 		},
-		Filter: baseFilter,
+		Panes: []TikiPane{
+			{Name: "Todo", Columns: 1, Filter: baseFilter},
+		},
 	}
 
 	// Override with no modifier change (Modifier: 0)

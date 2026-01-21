@@ -18,50 +18,59 @@ const (
 )
 
 type statusInfo struct {
-	label  string
-	emoji  string
-	column Status
+	label string
+	emoji string
+	pane  Status
 }
 
 var statuses = map[Status]statusInfo{
-	StatusBacklog:    {label: "Backlog", emoji: "📥", column: StatusBacklog},
-	StatusTodo:       {label: "To Do", emoji: "📋", column: StatusTodo},
-	StatusReady:      {label: "Ready", emoji: "📋", column: StatusTodo},
-	StatusInProgress: {label: "In Progress", emoji: "⚙️", column: StatusInProgress},
-	StatusWaiting:    {label: "Waiting", emoji: "⏳", column: StatusReview},
-	StatusBlocked:    {label: "Blocked", emoji: "⛔", column: StatusInProgress},
-	StatusReview:     {label: "Review", emoji: "👀", column: StatusReview},
-	StatusDone:       {label: "Done", emoji: "✅", column: StatusDone},
+	StatusBacklog:    {label: "Backlog", emoji: "📥", pane: StatusBacklog},
+	StatusTodo:       {label: "To Do", emoji: "📋", pane: StatusTodo},
+	StatusReady:      {label: "Ready", emoji: "📋", pane: StatusTodo},
+	StatusInProgress: {label: "In Progress", emoji: "⚙️", pane: StatusInProgress},
+	StatusWaiting:    {label: "Waiting", emoji: "⏳", pane: StatusReview},
+	StatusBlocked:    {label: "Blocked", emoji: "⛔", pane: StatusInProgress},
+	StatusReview:     {label: "Review", emoji: "👀", pane: StatusReview},
+	StatusDone:       {label: "Done", emoji: "✅", pane: StatusDone},
+}
+
+func normalizeStatusKey(status string) string {
+	normalized := strings.ToLower(strings.TrimSpace(status))
+	normalized = strings.ReplaceAll(normalized, "-", "_")
+	normalized = strings.ReplaceAll(normalized, " ", "_")
+	return normalized
+}
+
+func ParseStatus(status string) (Status, bool) {
+	normalized := normalizeStatusKey(status)
+	switch normalized {
+	case "", "backlog":
+		return StatusBacklog, true
+	case "todo", "to_do":
+		return StatusTodo, true
+	case "ready":
+		return StatusReady, true
+	case "open":
+		return StatusTodo, true
+	case "in_progress", "inprocess", "in_process", "inprogress":
+		return StatusInProgress, true
+	case "waiting", "on_hold", "hold":
+		return StatusWaiting, true
+	case "blocked", "blocker":
+		return StatusBlocked, true
+	case "review", "in_review", "inreview":
+		return StatusReview, true
+	case "done", "closed", "completed":
+		return StatusDone, true
+	default:
+		return StatusBacklog, false
+	}
 }
 
 // NormalizeStatus standardizes a raw status string into a Status.
 func NormalizeStatus(status string) Status {
-	normalized := strings.ToLower(strings.TrimSpace(status))
-	normalized = strings.ReplaceAll(normalized, "-", "_")
-	normalized = strings.ReplaceAll(normalized, " ", "_")
-
-	switch normalized {
-	case "", "backlog":
-		return StatusBacklog
-	case "todo", "to_do":
-		return StatusTodo
-	case "ready":
-		return StatusReady
-	case "open":
-		return StatusTodo
-	case "in_progress", "inprocess", "in_process", "inprogress":
-		return StatusInProgress
-	case "waiting", "on_hold", "hold":
-		return StatusWaiting
-	case "blocked", "blocker":
-		return StatusBlocked
-	case "review", "in_review", "inreview":
-		return StatusReview
-	case "done", "closed", "completed":
-		return StatusDone
-	default:
-		return StatusBacklog
-	}
+	normalized, _ := ParseStatus(status)
+	return normalized
 }
 
 // MapStatus maps a raw status string to a Status constant.
@@ -77,9 +86,9 @@ func StatusToString(status Status) string {
 	return string(StatusBacklog)
 }
 
-func StatusColumn(status Status) Status {
-	if info, ok := statuses[status]; ok && info.column != "" {
-		return info.column
+func StatusPane(status Status) Status {
+	if info, ok := statuses[status]; ok && info.pane != "" {
+		return info.pane
 	}
 	return StatusBacklog
 }

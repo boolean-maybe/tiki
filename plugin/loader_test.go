@@ -15,9 +15,11 @@ func TestLoadPluginFromRef_FullyInline(t *testing.T) {
 		Foreground: "#ffffff",
 		Background: "#000000",
 		Key:        "I",
-		Filter:     "status = 'todo'",
-		Sort:       "Priority DESC",
-		View:       "expanded",
+		Panes: []PluginPaneConfig{
+			{Name: "Todo", Filter: "status = 'todo'"},
+		},
+		Sort: "Priority DESC",
+		View: "expanded",
 	}
 
 	def, err := loadPluginFromRef(ref, "")
@@ -42,8 +44,8 @@ func TestLoadPluginFromRef_FullyInline(t *testing.T) {
 		t.Errorf("Expected view mode 'expanded', got '%s'", tp.ViewMode)
 	}
 
-	if tp.Filter == nil {
-		t.Error("Expected filter to be parsed")
+	if len(tp.Panes) != 1 || tp.Panes[0].Filter == nil {
+		t.Fatal("Expected pane filter to be parsed")
 	}
 
 	if len(tp.Sort) != 1 || tp.Sort[0].Field != "priority" || !tp.Sort[0].Descending {
@@ -56,15 +58,17 @@ func TestLoadPluginFromRef_FullyInline(t *testing.T) {
 		Status: taskpkg.StatusTodo,
 	}
 
-	if !tp.Filter.Evaluate(task, time.Now(), "testuser") {
+	if !tp.Panes[0].Filter.Evaluate(task, time.Now(), "testuser") {
 		t.Error("Expected filter to match todo task")
 	}
 }
 
 func TestLoadPluginFromRef_InlineMinimal(t *testing.T) {
 	ref := PluginRef{
-		Name:   "Minimal",
-		Filter: "type = 'bug'",
+		Name: "Minimal",
+		Panes: []PluginPaneConfig{
+			{Name: "Bugs", Filter: "type = 'bug'"},
+		},
 	}
 
 	def, err := loadPluginFromRef(ref, "")
@@ -81,8 +85,8 @@ func TestLoadPluginFromRef_InlineMinimal(t *testing.T) {
 		t.Errorf("Expected name 'Minimal', got '%s'", tp.Name)
 	}
 
-	if tp.Filter == nil {
-		t.Error("Expected filter to be parsed")
+	if len(tp.Panes) != 1 || tp.Panes[0].Filter == nil {
+		t.Error("Expected pane filter to be parsed")
 	}
 }
 
@@ -94,7 +98,9 @@ func TestLoadPluginFromRef_FileBased(t *testing.T) {
 foreground: "#ff0000"
 background: "#0000ff"
 key: T
-filter: status = 'in_progress'
+panes:
+  - name: In Progress
+    filter: status = 'in_progress'
 sort: Priority, UpdatedAt DESC
 view: compact
 `
@@ -137,7 +143,9 @@ func TestLoadPluginFromRef_Hybrid(t *testing.T) {
 foreground: "#ff0000"
 background: "#0000ff"
 key: L
-filter: status = 'todo'
+panes:
+  - name: Todo
+    filter: status = 'todo'
 sort: Priority
 view: compact
 `
@@ -167,8 +175,8 @@ view: compact
 		t.Errorf("Expected name 'Base Plugin', got '%s'", tp.Name)
 	}
 
-	if tp.Filter == nil {
-		t.Error("Expected filter from file")
+	if len(tp.Panes) != 1 || tp.Panes[0].Filter == nil {
+		t.Error("Expected pane filter from file")
 	}
 
 	// Overridden fields should be from inline
@@ -189,7 +197,9 @@ func TestLoadPluginFromRef_HybridMultipleOverrides(t *testing.T) {
 foreground: "#ffffff"
 background: "#000000"
 key: M
-filter: status = 'todo'
+panes:
+  - name: Todo
+    filter: status = 'todo'
 sort: Priority
 view: compact
 `
@@ -199,9 +209,11 @@ view: compact
 
 	// Override multiple fields
 	ref := PluginRef{
-		File:       "multi-plugin.yaml",
-		Key:        "X",
-		Filter:     "status = 'in_progress'",
+		File: "multi-plugin.yaml",
+		Key:  "X",
+		Panes: []PluginPaneConfig{
+			{Name: "In Progress", Filter: "status = 'in_progress'"},
+		},
 		Sort:       "UpdatedAt DESC",
 		View:       "expanded",
 		Foreground: "#00ff00",
@@ -231,7 +243,10 @@ view: compact
 		ID:     "TIKI-1",
 		Status: taskpkg.StatusInProgress,
 	}
-	if !tp.Filter.Evaluate(task, time.Now(), "testuser") {
+	if len(tp.Panes) != 1 || tp.Panes[0].Filter == nil {
+		t.Fatal("Expected overridden pane filter")
+	}
+	if !tp.Panes[0].Filter.Evaluate(task, time.Now(), "testuser") {
 		t.Error("Expected overridden filter to match in_progress task")
 	}
 
@@ -239,7 +254,7 @@ view: compact
 		ID:     "TIKI-2",
 		Status: taskpkg.StatusTodo,
 	}
-	if tp.Filter.Evaluate(todoTask, time.Now(), "testuser") {
+	if tp.Panes[0].Filter.Evaluate(todoTask, time.Now(), "testuser") {
 		t.Error("Expected overridden filter to NOT match todo task")
 	}
 }
@@ -262,7 +277,9 @@ func TestLoadPluginFromRef_MissingFile(t *testing.T) {
 func TestLoadPluginFromRef_NoName(t *testing.T) {
 	// Inline plugin without name
 	ref := PluginRef{
-		Filter: "status = 'todo'",
+		Panes: []PluginPaneConfig{
+			{Name: "Todo", Filter: "status = 'todo'"},
+		},
 	}
 
 	_, err := loadPluginFromRef(ref, "")
