@@ -41,12 +41,12 @@ func TestSearchState_GridBasedFlow(t *testing.T) {
 	}
 
 	// Clear search and verify restoration
-	preIndex, preCol, preRow := ss.ClearSearchResults()
+	preIndex, prePane, preRow := ss.ClearSearchResults()
 	if preIndex != 5 {
 		t.Errorf("ClearSearchResults() preIndex = %d, want 5", preIndex)
 	}
-	if preCol != "" {
-		t.Errorf("ClearSearchResults() preCol = %q, want empty", preCol)
+	if prePane != "" {
+		t.Errorf("ClearSearchResults() prePane = %q, want empty", prePane)
 	}
 	if preRow != 0 {
 		t.Errorf("ClearSearchResults() preRow = %d, want 0", preRow)
@@ -68,11 +68,11 @@ func TestSearchState_GridBasedFlow(t *testing.T) {
 	}
 }
 
-func TestSearchState_ColumnBasedFlow(t *testing.T) {
+func TestSearchState_PaneBasedFlow(t *testing.T) {
 	ss := &SearchState{}
 
-	// Save column-based pre-search state
-	ss.SavePreSearchColumnState("in_progress", 3)
+	// Save pane-based pre-search state
+	ss.SavePreSearchPaneState("in_progress", 3)
 
 	// Set search results
 	results := []task.SearchResult{
@@ -86,12 +86,12 @@ func TestSearchState_ColumnBasedFlow(t *testing.T) {
 	}
 
 	// Clear and verify column state restored
-	preIndex, preCol, preRow := ss.ClearSearchResults()
+	preIndex, prePane, preRow := ss.ClearSearchResults()
 	if preIndex != 0 {
 		t.Errorf("ClearSearchResults() preIndex = %d, want 0", preIndex)
 	}
-	if preCol != "in_progress" {
-		t.Errorf("ClearSearchResults() preCol = %q, want %q", preCol, "in_progress")
+	if prePane != "in_progress" {
+		t.Errorf("ClearSearchResults() prePane = %q, want %q", prePane, "in_progress")
 	}
 	if preRow != 3 {
 		t.Errorf("ClearSearchResults() preRow = %d, want 3", preRow)
@@ -189,16 +189,16 @@ func TestSearchState_StateOverwriting(t *testing.T) {
 	// Save grid state
 	ss.SavePreSearchState(5)
 
-	// Overwrite with column state
-	ss.SavePreSearchColumnState("todo", 2)
+	// Overwrite with pane state
+	ss.SavePreSearchPaneState("todo", 2)
 
 	// Clear - should have both states available but prefer column
-	preIndex, preCol, preRow := ss.ClearSearchResults()
+	preIndex, prePane, preRow := ss.ClearSearchResults()
 	if preIndex != 5 {
 		t.Errorf("preIndex = %d, want 5 (grid state preserved)", preIndex)
 	}
-	if preCol != "todo" {
-		t.Errorf("preCol = %q, want %q", preCol, "todo")
+	if prePane != "todo" {
+		t.Errorf("prePane = %q, want %q", prePane, "todo")
 	}
 	if preRow != 2 {
 		t.Errorf("preRow = %d, want 2", preRow)
@@ -284,8 +284,8 @@ func TestSearchState_ZeroValueState(t *testing.T) {
 	}
 
 	// Clear on zero value should not panic and return zero values
-	preIndex, preCol, preRow := ss.ClearSearchResults()
-	if preIndex != 0 || preCol != "" || preRow != 0 {
+	preIndex, prePane, preRow := ss.ClearSearchResults()
+	if preIndex != 0 || prePane != "" || preRow != 0 {
 		t.Error("ClearSearchResults() on zero value should return zero values")
 	}
 }

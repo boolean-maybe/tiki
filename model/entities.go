@@ -1,10 +1,10 @@
 package model
 
-// Column represents a board column with its status mapping
-type Column struct {
+// Pane represents a board pane with its status mapping
+type Pane struct {
 	ID       string
 	Name     string
-	Status   string // which status this column displays
+	Status   string // which status this pane displays
 	Position int    // display order (left to right)
 }
 

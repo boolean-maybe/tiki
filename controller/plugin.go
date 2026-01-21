@@ -62,6 +62,10 @@ func (pc *PluginController) HandleAction(actionID ActionID) bool {
 		return pc.handleNav("left")
 	case ActionNavRight:
 		return pc.handleNav("right")
+	case ActionMoveTaskLeft:
+		return pc.handleMoveTask(-1)
+	case ActionMoveTaskRight:
+		return pc.handleMoveTask(1)
 	case ActionOpenFromPlugin:
 		return pc.handleOpenTask()
 	case ActionNewTask:
@@ -76,7 +80,14 @@ func (pc *PluginController) HandleAction(actionID ActionID) bool {
 }
 
 func (pc *PluginController) handleNav(direction string) bool {
-	tasks := pc.GetFilteredTasks()
+	pane := pc.pluginConfig.GetSelectedPane()
+	tasks := pc.GetFilteredTasksForPane(pane)
+	if direction == "left" || direction == "right" {
+		if pc.pluginConfig.MoveSelection(direction, len(tasks)) {
+			return true
+		}
+		return pc.handlePaneSwitch(direction)
+	}
 	return pc.pluginConfig.MoveSelection(direction, len(tasks))
 }
 
@@ -90,6 +101,35 @@ func (pc *PluginController) handleOpenTask() bool {
 		TaskID: taskID,
 	}))
 	return true
+}
+
+func (pc *PluginController) handlePaneSwitch(direction string) bool {
+	currentPane := pc.pluginConfig.GetSelectedPane()
+	nextPane := currentPane
+	switch direction {
+	case "left":
+		nextPane--
+	case "right":
+		nextPane++
+	default:
+		return false
+	}
+
+	for nextPane >= 0 && nextPane < len(pc.pluginDef.Panes) {
+		tasks := pc.GetFilteredTasksForPane(nextPane)
+		if len(tasks) > 0 {
+			pc.pluginConfig.SetSelectedPane(nextPane)
+			pc.pluginConfig.ClampSelection(len(tasks))
+			return true
+		}
+		switch direction {
+		case "left":
+			nextPane--
+		case "right":
+			nextPane++
+		}
+	}
+	return false
 }
 
 func (pc *PluginController) handleNewTask() bool {
@@ -123,6 +163,44 @@ func (pc *PluginController) handleToggleViewMode() bool {
 	return true
 }
 
+func (pc *PluginController) handleMoveTask(offset int) bool {
+	taskID := pc.getSelectedTaskID()
+	if taskID == "" {
+		return false
+	}
+
+	if pc.pluginDef == nil || len(pc.pluginDef.Panes) == 0 {
+		return false
+	}
+
+	currentPane := pc.pluginConfig.GetSelectedPane()
+	targetPane := currentPane + offset
+	if targetPane < 0 || targetPane >= len(pc.pluginDef.Panes) {
+		return false
+	}
+
+	taskItem := pc.taskStore.GetTask(taskID)
+	if taskItem == nil {
+		return false
+	}
+
+	currentUser := getCurrentUserName(pc.taskStore)
+	updated, err := plugin.ApplyPaneAction(taskItem, pc.pluginDef.Panes[targetPane].Action, currentUser)
+	if err != nil {
+		slog.Error("failed to apply pane action", "task_id", taskID, "error", err)
+		return false
+	}
+
+	if err := pc.taskStore.UpdateTask(updated); err != nil {
+		slog.Error("failed to update task after pane move", "task_id", taskID, "error", err)
+		return false
+	}
+
+	pc.ensureSearchResultIncludesTask(updated)
+	pc.selectTaskInPane(targetPane, taskID)
+	return true
+}
+
 // HandleSearch processes a search query for the plugin view
 func (pc *PluginController) HandleSearch(query string) {
 	query = strings.TrimSpace(query)
@@ -133,64 +211,64 @@ func (pc *PluginController) HandleSearch(query string) {
 	// Save current position
 	pc.pluginConfig.SavePreSearchState()
 
-	// Get current user and time ONCE before filtering (not per task!)
-	now := time.Now()
-	currentUser, _, _ := pc.taskStore.GetCurrentUser()
-
-	// Get plugin's filter as a function
-	filterFunc := func(t *task.Task) bool {
-		if pc.pluginDef.Filter == nil {
-			return true
-		}
-		return pc.pluginDef.Filter.Evaluate(t, now, currentUser)
+	// Search across all tasks; pane membership is decided per pane
+	results := pc.taskStore.Search(query, nil)
+	if len(results) == 0 {
+		pc.pluginConfig.ClearSearchResults()
+		return
 	}
 
-	// Search within filtered results
-	results := pc.taskStore.Search(query, filterFunc)
-
 	pc.pluginConfig.SetSearchResults(results, query)
-	pc.pluginConfig.SetSelectedIndex(0)
+	if pc.selectFirstSearchPane() {
+		return
+	}
 }
 
 // getSelectedTaskID returns the ID of the currently selected task
 func (pc *PluginController) getSelectedTaskID() string {
-	tasks := pc.GetFilteredTasks()
-	idx := pc.pluginConfig.GetSelectedIndex()
+	pane := pc.pluginConfig.GetSelectedPane()
+	tasks := pc.GetFilteredTasksForPane(pane)
+	idx := pc.pluginConfig.GetSelectedIndexForPane(pane)
 	if idx < 0 || idx >= len(tasks) {
 		return ""
 	}
 	return tasks[idx].ID
 }
 
-// GetFilteredTasks returns tasks filtered and sorted according to plugin rules
-func (pc *PluginController) GetFilteredTasks() []*task.Task {
+// GetFilteredTasksForPane returns tasks filtered and sorted for a specific pane.
+func (pc *PluginController) GetFilteredTasksForPane(pane int) []*task.Task {
+	if pc.pluginDef == nil {
+		return nil
+	}
+	if pane < 0 || pane >= len(pc.pluginDef.Panes) {
+		return nil
+	}
+
 	// Check if search is active - if so, return search results instead
 	searchResults := pc.pluginConfig.GetSearchResults()
-	if searchResults != nil {
-		// Extract tasks from search results
-		tasks := make([]*task.Task, len(searchResults))
-		for i, result := range searchResults {
-			tasks[i] = result.Task
-		}
-		return tasks
-	}
 
 	// Normal filtering path when search is not active
 	allTasks := pc.taskStore.GetAllTasks()
 	now := time.Now()
 
 	// Get current user for "my tasks" type filters
-	currentUser := ""
-	if user, _, err := pc.taskStore.GetCurrentUser(); err == nil {
-		currentUser = user
-	}
+	currentUser := getCurrentUserName(pc.taskStore)
 
 	// Apply filter
 	var filtered []*task.Task
 	for _, task := range allTasks {
-		if pc.pluginDef.Filter == nil || pc.pluginDef.Filter.Evaluate(task, now, currentUser) {
+		paneFilter := pc.pluginDef.Panes[pane].Filter
+		if paneFilter == nil || paneFilter.Evaluate(task, now, currentUser) {
 			filtered = append(filtered, task)
 		}
+	}
+
+	if searchResults != nil {
+		searchTaskMap := make(map[string]bool, len(searchResults))
+		for _, result := range searchResults {
+			searchTaskMap[result.Task.ID] = true
+		}
+		filtered = filterTasksBySearch(filtered, searchTaskMap)
 	}
 
 	// Apply sort
@@ -198,5 +276,69 @@ func (pc *PluginController) GetFilteredTasks() []*task.Task {
 		plugin.SortTasks(filtered, pc.pluginDef.Sort)
 	}
 
+	return filtered
+}
+
+func (pc *PluginController) selectTaskInPane(pane int, taskID string) {
+	if pane < 0 || pane >= len(pc.pluginDef.Panes) {
+		return
+	}
+
+	tasks := pc.GetFilteredTasksForPane(pane)
+	targetIndex := 0
+	for i, task := range tasks {
+		if task.ID == taskID {
+			targetIndex = i
+			break
+		}
+	}
+
+	pc.pluginConfig.SetSelectedPane(pane)
+	pc.pluginConfig.SetSelectedIndexForPane(pane, targetIndex)
+}
+
+func (pc *PluginController) selectFirstSearchPane() bool {
+	for pane := range pc.pluginDef.Panes {
+		tasks := pc.GetFilteredTasksForPane(pane)
+		if len(tasks) > 0 {
+			pc.pluginConfig.SetSelectedPane(pane)
+			pc.pluginConfig.SetSelectedIndexForPane(pane, 0)
+			return true
+		}
+	}
+	return false
+}
+
+func (pc *PluginController) ensureSearchResultIncludesTask(updated *task.Task) {
+	if updated == nil {
+		return
+	}
+	searchResults := pc.pluginConfig.GetSearchResults()
+	if searchResults == nil {
+		return
+	}
+	for _, result := range searchResults {
+		if result.Task != nil && result.Task.ID == updated.ID {
+			return
+		}
+	}
+
+	searchResults = append(searchResults, task.SearchResult{
+		Task:  updated,
+		Score: 1.0,
+	})
+	pc.pluginConfig.SetSearchResults(searchResults, pc.pluginConfig.GetSearchQuery())
+}
+
+func filterTasksBySearch(tasks []*task.Task, searchMap map[string]bool) []*task.Task {
+	if searchMap == nil {
+		return tasks
+	}
+	filtered := make([]*task.Task, 0, len(tasks))
+	for _, t := range tasks {
+		if searchMap[t.ID] {
+			filtered = append(filtered, t)
+		}
+	}
 	return filtered
 }

@@ -7,45 +7,45 @@ import (
 	"github.com/rivo/tview"
 )
 
-// GradientCaptionRow is a tview primitive that renders multiple column captions
+// GradientCaptionRow is a tview primitive that renders multiple pane captions
 // with a continuous horizontal background gradient spanning the entire screen width
 type GradientCaptionRow struct {
 	*tview.Box
-	columnNames []string
-	gradient    config.Gradient
-	textColor   tcell.Color
+	paneNames []string
+	gradient  config.Gradient
+	textColor tcell.Color
 }
 
 // NewGradientCaptionRow creates a new gradient caption row widget
-func NewGradientCaptionRow(columnNames []string, gradient config.Gradient, textColor tcell.Color) *GradientCaptionRow {
+func NewGradientCaptionRow(paneNames []string, gradient config.Gradient, textColor tcell.Color) *GradientCaptionRow {
 	return &GradientCaptionRow{
-		Box:         tview.NewBox(),
-		columnNames: columnNames,
-		gradient:    gradient,
-		textColor:   textColor,
+		Box:       tview.NewBox(),
+		paneNames: paneNames,
+		gradient:  gradient,
+		textColor: textColor,
 	}
 }
 
-// Draw renders all column captions with a screen-wide gradient background
+// Draw renders all pane captions with a screen-wide gradient background
 func (gcr *GradientCaptionRow) Draw(screen tcell.Screen) {
 	gcr.DrawForSubclass(screen, gcr)
 
 	x, y, width, height := gcr.GetInnerRect()
-	if width <= 0 || height <= 0 || len(gcr.columnNames) == 0 {
+	if width <= 0 || height <= 0 || len(gcr.paneNames) == 0 {
 		return
 	}
 
-	// Calculate column width (equal distribution)
-	numColumns := len(gcr.columnNames)
-	columnWidth := width / numColumns
+	// Calculate pane width (equal distribution)
+	numPanes := len(gcr.paneNames)
+	paneWidth := width / numPanes
 
-	// Convert all column names to runes for Unicode handling
-	columnRunes := make([][]rune, numColumns)
-	for i, name := range gcr.columnNames {
-		columnRunes[i] = []rune(name)
+	// Convert all pane names to runes for Unicode handling
+	paneRunes := make([][]rune, numPanes)
+	for i, name := range gcr.paneNames {
+		paneRunes[i] = []rune(name)
 	}
 
-	// Render each column position across the screen
+	// Render each pane position across the screen
 	for col := 0; col < width; col++ {
 		// Calculate gradient color based on screen position (edges to center gradient)
 		// Distance from center: 0.0 at center, 1.0 at edges
@@ -59,34 +59,34 @@ func (gcr *GradientCaptionRow) Draw(screen tcell.Screen) {
 		}
 		bgColor := interpolateColor(gcr.gradient, distanceFromCenter)
 
-		// Determine which column this position belongs to
-		columnIndex := col / columnWidth
-		if columnIndex >= numColumns {
-			columnIndex = numColumns - 1
+		// Determine which pane this position belongs to
+		paneIndex := col / paneWidth
+		if paneIndex >= numPanes {
+			paneIndex = numPanes - 1
 		}
 
-		// Calculate position within this column
-		columnStartX := columnIndex * columnWidth
-		columnEndX := columnStartX + columnWidth
-		if columnIndex == numColumns-1 {
-			columnEndX = width // Last column extends to screen edge
+		// Calculate position within this pane
+		paneStartX := paneIndex * paneWidth
+		paneEndX := paneStartX + paneWidth
+		if paneIndex == numPanes-1 {
+			paneEndX = width // Last pane extends to screen edge
 		}
-		currentColumnWidth := columnEndX - columnStartX
-		posInColumn := col - columnStartX
+		currentPaneWidth := paneEndX - paneStartX
+		posInPane := col - paneStartX
 
-		// Get the text for this column
-		textRunes := columnRunes[columnIndex]
+		// Get the text for this pane
+		textRunes := paneRunes[paneIndex]
 		textWidth := len(textRunes)
 
-		// Calculate centered text position within column
+		// Calculate centered text position within pane
 		textStartPos := 0
-		if textWidth < currentColumnWidth {
-			textStartPos = (currentColumnWidth - textWidth) / 2
+		if textWidth < currentPaneWidth {
+			textStartPos = (currentPaneWidth - textWidth) / 2
 		}
 
 		// Determine if we should render a character at this position
 		char := ' '
-		textIndex := posInColumn - textStartPos
+		textIndex := posInPane - textStartPos
 		if textIndex >= 0 && textIndex < textWidth {
 			char = textRunes[textIndex]
 		}

@@ -12,15 +12,14 @@ import (
 	"github.com/rivo/tview"
 )
 
-// BoardView renders the kanban board: columns arranged horizontally, each containing task boxes.
-
-// BoardView renders the kanban board with columns
+// BoardView renders the kanban board: panes arranged horizontally, each containing task boxes.
+// BoardView renders the kanban board with panes
 type BoardView struct {
 	root                *tview.Flex
 	searchHelper        *SearchHelper
-	columnTitles        tview.Primitive // column title row
-	columns             *tview.Flex
-	columnBoxes         []*ScrollableList // each column's task container
+	paneTitles          tview.Primitive // pane title row
+	panes               *tview.Flex
+	paneBoxes           []*ScrollableList // each pane's task container
 	taskStore           store.Store
 	boardConfig         *model.BoardConfig
 	registry            *controller.ActionRegistry
@@ -77,23 +76,23 @@ func filterTasksBySearch(tasks []*task.Task, searchMap map[string]bool) []*task.
 func (bv *BoardView) build() {
 	colors := config.GetColors()
 
-	// Collect column names for gradient caption row
-	columns := bv.boardConfig.GetColumns()
-	columnNames := make([]string, len(columns))
-	for i, col := range columns {
-		columnNames[i] = col.Name
+	// Collect pane names for gradient caption row
+	panes := bv.boardConfig.GetPanes()
+	paneNames := make([]string, len(panes))
+	for i, pane := range panes {
+		paneNames[i] = pane.Name
 	}
 
-	// Create single gradient caption row for all columns
-	bv.columnTitles = NewGradientCaptionRow(
-		columnNames,
-		colors.BoardColumnTitleGradient,
-		colors.BoardColumnTitleText,
+	// Create single gradient caption row for all panes
+	bv.paneTitles = NewGradientCaptionRow(
+		paneNames,
+		colors.BoardPaneTitleGradient,
+		colors.BoardPaneTitleText,
 	)
 
-	// columns container (just task lists, no titles)
-	bv.columns = tview.NewFlex().SetDirection(tview.FlexColumn)
-	bv.columnBoxes = make([]*ScrollableList, 0)
+	// panes container (just task lists, no titles)
+	bv.panes = tview.NewFlex().SetDirection(tview.FlexColumn)
+	bv.paneBoxes = make([]*ScrollableList, 0)
 
 	// determine item height based on view mode
 	itemHeight := config.TaskBoxHeight
@@ -101,18 +100,18 @@ func (bv *BoardView) build() {
 		itemHeight = config.TaskBoxHeightExpanded
 	}
 
-	for _, col := range columns {
-		// task container for this column
+	for _, pane := range panes {
+		// task container for this pane
 		taskContainer := NewScrollableList().SetItemHeight(itemHeight)
-		bv.columnBoxes = append(bv.columnBoxes, taskContainer)
+		bv.paneBoxes = append(bv.paneBoxes, taskContainer)
 
-		// selected column gets focus
-		isSelected := col.ID == bv.boardConfig.GetSelectedColumnID()
-		bv.columns.AddItem(taskContainer, 0, 1, isSelected)
+		// selected pane gets focus
+		isSelected := pane.ID == bv.boardConfig.GetSelectedPaneID()
+		bv.panes.AddItem(taskContainer, 0, 1, isSelected)
 	}
 
-	// search helper - focus returns to columns container
-	bv.searchHelper = NewSearchHelper(bv.columns)
+	// search helper - focus returns to panes container
+	bv.searchHelper = NewSearchHelper(bv.panes)
 	bv.searchHelper.SetCancelHandler(func() {
 		bv.HideSearch()
 	})
@@ -127,22 +126,22 @@ func (bv *BoardView) build() {
 // rebuildLayout rebuilds the root layout based on current state (search visibility)
 func (bv *BoardView) rebuildLayout() {
 	bv.root.Clear()
-	bv.root.AddItem(bv.columnTitles, 1, 0, false)
+	bv.root.AddItem(bv.paneTitles, 1, 0, false)
 
 	// Restore search box if search is active (e.g., returning from task details)
 	if bv.boardConfig.IsSearchActive() {
 		query := bv.boardConfig.GetSearchQuery()
 		bv.searchHelper.ShowSearch(query)
 		bv.root.AddItem(bv.searchHelper.GetSearchBox(), config.SearchBoxHeight, 0, false)
-		bv.root.AddItem(bv.columns, 0, 1, false)
+		bv.root.AddItem(bv.panes, 0, 1, false)
 	} else {
-		bv.root.AddItem(bv.columns, 0, 1, true)
+		bv.root.AddItem(bv.panes, 0, 1, true)
 	}
 }
 
 func (bv *BoardView) refresh() {
-	columns := bv.boardConfig.GetColumns()
-	selectedColID := bv.boardConfig.GetSelectedColumnID()
+	panes := bv.boardConfig.GetPanes()
+	selectedPaneID := bv.boardConfig.GetSelectedPaneID()
 	selectedRow := bv.boardConfig.GetSelectedRow()
 	viewMode := bv.boardConfig.GetViewMode()
 
@@ -156,16 +155,16 @@ func (bv *BoardView) refresh() {
 	searchResults := bv.boardConfig.GetSearchResults()
 	searchTaskMap := buildSearchMap(searchResults)
 
-	for i, col := range columns {
-		if i >= len(bv.columnBoxes) {
+	for i, pane := range panes {
+		if i >= len(bv.paneBoxes) {
 			break
 		}
 
-		container := bv.columnBoxes[i]
+		container := bv.paneBoxes[i]
 		container.SetItemHeight(itemHeight)
 		container.Clear()
 
-		allTasks := bv.taskStore.GetTasksByStatus(task.Status(col.Status))
+		allTasks := bv.taskStore.GetTasksByStatus(task.Status(pane.Status))
 
 		// Filter tasks by search results if search is active
 		tasks := filterTasksBySearch(allTasks, searchTaskMap)
@@ -174,9 +173,9 @@ func (bv *BoardView) refresh() {
 			continue
 		}
 
-		// clamp selectedRow to valid bounds for this column
+		// clamp selectedRow to valid bounds for this pane
 		effectiveRow := selectedRow
-		if col.ID == selectedColID {
+		if pane.ID == selectedPaneID {
 			if effectiveRow >= len(tasks) {
 				effectiveRow = len(tasks) - 1
 				if effectiveRow < 0 {
@@ -191,7 +190,7 @@ func (bv *BoardView) refresh() {
 		}
 
 		for j, task := range tasks {
-			isSelected := col.ID == selectedColID && j == effectiveRow
+			isSelected := pane.ID == selectedPaneID && j == effectiveRow
 			var taskFrame *tview.Frame
 			colors := config.GetColors()
 			if viewMode == model.ViewModeCompact {
@@ -203,18 +202,18 @@ func (bv *BoardView) refresh() {
 		}
 	}
 
-	// Smart column selection: if current column is empty, find nearest non-empty column
-	selectedStatus := bv.boardConfig.GetStatusForColumn(selectedColID)
+	// Smart pane selection: if current pane is empty, find nearest non-empty pane
+	selectedStatus := bv.boardConfig.GetStatusForPane(selectedPaneID)
 	allSelectedTasks := bv.taskStore.GetTasksByStatus(selectedStatus)
 
 	// Filter by search if active
 	selectedTasks := filterTasksBySearch(allSelectedTasks, searchTaskMap)
 
 	if len(selectedTasks) == 0 {
-		// Current column is empty - find fallback column
+		// Current pane is empty - find fallback pane
 		currentIdx := -1
-		for i, col := range columns {
-			if col.ID == selectedColID {
+		for i, pane := range panes {
+			if pane.ID == selectedPaneID {
 				currentIdx = i
 				break
 			}
@@ -223,34 +222,34 @@ func (bv *BoardView) refresh() {
 		if currentIdx >= 0 {
 			// Search LEFT first (preferred direction)
 			for i := currentIdx - 1; i >= 0; i-- {
-				status := bv.boardConfig.GetStatusForColumn(columns[i].ID)
+				status := bv.boardConfig.GetStatusForPane(panes[i].ID)
 				candidateTasks := bv.taskStore.GetTasksByStatus(status)
 
 				// Filter by search if active
 				filteredCandidates := filterTasksBySearch(candidateTasks, searchTaskMap)
 
 				if len(filteredCandidates) > 0 {
-					bv.boardConfig.SetSelection(columns[i].ID, 0)
+					bv.boardConfig.SetSelection(panes[i].ID, 0)
 					return
 				}
 			}
 
 			// Search RIGHT if no non-empty column found to the left
-			for i := currentIdx + 1; i < len(columns); i++ {
-				status := bv.boardConfig.GetStatusForColumn(columns[i].ID)
+			for i := currentIdx + 1; i < len(panes); i++ {
+				status := bv.boardConfig.GetStatusForPane(panes[i].ID)
 				candidateTasks := bv.taskStore.GetTasksByStatus(status)
 
 				// Filter by search if active
 				filteredCandidates := filterTasksBySearch(candidateTasks, searchTaskMap)
 
 				if len(filteredCandidates) > 0 {
-					bv.boardConfig.SetSelection(columns[i].ID, 0)
+					bv.boardConfig.SetSelection(panes[i].ID, 0)
 					return
 				}
 			}
 		}
 
-		// All columns empty - selection remains but nothing renders
+		// All panes empty - selection remains but nothing renders
 		// This is acceptable behavior per requirements
 	}
 }
@@ -281,11 +280,11 @@ func (bv *BoardView) OnFocus() {
 }
 
 // ensureValidSelection ensures selection is on a valid task.
-// selects first task in leftmost non-empty column, or clears selection if all empty.
+// selects first task in leftmost non-empty pane, or clears selection if all empty.
 func (bv *BoardView) ensureValidSelection() {
 	// check if current selection is valid
-	currentColID := bv.boardConfig.GetSelectedColumnID()
-	currentStatus := bv.boardConfig.GetStatusForColumn(currentColID)
+	currentPaneID := bv.boardConfig.GetSelectedPaneID()
+	currentStatus := bv.boardConfig.GetStatusForPane(currentPaneID)
 	currentTasks := bv.taskStore.GetTasksByStatus(currentStatus)
 	currentRow := bv.boardConfig.GetSelectedRow()
 
@@ -293,20 +292,20 @@ func (bv *BoardView) ensureValidSelection() {
 		return // current selection is valid
 	}
 
-	// find first non-empty column from left
-	for _, col := range bv.boardConfig.GetColumns() {
-		status := bv.boardConfig.GetStatusForColumn(col.ID)
+	// find first non-empty pane from left
+	for _, pane := range bv.boardConfig.GetPanes() {
+		status := bv.boardConfig.GetStatusForPane(pane.ID)
 		tasks := bv.taskStore.GetTasksByStatus(status)
 		if len(tasks) > 0 {
-			bv.boardConfig.SetSelection(col.ID, 0)
+			bv.boardConfig.SetSelection(pane.ID, 0)
 			return
 		}
 	}
 
-	// all columns empty - reset to first column, row 0 (nothing will be highlighted)
-	columns := bv.boardConfig.GetColumns()
-	if len(columns) > 0 {
-		bv.boardConfig.SetSelection(columns[0].ID, 0)
+	// all panes empty - reset to first pane, row 0 (nothing will be highlighted)
+	panes := bv.boardConfig.GetPanes()
+	if len(panes) > 0 {
+		bv.boardConfig.SetSelection(panes[0].ID, 0)
 	}
 }
 
@@ -319,8 +318,8 @@ func (bv *BoardView) OnBlur() {
 
 // GetSelectedID returns the selected task ID
 func (bv *BoardView) GetSelectedID() string {
-	colID := bv.boardConfig.GetSelectedColumnID()
-	status := bv.boardConfig.GetStatusForColumn(colID)
+	paneID := bv.boardConfig.GetSelectedPaneID()
+	status := bv.boardConfig.GetStatusForPane(paneID)
 	tasks := bv.taskStore.GetTasksByStatus(status)
 
 	row := bv.boardConfig.GetSelectedRow()
@@ -338,12 +337,12 @@ func (bv *BoardView) SetSelectedID(id string) {
 		return
 	}
 
-	col := bv.boardConfig.GetColumnByStatus(task.Status)
-	if col == nil {
+	pane := bv.boardConfig.GetPaneByStatus(task.Status)
+	if pane == nil {
 		return
 	}
 
-	bv.boardConfig.SetSelectedColumn(col.ID)
+	bv.boardConfig.SetSelectedPane(pane.ID)
 
 	// find row index
 	tasks := bv.taskStore.GetTasksByStatus(task.Status)
@@ -368,9 +367,9 @@ func (bv *BoardView) ShowSearch() tview.Primitive {
 
 	// Rebuild layout with search box
 	bv.root.Clear()
-	bv.root.AddItem(bv.columnTitles, 1, 0, false)
+	bv.root.AddItem(bv.paneTitles, 1, 0, false)
 	bv.root.AddItem(bv.searchHelper.GetSearchBox(), config.SearchBoxHeight, 0, true)
-	bv.root.AddItem(bv.columns, 0, 1, false)
+	bv.root.AddItem(bv.panes, 0, 1, false)
 
 	return searchBox
 }
@@ -388,8 +387,8 @@ func (bv *BoardView) HideSearch() {
 
 	// Rebuild layout without search box
 	bv.root.Clear()
-	bv.root.AddItem(bv.columnTitles, 1, 0, false)
-	bv.root.AddItem(bv.columns, 0, 1, true)
+	bv.root.AddItem(bv.paneTitles, 1, 0, false)
+	bv.root.AddItem(bv.panes, 0, 1, true)
 }
 
 // IsSearchVisible returns whether the search box is currently visible
@@ -414,10 +413,10 @@ func (bv *BoardView) SetFocusSetter(setter func(p tview.Primitive)) {
 
 // GetStats returns stats for the header (Total count of board tasks)
 func (bv *BoardView) GetStats() []store.Stat {
-	// Count tasks in all board columns (non-backlog statuses)
+	// Count tasks in all board panes (non-backlog statuses)
 	total := 0
-	for _, col := range bv.boardConfig.GetColumns() {
-		tasks := bv.taskStore.GetTasksByStatus(task.Status(col.Status))
+	for _, pane := range bv.boardConfig.GetPanes() {
+		tasks := bv.taskStore.GetTasksByStatus(task.Status(pane.Status))
 		total += len(tasks)
 	}
 

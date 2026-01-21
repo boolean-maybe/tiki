@@ -19,10 +19,10 @@ func TestTaskDeletion_FromBoard(t *testing.T) {
 	defer ta.Cleanup()
 
 	// Create tasks
-	if err := testutil.CreateTestTask(ta.TaskDir, "TEST-1", "First Task", taskpkg.StatusTodo, taskpkg.TypeStory); err != nil {
+	if err := testutil.CreateTestTask(ta.TaskDir, "TIKI-1", "First Task", taskpkg.StatusTodo, taskpkg.TypeStory); err != nil {
 		t.Fatalf("failed to create task: %v", err)
 	}
-	if err := testutil.CreateTestTask(ta.TaskDir, "TEST-2", "Second Task", taskpkg.StatusTodo, taskpkg.TypeStory); err != nil {
+	if err := testutil.CreateTestTask(ta.TaskDir, "TIKI-2", "Second Task", taskpkg.StatusTodo, taskpkg.TypeStory); err != nil {
 		t.Fatalf("failed to create task: %v", err)
 	}
 	if err := ta.TaskStore.Reload(); err != nil {
@@ -33,11 +33,11 @@ func TestTaskDeletion_FromBoard(t *testing.T) {
 	ta.NavController.PushView(model.BoardViewID, nil)
 	ta.Draw()
 
-	// Verify TEST-1 visible
-	found, _, _ := ta.FindText("TEST-1")
+	// Verify TIKI-1 visible
+	found, _, _ := ta.FindText("TIKI-1")
 	if !found {
 		ta.DumpScreen()
-		t.Fatalf("TEST-1 should be visible before delete")
+		t.Fatalf("TIKI-1 should be visible before delete")
 	}
 
 	// Press 'd' to delete first task
@@ -48,22 +48,22 @@ func TestTaskDeletion_FromBoard(t *testing.T) {
 		t.Fatalf("failed to reload: %v", err)
 	}
 
-	task := ta.TaskStore.GetTask("TEST-1")
+	task := ta.TaskStore.GetTask("TIKI-1")
 	if task != nil {
-		t.Errorf("TEST-1 should be deleted from store")
+		t.Errorf("TIKI-1 should be deleted from store")
 	}
 
 	// Verify file removed
-	taskPath := filepath.Join(ta.TaskDir, "test-1.md")
+	taskPath := filepath.Join(ta.TaskDir, "tiki-1.md")
 	if _, err := os.Stat(taskPath); !os.IsNotExist(err) {
-		t.Errorf("TEST-1 file should be deleted")
+		t.Errorf("TIKI-1 file should be deleted")
 	}
 
-	// Verify TEST-2 still visible
-	found2, _, _ := ta.FindText("TEST-2")
+	// Verify TIKI-2 still visible
+	found2, _, _ := ta.FindText("TIKI-2")
 	if !found2 {
 		ta.DumpScreen()
-		t.Errorf("TEST-2 should still be visible after deleting TEST-1")
+		t.Errorf("TIKI-2 should still be visible after deleting TIKI-1")
 	}
 }
 
@@ -73,13 +73,13 @@ func TestTaskDeletion_SelectionMoves(t *testing.T) {
 	defer ta.Cleanup()
 
 	// Create three tasks
-	if err := testutil.CreateTestTask(ta.TaskDir, "TEST-1", "First Task", taskpkg.StatusTodo, taskpkg.TypeStory); err != nil {
+	if err := testutil.CreateTestTask(ta.TaskDir, "TIKI-1", "First Task", taskpkg.StatusTodo, taskpkg.TypeStory); err != nil {
 		t.Fatalf("failed to create task: %v", err)
 	}
-	if err := testutil.CreateTestTask(ta.TaskDir, "TEST-2", "Second Task", taskpkg.StatusTodo, taskpkg.TypeStory); err != nil {
+	if err := testutil.CreateTestTask(ta.TaskDir, "TIKI-2", "Second Task", taskpkg.StatusTodo, taskpkg.TypeStory); err != nil {
 		t.Fatalf("failed to create task: %v", err)
 	}
-	if err := testutil.CreateTestTask(ta.TaskDir, "TEST-3", "Third Task", taskpkg.StatusTodo, taskpkg.TypeStory); err != nil {
+	if err := testutil.CreateTestTask(ta.TaskDir, "TIKI-3", "Third Task", taskpkg.StatusTodo, taskpkg.TypeStory); err != nil {
 		t.Fatalf("failed to create task: %v", err)
 	}
 	if err := ta.TaskStore.Reload(); err != nil {
@@ -98,30 +98,30 @@ func TestTaskDeletion_SelectionMoves(t *testing.T) {
 		t.Fatalf("expected row 1, got %d", ta.BoardConfig.GetSelectedRow())
 	}
 
-	// Delete TEST-2
+	// Delete TIKI-2
 	ta.SendKey(tcell.KeyRune, 'd', tcell.ModNone)
 
-	// Selection should move to next task (TEST-3, which is now at row 1)
+	// Selection should move to next task (TIKI-3, which is now at row 1)
 	selectedRow := ta.BoardConfig.GetSelectedRow()
 	if selectedRow != 1 {
 		t.Errorf("selection after delete = row %d, want row 1", selectedRow)
 	}
 
-	// Verify TEST-3 is visible
-	found3, _, _ := ta.FindText("TEST-3")
+	// Verify TIKI-3 is visible
+	found3, _, _ := ta.FindText("TIKI-3")
 	if !found3 {
 		ta.DumpScreen()
-		t.Errorf("TEST-3 should be visible after deleting TEST-2")
+		t.Errorf("TIKI-3 should be visible after deleting TIKI-2")
 	}
 }
 
-// TestTaskDeletion_LastTaskInColumn verifies deleting last task resets selection
-func TestTaskDeletion_LastTaskInColumn(t *testing.T) {
+// TestTaskDeletion_LastTaskInPane verifies deleting last task resets selection
+func TestTaskDeletion_LastTaskInPane(t *testing.T) {
 	ta := testutil.NewTestApp(t)
 	defer ta.Cleanup()
 
-	// Create only one task in todo column
-	if err := testutil.CreateTestTask(ta.TaskDir, "TEST-1", "Only Task", taskpkg.StatusTodo, taskpkg.TypeStory); err != nil {
+	// Create only one task in todo pane
+	if err := testutil.CreateTestTask(ta.TaskDir, "TIKI-1", "Only Task", taskpkg.StatusTodo, taskpkg.TypeStory); err != nil {
 		t.Fatalf("failed to create task: %v", err)
 	}
 	if err := ta.TaskStore.Reload(); err != nil {
@@ -132,11 +132,11 @@ func TestTaskDeletion_LastTaskInColumn(t *testing.T) {
 	ta.NavController.PushView(model.BoardViewID, nil)
 	ta.Draw()
 
-	// Verify TEST-1 visible
-	found, _, _ := ta.FindText("TEST-1")
+	// Verify TIKI-1 visible
+	found, _, _ := ta.FindText("TIKI-1")
 	if !found {
 		ta.DumpScreen()
-		t.Fatalf("TEST-1 should be visible")
+		t.Fatalf("TIKI-1 should be visible")
 	}
 
 	// Delete the only task
@@ -148,9 +148,9 @@ func TestTaskDeletion_LastTaskInColumn(t *testing.T) {
 	}
 
 	// Verify task deleted
-	task := ta.TaskStore.GetTask("TEST-1")
+	task := ta.TaskStore.GetTask("TIKI-1")
 	if task != nil {
-		t.Errorf("TEST-1 should be deleted")
+		t.Errorf("TIKI-1 should be deleted")
 	}
 
 	// Verify selection reset to 0
@@ -169,7 +169,7 @@ func TestTaskDeletion_MultipleSequential(t *testing.T) {
 
 	// Create five tasks
 	for i := 1; i <= 5; i++ {
-		taskID := fmt.Sprintf("TEST-%d", i)
+		taskID := fmt.Sprintf("TIKI-%d", i)
 		title := fmt.Sprintf("Task %d", i)
 		if err := testutil.CreateTestTask(ta.TaskDir, taskID, title, taskpkg.StatusTodo, taskpkg.TypeStory); err != nil {
 			t.Fatalf("failed to create task: %v", err)
@@ -186,10 +186,10 @@ func TestTaskDeletion_MultipleSequential(t *testing.T) {
 	// Delete first task
 	ta.SendKey(tcell.KeyRune, 'd', tcell.ModNone)
 
-	// Delete first task again (was TEST-2, now at top)
+	// Delete first task again (was TIKI-2, now at top)
 	ta.SendKey(tcell.KeyRune, 'd', tcell.ModNone)
 
-	// Delete first task again (was TEST-3, now at top)
+	// Delete first task again (was TIKI-3, now at top)
 	ta.SendKey(tcell.KeyRune, 'd', tcell.ModNone)
 
 	// Reload and verify only 2 tasks remain
@@ -202,21 +202,21 @@ func TestTaskDeletion_MultipleSequential(t *testing.T) {
 		t.Errorf("expected 2 tasks remaining, got %d", len(allTasks))
 	}
 
-	// Verify TEST-4 and TEST-5 still exist
-	task4 := ta.TaskStore.GetTask("TEST-4")
-	task5 := ta.TaskStore.GetTask("TEST-5")
+	// Verify TIKI-4 and TIKI-5 still exist
+	task4 := ta.TaskStore.GetTask("TIKI-4")
+	task5 := ta.TaskStore.GetTask("TIKI-5")
 	if task4 == nil || task5 == nil {
-		t.Errorf("TEST-4 and TEST-5 should still exist")
+		t.Errorf("TIKI-4 and TIKI-5 should still exist")
 	}
 }
 
-// TestTaskDeletion_FromDifferentColumn verifies deleting from non-todo column
-func TestTaskDeletion_FromDifferentColumn(t *testing.T) {
+// TestTaskDeletion_FromDifferentPane verifies deleting from non-todo pane
+func TestTaskDeletion_FromDifferentPane(t *testing.T) {
 	ta := testutil.NewTestApp(t)
 	defer ta.Cleanup()
 
-	// Create task in in_progress column
-	if err := testutil.CreateTestTask(ta.TaskDir, "TEST-1", "In Progress Task", taskpkg.StatusInProgress, taskpkg.TypeStory); err != nil {
+	// Create task in in_progress pane
+	if err := testutil.CreateTestTask(ta.TaskDir, "TIKI-1", "In Progress Task", taskpkg.StatusInProgress, taskpkg.TypeStory); err != nil {
 		t.Fatalf("failed to create task: %v", err)
 	}
 	if err := ta.TaskStore.Reload(); err != nil {
@@ -227,14 +227,14 @@ func TestTaskDeletion_FromDifferentColumn(t *testing.T) {
 	ta.NavController.PushView(model.BoardViewID, nil)
 	ta.Draw()
 
-	// Move to in_progress column (Right arrow)
+	// Move to in_progress pane (Right arrow)
 	ta.SendKey(tcell.KeyRight, 0, tcell.ModNone)
 
-	// Verify TEST-1 visible
-	found, _, _ := ta.FindText("TEST-1")
+	// Verify TIKI-1 visible
+	found, _, _ := ta.FindText("TIKI-1")
 	if !found {
 		ta.DumpScreen()
-		t.Fatalf("TEST-1 should be visible in in_progress column")
+		t.Fatalf("TIKI-1 should be visible in in_progress pane")
 	}
 
 	// Delete task
@@ -245,9 +245,9 @@ func TestTaskDeletion_FromDifferentColumn(t *testing.T) {
 		t.Fatalf("failed to reload: %v", err)
 	}
 
-	task := ta.TaskStore.GetTask("TEST-1")
+	task := ta.TaskStore.GetTask("TIKI-1")
 	if task != nil {
-		t.Errorf("TEST-1 should be deleted")
+		t.Errorf("TIKI-1 should be deleted")
 	}
 }
 
@@ -257,7 +257,7 @@ func TestTaskDeletion_CannotDeleteFromTaskDetail(t *testing.T) {
 	defer ta.Cleanup()
 
 	// Create task
-	if err := testutil.CreateTestTask(ta.TaskDir, "TEST-1", "Task to Not Delete", taskpkg.StatusTodo, taskpkg.TypeStory); err != nil {
+	if err := testutil.CreateTestTask(ta.TaskDir, "TIKI-1", "Task to Not Delete", taskpkg.StatusTodo, taskpkg.TypeStory); err != nil {
 		t.Fatalf("failed to create task: %v", err)
 	}
 	if err := ta.TaskStore.Reload(); err != nil {
@@ -283,9 +283,9 @@ func TestTaskDeletion_CannotDeleteFromTaskDetail(t *testing.T) {
 		t.Fatalf("failed to reload: %v", err)
 	}
 
-	task := ta.TaskStore.GetTask("TEST-1")
+	task := ta.TaskStore.GetTask("TIKI-1")
 	if task == nil {
-		t.Errorf("TEST-1 should NOT be deleted from task detail view")
+		t.Errorf("TIKI-1 should NOT be deleted from task detail view")
 	}
 
 	// Verify we're still on task detail (or moved somewhere else, but task exists)
@@ -294,19 +294,19 @@ func TestTaskDeletion_CannotDeleteFromTaskDetail(t *testing.T) {
 	}
 }
 
-// TestTaskDeletion_WithMultipleColumns verifies deletion doesn't affect other columns
-func TestTaskDeletion_WithMultipleColumns(t *testing.T) {
+// TestTaskDeletion_WithMultiplePanes verifies deletion doesn't affect other panes
+func TestTaskDeletion_WithMultiplePanes(t *testing.T) {
 	ta := testutil.NewTestApp(t)
 	defer ta.Cleanup()
 
-	// Create tasks in different columns
-	if err := testutil.CreateTestTask(ta.TaskDir, "TEST-1", "Todo Task", taskpkg.StatusTodo, taskpkg.TypeStory); err != nil {
+	// Create tasks in different panes
+	if err := testutil.CreateTestTask(ta.TaskDir, "TIKI-1", "Todo Task", taskpkg.StatusTodo, taskpkg.TypeStory); err != nil {
 		t.Fatalf("failed to create task: %v", err)
 	}
-	if err := testutil.CreateTestTask(ta.TaskDir, "TEST-2", "In Progress Task", taskpkg.StatusInProgress, taskpkg.TypeStory); err != nil {
+	if err := testutil.CreateTestTask(ta.TaskDir, "TIKI-2", "In Progress Task", taskpkg.StatusInProgress, taskpkg.TypeStory); err != nil {
 		t.Fatalf("failed to create task: %v", err)
 	}
-	if err := testutil.CreateTestTask(ta.TaskDir, "TEST-3", "Done Task", taskpkg.StatusDone, taskpkg.TypeStory); err != nil {
+	if err := testutil.CreateTestTask(ta.TaskDir, "TIKI-3", "Done Task", taskpkg.StatusDone, taskpkg.TypeStory); err != nil {
 		t.Fatalf("failed to create task: %v", err)
 	}
 	if err := ta.TaskStore.Reload(); err != nil {
@@ -317,7 +317,7 @@ func TestTaskDeletion_WithMultipleColumns(t *testing.T) {
 	ta.NavController.PushView(model.BoardViewID, nil)
 	ta.Draw()
 
-	// Delete TEST-1 from todo column
+	// Delete TIKI-1 from todo pane
 	ta.SendKey(tcell.KeyRune, 'd', tcell.ModNone)
 
 	// Reload
@@ -325,16 +325,16 @@ func TestTaskDeletion_WithMultipleColumns(t *testing.T) {
 		t.Fatalf("failed to reload: %v", err)
 	}
 
-	// Verify TEST-1 deleted
-	if ta.TaskStore.GetTask("TEST-1") != nil {
-		t.Errorf("TEST-1 should be deleted")
+	// Verify TIKI-1 deleted
+	if ta.TaskStore.GetTask("TIKI-1") != nil {
+		t.Errorf("TIKI-1 should be deleted")
 	}
 
-	// Verify TEST-2 and TEST-3 still exist (in other columns)
-	if ta.TaskStore.GetTask("TEST-2") == nil {
-		t.Errorf("TEST-2 (in different column) should still exist")
+	// Verify TIKI-2 and TIKI-3 still exist (in other panes)
+	if ta.TaskStore.GetTask("TIKI-2") == nil {
+		t.Errorf("TIKI-2 (in different pane) should still exist")
 	}
-	if ta.TaskStore.GetTask("TEST-3") == nil {
-		t.Errorf("TEST-3 (in different column) should still exist")
+	if ta.TaskStore.GetTask("TIKI-3") == nil {
+		t.Errorf("TIKI-3 (in different pane) should still exist")
 	}
 }

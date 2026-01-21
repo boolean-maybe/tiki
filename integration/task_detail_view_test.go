@@ -17,7 +17,7 @@ func TestTaskDetailView_RenderMetadata(t *testing.T) {
 	defer ta.Cleanup()
 
 	// Create a task with all fields populated
-	taskID := "TEST-1"
+	taskID := "TIKI-1"
 	if err := testutil.CreateTestTask(ta.TaskDir, taskID, "Test Task Title", taskpkg.StatusInProgress, taskpkg.TypeBug); err != nil {
 		t.Fatalf("failed to create test task: %v", err)
 	}
@@ -31,10 +31,10 @@ func TestTaskDetailView_RenderMetadata(t *testing.T) {
 	ta.SendKey(tcell.KeyEnter, 0, tcell.ModNone) // Open task detail
 
 	// Verify task ID is visible
-	found, _, _ := ta.FindText("TEST-1")
+	found, _, _ := ta.FindText("TIKI-1")
 	if !found {
 		ta.DumpScreen()
-		t.Errorf("task ID 'TEST-1' not found in task detail view")
+		t.Errorf("task ID 'TIKI-1' not found in task detail view")
 	}
 
 	// Verify title is visible
@@ -72,7 +72,7 @@ func TestTaskDetailView_RenderDescription(t *testing.T) {
 	defer ta.Cleanup()
 
 	// Create task (description is set to the title by CreateTestTask)
-	taskID := "TEST-1"
+	taskID := "TIKI-1"
 	if err := testutil.CreateTestTask(ta.TaskDir, taskID, "Task with description", taskpkg.StatusTodo, taskpkg.TypeStory); err != nil {
 		t.Fatalf("failed to create test task: %v", err)
 	}
@@ -100,7 +100,7 @@ func TestTaskDetailView_NavigateBack(t *testing.T) {
 	defer ta.Cleanup()
 
 	// Create task
-	taskID := "TEST-1"
+	taskID := "TIKI-1"
 	if err := testutil.CreateTestTask(ta.TaskDir, taskID, "Test Task", taskpkg.StatusTodo, taskpkg.TypeStory); err != nil {
 		t.Fatalf("failed to create test task: %v", err)
 	}
@@ -135,7 +135,7 @@ func TestTaskDetailView_InlineTitleEdit_Save(t *testing.T) {
 	defer ta.Cleanup()
 
 	// Create task
-	taskID := "TEST-1"
+	taskID := "TIKI-1"
 	originalTitle := "Original Title"
 	if err := testutil.CreateTestTask(ta.TaskDir, taskID, originalTitle, taskpkg.StatusTodo, taskpkg.TypeStory); err != nil {
 		t.Fatalf("failed to create test task: %v", err)
@@ -178,7 +178,7 @@ func TestTaskDetailView_InlineTitleEdit_Cancel(t *testing.T) {
 	defer ta.Cleanup()
 
 	// Create task
-	taskID := "TEST-1"
+	taskID := "TIKI-1"
 	originalTitle := "Original Title"
 	if err := testutil.CreateTestTask(ta.TaskDir, taskID, originalTitle, taskpkg.StatusTodo, taskpkg.TypeStory); err != nil {
 		t.Fatalf("failed to create test task: %v", err)
@@ -221,10 +221,10 @@ func TestTaskDetailView_FromBoard(t *testing.T) {
 	defer ta.Cleanup()
 
 	// Create tasks
-	if err := testutil.CreateTestTask(ta.TaskDir, "TEST-1", "First Task", taskpkg.StatusTodo, taskpkg.TypeStory); err != nil {
+	if err := testutil.CreateTestTask(ta.TaskDir, "TIKI-1", "First Task", taskpkg.StatusTodo, taskpkg.TypeStory); err != nil {
 		t.Fatalf("failed to create test task: %v", err)
 	}
-	if err := testutil.CreateTestTask(ta.TaskDir, "TEST-2", "Second Task", taskpkg.StatusTodo, taskpkg.TypeStory); err != nil {
+	if err := testutil.CreateTestTask(ta.TaskDir, "TIKI-2", "Second Task", taskpkg.StatusTodo, taskpkg.TypeStory); err != nil {
 		t.Fatalf("failed to create test task: %v", err)
 	}
 	if err := ta.TaskStore.Reload(); err != nil {
@@ -241,18 +241,18 @@ func TestTaskDetailView_FromBoard(t *testing.T) {
 	// Open task detail
 	ta.SendKey(tcell.KeyEnter, 0, tcell.ModNone)
 
-	// Verify we're on task detail for TEST-2
-	found, _, _ := ta.FindText("TEST-2")
+	// Verify we're on task detail for TIKI-2
+	found, _, _ := ta.FindText("TIKI-2")
 	if !found {
 		ta.DumpScreen()
-		t.Errorf("TEST-2 should be visible in task detail view")
+		t.Errorf("TIKI-2 should be visible in task detail view")
 	}
 
-	// Verify TEST-1 is NOT visible (we're viewing TEST-2)
-	found1, _, _ := ta.FindText("TEST-1")
+	// Verify TIKI-1 is NOT visible (we're viewing TIKI-2)
+	found1, _, _ := ta.FindText("TIKI-1")
 	if found1 {
 		ta.DumpScreen()
-		t.Errorf("TEST-1 should NOT be visible (we opened TEST-2)")
+		t.Errorf("TIKI-1 should NOT be visible (we opened TIKI-2)")
 	}
 }
 
@@ -262,7 +262,7 @@ func TestTaskDetailView_EmptyDescription(t *testing.T) {
 	defer ta.Cleanup()
 
 	// Create task with minimal content
-	taskID := "TEST-1"
+	taskID := "TIKI-1"
 	if err := testutil.CreateTestTask(ta.TaskDir, taskID, "Task Title", taskpkg.StatusTodo, taskpkg.TypeStory); err != nil {
 		t.Fatalf("failed to create test task: %v", err)
 	}
@@ -296,13 +296,13 @@ func TestTaskDetailView_MultipleOpen(t *testing.T) {
 	defer ta.Cleanup()
 
 	// Create multiple tasks
-	if err := testutil.CreateTestTask(ta.TaskDir, "TEST-1", "First Task", taskpkg.StatusTodo, taskpkg.TypeStory); err != nil {
+	if err := testutil.CreateTestTask(ta.TaskDir, "TIKI-1", "First Task", taskpkg.StatusTodo, taskpkg.TypeStory); err != nil {
 		t.Fatalf("failed to create test task: %v", err)
 	}
-	if err := testutil.CreateTestTask(ta.TaskDir, "TEST-2", "Second Task", taskpkg.StatusTodo, taskpkg.TypeStory); err != nil {
+	if err := testutil.CreateTestTask(ta.TaskDir, "TIKI-2", "Second Task", taskpkg.StatusTodo, taskpkg.TypeStory); err != nil {
 		t.Fatalf("failed to create test task: %v", err)
 	}
-	if err := testutil.CreateTestTask(ta.TaskDir, "TEST-3", "Third Task", taskpkg.StatusTodo, taskpkg.TypeStory); err != nil {
+	if err := testutil.CreateTestTask(ta.TaskDir, "TIKI-3", "Third Task", taskpkg.StatusTodo, taskpkg.TypeStory); err != nil {
 		t.Fatalf("failed to create test task: %v", err)
 	}
 	if err := ta.TaskStore.Reload(); err != nil {
@@ -315,10 +315,10 @@ func TestTaskDetailView_MultipleOpen(t *testing.T) {
 
 	// Open first task
 	ta.SendKey(tcell.KeyEnter, 0, tcell.ModNone)
-	found1, _, _ := ta.FindText("TEST-1")
+	found1, _, _ := ta.FindText("TIKI-1")
 	if !found1 {
 		ta.DumpScreen()
-		t.Errorf("TEST-1 should be visible after opening")
+		t.Errorf("TIKI-1 should be visible after opening")
 	}
 
 	// Go back
@@ -327,10 +327,10 @@ func TestTaskDetailView_MultipleOpen(t *testing.T) {
 	// Move to second task and open
 	ta.SendKey(tcell.KeyDown, 0, tcell.ModNone)
 	ta.SendKey(tcell.KeyEnter, 0, tcell.ModNone)
-	found2, _, _ := ta.FindText("TEST-2")
+	found2, _, _ := ta.FindText("TIKI-2")
 	if !found2 {
 		ta.DumpScreen()
-		t.Errorf("TEST-2 should be visible after opening")
+		t.Errorf("TIKI-2 should be visible after opening")
 	}
 
 	// Go back
@@ -339,10 +339,10 @@ func TestTaskDetailView_MultipleOpen(t *testing.T) {
 	// Move to third task and open
 	ta.SendKey(tcell.KeyDown, 0, tcell.ModNone)
 	ta.SendKey(tcell.KeyEnter, 0, tcell.ModNone)
-	found3, _, _ := ta.FindText("TEST-3")
+	found3, _, _ := ta.FindText("TIKI-3")
 	if !found3 {
 		ta.DumpScreen()
-		t.Errorf("TEST-3 should be visible after opening")
+		t.Errorf("TIKI-3 should be visible after opening")
 	}
 }
 
@@ -360,7 +360,7 @@ func TestTaskDetailView_AllStatuses(t *testing.T) {
 	}
 
 	for i, status := range statuses {
-		taskID := fmt.Sprintf("TEST-%d", i+1)
+		taskID := fmt.Sprintf("TIKI-%d", i+1)
 		title := fmt.Sprintf("Task %s", status)
 		if err := testutil.CreateTestTask(ta.TaskDir, taskID, title, status, taskpkg.TypeStory); err != nil {
 			t.Fatalf("failed to create test task: %v", err)
@@ -377,11 +377,11 @@ func TestTaskDetailView_AllStatuses(t *testing.T) {
 
 	// For each status, navigate to first task with that status and verify detail view
 	for i, status := range statuses {
-		// Find the task on board (may need to navigate between columns)
-		taskID := fmt.Sprintf("TEST-%d", i+1)
+		// Find the task on board (may need to navigate between panes)
+		taskID := fmt.Sprintf("TIKI-%d", i+1)
 
-		// Navigate to correct column based on status
-		// For simplicity, we'll just open first task in todo column for this test
+		// Navigate to correct pane based on status
+		// For simplicity, we'll just open first task in todo pane for this test
 		if status == taskpkg.StatusTodo {
 			ta.SendKey(tcell.KeyEnter, 0, tcell.ModNone)
 
@@ -410,7 +410,7 @@ func TestTaskDetailView_AllTypes(t *testing.T) {
 	}
 
 	for i, taskType := range types {
-		taskID := fmt.Sprintf("TEST-%d", i+1)
+		taskID := fmt.Sprintf("TIKI-%d", i+1)
 		title := fmt.Sprintf("Task %s", taskType)
 		if err := testutil.CreateTestTask(ta.TaskDir, taskID, title, taskpkg.StatusTodo, taskType); err != nil {
 			t.Fatalf("failed to create test task: %v", err)
@@ -440,7 +440,7 @@ func TestTaskDetailView_InlineEdit_PreservesOtherFields(t *testing.T) {
 	defer ta.Cleanup()
 
 	// Create task with specific values
-	taskID := "TEST-1"
+	taskID := "TIKI-1"
 	if err := testutil.CreateTestTask(ta.TaskDir, taskID, "Original Title", taskpkg.StatusTodo, taskpkg.TypeBug); err != nil {
 		t.Fatalf("failed to create test task: %v", err)
 	}

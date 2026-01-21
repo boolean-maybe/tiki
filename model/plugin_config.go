@@ -13,27 +13,31 @@ type PluginSelectionListener func()
 
 // PluginConfig holds selection state for a plugin view
 type PluginConfig struct {
-	mu             sync.RWMutex
-	pluginName     string
-	selectedIndex  int
-	columns        int      // number of columns in grid (same as backlog: 4)
-	viewMode       ViewMode // compact or expanded display
-	configIndex    int      // index in config.yaml plugins array (-1 if embedded/not in config)
-	listeners      map[int]PluginSelectionListener
-	nextListenerID int
-	searchState    SearchState // search state (embedded)
+	mu               sync.RWMutex
+	pluginName       string
+	selectedPane     int
+	selectedIndices  []int
+	paneColumns      []int
+	preSearchPane    int
+	preSearchIndices []int
+	viewMode         ViewMode // compact or expanded display
+	configIndex      int      // index in config.yaml plugins array (-1 if embedded/not in config)
+	listeners        map[int]PluginSelectionListener
+	nextListenerID   int
+	searchState      SearchState // search state (embedded)
 }
 
 // NewPluginConfig creates a plugin config
 func NewPluginConfig(name string) *PluginConfig {
-	return &PluginConfig{
+	pc := &PluginConfig{
 		pluginName:     name,
-		columns:        4,
 		viewMode:       ViewModeCompact,
 		configIndex:    -1, // Default to -1 (not in config)
 		listeners:      make(map[int]PluginSelectionListener),
 		nextListenerID: 1, // Start at 1 to avoid conflict with zero-value sentinel
 	}
+	pc.SetPaneLayout([]int{4})
+	return pc
 }
 
 // SetConfigIndex sets the config index for this plugin
@@ -48,24 +52,84 @@ func (pc *PluginConfig) GetPluginName() string {
 	return pc.pluginName
 }
 
-// GetSelectedIndex returns the selected task index
+// SetPaneLayout configures pane columns and resets selection state as needed.
+func (pc *PluginConfig) SetPaneLayout(columns []int) {
+	pc.mu.Lock()
+	defer pc.mu.Unlock()
+
+	pc.paneColumns = normalizePaneColumns(columns)
+	pc.selectedIndices = ensureSelectionLength(pc.selectedIndices, len(pc.paneColumns))
+	pc.preSearchIndices = ensureSelectionLength(pc.preSearchIndices, len(pc.paneColumns))
+
+	if pc.selectedPane < 0 || pc.selectedPane >= len(pc.paneColumns) {
+		pc.selectedPane = 0
+	}
+}
+
+// GetPaneCount returns the number of panes.
+func (pc *PluginConfig) GetPaneCount() int {
+	pc.mu.RLock()
+	defer pc.mu.RUnlock()
+	return len(pc.paneColumns)
+}
+
+// GetSelectedPane returns the selected pane index.
+func (pc *PluginConfig) GetSelectedPane() int {
+	pc.mu.RLock()
+	defer pc.mu.RUnlock()
+	return pc.selectedPane
+}
+
+// SetSelectedPane sets the selected pane index.
+func (pc *PluginConfig) SetSelectedPane(pane int) {
+	pc.mu.Lock()
+	if pane < 0 || pane >= len(pc.paneColumns) {
+		pc.mu.Unlock()
+		return
+	}
+	changed := pc.selectedPane != pane
+	pc.selectedPane = pane
+	pc.mu.Unlock()
+	if changed {
+		pc.notifyListeners()
+	}
+}
+
+// GetSelectedIndex returns the selected task index for the current pane.
 func (pc *PluginConfig) GetSelectedIndex() int {
 	pc.mu.RLock()
 	defer pc.mu.RUnlock()
-	return pc.selectedIndex
+	return pc.indexForPane(pc.selectedPane)
 }
 
-// SetSelectedIndex sets the selected task index
+// GetSelectedIndexForPane returns the selected index for a pane.
+func (pc *PluginConfig) GetSelectedIndexForPane(pane int) int {
+	pc.mu.RLock()
+	defer pc.mu.RUnlock()
+	return pc.indexForPane(pane)
+}
+
+// SetSelectedIndex sets the selected task index for the current pane.
 func (pc *PluginConfig) SetSelectedIndex(idx int) {
 	pc.mu.Lock()
-	pc.selectedIndex = idx
+	pc.setIndexForPane(pc.selectedPane, idx)
 	pc.mu.Unlock()
 	pc.notifyListeners()
 }
 
-// GetColumns returns the number of grid columns
-func (pc *PluginConfig) GetColumns() int {
-	return pc.columns
+// SetSelectedIndexForPane sets the selected index for a specific pane.
+func (pc *PluginConfig) SetSelectedIndexForPane(pane int, idx int) {
+	pc.mu.Lock()
+	pc.setIndexForPane(pane, idx)
+	pc.mu.Unlock()
+	pc.notifyListeners()
+}
+
+// GetColumnsForPane returns the number of grid columns for a pane.
+func (pc *PluginConfig) GetColumnsForPane(pane int) int {
+	pc.mu.RLock()
+	defer pc.mu.RUnlock()
+	return pc.columnsForPane(pane)
 }
 
 // AddSelectionListener registers a callback for selection changes
@@ -98,39 +162,41 @@ func (pc *PluginConfig) notifyListeners() {
 	}
 }
 
-// MoveSelection moves selection in a direction given task count, returns true if moved
+// MoveSelection moves selection in a direction within the current pane.
 func (pc *PluginConfig) MoveSelection(direction string, taskCount int) bool {
 	if taskCount == 0 {
 		return false
 	}
 
 	pc.mu.Lock()
-	oldIndex := pc.selectedIndex
-	row := pc.selectedIndex / pc.columns
-	col := pc.selectedIndex % pc.columns
-	numRows := (taskCount + pc.columns - 1) / pc.columns
+	pane := pc.selectedPane
+	columns := pc.columnsForPane(pane)
+	oldIndex := pc.indexForPane(pane)
+	row := oldIndex / columns
+	col := oldIndex % columns
+	numRows := (taskCount + columns - 1) / columns
 
 	switch direction {
 	case "up":
 		if row > 0 {
-			pc.selectedIndex -= pc.columns
+			pc.setIndexForPane(pane, oldIndex-columns)
 		}
 	case "down":
-		newIdx := pc.selectedIndex + pc.columns
+		newIdx := oldIndex + columns
 		if row < numRows-1 && newIdx < taskCount {
-			pc.selectedIndex = newIdx
+			pc.setIndexForPane(pane, newIdx)
 		}
 	case "left":
 		if col > 0 {
-			pc.selectedIndex--
+			pc.setIndexForPane(pane, oldIndex-1)
 		}
 	case "right":
-		if col < pc.columns-1 && pc.selectedIndex+1 < taskCount {
-			pc.selectedIndex++
+		if col < columns-1 && oldIndex+1 < taskCount {
+			pc.setIndexForPane(pane, oldIndex+1)
 		}
 	}
 
-	moved := pc.selectedIndex != oldIndex
+	moved := pc.indexForPane(pane) != oldIndex
 	pc.mu.Unlock()
 
 	if moved {
@@ -139,14 +205,16 @@ func (pc *PluginConfig) MoveSelection(direction string, taskCount int) bool {
 	return moved
 }
 
-// ClampSelection ensures selection is within bounds
+// ClampSelection ensures selection is within bounds for the current pane.
 func (pc *PluginConfig) ClampSelection(taskCount int) {
 	pc.mu.Lock()
-	if pc.selectedIndex >= taskCount {
-		pc.selectedIndex = taskCount - 1
+	pane := pc.selectedPane
+	index := pc.indexForPane(pane)
+	if index >= taskCount {
+		pc.setIndexForPane(pane, taskCount-1)
 	}
-	if pc.selectedIndex < 0 {
-		pc.selectedIndex = 0
+	if pc.indexForPane(pane) < 0 {
+		pc.setIndexForPane(pane, 0)
 	}
 	pc.mu.Unlock()
 }
@@ -193,9 +261,12 @@ func (pc *PluginConfig) SetViewMode(mode string) {
 
 // SavePreSearchState saves current selection for later restoration
 func (pc *PluginConfig) SavePreSearchState() {
-	pc.mu.RLock()
-	selectedIndex := pc.selectedIndex
-	pc.mu.RUnlock()
+	pc.mu.Lock()
+	pc.preSearchPane = pc.selectedPane
+	pc.preSearchIndices = ensureSelectionLength(pc.preSearchIndices, len(pc.paneColumns))
+	copy(pc.preSearchIndices, pc.selectedIndices)
+	selectedIndex := pc.indexForPane(pc.selectedPane)
+	pc.mu.Unlock()
 	pc.searchState.SavePreSearchState(selectedIndex)
 }
 
@@ -207,9 +278,16 @@ func (pc *PluginConfig) SetSearchResults(results []task.SearchResult, query stri
 
 // ClearSearchResults clears search and restores pre-search selection
 func (pc *PluginConfig) ClearSearchResults() {
-	preSearchIndex, _, _ := pc.searchState.ClearSearchResults()
+	pc.searchState.ClearSearchResults()
 	pc.mu.Lock()
-	pc.selectedIndex = preSearchIndex
+	if len(pc.preSearchIndices) == len(pc.paneColumns) {
+		pc.selectedIndices = ensureSelectionLength(pc.selectedIndices, len(pc.paneColumns))
+		copy(pc.selectedIndices, pc.preSearchIndices)
+		pc.selectedPane = pc.preSearchPane
+	} else if len(pc.selectedIndices) > 0 {
+		pc.selectedPane = 0
+		pc.setIndexForPane(0, 0)
+	}
 	pc.mu.Unlock()
 	pc.notifyListeners()
 }
@@ -227,4 +305,64 @@ func (pc *PluginConfig) IsSearchActive() bool {
 // GetSearchQuery returns the current search query
 func (pc *PluginConfig) GetSearchQuery() string {
 	return pc.searchState.GetSearchQuery()
+}
+
+func (pc *PluginConfig) indexForPane(pane int) int {
+	if len(pc.selectedIndices) == 0 {
+		return 0
+	}
+	if pane < 0 || pane >= len(pc.selectedIndices) {
+		slog.Warn("pane index out of range", "pane", pane, "count", len(pc.selectedIndices))
+		return 0
+	}
+	return pc.selectedIndices[pane]
+}
+
+func (pc *PluginConfig) setIndexForPane(pane int, idx int) {
+	if len(pc.selectedIndices) == 0 {
+		return
+	}
+	if pane < 0 || pane >= len(pc.selectedIndices) {
+		slog.Warn("pane index out of range", "pane", pane, "count", len(pc.selectedIndices))
+		return
+	}
+	pc.selectedIndices[pane] = idx
+}
+
+func (pc *PluginConfig) columnsForPane(pane int) int {
+	if len(pc.paneColumns) == 0 {
+		return 1
+	}
+	if pane < 0 || pane >= len(pc.paneColumns) {
+		slog.Warn("pane columns out of range", "pane", pane, "count", len(pc.paneColumns))
+		return 1
+	}
+	return pc.paneColumns[pane]
+}
+
+func normalizePaneColumns(columns []int) []int {
+	if len(columns) == 0 {
+		return []int{1}
+	}
+	normalized := make([]int, len(columns))
+	for i, value := range columns {
+		if value <= 0 {
+			normalized[i] = 1
+		} else {
+			normalized[i] = value
+		}
+	}
+	return normalized
+}
+
+func ensureSelectionLength(current []int, size int) []int {
+	if size <= 0 {
+		return []int{}
+	}
+	if len(current) == size {
+		return current
+	}
+	next := make([]int, size)
+	copy(next, current)
+	return next
 }

@@ -27,11 +27,11 @@ func (s *TikiStore) GetTasksByStatus(status taskpkg.Status) []*taskpkg.Task {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
-	targetColumn := taskpkg.StatusColumn(status)
+	targetPane := taskpkg.StatusPane(status)
 
 	var tasks []*taskpkg.Task
 	for _, t := range s.tasks {
-		if taskpkg.StatusColumn(t.Status) == targetColumn {
+		if taskpkg.StatusPane(t.Status) == targetPane {
 			tasks = append(tasks, t)
 		}
 	}
@@ -47,7 +47,7 @@ func (s *TikiStore) GetBacklogTasks() []*taskpkg.Task {
 
 	var tasks []*taskpkg.Task
 	for _, t := range s.tasks {
-		if taskpkg.StatusColumn(t.Status) == taskpkg.StatusBacklog {
+		if taskpkg.StatusPane(t.Status) == taskpkg.StatusBacklog {
 			tasks = append(tasks, t)
 		}
 	}
@@ -66,7 +66,7 @@ func (s *TikiStore) SearchBacklog(query string) []taskpkg.SearchResult {
 		// Return all backlog tasks
 		var tasks []*taskpkg.Task
 		for _, t := range s.tasks {
-			if taskpkg.StatusColumn(t.Status) == taskpkg.StatusBacklog {
+			if taskpkg.StatusPane(t.Status) == taskpkg.StatusBacklog {
 				tasks = append(tasks, t)
 			}
 		}
@@ -81,7 +81,7 @@ func (s *TikiStore) SearchBacklog(query string) []taskpkg.SearchResult {
 	queryLower := strings.ToLower(query)
 	var tasks []*taskpkg.Task
 	for _, t := range s.tasks {
-		if taskpkg.StatusColumn(t.Status) == taskpkg.StatusBacklog {
+		if taskpkg.StatusPane(t.Status) == taskpkg.StatusBacklog {
 			if strings.Contains(strings.ToLower(t.Title), queryLower) {
 				tasks = append(tasks, t)
 			}

@@ -16,7 +16,7 @@ func TestBoardSearch_OpenSearchBox(t *testing.T) {
 	defer ta.Cleanup()
 
 	// Create test tasks
-	if err := testutil.CreateTestTask(ta.TaskDir, "TEST-1", "First Task", taskpkg.StatusTodo, taskpkg.TypeStory); err != nil {
+	if err := testutil.CreateTestTask(ta.TaskDir, "TIKI-1", "First Task", taskpkg.StatusTodo, taskpkg.TypeStory); err != nil {
 		t.Fatalf("failed to create test task: %v", err)
 	}
 	if err := ta.TaskStore.Reload(); err != nil {
@@ -44,13 +44,13 @@ func TestBoardSearch_FilterResults(t *testing.T) {
 	defer ta.Cleanup()
 
 	// Create multiple tasks
-	if err := testutil.CreateTestTask(ta.TaskDir, "TEST-1", "First Task", taskpkg.StatusTodo, taskpkg.TypeStory); err != nil {
+	if err := testutil.CreateTestTask(ta.TaskDir, "TIKI-1", "First Task", taskpkg.StatusTodo, taskpkg.TypeStory); err != nil {
 		t.Fatalf("failed to create test task: %v", err)
 	}
-	if err := testutil.CreateTestTask(ta.TaskDir, "TEST-2", "Second Task", taskpkg.StatusTodo, taskpkg.TypeStory); err != nil {
+	if err := testutil.CreateTestTask(ta.TaskDir, "TIKI-2", "Second Task", taskpkg.StatusTodo, taskpkg.TypeStory); err != nil {
 		t.Fatalf("failed to create test task: %v", err)
 	}
-	if err := testutil.CreateTestTask(ta.TaskDir, "TEST-3", "Special Feature", taskpkg.StatusInProgress, taskpkg.TypeStory); err != nil {
+	if err := testutil.CreateTestTask(ta.TaskDir, "TIKI-3", "Special Feature", taskpkg.StatusInProgress, taskpkg.TypeStory); err != nil {
 		t.Fatalf("failed to create test task: %v", err)
 	}
 	if err := ta.TaskStore.Reload(); err != nil {
@@ -64,30 +64,30 @@ func TestBoardSearch_FilterResults(t *testing.T) {
 	// Open search
 	ta.SendKey(tcell.KeyRune, '/', tcell.ModNone)
 
-	// Type "Task" to match TEST-1 and TEST-2
+	// Type "Task" to match TIKI-1 and TIKI-2
 	ta.SendText("Task")
 
 	// Press Enter to submit search
 	ta.SendKey(tcell.KeyEnter, 0, tcell.ModNone)
 
-	// Verify TEST-1 and TEST-2 are visible
-	found1, _, _ := ta.FindText("TEST-1")
+	// Verify TIKI-1 and TIKI-2 are visible
+	found1, _, _ := ta.FindText("TIKI-1")
 	if !found1 {
 		ta.DumpScreen()
-		t.Errorf("TEST-1 should be visible in search results")
+		t.Errorf("TIKI-1 should be visible in search results")
 	}
 
-	found2, _, _ := ta.FindText("TEST-2")
+	found2, _, _ := ta.FindText("TIKI-2")
 	if !found2 {
 		ta.DumpScreen()
-		t.Errorf("TEST-2 should be visible in search results")
+		t.Errorf("TIKI-2 should be visible in search results")
 	}
 
-	// Verify TEST-3 is NOT visible (doesn't match "Task")
-	found3, _, _ := ta.FindText("TEST-3")
+	// Verify TIKI-3 is NOT visible (doesn't match "Task")
+	found3, _, _ := ta.FindText("TIKI-3")
 	if found3 {
 		ta.DumpScreen()
-		t.Errorf("TEST-3 should NOT be visible (doesn't match 'Task')")
+		t.Errorf("TIKI-3 should NOT be visible (doesn't match 'Task')")
 	}
 }
 
@@ -97,7 +97,7 @@ func TestBoardSearch_NoMatches(t *testing.T) {
 	defer ta.Cleanup()
 
 	// Create test task
-	if err := testutil.CreateTestTask(ta.TaskDir, "TEST-1", "First Task", taskpkg.StatusTodo, taskpkg.TypeStory); err != nil {
+	if err := testutil.CreateTestTask(ta.TaskDir, "TIKI-1", "First Task", taskpkg.StatusTodo, taskpkg.TypeStory); err != nil {
 		t.Fatalf("failed to create test task: %v", err)
 	}
 	if err := ta.TaskStore.Reload(); err != nil {
@@ -115,11 +115,11 @@ func TestBoardSearch_NoMatches(t *testing.T) {
 	ta.SendText("NoMatch")
 	ta.SendKey(tcell.KeyEnter, 0, tcell.ModNone)
 
-	// Verify TEST-1 is NOT visible
-	found, _, _ := ta.FindText("TEST-1")
+	// Verify TIKI-1 is NOT visible
+	found, _, _ := ta.FindText("TIKI-1")
 	if found {
 		ta.DumpScreen()
-		t.Errorf("TEST-1 should NOT be visible when search has no matches")
+		t.Errorf("TIKI-1 should NOT be visible when search has no matches")
 	}
 }
 
@@ -129,10 +129,10 @@ func TestBoardSearch_EscapeClears(t *testing.T) {
 	defer ta.Cleanup()
 
 	// Create test tasks
-	if err := testutil.CreateTestTask(ta.TaskDir, "TEST-1", "First Task", taskpkg.StatusTodo, taskpkg.TypeStory); err != nil {
+	if err := testutil.CreateTestTask(ta.TaskDir, "TIKI-1", "First Task", taskpkg.StatusTodo, taskpkg.TypeStory); err != nil {
 		t.Fatalf("failed to create test task: %v", err)
 	}
-	if err := testutil.CreateTestTask(ta.TaskDir, "TEST-2", "Second Task", taskpkg.StatusTodo, taskpkg.TypeStory); err != nil {
+	if err := testutil.CreateTestTask(ta.TaskDir, "TIKI-2", "Second Task", taskpkg.StatusTodo, taskpkg.TypeStory); err != nil {
 		t.Fatalf("failed to create test task: %v", err)
 	}
 	if err := ta.TaskStore.Reload(); err != nil {
@@ -143,49 +143,49 @@ func TestBoardSearch_EscapeClears(t *testing.T) {
 	ta.NavController.PushView(model.BoardViewID, nil)
 	ta.Draw()
 
-	// Move to second task (TEST-2)
+	// Move to second task (TIKI-2)
 	ta.SendKey(tcell.KeyDown, 0, tcell.ModNone)
 
-	// Verify we're on TEST-2 (row 1)
+	// Verify we're on TIKI-2 (row 1)
 	if ta.BoardConfig.GetSelectedRow() != 1 {
 		t.Fatalf("expected row 1, got %d", ta.BoardConfig.GetSelectedRow())
 	}
 
-	// Open search and search for "First" (matches TEST-1 only)
+	// Open search and search for "First" (matches TIKI-1 only)
 	ta.SendKey(tcell.KeyRune, '/', tcell.ModNone)
 	ta.SendText("First")
 	ta.SendKey(tcell.KeyEnter, 0, tcell.ModNone)
 
-	// Verify only TEST-1 is visible
-	found1, _, _ := ta.FindText("TEST-1")
+	// Verify only TIKI-1 is visible
+	found1, _, _ := ta.FindText("TIKI-1")
 	if !found1 {
 		ta.DumpScreen()
-		t.Errorf("TEST-1 should be visible in search results")
+		t.Errorf("TIKI-1 should be visible in search results")
 	}
 
-	found2, _, _ := ta.FindText("TEST-2")
+	found2, _, _ := ta.FindText("TIKI-2")
 	if found2 {
 		ta.DumpScreen()
-		t.Errorf("TEST-2 should NOT be visible in filtered view")
+		t.Errorf("TIKI-2 should NOT be visible in filtered view")
 	}
 
 	// Press Esc to clear search
 	ta.SendKey(tcell.KeyEscape, 0, tcell.ModNone)
 
 	// Verify all tasks are visible again
-	found1After, _, _ := ta.FindText("TEST-1")
+	found1After, _, _ := ta.FindText("TIKI-1")
 	if !found1After {
 		ta.DumpScreen()
-		t.Errorf("TEST-1 should be visible after clearing search")
+		t.Errorf("TIKI-1 should be visible after clearing search")
 	}
 
-	found2After, _, _ := ta.FindText("TEST-2")
+	found2After, _, _ := ta.FindText("TIKI-2")
 	if !found2After {
 		ta.DumpScreen()
-		t.Errorf("TEST-2 should be visible after clearing search")
+		t.Errorf("TIKI-2 should be visible after clearing search")
 	}
 
-	// Verify selection was restored to row 1 (TEST-2)
+	// Verify selection was restored to row 1 (TIKI-2)
 	if ta.BoardConfig.GetSelectedRow() != 1 {
 		t.Errorf("selection should be restored to row 1, got %d", ta.BoardConfig.GetSelectedRow())
 	}
@@ -197,7 +197,7 @@ func TestBoardSearch_EscapeFromSearchBox(t *testing.T) {
 	defer ta.Cleanup()
 
 	// Create test task
-	if err := testutil.CreateTestTask(ta.TaskDir, "TEST-1", "First Task", taskpkg.StatusTodo, taskpkg.TypeStory); err != nil {
+	if err := testutil.CreateTestTask(ta.TaskDir, "TIKI-1", "First Task", taskpkg.StatusTodo, taskpkg.TypeStory); err != nil {
 		t.Fatalf("failed to create test task: %v", err)
 	}
 	if err := ta.TaskStore.Reload(); err != nil {
@@ -226,10 +226,10 @@ func TestBoardSearch_EscapeFromSearchBox(t *testing.T) {
 	}
 
 	// Verify task is still visible (no filtering happened)
-	foundTask, _, _ := ta.FindText("TEST-1")
+	foundTask, _, _ := ta.FindText("TIKI-1")
 	if !foundTask {
 		ta.DumpScreen()
-		t.Errorf("TEST-1 should still be visible (search was cancelled)")
+		t.Errorf("TIKI-1 should still be visible (search was cancelled)")
 	}
 }
 
@@ -239,13 +239,13 @@ func TestBoardSearch_MultipleSequentialSearches(t *testing.T) {
 	defer ta.Cleanup()
 
 	// Create test tasks
-	if err := testutil.CreateTestTask(ta.TaskDir, "TEST-1", "Alpha Task", taskpkg.StatusTodo, taskpkg.TypeStory); err != nil {
+	if err := testutil.CreateTestTask(ta.TaskDir, "TIKI-1", "Alpha Task", taskpkg.StatusTodo, taskpkg.TypeStory); err != nil {
 		t.Fatalf("failed to create test task: %v", err)
 	}
-	if err := testutil.CreateTestTask(ta.TaskDir, "TEST-2", "Beta Task", taskpkg.StatusTodo, taskpkg.TypeStory); err != nil {
+	if err := testutil.CreateTestTask(ta.TaskDir, "TIKI-2", "Beta Task", taskpkg.StatusTodo, taskpkg.TypeStory); err != nil {
 		t.Fatalf("failed to create test task: %v", err)
 	}
-	if err := testutil.CreateTestTask(ta.TaskDir, "TEST-3", "Gamma Feature", taskpkg.StatusInProgress, taskpkg.TypeStory); err != nil {
+	if err := testutil.CreateTestTask(ta.TaskDir, "TIKI-3", "Gamma Feature", taskpkg.StatusInProgress, taskpkg.TypeStory); err != nil {
 		t.Fatalf("failed to create test task: %v", err)
 	}
 	if err := ta.TaskStore.Reload(); err != nil {
@@ -261,11 +261,11 @@ func TestBoardSearch_MultipleSequentialSearches(t *testing.T) {
 	ta.SendText("Alpha")
 	ta.SendKey(tcell.KeyEnter, 0, tcell.ModNone)
 
-	// Verify only TEST-1 visible
-	found1, _, _ := ta.FindText("TEST-1")
+	// Verify only TIKI-1 visible
+	found1, _, _ := ta.FindText("TIKI-1")
 	if !found1 {
 		ta.DumpScreen()
-		t.Errorf("TEST-1 should be visible after searching 'Alpha'")
+		t.Errorf("TIKI-1 should be visible after searching 'Alpha'")
 	}
 
 	// Clear search
@@ -276,43 +276,43 @@ func TestBoardSearch_MultipleSequentialSearches(t *testing.T) {
 	ta.SendText("Beta")
 	ta.SendKey(tcell.KeyEnter, 0, tcell.ModNone)
 
-	// Verify only TEST-2 visible
-	found2, _, _ := ta.FindText("TEST-2")
+	// Verify only TIKI-2 visible
+	found2, _, _ := ta.FindText("TIKI-2")
 	if !found2 {
 		ta.DumpScreen()
-		t.Errorf("TEST-2 should be visible after searching 'Beta'")
+		t.Errorf("TIKI-2 should be visible after searching 'Beta'")
 	}
 
-	found1After, _, _ := ta.FindText("TEST-1")
+	found1After, _, _ := ta.FindText("TIKI-1")
 	if found1After {
 		ta.DumpScreen()
-		t.Errorf("TEST-1 should NOT be visible after searching 'Beta'")
+		t.Errorf("TIKI-1 should NOT be visible after searching 'Beta'")
 	}
 
 	// Clear search
 	ta.SendKey(tcell.KeyEscape, 0, tcell.ModNone)
 
-	// Third search: "Task" (matches both TEST-1 and TEST-2)
+	// Third search: "Task" (matches both TIKI-1 and TIKI-2)
 	ta.SendKey(tcell.KeyRune, '/', tcell.ModNone)
 	ta.SendText("Task")
 	ta.SendKey(tcell.KeyEnter, 0, tcell.ModNone)
 
-	// Verify TEST-1 and TEST-2 visible, TEST-3 not visible
-	found1Final, _, _ := ta.FindText("TEST-1")
-	found2Final, _, _ := ta.FindText("TEST-2")
-	found3Final, _, _ := ta.FindText("TEST-3")
+	// Verify TIKI-1 and TIKI-2 visible, TIKI-3 not visible
+	found1Final, _, _ := ta.FindText("TIKI-1")
+	found2Final, _, _ := ta.FindText("TIKI-2")
+	found3Final, _, _ := ta.FindText("TIKI-3")
 
 	if !found1Final {
 		ta.DumpScreen()
-		t.Errorf("TEST-1 should be visible after searching 'Task'")
+		t.Errorf("TIKI-1 should be visible after searching 'Task'")
 	}
 	if !found2Final {
 		ta.DumpScreen()
-		t.Errorf("TEST-2 should be visible after searching 'Task'")
+		t.Errorf("TIKI-2 should be visible after searching 'Task'")
 	}
 	if found3Final {
 		ta.DumpScreen()
-		t.Errorf("TEST-3 should NOT be visible after searching 'Task'")
+		t.Errorf("TIKI-3 should NOT be visible after searching 'Task'")
 	}
 }
 
@@ -322,7 +322,7 @@ func TestBoardSearch_CaseInsensitive(t *testing.T) {
 	defer ta.Cleanup()
 
 	// Create test task with mixed case
-	if err := testutil.CreateTestTask(ta.TaskDir, "TEST-1", "MySpecialTask", taskpkg.StatusTodo, taskpkg.TypeStory); err != nil {
+	if err := testutil.CreateTestTask(ta.TaskDir, "TIKI-1", "MySpecialTask", taskpkg.StatusTodo, taskpkg.TypeStory); err != nil {
 		t.Fatalf("failed to create test task: %v", err)
 	}
 	if err := ta.TaskStore.Reload(); err != nil {
@@ -338,11 +338,11 @@ func TestBoardSearch_CaseInsensitive(t *testing.T) {
 	ta.SendText("special")
 	ta.SendKey(tcell.KeyEnter, 0, tcell.ModNone)
 
-	// Verify TEST-1 is found (case-insensitive match)
-	found, _, _ := ta.FindText("TEST-1")
+	// Verify TIKI-1 is found (case-insensitive match)
+	found, _, _ := ta.FindText("TIKI-1")
 	if !found {
 		ta.DumpScreen()
-		t.Errorf("TEST-1 should be found with case-insensitive search")
+		t.Errorf("TIKI-1 should be found with case-insensitive search")
 	}
 }
 
@@ -352,13 +352,13 @@ func TestBoardSearch_NavigateResults(t *testing.T) {
 	defer ta.Cleanup()
 
 	// Create multiple matching tasks
-	if err := testutil.CreateTestTask(ta.TaskDir, "TEST-1", "Feature A", taskpkg.StatusTodo, taskpkg.TypeStory); err != nil {
+	if err := testutil.CreateTestTask(ta.TaskDir, "TIKI-1", "Feature A", taskpkg.StatusTodo, taskpkg.TypeStory); err != nil {
 		t.Fatalf("failed to create test task: %v", err)
 	}
-	if err := testutil.CreateTestTask(ta.TaskDir, "TEST-2", "Feature B", taskpkg.StatusTodo, taskpkg.TypeStory); err != nil {
+	if err := testutil.CreateTestTask(ta.TaskDir, "TIKI-2", "Feature B", taskpkg.StatusTodo, taskpkg.TypeStory); err != nil {
 		t.Fatalf("failed to create test task: %v", err)
 	}
-	if err := testutil.CreateTestTask(ta.TaskDir, "TEST-3", "Feature C", taskpkg.StatusTodo, taskpkg.TypeStory); err != nil {
+	if err := testutil.CreateTestTask(ta.TaskDir, "TIKI-3", "Feature C", taskpkg.StatusTodo, taskpkg.TypeStory); err != nil {
 		t.Fatalf("failed to create test task: %v", err)
 	}
 	if err := ta.TaskStore.Reload(); err != nil {
@@ -410,10 +410,10 @@ func TestBoardSearch_OpenTaskFromResults(t *testing.T) {
 	defer ta.Cleanup()
 
 	// Create test tasks
-	if err := testutil.CreateTestTask(ta.TaskDir, "TEST-1", "Alpha Task", taskpkg.StatusTodo, taskpkg.TypeStory); err != nil {
+	if err := testutil.CreateTestTask(ta.TaskDir, "TIKI-1", "Alpha Task", taskpkg.StatusTodo, taskpkg.TypeStory); err != nil {
 		t.Fatalf("failed to create test task: %v", err)
 	}
-	if err := testutil.CreateTestTask(ta.TaskDir, "TEST-2", "Beta Task", taskpkg.StatusTodo, taskpkg.TypeStory); err != nil {
+	if err := testutil.CreateTestTask(ta.TaskDir, "TIKI-2", "Beta Task", taskpkg.StatusTodo, taskpkg.TypeStory); err != nil {
 		t.Fatalf("failed to create test task: %v", err)
 	}
 	if err := ta.TaskStore.Reload(); err != nil {
@@ -438,11 +438,11 @@ func TestBoardSearch_OpenTaskFromResults(t *testing.T) {
 		t.Errorf("should be on task detail view, got %v", currentView.ViewID)
 	}
 
-	// Verify TEST-2 is displayed in task detail
-	found, _, _ := ta.FindText("TEST-2")
+	// Verify TIKI-2 is displayed in task detail
+	found, _, _ := ta.FindText("TIKI-2")
 	if !found {
 		ta.DumpScreen()
-		t.Errorf("TEST-2 should be visible in task detail view")
+		t.Errorf("TIKI-2 should be visible in task detail view")
 	}
 }
 
@@ -452,10 +452,10 @@ func TestBoardSearch_SpecialCharacters(t *testing.T) {
 	defer ta.Cleanup()
 
 	// Create task with special characters
-	if err := testutil.CreateTestTask(ta.TaskDir, "TEST-1", "Fix bug #123", taskpkg.StatusTodo, taskpkg.TypeBug); err != nil {
+	if err := testutil.CreateTestTask(ta.TaskDir, "TIKI-1", "Fix bug #123", taskpkg.StatusTodo, taskpkg.TypeBug); err != nil {
 		t.Fatalf("failed to create test task: %v", err)
 	}
-	if err := testutil.CreateTestTask(ta.TaskDir, "TEST-2", "Normal Task", taskpkg.StatusTodo, taskpkg.TypeStory); err != nil {
+	if err := testutil.CreateTestTask(ta.TaskDir, "TIKI-2", "Normal Task", taskpkg.StatusTodo, taskpkg.TypeStory); err != nil {
 		t.Fatalf("failed to create test task: %v", err)
 	}
 	if err := ta.TaskStore.Reload(); err != nil {
@@ -471,18 +471,18 @@ func TestBoardSearch_SpecialCharacters(t *testing.T) {
 	ta.SendText("bug")
 	ta.SendKey(tcell.KeyEnter, 0, tcell.ModNone)
 
-	// Verify TEST-1 is found (contains "bug")
-	found1, _, _ := ta.FindText("TEST-1")
+	// Verify TIKI-1 is found (contains "bug")
+	found1, _, _ := ta.FindText("TIKI-1")
 	if !found1 {
 		ta.DumpScreen()
-		t.Errorf("TEST-1 should be found when searching for 'bug'")
+		t.Errorf("TIKI-1 should be found when searching for 'bug'")
 	}
 
-	// Verify TEST-2 is NOT found
-	found2, _, _ := ta.FindText("TEST-2")
+	// Verify TIKI-2 is NOT found
+	found2, _, _ := ta.FindText("TIKI-2")
 	if found2 {
 		ta.DumpScreen()
-		t.Errorf("TEST-2 should NOT be found when searching for 'bug'")
+		t.Errorf("TIKI-2 should NOT be found when searching for 'bug'")
 	}
 }
 
@@ -492,7 +492,7 @@ func TestBoardSearch_EmptyQuery(t *testing.T) {
 	defer ta.Cleanup()
 
 	// Create test task
-	if err := testutil.CreateTestTask(ta.TaskDir, "TEST-1", "First Task", taskpkg.StatusTodo, taskpkg.TypeStory); err != nil {
+	if err := testutil.CreateTestTask(ta.TaskDir, "TIKI-1", "First Task", taskpkg.StatusTodo, taskpkg.TypeStory); err != nil {
 		t.Fatalf("failed to create test task: %v", err)
 	}
 	if err := ta.TaskStore.Reload(); err != nil {
@@ -510,10 +510,10 @@ func TestBoardSearch_EmptyQuery(t *testing.T) {
 	ta.SendKey(tcell.KeyEnter, 0, tcell.ModNone)
 
 	// Verify task is still visible (no filtering happened)
-	found, _, _ := ta.FindText("TEST-1")
+	found, _, _ := ta.FindText("TIKI-1")
 	if !found {
 		ta.DumpScreen()
-		t.Errorf("TEST-1 should still be visible (empty search ignored)")
+		t.Errorf("TIKI-1 should still be visible (empty search ignored)")
 	}
 
 	// Note: Search box stays open on empty query (expected behavior)

@@ -162,9 +162,11 @@ func TestParsePluginConfig_InvalidKey(t *testing.T) {
 
 func TestParsePluginConfig_DefaultTikiType(t *testing.T) {
 	cfg := pluginFileConfig{
-		Name:   "Test",
-		Key:    "T",
-		Filter: "status='todo'",
+		Name: "Test",
+		Key:  "T",
+		Panes: []PluginPaneConfig{
+			{Name: "Todo", Filter: "status='todo'"},
+		},
 		// Type not specified, should default to "tiki"
 	}
 
@@ -206,11 +208,11 @@ func TestParsePluginConfig_TikiWithInvalidFilter(t *testing.T) {
 
 	_, err := parsePluginConfig(cfg, "test.yaml")
 	if err == nil {
-		t.Fatal("Expected error for invalid filter")
+		t.Fatal("Expected error for invalid top-level filter")
 	}
 
-	if !strings.Contains(err.Error(), "parsing filter") {
-		t.Errorf("Expected 'parsing filter' error, got: %v", err)
+	if !strings.Contains(err.Error(), "tiki plugin cannot have 'filter'") {
+		t.Errorf("Expected 'cannot have filter' error, got: %v", err)
 	}
 }
 
@@ -275,7 +277,10 @@ func TestParsePluginYAML_ValidTiki(t *testing.T) {
 name: Test Plugin
 key: T
 type: tiki
-filter: status = 'todo'
+panes:
+  - name: Todo
+    columns: 4
+    filter: status = 'todo'
 sort: Priority
 view: expanded
 foreground: "#ff0000"
@@ -298,6 +303,14 @@ background: "#0000ff"
 
 	if tikiPlugin.ViewMode != "expanded" {
 		t.Errorf("Expected view mode 'expanded', got %q", tikiPlugin.ViewMode)
+	}
+
+	if len(tikiPlugin.Panes) != 1 {
+		t.Fatalf("Expected 1 pane, got %d", len(tikiPlugin.Panes))
+	}
+
+	if tikiPlugin.Panes[0].Columns != 4 {
+		t.Errorf("Expected pane columns 4, got %d", tikiPlugin.Panes[0].Columns)
 	}
 }
 

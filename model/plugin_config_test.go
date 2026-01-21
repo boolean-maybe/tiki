@@ -23,8 +23,8 @@ func TestNewPluginConfig(t *testing.T) {
 		t.Errorf("initial GetSelectedIndex() = %d, want 0", pc.GetSelectedIndex())
 	}
 
-	if pc.GetColumns() != 4 {
-		t.Errorf("GetColumns() = %d, want 4", pc.GetColumns())
+	if pc.GetColumnsForPane(0) != 4 {
+		t.Errorf("GetColumnsForPane(0) = %d, want 4", pc.GetColumnsForPane(0))
 	}
 
 	if pc.GetViewMode() != ViewModeCompact {

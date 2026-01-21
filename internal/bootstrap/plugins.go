@@ -46,8 +46,15 @@ func BuildPluginConfigsAndDefs(plugins []plugin.Plugin) (map[string]*model.Plugi
 		pc := model.NewPluginConfig(p.GetName())
 		pc.SetConfigIndex(p.GetConfigIndex()) // Pass ConfigIndex for saving view mode changes
 
-		if tp, ok := p.(*plugin.TikiPlugin); ok && tp.ViewMode == "expanded" {
-			pc.SetViewMode("expanded")
+		if tp, ok := p.(*plugin.TikiPlugin); ok {
+			if tp.ViewMode == "expanded" {
+				pc.SetViewMode("expanded")
+			}
+			columns := make([]int, len(tp.Panes))
+			for i, pane := range tp.Panes {
+				columns[i] = pane.Columns
+			}
+			pc.SetPaneLayout(columns)
 		}
 
 		pluginConfigs[p.GetName()] = pc

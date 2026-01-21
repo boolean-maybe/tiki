@@ -153,11 +153,11 @@ func (s *InMemoryStore) GetTasksByStatus(status task.Status) []*task.Task {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
-	targetColumn := task.StatusColumn(status)
+	targetPane := task.StatusPane(status)
 
 	var tasks []*task.Task
 	for _, t := range s.tasks {
-		if task.StatusColumn(t.Status) == targetColumn {
+		if task.StatusPane(t.Status) == targetPane {
 			tasks = append(tasks, t)
 		}
 	}
@@ -171,7 +171,7 @@ func (s *InMemoryStore) GetBacklogTasks() []*task.Task {
 
 	var tasks []*task.Task
 	for _, t := range s.tasks {
-		if task.StatusColumn(t.Status) == task.StatusBacklog {
+		if task.StatusPane(t.Status) == task.StatusBacklog {
 			tasks = append(tasks, t)
 		}
 	}
@@ -188,7 +188,7 @@ func (s *InMemoryStore) SearchBacklog(query string) []task.SearchResult {
 	var results []task.SearchResult
 
 	for _, t := range s.tasks {
-		if task.StatusColumn(t.Status) == task.StatusBacklog {
+		if task.StatusPane(t.Status) == task.StatusBacklog {
 			if query == "" || strings.Contains(strings.ToLower(t.Title), strings.ToLower(query)) {
 				results = append(results, task.SearchResult{Task: t, Score: 1.0})
 			}

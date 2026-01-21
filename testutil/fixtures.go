@@ -11,7 +11,7 @@ import (
 
 // CreateTestTask creates a markdown task file with YAML frontmatter
 func CreateTestTask(dir, id, title string, status task.Status, taskType task.Type) error {
-	// Task files are lowercase (e.g., test-1.md)
+	// Task files are lowercase (e.g., tiki-1.md)
 	filename := strings.ToLower(id) + ".md"
 	filename = strings.ReplaceAll(filename, "-", "-") // already hyphenated
 	filepath := filepath.Join(dir, filename)
@@ -31,7 +31,7 @@ points: 1
 	return os.WriteFile(filepath, []byte(content), 0644)
 }
 
-// CreateBoardTasks creates sample tasks across all board columns
+// CreateBoardTasks creates sample tasks across all board panes
 func CreateBoardTasks(dir string) error {
 	tasks := []struct {
 		id       string
@@ -39,11 +39,11 @@ func CreateBoardTasks(dir string) error {
 		status   task.Status
 		taskType task.Type
 	}{
-		{"TEST-1", "Todo Task", task.StatusTodo, task.TypeStory},
-		{"TEST-2", "In Progress Task", task.StatusInProgress, task.TypeStory},
-		{"TEST-3", "Review Task", task.StatusReview, task.TypeStory},
-		{"TEST-4", "Done Task", task.StatusDone, task.TypeStory},
-		{"TEST-5", "Another Todo", task.StatusTodo, task.TypeBug},
+		{"TIKI-1", "Todo Task", task.StatusTodo, task.TypeStory},
+		{"TIKI-2", "In Progress Task", task.StatusInProgress, task.TypeStory},
+		{"TIKI-3", "Review Task", task.StatusReview, task.TypeStory},
+		{"TIKI-4", "Done Task", task.StatusDone, task.TypeStory},
+		{"TIKI-5", "Another Todo", task.StatusTodo, task.TypeBug},
 	}
 
 	for _, task := range tasks {

@@ -38,3 +38,11 @@ func setAuthorFromGit(task *task.Task, taskStore store.Store) {
 		task.CreatedBy = email
 	}
 }
+
+func getCurrentUserName(taskStore store.Store) string {
+	name, _, err := taskStore.GetCurrentUser()
+	if err != nil {
+		return ""
+	}
+	return name
+}

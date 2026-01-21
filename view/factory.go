@@ -90,7 +90,7 @@ func (f *ViewFactory) CreateView(viewID model.ViewID, params map[string]interfac
 							f.taskStore,
 							pluginConfig,
 							tikiPlugin,
-							tikiController.GetFilteredTasks,
+							tikiController.GetFilteredTasksForPane,
 						)
 					} else {
 						// Fallback if controller type doesn't match

@@ -19,6 +19,10 @@ type ColorConfig struct {
 	BoardColumnTitleText       tcell.Color
 	BoardColumnBorder          tcell.Color
 	BoardColumnTitleGradient   Gradient
+	BoardPaneTitleBackground   tcell.Color
+	BoardPaneTitleText         tcell.Color
+	BoardPaneBorder            tcell.Color
+	BoardPaneTitleGradient     Gradient
 
 	// Task box colors
 	TaskBoxSelectedBackground   tcell.Color
@@ -78,6 +82,13 @@ func DefaultColors() *ColorConfig {
 		BoardColumnTitleText:       tcell.PaletteColor(153), // Sky Blue (ANSI 153)
 		BoardColumnBorder:          tcell.ColorDefault,      // transparent/no border
 		BoardColumnTitleGradient: Gradient{
+			Start: [3]int{25, 25, 112},  // Midnight Blue (center)
+			End:   [3]int{65, 105, 225}, // Royal Blue (edges)
+		},
+		BoardPaneTitleBackground: tcell.ColorNavy,
+		BoardPaneTitleText:       tcell.PaletteColor(153), // Sky Blue (ANSI 153)
+		BoardPaneBorder:          tcell.ColorDefault,      // transparent/no border
+		BoardPaneTitleGradient: Gradient{
 			Start: [3]int{25, 25, 112},  // Midnight Blue (center)
 			End:   [3]int{65, 105, 225}, // Royal Blue (edges)
 		},

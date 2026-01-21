@@ -14,15 +14,15 @@ import (
 	"github.com/gdamore/tcell/v2"
 )
 
-func TestBoardView_ColumnHeadersRender(t *testing.T) {
+func TestBoardView_PaneHeadersRender(t *testing.T) {
 	ta := testutil.NewTestApp(t)
 	defer ta.Cleanup()
 
 	// Create sample tasks
-	if err := testutil.CreateTestTask(ta.TaskDir, "TEST-1", "Task in Todo", taskpkg.StatusTodo, taskpkg.TypeStory); err != nil {
+	if err := testutil.CreateTestTask(ta.TaskDir, "TIKI-1", "Task in Todo", taskpkg.StatusTodo, taskpkg.TypeStory); err != nil {
 		t.Fatalf("failed to create test task: %v", err)
 	}
-	if err := testutil.CreateTestTask(ta.TaskDir, "TEST-2", "Task in Progress", taskpkg.StatusInProgress, taskpkg.TypeStory); err != nil {
+	if err := testutil.CreateTestTask(ta.TaskDir, "TIKI-2", "Task in Progress", taskpkg.StatusInProgress, taskpkg.TypeStory); err != nil {
 		t.Fatalf("failed to create test task: %v", err)
 	}
 	if err := ta.TaskStore.Reload(); err != nil {
@@ -36,24 +36,24 @@ func TestBoardView_ColumnHeadersRender(t *testing.T) {
 	}
 	ta.Draw()
 
-	// Verify column headers appear
-	// Columns may be abbreviated/truncated based on terminal width
+	// Verify pane headers appear
+	// Panes may be abbreviated/truncated based on terminal width
 	// The actual rendering shows: "To", "In", "Revi", "Done" (or similar)
 	tests := []struct {
 		name       string
 		searchText string
 	}{
-		{"todo column", "To"},
-		{"in progress column", "In"},
-		{"review column", "Revi"},
-		{"done column", "Done"},
+		{"todo pane", "To"},
+		{"in progress pane", "In"},
+		{"review pane", "Revi"},
+		{"done pane", "Done"},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			found, _, _ := ta.FindText(tt.searchText)
 			if !found {
-				t.Errorf("column header %q not found on screen", tt.searchText)
+				t.Errorf("pane header %q not found on screen", tt.searchText)
 			}
 		})
 	}
@@ -63,14 +63,14 @@ func TestBoardView_ArrowKeyNavigation(t *testing.T) {
 	ta := testutil.NewTestApp(t)
 	defer ta.Cleanup()
 
-	// Create 3 tasks in todo column
-	if err := testutil.CreateTestTask(ta.TaskDir, "TEST-1", "First Task", taskpkg.StatusTodo, taskpkg.TypeStory); err != nil {
+	// Create 3 tasks in todo pane
+	if err := testutil.CreateTestTask(ta.TaskDir, "TIKI-1", "First Task", taskpkg.StatusTodo, taskpkg.TypeStory); err != nil {
 		t.Fatalf("failed to create test task: %v", err)
 	}
-	if err := testutil.CreateTestTask(ta.TaskDir, "TEST-2", "Second Task", taskpkg.StatusTodo, taskpkg.TypeStory); err != nil {
+	if err := testutil.CreateTestTask(ta.TaskDir, "TIKI-2", "Second Task", taskpkg.StatusTodo, taskpkg.TypeStory); err != nil {
 		t.Fatalf("failed to create test task: %v", err)
 	}
-	if err := testutil.CreateTestTask(ta.TaskDir, "TEST-3", "Third Task", taskpkg.StatusTodo, taskpkg.TypeStory); err != nil {
+	if err := testutil.CreateTestTask(ta.TaskDir, "TIKI-3", "Third Task", taskpkg.StatusTodo, taskpkg.TypeStory); err != nil {
 		t.Fatalf("failed to create test task: %v", err)
 	}
 	if err := ta.TaskStore.Reload(); err != nil {
@@ -82,19 +82,19 @@ func TestBoardView_ArrowKeyNavigation(t *testing.T) {
 	// Draw to render the board with tasks
 	ta.Draw()
 
-	// Initial state: TEST-1 should be selected (verify by finding it on screen)
-	found, _, _ := ta.FindText("TEST-1")
+	// Initial state: TIKI-1 should be selected (verify by finding it on screen)
+	found, _, _ := ta.FindText("TIKI-1")
 	if !found {
-		t.Fatalf("initial task TEST-1 not found")
+		t.Fatalf("initial task TIKI-1 not found")
 	}
 
 	// Press Down arrow
 	ta.SendKey(tcell.KeyDown, 0, tcell.ModNone)
 
-	// Verify TEST-2 visible (selection moved down)
-	found, _, _ = ta.FindText("TEST-2")
+	// Verify TIKI-2 visible (selection moved down)
+	found, _, _ = ta.FindText("TIKI-2")
 	if !found {
-		t.Errorf("after Down arrow, TEST-2 not found")
+		t.Errorf("after Down arrow, TIKI-2 not found")
 	}
 
 	// Verify board config selection changed to row 1
@@ -106,10 +106,10 @@ func TestBoardView_ArrowKeyNavigation(t *testing.T) {
 	// Press Down arrow again to move to row 2
 	ta.SendKey(tcell.KeyDown, 0, tcell.ModNone)
 
-	// Verify TEST-3 visible (selection moved down)
-	found, _, _ = ta.FindText("TEST-3")
+	// Verify TIKI-3 visible (selection moved down)
+	found, _, _ = ta.FindText("TIKI-3")
 	if !found {
-		t.Errorf("after second Down arrow, TEST-3 not found")
+		t.Errorf("after second Down arrow, TIKI-3 not found")
 	}
 
 	// Verify board config selection changed to row 2
@@ -123,8 +123,8 @@ func TestBoardView_MoveTaskWithShiftArrow(t *testing.T) {
 	ta := testutil.NewTestApp(t)
 	defer ta.Cleanup()
 
-	// Create task in todo column
-	taskID := "TEST-1"
+	// Create task in todo pane
+	taskID := "TIKI-1"
 	if err := testutil.CreateTestTask(ta.TaskDir, taskID, "Task to Move", taskpkg.StatusTodo, taskpkg.TypeStory); err != nil {
 		t.Fatalf("failed to create test task: %v", err)
 	}
@@ -137,13 +137,13 @@ func TestBoardView_MoveTaskWithShiftArrow(t *testing.T) {
 	// Draw to render the board with tasks
 	ta.Draw()
 
-	// Verify task starts in TODO column
-	found, _, _ := ta.FindText("TEST-1")
+	// Verify task starts in TODO pane
+	found, _, _ := ta.FindText("TIKI-1")
 	if !found {
-		t.Fatalf("task TEST-1 not found initially")
+		t.Fatalf("task TIKI-1 not found initially")
 	}
 
-	// Press Shift+Right to move to next column
+	// Press Shift+Right to move to next pane
 	ta.SendKey(tcell.KeyRight, 0, tcell.ModShift)
 
 	// Reload tasks from disk
@@ -161,7 +161,7 @@ func TestBoardView_MoveTaskWithShiftArrow(t *testing.T) {
 	}
 
 	// Verify file on disk was updated
-	taskPath := filepath.Join(ta.TaskDir, "test-1.md")
+	taskPath := filepath.Join(ta.TaskDir, "tiki-1.md")
 	content, err := os.ReadFile(taskPath)
 	if err != nil {
 		t.Fatalf("failed to read task file: %v", err)
@@ -172,7 +172,7 @@ func TestBoardView_MoveTaskWithShiftArrow(t *testing.T) {
 }
 
 // ============================================================================
-// Phase 3: View Mode Toggle and Column Navigation Tests
+// Phase 3: View Mode Toggle and Pane Navigation Tests
 // ============================================================================
 
 // TestBoardView_ViewModeToggle verifies 'v' key toggles view mode
@@ -181,7 +181,7 @@ func TestBoardView_ViewModeToggle(t *testing.T) {
 	defer ta.Cleanup()
 
 	// Create task
-	if err := testutil.CreateTestTask(ta.TaskDir, "TEST-1", "Task 1", taskpkg.StatusTodo, taskpkg.TypeStory); err != nil {
+	if err := testutil.CreateTestTask(ta.TaskDir, "TIKI-1", "Task 1", taskpkg.StatusTodo, taskpkg.TypeStory); err != nil {
 		t.Fatalf("failed to create test task: %v", err)
 	}
 	if err := ta.TaskStore.Reload(); err != nil {
@@ -223,7 +223,7 @@ func TestBoardView_ViewModeTogglePreservesSelection(t *testing.T) {
 
 	// Create multiple tasks
 	for i := 1; i <= 3; i++ {
-		taskID := "TEST-" + string(rune('0'+i))
+		taskID := "TIKI-" + string(rune('0'+i))
 		if err := testutil.CreateTestTask(ta.TaskDir, taskID, "Task "+string(rune('0'+i)), taskpkg.StatusTodo, taskpkg.TypeStory); err != nil {
 			t.Fatalf("failed to create test task: %v", err)
 		}
@@ -241,7 +241,7 @@ func TestBoardView_ViewModeTogglePreservesSelection(t *testing.T) {
 
 	// Get selected row before toggle
 	selectedRowBefore := ta.BoardConfig.GetSelectedRow()
-	selectedColBefore := ta.BoardConfig.GetSelectedColumnID()
+	selectedPaneBefore := ta.BoardConfig.GetSelectedPaneID()
 
 	if selectedRowBefore != 1 {
 		t.Fatalf("expected row 1, got %d", selectedRowBefore)
@@ -252,29 +252,29 @@ func TestBoardView_ViewModeTogglePreservesSelection(t *testing.T) {
 
 	// Verify selection preserved
 	selectedRowAfter := ta.BoardConfig.GetSelectedRow()
-	selectedColAfter := ta.BoardConfig.GetSelectedColumnID()
+	selectedPaneAfter := ta.BoardConfig.GetSelectedPaneID()
 
 	if selectedRowAfter != selectedRowBefore {
 		t.Errorf("selected row = %d, want %d (should be preserved)", selectedRowAfter, selectedRowBefore)
 	}
-	if selectedColAfter != selectedColBefore {
-		t.Errorf("selected column = %s, want %s (should be preserved)", selectedColAfter, selectedColBefore)
+	if selectedPaneAfter != selectedPaneBefore {
+		t.Errorf("selected pane = %s, want %s (should be preserved)", selectedPaneAfter, selectedPaneBefore)
 	}
 }
 
-// TestBoardView_LeftRightArrowMovesBetweenColumns verifies column navigation
-func TestBoardView_LeftRightArrowMovesBetweenColumns(t *testing.T) {
+// TestBoardView_LeftRightArrowMovesBetweenPanes verifies pane navigation
+func TestBoardView_LeftRightArrowMovesBetweenPanes(t *testing.T) {
 	ta := testutil.NewTestApp(t)
 	defer ta.Cleanup()
 
-	// Create tasks in different columns
-	if err := testutil.CreateTestTask(ta.TaskDir, "TEST-1", "Todo Task", taskpkg.StatusTodo, taskpkg.TypeStory); err != nil {
+	// Create tasks in different panes
+	if err := testutil.CreateTestTask(ta.TaskDir, "TIKI-1", "Todo Task", taskpkg.StatusTodo, taskpkg.TypeStory); err != nil {
 		t.Fatalf("failed to create test task: %v", err)
 	}
-	if err := testutil.CreateTestTask(ta.TaskDir, "TEST-2", "In Progress Task", taskpkg.StatusInProgress, taskpkg.TypeStory); err != nil {
+	if err := testutil.CreateTestTask(ta.TaskDir, "TIKI-2", "In Progress Task", taskpkg.StatusInProgress, taskpkg.TypeStory); err != nil {
 		t.Fatalf("failed to create test task: %v", err)
 	}
-	if err := testutil.CreateTestTask(ta.TaskDir, "TEST-3", "Review Task", taskpkg.StatusReview, taskpkg.TypeStory); err != nil {
+	if err := testutil.CreateTestTask(ta.TaskDir, "TIKI-3", "Review Task", taskpkg.StatusReview, taskpkg.TypeStory); err != nil {
 		t.Fatalf("failed to create test task: %v", err)
 	}
 	if err := ta.TaskStore.Reload(); err != nil {
@@ -285,54 +285,54 @@ func TestBoardView_LeftRightArrowMovesBetweenColumns(t *testing.T) {
 	ta.NavController.PushView(model.BoardViewID, nil)
 	ta.Draw()
 
-	// Initial column should be col-todo
-	if ta.BoardConfig.GetSelectedColumnID() != "col-todo" {
-		t.Fatalf("expected initial column col-todo, got %s", ta.BoardConfig.GetSelectedColumnID())
+	// Initial pane should be col-todo
+	if ta.BoardConfig.GetSelectedPaneID() != "col-todo" {
+		t.Fatalf("expected initial pane col-todo, got %s", ta.BoardConfig.GetSelectedPaneID())
 	}
 
-	// Press Right arrow to move to in_progress column
+	// Press Right arrow to move to in_progress pane
 	ta.SendKey(tcell.KeyRight, 0, tcell.ModNone)
 
 	// Verify moved to col-progress
-	if ta.BoardConfig.GetSelectedColumnID() != "col-progress" {
-		t.Errorf("selected column = %s, want col-progress", ta.BoardConfig.GetSelectedColumnID())
+	if ta.BoardConfig.GetSelectedPaneID() != "col-progress" {
+		t.Errorf("selected pane = %s, want col-progress", ta.BoardConfig.GetSelectedPaneID())
 	}
 
-	// Press Right arrow again to move to review column
+	// Press Right arrow again to move to review pane
 	ta.SendKey(tcell.KeyRight, 0, tcell.ModNone)
 
 	// Verify moved to col-review
-	if ta.BoardConfig.GetSelectedColumnID() != "col-review" {
-		t.Errorf("selected column = %s, want col-review", ta.BoardConfig.GetSelectedColumnID())
+	if ta.BoardConfig.GetSelectedPaneID() != "col-review" {
+		t.Errorf("selected pane = %s, want col-review", ta.BoardConfig.GetSelectedPaneID())
 	}
 
 	// Press Left arrow to move back to in_progress
 	ta.SendKey(tcell.KeyLeft, 0, tcell.ModNone)
 
 	// Verify moved back to col-progress
-	if ta.BoardConfig.GetSelectedColumnID() != "col-progress" {
-		t.Errorf("selected column = %s, want col-progress", ta.BoardConfig.GetSelectedColumnID())
+	if ta.BoardConfig.GetSelectedPaneID() != "col-progress" {
+		t.Errorf("selected pane = %s, want col-progress", ta.BoardConfig.GetSelectedPaneID())
 	}
 
 	// Press Left arrow again to move back to todo
 	ta.SendKey(tcell.KeyLeft, 0, tcell.ModNone)
 
 	// Verify moved back to col-todo
-	if ta.BoardConfig.GetSelectedColumnID() != "col-todo" {
-		t.Errorf("selected column = %s, want col-todo", ta.BoardConfig.GetSelectedColumnID())
+	if ta.BoardConfig.GetSelectedPaneID() != "col-todo" {
+		t.Errorf("selected pane = %s, want col-todo", ta.BoardConfig.GetSelectedPaneID())
 	}
 }
 
-// TestBoardView_NavigateToEmptyColumn verifies navigation skips or handles empty columns
-func TestBoardView_NavigateToEmptyColumn(t *testing.T) {
+// TestBoardView_NavigateToEmptyPane verifies navigation skips or handles empty panes
+func TestBoardView_NavigateToEmptyPane(t *testing.T) {
 	ta := testutil.NewTestApp(t)
 	defer ta.Cleanup()
 
-	// Create task only in todo column (leave in_progress empty)
-	if err := testutil.CreateTestTask(ta.TaskDir, "TEST-1", "Todo Task", taskpkg.StatusTodo, taskpkg.TypeStory); err != nil {
+	// Create task only in todo pane (leave in_progress empty)
+	if err := testutil.CreateTestTask(ta.TaskDir, "TIKI-1", "Todo Task", taskpkg.StatusTodo, taskpkg.TypeStory); err != nil {
 		t.Fatalf("failed to create test task: %v", err)
 	}
-	if err := testutil.CreateTestTask(ta.TaskDir, "TEST-2", "Review Task", taskpkg.StatusReview, taskpkg.TypeStory); err != nil {
+	if err := testutil.CreateTestTask(ta.TaskDir, "TIKI-2", "Review Task", taskpkg.StatusReview, taskpkg.TypeStory); err != nil {
 		t.Fatalf("failed to create test task: %v", err)
 	}
 	if err := ta.TaskStore.Reload(); err != nil {
@@ -343,34 +343,34 @@ func TestBoardView_NavigateToEmptyColumn(t *testing.T) {
 	ta.NavController.PushView(model.BoardViewID, nil)
 	ta.Draw()
 
-	// Start at todo column
-	if ta.BoardConfig.GetSelectedColumnID() != "col-todo" {
-		t.Fatalf("expected initial column col-todo, got %s", ta.BoardConfig.GetSelectedColumnID())
+	// Start at todo pane
+	if ta.BoardConfig.GetSelectedPaneID() != "col-todo" {
+		t.Fatalf("expected initial pane col-todo, got %s", ta.BoardConfig.GetSelectedPaneID())
 	}
 
-	// Press Right arrow to move to in_progress column (empty)
+	// Press Right arrow to move to in_progress pane (empty)
 	ta.SendKey(tcell.KeyRight, 0, tcell.ModNone)
 
-	// Verify moved to a valid column (implementation may skip empty or stay)
-	selectedColumn := ta.BoardConfig.GetSelectedColumnID()
-	validCols := map[string]bool{"col-todo": true, "col-progress": true, "col-review": true, "col-done": true}
-	if !validCols[selectedColumn] {
-		t.Errorf("selected column %s should be valid", selectedColumn)
+	// Verify moved to a valid pane (implementation may skip empty or stay)
+	selectedPane := ta.BoardConfig.GetSelectedPaneID()
+	validPanes := map[string]bool{"col-todo": true, "col-progress": true, "col-review": true, "col-done": true}
+	if !validPanes[selectedPane] {
+		t.Errorf("selected pane %s should be valid", selectedPane)
 	}
 
-	// Verify selection row is valid (0 in empty column)
+	// Verify selection row is valid (0 in empty pane)
 	selectedRow := ta.BoardConfig.GetSelectedRow()
 	if selectedRow < 0 {
 		t.Errorf("selected row %d should be non-negative", selectedRow)
 	}
 }
 
-// TestBoardView_MultipleColumnsNavigation verifies full column traversal
-func TestBoardView_MultipleColumnsNavigation(t *testing.T) {
+// TestBoardView_MultiplePanesNavigation verifies full pane traversal
+func TestBoardView_MultiplePanesNavigation(t *testing.T) {
 	ta := testutil.NewTestApp(t)
 	defer ta.Cleanup()
 
-	// Create tasks in all columns
+	// Create tasks in all panes
 	statuses := []taskpkg.Status{
 		taskpkg.StatusTodo,
 		taskpkg.StatusInProgress,
@@ -379,7 +379,7 @@ func TestBoardView_MultipleColumnsNavigation(t *testing.T) {
 	}
 
 	for i, status := range statuses {
-		taskID := "TEST-" + string(rune('1'+i))
+		taskID := "TIKI-" + string(rune('1'+i))
 		if err := testutil.CreateTestTask(ta.TaskDir, taskID, "Task "+string(rune('1'+i)), status, taskpkg.TypeStory); err != nil {
 			t.Fatalf("failed to create test task: %v", err)
 		}
@@ -392,24 +392,24 @@ func TestBoardView_MultipleColumnsNavigation(t *testing.T) {
 	ta.NavController.PushView(model.BoardViewID, nil)
 	ta.Draw()
 
-	// Navigate through all columns with Right arrow
-	expectedCols := []string{"col-todo", "col-progress", "col-review", "col-done"}
-	for i, expectedCol := range expectedCols {
-		actualCol := ta.BoardConfig.GetSelectedColumnID()
-		if actualCol != expectedCol {
-			t.Errorf("after %d Right presses, column = %s, want %s", i, actualCol, expectedCol)
+	// Navigate through all panes with Right arrow
+	expectedPanes := []string{"col-todo", "col-progress", "col-review", "col-done"}
+	for i, expectedPane := range expectedPanes {
+		actualPane := ta.BoardConfig.GetSelectedPaneID()
+		if actualPane != expectedPane {
+			t.Errorf("after %d Right presses, pane = %s, want %s", i, actualPane, expectedPane)
 		}
 		if i < 3 {
 			ta.SendKey(tcell.KeyRight, 0, tcell.ModNone)
 		}
 	}
 
-	// Navigate back through all columns with Left arrow
-	reversedCols := []string{"col-done", "col-review", "col-progress", "col-todo"}
-	for i, expectedCol := range reversedCols {
-		actualCol := ta.BoardConfig.GetSelectedColumnID()
-		if actualCol != expectedCol {
-			t.Errorf("after %d Left presses, column = %s, want %s", i, actualCol, expectedCol)
+	// Navigate back through all panes with Left arrow
+	reversedPanes := []string{"col-done", "col-review", "col-progress", "col-todo"}
+	for i, expectedPane := range reversedPanes {
+		actualPane := ta.BoardConfig.GetSelectedPaneID()
+		if actualPane != expectedPane {
+			t.Errorf("after %d Left presses, pane = %s, want %s", i, actualPane, expectedPane)
 		}
 		if i < 3 {
 			ta.SendKey(tcell.KeyLeft, 0, tcell.ModNone)

@@ -9,14 +9,14 @@ import (
 func TestBoardConfig_Initialization(t *testing.T) {
 	config := NewBoardConfig()
 
-	// Verify default columns exist
-	columns := config.GetColumns()
-	if len(columns) != 4 {
-		t.Fatalf("column count = %d, want 4", len(columns))
+	// Verify default panes exist
+	panes := config.GetPanes()
+	if len(panes) != 4 {
+		t.Fatalf("pane count = %d, want 4", len(panes))
 	}
 
-	// Verify column order
-	expectedColumns := []struct {
+	// Verify pane order
+	expectedPanes := []struct {
 		id     string
 		name   string
 		status string
@@ -28,67 +28,67 @@ func TestBoardConfig_Initialization(t *testing.T) {
 		{"col-done", "Done", string(task.StatusDone), 3},
 	}
 
-	for i, expected := range expectedColumns {
-		col := columns[i]
-		if col.ID != expected.id {
-			t.Errorf("columns[%d].ID = %q, want %q", i, col.ID, expected.id)
+	for i, expected := range expectedPanes {
+		pane := panes[i]
+		if pane.ID != expected.id {
+			t.Errorf("panes[%d].ID = %q, want %q", i, pane.ID, expected.id)
 		}
-		if col.Name != expected.name {
-			t.Errorf("columns[%d].Name = %q, want %q", i, col.Name, expected.name)
+		if pane.Name != expected.name {
+			t.Errorf("panes[%d].Name = %q, want %q", i, pane.Name, expected.name)
 		}
-		if col.Status != expected.status {
-			t.Errorf("columns[%d].Status = %q, want %q", i, col.Status, expected.status)
+		if pane.Status != expected.status {
+			t.Errorf("panes[%d].Status = %q, want %q", i, pane.Status, expected.status)
 		}
-		if col.Position != expected.pos {
-			t.Errorf("columns[%d].Position = %d, want %d", i, col.Position, expected.pos)
+		if pane.Position != expected.pos {
+			t.Errorf("panes[%d].Position = %d, want %d", i, pane.Position, expected.pos)
 		}
 	}
 
-	// Verify first column is selected by default
-	if config.GetSelectedColumnID() != "col-todo" {
-		t.Errorf("default selected column = %q, want %q", config.GetSelectedColumnID(), "col-todo")
+	// Verify first pane is selected by default
+	if config.GetSelectedPaneID() != "col-todo" {
+		t.Errorf("default selected pane = %q, want %q", config.GetSelectedPaneID(), "col-todo")
 	}
 }
 
-func TestBoardConfig_ColumnLookup(t *testing.T) {
+func TestBoardConfig_PaneLookup(t *testing.T) {
 	config := NewBoardConfig()
 
-	// Test GetColumnByID
-	col := config.GetColumnByID("col-progress")
-	if col == nil {
-		t.Fatal("GetColumnByID(col-progress) returned nil")
+	// Test GetPaneByID
+	pane := config.GetPaneByID("col-progress")
+	if pane == nil {
+		t.Fatal("GetPaneByID(col-progress) returned nil")
 	}
-	if col.Name != "In Progress" {
-		t.Errorf("column name = %q, want %q", col.Name, "In Progress")
+	if pane.Name != "In Progress" {
+		t.Errorf("pane name = %q, want %q", pane.Name, "In Progress")
 	}
 
 	// Test non-existent ID
-	col = config.GetColumnByID("non-existent")
-	if col != nil {
-		t.Error("GetColumnByID(non-existent) should return nil")
+	pane = config.GetPaneByID("non-existent")
+	if pane != nil {
+		t.Error("GetPaneByID(non-existent) should return nil")
 	}
 
-	// Test GetColumnByStatus
-	col = config.GetColumnByStatus(task.StatusReview)
-	if col == nil {
-		t.Fatal("GetColumnByStatus(review) returned nil")
+	// Test GetPaneByStatus
+	pane = config.GetPaneByStatus(task.StatusReview)
+	if pane == nil {
+		t.Fatal("GetPaneByStatus(review) returned nil")
 	}
-	if col.ID != "col-review" {
-		t.Errorf("column ID = %q, want %q", col.ID, "col-review")
-	}
-
-	col = config.GetColumnByStatus(task.StatusWaiting)
-	if col == nil {
-		t.Fatal("GetColumnByStatus(waiting) returned nil")
-	}
-	if col.ID != "col-review" {
-		t.Errorf("column ID = %q, want %q", col.ID, "col-review")
+	if pane.ID != "col-review" {
+		t.Errorf("pane ID = %q, want %q", pane.ID, "col-review")
 	}
 
-	// Test non-mapped status (backlog not in default columns)
-	col = config.GetColumnByStatus(task.StatusBacklog)
-	if col != nil {
-		t.Error("GetColumnByStatus(backlog) should return nil for unmapped status")
+	pane = config.GetPaneByStatus(task.StatusWaiting)
+	if pane == nil {
+		t.Fatal("GetPaneByStatus(waiting) returned nil")
+	}
+	if pane.ID != "col-review" {
+		t.Errorf("pane ID = %q, want %q", pane.ID, "col-review")
+	}
+
+	// Test non-mapped status (backlog not in default panes)
+	pane = config.GetPaneByStatus(task.StatusBacklog)
+	if pane != nil {
+		t.Error("GetPaneByStatus(backlog) should return nil for unmapped status")
 	}
 }
 
@@ -107,25 +107,25 @@ func TestBoardConfig_StatusMapping(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.colID, func(t *testing.T) {
-			status := config.GetStatusForColumn(tt.colID)
+			status := config.GetStatusForPane(tt.colID)
 			if status != tt.expected {
-				t.Errorf("GetStatusForColumn(%q) = %q, want %q", tt.colID, status, tt.expected)
+				t.Errorf("GetStatusForPane(%q) = %q, want %q", tt.colID, status, tt.expected)
 			}
 		})
 	}
 
-	// Test unmapped column
-	status := config.GetStatusForColumn("non-existent")
+	// Test unmapped pane
+	status := config.GetStatusForPane("non-existent")
 	if status != "" {
-		t.Errorf("GetStatusForColumn(non-existent) = %q, want empty string", status)
+		t.Errorf("GetStatusForPane(non-existent) = %q, want empty string", status)
 	}
 }
 
 func TestBoardConfig_MoveSelectionLeft(t *testing.T) {
 	config := NewBoardConfig()
 
-	// Start at second column
-	config.SetSelectedColumn("col-progress")
+	// Start at second pane
+	config.SetSelectedPane("col-progress")
 	config.SetSelectedRow(5)
 
 	// Move left should succeed and reset row to 0
@@ -133,8 +133,8 @@ func TestBoardConfig_MoveSelectionLeft(t *testing.T) {
 	if !moved {
 		t.Error("MoveSelectionLeft() returned false, want true")
 	}
-	if config.GetSelectedColumnID() != "col-todo" {
-		t.Errorf("selected column = %q, want %q", config.GetSelectedColumnID(), "col-todo")
+	if config.GetSelectedPaneID() != "col-todo" {
+		t.Errorf("selected pane = %q, want %q", config.GetSelectedPaneID(), "col-todo")
 	}
 	if config.GetSelectedRow() != 0 {
 		t.Errorf("selected row = %d, want 0", config.GetSelectedRow())
@@ -145,15 +145,15 @@ func TestBoardConfig_MoveSelectionLeft(t *testing.T) {
 	if moved {
 		t.Error("MoveSelectionLeft() at leftmost returned true, want false")
 	}
-	if config.GetSelectedColumnID() != "col-todo" {
-		t.Error("column should not change when blocked")
+	if config.GetSelectedPaneID() != "col-todo" {
+		t.Error("pane should not change when blocked")
 	}
 }
 
 func TestBoardConfig_MoveSelectionRight(t *testing.T) {
 	config := NewBoardConfig()
 
-	// Start at first column (default)
+	// Start at first pane (default)
 	config.SetSelectedRow(3)
 
 	// Move right should succeed and reset row to 0
@@ -161,8 +161,8 @@ func TestBoardConfig_MoveSelectionRight(t *testing.T) {
 	if !moved {
 		t.Error("MoveSelectionRight() returned false, want true")
 	}
-	if config.GetSelectedColumnID() != "col-progress" {
-		t.Errorf("selected column = %q, want %q", config.GetSelectedColumnID(), "col-progress")
+	if config.GetSelectedPaneID() != "col-progress" {
+		t.Errorf("selected pane = %q, want %q", config.GetSelectedPaneID(), "col-progress")
 	}
 	if config.GetSelectedRow() != 0 {
 		t.Errorf("selected row = %d, want 0", config.GetSelectedRow())
@@ -177,12 +177,12 @@ func TestBoardConfig_MoveSelectionRight(t *testing.T) {
 	if moved {
 		t.Error("MoveSelectionRight() at rightmost returned true, want false")
 	}
-	if config.GetSelectedColumnID() != "col-done" {
-		t.Error("column should not change when blocked")
+	if config.GetSelectedPaneID() != "col-done" {
+		t.Error("pane should not change when blocked")
 	}
 }
 
-func TestBoardConfig_GetNextColumnID(t *testing.T) {
+func TestBoardConfig_GetNextPaneID(t *testing.T) {
 	config := NewBoardConfig()
 
 	tests := []struct {
@@ -199,15 +199,15 @@ func TestBoardConfig_GetNextColumnID(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result := config.GetNextColumnID(tt.colID)
+			result := config.GetNextPaneID(tt.colID)
 			if result != tt.expected {
-				t.Errorf("GetNextColumnID(%q) = %q, want %q", tt.colID, result, tt.expected)
+				t.Errorf("GetNextPaneID(%q) = %q, want %q", tt.colID, result, tt.expected)
 			}
 		})
 	}
 }
 
-func TestBoardConfig_GetPreviousColumnID(t *testing.T) {
+func TestBoardConfig_GetPreviousPaneID(t *testing.T) {
 	config := NewBoardConfig()
 
 	tests := []struct {
@@ -224,9 +224,9 @@ func TestBoardConfig_GetPreviousColumnID(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result := config.GetPreviousColumnID(tt.colID)
+			result := config.GetPreviousPaneID(tt.colID)
 			if result != tt.expected {
-				t.Errorf("GetPreviousColumnID(%q) = %q, want %q", tt.colID, result, tt.expected)
+				t.Errorf("GetPreviousPaneID(%q) = %q, want %q", tt.colID, result, tt.expected)
 			}
 		})
 	}
@@ -247,8 +247,8 @@ func TestBoardConfig_SetSelectionAtomicity(t *testing.T) {
 	if notificationCount != 1 {
 		t.Errorf("SetSelection triggered %d notifications, want 1", notificationCount)
 	}
-	if config.GetSelectedColumnID() != "col-review" {
-		t.Errorf("column = %q, want col-review", config.GetSelectedColumnID())
+	if config.GetSelectedPaneID() != "col-review" {
+		t.Errorf("pane = %q, want col-review", config.GetSelectedPaneID())
 	}
 	if config.GetSelectedRow() != 7 {
 		t.Errorf("row = %d, want 7", config.GetSelectedRow())
@@ -256,7 +256,7 @@ func TestBoardConfig_SetSelectionAtomicity(t *testing.T) {
 
 	// Separate calls should trigger two notifications
 	notificationCount = 0
-	config.SetSelectedColumn("col-done")
+	config.SetSelectedPane("col-done")
 	config.SetSelectedRow(3)
 	if notificationCount != 2 {
 		t.Errorf("separate calls triggered %d notifications, want 2", notificationCount)
@@ -299,11 +299,11 @@ func TestBoardConfig_ListenerNotification(t *testing.T) {
 	}
 	listenerID := config.AddSelectionListener(listener)
 
-	// Test SetSelectedColumn
+	// Test SetSelectedPane
 	notified = false
-	config.SetSelectedColumn("col-progress")
+	config.SetSelectedPane("col-progress")
 	if !notified {
-		t.Error("SetSelectedColumn() did not trigger listener")
+		t.Error("SetSelectedPane() did not trigger listener")
 	}
 
 	// Test SetSelectedRow
@@ -351,7 +351,7 @@ func TestBoardConfig_MultipleListeners(t *testing.T) {
 	id2 := config.AddSelectionListener(listener2)
 
 	// Both should be notified
-	config.SetSelectedColumn("col-review")
+	config.SetSelectedPane("col-review")
 	if count1 != 1 {
 		t.Errorf("listener1 count = %d, want 1", count1)
 	}
@@ -363,7 +363,7 @@ func TestBoardConfig_MultipleListeners(t *testing.T) {
 	config.RemoveSelectionListener(id2)
 
 	// Only first should be notified
-	config.SetSelectedColumn("col-done")
+	config.SetSelectedPane("col-done")
 	if count1 != 2 {
 		t.Errorf("listener1 count = %d, want 2", count1)
 	}

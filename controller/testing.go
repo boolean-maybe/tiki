@@ -21,7 +21,7 @@ func newMockNavigationController() *NavigationController {
 // newTestTask creates a test task with default values
 func newTestTask() *task.Task {
 	return &task.Task{
-		ID:       "TEST-1",
+		ID:       "TIKI-1",
 		Title:    "Test Task",
 		Status:   task.StatusTodo,
 		Type:     task.TypeStory,

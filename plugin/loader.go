@@ -148,6 +148,7 @@ func loadPluginFromRef(ref PluginRef, baseDir string) (Plugin, error) {
 			Fetcher:    ref.Fetcher,
 			Text:       ref.Text,
 			URL:        ref.URL,
+			Panes:      ref.Panes,
 		}
 		source = "inline:" + ref.Name
 	}
