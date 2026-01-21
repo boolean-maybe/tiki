@@ -6,6 +6,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
+	"sync"
 	"time"
 )
 
@@ -13,6 +14,12 @@ import (
 type Util struct {
 	repoPath    string
 	cachedUsers []string // cached list of all users from git history
+
+	currentUserMu     sync.Mutex
+	currentUserCached bool
+	currentUserName   string
+	currentUserEmail  string
+	currentUserErr    error
 }
 
 // NewUtil creates a new Util instance; repoPath defaults to cwd

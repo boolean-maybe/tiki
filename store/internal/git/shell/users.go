@@ -20,6 +20,16 @@ type AuthorInfo struct {
 
 // CurrentUser returns the current git user's name and email
 func (u *Util) CurrentUser() (name string, email string, err error) {
+	u.currentUserMu.Lock()
+	if u.currentUserCached {
+		name = u.currentUserName
+		email = u.currentUserEmail
+		err = u.currentUserErr
+		u.currentUserMu.Unlock()
+		return name, email, err
+	}
+	u.currentUserMu.Unlock()
+
 	nameCmd := exec.Command("git", "config", "user.name")
 	nameCmd.Dir = u.repoPath
 	if nameBytes, err := nameCmd.Output(); err == nil {
@@ -47,9 +57,22 @@ func (u *Util) CurrentUser() (name string, email string, err error) {
 	}
 
 	if name == "" && email == "" {
-		return "", "", errors.New("git user not configured (user.name and user.email are empty)")
+		err = errors.New("git user not configured (user.name and user.email are empty)")
+		u.currentUserMu.Lock()
+		u.currentUserName = name
+		u.currentUserEmail = email
+		u.currentUserErr = err
+		u.currentUserCached = true
+		u.currentUserMu.Unlock()
+		return "", "", err
 	}
 
+	u.currentUserMu.Lock()
+	u.currentUserName = name
+	u.currentUserEmail = email
+	u.currentUserErr = nil
+	u.currentUserCached = true
+	u.currentUserMu.Unlock()
 	return name, email, nil
 }
 
