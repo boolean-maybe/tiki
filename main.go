@@ -2,6 +2,7 @@ package main
 
 import (
 	_ "embed"
+	"errors"
 	"fmt"
 	"log/slog"
 	"os"
@@ -9,6 +10,7 @@ import (
 	"github.com/boolean-maybe/tiki/config"
 	"github.com/boolean-maybe/tiki/internal/app"
 	"github.com/boolean-maybe/tiki/internal/bootstrap"
+	"github.com/boolean-maybe/tiki/internal/viewer"
 )
 
 //go:embed ai/skills/tiki/SKILL.md
@@ -24,6 +26,24 @@ func main() {
 		fmt.Printf("tiki version %s\ncommit: %s\nbuilt: %s\n",
 			config.Version, config.GitCommit, config.BuildDate)
 		os.Exit(0)
+	}
+
+	// Handle viewer mode (standalone markdown viewer)
+	viewerInput, runViewer, err := viewer.ParseViewerInput(os.Args[1:], map[string]struct{}{})
+	if err != nil {
+		if errors.Is(err, viewer.ErrMultipleInputs) {
+			_, _ = fmt.Fprintln(os.Stderr, "error:", err)
+			os.Exit(2)
+		}
+		_, _ = fmt.Fprintln(os.Stderr, "error:", err)
+		os.Exit(1)
+	}
+	if runViewer {
+		if err := viewer.Run(viewerInput); err != nil {
+			_, _ = fmt.Fprintln(os.Stderr, "error:", err)
+			os.Exit(1)
+		}
+		return
 	}
 
 	// Bootstrap application

@@ -32,7 +32,7 @@ var customMd string
 type DokiView struct {
 	root        *tview.Flex
 	titleBar    tview.Primitive
-	contentView *navtview.Viewer
+	contentView *navtview.TextViewViewer
 	pluginDef   *plugin.DokiPlugin
 	registry    *controller.ActionRegistry
 	renderer    renderer.MarkdownRenderer
@@ -63,13 +63,13 @@ func (dv *DokiView) build() {
 	dv.titleBar = NewGradientCaptionRow([]string{dv.pluginDef.Name}, titleGradient, textColor)
 
 	// content view (Navigable Markdown)
-	dv.contentView = navtview.New()
+	dv.contentView = navtview.NewTextView()
 	dv.contentView.SetAnsiConverter(navutil.NewAnsiConverter(true))
 	dv.contentView.SetRenderer(nav.NewANSIRendererWithStyle(config.GetEffectiveTheme()))
 	dv.contentView.SetBackgroundColor(config.GetContentBackgroundColor())
 
 	// Set up state change handler to update navigation actions
-	dv.contentView.SetStateChangedHandler(func(_ *navtview.Viewer) {
+	dv.contentView.SetStateChangedHandler(func(_ *navtview.TextViewViewer) {
 		dv.UpdateNavigationActions()
 	})
 
@@ -86,7 +86,7 @@ func (dv *DokiView) build() {
 		content, err = provider.FetchContent(nav.NavElement{URL: dv.pluginDef.URL})
 
 		// Set up link navigation for file-based docs
-		dv.contentView.SetSelectHandler(func(v *navtview.Viewer, elem nav.NavElement) {
+		dv.contentView.SetSelectHandler(func(v *navtview.TextViewViewer, elem nav.NavElement) {
 			if elem.Type != nav.NavElementURL {
 				return
 			}
@@ -120,7 +120,7 @@ func (dv *DokiView) build() {
 		content, err = provider.FetchContent(nav.NavElement{Text: dv.pluginDef.Text})
 
 		// Set up link navigation (internal docs use text as source path for history)
-		dv.contentView.SetSelectHandler(func(v *navtview.Viewer, elem nav.NavElement) {
+		dv.contentView.SetSelectHandler(func(v *navtview.TextViewViewer, elem nav.NavElement) {
 			if elem.Type != nav.NavElementURL {
 				return
 			}

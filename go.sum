@@ -27,6 +27,8 @@ github.com/aymerick/douceur v0.2.0 h1:Mv+mAeH1Q+n9Fr+oyamOlAkUNPWPlA8PPGR0QAaYuP
 github.com/aymerick/douceur v0.2.0/go.mod h1:wlT5vV2O3h55X9m7iVYN0TBM0NH/MmbLnd30/FjWUq4=
 github.com/boolean-maybe/navidown v0.1.0 h1:2XR6ifvFI8DDbdzvr1MjtjxrG7vG6FhQP3H+SBi1Upc=
 github.com/boolean-maybe/navidown v0.1.0/go.mod h1:WdI3A007LaGuaJTOwEVO25kMojD9u4SCEVqAT8H9rwQ=
+github.com/boolean-maybe/navidown v0.1.1 h1:eNBaVSXoJ9ou2Irh4gwacSxpmorCqJRTzgjsQxLYjx4=
+github.com/boolean-maybe/navidown v0.1.1/go.mod h1:WdI3A007LaGuaJTOwEVO25kMojD9u4SCEVqAT8H9rwQ=
 github.com/catppuccin/go v0.3.0 h1:d+0/YicIq+hSTo5oPuRi5kOpqkVA5tAsU6dNhvRu+aY=
 github.com/catppuccin/go v0.3.0/go.mod h1:8IHJuMGaUUjQM82qBrGNBv7LFq6JI3NnQCF6MOlZjpc=
 github.com/charmbracelet/bubbles v0.21.1-0.20250623103423-23b8fd6302d7 h1:JFgG/xnwFfbezlUnFMJy0nusZvytYysV4SCS2cYbvws=
