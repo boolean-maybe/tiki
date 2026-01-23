@@ -125,6 +125,26 @@ func (pc *PluginConfig) SetSelectedIndexForPane(pane int, idx int) {
 	pc.notifyListeners()
 }
 
+func (pc *PluginConfig) SetSelectedPaneAndIndex(pane int, idx int) {
+	pc.mu.Lock()
+	if pane < 0 || pane >= len(pc.selectedIndices) {
+		pc.mu.Unlock()
+		return
+	}
+	if len(pc.selectedIndices) == 0 {
+		pc.mu.Unlock()
+		return
+	}
+	changed := pc.selectedPane != pane || pc.selectedIndices[pane] != idx
+	pc.selectedPane = pane
+	pc.selectedIndices[pane] = idx
+	pc.mu.Unlock()
+
+	if changed {
+		pc.notifyListeners()
+	}
+}
+
 // GetColumnsForPane returns the number of grid columns for a pane.
 func (pc *PluginConfig) GetColumnsForPane(pane int) int {
 	pc.mu.RLock()

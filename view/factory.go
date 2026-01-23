@@ -91,6 +91,7 @@ func (f *ViewFactory) CreateView(viewID model.ViewID, params map[string]interfac
 							pluginConfig,
 							tikiPlugin,
 							tikiController.GetFilteredTasksForPane,
+							tikiController.EnsureFirstNonEmptyPaneSelection,
 						)
 					} else {
 						// Fallback if controller type doesn't match

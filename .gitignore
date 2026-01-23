@@ -1,5 +1,6 @@
 .gocache
 .gomodcache
+go-build-cache
 
 # IntelliJ IDEA
 .idea/
@@ -12,7 +13,7 @@ out/
 # AI
 .cursor
 .cursorindexingignore
-.specstory/
+.specstory
 .claude
 
 # Tiki binary

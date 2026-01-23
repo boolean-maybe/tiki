@@ -3,8 +3,17 @@ foreground: "#e1bee7"
 background: "#4a148c"
 key: "F2"
 panes:
-  - name: Roadmap
-    columns: 4
-    filter: type = 'epic'
+  - name: Now
+    columns: 2
+    filter: type = 'epic' AND status = 'todo'
+    action: status = 'todo'
+  - name: Next
+    columns: 1
+    filter: type = 'epic' AND status = 'backlog' AND priority = 1
+    action: status = 'backlog', priority = 1
+  - name: Later
+    columns: 1
+    filter: type = 'epic' AND status = 'backlog' AND priority > 1
+    action: status = 'backlog', priority = 2
 sort: Priority, Points DESC
 view: expanded

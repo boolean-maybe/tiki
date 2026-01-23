@@ -30,6 +30,7 @@ type PluginView struct {
 	storeListenerID     int
 	selectionListenerID int
 	getPaneTasks        func(pane int) []*task.Task // injected from controller
+	ensureSelection     func() bool                 // injected from controller
 }
 
 // NewPluginView creates a plugin view
@@ -38,13 +39,15 @@ func NewPluginView(
 	pluginConfig *model.PluginConfig,
 	pluginDef *plugin.TikiPlugin,
 	getPaneTasks func(pane int) []*task.Task,
+	ensureSelection func() bool,
 ) *PluginView {
 	pv := &PluginView{
-		taskStore:    taskStore,
-		pluginConfig: pluginConfig,
-		pluginDef:    pluginDef,
-		registry:     controller.PluginViewActions(),
-		getPaneTasks: getPaneTasks,
+		taskStore:       taskStore,
+		pluginConfig:    pluginConfig,
+		pluginDef:       pluginDef,
+		registry:        controller.PluginViewActions(),
+		getPaneTasks:    getPaneTasks,
+		ensureSelection: ensureSelection,
 	}
 
 	pv.build()
@@ -100,6 +103,9 @@ func (pv *PluginView) rebuildLayout() {
 
 func (pv *PluginView) refresh() {
 	viewMode := pv.pluginConfig.GetViewMode()
+	if pv.ensureSelection != nil {
+		pv.ensureSelection()
+	}
 
 	// update item height based on view mode
 	itemHeight := config.TaskBoxHeight

@@ -219,7 +219,7 @@ func (pc *PluginController) HandleSearch(query string) {
 	}
 
 	pc.pluginConfig.SetSearchResults(results, query)
-	if pc.selectFirstSearchPane() {
+	if pc.selectFirstNonEmptyPane() {
 		return
 	}
 }
@@ -297,16 +297,29 @@ func (pc *PluginController) selectTaskInPane(pane int, taskID string) {
 	pc.pluginConfig.SetSelectedIndexForPane(pane, targetIndex)
 }
 
-func (pc *PluginController) selectFirstSearchPane() bool {
+func (pc *PluginController) selectFirstNonEmptyPane() bool {
 	for pane := range pc.pluginDef.Panes {
 		tasks := pc.GetFilteredTasksForPane(pane)
 		if len(tasks) > 0 {
-			pc.pluginConfig.SetSelectedPane(pane)
-			pc.pluginConfig.SetSelectedIndexForPane(pane, 0)
+			pc.pluginConfig.SetSelectedPaneAndIndex(pane, 0)
 			return true
 		}
 	}
 	return false
+}
+
+func (pc *PluginController) EnsureFirstNonEmptyPaneSelection() bool {
+	if pc.pluginDef == nil {
+		return false
+	}
+	currentPane := pc.pluginConfig.GetSelectedPane()
+	if currentPane >= 0 && currentPane < len(pc.pluginDef.Panes) {
+		tasks := pc.GetFilteredTasksForPane(currentPane)
+		if len(tasks) > 0 {
+			return false
+		}
+	}
+	return pc.selectFirstNonEmptyPane()
 }
 
 func (pc *PluginController) ensureSearchResultIncludesTask(updated *task.Task) {
