@@ -110,9 +110,10 @@ func interpolateColor(gradient config.Gradient, t float64) tcell.Color {
 	}
 
 	// Linear interpolation for each RGB component
-	r := int(float64(gradient.Start[0]) + t*float64(gradient.End[0]-gradient.Start[0]))
-	g := int(float64(gradient.Start[1]) + t*float64(gradient.End[1]-gradient.Start[1]))
-	b := int(float64(gradient.Start[2]) + t*float64(gradient.End[2]-gradient.Start[2]))
+	// Add 0.5 before truncating to int for proper rounding, ensuring smoother gradients
+	r := int(float64(gradient.Start[0]) + t*float64(gradient.End[0]-gradient.Start[0]) + 0.5)
+	g := int(float64(gradient.Start[1]) + t*float64(gradient.End[1]-gradient.Start[1]) + 0.5)
+	b := int(float64(gradient.Start[2]) + t*float64(gradient.End[2]-gradient.Start[2]) + 0.5)
 
 	//nolint:gosec // G115: RGB values are 0-255, safe to convert to int32
 	return tcell.NewRGBColor(int32(r), int32(g), int32(b))
