@@ -28,6 +28,12 @@ func main() {
 		os.Exit(0)
 	}
 
+	// Initialize paths early - this must succeed for the application to function
+	if err := config.InitPaths(); err != nil {
+		_, _ = fmt.Fprintln(os.Stderr, "error:", err)
+		os.Exit(1)
+	}
+
 	// Handle viewer mode (standalone markdown viewer)
 	viewerInput, runViewer, err := viewer.ParseViewerInput(os.Args[1:], map[string]struct{}{})
 	if err != nil {
@@ -49,7 +55,8 @@ func main() {
 	// Bootstrap application
 	result, err := bootstrap.Bootstrap(tikiSkillMdContent, dokiSkillMdContent)
 	if err != nil {
-		return
+		_, _ = fmt.Fprintln(os.Stderr, "error:", err)
+		os.Exit(1)
 	}
 	if result == nil {
 		// User chose not to proceed with project initialization
@@ -63,7 +70,10 @@ func main() {
 	defer result.CancelFunc()
 
 	// Run application
-	app.Run(result.App, result.RootLayout)
+	if err := app.Run(result.App, result.RootLayout); err != nil {
+		slog.Error("application error", "error", err)
+		os.Exit(1)
+	}
 
 	// Save user preferences on shutdown
 	if err := config.SaveHeaderVisible(result.HeaderConfig.GetUserPreference()); err != nil {

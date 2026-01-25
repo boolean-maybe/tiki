@@ -79,7 +79,7 @@ func (dv *DokiView) build() {
 
 	switch dv.pluginDef.Fetcher {
 	case "file":
-		searchRoots := []string{config.GetDokiRoot()}
+		searchRoots := []string{config.GetDokiDir()}
 		provider := &loaders.FileHTTP{SearchRoots: searchRoots}
 
 		// Fetch initial content (no source context yet; rely on searchRoots)
@@ -149,7 +149,7 @@ func (dv *DokiView) build() {
 	// Display initial content with source context (don't push to history - this is the first page)
 	if dv.pluginDef.Fetcher == "file" {
 		// Try to resolve the initial URL so subsequent relative navigation has a stable source path.
-		sourcePath, rerr := nav.ResolveMarkdownPath(dv.pluginDef.URL, "", []string{config.GetDokiRoot()})
+		sourcePath, rerr := nav.ResolveMarkdownPath(dv.pluginDef.URL, "", []string{config.GetDokiDir()})
 		if rerr != nil || sourcePath == "" {
 			sourcePath = dv.pluginDef.URL
 		}

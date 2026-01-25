@@ -33,7 +33,7 @@ func StartBurndownHistoryBuilder(
 			return
 		}
 
-		history := store.NewTaskHistory(config.TaskDir, gitUtil)
+		history := store.NewTaskHistory(config.GetTaskDir(), gitUtil)
 		if history == nil {
 			return
 		}

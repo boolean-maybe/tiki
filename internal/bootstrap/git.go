@@ -1,21 +1,19 @@
 package bootstrap
 
 import (
-	"fmt"
-	"os"
+	"errors"
 
 	"github.com/boolean-maybe/tiki/store/tikistore"
 )
 
-// EnsureGitRepoOrExit validates that the current directory is a git repository.
-// If not, it prints an error message and exits the program.
-func EnsureGitRepoOrExit() {
+// ErrNotGitRepo indicates the current directory is not a git repository
+var ErrNotGitRepo = errors.New("not a git repository")
+
+// EnsureGitRepo validates that the current directory is a git repository.
+// Returns ErrNotGitRepo if the current directory is not a git repository.
+func EnsureGitRepo() error {
 	if tikistore.IsGitRepo("") {
-		return
+		return nil
 	}
-	_, err := fmt.Fprintln(os.Stderr, "Not a git repository")
-	if err != nil {
-		return
-	}
-	os.Exit(1)
+	return ErrNotGitRepo
 }

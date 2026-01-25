@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"log/slog"
 	"os"
-	"path/filepath"
 	"strings"
 	"time"
 
@@ -25,22 +24,15 @@ type templateFrontmatter struct {
 	Points   int      `yaml:"points"`
 }
 
-// loadTemplateTask reads new.md next to the executable, or falls back to embedded template.
+// loadTemplateTask reads new.md from user config directory, or falls back to embedded template.
 func loadTemplateTask() *taskpkg.Task {
-	// Try to load from binary directory first
-	exePath, err := os.Executable()
-	if err != nil {
-		slog.Warn("failed to get executable path for template", "error", err)
-		return loadEmbeddedTemplate()
-	}
-
-	binaryDir := filepath.Dir(exePath)
-	templatePath := filepath.Join(binaryDir, "new.md")
+	// Try to load from user config directory first
+	templatePath := config.GetTemplateFile()
 
 	data, err := os.ReadFile(templatePath)
 	if err != nil {
 		if os.IsNotExist(err) {
-			slog.Debug("new.md not found in binary dir, using embedded template")
+			slog.Debug("new.md not found in user config dir, using embedded template", "path", templatePath)
 			return loadEmbeddedTemplate()
 		}
 		slog.Warn("failed to read new.md template", "path", templatePath, "error", err)

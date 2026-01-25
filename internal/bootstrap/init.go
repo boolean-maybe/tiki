@@ -45,20 +45,31 @@ type BootstrapResult struct {
 // It takes the embedded AI skill content and returns all initialized components.
 func Bootstrap(tikiSkillContent, dokiSkillContent string) (*BootstrapResult, error) {
 	// Phase 1: Pre-flight checks
-	EnsureGitRepoOrExit()
+	if err := EnsureGitRepo(); err != nil {
+		return nil, err
+	}
 
 	// Phase 2: Configuration and logging
-	cfg := LoadConfigOrExit()
+	cfg, err := LoadConfig()
+	if err != nil {
+		return nil, err
+	}
 	logLevel := InitLogging(cfg)
 
 	// Phase 3: Project initialization
-	proceed := EnsureProjectInitialized(tikiSkillContent, dokiSkillContent)
+	proceed, err := EnsureProjectInitialized(tikiSkillContent, dokiSkillContent)
+	if err != nil {
+		return nil, err
+	}
 	if !proceed {
 		return nil, nil // User chose not to proceed
 	}
 
 	// Phase 4: Store initialization
-	tikiStore, taskStore := InitStores()
+	tikiStore, taskStore, err := InitStores()
+	if err != nil {
+		return nil, err
+	}
 
 	// Phase 5: Model initialization
 	headerConfig, layoutModel := InitHeaderAndLayoutModels()

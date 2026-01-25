@@ -34,35 +34,24 @@ func TestFindPluginFile(t *testing.T) {
 	tests := []struct {
 		name      string
 		filename  string
-		baseDir   string
 		wantPath  string
 		wantFound bool
 	}{
 		{
 			name:      "absolute path",
 			filename:  testFilePath,
-			baseDir:   "",
 			wantPath:  testFilePath,
 			wantFound: true,
 		},
 		{
 			name:      "relative path in current dir",
 			filename:  testFile,
-			baseDir:   "",
-			wantPath:  testFile,
-			wantFound: true,
-		},
-		{
-			name:      "file in base directory",
-			filename:  testFile,
-			baseDir:   currentDir,
 			wantPath:  testFile,
 			wantFound: true,
 		},
 		{
 			name:      "non-existent file",
 			filename:  "nonexistent.yaml",
-			baseDir:   currentDir,
 			wantPath:  "",
 			wantFound: false,
 		},
@@ -70,12 +59,12 @@ func TestFindPluginFile(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := findPluginFile(tt.filename, tt.baseDir)
+			got := findPluginFile(tt.filename)
 
 			if tt.wantFound {
 				if got == "" {
-					t.Errorf("findPluginFile(%q, %q) = empty, want non-empty path",
-						tt.filename, tt.baseDir)
+					t.Errorf("findPluginFile(%q) = empty, want non-empty path",
+						tt.filename)
 				}
 				// Verify the file exists at the returned path
 				if _, err := os.Stat(got); err != nil {
@@ -84,8 +73,8 @@ func TestFindPluginFile(t *testing.T) {
 				}
 			} else {
 				if got != "" {
-					t.Errorf("findPluginFile(%q, %q) = %q, want empty string",
-						tt.filename, tt.baseDir, got)
+					t.Errorf("findPluginFile(%q) = %q, want empty string",
+						tt.filename, got)
 				}
 			}
 		})
@@ -125,8 +114,8 @@ func TestFindPluginFile_SearchOrder(t *testing.T) {
 		t.Fatalf("Failed to change to temp directory: %v", err)
 	}
 
-	// Test that current directory is preferred over base directory
-	got := findPluginFile(testFile, subDir)
+	// Test that current directory is preferred in search order
+	got := findPluginFile(testFile)
 	if got == "" {
 		t.Fatal("findPluginFile returned empty path")
 	}

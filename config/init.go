@@ -45,7 +45,8 @@ func PromptForProjectInit() ([]string, bool, error) {
 // Returns (proceed, error).
 // If proceed is false, the user canceled initialization.
 func EnsureProjectInitialized(tikiSkillMdContent, dokiSkillMdContent string) (bool, error) {
-	if _, err := os.Stat(TaskDir); err != nil {
+	taskDir := GetTaskDir()
+	if _, err := os.Stat(taskDir); err != nil {
 		if !os.IsNotExist(err) {
 			return false, fmt.Errorf("failed to stat task directory: %w", err)
 		}

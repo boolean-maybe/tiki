@@ -14,21 +14,6 @@ import (
 	"github.com/spf13/viper"
 )
 
-// Hardcoded task storage configuration
-var (
-	TaskDir = ".doc/tiki"
-	DokiDir = ".doc/doki"
-)
-
-// GetDokiRoot returns the absolute path to the doki directory
-func GetDokiRoot() string {
-	cwd, err := os.Getwd()
-	if err != nil {
-		return DokiDir // Fallback to relative path
-	}
-	return filepath.Join(cwd, DokiDir)
-}
-
 // Config holds all application configuration loaded from config.yaml
 type Config struct {
 	// Logging configuration
@@ -59,25 +44,23 @@ type Config struct {
 
 var appConfig *Config
 
-// LoadConfig loads configuration from config.yaml in the binary's directory
+// LoadConfig loads configuration from config.yaml
+// Priority order (first found wins): project config → user config → current directory (dev)
 // If config.yaml doesn't exist, it uses default values
 func LoadConfig() (*Config, error) {
 	// Reset viper to clear any previous configuration
 	viper.Reset()
 
-	// Get the directory where the binary is located
-	exePath, err := os.Executable()
-	if err != nil {
-		slog.Error("failed to get executable path", "error", err)
-		return nil, err
-	}
-	binaryDir := filepath.Dir(exePath)
-
-	// Configure viper to look for config.yaml in the binary's directory
+	// Configure viper to look for config.yaml
+	// Viper uses first-found priority, so project config takes precedence
 	viper.SetConfigName("config")
 	viper.SetConfigType("yaml")
-	viper.AddConfigPath(binaryDir)
-	viper.AddConfigPath(".") // Also check current directory for development
+
+	// Add search paths in priority order (first added = highest priority)
+	projectConfigDir := filepath.Dir(GetProjectConfigFile())
+	viper.AddConfigPath(projectConfigDir) // Project config (highest priority)
+	viper.AddConfigPath(GetConfigDir())   // User config
+	viper.AddConfigPath(".")              // Current directory (development)
 
 	// Set default values
 	setDefaults()
@@ -85,7 +68,7 @@ func LoadConfig() (*Config, error) {
 	// Read the config file (if it exists)
 	if err := viper.ReadInConfig(); err != nil {
 		if _, ok := err.(viper.ConfigFileNotFoundError); ok {
-			slog.Debug("no config.yaml found, using defaults", "directory", binaryDir)
+			slog.Debug("no config.yaml found, using defaults")
 		} else {
 			slog.Error("error reading config file", "error", err)
 			return nil, err
@@ -269,13 +252,8 @@ func GetMaxPoints() int {
 func saveConfig() error {
 	configFile := viper.ConfigFileUsed()
 	if configFile == "" {
-		// If no config file was loaded, determine where to save it
-		exePath, err := os.Executable()
-		if err != nil {
-			return err
-		}
-		binaryDir := filepath.Dir(exePath)
-		configFile = filepath.Join(binaryDir, "config.yaml")
+		// If no config file was loaded, save to user config directory
+		configFile = GetConfigFile()
 	}
 
 	return viper.WriteConfigAs(configFile)

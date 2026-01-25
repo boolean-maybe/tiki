@@ -202,7 +202,7 @@ func (tc *TaskController) handleEditSource() bool {
 
 	// Construct the file path for this task
 	filename := strings.ToLower(task.ID) + ".md"
-	filePath := filepath.Join(config.TaskDir, filename)
+	filePath := filepath.Join(config.GetTaskDir(), filename)
 
 	// Suspend the tview app and open the editor
 	tc.navController.SuspendAndEdit(filePath)

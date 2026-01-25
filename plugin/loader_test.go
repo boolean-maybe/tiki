@@ -22,7 +22,7 @@ func TestLoadPluginFromRef_FullyInline(t *testing.T) {
 		View: "expanded",
 	}
 
-	def, err := loadPluginFromRef(ref, "")
+	def, err := loadPluginFromRef(ref)
 	if err != nil {
 		t.Fatalf("Expected no error, got: %v", err)
 	}
@@ -71,7 +71,7 @@ func TestLoadPluginFromRef_InlineMinimal(t *testing.T) {
 		},
 	}
 
-	def, err := loadPluginFromRef(ref, "")
+	def, err := loadPluginFromRef(ref)
 	if err != nil {
 		t.Fatalf("Expected no error, got: %v", err)
 	}
@@ -109,10 +109,10 @@ view: compact
 	}
 
 	ref := PluginRef{
-		File: "test-plugin.yaml",
+		File: pluginFile, // Use absolute path
 	}
 
-	def, err := loadPluginFromRef(ref, tmpDir)
+	def, err := loadPluginFromRef(ref)
 	if err != nil {
 		t.Fatalf("Expected no error, got: %v", err)
 	}
@@ -155,12 +155,12 @@ view: compact
 
 	// Override view and key
 	ref := PluginRef{
-		File: "base-plugin.yaml",
+		File: pluginFile, // Use absolute path
 		View: "expanded",
 		Key:  "H",
 	}
 
-	def, err := loadPluginFromRef(ref, tmpDir)
+	def, err := loadPluginFromRef(ref)
 	if err != nil {
 		t.Fatalf("Expected no error, got: %v", err)
 	}
@@ -209,7 +209,7 @@ view: compact
 
 	// Override multiple fields
 	ref := PluginRef{
-		File: "multi-plugin.yaml",
+		File: pluginFile, // Use absolute path
 		Key:  "X",
 		Panes: []PluginPaneConfig{
 			{Name: "In Progress", Filter: "status = 'in_progress'"},
@@ -219,7 +219,7 @@ view: compact
 		Foreground: "#00ff00",
 	}
 
-	def, err := loadPluginFromRef(ref, tmpDir)
+	def, err := loadPluginFromRef(ref)
 	if err != nil {
 		t.Fatalf("Expected no error, got: %v", err)
 	}
@@ -264,7 +264,7 @@ func TestLoadPluginFromRef_MissingFile(t *testing.T) {
 		File: "nonexistent.yaml",
 	}
 
-	_, err := loadPluginFromRef(ref, "")
+	_, err := loadPluginFromRef(ref)
 	if err == nil {
 		t.Fatal("Expected error for missing file")
 	}
@@ -282,7 +282,7 @@ func TestLoadPluginFromRef_NoName(t *testing.T) {
 		},
 	}
 
-	_, err := loadPluginFromRef(ref, "")
+	_, err := loadPluginFromRef(ref)
 	if err == nil {
 		t.Fatal("Expected error for plugin without name")
 	}
@@ -303,7 +303,7 @@ func TestPluginTypeExplicit(t *testing.T) {
 		Text:    "some text",
 	}
 
-	def, err := loadPluginFromRef(ref, "")
+	def, err := loadPluginFromRef(ref)
 	if err != nil {
 		t.Fatalf("Expected no error, got: %v", err)
 	}
@@ -329,10 +329,10 @@ url: http://example.com/resource
 	}
 
 	refFile := PluginRef{
-		File: "type-doki.yaml",
+		File: pluginFile, // Use absolute path
 	}
 
-	defFile, err := loadPluginFromRef(refFile, tmpDir)
+	defFile, err := loadPluginFromRef(refFile)
 	if err != nil {
 		t.Fatalf("Expected no error, got: %v", err)
 	}
@@ -358,7 +358,7 @@ type: tiki
 	}
 
 	ref := PluginRef{
-		File:    "type-override.yaml",
+		File:    pluginFile, // Use absolute path
 		Type:    "doki",
 		Fetcher: "internal",
 		Text:    "override text",
@@ -369,7 +369,7 @@ type: tiki
 	// parsePluginConfig then creates the struct.
 	// So this test checks mergePluginConfigs logic + parsing logic.
 
-	def, err := loadPluginFromRef(ref, tmpDir)
+	def, err := loadPluginFromRef(ref)
 	if err != nil {
 		t.Fatalf("Expected no error, got: %v", err)
 	}
@@ -382,7 +382,3 @@ type: tiki
 		t.Errorf("Expected DokiPlugin type assertion to succeed")
 	}
 }
-
-// Tests for parser functions moved to parser_test.go
-// Tests for key parsing moved to keyparser_test.go
-// Tests for merger functions moved to merger_test.go

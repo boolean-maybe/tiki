@@ -1,17 +1,17 @@
 package bootstrap
 
 import (
-	"log"
+	"fmt"
 
 	"github.com/boolean-maybe/tiki/config"
 )
 
-// LoadConfigOrExit loads the application configuration.
-// If configuration loading fails, it logs a fatal error and exits.
-func LoadConfigOrExit() *config.Config {
+// LoadConfig loads the application configuration.
+// Returns an error if configuration loading fails.
+func LoadConfig() (*config.Config, error) {
 	cfg, err := config.LoadConfig()
 	if err != nil {
-		log.Fatalf("failed to load configuration: %v", err)
+		return nil, fmt.Errorf("load configuration: %w", err)
 	}
-	return cfg
+	return cfg, nil
 }

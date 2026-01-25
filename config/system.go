@@ -37,16 +37,16 @@ func GenerateRandomID() string {
 
 // BootstrapSystem creates the task storage and seeds the initial tiki.
 func BootstrapSystem() error {
-	//nolint:gosec // G301: 0755 is appropriate for task directory
-	if err := os.MkdirAll(TaskDir, 0755); err != nil {
-		return fmt.Errorf("create task directory: %w", err)
+	// Create all necessary directories
+	if err := EnsureDirs(); err != nil {
+		return fmt.Errorf("ensure directories: %w", err)
 	}
 
 	// Generate random ID for initial task
 	randomID := GenerateRandomID()
 	taskID := fmt.Sprintf("TIKI-%s", randomID)
 	taskFilename := fmt.Sprintf("tiki-%s.md", randomID)
-	taskPath := filepath.Join(TaskDir, taskFilename)
+	taskPath := filepath.Join(GetTaskDir(), taskFilename)
 
 	// Replace placeholder in template
 	taskContent := strings.Replace(initialTaskTemplate, "TIKI-XXXXXX", taskID, 1)
@@ -54,13 +54,8 @@ func BootstrapSystem() error {
 		return fmt.Errorf("write initial task: %w", err)
 	}
 
-	// Create doki directory and documentation files
-	dokiDir := filepath.Join(".doc", "doki")
-	//nolint:gosec // G301: 0755 is appropriate for doki documentation directory
-	if err := os.MkdirAll(dokiDir, 0755); err != nil {
-		return fmt.Errorf("create doki directory: %w", err)
-	}
-
+	// Write doki documentation files
+	dokiDir := GetDokiDir()
 	indexPath := filepath.Join(dokiDir, "index.md")
 	if err := os.WriteFile(indexPath, []byte(dokiEntryPoint), 0644); err != nil {
 		return fmt.Errorf("write doki index: %w", err)

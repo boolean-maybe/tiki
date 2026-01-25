@@ -81,7 +81,7 @@ func TestDokiValidation(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			_, err := loadPluginFromRef(tc.ref, "")
+			_, err := loadPluginFromRef(tc.ref)
 			if tc.wantError != "" {
 				if err == nil {
 					t.Errorf("Expected error containing '%s', got nil", tc.wantError)
@@ -127,7 +127,7 @@ func TestTikiValidation(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			_, err := loadPluginFromRef(tc.ref, "")
+			_, err := loadPluginFromRef(tc.ref)
 			if tc.wantError != "" {
 				if err == nil {
 					t.Errorf("Expected error containing '%s', got nil", tc.wantError)

@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"log/slog"
 	"os"
-	"path/filepath"
 
 	"github.com/spf13/viper"
 	"gopkg.in/yaml.v3"
@@ -24,12 +23,6 @@ func loadConfiguredPlugins() []Plugin {
 		return nil // no plugins configured
 	}
 
-	// Determine base directory (where binary is, or current dir for development)
-	baseDir := ""
-	if exePath, err := os.Executable(); err == nil {
-		baseDir = filepath.Dir(exePath)
-	}
-
 	var plugins []Plugin
 
 	for i, ref := range refs {
@@ -39,7 +32,7 @@ func loadConfiguredPlugins() []Plugin {
 			continue
 		}
 
-		plugin, err := loadPluginFromRef(ref, baseDir)
+		plugin, err := loadPluginFromRef(ref)
 		if err != nil {
 			slog.Warn("failed to load plugin", "name", ref.Name, "file", ref.File, "error", err)
 			continue // Skip failed plugins, continue with others
@@ -110,13 +103,13 @@ func LoadPlugins() ([]Plugin, error) {
 // 1. Fully inline (no file): all fields in config.yaml
 // 2. File-based (file only): reference external YAML
 // 3. Hybrid (file + overrides): file provides base, inline overrides
-func loadPluginFromRef(ref PluginRef, baseDir string) (Plugin, error) {
+func loadPluginFromRef(ref PluginRef) (Plugin, error) {
 	var cfg pluginFileConfig
 	var source string
 
 	if ref.File != "" {
 		// File-based or hybrid mode
-		pluginPath := findPluginFile(ref.File, baseDir)
+		pluginPath := findPluginFile(ref.File)
 		if pluginPath == "" {
 			return nil, fmt.Errorf("plugin file not found: %s", ref.File)
 		}

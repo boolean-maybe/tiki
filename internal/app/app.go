@@ -1,8 +1,7 @@
 package app
 
 import (
-	"log/slog"
-	"os"
+	"fmt"
 
 	"github.com/rivo/tview"
 
@@ -14,11 +13,12 @@ func NewApp() *tview.Application {
 	return tview.NewApplication()
 }
 
-// Run runs the tview application or terminates the process if it errors.
-func Run(app *tview.Application, rootLayout *view.RootLayout) {
+// Run runs the tview application.
+// Returns an error if the application fails to run.
+func Run(app *tview.Application, rootLayout *view.RootLayout) error {
 	app.SetRoot(rootLayout.GetPrimitive(), true).EnableMouse(false)
 	if err := app.Run(); err != nil {
-		slog.Error("application error", "error", err)
-		os.Exit(1)
+		return fmt.Errorf("run application: %w", err)
 	}
+	return nil
 }
