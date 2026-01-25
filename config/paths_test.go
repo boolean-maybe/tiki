@@ -272,9 +272,11 @@ func TestPathManagerEnsureDirs(t *testing.T) {
 		if !info.IsDir() {
 			t.Errorf("%q is not a directory", dir)
 		}
-		// Check permissions (should be 0755)
-		if info.Mode().Perm() != 0755 {
-			t.Errorf("directory %q has permissions %o, want 0755", dir, info.Mode().Perm())
+		// Check permissions (should be 0755) - skip on Windows as it uses ACL-based permissions
+		if runtime.GOOS != "windows" {
+			if info.Mode().Perm() != 0755 {
+				t.Errorf("directory %q has permissions %o, want 0755", dir, info.Mode().Perm())
+			}
 		}
 	}
 }
