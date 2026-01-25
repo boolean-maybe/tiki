@@ -28,7 +28,6 @@ type PluginControllerInterface interface {
 
 type InputRouter struct {
 	navController     *NavigationController
-	boardController   *BoardController
 	taskController    *TaskController
 	taskEditCoord     *TaskEditCoordinator
 	pluginControllers map[string]PluginControllerInterface // keyed by plugin name
@@ -39,14 +38,12 @@ type InputRouter struct {
 // NewInputRouter creates an input router
 func NewInputRouter(
 	navController *NavigationController,
-	boardController *BoardController,
 	taskController *TaskController,
 	pluginControllers map[string]PluginControllerInterface,
 	taskStore store.Store,
 ) *InputRouter {
 	return &InputRouter{
 		navController:     navController,
-		boardController:   boardController,
 		taskController:    taskController,
 		taskEditCoord:     NewTaskEditCoordinator(navController, taskController),
 		pluginControllers: pluginControllers,
@@ -100,8 +97,6 @@ func (ir *InputRouter) HandleInput(event *tcell.EventKey, currentView *ViewEntry
 
 	// route to view-specific controller
 	switch currentView.ViewID {
-	case model.BoardViewID:
-		return ir.handleBoardInput(event)
 	case model.TaskDetailViewID:
 		return ir.handleTaskInput(event, currentView.Params)
 	case model.TaskEditViewID:
@@ -209,11 +204,6 @@ func (ir *InputRouter) handlePluginInput(event *tcell.EventKey, viewID model.Vie
 		if action.ID == ActionSearch {
 			return ir.handleSearchAction(controller)
 		}
-		// Handle return to board action
-		if action.ID == ActionReturnToBoard {
-			ir.navController.PopView()
-			return true
-		}
 		// Handle plugin activation keys - switch to different plugin
 		if targetPluginName := GetPluginNameFromAction(action.ID); targetPluginName != "" {
 			targetViewID := model.MakePluginViewID(targetPluginName)
@@ -247,24 +237,6 @@ func (ir *InputRouter) handleGlobalAction(actionID ActionID) bool {
 	default:
 		return false
 	}
-}
-
-// handleBoardInput routes input to the board controller
-func (ir *InputRouter) handleBoardInput(event *tcell.EventKey) bool {
-	registry := ir.boardController.GetActionRegistry()
-	if action := registry.Match(event); action != nil {
-		// Handle search action specially - show search box
-		if action.ID == ActionSearch {
-			return ir.handleSearchAction(ir.boardController)
-		}
-		// Handle plugin activation keys - navigate to plugin view
-		if pluginName := GetPluginNameFromAction(action.ID); pluginName != "" {
-			ir.navController.PushView(model.MakePluginViewID(pluginName), nil)
-			return true
-		}
-		return ir.boardController.HandleAction(action.ID)
-	}
-	return false
 }
 
 // handleSearchAction is a generic handler for ActionSearch across all searchable views

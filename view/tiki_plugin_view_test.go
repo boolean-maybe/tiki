@@ -30,7 +30,7 @@ func TestPluginViewRefreshPreservesScrollOffset(t *testing.T) {
 		tasks[i] = &task.Task{
 			ID:     fmt.Sprintf("T-%d", i),
 			Title:  fmt.Sprintf("Task %d", i),
-			Status: task.StatusTodo,
+			Status: task.StatusReady,
 			Type:   task.TypeStory,
 		}
 	}

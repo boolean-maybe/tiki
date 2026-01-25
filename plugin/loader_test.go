@@ -16,7 +16,7 @@ func TestLoadPluginFromRef_FullyInline(t *testing.T) {
 		Background: "#000000",
 		Key:        "I",
 		Panes: []PluginPaneConfig{
-			{Name: "Todo", Filter: "status = 'todo'"},
+			{Name: "Todo", Filter: "status = 'ready'"},
 		},
 		Sort: "Priority DESC",
 		View: "expanded",
@@ -55,7 +55,7 @@ func TestLoadPluginFromRef_FullyInline(t *testing.T) {
 	// Test filter evaluation
 	task := &taskpkg.Task{
 		ID:     "TIKI-1",
-		Status: taskpkg.StatusTodo,
+		Status: taskpkg.StatusReady,
 	}
 
 	if !tp.Panes[0].Filter.Evaluate(task, time.Now(), "testuser") {
@@ -145,7 +145,7 @@ background: "#0000ff"
 key: L
 panes:
   - name: Todo
-    filter: status = 'todo'
+    filter: status = 'ready'
 sort: Priority
 view: compact
 `
@@ -199,7 +199,7 @@ background: "#000000"
 key: M
 panes:
   - name: Todo
-    filter: status = 'todo'
+    filter: status = 'ready'
 sort: Priority
 view: compact
 `
@@ -252,7 +252,7 @@ view: compact
 
 	todoTask := &taskpkg.Task{
 		ID:     "TIKI-2",
-		Status: taskpkg.StatusTodo,
+		Status: taskpkg.StatusReady,
 	}
 	if tp.Panes[0].Filter.Evaluate(todoTask, time.Now(), "testuser") {
 		t.Error("Expected overridden filter to NOT match todo task")
@@ -278,7 +278,7 @@ func TestLoadPluginFromRef_NoName(t *testing.T) {
 	// Inline plugin without name
 	ref := PluginRef{
 		Panes: []PluginPaneConfig{
-			{Name: "Todo", Filter: "status = 'todo'"},
+			{Name: "Todo", Filter: "status = 'ready'"},
 		},
 	}
 

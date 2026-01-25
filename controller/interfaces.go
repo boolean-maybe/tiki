@@ -9,6 +9,13 @@ import (
 
 // View and ViewFactory interfaces decouple controllers from view implementations.
 
+// FocusSettable is implemented by views that need focus management for their subcomponents.
+// This is used to wire up tview focus changes when the view needs to transfer focus to
+// different primitives (e.g., edit fields, select lists).
+type FocusSettable interface {
+	SetFocusSetter(setter func(p tview.Primitive))
+}
+
 // View represents a renderable view with its action registry
 type View interface {
 	// GetPrimitive returns the tview primitive for this view

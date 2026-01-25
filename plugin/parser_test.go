@@ -53,7 +53,7 @@ func TestDokiValidation(t *testing.T) {
 				Type:    "doki",
 				Fetcher: "internal",
 				Text:    "ok",
-				Filter:  "status='todo'",
+				Filter:  "status='ready'",
 			},
 			wantError: "doki plugin cannot have 'filter'",
 		},
@@ -108,7 +108,7 @@ func TestTikiValidation(t *testing.T) {
 			ref: PluginRef{
 				Name:    "Tiki with Fetcher",
 				Type:    "tiki",
-				Filter:  "status='todo'",
+				Filter:  "status='ready'",
 				Fetcher: "file",
 			},
 			wantError: "tiki plugin cannot have 'fetcher'",
@@ -118,7 +118,7 @@ func TestTikiValidation(t *testing.T) {
 			ref: PluginRef{
 				Name:   "Tiki with Text",
 				Type:   "tiki",
-				Filter: "status='todo'",
+				Filter: "status='ready'",
 				Text:   "text",
 			},
 			wantError: "tiki plugin cannot have 'text'",
@@ -165,7 +165,7 @@ func TestParsePluginConfig_DefaultTikiType(t *testing.T) {
 		Name: "Test",
 		Key:  "T",
 		Panes: []PluginPaneConfig{
-			{Name: "Todo", Filter: "status='todo'"},
+			{Name: "Todo", Filter: "status='ready'"},
 		},
 		// Type not specified, should default to "tiki"
 	}
@@ -280,7 +280,7 @@ type: tiki
 panes:
   - name: Todo
     columns: 4
-    filter: status = 'todo'
+    filter: status = 'ready'
 sort: Priority
 view: expanded
 foreground: "#ff0000"

@@ -30,7 +30,7 @@ func setupPluginViewTest(t *testing.T) *testutil.TestApp {
 		{"TIKI-2", "Second Backlog Task", taskpkg.StatusBacklog, taskpkg.TypeBug},
 		{"TIKI-3", "Third Backlog Task", taskpkg.StatusBacklog, taskpkg.TypeStory},
 		{"TIKI-4", "Fourth Backlog Task", taskpkg.StatusBacklog, taskpkg.TypeBug},
-		{"TIKI-5", "Todo Task (not in backlog)", taskpkg.StatusTodo, taskpkg.TypeStory},
+		{"TIKI-5", "Todo Task (not in backlog)", taskpkg.StatusReady, taskpkg.TypeStory},
 	}
 
 	for _, task := range tasks {
@@ -53,7 +53,7 @@ func TestPluginView_GridNavigation(t *testing.T) {
 	defer ta.Cleanup()
 
 	// Navigate: Board → Backlog Plugin
-	ta.NavController.PushView(model.BoardViewID, nil)
+	ta.NavController.PushView(model.MakePluginViewID("Kanban"), nil)
 	ta.Draw()
 	ta.SendKey(tcell.KeyF3, 0, tcell.ModNone) // F3 = Backlog plugin
 	ta.Draw()                                 // Redraw after view change
@@ -125,7 +125,7 @@ func TestPluginView_FilterByStatus(t *testing.T) {
 	defer ta.Cleanup()
 
 	// Navigate: Board → Backlog Plugin
-	ta.NavController.PushView(model.BoardViewID, nil)
+	ta.NavController.PushView(model.MakePluginViewID("Kanban"), nil)
 	ta.Draw()
 	ta.SendKey(tcell.KeyF3, 0, tcell.ModNone) // F3 = Backlog plugin
 
@@ -151,7 +151,7 @@ func TestPluginView_OpenTask(t *testing.T) {
 	defer ta.Cleanup()
 
 	// Navigate: Board → Backlog Plugin
-	ta.NavController.PushView(model.BoardViewID, nil)
+	ta.NavController.PushView(model.MakePluginViewID("Kanban"), nil)
 	ta.Draw()
 	ta.SendKey(tcell.KeyF3, 0, tcell.ModNone) // F3 = Backlog plugin
 
@@ -178,7 +178,7 @@ func TestPluginView_CreateTask(t *testing.T) {
 	defer ta.Cleanup()
 
 	// Navigate: Board → Backlog Plugin
-	ta.NavController.PushView(model.BoardViewID, nil)
+	ta.NavController.PushView(model.MakePluginViewID("Kanban"), nil)
 	ta.Draw()
 	ta.SendKey(tcell.KeyF3, 0, tcell.ModNone)
 
@@ -223,7 +223,7 @@ func TestPluginView_DeleteTask(t *testing.T) {
 	defer ta.Cleanup()
 
 	// Navigate: Board → Backlog Plugin
-	ta.NavController.PushView(model.BoardViewID, nil)
+	ta.NavController.PushView(model.MakePluginViewID("Kanban"), nil)
 	ta.Draw()
 	ta.SendKey(tcell.KeyF3, 0, tcell.ModNone)
 
@@ -260,7 +260,7 @@ func TestPluginView_Search(t *testing.T) {
 	defer ta.Cleanup()
 
 	// Navigate: Board → Backlog Plugin
-	ta.NavController.PushView(model.BoardViewID, nil)
+	ta.NavController.PushView(model.MakePluginViewID("Kanban"), nil)
 	ta.Draw()
 	ta.SendKey(tcell.KeyF3, 0, tcell.ModNone)
 
@@ -309,7 +309,7 @@ func TestPluginView_EmptyPlugin(t *testing.T) {
 	}
 
 	// Create only todo tasks (no backlog tasks)
-	if err := testutil.CreateTestTask(ta.TaskDir, "TIKI-1", "Todo Task", taskpkg.StatusTodo, taskpkg.TypeStory); err != nil {
+	if err := testutil.CreateTestTask(ta.TaskDir, "TIKI-1", "Todo Task", taskpkg.StatusReady, taskpkg.TypeStory); err != nil {
 		t.Fatalf("failed to create task: %v", err)
 	}
 	if err := ta.TaskStore.Reload(); err != nil {
@@ -317,7 +317,7 @@ func TestPluginView_EmptyPlugin(t *testing.T) {
 	}
 
 	// Navigate: Board → Backlog Plugin
-	ta.NavController.PushView(model.BoardViewID, nil)
+	ta.NavController.PushView(model.MakePluginViewID("Kanban"), nil)
 	ta.Draw()
 	ta.SendKey(tcell.KeyF3, 0, tcell.ModNone) // F3 = Backlog plugin
 
@@ -340,7 +340,7 @@ func TestPluginView_NavigateBetweenColumns(t *testing.T) {
 	defer ta.Cleanup()
 
 	// Navigate: Board → Backlog Plugin
-	ta.NavController.PushView(model.BoardViewID, nil)
+	ta.NavController.PushView(model.MakePluginViewID("Kanban"), nil)
 	ta.Draw()
 	ta.SendKey(tcell.KeyF3, 0, tcell.ModNone)
 
@@ -373,29 +373,32 @@ func TestPluginView_NavigateBetweenColumns(t *testing.T) {
 	}
 }
 
-// TestPluginView_ReturnToBoard verifies Esc returns to board
-func TestPluginView_ReturnToBoard(t *testing.T) {
+// TestPluginView_EscAtRootDoesNothing verifies Esc at root plugin does nothing
+func TestPluginView_EscAtRootDoesNothing(t *testing.T) {
 	ta := setupPluginViewTest(t)
 	defer ta.Cleanup()
 
-	// Navigate: Board → Backlog Plugin
-	ta.NavController.PushView(model.BoardViewID, nil)
+	// Start at Kanban, switch to Backlog (uses ReplaceView, so still at depth 1)
+	ta.NavController.PushView(model.MakePluginViewID("Kanban"), nil)
 	ta.Draw()
 	ta.SendKey(tcell.KeyF3, 0, tcell.ModNone)
 
-	// Verify we're on plugin view
+	// Verify we're on Backlog plugin view at depth 1
 	currentView := ta.NavController.CurrentView()
-	if !model.IsPluginViewID(currentView.ViewID) {
-		t.Fatalf("expected plugin view, got %v", currentView.ViewID)
+	if currentView.ViewID != model.MakePluginViewID("Backlog") {
+		t.Fatalf("expected Backlog plugin view, got %v", currentView.ViewID)
+	}
+	if ta.NavController.Depth() != 1 {
+		t.Fatalf("expected depth 1, got %d", ta.NavController.Depth())
 	}
 
-	// Press Esc to return to board
+	// Press Esc - should do nothing since we're at root
 	ta.SendKey(tcell.KeyEscape, 0, tcell.ModNone)
 
-	// Verify we're back on board
+	// Verify we're still on Backlog (Esc does nothing at root)
 	currentView = ta.NavController.CurrentView()
-	if currentView.ViewID != model.BoardViewID {
-		t.Errorf("expected board view, got %v", currentView.ViewID)
+	if currentView.ViewID != model.MakePluginViewID("Backlog") {
+		t.Errorf("expected to stay on Backlog after Esc at root, got %v", currentView.ViewID)
 	}
 }
 
@@ -415,7 +418,7 @@ func TestPluginView_MultiplePlugins(t *testing.T) {
 	}
 
 	// Recent: status = todo (also recent since just created)
-	if err := testutil.CreateTestTask(ta.TaskDir, "TIKI-2", "Recent Task", taskpkg.StatusTodo, taskpkg.TypeStory); err != nil {
+	if err := testutil.CreateTestTask(ta.TaskDir, "TIKI-2", "Recent Task", taskpkg.StatusReady, taskpkg.TypeStory); err != nil {
 		t.Fatalf("failed to create task: %v", err)
 	}
 
@@ -424,7 +427,7 @@ func TestPluginView_MultiplePlugins(t *testing.T) {
 	}
 
 	// Navigate: Board → Backlog Plugin
-	ta.NavController.PushView(model.BoardViewID, nil)
+	ta.NavController.PushView(model.MakePluginViewID("Kanban"), nil)
 	ta.Draw()
 	ta.SendKey(tcell.KeyF3, 0, tcell.ModNone) // F3 = Backlog
 
@@ -466,7 +469,7 @@ func TestPluginView_ViKeysNavigation(t *testing.T) {
 	defer ta.Cleanup()
 
 	// Navigate: Board → Backlog Plugin
-	ta.NavController.PushView(model.BoardViewID, nil)
+	ta.NavController.PushView(model.MakePluginViewID("Kanban"), nil)
 	ta.Draw()
 	ta.SendKey(tcell.KeyF3, 0, tcell.ModNone)
 
@@ -524,7 +527,7 @@ func TestPluginView_SelectionPersistsAcrossViews(t *testing.T) {
 	defer ta.Cleanup()
 
 	// Navigate: Board → Backlog Plugin
-	ta.NavController.PushView(model.BoardViewID, nil)
+	ta.NavController.PushView(model.MakePluginViewID("Kanban"), nil)
 	ta.Draw()
 	ta.SendKey(tcell.KeyF3, 0, tcell.ModNone)
 

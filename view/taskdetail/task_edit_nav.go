@@ -18,39 +18,49 @@ func (ev *TaskEditView) IsValid() bool {
 func (ev *TaskEditView) SetFocusedField(field model.EditField) {
 	ev.focusedField = field
 	ev.UpdateHeaderForField(field)
+
+	// Refresh rebuilds the layout, which may temporarily lose focus
 	ev.refresh()
 
-	// Set actual tview focus when navigating to certain fields
-	if ev.focusSetter != nil {
-		switch field {
-		case model.EditFieldStatus:
-			if ev.statusSelectList != nil {
-				ev.focusSetter(ev.statusSelectList)
-			}
-		case model.EditFieldType:
-			if ev.typeSelectList != nil {
-				ev.focusSetter(ev.typeSelectList)
-			}
-		case model.EditFieldPriority:
-			if ev.priorityInput != nil {
-				ev.focusSetter(ev.priorityInput)
-			}
-		case model.EditFieldAssignee:
-			if ev.assigneeSelectList != nil {
-				ev.focusSetter(ev.assigneeSelectList)
-			}
-		case model.EditFieldPoints:
-			if ev.pointsInput != nil {
-				ev.focusSetter(ev.pointsInput)
-			}
-		case model.EditFieldTitle:
-			if ev.titleInput != nil {
-				ev.focusSetter(ev.titleInput)
-			}
-		case model.EditFieldDescription:
-			if ev.descTextArea != nil {
-				ev.focusSetter(ev.descTextArea)
-			}
+	// Immediately restore focus to the appropriate widget for the focused field
+	// This must happen after refresh() to ensure widget is in the view hierarchy
+	if ev.focusSetter == nil {
+		return
+	}
+
+	switch field {
+	case model.EditFieldStatus:
+		if ev.statusSelectList != nil {
+			// Focus the wrapper which has custom InputHandler
+			ev.focusSetter(ev.statusSelectList)
+		}
+	case model.EditFieldType:
+		if ev.typeSelectList != nil {
+			// Focus the wrapper which has custom InputHandler
+			ev.focusSetter(ev.typeSelectList)
+		}
+	case model.EditFieldPriority:
+		if ev.priorityInput != nil {
+			// Focus the wrapper which has custom InputHandler
+			ev.focusSetter(ev.priorityInput)
+		}
+	case model.EditFieldAssignee:
+		if ev.assigneeSelectList != nil {
+			// Focus the wrapper which has custom InputHandler
+			ev.focusSetter(ev.assigneeSelectList)
+		}
+	case model.EditFieldPoints:
+		if ev.pointsInput != nil {
+			// Focus the wrapper which has custom InputHandler
+			ev.focusSetter(ev.pointsInput)
+		}
+	case model.EditFieldTitle:
+		if ev.titleInput != nil {
+			ev.focusSetter(ev.titleInput)
+		}
+	case model.EditFieldDescription:
+		if ev.descTextArea != nil {
+			ev.focusSetter(ev.descTextArea)
 		}
 	}
 }

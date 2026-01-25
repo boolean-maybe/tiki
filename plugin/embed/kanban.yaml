@@ -1,0 +1,18 @@
+name: Kanban
+foreground: "#87ceeb"
+background: "#1e3a5f"
+key: "F1"
+panes:
+  - name: Ready
+    filter: status = 'ready'
+    action: status = 'ready'
+  - name: In Progress
+    filter: status = 'in_progress'
+    action: status = 'in_progress'
+  - name: Review
+    filter: status = 'review'
+    action: status = 'review'
+  - name: Done
+    filter: status = 'done'
+    action: status = 'done'
+sort: Priority, CreatedAt

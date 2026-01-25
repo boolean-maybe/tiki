@@ -13,20 +13,25 @@ import (
 )
 
 // TestRefresh_FromBoard verifies 'r' key reloads tasks from disk
-func TestRefresh_FromBoard(t *testing.T) {
+func TestRefresh_FromKanban(t *testing.T) {
 	ta := testutil.NewTestApp(t)
 	defer ta.Cleanup()
 
+	// Load plugins to enable Kanban
+	if err := ta.LoadPlugins(); err != nil {
+		t.Fatalf("failed to load plugins: %v", err)
+	}
+
 	// Create initial task
-	if err := testutil.CreateTestTask(ta.TaskDir, "TIKI-1", "First Task", taskpkg.StatusTodo, taskpkg.TypeStory); err != nil {
+	if err := testutil.CreateTestTask(ta.TaskDir, "TIKI-1", "First Task", taskpkg.StatusReady, taskpkg.TypeStory); err != nil {
 		t.Fatalf("failed to create test task: %v", err)
 	}
 	if err := ta.TaskStore.Reload(); err != nil {
 		t.Fatalf("failed to reload tasks: %v", err)
 	}
 
-	// Open board
-	ta.NavController.PushView(model.BoardViewID, nil)
+	// Open Kanban plugin
+	ta.NavController.PushView(model.MakePluginViewID("Kanban"), nil)
 	ta.Draw()
 
 	// Verify TIKI-1 is visible
@@ -37,7 +42,7 @@ func TestRefresh_FromBoard(t *testing.T) {
 	}
 
 	// Create a new task externally (simulating external modification)
-	if err := testutil.CreateTestTask(ta.TaskDir, "TIKI-2", "New External Task", taskpkg.StatusTodo, taskpkg.TypeStory); err != nil {
+	if err := testutil.CreateTestTask(ta.TaskDir, "TIKI-2", "New External Task", taskpkg.StatusReady, taskpkg.TypeStory); err != nil {
 		t.Fatalf("failed to create external task: %v", err)
 	}
 
@@ -57,17 +62,22 @@ func TestRefresh_ExternalModification(t *testing.T) {
 	ta := testutil.NewTestApp(t)
 	defer ta.Cleanup()
 
+	// Load plugins to enable Kanban
+	if err := ta.LoadPlugins(); err != nil {
+		t.Fatalf("failed to load plugins: %v", err)
+	}
+
 	// Create task
 	taskID := "TIKI-1"
-	if err := testutil.CreateTestTask(ta.TaskDir, taskID, "Original Title", taskpkg.StatusTodo, taskpkg.TypeStory); err != nil {
+	if err := testutil.CreateTestTask(ta.TaskDir, taskID, "Original Title", taskpkg.StatusReady, taskpkg.TypeStory); err != nil {
 		t.Fatalf("failed to create test task: %v", err)
 	}
 	if err := ta.TaskStore.Reload(); err != nil {
 		t.Fatalf("failed to reload tasks: %v", err)
 	}
 
-	// Open board
-	ta.NavController.PushView(model.BoardViewID, nil)
+	// Open Kanban plugin
+	ta.NavController.PushView(model.MakePluginViewID("Kanban"), nil)
 	ta.Draw()
 
 	// Verify original title visible (may be truncated on narrow screens)
@@ -84,7 +94,7 @@ func TestRefresh_ExternalModification(t *testing.T) {
 	}
 
 	// Modify the task file externally
-	if err := testutil.CreateTestTask(ta.TaskDir, taskID, "Modified Title", taskpkg.StatusTodo, taskpkg.TypeStory); err != nil {
+	if err := testutil.CreateTestTask(ta.TaskDir, taskID, "Modified Title", taskpkg.StatusReady, taskpkg.TypeStory); err != nil {
 		t.Fatalf("failed to modify task: %v", err)
 	}
 
@@ -109,19 +119,24 @@ func TestRefresh_ExternalDeletion(t *testing.T) {
 	ta := testutil.NewTestApp(t)
 	defer ta.Cleanup()
 
+	// Load plugins to enable Kanban
+	if err := ta.LoadPlugins(); err != nil {
+		t.Fatalf("failed to load plugins: %v", err)
+	}
+
 	// Create two tasks
-	if err := testutil.CreateTestTask(ta.TaskDir, "TIKI-1", "First Task", taskpkg.StatusTodo, taskpkg.TypeStory); err != nil {
+	if err := testutil.CreateTestTask(ta.TaskDir, "TIKI-1", "First Task", taskpkg.StatusReady, taskpkg.TypeStory); err != nil {
 		t.Fatalf("failed to create test task: %v", err)
 	}
-	if err := testutil.CreateTestTask(ta.TaskDir, "TIKI-2", "Second Task", taskpkg.StatusTodo, taskpkg.TypeStory); err != nil {
+	if err := testutil.CreateTestTask(ta.TaskDir, "TIKI-2", "Second Task", taskpkg.StatusReady, taskpkg.TypeStory); err != nil {
 		t.Fatalf("failed to create test task: %v", err)
 	}
 	if err := ta.TaskStore.Reload(); err != nil {
 		t.Fatalf("failed to reload tasks: %v", err)
 	}
 
-	// Open board
-	ta.NavController.PushView(model.BoardViewID, nil)
+	// Open Kanban plugin
+	ta.NavController.PushView(model.MakePluginViewID("Kanban"), nil)
 	ta.Draw()
 
 	// Verify both tasks visible
@@ -167,31 +182,37 @@ func TestRefresh_PreservesSelection(t *testing.T) {
 	ta := testutil.NewTestApp(t)
 	defer ta.Cleanup()
 
+	// Load plugins to enable Kanban
+	if err := ta.LoadPlugins(); err != nil {
+		t.Fatalf("failed to load plugins: %v", err)
+	}
+
 	// Create tasks
-	if err := testutil.CreateTestTask(ta.TaskDir, "TIKI-1", "First Task", taskpkg.StatusTodo, taskpkg.TypeStory); err != nil {
+	if err := testutil.CreateTestTask(ta.TaskDir, "TIKI-1", "First Task", taskpkg.StatusReady, taskpkg.TypeStory); err != nil {
 		t.Fatalf("failed to create test task: %v", err)
 	}
-	if err := testutil.CreateTestTask(ta.TaskDir, "TIKI-2", "Second Task", taskpkg.StatusTodo, taskpkg.TypeStory); err != nil {
+	if err := testutil.CreateTestTask(ta.TaskDir, "TIKI-2", "Second Task", taskpkg.StatusReady, taskpkg.TypeStory); err != nil {
 		t.Fatalf("failed to create test task: %v", err)
 	}
 	if err := ta.TaskStore.Reload(); err != nil {
 		t.Fatalf("failed to reload tasks: %v", err)
 	}
 
-	// Open board
-	ta.NavController.PushView(model.BoardViewID, nil)
+	// Open Kanban plugin
+	ta.NavController.PushView(model.MakePluginViewID("Kanban"), nil)
 	ta.Draw()
 
 	// Move to second task
 	ta.SendKey(tcell.KeyDown, 0, tcell.ModNone)
 
-	// Verify we're on row 1 (TIKI-2)
-	if ta.BoardConfig.GetSelectedRow() != 1 {
-		t.Fatalf("expected row 1, got %d", ta.BoardConfig.GetSelectedRow())
+	kanbanConfig := ta.GetPluginConfig("Kanban")
+	// Verify we're on index 1 (TIKI-2)
+	if kanbanConfig.GetSelectedIndex() != 1 {
+		t.Fatalf("expected index 1, got %d", kanbanConfig.GetSelectedIndex())
 	}
 
 	// Create a new task externally (doesn't affect selection)
-	if err := testutil.CreateTestTask(ta.TaskDir, "TIKI-3", "Third Task", taskpkg.StatusTodo, taskpkg.TypeStory); err != nil {
+	if err := testutil.CreateTestTask(ta.TaskDir, "TIKI-3", "Third Task", taskpkg.StatusReady, taskpkg.TypeStory); err != nil {
 		t.Fatalf("failed to create test task: %v", err)
 	}
 
@@ -199,10 +220,10 @@ func TestRefresh_PreservesSelection(t *testing.T) {
 	ta.SendKey(tcell.KeyRune, 'r', tcell.ModNone)
 
 	// Verify selection is still preserved (might shift if new task sorts before)
-	// For this test, we just verify no crash and row is valid
-	selectedRow := ta.BoardConfig.GetSelectedRow()
-	if selectedRow < 0 {
-		t.Errorf("selected row should be valid after refresh, got %d", selectedRow)
+	// For this test, we just verify no crash and index is valid
+	selectedIndex := kanbanConfig.GetSelectedIndex()
+	if selectedIndex < 0 {
+		t.Errorf("selected index should be valid after refresh, got %d", selectedIndex)
 	}
 }
 
@@ -211,27 +232,33 @@ func TestRefresh_ResetsSelectionWhenTaskDeleted(t *testing.T) {
 	ta := testutil.NewTestApp(t)
 	defer ta.Cleanup()
 
+	// Load plugins to enable Kanban
+	if err := ta.LoadPlugins(); err != nil {
+		t.Fatalf("failed to load plugins: %v", err)
+	}
+
 	// Create tasks
-	if err := testutil.CreateTestTask(ta.TaskDir, "TIKI-1", "First Task", taskpkg.StatusTodo, taskpkg.TypeStory); err != nil {
+	if err := testutil.CreateTestTask(ta.TaskDir, "TIKI-1", "First Task", taskpkg.StatusReady, taskpkg.TypeStory); err != nil {
 		t.Fatalf("failed to create test task: %v", err)
 	}
-	if err := testutil.CreateTestTask(ta.TaskDir, "TIKI-2", "Second Task", taskpkg.StatusTodo, taskpkg.TypeStory); err != nil {
+	if err := testutil.CreateTestTask(ta.TaskDir, "TIKI-2", "Second Task", taskpkg.StatusReady, taskpkg.TypeStory); err != nil {
 		t.Fatalf("failed to create test task: %v", err)
 	}
 	if err := ta.TaskStore.Reload(); err != nil {
 		t.Fatalf("failed to reload tasks: %v", err)
 	}
 
-	// Open board
-	ta.NavController.PushView(model.BoardViewID, nil)
+	// Open Kanban plugin
+	ta.NavController.PushView(model.MakePluginViewID("Kanban"), nil)
 	ta.Draw()
 
 	// Move to second task
 	ta.SendKey(tcell.KeyDown, 0, tcell.ModNone)
 
-	// Verify we're on row 1 (TIKI-2)
-	if ta.BoardConfig.GetSelectedRow() != 1 {
-		t.Fatalf("expected row 1, got %d", ta.BoardConfig.GetSelectedRow())
+	kanbanConfig := ta.GetPluginConfig("Kanban")
+	// Verify we're on index 1 (TIKI-2)
+	if kanbanConfig.GetSelectedIndex() != 1 {
+		t.Fatalf("expected index 1, got %d", kanbanConfig.GetSelectedIndex())
 	}
 
 	// Delete TIKI-2 externally (the selected task)
@@ -243,9 +270,9 @@ func TestRefresh_ResetsSelectionWhenTaskDeleted(t *testing.T) {
 	// Press 'r' to refresh
 	ta.SendKey(tcell.KeyRune, 'r', tcell.ModNone)
 
-	// Verify selection reset to row 0
-	if ta.BoardConfig.GetSelectedRow() != 0 {
-		t.Errorf("selection should reset to row 0 when selected task deleted, got %d", ta.BoardConfig.GetSelectedRow())
+	// Verify selection reset to index 0
+	if kanbanConfig.GetSelectedIndex() != 0 {
+		t.Errorf("selection should reset to index 0 when selected task deleted, got %d", kanbanConfig.GetSelectedIndex())
 	}
 
 	// Verify TIKI-1 is still visible
@@ -261,17 +288,22 @@ func TestRefresh_FromTaskDetail(t *testing.T) {
 	ta := testutil.NewTestApp(t)
 	defer ta.Cleanup()
 
+	// Load plugins to enable Kanban
+	if err := ta.LoadPlugins(); err != nil {
+		t.Fatalf("failed to load plugins: %v", err)
+	}
+
 	// Create task
 	taskID := "TIKI-1"
-	if err := testutil.CreateTestTask(ta.TaskDir, taskID, "Original Title", taskpkg.StatusTodo, taskpkg.TypeStory); err != nil {
+	if err := testutil.CreateTestTask(ta.TaskDir, taskID, "Original Title", taskpkg.StatusReady, taskpkg.TypeStory); err != nil {
 		t.Fatalf("failed to create test task: %v", err)
 	}
 	if err := ta.TaskStore.Reload(); err != nil {
 		t.Fatalf("failed to reload tasks: %v", err)
 	}
 
-	// Navigate: Board → Task Detail
-	ta.NavController.PushView(model.BoardViewID, nil)
+	// Navigate: Kanban → Task Detail
+	ta.NavController.PushView(model.MakePluginViewID("Kanban"), nil)
 	ta.Draw()
 	ta.SendKey(tcell.KeyEnter, 0, tcell.ModNone)
 
@@ -283,7 +315,7 @@ func TestRefresh_FromTaskDetail(t *testing.T) {
 	}
 
 	// Modify the task file externally
-	if err := testutil.CreateTestTask(ta.TaskDir, taskID, "Updated Title", taskpkg.StatusTodo, taskpkg.TypeStory); err != nil {
+	if err := testutil.CreateTestTask(ta.TaskDir, taskID, "Updated Title", taskpkg.StatusReady, taskpkg.TypeStory); err != nil {
 		t.Fatalf("failed to modify task: %v", err)
 	}
 
@@ -303,19 +335,24 @@ func TestRefresh_WithActiveSearch(t *testing.T) {
 	ta := testutil.NewTestApp(t)
 	defer ta.Cleanup()
 
+	// Load plugins to enable Kanban
+	if err := ta.LoadPlugins(); err != nil {
+		t.Fatalf("failed to load plugins: %v", err)
+	}
+
 	// Create tasks
-	if err := testutil.CreateTestTask(ta.TaskDir, "TIKI-1", "Alpha Task", taskpkg.StatusTodo, taskpkg.TypeStory); err != nil {
+	if err := testutil.CreateTestTask(ta.TaskDir, "TIKI-1", "Alpha Task", taskpkg.StatusReady, taskpkg.TypeStory); err != nil {
 		t.Fatalf("failed to create test task: %v", err)
 	}
-	if err := testutil.CreateTestTask(ta.TaskDir, "TIKI-2", "Beta Task", taskpkg.StatusTodo, taskpkg.TypeStory); err != nil {
+	if err := testutil.CreateTestTask(ta.TaskDir, "TIKI-2", "Beta Task", taskpkg.StatusReady, taskpkg.TypeStory); err != nil {
 		t.Fatalf("failed to create test task: %v", err)
 	}
 	if err := ta.TaskStore.Reload(); err != nil {
 		t.Fatalf("failed to reload tasks: %v", err)
 	}
 
-	// Open board
-	ta.NavController.PushView(model.BoardViewID, nil)
+	// Open Kanban plugin
+	ta.NavController.PushView(model.MakePluginViewID("Kanban"), nil)
 	ta.Draw()
 
 	// Search for "Alpha" (should show only TIKI-1)
@@ -351,16 +388,21 @@ func TestRefresh_MultipleRefreshes(t *testing.T) {
 	ta := testutil.NewTestApp(t)
 	defer ta.Cleanup()
 
+	// Load plugins to enable Kanban
+	if err := ta.LoadPlugins(); err != nil {
+		t.Fatalf("failed to load plugins: %v", err)
+	}
+
 	// Create initial task
-	if err := testutil.CreateTestTask(ta.TaskDir, "TIKI-1", "First Task", taskpkg.StatusTodo, taskpkg.TypeStory); err != nil {
+	if err := testutil.CreateTestTask(ta.TaskDir, "TIKI-1", "First Task", taskpkg.StatusReady, taskpkg.TypeStory); err != nil {
 		t.Fatalf("failed to create test task: %v", err)
 	}
 	if err := ta.TaskStore.Reload(); err != nil {
 		t.Fatalf("failed to reload tasks: %v", err)
 	}
 
-	// Open board
-	ta.NavController.PushView(model.BoardViewID, nil)
+	// Open Kanban plugin
+	ta.NavController.PushView(model.MakePluginViewID("Kanban"), nil)
 	ta.Draw()
 
 	// First refresh (no changes)
@@ -373,7 +415,7 @@ func TestRefresh_MultipleRefreshes(t *testing.T) {
 	}
 
 	// Add a new task
-	if err := testutil.CreateTestTask(ta.TaskDir, "TIKI-2", "Second Task", taskpkg.StatusTodo, taskpkg.TypeStory); err != nil {
+	if err := testutil.CreateTestTask(ta.TaskDir, "TIKI-2", "Second Task", taskpkg.StatusReady, taskpkg.TypeStory); err != nil {
 		t.Fatalf("failed to create test task: %v", err)
 	}
 

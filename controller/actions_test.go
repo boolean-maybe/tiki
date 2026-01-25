@@ -422,34 +422,6 @@ func TestDefaultGlobalActions(t *testing.T) {
 	}
 }
 
-func TestBoardViewActions(t *testing.T) {
-	registry := BoardViewActions()
-	actions := registry.GetActions()
-
-	// Should have navigation (8: arrow keys + hjkl) + task actions (8: Open, Move, Move←, Move→, New, Delete, Search, View mode)
-	if len(actions) != 16 {
-		t.Errorf("expected 16 board actions, got %d", len(actions))
-	}
-
-	// Check that key navigation actions exist
-	requiredActions := []ActionID{
-		ActionNavLeft, ActionNavRight, ActionNavUp, ActionNavDown,
-		ActionOpenTask, ActionNewTask, ActionDeleteTask, ActionSearch,
-		ActionMoveTask, ActionMoveTaskLeft, ActionMoveTaskRight, ActionToggleViewMode,
-	}
-
-	actionMap := make(map[ActionID]bool)
-	for _, action := range actions {
-		actionMap[action.ID] = true
-	}
-
-	for _, required := range requiredActions {
-		if !actionMap[required] {
-			t.Errorf("missing required board action: %v", required)
-		}
-	}
-}
-
 func TestTaskDetailViewActions(t *testing.T) {
 	registry := TaskDetailViewActions()
 	actions := registry.GetActions()

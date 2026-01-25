@@ -128,20 +128,20 @@ func TestTimeExpressions(t *testing.T) {
 		// Combined with other conditions
 		{
 			name:   "time condition AND status",
-			expr:   "NOW - UpdatedAt < 24hours AND status = 'todo'",
-			task:   &task.Task{UpdatedAt: now.Add(-12 * time.Hour), Status: task.StatusTodo},
+			expr:   "NOW - UpdatedAt < 24hours AND status = 'ready'",
+			task:   &task.Task{UpdatedAt: now.Add(-12 * time.Hour), Status: task.StatusReady},
 			expect: true,
 		},
 		{
 			name:   "time condition AND status - status mismatch",
-			expr:   "NOW - UpdatedAt < 24hours AND status = 'todo'",
+			expr:   "NOW - UpdatedAt < 24hours AND status = 'ready'",
 			task:   &task.Task{UpdatedAt: now.Add(-12 * time.Hour), Status: task.StatusDone},
 			expect: false,
 		},
 		{
 			name:   "time condition AND status - time mismatch",
-			expr:   "NOW - UpdatedAt < 24hours AND status = 'todo'",
-			task:   &task.Task{UpdatedAt: now.Add(-48 * time.Hour), Status: task.StatusTodo},
+			expr:   "NOW - UpdatedAt < 24hours AND status = 'ready'",
+			task:   &task.Task{UpdatedAt: now.Add(-48 * time.Hour), Status: task.StatusReady},
 			expect: false,
 		},
 
@@ -267,7 +267,7 @@ func TestTimeExpressionParsing(t *testing.T) {
 		},
 		{
 			name:        "valid combined with AND",
-			expr:        "NOW - UpdatedAt < 1day AND status = 'todo'",
+			expr:        "NOW - UpdatedAt < 1day AND status = 'ready'",
 			shouldError: false,
 		},
 	}
@@ -336,11 +336,11 @@ func TestMultipleTimeConditions(t *testing.T) {
 		},
 		{
 			name: "complex time expression with status",
-			expr: "(NOW - UpdatedAt < 2hours OR NOW - CreatedAt < 1day) AND status = 'todo'",
+			expr: "(NOW - UpdatedAt < 2hours OR NOW - CreatedAt < 1day) AND status = 'ready'",
 			task: &task.Task{
 				CreatedAt: now.Add(-10 * 24 * time.Hour),
 				UpdatedAt: now.Add(-1 * time.Hour),
-				Status:    task.StatusTodo,
+				Status:    task.StatusReady,
 			},
 			expect: true,
 		},

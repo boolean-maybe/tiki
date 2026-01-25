@@ -1,12 +1,12 @@
 name: Roadmap
 foreground: "#e1bee7"
 background: "#4a148c"
-key: "F2"
+key: "F4"
 panes:
   - name: Now
     columns: 2
-    filter: type = 'epic' AND status = 'todo'
-    action: status = 'todo'
+    filter: type = 'epic' AND status = 'ready'
+    action: status = 'ready'
   - name: Next
     columns: 1
     filter: type = 'epic' AND status = 'backlog' AND priority = 1

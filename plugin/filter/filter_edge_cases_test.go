@@ -17,26 +17,26 @@ func TestDoubleNegation(t *testing.T) {
 	}{
 		{
 			name:   "double negation - should match",
-			expr:   "NOT NOT status = 'todo'",
-			task:   &task.Task{Status: task.StatusTodo},
+			expr:   "NOT NOT status = 'ready'",
+			task:   &task.Task{Status: task.StatusReady},
 			expect: true, // NOT NOT true = NOT false = true
 		},
 		{
 			name:   "double negation - should not match",
-			expr:   "NOT NOT status = 'todo'",
+			expr:   "NOT NOT status = 'ready'",
 			task:   &task.Task{Status: task.StatusDone},
 			expect: false, // NOT NOT false = NOT true = false
 		},
 		{
 			name:   "double negation with parentheses",
-			expr:   "NOT (NOT (status = 'todo'))",
-			task:   &task.Task{Status: task.StatusTodo},
+			expr:   "NOT (NOT (status = 'ready'))",
+			task:   &task.Task{Status: task.StatusReady},
 			expect: true,
 		},
 		{
 			name:   "triple negation - odd number",
 			expr:   "NOT NOT NOT status = 'done'",
-			task:   &task.Task{Status: task.StatusTodo},
+			task:   &task.Task{Status: task.StatusReady},
 			expect: true, // NOT NOT NOT false = NOT NOT true = NOT false = true
 		},
 		{
@@ -81,7 +81,7 @@ func TestEmptyFilter(t *testing.T) {
 		},
 	}
 
-	task := &task.Task{Status: task.StatusTodo}
+	task := &task.Task{Status: task.StatusReady}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -114,49 +114,49 @@ func TestComplexNOTExpressions(t *testing.T) {
 	}{
 		{
 			name:   "NOT with AND - both conditions true",
-			expr:   "NOT (status = 'todo' AND type = 'bug')",
-			task:   &task.Task{Status: task.StatusTodo, Type: task.TypeBug},
+			expr:   "NOT (status = 'ready' AND type = 'bug')",
+			task:   &task.Task{Status: task.StatusReady, Type: task.TypeBug},
 			expect: false, // NOT (true AND true) = NOT true = false
 		},
 		{
 			name:   "NOT with AND - one condition false",
-			expr:   "NOT (status = 'todo' AND type = 'bug')",
-			task:   &task.Task{Status: task.StatusTodo, Type: task.TypeStory},
+			expr:   "NOT (status = 'ready' AND type = 'bug')",
+			task:   &task.Task{Status: task.StatusReady, Type: task.TypeStory},
 			expect: true, // NOT (true AND false) = NOT false = true
 		},
 		{
 			name:   "NOT with OR - both conditions true",
-			expr:   "NOT (status = 'todo' OR type = 'bug')",
-			task:   &task.Task{Status: task.StatusTodo, Type: task.TypeBug},
+			expr:   "NOT (status = 'ready' OR type = 'bug')",
+			task:   &task.Task{Status: task.StatusReady, Type: task.TypeBug},
 			expect: false, // NOT (true OR true) = NOT true = false
 		},
 		{
 			name:   "NOT with OR - one condition true",
-			expr:   "NOT (status = 'todo' OR type = 'bug')",
-			task:   &task.Task{Status: task.StatusTodo, Type: task.TypeStory},
+			expr:   "NOT (status = 'ready' OR type = 'bug')",
+			task:   &task.Task{Status: task.StatusReady, Type: task.TypeStory},
 			expect: false, // NOT (true OR false) = NOT true = false
 		},
 		{
 			name:   "NOT with OR - both conditions false",
-			expr:   "NOT (status = 'todo' OR type = 'bug')",
+			expr:   "NOT (status = 'ready' OR type = 'bug')",
 			task:   &task.Task{Status: task.StatusDone, Type: task.TypeStory},
 			expect: true, // NOT (false OR false) = NOT false = true
 		},
 		{
 			name:   "NOT with complex mixed expression",
-			expr:   "NOT (status = 'todo' AND type = 'bug' OR status = 'in_progress')",
-			task:   &task.Task{Status: task.StatusTodo, Type: task.TypeBug},
+			expr:   "NOT (status = 'ready' AND type = 'bug' OR status = 'in_progress')",
+			task:   &task.Task{Status: task.StatusReady, Type: task.TypeBug},
 			expect: false, // NOT ((true AND true) OR false) = NOT (true OR false) = NOT true = false
 		},
 		{
 			name:   "NOT with complex mixed expression - alternative match",
-			expr:   "NOT (status = 'todo' AND type = 'bug' OR status = 'in_progress')",
+			expr:   "NOT (status = 'ready' AND type = 'bug' OR status = 'in_progress')",
 			task:   &task.Task{Status: task.StatusInProgress, Type: task.TypeStory},
 			expect: false, // NOT ((false AND false) OR true) = NOT (false OR true) = NOT true = false
 		},
 		{
 			name:   "NOT with complex mixed expression - no match",
-			expr:   "NOT (status = 'todo' AND type = 'bug' OR status = 'in_progress')",
+			expr:   "NOT (status = 'ready' AND type = 'bug' OR status = 'in_progress')",
 			task:   &task.Task{Status: task.StatusDone, Type: task.TypeStory},
 			expect: true, // NOT ((false AND false) OR false) = NOT false = true
 		},
@@ -188,7 +188,7 @@ func TestAllOperatorsCombined(t *testing.T) {
 		{
 			name:   "all operators - all conditions match",
 			expr:   "NOT status = 'done' AND (type IN ['bug', 'story'] OR priority > 3) AND tags NOT IN ['deprecated']",
-			task:   &task.Task{Status: task.StatusTodo, Type: task.TypeBug, Priority: 5, Tags: []string{"active"}},
+			task:   &task.Task{Status: task.StatusReady, Type: task.TypeBug, Priority: 5, Tags: []string{"active"}},
 			expect: true,
 		},
 		{
@@ -200,25 +200,25 @@ func TestAllOperatorsCombined(t *testing.T) {
 		{
 			name:   "all operators - IN fails",
 			expr:   "NOT status = 'done' AND (type IN ['bug', 'story'] OR priority > 3) AND tags NOT IN ['deprecated']",
-			task:   &task.Task{Status: task.StatusTodo, Type: "epic", Priority: 2, Tags: []string{"active"}},
+			task:   &task.Task{Status: task.StatusReady, Type: "epic", Priority: 2, Tags: []string{"active"}},
 			expect: false,
 		},
 		{
 			name:   "all operators - NOT IN fails",
 			expr:   "NOT status = 'done' AND (type IN ['bug', 'story'] OR priority > 3) AND tags NOT IN ['deprecated']",
-			task:   &task.Task{Status: task.StatusTodo, Type: task.TypeBug, Priority: 5, Tags: []string{"deprecated"}},
+			task:   &task.Task{Status: task.StatusReady, Type: task.TypeBug, Priority: 5, Tags: []string{"deprecated"}},
 			expect: false,
 		},
 		{
 			name:   "complex with comparisons and IN",
-			expr:   "(priority >= 3 AND priority <= 5) OR (status IN ['todo', 'in_progress'] AND type = 'bug')",
-			task:   &task.Task{Status: task.StatusTodo, Type: task.TypeBug, Priority: 2},
+			expr:   "(priority >= 3 AND priority <= 5) OR (status IN ['ready', 'in_progress'] AND type = 'bug')",
+			task:   &task.Task{Status: task.StatusReady, Type: task.TypeBug, Priority: 2},
 			expect: true, // Second part matches
 		},
 		{
 			name:   "complex with multiple NOT",
 			expr:   "NOT status = 'done' AND NOT type = 'epic' AND NOT tags IN ['deprecated', 'archived']",
-			task:   &task.Task{Status: task.StatusTodo, Type: task.TypeBug, Tags: []string{"active"}},
+			task:   &task.Task{Status: task.StatusReady, Type: task.TypeBug, Tags: []string{"active"}},
 			expect: true,
 		},
 	}
@@ -248,9 +248,9 @@ func TestVeryLongExpressionChains(t *testing.T) {
 	}{
 		{
 			name: "five AND chain",
-			expr: "status = 'todo' AND type = 'bug' AND priority > 2 AND priority < 6 AND points > 0",
+			expr: "status = 'ready' AND type = 'bug' AND priority > 2 AND priority < 6 AND points > 0",
 			task: &task.Task{
-				Status:   task.StatusTodo,
+				Status:   task.StatusReady,
 				Type:     task.TypeBug,
 				Priority: 4,
 				Points:   3,
@@ -259,14 +259,14 @@ func TestVeryLongExpressionChains(t *testing.T) {
 		},
 		{
 			name:   "five OR chain - last matches",
-			expr:   "status = 'done' OR status = 'cancelled' OR status = 'blocked' OR status = 'review' OR status = 'todo'",
-			task:   &task.Task{Status: task.StatusTodo},
+			expr:   "status = 'done' OR status = 'cancelled' OR status = 'in_progress' OR status = 'review' OR status = 'ready'",
+			task:   &task.Task{Status: task.StatusReady},
 			expect: true,
 		},
 		{
 			name:   "alternating AND/OR chain",
-			expr:   "status = 'todo' OR type = 'bug' AND priority > 3 OR points > 10 AND status = 'in_progress'",
-			task:   &task.Task{Status: task.StatusTodo, Type: task.TypeStory, Priority: 2, Points: 5},
+			expr:   "status = 'ready' OR type = 'bug' AND priority > 3 OR points > 10 AND status = 'in_progress'",
+			task:   &task.Task{Status: task.StatusReady, Type: task.TypeStory, Priority: 2, Points: 5},
 			expect: true, // First OR condition matches
 		},
 	}
@@ -406,14 +406,14 @@ func TestComparisonOperators(t *testing.T) {
 		{
 			name:   "string greater than",
 			expr:   "status > 'in_progress'",
-			task:   &task.Task{Status: task.StatusTodo},
-			expect: true, // "todo" > "in_progress" lexicographically
+			task:   &task.Task{Status: task.StatusReady},
+			expect: true, // "ready" > "in_progress" lexicographically
 		},
 		{
 			name:   "string less than",
-			expr:   "status < 'todo'",
+			expr:   "status < 'ready'",
 			task:   &task.Task{Status: task.StatusDone},
-			expect: true, // "done" < "todo" lexicographically
+			expect: true, // "done" < "ready" lexicographically
 		},
 	}
 
@@ -451,13 +451,13 @@ func TestRealWorldScenarios(t *testing.T) {
 		},
 		{
 			name:   "stale tasks needing attention",
-			expr:   "status IN ['todo', 'in_progress', 'blocked'] AND NOW - UpdatedAt > 14days",
-			task:   &task.Task{Status: task.StatusTodo, UpdatedAt: now.Add(-20 * 24 * time.Hour)},
+			expr:   "status IN ['ready', 'in_progress', 'in_progress'] AND NOW - UpdatedAt > 14days",
+			task:   &task.Task{Status: task.StatusReady, UpdatedAt: now.Add(-20 * 24 * time.Hour)},
 			expect: true,
 		},
 		{
 			name:   "UI/UX work in progress",
-			expr:   "tags IN ['ui', 'ux', 'design'] AND status IN ['todo', 'in_progress'] AND type != 'epic'",
+			expr:   "tags IN ['ui', 'ux', 'design'] AND status IN ['ready', 'in_progress'] AND type != 'epic'",
 			task:   &task.Task{Tags: []string{"ui", "frontend"}, Status: task.StatusInProgress, Type: task.TypeStory},
 			expect: true,
 		},
@@ -469,8 +469,8 @@ func TestRealWorldScenarios(t *testing.T) {
 		},
 		{
 			name:   "blocked high-value items",
-			expr:   "status = 'blocked' AND (priority >= 4 OR points >= 8)",
-			task:   &task.Task{Status: task.StatusBlocked, Priority: 2, Points: 10},
+			expr:   "status = 'in_progress' AND (priority >= 4 OR points >= 8)",
+			task:   &task.Task{Status: task.StatusInProgress, Priority: 2, Points: 10},
 			expect: true,
 		},
 	}

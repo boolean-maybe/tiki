@@ -1,21 +1,10 @@
 package bootstrap
 
 import (
-	"log/slog"
-
 	"github.com/boolean-maybe/tiki/config"
 	"github.com/boolean-maybe/tiki/model"
 	"github.com/boolean-maybe/tiki/store/tikistore"
 )
-
-// InitBoardConfig creates and configures the board model from persisted user preferences.
-func InitBoardConfig() *model.BoardConfig {
-	boardConfig := model.NewBoardConfig()
-	boardViewMode := config.GetBoardViewMode()
-	boardConfig.SetViewMode(boardViewMode)
-	slog.Info("loaded view mode preferences", "board", boardViewMode)
-	return boardConfig
-}
 
 // InitHeaderAndLayoutModels creates the header config and layout model with
 // persisted visibility preferences applied.

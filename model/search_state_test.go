@@ -190,15 +190,15 @@ func TestSearchState_StateOverwriting(t *testing.T) {
 	ss.SavePreSearchState(5)
 
 	// Overwrite with pane state
-	ss.SavePreSearchPaneState("todo", 2)
+	ss.SavePreSearchPaneState("ready", 2)
 
 	// Clear - should have both states available but prefer column
 	preIndex, prePane, preRow := ss.ClearSearchResults()
 	if preIndex != 5 {
 		t.Errorf("preIndex = %d, want 5 (grid state preserved)", preIndex)
 	}
-	if prePane != "todo" {
-		t.Errorf("prePane = %q, want %q", prePane, "todo")
+	if prePane != "ready" {
+		t.Errorf("prePane = %q, want %q", prePane, "ready")
 	}
 	if preRow != 2 {
 		t.Errorf("preRow = %d, want 2", preRow)

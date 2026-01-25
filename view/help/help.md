@@ -3,8 +3,8 @@
 tiki is a lightweight issue-tracking, project management and knowledge base tool that uses git repo 
 to store issues, stories and documentation.
 
-- tiki uses Markdown files stored in [tiki](tiki.md) format under `.doc/tiki` subdirectory of a git repo
-to track issues, stories or epics. 
+- tiki uses Markdown files stored in `tiki` format under `.doc/tiki` subdirectory of a git repo
+to track issues, stories or epics. Press `Tab` then `Enter` to select this link: [tiki](tiki.md) and read about `tiki` format
 - Project-related documentation is stored under `.doc/doki` also in Markdown format. They can be linked/back-linked
 for easier navigation. 
 
@@ -41,7 +41,7 @@ or:
 
 ## Customization
 
-Read [customize](view.md) to understand how to customize or extend tiki with your own plugins
+Press `Tab` then `Enter` to read [customize](view.md) to understand how to customize or extend tiki with your own plugins
 
 ## Configuration
 

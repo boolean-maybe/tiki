@@ -121,7 +121,7 @@ func TestTaskController_SaveStatus(t *testing.T) {
 				tc.SetDraft(newTestTask())
 			},
 			statusDisplay: "Todo",
-			wantStatus:    task.StatusTodo,
+			wantStatus:    task.StatusReady,
 			wantSuccess:   true,
 		},
 		{

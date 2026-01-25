@@ -95,8 +95,27 @@ func (s *TikiStore) loadTaskFile(path string, authorMap map[string]*git.AuthorIn
 		return nil, fmt.Errorf("parsing yaml: %w", err)
 	}
 
+	// Derive ID from filename: "tiki-abc123.md" -> "TIKI-ABC123"
+	// IGNORE fm.ID even if present - filename is authoritative
+	filename := filepath.Base(path)
+	taskID := strings.ToUpper(strings.TrimSuffix(filename, ".md"))
+
+	// Log warning if frontmatter has ID that differs from filename
+	// Parse frontmatter as generic map to check for ID field
+	var fmMap map[string]interface{}
+	if err := yaml.Unmarshal([]byte(frontmatter), &fmMap); err == nil {
+		if rawID, ok := fmMap["id"]; ok {
+			if idStr, ok := rawID.(string); ok && idStr != "" && idStr != taskID {
+				slog.Warn("ignoring frontmatter ID mismatch, using filename",
+					"file", path,
+					"frontmatter_id", idStr,
+					"filename_id", taskID)
+			}
+		}
+	}
+
 	task := &taskpkg.Task{
-		ID:          fm.ID,
+		ID:          taskID,
 		Title:       fm.Title,
 		Description: strings.TrimSpace(body),
 		Type:        taskpkg.NormalizeType(fm.Type),
@@ -261,7 +280,6 @@ func (s *TikiStore) saveTask(task *taskpkg.Task) error {
 	}
 
 	fm := taskFrontmatter{
-		ID:       task.ID,
 		Title:    task.Title,
 		Type:     string(task.Type),
 		Status:   taskpkg.StatusToString(task.Status),
@@ -329,118 +347,4 @@ func (s *TikiStore) taskFilePath(id string) string {
 	// convert ID to lowercase filename: TIKI-ABC123 -> tiki-abc123.md
 	filename := strings.ToLower(id) + ".md"
 	return filepath.Join(s.dir, filename)
-}
-
-// migrateTaskIDToLowercase converts task ID from TIKI-ABC123 to TIKI-abc123
-// Returns the migrated ID and true if migration was performed
-func migrateTaskIDToLowercase(id string) (string, bool) {
-	// Check if ID starts with TIKI- prefix
-	if !strings.HasPrefix(id, "TIKI-") {
-		return id, false
-	}
-
-	// Extract random part after prefix
-	randomPart := id[5:]
-
-	// Check if random part has any uppercase letters
-	lowercaseRandom := strings.ToLower(randomPart)
-	if randomPart == lowercaseRandom {
-		return id, false // Already lowercase
-	}
-
-	// Return migrated ID
-	return "TIKI-" + lowercaseRandom, true
-}
-
-// MigrateTaskIDs scans all task files and converts uppercase IDs to lowercase
-// This is called automatically during LoadAllTasks to handle legacy uppercase IDs
-func (s *TikiStore) MigrateTaskIDs() error {
-	slog.Info("starting task ID migration to lowercase format")
-
-	entries, err := os.ReadDir(s.dir)
-	if err != nil {
-		return fmt.Errorf("reading directory: %w", err)
-	}
-
-	migratedCount := 0
-	for _, entry := range entries {
-		if entry.IsDir() || !strings.HasSuffix(entry.Name(), ".md") {
-			continue
-		}
-
-		filePath := filepath.Join(s.dir, entry.Name())
-
-		// Read file content
-		content, err := os.ReadFile(filePath)
-		if err != nil {
-			slog.Warn("failed to read file for migration", "file", filePath, "error", err)
-			continue
-		}
-
-		// Parse frontmatter
-		frontmatter, body, err := store.ParseFrontmatter(string(content))
-		if err != nil {
-			slog.Warn("failed to parse frontmatter for migration", "file", filePath, "error", err)
-			continue
-		}
-
-		var fm taskFrontmatter
-		if err := yaml.Unmarshal([]byte(frontmatter), &fm); err != nil {
-			slog.Warn("failed to unmarshal frontmatter for migration", "file", filePath, "error", err)
-			continue
-		}
-
-		// Check if ID needs migration
-		newID, migrated := migrateTaskIDToLowercase(fm.ID)
-		if !migrated {
-			continue // No migration needed
-		}
-
-		slog.Info("migrating task ID", "old_id", fm.ID, "new_id", newID, "file", filePath)
-
-		// Update frontmatter with new ID
-		fm.ID = newID
-
-		// Marshal updated frontmatter
-		yamlBytes, err := yaml.Marshal(fm)
-		if err != nil {
-			slog.Error("failed to marshal migrated frontmatter", "old_id", fm.ID, "error", err)
-			continue
-		}
-
-		// Reconstruct file content
-		var newContent strings.Builder
-		newContent.WriteString("---\n")
-		newContent.Write(yamlBytes)
-		newContent.WriteString("---\n")
-		if body != "" {
-			newContent.WriteString(body)
-			if !strings.HasSuffix(body, "\n") {
-				newContent.WriteString("\n")
-			}
-		}
-
-		// Write updated file
-		if err := os.WriteFile(filePath, []byte(newContent.String()), 0644); err != nil {
-			slog.Error("failed to write migrated file", "file", filePath, "error", err)
-			continue
-		}
-
-		// Git add the modified file (best effort)
-		if s.gitUtil != nil {
-			if err := s.gitUtil.Add(filePath); err != nil {
-				slog.Debug("failed to git add migrated file", "file", filePath, "error", err)
-			}
-		}
-
-		migratedCount++
-	}
-
-	if migratedCount > 0 {
-		slog.Info("task ID migration completed", "migrated_count", migratedCount)
-	} else {
-		slog.Debug("no task IDs required migration")
-	}
-
-	return nil
 }

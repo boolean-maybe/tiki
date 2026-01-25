@@ -18,7 +18,6 @@ func CreateTestTask(dir, id, title string, status task.Status, taskType task.Typ
 
 	// Build YAML frontmatter
 	content := fmt.Sprintf(`---
-id: %s
 title: %s
 type: %s
 status: %s
@@ -26,7 +25,7 @@ priority: 3
 points: 1
 ---
 %s
-`, id, title, taskType, status, title)
+`, title, taskType, status, title)
 
 	return os.WriteFile(filepath, []byte(content), 0644)
 }
@@ -39,11 +38,11 @@ func CreateBoardTasks(dir string) error {
 		status   task.Status
 		taskType task.Type
 	}{
-		{"TIKI-1", "Todo Task", task.StatusTodo, task.TypeStory},
+		{"TIKI-1", "Todo Task", task.StatusReady, task.TypeStory},
 		{"TIKI-2", "In Progress Task", task.StatusInProgress, task.TypeStory},
 		{"TIKI-3", "Review Task", task.StatusReview, task.TypeStory},
 		{"TIKI-4", "Done Task", task.StatusDone, task.TypeStory},
-		{"TIKI-5", "Another Todo", task.StatusTodo, task.TypeBug},
+		{"TIKI-5", "Another Todo", task.StatusReady, task.TypeBug},
 	}
 
 	for _, task := range tasks {

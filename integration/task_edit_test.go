@@ -32,7 +32,7 @@ func TestNewTask_Enter_SavesAndCreatesFile(t *testing.T) {
 	defer ta.Cleanup()
 
 	// Start on board view
-	ta.NavController.PushView(model.BoardViewID, nil)
+	ta.NavController.PushView(model.MakePluginViewID("Kanban"), nil)
 	ta.Draw()
 
 	// Press 'n' to create new task (opens edit view with title focused)
@@ -70,7 +70,7 @@ func TestNewTask_Escape_DiscardsWithoutCreatingFile(t *testing.T) {
 	defer ta.Cleanup()
 
 	// Start on board view
-	ta.NavController.PushView(model.BoardViewID, nil)
+	ta.NavController.PushView(model.MakePluginViewID("Kanban"), nil)
 	ta.Draw()
 
 	// Press 'n' to create new task
@@ -105,7 +105,7 @@ func TestNewTask_CtrlS_SavesAndCreatesFile(t *testing.T) {
 	defer ta.Cleanup()
 
 	// Start on board view
-	ta.NavController.PushView(model.BoardViewID, nil)
+	ta.NavController.PushView(model.MakePluginViewID("Kanban"), nil)
 	ta.Draw()
 
 	// Press 'n' to create new task
@@ -141,7 +141,7 @@ func TestNewTask_EmptyTitle_DoesNotSave(t *testing.T) {
 	defer ta.Cleanup()
 
 	// Start on board view
-	ta.NavController.PushView(model.BoardViewID, nil)
+	ta.NavController.PushView(model.MakePluginViewID("Kanban"), nil)
 	ta.Draw()
 
 	// Press 'n' to create new task
@@ -180,7 +180,7 @@ func TestTaskEdit_EnterInPointsFieldDoesNotSave(t *testing.T) {
 	// Create a task
 	taskID := "TIKI-1"
 	originalTitle := "Original Title"
-	if err := testutil.CreateTestTask(ta.TaskDir, taskID, originalTitle, taskpkg.StatusTodo, taskpkg.TypeStory); err != nil {
+	if err := testutil.CreateTestTask(ta.TaskDir, taskID, originalTitle, taskpkg.StatusReady, taskpkg.TypeStory); err != nil {
 		t.Fatalf("failed to create test task: %v", err)
 	}
 	if err := ta.TaskStore.Reload(); err != nil {
@@ -188,7 +188,7 @@ func TestTaskEdit_EnterInPointsFieldDoesNotSave(t *testing.T) {
 	}
 
 	// Navigate: Board → Task Detail
-	ta.NavController.PushView(model.BoardViewID, nil)
+	ta.NavController.PushView(model.MakePluginViewID("Kanban"), nil)
 	ta.Draw()
 	ta.SendKey(tcell.KeyEnter, 0, tcell.ModNone) // Open task detail
 
@@ -227,7 +227,7 @@ func TestTaskEdit_TitleChangesSaved(t *testing.T) {
 	// Create a task
 	taskID := "TIKI-1"
 	originalTitle := "Original Title"
-	if err := testutil.CreateTestTask(ta.TaskDir, taskID, originalTitle, taskpkg.StatusTodo, taskpkg.TypeStory); err != nil {
+	if err := testutil.CreateTestTask(ta.TaskDir, taskID, originalTitle, taskpkg.StatusReady, taskpkg.TypeStory); err != nil {
 		t.Fatalf("failed to create test task: %v", err)
 	}
 	if err := ta.TaskStore.Reload(); err != nil {
@@ -235,7 +235,7 @@ func TestTaskEdit_TitleChangesSaved(t *testing.T) {
 	}
 
 	// Navigate: Board → Task Detail
-	ta.NavController.PushView(model.BoardViewID, nil)
+	ta.NavController.PushView(model.MakePluginViewID("Kanban"), nil)
 	ta.Draw()
 	ta.SendKey(tcell.KeyEnter, 0, tcell.ModNone) // Open task detail
 
@@ -274,7 +274,7 @@ func TestTaskEdit_CtrlS_FromPointsField_Saves(t *testing.T) {
 	// Create a task
 	taskID := "TIKI-1"
 	originalTitle := "Original Title"
-	if err := testutil.CreateTestTask(ta.TaskDir, taskID, originalTitle, taskpkg.StatusTodo, taskpkg.TypeStory); err != nil {
+	if err := testutil.CreateTestTask(ta.TaskDir, taskID, originalTitle, taskpkg.StatusReady, taskpkg.TypeStory); err != nil {
 		t.Fatalf("failed to create test task: %v", err)
 	}
 	if err := ta.TaskStore.Reload(); err != nil {
@@ -282,7 +282,7 @@ func TestTaskEdit_CtrlS_FromPointsField_Saves(t *testing.T) {
 	}
 
 	// Navigate: Board → Task Detail
-	ta.NavController.PushView(model.BoardViewID, nil)
+	ta.NavController.PushView(model.MakePluginViewID("Kanban"), nil)
 	ta.Draw()
 	ta.SendKey(tcell.KeyEnter, 0, tcell.ModNone) // Open task detail
 
@@ -321,7 +321,7 @@ func TestTaskEdit_Escape_FromTitleField_Cancels(t *testing.T) {
 	// Create a task
 	taskID := "TIKI-1"
 	originalTitle := "Original Title"
-	if err := testutil.CreateTestTask(ta.TaskDir, taskID, originalTitle, taskpkg.StatusTodo, taskpkg.TypeStory); err != nil {
+	if err := testutil.CreateTestTask(ta.TaskDir, taskID, originalTitle, taskpkg.StatusReady, taskpkg.TypeStory); err != nil {
 		t.Fatalf("failed to create test task: %v", err)
 	}
 	if err := ta.TaskStore.Reload(); err != nil {
@@ -329,7 +329,7 @@ func TestTaskEdit_Escape_FromTitleField_Cancels(t *testing.T) {
 	}
 
 	// Navigate: Board → Task Detail
-	ta.NavController.PushView(model.BoardViewID, nil)
+	ta.NavController.PushView(model.MakePluginViewID("Kanban"), nil)
 	ta.Draw()
 	ta.SendKey(tcell.KeyEnter, 0, tcell.ModNone) // Open task detail
 
@@ -363,7 +363,7 @@ func TestTaskEdit_Escape_ClearsEditSessionState(t *testing.T) {
 	// Create a task
 	taskID := "TIKI-1"
 	originalTitle := "Original Title"
-	if err := testutil.CreateTestTask(ta.TaskDir, taskID, originalTitle, taskpkg.StatusTodo, taskpkg.TypeStory); err != nil {
+	if err := testutil.CreateTestTask(ta.TaskDir, taskID, originalTitle, taskpkg.StatusReady, taskpkg.TypeStory); err != nil {
 		t.Fatalf("failed to create test task: %v", err)
 	}
 	if err := ta.TaskStore.Reload(); err != nil {
@@ -371,7 +371,7 @@ func TestTaskEdit_Escape_ClearsEditSessionState(t *testing.T) {
 	}
 
 	// Navigate: Board → Task Detail → Task Edit
-	ta.NavController.PushView(model.BoardViewID, nil)
+	ta.NavController.PushView(model.MakePluginViewID("Kanban"), nil)
 	ta.Draw()
 	ta.SendKey(tcell.KeyEnter, 0, tcell.ModNone) // Open task detail
 	ta.SendKey(tcell.KeyRune, 'e', tcell.ModNone)
@@ -401,7 +401,7 @@ func TestTaskEdit_Escape_FromPointsField_Cancels(t *testing.T) {
 	// Create a task
 	taskID := "TIKI-1"
 	originalTitle := "Original Title"
-	if err := testutil.CreateTestTask(ta.TaskDir, taskID, originalTitle, taskpkg.StatusTodo, taskpkg.TypeStory); err != nil {
+	if err := testutil.CreateTestTask(ta.TaskDir, taskID, originalTitle, taskpkg.StatusReady, taskpkg.TypeStory); err != nil {
 		t.Fatalf("failed to create test task: %v", err)
 	}
 	if err := ta.TaskStore.Reload(); err != nil {
@@ -409,7 +409,7 @@ func TestTaskEdit_Escape_FromPointsField_Cancels(t *testing.T) {
 	}
 
 	// Navigate: Board → Task Detail
-	ta.NavController.PushView(model.BoardViewID, nil)
+	ta.NavController.PushView(model.MakePluginViewID("Kanban"), nil)
 	ta.Draw()
 	ta.SendKey(tcell.KeyEnter, 0, tcell.ModNone) // Open task detail
 
@@ -451,7 +451,7 @@ func TestTaskEdit_Tab_NavigatesForward(t *testing.T) {
 
 	// Create a task
 	taskID := "TIKI-1"
-	if err := testutil.CreateTestTask(ta.TaskDir, taskID, "Test Task", taskpkg.StatusTodo, taskpkg.TypeStory); err != nil {
+	if err := testutil.CreateTestTask(ta.TaskDir, taskID, "Test Task", taskpkg.StatusReady, taskpkg.TypeStory); err != nil {
 		t.Fatalf("failed to create test task: %v", err)
 	}
 	if err := ta.TaskStore.Reload(); err != nil {
@@ -459,7 +459,7 @@ func TestTaskEdit_Tab_NavigatesForward(t *testing.T) {
 	}
 
 	// Navigate: Board → Task Detail
-	ta.NavController.PushView(model.BoardViewID, nil)
+	ta.NavController.PushView(model.MakePluginViewID("Kanban"), nil)
 	ta.Draw()
 	ta.SendKey(tcell.KeyEnter, 0, tcell.ModNone) // Open task detail
 
@@ -512,7 +512,7 @@ func TestTaskEdit_Navigation_PreservesChanges(t *testing.T) {
 
 	// Create a task
 	taskID := "TIKI-1"
-	if err := testutil.CreateTestTask(ta.TaskDir, taskID, "Original Title", taskpkg.StatusTodo, taskpkg.TypeStory); err != nil {
+	if err := testutil.CreateTestTask(ta.TaskDir, taskID, "Original Title", taskpkg.StatusReady, taskpkg.TypeStory); err != nil {
 		t.Fatalf("failed to create test task: %v", err)
 	}
 	if err := ta.TaskStore.Reload(); err != nil {
@@ -520,7 +520,7 @@ func TestTaskEdit_Navigation_PreservesChanges(t *testing.T) {
 	}
 
 	// Navigate: Board → Task Detail
-	ta.NavController.PushView(model.BoardViewID, nil)
+	ta.NavController.PushView(model.MakePluginViewID("Kanban"), nil)
 	ta.Draw()
 	ta.SendKey(tcell.KeyEnter, 0, tcell.ModNone) // Open task detail
 
@@ -570,7 +570,7 @@ func TestTaskEdit_MultipleFields_AllSaved(t *testing.T) {
 
 	// Create a task with initial values
 	taskID := "TIKI-1"
-	if err := testutil.CreateTestTask(ta.TaskDir, taskID, "Original Title", taskpkg.StatusTodo, taskpkg.TypeStory); err != nil {
+	if err := testutil.CreateTestTask(ta.TaskDir, taskID, "Original Title", taskpkg.StatusReady, taskpkg.TypeStory); err != nil {
 		t.Fatalf("failed to create test task: %v", err)
 	}
 	if err := ta.TaskStore.Reload(); err != nil {
@@ -578,7 +578,7 @@ func TestTaskEdit_MultipleFields_AllSaved(t *testing.T) {
 	}
 
 	// Navigate: Board → Task Detail
-	ta.NavController.PushView(model.BoardViewID, nil)
+	ta.NavController.PushView(model.MakePluginViewID("Kanban"), nil)
 	ta.Draw()
 	ta.SendKey(tcell.KeyEnter, 0, tcell.ModNone) // Open task detail
 
@@ -635,7 +635,7 @@ func TestTaskEdit_MultipleFields_AllDiscarded(t *testing.T) {
 
 	// Create a task with initial values
 	taskID := "TIKI-1"
-	if err := testutil.CreateTestTask(ta.TaskDir, taskID, "Original Title", taskpkg.StatusTodo, taskpkg.TypeStory); err != nil {
+	if err := testutil.CreateTestTask(ta.TaskDir, taskID, "Original Title", taskpkg.StatusReady, taskpkg.TypeStory); err != nil {
 		t.Fatalf("failed to create test task: %v", err)
 	}
 	if err := ta.TaskStore.Reload(); err != nil {
@@ -654,7 +654,7 @@ func TestTaskEdit_MultipleFields_AllDiscarded(t *testing.T) {
 	}
 
 	// Navigate: Board → Task Detail
-	ta.NavController.PushView(model.BoardViewID, nil)
+	ta.NavController.PushView(model.MakePluginViewID("Kanban"), nil)
 	ta.Draw()
 	ta.SendKey(tcell.KeyEnter, 0, tcell.ModNone) // Open task detail
 
@@ -706,7 +706,7 @@ func TestNewTask_MultipleFields_AllSaved(t *testing.T) {
 	defer ta.Cleanup()
 
 	// Start on board view
-	ta.NavController.PushView(model.BoardViewID, nil)
+	ta.NavController.PushView(model.MakePluginViewID("Kanban"), nil)
 	ta.Draw()
 
 	// Press 'n' to create new task
@@ -763,7 +763,7 @@ func TestNewTask_AfterEditingExistingTask_StatusAndTypeNotCorrupted(t *testing.T
 
 	// Create and edit an existing task first
 	taskID := "TIKI-1"
-	if err := testutil.CreateTestTask(ta.TaskDir, taskID, "Existing Task", taskpkg.StatusTodo, taskpkg.TypeStory); err != nil {
+	if err := testutil.CreateTestTask(ta.TaskDir, taskID, "Existing Task", taskpkg.StatusReady, taskpkg.TypeStory); err != nil {
 		t.Fatalf("failed to create test task: %v", err)
 	}
 	if err := ta.TaskStore.Reload(); err != nil {
@@ -771,7 +771,7 @@ func TestNewTask_AfterEditingExistingTask_StatusAndTypeNotCorrupted(t *testing.T
 	}
 
 	// Navigate to board and edit the existing task
-	ta.NavController.PushView(model.BoardViewID, nil)
+	ta.NavController.PushView(model.MakePluginViewID("Kanban"), nil)
 	ta.Draw()
 	ta.SendKey(tcell.KeyEnter, 0, tcell.ModNone)  // Open task detail
 	ta.SendKey(tcell.KeyRune, 'e', tcell.ModNone) // Start editing
@@ -818,7 +818,7 @@ func TestNewTask_WithStatusAndType_Saves(t *testing.T) {
 	defer ta.Cleanup()
 
 	// Start on board view
-	ta.NavController.PushView(model.BoardViewID, nil)
+	ta.NavController.PushView(model.MakePluginViewID("Kanban"), nil)
 	ta.Draw()
 
 	// Press 'n' to create new task
@@ -830,9 +830,9 @@ func TestNewTask_WithStatusAndType_Saves(t *testing.T) {
 	// Tab to Status field (1 tab)
 	ta.SendKey(tcell.KeyTab, 0, tcell.ModNone)
 
-	// Cycle status to Waiting (press down arrow several times)
-	// Status order: Backlog -> Todo -> Ready -> In Progress -> Waiting
-	for i := 0; i < 4; i++ {
+	// Cycle status to Review (press down arrow several times)
+	// Status order: Backlog -> Ready -> In Progress -> Review -> Done
+	for i := 0; i < 3; i++ {
 		ta.SendKey(tcell.KeyDown, 0, tcell.ModNone)
 	}
 
@@ -861,8 +861,8 @@ func TestNewTask_WithStatusAndType_Saves(t *testing.T) {
 	if task.Title != "Hey" {
 		t.Errorf("title = %q, want %q", task.Title, "Hey")
 	}
-	if task.Status != taskpkg.StatusWaiting {
-		t.Errorf("status = %v, want %v", task.Status, taskpkg.StatusWaiting)
+	if task.Status != taskpkg.StatusReview {
+		t.Errorf("status = %v, want %v", task.Status, taskpkg.StatusReview)
 	}
 	if task.Type != taskpkg.TypeBug {
 		t.Errorf("type = %v, want %v", task.Type, taskpkg.TypeBug)

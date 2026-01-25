@@ -88,7 +88,7 @@ func TestSearchBacklog(t *testing.T) {
 			"TIKI-jkl012": {
 				ID:       "TIKI-jkl012",
 				Title:    "In Progress Task",
-				Status:   taskpkg.StatusTodo, // not backlog
+				Status:   taskpkg.StatusReady, // not backlog
 				Priority: 1,
 			},
 		},
@@ -179,7 +179,6 @@ func TestLoadTaskFile_InvalidTags(t *testing.T) {
 		{
 			name: "valid tags list",
 			fileContent: `---
-id: TIKI-abc123123
 title: Test Task
 type: story
 status: backlog
@@ -194,7 +193,6 @@ Task description`,
 		{
 			name: "invalid tags - scalar string",
 			fileContent: `---
-id: TIKI-def456456
 title: Test Task
 type: story
 status: backlog
@@ -207,7 +205,6 @@ Task description`,
 		{
 			name: "invalid tags - number",
 			fileContent: `---
-id: TIKI-ghi789789
 title: Test Task
 type: story
 status: backlog
@@ -220,7 +217,6 @@ Task description`,
 		{
 			name: "invalid tags - boolean",
 			fileContent: `---
-id: TIKI-jkl012012
 title: Test Task
 type: story
 status: backlog
@@ -233,7 +229,6 @@ Task description`,
 		{
 			name: "invalid tags - object",
 			fileContent: `---
-id: TIKI-mno345345
 title: Test Task
 type: story
 status: backlog
@@ -247,7 +242,6 @@ Task description`,
 		{
 			name: "missing tags field",
 			fileContent: `---
-id: TIKI-pqr678678
 title: Test Task
 type: story
 status: backlog
@@ -259,7 +253,6 @@ Task description`,
 		{
 			name: "empty tags array",
 			fileContent: `---
-id: TIKI-stu901901
 title: Test Task
 type: story
 status: backlog
@@ -272,7 +265,6 @@ Task description`,
 		{
 			name: "tags with empty strings filtered",
 			fileContent: `---
-id: TIKI-vwx234234
 title: Test Task
 type: story
 status: backlog

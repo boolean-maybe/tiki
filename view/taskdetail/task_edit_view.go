@@ -52,6 +52,12 @@ type TaskEditView struct {
 	onPointsSave   func(int)
 }
 
+// Compile-time interface checks
+var (
+	_ controller.View          = (*TaskEditView)(nil)
+	_ controller.FocusSettable = (*TaskEditView)(nil)
+)
+
 // NewTaskEditView creates a task edit view
 func NewTaskEditView(taskStore store.Store, taskID string, renderer renderer.MarkdownRenderer) *TaskEditView {
 	ev := &TaskEditView{
@@ -69,6 +75,19 @@ func NewTaskEditView(taskStore store.Store, taskID string, renderer renderer.Mar
 	}
 
 	ev.build()
+
+	// Eagerly create all edit field widgets to ensure they exist before focus management
+	task := ev.GetTask()
+	if task != nil {
+		ev.ensureTitleInput(task)
+		ev.ensureDescTextArea(task)
+		ev.ensureStatusSelectList(task)
+		ev.ensureTypeSelectList(task)
+		ev.ensurePriorityInput(task)
+		ev.ensureAssigneeSelectList(task)
+		ev.ensurePointsInput(task)
+	}
+
 	ev.refresh()
 
 	return ev

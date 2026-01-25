@@ -274,11 +274,8 @@ func (tc *TaskController) SaveStatus(statusDisplay string) bool {
 
 	for _, s := range []taskpkg.Status{
 		taskpkg.StatusBacklog,
-		taskpkg.StatusTodo,
 		taskpkg.StatusReady,
 		taskpkg.StatusInProgress,
-		taskpkg.StatusWaiting,
-		taskpkg.StatusBlocked,
 		taskpkg.StatusReview,
 		taskpkg.StatusDone,
 	} {

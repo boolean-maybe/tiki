@@ -16,7 +16,6 @@ import (
 
 // templateFrontmatter represents the YAML frontmatter in template files
 type templateFrontmatter struct {
-	ID       string   `yaml:"id"`
 	Title    string   `yaml:"title"`
 	Type     string   `yaml:"type"`
 	Status   string   `yaml:"status"`

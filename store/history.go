@@ -94,12 +94,9 @@ func (h *TaskHistory) Build() error {
 
 		var statuses []versionStatus
 		for _, version := range versions {
-			status, id, err := parseStatusFromContent(version.Content, taskID)
+			status, err := parseStatusFromContent(version.Content)
 			if err != nil {
 				return fmt.Errorf("parsing status for %s at %s: %w", filePath, version.Hash, err)
-			}
-			if id != "" {
-				taskID = id
 			}
 			statuses = append(statuses, versionStatus{
 				when:   version.When,
@@ -237,26 +234,19 @@ func (h *TaskHistory) recordEvents(events []statusEvent) {
 	}
 }
 
-func parseStatusFromContent(content string, fallbackID string) (task.Status, string, error) {
+func parseStatusFromContent(content string) (task.Status, error) {
 	frontmatter, _, err := ParseFrontmatter(content)
 	if err != nil {
-		return task.StatusBacklog, fallbackID, err
+		return task.StatusBacklog, err
 	}
 
 	if frontmatter == "" {
-		return task.StatusBacklog, fallbackID, nil
+		return task.StatusBacklog, nil
 	}
 
 	var fm map[string]interface{}
 	if err := yaml.Unmarshal([]byte(frontmatter), &fm); err != nil {
-		return task.StatusBacklog, fallbackID, err
-	}
-
-	id := fallbackID
-	if rawID, ok := fm["id"]; ok {
-		if s, ok := rawID.(string); ok && s != "" {
-			id = s
-		}
+		return task.StatusBacklog, err
 	}
 
 	statusVal := task.StatusBacklog
@@ -266,12 +256,12 @@ func parseStatusFromContent(content string, fallbackID string) (task.Status, str
 		}
 	}
 
-	return statusVal, id, nil
+	return statusVal, nil
 }
 
 func isActiveStatus(status task.Status) bool {
 	pane := task.StatusPane(status)
-	return pane == task.StatusTodo || pane == task.StatusInProgress || pane == task.StatusReview
+	return pane == task.StatusReady || pane == task.StatusInProgress || pane == task.StatusReview
 }
 
 func deriveTaskID(fileName string) string {

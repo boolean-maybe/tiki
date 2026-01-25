@@ -1,5 +1,8 @@
 # Customization
 
+First of all, you just navigated to a linked file. To go back press `Left` arrow or `Alt-Left`
+To go forward press `Right` arrow or `Alt-Right`
+
 tiki cli app is much like a lego - other than Board everything else is a customizable view. Here is, for example,
 how Backlog is defined:
 
@@ -54,10 +57,10 @@ background: "#005f00"
 key: "F4"
 sort: Priority, Title
 panes:
-  - name: To Do
+  - name: Ready
     columns: 1
-    filter: status = 'todo'
-    action: status = 'todo'
+    filter: status = 'ready'
+    action: status = 'ready'
   - name: In Progress
     columns: 1
     filter: status = 'in_progress'
@@ -150,7 +153,7 @@ All string comparisons are case-insensitive.
 
 ```text
 # Multiple statuses
-status = 'todo' OR status = 'in_progress'
+status = 'ready' OR status = 'in_progress'
 
 # With tags
 tags IN ['frontend', 'urgent']

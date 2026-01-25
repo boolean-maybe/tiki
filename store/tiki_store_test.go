@@ -17,14 +17,12 @@ func TestParseFrontmatter(t *testing.T) {
 		{
 			name: "valid frontmatter with all fields",
 			input: `---
-id: TIKI-1
 title: Test Task
 type: story
 status: todo
 ---
 Task description here`,
-			expectedFrontmatter: `id: TIKI-1
-title: Test Task
+			expectedFrontmatter: `title: Test Task
 type: story
 status: todo`,
 			expectedBody: "Task description here",
@@ -33,15 +31,13 @@ status: todo`,
 		{
 			name: "valid frontmatter with body containing markdown",
 			input: `---
-id: TIKI-2
 title: Bug Fix
 type: bug
 status: in_progress
 ---
 ## Description
 This is a **bold** bug.`,
-			expectedFrontmatter: `id: TIKI-2
-title: Bug Fix
+			expectedFrontmatter: `title: Bug Fix
 type: bug
 status: in_progress`,
 			expectedBody: `## Description
@@ -51,7 +47,6 @@ This is a **bold** bug.`,
 		{
 			name: "missing closing delimiter",
 			input: `---
-id: TIKI-3
 title: Incomplete
 status: todo
 This should fail`,
@@ -78,13 +73,11 @@ Body text here`,
 		{
 			name: "frontmatter with extra whitespace",
 			input: `---
-id: TIKI-4
 title: Whitespace Test
 ---
 
 Body with leading newline`,
-			expectedFrontmatter: `id: TIKI-4
-title: Whitespace Test`,
+			expectedFrontmatter: `title: Whitespace Test`,
 			expectedBody: "\nBody with leading newline",
 			expectError:  false,
 		},
@@ -125,21 +118,21 @@ func TestMapStatus(t *testing.T) {
 	}{
 		// Valid statuses - exact match
 		{name: "backlog", input: "backlog", expected: taskpkg.StatusBacklog},
-		{name: "todo", input: "todo", expected: taskpkg.StatusTodo},
+		{name: "ready", input: "ready", expected: taskpkg.StatusReady},
 		{name: "ready", input: "ready", expected: taskpkg.StatusReady},
 		{name: "in_progress", input: "in_progress", expected: taskpkg.StatusInProgress},
-		{name: "waiting", input: "waiting", expected: taskpkg.StatusWaiting},
-		{name: "blocked", input: "blocked", expected: taskpkg.StatusBlocked},
+		{name: "review", input: "review", expected: taskpkg.StatusReview},
+		{name: "in_progress", input: "in_progress", expected: taskpkg.StatusInProgress},
 		{name: "review", input: "review", expected: taskpkg.StatusReview},
 		{name: "done", input: "done", expected: taskpkg.StatusDone},
 
 		// Case variations
 		{name: "BACKLOG uppercase", input: "BACKLOG", expected: taskpkg.StatusBacklog},
-		{name: "ToDo mixed case", input: "ToDo", expected: taskpkg.StatusTodo},
+		{name: "ToDo mixed case", input: "ToDo", expected: taskpkg.StatusReady},
 		{name: "DONE uppercase", input: "DONE", expected: taskpkg.StatusDone},
 
 		// Aliases and variants
-		{name: "open -> todo", input: "open", expected: taskpkg.StatusTodo},
+		{name: "open -> todo", input: "open", expected: taskpkg.StatusReady},
 		{name: "in process -> in_progress", input: "in process", expected: taskpkg.StatusInProgress},
 		{name: "closed -> done", input: "closed", expected: taskpkg.StatusDone},
 		{name: "completed -> done", input: "completed", expected: taskpkg.StatusDone},

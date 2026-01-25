@@ -1,6 +1,8 @@
 package view
 
 import (
+	"log/slog"
+
 	"github.com/boolean-maybe/tiki/controller"
 	"github.com/boolean-maybe/tiki/model"
 	"github.com/boolean-maybe/tiki/plugin"
@@ -14,9 +16,8 @@ import (
 
 // ViewFactory creates views on demand
 type ViewFactory struct {
-	taskStore   store.Store
-	boardConfig *model.BoardConfig
-	renderer    renderer.MarkdownRenderer
+	taskStore store.Store
+	renderer  renderer.MarkdownRenderer
 	// Plugin support
 	pluginConfigs     map[string]*model.PluginConfig
 	pluginDefs        map[string]plugin.Plugin
@@ -24,7 +25,7 @@ type ViewFactory struct {
 }
 
 // NewViewFactory creates a view factory
-func NewViewFactory(taskStore store.Store, boardConfig *model.BoardConfig) *ViewFactory {
+func NewViewFactory(taskStore store.Store) *ViewFactory {
 	// try to create glamour renderer, fallback to plain text if fails
 	var mdRenderer renderer.MarkdownRenderer
 	glamourRenderer, err := renderer.NewGlamourRenderer()
@@ -35,9 +36,8 @@ func NewViewFactory(taskStore store.Store, boardConfig *model.BoardConfig) *View
 	}
 
 	return &ViewFactory{
-		taskStore:   taskStore,
-		boardConfig: boardConfig,
-		renderer:    mdRenderer,
+		taskStore: taskStore,
+		renderer:  mdRenderer,
 	}
 }
 
@@ -57,9 +57,6 @@ func (f *ViewFactory) CreateView(viewID model.ViewID, params map[string]interfac
 	var v controller.View
 
 	switch viewID {
-	case model.BoardViewID:
-		v = NewBoardView(f.taskStore, f.boardConfig)
-
 	case model.TaskDetailViewID:
 		taskID := model.DecodeTaskDetailParams(params).TaskID
 		v = taskdetail.NewTaskDetailView(f.taskStore, taskID, f.renderer)
@@ -94,22 +91,18 @@ func (f *ViewFactory) CreateView(viewID model.ViewID, params map[string]interfac
 							tikiController.EnsureFirstNonEmptyPaneSelection,
 						)
 					} else {
-						// Fallback if controller type doesn't match
-						v = NewBoardView(f.taskStore, f.boardConfig)
+						slog.Error("plugin controller type mismatch", "plugin", pluginName)
 					}
 				} else if dokiPlugin, ok := pluginDef.(*plugin.DokiPlugin); ok {
 					v = NewDokiView(dokiPlugin, f.renderer)
 				} else {
-					// Unknown plugin type or missing config/controller for tiki
-					v = NewBoardView(f.taskStore, f.boardConfig)
+					slog.Error("unknown plugin type or missing config", "plugin", pluginName)
 				}
 			} else {
-				// Fallback if plugin not found
-				v = NewBoardView(f.taskStore, f.boardConfig)
+				slog.Error("plugin not found", "plugin", pluginName)
 			}
 		} else {
-			// fallback to board view
-			v = NewBoardView(f.taskStore, f.boardConfig)
+			slog.Error("unknown view ID", "viewID", viewID)
 		}
 	}
 

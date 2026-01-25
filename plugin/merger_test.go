@@ -15,7 +15,7 @@ func TestMergePluginConfigs(t *testing.T) {
 		Background: "#0000ff",
 		Key:        "L",
 		Panes: []PluginPaneConfig{
-			{Name: "Todo", Filter: "status = 'todo'"},
+			{Name: "Todo", Filter: "status = 'ready'"},
 		},
 		Sort: "Priority",
 		View: "compact",
@@ -32,7 +32,7 @@ func TestMergePluginConfigs(t *testing.T) {
 	if result.Name != "Base" {
 		t.Errorf("Expected name 'Base', got '%s'", result.Name)
 	}
-	if len(result.Panes) != 1 || result.Panes[0].Filter != "status = 'todo'" {
+	if len(result.Panes) != 1 || result.Panes[0].Filter != "status = 'ready'" {
 		t.Errorf("Expected panes from base, got %+v", result.Panes)
 	}
 	if result.Foreground != "#ff0000" {
@@ -55,7 +55,7 @@ func TestMergePluginConfigs_AllOverrides(t *testing.T) {
 		Background: "#0000ff",
 		Key:        "L",
 		Panes: []PluginPaneConfig{
-			{Name: "Todo", Filter: "status = 'todo'"},
+			{Name: "Todo", Filter: "status = 'ready'"},
 		},
 		Sort: "Priority",
 		View: "compact",
@@ -126,7 +126,7 @@ func TestValidatePluginRef_InlineValid(t *testing.T) {
 	ref := PluginRef{
 		Name: "Test",
 		Panes: []PluginPaneConfig{
-			{Name: "Todo", Filter: "status = 'todo'"},
+			{Name: "Todo", Filter: "status = 'ready'"},
 		},
 	}
 
@@ -139,7 +139,7 @@ func TestValidatePluginRef_InlineValid(t *testing.T) {
 func TestValidatePluginRef_InlineNoName(t *testing.T) {
 	ref := PluginRef{
 		Panes: []PluginPaneConfig{
-			{Name: "Todo", Filter: "status = 'todo'"},
+			{Name: "Todo", Filter: "status = 'ready'"},
 		},
 	}
 
@@ -170,7 +170,7 @@ func TestValidatePluginRef_InlineNoContent(t *testing.T) {
 }
 
 func TestMergePluginDefinitions_TikiToTiki(t *testing.T) {
-	baseFilter, _ := filter.ParseFilter("status = 'todo'")
+	baseFilter, _ := filter.ParseFilter("status = 'ready'")
 	baseSort, _ := ParseSort("Priority")
 
 	base := &TikiPlugin{
@@ -241,7 +241,7 @@ func TestMergePluginDefinitions_TikiToTiki(t *testing.T) {
 
 func TestMergePluginDefinitions_PreservesModifier(t *testing.T) {
 	// This test verifies the bug fix where Modifier was not being copied from base
-	baseFilter, _ := filter.ParseFilter("status = 'todo'")
+	baseFilter, _ := filter.ParseFilter("status = 'ready'")
 
 	base := &TikiPlugin{
 		BasePlugin: BasePlugin{

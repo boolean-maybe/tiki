@@ -8,7 +8,7 @@ import (
 )
 
 func TestEditSelectList_ArrowNavigation(t *testing.T) {
-	values := []string{"todo", "in_progress", "review", "done"}
+	values := []string{"ready", "in_progress", "review", "done"}
 	esl := NewEditSelectList(values, true)
 
 	tests := []struct {
@@ -23,7 +23,7 @@ func TestEditSelectList_ArrowNavigation(t *testing.T) {
 			name:          "down from initial (-1) goes to first",
 			initialIndex:  -1,
 			key:           tcell.KeyDown,
-			expectedText:  "todo",
+			expectedText:  "ready",
 			expectedIndex: 0,
 			description:   "Down arrow from free-form mode should select first value",
 		},
@@ -55,7 +55,7 @@ func TestEditSelectList_ArrowNavigation(t *testing.T) {
 			name:          "down from last wraps to first",
 			initialIndex:  3,
 			key:           tcell.KeyDown,
-			expectedText:  "todo",
+			expectedText:  "ready",
 			expectedIndex: 0,
 			description:   "Down arrow from last value should wrap to first",
 		},
@@ -92,7 +92,7 @@ func TestEditSelectList_ArrowNavigation(t *testing.T) {
 }
 
 func TestEditSelectList_FreeFormTyping(t *testing.T) {
-	values := []string{"todo", "in_progress", "review", "done"}
+	values := []string{"ready", "in_progress", "review", "done"}
 	esl := NewEditSelectList(values, true)
 
 	// Start at a specific index
@@ -110,7 +110,7 @@ func TestEditSelectList_FreeFormTyping(t *testing.T) {
 }
 
 func TestEditSelectList_SubmitHandler(t *testing.T) {
-	values := []string{"todo", "in_progress", "review", "done"}
+	values := []string{"ready", "in_progress", "review", "done"}
 	esl := NewEditSelectList(values, true)
 
 	var submittedText string
@@ -132,7 +132,7 @@ func TestEditSelectList_SubmitHandler(t *testing.T) {
 }
 
 func TestEditSelectList_SubmitFromList(t *testing.T) {
-	values := []string{"todo", "in_progress", "review", "done"}
+	values := []string{"ready", "in_progress", "review", "done"}
 	esl := NewEditSelectList(values, true)
 
 	var submittedText string
@@ -149,13 +149,13 @@ func TestEditSelectList_SubmitFromList(t *testing.T) {
 	event = tcell.NewEventKey(tcell.KeyEnter, 0, tcell.ModNone)
 	handler(event, func(p tview.Primitive) {})
 
-	if submittedText != "todo" {
-		t.Errorf("Expected submitted text 'todo', got '%s'", submittedText)
+	if submittedText != "ready" {
+		t.Errorf("Expected submitted text 'ready', got '%s'", submittedText)
 	}
 }
 
 func TestEditSelectList_SetInitialValue(t *testing.T) {
-	values := []string{"todo", "in_progress", "review", "done"}
+	values := []string{"ready", "in_progress", "review", "done"}
 	esl := NewEditSelectList(values, true)
 
 	// Set to a value that exists in the list
@@ -182,7 +182,7 @@ func TestEditSelectList_SetInitialValue(t *testing.T) {
 }
 
 func TestEditSelectList_Clear(t *testing.T) {
-	values := []string{"todo", "in_progress", "review", "done"}
+	values := []string{"ready", "in_progress", "review", "done"}
 	esl := NewEditSelectList(values, true)
 
 	esl.SetInitialValue("review")
@@ -198,7 +198,7 @@ func TestEditSelectList_Clear(t *testing.T) {
 }
 
 func TestEditSelectList_SetText(t *testing.T) {
-	values := []string{"todo", "in_progress", "review", "done"}
+	values := []string{"ready", "in_progress", "review", "done"}
 	esl := NewEditSelectList(values, true)
 
 	// Start with a list selection
@@ -235,7 +235,7 @@ func TestEditSelectList_EmptyValues(t *testing.T) {
 }
 
 func TestEditSelectList_NavigationAfterTyping(t *testing.T) {
-	values := []string{"todo", "in_progress", "review", "done"}
+	values := []string{"ready", "in_progress", "review", "done"}
 	esl := NewEditSelectList(values, true)
 
 	// Type some text (simulated by SetText which sets index to -1)
@@ -246,8 +246,8 @@ func TestEditSelectList_NavigationAfterTyping(t *testing.T) {
 	handler := esl.InputHandler()
 	handler(event, func(p tview.Primitive) {})
 
-	if esl.GetText() != "todo" {
-		t.Errorf("Expected text 'todo' after down arrow from free-form, got '%s'", esl.GetText())
+	if esl.GetText() != "ready" {
+		t.Errorf("Expected text 'ready' after down arrow from free-form, got '%s'", esl.GetText())
 	}
 
 	if esl.currentIndex != 0 {
@@ -256,7 +256,7 @@ func TestEditSelectList_NavigationAfterTyping(t *testing.T) {
 }
 
 func TestEditSelectList_SetLabel(t *testing.T) {
-	values := []string{"todo"}
+	values := []string{"ready"}
 	esl := NewEditSelectList(values, true)
 
 	esl.SetLabel("Status: ")
@@ -267,10 +267,10 @@ func TestEditSelectList_SetLabel(t *testing.T) {
 }
 
 func TestEditSelectList_TypingDisabled_IgnoresNonArrowKeys(t *testing.T) {
-	values := []string{"todo", "in_progress", "done"}
+	values := []string{"ready", "in_progress", "done"}
 	esl := NewEditSelectList(values, false) // typing disabled
 
-	esl.SetInitialValue("todo")
+	esl.SetInitialValue("ready")
 
 	// Simulate typing various characters
 	handler := esl.InputHandler()
@@ -279,8 +279,8 @@ func TestEditSelectList_TypingDisabled_IgnoresNonArrowKeys(t *testing.T) {
 	handler(tcell.NewEventKey(tcell.KeyBackspace, 0, tcell.ModNone), func(p tview.Primitive) {})
 
 	// Value should remain unchanged
-	if esl.GetText() != "todo" {
-		t.Errorf("Expected text unchanged at 'todo', got '%s'", esl.GetText())
+	if esl.GetText() != "ready" {
+		t.Errorf("Expected text unchanged at 'ready', got '%s'", esl.GetText())
 	}
 	if esl.currentIndex != 0 {
 		t.Errorf("Expected index unchanged at 0, got %d", esl.currentIndex)
@@ -288,15 +288,15 @@ func TestEditSelectList_TypingDisabled_IgnoresNonArrowKeys(t *testing.T) {
 }
 
 func TestEditSelectList_TypingDisabled_ArrowKeysStillWork(t *testing.T) {
-	values := []string{"todo", "in_progress", "done"}
+	values := []string{"ready", "in_progress", "done"}
 	esl := NewEditSelectList(values, false)
 
 	handler := esl.InputHandler()
 
 	// Down arrow should still work
 	handler(tcell.NewEventKey(tcell.KeyDown, 0, tcell.ModNone), func(p tview.Primitive) {})
-	if esl.GetText() != "todo" {
-		t.Errorf("Expected 'todo', got '%s'", esl.GetText())
+	if esl.GetText() != "ready" {
+		t.Errorf("Expected 'ready', got '%s'", esl.GetText())
 	}
 
 	// Up arrow should still work
@@ -307,10 +307,10 @@ func TestEditSelectList_TypingDisabled_ArrowKeysStillWork(t *testing.T) {
 }
 
 func TestEditSelectList_TypingEnabled_AllowsFreeForm(t *testing.T) {
-	values := []string{"todo", "in_progress", "done"}
+	values := []string{"ready", "in_progress", "done"}
 	esl := NewEditSelectList(values, true) // typing enabled
 
-	esl.SetInitialValue("todo")
+	esl.SetInitialValue("ready")
 
 	// Simulate typing
 	esl.SetText("custom_value")
@@ -324,7 +324,7 @@ func TestEditSelectList_TypingEnabled_AllowsFreeForm(t *testing.T) {
 }
 
 func TestEditSelectList_SubmitCallbackNotFiredWhenTypingDisabled(t *testing.T) {
-	values := []string{"todo", "in_progress", "done"}
+	values := []string{"ready", "in_progress", "done"}
 	esl := NewEditSelectList(values, false)
 
 	callCount := 0
@@ -332,7 +332,7 @@ func TestEditSelectList_SubmitCallbackNotFiredWhenTypingDisabled(t *testing.T) {
 		callCount++
 	})
 
-	esl.SetInitialValue("todo")
+	esl.SetInitialValue("ready")
 	callCount = 0 // Reset after SetInitialValue
 
 	// Try to type

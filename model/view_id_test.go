@@ -26,11 +26,6 @@ func TestIsPluginViewID(t *testing.T) {
 			expected: true,
 		},
 		{
-			name:     "board view",
-			viewID:   BoardViewID,
-			expected: false,
-		},
-		{
 			name:     "task detail view",
 			viewID:   TaskDetailViewID,
 			expected: false,
@@ -110,8 +105,8 @@ func TestGetPluginName(t *testing.T) {
 		},
 		{
 			name:         "non-plugin view returns full ID",
-			viewID:       BoardViewID,
-			expectedName: "board",
+			viewID:       TaskDetailViewID,
+			expectedName: "task_detail",
 		},
 		{
 			name:         "empty string",
@@ -233,7 +228,6 @@ func TestViewID_BuiltInViews(t *testing.T) {
 		name   string
 		viewID ViewID
 	}{
-		{"board", BoardViewID},
 		{"task_detail", TaskDetailViewID},
 		{"task_edit", TaskEditViewID},
 	}

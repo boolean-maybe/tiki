@@ -10,7 +10,7 @@ func TestNavigationState_PushPop(t *testing.T) {
 	nav := newViewStack()
 
 	// Push first view
-	nav.push(model.BoardViewID, nil)
+	nav.push(model.TaskDetailViewID, nil)
 
 	// Verify depth
 	if nav.depth() != 1 {
@@ -48,8 +48,8 @@ func TestNavigationState_PushPop(t *testing.T) {
 	if entry == nil {
 		t.Fatal("pop() returned nil, want ViewEntry")
 	}
-	if entry.ViewID != model.BoardViewID {
-		t.Errorf("ViewID = %v, want %v", entry.ViewID, model.BoardViewID)
+	if entry.ViewID != model.TaskDetailViewID {
+		t.Errorf("ViewID = %v, want %v", entry.ViewID, model.TaskDetailViewID)
 	}
 
 	// Stack should be empty
@@ -74,7 +74,7 @@ func TestNavigationState_CurrentView(t *testing.T) {
 	}
 
 	// Push views
-	nav.push(model.BoardViewID, nil)
+	nav.push(model.TaskDetailViewID, nil)
 	nav.push(model.TaskEditViewID, nil)
 
 	// CurrentView should return task edit (top) without removing it
@@ -107,9 +107,9 @@ func TestNavigationState_CurrentViewID(t *testing.T) {
 	}
 
 	// With views
-	nav.push(model.BoardViewID, nil)
-	if nav.currentViewID() != model.BoardViewID {
-		t.Errorf("currentViewID() = %v, want %v", nav.currentViewID(), model.BoardViewID)
+	nav.push(model.TaskDetailViewID, nil)
+	if nav.currentViewID() != model.TaskDetailViewID {
+		t.Errorf("currentViewID() = %v, want %v", nav.currentViewID(), model.TaskDetailViewID)
 	}
 
 	nav.push(model.TaskDetailViewID, nil)
@@ -128,7 +128,7 @@ func TestNavigationState_PreviousView(t *testing.T) {
 	}
 
 	// Single view - no previous
-	nav.push(model.BoardViewID, nil)
+	nav.push(model.TaskDetailViewID, nil)
 	entry = nav.previousView()
 	if entry != nil {
 		t.Error("previousView() with depth 1 should return nil")
@@ -140,8 +140,8 @@ func TestNavigationState_PreviousView(t *testing.T) {
 	if entry == nil {
 		t.Fatal("previousView() returned nil, want ViewEntry")
 	}
-	if entry.ViewID != model.BoardViewID {
-		t.Errorf("previousView() ViewID = %v, want %v", entry.ViewID, model.BoardViewID)
+	if entry.ViewID != model.TaskDetailViewID {
+		t.Errorf("previousView() ViewID = %v, want %v", entry.ViewID, model.TaskDetailViewID)
 	}
 
 	// Three views - should return second
@@ -169,7 +169,7 @@ func TestNavigationState_CanGoBack(t *testing.T) {
 	}
 
 	// Single view - cannot go back
-	nav.push(model.BoardViewID, nil)
+	nav.push(model.TaskDetailViewID, nil)
 	if nav.canGoBack() {
 		t.Error("canGoBack() with depth 1 should return false")
 	}
@@ -202,7 +202,7 @@ func TestNavigationState_Depth(t *testing.T) {
 		},
 		{
 			name:          "after first push",
-			action:        func() { nav.push(model.BoardViewID, nil) },
+			action:        func() { nav.push(model.TaskDetailViewID, nil) },
 			expectedDepth: 1,
 		},
 		{
@@ -246,7 +246,7 @@ func TestNavigationState_Clear(t *testing.T) {
 	nav := newViewStack()
 
 	// Push multiple views
-	nav.push(model.BoardViewID, nil)
+	nav.push(model.TaskDetailViewID, nil)
 	nav.push(model.TaskDetailViewID, nil)
 	nav.push(model.TaskEditViewID, nil)
 
@@ -272,7 +272,7 @@ func TestNavigationState_Clear(t *testing.T) {
 	}
 
 	// Should be able to push again
-	nav.push(model.BoardViewID, nil)
+	nav.push(model.TaskDetailViewID, nil)
 	if nav.depth() != 1 {
 		t.Errorf("depth after push on cleared stack = %d, want 1", nav.depth())
 	}
@@ -282,7 +282,7 @@ func TestNavigationState_ParameterPassing(t *testing.T) {
 	nav := newViewStack()
 
 	// Push view with nil params
-	nav.push(model.BoardViewID, nil)
+	nav.push(model.TaskDetailViewID, nil)
 	entry := nav.currentView()
 	if entry.Params != nil {
 		t.Error("nil params should remain nil")
@@ -326,8 +326,8 @@ func TestNavigationState_ComplexNavigationFlow(t *testing.T) {
 	nav := newViewStack()
 
 	// Simulate: Board -> open task -> back to board -> edit task -> back to board
-	nav.push(model.BoardViewID, nil)
-	if nav.currentViewID() != model.BoardViewID {
+	nav.push(model.TaskDetailViewID, nil)
+	if nav.currentViewID() != model.TaskDetailViewID {
 		t.Fatal("should start on board")
 	}
 
@@ -345,7 +345,7 @@ func TestNavigationState_ComplexNavigationFlow(t *testing.T) {
 	if entry.ViewID != model.TaskDetailViewID {
 		t.Error("should pop task detail")
 	}
-	if nav.currentViewID() != model.BoardViewID {
+	if nav.currentViewID() != model.TaskDetailViewID {
 		t.Error("should return to board")
 	}
 
@@ -357,7 +357,7 @@ func TestNavigationState_ComplexNavigationFlow(t *testing.T) {
 
 	// Back to board again
 	nav.pop()
-	if nav.currentViewID() != model.BoardViewID {
+	if nav.currentViewID() != model.TaskDetailViewID {
 		t.Error("should return to board again")
 	}
 

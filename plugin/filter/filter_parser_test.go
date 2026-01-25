@@ -40,26 +40,26 @@ func TestParseFilterWithIn(t *testing.T) {
 		},
 		{
 			name:   "status IN with match",
-			expr:   "status IN ['todo', 'in_progress']",
-			task:   &task.Task{Status: task.StatusTodo},
+			expr:   "status IN ['ready', 'in_progress']",
+			task:   &task.Task{Status: task.StatusReady},
 			expect: true,
 		},
 		{
 			name:   "status IN with no match",
 			expr:   "status IN ['done', 'cancelled']",
-			task:   &task.Task{Status: task.StatusTodo},
+			task:   &task.Task{Status: task.StatusReady},
 			expect: false,
 		},
 		{
 			name:   "status NOT IN with match",
 			expr:   "status NOT IN ['done', 'cancelled']",
-			task:   &task.Task{Status: task.StatusTodo},
+			task:   &task.Task{Status: task.StatusReady},
 			expect: true,
 		},
 		{
 			name:   "status NOT IN with no match",
-			expr:   "status NOT IN ['todo', 'in_progress']",
-			task:   &task.Task{Status: task.StatusTodo},
+			expr:   "status NOT IN ['ready', 'in_progress']",
+			task:   &task.Task{Status: task.StatusReady},
 			expect: false,
 		},
 		{
@@ -82,14 +82,14 @@ func TestParseFilterWithIn(t *testing.T) {
 		},
 		{
 			name:   "combined with AND",
-			expr:   "tags IN ['ui', 'charts'] AND status = 'todo'",
-			task:   &task.Task{Tags: []string{"ui"}, Status: task.StatusTodo},
+			expr:   "tags IN ['ui', 'charts'] AND status = 'ready'",
+			task:   &task.Task{Tags: []string{"ui"}, Status: task.StatusReady},
 			expect: true,
 		},
 		{
 			name:   "combined with AND, no match",
 			expr:   "tags IN ['ui', 'charts'] AND status = 'done'",
-			task:   &task.Task{Tags: []string{"ui"}, Status: task.StatusTodo},
+			task:   &task.Task{Tags: []string{"ui"}, Status: task.StatusReady},
 			expect: false,
 		},
 		{
@@ -106,8 +106,8 @@ func TestParseFilterWithIn(t *testing.T) {
 		},
 		{
 			name:   "case insensitive status",
-			expr:   "status IN ['TODO', 'IN_PROGRESS']",
-			task:   &task.Task{Status: task.StatusTodo},
+			expr:   "status IN ['READY', 'IN_PROGRESS']",
+			task:   &task.Task{Status: task.StatusReady},
 			expect: true,
 		},
 		{
@@ -119,7 +119,7 @@ func TestParseFilterWithIn(t *testing.T) {
 		{
 			name:   "complex expression",
 			expr:   "(tags IN ['ui', 'frontend'] OR type = 'bug') AND status NOT IN ['done']",
-			task:   &task.Task{Tags: []string{"ui"}, Type: task.TypeStory, Status: task.StatusTodo},
+			task:   &task.Task{Tags: []string{"ui"}, Type: task.TypeStory, Status: task.StatusReady},
 			expect: true,
 		},
 	}
@@ -178,7 +178,7 @@ func TestTokenizeWithIn(t *testing.T) {
 		},
 		{
 			name:  "IN with AND",
-			input: "tags IN ['ui'] AND status = 'todo'",
+			input: "tags IN ['ui'] AND status = 'ready'",
 			expected: []TokenType{TokenIdent, TokenIn, TokenLBracket, TokenString, TokenRBracket,
 				TokenAnd, TokenIdent, TokenOperator, TokenString, TokenEOF},
 		},
@@ -311,14 +311,14 @@ func TestInExprBackwardCompatibility(t *testing.T) {
 		},
 		{
 			name:   "status comparison",
-			expr:   "status = 'todo'",
-			task:   &task.Task{Status: task.StatusTodo},
+			expr:   "status = 'ready'",
+			task:   &task.Task{Status: task.StatusReady},
 			expect: true,
 		},
 		{
 			name:   "complex old style expression",
-			expr:   "status = 'todo' AND (tag = 'ui' OR tag = 'backend')",
-			task:   &task.Task{Status: task.StatusTodo, Tags: []string{"ui"}},
+			expr:   "status = 'ready' AND (tag = 'ui' OR tag = 'backend')",
+			task:   &task.Task{Status: task.StatusReady, Tags: []string{"ui"}},
 			expect: true,
 		},
 	}

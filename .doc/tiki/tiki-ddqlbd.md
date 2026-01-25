@@ -1,15 +1,14 @@
 ---
-id: TIKI-xxxxxx
 title: Welcome to tiki-land!
 type: story
-status: todo
-priority: 0
+status: ready
 tags:
-  - info
-  - ideas
-  - setup
+    - ideas
+    - info
+    - setup
+priority: 1
+points: 5
 ---
-
 # Hello! こんにちは
 
 `tikis` are a lightweight issue-tracking and project management tool

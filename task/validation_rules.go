@@ -43,11 +43,8 @@ type StatusValidator struct{}
 func (v *StatusValidator) ValidateField(task *Task) *ValidationError {
 	validStatuses := []Status{
 		StatusBacklog,
-		StatusTodo,
 		StatusReady,
 		StatusInProgress,
-		StatusWaiting,
-		StatusBlocked,
 		StatusReview,
 		StatusDone,
 	}

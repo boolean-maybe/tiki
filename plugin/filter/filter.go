@@ -45,7 +45,7 @@ func (u *UnaryExpr) Evaluate(task *task.Task, now time.Time, currentUser string)
 	return false
 }
 
-// CompareExpr represents comparisons like status = 'todo' or Priority < 3
+// CompareExpr represents comparisons like status = 'ready' or Priority < 3
 type CompareExpr struct {
 	Field string      // "status", "type", "assignee", "priority", "points", "createdat", "updatedat", "tags"
 	Op    string      // "=", "==", "!=", ">", "<", ">=", "<="

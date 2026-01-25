@@ -15,7 +15,7 @@ func TestEnsureFirstNonEmptyPaneSelectionSelectsFirstTask(t *testing.T) {
 	if err := taskStore.CreateTask(&task.Task{
 		ID:     "T-1",
 		Title:  "Task 1",
-		Status: task.StatusTodo,
+		Status: task.StatusReady,
 		Type:   task.TypeStory,
 	}); err != nil {
 		t.Fatalf("create task: %v", err)
@@ -23,7 +23,7 @@ func TestEnsureFirstNonEmptyPaneSelectionSelectsFirstTask(t *testing.T) {
 	if err := taskStore.CreateTask(&task.Task{
 		ID:     "T-2",
 		Title:  "Task 2",
-		Status: task.StatusTodo,
+		Status: task.StatusReady,
 		Type:   task.TypeStory,
 	}); err != nil {
 		t.Fatalf("create task: %v", err)
@@ -33,7 +33,7 @@ func TestEnsureFirstNonEmptyPaneSelectionSelectsFirstTask(t *testing.T) {
 	if err != nil {
 		t.Fatalf("parse filter: %v", err)
 	}
-	todoFilter, err := filter.ParseFilter("status = 'todo'")
+	todoFilter, err := filter.ParseFilter("status = 'ready'")
 	if err != nil {
 		t.Fatalf("parse filter: %v", err)
 	}
@@ -68,13 +68,13 @@ func TestEnsureFirstNonEmptyPaneSelectionKeepsCurrentPane(t *testing.T) {
 	if err := taskStore.CreateTask(&task.Task{
 		ID:     "T-1",
 		Title:  "Task 1",
-		Status: task.StatusTodo,
+		Status: task.StatusReady,
 		Type:   task.TypeStory,
 	}); err != nil {
 		t.Fatalf("create task: %v", err)
 	}
 
-	todoFilter, err := filter.ParseFilter("status = 'todo'")
+	todoFilter, err := filter.ParseFilter("status = 'ready'")
 	if err != nil {
 		t.Fatalf("parse filter: %v", err)
 	}

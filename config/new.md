@@ -1,5 +1,4 @@
 ---
-id: TIKI-placeholder
 title:
 type: story
 status: backlog

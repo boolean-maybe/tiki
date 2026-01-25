@@ -20,7 +20,7 @@ const (
 	ActionToggleHeader   ActionID = "toggle_header"
 )
 
-// ActionID values for board view actions.
+// ActionID values for task navigation and manipulation (used by plugins).
 const (
 	ActionOpenTask      ActionID = "open_task"
 	ActionMoveTask      ActionID = "move_task"
@@ -60,7 +60,6 @@ const (
 // ActionID values for plugin view actions.
 const (
 	ActionOpenFromPlugin ActionID = "open_from_plugin"
-	ActionReturnToBoard  ActionID = "return_to_board"
 )
 
 // ActionID values for doki plugin (markdown navigation) actions.
@@ -230,37 +229,6 @@ func DefaultGlobalActions() *ActionRegistry {
 	return r
 }
 
-// BoardViewActions returns the canonical action registry for the board view.
-// Single source of truth for both input handling and header display.
-func BoardViewActions() *ActionRegistry {
-	r := NewActionRegistry()
-
-	// navigation (not shown in header)
-	r.Register(Action{ID: ActionNavLeft, Key: tcell.KeyLeft, Label: "←"})
-	r.Register(Action{ID: ActionNavRight, Key: tcell.KeyRight, Label: "→"})
-	r.Register(Action{ID: ActionNavUp, Key: tcell.KeyUp, Label: "↑"})
-	r.Register(Action{ID: ActionNavDown, Key: tcell.KeyDown, Label: "↓"})
-	r.Register(Action{ID: ActionNavLeft, Key: tcell.KeyRune, Rune: 'h', Label: "←"})
-	r.Register(Action{ID: ActionNavRight, Key: tcell.KeyRune, Rune: 'l', Label: "→"})
-	r.Register(Action{ID: ActionNavUp, Key: tcell.KeyRune, Rune: 'k', Label: "↑"})
-	r.Register(Action{ID: ActionNavDown, Key: tcell.KeyRune, Rune: 'j', Label: "↓"})
-
-	// task actions (shown in header)
-	r.Register(Action{ID: ActionOpenTask, Key: tcell.KeyEnter, Label: "Open", ShowInHeader: true})
-	r.Register(Action{ID: ActionMoveTask, Key: tcell.KeyRune, Rune: 'm', Label: "Move"})
-	r.Register(Action{ID: ActionMoveTaskLeft, Key: tcell.KeyLeft, Modifier: tcell.ModShift, Label: "Move ←", ShowInHeader: true})
-	r.Register(Action{ID: ActionMoveTaskRight, Key: tcell.KeyRight, Modifier: tcell.ModShift, Label: "Move →", ShowInHeader: true})
-	r.Register(Action{ID: ActionNewTask, Key: tcell.KeyRune, Rune: 'n', Label: "New", ShowInHeader: true})
-	r.Register(Action{ID: ActionDeleteTask, Key: tcell.KeyRune, Rune: 'd', Label: "Delete", ShowInHeader: true})
-	r.Register(Action{ID: ActionSearch, Key: tcell.KeyRune, Rune: '/', Label: "Search", ShowInHeader: true})
-	r.Register(Action{ID: ActionToggleViewMode, Key: tcell.KeyRune, Rune: 'v', Label: "View mode", ShowInHeader: true})
-
-	// plugin activation keys are merged dynamically after plugins load
-	r.MergePluginActions()
-
-	return r
-}
-
 // GetHeaderActions returns only actions marked for header display
 func (r *ActionRegistry) GetHeaderActions() []Action {
 	var result []Action
@@ -407,9 +375,6 @@ func PluginViewActions() *ActionRegistry {
 	r.Register(Action{ID: ActionSearch, Key: tcell.KeyRune, Rune: '/', Label: "Search", ShowInHeader: true})
 	r.Register(Action{ID: ActionToggleViewMode, Key: tcell.KeyRune, Rune: 'v', Label: "View mode", ShowInHeader: true})
 
-	// navigation between views (shown in header)
-	r.Register(Action{ID: ActionReturnToBoard, Key: tcell.KeyRune, Rune: 'B', Label: "Board", ShowInHeader: true})
-
 	// plugin activation keys are merged dynamically after plugins load
 	r.MergePluginActions()
 
@@ -427,9 +392,6 @@ func DokiViewActions() *ActionRegistry {
 	// We register plain arrows since they're simpler and context-sensitive (no conflicts)
 	r.Register(Action{ID: ActionNavigateBack, Key: tcell.KeyLeft, Label: "← Back", ShowInHeader: true})
 	r.Register(Action{ID: ActionNavigateForward, Key: tcell.KeyRight, Label: "Forward →", ShowInHeader: true})
-
-	// navigation between views (shown in header)
-	r.Register(Action{ID: ActionReturnToBoard, Key: tcell.KeyRune, Rune: 'B', Label: "Board", ShowInHeader: true})
 
 	// plugin activation keys are merged dynamically after plugins load
 	r.MergePluginActions()

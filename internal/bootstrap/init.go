@@ -24,7 +24,6 @@ type BootstrapResult struct {
 	LogLevel         slog.Level
 	TikiStore        *tikistore.TikiStore
 	TaskStore        store.Store
-	BoardConfig      *model.BoardConfig
 	HeaderConfig     *model.HeaderConfig
 	LayoutModel      *model.LayoutModel
 	Plugins          []plugin.Plugin
@@ -62,7 +61,6 @@ func Bootstrap(tikiSkillContent, dokiSkillContent string) (*BootstrapResult, err
 	tikiStore, taskStore := InitStores()
 
 	// Phase 5: Model initialization
-	boardConfig := InitBoardConfig()
 	headerConfig, layoutModel := InitHeaderAndLayoutModels()
 	InitHeaderBaseStats(headerConfig, tikiStore)
 
@@ -79,7 +77,6 @@ func Bootstrap(tikiSkillContent, dokiSkillContent string) (*BootstrapResult, err
 	controllers := BuildControllers(
 		application,
 		taskStore,
-		boardConfig,
 		plugins,
 		pluginConfigs,
 	)
@@ -87,14 +84,13 @@ func Bootstrap(tikiSkillContent, dokiSkillContent string) (*BootstrapResult, err
 	// Phase 8: Input routing
 	inputRouter := controller.NewInputRouter(
 		controllers.Nav,
-		controllers.Board,
 		controllers.Task,
 		controllers.Plugins,
 		taskStore,
 	)
 
 	// Phase 9: View factory and layout
-	viewFactory := view.NewViewFactory(taskStore, boardConfig)
+	viewFactory := view.NewViewFactory(taskStore)
 	viewFactory.SetPlugins(pluginConfigs, pluginDefs, controllers.Plugins)
 
 	headerWidget := header.NewHeaderWidget(headerConfig)
@@ -111,15 +107,14 @@ func Bootstrap(tikiSkillContent, dokiSkillContent string) (*BootstrapResult, err
 	wireNavigation(controllers.Nav, layoutModel, rootLayout)
 	app.InstallGlobalInputCapture(application, headerConfig, inputRouter, controllers.Nav)
 
-	// Phase 13: Initial view
-	controllers.Nav.PushView(model.BoardViewID, nil)
+	// Phase 13: Initial view (Kanban plugin is the default)
+	controllers.Nav.PushView(model.MakePluginViewID("Kanban"), nil)
 
 	return &BootstrapResult{
 		Cfg:              cfg,
 		LogLevel:         logLevel,
 		TikiStore:        tikiStore,
 		TaskStore:        taskStore,
-		BoardConfig:      boardConfig,
 		HeaderConfig:     headerConfig,
 		LayoutModel:      layoutModel,
 		Plugins:          plugins,
@@ -170,13 +165,9 @@ func convertPluginActions(registry *controller.ActionRegistry) []model.HeaderAct
 // wireOnViewActivated wires focus setters into views as they become active.
 func wireOnViewActivated(rootLayout *view.RootLayout, app *tview.Application) {
 	rootLayout.SetOnViewActivated(func(v controller.View) {
-		if titleEditableView, ok := v.(controller.TitleEditableView); ok {
-			titleEditableView.SetFocusSetter(func(p tview.Primitive) {
-				app.SetFocus(p)
-			})
-		}
-		if descEditableView, ok := v.(controller.DescriptionEditableView); ok {
-			descEditableView.SetFocusSetter(func(p tview.Primitive) {
+		// generic focus settable check (covers TaskEditView and any other view with focus needs)
+		if focusSettable, ok := v.(controller.FocusSettable); ok {
+			focusSettable.SetFocusSetter(func(p tview.Primitive) {
 				app.SetFocus(p)
 			})
 		}

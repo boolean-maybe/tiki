@@ -63,7 +63,7 @@ func TestStatusValidator(t *testing.T) {
 		wantErr bool
 	}{
 		{"valid backlog", &Task{Status: StatusBacklog}, false},
-		{"valid todo", &Task{Status: StatusTodo}, false},
+		{"valid todo", &Task{Status: StatusReady}, false},
 		{"valid in_progress", &Task{Status: StatusInProgress}, false},
 		{"valid review", &Task{Status: StatusReview}, false},
 		{"valid done", &Task{Status: StatusDone}, false},
@@ -213,7 +213,7 @@ func TestTaskValidator_MultipleErrors(t *testing.T) {
 func TestTaskValidator_ValidTask(t *testing.T) {
 	task := &Task{
 		Title:    "Valid Task",
-		Status:   StatusTodo,
+		Status:   StatusReady,
 		Type:     TypeStory,
 		Priority: 3,
 		Points:   5,

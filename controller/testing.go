@@ -23,7 +23,7 @@ func newTestTask() *task.Task {
 	return &task.Task{
 		ID:       "TIKI-1",
 		Title:    "Test Task",
-		Status:   task.StatusTodo,
+		Status:   task.StatusReady,
 		Type:     task.TypeStory,
 		Priority: 3,
 		Points:   5,

@@ -14,7 +14,7 @@ and take them through an agile lifecycle. `tiki` helps you save and organize the
 - Wiki-style documentation with multiple entry points
 - Keep a to-do list with priorities, status, assignee and size
 - Issue management with Kanban/Scrum style board and burndown chart
-- User-defined plugins with filters and actions like Backlog, Recent, Roadmap
+- Plugin-first architecture - user-defined plugins with filters and actions like Backlog, Recent, Roadmap
 - AI skills to enable [Claude Code](https://code.claude.com), [Codex](https://openai.com/codex), [Opencode](https://opencode.ai) work with natural language commands like
   "create a tiki from @my-file.md"
   "mark tiki ABC123 as complete"

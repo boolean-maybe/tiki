@@ -13,15 +13,11 @@ If this directory does not exist prompt user for creation
 
 ## tiki ID format
 
-Every tiki has an ID in format:
-`TIKI-ABC123`
-where
-- `TIKI-` is a constant prefix (always uppercase)
-- `ABC123` is a 6-character random alphanumeric ID (uppercase in frontmatter, lowercase in filename)
+ID format: `TIKI-ABC123` where ABC123 is 6-char random alphanumeric
+**Derived from filename, NOT stored in frontmatter**
 
 Examples:
-- ID in frontmatter: `TIKI-X7F4K2`
-- Filename: `tiki-x7f4k2.md`
+- Filename: `tiki-x7f4k2.md` → ID: `TIKI-X7F4K2`
 
 ## tiki format
 
@@ -31,7 +27,6 @@ A tiki format is Markdown with some requirements:
 
 ```markdown
 ---
-id: TIKI-ABC123
 title: My ticket
 type: story
 status: backlog
@@ -39,14 +34,13 @@ priority: 3
 points: 5
 tags:
   - markdown
-  - frontmatter
   - metadata
 ---
 ```
 
 where fields can have these values:
 - type: bug, feature, task, story, epic
-- status: backlog, todo, in progress, review, done
+- status: backlog, ready, in_progress, review, done
 - priority: is any integer number from 1 to 5 where 1 is the highest priority
 - points: story points from 1 to 10
 
@@ -78,15 +72,14 @@ For example:
 When asked to create a tiki:
 
 - Generate a random 6-character alphanumeric ID (lowercase letters and digits)
-- The ID in frontmatter should be uppercase: `TIKI-ABC123`
 - The filename should be lowercase: `tiki-abc123.md`
 - If status is not specified use `backlog`
 - If priority is not specified use 3
 - If type is not specified - prompt the user or use `story` by default
 
 Example: for random ID `x7f4k2`:
-- Frontmatter ID: `TIKI-X7F4K2`
 - Filename: `tiki-x7f4k2.md`
+- Derived ID: `TIKI-X7F4K2`
 
 ### Create from file
 

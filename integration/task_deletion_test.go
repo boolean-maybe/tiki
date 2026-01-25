@@ -13,24 +13,29 @@ import (
 	"github.com/gdamore/tcell/v2"
 )
 
-// TestTaskDeletion_FromBoard verifies 'd' deletes task from board
-func TestTaskDeletion_FromBoard(t *testing.T) {
+// TestTaskDeletion_FromKanban verifies 'd' deletes task from kanban
+func TestTaskDeletion_FromKanban(t *testing.T) {
 	ta := testutil.NewTestApp(t)
 	defer ta.Cleanup()
 
+	// Load plugins to enable Kanban
+	if err := ta.LoadPlugins(); err != nil {
+		t.Fatalf("failed to load plugins: %v", err)
+	}
+
 	// Create tasks
-	if err := testutil.CreateTestTask(ta.TaskDir, "TIKI-1", "First Task", taskpkg.StatusTodo, taskpkg.TypeStory); err != nil {
+	if err := testutil.CreateTestTask(ta.TaskDir, "TIKI-1", "First Task", taskpkg.StatusReady, taskpkg.TypeStory); err != nil {
 		t.Fatalf("failed to create task: %v", err)
 	}
-	if err := testutil.CreateTestTask(ta.TaskDir, "TIKI-2", "Second Task", taskpkg.StatusTodo, taskpkg.TypeStory); err != nil {
+	if err := testutil.CreateTestTask(ta.TaskDir, "TIKI-2", "Second Task", taskpkg.StatusReady, taskpkg.TypeStory); err != nil {
 		t.Fatalf("failed to create task: %v", err)
 	}
 	if err := ta.TaskStore.Reload(); err != nil {
 		t.Fatalf("failed to reload: %v", err)
 	}
 
-	// Navigate to board
-	ta.NavController.PushView(model.BoardViewID, nil)
+	// Navigate to Kanban plugin
+	ta.NavController.PushView(model.MakePluginViewID("Kanban"), nil)
 	ta.Draw()
 
 	// Verify TIKI-1 visible
@@ -72,39 +77,45 @@ func TestTaskDeletion_SelectionMoves(t *testing.T) {
 	ta := testutil.NewTestApp(t)
 	defer ta.Cleanup()
 
+	// Load plugins to enable Kanban
+	if err := ta.LoadPlugins(); err != nil {
+		t.Fatalf("failed to load plugins: %v", err)
+	}
+
 	// Create three tasks
-	if err := testutil.CreateTestTask(ta.TaskDir, "TIKI-1", "First Task", taskpkg.StatusTodo, taskpkg.TypeStory); err != nil {
+	if err := testutil.CreateTestTask(ta.TaskDir, "TIKI-1", "First Task", taskpkg.StatusReady, taskpkg.TypeStory); err != nil {
 		t.Fatalf("failed to create task: %v", err)
 	}
-	if err := testutil.CreateTestTask(ta.TaskDir, "TIKI-2", "Second Task", taskpkg.StatusTodo, taskpkg.TypeStory); err != nil {
+	if err := testutil.CreateTestTask(ta.TaskDir, "TIKI-2", "Second Task", taskpkg.StatusReady, taskpkg.TypeStory); err != nil {
 		t.Fatalf("failed to create task: %v", err)
 	}
-	if err := testutil.CreateTestTask(ta.TaskDir, "TIKI-3", "Third Task", taskpkg.StatusTodo, taskpkg.TypeStory); err != nil {
+	if err := testutil.CreateTestTask(ta.TaskDir, "TIKI-3", "Third Task", taskpkg.StatusReady, taskpkg.TypeStory); err != nil {
 		t.Fatalf("failed to create task: %v", err)
 	}
 	if err := ta.TaskStore.Reload(); err != nil {
 		t.Fatalf("failed to reload: %v", err)
 	}
 
-	// Navigate to board
-	ta.NavController.PushView(model.BoardViewID, nil)
+	// Navigate to Kanban plugin
+	ta.NavController.PushView(model.MakePluginViewID("Kanban"), nil)
 	ta.Draw()
 
-	// Move to second task (row 1)
+	// Move to second task (index 1)
 	ta.SendKey(tcell.KeyDown, 0, tcell.ModNone)
 
-	// Verify we're on row 1
-	if ta.BoardConfig.GetSelectedRow() != 1 {
-		t.Fatalf("expected row 1, got %d", ta.BoardConfig.GetSelectedRow())
+	kanbanConfig := ta.GetPluginConfig("Kanban")
+	// Verify we're on index 1
+	if kanbanConfig.GetSelectedIndex() != 1 {
+		t.Fatalf("expected index 1, got %d", kanbanConfig.GetSelectedIndex())
 	}
 
 	// Delete TIKI-2
 	ta.SendKey(tcell.KeyRune, 'd', tcell.ModNone)
 
-	// Selection should move to next task (TIKI-3, which is now at row 1)
-	selectedRow := ta.BoardConfig.GetSelectedRow()
-	if selectedRow != 1 {
-		t.Errorf("selection after delete = row %d, want row 1", selectedRow)
+	// Selection should move to next task (TIKI-3, which is now at index 1)
+	selectedIndex := kanbanConfig.GetSelectedIndex()
+	if selectedIndex != 1 {
+		t.Errorf("selection after delete = index %d, want index 1", selectedIndex)
 	}
 
 	// Verify TIKI-3 is visible
@@ -120,16 +131,21 @@ func TestTaskDeletion_LastTaskInPane(t *testing.T) {
 	ta := testutil.NewTestApp(t)
 	defer ta.Cleanup()
 
+	// Load plugins to enable Kanban
+	if err := ta.LoadPlugins(); err != nil {
+		t.Fatalf("failed to load plugins: %v", err)
+	}
+
 	// Create only one task in todo pane
-	if err := testutil.CreateTestTask(ta.TaskDir, "TIKI-1", "Only Task", taskpkg.StatusTodo, taskpkg.TypeStory); err != nil {
+	if err := testutil.CreateTestTask(ta.TaskDir, "TIKI-1", "Only Task", taskpkg.StatusReady, taskpkg.TypeStory); err != nil {
 		t.Fatalf("failed to create task: %v", err)
 	}
 	if err := ta.TaskStore.Reload(); err != nil {
 		t.Fatalf("failed to reload: %v", err)
 	}
 
-	// Navigate to board
-	ta.NavController.PushView(model.BoardViewID, nil)
+	// Navigate to Kanban plugin
+	ta.NavController.PushView(model.MakePluginViewID("Kanban"), nil)
 	ta.Draw()
 
 	// Verify TIKI-1 visible
@@ -153,12 +169,13 @@ func TestTaskDeletion_LastTaskInPane(t *testing.T) {
 		t.Errorf("TIKI-1 should be deleted")
 	}
 
+	kanbanConfig := ta.GetPluginConfig("Kanban")
 	// Verify selection reset to 0
-	if ta.BoardConfig.GetSelectedRow() != 0 {
-		t.Errorf("selection should reset to 0 after deleting last task, got %d", ta.BoardConfig.GetSelectedRow())
+	if kanbanConfig.GetSelectedIndex() != 0 {
+		t.Errorf("selection should reset to 0 after deleting last task, got %d", kanbanConfig.GetSelectedIndex())
 	}
 
-	// Verify no crash occurred (board is empty)
+	// Verify no crash occurred (pane is empty)
 	// This is implicit - if we got here without panic, test passes
 }
 
@@ -167,11 +184,16 @@ func TestTaskDeletion_MultipleSequential(t *testing.T) {
 	ta := testutil.NewTestApp(t)
 	defer ta.Cleanup()
 
+	// Load plugins to enable Kanban
+	if err := ta.LoadPlugins(); err != nil {
+		t.Fatalf("failed to load plugins: %v", err)
+	}
+
 	// Create five tasks
 	for i := 1; i <= 5; i++ {
 		taskID := fmt.Sprintf("TIKI-%d", i)
 		title := fmt.Sprintf("Task %d", i)
-		if err := testutil.CreateTestTask(ta.TaskDir, taskID, title, taskpkg.StatusTodo, taskpkg.TypeStory); err != nil {
+		if err := testutil.CreateTestTask(ta.TaskDir, taskID, title, taskpkg.StatusReady, taskpkg.TypeStory); err != nil {
 			t.Fatalf("failed to create task: %v", err)
 		}
 	}
@@ -179,8 +201,8 @@ func TestTaskDeletion_MultipleSequential(t *testing.T) {
 		t.Fatalf("failed to reload: %v", err)
 	}
 
-	// Navigate to board
-	ta.NavController.PushView(model.BoardViewID, nil)
+	// Navigate to Kanban plugin
+	ta.NavController.PushView(model.MakePluginViewID("Kanban"), nil)
 	ta.Draw()
 
 	// Delete first task
@@ -215,6 +237,11 @@ func TestTaskDeletion_FromDifferentPane(t *testing.T) {
 	ta := testutil.NewTestApp(t)
 	defer ta.Cleanup()
 
+	// Load plugins to enable Kanban
+	if err := ta.LoadPlugins(); err != nil {
+		t.Fatalf("failed to load plugins: %v", err)
+	}
+
 	// Create task in in_progress pane
 	if err := testutil.CreateTestTask(ta.TaskDir, "TIKI-1", "In Progress Task", taskpkg.StatusInProgress, taskpkg.TypeStory); err != nil {
 		t.Fatalf("failed to create task: %v", err)
@@ -223,8 +250,8 @@ func TestTaskDeletion_FromDifferentPane(t *testing.T) {
 		t.Fatalf("failed to reload: %v", err)
 	}
 
-	// Navigate to board
-	ta.NavController.PushView(model.BoardViewID, nil)
+	// Navigate to Kanban plugin
+	ta.NavController.PushView(model.MakePluginViewID("Kanban"), nil)
 	ta.Draw()
 
 	// Move to in_progress pane (Right arrow)
@@ -256,16 +283,21 @@ func TestTaskDeletion_CannotDeleteFromTaskDetail(t *testing.T) {
 	ta := testutil.NewTestApp(t)
 	defer ta.Cleanup()
 
+	// Load plugins to enable Kanban
+	if err := ta.LoadPlugins(); err != nil {
+		t.Fatalf("failed to load plugins: %v", err)
+	}
+
 	// Create task
-	if err := testutil.CreateTestTask(ta.TaskDir, "TIKI-1", "Task to Not Delete", taskpkg.StatusTodo, taskpkg.TypeStory); err != nil {
+	if err := testutil.CreateTestTask(ta.TaskDir, "TIKI-1", "Task to Not Delete", taskpkg.StatusReady, taskpkg.TypeStory); err != nil {
 		t.Fatalf("failed to create task: %v", err)
 	}
 	if err := ta.TaskStore.Reload(); err != nil {
 		t.Fatalf("failed to reload: %v", err)
 	}
 
-	// Navigate: Board → Task Detail
-	ta.NavController.PushView(model.BoardViewID, nil)
+	// Navigate: Kanban → Task Detail
+	ta.NavController.PushView(model.MakePluginViewID("Kanban"), nil)
 	ta.Draw()
 	ta.SendKey(tcell.KeyEnter, 0, tcell.ModNone)
 
@@ -299,8 +331,13 @@ func TestTaskDeletion_WithMultiplePanes(t *testing.T) {
 	ta := testutil.NewTestApp(t)
 	defer ta.Cleanup()
 
+	// Load plugins to enable Kanban
+	if err := ta.LoadPlugins(); err != nil {
+		t.Fatalf("failed to load plugins: %v", err)
+	}
+
 	// Create tasks in different panes
-	if err := testutil.CreateTestTask(ta.TaskDir, "TIKI-1", "Todo Task", taskpkg.StatusTodo, taskpkg.TypeStory); err != nil {
+	if err := testutil.CreateTestTask(ta.TaskDir, "TIKI-1", "Todo Task", taskpkg.StatusReady, taskpkg.TypeStory); err != nil {
 		t.Fatalf("failed to create task: %v", err)
 	}
 	if err := testutil.CreateTestTask(ta.TaskDir, "TIKI-2", "In Progress Task", taskpkg.StatusInProgress, taskpkg.TypeStory); err != nil {
@@ -313,8 +350,8 @@ func TestTaskDeletion_WithMultiplePanes(t *testing.T) {
 		t.Fatalf("failed to reload: %v", err)
 	}
 
-	// Navigate to board
-	ta.NavController.PushView(model.BoardViewID, nil)
+	// Navigate to Kanban plugin
+	ta.NavController.PushView(model.MakePluginViewID("Kanban"), nil)
 	ta.Draw()
 
 	// Delete TIKI-1 from todo pane

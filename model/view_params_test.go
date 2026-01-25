@@ -99,7 +99,7 @@ func TestTaskEditParams_EncodeDecodeRoundTrip(t *testing.T) {
 	draftTask := &taskpkg.Task{
 		ID:       "TIKI-42",
 		Title:    "Test Task",
-		Status:   taskpkg.StatusTodo,
+		Status:   taskpkg.StatusReady,
 		Type:     taskpkg.TypeStory,
 		Priority: 3,
 	}

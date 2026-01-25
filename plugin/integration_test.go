@@ -42,7 +42,7 @@ panes:
 		ID:     "TIKI-1",
 		Title:  "Design mockups",
 		Tags:   []string{"ui", "design"},
-		Status: task.StatusTodo,
+		Status: task.StatusReady,
 	}
 
 	if !tp.Panes[0].Filter.Evaluate(matchingTask, time.Now(), "testuser") {
@@ -54,7 +54,7 @@ panes:
 		ID:     "TIKI-2",
 		Title:  "Backend API",
 		Tags:   []string{"backend", "api"},
-		Status: task.StatusTodo,
+		Status: task.StatusReady,
 	}
 
 	if tp.Panes[0].Filter.Evaluate(nonMatchingTask, time.Now(), "testuser") {
@@ -66,7 +66,7 @@ panes:
 		ID:     "TIKI-3",
 		Title:  "UX Research",
 		Tags:   []string{"ux", "research"},
-		Status: task.StatusTodo,
+		Status: task.StatusReady,
 	}
 
 	if !tp.Panes[0].Filter.Evaluate(partialMatchTask, time.Now(), "testuser") {
@@ -94,11 +94,11 @@ panes:
 		t.Fatalf("Expected TikiPlugin, got %T", def)
 	}
 
-	// Should match: has 'ui' tag and status is 'todo' (not done)
+	// Should match: has 'ui' tag and status is 'ready' (not done)
 	matchingTask := &task.Task{
 		ID:     "TIKI-1",
 		Tags:   []string{"ui", "frontend"},
-		Status: task.StatusTodo,
+		Status: task.StatusReady,
 	}
 
 	if !tp.Panes[0].Filter.Evaluate(matchingTask, time.Now(), "testuser") {
@@ -135,7 +135,7 @@ name: In Progress Work
 key: W
 panes:
   - name: Active
-    filter: status IN ['todo', 'in_progress', 'blocked']
+    filter: status IN ['ready', 'in_progress', 'in_progress']
 `
 
 	def, err := parsePluginYAML([]byte(pluginYAML), "test")
@@ -153,9 +153,9 @@ panes:
 		status task.Status
 		expect bool
 	}{
-		{"todo status", task.StatusTodo, true},
+		{"todo status", task.StatusReady, true},
 		{"in_progress status", task.StatusInProgress, true},
-		{"blocked status", task.StatusBlocked, true},
+		{"blocked status", task.StatusInProgress, true},
 		{"done status", task.StatusDone, false},
 		{"review status", task.StatusReview, false},
 	}

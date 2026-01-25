@@ -1,5 +1,8 @@
 # tiki format
 
+First of all, you just navigated to a linked file. To go back press `Left` arrow or `Alt-Left`
+To go forward press `Right` arrow or `Alt-Right`
+
 Tiki stores tickets (aka tikis) and documents (aka dokis) in the git repo along with code
 They are stored under `.doc` directory and are supposed to be checked-in/versioned along with all other files
 
@@ -38,7 +41,6 @@ in Markdown format
 
 ```text
         ---
-        id: TIKI-m7n2xk
         title: Sample title
         type: story
         status: backlog

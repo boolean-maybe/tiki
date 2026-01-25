@@ -11,9 +11,9 @@ import (
 // Example expressions:
 //   - status = 'done'
 //   - type = 'bug' AND priority > 2
-//   - status IN ['todo', 'in_progress']
+//   - status IN ['ready', 'in_progress']
 //   - NOW - CreatedAt < 24hour
-//   - (status = 'todo' OR status = 'in_progress') AND priority >= 3
+//   - (status = 'ready' OR status = 'in_progress') AND priority >= 3
 //
 // Returns nil expression for empty string (no filtering).
 func ParseFilter(expr string) (FilterExpr, error) {

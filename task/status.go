@@ -8,11 +8,8 @@ type Status string
 
 const (
 	StatusBacklog    Status = "backlog"
-	StatusTodo       Status = "todo"
 	StatusReady      Status = "ready"
 	StatusInProgress Status = "in_progress"
-	StatusWaiting    Status = "waiting"
-	StatusBlocked    Status = "blocked"
 	StatusReview     Status = "review"
 	StatusDone       Status = "done"
 )
@@ -25,11 +22,8 @@ type statusInfo struct {
 
 var statuses = map[Status]statusInfo{
 	StatusBacklog:    {label: "Backlog", emoji: "📥", pane: StatusBacklog},
-	StatusTodo:       {label: "To Do", emoji: "📋", pane: StatusTodo},
-	StatusReady:      {label: "Ready", emoji: "📋", pane: StatusTodo},
+	StatusReady:      {label: "Ready", emoji: "📋", pane: StatusReady},
 	StatusInProgress: {label: "In Progress", emoji: "⚙️", pane: StatusInProgress},
-	StatusWaiting:    {label: "Waiting", emoji: "⏳", pane: StatusReview},
-	StatusBlocked:    {label: "Blocked", emoji: "⛔", pane: StatusInProgress},
 	StatusReview:     {label: "Review", emoji: "👀", pane: StatusReview},
 	StatusDone:       {label: "Done", emoji: "✅", pane: StatusDone},
 }
@@ -46,18 +40,10 @@ func ParseStatus(status string) (Status, bool) {
 	switch normalized {
 	case "", "backlog":
 		return StatusBacklog, true
-	case "todo", "to_do":
-		return StatusTodo, true
-	case "ready":
+	case "ready", "todo", "to_do", "open":
 		return StatusReady, true
-	case "open":
-		return StatusTodo, true
 	case "in_progress", "inprocess", "in_process", "inprogress":
 		return StatusInProgress, true
-	case "waiting", "on_hold", "hold":
-		return StatusWaiting, true
-	case "blocked", "blocker":
-		return StatusBlocked, true
 	case "review", "in_review", "inreview":
 		return StatusReview, true
 	case "done", "closed", "completed":

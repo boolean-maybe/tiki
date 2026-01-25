@@ -12,11 +12,8 @@ func (ev *TaskEditView) ensureStatusSelectList(task *taskpkg.Task) *component.Ed
 	if ev.statusSelectList == nil {
 		statusOptions := []string{
 			taskpkg.StatusDisplay(taskpkg.StatusBacklog),
-			taskpkg.StatusDisplay(taskpkg.StatusTodo),
 			taskpkg.StatusDisplay(taskpkg.StatusReady),
 			taskpkg.StatusDisplay(taskpkg.StatusInProgress),
-			taskpkg.StatusDisplay(taskpkg.StatusWaiting),
-			taskpkg.StatusDisplay(taskpkg.StatusBlocked),
 			taskpkg.StatusDisplay(taskpkg.StatusReview),
 			taskpkg.StatusDisplay(taskpkg.StatusDone),
 		}
@@ -75,9 +72,8 @@ func (ev *TaskEditView) ensurePriorityInput(task *taskpkg.Task) *component.IntEd
 		})
 
 		ev.priorityInput.SetValue(task.Priority)
-	} else {
-		ev.priorityInput.SetValue(task.Priority)
 	}
+	// Don't reset value if widget already exists - preserve user edits
 
 	return ev.priorityInput
 }
@@ -97,9 +93,8 @@ func (ev *TaskEditView) ensurePointsInput(task *taskpkg.Task) *component.IntEdit
 		})
 
 		ev.pointsInput.SetValue(task.Points)
-	} else {
-		ev.pointsInput.SetValue(task.Points)
 	}
+	// Don't reset value if widget already exists - preserve user edits
 
 	return ev.pointsInput
 }

@@ -12,7 +12,6 @@ import (
 // Controllers holds all application controllers.
 type Controllers struct {
 	Nav     *controller.NavigationController
-	Board   *controller.BoardController
 	Task    *controller.TaskController
 	Plugins map[string]controller.PluginControllerInterface
 }
@@ -21,12 +20,10 @@ type Controllers struct {
 func BuildControllers(
 	app *tview.Application,
 	taskStore store.Store,
-	boardConfig *model.BoardConfig,
 	plugins []plugin.Plugin,
 	pluginConfigs map[string]*model.PluginConfig,
 ) *Controllers {
 	navController := controller.NewNavigationController(app)
-	boardController := controller.NewBoardController(taskStore, boardConfig, navController)
 	taskController := controller.NewTaskController(taskStore, navController)
 
 	pluginControllers := make(map[string]controller.PluginControllerInterface)
@@ -47,7 +44,6 @@ func BuildControllers(
 
 	return &Controllers{
 		Nav:     navController,
-		Board:   boardController,
 		Task:    taskController,
 		Plugins: pluginControllers,
 	}

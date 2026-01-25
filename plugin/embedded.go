@@ -5,6 +5,9 @@ import (
 	"log/slog"
 )
 
+//go:embed embed/kanban.yaml
+var kanbanYAML string
+
 //go:embed embed/recent.yaml
 var recentYAML string
 
@@ -39,15 +42,17 @@ func loadEmbeddedPlugin(yamlContent string, sourceName string) Plugin {
 	return p
 }
 
-// loadEmbeddedPlugins loads the built-in default plugins (Backlog, Recent, Roadmap, Help, and Documentation)
+// loadEmbeddedPlugins loads the built-in default plugins (Kanban, Backlog, Recent, Roadmap, Help, and Documentation)
 func loadEmbeddedPlugins() []Plugin {
 	var plugins []Plugin
 
 	// Define embedded plugins with their YAML content and source names
+	// Kanban is first so it becomes the default view
 	embeddedPlugins := []struct {
 		yaml   string
 		source string
 	}{
+		{kanbanYAML, "embedded:kanban"},
 		{backlogYAML, "embedded:backlog"},
 		{recentYAML, "embedded:recent"},
 		{roadmapYAML, "embedded:roadmap"},

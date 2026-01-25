@@ -9,7 +9,6 @@ type ViewID string
 
 // view identifiers
 const (
-	BoardViewID        ViewID = "board"
 	TaskDetailViewID   ViewID = "task_detail"
 	TaskEditViewID     ViewID = "task_edit"
 	PluginViewIDPrefix ViewID = "plugin:" // Prefix for plugin views

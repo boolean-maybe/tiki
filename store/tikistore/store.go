@@ -31,7 +31,6 @@ type TikiStore struct {
 
 // taskFrontmatter represents the YAML frontmatter in task files
 type taskFrontmatter struct {
-	ID       string                `yaml:"id"`
 	Title    string                `yaml:"title"`
 	Type     string                `yaml:"type"`
 	Status   string                `yaml:"status"`
@@ -58,12 +57,6 @@ func NewTikiStore(dir string) (*TikiStore, error) {
 		s.gitUtil = gitUtil
 	} else {
 		slog.Debug("git utility not initialized", "error", err)
-	}
-
-	// Migrate task IDs to lowercase format (one-time migration for legacy tasks)
-	if err := s.MigrateTaskIDs(); err != nil {
-		slog.Warn("task ID migration encountered errors", "error", err)
-		// Continue loading even if migration has issues
 	}
 
 	s.mu.Lock()

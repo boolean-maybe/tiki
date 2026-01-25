@@ -23,7 +23,7 @@ func TestBuildMetadataColumns_Structure(t *testing.T) {
 		ID:          "TIKI-1",
 		Title:       "Test Task",
 		Description: "Test description",
-		Status:      task.StatusTodo,
+		Status:      task.StatusReady,
 		Type:        task.TypeStory,
 		Priority:    3,
 		Points:      5,
@@ -66,7 +66,7 @@ func TestBuildMetadataColumns_Column1Fields(t *testing.T) {
 	task := &task.Task{
 		ID:       "TIKI-1",
 		Title:    "Test Task",
-		Status:   task.StatusTodo,
+		Status:   task.StatusReady,
 		Type:     task.TypeStory,
 		Priority: 3,
 	}

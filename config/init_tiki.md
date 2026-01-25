@@ -1,9 +1,8 @@
 ---
-id: TIKI-xxxxxx
 title: Welcome to tiki-land!
 type: story
-status: todo
-priority: 0
+status: ready
+priority: 1
 tags:
   - info
   - ideas

@@ -36,11 +36,11 @@ func setupPluginTestData(t *testing.T, ta *testutil.TestApp) {
 		{"TIKI-2", "Backlog Task 2", taskpkg.StatusBacklog, taskpkg.TypeBug, false},
 
 		// Recent plugin: UpdatedAt within 2 hours
-		{"TIKI-3", "Recent Task 1", taskpkg.StatusTodo, taskpkg.TypeStory, true},
+		{"TIKI-3", "Recent Task 1", taskpkg.StatusReady, taskpkg.TypeStory, true},
 		{"TIKI-4", "Recent Task 2", taskpkg.StatusInProgress, taskpkg.TypeBug, true},
 
 		// Roadmap plugin: type = 'epic'
-		{"TIKI-5", "Roadmap Epic 1", taskpkg.StatusTodo, taskpkg.TypeEpic, false},
+		{"TIKI-5", "Roadmap Epic 1", taskpkg.StatusReady, taskpkg.TypeEpic, false},
 		{"TIKI-6", "Roadmap Epic 2", taskpkg.StatusInProgress, taskpkg.TypeEpic, false},
 
 		// Multi-plugin match
@@ -82,24 +82,24 @@ func setupTestAppWithPlugins(t *testing.T) *testutil.TestApp {
 // Plugin Switching Tests
 // ============================================================================
 
-func TestPluginNavigation_BoardToPlugin_PushesView(t *testing.T) {
+func TestPluginNavigation_PluginSwitch_ReplacesView(t *testing.T) {
 	ta := setupTestAppWithPlugins(t)
 	defer ta.Cleanup()
 
-	// Start on Board
-	ta.NavController.PushView(model.BoardViewID, nil)
+	// Start on Kanban
+	ta.NavController.PushView(model.MakePluginViewID("Kanban"), nil)
 	ta.Draw()
 
 	if ta.NavController.Depth() != 1 {
 		t.Errorf("Expected stack depth 1, got %d", ta.NavController.Depth())
 	}
 
-	// Press F3 for Backlog
+	// Press F3 for Backlog (should replace, not push)
 	ta.SendKey(tcell.KeyF3, 0, tcell.ModNone)
 
-	// Verify: stack depth increased, view changed
-	if ta.NavController.Depth() != 2 {
-		t.Errorf("Expected stack depth 2 after pushing plugin, got %d", ta.NavController.Depth())
+	// Verify: stack depth unchanged (plugin-to-plugin uses ReplaceView), view changed
+	if ta.NavController.Depth() != 1 {
+		t.Errorf("Expected stack depth 1 after switching plugin, got %d", ta.NavController.Depth())
 	}
 	expectedViewID := model.MakePluginViewID("Backlog")
 	if ta.NavController.CurrentViewID() != expectedViewID {
@@ -117,22 +117,22 @@ func TestPluginNavigation_PluginToPlugin_ReplacesView(t *testing.T) {
 	ta := setupTestAppWithPlugins(t)
 	defer ta.Cleanup()
 
-	// Start: Board → Backlog
-	ta.NavController.PushView(model.BoardViewID, nil)
+	// Start: Kanban → Backlog
+	ta.NavController.PushView(model.MakePluginViewID("Kanban"), nil)
 	ta.SendKey(tcell.KeyF3, 0, tcell.ModNone)
 	ta.Draw()
 
-	// Verify we're on Backlog with depth 2
-	if ta.NavController.Depth() != 2 {
-		t.Errorf("Expected stack depth 2, got %d", ta.NavController.Depth())
+	// Verify we're on Backlog with depth 1 (plugin-to-plugin replaces)
+	if ta.NavController.Depth() != 1 {
+		t.Errorf("Expected stack depth 1, got %d", ta.NavController.Depth())
 	}
 
-	// Press 'R' for Recent (should REPLACE Backlog, not push)
+	// Press Ctrl+R for Recent (should REPLACE Backlog, not push)
 	ta.SendKey(tcell.KeyRune, 'R', tcell.ModCtrl)
 
 	// Verify: depth unchanged, view changed
-	if ta.NavController.Depth() != 2 {
-		t.Errorf("Expected stack depth 2 after replacing plugin, got %d", ta.NavController.Depth())
+	if ta.NavController.Depth() != 1 {
+		t.Errorf("Expected stack depth 1 after replacing plugin, got %d", ta.NavController.Depth())
 	}
 	expectedViewID := model.MakePluginViewID("Recent")
 	if ta.NavController.CurrentViewID() != expectedViewID {
@@ -146,29 +146,28 @@ func TestPluginNavigation_PluginToPlugin_ReplacesView(t *testing.T) {
 	}
 }
 
-func TestPluginNavigation_PluginToBoard_PopsView(t *testing.T) {
+func TestPluginNavigation_EscDoesNothingAtRoot(t *testing.T) {
 	ta := setupTestAppWithPlugins(t)
 	defer ta.Cleanup()
 
-	// Start: Board → Backlog
-	ta.NavController.PushView(model.BoardViewID, nil)
-	ta.SendKey(tcell.KeyF3, 0, tcell.ModNone)
+	// Start on Kanban (root view)
+	ta.NavController.PushView(model.MakePluginViewID("Kanban"), nil)
 	ta.Draw()
 
-	// Verify we're on Backlog with depth 2
-	if ta.NavController.Depth() != 2 {
-		t.Errorf("Expected stack depth 2, got %d", ta.NavController.Depth())
-	}
-
-	// Press 'B' to return to board
-	ta.SendKey(tcell.KeyRune, 'B', tcell.ModNone)
-
-	// Verify: depth decreased, back to board
+	// Verify we're on Kanban with depth 1
 	if ta.NavController.Depth() != 1 {
-		t.Errorf("Expected stack depth 1 after popping to board, got %d", ta.NavController.Depth())
+		t.Errorf("Expected stack depth 1, got %d", ta.NavController.Depth())
 	}
-	if ta.NavController.CurrentViewID() != model.BoardViewID {
-		t.Errorf("Expected view %s, got %s", model.BoardViewID, ta.NavController.CurrentViewID())
+
+	// Press Esc - should do nothing since we're at root
+	ta.SendKey(tcell.KeyEscape, 0, tcell.ModNone)
+
+	// Verify: still on Kanban with depth 1
+	if ta.NavController.Depth() != 1 {
+		t.Errorf("Expected stack depth 1 after Esc at root, got %d", ta.NavController.Depth())
+	}
+	if ta.NavController.CurrentViewID() != model.MakePluginViewID("Kanban") {
+		t.Errorf("Expected view %s, got %s", model.MakePluginViewID("Kanban"), ta.NavController.CurrentViewID())
 	}
 }
 
@@ -176,8 +175,8 @@ func TestPluginNavigation_SamePluginKey_NoOp(t *testing.T) {
 	ta := setupTestAppWithPlugins(t)
 	defer ta.Cleanup()
 
-	// Start: Board → Backlog
-	ta.NavController.PushView(model.BoardViewID, nil)
+	// Start: Kanban → Backlog
+	ta.NavController.PushView(model.MakePluginViewID("Kanban"), nil)
 	ta.SendKey(tcell.KeyF3, 0, tcell.ModNone)
 	ta.Draw()
 
@@ -315,22 +314,22 @@ func TestPluginActions_OpenTask_EnterKey(t *testing.T) {
 	ta := setupTestAppWithPlugins(t)
 	defer ta.Cleanup()
 
-	// Navigate to Backlog plugin
-	ta.NavController.PushView(model.BoardViewID, nil)
+	// Navigate to Backlog plugin (replaces Kanban, depth stays 1)
+	ta.NavController.PushView(model.MakePluginViewID("Kanban"), nil)
 	ta.SendKey(tcell.KeyF3, 0, tcell.ModNone)
 	ta.Draw()
 
-	// Verify initial depth
-	if ta.NavController.Depth() != 2 {
-		t.Errorf("Expected stack depth 2, got %d", ta.NavController.Depth())
+	// Verify initial depth (plugin-to-plugin uses replace, so depth is 1)
+	if ta.NavController.Depth() != 1 {
+		t.Errorf("Expected stack depth 1, got %d", ta.NavController.Depth())
 	}
 
 	// Press Enter to open first task
 	ta.SendKey(tcell.KeyEnter, 0, tcell.ModNone)
 
 	// Verify: TaskDetail pushed onto stack
-	if ta.NavController.Depth() != 3 {
-		t.Errorf("Expected stack depth 3 after opening task, got %d", ta.NavController.Depth())
+	if ta.NavController.Depth() != 2 {
+		t.Errorf("Expected stack depth 2 after opening task, got %d", ta.NavController.Depth())
 	}
 	if ta.NavController.CurrentViewID() != model.TaskDetailViewID {
 		t.Errorf("Expected view %s, got %s", model.TaskDetailViewID, ta.NavController.CurrentViewID())
@@ -470,53 +469,53 @@ func TestPluginStack_MultiLevelNavigation(t *testing.T) {
 	ta := setupTestAppWithPlugins(t)
 	defer ta.Cleanup()
 
-	// Board (depth 1)
-	ta.NavController.PushView(model.BoardViewID, nil)
+	// Kanban (depth 1)
+	ta.NavController.PushView(model.MakePluginViewID("Kanban"), nil)
 	ta.Draw()
 	if ta.NavController.Depth() != 1 {
 		t.Errorf("Expected depth 1, got %d", ta.NavController.Depth())
 	}
 
-	// Board→Backlog (Push, depth 2)
+	// Kanban→Backlog (Replace, depth 1)
 	ta.SendKey(tcell.KeyF3, 0, tcell.ModNone)
-	if ta.NavController.Depth() != 2 {
-		t.Errorf("Expected depth 2 after Backlog, got %d", ta.NavController.Depth())
+	if ta.NavController.Depth() != 1 {
+		t.Errorf("Expected depth 1 after Backlog (replace), got %d", ta.NavController.Depth())
 	}
 	if ta.NavController.CurrentViewID() != model.MakePluginViewID("Backlog") {
 		t.Errorf("Expected Backlog view, got %s", ta.NavController.CurrentViewID())
 	}
 
-	// Backlog→Recent (Replace, depth 2)
+	// Backlog→Recent (Replace, depth 1)
 	ta.SendKey(tcell.KeyRune, 'R', tcell.ModCtrl)
-	if ta.NavController.Depth() != 2 {
-		t.Errorf("Expected depth 2 after Recent, got %d", ta.NavController.Depth())
-	}
-	if ta.NavController.CurrentViewID() != model.MakePluginViewID("Recent") {
-		t.Errorf("Expected Recent view, got %s", ta.NavController.CurrentViewID())
-	}
-
-	// Recent→TaskDetail (Push, depth 3)
-	ta.SendKey(tcell.KeyEnter, 0, tcell.ModNone)
-	if ta.NavController.Depth() != 3 {
-		t.Errorf("Expected depth 3 after TaskDetail, got %d", ta.NavController.Depth())
-	}
-
-	// TaskDetail→Recent (Pop, depth 2)
-	ta.SendKey(tcell.KeyEscape, 0, tcell.ModNone)
-	if ta.NavController.Depth() != 2 {
-		t.Errorf("Expected depth 2 after Esc, got %d", ta.NavController.Depth())
-	}
-	if ta.NavController.CurrentViewID() != model.MakePluginViewID("Recent") {
-		t.Errorf("Expected Recent view, got %s", ta.NavController.CurrentViewID())
-	}
-
-	// Recent→Board (Pop via 'B', depth 1)
-	ta.SendKey(tcell.KeyRune, 'B', tcell.ModNone)
 	if ta.NavController.Depth() != 1 {
-		t.Errorf("Expected depth 1 after 'B', got %d", ta.NavController.Depth())
+		t.Errorf("Expected depth 1 after Recent (replace), got %d", ta.NavController.Depth())
 	}
-	if ta.NavController.CurrentViewID() != model.BoardViewID {
-		t.Errorf("Expected Board view, got %s", ta.NavController.CurrentViewID())
+	if ta.NavController.CurrentViewID() != model.MakePluginViewID("Recent") {
+		t.Errorf("Expected Recent view, got %s", ta.NavController.CurrentViewID())
+	}
+
+	// Recent→TaskDetail (Push, depth 2)
+	ta.SendKey(tcell.KeyEnter, 0, tcell.ModNone)
+	if ta.NavController.Depth() != 2 {
+		t.Errorf("Expected depth 2 after TaskDetail, got %d", ta.NavController.Depth())
+	}
+
+	// TaskDetail→Recent (Pop, depth 1)
+	ta.SendKey(tcell.KeyEscape, 0, tcell.ModNone)
+	if ta.NavController.Depth() != 1 {
+		t.Errorf("Expected depth 1 after Esc, got %d", ta.NavController.Depth())
+	}
+	if ta.NavController.CurrentViewID() != model.MakePluginViewID("Recent") {
+		t.Errorf("Expected Recent view, got %s", ta.NavController.CurrentViewID())
+	}
+
+	// Esc at root does nothing
+	ta.SendKey(tcell.KeyEscape, 0, tcell.ModNone)
+	if ta.NavController.Depth() != 1 {
+		t.Errorf("Expected depth 1 after Esc at root, got %d", ta.NavController.Depth())
+	}
+	if ta.NavController.CurrentViewID() != model.MakePluginViewID("Recent") {
+		t.Errorf("Expected Recent view, got %s", ta.NavController.CurrentViewID())
 	}
 }
 
@@ -524,22 +523,22 @@ func TestPluginStack_TaskDetailFromPlugin_ReturnsToPlugin(t *testing.T) {
 	ta := setupTestAppWithPlugins(t)
 	defer ta.Cleanup()
 
-	// Board→Backlog→TaskDetail
-	ta.NavController.PushView(model.BoardViewID, nil)
-	ta.SendKey(tcell.KeyF3, 0, tcell.ModNone)
-	ta.SendKey(tcell.KeyEnter, 0, tcell.ModNone)
+	// Kanban→Backlog(replace)→TaskDetail(push)
+	ta.NavController.PushView(model.MakePluginViewID("Kanban"), nil)
+	ta.SendKey(tcell.KeyF3, 0, tcell.ModNone)    // Replace: Kanban→Backlog, depth 1
+	ta.SendKey(tcell.KeyEnter, 0, tcell.ModNone) // Push: TaskDetail, depth 2
 
-	// Stack: Board, Backlog, TaskDetail (depth 3)
-	if ta.NavController.Depth() != 3 {
-		t.Errorf("Expected depth 3, got %d", ta.NavController.Depth())
+	// Stack: Backlog, TaskDetail (depth 2)
+	if ta.NavController.Depth() != 2 {
+		t.Errorf("Expected depth 2, got %d", ta.NavController.Depth())
 	}
 
 	// Press Esc from TaskDetail
 	ta.SendKey(tcell.KeyEscape, 0, tcell.ModNone)
 
-	// Verify: returned to Backlog, NOT Board
-	if ta.NavController.Depth() != 2 {
-		t.Errorf("Expected depth 2 after Esc, got %d", ta.NavController.Depth())
+	// Verify: returned to Backlog
+	if ta.NavController.Depth() != 1 {
+		t.Errorf("Expected depth 1 after Esc, got %d", ta.NavController.Depth())
 	}
 	if ta.NavController.CurrentViewID() != model.MakePluginViewID("Backlog") {
 		t.Errorf("Expected Backlog view, got %s", ta.NavController.CurrentViewID())
@@ -556,22 +555,22 @@ func TestPluginStack_ComplexDrillDown(t *testing.T) {
 	ta := setupTestAppWithPlugins(t)
 	defer ta.Cleanup()
 
-	// Board→Backlog→Recent→TaskDetail→Edit
-	ta.NavController.PushView(model.BoardViewID, nil)
-	ta.SendKey(tcell.KeyF3, 0, tcell.ModNone)     // Backlog
-	ta.SendKey(tcell.KeyRune, 'R', tcell.ModCtrl) // Recent (replace)
-	ta.SendKey(tcell.KeyEnter, 0, tcell.ModNone)  // TaskDetail
-	ta.SendKey(tcell.KeyRune, 'e', tcell.ModNone) // TaskEdit
+	// Kanban→Backlog(replace)→Recent(replace)→TaskDetail(push)→Edit(push)
+	ta.NavController.PushView(model.MakePluginViewID("Kanban"), nil)
+	ta.SendKey(tcell.KeyF3, 0, tcell.ModNone)     // Backlog (replace, depth 1)
+	ta.SendKey(tcell.KeyRune, 'R', tcell.ModCtrl) // Recent (replace, depth 1)
+	ta.SendKey(tcell.KeyEnter, 0, tcell.ModNone)  // TaskDetail (push, depth 2)
+	ta.SendKey(tcell.KeyRune, 'e', tcell.ModNone) // TaskEdit (push, depth 3)
 
-	// Stack: Board, Recent, TaskDetail, TaskEdit (depth 4)
-	if ta.NavController.Depth() != 4 {
-		t.Errorf("Expected depth 4, got %d", ta.NavController.Depth())
+	// Stack: Recent, TaskDetail, TaskEdit (depth 3)
+	if ta.NavController.Depth() != 3 {
+		t.Errorf("Expected depth 3, got %d", ta.NavController.Depth())
 	}
 
 	// Esc 1: TaskEdit→TaskDetail
 	ta.SendKey(tcell.KeyEscape, 0, tcell.ModNone)
-	if ta.NavController.Depth() != 3 {
-		t.Errorf("Expected depth 3 after Esc 1, got %d", ta.NavController.Depth())
+	if ta.NavController.Depth() != 2 {
+		t.Errorf("Expected depth 2 after Esc 1, got %d", ta.NavController.Depth())
 	}
 	if ta.NavController.CurrentViewID() != model.TaskDetailViewID {
 		t.Errorf("Expected TaskDetail view, got %s", ta.NavController.CurrentViewID())
@@ -579,23 +578,23 @@ func TestPluginStack_ComplexDrillDown(t *testing.T) {
 
 	// Esc 2: TaskDetail→Recent
 	ta.SendKey(tcell.KeyEscape, 0, tcell.ModNone)
-	if ta.NavController.Depth() != 2 {
-		t.Errorf("Expected depth 2 after Esc 2, got %d", ta.NavController.Depth())
+	if ta.NavController.Depth() != 1 {
+		t.Errorf("Expected depth 1 after Esc 2, got %d", ta.NavController.Depth())
 	}
 	if ta.NavController.CurrentViewID() != model.MakePluginViewID("Recent") {
 		t.Errorf("Expected Recent view, got %s", ta.NavController.CurrentViewID())
 	}
 
-	// Esc 3: Recent→Board
+	// Esc 3: No-op (at root plugin)
 	ta.SendKey(tcell.KeyEscape, 0, tcell.ModNone)
 	if ta.NavController.Depth() != 1 {
-		t.Errorf("Expected depth 1 after Esc 3, got %d", ta.NavController.Depth())
+		t.Errorf("Expected depth 1 after Esc 3 (at root), got %d", ta.NavController.Depth())
 	}
-	if ta.NavController.CurrentViewID() != model.BoardViewID {
-		t.Errorf("Expected Board view, got %s", ta.NavController.CurrentViewID())
+	if ta.NavController.CurrentViewID() != model.MakePluginViewID("Recent") {
+		t.Errorf("Expected Recent view (stayed at root), got %s", ta.NavController.CurrentViewID())
 	}
 
-	// Esc 4: No-op (can't go back from Board)
+	// Esc 4: No-op (still at root)
 	ta.SendKey(tcell.KeyEscape, 0, tcell.ModNone)
 	if ta.NavController.Depth() != 1 {
 		t.Errorf("Expected depth 1 after Esc 4 (no-op), got %d", ta.NavController.Depth())
@@ -606,23 +605,31 @@ func TestPluginStack_ComplexDrillDown(t *testing.T) {
 // Esc Behavior Tests
 // ============================================================================
 
-func TestPluginEsc_FromPluginToBoard(t *testing.T) {
+func TestPluginEsc_AtRootDoesNothing(t *testing.T) {
 	ta := setupTestAppWithPlugins(t)
 	defer ta.Cleanup()
 
-	// Board→Plugin
-	ta.NavController.PushView(model.BoardViewID, nil)
+	// Start at Kanban, switch to Backlog (ReplaceView keeps depth at 1)
+	ta.NavController.PushView(model.MakePluginViewID("Kanban"), nil)
 	ta.SendKey(tcell.KeyF3, 0, tcell.ModNone)
 
-	// Esc from plugin
-	ta.SendKey(tcell.KeyEscape, 0, tcell.ModNone)
-
-	// Verify: back to board
+	// Verify we're on Backlog at depth 1
 	if ta.NavController.Depth() != 1 {
 		t.Errorf("Expected depth 1, got %d", ta.NavController.Depth())
 	}
-	if ta.NavController.CurrentViewID() != model.BoardViewID {
-		t.Errorf("Expected Board view, got %s", ta.NavController.CurrentViewID())
+	if ta.NavController.CurrentViewID() != model.MakePluginViewID("Backlog") {
+		t.Errorf("Expected Backlog view, got %s", ta.NavController.CurrentViewID())
+	}
+
+	// Esc at root does nothing
+	ta.SendKey(tcell.KeyEscape, 0, tcell.ModNone)
+
+	// Verify: still on Backlog at depth 1
+	if ta.NavController.Depth() != 1 {
+		t.Errorf("Expected depth 1 after Esc at root, got %d", ta.NavController.Depth())
+	}
+	if ta.NavController.CurrentViewID() != model.MakePluginViewID("Backlog") {
+		t.Errorf("Expected to stay on Backlog after Esc at root, got %s", ta.NavController.CurrentViewID())
 	}
 }
 
@@ -630,21 +637,22 @@ func TestPluginEsc_FromTaskDetailToPlugin(t *testing.T) {
 	ta := setupTestAppWithPlugins(t)
 	defer ta.Cleanup()
 
-	// Board→Plugin→TaskDetail
-	ta.NavController.PushView(model.BoardViewID, nil)
-	ta.SendKey(tcell.KeyRune, 'R', tcell.ModCtrl) // Recent
-	ta.SendKey(tcell.KeyEnter, 0, tcell.ModNone)  // Open task
+	// Kanban→Recent(replace)→TaskDetail(push)
+	ta.NavController.PushView(model.MakePluginViewID("Kanban"), nil)
+	ta.SendKey(tcell.KeyRune, 'R', tcell.ModCtrl) // Recent (replaces Kanban)
+	ta.SendKey(tcell.KeyEnter, 0, tcell.ModNone)  // Open task (pushes TaskDetail)
 
-	if ta.NavController.Depth() != 3 {
-		t.Errorf("Expected depth 3, got %d", ta.NavController.Depth())
+	// Plugin-to-plugin uses ReplaceView, so: Kanban→Recent = depth 1, then push TaskDetail = depth 2
+	if ta.NavController.Depth() != 2 {
+		t.Errorf("Expected depth 2, got %d", ta.NavController.Depth())
 	}
 
 	// Esc from TaskDetail
 	ta.SendKey(tcell.KeyEscape, 0, tcell.ModNone)
 
-	// Verify: back to Recent plugin, NOT Board
-	if ta.NavController.Depth() != 2 {
-		t.Errorf("Expected depth 2, got %d", ta.NavController.Depth())
+	// Verify: back to Recent plugin
+	if ta.NavController.Depth() != 1 {
+		t.Errorf("Expected depth 1, got %d", ta.NavController.Depth())
 	}
 	if ta.NavController.CurrentViewID() != model.MakePluginViewID("Recent") {
 		t.Errorf("Expected Recent view, got %s", ta.NavController.CurrentViewID())
@@ -655,24 +663,31 @@ func TestPluginEsc_ComplexDrillDown(t *testing.T) {
 	ta := setupTestAppWithPlugins(t)
 	defer ta.Cleanup()
 
-	// Deep stack: Board→Plugin→Task→Edit
-	ta.NavController.PushView(model.BoardViewID, nil)
-	ta.SendKey(tcell.KeyF2, 0, tcell.ModNone)     // Roadmap
-	ta.SendKey(tcell.KeyEnter, 0, tcell.ModNone)  // TaskDetail
-	ta.SendKey(tcell.KeyRune, 'e', tcell.ModNone) // TaskEdit
+	// Stack: Kanban→Roadmap(replace)→TaskDetail(push)→TaskEdit(push)
+	ta.NavController.PushView(model.MakePluginViewID("Kanban"), nil)
+	ta.SendKey(tcell.KeyF2, 0, tcell.ModNone)     // Roadmap (replaces, depth stays 1)
+	ta.SendKey(tcell.KeyEnter, 0, tcell.ModNone)  // TaskDetail (pushes, depth 2)
+	ta.SendKey(tcell.KeyRune, 'e', tcell.ModNone) // TaskEdit (pushes, depth 3)
 
-	initialDepth := ta.NavController.Depth()
+	if ta.NavController.Depth() != 3 {
+		t.Errorf("Expected depth 3, got %d", ta.NavController.Depth())
+	}
 
-	// Esc three times should return to Board
-	ta.SendKey(tcell.KeyEscape, 0, tcell.ModNone) // Edit→Detail
-	ta.SendKey(tcell.KeyEscape, 0, tcell.ModNone) // Detail→Roadmap
-	ta.SendKey(tcell.KeyEscape, 0, tcell.ModNone) // Roadmap→Board
+	// Esc twice returns to Roadmap (Edit→Detail→Roadmap)
+	ta.SendKey(tcell.KeyEscape, 0, tcell.ModNone) // Edit→Detail (depth 2)
+	ta.SendKey(tcell.KeyEscape, 0, tcell.ModNone) // Detail→Roadmap (depth 1)
 
 	if ta.NavController.Depth() != 1 {
-		t.Errorf("Expected depth 1 after 3 Esc presses from depth %d, got %d", initialDepth, ta.NavController.Depth())
+		t.Errorf("Expected depth 1 after 2 Esc presses, got %d", ta.NavController.Depth())
 	}
-	if ta.NavController.CurrentViewID() != model.BoardViewID {
-		t.Errorf("Expected Board view, got %s", ta.NavController.CurrentViewID())
+	if ta.NavController.CurrentViewID() != model.MakePluginViewID("Roadmap") {
+		t.Errorf("Expected Roadmap view, got %s", ta.NavController.CurrentViewID())
+	}
+
+	// One more Esc at root does nothing
+	ta.SendKey(tcell.KeyEscape, 0, tcell.ModNone)
+	if ta.NavController.Depth() != 1 {
+		t.Errorf("Expected depth 1 after Esc at root, got %d", ta.NavController.Depth())
 	}
 }
 
@@ -803,7 +818,7 @@ func TestNavigationStack_BoardToTaskDetail(t *testing.T) {
 	defer ta.Cleanup()
 
 	// Board (depth 1)
-	ta.NavController.PushView(model.BoardViewID, nil)
+	ta.NavController.PushView(model.MakePluginViewID("Kanban"), nil)
 	ta.Draw()
 
 	// Open task detail (Push, depth 2)
@@ -822,7 +837,7 @@ func TestNavigationStack_BoardToTaskDetail(t *testing.T) {
 	if ta.NavController.Depth() != 1 {
 		t.Errorf("Expected depth 1 after Esc, got %d", ta.NavController.Depth())
 	}
-	if ta.NavController.CurrentViewID() != model.BoardViewID {
+	if ta.NavController.CurrentViewID() != model.MakePluginViewID("Kanban") {
 		t.Errorf("Expected Board view, got %s", ta.NavController.CurrentViewID())
 	}
 }
@@ -833,7 +848,7 @@ func TestNavigationStack_BoardToDetailToEdit(t *testing.T) {
 	defer ta.Cleanup()
 
 	// Board → Task Detail → Task Edit
-	ta.NavController.PushView(model.BoardViewID, nil)
+	ta.NavController.PushView(model.MakePluginViewID("Kanban"), nil)
 	ta.Draw()
 	ta.SendKey(tcell.KeyEnter, 0, tcell.ModNone)  // TaskDetail
 	ta.SendKey(tcell.KeyRune, 'e', tcell.ModNone) // TaskEdit
@@ -855,50 +870,45 @@ func TestNavigationStack_BoardToDetailToEdit(t *testing.T) {
 	if ta.NavController.Depth() != 1 {
 		t.Errorf("Expected depth 1 after second Esc, got %d", ta.NavController.Depth())
 	}
-	if ta.NavController.CurrentViewID() != model.BoardViewID {
+	if ta.NavController.CurrentViewID() != model.MakePluginViewID("Kanban") {
 		t.Errorf("Expected Board view, got %s", ta.NavController.CurrentViewID())
 	}
 }
 
-// TestNavigationStack_FourLevelDeep verifies Board → Plugin → Detail → Edit
-func TestNavigationStack_FourLevelDeep(t *testing.T) {
+// TestNavigationStack_ThreeLevelDeep verifies Plugin → Detail → Edit with new navigation model
+func TestNavigationStack_ThreeLevelDeep(t *testing.T) {
 	ta := setupTestAppWithPlugins(t)
 	defer ta.Cleanup()
 
-	// Build 4-level stack: Board → Plugin → TaskDetail → TaskEdit
-	ta.NavController.PushView(model.BoardViewID, nil)
+	// Build 3-level stack: Kanban(replace)→Backlog → TaskDetail → TaskEdit
+	ta.NavController.PushView(model.MakePluginViewID("Kanban"), nil)
 	ta.Draw()
-	ta.SendKey(tcell.KeyF3, 0, tcell.ModNone)     // Backlog plugin (depth 2)
-	ta.SendKey(tcell.KeyEnter, 0, tcell.ModNone)  // TaskDetail (depth 3)
-	ta.SendKey(tcell.KeyRune, 'e', tcell.ModNone) // TaskEdit (depth 4)
+	ta.SendKey(tcell.KeyF3, 0, tcell.ModNone)     // Backlog plugin (replace, depth 1)
+	ta.SendKey(tcell.KeyEnter, 0, tcell.ModNone)  // TaskDetail (push, depth 2)
+	ta.SendKey(tcell.KeyRune, 'e', tcell.ModNone) // TaskEdit (push, depth 3)
 
-	if ta.NavController.Depth() != 4 {
-		t.Errorf("Expected depth 4, got %d", ta.NavController.Depth())
+	if ta.NavController.Depth() != 3 {
+		t.Errorf("Expected depth 3, got %d", ta.NavController.Depth())
 	}
 	if ta.NavController.CurrentViewID() != model.TaskEditViewID {
 		t.Errorf("Expected TaskEdit view, got %s", ta.NavController.CurrentViewID())
 	}
 
-	// Esc through all levels back to board
+	// Esc through all levels back to root
 	ta.SendKey(tcell.KeyEscape, 0, tcell.ModNone) // Edit → Detail
-	if ta.NavController.Depth() != 3 || ta.NavController.CurrentViewID() != model.TaskDetailViewID {
+	if ta.NavController.Depth() != 2 || ta.NavController.CurrentViewID() != model.TaskDetailViewID {
 		t.Errorf("After Esc 1: depth=%d, view=%s", ta.NavController.Depth(), ta.NavController.CurrentViewID())
 	}
 
 	ta.SendKey(tcell.KeyEscape, 0, tcell.ModNone) // Detail → Backlog
-	if ta.NavController.Depth() != 2 || ta.NavController.CurrentViewID() != model.MakePluginViewID("Backlog") {
+	if ta.NavController.Depth() != 1 || ta.NavController.CurrentViewID() != model.MakePluginViewID("Backlog") {
 		t.Errorf("After Esc 2: depth=%d, view=%s", ta.NavController.Depth(), ta.NavController.CurrentViewID())
 	}
 
-	ta.SendKey(tcell.KeyEscape, 0, tcell.ModNone) // Backlog → Board
-	if ta.NavController.Depth() != 1 || ta.NavController.CurrentViewID() != model.BoardViewID {
-		t.Errorf("After Esc 3: depth=%d, view=%s", ta.NavController.Depth(), ta.NavController.CurrentViewID())
-	}
-
-	// Esc 4: No-op (already at board)
+	// Esc 3: No-op (already at root)
 	ta.SendKey(tcell.KeyEscape, 0, tcell.ModNone)
-	if ta.NavController.Depth() != 1 {
-		t.Errorf("Expected depth 1 after Esc 4 (no-op), got %d", ta.NavController.Depth())
+	if ta.NavController.Depth() != 1 || ta.NavController.CurrentViewID() != model.MakePluginViewID("Backlog") {
+		t.Errorf("After Esc 3 (no-op): depth=%d, view=%s", ta.NavController.Depth(), ta.NavController.CurrentViewID())
 	}
 }
 
@@ -908,7 +918,7 @@ func TestNavigationStack_MultipleTaskDetailOpens(t *testing.T) {
 	defer ta.Cleanup()
 
 	// Open several tasks in sequence without closing
-	ta.NavController.PushView(model.BoardViewID, nil)
+	ta.NavController.PushView(model.MakePluginViewID("Kanban"), nil)
 	ta.Draw()
 
 	// Open task 1
@@ -934,7 +944,7 @@ func TestNavigationStack_MultipleTaskDetailOpens(t *testing.T) {
 	if ta.NavController.Depth() != 1 {
 		t.Errorf("Expected depth 1 after final Esc, got %d", ta.NavController.Depth())
 	}
-	if ta.NavController.CurrentViewID() != model.BoardViewID {
+	if ta.NavController.CurrentViewID() != model.MakePluginViewID("Kanban") {
 		t.Errorf("Expected Board view, got %s", ta.NavController.CurrentViewID())
 	}
 }

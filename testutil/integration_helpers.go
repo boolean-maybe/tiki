@@ -23,7 +23,6 @@ type TestApp struct {
 	Screen            tcell.SimulationScreen
 	RootLayout        *view.RootLayout
 	TaskStore         store.Store
-	BoardConfig       *model.BoardConfig
 	NavController     *controller.NavigationController
 	InputRouter       *controller.InputRouter
 	TaskDir           string
@@ -31,7 +30,6 @@ type TestApp struct {
 	PluginConfigs     map[string]*model.PluginConfig
 	PluginControllers map[string]controller.PluginControllerInterface
 	PluginDefs        []plugin.Plugin
-	boardController   *controller.BoardController
 	taskController    *controller.TaskController
 	headerConfig      *model.HeaderConfig
 	layoutModel       *model.LayoutModel
@@ -48,7 +46,6 @@ func NewTestApp(t *testing.T) *TestApp {
 	if err != nil {
 		t.Fatalf("failed to create task store: %v", err)
 	}
-	boardConfig := model.NewBoardConfig()
 	headerConfig := model.NewHeaderConfig()
 	layoutModel := model.NewLayoutModel()
 
@@ -66,20 +63,18 @@ func NewTestApp(t *testing.T) *TestApp {
 
 	// 5. Initialize Controller Layer
 	navController := controller.NewNavigationController(app)
-	boardController := controller.NewBoardController(taskStore, boardConfig, navController)
 	taskController := controller.NewTaskController(taskStore, navController)
 	// Empty plugin controllers map for tests (no plugins configured by default)
 	pluginControllers := make(map[string]controller.PluginControllerInterface)
 	inputRouter := controller.NewInputRouter(
 		navController,
-		boardController,
 		taskController,
 		pluginControllers,
 		taskStore,
 	)
 
 	// 6. Initialize View Layer
-	viewFactory := view.NewViewFactory(taskStore, boardConfig)
+	viewFactory := view.NewViewFactory(taskStore)
 
 	// 7. Create header widget and RootLayout
 	headerWidget := header.NewHeaderWidget(headerConfig)
@@ -87,17 +82,24 @@ func NewTestApp(t *testing.T) *TestApp {
 
 	// Mirror main.go wiring: provide views a focus setter as they become active.
 	rootLayout.SetOnViewActivated(func(v controller.View) {
-		if titleEditableView, ok := v.(controller.TitleEditableView); ok {
-			titleEditableView.SetFocusSetter(func(p tview.Primitive) {
-				app.SetFocus(p)
-			})
-		}
-		if descEditableView, ok := v.(controller.DescriptionEditableView); ok {
-			descEditableView.SetFocusSetter(func(p tview.Primitive) {
+		// generic focus settable check (covers TaskEditView and any other view with focus needs)
+		if focusSettable, ok := v.(controller.FocusSettable); ok {
+			focusSettable.SetFocusSetter(func(p tview.Primitive) {
 				app.SetFocus(p)
 			})
 		}
 	})
+
+	// IMPORTANT: Retroactively wire focus setter for any view already active
+	// (RootLayout may have activated a view during construction before callback was set)
+	currentView := rootLayout.GetContentView()
+	if currentView != nil {
+		if focusSettable, ok := currentView.(controller.FocusSettable); ok {
+			focusSettable.SetFocusSetter(func(p tview.Primitive) {
+				app.SetFocus(p)
+			})
+		}
+	}
 
 	// 8. Wire up callbacks
 	navController.SetOnViewChanged(func(viewID model.ViewID, params map[string]interface{}) {
@@ -119,21 +121,26 @@ func NewTestApp(t *testing.T) *TestApp {
 
 	// Note: Do NOT call app.Run() - we use app.Draw() + screen.Show() for synchronous testing
 
-	return &TestApp{
-		App:             app,
-		Screen:          screen,
-		RootLayout:      rootLayout,
-		TaskStore:       taskStore,
-		BoardConfig:     boardConfig,
-		NavController:   navController,
-		InputRouter:     inputRouter,
-		TaskDir:         taskDir,
-		t:               t,
-		boardController: boardController,
-		taskController:  taskController,
-		headerConfig:    headerConfig,
-		layoutModel:     layoutModel,
+	ta := &TestApp{
+		App:            app,
+		Screen:         screen,
+		RootLayout:     rootLayout,
+		TaskStore:      taskStore,
+		NavController:  navController,
+		InputRouter:    inputRouter,
+		TaskDir:        taskDir,
+		t:              t,
+		taskController: taskController,
+		headerConfig:   headerConfig,
+		layoutModel:    layoutModel,
 	}
+
+	// 11. Auto-load plugins since all views are now plugins
+	if err := ta.LoadPlugins(); err != nil {
+		t.Fatalf("failed to load plugins: %v", err)
+	}
+
+	return ta
 }
 
 // Draw forces a synchronous draw without running the app event loop
@@ -332,7 +339,6 @@ func (ta *TestApp) LoadPlugins() error {
 	// Recreate InputRouter with plugin controllers
 	ta.InputRouter = controller.NewInputRouter(
 		ta.NavController,
-		ta.boardController,
 		ta.taskController,
 		pluginControllers,
 		ta.TaskStore,
@@ -351,8 +357,8 @@ func (ta *TestApp) LoadPlugins() error {
 
 		currentView := ta.NavController.CurrentView()
 		if currentView != nil {
-			// Handle plugin switching from board and other plugins
-			if currentView.ViewID == model.BoardViewID || model.IsPluginViewID(currentView.ViewID) {
+			// Handle plugin switching between plugins
+			if model.IsPluginViewID(currentView.ViewID) {
 				if action := controller.GetPluginActions().Match(event); action != nil {
 					pluginName := controller.GetPluginNameFromAction(action.ID)
 					if pluginName != "" {
@@ -361,22 +367,10 @@ func (ta *TestApp) LoadPlugins() error {
 						if currentView.ViewID == targetPluginID {
 							return nil // no-op
 						}
-						// From Board: push new plugin
-						if currentView.ViewID == model.BoardViewID {
-							ta.NavController.PushView(targetPluginID, nil)
-						} else {
-							// From plugin: replace current plugin
-							ta.NavController.ReplaceView(targetPluginID, nil)
-						}
+						// Replace current plugin with target plugin
+						ta.NavController.ReplaceView(targetPluginID, nil)
 						return nil
 					}
-				}
-			}
-			// Handle 'B' key to return to board from plugin views
-			if model.IsPluginViewID(currentView.ViewID) {
-				if event.Key() == tcell.KeyRune && event.Rune() == 'B' {
-					ta.NavController.PopView()
-					return nil
 				}
 			}
 		}
@@ -396,7 +390,7 @@ func (ta *TestApp) LoadPlugins() error {
 		pluginDefs[p.GetName()] = p
 	}
 
-	viewFactory := view.NewViewFactory(ta.TaskStore, ta.BoardConfig)
+	viewFactory := view.NewViewFactory(ta.TaskStore)
 	viewFactory.SetPlugins(pluginConfigs, pluginDefs, pluginControllers)
 
 	// Recreate RootLayout with new view factory
@@ -406,6 +400,24 @@ func (ta *TestApp) LoadPlugins() error {
 
 	// Re-wire callbacks
 	ta.NavController.SetActiveViewGetter(ta.RootLayout.GetContentView)
+
+	// IMPORTANT: Re-wire OnViewActivated callback for focus management
+	ta.RootLayout.SetOnViewActivated(func(v controller.View) {
+		if focusSettable, ok := v.(controller.FocusSettable); ok {
+			focusSettable.SetFocusSetter(func(p tview.Primitive) {
+				ta.App.SetFocus(p)
+			})
+		}
+	})
+
+	// Retroactively wire focus setter for current view
+	if currentView := ta.RootLayout.GetContentView(); currentView != nil {
+		if focusSettable, ok := currentView.(controller.FocusSettable); ok {
+			focusSettable.SetFocusSetter(func(p tview.Primitive) {
+				ta.App.SetFocus(p)
+			})
+		}
+	}
 
 	// Set new root
 	ta.App.SetRoot(ta.RootLayout.GetPrimitive(), true)
