@@ -61,5 +61,37 @@ New-Item -ItemType Directory -Path $InstallDir -Force | Out-Null
 Copy-Item -Path $exePath -Destination (Join-Path $InstallDir "tiki.exe") -Force
 
 Write-Info "installed tiki to $InstallDir\tiki.exe"
-Write-Info "add to path: setx PATH `"$InstallDir;$env:PATH`""
+
+# Check if already in PATH
+$userPath = [Environment]::GetEnvironmentVariable("Path", "User")
+$needsPathUpdate = $true
+if ($userPath) {
+  $pathParts = $userPath -split ";"
+  if ($pathParts -contains $InstallDir) {
+    Write-Info "$InstallDir is already in PATH"
+    $needsPathUpdate = $false
+  }
+}
+
+if ($needsPathUpdate) {
+  try {
+    # Add to user PATH permanently (affects new sessions)
+    if ($userPath) {
+      $newPath = "$InstallDir;$userPath"
+    } else {
+      $newPath = $InstallDir
+    }
+    [Environment]::SetEnvironmentVariable("Path", $newPath, "User")
+    Write-Info "added $InstallDir to PATH"
+
+    # Also update current session so tiki works immediately
+    $env:PATH = "$InstallDir;$env:PATH"
+  } catch {
+    Write-Warning "failed to update PATH automatically: $_"
+    Write-Info "add to path manually: setx PATH `"$InstallDir;$env:PATH`""
+    Write-Info "then restart PowerShell"
+    exit 1
+  }
+}
+
 Write-Info "run: tiki --version"
