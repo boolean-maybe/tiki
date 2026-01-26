@@ -77,10 +77,16 @@ cleanup() {
 trap cleanup EXIT
 
 say "downloading $asset"
-download "$base_url/$asset" "$tmp_dir/$asset"
-download "$base_url/checksums.txt" "$tmp_dir/checksums.txt"
+download "$base_url/$asset" "$tmp_dir/$asset" || {
+  say "failed to download $asset"
+  exit 1
+}
+download "$base_url/checksums.txt" "$tmp_dir/checksums.txt" || {
+  say "failed to download checksums.txt"
+  exit 1
+}
 
-expected_checksum="$(grep "  $asset\$" "$tmp_dir/checksums.txt" | awk '{print $1}')"
+expected_checksum="$(grep -E "^[a-f0-9]+\s+\*?$asset\$" "$tmp_dir/checksums.txt" | awk '{print $1}')"
 if [ -z "$expected_checksum" ]; then
   say "checksum not found for $asset"
   exit 1
@@ -119,10 +125,90 @@ mkdir -p "$install_dir"
 install -m 0755 "$tmp_dir/tiki" "$install_dir/tiki"
 
 say "installed tiki to $install_dir/tiki"
+
+# Add to PATH if not already present
 case ":$PATH:" in
-  *":$install_dir:"*) ;;
+  *":$install_dir:"*)
+    say "tiki is already in PATH"
+    ;;
   *)
-    say "add to path: export PATH=\"$install_dir:\$PATH\""
+    say "$install_dir is not in PATH, adding it to shell configuration"
+
+    # Determine which shell config files to update based on user's actual shell
+    shell_configs=()
+
+    # Get the user's login shell
+    user_shell="${SHELL:-}"
+
+    # Detect shell-specific config files that exist
+    case "$user_shell" in
+      */bash)
+        [ -f "$HOME/.bash_profile" ] && shell_configs+=("$HOME/.bash_profile")
+        [ -f "$HOME/.bashrc" ] && shell_configs+=("$HOME/.bashrc")
+        ;;
+      */zsh)
+        [ -f "$HOME/.zshrc" ] && shell_configs+=("$HOME/.zshrc")
+        ;;
+      */fish)
+        [ -f "$HOME/.config/fish/config.fish" ] && shell_configs+=("$HOME/.config/fish/config.fish")
+        ;;
+      */ksh)
+        [ -f "$HOME/.kshrc" ] && shell_configs+=("$HOME/.kshrc")
+        ;;
+      *)
+        # Unknown or no SHELL set - check for any existing config files
+        [ -f "$HOME/.bash_profile" ] && shell_configs+=("$HOME/.bash_profile")
+        [ -f "$HOME/.bashrc" ] && shell_configs+=("$HOME/.bashrc")
+        [ -f "$HOME/.zshrc" ] && shell_configs+=("$HOME/.zshrc")
+        [ -f "$HOME/.profile" ] && shell_configs+=("$HOME/.profile")
+        ;;
+    esac
+
+    # If no config files found, use POSIX-compliant .profile
+    if [ ${#shell_configs[@]} -eq 0 ]; then
+      shell_configs+=("$HOME/.profile")
+      say "no shell config found, will create $HOME/.profile"
+    fi
+
+    first_config="${shell_configs[0]}"
+    for config_file in "${shell_configs[@]}"; do
+      # Check if any tiki PATH entry exists
+      if [ -f "$config_file" ] && grep -qF "$install_dir" "$config_file"; then
+        say "tiki PATH entry already exists in $config_file"
+        continue
+      fi
+
+      # Create parent directories if needed
+      config_dir="$(dirname "$config_file")"
+      if [ ! -d "$config_dir" ]; then
+        mkdir -p "$config_dir" || {
+          say "failed to create directory $config_dir"
+          exit 1
+        }
+      fi
+
+      # Determine the correct syntax based on the shell
+      case "$config_file" in
+        */config.fish)
+          # Fish shell syntax
+          path_line="set -gx PATH \"$install_dir\" \$PATH"
+          ;;
+        *)
+          # POSIX shell syntax (bash, zsh, ksh, sh, etc.)
+          path_line="export PATH=\"$install_dir:\$PATH\""
+          ;;
+      esac
+
+      # Add the PATH export
+      say "adding PATH to $config_file"
+      printf '%s\n# Added by tiki installer\n%s\n' '' "$path_line" >> "$config_file" || {
+        say "failed to write to $config_file"
+        exit 1
+      }
+    done
+
+    say "PATH updated. Please run: source $first_config or start a new terminal session"
     ;;
 esac
+
 say "run: tiki --version"
