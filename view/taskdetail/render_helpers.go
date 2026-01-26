@@ -7,7 +7,6 @@ import (
 	"github.com/boolean-maybe/tiki/config"
 	"github.com/boolean-maybe/tiki/model"
 	taskpkg "github.com/boolean-maybe/tiki/task"
-	"github.com/boolean-maybe/tiki/view/common"
 
 	"github.com/rivo/tview"
 )
@@ -38,11 +37,6 @@ func getDimOrFullColor(mode RenderMode, focused bool, fullColor string, dimColor
 // getFocusMarker returns the focus marker string (arrow + text color) from colors config
 func getFocusMarker(colors *config.ColorConfig) string {
 	return colors.TaskDetailEditFocusMarker + "► " + colors.TaskDetailEditFocusText
-}
-
-// renderGradientText wraps common.RenderGradientText for use in this package
-func renderGradientText(text string, gradient config.Gradient) string {
-	return common.RenderGradientText(text, gradient)
 }
 
 // RenderStatusText renders a status field as read-only text

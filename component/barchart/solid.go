@@ -1,8 +1,7 @@
 package barchart
 
 import (
-	"math"
-
+	"github.com/boolean-maybe/tiki/util/gradient"
 	"github.com/gdamore/tcell/v2"
 )
 
@@ -43,22 +42,7 @@ func barFillColor(bar Bar, row, total int, theme Theme) tcell.Color {
 	}
 
 	t := float64(row) / float64(total-1)
-	rgb := interpolateRGB(theme.BarGradientFrom, theme.BarGradientTo, t)
+	rgb := gradient.InterpolateRGB(theme.BarGradientFrom, theme.BarGradientTo, t)
 	//nolint:gosec // G115: RGB values are 0-255, safe to convert to int32
 	return tcell.NewRGBColor(int32(rgb[0]), int32(rgb[1]), int32(rgb[2]))
-}
-
-func interpolateRGB(from, to [3]int, t float64) [3]int {
-	if t < 0 {
-		t = 0
-	}
-	if t > 1 {
-		t = 1
-	}
-
-	r := int(math.Round(float64(from[0]) + (float64(to[0])-float64(from[0]))*t))
-	g := int(math.Round(float64(from[1]) + (float64(to[1])-float64(from[1]))*t))
-	b := int(math.Round(float64(from[2]) + (float64(to[2])-float64(from[2]))*t))
-
-	return [3]int{r, g, b}
 }

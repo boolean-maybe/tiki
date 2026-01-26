@@ -3,6 +3,7 @@ package barchart
 import (
 	"testing"
 
+	"github.com/boolean-maybe/tiki/util/gradient"
 	"github.com/gdamore/tcell/v2"
 )
 
@@ -51,10 +52,10 @@ func TestValueToHeight(t *testing.T) {
 }
 
 func TestInterpolateRGB(t *testing.T) {
-	got := interpolateRGB([3]int{0, 0, 0}, [3]int{100, 200, 250}, 0.5)
+	got := gradient.InterpolateRGB([3]int{0, 0, 0}, [3]int{100, 200, 250}, 0.5)
 	want := [3]int{50, 100, 125}
 	if got != want {
-		t.Fatalf("interpolateRGB returned %v, want %v", got, want)
+		t.Fatalf("gradient.InterpolateRGB returned %v, want %v", got, want)
 	}
 }
 

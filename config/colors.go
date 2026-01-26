@@ -72,6 +72,14 @@ type ColorConfig struct {
 	HeaderInfoValue  string // tview color string like "[white]"
 	HeaderKeyBinding string // tview color string like "[yellow]"
 	HeaderKeyText    string // tview color string like "[white]"
+
+	// Header context help action colors
+	HeaderActionGlobalKeyColor   string // tview color string for global action keys
+	HeaderActionGlobalLabelColor string // tview color string for global action labels
+	HeaderActionPluginKeyColor   string // tview color string for plugin action keys
+	HeaderActionPluginLabelColor string // tview color string for plugin action labels
+	HeaderActionViewKeyColor     string // tview color string for view action keys
+	HeaderActionViewLabelColor   string // tview color string for view action labels
 }
 
 // DefaultColors returns the default color configuration
@@ -159,6 +167,14 @@ func DefaultColors() *ColorConfig {
 		HeaderInfoValue:  "[#cccccc]",
 		HeaderKeyBinding: "[yellow]",
 		HeaderKeyText:    "[white]",
+
+		// Header context help actions
+		HeaderActionGlobalKeyColor:   "#ffff00", // yellow for global actions
+		HeaderActionGlobalLabelColor: "#ffffff", // white for global action labels
+		HeaderActionPluginKeyColor:   "#ff8c00", // orange for plugin actions
+		HeaderActionPluginLabelColor: "#b0b0b0", // light gray for plugin labels
+		HeaderActionViewKeyColor:     "#5fafff", // cyan for view-specific actions
+		HeaderActionViewLabelColor:   "#808080", // gray for view-specific labels
 	}
 }
 

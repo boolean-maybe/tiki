@@ -10,7 +10,7 @@ import (
 	"github.com/boolean-maybe/tiki/config"
 	taskpkg "github.com/boolean-maybe/tiki/task"
 	"github.com/boolean-maybe/tiki/util"
-	"github.com/boolean-maybe/tiki/view/common"
+	"github.com/boolean-maybe/tiki/util/gradient"
 )
 
 // TaskBox provides a reusable task card widget used in board and backlog views.
@@ -30,7 +30,7 @@ func applyFrameStyle(frame *tview.Frame, selected bool, colors *config.ColorConf
 // buildCompactTaskContent builds the content string for compact task display
 func buildCompactTaskContent(task *taskpkg.Task, colors *config.ColorConfig, availableWidth int) string {
 	emoji := taskpkg.TypeEmoji(task.Type)
-	idGradient := common.RenderGradientText(task.ID, colors.TaskBoxIDColor)
+	idGradient := gradient.RenderGradientText(task.ID, colors.TaskBoxIDColor)
 	truncatedTitle := util.TruncateText(task.Title, availableWidth)
 	priorityEmoji := taskpkg.PriorityLabel(task.Priority)
 	pointsVisual := util.GeneratePointsVisual(task.Points, config.GetMaxPoints())
@@ -45,7 +45,7 @@ func buildCompactTaskContent(task *taskpkg.Task, colors *config.ColorConfig, ava
 // buildExpandedTaskContent builds the content string for expanded task display
 func buildExpandedTaskContent(task *taskpkg.Task, colors *config.ColorConfig, availableWidth int) string {
 	emoji := taskpkg.TypeEmoji(task.Type)
-	idGradient := common.RenderGradientText(task.ID, colors.TaskBoxIDColor)
+	idGradient := gradient.RenderGradientText(task.ID, colors.TaskBoxIDColor)
 	truncatedTitle := util.TruncateText(task.Title, availableWidth)
 
 	// Extract first 3 lines of description

@@ -9,6 +9,7 @@ import (
 	"github.com/boolean-maybe/tiki/model"
 	"github.com/boolean-maybe/tiki/store"
 	taskpkg "github.com/boolean-maybe/tiki/task"
+	"github.com/boolean-maybe/tiki/util/gradient"
 	"github.com/boolean-maybe/tiki/view/renderer"
 
 	"github.com/gdamore/tcell/v2"
@@ -193,7 +194,7 @@ func (ev *TaskEditView) buildHeader(task *taskpkg.Task, colors *config.ColorConf
 	headerContainer.AddItem(mainRow, 0, 1, false)
 
 	headerFrame := tview.NewFrame(headerContainer).SetBorders(0, 0, 0, 0, 0, 0)
-	headerFrame.SetBorder(true).SetTitle(fmt.Sprintf(" %s ", renderGradientText(task.ID, colors.TaskDetailIDColor))).SetBorderColor(colors.TaskBoxUnselectedBorder)
+	headerFrame.SetBorder(true).SetTitle(fmt.Sprintf(" %s ", gradient.RenderGradientText(task.ID, colors.TaskDetailIDColor))).SetBorderColor(colors.TaskBoxUnselectedBorder)
 	headerFrame.SetBorderPadding(1, 0, 2, 2)
 
 	ev.headerFrame = headerFrame

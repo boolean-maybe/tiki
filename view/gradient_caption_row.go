@@ -2,6 +2,7 @@ package view
 
 import (
 	"github.com/boolean-maybe/tiki/config"
+	"github.com/boolean-maybe/tiki/util/gradient"
 
 	"github.com/gdamore/tcell/v2"
 	"github.com/rivo/tview"
@@ -57,7 +58,7 @@ func (gcr *GradientCaptionRow) Draw(screen tcell.Screen) {
 				distanceFromCenter = -distanceFromCenter
 			}
 		}
-		bgColor := interpolateColor(gcr.gradient, distanceFromCenter)
+		bgColor := gradient.InterpolateColor(gcr.gradient, distanceFromCenter)
 
 		// Determine which pane this position belongs to
 		paneIndex := col / paneWidth
@@ -99,41 +100,6 @@ func (gcr *GradientCaptionRow) Draw(screen tcell.Screen) {
 	}
 }
 
-// interpolateColor performs linear RGB interpolation between gradient start and end
-func interpolateColor(gradient config.Gradient, t float64) tcell.Color {
-	// Clamp t to [0, 1]
-	if t < 0 {
-		t = 0
-	}
-	if t > 1 {
-		t = 1
-	}
-
-	// Linear interpolation for each RGB component
-	// Add 0.5 before truncating to int for proper rounding, ensuring smoother gradients
-	r := int(float64(gradient.Start[0]) + t*float64(gradient.End[0]-gradient.Start[0]) + 0.5)
-	g := int(float64(gradient.Start[1]) + t*float64(gradient.End[1]-gradient.Start[1]) + 0.5)
-	b := int(float64(gradient.Start[2]) + t*float64(gradient.End[2]-gradient.Start[2]) + 0.5)
-
-	//nolint:gosec // G115: RGB values are 0-255, safe to convert to int32
-	return tcell.NewRGBColor(int32(r), int32(g), int32(b))
-}
-
-func gradientFromPrimaryColor(primary tcell.Color, fallback config.Gradient) config.Gradient {
-	if primary == tcell.ColorDefault || !primary.Valid() {
-		return fallback
-	}
-
-	r, g, b := primary.TrueColor().RGB()
-	base := [3]int{int(r), int(g), int(b)}
-	edge := lightenRGB(base, 0.35)
-
-	return config.Gradient{
-		Start: base,
-		End:   edge,
-	}
-}
-
 const (
 	useVibrantPluginGradient = true
 	// increase this to get vibrance boost
@@ -143,45 +109,7 @@ const (
 // pluginCaptionGradient selects the gradient derivation for plugin captions.
 func pluginCaptionGradient(primary tcell.Color, fallback config.Gradient) config.Gradient {
 	if useVibrantPluginGradient {
-		return gradientFromPrimaryColorVibrant(primary, fallback)
+		return gradient.GradientFromColorVibrant(primary, vibrantBoost, fallback)
 	}
-	return gradientFromPrimaryColor(primary, fallback)
-}
-
-// gradientFromPrimaryColorVibrant derives a brighter gradient without desaturating.
-func gradientFromPrimaryColorVibrant(primary tcell.Color, fallback config.Gradient) config.Gradient {
-	if primary == tcell.ColorDefault || !primary.Valid() {
-		return fallback
-	}
-
-	r, g, b := primary.TrueColor().RGB()
-	base := [3]int{int(r), int(g), int(b)}
-	edge := [3]int{
-		clampRGB(int(float64(base[0]) * vibrantBoost)),
-		clampRGB(int(float64(base[1]) * vibrantBoost)),
-		clampRGB(int(float64(base[2]) * vibrantBoost)),
-	}
-
-	return config.Gradient{
-		Start: base,
-		End:   edge,
-	}
-}
-
-func lightenRGB(rgb [3]int, ratio float64) [3]int {
-	return [3]int{
-		clampRGB(int(float64(rgb[0]) + (255.0-float64(rgb[0]))*ratio)),
-		clampRGB(int(float64(rgb[1]) + (255.0-float64(rgb[1]))*ratio)),
-		clampRGB(int(float64(rgb[2]) + (255.0-float64(rgb[2]))*ratio)),
-	}
-}
-
-func clampRGB(value int) int {
-	if value < 0 {
-		return 0
-	}
-	if value > 255 {
-		return 255
-	}
-	return value
+	return gradient.GradientFromColor(primary, 0.35, fallback)
 }
