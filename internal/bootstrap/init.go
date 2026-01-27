@@ -14,14 +14,19 @@ import (
 	"github.com/boolean-maybe/tiki/plugin"
 	"github.com/boolean-maybe/tiki/store"
 	"github.com/boolean-maybe/tiki/store/tikistore"
+	"github.com/boolean-maybe/tiki/util/sysinfo"
 	"github.com/boolean-maybe/tiki/view"
 	"github.com/boolean-maybe/tiki/view/header"
 )
 
 // BootstrapResult contains all initialized application components.
 type BootstrapResult struct {
-	Cfg              *config.Config
-	LogLevel         slog.Level
+	Cfg      *config.Config
+	LogLevel slog.Level
+	// SystemInfo contains client environment information collected during bootstrap.
+	// Fields include: OS, Architecture, TermType, DetectedTheme, ColorSupport, ColorCount.
+	// Collected early using terminfo lookup (no screen initialization needed).
+	SystemInfo       *sysinfo.SystemInfo
 	TikiStore        *tikistore.TikiStore
 	TaskStore        store.Store
 	HeaderConfig     *model.HeaderConfig
@@ -55,6 +60,17 @@ func Bootstrap(tikiSkillContent, dokiSkillContent string) (*BootstrapResult, err
 		return nil, err
 	}
 	logLevel := InitLogging(cfg)
+
+	// Phase 2.5: System information collection
+	// Collect early (before app creation) using terminfo lookup for future visual adjustments
+	systemInfo := sysinfo.NewSystemInfo()
+	slog.Debug("collected system information",
+		"os", systemInfo.OS,
+		"arch", systemInfo.Architecture,
+		"term", systemInfo.TermType,
+		"theme", systemInfo.DetectedTheme,
+		"color_support", systemInfo.ColorSupport,
+		"color_count", systemInfo.ColorCount)
 
 	// Phase 3: Project initialization
 	proceed, err := EnsureProjectInitialized(tikiSkillContent, dokiSkillContent)
@@ -124,6 +140,7 @@ func Bootstrap(tikiSkillContent, dokiSkillContent string) (*BootstrapResult, err
 	return &BootstrapResult{
 		Cfg:              cfg,
 		LogLevel:         logLevel,
+		SystemInfo:       systemInfo,
 		TikiStore:        tikiStore,
 		TaskStore:        taskStore,
 		HeaderConfig:     headerConfig,
