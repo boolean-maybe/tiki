@@ -4,6 +4,8 @@
 
 ![Intro](assets/intro.png)
 
+[Documentation](.doc/doki/doc/index.md)
+
 Markdown is the new go-to format for everything, it's simple, efficient, human and AI native - project management, 
 documentation, brainstorming ideas, incomplete implementations, AI prompts and plans and what not are saved as Markdown files. 
 Stick them in your repo. Keep around for as long as you need. Find them back in **git** history. Make issues out of them
@@ -16,8 +18,8 @@ and take them through an agile lifecycle. `tiki` helps you save and organize the
 - Issue management with Kanban/Scrum style board and burndown chart
 - Plugin-first architecture - user-defined plugins with filters and actions like Backlog, Recent, Roadmap
 - AI skills to enable [Claude Code](https://code.claude.com), [Codex](https://openai.com/codex), [Opencode](https://opencode.ai) work with natural language commands like
-  "create a tiki from @my-file.md"
-  "mark tiki ABC123 as complete"
+  "_create a tiki from @my-file.md_"
+  "_mark tiki ABC123 as complete_"
 
 ## Installation
 
@@ -43,31 +45,15 @@ iwr -useb https://raw.githubusercontent.com/boolean-maybe/tiki/main/install.ps1 
 Download the latest distribution from the [releases page](https://github.com/boolean-maybe/tiki/releases) 
 and simply copy the `tiki` executable to any location and make it available via `PATH`
 
+### Build from source
+
+```bash
+GOBIN=$HOME/.local/bin go install github.com/boolean-maybe/tiki@latest
+```
+
 ### Verify installation
 ```bash
 tiki --version
-```
-
-## Terminal Requirements
-
-`tiki` CLI tool works best with modern terminal emulators that support:
-- **TrueColor (24-bit color)** for gradient rendering
-- **UTF-8 encoding** for proper character display
-- Standard ANSI escape sequences
-
-### Recommended Terminals
-- **macOS**: iTerm2, kitty, Alacritty, or default Terminal.app
-- **Linux**: kitty, Alacritty, GNOME Terminal, Konsole, or any xterm-256color compatible terminal
-- **Windows**: Windows Terminal, ConEmu, or Alacritty
-
-### Terminal Configuration
-For best results, ensure your terminal is set to:
-- TERM environment variable: `xterm-256color` or better (e.g., `xterm-truecolor`)
-- UTF-8 encoding enabled
-
-If colors don't display correctly, try setting:
-```bash
-export TERM=xterm-256color
 ```
 
 ## Quick start
@@ -118,9 +104,9 @@ Store your notes in remotes!
 - `tiki` CLI tool allows creating multiple doc roots like: Documentation, Brainstorming, Prompts etc.
 - it also allows viewing and navigation (follow links)
 
-## tiki CLI tool
+## tiki TUI tool
 
-`tiki` CLI tool allows creating, viewing, editing and deleting tikis as well as creating custom plugins to 
+`tiki` TUI tool allows creating, viewing, editing and deleting tikis as well as creating custom plugins to 
 view any selection, for example, Recent tikis, Architecture docs, Saved prompts, Security review, Future Roadmap
 Read more by pressing `?` for help 
 
