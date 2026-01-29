@@ -80,7 +80,9 @@ func Bootstrap(tikiSkillContent, dokiSkillContent string) (*BootstrapResult, err
 			"original_term", systemInfo.TermType,
 			"original_colors", systemInfo.ColorCount,
 			"new_term", "xterm-256color")
-		os.Setenv("TERM", "xterm-256color")
+		if err := os.Setenv("TERM", "xterm-256color"); err != nil {
+			slog.Warn("failed to set TERM environment variable", "error", err)
+		}
 		// Re-collect system info to get updated color capabilities
 		systemInfo = sysinfo.NewSystemInfo()
 		slog.Debug("updated system information after TERM correction",
