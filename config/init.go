@@ -8,7 +8,10 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/charmbracelet/bubbles/key"
+	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/huh"
+	"github.com/charmbracelet/lipgloss"
 )
 
 // PromptForProjectInit presents a Huh form for project initialization.
@@ -16,23 +19,63 @@ import (
 func PromptForProjectInit() ([]string, bool, error) {
 	var selectedAITools []string
 
+	// Create custom theme with brighter description and help text
+	theme := huh.ThemeCharm()
+	descriptionColor := lipgloss.Color("189") // Light purple/blue for description
+	helpKeyColor := lipgloss.Color("117")     // Light blue for keys
+	helpDescColor := lipgloss.Color("252")    // Bright gray for descriptions
+	theme.Focused.Description = lipgloss.NewStyle().Foreground(descriptionColor)
+	theme.Blurred.Description = lipgloss.NewStyle().Foreground(descriptionColor)
+	theme.Help.ShortKey = lipgloss.NewStyle().Foreground(helpKeyColor).Bold(true)
+	theme.Help.ShortDesc = lipgloss.NewStyle().Foreground(helpDescColor)
+	theme.Help.ShortSeparator = lipgloss.NewStyle().Foreground(lipgloss.Color("240"))
+	theme.Help.FullKey = lipgloss.NewStyle().Foreground(helpKeyColor).Bold(true)
+	theme.Help.FullDesc = lipgloss.NewStyle().Foreground(helpDescColor)
+	theme.Help.FullSeparator = lipgloss.NewStyle().Foreground(lipgloss.Color("240"))
+
+	// Create custom keymap with Esc bound to quit
+	keymap := huh.NewDefaultKeyMap()
+	keymap.Quit = key.NewBinding(
+		key.WithKeys("esc", "ctrl+c"),
+		key.WithHelp("esc", "quit"),
+	)
+
+	description := `
+This will initialize your project by creating directories and sample tiki files:
+
+- .doc/doki directory to hold your Markdown documents
+- .doc/tiki directory to hold your tasks
+- a sample tiki task and a document
+
+Additionally, optional AI skills are installed if you choose to
+AI skills extend your AI assistant with commands to manage tasks and documentation:
+
+• 'tiki' skill - Create, view, update, delete task tickets (.doc/tiki/*.md)
+• 'doki' skill - Create and manage documentation files (.doc/doki/*.md)
+
+Select AI assistants to install (optional), then press Enter to continue.
+Press Esc to cancel project initialization.`
+
 	form := huh.NewForm(
 		huh.NewGroup(
 			huh.NewMultiSelect[string]().
-				Title("Install AI skills for task automation? (optional)").
-				Description("AI assistants can create, search, and manage tasks").
+				Title("Initialize project").
+				Description(description).
 				Options(
 					huh.NewOption("Claude Code (.claude/skills/)", "claude"),
 					huh.NewOption("OpenAI Codex (.codex/skills/)", "codex"),
 					huh.NewOption("OpenCode (.opencode/skill/)", "opencode"),
 				).
+				Filterable(false).
 				Value(&selectedAITools),
 		),
-	).WithTheme(huh.ThemeCharm())
+	).WithTheme(theme).
+		WithKeyMap(keymap).
+		WithProgramOptions(tea.WithAltScreen())
 
 	err := form.Run()
 	if err != nil {
-		if err == huh.ErrUserAborted {
+		if errors.Is(err, huh.ErrUserAborted) {
 			return nil, false, nil
 		}
 		return nil, false, fmt.Errorf("form error: %w", err)

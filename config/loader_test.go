@@ -25,8 +25,14 @@ logging:
 	defer func() { _ = os.Chdir(originalDir) }()
 	_ = os.Chdir(tmpDir)
 
+	// Temporarily override XDG_CONFIG_HOME to prevent loading user config
+	// This ensures the test uses only the config.yaml in tmpDir
+	t.Setenv("XDG_CONFIG_HOME", tmpDir)
+
 	// Reset appConfig to force a fresh load
 	appConfig = nil
+	// Reset PathManager so it picks up the new current directory and XDG_CONFIG_HOME
+	ResetPathManager()
 
 	// Load configuration
 	cfg, err := LoadConfig()
