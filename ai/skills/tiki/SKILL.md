@@ -41,7 +41,12 @@ tags:
 where fields can have these values:
 - type: bug, feature, task, story, epic
 - status: backlog, ready, in_progress, review, done
-- priority: is any integer number from 1 to 5 where 1 is the highest priority
+- priority: is any integer number from 1 to 5 where 1 is the highest priority. Mapped to priority description:
+  - high: 1
+  - medium-high: 2
+  - medium: 3
+  - medium-low: 4
+  - low: 5
 - points: story points from 1 to 10
 
 ### body
@@ -64,8 +69,9 @@ For example:
 
 ## View
 
-`Created` timestamp is taken from git file creation if available else from the file creation timestamp
-`Author` is taken from git history as the git user who created the file
+`Created` timestamp is taken from git file creation if available else from the file creation timestamp.
+
+`Author` is taken from git history as the git user who created the file.
 
 ## Creation
 
@@ -79,7 +85,7 @@ When asked to create a tiki:
 
 Example: for random ID `x7f4k2`:
 - Filename: `tiki-x7f4k2.md`
-- Derived ID: `TIKI-X7F4K2`
+- tiki ID: `TIKI-X7F4K2`
 
 ### Create from file
 

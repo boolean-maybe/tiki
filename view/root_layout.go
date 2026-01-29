@@ -118,6 +118,16 @@ func (rl *RootLayout) onLayoutChange() {
 	// Update header with new view's actions
 	rl.headerConfig.SetViewActions(convertActionRegistry(newView.GetActionRegistry()))
 
+	// Clear plugin actions for non-plugin views (task detail, task edit)
+	// Plugin navigation keys only work in plugin views
+	if model.IsPluginViewID(viewID) {
+		// Restore plugin actions for plugin views
+		rl.headerConfig.SetPluginActions(convertActionRegistry(controller.GetPluginActions()))
+	} else {
+		// Clear plugin actions for task detail/edit views
+		rl.headerConfig.SetPluginActions(nil)
+	}
+
 	// Apply view-specific stats from the view
 	rl.updateViewStats(newView)
 
