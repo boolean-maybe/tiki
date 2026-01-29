@@ -625,3 +625,75 @@ func TestPluginConfig_GridNavigation_AllCorners(t *testing.T) {
 		})
 	}
 }
+
+func TestPluginConfig_ScrollOffset(t *testing.T) {
+	pc := NewPluginConfig("test")
+	pc.SetPaneLayout([]int{1, 1, 1}) // 3 panes
+
+	// Initial scroll offsets should be 0
+	for pane := 0; pane < 3; pane++ {
+		if offset := pc.GetScrollOffsetForPane(pane); offset != 0 {
+			t.Errorf("initial GetScrollOffsetForPane(%d) = %d, want 0", pane, offset)
+		}
+	}
+
+	// Set scroll offset for pane 1
+	pc.SetScrollOffsetForPane(1, 5)
+	if offset := pc.GetScrollOffsetForPane(1); offset != 5 {
+		t.Errorf("GetScrollOffsetForPane(1) = %d, want 5", offset)
+	}
+
+	// Other panes should be unaffected
+	if offset := pc.GetScrollOffsetForPane(0); offset != 0 {
+		t.Errorf("GetScrollOffsetForPane(0) = %d, want 0", offset)
+	}
+	if offset := pc.GetScrollOffsetForPane(2); offset != 0 {
+		t.Errorf("GetScrollOffsetForPane(2) = %d, want 0", offset)
+	}
+
+	// Set scroll offset for pane 2
+	pc.SetScrollOffsetForPane(2, 10)
+	if offset := pc.GetScrollOffsetForPane(2); offset != 10 {
+		t.Errorf("GetScrollOffsetForPane(2) = %d, want 10", offset)
+	}
+}
+
+func TestPluginConfig_ScrollOffset_OutOfBounds(t *testing.T) {
+	pc := NewPluginConfig("test")
+	pc.SetPaneLayout([]int{1, 1}) // 2 panes
+
+	// Getting out of bounds should return 0
+	if offset := pc.GetScrollOffsetForPane(-1); offset != 0 {
+		t.Errorf("GetScrollOffsetForPane(-1) = %d, want 0", offset)
+	}
+	if offset := pc.GetScrollOffsetForPane(5); offset != 0 {
+		t.Errorf("GetScrollOffsetForPane(5) = %d, want 0", offset)
+	}
+
+	// Setting out of bounds should be a no-op (not panic)
+	pc.SetScrollOffsetForPane(-1, 10)
+	pc.SetScrollOffsetForPane(5, 10)
+
+	// Valid panes should still be 0
+	if offset := pc.GetScrollOffsetForPane(0); offset != 0 {
+		t.Errorf("GetScrollOffsetForPane(0) = %d after out-of-bounds set, want 0", offset)
+	}
+}
+
+func TestPluginConfig_ScrollOffset_PreservedOnLayoutChange(t *testing.T) {
+	pc := NewPluginConfig("test")
+	pc.SetPaneLayout([]int{1, 1, 1})
+
+	// Set scroll offsets
+	pc.SetScrollOffsetForPane(0, 3)
+	pc.SetScrollOffsetForPane(1, 7)
+
+	// Change layout to same size - should preserve offsets
+	pc.SetPaneLayout([]int{2, 2, 2})
+	if offset := pc.GetScrollOffsetForPane(0); offset != 3 {
+		t.Errorf("GetScrollOffsetForPane(0) after same-size layout change = %d, want 3", offset)
+	}
+	if offset := pc.GetScrollOffsetForPane(1); offset != 7 {
+		t.Errorf("GetScrollOffsetForPane(1) after same-size layout change = %d, want 7", offset)
+	}
+}

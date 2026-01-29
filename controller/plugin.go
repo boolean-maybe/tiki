@@ -119,7 +119,15 @@ func (pc *PluginController) handlePaneSwitch(direction string) bool {
 		tasks := pc.GetFilteredTasksForPane(nextPane)
 		if len(tasks) > 0 {
 			pc.pluginConfig.SetSelectedPane(nextPane)
-			pc.pluginConfig.ClampSelection(len(tasks))
+			// Select the task at top of viewport (scroll offset) rather than keeping stale index
+			scrollOffset := pc.pluginConfig.GetScrollOffsetForPane(nextPane)
+			if scrollOffset >= len(tasks) {
+				scrollOffset = len(tasks) - 1
+			}
+			if scrollOffset < 0 {
+				scrollOffset = 0
+			}
+			pc.pluginConfig.SetSelectedIndexForPane(nextPane, scrollOffset)
 			return true
 		}
 		switch direction {

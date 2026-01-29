@@ -356,3 +356,32 @@ func TestLargeItemHeight(t *testing.T) {
 		t.Errorf("At item 6 (moved up from 7), scrollOffset should be 6 (showing 6-8), got %d", list.scrollOffset)
 	}
 }
+
+// TestGetScrollOffset tests the GetScrollOffset method
+func TestGetScrollOffset(t *testing.T) {
+	list := createTestList(10, 5)
+	setListHeight(list, 25) // Can show 5 items
+
+	// Initial scroll offset should be 0
+	if offset := list.GetScrollOffset(); offset != 0 {
+		t.Errorf("Initial GetScrollOffset() = %d, want 0", offset)
+	}
+
+	// After scrolling down, GetScrollOffset should reflect the internal state
+	list.SetSelection(7) // Should scroll to show items 3-7
+	if offset := list.GetScrollOffset(); offset != 3 {
+		t.Errorf("After SetSelection(7), GetScrollOffset() = %d, want 3", offset)
+	}
+
+	// Scroll to bottom
+	list.SetSelection(9) // Should scroll to show items 5-9
+	if offset := list.GetScrollOffset(); offset != 5 {
+		t.Errorf("After SetSelection(9), GetScrollOffset() = %d, want 5", offset)
+	}
+
+	// GetScrollOffset should match internal scrollOffset
+	if list.GetScrollOffset() != list.scrollOffset {
+		t.Errorf("GetScrollOffset() = %d doesn't match internal scrollOffset = %d",
+			list.GetScrollOffset(), list.scrollOffset)
+	}
+}

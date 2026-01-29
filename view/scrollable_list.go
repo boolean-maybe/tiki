@@ -53,6 +53,11 @@ func (s *ScrollableList) SetSelection(index int) {
 	s.ensureSelectionVisible()
 }
 
+// GetScrollOffset returns the current scroll offset (first visible item index)
+func (s *ScrollableList) GetScrollOffset() int {
+	return s.scrollOffset
+}
+
 // ensureSelectionVisible adjusts scrollOffset to keep selectionIndex in view
 func (s *ScrollableList) ensureSelectionVisible() {
 	// If no items, preserve scrollOffset (will be adjusted after items are added)

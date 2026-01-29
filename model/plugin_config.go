@@ -18,6 +18,7 @@ type PluginConfig struct {
 	selectedPane     int
 	selectedIndices  []int
 	paneColumns      []int
+	scrollOffsets    []int // per-pane viewport position (top visible row)
 	preSearchPane    int
 	preSearchIndices []int
 	viewMode         ViewMode // compact or expanded display
@@ -60,6 +61,7 @@ func (pc *PluginConfig) SetPaneLayout(columns []int) {
 	pc.paneColumns = normalizePaneColumns(columns)
 	pc.selectedIndices = ensureSelectionLength(pc.selectedIndices, len(pc.paneColumns))
 	pc.preSearchIndices = ensureSelectionLength(pc.preSearchIndices, len(pc.paneColumns))
+	pc.scrollOffsets = ensureSelectionLength(pc.scrollOffsets, len(pc.paneColumns))
 
 	if pc.selectedPane < 0 || pc.selectedPane >= len(pc.paneColumns) {
 		pc.selectedPane = 0
@@ -123,6 +125,26 @@ func (pc *PluginConfig) SetSelectedIndexForPane(pane int, idx int) {
 	pc.setIndexForPane(pane, idx)
 	pc.mu.Unlock()
 	pc.notifyListeners()
+}
+
+// GetScrollOffsetForPane returns the scroll offset (top visible row) for a pane.
+func (pc *PluginConfig) GetScrollOffsetForPane(pane int) int {
+	pc.mu.RLock()
+	defer pc.mu.RUnlock()
+	if pane < 0 || pane >= len(pc.scrollOffsets) {
+		return 0
+	}
+	return pc.scrollOffsets[pane]
+}
+
+// SetScrollOffsetForPane sets the scroll offset for a specific pane.
+func (pc *PluginConfig) SetScrollOffsetForPane(pane int, offset int) {
+	pc.mu.Lock()
+	defer pc.mu.Unlock()
+	if pane < 0 || pane >= len(pc.scrollOffsets) {
+		return
+	}
+	pc.scrollOffsets[pane] = offset
 }
 
 func (pc *PluginConfig) SetSelectedPaneAndIndex(pane int, idx int) {

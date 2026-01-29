@@ -171,6 +171,9 @@ func (pv *PluginView) refresh() {
 		} else {
 			paneContainer.SetSelection(-1)
 		}
+
+		// Sync scroll offset from view to model for later pane navigation
+		pv.pluginConfig.SetScrollOffsetForPane(paneIdx, paneContainer.GetScrollOffset())
 	}
 }
 
