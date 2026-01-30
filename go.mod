@@ -3,7 +3,7 @@ module github.com/boolean-maybe/tiki
 go 1.24.2
 
 require (
-	github.com/boolean-maybe/navidown v0.1.1
+	github.com/boolean-maybe/navidown v0.2.0
 	github.com/charmbracelet/bubbles v0.21.1-0.20250623103423-23b8fd6302d7
 	github.com/charmbracelet/bubbletea v1.3.10
 	github.com/charmbracelet/glamour v0.10.0

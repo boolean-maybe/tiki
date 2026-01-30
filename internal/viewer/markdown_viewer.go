@@ -11,9 +11,9 @@ import (
 	"github.com/boolean-maybe/navidown/loaders"
 	nav "github.com/boolean-maybe/navidown/navidown"
 	navtview "github.com/boolean-maybe/navidown/navidown/tview"
-	navutil "github.com/boolean-maybe/navidown/util"
 	"github.com/boolean-maybe/tiki/config"
 	"github.com/boolean-maybe/tiki/util"
+	"github.com/boolean-maybe/tiki/view"
 	"github.com/gdamore/tcell/v2"
 	"github.com/rivo/tview"
 )
@@ -27,55 +27,40 @@ func Run(input InputSpec) error {
 	}
 
 	app := tview.NewApplication()
-	viewer := navtview.NewTextView()
-	viewer.SetAnsiConverter(navutil.NewAnsiConverter(true))
-	viewer.SetRenderer(nav.NewANSIRendererWithStyle(config.GetEffectiveTheme()))
-	viewer.SetBackgroundColor(config.GetContentBackgroundColor())
-
 	provider := &loaders.FileHTTP{SearchRoots: input.SearchRoots}
-
-	content, sourcePath, err := loadInitialContent(input, provider)
-	if err != nil {
-		content = formatErrorContent(err)
-	}
-
-	if sourcePath != "" {
-		viewer.SetMarkdownWithSource(content, sourcePath, false)
-	} else {
-		viewer.SetMarkdown(content)
-	}
-
-	viewer.SetSelectHandler(func(v *navtview.TextViewViewer, elem nav.NavElement) {
-		if elem.Type != nav.NavElementURL {
-			return
-		}
-		content, err := provider.FetchContent(elem)
-		if err != nil {
-			v.SetMarkdown(formatErrorContent(err))
-			return
-		}
-		if content == "" {
-			return
-		}
-		v.SetMarkdownWithSource(content, resolveSourcePath(elem, input.SearchRoots), true)
-	})
 
 	// create status bar
 	statusBar := tview.NewTextView()
 	statusBar.SetDynamicColors(true)
 	statusBar.SetTextAlign(tview.AlignLeft)
 
-	viewer.SetStateChangedHandler(func(v *navtview.TextViewViewer) {
-		updateStatusBar(statusBar, v)
+	// Create NavigableMarkdown - OnStateChange is set after creation to avoid forward reference
+	md := view.NewNavigableMarkdown(view.NavigableMarkdownConfig{
+		Provider:    provider,
+		SearchRoots: input.SearchRoots,
+	})
+	md.SetStateChangedHandler(func() {
+		updateStatusBar(statusBar, md.Viewer())
 	})
 
+	content, sourcePath, err := loadInitialContent(input, provider)
+	if err != nil {
+		content = view.FormatErrorContent(err)
+	}
+
+	if sourcePath != "" {
+		md.SetMarkdownWithSource(content, sourcePath, false)
+	} else {
+		md.SetMarkdown(content)
+	}
+
 	// initial status bar update
-	updateStatusBar(statusBar, viewer)
+	updateStatusBar(statusBar, md.Viewer())
 
 	// create flex layout with status bar
 	flex := tview.NewFlex().
 		SetDirection(tview.FlexRow).
-		AddItem(viewer, 0, 1, true).
+		AddItem(md.Viewer(), 0, 1, true).
 		AddItem(statusBar, 1, 0, false)
 
 	// key handlers
@@ -85,7 +70,7 @@ func Run(input InputSpec) error {
 			app.Stop()
 			return nil
 		case 'e':
-			srcPath := viewer.Core().SourceFilePath()
+			srcPath := md.SourceFilePath()
 			if srcPath == "" || strings.HasPrefix(srcPath, "http://") || strings.HasPrefix(srcPath, "https://") {
 				return nil
 			}
@@ -103,8 +88,8 @@ func Run(input InputSpec) error {
 				slog.Error("failed to reload file after edit", "file", srcPath, "error", err)
 				return nil
 			}
-			viewer.SetMarkdownWithSource(string(data), srcPath, false)
-			updateStatusBar(statusBar, viewer)
+			md.SetMarkdownWithSource(string(data), srcPath, false)
+			updateStatusBar(statusBar, md.Viewer())
 			return nil
 		}
 		return event
@@ -162,21 +147,6 @@ func resolveInitialSource(candidate string, searchRoots []string) string {
 		return candidate
 	}
 	return resolved
-}
-
-func resolveSourcePath(elem nav.NavElement, searchRoots []string) string {
-	if elem.SourceFilePath == "" {
-		return elem.URL
-	}
-	resolved, err := nav.ResolveMarkdownPath(elem.URL, elem.SourceFilePath, searchRoots)
-	if err != nil || resolved == "" {
-		return elem.URL
-	}
-	return resolved
-}
-
-func formatErrorContent(err error) string {
-	return "# Error\n\n```\n" + err.Error() + "\n```"
 }
 
 // updateStatusBar refreshes the status bar with current viewer state.

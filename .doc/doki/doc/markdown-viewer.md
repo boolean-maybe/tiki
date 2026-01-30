@@ -28,7 +28,7 @@ press `q` to quit
 ## Navigate links
 
 with a Markdown file open press `Tab/Shift-Tab` to select next/previous link in the file
-then press Enter to load the linked file
+then press Enter to load the linked file or go to a linked section within the same file
 to go back/forward in history use `Left/Right` or `Alt-Left/Alt-Right`
 
 ## Pager commands
