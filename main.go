@@ -83,21 +83,6 @@ func main() {
 		return
 	}
 
-	// Initialize gradient support based on terminal color capabilities
-	threshold := config.GetGradientThreshold()
-	// System information is available in result.SystemInfo for adjusting visual appearance
-	if result.SystemInfo.ColorCount < threshold {
-		config.UseGradients = false
-		config.UseWideGradients = false
-		slog.Debug("gradients disabled", "colorCount", result.SystemInfo.ColorCount, "threshold", threshold)
-	} else {
-		config.UseGradients = true
-		// Wide gradients (caption rows) require truecolor to avoid visible banding
-		// 256-color terminals show noticeable banding on screen-wide gradients
-		config.UseWideGradients = result.SystemInfo.ColorCount >= 16777216
-		slog.Debug("gradients enabled", "colorCount", result.SystemInfo.ColorCount, "threshold", threshold, "wideGradients", config.UseWideGradients)
-	}
-
 	// Cleanup on exit
 	defer result.App.Stop()
 	defer result.HeaderWidget.Cleanup()

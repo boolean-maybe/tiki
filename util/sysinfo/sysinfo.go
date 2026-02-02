@@ -351,3 +351,9 @@ func getCacheDirSafe() string {
 	}()
 	return config.GetCacheDir()
 }
+
+// SetTermEnv sets the TERM environment variable to the specified value.
+// Used during bootstrap to upgrade TERM for better color support.
+func SetTermEnv(termType string) error {
+	return os.Setenv("TERM", termType)
+}

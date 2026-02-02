@@ -3,7 +3,6 @@ package bootstrap
 import (
 	"context"
 	"log/slog"
-	"os"
 
 	"github.com/rivo/tview"
 
@@ -20,8 +19,8 @@ import (
 	"github.com/boolean-maybe/tiki/view/header"
 )
 
-// BootstrapResult contains all initialized application components.
-type BootstrapResult struct {
+// Result contains all initialized application components.
+type Result struct {
 	Cfg      *config.Config
 	LogLevel slog.Level
 	// SystemInfo contains client environment information collected during bootstrap.
@@ -49,7 +48,7 @@ type BootstrapResult struct {
 
 // Bootstrap orchestrates the complete application initialization sequence.
 // It takes the embedded AI skill content and returns all initialized components.
-func Bootstrap(tikiSkillContent, dokiSkillContent string) (*BootstrapResult, error) {
+func Bootstrap(tikiSkillContent, dokiSkillContent string) (*Result, error) {
 	// Phase 1: Pre-flight checks
 	if err := EnsureGitRepo(); err != nil {
 		return nil, err
@@ -62,33 +61,9 @@ func Bootstrap(tikiSkillContent, dokiSkillContent string) (*BootstrapResult, err
 	}
 	logLevel := InitLogging(cfg)
 
-	// Phase 2.5: System information collection
+	// Phase 2.5: System information collection and gradient support initialization
 	// Collect early (before app creation) using terminfo lookup for future visual adjustments
-	systemInfo := sysinfo.NewSystemInfo()
-	slog.Debug("collected system information",
-		"os", systemInfo.OS,
-		"arch", systemInfo.Architecture,
-		"term", systemInfo.TermType,
-		"theme", systemInfo.DetectedTheme,
-		"color_support", systemInfo.ColorSupport,
-		"color_count", systemInfo.ColorCount)
-
-	// Auto-correct TERM if insufficient color support detected
-	// This commonly happens in Docker containers or minimal environments
-	if systemInfo.ColorCount < 256 && systemInfo.TermType != "" {
-		slog.Info("limited color support detected, upgrading TERM for better experience",
-			"original_term", systemInfo.TermType,
-			"original_colors", systemInfo.ColorCount,
-			"new_term", "xterm-256color")
-		if err := os.Setenv("TERM", "xterm-256color"); err != nil {
-			slog.Warn("failed to set TERM environment variable", "error", err)
-		}
-		// Re-collect system info to get updated color capabilities
-		systemInfo = sysinfo.NewSystemInfo()
-		slog.Debug("updated system information after TERM correction",
-			"color_support", systemInfo.ColorSupport,
-			"color_count", systemInfo.ColorCount)
-	}
+	systemInfo := InitColorAndGradientSupport(cfg)
 
 	// Phase 3: Project initialization
 	proceed, err := EnsureProjectInitialized(tikiSkillContent, dokiSkillContent)
@@ -155,7 +130,7 @@ func Bootstrap(tikiSkillContent, dokiSkillContent string) (*BootstrapResult, err
 	// Phase 13: Initial view (Kanban plugin is the default)
 	controllers.Nav.PushView(model.MakePluginViewID("Kanban"), nil)
 
-	return &BootstrapResult{
+	return &Result{
 		Cfg:              cfg,
 		LogLevel:         logLevel,
 		SystemInfo:       systemInfo,
@@ -227,4 +202,58 @@ func wireNavigation(navController *controller.NavigationController, layoutModel 
 		layoutModel.SetContent(viewID, params)
 	})
 	navController.SetActiveViewGetter(rootLayout.GetContentView)
+}
+
+// InitColorAndGradientSupport collects system information, auto-corrects TERM if needed,
+// and initializes gradient support flags based on terminal color capabilities.
+// Returns the collected SystemInfo for use in bootstrap result.
+func InitColorAndGradientSupport(cfg *config.Config) *sysinfo.SystemInfo {
+	_ = cfg
+	// Collect initial system information using terminfo lookup
+	systemInfo := sysinfo.NewSystemInfo()
+	slog.Debug("collected system information",
+		"os", systemInfo.OS,
+		"arch", systemInfo.Architecture,
+		"term", systemInfo.TermType,
+		"theme", systemInfo.DetectedTheme,
+		"color_support", systemInfo.ColorSupport,
+		"color_count", systemInfo.ColorCount)
+
+	// Auto-correct TERM if insufficient color support detected
+	// This commonly happens in Docker containers or minimal environments
+	if systemInfo.ColorCount < 256 && systemInfo.TermType != "" {
+		slog.Info("limited color support detected, upgrading TERM for better experience",
+			"original_term", systemInfo.TermType,
+			"original_colors", systemInfo.ColorCount,
+			"new_term", "xterm-256color")
+		if err := sysinfo.SetTermEnv("xterm-256color"); err != nil {
+			slog.Warn("failed to set TERM environment variable", "error", err)
+		}
+		// Re-collect system info to get updated color capabilities
+		systemInfo = sysinfo.NewSystemInfo()
+		slog.Debug("updated system information after TERM correction",
+			"color_support", systemInfo.ColorSupport,
+			"color_count", systemInfo.ColorCount)
+	}
+
+	// Initialize gradient support based on terminal color capabilities
+	threshold := config.GetGradientThreshold()
+	if systemInfo.ColorCount < threshold {
+		config.UseGradients = false
+		config.UseWideGradients = false
+		slog.Debug("gradients disabled",
+			"colorCount", systemInfo.ColorCount,
+			"threshold", threshold)
+	} else {
+		config.UseGradients = true
+		// Wide gradients (caption rows) require truecolor to avoid visible banding
+		// 256-color terminals show noticeable banding on screen-wide gradients
+		config.UseWideGradients = systemInfo.ColorCount >= 16777216
+		slog.Debug("gradients enabled",
+			"colorCount", systemInfo.ColorCount,
+			"threshold", threshold,
+			"wideGradients", config.UseWideGradients)
+	}
+
+	return systemInfo
 }
