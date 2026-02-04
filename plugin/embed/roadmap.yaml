@@ -4,7 +4,7 @@ background: "#2a5f5a"
 key: "F4"
 panes:
   - name: Now
-    columns: 2
+    columns: 1
     filter: type = 'epic' AND status = 'ready'
     action: status = 'ready'
   - name: Next
@@ -12,7 +12,7 @@ panes:
     filter: type = 'epic' AND status = 'backlog' AND priority = 1
     action: status = 'backlog', priority = 1
   - name: Later
-    columns: 1
+    columns: 2
     filter: type = 'epic' AND status = 'backlog' AND priority > 1
     action: status = 'backlog', priority = 2
 sort: Priority, Points DESC

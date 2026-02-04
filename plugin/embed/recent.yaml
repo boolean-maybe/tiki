@@ -1,6 +1,6 @@
 name: Recent
-foreground: "##ffff99"
-background: "#996600"
+foreground: "#f4d6a6"
+background: "#5a3d1b"
 key: Ctrl-R
 panes:
   - name: Recent

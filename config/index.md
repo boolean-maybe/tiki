@@ -4,7 +4,7 @@ This is a wiki-style documentation called `doki` saved as Markdown files alongsi
 Since they are stored in git they are versioned and all edits can be seen in the git history along with the timestamp
 and the user. They can also be perfectly synced to the current or past state of the repo or its git branch
 
-This is just a samply entry point. You can modify it and add content or add linked documents 
+This is just a sample entry point. You can modify it and add content or add linked documents 
 to create your own wiki style documentation
 
 Press `Tab/Enter` to select and follow this [link](linked.md) to see how. 

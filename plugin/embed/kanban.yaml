@@ -4,15 +4,15 @@ background: "#25496a"
 key: "F1"
 panes:
   - name: Ready
-    filter: status = 'ready'
+    filter: status = 'ready' and type != 'epic'
     action: status = 'ready'
   - name: In Progress
-    filter: status = 'in_progress'
+    filter: status = 'in_progress' and type != 'epic'
     action: status = 'in_progress'
   - name: Review
-    filter: status = 'review'
+    filter: status = 'review' and type != 'epic'
     action: status = 'review'
   - name: Done
-    filter: status = 'done'
+    filter: status = 'done' and type != 'epic'
     action: status = 'done'
 sort: Priority, CreatedAt
