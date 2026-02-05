@@ -25,8 +25,8 @@ github.com/aymanbagabas/go-udiff v0.3.1 h1:LV+qyBQ2pqe0u42ZsUEtPiCaUoqgA9gYRDs3v
 github.com/aymanbagabas/go-udiff v0.3.1/go.mod h1:G0fsKmG+P6ylD0r6N/KgQD/nWzgfnl8ZBcNLgcbrw8E=
 github.com/aymerick/douceur v0.2.0 h1:Mv+mAeH1Q+n9Fr+oyamOlAkUNPWPlA8PPGR0QAaYuPk=
 github.com/aymerick/douceur v0.2.0/go.mod h1:wlT5vV2O3h55X9m7iVYN0TBM0NH/MmbLnd30/FjWUq4=
-github.com/boolean-maybe/navidown v0.2.2 h1:oicZyTS7oO2H/D2/zlBkFLM0g98HUVKXf9EFtyb3fWY=
-github.com/boolean-maybe/navidown v0.2.2/go.mod h1:WdI3A007LaGuaJTOwEVO25kMojD9u4SCEVqAT8H9rwQ=
+github.com/boolean-maybe/navidown v0.2.3 h1:i+j4KHgPDMGIgbJlEYImnZam64OqIgBTq5Tg9QfY7Ug=
+github.com/boolean-maybe/navidown v0.2.3/go.mod h1:WdI3A007LaGuaJTOwEVO25kMojD9u4SCEVqAT8H9rwQ=
 github.com/catppuccin/go v0.3.0 h1:d+0/YicIq+hSTo5oPuRi5kOpqkVA5tAsU6dNhvRu+aY=
 github.com/catppuccin/go v0.3.0/go.mod h1:8IHJuMGaUUjQM82qBrGNBv7LFq6JI3NnQCF6MOlZjpc=
 github.com/charmbracelet/bubbles v0.21.1-0.20250623103423-23b8fd6302d7 h1:JFgG/xnwFfbezlUnFMJy0nusZvytYysV4SCS2cYbvws=
