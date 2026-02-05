@@ -5,5 +5,5 @@ key: "F3"
 panes:
   - name: Backlog
     columns: 4
-    filter: status = 'backlog'
+    filter: status = 'backlog' and type != 'epic'
 sort: Priority, ID

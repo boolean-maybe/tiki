@@ -11,8 +11,23 @@ import (
 	gonanoid "github.com/matoous/go-nanoid/v2"
 )
 
-//go:embed init_tiki.md
+//go:embed board_sample.md
 var initialTaskTemplate string
+
+//go:embed backlog_sample_1.md
+var backlogSample1 string
+
+//go:embed backlog_sample_2.md
+var backlogSample2 string
+
+//go:embed roadmap_now_sample.md
+var roadmapNowSample string
+
+//go:embed roadmap_next_sample.md
+var roadmapNextSample string
+
+//go:embed roadmap_later_sample.md
+var roadmapLaterSample string
 
 //go:embed new.md
 var defaultNewTaskTemplate string
@@ -42,17 +57,62 @@ func BootstrapSystem() error {
 		return fmt.Errorf("ensure directories: %w", err)
 	}
 
-	// Generate random ID for initial task
-	randomID := GenerateRandomID()
-	taskID := fmt.Sprintf("TIKI-%s", randomID)
-	taskFilename := fmt.Sprintf("tiki-%s.md", randomID)
-	taskPath := filepath.Join(GetTaskDir(), taskFilename)
+	taskDir := GetTaskDir()
+	var createdFiles []string
 
-	// Replace placeholder in template
-	taskContent := strings.Replace(initialTaskTemplate, "TIKI-XXXXXX", taskID, 1)
-	if err := os.WriteFile(taskPath, []byte(taskContent), 0644); err != nil {
-		return fmt.Errorf("write initial task: %w", err)
+	// Helper function to create a sample tiki
+	createSampleTiki := func(template string) (string, error) {
+		randomID := GenerateRandomID()
+		taskID := fmt.Sprintf("TIKI-%s", randomID)
+		taskFilename := fmt.Sprintf("tiki-%s.md", randomID)
+		taskPath := filepath.Join(taskDir, taskFilename)
+
+		// Replace placeholder in template
+		taskContent := strings.Replace(template, "TIKI-XXXXXX", taskID, 1)
+		if err := os.WriteFile(taskPath, []byte(taskContent), 0644); err != nil {
+			return "", fmt.Errorf("write task: %w", err)
+		}
+		return taskPath, nil
 	}
+
+	// Create board sample (original welcome tiki)
+	boardPath, err := createSampleTiki(initialTaskTemplate)
+	if err != nil {
+		return fmt.Errorf("create board sample: %w", err)
+	}
+	createdFiles = append(createdFiles, boardPath)
+
+	// Create backlog samples
+	backlog1Path, err := createSampleTiki(backlogSample1)
+	if err != nil {
+		return fmt.Errorf("create backlog sample 1: %w", err)
+	}
+	createdFiles = append(createdFiles, backlog1Path)
+
+	backlog2Path, err := createSampleTiki(backlogSample2)
+	if err != nil {
+		return fmt.Errorf("create backlog sample 2: %w", err)
+	}
+	createdFiles = append(createdFiles, backlog2Path)
+
+	// Create roadmap samples
+	roadmapNowPath, err := createSampleTiki(roadmapNowSample)
+	if err != nil {
+		return fmt.Errorf("create roadmap now sample: %w", err)
+	}
+	createdFiles = append(createdFiles, roadmapNowPath)
+
+	roadmapNextPath, err := createSampleTiki(roadmapNextSample)
+	if err != nil {
+		return fmt.Errorf("create roadmap next sample: %w", err)
+	}
+	createdFiles = append(createdFiles, roadmapNextPath)
+
+	roadmapLaterPath, err := createSampleTiki(roadmapLaterSample)
+	if err != nil {
+		return fmt.Errorf("create roadmap later sample: %w", err)
+	}
+	createdFiles = append(createdFiles, roadmapLaterPath)
 
 	// Write doki documentation files
 	dokiDir := GetDokiDir()
@@ -60,15 +120,18 @@ func BootstrapSystem() error {
 	if err := os.WriteFile(indexPath, []byte(dokiEntryPoint), 0644); err != nil {
 		return fmt.Errorf("write doki index: %w", err)
 	}
+	createdFiles = append(createdFiles, indexPath)
 
 	linkedPath := filepath.Join(dokiDir, "linked.md")
 	if err := os.WriteFile(linkedPath, []byte(dokiLinked), 0644); err != nil {
 		return fmt.Errorf("write doki linked: %w", err)
 	}
+	createdFiles = append(createdFiles, linkedPath)
 
-	// Git add initial task and doki files
+	// Git add all created files
+	gitArgs := append([]string{"add"}, createdFiles...)
 	//nolint:gosec // G204: git command with controlled file paths
-	cmd := exec.Command("git", "add", taskPath, indexPath, linkedPath)
+	cmd := exec.Command("git", gitArgs...)
 	if err := cmd.Run(); err != nil {
 		// Non-fatal: log but don't fail bootstrap if git add fails
 		fmt.Fprintf(os.Stderr, "warning: failed to git add files: %v\n", err)
