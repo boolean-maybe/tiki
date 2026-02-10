@@ -144,33 +144,20 @@ func (ir *InputRouter) maybeHandleFullscreenEscape(activeView View, event *tcell
 
 // maybeHandleInlineEditors handles focused title/description editors (and their cancel semantics).
 func (ir *InputRouter) maybeHandleInlineEditors(activeView View, isTaskEditView bool, event *tcell.EventKey) (stop bool, handled bool) {
+	// Only TaskEditView has inline editors now
+	if !isTaskEditView {
+		return false, false
+	}
+
 	if titleEditableView, ok := activeView.(TitleEditableView); ok {
 		if titleEditableView.IsTitleInputFocused() {
-			if isTaskEditView {
-				return true, ir.taskEditCoord.HandleKey(activeView, event)
-			}
-			// Title input has focus and handles input through tview.
-			return true, false
-		}
-		// Title is being edited but input doesn't have focus - handle Esc to cancel.
-		if titleEditableView.IsTitleEditing() && !isTaskEditView && event.Key() == tcell.KeyEscape {
-			titleEditableView.HideTitleEditor()
-			return true, true
+			return true, ir.taskEditCoord.HandleKey(activeView, event)
 		}
 	}
 
 	if descEditableView, ok := activeView.(DescriptionEditableView); ok {
 		if descEditableView.IsDescriptionTextAreaFocused() {
-			if isTaskEditView {
-				return true, ir.taskEditCoord.HandleKey(activeView, event)
-			}
-			// Description text area has focus and handles input through tview.
-			return true, false
-		}
-		// Description is being edited but text area doesn't have focus - handle Esc to cancel.
-		if descEditableView.IsDescriptionEditing() && !isTaskEditView && event.Key() == tcell.KeyEscape {
-			descEditableView.HideDescriptionEditor()
-			return true, true
+			return true, ir.taskEditCoord.HandleKey(activeView, event)
 		}
 	}
 
