@@ -123,7 +123,7 @@ const (
 
 // computeCaptionGradient computes the gradient for caption background from a base color.
 func computeCaptionGradient(primary tcell.Color) config.Gradient {
-	fallback := config.GetColors().BoardPaneTitleGradient
+	fallback := config.GetColors().CaptionFallbackGradient
 	if useVibrantPluginGradient {
 		return gradient.GradientFromColorVibrant(primary, vibrantBoost, fallback)
 	}

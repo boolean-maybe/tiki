@@ -14,15 +14,8 @@ type Gradient struct {
 
 // ColorConfig holds all color and style definitions per view
 type ColorConfig struct {
-	// Board view colors
-	BoardColumnTitleBackground tcell.Color
-	BoardColumnTitleText       tcell.Color
-	BoardColumnBorder          tcell.Color
-	BoardColumnTitleGradient   Gradient
-	BoardPaneTitleBackground   tcell.Color
-	BoardPaneTitleText         tcell.Color
-	BoardPaneBorder            tcell.Color
-	BoardPaneTitleGradient     Gradient
+	// Caption colors
+	CaptionFallbackGradient Gradient
 
 	// Task box colors
 	TaskBoxSelectedBackground   tcell.Color
@@ -90,18 +83,8 @@ type ColorConfig struct {
 // DefaultColors returns the default color configuration
 func DefaultColors() *ColorConfig {
 	return &ColorConfig{
-		// Board view
-		BoardColumnTitleBackground: tcell.ColorNavy,
-		BoardColumnTitleText:       tcell.PaletteColor(153), // Sky Blue (ANSI 153)
-		BoardColumnBorder:          tcell.ColorDefault,      // transparent/no border
-		BoardColumnTitleGradient: Gradient{
-			Start: [3]int{25, 25, 112},  // Midnight Blue (center)
-			End:   [3]int{65, 105, 225}, // Royal Blue (edges)
-		},
-		BoardPaneTitleBackground: tcell.ColorNavy,
-		BoardPaneTitleText:       tcell.PaletteColor(153), // Sky Blue (ANSI 153)
-		BoardPaneBorder:          tcell.ColorDefault,      // transparent/no border
-		BoardPaneTitleGradient: Gradient{
+		// Caption fallback gradient
+		CaptionFallbackGradient: Gradient{
 			Start: [3]int{25, 25, 112},  // Midnight Blue (center)
 			End:   [3]int{65, 105, 225}, // Royal Blue (edges)
 		},
@@ -202,7 +185,7 @@ var UseWideGradients bool
 
 // Fallback solid colors for gradient scenarios (used when UseGradients = false)
 var (
-	// Board/pane title fallback: Royal Blue (end of gradient)
+	// Caption title fallback: Royal Blue (end of gradient)
 	FallbackTitleColor = tcell.NewRGBColor(65, 105, 225)
 	// Task ID fallback: Deep Sky Blue (end of gradient)
 	FallbackTaskIDColor = tcell.NewRGBColor(0, 191, 255)
