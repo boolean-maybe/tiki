@@ -128,6 +128,31 @@ func BootstrapSystem() error {
 	}
 	createdFiles = append(createdFiles, linkedPath)
 
+	// Write default config.yaml
+	defaultConfig := `logging:
+  level: error
+header:
+  visible: true
+tiki:
+  maxPoints: 10
+appearance:
+  theme: auto
+  gradientThreshold: 256
+`
+	configPath := GetProjectConfigFile()
+	if err := os.WriteFile(configPath, []byte(defaultConfig), 0644); err != nil {
+		return fmt.Errorf("write default config.yaml: %w", err)
+	}
+	createdFiles = append(createdFiles, configPath)
+
+	// Write default workflow.yaml
+	defaultWorkflow := "plugins: []\n"
+	workflowPath := DefaultWorkflowFilePath()
+	if err := os.WriteFile(workflowPath, []byte(defaultWorkflow), 0644); err != nil {
+		return fmt.Errorf("write default workflow.yaml: %w", err)
+	}
+	createdFiles = append(createdFiles, workflowPath)
+
 	// Git add all created files
 	gitArgs := append([]string{"add"}, createdFiles...)
 	//nolint:gosec // G204: git command with controlled file paths

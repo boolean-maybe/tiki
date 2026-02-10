@@ -3,6 +3,7 @@ package config
 // Viper configuration loader: reads config.yaml from the binary's directory
 
 import (
+	"fmt"
 	"io"
 	"log/slog"
 	"os"
@@ -12,6 +13,7 @@ import (
 	"github.com/gdamore/tcell/v2"
 	"github.com/spf13/pflag"
 	"github.com/spf13/viper"
+	"gopkg.in/yaml.v3"
 )
 
 // Config holds all application configuration loaded from config.yaml
@@ -161,50 +163,93 @@ func GetInt(key string) int {
 	return viper.GetInt(key)
 }
 
-// SaveBoardViewMode saves the board view mode to config.yaml
-// Deprecated: Use SavePluginViewMode("Board", -1, viewMode) instead
-func SaveBoardViewMode(viewMode string) error {
-	viper.Set("board.view", viewMode)
-	return saveConfig()
+// workflowFileData represents the YAML structure of workflow.yaml for read-modify-write.
+// kept in config package to avoid import cycle with plugin package.
+type workflowFileData struct {
+	Plugins []map[string]interface{} `yaml:"plugins"`
 }
 
-// GetBoardViewMode loads the board view mode from config
-// Priority: plugins array entry with name "Board", then default
+// readWorkflowFile reads and unmarshals workflow.yaml from the given path.
+func readWorkflowFile(path string) (*workflowFileData, error) {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return nil, fmt.Errorf("reading workflow.yaml: %w", err)
+	}
+	var wf workflowFileData
+	if err := yaml.Unmarshal(data, &wf); err != nil {
+		return nil, fmt.Errorf("parsing workflow.yaml: %w", err)
+	}
+	return &wf, nil
+}
+
+// writeWorkflowFile marshals and writes workflow.yaml to the given path.
+func writeWorkflowFile(path string, wf *workflowFileData) error {
+	data, err := yaml.Marshal(wf)
+	if err != nil {
+		return fmt.Errorf("marshaling workflow.yaml: %w", err)
+	}
+	//nolint:gosec // G306: 0644 is appropriate for config file
+	if err := os.WriteFile(path, data, 0644); err != nil {
+		return fmt.Errorf("writing workflow.yaml: %w", err)
+	}
+	return nil
+}
+
+// GetBoardViewMode loads the board view mode from workflow.yaml.
+// Returns "expanded" as default if not found.
 func GetBoardViewMode() string {
-	// Check plugins array
-	var currentPlugins []map[string]interface{}
-	if err := viper.UnmarshalKey("plugins", &currentPlugins); err == nil {
-		for _, p := range currentPlugins {
-			if name, ok := p["name"].(string); ok && name == "Board" {
-				if view, ok := p["view"].(string); ok && view != "" {
-					return view
-				}
+	return getPluginViewModeFromWorkflow("Board", "expanded")
+}
+
+// getPluginViewModeFromWorkflow reads a plugin's view mode from workflow.yaml by name.
+func getPluginViewModeFromWorkflow(pluginName string, defaultValue string) string {
+	path := FindWorkflowFile()
+	if path == "" {
+		return defaultValue
+	}
+
+	wf, err := readWorkflowFile(path)
+	if err != nil {
+		slog.Debug("failed to read workflow.yaml for view mode", "error", err)
+		return defaultValue
+	}
+
+	for _, p := range wf.Plugins {
+		if name, ok := p["name"].(string); ok && name == pluginName {
+			if view, ok := p["view"].(string); ok && view != "" {
+				return view
 			}
 		}
 	}
 
-	// Default
-	return "expanded"
+	return defaultValue
 }
 
-// SavePluginViewMode saves a plugin's view mode to config.yaml
-// This function updates or creates the plugin entry in the plugins array
-// configIndex: index in config array (-1 to create new entry by name)
+// SavePluginViewMode saves a plugin's view mode to workflow.yaml.
+// configIndex: index in workflow.yaml plugins array (-1 to find/create by name)
 func SavePluginViewMode(pluginName string, configIndex int, viewMode string) error {
-	// Get current plugins configuration
-	var currentPlugins []map[string]interface{}
-	if err := viper.UnmarshalKey("plugins", &currentPlugins); err != nil {
-		// If no plugins exist or unmarshal fails, start with empty array
-		currentPlugins = []map[string]interface{}{}
+	path := FindWorkflowFile()
+	if path == "" {
+		// create workflow.yaml in project config dir
+		path = DefaultWorkflowFilePath()
 	}
 
-	if configIndex >= 0 && configIndex < len(currentPlugins) {
-		// Update existing config entry (works for inline, file-based, or hybrid)
-		currentPlugins[configIndex]["view"] = viewMode
+	var wf *workflowFileData
+
+	// try to read existing file
+	if existing, err := readWorkflowFile(path); err == nil {
+		wf = existing
 	} else {
-		// Embedded plugin or missing entry - check if name-based entry already exists
+		wf = &workflowFileData{}
+	}
+
+	if configIndex >= 0 && configIndex < len(wf.Plugins) {
+		// update existing entry by index
+		wf.Plugins[configIndex]["view"] = viewMode
+	} else {
+		// find by name or create new entry
 		existingIndex := -1
-		for i, p := range currentPlugins {
+		for i, p := range wf.Plugins {
 			if name, ok := p["name"].(string); ok && name == pluginName {
 				existingIndex = i
 				break
@@ -212,21 +257,17 @@ func SavePluginViewMode(pluginName string, configIndex int, viewMode string) err
 		}
 
 		if existingIndex >= 0 {
-			// Update existing name-based entry
-			currentPlugins[existingIndex]["view"] = viewMode
+			wf.Plugins[existingIndex]["view"] = viewMode
 		} else {
-			// Create new name-based entry
 			newEntry := map[string]interface{}{
 				"name": pluginName,
 				"view": viewMode,
 			}
-			currentPlugins = append(currentPlugins, newEntry)
+			wf.Plugins = append(wf.Plugins, newEntry)
 		}
 	}
 
-	// Save back to viper
-	viper.Set("plugins", currentPlugins)
-	return saveConfig()
+	return writeWorkflowFile(path, wf)
 }
 
 // SaveHeaderVisible saves the header visibility setting to config.yaml

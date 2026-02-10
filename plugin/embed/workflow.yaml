@@ -1,0 +1,74 @@
+plugins:
+  - name: Kanban
+    foreground: "#87ceeb"
+    background: "#25496a"
+    key: "F1"
+    lanes:
+      - name: Ready
+        filter: status = 'ready' and type != 'epic'
+        action: status = 'ready'
+      - name: In Progress
+        filter: status = 'in_progress' and type != 'epic'
+        action: status = 'in_progress'
+      - name: Review
+        filter: status = 'review' and type != 'epic'
+        action: status = 'review'
+      - name: Done
+        filter: status = 'done' and type != 'epic'
+        action: status = 'done'
+    sort: Priority, CreatedAt
+  - name: Backlog
+    foreground: "#5fff87"
+    background: "#0b3d2e"
+    key: "F3"
+    lanes:
+      - name: Backlog
+        columns: 4
+        filter: status = 'backlog' and type != 'epic'
+    actions:
+      - key: "b"
+        label: "Add to board"
+        action: status = 'ready'
+    sort: Priority, ID
+  - name: Recent
+    foreground: "#f4d6a6"
+    background: "#5a3d1b"
+    key: Ctrl-R
+    lanes:
+      - name: Recent
+        columns: 4
+        filter: NOW - UpdatedAt < 24hours
+    sort: UpdatedAt DESC
+  - name: Roadmap
+    foreground: "#e2e8f0"
+    background: "#2a5f5a"
+    key: "F4"
+    lanes:
+      - name: Now
+        columns: 1
+        filter: type = 'epic' AND status = 'ready'
+        action: status = 'ready'
+      - name: Next
+        columns: 1
+        filter: type = 'epic' AND status = 'backlog' AND priority = 1
+        action: status = 'backlog', priority = 1
+      - name: Later
+        columns: 2
+        filter: type = 'epic' AND status = 'backlog' AND priority > 1
+        action: status = 'backlog', priority = 2
+    sort: Priority, Points DESC
+    view: expanded
+  - name: Help
+    type: doki
+    fetcher: internal
+    text: "Help"
+    foreground: "#bcbcbc"
+    background: "#003399"
+    key: "?"
+  - name: Docs
+    type: doki
+    fetcher: file
+    url: "index.md"
+    foreground: "#ff9966"
+    background: "#2b3a42"
+    key: "F2"

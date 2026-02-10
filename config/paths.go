@@ -302,6 +302,36 @@ func GetPluginSearchPaths() []string {
 	return mustGetPathManager().PluginSearchPaths()
 }
 
+// defaultWorkflowFilename is the default name for the workflow configuration file
+const defaultWorkflowFilename = "workflow.yaml"
+
+// FindWorkflowFile searches for workflow.yaml in config search paths.
+// Search order: project config dir → user config dir → current directory (cwd).
+// Returns the first found path or empty string if not found.
+func FindWorkflowFile() string {
+	searchPaths := GetPluginSearchPaths()
+
+	var paths []string
+	for _, dir := range searchPaths {
+		paths = append(paths, filepath.Join(dir, defaultWorkflowFilename))
+	}
+	paths = append(paths, defaultWorkflowFilename) // relative to cwd
+
+	for _, path := range paths {
+		if _, err := os.Stat(path); err == nil {
+			return path
+		}
+	}
+
+	return ""
+}
+
+// DefaultWorkflowFilePath returns the default path for creating a new workflow.yaml
+// (in the project config dir, i.e. .doc/tiki/)
+func DefaultWorkflowFilePath() string {
+	return filepath.Join(mustGetPathManager().TaskDir(), defaultWorkflowFilename)
+}
+
 // GetTemplateFile returns the path to the user's custom new.md template
 func GetTemplateFile() string {
 	return mustGetPathManager().TemplateFile()

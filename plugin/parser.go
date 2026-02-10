@@ -13,6 +13,10 @@ import (
 
 // parsePluginConfig parses a pluginFileConfig into a Plugin
 func parsePluginConfig(cfg pluginFileConfig, source string) (Plugin, error) {
+	if cfg.Name == "" {
+		return nil, fmt.Errorf("plugin must have a name (%s)", source)
+	}
+
 	// Common fields
 	// Use ColorDefault as sentinel so views can detect "not specified" and use theme-appropriate colors
 	fg := parseColor(cfg.Foreground, tcell.ColorDefault)

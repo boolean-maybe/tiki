@@ -54,18 +54,8 @@ func Bootstrap(tikiSkillContent, dokiSkillContent string) (*Result, error) {
 		return nil, err
 	}
 
-	// Phase 2: Configuration and logging
-	cfg, err := LoadConfig()
-	if err != nil {
-		return nil, err
-	}
-	logLevel := InitLogging(cfg)
-
-	// Phase 2.5: System information collection and gradient support initialization
-	// Collect early (before app creation) using terminfo lookup for future visual adjustments
-	systemInfo := InitColorAndGradientSupport(cfg)
-
-	// Phase 3: Project initialization
+	// Phase 2: Project initialization (creates dirs, seeds files, writes default config/workflow)
+	// runs before LoadConfig so that config.yaml and workflow.yaml exist on first launch
 	proceed, err := EnsureProjectInitialized(tikiSkillContent, dokiSkillContent)
 	if err != nil {
 		return nil, err
@@ -73,6 +63,17 @@ func Bootstrap(tikiSkillContent, dokiSkillContent string) (*Result, error) {
 	if !proceed {
 		return nil, nil // User chose not to proceed
 	}
+
+	// Phase 3: Configuration and logging
+	cfg, err := LoadConfig()
+	if err != nil {
+		return nil, err
+	}
+	logLevel := InitLogging(cfg)
+
+	// Phase 3.5: System information collection and gradient support initialization
+	// Collect early (before app creation) using terminfo lookup for future visual adjustments
+	systemInfo := InitColorAndGradientSupport(cfg)
 
 	// Phase 4: Store initialization
 	tikiStore, taskStore, err := InitStores()

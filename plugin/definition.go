@@ -104,24 +104,3 @@ type TikiLane struct {
 	Filter  filter.FilterExpr
 	Action  LaneAction
 }
-
-// PluginRef is the entry in config.yaml that references a plugin file or defines it inline
-type PluginRef struct {
-	// File reference (for file-based and hybrid modes)
-	File string `mapstructure:"file"`
-
-	// Inline definition fields (for inline and hybrid modes)
-	Name       string               `mapstructure:"name"`
-	Foreground string               `mapstructure:"foreground"`
-	Background string               `mapstructure:"background"`
-	Key        string               `mapstructure:"key"`
-	Filter     string               `mapstructure:"filter"`
-	Sort       string               `mapstructure:"sort"`
-	View       string               `mapstructure:"view"`
-	Type       string               `mapstructure:"type"`
-	Fetcher    string               `mapstructure:"fetcher"`
-	Text       string               `mapstructure:"text"`
-	URL        string               `mapstructure:"url"`
-	Lanes      []PluginLaneConfig   `mapstructure:"lanes"`
-	Actions    []PluginActionConfig `mapstructure:"actions"`
-}

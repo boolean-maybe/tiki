@@ -1,7 +1,0 @@
-name: Help
-type: doki
-fetcher: internal
-text: "Help"
-foreground: "#bcbcbc"
-background: "#003399"
-key: "?"

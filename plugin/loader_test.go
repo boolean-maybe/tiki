@@ -9,8 +9,8 @@ import (
 	taskpkg "github.com/boolean-maybe/tiki/task"
 )
 
-func TestLoadPluginFromRef_FullyInline(t *testing.T) {
-	ref := PluginRef{
+func TestParsePluginConfig_FullyInline(t *testing.T) {
+	cfg := pluginFileConfig{
 		Name:       "Inline Test",
 		Foreground: "#ffffff",
 		Background: "#000000",
@@ -22,7 +22,7 @@ func TestLoadPluginFromRef_FullyInline(t *testing.T) {
 		View: "expanded",
 	}
 
-	def, err := loadPluginFromRef(ref)
+	def, err := parsePluginConfig(cfg, "test")
 	if err != nil {
 		t.Fatalf("Expected no error, got: %v", err)
 	}
@@ -52,7 +52,7 @@ func TestLoadPluginFromRef_FullyInline(t *testing.T) {
 		t.Errorf("Expected sort 'Priority DESC', got %+v", tp.Sort)
 	}
 
-	// Test filter evaluation
+	// test filter evaluation
 	task := &taskpkg.Task{
 		ID:     "TIKI-1",
 		Status: taskpkg.StatusReady,
@@ -63,15 +63,15 @@ func TestLoadPluginFromRef_FullyInline(t *testing.T) {
 	}
 }
 
-func TestLoadPluginFromRef_InlineMinimal(t *testing.T) {
-	ref := PluginRef{
+func TestParsePluginConfig_Minimal(t *testing.T) {
+	cfg := pluginFileConfig{
 		Name: "Minimal",
 		Lanes: []PluginLaneConfig{
 			{Name: "Bugs", Filter: "type = 'bug'"},
 		},
 	}
 
-	def, err := loadPluginFromRef(ref)
+	def, err := parsePluginConfig(cfg, "test")
 	if err != nil {
 		t.Fatalf("Expected no error, got: %v", err)
 	}
@@ -90,220 +90,29 @@ func TestLoadPluginFromRef_InlineMinimal(t *testing.T) {
 	}
 }
 
-func TestLoadPluginFromRef_FileBased(t *testing.T) {
-	// Create temp plugin file
-	tmpDir := t.TempDir()
-	pluginFile := filepath.Join(tmpDir, "test-plugin.yaml")
-	content := `name: Test Plugin
-foreground: "#ff0000"
-background: "#0000ff"
-key: T
-lanes:
-  - name: In Progress
-    filter: status = 'in_progress'
-sort: Priority, UpdatedAt DESC
-view: compact
-`
-	if err := os.WriteFile(pluginFile, []byte(content), 0644); err != nil {
-		t.Fatalf("Failed to write plugin file: %v", err)
-	}
-
-	ref := PluginRef{
-		File: pluginFile, // Use absolute path
-	}
-
-	def, err := loadPluginFromRef(ref)
-	if err != nil {
-		t.Fatalf("Expected no error, got: %v", err)
-	}
-
-	tp, ok := def.(*TikiPlugin)
-	if !ok {
-		t.Fatalf("Expected TikiPlugin, got %T", def)
-	}
-
-	if tp.Name != "Test Plugin" {
-		t.Errorf("Expected name 'Test Plugin', got '%s'", tp.Name)
-	}
-
-	if tp.Rune != 'T' {
-		t.Errorf("Expected rune 'T', got '%c'", tp.Rune)
-	}
-
-	if tp.ViewMode != "compact" {
-		t.Errorf("Expected view mode 'compact', got '%s'", tp.ViewMode)
-	}
-}
-
-func TestLoadPluginFromRef_Hybrid(t *testing.T) {
-	// Create temp plugin file with base config
-	tmpDir := t.TempDir()
-	pluginFile := filepath.Join(tmpDir, "base-plugin.yaml")
-	content := `name: Base Plugin
-foreground: "#ff0000"
-background: "#0000ff"
-key: L
-lanes:
-  - name: Todo
-    filter: status = 'ready'
-sort: Priority
-view: compact
-`
-	if err := os.WriteFile(pluginFile, []byte(content), 0644); err != nil {
-		t.Fatalf("Failed to write plugin file: %v", err)
-	}
-
-	// Override view and key
-	ref := PluginRef{
-		File: pluginFile, // Use absolute path
-		View: "expanded",
-		Key:  "H",
-	}
-
-	def, err := loadPluginFromRef(ref)
-	if err != nil {
-		t.Fatalf("Expected no error, got: %v", err)
-	}
-
-	tp, ok := def.(*TikiPlugin)
-	if !ok {
-		t.Fatalf("Expected TikiPlugin, got %T", def)
-	}
-
-	// Base fields should be from file
-	if tp.Name != "Base Plugin" {
-		t.Errorf("Expected name 'Base Plugin', got '%s'", tp.Name)
-	}
-
-	if len(tp.Lanes) != 1 || tp.Lanes[0].Filter == nil {
-		t.Error("Expected lane filter from file")
-	}
-
-	// Overridden fields should be from inline
-	if tp.Rune != 'H' {
-		t.Errorf("Expected rune 'H' (overridden), got '%c'", tp.Rune)
-	}
-
-	if tp.ViewMode != "expanded" {
-		t.Errorf("Expected view mode 'expanded' (overridden), got '%s'", tp.ViewMode)
-	}
-}
-
-func TestLoadPluginFromRef_HybridMultipleOverrides(t *testing.T) {
-	// Create temp plugin file
-	tmpDir := t.TempDir()
-	pluginFile := filepath.Join(tmpDir, "multi-plugin.yaml")
-	content := `name: Multi Plugin
-foreground: "#ffffff"
-background: "#000000"
-key: M
-lanes:
-  - name: Todo
-    filter: status = 'ready'
-sort: Priority
-view: compact
-`
-	if err := os.WriteFile(pluginFile, []byte(content), 0644); err != nil {
-		t.Fatalf("Failed to write plugin file: %v", err)
-	}
-
-	// Override multiple fields
-	ref := PluginRef{
-		File: pluginFile, // Use absolute path
-		Key:  "X",
-		Lanes: []PluginLaneConfig{
-			{Name: "In Progress", Filter: "status = 'in_progress'"},
-		},
-		Sort:       "UpdatedAt DESC",
-		View:       "expanded",
-		Foreground: "#00ff00",
-	}
-
-	def, err := loadPluginFromRef(ref)
-	if err != nil {
-		t.Fatalf("Expected no error, got: %v", err)
-	}
-
-	tp, ok := def.(*TikiPlugin)
-	if !ok {
-		t.Fatalf("Expected TikiPlugin, got %T", def)
-	}
-
-	// Check overridden values
-	if tp.Rune != 'X' {
-		t.Errorf("Expected rune 'X', got '%c'", tp.Rune)
-	}
-
-	if tp.ViewMode != "expanded" {
-		t.Errorf("Expected view 'expanded', got '%s'", tp.ViewMode)
-	}
-
-	// Verify filter override
-	task := &taskpkg.Task{
-		ID:     "TIKI-1",
-		Status: taskpkg.StatusInProgress,
-	}
-	if len(tp.Lanes) != 1 || tp.Lanes[0].Filter == nil {
-		t.Fatal("Expected overridden lane filter")
-	}
-	if !tp.Lanes[0].Filter.Evaluate(task, time.Now(), "testuser") {
-		t.Error("Expected overridden filter to match in_progress task")
-	}
-
-	todoTask := &taskpkg.Task{
-		ID:     "TIKI-2",
-		Status: taskpkg.StatusReady,
-	}
-	if tp.Lanes[0].Filter.Evaluate(todoTask, time.Now(), "testuser") {
-		t.Error("Expected overridden filter to NOT match todo task")
-	}
-}
-
-func TestLoadPluginFromRef_MissingFile(t *testing.T) {
-	ref := PluginRef{
-		File: "nonexistent.yaml",
-	}
-
-	_, err := loadPluginFromRef(ref)
-	if err == nil {
-		t.Fatal("Expected error for missing file")
-	}
-
-	if err.Error() != "plugin file not found: nonexistent.yaml" {
-		t.Errorf("Expected 'file not found' error, got: %v", err)
-	}
-}
-
-func TestLoadPluginFromRef_NoName(t *testing.T) {
-	// Inline plugin without name
-	ref := PluginRef{
+func TestParsePluginConfig_NoName(t *testing.T) {
+	cfg := pluginFileConfig{
 		Lanes: []PluginLaneConfig{
 			{Name: "Todo", Filter: "status = 'ready'"},
 		},
 	}
 
-	_, err := loadPluginFromRef(ref)
+	_, err := parsePluginConfig(cfg, "test")
 	if err == nil {
 		t.Fatal("Expected error for plugin without name")
 	}
-
-	if err.Error() != "plugin must have a name" {
-		t.Errorf("Expected 'must have a name' error, got: %v", err)
-	}
 }
 
-// Tests for merger functions moved to merger_test.go
-
 func TestPluginTypeExplicit(t *testing.T) {
-	// 1. Inline plugin with type doki
-	ref := PluginRef{
+	// inline plugin with type doki
+	cfg := pluginFileConfig{
 		Name:    "Type Doki Test",
 		Type:    "doki",
 		Fetcher: "internal",
 		Text:    "some text",
 	}
 
-	def, err := loadPluginFromRef(ref)
+	def, err := parsePluginConfig(cfg, "test")
 	if err != nil {
 		t.Fatalf("Expected no error, got: %v", err)
 	}
@@ -315,70 +124,113 @@ func TestPluginTypeExplicit(t *testing.T) {
 	if _, ok := def.(*DokiPlugin); !ok {
 		t.Errorf("Expected DokiPlugin type assertion to succeed")
 	}
+}
 
-	// 2. File-based plugin with type doki
+func TestLoadConfiguredPlugins_WorkflowFile(t *testing.T) {
+	// create a temp directory with a workflow.yaml
 	tmpDir := t.TempDir()
-	pluginFile := filepath.Join(tmpDir, "type-doki.yaml")
-	content := `name: File Type Doki
-type: doki
-fetcher: file
-url: http://example.com/resource
+	workflowContent := `plugins:
+  - name: TestBoard
+    key: "F5"
+    lanes:
+      - name: Ready
+        filter: status = 'ready'
+    sort: Priority
+  - name: TestDocs
+    type: doki
+    fetcher: internal
+    text: "hello"
+    key: "D"
 `
-	if err := os.WriteFile(pluginFile, []byte(content), 0644); err != nil {
-		t.Fatalf("Failed to write plugin file: %v", err)
+	workflowPath := filepath.Join(tmpDir, "workflow.yaml")
+	if err := os.WriteFile(workflowPath, []byte(workflowContent), 0644); err != nil {
+		t.Fatalf("Failed to write workflow.yaml: %v", err)
 	}
 
-	refFile := PluginRef{
-		File: pluginFile, // Use absolute path
-	}
-
-	defFile, err := loadPluginFromRef(refFile)
+	// change to temp dir so FindWorkflowFile() finds it in cwd
+	origDir, err := os.Getwd()
 	if err != nil {
-		t.Fatalf("Expected no error, got: %v", err)
+		t.Fatalf("Failed to get cwd: %v", err)
+	}
+	defer func() { _ = os.Chdir(origDir) }()
+
+	if err := os.Chdir(tmpDir); err != nil {
+		t.Fatalf("Failed to chdir: %v", err)
 	}
 
-	if defFile.GetType() != "doki" {
-		t.Errorf("Expected type 'doki' for file plugin, got '%s'", defFile.GetType())
+	plugins := loadConfiguredPlugins()
+	if len(plugins) != 2 {
+		t.Fatalf("Expected 2 plugins, got %d", len(plugins))
+	}
+
+	if plugins[0].GetName() != "TestBoard" {
+		t.Errorf("Expected first plugin 'TestBoard', got '%s'", plugins[0].GetName())
+	}
+	if plugins[1].GetName() != "TestDocs" {
+		t.Errorf("Expected second plugin 'TestDocs', got '%s'", plugins[1].GetName())
+	}
+
+	// verify config indices
+	if plugins[0].GetConfigIndex() != 0 {
+		t.Errorf("Expected config index 0, got %d", plugins[0].GetConfigIndex())
+	}
+	if plugins[1].GetConfigIndex() != 1 {
+		t.Errorf("Expected config index 1, got %d", plugins[1].GetConfigIndex())
 	}
 }
 
-func TestPluginTypeOverride(t *testing.T) {
-	// File specifies tiki, override specifies doki
-	// This scenario tests if we can override an embedded/file plugin type.
-	// Current mergePluginDefinitions only merges Tiki->Tiki.
-	// If types mismatch, it returns the override.
-
+func TestLoadConfiguredPlugins_NoWorkflowFile(t *testing.T) {
 	tmpDir := t.TempDir()
-	pluginFile := filepath.Join(tmpDir, "type-override.yaml")
-	content := `name: Type Override
-type: tiki
-`
-	if err := os.WriteFile(pluginFile, []byte(content), 0644); err != nil {
-		t.Fatalf("Failed to write plugin file: %v", err)
-	}
 
-	ref := PluginRef{
-		File:    pluginFile, // Use absolute path
-		Type:    "doki",
-		Fetcher: "internal",
-		Text:    "override text",
-	}
-
-	// loadPluginFromRef calls mergePluginConfigs but NOT mergePluginDefinitions.
-	// mergePluginConfigs updates the config struct.
-	// parsePluginConfig then creates the struct.
-	// So this test checks mergePluginConfigs logic + parsing logic.
-
-	def, err := loadPluginFromRef(ref)
+	origDir, err := os.Getwd()
 	if err != nil {
-		t.Fatalf("Expected no error, got: %v", err)
+		t.Fatalf("Failed to get cwd: %v", err)
+	}
+	defer func() { _ = os.Chdir(origDir) }()
+
+	if err := os.Chdir(tmpDir); err != nil {
+		t.Fatalf("Failed to chdir: %v", err)
 	}
 
-	if def.GetType() != "doki" {
-		t.Errorf("Expected type 'doki' (overridden), got '%s'", def.GetType())
+	plugins := loadConfiguredPlugins()
+	if plugins != nil {
+		t.Errorf("Expected nil plugins when no workflow.yaml, got %d", len(plugins))
+	}
+}
+
+func TestLoadConfiguredPlugins_InvalidPlugin(t *testing.T) {
+	tmpDir := t.TempDir()
+	workflowContent := `plugins:
+  - name: Valid
+    key: "V"
+    lanes:
+      - name: Todo
+        filter: status = 'ready'
+  - name: Invalid
+    type: unknown
+`
+	workflowPath := filepath.Join(tmpDir, "workflow.yaml")
+	if err := os.WriteFile(workflowPath, []byte(workflowContent), 0644); err != nil {
+		t.Fatalf("Failed to write workflow.yaml: %v", err)
 	}
 
-	if _, ok := def.(*DokiPlugin); !ok {
-		t.Errorf("Expected DokiPlugin type assertion to succeed")
+	origDir, err := os.Getwd()
+	if err != nil {
+		t.Fatalf("Failed to get cwd: %v", err)
+	}
+	defer func() { _ = os.Chdir(origDir) }()
+
+	if err := os.Chdir(tmpDir); err != nil {
+		t.Fatalf("Failed to chdir: %v", err)
+	}
+
+	// should load valid plugin and skip invalid one
+	plugins := loadConfiguredPlugins()
+	if len(plugins) != 1 {
+		t.Fatalf("Expected 1 valid plugin (invalid skipped), got %d", len(plugins))
+	}
+
+	if plugins[0].GetName() != "Valid" {
+		t.Errorf("Expected plugin 'Valid', got '%s'", plugins[0].GetName())
 	}
 }

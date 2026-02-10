@@ -1,41 +1,47 @@
 package integration
 
 import (
+	"os"
+	"path/filepath"
 	"testing"
 
 	"github.com/boolean-maybe/tiki/model"
-	"github.com/boolean-maybe/tiki/plugin"
 	"github.com/boolean-maybe/tiki/task"
 	"github.com/boolean-maybe/tiki/testutil"
 
 	"github.com/gdamore/tcell/v2"
-	"github.com/spf13/viper"
 )
 
 func TestPluginView_MoveTaskAppliesLaneAction(t *testing.T) {
-	originalPlugins := viper.Get("plugins")
-	viper.Set("plugins", []plugin.PluginRef{
-		{
-			Name: "ActionTest",
-			Key:  "F4",
-			Lanes: []plugin.PluginLaneConfig{
-				{
-					Name:    "Backlog",
-					Columns: 1,
-					Filter:  "status = 'backlog'",
-					Action:  "status=backlog, tags-=[moved]",
-				},
-				{
-					Name:    "Done",
-					Columns: 1,
-					Filter:  "status = 'done'",
-					Action:  "status=done, tags+=[moved]",
-				},
-			},
-		},
-	})
+	// create a temp workflow.yaml with the test plugin
+	tmpDir := t.TempDir()
+	workflowContent := `plugins:
+  - name: ActionTest
+    key: "F4"
+    lanes:
+      - name: Backlog
+        columns: 1
+        filter: status = 'backlog'
+        action: status=backlog, tags-=[moved]
+      - name: Done
+        columns: 1
+        filter: status = 'done'
+        action: status=done, tags+=[moved]
+`
+	if err := os.WriteFile(filepath.Join(tmpDir, "workflow.yaml"), []byte(workflowContent), 0644); err != nil {
+		t.Fatalf("failed to write workflow.yaml: %v", err)
+	}
+
+	// chdir so FindWorkflowFile() picks it up
+	origDir, err := os.Getwd()
+	if err != nil {
+		t.Fatalf("failed to get cwd: %v", err)
+	}
+	if err := os.Chdir(tmpDir); err != nil {
+		t.Fatalf("failed to chdir: %v", err)
+	}
 	t.Cleanup(func() {
-		viper.Set("plugins", originalPlugins)
+		_ = os.Chdir(origDir)
 	})
 
 	ta := testutil.NewTestApp(t)

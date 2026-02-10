@@ -1,7 +1,0 @@
-name: Docs
-type: doki
-fetcher: file
-url: "index.md"
-foreground: "#ff9966"
-background: "#2b3a42"
-key: "F2"

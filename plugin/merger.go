@@ -1,8 +1,6 @@
 package plugin
 
 import (
-	"fmt"
-
 	"github.com/gdamore/tcell/v2"
 )
 
@@ -21,54 +19,6 @@ type pluginFileConfig struct {
 	URL        string               `yaml:"url"`
 	Lanes      []PluginLaneConfig   `yaml:"lanes"`
 	Actions    []PluginActionConfig `yaml:"actions"`
-}
-
-// mergePluginConfigs merges file-based config (base) with inline overrides
-// Inline values override file values for any non-empty field
-func mergePluginConfigs(base pluginFileConfig, overrides PluginRef) pluginFileConfig {
-	result := base
-
-	if overrides.Name != "" {
-		result.Name = overrides.Name
-	}
-	if overrides.Foreground != "" {
-		result.Foreground = overrides.Foreground
-	}
-	if overrides.Background != "" {
-		result.Background = overrides.Background
-	}
-	if overrides.Key != "" {
-		result.Key = overrides.Key
-	}
-	if overrides.Filter != "" {
-		result.Filter = overrides.Filter
-	}
-	if overrides.Sort != "" {
-		result.Sort = overrides.Sort
-	}
-	if overrides.View != "" {
-		result.View = overrides.View
-	}
-	if overrides.Type != "" {
-		result.Type = overrides.Type
-	}
-	if overrides.Fetcher != "" {
-		result.Fetcher = overrides.Fetcher
-	}
-	if overrides.Text != "" {
-		result.Text = overrides.Text
-	}
-	if overrides.URL != "" {
-		result.URL = overrides.URL
-	}
-	if len(overrides.Lanes) > 0 {
-		result.Lanes = overrides.Lanes
-	}
-	if len(overrides.Actions) > 0 {
-		result.Actions = overrides.Actions
-	}
-
-	return result
 }
 
 // mergePluginDefinitions merges an embedded plugin (base) with a configured override
@@ -129,30 +79,4 @@ func mergePluginDefinitions(base Plugin, override Plugin) Plugin {
 	// If we are replacing an embedded plugin with a Doki plugin (or vice versa, effectively replacing it),
 	// just return the override.
 	return override
-}
-
-// validatePluginRef validates a PluginRef before loading
-func validatePluginRef(ref PluginRef) error {
-	if ref.File != "" {
-		// File-based or hybrid - name is optional (can come from file)
-		return nil
-	}
-
-	// Fully inline - must have name
-	if ref.Name == "" {
-		return fmt.Errorf("inline plugin must specify 'name' field")
-	}
-
-	// Should have at least one configuration field
-	hasContent := ref.Key != "" || ref.Filter != "" ||
-		ref.Sort != "" || ref.Foreground != "" ||
-		ref.Background != "" || ref.View != "" || ref.Type != "" ||
-		ref.Fetcher != "" || ref.Text != "" || ref.URL != "" ||
-		len(ref.Lanes) > 0 || len(ref.Actions) > 0
-
-	if !hasContent {
-		return fmt.Errorf("inline plugin '%s' has no configuration fields", ref.Name)
-	}
-
-	return nil
 }

@@ -8,12 +8,12 @@ import (
 func TestDokiValidation(t *testing.T) {
 	tests := []struct {
 		name      string
-		ref       PluginRef
+		cfg       pluginFileConfig
 		wantError string
 	}{
 		{
 			name: "Missing Fetcher",
-			ref: PluginRef{
+			cfg: pluginFileConfig{
 				Name: "Invalid Doki",
 				Type: "doki",
 			},
@@ -21,7 +21,7 @@ func TestDokiValidation(t *testing.T) {
 		},
 		{
 			name: "Invalid Fetcher",
-			ref: PluginRef{
+			cfg: pluginFileConfig{
 				Name:    "Invalid Fetcher",
 				Type:    "doki",
 				Fetcher: "http",
@@ -30,7 +30,7 @@ func TestDokiValidation(t *testing.T) {
 		},
 		{
 			name: "File Fetcher Missing URL",
-			ref: PluginRef{
+			cfg: pluginFileConfig{
 				Name:    "File No URL",
 				Type:    "doki",
 				Fetcher: "file",
@@ -39,7 +39,7 @@ func TestDokiValidation(t *testing.T) {
 		},
 		{
 			name: "Internal Fetcher Missing Text",
-			ref: PluginRef{
+			cfg: pluginFileConfig{
 				Name:    "Internal No Text",
 				Type:    "doki",
 				Fetcher: "internal",
@@ -48,7 +48,7 @@ func TestDokiValidation(t *testing.T) {
 		},
 		{
 			name: "Doki with Tiki fields",
-			ref: PluginRef{
+			cfg: pluginFileConfig{
 				Name:    "Doki with Filter",
 				Type:    "doki",
 				Fetcher: "internal",
@@ -59,7 +59,7 @@ func TestDokiValidation(t *testing.T) {
 		},
 		{
 			name: "Valid File Fetcher",
-			ref: PluginRef{
+			cfg: pluginFileConfig{
 				Name:    "Valid File",
 				Type:    "doki",
 				Fetcher: "file",
@@ -69,7 +69,7 @@ func TestDokiValidation(t *testing.T) {
 		},
 		{
 			name: "Valid Internal Fetcher",
-			ref: PluginRef{
+			cfg: pluginFileConfig{
 				Name:    "Valid Internal",
 				Type:    "doki",
 				Fetcher: "internal",
@@ -81,7 +81,7 @@ func TestDokiValidation(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			_, err := loadPluginFromRef(tc.ref)
+			_, err := parsePluginConfig(tc.cfg, "test")
 			if tc.wantError != "" {
 				if err == nil {
 					t.Errorf("Expected error containing '%s', got nil", tc.wantError)
@@ -100,12 +100,12 @@ func TestDokiValidation(t *testing.T) {
 func TestTikiValidation(t *testing.T) {
 	tests := []struct {
 		name      string
-		ref       PluginRef
+		cfg       pluginFileConfig
 		wantError string
 	}{
 		{
 			name: "Tiki with Doki fields (Fetcher)",
-			ref: PluginRef{
+			cfg: pluginFileConfig{
 				Name:    "Tiki with Fetcher",
 				Type:    "tiki",
 				Filter:  "status='ready'",
@@ -115,7 +115,7 @@ func TestTikiValidation(t *testing.T) {
 		},
 		{
 			name: "Tiki with Doki fields (Text)",
-			ref: PluginRef{
+			cfg: pluginFileConfig{
 				Name:   "Tiki with Text",
 				Type:   "tiki",
 				Filter: "status='ready'",
@@ -127,7 +127,7 @@ func TestTikiValidation(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			_, err := loadPluginFromRef(tc.ref)
+			_, err := parsePluginConfig(tc.cfg, "test")
 			if tc.wantError != "" {
 				if err == nil {
 					t.Errorf("Expected error containing '%s', got nil", tc.wantError)
