@@ -133,13 +133,13 @@ func (pc *PluginController) HandleAction(actionID ActionID) bool {
 }
 
 func (pc *PluginController) handleNav(direction string) bool {
-	pane := pc.pluginConfig.GetSelectedPane()
-	tasks := pc.GetFilteredTasksForPane(pane)
+	lane := pc.pluginConfig.GetSelectedLane()
+	tasks := pc.GetFilteredTasksForLane(lane)
 	if direction == "left" || direction == "right" {
 		if pc.pluginConfig.MoveSelection(direction, len(tasks)) {
 			return true
 		}
-		return pc.handlePaneSwitch(direction)
+		return pc.handleLaneSwitch(direction)
 	}
 	return pc.pluginConfig.MoveSelection(direction, len(tasks))
 }
@@ -156,38 +156,38 @@ func (pc *PluginController) handleOpenTask() bool {
 	return true
 }
 
-func (pc *PluginController) handlePaneSwitch(direction string) bool {
-	currentPane := pc.pluginConfig.GetSelectedPane()
-	nextPane := currentPane
+func (pc *PluginController) handleLaneSwitch(direction string) bool {
+	currentLane := pc.pluginConfig.GetSelectedLane()
+	nextLane := currentLane
 	switch direction {
 	case "left":
-		nextPane--
+		nextLane--
 	case "right":
-		nextPane++
+		nextLane++
 	default:
 		return false
 	}
 
-	for nextPane >= 0 && nextPane < len(pc.pluginDef.Panes) {
-		tasks := pc.GetFilteredTasksForPane(nextPane)
+	for nextLane >= 0 && nextLane < len(pc.pluginDef.Lanes) {
+		tasks := pc.GetFilteredTasksForLane(nextLane)
 		if len(tasks) > 0 {
-			pc.pluginConfig.SetSelectedPane(nextPane)
+			pc.pluginConfig.SetSelectedLane(nextLane)
 			// Select the task at top of viewport (scroll offset) rather than keeping stale index
-			scrollOffset := pc.pluginConfig.GetScrollOffsetForPane(nextPane)
+			scrollOffset := pc.pluginConfig.GetScrollOffsetForLane(nextLane)
 			if scrollOffset >= len(tasks) {
 				scrollOffset = len(tasks) - 1
 			}
 			if scrollOffset < 0 {
 				scrollOffset = 0
 			}
-			pc.pluginConfig.SetSelectedIndexForPane(nextPane, scrollOffset)
+			pc.pluginConfig.SetSelectedIndexForLane(nextLane, scrollOffset)
 			return true
 		}
 		switch direction {
 		case "left":
-			nextPane--
+			nextLane--
 		case "right":
-			nextPane++
+			nextLane++
 		}
 	}
 	return false
@@ -249,7 +249,7 @@ func (pc *PluginController) handlePluginAction(r rune) bool {
 	}
 
 	currentUser := getCurrentUserName(pc.taskStore)
-	updated, err := plugin.ApplyPaneAction(taskItem, pa.Action, currentUser)
+	updated, err := plugin.ApplyLaneAction(taskItem, pa.Action, currentUser)
 	if err != nil {
 		slog.Error("failed to apply plugin action", "task_id", taskID, "key", string(r), "error", err)
 		return false
@@ -271,13 +271,13 @@ func (pc *PluginController) handleMoveTask(offset int) bool {
 		return false
 	}
 
-	if pc.pluginDef == nil || len(pc.pluginDef.Panes) == 0 {
+	if pc.pluginDef == nil || len(pc.pluginDef.Lanes) == 0 {
 		return false
 	}
 
-	currentPane := pc.pluginConfig.GetSelectedPane()
-	targetPane := currentPane + offset
-	if targetPane < 0 || targetPane >= len(pc.pluginDef.Panes) {
+	currentLane := pc.pluginConfig.GetSelectedLane()
+	targetLane := currentLane + offset
+	if targetLane < 0 || targetLane >= len(pc.pluginDef.Lanes) {
 		return false
 	}
 
@@ -287,19 +287,19 @@ func (pc *PluginController) handleMoveTask(offset int) bool {
 	}
 
 	currentUser := getCurrentUserName(pc.taskStore)
-	updated, err := plugin.ApplyPaneAction(taskItem, pc.pluginDef.Panes[targetPane].Action, currentUser)
+	updated, err := plugin.ApplyLaneAction(taskItem, pc.pluginDef.Lanes[targetLane].Action, currentUser)
 	if err != nil {
-		slog.Error("failed to apply pane action", "task_id", taskID, "error", err)
+		slog.Error("failed to apply lane action", "task_id", taskID, "error", err)
 		return false
 	}
 
 	if err := pc.taskStore.UpdateTask(updated); err != nil {
-		slog.Error("failed to update task after pane move", "task_id", taskID, "error", err)
+		slog.Error("failed to update task after lane move", "task_id", taskID, "error", err)
 		return false
 	}
 
 	pc.ensureSearchResultIncludesTask(updated)
-	pc.selectTaskInPane(targetPane, taskID)
+	pc.selectTaskInLane(targetLane, taskID)
 	return true
 }
 
@@ -313,7 +313,7 @@ func (pc *PluginController) HandleSearch(query string) {
 	// Save current position
 	pc.pluginConfig.SavePreSearchState()
 
-	// Search across all tasks; pane membership is decided per pane
+	// Search across all tasks; lane membership is decided per lane
 	results := pc.taskStore.Search(query, nil)
 	if len(results) == 0 {
 		pc.pluginConfig.SetSearchResults([]task.SearchResult{}, query)
@@ -321,28 +321,28 @@ func (pc *PluginController) HandleSearch(query string) {
 	}
 
 	pc.pluginConfig.SetSearchResults(results, query)
-	if pc.selectFirstNonEmptyPane() {
+	if pc.selectFirstNonEmptyLane() {
 		return
 	}
 }
 
 // getSelectedTaskID returns the ID of the currently selected task
 func (pc *PluginController) getSelectedTaskID() string {
-	pane := pc.pluginConfig.GetSelectedPane()
-	tasks := pc.GetFilteredTasksForPane(pane)
-	idx := pc.pluginConfig.GetSelectedIndexForPane(pane)
+	lane := pc.pluginConfig.GetSelectedLane()
+	tasks := pc.GetFilteredTasksForLane(lane)
+	idx := pc.pluginConfig.GetSelectedIndexForLane(lane)
 	if idx < 0 || idx >= len(tasks) {
 		return ""
 	}
 	return tasks[idx].ID
 }
 
-// GetFilteredTasksForPane returns tasks filtered and sorted for a specific pane.
-func (pc *PluginController) GetFilteredTasksForPane(pane int) []*task.Task {
+// GetFilteredTasksForLane returns tasks filtered and sorted for a specific lane.
+func (pc *PluginController) GetFilteredTasksForLane(lane int) []*task.Task {
 	if pc.pluginDef == nil {
 		return nil
 	}
-	if pane < 0 || pane >= len(pc.pluginDef.Panes) {
+	if lane < 0 || lane >= len(pc.pluginDef.Lanes) {
 		return nil
 	}
 
@@ -359,8 +359,8 @@ func (pc *PluginController) GetFilteredTasksForPane(pane int) []*task.Task {
 	// Apply filter
 	var filtered []*task.Task
 	for _, task := range allTasks {
-		paneFilter := pc.pluginDef.Panes[pane].Filter
-		if paneFilter == nil || paneFilter.Evaluate(task, now, currentUser) {
+		laneFilter := pc.pluginDef.Lanes[lane].Filter
+		if laneFilter == nil || laneFilter.Evaluate(task, now, currentUser) {
 			filtered = append(filtered, task)
 		}
 	}
@@ -381,12 +381,12 @@ func (pc *PluginController) GetFilteredTasksForPane(pane int) []*task.Task {
 	return filtered
 }
 
-func (pc *PluginController) selectTaskInPane(pane int, taskID string) {
-	if pane < 0 || pane >= len(pc.pluginDef.Panes) {
+func (pc *PluginController) selectTaskInLane(lane int, taskID string) {
+	if lane < 0 || lane >= len(pc.pluginDef.Lanes) {
 		return
 	}
 
-	tasks := pc.GetFilteredTasksForPane(pane)
+	tasks := pc.GetFilteredTasksForLane(lane)
 	targetIndex := 0
 	for i, task := range tasks {
 		if task.ID == taskID {
@@ -395,33 +395,33 @@ func (pc *PluginController) selectTaskInPane(pane int, taskID string) {
 		}
 	}
 
-	pc.pluginConfig.SetSelectedPane(pane)
-	pc.pluginConfig.SetSelectedIndexForPane(pane, targetIndex)
+	pc.pluginConfig.SetSelectedLane(lane)
+	pc.pluginConfig.SetSelectedIndexForLane(lane, targetIndex)
 }
 
-func (pc *PluginController) selectFirstNonEmptyPane() bool {
-	for pane := range pc.pluginDef.Panes {
-		tasks := pc.GetFilteredTasksForPane(pane)
+func (pc *PluginController) selectFirstNonEmptyLane() bool {
+	for lane := range pc.pluginDef.Lanes {
+		tasks := pc.GetFilteredTasksForLane(lane)
 		if len(tasks) > 0 {
-			pc.pluginConfig.SetSelectedPaneAndIndex(pane, 0)
+			pc.pluginConfig.SetSelectedLaneAndIndex(lane, 0)
 			return true
 		}
 	}
 	return false
 }
 
-func (pc *PluginController) EnsureFirstNonEmptyPaneSelection() bool {
+func (pc *PluginController) EnsureFirstNonEmptyLaneSelection() bool {
 	if pc.pluginDef == nil {
 		return false
 	}
-	currentPane := pc.pluginConfig.GetSelectedPane()
-	if currentPane >= 0 && currentPane < len(pc.pluginDef.Panes) {
-		tasks := pc.GetFilteredTasksForPane(currentPane)
+	currentLane := pc.pluginConfig.GetSelectedLane()
+	if currentLane >= 0 && currentLane < len(pc.pluginDef.Lanes) {
+		tasks := pc.GetFilteredTasksForLane(currentLane)
 		if len(tasks) > 0 {
 			return false
 		}
 	}
-	return pc.selectFirstNonEmptyPane()
+	return pc.selectFirstNonEmptyLane()
 }
 
 func (pc *PluginController) ensureSearchResultIncludesTask(updated *task.Task) {

@@ -15,7 +15,7 @@ func TestLoadPluginFromRef_FullyInline(t *testing.T) {
 		Foreground: "#ffffff",
 		Background: "#000000",
 		Key:        "I",
-		Panes: []PluginPaneConfig{
+		Lanes: []PluginLaneConfig{
 			{Name: "Todo", Filter: "status = 'ready'"},
 		},
 		Sort: "Priority DESC",
@@ -44,8 +44,8 @@ func TestLoadPluginFromRef_FullyInline(t *testing.T) {
 		t.Errorf("Expected view mode 'expanded', got '%s'", tp.ViewMode)
 	}
 
-	if len(tp.Panes) != 1 || tp.Panes[0].Filter == nil {
-		t.Fatal("Expected pane filter to be parsed")
+	if len(tp.Lanes) != 1 || tp.Lanes[0].Filter == nil {
+		t.Fatal("Expected lane filter to be parsed")
 	}
 
 	if len(tp.Sort) != 1 || tp.Sort[0].Field != "priority" || !tp.Sort[0].Descending {
@@ -58,7 +58,7 @@ func TestLoadPluginFromRef_FullyInline(t *testing.T) {
 		Status: taskpkg.StatusReady,
 	}
 
-	if !tp.Panes[0].Filter.Evaluate(task, time.Now(), "testuser") {
+	if !tp.Lanes[0].Filter.Evaluate(task, time.Now(), "testuser") {
 		t.Error("Expected filter to match todo task")
 	}
 }
@@ -66,7 +66,7 @@ func TestLoadPluginFromRef_FullyInline(t *testing.T) {
 func TestLoadPluginFromRef_InlineMinimal(t *testing.T) {
 	ref := PluginRef{
 		Name: "Minimal",
-		Panes: []PluginPaneConfig{
+		Lanes: []PluginLaneConfig{
 			{Name: "Bugs", Filter: "type = 'bug'"},
 		},
 	}
@@ -85,8 +85,8 @@ func TestLoadPluginFromRef_InlineMinimal(t *testing.T) {
 		t.Errorf("Expected name 'Minimal', got '%s'", tp.Name)
 	}
 
-	if len(tp.Panes) != 1 || tp.Panes[0].Filter == nil {
-		t.Error("Expected pane filter to be parsed")
+	if len(tp.Lanes) != 1 || tp.Lanes[0].Filter == nil {
+		t.Error("Expected lane filter to be parsed")
 	}
 }
 
@@ -98,7 +98,7 @@ func TestLoadPluginFromRef_FileBased(t *testing.T) {
 foreground: "#ff0000"
 background: "#0000ff"
 key: T
-panes:
+lanes:
   - name: In Progress
     filter: status = 'in_progress'
 sort: Priority, UpdatedAt DESC
@@ -143,7 +143,7 @@ func TestLoadPluginFromRef_Hybrid(t *testing.T) {
 foreground: "#ff0000"
 background: "#0000ff"
 key: L
-panes:
+lanes:
   - name: Todo
     filter: status = 'ready'
 sort: Priority
@@ -175,8 +175,8 @@ view: compact
 		t.Errorf("Expected name 'Base Plugin', got '%s'", tp.Name)
 	}
 
-	if len(tp.Panes) != 1 || tp.Panes[0].Filter == nil {
-		t.Error("Expected pane filter from file")
+	if len(tp.Lanes) != 1 || tp.Lanes[0].Filter == nil {
+		t.Error("Expected lane filter from file")
 	}
 
 	// Overridden fields should be from inline
@@ -197,7 +197,7 @@ func TestLoadPluginFromRef_HybridMultipleOverrides(t *testing.T) {
 foreground: "#ffffff"
 background: "#000000"
 key: M
-panes:
+lanes:
   - name: Todo
     filter: status = 'ready'
 sort: Priority
@@ -211,7 +211,7 @@ view: compact
 	ref := PluginRef{
 		File: pluginFile, // Use absolute path
 		Key:  "X",
-		Panes: []PluginPaneConfig{
+		Lanes: []PluginLaneConfig{
 			{Name: "In Progress", Filter: "status = 'in_progress'"},
 		},
 		Sort:       "UpdatedAt DESC",
@@ -243,10 +243,10 @@ view: compact
 		ID:     "TIKI-1",
 		Status: taskpkg.StatusInProgress,
 	}
-	if len(tp.Panes) != 1 || tp.Panes[0].Filter == nil {
-		t.Fatal("Expected overridden pane filter")
+	if len(tp.Lanes) != 1 || tp.Lanes[0].Filter == nil {
+		t.Fatal("Expected overridden lane filter")
 	}
-	if !tp.Panes[0].Filter.Evaluate(task, time.Now(), "testuser") {
+	if !tp.Lanes[0].Filter.Evaluate(task, time.Now(), "testuser") {
 		t.Error("Expected overridden filter to match in_progress task")
 	}
 
@@ -254,7 +254,7 @@ view: compact
 		ID:     "TIKI-2",
 		Status: taskpkg.StatusReady,
 	}
-	if tp.Panes[0].Filter.Evaluate(todoTask, time.Now(), "testuser") {
+	if tp.Lanes[0].Filter.Evaluate(todoTask, time.Now(), "testuser") {
 		t.Error("Expected overridden filter to NOT match todo task")
 	}
 }
@@ -277,7 +277,7 @@ func TestLoadPluginFromRef_MissingFile(t *testing.T) {
 func TestLoadPluginFromRef_NoName(t *testing.T) {
 	// Inline plugin without name
 	ref := PluginRef{
-		Panes: []PluginPaneConfig{
+		Lanes: []PluginLaneConfig{
 			{Name: "Todo", Filter: "status = 'ready'"},
 		},
 	}

@@ -50,11 +50,11 @@ func BuildPluginConfigsAndDefs(plugins []plugin.Plugin) (map[string]*model.Plugi
 			if tp.ViewMode == "expanded" {
 				pc.SetViewMode("expanded")
 			}
-			columns := make([]int, len(tp.Panes))
-			for i, pane := range tp.Panes {
-				columns[i] = pane.Columns
+			columns := make([]int, len(tp.Lanes))
+			for i, lane := range tp.Lanes {
+				columns[i] = lane.Columns
 			}
-			pc.SetPaneLayout(columns)
+			pc.SetLaneLayout(columns)
 		}
 
 		pluginConfigs[p.GetName()] = pc

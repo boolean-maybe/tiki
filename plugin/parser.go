@@ -52,8 +52,8 @@ func parsePluginConfig(cfg pluginFileConfig, source string) (Plugin, error) {
 		if cfg.View != "" {
 			return nil, fmt.Errorf("doki plugin cannot have 'view'")
 		}
-		if len(cfg.Panes) > 0 {
-			return nil, fmt.Errorf("doki plugin cannot have 'panes'")
+		if len(cfg.Lanes) > 0 {
+			return nil, fmt.Errorf("doki plugin cannot have 'lanes'")
 		}
 		if len(cfg.Actions) > 0 {
 			return nil, fmt.Errorf("doki plugin cannot have 'actions'")
@@ -90,35 +90,35 @@ func parsePluginConfig(cfg pluginFileConfig, source string) (Plugin, error) {
 		if cfg.Filter != "" {
 			return nil, fmt.Errorf("tiki plugin cannot have 'filter'")
 		}
-		if len(cfg.Panes) == 0 {
-			return nil, fmt.Errorf("tiki plugin requires 'panes'")
+		if len(cfg.Lanes) == 0 {
+			return nil, fmt.Errorf("tiki plugin requires 'lanes'")
 		}
-		if len(cfg.Panes) > 10 {
-			return nil, fmt.Errorf("tiki plugin has too many panes (%d), max is 10", len(cfg.Panes))
+		if len(cfg.Lanes) > 10 {
+			return nil, fmt.Errorf("tiki plugin has too many lanes (%d), max is 10", len(cfg.Lanes))
 		}
 
-		panes := make([]TikiPane, 0, len(cfg.Panes))
-		for i, pane := range cfg.Panes {
-			if pane.Name == "" {
-				return nil, fmt.Errorf("pane %d missing name", i)
+		lanes := make([]TikiLane, 0, len(cfg.Lanes))
+		for i, lane := range cfg.Lanes {
+			if lane.Name == "" {
+				return nil, fmt.Errorf("lane %d missing name", i)
 			}
-			columns := pane.Columns
+			columns := lane.Columns
 			if columns == 0 {
 				columns = 1
 			}
 			if columns < 0 {
-				return nil, fmt.Errorf("pane %q has invalid columns %d", pane.Name, columns)
+				return nil, fmt.Errorf("lane %q has invalid columns %d", lane.Name, columns)
 			}
-			filterExpr, err := filter.ParseFilter(pane.Filter)
+			filterExpr, err := filter.ParseFilter(lane.Filter)
 			if err != nil {
-				return nil, fmt.Errorf("parsing filter for pane %q: %w", pane.Name, err)
+				return nil, fmt.Errorf("parsing filter for lane %q: %w", lane.Name, err)
 			}
-			action, err := ParsePaneAction(pane.Action)
+			action, err := ParseLaneAction(lane.Action)
 			if err != nil {
-				return nil, fmt.Errorf("parsing action for pane %q: %w", pane.Name, err)
+				return nil, fmt.Errorf("parsing action for lane %q: %w", lane.Name, err)
 			}
-			panes = append(panes, TikiPane{
-				Name:    pane.Name,
+			lanes = append(lanes, TikiLane{
+				Name:    lane.Name,
 				Columns: columns,
 				Filter:  filterExpr,
 				Action:  action,
@@ -139,7 +139,7 @@ func parsePluginConfig(cfg pluginFileConfig, source string) (Plugin, error) {
 
 		return &TikiPlugin{
 			BasePlugin: base,
-			Panes:      panes,
+			Lanes:      lanes,
 			Sort:       sortRules,
 			ViewMode:   cfg.View,
 			Actions:    actions,
@@ -185,7 +185,7 @@ func parsePluginActions(configs []PluginActionConfig) ([]PluginAction, error) {
 			return nil, fmt.Errorf("action %d (key %q) missing 'action'", i, cfg.Key)
 		}
 
-		action, err := ParsePaneAction(cfg.Action)
+		action, err := ParseLaneAction(cfg.Action)
 		if err != nil {
 			return nil, fmt.Errorf("parsing action %d (key %q): %w", i, cfg.Key, err)
 		}

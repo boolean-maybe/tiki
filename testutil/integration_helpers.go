@@ -303,11 +303,11 @@ func (ta *TestApp) LoadPlugins() error {
 
 		// Create appropriate controller based on plugin type
 		if tp, ok := p.(*plugin.TikiPlugin); ok {
-			columns := make([]int, len(tp.Panes))
-			for i, pane := range tp.Panes {
-				columns[i] = pane.Columns
+			columns := make([]int, len(tp.Lanes))
+			for i, lane := range tp.Lanes {
+				columns[i] = lane.Columns
 			}
-			pc.SetPaneLayout(columns)
+			pc.SetLaneLayout(columns)
 			pluginControllers[p.GetName()] = controller.NewPluginController(
 				ta.TaskStore, pc, tp, ta.NavController,
 			)

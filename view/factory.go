@@ -87,8 +87,8 @@ func (f *ViewFactory) CreateView(viewID model.ViewID, params map[string]interfac
 							f.taskStore,
 							pluginConfig,
 							tikiPlugin,
-							tikiController.GetFilteredTasksForPane,
-							tikiController.EnsureFirstNonEmptyPaneSelection,
+							tikiController.GetFilteredTasksForLane,
+							tikiController.EnsureFirstNonEmptyLaneSelection,
 							tikiController.GetActionRegistry(),
 						)
 					} else {

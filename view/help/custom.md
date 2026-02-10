@@ -11,7 +11,7 @@ how Backlog is defined:
         foreground: "#5fff87"
         background: "#005f00"
         key: "F3"
-        panes:
+        lanes:
           - name: Backlog
             columns: 4
             filter: status = 'backlog'
@@ -21,7 +21,7 @@ how Backlog is defined:
             action: status = 'ready'
         sort: Priority, ID
 ```
-that translates to - show all tikis in the status `backlog`, sort by priority and then by ID arranged visually in 4 columns in a single pane. 
+that translates to - show all tikis in the status `backlog`, sort by priority and then by ID arranged visually in 4 columns in a single lane. 
 The `actions` section defines a keyboard shortcut `b` that moves the selected tiki to the board by setting its status to `ready`
 You define the name, caption colors, hotkey, tiki filter and sorting. Save this into a yaml file and add this line:
 
@@ -47,12 +47,12 @@ Likewise the documentation is just a plugin:
 that translates to - show `index.md` file located under `.doc/doki`
 installed in the same way
 
-## Multi-pane plugin
+## Multi-lane plugin
 
-Backlog is a pretty simple plugin in that it displays all tikis in a single pane. Multi-pane tiki plugins offer functionality
-similar to that of the board. You can define multiple panes per view and move tikis around with Shift-Left/Shift-Right
-much like in the board. You can create a multi-pane plugin by defining multiple panes in its definition and assigning
-actions to each pane. An action defines what happens when you move a tiki into the pane. Here is a multi-pane plugin
+Backlog is a pretty simple plugin in that it displays all tikis in a single lane. Multi-lane tiki plugins offer functionality
+similar to that of the board. You can define multiple lanes per view and move tikis around with Shift-Left/Shift-Right
+much like in the board. You can create a multi-lane plugin by defining multiple lanes in its definition and assigning
+actions to each lane. An action defines what happens when you move a tiki into the lane. Here is a multi-lane plugin
 definition that roughly mimics the board:
 
 ```yaml
@@ -61,7 +61,7 @@ foreground: "#5fff87"
 background: "#005f00"
 key: "F4"
 sort: Priority, Title
-panes:
+lanes:
   - name: Ready
     columns: 1
     filter: status = 'ready'
@@ -82,7 +82,7 @@ panes:
 
 ## Plugin actions
 
-In addition to pane actions that trigger when moving tikis between panes, you can define plugin-level actions 
+In addition to lane actions that trigger when moving tikis between lanes, you can define plugin-level actions 
 that apply to the currently selected tiki via a keyboard shortcut. These shortcuts are displayed in the header when the plugin is active.
 
 ```yaml
@@ -98,7 +98,7 @@ actions:
 Each action has:
 - `key` - a single printable character used as the keyboard shortcut
 - `label` - description shown in the header
-- `action` - an action expression (same syntax as pane actions, see below)
+- `action` - an action expression (same syntax as lane actions, see below)
 
 When the shortcut key is pressed, the action is applied to the currently selected tiki. 
 For example, pressing `b` in the Backlog plugin changes the selected tiki's status to `ready`, 
@@ -106,7 +106,7 @@ effectively moving it to the board.
 
 ## Action expression
 
-The `action: status = 'backlog'` statement in a plugin is an action to be run when a tiki is moved into the pane. Here `=`
+The `action: status = 'backlog'` statement in a plugin is an action to be run when a tiki is moved into the lane. Here `=`
 means `assign` so status is assigned `backlog` when the tiki is moved. Likewise you can manipulate tags using `+-` (add)
 or `-=` (remove) expressions. For example, `tags += [idea, UI]` adds `idea` and `UI` tags to a tiki
 

@@ -2,7 +2,7 @@ name: Backlog
 foreground: "#5fff87"
 background: "#0b3d2e"
 key: "F3"
-panes:
+lanes:
   - name: Backlog
     columns: 4
     filter: status = 'backlog' and type != 'epic'

@@ -382,11 +382,11 @@ func TestTaskDetailView_AllStatuses(t *testing.T) {
 
 	// For each status, navigate to first task with that status and verify detail view
 	for i, status := range statuses {
-		// Find the task on board (may need to navigate between panes)
+		// Find the task on board (may need to navigate between lanes)
 		taskID := fmt.Sprintf("TIKI-%d", i+1)
 
-		// Navigate to correct pane based on status
-		// For simplicity, we'll just open first task in todo pane for this test
+		// Navigate to correct lane based on status
+		// For simplicity, we'll just open first task in todo lane for this test
 		if status == taskpkg.StatusReady {
 			ta.SendKey(tcell.KeyEnter, 0, tcell.ModNone)
 

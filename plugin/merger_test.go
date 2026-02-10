@@ -14,7 +14,7 @@ func TestMergePluginConfigs(t *testing.T) {
 		Foreground: "#ff0000",
 		Background: "#0000ff",
 		Key:        "L",
-		Panes: []PluginPaneConfig{
+		Lanes: []PluginLaneConfig{
 			{Name: "Todo", Filter: "status = 'ready'"},
 		},
 		Sort: "Priority",
@@ -32,8 +32,8 @@ func TestMergePluginConfigs(t *testing.T) {
 	if result.Name != "Base" {
 		t.Errorf("Expected name 'Base', got '%s'", result.Name)
 	}
-	if len(result.Panes) != 1 || result.Panes[0].Filter != "status = 'ready'" {
-		t.Errorf("Expected panes from base, got %+v", result.Panes)
+	if len(result.Lanes) != 1 || result.Lanes[0].Filter != "status = 'ready'" {
+		t.Errorf("Expected lanes from base, got %+v", result.Lanes)
 	}
 	if result.Foreground != "#ff0000" {
 		t.Errorf("Expected foreground from base, got '%s'", result.Foreground)
@@ -54,7 +54,7 @@ func TestMergePluginConfigs_AllOverrides(t *testing.T) {
 		Foreground: "#ff0000",
 		Background: "#0000ff",
 		Key:        "L",
-		Panes: []PluginPaneConfig{
+		Lanes: []PluginLaneConfig{
 			{Name: "Todo", Filter: "status = 'ready'"},
 		},
 		Sort: "Priority",
@@ -66,7 +66,7 @@ func TestMergePluginConfigs_AllOverrides(t *testing.T) {
 		Foreground: "#00ff00",
 		Background: "#000000",
 		Key:        "O",
-		Panes: []PluginPaneConfig{
+		Lanes: []PluginLaneConfig{
 			{Name: "Done", Filter: "status = 'done'"},
 		},
 		Sort: "UpdatedAt DESC",
@@ -88,8 +88,8 @@ func TestMergePluginConfigs_AllOverrides(t *testing.T) {
 	if result.Key != "O" {
 		t.Errorf("Expected key 'O', got '%s'", result.Key)
 	}
-	if len(result.Panes) != 1 || result.Panes[0].Filter != "status = 'done'" {
-		t.Errorf("Expected pane filter 'status = 'done'', got %+v", result.Panes)
+	if len(result.Lanes) != 1 || result.Lanes[0].Filter != "status = 'done'" {
+		t.Errorf("Expected lane filter 'status = 'done'', got %+v", result.Lanes)
 	}
 	if result.Sort != "UpdatedAt DESC" {
 		t.Errorf("Expected sort 'UpdatedAt DESC', got '%s'", result.Sort)
@@ -125,7 +125,7 @@ func TestValidatePluginRef_Hybrid(t *testing.T) {
 func TestValidatePluginRef_InlineValid(t *testing.T) {
 	ref := PluginRef{
 		Name: "Test",
-		Panes: []PluginPaneConfig{
+		Lanes: []PluginLaneConfig{
 			{Name: "Todo", Filter: "status = 'ready'"},
 		},
 	}
@@ -138,7 +138,7 @@ func TestValidatePluginRef_InlineValid(t *testing.T) {
 
 func TestValidatePluginRef_InlineNoName(t *testing.T) {
 	ref := PluginRef{
-		Panes: []PluginPaneConfig{
+		Lanes: []PluginLaneConfig{
 			{Name: "Todo", Filter: "status = 'ready'"},
 		},
 	}
@@ -183,7 +183,7 @@ func TestMergePluginDefinitions_TikiToTiki(t *testing.T) {
 			Background: tcell.ColorBlue,
 			Type:       "tiki",
 		},
-		Panes: []TikiPane{
+		Lanes: []TikiLane{
 			{Name: "Todo", Columns: 1, Filter: baseFilter},
 		},
 		Sort:     baseSort,
@@ -203,7 +203,7 @@ func TestMergePluginDefinitions_TikiToTiki(t *testing.T) {
 			ConfigIndex: 1,
 			Type:        "tiki",
 		},
-		Panes: []TikiPane{
+		Lanes: []TikiLane{
 			{Name: "Bugs", Columns: 1, Filter: overrideFilter},
 		},
 		Sort:     nil,
@@ -229,8 +229,8 @@ func TestMergePluginDefinitions_TikiToTiki(t *testing.T) {
 	if resultTiki.ViewMode != "expanded" {
 		t.Errorf("Expected expanded view, got %q", resultTiki.ViewMode)
 	}
-	if len(resultTiki.Panes) != 1 || resultTiki.Panes[0].Filter == nil {
-		t.Error("Expected pane filter to be overridden")
+	if len(resultTiki.Lanes) != 1 || resultTiki.Lanes[0].Filter == nil {
+		t.Error("Expected lane filter to be overridden")
 	}
 
 	// Check that base sort is kept when override has nil
@@ -253,7 +253,7 @@ func TestMergePluginDefinitions_PreservesModifier(t *testing.T) {
 			Background: tcell.ColorDefault,
 			Type:       "tiki",
 		},
-		Panes: []TikiPane{
+		Lanes: []TikiLane{
 			{Name: "Todo", Columns: 1, Filter: baseFilter},
 		},
 	}

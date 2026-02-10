@@ -11,7 +11,7 @@ import (
 	"github.com/boolean-maybe/tiki/task"
 )
 
-func TestEnsureFirstNonEmptyPaneSelectionSelectsFirstTask(t *testing.T) {
+func TestEnsureFirstNonEmptyLaneSelectionSelectsFirstTask(t *testing.T) {
 	taskStore := store.NewInMemoryStore()
 	if err := taskStore.CreateTask(&task.Task{
 		ID:     "T-1",
@@ -43,28 +43,28 @@ func TestEnsureFirstNonEmptyPaneSelectionSelectsFirstTask(t *testing.T) {
 		BasePlugin: plugin.BasePlugin{
 			Name: "TestPlugin",
 		},
-		Panes: []plugin.TikiPane{
+		Lanes: []plugin.TikiLane{
 			{Name: "Empty", Columns: 1, Filter: emptyFilter},
 			{Name: "Todo", Columns: 1, Filter: todoFilter},
 		},
 	}
 	pluginConfig := model.NewPluginConfig("TestPlugin")
-	pluginConfig.SetPaneLayout([]int{1, 1})
-	pluginConfig.SetSelectedPane(0)
-	pluginConfig.SetSelectedIndexForPane(0, 1)
+	pluginConfig.SetLaneLayout([]int{1, 1})
+	pluginConfig.SetSelectedLane(0)
+	pluginConfig.SetSelectedIndexForLane(0, 1)
 
 	pc := NewPluginController(taskStore, pluginConfig, pluginDef, nil)
-	pc.EnsureFirstNonEmptyPaneSelection()
+	pc.EnsureFirstNonEmptyLaneSelection()
 
-	if pluginConfig.GetSelectedPane() != 1 {
-		t.Fatalf("expected selected pane 1, got %d", pluginConfig.GetSelectedPane())
+	if pluginConfig.GetSelectedLane() != 1 {
+		t.Fatalf("expected selected lane 1, got %d", pluginConfig.GetSelectedLane())
 	}
-	if pluginConfig.GetSelectedIndexForPane(1) != 0 {
-		t.Fatalf("expected selected index 0, got %d", pluginConfig.GetSelectedIndexForPane(1))
+	if pluginConfig.GetSelectedIndexForLane(1) != 0 {
+		t.Fatalf("expected selected index 0, got %d", pluginConfig.GetSelectedIndexForLane(1))
 	}
 }
 
-func TestEnsureFirstNonEmptyPaneSelectionKeepsCurrentPane(t *testing.T) {
+func TestEnsureFirstNonEmptyLaneSelectionKeepsCurrentLane(t *testing.T) {
 	taskStore := store.NewInMemoryStore()
 	if err := taskStore.CreateTask(&task.Task{
 		ID:     "T-1",
@@ -84,28 +84,28 @@ func TestEnsureFirstNonEmptyPaneSelectionKeepsCurrentPane(t *testing.T) {
 		BasePlugin: plugin.BasePlugin{
 			Name: "TestPlugin",
 		},
-		Panes: []plugin.TikiPane{
+		Lanes: []plugin.TikiLane{
 			{Name: "First", Columns: 1, Filter: todoFilter},
 			{Name: "Second", Columns: 1, Filter: todoFilter},
 		},
 	}
 	pluginConfig := model.NewPluginConfig("TestPlugin")
-	pluginConfig.SetPaneLayout([]int{1, 1})
-	pluginConfig.SetSelectedPane(1)
-	pluginConfig.SetSelectedIndexForPane(1, 0)
+	pluginConfig.SetLaneLayout([]int{1, 1})
+	pluginConfig.SetSelectedLane(1)
+	pluginConfig.SetSelectedIndexForLane(1, 0)
 
 	pc := NewPluginController(taskStore, pluginConfig, pluginDef, nil)
-	pc.EnsureFirstNonEmptyPaneSelection()
+	pc.EnsureFirstNonEmptyLaneSelection()
 
-	if pluginConfig.GetSelectedPane() != 1 {
-		t.Fatalf("expected selected pane 1, got %d", pluginConfig.GetSelectedPane())
+	if pluginConfig.GetSelectedLane() != 1 {
+		t.Fatalf("expected selected lane 1, got %d", pluginConfig.GetSelectedLane())
 	}
-	if pluginConfig.GetSelectedIndexForPane(1) != 0 {
-		t.Fatalf("expected selected index 0, got %d", pluginConfig.GetSelectedIndexForPane(1))
+	if pluginConfig.GetSelectedIndexForLane(1) != 0 {
+		t.Fatalf("expected selected index 0, got %d", pluginConfig.GetSelectedIndexForLane(1))
 	}
 }
 
-func TestEnsureFirstNonEmptyPaneSelectionNoTasks(t *testing.T) {
+func TestEnsureFirstNonEmptyLaneSelectionNoTasks(t *testing.T) {
 	taskStore := store.NewInMemoryStore()
 	emptyFilter, err := filter.ParseFilter("status = 'done'")
 	if err != nil {
@@ -116,30 +116,30 @@ func TestEnsureFirstNonEmptyPaneSelectionNoTasks(t *testing.T) {
 		BasePlugin: plugin.BasePlugin{
 			Name: "TestPlugin",
 		},
-		Panes: []plugin.TikiPane{
+		Lanes: []plugin.TikiLane{
 			{Name: "Empty", Columns: 1, Filter: emptyFilter},
 			{Name: "StillEmpty", Columns: 1, Filter: emptyFilter},
 		},
 	}
 	pluginConfig := model.NewPluginConfig("TestPlugin")
-	pluginConfig.SetPaneLayout([]int{1, 1})
-	pluginConfig.SetSelectedPane(1)
-	pluginConfig.SetSelectedIndexForPane(1, 2)
+	pluginConfig.SetLaneLayout([]int{1, 1})
+	pluginConfig.SetSelectedLane(1)
+	pluginConfig.SetSelectedIndexForLane(1, 2)
 
 	pc := NewPluginController(taskStore, pluginConfig, pluginDef, nil)
-	pc.EnsureFirstNonEmptyPaneSelection()
+	pc.EnsureFirstNonEmptyLaneSelection()
 
-	if pluginConfig.GetSelectedPane() != 1 {
-		t.Fatalf("expected selected pane 1, got %d", pluginConfig.GetSelectedPane())
+	if pluginConfig.GetSelectedLane() != 1 {
+		t.Fatalf("expected selected lane 1, got %d", pluginConfig.GetSelectedLane())
 	}
-	if pluginConfig.GetSelectedIndexForPane(1) != 2 {
-		t.Fatalf("expected selected index 2, got %d", pluginConfig.GetSelectedIndexForPane(1))
+	if pluginConfig.GetSelectedIndexForLane(1) != 2 {
+		t.Fatalf("expected selected index 2, got %d", pluginConfig.GetSelectedIndexForLane(1))
 	}
 }
 
-func TestPaneSwitchSelectsTopOfViewport(t *testing.T) {
+func TestLaneSwitchSelectsTopOfViewport(t *testing.T) {
 	taskStore := store.NewInMemoryStore()
-	// Create tasks for two panes
+	// Create tasks for two lanes
 	for i := 1; i <= 10; i++ {
 		status := task.StatusReady
 		if i > 5 {
@@ -168,40 +168,40 @@ func TestPaneSwitchSelectsTopOfViewport(t *testing.T) {
 		BasePlugin: plugin.BasePlugin{
 			Name: "TestPlugin",
 		},
-		Panes: []plugin.TikiPane{
+		Lanes: []plugin.TikiLane{
 			{Name: "Ready", Columns: 1, Filter: readyFilter},
 			{Name: "InProgress", Columns: 1, Filter: inProgressFilter},
 		},
 	}
 	pluginConfig := model.NewPluginConfig("TestPlugin")
-	pluginConfig.SetPaneLayout([]int{1, 1})
+	pluginConfig.SetLaneLayout([]int{1, 1})
 
-	// Start in pane 0 (Ready), with selection at index 2
-	pluginConfig.SetSelectedPane(0)
-	pluginConfig.SetSelectedIndexForPane(0, 2)
+	// Start in lane 0 (Ready), with selection at index 2
+	pluginConfig.SetSelectedLane(0)
+	pluginConfig.SetSelectedIndexForLane(0, 2)
 
-	// Simulate that pane 1 has been scrolled to offset 3
-	pluginConfig.SetScrollOffsetForPane(1, 3)
+	// Simulate that lane 1 has been scrolled to offset 3
+	pluginConfig.SetScrollOffsetForLane(1, 3)
 
 	pc := NewPluginController(taskStore, pluginConfig, pluginDef, nil)
 
-	// Navigate right to pane 1
+	// Navigate right to lane 1
 	pc.HandleAction(ActionNavRight)
 
-	// Should be in pane 1
-	if pluginConfig.GetSelectedPane() != 1 {
-		t.Fatalf("expected selected pane 1, got %d", pluginConfig.GetSelectedPane())
+	// Should be in lane 1
+	if pluginConfig.GetSelectedLane() != 1 {
+		t.Fatalf("expected selected lane 1, got %d", pluginConfig.GetSelectedLane())
 	}
 
 	// Selection should be at scroll offset (top of viewport), not stale index
-	if pluginConfig.GetSelectedIndexForPane(1) != 3 {
-		t.Errorf("expected selection at scroll offset 3, got %d", pluginConfig.GetSelectedIndexForPane(1))
+	if pluginConfig.GetSelectedIndexForLane(1) != 3 {
+		t.Errorf("expected selection at scroll offset 3, got %d", pluginConfig.GetSelectedIndexForLane(1))
 	}
 }
 
-func TestPaneSwitchClampsScrollOffsetToTaskCount(t *testing.T) {
+func TestLaneSwitchClampsScrollOffsetToTaskCount(t *testing.T) {
 	taskStore := store.NewInMemoryStore()
-	// Create 3 tasks in pane 1 only
+	// Create 3 tasks in lane 1 only
 	for i := 1; i <= 3; i++ {
 		if err := taskStore.CreateTask(&task.Task{
 			ID:     fmt.Sprintf("T-%d", i),
@@ -213,7 +213,7 @@ func TestPaneSwitchClampsScrollOffsetToTaskCount(t *testing.T) {
 		}
 	}
 
-	// Pane 0 is empty, pane 1 has 3 tasks
+	// Lane 0 is empty, lane 1 has 3 tasks
 	emptyFilter, err := filter.ParseFilter("status = 'ready'")
 	if err != nil {
 		t.Fatalf("parse filter: %v", err)
@@ -227,37 +227,37 @@ func TestPaneSwitchClampsScrollOffsetToTaskCount(t *testing.T) {
 		BasePlugin: plugin.BasePlugin{
 			Name: "TestPlugin",
 		},
-		Panes: []plugin.TikiPane{
+		Lanes: []plugin.TikiLane{
 			{Name: "Empty", Columns: 1, Filter: emptyFilter},
 			{Name: "InProgress", Columns: 1, Filter: inProgressFilter},
 		},
 	}
 	pluginConfig := model.NewPluginConfig("TestPlugin")
-	pluginConfig.SetPaneLayout([]int{1, 1})
+	pluginConfig.SetLaneLayout([]int{1, 1})
 
-	// Start in pane 1
-	pluginConfig.SetSelectedPane(1)
-	pluginConfig.SetSelectedIndexForPane(1, 0)
+	// Start in lane 1
+	pluginConfig.SetSelectedLane(1)
+	pluginConfig.SetSelectedIndexForLane(1, 0)
 
 	// Set a stale scroll offset that exceeds the task count
-	pluginConfig.SetScrollOffsetForPane(1, 10)
+	pluginConfig.SetScrollOffsetForLane(1, 10)
 
 	pc := NewPluginController(taskStore, pluginConfig, pluginDef, nil)
 
-	// Navigate left (to empty pane, will skip to... well, nowhere)
+	// Navigate left (to empty lane, will skip to... well, nowhere)
 	// Then try to go right from a fresh setup
-	pluginConfig.SetSelectedPane(0)
-	pluginConfig.SetScrollOffsetForPane(1, 10) // stale offset > task count
+	pluginConfig.SetSelectedLane(0)
+	pluginConfig.SetScrollOffsetForLane(1, 10) // stale offset > task count
 
 	pc.HandleAction(ActionNavRight)
 
-	// Should be in pane 1
-	if pluginConfig.GetSelectedPane() != 1 {
-		t.Fatalf("expected selected pane 1, got %d", pluginConfig.GetSelectedPane())
+	// Should be in lane 1
+	if pluginConfig.GetSelectedLane() != 1 {
+		t.Fatalf("expected selected lane 1, got %d", pluginConfig.GetSelectedLane())
 	}
 
 	// Selection should be clamped to last valid index (2, since 3 tasks)
-	selectedIdx := pluginConfig.GetSelectedIndexForPane(1)
+	selectedIdx := pluginConfig.GetSelectedIndexForLane(1)
 	if selectedIdx < 0 || selectedIdx >= 3 {
 		t.Errorf("expected selection clamped to valid range [0,2], got %d", selectedIdx)
 	}

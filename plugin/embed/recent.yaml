@@ -2,7 +2,7 @@ name: Recent
 foreground: "#f4d6a6"
 background: "#5a3d1b"
 key: Ctrl-R
-panes:
+lanes:
   - name: Recent
     columns: 4
     filter: NOW - UpdatedAt < 24hours

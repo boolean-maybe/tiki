@@ -126,8 +126,8 @@ func TestTaskDeletion_SelectionMoves(t *testing.T) {
 	}
 }
 
-// TestTaskDeletion_LastTaskInPane verifies deleting last task resets selection
-func TestTaskDeletion_LastTaskInPane(t *testing.T) {
+// TestTaskDeletion_LastTaskInLane verifies deleting last task resets selection
+func TestTaskDeletion_LastTaskInLane(t *testing.T) {
 	ta := testutil.NewTestApp(t)
 	defer ta.Cleanup()
 
@@ -136,7 +136,7 @@ func TestTaskDeletion_LastTaskInPane(t *testing.T) {
 		t.Fatalf("failed to load plugins: %v", err)
 	}
 
-	// Create only one task in todo pane
+	// Create only one task in todo lane
 	if err := testutil.CreateTestTask(ta.TaskDir, "TIKI-1", "Only Task", taskpkg.StatusReady, taskpkg.TypeStory); err != nil {
 		t.Fatalf("failed to create task: %v", err)
 	}
@@ -175,7 +175,7 @@ func TestTaskDeletion_LastTaskInPane(t *testing.T) {
 		t.Errorf("selection should reset to 0 after deleting last task, got %d", kanbanConfig.GetSelectedIndex())
 	}
 
-	// Verify no crash occurred (pane is empty)
+	// Verify no crash occurred (lane is empty)
 	// This is implicit - if we got here without panic, test passes
 }
 
@@ -232,8 +232,8 @@ func TestTaskDeletion_MultipleSequential(t *testing.T) {
 	}
 }
 
-// TestTaskDeletion_FromDifferentPane verifies deleting from non-todo pane
-func TestTaskDeletion_FromDifferentPane(t *testing.T) {
+// TestTaskDeletion_FromDifferentLane verifies deleting from non-todo lane
+func TestTaskDeletion_FromDifferentLane(t *testing.T) {
 	ta := testutil.NewTestApp(t)
 	defer ta.Cleanup()
 
@@ -242,7 +242,7 @@ func TestTaskDeletion_FromDifferentPane(t *testing.T) {
 		t.Fatalf("failed to load plugins: %v", err)
 	}
 
-	// Create task in in_progress pane
+	// Create task in in_progress lane
 	if err := testutil.CreateTestTask(ta.TaskDir, "TIKI-1", "In Progress Task", taskpkg.StatusInProgress, taskpkg.TypeStory); err != nil {
 		t.Fatalf("failed to create task: %v", err)
 	}
@@ -254,14 +254,14 @@ func TestTaskDeletion_FromDifferentPane(t *testing.T) {
 	ta.NavController.PushView(model.MakePluginViewID("Kanban"), nil)
 	ta.Draw()
 
-	// Move to in_progress pane (Right arrow)
+	// Move to in_progress lane (Right arrow)
 	ta.SendKey(tcell.KeyRight, 0, tcell.ModNone)
 
 	// Verify TIKI-1 visible
 	found, _, _ := ta.FindText("TIKI-1")
 	if !found {
 		ta.DumpScreen()
-		t.Fatalf("TIKI-1 should be visible in in_progress pane")
+		t.Fatalf("TIKI-1 should be visible in in_progress lane")
 	}
 
 	// Delete task
@@ -326,8 +326,8 @@ func TestTaskDeletion_CannotDeleteFromTaskDetail(t *testing.T) {
 	}
 }
 
-// TestTaskDeletion_WithMultiplePanes verifies deletion doesn't affect other panes
-func TestTaskDeletion_WithMultiplePanes(t *testing.T) {
+// TestTaskDeletion_WithMultipleLanes verifies deletion doesn't affect other lanes
+func TestTaskDeletion_WithMultipleLanes(t *testing.T) {
 	ta := testutil.NewTestApp(t)
 	defer ta.Cleanup()
 
@@ -336,7 +336,7 @@ func TestTaskDeletion_WithMultiplePanes(t *testing.T) {
 		t.Fatalf("failed to load plugins: %v", err)
 	}
 
-	// Create tasks in different panes
+	// Create tasks in different lanes
 	if err := testutil.CreateTestTask(ta.TaskDir, "TIKI-1", "Todo Task", taskpkg.StatusReady, taskpkg.TypeStory); err != nil {
 		t.Fatalf("failed to create task: %v", err)
 	}
@@ -354,7 +354,7 @@ func TestTaskDeletion_WithMultiplePanes(t *testing.T) {
 	ta.NavController.PushView(model.MakePluginViewID("Kanban"), nil)
 	ta.Draw()
 
-	// Delete TIKI-1 from todo pane
+	// Delete TIKI-1 from todo lane
 	ta.SendKey(tcell.KeyRune, 'd', tcell.ModNone)
 
 	// Reload
@@ -367,11 +367,11 @@ func TestTaskDeletion_WithMultiplePanes(t *testing.T) {
 		t.Errorf("TIKI-1 should be deleted")
 	}
 
-	// Verify TIKI-2 and TIKI-3 still exist (in other panes)
+	// Verify TIKI-2 and TIKI-3 still exist (in other lanes)
 	if ta.TaskStore.GetTask("TIKI-2") == nil {
-		t.Errorf("TIKI-2 (in different pane) should still exist")
+		t.Errorf("TIKI-2 (in different lane) should still exist")
 	}
 	if ta.TaskStore.GetTask("TIKI-3") == nil {
-		t.Errorf("TIKI-3 (in different pane) should still exist")
+		t.Errorf("TIKI-3 (in different lane) should still exist")
 	}
 }

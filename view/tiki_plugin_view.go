@@ -16,20 +16,20 @@ import (
 
 // Note: tcell import is still used for pv.pluginDef.Background/Foreground checks
 
-// PluginView renders a filtered/sorted list of tasks across panes
+// PluginView renders a filtered/sorted list of tasks across lanes
 type PluginView struct {
 	root                *tview.Flex
 	titleBar            tview.Primitive
 	searchHelper        *SearchHelper
-	panes               *tview.Flex
-	paneBoxes           []*ScrollableList
+	lanes               *tview.Flex
+	laneBoxes           []*ScrollableList
 	taskStore           store.Store
 	pluginConfig        *model.PluginConfig
 	pluginDef           *plugin.TikiPlugin
 	registry            *controller.ActionRegistry
 	storeListenerID     int
 	selectionListenerID int
-	getPaneTasks        func(pane int) []*task.Task // injected from controller
+	getLaneTasks        func(lane int) []*task.Task // injected from controller
 	ensureSelection     func() bool                 // injected from controller
 }
 
@@ -38,7 +38,7 @@ func NewPluginView(
 	taskStore store.Store,
 	pluginConfig *model.PluginConfig,
 	pluginDef *plugin.TikiPlugin,
-	getPaneTasks func(pane int) []*task.Task,
+	getLaneTasks func(lane int) []*task.Task,
 	ensureSelection func() bool,
 	registry *controller.ActionRegistry,
 ) *PluginView {
@@ -47,7 +47,7 @@ func NewPluginView(
 		pluginConfig:    pluginConfig,
 		pluginDef:       pluginDef,
 		registry:        registry,
-		getPaneTasks:    getPaneTasks,
+		getLaneTasks:    getLaneTasks,
 		ensureSelection: ensureSelection,
 	}
 
@@ -62,18 +62,18 @@ func (pv *PluginView) build() {
 	if pv.pluginDef.Foreground != tcell.ColorDefault {
 		textColor = pv.pluginDef.Foreground
 	}
-	paneNames := make([]string, len(pv.pluginDef.Panes))
-	for i, pane := range pv.pluginDef.Panes {
-		paneNames[i] = pane.Name
+	laneNames := make([]string, len(pv.pluginDef.Lanes))
+	for i, lane := range pv.pluginDef.Lanes {
+		laneNames[i] = lane.Name
 	}
-	pv.titleBar = NewGradientCaptionRow(paneNames, pv.pluginDef.Background, textColor)
+	pv.titleBar = NewGradientCaptionRow(laneNames, pv.pluginDef.Background, textColor)
 
-	// panes container (rows)
-	pv.panes = tview.NewFlex().SetDirection(tview.FlexColumn)
-	pv.paneBoxes = make([]*ScrollableList, 0, len(pv.pluginDef.Panes))
+	// lanes container (rows)
+	pv.lanes = tview.NewFlex().SetDirection(tview.FlexColumn)
+	pv.laneBoxes = make([]*ScrollableList, 0, len(pv.pluginDef.Lanes))
 
-	// search helper - focus returns to panes container
-	pv.searchHelper = NewSearchHelper(pv.panes)
+	// search helper - focus returns to lanes container
+	pv.searchHelper = NewSearchHelper(pv.lanes)
 	pv.searchHelper.SetCancelHandler(func() {
 		pv.HideSearch()
 	})
@@ -95,9 +95,9 @@ func (pv *PluginView) rebuildLayout() {
 		query := pv.pluginConfig.GetSearchQuery()
 		pv.searchHelper.ShowSearch(query)
 		pv.root.AddItem(pv.searchHelper.GetSearchBox(), config.SearchBoxHeight, 0, false)
-		pv.root.AddItem(pv.panes, 0, 1, false)
+		pv.root.AddItem(pv.lanes, 0, 1, false)
 	} else {
-		pv.root.AddItem(pv.panes, 0, 1, true)
+		pv.root.AddItem(pv.lanes, 0, 1, true)
 	}
 }
 
@@ -112,36 +112,36 @@ func (pv *PluginView) refresh() {
 	if viewMode == model.ViewModeExpanded {
 		itemHeight = config.TaskBoxHeightExpanded
 	}
-	selectedPane := pv.pluginConfig.GetSelectedPane()
+	selectedLane := pv.pluginConfig.GetSelectedLane()
 
-	if len(pv.paneBoxes) != len(pv.pluginDef.Panes) {
-		pv.paneBoxes = make([]*ScrollableList, 0, len(pv.pluginDef.Panes))
-		for range pv.pluginDef.Panes {
-			pv.paneBoxes = append(pv.paneBoxes, NewScrollableList())
+	if len(pv.laneBoxes) != len(pv.pluginDef.Lanes) {
+		pv.laneBoxes = make([]*ScrollableList, 0, len(pv.pluginDef.Lanes))
+		for range pv.pluginDef.Lanes {
+			pv.laneBoxes = append(pv.laneBoxes, NewScrollableList())
 		}
 	}
 
-	pv.panes.Clear()
+	pv.lanes.Clear()
 
-	for paneIdx := range pv.pluginDef.Panes {
-		paneContainer := pv.paneBoxes[paneIdx]
-		paneContainer.SetItemHeight(itemHeight)
-		paneContainer.Clear()
+	for laneIdx := range pv.pluginDef.Lanes {
+		laneContainer := pv.laneBoxes[laneIdx]
+		laneContainer.SetItemHeight(itemHeight)
+		laneContainer.Clear()
 
-		isSelectedPane := paneIdx == selectedPane
-		pv.panes.AddItem(paneContainer, 0, 1, isSelectedPane)
+		isSelectedLane := laneIdx == selectedLane
+		pv.lanes.AddItem(laneContainer, 0, 1, isSelectedLane)
 
-		tasks := pv.getPaneTasks(paneIdx)
-		if isSelectedPane {
+		tasks := pv.getLaneTasks(laneIdx)
+		if isSelectedLane {
 			pv.pluginConfig.ClampSelection(len(tasks))
 		}
 		if len(tasks) == 0 {
-			paneContainer.SetSelection(-1)
+			laneContainer.SetSelection(-1)
 			continue
 		}
 
-		columns := pv.pluginConfig.GetColumnsForPane(paneIdx)
-		selectedIndex := pv.pluginConfig.GetSelectedIndexForPane(paneIdx)
+		columns := pv.pluginConfig.GetColumnsForLane(laneIdx)
+		selectedIndex := pv.pluginConfig.GetSelectedIndexForLane(laneIdx)
 		selectedRow := selectedIndex / columns
 
 		numRows := (len(tasks) + columns - 1) / columns
@@ -151,7 +151,7 @@ func (pv *PluginView) refresh() {
 				idx := row*columns + col
 				if idx < len(tasks) {
 					task := tasks[idx]
-					isSelected := isSelectedPane && idx == selectedIndex
+					isSelected := isSelectedLane && idx == selectedIndex
 					var taskBox *tview.Frame
 					if viewMode == model.ViewModeCompact {
 						taskBox = CreateCompactTaskBox(task, isSelected, config.GetColors())
@@ -164,17 +164,17 @@ func (pv *PluginView) refresh() {
 					rowFlex.AddItem(spacer, 0, 1, false)
 				}
 			}
-			paneContainer.AddItem(rowFlex)
+			laneContainer.AddItem(rowFlex)
 		}
 
-		if isSelectedPane {
-			paneContainer.SetSelection(selectedRow)
+		if isSelectedLane {
+			laneContainer.SetSelection(selectedRow)
 		} else {
-			paneContainer.SetSelection(-1)
+			laneContainer.SetSelection(-1)
 		}
 
-		// Sync scroll offset from view to model for later pane navigation
-		pv.pluginConfig.SetScrollOffsetForPane(paneIdx, paneContainer.GetScrollOffset())
+		// Sync scroll offset from view to model for later lane navigation
+		pv.pluginConfig.SetScrollOffsetForLane(laneIdx, laneContainer.GetScrollOffset())
 	}
 }
 
@@ -208,9 +208,9 @@ func (pv *PluginView) OnBlur() {
 
 // GetSelectedID returns the selected task ID
 func (pv *PluginView) GetSelectedID() string {
-	pane := pv.pluginConfig.GetSelectedPane()
-	tasks := pv.getPaneTasks(pane)
-	idx := pv.pluginConfig.GetSelectedIndexForPane(pane)
+	lane := pv.pluginConfig.GetSelectedLane()
+	tasks := pv.getLaneTasks(lane)
+	idx := pv.pluginConfig.GetSelectedIndexForLane(lane)
 	if idx >= 0 && idx < len(tasks) {
 		return tasks[idx].ID
 	}
@@ -219,12 +219,12 @@ func (pv *PluginView) GetSelectedID() string {
 
 // SetSelectedID sets the selection to a task
 func (pv *PluginView) SetSelectedID(id string) {
-	for pane := range pv.pluginDef.Panes {
-		tasks := pv.getPaneTasks(pane)
+	for lane := range pv.pluginDef.Lanes {
+		tasks := pv.getLaneTasks(lane)
 		for i, t := range tasks {
 			if t.ID == id {
-				pv.pluginConfig.SetSelectedPane(pane)
-				pv.pluginConfig.SetSelectedIndexForPane(pane, i)
+				pv.pluginConfig.SetSelectedLane(lane)
+				pv.pluginConfig.SetSelectedIndexForLane(lane, i)
 				return
 			}
 		}
@@ -244,7 +244,7 @@ func (pv *PluginView) ShowSearch() tview.Primitive {
 	pv.root.Clear()
 	pv.root.AddItem(pv.titleBar, 1, 0, false)
 	pv.root.AddItem(pv.searchHelper.GetSearchBox(), config.SearchBoxHeight, 0, true)
-	pv.root.AddItem(pv.panes, 0, 1, false)
+	pv.root.AddItem(pv.lanes, 0, 1, false)
 
 	return searchBox
 }
@@ -263,7 +263,7 @@ func (pv *PluginView) HideSearch() {
 	// Rebuild layout without search box
 	pv.root.Clear()
 	pv.root.AddItem(pv.titleBar, 1, 0, false)
-	pv.root.AddItem(pv.panes, 0, 1, true)
+	pv.root.AddItem(pv.lanes, 0, 1, true)
 }
 
 // IsSearchVisible returns whether the search box is currently visible
@@ -289,8 +289,8 @@ func (pv *PluginView) SetFocusSetter(setter func(p tview.Primitive)) {
 // GetStats returns stats for the header (Total count of filtered tasks)
 func (pv *PluginView) GetStats() []store.Stat {
 	total := 0
-	for pane := range pv.pluginDef.Panes {
-		tasks := pv.getPaneTasks(pane)
+	for lane := range pv.pluginDef.Lanes {
+		tasks := pv.getLaneTasks(lane)
 		total += len(tasks)
 	}
 	return []store.Stat{

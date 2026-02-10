@@ -19,7 +19,7 @@ type pluginFileConfig struct {
 	Fetcher    string               `yaml:"fetcher"`
 	Text       string               `yaml:"text"`
 	URL        string               `yaml:"url"`
-	Panes      []PluginPaneConfig   `yaml:"panes"`
+	Lanes      []PluginLaneConfig   `yaml:"lanes"`
 	Actions    []PluginActionConfig `yaml:"actions"`
 }
 
@@ -61,8 +61,8 @@ func mergePluginConfigs(base pluginFileConfig, overrides PluginRef) pluginFileCo
 	if overrides.URL != "" {
 		result.URL = overrides.URL
 	}
-	if len(overrides.Panes) > 0 {
-		result.Panes = overrides.Panes
+	if len(overrides.Lanes) > 0 {
+		result.Lanes = overrides.Lanes
 	}
 	if len(overrides.Actions) > 0 {
 		result.Actions = overrides.Actions
@@ -91,7 +91,7 @@ func mergePluginDefinitions(base Plugin, override Plugin) Plugin {
 				ConfigIndex: overrideTiki.ConfigIndex, // Use override's config index
 				Type:        baseTiki.Type,
 			},
-			Panes:    baseTiki.Panes,
+			Lanes:    baseTiki.Lanes,
 			Sort:     baseTiki.Sort,
 			ViewMode: baseTiki.ViewMode,
 			Actions:  baseTiki.Actions,
@@ -109,8 +109,8 @@ func mergePluginDefinitions(base Plugin, override Plugin) Plugin {
 		if overrideTiki.Background != tcell.ColorDefault {
 			result.Background = overrideTiki.Background
 		}
-		if len(overrideTiki.Panes) > 0 {
-			result.Panes = overrideTiki.Panes
+		if len(overrideTiki.Lanes) > 0 {
+			result.Lanes = overrideTiki.Lanes
 		}
 		if overrideTiki.Sort != nil {
 			result.Sort = overrideTiki.Sort
@@ -148,7 +148,7 @@ func validatePluginRef(ref PluginRef) error {
 		ref.Sort != "" || ref.Foreground != "" ||
 		ref.Background != "" || ref.View != "" || ref.Type != "" ||
 		ref.Fetcher != "" || ref.Text != "" || ref.URL != "" ||
-		len(ref.Panes) > 0 || len(ref.Actions) > 0
+		len(ref.Lanes) > 0 || len(ref.Actions) > 0
 
 	if !hasContent {
 		return fmt.Errorf("inline plugin '%s' has no configuration fields", ref.Name)

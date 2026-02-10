@@ -15,14 +15,14 @@ import (
 func TestPluginViewRefreshPreservesScrollOffset(t *testing.T) {
 	taskStore := store.NewInMemoryStore()
 	pluginConfig := model.NewPluginConfig("TestPlugin")
-	pluginConfig.SetPaneLayout([]int{1})
+	pluginConfig.SetLaneLayout([]int{1})
 
 	pluginDef := &plugin.TikiPlugin{
 		BasePlugin: plugin.BasePlugin{
 			Name: "TestPlugin",
 		},
-		Panes: []plugin.TikiPane{
-			{Name: "Pane", Columns: 1},
+		Lanes: []plugin.TikiLane{
+			{Name: "Lane", Columns: 1},
 		},
 	}
 
@@ -36,35 +36,35 @@ func TestPluginViewRefreshPreservesScrollOffset(t *testing.T) {
 		}
 	}
 
-	pv := NewPluginView(taskStore, pluginConfig, pluginDef, func(pane int) []*task.Task {
+	pv := NewPluginView(taskStore, pluginConfig, pluginDef, func(lane int) []*task.Task {
 		return tasks
 	}, nil, controller.PluginViewActions())
 
-	if len(pv.paneBoxes) != 1 {
-		t.Fatalf("expected 1 pane box, got %d", len(pv.paneBoxes))
+	if len(pv.laneBoxes) != 1 {
+		t.Fatalf("expected 1 lane box, got %d", len(pv.laneBoxes))
 	}
 
-	pane := pv.paneBoxes[0]
+	lane := pv.laneBoxes[0]
 	itemHeight := config.TaskBoxHeight
-	pane.SetRect(0, 0, 80, itemHeight*5)
+	lane.SetRect(0, 0, 80, itemHeight*5)
 
-	pluginConfig.SetSelectedIndexForPane(0, len(tasks)-1)
+	pluginConfig.SetSelectedIndexForLane(0, len(tasks)-1)
 	pv.refresh()
 
 	expectedScrollOffset := len(tasks) - 5
-	if pane.scrollOffset != expectedScrollOffset {
-		t.Fatalf("expected scrollOffset %d, got %d", expectedScrollOffset, pane.scrollOffset)
+	if lane.scrollOffset != expectedScrollOffset {
+		t.Fatalf("expected scrollOffset %d, got %d", expectedScrollOffset, lane.scrollOffset)
 	}
 
-	paneBefore := pane
-	pluginConfig.SetSelectedIndexForPane(0, len(tasks)-2)
+	laneBefore := lane
+	pluginConfig.SetSelectedIndexForLane(0, len(tasks)-2)
 	pv.refresh()
 
-	if pv.paneBoxes[0] != paneBefore {
-		t.Fatalf("expected pane list to be reused across refresh")
+	if pv.laneBoxes[0] != laneBefore {
+		t.Fatalf("expected lane list to be reused across refresh")
 	}
 
-	if pane.scrollOffset != expectedScrollOffset {
-		t.Fatalf("expected scrollOffset to remain %d, got %d", expectedScrollOffset, pane.scrollOffset)
+	if lane.scrollOffset != expectedScrollOffset {
+		t.Fatalf("expected scrollOffset to remain %d, got %d", expectedScrollOffset, lane.scrollOffset)
 	}
 }

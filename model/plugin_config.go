@@ -23,11 +23,11 @@ type PluginSelectionListener func()
 type PluginConfig struct {
 	mu               sync.RWMutex
 	pluginName       string
-	selectedPane     int
+	selectedLane     int
 	selectedIndices  []int
-	paneColumns      []int
-	scrollOffsets    []int // per-pane viewport position (top visible row)
-	preSearchPane    int
+	laneColumns      []int
+	scrollOffsets    []int // per-lane viewport position (top visible row)
+	preSearchLane    int
 	preSearchIndices []int
 	viewMode         ViewMode // compact or expanded display
 	configIndex      int      // index in config.yaml plugins array (-1 if embedded/not in config)
@@ -45,7 +45,7 @@ func NewPluginConfig(name string) *PluginConfig {
 		listeners:      make(map[int]PluginSelectionListener),
 		nextListenerID: 1, // Start at 1 to avoid conflict with zero-value sentinel
 	}
-	pc.SetPaneLayout([]int{4})
+	pc.SetLaneLayout([]int{4})
 	return pc
 }
 
@@ -61,103 +61,103 @@ func (pc *PluginConfig) GetPluginName() string {
 	return pc.pluginName
 }
 
-// SetPaneLayout configures pane columns and resets selection state as needed.
-func (pc *PluginConfig) SetPaneLayout(columns []int) {
+// SetLaneLayout configures lane columns and resets selection state as needed.
+func (pc *PluginConfig) SetLaneLayout(columns []int) {
 	pc.mu.Lock()
 	defer pc.mu.Unlock()
 
-	pc.paneColumns = normalizePaneColumns(columns)
-	pc.selectedIndices = ensureSelectionLength(pc.selectedIndices, len(pc.paneColumns))
-	pc.preSearchIndices = ensureSelectionLength(pc.preSearchIndices, len(pc.paneColumns))
-	pc.scrollOffsets = ensureSelectionLength(pc.scrollOffsets, len(pc.paneColumns))
+	pc.laneColumns = normalizeLaneColumns(columns)
+	pc.selectedIndices = ensureSelectionLength(pc.selectedIndices, len(pc.laneColumns))
+	pc.preSearchIndices = ensureSelectionLength(pc.preSearchIndices, len(pc.laneColumns))
+	pc.scrollOffsets = ensureSelectionLength(pc.scrollOffsets, len(pc.laneColumns))
 
-	if pc.selectedPane < 0 || pc.selectedPane >= len(pc.paneColumns) {
-		pc.selectedPane = 0
+	if pc.selectedLane < 0 || pc.selectedLane >= len(pc.laneColumns) {
+		pc.selectedLane = 0
 	}
 }
 
-// GetPaneCount returns the number of panes.
-func (pc *PluginConfig) GetPaneCount() int {
+// GetLaneCount returns the number of lanes.
+func (pc *PluginConfig) GetLaneCount() int {
 	pc.mu.RLock()
 	defer pc.mu.RUnlock()
-	return len(pc.paneColumns)
+	return len(pc.laneColumns)
 }
 
-// GetSelectedPane returns the selected pane index.
-func (pc *PluginConfig) GetSelectedPane() int {
+// GetSelectedLane returns the selected lane index.
+func (pc *PluginConfig) GetSelectedLane() int {
 	pc.mu.RLock()
 	defer pc.mu.RUnlock()
-	return pc.selectedPane
+	return pc.selectedLane
 }
 
-// SetSelectedPane sets the selected pane index.
-func (pc *PluginConfig) SetSelectedPane(pane int) {
+// SetSelectedLane sets the selected lane index.
+func (pc *PluginConfig) SetSelectedLane(lane int) {
 	pc.mu.Lock()
-	if pane < 0 || pane >= len(pc.paneColumns) {
+	if lane < 0 || lane >= len(pc.laneColumns) {
 		pc.mu.Unlock()
 		return
 	}
-	changed := pc.selectedPane != pane
-	pc.selectedPane = pane
+	changed := pc.selectedLane != lane
+	pc.selectedLane = lane
 	pc.mu.Unlock()
 	if changed {
 		pc.notifyListeners()
 	}
 }
 
-// GetSelectedIndex returns the selected task index for the current pane.
+// GetSelectedIndex returns the selected task index for the current lane.
 func (pc *PluginConfig) GetSelectedIndex() int {
 	pc.mu.RLock()
 	defer pc.mu.RUnlock()
-	return pc.indexForPane(pc.selectedPane)
+	return pc.indexForLane(pc.selectedLane)
 }
 
-// GetSelectedIndexForPane returns the selected index for a pane.
-func (pc *PluginConfig) GetSelectedIndexForPane(pane int) int {
+// GetSelectedIndexForLane returns the selected index for a lane.
+func (pc *PluginConfig) GetSelectedIndexForLane(lane int) int {
 	pc.mu.RLock()
 	defer pc.mu.RUnlock()
-	return pc.indexForPane(pane)
+	return pc.indexForLane(lane)
 }
 
-// SetSelectedIndex sets the selected task index for the current pane.
+// SetSelectedIndex sets the selected task index for the current lane.
 func (pc *PluginConfig) SetSelectedIndex(idx int) {
 	pc.mu.Lock()
-	pc.setIndexForPane(pc.selectedPane, idx)
+	pc.setIndexForLane(pc.selectedLane, idx)
 	pc.mu.Unlock()
 	pc.notifyListeners()
 }
 
-// SetSelectedIndexForPane sets the selected index for a specific pane.
-func (pc *PluginConfig) SetSelectedIndexForPane(pane int, idx int) {
+// SetSelectedIndexForLane sets the selected index for a specific lane.
+func (pc *PluginConfig) SetSelectedIndexForLane(lane int, idx int) {
 	pc.mu.Lock()
-	pc.setIndexForPane(pane, idx)
+	pc.setIndexForLane(lane, idx)
 	pc.mu.Unlock()
 	pc.notifyListeners()
 }
 
-// GetScrollOffsetForPane returns the scroll offset (top visible row) for a pane.
-func (pc *PluginConfig) GetScrollOffsetForPane(pane int) int {
+// GetScrollOffsetForLane returns the scroll offset (top visible row) for a lane.
+func (pc *PluginConfig) GetScrollOffsetForLane(lane int) int {
 	pc.mu.RLock()
 	defer pc.mu.RUnlock()
-	if pane < 0 || pane >= len(pc.scrollOffsets) {
+	if lane < 0 || lane >= len(pc.scrollOffsets) {
 		return 0
 	}
-	return pc.scrollOffsets[pane]
+	return pc.scrollOffsets[lane]
 }
 
-// SetScrollOffsetForPane sets the scroll offset for a specific pane.
-func (pc *PluginConfig) SetScrollOffsetForPane(pane int, offset int) {
+// SetScrollOffsetForLane sets the scroll offset for a specific lane.
+func (pc *PluginConfig) SetScrollOffsetForLane(lane int, offset int) {
 	pc.mu.Lock()
 	defer pc.mu.Unlock()
-	if pane < 0 || pane >= len(pc.scrollOffsets) {
+	if lane < 0 || lane >= len(pc.scrollOffsets) {
 		return
 	}
-	pc.scrollOffsets[pane] = offset
+	pc.scrollOffsets[lane] = offset
 }
 
-func (pc *PluginConfig) SetSelectedPaneAndIndex(pane int, idx int) {
+func (pc *PluginConfig) SetSelectedLaneAndIndex(lane int, idx int) {
 	pc.mu.Lock()
-	if pane < 0 || pane >= len(pc.selectedIndices) {
+	if lane < 0 || lane >= len(pc.selectedIndices) {
 		pc.mu.Unlock()
 		return
 	}
@@ -165,9 +165,9 @@ func (pc *PluginConfig) SetSelectedPaneAndIndex(pane int, idx int) {
 		pc.mu.Unlock()
 		return
 	}
-	changed := pc.selectedPane != pane || pc.selectedIndices[pane] != idx
-	pc.selectedPane = pane
-	pc.selectedIndices[pane] = idx
+	changed := pc.selectedLane != lane || pc.selectedIndices[lane] != idx
+	pc.selectedLane = lane
+	pc.selectedIndices[lane] = idx
 	pc.mu.Unlock()
 
 	if changed {
@@ -175,11 +175,11 @@ func (pc *PluginConfig) SetSelectedPaneAndIndex(pane int, idx int) {
 	}
 }
 
-// GetColumnsForPane returns the number of grid columns for a pane.
-func (pc *PluginConfig) GetColumnsForPane(pane int) int {
+// GetColumnsForLane returns the number of grid columns for a lane.
+func (pc *PluginConfig) GetColumnsForLane(lane int) int {
 	pc.mu.RLock()
 	defer pc.mu.RUnlock()
-	return pc.columnsForPane(pane)
+	return pc.columnsForLane(lane)
 }
 
 // AddSelectionListener registers a callback for selection changes
@@ -212,16 +212,16 @@ func (pc *PluginConfig) notifyListeners() {
 	}
 }
 
-// MoveSelection moves selection in a direction within the current pane.
+// MoveSelection moves selection in a direction within the current lane.
 func (pc *PluginConfig) MoveSelection(direction string, taskCount int) bool {
 	if taskCount == 0 {
 		return false
 	}
 
 	pc.mu.Lock()
-	pane := pc.selectedPane
-	columns := pc.columnsForPane(pane)
-	oldIndex := pc.indexForPane(pane)
+	lane := pc.selectedLane
+	columns := pc.columnsForLane(lane)
+	oldIndex := pc.indexForLane(lane)
 	row := oldIndex / columns
 	col := oldIndex % columns
 	numRows := (taskCount + columns - 1) / columns
@@ -229,24 +229,24 @@ func (pc *PluginConfig) MoveSelection(direction string, taskCount int) bool {
 	switch direction {
 	case "up":
 		if row > 0 {
-			pc.setIndexForPane(pane, oldIndex-columns)
+			pc.setIndexForLane(lane, oldIndex-columns)
 		}
 	case "down":
 		newIdx := oldIndex + columns
 		if row < numRows-1 && newIdx < taskCount {
-			pc.setIndexForPane(pane, newIdx)
+			pc.setIndexForLane(lane, newIdx)
 		}
 	case "left":
 		if col > 0 {
-			pc.setIndexForPane(pane, oldIndex-1)
+			pc.setIndexForLane(lane, oldIndex-1)
 		}
 	case "right":
 		if col < columns-1 && oldIndex+1 < taskCount {
-			pc.setIndexForPane(pane, oldIndex+1)
+			pc.setIndexForLane(lane, oldIndex+1)
 		}
 	}
 
-	moved := pc.indexForPane(pane) != oldIndex
+	moved := pc.indexForLane(lane) != oldIndex
 	pc.mu.Unlock()
 
 	if moved {
@@ -255,16 +255,16 @@ func (pc *PluginConfig) MoveSelection(direction string, taskCount int) bool {
 	return moved
 }
 
-// ClampSelection ensures selection is within bounds for the current pane.
+// ClampSelection ensures selection is within bounds for the current lane.
 func (pc *PluginConfig) ClampSelection(taskCount int) {
 	pc.mu.Lock()
-	pane := pc.selectedPane
-	index := pc.indexForPane(pane)
+	lane := pc.selectedLane
+	index := pc.indexForLane(lane)
 	if index >= taskCount {
-		pc.setIndexForPane(pane, taskCount-1)
+		pc.setIndexForLane(lane, taskCount-1)
 	}
-	if pc.indexForPane(pane) < 0 {
-		pc.setIndexForPane(pane, 0)
+	if pc.indexForLane(lane) < 0 {
+		pc.setIndexForLane(lane, 0)
 	}
 	pc.mu.Unlock()
 }
@@ -312,10 +312,10 @@ func (pc *PluginConfig) SetViewMode(mode string) {
 // SavePreSearchState saves current selection for later restoration
 func (pc *PluginConfig) SavePreSearchState() {
 	pc.mu.Lock()
-	pc.preSearchPane = pc.selectedPane
-	pc.preSearchIndices = ensureSelectionLength(pc.preSearchIndices, len(pc.paneColumns))
+	pc.preSearchLane = pc.selectedLane
+	pc.preSearchIndices = ensureSelectionLength(pc.preSearchIndices, len(pc.laneColumns))
 	copy(pc.preSearchIndices, pc.selectedIndices)
-	selectedIndex := pc.indexForPane(pc.selectedPane)
+	selectedIndex := pc.indexForLane(pc.selectedLane)
 	pc.mu.Unlock()
 	pc.searchState.SavePreSearchState(selectedIndex)
 }
@@ -330,13 +330,13 @@ func (pc *PluginConfig) SetSearchResults(results []task.SearchResult, query stri
 func (pc *PluginConfig) ClearSearchResults() {
 	pc.searchState.ClearSearchResults()
 	pc.mu.Lock()
-	if len(pc.preSearchIndices) == len(pc.paneColumns) {
-		pc.selectedIndices = ensureSelectionLength(pc.selectedIndices, len(pc.paneColumns))
+	if len(pc.preSearchIndices) == len(pc.laneColumns) {
+		pc.selectedIndices = ensureSelectionLength(pc.selectedIndices, len(pc.laneColumns))
 		copy(pc.selectedIndices, pc.preSearchIndices)
-		pc.selectedPane = pc.preSearchPane
+		pc.selectedLane = pc.preSearchLane
 	} else if len(pc.selectedIndices) > 0 {
-		pc.selectedPane = 0
-		pc.setIndexForPane(0, 0)
+		pc.selectedLane = 0
+		pc.setIndexForLane(0, 0)
 	}
 	pc.mu.Unlock()
 	pc.notifyListeners()
@@ -357,40 +357,40 @@ func (pc *PluginConfig) GetSearchQuery() string {
 	return pc.searchState.GetSearchQuery()
 }
 
-func (pc *PluginConfig) indexForPane(pane int) int {
+func (pc *PluginConfig) indexForLane(lane int) int {
 	if len(pc.selectedIndices) == 0 {
 		return 0
 	}
-	if pane < 0 || pane >= len(pc.selectedIndices) {
-		slog.Warn("pane index out of range", "pane", pane, "count", len(pc.selectedIndices))
+	if lane < 0 || lane >= len(pc.selectedIndices) {
+		slog.Warn("lane index out of range", "lane", lane, "count", len(pc.selectedIndices))
 		return 0
 	}
-	return pc.selectedIndices[pane]
+	return pc.selectedIndices[lane]
 }
 
-func (pc *PluginConfig) setIndexForPane(pane int, idx int) {
+func (pc *PluginConfig) setIndexForLane(lane int, idx int) {
 	if len(pc.selectedIndices) == 0 {
 		return
 	}
-	if pane < 0 || pane >= len(pc.selectedIndices) {
-		slog.Warn("pane index out of range", "pane", pane, "count", len(pc.selectedIndices))
+	if lane < 0 || lane >= len(pc.selectedIndices) {
+		slog.Warn("lane index out of range", "lane", lane, "count", len(pc.selectedIndices))
 		return
 	}
-	pc.selectedIndices[pane] = idx
+	pc.selectedIndices[lane] = idx
 }
 
-func (pc *PluginConfig) columnsForPane(pane int) int {
-	if len(pc.paneColumns) == 0 {
+func (pc *PluginConfig) columnsForLane(lane int) int {
+	if len(pc.laneColumns) == 0 {
 		return 1
 	}
-	if pane < 0 || pane >= len(pc.paneColumns) {
-		slog.Warn("pane columns out of range", "pane", pane, "count", len(pc.paneColumns))
+	if lane < 0 || lane >= len(pc.laneColumns) {
+		slog.Warn("lane columns out of range", "lane", lane, "count", len(pc.laneColumns))
 		return 1
 	}
-	return pc.paneColumns[pane]
+	return pc.laneColumns[lane]
 }
 
-func normalizePaneColumns(columns []int) []int {
+func normalizeLaneColumns(columns []int) []int {
 	if len(columns) == 0 {
 		return []int{1}
 	}

@@ -8,13 +8,13 @@ import (
 	"github.com/boolean-maybe/tiki/task"
 )
 
-// PaneAction represents parsed pane actions.
-type PaneAction struct {
-	Ops []PaneActionOp
+// LaneAction represents parsed lane actions.
+type LaneAction struct {
+	Ops []LaneActionOp
 }
 
-// PaneActionOp represents a single action operation.
-type PaneActionOp struct {
+// LaneActionOp represents a single action operation.
+type LaneActionOp struct {
 	Field    ActionField
 	Operator ActionOperator
 	StrValue string
@@ -43,103 +43,103 @@ const (
 	ActionOperatorRemove ActionOperator = "-="
 )
 
-// ParsePaneAction parses a pane action string into operations.
-func ParsePaneAction(input string) (PaneAction, error) {
+// ParseLaneAction parses a lane action string into operations.
+func ParseLaneAction(input string) (LaneAction, error) {
 	input = strings.TrimSpace(input)
 	if input == "" {
-		return PaneAction{}, nil
+		return LaneAction{}, nil
 	}
 
 	parts, err := splitTopLevelCommas(input)
 	if err != nil {
-		return PaneAction{}, err
+		return LaneAction{}, err
 	}
 
-	ops := make([]PaneActionOp, 0, len(parts))
+	ops := make([]LaneActionOp, 0, len(parts))
 	for _, part := range parts {
 		if part == "" {
-			return PaneAction{}, fmt.Errorf("empty action segment")
+			return LaneAction{}, fmt.Errorf("empty action segment")
 		}
 
 		field, op, value, err := parseActionSegment(part)
 		if err != nil {
-			return PaneAction{}, err
+			return LaneAction{}, err
 		}
 
 		switch field {
 		case ActionFieldTags:
 			if op == ActionOperatorAssign {
-				return PaneAction{}, fmt.Errorf("tags action only supports += or -=")
+				return LaneAction{}, fmt.Errorf("tags action only supports += or -=")
 			}
 			tags, err := parseTagsValue(value)
 			if err != nil {
-				return PaneAction{}, err
+				return LaneAction{}, err
 			}
-			ops = append(ops, PaneActionOp{
+			ops = append(ops, LaneActionOp{
 				Field:    field,
 				Operator: op,
 				Tags:     tags,
 			})
 		case ActionFieldPriority, ActionFieldPoints:
 			if op != ActionOperatorAssign {
-				return PaneAction{}, fmt.Errorf("%s action only supports =", field)
+				return LaneAction{}, fmt.Errorf("%s action only supports =", field)
 			}
 			intValue, err := parseIntValue(value)
 			if err != nil {
-				return PaneAction{}, err
+				return LaneAction{}, err
 			}
 			if field == ActionFieldPriority && !task.IsValidPriority(intValue) {
-				return PaneAction{}, fmt.Errorf("priority value out of range: %d", intValue)
+				return LaneAction{}, fmt.Errorf("priority value out of range: %d", intValue)
 			}
 			if field == ActionFieldPoints && !task.IsValidPoints(intValue) {
-				return PaneAction{}, fmt.Errorf("points value out of range: %d", intValue)
+				return LaneAction{}, fmt.Errorf("points value out of range: %d", intValue)
 			}
-			ops = append(ops, PaneActionOp{
+			ops = append(ops, LaneActionOp{
 				Field:    field,
 				Operator: op,
 				IntValue: intValue,
 			})
 		case ActionFieldStatus:
 			if op != ActionOperatorAssign {
-				return PaneAction{}, fmt.Errorf("%s action only supports =", field)
+				return LaneAction{}, fmt.Errorf("%s action only supports =", field)
 			}
 			strValue, err := parseStringValue(value)
 			if err != nil {
-				return PaneAction{}, err
+				return LaneAction{}, err
 			}
 			if _, ok := task.ParseStatus(strValue); !ok {
-				return PaneAction{}, fmt.Errorf("invalid status value %q", strValue)
+				return LaneAction{}, fmt.Errorf("invalid status value %q", strValue)
 			}
-			ops = append(ops, PaneActionOp{
+			ops = append(ops, LaneActionOp{
 				Field:    field,
 				Operator: op,
 				StrValue: strValue,
 			})
 		case ActionFieldType:
 			if op != ActionOperatorAssign {
-				return PaneAction{}, fmt.Errorf("%s action only supports =", field)
+				return LaneAction{}, fmt.Errorf("%s action only supports =", field)
 			}
 			strValue, err := parseStringValue(value)
 			if err != nil {
-				return PaneAction{}, err
+				return LaneAction{}, err
 			}
 			if _, ok := task.ParseType(strValue); !ok {
-				return PaneAction{}, fmt.Errorf("invalid type value %q", strValue)
+				return LaneAction{}, fmt.Errorf("invalid type value %q", strValue)
 			}
-			ops = append(ops, PaneActionOp{
+			ops = append(ops, LaneActionOp{
 				Field:    field,
 				Operator: op,
 				StrValue: strValue,
 			})
 		default:
 			if op != ActionOperatorAssign {
-				return PaneAction{}, fmt.Errorf("%s action only supports =", field)
+				return LaneAction{}, fmt.Errorf("%s action only supports =", field)
 			}
 			strValue, err := parseStringValue(value)
 			if err != nil {
-				return PaneAction{}, err
+				return LaneAction{}, err
 			}
-			ops = append(ops, PaneActionOp{
+			ops = append(ops, LaneActionOp{
 				Field:    field,
 				Operator: op,
 				StrValue: strValue,
@@ -147,11 +147,11 @@ func ParsePaneAction(input string) (PaneAction, error) {
 		}
 	}
 
-	return PaneAction{Ops: ops}, nil
+	return LaneAction{Ops: ops}, nil
 }
 
-// ApplyPaneAction applies a parsed action to a task clone.
-func ApplyPaneAction(src *task.Task, action PaneAction, currentUser string) (*task.Task, error) {
+// ApplyLaneAction applies a parsed action to a task clone.
+func ApplyLaneAction(src *task.Task, action LaneAction, currentUser string) (*task.Task, error) {
 	if src == nil {
 		return nil, fmt.Errorf("task is nil")
 	}

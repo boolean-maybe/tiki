@@ -2,7 +2,7 @@ name: Roadmap
 foreground: "#e2e8f0"
 background: "#2a5f5a"
 key: "F4"
-panes:
+lanes:
   - name: Now
     columns: 1
     filter: type = 'epic' AND status = 'ready'

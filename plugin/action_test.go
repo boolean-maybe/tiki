@@ -74,8 +74,8 @@ func TestSplitTopLevelCommas(t *testing.T) {
 	}
 }
 
-func TestParsePaneAction(t *testing.T) {
-	action, err := ParsePaneAction("status=done, type=bug, priority=2, points=3, assignee='Alice', tags+=[frontend,'needs review']")
+func TestParseLaneAction(t *testing.T) {
+	action, err := ParseLaneAction("status=done, type=bug, priority=2, points=3, assignee='Alice', tags+=[frontend,'needs review']")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -123,7 +123,7 @@ func TestParsePaneAction(t *testing.T) {
 	}
 }
 
-func TestParsePaneAction_Errors(t *testing.T) {
+func TestParseLaneAction_Errors(t *testing.T) {
 	tests := []struct {
 		name    string
 		input   string
@@ -183,7 +183,7 @@ func TestParsePaneAction_Errors(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			_, err := ParsePaneAction(tc.input)
+			_, err := ParseLaneAction(tc.input)
 			if err == nil {
 				t.Fatalf("expected error containing %q", tc.wantErr)
 			}
@@ -194,7 +194,7 @@ func TestParsePaneAction_Errors(t *testing.T) {
 	}
 }
 
-func TestApplyPaneAction(t *testing.T) {
+func TestApplyLaneAction(t *testing.T) {
 	base := &task.Task{
 		ID:       "TASK-1",
 		Title:    "Task",
@@ -206,12 +206,12 @@ func TestApplyPaneAction(t *testing.T) {
 		Assignee: "Bob",
 	}
 
-	action, err := ParsePaneAction("status=done, type=bug, priority=2, points=3, assignee=Alice, tags+=[moved]")
+	action, err := ParseLaneAction("status=done, type=bug, priority=2, points=3, assignee=Alice, tags+=[moved]")
 	if err != nil {
 		t.Fatalf("unexpected parse error: %v", err)
 	}
 
-	updated, err := ApplyPaneAction(base, action, "")
+	updated, err := ApplyLaneAction(base, action, "")
 	if err != nil {
 		t.Fatalf("unexpected apply error: %v", err)
 	}
@@ -242,7 +242,7 @@ func TestApplyPaneAction(t *testing.T) {
 	}
 }
 
-func TestApplyPaneAction_InvalidResult(t *testing.T) {
+func TestApplyLaneAction_InvalidResult(t *testing.T) {
 	base := &task.Task{
 		ID:       "TASK-1",
 		Title:    "Task",
@@ -252,8 +252,8 @@ func TestApplyPaneAction_InvalidResult(t *testing.T) {
 		Points:   1,
 	}
 
-	action := PaneAction{
-		Ops: []PaneActionOp{
+	action := LaneAction{
+		Ops: []LaneActionOp{
 			{
 				Field:    ActionFieldPriority,
 				Operator: ActionOperatorAssign,
@@ -262,13 +262,13 @@ func TestApplyPaneAction_InvalidResult(t *testing.T) {
 		},
 	}
 
-	_, err := ApplyPaneAction(base, action, "")
+	_, err := ApplyLaneAction(base, action, "")
 	if err == nil {
 		t.Fatalf("expected validation error")
 	}
 }
 
-func TestApplyPaneAction_AssigneeCurrentUser(t *testing.T) {
+func TestApplyLaneAction_AssigneeCurrentUser(t *testing.T) {
 	base := &task.Task{
 		ID:       "TASK-1",
 		Title:    "Task",
@@ -279,12 +279,12 @@ func TestApplyPaneAction_AssigneeCurrentUser(t *testing.T) {
 		Assignee: "Bob",
 	}
 
-	action, err := ParsePaneAction("assignee=CURRENT_USER")
+	action, err := ParseLaneAction("assignee=CURRENT_USER")
 	if err != nil {
 		t.Fatalf("unexpected parse error: %v", err)
 	}
 
-	updated, err := ApplyPaneAction(base, action, "Alex")
+	updated, err := ApplyLaneAction(base, action, "Alex")
 	if err != nil {
 		t.Fatalf("unexpected apply error: %v", err)
 	}
@@ -293,7 +293,7 @@ func TestApplyPaneAction_AssigneeCurrentUser(t *testing.T) {
 	}
 }
 
-func TestApplyPaneAction_AssigneeCurrentUserMissing(t *testing.T) {
+func TestApplyLaneAction_AssigneeCurrentUserMissing(t *testing.T) {
 	base := &task.Task{
 		ID:       "TASK-1",
 		Title:    "Task",
@@ -303,12 +303,12 @@ func TestApplyPaneAction_AssigneeCurrentUserMissing(t *testing.T) {
 		Points:   1,
 	}
 
-	action, err := ParsePaneAction("assignee=CURRENT_USER")
+	action, err := ParseLaneAction("assignee=CURRENT_USER")
 	if err != nil {
 		t.Fatalf("unexpected parse error: %v", err)
 	}
 
-	_, err = ApplyPaneAction(base, action, "")
+	_, err = ApplyLaneAction(base, action, "")
 	if err == nil {
 		t.Fatalf("expected error for missing current user")
 	}

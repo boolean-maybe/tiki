@@ -12,13 +12,13 @@ import (
 	"github.com/spf13/viper"
 )
 
-func TestPluginView_MoveTaskAppliesPaneAction(t *testing.T) {
+func TestPluginView_MoveTaskAppliesLaneAction(t *testing.T) {
 	originalPlugins := viper.Get("plugins")
 	viper.Set("plugins", []plugin.PluginRef{
 		{
 			Name: "ActionTest",
 			Key:  "F4",
-			Panes: []plugin.PluginPaneConfig{
+			Lanes: []plugin.PluginLaneConfig{
 				{
 					Name:    "Backlog",
 					Columns: 1,

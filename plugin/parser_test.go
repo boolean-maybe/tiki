@@ -164,7 +164,7 @@ func TestParsePluginConfig_DefaultTikiType(t *testing.T) {
 	cfg := pluginFileConfig{
 		Name: "Test",
 		Key:  "T",
-		Panes: []PluginPaneConfig{
+		Lanes: []PluginLaneConfig{
 			{Name: "Todo", Filter: "status='ready'"},
 		},
 		// Type not specified, should default to "tiki"
@@ -277,7 +277,7 @@ func TestParsePluginYAML_ValidTiki(t *testing.T) {
 name: Test Plugin
 key: T
 type: tiki
-panes:
+lanes:
   - name: Todo
     columns: 4
     filter: status = 'ready'
@@ -305,12 +305,12 @@ background: "#0000ff"
 		t.Errorf("Expected view mode 'expanded', got %q", tikiPlugin.ViewMode)
 	}
 
-	if len(tikiPlugin.Panes) != 1 {
-		t.Fatalf("Expected 1 pane, got %d", len(tikiPlugin.Panes))
+	if len(tikiPlugin.Lanes) != 1 {
+		t.Fatalf("Expected 1 lane, got %d", len(tikiPlugin.Lanes))
 	}
 
-	if tikiPlugin.Panes[0].Columns != 4 {
-		t.Errorf("Expected pane columns 4, got %d", tikiPlugin.Panes[0].Columns)
+	if tikiPlugin.Lanes[0].Columns != 4 {
+		t.Errorf("Expected lane columns 4, got %d", tikiPlugin.Lanes[0].Columns)
 	}
 }
 
@@ -429,7 +429,7 @@ func TestParsePluginYAML_TikiWithActions(t *testing.T) {
 	yamlData := []byte(`
 name: Test
 key: T
-panes:
+lanes:
   - name: Backlog
     filter: status = 'backlog'
 actions:

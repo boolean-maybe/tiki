@@ -61,7 +61,7 @@ func (p *BasePlugin) GetType() string {
 // TikiPlugin is a task-based plugin (like default Kanban board)
 type TikiPlugin struct {
 	BasePlugin
-	Panes    []TikiPane     // pane definitions for this plugin
+	Lanes    []TikiLane     // lane definitions for this plugin
 	Sort     []SortRule     // parsed sort rules (nil = default sort)
 	ViewMode string         // default view mode: "compact" or "expanded" (empty = compact)
 	Actions  []PluginAction // shortcut actions applied to the selected task
@@ -86,23 +86,23 @@ type PluginActionConfig struct {
 type PluginAction struct {
 	Rune   rune
 	Label  string
-	Action PaneAction
+	Action LaneAction
 }
 
-// PluginPaneConfig represents a pane in YAML or config definitions.
-type PluginPaneConfig struct {
+// PluginLaneConfig represents a lane in YAML or config definitions.
+type PluginLaneConfig struct {
 	Name    string `yaml:"name" mapstructure:"name"`
 	Columns int    `yaml:"columns" mapstructure:"columns"`
 	Filter  string `yaml:"filter" mapstructure:"filter"`
 	Action  string `yaml:"action" mapstructure:"action"`
 }
 
-// TikiPane represents a parsed pane definition.
-type TikiPane struct {
+// TikiLane represents a parsed lane definition.
+type TikiLane struct {
 	Name    string
 	Columns int
 	Filter  filter.FilterExpr
-	Action  PaneAction
+	Action  LaneAction
 }
 
 // PluginRef is the entry in config.yaml that references a plugin file or defines it inline
@@ -122,6 +122,6 @@ type PluginRef struct {
 	Fetcher    string               `mapstructure:"fetcher"`
 	Text       string               `mapstructure:"text"`
 	URL        string               `mapstructure:"url"`
-	Panes      []PluginPaneConfig   `mapstructure:"panes"`
+	Lanes      []PluginLaneConfig   `mapstructure:"lanes"`
 	Actions    []PluginActionConfig `mapstructure:"actions"`
 }

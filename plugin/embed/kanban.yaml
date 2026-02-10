@@ -2,7 +2,7 @@ name: Kanban
 foreground: "#87ceeb"
 background: "#25496a"
 key: "F1"
-panes:
+lanes:
   - name: Ready
     filter: status = 'ready' and type != 'epic'
     action: status = 'ready'

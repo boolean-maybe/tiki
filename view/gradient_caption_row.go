@@ -8,47 +8,47 @@ import (
 	"github.com/rivo/tview"
 )
 
-// GradientCaptionRow is a tview primitive that renders multiple pane captions
+// GradientCaptionRow is a tview primitive that renders multiple lane captions
 // with a continuous horizontal background gradient spanning the entire screen width
 type GradientCaptionRow struct {
 	*tview.Box
-	paneNames []string
+	laneNames []string
 	bgColor   tcell.Color     // original background color from plugin
 	gradient  config.Gradient // computed gradient (for truecolor/256-color terminals)
 	textColor tcell.Color
 }
 
 // NewGradientCaptionRow creates a new gradient caption row widget
-func NewGradientCaptionRow(paneNames []string, bgColor tcell.Color, textColor tcell.Color) *GradientCaptionRow {
+func NewGradientCaptionRow(laneNames []string, bgColor tcell.Color, textColor tcell.Color) *GradientCaptionRow {
 	return &GradientCaptionRow{
 		Box:       tview.NewBox(),
-		paneNames: paneNames,
+		laneNames: laneNames,
 		bgColor:   bgColor,
 		gradient:  computeCaptionGradient(bgColor),
 		textColor: textColor,
 	}
 }
 
-// Draw renders all pane captions with a screen-wide gradient background
+// Draw renders all lane captions with a screen-wide gradient background
 func (gcr *GradientCaptionRow) Draw(screen tcell.Screen) {
 	gcr.DrawForSubclass(screen, gcr)
 
 	x, y, width, height := gcr.GetInnerRect()
-	if width <= 0 || height <= 0 || len(gcr.paneNames) == 0 {
+	if width <= 0 || height <= 0 || len(gcr.laneNames) == 0 {
 		return
 	}
 
-	// Calculate pane width (equal distribution)
-	numPanes := len(gcr.paneNames)
-	paneWidth := width / numPanes
+	// Calculate lane width (equal distribution)
+	numLanes := len(gcr.laneNames)
+	laneWidth := width / numLanes
 
-	// Convert all pane names to runes for Unicode handling
-	paneRunes := make([][]rune, numPanes)
-	for i, name := range gcr.paneNames {
-		paneRunes[i] = []rune(name)
+	// Convert all lane names to runes for Unicode handling
+	laneRunes := make([][]rune, numLanes)
+	for i, name := range gcr.laneNames {
+		laneRunes[i] = []rune(name)
 	}
 
-	// Render each pane position across the screen
+	// Render each lane position across the screen
 	for col := 0; col < width; col++ {
 		// Calculate gradient color based on screen position (edges to center gradient)
 		// Distance from center: 0.0 at center, 1.0 at edges
@@ -75,34 +75,34 @@ func (gcr *GradientCaptionRow) Draw(screen tcell.Screen) {
 			bgColor = gradient.InterpolateColor(gcr.gradient, 1.0)
 		}
 
-		// Determine which pane this position belongs to
-		paneIndex := col / paneWidth
-		if paneIndex >= numPanes {
-			paneIndex = numPanes - 1
+		// Determine which lane this position belongs to
+		laneIndex := col / laneWidth
+		if laneIndex >= numLanes {
+			laneIndex = numLanes - 1
 		}
 
-		// Calculate position within this pane
-		paneStartX := paneIndex * paneWidth
-		paneEndX := paneStartX + paneWidth
-		if paneIndex == numPanes-1 {
-			paneEndX = width // Last pane extends to screen edge
+		// Calculate position within this lane
+		laneStartX := laneIndex * laneWidth
+		laneEndX := laneStartX + laneWidth
+		if laneIndex == numLanes-1 {
+			laneEndX = width // Last lane extends to screen edge
 		}
-		currentPaneWidth := paneEndX - paneStartX
-		posInPane := col - paneStartX
+		currentLaneWidth := laneEndX - laneStartX
+		posInLane := col - laneStartX
 
-		// Get the text for this pane
-		textRunes := paneRunes[paneIndex]
+		// Get the text for this lane
+		textRunes := laneRunes[laneIndex]
 		textWidth := len(textRunes)
 
-		// Calculate centered text position within pane
+		// Calculate centered text position within lane
 		textStartPos := 0
-		if textWidth < currentPaneWidth {
-			textStartPos = (currentPaneWidth - textWidth) / 2
+		if textWidth < currentLaneWidth {
+			textStartPos = (currentLaneWidth - textWidth) / 2
 		}
 
 		// Determine if we should render a character at this position
 		char := ' '
-		textIndex := posInPane - textStartPos
+		textIndex := posInLane - textStartPos
 		if textIndex >= 0 && textIndex < textWidth {
 			char = textRunes[textIndex]
 		}
