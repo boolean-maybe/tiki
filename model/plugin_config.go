@@ -8,6 +8,14 @@ import (
 	"github.com/boolean-maybe/tiki/task"
 )
 
+// ViewMode represents the display mode for task boxes
+type ViewMode string
+
+const (
+	ViewModeCompact  ViewMode = "compact"  // 3-line display (5 total height with border)
+	ViewModeExpanded ViewMode = "expanded" // 7-line display (9 total height with border)
+)
+
 // PluginSelectionListener is called when plugin selection changes
 type PluginSelectionListener func()
 
