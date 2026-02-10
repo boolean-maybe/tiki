@@ -61,9 +61,10 @@ func (p *BasePlugin) GetType() string {
 // TikiPlugin is a task-based plugin (like default Kanban board)
 type TikiPlugin struct {
 	BasePlugin
-	Panes    []TikiPane // pane definitions for this plugin
-	Sort     []SortRule // parsed sort rules (nil = default sort)
-	ViewMode string     // default view mode: "compact" or "expanded" (empty = compact)
+	Panes    []TikiPane     // pane definitions for this plugin
+	Sort     []SortRule     // parsed sort rules (nil = default sort)
+	ViewMode string         // default view mode: "compact" or "expanded" (empty = compact)
+	Actions  []PluginAction // shortcut actions applied to the selected task
 }
 
 // DokiPlugin is a documentation-based plugin
@@ -72,6 +73,20 @@ type DokiPlugin struct {
 	Fetcher string // "file" or "internal"
 	Text    string // content text (for internal)
 	URL     string // resource URL (for file)
+}
+
+// PluginActionConfig represents a shortcut action in YAML or config definitions.
+type PluginActionConfig struct {
+	Key    string `yaml:"key" mapstructure:"key"`
+	Label  string `yaml:"label" mapstructure:"label"`
+	Action string `yaml:"action" mapstructure:"action"`
+}
+
+// PluginAction represents a parsed shortcut action bound to a key.
+type PluginAction struct {
+	Rune   rune
+	Label  string
+	Action PaneAction
 }
 
 // PluginPaneConfig represents a pane in YAML or config definitions.
@@ -96,16 +111,17 @@ type PluginRef struct {
 	File string `mapstructure:"file"`
 
 	// Inline definition fields (for inline and hybrid modes)
-	Name       string             `mapstructure:"name"`
-	Foreground string             `mapstructure:"foreground"`
-	Background string             `mapstructure:"background"`
-	Key        string             `mapstructure:"key"`
-	Filter     string             `mapstructure:"filter"`
-	Sort       string             `mapstructure:"sort"`
-	View       string             `mapstructure:"view"`
-	Type       string             `mapstructure:"type"`
-	Fetcher    string             `mapstructure:"fetcher"`
-	Text       string             `mapstructure:"text"`
-	URL        string             `mapstructure:"url"`
-	Panes      []PluginPaneConfig `mapstructure:"panes"`
+	Name       string               `mapstructure:"name"`
+	Foreground string               `mapstructure:"foreground"`
+	Background string               `mapstructure:"background"`
+	Key        string               `mapstructure:"key"`
+	Filter     string               `mapstructure:"filter"`
+	Sort       string               `mapstructure:"sort"`
+	View       string               `mapstructure:"view"`
+	Type       string               `mapstructure:"type"`
+	Fetcher    string               `mapstructure:"fetcher"`
+	Text       string               `mapstructure:"text"`
+	URL        string               `mapstructure:"url"`
+	Panes      []PluginPaneConfig   `mapstructure:"panes"`
+	Actions    []PluginActionConfig `mapstructure:"actions"`
 }

@@ -5,6 +5,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/gdamore/tcell/v2"
+
 	"github.com/boolean-maybe/tiki/model"
 	"github.com/boolean-maybe/tiki/plugin"
 	"github.com/boolean-maybe/tiki/store"
@@ -27,13 +29,61 @@ func NewPluginController(
 	pluginDef *plugin.TikiPlugin,
 	navController *NavigationController,
 ) *PluginController {
-	return &PluginController{
+	pc := &PluginController{
 		taskStore:     taskStore,
 		pluginConfig:  pluginConfig,
 		pluginDef:     pluginDef,
 		navController: navController,
 		registry:      PluginViewActions(),
 	}
+
+	// register plugin-specific shortcut actions, warn about conflicts
+	globalActions := DefaultGlobalActions()
+	for _, a := range pluginDef.Actions {
+		if existing, ok := globalActions.LookupRune(a.Rune); ok {
+			slog.Warn("plugin action key shadows global action and will be unreachable",
+				"plugin", pluginDef.Name, "key", string(a.Rune),
+				"plugin_action", a.Label, "global_action", existing.Label)
+		} else if existing, ok := pc.registry.LookupRune(a.Rune); ok {
+			slog.Warn("plugin action key shadows built-in action and will be unreachable",
+				"plugin", pluginDef.Name, "key", string(a.Rune),
+				"plugin_action", a.Label, "built_in_action", existing.Label)
+		}
+		pc.registry.Register(Action{
+			ID:           pluginActionID(a.Rune),
+			Key:          tcell.KeyRune,
+			Rune:         a.Rune,
+			Label:        a.Label,
+			ShowInHeader: true,
+		})
+	}
+
+	return pc
+}
+
+const pluginActionPrefix = "plugin_action:"
+
+// pluginActionID returns an ActionID for a plugin shortcut action key.
+func pluginActionID(r rune) ActionID {
+	return ActionID(pluginActionPrefix + string(r))
+}
+
+// getPluginActionRune extracts the rune from a plugin action ID.
+// Returns 0 if the ID is not a plugin action.
+func getPluginActionRune(id ActionID) rune {
+	s := string(id)
+	if !strings.HasPrefix(s, pluginActionPrefix) {
+		return 0
+	}
+	rest := s[len(pluginActionPrefix):]
+	if len(rest) == 0 {
+		return 0
+	}
+	runes := []rune(rest)
+	if len(runes) != 1 {
+		return 0
+	}
+	return runes[0]
 }
 
 // GetActionRegistry returns the actions for the plugin view
@@ -75,6 +125,9 @@ func (pc *PluginController) HandleAction(actionID ActionID) bool {
 	case ActionToggleViewMode:
 		return pc.handleToggleViewMode()
 	default:
+		if r := getPluginActionRune(actionID); r != 0 {
+			return pc.handlePluginAction(r)
+		}
 		return false
 	}
 }
@@ -168,6 +221,47 @@ func (pc *PluginController) handleDeleteTask() bool {
 
 func (pc *PluginController) handleToggleViewMode() bool {
 	pc.pluginConfig.ToggleViewMode()
+	return true
+}
+
+// handlePluginAction applies a plugin shortcut action to the currently selected task.
+func (pc *PluginController) handlePluginAction(r rune) bool {
+	// find the matching action definition
+	var pa *plugin.PluginAction
+	for i := range pc.pluginDef.Actions {
+		if pc.pluginDef.Actions[i].Rune == r {
+			pa = &pc.pluginDef.Actions[i]
+			break
+		}
+	}
+	if pa == nil {
+		return false
+	}
+
+	taskID := pc.getSelectedTaskID()
+	if taskID == "" {
+		return false
+	}
+
+	taskItem := pc.taskStore.GetTask(taskID)
+	if taskItem == nil {
+		return false
+	}
+
+	currentUser := getCurrentUserName(pc.taskStore)
+	updated, err := plugin.ApplyPaneAction(taskItem, pa.Action, currentUser)
+	if err != nil {
+		slog.Error("failed to apply plugin action", "task_id", taskID, "key", string(r), "error", err)
+		return false
+	}
+
+	if err := pc.taskStore.UpdateTask(updated); err != nil {
+		slog.Error("failed to update task after plugin action", "task_id", taskID, "key", string(r), "error", err)
+		return false
+	}
+
+	pc.ensureSearchResultIncludesTask(updated)
+	slog.Info("plugin action applied", "task_id", taskID, "key", string(r), "label", pa.Label, "plugin", pc.pluginDef.Name)
 	return true
 }
 

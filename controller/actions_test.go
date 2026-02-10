@@ -473,6 +473,66 @@ func TestCommonFieldNavigationActions(t *testing.T) {
 	}
 }
 
+func TestPluginActionID(t *testing.T) {
+	id := pluginActionID('b')
+	if id != "plugin_action:b" {
+		t.Errorf("expected 'plugin_action:b', got %q", id)
+	}
+
+	r := getPluginActionRune(id)
+	if r != 'b' {
+		t.Errorf("expected 'b', got %q", r)
+	}
+}
+
+func TestLookupRune_ConflictDetection(t *testing.T) {
+	r := PluginViewActions()
+
+	// built-in plugin view keys should be found
+	conflicting := []rune{'k', 'j', 'h', 'l', 'n', 'd', '/', 'v'}
+	for _, ch := range conflicting {
+		if _, ok := r.LookupRune(ch); !ok {
+			t.Errorf("expected built-in action for rune %q", ch)
+		}
+	}
+
+	// non-conflicting key should not be found
+	if _, ok := r.LookupRune('b'); ok {
+		t.Errorf("rune 'b' should not conflict with built-in actions")
+	}
+
+	// global actions
+	g := DefaultGlobalActions()
+	if _, ok := g.LookupRune('q'); !ok {
+		t.Error("expected global action for rune 'q'")
+	}
+	if _, ok := g.LookupRune('r'); !ok {
+		t.Error("expected global action for rune 'r'")
+	}
+}
+
+func TestGetPluginActionRune_NotPluginAction(t *testing.T) {
+	tests := []struct {
+		name string
+		id   ActionID
+	}{
+		{"empty", ""},
+		{"built-in", ActionNavUp},
+		{"plugin activation", "plugin:Kanban"},
+		{"partial prefix", "plugin_action:"},
+		{"multi-char", ActionID("plugin_action:ab")},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			r := getPluginActionRune(tc.id)
+			if r != 0 {
+				t.Errorf("expected 0, got %q", r)
+			}
+		})
+	}
+}
+
 func TestMatchWithModifiers(t *testing.T) {
 	registry := NewActionRegistry()
 

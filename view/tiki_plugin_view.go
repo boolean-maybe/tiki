@@ -40,12 +40,13 @@ func NewPluginView(
 	pluginDef *plugin.TikiPlugin,
 	getPaneTasks func(pane int) []*task.Task,
 	ensureSelection func() bool,
+	registry *controller.ActionRegistry,
 ) *PluginView {
 	pv := &PluginView{
 		taskStore:       taskStore,
 		pluginConfig:    pluginConfig,
 		pluginDef:       pluginDef,
-		registry:        controller.PluginViewActions(),
+		registry:        registry,
 		getPaneTasks:    getPaneTasks,
 		ensureSelection: ensureSelection,
 	}

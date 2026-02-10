@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/boolean-maybe/tiki/config"
+	"github.com/boolean-maybe/tiki/controller"
 	"github.com/boolean-maybe/tiki/model"
 	"github.com/boolean-maybe/tiki/plugin"
 	"github.com/boolean-maybe/tiki/store"
@@ -37,7 +38,7 @@ func TestPluginViewRefreshPreservesScrollOffset(t *testing.T) {
 
 	pv := NewPluginView(taskStore, pluginConfig, pluginDef, func(pane int) []*task.Task {
 		return tasks
-	}, nil)
+	}, nil, controller.PluginViewActions())
 
 	if len(pv.paneBoxes) != 1 {
 		t.Fatalf("expected 1 pane box, got %d", len(pv.paneBoxes))

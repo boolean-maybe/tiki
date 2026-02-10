@@ -89,6 +89,7 @@ func (f *ViewFactory) CreateView(viewID model.ViewID, params map[string]interfac
 							tikiPlugin,
 							tikiController.GetFilteredTasksForPane,
 							tikiController.EnsureFirstNonEmptyPaneSelection,
+							tikiController.GetActionRegistry(),
 						)
 					} else {
 						slog.Error("plugin controller type mismatch", "plugin", pluginName)

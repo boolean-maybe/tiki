@@ -179,6 +179,12 @@ func (r *ActionRegistry) GetActions() []Action {
 	return r.actions
 }
 
+// LookupRune returns the action registered for the given rune, if any.
+func (r *ActionRegistry) LookupRune(ch rune) (Action, bool) {
+	a, ok := r.byRune[ch]
+	return a, ok
+}
+
 // Match finds an action matching the given key event
 func (r *ActionRegistry) Match(event *tcell.EventKey) *Action {
 	// normalize modifier (ignore caps lock, num lock, etc.)

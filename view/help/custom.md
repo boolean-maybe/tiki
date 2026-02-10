@@ -15,9 +15,14 @@ how Backlog is defined:
           - name: Backlog
             columns: 4
             filter: status = 'backlog'
+        actions:
+          - key: "b"
+            label: "Add to board"
+            action: status = 'ready'
         sort: Priority, ID
 ```
-that translates to - show all tikis of in the status `backlog`, sort by priority and then by ID arranged visually in 4 columns in a single pane
+that translates to - show all tikis in the status `backlog`, sort by priority and then by ID arranged visually in 4 columns in a single pane. 
+The `actions` section defines a keyboard shortcut `b` that moves the selected tiki to the board by setting its status to `ready`
 You define the name, caption colors, hotkey, tiki filter and sorting. Save this into a yaml file and add this line:
 
 ```text
@@ -74,6 +79,30 @@ panes:
     filter: status = 'done'
     action: status = 'done'
 ```
+
+## Plugin actions
+
+In addition to pane actions that trigger when moving tikis between panes, you can define plugin-level actions 
+that apply to the currently selected tiki via a keyboard shortcut. These shortcuts are displayed in the header when the plugin is active.
+
+```yaml
+actions:
+  - key: "b"
+    label: "Add to board"
+    action: status = 'ready'
+  - key: "a"
+    label: "Assign to me"
+    action: assignee = CURRENT_USER
+```
+
+Each action has:
+- `key` - a single printable character used as the keyboard shortcut
+- `label` - description shown in the header
+- `action` - an action expression (same syntax as pane actions, see below)
+
+When the shortcut key is pressed, the action is applied to the currently selected tiki. 
+For example, pressing `b` in the Backlog plugin changes the selected tiki's status to `ready`, 
+effectively moving it to the board.
 
 ## Action expression
 

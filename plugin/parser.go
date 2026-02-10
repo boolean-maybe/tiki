@@ -2,6 +2,8 @@ package plugin
 
 import (
 	"fmt"
+	"unicode"
+	"unicode/utf8"
 
 	"github.com/gdamore/tcell/v2"
 	"gopkg.in/yaml.v3"
@@ -52,6 +54,9 @@ func parsePluginConfig(cfg pluginFileConfig, source string) (Plugin, error) {
 		}
 		if len(cfg.Panes) > 0 {
 			return nil, fmt.Errorf("doki plugin cannot have 'panes'")
+		}
+		if len(cfg.Actions) > 0 {
+			return nil, fmt.Errorf("doki plugin cannot have 'actions'")
 		}
 
 		if cfg.Fetcher != "file" && cfg.Fetcher != "internal" {
@@ -126,16 +131,76 @@ func parsePluginConfig(cfg pluginFileConfig, source string) (Plugin, error) {
 			return nil, fmt.Errorf("parsing sort: %w", err)
 		}
 
+		// Parse plugin actions
+		actions, err := parsePluginActions(cfg.Actions)
+		if err != nil {
+			return nil, fmt.Errorf("plugin %q (%s): %w", cfg.Name, source, err)
+		}
+
 		return &TikiPlugin{
 			BasePlugin: base,
 			Panes:      panes,
 			Sort:       sortRules,
 			ViewMode:   cfg.View,
+			Actions:    actions,
 		}, nil
 
 	default:
 		return nil, fmt.Errorf("unknown plugin type: %s", pluginType)
 	}
+}
+
+// parsePluginActions parses and validates plugin action configs into PluginAction slice.
+func parsePluginActions(configs []PluginActionConfig) ([]PluginAction, error) {
+	if len(configs) == 0 {
+		return nil, nil
+	}
+	if len(configs) > 10 {
+		return nil, fmt.Errorf("too many actions (%d), max is 10", len(configs))
+	}
+
+	seen := make(map[rune]bool, len(configs))
+	actions := make([]PluginAction, 0, len(configs))
+
+	for i, cfg := range configs {
+		if cfg.Key == "" {
+			return nil, fmt.Errorf("action %d missing 'key'", i)
+		}
+		r, size := utf8.DecodeRuneInString(cfg.Key)
+		if r == utf8.RuneError || size != len(cfg.Key) {
+			return nil, fmt.Errorf("action %d key must be a single character, got %q", i, cfg.Key)
+		}
+		if !unicode.IsPrint(r) {
+			return nil, fmt.Errorf("action %d key must be a printable character, got %q", i, cfg.Key)
+		}
+		if seen[r] {
+			return nil, fmt.Errorf("duplicate action key %q", cfg.Key)
+		}
+		seen[r] = true
+
+		if cfg.Label == "" {
+			return nil, fmt.Errorf("action %d (key %q) missing 'label'", i, cfg.Key)
+		}
+		if cfg.Action == "" {
+			return nil, fmt.Errorf("action %d (key %q) missing 'action'", i, cfg.Key)
+		}
+
+		action, err := ParsePaneAction(cfg.Action)
+		if err != nil {
+			return nil, fmt.Errorf("parsing action %d (key %q): %w", i, cfg.Key, err)
+		}
+		if len(action.Ops) == 0 {
+			return nil, fmt.Errorf("action %d (key %q) has empty action expression", i, cfg.Key)
+		}
+
+		actions = append(actions, PluginAction{
+			Rune:   r,
+			Label:  cfg.Label,
+			Action: action,
+		})
+	}
+
+	return actions, nil
 }
 
 // parsePluginYAML parses plugin YAML data into a Plugin

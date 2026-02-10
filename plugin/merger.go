@@ -8,18 +8,19 @@ import (
 
 // pluginFileConfig represents the YAML structure of a plugin file
 type pluginFileConfig struct {
-	Name       string             `yaml:"name"`
-	Foreground string             `yaml:"foreground"` // hex color like "#ff0000" or named color
-	Background string             `yaml:"background"`
-	Key        string             `yaml:"key"` // single character
-	Filter     string             `yaml:"filter"`
-	Sort       string             `yaml:"sort"`
-	View       string             `yaml:"view"` // "compact" or "expanded" (default: compact)
-	Type       string             `yaml:"type"` // "tiki" or "doki" (default: tiki)
-	Fetcher    string             `yaml:"fetcher"`
-	Text       string             `yaml:"text"`
-	URL        string             `yaml:"url"`
-	Panes      []PluginPaneConfig `yaml:"panes"`
+	Name       string               `yaml:"name"`
+	Foreground string               `yaml:"foreground"` // hex color like "#ff0000" or named color
+	Background string               `yaml:"background"`
+	Key        string               `yaml:"key"` // single character
+	Filter     string               `yaml:"filter"`
+	Sort       string               `yaml:"sort"`
+	View       string               `yaml:"view"` // "compact" or "expanded" (default: compact)
+	Type       string               `yaml:"type"` // "tiki" or "doki" (default: tiki)
+	Fetcher    string               `yaml:"fetcher"`
+	Text       string               `yaml:"text"`
+	URL        string               `yaml:"url"`
+	Panes      []PluginPaneConfig   `yaml:"panes"`
+	Actions    []PluginActionConfig `yaml:"actions"`
 }
 
 // mergePluginConfigs merges file-based config (base) with inline overrides
@@ -63,6 +64,9 @@ func mergePluginConfigs(base pluginFileConfig, overrides PluginRef) pluginFileCo
 	if len(overrides.Panes) > 0 {
 		result.Panes = overrides.Panes
 	}
+	if len(overrides.Actions) > 0 {
+		result.Actions = overrides.Actions
+	}
 
 	return result
 }
@@ -90,6 +94,7 @@ func mergePluginDefinitions(base Plugin, override Plugin) Plugin {
 			Panes:    baseTiki.Panes,
 			Sort:     baseTiki.Sort,
 			ViewMode: baseTiki.ViewMode,
+			Actions:  baseTiki.Actions,
 		}
 
 		// Apply overrides for non-zero values
@@ -112,6 +117,9 @@ func mergePluginDefinitions(base Plugin, override Plugin) Plugin {
 		}
 		if overrideTiki.ViewMode != "" {
 			result.ViewMode = overrideTiki.ViewMode
+		}
+		if len(overrideTiki.Actions) > 0 {
+			result.Actions = overrideTiki.Actions
 		}
 		// Type is usually "tiki" for both, but if overridden to "tiki" explicitly, it's fine.
 
@@ -140,7 +148,7 @@ func validatePluginRef(ref PluginRef) error {
 		ref.Sort != "" || ref.Foreground != "" ||
 		ref.Background != "" || ref.View != "" || ref.Type != "" ||
 		ref.Fetcher != "" || ref.Text != "" || ref.URL != "" ||
-		len(ref.Panes) > 0
+		len(ref.Panes) > 0 || len(ref.Actions) > 0
 
 	if !hasContent {
 		return fmt.Errorf("inline plugin '%s' has no configuration fields", ref.Name)
