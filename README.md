@@ -69,6 +69,8 @@ All vim-like pager commands are supported in addition to:
 
 ### File and issue management
 
+<img src=".doc/doki/doc/kanban.gif" alt="Kanban demo" width="800">
+
 `cd` into your **git** repo and run `tiki init` to initialize.
 Move your tiki around the board with `Shift ←/Shift →`.
 Make sure to press `?` for help.
