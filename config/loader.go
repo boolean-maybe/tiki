@@ -230,8 +230,8 @@ func getPluginViewModeFromWorkflow(pluginName string, defaultValue string) strin
 func SavePluginViewMode(pluginName string, configIndex int, viewMode string) error {
 	path := FindWorkflowFile()
 	if path == "" {
-		// create workflow.yaml in project config dir
-		path = DefaultWorkflowFilePath()
+		// create workflow.yaml in user config dir
+		path = GetUserConfigWorkflowFile()
 	}
 
 	var wf *workflowFileData

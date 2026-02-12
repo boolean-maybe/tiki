@@ -19,12 +19,13 @@ type pluginFileConfig struct {
 	URL        string               `yaml:"url"`
 	Lanes      []PluginLaneConfig   `yaml:"lanes"`
 	Actions    []PluginActionConfig `yaml:"actions"`
+	Default    bool                 `yaml:"default"`
 }
 
-// mergePluginDefinitions merges an embedded plugin (base) with a configured override
-// Override fields replace base fields only if they are non-zero/non-empty
+// mergePluginDefinitions merges a base plugin with a configured override.
+// Override fields replace base fields only if they are non-zero/non-empty.
 func mergePluginDefinitions(base Plugin, override Plugin) Plugin {
-	// Currently only Tiki plugins are embedded, so we primarily handle Tiki merging
+	// Currently only Tiki plugins support field-level merging
 	baseTiki, baseIsTiki := base.(*TikiPlugin)
 	overrideTiki, overrideIsTiki := override.(*TikiPlugin)
 
@@ -40,6 +41,7 @@ func mergePluginDefinitions(base Plugin, override Plugin) Plugin {
 				FilePath:    overrideTiki.FilePath,    // Use override's filepath for tracking
 				ConfigIndex: overrideTiki.ConfigIndex, // Use override's config index
 				Type:        baseTiki.Type,
+				Default:     baseTiki.Default,
 			},
 			Lanes:    baseTiki.Lanes,
 			Sort:     baseTiki.Sort,
@@ -71,12 +73,14 @@ func mergePluginDefinitions(base Plugin, override Plugin) Plugin {
 		if len(overrideTiki.Actions) > 0 {
 			result.Actions = overrideTiki.Actions
 		}
-		// Type is usually "tiki" for both, but if overridden to "tiki" explicitly, it's fine.
+		if overrideTiki.Default {
+			result.Default = true
+		}
 
 		return result
 	}
 
-	// If we are replacing an embedded plugin with a Doki plugin (or vice versa, effectively replacing it),
+	// If the base and override are different types (e.g. replacing a Tiki with a Doki plugin),
 	// just return the override.
 	return override
 }

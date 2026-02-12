@@ -3,6 +3,7 @@ package view
 import (
 	"encoding/json"
 	"fmt"
+	"log/slog"
 	"sort"
 	"strconv"
 
@@ -101,6 +102,10 @@ func (rl *RootLayout) onLayoutChange() {
 
 	// RootLayout creates the view (View layer responsibility)
 	newView := rl.viewFactory.CreateView(viewID, params)
+	if newView == nil {
+		slog.Error("failed to create view", "viewID", viewID)
+		return
+	}
 	if paramsKeyOK {
 		rl.lastParamsKey = paramsKey
 	} else {

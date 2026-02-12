@@ -18,8 +18,9 @@ func TestParsePluginConfig_FullyInline(t *testing.T) {
 		Lanes: []PluginLaneConfig{
 			{Name: "Todo", Filter: "status = 'ready'"},
 		},
-		Sort: "Priority DESC",
-		View: "expanded",
+		Sort:    "Priority DESC",
+		View:    "expanded",
+		Default: true,
 	}
 
 	def, err := parsePluginConfig(cfg, "test")
@@ -50,6 +51,10 @@ func TestParsePluginConfig_FullyInline(t *testing.T) {
 
 	if len(tp.Sort) != 1 || tp.Sort[0].Field != "priority" || !tp.Sort[0].Descending {
 		t.Errorf("Expected sort 'Priority DESC', got %+v", tp.Sort)
+	}
+
+	if !tp.IsDefault() {
+		t.Error("Expected IsDefault() to return true")
 	}
 
 	// test filter evaluation
@@ -126,11 +131,12 @@ func TestPluginTypeExplicit(t *testing.T) {
 	}
 }
 
-func TestLoadConfiguredPlugins_WorkflowFile(t *testing.T) {
+func TestLoadPluginsFromFile_WorkflowFile(t *testing.T) {
 	// create a temp directory with a workflow.yaml
 	tmpDir := t.TempDir()
 	workflowContent := `views:
   - name: TestBoard
+    default: true
     key: "F5"
     lanes:
       - name: Ready
@@ -147,18 +153,10 @@ func TestLoadConfiguredPlugins_WorkflowFile(t *testing.T) {
 		t.Fatalf("Failed to write workflow.yaml: %v", err)
 	}
 
-	// change to temp dir so FindWorkflowFile() finds it in cwd
-	origDir, err := os.Getwd()
-	if err != nil {
-		t.Fatalf("Failed to get cwd: %v", err)
+	plugins, errs := loadPluginsFromFile(workflowPath)
+	if len(errs) != 0 {
+		t.Fatalf("Expected no errors, got: %v", errs)
 	}
-	defer func() { _ = os.Chdir(origDir) }()
-
-	if err := os.Chdir(tmpDir); err != nil {
-		t.Fatalf("Failed to chdir: %v", err)
-	}
-
-	plugins := loadConfiguredPlugins()
 	if len(plugins) != 2 {
 		t.Fatalf("Expected 2 plugins, got %d", len(plugins))
 	}
@@ -177,28 +175,28 @@ func TestLoadConfiguredPlugins_WorkflowFile(t *testing.T) {
 	if plugins[1].GetConfigIndex() != 1 {
 		t.Errorf("Expected config index 1, got %d", plugins[1].GetConfigIndex())
 	}
+
+	// verify default flag
+	if !plugins[0].IsDefault() {
+		t.Error("Expected TestBoard to be default")
+	}
+	if plugins[1].IsDefault() {
+		t.Error("Expected TestDocs to not be default")
+	}
 }
 
-func TestLoadConfiguredPlugins_NoWorkflowFile(t *testing.T) {
+func TestLoadPluginsFromFile_NoFile(t *testing.T) {
 	tmpDir := t.TempDir()
-
-	origDir, err := os.Getwd()
-	if err != nil {
-		t.Fatalf("Failed to get cwd: %v", err)
-	}
-	defer func() { _ = os.Chdir(origDir) }()
-
-	if err := os.Chdir(tmpDir); err != nil {
-		t.Fatalf("Failed to chdir: %v", err)
-	}
-
-	plugins := loadConfiguredPlugins()
+	plugins, errs := loadPluginsFromFile(filepath.Join(tmpDir, "workflow.yaml"))
 	if plugins != nil {
 		t.Errorf("Expected nil plugins when no workflow.yaml, got %d", len(plugins))
 	}
+	if len(errs) != 1 {
+		t.Errorf("Expected 1 error for missing file, got %d", len(errs))
+	}
 }
 
-func TestLoadConfiguredPlugins_InvalidPlugin(t *testing.T) {
+func TestLoadPluginsFromFile_InvalidPlugin(t *testing.T) {
 	tmpDir := t.TempDir()
 	workflowContent := `views:
   - name: Valid
@@ -214,23 +212,51 @@ func TestLoadConfiguredPlugins_InvalidPlugin(t *testing.T) {
 		t.Fatalf("Failed to write workflow.yaml: %v", err)
 	}
 
-	origDir, err := os.Getwd()
-	if err != nil {
-		t.Fatalf("Failed to get cwd: %v", err)
-	}
-	defer func() { _ = os.Chdir(origDir) }()
-
-	if err := os.Chdir(tmpDir); err != nil {
-		t.Fatalf("Failed to chdir: %v", err)
-	}
-
 	// should load valid plugin and skip invalid one
-	plugins := loadConfiguredPlugins()
+	plugins, errs := loadPluginsFromFile(workflowPath)
 	if len(plugins) != 1 {
 		t.Fatalf("Expected 1 valid plugin (invalid skipped), got %d", len(plugins))
+	}
+	if len(errs) != 1 {
+		t.Fatalf("Expected 1 error for invalid plugin, got %d: %v", len(errs), errs)
 	}
 
 	if plugins[0].GetName() != "Valid" {
 		t.Errorf("Expected plugin 'Valid', got '%s'", plugins[0].GetName())
+	}
+}
+
+func TestDefaultPlugin_ExplicitDefault(t *testing.T) {
+	plugins := []Plugin{
+		&TikiPlugin{BasePlugin: BasePlugin{Name: "First"}},
+		&TikiPlugin{BasePlugin: BasePlugin{Name: "Second", Default: true}},
+		&TikiPlugin{BasePlugin: BasePlugin{Name: "Third"}},
+	}
+	got := DefaultPlugin(plugins)
+	if got.GetName() != "Second" {
+		t.Errorf("Expected 'Second' (marked default), got %q", got.GetName())
+	}
+}
+
+func TestDefaultPlugin_NoDefault(t *testing.T) {
+	plugins := []Plugin{
+		&TikiPlugin{BasePlugin: BasePlugin{Name: "Alpha"}},
+		&TikiPlugin{BasePlugin: BasePlugin{Name: "Beta"}},
+	}
+	got := DefaultPlugin(plugins)
+	if got.GetName() != "Alpha" {
+		t.Errorf("Expected first plugin 'Alpha' as fallback, got %q", got.GetName())
+	}
+}
+
+func TestDefaultPlugin_MultipleDefaults(t *testing.T) {
+	plugins := []Plugin{
+		&TikiPlugin{BasePlugin: BasePlugin{Name: "A"}},
+		&TikiPlugin{BasePlugin: BasePlugin{Name: "B", Default: true}},
+		&TikiPlugin{BasePlugin: BasePlugin{Name: "C", Default: true}},
+	}
+	got := DefaultPlugin(plugins)
+	if got.GetName() != "B" {
+		t.Errorf("Expected first default 'B', got %q", got.GetName())
 	}
 }

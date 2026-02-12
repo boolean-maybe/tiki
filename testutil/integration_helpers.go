@@ -4,6 +4,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/boolean-maybe/tiki/config"
 	"github.com/boolean-maybe/tiki/controller"
 	"github.com/boolean-maybe/tiki/model"
 	"github.com/boolean-maybe/tiki/plugin"
@@ -38,6 +39,19 @@ type TestApp struct {
 // NewTestApp bootstraps the full MVC stack for integration testing.
 // Mirrors the initialization pattern from main.go.
 func NewTestApp(t *testing.T) *TestApp {
+	// 0. Isolate config paths: use a temp XDG_CONFIG_HOME so tests don't read the real user config.
+	// This installs the default workflow.yaml into the temp config dir, mirroring the production
+	// bootstrap sequence (Phase 2.5: InstallDefaultWorkflow).
+	tmpConfigHome := t.TempDir()
+	t.Setenv("XDG_CONFIG_HOME", tmpConfigHome) // t.Setenv handles restore on cleanup
+	config.ResetPathManager()
+	if err := config.InstallDefaultWorkflow(); err != nil {
+		t.Fatalf("failed to install default workflow for test: %v", err)
+	}
+	t.Cleanup(func() {
+		config.ResetPathManager()
+	})
+
 	// 1. Create temp dir for task files (auto-cleanup via t.TempDir())
 	taskDir := t.TempDir()
 
@@ -283,7 +297,7 @@ func (ta *TestApp) Cleanup() {
 	// TaskDir cleanup handled automatically by t.TempDir()
 }
 
-// LoadPlugins loads embedded plugins and wires them into the test app.
+// LoadPlugins loads plugins from workflow.yaml files and wires them into the test app.
 // This enables testing of plugin-related functionality.
 func (ta *TestApp) LoadPlugins() error {
 	// Load embedded plugins

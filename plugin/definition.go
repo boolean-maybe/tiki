@@ -15,6 +15,7 @@ type Plugin interface {
 	GetFilePath() string
 	GetConfigIndex() int
 	GetType() string
+	IsDefault() bool
 }
 
 // BasePlugin holds the common fields for all plugins
@@ -26,8 +27,9 @@ type BasePlugin struct {
 	Foreground  tcell.Color   // caption text color
 	Background  tcell.Color   // caption background color
 	FilePath    string        // source file path (for error messages)
-	ConfigIndex int           // index in config.yaml plugins array (-1 if embedded/not in config)
+	ConfigIndex int           // index in workflow.yaml views array (-1 if not from a config file)
 	Type        string        // plugin type: "tiki" or "doki"
+	Default     bool          // true if this view should open on startup
 }
 
 func (p *BasePlugin) GetName() string {
@@ -56,6 +58,10 @@ func (p *BasePlugin) GetConfigIndex() int {
 
 func (p *BasePlugin) GetType() string {
 	return p.Type
+}
+
+func (p *BasePlugin) IsDefault() bool {
+	return p.Default
 }
 
 // TikiPlugin is a task-based plugin (like default Kanban board)

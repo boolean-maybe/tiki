@@ -8,17 +8,17 @@ import (
 	"github.com/boolean-maybe/tiki/plugin"
 )
 
-// LoadPlugins loads plugins from disk and returns nil on failure.
-func LoadPlugins() []plugin.Plugin {
+// LoadPlugins loads plugins from disk. Returns an error if workflow files
+// exist but contain no valid view definitions.
+func LoadPlugins() ([]plugin.Plugin, error) {
 	plugins, err := plugin.LoadPlugins()
 	if err != nil {
-		slog.Warn("failed to load plugins", "error", err)
-		return nil
+		return nil, err
 	}
 	if len(plugins) > 0 {
 		slog.Info("loaded plugins", "count", len(plugins))
 	}
-	return plugins
+	return plugins, nil
 }
 
 // InitPluginActionRegistry initializes the controller plugin action registry

@@ -1,5 +1,6 @@
 views:
   - name: Kanban
+    default: true
     foreground: "#87ceeb"
     background: "#25496a"
     key: "F1"

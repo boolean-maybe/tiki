@@ -30,7 +30,7 @@ type PluginConfig struct {
 	preSearchLane    int
 	preSearchIndices []int
 	viewMode         ViewMode // compact or expanded display
-	configIndex      int      // index in config.yaml plugins array (-1 if embedded/not in config)
+	configIndex      int      // index in workflow.yaml views array (-1 if not from a config file)
 	listeners        map[int]PluginSelectionListener
 	nextListenerID   int
 	searchState      SearchState // search state (embedded)

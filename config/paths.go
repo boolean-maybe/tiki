@@ -7,6 +7,8 @@ import (
 	"path/filepath"
 	"runtime"
 	"sync"
+
+	"gopkg.in/yaml.v3"
 )
 
 var (
@@ -157,18 +159,28 @@ func (pm *PathManager) DokiDir() string {
 	return filepath.Join(pm.projectRoot, ".doc", "doki")
 }
 
+// ProjectConfigDir returns the project-level config directory (.doc/)
+func (pm *PathManager) ProjectConfigDir() string {
+	return filepath.Join(pm.projectRoot, ".doc")
+}
+
 // ProjectConfigFile returns the path to the project-local config file
 func (pm *PathManager) ProjectConfigFile() string {
-	return filepath.Join(pm.TaskDir(), "config.yaml")
+	return filepath.Join(pm.ProjectConfigDir(), "config.yaml")
 }
 
 // PluginSearchPaths returns directories to search for plugin files
 // Search order: project config dir → user config dir
 func (pm *PathManager) PluginSearchPaths() []string {
 	return []string{
-		pm.TaskDir(), // Project config directory (for project-specific plugins)
-		pm.configDir, // User config directory
+		pm.ProjectConfigDir(), // Project config directory (for project-specific plugins)
+		pm.configDir,          // User config directory
 	}
+}
+
+// UserConfigWorkflowFile returns the path to workflow.yaml in the user config directory
+func (pm *PathManager) UserConfigWorkflowFile() string {
+	return filepath.Join(pm.configDir, defaultWorkflowFilename)
 }
 
 // TemplateFile returns the path to the user's custom new.md template
@@ -292,6 +304,11 @@ func GetDokiDir() string {
 	return mustGetPathManager().DokiDir()
 }
 
+// GetProjectConfigDir returns the project-level config directory (.doc/)
+func GetProjectConfigDir() string {
+	return mustGetPathManager().ProjectConfigDir()
+}
+
 // GetProjectConfigFile returns the path to the project-local config file
 func GetProjectConfigFile() string {
 	return mustGetPathManager().ProjectConfigFile()
@@ -302,34 +319,88 @@ func GetPluginSearchPaths() []string {
 	return mustGetPathManager().PluginSearchPaths()
 }
 
+// GetUserConfigWorkflowFile returns the path to workflow.yaml in the user config directory
+func GetUserConfigWorkflowFile() string {
+	return mustGetPathManager().UserConfigWorkflowFile()
+}
+
 // defaultWorkflowFilename is the default name for the workflow configuration file
 const defaultWorkflowFilename = "workflow.yaml"
 
-// FindWorkflowFile searches for workflow.yaml in config search paths.
-// Search order: project config dir → user config dir → current directory (cwd).
-// Returns the first found path or empty string if not found.
-func FindWorkflowFile() string {
-	searchPaths := GetPluginSearchPaths()
+// FindWorkflowFiles returns all workflow.yaml files that exist and have non-empty views.
+// Ordering: user config file first (base), then project config file (overrides), then cwd.
+// This lets LoadPlugins load the base and merge overrides on top.
+func FindWorkflowFiles() []string {
+	pm := mustGetPathManager()
 
-	var paths []string
-	for _, dir := range searchPaths {
-		paths = append(paths, filepath.Join(dir, defaultWorkflowFilename))
+	// Candidate paths in discovery order: user config (base) → project config → cwd
+	candidates := []string{
+		pm.UserConfigWorkflowFile(),
+		filepath.Join(pm.ProjectConfigDir(), defaultWorkflowFilename),
+		defaultWorkflowFilename, // relative to cwd
 	}
-	paths = append(paths, defaultWorkflowFilename) // relative to cwd
 
-	for _, path := range paths {
-		if _, err := os.Stat(path); err == nil {
-			return path
+	var result []string
+	seen := make(map[string]bool)
+
+	for _, path := range candidates {
+		// Resolve to absolute for dedup
+		abs, err := filepath.Abs(path)
+		if err != nil {
+			abs = path
 		}
+		if seen[abs] {
+			continue
+		}
+
+		if _, err := os.Stat(path); err != nil {
+			continue
+		}
+
+		// Check if the file has non-empty views
+		if hasEmptyViews(path) {
+			continue
+		}
+
+		seen[abs] = true
+		result = append(result, path)
 	}
 
-	return ""
+	return result
+}
+
+// hasEmptyViews returns true if the workflow file has an explicit empty views list (views: []).
+func hasEmptyViews(path string) bool {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return false
+	}
+	type viewsOnly struct {
+		Views []any `yaml:"views"`
+	}
+	var vo viewsOnly
+	if err := yaml.Unmarshal(data, &vo); err != nil {
+		return false
+	}
+	// Explicitly empty (views: []) vs. not specified at all
+	return vo.Views != nil && len(vo.Views) == 0
+}
+
+// FindWorkflowFile searches for workflow.yaml in config search paths.
+// Returns the first found path with non-empty views, or empty string if not found.
+// Convenience wrapper over FindWorkflowFiles for code that needs a single path.
+func FindWorkflowFile() string {
+	files := FindWorkflowFiles()
+	if len(files) == 0 {
+		return ""
+	}
+	return files[0]
 }
 
 // DefaultWorkflowFilePath returns the default path for creating a new workflow.yaml
-// (in the project config dir, i.e. .doc/tiki/)
+// (in the project config dir, i.e. .doc/)
 func DefaultWorkflowFilePath() string {
-	return filepath.Join(mustGetPathManager().TaskDir(), defaultWorkflowFilename)
+	return filepath.Join(mustGetPathManager().ProjectConfigDir(), defaultWorkflowFilename)
 }
 
 // GetTemplateFile returns the path to the user's custom new.md template

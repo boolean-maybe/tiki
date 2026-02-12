@@ -19,7 +19,7 @@ import (
 // Test Data Helpers
 // ============================================================================
 
-// setupPluginTestData creates tasks matching all three embedded plugin filters:
+// setupPluginTestData creates tasks matching all three default plugin filters:
 // - Backlog: status = 'backlog'
 // - Recent: UpdatedAt within 2 hours
 // - Roadmap: type = 'epic'

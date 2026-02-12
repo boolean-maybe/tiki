@@ -54,14 +54,21 @@ func Bootstrap(tikiSkillContent, dokiSkillContent string) (*Result, error) {
 		return nil, err
 	}
 
-	// Phase 2: Project initialization (creates dirs, seeds files, writes default config/workflow)
-	// runs before LoadConfig so that config.yaml and workflow.yaml exist on first launch
+	// Phase 2: Project initialization (creates dirs, seeds files, writes default config)
+	// runs before LoadConfig so that config.yaml exists on first launch
 	proceed, err := EnsureProjectInitialized(tikiSkillContent, dokiSkillContent)
 	if err != nil {
 		return nil, err
 	}
 	if !proceed {
 		return nil, nil // User chose not to proceed
+	}
+
+	// Phase 2.5: Install default workflow to user config dir (first-run or upgrade)
+	// Runs on every launch outside BootstrapSystem so that upgrades from older versions
+	// get workflow.yaml installed even though their project is already initialized.
+	if err := config.InstallDefaultWorkflow(); err != nil {
+		slog.Warn("failed to install default workflow", "error", err)
 	}
 
 	// Phase 3: Configuration and logging
@@ -86,7 +93,10 @@ func Bootstrap(tikiSkillContent, dokiSkillContent string) (*Result, error) {
 	InitHeaderBaseStats(headerConfig, tikiStore)
 
 	// Phase 6: Plugin system
-	plugins := LoadPlugins()
+	plugins, err := LoadPlugins()
+	if err != nil {
+		return nil, err
+	}
 	InitPluginActionRegistry(plugins)
 	syncHeaderPluginActions(headerConfig)
 	pluginConfigs, pluginDefs := BuildPluginConfigsAndDefs(plugins)
@@ -128,8 +138,9 @@ func Bootstrap(tikiSkillContent, dokiSkillContent string) (*Result, error) {
 	wireNavigation(controllers.Nav, layoutModel, rootLayout)
 	app.InstallGlobalInputCapture(application, headerConfig, inputRouter, controllers.Nav)
 
-	// Phase 13: Initial view (Kanban plugin is the default)
-	controllers.Nav.PushView(model.MakePluginViewID("Kanban"), nil)
+	// Phase 13: Initial view — use the first plugin marked default: true,
+	// or fall back to the first plugin in the list.
+	controllers.Nav.PushView(model.MakePluginViewID(plugin.DefaultPlugin(plugins).GetName()), nil)
 
 	return &Result{
 		Cfg:              cfg,

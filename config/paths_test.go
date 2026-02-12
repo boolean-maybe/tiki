@@ -221,9 +221,9 @@ func TestPathManagerPluginSearchPaths(t *testing.T) {
 		t.Errorf("PluginSearchPaths() returned %d paths, want 2", len(paths))
 	}
 
-	// First should be project config dir (TaskDir)
-	if paths[0] != pm.TaskDir() {
-		t.Errorf("PluginSearchPaths()[0] = %q, want %q", paths[0], pm.TaskDir())
+	// First should be project config dir (.doc/)
+	if paths[0] != pm.ProjectConfigDir() {
+		t.Errorf("PluginSearchPaths()[0] = %q, want %q", paths[0], pm.ProjectConfigDir())
 	}
 
 	// Second should be user config dir

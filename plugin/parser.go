@@ -42,6 +42,7 @@ func parsePluginConfig(cfg pluginFileConfig, source string) (Plugin, error) {
 		FilePath:    source,
 		Type:        pluginType,
 		ConfigIndex: -1, // default, will be set by caller if needed
+		Default:     cfg.Default,
 	}
 
 	switch pluginType {
