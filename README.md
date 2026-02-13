@@ -85,6 +85,18 @@ You will be prompted to install skills for
 if you choose to you can mention `tiki` in your prompts to create/find/edit your tikis
 ![Claude](assets/claude.png)
 
+### Quick capture
+
+Quick capture ideas by redirecting to `tiki`:
+```bash
+echo "cool idea" | tiki
+gh issue view 42 --json title,body -q '"\(.title)\n\n\(.body)"' | tiki
+curl -s https://sentry.io/api/issues/latest/ | jq -r '.title' | tiki
+grep ERROR server.log | sort -u | while read -r line; do echo "$line" | tiki; done
+```
+
+Read more [quick capture docs](.doc/doki/doc/quick-capture.md).
+
 Happy tikking! 
 
 ## tiki
