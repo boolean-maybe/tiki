@@ -10,6 +10,7 @@ import (
 	"github.com/boolean-maybe/tiki/config"
 	"github.com/boolean-maybe/tiki/internal/app"
 	"github.com/boolean-maybe/tiki/internal/bootstrap"
+	"github.com/boolean-maybe/tiki/internal/pipe"
 	"github.com/boolean-maybe/tiki/internal/viewer"
 	"github.com/boolean-maybe/tiki/util/sysinfo"
 )
@@ -42,6 +43,17 @@ func main() {
 	if err := config.InitPaths(); err != nil {
 		_, _ = fmt.Fprintln(os.Stderr, "error:", err)
 		os.Exit(1)
+	}
+
+	// Handle piped stdin: create a task and exit without launching TUI
+	if pipe.IsPipedInput() && !pipe.HasPositionalArgs(os.Args[1:]) {
+		taskID, err := pipe.CreateTaskFromReader(os.Stdin)
+		if err != nil {
+			_, _ = fmt.Fprintln(os.Stderr, "error:", err)
+			os.Exit(1)
+		}
+		fmt.Println(taskID)
+		return
 	}
 
 	// Handle init command
@@ -124,11 +136,12 @@ func printUsage() {
 	fmt.Print(`tiki - Terminal-based task and documentation management
 
 Usage:
-  tiki              Launch TUI in initialized repo
-  tiki init         Initialize project in current git repo
-  tiki file.md/URL  View markdown file
-  tiki sysinfo      Display system information
-  tiki --version    Show version
+  tiki                  Launch TUI in initialized repo
+  tiki init             Initialize project in current git repo
+  tiki file.md/URL      View markdown file
+  echo "Title" | tiki   Create task from piped input
+  tiki sysinfo          Display system information
+  tiki --version        Show version
 
 Run 'tiki init' to initialize this repository.
 `)
