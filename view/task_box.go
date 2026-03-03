@@ -67,7 +67,7 @@ func buildExpandedTaskContent(task *taskpkg.Task, colors *config.ColorConfig, av
 	// Build tags string
 	tagsStr := ""
 	if len(task.Tags) > 0 {
-		tagsStr = colors.TaskBoxLabelColor + "Tags:[-] " + colors.TaskBoxTagValueColor + util.TruncateText(fmt.Sprintf("%v", task.Tags), availableWidth-6) + "[-]"
+		tagsStr = colors.TaskBoxLabelColor + "Tags:[-] " + colors.TaskBoxTagValueColor + util.TruncateText(strings.Join(task.Tags, ", "), availableWidth-6) + "[-]"
 	}
 
 	// Build priority/points line
