@@ -272,13 +272,7 @@ func (tc *TaskController) SaveStatus(statusDisplay string) bool {
 	var newStatus taskpkg.Status
 	statusFound := false
 
-	for _, s := range []taskpkg.Status{
-		taskpkg.StatusBacklog,
-		taskpkg.StatusReady,
-		taskpkg.StatusInProgress,
-		taskpkg.StatusReview,
-		taskpkg.StatusDone,
-	} {
+	for _, s := range taskpkg.AllStatuses() {
 		if taskpkg.StatusDisplay(s) == statusDisplay {
 			newStatus = s
 			statusFound = true

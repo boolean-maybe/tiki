@@ -136,9 +136,9 @@ func (s *TikiStore) NewTaskTemplate() (*taskpkg.Task, error) {
 		ID:          taskID,
 		Title:       "",
 		Description: "",
-		Status:      taskpkg.StatusBacklog, // default fallback
-		Type:        taskpkg.TypeStory,     // default fallback
-		Priority:    3,                     // default: medium priority (1-5 scale)
+		Status:      taskpkg.DefaultStatus(), // default fallback
+		Type:        taskpkg.TypeStory,       // default fallback
+		Priority:    3,                       // default: medium priority (1-5 scale)
 		Points:      0,
 		CreatedAt:   time.Now(),
 	}
@@ -162,7 +162,7 @@ func (s *TikiStore) NewTaskTemplate() (*taskpkg.Task, error) {
 
 	// Ensure status has a value
 	if task.Status == "" {
-		task.Status = taskpkg.StatusBacklog
+		task.Status = taskpkg.DefaultStatus()
 	}
 
 	// Set git author

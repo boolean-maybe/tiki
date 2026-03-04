@@ -81,7 +81,7 @@ name: Active Work
 key: A
 lanes:
   - name: Active
-    filter: tags IN ['ui', 'backend'] AND status NOT IN ['done', 'cancelled']
+    filter: tags IN ['ui', 'backend'] AND status NOT IN ['done', 'backlog']
 `
 
 	def, err := parsePluginYAML([]byte(pluginYAML), "test")

@@ -8,6 +8,7 @@ import (
 	"github.com/gdamore/tcell/v2"
 	"gopkg.in/yaml.v3"
 
+	"github.com/boolean-maybe/tiki/config"
 	"github.com/boolean-maybe/tiki/plugin/filter"
 )
 
@@ -117,6 +118,12 @@ func parsePluginConfig(cfg pluginFileConfig, source string) (Plugin, error) {
 			filterExpr, err := filter.ParseFilter(lane.Filter)
 			if err != nil {
 				return nil, fmt.Errorf("parsing filter for lane %q: %w", lane.Name, err)
+			}
+			if filterExpr != nil {
+				reg := config.GetStatusRegistry()
+				if err := filter.ValidateFilterStatuses(filterExpr, reg.IsValid); err != nil {
+					return nil, fmt.Errorf("view %q, lane %q: %w", cfg.Name, lane.Name, err)
+				}
 			}
 			action, err := ParseLaneAction(lane.Action)
 			if err != nil {

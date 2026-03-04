@@ -48,7 +48,11 @@ func NewTestApp(t *testing.T) *TestApp {
 	if err := config.InstallDefaultWorkflow(); err != nil {
 		t.Fatalf("failed to install default workflow for test: %v", err)
 	}
+	if err := config.LoadStatusRegistry(); err != nil {
+		t.Fatalf("failed to load status registry for test: %v", err)
+	}
 	t.Cleanup(func() {
+		config.ClearStatusRegistry()
 		config.ResetPathManager()
 	})
 

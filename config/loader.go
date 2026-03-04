@@ -151,7 +151,8 @@ func GetConfig() *Config {
 // workflowFileData represents the YAML structure of workflow.yaml for read-modify-write.
 // kept in config package to avoid import cycle with plugin package.
 type workflowFileData struct {
-	Plugins []map[string]interface{} `yaml:"views"`
+	Statuses []map[string]interface{} `yaml:"statuses,omitempty"`
+	Plugins  []map[string]interface{} `yaml:"views"`
 }
 
 // readWorkflowFile reads and unmarshals workflow.yaml from the given path.

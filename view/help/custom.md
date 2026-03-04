@@ -3,6 +3,48 @@
 First of all, you just navigated to a linked file. To go back press `Left` arrow or `Alt-Left`
 To go forward press `Right` arrow or `Alt-Right`
 
+tiki is highly customizable. `workflow.yaml` lets you define your workflow statuses and configure views (plugins) for how tikis are displayed and organized. Statuses define the lifecycle stages your tasks move through, while plugins control what you see and how you interact with your work. This section covers both.
+
+## Statuses
+
+Workflow statuses are defined in `workflow.yaml` under the `statuses:` key. Every tiki project must define its statuses here — there is no hardcoded fallback. The default `workflow.yaml` ships with:
+
+```yaml
+statuses:
+  - key: backlog
+    label: Backlog
+    emoji: "📥"
+    default: true
+  - key: ready
+    label: Ready
+    emoji: "📋"
+    active: true
+  - key: in_progress
+    label: "In Progress"
+    emoji: "⚙️"
+    active: true
+  - key: review
+    label: Review
+    emoji: "👀"
+    active: true
+  - key: done
+    label: Done
+    emoji: "✅"
+    done: true
+```
+
+Each status has:
+- `key` — canonical identifier (lowercase, underscores). Used in filters, actions, and frontmatter.
+- `label` — display name shown in the UI
+- `emoji` — emoji shown alongside the label
+- `active` — marks the status as "active work" (used for burndown charts and activity tracking)
+- `default` — the status assigned to new tikis (exactly one status should have this)
+- `done` — marks the status as "completed" (used for completion tracking)
+
+You can customize these to match your team's workflow. All filters and actions in view definitions must reference valid status keys.
+
+## Plugins
+
 tiki TUI app is much like a lego - everything is a customizable view. Here is, for example,
 how Backlog is defined:
 
@@ -22,10 +64,10 @@ views:
         action: status = 'ready'
     sort: Priority, ID
 ```
-that translates to - show all tikis in the status `backlog`, sort by priority and then by ID arranged visually in 4 columns in a single lane. 
+
+that translates to - show all tikis in the status `backlog`, sort by priority and then by ID arranged visually in 4 columns in a single lane.
 The `actions` section defines a keyboard shortcut `b` that moves the selected tiki to the board by setting its status to `ready`
 You define the name, caption colors, hotkey, tiki filter and sorting. Save this into a `workflow.yaml` file in the config directory
-
 
 Likewise the documentation is just a plugin:
 
@@ -43,7 +85,7 @@ views:
 that translates to - show `index.md` file located under `.doc/doki`
 installed in the same way
 
-## Multi-lane plugin
+### Multi-lane plugin
 
 Backlog is a pretty simple plugin in that it displays all tikis in a single lane. Multi-lane tiki plugins offer functionality
 similar to that of the board. You can define multiple lanes per view and move tikis around with Shift-Left/Shift-Right
@@ -76,9 +118,9 @@ lanes:
     action: status = 'done'
 ```
 
-## Plugin actions
+### Plugin actions
 
-In addition to lane actions that trigger when moving tikis between lanes, you can define plugin-level actions 
+In addition to lane actions that trigger when moving tikis between lanes, you can define plugin-level actions
 that apply to the currently selected tiki via a keyboard shortcut. These shortcuts are displayed in the header when the plugin is active.
 
 ```yaml
@@ -96,31 +138,31 @@ Each action has:
 - `label` - description shown in the header
 - `action` - an action expression (same syntax as lane actions, see below)
 
-When the shortcut key is pressed, the action is applied to the currently selected tiki. 
+When the shortcut key is pressed, the action is applied to the currently selected tiki.
 For example, pressing `b` in the Backlog plugin changes the selected tiki's status to `ready`, effectively moving it to the board.
 
-## Action expression
+### Action expression
 
 The `action: status = 'backlog'` statement in a plugin is an action to be run when a tiki is moved into the lane. Here `=`
 means `assign` so status is assigned `backlog` when the tiki is moved. Likewise you can manipulate tags using `+-` (add)
 or `-=` (remove) expressions. For example, `tags += [idea, UI]` adds `idea` and `UI` tags to a tiki
 
-### Supported Fields
+#### Supported Fields
 
-- `status` - set workflow status (case-insensitive)
+- `status` - set workflow status (must be a key defined in `workflow.yaml` statuses)
 - `type` - set task type: `story`, `bug`, `spike`, `epic` (case-insensitive)
 - `priority` - set numeric priority (1-5)
 - `points` - set numeric points (0 or positive, up to max points)
 - `assignee` - set assignee string
 - `tags` - add/remove tags (list)
 
-### Operators
+#### Operators
 
 - `=` assigns a value to `status`, `type`, `priority`, `points`, `assignee`
 - `+=` adds tags, `-=` removes tags
 - multiple operations are separated by commas: `status=done, tags+=[moved]`
 
-### Literals
+#### Literals
 
 - strings can be quoted (`'in_progress'`, `"alex"`) or bare (`done`, `alex`)
 - use quotes when the value has spaces
@@ -129,17 +171,17 @@ or `-=` (remove) expressions. For example, `tags += [idea, UI]` adds `idea` and 
 - `CURRENT_USER` assigns the current git user to `assignee`
 - example: `assignee = CURRENT_USER`
 
-## Filter expression
+### Filter expression
 
 The `filter: status = 'backlog'` statement in a plugin is a filter expression that determines which tikis appear in the view.
 
-### Supported Fields
+#### Supported Fields
 
 You can filter on these task fields:
 - `id` - Task identifier (e.g., 'TIKI-m7n2xk')
 - `title` - Task title text (case-insensitive)
 - `type` - Task type: 'story', 'bug', 'spike', or 'epic' (case-insensitive)
-- `status` - Workflow status (case-insensitive)
+- `status` - Workflow status (must match a key defined in `workflow.yaml` statuses)
 - `assignee` - Assigned user (case-insensitive)
 - `priority` - Numeric priority value
 - `points` - Story points estimate
@@ -149,14 +191,14 @@ You can filter on these task fields:
 
 All string comparisons are case-insensitive.
 
-### Operators
+#### Operators
 
 - **Comparison**: `=` (or `==`), `!=`, `>`, `>=`, `<`, `<=`
 - **Logical**: `AND`, `OR`, `NOT` (precedence: NOT > AND > OR)
 - **Membership**: `IN`, `NOT IN` (check if value in list using `[val1, val2]`)
 - **Grouping**: Use parentheses `()` to control evaluation order
 
-### Literals and Special Values
+#### Literals and Special Values
 
 **Special expressions**:
 - `CURRENT_USER` - Resolves to the current git user (works in comparisons and IN lists)
@@ -173,7 +215,7 @@ All string comparisons are case-insensitive.
 - `tags IN ['ui', 'frontend']` matches if ANY task tag matches ANY list value
 - This allows intersection testing across tag arrays
 
-### Examples
+#### Examples
 
 ```text
 # Multiple statuses
@@ -195,17 +237,17 @@ assignee = '' AND points >= 5
 (NOW - CreatedAt < 2hours) AND status != 'backlog'
 ```
 
-## Sorting
+### Sorting
 
 The `sort` field determines the order in which tikis appear in the view. You can sort by one or more fields, and control the direction (ascending or descending).
 
-### Sort Syntax
+#### Sort Syntax
 
 ```text
 sort: Field1, Field2 DESC, Field3
 ```
 
-### Examples
+#### Examples
 
 ```text
 # Sort by creation time descending (recent first), then priority, then title

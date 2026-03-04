@@ -3,8 +3,20 @@ package store
 import (
 	"testing"
 
+	"github.com/boolean-maybe/tiki/config"
 	taskpkg "github.com/boolean-maybe/tiki/task"
 )
+
+func init() {
+	// Set up the default status registry for tests.
+	config.ResetStatusRegistry([]config.StatusDef{
+		{Key: "backlog", Label: "Backlog", Emoji: "📥", Default: true},
+		{Key: "ready", Label: "Ready", Emoji: "📋", Active: true},
+		{Key: "in_progress", Label: "In Progress", Emoji: "⚙️", Active: true},
+		{Key: "review", Label: "Review", Emoji: "👀", Active: true},
+		{Key: "done", Label: "Done", Emoji: "✅", Done: true},
+	})
+}
 
 func TestParseFrontmatter(t *testing.T) {
 	tests := []struct {
@@ -119,38 +131,28 @@ func TestMapStatus(t *testing.T) {
 		// Valid statuses - exact match
 		{name: "backlog", input: "backlog", expected: taskpkg.StatusBacklog},
 		{name: "ready", input: "ready", expected: taskpkg.StatusReady},
-		{name: "ready", input: "ready", expected: taskpkg.StatusReady},
-		{name: "in_progress", input: "in_progress", expected: taskpkg.StatusInProgress},
-		{name: "review", input: "review", expected: taskpkg.StatusReview},
 		{name: "in_progress", input: "in_progress", expected: taskpkg.StatusInProgress},
 		{name: "review", input: "review", expected: taskpkg.StatusReview},
 		{name: "done", input: "done", expected: taskpkg.StatusDone},
 
-		// Case variations
+		// Case variations (normalization still works)
 		{name: "BACKLOG uppercase", input: "BACKLOG", expected: taskpkg.StatusBacklog},
-		{name: "ToDo mixed case", input: "ToDo", expected: taskpkg.StatusReady},
 		{name: "DONE uppercase", input: "DONE", expected: taskpkg.StatusDone},
 
-		// Aliases and variants
-		{name: "open -> todo", input: "open", expected: taskpkg.StatusReady},
-		{name: "in process -> in_progress", input: "in process", expected: taskpkg.StatusInProgress},
-		{name: "closed -> done", input: "closed", expected: taskpkg.StatusDone},
-		{name: "completed -> done", input: "completed", expected: taskpkg.StatusDone},
-
-		// in_progress variations
+		// Separator normalization (hyphens/spaces → underscores)
 		{name: "in-progress hyphenated", input: "in-progress", expected: taskpkg.StatusInProgress},
-		{name: "inprogress no separator", input: "inprogress", expected: taskpkg.StatusInProgress},
 		{name: "in progress spaces", input: "in progress", expected: taskpkg.StatusInProgress},
 		{name: "In-Progress mixed case", input: "In-Progress", expected: taskpkg.StatusInProgress},
 
-		// review variations
-		{name: "in_review", input: "in_review", expected: taskpkg.StatusReview},
-		{name: "in review", input: "in review", expected: taskpkg.StatusReview},
-
-		// Unknown status defaults to backlog
+		// Unknown status defaults to configured default (backlog)
 		{name: "unknown status", input: "unknown", expected: taskpkg.StatusBacklog},
 		{name: "empty string", input: "", expected: taskpkg.StatusBacklog},
 		{name: "random text", input: "foobar", expected: taskpkg.StatusBacklog},
+		// Aliases no longer supported — these now map to default
+		{name: "todo (no alias)", input: "todo", expected: taskpkg.StatusBacklog},
+		{name: "closed (no alias)", input: "closed", expected: taskpkg.StatusBacklog},
+		{name: "completed (no alias)", input: "completed", expected: taskpkg.StatusBacklog},
+		{name: "open (no alias)", input: "open", expected: taskpkg.StatusBacklog},
 	}
 
 	for _, tt := range tests {

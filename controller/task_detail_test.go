@@ -4,10 +4,22 @@ import (
 	"testing"
 	"time"
 
+	"github.com/boolean-maybe/tiki/config"
 	"github.com/boolean-maybe/tiki/model"
 	"github.com/boolean-maybe/tiki/store"
 	"github.com/boolean-maybe/tiki/task"
 )
+
+func init() {
+	// Set up the default status registry for tests.
+	config.ResetStatusRegistry([]config.StatusDef{
+		{Key: "backlog", Label: "Backlog", Emoji: "📥", Default: true},
+		{Key: "ready", Label: "Ready", Emoji: "📋", Active: true},
+		{Key: "in_progress", Label: "In Progress", Emoji: "⚙️", Active: true},
+		{Key: "review", Label: "Review", Emoji: "👀", Active: true},
+		{Key: "done", Label: "Done", Emoji: "✅", Done: true},
+	})
+}
 
 // Test Draft Task Lifecycle
 
@@ -120,7 +132,7 @@ func TestTaskController_SaveStatus(t *testing.T) {
 			setupTask: func(tc *TaskController, s store.Store) {
 				tc.SetDraft(newTestTask())
 			},
-			statusDisplay: "Todo",
+			statusDisplay: task.StatusDisplay(task.StatusReady),
 			wantStatus:    task.StatusReady,
 			wantSuccess:   true,
 		},
@@ -131,7 +143,7 @@ func TestTaskController_SaveStatus(t *testing.T) {
 				_ = s.CreateTask(t)
 				tc.StartEditSession(t.ID)
 			},
-			statusDisplay: "In Progress",
+			statusDisplay: task.StatusDisplay(task.StatusInProgress),
 			wantStatus:    task.StatusInProgress,
 			wantSuccess:   true,
 		},
@@ -143,7 +155,7 @@ func TestTaskController_SaveStatus(t *testing.T) {
 				tc.StartEditSession(t.ID)
 				tc.SetDraft(newTestTaskWithID())
 			},
-			statusDisplay: "Done",
+			statusDisplay: task.StatusDisplay(task.StatusDone),
 			wantStatus:    task.StatusDone,
 			wantSuccess:   true,
 		},
@@ -161,7 +173,7 @@ func TestTaskController_SaveStatus(t *testing.T) {
 			setupTask: func(tc *TaskController, s store.Store) {
 				// Don't set up any task
 			},
-			statusDisplay: "Todo",
+			statusDisplay: task.StatusDisplay(task.StatusReady),
 			wantSuccess:   false,
 		},
 	}

@@ -10,12 +10,10 @@ import (
 
 func (ev *TaskEditView) ensureStatusSelectList(task *taskpkg.Task) *component.EditSelectList {
 	if ev.statusSelectList == nil {
-		statusOptions := []string{
-			taskpkg.StatusDisplay(taskpkg.StatusBacklog),
-			taskpkg.StatusDisplay(taskpkg.StatusReady),
-			taskpkg.StatusDisplay(taskpkg.StatusInProgress),
-			taskpkg.StatusDisplay(taskpkg.StatusReview),
-			taskpkg.StatusDisplay(taskpkg.StatusDone),
+		allStatuses := taskpkg.AllStatuses()
+		statusOptions := make([]string, len(allStatuses))
+		for i, s := range allStatuses {
+			statusOptions[i] = taskpkg.StatusDisplay(s)
 		}
 
 		colors := config.GetColors()

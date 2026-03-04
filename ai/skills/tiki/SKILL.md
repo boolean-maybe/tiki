@@ -40,7 +40,8 @@ tags:
 
 where fields can have these values:
 - type: bug, feature, task, story, epic
-- status: backlog, ready, in_progress, review, done
+- status: configurable via `workflow.yaml`. Default statuses: backlog, ready, in_progress, review, done.
+  To find valid statuses for the current project, check the `statuses:` section in `~/.config/tiki/workflow.yaml`.
 - priority: is any integer number from 1 to 5 where 1 is the highest priority. Mapped to priority description:
   - high: 1
   - medium-high: 2
@@ -79,7 +80,7 @@ When asked to create a tiki:
 
 - Generate a random 6-character alphanumeric ID (lowercase letters and digits)
 - The filename should be lowercase: `tiki-abc123.md`
-- If status is not specified use `backlog`
+- If status is not specified use the default status from `~/.config/tiki/workflow.yaml` (typically `backlog`)
 - If priority is not specified use 3
 - If type is not specified - prompt the user or use `story` by default
 

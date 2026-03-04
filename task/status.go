@@ -1,11 +1,13 @@
 package task
 
 import (
-	"strings"
+	"github.com/boolean-maybe/tiki/config"
 )
 
 type Status string
 
+// Convenience constants matching the default workflow.yaml statuses.
+// These are kept so that tests and internal code can reference them.
 const (
 	StatusBacklog    Status = "backlog"
 	StatusReady      Status = "ready"
@@ -14,42 +16,19 @@ const (
 	StatusDone       Status = "done"
 )
 
-type statusInfo struct {
-	label string
-	emoji string
-}
-
-var statuses = map[Status]statusInfo{
-	StatusBacklog:    {label: "Backlog", emoji: "📥"},
-	StatusReady:      {label: "Ready", emoji: "📋"},
-	StatusInProgress: {label: "In Progress", emoji: "⚙️"},
-	StatusReview:     {label: "Review", emoji: "👀"},
-	StatusDone:       {label: "Done", emoji: "✅"},
-}
-
-func normalizeStatusKey(status string) string {
-	normalized := strings.ToLower(strings.TrimSpace(status))
-	normalized = strings.ReplaceAll(normalized, "-", "_")
-	normalized = strings.ReplaceAll(normalized, " ", "_")
-	return normalized
-}
-
+// ParseStatus normalizes a raw status string and validates it against the registry.
+// Empty input returns the configured default status.
+// Unknown values return (DefaultStatus(), false).
 func ParseStatus(status string) (Status, bool) {
-	normalized := normalizeStatusKey(status)
-	switch normalized {
-	case "", "backlog":
-		return StatusBacklog, true
-	case "ready", "todo", "to_do", "open":
-		return StatusReady, true
-	case "in_progress", "inprocess", "in_process", "inprogress":
-		return StatusInProgress, true
-	case "review", "in_review", "inreview":
-		return StatusReview, true
-	case "done", "closed", "completed":
-		return StatusDone, true
-	default:
-		return StatusBacklog, false
+	normalized := config.NormalizeStatusKey(status)
+	if normalized == "" {
+		return DefaultStatus(), true
 	}
+	reg := config.GetStatusRegistry()
+	if reg.IsValid(normalized) {
+		return Status(normalized), true
+	}
+	return DefaultStatus(), false
 }
 
 // NormalizeStatus standardizes a raw status string into a Status.
@@ -65,27 +44,32 @@ func MapStatus(status string) Status {
 
 // StatusToString converts a Status to its string representation.
 func StatusToString(status Status) string {
-	if _, ok := statuses[status]; ok {
+	reg := config.GetStatusRegistry()
+	if reg.IsValid(string(status)) {
 		return string(status)
 	}
-	return string(StatusBacklog)
+	return reg.DefaultKey()
 }
 
+// StatusEmoji returns the emoji for a status from the registry.
 func StatusEmoji(status Status) string {
-	if info, ok := statuses[status]; ok {
-		return info.emoji
+	reg := config.GetStatusRegistry()
+	if def, ok := reg.Lookup(string(status)); ok {
+		return def.Emoji
 	}
 	return ""
 }
 
+// StatusLabel returns the display label for a status from the registry.
 func StatusLabel(status Status) string {
-	if info, ok := statuses[status]; ok {
-		return info.label
+	reg := config.GetStatusRegistry()
+	if def, ok := reg.Lookup(string(status)); ok {
+		return def.Label
 	}
-	// fall back to the raw string if unknown
 	return string(status)
 }
 
+// StatusDisplay returns "Label Emoji" for a status.
 func StatusDisplay(status Status) string {
 	label := StatusLabel(status)
 	emoji := StatusEmoji(status)
@@ -93,4 +77,30 @@ func StatusDisplay(status Status) string {
 		return label
 	}
 	return label + " " + emoji
+}
+
+// DefaultStatus returns the status configured as default in workflow.yaml.
+func DefaultStatus() Status {
+	return Status(config.GetStatusRegistry().DefaultKey())
+}
+
+// DoneStatus returns the status configured as done in workflow.yaml.
+func DoneStatus() Status {
+	return Status(config.GetStatusRegistry().DoneKey())
+}
+
+// AllStatuses returns the ordered list of all configured statuses.
+func AllStatuses() []Status {
+	reg := config.GetStatusRegistry()
+	defs := reg.All()
+	statuses := make([]Status, len(defs))
+	for i, d := range defs {
+		statuses[i] = Status(d.Key)
+	}
+	return statuses
+}
+
+// IsActiveStatus reports whether the status has the active flag set.
+func IsActiveStatus(status Status) bool {
+	return config.GetStatusRegistry().IsActive(string(status))
 }

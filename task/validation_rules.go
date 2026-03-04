@@ -41,16 +41,8 @@ func (v *TitleValidator) ValidateField(task *Task) *ValidationError {
 type StatusValidator struct{}
 
 func (v *StatusValidator) ValidateField(task *Task) *ValidationError {
-	validStatuses := []Status{
-		StatusBacklog,
-		StatusReady,
-		StatusInProgress,
-		StatusReview,
-		StatusDone,
-	}
-
-	if slices.Contains(validStatuses, task.Status) {
-		return nil // Valid
+	if config.GetStatusRegistry().IsValid(string(task.Status)) {
+		return nil
 	}
 
 	return &ValidationError{

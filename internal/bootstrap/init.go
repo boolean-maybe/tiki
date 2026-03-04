@@ -2,6 +2,7 @@ package bootstrap
 
 import (
 	"context"
+	"fmt"
 	"log/slog"
 
 	"github.com/rivo/tview"
@@ -69,6 +70,11 @@ func Bootstrap(tikiSkillContent, dokiSkillContent string) (*Result, error) {
 	// get workflow.yaml installed even though their project is already initialized.
 	if err := config.InstallDefaultWorkflow(); err != nil {
 		slog.Warn("failed to install default workflow", "error", err)
+	}
+
+	// Phase 2.7: Load status definitions from workflow.yaml
+	if err := config.LoadStatusRegistry(); err != nil {
+		return nil, fmt.Errorf("load status registry: %w", err)
 	}
 
 	// Phase 3: Configuration and logging

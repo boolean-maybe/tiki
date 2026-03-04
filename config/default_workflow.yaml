@@ -1,3 +1,25 @@
+statuses:
+  - key: backlog
+    label: Backlog
+    emoji: "📥"
+    default: true
+  - key: ready
+    label: Ready
+    emoji: "📋"
+    active: true
+  - key: in_progress
+    label: "In Progress"
+    emoji: "⚙️"
+    active: true
+  - key: review
+    label: Review
+    emoji: "👀"
+    active: true
+  - key: done
+    label: Done
+    emoji: "✅"
+    done: true
+
 views:
   - name: Kanban
     default: true

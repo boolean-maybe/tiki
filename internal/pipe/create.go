@@ -79,6 +79,11 @@ func CreateTaskFromReader(r io.Reader) (string, error) {
 		return "", fmt.Errorf("project not initialized: run 'tiki init' first")
 	}
 
+	// Load status definitions before creating tasks
+	if err := config.LoadStatusRegistry(); err != nil {
+		return "", fmt.Errorf("load status registry: %w", err)
+	}
+
 	tikiStore, _, err := bootstrap.InitStores()
 	if err != nil {
 		return "", fmt.Errorf("initialize store: %w", err)

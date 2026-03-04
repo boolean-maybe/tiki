@@ -231,21 +231,22 @@ func (h *TaskHistory) recordEvents(events []statusEvent) {
 }
 
 func parseStatusFromContent(content string) (task.Status, error) {
+	defaultStatus := task.DefaultStatus()
 	frontmatter, _, err := ParseFrontmatter(content)
 	if err != nil {
-		return task.StatusBacklog, err
+		return defaultStatus, err
 	}
 
 	if frontmatter == "" {
-		return task.StatusBacklog, nil
+		return defaultStatus, nil
 	}
 
 	var fm map[string]interface{}
 	if err := yaml.Unmarshal([]byte(frontmatter), &fm); err != nil {
-		return task.StatusBacklog, err
+		return defaultStatus, err
 	}
 
-	statusVal := task.StatusBacklog
+	statusVal := defaultStatus
 	if rawStatus, ok := fm["status"]; ok {
 		if s, ok := rawStatus.(string); ok && s != "" {
 			statusVal = task.MapStatus(s)
@@ -256,7 +257,7 @@ func parseStatusFromContent(content string) (task.Status, error) {
 }
 
 func isActiveStatus(status task.Status) bool {
-	return status == task.StatusReady || status == task.StatusInProgress || status == task.StatusReview
+	return task.IsActiveStatus(status)
 }
 
 func deriveTaskID(fileName string) string {

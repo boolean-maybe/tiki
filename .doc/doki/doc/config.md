@@ -79,11 +79,33 @@ appearance:
 
 ### workflow.yaml
 
-For detailed instructions on how to configure plugins see [Customization](plugin.md)
+For detailed instructions see [Customization](plugin.md)
 
-Example `workflow.yaml` with available settings:
+Example `workflow.yaml`:
 
 ```yaml
+statuses:
+  - key: backlog
+    label: Backlog
+    emoji: "📥"
+    default: true
+  - key: ready
+    label: Ready
+    emoji: "📋"
+    active: true
+  - key: in_progress
+    label: "In Progress"
+    emoji: "⚙️"
+    active: true
+  - key: review
+    label: Review
+    emoji: "👀"
+    active: true
+  - key: done
+    label: Done
+    emoji: "✅"
+    done: true
+
 views:
   - name: Kanban
     foreground: "#87ceeb"

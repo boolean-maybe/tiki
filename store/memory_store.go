@@ -216,7 +216,7 @@ func (s *InMemoryStore) NewTaskTemplate() (*task.Task, error) {
 		Title:       "",
 		Description: "",
 		Type:        task.TypeStory,
-		Status:      task.StatusBacklog,
+		Status:      task.DefaultStatus(),
 		Priority:    7, // Match embedded template default
 		Points:      1,
 		Tags:        []string{"idea"},
