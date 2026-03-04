@@ -113,7 +113,7 @@ func RenderAssigneeText(task *taskpkg.Task, ctx FieldRenderContext) tview.Primit
 		focusMarker = getFocusMarker(ctx.Colors)
 	}
 
-	text := fmt.Sprintf("%s%sAssignee: %s%s", focusMarker, labelColor, valueColor, defaultString(task.Assignee, "Unassigned"))
+	text := fmt.Sprintf("%s%sAssignee: %s%s", focusMarker, labelColor, valueColor, tview.Escape(defaultString(task.Assignee, "Unassigned")))
 	textView := tview.NewTextView().SetDynamicColors(true).SetText(text)
 	textView.SetBorderPadding(0, 0, 0, 0)
 
@@ -143,7 +143,7 @@ func RenderPointsText(task *taskpkg.Task, ctx FieldRenderContext) tview.Primitiv
 func RenderTitleText(task *taskpkg.Task, ctx FieldRenderContext) tview.Primitive {
 	focused := ctx.Mode == RenderModeEdit && ctx.FocusedField == model.EditFieldTitle
 	titleColor := getDimOrFullColor(ctx.Mode, focused, ctx.Colors.TaskDetailTitleText[:len(ctx.Colors.TaskDetailTitleText)-1]+"::b]", ctx.Colors.TaskDetailEditDimTextColor)
-	titleText := fmt.Sprintf("%s%s%s", titleColor, task.Title, ctx.Colors.TaskDetailValueText)
+	titleText := fmt.Sprintf("%s%s%s", titleColor, tview.Escape(task.Title), ctx.Colors.TaskDetailValueText)
 	titleBox := tview.NewTextView().
 		SetDynamicColors(true).
 		SetText(titleText)
@@ -173,7 +173,7 @@ func RenderMetadataColumn3(task *taskpkg.Task, colors *config.ColorConfig) *tvie
 	}
 
 	authorText := fmt.Sprintf("%sAuthor:  %s%s",
-		colors.TaskDetailEditDimLabelColor, colors.TaskDetailValueText, defaultString(task.CreatedBy, "Unknown"))
+		colors.TaskDetailEditDimLabelColor, colors.TaskDetailValueText, tview.Escape(defaultString(task.CreatedBy, "Unknown")))
 	authorView := tview.NewTextView().SetDynamicColors(true).SetText(authorText)
 	authorView.SetBorderPadding(0, 0, 0, 0)
 

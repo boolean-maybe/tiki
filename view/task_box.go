@@ -31,7 +31,7 @@ func applyFrameStyle(frame *tview.Frame, selected bool, colors *config.ColorConf
 func buildCompactTaskContent(task *taskpkg.Task, colors *config.ColorConfig, availableWidth int) string {
 	emoji := taskpkg.TypeEmoji(task.Type)
 	idGradient := gradient.RenderAdaptiveGradientText(task.ID, colors.TaskBoxIDColor, config.FallbackTaskIDColor)
-	truncatedTitle := util.TruncateText(task.Title, availableWidth)
+	truncatedTitle := tview.Escape(util.TruncateText(task.Title, availableWidth))
 	priorityEmoji := taskpkg.PriorityLabel(task.Priority)
 	pointsVisual := util.GeneratePointsVisual(task.Points, config.GetMaxPoints(), colors.PointsFilledColor, colors.PointsUnfilledColor)
 
@@ -46,7 +46,7 @@ func buildCompactTaskContent(task *taskpkg.Task, colors *config.ColorConfig, ava
 func buildExpandedTaskContent(task *taskpkg.Task, colors *config.ColorConfig, availableWidth int) string {
 	emoji := taskpkg.TypeEmoji(task.Type)
 	idGradient := gradient.RenderAdaptiveGradientText(task.ID, colors.TaskBoxIDColor, config.FallbackTaskIDColor)
-	truncatedTitle := util.TruncateText(task.Title, availableWidth)
+	truncatedTitle := tview.Escape(util.TruncateText(task.Title, availableWidth))
 
 	// Extract first 3 lines of description
 	descLines := strings.Split(task.Description, "\n")
@@ -55,19 +55,19 @@ func buildExpandedTaskContent(task *taskpkg.Task, colors *config.ColorConfig, av
 	descLine3 := ""
 
 	if len(descLines) > 0 {
-		descLine1 = util.TruncateText(descLines[0], availableWidth)
+		descLine1 = tview.Escape(util.TruncateText(descLines[0], availableWidth))
 	}
 	if len(descLines) > 1 {
-		descLine2 = util.TruncateText(descLines[1], availableWidth)
+		descLine2 = tview.Escape(util.TruncateText(descLines[1], availableWidth))
 	}
 	if len(descLines) > 2 {
-		descLine3 = util.TruncateText(descLines[2], availableWidth)
+		descLine3 = tview.Escape(util.TruncateText(descLines[2], availableWidth))
 	}
 
 	// Build tags string
 	tagsStr := ""
 	if len(task.Tags) > 0 {
-		tagsStr = colors.TaskBoxLabelColor + "Tags:[-] " + colors.TaskBoxTagValueColor + util.TruncateText(strings.Join(task.Tags, ", "), availableWidth-6) + "[-]"
+		tagsStr = colors.TaskBoxLabelColor + "Tags:[-] " + colors.TaskBoxTagValueColor + tview.Escape(util.TruncateText(strings.Join(task.Tags, ", "), availableWidth-6)) + "[-]"
 	}
 
 	// Build priority/points line
