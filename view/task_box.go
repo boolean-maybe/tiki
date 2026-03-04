@@ -33,7 +33,7 @@ func buildCompactTaskContent(task *taskpkg.Task, colors *config.ColorConfig, ava
 	idGradient := gradient.RenderAdaptiveGradientText(task.ID, colors.TaskBoxIDColor, config.FallbackTaskIDColor)
 	truncatedTitle := util.TruncateText(task.Title, availableWidth)
 	priorityEmoji := taskpkg.PriorityLabel(task.Priority)
-	pointsVisual := util.GeneratePointsVisual(task.Points, config.GetMaxPoints())
+	pointsVisual := util.GeneratePointsVisual(task.Points, config.GetMaxPoints(), colors.PointsFilledColor, colors.PointsUnfilledColor)
 
 	return fmt.Sprintf("%s %s\n%s%s[-]\n%spriority[-] %s  %spoints[-] %s%s[-]",
 		emoji, idGradient,
@@ -72,7 +72,7 @@ func buildExpandedTaskContent(task *taskpkg.Task, colors *config.ColorConfig, av
 
 	// Build priority/points line
 	priorityEmoji := taskpkg.PriorityLabel(task.Priority)
-	pointsVisual := util.GeneratePointsVisual(task.Points, config.GetMaxPoints())
+	pointsVisual := util.GeneratePointsVisual(task.Points, config.GetMaxPoints(), colors.PointsFilledColor, colors.PointsUnfilledColor)
 	priorityPointsStr := fmt.Sprintf("%spriority[-] %s  %spoints[-] %s%s[-]",
 		colors.TaskBoxLabelColor, priorityEmoji,
 		colors.TaskBoxLabelColor, colors.TaskBoxLabelColor, pointsVisual)

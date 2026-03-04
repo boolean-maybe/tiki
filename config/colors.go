@@ -71,6 +71,10 @@ type ColorConfig struct {
 	HeaderKeyBinding string // tview color string like "[yellow]"
 	HeaderKeyText    string // tview color string like "[white]"
 
+	// Points visual bar colors
+	PointsFilledColor   string // tview color string for filled segments
+	PointsUnfilledColor string // tview color string for unfilled segments
+
 	// Header context help action colors
 	HeaderActionGlobalKeyColor   string // tview color string for global action keys
 	HeaderActionGlobalLabelColor string // tview color string for global action labels
@@ -154,6 +158,10 @@ func DefaultColors() *ColorConfig {
 			Start: [3]int{110, 190, 255}, // Cyan top for header chart
 			End:   [3]int{110, 190, 255}, // Cyan top (solid)
 		},
+
+		// Points visual bar
+		PointsFilledColor:   "[#508cff]", // Blue for filled segments
+		PointsUnfilledColor: "[#5f6982]", // Gray for unfilled segments
 
 		// Header
 		HeaderInfoLabel:  "[orange]",
