@@ -3,10 +3,14 @@ package view
 import (
 	"log/slog"
 
+	nav "github.com/boolean-maybe/navidown/navidown"
+	navtview "github.com/boolean-maybe/navidown/navidown/tview"
+	"github.com/boolean-maybe/tiki/config"
 	"github.com/boolean-maybe/tiki/controller"
 	"github.com/boolean-maybe/tiki/model"
 	"github.com/boolean-maybe/tiki/plugin"
 	"github.com/boolean-maybe/tiki/store"
+	"github.com/boolean-maybe/tiki/util"
 	"github.com/boolean-maybe/tiki/view/renderer"
 	"github.com/boolean-maybe/tiki/view/taskdetail"
 )
@@ -16,8 +20,9 @@ import (
 
 // ViewFactory creates views on demand
 type ViewFactory struct {
-	taskStore store.Store
-	renderer  renderer.MarkdownRenderer
+	taskStore    store.Store
+	renderer     renderer.MarkdownRenderer
+	imageManager *navtview.ImageManager
 	// Plugin support
 	pluginConfigs     map[string]*model.PluginConfig
 	pluginDefs        map[string]plugin.Plugin
@@ -35,9 +40,15 @@ func NewViewFactory(taskStore store.Store) *ViewFactory {
 		mdRenderer = glamourRenderer
 	}
 
+	resolver := nav.NewImageResolver(nil)
+	imgMgr := navtview.NewImageManager(resolver, 8, 16)
+	imgMgr.SetMaxRows(config.GetMaxImageRows())
+	imgMgr.SetSupported(util.SupportsKittyGraphics())
+
 	return &ViewFactory{
-		taskStore: taskStore,
-		renderer:  mdRenderer,
+		taskStore:    taskStore,
+		renderer:     mdRenderer,
+		imageManager: imgMgr,
 	}
 }
 
@@ -95,7 +106,7 @@ func (f *ViewFactory) CreateView(viewID model.ViewID, params map[string]interfac
 						slog.Error("plugin controller type mismatch", "plugin", pluginName)
 					}
 				} else if dokiPlugin, ok := pluginDef.(*plugin.DokiPlugin); ok {
-					v = NewDokiView(dokiPlugin, f.renderer)
+					v = NewDokiView(dokiPlugin, f.renderer, f.imageManager)
 				} else {
 					slog.Error("unknown plugin type or missing config", "plugin", pluginName)
 				}

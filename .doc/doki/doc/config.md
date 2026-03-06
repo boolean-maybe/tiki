@@ -57,6 +57,7 @@ header:
 # Tiki settings
 tiki:
   maxPoints: 10             # Maximum story points for tasks
+  maxImageRows: 40          # Maximum rows for inline images (Kitty protocol)
 
 # Logging settings
 logging:

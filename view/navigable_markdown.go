@@ -23,6 +23,7 @@ type NavigableMarkdownConfig struct {
 	Provider      nav.ContentProvider
 	SearchRoots   []string
 	OnStateChange func() // called on navigation state changes
+	ImageManager  *navtview.ImageManager
 }
 
 // NewNavigableMarkdown creates a new navigable markdown viewer.
@@ -36,6 +37,9 @@ func NewNavigableMarkdown(cfg NavigableMarkdownConfig) *NavigableMarkdown {
 	nm.viewer.SetAnsiConverter(navutil.NewAnsiConverter(true))
 	nm.viewer.SetRenderer(nav.NewANSIRendererWithStyle(config.GetEffectiveTheme()))
 	nm.viewer.SetBackgroundColor(config.GetContentBackgroundColor())
+	if cfg.ImageManager != nil && cfg.ImageManager.Supported() {
+		nm.viewer.SetImageManager(cfg.ImageManager)
+	}
 	nm.viewer.SetStateChangedHandler(func(_ *navtview.TextViewViewer) {
 		if nm.onStateChange != nil {
 			nm.onStateChange()

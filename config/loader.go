@@ -35,7 +35,8 @@ type Config struct {
 
 	// Tiki configuration
 	Tiki struct {
-		MaxPoints int `mapstructure:"maxPoints"`
+		MaxPoints    int `mapstructure:"maxPoints"`
+		MaxImageRows int `mapstructure:"maxImageRows"`
 	} `mapstructure:"tiki"`
 
 	// Appearance configuration
@@ -110,6 +111,7 @@ func setDefaults() {
 
 	// Tiki defaults
 	viper.SetDefault("tiki.maxPoints", 10)
+	viper.SetDefault("tiki.maxImageRows", 40)
 
 	// Appearance defaults
 	viper.SetDefault("appearance.theme", "auto")
@@ -275,6 +277,15 @@ func GetMaxPoints() int {
 		return 10 // fallback to default
 	}
 	return maxPoints
+}
+
+// GetMaxImageRows returns the maximum rows for inline image rendering
+func GetMaxImageRows() int {
+	rows := viper.GetInt("tiki.maxImageRows")
+	if rows < 1 {
+		return 40
+	}
+	return rows
 }
 
 // saveConfig writes the current viper configuration to config.yaml

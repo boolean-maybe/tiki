@@ -34,10 +34,17 @@ func Run(input InputSpec) error {
 	statusBar.SetDynamicColors(true)
 	statusBar.SetTextAlign(tview.AlignLeft)
 
+	// Set up image rendering for Kitty-compatible terminals
+	resolver := nav.NewImageResolver(input.SearchRoots)
+	imgMgr := navtview.NewImageManager(resolver, 8, 16)
+	imgMgr.SetMaxRows(config.GetMaxImageRows())
+	imgMgr.SetSupported(util.SupportsKittyGraphics())
+
 	// Create NavigableMarkdown - OnStateChange is set after creation to avoid forward reference
 	md := view.NewNavigableMarkdown(view.NavigableMarkdownConfig{
-		Provider:    provider,
-		SearchRoots: input.SearchRoots,
+		Provider:     provider,
+		SearchRoots:  input.SearchRoots,
+		ImageManager: imgMgr,
 	})
 	md.SetStateChangedHandler(func() {
 		updateStatusBar(statusBar, md.Viewer())

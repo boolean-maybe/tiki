@@ -13,6 +13,7 @@ import (
 
 	"github.com/boolean-maybe/navidown/loaders"
 	nav "github.com/boolean-maybe/navidown/navidown"
+	navtview "github.com/boolean-maybe/navidown/navidown/tview"
 	"github.com/gdamore/tcell/v2"
 	"github.com/rivo/tview"
 )
@@ -28,23 +29,26 @@ var customMd string
 
 // DokiView renders a documentation plugin (navigable markdown)
 type DokiView struct {
-	root      *tview.Flex
-	titleBar  tview.Primitive
-	markdown  *NavigableMarkdown
-	pluginDef *plugin.DokiPlugin
-	registry  *controller.ActionRegistry
-	renderer  renderer.MarkdownRenderer
+	root         *tview.Flex
+	titleBar     tview.Primitive
+	markdown     *NavigableMarkdown
+	pluginDef    *plugin.DokiPlugin
+	registry     *controller.ActionRegistry
+	renderer     renderer.MarkdownRenderer
+	imageManager *navtview.ImageManager
 }
 
 // NewDokiView creates a doki view
 func NewDokiView(
 	pluginDef *plugin.DokiPlugin,
 	mdRenderer renderer.MarkdownRenderer,
+	imageManager *navtview.ImageManager,
 ) *DokiView {
 	dv := &DokiView{
-		pluginDef: pluginDef,
-		registry:  controller.NewActionRegistry(),
-		renderer:  mdRenderer,
+		pluginDef:    pluginDef,
+		registry:     controller.NewActionRegistry(),
+		renderer:     mdRenderer,
+		imageManager: imageManager,
 	}
 
 	dv.build()
@@ -81,6 +85,7 @@ func (dv *DokiView) build() {
 			Provider:      provider,
 			SearchRoots:   searchRoots,
 			OnStateChange: dv.UpdateNavigationActions,
+			ImageManager:  dv.imageManager,
 		})
 
 	case "internal":
@@ -95,12 +100,14 @@ func (dv *DokiView) build() {
 		dv.markdown = NewNavigableMarkdown(NavigableMarkdownConfig{
 			Provider:      provider,
 			OnStateChange: dv.UpdateNavigationActions,
+			ImageManager:  dv.imageManager,
 		})
 
 	default:
 		content = "Error: Unknown fetcher type"
 		dv.markdown = NewNavigableMarkdown(NavigableMarkdownConfig{
 			OnStateChange: dv.UpdateNavigationActions,
+			ImageManager:  dv.imageManager,
 		})
 	}
 
