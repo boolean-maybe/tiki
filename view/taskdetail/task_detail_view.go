@@ -2,6 +2,8 @@ package taskdetail
 
 import (
 	"fmt"
+	"path/filepath"
+	"strings"
 
 	"github.com/boolean-maybe/tiki/config"
 	"github.com/boolean-maybe/tiki/controller"
@@ -9,8 +11,10 @@ import (
 	"github.com/boolean-maybe/tiki/store"
 	taskpkg "github.com/boolean-maybe/tiki/task"
 	"github.com/boolean-maybe/tiki/util/gradient"
-	"github.com/boolean-maybe/tiki/view/renderer"
 
+	nav "github.com/boolean-maybe/navidown/navidown"
+	navtview "github.com/boolean-maybe/navidown/navidown/tview"
+	navutil "github.com/boolean-maybe/navidown/util"
 	"github.com/rivo/tview"
 )
 
@@ -26,12 +30,12 @@ type TaskDetailView struct {
 }
 
 // NewTaskDetailView creates a task detail view in read-only mode
-func NewTaskDetailView(taskStore store.Store, taskID string, renderer renderer.MarkdownRenderer) *TaskDetailView {
+func NewTaskDetailView(taskStore store.Store, taskID string, imageManager *navtview.ImageManager) *TaskDetailView {
 	tv := &TaskDetailView{
 		Base: Base{
-			taskStore: taskStore,
-			taskID:    taskID,
-			renderer:  renderer,
+			taskStore:    taskStore,
+			taskID:       taskID,
+			imageManager: imageManager,
 		},
 		registry: controller.TaskDetailViewActions(),
 		viewID:   model.TaskDetailViewID,
@@ -164,19 +168,31 @@ func (tv *TaskDetailView) buildMetadataColumns(task *taskpkg.Task, ctx FieldRend
 func (tv *TaskDetailView) buildDescription(task *taskpkg.Task) tview.Primitive {
 	desc := defaultString(task.Description, "(No description)")
 
-	renderedDesc, err := tv.renderer.Render(desc)
-	if err != nil {
-		renderedDesc = desc
+	// Get the source file path for the task to enable relative image resolution
+	taskSourcePath := getTaskFilePath(task.ID)
+
+	viewer := navtview.NewTextView()
+	viewer.SetAnsiConverter(navutil.NewAnsiConverter(true))
+	viewer.SetRenderer(nav.NewANSIRendererWithStyle(config.GetEffectiveTheme()))
+	viewer.SetBackgroundColor(config.GetContentBackgroundColor())
+	if tv.imageManager != nil && tv.imageManager.Supported() {
+		viewer.SetImageManager(tv.imageManager)
 	}
+	// Use SetMarkdownWithSource to provide the source file path for relative image resolution
+	viewer.SetMarkdownWithSource(desc, taskSourcePath, false)
+	viewer.SetBorderPadding(1, 1, 2, 2)
+	tv.descView = viewer
+	return viewer
+}
 
-	descBox := tview.NewTextView().
-		SetDynamicColors(true).
-		SetText(renderedDesc).
-		SetScrollable(true)
-
-	descBox.SetBorderPadding(1, 1, 2, 2)
-	tv.descView = descBox
-	return descBox
+// getTaskFilePath constructs the file path for a task based on its ID
+// This enables relative image path resolution in markdown content
+func getTaskFilePath(taskID string) string {
+	// Task files are named like "tiki-z53pc9.md" (lowercase) in the task directory
+	// but the task ID in the struct is "TIKI-z53pc9" (uppercase prefix)
+	// Convert to lowercase for the filename
+	taskFilename := fmt.Sprintf("%s.md", strings.ToLower(taskID))
+	return filepath.Join(config.GetTaskDir(), taskFilename)
 }
 
 // EnterFullscreen switches the view to fullscreen mode (description only)

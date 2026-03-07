@@ -7,7 +7,6 @@ import (
 	"github.com/boolean-maybe/tiki/config"
 	"github.com/boolean-maybe/tiki/store"
 	"github.com/boolean-maybe/tiki/task"
-	"github.com/boolean-maybe/tiki/view/renderer"
 )
 
 // TestBuildMetadataColumns_Structure verifies that buildMetadataColumns returns 2 flex containers
@@ -15,10 +14,6 @@ import (
 func TestBuildMetadataColumns_Structure(t *testing.T) {
 	// Setup
 	s := store.NewInMemoryStore()
-	renderer, err := renderer.NewGlamourRenderer()
-	if err != nil {
-		t.Fatalf("Failed to create renderer: %v", err)
-	}
 	task := &task.Task{
 		ID:          "TIKI-1",
 		Title:       "Test Task",
@@ -33,7 +28,7 @@ func TestBuildMetadataColumns_Structure(t *testing.T) {
 		UpdatedAt:   time.Date(2024, 1, 2, 14, 30, 0, 0, time.UTC),
 	}
 
-	view := NewTaskDetailView(s, task.ID, renderer)
+	view := NewTaskDetailView(s, task.ID, nil)
 	view.SetFallbackTask(task)
 
 	colors := config.GetColors()
@@ -59,10 +54,6 @@ func TestBuildMetadataColumns_Structure(t *testing.T) {
 func TestBuildMetadataColumns_Column1Fields(t *testing.T) {
 	// Setup
 	s := store.NewInMemoryStore()
-	renderer, err := renderer.NewGlamourRenderer()
-	if err != nil {
-		t.Fatalf("Failed to create renderer: %v", err)
-	}
 	task := &task.Task{
 		ID:       "TIKI-1",
 		Title:    "Test Task",
@@ -71,7 +62,7 @@ func TestBuildMetadataColumns_Column1Fields(t *testing.T) {
 		Priority: 3,
 	}
 
-	view := NewTaskDetailView(s, task.ID, renderer)
+	view := NewTaskDetailView(s, task.ID, nil)
 	view.SetFallbackTask(task)
 
 	colors := config.GetColors()
@@ -90,10 +81,6 @@ func TestBuildMetadataColumns_Column1Fields(t *testing.T) {
 func TestBuildMetadataColumns_Column2Fields(t *testing.T) {
 	// Setup
 	s := store.NewInMemoryStore()
-	renderer, err := renderer.NewGlamourRenderer()
-	if err != nil {
-		t.Fatalf("Failed to create renderer: %v", err)
-	}
 	task := &task.Task{
 		ID:       "TIKI-1",
 		Title:    "Test Task",
@@ -101,7 +88,7 @@ func TestBuildMetadataColumns_Column2Fields(t *testing.T) {
 		Points:   5,
 	}
 
-	view := NewTaskDetailView(s, task.ID, renderer)
+	view := NewTaskDetailView(s, task.ID, nil)
 	view.SetFallbackTask(task)
 
 	colors := config.GetColors()

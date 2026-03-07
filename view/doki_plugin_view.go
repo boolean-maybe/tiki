@@ -9,7 +9,6 @@ import (
 	"github.com/boolean-maybe/tiki/controller"
 	"github.com/boolean-maybe/tiki/model"
 	"github.com/boolean-maybe/tiki/plugin"
-	"github.com/boolean-maybe/tiki/view/renderer"
 
 	"github.com/boolean-maybe/navidown/loaders"
 	nav "github.com/boolean-maybe/navidown/navidown"
@@ -34,20 +33,17 @@ type DokiView struct {
 	markdown     *NavigableMarkdown
 	pluginDef    *plugin.DokiPlugin
 	registry     *controller.ActionRegistry
-	renderer     renderer.MarkdownRenderer
 	imageManager *navtview.ImageManager
 }
 
 // NewDokiView creates a doki view
 func NewDokiView(
 	pluginDef *plugin.DokiPlugin,
-	mdRenderer renderer.MarkdownRenderer,
 	imageManager *navtview.ImageManager,
 ) *DokiView {
 	dv := &DokiView{
 		pluginDef:    pluginDef,
 		registry:     controller.NewActionRegistry(),
-		renderer:     mdRenderer,
 		imageManager: imageManager,
 	}
 

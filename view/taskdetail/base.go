@@ -4,8 +4,8 @@ import (
 	"github.com/boolean-maybe/tiki/controller"
 	"github.com/boolean-maybe/tiki/store"
 	taskpkg "github.com/boolean-maybe/tiki/task"
-	"github.com/boolean-maybe/tiki/view/renderer"
 
+	navtview "github.com/boolean-maybe/navidown/navidown/tview"
 	"github.com/rivo/tview"
 )
 
@@ -17,10 +17,10 @@ type Base struct {
 	content *tview.Flex
 
 	// Dependencies
-	taskStore store.Store
-	taskID    string
-	renderer  renderer.MarkdownRenderer
-	descView  *tview.TextView
+	taskStore    store.Store
+	taskID       string
+	imageManager *navtview.ImageManager
+	descView     tview.Primitive
 
 	// Task data
 	fallbackTask   *taskpkg.Task

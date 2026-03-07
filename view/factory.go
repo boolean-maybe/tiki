@@ -11,7 +11,6 @@ import (
 	"github.com/boolean-maybe/tiki/plugin"
 	"github.com/boolean-maybe/tiki/store"
 	"github.com/boolean-maybe/tiki/util"
-	"github.com/boolean-maybe/tiki/view/renderer"
 	"github.com/boolean-maybe/tiki/view/taskdetail"
 )
 
@@ -21,7 +20,6 @@ import (
 // ViewFactory creates views on demand
 type ViewFactory struct {
 	taskStore    store.Store
-	renderer     renderer.MarkdownRenderer
 	imageManager *navtview.ImageManager
 	// Plugin support
 	pluginConfigs     map[string]*model.PluginConfig
@@ -31,23 +29,15 @@ type ViewFactory struct {
 
 // NewViewFactory creates a view factory
 func NewViewFactory(taskStore store.Store) *ViewFactory {
-	// try to create glamour renderer, fallback to plain text if fails
-	var mdRenderer renderer.MarkdownRenderer
-	glamourRenderer, err := renderer.NewGlamourRenderer()
-	if err != nil {
-		mdRenderer = &renderer.FallbackRenderer{}
-	} else {
-		mdRenderer = glamourRenderer
-	}
-
-	resolver := nav.NewImageResolver(nil)
+	// Configure image resolver with task directory as search root for relative image paths
+	searchRoots := []string{config.GetTaskDir()}
+	resolver := nav.NewImageResolver(searchRoots)
 	imgMgr := navtview.NewImageManager(resolver, 8, 16)
 	imgMgr.SetMaxRows(config.GetMaxImageRows())
 	imgMgr.SetSupported(util.SupportsKittyGraphics())
 
 	return &ViewFactory{
 		taskStore:    taskStore,
-		renderer:     mdRenderer,
 		imageManager: imgMgr,
 	}
 }
@@ -70,11 +60,11 @@ func (f *ViewFactory) CreateView(viewID model.ViewID, params map[string]interfac
 	switch viewID {
 	case model.TaskDetailViewID:
 		taskID := model.DecodeTaskDetailParams(params).TaskID
-		v = taskdetail.NewTaskDetailView(f.taskStore, taskID, f.renderer)
+		v = taskdetail.NewTaskDetailView(f.taskStore, taskID, f.imageManager)
 
 	case model.TaskEditViewID:
 		taskID := model.DecodeTaskEditParams(params).TaskID
-		v = taskdetail.NewTaskEditView(f.taskStore, taskID, f.renderer)
+		v = taskdetail.NewTaskEditView(f.taskStore, taskID, f.imageManager)
 		editParams := model.DecodeTaskEditParams(params)
 		if editParams.Draft != nil {
 			if tev, ok := v.(*taskdetail.TaskEditView); ok {
@@ -106,7 +96,7 @@ func (f *ViewFactory) CreateView(viewID model.ViewID, params map[string]interfac
 						slog.Error("plugin controller type mismatch", "plugin", pluginName)
 					}
 				} else if dokiPlugin, ok := pluginDef.(*plugin.DokiPlugin); ok {
-					v = NewDokiView(dokiPlugin, f.renderer, f.imageManager)
+					v = NewDokiView(dokiPlugin, f.imageManager)
 				} else {
 					slog.Error("unknown plugin type or missing config", "plugin", pluginName)
 				}

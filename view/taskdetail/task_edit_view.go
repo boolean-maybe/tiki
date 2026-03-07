@@ -10,8 +10,8 @@ import (
 	"github.com/boolean-maybe/tiki/store"
 	taskpkg "github.com/boolean-maybe/tiki/task"
 	"github.com/boolean-maybe/tiki/util/gradient"
-	"github.com/boolean-maybe/tiki/view/renderer"
 
+	navtview "github.com/boolean-maybe/navidown/navidown/tview"
 	"github.com/gdamore/tcell/v2"
 	"github.com/rivo/tview"
 )
@@ -59,12 +59,12 @@ var (
 )
 
 // NewTaskEditView creates a task edit view
-func NewTaskEditView(taskStore store.Store, taskID string, renderer renderer.MarkdownRenderer) *TaskEditView {
+func NewTaskEditView(taskStore store.Store, taskID string, imageManager *navtview.ImageManager) *TaskEditView {
 	ev := &TaskEditView{
 		Base: Base{
-			taskStore: taskStore,
-			taskID:    taskID,
-			renderer:  renderer,
+			taskStore:    taskStore,
+			taskID:       taskID,
+			imageManager: imageManager,
 		},
 		registry:     controller.TaskEditViewActions(),
 		viewID:       model.TaskEditViewID,
@@ -397,8 +397,8 @@ func (ev *TaskEditView) EnterFullscreen() {
 	}
 	ev.fullscreen = true
 	ev.refresh()
-	if ev.focusSetter != nil && ev.descView != nil {
-		ev.focusSetter(ev.descView)
+	if ev.focusSetter != nil && ev.descTextArea != nil {
+		ev.focusSetter(ev.descTextArea)
 	}
 	if ev.onFullscreenChange != nil {
 		ev.onFullscreenChange(true)
@@ -412,8 +412,8 @@ func (ev *TaskEditView) ExitFullscreen() {
 	}
 	ev.fullscreen = false
 	ev.refresh()
-	if ev.focusSetter != nil && ev.descView != nil {
-		ev.focusSetter(ev.descView)
+	if ev.focusSetter != nil && ev.descTextArea != nil {
+		ev.focusSetter(ev.descTextArea)
 	}
 	if ev.onFullscreenChange != nil {
 		ev.onFullscreenChange(false)
