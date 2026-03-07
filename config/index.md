@@ -18,6 +18,8 @@ Press `Tab/Shift-Tab` to select below links and `Enter` to open:
   - [Tables](#tables)
   - [Task Lists](#task-lists)
 
+![Markdown Support](markdown.png)
+
 ## Introduction
 
 This is a wiki-style documentation called `doki` saved as Markdown files alongside the project

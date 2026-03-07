@@ -22,6 +22,7 @@ check it out: https://github.com/boolean-maybe/tiki
 - [x] AI native
 - [x] rich **Markdown** format
 
+![Markdown](markdown.png)
 ## Git managed
 
 `tikis` (short for tickets) are just **Markdown** files in your repository

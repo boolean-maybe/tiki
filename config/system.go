@@ -41,6 +41,9 @@ var dokiLinked string
 //go:embed default_workflow.yaml
 var defaultWorkflowYAML string
 
+//go:embed markdown.png
+var markdownPNG []byte
+
 // GenerateRandomID generates a 6-character random alphanumeric ID (lowercase)
 func GenerateRandomID() string {
 	const alphabet = "abcdefghijklmnopqrstuvwxyz0123456789"
@@ -130,6 +133,20 @@ func BootstrapSystem() error {
 		return fmt.Errorf("write doki linked: %w", err)
 	}
 	createdFiles = append(createdFiles, linkedPath)
+
+	// Copy markdown.png to doki directory
+	dokiMarkdownPNGPath := filepath.Join(dokiDir, "markdown.png")
+	if err := os.WriteFile(dokiMarkdownPNGPath, markdownPNG, 0644); err != nil {
+		return fmt.Errorf("write doki markdown.png: %w", err)
+	}
+	createdFiles = append(createdFiles, dokiMarkdownPNGPath)
+
+	// Copy markdown.png to task directory
+	tikiMarkdownPNGPath := filepath.Join(taskDir, "markdown.png")
+	if err := os.WriteFile(tikiMarkdownPNGPath, markdownPNG, 0644); err != nil {
+		return fmt.Errorf("write tiki markdown.png: %w", err)
+	}
+	createdFiles = append(createdFiles, tikiMarkdownPNGPath)
 
 	// Write default config.yaml
 	defaultConfig := `logging:
