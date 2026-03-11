@@ -1,5 +1,12 @@
 # tiki
 
+UPDATE:
+
+Now support images in Kitty-compatible terminals (iTerm2, Kitty, WezTerm, Ghostty)
+
+![Intro](assets/images.gif)
+
+
 `tiki` is a simple and lightweight way to keep your tasks, prompts, documents, ideas, scratchpads in your project **git** repo
 
 ![Intro](assets/intro.png)
@@ -11,7 +18,7 @@ documentation, brainstorming ideas, incomplete implementations, AI prompts and p
 Stick them in your repo. Keep around for as long as you need. Find them back in **git** history. Make issues out of them
 and take them through an agile lifecycle. `tiki` helps you save and organize these files:
 
-- Standalone **Markdown viewer** - view and edit Markdown files, navigate to local/external/GitHub/GitLab links, edit and save
+- Standalone **Markdown viewer** - view and edit Markdown files, navigate to local/external/GitHub/GitLab links, image display
 - Keep, search, view and version Markdown files in the **git repo**
 - **Wiki-style** documentation with multiple entry points
 - Keep a **to-do list** with priorities, status, assignee and size
