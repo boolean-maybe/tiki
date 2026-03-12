@@ -10,6 +10,7 @@ type Task struct {
 	Type        Type
 	Status      Status
 	Tags        []string
+	DependsOn   []string
 	Assignee    string
 	Priority    int // lower = higher priority
 	Points      int
@@ -45,6 +46,11 @@ func (t *Task) Clone() *Task {
 	if t.Tags != nil {
 		clone.Tags = make([]string, len(t.Tags))
 		copy(clone.Tags, t.Tags)
+	}
+
+	if t.DependsOn != nil {
+		clone.DependsOn = make([]string, len(t.DependsOn))
+		copy(clone.DependsOn, t.DependsOn)
 	}
 
 	if t.Comments != nil {

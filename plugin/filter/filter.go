@@ -71,9 +71,17 @@ func (i *InExpr) Evaluate(task *task.Task, now time.Time, currentUser string) bo
 		}
 	}
 
-	// Special handling for tags (array field)
-	if strings.ToLower(i.Field) == "tags" || strings.ToLower(i.Field) == "tag" {
-		result := evaluateTagsInComparison(task.Tags, resolvedValues)
+	// Special handling for array fields (tags, dependsOn)
+	fieldLower := strings.ToLower(i.Field)
+	if fieldLower == "tags" || fieldLower == "tag" || fieldLower == "dependson" {
+		var arrayField []string
+		switch fieldLower {
+		case "tags", "tag":
+			arrayField = task.Tags
+		case "dependson":
+			arrayField = task.DependsOn
+		}
+		result := evaluateTagsInComparison(arrayField, resolvedValues)
 		if i.Not {
 			return !result
 		}
@@ -114,9 +122,13 @@ func (c *CompareExpr) Evaluate(task *task.Task, now time.Time, currentUser strin
 		compareValue = dv.Duration
 	}
 
-	// Handle tags specially - check if tag is in the list
-	if strings.ToLower(c.Field) == "tags" || strings.ToLower(c.Field) == "tag" {
+	// Handle array fields specially - check if value is in the list
+	fieldLower := strings.ToLower(c.Field)
+	if fieldLower == "tags" || fieldLower == "tag" {
 		return evaluateTagComparison(task.Tags, c.Op, compareValue)
+	}
+	if fieldLower == "dependson" {
+		return evaluateTagComparison(task.DependsOn, c.Op, compareValue)
 	}
 
 	return compare(fieldValue, c.Op, compareValue)
@@ -228,6 +240,8 @@ func getTaskAttribute(task *task.Task, field string) interface{} {
 		return task.UpdatedAt
 	case "tags":
 		return task.Tags
+	case "dependson":
+		return task.DependsOn
 	case "id":
 		return task.ID
 	case "title":

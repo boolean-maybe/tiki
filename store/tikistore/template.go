@@ -15,13 +15,14 @@ import (
 
 // templateFrontmatter represents the YAML frontmatter in template files
 type templateFrontmatter struct {
-	Title    string   `yaml:"title"`
-	Type     string   `yaml:"type"`
-	Status   string   `yaml:"status"`
-	Tags     []string `yaml:"tags"`
-	Assignee string   `yaml:"assignee"`
-	Priority int      `yaml:"priority"`
-	Points   int      `yaml:"points"`
+	Title     string   `yaml:"title"`
+	Type      string   `yaml:"type"`
+	Status    string   `yaml:"status"`
+	Tags      []string `yaml:"tags"`
+	DependsOn []string `yaml:"dependsOn"`
+	Assignee  string   `yaml:"assignee"`
+	Priority  int      `yaml:"priority"`
+	Points    int      `yaml:"points"`
 }
 
 // loadTemplateTask reads new.md from user config directory, or falls back to embedded template.
@@ -78,6 +79,7 @@ func parseTaskTemplate(data []byte) *taskpkg.Task {
 		Type:        taskpkg.NormalizeType(fm.Type),
 		Status:      taskpkg.NormalizeStatus(fm.Status),
 		Tags:        fm.Tags,
+		DependsOn:   fm.DependsOn,
 		Assignee:    fm.Assignee,
 		Priority:    fm.Priority,
 		Points:      fm.Points,
@@ -151,6 +153,7 @@ func (s *TikiStore) NewTaskTemplate() (*taskpkg.Task, error) {
 		task.Priority = template.Priority
 		task.Points = template.Points
 		task.Tags = template.Tags
+		task.DependsOn = template.DependsOn
 		task.Assignee = template.Assignee
 		task.Status = template.Status
 	}

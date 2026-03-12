@@ -105,6 +105,116 @@ func TestSearch_AllTasksIncludesDescription(t *testing.T) {
 		}
 	}
 }
+func TestLoadTaskFile_DependsOn(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	tests := []struct {
+		name              string
+		fileContent       string
+		expectedDependsOn []string
+		shouldLoad        bool
+	}{
+		{
+			name: "valid dependsOn list",
+			fileContent: `---
+title: Test Task
+type: story
+status: backlog
+dependsOn:
+  - TIKI-ABC123
+  - TIKI-DEF456
+---
+Task description`,
+			expectedDependsOn: []string{"TIKI-ABC123", "TIKI-DEF456"},
+			shouldLoad:        true,
+		},
+		{
+			name: "lowercase IDs uppercased",
+			fileContent: `---
+title: Test Task
+type: story
+status: backlog
+dependsOn:
+  - tiki-abc123
+---
+Task description`,
+			expectedDependsOn: []string{"TIKI-ABC123"},
+			shouldLoad:        true,
+		},
+		{
+			name: "missing dependsOn field",
+			fileContent: `---
+title: Test Task
+type: story
+status: backlog
+---
+Task description`,
+			expectedDependsOn: []string{},
+			shouldLoad:        true,
+		},
+		{
+			name: "empty dependsOn array",
+			fileContent: `---
+title: Test Task
+type: story
+status: backlog
+dependsOn: []
+---
+Task description`,
+			expectedDependsOn: []string{},
+			shouldLoad:        true,
+		},
+		{
+			name: "invalid dependsOn - scalar",
+			fileContent: `---
+title: Test Task
+type: story
+status: backlog
+dependsOn: not-a-list
+---
+Task description`,
+			expectedDependsOn: []string{},
+			shouldLoad:        true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			testFile := tmpDir + "/test-task.md"
+			err := os.WriteFile(testFile, []byte(tt.fileContent), 0644)
+			if err != nil {
+				t.Fatalf("Failed to create test file: %v", err)
+			}
+
+			store, storeErr := NewTikiStore(tmpDir)
+			if storeErr != nil {
+				t.Fatalf("Failed to create TikiStore: %v", storeErr)
+			}
+
+			task, err := store.loadTaskFile(testFile, nil, nil)
+
+			if tt.shouldLoad {
+				if err != nil {
+					t.Fatalf("loadTaskFile() unexpected error = %v", err)
+				}
+				if task == nil {
+					t.Fatal("loadTaskFile() returned nil task")
+				}
+
+				if !reflect.DeepEqual(task.DependsOn, tt.expectedDependsOn) {
+					t.Errorf("task.DependsOn = %v, expected %v", task.DependsOn, tt.expectedDependsOn)
+				}
+			} else {
+				if err == nil {
+					t.Error("loadTaskFile() expected error but got none")
+				}
+			}
+
+			_ = os.Remove(testFile)
+		})
+	}
+}
+
 func TestLoadTaskFile_InvalidTags(t *testing.T) {
 	// Create temporary directory for test files
 	tmpDir := t.TempDir()

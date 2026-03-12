@@ -31,6 +31,12 @@ func (s *TikiStore) CreateTask(task *taskpkg.Task) error {
 
 	task.ID = normalizeTaskID(task.ID)
 
+	// Validate dependsOn references exist
+	if err := s.validateDependsOnLocked(task); err != nil {
+		s.mu.Unlock()
+		return err
+	}
+
 	s.tasks[task.ID] = task
 	if err := s.saveTask(task); err != nil {
 		// Rollback on failure
@@ -63,6 +69,12 @@ func (s *TikiStore) UpdateTask(task *taskpkg.Task) error {
 	if !exists {
 		s.mu.Unlock()
 		return fmt.Errorf("task not found: %s", task.ID)
+	}
+
+	// Validate dependsOn references exist
+	if err := s.validateDependsOnLocked(task); err != nil {
+		s.mu.Unlock()
+		return err
 	}
 
 	s.tasks[task.ID] = task
@@ -135,4 +147,16 @@ func (s *TikiStore) AddComment(taskID string, comment taskpkg.Comment) bool {
 	s.mu.Unlock()
 	s.notifyListeners()
 	return true
+}
+
+// validateDependsOnLocked checks that all dependsOn IDs reference existing tasks.
+// Caller must hold s.mu lock.
+func (s *TikiStore) validateDependsOnLocked(task *taskpkg.Task) error {
+	for _, depID := range task.DependsOn {
+		normalized := normalizeTaskID(depID)
+		if _, exists := s.tasks[normalized]; !exists {
+			return fmt.Errorf("dependsOn references non-existent tiki: %s", normalized)
+		}
+	}
+	return nil
 }

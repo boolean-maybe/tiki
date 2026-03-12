@@ -155,11 +155,12 @@ or `-=` (remove) expressions. For example, `tags += [idea, UI]` adds `idea` and 
 - `points` - set numeric points (0 or positive, up to max points)
 - `assignee` - set assignee string
 - `tags` - add/remove tags (list)
+- `dependsOn` - add/remove dependency tiki IDs (list)
 
 #### Operators
 
 - `=` assigns a value to `status`, `type`, `priority`, `points`, `assignee`
-- `+=` adds tags, `-=` removes tags
+- `+=` adds tags or dependencies, `-=` removes them
 - multiple operations are separated by commas: `status=done, tags+=[moved]`
 
 #### Literals
@@ -186,6 +187,7 @@ You can filter on these task fields:
 - `priority` - Numeric priority value
 - `points` - Story points estimate
 - `tags` (or `tag`) - List of tags (case-insensitive)
+- `dependsOn` - List of dependency tiki IDs
 - `createdAt` - Creation timestamp
 - `updatedAt` - Last update timestamp
 

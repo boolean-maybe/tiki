@@ -1,6 +1,6 @@
 ---
 name: tiki
-description: view, create, update, delete tikis
+description: view, create, update, delete tikis and manage dependencies
 allowed-tools: Read, Grep, Glob, Update, Edit, Write, WriteFile, Bash(git add:*), Bash(git rm:*)
 ---
 
@@ -35,6 +35,8 @@ points: 5
 tags:
   - markdown
   - metadata
+dependsOn:
+  - TIKI-ABC123
 ---
 ```
 
@@ -49,6 +51,7 @@ where fields can have these values:
   - medium-low: 4
   - low: 5
 - points: story points from 1 to 10
+- dependsOn: list of tiki IDs (TIKI-XXXXXX format) this task depends on
 
 ### body
 
@@ -117,3 +120,50 @@ If for any reason `git rm` cannot be executed and the file is still there - dele
 ## Implement
 
 When asked to implement a tiki and the user approves implementation change its status to `review` and `git add` it
+
+## Dependencies
+
+Tikis can declare dependencies on other tikis via the `dependsOn` frontmatter field.
+Values are tiki IDs in `TIKI-XXXXXX` format. A dependency means this tiki is blocked by or requires the listed tikis.
+
+### View dependencies
+
+When asked about a tiki's dependencies, read its frontmatter `dependsOn` list.
+For each dependency ID, read that tiki file to show its title, status, and assignee.
+Highlight any dependencies that are not yet `done` -- these are blockers.
+
+Example: "what blocks TIKI-X7F4K2?"
+1. Read `.doc/tiki/tiki-x7f4k2.md` frontmatter
+2. For each ID in `dependsOn`, read that tiki and report its status
+
+### Find dependents
+
+When asked "what depends on TIKI-ABC123?" -- grep all tiki files for that ID in their `dependsOn` field:
+```
+grep -l "TIKI-ABC123" .doc/tiki/*.md
+```
+Then read each match and check if TIKI-ABC123 appears in its `dependsOn` list.
+
+### Add dependency
+
+When asked to add a dependency (e.g. "TIKI-X7F4K2 depends on TIKI-ABC123"):
+1. Verify the target tiki exists: check `.doc/tiki/tiki-abc123.md` exists
+2. Read `.doc/tiki/tiki-x7f4k2.md`
+3. Add `TIKI-ABC123` to the `dependsOn` list (create the field if missing)
+4. Do not add duplicates
+5. `git add` the modified file
+
+### Remove dependency
+
+When asked to remove a dependency:
+1. Read the tiki file
+2. Remove the specified ID from `dependsOn`
+3. If `dependsOn` becomes empty, remove the field entirely (omitempty)
+4. `git add` the modified file
+
+### Validation
+
+- Each value must be a valid tiki ID format: `TIKI-` followed by 6 alphanumeric characters
+- Each referenced tiki must exist in `.doc/tiki/`
+- Before adding, verify the target file exists; warn if it doesn't
+- Circular dependencies: warn the user but do not block (e.g. A depends on B, B depends on A)

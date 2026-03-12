@@ -36,13 +36,14 @@ type TikiStore struct {
 
 // taskFrontmatter represents the YAML frontmatter in task files
 type taskFrontmatter struct {
-	Title    string                `yaml:"title"`
-	Type     string                `yaml:"type"`
-	Status   string                `yaml:"status"`
-	Tags     taskpkg.TagsValue     `yaml:"tags,omitempty"`
-	Assignee string                `yaml:"assignee,omitempty"`
-	Priority taskpkg.PriorityValue `yaml:"priority,omitempty"`
-	Points   int                   `yaml:"points,omitempty"`
+	Title     string                 `yaml:"title"`
+	Type      string                 `yaml:"type"`
+	Status    string                 `yaml:"status"`
+	Tags      taskpkg.TagsValue      `yaml:"tags,omitempty"`
+	DependsOn taskpkg.DependsOnValue `yaml:"dependsOn,omitempty"`
+	Assignee  string                 `yaml:"assignee,omitempty"`
+	Priority  taskpkg.PriorityValue  `yaml:"priority,omitempty"`
+	Points    int                    `yaml:"points,omitempty"`
 }
 
 // NewTikiStore creates a new TikiStore.

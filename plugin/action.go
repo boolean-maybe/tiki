@@ -15,23 +15,25 @@ type LaneAction struct {
 
 // LaneActionOp represents a single action operation.
 type LaneActionOp struct {
-	Field    ActionField
-	Operator ActionOperator
-	StrValue string
-	IntValue int
-	Tags     []string
+	Field     ActionField
+	Operator  ActionOperator
+	StrValue  string
+	IntValue  int
+	Tags      []string
+	DependsOn []string
 }
 
 // ActionField identifies a supported action field.
 type ActionField string
 
 const (
-	ActionFieldStatus   ActionField = "status"
-	ActionFieldType     ActionField = "type"
-	ActionFieldPriority ActionField = "priority"
-	ActionFieldAssignee ActionField = "assignee"
-	ActionFieldPoints   ActionField = "points"
-	ActionFieldTags     ActionField = "tags"
+	ActionFieldStatus    ActionField = "status"
+	ActionFieldType      ActionField = "type"
+	ActionFieldPriority  ActionField = "priority"
+	ActionFieldAssignee  ActionField = "assignee"
+	ActionFieldPoints    ActionField = "points"
+	ActionFieldTags      ActionField = "tags"
+	ActionFieldDependsOn ActionField = "dependsOn"
 )
 
 // ActionOperator identifies a supported action operator.
@@ -79,6 +81,19 @@ func ParseLaneAction(input string) (LaneAction, error) {
 				Field:    field,
 				Operator: op,
 				Tags:     tags,
+			})
+		case ActionFieldDependsOn:
+			if op == ActionOperatorAssign {
+				return LaneAction{}, fmt.Errorf("dependsOn action only supports += or -=")
+			}
+			deps, err := parseTagsValue(value)
+			if err != nil {
+				return LaneAction{}, err
+			}
+			ops = append(ops, LaneActionOp{
+				Field:     field,
+				Operator:  op,
+				DependsOn: deps,
 			})
 		case ActionFieldPriority, ActionFieldPoints:
 			if op != ActionOperatorAssign {
@@ -182,6 +197,8 @@ func ApplyLaneAction(src *task.Task, action LaneAction, currentUser string) (*ta
 			clone.Points = op.IntValue
 		case ActionFieldTags:
 			clone.Tags = applyTagOperation(clone.Tags, op.Operator, op.Tags)
+		case ActionFieldDependsOn:
+			clone.DependsOn = applyTagOperation(clone.DependsOn, op.Operator, op.DependsOn)
 		default:
 			return nil, fmt.Errorf("unsupported action field %q", op.Field)
 		}
@@ -223,6 +240,8 @@ func parseActionSegment(segment string) (ActionField, ActionOperator, string, er
 		return ActionFieldPoints, op, value, nil
 	case "tags":
 		return ActionFieldTags, op, value, nil
+	case "dependson":
+		return ActionFieldDependsOn, op, value, nil
 	default:
 		return "", "", "", fmt.Errorf("unknown action field %q", field)
 	}

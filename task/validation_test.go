@@ -184,6 +184,37 @@ func TestPointsValidator(t *testing.T) {
 	}
 }
 
+func TestDependsOnValidator(t *testing.T) {
+	tests := []struct {
+		name    string
+		task    *Task
+		wantErr bool
+	}{
+		{"empty dependsOn", &Task{DependsOn: nil}, false},
+		{"valid single dependency", &Task{DependsOn: []string{"TIKI-ABC123"}}, false},
+		{"valid multiple dependencies", &Task{DependsOn: []string{"TIKI-ABC123", "TIKI-DEF456"}}, false},
+		{"invalid format - lowercase", &Task{DependsOn: []string{"tiki-abc123"}}, true},
+		{"invalid format - wrong prefix", &Task{DependsOn: []string{"TASK-ABC123"}}, true},
+		{"invalid format - too short", &Task{DependsOn: []string{"TIKI-ABC"}}, true},
+		{"invalid format - too long", &Task{DependsOn: []string{"TIKI-ABC1234"}}, true},
+		{"invalid format - special chars", &Task{DependsOn: []string{"TIKI-ABC12!"}}, true},
+		{"mixed valid and invalid", &Task{DependsOn: []string{"TIKI-ABC123", "bad-id"}}, true},
+	}
+
+	validator := &DependsOnValidator{}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := validator.ValidateField(tt.task)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("expected error: %v, got: %v", tt.wantErr, err)
+			}
+			if err != nil && err.Code != ErrCodeInvalidFormat {
+				t.Errorf("expected error code: %v, got: %v", ErrCodeInvalidFormat, err.Code)
+			}
+		})
+	}
+}
+
 func TestTaskValidator_MultipleErrors(t *testing.T) {
 	// Task with multiple validation errors
 	task := &Task{

@@ -137,5 +137,36 @@ func (v *PointsValidator) ValidateField(task *Task) *ValidationError {
 	return nil
 }
 
+// DependsOnValidator validates dependsOn tiki ID format
+type DependsOnValidator struct{}
+
+func (v *DependsOnValidator) ValidateField(task *Task) *ValidationError {
+	for _, dep := range task.DependsOn {
+		if !isValidTikiIDFormat(dep) {
+			return &ValidationError{
+				Field:   "dependsOn",
+				Value:   dep,
+				Code:    ErrCodeInvalidFormat,
+				Message: fmt.Sprintf("invalid tiki ID format: %s (expected TIKI-XXXXXX)", dep),
+			}
+		}
+	}
+	return nil
+}
+
+// isValidTikiIDFormat checks if a string matches the TIKI-XXXXXX format
+// where X is an uppercase alphanumeric character.
+func isValidTikiIDFormat(id string) bool {
+	if len(id) != 11 || id[:5] != "TIKI-" {
+		return false
+	}
+	for _, c := range id[5:] {
+		if (c < 'A' || c > 'Z') && (c < '0' || c > '9') {
+			return false
+		}
+	}
+	return true
+}
+
 // AssigneeValidator - no validation needed (any string is valid)
 // DescriptionValidator - no validation needed (any string is valid)

@@ -75,12 +75,12 @@ func TestSplitTopLevelCommas(t *testing.T) {
 }
 
 func TestParseLaneAction(t *testing.T) {
-	action, err := ParseLaneAction("status=done, type=bug, priority=2, points=3, assignee='Alice', tags+=[frontend,'needs review']")
+	action, err := ParseLaneAction("status=done, type=bug, priority=2, points=3, assignee='Alice', tags+=[frontend,'needs review'], dependsOn+=[TIKI-ABC123]")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if len(action.Ops) != 6 {
-		t.Fatalf("expected 6 ops, got %d", len(action.Ops))
+	if len(action.Ops) != 7 {
+		t.Fatalf("expected 7 ops, got %d", len(action.Ops))
 	}
 
 	gotFields := []ActionField{
@@ -90,6 +90,7 @@ func TestParseLaneAction(t *testing.T) {
 		action.Ops[3].Field,
 		action.Ops[4].Field,
 		action.Ops[5].Field,
+		action.Ops[6].Field,
 	}
 	wantFields := []ActionField{
 		ActionFieldStatus,
@@ -98,6 +99,7 @@ func TestParseLaneAction(t *testing.T) {
 		ActionFieldPoints,
 		ActionFieldAssignee,
 		ActionFieldTags,
+		ActionFieldDependsOn,
 	}
 	if !reflect.DeepEqual(gotFields, wantFields) {
 		t.Fatalf("expected fields %v, got %v", wantFields, gotFields)
@@ -120,6 +122,9 @@ func TestParseLaneAction(t *testing.T) {
 	}
 	if !reflect.DeepEqual(action.Ops[5].Tags, []string{"frontend", "needs review"}) {
 		t.Fatalf("expected tags [frontend needs review], got %v", action.Ops[5].Tags)
+	}
+	if !reflect.DeepEqual(action.Ops[6].DependsOn, []string{"TIKI-ABC123"}) {
+		t.Fatalf("expected dependsOn [TIKI-ABC123], got %v", action.Ops[6].DependsOn)
 	}
 }
 
@@ -179,6 +184,11 @@ func TestParseLaneAction_Errors(t *testing.T) {
 			input:   "tags+={one}",
 			wantErr: "tags value must be in brackets",
 		},
+		{
+			name:    "dependsOn assign not allowed",
+			input:   "dependsOn=[TIKI-ABC123]",
+			wantErr: "dependsOn action only supports",
+		},
 	}
 
 	for _, tc := range tests {
@@ -196,17 +206,18 @@ func TestParseLaneAction_Errors(t *testing.T) {
 
 func TestApplyLaneAction(t *testing.T) {
 	base := &task.Task{
-		ID:       "TASK-1",
-		Title:    "Task",
-		Status:   task.StatusBacklog,
-		Type:     task.TypeStory,
-		Priority: task.PriorityMedium,
-		Points:   1,
-		Tags:     []string{"existing"},
-		Assignee: "Bob",
+		ID:        "TASK-1",
+		Title:     "Task",
+		Status:    task.StatusBacklog,
+		Type:      task.TypeStory,
+		Priority:  task.PriorityMedium,
+		Points:    1,
+		Tags:      []string{"existing"},
+		DependsOn: []string{"TIKI-AAA111"},
+		Assignee:  "Bob",
 	}
 
-	action, err := ParseLaneAction("status=done, type=bug, priority=2, points=3, assignee=Alice, tags+=[moved]")
+	action, err := ParseLaneAction("status=done, type=bug, priority=2, points=3, assignee=Alice, tags+=[moved], dependsOn+=[TIKI-BBB222]")
 	if err != nil {
 		t.Fatalf("unexpected parse error: %v", err)
 	}
@@ -234,11 +245,17 @@ func TestApplyLaneAction(t *testing.T) {
 	if !reflect.DeepEqual(updated.Tags, []string{"existing", "moved"}) {
 		t.Fatalf("expected tags [existing moved], got %v", updated.Tags)
 	}
+	if !reflect.DeepEqual(updated.DependsOn, []string{"TIKI-AAA111", "TIKI-BBB222"}) {
+		t.Fatalf("expected dependsOn [TIKI-AAA111 TIKI-BBB222], got %v", updated.DependsOn)
+	}
 	if base.Status != task.StatusBacklog {
 		t.Fatalf("expected base task unchanged, got %v", base.Status)
 	}
 	if !reflect.DeepEqual(base.Tags, []string{"existing"}) {
 		t.Fatalf("expected base tags unchanged, got %v", base.Tags)
+	}
+	if !reflect.DeepEqual(base.DependsOn, []string{"TIKI-AAA111"}) {
+		t.Fatalf("expected base dependsOn unchanged, got %v", base.DependsOn)
 	}
 }
 

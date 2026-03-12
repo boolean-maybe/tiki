@@ -121,6 +121,7 @@ func (s *TikiStore) loadTaskFile(path string, authorMap map[string]*git.AuthorIn
 		Type:        taskpkg.NormalizeType(fm.Type),
 		Status:      taskpkg.MapStatus(fm.Status),
 		Tags:        fm.Tags.ToStringSlice(),
+		DependsOn:   fm.DependsOn.ToStringSlice(),
 		Assignee:    fm.Assignee,
 		Priority:    int(fm.Priority),
 		Points:      fm.Points,
@@ -281,18 +282,24 @@ func (s *TikiStore) saveTask(task *taskpkg.Task) error {
 	}
 
 	fm := taskFrontmatter{
-		Title:    task.Title,
-		Type:     string(task.Type),
-		Status:   taskpkg.StatusToString(task.Status),
-		Tags:     task.Tags,
-		Assignee: task.Assignee,
-		Priority: taskpkg.PriorityValue(task.Priority),
-		Points:   task.Points,
+		Title:     task.Title,
+		Type:      string(task.Type),
+		Status:    taskpkg.StatusToString(task.Status),
+		Tags:      task.Tags,
+		DependsOn: task.DependsOn,
+		Assignee:  task.Assignee,
+		Priority:  taskpkg.PriorityValue(task.Priority),
+		Points:    task.Points,
 	}
 
 	// sort tags for consistent output
 	if len(fm.Tags) > 0 {
 		sort.Strings(fm.Tags)
+	}
+
+	// sort dependsOn for consistent output
+	if len(fm.DependsOn) > 0 {
+		sort.Strings(fm.DependsOn)
 	}
 
 	yamlBytes, err := yaml.Marshal(fm)

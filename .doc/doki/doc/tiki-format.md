@@ -60,6 +60,9 @@ in Markdown format
         tags:
             - UX
             - test
+        dependsOn:
+            - TIKI-ABC123
+            - TIKI-DEF456
         ---
         
         This is the description of a tiki in Markdown:
@@ -70,6 +73,12 @@ in Markdown format
         ## Integration tests
         Integration test cases
 ```
+
+### dependsOn
+
+The `dependsOn` field is a list of tiki IDs (`TIKI-XXXXXX` format) that this task depends on.
+A dependency means this tiki is blocked by or requires the listed tikis.
+Values must be valid tiki IDs referencing existing tikis. The field is optional and defaults to empty.
 
 ### Derived fields
 
