@@ -137,7 +137,7 @@ func Bootstrap(tikiSkillContent, dokiSkillContent string) (*Result, error) {
 	wireOnViewActivated(rootLayout, application)
 
 	// Phase 11: Background tasks
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(context.Background()) //nolint:gosec // G118: cancel stored in Result.CancelFunc, called by app shutdown
 	background.StartBurndownHistoryBuilder(ctx, tikiStore, headerConfig, application)
 
 	// Phase 12: Navigation and input wiring

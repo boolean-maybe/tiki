@@ -163,7 +163,7 @@ func TestEditSource_DuplicateCaseIDs_Repro(t *testing.T) {
 			return err
 		}
 		content = append(content, '\n')
-		return os.WriteFile(path, content, 0644)
+		return os.WriteFile(path, content, 0644) //nolint:gosec // G703: path is a controlled temp file provided by the app
 	})
 
 	// Open task detail view directly.

@@ -42,10 +42,12 @@ func Run(input InputSpec) error {
 
 	// Create NavigableMarkdown - OnStateChange is set after creation to avoid forward reference
 	md := view.NewNavigableMarkdown(view.NavigableMarkdownConfig{
-		Provider:     provider,
-		SearchRoots:  input.SearchRoots,
-		ImageManager: imgMgr,
+		Provider:       provider,
+		SearchRoots:    input.SearchRoots,
+		ImageManager:   imgMgr,
+		MermaidOptions: &nav.MermaidOptions{},
 	})
+	defer md.Close()
 	md.SetStateChangedHandler(func() {
 		updateStatusBar(statusBar, md.Viewer())
 	})

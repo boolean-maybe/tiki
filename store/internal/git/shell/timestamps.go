@@ -35,7 +35,7 @@ func (u *Util) LastCommitTime(filePath string) (time.Time, error) {
 // Returns a map of file paths to their last commit time.
 func (u *Util) AllLastCommitTimes(dirPattern string) (map[string]time.Time, error) {
 	// Get all commits (most recent first due to default reverse chronological order)
-	cmd := exec.Command("git", "log", "--all", "--format=%aI", "--name-only", "--", dirPattern)
+	cmd := exec.Command("git", "log", "--all", "--format=%aI", "--name-only", "--", dirPattern) //nolint:gosec // G204: git command with controlled directory pattern
 	cmd.Dir = u.repoPath
 	output, err := cmd.Output()
 	if err != nil {

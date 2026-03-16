@@ -21,6 +21,7 @@ import (
 type ViewFactory struct {
 	taskStore    store.Store
 	imageManager *navtview.ImageManager
+	mermaidOpts  *nav.MermaidOptions
 	// Plugin support
 	pluginConfigs     map[string]*model.PluginConfig
 	pluginDefs        map[string]plugin.Plugin
@@ -39,6 +40,7 @@ func NewViewFactory(taskStore store.Store) *ViewFactory {
 	return &ViewFactory{
 		taskStore:    taskStore,
 		imageManager: imgMgr,
+		mermaidOpts:  &nav.MermaidOptions{},
 	}
 }
 
@@ -60,7 +62,7 @@ func (f *ViewFactory) CreateView(viewID model.ViewID, params map[string]interfac
 	switch viewID {
 	case model.TaskDetailViewID:
 		taskID := model.DecodeTaskDetailParams(params).TaskID
-		v = taskdetail.NewTaskDetailView(f.taskStore, taskID, f.imageManager)
+		v = taskdetail.NewTaskDetailView(f.taskStore, taskID, f.imageManager, f.mermaidOpts)
 
 	case model.TaskEditViewID:
 		taskID := model.DecodeTaskEditParams(params).TaskID
@@ -96,7 +98,7 @@ func (f *ViewFactory) CreateView(viewID model.ViewID, params map[string]interfac
 						slog.Error("plugin controller type mismatch", "plugin", pluginName)
 					}
 				} else if dokiPlugin, ok := pluginDef.(*plugin.DokiPlugin); ok {
-					v = NewDokiView(dokiPlugin, f.imageManager)
+					v = NewDokiView(dokiPlugin, f.imageManager, f.mermaidOpts)
 				} else {
 					slog.Error("unknown plugin type or missing config", "plugin", pluginName)
 				}

@@ -142,7 +142,7 @@ func (u *Util) Author(filePath string) (*AuthorInfo, error) {
 // Returns a map of file paths to their author info.
 func (u *Util) AllAuthors(dirPattern string) (map[string]*AuthorInfo, error) {
 	// Use git log with --diff-filter=A (added files), --name-only, and --reverse to get creation info
-	cmd := exec.Command("git", "log", "--all", "--diff-filter=A", "--format=%H|%an|%ae|%ai|%s", "--name-only", "--reverse", "--", dirPattern)
+	cmd := exec.Command("git", "log", "--all", "--diff-filter=A", "--format=%H|%an|%ae|%ai|%s", "--name-only", "--reverse", "--", dirPattern) //nolint:gosec // G204: git command with controlled directory pattern
 	cmd.Dir = u.repoPath
 	output, err := cmd.Output()
 	if err != nil {

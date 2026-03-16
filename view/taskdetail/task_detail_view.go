@@ -30,12 +30,13 @@ type TaskDetailView struct {
 }
 
 // NewTaskDetailView creates a task detail view in read-only mode
-func NewTaskDetailView(taskStore store.Store, taskID string, imageManager *navtview.ImageManager) *TaskDetailView {
+func NewTaskDetailView(taskStore store.Store, taskID string, imageManager *navtview.ImageManager, mermaidOpts *nav.MermaidOptions) *TaskDetailView {
 	tv := &TaskDetailView{
 		Base: Base{
 			taskStore:    taskStore,
 			taskID:       taskID,
 			imageManager: imageManager,
+			mermaidOpts:  mermaidOpts,
 		},
 		registry: controller.TaskDetailViewActions(),
 		viewID:   model.TaskDetailViewID,
@@ -177,6 +178,9 @@ func (tv *TaskDetailView) buildDescription(task *taskpkg.Task) tview.Primitive {
 	viewer.SetBackgroundColor(config.GetContentBackgroundColor())
 	if tv.imageManager != nil && tv.imageManager.Supported() {
 		viewer.SetImageManager(tv.imageManager)
+	}
+	if tv.mermaidOpts != nil {
+		viewer.Core().SetMermaidOptions(tv.mermaidOpts)
 	}
 	// Use SetMarkdownWithSource to provide the source file path for relative image resolution
 	viewer.SetMarkdownWithSource(desc, taskSourcePath, false)

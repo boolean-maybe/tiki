@@ -315,8 +315,8 @@ func TestActionRegistry_GetHeaderActions(t *testing.T) {
 
 	expectedIDs := []ActionID{ActionQuit}
 	for i, action := range headerActions {
-		if action.ID != expectedIDs[i] {
-			t.Errorf("header action %d: expected %v, got %v", i, expectedIDs[i], action.ID)
+		if action.ID != expectedIDs[i] { //nolint:gosec // G602: len verified equal on line 312
+			t.Errorf("header action %d: expected %v, got %v", i, expectedIDs[i], action.ID) //nolint:gosec // G602: len verified equal on line 312
 		}
 		if !action.ShowInHeader {
 			t.Errorf("header action %d: ShowInHeader should be true", i)

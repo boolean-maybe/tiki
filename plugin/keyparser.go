@@ -40,7 +40,7 @@ func parseKey(s string) (tcell.Key, rune, tcell.ModMask, error) {
 		char := []rune(rest)
 		if len(char) == 1 && char[0] >= 'A' && char[0] <= 'Z' {
 			// tcell.KeyCtrlA is 65 ('A'), KeyCtrlZ is 90 ('Z')
-			return tcell.Key(char[0]), 0, tcell.ModCtrl, nil
+			return tcell.Key(char[0]), 0, tcell.ModCtrl, nil //nolint:gosec // G115: char[0] bounded 'A'-'Z' (65-90), safe to convert to int16
 		}
 		return 0, 0, 0, fmt.Errorf("invalid ctrl key: %q (expected Ctrl-A..Ctrl-Z or Ctrl-F1..Ctrl-F12)", s)
 	}

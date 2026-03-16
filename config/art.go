@@ -48,7 +48,7 @@ func GetArtTView() string {
 			colorIdx = len(currentGradient) - 1
 		}
 		color := currentGradient[colorIdx]
-		result.WriteString(fmt.Sprintf("[%s]%s[white]\n", color, line))
+		fmt.Fprintf(&result, "[%s]%s[white]\n", color, line)
 	}
 	return result.String()
 }
@@ -73,7 +73,7 @@ func getDotsArtTView() string {
 				result.WriteRune(char)
 				continue
 			}
-			result.WriteString(fmt.Sprintf("[%s]%c", color, char))
+			fmt.Fprintf(&result, "[%s]%c", color, char)
 		}
 		result.WriteString("[white]\n")
 	}

@@ -28,7 +28,7 @@ func TestBuildMetadataColumns_Structure(t *testing.T) {
 		UpdatedAt:   time.Date(2024, 1, 2, 14, 30, 0, 0, time.UTC),
 	}
 
-	view := NewTaskDetailView(s, task.ID, nil)
+	view := NewTaskDetailView(s, task.ID, nil, nil)
 	view.SetFallbackTask(task)
 
 	colors := config.GetColors()
@@ -62,7 +62,7 @@ func TestBuildMetadataColumns_Column1Fields(t *testing.T) {
 		Priority: 3,
 	}
 
-	view := NewTaskDetailView(s, task.ID, nil)
+	view := NewTaskDetailView(s, task.ID, nil, nil)
 	view.SetFallbackTask(task)
 
 	colors := config.GetColors()
@@ -88,7 +88,7 @@ func TestBuildMetadataColumns_Column2Fields(t *testing.T) {
 		Points:   5,
 	}
 
-	view := NewTaskDetailView(s, task.ID, nil)
+	view := NewTaskDetailView(s, task.ID, nil, nil)
 	view.SetFallbackTask(task)
 
 	colors := config.GetColors()

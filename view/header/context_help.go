@@ -237,7 +237,7 @@ func buildGridRow(rowData []cellData, maxKeyLenPerCol, maxLabelLenPerCol []int, 
 
 		// Render cell with colors
 		scheme := getColorScheme(cell.colorType)
-		line.WriteString(fmt.Sprintf("[%s]<%s>[%s]", scheme.KeyColor, cell.key, scheme.LabelColor))
+		fmt.Fprintf(&line, "[%s]<%s>[%s]", scheme.KeyColor, cell.key, scheme.LabelColor)
 
 		// Add key padding
 		if keyPadding := maxKeyLenPerCol[col] - cell.keyLen; keyPadding > 0 {

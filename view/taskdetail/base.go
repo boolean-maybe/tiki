@@ -5,6 +5,7 @@ import (
 	"github.com/boolean-maybe/tiki/store"
 	taskpkg "github.com/boolean-maybe/tiki/task"
 
+	nav "github.com/boolean-maybe/navidown/navidown"
 	navtview "github.com/boolean-maybe/navidown/navidown/tview"
 	"github.com/rivo/tview"
 )
@@ -20,6 +21,7 @@ type Base struct {
 	taskStore    store.Store
 	taskID       string
 	imageManager *navtview.ImageManager
+	mermaidOpts  *nav.MermaidOptions
 	descView     tview.Primitive
 
 	// Task data

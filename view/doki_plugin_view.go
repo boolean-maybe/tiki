@@ -34,17 +34,20 @@ type DokiView struct {
 	pluginDef    *plugin.DokiPlugin
 	registry     *controller.ActionRegistry
 	imageManager *navtview.ImageManager
+	mermaidOpts  *nav.MermaidOptions
 }
 
 // NewDokiView creates a doki view
 func NewDokiView(
 	pluginDef *plugin.DokiPlugin,
 	imageManager *navtview.ImageManager,
+	mermaidOpts *nav.MermaidOptions,
 ) *DokiView {
 	dv := &DokiView{
 		pluginDef:    pluginDef,
 		registry:     controller.NewActionRegistry(),
 		imageManager: imageManager,
+		mermaidOpts:  mermaidOpts,
 	}
 
 	dv.build()
@@ -78,10 +81,11 @@ func (dv *DokiView) build() {
 		}
 
 		dv.markdown = NewNavigableMarkdown(NavigableMarkdownConfig{
-			Provider:      provider,
-			SearchRoots:   searchRoots,
-			OnStateChange: dv.UpdateNavigationActions,
-			ImageManager:  dv.imageManager,
+			Provider:       provider,
+			SearchRoots:    searchRoots,
+			OnStateChange:  dv.UpdateNavigationActions,
+			ImageManager:   dv.imageManager,
+			MermaidOptions: dv.mermaidOpts,
 		})
 
 	case "internal":
@@ -94,16 +98,18 @@ func (dv *DokiView) build() {
 		content, err = provider.FetchContent(nav.NavElement{Text: dv.pluginDef.Text})
 
 		dv.markdown = NewNavigableMarkdown(NavigableMarkdownConfig{
-			Provider:      provider,
-			OnStateChange: dv.UpdateNavigationActions,
-			ImageManager:  dv.imageManager,
+			Provider:       provider,
+			OnStateChange:  dv.UpdateNavigationActions,
+			ImageManager:   dv.imageManager,
+			MermaidOptions: dv.mermaidOpts,
 		})
 
 	default:
 		content = "Error: Unknown fetcher type"
 		dv.markdown = NewNavigableMarkdown(NavigableMarkdownConfig{
-			OnStateChange: dv.UpdateNavigationActions,
-			ImageManager:  dv.imageManager,
+			OnStateChange:  dv.UpdateNavigationActions,
+			ImageManager:   dv.imageManager,
+			MermaidOptions: dv.mermaidOpts,
 		})
 	}
 

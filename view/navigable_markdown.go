@@ -20,10 +20,11 @@ type NavigableMarkdown struct {
 
 // NavigableMarkdownConfig configures a NavigableMarkdown component.
 type NavigableMarkdownConfig struct {
-	Provider      nav.ContentProvider
-	SearchRoots   []string
-	OnStateChange func() // called on navigation state changes
-	ImageManager  *navtview.ImageManager
+	Provider       nav.ContentProvider
+	SearchRoots    []string
+	OnStateChange  func() // called on navigation state changes
+	ImageManager   *navtview.ImageManager
+	MermaidOptions *nav.MermaidOptions // nil = disabled
 }
 
 // NewNavigableMarkdown creates a new navigable markdown viewer.
@@ -45,8 +46,16 @@ func NewNavigableMarkdown(cfg NavigableMarkdownConfig) *NavigableMarkdown {
 			nm.onStateChange()
 		}
 	})
+	if cfg.MermaidOptions != nil {
+		nm.viewer.Core().SetMermaidOptions(cfg.MermaidOptions)
+	}
 	nm.setupSelectHandler()
 	return nm
+}
+
+// Close releases resources held by the navigable markdown (e.g., mermaid temp files).
+func (nm *NavigableMarkdown) Close() {
+	nm.viewer.Core().Close()
 }
 
 func (nm *NavigableMarkdown) setupSelectHandler() {

@@ -151,5 +151,5 @@ func brailleColumnMask(level int, rightColumn bool) uint8 {
 
 func brailleRuneForCounts(leftCount, rightCount int) rune {
 	mask := brailleColumnMask(leftCount, false) | brailleColumnMask(rightCount, true)
-	return rune(0x2800 + int(mask))
+	return rune(0x2800 + int(mask)) //nolint:gosec // G115: mask is uint8 (0-255), result is 0x2800..0x28FF, valid braille rune range
 }
