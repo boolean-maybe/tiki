@@ -2,9 +2,16 @@
 
 UPDATE:
 
-Now support images in Kitty-compatible terminals (iTerm2, Kitty, WezTerm, Ghostty)
+Now support images and Mermaid diagrams in Kitty-compatible terminals (iTerm2, Kitty, WezTerm, Ghostty)
 
 ![Intro](assets/images.gif)
+
+supported:
+- PNG, JPEG, GIF, BMP, WebP, TIFF
+- SVG
+- Mermaid diagram blocks
+
+see [requirements](.doc/doki/doc/image-requirements.md) for more details
 
 
 `tiki` is a simple and lightweight way to keep your tasks, prompts, documents, ideas, scratchpads in your project **git** repo

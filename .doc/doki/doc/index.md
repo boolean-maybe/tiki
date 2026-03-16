@@ -3,6 +3,7 @@
 - [Configuration](config.md)
 - [Installation](install.md)
 - [Markdown viewer](markdown-viewer.md)
+- [Image support](image-requirements.md)
 - [Plugins](plugin.md)
 - [tiki format](tiki-format.md)
 - [Quick capture](quick-capture.md)
