@@ -654,7 +654,7 @@ func TestSaveTask_Recurrence(t *testing.T) {
 				t.Fatalf("CreateTask() error = %v", err)
 			}
 
-			filePath := filepath.Join(tmpDir, "TIKI-RECSVR.md")
+			filePath := filepath.Join(tmpDir, "tiki-recsvr.md")
 			content, err := os.ReadFile(filePath)
 			if err != nil {
 				t.Fatalf("failed to read saved file: %v", err)
@@ -731,7 +731,7 @@ func TestSaveTask_Due(t *testing.T) {
 			}
 
 			// Read file and check frontmatter
-			filePath := filepath.Join(tmpDir, "TIKI-SAVE01.md")
+			filePath := filepath.Join(tmpDir, "tiki-save01.md")
 			content, err := os.ReadFile(filePath)
 			if err != nil {
 				t.Fatalf("failed to read saved file: %v", err)
