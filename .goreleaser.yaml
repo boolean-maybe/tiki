@@ -22,6 +22,9 @@ builds:
       - -X github.com/boolean-maybe/tiki/config.Version={{.Version}}
       - -X github.com/boolean-maybe/tiki/config.GitCommit={{.FullCommit}}
       - -X github.com/boolean-maybe/tiki/config.BuildDate={{.Date}}
+    hooks:
+      post:
+        - cmd: sh -c '{{ if eq .Os "darwin" }}command -v codesign >/dev/null 2>&1 && codesign -s - {{ .Path }} || true{{ else }}true{{ end }}'
 
 archives:
   - id: tiki
