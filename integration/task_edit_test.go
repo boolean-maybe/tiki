@@ -114,8 +114,8 @@ func TestNewTask_CtrlS_SavesAndCreatesFile(t *testing.T) {
 	// Type title
 	ta.SendText("Task Saved With CtrlS")
 
-	// Tab to another field (Points)
-	for i := 0; i < 5; i++ {
+	// Tab to another field (Points): Title → Status → Type → Priority → Points (4 tabs)
+	for i := 0; i < 4; i++ {
 		ta.SendKey(tcell.KeyTab, 0, tcell.ModNone)
 	}
 
@@ -262,8 +262,8 @@ func TestTaskEdit_EnterInPointsFieldDoesNotSave(t *testing.T) {
 	ta.SendKeyToFocused(tcell.KeyCtrlL, 0, tcell.ModNone)
 	ta.SendText("Modified Title")
 
-	// Tab to Points field: Title → Status → Type → Priority → Assignee → Points (5 tabs)
-	for i := 0; i < 5; i++ {
+	// Tab to Points field: Title → Status → Type → Priority → Points (4 tabs)
+	for i := 0; i < 4; i++ {
 		ta.SendKey(tcell.KeyTab, 0, tcell.ModNone)
 	}
 
@@ -356,8 +356,8 @@ func TestTaskEdit_CtrlS_FromPointsField_Saves(t *testing.T) {
 	ta.SendKeyToFocused(tcell.KeyCtrlL, 0, tcell.ModNone)
 	ta.SendText("Modified Title")
 
-	// Tab to Points field: Title → Status → Type → Priority → Assignee → Points (5 tabs)
-	for i := 0; i < 5; i++ {
+	// Tab to Points field: Title → Status → Type → Priority → Points (4 tabs)
+	for i := 0; i < 4; i++ {
 		ta.SendKey(tcell.KeyTab, 0, tcell.ModNone)
 	}
 
@@ -483,8 +483,8 @@ func TestTaskEdit_Escape_FromPointsField_Cancels(t *testing.T) {
 	ta.SendKeyToFocused(tcell.KeyCtrlL, 0, tcell.ModNone)
 	ta.SendText("Modified Title")
 
-	// Tab to Points field: Title → Status → Type → Priority → Assignee → Points (5 tabs)
-	for i := 0; i < 5; i++ {
+	// Tab to Points field: Title → Status → Type → Priority → Points (4 tabs)
+	for i := 0; i < 4; i++ {
 		ta.SendKey(tcell.KeyTab, 0, tcell.ModNone)
 	}
 
@@ -542,9 +542,6 @@ func TestTaskEdit_Tab_NavigatesForward(t *testing.T) {
 	// Tab again should move to Priority field
 	ta.SendKey(tcell.KeyTab, 0, tcell.ModNone)
 
-	// Tab again should move to Assignee field
-	ta.SendKey(tcell.KeyTab, 0, tcell.ModNone)
-
 	// Tab again should move to Points field
 	ta.SendKey(tcell.KeyTab, 0, tcell.ModNone)
 
@@ -594,8 +591,8 @@ func TestTaskEdit_Navigation_PreservesChanges(t *testing.T) {
 	ta.SendKeyToFocused(tcell.KeyCtrlL, 0, tcell.ModNone)
 	ta.SendText("New Title")
 
-	// Tab to Points field (5 tabs)
-	for i := 0; i < 5; i++ {
+	// Tab to Points field (4 tabs)
+	for i := 0; i < 4; i++ {
 		ta.SendKey(tcell.KeyTab, 0, tcell.ModNone)
 	}
 
@@ -661,10 +658,8 @@ func TestTaskEdit_MultipleFields_AllSaved(t *testing.T) {
 		ta.SendKeyToFocused(tcell.KeyDown, 0, tcell.ModNone)
 	}
 
-	// Tab to Points field (2 more tabs: Assignee, Points)
-	for i := 0; i < 2; i++ {
-		ta.SendKey(tcell.KeyTab, 0, tcell.ModNone)
-	}
+	// Tab to Points field (1 more tab: Priority → Points)
+	ta.SendKey(tcell.KeyTab, 0, tcell.ModNone)
 	// Set points to 8 (default is 1, so press down 7 times)
 	for i := 0; i < 7; i++ {
 		ta.SendKeyToFocused(tcell.KeyDown, 0, tcell.ModNone)
@@ -735,10 +730,8 @@ func TestTaskEdit_MultipleFields_AllDiscarded(t *testing.T) {
 	// Change priority (arrow keys - doesn't matter since we're testing discard)
 	ta.SendKey(tcell.KeyDown, 0, tcell.ModNone)
 
-	// Tab to Points field and change it
-	for i := 0; i < 2; i++ {
-		ta.SendKey(tcell.KeyTab, 0, tcell.ModNone)
-	}
+	// Tab to Points field and change it (1 tab: Priority → Points)
+	ta.SendKey(tcell.KeyTab, 0, tcell.ModNone)
 	// Change points (arrow keys - doesn't matter since we're testing discard)
 	ta.SendKey(tcell.KeyDown, 0, tcell.ModNone)
 
@@ -785,10 +778,8 @@ func TestNewTask_MultipleFields_AllSaved(t *testing.T) {
 	// Set priority to 4 (default is 3 from new.md template, so press down 1 time)
 	ta.SendKeyToFocused(tcell.KeyDown, 0, tcell.ModNone)
 
-	// Tab to Points field (2 more tabs)
-	for i := 0; i < 2; i++ {
-		ta.SendKey(tcell.KeyTab, 0, tcell.ModNone)
-	}
+	// Tab to Points field (1 more tab: Priority → Points)
+	ta.SendKey(tcell.KeyTab, 0, tcell.ModNone)
 	// Set points to 9 (default is 1 from new.md template, so press down 8 times)
 	for i := 0; i < 8; i++ {
 		ta.SendKeyToFocused(tcell.KeyDown, 0, tcell.ModNone)

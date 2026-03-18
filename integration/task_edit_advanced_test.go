@@ -30,21 +30,21 @@ func TestTaskEdit_ShiftTabBackward(t *testing.T) {
 	ta.SendKey(tcell.KeyEnter, 0, tcell.ModNone)
 	ta.SendKey(tcell.KeyRune, 'e', tcell.ModNone)
 
-	// Tab forward to Points (Title → Status → Type → Priority → Assignee → Points)
+	// Tab forward to Assignee (Title → Status → Type → Priority → Points → Assignee)
 	for i := 0; i < 5; i++ {
 		ta.SendKey(tcell.KeyTab, 0, tcell.ModNone)
 	}
 
-	// Now Shift+Tab backward (Points → Assignee)
+	// Now Shift+Tab backward (Assignee → Points)
 	ta.SendKey(tcell.KeyBacktab, 0, tcell.ModNone)
 
-	// Make a change to Assignee field to verify focus
-	ta.SendKeyToFocused(tcell.KeyRune, 'A', tcell.ModNone)
+	// Change Points field via Down arrow to verify focus is on Points
+	ta.SendKeyToFocused(tcell.KeyDown, 0, tcell.ModNone) // 1 → 2
 
 	// Save
 	ta.SendKey(tcell.KeyCtrlS, 0, tcell.ModNone)
 
-	// Reload and verify assignee was set
+	// Reload and verify points was changed
 	if err := ta.TaskStore.Reload(); err != nil {
 		t.Fatalf("failed to reload: %v", err)
 	}
@@ -53,9 +53,9 @@ func TestTaskEdit_ShiftTabBackward(t *testing.T) {
 		t.Fatalf("task not found")
 	}
 
-	// Verify assignee contains 'A' (may have more if field had default value)
-	if task.Assignee == "" {
-		t.Errorf("assignee should be set after Shift+Tab to Assignee field")
+	// Verify points changed from default 1 to 2
+	if task.Points != 2 {
+		t.Errorf("points = %d, want 2 after Shift+Tab to Points field", task.Points)
 	}
 }
 
@@ -180,8 +180,8 @@ func TestTaskEdit_AssigneeInput(t *testing.T) {
 	ta.SendKey(tcell.KeyEnter, 0, tcell.ModNone)
 	ta.SendKey(tcell.KeyRune, 'e', tcell.ModNone)
 
-	// Tab to Assignee field (Title → Status → Type → Priority → Assignee)
-	for i := 0; i < 4; i++ {
+	// Tab to Assignee field (Title → Status → Type → Priority → Points → Assignee)
+	for i := 0; i < 5; i++ {
 		ta.SendKey(tcell.KeyTab, 0, tcell.ModNone)
 	}
 
@@ -372,8 +372,8 @@ func TestTaskEdit_PointsRange(t *testing.T) {
 	ta.SendKey(tcell.KeyEnter, 0, tcell.ModNone)
 	ta.SendKey(tcell.KeyRune, 'e', tcell.ModNone)
 
-	// Tab to Points field (Title → Status → Type → Priority → Assignee → Points)
-	for i := 0; i < 5; i++ {
+	// Tab to Points field (Title → Status → Type → Priority → Points)
+	for i := 0; i < 4; i++ {
 		ta.SendKey(tcell.KeyTab, 0, tcell.ModNone)
 	}
 
