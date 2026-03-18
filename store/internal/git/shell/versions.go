@@ -213,17 +213,14 @@ func (u *Util) AllFileVersionsSince(dirPattern string, since time.Time, includeP
 						files:  []string{},
 					}
 				} else if currentCommit != nil {
-					// This is a file name
+					// This is a file name — keep the first (most recent) prior commit per file
 					file := line
-					if _, exists := fileCommits[file]; exists {
-						// Only track files we care about, and only keep the first (most recent) prior commit
-						if _, alreadyHave := priorCommits[file]; !alreadyHave {
-							priorCommits[file] = fileCommit{
-								hash:   currentCommit.hash,
-								author: currentCommit.author,
-								email:  currentCommit.email,
-								when:   currentCommit.when,
-							}
+					if _, alreadyHave := priorCommits[file]; !alreadyHave {
+						priorCommits[file] = fileCommit{
+							hash:   currentCommit.hash,
+							author: currentCommit.author,
+							email:  currentCommit.email,
+							when:   currentCommit.when,
 						}
 					}
 				}
