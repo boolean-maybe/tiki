@@ -121,6 +121,60 @@ func priorityWordToInt(s string) (int, bool) {
 	return 0, false
 }
 
+// canonicalPriorities defines the display labels for each priority level
+// in a deterministic order (highest to lowest).
+var canonicalPriorities = []struct {
+	value int
+	label string
+}{
+	{PriorityHigh, "High"},
+	{PriorityMediumHigh, "Medium High"},
+	{PriorityMedium, "Medium"},
+	{PriorityMediumLow, "Medium Low"},
+	{PriorityLow, "Low"},
+}
+
+// priorityDisplayValues maps int priority values to their display labels.
+var priorityDisplayValues = buildPriorityDisplayValues()
+
+func buildPriorityDisplayValues() map[int]string {
+	result := make(map[int]string, len(canonicalPriorities))
+	for _, entry := range canonicalPriorities {
+		result[entry.value] = entry.label
+	}
+	return result
+}
+
+// PriorityDisplay returns the human-readable label for a priority integer.
+// e.g., 1 → "High", 3 → "Medium", 5 → "Low"
+func PriorityDisplay(priority int) string {
+	if label, ok := priorityDisplayValues[priority]; ok {
+		return label
+	}
+	return priorityDisplayValues[clampPriority(priority)]
+}
+
+// PriorityFromDisplay converts a display label back to a priority integer.
+// e.g., "High" → 1, "Medium Low" → 4. Returns PriorityMedium if not found.
+func PriorityFromDisplay(display string) int {
+	normalized := normalizePriority(display)
+	if val, ok := priorityWordToInt(normalized); ok {
+		return val
+	}
+	return PriorityMedium
+}
+
+// AllPriorityDisplayValues returns priority display labels ordered high→low (1→5).
+func AllPriorityDisplayValues() []string {
+	return []string{
+		priorityDisplayValues[PriorityHigh],
+		priorityDisplayValues[PriorityMediumHigh],
+		priorityDisplayValues[PriorityMedium],
+		priorityDisplayValues[PriorityMediumLow],
+		priorityDisplayValues[PriorityLow],
+	}
+}
+
 // PriorityLabel returns an emoji-based label for a priority value.
 func PriorityLabel(priority int) string {
 	switch priority {

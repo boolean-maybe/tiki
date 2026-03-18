@@ -40,9 +40,9 @@ func (ev *TaskEditView) SetFocusedField(field model.EditField) {
 			ev.focusSetter(ev.typeSelectList)
 		}
 	case model.EditFieldPriority:
-		if ev.priorityInput != nil {
+		if ev.prioritySelectList != nil {
 			// Focus the wrapper which has custom InputHandler
-			ev.focusSetter(ev.priorityInput)
+			ev.focusSetter(ev.prioritySelectList)
 		}
 	case model.EditFieldAssignee:
 		if ev.assigneeSelectList != nil {
@@ -81,7 +81,7 @@ func (ev *TaskEditView) IsEditFieldFocused() bool {
 	if ev.assigneeSelectList != nil && ev.assigneeSelectList.HasFocus() {
 		return true
 	}
-	if ev.priorityInput != nil && ev.priorityInput.HasFocus() {
+	if ev.prioritySelectList != nil && ev.prioritySelectList.HasFocus() {
 		return true
 	}
 	if ev.pointsInput != nil && ev.pointsInput.HasFocus() {
@@ -118,8 +118,8 @@ func (ev *TaskEditView) CycleFieldValueUp() bool {
 			return true
 		}
 	case model.EditFieldPriority:
-		if ev.priorityInput != nil {
-			ev.priorityInput.InputHandler()(tcell.NewEventKey(tcell.KeyUp, 0, tcell.ModNone), nil)
+		if ev.prioritySelectList != nil {
+			ev.prioritySelectList.MoveToPrevious()
 			return true
 		}
 	case model.EditFieldAssignee:
@@ -150,8 +150,8 @@ func (ev *TaskEditView) CycleFieldValueDown() bool {
 			return true
 		}
 	case model.EditFieldPriority:
-		if ev.priorityInput != nil {
-			ev.priorityInput.InputHandler()(tcell.NewEventKey(tcell.KeyDown, 0, tcell.ModNone), nil)
+		if ev.prioritySelectList != nil {
+			ev.prioritySelectList.MoveToNext()
 			return true
 		}
 	case model.EditFieldAssignee:

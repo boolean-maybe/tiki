@@ -10,7 +10,6 @@ import (
 	"github.com/boolean-maybe/tiki/model"
 	"github.com/boolean-maybe/tiki/store"
 	taskpkg "github.com/boolean-maybe/tiki/task"
-	"github.com/boolean-maybe/tiki/util/gradient"
 
 	nav "github.com/boolean-maybe/navidown/navidown"
 	navtview "github.com/boolean-maybe/navidown/navidown/tview"
@@ -91,7 +90,7 @@ func (tv *TaskDetailView) refresh() {
 
 	if !tv.fullscreen {
 		metadataBox := tv.buildMetadataBox(task, colors)
-		tv.content.AddItem(metadataBox, 9, 0, false)
+		tv.content.AddItem(metadataBox, 10, 0, false)
 	}
 
 	descPrimitive := tv.buildDescription(task)
@@ -104,44 +103,10 @@ func (tv *TaskDetailView) refresh() {
 }
 
 func (tv *TaskDetailView) buildMetadataBox(task *taskpkg.Task, colors *config.ColorConfig) *tview.Frame {
-	metadataContainer := tview.NewFlex().SetDirection(tview.FlexRow)
-
-	leftSide := tview.NewFlex().SetDirection(tview.FlexRow)
-
-	titlePrimitive := tv.buildTitlePrimitive(task, colors)
-	leftSide.AddItem(titlePrimitive, 1, 0, false)
-	leftSide.AddItem(tview.NewBox(), 1, 0, false) // blank line
-
-	// build metadata columns
 	ctx := FieldRenderContext{Mode: RenderModeView, Colors: colors}
-	col1, col2 := tv.buildMetadataColumns(task, ctx)
-	col3 := RenderMetadataColumn3(task, colors)
-
-	metadataRow := tview.NewFlex().SetDirection(tview.FlexColumn)
-	metadataRow.AddItem(col1, 30, 0, false)
-	metadataRow.AddItem(tview.NewBox(), 2, 0, false)
-	metadataRow.AddItem(col2, 30, 0, false)
-	metadataRow.AddItem(tview.NewBox(), 2, 0, false)
-	metadataRow.AddItem(col3, 30, 0, false)
-	leftSide.AddItem(metadataRow, 4, 0, false)
-
-	// Build right side (tags)
-	rightSide := tview.NewFlex().SetDirection(tview.FlexRow)
-	rightSide.AddItem(tview.NewBox(), 2, 0, false)
-	tagsCol := RenderTagsColumn(task)
-	rightSide.AddItem(tagsCol, 0, 1, false)
-
-	mainRow := tview.NewFlex().SetDirection(tview.FlexColumn)
-	mainRow.AddItem(leftSide, 0, 3, false)
-	mainRow.AddItem(rightSide, 0, 1, false)
-
-	metadataContainer.AddItem(mainRow, 0, 1, false)
-
-	metadataBox := tview.NewFrame(metadataContainer).SetBorders(0, 0, 0, 0, 0, 0)
-	metadataBox.SetBorder(true).SetTitle(fmt.Sprintf(" %s ", gradient.RenderAdaptiveGradientText(task.ID, colors.TaskDetailIDColor, config.FallbackTaskIDColor))).SetBorderColor(colors.TaskBoxUnselectedBorder)
-	metadataBox.SetBorderPadding(1, 0, 2, 2)
-
-	return metadataBox
+	titlePrimitive := tv.buildTitlePrimitive(task, colors)
+	col1, col2, col3 := tv.buildMetadataColumns(task, ctx, colors)
+	return tv.assembleMetadataBox(task, colors, titlePrimitive, col1, col2, col3, 1)
 }
 
 func (tv *TaskDetailView) buildTitlePrimitive(task *taskpkg.Task, colors *config.ColorConfig) tview.Primitive {
@@ -150,20 +115,27 @@ func (tv *TaskDetailView) buildTitlePrimitive(task *taskpkg.Task, colors *config
 	return RenderTitleText(task, ctx)
 }
 
-func (tv *TaskDetailView) buildMetadataColumns(task *taskpkg.Task, ctx FieldRenderContext) (*tview.Flex, *tview.Flex) {
-	// Column 1: Status, Type, Priority
+func (tv *TaskDetailView) buildMetadataColumns(task *taskpkg.Task, ctx FieldRenderContext, colors *config.ColorConfig) (*tview.Flex, *tview.Flex, *tview.Flex) {
+	// Column 1: Status, Type, Priority, Points
 	col1 := tview.NewFlex().SetDirection(tview.FlexRow)
 	col1.AddItem(RenderStatusText(task, ctx), 1, 0, false)
 	col1.AddItem(RenderTypeText(task, ctx), 1, 0, false)
 	col1.AddItem(RenderPriorityText(task, ctx), 1, 0, false)
+	col1.AddItem(RenderPointsText(task, ctx), 1, 0, false)
 
-	// Column 2: Assignee, Points
+	// Column 2: Assignee, Author, Created, Updated
 	col2 := tview.NewFlex().SetDirection(tview.FlexRow)
 	col2.AddItem(RenderAssigneeText(task, ctx), 1, 0, false)
-	col2.AddItem(RenderPointsText(task, ctx), 1, 0, false)
-	col2.AddItem(tview.NewBox(), 1, 0, false) // Spacer
+	col2.AddItem(RenderAuthorText(task, colors), 1, 0, false)
+	col2.AddItem(RenderCreatedText(task, colors), 1, 0, false)
+	col2.AddItem(RenderUpdatedText(task, colors), 1, 0, false)
 
-	return col1, col2
+	// Column 3: Due, Recurrence
+	col3 := tview.NewFlex().SetDirection(tview.FlexRow)
+	col3.AddItem(RenderDueText(task, colors), 1, 0, false)
+	col3.AddItem(RenderRecurrenceText(task, colors), 1, 0, false)
+
+	return col1, col2, col3
 }
 
 func (tv *TaskDetailView) buildDescription(task *taskpkg.Task) tview.Primitive {

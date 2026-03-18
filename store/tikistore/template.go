@@ -15,14 +15,16 @@ import (
 
 // templateFrontmatter represents the YAML frontmatter in template files
 type templateFrontmatter struct {
-	Title     string   `yaml:"title"`
-	Type      string   `yaml:"type"`
-	Status    string   `yaml:"status"`
-	Tags      []string `yaml:"tags"`
-	DependsOn []string `yaml:"dependsOn"`
-	Assignee  string   `yaml:"assignee"`
-	Priority  int      `yaml:"priority"`
-	Points    int      `yaml:"points"`
+	Title      string   `yaml:"title"`
+	Type       string   `yaml:"type"`
+	Status     string   `yaml:"status"`
+	Tags       []string `yaml:"tags"`
+	DependsOn  []string `yaml:"dependsOn"`
+	Due        string   `yaml:"due"`
+	Recurrence string   `yaml:"recurrence"`
+	Assignee   string   `yaml:"assignee"`
+	Priority   int      `yaml:"priority"`
+	Points     int      `yaml:"points"`
 }
 
 // loadTemplateTask reads new.md from user config directory, or falls back to embedded template.
@@ -73,6 +75,23 @@ func parseTaskTemplate(data []byte) *taskpkg.Task {
 		return nil
 	}
 
+	// Parse due date if provided
+	var dueTime time.Time
+	if fm.Due != "" {
+		parsed, ok := taskpkg.ParseDueDate(fm.Due)
+		if ok {
+			dueTime = parsed
+		}
+	}
+
+	// Parse recurrence if provided
+	var recurrence taskpkg.Recurrence
+	if fm.Recurrence != "" {
+		if parsed, ok := taskpkg.ParseRecurrence(fm.Recurrence); ok {
+			recurrence = parsed
+		}
+	}
+
 	return &taskpkg.Task{
 		Title:       fm.Title,
 		Description: body,
@@ -80,6 +99,8 @@ func parseTaskTemplate(data []byte) *taskpkg.Task {
 		Status:      taskpkg.NormalizeStatus(fm.Status),
 		Tags:        fm.Tags,
 		DependsOn:   fm.DependsOn,
+		Due:         dueTime,
+		Recurrence:  recurrence,
 		Assignee:    fm.Assignee,
 		Priority:    fm.Priority,
 		Points:      fm.Points,
@@ -154,6 +175,8 @@ func (s *TikiStore) NewTaskTemplate() (*taskpkg.Task, error) {
 		task.Points = template.Points
 		task.Tags = template.Tags
 		task.DependsOn = template.DependsOn
+		task.Due = template.Due
+		task.Recurrence = template.Recurrence
 		task.Assignee = template.Assignee
 		task.Status = template.Status
 	}

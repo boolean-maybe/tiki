@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"slices"
 	"strings"
+	"time"
 
 	"github.com/boolean-maybe/tiki/config"
 )
@@ -166,6 +167,46 @@ func isValidTikiIDFormat(id string) bool {
 		}
 	}
 	return true
+}
+
+// DueValidator validates due date is normalized to midnight UTC
+type DueValidator struct{}
+
+func (v *DueValidator) ValidateField(task *Task) *ValidationError {
+	// Zero time (no due date) is valid
+	if task.Due.IsZero() {
+		return nil
+	}
+
+	// Validate date is normalized to midnight UTC
+	if task.Due.Hour() != 0 || task.Due.Minute() != 0 || task.Due.Second() != 0 || task.Due.Nanosecond() != 0 || task.Due.Location() != time.UTC {
+		return &ValidationError{
+			Field:   "due",
+			Value:   task.Due,
+			Code:    ErrCodeInvalidFormat,
+			Message: "due date must be normalized to midnight UTC (use date-only format)",
+		}
+	}
+
+	return nil
+}
+
+// RecurrenceValidator validates recurrence pattern
+type RecurrenceValidator struct{}
+
+func (v *RecurrenceValidator) ValidateField(task *Task) *ValidationError {
+	if task.Recurrence == RecurrenceNone {
+		return nil
+	}
+	if !IsValidRecurrence(task.Recurrence) {
+		return &ValidationError{
+			Field:   "recurrence",
+			Value:   task.Recurrence,
+			Code:    ErrCodeInvalidFormat,
+			Message: fmt.Sprintf("invalid recurrence pattern: %s", task.Recurrence),
+		}
+	}
+	return nil
 }
 
 // AssigneeValidator - no validation needed (any string is valid)

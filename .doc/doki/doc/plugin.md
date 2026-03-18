@@ -156,10 +156,12 @@ or `-=` (remove) expressions. For example, `tags += [idea, UI]` adds `idea` and 
 - `assignee` - set assignee string
 - `tags` - add/remove tags (list)
 - `dependsOn` - add/remove dependency tiki IDs (list)
+- `due` - set due date (YYYY-MM-DD format)
+- `recurrence` - set recurrence pattern (cron format: `0 0 * * *`, `0 0 * * MON`, `0 0 1 * *`)
 
 #### Operators
 
-- `=` assigns a value to `status`, `type`, `priority`, `points`, `assignee`
+- `=` assigns a value to `status`, `type`, `priority`, `points`, `assignee`, `due`, `recurrence`
 - `+=` adds tags or dependencies, `-=` removes them
 - multiple operations are separated by commas: `status=done, tags+=[moved]`
 
@@ -188,6 +190,8 @@ You can filter on these task fields:
 - `points` - Story points estimate
 - `tags` (or `tag`) - List of tags (case-insensitive)
 - `dependsOn` - List of dependency tiki IDs
+- `due` - Due date (YYYY-MM-DD format, supports time arithmetic)
+- `recurrence` - Recurrence pattern (cron string, compared as string)
 - `createdAt` - Creation timestamp
 - `updatedAt` - Last update timestamp
 

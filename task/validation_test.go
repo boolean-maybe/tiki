@@ -3,6 +3,7 @@ package task
 import (
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/boolean-maybe/tiki/config"
 )
@@ -343,4 +344,129 @@ func TestValidationErrors_Error(t *testing.T) {
 	if !strings.Contains(errStr, "priority must be between 1 and 5") {
 		t.Error("error string should contain priority message")
 	}
+}
+
+func TestDueValidator(t *testing.T) {
+	tests := []struct {
+		name    string
+		task    *Task
+		wantErr bool
+		errCode ErrorCode
+	}{
+		{
+			name:    "no due date (zero time)",
+			task:    &Task{Title: "Test", Type: TypeStory, Status: "backlog", Priority: DefaultPriority},
+			wantErr: false,
+		},
+		{
+			name: "valid due date (midnight UTC)",
+			task: &Task{
+				Title:    "Test",
+				Type:     TypeStory,
+				Status:   "backlog",
+				Priority: DefaultPriority,
+				Due:      mustParseDate("2026-03-16"),
+			},
+			wantErr: false,
+		},
+		{
+			name: "invalid due date (has time component)",
+			task: &Task{
+				Title:    "Test",
+				Type:     TypeStory,
+				Status:   "backlog",
+				Priority: DefaultPriority,
+				Due:      mustParseDateTime("2026-03-16T15:04:05Z"),
+			},
+			wantErr: true,
+			errCode: ErrCodeInvalidFormat,
+		},
+	}
+
+	validator := &DueValidator{}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := validator.ValidateField(tt.task)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("DueValidator.ValidateField() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if err != nil && err.Code != tt.errCode {
+				t.Errorf("DueValidator.ValidateField() errCode = %v, want %v", err.Code, tt.errCode)
+			}
+		})
+	}
+}
+
+func TestRecurrenceValidator(t *testing.T) {
+	tests := []struct {
+		name    string
+		task    *Task
+		wantErr bool
+		errCode ErrorCode
+	}{
+		{
+			name:    "empty recurrence (none)",
+			task:    &Task{Recurrence: RecurrenceNone},
+			wantErr: false,
+		},
+		{
+			name:    "valid daily",
+			task:    &Task{Recurrence: RecurrenceDaily},
+			wantErr: false,
+		},
+		{
+			name:    "valid weekly monday",
+			task:    &Task{Recurrence: "0 0 * * MON"},
+			wantErr: false,
+		},
+		{
+			name:    "valid monthly",
+			task:    &Task{Recurrence: RecurrenceMonthly},
+			wantErr: false,
+		},
+		{
+			name:    "invalid cron pattern",
+			task:    &Task{Recurrence: "*/5 * * * *"},
+			wantErr: true,
+			errCode: ErrCodeInvalidFormat,
+		},
+		{
+			name:    "invalid string",
+			task:    &Task{Recurrence: "every day"},
+			wantErr: true,
+			errCode: ErrCodeInvalidFormat,
+		},
+	}
+
+	validator := &RecurrenceValidator{}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := validator.ValidateField(tt.task)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("RecurrenceValidator.ValidateField() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if err != nil && err.Code != tt.errCode {
+				t.Errorf("RecurrenceValidator.ValidateField() errCode = %v, want %v", err.Code, tt.errCode)
+			}
+		})
+	}
+}
+
+// Helper for tests
+func mustParseDate(s string) time.Time {
+	t, err := time.Parse(DateFormat, s)
+	if err != nil {
+		panic(err)
+	}
+	return t
+}
+
+func mustParseDateTime(s string) time.Time {
+	t, err := time.Parse(time.RFC3339, s)
+	if err != nil {
+		panic(err)
+	}
+	return t
 }

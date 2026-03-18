@@ -4,6 +4,7 @@ import (
 	"reflect"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/boolean-maybe/tiki/task"
 )
@@ -332,4 +333,254 @@ func TestApplyLaneAction_AssigneeCurrentUserMissing(t *testing.T) {
 	if !strings.Contains(err.Error(), "current user") {
 		t.Fatalf("expected current user error, got %v", err)
 	}
+}
+
+func TestParseLaneAction_Due(t *testing.T) {
+	tests := []struct {
+		name      string
+		input     string
+		wantErr   bool
+		checkFunc func(*testing.T, LaneAction)
+	}{
+		{
+			name:    "due with valid date",
+			input:   "due=2026-03-16",
+			wantErr: false,
+			checkFunc: func(t *testing.T, action LaneAction) {
+				if len(action.Ops) != 1 {
+					t.Fatalf("expected 1 op, got %d", len(action.Ops))
+				}
+				op := action.Ops[0]
+				if op.Field != ActionFieldDue {
+					t.Errorf("expected field due, got %v", op.Field)
+				}
+				if op.Operator != ActionOperatorAssign {
+					t.Errorf("expected operator =, got %v", op.Operator)
+				}
+				expectedDate := "2026-03-16"
+				gotDate := op.DueValue.Format(task.DateFormat)
+				if gotDate != expectedDate {
+					t.Errorf("expected date %v, got %v", expectedDate, gotDate)
+				}
+			},
+		},
+		{
+			name:    "due with quoted date",
+			input:   "due='2026-03-16'",
+			wantErr: false,
+			checkFunc: func(t *testing.T, action LaneAction) {
+				if len(action.Ops) != 1 {
+					t.Fatalf("expected 1 op, got %d", len(action.Ops))
+				}
+				op := action.Ops[0]
+				expectedDate := "2026-03-16"
+				gotDate := op.DueValue.Format(task.DateFormat)
+				if gotDate != expectedDate {
+					t.Errorf("expected date %v, got %v", expectedDate, gotDate)
+				}
+			},
+		},
+		{
+			name:    "due with empty string (clear)",
+			input:   "due=''",
+			wantErr: false,
+			checkFunc: func(t *testing.T, action LaneAction) {
+				if len(action.Ops) != 1 {
+					t.Fatalf("expected 1 op, got %d", len(action.Ops))
+				}
+				op := action.Ops[0]
+				if !op.DueValue.IsZero() {
+					t.Errorf("expected zero time for empty string, got %v", op.DueValue)
+				}
+			},
+		},
+		{
+			name:    "due with invalid date format",
+			input:   "due=03/16/2026",
+			wantErr: true,
+		},
+		{
+			name:    "due with += operator",
+			input:   "due+=2026-03-16",
+			wantErr: true,
+		},
+		{
+			name:    "due with -= operator",
+			input:   "due-=2026-03-16",
+			wantErr: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			action, err := ParseLaneAction(tt.input)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("ParseLaneAction() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if err == nil && tt.checkFunc != nil {
+				tt.checkFunc(t, action)
+			}
+		})
+	}
+}
+
+func TestParseLaneAction_Recurrence(t *testing.T) {
+	tests := []struct {
+		name      string
+		input     string
+		wantErr   bool
+		checkFunc func(*testing.T, LaneAction)
+	}{
+		{
+			name:    "recurrence with cron pattern",
+			input:   "recurrence='0 0 * * MON'",
+			wantErr: false,
+			checkFunc: func(t *testing.T, action LaneAction) {
+				if len(action.Ops) != 1 {
+					t.Fatalf("expected 1 op, got %d", len(action.Ops))
+				}
+				op := action.Ops[0]
+				if op.Field != ActionFieldRecurrence {
+					t.Errorf("expected field recurrence, got %v", op.Field)
+				}
+				if op.RecurrenceValue != task.Recurrence("0 0 * * MON") {
+					t.Errorf("expected '0 0 * * MON', got %q", op.RecurrenceValue)
+				}
+			},
+		},
+		{
+			name:    "recurrence with display name",
+			input:   "recurrence=Daily",
+			wantErr: false,
+			checkFunc: func(t *testing.T, action LaneAction) {
+				op := action.Ops[0]
+				if op.RecurrenceValue != task.RecurrenceDaily {
+					t.Errorf("expected daily cron, got %q", op.RecurrenceValue)
+				}
+			},
+		},
+		{
+			name:    "recurrence clear with empty string",
+			input:   "recurrence=''",
+			wantErr: false,
+			checkFunc: func(t *testing.T, action LaneAction) {
+				op := action.Ops[0]
+				if op.RecurrenceValue != task.RecurrenceNone {
+					t.Errorf("expected empty recurrence, got %q", op.RecurrenceValue)
+				}
+			},
+		},
+		{
+			name:    "recurrence invalid value",
+			input:   "recurrence=biweekly",
+			wantErr: true,
+		},
+		{
+			name:    "recurrence += not allowed",
+			input:   "recurrence+=Daily",
+			wantErr: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			action, err := ParseLaneAction(tt.input)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("ParseLaneAction() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if err == nil && tt.checkFunc != nil {
+				tt.checkFunc(t, action)
+			}
+		})
+	}
+}
+
+func TestApplyLaneAction_Recurrence(t *testing.T) {
+	base := &task.Task{
+		ID:       "TIKI-TEST01",
+		Title:    "Test Task",
+		Type:     task.TypeStory,
+		Status:   "backlog",
+		Priority: 3,
+	}
+
+	t.Run("set recurrence", func(t *testing.T) {
+		action, err := ParseLaneAction("recurrence='0 0 * * MON'")
+		if err != nil {
+			t.Fatalf("ParseLaneAction() error = %v", err)
+		}
+		result, err := ApplyLaneAction(base, action, "")
+		if err != nil {
+			t.Fatalf("ApplyLaneAction() error = %v", err)
+		}
+		if result.Recurrence != task.Recurrence("0 0 * * MON") {
+			t.Errorf("expected '0 0 * * MON', got %q", result.Recurrence)
+		}
+	})
+
+	t.Run("clear recurrence", func(t *testing.T) {
+		baseWithRec := base.Clone()
+		baseWithRec.Recurrence = "0 0 * * MON"
+
+		action, err := ParseLaneAction("recurrence=''")
+		if err != nil {
+			t.Fatalf("ParseLaneAction() error = %v", err)
+		}
+		result, err := ApplyLaneAction(baseWithRec, action, "")
+		if err != nil {
+			t.Fatalf("ApplyLaneAction() error = %v", err)
+		}
+		if result.Recurrence != task.RecurrenceNone {
+			t.Errorf("expected empty recurrence, got %q", result.Recurrence)
+		}
+	})
+}
+
+func TestApplyLaneAction_Due(t *testing.T) {
+	base := &task.Task{
+		ID:       "TIKI-TEST01",
+		Title:    "Test Task",
+		Type:     task.TypeStory,
+		Status:   "backlog",
+		Priority: 3,
+	}
+
+	t.Run("set due date", func(t *testing.T) {
+		action, err := ParseLaneAction("due=2026-03-16")
+		if err != nil {
+			t.Fatalf("ParseLaneAction() error = %v", err)
+		}
+
+		result, err := ApplyLaneAction(base, action, "")
+		if err != nil {
+			t.Fatalf("ApplyLaneAction() error = %v", err)
+		}
+
+		expectedDate := "2026-03-16"
+		gotDate := result.Due.Format(task.DateFormat)
+		if gotDate != expectedDate {
+			t.Errorf("expected due date %v, got %v", expectedDate, gotDate)
+		}
+	})
+
+	t.Run("clear due date", func(t *testing.T) {
+		baseWithDue := base.Clone()
+		baseWithDue.Due, _ = time.Parse(task.DateFormat, "2026-03-16")
+
+		action, err := ParseLaneAction("due=''")
+		if err != nil {
+			t.Fatalf("ParseLaneAction() error = %v", err)
+		}
+
+		result, err := ApplyLaneAction(baseWithDue, action, "")
+		if err != nil {
+			t.Fatalf("ApplyLaneAction() error = %v", err)
+		}
+
+		if !result.Due.IsZero() {
+			t.Errorf("expected zero due date, got %v", result.Due)
+		}
+	})
 }

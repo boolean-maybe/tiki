@@ -37,6 +37,8 @@ tags:
   - metadata
 dependsOn:
   - TIKI-ABC123
+due: 2026-04-01
+recurrence: 0 0 * * MON
 ---
 ```
 
@@ -52,6 +54,8 @@ where fields can have these values:
   - low: 5
 - points: story points from 1 to 10
 - dependsOn: list of tiki IDs (TIKI-XXXXXX format) this task depends on
+- due: due date in YYYY-MM-DD format (optional, date-only)
+- recurrence: recurrence pattern in cron format (optional). Supported: `0 0 * * *` (daily), `0 0 * * MON` (weekly on Monday, etc.), `0 0 1 * *` (monthly)
 
 ### body
 
@@ -167,3 +171,67 @@ When asked to remove a dependency:
 - Each referenced tiki must exist in `.doc/tiki/`
 - Before adding, verify the target file exists; warn if it doesn't
 - Circular dependencies: warn the user but do not block (e.g. A depends on B, B depends on A)
+
+## Due Dates
+
+Tikis can have a due date via the `due` frontmatter field.
+The value must be in `YYYY-MM-DD` format (date-only, no time component).
+
+### Set due date
+
+When asked to set a due date (e.g. "set TIKI-X7F4K2 due date to April 1st 2026"):
+1. Read `.doc/tiki/tiki-x7f4k2.md`
+2. Add or update the `due` field with value `2026-04-01`
+3. Format must be `YYYY-MM-DD` (4-digit year, 2-digit month, 2-digit day)
+4. `git add` the modified file
+
+### Remove due date
+
+When asked to remove or clear a due date:
+1. Read the tiki file
+2. Remove the `due` field entirely (omitempty)
+3. `git add` the modified file
+
+### Query by due date
+
+Users can filter tasks by due date in the TUI using filter expressions:
+- `due = '2026-04-01'` - exact match
+- `due < '2026-04-01'` - before date
+- `due < NOW` - overdue tasks
+- `due - NOW < 7day` - due within 7 days
+
+### Validation
+
+- Date must be in `YYYY-MM-DD` format
+- Must be a valid calendar date (no Feb 30, etc.)
+- Date-only (no time component)
+
+## Recurrence
+
+Tikis can have a recurrence pattern via the `recurrence` frontmatter field.
+The value must be a supported cron pattern. Displayed as English in the TUI (e.g. "Weekly on Monday").
+This is metadata-only — it does not auto-create tasks on completion.
+
+### Set recurrence
+
+When asked to set a recurrence (e.g. "set TIKI-X7F4K2 to recur weekly on Monday"):
+1. Read `.doc/tiki/tiki-x7f4k2.md`
+2. Add or update the `recurrence` field with value `0 0 * * MON`
+3. `git add` the modified file
+
+Supported patterns:
+- `0 0 * * *` — Daily
+- `0 0 * * MON` — Weekly on Monday (through SUN for other days)
+- `0 0 1 * *` — Monthly
+
+### Remove recurrence
+
+When asked to remove or clear a recurrence:
+1. Read the tiki file
+2. Remove the `recurrence` field entirely (omitempty)
+3. `git add` the modified file
+
+### Validation
+
+- Must be one of the supported cron patterns listed above
+- Empty/omitted means no recurrence

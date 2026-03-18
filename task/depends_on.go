@@ -2,6 +2,7 @@ package task
 
 import (
 	"log/slog"
+	"slices"
 	"strings"
 
 	"gopkg.in/yaml.v3"
@@ -52,4 +53,17 @@ func (d DependsOnValue) ToStringSlice() []string {
 		return []string{}
 	}
 	return []string(d)
+}
+
+// FindBlockedTasks returns all tasks whose DependsOn list contains the given task ID.
+// These are the downstream tasks that are waiting on taskID to be completed.
+func FindBlockedTasks(allTasks []*Task, taskID string) []*Task {
+	normalized := strings.ToUpper(strings.TrimSpace(taskID))
+	var blocked []*Task
+	for _, t := range allTasks {
+		if slices.Contains(t.DependsOn, normalized) {
+			blocked = append(blocked, t)
+		}
+	}
+	return blocked
 }

@@ -122,6 +122,8 @@ func (s *TikiStore) loadTaskFile(path string, authorMap map[string]*git.AuthorIn
 		Status:      taskpkg.MapStatus(fm.Status),
 		Tags:        fm.Tags.ToStringSlice(),
 		DependsOn:   fm.DependsOn.ToStringSlice(),
+		Due:         fm.Due.ToTime(),
+		Recurrence:  fm.Recurrence.ToRecurrence(),
 		Assignee:    fm.Assignee,
 		Priority:    int(fm.Priority),
 		Points:      fm.Points,
@@ -282,14 +284,16 @@ func (s *TikiStore) saveTask(task *taskpkg.Task) error {
 	}
 
 	fm := taskFrontmatter{
-		Title:     task.Title,
-		Type:      string(task.Type),
-		Status:    taskpkg.StatusToString(task.Status),
-		Tags:      task.Tags,
-		DependsOn: task.DependsOn,
-		Assignee:  task.Assignee,
-		Priority:  taskpkg.PriorityValue(task.Priority),
-		Points:    task.Points,
+		Title:      task.Title,
+		Type:       string(task.Type),
+		Status:     taskpkg.StatusToString(task.Status),
+		Tags:       task.Tags,
+		DependsOn:  task.DependsOn,
+		Due:        taskpkg.DueValue{Time: task.Due},
+		Recurrence: taskpkg.RecurrenceValue{Value: task.Recurrence},
+		Assignee:   task.Assignee,
+		Priority:   taskpkg.PriorityValue(task.Priority),
+		Points:     task.Points,
 	}
 
 	// sort tags for consistent output

@@ -154,7 +154,7 @@ func (c *CompareExpr) evaluateTimeExpr(task *task.Task, now time.Time) bool {
 
 // TimeExpr represents time arithmetic like NOW - 24hour or NOW - CreatedAt
 type TimeExpr struct {
-	Base    string      // "NOW", "CreatedAt", "UpdatedAt"
+	Base    string      // "NOW", "CreatedAt", "UpdatedAt", "Due"
 	Op      string      // "+", "-"
 	Operand interface{} // time.Duration or field name string
 }
@@ -170,6 +170,11 @@ func (t *TimeExpr) Evaluate(task *task.Task, now time.Time) interface{} {
 		baseTime = task.CreatedAt
 	case "updatedat":
 		baseTime = task.UpdatedAt
+	case "due":
+		if task.Due.IsZero() {
+			return nil
+		}
+		baseTime = task.Due
 	default:
 		return nil
 	}
@@ -196,6 +201,11 @@ func (t *TimeExpr) Evaluate(task *task.Task, now time.Time) interface{} {
 			otherTime = task.CreatedAt
 		case "updatedat":
 			otherTime = task.UpdatedAt
+		case "due":
+			if task.Due.IsZero() {
+				return nil
+			}
+			otherTime = task.Due
 		default:
 			return nil
 		}
@@ -242,6 +252,10 @@ func getTaskAttribute(task *task.Task, field string) interface{} {
 		return task.Tags
 	case "dependson":
 		return task.DependsOn
+	case "due":
+		return task.Due
+	case "recurrence":
+		return string(task.Recurrence)
 	case "id":
 		return task.ID
 	case "title":
@@ -348,6 +362,12 @@ func compare(left interface{}, op string, right interface{}) bool {
 	if leftTime, ok := left.(time.Time); ok {
 		if rightTime, ok := right.(time.Time); ok {
 			return compareTimes(leftTime, op, rightTime)
+		}
+		// Coerce string to date for comparison (e.g., due = '2026-03-16')
+		if rightStr, ok := right.(string); ok {
+			if parsed, ok := task.ParseDueDate(rightStr); ok {
+				return compareTimes(leftTime, op, parsed)
+			}
 		}
 	}
 
