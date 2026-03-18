@@ -2,8 +2,11 @@ package tikistore
 
 import (
 	"os"
+	"path/filepath"
 	"reflect"
+	"strings"
 	"testing"
+	"time"
 
 	taskpkg "github.com/boolean-maybe/tiki/task"
 )
@@ -31,6 +34,15 @@ func TestSortTasks(t *testing.T) {
 				{ID: "TIKI-abc1zz", Title: "Mango", Priority: 3},
 			},
 			expected: []string{"TIKI-abc2zz", "TIKI-abc1zz", "TIKI-abc10z"}, // Apple, Mango, Zebra
+		},
+		{
+			name: "same priority and title - tiebreak by ID",
+			tasks: []*taskpkg.Task{
+				{ID: "TIKI-ccc333", Title: "Same", Priority: 2},
+				{ID: "TIKI-aaa111", Title: "Same", Priority: 2},
+				{ID: "TIKI-bbb222", Title: "Same", Priority: 2},
+			},
+			expected: []string{"TIKI-aaa111", "TIKI-bbb222", "TIKI-ccc333"},
 		},
 		{
 			name:     "empty task list",
@@ -210,7 +222,6 @@ Task description`,
 				}
 			}
 
-			_ = os.Remove(testFile)
 		})
 	}
 }
@@ -376,7 +387,378 @@ Task description`,
 			}
 
 			// Clean up test file
-			_ = os.Remove(testFile)
+
+		})
+	}
+}
+
+func TestLoadTaskFile_Due(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	tests := []struct {
+		name        string
+		fileContent string
+		expectZero  bool
+		expectValue string // YYYY-MM-DD format if not zero
+		shouldLoad  bool
+	}{
+		{
+			name: "valid due date",
+			fileContent: `---
+title: Test Task
+type: story
+status: backlog
+due: 2026-03-16
+---
+Task description`,
+			expectZero:  false,
+			expectValue: "2026-03-16",
+			shouldLoad:  true,
+		},
+		{
+			name: "valid due date with quotes",
+			fileContent: `---
+title: Test Task
+type: story
+status: backlog
+due: '2026-03-16'
+---
+Task description`,
+			expectZero:  false,
+			expectValue: "2026-03-16",
+			shouldLoad:  true,
+		},
+		{
+			name: "missing due field",
+			fileContent: `---
+title: Test Task
+type: story
+status: backlog
+---
+Task description`,
+			expectZero: true,
+			shouldLoad: true,
+		},
+		{
+			name: "empty due field",
+			fileContent: `---
+title: Test Task
+type: story
+status: backlog
+due: ''
+---
+Task description`,
+			expectZero: true,
+			shouldLoad: true,
+		},
+		{
+			name: "invalid due date format",
+			fileContent: `---
+title: Test Task
+type: story
+status: backlog
+due: 03/16/2026
+---
+Task description`,
+			expectZero: true, // Should default to zero
+			shouldLoad: true,
+		},
+		{
+			name: "invalid due date - number",
+			fileContent: `---
+title: Test Task
+type: story
+status: backlog
+due: 20260316
+---
+Task description`,
+			expectZero: true, // Should default to zero
+			shouldLoad: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Create task file
+			testFile := filepath.Join(tmpDir, "TIKI-TEST01.md")
+			if err := os.WriteFile(testFile, []byte(tt.fileContent), 0644); err != nil {
+				t.Fatalf("failed to write test file: %v", err)
+			}
+
+			// Load store
+			store, err := NewTikiStore(tmpDir)
+			if err != nil {
+				t.Fatalf("NewTikiStore() error = %v", err)
+			}
+
+			// Get task
+			task := store.GetTask("TIKI-TEST01")
+			if !tt.shouldLoad {
+				if task != nil {
+					t.Error("expected nil task, but got one")
+				}
+				return
+			}
+
+			if task == nil {
+				t.Fatal("GetTask() returned nil")
+			}
+
+			if tt.expectZero {
+				if !task.Due.IsZero() {
+					t.Errorf("expected zero due time, got = %v", task.Due)
+				}
+			} else {
+				if task.Due.IsZero() {
+					t.Error("expected non-zero due time, got zero")
+				}
+				got := task.Due.Format(taskpkg.DateFormat)
+				if got != tt.expectValue {
+					t.Errorf("due date got = %v, expected %v", got, tt.expectValue)
+				}
+			}
+
+			// Clean up test file
+
+		})
+	}
+}
+
+func TestLoadTaskFile_Recurrence(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	tests := []struct {
+		name        string
+		fileContent string
+		expectValue taskpkg.Recurrence
+		shouldLoad  bool
+	}{
+		{
+			name: "valid recurrence daily",
+			fileContent: `---
+title: Test Task
+type: story
+status: backlog
+recurrence: "0 0 * * *"
+---
+Task description`,
+			expectValue: taskpkg.RecurrenceDaily,
+			shouldLoad:  true,
+		},
+		{
+			name: "valid recurrence weekly",
+			fileContent: `---
+title: Test Task
+type: story
+status: backlog
+recurrence: "0 0 * * MON"
+---
+Task description`,
+			expectValue: "0 0 * * MON",
+			shouldLoad:  true,
+		},
+		{
+			name: "missing recurrence field",
+			fileContent: `---
+title: Test Task
+type: story
+status: backlog
+---
+Task description`,
+			expectValue: taskpkg.RecurrenceNone,
+			shouldLoad:  true,
+		},
+		{
+			name: "invalid recurrence defaults to empty",
+			fileContent: `---
+title: Test Task
+type: story
+status: backlog
+recurrence: "every tuesday"
+---
+Task description`,
+			expectValue: taskpkg.RecurrenceNone,
+			shouldLoad:  true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			testFile := filepath.Join(tmpDir, "TIKI-REC001.md")
+			if err := os.WriteFile(testFile, []byte(tt.fileContent), 0644); err != nil {
+				t.Fatalf("failed to write test file: %v", err)
+			}
+
+			store, err := NewTikiStore(tmpDir)
+			if err != nil {
+				t.Fatalf("NewTikiStore() error = %v", err)
+			}
+
+			task := store.GetTask("TIKI-REC001")
+			if !tt.shouldLoad {
+				if task != nil {
+					t.Error("expected nil task, but got one")
+				}
+				return
+			}
+
+			if task == nil {
+				t.Fatal("GetTask() returned nil")
+			}
+
+			if task.Recurrence != tt.expectValue {
+				t.Errorf("recurrence got = %q, expected %q", task.Recurrence, tt.expectValue)
+			}
+
+		})
+	}
+}
+
+func TestSaveTask_Recurrence(t *testing.T) {
+	tmpDir := t.TempDir()
+	store, err := NewTikiStore(tmpDir)
+	if err != nil {
+		t.Fatalf("NewTikiStore() error = %v", err)
+	}
+
+	tests := []struct {
+		name       string
+		recurrence taskpkg.Recurrence
+		expectInFM bool
+	}{
+		{
+			name:       "with recurrence",
+			recurrence: "0 0 * * MON",
+			expectInFM: true,
+		},
+		{
+			name:       "without recurrence",
+			recurrence: taskpkg.RecurrenceNone,
+			expectInFM: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			task := &taskpkg.Task{
+				ID:          "TIKI-RECSVR",
+				Title:       "Test Save Recurrence",
+				Type:        taskpkg.TypeStory,
+				Status:      "backlog",
+				Priority:    3,
+				Recurrence:  tt.recurrence,
+				Description: "Test description",
+			}
+
+			if err := store.CreateTask(task); err != nil {
+				t.Fatalf("CreateTask() error = %v", err)
+			}
+
+			filePath := filepath.Join(tmpDir, "tiki-recsvr.md")
+			content, err := os.ReadFile(filePath)
+			if err != nil {
+				t.Fatalf("failed to read saved file: %v", err)
+			}
+
+			fileStr := string(content)
+			hasRecLine := strings.Contains(fileStr, "recurrence:")
+
+			if tt.expectInFM && !hasRecLine {
+				t.Errorf("expected 'recurrence:' in frontmatter, but not found.\nFile content:\n%s", fileStr)
+			}
+			if !tt.expectInFM && hasRecLine {
+				t.Errorf("did not expect 'recurrence:' in frontmatter (omitempty), but found.\nFile content:\n%s", fileStr)
+			}
+
+			// Verify round-trip
+			loaded := store.GetTask("TIKI-RECSVR")
+			if loaded == nil {
+				t.Fatal("GetTask() returned nil")
+			}
+			if loaded.Recurrence != task.Recurrence {
+				t.Errorf("round-trip failed: saved %q, loaded %q", task.Recurrence, loaded.Recurrence)
+			}
+
+		})
+	}
+}
+
+func TestSaveTask_Due(t *testing.T) {
+	tmpDir := t.TempDir()
+	store, err := NewTikiStore(tmpDir)
+	if err != nil {
+		t.Fatalf("NewTikiStore() error = %v", err)
+	}
+
+	tests := []struct {
+		name       string
+		dueValue   string // YYYY-MM-DD or empty
+		expectInFM bool   // should appear in frontmatter
+	}{
+		{
+			name:       "with due date",
+			dueValue:   "2026-03-16",
+			expectInFM: true,
+		},
+		{
+			name:       "without due date",
+			dueValue:   "",
+			expectInFM: false, // omitempty should exclude it
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Create task
+			var dueTime time.Time
+			if tt.dueValue != "" {
+				dueTime, _ = time.Parse(taskpkg.DateFormat, tt.dueValue)
+			}
+
+			task := &taskpkg.Task{
+				ID:          "TIKI-SAVE01",
+				Title:       "Test Save",
+				Type:        taskpkg.TypeStory,
+				Status:      "backlog",
+				Priority:    3,
+				Due:         dueTime,
+				Description: "Test description",
+			}
+
+			// Save task
+			if err := store.CreateTask(task); err != nil {
+				t.Fatalf("CreateTask() error = %v", err)
+			}
+
+			// Read file and check frontmatter
+			filePath := filepath.Join(tmpDir, "tiki-save01.md")
+			content, err := os.ReadFile(filePath)
+			if err != nil {
+				t.Fatalf("failed to read saved file: %v", err)
+			}
+
+			fileStr := string(content)
+			hasDueLine := strings.Contains(fileStr, "due:")
+
+			if tt.expectInFM && !hasDueLine {
+				t.Errorf("expected 'due:' in frontmatter, but not found.\nFile content:\n%s", fileStr)
+			}
+			if !tt.expectInFM && hasDueLine {
+				t.Errorf("did not expect 'due:' in frontmatter (omitempty), but found.\nFile content:\n%s", fileStr)
+			}
+
+			// Verify round-trip
+			loaded := store.GetTask("TIKI-SAVE01")
+			if loaded == nil {
+				t.Fatal("GetTask() returned nil")
+			}
+
+			if !loaded.Due.Equal(task.Due) {
+				t.Errorf("round-trip failed: saved %v, loaded %v", task.Due, loaded.Due)
+			}
+
+			// Clean up
+
 		})
 	}
 }

@@ -268,6 +268,71 @@ func TestPriorityLabel(t *testing.T) {
 	}
 }
 
+func TestPriorityDisplay(t *testing.T) {
+	tests := []struct {
+		name     string
+		priority int
+		expected string
+	}{
+		{"high", PriorityHigh, "High"},
+		{"medium high", PriorityMediumHigh, "Medium High"},
+		{"medium", PriorityMedium, "Medium"},
+		{"medium low", PriorityMediumLow, "Medium Low"},
+		{"low", PriorityLow, "Low"},
+		{"below min clamps to high", 0, "High"},
+		{"above max clamps to low", 99, "Low"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := PriorityDisplay(tt.priority)
+			if result != tt.expected {
+				t.Errorf("PriorityDisplay(%d) = %q, want %q", tt.priority, result, tt.expected)
+			}
+		})
+	}
+}
+
+func TestPriorityFromDisplay(t *testing.T) {
+	tests := []struct {
+		name     string
+		display  string
+		expected int
+	}{
+		{"High", "High", PriorityHigh},
+		{"Medium High", "Medium High", PriorityMediumHigh},
+		{"Medium", "Medium", PriorityMedium},
+		{"Medium Low", "Medium Low", PriorityMediumLow},
+		{"Low", "Low", PriorityLow},
+		{"case insensitive", "high", PriorityHigh},
+		{"unknown defaults to medium", "unknown", PriorityMedium},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := PriorityFromDisplay(tt.display)
+			if result != tt.expected {
+				t.Errorf("PriorityFromDisplay(%q) = %d, want %d", tt.display, result, tt.expected)
+			}
+		})
+	}
+}
+
+func TestAllPriorityDisplayValues(t *testing.T) {
+	values := AllPriorityDisplayValues()
+	expected := []string{"High", "Medium High", "Medium", "Medium Low", "Low"}
+
+	if len(values) != len(expected) {
+		t.Fatalf("AllPriorityDisplayValues() returned %d values, want %d", len(values), len(expected))
+	}
+
+	for i, v := range values {
+		if v != expected[i] {
+			t.Errorf("AllPriorityDisplayValues()[%d] = %q, want %q", i, v, expected[i])
+		}
+	}
+}
+
 func TestNormalizePriority(t *testing.T) {
 	tests := []struct {
 		name     string

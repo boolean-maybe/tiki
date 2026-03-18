@@ -11,9 +11,9 @@ func TestNextField(t *testing.T) {
 		{"Title to Status", EditFieldTitle, EditFieldStatus},
 		{"Status to Type", EditFieldStatus, EditFieldType},
 		{"Type to Priority", EditFieldType, EditFieldPriority},
-		{"Priority to Assignee", EditFieldPriority, EditFieldAssignee},
-		{"Assignee to Points", EditFieldAssignee, EditFieldPoints},
-		{"Points to Description", EditFieldPoints, EditFieldDescription},
+		{"Priority to Points", EditFieldPriority, EditFieldPoints},
+		{"Points to Assignee", EditFieldPoints, EditFieldAssignee},
+		{"Assignee to Description", EditFieldAssignee, EditFieldDescription},
 		{"Description stays at Description (no wrap)", EditFieldDescription, EditFieldDescription},
 		{"Unknown field defaults to Title", EditField("unknown"), EditFieldTitle},
 	}
@@ -38,9 +38,9 @@ func TestPrevField(t *testing.T) {
 		{"Status to Title", EditFieldStatus, EditFieldTitle},
 		{"Type to Status", EditFieldType, EditFieldStatus},
 		{"Priority to Type", EditFieldPriority, EditFieldType},
-		{"Assignee to Priority", EditFieldAssignee, EditFieldPriority},
-		{"Points to Assignee", EditFieldPoints, EditFieldAssignee},
-		{"Description to Points", EditFieldDescription, EditFieldPoints},
+		{"Points to Priority", EditFieldPoints, EditFieldPriority},
+		{"Assignee to Points", EditFieldAssignee, EditFieldPoints},
+		{"Description to Assignee", EditFieldDescription, EditFieldAssignee},
 		{"Unknown field defaults to Title", EditField("unknown"), EditFieldTitle},
 	}
 
@@ -61,8 +61,8 @@ func TestFieldCycling(t *testing.T) {
 		EditFieldStatus,
 		EditFieldType,
 		EditFieldPriority,
-		EditFieldAssignee,
 		EditFieldPoints,
+		EditFieldAssignee,
 		EditFieldDescription,
 		EditFieldDescription, // stays at end
 	}
@@ -77,8 +77,8 @@ func TestFieldCycling(t *testing.T) {
 	// Test complete backward navigation (stops at beginning, no wrap)
 	field = EditFieldDescription
 	expectedOrderReverse := []EditField{
-		EditFieldPoints,
 		EditFieldAssignee,
+		EditFieldPoints,
 		EditFieldPriority,
 		EditFieldType,
 		EditFieldStatus,

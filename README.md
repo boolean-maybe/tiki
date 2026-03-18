@@ -62,7 +62,9 @@ and simply copy the `tiki` executable to any location and make it available via 
 ### Build from source
 
 ```bash
-GOBIN=$HOME/.local/bin go install github.com/boolean-maybe/tiki@latest
+git clone https://github.com/boolean-maybe/tiki.git
+cd tiki
+make build install
 ```
 
 ### Verify installation

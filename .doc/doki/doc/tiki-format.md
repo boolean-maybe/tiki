@@ -63,6 +63,8 @@ in Markdown format
         dependsOn:
             - TIKI-ABC123
             - TIKI-DEF456
+        due: 2026-04-01
+        recurrence: 0 0 * * MON
         ---
         
         This is the description of a tiki in Markdown:
@@ -74,11 +76,139 @@ in Markdown format
         Integration test cases
 ```
 
-### dependsOn
+### Fields
 
-The `dependsOn` field is a list of tiki IDs (`TIKI-XXXXXX` format) that this task depends on.
-A dependency means this tiki is blocked by or requires the listed tikis.
-Values must be valid tiki IDs referencing existing tikis. The field is optional and defaults to empty.
+#### title
+
+**Required.** String. The name of the tiki. Must be non-empty, max 200 characters.
+
+```yaml
+title: Implement user authentication
+```
+
+#### type
+
+Optional string. Default: `story`.
+
+Valid values: `story`, `bug`, `spike`, `epic`. Aliases `feature` and `task` resolve to `story`.
+In the TUI each type has an icon: Story 🌀, Bug 💥, Spike 🔍, Epic 🗂️.
+
+```yaml
+type: bug
+```
+
+#### status
+
+Optional string. Must match a status defined in your project's `workflow.yaml`.
+Default: the status marked `default: true` in the workflow (typically `backlog`).
+
+If the value doesn't match any status in the workflow, it falls back to the default.
+
+```yaml
+status: in_progress
+```
+
+#### priority
+
+Optional. Stored in the file as an integer 1–5 (1 = highest, 5 = lowest). Default: `3`.
+
+In the TUI, priority is displayed as text with a color indicator:
+
+| Value | TUI label | Emoji |
+|-------|-----------|-------|
+| 1 | High | 🔴 |
+| 2 | Medium High | 🟠 |
+| 3 | Medium | 🟡 |
+| 4 | Medium Low | 🔵 |
+| 5 | Low | 🟢 |
+
+Text aliases are accepted when creating tikis (case-insensitive, hyphens/underscores/spaces as separators):
+`high` = 1, `medium-high` = 2, `medium` = 3, `medium-low` = 4, `low` = 5.
+
+```yaml
+priority: 2
+```
+
+#### points
+
+Optional integer. Range: `0` to `maxPoints` (configurable via `tiki.maxPoints`, default max is 10).
+`0` means unestimated. Values outside the valid range default to `maxPoints / 2` (typically 5).
+
+```yaml
+points: 3
+```
+
+#### assignee
+
+Optional string. Free-form text, typically a username. Default: empty.
+
+```yaml
+assignee: booleanmaybe
+```
+
+#### tags
+
+Optional string list. Arbitrary labels attached to a tiki. Empty and whitespace-only strings are filtered out.
+Default: empty. Both YAML list formats are accepted:
+
+```yaml
+# block list
+tags:
+    - frontend
+    - urgent
+
+# inline list
+tags: [frontend, urgent]
+```
+
+#### dependsOn
+
+Optional string list. Each entry must be a valid tiki ID in `TIKI-XXXXXX` format (6-character alphanumeric suffix)
+referencing an existing tiki. IDs are automatically uppercased. A dependency means this tiki is blocked by the listed tikis.
+Default: empty. Both YAML list formats are accepted:
+
+```yaml
+# block list
+dependsOn:
+    - TIKI-ABC123
+    - TIKI-DEF456
+
+# inline list
+dependsOn: [TIKI-ABC123, TIKI-DEF456]
+```
+
+#### due
+
+Optional date in `YYYY-MM-DD` format (date-only, no time component).
+Represents when the task should be completed by. Empty string or omitted field means no due date.
+
+```yaml
+due: 2026-04-01
+```
+
+#### recurrence
+
+Optional cron string specifying a recurrence pattern. Displayed as English in the TUI.
+This is metadata-only — it does not auto-create tasks on completion.
+
+Supported patterns:
+
+| Cron | Display |
+|------|---------|
+| (empty) | None |
+| `0 0 * * *` | Daily |
+| `0 0 * * MON` | Weekly on Monday |
+| `0 0 * * TUE` | Weekly on Tuesday |
+| `0 0 * * WED` | Weekly on Wednesday |
+| `0 0 * * THU` | Weekly on Thursday |
+| `0 0 * * FRI` | Weekly on Friday |
+| `0 0 * * SAT` | Weekly on Saturday |
+| `0 0 * * SUN` | Weekly on Sunday |
+| `0 0 1 * *` | Monthly |
+
+```yaml
+recurrence: 0 0 * * MON
+```
 
 ### Derived fields
 

@@ -55,25 +55,23 @@ func (ev *TaskEditView) ensureTypeSelectList(task *taskpkg.Task) *component.Edit
 	return ev.typeSelectList
 }
 
-func (ev *TaskEditView) ensurePriorityInput(task *taskpkg.Task) *component.IntEditSelect {
-	if ev.priorityInput == nil {
+func (ev *TaskEditView) ensurePrioritySelectList(task *taskpkg.Task) *component.EditSelectList {
+	if ev.prioritySelectList == nil {
+		priorityOptions := taskpkg.AllPriorityDisplayValues()
+
 		colors := config.GetColors()
-		ev.priorityInput = component.NewIntEditSelect(1, 5, false)
-		ev.priorityInput.SetLabel(getFocusMarker(colors) + "Priority: ")
+		ev.prioritySelectList = component.NewEditSelectList(priorityOptions, false)
+		ev.prioritySelectList.SetLabel(getFocusMarker(colors) + "Priority: ")
+		ev.prioritySelectList.SetInitialValue(taskpkg.PriorityDisplay(task.Priority))
 
-		ev.priorityInput.SetChangeHandler(func(value int) {
-			ev.updateValidationState()
-
+		ev.prioritySelectList.SetSubmitHandler(func(text string) {
 			if ev.onPrioritySave != nil {
-				ev.onPrioritySave(value)
+				ev.onPrioritySave(taskpkg.PriorityFromDisplay(text))
 			}
+			ev.updateValidationState()
 		})
-
-		ev.priorityInput.SetValue(task.Priority)
 	}
-	// Don't reset value if widget already exists - preserve user edits
-
-	return ev.priorityInput
+	return ev.prioritySelectList
 }
 
 func (ev *TaskEditView) ensurePointsInput(task *taskpkg.Task) *component.IntEditSelect {

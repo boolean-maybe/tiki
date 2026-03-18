@@ -22,10 +22,14 @@ build:
 	@echo "Building tiki $(VERSION)..."
 	go build $(LDFLAGS) -o tiki .
 
-# Build and install to GOPATH/bin
-install:
-	@echo "Installing tiki $(VERSION)..."
-	go install $(LDFLAGS) .
+# Build, sign, and install to ~/.local/bin
+install: build
+	@echo "Installing tiki to ~/.local/bin..."
+	@mkdir -p ~/.local/bin
+	cp tiki ~/.local/bin/tiki
+ifeq ($(shell uname),Darwin)
+	codesign -s - ~/.local/bin/tiki
+endif
 
 # Clean build artifacts
 clean:

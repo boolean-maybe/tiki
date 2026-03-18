@@ -9,8 +9,7 @@ import (
 	"github.com/boolean-maybe/tiki/task"
 )
 
-// TestBuildMetadataColumns_Structure verifies that buildMetadataColumns returns 2 flex containers
-// and RenderMetadataColumn3 returns the third column
+// TestBuildMetadataColumns_Structure verifies that buildMetadataColumns returns 3 flex containers
 func TestBuildMetadataColumns_Structure(t *testing.T) {
 	// Setup
 	s := store.NewInMemoryStore()
@@ -35,8 +34,7 @@ func TestBuildMetadataColumns_Structure(t *testing.T) {
 	ctx := FieldRenderContext{Mode: RenderModeView, Colors: colors}
 
 	// Execute
-	col1, col2 := view.buildMetadataColumns(task, ctx)
-	col3 := RenderMetadataColumn3(task, colors)
+	col1, col2, col3 := view.buildMetadataColumns(task, ctx, colors)
 
 	// Verify all three columns are returned and non-nil
 	if col1 == nil {
@@ -50,7 +48,7 @@ func TestBuildMetadataColumns_Structure(t *testing.T) {
 	}
 }
 
-// TestBuildMetadataColumns_Column1Fields verifies column 1 contains Status, Type, Priority
+// TestBuildMetadataColumns_Column1Fields verifies column 1 contains Status, Type, Priority, Points
 func TestBuildMetadataColumns_Column1Fields(t *testing.T) {
 	// Setup
 	s := store.NewInMemoryStore()
@@ -60,31 +58,6 @@ func TestBuildMetadataColumns_Column1Fields(t *testing.T) {
 		Status:   task.StatusReady,
 		Type:     task.TypeStory,
 		Priority: 3,
-	}
-
-	view := NewTaskDetailView(s, task.ID, nil, nil)
-	view.SetFallbackTask(task)
-
-	colors := config.GetColors()
-	ctx := FieldRenderContext{Mode: RenderModeView, Colors: colors}
-
-	// Execute
-	col1, _ := view.buildMetadataColumns(task, ctx)
-
-	// Verify column 1 has 3 items (Status, Type, Priority)
-	if col1.GetItemCount() != 3 {
-		t.Errorf("Expected col1 to have 3 items, got %d", col1.GetItemCount())
-	}
-}
-
-// TestBuildMetadataColumns_Column2Fields verifies column 2 contains Assignee, Points, and spacer
-func TestBuildMetadataColumns_Column2Fields(t *testing.T) {
-	// Setup
-	s := store.NewInMemoryStore()
-	task := &task.Task{
-		ID:       "TIKI-1",
-		Title:    "Test Task",
-		Assignee: "user@example.com",
 		Points:   5,
 	}
 
@@ -95,32 +68,62 @@ func TestBuildMetadataColumns_Column2Fields(t *testing.T) {
 	ctx := FieldRenderContext{Mode: RenderModeView, Colors: colors}
 
 	// Execute
-	_, col2 := view.buildMetadataColumns(task, ctx)
+	col1, _, _ := view.buildMetadataColumns(task, ctx, colors)
 
-	// Verify column 2 has 3 items (Assignee, Points, Spacer)
-	if col2.GetItemCount() != 3 {
-		t.Errorf("Expected col2 to have 3 items, got %d", col2.GetItemCount())
+	// Verify column 1 has 4 items (Status, Type, Priority, Points)
+	if col1.GetItemCount() != 4 {
+		t.Errorf("Expected col1 to have 4 items, got %d", col1.GetItemCount())
 	}
 }
 
-// TestBuildMetadataColumns_Column3Fields verifies column 3 contains Author, Created, Updated
-func TestBuildMetadataColumns_Column3Fields(t *testing.T) {
+// TestBuildMetadataColumns_Column2Fields verifies column 2 contains Assignee, Author, Created, Updated
+func TestBuildMetadataColumns_Column2Fields(t *testing.T) {
 	// Setup
+	s := store.NewInMemoryStore()
 	task := &task.Task{
 		ID:        "TIKI-1",
 		Title:     "Test Task",
+		Assignee:  "user@example.com",
 		CreatedBy: "creator@example.com",
 		CreatedAt: time.Date(2024, 1, 1, 12, 0, 0, 0, time.UTC),
 		UpdatedAt: time.Date(2024, 1, 2, 14, 30, 0, 0, time.UTC),
 	}
 
+	view := NewTaskDetailView(s, task.ID, nil, nil)
+	view.SetFallbackTask(task)
+
 	colors := config.GetColors()
+	ctx := FieldRenderContext{Mode: RenderModeView, Colors: colors}
 
 	// Execute
-	col3 := RenderMetadataColumn3(task, colors)
+	_, col2, _ := view.buildMetadataColumns(task, ctx, colors)
 
-	// Verify column 3 has 3 items (Author, Created, Updated)
-	if col3.GetItemCount() != 3 {
-		t.Errorf("Expected col3 to have 3 items, got %d", col3.GetItemCount())
+	// Verify column 2 has 4 items (Assignee, Author, Created, Updated)
+	if col2.GetItemCount() != 4 {
+		t.Errorf("Expected col2 to have 4 items, got %d", col2.GetItemCount())
+	}
+}
+
+// TestBuildMetadataColumns_Column3Fields verifies column 3 contains Due, Recurrence
+func TestBuildMetadataColumns_Column3Fields(t *testing.T) {
+	// Setup
+	s := store.NewInMemoryStore()
+	task := &task.Task{
+		ID:    "TIKI-1",
+		Title: "Test Task",
+	}
+
+	view := NewTaskDetailView(s, task.ID, nil, nil)
+	view.SetFallbackTask(task)
+
+	colors := config.GetColors()
+	ctx := FieldRenderContext{Mode: RenderModeView, Colors: colors}
+
+	// Execute
+	_, _, col3 := view.buildMetadataColumns(task, ctx, colors)
+
+	// Verify column 3 has 2 items (Due, Recurrence)
+	if col3.GetItemCount() != 2 {
+		t.Errorf("Expected col3 to have 2 items, got %d", col3.GetItemCount())
 	}
 }

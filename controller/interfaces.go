@@ -236,3 +236,9 @@ type StatsProvider interface {
 	// GetStats returns stats to display in the header for this view
 	GetStats() []store.Stat
 }
+
+// NavigationProvider is implemented by views that declare whether plugin
+// navigation keys should be shown in the header when this view is active.
+type NavigationProvider interface {
+	ShowNavigation() bool
+}

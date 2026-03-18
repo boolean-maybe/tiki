@@ -19,8 +19,8 @@ var fieldOrder = []EditField{
 	EditFieldStatus,
 	EditFieldType,
 	EditFieldPriority,
-	EditFieldAssignee,
 	EditFieldPoints,
+	EditFieldAssignee,
 	EditFieldDescription,
 }
 

@@ -57,6 +57,7 @@ var timeFields = map[string]bool{
 	"NOW":       true,
 	"CREATEDAT": true,
 	"UPDATEDAT": true,
+	"DUE":       true,
 }
 
 // isTimeField checks if a given identifier is a time field (case-insensitive)

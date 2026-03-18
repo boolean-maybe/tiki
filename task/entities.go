@@ -11,6 +11,8 @@ type Task struct {
 	Status      Status
 	Tags        []string
 	DependsOn   []string
+	Due         time.Time
+	Recurrence  Recurrence
 	Assignee    string
 	Priority    int // lower = higher priority
 	Points      int
@@ -34,6 +36,8 @@ func (t *Task) Clone() *Task {
 		Type:        t.Type,
 		Status:      t.Status,
 		Priority:    t.Priority,
+		Due:         t.Due,
+		Recurrence:  t.Recurrence,
 		Assignee:    t.Assignee,
 		Points:      t.Points,
 		CreatedBy:   t.CreatedBy,

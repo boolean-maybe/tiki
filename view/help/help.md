@@ -23,7 +23,7 @@ You can also edit its status, type and other fields, or open the source file dir
 
 ## Documentation
 
-Documentation is essentially a Wiki-style knowledge base stored alongside the project files
+Documentation is a Wiki-style knowledge base stored alongside the project files
 Documentation and various other files such as prompts can also be stored under git version control
 The documentation can be organized using Markdown links and navigated in the `tiki` cli using Tab/Shift-Tab and Enter
 

@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/boolean-maybe/tiki/task"
 )
@@ -15,25 +16,29 @@ type LaneAction struct {
 
 // LaneActionOp represents a single action operation.
 type LaneActionOp struct {
-	Field     ActionField
-	Operator  ActionOperator
-	StrValue  string
-	IntValue  int
-	Tags      []string
-	DependsOn []string
+	Field           ActionField
+	Operator        ActionOperator
+	StrValue        string
+	IntValue        int
+	Tags            []string
+	DependsOn       []string
+	DueValue        time.Time
+	RecurrenceValue task.Recurrence
 }
 
 // ActionField identifies a supported action field.
 type ActionField string
 
 const (
-	ActionFieldStatus    ActionField = "status"
-	ActionFieldType      ActionField = "type"
-	ActionFieldPriority  ActionField = "priority"
-	ActionFieldAssignee  ActionField = "assignee"
-	ActionFieldPoints    ActionField = "points"
-	ActionFieldTags      ActionField = "tags"
-	ActionFieldDependsOn ActionField = "dependsOn"
+	ActionFieldStatus     ActionField = "status"
+	ActionFieldType       ActionField = "type"
+	ActionFieldPriority   ActionField = "priority"
+	ActionFieldAssignee   ActionField = "assignee"
+	ActionFieldPoints     ActionField = "points"
+	ActionFieldTags       ActionField = "tags"
+	ActionFieldDependsOn  ActionField = "dependsOn"
+	ActionFieldDue        ActionField = "due"
+	ActionFieldRecurrence ActionField = "recurrence"
 )
 
 // ActionOperator identifies a supported action operator.
@@ -146,6 +151,32 @@ func ParseLaneAction(input string) (LaneAction, error) {
 				Operator: op,
 				StrValue: strValue,
 			})
+		case ActionFieldDue:
+			if op != ActionOperatorAssign {
+				return LaneAction{}, fmt.Errorf("%s action only supports =", field)
+			}
+			dueValue, err := parseDateValue(value)
+			if err != nil {
+				return LaneAction{}, err
+			}
+			ops = append(ops, LaneActionOp{
+				Field:    field,
+				Operator: op,
+				DueValue: dueValue,
+			})
+		case ActionFieldRecurrence:
+			if op != ActionOperatorAssign {
+				return LaneAction{}, fmt.Errorf("%s action only supports =", field)
+			}
+			recValue, err := parseRecurrenceValue(value)
+			if err != nil {
+				return LaneAction{}, err
+			}
+			ops = append(ops, LaneActionOp{
+				Field:           field,
+				Operator:        op,
+				RecurrenceValue: recValue,
+			})
 		default:
 			if op != ActionOperatorAssign {
 				return LaneAction{}, fmt.Errorf("%s action only supports =", field)
@@ -199,6 +230,10 @@ func ApplyLaneAction(src *task.Task, action LaneAction, currentUser string) (*ta
 			clone.Tags = applyTagOperation(clone.Tags, op.Operator, op.Tags)
 		case ActionFieldDependsOn:
 			clone.DependsOn = applyTagOperation(clone.DependsOn, op.Operator, op.DependsOn)
+		case ActionFieldDue:
+			clone.Due = op.DueValue
+		case ActionFieldRecurrence:
+			clone.Recurrence = op.RecurrenceValue
 		default:
 			return nil, fmt.Errorf("unsupported action field %q", op.Field)
 		}
@@ -242,6 +277,10 @@ func parseActionSegment(segment string) (ActionField, ActionOperator, string, er
 		return ActionFieldTags, op, value, nil
 	case "dependson":
 		return ActionFieldDependsOn, op, value, nil
+	case "due":
+		return ActionFieldDue, op, value, nil
+	case "recurrence":
+		return ActionFieldRecurrence, op, value, nil
 	default:
 		return "", "", "", fmt.Errorf("unknown action field %q", field)
 	}
@@ -260,19 +299,67 @@ func findOperator(segment string) (int, ActionOperator) {
 	return -1, ""
 }
 
-func parseStringValue(raw string) (string, error) {
-	value := strings.TrimSpace(raw)
-	if len(value) >= 2 {
-		if (value[0] == '\'' && value[len(value)-1] == '\'') ||
-			(value[0] == '"' && value[len(value)-1] == '"') {
-			value = value[1 : len(value)-1]
+// unquote trims whitespace and strips surrounding single or double quotes.
+func unquote(raw string) string {
+	v := strings.TrimSpace(raw)
+	if len(v) >= 2 {
+		if (v[0] == '\'' && v[len(v)-1] == '\'') ||
+			(v[0] == '"' && v[len(v)-1] == '"') {
+			v = v[1 : len(v)-1]
 		}
 	}
-	value = strings.TrimSpace(value)
+	return strings.TrimSpace(v)
+}
+
+func parseStringValue(raw string) (string, error) {
+	value := unquote(raw)
 	if value == "" {
 		return "", fmt.Errorf("string value is empty")
 	}
 	return value, nil
+}
+
+// parseDateValue parses a date value for the due field.
+// Empty string (or empty after unquoting) means clear the due date (returns zero time).
+// Otherwise parses as YYYY-MM-DD format.
+func parseDateValue(raw string) (time.Time, error) {
+	value := unquote(raw)
+
+	// Empty string means clear the due date
+	if value == "" {
+		return time.Time{}, nil
+	}
+
+	// Parse as date
+	parsed, ok := task.ParseDueDate(value)
+	if !ok {
+		return time.Time{}, fmt.Errorf("invalid date format %q (expected YYYY-MM-DD)", value)
+	}
+	return parsed, nil
+}
+
+// parseRecurrenceValue parses a recurrence value from an action expression.
+// Empty string (or empty after unquoting) clears the recurrence.
+// Otherwise parses as a cron pattern or display name.
+func parseRecurrenceValue(raw string) (task.Recurrence, error) {
+	value := unquote(raw)
+
+	if value == "" {
+		return task.RecurrenceNone, nil
+	}
+
+	// try as cron pattern first
+	if r, ok := task.ParseRecurrence(value); ok {
+		return r, nil
+	}
+
+	// try as display name
+	r := task.RecurrenceFromDisplay(value)
+	if r != task.RecurrenceNone {
+		return r, nil
+	}
+
+	return task.RecurrenceNone, fmt.Errorf("invalid recurrence value %q", value)
 }
 
 func parseIntValue(raw string) (int, error) {

@@ -200,6 +200,87 @@ func TestDependsOnValue_ToStringSlice(t *testing.T) {
 	}
 }
 
+func TestFindBlockedTasks(t *testing.T) {
+	taskA := &Task{ID: "TIKI-AAA", Title: "Task A", DependsOn: []string{}}
+	taskB := &Task{ID: "TIKI-BBB", Title: "Task B", DependsOn: []string{"TIKI-AAA"}}
+	taskC := &Task{ID: "TIKI-CCC", Title: "Task C", DependsOn: []string{"TIKI-AAA", "TIKI-BBB"}}
+	taskD := &Task{ID: "TIKI-DDD", Title: "Task D", DependsOn: []string{"TIKI-CCC"}}
+
+	allTasks := []*Task{taskA, taskB, taskC, taskD}
+
+	tests := []struct {
+		name    string
+		taskID  string
+		wantIDs []string
+	}{
+		{
+			name:    "task with two blockers",
+			taskID:  "TIKI-AAA",
+			wantIDs: []string{"TIKI-BBB", "TIKI-CCC"},
+		},
+		{
+			name:    "task with one blocker",
+			taskID:  "TIKI-BBB",
+			wantIDs: []string{"TIKI-CCC"},
+		},
+		{
+			name:    "task with one blocker (chain)",
+			taskID:  "TIKI-CCC",
+			wantIDs: []string{"TIKI-DDD"},
+		},
+		{
+			name:    "task blocking nothing",
+			taskID:  "TIKI-DDD",
+			wantIDs: nil,
+		},
+		{
+			name:    "non-existent task ID",
+			taskID:  "TIKI-ZZZ",
+			wantIDs: nil,
+		},
+		{
+			name:    "case insensitive lookup",
+			taskID:  "tiki-aaa",
+			wantIDs: []string{"TIKI-BBB", "TIKI-CCC"},
+		},
+		{
+			name:    "empty task list",
+			taskID:  "TIKI-AAA",
+			wantIDs: nil,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			input := allTasks
+			if tt.name == "empty task list" {
+				input = nil
+			}
+			got := FindBlockedTasks(input, tt.taskID)
+
+			var gotIDs []string
+			for _, task := range got {
+				gotIDs = append(gotIDs, task.ID)
+			}
+
+			if len(gotIDs) != len(tt.wantIDs) {
+				t.Errorf("FindBlockedTasks() returned %d tasks %v, want %d tasks %v", len(gotIDs), gotIDs, len(tt.wantIDs), tt.wantIDs)
+				return
+			}
+
+			wantSet := make(map[string]bool, len(tt.wantIDs))
+			for _, id := range tt.wantIDs {
+				wantSet[id] = true
+			}
+			for _, id := range gotIDs {
+				if !wantSet[id] {
+					t.Errorf("FindBlockedTasks() returned unexpected task %s", id)
+				}
+			}
+		})
+	}
+}
+
 func TestDependsOnValue_RoundTrip(t *testing.T) {
 	tests := []struct {
 		name string

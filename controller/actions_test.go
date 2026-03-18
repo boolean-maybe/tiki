@@ -426,11 +426,11 @@ func TestTaskDetailViewActions(t *testing.T) {
 	registry := TaskDetailViewActions()
 	actions := registry.GetActions()
 
-	if len(actions) != 3 {
-		t.Errorf("expected 3 task detail actions, got %d", len(actions))
+	if len(actions) != 4 {
+		t.Errorf("expected 4 task detail actions, got %d", len(actions))
 	}
 
-	expectedActions := []ActionID{ActionEditTitle, ActionEditSource, ActionFullscreen}
+	expectedActions := []ActionID{ActionEditTitle, ActionEditSource, ActionFullscreen, ActionEditDeps}
 	for i, expected := range expectedActions {
 		if i >= len(actions) {
 			t.Errorf("missing action at index %d: want %v", i, expected)

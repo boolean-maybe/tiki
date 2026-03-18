@@ -1,15 +1,12 @@
 package taskdetail
 
 import (
-	"fmt"
-
 	"github.com/boolean-maybe/tiki/component"
 	"github.com/boolean-maybe/tiki/config"
 	"github.com/boolean-maybe/tiki/controller"
 	"github.com/boolean-maybe/tiki/model"
 	"github.com/boolean-maybe/tiki/store"
 	taskpkg "github.com/boolean-maybe/tiki/task"
-	"github.com/boolean-maybe/tiki/util/gradient"
 
 	navtview "github.com/boolean-maybe/navidown/navidown/tview"
 	"github.com/gdamore/tcell/v2"
@@ -35,7 +32,7 @@ type TaskEditView struct {
 	descEditing        bool
 	statusSelectList   *component.EditSelectList
 	typeSelectList     *component.EditSelectList
-	priorityInput      *component.IntEditSelect
+	prioritySelectList *component.EditSelectList
 	assigneeSelectList *component.EditSelectList
 	pointsInput        *component.IntEditSelect
 
@@ -82,7 +79,7 @@ func NewTaskEditView(taskStore store.Store, taskID string, imageManager *navtvie
 		ev.ensureDescTextArea(task)
 		ev.ensureStatusSelectList(task)
 		ev.ensureTypeSelectList(task)
-		ev.ensurePriorityInput(task)
+		ev.ensurePrioritySelectList(task)
 		ev.ensureAssigneeSelectList(task)
 		ev.ensurePointsInput(task)
 	}
@@ -146,7 +143,7 @@ func (ev *TaskEditView) refresh() {
 
 	if !ev.fullscreen {
 		metadataBox := ev.buildMetadataBox(task, colors)
-		ev.content.AddItem(metadataBox, 9, 0, false)
+		ev.content.AddItem(metadataBox, 10, 0, false)
 	}
 
 	descPrimitive := ev.buildDescription(task)
@@ -156,47 +153,15 @@ func (ev *TaskEditView) refresh() {
 }
 
 func (ev *TaskEditView) buildMetadataBox(task *taskpkg.Task, colors *config.ColorConfig) *tview.Frame {
-	metadataContainer := tview.NewFlex().SetDirection(tview.FlexRow)
-
-	leftSide := tview.NewFlex().SetDirection(tview.FlexRow)
-
-	titlePrimitive := ev.buildTitlePrimitive(task, colors)
-	leftSide.AddItem(titlePrimitive, 1, 0, true)
-	leftSide.AddItem(tview.NewBox(), 1, 0, false)
-
 	ctx := FieldRenderContext{
 		Mode:         RenderModeEdit,
 		FocusedField: ev.focusedField,
 		Colors:       colors,
 	}
-	col1, col2 := ev.buildMetadataColumns(task, ctx)
-	col3 := RenderMetadataColumn3(task, colors)
-
-	metadataRow := tview.NewFlex().SetDirection(tview.FlexColumn)
-	metadataRow.AddItem(col1, 30, 0, false)
-	metadataRow.AddItem(tview.NewBox(), 2, 0, false)
-	metadataRow.AddItem(col2, 30, 0, false)
-	metadataRow.AddItem(tview.NewBox(), 2, 0, false)
-	metadataRow.AddItem(col3, 30, 0, false)
-	leftSide.AddItem(metadataRow, 4, 0, false)
-
-	rightSide := tview.NewFlex().SetDirection(tview.FlexRow)
-	rightSide.AddItem(tview.NewBox(), 2, 0, false)
-	tagsCol := RenderTagsColumn(task)
-	rightSide.AddItem(tagsCol, 0, 1, false)
-
-	mainRow := tview.NewFlex().SetDirection(tview.FlexColumn)
-	mainRow.AddItem(leftSide, 0, 3, true)
-	mainRow.AddItem(rightSide, 0, 1, false)
-
-	metadataContainer.AddItem(mainRow, 0, 1, false)
-
-	metadataBox := tview.NewFrame(metadataContainer).SetBorders(0, 0, 0, 0, 0, 0)
-	metadataBox.SetBorder(true).SetTitle(fmt.Sprintf(" %s ", gradient.RenderAdaptiveGradientText(task.ID, colors.TaskDetailIDColor, config.FallbackTaskIDColor))).SetBorderColor(colors.TaskBoxUnselectedBorder)
-	metadataBox.SetBorderPadding(1, 0, 2, 2)
-
+	titlePrimitive := ev.buildTitlePrimitive(task, colors)
+	col1, col2, col3 := ev.buildMetadataColumns(task, ctx, colors)
+	metadataBox := ev.assembleMetadataBox(task, colors, titlePrimitive, col1, col2, col3, 1)
 	ev.metadataBox = metadataBox
-
 	return metadataBox
 }
 
@@ -211,20 +176,27 @@ func (ev *TaskEditView) buildTitlePrimitive(task *taskpkg.Task, colors *config.C
 	return input
 }
 
-func (ev *TaskEditView) buildMetadataColumns(task *taskpkg.Task, ctx FieldRenderContext) (*tview.Flex, *tview.Flex) {
-	// Column 1: Status, Type, Priority
+func (ev *TaskEditView) buildMetadataColumns(task *taskpkg.Task, ctx FieldRenderContext, colors *config.ColorConfig) (*tview.Flex, *tview.Flex, *tview.Flex) {
+	// Column 1: Status, Type, Priority, Points
 	col1 := tview.NewFlex().SetDirection(tview.FlexRow)
 	col1.AddItem(ev.buildStatusField(task, ctx), 1, 0, false)
 	col1.AddItem(ev.buildTypeField(task, ctx), 1, 0, false)
 	col1.AddItem(ev.buildPriorityField(task, ctx), 1, 0, false)
+	col1.AddItem(ev.buildPointsField(task, ctx), 1, 0, false)
 
-	// Column 2: Assignee, Points
+	// Column 2: Assignee, Author, Created, Updated
 	col2 := tview.NewFlex().SetDirection(tview.FlexRow)
 	col2.AddItem(ev.buildAssigneeField(task, ctx), 1, 0, false)
-	col2.AddItem(ev.buildPointsField(task, ctx), 1, 0, false)
-	col2.AddItem(tview.NewBox(), 1, 0, false)
+	col2.AddItem(RenderAuthorText(task, colors), 1, 0, false)
+	col2.AddItem(RenderCreatedText(task, colors), 1, 0, false)
+	col2.AddItem(RenderUpdatedText(task, colors), 1, 0, false)
 
-	return col1, col2
+	// Column 3: Due, Recurrence
+	col3 := tview.NewFlex().SetDirection(tview.FlexRow)
+	col3.AddItem(RenderDueText(task, colors), 1, 0, false)
+	col3.AddItem(RenderRecurrenceText(task, colors), 1, 0, false)
+
+	return col1, col2, col3
 }
 
 func (ev *TaskEditView) buildStatusField(task *taskpkg.Task, ctx FieldRenderContext) tview.Primitive {
@@ -243,7 +215,7 @@ func (ev *TaskEditView) buildTypeField(task *taskpkg.Task, ctx FieldRenderContex
 
 func (ev *TaskEditView) buildPriorityField(task *taskpkg.Task, ctx FieldRenderContext) tview.Primitive {
 	if ctx.FocusedField == model.EditFieldPriority {
-		return ev.ensurePriorityInput(task)
+		return ev.ensurePrioritySelectList(task)
 	}
 	return RenderPriorityText(task, ctx)
 }
@@ -380,8 +352,8 @@ func (ev *TaskEditView) buildTaskFromWidgets() *taskpkg.Task {
 	if ev.titleInput != nil {
 		snapshot.Title = ev.titleInput.GetText()
 	}
-	if ev.priorityInput != nil {
-		snapshot.Priority = ev.priorityInput.GetValue()
+	if ev.prioritySelectList != nil {
+		snapshot.Priority = taskpkg.PriorityFromDisplay(ev.prioritySelectList.GetText())
 	}
 	if ev.pointsInput != nil {
 		snapshot.Points = ev.pointsInput.GetValue()

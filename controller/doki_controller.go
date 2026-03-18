@@ -34,6 +34,9 @@ func (dc *DokiController) GetPluginName() string {
 	return dc.pluginDef.Name
 }
 
+// ShowNavigation returns true — doki views show plugin navigation keys.
+func (dc *DokiController) ShowNavigation() bool { return true }
+
 // HandleAction processes a doki action
 // Note: Most doki actions (Tab, Shift+Tab, Alt+Left, Alt+Right) are handled
 // directly by the NavigableMarkdown component in the view. The controller

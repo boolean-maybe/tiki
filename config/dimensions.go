@@ -16,6 +16,16 @@ const (
 	// Search box dimensions
 	SearchBoxHeight = 3
 
+	// TaskList default visible rows
+	TaskListDefaultMaxRows = 10
+
+	// TaskList max rows when displayed inside the metadata box
+	TaskListMetadataMaxRows = 4
+
+	// Metadata box responsive layout
+	MetadataSectionMinWidth = 30 // left-side section (status/people/due) min width
+	MetadataDepMinWidth     = 30 // shedding threshold for Depends On (TaskList truncates gracefully)
+	MetadataBlkMinWidth     = 30 // shedding threshold for Blocks (TaskList truncates gracefully)
 	// Note: Header dimensions are already centralized in view/header/header.go:
 	// HeaderHeight, HeaderColumnSpacing, StatsWidth, ChartWidth, LogoWidth
 )

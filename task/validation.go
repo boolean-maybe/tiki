@@ -25,6 +25,8 @@ func NewTaskValidator() *TaskValidator {
 			&PriorityValidator{},
 			&PointsValidator{},
 			&DependsOnValidator{},
+			&DueValidator{},
+			&RecurrenceValidator{},
 			// Assignee and Description have no constraints (always valid)
 		},
 	}
