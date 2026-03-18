@@ -55,8 +55,7 @@ func Bootstrap(tikiSkillContent, dokiSkillContent string) (*Result, error) {
 		return nil, err
 	}
 
-	// Phase 2: Project initialization (creates dirs, seeds files, writes default config)
-	// runs before LoadConfig so that config.yaml exists on first launch
+	// Phase 2: Project initialization (creates dirs and seeds sample files)
 	proceed, err := EnsureProjectInitialized(tikiSkillContent, dokiSkillContent)
 	if err != nil {
 		return nil, err
