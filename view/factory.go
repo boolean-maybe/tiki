@@ -55,6 +55,13 @@ func (f *ViewFactory) SetPlugins(
 	f.pluginControllers = controllers
 }
 
+// RegisterPlugin registers a dynamically created plugin (e.g., deps editor) with the view factory.
+func (f *ViewFactory) RegisterPlugin(name string, cfg *model.PluginConfig, def plugin.Plugin, ctrl controller.PluginControllerInterface) {
+	f.pluginConfigs[name] = cfg
+	f.pluginDefs[name] = def
+	f.pluginControllers[name] = ctrl
+}
+
 // CreateView instantiates a view by ID with optional parameters
 func (f *ViewFactory) CreateView(viewID model.ViewID, params map[string]interface{}) controller.View {
 	var v controller.View
@@ -84,18 +91,18 @@ func (f *ViewFactory) CreateView(viewID model.ViewID, params map[string]interfac
 
 			if pluginDef != nil {
 				if tikiPlugin, ok := pluginDef.(*plugin.TikiPlugin); ok && pluginConfig != nil && pluginControllerInterface != nil {
-					// For TikiPlugins, we need the specific PluginController for GetFilteredTasks
-					if tikiController, ok := pluginControllerInterface.(*controller.PluginController); ok {
+					if tikiCtrl, ok := pluginControllerInterface.(controller.TikiViewProvider); ok {
 						v = NewPluginView(
 							f.taskStore,
 							pluginConfig,
 							tikiPlugin,
-							tikiController.GetFilteredTasksForLane,
-							tikiController.EnsureFirstNonEmptyLaneSelection,
-							tikiController.GetActionRegistry(),
+							tikiCtrl.GetFilteredTasksForLane,
+							tikiCtrl.EnsureFirstNonEmptyLaneSelection,
+							tikiCtrl.GetActionRegistry(),
+							tikiCtrl.ShowNavigation(),
 						)
 					} else {
-						slog.Error("plugin controller type mismatch", "plugin", pluginName)
+						slog.Error("plugin controller does not implement TikiViewProvider", "plugin", pluginName)
 					}
 				} else if dokiPlugin, ok := pluginDef.(*plugin.DokiPlugin); ok {
 					v = NewDokiView(dokiPlugin, f.imageManager, f.mermaidOpts)

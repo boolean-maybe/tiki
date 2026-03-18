@@ -58,6 +58,11 @@ func (s *ScrollableList) GetScrollOffset() int {
 	return s.scrollOffset
 }
 
+// ResetScrollOffset resets the scroll offset to 0
+func (s *ScrollableList) ResetScrollOffset() {
+	s.scrollOffset = 0
+}
+
 // ensureSelectionVisible adjusts scrollOffset to keep selectionIndex in view
 func (s *ScrollableList) ensureSelectionVisible() {
 	// If no items, preserve scrollOffset (will be adjusted after items are added)

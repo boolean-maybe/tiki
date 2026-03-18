@@ -3,8 +3,11 @@ package controller
 import (
 	"log/slog"
 
+	"github.com/boolean-maybe/tiki/config"
 	"github.com/boolean-maybe/tiki/model"
+	"github.com/boolean-maybe/tiki/plugin"
 	"github.com/boolean-maybe/tiki/store"
+	"github.com/boolean-maybe/tiki/task"
 
 	"github.com/gdamore/tcell/v2"
 	"github.com/rivo/tview"
@@ -16,6 +19,16 @@ type PluginControllerInterface interface {
 	GetPluginName() string
 	HandleAction(ActionID) bool
 	HandleSearch(string)
+	ShowNavigation() bool
+}
+
+// TikiViewProvider is implemented by controllers that back a TikiPlugin view.
+// The view factory uses this to create PluginView without knowing the concrete controller type.
+type TikiViewProvider interface {
+	GetFilteredTasksForLane(lane int) []*task.Task
+	EnsureFirstNonEmptyLaneSelection() bool
+	GetActionRegistry() *ActionRegistry
+	ShowNavigation() bool
 }
 
 // InputRouter dispatches input events to appropriate controllers
@@ -33,6 +46,7 @@ type InputRouter struct {
 	pluginControllers map[string]PluginControllerInterface // keyed by plugin name
 	globalActions     *ActionRegistry
 	taskStore         store.Store
+	registerPlugin    func(name string, cfg *model.PluginConfig, def plugin.Plugin, ctrl PluginControllerInterface)
 }
 
 // NewInputRouter creates an input router
@@ -176,6 +190,52 @@ func (ir *InputRouter) maybeHandleTaskEditFieldFocus(activeView View, isTaskEdit
 	return false, false
 }
 
+// SetPluginRegistrar sets the callback used to register dynamically created plugins
+// (e.g., the deps editor) with the view factory.
+func (ir *InputRouter) SetPluginRegistrar(fn func(name string, cfg *model.PluginConfig, def plugin.Plugin, ctrl PluginControllerInterface)) {
+	ir.registerPlugin = fn
+}
+
+// openDepsEditor creates (or reopens) a deps editor plugin for the given task ID.
+func (ir *InputRouter) openDepsEditor(taskID string) bool {
+	name := "deps:" + taskID
+	viewID := model.MakePluginViewID(name)
+
+	// reopen if already created
+	if _, exists := ir.pluginControllers[name]; exists {
+		ir.navController.PushView(viewID, nil)
+		return true
+	}
+
+	pluginDef := &plugin.TikiPlugin{
+		BasePlugin: plugin.BasePlugin{
+			Name:        name,
+			ConfigIndex: -1,
+			Type:        "tiki",
+			Background:  config.DepsEditorBackground,
+		},
+		TaskID: taskID,
+		Lanes: []plugin.TikiLane{
+			{Name: "Blocks"},
+			{Name: "All"},
+			{Name: "Depends"},
+		},
+	}
+
+	pluginConfig := model.NewPluginConfig(name)
+	pluginConfig.SetLaneLayout([]int{1, 2, 1})
+
+	ctrl := NewDepsController(ir.taskStore, pluginConfig, pluginDef, ir.navController)
+
+	if ir.registerPlugin != nil {
+		ir.registerPlugin(name, pluginConfig, pluginDef, ctrl)
+	}
+	ir.pluginControllers[name] = ctrl
+
+	ir.navController.PushView(viewID, nil)
+	return true
+}
+
 // handlePluginInput routes input to the appropriate plugin controller
 func (ir *InputRouter) handlePluginInput(event *tcell.EventKey, viewID model.ViewID) bool {
 	pluginName := model.GetPluginName(viewID)
@@ -285,6 +345,12 @@ func (ir *InputRouter) handleTaskInput(event *tcell.EventKey, params map[string]
 				return true
 			}
 			return false
+		case ActionEditDeps:
+			taskID := ir.taskController.GetCurrentTaskID()
+			if taskID == "" {
+				return false
+			}
+			return ir.openDepsEditor(taskID)
 		default:
 			return ir.taskController.HandleAction(action.ID)
 		}

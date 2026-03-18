@@ -84,15 +84,15 @@ func (s *TikiStore) Search(query string, filterFunc func(*taskpkg.Task) bool) []
 	return results
 }
 
-// sortTasks sorts tasks by priority first (lower number = higher priority), then by title alphabetically
+// sortTasks sorts tasks by priority first (lower number = higher priority), then by title, then by ID as tiebreaker
 func sortTasks(tasks []*taskpkg.Task) {
 	sort.Slice(tasks, func(i, j int) bool {
-		// First compare by priority (lower number = higher priority)
 		if tasks[i].Priority != tasks[j].Priority {
 			return tasks[i].Priority < tasks[j].Priority
 		}
-
-		// If priority is the same, sort by Title alphabetically
-		return tasks[i].Title < tasks[j].Title
+		if tasks[i].Title != tasks[j].Title {
+			return tasks[i].Title < tasks[j].Title
+		}
+		return tasks[i].ID < tasks[j].ID
 	})
 }

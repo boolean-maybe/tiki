@@ -130,6 +130,11 @@ func Bootstrap(tikiSkillContent, dokiSkillContent string) (*Result, error) {
 	viewFactory := view.NewViewFactory(taskStore)
 	viewFactory.SetPlugins(pluginConfigs, pluginDefs, controllers.Plugins)
 
+	// Wire dynamic plugin registration (deps editor creates plugins at runtime)
+	inputRouter.SetPluginRegistrar(func(name string, cfg *model.PluginConfig, def plugin.Plugin, ctrl controller.PluginControllerInterface) {
+		viewFactory.RegisterPlugin(name, cfg, def, ctrl)
+	})
+
 	headerWidget := header.NewHeaderWidget(headerConfig)
 	rootLayout := view.NewRootLayout(headerWidget, headerConfig, layoutModel, viewFactory, taskStore, application)
 

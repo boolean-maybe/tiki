@@ -61,6 +61,7 @@ type TikiPlugin struct {
 	Sort     []SortRule     // parsed sort rules (nil = default sort)
 	ViewMode string         // default view mode: "compact" or "expanded" (empty = compact)
 	Actions  []PluginAction // shortcut actions applied to the selected task
+	TaskID   string         // optional tiki associated with this plugin (code-only, not from workflow config)
 }
 
 // DokiPlugin is a documentation-based plugin

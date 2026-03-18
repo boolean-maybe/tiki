@@ -96,6 +96,9 @@ func (pc *PluginController) GetPluginName() string {
 	return pc.pluginDef.Name
 }
 
+// ShowNavigation returns true — regular plugin views show plugin navigation keys.
+func (pc *PluginController) ShowNavigation() bool { return true }
+
 // HandleAction processes a plugin action
 func (pc *PluginController) HandleAction(actionID ActionID) bool {
 	switch actionID {

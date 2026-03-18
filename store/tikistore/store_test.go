@@ -36,6 +36,15 @@ func TestSortTasks(t *testing.T) {
 			expected: []string{"TIKI-abc2zz", "TIKI-abc1zz", "TIKI-abc10z"}, // Apple, Mango, Zebra
 		},
 		{
+			name: "same priority and title - tiebreak by ID",
+			tasks: []*taskpkg.Task{
+				{ID: "TIKI-ccc333", Title: "Same", Priority: 2},
+				{ID: "TIKI-aaa111", Title: "Same", Priority: 2},
+				{ID: "TIKI-bbb222", Title: "Same", Priority: 2},
+			},
+			expected: []string{"TIKI-aaa111", "TIKI-bbb222", "TIKI-ccc333"},
+		},
+		{
 			name:     "empty task list",
 			tasks:    []*taskpkg.Task{},
 			expected: []string{},

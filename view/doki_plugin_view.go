@@ -136,6 +136,9 @@ func (dv *DokiView) rebuildLayout() {
 	dv.root.AddItem(dv.markdown.Viewer(), 0, 1, true)
 }
 
+// ShowNavigation returns true — doki views always show plugin navigation keys.
+func (dv *DokiView) ShowNavigation() bool { return true }
+
 func (dv *DokiView) GetPrimitive() tview.Primitive {
 	return dv.root
 }

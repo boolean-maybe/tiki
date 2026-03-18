@@ -27,6 +27,7 @@ type PluginView struct {
 	pluginConfig        *model.PluginConfig
 	pluginDef           *plugin.TikiPlugin
 	registry            *controller.ActionRegistry
+	showNavigation      bool
 	storeListenerID     int
 	selectionListenerID int
 	getLaneTasks        func(lane int) []*task.Task // injected from controller
@@ -41,12 +42,14 @@ func NewPluginView(
 	getLaneTasks func(lane int) []*task.Task,
 	ensureSelection func() bool,
 	registry *controller.ActionRegistry,
+	showNavigation bool,
 ) *PluginView {
 	pv := &PluginView{
 		taskStore:       taskStore,
 		pluginConfig:    pluginConfig,
 		pluginDef:       pluginDef,
 		registry:        registry,
+		showNavigation:  showNavigation,
 		getLaneTasks:    getLaneTasks,
 		ensureSelection: ensureSelection,
 	}
@@ -171,6 +174,7 @@ func (pv *PluginView) refresh() {
 			laneContainer.SetSelection(selectedRow)
 		} else {
 			laneContainer.SetSelection(-1)
+			laneContainer.ResetScrollOffset()
 		}
 
 		// Sync scroll offset from view to model for later lane navigation
@@ -187,6 +191,9 @@ func (pv *PluginView) GetPrimitive() tview.Primitive {
 func (pv *PluginView) GetActionRegistry() *controller.ActionRegistry {
 	return pv.registry
 }
+
+// ShowNavigation returns whether plugin navigation keys should be shown in the header.
+func (pv *PluginView) ShowNavigation() bool { return pv.showNavigation }
 
 // GetViewID returns the view identifier
 func (pv *PluginView) GetViewID() model.ViewID {

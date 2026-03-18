@@ -38,6 +38,7 @@ const (
 	ActionEditSource ActionID = "edit_source"
 	ActionFullscreen ActionID = "fullscreen"
 	ActionCloneTask  ActionID = "clone_task"
+	ActionEditDeps   ActionID = "edit_deps"
 )
 
 // ActionID values for task edit view actions.
@@ -252,7 +253,7 @@ func TaskDetailViewActions() *ActionRegistry {
 	r.Register(Action{ID: ActionEditTitle, Key: tcell.KeyRune, Rune: 'e', Label: "Edit", ShowInHeader: true})
 	r.Register(Action{ID: ActionEditSource, Key: tcell.KeyRune, Rune: 's', Label: "Edit source", ShowInHeader: true})
 	r.Register(Action{ID: ActionFullscreen, Key: tcell.KeyRune, Rune: 'f', Label: "Full screen", ShowInHeader: true})
-	// Clone action removed - not yet implemented
+	r.Register(Action{ID: ActionEditDeps, Key: tcell.KeyCtrlD, Modifier: tcell.ModCtrl, Label: "Deps", ShowInHeader: true})
 
 	return r
 }
@@ -381,6 +382,32 @@ func PluginViewActions() *ActionRegistry {
 
 	// plugin activation keys are merged dynamically after plugins load
 	r.MergePluginActions()
+
+	return r
+}
+
+// DepsViewActions returns the action registry for the dependency editor view.
+// Restricted to navigation, move task, view mode toggle, and search — no open/new/delete/plugin keys.
+func DepsViewActions() *ActionRegistry {
+	r := NewActionRegistry()
+
+	// navigation (not shown in header)
+	r.Register(Action{ID: ActionNavUp, Key: tcell.KeyUp, Label: "↑"})
+	r.Register(Action{ID: ActionNavDown, Key: tcell.KeyDown, Label: "↓"})
+	r.Register(Action{ID: ActionNavLeft, Key: tcell.KeyLeft, Label: "←"})
+	r.Register(Action{ID: ActionNavRight, Key: tcell.KeyRight, Label: "→"})
+	r.Register(Action{ID: ActionNavUp, Key: tcell.KeyRune, Rune: 'k', Label: "↑"})
+	r.Register(Action{ID: ActionNavDown, Key: tcell.KeyRune, Rune: 'j', Label: "↓"})
+	r.Register(Action{ID: ActionNavLeft, Key: tcell.KeyRune, Rune: 'h', Label: "←"})
+	r.Register(Action{ID: ActionNavRight, Key: tcell.KeyRune, Rune: 'l', Label: "→"})
+
+	// move task between lanes (shown in header)
+	r.Register(Action{ID: ActionMoveTaskLeft, Key: tcell.KeyLeft, Modifier: tcell.ModShift, Label: "Move ←", ShowInHeader: true})
+	r.Register(Action{ID: ActionMoveTaskRight, Key: tcell.KeyRight, Modifier: tcell.ModShift, Label: "Move →", ShowInHeader: true})
+
+	// view mode and search
+	r.Register(Action{ID: ActionSearch, Key: tcell.KeyRune, Rune: '/', Label: "Search", ShowInHeader: true})
+	r.Register(Action{ID: ActionToggleViewMode, Key: tcell.KeyRune, Rune: 'v', Label: "View mode", ShowInHeader: true})
 
 	return r
 }

@@ -28,6 +28,7 @@ type ColorConfig struct {
 	TaskBoxLabelColor           string // tview color string like "[#767676]"
 	TaskBoxDescriptionColor     string // tview color string like "[#767676]"
 	TaskBoxTagValueColor        string // tview color string like "[#5a6f8f]"
+	TaskListSelectionColor      string // tview color string for selected row highlight, e.g. "[white:#3a5f8a]"
 
 	// Task detail view colors
 	TaskDetailIDColor           Gradient
@@ -103,10 +104,11 @@ func DefaultColors() *ColorConfig {
 			Start: [3]int{30, 144, 255}, // Dodger Blue
 			End:   [3]int{0, 191, 255},  // Deep Sky Blue
 		},
-		TaskBoxTitleColor:       "[#b8b8b8]", // Light gray
-		TaskBoxLabelColor:       "[#767676]", // Darker gray for labels
-		TaskBoxDescriptionColor: "[#767676]", // Darker gray for description
-		TaskBoxTagValueColor:    "[#5a6f8f]", // Blueish gray for tag values
+		TaskBoxTitleColor:       "[#b8b8b8]",       // Light gray
+		TaskBoxLabelColor:       "[#767676]",       // Darker gray for labels
+		TaskBoxDescriptionColor: "[#767676]",       // Darker gray for description
+		TaskBoxTagValueColor:    "[#5a6f8f]",       // Blueish gray for tag values
+		TaskListSelectionColor:  "[white:#3a5f8a]", // White text on steel blue background
 
 		// Task detail
 		TaskDetailIDColor: Gradient{
@@ -190,6 +192,12 @@ var UseGradients bool
 // UseWideGradients controls whether screen-wide gradients (like caption rows) are rendered
 // Screen-wide gradients show more banding on 256-color terminals, so require truecolor
 var UseWideGradients bool
+
+// Plugin-specific background colors for code-only plugins
+var (
+	// DepsEditorBackground: muted slate for the dependency editor caption
+	DepsEditorBackground = tcell.NewHexColor(0x4e5768)
+)
 
 // Fallback solid colors for gradient scenarios (used when UseGradients = false)
 var (
