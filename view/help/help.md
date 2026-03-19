@@ -15,7 +15,7 @@ state of the repo or its git branch. Also, all past versions and deleted items r
 
 Board is a simple Kanban-style board where tikis can be moved around with `Shift-Right` and `Shift-Left`
 As tikis are moved their status changes correspondingly. Statuses are configurable via `workflow.yaml`. 
-Tikis can be opened for viewing or editing or searched by title and description. 
+Tikis can be opened for viewing or editing or searched by ID, title, description and tags. 
 
 To quickly capture an idea - hit `n` in the board or any tiki view, type in the title and press Enter
 You can also edit its status, type and other fields, or open the source file directly for editing in your favorite editor

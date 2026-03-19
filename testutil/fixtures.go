@@ -11,21 +11,31 @@ import (
 
 // CreateTestTask creates a markdown task file with YAML frontmatter
 func CreateTestTask(dir, id, title string, status task.Status, taskType task.Type) error {
-	// Task files are lowercase (e.g., tiki-1.md)
-	filename := strings.ToLower(id) + ".md"
-	filename = strings.ReplaceAll(filename, "-", "-") // already hyphenated
-	filepath := filepath.Join(dir, filename)
+	return CreateTestTaskWithDeps(dir, id, title, status, taskType, nil)
+}
 
-	// Build YAML frontmatter
+// CreateTestTaskWithDeps creates a markdown task file with optional dependsOn IDs in the frontmatter.
+func CreateTestTaskWithDeps(dir, id, title string, status task.Status, taskType task.Type, dependsOn []string) error {
+	filename := strings.ToLower(id) + ".md"
+	filePath := filepath.Join(dir, filename)
+
+	depsYAML := ""
+	if len(dependsOn) > 0 {
+		depsYAML = "dependsOn:\n"
+		for _, dep := range dependsOn {
+			depsYAML += fmt.Sprintf("  - %s\n", dep)
+		}
+	}
+
 	content := fmt.Sprintf(`---
 title: %s
 type: %s
 status: %s
 priority: 3
 points: 1
----
+%s---
 %s
-`, title, taskType, status, title)
+`, title, taskType, status, depsYAML, title)
 
-	return os.WriteFile(filepath, []byte(content), 0644)
+	return os.WriteFile(filePath, []byte(content), 0644)
 }

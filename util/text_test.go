@@ -88,6 +88,12 @@ func TestTruncateTextWithColors(t *testing.T) {
 			maxWidth: 8,
 			expected: "hello...",
 		},
+		{
+			name:     "small width floor — returns unchanged",
+			text:     "[red]hi[-]",
+			maxWidth: 3,
+			expected: "[red]hi[-]",
+		},
 	}
 
 	for _, tt := range tests {

@@ -39,12 +39,7 @@ type SetActionsParams struct {
 
 const (
 	HeaderHeight        = 6
-	HeaderColumnSpacing = 2  // spaces between action columns in ContextHelp
-	StatsWidth          = 30 // fixed width for stats section
-	ChartWidth          = 14 // fixed width for burndown chart
-	LogoWidth           = 25 // fixed width for logo
-	MinContextWidth     = 40 // minimum width for context help to remain readable
-	ChartSpacing        = 10 // spacing between context help and chart when both visible
+	HeaderColumnSpacing = 2 // spaces between action columns in ContextHelp
 )
 
 // HeaderWidget displays stats, available actions and burndown chart
@@ -167,41 +162,11 @@ func (h *HeaderWidget) Cleanup() {
 	h.headerConfig.RemoveListener(h.listenerID)
 }
 
-// rebuildLayout recalculates and rebuilds the flex layout based on terminal width
+// rebuildLayout recalculates and rebuilds the flex layout based on terminal width.
 func (h *HeaderWidget) rebuildLayout(width int) {
 	h.lastWidth = width
 
-	availableBetween := width - StatsWidth - LogoWidth
-	if availableBetween < 0 {
-		availableBetween = 0
-	}
-
-	contextHelpWidth := h.contextHelp.GetWidth()
-	requiredContext := contextHelpWidth
-	if requiredContext < MinContextWidth && requiredContext > 0 {
-		requiredContext = MinContextWidth
-	}
-
-	requiredForChart := requiredContext + ChartSpacing + ChartWidth
-	chartVisible := availableBetween >= requiredForChart
-
-	contextWidth := contextHelpWidth
-	if contextWidth < 0 {
-		contextWidth = 0
-	}
-
-	usedForChart := 0
-	if chartVisible {
-		usedForChart = ChartSpacing + ChartWidth
-	}
-
-	maxContextWidth := availableBetween - usedForChart
-	if maxContextWidth < 0 {
-		maxContextWidth = 0
-	}
-	if contextWidth > maxContextWidth {
-		contextWidth = maxContextWidth
-	}
+	layout := CalculateHeaderLayout(width, h.contextHelp.GetWidth())
 
 	// rebuild flex to keep the middle group centered between stats and logo,
 	// and to physically remove the chart when hidden.
@@ -209,13 +174,13 @@ func (h *HeaderWidget) rebuildLayout(width int) {
 	h.SetDirection(tview.FlexColumn)
 	h.AddItem(h.stats.Primitive(), StatsWidth, 0, false)
 	h.AddItem(h.leftSpacer, 0, 1, false)
-	h.AddItem(h.contextHelp.Primitive(), contextWidth, 0, false)
-	if chartVisible {
+	h.AddItem(h.contextHelp.Primitive(), layout.ContextWidth, 0, false)
+	if layout.ChartVisible {
 		h.AddItem(h.gap, ChartSpacing, 0, false)
 		h.AddItem(h.chart.Primitive(), ChartWidth, 0, false)
 	}
 	h.AddItem(h.rightSpacer, 0, 1, false)
 	h.AddItem(h.logo, LogoWidth, 0, false)
 
-	h.chartVisible = chartVisible
+	h.chartVisible = layout.ChartVisible
 }

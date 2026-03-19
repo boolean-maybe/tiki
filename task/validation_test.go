@@ -346,6 +346,14 @@ func TestValidationErrors_Error(t *testing.T) {
 	}
 }
 
+func TestValidationErrors_Error_Empty(t *testing.T) {
+	var ve ValidationErrors
+	got := ve.Error()
+	if got != "no validation errors" {
+		t.Errorf("Error() = %q, want %q", got, "no validation errors")
+	}
+}
+
 func TestDueValidator(t *testing.T) {
 	tests := []struct {
 		name    string

@@ -26,6 +26,7 @@ type TestApp struct {
 	TaskStore         store.Store
 	NavController     *controller.NavigationController
 	InputRouter       *controller.InputRouter
+	ViewFactory       *view.ViewFactory
 	TaskDir           string
 	t                 *testing.T
 	PluginConfigs     map[string]*model.PluginConfig
@@ -396,6 +397,13 @@ func (ta *TestApp) LoadPlugins() error {
 
 	viewFactory := view.NewViewFactory(ta.TaskStore)
 	viewFactory.SetPlugins(pluginConfigs, pluginDefs, pluginControllers)
+	ta.ViewFactory = viewFactory
+
+	// Wire dynamic plugin registration so openDepsEditor can register deps views at runtime.
+	// Mirrors bootstrap/init.go:133-135.
+	ta.InputRouter.SetPluginRegistrar(func(name string, cfg *model.PluginConfig, def plugin.Plugin, ctrl controller.PluginControllerInterface) {
+		viewFactory.RegisterPlugin(name, cfg, def, ctrl)
+	})
 
 	// Recreate RootLayout with new view factory
 	headerWidget := header.NewHeaderWidget(ta.headerConfig)

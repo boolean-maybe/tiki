@@ -73,6 +73,104 @@ func TestPluginViewRefreshResetsNonSelectedLaneScrollOffset(t *testing.T) {
 	}
 }
 
+func TestPluginViewGridLayout_RowCount(t *testing.T) {
+	tests := []struct {
+		name         string
+		numTasks     int
+		columns      int
+		expectedRows int
+	}{
+		{"zero tasks", 0, 1, 0},
+		{"6 tasks / 2 cols", 6, 2, 3},
+		{"5 tasks / 3 cols", 5, 3, 2},
+		{"1 task / 1 col", 1, 1, 1},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			taskStore := store.NewInMemoryStore()
+			pluginConfig := model.NewPluginConfig("TestPlugin")
+			pluginConfig.SetLaneLayout([]int{tt.columns})
+
+			pluginDef := &plugin.TikiPlugin{
+				BasePlugin: plugin.BasePlugin{Name: "TestPlugin"},
+				Lanes:      []plugin.TikiLane{{Name: "Lane", Columns: tt.columns}},
+			}
+
+			tasks := make([]*task.Task, tt.numTasks)
+			for i := range tasks {
+				tasks[i] = &task.Task{
+					ID:     fmt.Sprintf("T-%d", i),
+					Title:  fmt.Sprintf("Task %d", i),
+					Status: task.StatusReady,
+					Type:   task.TypeStory,
+				}
+			}
+
+			pv := NewPluginView(taskStore, pluginConfig, pluginDef, func(lane int) []*task.Task {
+				return tasks
+			}, nil, controller.PluginViewActions(), true)
+
+			pv.refresh()
+
+			got := len(pv.laneBoxes[0].items)
+			if got != tt.expectedRows {
+				t.Errorf("rows = %d, want %d", got, tt.expectedRows)
+			}
+		})
+	}
+}
+
+func TestPluginViewGridLayout_SelectedRow(t *testing.T) {
+	tests := []struct {
+		name                string
+		numTasks            int
+		columns             int
+		selectedIndex       int
+		expectedSelectedRow int
+	}{
+		{"index 0, 2 cols", 4, 2, 0, 0},
+		{"index 2, 2 cols", 4, 2, 2, 1},
+		{"index 4, 3 cols", 6, 3, 4, 1},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			taskStore := store.NewInMemoryStore()
+			pluginConfig := model.NewPluginConfig("TestPlugin")
+			pluginConfig.SetLaneLayout([]int{tt.columns})
+
+			pluginDef := &plugin.TikiPlugin{
+				BasePlugin: plugin.BasePlugin{Name: "TestPlugin"},
+				Lanes:      []plugin.TikiLane{{Name: "Lane", Columns: tt.columns}},
+			}
+
+			tasks := make([]*task.Task, tt.numTasks)
+			for i := range tasks {
+				tasks[i] = &task.Task{
+					ID:     fmt.Sprintf("T-%d", i),
+					Title:  fmt.Sprintf("Task %d", i),
+					Status: task.StatusReady,
+					Type:   task.TypeStory,
+				}
+			}
+
+			pv := NewPluginView(taskStore, pluginConfig, pluginDef, func(lane int) []*task.Task {
+				return tasks
+			}, nil, controller.PluginViewActions(), true)
+
+			pluginConfig.SetSelectedLane(0)
+			pluginConfig.SetSelectedIndexForLane(0, tt.selectedIndex)
+			pv.refresh()
+
+			got := pv.laneBoxes[0].selectionIndex
+			if got != tt.expectedSelectedRow {
+				t.Errorf("selectionIndex = %d, want %d", got, tt.expectedSelectedRow)
+			}
+		})
+	}
+}
+
 func TestPluginViewRefreshPreservesScrollOffset(t *testing.T) {
 	taskStore := store.NewInMemoryStore()
 	pluginConfig := model.NewPluginConfig("TestPlugin")

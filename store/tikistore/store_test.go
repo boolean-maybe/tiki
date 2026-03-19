@@ -744,6 +744,131 @@ func TestSaveTask_Recurrence(t *testing.T) {
 	}
 }
 
+func TestMatchesQuery(t *testing.T) {
+	tests := []struct {
+		name     string
+		task     *taskpkg.Task
+		query    string
+		expected bool
+	}{
+		{
+			name:     "nil task returns false",
+			task:     nil,
+			query:    "foo",
+			expected: false,
+		},
+		{
+			name:     "empty query returns false",
+			task:     &taskpkg.Task{ID: "TIKI-MQ0001", Title: "Hello"},
+			query:    "",
+			expected: false,
+		},
+		{
+			name:     "match by ID case-insensitive",
+			task:     &taskpkg.Task{ID: "TIKI-ABC123"},
+			query:    "tiki-abc",
+			expected: true,
+		},
+		{
+			name:     "match by title",
+			task:     &taskpkg.Task{ID: "TIKI-MQ0002", Title: "Hello World"},
+			query:    "hello",
+			expected: true,
+		},
+		{
+			name:     "match by description",
+			task:     &taskpkg.Task{ID: "TIKI-MQ0003", Description: "some text here"},
+			query:    "some",
+			expected: true,
+		},
+		{
+			name:     "match by first tag",
+			task:     &taskpkg.Task{ID: "TIKI-MQ0004", Tags: []string{"frontend"}},
+			query:    "frontend",
+			expected: true,
+		},
+		{
+			name:     "match by second tag",
+			task:     &taskpkg.Task{ID: "TIKI-MQ0005", Tags: []string{"a", "backend"}},
+			query:    "backend",
+			expected: true,
+		},
+		{
+			name:     "no match",
+			task:     &taskpkg.Task{ID: "TIKI-X", Title: "foo"},
+			query:    "zzz",
+			expected: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := matchesQuery(tt.task, tt.query)
+			if got != tt.expected {
+				t.Errorf("matchesQuery() = %v, want %v", got, tt.expected)
+			}
+		})
+	}
+}
+
+func TestSearch_WithFilterFunc(t *testing.T) {
+	buildStore := func() *TikiStore {
+		return &TikiStore{
+			tasks: map[string]*taskpkg.Task{
+				"TIKI-F00001": {ID: "TIKI-F00001", Title: "Alpha", Priority: 1},
+				"TIKI-F00002": {ID: "TIKI-F00002", Title: "Beta", Priority: 2},
+				"TIKI-F00003": {ID: "TIKI-F00003", Title: "Gamma", Priority: 3},
+			},
+		}
+	}
+
+	t.Run("filter excludes all returns empty", func(t *testing.T) {
+		s := buildStore()
+		results := s.Search("", func(*taskpkg.Task) bool { return false })
+		if len(results) != 0 {
+			t.Errorf("got %d results, want 0", len(results))
+		}
+	})
+
+	t.Run("filter includes subset returns subset", func(t *testing.T) {
+		s := buildStore()
+		results := s.Search("", func(t *taskpkg.Task) bool { return t.ID == "TIKI-F00001" })
+		if len(results) != 1 {
+			t.Errorf("got %d results, want 1", len(results))
+		}
+		if results[0].Task.ID != "TIKI-F00001" {
+			t.Errorf("got ID %q, want TIKI-F00001", results[0].Task.ID)
+		}
+	})
+
+	t.Run("filter + query intersection", func(t *testing.T) {
+		s := buildStore()
+		// filter allows F00001 and F00002, query matches only "Beta"
+		results := s.Search("beta", func(t *taskpkg.Task) bool {
+			return t.ID == "TIKI-F00001" || t.ID == "TIKI-F00002"
+		})
+		if len(results) != 1 {
+			t.Errorf("got %d results, want 1", len(results))
+		}
+		if results[0].Task.ID != "TIKI-F00002" {
+			t.Errorf("got ID %q, want TIKI-F00002", results[0].Task.ID)
+		}
+	})
+
+	t.Run("nil filter + empty query returns all tasks", func(t *testing.T) {
+		s := &TikiStore{
+			tasks: map[string]*taskpkg.Task{
+				"TIKI-G00001": {ID: "TIKI-G00001", Title: "One"},
+				"TIKI-G00002": {ID: "TIKI-G00002", Title: "Two"},
+			},
+		}
+		results := s.Search("", nil)
+		if len(results) != 2 {
+			t.Errorf("got %d results, want 2", len(results))
+		}
+	})
+}
+
 func TestSaveTask_Due(t *testing.T) {
 	tmpDir := t.TempDir()
 	store, err := NewTikiStore(tmpDir)

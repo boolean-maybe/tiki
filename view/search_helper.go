@@ -74,6 +74,11 @@ func (sh *SearchHelper) HasFocus() bool {
 	return sh.searchVisible && sh.searchBox.HasFocus()
 }
 
+// GetFocusSetter returns the focus setter function for transferring focus after layout changes
+func (sh *SearchHelper) GetFocusSetter() func(p tview.Primitive) {
+	return sh.focusSetter
+}
+
 // GetSearchBox returns the underlying search box primitive for layout building
 func (sh *SearchHelper) GetSearchBox() *SearchBox {
 	return sh.searchBox

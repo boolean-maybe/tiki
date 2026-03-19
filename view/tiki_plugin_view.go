@@ -246,6 +246,11 @@ func (pv *PluginView) HideSearch() {
 	pv.root.Clear()
 	pv.root.AddItem(pv.titleBar, 1, 0, false)
 	pv.root.AddItem(pv.lanes, 0, 1, true)
+
+	// explicitly transfer focus to lanes (clears cursor from removed search box)
+	if pv.searchHelper.GetFocusSetter() != nil {
+		pv.searchHelper.GetFocusSetter()(pv.lanes)
+	}
 }
 
 // IsSearchVisible returns whether the search box is currently visible
