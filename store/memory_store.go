@@ -140,12 +140,26 @@ func (s *InMemoryStore) Search(query string, filterFunc func(*task.Task) bool) [
 		}
 
 		// Apply query filter
-		if queryLower == "" || strings.Contains(strings.ToLower(t.Title), queryLower) {
+		if queryLower == "" || matchesQueryInMemory(t, queryLower) {
 			results = append(results, task.SearchResult{Task: t, Score: 1.0})
 		}
 	}
 
 	return results
+}
+
+func matchesQueryInMemory(t *task.Task, queryLower string) bool {
+	if strings.Contains(strings.ToLower(t.ID), queryLower) ||
+		strings.Contains(strings.ToLower(t.Title), queryLower) ||
+		strings.Contains(strings.ToLower(t.Description), queryLower) {
+		return true
+	}
+	for _, tag := range t.Tags {
+		if strings.Contains(strings.ToLower(tag), queryLower) {
+			return true
+		}
+	}
+	return false
 }
 
 // AddComment adds a comment to a task

@@ -75,6 +75,33 @@ func TestSortTasks(t *testing.T) {
 	}
 }
 
+func TestSearch_MatchesTaskID(t *testing.T) {
+	store := &TikiStore{
+		tasks: map[string]*taskpkg.Task{
+			"TIKI-ABC123": {
+				ID:       "TIKI-ABC123",
+				Title:    "Unrelated Title",
+				Status:   taskpkg.StatusBacklog,
+				Priority: 1,
+			},
+			"TIKI-DEF456": {
+				ID:       "TIKI-DEF456",
+				Title:    "Another Title",
+				Status:   taskpkg.StatusReady,
+				Priority: 2,
+			},
+		},
+	}
+
+	results := store.Search("abc123", nil)
+	if len(results) != 1 {
+		t.Fatalf("result count = %d, want 1", len(results))
+	}
+	if results[0].Task.ID != "TIKI-ABC123" {
+		t.Errorf("results[0].Task.ID = %q, want %q", results[0].Task.ID, "TIKI-ABC123")
+	}
+}
+
 func TestSearch_AllTasksIncludesDescription(t *testing.T) {
 	store := &TikiStore{
 		tasks: map[string]*taskpkg.Task{
@@ -117,6 +144,40 @@ func TestSearch_AllTasksIncludesDescription(t *testing.T) {
 		}
 	}
 }
+
+func TestSearch_MatchesTags(t *testing.T) {
+	store := &TikiStore{
+		tasks: map[string]*taskpkg.Task{
+			"TIKI-TAG001": {
+				ID:       "TIKI-TAG001",
+				Title:    "Tagged Task",
+				Status:   taskpkg.StatusBacklog,
+				Priority: 1,
+				Tags:     []string{"frontend", "ui"},
+			},
+			"TIKI-TAG002": {
+				ID:       "TIKI-TAG002",
+				Title:    "Untagged Task",
+				Status:   taskpkg.StatusReady,
+				Priority: 2,
+			},
+		},
+	}
+
+	results := store.Search("frontend", nil)
+	if len(results) != 1 {
+		t.Fatalf("result count = %d, want 1", len(results))
+	}
+	if results[0].Task.ID != "TIKI-TAG001" {
+		t.Errorf("results[0].Task.ID = %q, want %q", results[0].Task.ID, "TIKI-TAG001")
+	}
+
+	results = store.Search("backend", nil)
+	if len(results) != 0 {
+		t.Fatalf("result count = %d, want 0", len(results))
+	}
+}
+
 func TestLoadTaskFile_DependsOn(t *testing.T) {
 	tmpDir := t.TempDir()
 

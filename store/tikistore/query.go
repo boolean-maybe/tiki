@@ -24,14 +24,25 @@ func matchesQuery(task *taskpkg.Task, queryLower string) bool {
 	if task == nil || queryLower == "" {
 		return false
 	}
+	if strings.Contains(strings.ToLower(task.ID), queryLower) {
+		return true
+	}
 	if strings.Contains(strings.ToLower(task.Title), queryLower) {
 		return true
 	}
-	return strings.Contains(strings.ToLower(task.Description), queryLower)
+	if strings.Contains(strings.ToLower(task.Description), queryLower) {
+		return true
+	}
+	for _, tag := range task.Tags {
+		if strings.Contains(strings.ToLower(tag), queryLower) {
+			return true
+		}
+	}
+	return false
 }
 
 // Search searches tasks with optional filter function.
-// query: case-insensitive search term (searches task titles and descriptions)
+// query: case-insensitive search term (searches task IDs, titles, descriptions, and tags)
 // filterFunc: filter function to pre-filter tasks (nil = all tasks)
 // Returns matching tasks sorted by priority then title with relevance scores.
 func (s *TikiStore) Search(query string, filterFunc func(*taskpkg.Task) bool) []taskpkg.SearchResult {

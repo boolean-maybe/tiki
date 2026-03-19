@@ -32,7 +32,7 @@ type Store interface {
 	GetAllTasks() []*task.Task
 
 	// Search searches tasks with optional filter function.
-	// query: case-insensitive search term (searches task titles)
+	// query: case-insensitive search term (searches task IDs, titles, descriptions, and tags)
 	// filterFunc: optional filter function to pre-filter tasks (nil = all tasks)
 	// Returns matching tasks sorted by ID with relevance scores.
 	Search(query string, filterFunc func(*task.Task) bool) []task.SearchResult
