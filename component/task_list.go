@@ -17,27 +17,31 @@ import (
 // It supports configurable visible row count, scrolling, and row selection.
 type TaskList struct {
 	*tview.Box
-	tasks          []*task.Task
-	maxVisibleRows int
-	scrollOffset   int
-	selectionIndex int
-	idColumnWidth  int             // computed from widest ID
-	idGradient     config.Gradient // gradient for ID text
-	idFallback     tcell.Color     // fallback solid color for ID
-	titleColor     string          // tview color tag for title, e.g. "[#b8b8b8]"
-	selectionColor string          // tview color tag for selected row highlight
+	tasks              []*task.Task
+	maxVisibleRows     int
+	scrollOffset       int
+	selectionIndex     int
+	idColumnWidth      int             // computed from widest ID
+	idGradient         config.Gradient // gradient for ID text
+	idFallback         tcell.Color     // fallback solid color for ID
+	titleColor         string          // tview color tag for title, e.g. "[#b8b8b8]"
+	selectionColor     string          // tview color tag for selected row highlight
+	statusDoneColor    string          // tview color tag for done status indicator
+	statusPendingColor string          // tview color tag for pending status indicator
 }
 
 // NewTaskList creates a new TaskList with the given maximum visible row count.
 func NewTaskList(maxVisibleRows int) *TaskList {
 	colors := config.GetColors()
 	return &TaskList{
-		Box:            tview.NewBox(),
-		maxVisibleRows: maxVisibleRows,
-		idGradient:     colors.TaskBoxIDColor,
-		idFallback:     config.FallbackTaskIDColor,
-		titleColor:     colors.TaskBoxTitleColor,
-		selectionColor: colors.TaskListSelectionColor,
+		Box:                tview.NewBox(),
+		maxVisibleRows:     maxVisibleRows,
+		idGradient:         colors.TaskBoxIDColor,
+		idFallback:         config.FallbackTaskIDColor,
+		titleColor:         colors.TaskBoxTitleColor,
+		selectionColor:     colors.TaskListSelectionColor,
+		statusDoneColor:    colors.TaskListStatusDoneColor,
+		statusPendingColor: colors.TaskListStatusPendingColor,
 	}
 }
 
@@ -127,12 +131,12 @@ func (tl *TaskList) Draw(screen tcell.Screen) {
 
 // buildRow constructs the tview-tagged string for a single row.
 func (tl *TaskList) buildRow(t *task.Task, selected bool, width int) string {
-	// Status indicator: done = green checkmark, else gray circle
+	// Status indicator: done = checkmark, else circle
 	var statusIndicator string
 	if config.GetStatusRegistry().IsDone(string(t.Status)) {
-		statusIndicator = "[green]\u2713[-]"
+		statusIndicator = tl.statusDoneColor + "\u2713[-]"
 	} else {
-		statusIndicator = "[gray]\u25CB[-]"
+		statusIndicator = tl.statusPendingColor + "\u25CB[-]"
 	}
 
 	// Gradient-rendered ID, padded to idColumnWidth

@@ -29,6 +29,8 @@ type ColorConfig struct {
 	TaskBoxDescriptionColor     string // tview color string like "[#767676]"
 	TaskBoxTagValueColor        string // tview color string like "[#5a6f8f]"
 	TaskListSelectionColor      string // tview color string for selected row highlight, e.g. "[white:#3a5f8a]"
+	TaskListStatusDoneColor     string // tview color string for done status indicator, e.g. "[#00ff7f]"
+	TaskListStatusPendingColor  string // tview color string for pending status indicator, e.g. "[white]"
 
 	// Task detail view colors
 	TaskDetailIDColor           Gradient
@@ -104,11 +106,13 @@ func DefaultColors() *ColorConfig {
 			Start: [3]int{30, 144, 255}, // Dodger Blue
 			End:   [3]int{0, 191, 255},  // Deep Sky Blue
 		},
-		TaskBoxTitleColor:       "[#b8b8b8]",       // Light gray
-		TaskBoxLabelColor:       "[#767676]",       // Darker gray for labels
-		TaskBoxDescriptionColor: "[#767676]",       // Darker gray for description
-		TaskBoxTagValueColor:    "[#5a6f8f]",       // Blueish gray for tag values
-		TaskListSelectionColor:  "[white:#3a5f8a]", // White text on steel blue background
+		TaskBoxTitleColor:          "[#b8b8b8]",       // Light gray
+		TaskBoxLabelColor:          "[#767676]",       // Darker gray for labels
+		TaskBoxDescriptionColor:    "[#767676]",       // Darker gray for description
+		TaskBoxTagValueColor:       "[#5a6f8f]",       // Blueish gray for tag values
+		TaskListSelectionColor:     "[white:#3a5f8a]", // White text on steel blue background
+		TaskListStatusDoneColor:    "[#00ff7f]",       // Spring green for done checkmark
+		TaskListStatusPendingColor: "[white]",         // White for pending circle
 
 		// Task detail
 		TaskDetailIDColor: Gradient{
