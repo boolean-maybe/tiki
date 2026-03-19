@@ -86,14 +86,10 @@ func TestDepsEditor_LanesShowCorrectTasks(t *testing.T) {
 	ta.NavController.PushView(model.MakePluginViewID("Kanban"), nil)
 	ta.Draw()
 
-	// context task should be first in the Ready lane — press Enter to open detail
-	ta.SendKey(tcell.KeyEnter, 0, tcell.ModNone)
-	ta.Draw()
-
-	// confirm we're on the right task detail
-	if found, _, _ := ta.FindText(contextID); !found {
+	// navigate to the context task regardless of sort order
+	if !ta.NavigateToTask(contextID, 10) {
 		ta.DumpScreen()
-		t.Fatalf("context task %s not selected on board", contextID)
+		t.Fatalf("context task %s not found on board", contextID)
 	}
 
 	ta.SendKey(tcell.KeyCtrlD, 0, tcell.ModCtrl)

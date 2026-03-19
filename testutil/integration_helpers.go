@@ -442,3 +442,22 @@ func (ta *TestApp) LoadPlugins() error {
 func (ta *TestApp) GetPluginConfig(pluginName string) *model.PluginConfig {
 	return ta.PluginConfigs[pluginName]
 }
+
+// NavigateToTask presses Down on the current board view until the task with the given ID
+// is the selected item. It opens the task detail (Enter) and returns true if found within
+// maxSteps attempts; returns false if the task was not found.
+func (ta *TestApp) NavigateToTask(taskID string, maxSteps int) bool {
+	for i := 0; i < maxSteps; i++ {
+		ta.SendKey(tcell.KeyEnter, 0, tcell.ModNone)
+		ta.Draw()
+		if found, _, _ := ta.FindText(taskID); found {
+			return true
+		}
+		// go back and move to next item
+		ta.SendKey(tcell.KeyEscape, 0, tcell.ModNone)
+		ta.Draw()
+		ta.SendKey(tcell.KeyDown, 0, tcell.ModNone)
+		ta.Draw()
+	}
+	return false
+}
