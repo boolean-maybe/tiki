@@ -8,11 +8,9 @@ import (
 
 // newMockNavigationController creates a new mock navigation controller
 func newMockNavigationController() *NavigationController {
-	// Create a real NavigationController but we won't use most of its methods in tests
-	// The key is that TaskController only calls SuspendAndEdit which we can ignore in tests
 	return &NavigationController{
-		// minimal initialization - only used to satisfy type checking
-		app: nil, // Unit tests don't need the tview.Application
+		app:      nil, // unit tests don't need the tview.Application
+		navState: newViewStack(),
 	}
 }
 

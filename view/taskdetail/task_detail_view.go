@@ -28,8 +28,13 @@ type TaskDetailView struct {
 	storeListenerID int
 }
 
-// NewTaskDetailView creates a task detail view in read-only mode
-func NewTaskDetailView(taskStore store.Store, taskID string, imageManager *navtview.ImageManager, mermaidOpts *nav.MermaidOptions) *TaskDetailView {
+// NewTaskDetailView creates a task detail view.
+// When readOnly is true, only fullscreen is available — no editing actions.
+func NewTaskDetailView(taskStore store.Store, taskID string, readOnly bool, imageManager *navtview.ImageManager, mermaidOpts *nav.MermaidOptions) *TaskDetailView {
+	registry := controller.TaskDetailViewActions()
+	if readOnly {
+		registry = controller.ReadonlyTaskDetailViewActions()
+	}
 	tv := &TaskDetailView{
 		Base: Base{
 			taskStore:    taskStore,
@@ -37,7 +42,7 @@ func NewTaskDetailView(taskStore store.Store, taskID string, imageManager *navtv
 			imageManager: imageManager,
 			mermaidOpts:  mermaidOpts,
 		},
-		registry: controller.TaskDetailViewActions(),
+		registry: registry,
 		viewID:   model.TaskDetailViewID,
 	}
 

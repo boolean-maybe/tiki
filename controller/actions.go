@@ -260,6 +260,14 @@ func TaskDetailViewActions() *ActionRegistry {
 	return r
 }
 
+// ReadonlyTaskDetailViewActions returns a reduced registry for readonly task detail views.
+// Only fullscreen toggle is available — no editing actions.
+func ReadonlyTaskDetailViewActions() *ActionRegistry {
+	r := NewActionRegistry()
+	r.Register(Action{ID: ActionFullscreen, Key: tcell.KeyRune, Rune: 'f', Label: "Full screen", ShowInHeader: true})
+	return r
+}
+
 // TaskEditViewActions returns the canonical action registry for the task edit view.
 // Separate registry so view/edit modes can diverge while sharing rendering helpers.
 func TaskEditViewActions() *ActionRegistry {
@@ -396,7 +404,6 @@ func PluginViewActions() *ActionRegistry {
 }
 
 // DepsViewActions returns the action registry for the dependency editor view.
-// Restricted to navigation, move task, view mode toggle, and search — no open/new/delete/plugin keys.
 func DepsViewActions() *ActionRegistry {
 	r := NewActionRegistry()
 
@@ -413,6 +420,11 @@ func DepsViewActions() *ActionRegistry {
 	// move task between lanes (shown in header)
 	r.Register(Action{ID: ActionMoveTaskLeft, Key: tcell.KeyLeft, Modifier: tcell.ModShift, Label: "Move ←", ShowInHeader: true})
 	r.Register(Action{ID: ActionMoveTaskRight, Key: tcell.KeyRight, Modifier: tcell.ModShift, Label: "Move →", ShowInHeader: true})
+
+	// task actions
+	r.Register(Action{ID: ActionOpenFromPlugin, Key: tcell.KeyEnter, Label: "Open", ShowInHeader: true})
+	r.Register(Action{ID: ActionNewTask, Key: tcell.KeyRune, Rune: 'n', Label: "New", ShowInHeader: true})
+	r.Register(Action{ID: ActionDeleteTask, Key: tcell.KeyRune, Rune: 'd', Label: "Delete", ShowInHeader: true})
 
 	// view mode and search
 	r.Register(Action{ID: ActionSearch, Key: tcell.KeyRune, Rune: '/', Label: "Search", ShowInHeader: true})

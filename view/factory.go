@@ -68,8 +68,8 @@ func (f *ViewFactory) CreateView(viewID model.ViewID, params map[string]interfac
 
 	switch viewID {
 	case model.TaskDetailViewID:
-		taskID := model.DecodeTaskDetailParams(params).TaskID
-		v = taskdetail.NewTaskDetailView(f.taskStore, taskID, f.imageManager, f.mermaidOpts)
+		detailParams := model.DecodeTaskDetailParams(params)
+		v = taskdetail.NewTaskDetailView(f.taskStore, detailParams.TaskID, detailParams.ReadOnly, f.imageManager, f.mermaidOpts)
 
 	case model.TaskEditViewID:
 		editParams := model.DecodeTaskEditParams(params)

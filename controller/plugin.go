@@ -15,11 +15,7 @@ import (
 
 // PluginController handles plugin view actions: navigation, open, create, delete.
 type PluginController struct {
-	taskStore     store.Store
-	pluginConfig  *model.PluginConfig
-	pluginDef     *plugin.TikiPlugin
-	navController *NavigationController
-	registry      *ActionRegistry
+	pluginBase
 }
 
 // NewPluginController creates a plugin controller
@@ -30,11 +26,13 @@ func NewPluginController(
 	navController *NavigationController,
 ) *PluginController {
 	pc := &PluginController{
-		taskStore:     taskStore,
-		pluginConfig:  pluginConfig,
-		pluginDef:     pluginDef,
-		navController: navController,
-		registry:      PluginViewActions(),
+		pluginBase: pluginBase{
+			taskStore:     taskStore,
+			pluginConfig:  pluginConfig,
+			pluginDef:     pluginDef,
+			navController: navController,
+			registry:      PluginViewActions(),
+		},
 	}
 
 	// register plugin-specific shortcut actions, warn about conflicts
@@ -86,42 +84,38 @@ func getPluginActionRune(id ActionID) rune {
 	return runes[0]
 }
 
-// GetActionRegistry returns the actions for the plugin view
-func (pc *PluginController) GetActionRegistry() *ActionRegistry {
-	return pc.registry
-}
-
-// GetPluginName returns the plugin name
-func (pc *PluginController) GetPluginName() string {
-	return pc.pluginDef.Name
-}
-
 // ShowNavigation returns true — regular plugin views show plugin navigation keys.
 func (pc *PluginController) ShowNavigation() bool { return true }
+
+// EnsureFirstNonEmptyLaneSelection delegates to pluginBase with this controller's filter.
+func (pc *PluginController) EnsureFirstNonEmptyLaneSelection() bool {
+	return pc.pluginBase.EnsureFirstNonEmptyLaneSelection(pc.GetFilteredTasksForLane)
+}
 
 // HandleAction processes a plugin action
 func (pc *PluginController) HandleAction(actionID ActionID) bool {
 	switch actionID {
 	case ActionNavUp:
-		return pc.handleNav("up")
+		return pc.handleNav("up", pc.GetFilteredTasksForLane)
 	case ActionNavDown:
-		return pc.handleNav("down")
+		return pc.handleNav("down", pc.GetFilteredTasksForLane)
 	case ActionNavLeft:
-		return pc.handleNav("left")
+		return pc.handleNav("left", pc.GetFilteredTasksForLane)
 	case ActionNavRight:
-		return pc.handleNav("right")
+		return pc.handleNav("right", pc.GetFilteredTasksForLane)
 	case ActionMoveTaskLeft:
 		return pc.handleMoveTask(-1)
 	case ActionMoveTaskRight:
 		return pc.handleMoveTask(1)
 	case ActionOpenFromPlugin:
-		return pc.handleOpenTask()
+		return pc.handleOpenTask(pc.GetFilteredTasksForLane)
 	case ActionNewTask:
 		return pc.handleNewTask()
 	case ActionDeleteTask:
-		return pc.handleDeleteTask()
+		return pc.handleDeleteTask(pc.GetFilteredTasksForLane)
 	case ActionToggleViewMode:
-		return pc.handleToggleViewMode()
+		pc.pluginConfig.ToggleViewMode()
+		return true
 	default:
 		if r := getPluginActionRune(actionID); r != 0 {
 			return pc.handlePluginAction(r)
@@ -130,96 +124,11 @@ func (pc *PluginController) HandleAction(actionID ActionID) bool {
 	}
 }
 
-func (pc *PluginController) handleNav(direction string) bool {
-	lane := pc.pluginConfig.GetSelectedLane()
-	tasks := pc.GetFilteredTasksForLane(lane)
-	if direction == "left" || direction == "right" {
-		if pc.pluginConfig.MoveSelection(direction, len(tasks)) {
-			return true
-		}
-		return pc.handleLaneSwitch(direction)
-	}
-	return pc.pluginConfig.MoveSelection(direction, len(tasks))
-}
-
-func (pc *PluginController) handleOpenTask() bool {
-	taskID := pc.getSelectedTaskID()
-	if taskID == "" {
-		return false
-	}
-
-	pc.navController.PushView(model.TaskDetailViewID, model.EncodeTaskDetailParams(model.TaskDetailParams{
-		TaskID: taskID,
-	}))
-	return true
-}
-
-func (pc *PluginController) handleLaneSwitch(direction string) bool {
-	currentLane := pc.pluginConfig.GetSelectedLane()
-	nextLane := currentLane
-	switch direction {
-	case "left":
-		nextLane--
-	case "right":
-		nextLane++
-	default:
-		return false
-	}
-
-	for nextLane >= 0 && nextLane < len(pc.pluginDef.Lanes) {
-		tasks := pc.GetFilteredTasksForLane(nextLane)
-		if len(tasks) > 0 {
-			pc.pluginConfig.SetSelectedLane(nextLane)
-			// Select the task at top of viewport (scroll offset) rather than keeping stale index
-			scrollOffset := pc.pluginConfig.GetScrollOffsetForLane(nextLane)
-			if scrollOffset >= len(tasks) {
-				scrollOffset = len(tasks) - 1
-			}
-			if scrollOffset < 0 {
-				scrollOffset = 0
-			}
-			pc.pluginConfig.SetSelectedIndexForLane(nextLane, scrollOffset)
-			return true
-		}
-		switch direction {
-		case "left":
-			nextLane--
-		case "right":
-			nextLane++
-		}
-	}
-	return false
-}
-
-func (pc *PluginController) handleNewTask() bool {
-	task, err := pc.taskStore.NewTaskTemplate()
-	if err != nil {
-		slog.Error("failed to create task template", "error", err)
-		return false
-	}
-
-	pc.navController.PushView(model.TaskEditViewID, model.EncodeTaskEditParams(model.TaskEditParams{
-		TaskID: task.ID,
-		Draft:  task,
-		Focus:  model.EditFieldTitle,
-	}))
-	slog.Info("new tiki draft started from plugin", "task_id", task.ID, "plugin", pc.pluginDef.Name)
-	return true
-}
-
-func (pc *PluginController) handleDeleteTask() bool {
-	taskID := pc.getSelectedTaskID()
-	if taskID == "" {
-		return false
-	}
-
-	pc.taskStore.DeleteTask(taskID)
-	return true
-}
-
-func (pc *PluginController) handleToggleViewMode() bool {
-	pc.pluginConfig.ToggleViewMode()
-	return true
+// HandleSearch processes a search query for the plugin view
+func (pc *PluginController) HandleSearch(query string) {
+	pc.handleSearch(query, func() bool {
+		return pc.selectFirstNonEmptyLane(pc.GetFilteredTasksForLane)
+	})
 }
 
 // handlePluginAction applies a plugin shortcut action to the currently selected task.
@@ -236,7 +145,7 @@ func (pc *PluginController) handlePluginAction(r rune) bool {
 		return false
 	}
 
-	taskID := pc.getSelectedTaskID()
+	taskID := pc.getSelectedTaskID(pc.GetFilteredTasksForLane)
 	if taskID == "" {
 		return false
 	}
@@ -264,7 +173,7 @@ func (pc *PluginController) handlePluginAction(r rune) bool {
 }
 
 func (pc *PluginController) handleMoveTask(offset int) bool {
-	taskID := pc.getSelectedTaskID()
+	taskID := pc.getSelectedTaskID(pc.GetFilteredTasksForLane)
 	if taskID == "" {
 		return false
 	}
@@ -297,42 +206,8 @@ func (pc *PluginController) handleMoveTask(offset int) bool {
 	}
 
 	pc.ensureSearchResultIncludesTask(updated)
-	pc.selectTaskInLane(targetLane, taskID)
+	pc.selectTaskInLane(targetLane, taskID, pc.GetFilteredTasksForLane)
 	return true
-}
-
-// HandleSearch processes a search query for the plugin view
-func (pc *PluginController) HandleSearch(query string) {
-	query = strings.TrimSpace(query)
-	if query == "" {
-		return // Don't search empty/whitespace
-	}
-
-	// Save current position
-	pc.pluginConfig.SavePreSearchState()
-
-	// Search across all tasks; lane membership is decided per lane
-	results := pc.taskStore.Search(query, nil)
-	if len(results) == 0 {
-		pc.pluginConfig.SetSearchResults([]task.SearchResult{}, query)
-		return
-	}
-
-	pc.pluginConfig.SetSearchResults(results, query)
-	if pc.selectFirstNonEmptyLane() {
-		return
-	}
-}
-
-// getSelectedTaskID returns the ID of the currently selected task
-func (pc *PluginController) getSelectedTaskID() string {
-	lane := pc.pluginConfig.GetSelectedLane()
-	tasks := pc.GetFilteredTasksForLane(lane)
-	idx := pc.pluginConfig.GetSelectedIndexForLane(lane)
-	if idx < 0 || idx >= len(tasks) {
-		return ""
-	}
-	return tasks[idx].ID
 }
 
 // GetFilteredTasksForLane returns tasks filtered and sorted for a specific lane.
@@ -344,17 +219,13 @@ func (pc *PluginController) GetFilteredTasksForLane(lane int) []*task.Task {
 		return nil
 	}
 
-	// Check if search is active - if so, return search results instead
+	// check if search is active
 	searchResults := pc.pluginConfig.GetSearchResults()
 
-	// Normal filtering path when search is not active
 	allTasks := pc.taskStore.GetAllTasks()
 	now := time.Now()
-
-	// Get current user for "my tasks" type filters
 	currentUser := getCurrentUserName(pc.taskStore)
 
-	// Apply filter
 	var filtered []*task.Task
 	for _, task := range allTasks {
 		laneFilter := pc.pluginDef.Lanes[lane].Filter
@@ -371,55 +242,11 @@ func (pc *PluginController) GetFilteredTasksForLane(lane int) []*task.Task {
 		filtered = filterTasksBySearch(filtered, searchTaskMap)
 	}
 
-	// Apply sort
 	if len(pc.pluginDef.Sort) > 0 {
 		plugin.SortTasks(filtered, pc.pluginDef.Sort)
 	}
 
 	return filtered
-}
-
-func (pc *PluginController) selectTaskInLane(lane int, taskID string) {
-	if lane < 0 || lane >= len(pc.pluginDef.Lanes) {
-		return
-	}
-
-	tasks := pc.GetFilteredTasksForLane(lane)
-	targetIndex := 0
-	for i, task := range tasks {
-		if task.ID == taskID {
-			targetIndex = i
-			break
-		}
-	}
-
-	pc.pluginConfig.SetSelectedLane(lane)
-	pc.pluginConfig.SetSelectedIndexForLane(lane, targetIndex)
-}
-
-func (pc *PluginController) selectFirstNonEmptyLane() bool {
-	for lane := range pc.pluginDef.Lanes {
-		tasks := pc.GetFilteredTasksForLane(lane)
-		if len(tasks) > 0 {
-			pc.pluginConfig.SetSelectedLaneAndIndex(lane, 0)
-			return true
-		}
-	}
-	return false
-}
-
-func (pc *PluginController) EnsureFirstNonEmptyLaneSelection() bool {
-	if pc.pluginDef == nil {
-		return false
-	}
-	currentLane := pc.pluginConfig.GetSelectedLane()
-	if currentLane >= 0 && currentLane < len(pc.pluginDef.Lanes) {
-		tasks := pc.GetFilteredTasksForLane(currentLane)
-		if len(tasks) > 0 {
-			return false
-		}
-	}
-	return pc.selectFirstNonEmptyLane()
 }
 
 func (pc *PluginController) ensureSearchResultIncludesTask(updated *task.Task) {
@@ -441,17 +268,4 @@ func (pc *PluginController) ensureSearchResultIncludesTask(updated *task.Task) {
 		Score: 1.0,
 	})
 	pc.pluginConfig.SetSearchResults(searchResults, pc.pluginConfig.GetSearchQuery())
-}
-
-func filterTasksBySearch(tasks []*task.Task, searchMap map[string]bool) []*task.Task {
-	if searchMap == nil {
-		return tasks
-	}
-	filtered := make([]*task.Task, 0, len(tasks))
-	for _, t := range tasks {
-		if searchMap[t.ID] {
-			filtered = append(filtered, t)
-		}
-	}
-	return filtered
 }

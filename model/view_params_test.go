@@ -95,6 +95,35 @@ func TestTaskDetailParams_DecodeInvalidParams(t *testing.T) {
 	}
 }
 
+func TestTaskDetailParams_ReadOnlyRoundTrip(t *testing.T) {
+	// ReadOnly=true should survive encode/decode
+	params := TaskDetailParams{
+		TaskID:   "TIKI-1",
+		ReadOnly: true,
+	}
+
+	encoded := EncodeTaskDetailParams(params)
+	decoded := DecodeTaskDetailParams(encoded)
+
+	if !decoded.ReadOnly {
+		t.Error("round-trip failed: ReadOnly = false, want true")
+	}
+
+	// ReadOnly=false should not be stored (keeps params map clean)
+	paramsNoRO := TaskDetailParams{
+		TaskID: "TIKI-2",
+	}
+	encodedNoRO := EncodeTaskDetailParams(paramsNoRO)
+	if _, exists := encodedNoRO[paramReadOnly]; exists {
+		t.Error("ReadOnly=false should not be stored in encoded params")
+	}
+
+	decodedNoRO := DecodeTaskDetailParams(encodedNoRO)
+	if decodedNoRO.ReadOnly {
+		t.Error("ReadOnly should default to false")
+	}
+}
+
 func TestTaskEditParams_EncodeDecodeRoundTrip(t *testing.T) {
 	draftTask := &taskpkg.Task{
 		ID:       "TIKI-42",

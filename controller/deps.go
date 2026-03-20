@@ -21,11 +21,7 @@ const (
 // Unlike PluginController, move logic here updates different tasks depending on
 // the source/target lane pair — sometimes the moved task, sometimes the context task.
 type DepsController struct {
-	taskStore     store.Store
-	pluginConfig  *model.PluginConfig
-	pluginDef     *plugin.TikiPlugin
-	navController *NavigationController
-	registry      *ActionRegistry
+	pluginBase
 }
 
 // NewDepsController creates a dependency editor controller.
@@ -36,33 +32,52 @@ func NewDepsController(
 	navController *NavigationController,
 ) *DepsController {
 	return &DepsController{
-		taskStore:     taskStore,
-		pluginConfig:  pluginConfig,
-		pluginDef:     pluginDef,
-		navController: navController,
-		registry:      DepsViewActions(),
+		pluginBase: pluginBase{
+			taskStore:     taskStore,
+			pluginConfig:  pluginConfig,
+			pluginDef:     pluginDef,
+			navController: navController,
+			registry:      DepsViewActions(),
+		},
 	}
 }
 
-func (dc *DepsController) GetActionRegistry() *ActionRegistry { return dc.registry }
-func (dc *DepsController) GetPluginName() string              { return dc.pluginDef.Name }
-func (dc *DepsController) ShowNavigation() bool               { return false }
+func (dc *DepsController) ShowNavigation() bool { return false }
+
+// EnsureFirstNonEmptyLaneSelection delegates to pluginBase with this controller's filter.
+func (dc *DepsController) EnsureFirstNonEmptyLaneSelection() bool {
+	return dc.pluginBase.EnsureFirstNonEmptyLaneSelection(dc.GetFilteredTasksForLane)
+}
 
 // HandleAction routes actions to the appropriate handler.
 func (dc *DepsController) HandleAction(actionID ActionID) bool {
 	switch actionID {
 	case ActionNavUp:
-		return dc.handleNav("up")
+		return dc.handleNav("up", dc.GetFilteredTasksForLane)
 	case ActionNavDown:
-		return dc.handleNav("down")
+		return dc.handleNav("down", dc.GetFilteredTasksForLane)
 	case ActionNavLeft:
-		return dc.handleNav("left")
+		return dc.handleNav("left", dc.GetFilteredTasksForLane)
 	case ActionNavRight:
-		return dc.handleNav("right")
+		return dc.handleNav("right", dc.GetFilteredTasksForLane)
 	case ActionMoveTaskLeft:
 		return dc.handleMoveTask(-1)
 	case ActionMoveTaskRight:
 		return dc.handleMoveTask(1)
+	case ActionOpenFromPlugin:
+		taskID := dc.getSelectedTaskID(dc.GetFilteredTasksForLane)
+		if taskID == "" {
+			return false
+		}
+		dc.navController.PushView(model.TaskDetailViewID, model.EncodeTaskDetailParams(model.TaskDetailParams{
+			TaskID:   taskID,
+			ReadOnly: true,
+		}))
+		return true
+	case ActionNewTask:
+		return dc.handleNewTask()
+	case ActionDeleteTask:
+		return dc.handleDeleteTask(dc.GetFilteredTasksForLane)
 	case ActionToggleViewMode:
 		dc.pluginConfig.ToggleViewMode()
 		return true
@@ -73,18 +88,9 @@ func (dc *DepsController) HandleAction(actionID ActionID) bool {
 
 // HandleSearch processes a search query, narrowing visible tasks within each lane.
 func (dc *DepsController) HandleSearch(query string) {
-	query = strings.TrimSpace(query)
-	if query == "" {
-		return
-	}
-	dc.pluginConfig.SavePreSearchState()
-	results := dc.taskStore.Search(query, nil)
-	if len(results) == 0 {
-		dc.pluginConfig.SetSearchResults([]task.SearchResult{}, query)
-		return
-	}
-	dc.pluginConfig.SetSearchResults(results, query)
-	dc.selectFirstNonEmptyLane()
+	dc.handleSearch(query, func() bool {
+		return dc.selectFirstNonEmptyLane(dc.GetFilteredTasksForLane)
+	})
 }
 
 // GetFilteredTasksForLane returns tasks for a given lane of the deps editor.
@@ -127,17 +133,6 @@ func (dc *DepsController) GetFilteredTasksForLane(lane int) []*task.Task {
 	return result
 }
 
-// EnsureFirstNonEmptyLaneSelection selects the first non-empty lane if the current lane is empty.
-func (dc *DepsController) EnsureFirstNonEmptyLaneSelection() bool {
-	currentLane := dc.pluginConfig.GetSelectedLane()
-	if currentLane >= 0 && currentLane < len(dc.pluginDef.Lanes) {
-		if len(dc.GetFilteredTasksForLane(currentLane)) > 0 {
-			return false
-		}
-	}
-	return dc.selectFirstNonEmptyLane()
-}
-
 // handleMoveTask applies dependency changes based on the source→target lane transition.
 //
 //	From → To      | What changes
@@ -150,7 +145,7 @@ func (dc *DepsController) handleMoveTask(offset int) bool {
 		return false
 	}
 
-	movedTaskID := dc.getSelectedTaskID()
+	movedTaskID := dc.getSelectedTaskID(dc.GetFilteredTasksForLane)
 	if movedTaskID == "" {
 		return false
 	}
@@ -200,7 +195,7 @@ func (dc *DepsController) handleMoveTask(offset int) bool {
 		}
 	}
 
-	dc.selectTaskInLane(targetLane, movedTaskID)
+	dc.selectTaskInLane(targetLane, movedTaskID, dc.GetFilteredTasksForLane)
 	return true
 }
 
@@ -250,85 +245,4 @@ func (dc *DepsController) computeAllLane(allTasks []*task.Task, contextID string
 		}
 	}
 	return result
-}
-
-func (dc *DepsController) handleNav(direction string) bool {
-	lane := dc.pluginConfig.GetSelectedLane()
-	tasks := dc.GetFilteredTasksForLane(lane)
-	if direction == "left" || direction == "right" {
-		if dc.pluginConfig.MoveSelection(direction, len(tasks)) {
-			return true
-		}
-		return dc.handleLaneSwitch(direction)
-	}
-	return dc.pluginConfig.MoveSelection(direction, len(tasks))
-}
-
-func (dc *DepsController) handleLaneSwitch(direction string) bool {
-	currentLane := dc.pluginConfig.GetSelectedLane()
-	nextLane := currentLane
-	switch direction {
-	case "left":
-		nextLane--
-	case "right":
-		nextLane++
-	default:
-		return false
-	}
-
-	for nextLane >= 0 && nextLane < len(dc.pluginDef.Lanes) {
-		tasks := dc.GetFilteredTasksForLane(nextLane)
-		if len(tasks) > 0 {
-			dc.pluginConfig.SetSelectedLane(nextLane)
-			scrollOffset := dc.pluginConfig.GetScrollOffsetForLane(nextLane)
-			if scrollOffset >= len(tasks) {
-				scrollOffset = len(tasks) - 1
-			}
-			if scrollOffset < 0 {
-				scrollOffset = 0
-			}
-			dc.pluginConfig.SetSelectedIndexForLane(nextLane, scrollOffset)
-			return true
-		}
-		switch direction {
-		case "left":
-			nextLane--
-		case "right":
-			nextLane++
-		}
-	}
-	return false
-}
-
-func (dc *DepsController) getSelectedTaskID() string {
-	lane := dc.pluginConfig.GetSelectedLane()
-	tasks := dc.GetFilteredTasksForLane(lane)
-	idx := dc.pluginConfig.GetSelectedIndexForLane(lane)
-	if idx < 0 || idx >= len(tasks) {
-		return ""
-	}
-	return tasks[idx].ID
-}
-
-func (dc *DepsController) selectTaskInLane(lane int, taskID string) {
-	tasks := dc.GetFilteredTasksForLane(lane)
-	targetIndex := 0
-	for i, t := range tasks {
-		if t.ID == taskID {
-			targetIndex = i
-			break
-		}
-	}
-	dc.pluginConfig.SetSelectedLane(lane)
-	dc.pluginConfig.SetSelectedIndexForLane(lane, targetIndex)
-}
-
-func (dc *DepsController) selectFirstNonEmptyLane() bool {
-	for lane := range dc.pluginDef.Lanes {
-		if len(dc.GetFilteredTasksForLane(lane)) > 0 {
-			dc.pluginConfig.SetSelectedLaneAndIndex(lane, 0)
-			return true
-		}
-	}
-	return false
 }

@@ -46,7 +46,8 @@ func newDepsTestEnv(t *testing.T) (*DepsController, store.Store) {
 	pluginConfig := model.NewPluginConfig("deps:" + testCtxID)
 	pluginConfig.SetLaneLayout([]int{1, 2, 1})
 
-	dc := NewDepsController(taskStore, pluginConfig, pluginDef, nil)
+	nav := newMockNavigationController()
+	dc := NewDepsController(taskStore, pluginConfig, pluginDef, nav)
 	return dc, taskStore
 }
 
@@ -297,6 +298,53 @@ func TestDepsController_HandleAction(t *testing.T) {
 		}
 	})
 
+	t.Run("open task pushes detail view", func(t *testing.T) {
+		dc, _ := newDepsTestEnv(t)
+		dc.pluginConfig.SetSelectedLane(depsLaneAll)
+		dc.pluginConfig.SetSelectedIndexForLane(depsLaneAll, 0)
+		result := dc.HandleAction(ActionOpenFromPlugin)
+		if !result {
+			t.Error("open should succeed when a task is selected")
+		}
+		top := dc.navController.navState.currentView()
+		if top == nil || top.ViewID != model.TaskDetailViewID {
+			t.Error("expected TaskDetailViewID to be pushed")
+		}
+	})
+
+	t.Run("new task pushes edit view", func(t *testing.T) {
+		dc, _ := newDepsTestEnv(t)
+		result := dc.HandleAction(ActionNewTask)
+		if !result {
+			t.Error("new task should succeed")
+		}
+		top := dc.navController.navState.currentView()
+		if top == nil || top.ViewID != model.TaskEditViewID {
+			t.Error("expected TaskEditViewID to be pushed")
+		}
+	})
+
+	t.Run("delete task removes from store", func(t *testing.T) {
+		dc, taskStore := newDepsTestEnv(t)
+		dc.pluginConfig.SetSelectedLane(depsLaneAll)
+		dc.pluginConfig.SetSelectedIndexForLane(depsLaneAll, 0)
+
+		// free task should be in the All lane
+		allTasks := dc.GetFilteredTasksForLane(depsLaneAll)
+		if len(allTasks) == 0 {
+			t.Fatal("expected at least one task in All lane")
+		}
+		deletedID := allTasks[0].ID
+
+		result := dc.HandleAction(ActionDeleteTask)
+		if !result {
+			t.Error("delete should succeed when a task is selected")
+		}
+		if taskStore.GetTask(deletedID) != nil {
+			t.Errorf("task %s should have been deleted", deletedID)
+		}
+	})
+
 	t.Run("invalid action returns false", func(t *testing.T) {
 		dc, _ := newDepsTestEnv(t)
 		if dc.HandleAction("nonexistent_action") {
@@ -309,7 +357,7 @@ func TestDepsController_HandleLaneSwitch(t *testing.T) {
 	t.Run("right from Blocks lands on All", func(t *testing.T) {
 		dc, _ := newDepsTestEnv(t)
 		dc.pluginConfig.SetSelectedLane(depsLaneBlocks)
-		result := dc.handleLaneSwitch("right")
+		result := dc.handleLaneSwitch("right", dc.GetFilteredTasksForLane)
 		if !result {
 			t.Error("should succeed — All lane has tasks")
 		}
@@ -321,7 +369,7 @@ func TestDepsController_HandleLaneSwitch(t *testing.T) {
 	t.Run("left from All lands on Blocks", func(t *testing.T) {
 		dc, _ := newDepsTestEnv(t)
 		dc.pluginConfig.SetSelectedLane(depsLaneAll)
-		result := dc.handleLaneSwitch("left")
+		result := dc.handleLaneSwitch("left", dc.GetFilteredTasksForLane)
 		if !result {
 			t.Error("should succeed — Blocks lane has tasks")
 		}
@@ -333,7 +381,7 @@ func TestDepsController_HandleLaneSwitch(t *testing.T) {
 	t.Run("left from Blocks returns false (boundary)", func(t *testing.T) {
 		dc, _ := newDepsTestEnv(t)
 		dc.pluginConfig.SetSelectedLane(depsLaneBlocks)
-		if dc.handleLaneSwitch("left") {
+		if dc.handleLaneSwitch("left", dc.GetFilteredTasksForLane) {
 			t.Error("should fail — no lane to the left of Blocks")
 		}
 	})
@@ -341,7 +389,7 @@ func TestDepsController_HandleLaneSwitch(t *testing.T) {
 	t.Run("right from Depends returns false (boundary)", func(t *testing.T) {
 		dc, _ := newDepsTestEnv(t)
 		dc.pluginConfig.SetSelectedLane(depsLaneDepends)
-		if dc.handleLaneSwitch("right") {
+		if dc.handleLaneSwitch("right", dc.GetFilteredTasksForLane) {
 			t.Error("should fail — no lane to the right of Depends")
 		}
 	})
@@ -381,27 +429,18 @@ func TestDepsController_EnsureFirstNonEmptyLaneSelection(t *testing.T) {
 	})
 }
 
-func TestDepsViewActions_NoOpenNewDelete(t *testing.T) {
+func TestDepsViewActions(t *testing.T) {
 	registry := DepsViewActions()
 	actions := registry.GetActions()
-
-	forbidden := map[ActionID]bool{
-		ActionOpenFromPlugin: true,
-		ActionNewTask:        true,
-		ActionDeleteTask:     true,
-	}
-
-	for _, a := range actions {
-		if forbidden[a.ID] {
-			t.Errorf("DepsViewActions should not contain %s", a.ID)
-		}
-	}
 
 	required := map[ActionID]bool{
 		ActionNavUp:          false,
 		ActionNavDown:        false,
 		ActionMoveTaskLeft:   false,
 		ActionMoveTaskRight:  false,
+		ActionOpenFromPlugin: false,
+		ActionNewTask:        false,
+		ActionDeleteTask:     false,
 		ActionToggleViewMode: false,
 		ActionSearch:         false,
 	}

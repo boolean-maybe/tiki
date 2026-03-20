@@ -9,11 +9,13 @@ const (
 	paramDraftTask = "draftTask"
 	paramFocus     = "focus"
 	paramDescOnly  = "descOnly"
+	paramReadOnly  = "readOnly"
 )
 
 // TaskDetailParams are params for TaskDetailViewID.
 type TaskDetailParams struct {
-	TaskID string
+	TaskID   string
+	ReadOnly bool
 }
 
 // EncodeTaskDetailParams converts typed params into a navigation params map.
@@ -21,9 +23,13 @@ func EncodeTaskDetailParams(p TaskDetailParams) map[string]interface{} {
 	if p.TaskID == "" {
 		return nil
 	}
-	return map[string]interface{}{
+	m := map[string]interface{}{
 		paramTaskID: p.TaskID,
 	}
+	if p.ReadOnly {
+		m[paramReadOnly] = true
+	}
+	return m
 }
 
 // DecodeTaskDetailParams converts a navigation params map into typed params.
@@ -34,6 +40,9 @@ func DecodeTaskDetailParams(params map[string]interface{}) TaskDetailParams {
 	}
 	if id, ok := params[paramTaskID].(string); ok {
 		p.TaskID = id
+	}
+	if readOnly, ok := params[paramReadOnly].(bool); ok {
+		p.ReadOnly = readOnly
 	}
 	return p
 }

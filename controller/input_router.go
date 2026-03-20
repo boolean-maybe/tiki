@@ -320,7 +320,7 @@ func (ir *InputRouter) handleTaskInput(event *tcell.EventKey, params map[string]
 		ir.taskController.SetCurrentTask(taskID)
 	}
 
-	registry := ir.taskController.GetActionRegistry()
+	registry := ir.navController.GetActiveView().GetActionRegistry()
 	if action := registry.Match(event); action != nil {
 		switch action.ID {
 		case ActionEditTitle:
