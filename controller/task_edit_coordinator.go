@@ -61,6 +61,16 @@ func (c *TaskEditCoordinator) HandleKey(activeView View, event *tcell.EventKey) 
 			return false
 		}
 		return c.FocusPrevField(activeView)
+	case tcell.KeyLeft:
+		if nav, ok := activeView.(RecurrencePartNavigable); ok {
+			return nav.MoveRecurrencePartLeft()
+		}
+		return false
+	case tcell.KeyRight:
+		if nav, ok := activeView.(RecurrencePartNavigable); ok {
+			return nav.MoveRecurrencePartRight()
+		}
+		return false
 	case tcell.KeyEscape:
 		return c.CancelAndClose()
 	case tcell.KeyUp:
@@ -237,6 +247,12 @@ func (c *TaskEditCoordinator) prepareView(activeView View, focus model.EditField
 		if dueEditableView, ok := activeView.(DueEditableView); ok {
 			dueEditableView.SetDueSaveHandler(func(dateStr string) {
 				c.taskController.SaveDue(dateStr)
+			})
+		}
+
+		if recurrenceEditableView, ok := activeView.(RecurrenceEditableView); ok {
+			recurrenceEditableView.SetRecurrenceSaveHandler(func(cron string) {
+				c.taskController.SaveRecurrence(cron)
 			})
 		}
 	}

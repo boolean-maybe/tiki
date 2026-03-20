@@ -29,15 +29,14 @@ func TestAllSectionsFit(t *testing.T) {
 		t.Fatalf("expected 5 gaps, got %d", len(plan.Gaps))
 	}
 
-	// left-side gaps capped at 8, bridge+right gaps stay at 1
-	expectedGaps := []int{8, 8, 1, 1, 1}
+	// left-side gaps capped at 8, bridge gap reserved at minBridgeGap, right gaps stay at 1
+	expectedGaps := []int{8, 8, 3, 1, 1}
 	for i, g := range plan.Gaps {
 		if g != expectedGaps[i] {
 			t.Errorf("gap[%d] = %d, want %d", i, g, expectedGaps[i])
 		}
 	}
 
-	// right-side sections expand: (190-90-19)/3 = 27, remainder distributed
 	verifyTotalWidth(t, plan, 190)
 }
 
@@ -50,7 +49,7 @@ func TestAllSectionsFit_RemainderInBridgeGap(t *testing.T) {
 		t.Fatalf("expected 6 sections, got %d", len(plan.Sections))
 	}
 
-	expectedGaps := []int{7, 7, 1, 1, 1}
+	expectedGaps := []int{6, 6, 3, 1, 1}
 	for i, g := range plan.Gaps {
 		if g != expectedGaps[i] {
 			t.Errorf("gap[%d] = %d, want %d", i, g, expectedGaps[i])
@@ -111,14 +110,13 @@ func TestAllRightSideHidden(t *testing.T) {
 	}
 
 	// free = 95-92 = 3, 2 left gaps, perGap=min(3/2,7)=1, gaps=[2, 2]
-	// leftover 1 goes to last gap → [2, 3]
-	expected := []int{2, 3}
+	// leftover 1 capped at maxLeftSideGap → last gap stays at 2
+	expected := []int{2, 2}
 	for i, g := range plan.Gaps {
 		if g != expected[i] {
 			t.Errorf("gap[%d] = %d, want %d", i, g, expected[i])
 		}
 	}
-	verifyTotalWidth(t, plan, 95)
 }
 
 func TestDueGroupEmpty_BridgeShifts(t *testing.T) {
@@ -142,10 +140,9 @@ func TestDueGroupEmpty_BridgeShifts(t *testing.T) {
 		t.Error("Tags should be shed (not enough width)")
 	}
 
-	// bridge at index 2 (DueGroup→DependsOn), 2 left gaps
-	// free=149-123=26, perGap=min(26/2,7)=7, gaps[0]=8,gaps[1]=8
-	// right expand: remaining=149-90-8-8-1=42, DependsOn=30+12=42
-	expectedGaps := []int{8, 8, 1}
+	// bridge at index 2 (DueGroup→DependsOn), bridge reserved at 3
+	// left gaps expand to 8, right sections absorb remaining
+	expectedGaps := []int{8, 8, 3}
 	for i, g := range plan.Gaps {
 		if g != expectedGaps[i] {
 			t.Errorf("gap[%d] = %d, want %d", i, g, expectedGaps[i])
@@ -248,8 +245,8 @@ func TestLeftSideGapsCapped(t *testing.T) {
 		t.Fatalf("expected 6 sections, got %d", len(plan.Sections))
 	}
 
-	// left-side gaps capped at 8, bridge+right gaps at 1
-	expectedGaps := []int{8, 8, 1, 1, 1}
+	// left-side gaps capped at 8, bridge reserved at minBridgeGap, right gaps at 1
+	expectedGaps := []int{8, 8, 3, 1, 1}
 	for i, g := range plan.Gaps {
 		if g != expectedGaps[i] {
 			t.Errorf("gap[%d] = %d, want %d", i, g, expectedGaps[i])
@@ -277,14 +274,14 @@ func TestLeftSideGapsCapped(t *testing.T) {
 func TestLeftSideGapsCapped_AllLeftSide(t *testing.T) {
 	// 3 left-side sections only, wide terminal
 	// widths = 90, free = 110, 2 gaps
-	// left gaps: perGap=min(110/2,7)=7, gaps=[8,8], used=106, leftover=94 → last gap
+	// left gaps: perGap=min(110/2,7)=7, gaps=[8,8] — left-aligned, leftover unallocated
 	plan := CalculateMetadataLayout(200, allSixSections()[:3])
 
 	if len(plan.Sections) != 3 {
 		t.Fatalf("expected 3 sections, got %d", len(plan.Sections))
 	}
 
-	expected := []int{8, 102}
+	expected := []int{8, 8}
 	for i, g := range plan.Gaps {
 		if g != expected[i] {
 			t.Errorf("gap[%d] = %d, want %d", i, g, expected[i])
@@ -299,10 +296,10 @@ func TestTagsMinWidth(t *testing.T) {
 		want int
 	}{
 		{"longest tag wins", []string{"backend", "bug", "frontend", "search"}, 8},
-		{"label wins over short tags", []string{"a", "b"}, 5},
+		{"label wins over short tags", []string{"a", "b"}, 7},
 		{"single long tag", []string{"infrastructure"}, 14},
-		{"empty tags", nil, 5},
-		{"tag exactly label length", []string{"abcd"}, 5},
+		{"empty tags", nil, 7},
+		{"tag exactly label length", []string{"abcd"}, 7},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -392,4 +389,52 @@ func contains(ids []SectionID, target SectionID) bool {
 		}
 	}
 	return false
+}
+
+func TestBridgeGapMinimum(t *testing.T) {
+	// when right-side sections exist and space allows, bridge gap >= minBridgeGap
+	plan := CalculateMetadataLayout(170, allSixSections())
+
+	bridgeIdx := -1
+	for i := 0; i < len(plan.Sections)-1; i++ {
+		if !isRightSide(plan.Sections[i].ID) && isRightSide(plan.Sections[i+1].ID) {
+			bridgeIdx = i
+			break
+		}
+	}
+	if bridgeIdx < 0 {
+		t.Fatal("expected a bridge gap between left-side and right-side sections")
+	}
+	if plan.Gaps[bridgeIdx] < minBridgeGap {
+		t.Errorf("bridge gap = %d, want >= %d", plan.Gaps[bridgeIdx], minBridgeGap)
+	}
+	verifyTotalWidth(t, plan, 170)
+}
+
+func TestBridgeGapCapped(t *testing.T) {
+	// on a very wide terminal, bridge gap should not exceed maxBridgeGap
+	// use sections where right-side sections are absent except tags (small width)
+	// so the bridge gap accumulates most of the overflow
+	sections := []SectionInput{
+		{ID: SectionStatusGroup, Width: 30, HasContent: true},
+		{ID: SectionPeopleGroup, Width: 30, HasContent: true},
+		{ID: SectionDueGroup, Width: 30, HasContent: true},
+		{ID: SectionTags, Width: 7, HasContent: true},
+	}
+	plan := CalculateMetadataLayout(500, sections)
+
+	bridgeIdx := -1
+	for i := 0; i < len(plan.Sections)-1; i++ {
+		if !isRightSide(plan.Sections[i].ID) && isRightSide(plan.Sections[i+1].ID) {
+			bridgeIdx = i
+			break
+		}
+	}
+	if bridgeIdx < 0 {
+		t.Fatal("expected a bridge gap")
+	}
+	if plan.Gaps[bridgeIdx] > maxBridgeGap {
+		t.Errorf("bridge gap = %d, want <= %d", plan.Gaps[bridgeIdx], maxBridgeGap)
+	}
+	verifyTotalWidth(t, plan, 500)
 }

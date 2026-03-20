@@ -391,6 +391,19 @@ func (tc *TaskController) SaveDue(dateStr string) bool {
 	})
 }
 
+// SaveRecurrence saves the new recurrence cron expression to the current task.
+// Returns true if the recurrence was successfully updated, false otherwise.
+func (tc *TaskController) SaveRecurrence(cron string) bool {
+	r := taskpkg.Recurrence(cron)
+	if !taskpkg.IsValidRecurrence(r) {
+		slog.Warn("invalid recurrence", "cron", cron)
+		return false
+	}
+	return tc.updateTaskField(func(t *taskpkg.Task) {
+		t.Recurrence = r
+	})
+}
+
 func (tc *TaskController) handleCloneTask() bool {
 	// TODO: trigger task clone flow from detail view
 	return true

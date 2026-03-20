@@ -14,7 +14,8 @@ func TestNextField(t *testing.T) {
 		{"Priority to Points", EditFieldPriority, EditFieldPoints},
 		{"Points to Assignee", EditFieldPoints, EditFieldAssignee},
 		{"Assignee to Due", EditFieldAssignee, EditFieldDue},
-		{"Due to Description", EditFieldDue, EditFieldDescription},
+		{"Due to Recurrence", EditFieldDue, EditFieldRecurrence},
+		{"Recurrence to Description", EditFieldRecurrence, EditFieldDescription},
 		{"Description stays at Description (no wrap)", EditFieldDescription, EditFieldDescription},
 		{"Unknown field defaults to Title", EditField("unknown"), EditFieldTitle},
 	}
@@ -42,7 +43,8 @@ func TestPrevField(t *testing.T) {
 		{"Points to Priority", EditFieldPoints, EditFieldPriority},
 		{"Assignee to Points", EditFieldAssignee, EditFieldPoints},
 		{"Due to Assignee", EditFieldDue, EditFieldAssignee},
-		{"Description to Due", EditFieldDescription, EditFieldDue},
+		{"Recurrence to Due", EditFieldRecurrence, EditFieldDue},
+		{"Description to Recurrence", EditFieldDescription, EditFieldRecurrence},
 		{"Unknown field defaults to Title", EditField("unknown"), EditFieldTitle},
 	}
 
@@ -66,6 +68,7 @@ func TestFieldCycling(t *testing.T) {
 		EditFieldPoints,
 		EditFieldAssignee,
 		EditFieldDue,
+		EditFieldRecurrence,
 		EditFieldDescription,
 		EditFieldDescription, // stays at end
 	}
@@ -80,6 +83,7 @@ func TestFieldCycling(t *testing.T) {
 	// Test complete backward navigation (stops at beginning, no wrap)
 	field = EditFieldDescription
 	expectedOrderReverse := []EditField{
+		EditFieldRecurrence,
 		EditFieldDue,
 		EditFieldAssignee,
 		EditFieldPoints,
@@ -110,6 +114,7 @@ func TestIsEditableField(t *testing.T) {
 		{"Assignee is editable", EditFieldAssignee, true},
 		{"Points is editable", EditFieldPoints, true},
 		{"Due is editable", EditFieldDue, true},
+		{"Recurrence is editable", EditFieldRecurrence, true},
 		{"Description is editable", EditFieldDescription, true},
 	}
 
@@ -135,6 +140,7 @@ func TestFieldLabel(t *testing.T) {
 		{"Assignee label", EditFieldAssignee, "Assignee"},
 		{"Points label", EditFieldPoints, "Story Points"},
 		{"Due label", EditFieldDue, "Due"},
+		{"Recurrence label", EditFieldRecurrence, "Recurrence"},
 		{"Description label", EditFieldDescription, "Description"},
 	}
 

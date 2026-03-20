@@ -119,6 +119,26 @@ func (ev *TaskEditView) ensureDueInput(task *taskpkg.Task) *component.DateEdit {
 	return ev.dueInput
 }
 
+func (ev *TaskEditView) ensureRecurrenceInput(task *taskpkg.Task) *component.RecurrenceEdit {
+	if ev.recurrenceInput == nil {
+		colors := config.GetColors()
+		ev.recurrenceInput = component.NewRecurrenceEdit()
+		ev.recurrenceInput.SetLabel(getFocusMarker(colors) + "Recurrence: ")
+
+		ev.recurrenceInput.SetChangeHandler(func(value string) {
+			ev.updateValidationState()
+
+			if ev.onRecurrenceSave != nil {
+				ev.onRecurrenceSave(value)
+			}
+		})
+
+		ev.recurrenceInput.SetInitialValue(string(task.Recurrence))
+	}
+
+	return ev.recurrenceInput
+}
+
 func (ev *TaskEditView) ensureAssigneeSelectList(task *taskpkg.Task) *component.EditSelectList {
 	if ev.assigneeSelectList == nil {
 		var assigneeOptions []string

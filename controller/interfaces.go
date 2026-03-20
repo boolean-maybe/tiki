@@ -239,6 +239,21 @@ type DueEditableView interface {
 	SetDueSaveHandler(handler func(string))
 }
 
+// RecurrenceEditableView is a view that supports recurrence editing functionality
+type RecurrenceEditableView interface {
+	View
+
+	// SetRecurrenceSaveHandler sets the callback for when recurrence is saved
+	SetRecurrenceSaveHandler(handler func(string))
+}
+
+// RecurrencePartNavigable is a view that supports Left/Right navigation between
+// the two logical parts of a recurrence field (frequency and value).
+type RecurrencePartNavigable interface {
+	MoveRecurrencePartLeft() bool
+	MoveRecurrencePartRight() bool
+}
+
 // StatsProvider is a view that provides statistics for the header
 type StatsProvider interface {
 	// GetStats returns stats to display in the header for this view

@@ -37,19 +37,21 @@ type TaskEditView struct {
 	assigneeSelectList *component.EditSelectList
 	pointsInput        *component.IntEditSelect
 	dueInput           *component.DateEdit
+	recurrenceInput    *component.RecurrenceEdit
 
 	// All callbacks
-	onTitleSave    func(string)
-	onTitleChange  func(string)
-	onTitleCancel  func()
-	onDescSave     func(string)
-	onDescCancel   func()
-	onStatusSave   func(string)
-	onTypeSave     func(string)
-	onPrioritySave func(int)
-	onAssigneeSave func(string)
-	onPointsSave   func(int)
-	onDueSave      func(string)
+	onTitleSave      func(string)
+	onTitleChange    func(string)
+	onTitleCancel    func()
+	onDescSave       func(string)
+	onDescCancel     func()
+	onStatusSave     func(string)
+	onTypeSave       func(string)
+	onPrioritySave   func(int)
+	onAssigneeSave   func(string)
+	onPointsSave     func(int)
+	onDueSave        func(string)
+	onRecurrenceSave func(string)
 }
 
 // Compile-time interface checks
@@ -86,6 +88,7 @@ func NewTaskEditView(taskStore store.Store, taskID string, imageManager *navtvie
 		ev.ensureAssigneeSelectList(task)
 		ev.ensurePointsInput(task)
 		ev.ensureDueInput(task)
+		ev.ensureRecurrenceInput(task)
 	}
 
 	ev.refresh()
@@ -220,7 +223,7 @@ func (ev *TaskEditView) buildMetadataColumns(task *taskpkg.Task, ctx FieldRender
 	// Column 3: Due, Recurrence
 	col3 := tview.NewFlex().SetDirection(tview.FlexRow)
 	col3.AddItem(ev.buildDueField(task, ctx), 1, 0, false)
-	col3.AddItem(RenderRecurrenceText(task, colors), 1, 0, false)
+	col3.AddItem(ev.buildRecurrenceField(task, ctx), 1, 0, false)
 
 	return col1, col2, col3
 }
@@ -265,6 +268,13 @@ func (ev *TaskEditView) buildDueField(task *taskpkg.Task, ctx FieldRenderContext
 		return ev.ensureDueInput(task)
 	}
 	return RenderDueText(task, ctx.Colors)
+}
+
+func (ev *TaskEditView) buildRecurrenceField(task *taskpkg.Task, ctx FieldRenderContext) tview.Primitive {
+	if ctx.FocusedField == model.EditFieldRecurrence {
+		return ev.ensureRecurrenceInput(task)
+	}
+	return RenderRecurrenceText(task, ctx.Colors)
 }
 
 func (ev *TaskEditView) buildDescription(task *taskpkg.Task) tview.Primitive {
@@ -395,6 +405,9 @@ func (ev *TaskEditView) buildTaskFromWidgets() *taskpkg.Task {
 		if parsed, ok := taskpkg.ParseDueDate(ev.dueInput.GetCurrentText()); ok {
 			snapshot.Due = parsed
 		}
+	}
+	if ev.recurrenceInput != nil {
+		snapshot.Recurrence = taskpkg.Recurrence(ev.recurrenceInput.GetValue())
 	}
 
 	return snapshot
@@ -559,4 +572,9 @@ func (ev *TaskEditView) SetPointsSaveHandler(handler func(int)) {
 // SetDueSaveHandler sets the callback for when due date is saved
 func (ev *TaskEditView) SetDueSaveHandler(handler func(string)) {
 	ev.onDueSave = handler
+}
+
+// SetRecurrenceSaveHandler sets the callback for when recurrence is saved
+func (ev *TaskEditView) SetRecurrenceSaveHandler(handler func(string)) {
+	ev.onRecurrenceSave = handler
 }

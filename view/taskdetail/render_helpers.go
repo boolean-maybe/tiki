@@ -163,6 +163,7 @@ func RenderTagsColumn(task *taskpkg.Task) tview.Primitive {
 	label.SetBorderPadding(0, 0, 0, 0)
 
 	col := tview.NewFlex().SetDirection(tview.FlexRow)
+	col.SetBorderPadding(0, 0, 1, 1)
 	col.AddItem(label, 1, 0, false)
 	col.AddItem(component.NewWordList(task.Tags), 0, 1, false)
 	return col
@@ -300,7 +301,7 @@ func (r *responsiveMetadataRow) rebuild(width int) {
 // is larger), with a floor of 5 to avoid degenerate layouts.
 func tagsMinWidth(tags []string) int {
 	const label = "Tags"
-	const floor = 5
+	const floor = 7
 	longest := len(label)
 	for _, tag := range tags {
 		if len(tag) > longest {

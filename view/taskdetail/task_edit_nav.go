@@ -58,6 +58,10 @@ func (ev *TaskEditView) SetFocusedField(field model.EditField) {
 		if ev.dueInput != nil {
 			ev.focusSetter(ev.dueInput)
 		}
+	case model.EditFieldRecurrence:
+		if ev.recurrenceInput != nil {
+			ev.focusSetter(ev.recurrenceInput)
+		}
 	case model.EditFieldTitle:
 		if ev.titleInput != nil {
 			ev.focusSetter(ev.titleInput)
@@ -92,6 +96,9 @@ func (ev *TaskEditView) IsEditFieldFocused() bool {
 		return true
 	}
 	if ev.dueInput != nil && ev.dueInput.HasFocus() {
+		return true
+	}
+	if ev.recurrenceInput != nil && ev.recurrenceInput.HasFocus() {
 		return true
 	}
 	return false
@@ -150,6 +157,11 @@ func (ev *TaskEditView) CycleFieldValueUp() bool {
 			ev.dueInput.InputHandler()(tcell.NewEventKey(tcell.KeyUp, 0, tcell.ModNone), nil)
 			return true
 		}
+	case model.EditFieldRecurrence:
+		if ev.recurrenceInput != nil {
+			ev.recurrenceInput.CyclePrev()
+			return true
+		}
 	}
 	return false
 }
@@ -187,8 +199,33 @@ func (ev *TaskEditView) CycleFieldValueDown() bool {
 			ev.dueInput.InputHandler()(tcell.NewEventKey(tcell.KeyDown, 0, tcell.ModNone), nil)
 			return true
 		}
+	case model.EditFieldRecurrence:
+		if ev.recurrenceInput != nil {
+			ev.recurrenceInput.CycleNext()
+			return true
+		}
 	}
 	return false
+}
+
+// MoveRecurrencePartLeft moves the recurrence editor to the frequency part.
+// Returns true if the recurrence field is focused and the navigation was handled.
+func (ev *TaskEditView) MoveRecurrencePartLeft() bool {
+	if ev.focusedField != model.EditFieldRecurrence || ev.recurrenceInput == nil {
+		return false
+	}
+	ev.recurrenceInput.MovePartLeft()
+	return true
+}
+
+// MoveRecurrencePartRight moves the recurrence editor to the value part.
+// Returns true if the recurrence field is focused and the navigation was handled.
+func (ev *TaskEditView) MoveRecurrencePartRight() bool {
+	if ev.focusedField != model.EditFieldRecurrence || ev.recurrenceInput == nil {
+		return false
+	}
+	ev.recurrenceInput.MovePartRight()
+	return true
 }
 
 // UpdateHeaderForField updates the registry with field-specific actions

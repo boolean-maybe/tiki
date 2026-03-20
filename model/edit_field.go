@@ -11,6 +11,7 @@ const (
 	EditFieldAssignee    EditField = "assignee"
 	EditFieldPoints      EditField = "points"
 	EditFieldDue         EditField = "due"
+	EditFieldRecurrence  EditField = "recurrence"
 	EditFieldDescription EditField = "description"
 )
 
@@ -23,6 +24,7 @@ var fieldOrder = []EditField{
 	EditFieldPoints,
 	EditFieldAssignee,
 	EditFieldDue,
+	EditFieldRecurrence,
 	EditFieldDescription,
 }
 
@@ -59,7 +61,7 @@ func PrevField(current EditField) EditField {
 // IsEditableField returns true if the field can be edited (not just viewed)
 func IsEditableField(field EditField) bool {
 	switch field {
-	case EditFieldTitle, EditFieldPriority, EditFieldAssignee, EditFieldPoints, EditFieldDue, EditFieldDescription:
+	case EditFieldTitle, EditFieldPriority, EditFieldAssignee, EditFieldPoints, EditFieldDue, EditFieldRecurrence, EditFieldDescription:
 		return true
 	default:
 		// Status is read-only for now
@@ -84,6 +86,8 @@ func FieldLabel(field EditField) string {
 		return "Story Points"
 	case EditFieldDue:
 		return "Due"
+	case EditFieldRecurrence:
+		return "Recurrence"
 	case EditFieldDescription:
 		return "Description"
 	default:

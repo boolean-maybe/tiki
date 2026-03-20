@@ -345,6 +345,16 @@ func TaskEditDueActions() *ActionRegistry {
 	return r
 }
 
+// TaskEditRecurrenceActions returns actions available when editing the recurrence field
+func TaskEditRecurrenceActions() *ActionRegistry {
+	r := CommonFieldNavigationActions()
+	r.Register(Action{ID: ActionNextValue, Key: tcell.KeyDown, Label: "Next ↓", ShowInHeader: true})
+	r.Register(Action{ID: ActionPrevValue, Key: tcell.KeyUp, Label: "Prev ↑", ShowInHeader: true})
+	r.Register(Action{ID: ActionNavLeft, Key: tcell.KeyLeft, Label: "← Part", ShowInHeader: true})
+	r.Register(Action{ID: ActionNavRight, Key: tcell.KeyRight, Label: "Part →", ShowInHeader: true})
+	return r
+}
+
 // TaskEditDescriptionActions returns actions available when editing the description field
 func TaskEditDescriptionActions() *ActionRegistry {
 	r := NewActionRegistry()
@@ -377,6 +387,8 @@ func GetActionsForField(field model.EditField) *ActionRegistry {
 		return TaskEditPointsActions()
 	case model.EditFieldDue:
 		return TaskEditDueActions()
+	case model.EditFieldRecurrence:
+		return TaskEditRecurrenceActions()
 	case model.EditFieldDescription:
 		return TaskEditDescriptionActions()
 	default:

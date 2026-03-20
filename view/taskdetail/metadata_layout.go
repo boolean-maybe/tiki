@@ -5,6 +5,24 @@ package taskdetail
 // integers in, plan out — so it can be tested and swapped independently.
 
 const maxLeftSideGap = 8
+const minBridgeGap = 3
+const maxBridgeGap = 12
+
+// Layout algorithm overview:
+//
+// Sections are divided into two groups: core (Status, People, Due) and optional
+// (Tags, DependsOn, Blocks). Optional sections live on the right side and are
+// shed when the terminal is too narrow, in order: Tags → Blocks → DependsOn.
+//
+// Gap distribution works differently for left vs right:
+//   - Left-side gaps expand equally, each capped at maxLeftSideGap.
+//   - A "bridge gap" separates the last core section from the first optional
+//     section, bounded by minBridgeGap..maxBridgeGap.
+//   - Right-side sections expand their widths to absorb remaining space.
+//
+// When only core sections remain (no right side), gaps are capped equally at
+// maxLeftSideGap and any leftover is unallocated — sections stay left-aligned
+// rather than stretching across the full width.
 
 // SectionID identifies a metadata section in left-to-right display order.
 type SectionID int
@@ -129,7 +147,8 @@ func removeSection(sections []SectionInput, id SectionID) []SectionInput {
 //  1. All sections start at their declared min width, all gaps at 1.
 //  2. Remaining free space is split: left-side gaps expand (capped at
 //     maxLeftSideGap); then right-side sections expand equally.
-//  3. Any leftover from the left-gap cap goes to the bridge gap.
+//  3. Any leftover goes to the bridge gap. When no right-side sections exist,
+//     leftover is unallocated (sections stay left-aligned).
 func distributeSpace(active []SectionInput, availableWidth int) LayoutPlan {
 	numGaps := len(active) - 1
 	bridgeIdx := findBridgeGap(active)
@@ -168,7 +187,13 @@ func distributeSpace(active []SectionInput, availableWidth int) LayoutPlan {
 		return LayoutPlan{Sections: planned, Gaps: gaps}
 	}
 
-	// step 1: expand left-side gaps (capped at maxLeftSideGap)
+	// step 0: reserve minimum bridge gap before left-gap expansion
+	if bridgeIdx >= 0 && free >= (minBridgeGap-1) {
+		gaps[bridgeIdx] = minBridgeGap
+		free = availableWidth - totalUsed()
+	}
+
+	// step 1: expand left-side gaps equally (each capped at maxLeftSideGap)
 	leftGapCount := bridgeIdx
 	if bridgeIdx < 0 {
 		leftGapCount = numGaps
@@ -194,13 +219,17 @@ func distributeSpace(active []SectionInput, availableWidth int) LayoutPlan {
 		free = availableWidth - totalUsed()
 	}
 
-	// step 3: any rounding leftover goes to bridge gap (or last gap)
-	if free > 0 {
-		sinkIdx := numGaps - 1
-		if bridgeIdx >= 0 {
-			sinkIdx = bridgeIdx
-		}
-		gaps[sinkIdx] += free
+	// step 3: any rounding leftover goes to bridge gap; when no right-side
+	// sections exist, leftover is unallocated (sections stay left-aligned)
+	if free > 0 && bridgeIdx >= 0 {
+		gaps[bridgeIdx] += free
+	}
+
+	// step 4: cap bridge gap — overflow goes to last section width
+	if bridgeIdx >= 0 && gaps[bridgeIdx] > maxBridgeGap {
+		overflow := gaps[bridgeIdx] - maxBridgeGap
+		gaps[bridgeIdx] = maxBridgeGap
+		planned[len(planned)-1].Width += overflow
 	}
 
 	return LayoutPlan{Sections: planned, Gaps: gaps}

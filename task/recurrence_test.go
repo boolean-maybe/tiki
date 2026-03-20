@@ -242,7 +242,7 @@ func TestRecurrenceDisplay(t *testing.T) {
 		{"0 0 * * FRI", "Weekly on Friday"},
 		{"0 0 * * SAT", "Weekly on Saturday"},
 		{"0 0 * * SUN", "Weekly on Sunday"},
-		{RecurrenceMonthly, "Monthly"},
+		{RecurrenceMonthly, "Monthly on the 1st"},
 		{"unknown", "None"},
 	}
 
@@ -265,7 +265,8 @@ func TestRecurrenceFromDisplay(t *testing.T) {
 		{"Daily", RecurrenceDaily},
 		{"Weekly on Monday", "0 0 * * MON"},
 		{"weekly on monday", "0 0 * * MON"},
-		{"Monthly", RecurrenceMonthly},
+		{"Monthly on the 1st", RecurrenceMonthly},
+		{"monthly on the 1st", RecurrenceMonthly},
 		{"unknown", RecurrenceNone},
 		{"", RecurrenceNone},
 	}
@@ -288,8 +289,8 @@ func TestAllRecurrenceDisplayValues(t *testing.T) {
 	if values[0] != "None" {
 		t.Errorf("first value should be None, got %q", values[0])
 	}
-	if values[len(values)-1] != "Monthly" {
-		t.Errorf("last value should be Monthly, got %q", values[len(values)-1])
+	if values[len(values)-1] != "Monthly on the 1st" {
+		t.Errorf("last value should be 'Monthly on the 1st', got %q", values[len(values)-1])
 	}
 	// every display value must round-trip through RecurrenceFromDisplay → RecurrenceDisplay
 	for _, v := range values {
@@ -344,6 +345,213 @@ func TestRecurrenceValue_ToRecurrence(t *testing.T) {
 			t.Errorf("got %q, want %q", rv.ToRecurrence(), RecurrenceDaily)
 		}
 	})
+}
+
+func TestOrdinalSuffix(t *testing.T) {
+	tests := []struct {
+		n    int
+		want string
+	}{
+		{1, "st"}, {2, "nd"}, {3, "rd"}, {4, "th"},
+		{11, "th"}, {12, "th"}, {13, "th"},
+		{21, "st"}, {22, "nd"}, {23, "rd"},
+		{31, "st"},
+	}
+	for _, tt := range tests {
+		got := OrdinalSuffix(tt.n)
+		if got != tt.want {
+			t.Errorf("OrdinalSuffix(%d) = %q, want %q", tt.n, got, tt.want)
+		}
+	}
+}
+
+func TestMonthlyRecurrence(t *testing.T) {
+	tests := []struct {
+		day  int
+		want Recurrence
+	}{
+		{1, "0 0 1 * *"},
+		{15, "0 0 15 * *"},
+		{31, "0 0 31 * *"},
+		{0, RecurrenceNone},
+		{32, RecurrenceNone},
+	}
+	for _, tt := range tests {
+		got := MonthlyRecurrence(tt.day)
+		if got != tt.want {
+			t.Errorf("MonthlyRecurrence(%d) = %q, want %q", tt.day, got, tt.want)
+		}
+	}
+}
+
+func TestIsMonthlyRecurrence(t *testing.T) {
+	tests := []struct {
+		r       Recurrence
+		wantDay int
+		wantOk  bool
+	}{
+		{"0 0 1 * *", 1, true},
+		{"0 0 15 * *", 15, true},
+		{"0 0 31 * *", 31, true},
+		{"0 0 * * *", 0, false},   // daily, not monthly
+		{"0 0 * * MON", 0, false}, // weekly
+		{"0 0 0 * *", 0, false},   // day 0 is invalid
+		{"0 0 32 * *", 0, false},  // day 32 is invalid
+	}
+	for _, tt := range tests {
+		day, ok := IsMonthlyRecurrence(tt.r)
+		if ok != tt.wantOk || day != tt.wantDay {
+			t.Errorf("IsMonthlyRecurrence(%q) = (%d, %v), want (%d, %v)", tt.r, day, ok, tt.wantDay, tt.wantOk)
+		}
+	}
+}
+
+func TestMonthlyDisplay(t *testing.T) {
+	tests := []struct {
+		day  int
+		want string
+	}{
+		{1, "Monthly on the 1st"},
+		{2, "Monthly on the 2nd"},
+		{3, "Monthly on the 3rd"},
+		{4, "Monthly on the 4th"},
+		{15, "Monthly on the 15th"},
+		{21, "Monthly on the 21st"},
+		{31, "Monthly on the 31st"},
+	}
+	for _, tt := range tests {
+		got := MonthlyDisplay(tt.day)
+		if got != tt.want {
+			t.Errorf("MonthlyDisplay(%d) = %q, want %q", tt.day, got, tt.want)
+		}
+	}
+}
+
+func TestFrequencyFromRecurrence(t *testing.T) {
+	tests := []struct {
+		r    Recurrence
+		want RecurrenceFrequency
+	}{
+		{RecurrenceNone, FrequencyNone},
+		{RecurrenceDaily, FrequencyDaily},
+		{"0 0 * * MON", FrequencyWeekly},
+		{"0 0 * * FRI", FrequencyWeekly},
+		{RecurrenceMonthly, FrequencyMonthly},
+		{"0 0 15 * *", FrequencyMonthly},
+		{"bogus", FrequencyNone},
+	}
+	for _, tt := range tests {
+		got := FrequencyFromRecurrence(tt.r)
+		if got != tt.want {
+			t.Errorf("FrequencyFromRecurrence(%q) = %q, want %q", tt.r, got, tt.want)
+		}
+	}
+}
+
+func TestWeekdayFromRecurrence(t *testing.T) {
+	tests := []struct {
+		r      Recurrence
+		want   string
+		wantOk bool
+	}{
+		{"0 0 * * MON", "Monday", true},
+		{"0 0 * * SUN", "Sunday", true},
+		{"0 0 * * *", "", false},
+		{"0 0 1 * *", "", false},
+	}
+	for _, tt := range tests {
+		got, ok := WeekdayFromRecurrence(tt.r)
+		if ok != tt.wantOk || got != tt.want {
+			t.Errorf("WeekdayFromRecurrence(%q) = (%q, %v), want (%q, %v)", tt.r, got, ok, tt.want, tt.wantOk)
+		}
+	}
+}
+
+func TestDayOfMonthFromRecurrence(t *testing.T) {
+	tests := []struct {
+		r      Recurrence
+		want   int
+		wantOk bool
+	}{
+		{"0 0 15 * *", 15, true},
+		{"0 0 * * MON", 0, false},
+	}
+	for _, tt := range tests {
+		got, ok := DayOfMonthFromRecurrence(tt.r)
+		if ok != tt.wantOk || got != tt.want {
+			t.Errorf("DayOfMonthFromRecurrence(%q) = (%d, %v), want (%d, %v)", tt.r, got, ok, tt.want, tt.wantOk)
+		}
+	}
+}
+
+func TestRecurrenceDisplay_Monthly(t *testing.T) {
+	tests := []struct {
+		input Recurrence
+		want  string
+	}{
+		{"0 0 15 * *", "Monthly on the 15th"},
+		{"0 0 2 * *", "Monthly on the 2nd"},
+		{"0 0 31 * *", "Monthly on the 31st"},
+	}
+	for _, tt := range tests {
+		got := RecurrenceDisplay(tt.input)
+		if got != tt.want {
+			t.Errorf("RecurrenceDisplay(%q) = %q, want %q", tt.input, got, tt.want)
+		}
+	}
+}
+
+func TestIsValidRecurrence_Monthly(t *testing.T) {
+	tests := []struct {
+		input Recurrence
+		want  bool
+	}{
+		{"0 0 15 * *", true},
+		{"0 0 31 * *", true},
+		{"0 0 0 * *", false},
+		{"0 0 32 * *", false},
+	}
+	for _, tt := range tests {
+		got := IsValidRecurrence(tt.input)
+		if got != tt.want {
+			t.Errorf("IsValidRecurrence(%q) = %v, want %v", tt.input, got, tt.want)
+		}
+	}
+}
+
+func TestParseRecurrence_Monthly(t *testing.T) {
+	tests := []struct {
+		input string
+		want  Recurrence
+		ok    bool
+	}{
+		{"0 0 15 * *", "0 0 15 * *", true},
+		{"0 0 31 * *", "0 0 31 * *", true},
+		{"0 0 0 * *", RecurrenceNone, false},
+	}
+	for _, tt := range tests {
+		got, ok := ParseRecurrence(tt.input)
+		if ok != tt.ok || got != tt.want {
+			t.Errorf("ParseRecurrence(%q) = (%q, %v), want (%q, %v)", tt.input, got, ok, tt.want, tt.ok)
+		}
+	}
+}
+
+func TestWeeklyRecurrence(t *testing.T) {
+	tests := []struct {
+		dayName string
+		want    Recurrence
+	}{
+		{"Monday", "0 0 * * MON"},
+		{"Sunday", "0 0 * * SUN"},
+		{"Invalid", RecurrenceNone},
+	}
+	for _, tt := range tests {
+		got := WeeklyRecurrence(tt.dayName)
+		if got != tt.want {
+			t.Errorf("WeeklyRecurrence(%q) = %q, want %q", tt.dayName, got, tt.want)
+		}
+	}
 }
 
 func TestRecurrenceValue_IsZero(t *testing.T) {
