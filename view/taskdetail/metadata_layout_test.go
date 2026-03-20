@@ -122,30 +122,30 @@ func TestAllRightSideHidden(t *testing.T) {
 }
 
 func TestDueGroupEmpty_BridgeShifts(t *testing.T) {
-	// Due/Recurrence empty — bridge gap between section 1 and first right-side
+	// Due/Recurrence empty but always shown — shed Tags+Blocks to fit width
 	sections := []SectionInput{
 		{ID: SectionStatusGroup, Width: 30, HasContent: true},
 		{ID: SectionPeopleGroup, Width: 30, HasContent: true},
-		{ID: SectionDueGroup, Width: 30, HasContent: false},
+		{ID: SectionDueGroup, Width: 30, HasContent: true},
 		{ID: SectionTags, Width: 10, HasContent: true},
 		{ID: SectionDependsOn, Width: 30, HasContent: true},
 		{ID: SectionBlocks, Width: 30, HasContent: true},
 	}
 
-	// active: Status(30) People(30) Tags(10) DepsOn(30) Blocks(30) = 130 + 4 gaps
+	// 6 sections need 165 min > 149 → shed Tags(10), then Blocks(30) → 4 active: 120+3=123
 	plan := CalculateMetadataLayout(149, sections)
 
-	if len(plan.Sections) != 5 {
-		t.Fatalf("expected 5 sections, got %d", len(plan.Sections))
+	if len(plan.Sections) != 4 {
+		t.Fatalf("expected 4 sections, got %d", len(plan.Sections))
 	}
-	if contains(sectionIDs(plan), SectionDueGroup) {
-		t.Error("DueGroup should be excluded (no content)")
+	if contains(sectionIDs(plan), SectionTags) {
+		t.Error("Tags should be shed (not enough width)")
 	}
 
-	// bridge at index 1 (between People and Tags), 1 left gap
-	// free=149-130-4=15, leftGapCount=1, perGap=min(15/1,7)=7, gap[0]=8
-	// right expand: remaining=149-60-8-1-1-1=78, 78/3=26 each
-	expectedGaps := []int{8, 1, 1, 1}
+	// bridge at index 2 (DueGroup→DependsOn), 2 left gaps
+	// free=149-123=26, perGap=min(26/2,7)=7, gaps[0]=8,gaps[1]=8
+	// right expand: remaining=149-90-8-8-1=42, DependsOn=30+12=42
+	expectedGaps := []int{8, 8, 1}
 	for i, g := range plan.Gaps {
 		if g != expectedGaps[i] {
 			t.Errorf("gap[%d] = %d, want %d", i, g, expectedGaps[i])
@@ -158,7 +158,7 @@ func TestOnlyRequiredSections(t *testing.T) {
 	sections := []SectionInput{
 		{ID: SectionStatusGroup, Width: 30, HasContent: true},
 		{ID: SectionPeopleGroup, Width: 30, HasContent: true},
-		{ID: SectionDueGroup, Width: 30, HasContent: false},
+		{ID: SectionDueGroup, Width: 30, HasContent: true},
 		{ID: SectionTags, Width: 10, HasContent: false},
 		{ID: SectionDependsOn, Width: 30, HasContent: false},
 		{ID: SectionBlocks, Width: 30, HasContent: false},
@@ -166,16 +166,19 @@ func TestOnlyRequiredSections(t *testing.T) {
 
 	plan := CalculateMetadataLayout(100, sections)
 
-	if len(plan.Sections) != 2 {
-		t.Fatalf("expected 2 sections, got %d", len(plan.Sections))
+	if len(plan.Sections) != 3 {
+		t.Fatalf("expected 3 sections, got %d", len(plan.Sections))
 	}
-	if len(plan.Gaps) != 1 {
-		t.Fatalf("expected 1 gap, got %d", len(plan.Gaps))
+	if len(plan.Gaps) != 2 {
+		t.Fatalf("expected 2 gaps, got %d", len(plan.Gaps))
 	}
-	// free = 100 - 60 = 40, 1 left gap → gap = min(40/1, 7)+1 = 8, leftover 32 goes to last gap
-	// total: 30+30+40 = 100
-	if plan.Gaps[0] != 40 {
-		t.Errorf("gap = %d, want 40", plan.Gaps[0])
+	// 3 left-side sections, no right-side → no bridge, leftGapCount=numGaps=2
+	// free=100-92=8, perGap=min(8/2,6)=4, gaps[0]=5, gaps[1]=5
+	expectedGaps := []int{5, 5}
+	for i, g := range plan.Gaps {
+		if g != expectedGaps[i] {
+			t.Errorf("gap[%d] = %d, want %d", i, g, expectedGaps[i])
+		}
 	}
 }
 

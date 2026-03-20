@@ -313,11 +313,10 @@ func tagsMinWidth(tags []string) int {
 // BuildSectionInputs creates the standard section input list for a task,
 // using the constants from config/dimensions.go.
 func BuildSectionInputs(task *taskpkg.Task, hasBlocks bool) []SectionInput {
-	hasDue := !task.Due.IsZero() || task.Recurrence != ""
 	return []SectionInput{
 		{ID: SectionStatusGroup, Width: config.MetadataSectionMinWidth, HasContent: true},
 		{ID: SectionPeopleGroup, Width: config.MetadataSectionMinWidth, HasContent: true},
-		{ID: SectionDueGroup, Width: config.MetadataSectionMinWidth, HasContent: hasDue},
+		{ID: SectionDueGroup, Width: config.MetadataSectionMinWidth, HasContent: true},
 		{ID: SectionTags, Width: tagsMinWidth(task.Tags), HasContent: len(task.Tags) > 0},
 		{ID: SectionDependsOn, Width: config.MetadataDepMinWidth, HasContent: len(task.DependsOn) > 0},
 		{ID: SectionBlocks, Width: config.MetadataBlkMinWidth, HasContent: hasBlocks},
