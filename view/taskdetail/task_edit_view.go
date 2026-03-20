@@ -1,6 +1,8 @@
 package taskdetail
 
 import (
+	"strings"
+
 	"github.com/boolean-maybe/tiki/component"
 	"github.com/boolean-maybe/tiki/config"
 	"github.com/boolean-maybe/tiki/controller"
@@ -25,6 +27,7 @@ type TaskEditView struct {
 	validationErrors []string
 	metadataBox      *tview.Frame
 	descOnly         bool
+	tagsOnly         bool
 
 	// All field editors
 	titleInput         *tview.InputField
@@ -38,6 +41,8 @@ type TaskEditView struct {
 	pointsInput        *component.IntEditSelect
 	dueInput           *component.DateEdit
 	recurrenceInput    *component.RecurrenceEdit
+	tagsTextArea       *tview.TextArea
+	tagsEditing        bool
 
 	// All callbacks
 	onTitleSave      func(string)
@@ -52,6 +57,8 @@ type TaskEditView struct {
 	onPointsSave     func(int)
 	onDueSave        func(string)
 	onRecurrenceSave func(string)
+	onTagsSave       func(string)
+	onTagsCancel     func()
 }
 
 // Compile-time interface checks
@@ -138,6 +145,20 @@ func (ev *TaskEditView) IsDescOnly() bool {
 	return ev.descOnly
 }
 
+// SetTagsOnly enables tags-only edit mode where metadata is read-only and
+// the description area is replaced with a tags textarea.
+func (ev *TaskEditView) SetTagsOnly(tagsOnly bool) {
+	ev.tagsOnly = tagsOnly
+	if tagsOnly {
+		ev.refresh()
+	}
+}
+
+// IsTagsOnly returns whether the view is in tags-only edit mode.
+func (ev *TaskEditView) IsTagsOnly() bool {
+	return ev.tagsOnly
+}
+
 // OnFocus is called when the view becomes active
 func (ev *TaskEditView) OnFocus() {
 	ev.refresh()
@@ -167,15 +188,20 @@ func (ev *TaskEditView) refresh() {
 		ev.content.AddItem(metadataBox, 10, 0, false)
 	}
 
-	descPrimitive := ev.buildDescription(task)
-	ev.content.AddItem(descPrimitive, 0, 1, true)
+	if ev.tagsOnly {
+		tagsTextArea := ev.ensureTagsTextArea(task)
+		ev.content.AddItem(tagsTextArea, 0, 1, true)
+	} else {
+		descPrimitive := ev.buildDescription(task)
+		ev.content.AddItem(descPrimitive, 0, 1, true)
+	}
 
 	ev.updateValidationState()
 }
 
 func (ev *TaskEditView) buildMetadataBox(task *taskpkg.Task, colors *config.ColorConfig) *tview.Frame {
 	mode := RenderModeEdit
-	if ev.descOnly {
+	if ev.descOnly || ev.tagsOnly {
 		mode = RenderModeView
 	}
 	ctx := FieldRenderContext{
@@ -191,7 +217,7 @@ func (ev *TaskEditView) buildMetadataBox(task *taskpkg.Task, colors *config.Colo
 }
 
 func (ev *TaskEditView) buildTitlePrimitive(task *taskpkg.Task, colors *config.ColorConfig) tview.Primitive {
-	if ev.descOnly {
+	if ev.descOnly || ev.tagsOnly {
 		ctx := FieldRenderContext{Mode: RenderModeView, Colors: colors}
 		return RenderTitleText(task, ctx)
 	}
@@ -315,6 +341,75 @@ func (ev *TaskEditView) ensureDescTextArea(task *taskpkg.Task) *tview.TextArea {
 
 	ev.descEditing = true
 	return ev.descTextArea
+}
+
+func (ev *TaskEditView) ensureTagsTextArea(task *taskpkg.Task) *tview.TextArea {
+	if ev.tagsTextArea == nil {
+		ev.tagsTextArea = tview.NewTextArea()
+		ev.tagsTextArea.SetBorder(false)
+		ev.tagsTextArea.SetBorderPadding(1, 1, 2, 2)
+		ev.tagsTextArea.SetPlaceholder("Enter tags separated by spaces")
+		ev.tagsTextArea.SetPlaceholderStyle(tcell.StyleDefault.Foreground(tcell.ColorGray))
+
+		ev.tagsTextArea.SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
+			if event.Key() == tcell.KeyCtrlS {
+				if ev.onTagsSave != nil {
+					ev.onTagsSave(ev.tagsTextArea.GetText())
+				}
+				return nil
+			}
+			if event.Key() == tcell.KeyEscape {
+				if ev.onTagsCancel != nil {
+					ev.onTagsCancel()
+				}
+				return nil
+			}
+			return event
+		})
+
+		ev.tagsTextArea.SetText(strings.Join(task.Tags, " "), false)
+	} else if !ev.tagsEditing {
+		ev.tagsTextArea.SetText(strings.Join(task.Tags, " "), false)
+	}
+
+	ev.tagsEditing = true
+	return ev.tagsTextArea
+}
+
+// GetEditedTags returns the current tags from the tags editor, split by whitespace.
+func (ev *TaskEditView) GetEditedTags() []string {
+	if ev.tagsTextArea == nil {
+		task := ev.GetTask()
+		if task != nil {
+			return task.Tags
+		}
+		return nil
+	}
+	return strings.Fields(ev.tagsTextArea.GetText())
+}
+
+// ShowTagsEditor displays the tags text area and returns the primitive to focus
+func (ev *TaskEditView) ShowTagsEditor() tview.Primitive {
+	task := ev.GetTask()
+	if task == nil {
+		return nil
+	}
+	return ev.ensureTagsTextArea(task)
+}
+
+// IsTagsTextAreaFocused returns whether the tags text area currently has focus
+func (ev *TaskEditView) IsTagsTextAreaFocused() bool {
+	return ev.tagsEditing && ev.tagsTextArea != nil && ev.tagsTextArea.HasFocus()
+}
+
+// SetTagsSaveHandler sets the callback for when tags are saved
+func (ev *TaskEditView) SetTagsSaveHandler(handler func(string)) {
+	ev.onTagsSave = handler
+}
+
+// SetTagsCancelHandler sets the callback for when tags editing is cancelled
+func (ev *TaskEditView) SetTagsCancelHandler(handler func()) {
+	ev.onTagsCancel = handler
 }
 
 func (ev *TaskEditView) ensureTitleInput(task *taskpkg.Task) *tview.InputField {

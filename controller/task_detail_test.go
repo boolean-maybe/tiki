@@ -1,6 +1,7 @@
 package controller
 
 import (
+	"slices"
 	"testing"
 	"time"
 
@@ -950,6 +951,103 @@ func TestTaskController_SaveDue(t *testing.T) {
 				}
 				if actualStr != tt.wantDue {
 					t.Errorf("task.Due = %q, want %q", actualStr, tt.wantDue)
+				}
+			}
+		})
+	}
+}
+
+func TestTaskController_SaveTags(t *testing.T) {
+	tests := []struct {
+		name        string
+		setupTask   func(*TaskController, store.Store)
+		tags        []string
+		wantTags    []string
+		wantSuccess bool
+	}{
+		{
+			name: "valid tags on draft task",
+			setupTask: func(tc *TaskController, s store.Store) {
+				tc.SetDraft(newTestTask())
+			},
+			tags:        []string{"api", "backend"},
+			wantTags:    []string{"api", "backend"},
+			wantSuccess: true,
+		},
+		{
+			name: "valid tags on editing task",
+			setupTask: func(tc *TaskController, s store.Store) {
+				t := newTestTask()
+				_ = s.CreateTask(t)
+				tc.StartEditSession(t.ID)
+			},
+			tags:        []string{"frontend", "ui"},
+			wantTags:    []string{"frontend", "ui"},
+			wantSuccess: true,
+		},
+		{
+			name: "empty tags slice",
+			setupTask: func(tc *TaskController, s store.Store) {
+				tc.SetDraft(newTestTask())
+			},
+			tags:        []string{},
+			wantTags:    []string{},
+			wantSuccess: true,
+		},
+		{
+			name: "nil tags",
+			setupTask: func(tc *TaskController, s store.Store) {
+				tc.SetDraft(newTestTask())
+			},
+			tags:        nil,
+			wantTags:    nil,
+			wantSuccess: true,
+		},
+		{
+			name: "draft takes priority over editing",
+			setupTask: func(tc *TaskController, s store.Store) {
+				t := newTestTask()
+				_ = s.CreateTask(t)
+				tc.StartEditSession(t.ID)
+				tc.SetDraft(newTestTaskWithID())
+			},
+			tags:        []string{"draft-tag"},
+			wantTags:    []string{"draft-tag"},
+			wantSuccess: true,
+		},
+		{
+			name: "no active task",
+			setupTask: func(tc *TaskController, s store.Store) {
+				// no task set up
+			},
+			tags:        []string{"orphan"},
+			wantSuccess: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			taskStore := store.NewInMemoryStore()
+			navController := newMockNavigationController()
+			tc := NewTaskController(taskStore, navController)
+
+			tt.setupTask(tc, taskStore)
+
+			got := tc.SaveTags(tt.tags)
+
+			if got != tt.wantSuccess {
+				t.Errorf("SaveTags() = %v, want %v", got, tt.wantSuccess)
+			}
+
+			if tt.wantSuccess {
+				var actualTags []string
+				if tc.draftTask != nil {
+					actualTags = tc.draftTask.Tags
+				} else if tc.editingTask != nil {
+					actualTags = tc.editingTask.Tags
+				}
+				if !slices.Equal(actualTags, tt.wantTags) {
+					t.Errorf("task.Tags = %v, want %v", actualTags, tt.wantTags)
 				}
 			}
 		})

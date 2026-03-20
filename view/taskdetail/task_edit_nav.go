@@ -106,7 +106,7 @@ func (ev *TaskEditView) IsEditFieldFocused() bool {
 
 // FocusNextField advances to the next field in edit order
 func (ev *TaskEditView) FocusNextField() bool {
-	if ev.descOnly {
+	if ev.descOnly || ev.tagsOnly {
 		return false
 	}
 	nextField := model.NextField(ev.focusedField)
@@ -116,7 +116,7 @@ func (ev *TaskEditView) FocusNextField() bool {
 
 // FocusPrevField moves to the previous field in edit order
 func (ev *TaskEditView) FocusPrevField() bool {
-	if ev.descOnly {
+	if ev.descOnly || ev.tagsOnly {
 		return false
 	}
 	prevField := model.PrevField(ev.focusedField)
@@ -232,6 +232,10 @@ func (ev *TaskEditView) MoveRecurrencePartRight() bool {
 func (ev *TaskEditView) UpdateHeaderForField(field model.EditField) {
 	if ev.descOnly {
 		ev.registry = controller.DescOnlyEditActions()
+		return
+	}
+	if ev.tagsOnly {
+		ev.registry = controller.TagsOnlyEditActions()
 		return
 	}
 	ev.registry = controller.GetActionsForField(field)

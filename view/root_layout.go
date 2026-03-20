@@ -149,6 +149,14 @@ func (rl *RootLayout) onLayoutChange() {
 	newView.OnFocus()
 	if newView.GetViewID() == model.TaskEditViewID {
 		// in desc-only mode, focus the description textarea instead of title
+		if tagsOnlyView, ok := newView.(interface{ IsTagsOnly() bool }); ok && tagsOnlyView.IsTagsOnly() {
+			if tagsView, ok := newView.(controller.TagsEditableView); ok {
+				if tags := tagsView.ShowTagsEditor(); tags != nil {
+					rl.app.SetFocus(tags)
+					return
+				}
+			}
+		}
 		if descOnlyView, ok := newView.(interface{ IsDescOnly() bool }); ok && descOnlyView.IsDescOnly() {
 			if descView, ok := newView.(controller.DescriptionEditableView); ok {
 				if desc := descView.ShowDescriptionEditor(); desc != nil {

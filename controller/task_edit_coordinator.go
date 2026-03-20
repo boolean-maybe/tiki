@@ -14,6 +14,7 @@ type TaskEditCoordinator struct {
 
 	preparedView View
 	descOnly     bool
+	tagsOnly     bool
 }
 
 func NewTaskEditCoordinator(navController *NavigationController, taskController *TaskController) *TaskEditCoordinator {
@@ -43,6 +44,7 @@ func (c *TaskEditCoordinator) Prepare(activeView View, params model.TaskEditPara
 	}
 
 	c.descOnly = params.DescOnly
+	c.tagsOnly = params.TagsOnly
 	c.prepareView(activeView, params.Focus)
 	c.preparedView = activeView
 }
@@ -52,12 +54,12 @@ func (c *TaskEditCoordinator) HandleKey(activeView View, event *tcell.EventKey) 
 	case tcell.KeyCtrlS:
 		return c.CommitAndClose(activeView)
 	case tcell.KeyTab:
-		if c.descOnly {
+		if c.descOnly || c.tagsOnly {
 			return false // let textarea handle Tab as literal tab
 		}
 		return c.FocusNextField(activeView)
 	case tcell.KeyBacktab:
-		if c.descOnly {
+		if c.descOnly || c.tagsOnly {
 			return false
 		}
 		return c.FocusPrevField(activeView)
@@ -160,6 +162,7 @@ func (c *TaskEditCoordinator) commit(activeView View) bool {
 	// Update in-memory editing copy with latest widget values
 	c.taskController.SaveTitle(editorView.GetEditedTitle())
 	c.taskController.SaveDescription(editorView.GetEditedDescription())
+	c.taskController.SaveTags(editorView.GetEditedTags())
 
 	// Commit the edit session (writes to disk)
 	if err := c.taskController.CommitEditSession(); err != nil {
@@ -213,6 +216,15 @@ func (c *TaskEditCoordinator) prepareView(activeView View, focus model.EditField
 		})
 	}
 
+	if tagsEditableView, ok := activeView.(TagsEditableView); ok && c.tagsOnly {
+		tagsEditableView.SetTagsSaveHandler(func(_ string) {
+			c.CommitAndClose(activeView)
+		})
+		tagsEditableView.SetTagsCancelHandler(func() {
+			c.CancelAndClose()
+		})
+	}
+
 	if !c.descOnly {
 		if statusEditableView, ok := activeView.(StatusEditableView); ok {
 			statusEditableView.SetStatusSaveHandler(func(statusDisplay string) {
@@ -255,6 +267,17 @@ func (c *TaskEditCoordinator) prepareView(activeView View, focus model.EditField
 				c.taskController.SaveRecurrence(cron)
 			})
 		}
+	}
+
+	// In tags-only mode, skip title focus entirely — go straight to tags textarea
+	if c.tagsOnly {
+		if tagsEditableView, ok := activeView.(TagsEditableView); ok {
+			if tags := tagsEditableView.ShowTagsEditor(); tags != nil {
+				app.SetFocus(tags)
+				return
+			}
+		}
+		return
 	}
 
 	// In desc-only mode, skip title focus entirely — go straight to description

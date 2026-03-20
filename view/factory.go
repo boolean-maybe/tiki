@@ -81,6 +81,9 @@ func (f *ViewFactory) CreateView(viewID model.ViewID, params map[string]interfac
 			if editParams.DescOnly {
 				tev.SetDescOnly(true)
 			}
+			if editParams.TagsOnly {
+				tev.SetTagsOnly(true)
+			}
 		}
 
 	default:

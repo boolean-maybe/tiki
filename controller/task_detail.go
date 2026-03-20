@@ -231,6 +231,14 @@ func (tc *TaskController) SaveTitle(newTitle string) bool {
 	return false
 }
 
+// SaveTags saves the new tags to the current task (draft or editing).
+// Returns true if a task was updated, false if no task is being edited.
+func (tc *TaskController) SaveTags(tags []string) bool {
+	return tc.updateTaskField(func(t *taskpkg.Task) {
+		t.Tags = tags
+	})
+}
+
 // SaveDescription saves the new description to the current task (draft or editing).
 // For draft tasks (new task creation), updates the draft; for editing tasks, updates the editing copy.
 // Returns true if a task was updated, false if no task is being edited.

@@ -9,6 +9,7 @@ const (
 	paramDraftTask = "draftTask"
 	paramFocus     = "focus"
 	paramDescOnly  = "descOnly"
+	paramTagsOnly  = "tagsOnly"
 	paramReadOnly  = "readOnly"
 )
 
@@ -53,6 +54,7 @@ type TaskEditParams struct {
 	Draft    *taskpkg.Task
 	Focus    EditField
 	DescOnly bool
+	TagsOnly bool
 }
 
 // EncodeTaskEditParams converts typed params into a navigation params map.
@@ -76,6 +78,9 @@ func EncodeTaskEditParams(p TaskEditParams) map[string]interface{} {
 	}
 	if p.DescOnly {
 		m[paramDescOnly] = true
+	}
+	if p.TagsOnly {
+		m[paramTagsOnly] = true
 	}
 	return m
 }
@@ -103,6 +108,9 @@ func DecodeTaskEditParams(params map[string]interface{}) TaskEditParams {
 	}
 	if descOnly, ok := params[paramDescOnly].(bool); ok {
 		p.DescOnly = descOnly
+	}
+	if tagsOnly, ok := params[paramTagsOnly].(bool); ok {
+		p.TagsOnly = tagsOnly
 	}
 	return p
 }

@@ -175,6 +175,12 @@ func (ir *InputRouter) maybeHandleInlineEditors(activeView View, isTaskEditView 
 		}
 	}
 
+	if tagsView, ok := activeView.(interface{ IsTagsTextAreaFocused() bool }); ok {
+		if tagsView.IsTagsTextAreaFocused() {
+			return true, ir.taskEditCoord.HandleKey(activeView, event)
+		}
+	}
+
 	return false, false
 }
 
@@ -354,6 +360,16 @@ func (ir *InputRouter) handleTaskInput(event *tcell.EventKey, params map[string]
 				TaskID:   taskID,
 				Focus:    model.EditFieldDescription,
 				DescOnly: true,
+			}))
+			return true
+		case ActionEditTags:
+			taskID := ir.taskController.GetCurrentTaskID()
+			if taskID == "" {
+				return false
+			}
+			ir.navController.PushView(model.TaskEditViewID, model.EncodeTaskEditParams(model.TaskEditParams{
+				TaskID:   taskID,
+				TagsOnly: true,
 			}))
 			return true
 		case ActionEditDeps:

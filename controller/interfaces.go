@@ -158,6 +158,23 @@ type TaskEditView interface {
 
 	// GetEditedDescription returns the current description text in the editor
 	GetEditedDescription() string
+
+	// GetEditedTags returns the current tags from the tags editor
+	GetEditedTags() []string
+}
+
+// TagsEditableView is a view that supports tags editing functionality
+type TagsEditableView interface {
+	View
+
+	// ShowTagsEditor displays the tags text area and returns the primitive to focus
+	ShowTagsEditor() tview.Primitive
+
+	// SetTagsSaveHandler sets the callback for when tags are saved
+	SetTagsSaveHandler(handler func(string))
+
+	// SetTagsCancelHandler sets the callback for when tags editing is cancelled
+	SetTagsCancelHandler(handler func())
 }
 
 // FieldFocusableView is a view that supports field-level focus in edit mode

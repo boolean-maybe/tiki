@@ -40,6 +40,7 @@ const (
 	ActionFullscreen ActionID = "fullscreen"
 	ActionCloneTask  ActionID = "clone_task"
 	ActionEditDeps   ActionID = "edit_deps"
+	ActionEditTags   ActionID = "edit_tags"
 )
 
 // ActionID values for task edit view actions.
@@ -257,6 +258,7 @@ func TaskDetailViewActions() *ActionRegistry {
 	r.Register(Action{ID: ActionEditSource, Key: tcell.KeyRune, Rune: 's', Label: "Edit source", ShowInHeader: true})
 	r.Register(Action{ID: ActionFullscreen, Key: tcell.KeyRune, Rune: 'f', Label: "Full screen", ShowInHeader: true})
 	r.Register(Action{ID: ActionEditDeps, Key: tcell.KeyCtrlD, Modifier: tcell.ModCtrl, Label: "Dependencies", ShowInHeader: true})
+	r.Register(Action{ID: ActionEditTags, Key: tcell.KeyRune, Rune: 'T', Label: "Edit tags", ShowInHeader: true})
 
 	return r
 }
@@ -365,6 +367,13 @@ func TaskEditDescriptionActions() *ActionRegistry {
 
 // DescOnlyEditActions returns actions for description-only edit mode (no field navigation).
 func DescOnlyEditActions() *ActionRegistry {
+	r := NewActionRegistry()
+	r.Register(Action{ID: ActionSaveTask, Key: tcell.KeyCtrlS, Label: "Save", ShowInHeader: true})
+	return r
+}
+
+// TagsOnlyEditActions returns actions for tags-only edit mode (no field navigation).
+func TagsOnlyEditActions() *ActionRegistry {
 	r := NewActionRegistry()
 	r.Register(Action{ID: ActionSaveTask, Key: tcell.KeyCtrlS, Label: "Save", ShowInHeader: true})
 	return r
