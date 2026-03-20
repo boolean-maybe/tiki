@@ -378,6 +378,19 @@ func (tc *TaskController) SavePoints(points int) bool {
 	})
 }
 
+// SaveDue saves the new due date to the current task.
+// Empty string clears the due date (sets to zero time).
+// Returns true if the due date was successfully updated, false otherwise.
+func (tc *TaskController) SaveDue(dateStr string) bool {
+	parsed, ok := taskpkg.ParseDueDate(dateStr)
+	if !ok {
+		return false
+	}
+	return tc.updateTaskField(func(t *taskpkg.Task) {
+		t.Due = parsed
+	})
+}
+
 func (tc *TaskController) handleCloneTask() bool {
 	// TODO: trigger task clone flow from detail view
 	return true

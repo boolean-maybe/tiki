@@ -864,3 +864,94 @@ func TestTaskController_FocusedField(t *testing.T) {
 		t.Errorf("SetFocusedField did not set field, got %v, want %v", tc.GetFocusedField(), model.EditFieldTitle)
 	}
 }
+
+func TestTaskController_SaveDue(t *testing.T) {
+	tests := []struct {
+		name        string
+		setupTask   func(*TaskController, store.Store)
+		dateStr     string
+		wantDue     string // expected Format(DateFormat) or "" for zero
+		wantSuccess bool
+	}{
+		{
+			name: "valid date on draft task",
+			setupTask: func(tc *TaskController, s store.Store) {
+				tc.SetDraft(newTestTask())
+			},
+			dateStr:     "2025-06-15",
+			wantDue:     "2025-06-15",
+			wantSuccess: true,
+		},
+		{
+			name: "valid date on editing task",
+			setupTask: func(tc *TaskController, s store.Store) {
+				t := newTestTask()
+				_ = s.CreateTask(t)
+				tc.StartEditSession(t.ID)
+			},
+			dateStr:     "2025-12-31",
+			wantDue:     "2025-12-31",
+			wantSuccess: true,
+		},
+		{
+			name: "empty string clears due date",
+			setupTask: func(tc *TaskController, s store.Store) {
+				draft := newTestTask()
+				draft.Due = time.Date(2025, 6, 15, 0, 0, 0, 0, time.UTC)
+				tc.SetDraft(draft)
+			},
+			dateStr:     "",
+			wantDue:     "",
+			wantSuccess: true,
+		},
+		{
+			name: "invalid date returns false",
+			setupTask: func(tc *TaskController, s store.Store) {
+				tc.SetDraft(newTestTask())
+			},
+			dateStr:     "not-a-date",
+			wantSuccess: false,
+		},
+		{
+			name: "no active task returns false",
+			setupTask: func(tc *TaskController, s store.Store) {
+				// no task set up
+			},
+			dateStr:     "2025-06-15",
+			wantSuccess: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			taskStore := store.NewInMemoryStore()
+			navController := newMockNavigationController()
+			tc := NewTaskController(taskStore, navController)
+
+			tt.setupTask(tc, taskStore)
+
+			got := tc.SaveDue(tt.dateStr)
+
+			if got != tt.wantSuccess {
+				t.Errorf("SaveDue() = %v, want %v", got, tt.wantSuccess)
+			}
+
+			if tt.wantSuccess {
+				var actualDue time.Time
+				if tc.draftTask != nil {
+					actualDue = tc.draftTask.Due
+				} else if tc.editingTask != nil {
+					actualDue = tc.editingTask.Due
+				}
+
+				var actualStr string
+				if !actualDue.IsZero() {
+					actualStr = actualDue.Format(task.DateFormat)
+				}
+				if actualStr != tt.wantDue {
+					t.Errorf("task.Due = %q, want %q", actualStr, tt.wantDue)
+				}
+			}
+		})
+	}
+}

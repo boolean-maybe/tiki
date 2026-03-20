@@ -54,6 +54,10 @@ func (ev *TaskEditView) SetFocusedField(field model.EditField) {
 			// Focus the wrapper which has custom InputHandler
 			ev.focusSetter(ev.pointsInput)
 		}
+	case model.EditFieldDue:
+		if ev.dueInput != nil {
+			ev.focusSetter(ev.dueInput)
+		}
 	case model.EditFieldTitle:
 		if ev.titleInput != nil {
 			ev.focusSetter(ev.titleInput)
@@ -85,6 +89,9 @@ func (ev *TaskEditView) IsEditFieldFocused() bool {
 		return true
 	}
 	if ev.pointsInput != nil && ev.pointsInput.HasFocus() {
+		return true
+	}
+	if ev.dueInput != nil && ev.dueInput.HasFocus() {
 		return true
 	}
 	return false
@@ -138,6 +145,11 @@ func (ev *TaskEditView) CycleFieldValueUp() bool {
 			ev.pointsInput.InputHandler()(tcell.NewEventKey(tcell.KeyUp, 0, tcell.ModNone), nil)
 			return true
 		}
+	case model.EditFieldDue:
+		if ev.dueInput != nil {
+			ev.dueInput.InputHandler()(tcell.NewEventKey(tcell.KeyUp, 0, tcell.ModNone), nil)
+			return true
+		}
 	}
 	return false
 }
@@ -168,6 +180,11 @@ func (ev *TaskEditView) CycleFieldValueDown() bool {
 	case model.EditFieldPoints:
 		if ev.pointsInput != nil {
 			ev.pointsInput.InputHandler()(tcell.NewEventKey(tcell.KeyDown, 0, tcell.ModNone), nil)
+			return true
+		}
+	case model.EditFieldDue:
+		if ev.dueInput != nil {
+			ev.dueInput.InputHandler()(tcell.NewEventKey(tcell.KeyDown, 0, tcell.ModNone), nil)
 			return true
 		}
 	}

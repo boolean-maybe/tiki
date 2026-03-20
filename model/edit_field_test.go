@@ -13,7 +13,8 @@ func TestNextField(t *testing.T) {
 		{"Type to Priority", EditFieldType, EditFieldPriority},
 		{"Priority to Points", EditFieldPriority, EditFieldPoints},
 		{"Points to Assignee", EditFieldPoints, EditFieldAssignee},
-		{"Assignee to Description", EditFieldAssignee, EditFieldDescription},
+		{"Assignee to Due", EditFieldAssignee, EditFieldDue},
+		{"Due to Description", EditFieldDue, EditFieldDescription},
 		{"Description stays at Description (no wrap)", EditFieldDescription, EditFieldDescription},
 		{"Unknown field defaults to Title", EditField("unknown"), EditFieldTitle},
 	}
@@ -40,7 +41,8 @@ func TestPrevField(t *testing.T) {
 		{"Priority to Type", EditFieldPriority, EditFieldType},
 		{"Points to Priority", EditFieldPoints, EditFieldPriority},
 		{"Assignee to Points", EditFieldAssignee, EditFieldPoints},
-		{"Description to Assignee", EditFieldDescription, EditFieldAssignee},
+		{"Due to Assignee", EditFieldDue, EditFieldAssignee},
+		{"Description to Due", EditFieldDescription, EditFieldDue},
 		{"Unknown field defaults to Title", EditField("unknown"), EditFieldTitle},
 	}
 
@@ -63,6 +65,7 @@ func TestFieldCycling(t *testing.T) {
 		EditFieldPriority,
 		EditFieldPoints,
 		EditFieldAssignee,
+		EditFieldDue,
 		EditFieldDescription,
 		EditFieldDescription, // stays at end
 	}
@@ -77,6 +80,7 @@ func TestFieldCycling(t *testing.T) {
 	// Test complete backward navigation (stops at beginning, no wrap)
 	field = EditFieldDescription
 	expectedOrderReverse := []EditField{
+		EditFieldDue,
 		EditFieldAssignee,
 		EditFieldPoints,
 		EditFieldPriority,
@@ -105,6 +109,7 @@ func TestIsEditableField(t *testing.T) {
 		{"Priority is editable", EditFieldPriority, true},
 		{"Assignee is editable", EditFieldAssignee, true},
 		{"Points is editable", EditFieldPoints, true},
+		{"Due is editable", EditFieldDue, true},
 		{"Description is editable", EditFieldDescription, true},
 	}
 
@@ -129,6 +134,7 @@ func TestFieldLabel(t *testing.T) {
 		{"Priority label", EditFieldPriority, "Priority"},
 		{"Assignee label", EditFieldAssignee, "Assignee"},
 		{"Points label", EditFieldPoints, "Story Points"},
+		{"Due label", EditFieldDue, "Due"},
 		{"Description label", EditFieldDescription, "Description"},
 	}
 

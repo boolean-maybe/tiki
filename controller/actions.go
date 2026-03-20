@@ -44,12 +44,13 @@ const (
 
 // ActionID values for task edit view actions.
 const (
-	ActionSaveTask  ActionID = "save_task"
-	ActionQuickSave ActionID = "quick_save"
-	ActionNextField ActionID = "next_field"
-	ActionPrevField ActionID = "prev_field"
-	ActionNextValue ActionID = "next_value" // Navigate to next value in a picker (down arrow)
-	ActionPrevValue ActionID = "prev_value" // Navigate to previous value in a picker (up arrow)
+	ActionSaveTask   ActionID = "save_task"
+	ActionQuickSave  ActionID = "quick_save"
+	ActionNextField  ActionID = "next_field"
+	ActionPrevField  ActionID = "prev_field"
+	ActionNextValue  ActionID = "next_value"  // Navigate to next value in a picker (down arrow)
+	ActionPrevValue  ActionID = "prev_value"  // Navigate to previous value in a picker (up arrow)
+	ActionClearField ActionID = "clear_field" // Clear the current field value
 )
 
 // ActionID values for search.
@@ -335,6 +336,15 @@ func TaskEditPointsActions() *ActionRegistry {
 	return r
 }
 
+// TaskEditDueActions returns actions available when editing the due date field
+func TaskEditDueActions() *ActionRegistry {
+	r := CommonFieldNavigationActions()
+	r.Register(Action{ID: ActionNextValue, Key: tcell.KeyDown, Label: "Next ↓", ShowInHeader: true})
+	r.Register(Action{ID: ActionPrevValue, Key: tcell.KeyUp, Label: "Prev ↑", ShowInHeader: true})
+	r.Register(Action{ID: ActionClearField, Key: tcell.KeyCtrlU, Label: "Clear", ShowInHeader: true})
+	return r
+}
+
 // TaskEditDescriptionActions returns actions available when editing the description field
 func TaskEditDescriptionActions() *ActionRegistry {
 	r := NewActionRegistry()
@@ -365,6 +375,8 @@ func GetActionsForField(field model.EditField) *ActionRegistry {
 		return TaskEditAssigneeActions()
 	case model.EditFieldPoints:
 		return TaskEditPointsActions()
+	case model.EditFieldDue:
+		return TaskEditDueActions()
 	case model.EditFieldDescription:
 		return TaskEditDescriptionActions()
 	default:

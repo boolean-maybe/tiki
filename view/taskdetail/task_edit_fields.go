@@ -95,6 +95,30 @@ func (ev *TaskEditView) ensurePointsInput(task *taskpkg.Task) *component.IntEdit
 	return ev.pointsInput
 }
 
+func (ev *TaskEditView) ensureDueInput(task *taskpkg.Task) *component.DateEdit {
+	if ev.dueInput == nil {
+		colors := config.GetColors()
+		ev.dueInput = component.NewDateEdit()
+		ev.dueInput.SetLabel(getFocusMarker(colors) + "Due:        ")
+
+		ev.dueInput.SetChangeHandler(func(value string) {
+			ev.updateValidationState()
+
+			if ev.onDueSave != nil {
+				ev.onDueSave(value)
+			}
+		})
+
+		var initialValue string
+		if !task.Due.IsZero() {
+			initialValue = task.Due.Format(taskpkg.DateFormat)
+		}
+		ev.dueInput.SetInitialValue(initialValue)
+	}
+
+	return ev.dueInput
+}
+
 func (ev *TaskEditView) ensureAssigneeSelectList(task *taskpkg.Task) *component.EditSelectList {
 	if ev.assigneeSelectList == nil {
 		var assigneeOptions []string

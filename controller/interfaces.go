@@ -231,6 +231,14 @@ type PointsEditableView interface {
 	SetPointsSaveHandler(handler func(int))
 }
 
+// DueEditableView is a view that supports due date editing functionality
+type DueEditableView interface {
+	View
+
+	// SetDueSaveHandler sets the callback for when due date is saved
+	SetDueSaveHandler(handler func(string))
+}
+
 // StatsProvider is a view that provides statistics for the header
 type StatsProvider interface {
 	// GetStats returns stats to display in the header for this view

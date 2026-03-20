@@ -36,6 +36,7 @@ type TaskEditView struct {
 	prioritySelectList *component.EditSelectList
 	assigneeSelectList *component.EditSelectList
 	pointsInput        *component.IntEditSelect
+	dueInput           *component.DateEdit
 
 	// All callbacks
 	onTitleSave    func(string)
@@ -48,6 +49,7 @@ type TaskEditView struct {
 	onPrioritySave func(int)
 	onAssigneeSave func(string)
 	onPointsSave   func(int)
+	onDueSave      func(string)
 }
 
 // Compile-time interface checks
@@ -83,6 +85,7 @@ func NewTaskEditView(taskStore store.Store, taskID string, imageManager *navtvie
 		ev.ensurePrioritySelectList(task)
 		ev.ensureAssigneeSelectList(task)
 		ev.ensurePointsInput(task)
+		ev.ensureDueInput(task)
 	}
 
 	ev.refresh()
@@ -216,7 +219,7 @@ func (ev *TaskEditView) buildMetadataColumns(task *taskpkg.Task, ctx FieldRender
 
 	// Column 3: Due, Recurrence
 	col3 := tview.NewFlex().SetDirection(tview.FlexRow)
-	col3.AddItem(RenderDueText(task, colors), 1, 0, false)
+	col3.AddItem(ev.buildDueField(task, ctx), 1, 0, false)
 	col3.AddItem(RenderRecurrenceText(task, colors), 1, 0, false)
 
 	return col1, col2, col3
@@ -255,6 +258,13 @@ func (ev *TaskEditView) buildPointsField(task *taskpkg.Task, ctx FieldRenderCont
 		return ev.ensurePointsInput(task)
 	}
 	return RenderPointsText(task, ctx)
+}
+
+func (ev *TaskEditView) buildDueField(task *taskpkg.Task, ctx FieldRenderContext) tview.Primitive {
+	if ctx.FocusedField == model.EditFieldDue {
+		return ev.ensureDueInput(task)
+	}
+	return RenderDueText(task, ctx.Colors)
 }
 
 func (ev *TaskEditView) buildDescription(task *taskpkg.Task) tview.Primitive {
@@ -380,6 +390,11 @@ func (ev *TaskEditView) buildTaskFromWidgets() *taskpkg.Task {
 	}
 	if ev.pointsInput != nil {
 		snapshot.Points = ev.pointsInput.GetValue()
+	}
+	if ev.dueInput != nil {
+		if parsed, ok := taskpkg.ParseDueDate(ev.dueInput.GetCurrentText()); ok {
+			snapshot.Due = parsed
+		}
 	}
 
 	return snapshot
@@ -539,4 +554,9 @@ func (ev *TaskEditView) SetAssigneeSaveHandler(handler func(string)) {
 // SetPointsSaveHandler sets the callback for when story points is saved
 func (ev *TaskEditView) SetPointsSaveHandler(handler func(int)) {
 	ev.onPointsSave = handler
+}
+
+// SetDueSaveHandler sets the callback for when due date is saved
+func (ev *TaskEditView) SetDueSaveHandler(handler func(string)) {
+	ev.onDueSave = handler
 }

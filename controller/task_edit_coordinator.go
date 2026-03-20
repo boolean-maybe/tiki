@@ -233,6 +233,12 @@ func (c *TaskEditCoordinator) prepareView(activeView View, focus model.EditField
 				c.taskController.SavePoints(points)
 			})
 		}
+
+		if dueEditableView, ok := activeView.(DueEditableView); ok {
+			dueEditableView.SetDueSaveHandler(func(dateStr string) {
+				c.taskController.SaveDue(dateStr)
+			})
+		}
 	}
 
 	// In desc-only mode, skip title focus entirely — go straight to description
