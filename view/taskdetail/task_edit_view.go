@@ -24,6 +24,7 @@ type TaskEditView struct {
 	focusedField     model.EditField
 	validationErrors []string
 	metadataBox      *tview.Frame
+	descOnly         bool
 
 	// All field editors
 	titleInput         *tview.InputField
@@ -117,6 +118,20 @@ func (ev *TaskEditView) GetViewID() model.ViewID {
 	return ev.viewID
 }
 
+// SetDescOnly enables description-only edit mode where metadata is read-only.
+func (ev *TaskEditView) SetDescOnly(descOnly bool) {
+	ev.descOnly = descOnly
+	if descOnly {
+		ev.focusedField = model.EditFieldDescription
+		ev.refresh()
+	}
+}
+
+// IsDescOnly returns whether the view is in description-only edit mode.
+func (ev *TaskEditView) IsDescOnly() bool {
+	return ev.descOnly
+}
+
 // OnFocus is called when the view becomes active
 func (ev *TaskEditView) OnFocus() {
 	ev.refresh()
@@ -153,8 +168,12 @@ func (ev *TaskEditView) refresh() {
 }
 
 func (ev *TaskEditView) buildMetadataBox(task *taskpkg.Task, colors *config.ColorConfig) *tview.Frame {
+	mode := RenderModeEdit
+	if ev.descOnly {
+		mode = RenderModeView
+	}
 	ctx := FieldRenderContext{
-		Mode:         RenderModeEdit,
+		Mode:         mode,
 		FocusedField: ev.focusedField,
 		Colors:       colors,
 	}
@@ -166,6 +185,10 @@ func (ev *TaskEditView) buildMetadataBox(task *taskpkg.Task, colors *config.Colo
 }
 
 func (ev *TaskEditView) buildTitlePrimitive(task *taskpkg.Task, colors *config.ColorConfig) tview.Primitive {
+	if ev.descOnly {
+		ctx := FieldRenderContext{Mode: RenderModeView, Colors: colors}
+		return RenderTitleText(task, ctx)
+	}
 	input := ev.ensureTitleInput(task)
 	focused := ev.focusedField == model.EditFieldTitle
 	if focused {

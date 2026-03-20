@@ -72,12 +72,14 @@ func (f *ViewFactory) CreateView(viewID model.ViewID, params map[string]interfac
 		v = taskdetail.NewTaskDetailView(f.taskStore, taskID, f.imageManager, f.mermaidOpts)
 
 	case model.TaskEditViewID:
-		taskID := model.DecodeTaskEditParams(params).TaskID
-		v = taskdetail.NewTaskEditView(f.taskStore, taskID, f.imageManager)
 		editParams := model.DecodeTaskEditParams(params)
-		if editParams.Draft != nil {
-			if tev, ok := v.(*taskdetail.TaskEditView); ok {
+		v = taskdetail.NewTaskEditView(f.taskStore, editParams.TaskID, f.imageManager)
+		if tev, ok := v.(*taskdetail.TaskEditView); ok {
+			if editParams.Draft != nil {
 				tev.SetFallbackTask(editParams.Draft)
+			}
+			if editParams.DescOnly {
+				tev.SetDescOnly(true)
 			}
 		}
 

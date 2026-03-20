@@ -36,6 +36,7 @@ const (
 const (
 	ActionEditTitle  ActionID = "edit_title"
 	ActionEditSource ActionID = "edit_source"
+	ActionEditDesc   ActionID = "edit_desc"
 	ActionFullscreen ActionID = "fullscreen"
 	ActionCloneTask  ActionID = "clone_task"
 	ActionEditDeps   ActionID = "edit_deps"
@@ -251,6 +252,7 @@ func TaskDetailViewActions() *ActionRegistry {
 	r := NewActionRegistry()
 
 	r.Register(Action{ID: ActionEditTitle, Key: tcell.KeyRune, Rune: 'e', Label: "Edit", ShowInHeader: true})
+	r.Register(Action{ID: ActionEditDesc, Key: tcell.KeyRune, Rune: 'D', Label: "Edit desc", ShowInHeader: true})
 	r.Register(Action{ID: ActionEditSource, Key: tcell.KeyRune, Rune: 's', Label: "Edit source", ShowInHeader: true})
 	r.Register(Action{ID: ActionFullscreen, Key: tcell.KeyRune, Rune: 'f', Label: "Full screen", ShowInHeader: true})
 	r.Register(Action{ID: ActionEditDeps, Key: tcell.KeyCtrlD, Modifier: tcell.ModCtrl, Label: "Dependencies", ShowInHeader: true})
@@ -330,6 +332,13 @@ func TaskEditDescriptionActions() *ActionRegistry {
 	r := NewActionRegistry()
 	r.Register(Action{ID: ActionSaveTask, Key: tcell.KeyCtrlS, Label: "Save", ShowInHeader: true})
 	r.Merge(CommonFieldNavigationActions())
+	return r
+}
+
+// DescOnlyEditActions returns actions for description-only edit mode (no field navigation).
+func DescOnlyEditActions() *ActionRegistry {
+	r := NewActionRegistry()
+	r.Register(Action{ID: ActionSaveTask, Key: tcell.KeyCtrlS, Label: "Save", ShowInHeader: true})
 	return r
 }
 

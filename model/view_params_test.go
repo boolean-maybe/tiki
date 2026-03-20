@@ -169,6 +169,38 @@ func TestTaskEditParams_EncodeDecodeRoundTrip(t *testing.T) {
 	}
 }
 
+func TestTaskEditParams_DescOnlyRoundTrip(t *testing.T) {
+	params := TaskEditParams{
+		TaskID:   "TIKI-1",
+		Focus:    EditFieldDescription,
+		DescOnly: true,
+	}
+
+	encoded := EncodeTaskEditParams(params)
+	decoded := DecodeTaskEditParams(encoded)
+
+	if !decoded.DescOnly {
+		t.Error("round-trip failed: DescOnly = false, want true")
+	}
+	if decoded.Focus != EditFieldDescription {
+		t.Errorf("round-trip failed: Focus = %v, want %v", decoded.Focus, EditFieldDescription)
+	}
+
+	// verify DescOnly=false is not stored (keeps params map clean)
+	paramsNoDesc := TaskEditParams{
+		TaskID: "TIKI-2",
+	}
+	encodedNoDesc := EncodeTaskEditParams(paramsNoDesc)
+	if _, exists := encodedNoDesc[paramDescOnly]; exists {
+		t.Error("DescOnly=false should not be stored in encoded params")
+	}
+
+	decodedNoDesc := DecodeTaskEditParams(encodedNoDesc)
+	if decodedNoDesc.DescOnly {
+		t.Error("DescOnly should default to false")
+	}
+}
+
 func TestTaskEditParams_DraftWithoutTaskID(t *testing.T) {
 	// When Draft is present but TaskID is empty, TaskID should be inferred from Draft
 	draftTask := &taskpkg.Task{

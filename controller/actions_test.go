@@ -426,11 +426,11 @@ func TestTaskDetailViewActions(t *testing.T) {
 	registry := TaskDetailViewActions()
 	actions := registry.GetActions()
 
-	if len(actions) != 4 {
-		t.Errorf("expected 4 task detail actions, got %d", len(actions))
+	if len(actions) != 5 {
+		t.Errorf("expected 5 task detail actions, got %d", len(actions))
 	}
 
-	expectedActions := []ActionID{ActionEditTitle, ActionEditSource, ActionFullscreen, ActionEditDeps}
+	expectedActions := []ActionID{ActionEditTitle, ActionEditDesc, ActionEditSource, ActionFullscreen, ActionEditDeps}
 	for i, expected := range expectedActions {
 		if i >= len(actions) {
 			t.Errorf("missing action at index %d: want %v", i, expected)
@@ -470,6 +470,40 @@ func TestCommonFieldNavigationActions(t *testing.T) {
 	}
 	if actions[1].Key != tcell.KeyBacktab {
 		t.Errorf("PrevField should use Backtab key, got %v", actions[1].Key)
+	}
+}
+
+func TestDescOnlyEditActions(t *testing.T) {
+	registry := DescOnlyEditActions()
+	actions := registry.GetActions()
+
+	if len(actions) != 1 {
+		t.Errorf("expected 1 desc-only action, got %d", len(actions))
+	}
+
+	if actions[0].ID != ActionSaveTask {
+		t.Errorf("expected save action, got %v", actions[0].ID)
+	}
+
+	// verify no Tab/Backtab actions
+	for _, a := range actions {
+		if a.ID == ActionNextField || a.ID == ActionPrevField {
+			t.Errorf("desc-only actions should not include field navigation, found %v", a.ID)
+		}
+	}
+}
+
+func TestTaskDetailViewActions_HasEditDesc(t *testing.T) {
+	registry := TaskDetailViewActions()
+
+	// Shift+D should match ActionEditDesc
+	event := tcell.NewEventKey(tcell.KeyRune, 'D', tcell.ModNone)
+	action := registry.Match(event)
+	if action == nil {
+		t.Fatal("expected Shift+D to match an action")
+	}
+	if action.ID != ActionEditDesc {
+		t.Errorf("expected ActionEditDesc, got %v", action.ID)
 	}
 }
 

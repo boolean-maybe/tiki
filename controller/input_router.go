@@ -345,6 +345,17 @@ func (ir *InputRouter) handleTaskInput(event *tcell.EventKey, params map[string]
 				return true
 			}
 			return false
+		case ActionEditDesc:
+			taskID := ir.taskController.GetCurrentTaskID()
+			if taskID == "" {
+				return false
+			}
+			ir.navController.PushView(model.TaskEditViewID, model.EncodeTaskEditParams(model.TaskEditParams{
+				TaskID:   taskID,
+				Focus:    model.EditFieldDescription,
+				DescOnly: true,
+			}))
+			return true
 		case ActionEditDeps:
 			taskID := ir.taskController.GetCurrentTaskID()
 			if taskID == "" {

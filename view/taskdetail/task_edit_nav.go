@@ -92,6 +92,9 @@ func (ev *TaskEditView) IsEditFieldFocused() bool {
 
 // FocusNextField advances to the next field in edit order
 func (ev *TaskEditView) FocusNextField() bool {
+	if ev.descOnly {
+		return false
+	}
 	nextField := model.NextField(ev.focusedField)
 	ev.SetFocusedField(nextField)
 	return true
@@ -99,6 +102,9 @@ func (ev *TaskEditView) FocusNextField() bool {
 
 // FocusPrevField moves to the previous field in edit order
 func (ev *TaskEditView) FocusPrevField() bool {
+	if ev.descOnly {
+		return false
+	}
 	prevField := model.PrevField(ev.focusedField)
 	ev.SetFocusedField(prevField)
 	return true
@@ -170,5 +176,9 @@ func (ev *TaskEditView) CycleFieldValueDown() bool {
 
 // UpdateHeaderForField updates the registry with field-specific actions
 func (ev *TaskEditView) UpdateHeaderForField(field model.EditField) {
+	if ev.descOnly {
+		ev.registry = controller.DescOnlyEditActions()
+		return
+	}
 	ev.registry = controller.GetActionsForField(field)
 }

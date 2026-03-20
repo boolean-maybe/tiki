@@ -13,6 +13,7 @@ type TaskEditCoordinator struct {
 	taskController *TaskController
 
 	preparedView View
+	descOnly     bool
 }
 
 func NewTaskEditCoordinator(navController *NavigationController, taskController *TaskController) *TaskEditCoordinator {
@@ -41,6 +42,7 @@ func (c *TaskEditCoordinator) Prepare(activeView View, params model.TaskEditPara
 		c.taskController.ClearDraft()
 	}
 
+	c.descOnly = params.DescOnly
 	c.prepareView(activeView, params.Focus)
 	c.preparedView = activeView
 }
@@ -50,8 +52,14 @@ func (c *TaskEditCoordinator) HandleKey(activeView View, event *tcell.EventKey) 
 	case tcell.KeyCtrlS:
 		return c.CommitAndClose(activeView)
 	case tcell.KeyTab:
+		if c.descOnly {
+			return false // let textarea handle Tab as literal tab
+		}
 		return c.FocusNextField(activeView)
 	case tcell.KeyBacktab:
+		if c.descOnly {
+			return false
+		}
 		return c.FocusPrevField(activeView)
 	case tcell.KeyEscape:
 		return c.CancelAndClose()
@@ -169,7 +177,7 @@ func (c *TaskEditCoordinator) prepareView(activeView View, focus model.EditField
 		}
 	}
 
-	if titleEditableView, ok := activeView.(TitleEditableView); ok {
+	if titleEditableView, ok := activeView.(TitleEditableView); ok && !c.descOnly {
 		// Explicit save on Enter (commits and closes)
 		titleEditableView.SetTitleSaveHandler(func(_ string) {
 			c.CommitAndClose(activeView)
@@ -180,42 +188,65 @@ func (c *TaskEditCoordinator) prepareView(activeView View, focus model.EditField
 	}
 
 	if descEditableView, ok := activeView.(DescriptionEditableView); ok {
-		descEditableView.SetDescriptionSaveHandler(func(_ string) {
-			c.CommitNoClose(activeView)
-		})
+		if c.descOnly {
+			// in desc-only mode, Ctrl+S from description saves and exits
+			descEditableView.SetDescriptionSaveHandler(func(_ string) {
+				c.CommitAndClose(activeView)
+			})
+		} else {
+			descEditableView.SetDescriptionSaveHandler(func(_ string) {
+				c.CommitNoClose(activeView)
+			})
+		}
 		descEditableView.SetDescriptionCancelHandler(func() {
 			c.CancelAndClose()
 		})
 	}
 
-	if statusEditableView, ok := activeView.(StatusEditableView); ok {
-		statusEditableView.SetStatusSaveHandler(func(statusDisplay string) {
-			c.taskController.SaveStatus(statusDisplay)
-		})
+	if !c.descOnly {
+		if statusEditableView, ok := activeView.(StatusEditableView); ok {
+			statusEditableView.SetStatusSaveHandler(func(statusDisplay string) {
+				c.taskController.SaveStatus(statusDisplay)
+			})
+		}
+
+		if typeEditableView, ok := activeView.(TypeEditableView); ok {
+			typeEditableView.SetTypeSaveHandler(func(typeDisplay string) {
+				c.taskController.SaveType(typeDisplay)
+			})
+		}
+
+		if priorityEditableView, ok := activeView.(PriorityEditableView); ok {
+			priorityEditableView.SetPrioritySaveHandler(func(priority int) {
+				c.taskController.SavePriority(priority)
+			})
+		}
+
+		if assigneeEditableView, ok := activeView.(AssigneeEditableView); ok {
+			assigneeEditableView.SetAssigneeSaveHandler(func(assignee string) {
+				c.taskController.SaveAssignee(assignee)
+			})
+		}
+
+		if pointsEditableView, ok := activeView.(PointsEditableView); ok {
+			pointsEditableView.SetPointsSaveHandler(func(points int) {
+				c.taskController.SavePoints(points)
+			})
+		}
 	}
 
-	if typeEditableView, ok := activeView.(TypeEditableView); ok {
-		typeEditableView.SetTypeSaveHandler(func(typeDisplay string) {
-			c.taskController.SaveType(typeDisplay)
-		})
-	}
-
-	if priorityEditableView, ok := activeView.(PriorityEditableView); ok {
-		priorityEditableView.SetPrioritySaveHandler(func(priority int) {
-			c.taskController.SavePriority(priority)
-		})
-	}
-
-	if assigneeEditableView, ok := activeView.(AssigneeEditableView); ok {
-		assigneeEditableView.SetAssigneeSaveHandler(func(assignee string) {
-			c.taskController.SaveAssignee(assignee)
-		})
-	}
-
-	if pointsEditableView, ok := activeView.(PointsEditableView); ok {
-		pointsEditableView.SetPointsSaveHandler(func(points int) {
-			c.taskController.SavePoints(points)
-		})
+	// In desc-only mode, skip title focus entirely — go straight to description
+	if c.descOnly {
+		if fieldFocusable, ok := activeView.(FieldFocusableView); ok {
+			fieldFocusable.SetFocusedField(model.EditFieldDescription)
+		}
+		if descEditableView, ok := activeView.(DescriptionEditableView); ok {
+			if desc := descEditableView.ShowDescriptionEditor(); desc != nil {
+				app.SetFocus(desc)
+				return
+			}
+		}
+		return
 	}
 
 	// Initialize with title field focused by default (or specified focus field)

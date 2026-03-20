@@ -8,6 +8,7 @@ const (
 	paramTaskID    = "taskID"
 	paramDraftTask = "draftTask"
 	paramFocus     = "focus"
+	paramDescOnly  = "descOnly"
 )
 
 // TaskDetailParams are params for TaskDetailViewID.
@@ -39,9 +40,10 @@ func DecodeTaskDetailParams(params map[string]interface{}) TaskDetailParams {
 
 // TaskEditParams are params for TaskEditViewID.
 type TaskEditParams struct {
-	TaskID string
-	Draft  *taskpkg.Task
-	Focus  EditField
+	TaskID   string
+	Draft    *taskpkg.Task
+	Focus    EditField
+	DescOnly bool
 }
 
 // EncodeTaskEditParams converts typed params into a navigation params map.
@@ -62,6 +64,9 @@ func EncodeTaskEditParams(p TaskEditParams) map[string]interface{} {
 	if p.Focus != "" {
 		// Store focus as a plain string for interop and stable params fingerprinting.
 		m[paramFocus] = string(p.Focus)
+	}
+	if p.DescOnly {
+		m[paramDescOnly] = true
 	}
 	return m
 }
@@ -86,6 +91,9 @@ func DecodeTaskEditParams(params map[string]interface{}) TaskEditParams {
 		p.Focus = EditField(f)
 	case EditField:
 		p.Focus = f
+	}
+	if descOnly, ok := params[paramDescOnly].(bool); ok {
+		p.DescOnly = descOnly
 	}
 	return p
 }
