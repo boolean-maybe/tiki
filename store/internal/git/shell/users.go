@@ -111,22 +111,9 @@ func (u *Util) Author(filePath string) (*AuthorInfo, error) {
 	dateStr := parts[3]
 	message := parts[4]
 
-	var date time.Time
-	formats := []string{
-		"2006-01-02 15:04:05 -0700",
-		"2006-01-02 15:04:05 -07:00",
-		"2006-01-02 15:04:05",
-		time.RFC3339,
-	}
-	var parseErr error
-	for _, format := range formats {
-		date, parseErr = time.Parse(format, dateStr)
-		if parseErr == nil {
-			break
-		}
-	}
-	if parseErr != nil {
-		return nil, fmt.Errorf("failed to parse date %s: %w", dateStr, parseErr)
+	date, err := parseGitTime(dateStr)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse date %s: %w", dateStr, err)
 	}
 
 	return &AuthorInfo{
@@ -173,21 +160,8 @@ func (u *Util) AllAuthors(dirPattern string) (map[string]*AuthorInfo, error) {
 			currentMessage = parts[4]
 		} else {
 			// This is a file name - parse the date and create AuthorInfo
-			var date time.Time
-			formats := []string{
-				"2006-01-02 15:04:05 -0700",
-				"2006-01-02 15:04:05 -07:00",
-				"2006-01-02 15:04:05",
-				time.RFC3339,
-			}
-			var parseErr error
-			for _, format := range formats {
-				date, parseErr = time.Parse(format, currentDate)
-				if parseErr == nil {
-					break
-				}
-			}
-			if parseErr != nil {
+			date, err := parseGitTime(currentDate)
+			if err != nil {
 				continue
 			}
 

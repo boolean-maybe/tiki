@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"sync"
 	"time"
 
 	"github.com/go-git/go-git/v5"
@@ -16,6 +17,11 @@ import (
 type GitUtil struct {
 	repoPath string
 	repo     *git.Repository
+
+	currentUserOnce  sync.Once
+	currentUserName  string
+	currentUserEmail string
+	currentUserErr   error
 }
 
 // NewGitUtilWithGoGit creates a new GitUtil instance using go-git
@@ -97,8 +103,16 @@ func (g *GitUtil) Remove(paths ...string) error {
 	return nil
 }
 
-// CurrentUser returns the current git user's name and email
+// CurrentUser returns the current git user's name and email.
+// Results are cached after the first call.
 func (g *GitUtil) CurrentUser() (name string, email string, err error) {
+	g.currentUserOnce.Do(func() {
+		g.currentUserName, g.currentUserEmail, g.currentUserErr = g.loadCurrentUser()
+	})
+	return g.currentUserName, g.currentUserEmail, g.currentUserErr
+}
+
+func (g *GitUtil) loadCurrentUser() (name string, email string, err error) {
 	cfg, err := g.repo.Config()
 	if err != nil {
 		return "", "", fmt.Errorf("failed to get git config: %w", err)

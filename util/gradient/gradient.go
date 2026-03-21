@@ -4,10 +4,29 @@ import (
 	"fmt"
 	"math"
 	"strings"
+	"sync"
 
 	"github.com/boolean-maybe/tiki/config"
 	"github.com/gdamore/tcell/v2"
 )
+
+type gradientCacheKey struct {
+	text  string
+	start [3]int
+	end   [3]int
+}
+
+var (
+	cache   = make(map[gradientCacheKey]string)
+	cacheMu sync.RWMutex
+)
+
+// ResetGradientCache clears the gradient render cache. Intended for tests.
+func ResetGradientCache() {
+	cacheMu.Lock()
+	clear(cache)
+	cacheMu.Unlock()
+}
 
 // InterpolateRGB performs linear RGB interpolation with proper rounding.
 // t should be in [0, 1] range (automatically clamped).
@@ -64,12 +83,24 @@ func DarkenRGB(rgb [3]int, ratio float64) [3]int {
 }
 
 // RenderGradientText renders text with character-by-character gradient coloring.
+// Results are cached by (text, gradient) key to avoid redundant computation on redraws.
 func RenderGradientText(text string, gradient config.Gradient) string {
 	if len(text) == 0 {
 		return ""
 	}
 
+	key := gradientCacheKey{text: text, start: gradient.Start, end: gradient.End}
+
+	cacheMu.RLock()
+	if cached, ok := cache[key]; ok {
+		cacheMu.RUnlock()
+		return cached
+	}
+	cacheMu.RUnlock()
+
 	var builder strings.Builder
+	// each char produces "[#rrggbb]c" = 11 bytes for ASCII, up to 17 for wide runes
+	builder.Grow(len(text) * 17)
 	for i, char := range text {
 		t := float64(i) / float64(len(text)-1)
 		if len(text) == 1 {
@@ -78,7 +109,13 @@ func RenderGradientText(text string, gradient config.Gradient) string {
 		rgb := InterpolateRGB(gradient.Start, gradient.End, t)
 		fmt.Fprintf(&builder, "[#%02x%02x%02x]%c", rgb[0], rgb[1], rgb[2], char)
 	}
-	return builder.String()
+	result := builder.String()
+
+	cacheMu.Lock()
+	cache[key] = result
+	cacheMu.Unlock()
+
+	return result
 }
 
 // RenderAdaptiveGradientText renders text with gradient or solid color based on config.UseGradients.

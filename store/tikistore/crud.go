@@ -11,19 +11,27 @@ import (
 
 // CreateTask adds a new task and saves it to a file
 func (s *TikiStore) CreateTask(task *taskpkg.Task) error {
+	if err := s.createTaskLocked(task); err != nil {
+		return err
+	}
+	slog.Info("task created", "task_id", task.ID, "status", task.Status)
+	s.notifyListeners()
+	return nil
+}
+
+func (s *TikiStore) createTaskLocked(task *taskpkg.Task) error {
 	s.mu.Lock()
+	defer s.mu.Unlock()
 
 	// generate ID if not provided
 	if task.ID == "" {
-		// Generate random ID with collision check
 		for {
 			randomID := config.GenerateRandomID()
 			task.ID = fmt.Sprintf("TIKI-%s", randomID)
 
-			// Check if file already exists (collision check)
 			path := s.taskFilePath(task.ID)
 			if _, err := os.Stat(path); os.IsNotExist(err) {
-				break // No collision, use this ID
+				break
 			}
 			slog.Debug("ID collision detected, regenerating", "id", task.ID)
 		}
@@ -31,24 +39,16 @@ func (s *TikiStore) CreateTask(task *taskpkg.Task) error {
 
 	task.ID = normalizeTaskID(task.ID)
 
-	// Validate dependsOn references exist
 	if err := s.validateDependsOnLocked(task); err != nil {
-		s.mu.Unlock()
 		return err
 	}
 
 	s.tasks[task.ID] = task
 	if err := s.saveTask(task); err != nil {
-		// Rollback on failure
 		delete(s.tasks, task.ID)
-		s.mu.Unlock()
 		slog.Error("failed to save new task after creation", "task_id", task.ID, "error", err)
 		return fmt.Errorf("failed to save task: %w", err)
 	}
-	s.mu.Unlock()
-
-	slog.Info("task created", "task_id", task.ID, "status", task.Status)
-	s.notifyListeners()
 	return nil
 }
 
@@ -62,49 +62,60 @@ func (s *TikiStore) GetTask(id string) *taskpkg.Task {
 
 // UpdateTask updates an existing task and saves it
 func (s *TikiStore) UpdateTask(task *taskpkg.Task) error {
-	s.mu.Lock()
-
-	task.ID = normalizeTaskID(task.ID)
-	oldTask, exists := s.tasks[task.ID]
-	if !exists {
-		s.mu.Unlock()
-		return fmt.Errorf("task not found: %s", task.ID)
-	}
-
-	// Validate dependsOn references exist
-	if err := s.validateDependsOnLocked(task); err != nil {
-		s.mu.Unlock()
+	if err := s.updateTaskLocked(task); err != nil {
 		return err
 	}
-
-	s.tasks[task.ID] = task
-	if err := s.saveTask(task); err != nil {
-		// Rollback on failure
-		s.tasks[task.ID] = oldTask
-		s.mu.Unlock()
-		slog.Error("failed to save updated task", "task_id", task.ID, "error", err)
-		return fmt.Errorf("failed to save task: %w", err)
-	}
-	s.mu.Unlock()
-
 	slog.Info("task updated", "task_id", task.ID, "status", task.Status)
 	s.notifyListeners()
 	return nil
 }
 
-// DeleteTask removes a task and its file
-func (s *TikiStore) DeleteTask(id string) {
+func (s *TikiStore) updateTaskLocked(task *taskpkg.Task) error {
 	s.mu.Lock()
+	defer s.mu.Unlock()
 
-	normalizedID := normalizeTaskID(id)
-	if _, exists := s.tasks[normalizedID]; !exists {
-		s.mu.Unlock()
-		return
+	task.ID = normalizeTaskID(task.ID)
+	oldTask, exists := s.tasks[task.ID]
+	if !exists {
+		return fmt.Errorf("task not found: %s", task.ID)
 	}
 
-	path := s.taskFilePath(normalizedID)
+	if err := s.validateDependsOnLocked(task); err != nil {
+		return err
+	}
 
-	// Try git rm first if git is available
+	s.tasks[task.ID] = task
+	if err := s.saveTask(task); err != nil {
+		s.tasks[task.ID] = oldTask
+		slog.Error("failed to save updated task", "task_id", task.ID, "error", err)
+		return fmt.Errorf("failed to save task: %w", err)
+	}
+	return nil
+}
+
+// DeleteTask removes a task and its file
+func (s *TikiStore) DeleteTask(id string) {
+	normalizedID := normalizeTaskID(id)
+	if !s.deleteTaskLocked(normalizedID) {
+		return
+	}
+	slog.Info("task deleted", "task_id", normalizedID)
+	s.notifyListeners()
+}
+
+// deleteTaskLocked removes the task file and in-memory entry.
+// Returns true if the task was deleted.
+func (s *TikiStore) deleteTaskLocked(id string) bool {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	if _, exists := s.tasks[id]; !exists {
+		return false
+	}
+
+	path := s.taskFilePath(id)
+
+	// try git rm first if git is available
 	removed := false
 	if s.gitUtil != nil {
 		if err := s.gitUtil.Remove(path); err == nil {
@@ -114,38 +125,39 @@ func (s *TikiStore) DeleteTask(id string) {
 		}
 	}
 
-	// Fall back to os.Remove if git rm failed or unavailable
+	// fall back to os.Remove if git rm failed or unavailable
 	if !removed {
 		if err := os.Remove(path); err != nil {
 			slog.Error("file deletion failed, task preserved in memory", "task_id", id, "path", path, "error", err)
-			s.mu.Unlock()
-			return // Don't modify in-memory state if file deletion failed
+			return false
 		}
 	}
 
-	// Only delete from memory after successful file deletion
-	delete(s.tasks, normalizedID)
-	s.mu.Unlock()
-	slog.Info("task deleted", "task_id", normalizedID)
-	s.notifyListeners()
+	delete(s.tasks, id)
+	return true
 }
 
-// AddComment adds a comment to a task
-// note: comments are stored in memory only for TikiStore
-// (could be extended to store in file or separate files)
+// AddComment adds a comment to a task.
+// Comments are stored in memory only for TikiStore.
 func (s *TikiStore) AddComment(taskID string, comment taskpkg.Comment) bool {
+	if !s.addCommentLocked(taskID, comment) {
+		return false
+	}
+	s.notifyListeners()
+	return true
+}
+
+func (s *TikiStore) addCommentLocked(taskID string, comment taskpkg.Comment) bool {
 	s.mu.Lock()
+	defer s.mu.Unlock()
 
 	taskID = normalizeTaskID(taskID)
 	task, exists := s.tasks[taskID]
 	if !exists {
-		s.mu.Unlock()
 		return false
 	}
 
 	task.Comments = append(task.Comments, comment)
-	s.mu.Unlock()
-	s.notifyListeners()
 	return true
 }
 

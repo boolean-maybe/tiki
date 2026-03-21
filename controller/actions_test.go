@@ -14,8 +14,8 @@ func TestActionRegistry_Merge(t *testing.T) {
 		registry1      func() *ActionRegistry
 		registry2      func() *ActionRegistry
 		wantActionIDs  []ActionID
-		wantKeyLookup  map[tcell.Key]ActionID
-		wantRuneLookup map[rune]ActionID
+		wantKeyLookup  map[keyWithMod]ActionID
+		wantRuneLookup map[runeWithMod]ActionID
 	}{
 		{
 			name: "merge two non-overlapping registries",
@@ -31,12 +31,12 @@ func TestActionRegistry_Merge(t *testing.T) {
 				return r
 			},
 			wantActionIDs: []ActionID{ActionQuit, ActionRefresh, ActionBack},
-			wantKeyLookup: map[tcell.Key]ActionID{
-				tcell.KeyEscape: ActionBack,
+			wantKeyLookup: map[keyWithMod]ActionID{
+				{tcell.KeyEscape, 0}: ActionBack,
 			},
-			wantRuneLookup: map[rune]ActionID{
-				'q': ActionQuit,
-				'r': ActionRefresh,
+			wantRuneLookup: map[runeWithMod]ActionID{
+				{'q', 0}: ActionQuit,
+				{'r', 0}: ActionRefresh,
 			},
 		},
 		{
@@ -52,8 +52,8 @@ func TestActionRegistry_Merge(t *testing.T) {
 				return r
 			},
 			wantActionIDs: []ActionID{ActionQuit, ActionSearch},
-			wantRuneLookup: map[rune]ActionID{
-				'q': ActionSearch, // overwritten by second registry
+			wantRuneLookup: map[runeWithMod]ActionID{
+				{'q', 0}: ActionSearch, // overwritten by second registry
 			},
 		},
 		{
@@ -67,8 +67,8 @@ func TestActionRegistry_Merge(t *testing.T) {
 				return NewActionRegistry()
 			},
 			wantActionIDs: []ActionID{ActionQuit},
-			wantRuneLookup: map[rune]ActionID{
-				'q': ActionQuit,
+			wantRuneLookup: map[runeWithMod]ActionID{
+				{'q', 0}: ActionQuit,
 			},
 		},
 		{
@@ -82,8 +82,8 @@ func TestActionRegistry_Merge(t *testing.T) {
 				return r
 			},
 			wantActionIDs: []ActionID{ActionRefresh},
-			wantRuneLookup: map[rune]ActionID{
-				'r': ActionRefresh,
+			wantRuneLookup: map[runeWithMod]ActionID{
+				{'r', 0}: ActionRefresh,
 			},
 		},
 	}

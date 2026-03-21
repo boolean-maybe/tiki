@@ -130,32 +130,46 @@ type Action struct {
 	ShowInHeader bool // whether to display in header bar
 }
 
+// keyWithMod is a composite map key for special-key lookups, disambiguating
+// the same key registered with different modifiers (e.g. Left vs Shift+Left).
+type keyWithMod struct {
+	key tcell.Key
+	mod tcell.ModMask
+}
+
+// runeWithMod is a composite map key for rune lookups, disambiguating
+// the same rune registered with different modifiers (e.g. 'M' vs Alt+'M').
+type runeWithMod struct {
+	ch  rune
+	mod tcell.ModMask
+}
+
 // ActionRegistry holds the available actions for a view.
-// Uses a space-time tradeoff: stores actions in 3 places for different purposes:
 // - actions slice preserves registration order (needed for header display)
-// - byKey/byRune maps provide O(1) lookups for keyboard matching (vs O(n) linear search)
+// - byKey/byRune maps provide O(1) lookups for keyboard matching
 type ActionRegistry struct {
-	actions []Action             // All registered actions in order
-	byKey   map[tcell.Key]Action // Fast lookup for special keys (arrow keys, function keys, etc.)
-	byRune  map[rune]Action      // Fast lookup for character keys (letters, symbols)
+	actions []Action               // all registered actions in order
+	byKey   map[keyWithMod]Action  // fast lookup for special keys (arrow keys, function keys, etc.)
+	byRune  map[runeWithMod]Action // fast lookup for character keys (letters, symbols)
 }
 
 // NewActionRegistry creates a new action registry
 func NewActionRegistry() *ActionRegistry {
 	return &ActionRegistry{
 		actions: make([]Action, 0),
-		byKey:   make(map[tcell.Key]Action),
-		byRune:  make(map[rune]Action),
+		byKey:   make(map[keyWithMod]Action),
+		byRune:  make(map[runeWithMod]Action),
 	}
 }
 
 // Register adds an action to the registry
 func (r *ActionRegistry) Register(action Action) {
 	r.actions = append(r.actions, action)
+	mod := action.Modifier & (tcell.ModShift | tcell.ModCtrl | tcell.ModAlt | tcell.ModMeta)
 	if action.Key == tcell.KeyRune {
-		r.byRune[action.Rune] = action
+		r.byRune[runeWithMod{action.Rune, mod}] = action
 	} else {
-		r.byKey[action.Key] = action
+		r.byKey[keyWithMod{action.Key, mod}] = action
 	}
 }
 
@@ -181,49 +195,52 @@ func (r *ActionRegistry) GetActions() []Action {
 	return r.actions
 }
 
-// LookupRune returns the action registered for the given rune, if any.
+// LookupRune returns the action registered for the given rune (with no modifier), if any.
 func (r *ActionRegistry) LookupRune(ch rune) (Action, bool) {
-	a, ok := r.byRune[ch]
+	a, ok := r.byRune[runeWithMod{ch, 0}]
 	return a, ok
 }
 
-// Match finds an action matching the given key event
+// Match finds an action matching the given key event using O(1) map lookups.
 func (r *ActionRegistry) Match(event *tcell.EventKey) *Action {
 	// normalize modifier (ignore caps lock, num lock, etc.)
 	mod := event.Modifiers() & (tcell.ModShift | tcell.ModCtrl | tcell.ModAlt | tcell.ModMeta)
 
-	for i := range r.actions {
-		action := &r.actions[i]
+	if event.Key() == tcell.KeyRune {
+		// exact rune+modifier lookup
+		if a, ok := r.byRune[runeWithMod{event.Rune(), mod}]; ok {
+			return &a
+		}
+		// rune actions registered without a modifier match any modifier
+		if mod != 0 {
+			if a, ok := r.byRune[runeWithMod{event.Rune(), 0}]; ok && a.Modifier == 0 {
+				return &a
+			}
+		}
+		return nil
+	}
 
-		if event.Key() == tcell.KeyRune {
-			// for printable characters, match by rune first
-			if action.Key == tcell.KeyRune && action.Rune == event.Rune() {
-				// if action has explicit modifiers, require exact match
-				if action.Modifier != 0 && action.Modifier != mod {
-					continue // modifier mismatch, try next action
-				}
-				return action
-			}
-		} else {
-			// for special keys, require exact modifier match
-			if action.Key == event.Key() && action.Modifier == mod {
-				return action
-			}
-			// Handle Ctrl+letter: tcell sends key='A'-'Z' with ModCtrl,
-			// but actions may register KeyCtrlA-KeyCtrlZ (1-26)
-			if mod == tcell.ModCtrl && action.Modifier == tcell.ModCtrl {
-				var ctrlKeyCode tcell.Key
-				if event.Key() >= 'A' && event.Key() <= 'Z' {
-					ctrlKeyCode = event.Key() - 'A' + 1
-				} else if event.Key() >= 'a' && event.Key() <= 'z' {
-					ctrlKeyCode = event.Key() - 'a' + 1
-				}
-				if ctrlKeyCode != 0 && ctrlKeyCode == action.Key {
-					return action
-				}
+	// special keys — exact key+modifier lookup
+	if a, ok := r.byKey[keyWithMod{event.Key(), mod}]; ok {
+		return &a
+	}
+
+	// Ctrl+letter fallback: tcell may send Key='A'-'Z' with ModCtrl,
+	// but actions may register KeyCtrlA-KeyCtrlZ (1-26)
+	if mod == tcell.ModCtrl {
+		var ctrlKeyCode tcell.Key
+		if event.Key() >= 'A' && event.Key() <= 'Z' {
+			ctrlKeyCode = event.Key() - 'A' + 1
+		} else if event.Key() >= 'a' && event.Key() <= 'z' {
+			ctrlKeyCode = event.Key() - 'a' + 1
+		}
+		if ctrlKeyCode != 0 {
+			if a, ok := r.byKey[keyWithMod{ctrlKeyCode, tcell.ModCtrl}]; ok {
+				return &a
 			}
 		}
 	}
+
 	return nil
 }
 
@@ -243,6 +260,27 @@ func (r *ActionRegistry) GetHeaderActions() []Action {
 	for _, a := range r.actions {
 		if a.ShowInHeader {
 			result = append(result, a)
+		}
+	}
+	return result
+}
+
+// ToHeaderActions converts the registry's header actions to model.HeaderAction slice.
+// This bridges the controller→model boundary without requiring callers to do the mapping.
+func (r *ActionRegistry) ToHeaderActions() []model.HeaderAction {
+	if r == nil {
+		return nil
+	}
+	actions := r.GetHeaderActions()
+	result := make([]model.HeaderAction, len(actions))
+	for i, a := range actions {
+		result[i] = model.HeaderAction{
+			ID:           string(a.ID),
+			Key:          a.Key,
+			Rune:         a.Rune,
+			Label:        a.Label,
+			Modifier:     a.Modifier,
+			ShowInHeader: a.ShowInHeader,
 		}
 	}
 	return result

@@ -121,11 +121,11 @@ func (rl *RootLayout) onLayoutChange() {
 	rl.contentView = newView
 
 	// Update header with new view's actions
-	rl.headerConfig.SetViewActions(convertActionRegistry(newView.GetActionRegistry()))
+	rl.headerConfig.SetViewActions(newView.GetActionRegistry().ToHeaderActions())
 
 	// Show or hide plugin navigation keys based on the view's declaration
 	if np, ok := newView.(controller.NavigationProvider); ok && np.ShowNavigation() {
-		rl.headerConfig.SetPluginActions(convertActionRegistry(controller.GetPluginActions()))
+		rl.headerConfig.SetPluginActions(controller.GetPluginActions().ToHeaderActions())
 	} else {
 		rl.headerConfig.SetPluginActions(nil)
 	}
@@ -278,28 +278,6 @@ func (rl *RootLayout) updateViewStats(v controller.View) {
 			rl.headerConfig.SetViewStat(stat.Name, stat.Value, stat.Order)
 		}
 	}
-}
-
-// convertActionRegistry converts controller.ActionRegistry to []model.HeaderAction
-// This avoids import cycles between model and controller packages.
-func convertActionRegistry(registry *controller.ActionRegistry) []model.HeaderAction {
-	if registry == nil {
-		return nil
-	}
-
-	actions := registry.GetHeaderActions()
-	result := make([]model.HeaderAction, len(actions))
-	for i, a := range actions {
-		result[i] = model.HeaderAction{
-			ID:           string(a.ID),
-			Key:          a.Key,
-			Rune:         a.Rune,
-			Label:        a.Label,
-			Modifier:     a.Modifier,
-			ShowInHeader: a.ShowInHeader,
-		}
-	}
-	return result
 }
 
 // stableParamsKey produces a deterministic, collision-safe fingerprint for params

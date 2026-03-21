@@ -179,30 +179,7 @@ func Bootstrap(tikiSkillContent, dokiSkillContent string) (*Result, error) {
 // syncHeaderPluginActions syncs plugin action shortcuts from the controller registry
 // into the header model.
 func syncHeaderPluginActions(headerConfig *model.HeaderConfig) {
-	pluginActionsList := convertPluginActions(controller.GetPluginActions())
-	headerConfig.SetPluginActions(pluginActionsList)
-}
-
-// convertPluginActions converts controller.ActionRegistry to []model.HeaderAction
-// for HeaderConfig.
-func convertPluginActions(registry *controller.ActionRegistry) []model.HeaderAction {
-	if registry == nil {
-		return nil
-	}
-
-	actions := registry.GetHeaderActions()
-	result := make([]model.HeaderAction, len(actions))
-	for i, a := range actions {
-		result[i] = model.HeaderAction{
-			ID:           string(a.ID),
-			Key:          a.Key,
-			Rune:         a.Rune,
-			Label:        a.Label,
-			Modifier:     a.Modifier,
-			ShowInHeader: a.ShowInHeader,
-		}
-	}
-	return result
+	headerConfig.SetPluginActions(controller.GetPluginActions().ToHeaderActions())
 }
 
 // wireOnViewActivated wires focus setters into views as they become active.

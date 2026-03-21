@@ -369,6 +369,59 @@ func TestRenderAdaptiveGradientText(t *testing.T) {
 	}
 }
 
+func TestGradientCacheHit(t *testing.T) {
+	ResetGradientCache()
+
+	grad := config.Gradient{
+		Start: [3]int{0, 100, 200},
+		End:   [3]int{255, 200, 100},
+	}
+
+	first := RenderGradientText("TIKI-ABC", grad)
+	second := RenderGradientText("TIKI-ABC", grad)
+
+	if first != second {
+		t.Errorf("cache miss: first %q != second %q", first, second)
+	}
+
+	// different text should produce different result
+	other := RenderGradientText("TIKI-XYZ", grad)
+	if first == other {
+		t.Errorf("different text should produce different gradient output")
+	}
+
+	// reset should clear cache (no panic, and subsequent call still works)
+	ResetGradientCache()
+	afterReset := RenderGradientText("TIKI-ABC", grad)
+	if afterReset != first {
+		t.Errorf("result after cache reset differs: %q vs %q", afterReset, first)
+	}
+}
+
+func BenchmarkRenderGradientText(b *testing.B) {
+	grad := config.Gradient{
+		Start: [3]int{30, 144, 255},
+		End:   [3]int{0, 191, 255},
+	}
+	text := "TIKI-A1B2C3"
+
+	b.Run("cold", func(b *testing.B) {
+		for b.Loop() {
+			ResetGradientCache()
+			RenderGradientText(text, grad)
+		}
+	})
+
+	b.Run("warm", func(b *testing.B) {
+		ResetGradientCache()
+		RenderGradientText(text, grad) // prime cache
+		b.ResetTimer()
+		for b.Loop() {
+			RenderGradientText(text, grad)
+		}
+	})
+}
+
 func TestAdaptiveGradientRespectConfig(t *testing.T) {
 	gradient := config.Gradient{
 		Start: [3]int{100, 100, 100},
