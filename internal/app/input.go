@@ -9,14 +9,18 @@ import (
 )
 
 // InstallGlobalInputCapture installs the global keyboard handler
-// (header toggle, router dispatch).
+// (header toggle, statusline auto-hide dismiss, router dispatch).
 func InstallGlobalInputCapture(
 	app *tview.Application,
 	headerConfig *model.HeaderConfig,
+	statuslineConfig *model.StatuslineConfig,
 	inputRouter *controller.InputRouter,
 	navController *controller.NavigationController,
 ) {
 	app.SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
+		// dismiss auto-hide statusline messages on any keypress
+		statuslineConfig.DismissAutoHide()
+
 		if event.Key() == tcell.KeyF10 {
 			headerConfig.ToggleUserPreference()
 			return nil

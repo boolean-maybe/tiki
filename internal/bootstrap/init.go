@@ -18,6 +18,7 @@ import (
 	"github.com/boolean-maybe/tiki/util/sysinfo"
 	"github.com/boolean-maybe/tiki/view"
 	"github.com/boolean-maybe/tiki/view/header"
+	"github.com/boolean-maybe/tiki/view/statusline"
 )
 
 // Result contains all initialized application components.
@@ -40,6 +41,8 @@ type Result struct {
 	InputRouter      *controller.InputRouter
 	ViewFactory      *view.ViewFactory
 	HeaderWidget     *header.HeaderWidget
+	StatuslineConfig *model.StatuslineConfig
+	StatuslineWidget *statusline.StatuslineWidget
 	RootLayout       *view.RootLayout
 	Context          context.Context
 	CancelFunc       context.CancelFunc
@@ -96,6 +99,7 @@ func Bootstrap(tikiSkillContent, dokiSkillContent string) (*Result, error) {
 	// Phase 5: Model initialization
 	headerConfig, layoutModel := InitHeaderAndLayoutModels()
 	InitHeaderBaseStats(headerConfig, tikiStore)
+	statuslineConfig := InitStatuslineModel(tikiStore)
 
 	// Phase 6: Plugin system
 	plugins, err := LoadPlugins()
@@ -135,7 +139,17 @@ func Bootstrap(tikiSkillContent, dokiSkillContent string) (*Result, error) {
 	})
 
 	headerWidget := header.NewHeaderWidget(headerConfig)
-	rootLayout := view.NewRootLayout(headerWidget, headerConfig, layoutModel, viewFactory, taskStore, application)
+	statuslineWidget := statusline.NewStatuslineWidget(statuslineConfig)
+	rootLayout := view.NewRootLayout(view.RootLayoutOpts{
+		Header:           headerWidget,
+		HeaderConfig:     headerConfig,
+		LayoutModel:      layoutModel,
+		ViewFactory:      viewFactory,
+		TaskStore:        taskStore,
+		App:              application,
+		StatuslineWidget: statuslineWidget,
+		StatuslineConfig: statuslineConfig,
+	})
 
 	// Phase 10: View wiring
 	wireOnViewActivated(rootLayout, application)
@@ -146,7 +160,7 @@ func Bootstrap(tikiSkillContent, dokiSkillContent string) (*Result, error) {
 
 	// Phase 12: Navigation and input wiring
 	wireNavigation(controllers.Nav, layoutModel, rootLayout)
-	app.InstallGlobalInputCapture(application, headerConfig, inputRouter, controllers.Nav)
+	app.InstallGlobalInputCapture(application, headerConfig, statuslineConfig, inputRouter, controllers.Nav)
 
 	// Phase 13: Initial view — use the first plugin marked default: true,
 	// or fall back to the first plugin in the list.
@@ -168,6 +182,8 @@ func Bootstrap(tikiSkillContent, dokiSkillContent string) (*Result, error) {
 		InputRouter:      inputRouter,
 		ViewFactory:      viewFactory,
 		HeaderWidget:     headerWidget,
+		StatuslineConfig: statuslineConfig,
+		StatuslineWidget: statuslineWidget,
 		RootLayout:       rootLayout,
 		Context:          ctx,
 		CancelFunc:       cancel,

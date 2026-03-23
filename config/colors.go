@@ -85,6 +85,14 @@ type ColorConfig struct {
 	HeaderActionPluginLabelColor string // tview color string for plugin action labels
 	HeaderActionViewKeyColor     string // tview color string for view action keys
 	HeaderActionViewLabelColor   string // tview color string for view action labels
+
+	// Statusline colors (bottom bar, powerline style)
+	StatuslineBg        string // hex color for stat segment background, e.g. "#3a3a5c"
+	StatuslineFg        string // hex color for stat segment text, e.g. "#cccccc"
+	StatuslineAccentBg  string // hex color for accent segment background (first segment), e.g. "#5f87af"
+	StatuslineAccentFg  string // hex color for accent segment text, e.g. "#1c1c2e"
+	StatuslineMessageFg string // hex color for right-section message text, e.g. "#ff8787"
+	StatuslineMessageBg string // hex color for right-section message background, e.g. "#3a3a3a"
 }
 
 // DefaultColors returns the default color configuration
@@ -182,6 +190,14 @@ func DefaultColors() *ColorConfig {
 		HeaderActionPluginLabelColor: "#b0b0b0", // light gray for plugin labels
 		HeaderActionViewKeyColor:     "#5fafff", // cyan for view-specific actions
 		HeaderActionViewLabelColor:   "#808080", // gray for view-specific labels
+
+		// Statusline
+		StatuslineBg:        "#3a3a5c", // muted indigo for stat segments
+		StatuslineFg:        "#cccccc", // light gray text
+		StatuslineAccentBg:  "#5f87af", // steel blue for first segment
+		StatuslineAccentFg:  "#1c1c2e", // dark text on accent
+		StatuslineMessageFg: "#ff8787", // soft red for error/message text
+		StatuslineMessageBg: "#3a3a3a", // dark gray for message background
 	}
 }
 

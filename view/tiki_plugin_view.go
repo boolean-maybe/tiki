@@ -273,7 +273,7 @@ func (pv *PluginView) SetFocusSetter(setter func(p tview.Primitive)) {
 	pv.searchHelper.SetFocusSetter(setter)
 }
 
-// GetStats returns stats for the header (Total count of filtered tasks)
+// GetStats returns stats for the header and statusline (Total count of filtered tasks)
 func (pv *PluginView) GetStats() []store.Stat {
 	total := 0
 	for lane := range pv.pluginDef.Lanes {

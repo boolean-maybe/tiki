@@ -11,12 +11,14 @@ import (
 	"github.com/boolean-maybe/tiki/model"
 	"github.com/boolean-maybe/tiki/store"
 	"github.com/boolean-maybe/tiki/view/header"
+	"github.com/boolean-maybe/tiki/view/statusline"
 
 	"github.com/rivo/tview"
 )
 
-// RootLayout is a container view managing a persistent header and swappable content area.
-// It observes LayoutModel for content changes and HeaderConfig for visibility changes.
+// RootLayout is a container view managing a persistent header, swappable content area, and statusline.
+// It observes LayoutModel for content changes, HeaderConfig for header visibility,
+// and StatuslineConfig for statusline visibility.
 type RootLayout struct {
 	root        *tview.Flex
 	header      *header.HeaderWidget
@@ -27,47 +29,64 @@ type RootLayout struct {
 	viewFactory  controller.ViewFactory
 	taskStore    store.Store
 
+	// statusline
+	statuslineWidget *statusline.StatuslineWidget
+	statuslineConfig *model.StatuslineConfig
+
 	contentView   controller.View
 	lastParamsKey string
 
-	headerListenerID  int
-	layoutListenerID  int
-	storeListenerID   int
-	lastHeaderVisible bool
-	app               *tview.Application
-	onViewActivated   func(controller.View)
+	headerListenerID      int
+	layoutListenerID      int
+	storeListenerID       int
+	statuslineListenerID  int
+	lastHeaderVisible     bool
+	lastStatuslineVisible bool
+	app                   *tview.Application
+	onViewActivated       func(controller.View)
 }
 
-// NewRootLayout creates a root layout that observes models and manages header/content
-func NewRootLayout(
-	hdr *header.HeaderWidget,
-	headerConfig *model.HeaderConfig,
-	layoutModel *model.LayoutModel,
-	viewFactory controller.ViewFactory,
-	taskStore store.Store,
-	app *tview.Application,
-) *RootLayout {
+// RootLayoutOpts groups all parameters for NewRootLayout
+type RootLayoutOpts struct {
+	Header           *header.HeaderWidget
+	HeaderConfig     *model.HeaderConfig
+	LayoutModel      *model.LayoutModel
+	ViewFactory      controller.ViewFactory
+	TaskStore        store.Store
+	App              *tview.Application
+	StatuslineWidget *statusline.StatuslineWidget
+	StatuslineConfig *model.StatuslineConfig
+}
+
+// NewRootLayout creates a root layout that observes models and manages header/content/statusline
+func NewRootLayout(opts RootLayoutOpts) *RootLayout {
 	rl := &RootLayout{
-		root:              tview.NewFlex().SetDirection(tview.FlexRow),
-		header:            hdr,
-		contentArea:       tview.NewFlex().SetDirection(tview.FlexRow),
-		headerConfig:      headerConfig,
-		layoutModel:       layoutModel,
-		viewFactory:       viewFactory,
-		taskStore:         taskStore,
-		lastHeaderVisible: headerConfig.IsVisible(),
-		app:               app,
+		root:                  tview.NewFlex().SetDirection(tview.FlexRow),
+		header:                opts.Header,
+		contentArea:           tview.NewFlex().SetDirection(tview.FlexRow),
+		headerConfig:          opts.HeaderConfig,
+		layoutModel:           opts.LayoutModel,
+		viewFactory:           opts.ViewFactory,
+		taskStore:             opts.TaskStore,
+		statuslineWidget:      opts.StatuslineWidget,
+		statuslineConfig:      opts.StatuslineConfig,
+		lastHeaderVisible:     opts.HeaderConfig.IsVisible(),
+		lastStatuslineVisible: opts.StatuslineConfig.IsVisible(),
+		app:                   opts.App,
 	}
 
 	// Subscribe to layout model changes (content swapping)
-	rl.layoutListenerID = layoutModel.AddListener(rl.onLayoutChange)
+	rl.layoutListenerID = opts.LayoutModel.AddListener(rl.onLayoutChange)
 
 	// Subscribe to header config changes (visibility)
-	rl.headerListenerID = headerConfig.AddListener(rl.onHeaderConfigChange)
+	rl.headerListenerID = opts.HeaderConfig.AddListener(rl.onHeaderConfigChange)
+
+	// Subscribe to statusline config changes (visibility)
+	rl.statuslineListenerID = opts.StatuslineConfig.AddListener(rl.onStatuslineConfigChange)
 
 	// Subscribe to task store changes (stats updates)
-	if taskStore != nil {
-		rl.storeListenerID = taskStore.AddListener(rl.onStoreChange)
+	if opts.TaskStore != nil {
+		rl.storeListenerID = opts.TaskStore.AddListener(rl.onStoreChange)
 	}
 
 	// Build initial layout
@@ -132,6 +151,7 @@ func (rl *RootLayout) onLayoutChange() {
 
 	// Apply view-specific stats from the view
 	rl.updateViewStats(newView)
+	rl.updateStatuslineViewStats(newView)
 
 	// Run view activated callback (for focus setters, etc.)
 	if rl.onViewActivated != nil {
@@ -202,7 +222,16 @@ func (rl *RootLayout) onHeaderConfigChange() {
 	}
 }
 
-// rebuildLayout rebuilds the root flex layout based on current header visibility
+// onStatuslineConfigChange is called when StatuslineConfig changes
+func (rl *RootLayout) onStatuslineConfigChange() {
+	currentVisible := rl.statuslineConfig.IsVisible()
+	if currentVisible != rl.lastStatuslineVisible {
+		rl.lastStatuslineVisible = currentVisible
+		rl.rebuildLayout()
+	}
+}
+
+// rebuildLayout rebuilds the root flex layout based on current header/statusline visibility
 func (rl *RootLayout) rebuildLayout() {
 	rl.root.Clear()
 
@@ -212,6 +241,10 @@ func (rl *RootLayout) rebuildLayout() {
 	}
 
 	rl.root.AddItem(rl.contentArea, 0, 1, true)
+
+	if rl.statuslineConfig.IsVisible() {
+		rl.root.AddItem(rl.statuslineWidget, 1, 0, false)
+	}
 }
 
 // GetPrimitive returns the root tview primitive for app.SetRoot()
@@ -258,6 +291,8 @@ func (rl *RootLayout) OnBlur() {
 func (rl *RootLayout) Cleanup() {
 	rl.layoutModel.RemoveListener(rl.layoutListenerID)
 	rl.headerConfig.RemoveListener(rl.headerListenerID)
+	rl.statuslineConfig.RemoveListener(rl.statuslineListenerID)
+	rl.statuslineWidget.Cleanup()
 	if rl.taskStore != nil {
 		rl.taskStore.RemoveListener(rl.storeListenerID)
 	}
@@ -267,6 +302,7 @@ func (rl *RootLayout) Cleanup() {
 func (rl *RootLayout) onStoreChange() {
 	if rl.contentView != nil {
 		rl.updateViewStats(rl.contentView)
+		rl.updateStatuslineViewStats(rl.contentView)
 	}
 }
 
@@ -278,6 +314,18 @@ func (rl *RootLayout) updateViewStats(v controller.View) {
 			rl.headerConfig.SetViewStat(stat.Name, stat.Value, stat.Order)
 		}
 	}
+}
+
+// updateStatuslineViewStats reads stats from the view and updates the statusline right section.
+// Reuses StatsProvider — no separate interface needed until header and statusline stats diverge.
+func (rl *RootLayout) updateStatuslineViewStats(v controller.View) {
+	stats := make(map[string]model.StatValue)
+	if sp, ok := v.(controller.StatsProvider); ok {
+		for _, stat := range sp.GetStats() {
+			stats[stat.Name] = model.StatValue{Value: stat.Value, Priority: stat.Order}
+		}
+	}
+	rl.statuslineConfig.SetRightViewStats(stats)
 }
 
 // stableParamsKey produces a deterministic, collision-safe fingerprint for params

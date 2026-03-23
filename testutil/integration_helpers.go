@@ -13,6 +13,7 @@ import (
 	taskpkg "github.com/boolean-maybe/tiki/task"
 	"github.com/boolean-maybe/tiki/view"
 	"github.com/boolean-maybe/tiki/view/header"
+	"github.com/boolean-maybe/tiki/view/statusline"
 
 	"github.com/gdamore/tcell/v2"
 	"github.com/rivo/tview"
@@ -95,9 +96,20 @@ func NewTestApp(t *testing.T) *TestApp {
 	// 6. Initialize View Layer
 	viewFactory := view.NewViewFactory(taskStore)
 
-	// 7. Create header widget and RootLayout
+	// 7. Create header widget, statusline, and RootLayout
 	headerWidget := header.NewHeaderWidget(headerConfig)
-	rootLayout := view.NewRootLayout(headerWidget, headerConfig, layoutModel, viewFactory, taskStore, app)
+	statuslineConfig := model.NewStatuslineConfig()
+	statuslineWidget := statusline.NewStatuslineWidget(statuslineConfig)
+	rootLayout := view.NewRootLayout(view.RootLayoutOpts{
+		Header:           headerWidget,
+		HeaderConfig:     headerConfig,
+		LayoutModel:      layoutModel,
+		ViewFactory:      viewFactory,
+		TaskStore:        taskStore,
+		App:              app,
+		StatuslineConfig: statuslineConfig,
+		StatuslineWidget: statuslineWidget,
+	})
 
 	// Mirror main.go wiring: provide views a focus setter as they become active.
 	rootLayout.SetOnViewActivated(func(v controller.View) {
@@ -408,7 +420,18 @@ func (ta *TestApp) LoadPlugins() error {
 	// Recreate RootLayout with new view factory
 	headerWidget := header.NewHeaderWidget(ta.headerConfig)
 	ta.RootLayout.Cleanup()
-	ta.RootLayout = view.NewRootLayout(headerWidget, ta.headerConfig, ta.layoutModel, viewFactory, ta.TaskStore, ta.App)
+	slConfig := model.NewStatuslineConfig()
+	slWidget := statusline.NewStatuslineWidget(slConfig)
+	ta.RootLayout = view.NewRootLayout(view.RootLayoutOpts{
+		Header:           headerWidget,
+		HeaderConfig:     ta.headerConfig,
+		LayoutModel:      ta.layoutModel,
+		ViewFactory:      viewFactory,
+		TaskStore:        ta.TaskStore,
+		App:              ta.App,
+		StatuslineConfig: slConfig,
+		StatuslineWidget: slWidget,
+	})
 
 	// Re-wire callbacks
 	ta.NavController.SetActiveViewGetter(ta.RootLayout.GetContentView)

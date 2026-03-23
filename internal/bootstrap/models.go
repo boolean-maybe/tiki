@@ -29,3 +29,17 @@ func InitHeaderBaseStats(headerConfig *model.HeaderConfig, tikiStore *tikistore.
 		headerConfig.SetBaseStat(stat.Name, stat.Value, stat.Order)
 	}
 }
+
+// InitStatuslineModel creates and populates the statusline config with base stats (version, branch, user).
+func InitStatuslineModel(tikiStore *tikistore.TikiStore) *model.StatuslineConfig {
+	cfg := model.NewStatuslineConfig()
+	cfg.SetLeftStat("Version", config.Version, 0)
+	for _, stat := range tikiStore.GetStats() {
+		value := stat.Value
+		if stat.Name == "Branch" {
+			value = "\ue0a0 " + value
+		}
+		cfg.SetLeftStat(stat.Name, value, stat.Order)
+	}
+	return cfg
+}
