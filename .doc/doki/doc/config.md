@@ -76,6 +76,11 @@ appearance:
                             # Options: 16, 256, 16777216 (truecolor)
                             # Gradients disabled if terminal has fewer colors
                             # Default: 256 (works well on most terminals)
+  codeBlock:
+    theme: dracula           # Chroma syntax theme for code blocks
+                             # Examples: "dracula", "monokai", "catppuccin-macchiato"
+    background: "#282a36"    # Code block background color (hex or ANSI e.g. "236")
+    border: "#6272a4"        # Code block border color (hex or ANSI e.g. "244")
 ```
 
 ### workflow.yaml

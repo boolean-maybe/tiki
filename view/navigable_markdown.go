@@ -36,7 +36,17 @@ func NewNavigableMarkdown(cfg NavigableMarkdownConfig) *NavigableMarkdown {
 		onStateChange: cfg.OnStateChange,
 	}
 	nm.viewer.SetAnsiConverter(navutil.NewAnsiConverter(true))
-	nm.viewer.SetRenderer(nav.NewANSIRendererWithStyle(config.GetEffectiveTheme()))
+	renderer := nav.NewANSIRendererWithStyle(config.GetEffectiveTheme())
+	if t := config.GetCodeBlockTheme(); t != "" {
+		renderer = renderer.WithCodeTheme(t)
+	}
+	if bg := config.GetCodeBlockBackground(); bg != "" {
+		renderer = renderer.WithCodeBackground(bg)
+	}
+	if b := config.GetCodeBlockBorder(); b != "" {
+		renderer = renderer.WithCodeBorder(b)
+	}
+	nm.viewer.SetRenderer(renderer)
 	nm.viewer.SetBackgroundColor(config.GetContentBackgroundColor())
 	if cfg.ImageManager != nil && cfg.ImageManager.Supported() {
 		nm.viewer.SetImageManager(cfg.ImageManager)

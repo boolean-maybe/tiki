@@ -116,6 +116,82 @@ func TestLoadConfigFlagOverrideLoggingLevel(t *testing.T) {
 	}
 }
 
+func TestLoadConfigCodeBlock(t *testing.T) {
+	tmpDir := t.TempDir()
+	configPath := filepath.Join(tmpDir, "config.yaml")
+
+	configContent := `
+appearance:
+  codeBlock:
+    theme: dracula
+    background: "#282a36"
+    border: "#6272a4"
+`
+	if err := os.WriteFile(configPath, []byte(configContent), 0644); err != nil {
+		t.Fatalf("failed to create test config: %v", err)
+	}
+
+	originalDir, _ := os.Getwd()
+	defer func() { _ = os.Chdir(originalDir) }()
+	_ = os.Chdir(tmpDir)
+
+	t.Setenv("XDG_CONFIG_HOME", tmpDir)
+	appConfig = nil
+	ResetPathManager()
+
+	cfg, err := LoadConfig()
+	if err != nil {
+		t.Fatalf("LoadConfig failed: %v", err)
+	}
+
+	if cfg.Appearance.CodeBlock.Theme != "dracula" {
+		t.Errorf("expected codeBlock.theme 'dracula', got '%s'", cfg.Appearance.CodeBlock.Theme)
+	}
+	if cfg.Appearance.CodeBlock.Background != "#282a36" {
+		t.Errorf("expected codeBlock.background '#282a36', got '%s'", cfg.Appearance.CodeBlock.Background)
+	}
+	if cfg.Appearance.CodeBlock.Border != "#6272a4" {
+		t.Errorf("expected codeBlock.border '#6272a4', got '%s'", cfg.Appearance.CodeBlock.Border)
+	}
+
+	// verify getters
+	if got := GetCodeBlockTheme(); got != "dracula" {
+		t.Errorf("GetCodeBlockTheme() = '%s', want 'dracula'", got)
+	}
+	if got := GetCodeBlockBackground(); got != "#282a36" {
+		t.Errorf("GetCodeBlockBackground() = '%s', want '#282a36'", got)
+	}
+	if got := GetCodeBlockBorder(); got != "#6272a4" {
+		t.Errorf("GetCodeBlockBorder() = '%s', want '#6272a4'", got)
+	}
+}
+
+func TestLoadConfigCodeBlockDefaults(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	originalDir, _ := os.Getwd()
+	defer func() { _ = os.Chdir(originalDir) }()
+	_ = os.Chdir(tmpDir)
+
+	appConfig = nil
+
+	cfg, err := LoadConfig()
+	if err != nil {
+		t.Fatalf("LoadConfig failed: %v", err)
+	}
+
+	// all codeBlock fields should be empty by default
+	if cfg.Appearance.CodeBlock.Theme != "" {
+		t.Errorf("expected empty default codeBlock.theme, got '%s'", cfg.Appearance.CodeBlock.Theme)
+	}
+	if cfg.Appearance.CodeBlock.Background != "" {
+		t.Errorf("expected empty default codeBlock.background, got '%s'", cfg.Appearance.CodeBlock.Background)
+	}
+	if cfg.Appearance.CodeBlock.Border != "" {
+		t.Errorf("expected empty default codeBlock.border, got '%s'", cfg.Appearance.CodeBlock.Border)
+	}
+}
+
 func TestGetConfig(t *testing.T) {
 	// Reset appConfig
 	appConfig = nil

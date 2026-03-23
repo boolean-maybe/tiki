@@ -43,6 +43,11 @@ type Config struct {
 	Appearance struct {
 		Theme             string `mapstructure:"theme"`             // "dark", "light", "auto"
 		GradientThreshold int    `mapstructure:"gradientThreshold"` // Minimum color count for gradients (16, 256, 16777216)
+		CodeBlock         struct {
+			Theme      string `mapstructure:"theme"`      // chroma syntax theme (e.g. "dracula", "monokai")
+			Background string `mapstructure:"background"` // hex "#282a36" or ANSI "236"
+			Border     string `mapstructure:"border"`     // hex "#6272a4" or ANSI "244"
+		} `mapstructure:"codeBlock"`
 	} `mapstructure:"appearance"`
 }
 
@@ -354,4 +359,19 @@ func GetGradientThreshold() int {
 		return 256 // fallback to default
 	}
 	return threshold
+}
+
+// GetCodeBlockTheme returns the chroma syntax highlighting theme for code blocks
+func GetCodeBlockTheme() string {
+	return viper.GetString("appearance.codeBlock.theme")
+}
+
+// GetCodeBlockBackground returns the background color for code blocks
+func GetCodeBlockBackground() string {
+	return viper.GetString("appearance.codeBlock.background")
+}
+
+// GetCodeBlockBorder returns the border color for code blocks
+func GetCodeBlockBorder() string {
+	return viper.GetString("appearance.codeBlock.border")
 }
