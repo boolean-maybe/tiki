@@ -180,9 +180,9 @@ func TestLoadConfigCodeBlockDefaults(t *testing.T) {
 		t.Fatalf("LoadConfig failed: %v", err)
 	}
 
-	// all codeBlock fields should be empty by default
-	if cfg.Appearance.CodeBlock.Theme != "" {
-		t.Errorf("expected empty default codeBlock.theme, got '%s'", cfg.Appearance.CodeBlock.Theme)
+	// codeBlock.theme defaults to "nord"; background and border have no defaults
+	if cfg.Appearance.CodeBlock.Theme != "nord" {
+		t.Errorf("expected default codeBlock.theme 'nord', got '%s'", cfg.Appearance.CodeBlock.Theme)
 	}
 	if cfg.Appearance.CodeBlock.Background != "" {
 		t.Errorf("expected empty default codeBlock.background, got '%s'", cfg.Appearance.CodeBlock.Background)

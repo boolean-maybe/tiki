@@ -121,6 +121,7 @@ func setDefaults() {
 	// Appearance defaults
 	viper.SetDefault("appearance.theme", "auto")
 	viper.SetDefault("appearance.gradientThreshold", 256)
+	viper.SetDefault("appearance.codeBlock.theme", "nord")
 }
 
 // bindFlags binds supported command line flags to viper so they can override config values.

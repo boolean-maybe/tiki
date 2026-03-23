@@ -151,7 +151,17 @@ func (tv *TaskDetailView) buildDescription(task *taskpkg.Task) tview.Primitive {
 
 	viewer := navtview.NewTextView()
 	viewer.SetAnsiConverter(navutil.NewAnsiConverter(true))
-	viewer.SetRenderer(nav.NewANSIRendererWithStyle(config.GetEffectiveTheme()))
+	renderer := nav.NewANSIRendererWithStyle(config.GetEffectiveTheme())
+	if t := config.GetCodeBlockTheme(); t != "" {
+		renderer = renderer.WithCodeTheme(t)
+	}
+	if bg := config.GetCodeBlockBackground(); bg != "" {
+		renderer = renderer.WithCodeBackground(bg)
+	}
+	if b := config.GetCodeBlockBorder(); b != "" {
+		renderer = renderer.WithCodeBorder(b)
+	}
+	viewer.SetRenderer(renderer)
 	viewer.SetBackgroundColor(config.GetContentBackgroundColor())
 	if tv.imageManager != nil && tv.imageManager.Supported() {
 		viewer.SetImageManager(tv.imageManager)
