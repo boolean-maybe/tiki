@@ -40,7 +40,7 @@ func TestDepsEditor_OpenFromTaskDetail(t *testing.T) {
 
 	openDepsEditor(ta)
 
-	wantViewID := model.MakePluginViewID("deps:" + contextID)
+	wantViewID := model.MakePluginViewID("Dependency:" + contextID)
 	current := ta.NavController.CurrentView()
 	if current.ViewID != wantViewID {
 		ta.DumpScreen()
@@ -142,7 +142,7 @@ func TestDepsEditor_MoveTask_AllToDepends_PersistsOnDisk(t *testing.T) {
 	openDepsEditor(ta)
 
 	// verify we're in the deps editor
-	wantViewID := model.MakePluginViewID("deps:" + contextID)
+	wantViewID := model.MakePluginViewID("Dependency:" + contextID)
 	if ta.NavController.CurrentView().ViewID != wantViewID {
 		ta.DumpScreen()
 		t.Fatalf("not in deps editor, got %v", ta.NavController.CurrentView().ViewID)
@@ -202,7 +202,7 @@ func TestDepsEditor_MoveTask_DependsToAll_RemovesDep(t *testing.T) {
 
 	openDepsEditor(ta)
 
-	wantViewID := model.MakePluginViewID("deps:" + contextID)
+	wantViewID := model.MakePluginViewID("Dependency:" + contextID)
 	if ta.NavController.CurrentView().ViewID != wantViewID {
 		ta.DumpScreen()
 		t.Fatalf("not in deps editor, got %v", ta.NavController.CurrentView().ViewID)
@@ -254,7 +254,7 @@ func TestDepsEditor_ReopenIsSameView(t *testing.T) {
 		t.Fatalf("reload: %v", err)
 	}
 
-	wantViewID := model.MakePluginViewID("deps:" + contextID)
+	wantViewID := model.MakePluginViewID("Dependency:" + contextID)
 
 	// first open
 	openDepsEditor(ta)

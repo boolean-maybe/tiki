@@ -39,11 +39,11 @@ func newDepsTestEnv(t *testing.T) (*DepsController, store.Store) {
 	}
 
 	pluginDef := &plugin.TikiPlugin{
-		BasePlugin: plugin.BasePlugin{Name: "deps:" + testCtxID, ConfigIndex: -1, Type: "tiki"},
+		BasePlugin: plugin.BasePlugin{Name: "Dependency:" + testCtxID, ConfigIndex: -1, Type: "tiki"},
 		TaskID:     testCtxID,
 		Lanes:      []plugin.TikiLane{{Name: "Blocks"}, {Name: "All"}, {Name: "Depends"}},
 	}
-	pluginConfig := model.NewPluginConfig("deps:" + testCtxID)
+	pluginConfig := model.NewPluginConfig("Dependency")
 	pluginConfig.SetLaneLayout([]int{1, 2, 1})
 
 	nav := newMockNavigationController()

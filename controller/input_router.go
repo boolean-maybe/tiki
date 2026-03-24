@@ -204,7 +204,7 @@ func (ir *InputRouter) SetPluginRegistrar(fn func(name string, cfg *model.Plugin
 
 // openDepsEditor creates (or reopens) a deps editor plugin for the given task ID.
 func (ir *InputRouter) openDepsEditor(taskID string) bool {
-	name := "deps:" + taskID
+	name := "Dependency:" + taskID
 	viewID := model.MakePluginViewID(name)
 
 	// reopen if already created
@@ -229,8 +229,11 @@ func (ir *InputRouter) openDepsEditor(taskID string) bool {
 		},
 	}
 
-	pluginConfig := model.NewPluginConfig(name)
+	pluginConfig := model.NewPluginConfig("Dependency")
 	pluginConfig.SetLaneLayout([]int{1, 2, 1})
+	if vm := config.GetPluginViewMode("Dependency"); vm != "" {
+		pluginConfig.SetViewMode(vm)
+	}
 
 	ctrl := NewDepsController(ir.taskStore, pluginConfig, pluginDef, ir.navController)
 

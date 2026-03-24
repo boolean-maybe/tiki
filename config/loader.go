@@ -195,6 +195,12 @@ func GetBoardViewMode() string {
 	return getPluginViewModeFromWorkflow("Board", "expanded")
 }
 
+// GetPluginViewMode reads a plugin's view mode from workflow.yaml by name.
+// Returns empty string if not found.
+func GetPluginViewMode(pluginName string) string {
+	return getPluginViewModeFromWorkflow(pluginName, "")
+}
+
 // getPluginViewModeFromWorkflow reads a plugin's view mode from workflow.yaml by name.
 func getPluginViewModeFromWorkflow(pluginName string, defaultValue string) string {
 	path := FindWorkflowFile()
