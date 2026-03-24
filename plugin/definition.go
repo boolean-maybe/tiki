@@ -9,6 +9,7 @@ import (
 // Plugin interface defines the common methods for all plugins
 type Plugin interface {
 	GetName() string
+	GetDescription() string
 	GetActivationKey() (tcell.Key, rune, tcell.ModMask)
 	GetFilePath() string
 	GetConfigIndex() int
@@ -19,6 +20,7 @@ type Plugin interface {
 // BasePlugin holds the common fields for all plugins
 type BasePlugin struct {
 	Name        string        // display name shown in caption
+	Description string        // short description shown in header info section
 	Key         tcell.Key     // tcell key constant (e.g. KeyCtrlH)
 	Rune        rune          // printable character (e.g. 'L')
 	Modifier    tcell.ModMask // modifier keys (Alt, Shift, Ctrl, etc.)
@@ -32,6 +34,10 @@ type BasePlugin struct {
 
 func (p *BasePlugin) GetName() string {
 	return p.Name
+}
+
+func (p *BasePlugin) GetDescription() string {
+	return p.Description
 }
 
 func (p *BasePlugin) GetActivationKey() (tcell.Key, rune, tcell.ModMask) {

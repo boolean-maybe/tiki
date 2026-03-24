@@ -195,6 +195,12 @@ func (pv *PluginView) GetActionRegistry() *controller.ActionRegistry {
 // ShowNavigation returns whether plugin navigation keys should be shown in the header.
 func (pv *PluginView) ShowNavigation() bool { return pv.showNavigation }
 
+// GetViewName returns the plugin name for the header info section
+func (pv *PluginView) GetViewName() string { return pv.pluginDef.GetName() }
+
+// GetViewDescription returns the plugin description for the header info section
+func (pv *PluginView) GetViewDescription() string { return pv.pluginDef.GetDescription() }
+
 // GetViewID returns the view identifier
 func (pv *PluginView) GetViewID() model.ViewID {
 	return model.MakePluginViewID(pv.pluginDef.Name)

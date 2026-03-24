@@ -271,9 +271,15 @@ type RecurrencePartNavigable interface {
 	MoveRecurrencePartRight() bool
 }
 
-// StatsProvider is a view that provides statistics for the header
+// ViewInfoProvider is a view that provides its name and description for the header info section
+type ViewInfoProvider interface {
+	GetViewName() string
+	GetViewDescription() string
+}
+
+// StatsProvider is a view that provides statistics for the statusline
 type StatsProvider interface {
-	// GetStats returns stats to display in the header for this view
+	// GetStats returns stats to display in the statusline for this view
 	GetStats() []store.Stat
 }
 

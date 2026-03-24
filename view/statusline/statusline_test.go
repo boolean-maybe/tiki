@@ -17,6 +17,7 @@ func testColors() *config.ColorConfig {
 		StatuslineAccentFg:  "#accent_fg",
 		StatuslineMessageFg: "#msg_fg",
 		StatuslineMessageBg: "#msg_bg",
+		StatuslineFillBg:    "#fill_bg",
 	}
 }
 
@@ -108,9 +109,9 @@ func TestRenderLeftSegments_singleSegment(t *testing.T) {
 	if !strings.Contains(result, "[#accent_fg:#accent_bg] v1.0 ") {
 		t.Errorf("first segment should use accent colors, got %q", result)
 	}
-	// separator: fg=accent_bg (current), bg="-" (last segment)
-	if !strings.Contains(result, "[#accent_bg:-]"+separatorRight) {
-		t.Errorf("separator should transition to terminal default, got %q", result)
+	// separator: fg=accent_bg (current), bg=fill (last segment)
+	if !strings.Contains(result, "[#accent_bg:#fill_bg]"+separatorRight) {
+		t.Errorf("separator should transition to fill background, got %q", result)
 	}
 	// ends with color reset
 	if !strings.HasSuffix(result, "[-:-]") {
@@ -161,9 +162,9 @@ func TestRenderRightSegments_singleSegment(t *testing.T) {
 	if !strings.Contains(result, "[#accent_fg:#accent_bg] 42 ") {
 		t.Errorf("segment 0 should use accent colors, got %q", result)
 	}
-	// separator: fg=accent_bg, bg="-" (terminal default, first segment)
-	if !strings.Contains(result, "[#accent_bg:-]"+separatorLeft) {
-		t.Errorf("separator should be accent→terminal, got %q", result)
+	// separator: fg=accent_bg, bg=fill (first right segment)
+	if !strings.Contains(result, "[#accent_bg:#fill_bg]"+separatorLeft) {
+		t.Errorf("separator should be accent→fill, got %q", result)
 	}
 }
 

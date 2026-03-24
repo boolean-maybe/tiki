@@ -51,6 +51,7 @@ how Backlog is defined:
 ```yaml
 views:
   - name: Backlog
+    description: "Tasks waiting to be picked up, sorted by priority"
     foreground: "#5fff87"
     background: "#0b3d2e"
     key: "F3"
@@ -67,13 +68,14 @@ views:
 
 that translates to - show all tikis in the status `backlog`, sort by priority and then by ID arranged visually in 4 columns in a single lane.
 The `actions` section defines a keyboard shortcut `b` that moves the selected tiki to the board by setting its status to `ready`
-You define the name, caption colors, hotkey, tiki filter and sorting. Save this into a `workflow.yaml` file in the config directory
+You define the name, description, caption colors, hotkey, tiki filter and sorting. The `description` is displayed in the header when the view is active. Save this into a `workflow.yaml` file in the config directory
 
 Likewise the documentation is just a plugin:
 
 ```yaml
 views:
   - name: Docs
+    description: "Project notes and documentation files"
     type: doki
     fetcher: file
     url: "index.md"

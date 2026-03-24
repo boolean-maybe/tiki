@@ -1,7 +1,6 @@
 package model
 
 import (
-	"maps"
 	"sync"
 
 	"github.com/boolean-maybe/tiki/store"
@@ -20,7 +19,7 @@ type HeaderAction struct {
 	ShowInHeader bool
 }
 
-// StatValue represents a single stat entry for the header
+// StatValue represents a single stat entry for the statusline
 type StatValue struct {
 	Value    string
 	Priority int
@@ -32,11 +31,11 @@ type HeaderConfig struct {
 	mu sync.RWMutex
 
 	// Content state
-	viewActions   []HeaderAction
-	pluginActions []HeaderAction
-	baseStats     map[string]StatValue // global stats (version, store, user, branch, etc.)
-	viewStats     map[string]StatValue // view-specific stats (e.g., board "Total")
-	burndown      []store.BurndownPoint
+	viewActions     []HeaderAction
+	pluginActions   []HeaderAction
+	viewName        string // current view name for info section
+	viewDescription string // current view description for info section
+	burndown        []store.BurndownPoint
 
 	// Visibility state
 	visible        bool // current header visibility (may be overridden by fullscreen view)
@@ -50,8 +49,6 @@ type HeaderConfig struct {
 // NewHeaderConfig creates a new header config with default state
 func NewHeaderConfig() *HeaderConfig {
 	return &HeaderConfig{
-		baseStats:      make(map[string]StatValue),
-		viewStats:      make(map[string]StatValue),
 		visible:        true,
 		userPreference: true,
 		listeners:      make(map[int]func()),
@@ -89,39 +86,27 @@ func (hc *HeaderConfig) GetPluginActions() []HeaderAction {
 	return hc.pluginActions
 }
 
-// SetBaseStat sets a global stat (displayed in all views)
-func (hc *HeaderConfig) SetBaseStat(key, value string, priority int) {
+// SetViewInfo sets the current view name and description for the header info section
+func (hc *HeaderConfig) SetViewInfo(name, description string) {
 	hc.mu.Lock()
-	hc.baseStats[key] = StatValue{Value: value, Priority: priority}
+	hc.viewName = name
+	hc.viewDescription = description
 	hc.mu.Unlock()
 	hc.notifyListeners()
 }
 
-// SetViewStat sets a view-specific stat
-func (hc *HeaderConfig) SetViewStat(key, value string, priority int) {
-	hc.mu.Lock()
-	hc.viewStats[key] = StatValue{Value: value, Priority: priority}
-	hc.mu.Unlock()
-	hc.notifyListeners()
-}
-
-// ClearViewStats clears all view-specific stats
-func (hc *HeaderConfig) ClearViewStats() {
-	hc.mu.Lock()
-	hc.viewStats = make(map[string]StatValue)
-	hc.mu.Unlock()
-	hc.notifyListeners()
-}
-
-// GetStats returns all stats (base + view) merged together
-func (hc *HeaderConfig) GetStats() map[string]StatValue {
+// GetViewName returns the current view name
+func (hc *HeaderConfig) GetViewName() string {
 	hc.mu.RLock()
 	defer hc.mu.RUnlock()
+	return hc.viewName
+}
 
-	result := make(map[string]StatValue)
-	maps.Copy(result, hc.baseStats)
-	maps.Copy(result, hc.viewStats)
-	return result
+// GetViewDescription returns the current view description
+func (hc *HeaderConfig) GetViewDescription() string {
+	hc.mu.RLock()
+	defer hc.mu.RUnlock()
+	return hc.viewDescription
 }
 
 // SetBurndown updates the burndown chart data

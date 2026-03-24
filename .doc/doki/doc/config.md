@@ -114,6 +114,7 @@ statuses:
 
 views:
   - name: Kanban
+    description: "Move tiki to new status, search, create or delete"
     foreground: "#87ceeb"
     background: "#25496a"
     key: "F1"
@@ -132,6 +133,7 @@ views:
         action: status = 'done'
     sort: Priority, CreatedAt
   - name: Backlog
+    description: "Tasks waiting to be picked up, sorted by priority"
     foreground: "#5fff87"
     background: "#0b3d2e"
     key: "F3"
@@ -145,6 +147,7 @@ views:
         action: status = 'ready'
     sort: Priority, ID
   - name: Recent
+    description: "Tasks changed in the last 24 hours, most recent first"
     foreground: "#f4d6a6"
     background: "#5a3d1b"
     key: Ctrl-R
@@ -154,6 +157,7 @@ views:
         filter: NOW - UpdatedAt < 24hours
     sort: UpdatedAt DESC
   - name: Roadmap
+    description: "Epics organized by Now, Next, and Later horizons"
     foreground: "#e2e8f0"
     background: "#2a5f5a"
     key: "F4"
@@ -173,6 +177,7 @@ views:
     sort: Priority, Points DESC
     view: expanded
   - name: Help
+    description: "Keyboard shortcuts, navigation, and usage guide"
     type: doki
     fetcher: internal
     text: "Help"
@@ -180,6 +185,7 @@ views:
     background: "#003399"
     key: "?"
   - name: Docs
+    description: "Project notes and documentation files"
     type: doki
     fetcher: file
     url: "index.md"

@@ -98,7 +98,6 @@ func Bootstrap(tikiSkillContent, dokiSkillContent string) (*Result, error) {
 
 	// Phase 5: Model initialization
 	headerConfig, layoutModel := InitHeaderAndLayoutModels()
-	InitHeaderBaseStats(headerConfig, tikiStore)
 	statuslineConfig := InitStatuslineModel(tikiStore)
 
 	// Phase 6: Plugin system

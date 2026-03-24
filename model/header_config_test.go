@@ -35,8 +35,12 @@ func TestNewHeaderConfig(t *testing.T) {
 		t.Error("initial GetPluginActions() should be empty")
 	}
 
-	if len(hc.GetStats()) != 0 {
-		t.Error("initial GetStats() should be empty")
+	if hc.GetViewName() != "" {
+		t.Error("initial GetViewName() should be empty")
+	}
+
+	if hc.GetViewDescription() != "" {
+		t.Error("initial GetViewDescription() should be empty")
 	}
 
 	if len(hc.GetBurndown()) != 0 {
@@ -102,122 +106,42 @@ func TestHeaderConfig_PluginActions(t *testing.T) {
 	}
 }
 
-func TestHeaderConfig_BaseStats(t *testing.T) {
+func TestHeaderConfig_ViewInfo(t *testing.T) {
 	hc := NewHeaderConfig()
 
-	// Set base stats
-	hc.SetBaseStat("version", "v1.0.0", 100)
-	hc.SetBaseStat("user", "testuser", 90)
+	hc.SetViewInfo("Kanban", "Tasks moving through stages")
 
-	stats := hc.GetStats()
-
-	if len(stats) != 2 {
-		t.Errorf("len(GetStats()) = %d, want 2", len(stats))
+	if got := hc.GetViewName(); got != "Kanban" {
+		t.Errorf("GetViewName() = %q, want %q", got, "Kanban")
 	}
 
-	if stats["version"].Value != "v1.0.0" {
-		t.Errorf("stats[version].Value = %q, want %q", stats["version"].Value, "v1.0.0")
+	if got := hc.GetViewDescription(); got != "Tasks moving through stages" {
+		t.Errorf("GetViewDescription() = %q, want %q", got, "Tasks moving through stages")
 	}
 
-	if stats["version"].Priority != 100 {
-		t.Errorf("stats[version].Priority = %d, want 100", stats["version"].Priority)
+	// update overwrites
+	hc.SetViewInfo("Backlog", "Upcoming tasks")
+
+	if got := hc.GetViewName(); got != "Backlog" {
+		t.Errorf("GetViewName() after update = %q, want %q", got, "Backlog")
 	}
 
-	if stats["user"].Value != "testuser" {
-		t.Errorf("stats[user].Value = %q, want %q", stats["user"].Value, "testuser")
+	if got := hc.GetViewDescription(); got != "Upcoming tasks" {
+		t.Errorf("GetViewDescription() after update = %q, want %q", got, "Upcoming tasks")
 	}
 }
 
-func TestHeaderConfig_ViewStats(t *testing.T) {
+func TestHeaderConfig_ViewInfoEmptyDescription(t *testing.T) {
 	hc := NewHeaderConfig()
 
-	// Set view stats
-	hc.SetViewStat("total", "42", 50)
-	hc.SetViewStat("selected", "5", 60)
+	hc.SetViewInfo("Task Detail", "")
 
-	stats := hc.GetStats()
-
-	if len(stats) != 2 {
-		t.Errorf("len(GetStats()) = %d, want 2", len(stats))
+	if got := hc.GetViewName(); got != "Task Detail" {
+		t.Errorf("GetViewName() = %q, want %q", got, "Task Detail")
 	}
 
-	if stats["total"].Value != "42" {
-		t.Errorf("stats[total].Value = %q, want %q", stats["total"].Value, "42")
-	}
-
-	if stats["selected"].Value != "5" {
-		t.Errorf("stats[selected].Value = %q, want %q", stats["selected"].Value, "5")
-	}
-}
-
-func TestHeaderConfig_StatsMerging(t *testing.T) {
-	hc := NewHeaderConfig()
-
-	// Set base stats
-	hc.SetBaseStat("version", "v1.0.0", 100)
-	hc.SetBaseStat("user", "testuser", 90)
-
-	// Set view stats (including one that overrides base)
-	hc.SetViewStat("total", "42", 50)
-	hc.SetViewStat("user", "viewuser", 95) // Override base stat
-
-	stats := hc.GetStats()
-
-	// Should have 3 unique keys (version, user, total)
-	if len(stats) != 3 {
-		t.Errorf("len(GetStats()) = %d, want 3", len(stats))
-	}
-
-	// View stat should override base stat
-	if stats["user"].Value != "viewuser" {
-		t.Errorf("stats[user].Value = %q, want %q (view should override base)",
-			stats["user"].Value, "viewuser")
-	}
-
-	if stats["user"].Priority != 95 {
-		t.Errorf("stats[user].Priority = %d, want 95", stats["user"].Priority)
-	}
-
-	// Base stats should still be present
-	if stats["version"].Value != "v1.0.0" {
-		t.Error("base stat 'version' missing after merge")
-	}
-
-	// View stat should be present
-	if stats["total"].Value != "42" {
-		t.Error("view stat 'total' missing after merge")
-	}
-}
-
-func TestHeaderConfig_ClearViewStats(t *testing.T) {
-	hc := NewHeaderConfig()
-
-	// Set both base and view stats
-	hc.SetBaseStat("version", "v1.0.0", 100)
-	hc.SetViewStat("total", "42", 50)
-	hc.SetViewStat("selected", "5", 60)
-
-	stats := hc.GetStats()
-	if len(stats) != 3 {
-		t.Errorf("len(GetStats()) before clear = %d, want 3", len(stats))
-	}
-
-	// Clear view stats
-	hc.ClearViewStats()
-
-	stats = hc.GetStats()
-
-	// Should only have base stats now
-	if len(stats) != 1 {
-		t.Errorf("len(GetStats()) after clear = %d, want 1", len(stats))
-	}
-
-	if stats["version"].Value != "v1.0.0" {
-		t.Error("base stats should remain after ClearViewStats")
-	}
-
-	if _, ok := stats["total"]; ok {
-		t.Error("view stats should be cleared")
+	if got := hc.GetViewDescription(); got != "" {
+		t.Errorf("GetViewDescription() = %q, want empty", got)
 	}
 }
 
@@ -341,9 +265,7 @@ func TestHeaderConfig_ListenerNotification(t *testing.T) {
 	}{
 		{"SetViewActions", func() { hc.SetViewActions([]HeaderAction{{ID: "test"}}) }},
 		{"SetPluginActions", func() { hc.SetPluginActions([]HeaderAction{{ID: "test"}}) }},
-		{"SetBaseStat", func() { hc.SetBaseStat("key", "value", 1) }},
-		{"SetViewStat", func() { hc.SetViewStat("key", "value", 1) }},
-		{"ClearViewStats", func() { hc.ClearViewStats() }},
+		{"SetViewInfo", func() { hc.SetViewInfo("Test", "desc") }},
 		{"SetBurndown", func() { hc.SetBurndown([]store.BurndownPoint{{Date: time.Date(2024, 1, 1, 0, 0, 0, 0, time.UTC)}}) }},
 		{"SetVisible", func() { hc.SetVisible(false); hc.SetVisible(true) }},
 		{"ToggleUserPreference", func() { hc.ToggleUserPreference() }},
@@ -423,7 +345,7 @@ func TestHeaderConfig_MultipleListeners(t *testing.T) {
 	id2 := hc.AddListener(listener2)
 
 	// Both should be notified
-	hc.SetBaseStat("test", "value", 1)
+	hc.SetViewInfo("Test", "desc")
 
 	time.Sleep(10 * time.Millisecond)
 
@@ -436,7 +358,7 @@ func TestHeaderConfig_MultipleListeners(t *testing.T) {
 	// Remove one
 	hc.RemoveListener(id1)
 
-	hc.SetViewStat("another", "test", 1)
+	hc.SetViewInfo("Test2", "desc2")
 
 	time.Sleep(10 * time.Millisecond)
 
@@ -449,7 +371,7 @@ func TestHeaderConfig_MultipleListeners(t *testing.T) {
 	// Remove second
 	hc.RemoveListener(id2)
 
-	hc.ClearViewStats()
+	hc.SetViewInfo("Test3", "desc3")
 
 	time.Sleep(10 * time.Millisecond)
 
@@ -474,14 +396,10 @@ func TestHeaderConfig_ConcurrentAccess(t *testing.T) {
 		done <- true
 	}()
 
-	// Writer goroutine - stats
+	// Writer goroutine - view info
 	go func() {
 		for i := range 50 {
-			hc.SetBaseStat("key", "value", i)
-			hc.SetViewStat("viewkey", "viewvalue", i)
-			if i%10 == 0 {
-				hc.ClearViewStats()
-			}
+			hc.SetViewInfo("View"+string(rune('a'+i%26)), "desc")
 		}
 		done <- true
 	}()
@@ -502,7 +420,8 @@ func TestHeaderConfig_ConcurrentAccess(t *testing.T) {
 		for range 100 {
 			_ = hc.GetViewActions()
 			_ = hc.GetPluginActions()
-			_ = hc.GetStats()
+			_ = hc.GetViewName()
+			_ = hc.GetViewDescription()
 			_ = hc.GetBurndown()
 			_ = hc.IsVisible()
 			_ = hc.GetUserPreference()
@@ -537,35 +456,6 @@ func TestHeaderConfig_EmptyCollections(t *testing.T) {
 	hc.SetBurndown([]store.BurndownPoint{})
 	if len(hc.GetBurndown()) != 0 {
 		t.Error("GetBurndown() should return empty slice")
-	}
-}
-
-func TestHeaderConfig_StatPriorityOrdering(t *testing.T) {
-	hc := NewHeaderConfig()
-
-	// Set stats with different priorities
-	hc.SetBaseStat("low", "value", 10)
-	hc.SetBaseStat("high", "value", 100)
-	hc.SetBaseStat("medium", "value", 50)
-
-	stats := hc.GetStats()
-
-	// Verify all stats are present (priority doesn't filter, just orders)
-	if len(stats) != 3 {
-		t.Errorf("len(stats) = %d, want 3", len(stats))
-	}
-
-	// Verify priorities are preserved
-	if stats["low"].Priority != 10 {
-		t.Errorf("stats[low].Priority = %d, want 10", stats["low"].Priority)
-	}
-
-	if stats["high"].Priority != 100 {
-		t.Errorf("stats[high].Priority = %d, want 100", stats["high"].Priority)
-	}
-
-	if stats["medium"].Priority != 50 {
-		t.Errorf("stats[medium].Priority = %d, want 50", stats["medium"].Priority)
 	}
 }
 

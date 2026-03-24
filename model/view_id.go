@@ -14,6 +14,18 @@ const (
 	PluginViewIDPrefix ViewID = "plugin:" // Prefix for plugin views
 )
 
+// built-in view names and descriptions for the header info section
+const (
+	TaskDetailViewName = "Tiki Detail"
+	TaskDetailViewDesc = "tiki overview. Quick edit, edit dependencies, tags or edit source file"
+
+	TaskEditViewName = "Task Edit"
+	TaskEditViewDesc = "Cycle through fields to edit title, status, priority and other"
+
+	DepsEditorViewName = "Dependencies"
+	DepsEditorViewDesc = "Move a tiki to Blocks to make it block edited tiki. Move it to Depends to make edited tiki depend on it"
+)
+
 // IsPluginViewID checks if a ViewID is for a plugin view
 func IsPluginViewID(id ViewID) bool {
 	return strings.HasPrefix(string(id), string(PluginViewIDPrefix))

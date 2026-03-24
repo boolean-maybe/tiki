@@ -149,8 +149,12 @@ func (rl *RootLayout) onLayoutChange() {
 		rl.headerConfig.SetPluginActions(nil)
 	}
 
-	// Apply view-specific stats from the view
-	rl.updateViewStats(newView)
+	// Update header info section with view name and description
+	if vip, ok := newView.(controller.ViewInfoProvider); ok {
+		rl.headerConfig.SetViewInfo(vip.GetViewName(), vip.GetViewDescription())
+	}
+
+	// Update statusline stats from the view
 	rl.updateStatuslineViewStats(newView)
 
 	// Run view activated callback (for focus setters, etc.)
@@ -301,18 +305,7 @@ func (rl *RootLayout) Cleanup() {
 // onStoreChange is called when the task store changes (task created/updated/deleted)
 func (rl *RootLayout) onStoreChange() {
 	if rl.contentView != nil {
-		rl.updateViewStats(rl.contentView)
 		rl.updateStatuslineViewStats(rl.contentView)
-	}
-}
-
-// updateViewStats reads stats from the view and updates the header
-func (rl *RootLayout) updateViewStats(v controller.View) {
-	rl.headerConfig.ClearViewStats()
-	if sp, ok := v.(controller.StatsProvider); ok {
-		for _, stat := range sp.GetStats() {
-			rl.headerConfig.SetViewStat(stat.Name, stat.Value, stat.Order)
-		}
 	}
 }
 

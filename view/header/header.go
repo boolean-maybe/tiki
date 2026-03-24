@@ -1,8 +1,6 @@
 package header
 
 import (
-	"sort"
-
 	"github.com/boolean-maybe/tiki/config"
 	"github.com/boolean-maybe/tiki/model"
 
@@ -42,12 +40,12 @@ const (
 	HeaderColumnSpacing = 2 // spaces between action columns in ContextHelp
 )
 
-// HeaderWidget displays stats, available actions and burndown chart
+// HeaderWidget displays view info, available actions and burndown chart
 type HeaderWidget struct {
 	*tview.Flex
 
 	// Components
-	stats       *StatsWidget
+	info        *InfoWidget
 	contextHelp *ContextHelpWidget
 	chart       *ChartWidget
 
@@ -68,7 +66,7 @@ type HeaderWidget struct {
 
 // NewHeaderWidget creates a header widget that observes HeaderConfig for all state
 func NewHeaderWidget(headerConfig *model.HeaderConfig) *HeaderWidget {
-	stats := NewStatsWidget()
+	info := NewInfoWidget()
 	contextHelp := NewContextHelpWidget()
 	chart := NewChartWidgetSimple() // No store dependency, data comes from HeaderConfig
 
@@ -81,7 +79,7 @@ func NewHeaderWidget(headerConfig *model.HeaderConfig) *HeaderWidget {
 
 	hw := &HeaderWidget{
 		Flex:         flex,
-		stats:        stats,
+		info:         info,
 		leftSpacer:   tview.NewBox(),
 		contextHelp:  contextHelp,
 		gap:          tview.NewBox(),
@@ -101,9 +99,8 @@ func NewHeaderWidget(headerConfig *model.HeaderConfig) *HeaderWidget {
 
 // rebuild reads all data from HeaderConfig and updates display
 func (h *HeaderWidget) rebuild() {
-	// Update stats from HeaderConfig
-	stats := h.headerConfig.GetStats()
-	h.rebuildStats(stats)
+	// Update view info from HeaderConfig
+	h.info.SetViewInfo(h.headerConfig.GetViewName(), h.headerConfig.GetViewDescription())
 
 	// Update burndown chart from HeaderConfig
 	burndown := h.headerConfig.GetBurndown()
@@ -116,35 +113,6 @@ func (h *HeaderWidget) rebuild() {
 
 	if h.lastWidth > 0 {
 		h.rebuildLayout(h.lastWidth)
-	}
-}
-
-// rebuildStats updates the stats widget from HeaderConfig stats
-func (h *HeaderWidget) rebuildStats(stats map[string]model.StatValue) {
-	// Remove stats that are no longer in the config
-	for _, key := range h.stats.GetKeys() {
-		if _, exists := stats[key]; !exists {
-			h.stats.RemoveStat(key)
-		}
-	}
-
-	// Sort stats by priority for consistent ordering
-	type statEntry struct {
-		key      string
-		value    string
-		priority int
-	}
-	entries := make([]statEntry, 0, len(stats))
-	for k, v := range stats {
-		entries = append(entries, statEntry{key: k, value: v.Value, priority: v.Priority})
-	}
-	sort.Slice(entries, func(i, j int) bool {
-		return entries[i].priority < entries[j].priority
-	})
-
-	// Update stats widget
-	for _, e := range entries {
-		h.stats.AddStat(e.key, e.value, e.priority)
 	}
 }
 
@@ -172,7 +140,7 @@ func (h *HeaderWidget) rebuildLayout(width int) {
 	// and to physically remove the chart when hidden.
 	h.Clear()
 	h.SetDirection(tview.FlexColumn)
-	h.AddItem(h.stats.Primitive(), StatsWidth, 0, false)
+	h.AddItem(h.info.Primitive(), InfoWidth, 0, false)
 	h.AddItem(h.leftSpacer, 0, 1, false)
 	h.AddItem(h.contextHelp.Primitive(), layout.ContextWidth, 0, false)
 	if layout.ChartVisible {

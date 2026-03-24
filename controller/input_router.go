@@ -216,6 +216,7 @@ func (ir *InputRouter) openDepsEditor(taskID string) bool {
 	pluginDef := &plugin.TikiPlugin{
 		BasePlugin: plugin.BasePlugin{
 			Name:        name,
+			Description: model.DepsEditorViewDesc,
 			ConfigIndex: -1,
 			Type:        "tiki",
 			Background:  config.DepsEditorBackground,

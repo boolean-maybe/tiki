@@ -139,6 +139,12 @@ func (dv *DokiView) rebuildLayout() {
 // ShowNavigation returns true — doki views always show plugin navigation keys.
 func (dv *DokiView) ShowNavigation() bool { return true }
 
+// GetViewName returns the plugin name for the header info section
+func (dv *DokiView) GetViewName() string { return dv.pluginDef.GetName() }
+
+// GetViewDescription returns the plugin description for the header info section
+func (dv *DokiView) GetViewDescription() string { return dv.pluginDef.GetDescription() }
+
 func (dv *DokiView) GetPrimitive() tview.Primitive {
 	return dv.root
 }

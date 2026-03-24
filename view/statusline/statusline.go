@@ -97,12 +97,12 @@ func (sw *StatuslineWidget) render(width int) {
 	msgRendered := sw.renderMessage(msg, colors)
 	msgLen := visibleLen(msg)
 
-	// pad to fill the width
+	// pad to fill the width with the fill background color
 	padLen := width - leftLen - msgLen - rightStatsLen
 	if padLen < 1 {
 		padLen = 1
 	}
-	padding := strings.Repeat(" ", padLen)
+	padding := fmt.Sprintf("[-:%s]%s[-:-]", colors.StatuslineFillBg, strings.Repeat(" ", padLen))
 
 	sw.SetText(left + padding + msgRendered + rightStats)
 }
@@ -123,8 +123,8 @@ func (sw *StatuslineWidget) renderLeftSegments(segments []statSegment, colors *c
 		// segment text: " value "
 		fmt.Fprintf(&b, "[%s:%s] %s ", fg, bg, seg.value)
 
-		// separator: fg = current bg (creates the arrow), bg = next segment's bg or default
-		nextBg := "-" // terminal default for last segment
+		// separator: fg = current bg (creates the arrow), bg = next segment's bg or fill
+		nextBg := colors.StatuslineFillBg
 		if i < len(segments)-1 {
 			nextBg, _ = segmentColors(i+1, colors)
 		}
@@ -148,8 +148,8 @@ func (sw *StatuslineWidget) renderRightSegments(segments []statSegment, colors *
 	for i, seg := range segments {
 		bg, fg := segmentColors(i, colors)
 
-		// separator before segment: fg = segment bg, bg = previous segment bg (or terminal default)
-		prevBg := "-" // terminal default for first right segment
+		// separator before segment: fg = segment bg, bg = previous segment bg (or fill)
+		prevBg := colors.StatuslineFillBg
 		if i > 0 {
 			prevBg, _ = segmentColors(i-1, colors)
 		}

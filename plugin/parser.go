@@ -35,6 +35,7 @@ func parsePluginConfig(cfg pluginFileConfig, source string) (Plugin, error) {
 
 	base := BasePlugin{
 		Name:        cfg.Name,
+		Description: cfg.Description,
 		Key:         key,
 		Rune:        r,
 		Modifier:    mod,

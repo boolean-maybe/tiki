@@ -131,6 +131,12 @@ func (ev *TaskEditView) GetViewID() model.ViewID {
 	return ev.viewID
 }
 
+// GetViewName returns the view name for the header info section
+func (ev *TaskEditView) GetViewName() string { return model.TaskEditViewName }
+
+// GetViewDescription returns the view description for the header info section
+func (ev *TaskEditView) GetViewDescription() string { return model.TaskEditViewDesc }
+
 // SetDescOnly enables description-only edit mode where metadata is read-only.
 func (ev *TaskEditView) SetDescOnly(descOnly bool) {
 	ev.descOnly = descOnly

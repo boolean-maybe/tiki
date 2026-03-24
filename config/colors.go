@@ -69,10 +69,11 @@ type ColorConfig struct {
 	BurndownHeaderGradientTo   Gradient
 
 	// Header view colors
-	HeaderInfoLabel  string // tview color string like "[orange]"
-	HeaderInfoValue  string // tview color string like "[white]"
-	HeaderKeyBinding string // tview color string like "[yellow]"
-	HeaderKeyText    string // tview color string like "[white]"
+	HeaderInfoLabel     string // tview color string for view name (bold)
+	HeaderInfoSeparator string // tview color string for horizontal rule below name
+	HeaderInfoDesc      string // tview color string for view description
+	HeaderKeyBinding    string // tview color string like "[yellow]"
+	HeaderKeyText       string // tview color string like "[white]"
 
 	// Points visual bar colors
 	PointsFilledColor   string // tview color string for filled segments
@@ -93,6 +94,7 @@ type ColorConfig struct {
 	StatuslineAccentFg  string // hex color for accent segment text, e.g. "#1c1c2e"
 	StatuslineMessageFg string // hex color for right-section message text, e.g. "#ff8787"
 	StatuslineMessageBg string // hex color for right-section message background, e.g. "#3a3a3a"
+	StatuslineFillBg    string // hex color for empty statusline area between segments
 }
 
 // DefaultColors returns the default color configuration
@@ -178,10 +180,11 @@ func DefaultColors() *ColorConfig {
 		PointsUnfilledColor: "[#5f6982]", // Gray for unfilled segments
 
 		// Header
-		HeaderInfoLabel:  "[orange]",
-		HeaderInfoValue:  "[#cccccc]",
-		HeaderKeyBinding: "[yellow]",
-		HeaderKeyText:    "[white]",
+		HeaderInfoLabel:     "[orange]",
+		HeaderInfoSeparator: "[#555555]",
+		HeaderInfoDesc:      "[#888888]",
+		HeaderKeyBinding:    "[yellow]",
+		HeaderKeyText:       "[white]",
 
 		// Header context help actions
 		HeaderActionGlobalKeyColor:   "#ffff00", // yellow for global actions
@@ -198,6 +201,7 @@ func DefaultColors() *ColorConfig {
 		StatuslineAccentFg:  "#1c1c2e", // dark text on accent
 		StatuslineMessageFg: "#ff8787", // soft red for error/message text
 		StatuslineMessageBg: "#3a3a3a", // dark gray for message background
+		StatuslineFillBg:    "#2a2a45", // muted dark indigo fill for empty statusline area
 	}
 }
 

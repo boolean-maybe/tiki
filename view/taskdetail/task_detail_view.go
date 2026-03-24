@@ -62,6 +62,12 @@ func (tv *TaskDetailView) GetViewID() model.ViewID {
 	return tv.viewID
 }
 
+// GetViewName returns the view name for the header info section
+func (tv *TaskDetailView) GetViewName() string { return model.TaskDetailViewName }
+
+// GetViewDescription returns the view description for the header info section
+func (tv *TaskDetailView) GetViewDescription() string { return model.TaskDetailViewDesc }
+
 // OnFocus is called when the view becomes active
 func (tv *TaskDetailView) OnFocus() {
 	// Register listener for live updates
