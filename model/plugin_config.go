@@ -26,6 +26,7 @@ type PluginConfig struct {
 	selectedLane     int
 	selectedIndices  []int
 	laneColumns      []int
+	laneWidths       []int // per-lane width proportion (0 = equal share)
 	scrollOffsets    []int // per-lane viewport position (top visible row)
 	preSearchLane    int
 	preSearchIndices []int
@@ -45,7 +46,7 @@ func NewPluginConfig(name string) *PluginConfig {
 		listeners:      make(map[int]PluginSelectionListener),
 		nextListenerID: 1, // Start at 1 to avoid conflict with zero-value sentinel
 	}
-	pc.SetLaneLayout([]int{4})
+	pc.SetLaneLayout([]int{4}, nil)
 	return pc
 }
 
@@ -61,12 +62,14 @@ func (pc *PluginConfig) GetPluginName() string {
 	return pc.pluginName
 }
 
-// SetLaneLayout configures lane columns and resets selection state as needed.
-func (pc *PluginConfig) SetLaneLayout(columns []int) {
+// SetLaneLayout configures lane columns and widths, and resets selection state as needed.
+// Pass nil for widths to use equal proportions for all lanes.
+func (pc *PluginConfig) SetLaneLayout(columns []int, widths []int) {
 	pc.mu.Lock()
 	defer pc.mu.Unlock()
 
 	pc.laneColumns = normalizeLaneColumns(columns)
+	pc.laneWidths = normalizeLaneWidths(widths, len(pc.laneColumns))
 	pc.selectedIndices = ensureSelectionLength(pc.selectedIndices, len(pc.laneColumns))
 	pc.preSearchIndices = ensureSelectionLength(pc.preSearchIndices, len(pc.laneColumns))
 	pc.scrollOffsets = ensureSelectionLength(pc.scrollOffsets, len(pc.laneColumns))
@@ -383,6 +386,16 @@ func (pc *PluginConfig) columnsForLane(lane int) int {
 	return pc.laneColumns[lane]
 }
 
+// GetWidthForLane returns the flex proportion for a lane.
+func (pc *PluginConfig) GetWidthForLane(lane int) int {
+	pc.mu.RLock()
+	defer pc.mu.RUnlock()
+	if lane < 0 || lane >= len(pc.laneWidths) {
+		return 1
+	}
+	return pc.laneWidths[lane]
+}
+
 func normalizeLaneColumns(columns []int) []int {
 	if len(columns) == 0 {
 		return []int{1}
@@ -396,6 +409,62 @@ func normalizeLaneColumns(columns []int) []int {
 		}
 	}
 	return normalized
+}
+
+// normalizeLaneWidths converts user-specified width percentages into flex proportions.
+// Lanes with width=0 (unspecified) get equal share of remaining space.
+// If all widths are zero or widths is nil, all lanes get proportion 1 (equal).
+func normalizeLaneWidths(widths []int, laneCount int) []int {
+	if laneCount <= 0 {
+		return []int{1}
+	}
+	result := make([]int, laneCount)
+
+	// count specified vs unspecified
+	specified := 0
+	specifiedSum := 0
+	for i := 0; i < laneCount; i++ {
+		if i < len(widths) && widths[i] > 0 {
+			specified++
+			specifiedSum += widths[i]
+		}
+	}
+
+	// all unspecified — equal proportions
+	if specified == 0 {
+		for i := range result {
+			result[i] = 1
+		}
+		return result
+	}
+
+	// all specified — use as-is for proportions
+	if specified == laneCount {
+		for i := 0; i < laneCount; i++ {
+			result[i] = widths[i]
+		}
+		return result
+	}
+
+	// mixed: unspecified lanes split the remainder equally
+	unspecified := laneCount - specified
+	remaining := 100 - specifiedSum
+	if remaining <= 0 {
+		remaining = unspecified // fallback: 1% each
+	}
+	perUnspecified := remaining / unspecified
+	if perUnspecified <= 0 {
+		perUnspecified = 1
+	}
+
+	for i := 0; i < laneCount; i++ {
+		if i < len(widths) && widths[i] > 0 {
+			result[i] = widths[i]
+		} else {
+			result[i] = perUnspecified
+		}
+	}
+	return result
 }
 
 func ensureSelectionLength(current []int, size int) []int {

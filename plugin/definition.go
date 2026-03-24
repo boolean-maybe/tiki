@@ -96,6 +96,7 @@ type PluginAction struct {
 type PluginLaneConfig struct {
 	Name    string `yaml:"name" mapstructure:"name"`
 	Columns int    `yaml:"columns" mapstructure:"columns"`
+	Width   int    `yaml:"width" mapstructure:"width"`
 	Filter  string `yaml:"filter" mapstructure:"filter"`
 	Action  string `yaml:"action" mapstructure:"action"`
 }
@@ -104,6 +105,7 @@ type PluginLaneConfig struct {
 type TikiLane struct {
 	Name    string
 	Columns int
+	Width   int // lane width as a percentage (0 = equal share of remaining space)
 	Filter  filter.FilterExpr
 	Action  LaneAction
 }

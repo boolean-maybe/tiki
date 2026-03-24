@@ -2,6 +2,7 @@ package plugin
 
 import (
 	"fmt"
+	"log/slog"
 	"unicode"
 	"unicode/utf8"
 
@@ -116,6 +117,9 @@ func parsePluginConfig(cfg pluginFileConfig, source string) (Plugin, error) {
 			if columns < 0 {
 				return nil, fmt.Errorf("lane %q has invalid columns %d", lane.Name, columns)
 			}
+			if lane.Width < 0 || lane.Width > 100 {
+				return nil, fmt.Errorf("lane %q has invalid width %d (must be 0-100)", lane.Name, lane.Width)
+			}
 			filterExpr, err := filter.ParseFilter(lane.Filter)
 			if err != nil {
 				return nil, fmt.Errorf("parsing filter for lane %q: %w", lane.Name, err)
@@ -133,9 +137,19 @@ func parsePluginConfig(cfg pluginFileConfig, source string) (Plugin, error) {
 			lanes = append(lanes, TikiLane{
 				Name:    lane.Name,
 				Columns: columns,
+				Width:   lane.Width,
 				Filter:  filterExpr,
 				Action:  action,
 			})
+		}
+
+		// warn if explicit lane widths exceed 100%
+		widthSum := 0
+		for _, lane := range lanes {
+			widthSum += lane.Width
+		}
+		if widthSum > 100 {
+			slog.Warn("lane widths sum exceeds 100%", "plugin", cfg.Name, "sum", widthSum)
 		}
 
 		// Parse sort rules

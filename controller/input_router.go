@@ -230,7 +230,7 @@ func (ir *InputRouter) openDepsEditor(taskID string) bool {
 	}
 
 	pluginConfig := model.NewPluginConfig("Dependency")
-	pluginConfig.SetLaneLayout([]int{1, 2, 1})
+	pluginConfig.SetLaneLayout([]int{1, 2, 1}, []int{25, 50, 25})
 	if vm := config.GetPluginViewMode("Dependency"); vm != "" {
 		pluginConfig.SetViewMode(vm)
 	}

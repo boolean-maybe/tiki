@@ -15,7 +15,7 @@ import (
 func TestPluginViewRefreshResetsNonSelectedLaneScrollOffset(t *testing.T) {
 	taskStore := store.NewInMemoryStore()
 	pluginConfig := model.NewPluginConfig("TestPlugin")
-	pluginConfig.SetLaneLayout([]int{1, 1})
+	pluginConfig.SetLaneLayout([]int{1, 1}, nil)
 
 	pluginDef := &plugin.TikiPlugin{
 		BasePlugin: plugin.BasePlugin{
@@ -90,7 +90,7 @@ func TestPluginViewGridLayout_RowCount(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			taskStore := store.NewInMemoryStore()
 			pluginConfig := model.NewPluginConfig("TestPlugin")
-			pluginConfig.SetLaneLayout([]int{tt.columns})
+			pluginConfig.SetLaneLayout([]int{tt.columns}, nil)
 
 			pluginDef := &plugin.TikiPlugin{
 				BasePlugin: plugin.BasePlugin{Name: "TestPlugin"},
@@ -138,7 +138,7 @@ func TestPluginViewGridLayout_SelectedRow(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			taskStore := store.NewInMemoryStore()
 			pluginConfig := model.NewPluginConfig("TestPlugin")
-			pluginConfig.SetLaneLayout([]int{tt.columns})
+			pluginConfig.SetLaneLayout([]int{tt.columns}, nil)
 
 			pluginDef := &plugin.TikiPlugin{
 				BasePlugin: plugin.BasePlugin{Name: "TestPlugin"},
@@ -174,7 +174,7 @@ func TestPluginViewGridLayout_SelectedRow(t *testing.T) {
 func TestPluginViewRefreshPreservesScrollOffset(t *testing.T) {
 	taskStore := store.NewInMemoryStore()
 	pluginConfig := model.NewPluginConfig("TestPlugin")
-	pluginConfig.SetLaneLayout([]int{1})
+	pluginConfig.SetLaneLayout([]int{1}, nil)
 
 	pluginDef := &plugin.TikiPlugin{
 		BasePlugin: plugin.BasePlugin{

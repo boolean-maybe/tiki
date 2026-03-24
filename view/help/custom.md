@@ -102,21 +102,41 @@ sort: Priority, Title
 lanes:
   - name: Ready
     columns: 1
+    width: 20
     filter: status = 'ready'
     action: status = 'ready'
   - name: In Progress
     columns: 1
+    width: 30
     filter: status = 'in_progress'
     action: status = 'in_progress'
   - name: Review
     columns: 1
+    width: 30
     filter: status = 'review'
     action: status = 'review'
   - name: Done
     columns: 1
+    width: 20
     filter: status = 'done'
     action: status = 'done'
 ```
+
+### Lane width
+
+Each lane can optionally specify a `width` as a percentage (1-100) to control how much horizontal space it occupies. Widths are relative proportions — they don't need to sum to 100. If width is omitted, the lane gets an equal share of the remaining space.
+
+```yaml
+lanes:
+  - name: Sidebar
+    width: 25
+  - name: Main
+    width: 50
+  - name: Details
+    width: 25
+```
+
+If no lanes specify width, all lanes are equally sized (the default behavior).
 
 ### Plugin actions
 

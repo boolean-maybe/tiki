@@ -194,14 +194,14 @@ func DefaultColors() *ColorConfig {
 		HeaderActionViewKeyColor:     "#5fafff", // cyan for view-specific actions
 		HeaderActionViewLabelColor:   "#808080", // gray for view-specific labels
 
-		// Statusline
-		StatuslineBg:        "#3a3a5c", // muted indigo for stat segments
-		StatuslineFg:        "#cccccc", // light gray text
-		StatuslineAccentBg:  "#5f87af", // steel blue for first segment
-		StatuslineAccentFg:  "#1c1c2e", // dark text on accent
-		StatuslineMessageFg: "#ff8787", // soft red for error/message text
-		StatuslineMessageBg: "#3a3a3a", // dark gray for message background
-		StatuslineFillBg:    "#2a2a45", // muted dark indigo fill for empty statusline area
+		// Statusline (Nord theme)
+		StatuslineBg:        "#434c5e", // Nord polar night 3
+		StatuslineFg:        "#d8dee9", // Nord snow storm 1
+		StatuslineAccentBg:  "#5e81ac", // Nord frost blue
+		StatuslineAccentFg:  "#2e3440", // Nord polar night 1
+		StatuslineMessageFg: "#bf616a", // Nord aurora red
+		StatuslineMessageBg: "#3b4252", // Nord polar night 2
+		StatuslineFillBg:    "#3b4252", // Nord polar night 2
 	}
 }
 

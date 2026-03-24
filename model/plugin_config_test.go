@@ -628,7 +628,7 @@ func TestPluginConfig_GridNavigation_AllCorners(t *testing.T) {
 
 func TestPluginConfig_ScrollOffset(t *testing.T) {
 	pc := NewPluginConfig("test")
-	pc.SetLaneLayout([]int{1, 1, 1}) // 3 lanes
+	pc.SetLaneLayout([]int{1, 1, 1}, nil) // 3 lanes
 
 	// Initial scroll offsets should be 0
 	for lane := 0; lane < 3; lane++ {
@@ -660,7 +660,7 @@ func TestPluginConfig_ScrollOffset(t *testing.T) {
 
 func TestPluginConfig_ScrollOffset_OutOfBounds(t *testing.T) {
 	pc := NewPluginConfig("test")
-	pc.SetLaneLayout([]int{1, 1}) // 2 lanes
+	pc.SetLaneLayout([]int{1, 1}, nil) // 2 lanes
 
 	// Getting out of bounds should return 0
 	if offset := pc.GetScrollOffsetForLane(-1); offset != 0 {
@@ -680,16 +680,82 @@ func TestPluginConfig_ScrollOffset_OutOfBounds(t *testing.T) {
 	}
 }
 
+func TestNormalizeLaneWidths(t *testing.T) {
+	tests := []struct {
+		name      string
+		widths    []int
+		laneCount int
+		want      []int
+	}{
+		{"nil widths", nil, 3, []int{1, 1, 1}},
+		{"empty widths", []int{}, 3, []int{1, 1, 1}},
+		{"all zero", []int{0, 0, 0}, 3, []int{1, 1, 1}},
+		{"all specified", []int{25, 50, 25}, 3, []int{25, 50, 25}},
+		{"mixed specified and unspecified", []int{60, 0}, 2, []int{60, 40}},
+		{"single lane nil", nil, 1, []int{1}},
+		{"single lane specified", []int{100}, 1, []int{100}},
+		{"zero lane count", nil, 0, []int{1}},
+		{"widths shorter than lanes", []int{50}, 3, []int{50, 25, 25}},
+		{"sum exceeds 100 mixed", []int{80, 30, 0}, 3, []int{80, 30, 1}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := normalizeLaneWidths(tt.widths, tt.laneCount)
+			if len(got) != len(tt.want) {
+				t.Fatalf("len = %d, want %d", len(got), len(tt.want))
+			}
+			for i := range got {
+				if got[i] != tt.want[i] {
+					t.Errorf("index %d = %d, want %d (full result: %v)", i, got[i], tt.want[i], got)
+					break
+				}
+			}
+		})
+	}
+}
+
+func TestGetWidthForLane(t *testing.T) {
+	pc := NewPluginConfig("test")
+	pc.SetLaneLayout([]int{1, 1, 1}, []int{25, 50, 25})
+
+	if w := pc.GetWidthForLane(0); w != 25 {
+		t.Errorf("GetWidthForLane(0) = %d, want 25", w)
+	}
+	if w := pc.GetWidthForLane(1); w != 50 {
+		t.Errorf("GetWidthForLane(1) = %d, want 50", w)
+	}
+	// out of bounds returns 1
+	if w := pc.GetWidthForLane(-1); w != 1 {
+		t.Errorf("GetWidthForLane(-1) = %d, want 1", w)
+	}
+	if w := pc.GetWidthForLane(99); w != 1 {
+		t.Errorf("GetWidthForLane(99) = %d, want 1", w)
+	}
+}
+
+func TestGetWidthForLane_NilWidths(t *testing.T) {
+	pc := NewPluginConfig("test")
+	pc.SetLaneLayout([]int{1, 1}, nil)
+
+	// nil widths → all lanes get proportion 1
+	if w := pc.GetWidthForLane(0); w != 1 {
+		t.Errorf("GetWidthForLane(0) = %d, want 1", w)
+	}
+	if w := pc.GetWidthForLane(1); w != 1 {
+		t.Errorf("GetWidthForLane(1) = %d, want 1", w)
+	}
+}
+
 func TestPluginConfig_ScrollOffset_PreservedOnLayoutChange(t *testing.T) {
 	pc := NewPluginConfig("test")
-	pc.SetLaneLayout([]int{1, 1, 1})
+	pc.SetLaneLayout([]int{1, 1, 1}, nil)
 
 	// Set scroll offsets
 	pc.SetScrollOffsetForLane(0, 3)
 	pc.SetScrollOffsetForLane(1, 7)
 
 	// Change layout to same size - should preserve offsets
-	pc.SetLaneLayout([]int{2, 2, 2})
+	pc.SetLaneLayout([]int{2, 2, 2}, nil)
 	if offset := pc.GetScrollOffsetForLane(0); offset != 3 {
 		t.Errorf("GetScrollOffsetForLane(0) after same-size layout change = %d, want 3", offset)
 	}

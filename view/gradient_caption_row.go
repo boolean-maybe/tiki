@@ -12,18 +12,21 @@ import (
 // with a continuous horizontal background gradient spanning the entire screen width
 type GradientCaptionRow struct {
 	*tview.Box
-	laneNames []string
-	gradient  config.Gradient // computed gradient (for truecolor/256-color terminals)
-	textColor tcell.Color
+	laneNames  []string
+	laneWidths []int           // proportional widths (same values used in tview.Flex)
+	gradient   config.Gradient // computed gradient (for truecolor/256-color terminals)
+	textColor  tcell.Color
 }
 
-// NewGradientCaptionRow creates a new gradient caption row widget
-func NewGradientCaptionRow(laneNames []string, bgColor tcell.Color, textColor tcell.Color) *GradientCaptionRow {
+// NewGradientCaptionRow creates a new gradient caption row widget.
+// laneWidths should match the flex proportions used for lane layout (nil = equal).
+func NewGradientCaptionRow(laneNames []string, laneWidths []int, bgColor tcell.Color, textColor tcell.Color) *GradientCaptionRow {
 	return &GradientCaptionRow{
-		Box:       tview.NewBox(),
-		laneNames: laneNames,
-		gradient:  computeCaptionGradient(bgColor),
-		textColor: textColor,
+		Box:        tview.NewBox(),
+		laneNames:  laneNames,
+		laneWidths: laneWidths,
+		gradient:   computeCaptionGradient(bgColor),
+		textColor:  textColor,
 	}
 }
 
@@ -36,9 +39,10 @@ func (gcr *GradientCaptionRow) Draw(screen tcell.Screen) {
 		return
 	}
 
-	// Calculate lane width (equal distribution)
 	numLanes := len(gcr.laneNames)
-	laneWidth := width / numLanes
+
+	// Calculate proportional lane boundaries
+	laneStarts, laneEnds := computeLaneBoundaries(gcr.laneWidths, numLanes, width)
 
 	// Convert all lane names to runes for Unicode handling
 	laneRunes := make([][]rune, numLanes)
@@ -46,8 +50,16 @@ func (gcr *GradientCaptionRow) Draw(screen tcell.Screen) {
 		laneRunes[i] = []rune(name)
 	}
 
+	// Build a column→lane lookup for efficient rendering
+	laneIndex := 0
+
 	// Render each lane position across the screen
 	for col := 0; col < width; col++ {
+		// Advance lane index when we pass the current lane's end
+		for laneIndex < numLanes-1 && col >= laneEnds[laneIndex] {
+			laneIndex++
+		}
+
 		// Calculate gradient color based on screen position (edges to center gradient)
 		// Distance from center: 0.0 at center, 1.0 at edges
 		centerPos := float64(width) / 2.0
@@ -73,20 +85,8 @@ func (gcr *GradientCaptionRow) Draw(screen tcell.Screen) {
 			bgColor = gradient.InterpolateColor(gcr.gradient, 1.0)
 		}
 
-		// Determine which lane this position belongs to
-		laneIndex := col / laneWidth
-		if laneIndex >= numLanes {
-			laneIndex = numLanes - 1
-		}
-
-		// Calculate position within this lane
-		laneStartX := laneIndex * laneWidth
-		laneEndX := laneStartX + laneWidth
-		if laneIndex == numLanes-1 {
-			laneEndX = width // Last lane extends to screen edge
-		}
-		currentLaneWidth := laneEndX - laneStartX
-		posInLane := col - laneStartX
+		currentLaneWidth := laneEnds[laneIndex] - laneStarts[laneIndex]
+		posInLane := col - laneStarts[laneIndex]
 
 		// Get the text for this lane
 		textRunes := laneRunes[laneIndex]
@@ -111,6 +111,40 @@ func (gcr *GradientCaptionRow) Draw(screen tcell.Screen) {
 			screen.SetContent(x+col, y+row, char, nil, style)
 		}
 	}
+}
+
+// computeLaneBoundaries calculates pixel start/end positions for each lane
+// based on proportional weights. Weights should be pre-normalized via normalizeLaneWidths;
+// zero/missing entries default to weight 1 as a safety fallback.
+// Returns parallel slices of start and end positions.
+func computeLaneBoundaries(weights []int, numLanes, totalWidth int) (starts []int, ends []int) {
+	starts = make([]int, numLanes)
+	ends = make([]int, numLanes)
+
+	totalWeight := 0
+	for i := 0; i < numLanes; i++ {
+		if i < len(weights) && weights[i] > 0 {
+			totalWeight += weights[i]
+		} else {
+			totalWeight += 1
+		}
+	}
+
+	pos := 0
+	for i := 0; i < numLanes; i++ {
+		w := 1
+		if i < len(weights) && weights[i] > 0 {
+			w = weights[i]
+		}
+		starts[i] = pos
+		if i == numLanes-1 {
+			ends[i] = totalWidth // last lane absorbs rounding remainder
+		} else {
+			ends[i] = pos + (totalWidth*w)/totalWeight
+		}
+		pos = ends[i]
+	}
+	return starts, ends
 }
 
 const (

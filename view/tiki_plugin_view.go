@@ -69,7 +69,11 @@ func (pv *PluginView) build() {
 	for i, lane := range pv.pluginDef.Lanes {
 		laneNames[i] = lane.Name
 	}
-	pv.titleBar = NewGradientCaptionRow(laneNames, pv.pluginDef.Background, textColor)
+	laneWidths := make([]int, len(pv.pluginDef.Lanes))
+	for i := range pv.pluginDef.Lanes {
+		laneWidths[i] = pv.pluginConfig.GetWidthForLane(i)
+	}
+	pv.titleBar = NewGradientCaptionRow(laneNames, laneWidths, pv.pluginDef.Background, textColor)
 
 	// lanes container (rows)
 	pv.lanes = tview.NewFlex().SetDirection(tview.FlexColumn)
@@ -132,7 +136,7 @@ func (pv *PluginView) refresh() {
 		laneContainer.Clear()
 
 		isSelectedLane := laneIdx == selectedLane
-		pv.lanes.AddItem(laneContainer, 0, 1, isSelectedLane)
+		pv.lanes.AddItem(laneContainer, 0, pv.pluginConfig.GetWidthForLane(laneIdx), isSelectedLane)
 
 		tasks := pv.getLaneTasks(laneIdx)
 		if isSelectedLane {

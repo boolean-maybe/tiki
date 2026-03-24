@@ -96,21 +96,22 @@ func TestDepsEditor_LanesShowCorrectTasks(t *testing.T) {
 	ta.Draw()
 
 	// Blocker task belongs in Blocks lane (it depends on context)
-	if found, _, _ := ta.FindText("Blocker Task"); !found {
+	// Search by ID — titles may be truncated in narrow lanes
+	if found, _, _ := ta.FindText(blockerID); !found {
 		ta.DumpScreen()
-		t.Errorf("Blocker Task not visible (expected in Blocks lane)")
+		t.Errorf("Blocker task %s not visible (expected in Blocks lane)", blockerID)
 	}
 
 	// Dep task belongs in Depends lane (context depends on it)
-	if found, _, _ := ta.FindText("Dep Task"); !found {
+	if found, _, _ := ta.FindText(depID); !found {
 		ta.DumpScreen()
-		t.Errorf("Dep Task not visible (expected in Depends lane)")
+		t.Errorf("Dep task %s not visible (expected in Depends lane)", depID)
 	}
 
 	// Free task belongs in All lane
-	if found, _, _ := ta.FindText("Free Task"); !found {
+	if found, _, _ := ta.FindText(freeID); !found {
 		ta.DumpScreen()
-		t.Errorf("Free Task not visible (expected in All lane)")
+		t.Errorf("Free task %s not visible (expected in All lane)", freeID)
 	}
 
 	// Context task must not appear anywhere in the deps view

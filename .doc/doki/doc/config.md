@@ -164,14 +164,17 @@ views:
     lanes:
       - name: Now
         columns: 1
+        width: 25
         filter: type = 'epic' AND status = 'ready'
         action: status = 'ready'
       - name: Next
         columns: 1
+        width: 25
         filter: type = 'epic' AND status = 'backlog' AND priority = 1
         action: status = 'backlog', priority = 1
       - name: Later
         columns: 2
+        width: 50
         filter: type = 'epic' AND status = 'backlog' AND priority > 1
         action: status = 'backlog', priority = 2
     sort: Priority, Points DESC

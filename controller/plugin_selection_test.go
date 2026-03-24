@@ -49,7 +49,7 @@ func TestEnsureFirstNonEmptyLaneSelectionSelectsFirstTask(t *testing.T) {
 		},
 	}
 	pluginConfig := model.NewPluginConfig("TestPlugin")
-	pluginConfig.SetLaneLayout([]int{1, 1})
+	pluginConfig.SetLaneLayout([]int{1, 1}, nil)
 	pluginConfig.SetSelectedLane(0)
 	pluginConfig.SetSelectedIndexForLane(0, 1)
 
@@ -90,7 +90,7 @@ func TestEnsureFirstNonEmptyLaneSelectionKeepsCurrentLane(t *testing.T) {
 		},
 	}
 	pluginConfig := model.NewPluginConfig("TestPlugin")
-	pluginConfig.SetLaneLayout([]int{1, 1})
+	pluginConfig.SetLaneLayout([]int{1, 1}, nil)
 	pluginConfig.SetSelectedLane(1)
 	pluginConfig.SetSelectedIndexForLane(1, 0)
 
@@ -122,7 +122,7 @@ func TestEnsureFirstNonEmptyLaneSelectionNoTasks(t *testing.T) {
 		},
 	}
 	pluginConfig := model.NewPluginConfig("TestPlugin")
-	pluginConfig.SetLaneLayout([]int{1, 1})
+	pluginConfig.SetLaneLayout([]int{1, 1}, nil)
 	pluginConfig.SetSelectedLane(1)
 	pluginConfig.SetSelectedIndexForLane(1, 2)
 
@@ -174,7 +174,7 @@ func TestLaneSwitchSelectsTopOfViewport(t *testing.T) {
 		},
 	}
 	pluginConfig := model.NewPluginConfig("TestPlugin")
-	pluginConfig.SetLaneLayout([]int{1, 1})
+	pluginConfig.SetLaneLayout([]int{1, 1}, nil)
 
 	// Start in lane 0 (Ready), with selection at index 2
 	pluginConfig.SetSelectedLane(0)
@@ -233,7 +233,7 @@ func TestLaneSwitchClampsScrollOffsetToTaskCount(t *testing.T) {
 		},
 	}
 	pluginConfig := model.NewPluginConfig("TestPlugin")
-	pluginConfig.SetLaneLayout([]int{1, 1})
+	pluginConfig.SetLaneLayout([]int{1, 1}, nil)
 
 	// Start in lane 1
 	pluginConfig.SetSelectedLane(1)

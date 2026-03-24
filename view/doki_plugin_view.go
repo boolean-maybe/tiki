@@ -60,7 +60,7 @@ func (dv *DokiView) build() {
 	if dv.pluginDef.Foreground != tcell.ColorDefault {
 		textColor = dv.pluginDef.Foreground
 	}
-	dv.titleBar = NewGradientCaptionRow([]string{dv.pluginDef.Name}, dv.pluginDef.Background, textColor)
+	dv.titleBar = NewGradientCaptionRow([]string{dv.pluginDef.Name}, nil, dv.pluginDef.Background, textColor)
 
 	// Fetch initial content and create NavigableMarkdown with appropriate provider
 	var content string
