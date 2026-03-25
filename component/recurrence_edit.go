@@ -139,6 +139,11 @@ func (re *RecurrenceEdit) CycleNext() {
 	re.cycleNext()
 }
 
+// IsValueFocused returns true when the value part (weekday/day) is active.
+func (re *RecurrenceEdit) IsValueFocused() bool {
+	return re.activePart == 1
+}
+
 // MovePartLeft moves the active part to frequency (part 0).
 func (re *RecurrenceEdit) MovePartLeft() {
 	re.activePart = 0

@@ -53,7 +53,7 @@ func TestEnsureFirstNonEmptyLaneSelectionSelectsFirstTask(t *testing.T) {
 	pluginConfig.SetSelectedLane(0)
 	pluginConfig.SetSelectedIndexForLane(0, 1)
 
-	pc := NewPluginController(taskStore, pluginConfig, pluginDef, nil)
+	pc := NewPluginController(taskStore, pluginConfig, pluginDef, nil, nil)
 	pc.EnsureFirstNonEmptyLaneSelection()
 
 	if pluginConfig.GetSelectedLane() != 1 {
@@ -94,7 +94,7 @@ func TestEnsureFirstNonEmptyLaneSelectionKeepsCurrentLane(t *testing.T) {
 	pluginConfig.SetSelectedLane(1)
 	pluginConfig.SetSelectedIndexForLane(1, 0)
 
-	pc := NewPluginController(taskStore, pluginConfig, pluginDef, nil)
+	pc := NewPluginController(taskStore, pluginConfig, pluginDef, nil, nil)
 	pc.EnsureFirstNonEmptyLaneSelection()
 
 	if pluginConfig.GetSelectedLane() != 1 {
@@ -126,7 +126,7 @@ func TestEnsureFirstNonEmptyLaneSelectionNoTasks(t *testing.T) {
 	pluginConfig.SetSelectedLane(1)
 	pluginConfig.SetSelectedIndexForLane(1, 2)
 
-	pc := NewPluginController(taskStore, pluginConfig, pluginDef, nil)
+	pc := NewPluginController(taskStore, pluginConfig, pluginDef, nil, nil)
 	pc.EnsureFirstNonEmptyLaneSelection()
 
 	if pluginConfig.GetSelectedLane() != 1 {
@@ -183,7 +183,7 @@ func TestLaneSwitchSelectsTopOfViewport(t *testing.T) {
 	// Simulate that lane 1 has been scrolled to offset 3
 	pluginConfig.SetScrollOffsetForLane(1, 3)
 
-	pc := NewPluginController(taskStore, pluginConfig, pluginDef, nil)
+	pc := NewPluginController(taskStore, pluginConfig, pluginDef, nil, nil)
 
 	// Navigate right to lane 1
 	pc.HandleAction(ActionNavRight)
@@ -242,7 +242,7 @@ func TestLaneSwitchClampsScrollOffsetToTaskCount(t *testing.T) {
 	// Set a stale scroll offset that exceeds the task count
 	pluginConfig.SetScrollOffsetForLane(1, 10)
 
-	pc := NewPluginController(taskStore, pluginConfig, pluginDef, nil)
+	pc := NewPluginController(taskStore, pluginConfig, pluginDef, nil, nil)
 
 	// Navigate left (to empty lane, will skip to... well, nowhere)
 	// Then try to go right from a fresh setup

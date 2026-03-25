@@ -22,9 +22,10 @@ func BuildControllers(
 	taskStore store.Store,
 	plugins []plugin.Plugin,
 	pluginConfigs map[string]*model.PluginConfig,
+	statuslineConfig *model.StatuslineConfig,
 ) *Controllers {
 	navController := controller.NewNavigationController(app)
-	taskController := controller.NewTaskController(taskStore, navController)
+	taskController := controller.NewTaskController(taskStore, navController, statuslineConfig)
 
 	pluginControllers := make(map[string]controller.PluginControllerInterface)
 	for _, p := range plugins {
@@ -34,11 +35,12 @@ func BuildControllers(
 				pluginConfigs[p.GetName()],
 				tp,
 				navController,
+				statuslineConfig,
 			)
 			continue
 		}
 		if dp, ok := p.(*plugin.DokiPlugin); ok {
-			pluginControllers[p.GetName()] = controller.NewDokiController(dp, navController)
+			pluginControllers[p.GetName()] = controller.NewDokiController(dp, navController, statuslineConfig)
 		}
 	}
 

@@ -65,12 +65,18 @@ func (c *TaskEditCoordinator) HandleKey(activeView View, event *tcell.EventKey) 
 		return c.FocusPrevField(activeView)
 	case tcell.KeyLeft:
 		if nav, ok := activeView.(RecurrencePartNavigable); ok {
-			return nav.MoveRecurrencePartLeft()
+			if nav.MoveRecurrencePartLeft() {
+				c.updateFieldHint(activeView)
+				return true
+			}
 		}
 		return false
 	case tcell.KeyRight:
 		if nav, ok := activeView.(RecurrencePartNavigable); ok {
-			return nav.MoveRecurrencePartRight()
+			if nav.MoveRecurrencePartRight() {
+				c.updateFieldHint(activeView)
+				return true
+			}
 		}
 		return false
 	case tcell.KeyEscape:
@@ -89,7 +95,9 @@ func (c *TaskEditCoordinator) FocusNextField(activeView View) bool {
 	if !ok {
 		return false
 	}
-	return fieldFocusable.FocusNextField()
+	result := fieldFocusable.FocusNextField()
+	c.updateFieldHint(activeView)
+	return result
 }
 
 func (c *TaskEditCoordinator) FocusPrevField(activeView View) bool {
@@ -97,7 +105,9 @@ func (c *TaskEditCoordinator) FocusPrevField(activeView View) bool {
 	if !ok {
 		return false
 	}
-	return fieldFocusable.FocusPrevField()
+	result := fieldFocusable.FocusPrevField()
+	c.updateFieldHint(activeView)
+	return result
 }
 
 func (c *TaskEditCoordinator) CycleFieldValueUp(activeView View) bool {
@@ -118,6 +128,7 @@ func (c *TaskEditCoordinator) CommitAndClose(activeView View) bool {
 	if !c.commit(activeView) {
 		return false
 	}
+	c.clearFieldHint()
 	c.navController.HandleBack()
 	return true
 }
@@ -142,6 +153,7 @@ func (c *TaskEditCoordinator) CancelAndClose() bool {
 	// Cancel edit session (discards changes) and clear any draft.
 	c.taskController.CancelEditSession()
 	c.taskController.ClearDraft()
+	c.clearFieldHint()
 	c.navController.HandleBack()
 	return true
 }
@@ -169,6 +181,38 @@ func (c *TaskEditCoordinator) commit(activeView View) bool {
 		return false
 	}
 	return true
+}
+
+// updateFieldHint shows or clears a statusline hint based on the focused field.
+func (c *TaskEditCoordinator) updateFieldHint(activeView View) {
+	sl := c.taskController.statusline
+	if sl == nil {
+		return
+	}
+	fieldFocusable, ok := activeView.(FieldFocusableView)
+	if !ok {
+		return
+	}
+	switch fieldFocusable.GetFocusedField() {
+	case model.EditFieldStatus, model.EditFieldType, model.EditFieldPriority,
+		model.EditFieldAssignee, model.EditFieldPoints, model.EditFieldDue:
+		sl.SetMessage("↑↓ change value", model.MessageLevelInfo, false)
+	case model.EditFieldRecurrence:
+		if nav, ok := activeView.(RecurrencePartNavigable); ok && nav.IsRecurrenceValueFocused() {
+			sl.SetMessage("← edit pattern  ↑↓ change value", model.MessageLevelInfo, false)
+		} else {
+			sl.SetMessage("↑↓ change pattern  → edit value", model.MessageLevelInfo, false)
+		}
+	default:
+		sl.ClearMessage()
+	}
+}
+
+// clearFieldHint removes any statusline hint set by updateFieldHint.
+func (c *TaskEditCoordinator) clearFieldHint() {
+	if sl := c.taskController.statusline; sl != nil {
+		sl.ClearMessage()
+	}
 }
 
 func (c *TaskEditCoordinator) prepareView(activeView View, focus model.EditField) {

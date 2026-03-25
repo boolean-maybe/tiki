@@ -34,6 +34,7 @@ type TestApp struct {
 	PluginControllers map[string]controller.PluginControllerInterface
 	PluginDefs        []plugin.Plugin
 	taskController    *controller.TaskController
+	statuslineConfig  *model.StatuslineConfig
 	headerConfig      *model.HeaderConfig
 	layoutModel       *model.LayoutModel
 }
@@ -82,8 +83,9 @@ func NewTestApp(t *testing.T) *TestApp {
 	app.SetScreen(screen)
 
 	// 5. Initialize Controller Layer
+	statuslineConfig := model.NewStatuslineConfig()
 	navController := controller.NewNavigationController(app)
-	taskController := controller.NewTaskController(taskStore, navController)
+	taskController := controller.NewTaskController(taskStore, navController, statuslineConfig)
 	// Empty plugin controllers map for tests (no plugins configured by default)
 	pluginControllers := make(map[string]controller.PluginControllerInterface)
 	inputRouter := controller.NewInputRouter(
@@ -91,6 +93,7 @@ func NewTestApp(t *testing.T) *TestApp {
 		taskController,
 		pluginControllers,
 		taskStore,
+		statuslineConfig,
 	)
 
 	// 6. Initialize View Layer
@@ -98,7 +101,6 @@ func NewTestApp(t *testing.T) *TestApp {
 
 	// 7. Create header widget, statusline, and RootLayout
 	headerWidget := header.NewHeaderWidget(headerConfig)
-	statuslineConfig := model.NewStatuslineConfig()
 	statuslineWidget := statusline.NewStatuslineWidget(statuslineConfig)
 	rootLayout := view.NewRootLayout(view.RootLayoutOpts{
 		Header:           headerWidget,
@@ -153,17 +155,18 @@ func NewTestApp(t *testing.T) *TestApp {
 	// Note: Do NOT call app.Run() - we use app.Draw() + screen.Show() for synchronous testing
 
 	ta := &TestApp{
-		App:            app,
-		Screen:         screen,
-		RootLayout:     rootLayout,
-		TaskStore:      taskStore,
-		NavController:  navController,
-		InputRouter:    inputRouter,
-		TaskDir:        taskDir,
-		t:              t,
-		taskController: taskController,
-		headerConfig:   headerConfig,
-		layoutModel:    layoutModel,
+		App:              app,
+		Screen:           screen,
+		RootLayout:       rootLayout,
+		TaskStore:        taskStore,
+		NavController:    navController,
+		InputRouter:      inputRouter,
+		TaskDir:          taskDir,
+		t:                t,
+		taskController:   taskController,
+		statuslineConfig: statuslineConfig,
+		headerConfig:     headerConfig,
+		layoutModel:      layoutModel,
 	}
 
 	// 11. Auto-load plugins since all views are now plugins
@@ -328,11 +331,11 @@ func (ta *TestApp) LoadPlugins() error {
 			}
 			pc.SetLaneLayout(columns, widths)
 			pluginControllers[p.GetName()] = controller.NewPluginController(
-				ta.TaskStore, pc, tp, ta.NavController,
+				ta.TaskStore, pc, tp, ta.NavController, ta.statuslineConfig,
 			)
 		} else if dp, ok := p.(*plugin.DokiPlugin); ok {
 			pluginControllers[p.GetName()] = controller.NewDokiController(
-				dp, ta.NavController,
+				dp, ta.NavController, ta.statuslineConfig,
 			)
 		}
 	}
@@ -361,6 +364,7 @@ func (ta *TestApp) LoadPlugins() error {
 		ta.taskController,
 		pluginControllers,
 		ta.TaskStore,
+		ta.statuslineConfig,
 	)
 
 	// Update global input capture to handle plugin switching keys

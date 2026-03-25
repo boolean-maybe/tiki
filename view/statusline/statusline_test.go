@@ -11,13 +11,15 @@ import (
 
 func testColors() *config.ColorConfig {
 	return &config.ColorConfig{
-		StatuslineBg:        "#normal_bg",
-		StatuslineFg:        "#normal_fg",
-		StatuslineAccentBg:  "#accent_bg",
-		StatuslineAccentFg:  "#accent_fg",
-		StatuslineMessageFg: "#msg_fg",
-		StatuslineMessageBg: "#msg_bg",
-		StatuslineFillBg:    "#fill_bg",
+		StatuslineBg:       "#normal_bg",
+		StatuslineFg:       "#normal_fg",
+		StatuslineAccentBg: "#accent_bg",
+		StatuslineAccentFg: "#accent_fg",
+		StatuslineInfoFg:   "#info_fg",
+		StatuslineInfoBg:   "#info_bg",
+		StatuslineErrorFg:  "#error_fg",
+		StatuslineErrorBg:  "#error_bg",
+		StatuslineFillBg:   "#fill_bg",
 	}
 }
 
@@ -217,19 +219,32 @@ func TestRenderRightSegments_threeSegments(t *testing.T) {
 
 func TestRenderMessage_empty(t *testing.T) {
 	sw := newTestWidget()
-	result := sw.renderMessage("", testColors())
+	result := sw.renderMessage("", model.MessageLevelInfo, testColors())
 	if result != "" {
 		t.Errorf("got %q, want empty", result)
 	}
 }
 
-func TestRenderMessage_nonEmpty(t *testing.T) {
+func TestRenderMessage_info(t *testing.T) {
 	sw := newTestWidget()
 	colors := testColors()
-	result := sw.renderMessage("error occurred", colors)
+	result := sw.renderMessage("task saved", model.MessageLevelInfo, colors)
 
-	if !strings.Contains(result, "[#msg_fg:#msg_bg] error occurred ") {
-		t.Errorf("message should use message colors, got %q", result)
+	if !strings.Contains(result, "[#info_fg:#info_bg] task saved ") {
+		t.Errorf("info message should use info colors, got %q", result)
+	}
+	if !strings.HasSuffix(result, "[-:-]") {
+		t.Errorf("should end with color reset, got %q", result)
+	}
+}
+
+func TestRenderMessage_error(t *testing.T) {
+	sw := newTestWidget()
+	colors := testColors()
+	result := sw.renderMessage("validation failed", model.MessageLevelError, colors)
+
+	if !strings.Contains(result, "[#error_fg:#error_bg] validation failed ") {
+		t.Errorf("error message should use error colors, got %q", result)
 	}
 	if !strings.HasSuffix(result, "[-:-]") {
 		t.Errorf("should end with color reset, got %q", result)

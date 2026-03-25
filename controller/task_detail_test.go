@@ -27,7 +27,7 @@ func init() {
 func TestTaskController_SetDraft(t *testing.T) {
 	taskStore := store.NewInMemoryStore()
 	navController := newMockNavigationController()
-	tc := NewTaskController(taskStore, navController)
+	tc := NewTaskController(taskStore, navController, nil)
 
 	draft := newTestTask()
 	tc.SetDraft(draft)
@@ -44,7 +44,7 @@ func TestTaskController_SetDraft(t *testing.T) {
 func TestTaskController_ClearDraft(t *testing.T) {
 	taskStore := store.NewInMemoryStore()
 	navController := newMockNavigationController()
-	tc := NewTaskController(taskStore, navController)
+	tc := NewTaskController(taskStore, navController, nil)
 
 	tc.SetDraft(newTestTask())
 	tc.ClearDraft()
@@ -57,7 +57,7 @@ func TestTaskController_ClearDraft(t *testing.T) {
 func TestTaskController_StartEditSession(t *testing.T) {
 	taskStore := store.NewInMemoryStore()
 	navController := newMockNavigationController()
-	tc := NewTaskController(taskStore, navController)
+	tc := NewTaskController(taskStore, navController, nil)
 
 	// Create a task in the store
 	original := newTestTask()
@@ -87,7 +87,7 @@ func TestTaskController_StartEditSession(t *testing.T) {
 func TestTaskController_StartEditSession_NonExistent(t *testing.T) {
 	taskStore := store.NewInMemoryStore()
 	navController := newMockNavigationController()
-	tc := NewTaskController(taskStore, navController)
+	tc := NewTaskController(taskStore, navController, nil)
 
 	editingTask := tc.StartEditSession("NONEXISTENT")
 
@@ -99,7 +99,7 @@ func TestTaskController_StartEditSession_NonExistent(t *testing.T) {
 func TestTaskController_CancelEditSession(t *testing.T) {
 	taskStore := store.NewInMemoryStore()
 	navController := newMockNavigationController()
-	tc := NewTaskController(taskStore, navController)
+	tc := NewTaskController(taskStore, navController, nil)
 
 	// Start an edit session
 	original := newTestTask()
@@ -183,7 +183,7 @@ func TestTaskController_SaveStatus(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			taskStore := store.NewInMemoryStore()
 			navController := newMockNavigationController()
-			tc := NewTaskController(taskStore, navController)
+			tc := NewTaskController(taskStore, navController, nil)
 
 			tt.setupTask(tc, taskStore)
 
@@ -259,7 +259,7 @@ func TestTaskController_SaveType(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			taskStore := store.NewInMemoryStore()
 			navController := newMockNavigationController()
-			tc := NewTaskController(taskStore, navController)
+			tc := NewTaskController(taskStore, navController, nil)
 
 			tt.setupTask(tc, taskStore)
 
@@ -342,7 +342,7 @@ func TestTaskController_SavePriority(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			taskStore := store.NewInMemoryStore()
 			navController := newMockNavigationController()
-			tc := NewTaskController(taskStore, navController)
+			tc := NewTaskController(taskStore, navController, nil)
 
 			tt.setupTask(tc, taskStore)
 
@@ -418,7 +418,7 @@ func TestTaskController_SaveAssignee(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			taskStore := store.NewInMemoryStore()
 			navController := newMockNavigationController()
-			tc := NewTaskController(taskStore, navController)
+			tc := NewTaskController(taskStore, navController, nil)
 
 			tt.setupTask(tc, taskStore)
 
@@ -493,7 +493,7 @@ func TestTaskController_SavePoints(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			taskStore := store.NewInMemoryStore()
 			navController := newMockNavigationController()
-			tc := NewTaskController(taskStore, navController)
+			tc := NewTaskController(taskStore, navController, nil)
 
 			tt.setupTask(tc, taskStore)
 
@@ -572,7 +572,7 @@ func TestTaskController_SaveTitle(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			taskStore := store.NewInMemoryStore()
 			navController := newMockNavigationController()
-			tc := NewTaskController(taskStore, navController)
+			tc := NewTaskController(taskStore, navController, nil)
 
 			tt.setupTask(tc, taskStore)
 
@@ -639,7 +639,7 @@ func TestTaskController_SaveDescription(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			taskStore := store.NewInMemoryStore()
 			navController := newMockNavigationController()
-			tc := NewTaskController(taskStore, navController)
+			tc := NewTaskController(taskStore, navController, nil)
 
 			tt.setupTask(tc, taskStore)
 
@@ -669,7 +669,7 @@ func TestTaskController_SaveDescription(t *testing.T) {
 func TestTaskController_CommitEditSession_Draft(t *testing.T) {
 	taskStore := store.NewInMemoryStore()
 	navController := newMockNavigationController()
-	tc := NewTaskController(taskStore, navController)
+	tc := NewTaskController(taskStore, navController, nil)
 
 	draft := newTestTaskWithID()
 	draft.Title = "Draft Title"
@@ -699,7 +699,7 @@ func TestTaskController_CommitEditSession_Draft(t *testing.T) {
 func TestTaskController_CommitEditSession_DraftValidationFailure(t *testing.T) {
 	taskStore := store.NewInMemoryStore()
 	navController := newMockNavigationController()
-	tc := NewTaskController(taskStore, navController)
+	tc := NewTaskController(taskStore, navController, nil)
 
 	draft := newTestTaskWithID()
 	draft.Title = "" // Invalid - empty title
@@ -721,7 +721,7 @@ func TestTaskController_CommitEditSession_DraftValidationFailure(t *testing.T) {
 func TestTaskController_CommitEditSession_Existing(t *testing.T) {
 	taskStore := store.NewInMemoryStore()
 	navController := newMockNavigationController()
-	tc := NewTaskController(taskStore, navController)
+	tc := NewTaskController(taskStore, navController, nil)
 
 	// Create original task
 	original := newTestTask()
@@ -755,7 +755,7 @@ func TestTaskController_CommitEditSession_Existing(t *testing.T) {
 func TestTaskController_CommitEditSession_NoActiveSession(t *testing.T) {
 	taskStore := store.NewInMemoryStore()
 	navController := newMockNavigationController()
-	tc := NewTaskController(taskStore, navController)
+	tc := NewTaskController(taskStore, navController, nil)
 
 	err := tc.CommitEditSession()
 	if err != nil {
@@ -768,7 +768,7 @@ func TestTaskController_CommitEditSession_NoActiveSession(t *testing.T) {
 func TestTaskController_GetCurrentTask(t *testing.T) {
 	taskStore := store.NewInMemoryStore()
 	navController := newMockNavigationController()
-	tc := NewTaskController(taskStore, navController)
+	tc := NewTaskController(taskStore, navController, nil)
 
 	// Create task
 	original := newTestTask()
@@ -790,7 +790,7 @@ func TestTaskController_GetCurrentTask(t *testing.T) {
 func TestTaskController_GetCurrentTask_Empty(t *testing.T) {
 	taskStore := store.NewInMemoryStore()
 	navController := newMockNavigationController()
-	tc := NewTaskController(taskStore, navController)
+	tc := NewTaskController(taskStore, navController, nil)
 
 	current := tc.GetCurrentTask()
 	if current != nil {
@@ -801,7 +801,7 @@ func TestTaskController_GetCurrentTask_Empty(t *testing.T) {
 func TestTaskController_GetCurrentTask_NonExistent(t *testing.T) {
 	taskStore := store.NewInMemoryStore()
 	navController := newMockNavigationController()
-	tc := NewTaskController(taskStore, navController)
+	tc := NewTaskController(taskStore, navController, nil)
 
 	tc.SetCurrentTask("NONEXISTENT")
 
@@ -816,7 +816,7 @@ func TestTaskController_GetCurrentTask_NonExistent(t *testing.T) {
 func TestTaskController_GetActionRegistry(t *testing.T) {
 	taskStore := store.NewInMemoryStore()
 	navController := newMockNavigationController()
-	tc := NewTaskController(taskStore, navController)
+	tc := NewTaskController(taskStore, navController, nil)
 
 	registry := tc.GetActionRegistry()
 	if registry == nil {
@@ -833,7 +833,7 @@ func TestTaskController_GetActionRegistry(t *testing.T) {
 func TestTaskController_GetEditActionRegistry(t *testing.T) {
 	taskStore := store.NewInMemoryStore()
 	navController := newMockNavigationController()
-	tc := NewTaskController(taskStore, navController)
+	tc := NewTaskController(taskStore, navController, nil)
 
 	registry := tc.GetEditActionRegistry()
 	if registry == nil {
@@ -852,7 +852,7 @@ func TestTaskController_GetEditActionRegistry(t *testing.T) {
 func TestTaskController_FocusedField(t *testing.T) {
 	taskStore := store.NewInMemoryStore()
 	navController := newMockNavigationController()
-	tc := NewTaskController(taskStore, navController)
+	tc := NewTaskController(taskStore, navController, nil)
 
 	// Initially should be empty
 	if tc.GetFocusedField() != "" {
@@ -927,7 +927,7 @@ func TestTaskController_SaveDue(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			taskStore := store.NewInMemoryStore()
 			navController := newMockNavigationController()
-			tc := NewTaskController(taskStore, navController)
+			tc := NewTaskController(taskStore, navController, nil)
 
 			tt.setupTask(tc, taskStore)
 
@@ -1029,7 +1029,7 @@ func TestTaskController_SaveTags(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			taskStore := store.NewInMemoryStore()
 			navController := newMockNavigationController()
-			tc := NewTaskController(taskStore, navController)
+			tc := NewTaskController(taskStore, navController, nil)
 
 			tt.setupTask(tc, taskStore)
 

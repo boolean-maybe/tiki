@@ -93,8 +93,8 @@ func (sw *StatuslineWidget) render(width int) {
 	rightStatsLen := segmentsVisibleLen(rightSegments)
 
 	// message (between left and right)
-	msg, _ := sw.config.GetMessage()
-	msgRendered := sw.renderMessage(msg, colors)
+	msg, level, _ := sw.config.GetMessage()
+	msgRendered := sw.renderMessage(msg, level, colors)
 	msgLen := visibleLen(msg)
 
 	// pad to fill the width with the fill background color
@@ -104,7 +104,7 @@ func (sw *StatuslineWidget) render(width int) {
 	}
 	padding := fmt.Sprintf("[-:%s]%s[-:-]", colors.StatuslineFillBg, strings.Repeat(" ", padLen))
 
-	sw.SetText(left + padding + msgRendered + rightStats)
+	sw.SetText(left + msgRendered + padding + rightStats)
 }
 
 // renderLeftSegments builds the powerline left section.
@@ -173,12 +173,23 @@ func segmentColors(index int, colors *config.ColorConfig) (string, string) {
 	return colors.StatuslineBg, colors.StatuslineFg
 }
 
-// renderMessage builds the message section
-func (sw *StatuslineWidget) renderMessage(msg string, colors *config.ColorConfig) string {
+// renderMessage builds the message section with level-specific colors
+func (sw *StatuslineWidget) renderMessage(msg string, level model.MessageLevel, colors *config.ColorConfig) string {
 	if msg == "" {
 		return ""
 	}
-	return fmt.Sprintf("[%s:%s] %s [-:-]", colors.StatuslineMessageFg, colors.StatuslineMessageBg, msg)
+	fg, bg := messageColors(level, colors)
+	return fmt.Sprintf("[%s:%s] %s [-:-]", fg, bg, msg)
+}
+
+// messageColors returns (fg, bg) for the given message level
+func messageColors(level model.MessageLevel, colors *config.ColorConfig) (string, string) {
+	switch level {
+	case model.MessageLevelError:
+		return colors.StatuslineErrorFg, colors.StatuslineErrorBg
+	default:
+		return colors.StatuslineInfoFg, colors.StatuslineInfoBg
+	}
 }
 
 // sortedSegments converts a stat map to a sorted slice of segments

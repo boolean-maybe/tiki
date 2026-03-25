@@ -239,6 +239,14 @@ func (ev *TaskEditView) MoveRecurrencePartRight() bool {
 	return true
 }
 
+// IsRecurrenceValueFocused returns true when the recurrence field's value part is active.
+func (ev *TaskEditView) IsRecurrenceValueFocused() bool {
+	if ev.focusedField != model.EditFieldRecurrence || ev.recurrenceInput == nil {
+		return false
+	}
+	return ev.recurrenceInput.IsValueFocused()
+}
+
 // UpdateHeaderForField updates the registry with field-specific actions
 func (ev *TaskEditView) UpdateHeaderForField(field model.EditField) {
 	if ev.descOnly {

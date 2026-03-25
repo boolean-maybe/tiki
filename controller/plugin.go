@@ -24,6 +24,7 @@ func NewPluginController(
 	pluginConfig *model.PluginConfig,
 	pluginDef *plugin.TikiPlugin,
 	navController *NavigationController,
+	statusline *model.StatuslineConfig,
 ) *PluginController {
 	pc := &PluginController{
 		pluginBase: pluginBase{
@@ -31,6 +32,7 @@ func NewPluginController(
 			pluginConfig:  pluginConfig,
 			pluginDef:     pluginDef,
 			navController: navController,
+			statusline:    statusline,
 			registry:      PluginViewActions(),
 		},
 	}

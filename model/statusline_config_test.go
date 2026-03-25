@@ -20,9 +20,12 @@ func TestNewStatuslineConfig(t *testing.T) {
 		t.Error("initial GetLeftStats() should be empty")
 	}
 
-	msg, autoHide := sc.GetMessage()
+	msg, level, autoHide := sc.GetMessage()
 	if msg != "" {
 		t.Errorf("initial message = %q, want empty", msg)
+	}
+	if level != MessageLevelInfo {
+		t.Errorf("initial level = %q, want %q", level, MessageLevelInfo)
 	}
 	if autoHide {
 		t.Error("initial autoHide = true, want false")
@@ -101,11 +104,14 @@ func TestStatuslineConfig_ClearViewStats(t *testing.T) {
 func TestStatuslineConfig_Message(t *testing.T) {
 	sc := NewStatuslineConfig()
 
-	sc.SetMessage("error occurred", false)
+	sc.SetMessage("error occurred", MessageLevelError, false)
 
-	msg, autoHide := sc.GetMessage()
+	msg, level, autoHide := sc.GetMessage()
 	if msg != "error occurred" {
 		t.Errorf("message = %q, want %q", msg, "error occurred")
+	}
+	if level != MessageLevelError {
+		t.Errorf("level = %q, want %q", level, MessageLevelError)
 	}
 	if autoHide {
 		t.Error("autoHide = true, want false")
@@ -115,9 +121,9 @@ func TestStatuslineConfig_Message(t *testing.T) {
 func TestStatuslineConfig_MessageAutoHide(t *testing.T) {
 	sc := NewStatuslineConfig()
 
-	sc.SetMessage("transient error", true)
+	sc.SetMessage("transient error", MessageLevelInfo, true)
 
-	msg, autoHide := sc.GetMessage()
+	msg, _, autoHide := sc.GetMessage()
 	if msg != "transient error" {
 		t.Errorf("message = %q, want %q", msg, "transient error")
 	}
@@ -134,7 +140,7 @@ func TestStatuslineConfig_MessageMakesVisible(t *testing.T) {
 		t.Fatal("precondition: should be invisible")
 	}
 
-	sc.SetMessage("hello", false)
+	sc.SetMessage("hello", MessageLevelInfo, false)
 	if !sc.IsVisible() {
 		t.Error("SetMessage should make statusline visible")
 	}
@@ -143,12 +149,15 @@ func TestStatuslineConfig_MessageMakesVisible(t *testing.T) {
 func TestStatuslineConfig_ClearMessage(t *testing.T) {
 	sc := NewStatuslineConfig()
 
-	sc.SetMessage("error", true)
+	sc.SetMessage("error", MessageLevelError, true)
 	sc.ClearMessage()
 
-	msg, autoHide := sc.GetMessage()
+	msg, level, autoHide := sc.GetMessage()
 	if msg != "" {
 		t.Errorf("message after clear = %q, want empty", msg)
+	}
+	if level != MessageLevelInfo {
+		t.Errorf("level after clear = %q, want %q", level, MessageLevelInfo)
 	}
 	if autoHide {
 		t.Error("autoHide should be false after ClearMessage")
@@ -178,7 +187,7 @@ func TestStatuslineConfig_DismissAutoHide(t *testing.T) {
 	}
 
 	// set auto-hide message
-	sc.SetMessage("will hide", true)
+	sc.SetMessage("will hide", MessageLevelInfo, true)
 	if !sc.IsVisible() {
 		t.Fatal("precondition: should be visible after SetMessage")
 	}
@@ -194,9 +203,12 @@ func TestStatuslineConfig_DismissAutoHide(t *testing.T) {
 	}
 
 	// message should be cleared
-	msg, autoHide := sc.GetMessage()
+	msg, level, autoHide := sc.GetMessage()
 	if msg != "" {
 		t.Errorf("message after dismiss = %q, want empty", msg)
+	}
+	if level != MessageLevelInfo {
+		t.Errorf("level after dismiss = %q, want %q", level, MessageLevelInfo)
 	}
 	if autoHide {
 		t.Error("autoHide should be false after dismiss")
@@ -214,7 +226,7 @@ func TestStatuslineConfig_DismissAutoHideNotifiesListeners(t *testing.T) {
 	callCount := 0
 	sc.AddListener(func() { callCount++ })
 
-	sc.SetMessage("hide me", true)
+	sc.SetMessage("hide me", MessageLevelInfo, true)
 	callCount = 0 // reset after SetMessage notification
 
 	sc.DismissAutoHide()
@@ -274,7 +286,7 @@ func TestStatuslineConfig_ListenerNotification(t *testing.T) {
 		{"SetLeftStat", func() { sc.SetLeftStat("k", "v", 1) }},
 		{"SetViewStat", func() { sc.SetViewStat("k", "v", 1) }},
 		{"ClearViewStats", func() { sc.ClearViewStats() }},
-		{"SetMessage", func() { sc.SetMessage("msg", false) }},
+		{"SetMessage", func() { sc.SetMessage("msg", MessageLevelInfo, false) }},
 		{"SetVisible", func() { sc.SetVisible(false); sc.SetVisible(true) }},
 	}
 
@@ -368,7 +380,7 @@ func TestStatuslineConfig_ConcurrentAccess(t *testing.T) {
 
 	go func() {
 		for i := range 50 {
-			sc.SetMessage("msg", i%2 == 0)
+			sc.SetMessage("msg", MessageLevelInfo, i%2 == 0)
 			if i%5 == 0 {
 				sc.ClearMessage()
 			}
@@ -398,7 +410,7 @@ func TestStatuslineConfig_ConcurrentAccess(t *testing.T) {
 		for range 100 {
 			_ = sc.GetLeftStats()
 			_ = sc.GetRightViewStats()
-			_, _ = sc.GetMessage()
+			_, _, _ = sc.GetMessage()
 			_ = sc.IsVisible()
 		}
 		done <- true

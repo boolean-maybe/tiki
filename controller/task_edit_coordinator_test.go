@@ -26,6 +26,28 @@ func (m *mockTaskEditView) GetEditedTitle() string             { return m.title 
 func (m *mockTaskEditView) GetEditedDescription() string       { return m.description }
 func (m *mockTaskEditView) GetEditedTags() []string            { return m.tags }
 
+// mockFieldFocusableView implements FieldFocusableView + RecurrencePartNavigable for hint tests.
+type mockFieldFocusableView struct {
+	mockTaskEditView
+	focusedField model.EditField
+	valueFocused bool
+}
+
+func (m *mockFieldFocusableView) SetFocusedField(field model.EditField) { m.focusedField = field }
+func (m *mockFieldFocusableView) GetFocusedField() model.EditField      { return m.focusedField }
+func (m *mockFieldFocusableView) FocusNextField() bool {
+	m.focusedField = model.NextField(m.focusedField)
+	return true
+}
+func (m *mockFieldFocusableView) FocusPrevField() bool {
+	m.focusedField = model.PrevField(m.focusedField)
+	return true
+}
+func (m *mockFieldFocusableView) IsEditFieldFocused() bool       { return true }
+func (m *mockFieldFocusableView) MoveRecurrencePartLeft() bool   { m.valueFocused = false; return true }
+func (m *mockFieldFocusableView) MoveRecurrencePartRight() bool  { m.valueFocused = true; return true }
+func (m *mockFieldFocusableView) IsRecurrenceValueFocused() bool { return m.valueFocused }
+
 // mockNonEditView implements only View (not TaskEditView).
 type mockNonEditView struct{}
 
@@ -68,7 +90,7 @@ func TestTaskEditCoordinator_HandleKey_TagsOnly_Backtab(t *testing.T) {
 func TestTaskEditCoordinator_HandleKey_Escape(t *testing.T) {
 	taskStore := store.NewInMemoryStore()
 	nav := newMockNavigationController()
-	tc := NewTaskController(taskStore, nav)
+	tc := NewTaskController(taskStore, nav, nil)
 	tc.SetDraft(newTestTask())
 
 	coord := NewTaskEditCoordinator(nav, tc)
@@ -89,7 +111,7 @@ func TestTaskEditCoordinator_HandleKey_Escape(t *testing.T) {
 func TestTaskEditCoordinator_Commit_SavesTags(t *testing.T) {
 	taskStore := store.NewInMemoryStore()
 	nav := newMockNavigationController()
-	tc := NewTaskController(taskStore, nav)
+	tc := NewTaskController(taskStore, nav, nil)
 
 	draft := newTestTask()
 	draft.Title = "Tagged Task"
@@ -119,7 +141,7 @@ func TestTaskEditCoordinator_Commit_SavesTags(t *testing.T) {
 
 func TestTaskEditCoordinator_Commit_NonEditView(t *testing.T) {
 	nav := newMockNavigationController()
-	tc := NewTaskController(store.NewInMemoryStore(), nav)
+	tc := NewTaskController(store.NewInMemoryStore(), nav, nil)
 	coord := NewTaskEditCoordinator(nav, tc)
 
 	got := coord.commit(&mockNonEditView{})
@@ -131,7 +153,7 @@ func TestTaskEditCoordinator_Commit_NonEditView(t *testing.T) {
 func TestTaskEditCoordinator_Commit_ValidationFails(t *testing.T) {
 	taskStore := store.NewInMemoryStore()
 	nav := newMockNavigationController()
-	tc := NewTaskController(taskStore, nav)
+	tc := NewTaskController(taskStore, nav, nil)
 	tc.SetDraft(newTestTask())
 
 	coord := NewTaskEditCoordinator(nav, tc)
@@ -148,4 +170,111 @@ func TestTaskEditCoordinator_Commit_ValidationFails(t *testing.T) {
 	if got {
 		t.Error("commit() should return false when IsValid() returns false")
 	}
+}
+
+// --- field hint tests ---
+
+func TestTaskEditCoordinator_FieldHint_RecurrencePatternFocused(t *testing.T) {
+	sl := model.NewStatuslineConfig()
+	nav := newMockNavigationController()
+	tc := NewTaskController(store.NewInMemoryStore(), nav, sl)
+
+	coord := NewTaskEditCoordinator(nav, tc)
+	view := &mockFieldFocusableView{focusedField: model.EditFieldRecurrence, valueFocused: false}
+
+	coord.updateFieldHint(view)
+
+	msg, level, _ := sl.GetMessage()
+	if msg != "\u2191\u2193 change pattern  \u2192 edit value" {
+		t.Errorf("message = %q, want pattern hint", msg)
+	}
+	if level != model.MessageLevelInfo {
+		t.Errorf("level = %q, want %q", level, model.MessageLevelInfo)
+	}
+}
+
+func TestTaskEditCoordinator_FieldHint_RecurrenceValueFocused(t *testing.T) {
+	sl := model.NewStatuslineConfig()
+	nav := newMockNavigationController()
+	tc := NewTaskController(store.NewInMemoryStore(), nav, sl)
+
+	coord := NewTaskEditCoordinator(nav, tc)
+	view := &mockFieldFocusableView{focusedField: model.EditFieldRecurrence, valueFocused: true}
+
+	coord.updateFieldHint(view)
+
+	msg, level, _ := sl.GetMessage()
+	if msg != "\u2190 edit pattern  \u2191\u2193 change value" {
+		t.Errorf("message = %q, want value hint", msg)
+	}
+	if level != model.MessageLevelInfo {
+		t.Errorf("level = %q, want %q", level, model.MessageLevelInfo)
+	}
+}
+
+func TestTaskEditCoordinator_FieldHint_NonRecurrenceClearsHint(t *testing.T) {
+	sl := model.NewStatuslineConfig()
+	nav := newMockNavigationController()
+	tc := NewTaskController(store.NewInMemoryStore(), nav, sl)
+
+	coord := NewTaskEditCoordinator(nav, tc)
+
+	// set a hint first
+	sl.SetMessage("some hint", model.MessageLevelInfo, false)
+
+	view := &mockFieldFocusableView{focusedField: model.EditFieldTitle}
+	coord.updateFieldHint(view)
+
+	msg, _, _ := sl.GetMessage()
+	if msg != "" {
+		t.Errorf("message = %q, want empty after focusing non-recurrence field", msg)
+	}
+}
+
+func TestTaskEditCoordinator_FieldHint_FocusNextSetsHint(t *testing.T) {
+	sl := model.NewStatuslineConfig()
+	nav := newMockNavigationController()
+	tc := NewTaskController(store.NewInMemoryStore(), nav, sl)
+
+	coord := NewTaskEditCoordinator(nav, tc)
+	// Due is right before Recurrence in navigation order
+	view := &mockFieldFocusableView{focusedField: model.EditFieldDue}
+
+	coord.FocusNextField(view)
+
+	if view.focusedField != model.EditFieldRecurrence {
+		t.Fatalf("expected recurrence, got %q", view.focusedField)
+	}
+	msg, _, _ := sl.GetMessage()
+	if msg != "\u2191\u2193 change pattern  \u2192 edit value" {
+		t.Errorf("message = %q, want hint after FocusNextField to recurrence", msg)
+	}
+}
+
+func TestTaskEditCoordinator_FieldHint_CancelClearsHint(t *testing.T) {
+	sl := model.NewStatuslineConfig()
+	nav := newMockNavigationController()
+	tc := NewTaskController(store.NewInMemoryStore(), nav, sl)
+
+	coord := NewTaskEditCoordinator(nav, tc)
+	sl.SetMessage("some hint", model.MessageLevelInfo, false)
+
+	coord.CancelAndClose()
+
+	msg, _, _ := sl.GetMessage()
+	if msg != "" {
+		t.Errorf("message = %q, want empty after CancelAndClose", msg)
+	}
+}
+
+func TestTaskEditCoordinator_FieldHint_NilStatuslineNoOp(t *testing.T) {
+	nav := newMockNavigationController()
+	tc := NewTaskController(store.NewInMemoryStore(), nav, nil)
+
+	coord := NewTaskEditCoordinator(nav, tc)
+	view := &mockFieldFocusableView{focusedField: model.EditFieldRecurrence}
+
+	// should not panic
+	coord.updateFieldHint(view)
+	coord.clearFieldHint()
 }

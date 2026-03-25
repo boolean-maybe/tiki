@@ -269,6 +269,7 @@ type RecurrenceEditableView interface {
 type RecurrencePartNavigable interface {
 	MoveRecurrencePartLeft() bool
 	MoveRecurrencePartRight() bool
+	IsRecurrenceValueFocused() bool
 }
 
 // ViewInfoProvider is a view that provides its name and description for the header info section

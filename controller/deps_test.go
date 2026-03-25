@@ -47,7 +47,7 @@ func newDepsTestEnv(t *testing.T) (*DepsController, store.Store) {
 	pluginConfig.SetLaneLayout([]int{1, 2, 1}, nil)
 
 	nav := newMockNavigationController()
-	dc := NewDepsController(taskStore, pluginConfig, pluginDef, nav)
+	dc := NewDepsController(taskStore, pluginConfig, pluginDef, nav, nil)
 	return dc, taskStore
 }
 

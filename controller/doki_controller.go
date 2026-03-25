@@ -1,6 +1,7 @@
 package controller
 
 import (
+	"github.com/boolean-maybe/tiki/model"
 	"github.com/boolean-maybe/tiki/plugin"
 )
 
@@ -9,6 +10,7 @@ import (
 type DokiController struct {
 	pluginDef     *plugin.DokiPlugin
 	navController *NavigationController
+	statusline    *model.StatuslineConfig
 	registry      *ActionRegistry
 }
 
@@ -16,10 +18,12 @@ type DokiController struct {
 func NewDokiController(
 	pluginDef *plugin.DokiPlugin,
 	navController *NavigationController,
+	statusline *model.StatuslineConfig,
 ) *DokiController {
 	return &DokiController{
 		pluginDef:     pluginDef,
 		navController: navController,
+		statusline:    statusline,
 		registry:      DokiViewActions(),
 	}
 }

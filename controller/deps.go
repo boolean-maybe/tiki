@@ -30,6 +30,7 @@ func NewDepsController(
 	pluginConfig *model.PluginConfig,
 	pluginDef *plugin.TikiPlugin,
 	navController *NavigationController,
+	statusline *model.StatuslineConfig,
 ) *DepsController {
 	return &DepsController{
 		pluginBase: pluginBase{
@@ -37,6 +38,7 @@ func NewDepsController(
 			pluginConfig:  pluginConfig,
 			pluginDef:     pluginDef,
 			navController: navController,
+			statusline:    statusline,
 			registry:      DepsViewActions(),
 		},
 	}

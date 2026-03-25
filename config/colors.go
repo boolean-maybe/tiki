@@ -88,13 +88,15 @@ type ColorConfig struct {
 	HeaderActionViewLabelColor   string // tview color string for view action labels
 
 	// Statusline colors (bottom bar, powerline style)
-	StatuslineBg        string // hex color for stat segment background, e.g. "#3a3a5c"
-	StatuslineFg        string // hex color for stat segment text, e.g. "#cccccc"
-	StatuslineAccentBg  string // hex color for accent segment background (first segment), e.g. "#5f87af"
-	StatuslineAccentFg  string // hex color for accent segment text, e.g. "#1c1c2e"
-	StatuslineMessageFg string // hex color for right-section message text, e.g. "#ff8787"
-	StatuslineMessageBg string // hex color for right-section message background, e.g. "#3a3a3a"
-	StatuslineFillBg    string // hex color for empty statusline area between segments
+	StatuslineBg       string // hex color for stat segment background, e.g. "#3a3a5c"
+	StatuslineFg       string // hex color for stat segment text, e.g. "#cccccc"
+	StatuslineAccentBg string // hex color for accent segment background (first segment), e.g. "#5f87af"
+	StatuslineAccentFg string // hex color for accent segment text, e.g. "#1c1c2e"
+	StatuslineInfoFg   string // hex color for info message text
+	StatuslineInfoBg   string // hex color for info message background
+	StatuslineErrorFg  string // hex color for error message text
+	StatuslineErrorBg  string // hex color for error message background
+	StatuslineFillBg   string // hex color for empty statusline area between segments
 }
 
 // DefaultColors returns the default color configuration
@@ -195,13 +197,15 @@ func DefaultColors() *ColorConfig {
 		HeaderActionViewLabelColor:   "#808080", // gray for view-specific labels
 
 		// Statusline (Nord theme)
-		StatuslineBg:        "#434c5e", // Nord polar night 3
-		StatuslineFg:        "#d8dee9", // Nord snow storm 1
-		StatuslineAccentBg:  "#5e81ac", // Nord frost blue
-		StatuslineAccentFg:  "#2e3440", // Nord polar night 1
-		StatuslineMessageFg: "#bf616a", // Nord aurora red
-		StatuslineMessageBg: "#3b4252", // Nord polar night 2
-		StatuslineFillBg:    "#3b4252", // Nord polar night 2
+		StatuslineBg:       "#434c5e", // Nord polar night 3
+		StatuslineFg:       "#d8dee9", // Nord snow storm 1
+		StatuslineAccentBg: "#5e81ac", // Nord frost blue
+		StatuslineAccentFg: "#2e3440", // Nord polar night 1
+		StatuslineInfoFg:   "#a3be8c", // Nord aurora green
+		StatuslineInfoBg:   "#3b4252", // Nord polar night 2
+		StatuslineErrorFg:  "#bf616a", // Nord aurora red
+		StatuslineErrorBg:  "#3b4252", // Nord polar night 2
+		StatuslineFillBg:   "#3b4252", // Nord polar night 2
 	}
 }
 

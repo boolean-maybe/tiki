@@ -20,6 +20,7 @@ import (
 type TaskController struct {
 	taskStore     store.Store
 	navController *NavigationController
+	statusline    *model.StatuslineConfig
 	currentTaskID string
 	draftTask     *taskpkg.Task // For new task creation only
 	editingTask   *taskpkg.Task // In-memory copy being edited (existing tasks)
@@ -34,10 +35,12 @@ type TaskController struct {
 func NewTaskController(
 	taskStore store.Store,
 	navController *NavigationController,
+	statusline *model.StatuslineConfig,
 ) *TaskController {
 	return &TaskController{
 		taskStore:     taskStore,
 		navController: navController,
+		statusline:    statusline,
 		registry:      TaskDetailViewActions(),
 		editRegistry:  TaskEditViewActions(),
 	}

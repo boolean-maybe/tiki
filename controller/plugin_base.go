@@ -17,6 +17,7 @@ type pluginBase struct {
 	pluginConfig  *model.PluginConfig
 	pluginDef     *plugin.TikiPlugin
 	navController *NavigationController
+	statusline    *model.StatuslineConfig
 	registry      *ActionRegistry
 }
 

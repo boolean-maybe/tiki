@@ -19,6 +19,7 @@ type StatuslineConfig struct {
 
 	// right section: transient message
 	message  string
+	level    MessageLevel
 	autoHide bool // if true, entire bar hides on next keypress
 
 	// visibility
@@ -35,6 +36,7 @@ func NewStatuslineConfig() *StatuslineConfig {
 		leftStats:      make(map[string]StatValue),
 		viewStats:      make(map[string]StatValue),
 		rightViewStats: make(map[string]StatValue),
+		level:          MessageLevelInfo,
 		visible:        true,
 		listeners:      make(map[int]func()),
 		nextListener:   1,
@@ -120,23 +122,24 @@ func (sc *StatuslineConfig) SetViewStats(stats map[string]StatValue) {
 	sc.notifyListeners()
 }
 
-// SetMessage sets the right-section message. If autoHide is true, the entire
-// statusline will hide on the next keypress (via DismissAutoHide).
+// SetMessage sets the right-section message with a severity level. If autoHide
+// is true, the entire statusline will hide on the next keypress (via DismissAutoHide).
 // Setting a message makes the statusline visible.
-func (sc *StatuslineConfig) SetMessage(text string, autoHide bool) {
+func (sc *StatuslineConfig) SetMessage(text string, level MessageLevel, autoHide bool) {
 	sc.mu.Lock()
 	sc.message = text
+	sc.level = level
 	sc.autoHide = autoHide
 	sc.visible = true
 	sc.mu.Unlock()
 	sc.notifyListeners()
 }
 
-// GetMessage returns the current message and whether auto-hide is active
-func (sc *StatuslineConfig) GetMessage() (string, bool) {
+// GetMessage returns the current message, its level, and whether auto-hide is active
+func (sc *StatuslineConfig) GetMessage() (string, MessageLevel, bool) {
 	sc.mu.RLock()
 	defer sc.mu.RUnlock()
-	return sc.message, sc.autoHide
+	return sc.message, sc.level, sc.autoHide
 }
 
 // ClearMessage clears the right-section message
@@ -144,6 +147,7 @@ func (sc *StatuslineConfig) ClearMessage() {
 	sc.mu.Lock()
 	changed := sc.message != ""
 	sc.message = ""
+	sc.level = MessageLevelInfo
 	sc.autoHide = false
 	sc.mu.Unlock()
 	if changed {
@@ -162,6 +166,7 @@ func (sc *StatuslineConfig) DismissAutoHide() bool {
 	}
 	sc.autoHide = false
 	sc.message = ""
+	sc.level = MessageLevelInfo
 	sc.visible = false
 	sc.mu.Unlock()
 	sc.notifyListeners()

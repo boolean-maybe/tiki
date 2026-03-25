@@ -118,6 +118,7 @@ func Bootstrap(tikiSkillContent, dokiSkillContent string) (*Result, error) {
 		taskStore,
 		plugins,
 		pluginConfigs,
+		statuslineConfig,
 	)
 
 	// Phase 8: Input routing
@@ -126,6 +127,7 @@ func Bootstrap(tikiSkillContent, dokiSkillContent string) (*Result, error) {
 		controllers.Task,
 		controllers.Plugins,
 		taskStore,
+		statuslineConfig,
 	)
 
 	// Phase 9: View factory and layout
