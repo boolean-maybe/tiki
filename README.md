@@ -1,8 +1,4 @@
-<p align="center">
-  <a href="https://x.com/booleanandmaybe" target="_blank">
-    <img src="https://img.shields.io/badge/X-black.svg?style=for-the-badge&logo=X&logoColor=white" alt="X (Twitter)" />
-  </a>
-</p>
+Follow me on X: [![X Badge](https://img.shields.io/badge/-%23000000.svg?style=flat-square&logo=X&logoColor=white)](https://x.com/booleanandmaybe)
 
 # tiki
 

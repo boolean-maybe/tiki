@@ -43,6 +43,25 @@ Each status has:
 
 You can customize these to match your team's workflow. All filters and actions in view definitions (see below) must reference valid status keys.
 
+## Task Template
+
+When you create a new tiki — whether in the TUI or command line — field defaults come from a template file. 
+Place `new.md` in your user config directory to override the built-in defaults
+The file uses YAML frontmatter for field defaults
+
+### Built-in default
+
+```markdown
+---
+type: story
+status: backlog
+points: 1
+priority: 3
+tags:
+    - idea
+---
+```
+
 ## Plugins
 
 tiki TUI app is much like a lego - everything is a customizable view. Here is, for example,
