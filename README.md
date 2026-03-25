@@ -1,3 +1,9 @@
+<p align="center">
+  <a href="https://x.com/booleanandmaybe" target="_blank">
+    <img src="https://img.shields.io/badge/X-black.svg?style=for-the-badge&logo=X&logoColor=white" alt="X (Twitter)" />
+  </a>
+</p>
+
 # tiki
 
 UPDATE:
@@ -159,6 +165,7 @@ Feedback is always welcome! Whether you have an improvement request, a feature s
 or just chat:
 - use GitHub issues to submit and issue or a feature request
 - use GitHub discussions for everything else
+- follow and DM on [X](https://x.com/booleanandmaybe)
 
 to contribute:
 [Contributing](CONTRIBUTING.md)

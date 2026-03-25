@@ -40,7 +40,7 @@ If `mmdc` is not found, Mermaid blocks are displayed as plain code blocks.
 
 ## Graphviz diagrams
 
-Rendering fenced code blocks tagged `` ```dot `` or `` ```graphviz `` requires [`dot`](https://graphviz.org/) (from the Graphviz suite) to be installed and available in `PATH`.
+Rendering fenced code blocks tagged `dot` or `graphviz` requires [`dot`](https://graphviz.org/) (from the Graphviz suite) to be installed and available in `PATH`.
 
 ```
 # macOS

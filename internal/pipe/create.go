@@ -109,12 +109,29 @@ func CreateTaskFromReader(r io.Reader) (string, error) {
 }
 
 // parseInput splits piped text into title and description.
-// Single line: entire input becomes the title, no description.
-// Multi-line: first line is the title, everything after is the description (trimmed).
+// If the first line is a markdown heading (e.g. "# Title"), the '#' prefix is
+// stripped for the title and the description contains the entire original input.
+// Otherwise: first line is the title, everything after is the description.
 func parseInput(input string) (title, description string) {
 	first, rest, found := strings.Cut(input, "\n")
-	if !found {
-		return strings.TrimSpace(input), ""
+	title = strings.TrimSpace(first)
+
+	if heading, ok := stripMarkdownHeading(title); ok {
+		return heading, strings.TrimSpace(input)
 	}
-	return strings.TrimSpace(first), strings.TrimSpace(rest)
+
+	if !found {
+		return title, ""
+	}
+	return title, strings.TrimSpace(rest)
+}
+
+// stripMarkdownHeading returns the heading text without the leading '#' chars
+// if line is a valid ATX heading (one or more '#' followed by a space).
+func stripMarkdownHeading(line string) (string, bool) {
+	trimmed := strings.TrimLeft(line, "#")
+	if trimmed == line || !strings.HasPrefix(trimmed, " ") {
+		return "", false
+	}
+	return strings.TrimSpace(trimmed), true
 }

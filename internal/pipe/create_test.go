@@ -51,6 +51,36 @@ func TestParseInput(t *testing.T) {
 			wantTitle: "Title",
 			wantDesc:  "Description after gaps",
 		},
+		{
+			name:      "markdown h1 heading becomes title without hash",
+			input:     "# Try attempt\n\nThis is just a try",
+			wantTitle: "Try attempt",
+			wantDesc:  "# Try attempt\n\nThis is just a try",
+		},
+		{
+			name:      "markdown h2 heading stripped",
+			input:     "## Second level\n\nBody text",
+			wantTitle: "Second level",
+			wantDesc:  "## Second level\n\nBody text",
+		},
+		{
+			name:      "markdown h3 heading with multi-line body",
+			input:     "### Deep heading\n\nLine 1\nLine 2",
+			wantTitle: "Deep heading",
+			wantDesc:  "### Deep heading\n\nLine 1\nLine 2",
+		},
+		{
+			name:      "markdown heading only no body",
+			input:     "# Solo heading",
+			wantTitle: "Solo heading",
+			wantDesc:  "# Solo heading",
+		},
+		{
+			name:      "hash without space is not a heading",
+			input:     "#notaheading\n\nBody",
+			wantTitle: "#notaheading",
+			wantDesc:  "Body",
+		},
 	}
 
 	for _, tt := range tests {
