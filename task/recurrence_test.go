@@ -2,6 +2,7 @@ package task
 
 import (
 	"testing"
+	"time"
 
 	"gopkg.in/yaml.v3"
 )
@@ -568,6 +569,53 @@ func TestRecurrenceValue_IsZero(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			if got := tt.rv.IsZero(); got != tt.want {
 				t.Errorf("IsZero() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestNextOccurrenceFrom(t *testing.T) {
+	d := func(year int, month time.Month, day int) time.Time {
+		return time.Date(year, month, day, 0, 0, 0, 0, time.UTC)
+	}
+
+	tests := []struct {
+		name string
+		r    Recurrence
+		ref  time.Time
+		want time.Time
+	}{
+		{"none returns zero", RecurrenceNone, d(2026, 3, 24), time.Time{}},
+		{"daily returns tomorrow", RecurrenceDaily, d(2026, 3, 24), d(2026, 3, 25)},
+
+		// weekly: today is that day → next week
+		{"weekly monday on monday", WeeklyRecurrence("Monday"), d(2026, 3, 23), d(2026, 3, 30)},
+		// weekly: today is wednesday, next monday is 5 days out
+		{"weekly monday on wednesday", WeeklyRecurrence("Monday"), d(2026, 3, 25), d(2026, 3, 30)},
+		// weekly: today is thursday, next friday is 1 day out
+		{"weekly friday on thursday", WeeklyRecurrence("Friday"), d(2026, 3, 26), d(2026, 3, 27)},
+		// weekly: today is sunday, next monday is tomorrow
+		{"weekly monday on sunday", WeeklyRecurrence("Monday"), d(2026, 3, 29), d(2026, 3, 30)},
+
+		// monthly: before target day → this month
+		{"monthly 15th on 10th", MonthlyRecurrence(15), d(2026, 3, 10), d(2026, 3, 15)},
+		// monthly: on target day → next month
+		{"monthly 15th on 15th", MonthlyRecurrence(15), d(2026, 3, 15), d(2026, 4, 15)},
+		// monthly: past target day → next month
+		{"monthly 15th on 20th", MonthlyRecurrence(15), d(2026, 3, 20), d(2026, 4, 15)},
+		// monthly: day 31 in february → capped to feb 28
+		{"monthly 31st in feb", MonthlyRecurrence(31), d(2026, 2, 1), d(2026, 2, 28)},
+		// monthly: day 31 on 31st → next month (april has 30 days, capped)
+		{"monthly 31st on mar 31", MonthlyRecurrence(31), d(2026, 3, 31), d(2026, 4, 30)},
+		// monthly: day 1 at year boundary
+		{"monthly 1st on dec 5", MonthlyRecurrence(1), d(2026, 12, 5), d(2027, 1, 1)},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := NextOccurrenceFrom(tt.r, tt.ref)
+			if !got.Equal(tt.want) {
+				t.Errorf("NextOccurrenceFrom(%q, %v) = %v, want %v", tt.r, tt.ref.Format("2006-01-02"), got.Format("2006-01-02"), tt.want.Format("2006-01-02"))
 			}
 		})
 	}

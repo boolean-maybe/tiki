@@ -28,33 +28,46 @@ var fieldOrder = []EditField{
 	EditFieldDescription,
 }
 
-// NextField returns the next field in the edit cycle (stops at last field, no wrapping)
+// noSkip is a predicate that skips nothing, used by NextField/PrevField.
+var noSkip = func(EditField) bool { return false }
+
+// NextField returns the next field in the edit cycle (stops at last field, no wrapping).
 func NextField(current EditField) EditField {
+	return NextFieldSkipping(current, noSkip)
+}
+
+// PrevField returns the previous field in the edit cycle (stops at first field, no wrapping).
+func PrevField(current EditField) EditField {
+	return PrevFieldSkipping(current, noSkip)
+}
+
+// NextFieldSkipping returns the next field, skipping fields where skip returns true.
+func NextFieldSkipping(current EditField, skip func(EditField) bool) EditField {
 	for i, field := range fieldOrder {
 		if field == current {
-			// stop at last field instead of wrapping
-			if i == len(fieldOrder)-1 {
-				return current
+			for j := i + 1; j < len(fieldOrder); j++ {
+				if !skip(fieldOrder[j]) {
+					return fieldOrder[j]
+				}
 			}
-			return fieldOrder[i+1]
+			return current
 		}
 	}
-	// default to title if current field not found
 	return EditFieldTitle
 }
 
-// PrevField returns the previous field in the edit cycle (stops at first field, no wrapping)
-func PrevField(current EditField) EditField {
+// PrevFieldSkipping returns the previous field, skipping fields where skip returns true.
+func PrevFieldSkipping(current EditField, skip func(EditField) bool) EditField {
 	for i, field := range fieldOrder {
 		if field == current {
-			// stop at first field instead of wrapping
-			if i == 0 {
-				return current
+			for j := i - 1; j >= 0; j-- {
+				if !skip(fieldOrder[j]) {
+					return fieldOrder[j]
+				}
 			}
-			return fieldOrder[i-1]
+			return current
 		}
 	}
-	// default to title if current field not found
 	return EditFieldTitle
 }
 

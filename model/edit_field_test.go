@@ -102,6 +102,56 @@ func TestFieldCycling(t *testing.T) {
 	}
 }
 
+func TestNextFieldSkipping(t *testing.T) {
+	skipDue := func(f EditField) bool { return f == EditFieldDue }
+
+	tests := []struct {
+		name     string
+		current  EditField
+		skip     func(EditField) bool
+		expected EditField
+	}{
+		{"assignee skips due to recurrence", EditFieldAssignee, skipDue, EditFieldRecurrence},
+		{"due itself not relevant (would not be focused)", EditFieldDue, skipDue, EditFieldRecurrence},
+		{"recurrence to description (no skip)", EditFieldRecurrence, skipDue, EditFieldDescription},
+		{"description stays (end of list)", EditFieldDescription, skipDue, EditFieldDescription},
+		{"title to status (no skip involved)", EditFieldTitle, skipDue, EditFieldStatus},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := NextFieldSkipping(tt.current, tt.skip)
+			if got != tt.expected {
+				t.Errorf("NextFieldSkipping(%v) = %v, want %v", tt.current, got, tt.expected)
+			}
+		})
+	}
+}
+
+func TestPrevFieldSkipping(t *testing.T) {
+	skipDue := func(f EditField) bool { return f == EditFieldDue }
+
+	tests := []struct {
+		name     string
+		current  EditField
+		skip     func(EditField) bool
+		expected EditField
+	}{
+		{"recurrence skips due to assignee", EditFieldRecurrence, skipDue, EditFieldAssignee},
+		{"assignee to points (no skip)", EditFieldAssignee, skipDue, EditFieldPoints},
+		{"title stays (start of list)", EditFieldTitle, skipDue, EditFieldTitle},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := PrevFieldSkipping(tt.current, tt.skip)
+			if got != tt.expected {
+				t.Errorf("PrevFieldSkipping(%v) = %v, want %v", tt.current, got, tt.expected)
+			}
+		})
+	}
+}
+
 func TestIsEditableField(t *testing.T) {
 	tests := []struct {
 		name     string

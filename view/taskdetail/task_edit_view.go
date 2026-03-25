@@ -296,10 +296,36 @@ func (ev *TaskEditView) buildPointsField(task *taskpkg.Task, ctx FieldRenderCont
 }
 
 func (ev *TaskEditView) buildDueField(task *taskpkg.Task, ctx FieldRenderContext) tview.Primitive {
+	if ev.isDueReadOnly() {
+		return RenderDueText(task, ctx.Colors)
+	}
 	if ctx.FocusedField == model.EditFieldDue {
 		return ev.ensureDueInput(task)
 	}
 	return RenderDueText(task, ctx.Colors)
+}
+
+// isDueReadOnly returns true when recurrence is set, making Due auto-computed.
+func (ev *TaskEditView) isDueReadOnly() bool {
+	task := ev.GetTask()
+	return task != nil && task.Recurrence != taskpkg.RecurrenceNone
+}
+
+// syncDueFromTask updates the dueInput widget to reflect the auto-computed Due
+// from the in-memory task. Called after recurrence changes.
+func (ev *TaskEditView) syncDueFromTask() {
+	if ev.dueInput == nil {
+		return
+	}
+	task := ev.GetTask()
+	if task == nil {
+		return
+	}
+	var dateStr string
+	if !task.Due.IsZero() {
+		dateStr = task.Due.Format(taskpkg.DateFormat)
+	}
+	ev.dueInput.SetInitialValue(dateStr)
 }
 
 func (ev *TaskEditView) buildRecurrenceField(task *taskpkg.Task, ctx FieldRenderContext) tview.Primitive {

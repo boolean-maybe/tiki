@@ -109,7 +109,7 @@ func (ev *TaskEditView) FocusNextField() bool {
 	if ev.descOnly || ev.tagsOnly {
 		return false
 	}
-	nextField := model.NextField(ev.focusedField)
+	nextField := model.NextFieldSkipping(ev.focusedField, ev.shouldSkipField)
 	ev.SetFocusedField(nextField)
 	return true
 }
@@ -119,9 +119,14 @@ func (ev *TaskEditView) FocusPrevField() bool {
 	if ev.descOnly || ev.tagsOnly {
 		return false
 	}
-	prevField := model.PrevField(ev.focusedField)
+	prevField := model.PrevFieldSkipping(ev.focusedField, ev.shouldSkipField)
 	ev.SetFocusedField(prevField)
 	return true
+}
+
+// shouldSkipField returns true for fields that should be skipped during navigation.
+func (ev *TaskEditView) shouldSkipField(field model.EditField) bool {
+	return field == model.EditFieldDue && ev.isDueReadOnly()
 }
 
 // CycleFieldValueUp cycles the currently focused field's value upward (previous)
@@ -153,6 +158,9 @@ func (ev *TaskEditView) CycleFieldValueUp() bool {
 			return true
 		}
 	case model.EditFieldDue:
+		if ev.isDueReadOnly() {
+			return false
+		}
 		if ev.dueInput != nil {
 			ev.dueInput.InputHandler()(tcell.NewEventKey(tcell.KeyUp, 0, tcell.ModNone), nil)
 			return true
@@ -195,6 +203,9 @@ func (ev *TaskEditView) CycleFieldValueDown() bool {
 			return true
 		}
 	case model.EditFieldDue:
+		if ev.isDueReadOnly() {
+			return false
+		}
 		if ev.dueInput != nil {
 			ev.dueInput.InputHandler()(tcell.NewEventKey(tcell.KeyDown, 0, tcell.ModNone), nil)
 			return true

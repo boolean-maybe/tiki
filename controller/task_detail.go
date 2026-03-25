@@ -400,6 +400,8 @@ func (tc *TaskController) SaveDue(dateStr string) bool {
 }
 
 // SaveRecurrence saves the new recurrence cron expression to the current task.
+// When recurrence is set, Due is auto-computed as the next occurrence.
+// When recurrence is cleared, Due is also cleared.
 // Returns true if the recurrence was successfully updated, false otherwise.
 func (tc *TaskController) SaveRecurrence(cron string) bool {
 	r := taskpkg.Recurrence(cron)
@@ -409,6 +411,11 @@ func (tc *TaskController) SaveRecurrence(cron string) bool {
 	}
 	return tc.updateTaskField(func(t *taskpkg.Task) {
 		t.Recurrence = r
+		if r == taskpkg.RecurrenceNone {
+			t.Due = time.Time{}
+		} else {
+			t.Due = taskpkg.NextOccurrence(r)
+		}
 	})
 }
 

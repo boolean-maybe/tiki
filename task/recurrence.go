@@ -6,6 +6,7 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+	"time"
 
 	"gopkg.in/yaml.v3"
 )
@@ -165,6 +166,77 @@ func WeeklyRecurrence(dayName string) Recurrence {
 		return RecurrenceNone
 	}
 	return Recurrence("0 0 * * " + abbrev)
+}
+
+// weekdayNameToGoWeekday maps full day names to time.Weekday for next-occurrence calculation.
+var weekdayNameToGoWeekday = map[string]time.Weekday{
+	"Monday": time.Monday, "Tuesday": time.Tuesday, "Wednesday": time.Wednesday,
+	"Thursday": time.Thursday, "Friday": time.Friday, "Saturday": time.Saturday, "Sunday": time.Sunday,
+}
+
+// NextOccurrence computes the next occurrence date from today for a given recurrence.
+// Returns zero time for RecurrenceNone.
+func NextOccurrence(r Recurrence) time.Time {
+	return NextOccurrenceFrom(r, time.Now())
+}
+
+// NextOccurrenceFrom computes the next occurrence date relative to ref.
+// Only the date part of ref is used; result is always midnight UTC.
+// Only daily, weekly, and monthly recurrences are supported.
+// Unrecognized patterns return zero time, same as RecurrenceNone.
+func NextOccurrenceFrom(r Recurrence, ref time.Time) time.Time {
+	if r == RecurrenceNone {
+		return time.Time{}
+	}
+
+	today := time.Date(ref.Year(), ref.Month(), ref.Day(), 0, 0, 0, 0, time.UTC)
+
+	if r == RecurrenceDaily {
+		return today.AddDate(0, 0, 1)
+	}
+
+	if dayName, ok := WeekdayFromRecurrence(r); ok {
+		target := weekdayNameToGoWeekday[dayName]
+		daysUntil := (int(target) - int(today.Weekday()) + 7) % 7
+		if daysUntil == 0 {
+			daysUntil = 7 // same day → next week
+		}
+		return today.AddDate(0, 0, daysUntil)
+	}
+
+	if day, ok := IsMonthlyRecurrence(r); ok {
+		return nextMonthlyOccurrence(today, day)
+	}
+
+	return time.Time{}
+}
+
+// nextMonthlyOccurrence returns the next date with the given day-of-month,
+// capping to the last day of the target month if needed.
+func nextMonthlyOccurrence(today time.Time, day int) time.Time {
+	if today.Day() < day {
+		return clampDayInMonth(today.Year(), today.Month(), day)
+	}
+	// target day already passed (or is today) → next month
+	// use first of current month + 1 month to avoid Go's date normalization issues
+	// (e.g., March 31 + 1 month = May 1, not April 30)
+	nextMonth := time.Date(today.Year(), today.Month()+1, 1, 0, 0, 0, 0, time.UTC)
+	return clampDayInMonth(nextMonth.Year(), nextMonth.Month(), day)
+}
+
+// clampDayInMonth returns midnight UTC on the given year/month/day,
+// capping the day to the last day of the month.
+func clampDayInMonth(year int, month time.Month, day int) time.Time {
+	lastDay := daysInMonth(year, month)
+	if day > lastDay {
+		day = lastDay
+	}
+	return time.Date(year, month, day, 0, 0, 0, 0, time.UTC)
+}
+
+// daysInMonth returns the number of days in the given month.
+func daysInMonth(year int, month time.Month) int {
+	return time.Date(year, month+1, 0, 0, 0, 0, 0, time.UTC).Day()
 }
 
 // built at init from knownRecurrences

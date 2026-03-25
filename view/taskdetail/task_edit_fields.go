@@ -126,11 +126,17 @@ func (ev *TaskEditView) ensureRecurrenceInput(task *taskpkg.Task) *component.Rec
 		ev.recurrenceInput.SetLabel(getFocusMarker(colors) + "Recurrence: ")
 
 		ev.recurrenceInput.SetChangeHandler(func(value string) {
-			ev.updateValidationState()
-
 			if ev.onRecurrenceSave != nil {
 				ev.onRecurrenceSave(value)
 			}
+
+			// sync due widget with auto-computed value from the updated in-memory task
+			ev.syncDueFromTask()
+
+			// full refresh needed: tview can't swap a single primitive in a flex layout,
+			// so we rebuild to toggle Due between input and read-only text
+			ev.refresh()
+			ev.updateValidationState()
 		})
 
 		ev.recurrenceInput.SetInitialValue(string(task.Recurrence))
