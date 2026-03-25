@@ -37,3 +37,20 @@ npm install -g @mermaid-js/mermaid-cli
 ```
 
 If `mmdc` is not found, Mermaid blocks are displayed as plain code blocks.
+
+## Graphviz diagrams
+
+Rendering fenced code blocks tagged `` ```dot `` or `` ```graphviz `` requires [`dot`](https://graphviz.org/) (from the Graphviz suite) to be installed and available in `PATH`.
+
+```
+# macOS
+brew install graphviz
+
+# Debian / Ubuntu
+sudo apt install graphviz
+
+# Fedora
+sudo dnf install graphviz
+```
+
+If `dot` is not found, Graphviz blocks are displayed as plain code blocks.

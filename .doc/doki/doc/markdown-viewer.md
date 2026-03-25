@@ -27,6 +27,18 @@ tiki github.com/boolean-maybe/tiki
 
 press `q` to quit
 
+## Open image files
+
+Likewise, you can open image files:
+```
+tiki my-file.png
+```
+or 
+
+```
+tiki https://bellard.org/bpg/2.png
+```
+
 ## Navigate links
 
 with a Markdown file open press `Tab/Shift-Tab` to select next/previous link in the file

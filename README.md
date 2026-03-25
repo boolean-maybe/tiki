@@ -25,7 +25,7 @@ documentation, brainstorming ideas, incomplete implementations, AI prompts and p
 Stick them in your repo. Keep around for as long as you need. Find them back in **git** history. Make issues out of them
 and take them through an agile lifecycle. `tiki` helps you save and organize these files:
 
-- Standalone **Markdown viewer** - view and edit Markdown files, navigate to local/external/GitHub/GitLab links, image display
+- Standalone **Markdown viewer** - view and edit Markdown or image files, navigate to local/external/GitHub/GitLab links, image display
 - Keep, search, view and version Markdown files in the **git repo**
 - **Wiki-style** documentation with multiple entry points
 - Keep a **to-do list** with priorities, status, assignee and size
