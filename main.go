@@ -138,7 +138,7 @@ func printUsage() {
 Usage:
   tiki                  Launch TUI in initialized repo
   tiki init             Initialize project in current git repo
-  tiki file.md/URL      View markdown file
+  tiki file.md/URL      View markdown file or image
   echo "Title" | tiki   Create task from piped input
   tiki sysinfo          Display system information
   tiki --version        Show version

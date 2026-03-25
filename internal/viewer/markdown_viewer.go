@@ -127,6 +127,12 @@ func loadInitialContent(input InputSpec, provider *loaders.FileHTTP) (string, st
 		return "", "", fmt.Errorf("no input candidates provided")
 	}
 
+	// image files: wrap in synthetic markdown so the image pipeline renders them
+	if input.Kind == InputImage || (input.Kind == InputURL && isImageFile(input.Raw)) {
+		src := input.Candidates[0]
+		return fmt.Sprintf("![%s](%s)\n", filepath.Base(src), src), src, nil
+	}
+
 	var lastErr error
 	for _, candidate := range input.Candidates {
 		content, err := provider.FetchContent(nav.NavElement{URL: candidate})

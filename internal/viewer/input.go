@@ -9,6 +9,22 @@ import (
 	"strings"
 )
 
+var imageExtensions = map[string]bool{
+	".png":  true,
+	".jpg":  true,
+	".jpeg": true,
+	".gif":  true,
+	".bmp":  true,
+	".tiff": true,
+	".tif":  true,
+	".webp": true,
+	".svg":  true,
+}
+
+func isImageFile(path string) bool {
+	return imageExtensions[strings.ToLower(filepath.Ext(path))]
+}
+
 // viewer input parsing: decides whether to run the markdown viewer and resolves a
 // single positional argument into candidate sources. accepted inputs: "-" for
 // stdin, file paths, http(s) urls, and github/gitlab repo or file links.
@@ -22,6 +38,7 @@ const (
 	InputURL    InputKind = "url"
 	InputGitHub InputKind = "github"
 	InputGitLab InputKind = "gitlab"
+	InputImage  InputKind = "image"
 )
 
 // InputSpec carries the resolved input plus candidate URLs/paths to try.
@@ -142,8 +159,13 @@ func buildInputSpec(raw string) (InputSpec, error) {
 		return InputSpec{}, fmt.Errorf("resolve file path: %w", err)
 	}
 
+	kind := InputFile
+	if isImageFile(raw) {
+		kind = InputImage
+	}
+
 	return InputSpec{
-		Kind:        InputFile,
+		Kind:        kind,
 		Raw:         raw,
 		Candidates:  []string{absPath},
 		SearchRoots: []string{filepath.Dir(absPath)},

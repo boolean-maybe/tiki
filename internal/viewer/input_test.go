@@ -140,6 +140,44 @@ func TestParseViewerInputInitReserved(t *testing.T) {
 	}
 }
 
+func TestIsImageFile(t *testing.T) {
+	for _, name := range []string{"photo.png", "photo.jpg", "photo.jpeg", "photo.gif", "photo.bmp", "photo.tiff", "photo.tif", "photo.webp", "photo.svg"} {
+		if !isImageFile(name) {
+			t.Errorf("expected %q to be detected as image", name)
+		}
+	}
+	for _, name := range []string{"PHOTO.PNG", "Photo.Jpg", "image.SVG"} {
+		if !isImageFile(name) {
+			t.Errorf("expected %q (mixed case) to be detected as image", name)
+		}
+	}
+	for _, name := range []string{"readme.md", "main.go", "data.json", "file.txt", "noext"} {
+		if isImageFile(name) {
+			t.Errorf("expected %q to NOT be detected as image", name)
+		}
+	}
+}
+
+func TestParseViewerInputImageFile(t *testing.T) {
+	spec, ok, err := ParseViewerInput([]string{"photo.png"}, map[string]struct{}{})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !ok {
+		t.Fatalf("expected viewer mode")
+	}
+	if spec.Kind != InputImage {
+		t.Fatalf("expected image input, got %s", spec.Kind)
+	}
+	abs, err := filepath.Abs("photo.png")
+	if err != nil {
+		t.Fatalf("abs path error: %v", err)
+	}
+	if len(spec.Candidates) != 1 || spec.Candidates[0] != abs {
+		t.Fatalf("unexpected candidates: %v", spec.Candidates)
+	}
+}
+
 func TestParseViewerInputUnknownFlag(t *testing.T) {
 	_, ok, err := ParseViewerInput([]string{"--verson"}, map[string]struct{}{})
 	if !errors.Is(err, ErrUnknownFlag) {
