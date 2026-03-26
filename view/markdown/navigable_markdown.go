@@ -1,4 +1,4 @@
-package view
+package markdown
 
 import (
 	"strings"

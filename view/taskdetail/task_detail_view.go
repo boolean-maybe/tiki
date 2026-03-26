@@ -10,10 +10,10 @@ import (
 	"github.com/boolean-maybe/tiki/model"
 	"github.com/boolean-maybe/tiki/store"
 	taskpkg "github.com/boolean-maybe/tiki/task"
+	"github.com/boolean-maybe/tiki/view/markdown"
 
 	nav "github.com/boolean-maybe/navidown/navidown"
 	navtview "github.com/boolean-maybe/navidown/navidown/tview"
-	navutil "github.com/boolean-maybe/navidown/util"
 	"github.com/rivo/tview"
 )
 
@@ -26,6 +26,7 @@ type TaskDetailView struct {
 
 	// View-mode specific
 	storeListenerID int
+	navMarkdown     *markdown.NavigableMarkdown
 }
 
 // NewTaskDetailView creates a task detail view.
@@ -83,12 +84,20 @@ func (tv *TaskDetailView) OnBlur() {
 		tv.taskStore.RemoveListener(tv.storeListenerID)
 		tv.storeListenerID = 0
 	}
+	if tv.navMarkdown != nil {
+		tv.navMarkdown.Close()
+		tv.navMarkdown = nil
+	}
 }
 
 // refresh re-renders the view
 func (tv *TaskDetailView) refresh() {
 	tv.content.Clear()
 	tv.descView = nil
+	if tv.navMarkdown != nil {
+		tv.navMarkdown.Close()
+		tv.navMarkdown = nil
+	}
 
 	task := tv.GetTask()
 	if task == nil {
@@ -151,35 +160,19 @@ func (tv *TaskDetailView) buildMetadataColumns(task *taskpkg.Task, ctx FieldRend
 
 func (tv *TaskDetailView) buildDescription(task *taskpkg.Task) tview.Primitive {
 	desc := defaultString(task.Description, "(No description)")
-
-	// Get the source file path for the task to enable relative image resolution
 	taskSourcePath := getTaskFilePath(task.ID)
+	searchRoots := []string{config.GetTaskDir()}
 
-	viewer := navtview.NewTextView()
-	viewer.SetAnsiConverter(navutil.NewAnsiConverter(true))
-	renderer := nav.NewANSIRendererWithStyle(config.GetEffectiveTheme())
-	if t := config.GetCodeBlockTheme(); t != "" {
-		renderer = renderer.WithCodeTheme(t)
-	}
-	if bg := config.GetCodeBlockBackground(); bg != "" {
-		renderer = renderer.WithCodeBackground(bg)
-	}
-	if b := config.GetCodeBlockBorder(); b != "" {
-		renderer = renderer.WithCodeBorder(b)
-	}
-	viewer.SetRenderer(renderer)
-	viewer.SetBackgroundColor(config.GetContentBackgroundColor())
-	if tv.imageManager != nil && tv.imageManager.Supported() {
-		viewer.SetImageManager(tv.imageManager)
-	}
-	if tv.mermaidOpts != nil {
-		viewer.Core().SetMermaidOptions(tv.mermaidOpts)
-	}
-	// Use SetMarkdownWithSource to provide the source file path for relative image resolution
-	viewer.SetMarkdownWithSource(desc, taskSourcePath, false)
-	viewer.SetBorderPadding(1, 1, 2, 2)
-	tv.descView = viewer
-	return viewer
+	tv.navMarkdown = markdown.NewNavigableMarkdown(markdown.NavigableMarkdownConfig{
+		Provider:       newTaskDescriptionProvider(tv.taskStore, searchRoots),
+		SearchRoots:    searchRoots,
+		ImageManager:   tv.imageManager,
+		MermaidOptions: tv.mermaidOpts,
+	})
+	tv.navMarkdown.SetMarkdownWithSource(desc, taskSourcePath, false)
+	tv.navMarkdown.Viewer().SetBorderPadding(1, 1, 2, 2)
+	tv.descView = tv.navMarkdown.Viewer()
+	return tv.navMarkdown.Viewer()
 }
 
 // getTaskFilePath constructs the file path for a task based on its ID

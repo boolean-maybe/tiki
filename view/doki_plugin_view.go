@@ -9,6 +9,7 @@ import (
 	"github.com/boolean-maybe/tiki/controller"
 	"github.com/boolean-maybe/tiki/model"
 	"github.com/boolean-maybe/tiki/plugin"
+	"github.com/boolean-maybe/tiki/view/markdown"
 
 	"github.com/boolean-maybe/navidown/loaders"
 	nav "github.com/boolean-maybe/navidown/navidown"
@@ -30,7 +31,7 @@ var customMd string
 type DokiView struct {
 	root         *tview.Flex
 	titleBar     tview.Primitive
-	markdown     *NavigableMarkdown
+	md           *markdown.NavigableMarkdown
 	pluginDef    *plugin.DokiPlugin
 	registry     *controller.ActionRegistry
 	imageManager *navtview.ImageManager
@@ -80,7 +81,7 @@ func (dv *DokiView) build() {
 			sourcePath = dv.pluginDef.URL
 		}
 
-		dv.markdown = NewNavigableMarkdown(NavigableMarkdownConfig{
+		dv.md = markdown.NewNavigableMarkdown(markdown.NavigableMarkdownConfig{
 			Provider:       provider,
 			SearchRoots:    searchRoots,
 			OnStateChange:  dv.UpdateNavigationActions,
@@ -97,7 +98,7 @@ func (dv *DokiView) build() {
 		provider := &internalDokiProvider{content: cnt}
 		content, err = provider.FetchContent(nav.NavElement{Text: dv.pluginDef.Text})
 
-		dv.markdown = NewNavigableMarkdown(NavigableMarkdownConfig{
+		dv.md = markdown.NewNavigableMarkdown(markdown.NavigableMarkdownConfig{
 			Provider:       provider,
 			OnStateChange:  dv.UpdateNavigationActions,
 			ImageManager:   dv.imageManager,
@@ -106,7 +107,7 @@ func (dv *DokiView) build() {
 
 	default:
 		content = "Error: Unknown fetcher type"
-		dv.markdown = NewNavigableMarkdown(NavigableMarkdownConfig{
+		dv.md = markdown.NewNavigableMarkdown(markdown.NavigableMarkdownConfig{
 			OnStateChange:  dv.UpdateNavigationActions,
 			ImageManager:   dv.imageManager,
 			MermaidOptions: dv.mermaidOpts,
@@ -120,9 +121,9 @@ func (dv *DokiView) build() {
 
 	// Display initial content (don't push to history - this is the first page)
 	if sourcePath != "" {
-		dv.markdown.SetMarkdownWithSource(content, sourcePath, false)
+		dv.md.SetMarkdownWithSource(content, sourcePath, false)
 	} else {
-		dv.markdown.SetMarkdown(content)
+		dv.md.SetMarkdown(content)
 	}
 
 	// root layout
@@ -133,7 +134,7 @@ func (dv *DokiView) build() {
 func (dv *DokiView) rebuildLayout() {
 	dv.root.Clear()
 	dv.root.AddItem(dv.titleBar, 1, 0, false)
-	dv.root.AddItem(dv.markdown.Viewer(), 0, 1, true)
+	dv.root.AddItem(dv.md.Viewer(), 0, 1, true)
 }
 
 // ShowNavigation returns true — doki views always show plugin navigation keys.
@@ -162,7 +163,9 @@ func (dv *DokiView) OnFocus() {
 }
 
 func (dv *DokiView) OnBlur() {
-	// No cleanup needed yet
+	if dv.md != nil {
+		dv.md.Close()
+	}
 }
 
 // UpdateNavigationActions updates the registry to reflect current navigation state
@@ -187,7 +190,7 @@ func (dv *DokiView) UpdateNavigationActions() {
 	// Add back action if available
 	// Note: navidown supports both plain Left/Right and Alt+Left/Right for navigation
 	// We register plain arrows since they're simpler and work in all terminals
-	if dv.markdown.CanGoBack() {
+	if dv.md.CanGoBack() {
 		dv.registry.Register(controller.Action{
 			ID:           controller.ActionNavigateBack,
 			Key:          tcell.KeyLeft,
@@ -197,7 +200,7 @@ func (dv *DokiView) UpdateNavigationActions() {
 	}
 
 	// Add forward action if available
-	if dv.markdown.CanGoForward() {
+	if dv.md.CanGoForward() {
 		dv.registry.Register(controller.Action{
 			ID:           controller.ActionNavigateForward,
 			Key:          tcell.KeyRight,

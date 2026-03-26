@@ -13,7 +13,7 @@ import (
 	navtview "github.com/boolean-maybe/navidown/navidown/tview"
 	"github.com/boolean-maybe/tiki/config"
 	"github.com/boolean-maybe/tiki/util"
-	"github.com/boolean-maybe/tiki/view"
+	"github.com/boolean-maybe/tiki/view/markdown"
 	"github.com/gdamore/tcell/v2"
 	"github.com/rivo/tview"
 )
@@ -41,7 +41,7 @@ func Run(input InputSpec) error {
 	imgMgr.SetSupported(util.SupportsKittyGraphics())
 
 	// Create NavigableMarkdown - OnStateChange is set after creation to avoid forward reference
-	md := view.NewNavigableMarkdown(view.NavigableMarkdownConfig{
+	md := markdown.NewNavigableMarkdown(markdown.NavigableMarkdownConfig{
 		Provider:       provider,
 		SearchRoots:    input.SearchRoots,
 		ImageManager:   imgMgr,
@@ -54,7 +54,7 @@ func Run(input InputSpec) error {
 
 	content, sourcePath, err := loadInitialContent(input, provider)
 	if err != nil {
-		content = view.FormatErrorContent(err)
+		content = markdown.FormatErrorContent(err)
 	}
 
 	if sourcePath != "" {
