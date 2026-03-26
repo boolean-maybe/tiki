@@ -1,6 +1,8 @@
 package config
 
 import (
+	"os"
+	"path/filepath"
 	"testing"
 )
 
@@ -224,6 +226,111 @@ func TestNormalizeStatusKey(t *testing.T) {
 				t.Errorf("NormalizeStatusKey(%q) = %q, want %q", tt.input, got, tt.want)
 			}
 		})
+	}
+}
+
+// writeTempWorkflow creates a temp workflow.yaml with the given content and returns its path.
+func writeTempWorkflow(t *testing.T, dir, content string) string {
+	t.Helper()
+	path := filepath.Join(dir, "workflow.yaml")
+	if err := os.WriteFile(path, []byte(content), 0644); err != nil {
+		t.Fatalf("writing workflow file: %v", err)
+	}
+	return path
+}
+
+func TestLoadStatusRegistryFromFiles_LastFileWins(t *testing.T) {
+	dir1 := t.TempDir()
+	dir2 := t.TempDir()
+
+	f1 := writeTempWorkflow(t, dir1, `
+statuses:
+  - key: alpha
+    label: Alpha
+    default: true
+  - key: beta
+    label: Beta
+    done: true
+`)
+	f2 := writeTempWorkflow(t, dir2, `
+statuses:
+  - key: gamma
+    label: Gamma
+    default: true
+  - key: delta
+    label: Delta
+    done: true
+`)
+
+	reg, path, err := loadStatusRegistryFromFiles([]string{f1, f2})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if reg == nil {
+		t.Fatal("expected non-nil registry")
+	}
+	if path != f2 {
+		t.Errorf("expected path %q, got %q", f2, path)
+	}
+	if reg.DefaultKey() != "gamma" {
+		t.Errorf("expected default key 'gamma' from last file, got %q", reg.DefaultKey())
+	}
+	if len(reg.All()) != 2 {
+		t.Errorf("expected 2 statuses from last file, got %d", len(reg.All()))
+	}
+}
+
+func TestLoadStatusRegistryFromFiles_SkipsFileWithoutStatuses(t *testing.T) {
+	dir1 := t.TempDir()
+	dir2 := t.TempDir()
+
+	f1 := writeTempWorkflow(t, dir1, `
+statuses:
+  - key: alpha
+    label: Alpha
+    default: true
+  - key: beta
+    label: Beta
+    done: true
+`)
+	// second file has views but no statuses
+	f2 := writeTempWorkflow(t, dir2, `
+views:
+  - name: backlog
+`)
+
+	reg, path, err := loadStatusRegistryFromFiles([]string{f1, f2})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if reg == nil {
+		t.Fatal("expected non-nil registry")
+	}
+	if path != f1 {
+		t.Errorf("expected path %q (first file with statuses), got %q", f1, path)
+	}
+	if reg.DefaultKey() != "alpha" {
+		t.Errorf("expected default key 'alpha', got %q", reg.DefaultKey())
+	}
+}
+
+func TestLoadStatusRegistryFromFiles_ParseErrorStopsEarly(t *testing.T) {
+	dir1 := t.TempDir()
+	dir2 := t.TempDir()
+
+	f1 := writeTempWorkflow(t, dir1, `
+statuses:
+  - key: alpha
+    label: Alpha
+    default: true
+`)
+	f2 := writeTempWorkflow(t, dir2, `
+statuses: [[[invalid yaml
+`)
+
+	_, _, err := loadStatusRegistryFromFiles([]string{f1, f2})
+	if err == nil {
+		t.Fatal("expected error for malformed YAML in second file")
 	}
 }
 

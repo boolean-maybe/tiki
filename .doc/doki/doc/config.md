@@ -17,23 +17,8 @@
 
 Files stored here:
 - `config.yaml` - User-global configuration
+- `workflow.yaml` - Statuses and plugin/view definitions
 - `new.md` - Custom task template
-- Plugin definition files (e.g., custom plugin YAML files)
-
-**User Cache** (temporary data):
-- **Linux**: `~/.cache/tiki` (or `$XDG_CACHE_HOME/tiki`)
-- **macOS**: `~/Library/Caches/tiki`
-- **Windows**: `%LOCALAPPDATA%\tiki`
-
-**Project-Local** (tasks and documentation, in git):
-- `.doc/tiki/` - Task files (tikis)
-- `.doc/doki/` - Documentation files (dokis)
-- `.doc/tiki/config.yaml` - Project-specific config (overrides user config)
-
-**Configuration Priority** (first found wins):
-1. Project config directory (`.doc/tiki/config.yaml`) - highest priority
-2. User config directory (`~/.config/tiki/config.yaml`)
-3. Current directory (`./config.yaml` - development only)
 
 **Environment Variables**:
 - `XDG_CONFIG_HOME` - Override config directory location (all platforms)
@@ -43,6 +28,44 @@ Example: To use a custom config location on macOS:
 ```bash
 export XDG_CONFIG_HOME=~/my-config
 tiki  # Will use ~/my-config/tiki/ for configuration
+```
+
+## Precedence and merging
+
+`tiki` looks for configuration in three locations, from least specific to most specific:
+
+1. **User config directory** (platform-specific, see [above](#configuration-directories)) - your personal defaults
+2. **Project config directory** (`.doc/`) - shared with the team via git
+3. **Current working directory** (`./`) - local overrides, useful during development
+
+The more specific location always wins. This means each project can have its own workflow, statuses, and views that differ from your personal defaults. A design-team project might use statuses like "Draft / Review / Approved" while an engineering project uses "Backlog / In Progress / Done" — each defined in their own `.doc/workflow.yaml`.
+
+### config.yaml merging
+
+All `config.yaml` files found are merged together. A project config only needs to specify the values it wants to change — everything else is inherited from the user config. Missing values fall back to built-in defaults.
+
+Search order: user config dir (base) → `.doc/config.yaml` (project) → cwd (highest priority).
+
+### workflow.yaml merging
+
+`workflow.yaml` is searched in all three locations. Files that exist are loaded and merged sequentially.
+
+Search order: user config dir (base) → `.doc/workflow.yaml` (project) → cwd (highest priority).
+
+**Statuses** — last file with a `statuses:` section wins (complete replacement). A project that defines its own statuses fully replaces the user-level defaults.
+
+**Views (plugins)** — merged by name across files. The user config is the base; project and cwd files override individual fields:
+- Non-empty fields in the override replace the base (description, key, colors, view mode)
+- Non-empty arrays in the override replace the entire base array (lanes, actions, sort)
+- Empty/zero fields in the override are ignored — the base value is kept
+- Views that only exist in the override are appended
+
+A project only needs to define the views or fields it wants to change. Everything else is inherited from your user config.
+
+To disable all user-level views for a project, create a `.doc/workflow.yaml` with an explicitly empty views list:
+
+```yaml
+views: []
 ```
 
 ### config.yaml

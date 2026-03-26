@@ -192,6 +192,159 @@ func TestLoadConfigCodeBlockDefaults(t *testing.T) {
 	}
 }
 
+func TestLoadConfig_ProjectOverridesUser(t *testing.T) {
+	// set up user config dir with base settings
+	userDir := t.TempDir()
+	t.Setenv("XDG_CONFIG_HOME", userDir)
+	userTikiDir := filepath.Join(userDir, "tiki")
+	if err := os.MkdirAll(userTikiDir, 0750); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(userTikiDir, "config.yaml"), []byte(`
+logging:
+  level: error
+header:
+  visible: false
+`), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	// set up project dir with override for logging only
+	projectDir := t.TempDir()
+	docDir := filepath.Join(projectDir, ".doc")
+	if err := os.MkdirAll(docDir, 0750); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(docDir, "config.yaml"), []byte(`
+logging:
+  level: debug
+`), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	// use a clean cwd with no config
+	cwdDir := t.TempDir()
+	originalDir, _ := os.Getwd()
+	defer func() { _ = os.Chdir(originalDir) }()
+	_ = os.Chdir(cwdDir)
+
+	appConfig = nil
+	ResetPathManager()
+	// override project root to our test project dir
+	pm := mustGetPathManager()
+	pm.projectRoot = projectDir
+
+	cfg, err := LoadConfig()
+	if err != nil {
+		t.Fatalf("LoadConfig failed: %v", err)
+	}
+
+	// project override wins
+	if cfg.Logging.Level != "debug" {
+		t.Errorf("expected logging.level 'debug' from project, got %q", cfg.Logging.Level)
+	}
+	// user setting preserved for fields not in project config
+	if cfg.Header.Visible != false {
+		t.Errorf("expected header.visible false from user config, got %v", cfg.Header.Visible)
+	}
+}
+
+func TestLoadConfig_CwdOverridesProject(t *testing.T) {
+	// user config
+	userDir := t.TempDir()
+	t.Setenv("XDG_CONFIG_HOME", userDir)
+	userTikiDir := filepath.Join(userDir, "tiki")
+	if err := os.MkdirAll(userTikiDir, 0750); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(userTikiDir, "config.yaml"), []byte(`
+logging:
+  level: error
+`), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	// project config
+	projectDir := t.TempDir()
+	docDir := filepath.Join(projectDir, ".doc")
+	if err := os.MkdirAll(docDir, 0750); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(docDir, "config.yaml"), []byte(`
+logging:
+  level: warn
+`), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	// cwd config (highest priority)
+	cwdDir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(cwdDir, "config.yaml"), []byte(`
+logging:
+  level: debug
+`), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	originalDir, _ := os.Getwd()
+	defer func() { _ = os.Chdir(originalDir) }()
+	_ = os.Chdir(cwdDir)
+
+	appConfig = nil
+	ResetPathManager()
+	pm := mustGetPathManager()
+	pm.projectRoot = projectDir
+
+	cfg, err := LoadConfig()
+	if err != nil {
+		t.Fatalf("LoadConfig failed: %v", err)
+	}
+
+	if cfg.Logging.Level != "debug" {
+		t.Errorf("expected logging.level 'debug' from cwd, got %q", cfg.Logging.Level)
+	}
+}
+
+func TestLoadConfig_UserOnlyFallback(t *testing.T) {
+	userDir := t.TempDir()
+	t.Setenv("XDG_CONFIG_HOME", userDir)
+	userTikiDir := filepath.Join(userDir, "tiki")
+	if err := os.MkdirAll(userTikiDir, 0750); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(userTikiDir, "config.yaml"), []byte(`
+logging:
+  level: info
+header:
+  visible: false
+`), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	// cwd with no config, project with no config
+	cwdDir := t.TempDir()
+	originalDir, _ := os.Getwd()
+	defer func() { _ = os.Chdir(originalDir) }()
+	_ = os.Chdir(cwdDir)
+
+	appConfig = nil
+	ResetPathManager()
+	pm := mustGetPathManager()
+	pm.projectRoot = cwdDir // no .doc/ dir here
+
+	cfg, err := LoadConfig()
+	if err != nil {
+		t.Fatalf("LoadConfig failed: %v", err)
+	}
+
+	if cfg.Logging.Level != "info" {
+		t.Errorf("expected logging.level 'info' from user config, got %q", cfg.Logging.Level)
+	}
+	if cfg.Header.Visible != false {
+		t.Errorf("expected header.visible false from user config, got %v", cfg.Header.Visible)
+	}
+}
+
 func TestGetConfig(t *testing.T) {
 	// Reset appConfig
 	appConfig = nil

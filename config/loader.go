@@ -1,6 +1,6 @@
 package config
 
-// Viper configuration loader: reads config.yaml from the binary's directory
+// Viper configuration loader: merges config.yaml from multiple locations
 
 import (
 	"fmt"
@@ -15,6 +15,9 @@ import (
 	"github.com/spf13/viper"
 	"gopkg.in/yaml.v3"
 )
+
+// lastConfigFile tracks the most recently merged config file path for saveConfig().
+var lastConfigFile string
 
 // Config holds all application configuration loaded from config.yaml
 type Config struct {
@@ -53,40 +56,36 @@ type Config struct {
 
 var appConfig *Config
 
-// LoadConfig loads configuration from config.yaml
-// Priority order (first found wins): project config → user config → current directory (dev)
-// If config.yaml doesn't exist, it uses default values
+// LoadConfig loads configuration by merging config.yaml from multiple locations.
+// Files are merged in precedence order (user → project → cwd); later files override
+// earlier ones. Missing values fall back to built-in defaults.
 func LoadConfig() (*Config, error) {
-	// Reset viper to clear any previous configuration
 	viper.Reset()
-
-	// Configure viper to look for config.yaml
-	// Viper uses first-found priority, so project config takes precedence
-	viper.SetConfigName("config")
 	viper.SetConfigType("yaml")
-
-	// Add search paths in priority order (first added = highest priority)
-	projectConfigDir := filepath.Dir(GetProjectConfigFile())
-	viper.AddConfigPath(projectConfigDir) // Project config (highest priority)
-	viper.AddConfigPath(GetConfigDir())   // User config
-	viper.AddConfigPath(".")              // Current directory (development)
-
-	// Set default values
 	setDefaults()
+	lastConfigFile = ""
 
-	// Read the config file (if it exists)
-	if err := viper.ReadInConfig(); err != nil {
-		if _, ok := err.(viper.ConfigFileNotFoundError); ok {
-			slog.Debug("no config.yaml found, using defaults")
-		} else {
-			slog.Error("error reading config file", "error", err)
-			return nil, err
+	// merge config files in precedence order (first = base, last = highest priority)
+	for _, path := range findConfigFiles() {
+		f, err := os.Open(path)
+		if err != nil {
+			slog.Warn("failed to open config file", "path", path, "error", err)
+			continue
 		}
-	} else {
-		slog.Debug("loaded configuration", "file", viper.ConfigFileUsed())
+		mergeErr := viper.MergeConfig(f)
+		_ = f.Close()
+		if mergeErr != nil {
+			return nil, fmt.Errorf("merging config from %s: %w", path, mergeErr)
+		}
+		lastConfigFile = path
+		slog.Debug("merged configuration", "file", path)
 	}
 
-	// Allow environment variables to override config file
+	if lastConfigFile == "" {
+		slog.Debug("no config.yaml found, using defaults")
+	}
+
+	// environment variables and flags override everything
 	viper.SetEnvPrefix("TIKI")
 	viper.SetEnvKeyReplacer(strings.NewReplacer(".", "_"))
 	viper.AutomaticEnv()
@@ -95,15 +94,45 @@ func LoadConfig() (*Config, error) {
 		slog.Warn("failed to bind command line flags", "error", err)
 	}
 
-	// Unmarshal config into struct
 	cfg := &Config{}
 	if err := viper.Unmarshal(cfg); err != nil {
-		slog.Error("failed to unmarshal config", "error", err)
-		return nil, err
+		return nil, fmt.Errorf("unmarshaling config: %w", err)
 	}
 
 	appConfig = cfg
 	return cfg, nil
+}
+
+// findConfigFiles returns existing config.yaml paths in merge order
+// (user config → project → cwd). Deduplicates by absolute path.
+func findConfigFiles() []string {
+	pm := mustGetPathManager()
+
+	candidates := []string{
+		pm.ConfigFile(), // user config (base)
+		filepath.Join(pm.ProjectConfigDir(), "config.yaml"), // project override
+		filepath.Join(".", "config.yaml"),                   // cwd override (highest)
+	}
+
+	var result []string
+	seen := make(map[string]bool)
+
+	for _, path := range candidates {
+		abs, err := filepath.Abs(path)
+		if err != nil {
+			abs = path
+		}
+		if seen[abs] {
+			continue
+		}
+		if _, err := os.Stat(path); err != nil {
+			continue
+		}
+		seen[abs] = true
+		result = append(result, path)
+	}
+
+	return result
 }
 
 // setDefaults sets default configuration values
@@ -300,14 +329,13 @@ func GetMaxImageRows() int {
 	return rows
 }
 
-// saveConfig writes the current viper configuration to config.yaml
+// saveConfig writes the current viper configuration to config.yaml.
+// Saves to the last merged config file, or the user config dir if none was loaded.
 func saveConfig() error {
-	configFile := viper.ConfigFileUsed()
+	configFile := lastConfigFile
 	if configFile == "" {
-		// If no config file was loaded, save to user config directory
 		configFile = GetConfigFile()
 	}
-
 	return viper.WriteConfigAs(configFile)
 }
 

@@ -35,7 +35,8 @@ var (
 )
 
 // LoadStatusRegistry reads the statuses: section from workflow.yaml files.
-// The first file from FindWorkflowFiles() that contains a non-empty statuses list wins.
+// The last file from FindWorkflowFiles() that contains a non-empty statuses list wins
+// (most specific location takes precedence, matching plugin merge behavior).
 // Returns an error if no statuses are defined anywhere (no Go fallback).
 func LoadStatusRegistry() error {
 	files := FindWorkflowFiles()
@@ -43,21 +44,40 @@ func LoadStatusRegistry() error {
 		return fmt.Errorf("no workflow.yaml found; statuses must be defined in workflow.yaml")
 	}
 
+	reg, path, err := loadStatusRegistryFromFiles(files)
+	if err != nil {
+		return err
+	}
+	if reg == nil {
+		return fmt.Errorf("no statuses defined in workflow.yaml; add a statuses: section")
+	}
+
+	registryMu.Lock()
+	globalRegistry = reg
+	registryMu.Unlock()
+	slog.Debug("loaded status registry", "file", path, "count", len(reg.statuses))
+	return nil
+}
+
+// loadStatusRegistryFromFiles iterates workflow files and returns the registry
+// from the last file that contains a non-empty statuses section.
+// Returns a parse error immediately if any file is malformed.
+func loadStatusRegistryFromFiles(files []string) (*StatusRegistry, string, error) {
+	var lastReg *StatusRegistry
+	var lastFile string
+
 	for _, path := range files {
 		reg, err := loadStatusesFromFile(path)
 		if err != nil {
-			return fmt.Errorf("loading statuses from %s: %w", path, err)
+			return nil, "", fmt.Errorf("loading statuses from %s: %w", path, err)
 		}
 		if reg != nil {
-			registryMu.Lock()
-			globalRegistry = reg
-			registryMu.Unlock()
-			slog.Debug("loaded status registry", "file", path, "count", len(reg.statuses))
-			return nil
+			lastReg = reg
+			lastFile = path
 		}
 	}
 
-	return fmt.Errorf("no statuses defined in workflow.yaml; add a statuses: section")
+	return lastReg, lastFile, nil
 }
 
 // GetStatusRegistry returns the global StatusRegistry.
