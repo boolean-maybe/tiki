@@ -36,6 +36,7 @@ func Run(input InputSpec) error {
 
 	// Set up image rendering for Kitty-compatible terminals
 	resolver := nav.NewImageResolver(input.SearchRoots)
+	resolver.SetDarkMode(config.GetEffectiveTheme() == "dark")
 	imgMgr := navtview.NewImageManager(resolver, 8, 16)
 	imgMgr.SetMaxRows(config.GetMaxImageRows())
 	imgMgr.SetSupported(util.SupportsKittyGraphics())

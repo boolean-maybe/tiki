@@ -33,6 +33,7 @@ func NewViewFactory(taskStore store.Store) *ViewFactory {
 	// Configure image resolver with task directory as search root for relative image paths
 	searchRoots := []string{config.GetTaskDir()}
 	resolver := nav.NewImageResolver(searchRoots)
+	resolver.SetDarkMode(config.GetEffectiveTheme() == "dark")
 	imgMgr := navtview.NewImageManager(resolver, 8, 16)
 	imgMgr.SetMaxRows(config.GetMaxImageRows())
 	imgMgr.SetSupported(util.SupportsKittyGraphics())
