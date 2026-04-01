@@ -293,7 +293,6 @@ func TestGlobalAccessorFunctions(t *testing.T) {
 		{"GetTaskDir", GetTaskDir},
 		{"GetDokiDir", GetDokiDir},
 		{"GetProjectConfigFile", GetProjectConfigFile},
-		{"GetTemplateFile", GetTemplateFile},
 	}
 
 	for _, tt := range tests {
@@ -341,6 +340,142 @@ func TestInitPaths(t *testing.T) {
 	}
 	if GetTaskDir() == "" {
 		t.Error("GetTaskDir() returned empty after InitPaths()")
+	}
+}
+
+func TestFindTemplateFile_CwdOverridesProject(t *testing.T) {
+	// user config with new.md
+	userDir := t.TempDir()
+	t.Setenv("XDG_CONFIG_HOME", userDir)
+	userTikiDir := filepath.Join(userDir, "tiki")
+	if err := os.MkdirAll(userTikiDir, 0750); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(userTikiDir, "new.md"), []byte("---\npriority: 1\n---"), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	// project .doc/ with new.md
+	projectDir := t.TempDir()
+	docDir := filepath.Join(projectDir, ".doc")
+	if err := os.MkdirAll(docDir, 0750); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(docDir, "new.md"), []byte("---\npriority: 2\n---"), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	// cwd with new.md (highest priority)
+	cwdDir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(cwdDir, "new.md"), []byte("---\npriority: 3\n---"), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	originalDir, _ := os.Getwd()
+	defer func() { _ = os.Chdir(originalDir) }()
+	_ = os.Chdir(cwdDir)
+
+	ResetPathManager()
+	pm := mustGetPathManager()
+	pm.projectRoot = projectDir
+
+	got := FindTemplateFile()
+	gotAbs, _ := filepath.Abs(got)
+	wantAbs, _ := filepath.Abs("new.md")
+	if gotAbs != wantAbs {
+		t.Errorf("FindTemplateFile() = %q, want cwd file %q", gotAbs, wantAbs)
+	}
+}
+
+func TestFindTemplateFile_ProjectOverridesUser(t *testing.T) {
+	// user config with new.md
+	userDir := t.TempDir()
+	t.Setenv("XDG_CONFIG_HOME", userDir)
+	userTikiDir := filepath.Join(userDir, "tiki")
+	if err := os.MkdirAll(userTikiDir, 0750); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(userTikiDir, "new.md"), []byte("---\npriority: 1\n---"), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	// project .doc/ with new.md
+	projectDir := t.TempDir()
+	docDir := filepath.Join(projectDir, ".doc")
+	if err := os.MkdirAll(docDir, 0750); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(docDir, "new.md"), []byte("---\npriority: 2\n---"), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	// cwd with NO new.md
+	cwdDir := t.TempDir()
+	originalDir, _ := os.Getwd()
+	defer func() { _ = os.Chdir(originalDir) }()
+	_ = os.Chdir(cwdDir)
+
+	ResetPathManager()
+	pm := mustGetPathManager()
+	pm.projectRoot = projectDir
+
+	got := FindTemplateFile()
+	want := filepath.Join(docDir, "new.md")
+	if got != want {
+		t.Errorf("FindTemplateFile() = %q, want project file %q", got, want)
+	}
+}
+
+func TestFindTemplateFile_UserOnlyFallback(t *testing.T) {
+	// user config with new.md
+	userDir := t.TempDir()
+	t.Setenv("XDG_CONFIG_HOME", userDir)
+	userTikiDir := filepath.Join(userDir, "tiki")
+	if err := os.MkdirAll(userTikiDir, 0750); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(userTikiDir, "new.md"), []byte("---\npriority: 1\n---"), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	// no project .doc/, no cwd new.md
+	cwdDir := t.TempDir()
+	originalDir, _ := os.Getwd()
+	defer func() { _ = os.Chdir(originalDir) }()
+	_ = os.Chdir(cwdDir)
+
+	ResetPathManager()
+	pm := mustGetPathManager()
+	pm.projectRoot = cwdDir
+
+	got := FindTemplateFile()
+	want := filepath.Join(userTikiDir, "new.md")
+	if got != want {
+		t.Errorf("FindTemplateFile() = %q, want user config file %q", got, want)
+	}
+}
+
+func TestFindTemplateFile_NoneFound(t *testing.T) {
+	// empty user config dir (no new.md)
+	userDir := t.TempDir()
+	t.Setenv("XDG_CONFIG_HOME", userDir)
+	if err := os.MkdirAll(filepath.Join(userDir, "tiki"), 0750); err != nil {
+		t.Fatal(err)
+	}
+
+	// empty cwd
+	cwdDir := t.TempDir()
+	originalDir, _ := os.Getwd()
+	defer func() { _ = os.Chdir(originalDir) }()
+	_ = os.Chdir(cwdDir)
+
+	ResetPathManager()
+	pm := mustGetPathManager()
+	pm.projectRoot = cwdDir
+
+	got := FindTemplateFile()
+	if got != "" {
+		t.Errorf("FindTemplateFile() = %q, want empty string when no file exists", got)
 	}
 }
 

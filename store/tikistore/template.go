@@ -27,21 +27,23 @@ type templateFrontmatter struct {
 	Points     int      `yaml:"points"`
 }
 
-// loadTemplateTask reads new.md from user config directory, or falls back to embedded template.
+// loadTemplateTask reads new.md from the highest-priority location
+// (cwd > .doc/ > user config), or falls back to the embedded template.
 func loadTemplateTask() *taskpkg.Task {
-	// Try to load from user config directory first
-	templatePath := config.GetTemplateFile()
+	templatePath := config.FindTemplateFile()
+
+	if templatePath == "" {
+		slog.Debug("no new.md found in any search path, using embedded template")
+		return loadEmbeddedTemplate()
+	}
 
 	data, err := os.ReadFile(templatePath)
 	if err != nil {
-		if os.IsNotExist(err) {
-			slog.Debug("new.md not found in user config dir, using embedded template", "path", templatePath)
-			return loadEmbeddedTemplate()
-		}
 		slog.Warn("failed to read new.md template", "path", templatePath, "error", err)
 		return loadEmbeddedTemplate()
 	}
 
+	slog.Debug("loaded new.md template", "path", templatePath)
 	return parseTaskTemplate(data)
 }
 

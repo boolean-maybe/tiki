@@ -46,7 +46,7 @@ You can customize these to match your team's workflow. All filters and actions i
 ## Task Template
 
 When you create a new tiki — whether in the TUI or command line — field defaults come from a template file. 
-Place `new.md` in your user config directory to override the built-in defaults
+Place `new.md` in your config directory to override the built-in defaults
 The file uses YAML frontmatter for field defaults
 
 ### Built-in default

@@ -46,6 +46,12 @@ All `config.yaml` files found are merged together. A project config only needs t
 
 Search order: user config dir (base) → `.doc/config.yaml` (project) → cwd (highest priority).
 
+### new.md (task template)
+
+`new.md` is searched in the same three locations but is **not merged** — the single highest-priority file found wins. If a project provides `.doc/new.md`, it completely replaces the user-level template. If no `new.md` is found anywhere, a built-in embedded template is used.
+
+Search order: user config dir → `.doc/new.md` (project) → cwd. Last match wins.
+
 ### workflow.yaml merging
 
 `workflow.yaml` is searched in all three locations. Files that exist are loaded and merged sequentially.
