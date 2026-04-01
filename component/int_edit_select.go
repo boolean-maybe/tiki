@@ -178,15 +178,15 @@ func (ies *IntEditSelect) InputHandler() func(event *tcell.EventKey, setFocus fu
 
 		switch key {
 		case tcell.KeyUp:
-			// Decrement value (wraps at min to max)
-			ies.clearOnType = false // user is navigating, not typing fresh
-			ies.decrement()
-			return
-
-		case tcell.KeyDown:
 			// Increment value (wraps at max to min)
 			ies.clearOnType = false // user is navigating, not typing fresh
 			ies.increment()
+			return
+
+		case tcell.KeyDown:
+			// Decrement value (wraps at min to max)
+			ies.clearOnType = false // user is navigating, not typing fresh
+			ies.decrement()
 			return
 
 		case tcell.KeyRune:

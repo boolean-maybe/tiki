@@ -545,9 +545,9 @@ func TestTaskEdit_Tab_NavigatesForward(t *testing.T) {
 	// Tab again should move to Points field
 	ta.SendKey(tcell.KeyTab, 0, tcell.ModNone)
 
-	// Set points to 5 (default is 1, so press down 4 times)
+	// Set points to 5 (default is 1, so press up 4 times)
 	for i := 0; i < 4; i++ {
-		ta.SendKeyToFocused(tcell.KeyDown, 0, tcell.ModNone)
+		ta.SendKeyToFocused(tcell.KeyUp, 0, tcell.ModNone)
 	}
 
 	// Save with Ctrl+S
@@ -596,9 +596,9 @@ func TestTaskEdit_Navigation_PreservesChanges(t *testing.T) {
 		ta.SendKey(tcell.KeyTab, 0, tcell.ModNone)
 	}
 
-	// Set points to 8 (default is 1, so press down 7 times)
+	// Set points to 8 (default is 1, so press up 7 times)
 	for i := 0; i < 7; i++ {
-		ta.SendKeyToFocused(tcell.KeyDown, 0, tcell.ModNone)
+		ta.SendKeyToFocused(tcell.KeyUp, 0, tcell.ModNone)
 	}
 
 	// Save with Ctrl+S
@@ -660,9 +660,9 @@ func TestTaskEdit_MultipleFields_AllSaved(t *testing.T) {
 
 	// Tab to Points field (1 more tab: Priority → Points)
 	ta.SendKey(tcell.KeyTab, 0, tcell.ModNone)
-	// Set points to 8 (default is 1, so press down 7 times)
+	// Set points to 8 (default is 1, so press up 7 times)
 	for i := 0; i < 7; i++ {
-		ta.SendKeyToFocused(tcell.KeyDown, 0, tcell.ModNone)
+		ta.SendKeyToFocused(tcell.KeyUp, 0, tcell.ModNone)
 	}
 
 	// Save with Ctrl+S
@@ -780,9 +780,9 @@ func TestNewTask_MultipleFields_AllSaved(t *testing.T) {
 
 	// Tab to Points field (1 more tab: Priority → Points)
 	ta.SendKey(tcell.KeyTab, 0, tcell.ModNone)
-	// Set points to 9 (default is 1 from new.md template, so press down 8 times)
+	// Set points to 9 (default is 1 from new.md template, so press up 8 times)
 	for i := 0; i < 8; i++ {
-		ta.SendKeyToFocused(tcell.KeyDown, 0, tcell.ModNone)
+		ta.SendKeyToFocused(tcell.KeyUp, 0, tcell.ModNone)
 	}
 
 	// Save with Ctrl+S

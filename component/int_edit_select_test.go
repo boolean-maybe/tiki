@@ -156,21 +156,21 @@ func TestArrowKeyNavigation(t *testing.T) {
 
 	handler := ies.InputHandler()
 
-	// Test down arrow (increment)
-	downEvent := tcell.NewEventKey(tcell.KeyDown, 0, tcell.ModNone)
-	handler(downEvent, nil)
-
-	if ies.GetValue() != 6 {
-		t.Errorf("After KeyDown, expected value=6, got %d", ies.GetValue())
-	}
-
-	// Test up arrow (decrement)
+	// Test up arrow (increment)
 	upEvent := tcell.NewEventKey(tcell.KeyUp, 0, tcell.ModNone)
 	handler(upEvent, nil)
-	handler(upEvent, nil)
+
+	if ies.GetValue() != 6 {
+		t.Errorf("After KeyUp, expected value=6, got %d", ies.GetValue())
+	}
+
+	// Test down arrow (decrement)
+	downEvent := tcell.NewEventKey(tcell.KeyDown, 0, tcell.ModNone)
+	handler(downEvent, nil)
+	handler(downEvent, nil)
 
 	if ies.GetValue() != 4 {
-		t.Errorf("After 2x KeyUp, expected value=4, got %d", ies.GetValue())
+		t.Errorf("After 2x KeyDown, expected value=4, got %d", ies.GetValue())
 	}
 }
 
@@ -180,20 +180,20 @@ func TestArrowKeyWrapAround(t *testing.T) {
 
 	handler := ies.InputHandler()
 
-	// Down at max wraps to min
-	downEvent := tcell.NewEventKey(tcell.KeyDown, 0, tcell.ModNone)
-	handler(downEvent, nil)
-
-	if ies.GetValue() != 0 {
-		t.Errorf("After KeyDown at max, expected value=0, got %d", ies.GetValue())
-	}
-
-	// Up at min wraps to max
+	// Up at max wraps to min
 	upEvent := tcell.NewEventKey(tcell.KeyUp, 0, tcell.ModNone)
 	handler(upEvent, nil)
 
+	if ies.GetValue() != 0 {
+		t.Errorf("After KeyUp at max, expected value=0, got %d", ies.GetValue())
+	}
+
+	// Down at min wraps to max
+	downEvent := tcell.NewEventKey(tcell.KeyDown, 0, tcell.ModNone)
+	handler(downEvent, nil)
+
 	if ies.GetValue() != 9 {
-		t.Errorf("After KeyUp at min, expected value=9, got %d", ies.GetValue())
+		t.Errorf("After KeyDown at min, expected value=9, got %d", ies.GetValue())
 	}
 }
 
@@ -449,17 +449,17 @@ func TestIntEditSelect_TypingDisabled_ArrowKeysWork(t *testing.T) {
 
 	handler := ies.InputHandler()
 
-	// Up arrow (decrement)
+	// Up arrow (increment)
 	handler(tcell.NewEventKey(tcell.KeyUp, 0, tcell.ModNone), nil)
-	if ies.GetValue() != 4 {
-		t.Errorf("Expected value 4 after up arrow, got %d", ies.GetValue())
+	if ies.GetValue() != 6 {
+		t.Errorf("Expected value 6 after up arrow, got %d", ies.GetValue())
 	}
 
-	// Down arrow (increment)
+	// Down arrow (decrement)
 	handler(tcell.NewEventKey(tcell.KeyDown, 0, tcell.ModNone), nil)
 	handler(tcell.NewEventKey(tcell.KeyDown, 0, tcell.ModNone), nil)
-	if ies.GetValue() != 6 {
-		t.Errorf("Expected value 6 after down arrows, got %d", ies.GetValue())
+	if ies.GetValue() != 4 {
+		t.Errorf("Expected value 4 after down arrows, got %d", ies.GetValue())
 	}
 }
 

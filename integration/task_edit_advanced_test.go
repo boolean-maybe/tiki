@@ -38,8 +38,8 @@ func TestTaskEdit_ShiftTabBackward(t *testing.T) {
 	// Now Shift+Tab backward (Assignee → Points)
 	ta.SendKey(tcell.KeyBacktab, 0, tcell.ModNone)
 
-	// Change Points field via Down arrow to verify focus is on Points
-	ta.SendKeyToFocused(tcell.KeyDown, 0, tcell.ModNone) // 1 → 2
+	// Change Points field via Up arrow to verify focus is on Points
+	ta.SendKeyToFocused(tcell.KeyUp, 0, tcell.ModNone) // 1 → 2
 
 	// Save
 	ta.SendKey(tcell.KeyCtrlS, 0, tcell.ModNone)
@@ -379,9 +379,9 @@ func TestTaskEdit_PointsRange(t *testing.T) {
 
 	// Current points is 1 (from fixture)
 	// Default maxPoints is 10, so valid range is [1, 10]
-	// Press Down 6 times to get to 7 (1→2→3→4→5→6→7)
+	// Press Up 6 times to get to 7 (1→2→3→4→5→6→7)
 	for i := 0; i < 6; i++ {
-		ta.SendKeyToFocused(tcell.KeyDown, 0, tcell.ModNone)
+		ta.SendKeyToFocused(tcell.KeyUp, 0, tcell.ModNone)
 	}
 
 	// Save

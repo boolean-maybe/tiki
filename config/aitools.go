@@ -1,6 +1,6 @@
 package config
 
-import "path/filepath"
+import "path"
 
 // AITool defines a supported AI coding assistant.
 // To add a new tool, add an entry to the aiTools slice below.
@@ -56,7 +56,7 @@ func (t AITool) PromptArgs(prompt string) []string {
 
 // SkillPath returns the relative file path for a skill (e.g. "tiki" → ".claude/skills/tiki/SKILL.md").
 func (t AITool) SkillPath(skill string) string {
-	return filepath.Join(t.SkillDir, skill, "SKILL.md")
+	return path.Join(t.SkillDir, skill, "SKILL.md")
 }
 
 // AITools returns all supported AI tools.
