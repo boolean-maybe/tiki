@@ -1,6 +1,10 @@
 package task
 
-import "testing"
+import (
+	"testing"
+
+	"github.com/boolean-maybe/tiki/config"
+)
 
 func TestNormalizeType(t *testing.T) {
 	tests := []struct {
@@ -102,5 +106,64 @@ func TestTypeDisplay(t *testing.T) {
 				t.Errorf("TypeDisplay(%q) = %q, want %q", tt.input, result, tt.expected)
 			}
 		})
+	}
+}
+
+// TestTypeHelpers_FallbackWithoutConfig verifies that all type helpers work
+// when the config registry has not been initialized (fallback to defaults).
+func TestTypeHelpers_FallbackWithoutConfig(t *testing.T) {
+	config.ClearStatusRegistry()
+	t.Cleanup(func() {
+		// restore for other tests in the package
+		config.ResetStatusRegistry(testStatusDefs())
+	})
+
+	t.Run("NormalizeType", func(t *testing.T) {
+		if got := NormalizeType("bug"); got != TypeBug {
+			t.Errorf("NormalizeType(%q) = %q, want %q", "bug", got, TypeBug)
+		}
+		if got := NormalizeType("feature"); got != TypeStory {
+			t.Errorf("NormalizeType(%q) = %q, want %q (alias)", "feature", got, TypeStory)
+		}
+		if got := NormalizeType("unknown"); got != TypeStory {
+			t.Errorf("NormalizeType(%q) = %q, want %q (fallback)", "unknown", got, TypeStory)
+		}
+	})
+
+	t.Run("ParseType", func(t *testing.T) {
+		typ, ok := ParseType("epic")
+		if !ok || typ != TypeEpic {
+			t.Errorf("ParseType(%q) = (%q, %v), want (%q, true)", "epic", typ, ok, TypeEpic)
+		}
+		typ, ok = ParseType("nonsense")
+		if ok {
+			t.Errorf("ParseType(%q) returned ok=true for unknown type", "nonsense")
+		}
+		if typ != TypeStory {
+			t.Errorf("ParseType(%q) fallback = %q, want %q", "nonsense", typ, TypeStory)
+		}
+	})
+
+	t.Run("TypeLabel", func(t *testing.T) {
+		if got := TypeLabel(TypeBug); got != "Bug" {
+			t.Errorf("TypeLabel(%q) = %q, want %q", TypeBug, got, "Bug")
+		}
+	})
+
+	t.Run("TypeDisplay", func(t *testing.T) {
+		if got := TypeDisplay(TypeSpike); got != "Spike 🔍" {
+			t.Errorf("TypeDisplay(%q) = %q, want %q", TypeSpike, got, "Spike 🔍")
+		}
+	})
+}
+
+// testStatusDefs returns the standard test status definitions.
+func testStatusDefs() []config.StatusDef {
+	return []config.StatusDef{
+		{Key: "backlog", Label: "Backlog", Emoji: "📥", Default: true},
+		{Key: "ready", Label: "Ready", Emoji: "📋", Active: true},
+		{Key: "in_progress", Label: "In Progress", Emoji: "⚙️", Active: true},
+		{Key: "review", Label: "Review", Emoji: "👀", Active: true},
+		{Key: "done", Label: "Done", Emoji: "✅", Done: true},
 	}
 }

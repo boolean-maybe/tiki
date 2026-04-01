@@ -2,31 +2,33 @@ package task
 
 import (
 	"github.com/boolean-maybe/tiki/config"
+	"github.com/boolean-maybe/tiki/workflow"
 )
 
-type Status string
+// Status is a type alias for workflow.StatusKey.
+// This preserves compatibility: task.Status and workflow.StatusKey are the same type.
+type Status = workflow.StatusKey
 
-// Convenience constants matching the default workflow.yaml statuses.
-// These are kept so that tests and internal code can reference them.
+// convenience constants matching the default workflow.yaml statuses.
 const (
-	StatusBacklog    Status = "backlog"
-	StatusReady      Status = "ready"
-	StatusInProgress Status = "in_progress"
-	StatusReview     Status = "review"
-	StatusDone       Status = "done"
+	StatusBacklog    = workflow.StatusBacklog
+	StatusReady      = workflow.StatusReady
+	StatusInProgress = workflow.StatusInProgress
+	StatusReview     = workflow.StatusReview
+	StatusDone       = workflow.StatusDone
 )
 
 // ParseStatus normalizes a raw status string and validates it against the registry.
 // Empty input returns the configured default status.
 // Unknown values return (DefaultStatus(), false).
 func ParseStatus(status string) (Status, bool) {
-	normalized := config.NormalizeStatusKey(status)
+	normalized := workflow.NormalizeStatusKey(status)
 	if normalized == "" {
 		return DefaultStatus(), true
 	}
 	reg := config.GetStatusRegistry()
-	if reg.IsValid(normalized) {
-		return Status(normalized), true
+	if reg.IsValid(string(normalized)) {
+		return normalized, true
 	}
 	return DefaultStatus(), false
 }
@@ -48,7 +50,7 @@ func StatusToString(status Status) string {
 	if reg.IsValid(string(status)) {
 		return string(status)
 	}
-	return reg.DefaultKey()
+	return string(reg.DefaultKey())
 }
 
 // StatusEmoji returns the emoji for a status from the registry.
@@ -81,12 +83,12 @@ func StatusDisplay(status Status) string {
 
 // DefaultStatus returns the status configured as default in workflow.yaml.
 func DefaultStatus() Status {
-	return Status(config.GetStatusRegistry().DefaultKey())
+	return config.GetStatusRegistry().DefaultKey()
 }
 
 // DoneStatus returns the status configured as done in workflow.yaml.
 func DoneStatus() Status {
-	return Status(config.GetStatusRegistry().DoneKey())
+	return config.GetStatusRegistry().DoneKey()
 }
 
 // AllStatuses returns the ordered list of all configured statuses.

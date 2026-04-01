@@ -4,10 +4,12 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+
+	"github.com/boolean-maybe/tiki/workflow"
 )
 
-func defaultTestStatuses() []StatusDef {
-	return []StatusDef{
+func defaultTestStatuses() []workflow.StatusDef {
+	return []workflow.StatusDef{
 		{Key: "backlog", Label: "Backlog", Emoji: "📥", Default: true},
 		{Key: "ready", Label: "Ready", Emoji: "📋", Active: true},
 		{Key: "in_progress", Label: "In Progress", Emoji: "⚙️", Active: true},
@@ -16,7 +18,7 @@ func defaultTestStatuses() []StatusDef {
 	}
 }
 
-func setupTestRegistry(t *testing.T, defs []StatusDef) {
+func setupTestRegistry(t *testing.T, defs []workflow.StatusDef) {
 	t.Helper()
 	ResetStatusRegistry(defs)
 	t.Cleanup(func() { ClearStatusRegistry() })
@@ -40,7 +42,7 @@ func TestBuildRegistry_DefaultStatuses(t *testing.T) {
 }
 
 func TestBuildRegistry_CustomStatuses(t *testing.T) {
-	custom := []StatusDef{
+	custom := []workflow.StatusDef{
 		{Key: "new", Label: "New", Emoji: "🆕", Default: true},
 		{Key: "wip", Label: "Work In Progress", Emoji: "🔧", Active: true},
 		{Key: "closed", Label: "Closed", Emoji: "🔒", Done: true},
@@ -137,7 +139,7 @@ func TestRegistry_Keys(t *testing.T) {
 	reg := GetStatusRegistry()
 
 	keys := reg.Keys()
-	expected := []string{"backlog", "ready", "in_progress", "review", "done"}
+	expected := []workflow.StatusKey{"backlog", "ready", "in_progress", "review", "done"}
 
 	if len(keys) != len(expected) {
 		t.Fatalf("expected %d keys, got %d", len(expected), len(keys))
@@ -150,7 +152,7 @@ func TestRegistry_Keys(t *testing.T) {
 }
 
 func TestRegistry_NormalizesKeys(t *testing.T) {
-	custom := []StatusDef{
+	custom := []workflow.StatusDef{
 		{Key: "In-Progress", Label: "In Progress", Default: true},
 		{Key: "  DONE  ", Label: "Done", Done: true},
 	}
@@ -166,39 +168,39 @@ func TestRegistry_NormalizesKeys(t *testing.T) {
 }
 
 func TestBuildRegistry_EmptyKey(t *testing.T) {
-	defs := []StatusDef{
+	defs := []workflow.StatusDef{
 		{Key: "", Label: "No Key"},
 	}
-	_, err := buildRegistry(defs)
+	_, err := workflow.NewStatusRegistry(defs)
 	if err == nil {
 		t.Error("expected error for empty key")
 	}
 }
 
 func TestBuildRegistry_DuplicateKey(t *testing.T) {
-	defs := []StatusDef{
+	defs := []workflow.StatusDef{
 		{Key: "ready", Label: "Ready", Default: true},
 		{Key: "ready", Label: "Ready 2"},
 	}
-	_, err := buildRegistry(defs)
+	_, err := workflow.NewStatusRegistry(defs)
 	if err == nil {
 		t.Error("expected error for duplicate key")
 	}
 }
 
 func TestBuildRegistry_Empty(t *testing.T) {
-	_, err := buildRegistry(nil)
+	_, err := workflow.NewStatusRegistry(nil)
 	if err == nil {
 		t.Error("expected error for empty statuses")
 	}
 }
 
 func TestBuildRegistry_DefaultFallsToFirst(t *testing.T) {
-	defs := []StatusDef{
+	defs := []workflow.StatusDef{
 		{Key: "alpha", Label: "Alpha"},
 		{Key: "beta", Label: "Beta"},
 	}
-	reg, err := buildRegistry(defs)
+	reg, err := workflow.NewStatusRegistry(defs)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -343,5 +345,17 @@ func TestRegistry_IsDone(t *testing.T) {
 	}
 	if reg.IsDone("backlog") {
 		t.Error("expected 'backlog' to not be marked as done")
+	}
+}
+
+func TestGetTypeRegistry(t *testing.T) {
+	setupTestRegistry(t, defaultTestStatuses())
+	reg := GetTypeRegistry()
+
+	if !reg.IsValid("story") {
+		t.Error("expected 'story' to be valid")
+	}
+	if !reg.IsValid("bug") {
+		t.Error("expected 'bug' to be valid")
 	}
 }

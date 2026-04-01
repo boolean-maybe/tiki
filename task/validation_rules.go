@@ -2,7 +2,6 @@ package task
 
 import (
 	"fmt"
-	"slices"
 	"strings"
 	"time"
 
@@ -58,15 +57,8 @@ func (v *StatusValidator) ValidateField(task *Task) *ValidationError {
 type TypeValidator struct{}
 
 func (v *TypeValidator) ValidateField(task *Task) *ValidationError {
-	validTypes := []Type{
-		TypeStory,
-		TypeBug,
-		TypeSpike,
-		TypeEpic,
-	}
-
-	if slices.Contains(validTypes, task.Type) {
-		return nil // Valid
+	if currentTypeRegistry().IsValid(task.Type) {
+		return nil
 	}
 
 	return &ValidationError{
