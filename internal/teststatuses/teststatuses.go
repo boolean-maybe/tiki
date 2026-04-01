@@ -1,11 +1,14 @@
 package teststatuses
 
-import "github.com/boolean-maybe/tiki/config"
+import (
+	"github.com/boolean-maybe/tiki/config"
+	"github.com/boolean-maybe/tiki/workflow"
+)
 
 // Init registers the canonical test status set.
 // Call this from init() in each package's testinit_test.go.
 func Init() {
-	config.ResetStatusRegistry([]config.StatusDef{
+	config.ResetStatusRegistry([]workflow.StatusDef{
 		{Key: "backlog", Label: "Backlog", Emoji: "📥", Default: true},
 		{Key: "ready", Label: "Ready", Emoji: "📋", Active: true},
 		{Key: "in_progress", Label: "In Progress", Emoji: "⚙️", Active: true},

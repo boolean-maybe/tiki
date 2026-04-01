@@ -6,11 +6,12 @@ import (
 	"time"
 
 	"github.com/boolean-maybe/tiki/config"
+	"github.com/boolean-maybe/tiki/workflow"
 )
 
 func init() {
-	// Set up the default status registry for tests.
-	config.ResetStatusRegistry([]config.StatusDef{
+	// set up the default status registry for tests.
+	config.ResetStatusRegistry([]workflow.StatusDef{
 		{Key: "backlog", Label: "Backlog", Emoji: "📥", Default: true},
 		{Key: "ready", Label: "Ready", Emoji: "📋", Active: true},
 		{Key: "in_progress", Label: "In Progress", Emoji: "⚙️", Active: true},
