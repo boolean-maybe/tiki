@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log/slog"
 	"os"
+	"os/exec"
 
 	"github.com/boolean-maybe/tiki/config"
 	"github.com/boolean-maybe/tiki/internal/app"
@@ -39,6 +40,14 @@ func main() {
 		return
 	}
 
+	// Handle demo command — must run before InitPaths so that os.Chdir takes effect
+	if len(os.Args) > 1 && os.Args[1] == "demo" {
+		if err := runDemo(); err != nil {
+			_, _ = fmt.Fprintln(os.Stderr, "error:", err)
+			os.Exit(1)
+		}
+	}
+
 	// Initialize paths early - this must succeed for the application to function
 	if err := config.InitPaths(); err != nil {
 		_, _ = fmt.Fprintln(os.Stderr, "error:", err)
@@ -61,7 +70,7 @@ func main() {
 
 	// Handle viewer mode (standalone markdown viewer)
 	// "init" is reserved to prevent treating it as a markdown file
-	viewerInput, runViewer, err := viewer.ParseViewerInput(os.Args[1:], map[string]struct{}{"init": {}})
+	viewerInput, runViewer, err := viewer.ParseViewerInput(os.Args[1:], map[string]struct{}{"init": {}, "demo": {}})
 	if err != nil {
 		if errors.Is(err, viewer.ErrMultipleInputs) {
 			_, _ = fmt.Fprintln(os.Stderr, "error:", err)
@@ -131,6 +140,31 @@ func runSysInfo() error {
 	return nil
 }
 
+const demoRepoURL = "https://github.com/boolean-maybe/tiki-demo.git"
+const demoDirName = "tiki-demo"
+
+// runDemo clones the demo repository if needed and changes into it.
+// Must be called before config.InitPaths() so the PathManager captures the demo dir as project root.
+func runDemo() error {
+	info, err := os.Stat(demoDirName)
+	if err == nil && info.IsDir() {
+		fmt.Printf("using existing %s directory\n", demoDirName)
+	} else {
+		fmt.Printf("cloning demo project into %s...\n", demoDirName)
+		//nolint:gosec // G204: fixed URL, not user-controlled
+		cmd := exec.Command("git", "clone", demoRepoURL)
+		cmd.Stdout = os.Stdout
+		cmd.Stderr = os.Stderr
+		if err := cmd.Run(); err != nil {
+			return fmt.Errorf("git clone failed: %w", err)
+		}
+	}
+	if err := os.Chdir(demoDirName); err != nil {
+		return fmt.Errorf("change to demo directory: %w", err)
+	}
+	return nil
+}
+
 // printUsage prints usage information when tiki is run in an uninitialized repo.
 func printUsage() {
 	fmt.Print(`tiki - Terminal-based task and documentation management
@@ -138,6 +172,7 @@ func printUsage() {
 Usage:
   tiki                  Launch TUI in initialized repo
   tiki init             Initialize project in current git repo
+  tiki demo             Clone demo project and launch TUI
   tiki file.md/URL      View markdown file or image
   echo "Title" | tiki   Create task from piped input
   tiki sysinfo          Display system information

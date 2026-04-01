@@ -101,6 +101,14 @@ All vim-like pager commands are supported in addition to:
 
 <img src=".doc/doki/doc/kanban.gif" alt="Kanban demo" width="800">
 
+to try with a demo project just run:
+
+```
+cd /tmp && tiki demo
+```
+
+this will clone and show a demo project. Once done you can try your own:
+
 `cd` into your **git** repo and run `tiki init` to initialize.
 Move your tiki around the board with `Shift ←/Shift →`.
 Make sure to press `?` for help.
