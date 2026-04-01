@@ -67,16 +67,17 @@ AI skills extend your AI assistant with commands to manage tasks and documentati
 Select AI assistants to install (optional), then press Enter to continue.
 Press Esc to cancel project initialization.`
 
+	options := make([]huh.Option[string], 0, len(AITools()))
+	for _, t := range AITools() {
+		options = append(options, huh.NewOption(fmt.Sprintf("%s (%s/)", t.DisplayName, t.SkillDir), t.Key))
+	}
+
 	form := huh.NewForm(
 		huh.NewGroup(
 			huh.NewMultiSelect[string]().
 				Title("Initialize project").
 				Description(description).
-				Options(
-					huh.NewOption("Claude Code (.claude/skills/)", "claude"),
-					huh.NewOption("OpenAI Codex (.codex/skills/)", "codex"),
-					huh.NewOption("OpenCode (.opencode/skill/)", "opencode"),
-				).
+				Options(options...).
 				Filterable(false).
 				Value(&selectedAITools),
 		),
@@ -144,55 +145,32 @@ func installAISkills(selectedTools []string, tikiSkillMdContent, dokiSkillMdCont
 		return fmt.Errorf("embedded doki SKILL.md content is empty")
 	}
 
-	// Define target paths for both tiki and doki skills
-	type skillPaths struct {
-		tiki string
-		doki string
-	}
-
-	toolPaths := map[string]skillPaths{
-		"claude": {
-			tiki: ".claude/skills/tiki/SKILL.md",
-			doki: ".claude/skills/doki/SKILL.md",
-		},
-		"codex": {
-			tiki: ".codex/skills/tiki/SKILL.md",
-			doki: ".codex/skills/doki/SKILL.md",
-		},
-		"opencode": {
-			tiki: ".opencode/skill/tiki/SKILL.md",
-			doki: ".opencode/skill/doki/SKILL.md",
-		},
-	}
-
 	var errs []error
-	for _, tool := range selectedTools {
-		paths, ok := toolPaths[tool]
+	for _, toolKey := range selectedTools {
+		tool, ok := LookupAITool(toolKey)
 		if !ok {
-			errs = append(errs, fmt.Errorf("unknown tool: %s", tool))
+			errs = append(errs, fmt.Errorf("unknown tool: %s", toolKey))
 			continue
 		}
 
-		// Install tiki skill
-		tikiDir := filepath.Dir(paths.tiki)
-		//nolint:gosec // G301: 0755 is appropriate for user-owned skill directories
-		if err := os.MkdirAll(tikiDir, 0755); err != nil {
-			errs = append(errs, fmt.Errorf("failed to create tiki directory for %s: %w", tool, err))
-		} else if err := os.WriteFile(paths.tiki, []byte(tikiSkillMdContent), 0644); err != nil {
-			errs = append(errs, fmt.Errorf("failed to write tiki SKILL.md for %s: %w", tool, err))
-		} else {
-			slog.Info("installed tiki AI skill", "tool", tool, "path", paths.tiki)
-		}
-
-		// Install doki skill
-		dokiDir := filepath.Dir(paths.doki)
-		//nolint:gosec // G301: 0755 is appropriate for user-owned skill directories
-		if err := os.MkdirAll(dokiDir, 0755); err != nil {
-			errs = append(errs, fmt.Errorf("failed to create doki directory for %s: %w", tool, err))
-		} else if err := os.WriteFile(paths.doki, []byte(dokiSkillMdContent), 0644); err != nil {
-			errs = append(errs, fmt.Errorf("failed to write doki SKILL.md for %s: %w", tool, err))
-		} else {
-			slog.Info("installed doki AI skill", "tool", tool, "path", paths.doki)
+		// install each skill type (tiki, doki)
+		for _, skill := range []struct {
+			name    string
+			content string
+		}{
+			{"tiki", tikiSkillMdContent},
+			{"doki", dokiSkillMdContent},
+		} {
+			path := tool.SkillPath(skill.name)
+			dir := filepath.Dir(path)
+			//nolint:gosec // G301: 0755 is appropriate for user-owned skill directories
+			if err := os.MkdirAll(dir, 0755); err != nil {
+				errs = append(errs, fmt.Errorf("failed to create %s directory for %s: %w", skill.name, toolKey, err))
+			} else if err := os.WriteFile(path, []byte(skill.content), 0644); err != nil {
+				errs = append(errs, fmt.Errorf("failed to write %s SKILL.md for %s: %w", skill.name, toolKey, err))
+			} else {
+				slog.Info("installed AI skill", "tool", toolKey, "skill", skill.name, "path", path)
+			}
 		}
 	}
 

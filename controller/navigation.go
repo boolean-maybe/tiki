@@ -2,6 +2,8 @@ package controller
 
 import (
 	"log/slog"
+	"os"
+	"os/exec"
 
 	"github.com/boolean-maybe/tiki/model"
 	"github.com/boolean-maybe/tiki/util"
@@ -19,6 +21,7 @@ type NavigationController struct {
 	activeViewGetter func() View                                              // returns the currently displayed view from RootLayout
 	onViewChanged    func(viewID model.ViewID, params map[string]interface{}) // callback when view changes (for layoutModel sync)
 	editorOpener     func(string) error
+	commandRunner    func(name string, args ...string) error
 }
 
 // NewNavigationController creates a navigation controller
@@ -144,4 +147,33 @@ func (nc *NavigationController) SuspendAndEdit(filePath string) {
 			slog.Error("failed to open editor", "file", filePath, "error", err)
 		}
 	})
+}
+
+// SetCommandRunner overrides the default command runner (useful for tests).
+func (nc *NavigationController) SetCommandRunner(runner func(name string, args ...string) error) {
+	nc.commandRunner = runner
+}
+
+// SuspendAndRun suspends the tview application and runs the specified command.
+// The command runs with stdin/stdout/stderr connected to the terminal.
+// After the command exits, the application resumes and redraws.
+func (nc *NavigationController) SuspendAndRun(name string, args ...string) {
+	nc.app.Suspend(func() {
+		runner := nc.commandRunner
+		if runner == nil {
+			runner = defaultRunCommand
+		}
+		if err := runner(name, args...); err != nil {
+			slog.Error("command failed", "command", name, "error", err)
+		}
+	})
+}
+
+// defaultRunCommand runs a command with stdin/stdout/stderr connected to the terminal.
+func defaultRunCommand(name string, args ...string) error {
+	cmd := exec.Command(name, args...) //nolint:gosec // G204: args are constructed internally by resolveAgentCommand, not from user input
+	cmd.Stdin = os.Stdin
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	return cmd.Run()
 }

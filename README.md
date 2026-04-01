@@ -4,6 +4,18 @@ Follow me on X: [![X Badge](https://img.shields.io/badge/-%23000000.svg?style=fl
 
 UPDATE:
 
+New `chat with AI` action - open a tiki and press `c - Chat`. Opens your preferred terminal coding agent like
+[Claude Code](https://code.claude.com) and loads tiki description. You can chat or edit the tiki with your agent
+
+
+Agent must be configured in `config.yaml`:
+```yaml
+ai:
+  agent: [claude, codex, gemini, opencode]
+```
+
+UPDATE:
+
 Now support images and Mermaid diagrams in Kitty-compatible terminals (iTerm2, Kitty, WezTerm, Ghostty)
 
 ![Intro](assets/images.gif)
@@ -33,7 +45,7 @@ and take them through an agile lifecycle. `tiki` helps you save and organize the
 - Keep a **to-do list** with priorities, status, assignee and size
 - Issue management with **Kanban/Scrum** style board and burndown chart
 - **Plugin-first** architecture - user-defined plugins with filters and actions like Backlog, Recent, Roadmap
-- AI **skills** to enable [Claude Code](https://code.claude.com), [Codex](https://openai.com/codex), [Opencode](https://opencode.ai) work with natural language commands like
+- AI **skills** to enable [Claude Code](https://code.claude.com), [Gemini CLI](https://github.com/google-gemini/gemini-cli), [Codex](https://openai.com/codex), [Opencode](https://opencode.ai) work with natural language commands like
   "_create a tiki from @my-file.md_"
   "_mark tiki ABC123 as complete_"
 
@@ -95,8 +107,9 @@ Make sure to press `?` for help.
 Press `F1` to open a sample doc root. Follow links with `Tab/Enter`
 
 ### AI skills
-You will be prompted to install skills for 
+You will be prompted to install skills for
 - [Claude Code](https://code.claude.com)
+- [Gemini CLI](https://github.com/google-gemini/gemini-cli)
 - [Codex](https://openai.com/codex)
 - [Opencode](https://opencode.ai)
 
@@ -149,7 +162,7 @@ Read more by pressing `?` for help
 `tiki` adds optional [agent skills](https://agentskills.io/home) to the repo upon initialization
 If installed you can:
 
-- work with [Claude Code](https://code.claude.com), [Codex](https://openai.com/codex), [Opencode](https://opencode.ai) by simply mentioning `tiki` or `doki` in your prompts
+- work with [Claude Code](https://code.claude.com), [Gemini CLI](https://github.com/google-gemini/gemini-cli), [Codex](https://openai.com/codex), [Opencode](https://opencode.ai) by simply mentioning `tiki` or `doki` in your prompts
 - create, find, modify and delete tikis using AI
 - create tikis/dokis directly from Markdown files
 - Refer to tikis or dokis when implementing with AI-assisted development - `implement tiki xxxxxxx`

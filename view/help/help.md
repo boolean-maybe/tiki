@@ -30,7 +30,7 @@ The documentation can be organized using Markdown links and navigated in the `ti
 ## AI
 
 Since Markdown is an AI-native format issues and documentation can easily be created and maintained using AI tools.
-tiki can optionally install skills to enable AI tools such as `claude`, `codex` or `opencode` to understand its
+tiki can optionally install skills to enable AI tools such as `claude`, `gemini`, `codex` or `opencode` to understand its
 format. Try:
 
 >create a tiki from @my-markdown.md with title "Fix UI bug"

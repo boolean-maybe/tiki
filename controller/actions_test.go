@@ -6,6 +6,7 @@ import (
 	"github.com/boolean-maybe/tiki/model"
 
 	"github.com/gdamore/tcell/v2"
+	"github.com/spf13/viper"
 )
 
 func TestActionRegistry_Merge(t *testing.T) {
@@ -504,6 +505,42 @@ func TestTaskDetailViewActions_HasEditDesc(t *testing.T) {
 	}
 	if action.ID != ActionEditDesc {
 		t.Errorf("expected ActionEditDesc, got %v", action.ID)
+	}
+}
+
+func TestTaskDetailViewActions_NoChatWithoutConfig(t *testing.T) {
+	// ensure ai.agent is not set
+	viper.Set("ai.agent", "")
+	defer viper.Set("ai.agent", "")
+
+	registry := TaskDetailViewActions()
+	_, found := registry.LookupRune('c')
+	if found {
+		t.Error("chat action should not be registered when ai.agent is empty")
+	}
+}
+
+func TestTaskDetailViewActions_ChatWithConfig(t *testing.T) {
+	viper.Set("ai.agent", "claude")
+	defer viper.Set("ai.agent", "")
+
+	registry := TaskDetailViewActions()
+
+	action, found := registry.LookupRune('c')
+	if !found {
+		t.Fatal("chat action should be registered when ai.agent is configured")
+	}
+	if action.ID != ActionChat {
+		t.Errorf("expected ActionChat, got %v", action.ID)
+	}
+	if !action.ShowInHeader {
+		t.Error("chat action should be shown in header")
+	}
+
+	// total count should be 7 (6 base + chat)
+	actions := registry.GetActions()
+	if len(actions) != 7 {
+		t.Errorf("expected 7 actions with ai.agent configured, got %d", len(actions))
 	}
 }
 

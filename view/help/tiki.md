@@ -46,7 +46,7 @@ The `.doc/` directory contains two main subdirectories:
 Tiki files are saved in `.doc/tiki` directory and can be managed via:
 
 - `tiki` cli
-- AI tools such as `claude`, `codex` or `opencode`
+- AI tools such as `claude`, `gemini`, `codex` or `opencode`
 - manually
 
 A tiki is made of its frontmatter that includes all fields related to a tiki status and types and its description

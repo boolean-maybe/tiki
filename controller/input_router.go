@@ -2,6 +2,8 @@ package controller
 
 import (
 	"log/slog"
+	"path/filepath"
+	"strings"
 
 	"github.com/boolean-maybe/tiki/config"
 	"github.com/boolean-maybe/tiki/model"
@@ -385,6 +387,21 @@ func (ir *InputRouter) handleTaskInput(event *tcell.EventKey, params map[string]
 				return false
 			}
 			return ir.openDepsEditor(taskID)
+		case ActionChat:
+			agent := config.GetAIAgent()
+			if agent == "" {
+				return false
+			}
+			taskID := ir.taskController.GetCurrentTaskID()
+			if taskID == "" {
+				return false
+			}
+			filename := strings.ToLower(taskID) + ".md"
+			taskFilePath := filepath.Join(config.GetTaskDir(), filename)
+			name, args := resolveAgentCommand(agent, taskFilePath)
+			ir.navController.SuspendAndRun(name, args...)
+			_ = ir.taskStore.ReloadTask(taskID)
+			return true
 		default:
 			return ir.taskController.HandleAction(action.ID)
 		}

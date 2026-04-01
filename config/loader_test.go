@@ -345,6 +345,61 @@ header:
 	}
 }
 
+func TestLoadConfigAIAgent(t *testing.T) {
+	tmpDir := t.TempDir()
+	configPath := filepath.Join(tmpDir, "config.yaml")
+
+	configContent := `
+ai:
+  agent: claude
+`
+	if err := os.WriteFile(configPath, []byte(configContent), 0644); err != nil {
+		t.Fatalf("failed to create test config: %v", err)
+	}
+
+	originalDir, _ := os.Getwd()
+	defer func() { _ = os.Chdir(originalDir) }()
+	_ = os.Chdir(tmpDir)
+
+	t.Setenv("XDG_CONFIG_HOME", tmpDir)
+	appConfig = nil
+	ResetPathManager()
+
+	cfg, err := LoadConfig()
+	if err != nil {
+		t.Fatalf("LoadConfig failed: %v", err)
+	}
+
+	if cfg.AI.Agent != "claude" {
+		t.Errorf("expected ai.agent 'claude', got '%s'", cfg.AI.Agent)
+	}
+	if got := GetAIAgent(); got != "claude" {
+		t.Errorf("GetAIAgent() = '%s', want 'claude'", got)
+	}
+}
+
+func TestLoadConfigAIAgentDefault(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	originalDir, _ := os.Getwd()
+	defer func() { _ = os.Chdir(originalDir) }()
+	_ = os.Chdir(tmpDir)
+
+	appConfig = nil
+
+	cfg, err := LoadConfig()
+	if err != nil {
+		t.Fatalf("LoadConfig failed: %v", err)
+	}
+
+	if cfg.AI.Agent != "" {
+		t.Errorf("expected empty ai.agent by default, got '%s'", cfg.AI.Agent)
+	}
+	if got := GetAIAgent(); got != "" {
+		t.Errorf("GetAIAgent() = '%s', want ''", got)
+	}
+}
+
 func TestGetConfig(t *testing.T) {
 	// Reset appConfig
 	appConfig = nil

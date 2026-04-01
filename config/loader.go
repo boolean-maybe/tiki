@@ -52,6 +52,11 @@ type Config struct {
 			Border     string `mapstructure:"border"`     // hex "#6272a4" or ANSI "244"
 		} `mapstructure:"codeBlock"`
 	} `mapstructure:"appearance"`
+
+	// AI agent configuration — valid keys defined in aitools.go via AITools()
+	AI struct {
+		Agent string `mapstructure:"agent"`
+	} `mapstructure:"ai"`
 }
 
 var appConfig *Config
@@ -409,4 +414,9 @@ func GetCodeBlockBackground() string {
 // GetCodeBlockBorder returns the border color for code blocks
 func GetCodeBlockBorder() string {
 	return viper.GetString("appearance.codeBlock.border")
+}
+
+// GetAIAgent returns the configured AI agent tool name, or empty string if not configured
+func GetAIAgent() string {
+	return viper.GetString("ai.agent")
 }

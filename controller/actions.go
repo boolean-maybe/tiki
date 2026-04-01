@@ -1,6 +1,7 @@
 package controller
 
 import (
+	"github.com/boolean-maybe/tiki/config"
 	"github.com/boolean-maybe/tiki/model"
 
 	"github.com/gdamore/tcell/v2"
@@ -41,6 +42,7 @@ const (
 	ActionCloneTask  ActionID = "clone_task"
 	ActionEditDeps   ActionID = "edit_deps"
 	ActionEditTags   ActionID = "edit_tags"
+	ActionChat       ActionID = "chat"
 )
 
 // ActionID values for task edit view actions.
@@ -297,6 +299,10 @@ func TaskDetailViewActions() *ActionRegistry {
 	r.Register(Action{ID: ActionFullscreen, Key: tcell.KeyRune, Rune: 'f', Label: "Full screen", ShowInHeader: true})
 	r.Register(Action{ID: ActionEditDeps, Key: tcell.KeyCtrlD, Modifier: tcell.ModCtrl, Label: "Dependencies", ShowInHeader: true})
 	r.Register(Action{ID: ActionEditTags, Key: tcell.KeyRune, Rune: 'T', Label: "Edit tags", ShowInHeader: true})
+
+	if config.GetAIAgent() != "" {
+		r.Register(Action{ID: ActionChat, Key: tcell.KeyRune, Rune: 'c', Label: "Chat", ShowInHeader: true})
+	}
 
 	return r
 }
