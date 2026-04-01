@@ -31,6 +31,12 @@ func main() {
 		os.Exit(0)
 	}
 
+	// Handle help flag
+	if len(os.Args) > 1 && (os.Args[1] == "--help" || os.Args[1] == "-h") {
+		printUsage()
+		os.Exit(0)
+	}
+
 	// Handle sysinfo command
 	if len(os.Args) > 1 && os.Args[1] == "sysinfo" {
 		if err := runSysInfo(); err != nil {
@@ -176,7 +182,11 @@ Usage:
   tiki file.md/URL      View markdown file or image
   echo "Title" | tiki   Create task from piped input
   tiki sysinfo          Display system information
-  tiki --version        Show version
+  tiki --help            Show this help message
+  tiki --version         Show version
+
+Options:
+  --log-level <level>   Set log level (debug, info, warn, error)
 
 Run 'tiki init' to initialize this repository.
 `)

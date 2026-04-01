@@ -104,6 +104,8 @@ func TestHasPositionalArgs(t *testing.T) {
 	}{
 		{name: "empty args", args: nil, want: false},
 		{name: "flags only", args: []string{"--version"}, want: false},
+		{name: "help flag only", args: []string{"--help"}, want: false},
+		{name: "short help flag only", args: []string{"-h"}, want: false},
 		{name: "log-level flag with value", args: []string{"--log-level", "debug"}, want: false},
 		{name: "log-level=value", args: []string{"--log-level=debug"}, want: false},
 		{name: "positional file", args: []string{"file.md"}, want: true},

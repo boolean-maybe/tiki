@@ -113,7 +113,7 @@ func collectPositionalArgs(args []string) ([]string, error) {
 			if strings.HasPrefix(arg, "--log-level=") {
 				continue
 			}
-			if arg == "-v" || arg == "--version" {
+			if arg == "-v" || arg == "--version" || arg == "-h" || arg == "--help" {
 				continue
 			}
 			return nil, fmt.Errorf("%w: %s", ErrUnknownFlag, arg)

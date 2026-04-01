@@ -9,7 +9,12 @@ All vim-like pager commands are supported in addition to:
 
 ## File and issue management
 
-`cd` into your **git** repo and run `tiki init` to initialize.
+`cd` into your **git** repo and run `tiki init` to initialize
+Or you can also check out a demo project and play around:
+```
+cd /tmp && tiki demo
+```
+
 Move your tiki around the board with `Shift ←/Shift →`.
 Make sure to press `?` for help.
 Press `F1` to open a sample doc root. Follow links with `Tab/Enter`

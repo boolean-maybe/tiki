@@ -84,6 +84,7 @@ make build install
 ### Verify installation
 ```bash
 tiki --version
+tiki --help
 ```
 
 ## Quick start

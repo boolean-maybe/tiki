@@ -223,6 +223,18 @@ func TestCollectPositionalArgsVersionFlag(t *testing.T) {
 	}
 }
 
+func TestCollectPositionalArgsHelpFlag(t *testing.T) {
+	for _, flag := range []string{"-h", "--help"} {
+		got, err := collectPositionalArgs([]string{flag, "file.md"})
+		if err != nil {
+			t.Fatalf("%s: unexpected error: %v", flag, err)
+		}
+		if len(got) != 1 || got[0] != "file.md" {
+			t.Fatalf("%s: expected [file.md], got %v", flag, got)
+		}
+	}
+}
+
 func TestCollectPositionalArgsLogLevelInvalidValueNotSkipped(t *testing.T) {
 	// --log-level followed by non-log-level value — next arg should NOT be skipped
 	got, err := collectPositionalArgs([]string{"--log-level", "notavalidlevel", "file.md"})
