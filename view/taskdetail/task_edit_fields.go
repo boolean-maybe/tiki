@@ -33,11 +33,10 @@ func (ev *TaskEditView) ensureStatusSelectList(task *taskpkg.Task) *component.Ed
 
 func (ev *TaskEditView) ensureTypeSelectList(task *taskpkg.Task) *component.EditSelectList {
 	if ev.typeSelectList == nil {
-		typeOptions := []string{
-			taskpkg.TypeDisplay(taskpkg.TypeStory),
-			taskpkg.TypeDisplay(taskpkg.TypeBug),
-			taskpkg.TypeDisplay(taskpkg.TypeSpike),
-			taskpkg.TypeDisplay(taskpkg.TypeEpic),
+		allTypes := taskpkg.AllTypes()
+		typeOptions := make([]string, len(allTypes))
+		for i, t := range allTypes {
+			typeOptions[i] = taskpkg.TypeDisplay(t)
 		}
 
 		colors := config.GetColors()

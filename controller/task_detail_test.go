@@ -222,7 +222,7 @@ func TestTaskController_SaveType(t *testing.T) {
 			setupTask: func(tc *TaskController, s store.Store) {
 				tc.SetDraft(newTestTask())
 			},
-			typeDisplay: "Bug",
+			typeDisplay: task.TypeDisplay(task.TypeBug),
 			wantType:    task.TypeBug,
 			wantSuccess: true,
 		},
@@ -233,25 +233,25 @@ func TestTaskController_SaveType(t *testing.T) {
 				_ = s.CreateTask(t)
 				tc.StartEditSession(t.ID)
 			},
-			typeDisplay: "Spike",
+			typeDisplay: task.TypeDisplay(task.TypeSpike),
 			wantType:    task.TypeSpike,
 			wantSuccess: true,
 		},
 		{
-			name: "invalid type normalizes to default",
+			name: "invalid type is rejected",
 			setupTask: func(tc *TaskController, s store.Store) {
 				tc.SetDraft(newTestTask())
 			},
 			typeDisplay: "InvalidType",
-			wantType:    task.TypeStory, // NormalizeType defaults to story
-			wantSuccess: true,
+			wantType:    task.TypeStory, // task type unchanged from setup
+			wantSuccess: false,
 		},
 		{
 			name: "no active task",
 			setupTask: func(tc *TaskController, s store.Store) {
 				// Don't set up any task
 			},
-			typeDisplay: "Story",
+			typeDisplay: task.TypeDisplay(task.TypeStory),
 			wantSuccess: false,
 		},
 	}

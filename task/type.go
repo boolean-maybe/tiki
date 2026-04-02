@@ -64,3 +64,14 @@ func TypeEmoji(taskType Type) string {
 func TypeDisplay(taskType Type) string {
 	return currentTypeRegistry().TypeDisplay(taskType)
 }
+
+// ParseDisplay reverses a TypeDisplay() string back to a canonical key.
+// Returns (key, true) on match, or (fallback, false) for unrecognized display strings.
+func ParseDisplay(display string) (Type, bool) {
+	return currentTypeRegistry().ParseDisplay(display)
+}
+
+// AllTypes returns the ordered list of all configured type keys.
+func AllTypes() []Type {
+	return currentTypeRegistry().Keys()
+}
