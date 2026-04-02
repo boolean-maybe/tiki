@@ -312,25 +312,11 @@ func (tc *TaskController) SaveStatus(statusDisplay string) bool {
 // SaveType saves the new type to the current task after validating the display value.
 // Returns true if the type was successfully updated, false otherwise.
 func (tc *TaskController) SaveType(typeDisplay string) bool {
-	// Parse type display back to TaskType
-	var newType taskpkg.Type
-	typeFound := false
-
-	for _, t := range []taskpkg.Type{
-		taskpkg.TypeStory,
-		taskpkg.TypeBug,
-		taskpkg.TypeSpike,
-		taskpkg.TypeEpic,
-	} {
-		if taskpkg.TypeDisplay(t) == typeDisplay {
-			newType = t
-			typeFound = true
-			break
-		}
-	}
-
-	if !typeFound {
-		newType = taskpkg.NormalizeType(typeDisplay)
+	// reverse the display string ("Bug 💥") back to a canonical key ("bug")
+	newType, ok := taskpkg.ParseDisplay(typeDisplay)
+	if !ok {
+		slog.Warn("unrecognized type display", "display", typeDisplay)
+		return false
 	}
 
 	// Validate using TypeValidator

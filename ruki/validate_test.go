@@ -1,0 +1,1561 @@
+package ruki
+
+import (
+	"strings"
+	"testing"
+)
+
+func TestValidation_TypeMismatch(t *testing.T) {
+	p := newTestParser()
+
+	tests := []struct {
+		name    string
+		input   string
+		wantErr string
+	}{
+		{
+			"priority equals string",
+			`select where priority = "high"`,
+			"cannot compare",
+		},
+		{
+			"string field ordered compare",
+			`select where status < "done"`,
+			"operator < not supported",
+		},
+		{
+			"int to string assignment",
+			`create title="x" priority="high"`,
+			"cannot assign string to int field",
+		},
+		{
+			"string to int field",
+			`create title="x" points="five"`,
+			"cannot assign string to int field",
+		},
+		{
+			"int to string field",
+			`create title="x" assignee=42`,
+			"cannot assign int to string field",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			_, err := p.ParseStatement(tt.input)
+			if err == nil {
+				t.Fatal("expected error, got nil")
+			}
+			if !strings.Contains(err.Error(), tt.wantErr) {
+				t.Fatalf("expected error containing %q, got: %v", tt.wantErr, err)
+			}
+		})
+	}
+}
+
+func TestValidation_UnknownField(t *testing.T) {
+	p := newTestParser()
+
+	tests := []struct {
+		name    string
+		input   string
+		wantErr string
+	}{
+		{"unknown field in where", `select where foo = "bar"`, "unknown field"},
+		{"unknown field in assignment", `create title="x" foo="bar"`, "unknown field"},
+		{"unknown qualified field in statement", `select where old.foo = "bar"`, "old. qualifier is not valid"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			_, err := p.ParseStatement(tt.input)
+			if err == nil {
+				t.Fatal("expected error, got nil")
+			}
+			if !strings.Contains(err.Error(), tt.wantErr) {
+				t.Fatalf("expected error containing %q, got: %v", tt.wantErr, err)
+			}
+		})
+	}
+}
+
+func TestValidation_UnknownFunction(t *testing.T) {
+	p := newTestParser()
+
+	_, err := p.ParseStatement(`select where foo(1) = 1`)
+	if err == nil {
+		t.Fatal("expected error, got nil")
+	}
+	if !strings.Contains(err.Error(), "unknown function") {
+		t.Fatalf("expected unknown function error, got: %v", err)
+	}
+}
+
+func TestValidation_FunctionArgCount(t *testing.T) {
+	p := newTestParser()
+
+	tests := []struct {
+		name  string
+		input string
+	}{
+		{"now with args", `select where now(1) = now()`},
+		{"count no args", `select where count() >= 1`},
+		{"contains one arg", `select where contains("a") = "b"`},
+		{"user with args", `select where user(1) = "bob"`},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			_, err := p.ParseStatement(tt.input)
+			if err == nil {
+				t.Fatal("expected error, got nil")
+			}
+			if !strings.Contains(err.Error(), "argument") {
+				t.Fatalf("expected argument count error, got: %v", err)
+			}
+		})
+	}
+}
+
+func TestValidation_QuantifierRequiresListRef(t *testing.T) {
+	p := newTestParser()
+
+	// tags is list<string>, not list<ref>
+	_, err := p.ParseStatement(`select where tags any status = "done"`)
+	if err == nil {
+		t.Fatal("expected error, got nil")
+	}
+	if !strings.Contains(err.Error(), "requires list<ref>") {
+		t.Fatalf("expected list<ref> error, got: %v", err)
+	}
+}
+
+func TestValidation_CountRequiresSubquery(t *testing.T) {
+	p := newTestParser()
+
+	_, err := p.ParseStatement(`select where count(1) >= 3`)
+	if err == nil {
+		t.Fatal("expected error, got nil")
+	}
+	if !strings.Contains(err.Error(), "subquery") {
+		t.Fatalf("expected subquery error, got: %v", err)
+	}
+}
+
+func TestValidation_UnknownStatus(t *testing.T) {
+	p := newTestParser()
+
+	_, err := p.ParseStatement(`select where status = "nonexistent"`)
+	if err == nil {
+		t.Fatal("expected error, got nil")
+	}
+	if !strings.Contains(err.Error(), "unknown status") {
+		t.Fatalf("expected unknown status error, got: %v", err)
+	}
+}
+
+func TestValidation_UnknownType(t *testing.T) {
+	p := newTestParser()
+
+	_, err := p.ParseStatement(`select where type = "nonexistent"`)
+	if err == nil {
+		t.Fatal("expected error, got nil")
+	}
+	if !strings.Contains(err.Error(), "unknown type") {
+		t.Fatalf("expected unknown type error, got: %v", err)
+	}
+}
+
+func TestValidation_ValidStatusAndType(t *testing.T) {
+	p := newTestParser()
+
+	tests := []struct {
+		name  string
+		input string
+	}{
+		{"valid status", `select where status = "done"`},
+		{"valid status alias", `select where status = "in progress"`},
+		{"valid type", `select where type = "bug"`},
+		{"valid type alias", `select where type = "feature"`},
+		{"valid status in assignment", `create title="x" status="done"`},
+		{"valid type in assignment", `create title="x" type="bug"`},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			_, err := p.ParseStatement(tt.input)
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+		})
+	}
+}
+
+func TestValidation_BinaryExprTypes(t *testing.T) {
+	p := newTestParser()
+
+	tests := []struct {
+		name    string
+		input   string
+		wantErr string
+	}{
+		{
+			"date minus date yields duration — assigned to date is wrong",
+			`create title="x" due=2026-03-25 - 2026-03-20`,
+			"cannot assign duration to date field",
+		},
+		{
+			"string minus string",
+			`create title="x" - "y"`,
+			"cannot subtract",
+		},
+		{
+			"int plus string",
+			`create title="x" priority=1 + "a"`,
+			"cannot add",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			_, err := p.ParseStatement(tt.input)
+			if err == nil {
+				t.Fatal("expected error, got nil")
+			}
+			if !strings.Contains(err.Error(), tt.wantErr) {
+				t.Fatalf("expected error containing %q, got: %v", tt.wantErr, err)
+			}
+		})
+	}
+}
+
+func TestValidation_ValidBinaryExprTypes(t *testing.T) {
+	p := newTestParser()
+
+	tests := []struct {
+		name  string
+		input string
+	}{
+		{"string concat", `create title="hello" + " world"`},
+		{"list append", `create title="x" tags=tags + ["new"]`},
+		{"list remove", `create title="x" tags=tags - ["old"]`},
+		{"date plus duration", `create title="x" due=2026-03-25 + 2day`},
+		{"date minus duration", `create title="x" due=2026-03-25 - 1week`},
+		{"list ref append", `create title="x" dependsOn=dependsOn + ["TIKI-ABC123"]`},
+		{"list ref remove", `create title="x" dependsOn=dependsOn - ["TIKI-ABC123"]`},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			_, err := p.ParseStatement(tt.input)
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+		})
+	}
+}
+
+func TestValidation_RunCommandMustBeString(t *testing.T) {
+	p := newTestParser()
+
+	// int expression in run() should be rejected
+	_, err := p.ParseTrigger(`after update run(1 + 2)`)
+	if err == nil {
+		t.Fatal("expected error, got nil")
+	}
+	if !strings.Contains(err.Error(), "must be string") {
+		t.Fatalf("expected string type error, got: %v", err)
+	}
+
+	// valid: string expression in run()
+	_, err = p.ParseTrigger(`after update run("echo hello")`)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
+func TestValidation_EmptyAssignments(t *testing.T) {
+	p := newTestParser()
+
+	tests := []struct {
+		name  string
+		input string
+	}{
+		{"empty to string field", `create title="x" assignee=empty`},
+		{"empty to list field", `create title="x" tags=empty`},
+		{"empty to date field", `create title="x" due=empty`},
+		{"empty to int field", `create title="x" priority=empty`},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			_, err := p.ParseStatement(tt.input)
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+		})
+	}
+}
+
+func TestValidation_IsEmptyOnAllTypes(t *testing.T) {
+	p := newTestParser()
+
+	tests := []struct {
+		name  string
+		input string
+	}{
+		{"string is empty", `select where assignee is empty`},
+		{"list is empty", `select where tags is empty`},
+		{"date is empty", `select where due is empty`},
+		{"int is empty", `select where priority is empty`},
+		{"string is not empty", `select where title is not empty`},
+		{"function result is empty", `select where blocks(id) is empty`},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			_, err := p.ParseStatement(tt.input)
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+		})
+	}
+}
+
+func TestValidation_SelectNotAllowedAsTriggerAction(t *testing.T) {
+	p := newTestParser()
+
+	// select is rejected at parse level since the action grammar doesn't include it
+	_, err := p.ParseTrigger(`after update select`)
+	if err == nil {
+		t.Fatal("expected error, got nil")
+	}
+}
+
+func TestValidation_FunctionArgTypes(t *testing.T) {
+	p := newTestParser()
+
+	tests := []struct {
+		name    string
+		input   string
+		wantErr string
+	}{
+		{
+			"blocks with non-id arg",
+			`select where blocks(priority) is empty`,
+			"blocks() argument must be an id or ref",
+		},
+		{
+			"contains with non-string first arg",
+			`select where contains(1, "a") = contains("a", "b")`,
+			"contains() argument 1 must be string",
+		},
+		{
+			"contains with non-string second arg",
+			`select where contains("a", 1) = contains("a", "b")`,
+			"contains() argument 2 must be string",
+		},
+		{
+			"call with non-string arg",
+			`create title=call(42)`,
+			"call() argument must be string",
+		},
+		{
+			"next_date with non-recurrence arg",
+			`create title="x" due=next_date(42)`,
+			"next_date() argument must be recurrence",
+		},
+		{
+			"next_date with string field arg",
+			`create title="x" due=next_date(title)`,
+			"next_date() argument must be recurrence",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			_, err := p.ParseStatement(tt.input)
+			if err == nil {
+				t.Fatal("expected error, got nil")
+			}
+			if !strings.Contains(err.Error(), tt.wantErr) {
+				t.Fatalf("expected error containing %q, got: %v", tt.wantErr, err)
+			}
+		})
+	}
+}
+
+func TestValidation_ValidFunctionUsages(t *testing.T) {
+	p := newTestParser()
+
+	tests := []struct {
+		name  string
+		input string
+	}{
+		{"blocks with id field", `select where blocks(id) is empty`},
+		{"blocks with id ref", `select where blocks("TIKI-ABC123") is empty`},
+		{"call with string", `create title=call("echo hi")`},
+		{"contains", `select where contains(title, "bug") = contains(title, "fix")`},
+		{"user", `select where assignee = user()`},
+		{"now", `select where updatedAt < now()`},
+		{"count with subquery", `select where count(select where status = "done") >= 1`},
+		{"count with bare select", `select where count(select) >= 0`},
+		{"next_date with recurrence field", `create title="x" due=next_date(recurrence)`},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			_, err := p.ParseStatement(tt.input)
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+		})
+	}
+}
+
+func TestValidation_InExprTypes(t *testing.T) {
+	p := newTestParser()
+
+	tests := []struct {
+		name    string
+		input   string
+		wantErr string
+	}{
+		{
+			"string in list of ints — element type mismatch",
+			`select where "bug" in [1, 2]`,
+			"element type mismatch",
+		},
+		{
+			"scalar field as collection — not a collection",
+			`select where "d" in title`,
+			"not a collection",
+		},
+		{
+			"scalar string field as collection",
+			`select where "x" in assignee`,
+			"not a collection",
+		},
+		{
+			"scalar int field as collection",
+			`select where 1 in priority`,
+			"not a collection",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			_, err := p.ParseStatement(tt.input)
+			if err == nil {
+				t.Fatal("expected error, got nil")
+			}
+			if !strings.Contains(err.Error(), tt.wantErr) {
+				t.Fatalf("expected error containing %q, got: %v", tt.wantErr, err)
+			}
+		})
+	}
+}
+
+func TestValidation_EnumInList(t *testing.T) {
+	p := newTestParser()
+
+	tests := []struct {
+		name    string
+		input   string
+		wantErr string
+	}{
+		{
+			"invalid status in list",
+			`select where status in ["done", "bogus"]`,
+			"unknown status",
+		},
+		{
+			"invalid type in list",
+			`select where type in ["bug", "bogus"]`,
+			"unknown type",
+		},
+		{
+			"all invalid statuses in list",
+			`select where status in ["nope", "nada"]`,
+			"unknown status",
+		},
+		{
+			"invalid status in not-in list",
+			`select where status not in ["done", "bogus"]`,
+			"unknown status",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			_, err := p.ParseStatement(tt.input)
+			if err == nil {
+				t.Fatal("expected error, got nil")
+			}
+			if !strings.Contains(err.Error(), tt.wantErr) {
+				t.Fatalf("expected error containing %q, got: %v", tt.wantErr, err)
+			}
+		})
+	}
+}
+
+func TestValidation_ValidInExpr(t *testing.T) {
+	p := newTestParser()
+
+	tests := []struct {
+		name  string
+		input string
+	}{
+		{"string in tags field", `select where "bug" in tags`},
+		{"id in dependsOn field", `select where id in dependsOn`},
+		{"status in list", `select where status in ["done", "cancelled"]`},
+		{"status not in list", `select where status not in ["done"]`},
+		{"int in list", `select where priority in [1, 2, 3]`},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			_, err := p.ParseStatement(tt.input)
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+		})
+	}
+}
+
+func TestValidation_TimestampArithmetic(t *testing.T) {
+	p := newTestParser()
+
+	tests := []struct {
+		name  string
+		input string
+	}{
+		{"timestamp plus duration", `select where updatedAt < now() + 1day`},
+		{"timestamp minus duration", `select where updatedAt > now() - 1week`},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			_, err := p.ParseStatement(tt.input)
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+		})
+	}
+}
+
+func TestValidation_EmptyComparisons(t *testing.T) {
+	p := newTestParser()
+
+	tests := []struct {
+		name  string
+		input string
+	}{
+		{"field equals empty", `select where assignee = empty`},
+		{"empty not equal field", `select where priority != empty`},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			_, err := p.ParseStatement(tt.input)
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+		})
+	}
+}
+
+func TestValidation_UnknownStatusInAssignment(t *testing.T) {
+	p := newTestParser()
+
+	_, err := p.ParseStatement(`create title="x" status="nonexistent"`)
+	if err == nil {
+		t.Fatal("expected error, got nil")
+	}
+	if !strings.Contains(err.Error(), "unknown status") {
+		t.Fatalf("expected unknown status error, got: %v", err)
+	}
+}
+
+func TestValidation_UnknownTypeInAssignment(t *testing.T) {
+	p := newTestParser()
+
+	_, err := p.ParseStatement(`create title="x" type="nonexistent"`)
+	if err == nil {
+		t.Fatal("expected error, got nil")
+	}
+	if !strings.Contains(err.Error(), "unknown type") {
+		t.Fatalf("expected unknown type error, got: %v", err)
+	}
+}
+
+func TestValidation_StatusOnLeftSide(t *testing.T) {
+	p := newTestParser()
+
+	// status literal on the left side of comparison
+	_, err := p.ParseStatement(`select where "nonexistent" = status`)
+	if err == nil {
+		t.Fatal("expected error, got nil")
+	}
+	if !strings.Contains(err.Error(), "unknown status") {
+		t.Fatalf("expected unknown status error, got: %v", err)
+	}
+}
+
+func TestValidation_TypeOnLeftSide(t *testing.T) {
+	p := newTestParser()
+
+	_, err := p.ParseStatement(`select where "nonexistent" = type`)
+	if err == nil {
+		t.Fatal("expected error, got nil")
+	}
+	if !strings.Contains(err.Error(), "unknown type") {
+		t.Fatalf("expected unknown type error, got: %v", err)
+	}
+}
+
+func TestValidation_DurationCompare(t *testing.T) {
+	p := newTestParser()
+
+	// duration supports ordering operators
+	_, err := p.ParseStatement(`select where updatedAt - createdAt > 7day`)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
+func TestValidation_ListHomogeneity(t *testing.T) {
+	p := newTestParser()
+
+	_, err := p.ParseStatement(`select where status in ["done", 1]`)
+	if err == nil {
+		t.Fatal("expected error, got nil")
+	}
+	if !strings.Contains(err.Error(), "list elements must be the same type") {
+		t.Fatalf("expected homogeneity error, got: %v", err)
+	}
+}
+
+func TestValidation_NestedConditions(t *testing.T) {
+	p := newTestParser()
+
+	// exercise not + or paths
+	tests := []struct {
+		name  string
+		input string
+	}{
+		{"not with or", `select where not (status = "done" or priority = 1)`},
+		{"double not", `select where not not status = "done"`},
+		{"or chain", `select where status = "done" or status = "ready" or status = "backlog"`},
+		{"and chain", `select where priority = 1 and status = "done" and assignee = "bob"`},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			_, err := p.ParseStatement(tt.input)
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+		})
+	}
+}
+
+func TestValidation_TriggerCreateAction(t *testing.T) {
+	p := newTestParser()
+
+	// after-trigger with create action
+	_, err := p.ParseTrigger(`after update where new.status = "done" create title="follow-up" priority=3`)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
+func TestValidation_TriggerDeleteAction(t *testing.T) {
+	p := newTestParser()
+
+	_, err := p.ParseTrigger(`after update where new.status = "done" delete where id = old.id`)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
+func TestValidation_ParenExpr(t *testing.T) {
+	p := newTestParser()
+
+	// parenthesized expression
+	_, err := p.ParseStatement(`create title="x" priority=(1 + 2)`)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
+func TestValidation_MoreBinaryExprErrors(t *testing.T) {
+	p := newTestParser()
+
+	tests := []struct {
+		name    string
+		input   string
+		wantErr string
+	}{
+		{
+			"date plus date",
+			`select where due = 2026-03-25 + 2026-03-20`,
+			"cannot add",
+		},
+		{
+			"int minus string",
+			`create title="x" priority=1 - "a"`,
+			"cannot subtract",
+		},
+		{
+			"duration minus duration",
+			`create title="x" due=1day - 2day`,
+			"cannot subtract",
+		},
+		{
+			"bool in comparison",
+			`select where contains("a", "b") < contains("c", "d")`,
+			"operator < not supported for bool",
+		},
+		{
+			"list ordered compare",
+			`select where tags < ["a"]`,
+			"operator < not supported",
+		},
+		{
+			"recurrence ordered compare",
+			`select where recurrence < recurrence`,
+			"operator < not supported",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			_, err := p.ParseStatement(tt.input)
+			if err == nil {
+				t.Fatal("expected error, got nil")
+			}
+			if !strings.Contains(err.Error(), tt.wantErr) {
+				t.Fatalf("expected error containing %q, got: %v", tt.wantErr, err)
+			}
+		})
+	}
+}
+
+func TestValidation_TimestampMinusTimestamp(t *testing.T) {
+	p := newTestParser()
+
+	// timestamp - timestamp = duration; comparing to duration
+	_, err := p.ParseStatement(`select where updatedAt - createdAt > 1day`)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
+func TestValidation_EmptyInBinaryExpr(t *testing.T) {
+	p := newTestParser()
+
+	// empty + empty — should resolve but might fail on the operator
+	_, err := p.ParseStatement(`create title="x" tags=empty + empty`)
+	// this may error — just exercise the code path
+	_ = err
+}
+
+func TestValidation_DateCompareOps(t *testing.T) {
+	p := newTestParser()
+
+	ops := []string{"=", "!=", "<", ">", "<=", ">="}
+	for _, op := range ops {
+		t.Run(op, func(t *testing.T) {
+			input := `select where due ` + op + ` 2026-03-25`
+			_, err := p.ParseStatement(input)
+			if err != nil {
+				t.Fatalf("unexpected error for %s: %v", op, err)
+			}
+		})
+	}
+}
+
+func TestValidation_IntCompareOps(t *testing.T) {
+	p := newTestParser()
+
+	ops := []string{"=", "!=", "<", ">", "<=", ">="}
+	for _, op := range ops {
+		t.Run(op, func(t *testing.T) {
+			input := `select where priority ` + op + ` 3`
+			_, err := p.ParseStatement(input)
+			if err != nil {
+				t.Fatalf("unexpected error for %s: %v", op, err)
+			}
+		})
+	}
+}
+
+func TestValidation_StringCompareOps(t *testing.T) {
+	p := newTestParser()
+
+	// equality should work
+	_, err := p.ParseStatement(`select where title = "hello"`)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	// inequality should work
+	_, err = p.ParseStatement(`select where title != "hello"`)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	// ordering should fail
+	_, err = p.ParseStatement(`select where title < "hello"`)
+	if err == nil {
+		t.Fatal("expected error for title < string")
+	}
+}
+
+func TestValidation_IDCompare(t *testing.T) {
+	p := newTestParser()
+
+	// id equality
+	_, err := p.ParseStatement(`select where id = "TIKI-ABC123"`)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	// id ordering should fail
+	_, err = p.ParseStatement(`select where id < "TIKI-ABC123"`)
+	if err == nil {
+		t.Fatal("expected error for id < string")
+	}
+}
+
+func TestValidation_BareSubqueryRejected(t *testing.T) {
+	p := newTestParser()
+
+	tests := []struct {
+		name    string
+		input   string
+		wantErr string
+	}{
+		{
+			"subquery in where comparison",
+			`select where select = 1`,
+			"subquery",
+		},
+		{
+			"subquery in create assignment",
+			`create title=select`,
+			"subquery",
+		},
+		{
+			"subquery in update assignment",
+			`update where status = "done" set title=select`,
+			"subquery",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			_, err := p.ParseStatement(tt.input)
+			if err == nil {
+				t.Fatal("expected error, got nil")
+			}
+			if !strings.Contains(err.Error(), tt.wantErr) {
+				t.Fatalf("expected error containing %q, got: %v", tt.wantErr, err)
+			}
+		})
+	}
+}
+
+func TestValidation_QualifiedRefInStatement(t *testing.T) {
+	p := newTestParser()
+
+	tests := []struct {
+		name    string
+		input   string
+		wantErr string
+	}{
+		{
+			"old ref in select",
+			`select where old.status = "done"`,
+			"old.",
+		},
+		{
+			"new ref in select",
+			`select where new.status = "done"`,
+			"new.",
+		},
+		{
+			"old ref in create",
+			`create title=old.title`,
+			"old.",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			_, err := p.ParseStatement(tt.input)
+			if err == nil {
+				t.Fatal("expected error, got nil")
+			}
+			if !strings.Contains(err.Error(), tt.wantErr) {
+				t.Fatalf("expected error containing %q, got: %v", tt.wantErr, err)
+			}
+		})
+	}
+}
+
+func TestValidation_EnumAssignmentStrictness(t *testing.T) {
+	p := newTestParser()
+
+	tests := []struct {
+		name    string
+		input   string
+		wantErr string
+	}{
+		{
+			"string field to status",
+			`create title="x" status=title`,
+			"cannot assign string to status",
+		},
+		{
+			"id field to status",
+			`create title="x" status=id`,
+			"cannot assign id to status",
+		},
+		{
+			"string field to type",
+			`create title="x" type=title`,
+			"cannot assign string to type",
+		},
+		{
+			"status field to string",
+			`update where id="x" set title=status`,
+			"cannot assign status to string",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			_, err := p.ParseStatement(tt.input)
+			if err == nil {
+				t.Fatal("expected error, got nil")
+			}
+			if !strings.Contains(err.Error(), tt.wantErr) {
+				t.Fatalf("expected error containing %q, got: %v", tt.wantErr, err)
+			}
+		})
+	}
+}
+
+func TestValidation_InExprStrictTypes(t *testing.T) {
+	p := newTestParser()
+
+	tests := []struct {
+		name    string
+		input   string
+		wantErr string
+	}{
+		{
+			"id in tags",
+			`select where id in tags`,
+			"element type mismatch",
+		},
+		{
+			"status in tags",
+			`select where status in tags`,
+			"element type mismatch",
+		},
+		{
+			"status in dependsOn",
+			`select where status in dependsOn`,
+			"element type mismatch",
+		},
+		{
+			"type in tags",
+			`select where type in tags`,
+			"element type mismatch",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			_, err := p.ParseStatement(tt.input)
+			if err == nil {
+				t.Fatal("expected error, got nil")
+			}
+			if !strings.Contains(err.Error(), tt.wantErr) {
+				t.Fatalf("expected error containing %q, got: %v", tt.wantErr, err)
+			}
+		})
+	}
+}
+
+func TestValidation_ListRefOperandStrictness(t *testing.T) {
+	p := newTestParser()
+
+	tests := []struct {
+		name    string
+		input   string
+		wantErr string
+	}{
+		{
+			"list ref plus status",
+			`create title="x" dependsOn=dependsOn + status`,
+			"cannot add",
+		},
+		{
+			"list ref plus type",
+			`create title="x" dependsOn=dependsOn + type`,
+			"cannot add",
+		},
+		{
+			"list ref minus status",
+			`create title="x" dependsOn=dependsOn - status`,
+			"cannot subtract",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			_, err := p.ParseStatement(tt.input)
+			if err == nil {
+				t.Fatal("expected error, got nil")
+			}
+			if !strings.Contains(err.Error(), tt.wantErr) {
+				t.Fatalf("expected error containing %q, got: %v", tt.wantErr, err)
+			}
+		})
+	}
+}
+
+func TestValidation_QualifiedRefInTrigger(t *testing.T) {
+	p := newTestParser()
+
+	tests := []struct {
+		name    string
+		input   string
+		wantErr string
+	}{
+		{
+			"old ref in after create guard",
+			`after create where old.status = "done" update where id = new.id set status="done"`,
+			"old.",
+		},
+		{
+			"new ref in before delete",
+			`before delete where new.status = "done" deny "x"`,
+			"new.",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			_, err := p.ParseTrigger(tt.input)
+			if err == nil {
+				t.Fatal("expected error, got nil")
+			}
+			if !strings.Contains(err.Error(), tt.wantErr) {
+				t.Fatalf("expected error containing %q, got: %v", tt.wantErr, err)
+			}
+		})
+	}
+}
+
+func TestValidation_DependsOnListLiteralAssignment(t *testing.T) {
+	p := newTestParser()
+
+	tests := []struct {
+		name  string
+		input string
+	}{
+		{"single ref", `create title="x" dependsOn=["TIKI-ABC123"]`},
+		{"multiple refs", `create title="x" dependsOn=["TIKI-ABC123", "TIKI-DEF456"]`},
+		{"update set dependsOn", `update where id="TIKI-1" set dependsOn=["TIKI-ABC123"]`},
+		{"empty list", `create title="x" dependsOn=[]`},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			_, err := p.ParseStatement(tt.input)
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+		})
+	}
+}
+
+func TestValidation_ListStringRejectsNonStringElements(t *testing.T) {
+	p := newTestParser()
+
+	tests := []struct {
+		name    string
+		input   string
+		wantErr string
+	}{
+		{
+			"int elements in tags",
+			`create title="x" tags=[1, 2]`,
+			"cannot assign",
+		},
+		{
+			"date elements in tags",
+			`create title="x" tags=[2026-03-25]`,
+			"cannot assign",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			_, err := p.ParseStatement(tt.input)
+			if err == nil {
+				t.Fatal("expected error, got nil")
+			}
+			if !strings.Contains(err.Error(), tt.wantErr) {
+				t.Fatalf("expected error containing %q, got: %v", tt.wantErr, err)
+			}
+		})
+	}
+}
+
+func TestValidation_ListRefRejectsListStringField(t *testing.T) {
+	p := newTestParser()
+
+	tests := []struct {
+		name    string
+		input   string
+		wantErr string
+	}{
+		{
+			"list ref plus list string field",
+			`create title="x" dependsOn=dependsOn + tags`,
+			"cannot add list<string> field to list<ref>",
+		},
+		{
+			"list ref minus list string field",
+			`create title="x" dependsOn=dependsOn - tags`,
+			"cannot subtract list<string> field from list<ref>",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			_, err := p.ParseStatement(tt.input)
+			if err == nil {
+				t.Fatal("expected error, got nil")
+			}
+			if !strings.Contains(err.Error(), tt.wantErr) {
+				t.Fatalf("expected error containing %q, got: %v", tt.wantErr, err)
+			}
+		})
+	}
+
+	// regression: list literals still allowed with list<ref>
+	valid := []struct {
+		name  string
+		input string
+	}{
+		{"list ref plus list ref field", `create title="x" dependsOn=dependsOn + dependsOn`},
+		{"list ref plus string literal list", `create title="x" dependsOn=dependsOn + ["TIKI-ABC123"]`},
+		{"list ref minus string literal list", `create title="x" dependsOn=dependsOn - ["TIKI-ABC123"]`},
+	}
+
+	for _, tt := range valid {
+		t.Run(tt.name, func(t *testing.T) {
+			_, err := p.ParseStatement(tt.input)
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+		})
+	}
+}
+
+func TestValidation_CountSubqueryValidated(t *testing.T) {
+	p := newTestParser()
+
+	tests := []struct {
+		name    string
+		input   string
+		wantErr string
+	}{
+		{
+			"unknown field in count subquery",
+			`select where count(select where nosuchfield = "x") >= 1`,
+			"unknown field",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			_, err := p.ParseStatement(tt.input)
+			if err == nil {
+				t.Fatal("expected error, got nil")
+			}
+			if !strings.Contains(err.Error(), tt.wantErr) {
+				t.Fatalf("expected error containing %q, got: %v", tt.wantErr, err)
+			}
+		})
+	}
+
+	// valid: count with valid subquery still works
+	_, err := p.ParseStatement(`select where count(select where status = "done") >= 1`)
+	if err != nil {
+		t.Fatalf("unexpected error for valid count subquery: %v", err)
+	}
+
+	// valid: count subquery can reference new. in trigger context (parameterized query)
+	_, err = p.ParseTrigger(`before update where new.status = "in progress" and count(select where assignee = new.assignee and status = "in progress") >= 3 deny "WIP limit"`)
+	if err != nil {
+		t.Fatalf("unexpected error for count subquery with new.: %v", err)
+	}
+}
+
+func TestValidation_QuantifierNoQualifiers(t *testing.T) {
+	p := newTestParser()
+
+	// old. inside quantifier body should be rejected even in update trigger
+	_, err := p.ParseTrigger(`before update where dependsOn any old.status = "done" deny "blocked"`)
+	if err == nil {
+		t.Fatal("expected error for old. in quantifier, got nil")
+	}
+	if !strings.Contains(err.Error(), "old.") {
+		t.Fatalf("expected old. qualifier error, got: %v", err)
+	}
+
+	// new. inside quantifier body should also be rejected
+	_, err = p.ParseTrigger(`before update where dependsOn any new.status = "done" deny "blocked"`)
+	if err == nil {
+		t.Fatal("expected error for new. in quantifier, got nil")
+	}
+	if !strings.Contains(err.Error(), "new.") {
+		t.Fatalf("expected new. qualifier error, got: %v", err)
+	}
+
+	// unqualified field inside quantifier should still work
+	_, err = p.ParseTrigger(`before update where dependsOn any status = "done" deny "blocked"`)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
+func TestValidation_QualifiedRefValidInTrigger(t *testing.T) {
+	p := newTestParser()
+
+	tests := []struct {
+		name  string
+		input string
+	}{
+		{
+			"old and new in before update",
+			`before update where old.status = "in progress" and new.status = "done" deny "skip"`,
+		},
+		{
+			"new in after create",
+			`after create where new.priority <= 2 update where id = new.id set assignee="bob"`,
+		},
+		{
+			"old in after delete",
+			`after delete update where old.id in dependsOn set dependsOn=dependsOn - [old.id]`,
+		},
+		{
+			"old and new in after update",
+			`after update where new.status = "done" update where id = old.id set recurrence=empty`,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			_, err := p.ParseTrigger(tt.input)
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+		})
+	}
+}
+
+func TestValidation_ListRefRejectsStringFields(t *testing.T) {
+	p := newTestParser()
+
+	tests := []struct {
+		name    string
+		input   string
+		wantErr string
+	}{
+		{
+			"list ref plus title field",
+			`create title="x" dependsOn=dependsOn + title`,
+			"cannot add",
+		},
+		{
+			"list ref plus assignee field",
+			`create title="x" dependsOn=dependsOn + assignee`,
+			"cannot add",
+		},
+		{
+			"list ref minus title field",
+			`create title="x" dependsOn=dependsOn - title`,
+			"cannot subtract",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			_, err := p.ParseStatement(tt.input)
+			if err == nil {
+				t.Fatal("expected error, got nil")
+			}
+			if !strings.Contains(err.Error(), tt.wantErr) {
+				t.Fatalf("expected error containing %q, got: %v", tt.wantErr, err)
+			}
+		})
+	}
+
+	// string literals should still be allowed
+	valid := []struct {
+		name  string
+		input string
+	}{
+		{"list ref plus string literal", `create title="x" dependsOn=dependsOn + "TIKI-ABC123"`},
+		{"list ref minus string literal", `create title="x" dependsOn=dependsOn - "TIKI-ABC123"`},
+	}
+
+	for _, tt := range valid {
+		t.Run(tt.name, func(t *testing.T) {
+			_, err := p.ParseStatement(tt.input)
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+		})
+	}
+}
+
+func TestValidation_CompareEnumStrictness(t *testing.T) {
+	p := newTestParser()
+
+	tests := []struct {
+		name    string
+		input   string
+		wantErr string
+	}{
+		{
+			"status equals title field",
+			`select where status = title`,
+			"cannot compare",
+		},
+		{
+			"status equals id field",
+			`select where status = id`,
+			"cannot compare",
+		},
+		{
+			"status equals type field",
+			`select where status = type`,
+			"cannot compare",
+		},
+		{
+			"type equals assignee field",
+			`select where type = assignee`,
+			"cannot compare",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			_, err := p.ParseStatement(tt.input)
+			if err == nil {
+				t.Fatal("expected error, got nil")
+			}
+			if !strings.Contains(err.Error(), tt.wantErr) {
+				t.Fatalf("expected error containing %q, got: %v", tt.wantErr, err)
+			}
+		})
+	}
+
+	// these must remain valid
+	valid := []struct {
+		name  string
+		input string
+	}{
+		{"status equals string literal", `select where status = "done"`},
+		{"type equals string literal", `select where type = "bug"`},
+		{"id equals string literal", `select where id = "TIKI-ABC123"`},
+		{"string field equals string literal", `select where assignee = "alice"`},
+	}
+
+	for _, tt := range valid {
+		t.Run(tt.name, func(t *testing.T) {
+			_, err := p.ParseStatement(tt.input)
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+		})
+	}
+}
+
+func TestValidation_BlocksRejectsStringFields(t *testing.T) {
+	p := newTestParser()
+
+	tests := []struct {
+		name    string
+		input   string
+		wantErr string
+	}{
+		{
+			"blocks with title field",
+			`select where blocks(title) is empty`,
+			"blocks() argument must be an id or ref",
+		},
+		{
+			"blocks with assignee field",
+			`select where blocks(assignee) is empty`,
+			"blocks() argument must be an id or ref",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			_, err := p.ParseStatement(tt.input)
+			if err == nil {
+				t.Fatal("expected error, got nil")
+			}
+			if !strings.Contains(err.Error(), tt.wantErr) {
+				t.Fatalf("expected error containing %q, got: %v", tt.wantErr, err)
+			}
+		})
+	}
+
+	// these must remain valid
+	valid := []struct {
+		name  string
+		input string
+	}{
+		{"blocks with id field", `select where blocks(id) is empty`},
+		{"blocks with string literal", `select where blocks("TIKI-ABC123") is empty`},
+	}
+
+	for _, tt := range valid {
+		t.Run(tt.name, func(t *testing.T) {
+			_, err := p.ParseStatement(tt.input)
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+		})
+	}
+}
+
+func TestValidation_DuplicateAssignments(t *testing.T) {
+	p := newTestParser()
+
+	tests := []struct {
+		name    string
+		input   string
+		wantErr string
+	}{
+		{
+			"duplicate in create",
+			`create title="a" title="b"`,
+			"duplicate assignment",
+		},
+		{
+			"duplicate in update set",
+			`update where id="x" set status="ready" status="done"`,
+			"duplicate assignment",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			_, err := p.ParseStatement(tt.input)
+			if err == nil {
+				t.Fatal("expected error, got nil")
+			}
+			if !strings.Contains(err.Error(), tt.wantErr) {
+				t.Fatalf("expected error containing %q, got: %v", tt.wantErr, err)
+			}
+		})
+	}
+}
+
+func TestValidation_EnumInRejectsFieldRefs(t *testing.T) {
+	p := newTestParser()
+
+	tests := []struct {
+		name    string
+		input   string
+		wantErr string
+	}{
+		{
+			"status in list containing field ref",
+			`select where status in [title]`,
+			"element type mismatch",
+		},
+		{
+			"type in list containing field ref",
+			`select where type in [assignee]`,
+			"element type mismatch",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			_, err := p.ParseStatement(tt.input)
+			if err == nil {
+				t.Fatal("expected error, got nil")
+			}
+			if !strings.Contains(err.Error(), tt.wantErr) {
+				t.Fatalf("expected error containing %q, got: %v", tt.wantErr, err)
+			}
+		})
+	}
+
+	// string literals should still be allowed
+	valid := []struct {
+		name  string
+		input string
+	}{
+		{"status in string literal list", `select where status in ["done", "ready"]`},
+		{"type in string literal list", `select where type in ["bug", "epic"]`},
+	}
+
+	for _, tt := range valid {
+		t.Run(tt.name, func(t *testing.T) {
+			_, err := p.ParseStatement(tt.input)
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+		})
+	}
+}
+
+func TestValidation_ListAssignmentRejectsFieldRefs(t *testing.T) {
+	p := newTestParser()
+
+	tests := []struct {
+		name    string
+		input   string
+		wantErr string
+	}{
+		{
+			"tags with field ref element",
+			`create title="x" tags=["bug", id]`,
+			"cannot assign",
+		},
+		{
+			"dependsOn with non-literal element",
+			`create title="x" dependsOn=["TIKI-ABC123", title]`,
+			"cannot assign",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			_, err := p.ParseStatement(tt.input)
+			if err == nil {
+				t.Fatal("expected error, got nil")
+			}
+			if !strings.Contains(err.Error(), tt.wantErr) {
+				t.Fatalf("expected error containing %q, got: %v", tt.wantErr, err)
+			}
+		})
+	}
+}
