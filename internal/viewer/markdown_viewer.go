@@ -79,6 +79,9 @@ func Run(input InputSpec) error {
 		case 'q':
 			app.Stop()
 			return nil
+		case 'r':
+			refreshContent(app, md, provider)
+			return nil
 		case 'e':
 			srcPath := md.SourceFilePath()
 			if srcPath == "" || strings.HasPrefix(srcPath, "http://") || strings.HasPrefix(srcPath, "https://") {
@@ -110,6 +113,27 @@ func Run(input InputSpec) error {
 		return fmt.Errorf("viewer error: %w", err)
 	}
 	return nil
+}
+
+// refreshContent clears image/diagram caches, re-reads the current file from disk, and re-renders.
+func refreshContent(app *tview.Application, md *markdown.NavigableMarkdown, provider *loaders.FileHTTP) {
+	srcPath := md.SourceFilePath()
+	if srcPath == "" {
+		return // stdin content — nothing to reload
+	}
+
+	content, err := provider.FetchContent(nav.NavElement{URL: srcPath})
+	if err != nil {
+		content = markdown.FormatErrorContent(err)
+	}
+
+	// one-shot before-draw to get the screen for Kitty image purge
+	app.SetBeforeDrawFunc(func(screen tcell.Screen) bool {
+		md.Viewer().InvalidateForDocument(screen)
+		md.SetMarkdownWithSource(content, srcPath, false)
+		app.SetBeforeDrawFunc(nil)
+		return false
+	})
 }
 
 func loadInitialContent(input InputSpec, provider *loaders.FileHTTP) (string, string, error) {
@@ -191,7 +215,7 @@ func updateStatusBar(statusBar *tview.TextView, v *navtview.TextViewViewer) {
 	} else {
 		status += "[gray]▶[-]"
 	}
-	status += fmt.Sprintf(" | Scroll:[%s]j/k[-] Top/End:[%s]g/G[-] Edit:[%s]e[-] Quit:[%s]q[-]", keyColor, keyColor, keyColor, keyColor)
+	status += fmt.Sprintf(" | Scroll:[%s]j/k[-] Top/End:[%s]g/G[-] Refresh:[%s]r[-] Edit:[%s]e[-] Quit:[%s]q[-]", keyColor, keyColor, keyColor, keyColor, keyColor)
 
 	statusBar.SetText(status)
 }
