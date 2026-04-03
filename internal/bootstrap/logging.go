@@ -13,8 +13,23 @@ import (
 // It opens a log file next to the executable (tiki.log) or falls back to stderr.
 // Returns the configured log level.
 func InitLogging(cfg *config.Config) slog.Level {
-	logOutput := openLogOutput()
+	return initLogging(cfg, slog.LevelDebug)
+}
+
+// InitCLILogging sets up logging for non-TUI subcommands (exec, sysinfo, etc.).
+// Logs go to the log file like TUI mode; if the file can't be opened and we
+// fall back to stderr, only ERROR-level messages are emitted so that
+// structured stdout output isn't polluted by warnings.
+func InitCLILogging(cfg *config.Config) slog.Level {
+	return initLogging(cfg, slog.LevelError)
+}
+
+func initLogging(cfg *config.Config, stderrMinLevel slog.Level) slog.Level {
+	logOutput, isStderr := openLogOutput()
 	logLevel := parseLogLevel(cfg.Logging.Level)
+	if isStderr && stderrMinLevel > logLevel {
+		logLevel = stderrMinLevel
+	}
 	logger := slog.New(slog.NewTextHandler(logOutput, &slog.HandlerOptions{
 		Level: logLevel,
 	}))
@@ -24,21 +39,21 @@ func InitLogging(cfg *config.Config) slog.Level {
 }
 
 // openLogOutput opens the configured log output destination, falling back to stderr.
-func openLogOutput() *os.File {
-	logOutput := os.Stderr
+// Returns the file and whether it fell back to stderr.
+func openLogOutput() (*os.File, bool) {
 	exePath, err := os.Executable()
 	if err != nil {
-		return logOutput
+		return os.Stderr, true
 	}
 
 	logPath := filepath.Join(filepath.Dir(exePath), "tiki.log")
 	//nolint:gosec // G302: 0644 is appropriate for log files
 	file, err := os.OpenFile(logPath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
 	if err != nil {
-		return logOutput
+		return os.Stderr, true
 	}
 	// Let the OS close the file on exit
-	return file
+	return file, false
 }
 
 // parseLogLevel parses the configured log level string into slog.Level.
