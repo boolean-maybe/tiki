@@ -1,0 +1,454 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 620">
+  <defs>
+    <!-- dot grid pattern -->
+    <pattern id="dots" width="40" height="40" patternUnits="userSpaceOnUse">
+      <circle cx="20" cy="20" r="0.8" fill="#94a3b8" opacity="0.05"/>
+    </pattern>
+
+    <!-- drop shadow -->
+    <filter id="shadow" x="-6%" y="-6%" width="112%" height="116%">
+      <feDropShadow dx="1" dy="2" stdDeviation="5" flood-color="#000" flood-opacity="0.35"/>
+    </filter>
+
+    <!-- title glow (rose for danger theme) -->
+    <filter id="title-glow" x="-10%" y="-10%" width="120%" height="120%">
+      <feGaussianBlur in="SourceAlpha" stdDeviation="8" result="blur"/>
+      <feFlood flood-color="#f472b6" flood-opacity="0.25" result="color"/>
+      <feComposite in="color" in2="blur" operator="in" result="glow"/>
+      <feMerge><feMergeNode in="glow"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+
+    <!-- arrow markers -->
+    <marker id="arr-blue" viewBox="0 0 12 8" refX="11" refY="4" markerWidth="12" markerHeight="8" orient="auto-start-reverse">
+      <path d="M0,0 L12,4 L0,8 Z" fill="#60a5fa"/>
+    </marker>
+    <marker id="arr-rose" viewBox="0 0 12 8" refX="11" refY="4" markerWidth="12" markerHeight="8" orient="auto-start-reverse">
+      <path d="M0,0 L12,4 L0,8 Z" fill="#f472b6"/>
+    </marker>
+    <marker id="arr-teal" viewBox="0 0 12 8" refX="11" refY="4" markerWidth="12" markerHeight="8" orient="auto-start-reverse">
+      <path d="M0,0 L12,4 L0,8 Z" fill="#2dd4bf"/>
+    </marker>
+    <marker id="arr-amber" viewBox="0 0 12 8" refX="11" refY="4" markerWidth="12" markerHeight="8" orient="auto-start-reverse">
+      <path d="M0,0 L12,4 L0,8 Z" fill="#fbbf24"/>
+    </marker>
+
+    <!-- right panel gradient -->
+    <linearGradient id="g-panel" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#141d2e"/>
+      <stop offset="100%" stop-color="#0b1120"/>
+    </linearGradient>
+
+    <!-- collision starburst gradient -->
+    <radialGradient id="g-starburst" cx="0.5" cy="0.5" r="0.5">
+      <stop offset="0%" stop-color="#f472b6" stop-opacity="0.9"/>
+      <stop offset="60%" stop-color="#ec4899" stop-opacity="0.5"/>
+      <stop offset="100%" stop-color="#ec4899" stop-opacity="0"/>
+    </radialGradient>
+
+    <!-- safe glow -->
+    <radialGradient id="g-safe" cx="0.5" cy="0.5" r="0.5">
+      <stop offset="0%" stop-color="#2dd4bf" stop-opacity="0.3"/>
+      <stop offset="100%" stop-color="#14b8a6" stop-opacity="0"/>
+    </radialGradient>
+
+    <!-- ambient glows -->
+    <radialGradient id="glow-top" cx="300" cy="180" r="350" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#ec4899" stop-opacity="0.04"/>
+      <stop offset="100%" stop-color="#ec4899" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="glow-bottom" cx="400" cy="440" r="400" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#f59e0b" stop-opacity="0.03"/>
+      <stop offset="100%" stop-color="#f59e0b" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="glow-right" cx="1010" cy="340" r="250" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#14b8a6" stop-opacity="0.04"/>
+      <stop offset="100%" stop-color="#14b8a6" stop-opacity="0"/>
+    </radialGradient>
+
+    <!-- shared variable gradient (amber) -->
+    <linearGradient id="g-shared" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#1f1a0a"/>
+      <stop offset="100%" stop-color="#1a1508"/>
+    </linearGradient>
+
+    <!-- mutex gate gradient -->
+    <linearGradient id="g-mutex" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#3d2e0a"/>
+      <stop offset="100%" stop-color="#2a1f08"/>
+    </linearGradient>
+  </defs>
+
+  <!-- ====== BACKGROUND ====== -->
+  <rect width="1200" height="620" fill="url(#dots)"/>
+  <rect width="1200" height="620" fill="url(#glow-top)"/>
+  <rect width="1200" height="620" fill="url(#glow-bottom)"/>
+  <rect width="1200" height="620" fill="url(#glow-right)"/>
+
+  <!-- ====== TITLE ====== -->
+  <text x="600" y="38" text-anchor="middle" font-family="'Inter','SF Pro Display',system-ui,sans-serif" font-size="26" font-weight="700" fill="#f1f5f9" filter="url(#title-glow)">Go Race Conditions</text>
+  <text x="600" y="62" text-anchor="middle" font-family="'Inter','SF Pro Display',system-ui,sans-serif" font-size="12" fill="#f472b6" letter-spacing="3" font-weight="500">detection · common patterns · fixes</text>
+
+  <!-- ====== TOP SECTION: DATA RACE ANATOMY ====== -->
+  <text x="52" y="95" font-family="'Inter','SF Pro Display',system-ui,sans-serif" font-size="10" font-weight="700" fill="#f472b6" letter-spacing="2.5" opacity="0.9">DATA RACE ANATOMY</text>
+
+  <!-- ====== THE COLLISION (left) ====== -->
+  <g filter="url(#shadow)">
+    <!-- collision area background -->
+    <rect x="52" y="110" width="450" height="170" rx="10" fill="none" stroke="#1e293b" stroke-width="1" opacity="0.6"/>
+  </g>
+
+  <!-- shared variable in center -->
+  <rect x="235" y="170" width="100" height="36" rx="6" fill="url(#g-shared)" stroke="#f59e0b" stroke-width="1.5" stroke-opacity="0.6"/>
+  <text x="285" y="193" text-anchor="middle" font-family="'JetBrains Mono','SF Mono','Fira Code',monospace" font-size="11" fill="#fbbf24">counter</text>
+
+  <!-- G1 badge (top-left) -->
+  <circle cx="110" cy="140" r="16" fill="none" stroke="#f472b6" stroke-width="1.5"/>
+  <text x="110" y="145" text-anchor="middle" font-family="'Inter','SF Pro Display',system-ui,sans-serif" font-size="11" font-weight="700" fill="#f472b6">G1</text>
+
+  <!-- G1 path to shared variable (WRITE) -->
+  <line x1="126" y1="148" x2="232" y2="180" stroke="#f472b6" stroke-width="1.5" stroke-dasharray="4,3" marker-end="url(#arr-rose)"/>
+  <text x="160" y="155" font-family="'Inter','SF Pro Display',system-ui,sans-serif" font-size="9" font-weight="700" fill="#f472b6" letter-spacing="1">WRITE</text>
+
+  <!-- G2 badge (bottom-left) -->
+  <circle cx="110" cy="240" r="16" fill="none" stroke="#60a5fa" stroke-width="1.5"/>
+  <text x="110" y="245" text-anchor="middle" font-family="'Inter','SF Pro Display',system-ui,sans-serif" font-size="11" font-weight="700" fill="#60a5fa">G2</text>
+
+  <!-- G2 path to shared variable (READ) -->
+  <line x1="126" y1="232" x2="232" y2="198" stroke="#60a5fa" stroke-width="1.5" stroke-dasharray="4,3" marker-end="url(#arr-blue)"/>
+  <text x="160" y="237" font-family="'Inter','SF Pro Display',system-ui,sans-serif" font-size="9" font-weight="700" fill="#60a5fa" letter-spacing="1">READ</text>
+
+  <!-- collision starburst -->
+  <circle cx="250" cy="188" r="22" fill="url(#g-starburst)"/>
+  <!-- starburst spikes -->
+  <g stroke="#f472b6" stroke-width="1.5" opacity="0.8">
+    <line x1="250" y1="164" x2="250" y2="156"/>
+    <line x1="266" y1="172" x2="272" y2="166"/>
+    <line x1="272" y1="188" x2="280" y2="188"/>
+    <line x1="266" y1="204" x2="272" y2="210"/>
+    <line x1="250" y1="212" x2="250" y2="220"/>
+    <line x1="234" y1="204" x2="228" y2="210"/>
+    <line x1="228" y1="188" x2="220" y2="188"/>
+    <line x1="234" y1="172" x2="228" y2="166"/>
+  </g>
+
+  <!-- RACE! label -->
+  <rect x="340" y="155" width="58" height="22" rx="4" fill="none" stroke="#f472b6" stroke-width="1"/>
+  <text x="369" y="170" text-anchor="middle" font-family="'Inter','SF Pro Display',system-ui,sans-serif" font-size="11" font-weight="800" fill="#f472b6" letter-spacing="1">RACE!</text>
+
+  <!-- timing bars (overlapping = race) -->
+  <text x="340" y="200" font-family="'Inter','SF Pro Display',system-ui,sans-serif" font-size="8" fill="#94a3b8">same time:</text>
+  <rect x="395" y="192" width="80" height="7" rx="2" fill="#6b2048" opacity="0.8"/>
+  <text x="400" y="199" font-family="'JetBrains Mono','SF Mono','Fira Code',monospace" font-size="6" fill="#e2e8f0">G1 write</text>
+  <rect x="415" y="203" width="80" height="7" rx="2" fill="#1e3a5f" opacity="0.8"/>
+  <text x="420" y="210" font-family="'JetBrains Mono','SF Mono','Fira Code',monospace" font-size="6" fill="#e2e8f0">G2 read</text>
+
+  <!-- overlap indicator -->
+  <rect x="415" y="192" width="60" height="18" rx="2" fill="none" stroke="#f472b6" stroke-width="0.5" stroke-dasharray="2,2"/>
+  <text x="445" y="225" text-anchor="middle" font-family="'Inter','SF Pro Display',system-ui,sans-serif" font-size="7" fill="#f472b6">overlap = danger</text>
+
+  <!-- code snippet below collision -->
+  <text x="80" y="264" font-family="'JetBrains Mono','SF Mono','Fira Code',monospace" font-size="9" fill="#64748b">G1:</text>
+  <text x="105" y="264" font-family="'JetBrains Mono','SF Mono','Fira Code',monospace" font-size="9" fill="#e2e8f0">counter++</text>
+  <text x="200" y="264" font-family="'JetBrains Mono','SF Mono','Fira Code',monospace" font-size="9" fill="#64748b">G2:</text>
+  <text x="225" y="264" font-family="'JetBrains Mono','SF Mono','Fira Code',monospace" font-size="9" fill="#e2e8f0">fmt.Println(counter)</text>
+
+  <!-- ====== THE FIX (right of collision) ====== -->
+  <g filter="url(#shadow)">
+    <rect x="520" y="110" width="310" height="170" rx="10" fill="none" stroke="#1e293b" stroke-width="1" opacity="0.6"/>
+  </g>
+
+  <!-- shared variable with mutex gate -->
+  <rect x="640" y="165" width="100" height="36" rx="6" fill="url(#g-shared)" stroke="#f59e0b" stroke-width="1.5" stroke-opacity="0.6"/>
+  <text x="690" y="188" text-anchor="middle" font-family="'JetBrains Mono','SF Mono','Fira Code',monospace" font-size="11" fill="#fbbf24">counter</text>
+
+  <!-- mutex gate / barrier -->
+  <rect x="618" y="152" width="8" height="60" rx="3" fill="url(#g-mutex)" stroke="#fbbf24" stroke-width="1"/>
+  <text x="622" y="146" text-anchor="middle" font-family="'JetBrains Mono','SF Mono','Fira Code',monospace" font-size="8" fill="#fbbf24">🔒</text>
+  <text x="622" y="225" text-anchor="middle" font-family="'Inter','SF Pro Display',system-ui,sans-serif" font-size="8" fill="#fbbf24">Mutex</text>
+
+  <!-- G1 passes through (solid = has lock) -->
+  <circle cx="558" cy="155" r="16" fill="none" stroke="#f472b6" stroke-width="1.5"/>
+  <text x="558" y="160" text-anchor="middle" font-family="'Inter','SF Pro Display',system-ui,sans-serif" font-size="11" font-weight="700" fill="#f472b6">G1</text>
+  <line x1="574" y1="162" x2="614" y2="175" stroke="#f472b6" stroke-width="1.5" marker-end="url(#arr-rose)"/>
+  <text x="585" y="158" font-family="'Inter','SF Pro Display',system-ui,sans-serif" font-size="7" fill="#94a3b8">has lock</text>
+
+  <!-- G2 waits (dashed outline = queued) -->
+  <circle cx="558" cy="210" r="16" fill="none" stroke="#60a5fa" stroke-width="1.5" stroke-dasharray="3,3"/>
+  <text x="558" y="215" text-anchor="middle" font-family="'Inter','SF Pro Display',system-ui,sans-serif" font-size="11" font-weight="700" fill="#60a5fa" opacity="0.5">G2</text>
+  <text x="558" y="237" text-anchor="middle" font-family="'Inter','SF Pro Display',system-ui,sans-serif" font-size="7" fill="#64748b">waiting</text>
+
+  <!-- label -->
+  <text x="675" y="132" text-anchor="middle" font-family="'Inter','SF Pro Display',system-ui,sans-serif" font-size="10" fill="#cbd5e1">Mutex serializes access</text>
+
+  <!-- sequential timing bars (non-overlapping) -->
+  <text x="745" y="168" font-family="'Inter','SF Pro Display',system-ui,sans-serif" font-size="8" fill="#94a3b8">sequential:</text>
+  <rect x="745" y="174" width="60" height="7" rx="2" fill="#6b2048" opacity="0.8"/>
+  <text x="749" y="181" font-family="'JetBrains Mono','SF Mono','Fira Code',monospace" font-size="6" fill="#e2e8f0">G1</text>
+  <rect x="809" y="174" width="60" height="7" rx="2" fill="#1e3a5f" opacity="0.8"/>
+  <text x="813" y="181" font-family="'JetBrains Mono','SF Mono','Fira Code',monospace" font-size="6" fill="#e2e8f0">G2</text>
+
+  <!-- no overlap indicator -->
+  <text x="807" y="195" text-anchor="middle" font-family="'Inter','SF Pro Display',system-ui,sans-serif" font-size="7" fill="#2dd4bf">no overlap</text>
+
+  <!-- SAFE checkmark -->
+  <circle cx="780" cy="215" r="12" fill="none" stroke="#2dd4bf" stroke-width="1.5"/>
+  <path d="M774,215 L778,220 L787,210" fill="none" stroke="#2dd4bf" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+  <text x="798" y="219" font-family="'Inter','SF Pro Display',system-ui,sans-serif" font-size="11" font-weight="700" fill="#2dd4bf" letter-spacing="1">SAFE</text>
+
+  <!-- ====== BOTTOM SECTION: COMMON PATTERNS ====== -->
+  <text x="52" y="310" font-family="'Inter','SF Pro Display',system-ui,sans-serif" font-size="10" font-weight="700" fill="#fbbf24" letter-spacing="2.5" opacity="0.9">COMMON PATTERNS</text>
+
+  <!-- ====== 1. MAP RACE ====== -->
+  <g filter="url(#shadow)">
+    <rect x="52" y="325" width="240" height="270" rx="10" fill="none" stroke="#1e293b" stroke-width="1" opacity="0.6"/>
+  </g>
+
+  <!-- title bar -->
+  <rect x="52" y="325" width="240" height="28" rx="10" fill="none"/>
+  <rect x="52" y="343" width="240" height="10" fill="none"/>
+  <text x="172" y="344" text-anchor="middle" font-family="'Inter','SF Pro Display',system-ui,sans-serif" font-size="11" font-weight="700" fill="#f472b6">1. Map Race</text>
+
+  <!-- map icon -->
+  <rect x="112" y="368" width="120" height="60" rx="6" fill="none" stroke="#f59e0b" stroke-width="1" stroke-opacity="0.3"/>
+  <text x="122" y="386" font-family="'JetBrains Mono','SF Mono','Fira Code',monospace" font-size="9" fill="#fbbf24">"a": 1</text>
+  <text x="122" y="400" font-family="'JetBrains Mono','SF Mono','Fira Code',monospace" font-size="9" fill="#fbbf24">"b": 2</text>
+  <text x="122" y="414" font-family="'JetBrains Mono','SF Mono','Fira Code',monospace" font-size="9" fill="#fbbf24">"c": 3</text>
+  <text x="172" y="365" text-anchor="middle" font-family="'JetBrains Mono','SF Mono','Fira Code',monospace" font-size="8" fill="#94a3b8">map[string]int</text>
+
+  <!-- G badges pointing at map -->
+  <circle cx="82" cy="378" r="11" fill="none" stroke="#f472b6" stroke-width="1.2"/>
+  <text x="82" y="382" text-anchor="middle" font-family="'Inter','SF Pro Display',system-ui,sans-serif" font-size="8" font-weight="700" fill="#f472b6">G1</text>
+  <line x1="93" y1="382" x2="110" y2="390" stroke="#f472b6" stroke-width="1.2" marker-end="url(#arr-rose)"/>
+
+  <circle cx="82" cy="410" r="11" fill="none" stroke="#60a5fa" stroke-width="1.2"/>
+  <text x="82" y="414" text-anchor="middle" font-family="'Inter','SF Pro Display',system-ui,sans-serif" font-size="8" font-weight="700" fill="#60a5fa">G2</text>
+  <line x1="93" y1="406" x2="110" y2="400" stroke="#60a5fa" stroke-width="1.2" marker-end="url(#arr-blue)"/>
+
+  <!-- write/read labels -->
+  <text x="244" y="385" font-family="'Inter','SF Pro Display',system-ui,sans-serif" font-size="8" font-weight="600" fill="#f472b6">write</text>
+  <text x="244" y="415" font-family="'Inter','SF Pro Display',system-ui,sans-serif" font-size="8" font-weight="600" fill="#60a5fa">read</text>
+
+  <!-- lightning bolt -->
+  <g transform="translate(250,392)" opacity="0.9">
+    <path d="M0,-8 L-3,0 L1,0 L-2,8 L4,-1 L0,-1 Z" fill="#f472b6" stroke="#ec4899" stroke-width="0.5"/>
+  </g>
+
+  <!-- code -->
+  <text x="80" y="448" font-family="'JetBrains Mono','SF Mono','Fira Code',monospace" font-size="9" fill="#e2e8f0">m["a"] = 1</text>
+  <text x="185" y="448" font-family="'JetBrains Mono','SF Mono','Fira Code',monospace" font-size="9" fill="#64748b">vs</text>
+  <text x="200" y="448" font-family="'JetBrains Mono','SF Mono','Fira Code',monospace" font-size="9" fill="#e2e8f0">_ = m["a"]</text>
+
+  <!-- divider -->
+  <line x1="72" y1="460" x2="272" y2="460" stroke="#1e293b" stroke-width="0.5"/>
+
+  <!-- FIX -->
+  <circle cx="80" cy="478" r="8" fill="none" stroke="#2dd4bf" stroke-width="1"/>
+  <path d="M76,478 L79,481 L85,475" fill="none" stroke="#2dd4bf" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+  <text x="93" y="475" font-family="'Inter','SF Pro Display',system-ui,sans-serif" font-size="9" font-weight="700" fill="#2dd4bf">FIX</text>
+
+  <text x="80" y="498" font-family="'JetBrains Mono','SF Mono','Fira Code',monospace" font-size="9" fill="#e2e8f0">var mu sync.Mutex</text>
+  <text x="80" y="512" font-family="'JetBrains Mono','SF Mono','Fira Code',monospace" font-size="9" fill="#e2e8f0">mu.Lock()</text>
+  <text x="80" y="526" font-family="'Inter','SF Pro Display',system-ui,sans-serif" font-size="9" fill="#94a3b8">or use</text>
+  <text x="120" y="526" font-family="'JetBrains Mono','SF Mono','Fira Code',monospace" font-size="9" fill="#2dd4bf">sync.Map</text>
+
+  <!-- ====== 2. LOOP VARIABLE CAPTURE ====== -->
+  <g filter="url(#shadow)">
+    <rect x="310" y="325" width="240" height="270" rx="10" fill="none" stroke="#1e293b" stroke-width="1" opacity="0.6"/>
+  </g>
+
+  <!-- title bar -->
+  <rect x="310" y="325" width="240" height="28" rx="10" fill="none"/>
+  <rect x="310" y="343" width="240" height="10" fill="none"/>
+  <text x="430" y="344" text-anchor="middle" font-family="'Inter','SF Pro Display',system-ui,sans-serif" font-size="11" font-weight="700" fill="#fbbf24">2. Loop Variable Capture</text>
+
+  <!-- loop counter i -->
+  <g transform="translate(340,368)">
+    <!-- i changing -->
+    <rect x="0" y="0" width="26" height="20" rx="4" fill="none" stroke="#fbbf24" stroke-width="1"/>
+    <text x="13" y="14" text-anchor="middle" font-family="'JetBrains Mono','SF Mono','Fira Code',monospace" font-size="10" fill="#fbbf24">i</text>
+    <text x="34" y="14" font-family="'Inter','SF Pro Display',system-ui,sans-serif" font-size="9" fill="#94a3b8">→</text>
+    <text x="46" y="14" font-family="'JetBrains Mono','SF Mono','Fira Code',monospace" font-size="9" fill="#64748b">0→1→2→3→4</text>
+  </g>
+
+  <!-- goroutines all pointing at same i -->
+  <g transform="translate(340,400)">
+    <!-- goroutine circles pointing at i -->
+    <circle cx="15" cy="15" r="10" fill="none" stroke="#f472b6" stroke-width="1"/>
+    <text x="15" y="18" text-anchor="middle" font-family="'Inter','SF Pro Display',system-ui,sans-serif" font-size="7" font-weight="700" fill="#f472b6">g0</text>
+    <circle cx="45" cy="15" r="10" fill="none" stroke="#f472b6" stroke-width="1"/>
+    <text x="45" y="18" text-anchor="middle" font-family="'Inter','SF Pro Display',system-ui,sans-serif" font-size="7" font-weight="700" fill="#f472b6">g1</text>
+    <circle cx="75" cy="15" r="10" fill="none" stroke="#f472b6" stroke-width="1"/>
+    <text x="75" y="18" text-anchor="middle" font-family="'Inter','SF Pro Display',system-ui,sans-serif" font-size="7" font-weight="700" fill="#f472b6">g2</text>
+    <circle cx="105" cy="15" r="10" fill="none" stroke="#f472b6" stroke-width="1"/>
+    <text x="105" y="18" text-anchor="middle" font-family="'Inter','SF Pro Display',system-ui,sans-serif" font-size="7" font-weight="700" fill="#f472b6">g3</text>
+    <circle cx="135" cy="15" r="10" fill="none" stroke="#f472b6" stroke-width="1"/>
+    <text x="135" y="18" text-anchor="middle" font-family="'Inter','SF Pro Display',system-ui,sans-serif" font-size="7" font-weight="700" fill="#f472b6">g4</text>
+  </g>
+
+  <!-- speech bubbles all saying "5" (broken) -->
+  <text x="340" y="443" font-family="'Inter','SF Pro Display',system-ui,sans-serif" font-size="8" fill="#f472b6" font-weight="600">all read final value:</text>
+  <g transform="translate(340,448)">
+    <rect x="0" y="0" width="22" height="16" rx="3" fill="none" stroke="#f472b6" stroke-width="0.8"/>
+    <text x="11" y="12" text-anchor="middle" font-family="'JetBrains Mono','SF Mono','Fira Code',monospace" font-size="9" fill="#f472b6">5</text>
+    <rect x="28" y="0" width="22" height="16" rx="3" fill="none" stroke="#f472b6" stroke-width="0.8"/>
+    <text x="39" y="12" text-anchor="middle" font-family="'JetBrains Mono','SF Mono','Fira Code',monospace" font-size="9" fill="#f472b6">5</text>
+    <rect x="56" y="0" width="22" height="16" rx="3" fill="none" stroke="#f472b6" stroke-width="0.8"/>
+    <text x="67" y="12" text-anchor="middle" font-family="'JetBrains Mono','SF Mono','Fira Code',monospace" font-size="9" fill="#f472b6">5</text>
+    <rect x="84" y="0" width="22" height="16" rx="3" fill="none" stroke="#f472b6" stroke-width="0.8"/>
+    <text x="95" y="12" text-anchor="middle" font-family="'JetBrains Mono','SF Mono','Fira Code',monospace" font-size="9" fill="#f472b6">5</text>
+    <rect x="112" y="0" width="22" height="16" rx="3" fill="none" stroke="#f472b6" stroke-width="0.8"/>
+    <text x="123" y="12" text-anchor="middle" font-family="'JetBrains Mono','SF Mono','Fira Code',monospace" font-size="9" fill="#f472b6">5</text>
+  </g>
+
+  <!-- fixed version -->
+  <text x="340" y="486" font-family="'Inter','SF Pro Display',system-ui,sans-serif" font-size="8" fill="#2dd4bf" font-weight="600">fixed — each sees own value:</text>
+  <g transform="translate(340,491)">
+    <rect x="0" y="0" width="22" height="16" rx="3" fill="none" stroke="#2dd4bf" stroke-width="0.8"/>
+    <text x="11" y="12" text-anchor="middle" font-family="'JetBrains Mono','SF Mono','Fira Code',monospace" font-size="9" fill="#2dd4bf">0</text>
+    <rect x="28" y="0" width="22" height="16" rx="3" fill="none" stroke="#2dd4bf" stroke-width="0.8"/>
+    <text x="39" y="12" text-anchor="middle" font-family="'JetBrains Mono','SF Mono','Fira Code',monospace" font-size="9" fill="#2dd4bf">1</text>
+    <rect x="56" y="0" width="22" height="16" rx="3" fill="none" stroke="#2dd4bf" stroke-width="0.8"/>
+    <text x="67" y="12" text-anchor="middle" font-family="'JetBrains Mono','SF Mono','Fira Code',monospace" font-size="9" fill="#2dd4bf">2</text>
+    <rect x="84" y="0" width="22" height="16" rx="3" fill="none" stroke="#2dd4bf" stroke-width="0.8"/>
+    <text x="95" y="12" text-anchor="middle" font-family="'JetBrains Mono','SF Mono','Fira Code',monospace" font-size="9" fill="#2dd4bf">3</text>
+    <rect x="112" y="0" width="22" height="16" rx="3" fill="none" stroke="#2dd4bf" stroke-width="0.8"/>
+    <text x="123" y="12" text-anchor="middle" font-family="'JetBrains Mono','SF Mono','Fira Code',monospace" font-size="9" fill="#2dd4bf">4</text>
+  </g>
+
+  <!-- divider -->
+  <line x1="330" y1="518" x2="530" y2="518" stroke="#1e293b" stroke-width="0.5"/>
+
+  <!-- FIX -->
+  <circle cx="338" cy="536" r="8" fill="none" stroke="#2dd4bf" stroke-width="1"/>
+  <path d="M334,536 L337,539 L343,533" fill="none" stroke="#2dd4bf" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+  <text x="351" y="533" font-family="'Inter','SF Pro Display',system-ui,sans-serif" font-size="9" font-weight="700" fill="#2dd4bf">FIX</text>
+
+  <text x="338" y="556" font-family="'Inter','SF Pro Display',system-ui,sans-serif" font-size="9" fill="#cbd5e1">Go 1.22+ fixes this</text>
+  <text x="338" y="570" font-family="'Inter','SF Pro Display',system-ui,sans-serif" font-size="9" fill="#94a3b8">or pass as func argument</text>
+
+  <!-- ====== 3. CHECK-THEN-ACT ====== -->
+  <g filter="url(#shadow)">
+    <rect x="568" y="325" width="250" height="270" rx="10" fill="none" stroke="#1e293b" stroke-width="1" opacity="0.6"/>
+  </g>
+
+  <!-- title bar -->
+  <rect x="568" y="325" width="250" height="28" rx="10" fill="none"/>
+  <rect x="568" y="343" width="250" height="10" fill="none"/>
+  <text x="693" y="344" text-anchor="middle" font-family="'Inter','SF Pro Display',system-ui,sans-serif" font-size="11" font-weight="700" fill="#60a5fa">3. Check-Then-Act</text>
+
+  <!-- two sequential steps: check → act -->
+  <!-- G1 path -->
+  <text x="590" y="374" font-family="'Inter','SF Pro Display',system-ui,sans-serif" font-size="8" fill="#f472b6" font-weight="600">G1</text>
+  <rect x="610" y="362" width="72" height="20" rx="4" fill="none" stroke="#60a5fa" stroke-width="1"/>
+  <text x="646" y="376" text-anchor="middle" font-family="'JetBrains Mono','SF Mono','Fira Code',monospace" font-size="8" fill="#e2e8f0">if !exists</text>
+
+  <!-- gap (the danger zone) highlighted in rose -->
+  <rect x="686" y="362" width="26" height="20" rx="2" fill="none" stroke="#f472b6" stroke-width="0.8" stroke-dasharray="2,2"/>
+  <text x="699" y="376" text-anchor="middle" font-family="'Inter','SF Pro Display',system-ui,sans-serif" font-size="6" fill="#f472b6">gap</text>
+
+  <rect x="716" y="362" width="56" height="20" rx="4" fill="none" stroke="#60a5fa" stroke-width="1"/>
+  <text x="744" y="376" text-anchor="middle" font-family="'JetBrains Mono','SF Mono','Fira Code',monospace" font-size="8" fill="#e2e8f0">create</text>
+
+  <!-- G2 path (same thing, offset) -->
+  <text x="590" y="404" font-family="'Inter','SF Pro Display',system-ui,sans-serif" font-size="8" fill="#60a5fa" font-weight="600">G2</text>
+  <rect x="618" y="392" width="72" height="20" rx="4" fill="none" stroke="#60a5fa" stroke-width="1"/>
+  <text x="654" y="406" text-anchor="middle" font-family="'JetBrains Mono','SF Mono','Fira Code',monospace" font-size="8" fill="#e2e8f0">if !exists</text>
+
+  <rect x="724" y="392" width="56" height="20" rx="4" fill="none" stroke="#60a5fa" stroke-width="1"/>
+  <text x="752" y="406" text-anchor="middle" font-family="'JetBrains Mono','SF Mono','Fira Code',monospace" font-size="8" fill="#e2e8f0">create</text>
+
+  <!-- both pass check arrows -->
+  <text x="610" y="430" font-family="'Inter','SF Pro Display',system-ui,sans-serif" font-size="8" fill="#94a3b8">both see</text>
+  <text x="660" y="430" font-family="'JetBrains Mono','SF Mono','Fira Code',monospace" font-size="8" fill="#fbbf24">false</text>
+  <text x="694" y="430" font-family="'Inter','SF Pro Display',system-ui,sans-serif" font-size="8" fill="#94a3b8">→ both create</text>
+
+  <!-- double creation / corruption indicator -->
+  <rect x="600" y="440" width="196" height="32" rx="5" fill="none" stroke="#f472b6" stroke-width="1" stroke-dasharray="3,3"/>
+  <text x="698" y="456" text-anchor="middle" font-family="'Inter','SF Pro Display',system-ui,sans-serif" font-size="9" fill="#f472b6" font-weight="600">double creation / corruption</text>
+  <text x="698" y="468" text-anchor="middle" font-family="'Inter','SF Pro Display',system-ui,sans-serif" font-size="8" fill="#64748b">the check and act are not atomic</text>
+
+  <!-- divider -->
+  <line x1="588" y1="484" x2="798" y2="484" stroke="#1e293b" stroke-width="0.5"/>
+
+  <!-- FIX -->
+  <circle cx="596" cy="502" r="8" fill="none" stroke="#2dd4bf" stroke-width="1"/>
+  <path d="M592,502 L595,505 L601,499" fill="none" stroke="#2dd4bf" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+  <text x="609" y="499" font-family="'Inter','SF Pro Display',system-ui,sans-serif" font-size="9" font-weight="700" fill="#2dd4bf">FIX</text>
+
+  <text x="596" y="522" font-family="'Inter','SF Pro Display',system-ui,sans-serif" font-size="9" fill="#cbd5e1">use atomic CAS or mutex</text>
+  <text x="596" y="536" font-family="'Inter','SF Pro Display',system-ui,sans-serif" font-size="9" fill="#cbd5e1">around both operations</text>
+
+  <text x="596" y="558" font-family="'JetBrains Mono','SF Mono','Fira Code',monospace" font-size="8" fill="#e2e8f0">mu.Lock()</text>
+  <text x="596" y="570" font-family="'JetBrains Mono','SF Mono','Fira Code',monospace" font-size="8" fill="#64748b">// check + act together</text>
+  <text x="596" y="582" font-family="'JetBrains Mono','SF Mono','Fira Code',monospace" font-size="8" fill="#e2e8f0">mu.Unlock()</text>
+
+  <!-- ====== RIGHT PANEL ====== -->
+  <g filter="url(#shadow)">
+    <rect x="860" y="88" width="310" height="506" rx="12" fill="url(#g-panel)" stroke="#1e293b" stroke-width="1"/>
+  </g>
+
+  <!-- 1. RACE DETECTOR section -->
+  <text x="884" y="116" font-family="'Inter','SF Pro Display',system-ui,sans-serif" font-size="10" font-weight="700" fill="#f1f5f9" letter-spacing="1.5">RACE DETECTOR</text>
+  <line x1="884" y1="122" x2="1146" y2="122" stroke="#1e293b" stroke-width="0.5"/>
+
+  <!-- commands -->
+  <text x="896" y="144" font-family="'JetBrains Mono','SF Mono','Fira Code',monospace" font-size="10" fill="#2dd4bf">go test -race ./...</text>
+  <text x="896" y="164" font-family="'JetBrains Mono','SF Mono','Fira Code',monospace" font-size="10" fill="#2dd4bf">go run -race main.go</text>
+  <text x="896" y="184" font-family="'JetBrains Mono','SF Mono','Fira Code',monospace" font-size="10" fill="#2dd4bf">go build -race</text>
+
+  <!-- description -->
+  <text x="896" y="206" font-family="'Inter','SF Pro Display',system-ui,sans-serif" font-size="9" fill="#94a3b8">~5-10x overhead, use in tests + CI,</text>
+  <text x="896" y="220" font-family="'Inter','SF Pro Display',system-ui,sans-serif" font-size="9" fill="#94a3b8">not in production.</text>
+
+  <!-- divider -->
+  <line x1="884" y1="234" x2="1146" y2="234" stroke="#1e293b" stroke-width="0.5"/>
+
+  <!-- 2. RACE DETECTOR OUTPUT section -->
+  <text x="884" y="254" font-family="'Inter','SF Pro Display',system-ui,sans-serif" font-size="10" font-weight="700" fill="#f1f5f9" letter-spacing="1.5">DETECTOR OUTPUT</text>
+
+  <!-- terminal box -->
+  <rect x="884" y="264" width="262" height="110" rx="6" fill="none" stroke="#1e293b" stroke-width="1"/>
+  <!-- terminal dots -->
+  <circle cx="896" cy="276" r="3" fill="#ec4899" fill-opacity="0.7"/>
+  <circle cx="906" cy="276" r="3" fill="#fbbf24" fill-opacity="0.7"/>
+  <circle cx="916" cy="276" r="3" fill="#2dd4bf" fill-opacity="0.7"/>
+
+  <!-- terminal content -->
+  <text x="896" y="298" font-family="'JetBrains Mono','SF Mono','Fira Code',monospace" font-size="9" fill="#f472b6" font-weight="700">WARNING: DATA RACE</text>
+  <text x="896" y="314" font-family="'JetBrains Mono','SF Mono','Fira Code',monospace" font-size="8" fill="#e2e8f0">Read at 0x00c... by goroutine 7:</text>
+  <text x="896" y="328" font-family="'JetBrains Mono','SF Mono','Fira Code',monospace" font-size="8" fill="#64748b">  main.go:42 +0x38</text>
+  <text x="896" y="346" font-family="'JetBrains Mono','SF Mono','Fira Code',monospace" font-size="8" fill="#e2e8f0">Previous write at 0x00c...</text>
+  <text x="896" y="360" font-family="'JetBrains Mono','SF Mono','Fira Code',monospace" font-size="8" fill="#e2e8f0">  by goroutine 6:</text>
+
+  <!-- divider -->
+  <line x1="884" y1="388" x2="1146" y2="388" stroke="#1e293b" stroke-width="0.5"/>
+
+  <!-- 3. KEY INSIGHT section -->
+  <text x="884" y="408" font-family="'Inter','SF Pro Display',system-ui,sans-serif" font-size="10" font-weight="700" fill="#f1f5f9" letter-spacing="1.5">KEY INSIGHT</text>
+
+  <!-- quote box -->
+  <rect x="884" y="418" width="262" height="88" rx="6" fill="none" stroke="#14b8a6" stroke-width="1" stroke-opacity="0.2"/>
+  <!-- quote bar -->
+  <rect x="884" y="418" width="3" height="88" rx="1" fill="#1a5c52"/>
+
+  <text x="900" y="438" font-family="'Inter','SF Pro Display',system-ui,sans-serif" font-size="10" fill="#cbd5e1" font-style="italic">If two goroutines touch the</text>
+  <text x="900" y="454" font-family="'Inter','SF Pro Display',system-ui,sans-serif" font-size="10" fill="#cbd5e1" font-style="italic">same variable and at least one</text>
+  <text x="900" y="470" font-family="'Inter','SF Pro Display',system-ui,sans-serif" font-size="10" fill="#cbd5e1" font-style="italic">writes — that's a race.</text>
+  <text x="900" y="494" font-family="'Inter','SF Pro Display',system-ui,sans-serif" font-size="10" fill="#2dd4bf" font-weight="600">The fix: mutex, atomic, or channel.</text>
+
+  <!-- divider -->
+  <line x1="884" y1="516" x2="1146" y2="516" stroke="#1e293b" stroke-width="0.5"/>
+
+  <!-- quick reference -->
+  <text x="884" y="536" font-family="'Inter','SF Pro Display',system-ui,sans-serif" font-size="10" font-weight="700" fill="#f1f5f9" letter-spacing="1.5">QUICK REF</text>
+
+  <text x="896" y="556" font-family="'JetBrains Mono','SF Mono','Fira Code',monospace" font-size="9" fill="#fbbf24">sync.Mutex</text>
+  <text x="1000" y="556" font-family="'Inter','SF Pro Display',system-ui,sans-serif" font-size="9" fill="#94a3b8">exclusive lock</text>
+
+  <text x="896" y="572" font-family="'JetBrains Mono','SF Mono','Fira Code',monospace" font-size="9" fill="#fbbf24">sync/atomic</text>
+  <text x="1000" y="572" font-family="'Inter','SF Pro Display',system-ui,sans-serif" font-size="9" fill="#94a3b8">lock-free ops</text>
+
+  <text x="896" y="588" font-family="'JetBrains Mono','SF Mono','Fira Code',monospace" font-size="9" fill="#fbbf24">chan T</text>
+  <text x="1000" y="588" font-family="'Inter','SF Pro Display',system-ui,sans-serif" font-size="9" fill="#94a3b8">ownership transfer</text>
+
+</svg>

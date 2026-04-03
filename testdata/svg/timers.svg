@@ -1,0 +1,417 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 620">
+  <defs>
+    <!-- filters -->
+    <filter id="shadow" x="-6%" y="-6%" width="112%" height="116%">
+      <feDropShadow dx="1" dy="2" stdDeviation="5" flood-color="#000" flood-opacity="0.35"/>
+    </filter>
+    <filter id="title-glow" x="-10%" y="-10%" width="120%" height="120%">
+      <feGaussianBlur in="SourceAlpha" stdDeviation="8" result="blur"/>
+      <feFlood flood-color="#fbbf24" flood-opacity="0.25" result="color"/>
+      <feComposite in="color" in2="blur" operator="in" result="glow"/>
+      <feMerge><feMergeNode in="glow"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+    <filter id="glow-rose" x="-30%" y="-30%" width="160%" height="160%">
+      <feGaussianBlur in="SourceAlpha" stdDeviation="3" result="blur"/>
+      <feFlood flood-color="#ec4899" flood-opacity="0.4" result="color"/>
+      <feComposite in="color" in2="blur" operator="in" result="glow"/>
+      <feMerge><feMergeNode in="glow"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+
+    <!-- arrow markers -->
+    <marker id="arr-teal" viewBox="0 0 12 8" refX="11" refY="4" markerWidth="12" markerHeight="8" orient="auto-start-reverse">
+      <path d="M0,0 L12,4 L0,8 Z" fill="#2dd4bf"/>
+    </marker>
+    <marker id="arr-amber" viewBox="0 0 12 8" refX="11" refY="4" markerWidth="12" markerHeight="8" orient="auto-start-reverse">
+      <path d="M0,0 L12,4 L0,8 Z" fill="#fbbf24"/>
+    </marker>
+    <marker id="arr-blue" viewBox="0 0 12 8" refX="11" refY="4" markerWidth="12" markerHeight="8" orient="auto-start-reverse">
+      <path d="M0,0 L12,4 L0,8 Z" fill="#60a5fa"/>
+    </marker>
+    <marker id="arr-rose" viewBox="0 0 12 8" refX="11" refY="4" markerWidth="12" markerHeight="8" orient="auto-start-reverse">
+      <path d="M0,0 L12,4 L0,8 Z" fill="#f472b6"/>
+    </marker>
+
+    <!-- gradients -->
+    <radialGradient id="g-ball-amber" cx="0.4" cy="0.35" r="0.6">
+      <stop offset="0%" stop-color="#fde68a"/><stop offset="100%" stop-color="#d97706"/>
+    </radialGradient>
+    <radialGradient id="g-ball-teal" cx="0.4" cy="0.35" r="0.6">
+      <stop offset="0%" stop-color="#5eead4"/><stop offset="100%" stop-color="#0d9488"/>
+    </radialGradient>
+    <radialGradient id="g-ball-blue" cx="0.4" cy="0.35" r="0.6">
+      <stop offset="0%" stop-color="#93c5fd"/><stop offset="100%" stop-color="#2563eb"/>
+    </radialGradient>
+
+    <!-- ambient glows -->
+    <radialGradient id="glow-top" cx="300" cy="180" r="340" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#f59e0b" stop-opacity="0.04"/><stop offset="100%" stop-color="#f59e0b" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="glow-bot" cx="300" cy="440" r="340" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#3b82f6" stop-opacity="0.04"/><stop offset="100%" stop-color="#3b82f6" stop-opacity="0"/>
+    </radialGradient>
+
+    <!-- right panel -->
+    <linearGradient id="g-panel" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#141d2e" stop-opacity="0.9"/><stop offset="100%" stop-color="#0b1120" stop-opacity="0.95"/>
+    </linearGradient>
+
+    <!-- accent stripe -->
+    <linearGradient id="g-accent" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#f59e0b"/><stop offset="33%" stop-color="#3b82f6"/>
+      <stop offset="66%" stop-color="#14b8a6"/><stop offset="100%" stop-color="#ec4899"/>
+    </linearGradient>
+
+    <!-- section separator -->
+    <linearGradient id="g-sep-amber" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0%" stop-color="#fbbf24" stop-opacity="0"/><stop offset="15%" stop-color="#fbbf24" stop-opacity="0.3"/>
+      <stop offset="85%" stop-color="#fbbf24" stop-opacity="0.3"/><stop offset="100%" stop-color="#fbbf24" stop-opacity="0"/>
+    </linearGradient>
+    <linearGradient id="g-sep-blue" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0%" stop-color="#60a5fa" stop-opacity="0"/><stop offset="15%" stop-color="#60a5fa" stop-opacity="0.3"/>
+      <stop offset="85%" stop-color="#60a5fa" stop-opacity="0.3"/><stop offset="100%" stop-color="#60a5fa" stop-opacity="0"/>
+    </linearGradient>
+
+    <!-- token bucket fill -->
+    <linearGradient id="g-bucket" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#1e3a5f" stop-opacity="0.6"/><stop offset="100%" stop-color="#0f172a" stop-opacity="0.8"/>
+    </linearGradient>
+  </defs>
+
+  <style>
+    .bg { fill: #0f172a; }
+    .title { font-family: 'Inter', 'SF Pro Display', system-ui, sans-serif; font-size: 26px; font-weight: 700; fill: #f1f5f9; }
+    .subtitle { font-family: 'Inter', 'SF Pro Display', system-ui, sans-serif; font-size: 12px; font-weight: 400; fill: #94a3b8; }
+    .section-label { font-family: 'Inter', 'SF Pro Display', system-ui, sans-serif; font-size: 11px; font-weight: 600; letter-spacing: 1.5px; text-transform: uppercase; }
+    .label { font-family: 'Inter', 'SF Pro Display', system-ui, sans-serif; font-size: 11px; font-weight: 600; fill: #94a3b8; }
+    .label-sm { font-family: 'Inter', 'SF Pro Display', system-ui, sans-serif; font-size: 9px; font-weight: 500; fill: #94a3b8; }
+    .desc { font-family: 'Inter', 'SF Pro Display', system-ui, sans-serif; font-size: 11px; font-weight: 400; fill: #cbd5e1; }
+    .desc-sm { font-family: 'Inter', 'SF Pro Display', system-ui, sans-serif; font-size: 10px; font-weight: 400; fill: #cbd5e1; }
+    .code { font-family: 'JetBrains Mono', 'SF Mono', 'Fira Code', monospace; font-size: 10.5px; fill: #e2e8f0; }
+    .code-sm { font-family: 'JetBrains Mono', 'SF Mono', 'Fira Code', monospace; font-size: 9px; fill: #e2e8f0; }
+    .note { font-family: 'Inter', 'SF Pro Display', system-ui, sans-serif; font-size: 10px; fill: #64748b; }
+    .panel-title { font-family: 'Inter', 'SF Pro Display', system-ui, sans-serif; font-size: 11px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; }
+    .panel-code { font-family: 'JetBrains Mono', 'SF Mono', 'Fira Code', monospace; font-size: 10px; fill: #e2e8f0; }
+    .panel-desc { font-family: 'Inter', 'SF Pro Display', system-ui, sans-serif; font-size: 10px; fill: #94a3b8; }
+    .warn { font-family: 'Inter', 'SF Pro Display', system-ui, sans-serif; font-size: 10px; font-weight: 600; fill: #f472b6; }
+    .quote { font-family: 'Inter', 'SF Pro Display', system-ui, sans-serif; font-size: 11px; font-weight: 500; fill: #f1f5f9; font-style: italic; }
+    .mini-label { font-family: 'Inter', 'SF Pro Display', system-ui, sans-serif; font-size: 9px; font-weight: 600; }
+  </style>
+
+  <!-- background -->
+  <g opacity="0.05">
+    <pattern id="dots" width="40" height="40" patternUnits="userSpaceOnUse">
+      <circle cx="20" cy="20" r="0.8" fill="#94a3b8"/>
+    </pattern>
+    <rect width="1200" height="620" fill="url(#dots)"/>
+  </g>
+
+  <!-- ambient glows -->
+  <rect width="1200" height="620" fill="url(#glow-top)"/>
+  <rect width="1200" height="620" fill="url(#glow-bot)"/>
+
+  <!-- ================================================================ -->
+  <!-- TITLE                                                             -->
+  <!-- ================================================================ -->
+  <g filter="url(#title-glow)">
+    <text class="title" x="420" y="38" text-anchor="middle" font-family="'Inter', 'SF Pro Display', system-ui, sans-serif" font-size="26px" font-weight="700" fill="#f1f5f9">Go Timers &amp; Rate Limiting</text>
+  </g>
+  <text class="subtitle" x="420" y="58" text-anchor="middle" font-family="'Inter', 'SF Pro Display', system-ui, sans-serif" font-size="12px" font-weight="400" fill="#94a3b8">time.After · Ticker · rate.Limiter · timeouts</text>
+
+  <!-- ================================================================ -->
+  <!-- SECTION: TIMERS (y=90-300)                                        -->
+  <!-- ================================================================ -->
+  <line x1="52" y1="86" x2="820" y2="86" stroke="url(#g-sep-amber)" stroke-width="1"/>
+  <text class="section-label" x="52" y="100" fill="#fbbf24" font-family="'Inter', 'SF Pro Display', system-ui, sans-serif" font-size="11px" font-weight="600" letter-spacing="1.5px">TIMERS</text>
+
+  <!-- ================================================================ -->
+  <!-- time.After with select (x=52, y=110, w=350)                      -->
+  <!-- ================================================================ -->
+  <g transform="translate(52, 110)">
+    <!-- timeline bar -->
+    <rect x="0" y="14" width="340" height="8" rx="4" fill="#1c1c2e" stroke="#f59e0b" stroke-width="1" stroke-opacity="0.5"/>
+    <rect x="0" y="14" width="230" height="8" rx="4" fill="#f59e0b" fill-opacity="0.15"/>
+
+    <!-- "now" and "3s" labels -->
+    <text class="label-sm" x="0" y="8" fill="#94a3b8" font-family="'Inter', 'SF Pro Display', system-ui, sans-serif" font-size="9px" font-weight="500">now</text>
+    <text class="label-sm" x="334" y="8" fill="#fbbf24" font-family="'Inter', 'SF Pro Display', system-ui, sans-serif" font-size="9px" font-weight="500">3s</text>
+
+    <!-- traveling marker -->
+    <circle cx="230" cy="18" r="5" fill="url(#g-ball-amber)" filter="url(#shadow)"/>
+
+    <!-- pipe opening at end -->
+    <rect x="340" y="10" width="10" height="16" rx="2" fill="#f59e0b" fill-opacity="0.3" stroke="#fbbf24" stroke-width="0.8"/>
+    <text class="mini-label" x="355" y="22" fill="#fbbf24" font-size="7" font-family="'Inter', 'SF Pro Display', system-ui, sans-serif" font-weight="600">chan</text>
+
+    <!-- code below timeline -->
+    <text class="code" x="0" y="46" font-family="'JetBrains Mono', 'SF Mono', 'Fira Code', monospace" font-size="10.5px" fill="#e2e8f0">&lt;-time.After(3*time.Second)</text>
+
+    <!-- select diamond -->
+    <polygon points="170,68 195,80 170,92 145,80" fill="none" stroke="#94a3b8" stroke-width="1.2"/>
+    <text class="mini-label" x="170" y="83" text-anchor="middle" fill="#94a3b8" font-family="'Inter', 'SF Pro Display', system-ui, sans-serif" font-size="9px" font-weight="600">select</text>
+
+    <!-- path 1: channel fires first (teal) -->
+    <line x1="145" y1="80" x2="50" y2="80" stroke="#2dd4bf" stroke-width="1.2" stroke-dasharray="4,3"/>
+    <line x1="50" y1="80" x2="50" y2="110" stroke="#2dd4bf" stroke-width="1.2" marker-end="url(#arr-teal)"/>
+    <rect x="10" y="114" width="140" height="22" rx="4" fill="#14b8a6" fill-opacity="0.1" stroke="#14b8a6" stroke-width="0.8"/>
+    <text class="code-sm" x="80" y="129" text-anchor="middle" fill="#2dd4bf" font-family="'JetBrains Mono', 'SF Mono', 'Fira Code', monospace" font-size="9px">result received</text>
+
+    <!-- path 2: timer fires first (amber) -->
+    <line x1="195" y1="80" x2="290" y2="80" stroke="#fbbf24" stroke-width="1.2" stroke-dasharray="4,3"/>
+    <line x1="290" y1="80" x2="290" y2="110" stroke="#fbbf24" stroke-width="1.2" marker-end="url(#arr-amber)"/>
+    <rect x="230" y="114" width="120" height="22" rx="4" fill="#f59e0b" fill-opacity="0.1" stroke="#f59e0b" stroke-width="0.8"/>
+    <text class="code-sm" x="290" y="129" text-anchor="middle" fill="#fbbf24" font-family="'JetBrains Mono', 'SF Mono', 'Fira Code', monospace" font-size="9px">timeout</text>
+
+    <!-- case labels -->
+    <text class="mini-label" x="20" y="72" fill="#2dd4bf" font-family="'Inter', 'SF Pro Display', system-ui, sans-serif" font-size="9px" font-weight="600">case &lt;-ch:</text>
+    <text class="mini-label" x="240" y="72" fill="#fbbf24" font-family="'Inter', 'SF Pro Display', system-ui, sans-serif" font-size="9px" font-weight="600">case &lt;-timer:</text>
+  </g>
+
+  <!-- ================================================================ -->
+  <!-- time.Ticker (x=440, y=110, w=380)                                -->
+  <!-- ================================================================ -->
+  <g transform="translate(440, 110)">
+    <!-- main timeline -->
+    <rect x="0" y="14" width="370" height="4" rx="2" fill="#1c1c2e" stroke="#f59e0b" stroke-width="0.8" stroke-opacity="0.5"/>
+
+    <!-- tick marks and pulses -->
+    <g>
+      <line x1="0" y1="8" x2="0" y2="24" stroke="#fbbf24" stroke-width="1.5"/>
+      <circle cx="0" cy="34" r="3" fill="#fbbf24" opacity="0.8"/>
+
+      <line x1="62" y1="8" x2="62" y2="24" stroke="#fbbf24" stroke-width="1.5"/>
+      <circle cx="62" cy="34" r="3" fill="#fbbf24" opacity="0.7"/>
+
+      <line x1="124" y1="8" x2="124" y2="24" stroke="#fbbf24" stroke-width="1.5"/>
+      <circle cx="124" cy="34" r="3" fill="#fbbf24" opacity="0.6"/>
+
+      <line x1="186" y1="8" x2="186" y2="24" stroke="#fbbf24" stroke-width="1.5"/>
+      <circle cx="186" cy="34" r="3" fill="#fbbf24" opacity="0.5"/>
+
+      <line x1="248" y1="8" x2="248" y2="24" stroke="#fbbf24" stroke-width="1.5"/>
+      <circle cx="248" cy="34" r="3" fill="#fbbf24" opacity="0.4"/>
+
+      <line x1="310" y1="8" x2="310" y2="24" stroke="#fbbf24" stroke-width="1.5"/>
+      <circle cx="310" cy="34" r="3" fill="#fbbf24" opacity="0.3"/>
+    </g>
+
+    <!-- ticker.C label on pulses -->
+    <text class="mini-label" x="155" y="50" text-anchor="middle" fill="#94a3b8" font-family="'Inter', 'SF Pro Display', system-ui, sans-serif" font-size="9px" font-weight="600">ticker.C events</text>
+
+    <!-- Stop() at end -->
+    <g transform="translate(350, 10)">
+      <line x1="-4" y1="-4" x2="4" y2="4" stroke="#f472b6" stroke-width="2"/>
+      <line x1="4" y1="-4" x2="-4" y2="4" stroke="#f472b6" stroke-width="2"/>
+    </g>
+    <text class="code-sm" x="365" y="28" fill="#f472b6" font-family="'JetBrains Mono', 'SF Mono', 'Fira Code', monospace" font-size="9px">Stop()</text>
+
+    <!-- code below -->
+    <text class="code" x="0" y="70" font-family="'JetBrains Mono', 'SF Mono', 'Fira Code', monospace" font-size="10.5px" fill="#e2e8f0">time.NewTicker(500*time.Millisecond)</text>
+
+    <!-- for/select loop diagram -->
+    <text class="mini-label" x="0" y="90" fill="#94a3b8" font-family="'Inter', 'SF Pro Display', system-ui, sans-serif" font-size="9px" font-weight="600">for { select { ... } }</text>
+
+    <!-- select diamond -->
+    <polygon points="185,108 210,120 185,132 160,120" fill="none" stroke="#94a3b8" stroke-width="1.2"/>
+    <text class="mini-label" x="185" y="123" text-anchor="middle" fill="#94a3b8" font-family="'Inter', 'SF Pro Display', system-ui, sans-serif" font-size="9px" font-weight="600">select</text>
+
+    <!-- case ticker.C -->
+    <line x1="160" y1="120" x2="70" y2="120" stroke="#fbbf24" stroke-width="1.2" stroke-dasharray="4,3"/>
+    <line x1="70" y1="120" x2="70" y2="148" stroke="#fbbf24" stroke-width="1.2" marker-end="url(#arr-amber)"/>
+    <text class="mini-label" x="40" y="112" fill="#fbbf24" font-family="'Inter', 'SF Pro Display', system-ui, sans-serif" font-size="9px" font-weight="600">case &lt;-ticker.C:</text>
+    <rect x="30" y="152" width="110" height="20" rx="4" fill="#f59e0b" fill-opacity="0.1" stroke="#f59e0b" stroke-width="0.8"/>
+    <text class="code-sm" x="85" y="166" text-anchor="middle" fill="#fbbf24" font-family="'JetBrains Mono', 'SF Mono', 'Fira Code', monospace" font-size="9px">do work</text>
+
+    <!-- case ctx.Done -->
+    <line x1="210" y1="120" x2="300" y2="120" stroke="#2dd4bf" stroke-width="1.2" stroke-dasharray="4,3"/>
+    <line x1="300" y1="120" x2="300" y2="148" stroke="#2dd4bf" stroke-width="1.2" marker-end="url(#arr-teal)"/>
+    <text class="mini-label" x="230" y="112" fill="#2dd4bf" font-family="'Inter', 'SF Pro Display', system-ui, sans-serif" font-size="9px" font-weight="600">case &lt;-ctx.Done():</text>
+    <rect x="250" y="152" width="110" height="20" rx="4" fill="#14b8a6" fill-opacity="0.1" stroke="#14b8a6" stroke-width="0.8"/>
+    <text class="code-sm" x="305" y="166" text-anchor="middle" fill="#2dd4bf" font-family="'JetBrains Mono', 'SF Mono', 'Fira Code', monospace" font-size="9px">return</text>
+  </g>
+
+  <!-- ================================================================ -->
+  <!-- SECTION: RATE LIMITING (y=320-580)                                -->
+  <!-- ================================================================ -->
+  <line x1="52" y1="316" x2="820" y2="316" stroke="url(#g-sep-blue)" stroke-width="1"/>
+  <text class="section-label" x="52" y="330" fill="#60a5fa" font-family="'Inter', 'SF Pro Display', system-ui, sans-serif" font-size="11px" font-weight="600" letter-spacing="1.5px">RATE LIMITING</text>
+
+  <!-- ================================================================ -->
+  <!-- Token Bucket (x=52, y=340, w=380)                                -->
+  <!-- ================================================================ -->
+  <g transform="translate(52, 345)">
+    <!-- bucket shape -->
+    <path d="M60,10 L60,170 Q60,185 75,185 L245,185 Q260,185 260,170 L260,10 Q260,0 245,0 L75,0 Q60,0 60,10 Z" fill="url(#g-bucket)" stroke="#3b82f6" stroke-width="1.2"/>
+
+    <!-- capacity label -->
+    <text class="label-sm" x="270" y="95" fill="#60a5fa" font-family="'Inter', 'SF Pro Display', system-ui, sans-serif" font-size="9px" font-weight="500">burst: 30</text>
+    <line x1="262" y1="5" x2="275" y2="5" stroke="#60a5fa" stroke-width="0.8" stroke-dasharray="2,2"/>
+    <line x1="262" y1="183" x2="275" y2="183" stroke="#60a5fa" stroke-width="0.8" stroke-dasharray="2,2"/>
+    <line x1="275" y1="5" x2="275" y2="183" stroke="#60a5fa" stroke-width="0.8" stroke-dasharray="2,2"/>
+
+    <!-- tokens inside bucket (5 of 10 shown, scattered) -->
+    <circle cx="100" cy="155" r="6" fill="url(#g-ball-teal)"/>
+    <circle cx="120" cy="150" r="6" fill="url(#g-ball-teal)"/>
+    <circle cx="140" cy="158" r="6" fill="url(#g-ball-teal)"/>
+    <circle cx="160" cy="152" r="6" fill="url(#g-ball-teal)"/>
+    <circle cx="180" cy="160" r="6" fill="url(#g-ball-teal)"/>
+    <!-- empty slots (ghost tokens) -->
+    <circle cx="200" cy="155" r="6" fill="none" stroke="#14b8a6" stroke-width="0.6" stroke-dasharray="2,2" opacity="0.3"/>
+    <circle cx="220" cy="150" r="6" fill="none" stroke="#14b8a6" stroke-width="0.6" stroke-dasharray="2,2" opacity="0.3"/>
+    <circle cx="130" cy="135" r="6" fill="none" stroke="#14b8a6" stroke-width="0.6" stroke-dasharray="2,2" opacity="0.3"/>
+    <circle cx="170" cy="138" r="6" fill="none" stroke="#14b8a6" stroke-width="0.6" stroke-dasharray="2,2" opacity="0.3"/>
+    <circle cx="150" cy="130" r="6" fill="none" stroke="#14b8a6" stroke-width="0.6" stroke-dasharray="2,2" opacity="0.3"/>
+
+    <!-- drip arrows from top (steady rate) -->
+    <text class="label-sm" x="160" y="-18" text-anchor="middle" fill="#60a5fa" font-family="'Inter', 'SF Pro Display', system-ui, sans-serif" font-size="9px" font-weight="500">rate: 10/s</text>
+    <line x1="120" y1="-8" x2="120" y2="4" stroke="#60a5fa" stroke-width="1" marker-end="url(#arr-blue)" opacity="0.7"/>
+    <line x1="145" y1="-8" x2="145" y2="4" stroke="#60a5fa" stroke-width="1" marker-end="url(#arr-blue)" opacity="0.7"/>
+    <line x1="170" y1="-8" x2="170" y2="4" stroke="#60a5fa" stroke-width="1" marker-end="url(#arr-blue)" opacity="0.7"/>
+    <line x1="195" y1="-8" x2="195" y2="4" stroke="#60a5fa" stroke-width="1" marker-end="url(#arr-blue)" opacity="0.7"/>
+
+    <!-- consume from bottom -->
+    <line x1="160" y1="186" x2="160" y2="206" stroke="#2dd4bf" stroke-width="1.2" marker-end="url(#arr-teal)"/>
+    <text class="mini-label" x="160" y="220" text-anchor="middle" fill="#2dd4bf" font-family="'Inter', 'SF Pro Display', system-ui, sans-serif" font-size="9px" font-weight="600">request proceeds</text>
+
+    <!-- request arriving on left -->
+    <rect x="0" y="80" width="50" height="22" rx="4" fill="#3b82f6" fill-opacity="0.12" stroke="#3b82f6" stroke-width="0.8"/>
+    <text class="mini-label" x="25" y="95" text-anchor="middle" fill="#60a5fa" font-family="'Inter', 'SF Pro Display', system-ui, sans-serif" font-size="9px" font-weight="600">req</text>
+    <line x1="50" y1="91" x2="63" y2="91" stroke="#60a5fa" stroke-width="1.2" marker-end="url(#arr-blue)"/>
+
+    <!-- waiting request -->
+    <rect x="0" y="112" width="50" height="22" rx="4" fill="none" stroke="#3b82f6" stroke-width="0.8" stroke-dasharray="3,3" opacity="0.4"/>
+    <text class="mini-label" x="25" y="127" text-anchor="middle" fill="#64748b" font-family="'Inter', 'SF Pro Display', system-ui, sans-serif" font-size="9px" font-weight="600">wait</text>
+
+    <!-- code -->
+    <text class="code" x="0" y="248" font-family="'JetBrains Mono', 'SF Mono', 'Fira Code', monospace" font-size="10.5px" fill="#e2e8f0">rate.NewLimiter(10, 30)</text>
+  </g>
+
+  <!-- ================================================================ -->
+  <!-- Ticker-Based Limiter (x=440, y=340, w=380)                       -->
+  <!-- ================================================================ -->
+  <g transform="translate(440, 345)">
+    <!-- timeline / gate mechanism -->
+    <rect x="0" y="0" width="380" height="4" rx="2" fill="#1c1c2e" stroke="#f59e0b" stroke-width="0.8" stroke-opacity="0.5"/>
+
+    <!-- tick marks on timeline -->
+    <line x1="0" y1="-4" x2="0" y2="10" stroke="#fbbf24" stroke-width="1.2"/>
+    <line x1="76" y1="-4" x2="76" y2="10" stroke="#fbbf24" stroke-width="1.2"/>
+    <line x1="152" y1="-4" x2="152" y2="10" stroke="#fbbf24" stroke-width="1.2"/>
+    <line x1="228" y1="-4" x2="228" y2="10" stroke="#fbbf24" stroke-width="1.2"/>
+    <line x1="304" y1="-4" x2="304" y2="10" stroke="#fbbf24" stroke-width="1.2"/>
+    <line x1="380" y1="-4" x2="380" y2="10" stroke="#fbbf24" stroke-width="1.2"/>
+
+    <!-- conveyor belt -->
+    <rect x="0" y="30" width="380" height="30" rx="4" fill="#1e293b" stroke="#334155" stroke-width="0.8"/>
+
+    <!-- gate -->
+    <rect x="185" y="22" width="10" height="46" rx="2" fill="#f59e0b" fill-opacity="0.3" stroke="#fbbf24" stroke-width="1"/>
+    <text class="mini-label" x="190" y="80" text-anchor="middle" fill="#fbbf24" font-family="'Inter', 'SF Pro Display', system-ui, sans-serif" font-size="9px" font-weight="600">&lt;-throttle.C</text>
+
+    <!-- queued requests on left -->
+    <rect x="20" y="36" width="36" height="18" rx="3" fill="#3b82f6" fill-opacity="0.15" stroke="#3b82f6" stroke-width="0.8"/>
+    <text class="mini-label" x="38" y="49" text-anchor="middle" fill="#60a5fa" font-family="'Inter', 'SF Pro Display', system-ui, sans-serif" font-size="9px" font-weight="600">req</text>
+
+    <rect x="64" y="36" width="36" height="18" rx="3" fill="#3b82f6" fill-opacity="0.15" stroke="#3b82f6" stroke-width="0.8"/>
+    <text class="mini-label" x="82" y="49" text-anchor="middle" fill="#60a5fa" font-family="'Inter', 'SF Pro Display', system-ui, sans-serif" font-size="9px" font-weight="600">req</text>
+
+    <rect x="108" y="36" width="36" height="18" rx="3" fill="none" stroke="#3b82f6" stroke-width="0.8" stroke-dasharray="3,3" opacity="0.4"/>
+    <text class="mini-label" x="126" y="49" text-anchor="middle" fill="#64748b" font-family="'Inter', 'SF Pro Display', system-ui, sans-serif" font-size="9px" font-weight="600">req</text>
+
+    <rect x="152" y="36" width="36" height="18" rx="3" fill="none" stroke="#3b82f6" stroke-width="0.8" stroke-dasharray="3,3" opacity="0.3"/>
+    <text class="mini-label" x="170" y="49" text-anchor="middle" fill="#64748b" font-family="'Inter', 'SF Pro Display', system-ui, sans-serif" font-size="9px" font-weight="600">req</text>
+
+    <!-- request passing through gate -->
+    <rect x="210" y="36" width="36" height="18" rx="3" fill="#14b8a6" fill-opacity="0.2" stroke="#14b8a6" stroke-width="0.8"/>
+    <text class="mini-label" x="228" y="49" text-anchor="middle" fill="#2dd4bf" font-family="'Inter', 'SF Pro Display', system-ui, sans-serif" font-size="9px" font-weight="600">req</text>
+    <line x1="248" y1="45" x2="285" y2="45" stroke="#2dd4bf" stroke-width="1.2" marker-end="url(#arr-teal)"/>
+
+    <!-- processed -->
+    <rect x="290" y="36" width="70" height="18" rx="3" fill="#14b8a6" fill-opacity="0.08" stroke="#14b8a6" stroke-width="0.6"/>
+    <text class="mini-label" x="325" y="49" text-anchor="middle" fill="#2dd4bf" font-family="'Inter', 'SF Pro Display', system-ui, sans-serif" font-size="9px" font-weight="600">processed</text>
+
+    <!-- gate opens annotation -->
+    <line x1="190" y1="14" x2="152" y2="14" stroke="#fbbf24" stroke-width="0.8" stroke-dasharray="3,2"/>
+    <text class="mini-label" x="130" y="18" text-anchor="end" fill="#fbbf24" font-size="8" font-family="'Inter', 'SF Pro Display', system-ui, sans-serif" font-weight="600">gate opens each tick</text>
+
+    <!-- comparison labels -->
+    <g transform="translate(0, 100)">
+      <rect x="0" y="0" width="180" height="44" rx="6" fill="#f59e0b" fill-opacity="0.06" stroke="#f59e0b" stroke-width="0.6"/>
+      <text class="mini-label" x="10" y="16" fill="#fbbf24" font-family="'Inter', 'SF Pro Display', system-ui, sans-serif" font-size="9px" font-weight="600">Ticker-based</text>
+      <text class="desc-sm" x="10" y="30" fill="#94a3b8" font-family="'Inter', 'SF Pro Display', system-ui, sans-serif" font-size="10px" font-weight="400">simple but no burst</text>
+
+      <text class="label-sm" x="195" y="22" fill="#64748b" font-family="'Inter', 'SF Pro Display', system-ui, sans-serif" font-size="9px" font-weight="500">vs</text>
+
+      <rect x="210" y="0" width="170" height="44" rx="6" fill="#3b82f6" fill-opacity="0.06" stroke="#3b82f6" stroke-width="0.6"/>
+      <text class="mini-label" x="220" y="16" fill="#60a5fa" font-family="'Inter', 'SF Pro Display', system-ui, sans-serif" font-size="9px" font-weight="600">Token bucket</text>
+      <text class="desc-sm" x="220" y="30" fill="#94a3b8" font-family="'Inter', 'SF Pro Display', system-ui, sans-serif" font-size="10px" font-weight="400">allows burst capacity</text>
+    </g>
+
+    <!-- code -->
+    <text class="code" x="0" y="170" font-family="'JetBrains Mono', 'SF Mono', 'Fira Code', monospace" font-size="10.5px" fill="#e2e8f0">for req := range requests {</text>
+    <text class="code" x="0" y="184" font-family="'JetBrains Mono', 'SF Mono', 'Fira Code', monospace" font-size="10.5px" fill="#e2e8f0">    &lt;-throttle.C  // rate limit</text>
+    <text class="code" x="0" y="198" font-family="'JetBrains Mono', 'SF Mono', 'Fira Code', monospace" font-size="10.5px" fill="#e2e8f0">    process(req)</text>
+    <text class="code" x="0" y="212" font-family="'JetBrains Mono', 'SF Mono', 'Fira Code', monospace" font-size="10.5px" fill="#e2e8f0">}</text>
+  </g>
+
+  <!-- ================================================================ -->
+  <!-- RIGHT PANEL (x=860, y=88, w=310)                                  -->
+  <!-- ================================================================ -->
+  <!-- accent stripe -->
+  <rect x="856" y="88" width="3" height="520" rx="1.5" fill="url(#g-accent)"/>
+
+  <!-- panel background -->
+  <rect x="860" y="88" width="310" height="520" rx="8" fill="url(#g-panel)" filter="url(#shadow)"/>
+
+  <!-- Timer Types -->
+  <text class="panel-title" x="880" y="116" fill="#fbbf24" font-family="'Inter', 'SF Pro Display', system-ui, sans-serif" font-size="11px" font-weight="700" letter-spacing="1px">Timer Types</text>
+
+  <!-- time.After -->
+  <text class="panel-code" x="880" y="140" font-family="'JetBrains Mono', 'SF Mono', 'Fira Code', monospace" font-size="10px" fill="#e2e8f0">time.After(d)</text>
+  <text class="panel-desc" x="880" y="154" font-family="'Inter', 'SF Pro Display', system-ui, sans-serif" font-size="10px" fill="#94a3b8">one-shot, returns &lt;-chan Time</text>
+
+  <!-- time.NewTimer -->
+  <text class="panel-code" x="880" y="176" font-family="'JetBrains Mono', 'SF Mono', 'Fira Code', monospace" font-size="10px" fill="#e2e8f0">time.NewTimer(d)</text>
+  <text class="panel-desc" x="880" y="190" font-family="'Inter', 'SF Pro Display', system-ui, sans-serif" font-size="10px" fill="#94a3b8">one-shot, resettable</text>
+
+  <!-- time.NewTicker -->
+  <text class="panel-code" x="880" y="212" font-family="'JetBrains Mono', 'SF Mono', 'Fira Code', monospace" font-size="10px" fill="#e2e8f0">time.NewTicker(d)</text>
+  <text class="panel-desc" x="880" y="226" font-family="'Inter', 'SF Pro Display', system-ui, sans-serif" font-size="10px" fill="#94a3b8">periodic, must Stop()</text>
+
+  <!-- divider -->
+  <line x1="880" y1="244" x2="1150" y2="244" stroke="#1e293b" stroke-width="1"/>
+
+  <!-- Gotcha -->
+  <g filter="url(#glow-rose)">
+    <text class="panel-title" x="880" y="266" fill="#f472b6" font-family="'Inter', 'SF Pro Display', system-ui, sans-serif" font-size="11px" font-weight="700" letter-spacing="1px">⚠ Gotcha</text>
+  </g>
+  <text class="warn" x="880" y="284" font-family="'Inter', 'SF Pro Display', system-ui, sans-serif" font-size="10px" font-weight="600" fill="#f472b6">time.After in a loop leaks</text>
+  <text class="warn" x="880" y="298" font-family="'Inter', 'SF Pro Display', system-ui, sans-serif" font-size="10px" font-weight="600" fill="#f472b6">timers — use time.NewTimer</text>
+  <text class="warn" x="880" y="312" font-family="'Inter', 'SF Pro Display', system-ui, sans-serif" font-size="10px" font-weight="600" fill="#f472b6">and Reset() instead</text>
+
+  <!-- bad example -->
+  <rect x="880" y="324" width="270" height="52" rx="4" fill="#ec4899" fill-opacity="0.06" stroke="#ec4899" stroke-width="0.6"/>
+  <text class="code-sm" x="890" y="340" fill="#f472b6" font-family="'JetBrains Mono', 'SF Mono', 'Fira Code', monospace" font-size="9px">// leaks! new timer each iteration</text>
+  <text class="code-sm" x="890" y="354" fill="#f472b6" font-family="'JetBrains Mono', 'SF Mono', 'Fira Code', monospace" font-size="9px">for { select {</text>
+  <text class="code-sm" x="890" y="368" fill="#f472b6" font-family="'JetBrains Mono', 'SF Mono', 'Fira Code', monospace" font-size="9px">  case &lt;-time.After(d): ...</text>
+
+  <!-- good example -->
+  <rect x="880" y="384" width="270" height="52" rx="4" fill="#14b8a6" fill-opacity="0.06" stroke="#14b8a6" stroke-width="0.6"/>
+  <text class="code-sm" x="890" y="400" fill="#2dd4bf" font-family="'JetBrains Mono', 'SF Mono', 'Fira Code', monospace" font-size="9px">// correct: reuse timer</text>
+  <text class="code-sm" x="890" y="414" fill="#2dd4bf" font-family="'JetBrains Mono', 'SF Mono', 'Fira Code', monospace" font-size="9px">t := time.NewTimer(d)</text>
+  <text class="code-sm" x="890" y="428" fill="#2dd4bf" font-family="'JetBrains Mono', 'SF Mono', 'Fira Code', monospace" font-size="9px">for { select { case &lt;-t.C: t.Reset(d)</text>
+
+  <!-- divider -->
+  <line x1="880" y1="450" x2="1150" y2="450" stroke="#1e293b" stroke-width="1"/>
+
+  <!-- Key Insight quote box -->
+  <text class="panel-title" x="880" y="472" fill="#60a5fa" font-family="'Inter', 'SF Pro Display', system-ui, sans-serif" font-size="11px" font-weight="700" letter-spacing="1px">Key Insight</text>
+
+  <rect x="880" y="482" width="270" height="80" rx="6" fill="#3b82f6" fill-opacity="0.06" stroke="#3b82f6" stroke-width="0.6"/>
+  <line x1="880" y1="482" x2="880" y2="562" stroke="#3b82f6" stroke-width="2"/>
+
+  <text class="quote" x="892" y="502" font-family="'Inter', 'SF Pro Display', system-ui, sans-serif" font-size="11px" font-weight="500" fill="#f1f5f9" font-style="italic">"In Go, time is just another</text>
+  <text class="quote" x="892" y="518" font-family="'Inter', 'SF Pro Display', system-ui, sans-serif" font-size="11px" font-weight="500" fill="#f1f5f9" font-style="italic">channel. Timeouts, tickers,</text>
+  <text class="quote" x="892" y="534" font-family="'Inter', 'SF Pro Display', system-ui, sans-serif" font-size="11px" font-weight="500" fill="#f1f5f9" font-style="italic">and deadlines all compose</text>
+  <text class="quote" x="892" y="550" font-family="'Inter', 'SF Pro Display', system-ui, sans-serif" font-size="11px" font-weight="500" fill="#f1f5f9" font-style="italic">naturally with select."</text>
+
+</svg>

@@ -1,0 +1,369 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 580">
+  <defs>
+    <!-- dot grid pattern -->
+    <pattern id="dots" width="40" height="40" patternUnits="userSpaceOnUse">
+      <circle cx="20" cy="20" r="0.8" fill="#94a3b8" opacity="0.05"/>
+    </pattern>
+
+    <!-- drop shadow -->
+    <filter id="shadow" x="-6%" y="-6%" width="112%" height="116%">
+      <feDropShadow dx="1" dy="2" stdDeviation="5" flood-color="#000" flood-opacity="0.35"/>
+    </filter>
+
+    <!-- title glow -->
+    <filter id="title-glow" x="-10%" y="-10%" width="120%" height="120%">
+      <feGaussianBlur in="SourceAlpha" stdDeviation="8" result="blur"/>
+      <feFlood flood-color="#60a5fa" flood-opacity="0.25" result="color"/>
+      <feComposite in="color" in2="blur" operator="in" result="glow"/>
+      <feMerge><feMergeNode in="glow"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+
+    <!-- arrow markers -->
+    <marker id="arr-teal" viewBox="0 0 12 8" refX="11" refY="4" markerWidth="12" markerHeight="8" orient="auto-start-reverse">
+      <path d="M0,0 L12,4 L0,8 Z" fill="#2dd4bf"/>
+    </marker>
+    <marker id="arr-rose" viewBox="0 0 12 8" refX="11" refY="4" markerWidth="12" markerHeight="8" orient="auto-start-reverse">
+      <path d="M0,0 L12,4 L0,8 Z" fill="#f472b6"/>
+    </marker>
+    <marker id="arr-blue" viewBox="0 0 12 8" refX="11" refY="4" markerWidth="12" markerHeight="8" orient="auto-start-reverse">
+      <path d="M0,0 L12,4 L0,8 Z" fill="#60a5fa"/>
+    </marker>
+    <marker id="arr-amber" viewBox="0 0 12 8" refX="11" refY="4" markerWidth="12" markerHeight="8" orient="auto-start-reverse">
+      <path d="M0,0 L12,4 L0,8 Z" fill="#fbbf24"/>
+    </marker>
+
+    <!-- right panel gradient -->
+    <linearGradient id="g-panel" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#0b1120" stop-opacity="0.95"/>
+      <stop offset="100%" stop-color="#080d1a" stop-opacity="0.98"/>
+    </linearGradient>
+
+    <!-- quote accent stripe -->
+    <linearGradient id="g-accent" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#3b82f6"/>
+      <stop offset="33%" stop-color="#14b8a6"/>
+      <stop offset="66%" stop-color="#f59e0b"/>
+      <stop offset="100%" stop-color="#ec4899"/>
+    </linearGradient>
+
+    <!-- ambient glows -->
+    <radialGradient id="glow-happy" cx="242" cy="300" r="300" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#14b8a6" stop-opacity="0.05"/>
+      <stop offset="100%" stop-color="#14b8a6" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="glow-error" cx="640" cy="300" r="300" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#ec4899" stop-opacity="0.05"/>
+      <stop offset="100%" stop-color="#ec4899" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="glow-limit" cx="430" cy="520" r="250" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#f59e0b" stop-opacity="0.04"/>
+      <stop offset="100%" stop-color="#f59e0b" stop-opacity="0"/>
+    </radialGradient>
+
+    <!-- hub gradient — dark fills with subtle color hint -->
+    <radialGradient id="hub-teal" cx="0.4" cy="0.35" r="0.7">
+      <stop offset="0%" stop-color="#134e4a"/>
+      <stop offset="100%" stop-color="#0f2a2a"/>
+    </radialGradient>
+    <radialGradient id="hub-rose" cx="0.4" cy="0.35" r="0.7">
+      <stop offset="0%" stop-color="#4a1942"/>
+      <stop offset="100%" stop-color="#1a0f1e"/>
+    </radialGradient>
+
+    <!-- cancel pulse -->
+    <filter id="cancel-glow" x="-30%" y="-30%" width="160%" height="160%">
+      <feGaussianBlur in="SourceAlpha" stdDeviation="3" result="blur"/>
+      <feFlood flood-color="#ec4899" flood-opacity="0.25" result="color"/>
+      <feComposite in="color" in2="blur" operator="in" result="glow"/>
+      <feMerge><feMergeNode in="glow"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+  </defs>
+
+  <!-- background -->
+  <rect width="1200" height="580" fill="url(#dots)"/>
+  <rect width="1200" height="580" fill="url(#glow-happy)"/>
+  <rect width="1200" height="580" fill="url(#glow-error)"/>
+  <rect width="1200" height="580" fill="url(#glow-limit)"/>
+
+  <!-- ================================================================ -->
+  <!-- TITLE                                                             -->
+  <!-- ================================================================ -->
+  <text x="52" y="42" font-family="'Inter','SF Pro Display',system-ui,sans-serif" font-size="22" font-weight="700" fill="#f1f5f9" filter="url(#title-glow)">Go errgroup — Structured Concurrency</text>
+  <text x="52" y="64" font-family="'Inter','SF Pro Display',system-ui,sans-serif" font-size="12" fill="#64748b" letter-spacing="2">launch · monitor · cancel on failure · collect errors</text>
+
+  <!-- thin separator -->
+  <line x1="52" y1="76" x2="830" y2="76" stroke="#1e293b" stroke-width="1"/>
+
+  <!-- ================================================================ -->
+  <!-- LEFT HALF: HAPPY PATH                                             -->
+  <!-- ================================================================ -->
+  <text x="62" y="104" font-family="'Inter','SF Pro Display',system-ui,sans-serif" font-size="11" font-weight="700" fill="#14b8a6" letter-spacing="3" opacity="0.8">HAPPY PATH</text>
+
+  <!-- code label at top -->
+  <text x="72" y="130" font-family="'JetBrains Mono','SF Mono','Fira Code',monospace" font-size="10.5" fill="#e2e8f0" opacity="0.85">g, ctx := errgroup.WithContext(ctx)</text>
+
+  <!-- vertical line from code to hub -->
+  <line x1="222" y1="138" x2="222" y2="175" stroke="#2dd4bf" stroke-width="1.5" stroke-dasharray="4,3" opacity="0.5"/>
+
+  <!-- central hub circle -->
+  <circle cx="222" cy="200" r="24" fill="url(#hub-teal)" stroke="#14b8a6" stroke-width="1.5" filter="url(#shadow)"/>
+  <text x="222" y="196" text-anchor="middle" font-family="'Inter','SF Pro Display',system-ui,sans-serif" font-size="8" font-weight="700" fill="#2dd4bf">err</text>
+  <text x="222" y="207" text-anchor="middle" font-family="'Inter','SF Pro Display',system-ui,sans-serif" font-size="8" font-weight="700" fill="#2dd4bf">group</text>
+
+  <!-- fan-out lines from hub to goroutines -->
+  <!-- G1 -->
+  <line x1="204" y1="217" x2="102" y2="275" stroke="#2dd4bf" stroke-width="1.2" opacity="0.6" marker-end="url(#arr-teal)"/>
+  <!-- G2 -->
+  <line x1="212" y1="222" x2="172" y2="275" stroke="#2dd4bf" stroke-width="1.2" opacity="0.6" marker-end="url(#arr-teal)"/>
+  <!-- G3 -->
+  <line x1="232" y1="222" x2="272" y2="275" stroke="#2dd4bf" stroke-width="1.2" opacity="0.6" marker-end="url(#arr-teal)"/>
+  <!-- G4 -->
+  <line x1="240" y1="217" x2="342" y2="275" stroke="#2dd4bf" stroke-width="1.2" opacity="0.6" marker-end="url(#arr-teal)"/>
+
+  <!-- goroutine badges — happy path -->
+  <!-- G1 -->
+  <rect x="72" y="278" width="60" height="28" rx="6" fill="none" stroke="#14b8a6" stroke-width="1" filter="url(#shadow)"/>
+  <text x="92" y="296" text-anchor="middle" font-family="'JetBrains Mono','SF Mono','Fira Code',monospace" font-size="11" font-weight="600" fill="#2dd4bf">G1</text>
+  <circle cx="140" cy="292" r="6" fill="#14b8a6" opacity="0.4"/>
+  <path d="M136,292 L139,295 L144,289" stroke="#0f172a" stroke-width="1.5" fill="none"/>
+
+  <!-- G2 -->
+  <rect x="142" y="278" width="60" height="28" rx="6" fill="none" stroke="#14b8a6" stroke-width="1" filter="url(#shadow)"/>
+  <text x="162" y="296" text-anchor="middle" font-family="'JetBrains Mono','SF Mono','Fira Code',monospace" font-size="11" font-weight="600" fill="#2dd4bf">G2</text>
+  <circle cx="210" cy="292" r="6" fill="#14b8a6" opacity="0.4"/>
+  <path d="M206,292 L209,295 L214,289" stroke="#0f172a" stroke-width="1.5" fill="none"/>
+
+  <!-- G3 -->
+  <rect x="242" y="278" width="60" height="28" rx="6" fill="none" stroke="#14b8a6" stroke-width="1" filter="url(#shadow)"/>
+  <text x="262" y="296" text-anchor="middle" font-family="'JetBrains Mono','SF Mono','Fira Code',monospace" font-size="11" font-weight="600" fill="#2dd4bf">G3</text>
+  <circle cx="310" cy="292" r="6" fill="#14b8a6" opacity="0.4"/>
+  <path d="M306,292 L309,295 L314,289" stroke="#0f172a" stroke-width="1.5" fill="none"/>
+
+  <!-- G4 -->
+  <rect x="312" y="278" width="60" height="28" rx="6" fill="none" stroke="#14b8a6" stroke-width="1" filter="url(#shadow)"/>
+  <text x="332" y="296" text-anchor="middle" font-family="'JetBrains Mono','SF Mono','Fira Code',monospace" font-size="11" font-weight="600" fill="#2dd4bf">G4</text>
+  <circle cx="380" cy="292" r="6" fill="#14b8a6" opacity="0.4"/>
+  <path d="M376,292 L379,295 L384,289" stroke="#0f172a" stroke-width="1.5" fill="none"/>
+
+  <!-- return lines from goroutines back to wait bar -->
+  <line x1="102" y1="310" x2="102" y2="350" stroke="#2dd4bf" stroke-width="1" opacity="0.4" stroke-dasharray="3,3"/>
+  <line x1="172" y1="310" x2="172" y2="350" stroke="#2dd4bf" stroke-width="1" opacity="0.4" stroke-dasharray="3,3"/>
+  <line x1="272" y1="310" x2="272" y2="350" stroke="#2dd4bf" stroke-width="1" opacity="0.4" stroke-dasharray="3,3"/>
+  <line x1="342" y1="310" x2="342" y2="350" stroke="#2dd4bf" stroke-width="1" opacity="0.4" stroke-dasharray="3,3"/>
+
+  <!-- small teal checkmarks on return lines -->
+  <path d="M97,335 L100,338 L107,332" stroke="#2dd4bf" stroke-width="1.2" fill="none" opacity="0.7"/>
+  <path d="M167,335 L170,338 L177,332" stroke="#2dd4bf" stroke-width="1.2" fill="none" opacity="0.7"/>
+  <path d="M267,335 L270,338 L277,332" stroke="#2dd4bf" stroke-width="1.2" fill="none" opacity="0.7"/>
+  <path d="M337,335 L340,338 L347,332" stroke="#2dd4bf" stroke-width="1.2" fill="none" opacity="0.7"/>
+
+  <!-- Wait() collection bar -->
+  <rect x="72" y="352" width="340" height="28" rx="6" fill="none" stroke="#14b8a6" stroke-width="1.2" filter="url(#shadow)"/>
+  <text x="152" y="370" font-family="'JetBrains Mono','SF Mono','Fira Code',monospace" font-size="11" fill="#2dd4bf">g.Wait()</text>
+  <text x="248" y="370" font-family="'JetBrains Mono','SF Mono','Fira Code',monospace" font-size="11" fill="#94a3b8">→ nil</text>
+
+  <!-- small teal "all ok" note -->
+  <text x="222" y="400" text-anchor="middle" font-family="'Inter','SF Pro Display',system-ui,sans-serif" font-size="10" fill="#64748b">all goroutines returned nil</text>
+
+  <!-- ================================================================ -->
+  <!-- RIGHT HALF (center): ERROR PATH                                   -->
+  <!-- ================================================================ -->
+  <text x="462" y="104" font-family="'Inter','SF Pro Display',system-ui,sans-serif" font-size="11" font-weight="700" fill="#ec4899" letter-spacing="3" opacity="0.8">ERROR PATH</text>
+
+  <!-- code label at top -->
+  <text x="472" y="130" font-family="'JetBrains Mono','SF Mono','Fira Code',monospace" font-size="10.5" fill="#e2e8f0" opacity="0.85">g, ctx := errgroup.WithContext(ctx)</text>
+
+  <!-- vertical line from code to hub -->
+  <line x1="622" y1="138" x2="622" y2="175" stroke="#f472b6" stroke-width="1.5" stroke-dasharray="4,3" opacity="0.5"/>
+
+  <!-- central hub circle — error state -->
+  <circle cx="622" cy="200" r="24" fill="url(#hub-rose)" stroke="#ec4899" stroke-width="1.5" filter="url(#shadow)"/>
+  <text x="622" y="196" text-anchor="middle" font-family="'Inter','SF Pro Display',system-ui,sans-serif" font-size="8" font-weight="700" fill="#f472b6">err</text>
+  <text x="622" y="207" text-anchor="middle" font-family="'Inter','SF Pro Display',system-ui,sans-serif" font-size="8" font-weight="700" fill="#f472b6">group</text>
+
+  <!-- fan-out lines from hub to goroutines -->
+  <line x1="604" y1="217" x2="502" y2="275" stroke="#f472b6" stroke-width="1.2" opacity="0.6" marker-end="url(#arr-rose)"/>
+  <line x1="612" y1="222" x2="572" y2="275" stroke="#f472b6" stroke-width="1.2" opacity="0.6" marker-end="url(#arr-rose)"/>
+  <line x1="632" y1="222" x2="672" y2="275" stroke="#f472b6" stroke-width="1.2" opacity="0.6" marker-end="url(#arr-rose)"/>
+  <line x1="640" y1="217" x2="742" y2="275" stroke="#f472b6" stroke-width="1.2" opacity="0.6" marker-end="url(#arr-rose)"/>
+
+  <!-- goroutine badges — error path -->
+  <!-- G1 — cancelled -->
+  <rect x="472" y="278" width="60" height="28" rx="6" fill="none" stroke="#ec4899" stroke-width="1" stroke-dasharray="4,2" opacity="0.6"/>
+  <text x="492" y="296" text-anchor="middle" font-family="'JetBrains Mono','SF Mono','Fira Code',monospace" font-size="11" font-weight="600" fill="#f472b6" opacity="0.6">G1</text>
+  <text x="492" y="323" text-anchor="middle" font-family="'Inter','SF Pro Display',system-ui,sans-serif" font-size="8" fill="#ec4899" opacity="0.6">cancelled</text>
+
+  <!-- G2 — error source -->
+  <rect x="542" y="278" width="60" height="28" rx="6" fill="none" stroke="#ec4899" stroke-width="1.5" filter="url(#cancel-glow)"/>
+  <text x="562" y="296" text-anchor="middle" font-family="'JetBrains Mono','SF Mono','Fira Code',monospace" font-size="11" font-weight="600" fill="#f472b6">G2</text>
+  <!-- X mark for G2 -->
+  <circle cx="610" cy="292" r="6" fill="#ec4899" opacity="0.4"/>
+  <path d="M606,288 L614,296 M614,288 L606,296" stroke="#0f172a" stroke-width="1.8" fill="none"/>
+  <text x="572" y="323" text-anchor="middle" font-family="'Inter','SF Pro Display',system-ui,sans-serif" font-size="8" fill="#ec4899" font-weight="700">error!</text>
+
+  <!-- G3 — cancelled -->
+  <rect x="642" y="278" width="60" height="28" rx="6" fill="none" stroke="#ec4899" stroke-width="1" stroke-dasharray="4,2" opacity="0.6"/>
+  <text x="662" y="296" text-anchor="middle" font-family="'JetBrains Mono','SF Mono','Fira Code',monospace" font-size="11" font-weight="600" fill="#f472b6" opacity="0.6">G3</text>
+  <text x="662" y="323" text-anchor="middle" font-family="'Inter','SF Pro Display',system-ui,sans-serif" font-size="8" fill="#ec4899" opacity="0.6">cancelled</text>
+
+  <!-- G4 — cancelled -->
+  <rect x="712" y="278" width="60" height="28" rx="6" fill="none" stroke="#ec4899" stroke-width="1" stroke-dasharray="4,2" opacity="0.6"/>
+  <text x="732" y="296" text-anchor="middle" font-family="'JetBrains Mono','SF Mono','Fira Code',monospace" font-size="11" font-weight="600" fill="#f472b6" opacity="0.6">G4</text>
+  <text x="732" y="323" text-anchor="middle" font-family="'Inter','SF Pro Display',system-ui,sans-serif" font-size="8" fill="#ec4899" opacity="0.6">cancelled</text>
+
+  <!-- cancel signal propagation — dashed rose lines from hub outward -->
+  <line x1="600" y1="206" x2="502" y2="260" stroke="#ec4899" stroke-width="1" stroke-dasharray="5,3" opacity="0.4"/>
+  <line x1="640" y1="206" x2="672" y2="260" stroke="#ec4899" stroke-width="1" stroke-dasharray="5,3" opacity="0.4"/>
+  <line x1="645" y1="200" x2="742" y2="260" stroke="#ec4899" stroke-width="1" stroke-dasharray="5,3" opacity="0.4"/>
+
+  <!-- "cancel" label on propagation -->
+  <text x="490" y="248" font-family="'JetBrains Mono','SF Mono','Fira Code',monospace" font-size="8" fill="#ec4899" opacity="0.5" transform="rotate(-30,490,248)">ctx.cancel</text>
+  <text x="700" y="248" font-family="'JetBrains Mono','SF Mono','Fira Code',monospace" font-size="8" fill="#ec4899" opacity="0.5" transform="rotate(28,700,248)">ctx.cancel</text>
+
+  <!-- error return line from G2 to wait -->
+  <line x1="572" y1="310" x2="572" y2="350" stroke="#ec4899" stroke-width="1.5" opacity="0.7"/>
+
+  <!-- other return lines — faded -->
+  <line x1="502" y1="310" x2="502" y2="350" stroke="#ec4899" stroke-width="0.8" opacity="0.2" stroke-dasharray="3,3"/>
+  <line x1="672" y1="310" x2="672" y2="350" stroke="#ec4899" stroke-width="0.8" opacity="0.2" stroke-dasharray="3,3"/>
+  <line x1="742" y1="310" x2="742" y2="350" stroke="#ec4899" stroke-width="0.8" opacity="0.2" stroke-dasharray="3,3"/>
+
+  <!-- Wait() collection bar — error state -->
+  <rect x="472" y="352" width="340" height="28" rx="6" fill="none" stroke="#ec4899" stroke-width="1.2" filter="url(#shadow)"/>
+  <text x="552" y="370" font-family="'JetBrains Mono','SF Mono','Fira Code',monospace" font-size="11" fill="#f472b6">g.Wait()</text>
+  <text x="640" y="370" font-family="'JetBrains Mono','SF Mono','Fira Code',monospace" font-size="11" fill="#ec4899">→ err</text>
+
+  <!-- note below wait bar -->
+  <text x="642" y="400" text-anchor="middle" font-family="'Inter','SF Pro Display',system-ui,sans-serif" font-size="10" fill="#64748b">first error wins — others cancelled via ctx</text>
+
+  <!-- ================================================================ -->
+  <!-- BOTTOM STRIP: BOUNDED CONCURRENCY                                 -->
+  <!-- ================================================================ -->
+  <line x1="52" y1="420" x2="830" y2="420" stroke="#1e293b" stroke-width="1"/>
+
+  <text x="62" y="446" font-family="'Inter','SF Pro Display',system-ui,sans-serif" font-size="11" font-weight="700" fill="#f59e0b" letter-spacing="3" opacity="0.8">BOUNDED CONCURRENCY</text>
+
+  <!-- SetLimit code label -->
+  <text x="260" y="446" font-family="'JetBrains Mono','SF Mono','Fira Code',monospace" font-size="10.5" fill="#e2e8f0" opacity="0.85">g.SetLimit(3)</text>
+
+  <!-- queue of waiting goroutines — left side -->
+  <!-- waiting badges (dimmed) -->
+  <rect x="62" y="462" width="44" height="22" rx="5" fill="none" stroke="#f59e0b" stroke-width="0.8" stroke-dasharray="3,2" opacity="0.4"/>
+  <text x="84" y="477" text-anchor="middle" font-family="'JetBrains Mono','SF Mono','Fira Code',monospace" font-size="9" fill="#fbbf24" opacity="0.4">G6</text>
+
+  <rect x="112" y="462" width="44" height="22" rx="5" fill="none" stroke="#f59e0b" stroke-width="0.8" stroke-dasharray="3,2" opacity="0.4"/>
+  <text x="134" y="477" text-anchor="middle" font-family="'JetBrains Mono','SF Mono','Fira Code',monospace" font-size="9" fill="#fbbf24" opacity="0.4">G5</text>
+
+  <rect x="162" y="462" width="44" height="22" rx="5" fill="none" stroke="#f59e0b" stroke-width="0.8" stroke-dasharray="3,2" opacity="0.5"/>
+  <text x="184" y="477" text-anchor="middle" font-family="'JetBrains Mono','SF Mono','Fira Code',monospace" font-size="9" fill="#fbbf24" opacity="0.5">G4</text>
+
+  <!-- "waiting" label -->
+  <text x="130" y="500" text-anchor="middle" font-family="'Inter','SF Pro Display',system-ui,sans-serif" font-size="9" fill="#64748b">queued</text>
+
+  <!-- funnel / gate shape -->
+  <path d="M218,458 L258,462 L258,486 L218,490 Z" fill="none" stroke="#f59e0b" stroke-width="1.2" opacity="0.5"/>
+  <path d="M258,462 L288,466 L288,482 L258,486 Z" fill="#f59e0b" fill-opacity="0.08" stroke="#f59e0b" stroke-width="1.2" opacity="0.7"/>
+  <text x="273" y="478" text-anchor="middle" font-family="'Inter','SF Pro Display',system-ui,sans-serif" font-size="8" fill="#fbbf24" font-weight="700">N=3</text>
+
+  <!-- arrows through gate -->
+  <line x1="290" y1="473" x2="308" y2="473" stroke="#fbbf24" stroke-width="1.2" opacity="0.6" marker-end="url(#arr-amber)"/>
+
+  <!-- active goroutines — 3 passing through -->
+  <rect x="316" y="456" width="44" height="22" rx="5" fill="none" stroke="#f59e0b" stroke-width="1.2" filter="url(#shadow)"/>
+  <text x="338" y="471" text-anchor="middle" font-family="'JetBrains Mono','SF Mono','Fira Code',monospace" font-size="9" font-weight="600" fill="#fbbf24">G1</text>
+
+  <rect x="368" y="456" width="44" height="22" rx="5" fill="none" stroke="#f59e0b" stroke-width="1.2" filter="url(#shadow)"/>
+  <text x="390" y="471" text-anchor="middle" font-family="'JetBrains Mono','SF Mono','Fira Code',monospace" font-size="9" font-weight="600" fill="#fbbf24">G2</text>
+
+  <rect x="420" y="456" width="44" height="22" rx="5" fill="none" stroke="#f59e0b" stroke-width="1.2" filter="url(#shadow)"/>
+  <text x="442" y="471" text-anchor="middle" font-family="'JetBrains Mono','SF Mono','Fira Code',monospace" font-size="9" font-weight="600" fill="#fbbf24">G3</text>
+
+  <!-- "active" label -->
+  <text x="390" y="500" text-anchor="middle" font-family="'Inter','SF Pro Display',system-ui,sans-serif" font-size="9" fill="#64748b">active (max 3)</text>
+
+  <!-- result arrows flowing out -->
+  <line x1="466" y1="467" x2="490" y2="467" stroke="#fbbf24" stroke-width="1" opacity="0.5" marker-end="url(#arr-amber)"/>
+
+  <!-- results collector -->
+  <rect x="498" y="456" width="70" height="22" rx="5" fill="none" stroke="#f59e0b" stroke-width="0.8" opacity="0.6"/>
+  <text x="533" y="471" text-anchor="middle" font-family="'JetBrains Mono','SF Mono','Fira Code',monospace" font-size="9" fill="#fbbf24" opacity="0.7">results</text>
+
+  <!-- description -->
+  <text x="400" y="530" text-anchor="middle" font-family="'Inter','SF Pro Display',system-ui,sans-serif" font-size="10" fill="#cbd5e1" opacity="0.7">at most 3 concurrent goroutines — excess calls to Go() block until a slot opens</text>
+
+  <!-- ================================================================ -->
+  <!-- RIGHT PANEL                                                       -->
+  <!-- ================================================================ -->
+  <rect x="860" y="88" width="310" height="480" rx="10" fill="url(#g-panel)" filter="url(#shadow)"/>
+
+  <!-- panel border -->
+  <rect x="860" y="88" width="310" height="480" rx="10" fill="none" stroke="#1e293b" stroke-width="1"/>
+
+  <!-- API section -->
+  <text x="884" y="118" font-family="'Inter','SF Pro Display',system-ui,sans-serif" font-size="12" font-weight="700" fill="#f1f5f9" letter-spacing="1">API</text>
+
+  <line x1="884" y1="125" x2="1146" y2="125" stroke="#1e293b" stroke-width="0.5"/>
+
+  <!-- API items -->
+  <text x="884" y="146" font-family="'JetBrains Mono','SF Mono','Fira Code',monospace" font-size="10" fill="#e2e8f0">errgroup.WithContext(ctx)</text>
+  <text x="884" y="160" font-family="'Inter','SF Pro Display',system-ui,sans-serif" font-size="9" fill="#94a3b8">creates group + derived context</text>
+
+  <text x="884" y="182" font-family="'JetBrains Mono','SF Mono','Fira Code',monospace" font-size="10" fill="#e2e8f0">g.Go(func() error)</text>
+  <text x="884" y="196" font-family="'Inter','SF Pro Display',system-ui,sans-serif" font-size="9" fill="#94a3b8">launches goroutine in the group</text>
+
+  <text x="884" y="218" font-family="'JetBrains Mono','SF Mono','Fira Code',monospace" font-size="10" fill="#e2e8f0">g.Wait() error</text>
+  <text x="884" y="232" font-family="'Inter','SF Pro Display',system-ui,sans-serif" font-size="9" fill="#94a3b8">blocks, returns first error</text>
+
+  <text x="884" y="254" font-family="'JetBrains Mono','SF Mono','Fira Code',monospace" font-size="10" fill="#e2e8f0">g.SetLimit(n)</text>
+  <text x="884" y="268" font-family="'Inter','SF Pro Display',system-ui,sans-serif" font-size="9" fill="#94a3b8">bounds concurrency to n goroutines</text>
+
+  <!-- vs WaitGroup section -->
+  <text x="884" y="300" font-family="'Inter','SF Pro Display',system-ui,sans-serif" font-size="12" font-weight="700" fill="#f1f5f9" letter-spacing="1">vs WaitGroup</text>
+
+  <line x1="884" y1="307" x2="1146" y2="307" stroke="#1e293b" stroke-width="0.5"/>
+
+  <!-- WaitGroup icon — simple counter -->
+  <rect x="884" y="318" width="120" height="36" rx="6" fill="none" stroke="#3b82f6" stroke-width="0.8" opacity="0.6"/>
+  <text x="900" y="332" font-family="'JetBrains Mono','SF Mono','Fira Code',monospace" font-size="9" fill="#60a5fa">WaitGroup</text>
+  <text x="900" y="346" font-family="'Inter','SF Pro Display',system-ui,sans-serif" font-size="8" fill="#94a3b8">fire and forget</text>
+  <!-- simple counter dots -->
+  <circle cx="990" cy="332" r="3" fill="#3b82f6" opacity="0.4"/>
+  <circle cx="998" cy="332" r="3" fill="#3b82f6" opacity="0.4"/>
+  <circle cx="990" cy="342" r="3" fill="#3b82f6" opacity="0.4"/>
+
+  <!-- errgroup icon — hub with antenna -->
+  <rect x="884" y="362" width="120" height="36" rx="6" fill="none" stroke="#14b8a6" stroke-width="0.8" opacity="0.8"/>
+  <text x="900" y="376" font-family="'JetBrains Mono','SF Mono','Fira Code',monospace" font-size="9" fill="#2dd4bf">errgroup</text>
+  <text x="900" y="390" font-family="'Inter','SF Pro Display',system-ui,sans-serif" font-size="8" fill="#94a3b8">fire, monitor, cancel</text>
+  <!-- hub with error antenna -->
+  <circle cx="993" cy="380" r="5" fill="none" stroke="#14b8a6" stroke-width="0.8" opacity="0.7"/>
+  <line x1="993" y1="375" x2="993" y2="366" stroke="#14b8a6" stroke-width="1" opacity="0.6"/>
+  <line x1="993" y1="366" x2="987" y2="362" stroke="#ec4899" stroke-width="0.8" opacity="0.7"/>
+  <line x1="993" y1="366" x2="999" y2="362" stroke="#ec4899" stroke-width="0.8" opacity="0.7"/>
+  <!-- radiate lines from hub -->
+  <line x1="998" y1="380" x2="1004" y2="376" stroke="#2dd4bf" stroke-width="0.7" opacity="0.5"/>
+  <line x1="998" y1="380" x2="1004" y2="384" stroke="#2dd4bf" stroke-width="0.7" opacity="0.5"/>
+  <line x1="988" y1="380" x2="982" y2="376" stroke="#2dd4bf" stroke-width="0.7" opacity="0.5"/>
+  <line x1="988" y1="380" x2="982" y2="384" stroke="#2dd4bf" stroke-width="0.7" opacity="0.5"/>
+
+  <!-- Key Insight section -->
+  <text x="884" y="422" font-family="'Inter','SF Pro Display',system-ui,sans-serif" font-size="12" font-weight="700" fill="#f1f5f9" letter-spacing="1">Key Insight</text>
+
+  <line x1="884" y1="429" x2="1146" y2="429" stroke="#1e293b" stroke-width="0.5"/>
+
+  <!-- quote box -->
+  <rect x="884" y="440" width="286" height="76" rx="6" fill="none" stroke="#1e293b" stroke-width="0.8"/>
+  <!-- accent stripe -->
+  <rect x="884" y="440" width="3" height="76" rx="1.5" fill="url(#g-accent)"/>
+
+  <text x="898" y="458" font-family="'Inter','SF Pro Display',system-ui,sans-serif" font-size="10" fill="#cbd5e1" font-style="italic">
+    <tspan x="898" dy="0">errgroup is Go's answer to structured</tspan>
+    <tspan x="898" dy="14">concurrency — goroutines have an owner</tspan>
+    <tspan x="898" dy="14">that waits for them and handles</tspan>
+    <tspan x="898" dy="14">their errors.</tspan>
+  </text>
+
+  <!-- package import note -->
+  <text x="884" y="540" font-family="'JetBrains Mono','SF Mono','Fira Code',monospace" font-size="9" fill="#64748b">golang.org/x/sync/errgroup</text>
+
+</svg>

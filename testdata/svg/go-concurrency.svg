@@ -1,0 +1,502 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 790">
+  <defs>
+    <!-- drop shadow -->
+    <filter id="shadow" x="-6%" y="-6%" width="112%" height="116%">
+      <feDropShadow dx="1" dy="2" stdDeviation="5" flood-color="#000" flood-opacity="0.35"/>
+    </filter>
+
+    <!-- title glow -->
+    <filter id="title-glow" x="-10%" y="-10%" width="120%" height="120%">
+      <feGaussianBlur in="SourceAlpha" stdDeviation="8" result="blur"/>
+      <feFlood flood-color="#60a5fa" flood-opacity="0.25" result="color"/>
+      <feComposite in="color" in2="blur" operator="in" result="glow"/>
+      <feMerge><feMergeNode in="glow"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+
+    <!-- arrow markers -->
+    <marker id="arr-blue" viewBox="0 0 12 8" refX="11" refY="4" markerWidth="12" markerHeight="8" orient="auto-start-reverse">
+      <path d="M0,0 L12,4 L0,8 Z" fill="#60a5fa"/>
+    </marker>
+    <marker id="arr-teal" viewBox="0 0 12 8" refX="11" refY="4" markerWidth="12" markerHeight="8" orient="auto-start-reverse">
+      <path d="M0,0 L12,4 L0,8 Z" fill="#2dd4bf"/>
+    </marker>
+    <marker id="arr-amber" viewBox="0 0 12 8" refX="11" refY="4" markerWidth="12" markerHeight="8" orient="auto-start-reverse">
+      <path d="M0,0 L12,4 L0,8 Z" fill="#fbbf24"/>
+    </marker>
+    <marker id="arr-rose" viewBox="0 0 12 8" refX="11" refY="4" markerWidth="12" markerHeight="8" orient="auto-start-reverse">
+      <path d="M0,0 L12,4 L0,8 Z" fill="#f472b6"/>
+    </marker>
+
+    <!-- ============================================================ -->
+    <!-- GRADIENTS                                                     -->
+    <!-- ============================================================ -->
+
+    <!-- header gradients — slight diagonal for light-source feel -->
+    <linearGradient id="g-found" x1="0" y1="0" x2="0.3" y2="1">
+      <stop offset="0%" stop-color="#4b92f7"/><stop offset="100%" stop-color="#2563eb"/>
+    </linearGradient>
+    <linearGradient id="g-comm" x1="0" y1="0" x2="0.3" y2="1">
+      <stop offset="0%" stop-color="#20c9b4"/><stop offset="100%" stop-color="#0d9488"/>
+    </linearGradient>
+    <linearGradient id="g-sync" x1="0" y1="0" x2="0.3" y2="1">
+      <stop offset="0%" stop-color="#fbbd3e"/><stop offset="100%" stop-color="#d97706"/>
+    </linearGradient>
+    <linearGradient id="g-pat" x1="0" y1="0" x2="0.3" y2="1">
+      <stop offset="0%" stop-color="#f472b6"/><stop offset="100%" stop-color="#db2777"/>
+    </linearGradient>
+
+    <!-- box body gradients — subtle top-light effect -->
+    <linearGradient id="gb-found" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#244b6e"/><stop offset="100%" stop-color="#1a3250"/>
+    </linearGradient>
+    <linearGradient id="gb-comm" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#1a5c56"/><stop offset="100%" stop-color="#0f3f3b"/>
+    </linearGradient>
+    <linearGradient id="gb-sync" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#5c2a08"/><stop offset="100%" stop-color="#3a1a03"/>
+    </linearGradient>
+    <linearGradient id="gb-pat" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#5e1438"/><stop offset="100%" stop-color="#3d0a24"/>
+    </linearGradient>
+
+    <!-- zone radial gradients — glow from top-left corner -->
+    <radialGradient id="gz-found" cx="0.2" cy="0.15" r="0.85">
+      <stop offset="0%" stop-color="#3b82f6" stop-opacity="0.08"/>
+      <stop offset="100%" stop-color="#3b82f6" stop-opacity="0.01"/>
+    </radialGradient>
+    <radialGradient id="gz-comm" cx="0.2" cy="0.15" r="0.85">
+      <stop offset="0%" stop-color="#14b8a6" stop-opacity="0.08"/>
+      <stop offset="100%" stop-color="#14b8a6" stop-opacity="0.01"/>
+    </radialGradient>
+    <radialGradient id="gz-sync" cx="0.2" cy="0.15" r="0.85">
+      <stop offset="0%" stop-color="#f59e0b" stop-opacity="0.08"/>
+      <stop offset="100%" stop-color="#f59e0b" stop-opacity="0.01"/>
+    </radialGradient>
+    <radialGradient id="gz-pat" cx="0.2" cy="0.15" r="0.85">
+      <stop offset="0%" stop-color="#ec4899" stop-opacity="0.08"/>
+      <stop offset="100%" stop-color="#ec4899" stop-opacity="0.01"/>
+    </radialGradient>
+
+    <!-- background ambient glow -->
+    <radialGradient id="glow-found" cx="212" cy="270" r="320" fx="212" fy="270" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#3b82f6" stop-opacity="0.04"/>
+      <stop offset="100%" stop-color="#3b82f6" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="glow-comm" cx="598" cy="270" r="320" fx="598" fy="270" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#14b8a6" stop-opacity="0.04"/>
+      <stop offset="100%" stop-color="#14b8a6" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="glow-sync" cx="212" cy="600" r="320" fx="212" fy="600" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#f59e0b" stop-opacity="0.03"/>
+      <stop offset="100%" stop-color="#f59e0b" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="glow-pat" cx="598" cy="600" r="320" fx="598" fy="600" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#ec4899" stop-opacity="0.03"/>
+      <stop offset="100%" stop-color="#ec4899" stop-opacity="0"/>
+    </radialGradient>
+
+    <!-- right panel gradient -->
+    <linearGradient id="g-panel" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#141d2e" stop-opacity="0.9"/>
+      <stop offset="100%" stop-color="#0b1120" stop-opacity="0.95"/>
+    </linearGradient>
+
+    <!-- quote accent stripe — 4-color vertical gradient -->
+    <linearGradient id="g-accent" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#3b82f6"/>
+      <stop offset="33%" stop-color="#14b8a6"/>
+      <stop offset="66%" stop-color="#f59e0b"/>
+      <stop offset="100%" stop-color="#ec4899"/>
+    </linearGradient>
+
+    <!-- connection gradients — transition between category colors -->
+    <linearGradient id="gc-blue-teal" gradientUnits="userSpaceOnUse" x1="372" y1="169" x2="438" y2="169">
+      <stop offset="0%" stop-color="#60a5fa"/><stop offset="100%" stop-color="#2dd4bf"/>
+    </linearGradient>
+    <linearGradient id="gc-blue-amber-v" gradientUnits="userSpaceOnUse" x1="0" y1="208" x2="0" y2="476">
+      <stop offset="0%" stop-color="#60a5fa"/><stop offset="100%" stop-color="#fbbf24"/>
+    </linearGradient>
+    <linearGradient id="gc-teal-rose-v" gradientUnits="userSpaceOnUse" x1="0" y1="208" x2="0" y2="476">
+      <stop offset="0%" stop-color="#2dd4bf"/><stop offset="100%" stop-color="#f472b6"/>
+    </linearGradient>
+    <linearGradient id="gc-blue-rose" gradientUnits="userSpaceOnUse" x1="372" y1="150" x2="438" y2="515">
+      <stop offset="0%" stop-color="#60a5fa"/><stop offset="100%" stop-color="#f472b6"/>
+    </linearGradient>
+    <linearGradient id="gc-amber-rose" gradientUnits="userSpaceOnUse" x1="372" y1="515" x2="438" y2="613">
+      <stop offset="0%" stop-color="#fbbf24"/><stop offset="100%" stop-color="#f472b6"/>
+    </linearGradient>
+    <linearGradient id="gc-blue-teal-diag" gradientUnits="userSpaceOnUse" x1="372" y1="267" x2="438" y2="360">
+      <stop offset="0%" stop-color="#60a5fa"/><stop offset="100%" stop-color="#2dd4bf"/>
+    </linearGradient>
+    <linearGradient id="gc-amber-blue-v" gradientUnits="userSpaceOnUse" x1="0" y1="404" x2="0" y2="574">
+      <stop offset="0%" stop-color="#60a5fa"/><stop offset="100%" stop-color="#fbbf24"/>
+    </linearGradient>
+
+    <!-- icons -->
+    <symbol id="ico-goroutine" viewBox="0 0 16 16">
+      <path d="M8 1l2 4h-1.5v4H12l-4 6-4-6h2.5V5H5z" fill="currentColor"/>
+    </symbol>
+    <symbol id="ico-channel" viewBox="0 0 16 16">
+      <path d="M1 8h14M11 4l4 4-4 4M5 4L1 8l4 4" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+    </symbol>
+    <symbol id="ico-buffer" viewBox="0 0 16 16">
+      <rect x="2" y="3" width="12" height="3" rx="1" fill="currentColor" opacity="0.5"/>
+      <rect x="2" y="7" width="12" height="3" rx="1" fill="currentColor" opacity="0.75"/>
+      <rect x="2" y="11" width="12" height="3" rx="1" fill="currentColor"/>
+    </symbol>
+    <symbol id="ico-select" viewBox="0 0 16 16">
+      <path d="M4 3v10M4 8h8M12 4l-4 4 4 4" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+    </symbol>
+    <symbol id="ico-context" viewBox="0 0 16 16">
+      <circle cx="8" cy="8" r="5" fill="none" stroke="currentColor" stroke-width="1.5"/>
+      <circle cx="8" cy="8" r="1.5" fill="currentColor"/>
+      <path d="M8 1v3M8 12v3M1 8h3M12 8h3" stroke="currentColor" stroke-width="1" stroke-linecap="round"/>
+    </symbol>
+    <symbol id="ico-atomic" viewBox="0 0 16 16">
+      <ellipse cx="8" cy="8" rx="6" ry="2.5" fill="none" stroke="currentColor" stroke-width="1" transform="rotate(0 8 8)"/>
+      <ellipse cx="8" cy="8" rx="6" ry="2.5" fill="none" stroke="currentColor" stroke-width="1" transform="rotate(60 8 8)"/>
+      <ellipse cx="8" cy="8" rx="6" ry="2.5" fill="none" stroke="currentColor" stroke-width="1" transform="rotate(120 8 8)"/>
+      <circle cx="8" cy="8" r="1.5" fill="currentColor"/>
+    </symbol>
+    <symbol id="ico-wait" viewBox="0 0 16 16">
+      <circle cx="8" cy="8" r="6" fill="none" stroke="currentColor" stroke-width="1.5"/>
+      <path d="M8 4v4l3 2" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+    </symbol>
+    <symbol id="ico-lock" viewBox="0 0 16 16">
+      <rect x="3" y="7" width="10" height="7" rx="1.5" fill="currentColor" opacity="0.8"/>
+      <path d="M5.5 7V5a2.5 2.5 0 015 0v2" fill="none" stroke="currentColor" stroke-width="1.5"/>
+    </symbol>
+    <symbol id="ico-bell" viewBox="0 0 16 16">
+      <path d="M8 1.5a4 4 0 00-4 4v3l-1 2h10l-1-2v-3a4 4 0 00-4-4z" fill="currentColor" opacity="0.8"/>
+      <path d="M6.5 12.5a1.5 1.5 0 003 0" fill="none" stroke="currentColor" stroke-width="1"/>
+    </symbol>
+    <symbol id="ico-fan" viewBox="0 0 16 16">
+      <path d="M8 14V6M8 6L3 2M8 6l5-4" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+    </symbol>
+    <symbol id="ico-workers" viewBox="0 0 16 16">
+      <circle cx="4" cy="4" r="2" fill="currentColor" opacity="0.7"/>
+      <circle cx="12" cy="4" r="2" fill="currentColor" opacity="0.7"/>
+      <circle cx="8" cy="3" r="2" fill="currentColor"/>
+      <path d="M1 14c0-3 2-5 5-5h4c3 0 5 2 5 5" fill="currentColor" opacity="0.4"/>
+    </symbol>
+    <symbol id="ico-pipe" viewBox="0 0 16 16">
+      <circle cx="3" cy="8" r="2" fill="none" stroke="currentColor" stroke-width="1.2"/>
+      <circle cx="8" cy="8" r="2" fill="none" stroke="currentColor" stroke-width="1.2"/>
+      <circle cx="13" cy="8" r="2" fill="none" stroke="currentColor" stroke-width="1.2"/>
+      <line x1="5" y1="8" x2="6" y2="8" stroke="currentColor" stroke-width="1.2"/>
+      <line x1="10" y1="8" x2="11" y2="8" stroke="currentColor" stroke-width="1.2"/>
+    </symbol>
+  </defs>
+
+  <style>
+    .bg { fill: #0f172a; }
+    .title { font-family: 'Inter', 'SF Pro Display', system-ui, sans-serif; font-size: 28px; font-weight: 700; fill: #f1f5f9; }
+    .subtitle { font-family: 'Inter', 'SF Pro Display', system-ui, sans-serif; font-size: 13px; font-weight: 400; fill: #94a3b8; }
+    .group-label { font-family: 'Inter', 'SF Pro Display', system-ui, sans-serif; font-size: 11px; font-weight: 600; letter-spacing: 1.5px; text-transform: uppercase; }
+    .box-title { font-family: 'Inter', 'SF Pro Display', system-ui, sans-serif; font-size: 13px; font-weight: 700; fill: #fff; }
+    .box-desc { font-family: 'Inter', 'SF Pro Display', system-ui, sans-serif; font-size: 11px; font-weight: 400; fill: #cbd5e1; }
+    .legend-text { font-family: 'Inter', 'SF Pro Display', system-ui, sans-serif; font-size: 11px; fill: #94a3b8; }
+    .mini-label { font-family: 'Inter', 'SF Pro Display', system-ui, sans-serif; font-size: 11px; font-weight: 600; }
+    .quote { font-family: 'Inter', 'SF Pro Display', system-ui, sans-serif; font-size: 12px; font-weight: 600; fill: #f1f5f9; }
+    .quote-note { font-family: 'Inter', 'SF Pro Display', system-ui, sans-serif; font-size: 11px; fill: #64748b; }
+
+    .bx-f { fill: url(#gb-found); stroke: #3b82f6; stroke-width: 1.5; }
+    .bx-c { fill: url(#gb-comm); stroke: #14b8a6; stroke-width: 1.5; }
+    .bx-s { fill: url(#gb-sync); stroke: #f59e0b; stroke-width: 1.5; }
+    .bx-p { fill: url(#gb-pat); stroke: #ec4899; stroke-width: 1.5; }
+
+    .zone { stroke-opacity: 0.18; stroke-width: 1; stroke-dasharray: 6 3; }
+    .z-f { fill: url(#gz-found); stroke: #3b82f6; }
+    .z-c { fill: url(#gz-comm); stroke: #14b8a6; }
+    .z-s { fill: url(#gz-sync); stroke: #f59e0b; }
+    .z-p { fill: url(#gz-pat); stroke: #ec4899; }
+
+    .conn { fill: none; stroke-width: 1.8; opacity: 0.75; }
+    .c-bl { stroke: #60a5fa; }
+    .c-tl { stroke: #2dd4bf; }
+    .c-am { stroke: #fbbf24; }
+    .c-rs { stroke: #f472b6; }
+    .c-dash { stroke-dasharray: 6 4; }
+  </style>
+
+  <!-- background -->
+
+  <!-- dot grid -->
+  <g opacity="0.05">
+    <pattern id="dots" width="40" height="40" patternUnits="userSpaceOnUse">
+      <circle cx="20" cy="20" r="0.8" fill="#94a3b8"/>
+    </pattern>
+    <rect width="1200" height="790" fill="url(#dots)"/>
+  </g>
+
+  <!-- ambient background glows -->
+  <rect width="1200" height="790" fill="url(#glow-found)"/>
+  <rect width="1200" height="790" fill="url(#glow-comm)"/>
+  <rect width="1200" height="790" fill="url(#glow-sync)"/>
+  <rect width="1200" height="790" fill="url(#glow-pat)"/>
+
+  <!-- title -->
+  <g filter="url(#title-glow)">
+    <text font-family="'Inter', 'SF Pro Display', system-ui, sans-serif" font-size="28px" font-weight="700" fill="#f1f5f9" x="400" y="44" text-anchor="middle" dominant-baseline="central">Go Concurrency Model</text>
+  </g>
+  <text font-family="'Inter', 'SF Pro Display', system-ui, sans-serif" font-size="13px" font-weight="400" fill="#94a3b8" x="400" y="68" text-anchor="middle" dominant-baseline="central">foundations · communication · synchronization · patterns</text>
+
+  <!--
+    GRID: zone-w=360  box-w=320  box-h=78  header-h=30
+    zone-pad=20  box-gap=20  text-left=box+24  icon-x=box+10
+    desc-top=header-bottom+16  desc-gap=15  bottom-pad>=14
+  -->
+
+  <!-- ============================================================== -->
+  <!-- ZONE: Foundation  y=92  h=320                                   -->
+  <!-- box1=130  box2=228  box3=326                                    -->
+  <!-- ============================================================== -->
+  <rect stroke-opacity="0.18" stroke-width="1" stroke-dasharray="6 3" fill="url(#gz-found)" stroke="#3b82f6" x="32" y="92" width="360" height="320" rx="14"/>
+  <text font-family="'Inter', 'SF Pro Display', system-ui, sans-serif" font-size="11px" font-weight="600" letter-spacing="1.5px" x="52" y="116" fill="#60a5fa">Foundation</text>
+
+  <g filter="url(#shadow)">
+    <rect fill="url(#gb-found)" stroke="#3b82f6" stroke-width="1.5" x="52" y="130" width="320" height="78" rx="10"/>
+    <rect width="320" height="30" x="52" y="130" rx="10" fill="url(#g-found)"/>
+    <use href="#ico-goroutine" x="62" y="137" width="16" height="16" color="#fff"/>
+    <text font-family="'Inter', 'SF Pro Display', system-ui, sans-serif" font-size="13px" font-weight="700" fill="#fff" x="84" y="145" dominant-baseline="central">Goroutine</text>
+    <text font-family="'Inter', 'SF Pro Display', system-ui, sans-serif" font-size="11px" font-weight="400" fill="#cbd5e1" x="76" y="176" dominant-baseline="central">Lightweight concurrent function managed</text>
+    <text font-family="'Inter', 'SF Pro Display', system-ui, sans-serif" font-size="11px" font-weight="400" fill="#cbd5e1" x="76" y="191" dominant-baseline="central">by the Go runtime scheduler</text>
+  </g>
+
+  <g filter="url(#shadow)">
+    <rect fill="url(#gb-found)" stroke="#3b82f6" stroke-width="1.5" x="52" y="228" width="320" height="78" rx="10"/>
+    <rect width="320" height="30" x="52" y="228" rx="10" fill="url(#g-found)"/>
+    <use href="#ico-context" x="62" y="235" width="16" height="16" color="#fff"/>
+    <text font-family="'Inter', 'SF Pro Display', system-ui, sans-serif" font-size="13px" font-weight="700" fill="#fff" x="84" y="243" dominant-baseline="central">Context</text>
+    <text font-family="'Inter', 'SF Pro Display', system-ui, sans-serif" font-size="11px" font-weight="400" fill="#cbd5e1" x="76" y="274" dominant-baseline="central">Propagates cancellation, deadlines, and</text>
+    <text font-family="'Inter', 'SF Pro Display', system-ui, sans-serif" font-size="11px" font-weight="400" fill="#cbd5e1" x="76" y="289" dominant-baseline="central">values across goroutine boundaries</text>
+  </g>
+
+  <g filter="url(#shadow)">
+    <rect fill="url(#gb-found)" stroke="#3b82f6" stroke-width="1.5" x="52" y="326" width="320" height="78" rx="10"/>
+    <rect width="320" height="30" x="52" y="326" rx="10" fill="url(#g-found)"/>
+    <use href="#ico-atomic" x="62" y="333" width="16" height="16" color="#fff"/>
+    <text font-family="'Inter', 'SF Pro Display', system-ui, sans-serif" font-size="13px" font-weight="700" fill="#fff" x="84" y="341" dominant-baseline="central">Atomic Operations</text>
+    <text font-family="'Inter', 'SF Pro Display', system-ui, sans-serif" font-size="11px" font-weight="400" fill="#cbd5e1" x="76" y="372" dominant-baseline="central">Lock-free thread-safe primitives for</text>
+    <text font-family="'Inter', 'SF Pro Display', system-ui, sans-serif" font-size="11px" font-weight="400" fill="#cbd5e1" x="76" y="387" dominant-baseline="central">simple shared counters and flags</text>
+  </g>
+
+  <!-- ============================================================== -->
+  <!-- ZONE: Communication  y=92  h=320                                -->
+  <!-- box1=130  box2=228  box3=326                                    -->
+  <!-- ============================================================== -->
+  <rect stroke-opacity="0.18" stroke-width="1" stroke-dasharray="6 3" fill="url(#gz-comm)" stroke="#14b8a6" x="418" y="92" width="360" height="320" rx="14"/>
+  <text font-family="'Inter', 'SF Pro Display', system-ui, sans-serif" font-size="11px" font-weight="600" letter-spacing="1.5px" x="438" y="116" fill="#2dd4bf">Communication</text>
+
+  <g filter="url(#shadow)">
+    <rect fill="url(#gb-comm)" stroke="#14b8a6" stroke-width="1.5" x="438" y="130" width="320" height="78" rx="10"/>
+    <rect width="320" height="30" x="438" y="130" rx="10" fill="url(#g-comm)"/>
+    <use href="#ico-channel" x="448" y="137" width="16" height="16" color="#fff"/>
+    <text font-family="'Inter', 'SF Pro Display', system-ui, sans-serif" font-size="13px" font-weight="700" fill="#fff" x="470" y="145" dominant-baseline="central">Channels</text>
+    <text font-family="'Inter', 'SF Pro Display', system-ui, sans-serif" font-size="11px" font-weight="400" fill="#cbd5e1" x="462" y="176" dominant-baseline="central">Typed communication pipes between</text>
+    <text font-family="'Inter', 'SF Pro Display', system-ui, sans-serif" font-size="11px" font-weight="400" fill="#cbd5e1" x="462" y="191" dominant-baseline="central">goroutines — the core CSP primitive</text>
+  </g>
+
+  <g filter="url(#shadow)">
+    <rect fill="url(#gb-comm)" stroke="#14b8a6" stroke-width="1.5" x="438" y="228" width="320" height="78" rx="10"/>
+    <rect width="320" height="30" x="438" y="228" rx="10" fill="url(#g-comm)"/>
+    <use href="#ico-buffer" x="448" y="235" width="16" height="16" color="#fff"/>
+    <text font-family="'Inter', 'SF Pro Display', system-ui, sans-serif" font-size="13px" font-weight="700" fill="#fff" x="470" y="243" dominant-baseline="central">Buffered Channels</text>
+    <text font-family="'Inter', 'SF Pro Display', system-ui, sans-serif" font-size="11px" font-weight="400" fill="#cbd5e1" x="462" y="274" dominant-baseline="central">Channels with capacity to decouple</text>
+    <text font-family="'Inter', 'SF Pro Display', system-ui, sans-serif" font-size="11px" font-weight="400" fill="#cbd5e1" x="462" y="289" dominant-baseline="central">sender and receiver timing</text>
+  </g>
+
+  <g filter="url(#shadow)">
+    <rect fill="url(#gb-comm)" stroke="#14b8a6" stroke-width="1.5" x="438" y="326" width="320" height="78" rx="10"/>
+    <rect width="320" height="30" x="438" y="326" rx="10" fill="url(#g-comm)"/>
+    <use href="#ico-select" x="448" y="333" width="16" height="16" color="#fff"/>
+    <text font-family="'Inter', 'SF Pro Display', system-ui, sans-serif" font-size="13px" font-weight="700" fill="#fff" x="470" y="341" dominant-baseline="central">Select</text>
+    <text font-family="'Inter', 'SF Pro Display', system-ui, sans-serif" font-size="11px" font-weight="400" fill="#cbd5e1" x="462" y="372" dominant-baseline="central">Multiplexes across multiple channel</text>
+    <text font-family="'Inter', 'SF Pro Display', system-ui, sans-serif" font-size="11px" font-weight="400" fill="#cbd5e1" x="462" y="387" dominant-baseline="central">operations with blocking or default</text>
+  </g>
+
+  <!-- ============================================================== -->
+  <!-- ZONE: Synchronization  y=438  h=320                             -->
+  <!-- box1=476  box2=574  box3=672                                    -->
+  <!-- ============================================================== -->
+  <rect stroke-opacity="0.18" stroke-width="1" stroke-dasharray="6 3" fill="url(#gz-sync)" stroke="#f59e0b" x="32" y="438" width="360" height="320" rx="14"/>
+  <text font-family="'Inter', 'SF Pro Display', system-ui, sans-serif" font-size="11px" font-weight="600" letter-spacing="1.5px" x="52" y="462" fill="#fbbf24">Synchronization</text>
+
+  <g filter="url(#shadow)">
+    <rect fill="url(#gb-sync)" stroke="#f59e0b" stroke-width="1.5" x="52" y="476" width="320" height="78" rx="10"/>
+    <rect width="320" height="30" x="52" y="476" rx="10" fill="url(#g-sync)"/>
+    <use href="#ico-wait" x="62" y="483" width="16" height="16" color="#fff"/>
+    <text font-family="'Inter', 'SF Pro Display', system-ui, sans-serif" font-size="13px" font-weight="700" fill="#fff" x="84" y="491" dominant-baseline="central">WaitGroup</text>
+    <text font-family="'Inter', 'SF Pro Display', system-ui, sans-serif" font-size="11px" font-weight="400" fill="#cbd5e1" x="76" y="522" dominant-baseline="central">Wait for a collection of goroutines</text>
+    <text font-family="'Inter', 'SF Pro Display', system-ui, sans-serif" font-size="11px" font-weight="400" fill="#cbd5e1" x="76" y="537" dominant-baseline="central">to finish before proceeding</text>
+  </g>
+
+  <g filter="url(#shadow)">
+    <rect fill="url(#gb-sync)" stroke="#f59e0b" stroke-width="1.5" x="52" y="574" width="320" height="78" rx="10"/>
+    <rect width="320" height="30" x="52" y="574" rx="10" fill="url(#g-sync)"/>
+    <use href="#ico-lock" x="62" y="581" width="16" height="16" color="#fff"/>
+    <text font-family="'Inter', 'SF Pro Display', system-ui, sans-serif" font-size="13px" font-weight="700" fill="#fff" x="84" y="589" dominant-baseline="central">Mutex / RWMutex</text>
+    <text font-family="'Inter', 'SF Pro Display', system-ui, sans-serif" font-size="11px" font-weight="400" fill="#cbd5e1" x="76" y="620" dominant-baseline="central">Mutual exclusion for shared state —</text>
+    <text font-family="'Inter', 'SF Pro Display', system-ui, sans-serif" font-size="11px" font-weight="400" fill="#cbd5e1" x="76" y="635" dominant-baseline="central">RWMutex allows concurrent readers</text>
+  </g>
+
+  <g filter="url(#shadow)">
+    <rect fill="url(#gb-sync)" stroke="#f59e0b" stroke-width="1.5" x="52" y="672" width="320" height="78" rx="10"/>
+    <rect width="320" height="30" x="52" y="672" rx="10" fill="url(#g-sync)"/>
+    <use href="#ico-bell" x="62" y="679" width="16" height="16" color="#fff"/>
+    <text font-family="'Inter', 'SF Pro Display', system-ui, sans-serif" font-size="13px" font-weight="700" fill="#fff" x="84" y="687" dominant-baseline="central">sync.Cond</text>
+    <text font-family="'Inter', 'SF Pro Display', system-ui, sans-serif" font-size="11px" font-weight="400" fill="#cbd5e1" x="76" y="718" dominant-baseline="central">Coordinate goroutines waiting on</text>
+    <text font-family="'Inter', 'SF Pro Display', system-ui, sans-serif" font-size="11px" font-weight="400" fill="#cbd5e1" x="76" y="733" dominant-baseline="central">shared state changes via signals</text>
+  </g>
+
+  <!-- ============================================================== -->
+  <!-- ZONE: Patterns  y=438  h=320                                    -->
+  <!-- box1=476  box2=574  box3=672                                    -->
+  <!-- ============================================================== -->
+  <rect stroke-opacity="0.18" stroke-width="1" stroke-dasharray="6 3" fill="url(#gz-pat)" stroke="#ec4899" x="418" y="438" width="360" height="320" rx="14"/>
+  <text font-family="'Inter', 'SF Pro Display', system-ui, sans-serif" font-size="11px" font-weight="600" letter-spacing="1.5px" x="438" y="462" fill="#f472b6">Patterns</text>
+
+  <g filter="url(#shadow)">
+    <rect fill="url(#gb-pat)" stroke="#ec4899" stroke-width="1.5" x="438" y="476" width="320" height="78" rx="10"/>
+    <rect width="320" height="30" x="438" y="476" rx="10" fill="url(#g-pat)"/>
+    <use href="#ico-fan" x="448" y="483" width="16" height="16" color="#fff"/>
+    <text font-family="'Inter', 'SF Pro Display', system-ui, sans-serif" font-size="13px" font-weight="700" fill="#fff" x="470" y="491" dominant-baseline="central">Fan-Out / Fan-In</text>
+    <text font-family="'Inter', 'SF Pro Display', system-ui, sans-serif" font-size="11px" font-weight="400" fill="#cbd5e1" x="462" y="522" dominant-baseline="central">Distribute work across goroutines,</text>
+    <text font-family="'Inter', 'SF Pro Display', system-ui, sans-serif" font-size="11px" font-weight="400" fill="#cbd5e1" x="462" y="537" dominant-baseline="central">merge results into a single channel</text>
+  </g>
+
+  <g filter="url(#shadow)">
+    <rect fill="url(#gb-pat)" stroke="#ec4899" stroke-width="1.5" x="438" y="574" width="320" height="78" rx="10"/>
+    <rect width="320" height="30" x="438" y="574" rx="10" fill="url(#g-pat)"/>
+    <use href="#ico-workers" x="448" y="581" width="16" height="16" color="#fff"/>
+    <text font-family="'Inter', 'SF Pro Display', system-ui, sans-serif" font-size="13px" font-weight="700" fill="#fff" x="470" y="589" dominant-baseline="central">Worker Pool</text>
+    <text font-family="'Inter', 'SF Pro Display', system-ui, sans-serif" font-size="11px" font-weight="400" fill="#cbd5e1" x="462" y="620" dominant-baseline="central">Fixed set of goroutines processing</text>
+    <text font-family="'Inter', 'SF Pro Display', system-ui, sans-serif" font-size="11px" font-weight="400" fill="#cbd5e1" x="462" y="635" dominant-baseline="central">tasks from a shared job queue</text>
+  </g>
+
+  <g filter="url(#shadow)">
+    <rect fill="url(#gb-pat)" stroke="#ec4899" stroke-width="1.5" x="438" y="672" width="320" height="78" rx="10"/>
+    <rect width="320" height="30" x="438" y="672" rx="10" fill="url(#g-pat)"/>
+    <use href="#ico-pipe" x="448" y="679" width="16" height="16" color="#fff"/>
+    <text font-family="'Inter', 'SF Pro Display', system-ui, sans-serif" font-size="13px" font-weight="700" fill="#fff" x="470" y="687" dominant-baseline="central">Pipeline</text>
+    <text font-family="'Inter', 'SF Pro Display', system-ui, sans-serif" font-size="11px" font-weight="400" fill="#cbd5e1" x="462" y="718" dominant-baseline="central">Chain of stages connected by channels,</text>
+    <text font-family="'Inter', 'SF Pro Display', system-ui, sans-serif" font-size="11px" font-weight="400" fill="#cbd5e1" x="462" y="733" dominant-baseline="central">each stage a goroutine reading/writing</text>
+  </g>
+
+  <!-- ============================================================== -->
+  <!-- CONNECTIONS                                                     -->
+  <!-- box bottoms: 208, 306, 404  |  554, 652, 750                   -->
+  <!-- box tops:    130, 228, 326  |  476, 574, 672                   -->
+  <!-- ============================================================== -->
+
+  <!-- Goroutine → Channels (horizontal, blue→teal) -->
+  <path fill="none" stroke-width="1.8" opacity="0.75" stroke="url(#gc-blue-teal)" d="M372,169 C398,169 412,169 438,169" marker-end="url(#arr-teal)"/>
+
+  <!-- Goroutine → Context (vertical within Foundation, 20px gap) -->
+  <path fill="none" stroke-width="1.8" opacity="0.75" stroke="#60a5fa" d="M212,208 C212,214 212,222 212,228" marker-end="url(#arr-blue)"/>
+
+  <!-- Channels → Buffered Channels (within comm, 20px gap) -->
+  <path fill="none" stroke-width="1.8" opacity="0.75" stroke="#2dd4bf" d="M598,208 C598,214 598,222 598,228" marker-end="url(#arr-teal)"/>
+
+  <!-- Channels → Select (within comm, offset right, longer path) -->
+  <path fill="none" stroke-width="1.8" opacity="0.75" stroke="#2dd4bf" d="M660,208 C660,254 660,280 660,326" marker-end="url(#arr-teal)"/>
+
+  <!-- Context → Select (blue→teal, cross-zone, dashed) -->
+  <path fill="none" stroke-width="1.8" opacity="0.75" stroke-dasharray="6 4" stroke="url(#gc-blue-teal-diag)" d="M372,267 C396,267 418,340 438,360" marker-end="url(#arr-teal)"/>
+
+  <!-- Goroutine → WaitGroup (blue→amber, vertical cross-zone) -->
+  <path fill="none" stroke-width="1.8" opacity="0.75" stroke="url(#gc-blue-amber-v)" d="M140,208 C140,320 140,420 140,476" marker-end="url(#arr-amber)"/>
+
+  <!-- Goroutine → Fan-Out (blue→rose, dashed cross-zone) -->
+  <path fill="none" stroke-width="1.8" opacity="0.75" stroke-dasharray="6 4" stroke="url(#gc-blue-rose)" d="M372,150 C398,150 418,490 438,515" marker-end="url(#arr-rose)"/>
+
+  <!-- Channels → Fan-Out (teal→rose, vertical cross-zone) -->
+  <path fill="none" stroke-width="1.8" opacity="0.75" stroke="url(#gc-teal-rose-v)" d="M530,208 C530,320 530,420 530,476" marker-end="url(#arr-rose)"/>
+
+  <!-- Atomic → Mutex (blue→amber, dashed vertical cross-zone) -->
+  <path fill="none" stroke-width="1.8" opacity="0.75" stroke-dasharray="6 4" stroke="url(#gc-amber-blue-v)" d="M212,404 C212,440 212,520 212,574" marker-end="url(#arr-amber)"/>
+
+  <!-- WaitGroup → Worker Pool (amber→rose, horizontal cross-zone) -->
+  <path fill="none" stroke-width="1.8" opacity="0.75" stroke="url(#gc-amber-rose)" d="M372,515 C396,515 418,595 438,613" marker-end="url(#arr-amber)"/>
+
+  <!-- Mutex → sync.Cond (within sync, 20px gap) -->
+  <path fill="none" stroke-width="1.8" opacity="0.75" stroke="#fbbf24" d="M212,652 C212,658 212,666 212,672" marker-end="url(#arr-amber)"/>
+
+  <!-- Fan-Out → Worker Pool (within patterns, 20px gap) -->
+  <path fill="none" stroke-width="1.8" opacity="0.75" stroke="#f472b6" d="M598,554 C598,560 598,568 598,574" marker-end="url(#arr-rose)"/>
+
+  <!-- Worker Pool → Pipeline (within patterns, 20px gap) -->
+  <path fill="none" stroke-width="1.8" opacity="0.75" stroke="#f472b6" d="M598,652 C598,658 598,666 598,672" marker-end="url(#arr-rose)"/>
+
+  <!-- ============================================================== -->
+  <!-- RIGHT PANEL                                                     -->
+  <!-- ============================================================== -->
+  <g transform="translate(820, 92)">
+    <rect width="348" height="666" rx="14" fill="url(#g-panel)" stroke="#334155" stroke-width="1"/>
+
+    <text font-family="'Inter', 'SF Pro Display', system-ui, sans-serif" font-size="11px" font-weight="600" letter-spacing="1.5px" x="24" y="32" fill="#94a3b8">How It Fits Together</text>
+
+    <g transform="translate(30, 56)">
+      <rect x="0" y="0" width="106" height="34" rx="6" fill="#1e3a5f" stroke="#3b82f6" stroke-width="1"/>
+      <text font-family="'Inter', 'SF Pro Display', system-ui, sans-serif" font-size="11px" font-weight="600" x="53" y="17" text-anchor="middle" dominant-baseline="central" fill="#60a5fa">Goroutine</text>
+
+      <path d="M110,17 L148,17" stroke="#60a5fa" stroke-width="1.5" fill="none" marker-end="url(#arr-blue)"/>
+      <rect x="153" y="0" width="96" height="34" rx="6" fill="#134e4a" stroke="#14b8a6" stroke-width="1"/>
+      <text font-family="'Inter', 'SF Pro Display', system-ui, sans-serif" font-size="11px" font-weight="600" x="201" y="17" text-anchor="middle" dominant-baseline="central" fill="#2dd4bf">Channel</text>
+
+      <path d="M201,34 L201,60" stroke="#2dd4bf" stroke-width="1.5" fill="none" marker-end="url(#arr-teal)"/>
+      <rect x="153" y="64" width="96" height="34" rx="6" fill="#134e4a" stroke="#14b8a6" stroke-width="1"/>
+      <text font-family="'Inter', 'SF Pro Display', system-ui, sans-serif" font-size="11px" font-weight="600" x="201" y="81" text-anchor="middle" dominant-baseline="central" fill="#2dd4bf">Select</text>
+
+      <path d="M53,34 L53,60" stroke="#fbbf24" stroke-width="1.5" fill="none" marker-end="url(#arr-amber)"/>
+      <rect x="0" y="64" width="106" height="34" rx="6" fill="#451a03" stroke="#f59e0b" stroke-width="1"/>
+      <text font-family="'Inter', 'SF Pro Display', system-ui, sans-serif" font-size="11px" font-weight="600" x="53" y="81" text-anchor="middle" dominant-baseline="central" fill="#fbbf24">WaitGroup</text>
+
+      <path d="M110,81 L148,81" stroke="#f472b6" stroke-width="1.5" fill="none" marker-end="url(#arr-rose)"/>
+
+      <path d="M201,98 L201,124" stroke="#f472b6" stroke-width="1.5" fill="none" marker-end="url(#arr-rose)"/>
+      <rect x="153" y="128" width="96" height="34" rx="6" fill="#4a0d2e" stroke="#ec4899" stroke-width="1"/>
+      <text font-family="'Inter', 'SF Pro Display', system-ui, sans-serif" font-size="11px" font-weight="600" x="201" y="145" text-anchor="middle" dominant-baseline="central" fill="#f472b6">Worker Pool</text>
+    </g>
+
+    <!-- Legend -->
+    <g transform="translate(24, 248)">
+      <text font-family="'Inter', 'SF Pro Display', system-ui, sans-serif" font-size="11px" font-weight="600" letter-spacing="1.5px" x="0" y="0" fill="#94a3b8">Legend</text>
+
+      <line x1="0" y1="26" x2="40" y2="26" stroke="#60a5fa" stroke-width="2"/>
+      <text font-family="'Inter', 'SF Pro Display', system-ui, sans-serif" font-size="11px" fill="#94a3b8" x="52" y="30">Foundation flow</text>
+
+      <line x1="0" y1="52" x2="40" y2="52" stroke="#2dd4bf" stroke-width="2"/>
+      <text font-family="'Inter', 'SF Pro Display', system-ui, sans-serif" font-size="11px" fill="#94a3b8" x="52" y="56">Communication flow</text>
+
+      <line x1="0" y1="78" x2="40" y2="78" stroke="#fbbf24" stroke-width="2"/>
+      <text font-family="'Inter', 'SF Pro Display', system-ui, sans-serif" font-size="11px" fill="#94a3b8" x="52" y="82">Synchronization flow</text>
+
+      <line x1="0" y1="104" x2="40" y2="104" stroke="#f472b6" stroke-width="2"/>
+      <text font-family="'Inter', 'SF Pro Display', system-ui, sans-serif" font-size="11px" fill="#94a3b8" x="52" y="108">Pattern composition</text>
+
+      <line x1="0" y1="134" x2="40" y2="134" stroke="#94a3b8" stroke-width="1.5" stroke-dasharray="6 4"/>
+      <text font-family="'Inter', 'SF Pro Display', system-ui, sans-serif" font-size="11px" fill="#94a3b8" x="52" y="138">Indirect / optional</text>
+    </g>
+
+    <!-- Key Principle -->
+    <g transform="translate(24, 420)">
+      <text font-family="'Inter', 'SF Pro Display', system-ui, sans-serif" font-size="11px" font-weight="600" letter-spacing="1.5px" x="0" y="0" fill="#94a3b8">Key Principle</text>
+
+      <rect x="-4" y="16" width="308" height="76" rx="8" fill="none" stroke="#334155" stroke-width="0.5"/>
+      <rect x="-4" y="16" width="4" height="76" rx="2" fill="url(#g-accent)"/>
+
+      <text font-family="'Inter', 'SF Pro Display', system-ui, sans-serif" font-size="12px" font-weight="600" fill="#f1f5f9" x="16" y="40">"Don't communicate by sharing</text>
+      <text font-family="'Inter', 'SF Pro Display', system-ui, sans-serif" font-size="12px" font-weight="600" fill="#f1f5f9" x="16" y="58">memory; share memory by</text>
+      <text font-family="'Inter', 'SF Pro Display', system-ui, sans-serif" font-size="12px" font-weight="600" fill="#f1f5f9" x="16" y="76">communicating."</text>
+
+      <text font-family="'Inter', 'SF Pro Display', system-ui, sans-serif" font-size="11px" fill="#64748b" x="0" y="116">Channels (CSP model) are preferred</text>
+      <text font-family="'Inter', 'SF Pro Display', system-ui, sans-serif" font-size="11px" fill="#64748b" x="0" y="133">over mutexes for most concurrency</text>
+      <text font-family="'Inter', 'SF Pro Display', system-ui, sans-serif" font-size="11px" fill="#64748b" x="0" y="150">coordination in idiomatic Go.</text>
+
+      <text font-family="'Inter', 'SF Pro Display', system-ui, sans-serif" font-size="11px" fill="#64748b" x="0" y="178">Goroutines are cheap (~2KB stack).</text>
+      <text font-family="'Inter', 'SF Pro Display', system-ui, sans-serif" font-size="11px" fill="#64748b" x="0" y="195">Spawn thousands — don't pool threads.</text>
+    </g>
+  </g>
+
+</svg>

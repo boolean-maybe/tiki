@@ -1,0 +1,638 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 700">
+  <defs>
+    <!-- drop shadow -->
+    <filter id="shadow" x="-6%" y="-6%" width="112%" height="116%">
+      <feDropShadow dx="1" dy="2" stdDeviation="5" flood-color="#000" flood-opacity="0.35"/>
+    </filter>
+
+    <!-- title glow -->
+    <filter id="title-glow" x="-10%" y="-10%" width="120%" height="120%">
+      <feGaussianBlur in="SourceAlpha" stdDeviation="8" result="blur"/>
+      <feFlood flood-color="#60a5fa" flood-opacity="0.25" result="color"/>
+      <feComposite in="color" in2="blur" operator="in" result="glow"/>
+      <feMerge><feMergeNode in="glow"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+
+    <!-- lock glow -->
+    <filter id="glow-teal" x="-20%" y="-20%" width="140%" height="140%">
+      <feGaussianBlur in="SourceAlpha" stdDeviation="4" result="blur"/>
+      <feFlood flood-color="#2dd4bf" flood-opacity="0.3" result="color"/>
+      <feComposite in="color" in2="blur" operator="in" result="glow"/>
+      <feMerge><feMergeNode in="glow"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+    <filter id="glow-violet" x="-20%" y="-20%" width="140%" height="140%">
+      <feGaussianBlur in="SourceAlpha" stdDeviation="4" result="blur"/>
+      <feFlood flood-color="#a78bfa" flood-opacity="0.3" result="color"/>
+      <feComposite in="color" in2="blur" operator="in" result="glow"/>
+      <feMerge><feMergeNode in="glow"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+    <filter id="glow-amber" x="-20%" y="-20%" width="140%" height="140%">
+      <feGaussianBlur in="SourceAlpha" stdDeviation="4" result="blur"/>
+      <feFlood flood-color="#fbbf24" flood-opacity="0.3" result="color"/>
+      <feComposite in="color" in2="blur" operator="in" result="glow"/>
+      <feMerge><feMergeNode in="glow"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+    <filter id="glow-rose" x="-20%" y="-20%" width="140%" height="140%">
+      <feGaussianBlur in="SourceAlpha" stdDeviation="3" result="blur"/>
+      <feFlood flood-color="#f472b6" flood-opacity="0.25" result="color"/>
+      <feComposite in="color" in2="blur" operator="in" result="glow"/>
+      <feMerge><feMergeNode in="glow"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+
+    <!-- arrow markers -->
+    <marker id="arr-blue" viewBox="0 0 12 8" refX="11" refY="4" markerWidth="12" markerHeight="8" orient="auto-start-reverse">
+      <path d="M0,0 L12,4 L0,8 Z" fill="#60a5fa"/>
+    </marker>
+    <marker id="arr-teal" viewBox="0 0 12 8" refX="11" refY="4" markerWidth="12" markerHeight="8" orient="auto-start-reverse">
+      <path d="M0,0 L12,4 L0,8 Z" fill="#2dd4bf"/>
+    </marker>
+    <marker id="arr-amber" viewBox="0 0 12 8" refX="11" refY="4" markerWidth="12" markerHeight="8" orient="auto-start-reverse">
+      <path d="M0,0 L12,4 L0,8 Z" fill="#fbbf24"/>
+    </marker>
+    <marker id="arr-violet" viewBox="0 0 12 8" refX="11" refY="4" markerWidth="12" markerHeight="8" orient="auto-start-reverse">
+      <path d="M0,0 L12,4 L0,8 Z" fill="#a78bfa"/>
+    </marker>
+    <marker id="arr-rose" viewBox="0 0 12 8" refX="11" refY="4" markerWidth="12" markerHeight="8" orient="auto-start-reverse">
+      <path d="M0,0 L12,4 L0,8 Z" fill="#f472b6"/>
+    </marker>
+
+    <!-- ambient background glows -->
+    <radialGradient id="glow-tl" cx="220" cy="230" r="300" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#3b82f6" stop-opacity="0.04"/><stop offset="100%" stop-color="#3b82f6" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="glow-tr" cx="620" cy="230" r="300" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#8b5cf6" stop-opacity="0.04"/><stop offset="100%" stop-color="#8b5cf6" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="glow-bl" cx="220" cy="500" r="300" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#14b8a6" stop-opacity="0.04"/><stop offset="100%" stop-color="#14b8a6" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="glow-br" cx="620" cy="500" r="300" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#f59e0b" stop-opacity="0.03"/><stop offset="100%" stop-color="#f59e0b" stop-opacity="0"/>
+    </radialGradient>
+
+    <!-- right panel gradient -->
+    <linearGradient id="g-panel" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#141d2e" stop-opacity="0.9"/>
+      <stop offset="100%" stop-color="#0b1120" stop-opacity="0.95"/>
+    </linearGradient>
+
+    <!-- quote accent stripe -->
+    <linearGradient id="g-accent" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#3b82f6"/>
+      <stop offset="25%" stop-color="#14b8a6"/>
+      <stop offset="50%" stop-color="#f59e0b"/>
+      <stop offset="75%" stop-color="#8b5cf6"/>
+      <stop offset="100%" stop-color="#ec4899"/>
+    </linearGradient>
+
+    <!-- critical section glow -->
+    <linearGradient id="g-critical" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0%" stop-color="#3b82f6" stop-opacity="0.12"/>
+      <stop offset="100%" stop-color="#3b82f6" stop-opacity="0.03"/>
+    </linearGradient>
+
+    <!-- pool interior gradient -->
+    <radialGradient id="g-pool" cx="0.5" cy="0.5" r="0.5">
+      <stop offset="0%" stop-color="#14b8a6" stop-opacity="0.1"/>
+      <stop offset="100%" stop-color="#14b8a6" stop-opacity="0.02"/>
+    </radialGradient>
+
+    <!-- counter display gradient -->
+    <linearGradient id="g-counter" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#2a1800"/><stop offset="100%" stop-color="#1a0f00"/>
+    </linearGradient>
+
+    <!-- goroutine ball gradients -->
+    <radialGradient id="gb-blue" cx="0.4" cy="0.35" r="0.6">
+      <stop offset="0%" stop-color="#93c5fd"/><stop offset="100%" stop-color="#2563eb"/>
+    </radialGradient>
+    <radialGradient id="gb-teal" cx="0.4" cy="0.35" r="0.6">
+      <stop offset="0%" stop-color="#5eead4"/><stop offset="100%" stop-color="#0d9488"/>
+    </radialGradient>
+    <radialGradient id="gb-amber" cx="0.4" cy="0.35" r="0.6">
+      <stop offset="0%" stop-color="#fde68a"/><stop offset="100%" stop-color="#d97706"/>
+    </radialGradient>
+    <radialGradient id="gb-violet" cx="0.4" cy="0.35" r="0.6">
+      <stop offset="0%" stop-color="#c4b5fd"/><stop offset="100%" stop-color="#7c3aed"/>
+    </radialGradient>
+    <radialGradient id="gb-rose" cx="0.4" cy="0.35" r="0.6">
+      <stop offset="0%" stop-color="#fda4af"/><stop offset="100%" stop-color="#e11d48"/>
+    </radialGradient>
+  </defs>
+
+  <style>
+    .bg { fill: #0f172a; }
+    .title { font-family: 'Inter', 'SF Pro Display', system-ui, sans-serif; font-size: 26px; font-weight: 700; fill: #f1f5f9; }
+    .subtitle { font-family: 'Inter', 'SF Pro Display', system-ui, sans-serif; font-size: 12px; font-weight: 400; fill: #94a3b8; }
+    .mech-title { font-family: 'Inter', 'SF Pro Display', system-ui, sans-serif; font-size: 14px; font-weight: 700; fill: #f1f5f9; }
+    .mech-sub { font-family: 'Inter', 'SF Pro Display', system-ui, sans-serif; font-size: 11px; font-weight: 400; fill: #94a3b8; }
+    .desc { font-family: 'Inter', 'SF Pro Display', system-ui, sans-serif; font-size: 10.5px; fill: #cbd5e1; }
+    .code { font-family: 'JetBrains Mono', 'SF Mono', 'Fira Code', monospace; font-size: 10px; fill: #e2e8f0; }
+    .code-sm { font-family: 'JetBrains Mono', 'SF Mono', 'Fira Code', monospace; font-size: 9px; fill: #e2e8f0; }
+    .code-xs { font-family: 'JetBrains Mono', 'SF Mono', 'Fira Code', monospace; font-size: 8px; fill: #e2e8f0; }
+    .g-label { font-family: 'JetBrains Mono', 'SF Mono', 'Fira Code', monospace; font-size: 9px; font-weight: 700; }
+    .note { font-family: 'Inter', 'SF Pro Display', system-ui, sans-serif; font-size: 10px; fill: #64748b; }
+    .label { font-family: 'Inter', 'SF Pro Display', system-ui, sans-serif; font-size: 10px; fill: #94a3b8; }
+    .label-sm { font-family: 'Inter', 'SF Pro Display', system-ui, sans-serif; font-size: 9px; fill: #94a3b8; }
+    .panel-title { font-family: 'Inter', 'SF Pro Display', system-ui, sans-serif; font-size: 12px; font-weight: 700; fill: #f1f5f9; letter-spacing: 0.5px; }
+    .panel-item { font-family: 'Inter', 'SF Pro Display', system-ui, sans-serif; font-size: 10.5px; fill: #94a3b8; }
+    .panel-code { font-family: 'JetBrains Mono', 'SF Mono', 'Fira Code', monospace; font-size: 10px; fill: #e2e8f0; }
+    .quote { font-family: 'Inter', 'SF Pro Display', system-ui, sans-serif; font-size: 11px; font-weight: 600; fill: #f1f5f9; }
+    .quote-note { font-family: 'Inter', 'SF Pro Display', system-ui, sans-serif; font-size: 10px; fill: #64748b; }
+    .lane-label { font-family: 'JetBrains Mono', 'SF Mono', 'Fira Code', monospace; font-size: 10px; font-weight: 700; }
+  </style>
+
+  <!-- background -->
+  <g opacity="0.05">
+    <pattern id="dots" width="40" height="40" patternUnits="userSpaceOnUse">
+      <circle cx="20" cy="20" r="0.8" fill="#94a3b8"/>
+    </pattern>
+    <rect width="1200" height="700" fill="url(#dots)"/>
+  </g>
+
+  <!-- ambient glows -->
+  <rect width="1200" height="700" fill="url(#glow-tl)"/>
+  <rect width="1200" height="700" fill="url(#glow-tr)"/>
+  <rect width="1200" height="700" fill="url(#glow-bl)"/>
+  <rect width="1200" height="700" fill="url(#glow-br)"/>
+
+  <!-- ================================================================ -->
+  <!-- TITLE                                                             -->
+  <!-- ================================================================ -->
+  <g filter="url(#title-glow)">
+    <text class="title" x="420" y="38" text-anchor="middle" dominant-baseline="central" font-family="'Inter', 'SF Pro Display', system-ui, sans-serif" font-size="26px" font-weight="700" fill="#f1f5f9">Go sync — Locks, Gates &amp; Pools</text>
+  </g>
+  <text class="subtitle" x="420" y="62" text-anchor="middle" dominant-baseline="central" font-family="'Inter', 'SF Pro Display', system-ui, sans-serif" font-size="12px" font-weight="400" fill="#94a3b8">mutex · once · pool · atomic · rwmutex</text>
+
+  <!-- ================================================================ -->
+  <!-- TOP-LEFT: MUTEX (x=52, y=110, ~370x250)                          -->
+  <!-- ================================================================ -->
+  <g transform="translate(52, 110)">
+    <text class="mech-title" x="0" y="0" fill="#60a5fa" font-family="'Inter', 'SF Pro Display', system-ui, sans-serif" font-size="14px" font-weight="700">Mutex</text>
+    <text class="mech-sub" x="54" y="0" font-family="'Inter', 'SF Pro Display', system-ui, sans-serif" font-size="11px" font-weight="400" fill="#94a3b8">— exclusive gate</text>
+
+    <!-- the gate barrier -->
+    <g filter="url(#shadow)">
+      <!-- gate frame -->
+      <rect x="148" y="18" width="8" height="70" rx="2" fill="#1e3a5f" stroke="#3b82f6" stroke-width="1.5"/>
+      <!-- lock icon on gate -->
+      <g transform="translate(140, 52)">
+        <!-- lock body -->
+        <rect x="3" y="6" width="18" height="14" rx="2" fill="#1e3a5f" stroke="#60a5fa" stroke-width="1.2"/>
+        <!-- lock shackle -->
+        <path d="M7,6 V3 A5,5 0 0,1 17,3 V6" fill="none" stroke="#60a5fa" stroke-width="1.2"/>
+        <!-- keyhole -->
+        <circle cx="12" cy="13" r="2" fill="#60a5fa"/>
+        <rect x="11" y="14" width="2" height="3" fill="#60a5fa"/>
+      </g>
+    </g>
+
+    <!-- Lock() label above gate -->
+    <text class="code-sm" x="152" y="14" text-anchor="middle" fill="#60a5fa" font-family="'JetBrains Mono', 'SF Mono', 'Fira Code', monospace" font-size="9px">Lock()</text>
+
+    <!-- Unlock() label below gate -->
+    <text class="code-sm" x="152" y="100" text-anchor="middle" fill="#60a5fa" font-family="'JetBrains Mono', 'SF Mono', 'Fira Code', monospace" font-size="9px">Unlock()</text>
+
+    <!-- waiting goroutines (left side queue) -->
+    <g filter="url(#shadow)">
+      <circle cx="30" cy="38" r="12" fill="#1e3a5f" stroke="#3b82f6" stroke-width="1.2"/>
+      <text class="g-label" x="30" y="38" text-anchor="middle" dominant-baseline="central" fill="#60a5fa" font-family="'JetBrains Mono', 'SF Mono', 'Fira Code', monospace" font-size="9px" font-weight="700">G3</text>
+    </g>
+    <g filter="url(#shadow)">
+      <circle cx="62" cy="38" r="12" fill="#1e3a5f" stroke="#3b82f6" stroke-width="1.2"/>
+      <text class="g-label" x="62" y="38" text-anchor="middle" dominant-baseline="central" fill="#60a5fa" font-family="'JetBrains Mono', 'SF Mono', 'Fira Code', monospace" font-size="9px" font-weight="700">G2</text>
+    </g>
+    <g filter="url(#shadow)">
+      <circle cx="94" cy="38" r="12" fill="#1e3a5f" stroke="#3b82f6" stroke-width="1.2"/>
+      <text class="g-label" x="94" y="38" text-anchor="middle" dominant-baseline="central" fill="#60a5fa" font-family="'JetBrains Mono', 'SF Mono', 'Fira Code', monospace" font-size="9px" font-weight="700">G1</text>
+    </g>
+
+    <!-- waiting arrows pointing at gate -->
+    <path d="M108,38 L140,38" stroke="#60a5fa" stroke-width="1" fill="none" marker-end="url(#arr-blue)" stroke-dasharray="3,2" opacity="0.5"/>
+
+    <!-- label: "waiting" -->
+    <text class="label-sm" x="62" y="60" text-anchor="middle" font-family="'Inter', 'SF Pro Display', system-ui, sans-serif" font-size="9px" fill="#94a3b8">waiting</text>
+
+    <!-- critical section (right side) -->
+    <g filter="url(#shadow)">
+      <rect x="170" y="18" width="190" height="70" rx="8" fill="url(#g-critical)" stroke="#3b82f6" stroke-width="1" stroke-dasharray="4,3" opacity="0.8"/>
+    </g>
+    <text class="label-sm" x="265" y="32" text-anchor="middle" fill="#60a5fa" font-family="'Inter', 'SF Pro Display', system-ui, sans-serif" font-size="9px">critical section</text>
+
+    <!-- goroutine inside critical section -->
+    <g filter="url(#shadow)">
+      <circle cx="230" cy="60" r="12" fill="#1e3a5f" stroke="#60a5fa" stroke-width="1.5"/>
+      <text class="g-label" x="230" y="60" text-anchor="middle" dominant-baseline="central" fill="#60a5fa" font-family="'JetBrains Mono', 'SF Mono', 'Fira Code', monospace" font-size="9px" font-weight="700">G0</text>
+    </g>
+    <!-- shared data icon next to goroutine -->
+    <g transform="translate(260, 48)">
+      <rect width="40" height="24" rx="3" fill="#0f172a" stroke="#3b82f6" stroke-width="0.8" opacity="0.7"/>
+      <text class="code-xs" x="20" y="10" text-anchor="middle" fill="#60a5fa" font-family="'JetBrains Mono', 'SF Mono', 'Fira Code', monospace" font-size="8px">data</text>
+      <text class="code-xs" x="20" y="20" text-anchor="middle" fill="#475569" font-family="'JetBrains Mono', 'SF Mono', 'Fira Code', monospace" font-size="8px">mutex</text>
+    </g>
+
+    <!-- ── RWMutex sub-section ──────────────────────────── -->
+    <text class="mech-sub" x="0" y="126" fill="#60a5fa" font-weight="600" font-family="'Inter', 'SF Pro Display', system-ui, sans-serif" font-size="11px">RWMutex — two lanes</text>
+
+    <!-- R lane (wide, multiple readers) -->
+    <g transform="translate(0, 138)">
+      <!-- R lane track -->
+      <rect x="0" y="0" width="360" height="28" rx="6" fill="#3b82f6" fill-opacity="0.06" stroke="#3b82f6" stroke-width="0.8" stroke-opacity="0.3"/>
+      <text class="lane-label" x="6" y="18" fill="#60a5fa" font-family="'JetBrains Mono', 'SF Mono', 'Fira Code', monospace" font-size="10px" font-weight="700">R</text>
+
+      <!-- multiple readers flowing through -->
+      <g filter="url(#shadow)">
+        <circle cx="50" cy="14" r="9" fill="#0f3d2e" stroke="#14b8a6" stroke-width="1"/>
+        <text class="g-label" x="50" y="14" text-anchor="middle" dominant-baseline="central" fill="#2dd4bf" style="font-size:7px" font-family="'JetBrains Mono', 'SF Mono', 'Fira Code', monospace" font-size="9px" font-weight="700">R1</text>
+      </g>
+      <g filter="url(#shadow)">
+        <circle cx="80" cy="14" r="9" fill="#0f3d2e" stroke="#14b8a6" stroke-width="1"/>
+        <text class="g-label" x="80" y="14" text-anchor="middle" dominant-baseline="central" fill="#2dd4bf" style="font-size:7px" font-family="'JetBrains Mono', 'SF Mono', 'Fira Code', monospace" font-size="9px" font-weight="700">R2</text>
+      </g>
+      <g filter="url(#shadow)">
+        <circle cx="110" cy="14" r="9" fill="#0f3d2e" stroke="#14b8a6" stroke-width="1"/>
+        <text class="g-label" x="110" y="14" text-anchor="middle" dominant-baseline="central" fill="#2dd4bf" style="font-size:7px" font-family="'JetBrains Mono', 'SF Mono', 'Fira Code', monospace" font-size="9px" font-weight="700">R3</text>
+      </g>
+
+      <!-- flow arrows in R lane -->
+      <path d="M124,14 L148,14" stroke="#2dd4bf" stroke-width="0.8" fill="none" marker-end="url(#arr-teal)" opacity="0.4"/>
+      <path d="M160,14 L184,14" stroke="#2dd4bf" stroke-width="0.8" fill="none" marker-end="url(#arr-teal)" opacity="0.3"/>
+      <path d="M196,14 L220,14" stroke="#2dd4bf" stroke-width="0.8" fill="none" marker-end="url(#arr-teal)" opacity="0.2"/>
+
+      <!-- readers exiting -->
+      <g filter="url(#shadow)" opacity="0.5">
+        <circle cx="260" cy="14" r="9" fill="#0f3d2e" stroke="#14b8a6" stroke-width="1"/>
+        <text class="g-label" x="260" y="14" text-anchor="middle" dominant-baseline="central" fill="#2dd4bf" style="font-size:7px" font-family="'JetBrains Mono', 'SF Mono', 'Fira Code', monospace" font-size="9px" font-weight="700">R4</text>
+      </g>
+      <g filter="url(#shadow)" opacity="0.4">
+        <circle cx="290" cy="14" r="9" fill="#0f3d2e" stroke="#14b8a6" stroke-width="1"/>
+        <text class="g-label" x="290" y="14" text-anchor="middle" dominant-baseline="central" fill="#2dd4bf" style="font-size:7px" font-family="'JetBrains Mono', 'SF Mono', 'Fira Code', monospace" font-size="9px" font-weight="700">R5</text>
+      </g>
+
+      <text class="label-sm" x="340" y="18" fill="#2dd4bf" font-family="'Inter', 'SF Pro Display', system-ui, sans-serif" font-size="9px">concurrent</text>
+    </g>
+
+    <!-- W lane (narrow, exclusive) -->
+    <g transform="translate(0, 172)">
+      <!-- W lane track -->
+      <rect x="0" y="0" width="360" height="28" rx="6" fill="#f59e0b" fill-opacity="0.06" stroke="#f59e0b" stroke-width="0.8" stroke-opacity="0.3"/>
+      <text class="lane-label" x="6" y="18" fill="#fbbf24" font-family="'JetBrains Mono', 'SF Mono', 'Fira Code', monospace" font-size="10px" font-weight="700">W</text>
+
+      <!-- writer blocked, waiting -->
+      <g filter="url(#shadow)">
+        <circle cx="50" cy="14" r="9" fill="#3a1a03" stroke="#f59e0b" stroke-width="1"/>
+        <text class="g-label" x="50" y="14" text-anchor="middle" dominant-baseline="central" fill="#fbbf24" style="font-size:7px" font-family="'JetBrains Mono', 'SF Mono', 'Fira Code', monospace" font-size="9px" font-weight="700">W1</text>
+      </g>
+      <!-- blocked indicator -->
+      <line x1="68" y1="14" x2="90" y2="14" stroke="#f59e0b" stroke-width="1" stroke-dasharray="2,2" opacity="0.4"/>
+      <!-- gate bar blocking the writer -->
+      <rect x="95" y="2" width="4" height="24" rx="1" fill="#f59e0b" opacity="0.5"/>
+
+      <text class="label-sm" x="115" y="18" fill="#fbbf24" font-family="'Inter', 'SF Pro Display', system-ui, sans-serif" font-size="9px">exclusive — waits for readers</text>
+    </g>
+
+    <text class="code-sm" x="0" y="216" fill="#475569" font-family="'JetBrains Mono', 'SF Mono', 'Fira Code', monospace" font-size="9px">mu.RLock()  // many readers</text>
+    <text class="code-sm" x="0" y="228" fill="#475569" font-family="'JetBrains Mono', 'SF Mono', 'Fira Code', monospace" font-size="9px">mu.Lock()   // one writer</text>
+  </g>
+
+  <!-- ================================================================ -->
+  <!-- TOP-RIGHT: sync.Once (x=440, y=110, ~370x250)                    -->
+  <!-- ================================================================ -->
+  <g transform="translate(440, 110)">
+    <text class="mech-title" x="0" y="0" fill="#a78bfa" font-family="'Inter', 'SF Pro Display', system-ui, sans-serif" font-size="14px" font-weight="700">sync.Once</text>
+    <text class="mech-sub" x="76" y="0" font-family="'Inter', 'SF Pro Display', system-ui, sans-serif" font-size="11px" font-weight="400" fill="#94a3b8">— one-time switch</text>
+
+    <!-- the lever/switch mechanism -->
+    <g filter="url(#shadow)" transform="translate(130, 20)">
+      <!-- switch base plate -->
+      <rect x="0" y="30" width="80" height="8" rx="4" fill="#1e1845" stroke="#8b5cf6" stroke-width="1.2"/>
+      <!-- switch track -->
+      <rect x="35" y="2" width="10" height="32" rx="3" fill="#1e1845" stroke="#8b5cf6" stroke-width="1"/>
+      <!-- lever (pulled position — tilted right) -->
+      <line x1="40" y1="8" x2="68" y2="28" stroke="#a78bfa" stroke-width="3" stroke-linecap="round"/>
+      <!-- lever knob -->
+      <circle cx="68" cy="28" r="5" fill="#a78bfa"/>
+      <!-- "FIRED" indicator -->
+      <circle cx="72" cy="10" r="4" fill="#8b5cf6" opacity="0.8"/>
+      <circle cx="72" cy="10" r="6" fill="none" stroke="#a78bfa" stroke-width="0.5" opacity="0.4"/>
+    </g>
+
+    <!-- once.Do(func) label -->
+    <text class="code-sm" x="170" y="78" text-anchor="middle" fill="#a78bfa" font-family="'JetBrains Mono', 'SF Mono', 'Fira Code', monospace" font-size="9px">once.Do(fn)</text>
+
+    <!-- goroutines reaching for the switch -->
+    <!-- G1 — the one that triggered it (connected with solid line, teal glow) -->
+    <g filter="url(#glow-violet)">
+      <circle cx="52" cy="42" r="12" fill="#1e1845" stroke="#8b5cf6" stroke-width="1.5"/>
+      <text class="g-label" x="52" y="42" text-anchor="middle" dominant-baseline="central" fill="#a78bfa" font-family="'JetBrains Mono', 'SF Mono', 'Fira Code', monospace" font-size="9px" font-weight="700">G1</text>
+    </g>
+    <path d="M66,42 L128,42" stroke="#a78bfa" stroke-width="1.2" fill="none" marker-end="url(#arr-violet)"/>
+    <text class="label-sm" x="97" y="36" fill="#a78bfa" font-family="'Inter', 'SF Pro Display', system-ui, sans-serif" font-size="9px">triggers</text>
+
+    <!-- G2, G3 — latecomers, get cached result -->
+    <g filter="url(#shadow)">
+      <circle cx="30" cy="76" r="12" fill="#1e1845" stroke="#8b5cf6" stroke-width="1" opacity="0.6"/>
+      <text class="g-label" x="30" y="76" text-anchor="middle" dominant-baseline="central" fill="#a78bfa" opacity="0.6" font-family="'JetBrains Mono', 'SF Mono', 'Fira Code', monospace" font-size="9px" font-weight="700">G2</text>
+    </g>
+    <g filter="url(#shadow)">
+      <circle cx="72" cy="76" r="12" fill="#1e1845" stroke="#8b5cf6" stroke-width="1" opacity="0.6"/>
+      <text class="g-label" x="72" y="76" text-anchor="middle" dominant-baseline="central" fill="#a78bfa" opacity="0.6" font-family="'JetBrains Mono', 'SF Mono', 'Fira Code', monospace" font-size="9px" font-weight="700">G3</text>
+    </g>
+
+    <!-- dashed lines from latecomers to result cache -->
+    <path d="M44,76 L248,76" stroke="#a78bfa" stroke-width="0.8" fill="none" stroke-dasharray="3,2" opacity="0.4"/>
+    <path d="M86,76 L248,76" stroke="#a78bfa" stroke-width="0.8" fill="none" stroke-dasharray="3,2" opacity="0.4"/>
+
+    <!-- result cache box -->
+    <g filter="url(#shadow)">
+      <rect x="252" y="28" width="100" height="58" rx="6" fill="#1e1845" stroke="#8b5cf6" stroke-width="1" stroke-dasharray="4,3"/>
+      <text class="label-sm" x="302" y="44" text-anchor="middle" fill="#a78bfa" font-family="'Inter', 'SF Pro Display', system-ui, sans-serif" font-size="9px">cached result</text>
+      <text class="code-xs" x="302" y="58" text-anchor="middle" fill="#e2e8f0" font-family="'JetBrains Mono', 'SF Mono', 'Fira Code', monospace" font-size="8px">initialized</text>
+      <text class="code-xs" x="302" y="70" text-anchor="middle" fill="#64748b" font-family="'JetBrains Mono', 'SF Mono', 'Fira Code', monospace" font-size="8px">run only once</text>
+    </g>
+
+    <!-- action arrow from switch to result -->
+    <path d="M214,46 L248,46" stroke="#a78bfa" stroke-width="1" fill="none" marker-end="url(#arr-violet)"/>
+    <text class="label-sm" x="231" y="40" fill="#a78bfa" font-family="'Inter', 'SF Pro Display', system-ui, sans-serif" font-size="9px">init</text>
+
+    <!-- ── sync.OnceValue sub-section ──────────────────── -->
+    <text class="mech-sub" x="0" y="116" fill="#a78bfa" font-weight="600" font-family="'Inter', 'SF Pro Display', system-ui, sans-serif" font-size="11px">OnceValue — returns a value</text>
+
+    <g transform="translate(0, 128)">
+      <!-- simplified switch (smaller) -->
+      <g filter="url(#shadow)">
+        <rect x="0" y="4" width="50" height="24" rx="12" fill="#1e1845" stroke="#8b5cf6" stroke-width="1"/>
+        <!-- toggle dot (in "on" position) -->
+        <circle cx="37" cy="16" r="8" fill="#8b5cf6" opacity="0.7"/>
+        <text class="code-xs" x="37" y="16" text-anchor="middle" dominant-baseline="central" fill="#f1f5f9" font-family="'JetBrains Mono', 'SF Mono', 'Fira Code', monospace" font-size="8px">ON</text>
+      </g>
+
+      <path d="M54,16 L80,16" stroke="#a78bfa" stroke-width="0.8" fill="none" marker-end="url(#arr-violet)" opacity="0.6"/>
+
+      <!-- return value -->
+      <g filter="url(#shadow)">
+        <rect x="84" y="4" width="80" height="24" rx="4" fill="#1e1845" stroke="#8b5cf6" stroke-width="0.8"/>
+        <text class="code-xs" x="124" y="16" text-anchor="middle" dominant-baseline="central" fill="#a78bfa" font-family="'JetBrains Mono', 'SF Mono', 'Fira Code', monospace" font-size="8px">→ T</text>
+      </g>
+
+      <text class="code-sm" x="180" y="16" dominant-baseline="central" fill="#475569" font-family="'JetBrains Mono', 'SF Mono', 'Fira Code', monospace" font-size="9px">f := sync.OnceValue(init)</text>
+    </g>
+
+    <g transform="translate(0, 162)">
+      <text class="code-sm" x="0" y="12" fill="#475569" font-family="'JetBrains Mono', 'SF Mono', 'Fira Code', monospace" font-size="9px">var once sync.Once</text>
+      <text class="code-sm" x="0" y="24" fill="#475569" font-family="'JetBrains Mono', 'SF Mono', 'Fira Code', monospace" font-size="9px">once.Do(func() { /* runs 1x */ })</text>
+    </g>
+
+    <!-- visual: multiple calls, one execution -->
+    <g transform="translate(0, 196)">
+      <text class="desc" x="0" y="0" font-family="'Inter', 'SF Pro Display', system-ui, sans-serif" font-size="10.5px" fill="#cbd5e1">All goroutines block until the first Do() completes.</text>
+      <text class="desc" x="0" y="14" font-family="'Inter', 'SF Pro Display', system-ui, sans-serif" font-size="10.5px" fill="#cbd5e1">Subsequent calls return immediately — zero cost.</text>
+    </g>
+  </g>
+
+  <!-- ================================================================ -->
+  <!-- BOTTOM-LEFT: sync.Pool (x=52, y=380, ~370x250)                   -->
+  <!-- ================================================================ -->
+  <g transform="translate(52, 380)">
+    <text class="mech-title" x="0" y="0" fill="#2dd4bf" font-family="'Inter', 'SF Pro Display', system-ui, sans-serif" font-size="14px" font-weight="700">sync.Pool</text>
+    <text class="mech-sub" x="72" y="0" font-family="'Inter', 'SF Pro Display', system-ui, sans-serif" font-size="11px" font-weight="400" fill="#94a3b8">— object recycling</text>
+
+    <!-- the pool basin (oval shape) -->
+    <g filter="url(#shadow)">
+      <ellipse cx="160" cy="100" rx="130" ry="55" fill="url(#g-pool)" stroke="#14b8a6" stroke-width="1.5"/>
+      <!-- water-level hint lines -->
+      <ellipse cx="160" cy="90" rx="110" ry="35" fill="none" stroke="#14b8a6" stroke-width="0.4" opacity="0.2"/>
+      <ellipse cx="160" cy="98" rx="100" ry="28" fill="none" stroke="#14b8a6" stroke-width="0.3" opacity="0.15"/>
+    </g>
+
+    <!-- objects floating in the pool -->
+    <g filter="url(#shadow)">
+      <rect x="100" y="82" width="36" height="16" rx="3" fill="#134e4a" stroke="#14b8a6" stroke-width="0.8"/>
+      <text class="code-xs" x="118" y="92" text-anchor="middle" dominant-baseline="central" fill="#2dd4bf" font-family="'JetBrains Mono', 'SF Mono', 'Fira Code', monospace" font-size="8px">buf</text>
+    </g>
+    <g filter="url(#shadow)">
+      <rect x="146" y="90" width="36" height="16" rx="3" fill="#134e4a" stroke="#14b8a6" stroke-width="0.8"/>
+      <text class="code-xs" x="164" y="100" text-anchor="middle" dominant-baseline="central" fill="#2dd4bf" font-family="'JetBrains Mono', 'SF Mono', 'Fira Code', monospace" font-size="8px">conn</text>
+    </g>
+    <g filter="url(#shadow)">
+      <rect x="192" y="84" width="36" height="16" rx="3" fill="#134e4a" stroke="#14b8a6" stroke-width="0.8"/>
+      <text class="code-xs" x="210" y="94" text-anchor="middle" dominant-baseline="central" fill="#2dd4bf" font-family="'JetBrains Mono', 'SF Mono', 'Fira Code', monospace" font-size="8px">enc</text>
+    </g>
+    <g filter="url(#shadow)" opacity="0.5">
+      <rect x="146" y="110" width="36" height="16" rx="3" fill="#134e4a" stroke="#14b8a6" stroke-width="0.8"/>
+      <text class="code-xs" x="164" y="120" text-anchor="middle" dominant-baseline="central" fill="#2dd4bf" font-family="'JetBrains Mono', 'SF Mono', 'Fira Code', monospace" font-size="8px">buf</text>
+    </g>
+
+    <!-- Get() arrow — pulling object out (upward) -->
+    <g>
+      <path d="M120,78 L120,26" stroke="#2dd4bf" stroke-width="1.5" fill="none" marker-end="url(#arr-teal)"/>
+      <text class="code-sm" x="108" y="20" fill="#2dd4bf" font-family="'JetBrains Mono', 'SF Mono', 'Fira Code', monospace" font-size="9px">Get()</text>
+    </g>
+
+    <!-- goroutine receiving from Get -->
+    <g filter="url(#shadow)">
+      <circle cx="80" cy="20" r="11" fill="#0f3d2e" stroke="#14b8a6" stroke-width="1.2"/>
+      <text class="g-label" x="80" y="20" text-anchor="middle" dominant-baseline="central" fill="#2dd4bf" font-family="'JetBrains Mono', 'SF Mono', 'Fira Code', monospace" font-size="9px" font-weight="700">G1</text>
+    </g>
+
+    <!-- Put() arrow — returning object (downward) -->
+    <g>
+      <path d="M210,26 L210,78" stroke="#2dd4bf" stroke-width="1.5" fill="none" marker-end="url(#arr-teal)"/>
+      <text class="code-sm" x="218" y="20" fill="#2dd4bf" font-family="'JetBrains Mono', 'SF Mono', 'Fira Code', monospace" font-size="9px">Put()</text>
+    </g>
+
+    <!-- goroutine returning to Put -->
+    <g filter="url(#shadow)">
+      <circle cx="248" cy="20" r="11" fill="#0f3d2e" stroke="#14b8a6" stroke-width="1.2"/>
+      <text class="g-label" x="248" y="20" text-anchor="middle" dominant-baseline="central" fill="#2dd4bf" font-family="'JetBrains Mono', 'SF Mono', 'Fira Code', monospace" font-size="9px" font-weight="700">G2</text>
+    </g>
+
+    <!-- New() factory on the right side -->
+    <g transform="translate(300, 70)">
+      <g filter="url(#shadow)">
+        <rect x="0" y="0" width="60" height="30" rx="4" fill="#0f3d2e" stroke="#14b8a6" stroke-width="1" stroke-dasharray="3,2"/>
+        <text class="code-xs" x="30" y="12" text-anchor="middle" fill="#2dd4bf" font-family="'JetBrains Mono', 'SF Mono', 'Fira Code', monospace" font-size="8px">New()</text>
+        <text class="code-xs" x="30" y="23" text-anchor="middle" fill="#64748b" font-family="'JetBrains Mono', 'SF Mono', 'Fira Code', monospace" font-size="8px">factory</text>
+      </g>
+      <!-- arrow from factory into pool -->
+      <path d="M0,15 L-8,15" stroke="#2dd4bf" stroke-width="1" fill="none" marker-end="url(#arr-teal)" opacity="0.5"/>
+    </g>
+
+    <!-- GC sweep (dashed rose line) -->
+    <g>
+      <path d="M38,130 L282,130" stroke="#f472b6" stroke-width="1" fill="none" stroke-dasharray="4,3" opacity="0.5"/>
+      <text class="label-sm" x="160" y="144" text-anchor="middle" fill="#f472b6" font-family="'Inter', 'SF Pro Display', system-ui, sans-serif" font-size="9px">GC may drain pool</text>
+      <!-- sweep icon (broom-like) -->
+      <path d="M28,126 L28,134 M24,130 L32,130" stroke="#f472b6" stroke-width="1" opacity="0.5"/>
+    </g>
+
+    <text class="desc" x="0" y="174" font-family="'Inter', 'SF Pro Display', system-ui, sans-serif" font-size="10.5px" fill="#cbd5e1">Reuse expensive allocations. Not a cache — objects</text>
+    <text class="desc" x="0" y="186" font-family="'Inter', 'SF Pro Display', system-ui, sans-serif" font-size="10.5px" fill="#cbd5e1">may vanish on any GC cycle. Reset before Put().</text>
+  </g>
+
+  <!-- ================================================================ -->
+  <!-- BOTTOM-RIGHT: Atomic Operations (x=440, y=380, ~370x250)          -->
+  <!-- ================================================================ -->
+  <g transform="translate(440, 380)">
+    <text class="mech-title" x="0" y="0" fill="#fbbf24" font-family="'Inter', 'SF Pro Display', system-ui, sans-serif" font-size="14px" font-weight="700">Atomic</text>
+    <text class="mech-sub" x="56" y="0" font-family="'Inter', 'SF Pro Display', system-ui, sans-serif" font-size="11px" font-weight="400" fill="#94a3b8">— hardware counter</text>
+
+    <!-- digital counter display -->
+    <g filter="url(#shadow)" transform="translate(100, 18)">
+      <!-- display housing -->
+      <rect x="0" y="0" width="140" height="56" rx="6" fill="url(#g-counter)" stroke="#f59e0b" stroke-width="1.5"/>
+      <!-- inner display bezel -->
+      <rect x="8" y="8" width="124" height="40" rx="3" fill="#0a0500" stroke="#f59e0b" stroke-width="0.5" opacity="0.6"/>
+      <!-- LED digits -->
+      <text x="70" y="28" text-anchor="middle" dominant-baseline="central" fill="#fbbf24" font-family="'JetBrains Mono', 'SF Mono', monospace" font-size="24" font-weight="700">1042</text>
+      <!-- display scan lines -->
+      <line x1="10" y1="18" x2="130" y2="18" stroke="#f59e0b" stroke-width="0.3" opacity="0.1"/>
+      <line x1="10" y1="26" x2="130" y2="26" stroke="#f59e0b" stroke-width="0.3" opacity="0.1"/>
+      <line x1="10" y1="34" x2="130" y2="34" stroke="#f59e0b" stroke-width="0.3" opacity="0.1"/>
+      <line x1="10" y1="42" x2="130" y2="42" stroke="#f59e0b" stroke-width="0.3" opacity="0.1"/>
+    </g>
+
+    <!-- "lock-free" badge -->
+    <g transform="translate(250, 24)">
+      <rect x="0" y="0" width="70" height="18" rx="9" fill="#3a1a03" stroke="#f59e0b" stroke-width="0.8"/>
+      <text class="code-xs" x="35" y="12" text-anchor="middle" fill="#fbbf24" font-family="'JetBrains Mono', 'SF Mono', 'Fira Code', monospace" font-size="8px">lock-free</text>
+    </g>
+
+    <!-- goroutines simultaneously incrementing -->
+    <!-- G1 top-left -->
+    <g filter="url(#shadow)">
+      <circle cx="46" cy="30" r="11" fill="#3a1a03" stroke="#f59e0b" stroke-width="1.2"/>
+      <text class="g-label" x="46" y="30" text-anchor="middle" dominant-baseline="central" fill="#fbbf24" font-family="'JetBrains Mono', 'SF Mono', 'Fira Code', monospace" font-size="9px" font-weight="700">G1</text>
+    </g>
+    <path d="M59,34 L96,40" stroke="#fbbf24" stroke-width="1" fill="none" marker-end="url(#arr-amber)" opacity="0.6"/>
+
+    <!-- G2 left -->
+    <g filter="url(#shadow)">
+      <circle cx="34" cy="60" r="11" fill="#3a1a03" stroke="#f59e0b" stroke-width="1.2"/>
+      <text class="g-label" x="34" y="60" text-anchor="middle" dominant-baseline="central" fill="#fbbf24" font-family="'JetBrains Mono', 'SF Mono', 'Fira Code', monospace" font-size="9px" font-weight="700">G2</text>
+    </g>
+    <path d="M47,56 L96,48" stroke="#fbbf24" stroke-width="1" fill="none" marker-end="url(#arr-amber)" opacity="0.6"/>
+
+    <!-- G3 bottom-left -->
+    <g filter="url(#shadow)">
+      <circle cx="56" cy="86" r="11" fill="#3a1a03" stroke="#f59e0b" stroke-width="1.2"/>
+      <text class="g-label" x="56" y="86" text-anchor="middle" dominant-baseline="central" fill="#fbbf24" font-family="'JetBrains Mono', 'SF Mono', 'Fira Code', monospace" font-size="9px" font-weight="700">G3</text>
+    </g>
+    <path d="M69,82 L96,66" stroke="#fbbf24" stroke-width="1" fill="none" marker-end="url(#arr-amber)" opacity="0.6"/>
+
+    <!-- operations list -->
+    <g transform="translate(0, 110)">
+      <text class="code-sm" x="0" y="0" fill="#fbbf24" font-family="'JetBrains Mono', 'SF Mono', 'Fira Code', monospace" font-size="9px">Add()</text>
+      <text class="label-sm" x="48" y="0" fill="#94a3b8" font-family="'Inter', 'SF Pro Display', system-ui, sans-serif" font-size="9px">increment/decrement</text>
+
+      <text class="code-sm" x="0" y="16" fill="#fbbf24" font-family="'JetBrains Mono', 'SF Mono', 'Fira Code', monospace" font-size="9px">Load()</text>
+      <text class="label-sm" x="48" y="16" fill="#94a3b8" font-family="'Inter', 'SF Pro Display', system-ui, sans-serif" font-size="9px">read current value</text>
+
+      <text class="code-sm" x="0" y="32" fill="#fbbf24" font-family="'JetBrains Mono', 'SF Mono', 'Fira Code', monospace" font-size="9px">Store()</text>
+      <text class="label-sm" x="48" y="32" fill="#94a3b8" font-family="'Inter', 'SF Pro Display', system-ui, sans-serif" font-size="9px">write new value</text>
+
+      <text class="code-sm" x="0" y="48" fill="#fbbf24" font-family="'JetBrains Mono', 'SF Mono', 'Fira Code', monospace" font-size="9px">CompareAndSwap()</text>
+      <text class="label-sm" x="130" y="48" fill="#94a3b8" font-family="'Inter', 'SF Pro Display', system-ui, sans-serif" font-size="9px">conditional update</text>
+    </g>
+
+    <!-- crossed-out mutex comparison -->
+    <g transform="translate(240, 108)">
+      <g filter="url(#shadow)" opacity="0.4">
+        <rect x="0" y="0" width="100" height="32" rx="4" fill="#1e3a5f" stroke="#3b82f6" stroke-width="0.8"/>
+        <text class="code-xs" x="50" y="12" text-anchor="middle" fill="#60a5fa" font-family="'JetBrains Mono', 'SF Mono', 'Fira Code', monospace" font-size="8px">mu.Lock()</text>
+        <text class="code-xs" x="50" y="24" text-anchor="middle" fill="#60a5fa" font-family="'JetBrains Mono', 'SF Mono', 'Fira Code', monospace" font-size="8px">counter++</text>
+      </g>
+      <!-- X cross-out -->
+      <line x1="5" y1="5" x2="95" y2="27" stroke="#f472b6" stroke-width="2" opacity="0.7"/>
+      <line x1="95" y1="5" x2="5" y2="27" stroke="#f472b6" stroke-width="2" opacity="0.7"/>
+    </g>
+
+    <g transform="translate(240, 148)">
+      <text class="code-xs" x="50" y="0" text-anchor="middle" fill="#64748b" font-family="'JetBrains Mono', 'SF Mono', 'Fira Code', monospace" font-size="8px">use atomic instead</text>
+    </g>
+
+    <text class="desc" x="0" y="178" font-family="'Inter', 'SF Pro Display', system-ui, sans-serif" font-size="10.5px" fill="#cbd5e1">CPU-level instructions. No goroutine blocking.</text>
+    <text class="desc" x="0" y="190" font-family="'Inter', 'SF Pro Display', system-ui, sans-serif" font-size="10.5px" fill="#cbd5e1">Best for simple counters, flags, and load/store.</text>
+  </g>
+
+  <!-- ================================================================ -->
+  <!-- RIGHT PANEL (x=860, y=88, w=310)                                  -->
+  <!-- ================================================================ -->
+  <g transform="translate(860, 88)">
+    <!-- panel background -->
+    <rect x="0" y="0" width="310" height="568" rx="10" fill="url(#g-panel)" stroke="#1e293b" stroke-width="1"/>
+
+    <!-- ── When to Use What ─────────────────────────────── -->
+    <text class="panel-title" x="20" y="28" font-family="'Inter', 'SF Pro Display', system-ui, sans-serif" font-size="12px" font-weight="700" fill="#f1f5f9" letter-spacing="0.5px">When to Use What</text>
+
+    <!-- decision items -->
+    <g transform="translate(20, 48)">
+      <!-- atomic -->
+      <circle cx="6" cy="6" r="4" fill="#f59e0b"/>
+      <text class="panel-item" x="18" y="10" font-family="'Inter', 'SF Pro Display', system-ui, sans-serif" font-size="10.5px" fill="#94a3b8">Simple counter</text>
+      <text class="panel-code" x="148" y="10" fill="#fbbf24" font-family="'JetBrains Mono', 'SF Mono', 'Fira Code', monospace" font-size="10px">→ atomic</text>
+
+      <!-- mutex -->
+      <circle cx="6" cy="30" r="4" fill="#3b82f6"/>
+      <text class="panel-item" x="18" y="34" font-family="'Inter', 'SF Pro Display', system-ui, sans-serif" font-size="10.5px" fill="#94a3b8">Shared struct</text>
+      <text class="panel-code" font-family="'JetBrains Mono', 'SF Mono', 'Fira Code', monospace" font-size="10px" x="148" y="34" fill="#60a5fa">→ Mutex</text>
+
+      <!-- rwmutex -->
+      <circle cx="6" cy="54" r="4" fill="#3b82f6"/>
+      <text class="panel-item" x="18" y="58" font-family="'Inter', 'SF Pro Display', system-ui, sans-serif" font-size="10.5px" fill="#94a3b8">Read-heavy</text>
+      <text class="panel-code" font-family="'JetBrains Mono', 'SF Mono', 'Fira Code', monospace" font-size="10px" x="148" y="58" fill="#60a5fa">→ RWMutex</text>
+
+      <!-- once -->
+      <circle cx="6" cy="78" r="4" fill="#8b5cf6"/>
+      <text class="panel-item" x="18" y="82" font-family="'Inter', 'SF Pro Display', system-ui, sans-serif" font-size="10.5px" fill="#94a3b8">Init once</text>
+      <text class="panel-code" font-family="'JetBrains Mono', 'SF Mono', 'Fira Code', monospace" font-size="10px" x="148" y="82" fill="#a78bfa">→ sync.Once</text>
+
+      <!-- pool -->
+      <circle cx="6" cy="102" r="4" fill="#14b8a6"/>
+      <text class="panel-item" x="18" y="106" font-family="'Inter', 'SF Pro Display', system-ui, sans-serif" font-size="10.5px" fill="#94a3b8">Reuse objects</text>
+      <text class="panel-code" font-family="'JetBrains Mono', 'SF Mono', 'Fira Code', monospace" font-size="10px" x="148" y="106" fill="#2dd4bf">→ sync.Pool</text>
+
+      <!-- channels -->
+      <circle cx="6" cy="126" r="4" fill="#ec4899"/>
+      <text class="panel-item" x="18" y="130" font-family="'Inter', 'SF Pro Display', system-ui, sans-serif" font-size="10.5px" fill="#94a3b8">Goroutine coord.</text>
+      <text class="panel-code" font-family="'JetBrains Mono', 'SF Mono', 'Fira Code', monospace" font-size="10px" x="148" y="130" fill="#f472b6">→ channels</text>
+    </g>
+
+    <!-- ── Cheat Sheet ──────────────────────────────────── -->
+    <line x1="20" y1="198" x2="290" y2="198" stroke="#1e293b" stroke-width="1"/>
+    <text class="panel-title" x="20" y="220" font-family="'Inter', 'SF Pro Display', system-ui, sans-serif" font-size="12px" font-weight="700" fill="#f1f5f9" letter-spacing="0.5px">Cheat Sheet</text>
+
+    <g transform="translate(20, 238)">
+      <text class="panel-code" font-family="'JetBrains Mono', 'SF Mono', 'Fira Code', monospace" font-size="10px" x="0" y="0" fill="#60a5fa">var mu sync.Mutex</text>
+      <text class="panel-code" font-family="'JetBrains Mono', 'SF Mono', 'Fira Code', monospace" font-size="10px" x="0" y="16" fill="#475569">mu.Lock()</text>
+      <text class="panel-code" font-family="'JetBrains Mono', 'SF Mono', 'Fira Code', monospace" font-size="10px" x="0" y="32" fill="#475569">defer mu.Unlock()</text>
+
+      <text class="panel-code" font-family="'JetBrains Mono', 'SF Mono', 'Fira Code', monospace" font-size="10px" x="0" y="56" fill="#a78bfa">var once sync.Once</text>
+      <text class="panel-code" font-family="'JetBrains Mono', 'SF Mono', 'Fira Code', monospace" font-size="10px" x="0" y="72" fill="#475569">once.Do(initFunc)</text>
+
+      <text class="panel-code" font-family="'JetBrains Mono', 'SF Mono', 'Fira Code', monospace" font-size="10px" x="0" y="96" fill="#2dd4bf">var pool sync.Pool</text>
+      <text class="panel-code" font-family="'JetBrains Mono', 'SF Mono', 'Fira Code', monospace" font-size="10px" x="0" y="112" fill="#475569">pool.New = func() any {</text>
+      <text class="panel-code" font-family="'JetBrains Mono', 'SF Mono', 'Fira Code', monospace" font-size="10px" x="0" y="128" fill="#475569">  return &amp;Buffer{}</text>
+      <text class="panel-code" font-family="'JetBrains Mono', 'SF Mono', 'Fira Code', monospace" font-size="10px" x="0" y="144" fill="#475569">}</text>
+
+      <text class="panel-code" font-family="'JetBrains Mono', 'SF Mono', 'Fira Code', monospace" font-size="10px" x="0" y="168" fill="#fbbf24">var count atomic.Int64</text>
+      <text class="panel-code" font-family="'JetBrains Mono', 'SF Mono', 'Fira Code', monospace" font-size="10px" x="0" y="184" fill="#475569">count.Add(1)</text>
+      <text class="panel-code" font-family="'JetBrains Mono', 'SF Mono', 'Fira Code', monospace" font-size="10px" x="0" y="200" fill="#475569">v := count.Load()</text>
+    </g>
+
+    <!-- ── Key Insight ──────────────────────────────────── -->
+    <line x1="20" y1="456" x2="290" y2="456" stroke="#1e293b" stroke-width="1"/>
+    <text class="panel-title" x="20" y="478" font-family="'Inter', 'SF Pro Display', system-ui, sans-serif" font-size="12px" font-weight="700" fill="#f1f5f9" letter-spacing="0.5px">Key Insight</text>
+
+    <!-- quote box with accent stripe -->
+    <g transform="translate(20, 490)">
+      <!-- accent stripe -->
+      <rect x="0" y="0" width="3" height="54" rx="1.5" fill="url(#g-accent)"/>
+
+      <text class="quote" font-family="'Inter', 'SF Pro Display', system-ui, sans-serif" font-size="11px" font-weight="600" fill="#f1f5f9" x="14" y="12">Mutexes protect data.</text>
+      <text class="quote" font-family="'Inter', 'SF Pro Display', system-ui, sans-serif" font-size="11px" font-weight="600" fill="#f1f5f9" x="14" y="28">Channels coordinate flow.</text>
+      <text class="quote-note" font-family="'Inter', 'SF Pro Display', system-ui, sans-serif" font-size="10px" fill="#64748b" x="14" y="46">Pick based on whether you're guarding</text>
+      <text class="quote-note" font-family="'Inter', 'SF Pro Display', system-ui, sans-serif" font-size="10px" fill="#64748b" x="14" y="58">state or passing messages.</text>
+    </g>
+  </g>
+</svg>

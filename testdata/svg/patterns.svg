@@ -1,0 +1,546 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 700">
+  <defs>
+    <!-- filters -->
+    <filter id="shadow" x="-6%" y="-6%" width="112%" height="116%">
+      <feDropShadow dx="1" dy="2" stdDeviation="5" flood-color="#000" flood-opacity="0.35"/>
+    </filter>
+    <filter id="title-glow" x="-10%" y="-10%" width="120%" height="120%">
+      <feGaussianBlur in="SourceAlpha" stdDeviation="8" result="blur"/>
+      <feFlood flood-color="#a78bfa" flood-opacity="0.25" result="color"/>
+      <feComposite in="color" in2="blur" operator="in" result="glow"/>
+      <feMerge><feMergeNode in="glow"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+
+    <!-- arrow markers -->
+    <marker id="arr-teal" viewBox="0 0 12 8" refX="11" refY="4" markerWidth="12" markerHeight="8" orient="auto-start-reverse">
+      <path d="M0,0 L12,4 L0,8 Z" fill="#2dd4bf"/>
+    </marker>
+    <marker id="arr-blue" viewBox="0 0 12 8" refX="11" refY="4" markerWidth="12" markerHeight="8" orient="auto-start-reverse">
+      <path d="M0,0 L12,4 L0,8 Z" fill="#60a5fa"/>
+    </marker>
+    <marker id="arr-amber" viewBox="0 0 12 8" refX="11" refY="4" markerWidth="12" markerHeight="8" orient="auto-start-reverse">
+      <path d="M0,0 L12,4 L0,8 Z" fill="#fbbf24"/>
+    </marker>
+    <marker id="arr-violet" viewBox="0 0 12 8" refX="11" refY="4" markerWidth="12" markerHeight="8" orient="auto-start-reverse">
+      <path d="M0,0 L12,4 L0,8 Z" fill="#a78bfa"/>
+    </marker>
+    <marker id="arr-rose" viewBox="0 0 12 8" refX="11" refY="4" markerWidth="12" markerHeight="8" orient="auto-start-reverse">
+      <path d="M0,0 L12,4 L0,8 Z" fill="#f472b6"/>
+    </marker>
+
+    <!-- data ball gradients -->
+    <radialGradient id="g-ball-teal" cx="0.4" cy="0.35" r="0.6">
+      <stop offset="0%" stop-color="#5eead4"/><stop offset="100%" stop-color="#0d9488"/>
+    </radialGradient>
+    <radialGradient id="g-ball-blue" cx="0.4" cy="0.35" r="0.6">
+      <stop offset="0%" stop-color="#93c5fd"/><stop offset="100%" stop-color="#2563eb"/>
+    </radialGradient>
+    <radialGradient id="g-ball-violet" cx="0.4" cy="0.35" r="0.6">
+      <stop offset="0%" stop-color="#c4b5fd"/><stop offset="100%" stop-color="#7c3aed"/>
+    </radialGradient>
+    <radialGradient id="g-ball-amber" cx="0.4" cy="0.35" r="0.6">
+      <stop offset="0%" stop-color="#fde68a"/><stop offset="100%" stop-color="#d97706"/>
+    </radialGradient>
+    <radialGradient id="g-ball-rose" cx="0.4" cy="0.35" r="0.6">
+      <stop offset="0%" stop-color="#fda4af"/><stop offset="100%" stop-color="#be123c"/>
+    </radialGradient>
+
+    <!-- pipe interior gradients -->
+    <linearGradient id="gp-teal" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0%" stop-color="#14b8a6" stop-opacity="0.12"/><stop offset="100%" stop-color="#14b8a6" stop-opacity="0.04"/>
+    </linearGradient>
+    <linearGradient id="gp-blue" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0%" stop-color="#3b82f6" stop-opacity="0.12"/><stop offset="100%" stop-color="#3b82f6" stop-opacity="0.04"/>
+    </linearGradient>
+    <linearGradient id="gp-violet" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0%" stop-color="#8b5cf6" stop-opacity="0.12"/><stop offset="100%" stop-color="#8b5cf6" stop-opacity="0.04"/>
+    </linearGradient>
+    <linearGradient id="gp-amber" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0%" stop-color="#f59e0b" stop-opacity="0.12"/><stop offset="100%" stop-color="#f59e0b" stop-opacity="0.04"/>
+    </linearGradient>
+
+    <!-- ambient background glows -->
+    <radialGradient id="glow-top" cx="400" cy="160" r="300" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#8b5cf6" stop-opacity="0.04"/><stop offset="100%" stop-color="#8b5cf6" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="glow-mid" cx="400" cy="380" r="300" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#14b8a6" stop-opacity="0.04"/><stop offset="100%" stop-color="#14b8a6" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="glow-bot" cx="400" cy="580" r="300" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#f59e0b" stop-opacity="0.03"/><stop offset="100%" stop-color="#f59e0b" stop-opacity="0"/>
+    </radialGradient>
+
+    <!-- right panel -->
+    <linearGradient id="g-panel" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#141d2e" stop-opacity="0.9"/><stop offset="100%" stop-color="#0b1120" stop-opacity="0.95"/>
+    </linearGradient>
+
+    <!-- accent stripe -->
+    <linearGradient id="g-accent" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#8b5cf6"/><stop offset="25%" stop-color="#14b8a6"/>
+      <stop offset="50%" stop-color="#3b82f6"/><stop offset="75%" stop-color="#f59e0b"/>
+      <stop offset="100%" stop-color="#ec4899"/>
+    </linearGradient>
+
+    <!-- section separators -->
+    <linearGradient id="g-sep-teal" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0%" stop-color="#2dd4bf" stop-opacity="0"/><stop offset="15%" stop-color="#2dd4bf" stop-opacity="0.25"/>
+      <stop offset="85%" stop-color="#2dd4bf" stop-opacity="0.25"/><stop offset="100%" stop-color="#2dd4bf" stop-opacity="0"/>
+    </linearGradient>
+    <linearGradient id="g-sep-blue" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0%" stop-color="#60a5fa" stop-opacity="0"/><stop offset="15%" stop-color="#60a5fa" stop-opacity="0.25"/>
+      <stop offset="85%" stop-color="#60a5fa" stop-opacity="0.25"/><stop offset="100%" stop-color="#60a5fa" stop-opacity="0"/>
+    </linearGradient>
+    <linearGradient id="g-sep-amber" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0%" stop-color="#fbbf24" stop-opacity="0"/><stop offset="15%" stop-color="#fbbf24" stop-opacity="0.25"/>
+      <stop offset="85%" stop-color="#fbbf24" stop-opacity="0.25"/><stop offset="100%" stop-color="#fbbf24" stop-opacity="0"/>
+    </linearGradient>
+  </defs>
+
+  <style>
+    .bg { fill: #0f172a; }
+    .title { font-family: 'Inter', 'SF Pro Display', system-ui, sans-serif; font-size: 26px; font-weight: 700; fill: #f1f5f9; }
+    .subtitle { font-family: 'Inter', 'SF Pro Display', system-ui, sans-serif; font-size: 12px; font-weight: 400; fill: #94a3b8; letter-spacing: 2px; }
+    .section-label { font-family: 'Inter', 'SF Pro Display', system-ui, sans-serif; font-size: 11px; font-weight: 600; letter-spacing: 1.5px; text-transform: uppercase; }
+    .pipe-label { font-family: 'Inter', 'SF Pro Display', system-ui, sans-serif; font-size: 12px; font-weight: 700; fill: #f1f5f9; }
+    .pipe-desc { font-family: 'Inter', 'SF Pro Display', system-ui, sans-serif; font-size: 10px; font-weight: 400; fill: #94a3b8; }
+    .code { font-family: 'JetBrains Mono', 'SF Mono', 'Fira Code', monospace; font-size: 10px; fill: #e2e8f0; }
+    .code-sm { font-family: 'JetBrains Mono', 'SF Mono', 'Fira Code', monospace; font-size: 9px; fill: #e2e8f0; }
+    .code-amber { font-family: 'JetBrains Mono', 'SF Mono', 'Fira Code', monospace; font-size: 9px; fill: #fbbf24; }
+    .g-label { font-family: 'JetBrains Mono', 'SF Mono', 'Fira Code', monospace; font-size: 9px; font-weight: 700; }
+    .mini-label { font-family: 'Inter', 'SF Pro Display', system-ui, sans-serif; font-size: 10px; font-weight: 600; }
+    .group-label { font-family: 'Inter', 'SF Pro Display', system-ui, sans-serif; font-size: 10px; font-weight: 600; letter-spacing: 1.5px; text-transform: uppercase; }
+    .quote { font-family: 'Inter', 'SF Pro Display', system-ui, sans-serif; font-size: 11px; font-weight: 600; fill: #f1f5f9; }
+    .quote-note { font-family: 'Inter', 'SF Pro Display', system-ui, sans-serif; font-size: 10px; fill: #64748b; }
+    .legend-text { font-family: 'Inter', 'SF Pro Display', system-ui, sans-serif; font-size: 10px; fill: #94a3b8; }
+    .desc-text { font-family: 'Inter', 'SF Pro Display', system-ui, sans-serif; font-size: 10px; fill: #cbd5e1; }
+  </style>
+
+  <!-- background -->
+  <g opacity="0.05">
+    <pattern id="dots" width="40" height="40" patternUnits="userSpaceOnUse">
+      <circle cx="20" cy="20" r="0.8" fill="#94a3b8"/>
+    </pattern>
+    <rect width="1200" height="700" fill="url(#dots)"/>
+  </g>
+
+  <!-- ambient glows -->
+  <rect width="1200" height="700" fill="url(#glow-top)"/>
+  <rect width="1200" height="700" fill="url(#glow-mid)"/>
+  <rect width="1200" height="700" fill="url(#glow-bot)"/>
+
+  <!-- ================================================================ -->
+  <!-- TITLE                                                             -->
+  <!-- ================================================================ -->
+  <g filter="url(#title-glow)">
+    <text class="title" x="420" y="38" text-anchor="middle" font-family="'Inter', 'SF Pro Display', system-ui, sans-serif" font-size="26px" font-weight="700" fill="#f1f5f9">Go Concurrency Patterns</text>
+  </g>
+  <text class="subtitle" x="420" y="58" text-anchor="middle" font-family="'Inter', 'SF Pro Display', system-ui, sans-serif" font-size="12px" font-weight="400" fill="#94a3b8" letter-spacing="2px">fan-out · fan-in · pipeline · worker pool · or-done</text>
+
+  <!-- ================================================================ -->
+  <!-- PATTERN 1: FAN-OUT / FAN-IN  (y=90–230)                          -->
+  <!-- ================================================================ -->
+  <text class="section-label" x="40" y="102" fill="#a78bfa" font-family="'Inter', 'SF Pro Display', system-ui, sans-serif" font-size="11px" font-weight="600" letter-spacing="1.5px">Fan-Out / Fan-In</text>
+
+  <g transform="translate(40, 118)">
+    <!-- INPUT PIPE -->
+    <g filter="url(#shadow)">
+      <rect x="0" y="40" width="120" height="14" rx="7" fill="url(#gp-violet)" stroke="#8b5cf6" stroke-width="1.5"/>
+      <!-- flow chevrons -->
+      <path d="M20,44 l4,3 l-4,3" stroke="#a78bfa" stroke-width="0.8" fill="none" opacity="0.3"/>
+      <path d="M50,44 l4,3 l-4,3" stroke="#a78bfa" stroke-width="0.8" fill="none" opacity="0.3"/>
+      <path d="M80,44 l4,3 l-4,3" stroke="#a78bfa" stroke-width="0.8" fill="none" opacity="0.3"/>
+      <!-- data balls entering -->
+      <circle cx="30" cy="47" r="4" fill="url(#g-ball-violet)"/>
+      <circle cx="70" cy="47" r="4" fill="url(#g-ball-violet)" opacity="0.7"/>
+      <circle cx="100" cy="47" r="4" fill="url(#g-ball-violet)" opacity="0.5"/>
+    </g>
+    <text class="pipe-desc" x="40" y="36" text-anchor="middle" font-family="'Inter', 'SF Pro Display', system-ui, sans-serif" font-size="10px" font-weight="400" fill="#94a3b8">input ch</text>
+
+    <!-- FAN-OUT JUNCTION: bezier T-split -->
+    <path d="M120,47 C150,47 155,15 185,15" stroke="#8b5cf6" stroke-width="1.5" fill="none"/>
+    <path d="M120,47 C150,47 155,47 185,47" stroke="#8b5cf6" stroke-width="1.5" fill="none"/>
+    <path d="M120,47 C150,47 155,79 185,79" stroke="#8b5cf6" stroke-width="1.5" fill="none"/>
+
+    <!-- WORKER 1 pipe segment + G-badge -->
+    <g filter="url(#shadow)">
+      <rect x="185" y="8" width="80" height="14" rx="7" fill="url(#gp-violet)" stroke="#8b5cf6" stroke-width="1.2"/>
+      <circle cx="210" cy="15" r="4" fill="url(#g-ball-violet)" opacity="0.6"/>
+    </g>
+    <g filter="url(#shadow)">
+      <circle cx="290" cy="15" r="13" fill="#271650" stroke="#8b5cf6" stroke-width="1.5"/>
+      <text class="g-label" x="290" y="15" text-anchor="middle" dominant-baseline="central" fill="#a78bfa" font-family="'JetBrains Mono', 'SF Mono', 'Fira Code', monospace" font-size="9px" font-weight="700">W1</text>
+    </g>
+    <text class="pipe-desc" x="290" y="1" text-anchor="middle" font-family="'Inter', 'SF Pro Display', system-ui, sans-serif" font-size="10px" font-weight="400" fill="#94a3b8">process</text>
+
+    <!-- WORKER 2 pipe segment + G-badge -->
+    <g filter="url(#shadow)">
+      <rect x="185" y="40" width="80" height="14" rx="7" fill="url(#gp-violet)" stroke="#8b5cf6" stroke-width="1.2"/>
+      <circle cx="230" cy="47" r="4" fill="url(#g-ball-violet)"/>
+    </g>
+    <g filter="url(#shadow)">
+      <circle cx="290" cy="47" r="13" fill="#271650" stroke="#8b5cf6" stroke-width="1.5"/>
+      <text class="g-label" x="290" y="47" text-anchor="middle" dominant-baseline="central" fill="#a78bfa" font-family="'JetBrains Mono', 'SF Mono', 'Fira Code', monospace" font-size="9px" font-weight="700">W2</text>
+    </g>
+    <text class="pipe-desc" x="290" y="33" text-anchor="middle" font-family="'Inter', 'SF Pro Display', system-ui, sans-serif" font-size="10px" font-weight="400" fill="#94a3b8">process</text>
+
+    <!-- WORKER 3 pipe segment + G-badge -->
+    <g filter="url(#shadow)">
+      <rect x="185" y="72" width="80" height="14" rx="7" fill="url(#gp-violet)" stroke="#8b5cf6" stroke-width="1.2"/>
+      <circle cx="245" cy="79" r="4" fill="url(#g-ball-violet)" opacity="0.8"/>
+    </g>
+    <g filter="url(#shadow)">
+      <circle cx="290" cy="79" r="13" fill="#271650" stroke="#8b5cf6" stroke-width="1.5"/>
+      <text class="g-label" x="290" y="79" text-anchor="middle" dominant-baseline="central" fill="#a78bfa" font-family="'JetBrains Mono', 'SF Mono', 'Fira Code', monospace" font-size="9px" font-weight="700">W3</text>
+    </g>
+    <text class="pipe-desc" x="290" y="65" text-anchor="middle" font-family="'Inter', 'SF Pro Display', system-ui, sans-serif" font-size="10px" font-weight="400" fill="#94a3b8">process</text>
+
+    <!-- Worker output pipes -->
+    <g filter="url(#shadow)">
+      <rect x="310" y="8" width="80" height="14" rx="7" fill="url(#gp-violet)" stroke="#8b5cf6" stroke-width="1.2"/>
+      <circle cx="350" cy="15" r="4" fill="url(#g-ball-violet)" opacity="0.8"/>
+    </g>
+    <g filter="url(#shadow)">
+      <rect x="310" y="40" width="80" height="14" rx="7" fill="url(#gp-violet)" stroke="#8b5cf6" stroke-width="1.2"/>
+      <circle cx="340" cy="47" r="4" fill="url(#g-ball-violet)" opacity="0.5"/>
+    </g>
+    <g filter="url(#shadow)">
+      <rect x="310" y="72" width="80" height="14" rx="7" fill="url(#gp-violet)" stroke="#8b5cf6" stroke-width="1.2"/>
+      <circle cx="360" cy="79" r="4" fill="url(#g-ball-violet)" opacity="0.9"/>
+    </g>
+
+    <!-- FAN-IN JUNCTION: bezier Y-merge -->
+    <path d="M390,15 C420,15 425,47 455,47" stroke="#8b5cf6" stroke-width="1.5" fill="none"/>
+    <path d="M390,47 C420,47 425,47 455,47" stroke="#8b5cf6" stroke-width="1.5" fill="none"/>
+    <path d="M390,79 C420,79 425,47 455,47" stroke="#8b5cf6" stroke-width="1.5" fill="none"/>
+
+    <!-- OUTPUT PIPE -->
+    <g filter="url(#shadow)">
+      <rect x="455" y="40" width="120" height="14" rx="7" fill="url(#gp-violet)" stroke="#8b5cf6" stroke-width="1.5"/>
+      <path d="M480,44 l4,3 l-4,3" stroke="#a78bfa" stroke-width="0.8" fill="none" opacity="0.3"/>
+      <path d="M510,44 l4,3 l-4,3" stroke="#a78bfa" stroke-width="0.8" fill="none" opacity="0.3"/>
+      <path d="M540,44 l4,3 l-4,3" stroke="#a78bfa" stroke-width="0.8" fill="none" opacity="0.3"/>
+      <circle cx="490" cy="47" r="4" fill="url(#g-ball-violet)"/>
+      <circle cx="530" cy="47" r="4" fill="url(#g-ball-violet)" opacity="0.6"/>
+    </g>
+    <text class="pipe-desc" x="515" y="36" text-anchor="middle" font-family="'Inter', 'SF Pro Display', system-ui, sans-serif" font-size="10px" font-weight="400" fill="#94a3b8">output ch</text>
+
+    <!-- junction labels -->
+    <text class="pipe-desc" x="140" y="95" fill="#64748b" font-family="'Inter', 'SF Pro Display', system-ui, sans-serif" font-size="10px" font-weight="400">fan-out</text>
+    <text class="pipe-desc" x="420" y="95" fill="#64748b" font-family="'Inter', 'SF Pro Display', system-ui, sans-serif" font-size="10px" font-weight="400">fan-in</text>
+  </g>
+
+  <!-- separator -->
+  <rect x="40" y="234" width="790" height="1" fill="url(#g-sep-teal)"/>
+
+  <!-- ================================================================ -->
+  <!-- PATTERN 2: PIPELINE  (y=250–380)                                  -->
+  <!-- ================================================================ -->
+  <text class="section-label" x="40" y="260" fill="#2dd4bf" font-family="'Inter', 'SF Pro Display', system-ui, sans-serif" font-size="11px" font-weight="600" letter-spacing="1.5px">Pipeline</text>
+
+  <g transform="translate(40, 274)">
+    <!-- STAGE 1: generate -->
+    <g filter="url(#shadow)">
+      <rect x="0" y="14" width="90" height="36" rx="8" fill="#0d3331" stroke="#14b8a6" stroke-width="1.5"/>
+      <text class="mini-label" x="45" y="32" text-anchor="middle" dominant-baseline="central" fill="#2dd4bf" font-family="'Inter', 'SF Pro Display', system-ui, sans-serif" font-size="10px" font-weight="600">generate</text>
+    </g>
+    <!-- G-badge on stage -->
+    <circle cx="80" cy="14" r="8" fill="#134e4a" stroke="#14b8a6" stroke-width="1"/>
+    <text class="g-label" x="80" y="14" text-anchor="middle" dominant-baseline="central" fill="#2dd4bf" font-size="7" font-family="'JetBrains Mono', 'SF Mono', 'Fira Code', monospace" font-weight="700">G</text>
+
+    <!-- PIPE 1 -->
+    <g filter="url(#shadow)">
+      <rect x="100" y="26" width="70" height="12" rx="6" fill="url(#gp-teal)" stroke="#14b8a6" stroke-width="1.2"/>
+      <path d="M115,30 l3,2 l-3,2" stroke="#2dd4bf" stroke-width="0.7" fill="none" opacity="0.4"/>
+      <path d="M135,30 l3,2 l-3,2" stroke="#2dd4bf" stroke-width="0.7" fill="none" opacity="0.4"/>
+      <path d="M155,30 l3,2 l-3,2" stroke="#2dd4bf" stroke-width="0.7" fill="none" opacity="0.4"/>
+      <circle cx="145" cy="32" r="3.5" fill="url(#g-ball-teal)"/>
+    </g>
+    <text class="code-amber" x="135" y="22" text-anchor="middle" font-family="'JetBrains Mono', 'SF Mono', 'Fira Code', monospace" font-size="9px" fill="#fbbf24">&lt;-chan int</text>
+
+    <!-- STAGE 2: transform -->
+    <g filter="url(#shadow)">
+      <rect x="180" y="14" width="90" height="36" rx="8" fill="#0d3331" stroke="#14b8a6" stroke-width="1.5"/>
+      <text class="mini-label" x="225" y="32" text-anchor="middle" dominant-baseline="central" fill="#2dd4bf" font-family="'Inter', 'SF Pro Display', system-ui, sans-serif" font-size="10px" font-weight="600">transform</text>
+    </g>
+    <circle cx="260" cy="14" r="8" fill="#134e4a" stroke="#14b8a6" stroke-width="1"/>
+    <text class="g-label" x="260" y="14" text-anchor="middle" dominant-baseline="central" fill="#2dd4bf" font-size="7" font-family="'JetBrains Mono', 'SF Mono', 'Fira Code', monospace" font-weight="700">G</text>
+
+    <!-- PIPE 2 -->
+    <g filter="url(#shadow)">
+      <rect x="280" y="26" width="70" height="12" rx="6" fill="url(#gp-teal)" stroke="#14b8a6" stroke-width="1.2"/>
+      <path d="M295,30 l3,2 l-3,2" stroke="#2dd4bf" stroke-width="0.7" fill="none" opacity="0.4"/>
+      <path d="M315,30 l3,2 l-3,2" stroke="#2dd4bf" stroke-width="0.7" fill="none" opacity="0.4"/>
+      <path d="M335,30 l3,2 l-3,2" stroke="#2dd4bf" stroke-width="0.7" fill="none" opacity="0.4"/>
+      <circle cx="310" cy="32" r="3.5" fill="url(#g-ball-teal)"/>
+      <circle cx="330" cy="32" r="2.5" fill="url(#g-ball-teal)" opacity="0.5"/>
+    </g>
+    <text class="code-amber" x="315" y="22" text-anchor="middle" font-family="'JetBrains Mono', 'SF Mono', 'Fira Code', monospace" font-size="9px" fill="#fbbf24">&lt;-chan int</text>
+
+    <!-- STAGE 3: filter -->
+    <g filter="url(#shadow)">
+      <rect x="360" y="14" width="90" height="36" rx="8" fill="#0d3331" stroke="#14b8a6" stroke-width="1.5"/>
+      <text class="mini-label" x="405" y="32" text-anchor="middle" dominant-baseline="central" fill="#2dd4bf" font-family="'Inter', 'SF Pro Display', system-ui, sans-serif" font-size="10px" font-weight="600">filter</text>
+    </g>
+    <circle cx="440" cy="14" r="8" fill="#134e4a" stroke="#14b8a6" stroke-width="1"/>
+    <text class="g-label" x="440" y="14" text-anchor="middle" dominant-baseline="central" fill="#2dd4bf" font-size="7" font-family="'JetBrains Mono', 'SF Mono', 'Fira Code', monospace" font-weight="700">G</text>
+
+    <!-- PIPE 3 -->
+    <g filter="url(#shadow)">
+      <rect x="460" y="26" width="70" height="12" rx="6" fill="url(#gp-teal)" stroke="#14b8a6" stroke-width="1.2"/>
+      <path d="M475,30 l3,2 l-3,2" stroke="#2dd4bf" stroke-width="0.7" fill="none" opacity="0.4"/>
+      <path d="M495,30 l3,2 l-3,2" stroke="#2dd4bf" stroke-width="0.7" fill="none" opacity="0.4"/>
+      <path d="M515,30 l3,2 l-3,2" stroke="#2dd4bf" stroke-width="0.7" fill="none" opacity="0.4"/>
+      <circle cx="500" cy="32" r="2.5" fill="url(#g-ball-teal)" opacity="0.4"/>
+    </g>
+    <text class="code-amber" x="495" y="22" text-anchor="middle" font-family="'JetBrains Mono', 'SF Mono', 'Fira Code', monospace" font-size="9px" fill="#fbbf24">&lt;-chan int</text>
+
+    <!-- STAGE 4: sink -->
+    <g filter="url(#shadow)">
+      <rect x="540" y="14" width="70" height="36" rx="8" fill="#0d3331" stroke="#14b8a6" stroke-width="1.5"/>
+      <text class="mini-label" x="575" y="32" text-anchor="middle" dominant-baseline="central" fill="#2dd4bf" font-family="'Inter', 'SF Pro Display', system-ui, sans-serif" font-size="10px" font-weight="600">sink</text>
+    </g>
+    <circle cx="600" cy="14" r="8" fill="#134e4a" stroke="#14b8a6" stroke-width="1"/>
+    <text class="g-label" x="600" y="14" text-anchor="middle" dominant-baseline="central" fill="#2dd4bf" font-size="7" font-family="'JetBrains Mono', 'SF Mono', 'Fira Code', monospace" font-weight="700">G</text>
+
+    <!-- description -->
+    <text class="desc-text" x="0" y="72" font-family="'Inter', 'SF Pro Display', system-ui, sans-serif" font-size="10px" fill="#cbd5e1">each stage runs in its own goroutine, connected by typed channels</text>
+  </g>
+
+  <!-- separator -->
+  <rect x="40" y="386" width="790" height="1" fill="url(#g-sep-blue)"/>
+
+  <!-- ================================================================ -->
+  <!-- PATTERN 3: WORKER POOL  (y=400–530)                              -->
+  <!-- ================================================================ -->
+  <text class="section-label" x="40" y="410" fill="#60a5fa" font-family="'Inter', 'SF Pro Display', system-ui, sans-serif" font-size="11px" font-weight="600" letter-spacing="1.5px">Worker Pool</text>
+
+  <g transform="translate(40, 424)">
+    <!-- JOBS CHANNEL (pipe) -->
+    <g filter="url(#shadow)">
+      <rect x="0" y="26" width="140" height="14" rx="7" fill="url(#gp-blue)" stroke="#3b82f6" stroke-width="1.5"/>
+      <!-- queued data balls -->
+      <circle cx="25" cy="33" r="4" fill="url(#g-ball-blue)"/>
+      <circle cx="50" cy="33" r="4" fill="url(#g-ball-blue)" opacity="0.85"/>
+      <circle cx="75" cy="33" r="4" fill="url(#g-ball-blue)" opacity="0.7"/>
+      <circle cx="100" cy="33" r="4" fill="url(#g-ball-blue)" opacity="0.55"/>
+      <circle cx="125" cy="33" r="4" fill="url(#g-ball-blue)" opacity="0.4"/>
+    </g>
+    <text class="pipe-desc" x="70" y="22" text-anchor="middle" font-family="'Inter', 'SF Pro Display', system-ui, sans-serif" font-size="10px" font-weight="400" fill="#94a3b8">jobs ch</text>
+
+    <!-- Arrows from jobs to each worker -->
+    <path d="M140,33 C165,33 170,10 195,10" stroke="#3b82f6" stroke-width="1.2" fill="none" marker-end="url(#arr-blue)"/>
+    <path d="M140,33 C165,33 170,27 195,27" stroke="#3b82f6" stroke-width="1.2" fill="none" marker-end="url(#arr-blue)"/>
+    <path d="M140,33 C165,33 170,44 195,44" stroke="#3b82f6" stroke-width="1.2" fill="none" marker-end="url(#arr-blue)"/>
+    <path d="M140,33 C165,33 170,61 195,61" stroke="#3b82f6" stroke-width="1.2" fill="none" marker-end="url(#arr-blue)"/>
+
+    <!-- WORKER G-BADGES (vertical stack) -->
+    <!-- W1: active -->
+    <g filter="url(#shadow)">
+      <circle cx="214" cy="10" r="13" fill="#1e3a5f" stroke="#3b82f6" stroke-width="1.5"/>
+      <text class="g-label" x="214" y="10" text-anchor="middle" dominant-baseline="central" fill="#60a5fa" font-family="'JetBrains Mono', 'SF Mono', 'Fira Code', monospace" font-size="9px" font-weight="700">W1</text>
+    </g>
+    <!-- W2: active -->
+    <g filter="url(#shadow)">
+      <circle cx="214" cy="27" r="13" fill="#1e3a5f" stroke="#3b82f6" stroke-width="1.5"/>
+      <text class="g-label" x="214" y="27" text-anchor="middle" dominant-baseline="central" fill="#60a5fa" font-family="'JetBrains Mono', 'SF Mono', 'Fira Code', monospace" font-size="9px" font-weight="700">W2</text>
+    </g>
+    <!-- W3: active -->
+    <g filter="url(#shadow)">
+      <circle cx="214" cy="44" r="13" fill="#1e3a5f" stroke="#3b82f6" stroke-width="1.5"/>
+      <text class="g-label" x="214" y="44" text-anchor="middle" dominant-baseline="central" fill="#60a5fa" font-family="'JetBrains Mono', 'SF Mono', 'Fira Code', monospace" font-size="9px" font-weight="700">W3</text>
+    </g>
+    <!-- W4: idle (dashed) -->
+    <circle cx="214" cy="61" r="13" fill="#1e3a5f" stroke="#3b82f6" stroke-width="1.5" stroke-dasharray="4 3" opacity="0.5"/>
+    <text class="g-label" x="214" y="61" text-anchor="middle" dominant-baseline="central" fill="#60a5fa" opacity="0.5" font-family="'JetBrains Mono', 'SF Mono', 'Fira Code', monospace" font-size="9px" font-weight="700">W4</text>
+
+    <!-- WaitGroup badge -->
+    <g filter="url(#shadow)">
+      <rect x="196" y="79" width="36" height="16" rx="4" fill="#1e3a5f" stroke="#60a5fa" stroke-width="1"/>
+      <text class="code-sm" x="214" y="90" text-anchor="middle" fill="#60a5fa" font-family="'JetBrains Mono', 'SF Mono', 'Fira Code', monospace" font-size="9px">wg:3/4</text>
+    </g>
+
+    <!-- Arrows from each worker to results -->
+    <path d="M232,10 C260,10 265,33 290,33" stroke="#3b82f6" stroke-width="1.2" fill="none" marker-end="url(#arr-blue)"/>
+    <path d="M232,27 C260,27 265,33 290,33" stroke="#3b82f6" stroke-width="1.2" fill="none" marker-end="url(#arr-blue)"/>
+    <path d="M232,44 C260,44 265,33 290,33" stroke="#3b82f6" stroke-width="1.2" fill="none" marker-end="url(#arr-blue)"/>
+    <path d="M232,61 C260,61 265,33 290,33" stroke="#3b82f6" stroke-width="1.2" fill="none" stroke-dasharray="4 3" opacity="0.4"/>
+
+    <!-- RESULTS CHANNEL (pipe) -->
+    <g filter="url(#shadow)">
+      <rect x="290" y="26" width="140" height="14" rx="7" fill="url(#gp-blue)" stroke="#3b82f6" stroke-width="1.5"/>
+      <path d="M310,30 l3,2 l-3,2" stroke="#60a5fa" stroke-width="0.7" fill="none" opacity="0.3"/>
+      <path d="M340,30 l3,2 l-3,2" stroke="#60a5fa" stroke-width="0.7" fill="none" opacity="0.3"/>
+      <path d="M370,30 l3,2 l-3,2" stroke="#60a5fa" stroke-width="0.7" fill="none" opacity="0.3"/>
+      <circle cx="330" cy="33" r="4" fill="url(#g-ball-blue)"/>
+      <circle cx="390" cy="33" r="4" fill="url(#g-ball-blue)" opacity="0.6"/>
+    </g>
+    <text class="pipe-desc" x="360" y="22" text-anchor="middle" font-family="'Inter', 'SF Pro Display', system-ui, sans-serif" font-size="10px" font-weight="400" fill="#94a3b8">results ch</text>
+
+    <!-- code label -->
+    <text class="code" x="140" y="104" fill="#60a5fa" font-family="'JetBrains Mono', 'SF Mono', 'Fira Code', monospace" font-size="10px">for job := range jobs</text>
+  </g>
+
+  <!-- separator -->
+  <rect x="40" y="540" width="790" height="1" fill="url(#g-sep-amber)"/>
+
+  <!-- ================================================================ -->
+  <!-- PATTERN 4: OR-DONE  (y=550–670)                                   -->
+  <!-- ================================================================ -->
+  <text class="section-label" x="40" y="562" fill="#fbbf24" font-family="'Inter', 'SF Pro Display', system-ui, sans-serif" font-size="11px" font-weight="600" letter-spacing="1.5px">Or-Done</text>
+
+  <g transform="translate(40, 574)">
+    <!-- INPUT CHANNEL (potentially slow/stuck) -->
+    <g filter="url(#shadow)">
+      <rect x="0" y="24" width="100" height="14" rx="7" fill="url(#gp-amber)" stroke="#f59e0b" stroke-width="1.5"/>
+      <path d="M20,28 l3,2 l-3,2" stroke="#fbbf24" stroke-width="0.7" fill="none" opacity="0.3"/>
+      <path d="M50,28 l3,2 l-3,2" stroke="#fbbf24" stroke-width="0.7" fill="none" opacity="0.3"/>
+      <circle cx="40" cy="31" r="3.5" fill="url(#g-ball-amber)"/>
+    </g>
+    <text class="pipe-desc" x="50" y="20" text-anchor="middle" font-family="'Inter', 'SF Pro Display', system-ui, sans-serif" font-size="10px" font-weight="400" fill="#94a3b8">input ch</text>
+    <text class="pipe-desc" x="50" y="50" text-anchor="middle" fill="#64748b" font-family="'Inter', 'SF Pro Display', system-ui, sans-serif" font-size="10px" font-weight="400">may block</text>
+
+    <!-- Arrow into or-done wrapper -->
+    <path d="M100,31 L130,31" stroke="#f59e0b" stroke-width="1.2" fill="none" marker-end="url(#arr-amber)"/>
+
+    <!-- OR-DONE WRAPPER BLOCK -->
+    <g filter="url(#shadow)">
+      <rect x="138" y="0" width="180" height="62" rx="10" fill="none" stroke="#f59e0b" stroke-width="1.5" stroke-dasharray="6 3"/>
+      <text class="mini-label" x="228" y="12" text-anchor="middle" fill="#fbbf24" font-family="'Inter', 'SF Pro Display', system-ui, sans-serif" font-size="10px" font-weight="600">or-done</text>
+    </g>
+
+    <!-- Select diamond inside -->
+    <polygon points="228,25 248,38 228,51 208,38" fill="#1e1a0b" stroke="#f59e0b" stroke-width="1.2"/>
+    <text class="code-sm" x="228" y="40" text-anchor="middle" fill="#fbbf24" font-family="'JetBrains Mono', 'SF Mono', 'Fira Code', monospace" font-size="9px">sel</text>
+
+    <!-- Case 1: <-ch (data path, teal arrow) -->
+    <path d="M248,32 L310,32" stroke="#14b8a6" stroke-width="1.5" fill="none" marker-end="url(#arr-teal)"/>
+    <text class="code-sm" x="275" y="26" text-anchor="middle" fill="#2dd4bf" font-family="'JetBrains Mono', 'SF Mono', 'Fira Code', monospace" font-size="9px">&lt;-ch</text>
+
+    <!-- Case 2: <-ctx.Done() (cancel path, rose arrow) -->
+    <path d="M248,44 L310,44" stroke="#ec4899" stroke-width="1.5" fill="none" marker-end="url(#arr-rose)"/>
+    <text class="code-sm" x="275" y="56" text-anchor="middle" fill="#f472b6" font-family="'JetBrains Mono', 'SF Mono', 'Fira Code', monospace" font-size="9px">&lt;-ctx.Done()</text>
+
+    <!-- OUTPUT CHANNEL (guaranteed cancellation-safe) -->
+    <g filter="url(#shadow)">
+      <rect x="328" y="24" width="110" height="14" rx="7" fill="url(#gp-teal)" stroke="#14b8a6" stroke-width="1.5"/>
+      <path d="M348,28 l3,2 l-3,2" stroke="#2dd4bf" stroke-width="0.7" fill="none" opacity="0.3"/>
+      <path d="M378,28 l3,2 l-3,2" stroke="#2dd4bf" stroke-width="0.7" fill="none" opacity="0.3"/>
+      <circle cx="360" cy="31" r="3.5" fill="url(#g-ball-teal)"/>
+    </g>
+    <text class="pipe-desc" x="383" y="20" text-anchor="middle" font-family="'Inter', 'SF Pro Display', system-ui, sans-serif" font-size="10px" font-weight="400" fill="#94a3b8">output ch</text>
+
+    <!-- Cancel scenario: rose X when ctx fires -->
+    <g transform="translate(340, 48)">
+      <line x1="-4" y1="-4" x2="4" y2="4" stroke="#f472b6" stroke-width="2" stroke-linecap="round"/>
+      <line x1="4" y1="-4" x2="-4" y2="4" stroke="#f472b6" stroke-width="2" stroke-linecap="round"/>
+      <text class="pipe-desc" x="12" y="4" fill="#f472b6" font-family="'Inter', 'SF Pro Display', system-ui, sans-serif" font-size="10px" font-weight="400">exit</text>
+    </g>
+
+    <!-- description -->
+    <text class="desc-text" x="0" y="82" font-family="'Inter', 'SF Pro Display', system-ui, sans-serif" font-size="10px" fill="#cbd5e1">wraps any channel to respect cancellation</text>
+  </g>
+
+  <!-- ================================================================ -->
+  <!-- RIGHT PANEL                                                       -->
+  <!-- ================================================================ -->
+  <g transform="translate(860, 88)">
+    <rect width="310" height="588" rx="14" fill="url(#g-panel)" stroke="#334155" stroke-width="1"/>
+
+    <!-- ── When to Use ─────────────────────────────────────────────── -->
+    <text class="group-label" x="24" y="28" fill="#94a3b8" font-family="'Inter', 'SF Pro Display', system-ui, sans-serif" font-size="10px" font-weight="600" letter-spacing="1.5px">When to Use</text>
+
+    <g transform="translate(24, 46)">
+      <!-- violet bullet: Fan-Out/In -->
+      <circle cx="6" cy="4" r="4" fill="#8b5cf6"/>
+      <text class="legend-text" x="18" y="8" font-family="'Inter', 'SF Pro Display', system-ui, sans-serif" font-size="10px" fill="#94a3b8">CPU-bound parallel work</text>
+      <text class="code-sm" x="220" y="8" fill="#a78bfa" font-family="'JetBrains Mono', 'SF Mono', 'Fira Code', monospace" font-size="9px">Fan-Out/In</text>
+
+      <!-- teal bullet: Pipeline -->
+      <circle cx="6" cy="26" r="4" fill="#14b8a6"/>
+      <text class="legend-text" x="18" y="30" font-family="'Inter', 'SF Pro Display', system-ui, sans-serif" font-size="10px" fill="#94a3b8">Stream processing</text>
+      <text class="code-sm" x="220" y="30" fill="#2dd4bf" font-family="'JetBrains Mono', 'SF Mono', 'Fira Code', monospace" font-size="9px">Pipeline</text>
+
+      <!-- blue bullet: Worker Pool -->
+      <circle cx="6" cy="48" r="4" fill="#3b82f6"/>
+      <text class="legend-text" x="18" y="52" font-family="'Inter', 'SF Pro Display', system-ui, sans-serif" font-size="10px" fill="#94a3b8">Bounded I/O work</text>
+      <text class="code-sm" x="220" y="52" fill="#60a5fa" font-family="'JetBrains Mono', 'SF Mono', 'Fira Code', monospace" font-size="9px">Worker Pool</text>
+
+      <!-- amber bullet: Or-Done -->
+      <circle cx="6" cy="70" r="4" fill="#f59e0b"/>
+      <text class="legend-text" x="18" y="74" font-family="'Inter', 'SF Pro Display', system-ui, sans-serif" font-size="10px" fill="#94a3b8">Untrusted channels</text>
+      <text class="code-sm" x="220" y="74" fill="#fbbf24" font-family="'JetBrains Mono', 'SF Mono', 'Fira Code', monospace" font-size="9px">Or-Done</text>
+    </g>
+
+    <!-- ── Composition ─────────────────────────────────────────────── -->
+    <text class="group-label" x="24" y="154" fill="#94a3b8" font-family="'Inter', 'SF Pro Display', system-ui, sans-serif" font-size="10px" font-weight="600" letter-spacing="1.5px">Composition</text>
+
+    <g transform="translate(24, 170)">
+      <text class="quote-note" x="0" y="0" font-family="'Inter', 'SF Pro Display', system-ui, sans-serif" font-size="10px" fill="#64748b">These patterns compose: a pipeline</text>
+      <text class="quote-note" x="0" y="15" font-family="'Inter', 'SF Pro Display', system-ui, sans-serif" font-size="10px" fill="#64748b">stage can internally use a worker</text>
+      <text class="quote-note" x="0" y="30" font-family="'Inter', 'SF Pro Display', system-ui, sans-serif" font-size="10px" fill="#64748b">pool, and each worker can use</text>
+      <text class="quote-note" x="0" y="45" font-family="'Inter', 'SF Pro Display', system-ui, sans-serif" font-size="10px" fill="#64748b">or-done to wrap external channels.</text>
+
+      <!-- mini composition diagram -->
+      <g transform="translate(20, 65)">
+        <!-- pipeline box -->
+        <rect x="0" y="0" width="220" height="40" rx="6" fill="none" stroke="#14b8a6" stroke-width="0.8" stroke-dasharray="4 2" opacity="0.5"/>
+        <text class="code-sm" x="8" y="12" fill="#2dd4bf" opacity="0.7" font-family="'JetBrains Mono', 'SF Mono', 'Fira Code', monospace" font-size="9px">pipeline stage</text>
+        <!-- worker pool box inside -->
+        <rect x="8" y="18" width="100" height="18" rx="4" fill="none" stroke="#3b82f6" stroke-width="0.8" stroke-dasharray="3 2" opacity="0.5"/>
+        <text class="code-sm" x="16" y="30" fill="#60a5fa" opacity="0.7" font-family="'JetBrains Mono', 'SF Mono', 'Fira Code', monospace" font-size="9px">worker pool</text>
+        <!-- or-done box inside -->
+        <rect x="118" y="18" width="92" height="18" rx="4" fill="none" stroke="#f59e0b" stroke-width="0.8" stroke-dasharray="3 2" opacity="0.5"/>
+        <text class="code-sm" x="126" y="30" fill="#fbbf24" opacity="0.7" font-family="'JetBrains Mono', 'SF Mono', 'Fira Code', monospace" font-size="9px">or-done</text>
+      </g>
+    </g>
+
+    <!-- ── Key Insight ─────────────────────────────────────────────── -->
+    <text class="group-label" x="24" y="320" fill="#94a3b8" font-family="'Inter', 'SF Pro Display', system-ui, sans-serif" font-size="10px" font-weight="600" letter-spacing="1.5px">Key Insight</text>
+
+    <g transform="translate(24, 336)">
+      <rect x="-4" y="0" width="270" height="58" rx="8" fill="none" stroke="#334155" stroke-width="0.5"/>
+      <rect x="-4" y="0" width="4" height="58" rx="2" fill="url(#g-accent)"/>
+
+      <text class="quote" x="14" y="20" font-family="'Inter', 'SF Pro Display', system-ui, sans-serif" font-size="11px" font-weight="600" fill="#f1f5f9">Every pattern follows the same</text>
+      <text class="quote" x="14" y="36" font-family="'Inter', 'SF Pro Display', system-ui, sans-serif" font-size="11px" font-weight="600" fill="#f1f5f9">shape: goroutines connected by</text>
+      <text class="quote" x="14" y="52" font-family="'Inter', 'SF Pro Display', system-ui, sans-serif" font-size="11px" font-weight="600" fill="#f1f5f9">channels, with clear ownership</text>
+    </g>
+
+    <g transform="translate(24, 402)">
+      <text class="quote-note" x="0" y="0" font-family="'Inter', 'SF Pro Display', system-ui, sans-serif" font-size="10px" fill="#64748b">of who closes what.</text>
+    </g>
+
+    <!-- ── Visual Key ──────────────────────────────────────────────── -->
+    <text class="group-label" x="24" y="434" fill="#94a3b8" font-family="'Inter', 'SF Pro Display', system-ui, sans-serif" font-size="10px" font-weight="600" letter-spacing="1.5px">Visual Key</text>
+
+    <g transform="translate(24, 450)">
+      <!-- channel pipe -->
+      <rect x="0" y="0" width="40" height="10" rx="5" fill="url(#gp-teal)" stroke="#14b8a6" stroke-width="1.2"/>
+      <text class="legend-text" x="52" y="9" font-family="'Inter', 'SF Pro Display', system-ui, sans-serif" font-size="10px" fill="#94a3b8">Channel (pipe)</text>
+
+      <!-- data ball -->
+      <circle cx="20" cy="26" r="4" fill="url(#g-ball-teal)"/>
+      <text class="legend-text" x="52" y="30" font-family="'Inter', 'SF Pro Display', system-ui, sans-serif" font-size="10px" fill="#94a3b8">Data value in transit</text>
+
+      <!-- G-badge active -->
+      <circle cx="20" cy="48" r="8" fill="#134e4a" stroke="#14b8a6" stroke-width="1"/>
+      <text class="g-label" x="20" y="48" text-anchor="middle" dominant-baseline="central" fill="#2dd4bf" font-size="7" font-family="'JetBrains Mono', 'SF Mono', 'Fira Code', monospace" font-weight="700">G</text>
+      <text class="legend-text" x="52" y="52" font-family="'Inter', 'SF Pro Display', system-ui, sans-serif" font-size="10px" fill="#94a3b8">Active goroutine</text>
+
+      <!-- G-badge idle -->
+      <circle cx="20" cy="70" r="8" fill="#1e3a5f" stroke="#3b82f6" stroke-width="1" stroke-dasharray="3 2" opacity="0.5"/>
+      <text class="g-label" x="20" y="70" text-anchor="middle" dominant-baseline="central" fill="#60a5fa" font-size="7" opacity="0.5" font-family="'JetBrains Mono', 'SF Mono', 'Fira Code', monospace" font-weight="700">G</text>
+      <text class="legend-text" x="52" y="74" font-family="'Inter', 'SF Pro Display', system-ui, sans-serif" font-size="10px" fill="#94a3b8">Idle goroutine</text>
+
+      <!-- select diamond -->
+      <polygon points="20,82 28,90 20,98 12,90" fill="none" stroke="#f59e0b" stroke-width="1"/>
+      <text class="legend-text" x="52" y="94" font-family="'Inter', 'SF Pro Display', system-ui, sans-serif" font-size="10px" fill="#94a3b8">Select statement</text>
+
+      <!-- flow chevron -->
+      <path d="M14,110 l6,4 l-6,4" stroke="#94a3b8" stroke-width="1.2" fill="none"/>
+      <text class="legend-text" x="52" y="116" font-family="'Inter', 'SF Pro Display', system-ui, sans-serif" font-size="10px" fill="#94a3b8">Data flow direction</text>
+    </g>
+  </g>
+
+</svg>
