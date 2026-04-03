@@ -298,6 +298,118 @@ func TestTableFormatterEmptyString(t *testing.T) {
 	}
 }
 
+func TestTableFormatterAllFieldsDefault(t *testing.T) {
+	// bare select with nil fields resolves to all canonical fields
+	proj := &ruki.TaskProjection{
+		Fields: nil,
+		Tasks:  []*task.Task{{ID: "TIKI-A00001", Title: "Test", Status: "ready", Priority: 3}},
+	}
+
+	var buf bytes.Buffer
+	if err := NewTableFormatter().Format(&buf, proj); err != nil {
+		t.Fatal(err)
+	}
+	out := buf.String()
+
+	// should include all canonical fields in the header
+	if !strings.Contains(out, "id") || !strings.Contains(out, "title") || !strings.Contains(out, "priority") {
+		t.Errorf("all-fields table should contain canonical fields:\n%s", out)
+	}
+}
+
+func TestRenderIntEdgeCases(t *testing.T) {
+	// renderInt with non-int value
+	if got := renderInt("not-an-int"); got != "" {
+		t.Errorf("renderInt(string) = %q, want empty", got)
+	}
+
+	// renderInt with 0
+	if got := renderInt(0); got != "0" {
+		t.Errorf("renderInt(0) = %q, want %q", got, "0")
+	}
+
+	// renderInt with valid int
+	if got := renderInt(42); got != "42" {
+		t.Errorf("renderInt(42) = %q, want %q", got, "42")
+	}
+}
+
+func TestRenderValueNil(t *testing.T) {
+	if got := renderValue(nil, 0); got != "" {
+		t.Errorf("renderValue(nil) = %q, want empty", got)
+	}
+}
+
+func TestRenderDateEdgeCases(t *testing.T) {
+	// renderDate with non-time value
+	if got := renderDate("not-a-time"); got != "" {
+		t.Errorf("renderDate(string) = %q, want empty", got)
+	}
+}
+
+func TestRenderTimestampEdgeCases(t *testing.T) {
+	// renderTimestamp with non-time value
+	if got := renderTimestamp("not-a-time"); got != "" {
+		t.Errorf("renderTimestamp(string) = %q, want empty", got)
+	}
+}
+
+func TestRenderListEdgeCases(t *testing.T) {
+	// renderList with non-slice value
+	if got := renderList(42); got != "" {
+		t.Errorf("renderList(int) = %q, want empty", got)
+	}
+
+	// renderList with nil slice
+	if got := renderList([]string(nil)); got != "" {
+		t.Errorf("renderList(nil) = %q, want empty", got)
+	}
+}
+
+func TestExtractFieldValueUnknown(t *testing.T) {
+	tk := &task.Task{ID: "TIKI-A00001"}
+	if got := extractFieldValue(tk, "nonexistent"); got != nil {
+		t.Errorf("extractFieldValue(unknown) = %v, want nil", got)
+	}
+}
+
+func TestTableFormatterIntField(t *testing.T) {
+	proj := &ruki.TaskProjection{
+		Fields: []string{"priority", "points"},
+		Tasks:  []*task.Task{{Priority: 3, Points: 8}},
+	}
+
+	var buf bytes.Buffer
+	if err := NewTableFormatter().Format(&buf, proj); err != nil {
+		t.Fatal(err)
+	}
+	out := buf.String()
+
+	if !strings.Contains(out, "3") {
+		t.Errorf("missing priority value:\n%s", out)
+	}
+	if !strings.Contains(out, "8") {
+		t.Errorf("missing points value:\n%s", out)
+	}
+}
+
+func TestTableFormatterRecurrenceField(t *testing.T) {
+	proj := &ruki.TaskProjection{
+		Fields: []string{"recurrence"},
+		Tasks:  []*task.Task{{Recurrence: "0 0 * * MON"}},
+	}
+
+	var buf bytes.Buffer
+	if err := NewTableFormatter().Format(&buf, proj); err != nil {
+		t.Fatal(err)
+	}
+	out := buf.String()
+
+	if !strings.Contains(out, "0 0 * * MON") {
+		t.Errorf("missing recurrence value:\n%s", out)
+	}
+}
+
 func nonEmptyLines(s string) []string {
 	var result []string
 	for _, line := range strings.Split(s, "\n") {
