@@ -157,6 +157,76 @@ func TestTypeHelpers_FallbackWithoutConfig(t *testing.T) {
 	})
 }
 
+func TestParseDisplay(t *testing.T) {
+	tests := []struct {
+		name     string
+		input    string
+		wantType Type
+		wantOK   bool
+	}{
+		{"story display", "Story 🌀", TypeStory, true},
+		{"bug display", "Bug 💥", TypeBug, true},
+		{"spike display", "Spike 🔍", TypeSpike, true},
+		{"epic display", "Epic 🗂️", TypeEpic, true},
+		{"unknown display", "Unknown 🤷", TypeStory, false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, ok := ParseDisplay(tt.input)
+			if ok != tt.wantOK {
+				t.Errorf("ParseDisplay(%q) ok = %v, want %v", tt.input, ok, tt.wantOK)
+			}
+			if got != tt.wantType {
+				t.Errorf("ParseDisplay(%q) = %q, want %q", tt.input, got, tt.wantType)
+			}
+		})
+	}
+}
+
+func TestAllTypes(t *testing.T) {
+	types := AllTypes()
+	if len(types) == 0 {
+		t.Fatal("AllTypes() returned empty list")
+	}
+	// verify well-known types are present
+	found := make(map[Type]bool)
+	for _, tp := range types {
+		found[tp] = true
+	}
+	for _, want := range []Type{TypeStory, TypeBug, TypeSpike, TypeEpic} {
+		if !found[want] {
+			t.Errorf("AllTypes() missing %q", want)
+		}
+	}
+}
+
+func TestParseType(t *testing.T) {
+	tests := []struct {
+		name     string
+		input    string
+		wantType Type
+		wantOK   bool
+	}{
+		{"valid story", "story", TypeStory, true},
+		{"valid bug", "bug", TypeBug, true},
+		{"alias feature", "feature", TypeStory, true},
+		{"unknown", "nonsense", TypeStory, false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, ok := ParseType(tt.input)
+			if ok != tt.wantOK {
+				t.Errorf("ParseType(%q) ok = %v, want %v", tt.input, ok, tt.wantOK)
+			}
+			if got != tt.wantType {
+				t.Errorf("ParseType(%q) = %q, want %q", tt.input, got, tt.wantType)
+			}
+		})
+	}
+}
+
 // testStatusDefs returns the standard test status definitions.
 func testStatusDefs() []config.StatusDef {
 	return []config.StatusDef{

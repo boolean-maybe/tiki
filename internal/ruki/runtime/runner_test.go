@@ -139,3 +139,31 @@ func TestRunSelectQueryUserFunction(t *testing.T) {
 		t.Errorf("user() should resolve to memory-user:\n%s", out)
 	}
 }
+
+func TestRunSelectQueryWhitespaceOnly(t *testing.T) {
+	s := setupRunnerTest(t)
+
+	var buf bytes.Buffer
+	err := RunSelectQuery(s, "   ", &buf)
+	if err == nil {
+		t.Fatal("expected error for whitespace-only query")
+	}
+	if !strings.Contains(err.Error(), "empty") {
+		t.Errorf("error should mention empty: %v", err)
+	}
+}
+
+func TestRunSelectQueryWithOrderBy(t *testing.T) {
+	s := setupRunnerTest(t)
+
+	var buf bytes.Buffer
+	err := RunSelectQuery(s, `select id, title order by priority`, &buf)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	out := buf.String()
+	if !strings.Contains(out, "TIKI-AAA001") || !strings.Contains(out, "TIKI-BBB002") {
+		t.Errorf("order by query should return all tasks:\n%s", out)
+	}
+}

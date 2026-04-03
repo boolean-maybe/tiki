@@ -359,3 +359,89 @@ func TestGetTypeRegistry(t *testing.T) {
 		t.Error("expected 'bug' to be valid")
 	}
 }
+
+func TestMaybeGetTypeRegistry_Initialized(t *testing.T) {
+	setupTestRegistry(t, defaultTestStatuses())
+
+	reg, ok := MaybeGetTypeRegistry()
+	if !ok {
+		t.Fatal("expected MaybeGetTypeRegistry to return true after init")
+	}
+	if reg == nil {
+		t.Fatal("expected non-nil registry")
+	}
+	if !reg.IsValid("story") {
+		t.Error("expected 'story' to be valid")
+	}
+}
+
+func TestMaybeGetTypeRegistry_Uninitialized(t *testing.T) {
+	ClearStatusRegistry()
+	t.Cleanup(func() {
+		ResetStatusRegistry(defaultTestStatuses())
+	})
+
+	reg, ok := MaybeGetTypeRegistry()
+	if ok {
+		t.Error("expected MaybeGetTypeRegistry to return false when uninitialized")
+	}
+	if reg != nil {
+		t.Error("expected nil registry when uninitialized")
+	}
+}
+
+func TestGetStatusRegistry_PanicsWhenUninitialized(t *testing.T) {
+	ClearStatusRegistry()
+	t.Cleanup(func() {
+		ResetStatusRegistry(defaultTestStatuses())
+	})
+
+	defer func() {
+		r := recover()
+		if r == nil {
+			t.Fatal("expected panic from GetStatusRegistry when uninitialized")
+		}
+	}()
+	GetStatusRegistry()
+}
+
+func TestGetTypeRegistry_PanicsWhenUninitialized(t *testing.T) {
+	ClearStatusRegistry()
+	t.Cleanup(func() {
+		ResetStatusRegistry(defaultTestStatuses())
+	})
+
+	defer func() {
+		r := recover()
+		if r == nil {
+			t.Fatal("expected panic from GetTypeRegistry when uninitialized")
+		}
+	}()
+	GetTypeRegistry()
+}
+
+func TestLoadStatusRegistryFromFiles_NoStatuses(t *testing.T) {
+	dir := t.TempDir()
+	f := writeTempWorkflow(t, dir, `
+views:
+  - name: backlog
+`)
+
+	reg, path, err := loadStatusRegistryFromFiles([]string{f})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if reg != nil {
+		t.Error("expected nil registry when no statuses defined")
+	}
+	if path != "" {
+		t.Errorf("expected empty path, got %q", path)
+	}
+}
+
+func TestLoadStatusRegistryFromFiles_ReadError(t *testing.T) {
+	_, _, err := loadStatusRegistryFromFiles([]string{"/nonexistent/path/workflow.yaml"})
+	if err == nil {
+		t.Fatal("expected error for nonexistent file")
+	}
+}

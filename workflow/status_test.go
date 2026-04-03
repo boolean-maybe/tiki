@@ -244,6 +244,54 @@ func TestStatusRegistry_AllReturnsCopy(t *testing.T) {
 	}
 }
 
+func TestNewStatusRegistry_MultipleDoneWarns(t *testing.T) {
+	defs := []StatusDef{
+		{Key: "alpha", Label: "Alpha", Default: true, Done: true},
+		{Key: "beta", Label: "Beta", Done: true},
+	}
+	reg, err := NewStatusRegistry(defs)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	// first done wins
+	if reg.DoneKey() != "alpha" {
+		t.Errorf("expected done key 'alpha', got %q", reg.DoneKey())
+	}
+}
+
+func TestNewStatusRegistry_MultipleDefaultWarns(t *testing.T) {
+	defs := []StatusDef{
+		{Key: "alpha", Label: "Alpha", Default: true},
+		{Key: "beta", Label: "Beta", Default: true},
+	}
+	reg, err := NewStatusRegistry(defs)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	// first default wins
+	if reg.DefaultKey() != "alpha" {
+		t.Errorf("expected default key 'alpha', got %q", reg.DefaultKey())
+	}
+}
+
+func TestNewStatusRegistry_NoDoneKey(t *testing.T) {
+	defs := []StatusDef{
+		{Key: "alpha", Label: "Alpha", Default: true},
+		{Key: "beta", Label: "Beta"},
+	}
+	reg, err := NewStatusRegistry(defs)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if reg.DoneKey() != "" {
+		t.Errorf("expected empty done key, got %q", reg.DoneKey())
+	}
+	// IsDone should return false for all statuses
+	if reg.IsDone("alpha") {
+		t.Error("expected alpha to not be done")
+	}
+}
+
 func TestStatusKeyConstants(t *testing.T) {
 	if StatusBacklog != "backlog" {
 		t.Errorf("StatusBacklog = %q", StatusBacklog)
