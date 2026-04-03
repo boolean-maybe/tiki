@@ -49,7 +49,8 @@ func lowerSelect(g *selectGrammar) (*SelectStmt, error) {
 			return nil, err
 		}
 	}
-	return &SelectStmt{Where: where}, nil
+	orderBy := lowerOrderBy(g.OrderBy)
+	return &SelectStmt{Where: where, OrderBy: orderBy}, nil
 }
 
 func lowerCreate(g *createGrammar) (*CreateStmt, error) {
@@ -317,6 +318,9 @@ func lowerFuncCall(g *funcCallExpr) (Expr, error) {
 }
 
 func lowerSubQuery(g *subQueryExpr) (Expr, error) {
+	if g.OrderBy != nil {
+		return nil, fmt.Errorf("order by is not valid inside a subquery")
+	}
 	var where Condition
 	if g.Where != nil {
 		var err error
@@ -338,6 +342,25 @@ func lowerListLit(g *listLitExpr) (Expr, error) {
 		elems[i] = elem
 	}
 	return &ListLiteral{Elements: elems}, nil
+}
+
+// --- order by lowering ---
+
+func lowerOrderBy(g *orderByGrammar) []OrderByClause {
+	if g == nil {
+		return nil
+	}
+	clauses := make([]OrderByClause, 0, 1+len(g.Rest))
+	clauses = append(clauses, lowerOrderByField(&g.First))
+	for i := range g.Rest {
+		clauses = append(clauses, lowerOrderByField(&g.Rest[i]))
+	}
+	return clauses
+}
+
+func lowerOrderByField(g *orderByField) OrderByClause {
+	desc := g.Direction != nil && *g.Direction == "desc"
+	return OrderByClause{Field: g.Field, Desc: desc}
 }
 
 // --- literal helpers ---

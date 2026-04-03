@@ -1,0 +1,95 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 500 350">
+  <!--
+    Grid system:
+    - Row height: 40px, gap: 6px
+    - Column widths: context=200, old=100, new=100
+    - Start x=40, y=60
+    - Indicator pills: 60x28, rx=14
+    - All fills use opacity for transparency on any background
+  -->
+  <defs>
+    <style>
+      .title { font: 700 16px -apple-system, 'Segoe UI', Roboto, sans-serif; fill: #A5B4FC; }
+      .col-hdr { font: 700 15px 'SF Mono', 'Cascadia Code', 'Fira Code', monospace; }
+      .row-label { font: 500 13px -apple-system, 'Segoe UI', Roboto, sans-serif; fill: #CBD5E1; }
+      .note-text { font: 500 11px -apple-system, 'Segoe UI', Roboto, sans-serif; fill: #FBBF24; }
+      .legend-text { font: 400 11px -apple-system, 'Segoe UI', Roboto, sans-serif; fill: #94A3B8; }
+      .indicator { font: 700 14px -apple-system, sans-serif; }
+    </style>
+    <!-- Checkmark icon -->
+    <symbol id="check" viewBox="0 0 16 16">
+      <path d="M3 8.5 L6.5 12 L13 4" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+    </symbol>
+    <!-- X icon -->
+    <symbol id="cross" viewBox="0 0 16 16">
+      <path d="M4 4 L12 12 M12 4 L4 12" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" fill="none"/>
+    </symbol>
+    <!-- Drop shadow filter -->
+    <filter id="shadow" x="-4%" y="-4%" width="108%" height="116%">
+      <feDropShadow dx="0" dy="1" stdDeviation="2" flood-color="#000000" flood-opacity="0.3"/>
+    </filter>
+  </defs>
+
+  <!-- Title -->
+  <text class="title" x="250" y="30" text-anchor="middle">Qualifier scope by context</text>
+
+  <!-- Subtle top border -->
+  <line x1="40" y1="38" x2="470" y2="38" stroke="#475569" stroke-width="0.5" stroke-opacity="0.3"/>
+
+  <!-- Column header backgrounds -->
+  <rect x="270" y="42" width="80" height="28" rx="6" fill="#818CF8" fill-opacity="0.08"/>
+  <rect x="380" y="42" width="80" height="28" rx="6" fill="#34D399" fill-opacity="0.08"/>
+
+  <!-- Column headers -->
+  <text class="col-hdr" x="310" y="62" text-anchor="middle" fill="#818CF8">old.</text>
+  <text class="col-hdr" x="420" y="62" text-anchor="middle" fill="#34D399">new.</text>
+
+  <!-- Separator line -->
+  <line x1="40" y1="74" x2="470" y2="74" stroke="#475569" stroke-width="1" stroke-opacity="0.5"/>
+
+  <!-- Row 1: standalone statement -->
+  <text class="row-label" x="50" y="102">standalone statement</text>
+  <rect x="280" y="86" width="60" height="28" rx="14" fill="#EF4444" fill-opacity="0.2" stroke="#EF4444" stroke-width="1" stroke-opacity="0.4" filter="url(#shadow)"/>
+  <use href="#cross" x="296" y="92" width="16" height="16" color="#F87171"/>
+  <rect x="390" y="86" width="60" height="28" rx="14" fill="#EF4444" fill-opacity="0.2" stroke="#EF4444" stroke-width="1" stroke-opacity="0.4" filter="url(#shadow)"/>
+  <use href="#cross" x="406" y="92" width="16" height="16" color="#F87171"/>
+
+  <!-- Row 2: create trigger (alternate row highlight) -->
+  <rect x="40" y="120" width="430" height="40" rx="4" fill="#94A3B8" fill-opacity="0.04"/>
+  <text class="row-label" x="50" y="148">create trigger</text>
+  <rect x="280" y="132" width="60" height="28" rx="14" fill="#EF4444" fill-opacity="0.2" stroke="#EF4444" stroke-width="1" stroke-opacity="0.4" filter="url(#shadow)"/>
+  <use href="#cross" x="296" y="138" width="16" height="16" color="#F87171"/>
+  <rect x="390" y="132" width="60" height="28" rx="14" fill="#10B981" fill-opacity="0.2" stroke="#10B981" stroke-width="1" stroke-opacity="0.4" filter="url(#shadow)"/>
+  <use href="#check" x="406" y="138" width="16" height="16" color="#34D399"/>
+
+  <!-- Row 3: update trigger -->
+  <text class="row-label" x="50" y="194">update trigger</text>
+  <rect x="280" y="178" width="60" height="28" rx="14" fill="#10B981" fill-opacity="0.2" stroke="#10B981" stroke-width="1" stroke-opacity="0.4" filter="url(#shadow)"/>
+  <use href="#check" x="296" y="184" width="16" height="16" color="#34D399"/>
+  <rect x="390" y="178" width="60" height="28" rx="14" fill="#10B981" fill-opacity="0.2" stroke="#10B981" stroke-width="1" stroke-opacity="0.4" filter="url(#shadow)"/>
+  <use href="#check" x="406" y="184" width="16" height="16" color="#34D399"/>
+
+  <!-- Row 4: delete trigger (alternate row highlight) -->
+  <rect x="40" y="212" width="430" height="40" rx="4" fill="#94A3B8" fill-opacity="0.04"/>
+  <text class="row-label" x="50" y="240">delete trigger</text>
+  <rect x="280" y="224" width="60" height="28" rx="14" fill="#10B981" fill-opacity="0.2" stroke="#10B981" stroke-width="1" stroke-opacity="0.4" filter="url(#shadow)"/>
+  <use href="#check" x="296" y="230" width="16" height="16" color="#34D399"/>
+  <rect x="390" y="224" width="60" height="28" rx="14" fill="#EF4444" fill-opacity="0.2" stroke="#EF4444" stroke-width="1" stroke-opacity="0.4" filter="url(#shadow)"/>
+  <use href="#cross" x="406" y="230" width="16" height="16" color="#F87171"/>
+
+  <!-- Separator -->
+  <line x1="40" y1="264" x2="470" y2="264" stroke="#475569" stroke-width="1" stroke-opacity="0.3"/>
+
+  <!-- Note about quantifier body -->
+  <rect x="40" y="274" width="430" height="30" rx="8" fill="#FBBF24" fill-opacity="0.1" stroke="#FBBF24" stroke-width="1" stroke-opacity="0.3" filter="url(#shadow)"/>
+  <text class="note-text" x="255" y="293" text-anchor="middle">quantifier body (any / all): both old. and new. are disabled</text>
+
+  <!-- Legend -->
+  <rect x="100" y="316" width="16" height="16" rx="8" fill="#10B981" fill-opacity="0.2" stroke="#10B981" stroke-width="1" stroke-opacity="0.4"/>
+  <use href="#check" x="102" y="318" width="12" height="12" color="#34D399"/>
+  <text class="legend-text" x="124" y="328">allowed</text>
+
+  <rect x="230" y="316" width="16" height="16" rx="8" fill="#EF4444" fill-opacity="0.2" stroke="#EF4444" stroke-width="1" stroke-opacity="0.4"/>
+  <use href="#cross" x="232" y="318" width="12" height="12" color="#F87171"/>
+  <text class="legend-text" x="254" y="328">not allowed</text>
+</svg>

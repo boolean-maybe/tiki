@@ -14,7 +14,20 @@ type statementGrammar struct {
 }
 
 type selectGrammar struct {
-	Where *orCond `parser:"'select' ( 'where' @@ )?"`
+	Where   *orCond         `parser:"'select' ( 'where' @@ )?"`
+	OrderBy *orderByGrammar `parser:"@@?"`
+}
+
+// --- order by grammar ---
+
+type orderByGrammar struct {
+	First orderByField   `parser:"'order' 'by' @@"`
+	Rest  []orderByField `parser:"( ',' @@ )*"`
+}
+
+type orderByField struct {
+	Field     string  `parser:"@Ident"`
+	Direction *string `parser:"@( 'asc' | 'desc' )?"`
 }
 
 type createGrammar struct {
@@ -156,7 +169,8 @@ type funcCallExpr struct {
 }
 
 type subQueryExpr struct {
-	Where *orCond `parser:"'select' ( 'where' @@ )?"`
+	Where   *orCond         `parser:"'select' ( 'where' @@ )?"`
+	OrderBy *orderByGrammar `parser:"@@?"`
 }
 
 type qualRefExpr struct {

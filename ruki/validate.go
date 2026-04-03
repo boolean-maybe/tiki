@@ -60,9 +60,11 @@ func (p *Parser) validateStatement(s *Statement) error {
 		return p.validateCondition(s.Delete.Where)
 	case s.Select != nil:
 		if s.Select.Where != nil {
-			return p.validateCondition(s.Select.Where)
+			if err := p.validateCondition(s.Select.Where); err != nil {
+				return err
+			}
 		}
-		return nil
+		return p.validateOrderBy(s.Select.OrderBy)
 	default:
 		return fmt.Errorf("empty statement")
 	}
@@ -134,6 +136,39 @@ func (p *Parser) validateAssignments(assignments []Assignment) error {
 		}
 	}
 	return nil
+}
+
+// --- order by validation ---
+
+func (p *Parser) validateOrderBy(clauses []OrderByClause) error {
+	if len(clauses) == 0 {
+		return nil
+	}
+	seen := make(map[string]struct{}, len(clauses))
+	for _, c := range clauses {
+		if _, dup := seen[c.Field]; dup {
+			return fmt.Errorf("duplicate field %q in order by", c.Field)
+		}
+		seen[c.Field] = struct{}{}
+		fs, ok := p.schema.Field(c.Field)
+		if !ok {
+			return fmt.Errorf("unknown field %q in order by", c.Field)
+		}
+		if !isOrderableType(fs.Type) {
+			return fmt.Errorf("cannot order by %s field %q", typeName(fs.Type), c.Field)
+		}
+	}
+	return nil
+}
+
+func isOrderableType(t ValueType) bool {
+	switch t {
+	case ValueInt, ValueDate, ValueTimestamp, ValueDuration,
+		ValueString, ValueStatus, ValueTaskType, ValueID, ValueRef:
+		return true
+	default:
+		return false
+	}
 }
 
 // --- condition validation with type-checking ---

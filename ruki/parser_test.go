@@ -618,6 +618,109 @@ func TestParseStatementErrors(t *testing.T) {
 	}
 }
 
+func TestParseSelectOrderBy(t *testing.T) {
+	p := newTestParser()
+
+	tests := []struct {
+		name        string
+		input       string
+		wantWhere   bool
+		wantOrderBy []OrderByClause
+	}{
+		{
+			"order by single field",
+			"select order by priority",
+			false,
+			[]OrderByClause{{Field: "priority", Desc: false}},
+		},
+		{
+			"order by desc",
+			"select order by priority desc",
+			false,
+			[]OrderByClause{{Field: "priority", Desc: true}},
+		},
+		{
+			"order by asc",
+			"select order by priority asc",
+			false,
+			[]OrderByClause{{Field: "priority", Desc: false}},
+		},
+		{
+			"order by multiple fields",
+			"select order by priority desc, createdAt asc",
+			false,
+			[]OrderByClause{
+				{Field: "priority", Desc: true},
+				{Field: "createdAt", Desc: false},
+			},
+		},
+		{
+			"order by mixed directions",
+			"select order by status, priority desc, title",
+			false,
+			[]OrderByClause{
+				{Field: "status", Desc: false},
+				{Field: "priority", Desc: true},
+				{Field: "title", Desc: false},
+			},
+		},
+		{
+			"where and order by",
+			`select where status = "done" order by updatedAt desc`,
+			true,
+			[]OrderByClause{{Field: "updatedAt", Desc: true}},
+		},
+		{
+			"where and order by multiple",
+			`select where "bug" in tags order by priority asc, createdAt desc`,
+			true,
+			[]OrderByClause{
+				{Field: "priority", Desc: false},
+				{Field: "createdAt", Desc: true},
+			},
+		},
+		{
+			"select without order by still works",
+			`select where status = "done"`,
+			true,
+			nil,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			stmt, err := p.ParseStatement(tt.input)
+			if err != nil {
+				t.Fatalf("parse error: %v", err)
+			}
+			if stmt.Select == nil {
+				t.Fatal("expected Select")
+			}
+			if tt.wantWhere && stmt.Select.Where == nil {
+				t.Fatal("expected Where condition")
+			}
+			if !tt.wantWhere && stmt.Select.Where != nil {
+				t.Fatal("unexpected Where condition")
+			}
+			if len(tt.wantOrderBy) == 0 && len(stmt.Select.OrderBy) != 0 {
+				t.Fatalf("expected no OrderBy, got %v", stmt.Select.OrderBy)
+			}
+			if len(tt.wantOrderBy) != len(stmt.Select.OrderBy) {
+				t.Fatalf("expected %d OrderBy clauses, got %d", len(tt.wantOrderBy), len(stmt.Select.OrderBy))
+			}
+			for i, want := range tt.wantOrderBy {
+				got := stmt.Select.OrderBy[i]
+				if got.Field != want.Field {
+					t.Errorf("OrderBy[%d].Field = %q, want %q", i, got.Field, want.Field)
+				}
+				if got.Desc != want.Desc {
+					t.Errorf("OrderBy[%d].Desc = %v, want %v", i, got.Desc, want.Desc)
+				}
+			}
+		})
+	}
+}
+
 func TestParseComment(t *testing.T) {
 	p := newTestParser()
 
