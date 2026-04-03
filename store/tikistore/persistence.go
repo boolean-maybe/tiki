@@ -105,7 +105,7 @@ func (s *TikiStore) loadTaskFile(path string, authorMap map[string]*git.AuthorIn
 	var fmMap map[string]interface{}
 	if err := yaml.Unmarshal([]byte(frontmatter), &fmMap); err == nil {
 		if rawID, ok := fmMap["id"]; ok {
-			if idStr, ok := rawID.(string); ok && idStr != "" && idStr != taskID {
+			if idStr, ok := rawID.(string); ok && idStr != "" && !strings.EqualFold(idStr, taskID) {
 				slog.Warn("ignoring frontmatter ID mismatch, using filename",
 					"file", path,
 					"frontmatter_id", idStr,

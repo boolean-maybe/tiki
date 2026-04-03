@@ -12,6 +12,7 @@ import (
 	"github.com/boolean-maybe/tiki/internal/app"
 	"github.com/boolean-maybe/tiki/internal/bootstrap"
 	"github.com/boolean-maybe/tiki/internal/pipe"
+	rukiRuntime "github.com/boolean-maybe/tiki/internal/ruki/runtime"
 	"github.com/boolean-maybe/tiki/internal/viewer"
 	"github.com/boolean-maybe/tiki/util/sysinfo"
 )
@@ -60,6 +61,11 @@ func main() {
 		os.Exit(1)
 	}
 
+	// Handle exec command: execute ruki statement and exit
+	if len(os.Args) > 1 && os.Args[1] == "exec" {
+		os.Exit(runExec(os.Args[2:]))
+	}
+
 	// Handle piped stdin: create a task and exit without launching TUI
 	if pipe.IsPipedInput() && !pipe.HasPositionalArgs(os.Args[1:]) {
 		taskID, err := pipe.CreateTaskFromReader(os.Stdin)
@@ -76,7 +82,7 @@ func main() {
 
 	// Handle viewer mode (standalone markdown viewer)
 	// "init" is reserved to prevent treating it as a markdown file
-	viewerInput, runViewer, err := viewer.ParseViewerInput(os.Args[1:], map[string]struct{}{"init": {}, "demo": {}})
+	viewerInput, runViewer, err := viewer.ParseViewerInput(os.Args[1:], map[string]struct{}{"init": {}, "demo": {}, "exec": {}})
 	if err != nil {
 		if errors.Is(err, viewer.ErrMultipleInputs) {
 			_, _ = fmt.Fprintln(os.Stderr, "error:", err)
@@ -171,19 +177,77 @@ func runDemo() error {
 	return nil
 }
 
+// exit codes for tiki exec
+const (
+	exitOK             = 0
+	exitInternal       = 1
+	exitUsage          = 2
+	exitStartupFailure = 3
+	exitQueryError     = 4
+)
+
+// runExec implements `tiki exec '<statement>'`. Returns an exit code.
+func runExec(args []string) int {
+	if len(args) != 1 {
+		_, _ = fmt.Fprintln(os.Stderr, "usage: tiki exec '<ruki-statement>'")
+		return exitUsage
+	}
+
+	if err := bootstrap.EnsureGitRepo(); err != nil {
+		_, _ = fmt.Fprintln(os.Stderr, "error:", err)
+		return exitStartupFailure
+	}
+
+	if !config.IsProjectInitialized() {
+		_, _ = fmt.Fprintln(os.Stderr, "error: project not initialized: run 'tiki init' first")
+		return exitStartupFailure
+	}
+
+	cfg, err := bootstrap.LoadConfig()
+	if err != nil {
+		_, _ = fmt.Fprintf(os.Stderr, "error: load config: %v\n", err)
+		return exitStartupFailure
+	}
+
+	bootstrap.InitCLILogging(cfg)
+
+	if err := config.InstallDefaultWorkflow(); err != nil {
+		_, _ = fmt.Fprintf(os.Stderr, "warning: install default workflow: %v\n", err)
+	}
+
+	if err := config.LoadStatusRegistry(); err != nil {
+		_, _ = fmt.Fprintf(os.Stderr, "error: load status registry: %v\n", err)
+		return exitStartupFailure
+	}
+
+	_, taskStore, err := bootstrap.InitStores()
+	if err != nil {
+		_, _ = fmt.Fprintf(os.Stderr, "error: initialize store: %v\n", err)
+		return exitStartupFailure
+	}
+
+	if err := rukiRuntime.RunSelectQuery(taskStore, args[0], os.Stdout); err != nil {
+		_, _ = fmt.Fprintln(os.Stderr, "error:", err)
+		return exitQueryError
+	}
+
+	return exitOK
+}
+
 // printUsage prints usage information when tiki is run in an uninitialized repo.
 func printUsage() {
 	fmt.Print(`tiki - Terminal-based task and documentation management
 
 Usage:
-  tiki                  Launch TUI in initialized repo
-  tiki init             Initialize project in current git repo
-  tiki demo             Clone demo project and launch TUI
-  tiki file.md/URL      View markdown file or image
-  echo "Title" | tiki   Create task from piped input
-  tiki sysinfo          Display system information
-  tiki --help            Show this help message
-  tiki --version         Show version
+  tiki                       Launch TUI in initialized repo
+  tiki init                  Initialize project in current git repo
+  tiki exec '<statement>'    Execute a ruki query and exit
+  tiki demo                  Clone demo project and launch TUI
+  tiki file.md/URL           View markdown file or image
+  echo "Title" | tiki        Create task from piped input
+  tiki sysinfo               Display system information
+  tiki --help                Show this help message
+  tiki --version             Show version
 
 Options:
   --log-level <level>   Set log level (debug, info, warn, error)
