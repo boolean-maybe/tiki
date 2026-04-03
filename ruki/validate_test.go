@@ -1527,6 +1527,32 @@ func TestValidation_EnumInRejectsFieldRefs(t *testing.T) {
 	}
 }
 
+func TestValidation_SelectFields(t *testing.T) {
+	p := newTestParser()
+
+	tests := []struct {
+		name    string
+		input   string
+		wantErr string
+	}{
+		{"unknown field", "select foo", `unknown field "foo" in select`},
+		{"duplicate field", "select title, title", `duplicate field "title" in select`},
+		{"unknown among valid", "select title, foo", `unknown field "foo" in select`},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			_, err := p.ParseStatement(tt.input)
+			if err == nil {
+				t.Fatal("expected error, got nil")
+			}
+			if !strings.Contains(err.Error(), tt.wantErr) {
+				t.Fatalf("expected error containing %q, got: %v", tt.wantErr, err)
+			}
+		})
+	}
+}
+
 func TestValidation_OrderBy(t *testing.T) {
 	p := newTestParser()
 

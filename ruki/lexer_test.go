@@ -97,6 +97,52 @@ func TestTokenizeWordBoundary(t *testing.T) {
 	}
 }
 
+func TestTokenizeStar(t *testing.T) {
+	symbols := rukiLexer.Symbols()
+	starType := symbols["Star"]
+	keywordType := symbols["Keyword"]
+	identType := symbols["Ident"]
+
+	t.Run("bare star", func(t *testing.T) {
+		tokens := tokenize(t, "*")
+		if len(tokens) != 1 {
+			t.Fatalf("expected 1 token, got %d: %v", len(tokens), tokens)
+		}
+		if tokens[0].Type != starType {
+			t.Errorf("expected Star token, got type %d", tokens[0].Type)
+		}
+	})
+
+	t.Run("star among keywords", func(t *testing.T) {
+		tokens := tokenize(t, "select * where")
+		if len(tokens) != 3 {
+			t.Fatalf("expected 3 tokens, got %d: %v", len(tokens), tokens)
+		}
+		if tokens[0].Type != keywordType {
+			t.Errorf("expected Keyword for 'select', got type %d", tokens[0].Type)
+		}
+		if tokens[1].Type != starType {
+			t.Errorf("expected Star for '*', got type %d", tokens[1].Type)
+		}
+		if tokens[2].Type != keywordType {
+			t.Errorf("expected Keyword for 'where', got type %d", tokens[2].Type)
+		}
+	})
+
+	t.Run("star not consumed as ident", func(t *testing.T) {
+		tokens := tokenize(t, "*foo")
+		if len(tokens) != 2 {
+			t.Fatalf("expected 2 tokens, got %d: %v", len(tokens), tokens)
+		}
+		if tokens[0].Type != starType {
+			t.Errorf("expected Star for '*', got type %d", tokens[0].Type)
+		}
+		if tokens[1].Type != identType {
+			t.Errorf("expected Ident for 'foo', got type %d", tokens[1].Type)
+		}
+	})
+}
+
 func TestKeywordInIdentPosition_ParseError(t *testing.T) {
 	p := newTestParser()
 

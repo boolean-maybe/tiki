@@ -12,6 +12,7 @@ var rukiLexer = lexer.MustSimple([]lexer.SimpleRule{
 	{Name: "Int", Pattern: `\d+`},
 	{Name: "String", Pattern: `"(?:[^"\\]|\\.)*"`},
 	{Name: "CompareOp", Pattern: `!=|<=|>=|[=<>]`},
+	{Name: "Star", Pattern: `\*`},
 	{Name: "Plus", Pattern: `\+`},
 	{Name: "Minus", Pattern: `-`},
 	{Name: "Dot", Pattern: `\.`},

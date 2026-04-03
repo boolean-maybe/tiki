@@ -13,8 +13,9 @@ type Statement struct {
 	Delete *DeleteStmt
 }
 
-// SelectStmt represents "select [where <condition>] [order by <field> [asc|desc], ...]".
+// SelectStmt represents "select [fields] [where <condition>] [order by <field> [asc|desc], ...]".
 type SelectStmt struct {
+	Fields  []string        // nil = all ("select" or "select *"); non-nil = specific fields
 	Where   Condition       // nil = select all
 	OrderBy []OrderByClause // nil = unordered
 }

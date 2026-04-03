@@ -1,4 +1,4 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 820 560">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1020 560">
   <!--
     Grid system for Ruki railroad diagrams (transparent/dark-bg compatible)
     ========================================
@@ -47,7 +47,7 @@
   <g transform="translate(0, 8)">
 
     <!-- ==================== selectStmt ==================== -->
-    <!-- Main line at y=50, bypass above at y=10 -->
+    <!-- Main line at y=50, field-list bypass above at y=10, loopback below at y=90 -->
     <g transform="translate(0, 30)">
       <!-- label background pill -->
       <g class="label-group">
@@ -65,30 +65,81 @@
         <rect width="72" height="32" rx="16"/>
         <text x="36" y="16" text-anchor="middle" dominant-baseline="central">select</text>
       </g>
-      <line class="track" x1="242" y1="50" x2="280" y2="50"/>
+      <line class="track" x1="242" y1="50" x2="260" y2="50"/>
 
-      <!-- main path: where + condition -->
-      <g class="terminal" transform="translate(280, 34)">
+      <!-- === optional field list group (260–460) === -->
+
+      <!-- main path: * terminal -->
+      <line class="track" x1="260" y1="50" x2="290" y2="50"/>
+      <g class="terminal" transform="translate(290, 34)">
+        <rect width="32" height="32" rx="16"/>
+        <text x="16" y="16" text-anchor="middle" dominant-baseline="central">*</text>
+      </g>
+      <line class="track" x1="322" y1="50" x2="460" y2="50"/>
+
+      <!-- alternate path below: identifier { , identifier } at y=90 -->
+      <path class="track" d="M 270,50 C 270,70 280,90 300,90"/>
+      <g class="nonterminal" transform="translate(300, 74)">
+        <rect width="100" height="32" rx="4"/>
+        <text x="50" y="16" text-anchor="middle" dominant-baseline="central">identifier</text>
+      </g>
+      <line class="track" x1="400" y1="90" x2="440" y2="90"/>
+      <path class="track" d="M 440,90 C 450,90 460,80 460,50"/>
+
+      <!-- loopback below identifier: , identifier at y=130 -->
+      <path class="track" d="M 430,90 C 430,110 420,130 400,130"/>
+      <g class="terminal" transform="translate(356, 114)">
+        <rect width="32" height="32" rx="16"/>
+        <text x="16" y="16" text-anchor="middle" dominant-baseline="central">,</text>
+      </g>
+      <line class="track" x1="356" y1="130" x2="340" y2="130"/>
+      <g class="nonterminal" transform="translate(230, 114)">
+        <rect width="100" height="32" rx="4"/>
+        <text x="50" y="16" text-anchor="middle" dominant-baseline="central">identifier</text>
+      </g>
+      <path class="track" d="M 230,130 C 220,130 210,110 210,100"/>
+      <!-- arrowhead pointing up at the rejoin into the identifier path -->
+      <path d="M 205,100 L 210,90 L 215,100 z" fill="#94A3B8"/>
+
+      <!-- bypass path above: skip field list entirely at y=10 -->
+      <path class="track" d="M 260,50 C 260,30 270,10 290,10 L 430,10 C 450,10 460,30 460,50"/>
+
+      <!-- === end field list group === -->
+      <line class="track" x1="460" y1="50" x2="490" y2="50"/>
+
+      <!-- === optional where + condition group (490–680) === -->
+      <g class="terminal" transform="translate(490, 34)">
         <rect width="70" height="32" rx="16"/>
         <text x="35" y="16" text-anchor="middle" dominant-baseline="central">where</text>
       </g>
-      <line class="track" x1="350" y1="50" x2="380" y2="50"/>
-      <g class="nonterminal" transform="translate(380, 34)">
+      <line class="track" x1="560" y1="50" x2="580" y2="50"/>
+      <g class="nonterminal" transform="translate(580, 34)">
         <rect width="100" height="32" rx="4"/>
         <text x="50" y="16" text-anchor="middle" dominant-baseline="central">condition</text>
       </g>
-      <line class="track" x1="480" y1="50" x2="540" y2="50"/>
+      <line class="track" x1="680" y1="50" x2="710" y2="50"/>
 
-      <!-- bypass path above: skip where+condition -->
-      <path class="track" d="M 270,50 C 270,20 280,10 300,10 L 510,10 C 530,10 540,20 540,50"/>
+      <!-- bypass above: skip where+condition -->
+      <path class="track" d="M 480,50 C 480,20 490,10 510,10 L 680,10 C 700,10 710,20 710,50"/>
+
+      <!-- === optional orderBy group (710–830) === -->
+      <line class="track" x1="710" y1="50" x2="740" y2="50"/>
+      <g class="nonterminal" transform="translate(740, 34)">
+        <rect width="88" height="32" rx="4"/>
+        <text x="44" y="16" text-anchor="middle" dominant-baseline="central">orderBy</text>
+      </g>
+      <line class="track" x1="828" y1="50" x2="860" y2="50"/>
+
+      <!-- bypass above: skip orderBy -->
+      <path class="track" d="M 730,50 C 730,20 740,10 760,10 L 830,10 C 850,10 860,20 860,50"/>
 
       <!-- exit dot with double circle -->
-      <circle class="track-dot" cx="540" cy="50" r="4"/>
-      <circle cx="540" cy="50" r="7" fill="none" stroke="#94A3B8" stroke-width="1.5" stroke-opacity="0.5"/>
+      <circle class="track-dot" cx="860" cy="50" r="4"/>
+      <circle cx="860" cy="50" r="7" fill="none" stroke="#94A3B8" stroke-width="1.5" stroke-opacity="0.5"/>
     </g>
 
     <!-- separator between selectStmt and createStmt -->
-    <line class="separator" x1="10" y1="140" x2="810" y2="140"/>
+    <line class="separator" x1="10" y1="140" x2="1010" y2="140"/>
 
     <!-- ==================== createStmt ==================== -->
     <!-- Main line at y=32, loopback below at y=72 -->
@@ -129,7 +180,7 @@
     </g>
 
     <!-- separator between createStmt and updateStmt -->
-    <line class="separator" x1="10" y1="270" x2="810" y2="270"/>
+    <line class="separator" x1="10" y1="270" x2="1010" y2="270"/>
 
     <!-- ==================== updateStmt ==================== -->
     <!-- Main line at y=32, loopback below at y=76 -->
@@ -190,7 +241,7 @@
     </g>
 
     <!-- separator between updateStmt and deleteStmt -->
-    <line class="separator" x1="10" y1="400" x2="810" y2="400"/>
+    <line class="separator" x1="10" y1="400" x2="1010" y2="400"/>
 
     <!-- ==================== deleteStmt ==================== -->
     <g transform="translate(0, 420)">

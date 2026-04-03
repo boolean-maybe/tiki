@@ -28,6 +28,15 @@ Select with a basic filter:
 select where status = "done" and priority <= 2
 ```
 
+Select specific fields:
+
+```sql
+select title, status
+select id, title where status = "done"
+select * where priority <= 2
+select title, status where "bug" in tags order by priority
+```
+
 Select with ordering:
 
 ```sql

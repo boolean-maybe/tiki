@@ -41,6 +41,13 @@ func lowerStatement(g *statementGrammar) (*Statement, error) {
 }
 
 func lowerSelect(g *selectGrammar) (*SelectStmt, error) {
+	var fields []string
+	if g.Star == nil && g.Fields != nil {
+		fields = make([]string, 0, 1+len(g.Fields.Rest))
+		fields = append(fields, g.Fields.First)
+		fields = append(fields, g.Fields.Rest...)
+	}
+
 	var where Condition
 	if g.Where != nil {
 		var err error
@@ -50,7 +57,7 @@ func lowerSelect(g *selectGrammar) (*SelectStmt, error) {
 		}
 	}
 	orderBy := lowerOrderBy(g.OrderBy)
-	return &SelectStmt{Where: where, OrderBy: orderBy}, nil
+	return &SelectStmt{Fields: fields, Where: where, OrderBy: orderBy}, nil
 }
 
 func lowerCreate(g *createGrammar) (*CreateStmt, error) {

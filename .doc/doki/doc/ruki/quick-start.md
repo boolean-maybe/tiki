@@ -37,7 +37,8 @@ The simplest way to read Ruki is:
 
 ```sql
 select
-select where status = "done"
+select title, status
+select id, title where status = "done"
 select where "bug" in tags and priority <= 2
 ```
 
