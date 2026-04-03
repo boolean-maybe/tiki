@@ -47,8 +47,11 @@ The following EBNF-style summary shows the grammar:
 ```text
 statement        = selectStmt | createStmt | updateStmt | deleteStmt ;
 
-selectStmt       = "select" [ "where" condition ] ;
+selectStmt       = "select" [ "where" condition ] [ orderBy ] ;
 createStmt       = "create" assignment { assignment } ;
+
+orderBy          = "order" "by" sortField { "," sortField } ;
+sortField        = identifier [ "asc" | "desc" ] ;
 updateStmt       = "update" "where" condition "set" assignment { assignment } ;
 deleteStmt       = "delete" "where" condition ;
 
@@ -63,12 +66,18 @@ runAction        = "run" "(" expr ")" ;
 deny             = "deny" string ;
 ```
 
+![Statement grammar railroad diagram](images/stmt-railroad.svg)
+
+![Trigger grammar railroad diagram](images/trigger-railroad.svg)
+
 Notes:
 
 - `select` is a valid top-level statement, but it is not valid as a trigger action.
 - `create` requires at least one assignment.
 - `update` requires both `where` and `set`.
 - `delete` requires `where`.
+- `order by` is only valid on `select`, not on subqueries inside `count(...)`.
+- `asc`, `desc`, `order`, and `by` are contextual keywords — they are only special in the ORDER BY clause.
 
 ## Condition grammar
 
@@ -99,6 +108,8 @@ anyTail          = "any" primaryCond ;
 allTail          = "all" primaryCond ;
 ```
 
+![Condition grammar railroad diagram](images/cond-railroad.svg)
+
 Examples:
 
 ```sql
@@ -107,6 +118,14 @@ select where assignee is empty
 select where status not in ["done", "cancelled"]
 select where dependsOn any status != "done"
 select where not (status = "done" or priority = 1)
+```
+
+Order by:
+
+```sql
+select order by priority
+select where status = "done" order by updatedAt desc
+select where "bug" in tags order by priority asc, createdAt desc
 ```
 
 ## Expression grammar
@@ -135,6 +154,8 @@ listLiteral      = "[" [ expr { "," expr } ] "]" ;
 emptyLiteral     = "empty" ;
 fieldRef         = identifier ;
 ```
+
+![Expression grammar railroad diagram](images/expr-railroad.svg)
 
 Examples:
 

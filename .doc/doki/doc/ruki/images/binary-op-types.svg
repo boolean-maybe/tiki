@@ -1,0 +1,202 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 780 580">
+  <!--
+    Grid system:
+    - Column width: 84px, row height: 28px
+    - Row header: 90px wide
+    - Header bar: 26px tall
+    - All fills use opacity for dark/light background compatibility
+    - Valid cells: green pill with result type
+    - Invalid cells: dim dash
+  -->
+  <defs>
+    <style>
+      .title { font: 700 16px -apple-system, 'Segoe UI', Roboto, sans-serif; fill: #A5B4FC; }
+      .op-title { font: 700 14px -apple-system, 'Segoe UI', Roboto, sans-serif; }
+      .hdr { font: 600 11px 'SF Mono', 'Cascadia Code', 'Fira Code', monospace; fill: #E2E8F0; }
+      .rhdr { font: 600 11px 'SF Mono', 'Cascadia Code', 'Fira Code', monospace; fill: #94A3B8; }
+      .cell-ok { font: 600 10px 'SF Mono', 'Cascadia Code', 'Fira Code', monospace; fill: #34D399; }
+      .cell-na { font: 400 11px -apple-system, sans-serif; fill: #475569; }
+      .footnote { font: italic 11px -apple-system, 'Segoe UI', Roboto, sans-serif; fill: #64748B; }
+      .legend-text { font: 400 11px -apple-system, 'Segoe UI', Roboto, sans-serif; fill: #94A3B8; }
+    </style>
+    <filter id="shadow" x="-4%" y="-4%" width="108%" height="116%">
+      <feDropShadow dx="0" dy="1" stdDeviation="2" flood-color="#000000" flood-opacity="0.3"/>
+    </filter>
+  </defs>
+
+  <text class="title" x="390" y="24" text-anchor="middle">Binary operator type resolution</text>
+
+  <!-- ==================== + OPERATOR ==================== -->
+  <g transform="translate(20, 44)">
+    <!-- Operator label -->
+    <rect x="0" y="0" width="26" height="26" rx="7" fill="#818CF8" fill-opacity="0.25" stroke="#818CF8" stroke-width="1" stroke-opacity="0.4" filter="url(#shadow)"/>
+    <text x="13" y="17" text-anchor="middle" font-size="16" font-weight="700" fill="#A5B4FC">+</text>
+    <text class="op-title" x="36" y="17" fill="#A5B4FC">addition / concatenation</text>
+
+    <!-- Column header bar -->
+    <rect x="90" y="34" width="646" height="26" rx="6" fill="#334155" fill-opacity="0.6"/>
+    <text class="hdr" x="178" y="51" text-anchor="middle">string</text>
+    <text class="hdr" x="264" y="51" text-anchor="middle">int</text>
+    <text class="hdr" x="350" y="51" text-anchor="middle">date</text>
+    <text class="hdr" x="436" y="51" text-anchor="middle">tstamp</text>
+    <text class="hdr" x="522" y="51" text-anchor="middle">duration</text>
+    <text class="hdr" x="608" y="51" text-anchor="middle">list&lt;str&gt;</text>
+    <text class="hdr" x="694" y="51" text-anchor="middle">list&lt;ref&gt;</text>
+
+    <!-- Row 1: string -->
+    <text class="rhdr" x="50" y="79" text-anchor="middle">string</text>
+    <rect x="140" y="66" width="76" height="22" rx="11" fill="#10B981" fill-opacity="0.15" stroke="#10B981" stroke-width="1" stroke-opacity="0.3" filter="url(#shadow)"/>
+    <text class="cell-ok" x="178" y="81" text-anchor="middle">string</text>
+    <text class="cell-na" x="264" y="81" text-anchor="middle">—</text>
+    <text class="cell-na" x="350" y="81" text-anchor="middle">—</text>
+    <text class="cell-na" x="436" y="81" text-anchor="middle">—</text>
+    <text class="cell-na" x="522" y="81" text-anchor="middle">—</text>
+    <text class="cell-na" x="608" y="81" text-anchor="middle">—</text>
+    <text class="cell-na" x="694" y="81" text-anchor="middle">—</text>
+
+    <!-- Row 2: int (alternating row background) -->
+    <rect x="90" y="92" width="646" height="28" rx="4" fill="#94A3B8" fill-opacity="0.04"/>
+    <text class="rhdr" x="50" y="107" text-anchor="middle">int</text>
+    <text class="cell-na" x="178" y="107" text-anchor="middle">—</text>
+    <rect x="226" y="94" width="76" height="22" rx="11" fill="#10B981" fill-opacity="0.15" stroke="#10B981" stroke-width="1" stroke-opacity="0.3" filter="url(#shadow)"/>
+    <text class="cell-ok" x="264" y="109" text-anchor="middle">int</text>
+    <text class="cell-na" x="350" y="107" text-anchor="middle">—</text>
+    <text class="cell-na" x="436" y="107" text-anchor="middle">—</text>
+    <text class="cell-na" x="522" y="107" text-anchor="middle">—</text>
+    <text class="cell-na" x="608" y="107" text-anchor="middle">—</text>
+    <text class="cell-na" x="694" y="107" text-anchor="middle">—</text>
+
+    <!-- Row 3: date -->
+    <text class="rhdr" x="50" y="135" text-anchor="middle">date</text>
+    <text class="cell-na" x="178" y="135" text-anchor="middle">—</text>
+    <text class="cell-na" x="264" y="135" text-anchor="middle">—</text>
+    <text class="cell-na" x="350" y="135" text-anchor="middle">—</text>
+    <text class="cell-na" x="436" y="135" text-anchor="middle">—</text>
+    <rect x="484" y="122" width="76" height="22" rx="11" fill="#10B981" fill-opacity="0.15" stroke="#10B981" stroke-width="1" stroke-opacity="0.3" filter="url(#shadow)"/>
+    <text class="cell-ok" x="522" y="137" text-anchor="middle">date</text>
+    <text class="cell-na" x="608" y="135" text-anchor="middle">—</text>
+    <text class="cell-na" x="694" y="135" text-anchor="middle">—</text>
+
+    <!-- Row 4: timestamp (alternating row background) -->
+    <rect x="90" y="148" width="646" height="28" rx="4" fill="#94A3B8" fill-opacity="0.04"/>
+    <text class="rhdr" x="50" y="163" text-anchor="middle">tstamp</text>
+    <text class="cell-na" x="178" y="163" text-anchor="middle">—</text>
+    <text class="cell-na" x="264" y="163" text-anchor="middle">—</text>
+    <text class="cell-na" x="350" y="163" text-anchor="middle">—</text>
+    <text class="cell-na" x="436" y="163" text-anchor="middle">—</text>
+    <rect x="484" y="150" width="76" height="22" rx="11" fill="#10B981" fill-opacity="0.15" stroke="#10B981" stroke-width="1" stroke-opacity="0.3" filter="url(#shadow)"/>
+    <text class="cell-ok" x="522" y="165" text-anchor="middle">tstamp</text>
+    <text class="cell-na" x="608" y="163" text-anchor="middle">—</text>
+    <text class="cell-na" x="694" y="163" text-anchor="middle">—</text>
+
+    <!-- Row 5: list<string> -->
+    <text class="rhdr" x="50" y="191" text-anchor="middle">list&lt;str&gt;</text>
+    <rect x="140" y="178" width="76" height="22" rx="11" fill="#10B981" fill-opacity="0.15" stroke="#10B981" stroke-width="1" stroke-opacity="0.3" filter="url(#shadow)"/>
+    <text class="cell-ok" x="178" y="193" text-anchor="middle">list&lt;str&gt;</text>
+    <text class="cell-na" x="264" y="191" text-anchor="middle">—</text>
+    <text class="cell-na" x="350" y="191" text-anchor="middle">—</text>
+    <text class="cell-na" x="436" y="191" text-anchor="middle">—</text>
+    <text class="cell-na" x="522" y="191" text-anchor="middle">—</text>
+    <rect x="570" y="178" width="76" height="22" rx="11" fill="#10B981" fill-opacity="0.15" stroke="#10B981" stroke-width="1" stroke-opacity="0.3" filter="url(#shadow)"/>
+    <text class="cell-ok" x="608" y="193" text-anchor="middle">list&lt;str&gt;</text>
+    <text class="cell-na" x="694" y="191" text-anchor="middle">—</text>
+
+    <!-- Row 6: list<ref> (alternating row background) -->
+    <rect x="90" y="204" width="646" height="28" rx="4" fill="#94A3B8" fill-opacity="0.04"/>
+    <text class="rhdr" x="50" y="219" text-anchor="middle">list&lt;ref&gt;</text>
+    <text class="cell-na" x="178" y="219" text-anchor="middle">—</text>
+    <text class="cell-na" x="264" y="219" text-anchor="middle">—</text>
+    <text class="cell-na" x="350" y="219" text-anchor="middle">—</text>
+    <text class="cell-na" x="436" y="219" text-anchor="middle">—</text>
+    <text class="cell-na" x="522" y="219" text-anchor="middle">—</text>
+    <text class="cell-na" x="608" y="219" text-anchor="middle">—</text>
+    <rect x="656" y="206" width="76" height="22" rx="11" fill="#10B981" fill-opacity="0.15" stroke="#10B981" stroke-width="1" stroke-opacity="0.3" filter="url(#shadow)"/>
+    <text class="cell-ok" x="694" y="221" text-anchor="middle">list&lt;ref&gt;</text>
+  </g>
+
+  <!-- ==================== - OPERATOR ==================== -->
+  <g transform="translate(20, 300)">
+    <!-- Operator label -->
+    <rect x="0" y="0" width="26" height="26" rx="7" fill="#F87171" fill-opacity="0.25" stroke="#F87171" stroke-width="1" stroke-opacity="0.4" filter="url(#shadow)"/>
+    <text x="13" y="17" text-anchor="middle" font-size="16" font-weight="700" fill="#F87171">−</text>
+    <text class="op-title" x="36" y="17" fill="#F87171">subtraction / removal</text>
+
+    <!-- Column header bar -->
+    <rect x="90" y="34" width="646" height="26" rx="6" fill="#334155" fill-opacity="0.6"/>
+    <text class="hdr" x="178" y="51" text-anchor="middle">string</text>
+    <text class="hdr" x="264" y="51" text-anchor="middle">int</text>
+    <text class="hdr" x="350" y="51" text-anchor="middle">date</text>
+    <text class="hdr" x="436" y="51" text-anchor="middle">tstamp</text>
+    <text class="hdr" x="522" y="51" text-anchor="middle">duration</text>
+    <text class="hdr" x="608" y="51" text-anchor="middle">list&lt;str&gt;</text>
+    <text class="hdr" x="694" y="51" text-anchor="middle">list&lt;ref&gt;</text>
+
+    <!-- Row 1: int -->
+    <text class="rhdr" x="50" y="79" text-anchor="middle">int</text>
+    <text class="cell-na" x="178" y="79" text-anchor="middle">—</text>
+    <rect x="226" y="66" width="76" height="22" rx="11" fill="#10B981" fill-opacity="0.15" stroke="#10B981" stroke-width="1" stroke-opacity="0.3" filter="url(#shadow)"/>
+    <text class="cell-ok" x="264" y="81" text-anchor="middle">int</text>
+    <text class="cell-na" x="350" y="79" text-anchor="middle">—</text>
+    <text class="cell-na" x="436" y="79" text-anchor="middle">—</text>
+    <text class="cell-na" x="522" y="79" text-anchor="middle">—</text>
+    <text class="cell-na" x="608" y="79" text-anchor="middle">—</text>
+    <text class="cell-na" x="694" y="79" text-anchor="middle">—</text>
+
+    <!-- Row 2: date (alternating row background) -->
+    <rect x="90" y="92" width="646" height="28" rx="4" fill="#94A3B8" fill-opacity="0.04"/>
+    <text class="rhdr" x="50" y="107" text-anchor="middle">date</text>
+    <text class="cell-na" x="178" y="107" text-anchor="middle">—</text>
+    <text class="cell-na" x="264" y="107" text-anchor="middle">—</text>
+    <rect x="312" y="94" width="76" height="22" rx="11" fill="#10B981" fill-opacity="0.15" stroke="#10B981" stroke-width="1" stroke-opacity="0.3" filter="url(#shadow)"/>
+    <text class="cell-ok" x="350" y="109" text-anchor="middle">duration</text>
+    <text class="cell-na" x="436" y="107" text-anchor="middle">—</text>
+    <rect x="484" y="94" width="76" height="22" rx="11" fill="#10B981" fill-opacity="0.15" stroke="#10B981" stroke-width="1" stroke-opacity="0.3" filter="url(#shadow)"/>
+    <text class="cell-ok" x="522" y="109" text-anchor="middle">date</text>
+    <text class="cell-na" x="608" y="107" text-anchor="middle">—</text>
+    <text class="cell-na" x="694" y="107" text-anchor="middle">—</text>
+
+    <!-- Row 3: timestamp -->
+    <text class="rhdr" x="50" y="135" text-anchor="middle">tstamp</text>
+    <text class="cell-na" x="178" y="135" text-anchor="middle">—</text>
+    <text class="cell-na" x="264" y="135" text-anchor="middle">—</text>
+    <text class="cell-na" x="350" y="135" text-anchor="middle">—</text>
+    <rect x="398" y="122" width="76" height="22" rx="11" fill="#10B981" fill-opacity="0.15" stroke="#10B981" stroke-width="1" stroke-opacity="0.3" filter="url(#shadow)"/>
+    <text class="cell-ok" x="436" y="137" text-anchor="middle">duration</text>
+    <rect x="484" y="122" width="76" height="22" rx="11" fill="#10B981" fill-opacity="0.15" stroke="#10B981" stroke-width="1" stroke-opacity="0.3" filter="url(#shadow)"/>
+    <text class="cell-ok" x="522" y="137" text-anchor="middle">tstamp</text>
+    <text class="cell-na" x="608" y="135" text-anchor="middle">—</text>
+    <text class="cell-na" x="694" y="135" text-anchor="middle">—</text>
+
+    <!-- Row 4: list<string> (alternating row background) -->
+    <rect x="90" y="148" width="646" height="28" rx="4" fill="#94A3B8" fill-opacity="0.04"/>
+    <text class="rhdr" x="50" y="163" text-anchor="middle">list&lt;str&gt;</text>
+    <rect x="140" y="150" width="76" height="22" rx="11" fill="#10B981" fill-opacity="0.15" stroke="#10B981" stroke-width="1" stroke-opacity="0.3" filter="url(#shadow)"/>
+    <text class="cell-ok" x="178" y="165" text-anchor="middle">list&lt;str&gt;</text>
+    <text class="cell-na" x="264" y="163" text-anchor="middle">—</text>
+    <text class="cell-na" x="350" y="163" text-anchor="middle">—</text>
+    <text class="cell-na" x="436" y="163" text-anchor="middle">—</text>
+    <text class="cell-na" x="522" y="163" text-anchor="middle">—</text>
+    <rect x="570" y="150" width="76" height="22" rx="11" fill="#10B981" fill-opacity="0.15" stroke="#10B981" stroke-width="1" stroke-opacity="0.3" filter="url(#shadow)"/>
+    <text class="cell-ok" x="608" y="165" text-anchor="middle">list&lt;str&gt;</text>
+    <text class="cell-na" x="694" y="163" text-anchor="middle">—</text>
+
+    <!-- Row 5: list<ref> -->
+    <text class="rhdr" x="50" y="191" text-anchor="middle">list&lt;ref&gt;</text>
+    <text class="cell-na" x="178" y="191" text-anchor="middle">—</text>
+    <text class="cell-na" x="264" y="191" text-anchor="middle">—</text>
+    <text class="cell-na" x="350" y="191" text-anchor="middle">—</text>
+    <text class="cell-na" x="436" y="191" text-anchor="middle">—</text>
+    <text class="cell-na" x="522" y="191" text-anchor="middle">—</text>
+    <text class="cell-na" x="608" y="191" text-anchor="middle">—</text>
+    <rect x="656" y="178" width="76" height="22" rx="11" fill="#10B981" fill-opacity="0.15" stroke="#10B981" stroke-width="1" stroke-opacity="0.3" filter="url(#shadow)"/>
+    <text class="cell-ok" x="694" y="193" text-anchor="middle">list&lt;ref&gt;</text>
+  </g>
+
+  <!-- Legend + footnotes -->
+  <rect x="270" y="520" width="14" height="14" rx="7" fill="#10B981" fill-opacity="0.15" stroke="#10B981" stroke-width="1" stroke-opacity="0.3"/>
+  <text class="legend-text" x="290" y="531">valid (shows result type)</text>
+  <text class="legend-text" x="460" y="531">— invalid</text>
+
+  <text class="footnote" x="390" y="554" text-anchor="middle">string includes string-like types: string, status, type, id, ref</text>
+  <text class="footnote" x="390" y="570" text-anchor="middle">list&lt;ref&gt; + also accepts bare id/ref values on the right side</text>
+</svg>

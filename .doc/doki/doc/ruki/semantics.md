@@ -18,7 +18,17 @@ This page explains how Ruki statements, triggers, conditions, and expressions be
 
 - `select` without `where` means a statement with no condition node.
 - `select where ...` validates the condition and its contained expressions.
-- A subquery form `select` or `select where ...` can appear only inside `count(...)`.
+- `select ... order by <field> [asc|desc], ...` specifies result ordering.
+- A subquery form `select` or `select where ...` can appear only inside `count(...)`. Subqueries do not support `order by`.
+
+`order by`
+
+- Each field must exist in the schema and be an orderable type.
+- Orderable types: `int`, `date`, `timestamp`, `duration`, `string`, `status`, `type`, `id`, `ref`.
+- Non-orderable types: `list<string>`, `list<ref>`, `recurrence`, `bool`.
+- Default direction is ascending. Use `desc` for descending.
+- Duplicate fields are rejected.
+- Only bare field names are allowed — `old.` and `new.` qualifiers are not valid in `order by`.
 
 `create`
 
@@ -80,6 +90,8 @@ before delete where old.priority <= 2 deny "cannot delete high priority tikis"
 before update where old.status = "in progress" and new.status = "done" deny "tikis must go through review before completion"
 ```
 
+![Qualifier scope by context](images/qualifier-scope.svg)
+
 Important special case:
 
 - inside a quantifier body such as `dependsOn any ...`, qualifiers are disabled again
@@ -120,6 +132,8 @@ Binary `+` and `-` are semantic rather than purely numeric:
 - `timestamp + duration` yields `timestamp`
 - `timestamp - duration` yields `timestamp`
 - `timestamp - timestamp` yields `duration`
+
+![Binary operator type resolution](images/binary-op-types.svg)
 
 For the detailed type rules and built-ins, see [Types And Values](types-and-values.md) and [Operators And Built-ins](operators-and-builtins.md).
 

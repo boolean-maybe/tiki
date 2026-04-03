@@ -1527,6 +1527,92 @@ func TestValidation_EnumInRejectsFieldRefs(t *testing.T) {
 	}
 }
 
+func TestValidation_OrderBy(t *testing.T) {
+	p := newTestParser()
+
+	t.Run("valid cases", func(t *testing.T) {
+		valid := []struct {
+			name  string
+			input string
+		}{
+			{"int field", "select order by priority"},
+			{"date field", "select order by due"},
+			{"timestamp field", "select order by createdAt desc"},
+			{"string field", "select order by title asc"},
+			{"status field", "select order by status"},
+			{"type field", "select order by type desc"},
+			{"id field", "select order by id"},
+			{"multiple fields", "select order by priority desc, createdAt"},
+			{"with where", `select where status = "done" order by priority`},
+		}
+		for _, tt := range valid {
+			t.Run(tt.name, func(t *testing.T) {
+				_, err := p.ParseStatement(tt.input)
+				if err != nil {
+					t.Fatalf("unexpected error: %v", err)
+				}
+			})
+		}
+	})
+
+	t.Run("invalid cases", func(t *testing.T) {
+		invalid := []struct {
+			name    string
+			input   string
+			wantErr string
+		}{
+			{
+				"unknown field",
+				"select order by nonexistent",
+				"unknown field",
+			},
+			{
+				"list<string> not orderable",
+				"select order by tags",
+				"cannot order by",
+			},
+			{
+				"list<ref> not orderable",
+				"select order by dependsOn",
+				"cannot order by",
+			},
+			{
+				"recurrence not orderable",
+				"select order by recurrence",
+				"cannot order by",
+			},
+			{
+				"duplicate field",
+				"select order by priority, priority desc",
+				"duplicate field",
+			},
+		}
+		for _, tt := range invalid {
+			t.Run(tt.name, func(t *testing.T) {
+				_, err := p.ParseStatement(tt.input)
+				if err == nil {
+					t.Fatal("expected error, got nil")
+				}
+				if !strings.Contains(err.Error(), tt.wantErr) {
+					t.Fatalf("expected error containing %q, got: %v", tt.wantErr, err)
+				}
+			})
+		}
+	})
+}
+
+func TestValidation_OrderByInSubquery(t *testing.T) {
+	p := newTestParser()
+
+	_, err := p.ParseStatement(`select where count(select where status = "done" order by priority) > 0`)
+	if err == nil {
+		t.Fatal("expected error for order by inside subquery")
+	}
+	if !strings.Contains(err.Error(), "order by is not valid inside a subquery") {
+		t.Fatalf("expected subquery error, got: %v", err)
+	}
+}
+
 func TestValidation_ListAssignmentRejectsFieldRefs(t *testing.T) {
 	p := newTestParser()
 

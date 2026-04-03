@@ -1,0 +1,235 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 820 560">
+  <!--
+    Grid system for Ruki railroad diagrams (transparent/dark-bg compatible)
+    ========================================
+    Terminal (keyword) box: height=32, rx=16 (fully rounded ends)
+    Non-terminal box: height=32, rx=4 (subtle rounding)
+    Track vertical spacing: ~130px between track baselines
+    Label column: x=10, track starts at x=140
+    Line/dot color: #94A3B8
+    Terminal: fill=#3B82F6 fill-opacity=0.15, stroke=#3B82F6 stroke-opacity=0.5
+    Non-terminal: fill=#F59E0B fill-opacity=0.15, stroke=#F59E0B stroke-opacity=0.4
+    Loopback: below main line (standard railroad repetition)
+    Bypass: above main line for optional elements
+
+    Visual polish:
+      - Drop shadow filter on all boxes (subtle, dark-bg friendly)
+      - Label background pills with rounded rect behind each rule name
+      - Entry dots with outer ring; exit dots with double circle
+      - Separator lines between tracks
+      - Title text at top in accent color
+      - viewBox height +20 to accommodate title; content shifted down 8px
+  -->
+  <defs>
+    <filter id="shadow" x="-4%" y="-4%" width="108%" height="116%">
+      <feDropShadow dx="0" dy="1" stdDeviation="2" flood-color="#000000" flood-opacity="0.3"/>
+    </filter>
+    <marker id="arrow" viewBox="0 0 10 7" refX="10" refY="3.5" markerWidth="10" markerHeight="7" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 3.5 L 0 7 z" fill="#94A3B8"/>
+    </marker>
+    <style>
+      .title { font: 700 16px -apple-system, 'Segoe UI', Roboto, sans-serif; fill: #A5B4FC; }
+      .label { font: bold 14px 'SF Mono', 'Cascadia Code', 'Fira Code', monospace; fill: #94A3B8; }
+      .terminal rect { fill: #3B82F6; fill-opacity: 0.15; stroke: #3B82F6; stroke-width: 1.5; stroke-opacity: 0.5; filter: url(#shadow); }
+      .terminal text { font: 13px -apple-system, 'Segoe UI', Roboto, sans-serif; fill: #93C5FD; font-weight: 600; }
+      .nonterminal rect { fill: #F59E0B; fill-opacity: 0.15; stroke: #F59E0B; stroke-width: 1.5; stroke-opacity: 0.4; filter: url(#shadow); }
+      .nonterminal text { font: 13px -apple-system, 'Segoe UI', Roboto, sans-serif; fill: #FCD34D; font-weight: 500; }
+      .track { stroke: #94A3B8; stroke-width: 1.5; fill: none; }
+      .track-dot { fill: #94A3B8; }
+      .separator { stroke: #475569; stroke-width: 0.5; stroke-opacity: 0.3; }
+    </style>
+  </defs>
+
+  <!-- diagram title -->
+  <text class="title" x="410" y="22" text-anchor="middle">Statement grammar</text>
+
+  <!-- content shifted down 8px to accommodate title -->
+  <g transform="translate(0, 8)">
+
+    <!-- ==================== selectStmt ==================== -->
+    <!-- Main line at y=50, bypass above at y=10 -->
+    <g transform="translate(0, 30)">
+      <!-- label background pill -->
+      <g class="label-group">
+        <rect x="5" y="38" width="120" height="24" rx="6" fill="#94A3B8" fill-opacity="0.08" stroke="#94A3B8" stroke-width="0.5" stroke-opacity="0.2"/>
+        <text class="label" x="65" y="54" text-anchor="middle">selectStmt</text>
+      </g>
+
+      <!-- entry dot with ring -->
+      <circle class="track-dot" cx="140" cy="50" r="4"/>
+      <circle cx="140" cy="50" r="7" fill="none" stroke="#94A3B8" stroke-width="1" stroke-opacity="0.3"/>
+      <line class="track" x1="144" y1="50" x2="170" y2="50"/>
+
+      <!-- select keyword -->
+      <g class="terminal" transform="translate(170, 34)">
+        <rect width="72" height="32" rx="16"/>
+        <text x="36" y="16" text-anchor="middle" dominant-baseline="central">select</text>
+      </g>
+      <line class="track" x1="242" y1="50" x2="280" y2="50"/>
+
+      <!-- main path: where + condition -->
+      <g class="terminal" transform="translate(280, 34)">
+        <rect width="70" height="32" rx="16"/>
+        <text x="35" y="16" text-anchor="middle" dominant-baseline="central">where</text>
+      </g>
+      <line class="track" x1="350" y1="50" x2="380" y2="50"/>
+      <g class="nonterminal" transform="translate(380, 34)">
+        <rect width="100" height="32" rx="4"/>
+        <text x="50" y="16" text-anchor="middle" dominant-baseline="central">condition</text>
+      </g>
+      <line class="track" x1="480" y1="50" x2="540" y2="50"/>
+
+      <!-- bypass path above: skip where+condition -->
+      <path class="track" d="M 270,50 C 270,20 280,10 300,10 L 510,10 C 530,10 540,20 540,50"/>
+
+      <!-- exit dot with double circle -->
+      <circle class="track-dot" cx="540" cy="50" r="4"/>
+      <circle cx="540" cy="50" r="7" fill="none" stroke="#94A3B8" stroke-width="1.5" stroke-opacity="0.5"/>
+    </g>
+
+    <!-- separator between selectStmt and createStmt -->
+    <line class="separator" x1="10" y1="140" x2="810" y2="140"/>
+
+    <!-- ==================== createStmt ==================== -->
+    <!-- Main line at y=32, loopback below at y=72 -->
+    <g transform="translate(0, 150)">
+      <!-- label background pill -->
+      <g class="label-group">
+        <rect x="5" y="18" width="122" height="24" rx="6" fill="#94A3B8" fill-opacity="0.08" stroke="#94A3B8" stroke-width="0.5" stroke-opacity="0.2"/>
+        <text class="label" x="66" y="34" text-anchor="middle">createStmt</text>
+      </g>
+
+      <!-- entry dot with ring -->
+      <circle class="track-dot" cx="140" cy="32" r="4"/>
+      <circle cx="140" cy="32" r="7" fill="none" stroke="#94A3B8" stroke-width="1" stroke-opacity="0.3"/>
+      <line class="track" x1="144" y1="32" x2="170" y2="32"/>
+
+      <!-- create keyword -->
+      <g class="terminal" transform="translate(170, 16)">
+        <rect width="74" height="32" rx="16"/>
+        <text x="37" y="16" text-anchor="middle" dominant-baseline="central">create</text>
+      </g>
+      <line class="track" x1="244" y1="32" x2="280" y2="32"/>
+
+      <!-- assignment non-terminal -->
+      <g class="nonterminal" transform="translate(280, 16)">
+        <rect width="110" height="32" rx="4"/>
+        <text x="55" y="16" text-anchor="middle" dominant-baseline="central">assignment</text>
+      </g>
+      <line class="track" x1="390" y1="32" x2="440" y2="32"/>
+
+      <!-- loopback below: from after assignment back to before assignment -->
+      <path class="track" d="M 430,32 C 430,62 420,76 400,76 L 300,76 C 280,76 270,62 270,42"/>
+      <!-- arrowhead pointing up at the rejoin -->
+      <path d="M 265,46 L 270,36 L 275,46 z" fill="#94A3B8"/>
+
+      <!-- exit dot with double circle -->
+      <circle class="track-dot" cx="440" cy="32" r="4"/>
+      <circle cx="440" cy="32" r="7" fill="none" stroke="#94A3B8" stroke-width="1.5" stroke-opacity="0.5"/>
+    </g>
+
+    <!-- separator between createStmt and updateStmt -->
+    <line class="separator" x1="10" y1="270" x2="810" y2="270"/>
+
+    <!-- ==================== updateStmt ==================== -->
+    <!-- Main line at y=32, loopback below at y=76 -->
+    <g transform="translate(0, 280)">
+      <!-- label background pill -->
+      <g class="label-group">
+        <rect x="5" y="18" width="124" height="24" rx="6" fill="#94A3B8" fill-opacity="0.08" stroke="#94A3B8" stroke-width="0.5" stroke-opacity="0.2"/>
+        <text class="label" x="67" y="34" text-anchor="middle">updateStmt</text>
+      </g>
+
+      <!-- entry dot with ring -->
+      <circle class="track-dot" cx="140" cy="32" r="4"/>
+      <circle cx="140" cy="32" r="7" fill="none" stroke="#94A3B8" stroke-width="1" stroke-opacity="0.3"/>
+      <line class="track" x1="144" y1="32" x2="170" y2="32"/>
+
+      <!-- update keyword -->
+      <g class="terminal" transform="translate(170, 16)">
+        <rect width="78" height="32" rx="16"/>
+        <text x="39" y="16" text-anchor="middle" dominant-baseline="central">update</text>
+      </g>
+      <line class="track" x1="248" y1="32" x2="268" y2="32"/>
+
+      <!-- where keyword -->
+      <g class="terminal" transform="translate(268, 16)">
+        <rect width="70" height="32" rx="16"/>
+        <text x="35" y="16" text-anchor="middle" dominant-baseline="central">where</text>
+      </g>
+      <line class="track" x1="338" y1="32" x2="358" y2="32"/>
+
+      <!-- condition -->
+      <g class="nonterminal" transform="translate(358, 16)">
+        <rect width="100" height="32" rx="4"/>
+        <text x="50" y="16" text-anchor="middle" dominant-baseline="central">condition</text>
+      </g>
+      <line class="track" x1="458" y1="32" x2="478" y2="32"/>
+
+      <!-- set keyword -->
+      <g class="terminal" transform="translate(478, 16)">
+        <rect width="50" height="32" rx="16"/>
+        <text x="25" y="16" text-anchor="middle" dominant-baseline="central">set</text>
+      </g>
+      <line class="track" x1="528" y1="32" x2="548" y2="32"/>
+
+      <!-- assignment non-terminal -->
+      <g class="nonterminal" transform="translate(548, 16)">
+        <rect width="110" height="32" rx="4"/>
+        <text x="55" y="16" text-anchor="middle" dominant-baseline="central">assignment</text>
+      </g>
+      <line class="track" x1="658" y1="32" x2="710" y2="32"/>
+
+      <!-- loopback below -->
+      <path class="track" d="M 700,32 C 700,62 690,76 670,76 L 568,76 C 548,76 538,62 538,42"/>
+      <path d="M 533,46 L 538,36 L 543,46 z" fill="#94A3B8"/>
+
+      <!-- exit dot with double circle -->
+      <circle class="track-dot" cx="710" cy="32" r="4"/>
+      <circle cx="710" cy="32" r="7" fill="none" stroke="#94A3B8" stroke-width="1.5" stroke-opacity="0.5"/>
+    </g>
+
+    <!-- separator between updateStmt and deleteStmt -->
+    <line class="separator" x1="10" y1="400" x2="810" y2="400"/>
+
+    <!-- ==================== deleteStmt ==================== -->
+    <g transform="translate(0, 420)">
+      <!-- label background pill -->
+      <g class="label-group">
+        <rect x="5" y="18" width="120" height="24" rx="6" fill="#94A3B8" fill-opacity="0.08" stroke="#94A3B8" stroke-width="0.5" stroke-opacity="0.2"/>
+        <text class="label" x="65" y="34" text-anchor="middle">deleteStmt</text>
+      </g>
+
+      <!-- entry dot with ring -->
+      <circle class="track-dot" cx="140" cy="32" r="4"/>
+      <circle cx="140" cy="32" r="7" fill="none" stroke="#94A3B8" stroke-width="1" stroke-opacity="0.3"/>
+      <line class="track" x1="144" y1="32" x2="170" y2="32"/>
+
+      <!-- delete keyword -->
+      <g class="terminal" transform="translate(170, 16)">
+        <rect width="72" height="32" rx="16"/>
+        <text x="36" y="16" text-anchor="middle" dominant-baseline="central">delete</text>
+      </g>
+      <line class="track" x1="242" y1="32" x2="270" y2="32"/>
+
+      <!-- where keyword -->
+      <g class="terminal" transform="translate(270, 16)">
+        <rect width="70" height="32" rx="16"/>
+        <text x="35" y="16" text-anchor="middle" dominant-baseline="central">where</text>
+      </g>
+      <line class="track" x1="340" y1="32" x2="370" y2="32"/>
+
+      <!-- condition -->
+      <g class="nonterminal" transform="translate(370, 16)">
+        <rect width="100" height="32" rx="4"/>
+        <text x="50" y="16" text-anchor="middle" dominant-baseline="central">condition</text>
+      </g>
+      <line class="track" x1="470" y1="32" x2="510" y2="32"/>
+
+      <!-- exit dot with double circle -->
+      <circle class="track-dot" cx="510" cy="32" r="4"/>
+      <circle cx="510" cy="32" r="7" fill="none" stroke="#94A3B8" stroke-width="1.5" stroke-opacity="0.5"/>
+    </g>
+
+  </g>
+</svg>

@@ -13,9 +13,10 @@ type Statement struct {
 	Delete *DeleteStmt
 }
 
-// SelectStmt represents "select [where <condition>]".
+// SelectStmt represents "select [where <condition>] [order by <field> [asc|desc], ...]".
 type SelectStmt struct {
-	Where Condition // nil = select all
+	Where   Condition       // nil = select all
+	OrderBy []OrderByClause // nil = unordered
 }
 
 // CreateStmt represents "create <field>=<value>...".
@@ -180,6 +181,14 @@ func (*EmptyLiteral) exprNode()    {}
 func (*FunctionCall) exprNode()    {}
 func (*BinaryExpr) exprNode()      {}
 func (*SubQuery) exprNode()        {}
+
+// --- order by ---
+
+// OrderByClause represents a single sort criterion in "order by <field> [asc|desc]".
+type OrderByClause struct {
+	Field string // field name
+	Desc  bool   // true = descending, false = ascending (default)
+}
 
 // --- assignments ---
 

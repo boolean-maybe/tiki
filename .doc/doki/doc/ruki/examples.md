@@ -28,6 +28,14 @@ Select with a basic filter:
 select where status = "done" and priority <= 2
 ```
 
+Select with ordering:
+
+```sql
+select order by priority
+select where status = "done" order by updatedAt desc
+select where "bug" in tags order by priority asc, createdAt desc
+```
+
 Create a tiki:
 
 ```sql
@@ -219,4 +227,17 @@ Non-string `run(...)` command:
 
 ```sql
 after update run(1 + 2)
+```
+
+Ordering by a non-orderable field:
+
+```sql
+select order by tags
+select order by dependsOn
+```
+
+Order by inside a subquery:
+
+```sql
+select where count(select where status = "done" order by priority) >= 1
 ```

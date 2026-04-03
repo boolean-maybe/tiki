@@ -8,6 +8,7 @@
 - [Field and qualifier errors](#field-and-qualifier-errors)
 - [Type and operator errors](#type-and-operator-errors)
 - [Enum and list errors](#enum-and-list-errors)
+- [Order by errors](#order-by-errors)
 - [Built-in and subquery errors](#built-in-and-subquery-errors)
 
 ## Overview
@@ -15,6 +16,8 @@
 This page explains the errors you can get in Ruki. It covers syntax errors, unknown fields, type mismatches, invalid enum values, unsupported operators, and invalid trigger structure.
 
 ## Validation layers
+
+![Validation pipeline](images/validation-pipeline.svg)
 
 Ruki has two distinct failure stages:
 
@@ -164,6 +167,34 @@ create title="x" dependsOn=["TIKI-ABC123", title]
 select where "bug" in title
 select where status in dependsOn
 select where tags any status = "done"
+```
+
+## Order by errors
+
+Unknown field:
+
+```sql
+select order by nonexistent
+```
+
+Non-orderable types:
+
+```sql
+select order by tags
+select order by dependsOn
+select order by recurrence
+```
+
+Duplicate field:
+
+```sql
+select order by priority, priority desc
+```
+
+Order by inside a subquery:
+
+```sql
+select where count(select where status = "done" order by priority) >= 1
 ```
 
 ## Built-in and subquery errors
