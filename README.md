@@ -2,7 +2,14 @@ Follow me on X: [![X Badge](https://img.shields.io/badge/-%23000000.svg?style=fl
 
 # tiki
 
-UPDATE:
+**UPDATE**:
+
+Added test files. Try:
+```
+tiki https://github.com/boolean-maybe/tiki/blob/main/testdata/go-concurrency.md
+```
+
+**UPDATE**:
 
 New `chat with AI` action - open a tiki and press `c - Chat`. Opens your preferred terminal coding agent like
 [Claude Code](https://code.claude.com) and loads tiki description. You can chat or edit the tiki with your agent
@@ -14,7 +21,7 @@ ai:
   agent: [claude, codex, gemini, opencode]
 ```
 
-UPDATE:
+**UPDATE**:
 
 Now support images and Mermaid diagrams in Kitty-compatible terminals (iTerm2, Kitty, WezTerm, Ghostty)
 
@@ -94,6 +101,12 @@ tiki --help
 <img src=".doc/doki/doc/markdown-viewer.gif" alt="Markdown viewer demo" width="800">
 
 `tiki my-markdownfile` to view, edit and navigate markdown files in terminal.
+if you have no Markdown file to try - use this:
+```
+tiki https://github.com/boolean-maybe/tiki/blob/main/testdata/go-concurrency.md
+```
+
+
 All vim-like pager commands are supported in addition to:
 - `Tab/Enter` to select and load a link in the document
 - `e` to edit it in your favorite editor

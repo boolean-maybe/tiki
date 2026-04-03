@@ -12,7 +12,7 @@ tiki my-file.md
 
 - HTTP link
 ```
-tiki https://raw.githubusercontent.com/mxstbr/markdown-test-file/refs/heads/master/TEST.md
+tiki https://github.com/boolean-maybe/tiki/blob/main/testdata/go-concurrency.md
 ```
 
 - From STDIN
