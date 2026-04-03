@@ -13,9 +13,16 @@ type statementGrammar struct {
 	Delete *deleteGrammar `parser:"| @@"`
 }
 
+type fieldNamesGrammar struct {
+	First string   `parser:"@Ident"`
+	Rest  []string `parser:"( ',' @Ident )*"`
+}
+
 type selectGrammar struct {
-	Where   *orCond         `parser:"'select' ( 'where' @@ )?"`
-	OrderBy *orderByGrammar `parser:"@@?"`
+	Star    *string            `parser:"'select' ( @Star"`
+	Fields  *fieldNamesGrammar `parser:"           | @@ )?"`
+	Where   *orCond            `parser:"( 'where' @@ )?"`
+	OrderBy *orderByGrammar    `parser:"@@?"`
 }
 
 // --- order by grammar ---

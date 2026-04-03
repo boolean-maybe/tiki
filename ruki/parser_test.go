@@ -721,6 +721,96 @@ func TestParseSelectOrderBy(t *testing.T) {
 	}
 }
 
+func TestParseSelectFields(t *testing.T) {
+	p := newTestParser()
+
+	tests := []struct {
+		name        string
+		input       string
+		wantFields  []string // nil = all fields
+		wantWhere   bool
+		wantOrderBy int
+	}{
+		{"bare select", "select", nil, false, 0},
+		{"select star", "select *", nil, false, 0},
+		{"single field", "select title", []string{"title"}, false, 0},
+		{"two fields", "select id, title", []string{"id", "title"}, false, 0},
+		{"many fields", "select id, title, status, priority", []string{"id", "title", "status", "priority"}, false, 0},
+		{"fields + where", `select title, status where priority = 1`, []string{"title", "status"}, true, 0},
+		{"single field + where", `select title where status = "done"`, []string{"title"}, true, 0},
+		{"fields + order by", "select title order by priority", []string{"title"}, false, 1},
+		{"fields + where + order by", `select id, title where status = "done" order by priority desc`, []string{"id", "title"}, true, 1},
+		{"star + where", `select * where status = "done"`, nil, true, 0},
+		{"star + order by", "select * order by title", nil, false, 1},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			stmt, err := p.ParseStatement(tt.input)
+			if err != nil {
+				t.Fatalf("parse error: %v", err)
+			}
+			if stmt.Select == nil {
+				t.Fatal("expected Select")
+			}
+
+			// check fields
+			if tt.wantFields == nil {
+				if stmt.Select.Fields != nil {
+					t.Fatalf("expected nil Fields (all), got %v", stmt.Select.Fields)
+				}
+			} else {
+				if len(stmt.Select.Fields) != len(tt.wantFields) {
+					t.Fatalf("expected %d fields, got %d: %v", len(tt.wantFields), len(stmt.Select.Fields), stmt.Select.Fields)
+				}
+				for i, want := range tt.wantFields {
+					if stmt.Select.Fields[i] != want {
+						t.Errorf("Fields[%d] = %q, want %q", i, stmt.Select.Fields[i], want)
+					}
+				}
+			}
+
+			// check where
+			if tt.wantWhere && stmt.Select.Where == nil {
+				t.Fatal("expected Where condition")
+			}
+			if !tt.wantWhere && stmt.Select.Where != nil {
+				t.Fatal("unexpected Where condition")
+			}
+
+			// check order by
+			if len(stmt.Select.OrderBy) != tt.wantOrderBy {
+				t.Fatalf("expected %d OrderBy clauses, got %d", tt.wantOrderBy, len(stmt.Select.OrderBy))
+			}
+		})
+	}
+}
+
+func TestParseSelectFieldsErrors(t *testing.T) {
+	p := newTestParser()
+
+	tests := []struct {
+		name  string
+		input string
+	}{
+		{"trailing comma", "select title,"},
+		{"leading comma", "select , title"},
+		{"star + named fields", "select *, title"},
+		{"named fields + star", "select title, *"},
+		{"double star", "select * *"},
+		{"comma only", "select ,"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			_, err := p.ParseStatement(tt.input)
+			if err == nil {
+				t.Fatalf("expected parse error for %q, got nil", tt.input)
+			}
+		})
+	}
+}
+
 func TestParseComment(t *testing.T) {
 	p := newTestParser()
 

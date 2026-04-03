@@ -59,6 +59,9 @@ func (p *Parser) validateStatement(s *Statement) error {
 	case s.Delete != nil:
 		return p.validateCondition(s.Delete.Where)
 	case s.Select != nil:
+		if err := p.validateSelectFields(s.Select.Fields); err != nil {
+			return err
+		}
 		if s.Select.Where != nil {
 			if err := p.validateCondition(s.Select.Where); err != nil {
 				return err
@@ -133,6 +136,25 @@ func (p *Parser) validateAssignments(assignments []Assignment) error {
 		}
 		if err := p.checkAssignmentCompat(fs.Type, rhsType, a.Value); err != nil {
 			return fmt.Errorf("field %q: %w", a.Field, err)
+		}
+	}
+	return nil
+}
+
+// --- select field validation ---
+
+func (p *Parser) validateSelectFields(fields []string) error {
+	if len(fields) == 0 {
+		return nil
+	}
+	seen := make(map[string]struct{}, len(fields))
+	for _, f := range fields {
+		if _, dup := seen[f]; dup {
+			return fmt.Errorf("duplicate field %q in select", f)
+		}
+		seen[f] = struct{}{}
+		if _, ok := p.schema.Field(f); !ok {
+			return fmt.Errorf("unknown field %q in select", f)
 		}
 	}
 	return nil

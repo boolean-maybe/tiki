@@ -26,6 +26,7 @@ Ruki uses these token classes:
 - strings: double-quoted strings with backslash escapes
 - comparison operators: `=`, `!=`, `<`, `>`, `<=`, `>=`
 - binary operators: `+`, `-`
+- star: `*`
 - punctuation: `.`, `(`, `)`, `[`, `]`, `,`
 - identifiers: `[a-zA-Z_][a-zA-Z0-9_]*`
 
@@ -47,7 +48,8 @@ The following EBNF-style summary shows the grammar:
 ```text
 statement        = selectStmt | createStmt | updateStmt | deleteStmt ;
 
-selectStmt       = "select" [ "where" condition ] [ orderBy ] ;
+selectStmt       = "select" [ fieldList | "*" ] [ "where" condition ] [ orderBy ] ;
+fieldList        = identifier { "," identifier } ;
 createStmt       = "create" assignment { assignment } ;
 
 orderBy          = "order" "by" sortField { "," sortField } ;
@@ -78,6 +80,7 @@ Notes:
 - `delete` requires `where`.
 - `order by` is only valid on `select`, not on subqueries inside `count(...)`.
 - `asc`, `desc`, `order`, and `by` are contextual keywords — they are only special in the ORDER BY clause.
+- Bare `select` and `select *` both mean all fields. A field list like `select title, status` projects only the named fields.
 
 ## Condition grammar
 
@@ -118,6 +121,15 @@ select where assignee is empty
 select where status not in ["done", "cancelled"]
 select where dependsOn any status != "done"
 select where not (status = "done" or priority = 1)
+```
+
+Field list:
+
+```sql
+select title, status
+select id, title where status = "done"
+select * where priority <= 2
+select title, status where "bug" in tags order by priority
 ```
 
 Order by:
