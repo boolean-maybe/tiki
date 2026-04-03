@@ -1,6 +1,10 @@
 package workflow
 
-import "testing"
+import (
+	"testing"
+
+	"github.com/boolean-maybe/tiki/ruki"
+)
 
 func TestField(t *testing.T) {
 	tests := []struct {
@@ -70,5 +74,38 @@ func TestDateVsTimestamp(t *testing.T) {
 	updatedAt, _ := Field("updatedAt")
 	if updatedAt.Type != TypeTimestamp {
 		t.Errorf("updatedAt should be TypeTimestamp, got %v", updatedAt.Type)
+	}
+}
+
+func TestValidateFieldName_RejectsKeywords(t *testing.T) {
+	for _, kw := range ruki.ReservedKeywordsList() {
+		t.Run(kw, func(t *testing.T) {
+			err := ValidateFieldName(kw)
+			if err == nil {
+				t.Errorf("expected error for reserved keyword %q", kw)
+			}
+		})
+	}
+}
+
+func TestValidateFieldName_CaseInsensitive(t *testing.T) {
+	for _, name := range []string{"SELECT", "Where", "AND", "Order", "NEW"} {
+		t.Run(name, func(t *testing.T) {
+			err := ValidateFieldName(name)
+			if err == nil {
+				t.Errorf("expected error for %q", name)
+			}
+		})
+	}
+}
+
+func TestValidateFieldName_AcceptsNonKeywords(t *testing.T) {
+	for _, name := range []string{"title", "status", "selectAll", "newsletter", "priority", "dependsOn"} {
+		t.Run(name, func(t *testing.T) {
+			err := ValidateFieldName(name)
+			if err != nil {
+				t.Errorf("unexpected error for %q: %v", name, err)
+			}
+		})
 	}
 }
