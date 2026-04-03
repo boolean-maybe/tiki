@@ -3,7 +3,7 @@ package workflow
 import (
 	"testing"
 
-	"github.com/boolean-maybe/tiki/ruki"
+	"github.com/boolean-maybe/tiki/ruki/keyword"
 )
 
 func TestField(t *testing.T) {
@@ -78,7 +78,7 @@ func TestDateVsTimestamp(t *testing.T) {
 }
 
 func TestValidateFieldName_RejectsKeywords(t *testing.T) {
-	for _, kw := range ruki.ReservedKeywordsList() {
+	for _, kw := range keyword.List() {
 		t.Run(kw, func(t *testing.T) {
 			err := ValidateFieldName(kw)
 			if err == nil {

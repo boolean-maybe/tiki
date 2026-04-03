@@ -32,7 +32,7 @@ func tokenize(t *testing.T, input string) []lexer.Token {
 func TestTokenizeKeywords(t *testing.T) {
 	keywordType := rukiLexer.Symbols()["Keyword"]
 
-	for _, kw := range reservedKeywords {
+	for _, kw := range ReservedKeywordsList() {
 		t.Run(kw, func(t *testing.T) {
 			tokens := tokenize(t, kw)
 			if len(tokens) != 1 {
