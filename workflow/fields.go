@@ -1,5 +1,11 @@
 package workflow
 
+import (
+	"fmt"
+
+	"github.com/boolean-maybe/tiki/ruki"
+)
+
 // ValueType identifies the semantic type of a task field.
 type ValueType int
 
@@ -50,6 +56,9 @@ var fieldByName map[string]FieldDef
 func init() {
 	fieldByName = make(map[string]FieldDef, len(fieldCatalog))
 	for _, f := range fieldCatalog {
+		if ruki.IsReservedKeyword(f.Name) {
+			panic(fmt.Sprintf("field catalog contains reserved keyword: %q", f.Name))
+		}
 		fieldByName[f.Name] = f
 	}
 }
@@ -58,6 +67,14 @@ func init() {
 func Field(name string) (FieldDef, bool) {
 	f, ok := fieldByName[name]
 	return f, ok
+}
+
+// ValidateFieldName rejects names that collide with ruki reserved keywords.
+func ValidateFieldName(name string) error {
+	if ruki.IsReservedKeyword(name) {
+		return fmt.Errorf("field name %q is reserved", name)
+	}
+	return nil
 }
 
 // Fields returns the ordered list of all DSL-visible task fields.
