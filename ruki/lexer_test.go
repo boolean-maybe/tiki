@@ -203,3 +203,19 @@ func TestKeywordInIdentPosition_ParseError(t *testing.T) {
 		})
 	}
 }
+
+func TestIsReservedKeyword(t *testing.T) {
+	reserved := []string{"select", "SELECT", "where", "create", "update", "delete", "and", "or", "not", "in", "is", "empty", "any", "all", "set", "order", "by", "asc", "desc", "before", "after", "deny", "run", "old", "new"}
+	for _, kw := range reserved {
+		if !IsReservedKeyword(kw) {
+			t.Errorf("expected %q to be reserved", kw)
+		}
+	}
+
+	notReserved := []string{"title", "status", "foo", "bar", "hello"}
+	for _, kw := range notReserved {
+		if IsReservedKeyword(kw) {
+			t.Errorf("expected %q to NOT be reserved", kw)
+		}
+	}
+}

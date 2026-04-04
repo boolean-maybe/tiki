@@ -140,3 +140,10 @@ func TestMapValueTypeCompleteness(t *testing.T) {
 		seen[rv] = wt
 	}
 }
+
+func TestMapValueTypeUnknownFallback(t *testing.T) {
+	got := mapValueType(workflow.ValueType(999))
+	if got != ruki.ValueString {
+		t.Errorf("expected fallback to ValueString, got %d", got)
+	}
+}

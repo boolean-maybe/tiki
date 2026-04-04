@@ -2,6 +2,7 @@ package runtime
 
 import (
 	"bytes"
+	"fmt"
 	"strings"
 	"testing"
 	"time"
@@ -418,4 +419,82 @@ func nonEmptyLines(s string) []string {
 		}
 	}
 	return result
+}
+
+func TestTableFormatterWriteError(t *testing.T) {
+	proj := &ruki.TaskProjection{
+		Fields: []string{"id"},
+		Tasks:  []*task.Task{{ID: "TIKI-ABC123"}},
+	}
+
+	ew := &errorWriter{failAfter: 0}
+	err := NewTableFormatter().Format(ew, proj)
+	if err == nil {
+		t.Fatal("expected write error")
+	}
+}
+
+type errorWriter struct {
+	writes    int
+	failAfter int
+}
+
+func (w *errorWriter) Write(p []byte) (int, error) {
+	if w.writes >= w.failAfter {
+		return 0, fmt.Errorf("write error")
+	}
+	w.writes++
+	return len(p), nil
+}
+
+func TestRenderListNilSlice(t *testing.T) {
+	got := renderList(nil)
+	if got != "" {
+		t.Errorf("expected empty for nil, got %q", got)
+	}
+}
+
+func TestRenderListNonStringSlice(t *testing.T) {
+	got := renderList(42)
+	if got != "" {
+		t.Errorf("expected empty for non-slice, got %q", got)
+	}
+}
+
+func TestRenderIntNonInt(t *testing.T) {
+	got := renderInt("not an int")
+	if got != "" {
+		t.Errorf("expected empty for non-int, got %q", got)
+	}
+}
+
+func TestRenderDateNonTime(t *testing.T) {
+	got := renderDate("not a time")
+	if got != "" {
+		t.Errorf("expected empty for non-time, got %q", got)
+	}
+}
+
+func TestRenderTimestampNonTime(t *testing.T) {
+	got := renderTimestamp("not a time")
+	if got != "" {
+		t.Errorf("expected empty for non-time, got %q", got)
+	}
+}
+
+func TestEscapeScalar(t *testing.T) {
+	tests := []struct {
+		input, want string
+	}{
+		{"hello", "hello"},
+		{"line\nnewline", `line\nnewline`},
+		{"tab\there", `tab\there`},
+		{`back\slash`, `back\\slash`},
+	}
+	for _, tt := range tests {
+		got := escapeScalar(tt.input)
+		if got != tt.want {
+			t.Errorf("escapeScalar(%q) = %q, want %q", tt.input, got, tt.want)
+		}
+	}
 }
