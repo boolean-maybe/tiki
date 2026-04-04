@@ -461,6 +461,7 @@ func TestUnquoteString(t *testing.T) {
 		{"no quotes", "bare", "bare"},
 		{"empty quotes", `""`, ""},
 		{"single char", `"x"`, "x"},
+		{"invalid escape fallback", "\"bad\\qescape\"", "bad\\qescape"},
 	}
 
 	for _, tt := range tests {
@@ -470,5 +471,244 @@ func TestUnquoteString(t *testing.T) {
 				t.Errorf("unquoteString(%q) = %q, want %q", tt.input, got, tt.want)
 			}
 		})
+	}
+}
+
+// TestLower_EmptyStatement exercises the default branch of lowerStatement.
+func TestLower_EmptyStatement(t *testing.T) {
+	_, err := lowerStatement(&statementGrammar{})
+	if err == nil {
+		t.Fatal("expected error for empty statement grammar")
+	}
+	if err.Error() != "empty statement" {
+		t.Errorf("expected 'empty statement', got: %v", err)
+	}
+}
+
+// TestLower_EmptyTriggerAction exercises the default branch of lowerTriggerAction.
+func TestLower_EmptyTriggerAction(t *testing.T) {
+	trig := &Trigger{Timing: "after", Event: "update"}
+	err := lowerTriggerAction(&actionGrammar{}, trig)
+	if err == nil {
+		t.Fatal("expected error for empty trigger action")
+	}
+	if err.Error() != "empty trigger action" {
+		t.Errorf("expected 'empty trigger action', got: %v", err)
+	}
+}
+
+// TestLower_EmptyExpression exercises the default branch of lowerUnary.
+func TestLower_EmptyExpression(t *testing.T) {
+	_, err := lowerUnary(&unaryExpr{})
+	if err == nil {
+		t.Fatal("expected error for empty expression")
+	}
+	if err.Error() != "empty expression" {
+		t.Errorf("expected 'empty expression', got: %v", err)
+	}
+}
+
+// TestLower_InvalidDateLiteral exercises parseDateLiteral error path.
+func TestLower_InvalidDateLiteral(t *testing.T) {
+	_, err := parseDateLiteral("not-a-date")
+	if err == nil {
+		t.Fatal("expected error for invalid date literal")
+	}
+}
+
+// TestLower_InvalidDurationLiteral exercises parseDurationLiteral error paths.
+func TestLower_InvalidDurationLiteral(t *testing.T) {
+	tests := []struct {
+		name  string
+		input string
+	}{
+		{"no digits", "days"},
+		{"no unit", "123"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			_, err := parseDurationLiteral(tt.input)
+			if err == nil {
+				t.Fatal("expected error for invalid duration")
+			}
+		})
+	}
+}
+
+// TestLower_SubQueryOrderByRejected exercises the order by rejection in lowerSubQuery.
+func TestLower_SubQueryOrderByRejected(t *testing.T) {
+	dir := "asc"
+	sq := &subQueryExpr{
+		OrderBy: &orderByGrammar{
+			First: orderByField{Field: "priority", Direction: &dir},
+		},
+	}
+	_, err := lowerSubQuery(sq)
+	if err == nil {
+		t.Fatal("expected error for order by in subquery")
+	}
+	if err.Error() != "order by is not valid inside a subquery" {
+		t.Errorf("unexpected error: %v", err)
+	}
+}
+
+// TestLower_ExprCondBareExpression exercises the default branch of lowerExprCond.
+func TestLower_ExprCondBareExpression(t *testing.T) {
+	field := "title"
+	ec := &exprCond{
+		Left: exprGrammar{
+			Left: unaryExpr{FieldRef: &field},
+		},
+	}
+	_, err := lowerExprCond(ec)
+	if err == nil {
+		t.Fatal("expected error for bare expression as condition")
+	}
+	if err.Error() != "expression used as condition without comparison operator" {
+		t.Errorf("unexpected error: %v", err)
+	}
+}
+
+// TestLower_TriggerRunAction exercises the run action branch in lowerTriggerAction.
+func TestLower_TriggerRunAction(t *testing.T) {
+	p := newTestParser()
+
+	trig, err := p.ParseTrigger(`after update run("echo done")`)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if trig.Run == nil {
+		t.Fatal("expected non-nil run action")
+	}
+}
+
+// TestLower_TriggerUpdateAction exercises the update action branch in lowerTriggerAction.
+func TestLower_TriggerUpdateAction(t *testing.T) {
+	p := newTestParser()
+
+	trig, err := p.ParseTrigger(`after update where new.status = "done" update where id = new.id set priority=1`)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if trig.Action == nil || trig.Action.Update == nil {
+		t.Fatal("expected update action in trigger")
+	}
+}
+
+// TestLower_TriggerDeleteAction exercises the delete action branch in lowerTriggerAction.
+func TestLower_TriggerDeleteAction(t *testing.T) {
+	p := newTestParser()
+
+	trig, err := p.ParseTrigger(`after update where new.status = "done" delete where id = new.id`)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if trig.Action == nil || trig.Action.Delete == nil {
+		t.Fatal("expected delete action in trigger")
+	}
+}
+
+// TestLower_TriggerCreateAction exercises the create action branch in lowerTriggerAction.
+func TestLower_TriggerCreateAction(t *testing.T) {
+	p := newTestParser()
+
+	trig, err := p.ParseTrigger(`after update where new.status = "done" create title="follow-up"`)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if trig.Action == nil || trig.Action.Create == nil {
+		t.Fatal("expected create action in trigger")
+	}
+}
+
+// TestLower_TriggerWithoutWhereOrAction exercises trigger lowering with no where and no action.
+func TestLower_TriggerWithoutWhereOrAction(t *testing.T) {
+	p := newTestParser()
+
+	trig, err := p.ParseTrigger(`before delete deny "forbidden"`)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if trig.Where != nil {
+		t.Error("expected nil where")
+	}
+	if trig.Deny == nil {
+		t.Fatal("expected non-nil deny")
+	}
+}
+
+// TestLower_DeleteStatement exercises the delete lowering path.
+func TestLower_DeleteStatement(t *testing.T) {
+	p := newTestParser()
+
+	stmt, err := p.ParseStatement(`delete where status = "done"`)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if stmt.Delete == nil {
+		t.Fatal("expected delete statement")
+	}
+	if stmt.Delete.Where == nil {
+		t.Fatal("expected non-nil where in delete")
+	}
+}
+
+// TestLower_UpdateStatement exercises the update lowering path.
+func TestLower_UpdateStatement(t *testing.T) {
+	p := newTestParser()
+
+	stmt, err := p.ParseStatement(`update where status = "done" set priority=1`)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if stmt.Update == nil {
+		t.Fatal("expected update statement")
+	}
+}
+
+// TestLower_CreateStatement exercises the create lowering path.
+func TestLower_CreateStatement(t *testing.T) {
+	p := newTestParser()
+
+	stmt, err := p.ParseStatement(`create title="hello"`)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if stmt.Create == nil {
+		t.Fatal("expected create statement")
+	}
+}
+
+// TestLower_OrCondChain exercises the or condition chaining in lowerOrCond.
+func TestLower_OrCondChain(t *testing.T) {
+	p := newTestParser()
+
+	stmt, err := p.ParseStatement(`select where status = "done" or status = "ready" or status = "backlog"`)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	bc, ok := stmt.Select.Where.(*BinaryCondition)
+	if !ok {
+		t.Fatalf("expected BinaryCondition, got %T", stmt.Select.Where)
+	}
+	if bc.Op != "or" {
+		t.Errorf("expected 'or', got %q", bc.Op)
+	}
+}
+
+// TestLower_AndCondChain exercises the and condition chaining in lowerAndCond.
+func TestLower_AndCondChain(t *testing.T) {
+	p := newTestParser()
+
+	stmt, err := p.ParseStatement(`select where priority = 1 and status = "done" and assignee = "bob"`)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	bc, ok := stmt.Select.Where.(*BinaryCondition)
+	if !ok {
+		t.Fatalf("expected BinaryCondition, got %T", stmt.Select.Where)
+	}
+	if bc.Op != "and" {
+		t.Errorf("expected 'and', got %q", bc.Op)
 	}
 }

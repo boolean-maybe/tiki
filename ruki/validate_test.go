@@ -1671,3 +1671,427 @@ func TestValidation_ListAssignmentRejectsFieldRefs(t *testing.T) {
 		})
 	}
 }
+
+func TestValidation_TypeNameCoverage(t *testing.T) {
+	tests := []struct {
+		typ  ValueType
+		want string
+	}{
+		{ValueString, "string"},
+		{ValueInt, "int"},
+		{ValueDate, "date"},
+		{ValueTimestamp, "timestamp"},
+		{ValueDuration, "duration"},
+		{ValueBool, "bool"},
+		{ValueID, "id"},
+		{ValueRef, "ref"},
+		{ValueRecurrence, "recurrence"},
+		{ValueListString, "list<string>"},
+		{ValueListRef, "list<ref>"},
+		{ValueStatus, "status"},
+		{ValueTaskType, "type"},
+		{-1, "empty"},
+		{ValueType(999), "unknown"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.want, func(t *testing.T) {
+			got := typeName(tt.typ)
+			if got != tt.want {
+				t.Errorf("typeName(%d) = %q, want %q", tt.typ, got, tt.want)
+			}
+		})
+	}
+}
+
+func TestValidation_ResolveEmptyPairBothEmpty(t *testing.T) {
+	a, b := resolveEmptyPair(-1, -1)
+	if a != -1 || b != -1 {
+		t.Errorf("expected both -1, got %d, %d", a, b)
+	}
+}
+
+func TestValidation_MembershipCompatibleEdgeCases(t *testing.T) {
+	tests := []struct {
+		name string
+		a, b ValueType
+		want bool
+	}{
+		{"same type", ValueString, ValueString, true},
+		{"empty a", -1, ValueString, true},
+		{"empty b", ValueString, -1, true},
+		{"id and ref", ValueID, ValueRef, true},
+		{"ref and id", ValueRef, ValueID, true},
+		{"string and int", ValueString, ValueInt, false},
+		{"status and string", ValueStatus, ValueString, false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := membershipCompatible(tt.a, tt.b)
+			if got != tt.want {
+				t.Errorf("membershipCompatible(%d, %d) = %v, want %v", tt.a, tt.b, got, tt.want)
+			}
+		})
+	}
+}
+
+func TestValidation_IsRefCompatible(t *testing.T) {
+	tests := []struct {
+		typ  ValueType
+		want bool
+	}{
+		{ValueRef, true},
+		{ValueID, true},
+		{ValueString, false},
+		{ValueInt, false},
+		{ValueListRef, false},
+	}
+
+	for _, tt := range tests {
+		t.Run(typeName(tt.typ), func(t *testing.T) {
+			got := isRefCompatible(tt.typ)
+			if got != tt.want {
+				t.Errorf("isRefCompatible(%d) = %v, want %v", tt.typ, got, tt.want)
+			}
+		})
+	}
+}
+
+func TestValidation_CheckCompareOpUnknown(t *testing.T) {
+	err := checkCompareOp(ValueInt, "~")
+	if err == nil {
+		t.Fatal("expected error for unknown operator")
+	}
+	if !strings.Contains(err.Error(), "unknown operator") {
+		t.Errorf("expected 'unknown operator', got: %v", err)
+	}
+}
+
+func TestValidation_IsOrderableType(t *testing.T) {
+	orderable := []ValueType{ValueInt, ValueDate, ValueTimestamp, ValueDuration, ValueString, ValueStatus, ValueTaskType, ValueID, ValueRef}
+	for _, vt := range orderable {
+		if !isOrderableType(vt) {
+			t.Errorf("expected %s to be orderable", typeName(vt))
+		}
+	}
+
+	notOrderable := []ValueType{ValueBool, ValueListString, ValueListRef, ValueRecurrence}
+	for _, vt := range notOrderable {
+		if isOrderableType(vt) {
+			t.Errorf("expected %s to NOT be orderable", typeName(vt))
+		}
+	}
+}
+
+func TestValidation_IsStringLike(t *testing.T) {
+	stringLike := []ValueType{ValueString, ValueStatus, ValueTaskType, ValueID, ValueRef}
+	for _, vt := range stringLike {
+		if !isStringLike(vt) {
+			t.Errorf("expected %s to be string-like", typeName(vt))
+		}
+	}
+
+	notStringLike := []ValueType{ValueInt, ValueDate, ValueBool, ValueListString}
+	for _, vt := range notStringLike {
+		if isStringLike(vt) {
+			t.Errorf("expected %s to NOT be string-like", typeName(vt))
+		}
+	}
+}
+
+func TestValidation_IsEnumType(t *testing.T) {
+	if !isEnumType(ValueStatus) {
+		t.Error("expected ValueStatus to be enum")
+	}
+	if !isEnumType(ValueTaskType) {
+		t.Error("expected ValueTaskType to be enum")
+	}
+	if isEnumType(ValueString) {
+		t.Error("expected ValueString to NOT be enum")
+	}
+}
+
+func TestValidation_TypesCompatible(t *testing.T) {
+	tests := []struct {
+		name string
+		a, b ValueType
+		want bool
+	}{
+		{"same type", ValueInt, ValueInt, true},
+		{"empty a", -1, ValueString, true},
+		{"empty b", ValueString, -1, true},
+		{"string-like pair", ValueString, ValueID, true},
+		{"status and string", ValueStatus, ValueString, true},
+		{"int and string", ValueInt, ValueString, false},
+		{"date and int", ValueDate, ValueInt, false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := typesCompatible(tt.a, tt.b)
+			if got != tt.want {
+				t.Errorf("typesCompatible(%s, %s) = %v, want %v", typeName(tt.a), typeName(tt.b), got, tt.want)
+			}
+		})
+	}
+}
+
+func TestValidation_InferBinaryExprUnknownOp(t *testing.T) {
+	p := newTestParser()
+
+	b := &BinaryExpr{
+		Op:    "*",
+		Left:  &IntLiteral{Value: 1},
+		Right: &IntLiteral{Value: 2},
+	}
+	_, err := p.inferBinaryExprType(b)
+	if err == nil {
+		t.Fatal("expected error for unknown binary operator")
+	}
+	if !strings.Contains(err.Error(), "unknown binary operator") {
+		t.Errorf("expected 'unknown binary operator', got: %v", err)
+	}
+}
+
+func TestValidation_InferExprTypeSubqueryBare(t *testing.T) {
+	p := newTestParser()
+
+	sq := &SubQuery{}
+	_, err := p.inferExprType(sq)
+	if err == nil {
+		t.Fatal("expected error for bare subquery")
+	}
+	if !strings.Contains(err.Error(), "subquery is only valid as argument to count") {
+		t.Errorf("unexpected error: %v", err)
+	}
+}
+
+type valFakeCondition struct{}
+
+func (*valFakeCondition) conditionNode() {}
+
+func TestValidation_ValidateConditionUnknownType(t *testing.T) {
+	p := newTestParser()
+
+	err := p.validateCondition(&valFakeCondition{})
+	if err == nil {
+		t.Fatal("expected error for unknown condition type")
+	}
+	if !strings.Contains(err.Error(), "unknown condition type") {
+		t.Errorf("unexpected error: %v", err)
+	}
+}
+
+type valFakeExpr struct{}
+
+func (*valFakeExpr) exprNode() {}
+
+func TestValidation_InferExprTypeUnknownType(t *testing.T) {
+	p := newTestParser()
+
+	_, err := p.inferExprType(&valFakeExpr{})
+	if err == nil {
+		t.Fatal("expected error for unknown expression type")
+	}
+	if !strings.Contains(err.Error(), "unknown expression type") {
+		t.Errorf("unexpected error: %v", err)
+	}
+}
+
+func TestValidation_ListElementType(t *testing.T) {
+	tests := []struct {
+		typ  ValueType
+		want ValueType
+	}{
+		{ValueListString, ValueString},
+		{ValueListRef, ValueRef},
+		{ValueString, -1},
+		{ValueInt, -1},
+	}
+	for _, tt := range tests {
+		got := listElementType(tt.typ)
+		if got != tt.want {
+			t.Errorf("listElementType(%s) = %d, want %d", typeName(tt.typ), got, tt.want)
+		}
+	}
+}
+
+func TestValidation_BeforeTriggerValidation(t *testing.T) {
+	p := newTestParser()
+
+	tests := []struct {
+		name    string
+		input   string
+		wantErr string
+	}{
+		{
+			"before with action",
+			`before update update where id = "x" set status="done"`,
+			"before-trigger must not have an action",
+		},
+		{
+			"before without deny",
+			`before update where status = "done"`,
+			"before-trigger must have deny",
+		},
+		{
+			"after with deny",
+			`after update deny "no"`,
+			"after-trigger must not have deny",
+		},
+		{
+			"after without action",
+			`after update where status = "done"`,
+			"after-trigger must have an action",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			_, err := p.ParseTrigger(tt.input)
+			if err == nil {
+				t.Fatal("expected error, got nil")
+			}
+			if !strings.Contains(err.Error(), tt.wantErr) {
+				t.Fatalf("expected error containing %q, got: %v", tt.wantErr, err)
+			}
+		})
+	}
+}
+
+func TestValidation_InferListTypeRefElements(t *testing.T) {
+	p := newTestParser()
+
+	stmt, err := p.ParseStatement(`create title="x" dependsOn=["TIKI-A", "TIKI-B"]`)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if stmt.Create == nil {
+		t.Fatal("expected create statement")
+	}
+}
+
+func TestValidation_InferListTypeEmptyList(t *testing.T) {
+	p := newTestParser()
+
+	stmt, err := p.ParseStatement(`create title="x" tags=[]`)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if stmt.Create == nil {
+		t.Fatal("expected create statement")
+	}
+}
+
+func TestValidation_DateMinusDuration(t *testing.T) {
+	p := newTestParser()
+
+	_, err := p.ParseStatement(`select where due > 2026-03-25 - 1week`)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
+func TestValidation_ListRefPlusIdField(t *testing.T) {
+	p := newTestParser()
+
+	_, err := p.ParseStatement(`create title="x" dependsOn=dependsOn + id`)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
+func TestValidation_ListRefMinusIdField(t *testing.T) {
+	p := newTestParser()
+
+	_, err := p.ParseStatement(`create title="x" dependsOn=dependsOn - id`)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
+func TestValidation_ListRefMinusListRef(t *testing.T) {
+	p := newTestParser()
+
+	_, err := p.ParseStatement(`create title="x" dependsOn=dependsOn - dependsOn`)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
+func TestValidation_IntMinusInt(t *testing.T) {
+	p := newTestParser()
+
+	_, err := p.ParseStatement(`create title="x" priority=3 - 1`)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
+func TestValidation_ListStringPlusListString(t *testing.T) {
+	p := newTestParser()
+
+	_, err := p.ParseStatement(`create title="x" tags=tags + tags`)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
+func TestValidation_ListStringMinusListString(t *testing.T) {
+	p := newTestParser()
+
+	_, err := p.ParseStatement(`create title="x" tags=tags - tags`)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
+func TestValidation_ListRefPlusListRef(t *testing.T) {
+	p := newTestParser()
+
+	_, err := p.ParseStatement(`create title="x" dependsOn=dependsOn + dependsOn`)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
+func TestValidation_FuncArgRangeError(t *testing.T) {
+	p := newTestParser()
+
+	fc := &FunctionCall{
+		Name: "contains",
+		Args: []Expr{&StringLiteral{Value: "a"}},
+	}
+	_, err := p.inferFuncCallType(fc)
+	if err == nil {
+		t.Fatal("expected error for wrong arg count")
+	}
+	if !strings.Contains(err.Error(), "expects 2 argument(s)") {
+		t.Errorf("unexpected error: %v", err)
+	}
+}
+
+func TestValidation_CheckCompareCompatBothEnums(t *testing.T) {
+	p := newTestParser()
+
+	_, err := p.ParseStatement(`select where status = type`)
+	if err == nil {
+		t.Fatal("expected error comparing status with type")
+	}
+	if !strings.Contains(err.Error(), "cannot compare") {
+		t.Errorf("unexpected error: %v", err)
+	}
+}
+
+func TestValidation_ListRefAssignFromListString(t *testing.T) {
+	p := newTestParser()
+
+	_, err := p.ParseStatement(`create title="x" dependsOn=tags`)
+	if err == nil {
+		t.Fatal("expected error assigning list<string> to list<ref>")
+	}
+	if !strings.Contains(err.Error(), "cannot assign") {
+		t.Errorf("unexpected error: %v", err)
+	}
+}
