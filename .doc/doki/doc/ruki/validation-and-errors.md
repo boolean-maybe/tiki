@@ -80,6 +80,15 @@ select where foo = "bar"
 create title="x" foo="bar"
 ```
 
+Immutable field errors:
+
+- `id`, `createdBy`, `createdAt`, and `updatedAt` cannot be assigned in `create` or `update`
+
+```sql
+create title="x" id="TIKI-ABC123"
+update where status = "done" set createdBy="someone"
+```
+
 Qualifier misuse:
 
 - `old.` and `new.` are invalid in standalone statements
@@ -95,6 +104,18 @@ create title=old.title
 after create where old.status = "done" update where id = new.id set status="done"
 before delete where new.status = "done" deny "x"
 before update where dependsOn any old.status = "done" deny "blocked"
+```
+
+## Required field errors
+
+The resulting task from `create` must have a non-empty `title`. If the template does not provide one, a `title=...` assignment is required.
+
+`title`, `status`, `type`, and `priority` reject `empty` assignment:
+
+```sql
+create title="" priority=2
+create title="x" status=empty
+update where id = "TIKI-ABC123" set priority=empty
 ```
 
 ## Type and operator errors

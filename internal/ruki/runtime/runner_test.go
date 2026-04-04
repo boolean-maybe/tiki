@@ -88,16 +88,29 @@ func TestRunSelectQueryParseError(t *testing.T) {
 	}
 }
 
-func TestRunSelectQueryNonSelectRejected(t *testing.T) {
+func TestRunSelectQueryRejectsNonSelect(t *testing.T) {
 	s := setupRunnerTest(t)
 
-	var buf bytes.Buffer
-	err := RunSelectQuery(s, `create title="test"`, &buf)
-	if err == nil {
-		t.Fatal("expected error for unsupported statement")
+	tests := []struct {
+		name  string
+		query string
+	}{
+		{"rejects create", `create title="via legacy"`},
+		{"rejects update", `update where id = "TIKI-AAA001" set title="x"`},
+		{"rejects delete", `delete where id = "TIKI-AAA001"`},
 	}
-	if !strings.Contains(err.Error(), "not supported") {
-		t.Errorf("error should mention not supported: %v", err)
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var buf bytes.Buffer
+			err := RunSelectQuery(s, tt.query, &buf)
+			if err == nil {
+				t.Fatal("expected error for non-SELECT statement via RunSelectQuery")
+			}
+			if !strings.Contains(err.Error(), "only supports SELECT") {
+				t.Errorf("expected 'only supports SELECT' error, got: %v", err)
+			}
+		})
 	}
 }
 
@@ -314,11 +327,11 @@ func TestRunQueryResolveUserErrorUpdate(t *testing.T) {
 func TestRunQueryExecuteError(t *testing.T) {
 	s := setupRunnerTest(t)
 
-	// delete statement is parsed but executor returns "not supported" error
+	// call() is rejected at runtime, triggering an execute error
 	var buf bytes.Buffer
-	err := RunQuery(s, `delete where id = "X"`, &buf)
+	err := RunQuery(s, `select where call("echo") = "x"`, &buf)
 	if err == nil {
-		t.Fatal("expected error for unsupported delete")
+		t.Fatal("expected execute error")
 	}
 	if !strings.Contains(err.Error(), "execute") {
 		t.Errorf("expected execute error, got: %v", err)
@@ -336,4 +349,222 @@ func TestRunQueryUpdateInvalidPointsE2E(t *testing.T) {
 	if !strings.Contains(err.Error(), "invalid points") {
 		t.Errorf("expected 'invalid points' error, got: %v", err)
 	}
+}
+
+// --- CREATE via runner ---
+
+func TestRunQueryCreatePersists(t *testing.T) {
+	s := setupRunnerTest(t)
+
+	var buf bytes.Buffer
+	err := RunQuery(s, `create title="New Task" status="ready" priority=1`, &buf)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	out := buf.String()
+	if !strings.Contains(out, "created TIKI-") {
+		t.Fatalf("expected 'created TIKI-' in output, got: %s", out)
+	}
+
+	// verify task exists in store
+	allTasks := s.GetAllTasks()
+	var found *task.Task
+	for _, tk := range allTasks {
+		if tk.Title == "New Task" {
+			found = tk
+			break
+		}
+	}
+	if found == nil {
+		t.Fatal("created task not found in store")
+	}
+	if !strings.HasPrefix(found.ID, "TIKI-") || len(found.ID) != 11 {
+		t.Errorf("ID = %q, want TIKI-XXXXXX format (11 chars)", found.ID)
+	}
+	if found.Priority != 1 {
+		t.Errorf("priority = %d, want 1", found.Priority)
+	}
+}
+
+func TestRunQueryCreateMissingTitle(t *testing.T) {
+	s := setupRunnerTest(t)
+
+	var buf bytes.Buffer
+	err := RunQuery(s, `create priority=1 status="ready"`, &buf)
+	if err == nil {
+		t.Fatal("expected error for missing title")
+	}
+	if !strings.Contains(err.Error(), "title") {
+		t.Errorf("expected title error, got: %v", err)
+	}
+}
+
+func TestRunQueryCreateTemplateDefaults(t *testing.T) {
+	s := setupRunnerTest(t)
+
+	var buf bytes.Buffer
+	err := RunQuery(s, `create title="Templated" tags=tags+["extra"]`, &buf)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	allTasks := s.GetAllTasks()
+	var found *task.Task
+	for _, tk := range allTasks {
+		if tk.Title == "Templated" {
+			found = tk
+			break
+		}
+	}
+	if found == nil {
+		t.Fatal("created task not found in store")
+	}
+	// InMemoryStore template has tags=["idea"], so result should be ["idea", "extra"]
+	if len(found.Tags) != 2 || found.Tags[0] != "idea" || found.Tags[1] != "extra" {
+		t.Errorf("tags = %v, want [idea extra]", found.Tags)
+	}
+	// priority should be template default (7)
+	if found.Priority != 7 {
+		t.Errorf("priority = %d, want 7 (template default)", found.Priority)
+	}
+}
+
+func TestRunQueryCreateTemplateFailure(t *testing.T) {
+	s := setupRunnerTest(t)
+	fs := &failingTemplateStore{Store: s}
+
+	var buf bytes.Buffer
+	err := RunQuery(fs, `create title="test"`, &buf)
+	if err == nil {
+		t.Fatal("expected error for template failure")
+	}
+	if !strings.Contains(err.Error(), "create template") {
+		t.Errorf("expected 'create template' error, got: %v", err)
+	}
+}
+
+// failingTemplateStore wraps a Store and fails NewTaskTemplate.
+type failingTemplateStore struct {
+	store.Store
+}
+
+func (f *failingTemplateStore) NewTaskTemplate() (*task.Task, error) {
+	return nil, fmt.Errorf("simulated template failure")
+}
+
+func TestRunQueryCreateNilTemplate(t *testing.T) {
+	s := setupRunnerTest(t)
+	fs := &nilTemplateStore{Store: s}
+
+	var buf bytes.Buffer
+	err := RunQuery(fs, `create title="test"`, &buf)
+	if err == nil {
+		t.Fatal("expected error for nil template")
+	}
+	if !strings.Contains(err.Error(), "nil template") {
+		t.Errorf("expected 'nil template' error, got: %v", err)
+	}
+}
+
+// nilTemplateStore wraps a Store and returns (nil, nil) from NewTaskTemplate.
+type nilTemplateStore struct {
+	store.Store
+}
+
+func (f *nilTemplateStore) NewTaskTemplate() (*task.Task, error) {
+	return nil, nil
+}
+
+func TestRunQueryCreateTaskFailure(t *testing.T) {
+	s := setupRunnerTest(t)
+	fs := &failingCreateStore{Store: s}
+
+	var buf bytes.Buffer
+	err := RunQuery(fs, `create title="test"`, &buf)
+	if err == nil {
+		t.Fatal("expected error for CreateTask failure")
+	}
+	if !strings.Contains(err.Error(), "create task") {
+		t.Errorf("expected 'create task' error, got: %v", err)
+	}
+}
+
+// failingCreateStore wraps a Store and fails CreateTask.
+type failingCreateStore struct {
+	store.Store
+}
+
+func (f *failingCreateStore) CreateTask(t *task.Task) error {
+	return fmt.Errorf("simulated create failure")
+}
+
+// --- DELETE via runner ---
+
+func TestRunQueryDeletePersists(t *testing.T) {
+	s := setupRunnerTest(t)
+
+	var buf bytes.Buffer
+	err := RunQuery(s, `delete where id = "TIKI-AAA001"`, &buf)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	out := buf.String()
+	if !strings.Contains(out, "deleted 1 tasks") {
+		t.Errorf("expected 'deleted 1 tasks' in output, got: %s", out)
+	}
+	if s.GetTask("TIKI-AAA001") != nil {
+		t.Error("task should be deleted from store")
+	}
+}
+
+func TestRunQueryDeleteZeroMatches(t *testing.T) {
+	s := setupRunnerTest(t)
+
+	var buf bytes.Buffer
+	err := RunQuery(s, `delete where id = "NONEXISTENT"`, &buf)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	out := buf.String()
+	if !strings.Contains(out, "deleted 0 tasks") {
+		t.Errorf("expected 'deleted 0 tasks' in output, got: %s", out)
+	}
+}
+
+func TestRunQueryDeletePartialFailure(t *testing.T) {
+	s := setupRunnerTest(t)
+	// add a second ready task so we match multiple
+	_ = s.CreateTask(&task.Task{ID: "TIKI-CCC003", Title: "Third", Status: "ready", Priority: 3})
+
+	fs := &failingDeleteStore{Store: s, failID: "TIKI-AAA001"}
+
+	var buf bytes.Buffer
+	err := RunQuery(fs, `delete where status = "ready"`, &buf)
+
+	out := buf.String()
+	if err == nil {
+		t.Fatal("expected error for partial failure")
+	}
+	if !strings.Contains(out, "failed") {
+		t.Errorf("expected 'failed' in output, got: %s", out)
+	}
+	if !strings.Contains(err.Error(), "partially failed") {
+		t.Errorf("expected 'partially failed' in error, got: %v", err)
+	}
+}
+
+// failingDeleteStore wraps a Store and silently no-ops DeleteTask for a specific ID.
+type failingDeleteStore struct {
+	store.Store
+	failID string
+}
+
+func (f *failingDeleteStore) DeleteTask(id string) {
+	if id == f.failID {
+		return // simulate silent failure
+	}
+	f.Store.DeleteTask(id)
 }

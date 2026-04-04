@@ -3,8 +3,9 @@ package ruki
 import (
 	"fmt"
 	"strconv"
-	"strings"
 	"time"
+
+	"github.com/boolean-maybe/tiki/util/duration"
 )
 
 // lower.go converts participle grammar structs into clean AST types.
@@ -394,20 +395,9 @@ func parseDateLiteral(s string) (Expr, error) {
 }
 
 func parseDurationLiteral(s string) (Expr, error) {
-	// find where digits end and unit begins
-	i := 0
-	for i < len(s) && s[i] >= '0' && s[i] <= '9' {
-		i++
-	}
-	if i == 0 || i == len(s) {
-		return nil, fmt.Errorf("invalid duration literal %q", s)
-	}
-
-	val, err := strconv.Atoi(s[:i])
+	val, unit, err := duration.Parse(s)
 	if err != nil {
-		return nil, fmt.Errorf("invalid duration value in %q: %w", s, err)
+		return nil, err
 	}
-
-	unit := strings.TrimSuffix(s[i:], "s") // normalize "days" → "day"
 	return &DurationLiteral{Value: val, Unit: unit}, nil
 }

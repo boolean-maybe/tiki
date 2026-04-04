@@ -81,7 +81,8 @@ Qualified and unqualified references are not literals, but they participate in t
 
 Implemented behavior:
 
-- `empty` can be assigned to any field type
+- `empty` can be assigned to most field types
+- `title`, `status`, `type`, and `priority` reject `empty` assignment — these fields are required
 - `empty` can be compared against any typed expression
 - `is empty` and `is not empty` are allowed for any expression type
 

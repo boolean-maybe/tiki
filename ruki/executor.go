@@ -7,13 +7,20 @@ import (
 	"time"
 
 	"github.com/boolean-maybe/tiki/task"
+	"github.com/boolean-maybe/tiki/util/duration"
 )
 
 // Executor evaluates parsed ruki statements against a set of tasks.
 type Executor struct {
 	schema   Schema
 	userFunc func() string
+	template *task.Task
 }
+
+// SetTemplate sets the base task template for CREATE execution.
+// When set, CREATE assignments are evaluated against a clone of this template,
+// so field references (e.g. tags=tags+["new"]) resolve from template defaults.
+func (e *Executor) SetTemplate(t *task.Task) { e.template = t }
 
 // NewExecutor constructs an Executor with the given schema and user function.
 // If userFunc is nil, calling user() at runtime will return "".
@@ -29,11 +36,23 @@ func NewExecutor(schema Schema, userFunc func() string) *Executor {
 type Result struct {
 	Select *TaskProjection
 	Update *UpdateResult
+	Create *CreateResult
+	Delete *DeleteResult
 }
 
 // UpdateResult holds the cloned, mutated tasks produced by an UPDATE statement.
 type UpdateResult struct {
 	Updated []*task.Task
+}
+
+// CreateResult holds the new task produced by a CREATE statement.
+type CreateResult struct {
+	Task *task.Task
+}
+
+// DeleteResult holds the tasks matched by a DELETE statement's WHERE clause.
+type DeleteResult struct {
+	Deleted []*task.Task
 }
 
 // TaskProjection holds the filtered, sorted tasks and the requested field list.
@@ -51,11 +70,11 @@ func (e *Executor) Execute(stmt *Statement, tasks []*task.Task) (*Result, error)
 	case stmt.Select != nil:
 		return e.executeSelect(stmt.Select, tasks)
 	case stmt.Create != nil:
-		return nil, fmt.Errorf("create is not supported yet")
+		return e.executeCreate(stmt.Create, tasks)
 	case stmt.Update != nil:
 		return e.executeUpdate(stmt.Update, tasks)
 	case stmt.Delete != nil:
-		return nil, fmt.Errorf("delete is not supported yet")
+		return e.executeDelete(stmt.Delete, tasks)
 	default:
 		return nil, fmt.Errorf("empty statement")
 	}
@@ -103,6 +122,36 @@ func (e *Executor) executeUpdate(upd *UpdateStmt, tasks []*task.Task) (*Result, 
 	}
 
 	return &Result{Update: &UpdateResult{Updated: clones}}, nil
+}
+
+func (e *Executor) executeCreate(cr *CreateStmt, tasks []*task.Task) (*Result, error) {
+	var t *task.Task
+	if e.template != nil {
+		t = e.template.Clone()
+	} else {
+		t = &task.Task{}
+	}
+
+	for _, a := range cr.Assignments {
+		val, err := e.evalExpr(a.Value, t, tasks)
+		if err != nil {
+			return nil, fmt.Errorf("field %q: %w", a.Field, err)
+		}
+		if err := e.setField(t, a.Field, val); err != nil {
+			return nil, fmt.Errorf("field %q: %w", a.Field, err)
+		}
+	}
+
+	return &Result{Create: &CreateResult{Task: t}}, nil
+}
+
+func (e *Executor) executeDelete(del *DeleteStmt, tasks []*task.Task) (*Result, error) {
+	matched, err := e.filterTasks(del.Where, tasks)
+	if err != nil {
+		return nil, err
+	}
+
+	return &Result{Delete: &DeleteResult{Deleted: matched}}, nil
 }
 
 func (e *Executor) setField(t *task.Task, name string, val interface{}) error {
@@ -452,7 +501,11 @@ func (e *Executor) evalExpr(expr Expr, t *task.Task, allTasks []*task.Task) (int
 	case *DateLiteral:
 		return expr.Value, nil
 	case *DurationLiteral:
-		return durationToTimeDelta(expr.Value, expr.Unit), nil
+		d, err := duration.ToDuration(expr.Value, expr.Unit)
+		if err != nil {
+			return nil, err
+		}
+		return d, nil
 	case *ListLiteral:
 		return e.evalListLiteral(expr, t, allTasks)
 	case *EmptyLiteral:
@@ -1083,24 +1136,5 @@ func isZeroValue(v interface{}) bool {
 		return len(v) == 0
 	default:
 		return false
-	}
-}
-
-func durationToTimeDelta(value int, unit string) time.Duration {
-	switch unit {
-	case "day":
-		return time.Duration(value) * 24 * time.Hour
-	case "week":
-		return time.Duration(value) * 7 * 24 * time.Hour
-	case "month":
-		return time.Duration(value) * 30 * 24 * time.Hour
-	case "year":
-		return time.Duration(value) * 365 * 24 * time.Hour
-	case "hour":
-		return time.Duration(value) * time.Hour
-	case "minute":
-		return time.Duration(value) * time.Minute
-	default:
-		return time.Duration(value) * 24 * time.Hour
 	}
 }

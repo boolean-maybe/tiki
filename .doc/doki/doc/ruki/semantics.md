@@ -34,8 +34,10 @@ This page explains how Ruki statements, triggers, conditions, and expressions be
 
 - `create` is a list of assignments.
 - At least one assignment is required.
+- The resulting task must have a non-empty `title`. This can come from an explicit `title=...` assignment or from the task template.
 - Duplicate assignments to the same field are rejected.
 - Every assigned field must exist in the injected schema.
+- `id`, `createdBy`, `createdAt`, and `updatedAt` are immutable and cannot be assigned.
 
 `update`
 
@@ -43,6 +45,7 @@ This page explains how Ruki statements, triggers, conditions, and expressions be
 - At least one assignment in `set` is required.
 - The `where` clause and every right-hand side expression are validated.
 - Duplicate assignments inside `set` are rejected.
+- `id`, `createdBy`, `createdAt`, and `updatedAt` are immutable and cannot be assigned.
 
 `delete`
 

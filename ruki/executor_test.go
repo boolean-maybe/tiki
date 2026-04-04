@@ -698,34 +698,340 @@ func TestExecuteCallRejected(t *testing.T) {
 	}
 }
 
-// --- unsupported statement types ---
+// --- CREATE execution ---
 
-func TestExecuteUnsupportedStatements(t *testing.T) {
+func TestExecuteCreateBasic(t *testing.T) {
 	e := newTestExecutor()
 	p := newTestParser()
 
-	tests := []struct {
-		name  string
-		input string
-	}{
-		{"create", `create title="test"`},
-		{"delete", `delete where id = "X"`},
+	stmt, err := p.ParseStatement(`create title="Fix login" priority=2 status="ready"`)
+	if err != nil {
+		t.Fatalf("parse: %v", err)
 	}
+	result, err := e.Execute(stmt, nil)
+	if err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	if result.Create == nil {
+		t.Fatal("expected Create result")
+	}
+	tk := result.Create.Task
+	if tk.Title != "Fix login" {
+		t.Errorf("title = %q, want %q", tk.Title, "Fix login")
+	}
+	if tk.Priority != 2 {
+		t.Errorf("priority = %d, want 2", tk.Priority)
+	}
+	if tk.Status != "ready" {
+		t.Errorf("status = %q, want %q", tk.Status, "ready")
+	}
+}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			stmt, err := p.ParseStatement(tt.input)
-			if err != nil {
-				t.Fatalf("parse: %v", err)
+func TestExecuteCreateWithUser(t *testing.T) {
+	e := newTestExecutor() // userFunc returns "alice"
+	p := newTestParser()
+
+	stmt, err := p.ParseStatement(`create title="test" assignee=user()`)
+	if err != nil {
+		t.Fatalf("parse: %v", err)
+	}
+	result, err := e.Execute(stmt, nil)
+	if err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	if result.Create.Task.Assignee != "alice" {
+		t.Errorf("assignee = %q, want %q", result.Create.Task.Assignee, "alice")
+	}
+}
+
+func TestExecuteCreateEnumNormalization(t *testing.T) {
+	e := newTestExecutor()
+	p := newTestParser()
+
+	stmt, err := p.ParseStatement(`create title="test" status="todo" type="feature"`)
+	if err != nil {
+		t.Fatalf("parse: %v", err)
+	}
+	result, err := e.Execute(stmt, nil)
+	if err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	tk := result.Create.Task
+	if tk.Status != "ready" {
+		t.Errorf("status = %q, want normalized %q", tk.Status, "ready")
+	}
+	if tk.Type != "story" {
+		t.Errorf("type = %q, want normalized %q", tk.Type, "story")
+	}
+}
+
+func TestExecuteCreateImmutableFieldRejected(t *testing.T) {
+	e := newTestExecutor()
+
+	for _, field := range []string{"id", "createdBy", "createdAt", "updatedAt"} {
+		t.Run(field, func(t *testing.T) {
+			stmt := &Statement{
+				Create: &CreateStmt{
+					Assignments: []Assignment{
+						{Field: "title", Value: &StringLiteral{Value: "x"}},
+						{Field: field, Value: &StringLiteral{Value: "test"}},
+					},
+				},
 			}
-			_, err = e.Execute(stmt, makeTasks())
+			_, err := e.Execute(stmt, nil)
 			if err == nil {
-				t.Fatal("expected error for unsupported statement")
+				t.Fatal("expected error for immutable field")
 			}
-			if !strings.Contains(err.Error(), "not supported") {
-				t.Fatalf("expected 'not supported' error, got: %v", err)
+			if !strings.Contains(err.Error(), "immutable") {
+				t.Errorf("expected immutable error, got: %v", err)
 			}
 		})
+	}
+}
+
+func TestExecuteCreateEmptyTitleRejected(t *testing.T) {
+	e := newTestExecutor()
+	p := newTestParser()
+
+	stmt, err := p.ParseStatement(`create title=""`)
+	if err != nil {
+		t.Fatalf("parse: %v", err)
+	}
+	_, err = e.Execute(stmt, nil)
+	if err == nil {
+		t.Fatal("expected error for empty title")
+	}
+	if !strings.Contains(err.Error(), "empty") {
+		t.Errorf("expected empty error, got: %v", err)
+	}
+}
+
+func TestExecuteCreateExprError(t *testing.T) {
+	e := newTestExecutor()
+
+	stmt := &Statement{
+		Create: &CreateStmt{
+			Assignments: []Assignment{
+				{Field: "title", Value: &QualifiedRef{Qualifier: "old", Name: "title"}},
+			},
+		},
+	}
+	_, err := e.Execute(stmt, nil)
+	if err == nil {
+		t.Fatal("expected error from eval expression")
+	}
+}
+
+func TestExecuteCreateListField(t *testing.T) {
+	e := newTestExecutor()
+	p := newTestParser()
+
+	stmt, err := p.ParseStatement(`create title="test" tags=["a","b"]`)
+	if err != nil {
+		t.Fatalf("parse: %v", err)
+	}
+	result, err := e.Execute(stmt, nil)
+	if err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	tags := result.Create.Task.Tags
+	if len(tags) != 2 || tags[0] != "a" || tags[1] != "b" {
+		t.Errorf("tags = %v, want [a b]", tags)
+	}
+}
+
+func TestExecuteCreateDateField(t *testing.T) {
+	e := newTestExecutor()
+	p := newTestParser()
+
+	stmt, err := p.ParseStatement(`create title="test" due=2026-06-01`)
+	if err != nil {
+		t.Fatalf("parse: %v", err)
+	}
+	result, err := e.Execute(stmt, nil)
+	if err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	due := result.Create.Task.Due
+	if due.Year() != 2026 || due.Month() != 6 || due.Day() != 1 {
+		t.Errorf("due = %v, want 2026-06-01", due)
+	}
+}
+
+func TestExecuteCreatePriorityOutOfRange(t *testing.T) {
+	e := newTestExecutor()
+
+	for _, prio := range []int{0, 99, -1} {
+		t.Run(fmt.Sprintf("priority=%d", prio), func(t *testing.T) {
+			stmt := &Statement{
+				Create: &CreateStmt{
+					Assignments: []Assignment{
+						{Field: "title", Value: &StringLiteral{Value: "x"}},
+						{Field: "priority", Value: &IntLiteral{Value: prio}},
+					},
+				},
+			}
+			_, err := e.Execute(stmt, nil)
+			if err == nil {
+				t.Fatal("expected error for out-of-range priority")
+			}
+		})
+	}
+}
+
+func TestExecuteCreateEmptyTasks(t *testing.T) {
+	e := newTestExecutor()
+	p := newTestParser()
+
+	stmt, err := p.ParseStatement(`create title="test"`)
+	if err != nil {
+		t.Fatalf("parse: %v", err)
+	}
+	result, err := e.Execute(stmt, []*task.Task{})
+	if err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	if result.Create.Task.Title != "test" {
+		t.Errorf("title = %q, want %q", result.Create.Task.Title, "test")
+	}
+}
+
+func TestExecuteCreateWithTemplate(t *testing.T) {
+	e := newTestExecutor()
+	p := newTestParser()
+
+	// set template with tags=["idea"] and priority=7
+	e.SetTemplate(&task.Task{
+		Tags:     []string{"idea"},
+		Priority: 7,
+		Status:   "ready",
+		Type:     "story",
+	})
+
+	stmt, err := p.ParseStatement(`create title="x" tags=tags+["new"]`)
+	if err != nil {
+		t.Fatalf("parse: %v", err)
+	}
+	result, err := e.Execute(stmt, nil)
+	if err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	tk := result.Create.Task
+	// tags should be template's ["idea"] + ["new"]
+	if len(tk.Tags) != 2 || tk.Tags[0] != "idea" || tk.Tags[1] != "new" {
+		t.Errorf("tags = %v, want [idea new]", tk.Tags)
+	}
+	// priority should be preserved from template (not set by assignment)
+	if tk.Priority != 7 {
+		t.Errorf("priority = %d, want 7 (template default)", tk.Priority)
+	}
+}
+
+func TestExecuteCreateWithoutTemplate(t *testing.T) {
+	e := newTestExecutor()
+	p := newTestParser()
+	// no SetTemplate call — template is nil
+
+	stmt, err := p.ParseStatement(`create title="x" priority=3`)
+	if err != nil {
+		t.Fatalf("parse: %v", err)
+	}
+	result, err := e.Execute(stmt, nil)
+	if err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	tk := result.Create.Task
+	if tk.Title != "x" {
+		t.Errorf("title = %q, want %q", tk.Title, "x")
+	}
+	if tk.Priority != 3 {
+		t.Errorf("priority = %d, want 3", tk.Priority)
+	}
+	// unset fields should be zero-valued
+	if tk.Points != 0 {
+		t.Errorf("points = %d, want 0 (zero-value)", tk.Points)
+	}
+}
+
+// --- DELETE execution ---
+
+func TestExecuteDeleteBasic(t *testing.T) {
+	e := newTestExecutor()
+	p := newTestParser()
+	tasks := makeTasks()
+
+	stmt, err := p.ParseStatement(`delete where id = "TIKI-000001"`)
+	if err != nil {
+		t.Fatalf("parse: %v", err)
+	}
+	result, err := e.Execute(stmt, tasks)
+	if err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	if result.Delete == nil {
+		t.Fatal("expected Delete result")
+	}
+	if len(result.Delete.Deleted) != 1 {
+		t.Fatalf("expected 1 deleted, got %d", len(result.Delete.Deleted))
+	}
+	if result.Delete.Deleted[0].ID != "TIKI-000001" {
+		t.Errorf("deleted ID = %q, want TIKI-000001", result.Delete.Deleted[0].ID)
+	}
+}
+
+func TestExecuteDeleteMultipleMatches(t *testing.T) {
+	e := newTestExecutor()
+	p := newTestParser()
+	tasks := makeTasks()
+
+	stmt, err := p.ParseStatement(`delete where type = "story"`)
+	if err != nil {
+		t.Fatalf("parse: %v", err)
+	}
+	result, err := e.Execute(stmt, tasks)
+	if err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	// TIKI-000001 and TIKI-000003 are stories
+	if len(result.Delete.Deleted) != 2 {
+		t.Fatalf("expected 2 deleted, got %d", len(result.Delete.Deleted))
+	}
+}
+
+func TestExecuteDeleteNoMatches(t *testing.T) {
+	e := newTestExecutor()
+	p := newTestParser()
+	tasks := makeTasks()
+
+	stmt, err := p.ParseStatement(`delete where id = "NONEXISTENT"`)
+	if err != nil {
+		t.Fatalf("parse: %v", err)
+	}
+	result, err := e.Execute(stmt, tasks)
+	if err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	if len(result.Delete.Deleted) != 0 {
+		t.Fatalf("expected 0 deleted, got %d", len(result.Delete.Deleted))
+	}
+}
+
+func TestExecuteDeleteWhereError(t *testing.T) {
+	e := newTestExecutor()
+	tasks := makeTasks()
+
+	stmt := &Statement{
+		Delete: &DeleteStmt{
+			Where: &CompareExpr{
+				Left:  &QualifiedRef{Qualifier: "old", Name: "status"},
+				Op:    "=",
+				Right: &StringLiteral{Value: "done"},
+			},
+		},
+	}
+	_, err := e.Execute(stmt, tasks)
+	if err == nil {
+		t.Fatal("expected error from WHERE evaluation")
 	}
 }
 
@@ -1178,26 +1484,28 @@ func TestIsZeroValue(t *testing.T) {
 
 // --- durationToTimeDelta full coverage ---
 
-func TestDurationToTimeDelta(t *testing.T) {
-	tests := []struct {
-		unit string
-		want time.Duration
-	}{
-		{"day", 24 * time.Hour},
-		{"week", 7 * 24 * time.Hour},
-		{"month", 30 * 24 * time.Hour},
-		{"year", 365 * 24 * time.Hour},
-		{"hour", time.Hour},
-		{"minute", time.Minute},
-		{"unknown", 24 * time.Hour}, // default = day
+func TestDurationLiteralUnknownUnitError(t *testing.T) {
+	e := &Executor{}
+	tasks := []*task.Task{{ID: "TIKI-AAA001", Title: "test"}}
+	// unknown unit should produce an error, not silently default to days
+	stmt, err := newTestParser().ParseStatement(`select where due > 2026-01-01 + 1day`)
+	if err != nil {
+		t.Fatal(err)
 	}
-	for _, tt := range tests {
-		t.Run(tt.unit, func(t *testing.T) {
-			got := durationToTimeDelta(1, tt.unit)
-			if got != tt.want {
-				t.Errorf("durationToTimeDelta(1, %q) = %v, want %v", tt.unit, got, tt.want)
-			}
-		})
+	// manually inject an unknown unit into the AST
+	cmp, ok := stmt.Select.Where.(*CompareExpr)
+	if !ok {
+		t.Fatal("expected *CompareExpr")
+	}
+	add, ok := cmp.Right.(*BinaryExpr)
+	if !ok {
+		t.Fatal("expected *BinaryExpr")
+	}
+	add.Right = &DurationLiteral{Value: 1, Unit: "bogus"}
+
+	_, err = e.Execute(stmt, tasks)
+	if err == nil {
+		t.Fatal("expected error for unknown duration unit, got nil")
 	}
 }
 
