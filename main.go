@@ -226,7 +226,7 @@ func runExec(args []string) int {
 		return exitStartupFailure
 	}
 
-	if err := rukiRuntime.RunSelectQuery(taskStore, args[0], os.Stdout); err != nil {
+	if err := rukiRuntime.RunQuery(taskStore, args[0], os.Stdout); err != nil {
 		_, _ = fmt.Fprintln(os.Stderr, "error:", err)
 		return exitQueryError
 	}

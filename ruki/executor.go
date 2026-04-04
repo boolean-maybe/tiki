@@ -28,6 +28,12 @@ func NewExecutor(schema Schema, userFunc func() string) *Executor {
 // Exactly one variant is non-nil.
 type Result struct {
 	Select *TaskProjection
+	Update *UpdateResult
+}
+
+// UpdateResult holds the cloned, mutated tasks produced by an UPDATE statement.
+type UpdateResult struct {
+	Updated []*task.Task
 }
 
 // TaskProjection holds the filtered, sorted tasks and the requested field list.
@@ -47,7 +53,7 @@ func (e *Executor) Execute(stmt *Statement, tasks []*task.Task) (*Result, error)
 	case stmt.Create != nil:
 		return nil, fmt.Errorf("create is not supported yet")
 	case stmt.Update != nil:
-		return nil, fmt.Errorf("update is not supported yet")
+		return e.executeUpdate(stmt.Update, tasks)
 	case stmt.Delete != nil:
 		return nil, fmt.Errorf("delete is not supported yet")
 	default:
@@ -71,6 +77,192 @@ func (e *Executor) executeSelect(sel *SelectStmt, tasks []*task.Task) (*Result, 
 			Fields: sel.Fields,
 		},
 	}, nil
+}
+
+func (e *Executor) executeUpdate(upd *UpdateStmt, tasks []*task.Task) (*Result, error) {
+	matched, err := e.filterTasks(upd.Where, tasks)
+	if err != nil {
+		return nil, err
+	}
+
+	clones := make([]*task.Task, len(matched))
+	for i, t := range matched {
+		clones[i] = t.Clone()
+	}
+
+	for _, clone := range clones {
+		for _, a := range upd.Set {
+			val, err := e.evalExpr(a.Value, clone, tasks)
+			if err != nil {
+				return nil, fmt.Errorf("field %q: %w", a.Field, err)
+			}
+			if err := e.setField(clone, a.Field, val); err != nil {
+				return nil, fmt.Errorf("field %q: %w", a.Field, err)
+			}
+		}
+	}
+
+	return &Result{Update: &UpdateResult{Updated: clones}}, nil
+}
+
+func (e *Executor) setField(t *task.Task, name string, val interface{}) error {
+	switch name {
+	case "id", "createdBy", "createdAt", "updatedAt":
+		return fmt.Errorf("field %q is immutable", name)
+
+	case "title":
+		if val == nil {
+			return fmt.Errorf("cannot set title to empty")
+		}
+		s, ok := val.(string)
+		if !ok {
+			return fmt.Errorf("title must be a string, got %T", val)
+		}
+		if strings.TrimSpace(s) == "" {
+			return fmt.Errorf("cannot set title to empty")
+		}
+		t.Title = s
+
+	case "description":
+		if val == nil {
+			t.Description = ""
+			return nil
+		}
+		s, ok := val.(string)
+		if !ok {
+			return fmt.Errorf("description must be a string, got %T", val)
+		}
+		t.Description = s
+
+	case "status":
+		if val == nil {
+			return fmt.Errorf("cannot set status to empty")
+		}
+		s, ok := val.(string)
+		if !ok {
+			sv, ok2 := val.(task.Status)
+			if !ok2 {
+				return fmt.Errorf("status must be a string, got %T", val)
+			}
+			s = string(sv)
+		}
+		norm, valid := e.schema.NormalizeStatus(s)
+		if !valid {
+			return fmt.Errorf("unknown status %q", s)
+		}
+		t.Status = task.Status(norm)
+
+	case "type":
+		if val == nil {
+			return fmt.Errorf("cannot set type to empty")
+		}
+		s, ok := val.(string)
+		if !ok {
+			tv, ok2 := val.(task.Type)
+			if !ok2 {
+				return fmt.Errorf("type must be a string, got %T", val)
+			}
+			s = string(tv)
+		}
+		norm, valid := e.schema.NormalizeType(s)
+		if !valid {
+			return fmt.Errorf("unknown type %q", s)
+		}
+		t.Type = task.Type(norm)
+
+	case "priority":
+		if val == nil {
+			return fmt.Errorf("cannot set priority to empty")
+		}
+		n, ok := val.(int)
+		if !ok {
+			return fmt.Errorf("priority must be an int, got %T", val)
+		}
+		if !task.IsValidPriority(n) {
+			return fmt.Errorf("priority must be between %d and %d", task.MinPriority, task.MaxPriority)
+		}
+		t.Priority = n
+
+	case "points":
+		if val == nil {
+			t.Points = 0
+			return nil
+		}
+		n, ok := val.(int)
+		if !ok {
+			return fmt.Errorf("points must be an int, got %T", val)
+		}
+		if !task.IsValidPoints(n) {
+			return fmt.Errorf("invalid points value: %d", n)
+		}
+		t.Points = n
+
+	case "tags":
+		if val == nil {
+			t.Tags = nil
+			return nil
+		}
+		t.Tags = toStringSlice(val)
+
+	case "dependsOn":
+		if val == nil {
+			t.DependsOn = nil
+			return nil
+		}
+		t.DependsOn = toStringSlice(val)
+
+	case "due":
+		if val == nil {
+			t.Due = time.Time{}
+			return nil
+		}
+		d, ok := val.(time.Time)
+		if !ok {
+			return fmt.Errorf("due must be a date, got %T", val)
+		}
+		t.Due = d
+
+	case "recurrence":
+		if val == nil {
+			t.Recurrence = ""
+			return nil
+		}
+		switch v := val.(type) {
+		case string:
+			t.Recurrence = task.Recurrence(v)
+		case task.Recurrence:
+			t.Recurrence = v
+		default:
+			return fmt.Errorf("recurrence must be a string, got %T", val)
+		}
+
+	case "assignee":
+		if val == nil {
+			t.Assignee = ""
+			return nil
+		}
+		s, ok := val.(string)
+		if !ok {
+			return fmt.Errorf("assignee must be a string, got %T", val)
+		}
+		t.Assignee = s
+
+	default:
+		return fmt.Errorf("unknown field %q", name)
+	}
+	return nil
+}
+
+func toStringSlice(val interface{}) []string {
+	list, ok := val.([]interface{})
+	if !ok {
+		return nil
+	}
+	result := make([]string, len(list))
+	for i, elem := range list {
+		result[i] = normalizeToString(elem)
+	}
+	return result
 }
 
 // --- filtering ---
@@ -414,6 +606,15 @@ func addValues(left, right interface{}) (interface{}, error) {
 		if r, ok := right.(string); ok {
 			return l + r, nil
 		}
+	case []interface{}:
+		if r, ok := right.([]interface{}); ok {
+			result := make([]interface{}, len(l), len(l)+len(r))
+			copy(result, l)
+			return append(result, r...), nil
+		}
+		result := make([]interface{}, len(l), len(l)+1)
+		copy(result, l)
+		return append(result, right), nil
 	}
 	return nil, fmt.Errorf("cannot add %T + %T", left, right)
 }
@@ -431,6 +632,27 @@ func subtractValues(left, right interface{}) (interface{}, error) {
 		case time.Time:
 			return l.Sub(r), nil
 		}
+	case []interface{}:
+		var toRemove []interface{}
+		if r, ok := right.([]interface{}); ok {
+			toRemove = r
+		} else {
+			toRemove = []interface{}{right}
+		}
+		removeSet := make(map[string]bool, len(toRemove))
+		for _, elem := range toRemove {
+			removeSet[normalizeToString(elem)] = true
+		}
+		var result []interface{}
+		for _, elem := range l {
+			if !removeSet[normalizeToString(elem)] {
+				result = append(result, elem)
+			}
+		}
+		if result == nil {
+			result = []interface{}{}
+		}
+		return result, nil
 	}
 	return nil, fmt.Errorf("cannot subtract %T - %T", left, right)
 }
