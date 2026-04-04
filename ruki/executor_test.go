@@ -1,6 +1,7 @@
 package ruki
 
 import (
+	"fmt"
 	"strings"
 	"testing"
 	"time"
@@ -708,7 +709,6 @@ func TestExecuteUnsupportedStatements(t *testing.T) {
 		input string
 	}{
 		{"create", `create title="test"`},
-		{"update", `update where id = "X" set title="test"`},
 		{"delete", `delete where id = "X"`},
 	}
 
@@ -2142,5 +2142,1087 @@ func TestExecuteQuantifierAllPassing(t *testing.T) {
 			ids[i] = tk.ID
 		}
 		t.Fatalf("expected 3 tasks, got %d: %v", len(result.Select.Tasks), ids)
+	}
+}
+
+// --- UPDATE execution ---
+
+func TestExecuteUpdateSingleField(t *testing.T) {
+	e := newTestExecutor()
+	p := newTestParser()
+	tasks := []*task.Task{
+		{ID: "TIKI-000001", Title: "old title", Status: "ready"},
+	}
+
+	stmt, err := p.ParseStatement(`update where id = "TIKI-000001" set title="new title"`)
+	if err != nil {
+		t.Fatalf("parse: %v", err)
+	}
+	result, err := e.Execute(stmt, tasks)
+	if err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	if result.Update == nil {
+		t.Fatal("expected Update result")
+	}
+	if len(result.Update.Updated) != 1 {
+		t.Fatalf("expected 1 updated task, got %d", len(result.Update.Updated))
+	}
+	if result.Update.Updated[0].Title != "new title" {
+		t.Errorf("expected title 'new title', got %q", result.Update.Updated[0].Title)
+	}
+}
+
+func TestExecuteUpdateMultipleFields(t *testing.T) {
+	e := newTestExecutor()
+	p := newTestParser()
+	tasks := []*task.Task{
+		{ID: "TIKI-000001", Title: "x", Status: "ready", Priority: 3},
+	}
+
+	stmt, err := p.ParseStatement(`update where id = "TIKI-000001" set status="done" priority=1`)
+	if err != nil {
+		t.Fatalf("parse: %v", err)
+	}
+	result, err := e.Execute(stmt, tasks)
+	if err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	u := result.Update.Updated[0]
+	if u.Status != "done" {
+		t.Errorf("expected status 'done', got %q", u.Status)
+	}
+	if u.Priority != 1 {
+		t.Errorf("expected priority 1, got %d", u.Priority)
+	}
+}
+
+func TestExecuteUpdateMatchesMultipleTasks(t *testing.T) {
+	e := newTestExecutor()
+	p := newTestParser()
+	tasks := []*task.Task{
+		{ID: "T1", Title: "a", Status: "ready", Priority: 1},
+		{ID: "T2", Title: "b", Status: "ready", Priority: 2},
+		{ID: "T3", Title: "c", Status: "done", Priority: 3},
+	}
+
+	stmt, err := p.ParseStatement(`update where status = "ready" set status="done"`)
+	if err != nil {
+		t.Fatalf("parse: %v", err)
+	}
+	result, err := e.Execute(stmt, tasks)
+	if err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	if len(result.Update.Updated) != 2 {
+		t.Fatalf("expected 2 updated, got %d", len(result.Update.Updated))
+	}
+	for _, u := range result.Update.Updated {
+		if u.Status != "done" {
+			t.Errorf("task %s status = %q, want done", u.ID, u.Status)
+		}
+	}
+}
+
+func TestExecuteUpdateMatchesNoTasks(t *testing.T) {
+	e := newTestExecutor()
+	p := newTestParser()
+	tasks := makeTasks()
+
+	stmt, err := p.ParseStatement(`update where id = "NONEXISTENT" set title="x"`)
+	if err != nil {
+		t.Fatalf("parse: %v", err)
+	}
+	result, err := e.Execute(stmt, tasks)
+	if err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	if len(result.Update.Updated) != 0 {
+		t.Fatalf("expected 0 updated, got %d", len(result.Update.Updated))
+	}
+}
+
+func TestExecuteUpdateWithComplexWhere(t *testing.T) {
+	e := newTestExecutor()
+	p := newTestParser()
+	tasks := makeTasks()
+
+	stmt, err := p.ParseStatement(`update where priority < 3 and "bug" in tags set status="done"`)
+	if err != nil {
+		t.Fatalf("parse: %v", err)
+	}
+	result, err := e.Execute(stmt, tasks)
+	if err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	if len(result.Update.Updated) != 1 {
+		t.Fatalf("expected 1 updated, got %d", len(result.Update.Updated))
+	}
+	if result.Update.Updated[0].ID != "TIKI-000002" {
+		t.Errorf("expected TIKI-000002, got %s", result.Update.Updated[0].ID)
+	}
+}
+
+func TestExecuteUpdateWithFieldReference(t *testing.T) {
+	e := newTestExecutor()
+	p := newTestParser()
+	tasks := []*task.Task{
+		{ID: "TIKI-000001", Title: "x", Status: "ready", CreatedBy: "alice", Assignee: ""},
+	}
+
+	stmt, err := p.ParseStatement(`update where id = "TIKI-000001" set assignee=createdBy`)
+	if err != nil {
+		t.Fatalf("parse: %v", err)
+	}
+	result, err := e.Execute(stmt, tasks)
+	if err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	if result.Update.Updated[0].Assignee != "alice" {
+		t.Errorf("expected assignee 'alice', got %q", result.Update.Updated[0].Assignee)
+	}
+}
+
+func TestExecuteUpdateWithFunction(t *testing.T) {
+	e := newTestExecutor()
+	p := newTestParser()
+	tasks := []*task.Task{
+		{ID: "TIKI-000001", Title: "x", Status: "ready", Recurrence: task.RecurrenceDaily},
+	}
+
+	stmt, err := p.ParseStatement(`update where id = "TIKI-000001" set due=next_date(recurrence)`)
+	if err != nil {
+		t.Fatalf("parse: %v", err)
+	}
+	result, err := e.Execute(stmt, tasks)
+	if err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	if result.Update.Updated[0].Due.IsZero() {
+		t.Error("expected non-zero due date after next_date()")
+	}
+}
+
+func TestExecuteUpdateListField(t *testing.T) {
+	e := newTestExecutor()
+	p := newTestParser()
+	tasks := []*task.Task{
+		{ID: "TIKI-000001", Title: "x", Status: "ready", Tags: []string{"old"}},
+	}
+
+	stmt, err := p.ParseStatement(`update where id = "TIKI-000001" set tags=["a","b"]`)
+	if err != nil {
+		t.Fatalf("parse: %v", err)
+	}
+	result, err := e.Execute(stmt, tasks)
+	if err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	u := result.Update.Updated[0]
+	if len(u.Tags) != 2 || u.Tags[0] != "a" || u.Tags[1] != "b" {
+		t.Errorf("expected tags [a b], got %v", u.Tags)
+	}
+}
+
+func TestExecuteUpdateListPlusList(t *testing.T) {
+	e := newTestExecutor()
+	p := newTestParser()
+	tasks := []*task.Task{
+		{ID: "TIKI-000001", Title: "x", Status: "ready", Tags: []string{"old"}},
+	}
+
+	stmt, err := p.ParseStatement(`update where id = "TIKI-000001" set tags=tags+["new"]`)
+	if err != nil {
+		t.Fatalf("parse: %v", err)
+	}
+	result, err := e.Execute(stmt, tasks)
+	if err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	u := result.Update.Updated[0]
+	if len(u.Tags) != 2 || u.Tags[0] != "old" || u.Tags[1] != "new" {
+		t.Errorf("expected tags [old new], got %v", u.Tags)
+	}
+}
+
+func TestExecuteUpdateListPlusElement(t *testing.T) {
+	e := newTestExecutor()
+	p := newTestParser()
+	tasks := []*task.Task{
+		{ID: "TIKI-000001", Title: "x", Status: "ready", Tags: []string{"old"}},
+	}
+
+	stmt, err := p.ParseStatement(`update where id = "TIKI-000001" set tags=tags+"new"`)
+	if err != nil {
+		t.Fatalf("parse: %v", err)
+	}
+	result, err := e.Execute(stmt, tasks)
+	if err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	u := result.Update.Updated[0]
+	if len(u.Tags) != 2 || u.Tags[0] != "old" || u.Tags[1] != "new" {
+		t.Errorf("expected tags [old new], got %v", u.Tags)
+	}
+}
+
+func TestExecuteUpdateListMinusList(t *testing.T) {
+	e := newTestExecutor()
+	p := newTestParser()
+	tasks := []*task.Task{
+		{ID: "TIKI-000001", Title: "x", Status: "ready", Tags: []string{"old", "keep"}},
+	}
+
+	stmt, err := p.ParseStatement(`update where id = "TIKI-000001" set tags=tags-["old"]`)
+	if err != nil {
+		t.Fatalf("parse: %v", err)
+	}
+	result, err := e.Execute(stmt, tasks)
+	if err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	u := result.Update.Updated[0]
+	if len(u.Tags) != 1 || u.Tags[0] != "keep" {
+		t.Errorf("expected tags [keep], got %v", u.Tags)
+	}
+}
+
+func TestExecuteUpdateListMinusElement(t *testing.T) {
+	e := newTestExecutor()
+	p := newTestParser()
+	tasks := []*task.Task{
+		{ID: "TIKI-000001", Title: "x", Status: "ready", Tags: []string{"old", "keep"}},
+	}
+
+	stmt, err := p.ParseStatement(`update where id = "TIKI-000001" set tags=tags-"old"`)
+	if err != nil {
+		t.Fatalf("parse: %v", err)
+	}
+	result, err := e.Execute(stmt, tasks)
+	if err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	u := result.Update.Updated[0]
+	if len(u.Tags) != 1 || u.Tags[0] != "keep" {
+		t.Errorf("expected tags [keep], got %v", u.Tags)
+	}
+}
+
+func TestExecuteUpdateListMinusDuplicates(t *testing.T) {
+	e := newTestExecutor()
+	p := newTestParser()
+	tasks := []*task.Task{
+		{ID: "TIKI-000001", Title: "x", Status: "ready", Tags: []string{"old", "old", "keep"}},
+	}
+
+	stmt, err := p.ParseStatement(`update where id = "TIKI-000001" set tags=tags-"old"`)
+	if err != nil {
+		t.Fatalf("parse: %v", err)
+	}
+	result, err := e.Execute(stmt, tasks)
+	if err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	u := result.Update.Updated[0]
+	if len(u.Tags) != 1 || u.Tags[0] != "keep" {
+		t.Errorf("expected tags [keep], got %v", u.Tags)
+	}
+}
+
+func TestExecuteUpdateDependsOnPlusElement(t *testing.T) {
+	e := newTestExecutor()
+	p := newTestParser()
+	tasks := []*task.Task{
+		{ID: "TIKI-000001", Title: "x", Status: "ready", DependsOn: []string{}},
+	}
+
+	stmt, err := p.ParseStatement(`update where id = "TIKI-000001" set dependsOn=dependsOn+"TIKI-Y"`)
+	if err != nil {
+		t.Fatalf("parse: %v", err)
+	}
+	result, err := e.Execute(stmt, tasks)
+	if err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	u := result.Update.Updated[0]
+	if len(u.DependsOn) != 1 || u.DependsOn[0] != "TIKI-Y" {
+		t.Errorf("expected dependsOn [TIKI-Y], got %v", u.DependsOn)
+	}
+}
+
+func TestExecuteUpdateDependsOnPlusList(t *testing.T) {
+	e := newTestExecutor()
+	p := newTestParser()
+	tasks := []*task.Task{
+		{ID: "TIKI-000001", Title: "x", Status: "ready", DependsOn: []string{"TIKI-Z"}},
+	}
+
+	stmt, err := p.ParseStatement(`update where id = "TIKI-000001" set dependsOn=dependsOn+["TIKI-Y"]`)
+	if err != nil {
+		t.Fatalf("parse: %v", err)
+	}
+	result, err := e.Execute(stmt, tasks)
+	if err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	u := result.Update.Updated[0]
+	if len(u.DependsOn) != 2 || u.DependsOn[0] != "TIKI-Z" || u.DependsOn[1] != "TIKI-Y" {
+		t.Errorf("expected dependsOn [TIKI-Z TIKI-Y], got %v", u.DependsOn)
+	}
+}
+
+func TestExecuteUpdateDependsOnMinusElement(t *testing.T) {
+	e := newTestExecutor()
+	p := newTestParser()
+	tasks := []*task.Task{
+		{ID: "TIKI-000001", Title: "x", Status: "ready", DependsOn: []string{"TIKI-Y", "TIKI-Z"}},
+	}
+
+	stmt, err := p.ParseStatement(`update where id = "TIKI-000001" set dependsOn=dependsOn-"TIKI-Y"`)
+	if err != nil {
+		t.Fatalf("parse: %v", err)
+	}
+	result, err := e.Execute(stmt, tasks)
+	if err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	u := result.Update.Updated[0]
+	if len(u.DependsOn) != 1 || u.DependsOn[0] != "TIKI-Z" {
+		t.Errorf("expected dependsOn [TIKI-Z], got %v", u.DependsOn)
+	}
+}
+
+func TestExecuteUpdateDependsOnMinusList(t *testing.T) {
+	e := newTestExecutor()
+	p := newTestParser()
+	tasks := []*task.Task{
+		{ID: "TIKI-000001", Title: "x", Status: "ready", DependsOn: []string{"TIKI-Y", "TIKI-Z"}},
+	}
+
+	stmt, err := p.ParseStatement(`update where id = "TIKI-000001" set dependsOn=dependsOn-["TIKI-Y"]`)
+	if err != nil {
+		t.Fatalf("parse: %v", err)
+	}
+	result, err := e.Execute(stmt, tasks)
+	if err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	u := result.Update.Updated[0]
+	if len(u.DependsOn) != 1 || u.DependsOn[0] != "TIKI-Z" {
+		t.Errorf("expected dependsOn [TIKI-Z], got %v", u.DependsOn)
+	}
+}
+
+func TestExecuteUpdateTagsToEmpty(t *testing.T) {
+	e := newTestExecutor()
+	p := newTestParser()
+	tasks := []*task.Task{
+		{ID: "TIKI-000001", Title: "x", Status: "ready", Tags: []string{"a", "b"}},
+	}
+
+	stmt, err := p.ParseStatement(`update where id = "TIKI-000001" set tags=empty`)
+	if err != nil {
+		t.Fatalf("parse: %v", err)
+	}
+	result, err := e.Execute(stmt, tasks)
+	if err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	if result.Update.Updated[0].Tags != nil {
+		t.Errorf("expected nil tags, got %v", result.Update.Updated[0].Tags)
+	}
+}
+
+func TestExecuteUpdateStringToEmpty(t *testing.T) {
+	e := newTestExecutor()
+	p := newTestParser()
+	tasks := []*task.Task{
+		{ID: "TIKI-000001", Title: "x", Status: "ready", Assignee: "alice"},
+	}
+
+	stmt, err := p.ParseStatement(`update where id = "TIKI-000001" set assignee=empty`)
+	if err != nil {
+		t.Fatalf("parse: %v", err)
+	}
+	result, err := e.Execute(stmt, tasks)
+	if err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	if result.Update.Updated[0].Assignee != "" {
+		t.Errorf("expected empty assignee, got %q", result.Update.Updated[0].Assignee)
+	}
+}
+
+func TestExecuteUpdateDateToEmpty(t *testing.T) {
+	e := newTestExecutor()
+	p := newTestParser()
+	tasks := []*task.Task{
+		{ID: "TIKI-000001", Title: "x", Status: "ready", Due: testDate(6, 1)},
+	}
+
+	stmt, err := p.ParseStatement(`update where id = "TIKI-000001" set due=empty`)
+	if err != nil {
+		t.Fatalf("parse: %v", err)
+	}
+	result, err := e.Execute(stmt, tasks)
+	if err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	if !result.Update.Updated[0].Due.IsZero() {
+		t.Errorf("expected zero due, got %v", result.Update.Updated[0].Due)
+	}
+}
+
+func TestExecuteUpdateConstrainedFieldsRejectEmpty(t *testing.T) {
+	e := newTestExecutor()
+	p := newTestParser()
+
+	tests := []struct {
+		name  string
+		input string
+	}{
+		{"title", `update where id = "T1" set title=empty`},
+		{"priority", `update where id = "T1" set priority=empty`},
+		{"status", `update where id = "T1" set status=empty`},
+		{"type", `update where id = "T1" set type=empty`},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			tasks := []*task.Task{{ID: "T1", Title: "x", Status: "ready", Type: "bug", Priority: 2}}
+			stmt, err := p.ParseStatement(tt.input)
+			if err != nil {
+				t.Fatalf("parse: %v", err)
+			}
+			_, err = e.Execute(stmt, tasks)
+			if err == nil {
+				t.Fatal("expected error for empty on constrained field")
+			}
+			if !strings.Contains(err.Error(), "empty") {
+				t.Errorf("expected error mentioning empty, got: %v", err)
+			}
+		})
+	}
+}
+
+func TestExecuteUpdateImmutableFieldRejected(t *testing.T) {
+	e := newTestExecutor()
+	tasks := []*task.Task{
+		{ID: "TIKI-000001", Title: "x", Status: "ready"},
+	}
+
+	fields := []string{"id", "createdBy", "createdAt", "updatedAt"}
+	for _, field := range fields {
+		t.Run(field, func(t *testing.T) {
+			stmt := &Statement{
+				Update: &UpdateStmt{
+					Where: &CompareExpr{
+						Left: &FieldRef{Name: "id"}, Op: "=", Right: &StringLiteral{Value: "TIKI-000001"},
+					},
+					Set: []Assignment{{Field: field, Value: &StringLiteral{Value: "test"}}},
+				},
+			}
+			_, err := e.Execute(stmt, tasks)
+			if err == nil {
+				t.Fatal("expected error for immutable field")
+			}
+			if !strings.Contains(err.Error(), "immutable") {
+				t.Errorf("expected immutable error, got: %v", err)
+			}
+		})
+	}
+}
+
+func TestExecuteUpdateEnumNormalization(t *testing.T) {
+	e := newTestExecutor()
+	p := newTestParser()
+	tasks := []*task.Task{
+		{ID: "TIKI-000001", Title: "x", Status: "done"},
+	}
+
+	// "todo" is an alias for "ready" in the test schema
+	stmt, err := p.ParseStatement(`update where id = "TIKI-000001" set status="todo"`)
+	if err != nil {
+		t.Fatalf("parse: %v", err)
+	}
+	result, err := e.Execute(stmt, tasks)
+	if err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	if result.Update.Updated[0].Status != "ready" {
+		t.Errorf("expected canonical 'ready', got %q", result.Update.Updated[0].Status)
+	}
+}
+
+func TestExecuteUpdateOriginalUnmodified(t *testing.T) {
+	e := newTestExecutor()
+	p := newTestParser()
+	tasks := []*task.Task{
+		{ID: "TIKI-000001", Title: "old", Status: "ready"},
+	}
+
+	stmt, err := p.ParseStatement(`update where id = "TIKI-000001" set title="new"`)
+	if err != nil {
+		t.Fatalf("parse: %v", err)
+	}
+	_, err = e.Execute(stmt, tasks)
+	if err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	if tasks[0].Title != "old" {
+		t.Errorf("original task was mutated: title = %q, want 'old'", tasks[0].Title)
+	}
+}
+
+// --- list arithmetic (addValues/subtractValues) ---
+
+func TestAddValuesList(t *testing.T) {
+	tests := []struct {
+		name  string
+		left  []interface{}
+		right interface{}
+		want  []interface{}
+	}{
+		{"list + list", []interface{}{"a"}, []interface{}{"b"}, []interface{}{"a", "b"}},
+		{"list + element", []interface{}{"a"}, "b", []interface{}{"a", "b"}},
+		{"empty + list", []interface{}{}, []interface{}{"a"}, []interface{}{"a"}},
+		{"list + empty list", []interface{}{"a"}, []interface{}{}, []interface{}{"a"}},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result, err := addValues(tt.left, tt.right)
+			if err != nil {
+				t.Fatalf("addValues error: %v", err)
+			}
+			got, ok := result.([]interface{})
+			if !ok {
+				t.Fatalf("expected []interface{}, got %T", result)
+			}
+			if len(got) != len(tt.want) {
+				t.Fatalf("expected %d elements, got %d: %v", len(tt.want), len(got), got)
+			}
+			for i := range tt.want {
+				if normalizeToString(got[i]) != normalizeToString(tt.want[i]) {
+					t.Errorf("element %d: got %v, want %v", i, got[i], tt.want[i])
+				}
+			}
+		})
+	}
+}
+
+func TestSubtractValuesList(t *testing.T) {
+	tests := []struct {
+		name  string
+		left  []interface{}
+		right interface{}
+		want  []interface{}
+	}{
+		{"list - list", []interface{}{"a", "b", "c"}, []interface{}{"b"}, []interface{}{"a", "c"}},
+		{"list - element", []interface{}{"a", "b"}, "a", []interface{}{"b"}},
+		{"remove all occurrences", []interface{}{"a", "a", "b"}, "a", []interface{}{"b"}},
+		{"remove nothing", []interface{}{"a", "b"}, "c", []interface{}{"a", "b"}},
+		{"remove all", []interface{}{"a"}, "a", []interface{}{}},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result, err := subtractValues(tt.left, tt.right)
+			if err != nil {
+				t.Fatalf("subtractValues error: %v", err)
+			}
+			got, ok := result.([]interface{})
+			if !ok {
+				t.Fatalf("expected []interface{}, got %T", result)
+			}
+			if len(got) != len(tt.want) {
+				t.Fatalf("expected %d elements, got %d: %v", len(tt.want), len(got), got)
+			}
+			for i := range tt.want {
+				if normalizeToString(got[i]) != normalizeToString(tt.want[i]) {
+					t.Errorf("element %d: got %v, want %v", i, got[i], tt.want[i])
+				}
+			}
+		})
+	}
+}
+
+func TestExecuteUpdateRecurrenceToEmpty(t *testing.T) {
+	e := newTestExecutor()
+	p := newTestParser()
+	tasks := []*task.Task{
+		{ID: "TIKI-000001", Title: "x", Status: "ready", Recurrence: task.RecurrenceDaily},
+	}
+
+	stmt, err := p.ParseStatement(`update where id = "TIKI-000001" set recurrence=empty`)
+	if err != nil {
+		t.Fatalf("parse: %v", err)
+	}
+	result, err := e.Execute(stmt, tasks)
+	if err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	if result.Update.Updated[0].Recurrence != "" {
+		t.Errorf("expected empty recurrence, got %q", result.Update.Updated[0].Recurrence)
+	}
+}
+
+func TestExecuteUpdatePointsToEmpty(t *testing.T) {
+	e := newTestExecutor()
+	p := newTestParser()
+	tasks := []*task.Task{
+		{ID: "TIKI-000001", Title: "x", Status: "ready", Points: 5},
+	}
+
+	stmt, err := p.ParseStatement(`update where id = "TIKI-000001" set points=empty`)
+	if err != nil {
+		t.Fatalf("parse: %v", err)
+	}
+	result, err := e.Execute(stmt, tasks)
+	if err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	if result.Update.Updated[0].Points != 0 {
+		t.Errorf("expected 0 points, got %d", result.Update.Updated[0].Points)
+	}
+}
+
+func TestExecuteUpdateUnknownField(t *testing.T) {
+	e := newTestExecutor()
+	tasks := []*task.Task{
+		{ID: "T1", Title: "x", Status: "ready"},
+	}
+
+	stmt := &Statement{
+		Update: &UpdateStmt{
+			Where: &CompareExpr{
+				Left: &FieldRef{Name: "id"}, Op: "=", Right: &StringLiteral{Value: "T1"},
+			},
+			Set: []Assignment{{Field: "nonexistent", Value: &StringLiteral{Value: "x"}}},
+		},
+	}
+	_, err := e.Execute(stmt, tasks)
+	if err == nil {
+		t.Fatal("expected error for unknown field")
+	}
+	if !strings.Contains(err.Error(), "unknown field") {
+		t.Errorf("expected 'unknown field' error, got: %v", err)
+	}
+}
+
+func TestExecuteUpdateTypeNormalization(t *testing.T) {
+	e := newTestExecutor()
+	p := newTestParser()
+	tasks := []*task.Task{
+		{ID: "TIKI-000001", Title: "x", Status: "ready", Type: "bug"},
+	}
+
+	stmt, err := p.ParseStatement(`update where id = "TIKI-000001" set type="feature"`)
+	if err != nil {
+		t.Fatalf("parse: %v", err)
+	}
+	result, err := e.Execute(stmt, tasks)
+	if err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	if result.Update.Updated[0].Type != "story" {
+		t.Errorf("expected normalized type 'story', got %q", result.Update.Updated[0].Type)
+	}
+}
+
+func TestExecuteUpdateDescriptionToEmpty(t *testing.T) {
+	e := newTestExecutor()
+	p := newTestParser()
+	tasks := []*task.Task{
+		{ID: "TIKI-000001", Title: "x", Status: "ready", Description: "some desc"},
+	}
+
+	stmt, err := p.ParseStatement(`update where id = "TIKI-000001" set description=empty`)
+	if err != nil {
+		t.Fatalf("parse: %v", err)
+	}
+	result, err := e.Execute(stmt, tasks)
+	if err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	if result.Update.Updated[0].Description != "" {
+		t.Errorf("expected empty description, got %q", result.Update.Updated[0].Description)
+	}
+}
+
+func TestExecuteUpdateTitleToEmptyRejected(t *testing.T) {
+	e := newTestExecutor()
+	p := newTestParser()
+	tasks := []*task.Task{
+		{ID: "TIKI-000001", Title: "old title", Status: "ready"},
+	}
+
+	stmt, err := p.ParseStatement(`update where id = "TIKI-000001" set title=empty`)
+	if err != nil {
+		t.Fatalf("parse: %v", err)
+	}
+	_, err = e.Execute(stmt, tasks)
+	if err == nil {
+		t.Fatal("expected error for title=empty")
+	}
+	if !strings.Contains(err.Error(), "empty") {
+		t.Errorf("expected error mentioning empty, got: %v", err)
+	}
+}
+
+func TestExecuteUpdateDependsOnToEmpty(t *testing.T) {
+	e := newTestExecutor()
+	p := newTestParser()
+	tasks := []*task.Task{
+		{ID: "TIKI-000001", Title: "x", Status: "ready", DependsOn: []string{"T2"}},
+	}
+
+	stmt, err := p.ParseStatement(`update where id = "TIKI-000001" set dependsOn=empty`)
+	if err != nil {
+		t.Fatalf("parse: %v", err)
+	}
+	result, err := e.Execute(stmt, tasks)
+	if err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	if result.Update.Updated[0].DependsOn != nil {
+		t.Errorf("expected nil dependsOn, got %v", result.Update.Updated[0].DependsOn)
+	}
+}
+
+// --- executeUpdate error branches ---
+
+func TestExecuteUpdateWhereError(t *testing.T) {
+	e := newTestExecutor()
+	tasks := makeTasks()
+
+	// WHERE clause with a bad expr triggers filterTasks error
+	stmt := &Statement{
+		Update: &UpdateStmt{
+			Where: &CompareExpr{
+				Left:  &QualifiedRef{Qualifier: "old", Name: "status"},
+				Op:    "=",
+				Right: &StringLiteral{Value: "done"},
+			},
+			Set: []Assignment{{Field: "title", Value: &StringLiteral{Value: "x"}}},
+		},
+	}
+	_, err := e.Execute(stmt, tasks)
+	if err == nil {
+		t.Fatal("expected error from WHERE evaluation")
+	}
+}
+
+func TestExecuteUpdateEvalExprError(t *testing.T) {
+	e := newTestExecutor()
+	tasks := []*task.Task{
+		{ID: "T1", Title: "x", Status: "ready"},
+	}
+
+	// assignment value that fails evalExpr
+	stmt := &Statement{
+		Update: &UpdateStmt{
+			Where: &CompareExpr{
+				Left: &FieldRef{Name: "id"}, Op: "=", Right: &StringLiteral{Value: "T1"},
+			},
+			Set: []Assignment{{Field: "title", Value: &QualifiedRef{Qualifier: "old", Name: "title"}}},
+		},
+	}
+	_, err := e.Execute(stmt, tasks)
+	if err == nil {
+		t.Fatal("expected error from evalExpr in assignment")
+	}
+}
+
+// --- setField type mismatch branches ---
+
+func TestSetFieldTypeMismatches(t *testing.T) {
+	e := newTestExecutor()
+	tk := &task.Task{ID: "T1", Title: "x", Status: "ready", Type: "bug", Priority: 2}
+
+	tests := []struct {
+		name  string
+		field string
+		val   interface{}
+	}{
+		{"title non-string", "title", 42},
+		{"description non-string", "description", 42},
+		{"status non-string", "status", 42},
+		{"type non-string", "type", 42},
+		{"priority non-int", "priority", "abc"},
+		{"points non-int", "points", "abc"},
+		{"due non-time", "due", "abc"},
+		{"recurrence non-string", "recurrence", 42},
+		{"assignee non-string", "assignee", 42},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := e.setField(tk, tt.field, tt.val)
+			if err == nil {
+				t.Fatalf("expected error for %s with %T", tt.field, tt.val)
+			}
+		})
+	}
+}
+
+func TestSetFieldStatusAsTaskStatus(t *testing.T) {
+	e := newTestExecutor()
+	tk := &task.Task{ID: "T1", Title: "x", Status: "ready"}
+
+	// passing task.Status value directly (not string)
+	err := e.setField(tk, "status", task.Status("done"))
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if tk.Status != "done" {
+		t.Errorf("expected status done, got %q", tk.Status)
+	}
+}
+
+func TestSetFieldTypeAsTaskType(t *testing.T) {
+	e := newTestExecutor()
+	tk := &task.Task{ID: "T1", Title: "x", Status: "ready", Type: "bug"}
+
+	// passing task.Type value directly (not string)
+	err := e.setField(tk, "type", task.Type("story"))
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if tk.Type != "story" {
+		t.Errorf("expected type story, got %q", tk.Type)
+	}
+}
+
+func TestSetFieldUnknownStatusError(t *testing.T) {
+	e := newTestExecutor()
+	tk := &task.Task{ID: "T1", Title: "x", Status: "ready"}
+
+	err := e.setField(tk, "status", "nonexistent_status")
+	if err == nil || !strings.Contains(err.Error(), "unknown status") {
+		t.Fatalf("expected unknown status error, got: %v", err)
+	}
+}
+
+func TestSetFieldUnknownTypeError(t *testing.T) {
+	e := newTestExecutor()
+	tk := &task.Task{ID: "T1", Title: "x", Status: "ready", Type: "bug"}
+
+	err := e.setField(tk, "type", "nonexistent_type")
+	if err == nil || !strings.Contains(err.Error(), "unknown type") {
+		t.Fatalf("expected unknown type error, got: %v", err)
+	}
+}
+
+func TestSetFieldDescriptionToEmpty(t *testing.T) {
+	e := newTestExecutor()
+	tk := &task.Task{ID: "T1", Title: "x", Status: "ready", Description: "some desc"}
+
+	err := e.setField(tk, "description", nil)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if tk.Description != "" {
+		t.Errorf("expected empty description, got %q", tk.Description)
+	}
+}
+
+func TestSetFieldPointsToEmpty(t *testing.T) {
+	e := newTestExecutor()
+	tk := &task.Task{ID: "T1", Title: "x", Status: "ready", Points: 5}
+
+	err := e.setField(tk, "points", nil)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if tk.Points != 0 {
+		t.Errorf("expected 0 points, got %d", tk.Points)
+	}
+}
+
+func TestSetFieldRecurrenceFromString(t *testing.T) {
+	e := newTestExecutor()
+	tk := &task.Task{ID: "T1", Title: "x", Status: "ready"}
+
+	err := e.setField(tk, "recurrence", "0 0 * * *")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if tk.Recurrence != task.Recurrence("0 0 * * *") {
+		t.Errorf("expected recurrence '0 0 * * *', got %q", tk.Recurrence)
+	}
+}
+
+func TestSetFieldRecurrenceFromTaskRecurrence(t *testing.T) {
+	e := newTestExecutor()
+	tk := &task.Task{ID: "T1", Title: "x", Status: "ready"}
+
+	err := e.setField(tk, "recurrence", task.RecurrenceDaily)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if tk.Recurrence != task.RecurrenceDaily {
+		t.Errorf("expected daily recurrence, got %q", tk.Recurrence)
+	}
+}
+
+func TestToStringSliceNonList(t *testing.T) {
+	result := toStringSlice("not a list")
+	if result != nil {
+		t.Errorf("expected nil for non-list input, got %v", result)
+	}
+}
+
+func TestExecuteUpdatePriorityOutOfRange(t *testing.T) {
+	e := newTestExecutor()
+
+	tests := []struct {
+		name string
+		val  int
+	}{
+		{"too low", 0},
+		{"too high", 99},
+		{"negative", -1},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			tasks := []*task.Task{{ID: "T1", Title: "x", Status: "ready", Priority: 2}}
+			stmt := &Statement{
+				Update: &UpdateStmt{
+					Where: &CompareExpr{
+						Left: &FieldRef{Name: "id"}, Op: "=", Right: &StringLiteral{Value: "T1"},
+					},
+					Set: []Assignment{{Field: "priority", Value: &IntLiteral{Value: tt.val}}},
+				},
+			}
+			_, err := e.Execute(stmt, tasks)
+			if err == nil {
+				t.Fatal("expected error for out-of-range priority")
+			}
+			if !strings.Contains(err.Error(), "priority must be between") {
+				t.Errorf("expected range error, got: %v", err)
+			}
+		})
+	}
+}
+
+func TestExecuteUpdatePriorityValidRange(t *testing.T) {
+	e := newTestExecutor()
+	p := newTestParser()
+
+	for _, prio := range []int{1, 3, 5} {
+		tasks := []*task.Task{{ID: "T1", Title: "x", Status: "ready", Priority: 2}}
+		stmt, err := p.ParseStatement(fmt.Sprintf(`update where id = "T1" set priority=%d`, prio))
+		if err != nil {
+			t.Fatalf("parse priority=%d: %v", prio, err)
+		}
+		result, err := e.Execute(stmt, tasks)
+		if err != nil {
+			t.Fatalf("execute priority=%d: %v", prio, err)
+		}
+		if result.Update.Updated[0].Priority != prio {
+			t.Errorf("expected priority %d, got %d", prio, result.Update.Updated[0].Priority)
+		}
+	}
+}
+
+func TestExecuteUpdatePointsOutOfRange(t *testing.T) {
+	e := newTestExecutor()
+
+	tests := []struct {
+		name string
+		val  int
+	}{
+		{"negative", -1},
+		{"exceeds max", 999},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			tasks := []*task.Task{{ID: "T1", Title: "x", Status: "ready", Points: 3}}
+			stmt := &Statement{
+				Update: &UpdateStmt{
+					Where: &CompareExpr{
+						Left: &FieldRef{Name: "id"}, Op: "=", Right: &StringLiteral{Value: "T1"},
+					},
+					Set: []Assignment{{Field: "points", Value: &IntLiteral{Value: tt.val}}},
+				},
+			}
+			_, err := e.Execute(stmt, tasks)
+			if err == nil {
+				t.Fatal("expected error for invalid points value")
+			}
+			if !strings.Contains(err.Error(), "invalid points") {
+				t.Errorf("expected 'invalid points' error, got: %v", err)
+			}
+		})
+	}
+}
+
+func TestExecuteUpdatePointsValidValues(t *testing.T) {
+	e := newTestExecutor()
+	p := newTestParser()
+
+	for _, pts := range []int{0, 1, 5, 10} {
+		tasks := []*task.Task{{ID: "T1", Title: "x", Status: "ready", Points: 3}}
+		stmt, err := p.ParseStatement(fmt.Sprintf(`update where id = "T1" set points=%d`, pts))
+		if err != nil {
+			t.Fatalf("parse points=%d: %v", pts, err)
+		}
+		result, err := e.Execute(stmt, tasks)
+		if err != nil {
+			t.Fatalf("execute points=%d: %v", pts, err)
+		}
+		if result.Update.Updated[0].Points != pts {
+			t.Errorf("expected points %d, got %d", pts, result.Update.Updated[0].Points)
+		}
+	}
+}
+
+func TestExecuteUpdateTitleWhitespaceRejected(t *testing.T) {
+	e := newTestExecutor()
+	tasks := []*task.Task{{ID: "T1", Title: "old", Status: "ready"}}
+
+	stmt := &Statement{
+		Update: &UpdateStmt{
+			Where: &CompareExpr{
+				Left: &FieldRef{Name: "id"}, Op: "=", Right: &StringLiteral{Value: "T1"},
+			},
+			Set: []Assignment{{Field: "title", Value: &StringLiteral{Value: "   "}}},
+		},
+	}
+	_, err := e.Execute(stmt, tasks)
+	if err == nil {
+		t.Fatal("expected error for whitespace-only title")
+	}
+	if !strings.Contains(err.Error(), "empty") {
+		t.Errorf("expected empty error, got: %v", err)
+	}
+}
+
+func TestSetFieldDescriptionString(t *testing.T) {
+	e := newTestExecutor()
+	tk := &task.Task{ID: "T1", Title: "x", Status: "ready"}
+
+	err := e.setField(tk, "description", "new desc")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if tk.Description != "new desc" {
+		t.Errorf("expected 'new desc', got %q", tk.Description)
+	}
+}
+
+func TestSetFieldPointsInt(t *testing.T) {
+	e := newTestExecutor()
+	tk := &task.Task{ID: "T1", Title: "x", Status: "ready"}
+
+	err := e.setField(tk, "points", 8)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if tk.Points != 8 {
+		t.Errorf("expected 8, got %d", tk.Points)
 	}
 }

@@ -9,9 +9,10 @@ import (
 	"github.com/boolean-maybe/tiki/store"
 )
 
-// RunSelectQuery parses and executes a ruki select statement against the given
-// store, writing formatted results to out. Non-select statements are rejected.
-func RunSelectQuery(taskStore store.Store, query string, out io.Writer) error {
+// RunQuery parses and executes a ruki statement against the given store,
+// writing formatted results to out. SELECT and UPDATE are supported;
+// CREATE and DELETE are rejected.
+func RunQuery(taskStore store.Store, query string, out io.Writer) error {
 	query = strings.TrimSuffix(strings.TrimSpace(query), ";")
 	if query == "" {
 		return fmt.Errorf("empty query")
@@ -31,18 +32,52 @@ func RunSelectQuery(taskStore store.Store, query string, out io.Writer) error {
 		return fmt.Errorf("parse: %w", err)
 	}
 
-	if stmt.Select == nil {
-		return fmt.Errorf("only select statements are supported")
-	}
-
 	tasks := taskStore.GetAllTasks()
 	result, err := executor.Execute(stmt, tasks)
 	if err != nil {
 		return fmt.Errorf("execute: %w", err)
 	}
 
-	formatter := NewTableFormatter()
-	return formatter.Format(out, result.Select)
+	switch {
+	case result.Select != nil:
+		formatter := NewTableFormatter()
+		return formatter.Format(out, result.Select)
+
+	case result.Update != nil:
+		return persistAndSummarize(taskStore, result.Update, out)
+
+	default:
+		return fmt.Errorf("unsupported statement type")
+	}
+}
+
+// RunSelectQuery is the legacy entry point. It delegates to RunQuery.
+func RunSelectQuery(taskStore store.Store, query string, out io.Writer) error {
+	return RunQuery(taskStore, query, out)
+}
+
+func persistAndSummarize(taskStore store.Store, ur *ruki.UpdateResult, out io.Writer) error {
+	var succeeded, failed int
+	var firstErr error
+
+	for _, t := range ur.Updated {
+		if err := taskStore.UpdateTask(t); err != nil {
+			failed++
+			if firstErr == nil {
+				firstErr = err
+			}
+		} else {
+			succeeded++
+		}
+	}
+
+	if failed > 0 {
+		_, _ = fmt.Fprintf(out, "updated %d tasks (%d failed)\n", succeeded, failed)
+		return fmt.Errorf("update partially failed: %d of %d tasks failed: %w", failed, succeeded+failed, firstErr)
+	}
+
+	_, _ = fmt.Fprintf(out, "updated %d tasks\n", succeeded)
+	return nil
 }
 
 // resolveUser returns the current user name from the store.
