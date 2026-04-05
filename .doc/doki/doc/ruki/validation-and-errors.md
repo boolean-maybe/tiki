@@ -134,7 +134,6 @@ Unsupported operators:
 select where title < "hello"
 select where status < "done"
 select where recurrence < recurrence
-select where contains("a", "b") < contains("c", "d")
 ```
 
 Invalid assignment types:
@@ -185,7 +184,6 @@ Invalid examples:
 select where status in ["done", 1]
 create title="x" tags=[1, 2]
 create title="x" dependsOn=["TIKI-ABC123", title]
-select where "bug" in title
 select where status in dependsOn
 select where tags any status = "done"
 ```
@@ -231,7 +229,6 @@ Argument count errors:
 ```sql
 select where now(1) = now()
 select where count() >= 1
-select where contains("a") = "b"
 select where user(1) = "bob"
 ```
 
@@ -239,7 +236,6 @@ Argument type errors:
 
 ```sql
 select where blocks(priority) is empty
-select where contains(1, "a") = contains("a", "b")
 create title=call(42)
 create title="x" due=next_date(42)
 ```

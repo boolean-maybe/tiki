@@ -532,66 +532,46 @@ func TestExecuteComparisonMatrix(t *testing.T) {
 
 // --- functions ---
 
-func TestExecuteContains(t *testing.T) {
+func TestExecuteInSubstring(t *testing.T) {
 	e := newTestExecutor()
 	tasks := makeTasks()
 
-	// contains() returns bool; test via hand-built AST since the grammar
-	// has no bool literal for direct comparison in WHERE
-	stmt := &Statement{
-		Select: &SelectStmt{
-			Where: &CompareExpr{
-				Left: &FunctionCall{
-					Name: "contains",
-					Args: []Expr{&FieldRef{Name: "title"}, &StringLiteral{Value: "login"}},
-				},
-				Op: "=",
-				Right: &FunctionCall{
-					Name: "contains",
-					Args: []Expr{&FieldRef{Name: "title"}, &StringLiteral{Value: "login"}},
-				},
-			},
-		},
+	tests := []struct {
+		name    string
+		query   string
+		wantIDs []string
+	}{
+		{"match", `select where "bug" in title`, []string{"TIKI-000002"}},
+		{"negated", `select where "bug" not in title`, []string{"TIKI-000001", "TIKI-000003", "TIKI-000004"}},
+		{"assignee", `select where "ali" in assignee`, []string{"TIKI-000001", "TIKI-000003"}},
+		{"no match", `select where "xyz" in title`, nil},
+		{"empty needle", `select where "" in title`, []string{"TIKI-000001", "TIKI-000002", "TIKI-000003", "TIKI-000004"}},
+		{"case sensitive", `select where "BUG" in title`, nil},
 	}
 
-	result, err := e.Execute(stmt, tasks)
-	if err != nil {
-		t.Fatalf("execute: %v", err)
-	}
-	// all tasks match (bool = bool is always true for identical expressions)
-	if len(result.Select.Tasks) != 4 {
-		t.Fatalf("expected 4 tasks, got %d", len(result.Select.Tasks))
-	}
-
-	// test actual substring matching via a more targeted AST
-	stmt2 := &Statement{
-		Select: &SelectStmt{
-			Where: &CompareExpr{
-				Left: &FunctionCall{
-					Name: "contains",
-					Args: []Expr{&FieldRef{Name: "title"}, &StringLiteral{Value: "bug"}},
-				},
-				Op: "!=",
-				Right: &FunctionCall{
-					Name: "contains",
-					Args: []Expr{&FieldRef{Name: "title"}, &StringLiteral{Value: "zzz"}},
-				},
-			},
-		},
-	}
-
-	result, err = e.Execute(stmt2, tasks)
-	if err != nil {
-		t.Fatalf("execute: %v", err)
-	}
-	// "Fix login bug" contains "bug" but not "zzz" → true != false → match
-	// others: contains(title,"bug")=false, contains(title,"zzz")=false → false != false → no match
-	if len(result.Select.Tasks) != 1 || result.Select.Tasks[0].ID != "TIKI-000002" {
-		ids := make([]string, len(result.Select.Tasks))
-		for i, tk := range result.Select.Tasks {
-			ids[i] = tk.ID
-		}
-		t.Fatalf("expected [TIKI-000002], got %v", ids)
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			stmt, err := newTestParser().ParseStatement(tt.query)
+			if err != nil {
+				t.Fatalf("parse: %v", err)
+			}
+			result, err := e.Execute(stmt, tasks)
+			if err != nil {
+				t.Fatalf("execute: %v", err)
+			}
+			got := make([]string, len(result.Select.Tasks))
+			for i, tk := range result.Select.Tasks {
+				got[i] = tk.ID
+			}
+			if len(got) != len(tt.wantIDs) {
+				t.Fatalf("expected %v, got %v", tt.wantIDs, got)
+			}
+			for i := range got {
+				if got[i] != tt.wantIDs[i] {
+					t.Fatalf("expected %v, got %v", tt.wantIDs, got)
+				}
+			}
+		})
 	}
 }
 
@@ -1891,26 +1871,6 @@ func TestExecuteErrorPropagation(t *testing.T) {
 			}},
 		},
 		{
-			"contains haystack error",
-			&Statement{Select: &SelectStmt{
-				Where: &CompareExpr{
-					Left:  &FunctionCall{Name: "contains", Args: []Expr{badExpr, &StringLiteral{Value: "x"}}},
-					Op:    "=",
-					Right: &FunctionCall{Name: "contains", Args: []Expr{&StringLiteral{Value: "y"}, &StringLiteral{Value: "x"}}},
-				},
-			}},
-		},
-		{
-			"contains needle error",
-			&Statement{Select: &SelectStmt{
-				Where: &CompareExpr{
-					Left:  &FunctionCall{Name: "contains", Args: []Expr{&StringLiteral{Value: "y"}, badExpr}},
-					Op:    "=",
-					Right: &FunctionCall{Name: "contains", Args: []Expr{&StringLiteral{Value: "y"}, &StringLiteral{Value: "x"}}},
-				},
-			}},
-		},
-		{
 			"next_date arg error",
 			&Statement{Select: &SelectStmt{
 				Where: &CompareExpr{
@@ -1942,9 +1902,9 @@ func TestExecuteErrorPropagation(t *testing.T) {
 	}
 }
 
-// --- in with non-list collection ---
+// --- in substring with literal collection ---
 
-func TestExecuteInNonListCollection(t *testing.T) {
+func TestExecuteInSubstringLiteral(t *testing.T) {
 	e := newTestExecutor()
 	tasks := []*task.Task{{ID: "T1", Title: "x", Status: "ready"}}
 
@@ -1956,10 +1916,51 @@ func TestExecuteInNonListCollection(t *testing.T) {
 			},
 		},
 	}
-	_, err := e.Execute(stmt, tasks)
-	if err == nil || !strings.Contains(err.Error(), "not a list") {
-		t.Fatalf("expected 'not a list' error, got: %v", err)
+	result, err := e.Execute(stmt, tasks)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
 	}
+	// "x" is not a substring of "not a list" → no match
+	if len(result.Select.Tasks) != 0 {
+		t.Fatalf("expected 0 tasks, got %d", len(result.Select.Tasks))
+	}
+}
+
+// --- in fail-fast for non-list/non-string runtime values (hand-built AST) ---
+
+func TestExecuteInNonListNonString(t *testing.T) {
+	e := newTestExecutor()
+	tasks := []*task.Task{{ID: "T1", Title: "x", Status: "ready"}}
+
+	t.Run("int collection", func(t *testing.T) {
+		stmt := &Statement{
+			Select: &SelectStmt{
+				Where: &InExpr{
+					Value:      &IntLiteral{Value: 1},
+					Collection: &IntLiteral{Value: 42},
+				},
+			},
+		}
+		_, err := e.Execute(stmt, tasks)
+		if err == nil || !strings.Contains(err.Error(), "not a list or string") {
+			t.Fatalf("expected 'not a list or string' error, got: %v", err)
+		}
+	})
+
+	t.Run("string collection non-string value", func(t *testing.T) {
+		stmt := &Statement{
+			Select: &SelectStmt{
+				Where: &InExpr{
+					Value:      &IntLiteral{Value: 1},
+					Collection: &StringLiteral{Value: "abc"},
+				},
+			},
+		}
+		_, err := e.Execute(stmt, tasks)
+		if err == nil || !strings.Contains(err.Error(), "substring check requires string value") {
+			t.Fatalf("expected 'substring check requires string value' error, got: %v", err)
+		}
+	})
 }
 
 // --- quantifier with non-list expression ---

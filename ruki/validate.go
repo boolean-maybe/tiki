@@ -34,7 +34,6 @@ var builtinFuncs = map[string]struct {
 	"now":       {ValueTimestamp, 0, 0},
 	"next_date": {ValueDate, 1, 1},
 	"blocks":    {ValueListRef, 1, 1},
-	"contains":  {ValueBool, 2, 2},
 	"call":      {ValueString, 1, 1},
 	"user":      {ValueString, 0, 0},
 }
@@ -266,31 +265,32 @@ func (p *Parser) validateIn(c *InExpr) error {
 		return err
 	}
 
-	// infer collection type first — this validates list homogeneity
 	collType, err := p.inferExprType(c.Collection)
 	if err != nil {
 		return err
 	}
 
-	// get the actual element type, checking literal elements directly
-	elemType, err := p.inferListElementType(c.Collection)
-	if err != nil {
-		return err
-	}
-
-	if listElementType(collType) == -1 {
-		return fmt.Errorf("%s is not a collection type; use contains() for substring checks", typeName(collType))
-	}
-
-	if !membershipCompatible(valType, elemType) {
-		// allow string-like values in list literals whose elements are all string literals
-		ll, isLiteral := c.Collection.(*ListLiteral)
-		if !isLiteral || !isStringLike(valType) || !allStringLiterals(ll) {
-			return fmt.Errorf("element type mismatch: %s in %s", typeName(valType), typeName(collType))
+	// list membership mode: collection is a list type
+	if listElementType(collType) != -1 {
+		elemType, err := p.inferListElementType(c.Collection)
+		if err != nil {
+			return err
 		}
+		if !membershipCompatible(valType, elemType) {
+			ll, isLiteral := c.Collection.(*ListLiteral)
+			if !isLiteral || !isStringLike(valType) || !allStringLiterals(ll) {
+				return fmt.Errorf("element type mismatch: %s in %s", typeName(valType), typeName(collType))
+			}
+		}
+		return p.validateEnumListElements(c.Collection, valType)
 	}
 
-	return p.validateEnumListElements(c.Collection, valType)
+	// substring mode: both sides must be string (not string-like)
+	if valType == ValueString && collType == ValueString {
+		return nil
+	}
+
+	return fmt.Errorf("cannot check %s in %s", typeName(valType), typeName(collType))
 }
 
 func (p *Parser) validateQuantifier(q *QuantifierExpr) error {
@@ -441,16 +441,6 @@ func (p *Parser) inferFuncCallType(fc *FunctionCall) (ValueType, error) {
 		if argType == ValueString {
 			if _, ok := fc.Args[0].(*StringLiteral); !ok {
 				return 0, fmt.Errorf("blocks() argument must be an id or ref, got %s", typeName(argType))
-			}
-		}
-	case "contains":
-		for i, arg := range fc.Args {
-			t, err := p.inferExprType(arg)
-			if err != nil {
-				return 0, err
-			}
-			if t != ValueString {
-				return 0, fmt.Errorf("contains() argument %d must be string, got %s", i+1, typeName(t))
 			}
 		}
 	case "call":

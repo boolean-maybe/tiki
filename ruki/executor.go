@@ -414,23 +414,37 @@ func (e *Executor) evalIn(c *InExpr, t *task.Task, allTasks []*task.Task) (bool,
 	if err != nil {
 		return false, err
 	}
-	list, ok := collVal.([]interface{})
-	if !ok {
-		return false, fmt.Errorf("in: collection is not a list")
+
+	// list membership mode
+	if list, ok := collVal.([]interface{}); ok {
+		valStr := normalizeToString(val)
+		found := false
+		for _, elem := range list {
+			if normalizeToString(elem) == valStr {
+				found = true
+				break
+			}
+		}
+		if c.Negated {
+			return !found, nil
+		}
+		return found, nil
 	}
 
-	valStr := normalizeToString(val)
-	found := false
-	for _, elem := range list {
-		if normalizeToString(elem) == valStr {
-			found = true
-			break
+	// substring mode — guarded assertions, no panics on hand-built ASTs
+	if haystack, ok := collVal.(string); ok {
+		needle, ok := val.(string)
+		if !ok {
+			return false, fmt.Errorf("in: substring check requires string value")
 		}
+		found := strings.Contains(haystack, needle)
+		if c.Negated {
+			return !found, nil
+		}
+		return found, nil
 	}
-	if c.Negated {
-		return !found, nil
-	}
-	return found, nil
+
+	return false, fmt.Errorf("in: collection is not a list or string")
 }
 
 func (e *Executor) evalQuantifier(q *QuantifierExpr, t *task.Task, allTasks []*task.Task) (bool, error) {
@@ -541,8 +555,6 @@ func (e *Executor) evalFunctionCall(fc *FunctionCall, t *task.Task, allTasks []*
 		return time.Now(), nil
 	case "user":
 		return e.userFunc(), nil
-	case "contains":
-		return e.evalContains(fc, t, allTasks)
 	case "count":
 		return e.evalCount(fc, allTasks)
 	case "next_date":
@@ -554,18 +566,6 @@ func (e *Executor) evalFunctionCall(fc *FunctionCall, t *task.Task, allTasks []*
 	default:
 		return nil, fmt.Errorf("unknown function %q", fc.Name)
 	}
-}
-
-func (e *Executor) evalContains(fc *FunctionCall, t *task.Task, allTasks []*task.Task) (interface{}, error) {
-	haystack, err := e.evalExpr(fc.Args[0], t, allTasks)
-	if err != nil {
-		return nil, err
-	}
-	needle, err := e.evalExpr(fc.Args[1], t, allTasks)
-	if err != nil {
-		return nil, err
-	}
-	return strings.Contains(normalizeToString(haystack), normalizeToString(needle)), nil
 }
 
 func (e *Executor) evalCount(fc *FunctionCall, allTasks []*task.Task) (interface{}, error) {

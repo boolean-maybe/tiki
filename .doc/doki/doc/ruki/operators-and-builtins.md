@@ -82,22 +82,27 @@ Invalid examples:
 ```sql
 select where status < "done"
 select where title < "hello"
-select where contains("a", "b") < contains("c", "d")
 ```
 
 ## Membership
 
-Membership:
+Membership and substring:
 
 - `<expr> in <collection>`
 - `<expr> not in <collection>`
 
-Rules:
+The `in` operator has two modes depending on the right-hand side:
 
-- the right side must be a collection
-- `string in title` is invalid because `title` is not a collection
+**List membership** — when the right side is a list:
+
+- checks whether the value appears in the list
 - membership uses stricter compatibility than general comparison typing
 - `id` and `ref` are treated as compatible for membership
+
+**Substring check** — when the right side is a `string` field:
+
+- checks whether the left side is a substring of the right side
+- both sides must be `string` type (not `status`, `type`, `id`, or `ref`)
 
 Examples:
 
@@ -106,6 +111,17 @@ select where "bug" in tags
 select where id in dependsOn
 select where status in ["done", "cancelled"]
 select where status not in ["done"]
+select where "bug" in title
+select where "bug" in title and "fix" in title
+select where "ali" in assignee
+select where "bug" not in title
+```
+
+Invalid examples:
+
+```sql
+select where "done" in status
+select where "x" in id
 ```
 
 ## Any And All
@@ -193,7 +209,6 @@ Ruki has these built-ins:
 | `now()` | `timestamp` | 0 | no additional validation |
 | `next_date(...)` | `date` | exactly 1 | argument must be `recurrence` |
 | `blocks(...)` | `list<ref>` | exactly 1 | argument must be `id`, `ref`, or string literal |
-| `contains(...)` | `bool` | exactly 2 | both arguments must be `string` |
 | `call(...)` | `string` | exactly 1 | argument must be `string` |
 | `user()` | `string` | 0 | no additional validation |
 
@@ -204,7 +219,6 @@ select where count(select where status = "done") >= 1
 select where updatedAt < now()
 create title="x" due=next_date(recurrence)
 select where blocks(id) is empty
-select where contains(title, "bug") = contains(title, "fix")
 create title=call("echo hi")
 select where assignee = user()
 ```

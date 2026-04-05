@@ -26,7 +26,7 @@ Ruki uses these value types:
 | `date` | day-level date values |
 | `timestamp` | timestamp values such as `createdAt` and `updatedAt` |
 | `duration` | duration literals and date or timestamp differences |
-| `bool` | boolean results such as `contains(...)` |
+| `bool` | boolean result type (reserved, not currently produced by any expression) |
 | `id` | tiki identifier |
 | `ref` | tiki reference |
 | `recurrence` | recurrence value |
@@ -159,6 +159,6 @@ select where status in ["done", 1]
 ## Type notes
 
 - `string`, `status`, `type`, `id`, and `ref` are treated as string-like in some comparison and concatenation paths, but they are not interchangeable everywhere.
-- Membership checks are stricter than general comparison compatibility. For `in` and `not in`, only exact type matches count, except that `id` and `ref` are treated as compatible with each other.
+- Membership checks are stricter than general comparison compatibility. For `in` and `not in` with list collections, only exact type matches count, except that `id` and `ref` are treated as compatible with each other. When the right side is a `string` field, `in` performs a substring check — both sides must be `string` type (not `status`, `type`, `id`, or `ref`).
 - Enum fields reject non-literal field references in assignments such as `status=title` or `type=title`.
 - The exact accepted status values depend on runtime workflow configuration, while the accepted type values depend on the type registry supplied to the parser.

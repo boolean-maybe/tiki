@@ -282,30 +282,6 @@ func TestLower_OrderByAscDesc(t *testing.T) {
 	}
 }
 
-// TestLower_FuncCallArgs exercises function call lowering with multiple args.
-func TestLower_FuncCallArgs(t *testing.T) {
-	p := newTestParser()
-
-	stmt, err := p.ParseStatement(`select where contains(title, "bug") = contains(title, "fix")`)
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	cmp, ok := stmt.Select.Where.(*CompareExpr)
-	if !ok {
-		t.Fatalf("expected CompareExpr, got %T", stmt.Select.Where)
-	}
-	fc, ok := cmp.Left.(*FunctionCall)
-	if !ok {
-		t.Fatalf("expected FunctionCall, got %T", cmp.Left)
-	}
-	if fc.Name != "contains" {
-		t.Errorf("expected 'contains', got %q", fc.Name)
-	}
-	if len(fc.Args) != 2 {
-		t.Errorf("expected 2 args, got %d", len(fc.Args))
-	}
-}
-
 // TestLower_ListLiteral exercises list literal lowering.
 func TestLower_ListLiteral(t *testing.T) {
 	p := newTestParser()

@@ -27,7 +27,7 @@ const (
 	ValueDate                 // due
 	ValueTimestamp            // createdAt, updatedAt
 	ValueDuration             // duration literals
-	ValueBool                 // contains() return type
+	ValueBool                 // boolean result type
 	ValueID                   // task identifier
 	ValueRef                  // reference to another task
 	ValueRecurrence           // recurrence pattern

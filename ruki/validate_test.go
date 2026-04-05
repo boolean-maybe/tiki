@@ -100,7 +100,6 @@ func TestValidation_FunctionArgCount(t *testing.T) {
 	}{
 		{"now with args", `select where now(1) = now()`},
 		{"count no args", `select where count() >= 1`},
-		{"contains one arg", `select where contains("a") = "b"`},
 		{"user with args", `select where user(1) = "bob"`},
 	}
 
@@ -346,16 +345,6 @@ func TestValidation_FunctionArgTypes(t *testing.T) {
 			"blocks() argument must be an id or ref",
 		},
 		{
-			"contains with non-string first arg",
-			`select where contains(1, "a") = contains("a", "b")`,
-			"contains() argument 1 must be string",
-		},
-		{
-			"contains with non-string second arg",
-			`select where contains("a", 1) = contains("a", "b")`,
-			"contains() argument 2 must be string",
-		},
-		{
 			"call with non-string arg",
 			`create title=call(42)`,
 			"call() argument must be string",
@@ -395,7 +384,6 @@ func TestValidation_ValidFunctionUsages(t *testing.T) {
 		{"blocks with id field", `select where blocks(id) is empty`},
 		{"blocks with id ref", `select where blocks("TIKI-ABC123") is empty`},
 		{"call with string", `create title=call("echo hi")`},
-		{"contains", `select where contains(title, "bug") = contains(title, "fix")`},
 		{"user", `select where assignee = user()`},
 		{"now", `select where updatedAt < now()`},
 		{"count with subquery", `select where count(select where status = "done") >= 1`},
@@ -427,19 +415,29 @@ func TestValidation_InExprTypes(t *testing.T) {
 			"element type mismatch",
 		},
 		{
-			"scalar field as collection — not a collection",
-			`select where "d" in title`,
-			"not a collection",
-		},
-		{
-			"scalar string field as collection",
-			`select where "x" in assignee`,
-			"not a collection",
-		},
-		{
-			"scalar int field as collection",
+			"int in int — not a list or string",
 			`select where 1 in priority`,
-			"not a collection",
+			"cannot check",
+		},
+		{
+			"int in string — not string value",
+			`select where 1 in title`,
+			"cannot check",
+		},
+		{
+			"string in status — substring requires string not enum",
+			`select where "done" in status`,
+			"cannot check",
+		},
+		{
+			"string in id — substring requires string not id",
+			`select where "x" in id`,
+			"cannot check",
+		},
+		{
+			"status in string — substring requires string not enum",
+			`select where status in "hello"`,
+			"cannot check",
 		},
 	}
 
@@ -511,6 +509,8 @@ func TestValidation_ValidInExpr(t *testing.T) {
 		{"status in list", `select where status in ["done", "cancelled"]`},
 		{"status not in list", `select where status not in ["done"]`},
 		{"int in list", `select where priority in [1, 2, 3]`},
+		{"string in string field — substring", `select where "d" in title`},
+		{"string in assignee — substring", `select where "x" in assignee`},
 	}
 
 	for _, tt := range tests {
@@ -711,11 +711,6 @@ func TestValidation_MoreBinaryExprErrors(t *testing.T) {
 			"duration minus duration",
 			`create title="x" due=1day - 2day`,
 			"cannot subtract",
-		},
-		{
-			"bool in comparison",
-			`select where contains("a", "b") < contains("c", "d")`,
-			"operator < not supported for bool",
 		},
 		{
 			"list ordered compare",
@@ -2056,19 +2051,15 @@ func TestValidation_ListRefPlusListRef(t *testing.T) {
 	}
 }
 
-func TestValidation_FuncArgRangeError(t *testing.T) {
+func TestValidation_ContainsIsUnknownFunction(t *testing.T) {
 	p := newTestParser()
 
-	fc := &FunctionCall{
-		Name: "contains",
-		Args: []Expr{&StringLiteral{Value: "a"}},
-	}
-	_, err := p.inferFuncCallType(fc)
+	_, err := p.ParseStatement(`select where contains(title, "bug") = contains(title, "fix")`)
 	if err == nil {
-		t.Fatal("expected error for wrong arg count")
+		t.Fatal("expected error, got nil")
 	}
-	if !strings.Contains(err.Error(), "expects 2 argument(s)") {
-		t.Errorf("unexpected error: %v", err)
+	if !strings.Contains(err.Error(), "unknown function") {
+		t.Fatalf("expected 'unknown function' error, got: %v", err)
 	}
 }
 
