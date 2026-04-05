@@ -627,6 +627,98 @@ func TestAfterHook_Ordering(t *testing.T) {
 	}
 }
 
+func TestCreateTask_DepthExceeded(t *testing.T) {
+	gate, _ := newGateWithStore()
+
+	ctx := withTriggerDepth(context.Background(), maxTriggerDepth+1)
+	tk := &task.Task{
+		ID: "TIKI-DEPTH1", Title: "test", Status: task.StatusBacklog,
+		Type: task.TypeStory, Priority: 3,
+	}
+	err := gate.CreateTask(ctx, tk)
+	if err == nil {
+		t.Fatal("expected depth exceeded error")
+	}
+	if !strings.Contains(err.Error(), "cascade depth exceeded") {
+		t.Fatalf("expected cascade depth error, got: %v", err)
+	}
+}
+
+func TestDeleteTask_DepthExceeded(t *testing.T) {
+	gate, s := newGateWithStore()
+
+	tk := &task.Task{
+		ID: "TIKI-DEPTH2", Title: "test", Status: task.StatusBacklog,
+		Type: task.TypeStory, Priority: 3,
+	}
+	_ = s.CreateTask(tk)
+
+	ctx := withTriggerDepth(context.Background(), maxTriggerDepth+1)
+	err := gate.DeleteTask(ctx, tk)
+	if err == nil {
+		t.Fatal("expected depth exceeded error")
+	}
+	if !strings.Contains(err.Error(), "cascade depth exceeded") {
+		t.Fatalf("expected cascade depth error, got: %v", err)
+	}
+}
+
+func TestCreateTask_StoreError(t *testing.T) {
+	gate := NewTaskMutationGate()
+	fs := &failingCreateStore{Store: store.NewInMemoryStore()}
+	gate.SetStore(fs)
+
+	tk := &task.Task{
+		ID: "TIKI-CRERR1", Title: "test", Status: task.StatusBacklog,
+		Type: task.TypeStory, Priority: 3,
+	}
+	err := gate.CreateTask(context.Background(), tk)
+	if err == nil {
+		t.Fatal("expected store error")
+	}
+}
+
+func TestUpdateTask_StoreError(t *testing.T) {
+	gate := NewTaskMutationGate()
+	fs := &failingUpdateStore{Store: store.NewInMemoryStore(), failID: "TIKI-UPERR1"}
+	gate.SetStore(fs)
+
+	tk := &task.Task{
+		ID: "TIKI-UPERR1", Title: "test", Status: task.StatusBacklog,
+		Type: task.TypeStory, Priority: 3,
+	}
+	_ = fs.CreateTask(tk)
+
+	updated := tk.Clone()
+	updated.Title = "updated"
+	err := gate.UpdateTask(context.Background(), updated)
+	if err == nil {
+		t.Fatal("expected store error")
+	}
+}
+
+// failingCreateStore fails CreateTask
+type failingCreateStore struct {
+	store.Store
+}
+
+func (f *failingCreateStore) CreateTask(_ *task.Task) error {
+	return fmt.Errorf("simulated create failure")
+}
+
+// failingUpdateStore fails UpdateTask for a specific ID
+type failingUpdateStore struct {
+	store.Store
+	failID string
+}
+
+func (f *failingUpdateStore) UpdateTask(t *task.Task) error {
+	if t.ID == f.failID {
+		return fmt.Errorf("simulated update failure")
+	}
+	return f.Store.UpdateTask(t)
+}
+
 func TestTriggerDepth_NilContext(t *testing.T) {
 	// triggerDepth must not panic on nil context
 	depth := triggerDepth(nil) //nolint:staticcheck // SA1012: intentionally testing nil-context safety

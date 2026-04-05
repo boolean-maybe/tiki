@@ -510,3 +510,157 @@ func TestLaneSwitchFromEmptySourceUsesTopViewportContext(t *testing.T) {
 		t.Fatalf("expected selected index 4, got %d", got)
 	}
 }
+
+func TestPluginController_HandleOpenTask(t *testing.T) {
+	taskStore := store.NewInMemoryStore()
+	_ = taskStore.CreateTask(&task.Task{
+		ID: "T-1", Title: "Task 1", Status: task.StatusReady, Type: task.TypeStory,
+	})
+
+	todoFilter, _ := filter.ParseFilter("status = 'ready'")
+	pluginDef := &plugin.TikiPlugin{
+		BasePlugin: plugin.BasePlugin{Name: "TestPlugin"},
+		Lanes:      []plugin.TikiLane{{Name: "Todo", Columns: 1, Filter: todoFilter}},
+	}
+	pluginConfig := model.NewPluginConfig("TestPlugin")
+	pluginConfig.SetLaneLayout([]int{1}, nil)
+	pluginConfig.SetSelectedLane(0)
+	pluginConfig.SetSelectedIndexForLane(0, 0)
+
+	navController := newMockNavigationController()
+	gate := service.NewTaskMutationGate()
+	gate.SetStore(taskStore)
+	pc := NewPluginController(taskStore, gate, pluginConfig, pluginDef, navController, nil)
+
+	if !pc.HandleAction(ActionOpenFromPlugin) {
+		t.Error("expected HandleAction(open) to return true when task is selected")
+	}
+
+	// verify navigation was pushed
+	if navController.navState.depth() == 0 {
+		t.Error("expected navigation push for open task")
+	}
+}
+
+func TestPluginController_HandleOpenTask_Empty(t *testing.T) {
+	taskStore := store.NewInMemoryStore()
+	emptyFilter, _ := filter.ParseFilter("status = 'done'")
+	pluginDef := &plugin.TikiPlugin{
+		BasePlugin: plugin.BasePlugin{Name: "TestPlugin"},
+		Lanes:      []plugin.TikiLane{{Name: "Empty", Columns: 1, Filter: emptyFilter}},
+	}
+	pluginConfig := model.NewPluginConfig("TestPlugin")
+	pluginConfig.SetLaneLayout([]int{1}, nil)
+
+	gate := service.NewTaskMutationGate()
+	gate.SetStore(taskStore)
+	pc := NewPluginController(taskStore, gate, pluginConfig, pluginDef, newMockNavigationController(), nil)
+
+	if pc.HandleAction(ActionOpenFromPlugin) {
+		t.Error("expected false when no task is selected")
+	}
+}
+
+func TestPluginController_HandleDeleteTask(t *testing.T) {
+	taskStore := store.NewInMemoryStore()
+	_ = taskStore.CreateTask(&task.Task{
+		ID: "T-1", Title: "Task 1", Status: task.StatusReady, Type: task.TypeStory, Priority: 3,
+	})
+
+	todoFilter, _ := filter.ParseFilter("status = 'ready'")
+	pluginDef := &plugin.TikiPlugin{
+		BasePlugin: plugin.BasePlugin{Name: "TestPlugin"},
+		Lanes:      []plugin.TikiLane{{Name: "Todo", Columns: 1, Filter: todoFilter}},
+	}
+	pluginConfig := model.NewPluginConfig("TestPlugin")
+	pluginConfig.SetLaneLayout([]int{1}, nil)
+	pluginConfig.SetSelectedLane(0)
+	pluginConfig.SetSelectedIndexForLane(0, 0)
+
+	gate := service.NewTaskMutationGate()
+	gate.SetStore(taskStore)
+	pc := NewPluginController(taskStore, gate, pluginConfig, pluginDef, newMockNavigationController(), nil)
+
+	if !pc.HandleAction(ActionDeleteTask) {
+		t.Error("expected HandleAction(delete) to return true")
+	}
+
+	if taskStore.GetTask("T-1") != nil {
+		t.Error("task should have been deleted")
+	}
+}
+
+func TestPluginController_HandleDeleteTask_Empty(t *testing.T) {
+	taskStore := store.NewInMemoryStore()
+	emptyFilter, _ := filter.ParseFilter("status = 'done'")
+	pluginDef := &plugin.TikiPlugin{
+		BasePlugin: plugin.BasePlugin{Name: "TestPlugin"},
+		Lanes:      []plugin.TikiLane{{Name: "Empty", Columns: 1, Filter: emptyFilter}},
+	}
+	pluginConfig := model.NewPluginConfig("TestPlugin")
+	pluginConfig.SetLaneLayout([]int{1}, nil)
+
+	gate := service.NewTaskMutationGate()
+	gate.SetStore(taskStore)
+	pc := NewPluginController(taskStore, gate, pluginConfig, pluginDef, newMockNavigationController(), nil)
+
+	if pc.HandleAction(ActionDeleteTask) {
+		t.Error("expected false when no task is selected")
+	}
+}
+
+func TestPluginController_HandleDeleteTask_Rejected(t *testing.T) {
+	taskStore := store.NewInMemoryStore()
+	_ = taskStore.CreateTask(&task.Task{
+		ID: "T-1", Title: "Task 1", Status: task.StatusReady, Type: task.TypeStory, Priority: 3,
+	})
+
+	todoFilter, _ := filter.ParseFilter("status = 'ready'")
+	pluginDef := &plugin.TikiPlugin{
+		BasePlugin: plugin.BasePlugin{Name: "TestPlugin"},
+		Lanes:      []plugin.TikiLane{{Name: "Todo", Columns: 1, Filter: todoFilter}},
+	}
+	pluginConfig := model.NewPluginConfig("TestPlugin")
+	pluginConfig.SetLaneLayout([]int{1}, nil)
+	pluginConfig.SetSelectedLane(0)
+	pluginConfig.SetSelectedIndexForLane(0, 0)
+
+	statusline := model.NewStatuslineConfig()
+	gate := service.NewTaskMutationGate()
+	gate.SetStore(taskStore)
+	gate.OnDelete(func(_, _ *task.Task, _ []*task.Task) *service.Rejection {
+		return &service.Rejection{Reason: "cannot delete"}
+	})
+	pc := NewPluginController(taskStore, gate, pluginConfig, pluginDef, newMockNavigationController(), statusline)
+
+	if pc.HandleAction(ActionDeleteTask) {
+		t.Error("expected false when delete is rejected")
+	}
+
+	// task should still exist
+	if taskStore.GetTask("T-1") == nil {
+		t.Error("task should not have been deleted")
+	}
+}
+
+func TestPluginController_GetNameAndRegistry(t *testing.T) {
+	taskStore := store.NewInMemoryStore()
+	todoFilter, _ := filter.ParseFilter("status = 'ready'")
+	pluginDef := &plugin.TikiPlugin{
+		BasePlugin: plugin.BasePlugin{Name: "MyPlugin"},
+		Lanes:      []plugin.TikiLane{{Name: "Todo", Columns: 1, Filter: todoFilter}},
+	}
+	pluginConfig := model.NewPluginConfig("MyPlugin")
+	pluginConfig.SetLaneLayout([]int{1}, nil)
+
+	gate := service.NewTaskMutationGate()
+	gate.SetStore(taskStore)
+	pc := NewPluginController(taskStore, gate, pluginConfig, pluginDef, nil, nil)
+
+	if pc.GetPluginName() != "MyPlugin" {
+		t.Errorf("GetPluginName() = %q, want %q", pc.GetPluginName(), "MyPlugin")
+	}
+	if pc.GetActionRegistry() == nil {
+		t.Error("GetActionRegistry() should not be nil")
+	}
+}

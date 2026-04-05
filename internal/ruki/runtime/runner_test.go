@@ -580,3 +580,43 @@ func (f *failingDeleteStore) DeleteTask(id string) {
 	}
 	f.Store.DeleteTask(id)
 }
+
+func TestRunQueryEmptyQuery(t *testing.T) {
+	s := setupRunnerTest(t)
+
+	var buf bytes.Buffer
+	err := RunQuery(gateFor(s), "", &buf)
+	if err == nil {
+		t.Fatal("expected error for empty query")
+	}
+	if !strings.Contains(err.Error(), "empty") {
+		t.Errorf("expected 'empty' error, got: %v", err)
+	}
+}
+
+func TestRunQueryParseError(t *testing.T) {
+	s := setupRunnerTest(t)
+
+	var buf bytes.Buffer
+	err := RunQuery(gateFor(s), "select from where", &buf)
+	if err == nil {
+		t.Fatal("expected parse error")
+	}
+	if !strings.Contains(err.Error(), "parse") {
+		t.Errorf("expected 'parse' error, got: %v", err)
+	}
+}
+
+func TestRunSelectQueryResolveUserError(t *testing.T) {
+	s := setupRunnerTest(t)
+	fs := &failingUserStore{Store: s}
+
+	var buf bytes.Buffer
+	err := RunSelectQuery(fs, "select", &buf)
+	if err == nil {
+		t.Fatal("expected error for user resolution failure")
+	}
+	if !strings.Contains(err.Error(), "resolve current user") {
+		t.Errorf("expected 'resolve current user' error, got: %v", err)
+	}
+}

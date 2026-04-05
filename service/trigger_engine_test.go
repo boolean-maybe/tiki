@@ -581,6 +581,80 @@ func TestTriggerEngine_AfterDeleteCascadeCreate(t *testing.T) {
 	}
 }
 
+// --- addTrigger routing ---
+
+func TestTriggerEngine_AddTriggerRouting(t *testing.T) {
+	// build entries covering all 6 timing×event combinations
+	entries := []triggerEntry{
+		parseTriggerEntry(t, "bc", `before create deny "bc"`),
+		parseTriggerEntry(t, "bu", `before update where old.status = "ready" deny "bu"`),
+		parseTriggerEntry(t, "bd", `before delete where old.priority <= 1 deny "bd"`),
+		parseTriggerEntry(t, "ac", `after create where new.priority = 1 update where id = new.id set title="ac"`),
+		parseTriggerEntry(t, "au", `after update where new.status = "done" update where id = old.id set title="au"`),
+		parseTriggerEntry(t, "ad", `after delete update where old.id in dependsOn set dependsOn=dependsOn - [old.id]`),
+	}
+
+	engine := NewTriggerEngine(entries, ruki.NewTriggerExecutor(testTriggerSchema{}, nil))
+
+	if len(engine.beforeCreate) != 1 {
+		t.Errorf("beforeCreate: got %d, want 1", len(engine.beforeCreate))
+	}
+	if len(engine.beforeUpdate) != 1 {
+		t.Errorf("beforeUpdate: got %d, want 1", len(engine.beforeUpdate))
+	}
+	if len(engine.beforeDelete) != 1 {
+		t.Errorf("beforeDelete: got %d, want 1", len(engine.beforeDelete))
+	}
+	if len(engine.afterCreate) != 1 {
+		t.Errorf("afterCreate: got %d, want 1", len(engine.afterCreate))
+	}
+	if len(engine.afterUpdate) != 1 {
+		t.Errorf("afterUpdate: got %d, want 1", len(engine.afterUpdate))
+	}
+	if len(engine.afterDelete) != 1 {
+		t.Errorf("afterDelete: got %d, want 1", len(engine.afterDelete))
+	}
+}
+
+// --- before-trigger unconditional deny (no where clause) ---
+
+func TestTriggerEngine_BeforeCreateUnconditionalDeny(t *testing.T) {
+	entry := parseTriggerEntry(t, "block all creates",
+		`before create deny "no new tasks allowed"`)
+
+	gate, _ := newGateWithStoreAndTasks()
+	engine := NewTriggerEngine([]triggerEntry{entry}, ruki.NewTriggerExecutor(testTriggerSchema{}, nil))
+	engine.RegisterWithGate(gate)
+
+	tk := &task.Task{ID: "TIKI-NEW001", Title: "new", Status: "ready", Type: "story", Priority: 3}
+	err := gate.CreateTask(context.Background(), tk)
+	if err == nil {
+		t.Fatal("expected denial")
+	}
+	if !strings.Contains(err.Error(), "no new tasks allowed") {
+		t.Fatalf("expected denial message, got: %v", err)
+	}
+}
+
+func TestTriggerEngine_BeforeDeleteUnconditionalDeny(t *testing.T) {
+	entry := parseTriggerEntry(t, "block all deletes",
+		`before delete deny "deletes are forbidden"`)
+
+	tk := &task.Task{ID: "TIKI-DEL001", Title: "test", Status: "ready", Type: "story", Priority: 3}
+	gate, _ := newGateWithStoreAndTasks(tk)
+
+	engine := NewTriggerEngine([]triggerEntry{entry}, ruki.NewTriggerExecutor(testTriggerSchema{}, nil))
+	engine.RegisterWithGate(gate)
+
+	err := gate.DeleteTask(context.Background(), tk)
+	if err == nil {
+		t.Fatal("expected denial")
+	}
+	if !strings.Contains(err.Error(), "deletes are forbidden") {
+		t.Fatalf("expected denial message, got: %v", err)
+	}
+}
+
 // --- LoadAndRegisterTriggers ---
 
 func TestLoadAndRegisterTriggers_EmptyDefs(t *testing.T) {

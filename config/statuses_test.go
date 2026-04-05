@@ -241,6 +241,110 @@ func writeTempWorkflow(t *testing.T, dir, content string) string {
 	return path
 }
 
+// setupLoadRegistryTest creates temp dirs and configures the path manager so
+// LoadStatusRegistry can discover workflow.yaml files via FindWorkflowFiles.
+func setupLoadRegistryTest(t *testing.T) (cwdDir string) {
+	t.Helper()
+	ClearStatusRegistry()
+	t.Cleanup(func() { ResetStatusRegistry(defaultTestStatuses()) })
+
+	userDir := t.TempDir()
+	t.Setenv("XDG_CONFIG_HOME", userDir)
+	if err := os.MkdirAll(filepath.Join(userDir, "tiki"), 0750); err != nil {
+		t.Fatal(err)
+	}
+
+	projectDir := t.TempDir()
+	docDir := filepath.Join(projectDir, ".doc")
+	if err := os.MkdirAll(docDir, 0750); err != nil {
+		t.Fatal(err)
+	}
+
+	cwdDir = t.TempDir()
+	originalDir, _ := os.Getwd()
+	t.Cleanup(func() { _ = os.Chdir(originalDir) })
+	_ = os.Chdir(cwdDir)
+
+	ResetPathManager()
+	pm := mustGetPathManager()
+	pm.projectRoot = projectDir
+
+	return cwdDir
+}
+
+func TestLoadStatusRegistry_HappyPath(t *testing.T) {
+	cwdDir := setupLoadRegistryTest(t)
+
+	content := `
+statuses:
+  - key: open
+    label: Open
+    emoji: "🔓"
+    default: true
+  - key: closed
+    label: Closed
+    emoji: "🔒"
+    done: true
+views:
+  - name: board
+    lanes:
+      - name: Open
+        filter: "status = 'open'"
+`
+	if err := os.WriteFile(filepath.Join(cwdDir, "workflow.yaml"), []byte(content), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := LoadStatusRegistry(); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	reg := GetStatusRegistry()
+	if reg.DefaultKey() != "open" {
+		t.Errorf("expected default key 'open', got %q", reg.DefaultKey())
+	}
+	if reg.DoneKey() != "closed" {
+		t.Errorf("expected done key 'closed', got %q", reg.DoneKey())
+	}
+
+	// type registry should also be initialized
+	typeReg := GetTypeRegistry()
+	if !typeReg.IsValid("story") {
+		t.Error("expected type 'story' to be valid after LoadStatusRegistry")
+	}
+}
+
+func TestLoadStatusRegistry_NoWorkflowFiles(t *testing.T) {
+	_ = setupLoadRegistryTest(t)
+	// no workflow.yaml files anywhere
+
+	err := LoadStatusRegistry()
+	if err == nil {
+		t.Fatal("expected error when no workflow files found")
+	}
+}
+
+func TestLoadStatusRegistry_NoStatusesDefined(t *testing.T) {
+	cwdDir := setupLoadRegistryTest(t)
+
+	// workflow.yaml exists with views but no statuses
+	content := `
+views:
+  - name: board
+    lanes:
+      - name: All
+        filter: "status = 'ready'"
+`
+	if err := os.WriteFile(filepath.Join(cwdDir, "workflow.yaml"), []byte(content), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	err := LoadStatusRegistry()
+	if err == nil {
+		t.Fatal("expected error when no statuses defined")
+	}
+}
+
 func TestLoadStatusRegistryFromFiles_LastFileWins(t *testing.T) {
 	dir1 := t.TempDir()
 	dir2 := t.TempDir()

@@ -1600,3 +1600,289 @@ func TestEvalCountOverride_ErrorInCondition(t *testing.T) {
 }
 
 func strPtr(s string) *string { return &s }
+
+// --- short-circuit tests for BinaryCondition ---
+
+func TestEvalCondition_AndShortCircuitFalse(t *testing.T) {
+	te := newTestTriggerExecutor()
+	p := newTestParser()
+
+	// left side is false (old.status != "in_progress"), right side should not be evaluated
+	trig, err := p.ParseTrigger(`before update where old.status = "in_progress" and new.status = "done" deny "no"`)
+	if err != nil {
+		t.Fatalf("parse: %v", err)
+	}
+
+	tc := &TriggerContext{
+		Old: &task.Task{ID: "TIKI-000001", Status: "ready"},
+		New: &task.Task{ID: "TIKI-000001", Status: "done"},
+	}
+
+	ok, err := te.EvalGuard(trig, tc)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if ok {
+		t.Fatal("AND should short-circuit: left is false")
+	}
+}
+
+func TestEvalCondition_OrShortCircuitTrue(t *testing.T) {
+	te := newTestTriggerExecutor()
+	// construct an OR condition where left is true
+	trig := &Trigger{
+		Timing: "before",
+		Event:  "update",
+		Where: &BinaryCondition{
+			Left: &CompareExpr{
+				Left:  &QualifiedRef{Qualifier: "old", Name: "status"},
+				Op:    "=",
+				Right: &StringLiteral{Value: "ready"},
+			},
+			Op: "or",
+			Right: &CompareExpr{
+				Left:  &QualifiedRef{Qualifier: "new", Name: "status"},
+				Op:    "=",
+				Right: &StringLiteral{Value: "done"},
+			},
+		},
+		Deny: strPtr("blocked"),
+	}
+
+	tc := &TriggerContext{
+		Old: &task.Task{ID: "TIKI-000001", Status: "ready"},
+		New: &task.Task{ID: "TIKI-000001", Status: "in_progress"},
+	}
+
+	ok, err := te.EvalGuard(trig, tc)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !ok {
+		t.Fatal("OR should short-circuit: left is true")
+	}
+}
+
+// --- evalInOverride with []string collection ---
+
+func TestEvalInOverride_StringListFromField(t *testing.T) {
+	te := newTestTriggerExecutor()
+	p := newTestParser()
+
+	// "alice" in old.tags — tests the []interface{} path
+	trig, err := p.ParseTrigger(`before update where "bug" in new.tags deny "has tag"`)
+	if err != nil {
+		t.Fatalf("parse: %v", err)
+	}
+
+	tc := &TriggerContext{
+		Old: &task.Task{ID: "TIKI-000001", Tags: []string{"bug", "api"}},
+		New: &task.Task{ID: "TIKI-000001", Tags: []string{"bug", "api"}},
+	}
+
+	ok, err := te.EvalGuard(trig, tc)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !ok {
+		t.Fatal("expected match: 'bug' in tags")
+	}
+}
+
+func TestEvalInOverride_NotIn(t *testing.T) {
+	te := newTestTriggerExecutor()
+	p := newTestParser()
+
+	trig, err := p.ParseTrigger(`before update where "urgent" not in new.tags deny "missing tag"`)
+	if err != nil {
+		t.Fatalf("parse: %v", err)
+	}
+
+	tc := &TriggerContext{
+		Old: &task.Task{ID: "TIKI-000001", Tags: []string{"bug"}},
+		New: &task.Task{ID: "TIKI-000001", Tags: []string{"bug"}},
+	}
+
+	ok, err := te.EvalGuard(trig, tc)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !ok {
+		t.Fatal("expected match: 'urgent' not in tags")
+	}
+}
+
+// --- evalQuantifierOverride ---
+
+func TestEvalQuantifierOverride_AllWithEmptyList(t *testing.T) {
+	te := newTestTriggerExecutor()
+	p := newTestParser()
+
+	// "all dependsOn have status = done" with empty dependsOn should be vacuously true
+	trig, err := p.ParseTrigger(`before update where new.dependsOn all status = "done" deny "open deps"`)
+	if err != nil {
+		t.Fatalf("parse: %v", err)
+	}
+
+	tc := &TriggerContext{
+		Old: &task.Task{ID: "TIKI-000001", DependsOn: []string{}},
+		New: &task.Task{ID: "TIKI-000001", DependsOn: []string{}},
+	}
+
+	ok, err := te.EvalGuard(trig, tc)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !ok {
+		t.Fatal("all with empty list should be vacuously true")
+	}
+}
+
+// --- NotCondition override ---
+
+func TestEvalCondition_NotOverride(t *testing.T) {
+	te := newTestTriggerExecutor()
+	trig := &Trigger{
+		Timing: "before",
+		Event:  "update",
+		Where: &NotCondition{
+			Inner: &CompareExpr{
+				Left:  &QualifiedRef{Qualifier: "new", Name: "status"},
+				Op:    "=",
+				Right: &StringLiteral{Value: "done"},
+			},
+		},
+		Deny: strPtr("not done"),
+	}
+
+	tc := &TriggerContext{
+		Old: &task.Task{ID: "TIKI-000001", Status: "ready"},
+		New: &task.Task{ID: "TIKI-000001", Status: "ready"},
+	}
+
+	ok, err := te.EvalGuard(trig, tc)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !ok {
+		t.Fatal("NOT(status=done) should be true when status=ready")
+	}
+}
+
+// --- IsEmptyExpr override ---
+
+func TestEvalCondition_IsEmptyOverride(t *testing.T) {
+	te := newTestTriggerExecutor()
+	trig := &Trigger{
+		Timing: "before",
+		Event:  "create",
+		Where: &IsEmptyExpr{
+			Expr:    &QualifiedRef{Qualifier: "new", Name: "assignee"},
+			Negated: false,
+		},
+		Deny: strPtr("unassigned"),
+	}
+
+	tc := &TriggerContext{
+		New: &task.Task{ID: "TIKI-000001", Assignee: ""},
+	}
+
+	ok, err := te.EvalGuard(trig, tc)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !ok {
+		t.Fatal("empty assignee should match 'is empty'")
+	}
+}
+
+func TestEvalCondition_IsNotEmptyOverride(t *testing.T) {
+	te := newTestTriggerExecutor()
+	trig := &Trigger{
+		Timing: "before",
+		Event:  "create",
+		Where: &IsEmptyExpr{
+			Expr:    &QualifiedRef{Qualifier: "new", Name: "assignee"},
+			Negated: true,
+		},
+		Deny: strPtr("assigned"),
+	}
+
+	tc := &TriggerContext{
+		New: &task.Task{ID: "TIKI-000001", Assignee: "alice"},
+	}
+
+	ok, err := te.EvalGuard(trig, tc)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !ok {
+		t.Fatal("'alice' is not empty should match 'is not empty'")
+	}
+}
+
+// --- BinaryExpr in trigger context ---
+
+func TestEvalExprRecursive_BinaryExprSubtract(t *testing.T) {
+	te := newTestTriggerExecutor()
+	p := newTestParser()
+
+	// after delete, remove old.id from dependsOn using subtraction
+	trig, err := p.ParseTrigger(`after delete update where old.id in dependsOn set dependsOn=dependsOn - [old.id]`)
+	if err != nil {
+		t.Fatalf("parse: %v", err)
+	}
+
+	dep := &task.Task{ID: "TIKI-DEP001", Status: "done"}
+	downstream := &task.Task{
+		ID: "TIKI-DOWN01", Status: "ready",
+		DependsOn: []string{"TIKI-DEP001", "TIKI-OTHER1"},
+	}
+	tc := &TriggerContext{
+		Old:      dep,
+		New:      nil,
+		AllTasks: []*task.Task{dep, downstream},
+	}
+
+	result, err := te.ExecAction(trig, tc)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if result.Update == nil || len(result.Update.Updated) == 0 {
+		t.Fatal("expected update result")
+	}
+	updated := result.Update.Updated[0]
+	if len(updated.DependsOn) != 1 || updated.DependsOn[0] != "TIKI-OTHER1" {
+		t.Errorf("expected dependsOn=[TIKI-OTHER1], got %v", updated.DependsOn)
+	}
+}
+
+// --- ListLiteral in trigger override ---
+
+func TestEvalExprRecursive_ListLiteralInAction(t *testing.T) {
+	te := newTestTriggerExecutor()
+	p := newTestParser()
+
+	trig, err := p.ParseTrigger(`after create update where id = new.id set tags=["auto"]`)
+	if err != nil {
+		t.Fatalf("parse: %v", err)
+	}
+
+	newTask := &task.Task{ID: "TIKI-000001", Status: "ready"}
+	tc := &TriggerContext{
+		Old:      nil,
+		New:      newTask,
+		AllTasks: []*task.Task{newTask},
+	}
+
+	result, err := te.ExecAction(trig, tc)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if result.Update == nil || len(result.Update.Updated) == 0 {
+		t.Fatal("expected update result")
+	}
+	if len(result.Update.Updated[0].Tags) != 1 || result.Update.Updated[0].Tags[0] != "auto" {
+		t.Errorf("expected tags=[auto], got %v", result.Update.Updated[0].Tags)
+	}
+}
