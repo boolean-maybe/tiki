@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"runtime"
 	"strings"
 	"testing"
 	"time"
@@ -374,8 +375,17 @@ func TestTriggerEngine_DepthExceededAtGateLevel(t *testing.T) {
 }
 
 // --- run() trigger ---
+// These tests invoke sh -c which requires a Unix shell.
+
+func skipOnWindows(t *testing.T) {
+	t.Helper()
+	if runtime.GOOS == "windows" {
+		t.Skip("run() triggers use sh -c, skipping on Windows")
+	}
+}
 
 func TestTriggerEngine_RunCommand(t *testing.T) {
+	skipOnWindows(t)
 	entry := parseTriggerEntry(t, "echo trigger",
 		`after update where new.status = "done" run("echo " + old.id)`)
 
@@ -394,6 +404,7 @@ func TestTriggerEngine_RunCommand(t *testing.T) {
 }
 
 func TestTriggerEngine_RunCommandFailure(t *testing.T) {
+	skipOnWindows(t)
 	entry := parseTriggerEntry(t, "failing command",
 		`after update where new.status = "done" run("exit 1")`)
 
@@ -412,6 +423,7 @@ func TestTriggerEngine_RunCommandFailure(t *testing.T) {
 }
 
 func TestTriggerEngine_RunCommandTimeout(t *testing.T) {
+	skipOnWindows(t)
 	// use a run() trigger whose command outlives the parent context's deadline
 	entry := parseTriggerEntry(t, "slow command",
 		`after update where new.status = "done" run("sleep 30")`)

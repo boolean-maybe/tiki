@@ -192,6 +192,8 @@ func (te *TriggerEngine) execRun(ctx context.Context, entry triggerEntry, tc *ru
 	defer cancel()
 
 	cmd := exec.CommandContext(runCtx, "sh", "-c", cmdStr) //nolint:gosec // cmdStr is a user-configured trigger action, intentionally dynamic
+	setProcessGroup(cmd)
+	cmd.WaitDelay = 3 * time.Second
 	output, err := cmd.CombinedOutput()
 	if err != nil {
 		slog.Error("trigger run() command failed",
