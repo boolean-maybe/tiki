@@ -713,3 +713,526 @@ func TestLower_ParseDateAndDurationInExpressions(t *testing.T) {
 		t.Fatal("expected select statement")
 	}
 }
+
+// --- error propagation tests for lower.go coverage ---
+
+func TestLower_CreateWithBadAssignment(t *testing.T) {
+	// lowerCreate error path: assignment value fails to lower
+	badDate := "9999-99-99"
+	g := &createGrammar{
+		Assignments: []assignmentGrammar{
+			{Field: "due", Value: exprGrammar{Left: unaryExpr{DateLit: &badDate}}},
+		},
+	}
+	_, err := lowerCreate(g)
+	if err == nil {
+		t.Fatal("expected error for invalid date in create assignment")
+	}
+}
+
+func TestLower_UpdateWithBadWhere(t *testing.T) {
+	// lowerUpdate error path: where condition fails to lower
+	badDate := "0000-00-00"
+	g := &updateGrammar{
+		Where: orCond{
+			Left: andCond{
+				Left: notCond{
+					Primary: &primaryCond{
+						Expr: &exprCond{
+							Left:    exprGrammar{Left: unaryExpr{DateLit: &badDate}},
+							Compare: &compareTail{Op: "=", Right: exprGrammar{Left: unaryExpr{DateLit: &badDate}}},
+						},
+					},
+				},
+			},
+		},
+		Set: []assignmentGrammar{
+			{Field: "title", Value: exprGrammar{Left: unaryExpr{StrLit: strPtr("x")}}},
+		},
+	}
+	_, err := lowerUpdate(g)
+	if err == nil {
+		t.Fatal("expected error for invalid date in update where")
+	}
+}
+
+func TestLower_UpdateWithBadSet(t *testing.T) {
+	// lowerUpdate error path: set assignment fails to lower
+	field := "status"
+	badDate := "9999-99-99"
+	g := &updateGrammar{
+		Where: orCond{
+			Left: andCond{
+				Left: notCond{
+					Primary: &primaryCond{
+						Expr: &exprCond{
+							Left:    exprGrammar{Left: unaryExpr{FieldRef: &field}},
+							Compare: &compareTail{Op: "=", Right: exprGrammar{Left: unaryExpr{StrLit: strPtr("done")}}},
+						},
+					},
+				},
+			},
+		},
+		Set: []assignmentGrammar{
+			{Field: "due", Value: exprGrammar{Left: unaryExpr{DateLit: &badDate}}},
+		},
+	}
+	_, err := lowerUpdate(g)
+	if err == nil {
+		t.Fatal("expected error for invalid date in update set")
+	}
+}
+
+func TestLower_DeleteWithBadWhere(t *testing.T) {
+	// lowerDelete error path: where condition fails to lower
+	badDate := "0000-00-00"
+	g := &deleteGrammar{
+		Where: orCond{
+			Left: andCond{
+				Left: notCond{
+					Primary: &primaryCond{
+						Expr: &exprCond{
+							Left:    exprGrammar{Left: unaryExpr{DateLit: &badDate}},
+							Compare: &compareTail{Op: "=", Right: exprGrammar{Left: unaryExpr{DateLit: &badDate}}},
+						},
+					},
+				},
+			},
+		},
+	}
+	_, err := lowerDelete(g)
+	if err == nil {
+		t.Fatal("expected error for invalid date in delete where")
+	}
+}
+
+func TestLower_AssignmentWithBadExpr(t *testing.T) {
+	// lowerAssignments error path
+	badDate := "9999-99-99"
+	gs := []assignmentGrammar{
+		{Field: "due", Value: exprGrammar{Left: unaryExpr{DateLit: &badDate}}},
+	}
+	_, err := lowerAssignments(gs)
+	if err == nil {
+		t.Fatal("expected error for invalid date in assignment")
+	}
+}
+
+func TestLower_TriggerWithBadWhere(t *testing.T) {
+	// lowerTrigger error path: where condition fails to lower
+	badDate := "0000-00-00"
+	g := &triggerGrammar{
+		Timing: "before",
+		Event:  "update",
+		Where: &orCond{
+			Left: andCond{
+				Left: notCond{
+					Primary: &primaryCond{
+						Expr: &exprCond{
+							Left:    exprGrammar{Left: unaryExpr{DateLit: &badDate}},
+							Compare: &compareTail{Op: "=", Right: exprGrammar{Left: unaryExpr{DateLit: &badDate}}},
+						},
+					},
+				},
+			},
+		},
+		Deny: &denyGrammar{Message: `"no"`},
+	}
+	_, err := lowerTrigger(g)
+	if err == nil {
+		t.Fatal("expected error for invalid date in trigger where")
+	}
+}
+
+func TestLower_TriggerActionWithBadRun(t *testing.T) {
+	// lowerTriggerAction error path: run command fails to lower
+	badDate := "9999-99-99"
+	trig := &Trigger{Timing: "after", Event: "update"}
+	err := lowerTriggerAction(&actionGrammar{
+		Run: &runGrammar{
+			Command: exprGrammar{Left: unaryExpr{DateLit: &badDate}},
+		},
+	}, trig)
+	if err == nil {
+		t.Fatal("expected error for invalid date in run command")
+	}
+}
+
+func TestLower_TriggerActionWithBadCreate(t *testing.T) {
+	badDate := "9999-99-99"
+	trig := &Trigger{Timing: "after", Event: "update"}
+	err := lowerTriggerAction(&actionGrammar{
+		Create: &createGrammar{
+			Assignments: []assignmentGrammar{
+				{Field: "due", Value: exprGrammar{Left: unaryExpr{DateLit: &badDate}}},
+			},
+		},
+	}, trig)
+	if err == nil {
+		t.Fatal("expected error for invalid date in trigger create action")
+	}
+}
+
+func TestLower_TriggerActionWithBadUpdate(t *testing.T) {
+	badDate := "0000-00-00"
+	trig := &Trigger{Timing: "after", Event: "update"}
+	err := lowerTriggerAction(&actionGrammar{
+		Update: &updateGrammar{
+			Where: orCond{
+				Left: andCond{
+					Left: notCond{
+						Primary: &primaryCond{
+							Expr: &exprCond{
+								Left:    exprGrammar{Left: unaryExpr{DateLit: &badDate}},
+								Compare: &compareTail{Op: "=", Right: exprGrammar{Left: unaryExpr{DateLit: &badDate}}},
+							},
+						},
+					},
+				},
+			},
+			Set: []assignmentGrammar{
+				{Field: "title", Value: exprGrammar{Left: unaryExpr{StrLit: strPtr("x")}}},
+			},
+		},
+	}, trig)
+	if err == nil {
+		t.Fatal("expected error for invalid date in trigger update action")
+	}
+}
+
+func TestLower_TriggerActionWithBadDelete(t *testing.T) {
+	badDate := "0000-00-00"
+	trig := &Trigger{Timing: "after", Event: "update"}
+	err := lowerTriggerAction(&actionGrammar{
+		Delete: &deleteGrammar{
+			Where: orCond{
+				Left: andCond{
+					Left: notCond{
+						Primary: &primaryCond{
+							Expr: &exprCond{
+								Left:    exprGrammar{Left: unaryExpr{DateLit: &badDate}},
+								Compare: &compareTail{Op: "=", Right: exprGrammar{Left: unaryExpr{DateLit: &badDate}}},
+							},
+						},
+					},
+				},
+			},
+		},
+	}, trig)
+	if err == nil {
+		t.Fatal("expected error for invalid date in trigger delete action")
+	}
+}
+
+func TestLower_OrCondWithBadRight(t *testing.T) {
+	badDate := "0000-00-00"
+	field := "status"
+	g := &orCond{
+		Left: andCond{
+			Left: notCond{
+				Primary: &primaryCond{
+					Expr: &exprCond{
+						Left:    exprGrammar{Left: unaryExpr{FieldRef: &field}},
+						Compare: &compareTail{Op: "=", Right: exprGrammar{Left: unaryExpr{StrLit: strPtr("done")}}},
+					},
+				},
+			},
+		},
+		Right: []andCond{
+			{
+				Left: notCond{
+					Primary: &primaryCond{
+						Expr: &exprCond{
+							Left:    exprGrammar{Left: unaryExpr{DateLit: &badDate}},
+							Compare: &compareTail{Op: "=", Right: exprGrammar{Left: unaryExpr{DateLit: &badDate}}},
+						},
+					},
+				},
+			},
+		},
+	}
+	_, err := lowerOrCond(g)
+	if err == nil {
+		t.Fatal("expected error for invalid date in or-cond right branch")
+	}
+}
+
+func TestLower_AndCondWithBadRight(t *testing.T) {
+	badDate := "0000-00-00"
+	field := "status"
+	g := &andCond{
+		Left: notCond{
+			Primary: &primaryCond{
+				Expr: &exprCond{
+					Left:    exprGrammar{Left: unaryExpr{FieldRef: &field}},
+					Compare: &compareTail{Op: "=", Right: exprGrammar{Left: unaryExpr{StrLit: strPtr("done")}}},
+				},
+			},
+		},
+		Right: []notCond{
+			{
+				Primary: &primaryCond{
+					Expr: &exprCond{
+						Left:    exprGrammar{Left: unaryExpr{DateLit: &badDate}},
+						Compare: &compareTail{Op: "=", Right: exprGrammar{Left: unaryExpr{DateLit: &badDate}}},
+					},
+				},
+			},
+		},
+	}
+	_, err := lowerAndCond(g)
+	if err == nil {
+		t.Fatal("expected error for invalid date in and-cond right branch")
+	}
+}
+
+func TestLower_NotCondWithBadInner(t *testing.T) {
+	badDate := "0000-00-00"
+	g := &notCond{
+		Not: &notCond{
+			Primary: &primaryCond{
+				Expr: &exprCond{
+					Left:    exprGrammar{Left: unaryExpr{DateLit: &badDate}},
+					Compare: &compareTail{Op: "=", Right: exprGrammar{Left: unaryExpr{DateLit: &badDate}}},
+				},
+			},
+		},
+	}
+	_, err := lowerNotCond(g)
+	if err == nil {
+		t.Fatal("expected error for invalid date in not-cond inner")
+	}
+}
+
+func TestLower_ExprCondWithBadCompareRight(t *testing.T) {
+	field := "due"
+	badDate := "0000-00-00"
+	g := &exprCond{
+		Left:    exprGrammar{Left: unaryExpr{FieldRef: &field}},
+		Compare: &compareTail{Op: "=", Right: exprGrammar{Left: unaryExpr{DateLit: &badDate}}},
+	}
+	_, err := lowerExprCond(g)
+	if err == nil {
+		t.Fatal("expected error for invalid date in compare right")
+	}
+}
+
+func TestLower_ExprCondWithBadInCollection(t *testing.T) {
+	field := "status"
+	badDate := "0000-00-00"
+	g := &exprCond{
+		Left: exprGrammar{Left: unaryExpr{FieldRef: &field}},
+		In:   &inTail{Collection: exprGrammar{Left: unaryExpr{DateLit: &badDate}}},
+	}
+	_, err := lowerExprCond(g)
+	if err == nil {
+		t.Fatal("expected error for invalid date in in-collection")
+	}
+}
+
+func TestLower_ExprCondWithBadNotInCollection(t *testing.T) {
+	field := "status"
+	badDate := "0000-00-00"
+	g := &exprCond{
+		Left:  exprGrammar{Left: unaryExpr{FieldRef: &field}},
+		NotIn: &notInTail{Collection: exprGrammar{Left: unaryExpr{DateLit: &badDate}}},
+	}
+	_, err := lowerExprCond(g)
+	if err == nil {
+		t.Fatal("expected error for invalid date in not-in collection")
+	}
+}
+
+func TestLower_ExprCondWithBadAnyCondition(t *testing.T) {
+	field := "dependsOn"
+	badDate := "0000-00-00"
+	g := &exprCond{
+		Left: exprGrammar{Left: unaryExpr{FieldRef: &field}},
+		Any: &quantifierTail{
+			Condition: primaryCond{
+				Expr: &exprCond{
+					Left:    exprGrammar{Left: unaryExpr{DateLit: &badDate}},
+					Compare: &compareTail{Op: "=", Right: exprGrammar{Left: unaryExpr{DateLit: &badDate}}},
+				},
+			},
+		},
+	}
+	_, err := lowerExprCond(g)
+	if err == nil {
+		t.Fatal("expected error for invalid date in any-condition")
+	}
+}
+
+func TestLower_ExprCondWithBadAllCondition(t *testing.T) {
+	field := "dependsOn"
+	badDate := "0000-00-00"
+	g := &exprCond{
+		Left: exprGrammar{Left: unaryExpr{FieldRef: &field}},
+		All: &allQuantTail{
+			Condition: primaryCond{
+				Expr: &exprCond{
+					Left:    exprGrammar{Left: unaryExpr{DateLit: &badDate}},
+					Compare: &compareTail{Op: "=", Right: exprGrammar{Left: unaryExpr{DateLit: &badDate}}},
+				},
+			},
+		},
+	}
+	_, err := lowerExprCond(g)
+	if err == nil {
+		t.Fatal("expected error for invalid date in all-condition")
+	}
+}
+
+func TestLower_ExprWithBadTail(t *testing.T) {
+	field := "priority"
+	badDate := "0000-00-00"
+	g := &exprGrammar{
+		Left: unaryExpr{FieldRef: &field},
+		Tail: []exprBinTail{
+			{Op: "+", Right: unaryExpr{DateLit: &badDate}},
+		},
+	}
+	_, err := lowerExpr(g)
+	if err == nil {
+		t.Fatal("expected error for invalid date in expr tail")
+	}
+}
+
+func TestLower_FuncCallWithBadArg(t *testing.T) {
+	badDate := "0000-00-00"
+	g := &funcCallExpr{
+		Name: "count",
+		Args: []exprGrammar{
+			{Left: unaryExpr{DateLit: &badDate}},
+		},
+	}
+	_, err := lowerFuncCall(g)
+	if err == nil {
+		t.Fatal("expected error for invalid date in func call arg")
+	}
+}
+
+func TestLower_ListLitWithBadElement(t *testing.T) {
+	badDate := "0000-00-00"
+	g := &listLitExpr{
+		Elements: []exprGrammar{
+			{Left: unaryExpr{DateLit: &badDate}},
+		},
+	}
+	_, err := lowerListLit(g)
+	if err == nil {
+		t.Fatal("expected error for invalid date in list literal element")
+	}
+}
+
+func TestLower_SubQueryWithBadWhere(t *testing.T) {
+	badDate := "0000-00-00"
+	g := &subQueryExpr{
+		Where: &orCond{
+			Left: andCond{
+				Left: notCond{
+					Primary: &primaryCond{
+						Expr: &exprCond{
+							Left:    exprGrammar{Left: unaryExpr{DateLit: &badDate}},
+							Compare: &compareTail{Op: "=", Right: exprGrammar{Left: unaryExpr{DateLit: &badDate}}},
+						},
+					},
+				},
+			},
+		},
+	}
+	_, err := lowerSubQuery(g)
+	if err == nil {
+		t.Fatal("expected error for invalid date in subquery where")
+	}
+}
+
+func TestLower_StatementWithBadSelect(t *testing.T) {
+	badDate := "0000-00-00"
+	g := &statementGrammar{
+		Select: &selectGrammar{
+			Where: &orCond{
+				Left: andCond{
+					Left: notCond{
+						Primary: &primaryCond{
+							Expr: &exprCond{
+								Left:    exprGrammar{Left: unaryExpr{DateLit: &badDate}},
+								Compare: &compareTail{Op: "=", Right: exprGrammar{Left: unaryExpr{DateLit: &badDate}}},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+	_, err := lowerStatement(g)
+	if err == nil {
+		t.Fatal("expected error for invalid date in select where")
+	}
+}
+
+func TestLower_StatementWithBadCreate(t *testing.T) {
+	badDate := "9999-99-99"
+	g := &statementGrammar{
+		Create: &createGrammar{
+			Assignments: []assignmentGrammar{
+				{Field: "due", Value: exprGrammar{Left: unaryExpr{DateLit: &badDate}}},
+			},
+		},
+	}
+	_, err := lowerStatement(g)
+	if err == nil {
+		t.Fatal("expected error for invalid date in create statement")
+	}
+}
+
+func TestLower_StatementWithBadUpdate(t *testing.T) {
+	badDate := "0000-00-00"
+	g := &statementGrammar{
+		Update: &updateGrammar{
+			Where: orCond{
+				Left: andCond{
+					Left: notCond{
+						Primary: &primaryCond{
+							Expr: &exprCond{
+								Left:    exprGrammar{Left: unaryExpr{DateLit: &badDate}},
+								Compare: &compareTail{Op: "=", Right: exprGrammar{Left: unaryExpr{DateLit: &badDate}}},
+							},
+						},
+					},
+				},
+			},
+			Set: []assignmentGrammar{
+				{Field: "title", Value: exprGrammar{Left: unaryExpr{StrLit: strPtr("x")}}},
+			},
+		},
+	}
+	_, err := lowerStatement(g)
+	if err == nil {
+		t.Fatal("expected error for invalid date in update statement")
+	}
+}
+
+func TestLower_StatementWithBadDelete(t *testing.T) {
+	badDate := "0000-00-00"
+	g := &statementGrammar{
+		Delete: &deleteGrammar{
+			Where: orCond{
+				Left: andCond{
+					Left: notCond{
+						Primary: &primaryCond{
+							Expr: &exprCond{
+								Left:    exprGrammar{Left: unaryExpr{DateLit: &badDate}},
+								Compare: &compareTail{Op: "=", Right: exprGrammar{Left: unaryExpr{DateLit: &badDate}}},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+	_, err := lowerStatement(g)
+	if err == nil {
+		t.Fatal("expected error for invalid date in delete statement")
+	}
+}

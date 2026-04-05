@@ -2179,3 +2179,304 @@ func TestValidation_ResolveEmptyPair(t *testing.T) {
 		t.Errorf("resolveEmptyPair(ValueInt, ValueString) = (%d, %d), want (ValueInt, ValueString)", a, b)
 	}
 }
+
+// --- tests for uncovered error-propagation branches ---
+
+func TestValidation_ValidateStatement_EmptyCreate(t *testing.T) {
+	p := newTestParser()
+	// construct create with no assignments — parser normally prevents this
+	err := p.validateStatement(&Statement{Create: &CreateStmt{}})
+	if err == nil {
+		t.Fatal("expected error for empty create")
+	}
+	if !strings.Contains(err.Error(), "at least one assignment") {
+		t.Errorf("unexpected error: %v", err)
+	}
+}
+
+func TestValidation_ValidateStatement_EmptyUpdate(t *testing.T) {
+	p := newTestParser()
+	err := p.validateStatement(&Statement{Update: &UpdateStmt{
+		Where: &CompareExpr{Left: &FieldRef{Name: "id"}, Op: "=", Right: &StringLiteral{Value: "x"}},
+	}})
+	if err == nil {
+		t.Fatal("expected error for empty update set")
+	}
+	if !strings.Contains(err.Error(), "at least one assignment") {
+		t.Errorf("unexpected error: %v", err)
+	}
+}
+
+func TestValidation_ValidateStatement_UpdateWhereError(t *testing.T) {
+	p := newTestParser()
+	// update with bad where — unknown field in condition
+	err := p.validateStatement(&Statement{Update: &UpdateStmt{
+		Where: &CompareExpr{Left: &FieldRef{Name: "nosuchfield"}, Op: "=", Right: &StringLiteral{Value: "x"}},
+		Set:   []Assignment{{Field: "title", Value: &StringLiteral{Value: "x"}}},
+	}})
+	if err == nil {
+		t.Fatal("expected error for unknown field in update where")
+	}
+	if !strings.Contains(err.Error(), "unknown field") {
+		t.Errorf("unexpected error: %v", err)
+	}
+}
+
+func TestValidation_ValidateStatement_EmptyStatement(t *testing.T) {
+	p := newTestParser()
+	err := p.validateStatement(&Statement{})
+	if err == nil {
+		t.Fatal("expected error for empty statement")
+	}
+	if !strings.Contains(err.Error(), "empty statement") {
+		t.Errorf("unexpected error: %v", err)
+	}
+}
+
+func TestValidation_ValidateTrigger_ActionValidateError(t *testing.T) {
+	p := newTestParser()
+	// trigger with action that has unknown field in assignment
+	p.qualifiers = triggerQualifiers("update")
+	err := p.validateTrigger(&Trigger{
+		Timing: "after",
+		Event:  "update",
+		Action: &Statement{Create: &CreateStmt{
+			Assignments: []Assignment{{Field: "nosuchfield", Value: &StringLiteral{Value: "x"}}},
+		}},
+	})
+	if err == nil {
+		t.Fatal("expected error for bad trigger action")
+	}
+	if !strings.Contains(err.Error(), "unknown field") {
+		t.Errorf("unexpected error: %v", err)
+	}
+}
+
+func TestValidation_ValidateTrigger_RunCommandInferError(t *testing.T) {
+	p := newTestParser()
+	p.qualifiers = triggerQualifiers("update")
+	err := p.validateTrigger(&Trigger{
+		Timing: "after",
+		Event:  "update",
+		Run:    &RunAction{Command: &valFakeExpr{}},
+	})
+	if err == nil {
+		t.Fatal("expected error for bad run command")
+	}
+	if !strings.Contains(err.Error(), "run command") {
+		t.Errorf("unexpected error: %v", err)
+	}
+}
+
+func TestValidation_ValidateTrigger_RunCommandNonString(t *testing.T) {
+	p := newTestParser()
+	p.qualifiers = triggerQualifiers("update")
+	err := p.validateTrigger(&Trigger{
+		Timing: "after",
+		Event:  "update",
+		Run:    &RunAction{Command: &IntLiteral{Value: 42}},
+	})
+	if err == nil {
+		t.Fatal("expected error for non-string run command")
+	}
+	if !strings.Contains(err.Error(), "must be string") {
+		t.Errorf("unexpected error: %v", err)
+	}
+}
+
+func TestValidation_ValidateCondition_BinaryLeftError(t *testing.T) {
+	p := newTestParser()
+	// binary condition where left side has unknown field
+	err := p.validateCondition(&BinaryCondition{
+		Op:    "and",
+		Left:  &CompareExpr{Left: &FieldRef{Name: "nosuchfield"}, Op: "=", Right: &StringLiteral{Value: "x"}},
+		Right: &CompareExpr{Left: &FieldRef{Name: "title"}, Op: "=", Right: &StringLiteral{Value: "y"}},
+	})
+	if err == nil {
+		t.Fatal("expected error for bad binary condition left")
+	}
+	if !strings.Contains(err.Error(), "unknown field") {
+		t.Errorf("unexpected error: %v", err)
+	}
+}
+
+func TestValidation_ValidateIn_ValueTypeError(t *testing.T) {
+	p := newTestParser()
+	err := p.validateIn(&InExpr{
+		Value:      &valFakeExpr{},
+		Collection: &ListLiteral{Elements: []Expr{&StringLiteral{Value: "x"}}},
+	})
+	if err == nil {
+		t.Fatal("expected error for bad value type in 'in' expr")
+	}
+	if !strings.Contains(err.Error(), "unknown expression type") {
+		t.Errorf("unexpected error: %v", err)
+	}
+}
+
+func TestValidation_ValidateIn_InferListElementError(t *testing.T) {
+	p := newTestParser()
+	// list literal with bad first element — causes inferListElementType to error
+	err := p.validateIn(&InExpr{
+		Value:      &StringLiteral{Value: "x"},
+		Collection: &ListLiteral{Elements: []Expr{&valFakeExpr{}}},
+	})
+	if err == nil {
+		t.Fatal("expected error for bad list element in 'in' expr")
+	}
+}
+
+func TestValidation_InferExprType_QualifiedRefUnknownField(t *testing.T) {
+	p := newTestParser()
+	p.qualifiers = qualifierPolicy{allowOld: true, allowNew: true}
+	_, err := p.inferExprType(&QualifiedRef{Qualifier: "new", Name: "nosuchfield"})
+	if err == nil {
+		t.Fatal("expected error for unknown qualified field")
+	}
+	if !strings.Contains(err.Error(), "unknown field") {
+		t.Errorf("unexpected error: %v", err)
+	}
+}
+
+func TestValidation_InferListType_FirstElementError(t *testing.T) {
+	p := newTestParser()
+	_, err := p.inferListType(&ListLiteral{Elements: []Expr{&valFakeExpr{}}})
+	if err == nil {
+		t.Fatal("expected error for bad first list element")
+	}
+}
+
+func TestValidation_InferListType_SecondElementError(t *testing.T) {
+	p := newTestParser()
+	_, err := p.inferListType(&ListLiteral{Elements: []Expr{
+		&StringLiteral{Value: "ok"},
+		&valFakeExpr{},
+	}})
+	if err == nil {
+		t.Fatal("expected error for bad second list element")
+	}
+}
+
+func TestValidation_InferListElementType_NonLiteralError(t *testing.T) {
+	p := newTestParser()
+	// non-literal expr that returns an error from inferExprType
+	_, err := p.inferListElementType(&valFakeExpr{})
+	if err == nil {
+		t.Fatal("expected error for non-literal list element type")
+	}
+}
+
+func TestValidation_InferListElementType_NonListFallback(t *testing.T) {
+	p := newTestParser()
+	// a field ref that's not a list type — should return the type as-is
+	typ, err := p.inferListElementType(&FieldRef{Name: "title"})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if typ != ValueString {
+		t.Errorf("expected ValueString, got %s", typeName(typ))
+	}
+}
+
+func TestValidation_InferFuncCallType_VariableArgRange(t *testing.T) {
+	// there are no builtins with minArgs != maxArgs in the current code,
+	// but exercise the branch by directly calling inferFuncCallType
+	// with too many args on a fixed-arity function (covers the minArgs==maxArgs message)
+	p := newTestParser()
+	_, err := p.inferFuncCallType(&FunctionCall{
+		Name: "now",
+		Args: []Expr{&StringLiteral{Value: "extra"}},
+	})
+	if err == nil {
+		t.Fatal("expected error for wrong arg count")
+	}
+	if !strings.Contains(err.Error(), "argument") {
+		t.Errorf("unexpected error: %v", err)
+	}
+}
+
+func TestValidation_InferFuncCallType_BlocksStringNonLiteral(t *testing.T) {
+	p := newTestParser()
+	// blocks() with a string-typed non-literal arg (field ref to a string field)
+	_, err := p.inferFuncCallType(&FunctionCall{
+		Name: "blocks",
+		Args: []Expr{&FieldRef{Name: "assignee"}}, // string type, but not a literal
+	})
+	if err == nil {
+		t.Fatal("expected error for blocks() with string non-literal")
+	}
+	if !strings.Contains(err.Error(), "blocks() argument must be an id or ref") {
+		t.Errorf("unexpected error: %v", err)
+	}
+}
+
+func TestValidation_InferFuncCallType_CallArgError(t *testing.T) {
+	p := newTestParser()
+	_, err := p.inferFuncCallType(&FunctionCall{
+		Name: "call",
+		Args: []Expr{&valFakeExpr{}},
+	})
+	if err == nil {
+		t.Fatal("expected error for call() with bad arg")
+	}
+}
+
+func TestValidation_InferFuncCallType_NextDateArgError(t *testing.T) {
+	p := newTestParser()
+	_, err := p.inferFuncCallType(&FunctionCall{
+		Name: "next_date",
+		Args: []Expr{&valFakeExpr{}},
+	})
+	if err == nil {
+		t.Fatal("expected error for next_date() with bad arg")
+	}
+}
+
+func TestValidation_InferBinaryExprType_LeftError(t *testing.T) {
+	p := newTestParser()
+	_, err := p.inferBinaryExprType(&BinaryExpr{
+		Op:    "+",
+		Left:  &valFakeExpr{},
+		Right: &IntLiteral{Value: 1},
+	})
+	if err == nil {
+		t.Fatal("expected error for bad left in binary expr")
+	}
+}
+
+func TestValidation_InferBinaryExprType_RightError(t *testing.T) {
+	p := newTestParser()
+	_, err := p.inferBinaryExprType(&BinaryExpr{
+		Op:    "+",
+		Left:  &IntLiteral{Value: 1},
+		Right: &valFakeExpr{},
+	})
+	if err == nil {
+		t.Fatal("expected error for bad right in binary expr")
+	}
+}
+
+func TestValidation_CheckAssignmentCompat_UnresolvedEmpty(t *testing.T) {
+	p := newTestParser()
+	// rhsType == -1 but rhs is not an EmptyLiteral — exercises the rhsType == -1 branch
+	err := p.checkAssignmentCompat(ValueString, -1, &BinaryExpr{
+		Op:    "+",
+		Left:  &EmptyLiteral{},
+		Right: &EmptyLiteral{},
+	})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
+func TestValidation_CheckCompareCompat_RightEnumCheck(t *testing.T) {
+	p := newTestParser()
+	// right side is enum, left side is non-enum non-literal
+	err := p.checkCompareCompat(ValueString, ValueStatus, &FieldRef{Name: "title"}, &FieldRef{Name: "status"})
+	if err == nil {
+		t.Fatal("expected error for comparing string field with status field")
+	}
+	if !strings.Contains(err.Error(), "cannot compare") {
+		t.Errorf("unexpected error: %v", err)
+	}
+}

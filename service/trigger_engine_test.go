@@ -595,3 +595,134 @@ func TestLoadAndRegisterTriggers_EmptyDefs(t *testing.T) {
 		t.Fatalf("expected 0 triggers loaded, got %d", count)
 	}
 }
+
+// --- coverage gap tests ---
+
+func TestTriggerEngine_BeforeGuardEvalError(t *testing.T) {
+	// before-trigger whose guard references an unknown qualifier ("mid.status")
+	// should produce a rejection (fail-closed)
+	entry := parseTriggerEntry(t, "broken guard",
+		`before update where old.status = "ready" deny "blocked"`)
+	// overwrite the parsed where with one that will fail at eval time:
+	// use a QualifiedRef with unknown qualifier "mid"
+	entry.trigger.Where = &ruki.CompareExpr{
+		Left:  &ruki.QualifiedRef{Qualifier: "mid", Name: "status"},
+		Op:    "=",
+		Right: &ruki.StringLiteral{Value: "ready"},
+	}
+
+	tk := &task.Task{ID: "TIKI-ERR001", Title: "test", Status: "ready", Type: "story", Priority: 3}
+	gate, _ := newGateWithStoreAndTasks(tk)
+
+	engine := NewTriggerEngine([]triggerEntry{entry}, ruki.NewTriggerExecutor(testTriggerSchema{}, nil))
+	engine.RegisterWithGate(gate)
+
+	updated := tk.Clone()
+	updated.Status = "in_progress"
+	err := gate.UpdateTask(context.Background(), updated)
+	if err == nil {
+		t.Fatal("expected rejection when guard eval fails")
+	}
+	if !strings.Contains(err.Error(), "guard evaluation failed") {
+		t.Fatalf("expected 'guard evaluation failed' error, got: %v", err)
+	}
+}
+
+func TestTriggerEngine_AfterGuardEvalError(t *testing.T) {
+	// after-trigger whose guard evaluation fails (unknown qualifier)
+	// should log and skip (not propagate error)
+	entry := parseTriggerEntry(t, "broken after guard",
+		`after update where new.status = "in_progress" update where id = new.id set title="updated"`)
+	// overwrite the parsed where with one that will fail at eval time
+	entry.trigger.Where = &ruki.CompareExpr{
+		Left:  &ruki.QualifiedRef{Qualifier: "mid", Name: "status"},
+		Op:    "=",
+		Right: &ruki.StringLiteral{Value: "in_progress"},
+	}
+
+	tk := &task.Task{ID: "TIKI-ERR001", Title: "test", Status: "ready", Type: "story", Priority: 3}
+	gate, s := newGateWithStoreAndTasks(tk)
+
+	engine := NewTriggerEngine([]triggerEntry{entry}, ruki.NewTriggerExecutor(testTriggerSchema{}, nil))
+	engine.RegisterWithGate(gate)
+
+	updated := tk.Clone()
+	updated.Status = "in_progress"
+	// guard eval error is logged and skipped → mutation should succeed
+	if err := gate.UpdateTask(context.Background(), updated); err != nil {
+		t.Fatalf("unexpected error (guard eval error should be logged, not propagated): %v", err)
+	}
+
+	// the after-trigger should NOT have fired (guard errored → skipped)
+	persisted := s.GetTask("TIKI-ERR001")
+	if persisted.Title != "test" {
+		t.Errorf("title should remain unchanged, got %q", persisted.Title)
+	}
+}
+
+func TestTriggerEngine_ExecActionError(t *testing.T) {
+	// after-trigger whose action execution fails
+	// the error is logged by runAfterHooks, not propagated to the caller
+	entry := parseTriggerEntry(t, "broken action",
+		`after update where new.status = "in_progress" update where id = new.id set title="x"`)
+	// overwrite the action with an empty statement to trigger exec error
+	entry.trigger.Action = &ruki.Statement{}
+
+	tk := &task.Task{ID: "TIKI-ERR002", Title: "test", Status: "ready", Type: "story", Priority: 3}
+	gate, s := newGateWithStoreAndTasks(tk)
+
+	engine := NewTriggerEngine([]triggerEntry{entry}, ruki.NewTriggerExecutor(testTriggerSchema{}, nil))
+	engine.RegisterWithGate(gate)
+
+	updated := tk.Clone()
+	updated.Status = "in_progress"
+	// after-hook errors are logged but not propagated — mutation succeeds
+	if err := gate.UpdateTask(context.Background(), updated); err != nil {
+		t.Fatalf("unexpected error (after-hook errors should be logged, not propagated): %v", err)
+	}
+
+	// the task should have been updated (the after-trigger's action failed, but the mutation itself succeeded)
+	persisted := s.GetTask("TIKI-ERR002")
+	if persisted.Status != "in_progress" {
+		t.Errorf("expected status in_progress, got %q", persisted.Status)
+	}
+	// title should remain unchanged since the action failed
+	if persisted.Title != "test" {
+		t.Errorf("title should remain unchanged since action failed, got %q", persisted.Title)
+	}
+}
+
+func TestTriggerEngine_AfterDeleteCascadeDelete(t *testing.T) {
+	// exercises the persistResult delete branch:
+	// when a task is deleted, also delete all tasks that depend on it
+	entry := parseTriggerEntry(t, "cascade delete deps",
+		`after delete delete where old.id in dependsOn`)
+
+	parent := &task.Task{ID: "TIKI-PAR001", Title: "parent", Status: "done", Type: "story", Priority: 3}
+	child := &task.Task{
+		ID: "TIKI-CHI001", Title: "child", Status: "ready", Type: "story", Priority: 3,
+		DependsOn: []string{"TIKI-PAR001"},
+	}
+	unrelated := &task.Task{ID: "TIKI-UNR001", Title: "unrelated", Status: "ready", Type: "story", Priority: 3}
+	gate, s := newGateWithStoreAndTasks(parent, child, unrelated)
+
+	engine := NewTriggerEngine([]triggerEntry{entry}, ruki.NewTriggerExecutor(testTriggerSchema{}, nil))
+	engine.RegisterWithGate(gate)
+
+	if err := gate.DeleteTask(context.Background(), parent); err != nil {
+		t.Fatalf("delete failed: %v", err)
+	}
+
+	// parent should be gone
+	if s.GetTask("TIKI-PAR001") != nil {
+		t.Error("parent task should have been deleted")
+	}
+	// child should be gone (cascade delete)
+	if s.GetTask("TIKI-CHI001") != nil {
+		t.Error("child task should have been cascade-deleted")
+	}
+	// unrelated should remain
+	if s.GetTask("TIKI-UNR001") == nil {
+		t.Error("unrelated task should remain")
+	}
+}
