@@ -314,3 +314,41 @@ func mustParseDateTime(s string) time.Time {
 	}
 	return t
 }
+
+func TestIsValidPriority(t *testing.T) {
+	tests := []struct {
+		priority int
+		want     bool
+	}{
+		{0, false},
+		{1, true},
+		{3, true},
+		{5, true},
+		{6, false},
+		{-1, false},
+	}
+	for _, tt := range tests {
+		if got := IsValidPriority(tt.priority); got != tt.want {
+			t.Errorf("IsValidPriority(%d) = %v, want %v", tt.priority, got, tt.want)
+		}
+	}
+}
+
+func TestIsValidPoints(t *testing.T) {
+	tests := []struct {
+		points int
+		want   bool
+	}{
+		{0, true},   // unestimated is valid
+		{-1, false}, // negative
+		{1, true},
+		{5, true},
+		{10, true},  // max default
+		{11, false}, // over max
+	}
+	for _, tt := range tests {
+		if got := IsValidPoints(tt.points); got != tt.want {
+			t.Errorf("IsValidPoints(%d) = %v, want %v", tt.points, got, tt.want)
+		}
+	}
+}

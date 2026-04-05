@@ -482,6 +482,64 @@ func TestRenderTimestampNonTime(t *testing.T) {
 	}
 }
 
+// --- write-error tests at each stage of Format ---
+
+func TestTableFormatterWriteErrorAtHeader(t *testing.T) {
+	proj := &ruki.TaskProjection{
+		Fields: []string{"id"},
+		Tasks:  []*task.Task{{ID: "TIKI-ABC123"}},
+	}
+
+	// fail on second write (header row)
+	ew := &errorWriter{failAfter: 1}
+	err := NewTableFormatter().Format(ew, proj)
+	if err == nil {
+		t.Fatal("expected write error at header")
+	}
+}
+
+func TestTableFormatterWriteErrorAtSecondSep(t *testing.T) {
+	proj := &ruki.TaskProjection{
+		Fields: []string{"id"},
+		Tasks:  []*task.Task{{ID: "TIKI-ABC123"}},
+	}
+
+	// fail on third write (second separator after header)
+	ew := &errorWriter{failAfter: 2}
+	err := NewTableFormatter().Format(ew, proj)
+	if err == nil {
+		t.Fatal("expected write error at second separator")
+	}
+}
+
+func TestTableFormatterWriteErrorAtDataRow(t *testing.T) {
+	proj := &ruki.TaskProjection{
+		Fields: []string{"id"},
+		Tasks:  []*task.Task{{ID: "TIKI-ABC123"}},
+	}
+
+	// fail on fourth write (data row)
+	ew := &errorWriter{failAfter: 3}
+	err := NewTableFormatter().Format(ew, proj)
+	if err == nil {
+		t.Fatal("expected write error at data row")
+	}
+}
+
+func TestTableFormatterWriteErrorAtClosingSep(t *testing.T) {
+	proj := &ruki.TaskProjection{
+		Fields: []string{"id"},
+		Tasks:  []*task.Task{{ID: "TIKI-ABC123"}},
+	}
+
+	// fail on fifth write (closing separator)
+	ew := &errorWriter{failAfter: 4}
+	err := NewTableFormatter().Format(ew, proj)
+	if err == nil {
+		t.Fatal("expected write error at closing separator")
+	}
+}
+
 func TestEscapeScalar(t *testing.T) {
 	tests := []struct {
 		input, want string

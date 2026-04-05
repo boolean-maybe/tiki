@@ -434,6 +434,102 @@ func TestDepsController_EnsureFirstNonEmptyLaneSelection(t *testing.T) {
 	})
 }
 
+func TestDepsController_DeleteTask_GateError(t *testing.T) {
+	// when gate rejects delete, handleDeleteTask should return false
+	taskStore := store.NewInMemoryStore()
+
+	tasks := []*task.Task{
+		{ID: testCtxID, Title: "Context", Status: task.StatusReady, Type: task.TypeStory, Priority: 3, DependsOn: []string{testDepID}},
+		{ID: testBlkID, Title: "Blocker", Status: task.StatusReady, Type: task.TypeStory, Priority: 3, DependsOn: []string{testCtxID}},
+		{ID: testDepID, Title: "Depends", Status: task.StatusReady, Type: task.TypeStory, Priority: 3},
+		{ID: testFreeID, Title: "Free", Status: task.StatusReady, Type: task.TypeStory, Priority: 3},
+	}
+	for _, tt := range tasks {
+		if err := taskStore.CreateTask(tt); err != nil {
+			t.Fatalf("create task %s: %v", tt.ID, err)
+		}
+	}
+
+	pluginDef := &plugin.TikiPlugin{
+		BasePlugin: plugin.BasePlugin{Name: "Dependency:" + testCtxID, ConfigIndex: -1, Type: "tiki"},
+		TaskID:     testCtxID,
+		Lanes:      []plugin.TikiLane{{Name: "Blocks"}, {Name: "All"}, {Name: "Depends"}},
+	}
+	pluginConfig := model.NewPluginConfig("Dependency")
+	pluginConfig.SetLaneLayout([]int{1, 2, 1}, nil)
+
+	gate := service.NewTaskMutationGate()
+	gate.SetStore(taskStore)
+	// register a before-delete validator that blocks all deletes
+	gate.OnDelete(func(old, new *task.Task, allTasks []*task.Task) *service.Rejection {
+		return &service.Rejection{Reason: "deletes blocked for test"}
+	})
+
+	nav := newMockNavigationController()
+	statusline := model.NewStatuslineConfig()
+	dc := NewDepsController(taskStore, gate, pluginConfig, pluginDef, nav, statusline)
+
+	// select free task in All lane
+	dc.pluginConfig.SetSelectedLane(depsLaneAll)
+	dc.pluginConfig.SetSelectedIndexForLane(depsLaneAll, 0)
+
+	result := dc.HandleAction(ActionDeleteTask)
+	if result {
+		t.Error("expected delete to fail when gate rejects")
+	}
+}
+
+func TestDepsController_MoveTask_UpdateError(t *testing.T) {
+	// when gate rejects the update, statusline should receive the error
+	taskStore := store.NewInMemoryStore()
+
+	tasks := []*task.Task{
+		{ID: testCtxID, Title: "Context", Status: task.StatusReady, Type: task.TypeStory, Priority: 3, DependsOn: []string{testDepID}},
+		{ID: testBlkID, Title: "Blocker", Status: task.StatusReady, Type: task.TypeStory, Priority: 3, DependsOn: []string{testCtxID}},
+		{ID: testDepID, Title: "Depends", Status: task.StatusReady, Type: task.TypeStory, Priority: 3},
+		{ID: testFreeID, Title: "Free", Status: task.StatusReady, Type: task.TypeStory, Priority: 3},
+	}
+	for _, tt := range tasks {
+		if err := taskStore.CreateTask(tt); err != nil {
+			t.Fatalf("create task %s: %v", tt.ID, err)
+		}
+	}
+
+	pluginDef := &plugin.TikiPlugin{
+		BasePlugin: plugin.BasePlugin{Name: "Dependency:" + testCtxID, ConfigIndex: -1, Type: "tiki"},
+		TaskID:     testCtxID,
+		Lanes:      []plugin.TikiLane{{Name: "Blocks"}, {Name: "All"}, {Name: "Depends"}},
+	}
+	pluginConfig := model.NewPluginConfig("Dependency")
+	pluginConfig.SetLaneLayout([]int{1, 2, 1}, nil)
+
+	gate := service.NewTaskMutationGate()
+	gate.SetStore(taskStore)
+	// register a validator that blocks all updates
+	gate.OnUpdate(func(old, new *task.Task, allTasks []*task.Task) *service.Rejection {
+		return &service.Rejection{Reason: "updates blocked for test"}
+	})
+
+	nav := newMockNavigationController()
+	statusline := model.NewStatuslineConfig()
+	dc := NewDepsController(taskStore, gate, pluginConfig, pluginDef, nav, statusline)
+
+	// select free task in All lane, move left → Blocks
+	dc.pluginConfig.SetSelectedLane(depsLaneAll)
+	dc.pluginConfig.SetSelectedIndexForLane(depsLaneAll, 0)
+
+	result := dc.handleMoveTask(-1)
+	if result {
+		t.Error("expected move to fail when gate rejects update")
+	}
+
+	// statusline should have received the error
+	msg, _, _ := statusline.GetMessage()
+	if msg == "" {
+		t.Error("expected statusline to have error message")
+	}
+}
+
 func TestDepsViewActions(t *testing.T) {
 	registry := DepsViewActions()
 	actions := registry.GetActions()

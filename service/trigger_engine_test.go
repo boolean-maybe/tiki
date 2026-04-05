@@ -2,11 +2,15 @@ package service
 
 import (
 	"context"
+	"fmt"
+	"os"
+	"path/filepath"
 	"runtime"
 	"strings"
 	"testing"
 	"time"
 
+	"github.com/boolean-maybe/tiki/config"
 	"github.com/boolean-maybe/tiki/ruki"
 	"github.com/boolean-maybe/tiki/store"
 	"github.com/boolean-maybe/tiki/task"
@@ -798,5 +802,245 @@ func TestTriggerEngine_AfterDeleteCascadeDelete(t *testing.T) {
 	// unrelated should remain
 	if s.GetTask("TIKI-UNR001") == nil {
 		t.Error("unrelated task should remain")
+	}
+}
+
+// --- LoadAndRegisterTriggers full path ---
+
+// setupTriggerLoadTest creates a temp environment for LoadAndRegisterTriggers tests.
+// Returns the cwd where workflow.yaml should be written.
+func setupTriggerLoadTest(t *testing.T) string {
+	t.Helper()
+	userDir := t.TempDir()
+	t.Setenv("XDG_CONFIG_HOME", userDir)
+	if err := os.MkdirAll(filepath.Join(userDir, "tiki"), 0750); err != nil {
+		t.Fatal(err)
+	}
+
+	cwdDir := t.TempDir()
+	// create .doc so path manager recognizes this as a project root
+	if err := os.MkdirAll(filepath.Join(cwdDir, ".doc"), 0750); err != nil {
+		t.Fatal(err)
+	}
+
+	originalDir, _ := os.Getwd()
+	t.Cleanup(func() { _ = os.Chdir(originalDir) })
+	_ = os.Chdir(cwdDir)
+
+	config.ResetPathManager()
+	return cwdDir
+}
+
+func TestLoadAndRegisterTriggers_WithValidTriggers(t *testing.T) {
+	cwdDir := setupTriggerLoadTest(t)
+
+	content := `triggers:
+  - description: "block done"
+    ruki: 'before update where new.status = "done" deny "no"'
+  - description: "auto-assign"
+    ruki: 'after create where new.assignee is empty update where id = new.id set assignee="bot"'
+`
+	if err := os.WriteFile(filepath.Join(cwdDir, "workflow.yaml"), []byte(content), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	gate := NewTaskMutationGate()
+	s := store.NewInMemoryStore()
+	gate.SetStore(s)
+
+	count, err := LoadAndRegisterTriggers(gate, testTriggerSchema{}, func() string { return "test-user" })
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if count != 2 {
+		t.Fatalf("expected 2 triggers loaded, got %d", count)
+	}
+
+	// verify the before-trigger works: try moving a task to done
+	tk := &task.Task{ID: "TIKI-LRT001", Title: "test", Status: "ready", Type: "story", Priority: 3}
+	if err := gate.CreateTask(context.Background(), tk); err != nil {
+		t.Fatalf("create failed: %v", err)
+	}
+
+	updated := tk.Clone()
+	updated.Status = "done"
+	err = gate.UpdateTask(context.Background(), updated)
+	if err == nil || !strings.Contains(err.Error(), "no") {
+		t.Fatalf("expected 'no' denial from trigger, got: %v", err)
+	}
+}
+
+func TestLoadAndRegisterTriggers_ParseError(t *testing.T) {
+	cwdDir := setupTriggerLoadTest(t)
+
+	content := `triggers:
+  - description: "broken"
+    ruki: 'before update where garbled %%% deny "no"'
+`
+	if err := os.WriteFile(filepath.Join(cwdDir, "workflow.yaml"), []byte(content), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	gate := NewTaskMutationGate()
+	gate.SetStore(store.NewInMemoryStore())
+
+	_, err := LoadAndRegisterTriggers(gate, testTriggerSchema{}, nil)
+	if err == nil {
+		t.Fatal("expected parse error")
+	}
+	if !strings.Contains(err.Error(), "broken") {
+		t.Fatalf("expected trigger description in error, got: %v", err)
+	}
+}
+
+func TestLoadAndRegisterTriggers_ParseErrorNoDescription(t *testing.T) {
+	cwdDir := setupTriggerLoadTest(t)
+
+	content := `triggers:
+  - ruki: 'before update where garbled %%% deny "no"'
+`
+	if err := os.WriteFile(filepath.Join(cwdDir, "workflow.yaml"), []byte(content), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	gate := NewTaskMutationGate()
+	gate.SetStore(store.NewInMemoryStore())
+
+	_, err := LoadAndRegisterTriggers(gate, testTriggerSchema{}, nil)
+	if err == nil {
+		t.Fatal("expected parse error")
+	}
+	if !strings.Contains(err.Error(), "#1") {
+		t.Fatalf("expected fallback description '#1' in error, got: %v", err)
+	}
+}
+
+// --- persistResult error branches ---
+
+func TestTriggerEngine_PersistCreateTemplateError(t *testing.T) {
+	// after-trigger that creates a task, but the store fails on NewTaskTemplate
+	entry := parseTriggerEntry(t, "create on delete",
+		`after delete create title="replacement" status="ready" type=old.type priority=3`)
+
+	s := store.NewInMemoryStore()
+	gate := NewTaskMutationGate()
+	RegisterFieldValidators(gate)
+	gate.SetStore(s)
+
+	tk := &task.Task{ID: "TIKI-TPL001", Title: "original", Status: "ready", Type: "story", Priority: 3}
+	if err := gate.CreateTask(context.Background(), tk); err != nil {
+		t.Fatal(err)
+	}
+
+	// now swap to a failing template store
+	gate.SetStore(&failingTemplateWrapper{Store: s})
+
+	engine := NewTriggerEngine([]triggerEntry{entry}, ruki.NewTriggerExecutor(testTriggerSchema{}, nil))
+	engine.RegisterWithGate(gate)
+
+	// delete triggers the after-hook which tries to create → template fails
+	// after-hook errors are logged, not propagated, so we just verify no panic
+	_ = gate.DeleteTask(context.Background(), tk)
+}
+
+type failingTemplateWrapper struct {
+	store.Store
+}
+
+func (f *failingTemplateWrapper) NewTaskTemplate() (*task.Task, error) {
+	return nil, fmt.Errorf("simulated template failure")
+}
+
+func TestTriggerEngine_PersistCreateGateError(t *testing.T) {
+	// after-trigger that creates a valid task, but gate rejects via custom validator
+	entry := parseTriggerEntry(t, "create on delete",
+		`after delete create title="valid title" status="ready" type=old.type priority=3`)
+
+	tk := &task.Task{ID: "TIKI-GCR001", Title: "original", Status: "ready", Type: "story", Priority: 3}
+	gate, _ := newGateWithStoreAndTasks(tk)
+
+	// add a custom create validator that rejects all trigger-created tasks
+	gate.OnCreate(func(old, new *task.Task, allTasks []*task.Task) *Rejection {
+		if new.Title == "valid title" {
+			return &Rejection{Reason: "no trigger creates allowed"}
+		}
+		return nil
+	})
+
+	engine := NewTriggerEngine([]triggerEntry{entry}, ruki.NewTriggerExecutor(testTriggerSchema{}, nil))
+	engine.RegisterWithGate(gate)
+
+	// delete triggers the after-hook which tries to create → gate rejects
+	// after-hook errors are logged, not propagated
+	_ = gate.DeleteTask(context.Background(), tk)
+}
+
+func TestTriggerEngine_PersistDeleteError(t *testing.T) {
+	// after-trigger that deletes tasks, but gate rejects delete via before-delete trigger
+	blockDelete := parseTriggerEntry(t, "block all deletes",
+		`before delete deny "deletes forbidden"`)
+	cascadeDelete := parseTriggerEntry(t, "cascade delete",
+		`after update where new.status = "done" delete where id != old.id`)
+
+	tk := &task.Task{ID: "TIKI-PDL001", Title: "main", Status: "ready", Type: "story", Priority: 3}
+	other := &task.Task{ID: "TIKI-PDL002", Title: "other", Status: "ready", Type: "story", Priority: 3}
+	gate, _ := newGateWithStoreAndTasks(tk, other)
+
+	entries := []triggerEntry{blockDelete, cascadeDelete}
+	engine := NewTriggerEngine(entries, ruki.NewTriggerExecutor(testTriggerSchema{}, nil))
+	engine.RegisterWithGate(gate)
+
+	// update tk to done → cascade tries to delete other → blocked by before-delete
+	updated := tk.Clone()
+	updated.Status = "done"
+	// after-hook errors are logged, not propagated
+	_ = gate.UpdateTask(context.Background(), updated)
+}
+
+func TestLoadAndRegisterTriggers_LoadDefError(t *testing.T) {
+	cwdDir := setupTriggerLoadTest(t)
+
+	// write an unreadable workflow.yaml to trigger a LoadTriggerDefs error
+	f := filepath.Join(cwdDir, "workflow.yaml")
+	if err := os.WriteFile(f, []byte("triggers: []\n"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Chmod(f, 0000); err != nil {
+		t.Skip("cannot change file permissions on this platform")
+	}
+	t.Cleanup(func() { _ = os.Chmod(f, 0600) })
+
+	gate := NewTaskMutationGate()
+	gate.SetStore(store.NewInMemoryStore())
+
+	_, err := LoadAndRegisterTriggers(gate, testTriggerSchema{}, nil)
+	if err == nil {
+		t.Fatal("expected error for unreadable workflow.yaml")
+	}
+	if !strings.Contains(err.Error(), "loading trigger definitions") {
+		t.Fatalf("expected 'loading trigger definitions' error, got: %v", err)
+	}
+}
+
+func TestTriggerEngine_ExecRunEvalError(t *testing.T) {
+	// after-trigger with run() that references an unknown qualifier
+	entry := parseTriggerEntry(t, "broken run",
+		`after update where new.status = "done" run("echo " + old.id)`)
+	// overwrite run command to reference unknown qualifier
+	entry.trigger.Run = &ruki.RunAction{
+		Command: &ruki.QualifiedRef{Qualifier: "mid", Name: "title"},
+	}
+
+	tk := &task.Task{ID: "TIKI-RNE001", Title: "test", Status: "ready", Type: "story", Priority: 3}
+	gate, _ := newGateWithStoreAndTasks(tk)
+
+	engine := NewTriggerEngine([]triggerEntry{entry}, ruki.NewTriggerExecutor(testTriggerSchema{}, nil))
+	engine.RegisterWithGate(gate)
+
+	updated := tk.Clone()
+	updated.Status = "done"
+	// after-hook errors are logged, not propagated
+	if err := gate.UpdateTask(context.Background(), updated); err != nil {
+		t.Fatalf("unexpected error (run eval error should be logged): %v", err)
 	}
 }

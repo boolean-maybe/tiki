@@ -2480,3 +2480,30 @@ func TestValidation_CheckCompareCompat_RightEnumCheck(t *testing.T) {
 		t.Errorf("unexpected error: %v", err)
 	}
 }
+
+// --- additional coverage for validate.go uncovered branches ---
+
+func TestValidation_BlocksNonLiteralString(t *testing.T) {
+	p := newTestParser()
+	// blocks() with a non-literal string field (assignee is a string field, not ref/id)
+	_, err := p.ParseStatement(`select where count(select where id in blocks(assignee)) > 0`)
+	if err == nil {
+		t.Fatal("expected error for blocks() with string field argument")
+	}
+	if !strings.Contains(err.Error(), "blocks() argument must be an id or ref") {
+		t.Fatalf("expected blocks() argument error, got: %v", err)
+	}
+}
+
+func TestValidation_InExprListElementTypeError(t *testing.T) {
+	p := newTestParser()
+	// construct a case where inferListElementType fails:
+	// use a list literal whose first element is unknown
+	// This is hard to trigger via parser, so test the internal function directly
+	_, err := p.inferListElementType(&ListLiteral{Elements: []Expr{
+		&FunctionCall{Name: "unknown_func"},
+	}})
+	if err == nil {
+		t.Fatal("expected error for unknown function in list element")
+	}
+}

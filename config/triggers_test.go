@@ -318,3 +318,46 @@ func TestReadTriggersFromFile_MalformedTriggersSection(t *testing.T) {
 		t.Fatal("expected error for malformed triggers section")
 	}
 }
+
+func TestReadTriggersFromFile_PermissionError(t *testing.T) {
+	dir := t.TempDir()
+	f := filepath.Join(dir, "workflow.yaml")
+	if err := os.WriteFile(f, []byte("triggers: []\n"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	// make file unreadable
+	if err := os.Chmod(f, 0000); err != nil {
+		t.Skip("cannot change file permissions on this platform")
+	}
+	t.Cleanup(func() { _ = os.Chmod(f, 0600) })
+
+	_, _, err := readTriggersFromFile(f)
+	if err == nil {
+		t.Fatal("expected error for unreadable file")
+	}
+}
+
+func TestLoadTriggerDefs_FileReadError(t *testing.T) {
+	userDir, projectDir, _ := setupTriggerPrecedenceTest(t)
+
+	// user dir has a valid file
+	writeTriggerFile(t, userDir, `triggers:
+  - description: "user trigger"
+    ruki: 'before update deny "user"'
+`)
+
+	// project dir has an unreadable file (not invalid YAML, but unreadable)
+	f := filepath.Join(projectDir, "workflow.yaml")
+	if err := os.WriteFile(f, []byte("triggers: []\n"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Chmod(f, 0000); err != nil {
+		t.Skip("cannot change file permissions on this platform")
+	}
+	t.Cleanup(func() { _ = os.Chmod(f, 0600) })
+
+	_, err := LoadTriggerDefs()
+	if err == nil {
+		t.Fatal("expected error for unreadable workflow.yaml")
+	}
+}

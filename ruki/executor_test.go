@@ -3535,3 +3535,64 @@ func TestSetFieldPointsInt(t *testing.T) {
 		t.Errorf("expected 8, got %d", tk.Points)
 	}
 }
+
+// --- bool comparison coverage ---
+
+func TestCompareBoolsEqual(t *testing.T) {
+	ok, err := compareBools(true, true, "=")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !ok {
+		t.Error("true = true should be true")
+	}
+
+	ok, err = compareBools(true, false, "=")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if ok {
+		t.Error("true = false should be false")
+	}
+}
+
+func TestCompareBoolsNotEqual(t *testing.T) {
+	ok, err := compareBools(true, false, "!=")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !ok {
+		t.Error("true != false should be true")
+	}
+
+	ok, err = compareBools(true, true, "!=")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if ok {
+		t.Error("true != true should be false")
+	}
+}
+
+func TestCompareBoolsUnsupportedOp(t *testing.T) {
+	_, err := compareBools(true, false, "<")
+	if err == nil {
+		t.Fatal("expected error for unsupported bool operator")
+	}
+	if !strings.Contains(err.Error(), "not supported for bool") {
+		t.Fatalf("expected 'not supported for bool' error, got: %v", err)
+	}
+}
+
+func TestCompareValues_BoolDispatch(t *testing.T) {
+	e := newTestExecutor()
+
+	// both sides are bool — should dispatch to compareBools
+	ok, err := e.compareValues(true, false, "!=", &IntLiteral{Value: 1}, &IntLiteral{Value: 0})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !ok {
+		t.Error("true != false should be true via compareValues")
+	}
+}

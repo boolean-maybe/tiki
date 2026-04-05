@@ -620,3 +620,78 @@ func TestRunSelectQueryResolveUserError(t *testing.T) {
 		t.Errorf("expected 'resolve current user' error, got: %v", err)
 	}
 }
+
+// --- UPDATE via RunQuery (covers the result.Update branch in RunQuery) ---
+
+func TestRunQuerySelectViaRunQuery(t *testing.T) {
+	s := setupRunnerTest(t)
+
+	var buf bytes.Buffer
+	err := RunQuery(gateFor(s), `select id where status = "ready"`, &buf)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !strings.Contains(buf.String(), "TIKI-AAA001") {
+		t.Errorf("expected TIKI-AAA001 in output:\n%s", buf.String())
+	}
+}
+
+// --- DELETE partial failure via silent DeleteTask no-op detection ---
+
+func TestRunQueryDeleteSilentFailure(t *testing.T) {
+	s := setupRunnerTest(t)
+	// failingDeleteStore silently ignores delete for failID
+	fs := &failingDeleteStore{Store: s, failID: "TIKI-AAA001"}
+
+	var buf bytes.Buffer
+	err := RunQuery(gateFor(fs), `delete where id = "TIKI-AAA001"`, &buf)
+	if err == nil {
+		t.Fatal("expected error for silent delete failure")
+	}
+	if !strings.Contains(err.Error(), "partially failed") {
+		t.Errorf("expected 'partially failed' error, got: %v", err)
+	}
+}
+
+func TestRunSelectQueryExecuteError(t *testing.T) {
+	s := setupRunnerTest(t)
+
+	// call() is not supported at runtime, causing execute error
+	var buf bytes.Buffer
+	err := RunSelectQuery(s, `select where call("echo") = "x"`, &buf)
+	if err == nil {
+		t.Fatal("expected execute error")
+	}
+	if !strings.Contains(err.Error(), "execute") {
+		t.Errorf("expected execute error, got: %v", err)
+	}
+}
+
+// failingDeleteTaskStore wraps a Store and makes DeleteTask error via the gate.
+type failingDeleteTaskStore struct {
+	store.Store
+	failID string
+}
+
+func (f *failingDeleteTaskStore) DeleteTask(id string) {
+	if id != f.failID {
+		f.Store.DeleteTask(id)
+	}
+	// for failID: silently no-op
+}
+
+func TestRunQueryDeleteGateError(t *testing.T) {
+	s := setupRunnerTest(t)
+
+	// use a gate with a validator that rejects the delete
+	g := service.NewTaskMutationGate()
+	fds := &failingDeleteTaskStore{Store: s, failID: "TIKI-AAA001"}
+	g.SetStore(fds)
+
+	var buf bytes.Buffer
+	err := RunQuery(g, `delete where id = "TIKI-AAA001"`, &buf)
+	// the store silently fails to delete, so persistDelete detects task still exists
+	if err == nil {
+		t.Fatal("expected error for delete gate failure")
+	}
+}

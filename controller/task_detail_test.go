@@ -1168,6 +1168,84 @@ func TestTaskController_AddComment(t *testing.T) {
 	}
 }
 
+func TestTaskController_HandleAction_EditSource(t *testing.T) {
+	taskStore := store.NewInMemoryStore()
+	gate := service.NewTaskMutationGate()
+	gate.SetStore(taskStore)
+	navController := newMockNavigationController()
+	tc := NewTaskController(taskStore, gate, navController, nil)
+
+	// with no task, should return false
+	got := tc.HandleAction(ActionEditSource)
+	if got {
+		t.Error("HandleAction(EditSource) should return false with no current task")
+	}
+}
+
+func TestTaskController_CommitEditSession_UpdateError(t *testing.T) {
+	taskStore := store.NewInMemoryStore()
+	gate := service.BuildGate()
+	gate.SetStore(taskStore)
+	navController := newMockNavigationController()
+	tc := NewTaskController(taskStore, gate, navController, nil)
+
+	original := newTestTask()
+	_ = taskStore.CreateTask(original)
+	tc.StartEditSession(original.ID)
+	tc.editingTask.Title = "" // invalid - empty title will fail validation
+
+	err := tc.CommitEditSession()
+	if err == nil {
+		t.Fatal("expected error for empty title in edit session")
+	}
+}
+
+func TestTaskController_AddComment_Error(t *testing.T) {
+	// use a store wrapper that makes AddComment fail
+	taskStore := store.NewInMemoryStore()
+	fs := &failingCommentStore{Store: taskStore}
+	gate := service.NewTaskMutationGate()
+	gate.SetStore(fs)
+	navController := newMockNavigationController()
+	statusline := model.NewStatuslineConfig()
+	tc := NewTaskController(fs, gate, navController, statusline)
+
+	original := newTestTask()
+	_ = fs.CreateTask(original)
+	tc.SetCurrentTask(original.ID)
+
+	if tc.AddComment("user", "hello") {
+		t.Error("expected false when AddComment fails")
+	}
+}
+
+// failingCommentStore wraps a Store and always fails AddComment.
+type failingCommentStore struct {
+	store.Store
+}
+
+func (f *failingCommentStore) AddComment(_ string, _ task.Comment) bool {
+	return false
+}
+
+func TestTaskController_SaveType_InvalidType(t *testing.T) {
+	taskStore := store.NewInMemoryStore()
+	gate := service.NewTaskMutationGate()
+	gate.SetStore(taskStore)
+	navController := newMockNavigationController()
+	tc := NewTaskController(taskStore, gate, navController, nil)
+
+	original := newTestTask()
+	_ = taskStore.CreateTask(original)
+	tc.StartEditSession(original.ID)
+
+	// unrecognized display string
+	got := tc.SaveType("Nonexistent Type 🤷")
+	if got {
+		t.Error("SaveType should return false for unrecognized type display")
+	}
+}
+
 func TestTaskController_SaveTags(t *testing.T) {
 	tests := []struct {
 		name        string
