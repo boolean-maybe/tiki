@@ -445,3 +445,53 @@ func TestLoadStatusRegistryFromFiles_ReadError(t *testing.T) {
 		t.Fatal("expected error for nonexistent file")
 	}
 }
+
+func TestLoadStatusesFromFile_InvalidYAML(t *testing.T) {
+	dir := t.TempDir()
+	f := filepath.Join(dir, "workflow.yaml")
+	if err := os.WriteFile(f, []byte("{{{{invalid yaml"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	_, err := loadStatusesFromFile(f)
+	if err == nil {
+		t.Fatal("expected error for invalid YAML")
+	}
+}
+
+func TestLoadStatusesFromFile_EmptyStatuses(t *testing.T) {
+	dir := t.TempDir()
+	f := filepath.Join(dir, "workflow.yaml")
+	if err := os.WriteFile(f, []byte("statuses: []\n"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	reg, err := loadStatusesFromFile(f)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if reg != nil {
+		t.Error("expected nil registry for empty statuses list")
+	}
+}
+
+func TestLoadStatusRegistryFromFiles_AllFilesEmpty(t *testing.T) {
+	dir := t.TempDir()
+	f1 := filepath.Join(dir, "workflow1.yaml")
+	f2 := filepath.Join(dir, "workflow2.yaml")
+	if err := os.WriteFile(f1, []byte("other_key: true\n"), 0644); err != nil {
+		t.Fatalf("failed to write file: %v", err)
+	}
+	if err := os.WriteFile(f2, []byte("statuses: []\n"), 0644); err != nil {
+		t.Fatalf("failed to write file: %v", err)
+	}
+
+	reg, path, err := loadStatusRegistryFromFiles([]string{f1, f2})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if reg != nil {
+		t.Error("expected nil registry when all files have empty statuses")
+	}
+	if path != "" {
+		t.Errorf("expected empty path, got %q", path)
+	}
+}

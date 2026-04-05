@@ -304,3 +304,17 @@ func TestLoadTriggerDefs_DeduplicatesAbsPath(t *testing.T) {
 		t.Fatalf("expected 1 def (deduped), got %d", len(defs))
 	}
 }
+
+func TestReadTriggersFromFile_MalformedTriggersSection(t *testing.T) {
+	dir := t.TempDir()
+	f := filepath.Join(dir, "workflow.yaml")
+	// triggers key is present but with wrong type (string instead of list)
+	content := "triggers: \"not a list\"\n"
+	if err := os.WriteFile(f, []byte(content), 0644); err != nil {
+		t.Fatal(err)
+	}
+	_, _, err := readTriggersFromFile(f)
+	if err == nil {
+		t.Fatal("expected error for malformed triggers section")
+	}
+}

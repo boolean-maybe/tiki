@@ -503,3 +503,95 @@ func TestTriggerEngine_AfterUpdateCreateWithNextDate(t *testing.T) {
 		t.Fatalf("expected due=%v or %v, got %v", expBefore, expAfter, created.Due)
 	}
 }
+
+// --- before-delete trigger ---
+
+func TestTriggerEngine_BeforeDeleteDeny(t *testing.T) {
+	entry := parseTriggerEntry(t, "block delete of high priority",
+		`before delete where old.priority <= 2 deny "cannot delete high priority tasks"`)
+
+	tk := &task.Task{ID: "TIKI-PRIO01", Title: "critical", Status: "in_progress", Type: "story", Priority: 1}
+	gate, _ := newGateWithStoreAndTasks(tk)
+
+	engine := NewTriggerEngine([]triggerEntry{entry}, ruki.NewTriggerExecutor(testTriggerSchema{}, nil))
+	engine.RegisterWithGate(gate)
+
+	err := gate.DeleteTask(context.Background(), tk)
+	if err == nil {
+		t.Fatal("expected delete denial, got nil")
+	}
+	if !strings.Contains(err.Error(), "cannot delete high priority tasks") {
+		t.Fatalf("expected denial message, got: %v", err)
+	}
+}
+
+func TestTriggerEngine_BeforeDeleteAllow(t *testing.T) {
+	entry := parseTriggerEntry(t, "block delete of high priority",
+		`before delete where old.priority <= 2 deny "cannot delete high priority tasks"`)
+
+	tk := &task.Task{ID: "TIKI-LOWP01", Title: "low priority", Status: "ready", Type: "story", Priority: 5}
+	gate, _ := newGateWithStoreAndTasks(tk)
+
+	engine := NewTriggerEngine([]triggerEntry{entry}, ruki.NewTriggerExecutor(testTriggerSchema{}, nil))
+	engine.RegisterWithGate(gate)
+
+	if err := gate.DeleteTask(context.Background(), tk); err != nil {
+		t.Fatalf("unexpected denial: %v", err)
+	}
+}
+
+// --- after-delete trigger creating new task ---
+
+func TestTriggerEngine_AfterDeleteCascadeCreate(t *testing.T) {
+	// when a task is deleted, create an archive placeholder
+	entry := parseTriggerEntry(t, "create archive on delete",
+		`after delete create title="archived: " + old.title status="done" type=old.type priority=5`)
+
+	tk := &task.Task{ID: "TIKI-ADEL01", Title: "delete me", Status: "ready", Type: "bug", Priority: 3}
+	gate, s := newGateWithStoreAndTasks(tk)
+
+	engine := NewTriggerEngine([]triggerEntry{entry}, ruki.NewTriggerExecutor(testTriggerSchema{}, nil))
+	engine.RegisterWithGate(gate)
+
+	if err := gate.DeleteTask(context.Background(), tk); err != nil {
+		t.Fatalf("delete failed: %v", err)
+	}
+
+	// original should be gone
+	if s.GetTask("TIKI-ADEL01") != nil {
+		t.Fatal("original task should have been deleted")
+	}
+
+	// a new task should have been created
+	allTasks := s.GetAllTasks()
+	if len(allTasks) < 1 {
+		t.Fatal("expected at least 1 task (the archive placeholder)")
+	}
+	found := false
+	for _, at := range allTasks {
+		if strings.Contains(at.Title, "archived: delete me") {
+			found = true
+			if at.Status != "done" {
+				t.Errorf("expected status done, got %q", at.Status)
+			}
+		}
+	}
+	if !found {
+		t.Fatal("archive placeholder task not found")
+	}
+}
+
+// --- LoadAndRegisterTriggers ---
+
+func TestLoadAndRegisterTriggers_EmptyDefs(t *testing.T) {
+	// no workflow files → empty defs → 0, nil
+	gate := NewTaskMutationGate()
+	schema := testTriggerSchema{}
+	count, err := LoadAndRegisterTriggers(gate, schema, nil)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if count != 0 {
+		t.Fatalf("expected 0 triggers loaded, got %d", count)
+	}
+}

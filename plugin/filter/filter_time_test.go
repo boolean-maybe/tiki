@@ -398,3 +398,17 @@ func TestMultipleTimeConditions(t *testing.T) {
 		})
 	}
 }
+
+func TestParseDuration_ParseError(t *testing.T) {
+	_, err := ParseDuration("abc")
+	if err == nil {
+		t.Fatal("expected error for non-numeric duration")
+	}
+}
+
+func TestParseDuration_UnknownUnit(t *testing.T) {
+	_, err := ParseDuration("10xyz")
+	if err == nil {
+		t.Fatal("expected error for unknown duration unit")
+	}
+}

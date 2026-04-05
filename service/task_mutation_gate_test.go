@@ -645,3 +645,31 @@ func TestWithTriggerDepth_NilContext(t *testing.T) {
 		t.Fatalf("expected depth 3, got %d", got)
 	}
 }
+
+func TestDeleteTask_AlreadyDeleted(t *testing.T) {
+	gate := NewTaskMutationGate()
+	s := store.NewInMemoryStore()
+	gate.SetStore(s)
+
+	// delete a task that doesn't exist in store — should return nil gracefully
+	phantom := &task.Task{ID: "TIKI-GONE01", Title: "gone"}
+	err := gate.DeleteTask(context.Background(), phantom)
+	if err != nil {
+		t.Fatalf("expected nil for already-deleted task, got: %v", err)
+	}
+}
+
+func TestUpdateTask_TaskNotFound(t *testing.T) {
+	gate := NewTaskMutationGate()
+	s := store.NewInMemoryStore()
+	gate.SetStore(s)
+
+	missing := &task.Task{ID: "TIKI-MISS01", Title: "missing"}
+	err := gate.UpdateTask(context.Background(), missing)
+	if err == nil {
+		t.Fatal("expected error for missing task")
+	}
+	if !strings.Contains(err.Error(), "task not found") {
+		t.Fatalf("expected 'task not found' error, got: %v", err)
+	}
+}

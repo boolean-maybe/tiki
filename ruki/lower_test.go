@@ -1,6 +1,7 @@
 package ruki
 
 import (
+	"strings"
 	"testing"
 )
 
@@ -686,5 +687,29 @@ func TestLower_AndCondChain(t *testing.T) {
 	}
 	if bc.Op != "and" {
 		t.Errorf("expected 'and', got %q", bc.Op)
+	}
+}
+
+func TestLower_InvalidDateLiteralOutOfRange(t *testing.T) {
+	p := newTestParser()
+	// 9999-99-99 matches the lexer regex but is not a valid date
+	_, err := p.ParseStatement(`select where due > 9999-99-99`)
+	if err == nil {
+		t.Fatal("expected error for invalid date literal")
+	}
+	if !strings.Contains(err.Error(), "invalid date literal") {
+		t.Errorf("expected 'invalid date literal' error, got: %v", err)
+	}
+}
+
+func TestLower_ParseDateAndDurationInExpressions(t *testing.T) {
+	p := newTestParser()
+	// valid date with duration subtraction
+	stmt, err := p.ParseStatement(`select where due > 2025-06-15 - 2week`)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if stmt.Select == nil {
+		t.Fatal("expected select statement")
 	}
 }

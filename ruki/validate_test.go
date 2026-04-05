@@ -2086,3 +2086,96 @@ func TestValidation_ListRefAssignFromListString(t *testing.T) {
 		t.Errorf("unexpected error: %v", err)
 	}
 }
+
+func TestValidation_CheckCompareOpOrderingOnString(t *testing.T) {
+	// < on string should fail
+	err := checkCompareOp(ValueString, "<")
+	if err == nil {
+		t.Fatal("expected error for ordering operator on string")
+	}
+	if !strings.Contains(err.Error(), "not supported") {
+		t.Errorf("expected 'not supported' error, got: %v", err)
+	}
+}
+
+func TestValidation_InferBinaryExprTypeUnknownOp(t *testing.T) {
+	p := newTestParser()
+	_, err := p.inferBinaryExprType(&BinaryExpr{
+		Op:    "*",
+		Left:  &IntLiteral{Value: 1},
+		Right: &IntLiteral{Value: 2},
+	})
+	if err == nil {
+		t.Fatal("expected error for unknown binary operator")
+	}
+	if !strings.Contains(err.Error(), "unknown binary operator") {
+		t.Errorf("expected 'unknown binary operator' error, got: %v", err)
+	}
+}
+
+func TestValidation_ValidateInCannotCheck(t *testing.T) {
+	p := newTestParser()
+	// "42 in priority" — int in int, not valid
+	_, err := p.ParseStatement(`select where 42 in priority`)
+	if err == nil {
+		t.Fatal("expected error for int in int")
+	}
+	if !strings.Contains(err.Error(), "cannot check") {
+		t.Errorf("expected 'cannot check' error, got: %v", err)
+	}
+}
+
+func TestValidation_TriggerActionMustNotBeSelect(t *testing.T) {
+	p := newTestParser()
+	// construct trigger with select action directly — parser normally prevents this
+	trig := &Trigger{
+		Timing: "after",
+		Event:  "update",
+		Action: &Statement{Select: &SelectStmt{}},
+	}
+	err := p.validateTrigger(trig)
+	if err == nil {
+		t.Fatal("expected error for trigger with select action")
+	}
+	if !strings.Contains(err.Error(), "trigger action must not be select") {
+		t.Errorf("expected 'trigger action must not be select' error, got: %v", err)
+	}
+}
+
+func TestValidation_ListElementTypeMismatch(t *testing.T) {
+	p := newTestParser()
+	// list with mixed types: string and int
+	_, err := p.ParseStatement(`create title="x" tags=["a", 42]`)
+	if err == nil {
+		t.Fatal("expected error for mixed list element types")
+	}
+	if !strings.Contains(err.Error(), "same type") {
+		t.Errorf("expected 'same type' error, got: %v", err)
+	}
+}
+
+func TestValidation_ResolveEmptyPair(t *testing.T) {
+	// both -1: remain unchanged
+	a, b := resolveEmptyPair(-1, -1)
+	if a != -1 || b != -1 {
+		t.Errorf("resolveEmptyPair(-1, -1) = (%d, %d), want (-1, -1)", a, b)
+	}
+
+	// left is empty, right is concrete
+	a, b = resolveEmptyPair(-1, ValueInt)
+	if a != ValueInt || b != ValueInt {
+		t.Errorf("resolveEmptyPair(-1, ValueInt) = (%d, %d), want (ValueInt, ValueInt)", a, b)
+	}
+
+	// right is empty, left is concrete
+	a, b = resolveEmptyPair(ValueString, -1)
+	if a != ValueString || b != ValueString {
+		t.Errorf("resolveEmptyPair(ValueString, -1) = (%d, %d), want (ValueString, ValueString)", a, b)
+	}
+
+	// both concrete
+	a, b = resolveEmptyPair(ValueInt, ValueString)
+	if a != ValueInt || b != ValueString {
+		t.Errorf("resolveEmptyPair(ValueInt, ValueString) = (%d, %d), want (ValueInt, ValueString)", a, b)
+	}
+}

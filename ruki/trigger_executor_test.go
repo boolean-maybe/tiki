@@ -1,6 +1,7 @@
 package ruki
 
 import (
+	"strings"
 	"testing"
 	"time"
 
@@ -609,6 +610,39 @@ func TestEvalInOverride_SubstringMatch(t *testing.T) {
 	}
 }
 
+func TestEvalInOverride_NegatedList(t *testing.T) {
+	te := newTestTriggerExecutor()
+	p := newTestParser()
+
+	trig, err := p.ParseTrigger(`before update where "blocked" not in new.tags deny "must not be blocked"`)
+	if err != nil {
+		t.Fatalf("parse: %v", err)
+	}
+
+	// match: "blocked" not in tags → deny fires
+	tc := &TriggerContext{
+		Old: &task.Task{ID: "TIKI-000001", Tags: []string{"ready"}},
+		New: &task.Task{ID: "TIKI-000001", Tags: []string{"ready"}},
+	}
+	ok, err := te.EvalGuard(trig, tc)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !ok {
+		t.Fatal("guard should match: 'blocked' is not in tags")
+	}
+
+	// no match: "blocked" in tags → deny doesn't fire
+	tc.New = &task.Task{ID: "TIKI-000001", Tags: []string{"blocked"}}
+	ok, err = te.EvalGuard(trig, tc)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if ok {
+		t.Fatal("guard should not match: 'blocked' is in tags")
+	}
+}
+
 func TestEvalInOverride_ListMembership(t *testing.T) {
 	te := newTestTriggerExecutor()
 	p := newTestParser()
@@ -641,3 +675,344 @@ func TestEvalInOverride_ListMembership(t *testing.T) {
 		t.Fatal("guard should not match: 'claude' not in new.tags")
 	}
 }
+
+// --- Phase 2: error path tests ---
+
+// custom condition type to trigger "unknown condition type" error
+type bogusCondition struct{}
+
+func (*bogusCondition) conditionNode() {}
+
+func TestResolveQualifiedRef_UnknownQualifier(t *testing.T) {
+	te := newTestTriggerExecutor()
+	// construct a trigger whose guard references an unknown qualifier
+	trig := &Trigger{
+		Timing: "before",
+		Event:  "update",
+		Where: &CompareExpr{
+			Left:  &QualifiedRef{Qualifier: "mid", Name: "status"},
+			Op:    "=",
+			Right: &StringLiteral{Value: "done"},
+		},
+		Deny: strPtr("blocked"),
+	}
+	tc := &TriggerContext{
+		Old: &task.Task{ID: "TIKI-000001", Status: "ready"},
+		New: &task.Task{ID: "TIKI-000001", Status: "done"},
+	}
+	_, err := te.EvalGuard(trig, tc)
+	if err == nil {
+		t.Fatal("expected error for unknown qualifier")
+	}
+	if !strings.Contains(err.Error(), "unknown qualifier") {
+		t.Fatalf("expected 'unknown qualifier' error, got: %v", err)
+	}
+}
+
+func TestEvalCondition_UnknownBinaryOp(t *testing.T) {
+	te := newTestTriggerExecutor()
+	trig := &Trigger{
+		Timing: "before",
+		Event:  "update",
+		Where: &BinaryCondition{
+			Op: "xor",
+			Left: &CompareExpr{
+				Left: &FieldRef{Name: "status"}, Op: "=", Right: &StringLiteral{Value: "done"},
+			},
+			Right: &CompareExpr{
+				Left: &FieldRef{Name: "priority"}, Op: "=", Right: &IntLiteral{Value: 1},
+			},
+		},
+		Deny: strPtr("blocked"),
+	}
+	tc := &TriggerContext{
+		Old: &task.Task{ID: "TIKI-000001", Status: "done", Priority: 1},
+		New: &task.Task{ID: "TIKI-000001", Status: "done", Priority: 1},
+	}
+	_, err := te.EvalGuard(trig, tc)
+	if err == nil {
+		t.Fatal("expected error for unknown binary operator")
+	}
+	if !strings.Contains(err.Error(), "unknown binary operator") {
+		t.Fatalf("expected 'unknown binary operator' error, got: %v", err)
+	}
+}
+
+func TestEvalExprRecursive_UnknownBinaryOp(t *testing.T) {
+	te := newTestTriggerExecutor()
+	// trigger action that uses an unknown binary operator in an expression
+	trig := &Trigger{
+		Timing: "after",
+		Event:  "update",
+		Action: &Statement{
+			Update: &UpdateStmt{
+				Where: &CompareExpr{
+					Left: &FieldRef{Name: "id"}, Op: "=", Right: &StringLiteral{Value: "TIKI-000001"},
+				},
+				Set: []Assignment{
+					{Field: "priority", Value: &BinaryExpr{Op: "*", Left: &IntLiteral{Value: 1}, Right: &IntLiteral{Value: 2}}},
+				},
+			},
+		},
+	}
+	tc := &TriggerContext{
+		Old: &task.Task{ID: "TIKI-000001", Priority: 1},
+		New: &task.Task{ID: "TIKI-000001", Priority: 1},
+		AllTasks: []*task.Task{
+			{ID: "TIKI-000001", Priority: 1},
+		},
+	}
+	_, err := te.ExecAction(trig, tc)
+	if err == nil {
+		t.Fatal("expected error for unknown binary operator in expression")
+	}
+	if !strings.Contains(err.Error(), "unknown binary operator") {
+		t.Fatalf("expected 'unknown binary operator' error, got: %v", err)
+	}
+}
+
+func TestEvalInOverride_CollectionNotListOrString(t *testing.T) {
+	te := newTestTriggerExecutor()
+	// "value" in priority — priority is an int, not a list or string
+	trig := &Trigger{
+		Timing: "before",
+		Event:  "update",
+		Where: &InExpr{
+			Value:      &StringLiteral{Value: "test"},
+			Collection: &FieldRef{Name: "priority"},
+		},
+		Deny: strPtr("blocked"),
+	}
+	tc := &TriggerContext{
+		Old: &task.Task{ID: "TIKI-000001", Priority: 3},
+		New: &task.Task{ID: "TIKI-000001", Priority: 3},
+	}
+	_, err := te.EvalGuard(trig, tc)
+	if err == nil {
+		t.Fatal("expected error for in with non-list non-string collection")
+	}
+	if !strings.Contains(err.Error(), "collection is not a list or string") {
+		t.Fatalf("expected collection type error, got: %v", err)
+	}
+}
+
+func TestEvalInOverride_SubstringNonString(t *testing.T) {
+	te := newTestTriggerExecutor()
+	// 42 in title — value is int, collection is string
+	trig := &Trigger{
+		Timing: "before",
+		Event:  "update",
+		Where: &InExpr{
+			Value:      &IntLiteral{Value: 42},
+			Collection: &FieldRef{Name: "title"},
+		},
+		Deny: strPtr("blocked"),
+	}
+	tc := &TriggerContext{
+		Old: &task.Task{ID: "TIKI-000001", Title: "fix bug 42"},
+		New: &task.Task{ID: "TIKI-000001", Title: "fix bug 42"},
+	}
+	_, err := te.EvalGuard(trig, tc)
+	if err == nil {
+		t.Fatal("expected error for in: substring check requires string value")
+	}
+	if !strings.Contains(err.Error(), "substring check requires string value") {
+		t.Fatalf("expected substring type error, got: %v", err)
+	}
+}
+
+func TestEvalQuantifierOverride_NotAList(t *testing.T) {
+	te := newTestTriggerExecutor()
+	// title any status = "done" — title is a string, not a list
+	trig := &Trigger{
+		Timing: "before",
+		Event:  "update",
+		Where: &QuantifierExpr{
+			Expr: &FieldRef{Name: "title"},
+			Kind: "any",
+			Condition: &CompareExpr{
+				Left: &FieldRef{Name: "status"}, Op: "=", Right: &StringLiteral{Value: "done"},
+			},
+		},
+		Deny: strPtr("blocked"),
+	}
+	tc := &TriggerContext{
+		Old: &task.Task{ID: "TIKI-000001", Title: "test"},
+		New: &task.Task{ID: "TIKI-000001", Title: "test"},
+	}
+	_, err := te.EvalGuard(trig, tc)
+	if err == nil {
+		t.Fatal("expected error for quantifier on non-list")
+	}
+	if !strings.Contains(err.Error(), "expression is not a list") {
+		t.Fatalf("expected 'expression is not a list' error, got: %v", err)
+	}
+}
+
+func TestEvalQuantifierOverride_UnknownKind(t *testing.T) {
+	te := newTestTriggerExecutor()
+	trig := &Trigger{
+		Timing: "before",
+		Event:  "update",
+		Where: &QuantifierExpr{
+			Expr: &FieldRef{Name: "tags"},
+			Kind: "some", // invalid — only "any" and "all" are valid
+			Condition: &CompareExpr{
+				Left: &FieldRef{Name: "status"}, Op: "=", Right: &StringLiteral{Value: "done"},
+			},
+		},
+		Deny: strPtr("blocked"),
+	}
+	tc := &TriggerContext{
+		Old: &task.Task{ID: "TIKI-000001", Tags: []string{"a"}},
+		New: &task.Task{ID: "TIKI-000001", Tags: []string{"a"}},
+		AllTasks: []*task.Task{
+			{ID: "A", Status: "done"},
+		},
+	}
+	_, err := te.EvalGuard(trig, tc)
+	if err == nil {
+		t.Fatal("expected error for unknown quantifier kind")
+	}
+	if !strings.Contains(err.Error(), "unknown quantifier") {
+		t.Fatalf("expected 'unknown quantifier' error, got: %v", err)
+	}
+}
+
+func TestEvalCondition_UnknownType(t *testing.T) {
+	te := newTestTriggerExecutor()
+	trig := &Trigger{
+		Timing: "before",
+		Event:  "update",
+		Where:  &bogusCondition{},
+		Deny:   strPtr("blocked"),
+	}
+	tc := &TriggerContext{
+		Old: &task.Task{ID: "TIKI-000001"},
+		New: &task.Task{ID: "TIKI-000001"},
+	}
+	_, err := te.EvalGuard(trig, tc)
+	if err == nil {
+		t.Fatal("expected error for unknown condition type")
+	}
+	if !strings.Contains(err.Error(), "unknown condition type") {
+		t.Fatalf("expected 'unknown condition type' error, got: %v", err)
+	}
+}
+
+func TestExecute_NilStatement(t *testing.T) {
+	te := newTestTriggerExecutor()
+	tc := &TriggerContext{
+		Old: &task.Task{ID: "TIKI-000001"},
+		New: &task.Task{ID: "TIKI-000001"},
+	}
+	trig := &Trigger{
+		Timing: "after",
+		Event:  "update",
+		Action: nil, // no action
+	}
+	_, err := te.ExecAction(trig, tc)
+	if err == nil {
+		t.Fatal("expected error for nil action")
+	}
+	if !strings.Contains(err.Error(), "trigger has no action") {
+		t.Fatalf("expected 'trigger has no action' error, got: %v", err)
+	}
+}
+
+func TestExecute_UnsupportedType(t *testing.T) {
+	te := newTestTriggerExecutor()
+	tc := &TriggerContext{
+		Old:      &task.Task{ID: "TIKI-000001"},
+		New:      &task.Task{ID: "TIKI-000001"},
+		AllTasks: []*task.Task{{ID: "TIKI-000001"}},
+	}
+	// statement with all nil variants (no select/create/update/delete)
+	trig := &Trigger{
+		Timing: "after",
+		Event:  "update",
+		Action: &Statement{},
+	}
+	_, err := te.ExecAction(trig, tc)
+	if err == nil {
+		t.Fatal("expected error for unsupported trigger action type")
+	}
+	if !strings.Contains(err.Error(), "unsupported trigger action type") {
+		t.Fatalf("expected 'unsupported trigger action type' error, got: %v", err)
+	}
+}
+
+func TestFilterTasks_NilWhere(t *testing.T) {
+	te := newTestTriggerExecutor()
+	// delete with no where — should match all tasks
+	trig := &Trigger{
+		Timing: "after",
+		Event:  "update",
+		Action: &Statement{
+			Delete: &DeleteStmt{Where: nil},
+		},
+	}
+	tasks := []*task.Task{
+		{ID: "TIKI-000001", Title: "a"},
+		{ID: "TIKI-000002", Title: "b"},
+	}
+	tc := &TriggerContext{
+		Old:      tasks[0],
+		New:      tasks[0],
+		AllTasks: tasks,
+	}
+	result, err := te.ExecAction(trig, tc)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if result.Delete == nil {
+		t.Fatal("expected Delete result")
+	}
+	if len(result.Delete.Deleted) != 2 {
+		t.Fatalf("expected 2 deleted (nil where matches all), got %d", len(result.Delete.Deleted))
+	}
+}
+
+func TestGuardSentinel_BothNil(t *testing.T) {
+	te := newTestTriggerExecutor()
+	// trigger with no where (guard passes trivially) and both old/new nil
+	trig := &Trigger{
+		Timing: "before",
+		Event:  "update",
+		// no Where — always passes
+	}
+	tc := &TriggerContext{
+		Old: nil,
+		New: nil,
+	}
+	ok, err := te.EvalGuard(trig, tc)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !ok {
+		t.Fatal("guard with no where and both nil should still pass")
+	}
+}
+
+func TestExecRun_NonStringResult(t *testing.T) {
+	te := newTestTriggerExecutor()
+	// run() with an expression that evaluates to int, not string
+	trig := &Trigger{
+		Timing: "after",
+		Event:  "update",
+		Run:    &RunAction{Command: &IntLiteral{Value: 42}},
+	}
+	tc := &TriggerContext{
+		Old: &task.Task{ID: "TIKI-000001"},
+		New: &task.Task{ID: "TIKI-000001"},
+	}
+	_, err := te.ExecRun(trig, tc)
+	if err == nil {
+		t.Fatal("expected error for run command that doesn't evaluate to string")
+	}
+	if !strings.Contains(err.Error(), "run command did not evaluate to string") {
+		t.Fatalf("expected 'run command did not evaluate to string' error, got: %v", err)
+	}
+}
+
+func strPtr(s string) *string { return &s }
