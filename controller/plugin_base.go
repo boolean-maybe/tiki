@@ -1,6 +1,7 @@
 package controller
 
 import (
+	"context"
 	"log/slog"
 	"strings"
 
@@ -353,7 +354,7 @@ func (pb *pluginBase) handleDeleteTask(filteredTasks func(int) []*task.Task) boo
 	if taskItem == nil {
 		return false
 	}
-	if err := pb.mutationGate.DeleteTask(taskItem); err != nil {
+	if err := pb.mutationGate.DeleteTask(context.Background(), taskItem); err != nil {
 		slog.Error("failed to delete task", "task_id", taskID, "error", err)
 		if pb.statusline != nil {
 			pb.statusline.SetMessage(err.Error(), model.MessageLevelError, true)

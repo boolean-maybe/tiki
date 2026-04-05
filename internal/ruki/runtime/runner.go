@@ -1,6 +1,7 @@
 package runtime
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"strings"
@@ -55,19 +56,21 @@ func RunQuery(gate *service.TaskMutationGate, query string, out io.Writer) error
 		return fmt.Errorf("execute: %w", err)
 	}
 
+	ctx := context.Background()
+
 	switch {
 	case result.Select != nil:
 		formatter := NewTableFormatter()
 		return formatter.Format(out, result.Select)
 
 	case result.Update != nil:
-		return persistAndSummarize(gate, result.Update, out)
+		return persistAndSummarize(ctx, gate, result.Update, out)
 
 	case result.Create != nil:
-		return persistCreate(gate, result.Create, template, out)
+		return persistCreate(ctx, gate, result.Create, template, out)
 
 	case result.Delete != nil:
-		return persistDelete(gate, result.Delete, out)
+		return persistDelete(ctx, gate, result.Delete, out)
 
 	default:
 		return fmt.Errorf("unsupported statement type")
@@ -110,12 +113,12 @@ func RunSelectQuery(readStore store.ReadStore, query string, out io.Writer) erro
 	return formatter.Format(out, result.Select)
 }
 
-func persistAndSummarize(gate *service.TaskMutationGate, ur *ruki.UpdateResult, out io.Writer) error {
+func persistAndSummarize(ctx context.Context, gate *service.TaskMutationGate, ur *ruki.UpdateResult, out io.Writer) error {
 	var succeeded, failed int
 	var firstErr error
 
 	for _, t := range ur.Updated {
-		if err := gate.UpdateTask(t); err != nil {
+		if err := gate.UpdateTask(ctx, t); err != nil {
 			failed++
 			if firstErr == nil {
 				firstErr = err
@@ -134,13 +137,13 @@ func persistAndSummarize(gate *service.TaskMutationGate, ur *ruki.UpdateResult, 
 	return nil
 }
 
-func persistCreate(gate *service.TaskMutationGate, cr *ruki.CreateResult, template *task.Task, out io.Writer) error {
+func persistCreate(ctx context.Context, gate *service.TaskMutationGate, cr *ruki.CreateResult, template *task.Task, out io.Writer) error {
 	t := cr.Task
 	t.ID = template.ID
 	t.CreatedBy = template.CreatedBy
 	t.CreatedAt = template.CreatedAt
 
-	if err := gate.CreateTask(t); err != nil {
+	if err := gate.CreateTask(ctx, t); err != nil {
 		return fmt.Errorf("create task: %w", err)
 	}
 
@@ -148,11 +151,11 @@ func persistCreate(gate *service.TaskMutationGate, cr *ruki.CreateResult, templa
 	return nil
 }
 
-func persistDelete(gate *service.TaskMutationGate, dr *ruki.DeleteResult, out io.Writer) error {
+func persistDelete(ctx context.Context, gate *service.TaskMutationGate, dr *ruki.DeleteResult, out io.Writer) error {
 	readStore := gate.ReadStore()
 	var succeeded, failed int
 	for _, t := range dr.Deleted {
-		if err := gate.DeleteTask(t); err != nil {
+		if err := gate.DeleteTask(ctx, t); err != nil {
 			failed++
 		} else if readStore.GetTask(t.ID) != nil {
 			// store silently failed to delete

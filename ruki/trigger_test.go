@@ -12,7 +12,7 @@ func TestParseTrigger_BeforeDeny(t *testing.T) {
 	}{
 		{
 			"block completion with open deps",
-			`before update where new.status = "done" and dependsOn any status != "done" deny "cannot complete task with open dependencies"`,
+			`before update where new.status = "done" and new.dependsOn any status != "done" deny "cannot complete task with open dependencies"`,
 			"update",
 		},
 		{
@@ -286,5 +286,69 @@ func TestParseTrigger_NoWhereGuard(t *testing.T) {
 	}
 	if trig.Action == nil || trig.Action.Update == nil {
 		t.Fatal("expected Update action")
+	}
+}
+
+func TestParseTrigger_BareFieldInGuard_Rejected(t *testing.T) {
+	p := newTestParser()
+
+	tests := []struct {
+		name  string
+		input string
+	}{
+		{
+			"bare field in comparison",
+			`before update where status = "done" deny "no"`,
+		},
+		{
+			"bare field in quantifier collection",
+			`before update where dependsOn any status = "done" deny "no"`,
+		},
+		{
+			"bare field in is empty",
+			`before create where description is empty deny "need description"`,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			_, err := p.ParseTrigger(tt.input)
+			if err == nil {
+				t.Fatal("expected error for bare field in trigger guard")
+			}
+		})
+	}
+}
+
+func TestParseTrigger_BareFieldInsideQuantifier_Allowed(t *testing.T) {
+	p := newTestParser()
+
+	// bare status inside quantifier body is OK (zone 3), even within a trigger guard
+	input := `before update where new.status = "done" and new.dependsOn all status != "done" deny "open deps"`
+	_, err := p.ParseTrigger(input)
+	if err != nil {
+		t.Fatalf("expected success for bare field inside quantifier body: %v", err)
+	}
+}
+
+func TestParseTrigger_BareFieldInsideSubquery_Allowed(t *testing.T) {
+	p := newTestParser()
+
+	// bare fields inside count(select where ...) are OK (zone 4), qualifiers also OK
+	input := `before update where new.status = "in progress" and count(select where assignee = new.assignee and status = "in progress") >= 3 deny "WIP limit"`
+	_, err := p.ParseTrigger(input)
+	if err != nil {
+		t.Fatalf("expected success for bare field inside subquery: %v", err)
+	}
+}
+
+func TestParseTrigger_QualifierInQuantifierBody_Rejected(t *testing.T) {
+	p := newTestParser()
+
+	// qualifiers inside quantifier bodies are forbidden (zone 3)
+	input := `before update where new.dependsOn all old.status = "done" deny "no"`
+	_, err := p.ParseTrigger(input)
+	if err == nil {
+		t.Fatal("expected error for qualifier inside quantifier body")
 	}
 }

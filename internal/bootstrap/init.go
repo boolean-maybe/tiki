@@ -11,6 +11,7 @@ import (
 	"github.com/boolean-maybe/tiki/controller"
 	"github.com/boolean-maybe/tiki/internal/app"
 	"github.com/boolean-maybe/tiki/internal/background"
+	rukiRuntime "github.com/boolean-maybe/tiki/internal/ruki/runtime"
 	"github.com/boolean-maybe/tiki/model"
 	"github.com/boolean-maybe/tiki/plugin"
 	"github.com/boolean-maybe/tiki/service"
@@ -114,6 +115,17 @@ func Bootstrap(tikiSkillContent, dokiSkillContent string) (*Result, error) {
 	InitPluginActionRegistry(plugins)
 	syncHeaderPluginActions(headerConfig)
 	pluginConfigs, pluginDefs := BuildPluginConfigsAndDefs(plugins)
+
+	// Phase 6.5: Trigger system
+	schema := rukiRuntime.NewSchema()
+	userName, _, _ := taskStore.GetCurrentUser()
+	triggerCount, err := service.LoadAndRegisterTriggers(gate, schema, func() string { return userName })
+	if err != nil {
+		return nil, fmt.Errorf("load triggers: %w", err)
+	}
+	if triggerCount > 0 {
+		slog.Info("triggers loaded", "count", triggerCount)
+	}
 
 	// Phase 7: Application and controllers
 	application := app.NewApp()

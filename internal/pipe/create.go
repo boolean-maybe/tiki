@@ -1,6 +1,7 @@
 package pipe
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"log/slog"
@@ -9,6 +10,7 @@ import (
 
 	"github.com/boolean-maybe/tiki/config"
 	"github.com/boolean-maybe/tiki/internal/bootstrap"
+	rukiRuntime "github.com/boolean-maybe/tiki/internal/ruki/runtime"
 	"github.com/boolean-maybe/tiki/service"
 )
 
@@ -93,6 +95,13 @@ func CreateTaskFromReader(r io.Reader) (string, error) {
 	}
 	gate.SetStore(taskStore)
 
+	// load triggers so piped creates fire them
+	schema := rukiRuntime.NewSchema()
+	userName, _, _ := taskStore.GetCurrentUser()
+	if _, loadErr := service.LoadAndRegisterTriggers(gate, schema, func() string { return userName }); loadErr != nil {
+		return "", fmt.Errorf("load triggers: %w", loadErr)
+	}
+
 	task, err := taskStore.NewTaskTemplate()
 	if err != nil {
 		return "", fmt.Errorf("create task template: %w", err)
@@ -101,7 +110,7 @@ func CreateTaskFromReader(r io.Reader) (string, error) {
 	task.Title = title
 	task.Description = description
 
-	if err := gate.CreateTask(task); err != nil {
+	if err := gate.CreateTask(context.Background(), task); err != nil {
 		return "", fmt.Errorf("create task: %w", err)
 	}
 

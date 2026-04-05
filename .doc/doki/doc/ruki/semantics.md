@@ -76,6 +76,8 @@ after create where new.priority <= 2 and new.assignee is empty update where id =
 after delete update where old.id in dependsOn set dependsOn=dependsOn - [old.id]
 ```
 
+At runtime, triggers execute in a pipeline: before-triggers run as validators before persistence, the mutation is persisted, then after-triggers run as hooks. For the full execution model, cascade behavior, configuration, and runtime details, see [Triggers](triggers.md).
+
 ## Qualifier scope
 
 Qualifier rules depend on the event:

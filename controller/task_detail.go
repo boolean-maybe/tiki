@@ -1,6 +1,7 @@
 package controller
 
 import (
+	"context"
 	"fmt"
 	"log/slog"
 	"path/filepath"
@@ -111,7 +112,7 @@ func (tc *TaskController) CommitEditSession() error {
 	if tc.draftTask != nil {
 		setAuthorFromGit(tc.draftTask, tc.taskStore)
 
-		if err := tc.mutationGate.CreateTask(tc.draftTask); err != nil {
+		if err := tc.mutationGate.CreateTask(context.Background(), tc.draftTask); err != nil {
 			slog.Error("failed to create draft task", "error", err)
 			return fmt.Errorf("failed to create task: %w", err)
 		}
@@ -134,7 +135,7 @@ func (tc *TaskController) CommitEditSession() error {
 		// For now, proceed with save (last write wins)
 	}
 
-	if err := tc.mutationGate.UpdateTask(tc.editingTask); err != nil {
+	if err := tc.mutationGate.UpdateTask(context.Background(), tc.editingTask); err != nil {
 		slog.Error("failed to update task", "taskID", tc.currentTaskID, "error", err)
 		return fmt.Errorf("failed to update task: %w", err)
 	}
@@ -424,7 +425,7 @@ func (tc *TaskController) SetFocusedField(field model.EditField) {
 
 // UpdateTask persists changes to the specified task via the mutation gate.
 func (tc *TaskController) UpdateTask(task *taskpkg.Task) {
-	_ = tc.mutationGate.UpdateTask(task)
+	_ = tc.mutationGate.UpdateTask(context.Background(), task)
 }
 
 // AddComment adds a new comment to the current task with the specified author and text.

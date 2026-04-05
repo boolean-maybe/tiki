@@ -90,12 +90,17 @@ func (p *Parser) validateTrigger(t *Trigger) error {
 		}
 	}
 
+	// zone 1: trigger where-guard requires qualifiers
 	if t.Where != nil {
-		if err := p.validateCondition(t.Where); err != nil {
+		p.requireQualifiers = true
+		err := p.validateCondition(t.Where)
+		p.requireQualifiers = false
+		if err != nil {
 			return err
 		}
 	}
 
+	// zone 2: action statement — bare fields resolve against target task
 	if t.Action != nil {
 		if t.Action.Select != nil {
 			return fmt.Errorf("trigger action must not be select")
@@ -301,10 +306,15 @@ func (p *Parser) validateQuantifier(q *QuantifierExpr) error {
 	if exprType != ValueListRef {
 		return fmt.Errorf("quantifier %s requires list<ref>, got %s", q.Kind, typeName(exprType))
 	}
-	saved := p.qualifiers
+	// zone 3: quantifier bodies — bare fields refer to each related task,
+	// qualifiers and requireQualifiers are both reset for the body
+	savedQualifiers := p.qualifiers
+	savedRequire := p.requireQualifiers
 	p.qualifiers = noQualifiers
+	p.requireQualifiers = false
 	err = p.validateCondition(q.Condition)
-	p.qualifiers = saved
+	p.qualifiers = savedQualifiers
+	p.requireQualifiers = savedRequire
 	return err
 }
 
@@ -313,6 +323,9 @@ func (p *Parser) validateQuantifier(q *QuantifierExpr) error {
 func (p *Parser) inferExprType(e Expr) (ValueType, error) {
 	switch e := e.(type) {
 	case *FieldRef:
+		if p.requireQualifiers {
+			return 0, fmt.Errorf("bare field %q not allowed in trigger guard — use old.%s or new.%s", e.Name, e.Name, e.Name)
+		}
 		fs, ok := p.schema.Field(e.Name)
 		if !ok {
 			return 0, fmt.Errorf("unknown field %q", e.Name)
@@ -426,7 +439,13 @@ func (p *Parser) inferFuncCallType(fc *FunctionCall) (ValueType, error) {
 			return 0, fmt.Errorf("count() argument must be a select subquery")
 		}
 		if sq.Where != nil {
-			if err := p.validateCondition(sq.Where); err != nil {
+			// zone 4: subquery bodies — bare fields refer to each candidate task,
+			// qualifiers stay allowed (e.g. assignee = new.assignee), but requireQualifiers is reset
+			savedRequire := p.requireQualifiers
+			p.requireQualifiers = false
+			err := p.validateCondition(sq.Where)
+			p.requireQualifiers = savedRequire
+			if err != nil {
 				return 0, fmt.Errorf("count() subquery: %w", err)
 			}
 		}

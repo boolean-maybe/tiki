@@ -869,11 +869,16 @@ func (e *Executor) resolveComparisonType(left, right Expr) ValueType {
 }
 
 func (e *Executor) exprFieldType(expr Expr) ValueType {
-	fr, ok := expr.(*FieldRef)
-	if !ok {
+	var name string
+	switch e := expr.(type) {
+	case *FieldRef:
+		name = e.Name
+	case *QualifiedRef:
+		name = e.Name
+	default:
 		return -1
 	}
-	fs, ok := e.schema.Field(fr.Name)
+	fs, ok := e.schema.Field(name)
 	if !ok {
 		return -1
 	}

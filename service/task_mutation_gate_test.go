@@ -1,6 +1,8 @@
 package service
 
 import (
+	"context"
+	"fmt"
 	"strings"
 	"testing"
 	"time"
@@ -38,7 +40,7 @@ func TestCreateTask_Success(t *testing.T) {
 		Priority: 3,
 	}
 
-	if err := gate.CreateTask(tk); err != nil {
+	if err := gate.CreateTask(context.Background(), tk); err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
@@ -78,7 +80,7 @@ func TestCreateTask_DoesNotOverwriteCreatedAt(t *testing.T) {
 		CreatedAt: past,
 	}
 
-	if err := gate.CreateTask(tk); err != nil {
+	if err := gate.CreateTask(context.Background(), tk); err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
@@ -102,7 +104,7 @@ func (s *spyStore) CreateTask(tk *task.Task) error {
 
 func TestCreateTask_RejectedByValidator(t *testing.T) {
 	gate, s := newGateWithStore()
-	gate.OnCreate(func(tk *task.Task) *Rejection {
+	gate.OnCreate(func(_, _ *task.Task, _ []*task.Task) *Rejection {
 		return &Rejection{Reason: "blocked"}
 	})
 
@@ -114,7 +116,7 @@ func TestCreateTask_RejectedByValidator(t *testing.T) {
 		Priority: 3,
 	}
 
-	err := gate.CreateTask(tk)
+	err := gate.CreateTask(context.Background(), tk)
 	if err == nil {
 		t.Fatal("expected rejection error")
 	}
@@ -144,7 +146,7 @@ func TestUpdateTask_Success(t *testing.T) {
 	_ = s.CreateTask(tk)
 
 	tk.Title = "updated"
-	if err := gate.UpdateTask(tk); err != nil {
+	if err := gate.UpdateTask(context.Background(), tk); err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
@@ -159,8 +161,8 @@ func TestUpdateTask_Success(t *testing.T) {
 
 func TestUpdateTask_RejectedByValidator(t *testing.T) {
 	gate, s := newGateWithStore()
-	gate.OnUpdate(func(tk *task.Task) *Rejection {
-		if tk.Title == "bad" {
+	gate.OnUpdate(func(_, new *task.Task, _ []*task.Task) *Rejection {
+		if new.Title == "bad" {
 			return &Rejection{Reason: "title cannot be 'bad'"}
 		}
 		return nil
@@ -178,7 +180,7 @@ func TestUpdateTask_RejectedByValidator(t *testing.T) {
 	// clone to avoid mutating the store's pointer
 	modified := original.Clone()
 	modified.Title = "bad"
-	err := gate.UpdateTask(modified)
+	err := gate.UpdateTask(context.Background(), modified)
 	if err == nil {
 		t.Fatal("expected rejection")
 	}
@@ -201,7 +203,7 @@ func TestDeleteTask_Success(t *testing.T) {
 	}
 	_ = s.CreateTask(tk)
 
-	if err := gate.DeleteTask(tk); err != nil {
+	if err := gate.DeleteTask(context.Background(), tk); err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
@@ -212,7 +214,7 @@ func TestDeleteTask_Success(t *testing.T) {
 
 func TestDeleteTask_RejectedByValidator(t *testing.T) {
 	gate, s := newGateWithStore()
-	gate.OnDelete(func(tk *task.Task) *Rejection {
+	gate.OnDelete(func(_, _ *task.Task, _ []*task.Task) *Rejection {
 		return &Rejection{Reason: "cannot delete"}
 	})
 
@@ -225,7 +227,7 @@ func TestDeleteTask_RejectedByValidator(t *testing.T) {
 	}
 	_ = s.CreateTask(tk)
 
-	err := gate.DeleteTask(tk)
+	err := gate.DeleteTask(context.Background(), tk)
 	if err == nil {
 		t.Fatal("expected rejection")
 	}
@@ -275,10 +277,10 @@ func TestAddComment_TaskNotFound(t *testing.T) {
 func TestMultipleRejections(t *testing.T) {
 	gate, _ := newGateWithStore()
 
-	gate.OnCreate(func(tk *task.Task) *Rejection {
+	gate.OnCreate(func(_, _ *task.Task, _ []*task.Task) *Rejection {
 		return &Rejection{Reason: "reason one"}
 	})
-	gate.OnCreate(func(tk *task.Task) *Rejection {
+	gate.OnCreate(func(_, _ *task.Task, _ []*task.Task) *Rejection {
 		return &Rejection{Reason: "reason two"}
 	})
 
@@ -290,7 +292,7 @@ func TestMultipleRejections(t *testing.T) {
 		Priority: 3,
 	}
 
-	err := gate.CreateTask(tk)
+	err := gate.CreateTask(context.Background(), tk)
 	if err == nil {
 		t.Fatal("expected rejection error")
 	}
@@ -319,19 +321,24 @@ func TestSingleRejection_ErrorFormat(t *testing.T) {
 }
 
 func TestFieldValidators_RejectInvalidTask(t *testing.T) {
-	gate, _ := newGateWithStore()
+	gate, s := newGateWithStore()
 	RegisterFieldValidators(gate)
 
-	// task with invalid priority — should be rejected
-	tk := &task.Task{
+	// create a valid task first so UpdateTask can find it in the store
+	valid := &task.Task{
 		ID:       "TIKI-ABC123",
 		Title:    "test",
 		Status:   task.StatusBacklog,
 		Type:     task.TypeStory,
-		Priority: 99,
+		Priority: 3,
 	}
+	_ = s.CreateTask(valid)
 
-	err := gate.UpdateTask(tk)
+	// now try to update with invalid priority — should be rejected
+	tk := valid.Clone()
+	tk.Priority = 99
+
+	err := gate.UpdateTask(context.Background(), tk)
 	if err == nil {
 		t.Fatal("expected rejection for invalid priority")
 	}
@@ -365,7 +372,7 @@ func TestFieldValidators_AcceptValidTask(t *testing.T) {
 		Priority: 3,
 	}
 
-	if err := gate.CreateTask(tk); err != nil {
+	if err := gate.CreateTask(context.Background(), tk); err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 }
@@ -398,14 +405,14 @@ func TestEnsureStore_Panics(t *testing.T) {
 		}
 	}()
 
-	_ = gate.CreateTask(&task.Task{})
+	_ = gate.CreateTask(context.Background(), &task.Task{})
 }
 
 func TestCreateValidatorDoesNotAffectUpdate(t *testing.T) {
 	gate, s := newGateWithStore()
 
 	// register a validator only on create
-	gate.OnCreate(func(tk *task.Task) *Rejection {
+	gate.OnCreate(func(_, _ *task.Task, _ []*task.Task) *Rejection {
 		return &Rejection{Reason: "create blocked"}
 	})
 
@@ -420,7 +427,7 @@ func TestCreateValidatorDoesNotAffectUpdate(t *testing.T) {
 	_ = s.CreateTask(tk)
 
 	tk.Title = "updated"
-	if err := gate.UpdateTask(tk); err != nil {
+	if err := gate.UpdateTask(context.Background(), tk); err != nil {
 		t.Fatalf("update should not be affected by create validator: %v", err)
 	}
 }
@@ -438,13 +445,203 @@ func TestBuildGate(t *testing.T) {
 		Type:     task.TypeStory,
 		Priority: 3,
 	}
-	if err := gate.CreateTask(tk); err == nil {
+	if err := gate.CreateTask(context.Background(), tk); err == nil {
 		t.Fatal("expected rejection for empty title")
 	}
 
 	// a valid task should succeed
 	tk.Title = "valid"
-	if err := gate.CreateTask(tk); err != nil {
+	if err := gate.CreateTask(context.Background(), tk); err != nil {
 		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
+func TestAfterHook_CalledWithCorrectOldNew(t *testing.T) {
+	gate, s := newGateWithStore()
+
+	tk := &task.Task{
+		ID:       "TIKI-ABC123",
+		Title:    "original",
+		Status:   task.StatusBacklog,
+		Type:     task.TypeStory,
+		Priority: 3,
+	}
+	_ = s.CreateTask(tk)
+
+	var hookOld, hookNew *task.Task
+	gate.OnAfterUpdate(func(_ context.Context, old, new *task.Task) error {
+		hookOld = old
+		hookNew = new
+		return nil
+	})
+
+	updated := tk.Clone()
+	updated.Title = "changed"
+	if err := gate.UpdateTask(context.Background(), updated); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if hookOld == nil || hookOld.Title != "original" {
+		t.Errorf("after-hook old should have original title, got %v", hookOld)
+	}
+	if hookNew == nil || hookNew.Title != "changed" {
+		t.Errorf("after-hook new should have changed title, got %v", hookNew)
+	}
+}
+
+func TestAfterHook_ErrorSwallowed(t *testing.T) {
+	gate, s := newGateWithStore()
+
+	tk := &task.Task{
+		ID:       "TIKI-ABC123",
+		Title:    "test",
+		Status:   task.StatusBacklog,
+		Type:     task.TypeStory,
+		Priority: 3,
+	}
+	_ = s.CreateTask(tk)
+
+	gate.OnAfterUpdate(func(_ context.Context, _, _ *task.Task) error {
+		return fmt.Errorf("hook error")
+	})
+
+	updated := tk.Clone()
+	updated.Title = "new title"
+	// error from after-hook should not propagate
+	if err := gate.UpdateTask(context.Background(), updated); err != nil {
+		t.Fatalf("after-hook error should not propagate: %v", err)
+	}
+
+	// task should still be persisted
+	stored := s.GetTask("TIKI-ABC123")
+	if stored.Title != "new title" {
+		t.Errorf("task should have been updated despite hook error, got %q", stored.Title)
+	}
+}
+
+func TestAfterHook_CreateAndDelete(t *testing.T) {
+	gate, s := newGateWithStore()
+
+	var createCalled, deleteCalled bool
+	gate.OnAfterCreate(func(_ context.Context, old, new *task.Task) error {
+		createCalled = true
+		if old != nil {
+			t.Error("create after-hook: old should be nil")
+		}
+		if new == nil || new.Title != "new task" {
+			t.Error("create after-hook: new should have title")
+		}
+		return nil
+	})
+	gate.OnAfterDelete(func(_ context.Context, old, new *task.Task) error {
+		deleteCalled = true
+		if old == nil || old.Title != "new task" {
+			t.Error("delete after-hook: old should have title")
+		}
+		if new != nil {
+			t.Error("delete after-hook: new should be nil")
+		}
+		return nil
+	})
+
+	tk := &task.Task{
+		ID:       "TIKI-ABC123",
+		Title:    "new task",
+		Status:   task.StatusBacklog,
+		Type:     task.TypeStory,
+		Priority: 3,
+	}
+	if err := gate.CreateTask(context.Background(), tk); err != nil {
+		t.Fatalf("create error: %v", err)
+	}
+	if !createCalled {
+		t.Error("create after-hook not called")
+	}
+
+	if err := gate.DeleteTask(context.Background(), tk); err != nil {
+		t.Fatalf("delete error: %v", err)
+	}
+	if !deleteCalled {
+		t.Error("delete after-hook not called")
+	}
+
+	if s.GetTask("TIKI-ABC123") != nil {
+		t.Error("task should have been deleted")
+	}
+}
+
+func TestAfterHook_Ordering(t *testing.T) {
+	gate, s := newGateWithStore()
+
+	tk := &task.Task{
+		ID:       "TIKI-ABC123",
+		Title:    "test",
+		Status:   task.StatusBacklog,
+		Type:     task.TypeStory,
+		Priority: 3,
+	}
+	_ = s.CreateTask(tk)
+
+	// hook A mutates a second task through the gate
+	second := &task.Task{
+		ID:       "TIKI-BBB222",
+		Title:    "second",
+		Status:   task.StatusBacklog,
+		Type:     task.TypeStory,
+		Priority: 3,
+	}
+	_ = s.CreateTask(second)
+
+	gate.OnAfterUpdate(func(ctx context.Context, _, new *task.Task) error {
+		// only fire for the original trigger, not for the cascaded mutation
+		if new.ID != "TIKI-ABC123" {
+			return nil
+		}
+		sec := s.GetTask("TIKI-BBB222")
+		if sec == nil {
+			return nil
+		}
+		upd := sec.Clone()
+		upd.Title = "modified by hook A"
+		return gate.UpdateTask(ctx, upd)
+	})
+
+	// hook B checks that it sees hook A's mutation
+	var hookBSawMutation bool
+	gate.OnAfterUpdate(func(_ context.Context, _, _ *task.Task) error {
+		sec := s.GetTask("TIKI-BBB222")
+		if sec != nil && sec.Title == "modified by hook A" {
+			hookBSawMutation = true
+		}
+		return nil
+	})
+
+	updated := tk.Clone()
+	updated.Title = "trigger"
+	if err := gate.UpdateTask(context.Background(), updated); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if !hookBSawMutation {
+		t.Error("hook B should see hook A's mutation in the store")
+	}
+}
+
+func TestTriggerDepth_NilContext(t *testing.T) {
+	// triggerDepth must not panic on nil context
+	depth := triggerDepth(nil) //nolint:staticcheck // SA1012: intentionally testing nil-context safety
+	if depth != 0 {
+		t.Fatalf("expected 0, got %d", depth)
+	}
+}
+
+func TestWithTriggerDepth_NilContext(t *testing.T) {
+	// withTriggerDepth must not panic on nil context
+	ctx := withTriggerDepth(nil, 3) //nolint:staticcheck // SA1012: intentionally testing nil-context safety
+	if ctx == nil {
+		t.Fatal("expected non-nil context")
+	}
+	if got := triggerDepth(ctx); got != 3 {
+		t.Fatalf("expected depth 3, got %d", got)
 	}
 }

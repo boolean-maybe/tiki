@@ -1,6 +1,7 @@
 package controller
 
 import (
+	"context"
 	"log/slog"
 	"strings"
 	"time"
@@ -167,7 +168,7 @@ func (pc *PluginController) handlePluginAction(r rune) bool {
 		return false
 	}
 
-	if err := pc.mutationGate.UpdateTask(updated); err != nil {
+	if err := pc.mutationGate.UpdateTask(context.Background(), updated); err != nil {
 		slog.Error("failed to update task after plugin action", "task_id", taskID, "key", string(r), "error", err)
 		if pc.statusline != nil {
 			pc.statusline.SetMessage(err.Error(), model.MessageLevelError, true)
@@ -208,7 +209,7 @@ func (pc *PluginController) handleMoveTask(offset int) bool {
 		return false
 	}
 
-	if err := pc.mutationGate.UpdateTask(updated); err != nil {
+	if err := pc.mutationGate.UpdateTask(context.Background(), updated); err != nil {
 		slog.Error("failed to update task after lane move", "task_id", taskID, "error", err)
 		if pc.statusline != nil {
 			pc.statusline.SetMessage(err.Error(), model.MessageLevelError, true)

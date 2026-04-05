@@ -45,10 +45,11 @@ type FieldSpec struct {
 
 // Parser parses ruki DSL statements and triggers.
 type Parser struct {
-	stmtParser    *participle.Parser[statementGrammar]
-	triggerParser *participle.Parser[triggerGrammar]
-	schema        Schema
-	qualifiers    qualifierPolicy // set before each validation pass
+	stmtParser        *participle.Parser[statementGrammar]
+	triggerParser     *participle.Parser[triggerGrammar]
+	schema            Schema
+	qualifiers        qualifierPolicy // set before each validation pass
+	requireQualifiers bool            // when true, bare FieldRef is a parse error (trigger where-guards)
 }
 
 // NewParser constructs a Parser with the given schema for validation.

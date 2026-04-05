@@ -118,8 +118,11 @@ after delete update where old.id in dependsOn set dependsOn=dependsOn - [old.id]
 after update where new.status = "in progress" and "claude" in new.tags run("claude -p 'implement tiki " + old.id + "'")
 ```
 
+Triggers are configured in `workflow.yaml` under the `triggers:` key. See [Triggers](triggers.md) for configuration details and runtime behavior.
+
 ## Where to go next
 
+- Use [Triggers](triggers.md) for configuration, execution model, and runtime behavior.
 - Use [Syntax](syntax.md) for the grammar-level reference.
 - Use [Types And Values](types-and-values.md) for the type system and literal rules.
 - Use [Operators And Built-ins](operators-and-builtins.md) for precedence and function signatures.

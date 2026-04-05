@@ -1209,7 +1209,7 @@ func TestValidation_QuantifierNoQualifiers(t *testing.T) {
 	p := newTestParser()
 
 	// old. inside quantifier body should be rejected even in update trigger
-	_, err := p.ParseTrigger(`before update where dependsOn any old.status = "done" deny "blocked"`)
+	_, err := p.ParseTrigger(`before update where new.dependsOn any old.status = "done" deny "blocked"`)
 	if err == nil {
 		t.Fatal("expected error for old. in quantifier, got nil")
 	}
@@ -1218,7 +1218,7 @@ func TestValidation_QuantifierNoQualifiers(t *testing.T) {
 	}
 
 	// new. inside quantifier body should also be rejected
-	_, err = p.ParseTrigger(`before update where dependsOn any new.status = "done" deny "blocked"`)
+	_, err = p.ParseTrigger(`before update where new.dependsOn any new.status = "done" deny "blocked"`)
 	if err == nil {
 		t.Fatal("expected error for new. in quantifier, got nil")
 	}
@@ -1227,7 +1227,7 @@ func TestValidation_QuantifierNoQualifiers(t *testing.T) {
 	}
 
 	// unqualified field inside quantifier should still work
-	_, err = p.ParseTrigger(`before update where dependsOn any status = "done" deny "blocked"`)
+	_, err = p.ParseTrigger(`before update where new.dependsOn any status = "done" deny "blocked"`)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}

@@ -1,6 +1,7 @@
 package controller
 
 import (
+	"context"
 	"log/slog"
 	"strings"
 
@@ -194,7 +195,7 @@ func (dc *DepsController) handleMoveTask(offset int) bool {
 			slog.Error("deps move: failed to apply action", "task_id", u.taskID, "error", err)
 			return false
 		}
-		if err := dc.mutationGate.UpdateTask(updated); err != nil {
+		if err := dc.mutationGate.UpdateTask(context.Background(), updated); err != nil {
 			slog.Error("deps move: failed to update task", "task_id", u.taskID, "error", err)
 			if dc.statusline != nil {
 				dc.statusline.SetMessage(err.Error(), model.MessageLevelError, true)

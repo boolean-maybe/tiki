@@ -15,7 +15,12 @@ func RegisterFieldValidators(g *TaskMutationGate) {
 }
 
 func wrapFieldValidator(fn func(*task.Task) string) MutationValidator {
-	return func(t *task.Task) *Rejection {
+	return func(old, new *task.Task, allTasks []*task.Task) *Rejection {
+		// field validators only inspect the proposed task
+		t := new
+		if t == nil {
+			t = old // delete case
+		}
 		if msg := fn(t); msg != "" {
 			return &Rejection{Reason: msg}
 		}
