@@ -19,7 +19,7 @@
 
 ## Overview
 
-![Go Concurrency Model](svg/go-concurrency.svg)
+![Go Concurrency Model](png/go-concurrency.png)
 
 Go's concurrency model is built on **CSP (Communicating Sequential Processes)**, a formal model where independent processes communicate through message passing rather than shared state. Instead of threads and locks, you work with goroutines and channels. The runtime multiplexes goroutines onto OS threads using the **GMP scheduler** (Goroutine, Machine, Processor), making goroutines extremely cheap — each starts with only ~2KB of stack space that grows and shrinks on demand.
 
@@ -103,7 +103,7 @@ wg.Wait() // blocks until all 5 complete
 
 ## Channels
 
-![Go Channels — Plumbing Schematic](svg/channels.svg)
+![Go Channels — Plumbing Schematic](png/channels.png)
 
 Channels are typed, goroutine-safe queues with blocking semantics. They serve as the primary mechanism for goroutine communication and synchronization — a channel both transfers data and coordinates timing between producer and consumer. Understanding the distinction between buffered and unbuffered channels is essential because they have fundamentally different synchronization behavior.
 
@@ -221,7 +221,7 @@ for v := range ch { fmt.Println(v) } // 0, 1, 2, 3, 4
 
 ## Context
 
-![Go Context — Cancellation Tree](svg/context.svg)
+![Go Context — Cancellation Tree](png/context.png)
 
 `context.Context` is Go's mechanism for propagating cancellation signals, deadlines, and request-scoped values across API boundaries and goroutine trees. Every production Go service relies on it — HTTP servers create a context per request, database drivers respect context cancellation, and gRPC threads it through the entire call chain. Without context, you end up with goroutine leaks: workers that keep running long after the result is no longer needed.
 
@@ -298,7 +298,7 @@ Context rules to live by:
 
 ## Synchronization Primitives
 
-![Go sync — Locks, Gates & Pools](svg/sync-primitives.svg)
+![Go sync — Locks, Gates & Pools](png/sync-primitives.png)
 
 When channels aren't the right fit, the `sync` package provides low-level primitives. Reach for them when you need to:
 
@@ -416,7 +416,7 @@ fmt.Println("ops:", ops.Load()) // 1000
 
 ## Error Groups
 
-![Go errgroup — Structured Concurrency](svg/errgroup.svg)
+![Go errgroup — Structured Concurrency](png/errgroup.png)
 
 `golang.org/x/sync/errgroup` provides structured concurrency — a model where goroutines have a clear owner that launches them, waits for them, and handles their errors. What errgroup gives you over bare `go` + `sync.WaitGroup`:
 
@@ -492,7 +492,7 @@ func processFiles(files []string) error {
 
 ## Timers & Rate Limiting
 
-![Go Timers & Rate Limiting](svg/timers.svg)
+![Go Timers & Rate Limiting](png/timers.png)
 
 Go's timer and ticker types integrate naturally with channels and `select`, making time-based operations composable with other concurrent primitives. Rate limiting is critical for production services — without it, a spike in traffic can overwhelm databases, exhaust file descriptors, or trigger cascading failures across microservices.
 
@@ -567,7 +567,7 @@ func handleRequest(ctx context.Context) error {
 
 ## Race Conditions
 
-![Go Race Conditions](svg/race-conditions.svg)
+![Go Race Conditions](png/race-conditions.png)
 
 A data race occurs when two goroutines access the same variable concurrently and at least one access is a write. Data races are among the most insidious bugs in concurrent programs — they can produce corrupted data, crashes, or security vulnerabilities, and they often manifest only under specific timing conditions that are difficult to reproduce. Go takes data races seriously: the language specification states that a program with a data race has undefined behavior.
 
@@ -649,7 +649,7 @@ Concurrency code review checklist:
 
 ## Concurrency Patterns
 
-![Go Concurrency Patterns](svg/patterns.svg)
+![Go Concurrency Patterns](png/patterns.png)
 
 These patterns are composable building blocks for concurrent Go programs. They compose naturally — a pipeline stage can internally use a worker pool, each worker can use an or-done wrapper, and the whole thing can be bounded with errgroup. Choosing the right pattern:
 

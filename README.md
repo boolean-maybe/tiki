@@ -4,7 +4,7 @@ Follow me on X: [![X Badge](https://img.shields.io/badge/-%23000000.svg?style=fl
 
 **UPDATE**:
 
-Added test files. Try (must be the latest release):
+Added test files. Try (must be at least v0.3.4):
 ```
 tiki https://github.com/boolean-maybe/tiki/blob/main/testdata/go-concurrency.md
 ```
