@@ -6,6 +6,7 @@ import (
 	"github.com/boolean-maybe/tiki/controller"
 	"github.com/boolean-maybe/tiki/model"
 	"github.com/boolean-maybe/tiki/plugin"
+	"github.com/boolean-maybe/tiki/service"
 	"github.com/boolean-maybe/tiki/store"
 )
 
@@ -20,18 +21,20 @@ type Controllers struct {
 func BuildControllers(
 	app *tview.Application,
 	taskStore store.Store,
+	mutationGate *service.TaskMutationGate,
 	plugins []plugin.Plugin,
 	pluginConfigs map[string]*model.PluginConfig,
 	statuslineConfig *model.StatuslineConfig,
 ) *Controllers {
 	navController := controller.NewNavigationController(app)
-	taskController := controller.NewTaskController(taskStore, navController, statuslineConfig)
+	taskController := controller.NewTaskController(taskStore, mutationGate, navController, statuslineConfig)
 
 	pluginControllers := make(map[string]controller.PluginControllerInterface)
 	for _, p := range plugins {
 		if tp, ok := p.(*plugin.TikiPlugin); ok {
 			pluginControllers[p.GetName()] = controller.NewPluginController(
 				taskStore,
+				mutationGate,
 				pluginConfigs[p.GetName()],
 				tp,
 				navController,

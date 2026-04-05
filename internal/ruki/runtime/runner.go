@@ -6,22 +6,25 @@ import (
 	"strings"
 
 	"github.com/boolean-maybe/tiki/ruki"
+	"github.com/boolean-maybe/tiki/service"
 	"github.com/boolean-maybe/tiki/store"
 	"github.com/boolean-maybe/tiki/task"
 )
 
-// RunQuery parses and executes a ruki statement against the given store,
+// RunQuery parses and executes a ruki statement against the given gate,
 // writing formatted results to out.
-func RunQuery(taskStore store.Store, query string, out io.Writer) error {
+func RunQuery(gate *service.TaskMutationGate, query string, out io.Writer) error {
 	query = strings.TrimSuffix(strings.TrimSpace(query), ";")
 	if query == "" {
 		return fmt.Errorf("empty query")
 	}
 
+	readStore := gate.ReadStore()
+
 	schema := NewSchema()
 	parser := ruki.NewParser(schema)
 
-	userName, err := resolveUser(taskStore)
+	userName, err := resolveUser(readStore)
 	if err != nil {
 		return fmt.Errorf("resolve current user: %w", err)
 	}
@@ -36,7 +39,7 @@ func RunQuery(taskStore store.Store, query string, out io.Writer) error {
 	// (e.g. tags=tags+["new"]) resolve from template defaults
 	var template *task.Task
 	if stmt.Create != nil {
-		template, err = taskStore.NewTaskTemplate()
+		template, err = readStore.NewTaskTemplate()
 		if err != nil {
 			return fmt.Errorf("create template: %w", err)
 		}
@@ -46,7 +49,7 @@ func RunQuery(taskStore store.Store, query string, out io.Writer) error {
 		executor.SetTemplate(template)
 	}
 
-	tasks := taskStore.GetAllTasks()
+	tasks := readStore.GetAllTasks()
 	result, err := executor.Execute(stmt, tasks)
 	if err != nil {
 		return fmt.Errorf("execute: %w", err)
@@ -58,23 +61,23 @@ func RunQuery(taskStore store.Store, query string, out io.Writer) error {
 		return formatter.Format(out, result.Select)
 
 	case result.Update != nil:
-		return persistAndSummarize(taskStore, result.Update, out)
+		return persistAndSummarize(gate, result.Update, out)
 
 	case result.Create != nil:
-		return persistCreate(taskStore, result.Create, template, out)
+		return persistCreate(gate, result.Create, template, out)
 
 	case result.Delete != nil:
-		return persistDelete(taskStore, result.Delete, out)
+		return persistDelete(gate, result.Delete, out)
 
 	default:
 		return fmt.Errorf("unsupported statement type")
 	}
 }
 
-// RunSelectQuery is the legacy entry point restricted to SELECT statements.
+// RunSelectQuery is the read-only entry point restricted to SELECT statements.
 // Non-SELECT statements (CREATE, UPDATE, DELETE) are rejected to preserve
 // read-only semantics expected by callers of this function.
-func RunSelectQuery(taskStore store.Store, query string, out io.Writer) error {
+func RunSelectQuery(readStore store.ReadStore, query string, out io.Writer) error {
 	trimmed := strings.TrimSuffix(strings.TrimSpace(query), ";")
 	if trimmed == "" {
 		return fmt.Errorf("empty query")
@@ -91,15 +94,28 @@ func RunSelectQuery(taskStore store.Store, query string, out io.Writer) error {
 		return fmt.Errorf("RunSelectQuery only supports SELECT statements")
 	}
 
-	return RunQuery(taskStore, query, out)
+	userName, err := resolveUser(readStore)
+	if err != nil {
+		return fmt.Errorf("resolve current user: %w", err)
+	}
+	executor := ruki.NewExecutor(schema, func() string { return userName })
+
+	tasks := readStore.GetAllTasks()
+	result, err := executor.Execute(stmt, tasks)
+	if err != nil {
+		return fmt.Errorf("execute: %w", err)
+	}
+
+	formatter := NewTableFormatter()
+	return formatter.Format(out, result.Select)
 }
 
-func persistAndSummarize(taskStore store.Store, ur *ruki.UpdateResult, out io.Writer) error {
+func persistAndSummarize(gate *service.TaskMutationGate, ur *ruki.UpdateResult, out io.Writer) error {
 	var succeeded, failed int
 	var firstErr error
 
 	for _, t := range ur.Updated {
-		if err := taskStore.UpdateTask(t); err != nil {
+		if err := gate.UpdateTask(t); err != nil {
 			failed++
 			if firstErr == nil {
 				firstErr = err
@@ -118,17 +134,13 @@ func persistAndSummarize(taskStore store.Store, ur *ruki.UpdateResult, out io.Wr
 	return nil
 }
 
-func persistCreate(taskStore store.Store, cr *ruki.CreateResult, template *task.Task, out io.Writer) error {
+func persistCreate(gate *service.TaskMutationGate, cr *ruki.CreateResult, template *task.Task, out io.Writer) error {
 	t := cr.Task
 	t.ID = template.ID
 	t.CreatedBy = template.CreatedBy
 	t.CreatedAt = template.CreatedAt
 
-	if strings.TrimSpace(t.Title) == "" {
-		return fmt.Errorf("create requires a title")
-	}
-
-	if err := taskStore.CreateTask(t); err != nil {
+	if err := gate.CreateTask(t); err != nil {
 		return fmt.Errorf("create task: %w", err)
 	}
 
@@ -136,11 +148,14 @@ func persistCreate(taskStore store.Store, cr *ruki.CreateResult, template *task.
 	return nil
 }
 
-func persistDelete(taskStore store.Store, dr *ruki.DeleteResult, out io.Writer) error {
+func persistDelete(gate *service.TaskMutationGate, dr *ruki.DeleteResult, out io.Writer) error {
+	readStore := gate.ReadStore()
 	var succeeded, failed int
 	for _, t := range dr.Deleted {
-		taskStore.DeleteTask(t.ID)
-		if taskStore.GetTask(t.ID) != nil {
+		if err := gate.DeleteTask(t); err != nil {
+			failed++
+		} else if readStore.GetTask(t.ID) != nil {
+			// store silently failed to delete
 			failed++
 		} else {
 			succeeded++
@@ -158,7 +173,7 @@ func persistDelete(taskStore store.Store, dr *ruki.DeleteResult, out io.Writer) 
 
 // resolveUser returns the current user name from the store.
 // Returns an error if the user cannot be determined.
-func resolveUser(s store.Store) (string, error) {
+func resolveUser(s store.ReadStore) (string, error) {
 	name, _, err := s.GetCurrentUser()
 	if err != nil {
 		return "", err

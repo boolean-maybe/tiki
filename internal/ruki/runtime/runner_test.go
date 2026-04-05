@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/boolean-maybe/tiki/config"
+	"github.com/boolean-maybe/tiki/service"
 	"github.com/boolean-maybe/tiki/store"
 	"github.com/boolean-maybe/tiki/task"
 	"github.com/boolean-maybe/tiki/workflow"
@@ -25,6 +26,13 @@ func setupRunnerTest(t *testing.T) store.Store {
 	_ = s.CreateTask(&task.Task{ID: "TIKI-AAA001", Title: "Build API", Status: "ready", Priority: 1})
 	_ = s.CreateTask(&task.Task{ID: "TIKI-BBB002", Title: "Write Docs", Status: "done", Priority: 2})
 	return s
+}
+
+// gateFor wraps a store in a bare gate (no field validators) for tests.
+func gateFor(s store.Store) *service.TaskMutationGate {
+	g := service.NewTaskMutationGate()
+	g.SetStore(s)
+	return g
 }
 
 func TestRunSelectQuerySuccess(t *testing.T) {
@@ -188,7 +196,7 @@ func TestRunQueryUpdatePersists(t *testing.T) {
 	s := setupRunnerTest(t)
 
 	var buf bytes.Buffer
-	err := RunQuery(s, `update where id = "TIKI-AAA001" set title="Updated API"`, &buf)
+	err := RunQuery(gateFor(s), `update where id = "TIKI-AAA001" set title="Updated API"`, &buf)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -206,7 +214,7 @@ func TestRunQueryUpdateSummarySuccess(t *testing.T) {
 	s := setupRunnerTest(t)
 
 	var buf bytes.Buffer
-	err := RunQuery(s, `update where status = "ready" set priority=5`, &buf)
+	err := RunQuery(gateFor(s), `update where status = "ready" set priority=5`, &buf)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -221,7 +229,7 @@ func TestRunQueryUpdateZeroMatches(t *testing.T) {
 	s := setupRunnerTest(t)
 
 	var buf bytes.Buffer
-	err := RunQuery(s, `update where id = "NONEXISTENT" set title="x"`, &buf)
+	err := RunQuery(gateFor(s), `update where id = "NONEXISTENT" set title="x"`, &buf)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -238,7 +246,7 @@ func TestRunQueryUpdateListArithmeticE2E(t *testing.T) {
 	_ = s.CreateTask(&task.Task{ID: "TIKI-TAG001", Title: "Tagged", Status: "ready", Tags: []string{"old"}})
 
 	var buf bytes.Buffer
-	err := RunQuery(s, `update where id = "TIKI-TAG001" set tags=tags+"new"`, &buf)
+	err := RunQuery(gateFor(s), `update where id = "TIKI-TAG001" set tags=tags+"new"`, &buf)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -260,7 +268,7 @@ func TestRunQueryUpdatePartialFailure(t *testing.T) {
 	fs := &failingUpdateStore{Store: s, failID: "TIKI-AAA001"}
 
 	var buf bytes.Buffer
-	err := RunQuery(fs, `update where status = "ready" set priority=5`, &buf)
+	err := RunQuery(gateFor(fs), `update where status = "ready" set priority=5`, &buf)
 
 	out := buf.String()
 	if err == nil {
@@ -301,7 +309,7 @@ func TestRunQueryResolveUserError(t *testing.T) {
 	fs := &failingUserStore{Store: s}
 
 	var buf bytes.Buffer
-	err := RunQuery(fs, "select", &buf)
+	err := RunQuery(gateFor(fs), "select", &buf)
 	if err == nil {
 		t.Fatal("expected error for user resolution failure")
 	}
@@ -315,7 +323,7 @@ func TestRunQueryResolveUserErrorUpdate(t *testing.T) {
 	fs := &failingUserStore{Store: s}
 
 	var buf bytes.Buffer
-	err := RunQuery(fs, `update where id = "TIKI-AAA001" set title="x"`, &buf)
+	err := RunQuery(gateFor(fs), `update where id = "TIKI-AAA001" set title="x"`, &buf)
 	if err == nil {
 		t.Fatal("expected error for user resolution failure on update")
 	}
@@ -329,7 +337,7 @@ func TestRunQueryExecuteError(t *testing.T) {
 
 	// call() is rejected at runtime, triggering an execute error
 	var buf bytes.Buffer
-	err := RunQuery(s, `select where call("echo") = "x"`, &buf)
+	err := RunQuery(gateFor(s), `select where call("echo") = "x"`, &buf)
 	if err == nil {
 		t.Fatal("expected execute error")
 	}
@@ -342,7 +350,7 @@ func TestRunQueryUpdateInvalidPointsE2E(t *testing.T) {
 	s := setupRunnerTest(t)
 
 	var buf bytes.Buffer
-	err := RunQuery(s, `update where id = "TIKI-AAA001" set points=999`, &buf)
+	err := RunQuery(gateFor(s), `update where id = "TIKI-AAA001" set points=999`, &buf)
 	if err == nil {
 		t.Fatal("expected error for invalid points")
 	}
@@ -357,7 +365,7 @@ func TestRunQueryCreatePersists(t *testing.T) {
 	s := setupRunnerTest(t)
 
 	var buf bytes.Buffer
-	err := RunQuery(s, `create title="New Task" status="ready" priority=1`, &buf)
+	err := RunQuery(gateFor(s), `create title="New Task" status="ready" priority=1`, &buf)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -390,8 +398,12 @@ func TestRunQueryCreatePersists(t *testing.T) {
 func TestRunQueryCreateMissingTitle(t *testing.T) {
 	s := setupRunnerTest(t)
 
+	// use BuildGate (with field validators) to catch empty title
+	g := service.BuildGate()
+	g.SetStore(s)
+
 	var buf bytes.Buffer
-	err := RunQuery(s, `create priority=1 status="ready"`, &buf)
+	err := RunQuery(g, `create priority=1 status="ready"`, &buf)
 	if err == nil {
 		t.Fatal("expected error for missing title")
 	}
@@ -404,7 +416,7 @@ func TestRunQueryCreateTemplateDefaults(t *testing.T) {
 	s := setupRunnerTest(t)
 
 	var buf bytes.Buffer
-	err := RunQuery(s, `create title="Templated" tags=tags+["extra"]`, &buf)
+	err := RunQuery(gateFor(s), `create title="Templated" tags=tags+["extra"]`, &buf)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -435,7 +447,7 @@ func TestRunQueryCreateTemplateFailure(t *testing.T) {
 	fs := &failingTemplateStore{Store: s}
 
 	var buf bytes.Buffer
-	err := RunQuery(fs, `create title="test"`, &buf)
+	err := RunQuery(gateFor(fs), `create title="test"`, &buf)
 	if err == nil {
 		t.Fatal("expected error for template failure")
 	}
@@ -458,7 +470,7 @@ func TestRunQueryCreateNilTemplate(t *testing.T) {
 	fs := &nilTemplateStore{Store: s}
 
 	var buf bytes.Buffer
-	err := RunQuery(fs, `create title="test"`, &buf)
+	err := RunQuery(gateFor(fs), `create title="test"`, &buf)
 	if err == nil {
 		t.Fatal("expected error for nil template")
 	}
@@ -481,7 +493,7 @@ func TestRunQueryCreateTaskFailure(t *testing.T) {
 	fs := &failingCreateStore{Store: s}
 
 	var buf bytes.Buffer
-	err := RunQuery(fs, `create title="test"`, &buf)
+	err := RunQuery(gateFor(fs), `create title="test"`, &buf)
 	if err == nil {
 		t.Fatal("expected error for CreateTask failure")
 	}
@@ -505,7 +517,7 @@ func TestRunQueryDeletePersists(t *testing.T) {
 	s := setupRunnerTest(t)
 
 	var buf bytes.Buffer
-	err := RunQuery(s, `delete where id = "TIKI-AAA001"`, &buf)
+	err := RunQuery(gateFor(s), `delete where id = "TIKI-AAA001"`, &buf)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -523,7 +535,7 @@ func TestRunQueryDeleteZeroMatches(t *testing.T) {
 	s := setupRunnerTest(t)
 
 	var buf bytes.Buffer
-	err := RunQuery(s, `delete where id = "NONEXISTENT"`, &buf)
+	err := RunQuery(gateFor(s), `delete where id = "NONEXISTENT"`, &buf)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -542,7 +554,7 @@ func TestRunQueryDeletePartialFailure(t *testing.T) {
 	fs := &failingDeleteStore{Store: s, failID: "TIKI-AAA001"}
 
 	var buf bytes.Buffer
-	err := RunQuery(fs, `delete where status = "ready"`, &buf)
+	err := RunQuery(gateFor(fs), `delete where status = "ready"`, &buf)
 
 	out := buf.String()
 	if err == nil {

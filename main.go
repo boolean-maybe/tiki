@@ -14,6 +14,7 @@ import (
 	"github.com/boolean-maybe/tiki/internal/pipe"
 	rukiRuntime "github.com/boolean-maybe/tiki/internal/ruki/runtime"
 	"github.com/boolean-maybe/tiki/internal/viewer"
+	"github.com/boolean-maybe/tiki/service"
 	"github.com/boolean-maybe/tiki/util/sysinfo"
 )
 
@@ -220,13 +221,16 @@ func runExec(args []string) int {
 		return exitStartupFailure
 	}
 
+	gate := service.BuildGate()
+
 	_, taskStore, err := bootstrap.InitStores()
 	if err != nil {
 		_, _ = fmt.Fprintf(os.Stderr, "error: initialize store: %v\n", err)
 		return exitStartupFailure
 	}
+	gate.SetStore(taskStore)
 
-	if err := rukiRuntime.RunQuery(taskStore, args[0], os.Stdout); err != nil {
+	if err := rukiRuntime.RunQuery(gate, args[0], os.Stdout); err != nil {
 		_, _ = fmt.Fprintln(os.Stderr, "error:", err)
 		return exitQueryError
 	}

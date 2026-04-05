@@ -7,6 +7,7 @@ import (
 	"github.com/boolean-maybe/tiki/model"
 	"github.com/boolean-maybe/tiki/plugin"
 	"github.com/boolean-maybe/tiki/plugin/filter"
+	"github.com/boolean-maybe/tiki/service"
 	"github.com/boolean-maybe/tiki/store"
 	"github.com/boolean-maybe/tiki/task"
 )
@@ -101,7 +102,9 @@ func TestEnsureFirstNonEmptyLaneSelectionSelectsFirstTask(t *testing.T) {
 	pluginConfig.SetSelectedLane(0)
 	pluginConfig.SetSelectedIndexForLane(0, 1)
 
-	pc := NewPluginController(taskStore, pluginConfig, pluginDef, nil, nil)
+	gate := service.NewTaskMutationGate()
+	gate.SetStore(taskStore)
+	pc := NewPluginController(taskStore, gate, pluginConfig, pluginDef, nil, nil)
 	pc.EnsureFirstNonEmptyLaneSelection()
 
 	if pluginConfig.GetSelectedLane() != 1 {
@@ -142,7 +145,9 @@ func TestEnsureFirstNonEmptyLaneSelectionKeepsCurrentLane(t *testing.T) {
 	pluginConfig.SetSelectedLane(1)
 	pluginConfig.SetSelectedIndexForLane(1, 0)
 
-	pc := NewPluginController(taskStore, pluginConfig, pluginDef, nil, nil)
+	gate := service.NewTaskMutationGate()
+	gate.SetStore(taskStore)
+	pc := NewPluginController(taskStore, gate, pluginConfig, pluginDef, nil, nil)
 	pc.EnsureFirstNonEmptyLaneSelection()
 
 	if pluginConfig.GetSelectedLane() != 1 {
@@ -174,7 +179,9 @@ func TestEnsureFirstNonEmptyLaneSelectionNoTasks(t *testing.T) {
 	pluginConfig.SetSelectedLane(1)
 	pluginConfig.SetSelectedIndexForLane(1, 2)
 
-	pc := NewPluginController(taskStore, pluginConfig, pluginDef, nil, nil)
+	gate := service.NewTaskMutationGate()
+	gate.SetStore(taskStore)
+	pc := NewPluginController(taskStore, gate, pluginConfig, pluginDef, nil, nil)
 	pc.EnsureFirstNonEmptyLaneSelection()
 
 	if pluginConfig.GetSelectedLane() != 1 {

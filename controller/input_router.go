@@ -8,6 +8,7 @@ import (
 	"github.com/boolean-maybe/tiki/config"
 	"github.com/boolean-maybe/tiki/model"
 	"github.com/boolean-maybe/tiki/plugin"
+	"github.com/boolean-maybe/tiki/service"
 	"github.com/boolean-maybe/tiki/store"
 	"github.com/boolean-maybe/tiki/task"
 
@@ -48,6 +49,7 @@ type InputRouter struct {
 	pluginControllers map[string]PluginControllerInterface // keyed by plugin name
 	globalActions     *ActionRegistry
 	taskStore         store.Store
+	mutationGate      *service.TaskMutationGate
 	statusline        *model.StatuslineConfig
 	registerPlugin    func(name string, cfg *model.PluginConfig, def plugin.Plugin, ctrl PluginControllerInterface)
 }
@@ -58,6 +60,7 @@ func NewInputRouter(
 	taskController *TaskController,
 	pluginControllers map[string]PluginControllerInterface,
 	taskStore store.Store,
+	mutationGate *service.TaskMutationGate,
 	statusline *model.StatuslineConfig,
 ) *InputRouter {
 	return &InputRouter{
@@ -67,6 +70,7 @@ func NewInputRouter(
 		pluginControllers: pluginControllers,
 		globalActions:     DefaultGlobalActions(),
 		taskStore:         taskStore,
+		mutationGate:      mutationGate,
 		statusline:        statusline,
 	}
 }
@@ -240,7 +244,7 @@ func (ir *InputRouter) openDepsEditor(taskID string) bool {
 		pluginConfig.SetViewMode(vm)
 	}
 
-	ctrl := NewDepsController(ir.taskStore, pluginConfig, pluginDef, ir.navController, ir.statusline)
+	ctrl := NewDepsController(ir.taskStore, ir.mutationGate, pluginConfig, pluginDef, ir.navController, ir.statusline)
 
 	if ir.registerPlugin != nil {
 		ir.registerPlugin(name, pluginConfig, pluginDef, ctrl)

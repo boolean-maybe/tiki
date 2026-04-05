@@ -6,6 +6,7 @@ import (
 
 	"github.com/boolean-maybe/tiki/model"
 	"github.com/boolean-maybe/tiki/plugin"
+	"github.com/boolean-maybe/tiki/service"
 	"github.com/boolean-maybe/tiki/store"
 	"github.com/boolean-maybe/tiki/task"
 )
@@ -14,6 +15,7 @@ import (
 // Methods that depend on per-controller filtering accept a filteredTasks callback.
 type pluginBase struct {
 	taskStore     store.Store
+	mutationGate  *service.TaskMutationGate
 	pluginConfig  *model.PluginConfig
 	pluginDef     *plugin.TikiPlugin
 	navController *NavigationController
@@ -347,7 +349,17 @@ func (pb *pluginBase) handleDeleteTask(filteredTasks func(int) []*task.Task) boo
 	if taskID == "" {
 		return false
 	}
-	pb.taskStore.DeleteTask(taskID)
+	taskItem := pb.taskStore.GetTask(taskID)
+	if taskItem == nil {
+		return false
+	}
+	if err := pb.mutationGate.DeleteTask(taskItem); err != nil {
+		slog.Error("failed to delete task", "task_id", taskID, "error", err)
+		if pb.statusline != nil {
+			pb.statusline.SetMessage(err.Error(), model.MessageLevelError, true)
+		}
+		return false
+	}
 	return true
 }
 

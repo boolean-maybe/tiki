@@ -261,6 +261,8 @@ func TestApplyLaneAction(t *testing.T) {
 }
 
 func TestApplyLaneAction_InvalidResult(t *testing.T) {
+	// ApplyLaneAction no longer validates the result — the gate does that
+	// at persistence time. This test verifies the action is applied as-is.
 	base := &task.Task{
 		ID:       "TASK-1",
 		Title:    "Task",
@@ -280,9 +282,12 @@ func TestApplyLaneAction_InvalidResult(t *testing.T) {
 		},
 	}
 
-	_, err := ApplyLaneAction(base, action, "")
-	if err == nil {
-		t.Fatalf("expected validation error")
+	result, err := ApplyLaneAction(base, action, "")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if result.Priority != 99 {
+		t.Errorf("expected priority 99, got %d", result.Priority)
 	}
 }
 

@@ -7,6 +7,7 @@ import (
 
 	"github.com/boolean-maybe/tiki/model"
 	"github.com/boolean-maybe/tiki/plugin"
+	"github.com/boolean-maybe/tiki/service"
 	"github.com/boolean-maybe/tiki/store"
 	"github.com/boolean-maybe/tiki/task"
 )
@@ -47,8 +48,11 @@ func newDepsTestEnv(t *testing.T) (*DepsController, store.Store) {
 	pluginConfig := model.NewPluginConfig("Dependency")
 	pluginConfig.SetLaneLayout([]int{1, 2, 1}, nil)
 
+	gate := service.NewTaskMutationGate()
+	gate.SetStore(taskStore)
+
 	nav := newMockNavigationController()
-	dc := NewDepsController(taskStore, pluginConfig, pluginDef, nav, nil)
+	dc := NewDepsController(taskStore, gate, pluginConfig, pluginDef, nav, nil)
 	return dc, taskStore
 }
 

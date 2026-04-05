@@ -13,6 +13,7 @@ import (
 	"github.com/boolean-maybe/tiki/internal/background"
 	"github.com/boolean-maybe/tiki/model"
 	"github.com/boolean-maybe/tiki/plugin"
+	"github.com/boolean-maybe/tiki/service"
 	"github.com/boolean-maybe/tiki/store"
 	"github.com/boolean-maybe/tiki/store/tikistore"
 	"github.com/boolean-maybe/tiki/util/sysinfo"
@@ -29,6 +30,7 @@ type Result struct {
 	// Fields include: OS, Architecture, TermType, DetectedTheme, ColorSupport, ColorCount.
 	// Collected early using terminfo lookup (no screen initialization needed).
 	SystemInfo       *sysinfo.SystemInfo
+	MutationGate     *service.TaskMutationGate
 	TikiStore        *tikistore.TikiStore
 	TaskStore        store.Store
 	HeaderConfig     *model.HeaderConfig
@@ -90,11 +92,15 @@ func Bootstrap(tikiSkillContent, dokiSkillContent string) (*Result, error) {
 	// Collect early (before app creation) using terminfo lookup for future visual adjustments
 	systemInfo := InitColorAndGradientSupport(cfg)
 
+	// Phase 3.7: Mutation gate (before store, so validators can register early)
+	gate := service.BuildGate()
+
 	// Phase 4: Store initialization
 	tikiStore, taskStore, err := InitStores()
 	if err != nil {
 		return nil, err
 	}
+	gate.SetStore(taskStore)
 
 	// Phase 5: Model initialization
 	headerConfig, layoutModel := InitHeaderAndLayoutModels()
@@ -116,6 +122,7 @@ func Bootstrap(tikiSkillContent, dokiSkillContent string) (*Result, error) {
 	controllers := BuildControllers(
 		application,
 		taskStore,
+		gate,
 		plugins,
 		pluginConfigs,
 		statuslineConfig,
@@ -127,6 +134,7 @@ func Bootstrap(tikiSkillContent, dokiSkillContent string) (*Result, error) {
 		controllers.Task,
 		controllers.Plugins,
 		taskStore,
+		gate,
 		statuslineConfig,
 	)
 
@@ -171,6 +179,7 @@ func Bootstrap(tikiSkillContent, dokiSkillContent string) (*Result, error) {
 		Cfg:              cfg,
 		LogLevel:         logLevel,
 		SystemInfo:       systemInfo,
+		MutationGate:     gate,
 		TikiStore:        tikiStore,
 		TaskStore:        taskStore,
 		HeaderConfig:     headerConfig,

@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/boolean-maybe/tiki/model"
+	"github.com/boolean-maybe/tiki/service"
 	"github.com/boolean-maybe/tiki/store"
 
 	"github.com/gdamore/tcell/v2"
@@ -89,8 +90,10 @@ func TestTaskEditCoordinator_HandleKey_TagsOnly_Backtab(t *testing.T) {
 
 func TestTaskEditCoordinator_HandleKey_Escape(t *testing.T) {
 	taskStore := store.NewInMemoryStore()
+	gate := service.NewTaskMutationGate()
+	gate.SetStore(taskStore)
 	nav := newMockNavigationController()
-	tc := NewTaskController(taskStore, nav, nil)
+	tc := NewTaskController(taskStore, gate, nav, nil)
 	tc.SetDraft(newTestTask())
 
 	coord := NewTaskEditCoordinator(nav, tc)
@@ -110,8 +113,10 @@ func TestTaskEditCoordinator_HandleKey_Escape(t *testing.T) {
 
 func TestTaskEditCoordinator_Commit_SavesTags(t *testing.T) {
 	taskStore := store.NewInMemoryStore()
+	gate := service.NewTaskMutationGate()
+	gate.SetStore(taskStore)
 	nav := newMockNavigationController()
-	tc := NewTaskController(taskStore, nav, nil)
+	tc := NewTaskController(taskStore, gate, nav, nil)
 
 	draft := newTestTask()
 	draft.Title = "Tagged Task"
@@ -140,8 +145,11 @@ func TestTaskEditCoordinator_Commit_SavesTags(t *testing.T) {
 }
 
 func TestTaskEditCoordinator_Commit_NonEditView(t *testing.T) {
+	s := store.NewInMemoryStore()
+	gate := service.NewTaskMutationGate()
+	gate.SetStore(s)
 	nav := newMockNavigationController()
-	tc := NewTaskController(store.NewInMemoryStore(), nav, nil)
+	tc := NewTaskController(s, gate, nav, nil)
 	coord := NewTaskEditCoordinator(nav, tc)
 
 	got := coord.commit(&mockNonEditView{})
@@ -152,8 +160,10 @@ func TestTaskEditCoordinator_Commit_NonEditView(t *testing.T) {
 
 func TestTaskEditCoordinator_Commit_ValidationFails(t *testing.T) {
 	taskStore := store.NewInMemoryStore()
+	gate := service.NewTaskMutationGate()
+	gate.SetStore(taskStore)
 	nav := newMockNavigationController()
-	tc := NewTaskController(taskStore, nav, nil)
+	tc := NewTaskController(taskStore, gate, nav, nil)
 	tc.SetDraft(newTestTask())
 
 	coord := NewTaskEditCoordinator(nav, tc)
@@ -177,7 +187,10 @@ func TestTaskEditCoordinator_Commit_ValidationFails(t *testing.T) {
 func TestTaskEditCoordinator_FieldHint_RecurrencePatternFocused(t *testing.T) {
 	sl := model.NewStatuslineConfig()
 	nav := newMockNavigationController()
-	tc := NewTaskController(store.NewInMemoryStore(), nav, sl)
+	s := store.NewInMemoryStore()
+	gate := service.NewTaskMutationGate()
+	gate.SetStore(s)
+	tc := NewTaskController(s, gate, nav, sl)
 
 	coord := NewTaskEditCoordinator(nav, tc)
 	view := &mockFieldFocusableView{focusedField: model.EditFieldRecurrence, valueFocused: false}
@@ -196,7 +209,10 @@ func TestTaskEditCoordinator_FieldHint_RecurrencePatternFocused(t *testing.T) {
 func TestTaskEditCoordinator_FieldHint_RecurrenceValueFocused(t *testing.T) {
 	sl := model.NewStatuslineConfig()
 	nav := newMockNavigationController()
-	tc := NewTaskController(store.NewInMemoryStore(), nav, sl)
+	s := store.NewInMemoryStore()
+	gate := service.NewTaskMutationGate()
+	gate.SetStore(s)
+	tc := NewTaskController(s, gate, nav, sl)
 
 	coord := NewTaskEditCoordinator(nav, tc)
 	view := &mockFieldFocusableView{focusedField: model.EditFieldRecurrence, valueFocused: true}
@@ -215,7 +231,10 @@ func TestTaskEditCoordinator_FieldHint_RecurrenceValueFocused(t *testing.T) {
 func TestTaskEditCoordinator_FieldHint_NonRecurrenceClearsHint(t *testing.T) {
 	sl := model.NewStatuslineConfig()
 	nav := newMockNavigationController()
-	tc := NewTaskController(store.NewInMemoryStore(), nav, sl)
+	s := store.NewInMemoryStore()
+	gate := service.NewTaskMutationGate()
+	gate.SetStore(s)
+	tc := NewTaskController(s, gate, nav, sl)
 
 	coord := NewTaskEditCoordinator(nav, tc)
 
@@ -234,7 +253,10 @@ func TestTaskEditCoordinator_FieldHint_NonRecurrenceClearsHint(t *testing.T) {
 func TestTaskEditCoordinator_FieldHint_FocusNextSetsHint(t *testing.T) {
 	sl := model.NewStatuslineConfig()
 	nav := newMockNavigationController()
-	tc := NewTaskController(store.NewInMemoryStore(), nav, sl)
+	s := store.NewInMemoryStore()
+	gate := service.NewTaskMutationGate()
+	gate.SetStore(s)
+	tc := NewTaskController(s, gate, nav, sl)
 
 	coord := NewTaskEditCoordinator(nav, tc)
 	// Due is right before Recurrence in navigation order
@@ -254,7 +276,10 @@ func TestTaskEditCoordinator_FieldHint_FocusNextSetsHint(t *testing.T) {
 func TestTaskEditCoordinator_FieldHint_CancelClearsHint(t *testing.T) {
 	sl := model.NewStatuslineConfig()
 	nav := newMockNavigationController()
-	tc := NewTaskController(store.NewInMemoryStore(), nav, sl)
+	s := store.NewInMemoryStore()
+	gate := service.NewTaskMutationGate()
+	gate.SetStore(s)
+	tc := NewTaskController(s, gate, nav, sl)
 
 	coord := NewTaskEditCoordinator(nav, tc)
 	sl.SetMessage("some hint", model.MessageLevelInfo, false)
@@ -268,8 +293,11 @@ func TestTaskEditCoordinator_FieldHint_CancelClearsHint(t *testing.T) {
 }
 
 func TestTaskEditCoordinator_FieldHint_NilStatuslineNoOp(t *testing.T) {
+	s := store.NewInMemoryStore()
+	gate := service.NewTaskMutationGate()
+	gate.SetStore(s)
 	nav := newMockNavigationController()
-	tc := NewTaskController(store.NewInMemoryStore(), nav, nil)
+	tc := NewTaskController(s, gate, nav, nil)
 
 	coord := NewTaskEditCoordinator(nav, tc)
 	view := &mockFieldFocusableView{focusedField: model.EditFieldRecurrence}

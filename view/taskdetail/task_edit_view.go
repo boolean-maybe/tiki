@@ -489,13 +489,12 @@ func (ev *TaskEditView) updateValidationState() {
 		return
 	}
 
-	// Run validation framework
-	errors := task.Validate()
-
-	// Convert ValidationErrors to string messages for UI display
+	// Run field validators
 	ev.validationErrors = nil
-	for _, err := range errors {
-		ev.validationErrors = append(ev.validationErrors, err.Message)
+	for _, fn := range taskpkg.AllValidators() {
+		if msg := fn(task); msg != "" {
+			ev.validationErrors = append(ev.validationErrors, msg)
+		}
 	}
 
 	// Update border color based on validation

@@ -8,6 +8,7 @@ import (
 
 	"github.com/boolean-maybe/tiki/config"
 	"github.com/boolean-maybe/tiki/model"
+	"github.com/boolean-maybe/tiki/service"
 	"github.com/boolean-maybe/tiki/store"
 	taskpkg "github.com/boolean-maybe/tiki/task"
 
@@ -19,6 +20,7 @@ import (
 // TaskController handles task detail view actions
 type TaskController struct {
 	taskStore     store.Store
+	mutationGate  *service.TaskMutationGate
 	navController *NavigationController
 	statusline    *model.StatuslineConfig
 	currentTaskID string
@@ -34,11 +36,13 @@ type TaskController struct {
 // It initializes action registries for both detail and edit views.
 func NewTaskController(
 	taskStore store.Store,
+	mutationGate *service.TaskMutationGate,
 	navController *NavigationController,
 	statusline *model.StatuslineConfig,
 ) *TaskController {
 	return &TaskController{
 		taskStore:     taskStore,
+		mutationGate:  mutationGate,
 		navController: navController,
 		statusline:    statusline,
 		registry:      TaskDetailViewActions(),
@@ -105,21 +109,9 @@ func (tc *TaskController) CancelEditSession() {
 func (tc *TaskController) CommitEditSession() error {
 	// Handle draft task creation
 	if tc.draftTask != nil {
-		// Validate draft task before persisting
-		if errors := tc.draftTask.Validate(); errors.HasErrors() {
-			slog.Warn("draft task validation failed", "errors", errors.Error())
-			return nil // Don't save invalid draft
-		}
-
-		// Set timestamps and author for new task
-		now := time.Now()
-		if tc.draftTask.CreatedAt.IsZero() {
-			tc.draftTask.CreatedAt = now
-		}
 		setAuthorFromGit(tc.draftTask, tc.taskStore)
 
-		// Create the task file
-		if err := tc.taskStore.CreateTask(tc.draftTask); err != nil {
+		if err := tc.mutationGate.CreateTask(tc.draftTask); err != nil {
 			slog.Error("failed to create draft task", "error", err)
 			return fmt.Errorf("failed to create task: %w", err)
 		}
@@ -134,12 +126,6 @@ func (tc *TaskController) CommitEditSession() error {
 		return nil // No active edit session, nothing to commit
 	}
 
-	// Validate editing task before persisting
-	if errors := tc.editingTask.Validate(); errors.HasErrors() {
-		slog.Warn("editing task validation failed", "taskID", tc.currentTaskID, "errors", errors.Error())
-		return fmt.Errorf("validation failed: %w", errors)
-	}
-
 	// Check for conflicts (file was modified externally)
 	currentTask := tc.taskStore.GetTask(tc.currentTaskID)
 	if currentTask != nil && !currentTask.LoadedMtime.Equal(tc.originalMtime) {
@@ -148,8 +134,7 @@ func (tc *TaskController) CommitEditSession() error {
 		// For now, proceed with save (last write wins)
 	}
 
-	// Update the task in the store
-	if err := tc.taskStore.UpdateTask(tc.editingTask); err != nil {
+	if err := tc.mutationGate.UpdateTask(tc.editingTask); err != nil {
 		slog.Error("failed to update task", "taskID", tc.currentTaskID, "error", err)
 		return fmt.Errorf("failed to update task: %w", err)
 	}
@@ -296,10 +281,10 @@ func (tc *TaskController) SaveStatus(statusDisplay string) bool {
 		newStatus = taskpkg.NormalizeStatus(statusDisplay)
 	}
 
-	// Validate using StatusValidator
+	// Validate status
 	tempTask := &taskpkg.Task{Status: newStatus}
-	if err := tempTask.ValidateField("status"); err != nil {
-		slog.Warn("invalid status", "display", statusDisplay, "normalized", newStatus, "error", err.Message)
+	if msg := taskpkg.ValidateStatus(tempTask); msg != "" {
+		slog.Warn("invalid status", "display", statusDisplay, "normalized", newStatus, "error", msg)
 		return false
 	}
 
@@ -319,10 +304,10 @@ func (tc *TaskController) SaveType(typeDisplay string) bool {
 		return false
 	}
 
-	// Validate using TypeValidator
+	// Validate type
 	tempTask := &taskpkg.Task{Type: newType}
-	if err := tempTask.ValidateField("type"); err != nil {
-		slog.Warn("invalid type", "display", typeDisplay, "normalized", newType, "error", err.Message)
+	if msg := taskpkg.ValidateType(tempTask); msg != "" {
+		slog.Warn("invalid type", "display", typeDisplay, "normalized", newType, "error", msg)
 		return false
 	}
 
@@ -334,10 +319,10 @@ func (tc *TaskController) SaveType(typeDisplay string) bool {
 // SavePriority saves the new priority to the current task.
 // Returns true if the priority was successfully updated, false otherwise.
 func (tc *TaskController) SavePriority(priority int) bool {
-	// Validate using PriorityValidator
+	// Validate priority
 	tempTask := &taskpkg.Task{Priority: priority}
-	if err := tempTask.ValidateField("priority"); err != nil {
-		slog.Warn("invalid priority", "value", priority, "error", err.Message)
+	if msg := taskpkg.ValidatePriority(tempTask); msg != "" {
+		slog.Warn("invalid priority", "value", priority, "error", msg)
 		return false
 	}
 
@@ -363,10 +348,10 @@ func (tc *TaskController) SaveAssignee(assignee string) bool {
 // SavePoints saves the new story points to the current task.
 // Returns true if the points were successfully updated, false otherwise.
 func (tc *TaskController) SavePoints(points int) bool {
-	// Validate using PointsValidator
+	// Validate points
 	tempTask := &taskpkg.Task{Points: points}
-	if err := tempTask.ValidateField("points"); err != nil {
-		slog.Warn("invalid points", "value", points, "error", err.Message)
+	if msg := taskpkg.ValidatePoints(tempTask); msg != "" {
+		slog.Warn("invalid points", "value", points, "error", msg)
 		return false
 	}
 
@@ -437,9 +422,9 @@ func (tc *TaskController) SetFocusedField(field model.EditField) {
 	tc.focusedField = field
 }
 
-// UpdateTask persists changes to the specified task in the store.
+// UpdateTask persists changes to the specified task via the mutation gate.
 func (tc *TaskController) UpdateTask(task *taskpkg.Task) {
-	_ = tc.taskStore.UpdateTask(task)
+	_ = tc.mutationGate.UpdateTask(task)
 }
 
 // AddComment adds a new comment to the current task with the specified author and text.
@@ -454,5 +439,12 @@ func (tc *TaskController) AddComment(author, text string) bool {
 		Author: author,
 		Text:   text,
 	}
-	return tc.taskStore.AddComment(tc.currentTaskID, comment)
+	if err := tc.mutationGate.AddComment(tc.currentTaskID, comment); err != nil {
+		slog.Error("failed to add comment", "taskID", tc.currentTaskID, "error", err)
+		if tc.statusline != nil {
+			tc.statusline.SetMessage(err.Error(), model.MessageLevelError, true)
+		}
+		return false
+	}
+	return true
 }

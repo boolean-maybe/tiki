@@ -8,6 +8,7 @@ import (
 	"github.com/boolean-maybe/tiki/controller"
 	"github.com/boolean-maybe/tiki/model"
 	"github.com/boolean-maybe/tiki/plugin"
+	"github.com/boolean-maybe/tiki/service"
 	"github.com/boolean-maybe/tiki/store"
 	"github.com/boolean-maybe/tiki/store/tikistore"
 	taskpkg "github.com/boolean-maybe/tiki/task"
@@ -33,6 +34,7 @@ type TestApp struct {
 	PluginConfigs     map[string]*model.PluginConfig
 	PluginControllers map[string]controller.PluginControllerInterface
 	PluginDefs        []plugin.Plugin
+	MutationGate      *service.TaskMutationGate
 	taskController    *controller.TaskController
 	statuslineConfig  *model.StatuslineConfig
 	headerConfig      *model.HeaderConfig
@@ -83,9 +85,12 @@ func NewTestApp(t *testing.T) *TestApp {
 	app.SetScreen(screen)
 
 	// 5. Initialize Controller Layer
+	gate := service.BuildGate()
+	gate.SetStore(taskStore)
+
 	statuslineConfig := model.NewStatuslineConfig()
 	navController := controller.NewNavigationController(app)
-	taskController := controller.NewTaskController(taskStore, navController, statuslineConfig)
+	taskController := controller.NewTaskController(taskStore, gate, navController, statuslineConfig)
 	// Empty plugin controllers map for tests (no plugins configured by default)
 	pluginControllers := make(map[string]controller.PluginControllerInterface)
 	inputRouter := controller.NewInputRouter(
@@ -93,6 +98,7 @@ func NewTestApp(t *testing.T) *TestApp {
 		taskController,
 		pluginControllers,
 		taskStore,
+		gate,
 		statuslineConfig,
 	)
 
@@ -159,6 +165,7 @@ func NewTestApp(t *testing.T) *TestApp {
 		Screen:           screen,
 		RootLayout:       rootLayout,
 		TaskStore:        taskStore,
+		MutationGate:     gate,
 		NavController:    navController,
 		InputRouter:      inputRouter,
 		TaskDir:          taskDir,
@@ -331,7 +338,7 @@ func (ta *TestApp) LoadPlugins() error {
 			}
 			pc.SetLaneLayout(columns, widths)
 			pluginControllers[p.GetName()] = controller.NewPluginController(
-				ta.TaskStore, pc, tp, ta.NavController, ta.statuslineConfig,
+				ta.TaskStore, ta.MutationGate, pc, tp, ta.NavController, ta.statuslineConfig,
 			)
 		} else if dp, ok := p.(*plugin.DokiPlugin); ok {
 			pluginControllers[p.GetName()] = controller.NewDokiController(
@@ -364,6 +371,7 @@ func (ta *TestApp) LoadPlugins() error {
 		ta.taskController,
 		pluginControllers,
 		ta.TaskStore,
+		ta.MutationGate,
 		ta.statuslineConfig,
 	)
 
