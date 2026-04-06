@@ -1009,6 +1009,10 @@ func TestLoadAndRegisterTriggers_LoadDefError(t *testing.T) {
 		t.Skip("cannot change file permissions on this platform")
 	}
 	t.Cleanup(func() { _ = os.Chmod(f, 0600) })
+	if r, openErr := os.Open(f); openErr == nil {
+		_ = r.Close()
+		t.Skip("chmod 0000 did not restrict read access on this platform")
+	}
 
 	gate := NewTaskMutationGate()
 	gate.SetStore(store.NewInMemoryStore())

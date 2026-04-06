@@ -695,3 +695,37 @@ func TestRunQueryDeleteGateError(t *testing.T) {
 		t.Fatal("expected error for delete gate failure")
 	}
 }
+
+func TestRunQueryUserFunction(t *testing.T) {
+	s := setupRunnerTest(t)
+
+	// select where assignee = user() — exercises the user() closure (line 32)
+	var buf bytes.Buffer
+	err := RunSelectQuery(s, `select where assignee = user()`, &buf)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
+func TestRunQueryDeleteValidatorRejection(t *testing.T) {
+	s := setupRunnerTest(t)
+
+	g := service.NewTaskMutationGate()
+	g.SetStore(s)
+	g.OnDelete(func(_, _ *task.Task, _ []*task.Task) *service.Rejection {
+		return &service.Rejection{Reason: "deletes forbidden"}
+	})
+
+	var buf bytes.Buffer
+	err := RunQuery(g, `delete where id = "TIKI-AAA001"`, &buf)
+	if err == nil {
+		t.Fatal("expected error when delete is rejected by validator")
+	}
+	if !strings.Contains(err.Error(), "partially failed") {
+		t.Errorf("expected 'partially failed' error, got: %v", err)
+	}
+	// task should still exist
+	if s.GetTask("TIKI-AAA001") == nil {
+		t.Error("task should not have been deleted")
+	}
+}

@@ -467,6 +467,7 @@ func TestEqualFoldID(t *testing.T) {
 		want bool
 	}{
 		{"TIKI-000001", "tiki-000001", true},
+		{"tiki-000001", "TIKI-000001", true}, // covers ca lowercase fold
 		{"TIKI-000001", "TIKI-000001", true},
 		{"TIKI-000001", "TIKI-000002", false},
 		{"AB", "ABC", false},
@@ -2323,5 +2324,99 @@ func TestEvalCondition_OrBothFalse(t *testing.T) {
 	}
 	if ok {
 		t.Fatal("or should be false when both sides are false")
+	}
+}
+
+func TestGuardSentinel_BothNilFallback(t *testing.T) {
+	te := newTestTriggerExecutor()
+	tc := &TriggerContext{Old: nil, New: nil}
+	sentinel := te.guardSentinel(tc)
+	if sentinel == nil {
+		t.Fatal("expected non-nil sentinel even when both old and new are nil")
+	}
+	if sentinel.ID != "" {
+		t.Errorf("expected empty ID on fallback sentinel, got %q", sentinel.ID)
+	}
+}
+
+func TestResolveQualifiedRef_NewNilReturnsNilNil(t *testing.T) {
+	te := newTestTriggerExecutor()
+	tc := &TriggerContext{
+		Old: &task.Task{ID: "TIKI-000001", Status: "ready"},
+		New: nil, // simulates delete event
+	}
+	exec := te.newExecWithOverrides(tc)
+	val, err := exec.resolveQualifiedRef(&QualifiedRef{Qualifier: "new", Name: "status"})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if val != nil {
+		t.Errorf("expected nil value for new.status when new is nil, got %v", val)
+	}
+}
+
+func TestEvalExprRecursive_FieldRef(t *testing.T) {
+	te := newTestTriggerExecutor()
+	tc := &TriggerContext{
+		Old: &task.Task{ID: "TIKI-000001"},
+		New: &task.Task{ID: "TIKI-000001", Title: "my title"},
+	}
+	exec := te.newExecWithOverrides(tc)
+	val, err := exec.evalExprRecursive(&FieldRef{Name: "title"}, tc.New, nil)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if val != "my title" {
+		t.Errorf("expected 'my title', got %v", val)
+	}
+}
+
+func TestEvalQuantifierOverride_AnyNoMatch(t *testing.T) {
+	te := newTestTriggerExecutor()
+
+	// any x in new.dependsOn where x.status = "done" — dep is "ready", so no match
+	trig := &Trigger{
+		Timing: "before",
+		Event:  "update",
+		Where: &QuantifierExpr{
+			Expr: &QualifiedRef{Qualifier: "new", Name: "dependsOn"},
+			Kind: "any",
+			Condition: &CompareExpr{
+				Left: &FieldRef{Name: "status"}, Op: "=", Right: &StringLiteral{Value: "done"},
+			},
+		},
+		Deny: strPtr("blocked"),
+	}
+
+	dep := &task.Task{ID: "TIKI-DEP001", Status: "ready", Type: "story", Priority: 3}
+	main := &task.Task{ID: "TIKI-000001", Status: "ready", Type: "story", Priority: 3, DependsOn: []string{"TIKI-DEP001"}}
+
+	tc := &TriggerContext{Old: main, New: main, AllTasks: []*task.Task{dep, main}}
+	ok, err := te.EvalGuard(trig, tc)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if ok {
+		t.Fatal("any quantifier should return false when no dep is done")
+	}
+}
+
+func TestEvalCountOverride_NonSubQueryArg(t *testing.T) {
+	te := newTestTriggerExecutor()
+	tc := &TriggerContext{
+		Old:      &task.Task{ID: "TIKI-000001"},
+		New:      &task.Task{ID: "TIKI-000001"},
+		AllTasks: []*task.Task{{ID: "TIKI-000001"}},
+	}
+	exec := te.newExecWithOverrides(tc)
+	_, err := exec.evalCountOverride(&FunctionCall{
+		Name: "count",
+		Args: []Expr{&IntLiteral{Value: 42}},
+	}, nil)
+	if err == nil {
+		t.Fatal("expected error for count() with non-SubQuery arg")
+	}
+	if !strings.Contains(err.Error(), "count() argument must be a select subquery") {
+		t.Fatalf("expected 'count() argument must be a select subquery' error, got: %v", err)
 	}
 }

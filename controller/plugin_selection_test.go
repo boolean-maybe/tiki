@@ -664,3 +664,136 @@ func TestPluginController_GetNameAndRegistry(t *testing.T) {
 		t.Error("GetActionRegistry() should not be nil")
 	}
 }
+
+func TestPluginController_HandleMoveTask_Rejected(t *testing.T) {
+	taskStore := store.NewInMemoryStore()
+	_ = taskStore.CreateTask(&task.Task{
+		ID: "T-1", Title: "Task 1", Status: task.StatusReady, Type: task.TypeStory, Priority: 3,
+	})
+
+	readyFilter, _ := filter.ParseFilter("status = 'ready'")
+	inProgressFilter, _ := filter.ParseFilter("status = 'in_progress'")
+	pluginDef := &plugin.TikiPlugin{
+		BasePlugin: plugin.BasePlugin{Name: "TestPlugin"},
+		Lanes: []plugin.TikiLane{
+			{Name: "Ready", Columns: 1, Filter: readyFilter},
+			{
+				Name: "InProgress", Columns: 1, Filter: inProgressFilter,
+				Action: plugin.LaneAction{
+					Ops: []plugin.LaneActionOp{
+						{Field: plugin.ActionFieldStatus, Operator: plugin.ActionOperatorAssign, StrValue: "in_progress"},
+					},
+				},
+			},
+		},
+	}
+	pluginConfig := model.NewPluginConfig("TestPlugin")
+	pluginConfig.SetLaneLayout([]int{1, 1}, nil)
+	pluginConfig.SetSelectedLane(0)
+	pluginConfig.SetSelectedIndexForLane(0, 0)
+
+	statusline := model.NewStatuslineConfig()
+	gate := service.NewTaskMutationGate()
+	gate.SetStore(taskStore)
+	gate.OnUpdate(func(_, _ *task.Task, _ []*task.Task) *service.Rejection {
+		return &service.Rejection{Reason: "updates blocked"}
+	})
+	pc := NewPluginController(taskStore, gate, pluginConfig, pluginDef, nil, statusline)
+
+	if pc.HandleAction(ActionMoveTaskRight) {
+		t.Error("expected false when move is rejected by gate")
+	}
+
+	// task should still have original status
+	tk := taskStore.GetTask("T-1")
+	if tk.Status != task.StatusReady {
+		t.Errorf("expected status ready, got %s", tk.Status)
+	}
+}
+
+func TestPluginController_HandlePluginAction_Success(t *testing.T) {
+	taskStore := store.NewInMemoryStore()
+	_ = taskStore.CreateTask(&task.Task{
+		ID: "T-1", Title: "Task 1", Status: task.StatusReady, Type: task.TypeStory, Priority: 3,
+	})
+
+	readyFilter, _ := filter.ParseFilter("status = 'ready'")
+	pluginDef := &plugin.TikiPlugin{
+		BasePlugin: plugin.BasePlugin{Name: "TestPlugin"},
+		Lanes:      []plugin.TikiLane{{Name: "Ready", Columns: 1, Filter: readyFilter}},
+		Actions: []plugin.PluginAction{
+			{
+				Rune:  'd',
+				Label: "Mark Done",
+				Action: plugin.LaneAction{
+					Ops: []plugin.LaneActionOp{
+						{Field: plugin.ActionFieldStatus, Operator: plugin.ActionOperatorAssign, StrValue: "done"},
+					},
+				},
+			},
+		},
+	}
+	pluginConfig := model.NewPluginConfig("TestPlugin")
+	pluginConfig.SetLaneLayout([]int{1}, nil)
+	pluginConfig.SetSelectedLane(0)
+	pluginConfig.SetSelectedIndexForLane(0, 0)
+
+	gate := service.NewTaskMutationGate()
+	gate.SetStore(taskStore)
+	pc := NewPluginController(taskStore, gate, pluginConfig, pluginDef, nil, nil)
+
+	if !pc.HandleAction(pluginActionID('d')) {
+		t.Error("expected true for successful plugin action")
+	}
+
+	tk := taskStore.GetTask("T-1")
+	if tk.Status != "done" {
+		t.Errorf("expected status done, got %s", tk.Status)
+	}
+}
+
+func TestPluginController_HandlePluginAction_Rejected(t *testing.T) {
+	taskStore := store.NewInMemoryStore()
+	_ = taskStore.CreateTask(&task.Task{
+		ID: "T-1", Title: "Task 1", Status: task.StatusReady, Type: task.TypeStory, Priority: 3,
+	})
+
+	readyFilter, _ := filter.ParseFilter("status = 'ready'")
+	pluginDef := &plugin.TikiPlugin{
+		BasePlugin: plugin.BasePlugin{Name: "TestPlugin"},
+		Lanes:      []plugin.TikiLane{{Name: "Ready", Columns: 1, Filter: readyFilter}},
+		Actions: []plugin.PluginAction{
+			{
+				Rune:  'd',
+				Label: "Mark Done",
+				Action: plugin.LaneAction{
+					Ops: []plugin.LaneActionOp{
+						{Field: plugin.ActionFieldStatus, Operator: plugin.ActionOperatorAssign, StrValue: "done"},
+					},
+				},
+			},
+		},
+	}
+	pluginConfig := model.NewPluginConfig("TestPlugin")
+	pluginConfig.SetLaneLayout([]int{1}, nil)
+	pluginConfig.SetSelectedLane(0)
+	pluginConfig.SetSelectedIndexForLane(0, 0)
+
+	statusline := model.NewStatuslineConfig()
+	gate := service.NewTaskMutationGate()
+	gate.SetStore(taskStore)
+	gate.OnUpdate(func(_, _ *task.Task, _ []*task.Task) *service.Rejection {
+		return &service.Rejection{Reason: "updates blocked"}
+	})
+	pc := NewPluginController(taskStore, gate, pluginConfig, pluginDef, nil, statusline)
+
+	if pc.HandleAction(pluginActionID('d')) {
+		t.Error("expected false when plugin action is rejected by gate")
+	}
+
+	// task should still have original status
+	tk := taskStore.GetTask("T-1")
+	if tk.Status != task.StatusReady {
+		t.Errorf("expected status ready, got %s", tk.Status)
+	}
+}
