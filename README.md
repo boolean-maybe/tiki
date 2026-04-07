@@ -62,7 +62,7 @@ tiki --help
 
 ### Markdown viewer
 
-<img src=".doc/doki/doc/markdown-viewer.gif" alt="Markdown viewer demo" width="800">
+![Markdown viewer](assets/markdown-viewer.gif)
 
 `tiki my-markdownfile` to view, edit and navigate markdown files in terminal.
 if you have no Markdown file to try - use this:
