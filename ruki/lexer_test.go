@@ -77,6 +77,8 @@ func TestTokenizeWordBoundary(t *testing.T) {
 		{"oldest", "keyword 'old' as prefix"},
 		{"afterword", "keyword 'after' as prefix"},
 		{"beforehand", "keyword 'before' as prefix"},
+		{"everyone", "keyword 'every' as prefix"},
+		{"everyday", "keyword 'every' as prefix"},
 	}
 
 	for _, tc := range cases {
@@ -189,6 +191,9 @@ func TestKeywordInIdentPosition_ParseError(t *testing.T) {
 		{"deny as field ref", `select where deny = "x"`},
 		{"run as field ref", `select where run = "x"`},
 
+		// time trigger keyword as field ref
+		{"every as field ref", `select where every = "x"`},
+
 		// qualifier keywords as field refs
 		{"old as field ref", `select where old = "x"`},
 		{"new as field ref", `select where new = "x"`},
@@ -205,7 +210,7 @@ func TestKeywordInIdentPosition_ParseError(t *testing.T) {
 }
 
 func TestIsReservedKeyword(t *testing.T) {
-	reserved := []string{"select", "SELECT", "where", "create", "update", "delete", "and", "or", "not", "in", "is", "empty", "any", "all", "set", "order", "by", "asc", "desc", "before", "after", "deny", "run", "old", "new"}
+	reserved := []string{"select", "SELECT", "where", "create", "update", "delete", "and", "or", "not", "in", "is", "empty", "any", "all", "set", "order", "by", "asc", "desc", "before", "after", "deny", "run", "every", "old", "new"}
 	for _, kw := range reserved {
 		if !IsReservedKeyword(kw) {
 			t.Errorf("expected %q to be reserved", kw)

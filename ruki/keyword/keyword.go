@@ -8,6 +8,7 @@ var reserved = [...]string{
 	"where", "set", "order", "by",
 	"asc", "desc",
 	"before", "after", "deny", "run",
+	"every",
 	"and", "or", "not",
 	"is", "empty", "in",
 	"any", "all",

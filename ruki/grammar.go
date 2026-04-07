@@ -80,6 +80,22 @@ type denyGrammar struct {
 	Message string `parser:"'deny' @String"`
 }
 
+// --- time trigger grammar ---
+
+type timeTriggerGrammar struct {
+	Interval string         `parser:"'every' @Duration"`
+	Create   *createGrammar `parser:"(  @@"`
+	Update   *updateGrammar `parser:"| @@"`
+	Delete   *deleteGrammar `parser:"| @@ )"`
+}
+
+// --- rule grammar (union of event trigger and time trigger) ---
+
+type ruleGrammar struct {
+	TimeTrigger *timeTriggerGrammar `parser:"  @@"`
+	Trigger     *triggerGrammar     `parser:"| @@"`
+}
+
 // --- condition grammar (precedence layers) ---
 
 // orCond is the lowest-precedence condition layer.

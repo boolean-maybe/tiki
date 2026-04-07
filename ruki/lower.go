@@ -163,6 +163,65 @@ func lowerTriggerAction(g *actionGrammar, t *Trigger) error {
 	return nil
 }
 
+// --- rule lowering (union dispatch) ---
+
+func lowerRule(g *ruleGrammar) (*Rule, error) {
+	switch {
+	case g.TimeTrigger != nil:
+		tt, err := lowerTimeTrigger(g.TimeTrigger)
+		if err != nil {
+			return nil, err
+		}
+		return &Rule{TimeTrigger: tt}, nil
+	case g.Trigger != nil:
+		trig, err := lowerTrigger(g.Trigger)
+		if err != nil {
+			return nil, err
+		}
+		return &Rule{Trigger: trig}, nil
+	default:
+		return nil, fmt.Errorf("empty rule")
+	}
+}
+
+// --- time trigger lowering ---
+
+func lowerTimeTrigger(g *timeTriggerGrammar) (*TimeTrigger, error) {
+	val, unit, err := duration.Parse(g.Interval)
+	if err != nil {
+		return nil, fmt.Errorf("invalid interval: %w", err)
+	}
+
+	var stmt *Statement
+	switch {
+	case g.Create != nil:
+		s, err := lowerCreate(g.Create)
+		if err != nil {
+			return nil, err
+		}
+		stmt = &Statement{Create: s}
+	case g.Update != nil:
+		s, err := lowerUpdate(g.Update)
+		if err != nil {
+			return nil, err
+		}
+		stmt = &Statement{Update: s}
+	case g.Delete != nil:
+		s, err := lowerDelete(g.Delete)
+		if err != nil {
+			return nil, err
+		}
+		stmt = &Statement{Delete: s}
+	default:
+		return nil, fmt.Errorf("empty time trigger action")
+	}
+
+	return &TimeTrigger{
+		Interval: DurationLiteral{Value: val, Unit: unit},
+		Action:   stmt,
+	}, nil
+}
+
 // --- condition lowering ---
 
 func lowerOrCond(g *orCond) (Condition, error) {

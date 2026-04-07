@@ -66,6 +66,8 @@ event            = "create" | "update" | "delete" ;
 action           = runAction | createStmt | updateStmt | deleteStmt ;
 runAction        = "run" "(" expr ")" ;
 deny             = "deny" string ;
+
+timeTrigger      = "every" duration ( createStmt | updateStmt | deleteStmt ) ;
 ```
 
 ![Statement grammar railroad diagram](images/stmt-railroad.svg)
@@ -81,6 +83,7 @@ Notes:
 - `order by` is only valid on `select`, not on subqueries inside `count(...)`.
 - `asc`, `desc`, `order`, and `by` are contextual keywords — they are only special in the ORDER BY clause.
 - Bare `select` and `select *` both mean all fields. A field list like `select title, status` projects only the named fields.
+- `every` wraps a CRUD statement with a periodic interval. Only `create`, `update`, and `delete` are allowed
 
 ## Condition grammar
 

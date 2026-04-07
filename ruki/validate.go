@@ -123,6 +123,30 @@ func (p *Parser) validateTrigger(t *Trigger) error {
 	return nil
 }
 
+func (p *Parser) validateRule(r *Rule) error {
+	switch {
+	case r.TimeTrigger != nil:
+		p.qualifiers = noQualifiers
+		return p.validateTimeTrigger(r.TimeTrigger)
+	case r.Trigger != nil:
+		p.qualifiers = triggerQualifiers(r.Trigger.Event)
+		return p.validateTrigger(r.Trigger)
+	default:
+		return fmt.Errorf("empty rule")
+	}
+}
+
+func (p *Parser) validateTimeTrigger(tt *TimeTrigger) error {
+	if tt.Interval.Value <= 0 {
+		return fmt.Errorf("every interval must be positive, got %d%s", tt.Interval.Value, tt.Interval.Unit)
+	}
+	if tt.Action.Select != nil {
+		return fmt.Errorf("time trigger action must not be select")
+	}
+	p.qualifiers = noQualifiers
+	return p.validateStatement(tt.Action)
+}
+
 func (p *Parser) validateAssignments(assignments []Assignment) error {
 	seen := make(map[string]struct{}, len(assignments))
 	for _, a := range assignments {

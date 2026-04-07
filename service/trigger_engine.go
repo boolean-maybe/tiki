@@ -26,6 +26,12 @@ type triggerEntry struct {
 	trigger     *ruki.Trigger
 }
 
+// TimeTriggerEntry holds a parsed time trigger and its description.
+type TimeTriggerEntry struct {
+	Description string
+	Trigger     *ruki.TimeTrigger
+}
+
 // TriggerEngine bridges parsed triggers with the mutation gate.
 // Before-triggers become MutationValidators, after-triggers become AfterHooks.
 type TriggerEngine struct {
@@ -35,13 +41,14 @@ type TriggerEngine struct {
 	afterCreate  []triggerEntry
 	afterUpdate  []triggerEntry
 	afterDelete  []triggerEntry
+	timeTriggers []TimeTriggerEntry
 	executor     *ruki.TriggerExecutor
 	gate         *TaskMutationGate
 }
 
-// NewTriggerEngine creates a TriggerEngine from parsed triggers.
-func NewTriggerEngine(triggers []triggerEntry, executor *ruki.TriggerExecutor) *TriggerEngine {
-	te := &TriggerEngine{executor: executor}
+// NewTriggerEngine creates a TriggerEngine from parsed event and time triggers.
+func NewTriggerEngine(triggers []triggerEntry, timeTriggers []TimeTriggerEntry, executor *ruki.TriggerExecutor) *TriggerEngine {
+	te := &TriggerEngine{timeTriggers: timeTriggers, executor: executor}
 	for _, entry := range triggers {
 		te.addTrigger(entry)
 	}
@@ -64,6 +71,11 @@ func (te *TriggerEngine) addTrigger(entry triggerEntry) {
 	case trig.Timing == "after" && trig.Event == "delete":
 		te.afterDelete = append(te.afterDelete, entry)
 	}
+}
+
+// TimeTriggers returns the stored time trigger entries.
+func (te *TriggerEngine) TimeTriggers() []TimeTriggerEntry {
+	return te.timeTriggers
 }
 
 // RegisterWithGate wires the triggers into the gate as validators and hooks.
@@ -223,25 +235,40 @@ func LoadAndRegisterTriggers(gate *TaskMutationGate, schema ruki.Schema, userFun
 	}
 
 	parser := ruki.NewParser(schema)
-	entries := make([]triggerEntry, 0, len(defs))
+	var eventEntries []triggerEntry
+	var timeEntries []TimeTriggerEntry
+
 	for i, def := range defs {
-		trig, err := parser.ParseTrigger(def.Ruki)
+		desc := def.Description
+		if desc == "" {
+			desc = fmt.Sprintf("#%d", i+1)
+		}
+
+		rule, err := parser.ParseRule(def.Ruki)
 		if err != nil {
-			desc := def.Description
-			if desc == "" {
-				desc = fmt.Sprintf("#%d", i+1)
-			}
 			return 0, fmt.Errorf("trigger %q: %w", desc, err)
 		}
-		entries = append(entries, triggerEntry{
-			description: def.Description,
-			trigger:     trig,
-		})
+
+		switch {
+		case rule.TimeTrigger != nil:
+			timeEntries = append(timeEntries, TimeTriggerEntry{
+				Description: def.Description,
+				Trigger:     rule.TimeTrigger,
+			})
+		case rule.Trigger != nil:
+			eventEntries = append(eventEntries, triggerEntry{
+				description: def.Description,
+				trigger:     rule.Trigger,
+			})
+		}
 	}
 
 	executor := ruki.NewTriggerExecutor(schema, userFunc)
-	engine := NewTriggerEngine(entries, executor)
+	engine := NewTriggerEngine(eventEntries, timeEntries, executor)
 	engine.RegisterWithGate(gate)
 
-	return len(entries), nil
+	total := len(eventEntries) + len(timeEntries)
+	slog.Info("triggers loaded", "event", len(eventEntries), "time", len(timeEntries))
+
+	return total, nil
 }

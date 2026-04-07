@@ -47,6 +47,8 @@ type FieldSpec struct {
 type Parser struct {
 	stmtParser        *participle.Parser[statementGrammar]
 	triggerParser     *participle.Parser[triggerGrammar]
+	timeTriggerParser *participle.Parser[timeTriggerGrammar]
+	ruleParser        *participle.Parser[ruleGrammar]
 	schema            Schema
 	qualifiers        qualifierPolicy // set before each validation pass
 	requireQualifiers bool            // when true, bare FieldRef is a parse error (trigger where-guards)
@@ -61,9 +63,11 @@ func NewParser(schema Schema) *Parser {
 		participle.UseLookahead(3),
 	}
 	return &Parser{
-		stmtParser:    participle.MustBuild[statementGrammar](opts...),
-		triggerParser: participle.MustBuild[triggerGrammar](opts...),
-		schema:        schema,
+		stmtParser:        participle.MustBuild[statementGrammar](opts...),
+		triggerParser:     participle.MustBuild[triggerGrammar](opts...),
+		timeTriggerParser: participle.MustBuild[timeTriggerGrammar](opts...),
+		ruleParser:        participle.MustBuild[ruleGrammar](opts...),
+		schema:            schema,
 	}
 }
 
@@ -99,4 +103,38 @@ func (p *Parser) ParseTrigger(input string) (*Trigger, error) {
 		return nil, err
 	}
 	return trig, nil
+}
+
+// ParseTimeTrigger parses a periodic time trigger and returns a validated AST.
+func (p *Parser) ParseTimeTrigger(input string) (*TimeTrigger, error) {
+	g, err := p.timeTriggerParser.ParseString("", input)
+	if err != nil {
+		return nil, err
+	}
+	tt, err := lowerTimeTrigger(g)
+	if err != nil {
+		return nil, err
+	}
+	if err := p.validateTimeTrigger(tt); err != nil {
+		return nil, err
+	}
+	return tt, nil
+}
+
+// ParseRule parses a trigger definition that is either an event trigger
+// (before/after) or a time trigger (every). The grammar dispatches internally
+// so the caller does not need to inspect the input string.
+func (p *Parser) ParseRule(input string) (*Rule, error) {
+	g, err := p.ruleParser.ParseString("", input)
+	if err != nil {
+		return nil, err
+	}
+	rule, err := lowerRule(g)
+	if err != nil {
+		return nil, err
+	}
+	if err := p.validateRule(rule); err != nil {
+		return nil, err
+	}
+	return rule, nil
 }

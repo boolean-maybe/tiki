@@ -188,6 +188,26 @@ Run a command after an update:
 after update where new.status = "in progress" and "claude" in new.tags run("claude -p 'implement tiki " + old.id + "'")
 ```
 
+## Time triggers
+
+Move stale in-progress tasks back to backlog:
+
+```sql
+every 1hour update where status = "in_progress" and updatedAt < now() - 7day set status="backlog"
+```
+
+Delete expired done tasks:
+
+```sql
+every 1day delete where status = "done" and updatedAt < now() - 30day
+```
+
+Create a weekly review task:
+
+```sql
+every 1week create title="weekly review" status="ready" priority=3
+```
+
 ## Invalid examples
 
 Unknown field:

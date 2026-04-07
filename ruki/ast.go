@@ -53,6 +53,20 @@ type RunAction struct {
 	Command Expr
 }
 
+// TimeTrigger is the result of parsing a periodic time trigger.
+// It wraps a mutating statement (create, update, or delete) with a schedule interval.
+type TimeTrigger struct {
+	Interval DurationLiteral // e.g. {1, "hour"}, {1, "day"}
+	Action   *Statement      // create, update, or delete (never select)
+}
+
+// Rule is the result of parsing a trigger definition.
+// Exactly one variant is non-nil.
+type Rule struct {
+	Trigger     *Trigger
+	TimeTrigger *TimeTrigger
+}
+
 // --- conditions ---
 
 // Condition is the interface for all boolean condition nodes.

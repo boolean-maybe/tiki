@@ -6,6 +6,7 @@
 - [Statement semantics](#statement-semantics)
 - [Trigger semantics](#trigger-semantics)
 - [Qualifier scope](#qualifier-scope)
+- [Time trigger semantics](#time-trigger-semantics)
 - [Condition and expression semantics](#condition-and-expression-semantics)
 
 ## Overview
@@ -106,6 +107,30 @@ Example:
 
 ```sql
 before update where dependsOn any status = "done" deny "blocked"
+```
+
+## Time trigger semantics
+
+Time triggers have the shape:
+
+```text
+every <duration> <statement>
+```
+
+Rules:
+
+- the interval must be a positive duration (e.g. `1hour`, `2day`, `1week`)
+- the inner statement must be `create`, `update`, or `delete` — not `select`
+- `run()` is not allowed inside a time trigger
+- `old.` and `new.` qualifiers are not allowed — there is no mutation context for a periodic operation
+- bare field references in the inner statement resolve against the tasks being matched, exactly as in standalone statements
+
+Examples:
+
+```sql
+every 1hour update where status = "in_progress" and updatedAt < now() - 7day set status="backlog"
+every 1day delete where status = "done" and updatedAt < now() - 30day
+every 2week create title="sprint review" status="ready" priority=3
 ```
 
 ## Condition and expression semantics

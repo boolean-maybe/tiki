@@ -13,6 +13,7 @@
 - [Cascade depth](#cascade-depth)
 - [The run() action](#the-run-action)
 - [Configuration discovery details](#configuration-discovery-details)
+- [Time triggers](#time-triggers)
 - [Startup and error handling](#startup-and-error-handling)
 
 ## Overview
@@ -269,6 +270,40 @@ Trigger definitions are loaded from `workflow.yaml` using the standard [configur
 A file that exists but has no `triggers:` key expresses no opinion and does not override. An explicit empty list (`triggers: []`) is an active override that disables inherited triggers.
 
 If two candidate paths resolve to the same absolute path (e.g. when the project root is the current directory), the file is read once.
+
+## Time triggers
+
+Time triggers use the `every` keyword to define a periodic CRUD operation:
+
+```
+every <duration> <statement>
+```
+
+Where `<statement>` is `create`, `update`, or `delete` (not `select` or `run()`). The interval must be a positive duration.
+
+```yaml
+triggers:
+  - description: stale tasks go back to backlog
+    ruki: >
+      every 1hour
+        update where status = "in_progress" and updatedAt < now() - 7day set status="backlog"
+
+  - description: delete expired tasks
+    ruki: >
+      every 1day
+        delete where status = "done" and updatedAt < now() - 30day
+```
+
+Time triggers differ from event triggers in several ways:
+
+- No timing/event pair (`before`/`after` + `create`/`update`/`delete`) — just `every` + duration
+- No `where` guard at the trigger level — filtering belongs inside the CRUD statement
+- No `old.`/`new.` qualifiers — there is no "old" or "new" task context for a periodic operation
+- No `deny` or `run()` — only mutating CRUD statements
+
+Time triggers are parsed and validated at startup alongside event triggers. A parse error in any trigger definition prevents the app from starting.
+
+**Note:** the time trigger scheduler (executor) is not yet implemented. Time trigger definitions are parsed and stored, but they do not run periodically at this time.
 
 ## Startup and error handling
 
