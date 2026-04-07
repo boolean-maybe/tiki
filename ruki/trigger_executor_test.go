@@ -2420,3 +2420,100 @@ func TestEvalCountOverride_NonSubQueryArg(t *testing.T) {
 		t.Fatalf("expected 'count() argument must be a select subquery' error, got: %v", err)
 	}
 }
+
+// --- ExecTimeTriggerAction ---
+
+func TestExecTimeTriggerAction_Update(t *testing.T) {
+	te := newTestTriggerExecutor()
+	p := newTestParser()
+
+	tt, err := p.ParseTimeTrigger(`every 1day update where status = "in_progress" set status="backlog"`)
+	if err != nil {
+		t.Fatalf("parse: %v", err)
+	}
+
+	tasks := []*task.Task{
+		{ID: "TIKI-000001", Status: "in_progress", Title: "stale", Type: "story", Priority: 3},
+		{ID: "TIKI-000002", Status: "done", Title: "finished", Type: "story", Priority: 3},
+	}
+
+	result, err := te.ExecTimeTriggerAction(tt, tasks)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if result.Update == nil {
+		t.Fatal("expected Update result")
+	}
+	if len(result.Update.Updated) != 1 {
+		t.Fatalf("expected 1 updated task, got %d", len(result.Update.Updated))
+	}
+	if result.Update.Updated[0].Status != "backlog" {
+		t.Fatalf("expected status=backlog, got %q", result.Update.Updated[0].Status)
+	}
+}
+
+func TestExecTimeTriggerAction_Create(t *testing.T) {
+	te := newTestTriggerExecutor()
+	p := newTestParser()
+
+	tt, err := p.ParseTimeTrigger(`every 1day create title="daily standup" status="ready" type="story" priority=3`)
+	if err != nil {
+		t.Fatalf("parse: %v", err)
+	}
+
+	result, err := te.ExecTimeTriggerAction(tt, nil)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if result.Create == nil {
+		t.Fatal("expected Create result")
+	}
+	if result.Create.Task.Title != "daily standup" {
+		t.Fatalf("expected title='daily standup', got %q", result.Create.Task.Title)
+	}
+	if result.Create.Task.Status != "ready" {
+		t.Fatalf("expected status=ready, got %q", result.Create.Task.Status)
+	}
+}
+
+func TestExecTimeTriggerAction_Delete(t *testing.T) {
+	te := newTestTriggerExecutor()
+	p := newTestParser()
+
+	tt, err := p.ParseTimeTrigger(`every 1day delete where status = "done"`)
+	if err != nil {
+		t.Fatalf("parse: %v", err)
+	}
+
+	tasks := []*task.Task{
+		{ID: "TIKI-000001", Status: "done", Title: "finished", Type: "story", Priority: 3},
+		{ID: "TIKI-000002", Status: "ready", Title: "active", Type: "story", Priority: 3},
+		{ID: "TIKI-000003", Status: "done", Title: "also done", Type: "story", Priority: 3},
+	}
+
+	result, err := te.ExecTimeTriggerAction(tt, tasks)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if result.Delete == nil {
+		t.Fatal("expected Delete result")
+	}
+	if len(result.Delete.Deleted) != 2 {
+		t.Fatalf("expected 2 deleted tasks, got %d", len(result.Delete.Deleted))
+	}
+}
+
+func TestExecTimeTriggerAction_NilAction(t *testing.T) {
+	te := newTestTriggerExecutor()
+	tt := &TimeTrigger{
+		Interval: DurationLiteral{Value: 1, Unit: "day"},
+		Action:   nil,
+	}
+	_, err := te.ExecTimeTriggerAction(tt, nil)
+	if err == nil {
+		t.Fatal("expected error for nil action")
+	}
+	if !strings.Contains(err.Error(), "time trigger has no action") {
+		t.Fatalf("expected 'time trigger has no action' error, got: %v", err)
+	}
+}

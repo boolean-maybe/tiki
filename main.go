@@ -233,7 +233,7 @@ func runExec(args []string) int {
 	// load triggers so exec queries fire them
 	schema := rukiRuntime.NewSchema()
 	userName, _, _ := taskStore.GetCurrentUser()
-	if _, err := service.LoadAndRegisterTriggers(gate, schema, func() string { return userName }); err != nil {
+	if _, _, err := service.LoadAndRegisterTriggers(gate, schema, func() string { return userName }); err != nil {
 		_, _ = fmt.Fprintf(os.Stderr, "error: load triggers: %v\n", err)
 		return exitStartupFailure
 	}

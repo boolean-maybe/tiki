@@ -11,6 +11,7 @@ import (
 	"github.com/boolean-maybe/tiki/config"
 	"github.com/boolean-maybe/tiki/ruki"
 	"github.com/boolean-maybe/tiki/task"
+	"github.com/boolean-maybe/tiki/util/duration"
 )
 
 // maxTriggerDepth is the maximum cascade depth for triggers.
@@ -223,15 +224,21 @@ func (te *TriggerEngine) execRun(ctx context.Context, entry triggerEntry, tc *ru
 }
 
 // LoadAndRegisterTriggers loads trigger definitions from workflow.yaml, parses them,
-// and registers them with the gate. Returns the number of triggers loaded.
+// and registers them with the gate. Returns the engine (always non-nil), the number
+// of triggers loaded, and any error. Callers can call StartScheduler on the engine
+// without nil-checking — it early-returns on zero time triggers.
 // Fails fast on parse errors — a bad trigger blocks startup.
-func LoadAndRegisterTriggers(gate *TaskMutationGate, schema ruki.Schema, userFunc func() string) (int, error) {
+func LoadAndRegisterTriggers(gate *TaskMutationGate, schema ruki.Schema, userFunc func() string) (*TriggerEngine, int, error) {
+	executor := ruki.NewTriggerExecutor(schema, userFunc)
+	empty := func() *TriggerEngine { return NewTriggerEngine(nil, nil, executor) }
+
 	defs, err := config.LoadTriggerDefs()
 	if err != nil {
-		return 0, fmt.Errorf("loading trigger definitions: %w", err)
+		return empty(), 0, fmt.Errorf("loading trigger definitions: %w", err)
 	}
+
 	if len(defs) == 0 {
-		return 0, nil
+		return empty(), 0, nil
 	}
 
 	parser := ruki.NewParser(schema)
@@ -246,7 +253,7 @@ func LoadAndRegisterTriggers(gate *TaskMutationGate, schema ruki.Schema, userFun
 
 		rule, err := parser.ParseRule(def.Ruki)
 		if err != nil {
-			return 0, fmt.Errorf("trigger %q: %w", desc, err)
+			return empty(), 0, fmt.Errorf("trigger %q: %w", desc, err)
 		}
 
 		switch {
@@ -263,12 +270,62 @@ func LoadAndRegisterTriggers(gate *TaskMutationGate, schema ruki.Schema, userFun
 		}
 	}
 
-	executor := ruki.NewTriggerExecutor(schema, userFunc)
 	engine := NewTriggerEngine(eventEntries, timeEntries, executor)
 	engine.RegisterWithGate(gate)
 
 	total := len(eventEntries) + len(timeEntries)
 	slog.Info("triggers loaded", "event", len(eventEntries), "time", len(timeEntries))
 
-	return total, nil
+	return engine, total, nil
+}
+
+// StartScheduler launches a background goroutine for each time trigger.
+// Each goroutine fires on a time.Ticker interval. Context cancellation stops all goroutines.
+// Safe to call even when there are no time triggers — returns immediately.
+func (te *TriggerEngine) StartScheduler(ctx context.Context) {
+	if len(te.timeTriggers) == 0 {
+		return
+	}
+	for _, entry := range te.timeTriggers {
+		d, err := duration.ToDuration(entry.Trigger.Interval.Value, entry.Trigger.Interval.Unit)
+		if err != nil {
+			slog.Error("invalid time trigger interval, skipping",
+				"trigger", entry.Description, "error", err)
+			continue
+		}
+		slog.Info("starting time trigger scheduler",
+			"trigger", entry.Description, "interval", d)
+		go te.runTimeTrigger(ctx, entry, d)
+	}
+}
+
+// runTimeTrigger runs a single time trigger on a ticker loop until ctx is cancelled.
+// All errors are logged and swallowed — the ticker keeps running (fail-open).
+func (te *TriggerEngine) runTimeTrigger(ctx context.Context, entry TimeTriggerEntry, interval time.Duration) {
+	ticker := time.NewTicker(interval)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+			te.executeTimeTrigger(ctx, entry)
+		}
+	}
+}
+
+// executeTimeTrigger runs a single tick of a time trigger: snapshot tasks, execute, persist.
+func (te *TriggerEngine) executeTimeTrigger(ctx context.Context, entry TimeTriggerEntry) {
+	allTasks := te.gate.ReadStore().GetAllTasks()
+	result, err := te.executor.ExecTimeTriggerAction(entry.Trigger, allTasks)
+	if err != nil {
+		slog.Error("time trigger action failed",
+			"trigger", entry.Description, "error", err)
+		return
+	}
+	if err := te.persistResult(ctx, result); err != nil {
+		slog.Error("time trigger persist failed",
+			"trigger", entry.Description, "error", err)
+	}
 }

@@ -662,15 +662,18 @@ func TestTriggerEngine_BeforeDeleteUnconditionalDeny(t *testing.T) {
 // --- LoadAndRegisterTriggers ---
 
 func TestLoadAndRegisterTriggers_EmptyDefs(t *testing.T) {
-	// no workflow files → empty defs → 0, nil
+	// no workflow files → empty defs → engine, 0, nil
 	gate := NewTaskMutationGate()
 	schema := testTriggerSchema{}
-	count, err := LoadAndRegisterTriggers(gate, schema, nil)
+	engine, count, err := LoadAndRegisterTriggers(gate, schema, nil)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 	if count != 0 {
 		t.Fatalf("expected 0 triggers loaded, got %d", count)
+	}
+	if engine == nil {
+		t.Fatal("expected non-nil engine even with zero triggers")
 	}
 }
 
@@ -848,7 +851,7 @@ func TestLoadAndRegisterTriggers_WithValidTriggers(t *testing.T) {
 	s := store.NewInMemoryStore()
 	gate.SetStore(s)
 
-	count, err := LoadAndRegisterTriggers(gate, testTriggerSchema{}, func() string { return "test-user" })
+	_, count, err := LoadAndRegisterTriggers(gate, testTriggerSchema{}, func() string { return "test-user" })
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -884,12 +887,15 @@ func TestLoadAndRegisterTriggers_ParseError(t *testing.T) {
 	gate := NewTaskMutationGate()
 	gate.SetStore(store.NewInMemoryStore())
 
-	_, err := LoadAndRegisterTriggers(gate, testTriggerSchema{}, nil)
+	engine, _, err := LoadAndRegisterTriggers(gate, testTriggerSchema{}, nil)
 	if err == nil {
 		t.Fatal("expected parse error")
 	}
 	if !strings.Contains(err.Error(), "broken") {
 		t.Fatalf("expected trigger description in error, got: %v", err)
+	}
+	if engine == nil {
+		t.Fatal("expected non-nil engine even on error")
 	}
 }
 
@@ -906,7 +912,7 @@ func TestLoadAndRegisterTriggers_ParseErrorNoDescription(t *testing.T) {
 	gate := NewTaskMutationGate()
 	gate.SetStore(store.NewInMemoryStore())
 
-	_, err := LoadAndRegisterTriggers(gate, testTriggerSchema{}, nil)
+	_, _, err := LoadAndRegisterTriggers(gate, testTriggerSchema{}, nil)
 	if err == nil {
 		t.Fatal("expected parse error")
 	}
@@ -1017,12 +1023,15 @@ func TestLoadAndRegisterTriggers_LoadDefError(t *testing.T) {
 	gate := NewTaskMutationGate()
 	gate.SetStore(store.NewInMemoryStore())
 
-	_, err := LoadAndRegisterTriggers(gate, testTriggerSchema{}, nil)
+	engine, _, err := LoadAndRegisterTriggers(gate, testTriggerSchema{}, nil)
 	if err == nil {
 		t.Fatal("expected error for unreadable workflow.yaml")
 	}
 	if !strings.Contains(err.Error(), "loading trigger definitions") {
 		t.Fatalf("expected 'loading trigger definitions' error, got: %v", err)
+	}
+	if engine == nil {
+		t.Fatal("expected non-nil engine even on load error")
 	}
 }
 
@@ -1069,12 +1078,15 @@ func TestLoadAndRegisterTriggers_MixedEventAndTimeTriggers(t *testing.T) {
 	gate := NewTaskMutationGate()
 	gate.SetStore(store.NewInMemoryStore())
 
-	count, err := LoadAndRegisterTriggers(gate, testTriggerSchema{}, func() string { return "test-user" })
+	engine, count, err := LoadAndRegisterTriggers(gate, testTriggerSchema{}, func() string { return "test-user" })
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 	if count != 3 {
 		t.Fatalf("expected 3 triggers loaded, got %d", count)
+	}
+	if engine == nil {
+		t.Fatal("expected non-nil engine with mixed triggers")
 	}
 }
 
@@ -1115,7 +1127,7 @@ func TestLoadAndRegisterTriggers_InvalidTimeTrigger(t *testing.T) {
 	gate := NewTaskMutationGate()
 	gate.SetStore(store.NewInMemoryStore())
 
-	_, err := LoadAndRegisterTriggers(gate, testTriggerSchema{}, nil)
+	_, _, err := LoadAndRegisterTriggers(gate, testTriggerSchema{}, nil)
 	if err == nil {
 		t.Fatal("expected error for invalid time trigger")
 	}
@@ -1138,11 +1150,215 @@ func TestLoadAndRegisterTriggers_RunRejectedInTimeTrigger(t *testing.T) {
 	gate := NewTaskMutationGate()
 	gate.SetStore(store.NewInMemoryStore())
 
-	_, err := LoadAndRegisterTriggers(gate, testTriggerSchema{}, nil)
+	_, _, err := LoadAndRegisterTriggers(gate, testTriggerSchema{}, nil)
 	if err == nil {
 		t.Fatal("expected error for run() in time trigger")
 	}
 	if !strings.Contains(err.Error(), "run not allowed") {
 		t.Fatalf("expected trigger description in error, got: %v", err)
+	}
+}
+
+// --- StartScheduler tests ---
+
+func TestTriggerEngine_StartScheduler_TickExecutes(t *testing.T) {
+	// time trigger: delete all done tasks every 50ms
+	p := ruki.NewParser(testTriggerSchema{})
+	tt, err := p.ParseTimeTrigger(`every 1sec delete where status = "done"`)
+	if err != nil {
+		t.Fatalf("parse: %v", err)
+	}
+
+	doneTk := &task.Task{ID: "TIKI-DONE01", Title: "done task", Status: "done", Type: "story", Priority: 3}
+	activeTk := &task.Task{ID: "TIKI-ACT001", Title: "active", Status: "ready", Type: "story", Priority: 3}
+	gate, s := newGateWithStoreAndTasks(doneTk, activeTk)
+
+	engine := NewTriggerEngine(nil, []TimeTriggerEntry{
+		{Description: "cleanup", Trigger: tt},
+	}, ruki.NewTriggerExecutor(testTriggerSchema{}, nil))
+	engine.RegisterWithGate(gate)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	// override the interval to 50ms for fast test
+	go engine.runTimeTrigger(ctx, engine.timeTriggers[0], 50*time.Millisecond)
+
+	// wait long enough for at least one tick
+	time.Sleep(200 * time.Millisecond)
+	cancel()
+
+	// done task should have been deleted
+	if s.GetTask("TIKI-DONE01") != nil {
+		t.Fatal("expected done task to be deleted by time trigger")
+	}
+	// active task should remain
+	if s.GetTask("TIKI-ACT001") == nil {
+		t.Fatal("expected active task to remain")
+	}
+}
+
+func TestTriggerEngine_StartScheduler_NoTimeTriggers(t *testing.T) {
+	// StartScheduler with no time triggers should return immediately without error
+	engine := NewTriggerEngine(nil, nil, ruki.NewTriggerExecutor(testTriggerSchema{}, nil))
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	// should not block or panic
+	engine.StartScheduler(ctx)
+}
+
+func TestTriggerEngine_StartScheduler_ContextCancellation(t *testing.T) {
+	p := ruki.NewParser(testTriggerSchema{})
+	tt, err := p.ParseTimeTrigger(`every 1day delete where status = "done"`)
+	if err != nil {
+		t.Fatalf("parse: %v", err)
+	}
+
+	gate, _ := newGateWithStoreAndTasks()
+	engine := NewTriggerEngine(nil, []TimeTriggerEntry{
+		{Description: "daily cleanup", Trigger: tt},
+	}, ruki.NewTriggerExecutor(testTriggerSchema{}, nil))
+	engine.RegisterWithGate(gate)
+
+	ctx, cancel := context.WithCancel(context.Background())
+
+	done := make(chan struct{})
+	go func() {
+		engine.runTimeTrigger(ctx, engine.timeTriggers[0], 1*time.Hour)
+		close(done)
+	}()
+
+	// cancel immediately — goroutine should exit promptly
+	cancel()
+	select {
+	case <-done:
+		// success — goroutine exited
+	case <-time.After(2 * time.Second):
+		t.Fatal("runTimeTrigger did not exit after context cancellation")
+	}
+}
+
+func TestTriggerEngine_StartScheduler_ActionErrorContinues(t *testing.T) {
+	// time trigger with an action that will error on execution
+	// (update with assignment to immutable field)
+	p := ruki.NewParser(testTriggerSchema{})
+	tt, err := p.ParseTimeTrigger(`every 1sec update where status = "ready" set createdBy="hacker"`)
+	if err != nil {
+		t.Fatalf("parse: %v", err)
+	}
+
+	tk := &task.Task{ID: "TIKI-ERR001", Title: "test", Status: "ready", Type: "story", Priority: 3}
+	gate, s := newGateWithStoreAndTasks(tk)
+
+	engine := NewTriggerEngine(nil, []TimeTriggerEntry{
+		{Description: "broken trigger", Trigger: tt},
+	}, ruki.NewTriggerExecutor(testTriggerSchema{}, nil))
+	engine.RegisterWithGate(gate)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	// run with a short interval — the error should be swallowed and ticker continues
+	go engine.runTimeTrigger(ctx, engine.timeTriggers[0], 50*time.Millisecond)
+	time.Sleep(200 * time.Millisecond)
+	cancel()
+
+	// task should remain unchanged since the action errored
+	persisted := s.GetTask("TIKI-ERR001")
+	if persisted == nil {
+		t.Fatal("task should still exist")
+	}
+	if persisted.CreatedBy != "" {
+		t.Errorf("createdBy should be unchanged, got %q", persisted.CreatedBy)
+	}
+}
+
+func TestTriggerEngine_StartScheduler_ValidTriggerRuns(t *testing.T) {
+	// verify StartScheduler actually launches goroutines that execute the trigger
+	p := ruki.NewParser(testTriggerSchema{})
+	tt, err := p.ParseTimeTrigger(`every 1sec delete where status = "done"`)
+	if err != nil {
+		t.Fatalf("parse: %v", err)
+	}
+
+	doneTk := &task.Task{ID: "TIKI-SCH001", Title: "done task", Status: "done", Type: "story", Priority: 3}
+	gate, s := newGateWithStoreAndTasks(doneTk)
+
+	engine := NewTriggerEngine(nil, []TimeTriggerEntry{
+		{Description: "scheduler-test", Trigger: tt},
+	}, ruki.NewTriggerExecutor(testTriggerSchema{}, nil))
+	engine.RegisterWithGate(gate)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	engine.StartScheduler(ctx)
+	// 1sec is the smallest parseable interval; wait long enough for one tick
+	time.Sleep(1500 * time.Millisecond)
+	cancel()
+
+	if s.GetTask("TIKI-SCH001") != nil {
+		t.Fatal("expected done task to be deleted by scheduler")
+	}
+}
+
+func TestTriggerEngine_StartScheduler_InvalidIntervalSkipped(t *testing.T) {
+	// construct a time trigger with an unrecognized unit — StartScheduler should
+	// log an error and skip it without panicking or launching a goroutine
+	tt := &ruki.TimeTrigger{
+		Interval: ruki.DurationLiteral{Value: 1, Unit: "fortnights"},
+		Action:   nil, // won't be reached
+	}
+
+	gate, _ := newGateWithStoreAndTasks()
+	engine := NewTriggerEngine(nil, []TimeTriggerEntry{
+		{Description: "bad interval", Trigger: tt},
+	}, ruki.NewTriggerExecutor(testTriggerSchema{}, nil))
+	engine.RegisterWithGate(gate)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	// should not panic or launch any goroutines
+	engine.StartScheduler(ctx)
+}
+
+func TestTriggerEngine_ExecuteTimeTrigger_PersistError(t *testing.T) {
+	// update time trigger where persistResult fails because a before-update
+	// validator denies the mutation
+	p := ruki.NewParser(testTriggerSchema{})
+	tt, err := p.ParseTimeTrigger(`every 1sec update where status = "ready" set status="in_progress"`)
+	if err != nil {
+		t.Fatalf("parse: %v", err)
+	}
+
+	tk := &task.Task{ID: "TIKI-PER001", Title: "target", Status: "ready", Type: "story", Priority: 3}
+	gate, s := newGateWithStoreAndTasks(tk)
+
+	// register a before-update validator that always denies
+	gate.OnUpdate(func(old, proposed *task.Task, all []*task.Task) *Rejection {
+		return &Rejection{Reason: "update blocked by validator"}
+	})
+
+	engine := NewTriggerEngine(nil, []TimeTriggerEntry{
+		{Description: "persist-fail", Trigger: tt},
+	}, ruki.NewTriggerExecutor(testTriggerSchema{}, nil))
+	engine.RegisterWithGate(gate)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	// run one tick — persist should fail (logged), ticker continues
+	go engine.runTimeTrigger(ctx, engine.timeTriggers[0], 50*time.Millisecond)
+	time.Sleep(200 * time.Millisecond)
+	cancel()
+
+	// task should remain unchanged since persist was rejected
+	persisted := s.GetTask("TIKI-PER001")
+	if persisted == nil {
+		t.Fatal("task should still exist")
+	}
+	if persisted.Status != "ready" {
+		t.Errorf("status should be unchanged, got %q", persisted.Status)
 	}
 }

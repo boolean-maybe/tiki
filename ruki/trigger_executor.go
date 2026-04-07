@@ -43,6 +43,17 @@ func (te *TriggerExecutor) EvalGuard(trig *Trigger, tc *TriggerContext) (bool, e
 	return exec.evalCondition(trig.Where, sentinel, tc.AllTasks)
 }
 
+// ExecTimeTriggerAction executes a time trigger's action against all tasks.
+// Uses a plain Executor (no old/new overrides) since time triggers have no
+// mutation context — the parser forbids qualified refs in them.
+func (te *TriggerExecutor) ExecTimeTriggerAction(tt *TimeTrigger, allTasks []*task.Task) (*Result, error) {
+	if tt.Action == nil {
+		return nil, fmt.Errorf("time trigger has no action")
+	}
+	exec := NewExecutor(te.schema, te.userFunc)
+	return exec.Execute(tt.Action, allTasks)
+}
+
 // ExecAction executes a trigger's CRUD action statement and returns the result.
 // QualifiedRefs resolve against tc.Old/tc.New. Bare fields resolve against target tasks.
 // Returns *Result for persistence by service/.

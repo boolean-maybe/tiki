@@ -119,7 +119,7 @@ func Bootstrap(tikiSkillContent, dokiSkillContent string) (*Result, error) {
 	// Phase 6.5: Trigger system
 	schema := rukiRuntime.NewSchema()
 	userName, _, _ := taskStore.GetCurrentUser()
-	triggerCount, err := service.LoadAndRegisterTriggers(gate, schema, func() string { return userName })
+	triggerEngine, triggerCount, err := service.LoadAndRegisterTriggers(gate, schema, func() string { return userName })
 	if err != nil {
 		return nil, fmt.Errorf("load triggers: %w", err)
 	}
@@ -178,6 +178,7 @@ func Bootstrap(tikiSkillContent, dokiSkillContent string) (*Result, error) {
 	// Phase 11: Background tasks
 	ctx, cancel := context.WithCancel(context.Background()) //nolint:gosec // G118: cancel stored in Result.CancelFunc, called by app shutdown
 	background.StartBurndownHistoryBuilder(ctx, tikiStore, headerConfig, application)
+	triggerEngine.StartScheduler(ctx)
 
 	// Phase 12: Navigation and input wiring
 	wireNavigation(controllers.Nav, layoutModel, rootLayout)

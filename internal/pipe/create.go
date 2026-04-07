@@ -98,7 +98,7 @@ func CreateTaskFromReader(r io.Reader) (string, error) {
 	// load triggers so piped creates fire them
 	schema := rukiRuntime.NewSchema()
 	userName, _, _ := taskStore.GetCurrentUser()
-	if _, loadErr := service.LoadAndRegisterTriggers(gate, schema, func() string { return userName }); loadErr != nil {
+	if _, _, loadErr := service.LoadAndRegisterTriggers(gate, schema, func() string { return userName }); loadErr != nil {
 		return "", fmt.Errorf("load triggers: %w", loadErr)
 	}
 
