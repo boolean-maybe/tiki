@@ -2,51 +2,15 @@ Follow me on X: [![X Badge](https://img.shields.io/badge/-%23000000.svg?style=fl
 
 # tiki
 
-**UPDATE**:
-
-Added test files. Try (must be at least v0.3.4):
-```
-tiki https://github.com/boolean-maybe/tiki/blob/main/testdata/go-concurrency.md
-```
-
-**UPDATE**:
-
-New `chat with AI` action - open a tiki and press `c - Chat`. Opens your preferred terminal coding agent like
-[Claude Code](https://code.claude.com) and loads tiki description. You can chat or edit the tiki with your agent
-
-
-Agent must be configured in `config.yaml`:
-```yaml
-ai:
-  agent: [claude, codex, gemini, opencode]
-```
-
-**UPDATE**:
-
-Now support images and Mermaid diagrams in Kitty-compatible terminals (iTerm2, Kitty, WezTerm, Ghostty)
-
-![Intro](assets/images.gif)
-
-supported:
-- PNG, JPEG, GIF, BMP, WebP, TIFF
-- SVG
-- Mermaid diagram blocks
-
-see [requirements](.doc/doki/doc/image-requirements.md) for more details
-
-
-`tiki` is a simple and lightweight way to keep your tasks, prompts, documents, ideas, scratchpads in your project **git** repo
+`tiki` is a terminal-first Markdown workspace for tasks, docs, prompts, and notes stored in your **git** repo
 
 ![Intro](assets/intro.png)
 
 [Documentation](.doc/doki/doc/index.md)
 
-Markdown is the new go-to format for everything, it's simple, efficient, human and AI native - project management, 
-documentation, brainstorming ideas, incomplete implementations, AI prompts and plans and what not are saved as Markdown files. 
-Stick them in your repo. Keep around for as long as you need. Find them back in **git** history. Make issues out of them
-and take them through an agile lifecycle. `tiki` helps you save and organize these files:
+What `tiki` does:
 
-- Standalone **Markdown viewer** - view and edit Markdown or image files, navigate to local/external/GitHub/GitLab links, image display
+- Standalone **Markdown viewer** with images, Mermaid diagrams, and link/TOC navigation
 - Keep, search, view and version Markdown files in the **git repo**
 - **Wiki-style** documentation with multiple entry points
 - Keep a **to-do list** with priorities, status, assignee and size
@@ -149,8 +113,6 @@ grep ERROR server.log | sort -u | while read -r line; do echo "$line" | tiki; do
 ```
 
 Read more [quick capture docs](.doc/doki/doc/quick-capture.md).
-
-Happy tikking! 
 
 ## tiki
 Keep your tickets in your pockets!
