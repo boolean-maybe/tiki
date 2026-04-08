@@ -65,21 +65,6 @@ func (t *Task) Clone() *Task {
 	return clone
 }
 
-// Validate validates the task using the standard validator
-func (t *Task) Validate() ValidationErrors {
-	return QuickValidate(t)
-}
-
-// IsValid returns true if the task passes all validation
-func (t *Task) IsValid() bool {
-	return IsValid(t)
-}
-
-// ValidateField validates a single field
-func (t *Task) ValidateField(fieldName string) *ValidationError {
-	return NewTaskValidator().ValidateField(t, fieldName)
-}
-
 // Comment represents a comment on a task
 type Comment struct {
 	ID        string

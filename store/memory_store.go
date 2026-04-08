@@ -6,6 +6,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/boolean-maybe/tiki/config"
 	"github.com/boolean-maybe/tiki/store/internal/git"
 	"github.com/boolean-maybe/tiki/task"
 )
@@ -19,6 +20,7 @@ type InMemoryStore struct {
 	tasks          map[string]*task.Task
 	listeners      map[int]ChangeListener
 	nextListenerID int
+	idGenerator    func() string // injectable for testing; defaults to config.GenerateRandomID
 }
 
 func normalizeTaskID(id string) string {
@@ -31,6 +33,7 @@ func NewInMemoryStore() *InMemoryStore {
 		tasks:          make(map[string]*task.Task),
 		listeners:      make(map[int]ChangeListener),
 		nextListenerID: 1, // Start at 1 to avoid conflict with zero-value sentinel
+		idGenerator:    config.GenerateRandomID,
 	}
 }
 
@@ -222,22 +225,38 @@ func (s *InMemoryStore) GetGitOps() git.GitOps {
 	return nil
 }
 
-// NewTaskTemplate returns a new task with hardcoded defaults.
-// MemoryStore doesn't load templates from files.
+const maxIDAttempts = 100
+
+// NewTaskTemplate returns a new task with hardcoded defaults and an auto-generated ID.
 func (s *InMemoryStore) NewTaskTemplate() (*task.Task, error) {
-	task := &task.Task{
-		ID:          "", // Caller must set ID
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
+	var taskID string
+	for range maxIDAttempts {
+		taskID = normalizeTaskID(fmt.Sprintf("TIKI-%s", s.idGenerator()))
+		if _, exists := s.tasks[taskID]; !exists {
+			break
+		}
+		taskID = "" // mark as failed so we can detect exhaustion
+	}
+	if taskID == "" {
+		return nil, fmt.Errorf("failed to generate unique task ID after %d attempts", maxIDAttempts)
+	}
+
+	t := &task.Task{
+		ID:          taskID,
 		Title:       "",
 		Description: "",
 		Type:        task.TypeStory,
 		Status:      task.DefaultStatus(),
-		Priority:    7, // Match embedded template default
+		Priority:    7, // match embedded template default
 		Points:      1,
 		Tags:        []string{"idea"},
 		CreatedAt:   time.Now(),
 		CreatedBy:   "memory-user",
 	}
-	return task, nil
+	return t, nil
 }
 
 // ensure InMemoryStore implements Store

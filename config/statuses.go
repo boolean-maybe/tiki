@@ -4,34 +4,28 @@ import (
 	"fmt"
 	"log/slog"
 	"os"
-	"strings"
 	"sync"
 
+	"github.com/boolean-maybe/tiki/workflow"
 	"gopkg.in/yaml.v3"
 )
 
-// StatusDef defines a single workflow status loaded from workflow.yaml.
-type StatusDef struct {
-	Key     string `yaml:"key"`
-	Label   string `yaml:"label"`
-	Emoji   string `yaml:"emoji"`
-	Active  bool   `yaml:"active"`
-	Default bool   `yaml:"default"`
-	Done    bool   `yaml:"done"`
-}
+// StatusDef is a type alias for workflow.StatusDef.
+// Kept for backward compatibility during migration.
+type StatusDef = workflow.StatusDef
 
-// StatusRegistry is the central, ordered collection of valid statuses.
-// It is loaded once from workflow.yaml during bootstrap and accessed globally.
-type StatusRegistry struct {
-	statuses   []StatusDef
-	byKey      map[string]StatusDef
-	defaultKey string
-	doneKey    string
+// StatusRegistry is a type alias for workflow.StatusRegistry.
+type StatusRegistry = workflow.StatusRegistry
+
+// NormalizeStatusKey delegates to workflow.NormalizeStatusKey.
+func NormalizeStatusKey(key string) string {
+	return string(workflow.NormalizeStatusKey(key))
 }
 
 var (
-	globalRegistry *StatusRegistry
-	registryMu     sync.RWMutex
+	globalStatusRegistry *workflow.StatusRegistry
+	globalTypeRegistry   *workflow.TypeRegistry
+	registryMu           sync.RWMutex
 )
 
 // LoadStatusRegistry reads the statuses: section from workflow.yaml files.
@@ -53,17 +47,27 @@ func LoadStatusRegistry() error {
 	}
 
 	registryMu.Lock()
-	globalRegistry = reg
+	globalStatusRegistry = reg
 	registryMu.Unlock()
-	slog.Debug("loaded status registry", "file", path, "count", len(reg.statuses))
+	slog.Debug("loaded status registry", "file", path, "count", len(reg.All()))
+
+	// also initialize type registry with defaults
+	typeReg, err := workflow.NewTypeRegistry(workflow.DefaultTypeDefs())
+	if err != nil {
+		return fmt.Errorf("initializing type registry: %w", err)
+	}
+	registryMu.Lock()
+	globalTypeRegistry = typeReg
+	registryMu.Unlock()
+
 	return nil
 }
 
 // loadStatusRegistryFromFiles iterates workflow files and returns the registry
 // from the last file that contains a non-empty statuses section.
 // Returns a parse error immediately if any file is malformed.
-func loadStatusRegistryFromFiles(files []string) (*StatusRegistry, string, error) {
-	var lastReg *StatusRegistry
+func loadStatusRegistryFromFiles(files []string) (*workflow.StatusRegistry, string, error) {
+	var lastReg *workflow.StatusRegistry
 	var lastFile string
 
 	for _, path := range files {
@@ -83,100 +87,67 @@ func loadStatusRegistryFromFiles(files []string) (*StatusRegistry, string, error
 // GetStatusRegistry returns the global StatusRegistry.
 // Panics if LoadStatusRegistry() was never called — this is a programming error,
 // not a user-facing path.
-func GetStatusRegistry() *StatusRegistry {
+func GetStatusRegistry() *workflow.StatusRegistry {
 	registryMu.RLock()
 	defer registryMu.RUnlock()
-	if globalRegistry == nil {
+	if globalStatusRegistry == nil {
 		panic("config: GetStatusRegistry called before LoadStatusRegistry")
 	}
-	return globalRegistry
+	return globalStatusRegistry
+}
+
+// GetTypeRegistry returns the global TypeRegistry.
+// Panics if LoadStatusRegistry() was never called.
+func GetTypeRegistry() *workflow.TypeRegistry {
+	registryMu.RLock()
+	defer registryMu.RUnlock()
+	if globalTypeRegistry == nil {
+		panic("config: GetTypeRegistry called before LoadStatusRegistry")
+	}
+	return globalTypeRegistry
+}
+
+// MaybeGetTypeRegistry returns the global TypeRegistry if it has been
+// initialized, or (nil, false) when LoadStatusRegistry() has not run yet.
+func MaybeGetTypeRegistry() (*workflow.TypeRegistry, bool) {
+	registryMu.RLock()
+	defer registryMu.RUnlock()
+	return globalTypeRegistry, globalTypeRegistry != nil
 }
 
 // ResetStatusRegistry replaces the global registry with one built from the given defs.
 // Intended for tests only.
-func ResetStatusRegistry(defs []StatusDef) {
-	reg, err := buildRegistry(defs)
+func ResetStatusRegistry(defs []workflow.StatusDef) {
+	reg, err := workflow.NewStatusRegistry(defs)
 	if err != nil {
 		panic(fmt.Sprintf("ResetStatusRegistry: %v", err))
 	}
+	typeReg, err := workflow.NewTypeRegistry(workflow.DefaultTypeDefs())
+	if err != nil {
+		panic(fmt.Sprintf("ResetStatusRegistry: type registry: %v", err))
+	}
 	registryMu.Lock()
-	globalRegistry = reg
+	globalStatusRegistry = reg
+	globalTypeRegistry = typeReg
 	registryMu.Unlock()
 }
 
-// ClearStatusRegistry removes the global registry. Intended for test teardown.
+// ClearStatusRegistry removes the global registries. Intended for test teardown.
 func ClearStatusRegistry() {
 	registryMu.Lock()
-	globalRegistry = nil
+	globalStatusRegistry = nil
+	globalTypeRegistry = nil
 	registryMu.Unlock()
-}
-
-// --- Registry methods ---
-
-// All returns the ordered list of status definitions.
-func (r *StatusRegistry) All() []StatusDef {
-	return r.statuses
-}
-
-// Lookup returns the StatusDef for a given key (normalized) and whether it exists.
-func (r *StatusRegistry) Lookup(key string) (StatusDef, bool) {
-	def, ok := r.byKey[NormalizeStatusKey(key)]
-	return def, ok
-}
-
-// IsValid reports whether key is a recognized status.
-func (r *StatusRegistry) IsValid(key string) bool {
-	_, ok := r.byKey[NormalizeStatusKey(key)]
-	return ok
-}
-
-// IsActive reports whether the status has the active flag set.
-func (r *StatusRegistry) IsActive(key string) bool {
-	def, ok := r.byKey[NormalizeStatusKey(key)]
-	return ok && def.Active
-}
-
-// IsDone reports whether the status has the done flag set.
-func (r *StatusRegistry) IsDone(key string) bool {
-	def, ok := r.byKey[NormalizeStatusKey(key)]
-	return ok && def.Done
-}
-
-// DefaultKey returns the key of the status with default: true.
-func (r *StatusRegistry) DefaultKey() string {
-	return r.defaultKey
-}
-
-// DoneKey returns the key of the status with done: true.
-func (r *StatusRegistry) DoneKey() string {
-	return r.doneKey
-}
-
-// Keys returns all status keys in definition order.
-func (r *StatusRegistry) Keys() []string {
-	keys := make([]string, len(r.statuses))
-	for i, s := range r.statuses {
-		keys[i] = s.Key
-	}
-	return keys
-}
-
-// NormalizeStatusKey lowercases, trims, and normalizes separators in a status key.
-func NormalizeStatusKey(key string) string {
-	normalized := strings.ToLower(strings.TrimSpace(key))
-	normalized = strings.ReplaceAll(normalized, "-", "_")
-	normalized = strings.ReplaceAll(normalized, " ", "_")
-	return normalized
 }
 
 // --- internal ---
 
 // workflowStatusData is the YAML shape we unmarshal to extract just the statuses key.
 type workflowStatusData struct {
-	Statuses []StatusDef `yaml:"statuses"`
+	Statuses []workflow.StatusDef `yaml:"statuses"`
 }
 
-func loadStatusesFromFile(path string) (*StatusRegistry, error) {
+func loadStatusesFromFile(path string) (*workflow.StatusRegistry, error) {
 	data, err := os.ReadFile(path)
 	if err != nil {
 		return nil, fmt.Errorf("reading %s: %w", path, err)
@@ -191,55 +162,5 @@ func loadStatusesFromFile(path string) (*StatusRegistry, error) {
 		return nil, nil // no statuses in this file, try next
 	}
 
-	return buildRegistry(ws.Statuses)
-}
-
-func buildRegistry(defs []StatusDef) (*StatusRegistry, error) {
-	if len(defs) == 0 {
-		return nil, fmt.Errorf("statuses list is empty")
-	}
-
-	reg := &StatusRegistry{
-		statuses: make([]StatusDef, 0, len(defs)),
-		byKey:    make(map[string]StatusDef, len(defs)),
-	}
-
-	for i, def := range defs {
-		if def.Key == "" {
-			return nil, fmt.Errorf("status at index %d has empty key", i)
-		}
-
-		normalized := NormalizeStatusKey(def.Key)
-		def.Key = normalized
-
-		if _, exists := reg.byKey[normalized]; exists {
-			return nil, fmt.Errorf("duplicate status key %q", normalized)
-		}
-
-		if def.Default {
-			if reg.defaultKey != "" {
-				slog.Warn("multiple statuses marked default; using first", "first", reg.defaultKey, "duplicate", normalized)
-			} else {
-				reg.defaultKey = normalized
-			}
-		}
-		if def.Done {
-			if reg.doneKey != "" {
-				slog.Warn("multiple statuses marked done; using first", "first", reg.doneKey, "duplicate", normalized)
-			} else {
-				reg.doneKey = normalized
-			}
-		}
-
-		reg.byKey[normalized] = def
-		reg.statuses = append(reg.statuses, def)
-	}
-
-	// If no explicit default, use the first status
-	if reg.defaultKey == "" {
-		reg.defaultKey = reg.statuses[0].Key
-		slog.Warn("no status marked default; using first status", "key", reg.defaultKey)
-	}
-
-	return reg, nil
+	return workflow.NewStatusRegistry(ws.Statuses)
 }

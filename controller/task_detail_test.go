@@ -7,13 +7,15 @@ import (
 
 	"github.com/boolean-maybe/tiki/config"
 	"github.com/boolean-maybe/tiki/model"
+	"github.com/boolean-maybe/tiki/service"
 	"github.com/boolean-maybe/tiki/store"
 	"github.com/boolean-maybe/tiki/task"
+	"github.com/boolean-maybe/tiki/workflow"
 )
 
 func init() {
-	// Set up the default status registry for tests.
-	config.ResetStatusRegistry([]config.StatusDef{
+	// set up the default status registry for tests.
+	config.ResetStatusRegistry([]workflow.StatusDef{
 		{Key: "backlog", Label: "Backlog", Emoji: "📥", Default: true},
 		{Key: "ready", Label: "Ready", Emoji: "📋", Active: true},
 		{Key: "in_progress", Label: "In Progress", Emoji: "⚙️", Active: true},
@@ -26,8 +28,10 @@ func init() {
 
 func TestTaskController_SetDraft(t *testing.T) {
 	taskStore := store.NewInMemoryStore()
+	gate := service.NewTaskMutationGate()
+	gate.SetStore(taskStore)
 	navController := newMockNavigationController()
-	tc := NewTaskController(taskStore, navController, nil)
+	tc := NewTaskController(taskStore, gate, navController, nil)
 
 	draft := newTestTask()
 	tc.SetDraft(draft)
@@ -43,8 +47,10 @@ func TestTaskController_SetDraft(t *testing.T) {
 
 func TestTaskController_ClearDraft(t *testing.T) {
 	taskStore := store.NewInMemoryStore()
+	gate := service.NewTaskMutationGate()
+	gate.SetStore(taskStore)
 	navController := newMockNavigationController()
-	tc := NewTaskController(taskStore, navController, nil)
+	tc := NewTaskController(taskStore, gate, navController, nil)
 
 	tc.SetDraft(newTestTask())
 	tc.ClearDraft()
@@ -56,8 +62,10 @@ func TestTaskController_ClearDraft(t *testing.T) {
 
 func TestTaskController_StartEditSession(t *testing.T) {
 	taskStore := store.NewInMemoryStore()
+	gate := service.NewTaskMutationGate()
+	gate.SetStore(taskStore)
 	navController := newMockNavigationController()
-	tc := NewTaskController(taskStore, navController, nil)
+	tc := NewTaskController(taskStore, gate, navController, nil)
 
 	// Create a task in the store
 	original := newTestTask()
@@ -86,8 +94,10 @@ func TestTaskController_StartEditSession(t *testing.T) {
 
 func TestTaskController_StartEditSession_NonExistent(t *testing.T) {
 	taskStore := store.NewInMemoryStore()
+	gate := service.NewTaskMutationGate()
+	gate.SetStore(taskStore)
 	navController := newMockNavigationController()
-	tc := NewTaskController(taskStore, navController, nil)
+	tc := NewTaskController(taskStore, gate, navController, nil)
 
 	editingTask := tc.StartEditSession("NONEXISTENT")
 
@@ -98,8 +108,10 @@ func TestTaskController_StartEditSession_NonExistent(t *testing.T) {
 
 func TestTaskController_CancelEditSession(t *testing.T) {
 	taskStore := store.NewInMemoryStore()
+	gate := service.NewTaskMutationGate()
+	gate.SetStore(taskStore)
 	navController := newMockNavigationController()
-	tc := NewTaskController(taskStore, navController, nil)
+	tc := NewTaskController(taskStore, gate, navController, nil)
 
 	// Start an edit session
 	original := newTestTask()
@@ -182,8 +194,10 @@ func TestTaskController_SaveStatus(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			taskStore := store.NewInMemoryStore()
+			gate := service.NewTaskMutationGate()
+			gate.SetStore(taskStore)
 			navController := newMockNavigationController()
-			tc := NewTaskController(taskStore, navController, nil)
+			tc := NewTaskController(taskStore, gate, navController, nil)
 
 			tt.setupTask(tc, taskStore)
 
@@ -221,7 +235,7 @@ func TestTaskController_SaveType(t *testing.T) {
 			setupTask: func(tc *TaskController, s store.Store) {
 				tc.SetDraft(newTestTask())
 			},
-			typeDisplay: "Bug",
+			typeDisplay: task.TypeDisplay(task.TypeBug),
 			wantType:    task.TypeBug,
 			wantSuccess: true,
 		},
@@ -232,25 +246,25 @@ func TestTaskController_SaveType(t *testing.T) {
 				_ = s.CreateTask(t)
 				tc.StartEditSession(t.ID)
 			},
-			typeDisplay: "Spike",
+			typeDisplay: task.TypeDisplay(task.TypeSpike),
 			wantType:    task.TypeSpike,
 			wantSuccess: true,
 		},
 		{
-			name: "invalid type normalizes to default",
+			name: "invalid type is rejected",
 			setupTask: func(tc *TaskController, s store.Store) {
 				tc.SetDraft(newTestTask())
 			},
 			typeDisplay: "InvalidType",
-			wantType:    task.TypeStory, // NormalizeType defaults to story
-			wantSuccess: true,
+			wantType:    task.TypeStory, // task type unchanged from setup
+			wantSuccess: false,
 		},
 		{
 			name: "no active task",
 			setupTask: func(tc *TaskController, s store.Store) {
 				// Don't set up any task
 			},
-			typeDisplay: "Story",
+			typeDisplay: task.TypeDisplay(task.TypeStory),
 			wantSuccess: false,
 		},
 	}
@@ -258,8 +272,10 @@ func TestTaskController_SaveType(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			taskStore := store.NewInMemoryStore()
+			gate := service.NewTaskMutationGate()
+			gate.SetStore(taskStore)
 			navController := newMockNavigationController()
-			tc := NewTaskController(taskStore, navController, nil)
+			tc := NewTaskController(taskStore, gate, navController, nil)
 
 			tt.setupTask(tc, taskStore)
 
@@ -341,8 +357,10 @@ func TestTaskController_SavePriority(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			taskStore := store.NewInMemoryStore()
+			gate := service.NewTaskMutationGate()
+			gate.SetStore(taskStore)
 			navController := newMockNavigationController()
-			tc := NewTaskController(taskStore, navController, nil)
+			tc := NewTaskController(taskStore, gate, navController, nil)
 
 			tt.setupTask(tc, taskStore)
 
@@ -417,8 +435,10 @@ func TestTaskController_SaveAssignee(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			taskStore := store.NewInMemoryStore()
+			gate := service.NewTaskMutationGate()
+			gate.SetStore(taskStore)
 			navController := newMockNavigationController()
-			tc := NewTaskController(taskStore, navController, nil)
+			tc := NewTaskController(taskStore, gate, navController, nil)
 
 			tt.setupTask(tc, taskStore)
 
@@ -492,8 +512,10 @@ func TestTaskController_SavePoints(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			taskStore := store.NewInMemoryStore()
+			gate := service.NewTaskMutationGate()
+			gate.SetStore(taskStore)
 			navController := newMockNavigationController()
-			tc := NewTaskController(taskStore, navController, nil)
+			tc := NewTaskController(taskStore, gate, navController, nil)
 
 			tt.setupTask(tc, taskStore)
 
@@ -571,8 +593,10 @@ func TestTaskController_SaveTitle(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			taskStore := store.NewInMemoryStore()
+			gate := service.NewTaskMutationGate()
+			gate.SetStore(taskStore)
 			navController := newMockNavigationController()
-			tc := NewTaskController(taskStore, navController, nil)
+			tc := NewTaskController(taskStore, gate, navController, nil)
 
 			tt.setupTask(tc, taskStore)
 
@@ -638,8 +662,10 @@ func TestTaskController_SaveDescription(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			taskStore := store.NewInMemoryStore()
+			gate := service.NewTaskMutationGate()
+			gate.SetStore(taskStore)
 			navController := newMockNavigationController()
-			tc := NewTaskController(taskStore, navController, nil)
+			tc := NewTaskController(taskStore, gate, navController, nil)
 
 			tt.setupTask(tc, taskStore)
 
@@ -668,8 +694,10 @@ func TestTaskController_SaveDescription(t *testing.T) {
 
 func TestTaskController_CommitEditSession_Draft(t *testing.T) {
 	taskStore := store.NewInMemoryStore()
+	gate := service.NewTaskMutationGate()
+	gate.SetStore(taskStore)
 	navController := newMockNavigationController()
-	tc := NewTaskController(taskStore, navController, nil)
+	tc := NewTaskController(taskStore, gate, navController, nil)
 
 	draft := newTestTaskWithID()
 	draft.Title = "Draft Title"
@@ -698,18 +726,18 @@ func TestTaskController_CommitEditSession_Draft(t *testing.T) {
 
 func TestTaskController_CommitEditSession_DraftValidationFailure(t *testing.T) {
 	taskStore := store.NewInMemoryStore()
+	gate := service.BuildGate()
+	gate.SetStore(taskStore)
 	navController := newMockNavigationController()
-	tc := NewTaskController(taskStore, navController, nil)
+	tc := NewTaskController(taskStore, gate, navController, nil)
 
 	draft := newTestTaskWithID()
 	draft.Title = "" // Invalid - empty title
 	tc.SetDraft(draft)
 
 	err := tc.CommitEditSession()
-	if err != nil {
-		// Note: Current implementation returns nil on validation failure for drafts
-		// and just logs a warning. This test documents that behavior.
-		t.Logf("CommitEditSession returned error as expected: %v", err)
+	if err == nil {
+		t.Fatal("expected error for empty title")
 	}
 
 	// Draft should still exist since validation failed
@@ -720,8 +748,10 @@ func TestTaskController_CommitEditSession_DraftValidationFailure(t *testing.T) {
 
 func TestTaskController_CommitEditSession_Existing(t *testing.T) {
 	taskStore := store.NewInMemoryStore()
+	gate := service.NewTaskMutationGate()
+	gate.SetStore(taskStore)
 	navController := newMockNavigationController()
-	tc := NewTaskController(taskStore, navController, nil)
+	tc := NewTaskController(taskStore, gate, navController, nil)
 
 	// Create original task
 	original := newTestTask()
@@ -754,8 +784,10 @@ func TestTaskController_CommitEditSession_Existing(t *testing.T) {
 
 func TestTaskController_CommitEditSession_NoActiveSession(t *testing.T) {
 	taskStore := store.NewInMemoryStore()
+	gate := service.NewTaskMutationGate()
+	gate.SetStore(taskStore)
 	navController := newMockNavigationController()
-	tc := NewTaskController(taskStore, navController, nil)
+	tc := NewTaskController(taskStore, gate, navController, nil)
 
 	err := tc.CommitEditSession()
 	if err != nil {
@@ -767,8 +799,10 @@ func TestTaskController_CommitEditSession_NoActiveSession(t *testing.T) {
 
 func TestTaskController_GetCurrentTask(t *testing.T) {
 	taskStore := store.NewInMemoryStore()
+	gate := service.NewTaskMutationGate()
+	gate.SetStore(taskStore)
 	navController := newMockNavigationController()
-	tc := NewTaskController(taskStore, navController, nil)
+	tc := NewTaskController(taskStore, gate, navController, nil)
 
 	// Create task
 	original := newTestTask()
@@ -789,8 +823,10 @@ func TestTaskController_GetCurrentTask(t *testing.T) {
 
 func TestTaskController_GetCurrentTask_Empty(t *testing.T) {
 	taskStore := store.NewInMemoryStore()
+	gate := service.NewTaskMutationGate()
+	gate.SetStore(taskStore)
 	navController := newMockNavigationController()
-	tc := NewTaskController(taskStore, navController, nil)
+	tc := NewTaskController(taskStore, gate, navController, nil)
 
 	current := tc.GetCurrentTask()
 	if current != nil {
@@ -800,8 +836,10 @@ func TestTaskController_GetCurrentTask_Empty(t *testing.T) {
 
 func TestTaskController_GetCurrentTask_NonExistent(t *testing.T) {
 	taskStore := store.NewInMemoryStore()
+	gate := service.NewTaskMutationGate()
+	gate.SetStore(taskStore)
 	navController := newMockNavigationController()
-	tc := NewTaskController(taskStore, navController, nil)
+	tc := NewTaskController(taskStore, gate, navController, nil)
 
 	tc.SetCurrentTask("NONEXISTENT")
 
@@ -815,8 +853,10 @@ func TestTaskController_GetCurrentTask_NonExistent(t *testing.T) {
 
 func TestTaskController_GetActionRegistry(t *testing.T) {
 	taskStore := store.NewInMemoryStore()
+	gate := service.NewTaskMutationGate()
+	gate.SetStore(taskStore)
 	navController := newMockNavigationController()
-	tc := NewTaskController(taskStore, navController, nil)
+	tc := NewTaskController(taskStore, gate, navController, nil)
 
 	registry := tc.GetActionRegistry()
 	if registry == nil {
@@ -832,8 +872,10 @@ func TestTaskController_GetActionRegistry(t *testing.T) {
 
 func TestTaskController_GetEditActionRegistry(t *testing.T) {
 	taskStore := store.NewInMemoryStore()
+	gate := service.NewTaskMutationGate()
+	gate.SetStore(taskStore)
 	navController := newMockNavigationController()
-	tc := NewTaskController(taskStore, navController, nil)
+	tc := NewTaskController(taskStore, gate, navController, nil)
 
 	registry := tc.GetEditActionRegistry()
 	if registry == nil {
@@ -851,8 +893,10 @@ func TestTaskController_GetEditActionRegistry(t *testing.T) {
 
 func TestTaskController_FocusedField(t *testing.T) {
 	taskStore := store.NewInMemoryStore()
+	gate := service.NewTaskMutationGate()
+	gate.SetStore(taskStore)
 	navController := newMockNavigationController()
-	tc := NewTaskController(taskStore, navController, nil)
+	tc := NewTaskController(taskStore, gate, navController, nil)
 
 	// Initially should be empty
 	if tc.GetFocusedField() != "" {
@@ -926,8 +970,10 @@ func TestTaskController_SaveDue(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			taskStore := store.NewInMemoryStore()
+			gate := service.NewTaskMutationGate()
+			gate.SetStore(taskStore)
 			navController := newMockNavigationController()
-			tc := NewTaskController(taskStore, navController, nil)
+			tc := NewTaskController(taskStore, gate, navController, nil)
 
 			tt.setupTask(tc, taskStore)
 
@@ -954,6 +1000,249 @@ func TestTaskController_SaveDue(t *testing.T) {
 				}
 			}
 		})
+	}
+}
+
+func TestTaskController_HandleAction(t *testing.T) {
+	tests := []struct {
+		name     string
+		actionID ActionID
+		hasTask  bool
+		want     bool
+	}{
+		{"edit title with task", ActionEditTitle, true, true},
+		{"edit title without task", ActionEditTitle, false, false},
+		{"clone task", ActionCloneTask, true, true},
+		{"unknown action", ActionID("unknown"), true, false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			taskStore := store.NewInMemoryStore()
+			gate := service.NewTaskMutationGate()
+			gate.SetStore(taskStore)
+			navController := newMockNavigationController()
+			tc := NewTaskController(taskStore, gate, navController, nil)
+
+			if tt.hasTask {
+				original := newTestTask()
+				_ = taskStore.CreateTask(original)
+				tc.SetCurrentTask(original.ID)
+			}
+
+			got := tc.HandleAction(tt.actionID)
+			if got != tt.want {
+				t.Errorf("HandleAction(%q) = %v, want %v", tt.actionID, got, tt.want)
+			}
+		})
+	}
+}
+
+func TestTaskController_SaveRecurrence(t *testing.T) {
+	tests := []struct {
+		name           string
+		setupTask      func(*TaskController, store.Store)
+		cron           string
+		wantRecurrence task.Recurrence
+		wantDueSet     bool
+		wantSuccess    bool
+	}{
+		{
+			name: "valid daily recurrence on draft",
+			setupTask: func(tc *TaskController, s store.Store) {
+				tc.SetDraft(newTestTask())
+			},
+			cron:           string(task.RecurrenceDaily),
+			wantRecurrence: task.RecurrenceDaily,
+			wantDueSet:     true,
+			wantSuccess:    true,
+		},
+		{
+			name: "clear recurrence sets none and clears due",
+			setupTask: func(tc *TaskController, s store.Store) {
+				draft := newTestTask()
+				draft.Due = time.Date(2025, 6, 15, 0, 0, 0, 0, time.UTC)
+				draft.Recurrence = task.RecurrenceDaily
+				tc.SetDraft(draft)
+			},
+			cron:           string(task.RecurrenceNone),
+			wantRecurrence: task.RecurrenceNone,
+			wantDueSet:     false,
+			wantSuccess:    true,
+		},
+		{
+			name: "invalid recurrence rejected",
+			setupTask: func(tc *TaskController, s store.Store) {
+				tc.SetDraft(newTestTask())
+			},
+			cron:        "invalid-cron",
+			wantSuccess: false,
+		},
+		{
+			name: "no active task",
+			setupTask: func(tc *TaskController, s store.Store) {
+				// no task
+			},
+			cron:        string(task.RecurrenceDaily),
+			wantSuccess: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			taskStore := store.NewInMemoryStore()
+			gate := service.NewTaskMutationGate()
+			gate.SetStore(taskStore)
+			navController := newMockNavigationController()
+			tc := NewTaskController(taskStore, gate, navController, nil)
+
+			tt.setupTask(tc, taskStore)
+
+			got := tc.SaveRecurrence(tt.cron)
+			if got != tt.wantSuccess {
+				t.Errorf("SaveRecurrence() = %v, want %v", got, tt.wantSuccess)
+			}
+
+			if tt.wantSuccess && tc.draftTask != nil {
+				if tc.draftTask.Recurrence != tt.wantRecurrence {
+					t.Errorf("Recurrence = %q, want %q", tc.draftTask.Recurrence, tt.wantRecurrence)
+				}
+				if tt.wantDueSet && tc.draftTask.Due.IsZero() {
+					t.Error("expected Due to be set for non-none recurrence")
+				}
+				if !tt.wantDueSet && !tc.draftTask.Due.IsZero() {
+					t.Error("expected Due to be zero for none recurrence")
+				}
+			}
+		})
+	}
+}
+
+func TestTaskController_UpdateTask(t *testing.T) {
+	taskStore := store.NewInMemoryStore()
+	gate := service.NewTaskMutationGate()
+	gate.SetStore(taskStore)
+	navController := newMockNavigationController()
+	tc := NewTaskController(taskStore, gate, navController, nil)
+
+	original := newTestTask()
+	_ = taskStore.CreateTask(original)
+
+	updated := original.Clone()
+	updated.Title = "Updated via UpdateTask"
+	tc.UpdateTask(updated)
+
+	persisted := taskStore.GetTask(original.ID)
+	if persisted.Title != "Updated via UpdateTask" {
+		t.Errorf("task not updated, got title %q", persisted.Title)
+	}
+}
+
+func TestTaskController_AddComment(t *testing.T) {
+	taskStore := store.NewInMemoryStore()
+	gate := service.NewTaskMutationGate()
+	gate.SetStore(taskStore)
+	navController := newMockNavigationController()
+	statusline := model.NewStatuslineConfig()
+	tc := NewTaskController(taskStore, gate, navController, statusline)
+
+	// no current task — should return false
+	if tc.AddComment("user", "hello") {
+		t.Error("expected false when no current task")
+	}
+
+	original := newTestTask()
+	_ = taskStore.CreateTask(original)
+	tc.SetCurrentTask(original.ID)
+
+	if !tc.AddComment("user", "hello") {
+		t.Error("expected true for successful comment")
+	}
+
+	persisted := taskStore.GetTask(original.ID)
+	if len(persisted.Comments) != 1 {
+		t.Fatalf("expected 1 comment, got %d", len(persisted.Comments))
+	}
+	if persisted.Comments[0].Text != "hello" {
+		t.Errorf("comment text = %q, want %q", persisted.Comments[0].Text, "hello")
+	}
+}
+
+func TestTaskController_HandleAction_EditSource(t *testing.T) {
+	taskStore := store.NewInMemoryStore()
+	gate := service.NewTaskMutationGate()
+	gate.SetStore(taskStore)
+	navController := newMockNavigationController()
+	tc := NewTaskController(taskStore, gate, navController, nil)
+
+	// with no task, should return false
+	got := tc.HandleAction(ActionEditSource)
+	if got {
+		t.Error("HandleAction(EditSource) should return false with no current task")
+	}
+}
+
+func TestTaskController_CommitEditSession_UpdateError(t *testing.T) {
+	taskStore := store.NewInMemoryStore()
+	gate := service.BuildGate()
+	gate.SetStore(taskStore)
+	navController := newMockNavigationController()
+	tc := NewTaskController(taskStore, gate, navController, nil)
+
+	original := newTestTask()
+	_ = taskStore.CreateTask(original)
+	tc.StartEditSession(original.ID)
+	tc.editingTask.Title = "" // invalid - empty title will fail validation
+
+	err := tc.CommitEditSession()
+	if err == nil {
+		t.Fatal("expected error for empty title in edit session")
+	}
+}
+
+func TestTaskController_AddComment_Error(t *testing.T) {
+	// use a store wrapper that makes AddComment fail
+	taskStore := store.NewInMemoryStore()
+	fs := &failingCommentStore{Store: taskStore}
+	gate := service.NewTaskMutationGate()
+	gate.SetStore(fs)
+	navController := newMockNavigationController()
+	statusline := model.NewStatuslineConfig()
+	tc := NewTaskController(fs, gate, navController, statusline)
+
+	original := newTestTask()
+	_ = fs.CreateTask(original)
+	tc.SetCurrentTask(original.ID)
+
+	if tc.AddComment("user", "hello") {
+		t.Error("expected false when AddComment fails")
+	}
+}
+
+// failingCommentStore wraps a Store and always fails AddComment.
+type failingCommentStore struct {
+	store.Store
+}
+
+func (f *failingCommentStore) AddComment(_ string, _ task.Comment) bool {
+	return false
+}
+
+func TestTaskController_SaveType_InvalidType(t *testing.T) {
+	taskStore := store.NewInMemoryStore()
+	gate := service.NewTaskMutationGate()
+	gate.SetStore(taskStore)
+	navController := newMockNavigationController()
+	tc := NewTaskController(taskStore, gate, navController, nil)
+
+	original := newTestTask()
+	_ = taskStore.CreateTask(original)
+	tc.StartEditSession(original.ID)
+
+	// unrecognized display string
+	got := tc.SaveType("Nonexistent Type 🤷")
+	if got {
+		t.Error("SaveType should return false for unrecognized type display")
 	}
 }
 
@@ -1028,8 +1317,10 @@ func TestTaskController_SaveTags(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			taskStore := store.NewInMemoryStore()
+			gate := service.NewTaskMutationGate()
+			gate.SetStore(taskStore)
 			navController := newMockNavigationController()
-			tc := NewTaskController(taskStore, navController, nil)
+			tc := NewTaskController(taskStore, gate, navController, nil)
 
 			tt.setupTask(tc, taskStore)
 

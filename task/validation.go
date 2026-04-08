@@ -1,66 +1,143 @@
 package task
 
-// Validator is the main validation interface
-type Validator interface {
-	Validate(task *Task) ValidationErrors
-}
+import (
+	"fmt"
+	"strings"
+	"time"
 
-// FieldValidator validates a single field
-type FieldValidator interface {
-	ValidateField(task *Task) *ValidationError
-}
+	"github.com/boolean-maybe/tiki/config"
+)
 
-// TaskValidator orchestrates all field validators
-type TaskValidator struct {
-	validators []FieldValidator
-}
+// Priority validation constants
+const (
+	MinPriority     = 1
+	MaxPriority     = 5
+	DefaultPriority = 3 // Medium
+)
 
-// NewTaskValidator creates a validator with standard rules
-func NewTaskValidator() *TaskValidator {
-	return &TaskValidator{
-		validators: []FieldValidator{
-			&TitleValidator{},
-			&StatusValidator{},
-			&TypeValidator{},
-			&PriorityValidator{},
-			&PointsValidator{},
-			&DependsOnValidator{},
-			&DueValidator{},
-			&RecurrenceValidator{},
-			// Assignee and Description have no constraints (always valid)
-		},
+// ValidateTitle returns an error message if the task title is invalid.
+func ValidateTitle(t *Task) string {
+	title := strings.TrimSpace(t.Title)
+	if title == "" {
+		return "title is required"
 	}
+	const maxTitleLength = 200
+	if len(title) > maxTitleLength {
+		return fmt.Sprintf("title exceeds maximum length of %d characters", maxTitleLength)
+	}
+	return ""
 }
 
-// Validate runs all validators and accumulates errors
-func (tv *TaskValidator) Validate(task *Task) ValidationErrors {
-	var errors ValidationErrors
+// ValidateStatus returns an error message if the task status is invalid.
+func ValidateStatus(t *Task) string {
+	if config.GetStatusRegistry().IsValid(string(t.Status)) {
+		return ""
+	}
+	return fmt.Sprintf("invalid status value: %s", t.Status)
+}
 
-	for _, validator := range tv.validators {
-		if err := validator.ValidateField(task); err != nil {
-			errors = append(errors, err)
+// ValidateType returns an error message if the task type is invalid.
+func ValidateType(t *Task) string {
+	if currentTypeRegistry().IsValid(t.Type) {
+		return ""
+	}
+	return fmt.Sprintf("invalid type value: %s", t.Type)
+}
+
+// ValidatePriority returns an error message if the task priority is out of range.
+func ValidatePriority(t *Task) string {
+	if t.Priority < MinPriority || t.Priority > MaxPriority {
+		return fmt.Sprintf("priority must be between %d and %d", MinPriority, MaxPriority)
+	}
+	return ""
+}
+
+// ValidatePoints returns an error message if story points are out of range.
+func ValidatePoints(t *Task) string {
+	if t.Points == 0 {
+		return ""
+	}
+	const minPoints = 1
+	maxPoints := config.GetMaxPoints()
+	if t.Points < minPoints || t.Points > maxPoints {
+		return fmt.Sprintf("story points must be between %d and %d", minPoints, maxPoints)
+	}
+	return ""
+}
+
+// ValidateDependsOn returns an error message if any dependency ID is malformed.
+func ValidateDependsOn(t *Task) string {
+	for _, dep := range t.DependsOn {
+		if !IsValidTikiIDFormat(dep) {
+			return fmt.Sprintf("invalid tiki ID format: %s (expected TIKI-XXXXXX)", dep)
 		}
 	}
-
-	return errors
+	return ""
 }
 
-// ValidateField validates a single field by name
-func (tv *TaskValidator) ValidateField(task *Task, fieldName string) *ValidationError {
-	for _, validator := range tv.validators {
-		if err := validator.ValidateField(task); err != nil && err.Field == fieldName {
-			return err
+// ValidateDue returns an error message if the due date is not normalized to midnight UTC.
+func ValidateDue(t *Task) string {
+	if t.Due.IsZero() {
+		return ""
+	}
+	if t.Due.Hour() != 0 || t.Due.Minute() != 0 || t.Due.Second() != 0 || t.Due.Nanosecond() != 0 || t.Due.Location() != time.UTC {
+		return "due date must be normalized to midnight UTC (use date-only format)"
+	}
+	return ""
+}
+
+// ValidateRecurrence returns an error message if the recurrence pattern is invalid.
+func ValidateRecurrence(t *Task) string {
+	if t.Recurrence == RecurrenceNone {
+		return ""
+	}
+	if !IsValidRecurrence(t.Recurrence) {
+		return fmt.Sprintf("invalid recurrence pattern: %s", t.Recurrence)
+	}
+	return ""
+}
+
+// IsValidPriority checks if a priority value is within the valid range.
+func IsValidPriority(priority int) bool {
+	return priority >= MinPriority && priority <= MaxPriority
+}
+
+// IsValidPoints checks if a points value is within the valid range.
+func IsValidPoints(points int) bool {
+	if points == 0 {
+		return true
+	}
+	if points < 0 {
+		return false
+	}
+	return points <= config.GetMaxPoints()
+}
+
+// IsValidTikiIDFormat checks if a string matches the TIKI-XXXXXX format
+// where X is an uppercase alphanumeric character.
+func IsValidTikiIDFormat(id string) bool {
+	if len(id) != 11 || id[:5] != "TIKI-" {
+		return false
+	}
+	for _, c := range id[5:] {
+		if (c < 'A' || c > 'Z') && (c < '0' || c > '9') {
+			return false
 		}
 	}
-	return nil
+	return true
 }
 
-// QuickValidate is a convenience function for quick validation
-func QuickValidate(task *Task) ValidationErrors {
-	return NewTaskValidator().Validate(task)
-}
-
-// IsValid returns true if the task passes all validation rules
-func IsValid(task *Task) bool {
-	return !QuickValidate(task).HasErrors()
+// AllValidators returns the complete list of field validation functions.
+// Each returns an error message (empty string = valid).
+func AllValidators() []func(*Task) string {
+	return []func(*Task) string{
+		ValidateTitle,
+		ValidateStatus,
+		ValidateType,
+		ValidatePriority,
+		ValidatePoints,
+		ValidateDependsOn,
+		ValidateDue,
+		ValidateRecurrence,
+	}
 }

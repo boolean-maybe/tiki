@@ -203,6 +203,34 @@ func TestTimeExpressions(t *testing.T) {
 			expect: true, // Updated 5 seconds ago
 		},
 
+		// seconds unit
+		{
+			name:   "seconds - under threshold",
+			expr:   "NOW - UpdatedAt < 30secs",
+			task:   &task.Task{UpdatedAt: now.Add(-10 * time.Second)},
+			expect: true, // Updated 10 seconds ago
+		},
+		{
+			name:   "seconds - over threshold",
+			expr:   "NOW - UpdatedAt < 10sec",
+			task:   &task.Task{UpdatedAt: now.Add(-30 * time.Second)},
+			expect: false, // Updated 30 seconds ago
+		},
+
+		// years unit
+		{
+			name:   "years - under threshold",
+			expr:   "NOW - CreatedAt < 1year",
+			task:   &task.Task{CreatedAt: now.Add(-200 * 24 * time.Hour)},
+			expect: true, // Created 200 days ago, less than 365 days
+		},
+		{
+			name:   "years - over threshold",
+			expr:   "NOW - CreatedAt > 1year",
+			task:   &task.Task{CreatedAt: now.Add(-400 * 24 * time.Hour)},
+			expect: true, // Created 400 days ago, more than 365 days
+		},
+
 		// Edge case: future time (shouldn't normally happen, but test negative duration)
 		{
 			name:   "future time - negative duration",
@@ -258,6 +286,16 @@ func TestTimeExpressionParsing(t *testing.T) {
 		{
 			name:        "valid with months",
 			expr:        "NOW - UpdatedAt < 2months",
+			shouldError: false,
+		},
+		{
+			name:        "valid with seconds",
+			expr:        "NOW - UpdatedAt < 30secs",
+			shouldError: false,
+		},
+		{
+			name:        "valid with years",
+			expr:        "NOW - CreatedAt > 1year",
 			shouldError: false,
 		},
 		{
@@ -358,5 +396,19 @@ func TestMultipleTimeConditions(t *testing.T) {
 				t.Errorf("Expected %v, got %v for expression: %s", tt.expect, result, tt.expr)
 			}
 		})
+	}
+}
+
+func TestParseDuration_ParseError(t *testing.T) {
+	_, err := ParseDuration("abc")
+	if err == nil {
+		t.Fatal("expected error for non-numeric duration")
+	}
+}
+
+func TestParseDuration_UnknownUnit(t *testing.T) {
+	_, err := ParseDuration("10xyz")
+	if err == nil {
+		t.Fatal("expected error for unknown duration unit")
 	}
 }

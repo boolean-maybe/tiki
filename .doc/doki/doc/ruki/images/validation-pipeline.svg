@@ -1,0 +1,106 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 820 310">
+  <defs>
+    <filter id="shadow" x="-4%" y="-4%" width="108%" height="116%">
+      <feDropShadow dx="0" dy="1" stdDeviation="2" flood-color="#000000" flood-opacity="0.3"/>
+    </filter>
+    <filter id="success-glow" x="-10%" y="-10%" width="120%" height="120%">
+      <feGaussianBlur stdDeviation="3" result="blur"/>
+      <feMerge>
+        <feMergeNode in="blur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+    <marker id="flow-arrow" viewBox="0 0 12 8" refX="12" refY="4" markerWidth="12" markerHeight="8" orient="auto">
+      <path d="M 0 0 L 12 4 L 0 8 z" fill="#94A3B8"/>
+    </marker>
+    <marker id="err-arrow" viewBox="0 0 12 8" refX="12" refY="4" markerWidth="12" markerHeight="8" orient="auto">
+      <path d="M 0 0 L 12 4 L 0 8 z" fill="#F87171"/>
+    </marker>
+    <style>
+      .title { font: 700 16px -apple-system, 'Segoe UI', Roboto, sans-serif; fill: #A5B4FC; }
+      .stage-text { font: 700 13px -apple-system, 'Segoe UI', Roboto, sans-serif; fill: #93C5FD; }
+      .data-text { font: 600 12px -apple-system, 'Segoe UI', Roboto, sans-serif; fill: #6EE7B7; }
+      .err-title { font: 700 11px -apple-system, 'Segoe UI', Roboto, sans-serif; fill: #FCA5A5; }
+      .err-detail { font: 400 10px -apple-system, 'Segoe UI', Roboto, sans-serif; fill: #FDA4AF; }
+      .flow-line { stroke: #94A3B8; stroke-width: 1.5; fill: none; marker-end: url(#flow-arrow); }
+      .err-line { stroke: #F87171; stroke-width: 1.5; fill: none; stroke-dasharray: 5,3; marker-end: url(#err-arrow); }
+      .err-line-solid { stroke: #F87171; stroke-width: 1.5; fill: none; marker-end: url(#err-arrow); }
+      .stage-label { font: 500 10px -apple-system, 'Segoe UI', Roboto, sans-serif; fill: #64748B; }
+      .legend-text { font: 400 11px -apple-system, 'Segoe UI', Roboto, sans-serif; fill: #94A3B8; }
+    </style>
+  </defs>
+
+  <text class="title" x="410" y="24" text-anchor="middle">Validation pipeline</text>
+
+  <!-- ===== Main pipeline (y=70) ===== -->
+
+  <!-- Input text -->
+  <rect x="20" y="50" width="90" height="40" rx="10" fill="#10B981" fill-opacity="0.12" stroke="#10B981" stroke-width="1.5" stroke-opacity="0.4" filter="url(#shadow)"/>
+  <text class="data-text" x="65" y="74" text-anchor="middle">Input text</text>
+  <line class="flow-line" x1="110" y1="70" x2="148" y2="70"/>
+
+  <!-- Lexer / Parser -->
+  <rect x="148" y="46" width="134" height="48" rx="10" fill="#3B82F6" fill-opacity="0.12" stroke="#3B82F6" stroke-width="1.5" stroke-opacity="0.4" filter="url(#shadow)"/>
+  <text class="stage-text" x="215" y="74" text-anchor="middle">Lexer / Parser</text>
+  <line class="flow-line" x1="282" y1="70" x2="318" y2="70"/>
+
+  <!-- AST -->
+  <rect x="318" y="52" width="60" height="36" rx="10" fill="#10B981" fill-opacity="0.12" stroke="#10B981" stroke-width="1.5" stroke-opacity="0.4" filter="url(#shadow)"/>
+  <text class="data-text" x="348" y="74" text-anchor="middle">AST</text>
+  <line class="flow-line" x1="378" y1="70" x2="414" y2="70"/>
+
+  <!-- Semantic Validator -->
+  <rect x="414" y="46" width="176" height="48" rx="10" fill="#3B82F6" fill-opacity="0.12" stroke="#3B82F6" stroke-width="1.5" stroke-opacity="0.4" filter="url(#shadow)"/>
+  <text class="stage-text" x="502" y="74" text-anchor="middle">Semantic Validator</text>
+  <line class="flow-line" x1="590" y1="70" x2="626" y2="70"/>
+
+  <!-- Valid AST -->
+  <rect x="626" y="50" width="100" height="40" rx="10" fill="#10B981" fill-opacity="0.12" stroke="#10B981" stroke-width="1.5" stroke-opacity="0.4" filter="url(#success-glow)"/>
+  <text class="data-text" x="676" y="74" text-anchor="middle">Valid AST</text>
+
+  <!-- ===== Parse errors (branch down from Lexer/Parser) ===== -->
+  <line class="err-line" x1="215" y1="94" x2="215" y2="140"/>
+  <!-- stage 1 label with pill background -->
+  <rect x="191" y="122" width="50" height="16" rx="4" fill="#64748B" fill-opacity="0.15"/>
+  <text class="stage-label" x="215" y="134" text-anchor="middle">stage 1</text>
+
+  <rect x="130" y="144" width="170" height="52" rx="8" fill="#EF4444" fill-opacity="0.1" stroke="#EF4444" stroke-width="1.5" stroke-opacity="0.35" filter="url(#shadow)"/>
+  <text class="err-title" x="215" y="164" text-anchor="middle">Parse errors</text>
+  <text class="err-detail" x="215" y="180" text-anchor="middle">unknown keyword, missing clause, bad syntax</text>
+
+  <!-- ===== Semantic errors (branch down from Semantic Validator) ===== -->
+  <line class="err-line" x1="502" y1="94" x2="502" y2="140"/>
+  <!-- stage 2 label with pill background -->
+  <rect x="478" y="122" width="50" height="16" rx="4" fill="#64748B" fill-opacity="0.15"/>
+  <text class="stage-label" x="502" y="134" text-anchor="middle">stage 2</text>
+
+  <!-- Semantic error umbrella -->
+  <rect x="350" y="144" width="304" height="36" rx="8" fill="#EF4444" fill-opacity="0.1" stroke="#EF4444" stroke-width="1.5" stroke-opacity="0.35" filter="url(#shadow)"/>
+  <text class="err-title" x="502" y="166" text-anchor="middle">Semantic validation errors</text>
+
+  <!-- Sub-category connectors -->
+  <line class="err-line-solid" x1="400" y1="180" x2="400" y2="200"/>
+  <line class="err-line-solid" x1="502" y1="180" x2="502" y2="200"/>
+  <line class="err-line-solid" x1="604" y1="180" x2="604" y2="200"/>
+
+  <!-- Sub-category boxes -->
+  <rect x="345" y="200" width="110" height="52" rx="8" fill="#EF4444" fill-opacity="0.08" stroke="#EF4444" stroke-width="1" stroke-opacity="0.25" filter="url(#shadow)"/>
+  <text class="err-title" x="400" y="219" text-anchor="middle">Structural</text>
+  <text class="err-detail" x="400" y="237" text-anchor="middle">dup fields, trigger rules</text>
+
+  <rect x="467" y="200" width="110" height="52" rx="8" fill="#EF4444" fill-opacity="0.08" stroke="#EF4444" stroke-width="1" stroke-opacity="0.25" filter="url(#shadow)"/>
+  <text class="err-title" x="522" y="219" text-anchor="middle">Field / Qualifier</text>
+  <text class="err-detail" x="522" y="237" text-anchor="middle">unknown, old./new. scope</text>
+
+  <rect x="589" y="200" width="110" height="52" rx="8" fill="#EF4444" fill-opacity="0.08" stroke="#EF4444" stroke-width="1" stroke-opacity="0.25" filter="url(#shadow)"/>
+  <text class="err-title" x="644" y="219" text-anchor="middle">Type / Operator</text>
+  <text class="err-detail" x="644" y="237" text-anchor="middle">mismatch, bad usage</text>
+
+  <!-- ===== Legend ===== -->
+  <rect x="200" y="275" width="12" height="12" rx="3" fill="#3B82F6" fill-opacity="0.12" stroke="#3B82F6" stroke-width="1" stroke-opacity="0.4"/>
+  <text class="legend-text" x="218" y="285">processing stage</text>
+  <rect x="350" y="275" width="12" height="12" rx="3" fill="#10B981" fill-opacity="0.12" stroke="#10B981" stroke-width="1" stroke-opacity="0.4"/>
+  <text class="legend-text" x="368" y="285">data</text>
+  <rect x="430" y="275" width="12" height="12" rx="3" fill="#EF4444" fill-opacity="0.1" stroke="#EF4444" stroke-width="1" stroke-opacity="0.35"/>
+  <text class="legend-text" x="448" y="285">error</text>
+</svg>

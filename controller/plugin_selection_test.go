@@ -7,6 +7,7 @@ import (
 	"github.com/boolean-maybe/tiki/model"
 	"github.com/boolean-maybe/tiki/plugin"
 	"github.com/boolean-maybe/tiki/plugin/filter"
+	"github.com/boolean-maybe/tiki/service"
 	"github.com/boolean-maybe/tiki/store"
 	"github.com/boolean-maybe/tiki/task"
 )
@@ -101,7 +102,9 @@ func TestEnsureFirstNonEmptyLaneSelectionSelectsFirstTask(t *testing.T) {
 	pluginConfig.SetSelectedLane(0)
 	pluginConfig.SetSelectedIndexForLane(0, 1)
 
-	pc := NewPluginController(taskStore, pluginConfig, pluginDef, nil, nil)
+	gate := service.NewTaskMutationGate()
+	gate.SetStore(taskStore)
+	pc := NewPluginController(taskStore, gate, pluginConfig, pluginDef, nil, nil)
 	pc.EnsureFirstNonEmptyLaneSelection()
 
 	if pluginConfig.GetSelectedLane() != 1 {
@@ -142,7 +145,9 @@ func TestEnsureFirstNonEmptyLaneSelectionKeepsCurrentLane(t *testing.T) {
 	pluginConfig.SetSelectedLane(1)
 	pluginConfig.SetSelectedIndexForLane(1, 0)
 
-	pc := NewPluginController(taskStore, pluginConfig, pluginDef, nil, nil)
+	gate := service.NewTaskMutationGate()
+	gate.SetStore(taskStore)
+	pc := NewPluginController(taskStore, gate, pluginConfig, pluginDef, nil, nil)
 	pc.EnsureFirstNonEmptyLaneSelection()
 
 	if pluginConfig.GetSelectedLane() != 1 {
@@ -174,7 +179,9 @@ func TestEnsureFirstNonEmptyLaneSelectionNoTasks(t *testing.T) {
 	pluginConfig.SetSelectedLane(1)
 	pluginConfig.SetSelectedIndexForLane(1, 2)
 
-	pc := NewPluginController(taskStore, pluginConfig, pluginDef, nil, nil)
+	gate := service.NewTaskMutationGate()
+	gate.SetStore(taskStore)
+	pc := NewPluginController(taskStore, gate, pluginConfig, pluginDef, nil, nil)
 	pc.EnsureFirstNonEmptyLaneSelection()
 
 	if pluginConfig.GetSelectedLane() != 1 {
@@ -501,5 +508,292 @@ func TestLaneSwitchFromEmptySourceUsesTopViewportContext(t *testing.T) {
 	// empty source forces row offset 0, so landed row is target scroll row (2)
 	if got := h.config.GetSelectedIndexForLane(1); got != 4 {
 		t.Fatalf("expected selected index 4, got %d", got)
+	}
+}
+
+func TestPluginController_HandleOpenTask(t *testing.T) {
+	taskStore := store.NewInMemoryStore()
+	_ = taskStore.CreateTask(&task.Task{
+		ID: "T-1", Title: "Task 1", Status: task.StatusReady, Type: task.TypeStory,
+	})
+
+	todoFilter, _ := filter.ParseFilter("status = 'ready'")
+	pluginDef := &plugin.TikiPlugin{
+		BasePlugin: plugin.BasePlugin{Name: "TestPlugin"},
+		Lanes:      []plugin.TikiLane{{Name: "Todo", Columns: 1, Filter: todoFilter}},
+	}
+	pluginConfig := model.NewPluginConfig("TestPlugin")
+	pluginConfig.SetLaneLayout([]int{1}, nil)
+	pluginConfig.SetSelectedLane(0)
+	pluginConfig.SetSelectedIndexForLane(0, 0)
+
+	navController := newMockNavigationController()
+	gate := service.NewTaskMutationGate()
+	gate.SetStore(taskStore)
+	pc := NewPluginController(taskStore, gate, pluginConfig, pluginDef, navController, nil)
+
+	if !pc.HandleAction(ActionOpenFromPlugin) {
+		t.Error("expected HandleAction(open) to return true when task is selected")
+	}
+
+	// verify navigation was pushed
+	if navController.navState.depth() == 0 {
+		t.Error("expected navigation push for open task")
+	}
+}
+
+func TestPluginController_HandleOpenTask_Empty(t *testing.T) {
+	taskStore := store.NewInMemoryStore()
+	emptyFilter, _ := filter.ParseFilter("status = 'done'")
+	pluginDef := &plugin.TikiPlugin{
+		BasePlugin: plugin.BasePlugin{Name: "TestPlugin"},
+		Lanes:      []plugin.TikiLane{{Name: "Empty", Columns: 1, Filter: emptyFilter}},
+	}
+	pluginConfig := model.NewPluginConfig("TestPlugin")
+	pluginConfig.SetLaneLayout([]int{1}, nil)
+
+	gate := service.NewTaskMutationGate()
+	gate.SetStore(taskStore)
+	pc := NewPluginController(taskStore, gate, pluginConfig, pluginDef, newMockNavigationController(), nil)
+
+	if pc.HandleAction(ActionOpenFromPlugin) {
+		t.Error("expected false when no task is selected")
+	}
+}
+
+func TestPluginController_HandleDeleteTask(t *testing.T) {
+	taskStore := store.NewInMemoryStore()
+	_ = taskStore.CreateTask(&task.Task{
+		ID: "T-1", Title: "Task 1", Status: task.StatusReady, Type: task.TypeStory, Priority: 3,
+	})
+
+	todoFilter, _ := filter.ParseFilter("status = 'ready'")
+	pluginDef := &plugin.TikiPlugin{
+		BasePlugin: plugin.BasePlugin{Name: "TestPlugin"},
+		Lanes:      []plugin.TikiLane{{Name: "Todo", Columns: 1, Filter: todoFilter}},
+	}
+	pluginConfig := model.NewPluginConfig("TestPlugin")
+	pluginConfig.SetLaneLayout([]int{1}, nil)
+	pluginConfig.SetSelectedLane(0)
+	pluginConfig.SetSelectedIndexForLane(0, 0)
+
+	gate := service.NewTaskMutationGate()
+	gate.SetStore(taskStore)
+	pc := NewPluginController(taskStore, gate, pluginConfig, pluginDef, newMockNavigationController(), nil)
+
+	if !pc.HandleAction(ActionDeleteTask) {
+		t.Error("expected HandleAction(delete) to return true")
+	}
+
+	if taskStore.GetTask("T-1") != nil {
+		t.Error("task should have been deleted")
+	}
+}
+
+func TestPluginController_HandleDeleteTask_Empty(t *testing.T) {
+	taskStore := store.NewInMemoryStore()
+	emptyFilter, _ := filter.ParseFilter("status = 'done'")
+	pluginDef := &plugin.TikiPlugin{
+		BasePlugin: plugin.BasePlugin{Name: "TestPlugin"},
+		Lanes:      []plugin.TikiLane{{Name: "Empty", Columns: 1, Filter: emptyFilter}},
+	}
+	pluginConfig := model.NewPluginConfig("TestPlugin")
+	pluginConfig.SetLaneLayout([]int{1}, nil)
+
+	gate := service.NewTaskMutationGate()
+	gate.SetStore(taskStore)
+	pc := NewPluginController(taskStore, gate, pluginConfig, pluginDef, newMockNavigationController(), nil)
+
+	if pc.HandleAction(ActionDeleteTask) {
+		t.Error("expected false when no task is selected")
+	}
+}
+
+func TestPluginController_HandleDeleteTask_Rejected(t *testing.T) {
+	taskStore := store.NewInMemoryStore()
+	_ = taskStore.CreateTask(&task.Task{
+		ID: "T-1", Title: "Task 1", Status: task.StatusReady, Type: task.TypeStory, Priority: 3,
+	})
+
+	todoFilter, _ := filter.ParseFilter("status = 'ready'")
+	pluginDef := &plugin.TikiPlugin{
+		BasePlugin: plugin.BasePlugin{Name: "TestPlugin"},
+		Lanes:      []plugin.TikiLane{{Name: "Todo", Columns: 1, Filter: todoFilter}},
+	}
+	pluginConfig := model.NewPluginConfig("TestPlugin")
+	pluginConfig.SetLaneLayout([]int{1}, nil)
+	pluginConfig.SetSelectedLane(0)
+	pluginConfig.SetSelectedIndexForLane(0, 0)
+
+	statusline := model.NewStatuslineConfig()
+	gate := service.NewTaskMutationGate()
+	gate.SetStore(taskStore)
+	gate.OnDelete(func(_, _ *task.Task, _ []*task.Task) *service.Rejection {
+		return &service.Rejection{Reason: "cannot delete"}
+	})
+	pc := NewPluginController(taskStore, gate, pluginConfig, pluginDef, newMockNavigationController(), statusline)
+
+	if pc.HandleAction(ActionDeleteTask) {
+		t.Error("expected false when delete is rejected")
+	}
+
+	// task should still exist
+	if taskStore.GetTask("T-1") == nil {
+		t.Error("task should not have been deleted")
+	}
+}
+
+func TestPluginController_GetNameAndRegistry(t *testing.T) {
+	taskStore := store.NewInMemoryStore()
+	todoFilter, _ := filter.ParseFilter("status = 'ready'")
+	pluginDef := &plugin.TikiPlugin{
+		BasePlugin: plugin.BasePlugin{Name: "MyPlugin"},
+		Lanes:      []plugin.TikiLane{{Name: "Todo", Columns: 1, Filter: todoFilter}},
+	}
+	pluginConfig := model.NewPluginConfig("MyPlugin")
+	pluginConfig.SetLaneLayout([]int{1}, nil)
+
+	gate := service.NewTaskMutationGate()
+	gate.SetStore(taskStore)
+	pc := NewPluginController(taskStore, gate, pluginConfig, pluginDef, nil, nil)
+
+	if pc.GetPluginName() != "MyPlugin" {
+		t.Errorf("GetPluginName() = %q, want %q", pc.GetPluginName(), "MyPlugin")
+	}
+	if pc.GetActionRegistry() == nil {
+		t.Error("GetActionRegistry() should not be nil")
+	}
+}
+
+func TestPluginController_HandleMoveTask_Rejected(t *testing.T) {
+	taskStore := store.NewInMemoryStore()
+	_ = taskStore.CreateTask(&task.Task{
+		ID: "T-1", Title: "Task 1", Status: task.StatusReady, Type: task.TypeStory, Priority: 3,
+	})
+
+	readyFilter, _ := filter.ParseFilter("status = 'ready'")
+	inProgressFilter, _ := filter.ParseFilter("status = 'in_progress'")
+	pluginDef := &plugin.TikiPlugin{
+		BasePlugin: plugin.BasePlugin{Name: "TestPlugin"},
+		Lanes: []plugin.TikiLane{
+			{Name: "Ready", Columns: 1, Filter: readyFilter},
+			{
+				Name: "InProgress", Columns: 1, Filter: inProgressFilter,
+				Action: plugin.LaneAction{
+					Ops: []plugin.LaneActionOp{
+						{Field: plugin.ActionFieldStatus, Operator: plugin.ActionOperatorAssign, StrValue: "in_progress"},
+					},
+				},
+			},
+		},
+	}
+	pluginConfig := model.NewPluginConfig("TestPlugin")
+	pluginConfig.SetLaneLayout([]int{1, 1}, nil)
+	pluginConfig.SetSelectedLane(0)
+	pluginConfig.SetSelectedIndexForLane(0, 0)
+
+	statusline := model.NewStatuslineConfig()
+	gate := service.NewTaskMutationGate()
+	gate.SetStore(taskStore)
+	gate.OnUpdate(func(_, _ *task.Task, _ []*task.Task) *service.Rejection {
+		return &service.Rejection{Reason: "updates blocked"}
+	})
+	pc := NewPluginController(taskStore, gate, pluginConfig, pluginDef, nil, statusline)
+
+	if pc.HandleAction(ActionMoveTaskRight) {
+		t.Error("expected false when move is rejected by gate")
+	}
+
+	// task should still have original status
+	tk := taskStore.GetTask("T-1")
+	if tk.Status != task.StatusReady {
+		t.Errorf("expected status ready, got %s", tk.Status)
+	}
+}
+
+func TestPluginController_HandlePluginAction_Success(t *testing.T) {
+	taskStore := store.NewInMemoryStore()
+	_ = taskStore.CreateTask(&task.Task{
+		ID: "T-1", Title: "Task 1", Status: task.StatusReady, Type: task.TypeStory, Priority: 3,
+	})
+
+	readyFilter, _ := filter.ParseFilter("status = 'ready'")
+	pluginDef := &plugin.TikiPlugin{
+		BasePlugin: plugin.BasePlugin{Name: "TestPlugin"},
+		Lanes:      []plugin.TikiLane{{Name: "Ready", Columns: 1, Filter: readyFilter}},
+		Actions: []plugin.PluginAction{
+			{
+				Rune:  'd',
+				Label: "Mark Done",
+				Action: plugin.LaneAction{
+					Ops: []plugin.LaneActionOp{
+						{Field: plugin.ActionFieldStatus, Operator: plugin.ActionOperatorAssign, StrValue: "done"},
+					},
+				},
+			},
+		},
+	}
+	pluginConfig := model.NewPluginConfig("TestPlugin")
+	pluginConfig.SetLaneLayout([]int{1}, nil)
+	pluginConfig.SetSelectedLane(0)
+	pluginConfig.SetSelectedIndexForLane(0, 0)
+
+	gate := service.NewTaskMutationGate()
+	gate.SetStore(taskStore)
+	pc := NewPluginController(taskStore, gate, pluginConfig, pluginDef, nil, nil)
+
+	if !pc.HandleAction(pluginActionID('d')) {
+		t.Error("expected true for successful plugin action")
+	}
+
+	tk := taskStore.GetTask("T-1")
+	if tk.Status != "done" {
+		t.Errorf("expected status done, got %s", tk.Status)
+	}
+}
+
+func TestPluginController_HandlePluginAction_Rejected(t *testing.T) {
+	taskStore := store.NewInMemoryStore()
+	_ = taskStore.CreateTask(&task.Task{
+		ID: "T-1", Title: "Task 1", Status: task.StatusReady, Type: task.TypeStory, Priority: 3,
+	})
+
+	readyFilter, _ := filter.ParseFilter("status = 'ready'")
+	pluginDef := &plugin.TikiPlugin{
+		BasePlugin: plugin.BasePlugin{Name: "TestPlugin"},
+		Lanes:      []plugin.TikiLane{{Name: "Ready", Columns: 1, Filter: readyFilter}},
+		Actions: []plugin.PluginAction{
+			{
+				Rune:  'd',
+				Label: "Mark Done",
+				Action: plugin.LaneAction{
+					Ops: []plugin.LaneActionOp{
+						{Field: plugin.ActionFieldStatus, Operator: plugin.ActionOperatorAssign, StrValue: "done"},
+					},
+				},
+			},
+		},
+	}
+	pluginConfig := model.NewPluginConfig("TestPlugin")
+	pluginConfig.SetLaneLayout([]int{1}, nil)
+	pluginConfig.SetSelectedLane(0)
+	pluginConfig.SetSelectedIndexForLane(0, 0)
+
+	statusline := model.NewStatuslineConfig()
+	gate := service.NewTaskMutationGate()
+	gate.SetStore(taskStore)
+	gate.OnUpdate(func(_, _ *task.Task, _ []*task.Task) *service.Rejection {
+		return &service.Rejection{Reason: "updates blocked"}
+	})
+	pc := NewPluginController(taskStore, gate, pluginConfig, pluginDef, nil, statusline)
+
+	if pc.HandleAction(pluginActionID('d')) {
+		t.Error("expected false when plugin action is rejected by gate")
+	}
+
+	// task should still have original status
+	tk := taskStore.GetTask("T-1")
+	if tk.Status != task.StatusReady {
+		t.Errorf("expected status ready, got %s", tk.Status)
 	}
 }

@@ -1,6 +1,7 @@
 package store
 
 import (
+	"strings"
 	"testing"
 	"time"
 
@@ -331,6 +332,12 @@ func TestInMemoryStore_NewTaskTemplate(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewTaskTemplate() error = %v", err)
 	}
+	if !strings.HasPrefix(tmpl.ID, "TIKI-") || len(tmpl.ID) != 11 {
+		t.Errorf("ID = %q, want TIKI-XXXXXX format (11 chars)", tmpl.ID)
+	}
+	if tmpl.ID != strings.ToUpper(tmpl.ID) {
+		t.Errorf("ID = %q, should be uppercased", tmpl.ID)
+	}
 	if tmpl.Priority != 7 {
 		t.Errorf("Priority = %d, want 7", tmpl.Priority)
 	}
@@ -345,6 +352,50 @@ func TestInMemoryStore_NewTaskTemplate(t *testing.T) {
 	}
 	if tmpl.Type != taskpkg.TypeStory {
 		t.Errorf("Type = %q, want %q", tmpl.Type, taskpkg.TypeStory)
+	}
+}
+
+func TestInMemoryStore_NewTaskTemplateCollision(t *testing.T) {
+	s := NewInMemoryStore()
+
+	// pre-populate store with a task that will collide
+	_ = s.CreateTask(&taskpkg.Task{ID: "TIKI-AAAAAA", Title: "existing"})
+
+	callCount := 0
+	s.idGenerator = func() string {
+		callCount++
+		if callCount == 1 {
+			return "aaaaaa" // will collide (normalized to TIKI-AAAAAA)
+		}
+		return "bbbbbb" // will succeed
+	}
+
+	tmpl, err := s.NewTaskTemplate()
+	if err != nil {
+		t.Fatalf("NewTaskTemplate() error = %v", err)
+	}
+	if tmpl.ID != "TIKI-BBBBBB" {
+		t.Errorf("ID = %q, want TIKI-BBBBBB (should skip collision)", tmpl.ID)
+	}
+	if callCount != 2 {
+		t.Errorf("idGenerator called %d times, want 2 (one collision + one success)", callCount)
+	}
+}
+
+func TestInMemoryStore_NewTaskTemplateExhaustion(t *testing.T) {
+	s := NewInMemoryStore()
+
+	// pre-populate with the only ID the generator will ever produce
+	_ = s.CreateTask(&taskpkg.Task{ID: "TIKI-AAAAAA", Title: "existing"})
+
+	s.idGenerator = func() string { return "aaaaaa" }
+
+	_, err := s.NewTaskTemplate()
+	if err == nil {
+		t.Fatal("expected error for ID exhaustion, got nil")
+	}
+	if !strings.Contains(err.Error(), "failed to generate unique task ID") {
+		t.Errorf("unexpected error message: %v", err)
 	}
 }
 
@@ -388,4 +439,75 @@ func TestInMemoryStore_GetAllTasks(t *testing.T) {
 			t.Errorf("title = %q, want %q — GetAllTasks should return pointers to stored tasks", reloaded.Title, "Mutated")
 		}
 	})
+}
+
+func TestSearch_WithQueryAndFilter(t *testing.T) {
+	s := NewInMemoryStore()
+	if err := s.CreateTask(&taskpkg.Task{ID: "TIKI-SRC001", Title: "Bug in parser", Tags: []string{"backend"}}); err != nil {
+		t.Fatalf("failed to create task: %v", err)
+	}
+	if err := s.CreateTask(&taskpkg.Task{ID: "TIKI-SRC002", Title: "Bug in UI", Tags: []string{"frontend"}}); err != nil {
+		t.Fatalf("failed to create task: %v", err)
+	}
+	if err := s.CreateTask(&taskpkg.Task{ID: "TIKI-SRC003", Title: "Feature request", Tags: []string{"backend"}}); err != nil {
+		t.Fatalf("failed to create task: %v", err)
+	}
+
+	// query "Bug" + filter for backend tag
+	results := s.Search("Bug", func(t *taskpkg.Task) bool {
+		for _, tag := range t.Tags {
+			if tag == "backend" {
+				return true
+			}
+		}
+		return false
+	})
+	if len(results) != 1 {
+		t.Fatalf("expected 1 result (Bug + backend), got %d", len(results))
+	}
+	if results[0].Task.ID != "TIKI-SRC001" {
+		t.Errorf("expected TIKI-SRC001, got %s", results[0].Task.ID)
+	}
+}
+
+func TestSearch_FilterRejectsAll(t *testing.T) {
+	s := NewInMemoryStore()
+	if err := s.CreateTask(&taskpkg.Task{ID: "TIKI-REJ001", Title: "Task"}); err != nil {
+		t.Fatalf("failed to create task: %v", err)
+	}
+
+	results := s.Search("", func(t *taskpkg.Task) bool {
+		return false // reject all
+	})
+	if len(results) != 0 {
+		t.Fatalf("expected 0 results when filter rejects all, got %d", len(results))
+	}
+}
+
+func TestSearch_MatchesTags(t *testing.T) {
+	s := NewInMemoryStore()
+	if err := s.CreateTask(&taskpkg.Task{ID: "TIKI-TAG001", Title: "No match in title", Tags: []string{"backend"}}); err != nil {
+		t.Fatalf("failed to create task: %v", err)
+	}
+
+	results := s.Search("backend", nil)
+	if len(results) != 1 {
+		t.Fatalf("expected 1 result (tag match), got %d", len(results))
+	}
+}
+
+func TestNewTaskTemplate_IDCollision(t *testing.T) {
+	s := NewInMemoryStore()
+	// pre-populate so the generated ID always collides
+	if err := s.CreateTask(&taskpkg.Task{ID: "TIKI-FIXED", Title: "blocker"}); err != nil {
+		t.Fatalf("failed to create task: %v", err)
+	}
+
+	// set idGenerator to always return the same ID
+	s.idGenerator = func() string { return "FIXED" }
+
+	_, err := s.NewTaskTemplate()
+	if err == nil {
+		t.Fatal("expected error for ID exhaustion")
+	}
 }

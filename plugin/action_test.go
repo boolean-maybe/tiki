@@ -261,6 +261,8 @@ func TestApplyLaneAction(t *testing.T) {
 }
 
 func TestApplyLaneAction_InvalidResult(t *testing.T) {
+	// ApplyLaneAction no longer validates the result — the gate does that
+	// at persistence time. This test verifies the action is applied as-is.
 	base := &task.Task{
 		ID:       "TASK-1",
 		Title:    "Task",
@@ -280,9 +282,12 @@ func TestApplyLaneAction_InvalidResult(t *testing.T) {
 		},
 	}
 
-	_, err := ApplyLaneAction(base, action, "")
-	if err == nil {
-		t.Fatalf("expected validation error")
+	result, err := ApplyLaneAction(base, action, "")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if result.Priority != 99 {
+		t.Errorf("expected priority 99, got %d", result.Priority)
 	}
 }
 
@@ -583,4 +588,61 @@ func TestApplyLaneAction_Due(t *testing.T) {
 			t.Errorf("expected zero due date, got %v", result.Due)
 		}
 	})
+}
+
+func TestParseLaneAction_EmptyString(t *testing.T) {
+	action, err := ParseLaneAction("")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(action.Ops) != 0 {
+		t.Errorf("expected 0 ops for empty input, got %d", len(action.Ops))
+	}
+}
+
+func TestParseLaneAction_InvalidInteger(t *testing.T) {
+	_, err := ParseLaneAction("priority=abc")
+	if err == nil {
+		t.Fatal("expected error for non-integer priority")
+	}
+	if !strings.Contains(err.Error(), "invalid integer") {
+		t.Errorf("expected 'invalid integer' error, got: %v", err)
+	}
+}
+
+func TestApplyLaneAction_NilTask(t *testing.T) {
+	action := LaneAction{Ops: []LaneActionOp{{Field: ActionFieldStatus, Operator: ActionOperatorAssign, StrValue: "done"}}}
+	_, err := ApplyLaneAction(nil, action, "")
+	if err == nil {
+		t.Fatal("expected error for nil task")
+	}
+	if !strings.Contains(err.Error(), "task is nil") {
+		t.Errorf("expected 'task is nil' error, got: %v", err)
+	}
+}
+
+func TestApplyLaneAction_NoOps(t *testing.T) {
+	base := &task.Task{ID: "TASK-1", Title: "Task", Status: task.StatusBacklog}
+	result, err := ApplyLaneAction(base, LaneAction{}, "")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if result == base {
+		t.Error("expected clone, not original pointer")
+	}
+	if result.Title != "Task" {
+		t.Errorf("expected title 'Task', got %q", result.Title)
+	}
+}
+
+func TestApplyLaneAction_UnsupportedField(t *testing.T) {
+	base := &task.Task{ID: "TASK-1", Title: "Task", Status: task.StatusBacklog}
+	action := LaneAction{Ops: []LaneActionOp{{Field: "bogus", Operator: ActionOperatorAssign, StrValue: "x"}}}
+	_, err := ApplyLaneAction(base, action, "")
+	if err == nil {
+		t.Fatal("expected error for unsupported field")
+	}
+	if !strings.Contains(err.Error(), "unsupported action field") {
+		t.Errorf("expected 'unsupported action field' error, got: %v", err)
+	}
 }

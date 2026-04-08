@@ -1,6 +1,7 @@
 package controller
 
 import (
+	"context"
 	"log/slog"
 	"strings"
 	"time"
@@ -9,6 +10,7 @@ import (
 
 	"github.com/boolean-maybe/tiki/model"
 	"github.com/boolean-maybe/tiki/plugin"
+	"github.com/boolean-maybe/tiki/service"
 	"github.com/boolean-maybe/tiki/store"
 	"github.com/boolean-maybe/tiki/task"
 )
@@ -21,6 +23,7 @@ type PluginController struct {
 // NewPluginController creates a plugin controller
 func NewPluginController(
 	taskStore store.Store,
+	mutationGate *service.TaskMutationGate,
 	pluginConfig *model.PluginConfig,
 	pluginDef *plugin.TikiPlugin,
 	navController *NavigationController,
@@ -29,6 +32,7 @@ func NewPluginController(
 	pc := &PluginController{
 		pluginBase: pluginBase{
 			taskStore:     taskStore,
+			mutationGate:  mutationGate,
 			pluginConfig:  pluginConfig,
 			pluginDef:     pluginDef,
 			navController: navController,
@@ -164,8 +168,11 @@ func (pc *PluginController) handlePluginAction(r rune) bool {
 		return false
 	}
 
-	if err := pc.taskStore.UpdateTask(updated); err != nil {
+	if err := pc.mutationGate.UpdateTask(context.Background(), updated); err != nil {
 		slog.Error("failed to update task after plugin action", "task_id", taskID, "key", string(r), "error", err)
+		if pc.statusline != nil {
+			pc.statusline.SetMessage(err.Error(), model.MessageLevelError, true)
+		}
 		return false
 	}
 
@@ -202,8 +209,11 @@ func (pc *PluginController) handleMoveTask(offset int) bool {
 		return false
 	}
 
-	if err := pc.taskStore.UpdateTask(updated); err != nil {
+	if err := pc.mutationGate.UpdateTask(context.Background(), updated); err != nil {
 		slog.Error("failed to update task after lane move", "task_id", taskID, "error", err)
+		if pc.statusline != nil {
+			pc.statusline.SetMessage(err.Error(), model.MessageLevelError, true)
+		}
 		return false
 	}
 

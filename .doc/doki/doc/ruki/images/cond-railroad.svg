@@ -1,0 +1,339 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 888">
+  <!--
+    Condition grammar railroad diagram — transparent/dark-bg compatible
+    Tracks: condition, orCond, andCond, notCond, primaryCond, exprCond
+  -->
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 7" refX="10" refY="3.5" markerWidth="10" markerHeight="7" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 3.5 L 0 7 z" fill="#94A3B8"/>
+    </marker>
+    <filter id="shadow" x="-4%" y="-4%" width="108%" height="116%">
+      <feDropShadow dx="0" dy="1" stdDeviation="2" flood-color="#000000" flood-opacity="0.3"/>
+    </filter>
+    <style>
+      .title { font: 700 16px -apple-system, 'Segoe UI', Roboto, sans-serif; fill: #A5B4FC; }
+      .label { font: bold 14px 'SF Mono', 'Cascadia Code', 'Fira Code', monospace; fill: #94A3B8; }
+      .terminal rect { fill: #3B82F6; fill-opacity: 0.15; stroke: #3B82F6; stroke-width: 1.5; stroke-opacity: 0.5; filter: url(#shadow); }
+      .terminal text { font: 13px -apple-system, 'Segoe UI', Roboto, sans-serif; fill: #93C5FD; font-weight: 600; }
+      .nonterminal rect { fill: #F59E0B; fill-opacity: 0.15; stroke: #F59E0B; stroke-width: 1.5; stroke-opacity: 0.5; filter: url(#shadow); }
+      .nonterminal text { font: 13px -apple-system, 'Segoe UI', Roboto, sans-serif; fill: #FCD34D; font-weight: 500; }
+      .track { stroke: #94A3B8; stroke-width: 1.5; fill: none; }
+    </style>
+  </defs>
+
+  <!-- title -->
+  <text class="title" x="450" y="22" text-anchor="middle">Condition grammar</text>
+
+  <!-- all track content shifted down 8px for title clearance -->
+  <g transform="translate(0, 8)">
+
+    <!-- ==================== condition ==================== -->
+    <g transform="translate(0, 20)">
+      <g>
+        <rect x="2" y="22" width="92" height="28" rx="6" fill="#94A3B8" fill-opacity="0.08" stroke="#94A3B8" stroke-width="0.5" stroke-opacity="0.2"/>
+        <text class="label" x="10" y="36" text-anchor="start">condition</text>
+      </g>
+
+      <circle cx="130" cy="32" r="4" fill="#94A3B8"/>
+      <circle cx="130" cy="32" r="7" fill="none" stroke="#94A3B8" stroke-width="1" stroke-opacity="0.3"/>
+      <line class="track" x1="134" y1="32" x2="160" y2="32"/>
+
+      <g class="nonterminal" transform="translate(160, 16)">
+        <rect width="82" height="32" rx="4"/>
+        <text x="41" y="16" text-anchor="middle" dominant-baseline="central">orCond</text>
+      </g>
+
+      <line class="track" x1="242" y1="32" x2="280" y2="32"/>
+      <circle cx="280" cy="32" r="4" fill="#94A3B8"/>
+      <circle cx="280" cy="32" r="7" fill="none" stroke="#94A3B8" stroke-width="1.5" stroke-opacity="0.5"/>
+    </g>
+
+    <!-- separator -->
+    <line x1="10" y1="80" x2="890" y2="80" stroke="#475569" stroke-width="0.5" stroke-opacity="0.3"/>
+
+    <!-- ==================== orCond ==================== -->
+    <!-- andCond with loopback via "or" below -->
+    <g transform="translate(0, 100)">
+      <g>
+        <rect x="2" y="22" width="66" height="28" rx="6" fill="#94A3B8" fill-opacity="0.08" stroke="#94A3B8" stroke-width="0.5" stroke-opacity="0.2"/>
+        <text class="label" x="10" y="36" text-anchor="start">orCond</text>
+      </g>
+
+      <circle cx="130" cy="32" r="4" fill="#94A3B8"/>
+      <circle cx="130" cy="32" r="7" fill="none" stroke="#94A3B8" stroke-width="1" stroke-opacity="0.3"/>
+      <line class="track" x1="134" y1="32" x2="170" y2="32"/>
+
+      <g class="nonterminal" transform="translate(170, 16)">
+        <rect width="96" height="32" rx="4"/>
+        <text x="48" y="16" text-anchor="middle" dominant-baseline="central">andCond</text>
+      </g>
+      <line class="track" x1="266" y1="32" x2="320" y2="32"/>
+
+      <!-- loopback below with "or" keyword -->
+      <path class="track" d="M 310,32 C 310,62 300,76 280,76 L 240,76"/>
+      <g class="terminal" transform="translate(200, 60)">
+        <rect width="40" height="32" rx="16"/>
+        <text x="20" y="16" text-anchor="middle" dominant-baseline="central">or</text>
+      </g>
+      <path class="track" d="M 200,76 C 180,76 170,62 170,42"/>
+      <path d="M 165,46 L 170,36 L 175,46 z" fill="#94A3B8"/>
+
+      <circle cx="320" cy="32" r="4" fill="#94A3B8"/>
+      <circle cx="320" cy="32" r="7" fill="none" stroke="#94A3B8" stroke-width="1.5" stroke-opacity="0.5"/>
+    </g>
+
+    <!-- separator -->
+    <line x1="10" y1="195" x2="890" y2="195" stroke="#475569" stroke-width="0.5" stroke-opacity="0.3"/>
+
+    <!-- ==================== andCond ==================== -->
+    <!-- notCond with loopback via "and" below -->
+    <g transform="translate(0, 210)">
+      <g>
+        <rect x="2" y="22" width="75" height="28" rx="6" fill="#94A3B8" fill-opacity="0.08" stroke="#94A3B8" stroke-width="0.5" stroke-opacity="0.2"/>
+        <text class="label" x="10" y="36" text-anchor="start">andCond</text>
+      </g>
+
+      <circle cx="130" cy="32" r="4" fill="#94A3B8"/>
+      <circle cx="130" cy="32" r="7" fill="none" stroke="#94A3B8" stroke-width="1" stroke-opacity="0.3"/>
+      <line class="track" x1="134" y1="32" x2="170" y2="32"/>
+
+      <g class="nonterminal" transform="translate(170, 16)">
+        <rect width="96" height="32" rx="4"/>
+        <text x="48" y="16" text-anchor="middle" dominant-baseline="central">notCond</text>
+      </g>
+      <line class="track" x1="266" y1="32" x2="320" y2="32"/>
+
+      <!-- loopback below with "and" keyword -->
+      <path class="track" d="M 310,32 C 310,62 300,76 280,76 L 240,76"/>
+      <g class="terminal" transform="translate(195, 60)">
+        <rect width="50" height="32" rx="16"/>
+        <text x="25" y="16" text-anchor="middle" dominant-baseline="central">and</text>
+      </g>
+      <path class="track" d="M 195,76 C 175,76 170,62 170,42"/>
+      <path d="M 165,46 L 170,36 L 175,46 z" fill="#94A3B8"/>
+
+      <circle cx="320" cy="32" r="4" fill="#94A3B8"/>
+      <circle cx="320" cy="32" r="7" fill="none" stroke="#94A3B8" stroke-width="1.5" stroke-opacity="0.5"/>
+    </g>
+
+    <!-- separator -->
+    <line x1="10" y1="305" x2="890" y2="305" stroke="#475569" stroke-width="0.5" stroke-opacity="0.3"/>
+
+    <!-- ==================== notCond ==================== -->
+    <!-- Two alternatives: "not" notCond (recursive) | primaryCond -->
+    <g transform="translate(0, 320)">
+      <g>
+        <rect x="2" y="40" width="75" height="28" rx="6" fill="#94A3B8" fill-opacity="0.08" stroke="#94A3B8" stroke-width="0.5" stroke-opacity="0.2"/>
+        <text class="label" x="10" y="54" text-anchor="start">notCond</text>
+      </g>
+
+      <circle cx="130" cy="50" r="4" fill="#94A3B8"/>
+      <circle cx="130" cy="50" r="7" fill="none" stroke="#94A3B8" stroke-width="1" stroke-opacity="0.3"/>
+      <line class="track" x1="134" y1="50" x2="170" y2="50"/>
+
+      <!-- upper: not + notCond -->
+      <path class="track" d="M 170,50 C 170,20 180,10 200,10"/>
+      <g class="terminal" transform="translate(200, -6)">
+        <rect width="50" height="32" rx="16"/>
+        <text x="25" y="16" text-anchor="middle" dominant-baseline="central">not</text>
+      </g>
+      <line class="track" x1="250" y1="10" x2="274" y2="10"/>
+      <g class="nonterminal" transform="translate(274, -6)">
+        <rect width="96" height="32" rx="4"/>
+        <text x="48" y="16" text-anchor="middle" dominant-baseline="central">notCond</text>
+      </g>
+      <path class="track" d="M 370,10 C 390,10 400,20 400,50"/>
+
+      <!-- lower: primaryCond (straight through) -->
+      <line class="track" x1="170" y1="50" x2="200" y2="50"/>
+      <g class="nonterminal" transform="translate(200, 34)">
+        <rect width="130" height="32" rx="4"/>
+        <text x="65" y="16" text-anchor="middle" dominant-baseline="central">primaryCond</text>
+      </g>
+      <line class="track" x1="330" y1="50" x2="400" y2="50"/>
+
+      <line class="track" x1="400" y1="50" x2="440" y2="50"/>
+      <circle cx="440" cy="50" r="4" fill="#94A3B8"/>
+      <circle cx="440" cy="50" r="7" fill="none" stroke="#94A3B8" stroke-width="1.5" stroke-opacity="0.5"/>
+    </g>
+
+    <!-- separator -->
+    <line x1="10" y1="420" x2="890" y2="420" stroke="#475569" stroke-width="0.5" stroke-opacity="0.3"/>
+
+    <!-- ==================== primaryCond ==================== -->
+    <!-- Two alternatives: ( condition ) | exprCond -->
+    <g transform="translate(0, 440)">
+      <g>
+        <rect x="2" y="40" width="108" height="28" rx="6" fill="#94A3B8" fill-opacity="0.08" stroke="#94A3B8" stroke-width="0.5" stroke-opacity="0.2"/>
+        <text class="label" x="10" y="54" text-anchor="start">primaryCond</text>
+      </g>
+
+      <circle cx="140" cy="50" r="4" fill="#94A3B8"/>
+      <circle cx="140" cy="50" r="7" fill="none" stroke="#94A3B8" stroke-width="1" stroke-opacity="0.3"/>
+      <line class="track" x1="144" y1="50" x2="180" y2="50"/>
+
+      <!-- upper: ( condition ) -->
+      <path class="track" d="M 180,50 C 180,20 190,10 210,10"/>
+      <g class="terminal" transform="translate(210, -6)">
+        <rect width="30" height="32" rx="16"/>
+        <text x="15" y="16" text-anchor="middle" dominant-baseline="central">(</text>
+      </g>
+      <line class="track" x1="240" y1="10" x2="258" y2="10"/>
+      <g class="nonterminal" transform="translate(258, -6)">
+        <rect width="100" height="32" rx="4"/>
+        <text x="50" y="16" text-anchor="middle" dominant-baseline="central">condition</text>
+      </g>
+      <line class="track" x1="358" y1="10" x2="376" y2="10"/>
+      <g class="terminal" transform="translate(376, -6)">
+        <rect width="30" height="32" rx="16"/>
+        <text x="15" y="16" text-anchor="middle" dominant-baseline="central">)</text>
+      </g>
+      <path class="track" d="M 406,10 C 426,10 436,20 436,50"/>
+
+      <!-- lower: exprCond (straight through) -->
+      <line class="track" x1="180" y1="50" x2="210" y2="50"/>
+      <g class="nonterminal" transform="translate(210, 34)">
+        <rect width="100" height="32" rx="4"/>
+        <text x="50" y="16" text-anchor="middle" dominant-baseline="central">exprCond</text>
+      </g>
+      <line class="track" x1="310" y1="50" x2="436" y2="50"/>
+
+      <line class="track" x1="436" y1="50" x2="476" y2="50"/>
+      <circle cx="476" cy="50" r="4" fill="#94A3B8"/>
+      <circle cx="476" cy="50" r="7" fill="none" stroke="#94A3B8" stroke-width="1.5" stroke-opacity="0.5"/>
+    </g>
+
+    <!-- separator -->
+    <line x1="10" y1="537" x2="890" y2="537" stroke="#475569" stroke-width="0.5" stroke-opacity="0.3"/>
+
+    <!-- ==================== exprCond ==================== -->
+    <!-- expr followed by optional tail: 7 alternatives or bypass -->
+    <g transform="translate(0, 555)">
+      <g>
+        <rect x="2" y="40" width="83" height="28" rx="6" fill="#94A3B8" fill-opacity="0.08" stroke="#94A3B8" stroke-width="0.5" stroke-opacity="0.2"/>
+        <text class="label" x="10" y="54" text-anchor="start">exprCond</text>
+      </g>
+
+      <circle cx="130" cy="50" r="4" fill="#94A3B8"/>
+      <circle cx="130" cy="50" r="7" fill="none" stroke="#94A3B8" stroke-width="1" stroke-opacity="0.3"/>
+      <line class="track" x1="134" y1="50" x2="160" y2="50"/>
+
+      <g class="nonterminal" transform="translate(160, 34)">
+        <rect width="60" height="32" rx="4"/>
+        <text x="30" y="16" text-anchor="middle" dominant-baseline="central">expr</text>
+      </g>
+      <line class="track" x1="220" y1="50" x2="260" y2="50"/>
+
+      <!-- branch: bypass (no tail) above, or one of 7 tails -->
+      <!-- bypass: straight across above -->
+      <path class="track" d="M 250,50 C 250,15 260,5 280,5 L 730,5 C 750,5 760,15 760,50"/>
+
+      <!-- compareTail: compareOp + expr -->
+      <path class="track" d="M 260,50 C 260,68 270,78 290,78"/>
+      <g class="nonterminal" transform="translate(290, 62)">
+        <rect width="110" height="32" rx="4"/>
+        <text x="55" y="16" text-anchor="middle" dominant-baseline="central">compareOp</text>
+      </g>
+      <line class="track" x1="400" y1="78" x2="420" y2="78"/>
+      <g class="nonterminal" transform="translate(420, 62)">
+        <rect width="60" height="32" rx="4"/>
+        <text x="30" y="16" text-anchor="middle" dominant-baseline="central">expr</text>
+      </g>
+      <path class="track" d="M 480,78 C 740,78 740,60 760,50"/>
+
+      <!-- isEmptyTail: is empty -->
+      <path class="track" d="M 260,50 C 260,108 270,118 290,118"/>
+      <g class="terminal" transform="translate(290, 102)">
+        <rect width="36" height="32" rx="16"/>
+        <text x="18" y="16" text-anchor="middle" dominant-baseline="central">is</text>
+      </g>
+      <line class="track" x1="326" y1="118" x2="346" y2="118"/>
+      <g class="terminal" transform="translate(346, 102)">
+        <rect width="70" height="32" rx="16"/>
+        <text x="35" y="16" text-anchor="middle" dominant-baseline="central">empty</text>
+      </g>
+      <path class="track" d="M 416,118 C 740,118 740,60 760,50"/>
+
+      <!-- isNotEmptyTail: is not empty -->
+      <path class="track" d="M 260,50 C 260,148 270,158 290,158"/>
+      <g class="terminal" transform="translate(290, 142)">
+        <rect width="36" height="32" rx="16"/>
+        <text x="18" y="16" text-anchor="middle" dominant-baseline="central">is</text>
+      </g>
+      <line class="track" x1="326" y1="158" x2="346" y2="158"/>
+      <g class="terminal" transform="translate(346, 142)">
+        <rect width="50" height="32" rx="16"/>
+        <text x="25" y="16" text-anchor="middle" dominant-baseline="central">not</text>
+      </g>
+      <line class="track" x1="396" y1="158" x2="416" y2="158"/>
+      <g class="terminal" transform="translate(416, 142)">
+        <rect width="70" height="32" rx="16"/>
+        <text x="35" y="16" text-anchor="middle" dominant-baseline="central">empty</text>
+      </g>
+      <path class="track" d="M 486,158 C 740,158 740,60 760,50"/>
+
+      <!-- inTail: in expr -->
+      <path class="track" d="M 260,50 C 260,188 270,198 290,198"/>
+      <g class="terminal" transform="translate(290, 182)">
+        <rect width="36" height="32" rx="16"/>
+        <text x="18" y="16" text-anchor="middle" dominant-baseline="central">in</text>
+      </g>
+      <line class="track" x1="326" y1="198" x2="346" y2="198"/>
+      <g class="nonterminal" transform="translate(346, 182)">
+        <rect width="60" height="32" rx="4"/>
+        <text x="30" y="16" text-anchor="middle" dominant-baseline="central">expr</text>
+      </g>
+      <path class="track" d="M 406,198 C 740,198 740,60 760,50"/>
+
+      <!-- notInTail: not in expr -->
+      <path class="track" d="M 260,50 C 260,228 270,238 290,238"/>
+      <g class="terminal" transform="translate(290, 222)">
+        <rect width="50" height="32" rx="16"/>
+        <text x="25" y="16" text-anchor="middle" dominant-baseline="central">not</text>
+      </g>
+      <line class="track" x1="340" y1="238" x2="360" y2="238"/>
+      <g class="terminal" transform="translate(360, 222)">
+        <rect width="36" height="32" rx="16"/>
+        <text x="18" y="16" text-anchor="middle" dominant-baseline="central">in</text>
+      </g>
+      <line class="track" x1="396" y1="238" x2="416" y2="238"/>
+      <g class="nonterminal" transform="translate(416, 222)">
+        <rect width="60" height="32" rx="4"/>
+        <text x="30" y="16" text-anchor="middle" dominant-baseline="central">expr</text>
+      </g>
+      <path class="track" d="M 476,238 C 740,238 740,60 760,50"/>
+
+      <!-- anyTail: any primaryCond -->
+      <path class="track" d="M 260,50 C 260,268 270,278 290,278"/>
+      <g class="terminal" transform="translate(290, 262)">
+        <rect width="50" height="32" rx="16"/>
+        <text x="25" y="16" text-anchor="middle" dominant-baseline="central">any</text>
+      </g>
+      <line class="track" x1="340" y1="278" x2="360" y2="278"/>
+      <g class="nonterminal" transform="translate(360, 262)">
+        <rect width="130" height="32" rx="4"/>
+        <text x="65" y="16" text-anchor="middle" dominant-baseline="central">primaryCond</text>
+      </g>
+      <path class="track" d="M 490,278 C 740,278 740,60 760,50"/>
+
+      <!-- allTail: all primaryCond -->
+      <path class="track" d="M 260,50 C 260,308 270,318 290,318"/>
+      <g class="terminal" transform="translate(290, 302)">
+        <rect width="50" height="32" rx="16"/>
+        <text x="25" y="16" text-anchor="middle" dominant-baseline="central">all</text>
+      </g>
+      <line class="track" x1="340" y1="318" x2="360" y2="318"/>
+      <g class="nonterminal" transform="translate(360, 302)">
+        <rect width="130" height="32" rx="4"/>
+        <text x="65" y="16" text-anchor="middle" dominant-baseline="central">primaryCond</text>
+      </g>
+      <path class="track" d="M 490,318 C 740,318 740,60 760,50"/>
+
+      <!-- exit -->
+      <line class="track" x1="760" y1="50" x2="800" y2="50"/>
+      <circle cx="800" cy="50" r="4" fill="#94A3B8"/>
+      <circle cx="800" cy="50" r="7" fill="none" stroke="#94A3B8" stroke-width="1.5" stroke-opacity="0.5"/>
+    </g>
+
+  </g>
+</svg>

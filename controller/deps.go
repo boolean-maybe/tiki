@@ -1,11 +1,13 @@
 package controller
 
 import (
+	"context"
 	"log/slog"
 	"strings"
 
 	"github.com/boolean-maybe/tiki/model"
 	"github.com/boolean-maybe/tiki/plugin"
+	"github.com/boolean-maybe/tiki/service"
 	"github.com/boolean-maybe/tiki/store"
 	"github.com/boolean-maybe/tiki/task"
 )
@@ -27,6 +29,7 @@ type DepsController struct {
 // NewDepsController creates a dependency editor controller.
 func NewDepsController(
 	taskStore store.Store,
+	mutationGate *service.TaskMutationGate,
 	pluginConfig *model.PluginConfig,
 	pluginDef *plugin.TikiPlugin,
 	navController *NavigationController,
@@ -35,6 +38,7 @@ func NewDepsController(
 	return &DepsController{
 		pluginBase: pluginBase{
 			taskStore:     taskStore,
+			mutationGate:  mutationGate,
 			pluginConfig:  pluginConfig,
 			pluginDef:     pluginDef,
 			navController: navController,
@@ -191,8 +195,11 @@ func (dc *DepsController) handleMoveTask(offset int) bool {
 			slog.Error("deps move: failed to apply action", "task_id", u.taskID, "error", err)
 			return false
 		}
-		if err := dc.taskStore.UpdateTask(updated); err != nil {
+		if err := dc.mutationGate.UpdateTask(context.Background(), updated); err != nil {
 			slog.Error("deps move: failed to update task", "task_id", u.taskID, "error", err)
+			if dc.statusline != nil {
+				dc.statusline.SetMessage(err.Error(), model.MessageLevelError, true)
+			}
 			return false
 		}
 	}

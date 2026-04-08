@@ -239,10 +239,6 @@ func ApplyLaneAction(src *task.Task, action LaneAction, currentUser string) (*ta
 		}
 	}
 
-	if validation := task.QuickValidate(clone); validation.HasErrors() {
-		return nil, fmt.Errorf("action resulted in invalid task: %w", validation)
-	}
-
 	return clone, nil
 }
 

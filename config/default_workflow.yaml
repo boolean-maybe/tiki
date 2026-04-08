@@ -104,3 +104,23 @@ views:
     foreground: "#ff9966"
     background: "#2b3a42"
     key: "F2"
+
+triggers:
+  - description: block completion with open dependencies
+    ruki: >
+      before update
+        where new.status = "done" and new.dependsOn any status != "done"
+        deny "cannot complete: has open dependencies"
+  - description: no jumping from backlog to done
+    ruki: >
+      before update
+        where old.status = "backlog" and new.status = "done"
+        deny "cannot move directly from backlog to done"
+  - description: remove deleted task from dependency lists
+    ruki: >
+      after delete
+        update where old.id in dependsOn set dependsOn=dependsOn - [old.id]
+  - description: clean up completed tasks after 24 hours
+    ruki: >
+      every 1day
+        delete where status = "done" and updatedAt < now() - 1day

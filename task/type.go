@@ -1,89 +1,77 @@
 package task
 
 import (
-	"strings"
+	"fmt"
+
+	"github.com/boolean-maybe/tiki/config"
+	"github.com/boolean-maybe/tiki/workflow"
 )
 
-// Type represents the type of work item
-type Type string
+// Type is a type alias for workflow.TaskType.
+// This preserves compatibility: task.Type and workflow.TaskType are the same type.
+type Type = workflow.TaskType
 
+// well-known built-in type constants.
 const (
-	TypeStory Type = "story"
-	TypeBug   Type = "bug"
-	TypeSpike Type = "spike"
-	TypeEpic  Type = "epic"
+	TypeStory = workflow.TypeStory
+	TypeBug   = workflow.TypeBug
+	TypeSpike = workflow.TypeSpike
+	TypeEpic  = workflow.TypeEpic
 )
 
-type typeInfo struct {
-	label string
-	emoji string
-}
-
-var types = map[string]typeInfo{
-	"story":   {label: "Story", emoji: "🌀"},
-	"bug":     {label: "Bug", emoji: "💥"},
-	"spike":   {label: "Spike", emoji: "🔍"},
-	"epic":    {label: "Epic", emoji: "🗂️"},
-	"feature": {label: "Story", emoji: "🌀"},
-	"task":    {label: "Story", emoji: "🌀"},
-}
-
-// normalizeType standardizes a raw type string.
-func normalizeType(s string) string {
-	s = strings.ToLower(strings.TrimSpace(s))
-	s = strings.ReplaceAll(s, "_", "")
-	s = strings.ReplaceAll(s, "-", "")
-	s = strings.ReplaceAll(s, " ", "")
-	return s
-}
-
-func ParseType(t string) (Type, bool) {
-	normalized := normalizeType(t)
-	switch normalized {
-	case "bug":
-		return TypeBug, true
-	case "spike":
-		return TypeSpike, true
-	case "epic":
-		return TypeEpic, true
-	case "story", "feature", "task":
-		return TypeStory, true
-	default:
-		return TypeStory, false
+// defaultTypeRegistry is built once from the built-in type definitions.
+// It serves as a fallback when config has not been initialized yet.
+var defaultTypeRegistry = func() *workflow.TypeRegistry {
+	reg, err := workflow.NewTypeRegistry(workflow.DefaultTypeDefs())
+	if err != nil {
+		panic(fmt.Sprintf("task: building default type registry: %v", err))
 	}
+	return reg
+}()
+
+// currentTypeRegistry returns the config-provided type registry when available,
+// falling back to the package-level default built from DefaultTypeDefs().
+func currentTypeRegistry() *workflow.TypeRegistry {
+	if reg, ok := config.MaybeGetTypeRegistry(); ok {
+		return reg
+	}
+	return defaultTypeRegistry
+}
+
+// ParseType parses a raw string into a Type with validation.
+// Returns the canonical key and true if recognized (including aliases),
+// or (TypeStory, false) for unknown types.
+func ParseType(t string) (Type, bool) {
+	return currentTypeRegistry().ParseType(t)
 }
 
 // NormalizeType standardizes a raw type string into a Type.
 func NormalizeType(t string) Type {
-	normalized, _ := ParseType(t)
-	return normalized
+	return currentTypeRegistry().NormalizeType(t)
 }
 
 // TypeLabel returns a human-readable label for a task type.
 func TypeLabel(taskType Type) string {
-	// Direct lookup using Type constant
-	if info, ok := types[string(taskType)]; ok {
-		return info.label
-	}
-	// Fallback to the raw string if unknown
-	return string(taskType)
+	return currentTypeRegistry().TypeLabel(taskType)
 }
 
 // TypeEmoji returns the emoji for a task type.
 func TypeEmoji(taskType Type) string {
-	// Direct lookup using Type constant
-	if info, ok := types[string(taskType)]; ok {
-		return info.emoji
-	}
-	return ""
+	return currentTypeRegistry().TypeEmoji(taskType)
 }
 
 // TypeDisplay returns a formatted display string with label and emoji.
 func TypeDisplay(taskType Type) string {
-	label := TypeLabel(taskType)
-	emoji := TypeEmoji(taskType)
-	if emoji == "" {
-		return label
-	}
-	return label + " " + emoji
+	return currentTypeRegistry().TypeDisplay(taskType)
+}
+
+// ParseDisplay reverses a TypeDisplay() string back to a canonical key.
+// Returns (key, true) on match, or (fallback, false) for unrecognized display strings.
+func ParseDisplay(display string) (Type, bool) {
+	return currentTypeRegistry().ParseDisplay(display)
+}
+
+// AllTypes returns the ordered list of all configured type keys.
+func AllTypes() []Type {
+	return currentTypeRegistry().Keys()
 }

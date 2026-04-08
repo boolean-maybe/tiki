@@ -1,6 +1,7 @@
 package pipe
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"log/slog"
@@ -9,6 +10,8 @@ import (
 
 	"github.com/boolean-maybe/tiki/config"
 	"github.com/boolean-maybe/tiki/internal/bootstrap"
+	rukiRuntime "github.com/boolean-maybe/tiki/internal/ruki/runtime"
+	"github.com/boolean-maybe/tiki/service"
 )
 
 // IsPipedInput reports whether stdin is connected to a pipe or redirected file
@@ -84,12 +87,22 @@ func CreateTaskFromReader(r io.Reader) (string, error) {
 		return "", fmt.Errorf("load status registry: %w", err)
 	}
 
-	tikiStore, _, err := bootstrap.InitStores()
+	gate := service.BuildGate()
+
+	_, taskStore, err := bootstrap.InitStores()
 	if err != nil {
 		return "", fmt.Errorf("initialize store: %w", err)
 	}
+	gate.SetStore(taskStore)
 
-	task, err := tikiStore.NewTaskTemplate()
+	// load triggers so piped creates fire them
+	schema := rukiRuntime.NewSchema()
+	userName, _, _ := taskStore.GetCurrentUser()
+	if _, _, loadErr := service.LoadAndRegisterTriggers(gate, schema, func() string { return userName }); loadErr != nil {
+		return "", fmt.Errorf("load triggers: %w", loadErr)
+	}
+
+	task, err := taskStore.NewTaskTemplate()
 	if err != nil {
 		return "", fmt.Errorf("create task template: %w", err)
 	}
@@ -97,11 +110,7 @@ func CreateTaskFromReader(r io.Reader) (string, error) {
 	task.Title = title
 	task.Description = description
 
-	if errs := task.Validate(); errs.HasErrors() {
-		return "", fmt.Errorf("validation failed: %s", errs.Error())
-	}
-
-	if err := tikiStore.CreateTask(task); err != nil {
+	if err := gate.CreateTask(context.Background(), task); err != nil {
 		return "", fmt.Errorf("create task: %w", err)
 	}
 

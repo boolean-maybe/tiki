@@ -1,6 +1,10 @@
 package task
 
-import "testing"
+import (
+	"testing"
+
+	"github.com/boolean-maybe/tiki/config"
+)
 
 func TestNormalizeType(t *testing.T) {
 	tests := []struct {
@@ -102,5 +106,134 @@ func TestTypeDisplay(t *testing.T) {
 				t.Errorf("TypeDisplay(%q) = %q, want %q", tt.input, result, tt.expected)
 			}
 		})
+	}
+}
+
+// TestTypeHelpers_FallbackWithoutConfig verifies that all type helpers work
+// when the config registry has not been initialized (fallback to defaults).
+func TestTypeHelpers_FallbackWithoutConfig(t *testing.T) {
+	config.ClearStatusRegistry()
+	t.Cleanup(func() {
+		// restore for other tests in the package
+		config.ResetStatusRegistry(testStatusDefs())
+	})
+
+	t.Run("NormalizeType", func(t *testing.T) {
+		if got := NormalizeType("bug"); got != TypeBug {
+			t.Errorf("NormalizeType(%q) = %q, want %q", "bug", got, TypeBug)
+		}
+		if got := NormalizeType("feature"); got != TypeStory {
+			t.Errorf("NormalizeType(%q) = %q, want %q (alias)", "feature", got, TypeStory)
+		}
+		if got := NormalizeType("unknown"); got != TypeStory {
+			t.Errorf("NormalizeType(%q) = %q, want %q (fallback)", "unknown", got, TypeStory)
+		}
+	})
+
+	t.Run("ParseType", func(t *testing.T) {
+		typ, ok := ParseType("epic")
+		if !ok || typ != TypeEpic {
+			t.Errorf("ParseType(%q) = (%q, %v), want (%q, true)", "epic", typ, ok, TypeEpic)
+		}
+		typ, ok = ParseType("nonsense")
+		if ok {
+			t.Errorf("ParseType(%q) returned ok=true for unknown type", "nonsense")
+		}
+		if typ != TypeStory {
+			t.Errorf("ParseType(%q) fallback = %q, want %q", "nonsense", typ, TypeStory)
+		}
+	})
+
+	t.Run("TypeLabel", func(t *testing.T) {
+		if got := TypeLabel(TypeBug); got != "Bug" {
+			t.Errorf("TypeLabel(%q) = %q, want %q", TypeBug, got, "Bug")
+		}
+	})
+
+	t.Run("TypeDisplay", func(t *testing.T) {
+		if got := TypeDisplay(TypeSpike); got != "Spike 🔍" {
+			t.Errorf("TypeDisplay(%q) = %q, want %q", TypeSpike, got, "Spike 🔍")
+		}
+	})
+}
+
+func TestParseDisplay(t *testing.T) {
+	tests := []struct {
+		name     string
+		input    string
+		wantType Type
+		wantOK   bool
+	}{
+		{"story display", "Story 🌀", TypeStory, true},
+		{"bug display", "Bug 💥", TypeBug, true},
+		{"spike display", "Spike 🔍", TypeSpike, true},
+		{"epic display", "Epic 🗂️", TypeEpic, true},
+		{"unknown display", "Unknown 🤷", TypeStory, false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, ok := ParseDisplay(tt.input)
+			if ok != tt.wantOK {
+				t.Errorf("ParseDisplay(%q) ok = %v, want %v", tt.input, ok, tt.wantOK)
+			}
+			if got != tt.wantType {
+				t.Errorf("ParseDisplay(%q) = %q, want %q", tt.input, got, tt.wantType)
+			}
+		})
+	}
+}
+
+func TestAllTypes(t *testing.T) {
+	types := AllTypes()
+	if len(types) == 0 {
+		t.Fatal("AllTypes() returned empty list")
+	}
+	// verify well-known types are present
+	found := make(map[Type]bool)
+	for _, tp := range types {
+		found[tp] = true
+	}
+	for _, want := range []Type{TypeStory, TypeBug, TypeSpike, TypeEpic} {
+		if !found[want] {
+			t.Errorf("AllTypes() missing %q", want)
+		}
+	}
+}
+
+func TestParseType(t *testing.T) {
+	tests := []struct {
+		name     string
+		input    string
+		wantType Type
+		wantOK   bool
+	}{
+		{"valid story", "story", TypeStory, true},
+		{"valid bug", "bug", TypeBug, true},
+		{"alias feature", "feature", TypeStory, true},
+		{"unknown", "nonsense", TypeStory, false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, ok := ParseType(tt.input)
+			if ok != tt.wantOK {
+				t.Errorf("ParseType(%q) ok = %v, want %v", tt.input, ok, tt.wantOK)
+			}
+			if got != tt.wantType {
+				t.Errorf("ParseType(%q) = %q, want %q", tt.input, got, tt.wantType)
+			}
+		})
+	}
+}
+
+// testStatusDefs returns the standard test status definitions.
+func testStatusDefs() []config.StatusDef {
+	return []config.StatusDef{
+		{Key: "backlog", Label: "Backlog", Emoji: "📥", Default: true},
+		{Key: "ready", Label: "Ready", Emoji: "📋", Active: true},
+		{Key: "in_progress", Label: "In Progress", Emoji: "⚙️", Active: true},
+		{Key: "review", Label: "Review", Emoji: "👀", Active: true},
+		{Key: "done", Label: "Done", Emoji: "✅", Done: true},
 	}
 }

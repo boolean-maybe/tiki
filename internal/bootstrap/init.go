@@ -11,8 +11,10 @@ import (
 	"github.com/boolean-maybe/tiki/controller"
 	"github.com/boolean-maybe/tiki/internal/app"
 	"github.com/boolean-maybe/tiki/internal/background"
+	rukiRuntime "github.com/boolean-maybe/tiki/internal/ruki/runtime"
 	"github.com/boolean-maybe/tiki/model"
 	"github.com/boolean-maybe/tiki/plugin"
+	"github.com/boolean-maybe/tiki/service"
 	"github.com/boolean-maybe/tiki/store"
 	"github.com/boolean-maybe/tiki/store/tikistore"
 	"github.com/boolean-maybe/tiki/util/sysinfo"
@@ -29,6 +31,7 @@ type Result struct {
 	// Fields include: OS, Architecture, TermType, DetectedTheme, ColorSupport, ColorCount.
 	// Collected early using terminfo lookup (no screen initialization needed).
 	SystemInfo       *sysinfo.SystemInfo
+	MutationGate     *service.TaskMutationGate
 	TikiStore        *tikistore.TikiStore
 	TaskStore        store.Store
 	HeaderConfig     *model.HeaderConfig
@@ -90,11 +93,15 @@ func Bootstrap(tikiSkillContent, dokiSkillContent string) (*Result, error) {
 	// Collect early (before app creation) using terminfo lookup for future visual adjustments
 	systemInfo := InitColorAndGradientSupport(cfg)
 
+	// Phase 3.7: Mutation gate (before store, so validators can register early)
+	gate := service.BuildGate()
+
 	// Phase 4: Store initialization
 	tikiStore, taskStore, err := InitStores()
 	if err != nil {
 		return nil, err
 	}
+	gate.SetStore(taskStore)
 
 	// Phase 5: Model initialization
 	headerConfig, layoutModel := InitHeaderAndLayoutModels()
@@ -109,6 +116,17 @@ func Bootstrap(tikiSkillContent, dokiSkillContent string) (*Result, error) {
 	syncHeaderPluginActions(headerConfig)
 	pluginConfigs, pluginDefs := BuildPluginConfigsAndDefs(plugins)
 
+	// Phase 6.5: Trigger system
+	schema := rukiRuntime.NewSchema()
+	userName, _, _ := taskStore.GetCurrentUser()
+	triggerEngine, triggerCount, err := service.LoadAndRegisterTriggers(gate, schema, func() string { return userName })
+	if err != nil {
+		return nil, fmt.Errorf("load triggers: %w", err)
+	}
+	if triggerCount > 0 {
+		slog.Info("triggers loaded", "count", triggerCount)
+	}
+
 	// Phase 7: Application and controllers
 	application := app.NewApp()
 	app.SetupSignalHandler(application)
@@ -116,6 +134,7 @@ func Bootstrap(tikiSkillContent, dokiSkillContent string) (*Result, error) {
 	controllers := BuildControllers(
 		application,
 		taskStore,
+		gate,
 		plugins,
 		pluginConfigs,
 		statuslineConfig,
@@ -127,6 +146,7 @@ func Bootstrap(tikiSkillContent, dokiSkillContent string) (*Result, error) {
 		controllers.Task,
 		controllers.Plugins,
 		taskStore,
+		gate,
 		statuslineConfig,
 	)
 
@@ -158,6 +178,7 @@ func Bootstrap(tikiSkillContent, dokiSkillContent string) (*Result, error) {
 	// Phase 11: Background tasks
 	ctx, cancel := context.WithCancel(context.Background()) //nolint:gosec // G118: cancel stored in Result.CancelFunc, called by app shutdown
 	background.StartBurndownHistoryBuilder(ctx, tikiStore, headerConfig, application)
+	triggerEngine.StartScheduler(ctx)
 
 	// Phase 12: Navigation and input wiring
 	wireNavigation(controllers.Nav, layoutModel, rootLayout)
@@ -171,6 +192,7 @@ func Bootstrap(tikiSkillContent, dokiSkillContent string) (*Result, error) {
 		Cfg:              cfg,
 		LogLevel:         logLevel,
 		SystemInfo:       systemInfo,
+		MutationGate:     gate,
 		TikiStore:        tikiStore,
 		TaskStore:        taskStore,
 		HeaderConfig:     headerConfig,
