@@ -1,6 +1,7 @@
 package controller
 
 import (
+	"fmt"
 	"slices"
 	"testing"
 
@@ -453,5 +454,169 @@ func TestDepsViewActions(t *testing.T) {
 		if !found {
 			t.Errorf("DepsViewActions missing required action %s", id)
 		}
+	}
+}
+
+func newDepsNavEnv(t *testing.T, blockers int, allTasks int, depends int, laneColumns []int) *DepsController {
+	t.Helper()
+
+	taskStore := store.NewInMemoryStore()
+	contextID := "TIKI-CTXNAV0"
+	contextDepends := make([]string, 0, depends)
+	for i := 0; i < depends; i++ {
+		contextDepends = append(contextDepends, fmt.Sprintf("TIKI-DEP%03d", i))
+	}
+	if err := taskStore.CreateTask(&task.Task{
+		ID:        contextID,
+		Title:     "Context",
+		Status:    task.StatusReady,
+		Type:      task.TypeStory,
+		Priority:  3,
+		DependsOn: contextDepends,
+	}); err != nil {
+		t.Fatalf("create context: %v", err)
+	}
+
+	for i := 0; i < depends; i++ {
+		if err := taskStore.CreateTask(&task.Task{
+			ID:       fmt.Sprintf("TIKI-DEP%03d", i),
+			Title:    "Depends",
+			Status:   task.StatusReady,
+			Type:     task.TypeStory,
+			Priority: 3,
+		}); err != nil {
+			t.Fatalf("create depends task: %v", err)
+		}
+	}
+
+	for i := 0; i < blockers; i++ {
+		if err := taskStore.CreateTask(&task.Task{
+			ID:        fmt.Sprintf("TIKI-BLK%03d", i),
+			Title:     "Blocker",
+			Status:    task.StatusReady,
+			Type:      task.TypeStory,
+			Priority:  3,
+			DependsOn: []string{contextID},
+		}); err != nil {
+			t.Fatalf("create blocker task: %v", err)
+		}
+	}
+
+	for i := 0; i < allTasks; i++ {
+		if err := taskStore.CreateTask(&task.Task{
+			ID:       fmt.Sprintf("TIKI-ALL%03d", i),
+			Title:    "All",
+			Status:   task.StatusReady,
+			Type:     task.TypeStory,
+			Priority: 3,
+		}); err != nil {
+			t.Fatalf("create all lane task: %v", err)
+		}
+	}
+
+	pluginDef := &plugin.TikiPlugin{
+		BasePlugin: plugin.BasePlugin{Name: "Dependency:" + contextID, ConfigIndex: -1, Type: "tiki"},
+		TaskID:     contextID,
+		Lanes:      []plugin.TikiLane{{Name: "Blocks"}, {Name: "All"}, {Name: "Depends"}},
+	}
+	pluginConfig := model.NewPluginConfig("Dependency")
+	pluginConfig.SetLaneLayout(laneColumns, nil)
+
+	nav := newMockNavigationController()
+	return NewDepsController(taskStore, pluginConfig, pluginDef, nav, nil)
+}
+
+func TestDepsController_NavRightAdjacentNonEmptyPreservesRow(t *testing.T) {
+	dc := newDepsNavEnv(t, 2, 4, 3, []int{1, 2, 1})
+	dc.pluginConfig.SetSelectedLane(depsLaneAll)
+	dc.pluginConfig.SetSelectedIndexForLane(depsLaneAll, 3) // row 1, col 1
+	dc.pluginConfig.SetScrollOffsetForLane(depsLaneAll, 1)  // row offset in viewport = 0
+	dc.pluginConfig.SetScrollOffsetForLane(depsLaneDepends, 1)
+
+	if !dc.HandleAction(ActionNavRight) {
+		t.Fatal("expected nav right to succeed")
+	}
+	if got := dc.pluginConfig.GetSelectedLane(); got != depsLaneDepends {
+		t.Fatalf("expected lane %d, got %d", depsLaneDepends, got)
+	}
+	if got := dc.pluginConfig.GetSelectedIndexForLane(depsLaneDepends); got != 1 {
+		t.Fatalf("expected selected index 1, got %d", got)
+	}
+}
+
+func TestDepsController_NavLeftAdjacentNonEmptyLandsRightmostPartial(t *testing.T) {
+	dc := newDepsNavEnv(t, 6, 4, 2, []int{4, 2, 1})
+	dc.pluginConfig.SetSelectedLane(depsLaneAll)
+	dc.pluginConfig.SetSelectedIndexForLane(depsLaneAll, 2) // row 1, col 0
+	dc.pluginConfig.SetScrollOffsetForLane(depsLaneAll, 1)  // row offset in viewport = 0
+	dc.pluginConfig.SetScrollOffsetForLane(depsLaneBlocks, 1)
+
+	if !dc.HandleAction(ActionNavLeft) {
+		t.Fatal("expected nav left to succeed")
+	}
+	if got := dc.pluginConfig.GetSelectedLane(); got != depsLaneBlocks {
+		t.Fatalf("expected lane %d, got %d", depsLaneBlocks, got)
+	}
+	// lane 0 has 6 tasks with 4 columns; row 1 is partial => index 5
+	if got := dc.pluginConfig.GetSelectedIndexForLane(depsLaneBlocks); got != 5 {
+		t.Fatalf("expected selected index 5, got %d", got)
+	}
+}
+
+func TestDepsController_NavSkipEmptyKeepsTraversalAndLandsByTargetViewport(t *testing.T) {
+	dc := newDepsNavEnv(t, 3, 0, 2, []int{1, 2, 1})
+	dc.pluginConfig.SetSelectedLane(depsLaneBlocks)
+	dc.pluginConfig.SetSelectedIndexForLane(depsLaneBlocks, 2)
+	dc.pluginConfig.SetScrollOffsetForLane(depsLaneDepends, 1)
+
+	if !dc.HandleAction(ActionNavRight) {
+		t.Fatal("expected nav right to skip empty all lane and succeed")
+	}
+	if got := dc.pluginConfig.GetSelectedLane(); got != depsLaneDepends {
+		t.Fatalf("expected lane %d, got %d", depsLaneDepends, got)
+	}
+	if got := dc.pluginConfig.GetSelectedIndexForLane(depsLaneDepends); got != 1 {
+		t.Fatalf("expected selected index 1 from depends viewport row, got %d", got)
+	}
+}
+
+func TestDepsController_VerticalStaleIndexRecoveryIsShared(t *testing.T) {
+	dc := newDepsNavEnv(t, 1, 1, 1, []int{1, 2, 1})
+	dc.pluginConfig.SetSelectedLane(depsLaneAll)
+	dc.pluginConfig.SetSelectedIndexForLane(depsLaneAll, 99)
+
+	callbacks := 0
+	listenerID := dc.pluginConfig.AddSelectionListener(func() { callbacks++ })
+	defer dc.pluginConfig.RemoveSelectionListener(listenerID)
+
+	if !dc.HandleAction(ActionNavDown) {
+		t.Fatal("expected stale vertical action to heal selection")
+	}
+	if got := dc.pluginConfig.GetSelectedIndexForLane(depsLaneAll); got != 0 {
+		t.Fatalf("expected healed index 0, got %d", got)
+	}
+	if callbacks != 1 {
+		t.Fatalf("expected 1 selection callback, got %d", callbacks)
+	}
+}
+
+func TestDepsController_SuccessfulSwitchPersistsClampedTargetScroll(t *testing.T) {
+	dc := newDepsNavEnv(t, 2, 3, 1, []int{1, 2, 1})
+	dc.pluginConfig.SetSelectedLane(depsLaneBlocks)
+	dc.pluginConfig.SetSelectedIndexForLane(depsLaneBlocks, 0)
+	dc.pluginConfig.SetScrollOffsetForLane(depsLaneAll, 99)
+
+	if !dc.HandleAction(ActionNavRight) {
+		t.Fatal("expected nav right to succeed")
+	}
+	if got := dc.pluginConfig.GetSelectedLane(); got != depsLaneAll {
+		t.Fatalf("expected lane %d, got %d", depsLaneAll, got)
+	}
+	// all lane has 3 tasks with 2 columns => max row 1, row-start index 2
+	if got := dc.pluginConfig.GetSelectedIndexForLane(depsLaneAll); got != 2 {
+		t.Fatalf("expected selected index 2, got %d", got)
+	}
+	if got := dc.pluginConfig.GetScrollOffsetForLane(depsLaneAll); got != 1 {
+		t.Fatalf("expected clamped scroll offset 1, got %d", got)
 	}
 }

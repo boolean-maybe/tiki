@@ -27,50 +27,228 @@ func (pb *pluginBase) GetPluginName() string              { return pb.pluginDef.
 func (pb *pluginBase) handleNav(direction string, filteredTasks func(int) []*task.Task) bool {
 	lane := pb.pluginConfig.GetSelectedLane()
 	tasks := filteredTasks(lane)
-	if direction == "left" || direction == "right" {
-		if pb.pluginConfig.MoveSelection(direction, len(tasks)) {
-			return true
-		}
-		return pb.handleLaneSwitch(direction, filteredTasks)
-	}
-	return pb.pluginConfig.MoveSelection(direction, len(tasks))
-}
-
-func (pb *pluginBase) handleLaneSwitch(direction string, filteredTasks func(int) []*task.Task) bool {
-	currentLane := pb.pluginConfig.GetSelectedLane()
-	nextLane := currentLane
 	switch direction {
-	case "left":
-		nextLane--
-	case "right":
-		nextLane++
+	case "up", "down":
+		return pb.handleVerticalNav(direction, lane, tasks)
+	case "left", "right":
+		return pb.handleHorizontalNav(direction, lane, tasks, filteredTasks)
 	default:
 		return false
 	}
+}
 
-	for nextLane >= 0 && nextLane < len(pb.pluginDef.Lanes) {
-		tasks := filteredTasks(nextLane)
-		if len(tasks) > 0 {
-			pb.pluginConfig.SetSelectedLane(nextLane)
-			// select the task at top of viewport (scroll offset) rather than keeping stale index
-			scrollOffset := pb.pluginConfig.GetScrollOffsetForLane(nextLane)
-			if scrollOffset >= len(tasks) {
-				scrollOffset = len(tasks) - 1
-			}
-			if scrollOffset < 0 {
-				scrollOffset = 0
-			}
-			pb.pluginConfig.SetSelectedIndexForLane(nextLane, scrollOffset)
+func (pb *pluginBase) handleVerticalNav(direction string, lane int, tasks []*task.Task) bool {
+	if len(tasks) == 0 {
+		return false
+	}
+
+	storedIndex := pb.pluginConfig.GetSelectedIndexForLane(lane)
+	clampedIndex := clampTaskIndex(storedIndex, len(tasks))
+	if storedIndex != clampedIndex {
+		columns := normalizeColumns(pb.pluginConfig.GetColumnsForLane(lane))
+		finalIndex := moveVerticalIndex(direction, clampedIndex, columns, len(tasks))
+		if storedIndex != finalIndex {
+			pb.pluginConfig.SetSelectedIndexForLane(lane, finalIndex)
 			return true
 		}
-		switch direction {
-		case "left":
-			nextLane--
-		case "right":
-			nextLane++
+		return false
+	}
+
+	return pb.pluginConfig.MoveSelection(direction, len(tasks))
+}
+
+func (pb *pluginBase) handleHorizontalNav(direction string, lane int, tasks []*task.Task, filteredTasks func(int) []*task.Task) bool {
+	if len(tasks) > 0 {
+		storedIndex := pb.pluginConfig.GetSelectedIndexForLane(lane)
+		clampedIndex := clampTaskIndex(storedIndex, len(tasks))
+		columns := normalizeColumns(pb.pluginConfig.GetColumnsForLane(lane))
+		if moved, targetIndex := moveHorizontalIndex(direction, clampedIndex, columns, len(tasks)); moved {
+			pb.pluginConfig.SetSelectedIndexForLane(lane, targetIndex)
+			return true
 		}
 	}
+	return pb.handleLaneSwitch(direction, filteredTasks)
+}
+
+func (pb *pluginBase) handleLaneSwitch(direction string, filteredTasks func(int) []*task.Task) bool {
+	if pb.pluginDef == nil {
+		return false
+	}
+	currentLane := pb.pluginConfig.GetSelectedLane()
+	step, ok := laneDirectionStep(direction)
+	if !ok {
+		return false
+	}
+	nextLane := currentLane + step
+	if nextLane < 0 || nextLane >= len(pb.pluginDef.Lanes) {
+		return false
+	}
+
+	sourceTasks := filteredTasks(currentLane)
+	rowOffsetInViewport := 0
+	if len(sourceTasks) > 0 {
+		sourceColumns := normalizeColumns(pb.pluginConfig.GetColumnsForLane(currentLane))
+		sourceIndex := clampTaskIndex(pb.pluginConfig.GetSelectedIndexForLane(currentLane), len(sourceTasks))
+		sourceRow := sourceIndex / sourceColumns
+		maxSourceRow := maxRowIndex(len(sourceTasks), sourceColumns)
+		sourceScroll := clampInt(pb.pluginConfig.GetScrollOffsetForLane(currentLane), maxSourceRow)
+		rowOffsetInViewport = sourceRow - sourceScroll
+	}
+
+	adjacentTasks := filteredTasks(nextLane)
+	if len(adjacentTasks) > 0 {
+		return pb.applyLaneSwitch(nextLane, adjacentTasks, direction, rowOffsetInViewport, true)
+	}
+
+	// preserve existing skip-empty traversal order when adjacent lane is empty
+	scanLane := nextLane + step
+	for scanLane >= 0 && scanLane < len(pb.pluginDef.Lanes) {
+		tasks := filteredTasks(scanLane)
+		if len(tasks) > 0 {
+			// skip-empty landing uses target viewport row semantics (no source row carry-over)
+			return pb.applyLaneSwitch(scanLane, tasks, direction, 0, false)
+		}
+		scanLane += step
+	}
+
 	return false
+}
+
+func (pb *pluginBase) applyLaneSwitch(targetLane int, targetTasks []*task.Task, direction string, rowOffsetInViewport int, preserveRow bool) bool {
+	if len(targetTasks) == 0 {
+		return false
+	}
+
+	targetColumns := normalizeColumns(pb.pluginConfig.GetColumnsForLane(targetLane))
+	maxTargetRow := maxRowIndex(len(targetTasks), targetColumns)
+	targetScroll := clampInt(pb.pluginConfig.GetScrollOffsetForLane(targetLane), maxTargetRow)
+	targetRow := targetScroll
+	if preserveRow {
+		targetRow = clampInt(targetScroll+rowOffsetInViewport, maxTargetRow)
+	}
+
+	targetIndex := rowDirectionalIndex(direction, targetRow, targetColumns, len(targetTasks))
+	pb.pluginConfig.SetScrollOffsetForLane(targetLane, targetScroll)
+	pb.pluginConfig.SetSelectedLaneAndIndex(targetLane, targetIndex)
+	return true
+}
+
+func laneDirectionStep(direction string) (int, bool) {
+	switch direction {
+	case "left":
+		return -1, true
+	case "right":
+		return 1, true
+	default:
+		return 0, false
+	}
+}
+
+func normalizeColumns(columns int) int {
+	if columns <= 0 {
+		return 1
+	}
+	return columns
+}
+
+func clampTaskIndex(index int, taskCount int) int {
+	if taskCount <= 0 {
+		return 0
+	}
+	if index < 0 {
+		return 0
+	}
+	if index >= taskCount {
+		return taskCount - 1
+	}
+	return index
+}
+
+func maxRowIndex(taskCount int, columns int) int {
+	if taskCount <= 0 {
+		return 0
+	}
+	columns = normalizeColumns(columns)
+	return (taskCount - 1) / columns
+}
+
+func clampInt(value int, maxValue int) int {
+	if value < 0 {
+		return 0
+	}
+	if value > maxValue {
+		return maxValue
+	}
+	return value
+}
+
+func moveVerticalIndex(direction string, index int, columns int, taskCount int) int {
+	if taskCount <= 0 {
+		return 0
+	}
+	columns = normalizeColumns(columns)
+	index = clampTaskIndex(index, taskCount)
+
+	switch direction {
+	case "up":
+		next := index - columns
+		if next >= 0 {
+			return next
+		}
+	case "down":
+		next := index + columns
+		if next < taskCount {
+			return next
+		}
+	}
+	return index
+}
+
+func moveHorizontalIndex(direction string, index int, columns int, taskCount int) (bool, int) {
+	if taskCount <= 0 {
+		return false, 0
+	}
+	columns = normalizeColumns(columns)
+	index = clampTaskIndex(index, taskCount)
+	col := index % columns
+
+	switch direction {
+	case "left":
+		if col > 0 {
+			return true, index - 1
+		}
+	case "right":
+		if col < columns-1 && index+1 < taskCount {
+			return true, index + 1
+		}
+	}
+	return false, index
+}
+
+func rowDirectionalIndex(direction string, row int, columns int, taskCount int) int {
+	if taskCount <= 0 {
+		return 0
+	}
+	columns = normalizeColumns(columns)
+	maxRow := maxRowIndex(taskCount, columns)
+	row = clampInt(row, maxRow)
+	rowStart := row * columns
+	if rowStart >= taskCount {
+		return taskCount - 1
+	}
+
+	switch direction {
+	case "left":
+		rowEnd := rowStart + columns - 1
+		if rowEnd >= taskCount {
+			rowEnd = taskCount - 1
+		}
+		return rowEnd
+	case "right":
+		return rowStart
+	default:
+		return rowStart
+	}
 }
 
 func (pb *pluginBase) getSelectedTaskID(filteredTasks func(int) []*task.Task) string {
