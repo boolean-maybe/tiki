@@ -502,6 +502,7 @@ func TestTaskDetailViewActions_HasEditDesc(t *testing.T) {
 	action := registry.Match(event)
 	if action == nil {
 		t.Fatal("expected Shift+D to match an action")
+		return
 	}
 	if action.ID != ActionEditDesc {
 		t.Errorf("expected ActionEditDesc, got %v", action.ID)

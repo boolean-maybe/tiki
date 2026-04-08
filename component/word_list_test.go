@@ -14,6 +14,7 @@ func TestNewWordList(t *testing.T) {
 
 	if wl == nil {
 		t.Fatal("NewWordList returned nil")
+		return
 	}
 
 	if !reflect.DeepEqual(wl.words, words) {

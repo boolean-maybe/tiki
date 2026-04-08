@@ -27,6 +27,7 @@ func TestNewTaskList(t *testing.T) {
 
 	if tl == nil {
 		t.Fatal("NewTaskList returned nil")
+		return
 	}
 	if tl.maxVisibleRows != 5 {
 		t.Errorf("Expected maxVisibleRows=5, got %d", tl.maxVisibleRows)
