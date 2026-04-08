@@ -622,8 +622,11 @@ func newDepsNavEnv(t *testing.T, blockers int, allTasks int, depends int, laneCo
 	pluginConfig := model.NewPluginConfig("Dependency")
 	pluginConfig.SetLaneLayout(laneColumns, nil)
 
+	gate := service.NewTaskMutationGate()
+	gate.SetStore(taskStore)
+
 	nav := newMockNavigationController()
-	return NewDepsController(taskStore, pluginConfig, pluginDef, nav, nil)
+	return NewDepsController(taskStore, gate, pluginConfig, pluginDef, nav, nil)
 }
 
 func TestDepsController_NavRightAdjacentNonEmptyPreservesRow(t *testing.T) {
