@@ -14,6 +14,11 @@ func (ev *TaskEditView) IsValid() bool {
 	return len(ev.validationErrors) == 0
 }
 
+// ValidationErrors returns the current list of validation error messages.
+func (ev *TaskEditView) ValidationErrors() []string {
+	return ev.validationErrors
+}
+
 // SetFocusedField changes the focused field and re-renders
 func (ev *TaskEditView) SetFocusedField(field model.EditField) {
 	ev.focusedField = field

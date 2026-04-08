@@ -59,13 +59,15 @@ func (m *mockNonEditView) GetViewID() model.ViewID            { return "" }
 func (m *mockNonEditView) OnFocus()                           {}
 func (m *mockNonEditView) OnBlur()                            {}
 
-// mockValidatableEditView adds IsValid() to mockTaskEditView.
+// mockValidatableEditView adds IsValid()/ValidationErrors() to mockTaskEditView.
 type mockValidatableEditView struct {
 	mockTaskEditView
-	valid bool
+	valid  bool
+	errors []string
 }
 
-func (m *mockValidatableEditView) IsValid() bool { return m.valid }
+func (m *mockValidatableEditView) IsValid() bool              { return m.valid }
+func (m *mockValidatableEditView) ValidationErrors() []string { return m.errors }
 
 // --- HandleKey tests ---
 
@@ -163,6 +165,77 @@ func TestTaskEditCoordinator_Commit_ValidationFails(t *testing.T) {
 	taskStore := store.NewInMemoryStore()
 	gate := service.NewTaskMutationGate()
 	gate.SetStore(taskStore)
+	sl := model.NewStatuslineConfig()
+	nav := newMockNavigationController()
+	tc := NewTaskController(taskStore, gate, nav, sl)
+	tc.SetDraft(newTestTask())
+
+	coord := NewTaskEditCoordinator(nav, tc)
+	view := &mockValidatableEditView{
+		mockTaskEditView: mockTaskEditView{
+			title:       "",
+			description: "desc",
+			tags:        []string{"tag"},
+		},
+		valid:  false,
+		errors: []string{"title is required"},
+	}
+
+	got := coord.commit(view)
+	if got {
+		t.Error("commit() should return false when IsValid() returns false")
+	}
+
+	msg, level, autoHide := sl.GetMessage()
+	if msg != "title is required" {
+		t.Errorf("statusline message = %q, want %q", msg, "title is required")
+	}
+	if level != model.MessageLevelError {
+		t.Errorf("level = %q, want %q", level, model.MessageLevelError)
+	}
+	if !autoHide {
+		t.Error("autoHide should be true for validation errors")
+	}
+}
+
+func TestTaskEditCoordinator_Commit_ValidationMultipleErrors(t *testing.T) {
+	taskStore := store.NewInMemoryStore()
+	gate := service.NewTaskMutationGate()
+	gate.SetStore(taskStore)
+	sl := model.NewStatuslineConfig()
+	nav := newMockNavigationController()
+	tc := NewTaskController(taskStore, gate, nav, sl)
+	tc.SetDraft(newTestTask())
+
+	coord := NewTaskEditCoordinator(nav, tc)
+	view := &mockValidatableEditView{
+		mockTaskEditView: mockTaskEditView{
+			title:       "",
+			description: "desc",
+		},
+		valid:  false,
+		errors: []string{"title is required", "priority must be between 1 and 5"},
+	}
+
+	got := coord.commit(view)
+	if got {
+		t.Fatal("commit() should return false when IsValid() returns false")
+	}
+
+	msg, level, _ := sl.GetMessage()
+	want := "title is required; priority must be between 1 and 5"
+	if msg != want {
+		t.Errorf("message = %q, want %q", msg, want)
+	}
+	if level != model.MessageLevelError {
+		t.Errorf("level = %q, want %q", level, model.MessageLevelError)
+	}
+}
+
+func TestTaskEditCoordinator_Commit_ValidationFailsNilStatusline(t *testing.T) {
+	taskStore := store.NewInMemoryStore()
+	gate := service.NewTaskMutationGate()
+	gate.SetStore(taskStore)
 	nav := newMockNavigationController()
 	tc := NewTaskController(taskStore, gate, nav, nil)
 	tc.SetDraft(newTestTask())
@@ -170,13 +243,14 @@ func TestTaskEditCoordinator_Commit_ValidationFails(t *testing.T) {
 	coord := NewTaskEditCoordinator(nav, tc)
 	view := &mockValidatableEditView{
 		mockTaskEditView: mockTaskEditView{
-			title:       "Valid Title",
+			title:       "",
 			description: "desc",
-			tags:        []string{"tag"},
 		},
-		valid: false,
+		valid:  false,
+		errors: []string{"title is required"},
 	}
 
+	// should not panic
 	got := coord.commit(view)
 	if got {
 		t.Error("commit() should return false when IsValid() returns false")

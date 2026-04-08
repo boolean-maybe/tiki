@@ -169,9 +169,17 @@ func (c *TaskEditCoordinator) commit(activeView View) bool {
 	}
 
 	// Check validation state - do not save if invalid
-	if validator, ok := activeView.(interface{ IsValid() bool }); ok {
+	if validator, ok := activeView.(interface {
+		IsValid() bool
+		ValidationErrors() []string
+	}); ok {
 		if !validator.IsValid() {
-			return false // save is disabled when validation fails
+			if sl := c.taskController.statusline; sl != nil {
+				if errs := validator.ValidationErrors(); len(errs) > 0 {
+					sl.SetMessage(strings.Join(errs, "; "), model.MessageLevelError, true)
+				}
+			}
+			return false
 		}
 	}
 
