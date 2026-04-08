@@ -14,7 +14,7 @@ type StatusKey string
 const (
 	StatusBacklog    StatusKey = "backlog"
 	StatusReady      StatusKey = "ready"
-	StatusInProgress StatusKey = "in_progress"
+	StatusInProgress StatusKey = "inProgress"
 	StatusReview     StatusKey = "review"
 	StatusDone       StatusKey = "done"
 )
@@ -39,13 +39,65 @@ type StatusRegistry struct {
 	doneKey    StatusKey
 }
 
-// NormalizeStatusKey lowercases, trims, and replaces "-" and " " with "_".
-// This preserves multi-word keys (e.g. "in-progress" → "in_progress").
+// NormalizeStatusKey trims and converts a status key to camelCase.
+// Splits on "_", "-", " ", and camelCase boundaries, then reassembles.
+// Examples: "in_progress" → "inProgress", "In Progress" → "inProgress",
+// "inProgress" → "inProgress", "IN_PROGRESS" → "inProgress".
 func NormalizeStatusKey(key string) StatusKey {
-	normalized := strings.ToLower(strings.TrimSpace(key))
-	normalized = strings.ReplaceAll(normalized, "-", "_")
-	normalized = strings.ReplaceAll(normalized, " ", "_")
-	return StatusKey(normalized)
+	trimmed := strings.TrimSpace(key)
+	if trimmed == "" {
+		return ""
+	}
+
+	words := splitStatusWords(trimmed)
+	if len(words) == 0 {
+		return ""
+	}
+
+	var b strings.Builder
+	for i, w := range words {
+		if i == 0 {
+			b.WriteString(strings.ToLower(w))
+		} else {
+			b.WriteString(strings.ToUpper(w[:1]) + strings.ToLower(w[1:]))
+		}
+	}
+	return StatusKey(b.String())
+}
+
+// splitStatusWords splits a key string into words on separators ("_", "-", " ")
+// and camelCase boundaries (lowercase→uppercase transition).
+func splitStatusWords(s string) []string {
+	// first split on explicit separators
+	parts := strings.FieldsFunc(s, func(r rune) bool {
+		return r == '_' || r == '-' || r == ' '
+	})
+
+	// then split each part on camelCase boundaries
+	var words []string
+	for _, part := range parts {
+		words = append(words, splitCamelCase(part)...)
+	}
+	return words
+}
+
+// splitCamelCase splits on lowercase→uppercase transitions.
+// "inProgress" → ["in", "Progress"], "ABC" → ["ABC"], "ready" → ["ready"].
+func splitCamelCase(s string) []string {
+	if s == "" {
+		return nil
+	}
+
+	var words []string
+	start := 0
+	for i := 1; i < len(s); i++ {
+		if s[i] >= 'A' && s[i] <= 'Z' && s[i-1] >= 'a' && s[i-1] <= 'z' {
+			words = append(words, s[start:i])
+			start = i
+		}
+	}
+	words = append(words, s[start:])
+	return words
 }
 
 // NewStatusRegistry constructs a StatusRegistry from the given definitions.

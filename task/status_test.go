@@ -12,7 +12,7 @@ func setupStatusTestRegistry(t *testing.T) {
 	config.ResetStatusRegistry([]workflow.StatusDef{
 		{Key: "backlog", Label: "Backlog", Emoji: "📥", Default: true},
 		{Key: "ready", Label: "Ready", Emoji: "📋", Active: true},
-		{Key: "in_progress", Label: "In Progress", Emoji: "⚙️", Active: true},
+		{Key: "inProgress", Label: "In Progress", Emoji: "⚙️", Active: true},
 		{Key: "review", Label: "Review", Emoji: "👀", Active: true},
 		{Key: "done", Label: "Done", Emoji: "✅", Done: true},
 	})
@@ -30,7 +30,7 @@ func TestParseStatus(t *testing.T) {
 	}{
 		{"valid status", "done", "done", true},
 		{"empty input returns default", "", "backlog", true},
-		{"normalized input", "In-Progress", "in_progress", true},
+		{"normalized input", "In-Progress", "inProgress", true},
 		{"unknown status", "nonexistent", "backlog", false},
 	}
 
@@ -91,8 +91,8 @@ func TestStatusEmoji(t *testing.T) {
 func TestStatusLabel(t *testing.T) {
 	setupStatusTestRegistry(t)
 
-	if got := StatusLabel("in_progress"); got != "In Progress" {
-		t.Errorf("StatusLabel(%q) = %q, want %q", "in_progress", got, "In Progress")
+	if got := StatusLabel("inProgress"); got != "In Progress" {
+		t.Errorf("StatusLabel(%q) = %q, want %q", "inProgress", got, "In Progress")
 	}
 	if got := StatusLabel("nonexistent"); got != "nonexistent" {
 		t.Errorf("StatusLabel(%q) = %q, want raw key", "nonexistent", got)
@@ -138,7 +138,7 @@ func TestAllStatuses(t *testing.T) {
 	setupStatusTestRegistry(t)
 
 	all := AllStatuses()
-	expected := []Status{"backlog", "ready", "in_progress", "review", "done"}
+	expected := []Status{"backlog", "ready", "inProgress", "review", "done"}
 	if len(all) != len(expected) {
 		t.Fatalf("AllStatuses() returned %d, want %d", len(all), len(expected))
 	}
@@ -158,7 +158,7 @@ func TestIsActiveStatus(t *testing.T) {
 	if !IsActiveStatus("ready") {
 		t.Error("expected ready to be active")
 	}
-	if !IsActiveStatus("in_progress") {
+	if !IsActiveStatus("inProgress") {
 		t.Error("expected in_progress to be active")
 	}
 	if IsActiveStatus("done") {

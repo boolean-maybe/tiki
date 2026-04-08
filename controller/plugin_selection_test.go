@@ -681,7 +681,7 @@ func TestPluginController_HandleMoveTask_Rejected(t *testing.T) {
 				Name: "InProgress", Columns: 1, Filter: inProgressFilter,
 				Action: plugin.LaneAction{
 					Ops: []plugin.LaneActionOp{
-						{Field: plugin.ActionFieldStatus, Operator: plugin.ActionOperatorAssign, StrValue: "in_progress"},
+						{Field: plugin.ActionFieldStatus, Operator: plugin.ActionOperatorAssign, StrValue: "inProgress"},
 					},
 				},
 			},

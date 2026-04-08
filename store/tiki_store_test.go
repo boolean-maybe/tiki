@@ -13,7 +13,7 @@ func init() {
 	config.ResetStatusRegistry([]workflow.StatusDef{
 		{Key: "backlog", Label: "Backlog", Emoji: "📥", Default: true},
 		{Key: "ready", Label: "Ready", Emoji: "📋", Active: true},
-		{Key: "in_progress", Label: "In Progress", Emoji: "⚙️", Active: true},
+		{Key: "inProgress", Label: "In Progress", Emoji: "⚙️", Active: true},
 		{Key: "review", Label: "Review", Emoji: "👀", Active: true},
 		{Key: "done", Label: "Done", Emoji: "✅", Done: true},
 	})
@@ -132,7 +132,7 @@ func TestMapStatus(t *testing.T) {
 		// Valid statuses - exact match
 		{name: "backlog", input: "backlog", expected: taskpkg.StatusBacklog},
 		{name: "ready", input: "ready", expected: taskpkg.StatusReady},
-		{name: "in_progress", input: "in_progress", expected: taskpkg.StatusInProgress},
+		{name: "inProgress", input: "inProgress", expected: taskpkg.StatusInProgress},
 		{name: "review", input: "review", expected: taskpkg.StatusReview},
 		{name: "done", input: "done", expected: taskpkg.StatusDone},
 

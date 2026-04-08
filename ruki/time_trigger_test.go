@@ -16,7 +16,7 @@ func TestParseTimeTrigger_HappyPath(t *testing.T) {
 	}{
 		{
 			"update stale tasks",
-			`every 1hour update where status = "in_progress" and updatedAt < now() - 7day set status="backlog"`,
+			`every 1hour update where status = "inProgress" and updatedAt < now() - 7day set status="backlog"`,
 			1, "hour",
 			false, true, false,
 		},
@@ -74,7 +74,7 @@ func TestParseTimeTrigger_HappyPath(t *testing.T) {
 func TestParseTimeTrigger_ASTVerification(t *testing.T) {
 	p := newTestParser()
 
-	input := `every 1hour update where status = "in_progress" set status="backlog"`
+	input := `every 1hour update where status = "inProgress" set status="backlog"`
 	tt, err := p.ParseTimeTrigger(input)
 	if err != nil {
 		t.Fatalf("parse error: %v", err)

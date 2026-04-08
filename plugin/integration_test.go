@@ -135,7 +135,7 @@ name: In Progress Work
 key: W
 lanes:
   - name: Active
-    filter: status IN ['ready', 'in_progress', 'in_progress']
+    filter: status IN ['ready', 'inProgress', 'inProgress']
 `
 
 	def, err := parsePluginYAML([]byte(pluginYAML), "test")
@@ -154,7 +154,7 @@ lanes:
 		expect bool
 	}{
 		{"todo status", task.StatusReady, true},
-		{"in_progress status", task.StatusInProgress, true},
+		{"inProgress status", task.StatusInProgress, true},
 		{"blocked status", task.StatusInProgress, true},
 		{"done status", task.StatusDone, false},
 		{"review status", task.StatusReview, false},

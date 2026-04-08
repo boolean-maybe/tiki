@@ -40,7 +40,7 @@ func TestParseFilterWithIn(t *testing.T) {
 		},
 		{
 			name:   "status IN with match",
-			expr:   "status IN ['ready', 'in_progress']",
+			expr:   "status IN ['ready', 'inProgress']",
 			task:   &task.Task{Status: task.StatusReady},
 			expect: true,
 		},
@@ -58,7 +58,7 @@ func TestParseFilterWithIn(t *testing.T) {
 		},
 		{
 			name:   "status NOT IN with no match",
-			expr:   "status NOT IN ['ready', 'in_progress']",
+			expr:   "status NOT IN ['ready', 'inProgress']",
 			task:   &task.Task{Status: task.StatusReady},
 			expect: false,
 		},
@@ -108,6 +108,18 @@ func TestParseFilterWithIn(t *testing.T) {
 			name:   "case insensitive status",
 			expr:   "status IN ['READY', 'IN_PROGRESS']",
 			task:   &task.Task{Status: task.StatusReady},
+			expect: true,
+		},
+		{
+			name:   "snake_case filter matches camelCase task status",
+			expr:   "status = 'in_progress'",
+			task:   &task.Task{Status: task.StatusInProgress},
+			expect: true,
+		},
+		{
+			name:   "snake_case IN filter matches camelCase task status",
+			expr:   "status IN ['in_progress', 'review']",
+			task:   &task.Task{Status: task.StatusInProgress},
 			expect: true,
 		},
 		{

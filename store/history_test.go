@@ -37,7 +37,7 @@ func taskContent(status string) string {
 }
 
 func TestBurndown_StableActiveTask(t *testing.T) {
-	// a task set to in_progress before the window with no changes since
+	// a task set to inProgress before the window with no changes since
 	// should appear as baseActive=1, all burndown points = 1
 	now := time.Date(2025, 6, 15, 12, 0, 0, 0, time.UTC)
 	beforeWindow := now.AddDate(0, 0, -20) // 20 days ago, well before 14-day window
@@ -107,7 +107,7 @@ func TestBurndown_StableDoneTask(t *testing.T) {
 }
 
 func TestBurndown_MixedStableAndTransitioning(t *testing.T) {
-	// one stable active task + one task that transitions from in_progress to done mid-window
+	// one stable active task + one task that transitions from inProgress to done mid-window
 	now := time.Date(2025, 6, 15, 12, 0, 0, 0, time.UTC)
 	beforeWindow := now.AddDate(0, 0, -20)
 	midWindow := now.AddDate(0, 0, -5)

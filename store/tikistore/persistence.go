@@ -205,6 +205,8 @@ func (s *TikiStore) loadTaskFile(path string, authorMap map[string]*git.AuthorIn
 		// If git user is not available, leave CreatedBy empty (will show "Unknown" in UI)
 	}
 
+	s.upgrader.UpgradeTask(task)
+
 	return task, nil
 }
 

@@ -32,6 +32,7 @@ type TikiStore struct {
 	nextListenerID int
 	gitUtil        git.GitOps         // git utility for auto-staging modified files
 	taskHistory    *store.TaskHistory // history for burndown computation
+	upgrader       *LegacyUpgrader    // normalizes legacy field values on load
 }
 
 // taskFrontmatter represents the YAML frontmatter in task files
@@ -57,6 +58,7 @@ func NewTikiStore(dir string) (*TikiStore, error) {
 		tasks:          make(map[string]*taskpkg.Task),
 		listeners:      make(map[int]store.ChangeListener),
 		nextListenerID: 1, // Start at 1 to avoid conflict with zero-value sentinel
+		upgrader:       &LegacyUpgrader{},
 	}
 
 	// Initialize git utility (best effort - don't fail if git is not available)

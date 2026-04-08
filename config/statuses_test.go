@@ -12,7 +12,7 @@ func defaultTestStatuses() []workflow.StatusDef {
 	return []workflow.StatusDef{
 		{Key: "backlog", Label: "Backlog", Emoji: "📥", Default: true},
 		{Key: "ready", Label: "Ready", Emoji: "📋", Active: true},
-		{Key: "in_progress", Label: "In Progress", Emoji: "⚙️", Active: true},
+		{Key: "inProgress", Label: "In Progress", Emoji: "⚙️", Active: true},
 		{Key: "review", Label: "Review", Emoji: "👀", Active: true},
 		{Key: "done", Label: "Done", Emoji: "✅", Done: true},
 	}
@@ -71,7 +71,7 @@ func TestRegistry_IsValid(t *testing.T) {
 	}{
 		{"backlog", true},
 		{"ready", true},
-		{"in_progress", true},
+		{"inProgress", true},
 		{"In-Progress", true}, // normalization
 		{"review", true},
 		{"done", true},
@@ -99,7 +99,7 @@ func TestRegistry_IsActive(t *testing.T) {
 	}{
 		{"backlog", false},
 		{"ready", true},
-		{"in_progress", true},
+		{"inProgress", true},
 		{"review", true},
 		{"done", false},
 	}
@@ -139,7 +139,7 @@ func TestRegistry_Keys(t *testing.T) {
 	reg := GetStatusRegistry()
 
 	keys := reg.Keys()
-	expected := []workflow.StatusKey{"backlog", "ready", "in_progress", "review", "done"}
+	expected := []workflow.StatusKey{"backlog", "ready", "inProgress", "review", "done"}
 
 	if len(keys) != len(expected) {
 		t.Fatalf("expected %d keys, got %d", len(expected), len(keys))
@@ -159,8 +159,8 @@ func TestRegistry_NormalizesKeys(t *testing.T) {
 	setupTestRegistry(t, custom)
 	reg := GetStatusRegistry()
 
-	if !reg.IsValid("in_progress") {
-		t.Error("expected 'in_progress' to be valid after normalization")
+	if !reg.IsValid("inProgress") {
+		t.Error("expected 'inProgress' to be valid after normalization")
 	}
 	if !reg.IsValid("done") {
 		t.Error("expected 'done' to be valid after normalization")
@@ -216,10 +216,10 @@ func TestNormalizeStatusKey(t *testing.T) {
 	}{
 		{"backlog", "backlog"},
 		{"BACKLOG", "backlog"},
-		{"In-Progress", "in_progress"},
-		{"in progress", "in_progress"},
+		{"In-Progress", "inProgress"},
+		{"in progress", "inProgress"},
 		{"  DONE  ", "done"},
-		{"In_Review", "in_review"},
+		{"In_Review", "inReview"},
 	}
 
 	for _, tt := range tests {

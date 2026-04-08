@@ -6,7 +6,7 @@ import (
 
 func validStatus(key string) bool {
 	valid := map[string]bool{
-		"backlog": true, "ready": true, "in_progress": true, "review": true, "done": true,
+		"backlog": true, "ready": true, "inProgress": true, "review": true, "done": true,
 	}
 	return valid[key]
 }

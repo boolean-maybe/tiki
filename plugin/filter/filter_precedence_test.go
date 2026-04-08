@@ -38,49 +38,49 @@ func TestOperatorPrecedence(t *testing.T) {
 		// AND before OR - left side
 		{
 			name:   "AND before OR - left match",
-			expr:   "status = 'ready' OR status = 'in_progress' AND type = 'bug'",
+			expr:   "status = 'ready' OR status = 'inProgress' AND type = 'bug'",
 			task:   &task.Task{Status: task.StatusReady, Type: task.TypeStory},
-			expect: true, // status = 'ready' OR (status = 'in_progress' AND type = 'bug') = true OR false = true
+			expect: true, // status = 'ready' OR (status = 'inProgress' AND type = 'bug') = true OR false = true
 		},
 		{
 			name:   "AND before OR - right match",
-			expr:   "status = 'ready' OR status = 'in_progress' AND type = 'bug'",
+			expr:   "status = 'ready' OR status = 'inProgress' AND type = 'bug'",
 			task:   &task.Task{Status: task.StatusInProgress, Type: task.TypeBug},
-			expect: true, // status = 'ready' OR (status = 'in_progress' AND type = 'bug') = false OR true = true
+			expect: true, // status = 'ready' OR (status = 'inProgress' AND type = 'bug') = false OR true = true
 		},
 		{
 			name:   "AND before OR - no match",
-			expr:   "status = 'ready' OR status = 'in_progress' AND type = 'bug'",
+			expr:   "status = 'ready' OR status = 'inProgress' AND type = 'bug'",
 			task:   &task.Task{Status: task.StatusInProgress, Type: task.TypeStory},
-			expect: false, // status = 'ready' OR (status = 'in_progress' AND type = 'bug') = false OR false = false
+			expect: false, // status = 'ready' OR (status = 'inProgress' AND type = 'bug') = false OR false = false
 		},
 
 		// AND before OR - right side
 		{
 			name:   "AND before OR - right side left match",
-			expr:   "status = 'in_progress' AND type = 'bug' OR status = 'ready'",
+			expr:   "status = 'inProgress' AND type = 'bug' OR status = 'ready'",
 			task:   &task.Task{Status: task.StatusReady, Type: task.TypeStory},
-			expect: true, // (status = 'in_progress' AND type = 'bug') OR status = 'ready' = false OR true = true
+			expect: true, // (status = 'inProgress' AND type = 'bug') OR status = 'ready' = false OR true = true
 		},
 		{
 			name:   "AND before OR - right side right match",
-			expr:   "status = 'in_progress' AND type = 'bug' OR status = 'ready'",
+			expr:   "status = 'inProgress' AND type = 'bug' OR status = 'ready'",
 			task:   &task.Task{Status: task.StatusInProgress, Type: task.TypeBug},
-			expect: true, // (status = 'in_progress' AND type = 'bug') OR status = 'ready' = true OR false = true
+			expect: true, // (status = 'inProgress' AND type = 'bug') OR status = 'ready' = true OR false = true
 		},
 
 		// Parentheses override precedence
 		{
 			name:   "parentheses override AND/OR precedence - no match",
-			expr:   "(status = 'ready' OR status = 'in_progress') AND type = 'bug'",
+			expr:   "(status = 'ready' OR status = 'inProgress') AND type = 'bug'",
 			task:   &task.Task{Status: task.StatusReady, Type: task.TypeStory},
-			expect: false, // (status = 'ready' OR status = 'in_progress') AND type = 'bug' = true AND false = false
+			expect: false, // (status = 'ready' OR status = 'inProgress') AND type = 'bug' = true AND false = false
 		},
 		{
 			name:   "parentheses override AND/OR precedence - match",
-			expr:   "(status = 'ready' OR status = 'in_progress') AND type = 'bug'",
+			expr:   "(status = 'ready' OR status = 'inProgress') AND type = 'bug'",
 			task:   &task.Task{Status: task.StatusInProgress, Type: task.TypeBug},
-			expect: true, // (status = 'ready' OR status = 'in_progress') AND type = 'bug' = true AND true = true
+			expect: true, // (status = 'ready' OR status = 'inProgress') AND type = 'bug' = true AND true = true
 		},
 
 		// NOT with OR
@@ -157,19 +157,19 @@ func TestNestedParentheses(t *testing.T) {
 		// Double nesting
 		{
 			name:   "double nested parentheses - match",
-			expr:   "((status = 'ready' OR status = 'in_progress') AND type = 'bug')",
+			expr:   "((status = 'ready' OR status = 'inProgress') AND type = 'bug')",
 			task:   &task.Task{Status: task.StatusReady, Type: task.TypeBug},
 			expect: true,
 		},
 		{
 			name:   "double nested parentheses - no match on type",
-			expr:   "((status = 'ready' OR status = 'in_progress') AND type = 'bug')",
+			expr:   "((status = 'ready' OR status = 'inProgress') AND type = 'bug')",
 			task:   &task.Task{Status: task.StatusReady, Type: task.TypeStory},
 			expect: false,
 		},
 		{
 			name:   "double nested parentheses - no match on status",
-			expr:   "((status = 'ready' OR status = 'in_progress') AND type = 'bug')",
+			expr:   "((status = 'ready' OR status = 'inProgress') AND type = 'bug')",
 			task:   &task.Task{Status: task.StatusDone, Type: task.TypeBug},
 			expect: false,
 		},
@@ -197,19 +197,19 @@ func TestNestedParentheses(t *testing.T) {
 		// Mixed nesting depth
 		{
 			name:   "mixed nesting depth - OR at end",
-			expr:   "(status = 'ready' AND (type = 'bug' OR type = 'story')) OR status = 'in_progress'",
+			expr:   "(status = 'ready' AND (type = 'bug' OR type = 'story')) OR status = 'inProgress'",
 			task:   &task.Task{Status: task.StatusInProgress, Type: task.TypeBug},
 			expect: true, // (false AND (true OR false)) OR true = false OR true = true
 		},
 		{
 			name:   "mixed nesting depth - match on nested OR",
-			expr:   "(status = 'ready' AND (type = 'bug' OR type = 'story')) OR status = 'in_progress'",
+			expr:   "(status = 'ready' AND (type = 'bug' OR type = 'story')) OR status = 'inProgress'",
 			task:   &task.Task{Status: task.StatusReady, Type: task.TypeBug},
 			expect: true, // (true AND (true OR false)) OR false = true OR false = true
 		},
 		{
 			name:   "mixed nesting depth - match on final OR",
-			expr:   "(status = 'ready' AND (type = 'bug' OR type = 'story')) OR status = 'in_progress'",
+			expr:   "(status = 'ready' AND (type = 'bug' OR type = 'story')) OR status = 'inProgress'",
 			task:   &task.Task{Status: task.StatusInProgress, Type: task.TypeBug},
 			expect: true, // (false AND (true OR false)) OR true = false OR true = true
 		},
@@ -217,19 +217,19 @@ func TestNestedParentheses(t *testing.T) {
 		// Complex nested with multiple operations
 		{
 			name:   "complex nested - all conditions",
-			expr:   "((status = 'ready' OR status = 'in_progress') AND (type = 'bug' OR priority > 3))",
+			expr:   "((status = 'ready' OR status = 'inProgress') AND (type = 'bug' OR priority > 3))",
 			task:   &task.Task{Status: task.StatusReady, Type: task.TypeStory, Priority: 5},
 			expect: true, // (true OR false) AND (false OR true) = true AND true = true
 		},
 		{
 			name:   "complex nested - left fails",
-			expr:   "((status = 'ready' OR status = 'in_progress') AND (type = 'bug' OR priority > 3))",
+			expr:   "((status = 'ready' OR status = 'inProgress') AND (type = 'bug' OR priority > 3))",
 			task:   &task.Task{Status: task.StatusDone, Type: task.TypeStory, Priority: 5},
 			expect: false, // (false OR false) AND (false OR true) = false AND true = false
 		},
 		{
 			name:   "complex nested - right fails",
-			expr:   "((status = 'ready' OR status = 'in_progress') AND (type = 'bug' OR priority > 3))",
+			expr:   "((status = 'ready' OR status = 'inProgress') AND (type = 'bug' OR priority > 3))",
 			task:   &task.Task{Status: task.StatusReady, Type: task.TypeStory, Priority: 2},
 			expect: false, // (true OR false) AND (false OR false) = true AND false = false
 		},
@@ -301,25 +301,25 @@ func TestComplexBooleanChains(t *testing.T) {
 		// Triple OR chain
 		{
 			name:   "triple OR chain - first matches",
-			expr:   "status = 'ready' OR status = 'in_progress' OR status = 'in_progress'",
+			expr:   "status = 'ready' OR status = 'inProgress' OR status = 'inProgress'",
 			task:   &task.Task{Status: task.StatusReady},
 			expect: true,
 		},
 		{
 			name:   "triple OR chain - middle matches",
-			expr:   "status = 'ready' OR status = 'in_progress' OR status = 'in_progress'",
+			expr:   "status = 'ready' OR status = 'inProgress' OR status = 'inProgress'",
 			task:   &task.Task{Status: task.StatusInProgress},
 			expect: true,
 		},
 		{
 			name:   "triple OR chain - last matches",
-			expr:   "status = 'ready' OR status = 'in_progress' OR status = 'in_progress'",
+			expr:   "status = 'ready' OR status = 'inProgress' OR status = 'inProgress'",
 			task:   &task.Task{Status: task.StatusInProgress},
 			expect: true,
 		},
 		{
 			name:   "triple OR chain - none match",
-			expr:   "status = 'ready' OR status = 'in_progress' OR status = 'in_progress'",
+			expr:   "status = 'ready' OR status = 'inProgress' OR status = 'inProgress'",
 			task:   &task.Task{Status: task.StatusDone},
 			expect: false,
 		},
@@ -353,9 +353,9 @@ func TestComplexBooleanChains(t *testing.T) {
 		},
 		{
 			name:   "four operator chain - mixed AND/OR",
-			expr:   "status = 'ready' AND type = 'bug' OR status = 'in_progress' AND priority > 3",
+			expr:   "status = 'ready' AND type = 'bug' OR status = 'inProgress' AND priority > 3",
 			task:   &task.Task{Status: task.StatusInProgress, Type: task.TypeStory, Priority: 5},
-			expect: true, // (status = 'ready' AND type = 'bug') OR (status = 'in_progress' AND priority > 3) = false OR true = true
+			expect: true, // (status = 'ready' AND type = 'bug') OR (status = 'inProgress' AND priority > 3) = false OR true = true
 		},
 	}
 

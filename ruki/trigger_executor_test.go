@@ -19,7 +19,7 @@ func TestEvalGuard_NoWhere(t *testing.T) {
 	te := newTestTriggerExecutor()
 	trig := &Trigger{Timing: "before", Event: "update"}
 	tc := &TriggerContext{
-		Old: &task.Task{ID: "TIKI-000001", Status: "in_progress"},
+		Old: &task.Task{ID: "TIKI-000001", Status: "inProgress"},
 		New: &task.Task{ID: "TIKI-000001", Status: "done"},
 	}
 	ok, err := te.EvalGuard(trig, tc)
@@ -35,13 +35,13 @@ func TestEvalGuard_QualifiedRefMatch(t *testing.T) {
 	te := newTestTriggerExecutor()
 	p := newTestParser()
 
-	trig, err := p.ParseTrigger(`before update where old.status = "in_progress" and new.status = "done" deny "no skip"`)
+	trig, err := p.ParseTrigger(`before update where old.status = "inProgress" and new.status = "done" deny "no skip"`)
 	if err != nil {
 		t.Fatalf("parse: %v", err)
 	}
 
 	tc := &TriggerContext{
-		Old: &task.Task{ID: "TIKI-000001", Status: "in_progress"},
+		Old: &task.Task{ID: "TIKI-000001", Status: "inProgress"},
 		New: &task.Task{ID: "TIKI-000001", Status: "done"},
 	}
 
@@ -58,14 +58,14 @@ func TestEvalGuard_QualifiedRefNoMatch(t *testing.T) {
 	te := newTestTriggerExecutor()
 	p := newTestParser()
 
-	trig, err := p.ParseTrigger(`before update where old.status = "in_progress" and new.status = "done" deny "no"`)
+	trig, err := p.ParseTrigger(`before update where old.status = "inProgress" and new.status = "done" deny "no"`)
 	if err != nil {
 		t.Fatalf("parse: %v", err)
 	}
 
 	tc := &TriggerContext{
 		Old: &task.Task{ID: "TIKI-000001", Status: "ready"},
-		New: &task.Task{ID: "TIKI-000001", Status: "in_progress"},
+		New: &task.Task{ID: "TIKI-000001", Status: "inProgress"},
 	}
 
 	ok, err := te.EvalGuard(trig, tc)
@@ -110,9 +110,9 @@ func TestEvalGuard_QuantifierWithQualifiedCollection(t *testing.T) {
 		t.Fatalf("parse: %v", err)
 	}
 
-	dep := &task.Task{ID: "TIKI-DEP001", Status: "in_progress"}
+	dep := &task.Task{ID: "TIKI-DEP001", Status: "inProgress"}
 	tc := &TriggerContext{
-		Old: &task.Task{ID: "TIKI-000001", Status: "in_progress", DependsOn: []string{"TIKI-DEP001"}},
+		Old: &task.Task{ID: "TIKI-000001", Status: "inProgress", DependsOn: []string{"TIKI-DEP001"}},
 		New: &task.Task{ID: "TIKI-000001", Status: "done", DependsOn: []string{"TIKI-DEP001"}},
 		AllTasks: []*task.Task{
 			{ID: "TIKI-000001", Status: "done", DependsOn: []string{"TIKI-DEP001"}},
@@ -140,12 +140,12 @@ func TestEvalGuard_CountSubquery(t *testing.T) {
 
 	tc := &TriggerContext{
 		Old: &task.Task{ID: "TIKI-000001", Status: "ready", Assignee: "alice"},
-		New: &task.Task{ID: "TIKI-000001", Status: "in_progress", Assignee: "alice"},
+		New: &task.Task{ID: "TIKI-000001", Status: "inProgress", Assignee: "alice"},
 		AllTasks: []*task.Task{
-			{ID: "TIKI-000001", Status: "in_progress", Assignee: "alice"},
-			{ID: "TIKI-000002", Status: "in_progress", Assignee: "alice"},
-			{ID: "TIKI-000003", Status: "in_progress", Assignee: "alice"},
-			{ID: "TIKI-000004", Status: "in_progress", Assignee: "bob"},
+			{ID: "TIKI-000001", Status: "inProgress", Assignee: "alice"},
+			{ID: "TIKI-000002", Status: "inProgress", Assignee: "alice"},
+			{ID: "TIKI-000003", Status: "inProgress", Assignee: "alice"},
+			{ID: "TIKI-000004", Status: "inProgress", Assignee: "bob"},
 		},
 	}
 
@@ -169,10 +169,10 @@ func TestEvalGuard_CountSubqueryBelowLimit(t *testing.T) {
 
 	tc := &TriggerContext{
 		Old: &task.Task{ID: "TIKI-000001", Status: "ready", Assignee: "alice"},
-		New: &task.Task{ID: "TIKI-000001", Status: "in_progress", Assignee: "alice"},
+		New: &task.Task{ID: "TIKI-000001", Status: "inProgress", Assignee: "alice"},
 		AllTasks: []*task.Task{
-			{ID: "TIKI-000001", Status: "in_progress", Assignee: "alice"},
-			{ID: "TIKI-000002", Status: "in_progress", Assignee: "alice"},
+			{ID: "TIKI-000001", Status: "inProgress", Assignee: "alice"},
+			{ID: "TIKI-000002", Status: "inProgress", Assignee: "alice"},
 			{ID: "TIKI-000003", Status: "ready", Assignee: "alice"},
 		},
 	}
@@ -232,7 +232,7 @@ func TestExecAction_CreateWithQualifiedRefs(t *testing.T) {
 		t.Fatalf("parse: %v", err)
 	}
 
-	old := &task.Task{ID: "TIKI-000001", Title: "Daily standup", Status: "in_progress", Priority: 2, Tags: []string{"meeting"}}
+	old := &task.Task{ID: "TIKI-000001", Title: "Daily standup", Status: "inProgress", Priority: 2, Tags: []string{"meeting"}}
 	new := &task.Task{ID: "TIKI-000001", Title: "Daily standup", Status: "done", Priority: 2}
 
 	tc := &TriggerContext{
@@ -269,7 +269,7 @@ func TestExecAction_DeleteWithQualifiedRefs(t *testing.T) {
 		t.Fatalf("parse: %v", err)
 	}
 
-	old := &task.Task{ID: "TIKI-000001", Title: "Stale", Status: "in_progress"}
+	old := &task.Task{ID: "TIKI-000001", Title: "Stale", Status: "inProgress"}
 	new := &task.Task{ID: "TIKI-000001", Title: "Stale", Status: "done"}
 
 	tc := &TriggerContext{
@@ -305,12 +305,12 @@ func TestExecAction_CascadeEpicCompletion(t *testing.T) {
 
 	story := &task.Task{ID: "TIKI-STORY1", Title: "Story", Status: "done", Type: "story"}
 	epic := &task.Task{
-		ID: "TIKI-EPIC01", Title: "Epic", Status: "in_progress", Type: "epic",
+		ID: "TIKI-EPIC01", Title: "Epic", Status: "inProgress", Type: "epic",
 		DependsOn: []string{"TIKI-STORY1"},
 	}
 
 	tc := &TriggerContext{
-		Old:      &task.Task{ID: "TIKI-STORY1", Status: "in_progress"},
+		Old:      &task.Task{ID: "TIKI-STORY1", Status: "inProgress"},
 		New:      story,
 		AllTasks: []*task.Task{story, epic},
 	}
@@ -397,7 +397,7 @@ func TestExecRun_SimpleString(t *testing.T) {
 
 	tc := &TriggerContext{
 		Old: &task.Task{ID: "TIKI-000001", Status: "ready", Tags: []string{"claude"}},
-		New: &task.Task{ID: "TIKI-000001", Status: "in_progress", Tags: []string{"claude"}},
+		New: &task.Task{ID: "TIKI-000001", Status: "inProgress", Tags: []string{"claude"}},
 	}
 
 	cmd, err := te.ExecRun(trig, tc)
@@ -519,7 +519,7 @@ func TestExecAction_NextDateWithQualifiedRef(t *testing.T) {
 		t.Fatalf("parse: %v", err)
 	}
 
-	old := &task.Task{ID: "TIKI-000001", Title: "Daily standup", Status: "in_progress", Type: "story", Priority: 3, Recurrence: task.RecurrenceDaily}
+	old := &task.Task{ID: "TIKI-000001", Title: "Daily standup", Status: "inProgress", Type: "story", Priority: 3, Recurrence: task.RecurrenceDaily}
 	new := &task.Task{ID: "TIKI-000001", Title: "Daily standup", Status: "done", Type: "story", Priority: 3}
 
 	tc := &TriggerContext{
@@ -1163,7 +1163,7 @@ func TestEvalCondition_NotCondition(t *testing.T) {
 
 	// new.status is "ready" → not (ready = done) = not false = true
 	tc := &TriggerContext{
-		Old: &task.Task{ID: "TIKI-000001", Status: "in_progress"},
+		Old: &task.Task{ID: "TIKI-000001", Status: "inProgress"},
 		New: &task.Task{ID: "TIKI-000001", Status: "ready"},
 	}
 	ok, err := te.EvalGuard(trig, tc)
@@ -1292,9 +1292,9 @@ func TestEvalQuantifierOverride_AllMatch(t *testing.T) {
 	dep2 := &task.Task{ID: "TIKI-DEP002", Status: "done"}
 	tc := &TriggerContext{
 		Old: &task.Task{ID: "TIKI-000001", Status: "ready", DependsOn: []string{"TIKI-DEP001", "TIKI-DEP002"}},
-		New: &task.Task{ID: "TIKI-000001", Status: "in_progress", DependsOn: []string{"TIKI-DEP001", "TIKI-DEP002"}},
+		New: &task.Task{ID: "TIKI-000001", Status: "inProgress", DependsOn: []string{"TIKI-DEP001", "TIKI-DEP002"}},
 		AllTasks: []*task.Task{
-			{ID: "TIKI-000001", Status: "in_progress", DependsOn: []string{"TIKI-DEP001", "TIKI-DEP002"}},
+			{ID: "TIKI-000001", Status: "inProgress", DependsOn: []string{"TIKI-DEP001", "TIKI-DEP002"}},
 			dep1, dep2,
 		},
 	}
@@ -1321,9 +1321,9 @@ func TestEvalQuantifierOverride_AllNoMatch(t *testing.T) {
 	dep2 := &task.Task{ID: "TIKI-DEP002", Status: "ready"}
 	tc := &TriggerContext{
 		Old: &task.Task{ID: "TIKI-000001", Status: "ready", DependsOn: []string{"TIKI-DEP001", "TIKI-DEP002"}},
-		New: &task.Task{ID: "TIKI-000001", Status: "in_progress", DependsOn: []string{"TIKI-DEP001", "TIKI-DEP002"}},
+		New: &task.Task{ID: "TIKI-000001", Status: "inProgress", DependsOn: []string{"TIKI-DEP001", "TIKI-DEP002"}},
 		AllTasks: []*task.Task{
-			{ID: "TIKI-000001", Status: "in_progress", DependsOn: []string{"TIKI-DEP001", "TIKI-DEP002"}},
+			{ID: "TIKI-000001", Status: "inProgress", DependsOn: []string{"TIKI-DEP001", "TIKI-DEP002"}},
 			dep1, dep2,
 		},
 	}
@@ -1695,8 +1695,8 @@ func TestEvalCondition_AndShortCircuitFalse(t *testing.T) {
 	te := newTestTriggerExecutor()
 	p := newTestParser()
 
-	// left side is false (old.status != "in_progress"), right side should not be evaluated
-	trig, err := p.ParseTrigger(`before update where old.status = "in_progress" and new.status = "done" deny "no"`)
+	// left side is false (old.status != "inProgress"), right side should not be evaluated
+	trig, err := p.ParseTrigger(`before update where old.status = "inProgress" and new.status = "done" deny "no"`)
 	if err != nil {
 		t.Fatalf("parse: %v", err)
 	}
@@ -1739,7 +1739,7 @@ func TestEvalCondition_OrShortCircuitTrue(t *testing.T) {
 
 	tc := &TriggerContext{
 		Old: &task.Task{ID: "TIKI-000001", Status: "ready"},
-		New: &task.Task{ID: "TIKI-000001", Status: "in_progress"},
+		New: &task.Task{ID: "TIKI-000001", Status: "inProgress"},
 	}
 
 	ok, err := te.EvalGuard(trig, tc)
@@ -2514,13 +2514,13 @@ func TestExecTimeTriggerAction_Update(t *testing.T) {
 	te := newTestTriggerExecutor()
 	p := newTestParser()
 
-	tt, err := p.ParseTimeTrigger(`every 1day update where status = "in_progress" set status="backlog"`)
+	tt, err := p.ParseTimeTrigger(`every 1day update where status = "inProgress" set status="backlog"`)
 	if err != nil {
 		t.Fatalf("parse: %v", err)
 	}
 
 	tasks := []*task.Task{
-		{ID: "TIKI-000001", Status: "in_progress", Title: "stale", Type: "story", Priority: 3},
+		{ID: "TIKI-000001", Status: "inProgress", Title: "stale", Type: "story", Priority: 3},
 		{ID: "TIKI-000002", Status: "done", Title: "finished", Type: "story", Priority: 3},
 	}
 
@@ -2715,7 +2715,7 @@ func TestExecAction_UnsupportedType(t *testing.T) {
 func TestExecAction_RawTriggerPath(t *testing.T) {
 	te := newTestTriggerExecutor()
 	p := newTestParser()
-	trig, err := p.ParseTrigger(`after create update where id = new.id set status="in_progress"`)
+	trig, err := p.ParseTrigger(`after create update where id = new.id set status="inProgress"`)
 	if err != nil {
 		t.Fatalf("parse: %v", err)
 	}
@@ -2732,7 +2732,7 @@ func TestExecAction_RawTriggerPath(t *testing.T) {
 	if result.Update == nil || len(result.Update.Updated) != 1 {
 		t.Fatal("expected 1 updated task from raw trigger path")
 	}
-	if result.Update.Updated[0].Status != "in_progress" {
+	if result.Update.Updated[0].Status != "inProgress" {
 		t.Fatalf("expected status=in_progress, got %q", result.Update.Updated[0].Status)
 	}
 }
@@ -2808,7 +2808,7 @@ func TestExecTimeTriggerAction_RawTimeTriggerWithAction(t *testing.T) {
 		Action: &Statement{
 			Update: &UpdateStmt{
 				Where: &CompareExpr{
-					Left: &FieldRef{Name: "status"}, Op: "=", Right: &StringLiteral{Value: "in_progress"},
+					Left: &FieldRef{Name: "status"}, Op: "=", Right: &StringLiteral{Value: "inProgress"},
 				},
 				Set: []Assignment{
 					{Field: "status", Value: &StringLiteral{Value: "backlog"}},
@@ -2817,7 +2817,7 @@ func TestExecTimeTriggerAction_RawTimeTriggerWithAction(t *testing.T) {
 		},
 	}
 	tasks := []*task.Task{
-		{ID: "TIKI-000001", Status: "in_progress", Title: "stale", Type: "story", Priority: 3},
+		{ID: "TIKI-000001", Status: "inProgress", Title: "stale", Type: "story", Priority: 3},
 		{ID: "TIKI-000002", Status: "done", Title: "done", Type: "story", Priority: 3},
 	}
 	result, err := te.ExecTimeTriggerAction(tt, tasks)
@@ -3077,7 +3077,7 @@ func TestExecAction_ValidatedTriggerWithUpdateAction(t *testing.T) {
 	p := newTestParser()
 
 	vt, err := p.ParseAndValidateTrigger(
-		`after update where new.status = "done" update where status = "ready" set status="in_progress"`,
+		`after update where new.status = "done" update where status = "ready" set status="inProgress"`,
 		ExecutorRuntimeEventTrigger,
 	)
 	if err != nil {
@@ -3102,7 +3102,7 @@ func TestExecAction_ValidatedTriggerWithUpdateAction(t *testing.T) {
 	if len(result.Update.Updated) != 1 {
 		t.Fatalf("expected 1 updated task, got %d", len(result.Update.Updated))
 	}
-	if result.Update.Updated[0].Status != "in_progress" {
+	if result.Update.Updated[0].Status != "inProgress" {
 		t.Fatalf("expected status 'in_progress', got %q", result.Update.Updated[0].Status)
 	}
 }
@@ -3201,7 +3201,7 @@ func TestExecTimeTriggerAction_ValidatedUpdate(t *testing.T) {
 	p := newTestParser()
 
 	vtt, err := p.ParseAndValidateTimeTrigger(
-		`every 1day update where status = "in_progress" set status="backlog"`,
+		`every 1day update where status = "inProgress" set status="backlog"`,
 		ExecutorRuntimeTimeTrigger,
 	)
 	if err != nil {
@@ -3209,7 +3209,7 @@ func TestExecTimeTriggerAction_ValidatedUpdate(t *testing.T) {
 	}
 
 	tasks := []*task.Task{
-		{ID: "TIKI-000001", Status: "in_progress", Type: "story", Priority: 3},
+		{ID: "TIKI-000001", Status: "inProgress", Type: "story", Priority: 3},
 		{ID: "TIKI-000002", Status: "done", Type: "story", Priority: 3},
 	}
 	result, err := te.ExecTimeTriggerAction(vtt, tasks)
@@ -3299,7 +3299,7 @@ func TestTriggerExecOverride_Execute_ValidatedStatement(t *testing.T) {
 					Left: &FieldRef{Name: "status"}, Op: "=", Right: &StringLiteral{Value: "ready"},
 				},
 				Set: []Assignment{
-					{Field: "status", Value: &StringLiteral{Value: "in_progress"}},
+					{Field: "status", Value: &StringLiteral{Value: "inProgress"}},
 				},
 			},
 		},
@@ -3311,7 +3311,7 @@ func TestTriggerExecOverride_Execute_ValidatedStatement(t *testing.T) {
 	if result.Update == nil || len(result.Update.Updated) != 1 {
 		t.Fatal("expected 1 updated task")
 	}
-	if result.Update.Updated[0].Status != "in_progress" {
+	if result.Update.Updated[0].Status != "inProgress" {
 		t.Fatalf("expected status 'in_progress', got %q", result.Update.Updated[0].Status)
 	}
 }
@@ -3514,7 +3514,7 @@ func TestEvalExprRecursive_QualifiedRefInsideFunctionCall(t *testing.T) {
 	}
 
 	tc := &TriggerContext{
-		Old:      &task.Task{ID: "TIKI-000001", Status: "in_progress"},
+		Old:      &task.Task{ID: "TIKI-000001", Status: "inProgress"},
 		New:      completed,
 		AllTasks: []*task.Task{completed, blocker},
 	}

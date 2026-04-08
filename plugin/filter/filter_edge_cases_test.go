@@ -144,19 +144,19 @@ func TestComplexNOTExpressions(t *testing.T) {
 		},
 		{
 			name:   "NOT with complex mixed expression",
-			expr:   "NOT (status = 'ready' AND type = 'bug' OR status = 'in_progress')",
+			expr:   "NOT (status = 'ready' AND type = 'bug' OR status = 'inProgress')",
 			task:   &task.Task{Status: task.StatusReady, Type: task.TypeBug},
 			expect: false, // NOT ((true AND true) OR false) = NOT (true OR false) = NOT true = false
 		},
 		{
 			name:   "NOT with complex mixed expression - alternative match",
-			expr:   "NOT (status = 'ready' AND type = 'bug' OR status = 'in_progress')",
+			expr:   "NOT (status = 'ready' AND type = 'bug' OR status = 'inProgress')",
 			task:   &task.Task{Status: task.StatusInProgress, Type: task.TypeStory},
 			expect: false, // NOT ((false AND false) OR true) = NOT (false OR true) = NOT true = false
 		},
 		{
 			name:   "NOT with complex mixed expression - no match",
-			expr:   "NOT (status = 'ready' AND type = 'bug' OR status = 'in_progress')",
+			expr:   "NOT (status = 'ready' AND type = 'bug' OR status = 'inProgress')",
 			task:   &task.Task{Status: task.StatusDone, Type: task.TypeStory},
 			expect: true, // NOT ((false AND false) OR false) = NOT false = true
 		},
@@ -211,7 +211,7 @@ func TestAllOperatorsCombined(t *testing.T) {
 		},
 		{
 			name:   "complex with comparisons and IN",
-			expr:   "(priority >= 3 AND priority <= 5) OR (status IN ['ready', 'in_progress'] AND type = 'bug')",
+			expr:   "(priority >= 3 AND priority <= 5) OR (status IN ['ready', 'inProgress'] AND type = 'bug')",
 			task:   &task.Task{Status: task.StatusReady, Type: task.TypeBug, Priority: 2},
 			expect: true, // Second part matches
 		},
@@ -259,13 +259,13 @@ func TestVeryLongExpressionChains(t *testing.T) {
 		},
 		{
 			name:   "five OR chain - last matches",
-			expr:   "status = 'done' OR status = 'cancelled' OR status = 'in_progress' OR status = 'review' OR status = 'ready'",
+			expr:   "status = 'done' OR status = 'cancelled' OR status = 'inProgress' OR status = 'review' OR status = 'ready'",
 			task:   &task.Task{Status: task.StatusReady},
 			expect: true,
 		},
 		{
 			name:   "alternating AND/OR chain",
-			expr:   "status = 'ready' OR type = 'bug' AND priority > 3 OR points > 10 AND status = 'in_progress'",
+			expr:   "status = 'ready' OR type = 'bug' AND priority > 3 OR points > 10 AND status = 'inProgress'",
 			task:   &task.Task{Status: task.StatusReady, Type: task.TypeStory, Priority: 2, Points: 5},
 			expect: true, // First OR condition matches
 		},
@@ -405,9 +405,9 @@ func TestComparisonOperators(t *testing.T) {
 		// String comparisons (lexicographic)
 		{
 			name:   "string greater than",
-			expr:   "status > 'in_progress'",
+			expr:   "status > 'inProgress'",
 			task:   &task.Task{Status: task.StatusReady},
-			expect: true, // "ready" > "in_progress" lexicographically
+			expect: true, // "ready" > "inProgress" lexicographically
 		},
 		{
 			name:   "string less than",
@@ -451,13 +451,13 @@ func TestRealWorldScenarios(t *testing.T) {
 		},
 		{
 			name:   "stale tasks needing attention",
-			expr:   "status IN ['ready', 'in_progress', 'in_progress'] AND NOW - UpdatedAt > 14days",
+			expr:   "status IN ['ready', 'inProgress', 'inProgress'] AND NOW - UpdatedAt > 14days",
 			task:   &task.Task{Status: task.StatusReady, UpdatedAt: now.Add(-20 * 24 * time.Hour)},
 			expect: true,
 		},
 		{
 			name:   "UI/UX work in progress",
-			expr:   "tags IN ['ui', 'ux', 'design'] AND status IN ['ready', 'in_progress'] AND type != 'epic'",
+			expr:   "tags IN ['ui', 'ux', 'design'] AND status IN ['ready', 'inProgress'] AND type != 'epic'",
 			task:   &task.Task{Tags: []string{"ui", "frontend"}, Status: task.StatusInProgress, Type: task.TypeStory},
 			expect: true,
 		},
@@ -469,7 +469,7 @@ func TestRealWorldScenarios(t *testing.T) {
 		},
 		{
 			name:   "blocked high-value items",
-			expr:   "status = 'in_progress' AND (priority >= 4 OR points >= 8)",
+			expr:   "status = 'inProgress' AND (priority >= 4 OR points >= 8)",
 			task:   &task.Task{Status: task.StatusInProgress, Priority: 2, Points: 10},
 			expect: true,
 		},

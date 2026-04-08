@@ -7,7 +7,7 @@ statuses:
     label: Ready
     emoji: "📋"
     active: true
-  - key: in_progress
+  - key: inProgress
     label: "In Progress"
     emoji: "⚙️"
     active: true
@@ -32,8 +32,8 @@ views:
         filter: status = 'ready' and type != 'epic'
         action: status = 'ready'
       - name: In Progress
-        filter: status = 'in_progress' and type != 'epic'
-        action: status = 'in_progress'
+        filter: status = 'inProgress' and type != 'epic'
+        action: status = 'inProgress'
       - name: Review
         filter: status = 'review' and type != 'epic'
         action: status = 'review'

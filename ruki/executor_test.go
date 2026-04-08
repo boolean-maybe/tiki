@@ -25,7 +25,7 @@ func makeTasks() []*task.Task {
 			Due: testDate(4, 10), CreatedAt: testDate(3, 1),
 		},
 		{
-			ID: "TIKI-000002", Title: "Fix login bug", Status: "in_progress", Type: "bug",
+			ID: "TIKI-000002", Title: "Fix login bug", Status: "inProgress", Type: "bug",
 			Priority: 1, Tags: []string{"bug", "frontend"}, Assignee: "bob",
 			Due: testDate(4, 5), DependsOn: []string{"TIKI-000001"},
 			CreatedAt: testDate(3, 2),
@@ -307,7 +307,7 @@ func TestExecuteEnumNormalization(t *testing.T) {
 
 	tasks := []*task.Task{
 		{ID: "TIKI-A", Title: "A", Status: "done", Type: "story"},
-		{ID: "TIKI-B", Title: "B", Status: "in_progress", Type: "bug"},
+		{ID: "TIKI-B", Title: "B", Status: "inProgress", Type: "bug"},
 		{ID: "TIKI-C", Title: "C", Status: "ready", Type: "story"},
 	}
 

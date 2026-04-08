@@ -72,7 +72,7 @@ func TestSearchState_PaneBasedFlow(t *testing.T) {
 	ss := &SearchState{}
 
 	// Save pane-based pre-search state
-	ss.SavePreSearchPaneState("in_progress", 3)
+	ss.SavePreSearchPaneState("inProgress", 3)
 
 	// Set search results
 	results := []task.SearchResult{
@@ -90,8 +90,8 @@ func TestSearchState_PaneBasedFlow(t *testing.T) {
 	if preIndex != 0 {
 		t.Errorf("ClearSearchResults() preIndex = %d, want 0", preIndex)
 	}
-	if prePane != "in_progress" {
-		t.Errorf("ClearSearchResults() prePane = %q, want %q", prePane, "in_progress")
+	if prePane != "inProgress" {
+		t.Errorf("ClearSearchResults() prePane = %q, want %q", prePane, "inProgress")
 	}
 	if preRow != 3 {
 		t.Errorf("ClearSearchResults() preRow = %d, want 3", preRow)

@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/boolean-maybe/tiki/task"
+	"github.com/boolean-maybe/tiki/workflow"
 )
 
 // FilterExpr represents a filter expression that can be evaluated against a task
@@ -61,11 +62,18 @@ type InExpr struct {
 
 // Evaluate implements FilterExpr for InExpr
 func (i *InExpr) Evaluate(task *task.Task, now time.Time, currentUser string) bool {
-	// Handle CURRENT_USER in the values list
+	// Handle CURRENT_USER and normalize status literals in the values list
+	isStatus := strings.ToLower(i.Field) == "status"
 	resolvedValues := make([]interface{}, len(i.Values))
 	for idx, val := range i.Values {
 		if strVal, ok := val.(string); ok && strings.ToUpper(strVal) == "CURRENT_USER" {
 			resolvedValues[idx] = currentUser
+		} else if isStatus {
+			if strVal, ok := val.(string); ok {
+				resolvedValues[idx] = string(workflow.NormalizeStatusKey(strVal))
+			} else {
+				resolvedValues[idx] = val
+			}
 		} else {
 			resolvedValues[idx] = val
 		}
@@ -110,6 +118,13 @@ func (c *CompareExpr) Evaluate(task *task.Task, now time.Time, currentUser strin
 	// Handle CURRENT_USER special value
 	if strVal, ok := compareValue.(string); ok && strings.ToUpper(strVal) == "CURRENT_USER" {
 		compareValue = currentUser
+	}
+
+	// normalize status literals so legacy forms (e.g. "in_progress") match camelCase keys
+	if strings.ToLower(c.Field) == "status" {
+		if strVal, ok := compareValue.(string); ok {
+			compareValue = string(workflow.NormalizeStatusKey(strVal))
+		}
 	}
 
 	// Handle TimeExpr (for NOW - CreatedAt type comparisons)

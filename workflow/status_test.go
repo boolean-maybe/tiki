@@ -6,7 +6,7 @@ func defaultTestStatuses() []StatusDef {
 	return []StatusDef{
 		{Key: "backlog", Label: "Backlog", Emoji: "📥", Default: true},
 		{Key: "ready", Label: "Ready", Emoji: "📋", Active: true},
-		{Key: "in_progress", Label: "In Progress", Emoji: "⚙️", Active: true},
+		{Key: "inProgress", Label: "In Progress", Emoji: "⚙️", Active: true},
 		{Key: "review", Label: "Review", Emoji: "👀", Active: true},
 		{Key: "done", Label: "Done", Emoji: "✅", Done: true},
 	}
@@ -28,10 +28,12 @@ func TestNormalizeStatusKey(t *testing.T) {
 	}{
 		{"backlog", "backlog"},
 		{"BACKLOG", "backlog"},
-		{"In-Progress", "in_progress"},
-		{"in progress", "in_progress"},
+		{"In-Progress", "inProgress"},
+		{"in progress", "inProgress"},
 		{"  DONE  ", "done"},
-		{"In_Review", "in_review"},
+		{"In_Review", "inReview"},
+		{"in_progress", "inProgress"},
+		{"IN_PROGRESS", "inProgress"},
 		{"", ""},
 	}
 
@@ -86,7 +88,7 @@ func TestStatusRegistry_IsValid(t *testing.T) {
 	}{
 		{"backlog", true},
 		{"ready", true},
-		{"in_progress", true},
+		{"inProgress", true},
 		{"In-Progress", true},
 		{"review", true},
 		{"done", true},
@@ -113,7 +115,7 @@ func TestStatusRegistry_IsActive(t *testing.T) {
 	}{
 		{"backlog", false},
 		{"ready", true},
-		{"in_progress", true},
+		{"inProgress", true},
 		{"review", true},
 		{"done", false},
 	}
@@ -162,7 +164,7 @@ func TestStatusRegistry_Keys(t *testing.T) {
 	reg := mustBuildStatusRegistry(t, defaultTestStatuses())
 
 	keys := reg.Keys()
-	expected := []StatusKey{"backlog", "ready", "in_progress", "review", "done"}
+	expected := []StatusKey{"backlog", "ready", "inProgress", "review", "done"}
 
 	if len(keys) != len(expected) {
 		t.Fatalf("expected %d keys, got %d", len(expected), len(keys))
@@ -181,8 +183,8 @@ func TestStatusRegistry_NormalizesKeys(t *testing.T) {
 	}
 	reg := mustBuildStatusRegistry(t, custom)
 
-	if !reg.IsValid("in_progress") {
-		t.Error("expected 'in_progress' to be valid after normalization")
+	if !reg.IsValid("inProgress") {
+		t.Error("expected 'inProgress' to be valid after normalization")
 	}
 	if !reg.IsValid("done") {
 		t.Error("expected 'done' to be valid after normalization")
@@ -299,7 +301,7 @@ func TestStatusKeyConstants(t *testing.T) {
 	if StatusReady != "ready" {
 		t.Errorf("StatusReady = %q", StatusReady)
 	}
-	if StatusInProgress != "in_progress" {
+	if StatusInProgress != "inProgress" {
 		t.Errorf("StatusInProgress = %q", StatusInProgress)
 	}
 	if StatusReview != "review" {
