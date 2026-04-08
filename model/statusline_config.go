@@ -20,7 +20,7 @@ type StatuslineConfig struct {
 	// right section: transient message
 	message  string
 	level    MessageLevel
-	autoHide bool // if true, entire bar hides on next keypress
+	autoHide bool // if true, message is dismissed on next keypress
 
 	// visibility
 	visible bool
@@ -123,7 +123,7 @@ func (sc *StatuslineConfig) SetViewStats(stats map[string]StatValue) {
 }
 
 // SetMessage sets the right-section message with a severity level. If autoHide
-// is true, the entire statusline will hide on the next keypress (via DismissAutoHide).
+// is true, the message is dismissed on the next keypress (via DismissAutoHide).
 // Setting a message makes the statusline visible.
 func (sc *StatuslineConfig) SetMessage(text string, level MessageLevel, autoHide bool) {
 	sc.mu.Lock()
@@ -156,8 +156,8 @@ func (sc *StatuslineConfig) ClearMessage() {
 }
 
 // DismissAutoHide is called on every keypress. If auto-hide is active,
-// it hides the entire statusline and clears the message. Returns true
-// if the statusline was dismissed.
+// it clears the message but keeps the statusline bar visible. Returns true
+// if a message was dismissed.
 func (sc *StatuslineConfig) DismissAutoHide() bool {
 	sc.mu.Lock()
 	if !sc.autoHide {
@@ -167,7 +167,6 @@ func (sc *StatuslineConfig) DismissAutoHide() bool {
 	sc.autoHide = false
 	sc.message = ""
 	sc.level = MessageLevelInfo
-	sc.visible = false
 	sc.mu.Unlock()
 	sc.notifyListeners()
 	return true

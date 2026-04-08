@@ -203,7 +203,7 @@ func DefaultColors() *ColorConfig {
 		StatuslineAccentFg: "#2e3440", // Nord polar night 1
 		StatuslineInfoFg:   "#a3be8c", // Nord aurora green
 		StatuslineInfoBg:   "#3b4252", // Nord polar night 2
-		StatuslineErrorFg:  "#bf616a", // Nord aurora red
+		StatuslineErrorFg:  "#ffff00", // yellow, matches header global key color
 		StatuslineErrorBg:  "#3b4252", // Nord polar night 2
 		StatuslineFillBg:   "#3b4252", // Nord polar night 2
 	}

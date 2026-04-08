@@ -663,6 +663,14 @@ func TestTriggerEngine_BeforeDeleteUnconditionalDeny(t *testing.T) {
 
 func TestLoadAndRegisterTriggers_EmptyDefs(t *testing.T) {
 	// no workflow files → empty defs → engine, 0, nil
+
+	// isolate from real user/project workflow.yaml files
+	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
+	originalDir, _ := os.Getwd()
+	t.Cleanup(func() { _ = os.Chdir(originalDir) })
+	_ = os.Chdir(t.TempDir())
+	config.ResetPathManager()
+
 	gate := NewTaskMutationGate()
 	schema := testTriggerSchema{}
 	engine, count, err := LoadAndRegisterTriggers(gate, schema, nil)

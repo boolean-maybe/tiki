@@ -197,9 +197,9 @@ func TestStatuslineConfig_DismissAutoHide(t *testing.T) {
 		t.Error("DismissAutoHide() = false, want true")
 	}
 
-	// statusline should now be hidden
-	if sc.IsVisible() {
-		t.Error("statusline should be hidden after DismissAutoHide")
+	// statusline should remain visible (only the message is dismissed)
+	if !sc.IsVisible() {
+		t.Error("statusline should remain visible after DismissAutoHide")
 	}
 
 	// message should be cleared
