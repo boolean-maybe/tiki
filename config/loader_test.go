@@ -4,6 +4,8 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+
+	"gopkg.in/yaml.v3"
 )
 
 func TestLoadConfig(t *testing.T) {
@@ -397,6 +399,94 @@ func TestLoadConfigAIAgentDefault(t *testing.T) {
 	}
 	if got := GetAIAgent(); got != "" {
 		t.Errorf("GetAIAgent() = '%s', want ''", got)
+	}
+}
+
+func TestSavePluginViewMode_PreservesTriggers(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	// write a workflow.yaml that includes triggers
+	workflowContent := `statuses:
+  - key: backlog
+    label: Backlog
+    default: true
+  - key: done
+    label: Done
+    done: true
+views:
+  - name: Kanban
+    default: true
+    key: "F1"
+    lanes:
+      - name: Done
+        filter: status = 'done'
+        action: status = 'done'
+    sort: Priority, CreatedAt
+triggers:
+  - description: block completion with open dependencies
+    ruki: >
+      before update
+        where new.status = "done" and new.dependsOn any status != "done"
+        deny "cannot complete: has open dependencies"
+  - description: no jumping from backlog to done
+    ruki: >
+      before update
+        where old.status = "backlog" and new.status = "done"
+        deny "cannot move directly from backlog to done"
+`
+	workflowPath := filepath.Join(tmpDir, "workflow.yaml")
+	if err := os.WriteFile(workflowPath, []byte(workflowContent), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	// simulate what SavePluginViewMode does: read → modify → write
+	wf, err := readWorkflowFile(workflowPath)
+	if err != nil {
+		t.Fatalf("readWorkflowFile failed: %v", err)
+	}
+
+	// modify a view mode (same as SavePluginViewMode logic)
+	if len(wf.Plugins) > 0 {
+		wf.Plugins[0]["view"] = "compact"
+	}
+
+	if err := writeWorkflowFile(workflowPath, wf); err != nil {
+		t.Fatalf("writeWorkflowFile failed: %v", err)
+	}
+
+	// verify triggers survived the round-trip by reading raw YAML
+	rawData, err := os.ReadFile(workflowPath)
+	if err != nil {
+		t.Fatalf("reading workflow.yaml after write: %v", err)
+	}
+
+	var raw map[string]interface{}
+	if err := yaml.Unmarshal(rawData, &raw); err != nil {
+		t.Fatalf("parsing raw YAML: %v", err)
+	}
+	triggers, ok := raw["triggers"]
+	if !ok {
+		t.Fatal("triggers section missing after round-trip write")
+	}
+	triggerList, ok := triggers.([]interface{})
+	if !ok {
+		t.Fatalf("triggers is not a list, got %T", triggers)
+	}
+	if len(triggerList) != 2 {
+		t.Fatalf("expected 2 triggers after round-trip, got %d", len(triggerList))
+	}
+
+	// also verify via typed struct
+	wf2, err := readWorkflowFile(workflowPath)
+	if err != nil {
+		t.Fatalf("readWorkflowFile after write failed: %v", err)
+	}
+	if len(wf2.Triggers) != 2 {
+		t.Fatalf("expected 2 triggers in struct after round-trip, got %d", len(wf2.Triggers))
+	}
+	desc0, _ := wf2.Triggers[0]["description"].(string)
+	if desc0 != "block completion with open dependencies" {
+		t.Errorf("trigger[0] description = %q, want %q", desc0, "block completion with open dependencies")
 	}
 }
 
