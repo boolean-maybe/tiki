@@ -577,6 +577,21 @@ func TestLoadStatusesFromFile_EmptyStatuses(t *testing.T) {
 	}
 }
 
+func TestLoadStatusRegistry_MalformedFile(t *testing.T) {
+	cwdDir := setupLoadRegistryTest(t)
+
+	// write a workflow.yaml with invalid YAML so loadStatusRegistryFromFiles returns an error
+	content := `statuses: [[[not valid yaml`
+	if err := os.WriteFile(filepath.Join(cwdDir, "workflow.yaml"), []byte(content), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	err := LoadStatusRegistry()
+	if err == nil {
+		t.Fatal("expected error for malformed workflow.yaml")
+	}
+}
+
 func TestLoadStatusRegistryFromFiles_AllFilesEmpty(t *testing.T) {
 	dir := t.TempDir()
 	f1 := filepath.Join(dir, "workflow1.yaml")

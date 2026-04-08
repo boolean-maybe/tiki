@@ -3594,3 +3594,147 @@ func TestCompareValues_BoolDispatch(t *testing.T) {
 		t.Error("true != false should be true via compareValues")
 	}
 }
+
+// --- evalID in plugin runtime ---
+
+func TestExecuteEvalIDPluginRuntime(t *testing.T) {
+	p := newTestParser()
+	e := NewExecutor(testSchema{}, func() string { return "alice" }, ExecutorRuntime{Mode: ExecutorRuntimePlugin})
+	tasks := makeTasks()
+
+	// id() returns the selected task ID as a constant; comparing it to a
+	// matching literal yields true for all tasks (global predicate).
+	validated, err := p.ParseAndValidateStatement(`select where id() = "TIKI-000001"`, ExecutorRuntimePlugin)
+	if err != nil {
+		t.Fatalf("validate: %v", err)
+	}
+	result, err := e.Execute(validated, tasks, ExecutionInput{SelectedTaskID: "TIKI-000001"})
+	if err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	if result.Select == nil {
+		t.Fatal("expected Select result")
+	}
+	// id() = "TIKI-000001" is always true when selected task is TIKI-000001
+	if len(result.Select.Tasks) != 4 {
+		t.Fatalf("expected 4 tasks (global true predicate), got %d", len(result.Select.Tasks))
+	}
+
+	// compare id() against each task's own id field to select only the matching task
+	validated2, err := p.ParseAndValidateStatement(`select where id = id()`, ExecutorRuntimePlugin)
+	if err != nil {
+		t.Fatalf("validate: %v", err)
+	}
+	result2, err := e.Execute(validated2, tasks, ExecutionInput{SelectedTaskID: "TIKI-000001"})
+	if err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	if len(result2.Select.Tasks) != 1 {
+		t.Fatalf("expected 1 task, got %d", len(result2.Select.Tasks))
+	}
+	if result2.Select.Tasks[0].ID != "TIKI-000001" {
+		t.Errorf("expected TIKI-000001, got %s", result2.Select.Tasks[0].ID)
+	}
+}
+
+func TestExecuteEvalIDPluginRuntimeNoMatch(t *testing.T) {
+	p := newTestParser()
+	e := NewExecutor(testSchema{}, func() string { return "alice" }, ExecutorRuntime{Mode: ExecutorRuntimePlugin})
+	tasks := makeTasks()
+
+	// id() returns "TIKI-000002", compare with literal "TIKI-000001" → always false
+	validated, err := p.ParseAndValidateStatement(`select where id() = "TIKI-000001"`, ExecutorRuntimePlugin)
+	if err != nil {
+		t.Fatalf("validate: %v", err)
+	}
+	result, err := e.Execute(validated, tasks, ExecutionInput{SelectedTaskID: "TIKI-000002"})
+	if err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	if len(result.Select.Tasks) != 0 {
+		t.Fatalf("expected 0 tasks, got %d", len(result.Select.Tasks))
+	}
+}
+
+// --- setField type mismatches for description, status, type with unusual value types ---
+
+func TestSetFieldDescriptionNonString(t *testing.T) {
+	e := newTestExecutor()
+	tk := &task.Task{ID: "T1", Title: "x", Status: "ready", Description: "old"}
+
+	err := e.setField(tk, "description", 42)
+	if err == nil {
+		t.Fatal("expected error for non-string description")
+	}
+	if !strings.Contains(err.Error(), "description must be a string") {
+		t.Errorf("expected 'description must be a string' error, got: %v", err)
+	}
+}
+
+func TestSetFieldStatusWithTaskStatusValue(t *testing.T) {
+	e := newTestExecutor()
+	tk := &task.Task{ID: "T1", Title: "x", Status: "ready"}
+
+	// pass task.Status("done") directly, not a string
+	err := e.setField(tk, "status", task.Status("done"))
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if tk.Status != "done" {
+		t.Errorf("expected status 'done', got %q", tk.Status)
+	}
+}
+
+func TestSetFieldTypeWithTaskTypeValue(t *testing.T) {
+	e := newTestExecutor()
+	tk := &task.Task{ID: "T1", Title: "x", Status: "ready", Type: "bug"}
+
+	// pass task.Type("story") directly, not a string
+	err := e.setField(tk, "type", task.Type("story"))
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if tk.Type != "story" {
+		t.Errorf("expected type 'story', got %q", tk.Type)
+	}
+}
+
+func TestSetFieldStatusWithIntValue(t *testing.T) {
+	e := newTestExecutor()
+	tk := &task.Task{ID: "T1", Title: "x", Status: "ready"}
+
+	err := e.setField(tk, "status", 42)
+	if err == nil {
+		t.Fatal("expected error for int status")
+	}
+	if !strings.Contains(err.Error(), "status must be a string") {
+		t.Errorf("expected 'status must be a string' error, got: %v", err)
+	}
+}
+
+func TestSetFieldTypeWithIntValue(t *testing.T) {
+	e := newTestExecutor()
+	tk := &task.Task{ID: "T1", Title: "x", Status: "ready", Type: "bug"}
+
+	err := e.setField(tk, "type", 42)
+	if err == nil {
+		t.Fatal("expected error for int type")
+	}
+	if !strings.Contains(err.Error(), "type must be a string") {
+		t.Errorf("expected 'type must be a string' error, got: %v", err)
+	}
+}
+
+// --- Execute with unsupported statement type ---
+
+func TestExecuteUnsupportedStatementType(t *testing.T) {
+	e := newTestExecutor()
+
+	_, err := e.Execute("not a statement", nil)
+	if err == nil {
+		t.Fatal("expected error for unsupported statement type")
+	}
+	if !strings.Contains(err.Error(), "unsupported statement type") {
+		t.Errorf("expected 'unsupported statement type' error, got: %v", err)
+	}
+}

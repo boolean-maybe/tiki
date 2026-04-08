@@ -2604,3 +2604,1215 @@ func TestExecTimeTriggerAction_NilAction(t *testing.T) {
 		t.Fatalf("expected 'time trigger has no action' error, got: %v", err)
 	}
 }
+
+// --- validateEventTriggerInput uncovered paths ---
+
+func TestValidateEventTriggerInput_UnsealedValidatedTrigger(t *testing.T) {
+	// pass a ValidatedTrigger with nil seal — mustBeSealed should fail
+	vt := &ValidatedTrigger{} // seal is nil
+	_, err := validateEventTriggerInput(vt)
+	if err == nil {
+		t.Fatal("expected error for unsealed ValidatedTrigger")
+	}
+	var unvalidated *UnvalidatedWrapperError
+	if !errors.As(err, &unvalidated) {
+		t.Fatalf("expected UnvalidatedWrapperError, got: %v", err)
+	}
+}
+
+func TestValidateEventTriggerInput_WrongRuntime(t *testing.T) {
+	// pass a ValidatedTrigger validated for plugin runtime (not eventTrigger)
+	p := newTestParser()
+	validated, err := p.ParseAndValidateTrigger(`before update deny "blocked"`, ExecutorRuntimePlugin)
+	if err != nil {
+		t.Fatalf("validate: %v", err)
+	}
+	_, err = validateEventTriggerInput(validated)
+	if err == nil {
+		t.Fatal("expected runtime mismatch error")
+	}
+	var mismatch *RuntimeMismatchError
+	if !errors.As(err, &mismatch) {
+		t.Fatalf("expected RuntimeMismatchError, got: %v", err)
+	}
+}
+
+func TestValidateEventTriggerInput_UnsupportedType(t *testing.T) {
+	_, err := validateEventTriggerInput("not a trigger")
+	if err == nil {
+		t.Fatal("expected error for unsupported type")
+	}
+	if !strings.Contains(err.Error(), "unsupported trigger type") {
+		t.Fatalf("expected 'unsupported trigger type' error, got: %v", err)
+	}
+
+	_, err = validateEventTriggerInput(42)
+	if err == nil {
+		t.Fatal("expected error for int type")
+	}
+	if !strings.Contains(err.Error(), "unsupported trigger type") {
+		t.Fatalf("expected 'unsupported trigger type' error, got: %v", err)
+	}
+}
+
+// --- ExecAction uncovered paths ---
+
+func TestExecAction_UnsealedValidatedTrigger(t *testing.T) {
+	te := newTestTriggerExecutor()
+	vt := &ValidatedTrigger{} // nil seal
+	tc := &TriggerContext{
+		Old: &task.Task{ID: "TIKI-000001"},
+		New: &task.Task{ID: "TIKI-000001"},
+	}
+	_, err := te.ExecAction(vt, tc)
+	if err == nil {
+		t.Fatal("expected error for unsealed ValidatedTrigger")
+	}
+	var unvalidated *UnvalidatedWrapperError
+	if !errors.As(err, &unvalidated) {
+		t.Fatalf("expected UnvalidatedWrapperError, got: %v", err)
+	}
+}
+
+func TestExecAction_ValidatedTriggerWrongRuntime(t *testing.T) {
+	te := newTestTriggerExecutor()
+	p := newTestParser()
+	// validate for plugin runtime, which mismatches eventTrigger
+	validated, err := p.ParseAndValidateTrigger(`after update update where status = "ready" set status="done"`, ExecutorRuntimePlugin)
+	if err != nil {
+		t.Fatalf("validate: %v", err)
+	}
+	tc := &TriggerContext{
+		Old:      &task.Task{ID: "TIKI-000001", Status: "ready"},
+		New:      &task.Task{ID: "TIKI-000001", Status: "done"},
+		AllTasks: []*task.Task{{ID: "TIKI-000001", Status: "done"}},
+	}
+	_, err = te.ExecAction(validated, tc)
+	if err == nil {
+		t.Fatal("expected runtime mismatch error")
+	}
+	var mismatch *RuntimeMismatchError
+	if !errors.As(err, &mismatch) {
+		t.Fatalf("expected RuntimeMismatchError, got: %v", err)
+	}
+}
+
+func TestExecAction_UnsupportedType(t *testing.T) {
+	te := newTestTriggerExecutor()
+	tc := &TriggerContext{
+		Old: &task.Task{ID: "TIKI-000001"},
+		New: &task.Task{ID: "TIKI-000001"},
+	}
+	_, err := te.ExecAction("not a trigger", tc)
+	if err == nil {
+		t.Fatal("expected error for unsupported type")
+	}
+	if !strings.Contains(err.Error(), "unsupported trigger type") {
+		t.Fatalf("expected 'unsupported trigger type' error, got: %v", err)
+	}
+}
+
+func TestExecAction_RawTriggerPath(t *testing.T) {
+	te := newTestTriggerExecutor()
+	p := newTestParser()
+	trig, err := p.ParseTrigger(`after create update where id = new.id set status="in_progress"`)
+	if err != nil {
+		t.Fatalf("parse: %v", err)
+	}
+	newTask := &task.Task{ID: "TIKI-000001", Title: "Test", Status: "ready", Type: "story", Priority: 3}
+	tc := &TriggerContext{
+		Old:      nil,
+		New:      newTask,
+		AllTasks: []*task.Task{newTask},
+	}
+	result, err := te.ExecAction(trig, tc)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if result.Update == nil || len(result.Update.Updated) != 1 {
+		t.Fatal("expected 1 updated task from raw trigger path")
+	}
+	if result.Update.Updated[0].Status != "in_progress" {
+		t.Fatalf("expected status=in_progress, got %q", result.Update.Updated[0].Status)
+	}
+}
+
+// --- ExecTimeTriggerAction uncovered paths ---
+
+func TestExecTimeTriggerAction_UnsealedValidatedTimeTrigger(t *testing.T) {
+	te := newTestTriggerExecutor()
+	vtt := &ValidatedTimeTrigger{} // nil seal
+	_, err := te.ExecTimeTriggerAction(vtt, nil)
+	if err == nil {
+		t.Fatal("expected error for unsealed ValidatedTimeTrigger")
+	}
+	var unvalidated *UnvalidatedWrapperError
+	if !errors.As(err, &unvalidated) {
+		t.Fatalf("expected UnvalidatedWrapperError, got: %v", err)
+	}
+}
+
+func TestExecTimeTriggerAction_ValidatedNilAction(t *testing.T) {
+	te := newTestTriggerExecutor()
+	p := newTestParser()
+	// parse a valid time trigger, then tamper with the inner timeTrigger to nil its action
+	// since we cannot tamper directly, we construct a trigger with action and validate it,
+	// but the code requires Action != nil check. We test via raw path instead.
+	tt := &TimeTrigger{
+		Interval: DurationLiteral{Value: 1, Unit: "day"},
+		Action: &Statement{
+			Delete: &DeleteStmt{Where: &CompareExpr{
+				Left: &FieldRef{Name: "status"}, Op: "=", Right: &StringLiteral{Value: "done"},
+			}},
+		},
+	}
+	// first confirm this works
+	_, err := te.ExecTimeTriggerAction(tt, []*task.Task{
+		{ID: "TIKI-000001", Status: "done", Type: "story", Priority: 3},
+	})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	// now test nil action on raw path
+	ttNilAction := &TimeTrigger{
+		Interval: DurationLiteral{Value: 1, Unit: "day"},
+		Action:   nil,
+	}
+	_, err = te.ExecTimeTriggerAction(ttNilAction, nil)
+	if err == nil {
+		t.Fatal("expected error for nil action in raw TimeTrigger")
+	}
+	if !strings.Contains(err.Error(), "time trigger has no action") {
+		t.Fatalf("expected 'time trigger has no action' error, got: %v", err)
+	}
+
+	_ = p // used for clarity only
+}
+
+func TestExecTimeTriggerAction_UnsupportedType(t *testing.T) {
+	te := newTestTriggerExecutor()
+	_, err := te.ExecTimeTriggerAction("not a time trigger", nil)
+	if err == nil {
+		t.Fatal("expected error for unsupported type")
+	}
+	if !strings.Contains(err.Error(), "unsupported time trigger type") {
+		t.Fatalf("expected 'unsupported time trigger type' error, got: %v", err)
+	}
+}
+
+func TestExecTimeTriggerAction_RawTimeTriggerWithAction(t *testing.T) {
+	te := newTestTriggerExecutor()
+	tt := &TimeTrigger{
+		Interval: DurationLiteral{Value: 1, Unit: "day"},
+		Action: &Statement{
+			Update: &UpdateStmt{
+				Where: &CompareExpr{
+					Left: &FieldRef{Name: "status"}, Op: "=", Right: &StringLiteral{Value: "in_progress"},
+				},
+				Set: []Assignment{
+					{Field: "status", Value: &StringLiteral{Value: "backlog"}},
+				},
+			},
+		},
+	}
+	tasks := []*task.Task{
+		{ID: "TIKI-000001", Status: "in_progress", Title: "stale", Type: "story", Priority: 3},
+		{ID: "TIKI-000002", Status: "done", Title: "done", Type: "story", Priority: 3},
+	}
+	result, err := te.ExecTimeTriggerAction(tt, tasks)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if result.Update == nil || len(result.Update.Updated) != 1 {
+		t.Fatal("expected 1 updated task from raw TimeTrigger path")
+	}
+	if result.Update.Updated[0].Status != "backlog" {
+		t.Fatalf("expected status=backlog, got %q", result.Update.Updated[0].Status)
+	}
+}
+
+// --- triggerExecOverride.Execute uncovered paths ---
+
+func TestTriggerExecOverride_Execute_UnsupportedStatementType(t *testing.T) {
+	te := newTestTriggerExecutor()
+	tc := &TriggerContext{
+		Old:      &task.Task{ID: "TIKI-000001"},
+		New:      &task.Task{ID: "TIKI-000001"},
+		AllTasks: []*task.Task{{ID: "TIKI-000001"}},
+	}
+	exec := te.newExecWithOverrides(tc)
+	// pass a string — unsupported type
+	_, err := exec.Execute("not a statement", tc.AllTasks)
+	if err == nil {
+		t.Fatal("expected error for unsupported statement type")
+	}
+	if !strings.Contains(err.Error(), "unsupported statement type") {
+		t.Fatalf("expected 'unsupported statement type' error, got: %v", err)
+	}
+}
+
+func TestTriggerExecOverride_Execute_RawStatement(t *testing.T) {
+	te := newTestTriggerExecutor()
+	tc := &TriggerContext{
+		Old:      &task.Task{ID: "TIKI-000001", Status: "ready"},
+		New:      &task.Task{ID: "TIKI-000001", Status: "done"},
+		AllTasks: []*task.Task{{ID: "TIKI-000001", Status: "done", Type: "story", Priority: 3}},
+	}
+	exec := te.newExecWithOverrides(tc)
+	// pass a raw *Statement that should go through validation inside Execute
+	rawStmt := &Statement{
+		Update: &UpdateStmt{
+			Where: &CompareExpr{
+				Left: &FieldRef{Name: "id"}, Op: "=", Right: &StringLiteral{Value: "TIKI-000001"},
+			},
+			Set: []Assignment{
+				{Field: "status", Value: &StringLiteral{Value: "backlog"}},
+			},
+		},
+	}
+	result, err := exec.Execute(rawStmt, tc.AllTasks)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if result.Update == nil || len(result.Update.Updated) != 1 {
+		t.Fatal("expected 1 updated task")
+	}
+	if result.Update.Updated[0].Status != "backlog" {
+		t.Fatalf("expected status=backlog, got %q", result.Update.Updated[0].Status)
+	}
+}
+
+// --- evalExprRecursive default delegation tests ---
+
+func TestEvalExprRecursive_StringLiteral(t *testing.T) {
+	te := newTestTriggerExecutor()
+	tc := &TriggerContext{
+		New: &task.Task{ID: "TIKI-000001"},
+	}
+	exec := te.newExecWithOverrides(tc)
+	val, err := exec.evalExprRecursive(&StringLiteral{Value: "hello"}, tc.New, nil)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if val != "hello" {
+		t.Errorf("expected 'hello', got %v", val)
+	}
+}
+
+func TestEvalExprRecursive_IntLiteral(t *testing.T) {
+	te := newTestTriggerExecutor()
+	tc := &TriggerContext{
+		New: &task.Task{ID: "TIKI-000001"},
+	}
+	exec := te.newExecWithOverrides(tc)
+	val, err := exec.evalExprRecursive(&IntLiteral{Value: 42}, tc.New, nil)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if val != 42 {
+		t.Errorf("expected 42, got %v", val)
+	}
+}
+
+func TestEvalExprRecursive_DateLiteral(t *testing.T) {
+	te := newTestTriggerExecutor()
+	tc := &TriggerContext{
+		New: &task.Task{ID: "TIKI-000001"},
+	}
+	exec := te.newExecWithOverrides(tc)
+	date := time.Date(2026, 1, 15, 0, 0, 0, 0, time.UTC)
+	val, err := exec.evalExprRecursive(&DateLiteral{Value: date}, tc.New, nil)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if val != date {
+		t.Errorf("expected %v, got %v", date, val)
+	}
+}
+
+func TestEvalExprRecursive_DurationLiteral(t *testing.T) {
+	te := newTestTriggerExecutor()
+	tc := &TriggerContext{
+		New: &task.Task{ID: "TIKI-000001"},
+	}
+	exec := te.newExecWithOverrides(tc)
+	dur := &DurationLiteral{Value: 2, Unit: "day"}
+	val, err := exec.evalExprRecursive(dur, tc.New, nil)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	// the base executor converts DurationLiteral to time.Duration
+	if val == nil {
+		t.Fatal("expected non-nil duration value")
+	}
+}
+
+func TestEvalExprRecursive_EmptyLiteral(t *testing.T) {
+	te := newTestTriggerExecutor()
+	tc := &TriggerContext{
+		New: &task.Task{ID: "TIKI-000001"},
+	}
+	exec := te.newExecWithOverrides(tc)
+	val, err := exec.evalExprRecursive(&EmptyLiteral{}, tc.New, nil)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if val != nil {
+		t.Errorf("expected nil for EmptyLiteral, got %v", val)
+	}
+}
+
+// --- resolveRefTasks with no matching tasks ---
+
+func TestResolveRefTasks_NoMatches(t *testing.T) {
+	tasks := []*task.Task{
+		{ID: "TIKI-000001"},
+		{ID: "TIKI-000002"},
+	}
+	refs := []interface{}{"TIKI-NOPE01", "TIKI-NOPE02"}
+	resolved := resolveRefTasks(refs, tasks)
+	if len(resolved) != 0 {
+		t.Fatalf("expected 0 resolved tasks, got %d", len(resolved))
+	}
+}
+
+// --- equalFoldID with different lengths ---
+
+func TestEqualFoldID_DifferentLengths(t *testing.T) {
+	if equalFoldID("TIKI-000001", "TIKI-00001") {
+		t.Fatal("expected false for different lengths")
+	}
+	if equalFoldID("A", "AB") {
+		t.Fatal("expected false for different lengths")
+	}
+	if equalFoldID("", "A") {
+		t.Fatal("expected false for empty vs non-empty")
+	}
+	if !equalFoldID("", "") {
+		t.Fatal("expected true for both empty")
+	}
+}
+
+// --- ExecTimeTriggerAction with validated trigger that has Create requiring template ---
+
+func TestExecTimeTriggerAction_ValidatedCreateRequiresTemplate(t *testing.T) {
+	te := newTestTriggerExecutor()
+	p := newTestParser()
+
+	validated, err := p.ParseAndValidateTimeTrigger(`every 1day create title="daily" status="ready"`, ExecutorRuntimeTimeTrigger)
+	if err != nil {
+		t.Fatalf("validate: %v", err)
+	}
+
+	// execute without providing a CreateTemplate — should trigger MissingCreateTemplateError
+	_, err = te.ExecTimeTriggerAction(validated, nil)
+	if err == nil {
+		t.Fatal("expected error for create without template")
+	}
+	var missing *MissingCreateTemplateError
+	if !errors.As(err, &missing) {
+		t.Fatalf("expected MissingCreateTemplateError, got: %v", err)
+	}
+}
+
+// --- triggerExecOverride.Execute empty statement ---
+
+func TestTriggerExecOverride_Execute_EmptyStatement(t *testing.T) {
+	te := newTestTriggerExecutor()
+	tc := &TriggerContext{
+		Old:      &task.Task{ID: "TIKI-000001"},
+		New:      &task.Task{ID: "TIKI-000001"},
+		AllTasks: []*task.Task{{ID: "TIKI-000001"}},
+	}
+	exec := te.newExecWithOverrides(tc)
+	// pass a raw Statement with all nil fields — should hit "unsupported trigger action type"
+	_, err := exec.Execute(&Statement{}, tc.AllTasks)
+	if err == nil {
+		t.Fatal("expected error for empty statement")
+	}
+	if !strings.Contains(err.Error(), "empty statement") {
+		t.Fatalf("expected 'empty statement' error, got: %v", err)
+	}
+}
+
+// --- coverage gap: ExecAction with *ValidatedTrigger (create, update, delete) ---
+
+func TestExecAction_ValidatedTriggerWithCreateAction(t *testing.T) {
+	te := newTestTriggerExecutor()
+	p := newTestParser()
+
+	vt, err := p.ParseAndValidateTrigger(
+		`after update where new.status = "done" create title="followup" status="ready"`,
+		ExecutorRuntimeEventTrigger,
+	)
+	if err != nil {
+		t.Fatalf("validate: %v", err)
+	}
+
+	tc := &TriggerContext{
+		Old:      &task.Task{ID: "TIKI-000001", Status: "ready"},
+		New:      &task.Task{ID: "TIKI-000001", Status: "done"},
+		AllTasks: []*task.Task{{ID: "TIKI-000001", Status: "done"}},
+	}
+	result, err := te.ExecAction(vt, tc, ExecutionInput{
+		CreateTemplate: &task.Task{Title: "template"},
+	})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if result.Create == nil {
+		t.Fatal("expected Create result")
+	}
+	if result.Create.Task.Title != "followup" {
+		t.Fatalf("expected title 'followup', got %q", result.Create.Task.Title)
+	}
+	if result.Create.Task.Status != "ready" {
+		t.Fatalf("expected status 'ready', got %q", result.Create.Task.Status)
+	}
+}
+
+func TestExecAction_ValidatedTriggerWithUpdateAction(t *testing.T) {
+	te := newTestTriggerExecutor()
+	p := newTestParser()
+
+	vt, err := p.ParseAndValidateTrigger(
+		`after update where new.status = "done" update where status = "ready" set status="in_progress"`,
+		ExecutorRuntimeEventTrigger,
+	)
+	if err != nil {
+		t.Fatalf("validate: %v", err)
+	}
+
+	tc := &TriggerContext{
+		Old: &task.Task{ID: "TIKI-000001", Status: "ready"},
+		New: &task.Task{ID: "TIKI-000001", Status: "done"},
+		AllTasks: []*task.Task{
+			{ID: "TIKI-000001", Status: "done"},
+			{ID: "TIKI-000002", Status: "ready"},
+		},
+	}
+	result, err := te.ExecAction(vt, tc)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if result.Update == nil {
+		t.Fatal("expected Update result")
+	}
+	if len(result.Update.Updated) != 1 {
+		t.Fatalf("expected 1 updated task, got %d", len(result.Update.Updated))
+	}
+	if result.Update.Updated[0].Status != "in_progress" {
+		t.Fatalf("expected status 'in_progress', got %q", result.Update.Updated[0].Status)
+	}
+}
+
+func TestExecAction_ValidatedTriggerWithDeleteAction(t *testing.T) {
+	te := newTestTriggerExecutor()
+	p := newTestParser()
+
+	vt, err := p.ParseAndValidateTrigger(
+		`after update where new.status = "done" delete where status = "done"`,
+		ExecutorRuntimeEventTrigger,
+	)
+	if err != nil {
+		t.Fatalf("validate: %v", err)
+	}
+
+	tc := &TriggerContext{
+		Old: &task.Task{ID: "TIKI-000001", Status: "ready"},
+		New: &task.Task{ID: "TIKI-000001", Status: "done"},
+		AllTasks: []*task.Task{
+			{ID: "TIKI-000001", Status: "done"},
+			{ID: "TIKI-000002", Status: "ready"},
+		},
+	}
+	result, err := te.ExecAction(vt, tc)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if result.Delete == nil {
+		t.Fatal("expected Delete result")
+	}
+	if len(result.Delete.Deleted) != 1 {
+		t.Fatalf("expected 1 deleted task, got %d", len(result.Delete.Deleted))
+	}
+	if result.Delete.Deleted[0].ID != "TIKI-000001" {
+		t.Fatalf("expected deleted TIKI-000001, got %s", result.Delete.Deleted[0].ID)
+	}
+}
+
+func TestExecAction_ValidatedTriggerNoAction(t *testing.T) {
+	te := newTestTriggerExecutor()
+	// a validated trigger with no action (deny only)
+	vt := &ValidatedTrigger{
+		seal:    validatedSeal,
+		runtime: ExecutorRuntimeEventTrigger,
+		trigger: &Trigger{Timing: "before", Event: "update", Deny: strPtr("blocked")},
+	}
+	tc := &TriggerContext{
+		Old: &task.Task{ID: "TIKI-000001"},
+		New: &task.Task{ID: "TIKI-000001"},
+	}
+	_, err := te.ExecAction(vt, tc)
+	if err == nil {
+		t.Fatal("expected error for validated trigger with no action")
+	}
+	if !strings.Contains(err.Error(), "trigger has no action") {
+		t.Fatalf("expected 'trigger has no action' error, got: %v", err)
+	}
+}
+
+// --- coverage gap: ExecTimeTriggerAction with *ValidatedTimeTrigger that succeeds ---
+
+func TestExecTimeTriggerAction_ValidatedCreateWithTemplate(t *testing.T) {
+	te := newTestTriggerExecutor()
+	p := newTestParser()
+
+	vtt, err := p.ParseAndValidateTimeTrigger(
+		`every 1day create title="daily" status="ready"`,
+		ExecutorRuntimeTimeTrigger,
+	)
+	if err != nil {
+		t.Fatalf("validate: %v", err)
+	}
+
+	result, err := te.ExecTimeTriggerAction(vtt, nil, ExecutionInput{
+		CreateTemplate: &task.Task{Title: "base", Type: "story", Priority: 3},
+	})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if result.Create == nil {
+		t.Fatal("expected Create result")
+	}
+	// title should be overridden by the trigger action
+	if result.Create.Task.Title != "daily" {
+		t.Fatalf("expected title 'daily', got %q", result.Create.Task.Title)
+	}
+	// type should be inherited from template
+	if result.Create.Task.Type != "story" {
+		t.Fatalf("expected type 'story' from template, got %q", result.Create.Task.Type)
+	}
+}
+
+func TestExecTimeTriggerAction_ValidatedUpdate(t *testing.T) {
+	te := newTestTriggerExecutor()
+	p := newTestParser()
+
+	vtt, err := p.ParseAndValidateTimeTrigger(
+		`every 1day update where status = "in_progress" set status="backlog"`,
+		ExecutorRuntimeTimeTrigger,
+	)
+	if err != nil {
+		t.Fatalf("validate: %v", err)
+	}
+
+	tasks := []*task.Task{
+		{ID: "TIKI-000001", Status: "in_progress", Type: "story", Priority: 3},
+		{ID: "TIKI-000002", Status: "done", Type: "story", Priority: 3},
+	}
+	result, err := te.ExecTimeTriggerAction(vtt, tasks)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if result.Update == nil {
+		t.Fatal("expected Update result")
+	}
+	if len(result.Update.Updated) != 1 {
+		t.Fatalf("expected 1 updated, got %d", len(result.Update.Updated))
+	}
+	if result.Update.Updated[0].Status != "backlog" {
+		t.Fatalf("expected status 'backlog', got %q", result.Update.Updated[0].Status)
+	}
+}
+
+func TestExecTimeTriggerAction_ValidatedDelete(t *testing.T) {
+	te := newTestTriggerExecutor()
+	p := newTestParser()
+
+	vtt, err := p.ParseAndValidateTimeTrigger(
+		`every 1day delete where status = "done"`,
+		ExecutorRuntimeTimeTrigger,
+	)
+	if err != nil {
+		t.Fatalf("validate: %v", err)
+	}
+
+	tasks := []*task.Task{
+		{ID: "TIKI-000001", Status: "done", Type: "story", Priority: 3},
+		{ID: "TIKI-000002", Status: "ready", Type: "story", Priority: 3},
+	}
+	result, err := te.ExecTimeTriggerAction(vtt, tasks)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if result.Delete == nil {
+		t.Fatal("expected Delete result")
+	}
+	if len(result.Delete.Deleted) != 1 {
+		t.Fatalf("expected 1 deleted, got %d", len(result.Delete.Deleted))
+	}
+}
+
+func TestExecTimeTriggerAction_ValidatedNilActionSealed(t *testing.T) {
+	te := newTestTriggerExecutor()
+	// construct a ValidatedTimeTrigger whose inner timeTrigger has nil action
+	vtt := &ValidatedTimeTrigger{
+		seal:    validatedSeal,
+		runtime: ExecutorRuntimeTimeTrigger,
+		timeTrigger: &TimeTrigger{
+			Interval: DurationLiteral{Value: 1, Unit: "day"},
+			Action:   nil,
+		},
+	}
+	_, err := te.ExecTimeTriggerAction(vtt, nil)
+	if err == nil {
+		t.Fatal("expected error for validated time trigger with nil action")
+	}
+	if !strings.Contains(err.Error(), "time trigger has no action") {
+		t.Fatalf("expected 'time trigger has no action' error, got: %v", err)
+	}
+}
+
+// --- coverage gap: triggerExecOverride.Execute with *ValidatedStatement ---
+
+func TestTriggerExecOverride_Execute_ValidatedStatement(t *testing.T) {
+	te := newTestTriggerExecutor()
+	tc := &TriggerContext{
+		Old: &task.Task{ID: "TIKI-000001", Status: "ready"},
+		New: &task.Task{ID: "TIKI-000001", Status: "done"},
+		AllTasks: []*task.Task{
+			{ID: "TIKI-000001", Status: "done", Type: "story", Priority: 3},
+			{ID: "TIKI-000002", Status: "ready", Type: "story", Priority: 3},
+		},
+	}
+	exec := te.newExecWithOverrides(tc)
+
+	// construct a validated statement for the eventTrigger runtime
+	vs := &ValidatedStatement{
+		seal:    validatedSeal,
+		runtime: ExecutorRuntimeEventTrigger,
+		statement: &Statement{
+			Update: &UpdateStmt{
+				Where: &CompareExpr{
+					Left: &FieldRef{Name: "status"}, Op: "=", Right: &StringLiteral{Value: "ready"},
+				},
+				Set: []Assignment{
+					{Field: "status", Value: &StringLiteral{Value: "in_progress"}},
+				},
+			},
+		},
+	}
+	result, err := exec.Execute(vs, tc.AllTasks)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if result.Update == nil || len(result.Update.Updated) != 1 {
+		t.Fatal("expected 1 updated task")
+	}
+	if result.Update.Updated[0].Status != "in_progress" {
+		t.Fatalf("expected status 'in_progress', got %q", result.Update.Updated[0].Status)
+	}
+}
+
+func TestTriggerExecOverride_Execute_ValidatedStatementRuntimeMismatch(t *testing.T) {
+	te := newTestTriggerExecutor()
+	tc := &TriggerContext{
+		Old:      &task.Task{ID: "TIKI-000001"},
+		New:      &task.Task{ID: "TIKI-000001"},
+		AllTasks: []*task.Task{{ID: "TIKI-000001"}},
+	}
+	exec := te.newExecWithOverrides(tc)
+
+	// validated for plugin runtime, but override runs in eventTrigger runtime
+	vs := &ValidatedStatement{
+		seal:    validatedSeal,
+		runtime: ExecutorRuntimePlugin,
+		statement: &Statement{
+			Update: &UpdateStmt{
+				Where: &CompareExpr{
+					Left: &FieldRef{Name: "id"}, Op: "=", Right: &StringLiteral{Value: "TIKI-000001"},
+				},
+				Set: []Assignment{
+					{Field: "status", Value: &StringLiteral{Value: "done"}},
+				},
+			},
+		},
+	}
+	_, err := exec.Execute(vs, tc.AllTasks)
+	if err == nil {
+		t.Fatal("expected runtime mismatch error")
+	}
+	var mismatch *RuntimeMismatchError
+	if !errors.As(err, &mismatch) {
+		t.Fatalf("expected RuntimeMismatchError, got: %v", err)
+	}
+}
+
+func TestTriggerExecOverride_Execute_ValidatedStatementCreateWithTemplate(t *testing.T) {
+	te := newTestTriggerExecutor()
+	tc := &TriggerContext{
+		Old:      &task.Task{ID: "TIKI-000001"},
+		New:      &task.Task{ID: "TIKI-000001"},
+		AllTasks: []*task.Task{{ID: "TIKI-000001"}},
+	}
+	exec := te.newExecWithOverrides(tc)
+
+	// validated create statement requires template
+	vs := &ValidatedStatement{
+		seal:    validatedSeal,
+		runtime: ExecutorRuntimeEventTrigger,
+		statement: &Statement{
+			Create: &CreateStmt{
+				Assignments: []Assignment{
+					{Field: "title", Value: &StringLiteral{Value: "created"}},
+					{Field: "status", Value: &StringLiteral{Value: "ready"}},
+				},
+			},
+		},
+	}
+	result, err := exec.Execute(vs, tc.AllTasks, ExecutionInput{
+		CreateTemplate: &task.Task{Type: "story", Priority: 3},
+	})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if result.Create == nil {
+		t.Fatal("expected Create result")
+	}
+	if result.Create.Task.Title != "created" {
+		t.Fatalf("expected title 'created', got %q", result.Create.Task.Title)
+	}
+	// type should be inherited from template
+	if result.Create.Task.Type != "story" {
+		t.Fatalf("expected type 'story' from template, got %q", result.Create.Task.Type)
+	}
+}
+
+func TestTriggerExecOverride_Execute_ValidatedCreateMissingTemplate(t *testing.T) {
+	te := newTestTriggerExecutor()
+	tc := &TriggerContext{
+		Old:      &task.Task{ID: "TIKI-000001"},
+		New:      &task.Task{ID: "TIKI-000001"},
+		AllTasks: []*task.Task{{ID: "TIKI-000001"}},
+	}
+	exec := te.newExecWithOverrides(tc)
+
+	// validated create requires template, but none provided
+	vs := &ValidatedStatement{
+		seal:    validatedSeal,
+		runtime: ExecutorRuntimeEventTrigger,
+		statement: &Statement{
+			Create: &CreateStmt{
+				Assignments: []Assignment{
+					{Field: "title", Value: &StringLiteral{Value: "test"}},
+				},
+			},
+		},
+	}
+	_, err := exec.Execute(vs, tc.AllTasks)
+	if err == nil {
+		t.Fatal("expected MissingCreateTemplateError")
+	}
+	var missing *MissingCreateTemplateError
+	if !errors.As(err, &missing) {
+		t.Fatalf("expected MissingCreateTemplateError, got: %v", err)
+	}
+}
+
+func TestTriggerExecOverride_Execute_RawCreateNoTemplate(t *testing.T) {
+	te := newTestTriggerExecutor()
+	tc := &TriggerContext{
+		Old:      &task.Task{ID: "TIKI-000001"},
+		New:      &task.Task{ID: "TIKI-000001"},
+		AllTasks: []*task.Task{{ID: "TIKI-000001"}},
+	}
+	exec := te.newExecWithOverrides(tc)
+
+	// raw statement path: create without template should succeed (requireTemplate=false)
+	rawStmt := &Statement{
+		Create: &CreateStmt{
+			Assignments: []Assignment{
+				{Field: "title", Value: &StringLiteral{Value: "raw create"}},
+				{Field: "status", Value: &StringLiteral{Value: "ready"}},
+			},
+		},
+	}
+	result, err := exec.Execute(rawStmt, tc.AllTasks)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if result.Create == nil {
+		t.Fatal("expected Create result")
+	}
+	if result.Create.Task.Title != "raw create" {
+		t.Fatalf("expected title 'raw create', got %q", result.Create.Task.Title)
+	}
+}
+
+// --- coverage gap: ExecRun with Run.Command == nil ---
+
+func TestExecRun_RunSetButCommandNil(t *testing.T) {
+	te := newTestTriggerExecutor()
+	trig := &Trigger{
+		Timing: "after",
+		Event:  "update",
+		Run:    &RunAction{Command: nil},
+	}
+	tc := &TriggerContext{
+		Old: &task.Task{ID: "TIKI-000001"},
+		New: &task.Task{ID: "TIKI-000001"},
+	}
+	_, err := te.ExecRun(trig, tc)
+	if err == nil {
+		t.Fatal("expected error for run with nil command")
+	}
+	if !strings.Contains(err.Error(), "trigger has no run action") {
+		t.Fatalf("expected 'trigger has no run action' error, got: %v", err)
+	}
+}
+
+// --- coverage gap: validateEventTriggerInput raw *Trigger success path ---
+
+func TestValidateEventTriggerInput_RawTriggerSuccess(t *testing.T) {
+	p := newTestParser()
+	trig, err := p.ParseTrigger(`after update where new.status = "done" update where id = new.id set status="cancelled"`)
+	if err != nil {
+		t.Fatalf("parse: %v", err)
+	}
+	validated, err := validateEventTriggerInput(trig)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if validated == nil {
+		t.Fatal("expected non-nil validated trigger")
+	}
+	if validated.RuntimeMode() != ExecutorRuntimeEventTrigger {
+		t.Fatalf("expected eventTrigger runtime, got %q", validated.RuntimeMode())
+	}
+}
+
+// --- coverage gap: evalExprRecursive QualifiedRef inside nested expression ---
+
+func TestEvalExprRecursive_QualifiedRefInsideFunctionCall(t *testing.T) {
+	te := newTestTriggerExecutor()
+	p := newTestParser()
+
+	// blocks(new.id) — function call arg is a QualifiedRef
+	trig, err := p.ParseTrigger(
+		`after update where new.status = "done" update where id in blocks(new.id) set status="review"`,
+	)
+	if err != nil {
+		t.Fatalf("parse: %v", err)
+	}
+
+	completed := &task.Task{ID: "TIKI-000001", Status: "done"}
+	blocker := &task.Task{
+		ID: "TIKI-000002", Status: "ready",
+		DependsOn: []string{"TIKI-000001"},
+	}
+
+	tc := &TriggerContext{
+		Old:      &task.Task{ID: "TIKI-000001", Status: "in_progress"},
+		New:      completed,
+		AllTasks: []*task.Task{completed, blocker},
+	}
+
+	result, err := te.ExecAction(trig, tc)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if result.Update == nil || len(result.Update.Updated) != 1 {
+		t.Fatal("expected 1 updated task")
+	}
+	if result.Update.Updated[0].Status != "review" {
+		t.Fatalf("expected status 'review', got %q", result.Update.Updated[0].Status)
+	}
+}
+
+// --- coverage gap: executeUpdate override eval error in assignment value ---
+
+func TestExecuteUpdate_Override_EvalErrorInAssignment(t *testing.T) {
+	te := newTestTriggerExecutor()
+	tc := &TriggerContext{
+		Old:      &task.Task{ID: "TIKI-000001", Status: "ready"},
+		New:      &task.Task{ID: "TIKI-000001", Status: "done"},
+		AllTasks: []*task.Task{{ID: "TIKI-000001", Status: "done", Type: "story", Priority: 3}},
+	}
+	exec := te.newExecWithOverrides(tc)
+
+	// update with an assignment whose value evaluation fails
+	vs := &ValidatedStatement{
+		seal:    validatedSeal,
+		runtime: ExecutorRuntimeEventTrigger,
+		statement: &Statement{
+			Update: &UpdateStmt{
+				Where: &CompareExpr{
+					Left: &FieldRef{Name: "id"}, Op: "=", Right: &StringLiteral{Value: "TIKI-000001"},
+				},
+				Set: []Assignment{
+					{Field: "title", Value: &BinaryExpr{
+						Op:    "*",
+						Left:  &IntLiteral{Value: 1},
+						Right: &IntLiteral{Value: 2},
+					}},
+				},
+			},
+		},
+	}
+	_, err := exec.Execute(vs, tc.AllTasks)
+	if err == nil {
+		t.Fatal("expected error for unknown binary operator in update set")
+	}
+	if !strings.Contains(err.Error(), "unknown binary operator") {
+		t.Fatalf("expected 'unknown binary operator' error, got: %v", err)
+	}
+}
+
+// --- coverage gap: executeCreate override eval error in assignment ---
+
+func TestExecuteCreate_Override_EvalErrorInAssignment(t *testing.T) {
+	te := newTestTriggerExecutor()
+	tc := &TriggerContext{
+		Old:      &task.Task{ID: "TIKI-000001"},
+		New:      &task.Task{ID: "TIKI-000001"},
+		AllTasks: []*task.Task{{ID: "TIKI-000001"}},
+	}
+	exec := te.newExecWithOverrides(tc)
+
+	vs := &ValidatedStatement{
+		seal:    validatedSeal,
+		runtime: ExecutorRuntimeEventTrigger,
+		statement: &Statement{
+			Create: &CreateStmt{
+				Assignments: []Assignment{
+					{Field: "title", Value: &BinaryExpr{
+						Op:    "*",
+						Left:  &IntLiteral{Value: 1},
+						Right: &IntLiteral{Value: 2},
+					}},
+				},
+			},
+		},
+	}
+	_, err := exec.Execute(vs, tc.AllTasks, ExecutionInput{
+		CreateTemplate: &task.Task{},
+	})
+	if err == nil {
+		t.Fatal("expected error for unknown binary operator in create assignment")
+	}
+	if !strings.Contains(err.Error(), "unknown binary operator") {
+		t.Fatalf("expected 'unknown binary operator' error, got: %v", err)
+	}
+}
+
+// --- coverage gap: evalCountOverride error in condition ---
+
+func TestEvalCountOverride_ErrorInConditionOverride(t *testing.T) {
+	te := newTestTriggerExecutor()
+	tc := &TriggerContext{
+		Old:      &task.Task{ID: "TIKI-000001"},
+		New:      &task.Task{ID: "TIKI-000001"},
+		AllTasks: []*task.Task{{ID: "TIKI-000001"}},
+	}
+	exec := te.newExecWithOverrides(tc)
+
+	// count with a condition that uses an unknown qualifier
+	_, err := exec.evalCountOverride(&FunctionCall{
+		Name: "count",
+		Args: []Expr{&SubQuery{Where: &CompareExpr{
+			Left:  &QualifiedRef{Qualifier: "mid", Name: "status"},
+			Op:    "=",
+			Right: &StringLiteral{Value: "done"},
+		}}},
+	}, tc.AllTasks)
+	if err == nil {
+		t.Fatal("expected error for unknown qualifier in count condition")
+	}
+	if !strings.Contains(err.Error(), "unknown qualifier") {
+		t.Fatalf("expected 'unknown qualifier' error, got: %v", err)
+	}
+}
+
+// --- coverage gap: triggerExecOverride.Execute unsupported action (select) ---
+
+func TestTriggerExecOverride_Execute_ValidatedUnsupportedAction(t *testing.T) {
+	te := newTestTriggerExecutor()
+	tc := &TriggerContext{
+		Old:      &task.Task{ID: "TIKI-000001"},
+		New:      &task.Task{ID: "TIKI-000001"},
+		AllTasks: []*task.Task{{ID: "TIKI-000001"}},
+	}
+	exec := te.newExecWithOverrides(tc)
+
+	// a validated statement with Select (which trigger override doesn't support)
+	vs := &ValidatedStatement{
+		seal:    validatedSeal,
+		runtime: ExecutorRuntimeEventTrigger,
+		statement: &Statement{
+			Select: &SelectStmt{},
+		},
+	}
+	_, err := exec.Execute(vs, tc.AllTasks)
+	if err == nil {
+		t.Fatal("expected error for unsupported trigger action type")
+	}
+	if !strings.Contains(err.Error(), "unsupported trigger action type") {
+		t.Fatalf("expected 'unsupported trigger action type' error, got: %v", err)
+	}
+}
+
+// --- coverage gap: validateEventTriggerInput with valid *ValidatedTrigger ---
+
+func TestEvalGuard_ValidatedTriggerPassesValidation(t *testing.T) {
+	te := newTestTriggerExecutor()
+	p := newTestParser()
+
+	// validate a trigger for eventTrigger runtime, then pass to EvalGuard
+	vt, err := p.ParseAndValidateTrigger(
+		`before update where new.status = "done" deny "blocked"`,
+		ExecutorRuntimeEventTrigger,
+	)
+	if err != nil {
+		t.Fatalf("validate: %v", err)
+	}
+
+	tc := &TriggerContext{
+		Old: &task.Task{ID: "TIKI-000001", Status: "ready"},
+		New: &task.Task{ID: "TIKI-000001", Status: "done"},
+	}
+	ok, err := te.EvalGuard(vt, tc)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !ok {
+		t.Fatal("guard should match: new.status = done")
+	}
+}
+
+func TestExecRun_ValidatedTriggerPassesValidation(t *testing.T) {
+	te := newTestTriggerExecutor()
+	p := newTestParser()
+
+	vt, err := p.ParseAndValidateTrigger(
+		`after update run("echo " + new.id)`,
+		ExecutorRuntimeEventTrigger,
+	)
+	if err != nil {
+		t.Fatalf("validate: %v", err)
+	}
+
+	tc := &TriggerContext{
+		Old: &task.Task{ID: "TIKI-000001"},
+		New: &task.Task{ID: "TIKI-000001"},
+	}
+	cmd, err := te.ExecRun(vt, tc)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if cmd != "echo TIKI-000001" {
+		t.Fatalf("expected 'echo TIKI-000001', got %q", cmd)
+	}
+}
+
+// --- coverage gap: triggerExecOverride.Execute unsealed ValidatedStatement ---
+
+func TestTriggerExecOverride_Execute_UnsealedValidatedStatement(t *testing.T) {
+	te := newTestTriggerExecutor()
+	tc := &TriggerContext{
+		Old:      &task.Task{ID: "TIKI-000001"},
+		New:      &task.Task{ID: "TIKI-000001"},
+		AllTasks: []*task.Task{{ID: "TIKI-000001"}},
+	}
+	exec := te.newExecWithOverrides(tc)
+
+	// nil seal → mustBeSealed fails
+	vs := &ValidatedStatement{
+		seal:    nil,
+		runtime: ExecutorRuntimeEventTrigger,
+		statement: &Statement{
+			Update: &UpdateStmt{
+				Set: []Assignment{{Field: "status", Value: &StringLiteral{Value: "done"}}},
+			},
+		},
+	}
+	_, err := exec.Execute(vs, tc.AllTasks)
+	if err == nil {
+		t.Fatal("expected error for unsealed validated statement")
+	}
+	var unvalidated *UnvalidatedWrapperError
+	if !errors.As(err, &unvalidated) {
+		t.Fatalf("expected UnvalidatedWrapperError, got: %v", err)
+	}
+}
+
+// --- coverage gap: executeUpdate override setField error ---
+
+func TestExecuteUpdate_Override_SetFieldError(t *testing.T) {
+	te := newTestTriggerExecutor()
+	tc := &TriggerContext{
+		Old:      &task.Task{ID: "TIKI-000001"},
+		New:      &task.Task{ID: "TIKI-000001"},
+		AllTasks: []*task.Task{{ID: "TIKI-000001", Type: "story", Priority: 3}},
+	}
+	exec := te.newExecWithOverrides(tc)
+
+	// update sets immutable field "createdBy" which triggers setField error
+	vs := &ValidatedStatement{
+		seal:    validatedSeal,
+		runtime: ExecutorRuntimeEventTrigger,
+		statement: &Statement{
+			Update: &UpdateStmt{
+				Where: &CompareExpr{
+					Left: &FieldRef{Name: "id"}, Op: "=", Right: &StringLiteral{Value: "TIKI-000001"},
+				},
+				Set: []Assignment{
+					{Field: "createdBy", Value: &StringLiteral{Value: "hacker"}},
+				},
+			},
+		},
+	}
+	_, err := exec.Execute(vs, tc.AllTasks)
+	if err == nil {
+		t.Fatal("expected error for immutable field in update set")
+	}
+	if !strings.Contains(err.Error(), "immutable") {
+		t.Fatalf("expected 'immutable' error, got: %v", err)
+	}
+}
+
+// --- coverage gap: executeCreate override setField error ---
+
+func TestExecuteCreate_Override_SetFieldError(t *testing.T) {
+	te := newTestTriggerExecutor()
+	tc := &TriggerContext{
+		Old:      &task.Task{ID: "TIKI-000001"},
+		New:      &task.Task{ID: "TIKI-000001"},
+		AllTasks: []*task.Task{{ID: "TIKI-000001"}},
+	}
+	exec := te.newExecWithOverrides(tc)
+
+	// create sets immutable field "createdBy" which triggers setField error
+	vs := &ValidatedStatement{
+		seal:    validatedSeal,
+		runtime: ExecutorRuntimeEventTrigger,
+		statement: &Statement{
+			Create: &CreateStmt{
+				Assignments: []Assignment{
+					{Field: "title", Value: &StringLiteral{Value: "test"}},
+					{Field: "createdBy", Value: &StringLiteral{Value: "hacker"}},
+				},
+			},
+		},
+	}
+	_, err := exec.Execute(vs, tc.AllTasks, ExecutionInput{
+		CreateTemplate: &task.Task{},
+	})
+	if err == nil {
+		t.Fatal("expected error for immutable field in create assignment")
+	}
+	if !strings.Contains(err.Error(), "immutable") {
+		t.Fatalf("expected 'immutable' error, got: %v", err)
+	}
+}

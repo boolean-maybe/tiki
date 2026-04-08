@@ -707,6 +707,29 @@ func TestRunQueryUserFunction(t *testing.T) {
 	}
 }
 
+// TestRunQueryUserFunctionViaRunQuery exercises the user() closure inside RunQuery
+// (not RunSelectQuery). The closure at line 32 captures the resolved user name.
+func TestRunQueryUserFunctionViaRunQuery(t *testing.T) {
+	s := setupRunnerTest(t)
+	// InMemoryStore.GetCurrentUser returns "memory-user"
+	_ = s.CreateTask(&task.Task{ID: "TIKI-CCC003", Title: "Owned", Status: "ready", Assignee: "memory-user"})
+
+	var buf bytes.Buffer
+	err := RunQuery(gateFor(s), `select id where assignee = user()`, &buf)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	out := buf.String()
+	if !strings.Contains(out, "TIKI-CCC003") {
+		t.Errorf("expected TIKI-CCC003 in output:\n%s", out)
+	}
+	// tasks without the matching assignee should be filtered out
+	if strings.Contains(out, "TIKI-AAA001") {
+		t.Errorf("TIKI-AAA001 should be filtered out:\n%s", out)
+	}
+}
+
 func TestRunQueryDeleteValidatorRejection(t *testing.T) {
 	s := setupRunnerTest(t)
 

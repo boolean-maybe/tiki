@@ -370,3 +370,53 @@ func TestLoadTriggerDefs_FileReadError(t *testing.T) {
 		t.Fatal("expected error for unreadable workflow.yaml")
 	}
 }
+
+func TestLoadTriggerDefs_CwdEqualsProjectConfigDir(t *testing.T) {
+	// when cwd == ProjectConfigDir(), candidates 2 and 3 resolve to the same
+	// absolute path, exercising the seen[abs] dedup branch.
+	userDir := t.TempDir()
+	t.Setenv("XDG_CONFIG_HOME", userDir)
+	if err := os.MkdirAll(filepath.Join(userDir, "tiki"), 0750); err != nil {
+		t.Fatal(err)
+	}
+
+	projectDir := t.TempDir()
+	// resolve symlinks so projectRoot matches what filepath.Abs returns from cwd
+	// (on macOS /var/folders -> /private/var/folders via symlink)
+	projectDir, err := filepath.EvalSymlinks(projectDir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	docDir := filepath.Join(projectDir, ".doc")
+	if err := os.MkdirAll(docDir, 0750); err != nil {
+		t.Fatal(err)
+	}
+
+	// set cwd to the project config dir (.doc/) so that:
+	//   candidate 2 = projectRoot/.doc/workflow.yaml
+	//   candidate 3 = cwd/workflow.yaml = projectRoot/.doc/workflow.yaml  (same abs path)
+	originalDir, _ := os.Getwd()
+	t.Cleanup(func() { _ = os.Chdir(originalDir) })
+	_ = os.Chdir(docDir)
+
+	ResetPathManager()
+	pm := mustGetPathManager()
+	pm.projectRoot = projectDir
+
+	writeTriggerFile(t, docDir, `triggers:
+  - description: "doc trigger"
+    ruki: 'before update deny "doc"'
+`)
+
+	defs, err := LoadTriggerDefs()
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	// the file should be read exactly once despite two candidates resolving to it
+	if len(defs) != 1 {
+		t.Fatalf("expected 1 def (deduped), got %d", len(defs))
+	}
+	if defs[0].Description != "doc trigger" {
+		t.Errorf("expected 'doc trigger', got %q", defs[0].Description)
+	}
+}
