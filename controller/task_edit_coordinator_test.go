@@ -6,6 +6,7 @@ import (
 	"github.com/boolean-maybe/tiki/model"
 	"github.com/boolean-maybe/tiki/service"
 	"github.com/boolean-maybe/tiki/store"
+	"github.com/boolean-maybe/tiki/task"
 
 	"github.com/gdamore/tcell/v2"
 	"github.com/rivo/tview"
@@ -305,4 +306,114 @@ func TestTaskEditCoordinator_FieldHint_NilStatuslineNoOp(t *testing.T) {
 	// should not panic
 	coord.updateFieldHint(view)
 	coord.clearFieldHint()
+}
+
+func TestTaskEditCoordinator_Commit_ErrorDisplaysStatusline(t *testing.T) {
+	taskStore := store.NewInMemoryStore()
+	gate := service.NewTaskMutationGate()
+	gate.SetStore(taskStore)
+	gate.OnUpdate(func(_, _ *task.Task, _ []*task.Task) *service.Rejection {
+		return &service.Rejection{Reason: "blocked by trigger"}
+	})
+
+	sl := model.NewStatuslineConfig()
+	nav := newMockNavigationController()
+	tc := NewTaskController(taskStore, gate, nav, sl)
+
+	original := newTestTask()
+	_ = taskStore.CreateTask(original)
+	tc.StartEditSession(original.ID)
+
+	coord := NewTaskEditCoordinator(nav, tc)
+	view := &mockTaskEditView{
+		title:       original.Title,
+		description: "updated desc",
+		tags:        nil,
+	}
+
+	got := coord.commit(view)
+	if got {
+		t.Fatal("commit() should return false when update is rejected")
+	}
+
+	msg, level, _ := sl.GetMessage()
+	if msg == "" {
+		t.Fatal("statusline message should be set on commit error")
+	}
+	if level != model.MessageLevelError {
+		t.Errorf("message level = %q, want %q", level, model.MessageLevelError)
+	}
+	if msg != "blocked by trigger" {
+		t.Errorf("message = %q, want %q", msg, "blocked by trigger")
+	}
+}
+
+func TestTaskEditCoordinator_Commit_ErrorNilStatuslineNoOp(t *testing.T) {
+	taskStore := store.NewInMemoryStore()
+	gate := service.NewTaskMutationGate()
+	gate.SetStore(taskStore)
+	gate.OnUpdate(func(_, _ *task.Task, _ []*task.Task) *service.Rejection {
+		return &service.Rejection{Reason: "blocked"}
+	})
+
+	nav := newMockNavigationController()
+	tc := NewTaskController(taskStore, gate, nav, nil) // nil statusline
+
+	original := newTestTask()
+	_ = taskStore.CreateTask(original)
+	tc.StartEditSession(original.ID)
+
+	coord := NewTaskEditCoordinator(nav, tc)
+	view := &mockTaskEditView{
+		title:       original.Title,
+		description: "updated desc",
+		tags:        nil,
+	}
+
+	// should not panic
+	got := coord.commit(view)
+	if got {
+		t.Error("commit() should return false when update is rejected")
+	}
+}
+
+func TestTaskEditCoordinator_Commit_MultipleRejectionsDisplayCleanly(t *testing.T) {
+	taskStore := store.NewInMemoryStore()
+	gate := service.NewTaskMutationGate()
+	gate.SetStore(taskStore)
+	gate.OnUpdate(func(_, _ *task.Task, _ []*task.Task) *service.Rejection {
+		return &service.Rejection{Reason: "WIP limit reached"}
+	})
+	gate.OnUpdate(func(_, _ *task.Task, _ []*task.Task) *service.Rejection {
+		return &service.Rejection{Reason: "blocked by freeze"}
+	})
+
+	sl := model.NewStatuslineConfig()
+	nav := newMockNavigationController()
+	tc := NewTaskController(taskStore, gate, nav, sl)
+
+	original := newTestTask()
+	_ = taskStore.CreateTask(original)
+	tc.StartEditSession(original.ID)
+
+	coord := NewTaskEditCoordinator(nav, tc)
+	view := &mockTaskEditView{
+		title:       original.Title,
+		description: "updated desc",
+		tags:        nil,
+	}
+
+	got := coord.commit(view)
+	if got {
+		t.Fatal("commit() should return false when update is rejected")
+	}
+
+	msg, level, _ := sl.GetMessage()
+	want := "WIP limit reached; blocked by freeze"
+	if msg != want {
+		t.Errorf("message = %q, want %q", msg, want)
+	}
+	if level != model.MessageLevelError {
+		t.Errorf("level = %q, want %q", level, model.MessageLevelError)
+	}
 }

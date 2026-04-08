@@ -1,7 +1,11 @@
 package controller
 
 import (
+	"errors"
+	"strings"
+
 	"github.com/boolean-maybe/tiki/model"
+	"github.com/boolean-maybe/tiki/service"
 
 	"github.com/gdamore/tcell/v2"
 )
@@ -178,6 +182,9 @@ func (c *TaskEditCoordinator) commit(activeView View) bool {
 
 	// Commit the edit session (writes to disk)
 	if err := c.taskController.CommitEditSession(); err != nil {
+		if sl := c.taskController.statusline; sl != nil {
+			sl.SetMessage(rejectionMessage(err), model.MessageLevelError, true)
+		}
 		return false
 	}
 	return true
@@ -364,4 +371,19 @@ func (c *TaskEditCoordinator) prepareView(activeView View, focus model.EditField
 
 	// fallback to next field focus cycle
 	_ = c.FocusNextField(activeView)
+}
+
+// rejectionMessage extracts clean rejection reasons from an error.
+// If the error wraps a RejectionError, returns just the reasons without
+// the "failed to update task:" / "validation failed:" prefixes.
+func rejectionMessage(err error) string {
+	var re *service.RejectionError
+	if errors.As(err, &re) {
+		reasons := make([]string, len(re.Rejections))
+		for i, r := range re.Rejections {
+			reasons[i] = r.Reason
+		}
+		return strings.Join(reasons, "; ")
+	}
+	return err.Error()
 }
