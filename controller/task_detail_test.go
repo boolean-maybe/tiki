@@ -77,6 +77,7 @@ func TestTaskController_StartEditSession(t *testing.T) {
 
 	if editingTask == nil {
 		t.Fatal("StartEditSession returned nil")
+		return
 	}
 
 	if editingTask.ID != original.ID {
@@ -717,6 +718,7 @@ func TestTaskController_CommitEditSession_Draft(t *testing.T) {
 	created := taskStore.GetTask("DRAFT-1")
 	if created == nil {
 		t.Fatal("Task was not created in store")
+		return
 	}
 
 	if created.Title != "Draft Title" {
@@ -775,6 +777,7 @@ func TestTaskController_CommitEditSession_Existing(t *testing.T) {
 	updated := taskStore.GetTask(original.ID)
 	if updated == nil {
 		t.Fatal("Task not found in store")
+		return
 	}
 
 	if updated.Title != "Modified Title" {
