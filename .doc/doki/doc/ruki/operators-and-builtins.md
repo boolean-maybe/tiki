@@ -209,6 +209,7 @@ Ruki has these built-ins:
 | `now()` | `timestamp` | 0 | no additional validation |
 | `next_date(...)` | `date` | exactly 1 | argument must be `recurrence` |
 | `blocks(...)` | `list<ref>` | exactly 1 | argument must be `id`, `ref`, or string literal |
+| `id()` | `id` | 0 | valid only in plugin runtime; resolves to selected tiki ID |
 | `call(...)` | `string` | exactly 1 | argument must be `string` |
 | `user()` | `string` | 0 | no additional validation |
 
@@ -219,9 +220,17 @@ select where count(select where status = "done") >= 1
 select where updatedAt < now()
 create title="x" due=next_date(recurrence)
 select where blocks(id) is empty
+select where id() in dependsOn
 create title=call("echo hi")
 select where assignee = user()
 ```
+
+Runtime notes:
+
+- `id()` is semantically valid only in plugin runtime.
+- When a validated statement uses `id()`, plugin execution must provide a non-empty selected task ID.
+- `id()` is rejected for CLI, event-trigger, and time-trigger semantic runtimes.
+- `call(...)` is currently rejected by semantic validation.
 
 `run(...)`
 

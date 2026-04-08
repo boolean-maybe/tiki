@@ -12,23 +12,23 @@ import (
 
 // Executor evaluates parsed ruki statements against a set of tasks.
 type Executor struct {
-	schema   Schema
-	userFunc func() string
-	template *task.Task
+	schema       Schema
+	userFunc     func() string
+	runtime      ExecutorRuntime
+	currentInput ExecutionInput
 }
-
-// SetTemplate sets the base task template for CREATE execution.
-// When set, CREATE assignments are evaluated against a clone of this template,
-// so field references (e.g. tags=tags+["new"]) resolve from template defaults.
-func (e *Executor) SetTemplate(t *task.Task) { e.template = t }
 
 // NewExecutor constructs an Executor with the given schema and user function.
 // If userFunc is nil, calling user() at runtime will return "".
-func NewExecutor(schema Schema, userFunc func() string) *Executor {
+func NewExecutor(schema Schema, userFunc func() string, runtime ExecutorRuntime) *Executor {
 	if userFunc == nil {
 		userFunc = func() string { return "" }
 	}
-	return &Executor{schema: schema, userFunc: userFunc}
+	return &Executor{
+		schema:   schema,
+		userFunc: userFunc,
+		runtime:  runtime.normalize(),
+	}
 }
 
 // Result holds the output of executing a statement.
@@ -62,19 +62,67 @@ type TaskProjection struct {
 }
 
 // Execute dispatches on the statement type and returns results.
-func (e *Executor) Execute(stmt *Statement, tasks []*task.Task) (*Result, error) {
+// Preferred input is *ValidatedStatement; raw *Statement is accepted as a
+// low-level path and will be semantically validated for executor runtime mode.
+func (e *Executor) Execute(stmt any, tasks []*task.Task, inputs ...ExecutionInput) (*Result, error) {
+	var input ExecutionInput
+	if len(inputs) > 0 {
+		input = inputs[0]
+	}
+
 	if stmt == nil {
 		return nil, fmt.Errorf("nil statement")
 	}
+
+	var validated *ValidatedStatement
+	var rawStmt *Statement
+	rawInput := false
+	requiresCreateTemplate := false
+	switch s := stmt.(type) {
+	case *ValidatedStatement:
+		validated = s
+		requiresCreateTemplate = true
+	case *Statement:
+		rawInput = true
+		var err error
+		validated, err = NewSemanticValidator(e.runtime.Mode).ValidateStatement(s)
+		if err != nil {
+			return nil, err
+		}
+	default:
+		return nil, fmt.Errorf("unsupported statement type %T", stmt)
+	}
+
+	if validated != nil {
+		if err := validated.mustBeSealed(); err != nil {
+			return nil, err
+		}
+		if validated.runtime != e.runtime.Mode {
+			return nil, &RuntimeMismatchError{
+				ValidatedFor: validated.runtime,
+				Runtime:      e.runtime.Mode,
+			}
+		}
+		if validated.usesIDFunc && e.runtime.Mode == ExecutorRuntimePlugin && strings.TrimSpace(input.SelectedTaskID) == "" {
+			return nil, &MissingSelectedTaskIDError{}
+		}
+		rawStmt = validated.statement
+		if rawInput {
+			requiresCreateTemplate = false
+		}
+	}
+	e.currentInput = input
+	defer func() { e.currentInput = ExecutionInput{} }()
+
 	switch {
-	case stmt.Select != nil:
-		return e.executeSelect(stmt.Select, tasks)
-	case stmt.Create != nil:
-		return e.executeCreate(stmt.Create, tasks)
-	case stmt.Update != nil:
-		return e.executeUpdate(stmt.Update, tasks)
-	case stmt.Delete != nil:
-		return e.executeDelete(stmt.Delete, tasks)
+	case rawStmt.Select != nil:
+		return e.executeSelect(rawStmt.Select, tasks)
+	case rawStmt.Create != nil:
+		return e.executeCreate(rawStmt.Create, tasks, requiresCreateTemplate)
+	case rawStmt.Update != nil:
+		return e.executeUpdate(rawStmt.Update, tasks)
+	case rawStmt.Delete != nil:
+		return e.executeDelete(rawStmt.Delete, tasks)
 	default:
 		return nil, fmt.Errorf("empty statement")
 	}
@@ -124,10 +172,13 @@ func (e *Executor) executeUpdate(upd *UpdateStmt, tasks []*task.Task) (*Result, 
 	return &Result{Update: &UpdateResult{Updated: clones}}, nil
 }
 
-func (e *Executor) executeCreate(cr *CreateStmt, tasks []*task.Task) (*Result, error) {
+func (e *Executor) executeCreate(cr *CreateStmt, tasks []*task.Task, requireTemplate bool) (*Result, error) {
+	if requireTemplate && e.currentInput.CreateTemplate == nil {
+		return nil, &MissingCreateTemplateError{}
+	}
 	var t *task.Task
-	if e.template != nil {
-		t = e.template.Clone()
+	if e.currentInput.CreateTemplate != nil {
+		t = e.currentInput.CreateTemplate.Clone()
 	} else {
 		t = &task.Task{}
 	}
@@ -551,6 +602,8 @@ func (e *Executor) evalListLiteral(ll *ListLiteral, t *task.Task, allTasks []*ta
 
 func (e *Executor) evalFunctionCall(fc *FunctionCall, t *task.Task, allTasks []*task.Task) (interface{}, error) {
 	switch fc.Name {
+	case "id":
+		return e.evalID()
 	case "now":
 		return time.Now(), nil
 	case "user":
@@ -566,6 +619,17 @@ func (e *Executor) evalFunctionCall(fc *FunctionCall, t *task.Task, allTasks []*
 	default:
 		return nil, fmt.Errorf("unknown function %q", fc.Name)
 	}
+}
+
+func (e *Executor) evalID() (interface{}, error) {
+	if e.runtime.Mode != ExecutorRuntimePlugin {
+		return nil, fmt.Errorf("id() is only available in plugin runtime")
+	}
+	id := strings.TrimSpace(e.currentInput.SelectedTaskID)
+	if id == "" {
+		return nil, &MissingSelectedTaskIDError{}
+	}
+	return id, nil
 }
 
 func (e *Executor) evalCount(fc *FunctionCall, allTasks []*task.Task) (interface{}, error) {
@@ -875,6 +939,11 @@ func (e *Executor) exprFieldType(expr Expr) ValueType {
 		name = e.Name
 	case *QualifiedRef:
 		name = e.Name
+	case *FunctionCall:
+		if e.Name == "id" {
+			return ValueID
+		}
+		return -1
 	default:
 		return -1
 	}

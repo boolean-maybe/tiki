@@ -1,6 +1,7 @@
 package ruki
 
 import (
+	"errors"
 	"strings"
 	"testing"
 	"time"
@@ -938,8 +939,8 @@ func TestExecute_UnsupportedType(t *testing.T) {
 	if err == nil {
 		t.Fatal("expected error for unsupported trigger action type")
 	}
-	if !strings.Contains(err.Error(), "unsupported trigger action type") {
-		t.Fatalf("expected 'unsupported trigger action type' error, got: %v", err)
+	if !strings.Contains(err.Error(), "empty statement") {
+		t.Fatalf("expected 'empty statement' error, got: %v", err)
 	}
 }
 
@@ -1013,6 +1014,92 @@ func TestExecRun_NonStringResult(t *testing.T) {
 	}
 	if !strings.Contains(err.Error(), "run command did not evaluate to string") {
 		t.Fatalf("expected 'run command did not evaluate to string' error, got: %v", err)
+	}
+}
+
+func TestEvalGuardRawTriggerRejectsCallBeforeEvaluation(t *testing.T) {
+	te := newTestTriggerExecutor()
+	p := newTestParser()
+
+	trig, err := p.ParseTrigger(`before update where 1 = 2 and call("echo hello") = "x" deny "blocked"`)
+	if err != nil {
+		t.Fatalf("parse: %v", err)
+	}
+
+	tc := &TriggerContext{
+		Old: &task.Task{ID: "TIKI-000001", Status: "ready"},
+		New: &task.Task{ID: "TIKI-000001", Status: "done"},
+	}
+	_, err = te.EvalGuard(trig, tc)
+	if err == nil {
+		t.Fatal("expected semantic validation error")
+	}
+	if !strings.Contains(err.Error(), "call() is not supported yet") {
+		t.Fatalf("expected call() semantic validation error, got: %v", err)
+	}
+}
+
+func TestExecRunRawTriggerRejectsCall(t *testing.T) {
+	te := newTestTriggerExecutor()
+	p := newTestParser()
+
+	trig, err := p.ParseTrigger(`after update run(call("echo hello"))`)
+	if err != nil {
+		t.Fatalf("parse: %v", err)
+	}
+
+	tc := &TriggerContext{
+		Old: &task.Task{ID: "TIKI-000001"},
+		New: &task.Task{ID: "TIKI-000001"},
+	}
+	_, err = te.ExecRun(trig, tc)
+	if err == nil {
+		t.Fatal("expected semantic validation error")
+	}
+	if !strings.Contains(err.Error(), "call() is not supported yet") {
+		t.Fatalf("expected call() semantic validation error, got: %v", err)
+	}
+}
+
+func TestEvalGuardValidatedTriggerRuntimeMismatch(t *testing.T) {
+	te := newTestTriggerExecutor()
+	p := newTestParser()
+
+	validated, err := p.ParseAndValidateTrigger(`before update where new.status = "done" deny "blocked"`, ExecutorRuntimePlugin)
+	if err != nil {
+		t.Fatalf("validate: %v", err)
+	}
+
+	tc := &TriggerContext{
+		Old: &task.Task{ID: "TIKI-000001", Status: "ready"},
+		New: &task.Task{ID: "TIKI-000001", Status: "done"},
+	}
+	_, err = te.EvalGuard(validated, tc)
+	if err == nil {
+		t.Fatal("expected runtime mismatch error")
+	}
+	var mismatch *RuntimeMismatchError
+	if !errors.As(err, &mismatch) {
+		t.Fatalf("expected RuntimeMismatchError, got: %v", err)
+	}
+}
+
+func TestExecTimeTriggerActionValidatedRuntimeMismatch(t *testing.T) {
+	te := newTestTriggerExecutor()
+	p := newTestParser()
+
+	validated, err := p.ParseAndValidateTimeTrigger(`every 1day delete where status = "done"`, ExecutorRuntimePlugin)
+	if err != nil {
+		t.Fatalf("validate: %v", err)
+	}
+
+	_, err = te.ExecTimeTriggerAction(validated, nil)
+	if err == nil {
+		t.Fatal("expected runtime mismatch error")
+	}
+	var mismatch *RuntimeMismatchError
+	if !errors.As(err, &mismatch) {
+		t.Fatalf("expected RuntimeMismatchError, got: %v", err)
 	}
 }
 

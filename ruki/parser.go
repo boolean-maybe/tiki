@@ -71,7 +71,9 @@ func NewParser(schema Schema) *Parser {
 	}
 }
 
-// ParseStatement parses a CRUD statement and returns a validated AST.
+// ParseStatement parses a CRUD statement and performs syntax, structural,
+// built-in signature/arity, and type validation.
+// Semantic runtime validation is a separate step.
 func (p *Parser) ParseStatement(input string) (*Statement, error) {
 	g, err := p.stmtParser.ParseString("", input)
 	if err != nil {
@@ -88,7 +90,9 @@ func (p *Parser) ParseStatement(input string) (*Statement, error) {
 	return stmt, nil
 }
 
-// ParseTrigger parses a reactive trigger rule and returns a validated AST.
+// ParseTrigger parses a reactive trigger rule and performs syntax, structural,
+// built-in signature/arity, and type validation.
+// Semantic runtime validation is a separate step.
 func (p *Parser) ParseTrigger(input string) (*Trigger, error) {
 	g, err := p.triggerParser.ParseString("", input)
 	if err != nil {
@@ -105,7 +109,9 @@ func (p *Parser) ParseTrigger(input string) (*Trigger, error) {
 	return trig, nil
 }
 
-// ParseTimeTrigger parses a periodic time trigger and returns a validated AST.
+// ParseTimeTrigger parses a periodic time trigger and performs syntax,
+// structural, built-in signature/arity, and type validation.
+// Semantic runtime validation is a separate step.
 func (p *Parser) ParseTimeTrigger(input string) (*TimeTrigger, error) {
 	g, err := p.timeTriggerParser.ParseString("", input)
 	if err != nil {
@@ -122,8 +128,9 @@ func (p *Parser) ParseTimeTrigger(input string) (*TimeTrigger, error) {
 }
 
 // ParseRule parses a trigger definition that is either an event trigger
-// (before/after) or a time trigger (every). The grammar dispatches internally
-// so the caller does not need to inspect the input string.
+// (before/after) or a time trigger (every), and performs syntax, structural,
+// built-in signature/arity, and type validation.
+// Semantic runtime validation is a separate step after branching.
 func (p *Parser) ParseRule(input string) (*Rule, error) {
 	g, err := p.ruleParser.ParseString("", input)
 	if err != nil {

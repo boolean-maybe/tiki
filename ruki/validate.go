@@ -31,6 +31,7 @@ var builtinFuncs = map[string]struct {
 	maxArgs    int
 }{
 	"count":     {ValueInt, 1, 1},
+	"id":        {ValueID, 0, 0},
 	"now":       {ValueTimestamp, 0, 0},
 	"next_date": {ValueDate, 1, 1},
 	"blocks":    {ValueListRef, 1, 1},

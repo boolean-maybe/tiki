@@ -10,7 +10,7 @@ import (
 )
 
 func newTestExecutor() *Executor {
-	return NewExecutor(testSchema{}, func() string { return "alice" })
+	return NewExecutor(testSchema{}, func() string { return "alice" }, ExecutorRuntime{Mode: ExecutorRuntimeCLI})
 }
 
 func testDate(m time.Month, d int) time.Time {
@@ -54,7 +54,7 @@ func TestExecuteNilStatement(t *testing.T) {
 }
 
 func TestNewExecutorNilUserFunc(t *testing.T) {
-	e := NewExecutor(testSchema{}, nil)
+	e := NewExecutor(testSchema{}, nil, ExecutorRuntime{Mode: ExecutorRuntimeCLI})
 	tasks := []*task.Task{
 		{ID: "T1", Title: "x", Status: "ready", Assignee: ""},
 	}
@@ -880,19 +880,18 @@ func TestExecuteCreateWithTemplate(t *testing.T) {
 	e := newTestExecutor()
 	p := newTestParser()
 
-	// set template with tags=["idea"] and priority=7
-	e.SetTemplate(&task.Task{
+	template := &task.Task{
 		Tags:     []string{"idea"},
 		Priority: 7,
 		Status:   "ready",
 		Type:     "story",
-	})
+	}
 
 	stmt, err := p.ParseStatement(`create title="x" tags=tags+["new"]`)
 	if err != nil {
 		t.Fatalf("parse: %v", err)
 	}
-	result, err := e.Execute(stmt, nil)
+	result, err := e.Execute(stmt, nil, ExecutionInput{CreateTemplate: template})
 	if err != nil {
 		t.Fatalf("execute: %v", err)
 	}
@@ -910,7 +909,6 @@ func TestExecuteCreateWithTemplate(t *testing.T) {
 func TestExecuteCreateWithoutTemplate(t *testing.T) {
 	e := newTestExecutor()
 	p := newTestParser()
-	// no SetTemplate call — template is nil
 
 	stmt, err := p.ParseStatement(`create title="x" priority=3`)
 	if err != nil {
@@ -3409,7 +3407,7 @@ func TestExecuteUpdatePriorityOutOfRange(t *testing.T) {
 			if err == nil {
 				t.Fatal("expected error for out-of-range priority")
 			}
-			if !strings.Contains(err.Error(), "priority must be between") {
+			if !strings.Contains(err.Error(), "priority value out of range") {
 				t.Errorf("expected range error, got: %v", err)
 			}
 		})
@@ -3462,8 +3460,8 @@ func TestExecuteUpdatePointsOutOfRange(t *testing.T) {
 			if err == nil {
 				t.Fatal("expected error for invalid points value")
 			}
-			if !strings.Contains(err.Error(), "invalid points") {
-				t.Errorf("expected 'invalid points' error, got: %v", err)
+			if !strings.Contains(err.Error(), "points value out of range") {
+				t.Errorf("expected points range error, got: %v", err)
 			}
 		})
 	}

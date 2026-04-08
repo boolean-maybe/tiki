@@ -29,17 +29,18 @@ func RunQuery(gate *service.TaskMutationGate, query string, out io.Writer) error
 	if err != nil {
 		return fmt.Errorf("resolve current user: %w", err)
 	}
-	executor := ruki.NewExecutor(schema, func() string { return userName })
+	executor := ruki.NewExecutor(schema, func() string { return userName }, ruki.ExecutorRuntime{Mode: ruki.ExecutorRuntimeCLI})
 
-	stmt, err := parser.ParseStatement(query)
+	stmt, err := parser.ParseAndValidateStatement(query, ruki.ExecutorRuntimeCLI)
 	if err != nil {
 		return fmt.Errorf("parse: %w", err)
 	}
 
 	// for CREATE, fetch template before execution so field references
 	// (e.g. tags=tags+["new"]) resolve from template defaults
-	var template *task.Task
-	if stmt.Create != nil {
+	var input ruki.ExecutionInput
+	if stmt.RequiresCreateTemplate() {
+		var template *task.Task
 		template, err = readStore.NewTaskTemplate()
 		if err != nil {
 			return fmt.Errorf("create template: %w", err)
@@ -47,11 +48,11 @@ func RunQuery(gate *service.TaskMutationGate, query string, out io.Writer) error
 		if template == nil {
 			return fmt.Errorf("create template: store returned nil template")
 		}
-		executor.SetTemplate(template)
+		input.CreateTemplate = template
 	}
 
 	tasks := readStore.GetAllTasks()
-	result, err := executor.Execute(stmt, tasks)
+	result, err := executor.Execute(stmt, tasks, input)
 	if err != nil {
 		return fmt.Errorf("execute: %w", err)
 	}
@@ -67,7 +68,7 @@ func RunQuery(gate *service.TaskMutationGate, query string, out io.Writer) error
 		return persistAndSummarize(ctx, gate, result.Update, out)
 
 	case result.Create != nil:
-		return persistCreate(ctx, gate, result.Create, template, out)
+		return persistCreate(ctx, gate, result.Create, out)
 
 	case result.Delete != nil:
 		return persistDelete(ctx, gate, result.Delete, out)
@@ -96,15 +97,19 @@ func RunSelectQuery(readStore store.ReadStore, query string, out io.Writer) erro
 	if stmt.Select == nil {
 		return fmt.Errorf("RunSelectQuery only supports SELECT statements")
 	}
+	validated, err := ruki.NewSemanticValidator(ruki.ExecutorRuntimeCLI).ValidateStatement(stmt)
+	if err != nil {
+		return fmt.Errorf("semantic validate: %w", err)
+	}
 
 	userName, err := resolveUser(readStore)
 	if err != nil {
 		return fmt.Errorf("resolve current user: %w", err)
 	}
-	executor := ruki.NewExecutor(schema, func() string { return userName })
+	executor := ruki.NewExecutor(schema, func() string { return userName }, ruki.ExecutorRuntime{Mode: ruki.ExecutorRuntimeCLI})
 
 	tasks := readStore.GetAllTasks()
-	result, err := executor.Execute(stmt, tasks)
+	result, err := executor.Execute(validated, tasks, ruki.ExecutionInput{})
 	if err != nil {
 		return fmt.Errorf("execute: %w", err)
 	}
@@ -137,11 +142,8 @@ func persistAndSummarize(ctx context.Context, gate *service.TaskMutationGate, ur
 	return nil
 }
 
-func persistCreate(ctx context.Context, gate *service.TaskMutationGate, cr *ruki.CreateResult, template *task.Task, out io.Writer) error {
+func persistCreate(ctx context.Context, gate *service.TaskMutationGate, cr *ruki.CreateResult, out io.Writer) error {
 	t := cr.Task
-	t.ID = template.ID
-	t.CreatedBy = template.CreatedBy
-	t.CreatedAt = template.CreatedAt
 
 	if err := gate.CreateTask(ctx, t); err != nil {
 		return fmt.Errorf("create task: %w", err)

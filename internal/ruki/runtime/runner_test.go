@@ -335,14 +335,14 @@ func TestRunQueryResolveUserErrorUpdate(t *testing.T) {
 func TestRunQueryExecuteError(t *testing.T) {
 	s := setupRunnerTest(t)
 
-	// call() is rejected at runtime, triggering an execute error
+	// call() is rejected during semantic validation in RunQuery.
 	var buf bytes.Buffer
 	err := RunQuery(gateFor(s), `select where call("echo") = "x"`, &buf)
 	if err == nil {
-		t.Fatal("expected execute error")
+		t.Fatal("expected semantic validation error")
 	}
-	if !strings.Contains(err.Error(), "execute") {
-		t.Errorf("expected execute error, got: %v", err)
+	if !strings.Contains(err.Error(), "call() is not supported yet") {
+		t.Errorf("expected call() semantic validation error, got: %v", err)
 	}
 }
 
@@ -354,8 +354,8 @@ func TestRunQueryUpdateInvalidPointsE2E(t *testing.T) {
 	if err == nil {
 		t.Fatal("expected error for invalid points")
 	}
-	if !strings.Contains(err.Error(), "invalid points") {
-		t.Errorf("expected 'invalid points' error, got: %v", err)
+	if !strings.Contains(err.Error(), "points value out of range") {
+		t.Errorf("expected points range error, got: %v", err)
 	}
 }
 
@@ -656,14 +656,14 @@ func TestRunQueryDeleteSilentFailure(t *testing.T) {
 func TestRunSelectQueryExecuteError(t *testing.T) {
 	s := setupRunnerTest(t)
 
-	// call() is not supported at runtime, causing execute error
+	// call() is rejected during semantic validation in RunSelectQuery.
 	var buf bytes.Buffer
 	err := RunSelectQuery(s, `select where call("echo") = "x"`, &buf)
 	if err == nil {
-		t.Fatal("expected execute error")
+		t.Fatal("expected semantic validation error")
 	}
-	if !strings.Contains(err.Error(), "execute") {
-		t.Errorf("expected execute error, got: %v", err)
+	if !strings.Contains(err.Error(), "call() is not supported yet") {
+		t.Errorf("expected call() semantic validation error, got: %v", err)
 	}
 }
 

@@ -25,12 +25,14 @@ const runCommandTimeout = 30 * time.Second
 type triggerEntry struct {
 	description string
 	trigger     *ruki.Trigger
+	validated   *ruki.ValidatedTrigger
 }
 
 // TimeTriggerEntry holds a parsed time trigger and its description.
 type TimeTriggerEntry struct {
 	Description string
 	Trigger     *ruki.TimeTrigger
+	Validated   *ruki.ValidatedTimeTrigger
 }
 
 // TriggerEngine bridges parsed triggers with the mutation gate.
@@ -57,20 +59,28 @@ func NewTriggerEngine(triggers []triggerEntry, timeTriggers []TimeTriggerEntry, 
 }
 
 func (te *TriggerEngine) addTrigger(entry triggerEntry) {
-	trig := entry.trigger
+	timing, event, ok := triggerTimingEvent(entry)
+	if !ok {
+		slog.Warn("skipping trigger with missing timing/event metadata",
+			"trigger", entry.description)
+		return
+	}
 	switch {
-	case trig.Timing == "before" && trig.Event == "create":
+	case timing == "before" && event == "create":
 		te.beforeCreate = append(te.beforeCreate, entry)
-	case trig.Timing == "before" && trig.Event == "update":
+	case timing == "before" && event == "update":
 		te.beforeUpdate = append(te.beforeUpdate, entry)
-	case trig.Timing == "before" && trig.Event == "delete":
+	case timing == "before" && event == "delete":
 		te.beforeDelete = append(te.beforeDelete, entry)
-	case trig.Timing == "after" && trig.Event == "create":
+	case timing == "after" && event == "create":
 		te.afterCreate = append(te.afterCreate, entry)
-	case trig.Timing == "after" && trig.Event == "update":
+	case timing == "after" && event == "update":
 		te.afterUpdate = append(te.afterUpdate, entry)
-	case trig.Timing == "after" && trig.Event == "delete":
+	case timing == "after" && event == "delete":
 		te.afterDelete = append(te.afterDelete, entry)
+	default:
+		slog.Warn("skipping trigger with unsupported timing/event",
+			"trigger", entry.description, "timing", timing, "event", event)
 	}
 }
 
@@ -111,14 +121,17 @@ func (te *TriggerEngine) RegisterWithGate(gate *TaskMutationGate) {
 func (te *TriggerEngine) makeBeforeValidator(entry triggerEntry) MutationValidator {
 	return func(old, new *task.Task, allTasks []*task.Task) *Rejection {
 		tc := &ruki.TriggerContext{Old: old, New: new, AllTasks: allTasks}
-		match, err := te.executor.EvalGuard(entry.trigger, tc)
+		match, err := te.executor.EvalGuard(eventTriggerForExec(entry), tc)
 		if err != nil {
 			return &Rejection{
 				Reason: fmt.Sprintf("trigger %q guard evaluation failed: %v", entry.description, err),
 			}
 		}
 		if match {
-			return &Rejection{Reason: *entry.trigger.Deny}
+			if msg, ok := triggerDenyMessage(eventTriggerForExec(entry)); ok {
+				return &Rejection{Reason: msg}
+			}
+			return &Rejection{Reason: "trigger rejected"}
 		}
 		return nil
 	}
@@ -138,7 +151,7 @@ func (te *TriggerEngine) makeAfterHook(entry triggerEntry) AfterHook {
 		allTasks := te.gate.ReadStore().GetAllTasks()
 		tc := &ruki.TriggerContext{Old: old, New: new, AllTasks: allTasks}
 
-		match, err := te.executor.EvalGuard(entry.trigger, tc)
+		match, err := te.executor.EvalGuard(eventTriggerForExec(entry), tc)
 		if err != nil {
 			slog.Error("after-trigger guard evaluation failed",
 				"trigger", entry.description, "error", err)
@@ -150,7 +163,7 @@ func (te *TriggerEngine) makeAfterHook(entry triggerEntry) AfterHook {
 
 		childCtx := withTriggerDepth(ctx, depth+1)
 
-		if entry.trigger.Run != nil {
+		if triggerHasRunAction(eventTriggerForExec(entry)) {
 			return te.execRun(childCtx, entry, tc)
 		}
 		return te.execAction(childCtx, entry, tc)
@@ -158,7 +171,18 @@ func (te *TriggerEngine) makeAfterHook(entry triggerEntry) AfterHook {
 }
 
 func (te *TriggerEngine) execAction(ctx context.Context, entry triggerEntry, tc *ruki.TriggerContext) error {
-	result, err := te.executor.ExecAction(entry.trigger, tc)
+	input := ruki.ExecutionInput{}
+	if triggerRequiresCreateTemplate(eventTriggerForExec(entry)) {
+		tmpl, err := te.gate.ReadStore().NewTaskTemplate()
+		if err != nil {
+			return fmt.Errorf("create template: %w", err)
+		}
+		if tmpl == nil {
+			return fmt.Errorf("create template: store returned nil template")
+		}
+		input.CreateTemplate = tmpl
+	}
+	result, err := te.executor.ExecAction(eventTriggerForExec(entry), tc, input)
 	if err != nil {
 		return fmt.Errorf("trigger %q action execution failed: %w", entry.description, err)
 	}
@@ -176,12 +200,6 @@ func (te *TriggerEngine) persistResult(ctx context.Context, result *ruki.Result)
 		}
 	case result.Create != nil:
 		t := result.Create.Task
-		tmpl, err := te.gate.ReadStore().NewTaskTemplate()
-		if err != nil {
-			return fmt.Errorf("create template: %w", err)
-		}
-		t.ID = tmpl.ID
-		t.CreatedBy = tmpl.CreatedBy
 		if err := te.gate.CreateTask(ctx, t); err != nil {
 			return fmt.Errorf("trigger create failed: %w", err)
 		}
@@ -196,7 +214,7 @@ func (te *TriggerEngine) persistResult(ctx context.Context, result *ruki.Result)
 }
 
 func (te *TriggerEngine) execRun(ctx context.Context, entry triggerEntry, tc *ruki.TriggerContext) error {
-	cmdStr, err := te.executor.ExecRun(entry.trigger, tc)
+	cmdStr, err := te.executor.ExecRun(eventTriggerForExec(entry), tc)
 	if err != nil {
 		return fmt.Errorf("trigger %q run evaluation failed: %w", entry.description, err)
 	}
@@ -251,22 +269,28 @@ func LoadAndRegisterTriggers(gate *TaskMutationGate, schema ruki.Schema, userFun
 			desc = fmt.Sprintf("#%d", i+1)
 		}
 
-		rule, err := parser.ParseRule(def.Ruki)
+		rule, err := parser.ParseAndValidateRule(def.Ruki)
 		if err != nil {
 			return empty(), 0, fmt.Errorf("trigger %q: %w", desc, err)
 		}
 
-		switch {
-		case rule.TimeTrigger != nil:
+		switch r := rule.(type) {
+		case ruki.ValidatedTimeRule:
+			vtt := r.TimeTrigger()
 			timeEntries = append(timeEntries, TimeTriggerEntry{
 				Description: def.Description,
-				Trigger:     rule.TimeTrigger,
+				Trigger:     cloneTimeTriggerForService(vtt.TimeTriggerClone()),
+				Validated:   vtt,
 			})
-		case rule.Trigger != nil:
+		case ruki.ValidatedEventRule:
+			vt := r.Trigger()
 			eventEntries = append(eventEntries, triggerEntry{
 				description: def.Description,
-				trigger:     rule.Trigger,
+				trigger:     cloneTriggerForService(vt.TriggerClone()),
+				validated:   vt,
 			})
+		default:
+			return empty(), 0, fmt.Errorf("trigger %q: unknown validated rule type %T", desc, rule)
 		}
 	}
 
@@ -287,7 +311,13 @@ func (te *TriggerEngine) StartScheduler(ctx context.Context) {
 		return
 	}
 	for _, entry := range te.timeTriggers {
-		d, err := duration.ToDuration(entry.Trigger.Interval.Value, entry.Trigger.Interval.Unit)
+		interval, ok := timeTriggerInterval(entry)
+		if !ok {
+			slog.Warn("skipping time trigger with missing interval metadata",
+				"trigger", entry.Description)
+			continue
+		}
+		d, err := duration.ToDuration(interval.Value, interval.Unit)
 		if err != nil {
 			slog.Error("invalid time trigger interval, skipping",
 				"trigger", entry.Description, "error", err)
@@ -318,7 +348,20 @@ func (te *TriggerEngine) runTimeTrigger(ctx context.Context, entry TimeTriggerEn
 // executeTimeTrigger runs a single tick of a time trigger: snapshot tasks, execute, persist.
 func (te *TriggerEngine) executeTimeTrigger(ctx context.Context, entry TimeTriggerEntry) {
 	allTasks := te.gate.ReadStore().GetAllTasks()
-	result, err := te.executor.ExecTimeTriggerAction(entry.Trigger, allTasks)
+	input := ruki.ExecutionInput{}
+	if timeTriggerRequiresCreateTemplate(timeTriggerForExec(entry)) {
+		tmpl, err := te.gate.ReadStore().NewTaskTemplate()
+		if err != nil {
+			slog.Error("create template failed", "trigger", entry.Description, "error", err)
+			return
+		}
+		if tmpl == nil {
+			slog.Error("create template failed", "trigger", entry.Description, "error", "store returned nil template")
+			return
+		}
+		input.CreateTemplate = tmpl
+	}
+	result, err := te.executor.ExecTimeTriggerAction(timeTriggerForExec(entry), allTasks, input)
 	if err != nil {
 		slog.Error("time trigger action failed",
 			"trigger", entry.Description, "error", err)
@@ -327,5 +370,126 @@ func (te *TriggerEngine) executeTimeTrigger(ctx context.Context, entry TimeTrigg
 	if err := te.persistResult(ctx, result); err != nil {
 		slog.Error("time trigger persist failed",
 			"trigger", entry.Description, "error", err)
+	}
+}
+
+func triggerTimingEvent(entry triggerEntry) (string, string, bool) {
+	switch {
+	case entry.validated != nil:
+		timing, event := entry.validated.Timing(), entry.validated.Event()
+		if timing == "" || event == "" {
+			return "", "", false
+		}
+		return timing, event, true
+	case entry.trigger != nil:
+		if entry.trigger.Timing == "" || entry.trigger.Event == "" {
+			return "", "", false
+		}
+		return entry.trigger.Timing, entry.trigger.Event, true
+	default:
+		return "", "", false
+	}
+}
+
+func timeTriggerInterval(entry TimeTriggerEntry) (ruki.DurationLiteral, bool) {
+	switch {
+	case entry.Validated != nil:
+		interval := entry.Validated.IntervalLiteral()
+		if interval.Unit == "" {
+			return ruki.DurationLiteral{}, false
+		}
+		return interval, true
+	case entry.Trigger != nil:
+		if entry.Trigger.Interval.Unit == "" {
+			return ruki.DurationLiteral{}, false
+		}
+		return entry.Trigger.Interval, true
+	default:
+		return ruki.DurationLiteral{}, false
+	}
+}
+
+func triggerDenyMessage(trig any) (string, bool) {
+	switch t := trig.(type) {
+	case *ruki.ValidatedTrigger:
+		return t.DenyMessage()
+	case *ruki.Trigger:
+		if t.Deny == nil {
+			return "", false
+		}
+		return *t.Deny, true
+	default:
+		return "", false
+	}
+}
+
+func triggerHasRunAction(trig any) bool {
+	switch t := trig.(type) {
+	case *ruki.ValidatedTrigger:
+		return t.HasRunAction()
+	case *ruki.Trigger:
+		return t.Run != nil
+	default:
+		return false
+	}
+}
+
+func triggerRequiresCreateTemplate(trig any) bool {
+	switch t := trig.(type) {
+	case *ruki.ValidatedTrigger:
+		return t.RequiresCreateTemplate()
+	case *ruki.Trigger:
+		return t != nil && t.Action != nil && t.Action.Create != nil
+	default:
+		return false
+	}
+}
+
+func timeTriggerRequiresCreateTemplate(trig any) bool {
+	switch t := trig.(type) {
+	case *ruki.ValidatedTimeTrigger:
+		return t.RequiresCreateTemplate()
+	case *ruki.TimeTrigger:
+		return t != nil && t.Action != nil && t.Action.Create != nil
+	default:
+		return false
+	}
+}
+
+func eventTriggerForExec(entry triggerEntry) any {
+	if entry.validated != nil {
+		return entry.validated
+	}
+	return entry.trigger
+}
+
+func timeTriggerForExec(entry TimeTriggerEntry) any {
+	if entry.Validated != nil {
+		return entry.Validated
+	}
+	return entry.Trigger
+}
+
+func cloneTriggerForService(trig *ruki.Trigger) *ruki.Trigger {
+	if trig == nil {
+		return nil
+	}
+	return &ruki.Trigger{
+		Timing: trig.Timing,
+		Event:  trig.Event,
+		Where:  trig.Where,
+		Action: trig.Action,
+		Run:    trig.Run,
+		Deny:   trig.Deny,
+	}
+}
+
+func cloneTimeTriggerForService(tt *ruki.TimeTrigger) *ruki.TimeTrigger {
+	if tt == nil {
+		return nil
+	}
+	return &ruki.TimeTrigger{
+		Interval: tt.Interval,
+		Action:   tt.Action,
 	}
 }

@@ -30,50 +30,123 @@ type TriggerContext struct {
 	AllTasks []*task.Task
 }
 
-// EvalGuard evaluates a trigger's Where condition against the triggering event.
+// EvalGuard evaluates a trigger's where condition against the triggering event.
 // Returns true if the trigger should fire (guard passes or no guard).
-func (te *TriggerExecutor) EvalGuard(trig *Trigger, tc *TriggerContext) (bool, error) {
-	if trig.Where == nil {
+func (te *TriggerExecutor) EvalGuard(trig any, tc *TriggerContext) (bool, error) {
+	validated, err := validateEventTriggerInput(trig)
+	if err != nil {
+		return false, err
+	}
+	where := validated.trigger.Where
+	if where == nil {
 		return true, nil
 	}
 	// the guard evaluates qualified refs against old/new directly;
 	// there is no "current task" — we use a sentinel that QualifiedRef overrides
 	sentinel := te.guardSentinel(tc)
 	exec := te.newExecWithOverrides(tc)
-	return exec.evalCondition(trig.Where, sentinel, tc.AllTasks)
+	return exec.evalCondition(where, sentinel, tc.AllTasks)
 }
 
 // ExecTimeTriggerAction executes a time trigger's action against all tasks.
 // Uses a plain Executor (no old/new overrides) since time triggers have no
 // mutation context — the parser forbids qualified refs in them.
-func (te *TriggerExecutor) ExecTimeTriggerAction(tt *TimeTrigger, allTasks []*task.Task) (*Result, error) {
-	if tt.Action == nil {
-		return nil, fmt.Errorf("time trigger has no action")
+func (te *TriggerExecutor) ExecTimeTriggerAction(tt any, allTasks []*task.Task, inputs ...ExecutionInput) (*Result, error) {
+	var input ExecutionInput
+	if len(inputs) > 0 {
+		input = inputs[0]
 	}
-	exec := NewExecutor(te.schema, te.userFunc)
-	return exec.Execute(tt.Action, allTasks)
+
+	exec := NewExecutor(te.schema, te.userFunc, ExecutorRuntime{Mode: ExecutorRuntimeTimeTrigger})
+	switch t := tt.(type) {
+	case *ValidatedTimeTrigger:
+		if err := t.mustBeSealed(); err != nil {
+			return nil, err
+		}
+		if t.runtime != ExecutorRuntimeTimeTrigger {
+			return nil, &RuntimeMismatchError{
+				ValidatedFor: t.runtime,
+				Runtime:      ExecutorRuntimeTimeTrigger,
+			}
+		}
+		if t.timeTrigger.Action == nil {
+			return nil, fmt.Errorf("time trigger has no action")
+		}
+		action := &ValidatedStatement{
+			seal:       validatedSeal,
+			runtime:    ExecutorRuntimeTimeTrigger,
+			usesIDFunc: t.usesIDFunc,
+			statement:  cloneStatement(t.timeTrigger.Action),
+		}
+		return exec.Execute(action, allTasks, input)
+	case *TimeTrigger:
+		if t.Action == nil {
+			return nil, fmt.Errorf("time trigger has no action")
+		}
+		return exec.Execute(t.Action, allTasks, input)
+	default:
+		return nil, fmt.Errorf("unsupported time trigger type %T", tt)
+	}
 }
 
 // ExecAction executes a trigger's CRUD action statement and returns the result.
 // QualifiedRefs resolve against tc.Old/tc.New. Bare fields resolve against target tasks.
 // Returns *Result for persistence by service/.
-func (te *TriggerExecutor) ExecAction(trig *Trigger, tc *TriggerContext) (*Result, error) {
-	if trig.Action == nil {
-		return nil, fmt.Errorf("trigger has no action")
+func (te *TriggerExecutor) ExecAction(trig any, tc *TriggerContext, inputs ...ExecutionInput) (*Result, error) {
+	var input ExecutionInput
+	if len(inputs) > 0 {
+		input = inputs[0]
 	}
+
 	exec := te.newExecWithOverrides(tc)
-	return exec.Execute(trig.Action, tc.AllTasks)
+	switch t := trig.(type) {
+	case *ValidatedTrigger:
+		if err := t.mustBeSealed(); err != nil {
+			return nil, err
+		}
+		if t.runtime != ExecutorRuntimeEventTrigger {
+			return nil, &RuntimeMismatchError{
+				ValidatedFor: t.runtime,
+				Runtime:      ExecutorRuntimeEventTrigger,
+			}
+		}
+		if t.trigger.Action == nil {
+			return nil, fmt.Errorf("trigger has no action")
+		}
+		action := &ValidatedStatement{
+			seal:       validatedSeal,
+			runtime:    ExecutorRuntimeEventTrigger,
+			usesIDFunc: t.usesIDFunc,
+			statement:  cloneStatement(t.trigger.Action),
+		}
+		return exec.Execute(action, tc.AllTasks, input)
+	case *Trigger:
+		if t.Action == nil {
+			return nil, fmt.Errorf("trigger has no action")
+		}
+		return exec.Execute(t.Action, tc.AllTasks, input)
+	default:
+		return nil, fmt.Errorf("unsupported trigger type %T", trig)
+	}
 }
 
 // ExecRun evaluates the run() command expression to a string against the trigger context.
 // Returns the command string for execution by service/.
-func (te *TriggerExecutor) ExecRun(trig *Trigger, tc *TriggerContext) (string, error) {
-	if trig.Run == nil {
+func (te *TriggerExecutor) ExecRun(trig any, tc *TriggerContext) (string, error) {
+	validated, err := validateEventTriggerInput(trig)
+	if err != nil {
+		return "", err
+	}
+	if validated.trigger.Run == nil {
+		return "", fmt.Errorf("trigger has no run action")
+	}
+	command := validated.trigger.Run.Command
+	if command == nil {
 		return "", fmt.Errorf("trigger has no run action")
 	}
 	sentinel := te.guardSentinel(tc)
 	exec := te.newExecWithOverrides(tc)
-	val, err := exec.evalExpr(trig.Run.Command, sentinel, tc.AllTasks)
+	val, err := exec.evalExpr(command, sentinel, tc.AllTasks)
 	if err != nil {
 		return "", fmt.Errorf("evaluating run command: %w", err)
 	}
@@ -97,6 +170,26 @@ func (te *TriggerExecutor) guardSentinel(tc *TriggerContext) *task.Task {
 	return &task.Task{}
 }
 
+func validateEventTriggerInput(trig any) (*ValidatedTrigger, error) {
+	switch t := trig.(type) {
+	case *ValidatedTrigger:
+		if err := t.mustBeSealed(); err != nil {
+			return nil, err
+		}
+		if t.runtime != ExecutorRuntimeEventTrigger {
+			return nil, &RuntimeMismatchError{
+				ValidatedFor: t.runtime,
+				Runtime:      ExecutorRuntimeEventTrigger,
+			}
+		}
+		return t, nil
+	case *Trigger:
+		return NewSemanticValidator(ExecutorRuntimeEventTrigger).ValidateTrigger(t)
+	default:
+		return nil, fmt.Errorf("unsupported trigger type %T", trig)
+	}
+}
+
 // triggerExecOverride wraps Executor and intercepts QualifiedRef evaluation.
 type triggerExecOverride struct {
 	*Executor
@@ -106,7 +199,7 @@ type triggerExecOverride struct {
 // newExecWithOverrides creates a fresh Executor with QualifiedRef interception.
 func (te *TriggerExecutor) newExecWithOverrides(tc *TriggerContext) *triggerExecOverride {
 	return &triggerExecOverride{
-		Executor: NewExecutor(te.schema, te.userFunc),
+		Executor: NewExecutor(te.schema, te.userFunc, ExecutorRuntime{Mode: ExecutorRuntimeEventTrigger}),
 		tc:       tc,
 	}
 }
@@ -377,17 +470,61 @@ func (e *triggerExecOverride) evalNextDateOverride(fc *FunctionCall, t *task.Tas
 }
 
 // Execute overrides the base Executor to use our evalExpr/evalCondition.
-func (e *triggerExecOverride) Execute(stmt *Statement, tasks []*task.Task) (*Result, error) {
+func (e *triggerExecOverride) Execute(stmt any, tasks []*task.Task, inputs ...ExecutionInput) (*Result, error) {
+	var input ExecutionInput
+	if len(inputs) > 0 {
+		input = inputs[0]
+	}
 	if stmt == nil {
 		return nil, fmt.Errorf("nil statement")
 	}
+	var validated *ValidatedStatement
+	var rawStmt *Statement
+	rawInput := false
+	requiresCreateTemplate := false
+	switch s := stmt.(type) {
+	case *ValidatedStatement:
+		validated = s
+		requiresCreateTemplate = true
+	case *Statement:
+		rawInput = true
+		var err error
+		validated, err = NewSemanticValidator(e.runtime.Mode).ValidateStatement(s)
+		if err != nil {
+			return nil, err
+		}
+	default:
+		return nil, fmt.Errorf("unsupported statement type %T", stmt)
+	}
+
+	if validated != nil {
+		if err := validated.mustBeSealed(); err != nil {
+			return nil, err
+		}
+		if validated.runtime != e.runtime.Mode {
+			return nil, &RuntimeMismatchError{
+				ValidatedFor: validated.runtime,
+				Runtime:      e.runtime.Mode,
+			}
+		}
+		if validated.usesIDFunc && e.runtime.Mode == ExecutorRuntimePlugin && strings.TrimSpace(input.SelectedTaskID) == "" {
+			return nil, &MissingSelectedTaskIDError{}
+		}
+		rawStmt = validated.statement
+		if rawInput {
+			requiresCreateTemplate = false
+		}
+	}
+	e.currentInput = input
+	defer func() { e.currentInput = ExecutionInput{} }()
+
 	switch {
-	case stmt.Create != nil:
-		return e.executeCreate(stmt.Create, tasks)
-	case stmt.Update != nil:
-		return e.executeUpdate(stmt.Update, tasks)
-	case stmt.Delete != nil:
-		return e.executeDelete(stmt.Delete, tasks)
+	case rawStmt.Create != nil:
+		return e.executeCreate(rawStmt.Create, tasks, requiresCreateTemplate)
+	case rawStmt.Update != nil:
+		return e.executeUpdate(rawStmt.Update, tasks)
+	case rawStmt.Delete != nil:
+		return e.executeDelete(rawStmt.Delete, tasks)
 	default:
 		return nil, fmt.Errorf("unsupported trigger action type")
 	}
@@ -419,8 +556,16 @@ func (e *triggerExecOverride) executeUpdate(upd *UpdateStmt, tasks []*task.Task)
 	return &Result{Update: &UpdateResult{Updated: clones}}, nil
 }
 
-func (e *triggerExecOverride) executeCreate(cr *CreateStmt, tasks []*task.Task) (*Result, error) {
-	t := &task.Task{}
+func (e *triggerExecOverride) executeCreate(cr *CreateStmt, tasks []*task.Task, requireTemplate bool) (*Result, error) {
+	if requireTemplate && e.currentInput.CreateTemplate == nil {
+		return nil, &MissingCreateTemplateError{}
+	}
+	var t *task.Task
+	if e.currentInput.CreateTemplate != nil {
+		t = e.currentInput.CreateTemplate.Clone()
+	} else {
+		t = &task.Task{}
+	}
 	for _, a := range cr.Assignments {
 		val, err := e.evalExpr(a.Value, t, tasks)
 		if err != nil {
