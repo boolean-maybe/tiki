@@ -40,7 +40,7 @@ func TestNewTaskList(t *testing.T) {
 	if tl.idGradient != colors.TaskBoxIDColor {
 		t.Error("Expected ID gradient from config")
 	}
-	if tl.idFallback != config.FallbackTaskIDColor {
+	if tl.idFallback != config.GetColors().FallbackTaskIDColor {
 		t.Error("Expected ID fallback from config")
 	}
 	if tl.titleColor != colors.TaskBoxTitleColor {

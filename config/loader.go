@@ -10,7 +10,6 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/gdamore/tcell/v2"
 	"github.com/spf13/pflag"
 	"github.com/spf13/viper"
 	"gopkg.in/yaml.v3"
@@ -373,24 +372,6 @@ func GetEffectiveTheme() string {
 		}
 	}
 	return "dark" // default fallback
-}
-
-// GetContentBackgroundColor returns the background color for markdown content areas
-// Dark theme needs black background for light text; light theme uses terminal default
-func GetContentBackgroundColor() tcell.Color {
-	if GetEffectiveTheme() == "dark" {
-		return tcell.ColorBlack
-	}
-	return tcell.ColorDefault
-}
-
-// GetContentTextColor returns the appropriate text color for content areas
-// Dark theme uses white text; light theme uses black text
-func GetContentTextColor() tcell.Color {
-	if GetEffectiveTheme() == "dark" {
-		return tcell.ColorWhite
-	}
-	return tcell.ColorBlack
 }
 
 // GetGradientThreshold returns the minimum color count required for gradients

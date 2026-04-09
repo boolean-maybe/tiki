@@ -25,10 +25,9 @@ func NewCompletionPrompt(words []string) *CompletionPrompt {
 	inputField := tview.NewInputField()
 
 	// Configure the input field
-	inputField.SetFieldBackgroundColor(config.GetContentBackgroundColor())
-	inputField.SetFieldTextColor(config.GetContentTextColor())
-
 	colors := config.GetColors()
+	inputField.SetFieldBackgroundColor(colors.ContentBackgroundColor)
+	inputField.SetFieldTextColor(colors.ContentTextColor)
 	cp := &CompletionPrompt{
 		InputField: inputField,
 		words:      words,

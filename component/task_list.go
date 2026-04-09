@@ -37,7 +37,7 @@ func NewTaskList(maxVisibleRows int) *TaskList {
 		Box:                tview.NewBox(),
 		maxVisibleRows:     maxVisibleRows,
 		idGradient:         colors.TaskBoxIDColor,
-		idFallback:         config.FallbackTaskIDColor,
+		idFallback:         colors.FallbackTaskIDColor,
 		titleColor:         colors.TaskBoxTitleColor,
 		selectionColor:     colors.TaskListSelectionColor,
 		statusDoneColor:    colors.TaskListStatusDoneColor,

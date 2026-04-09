@@ -30,7 +30,7 @@ func applyFrameStyle(frame *tview.Frame, selected bool, colors *config.ColorConf
 // buildCompactTaskContent builds the content string for compact task display
 func buildCompactTaskContent(task *taskpkg.Task, colors *config.ColorConfig, availableWidth int) string {
 	emoji := taskpkg.TypeEmoji(task.Type)
-	idGradient := gradient.RenderAdaptiveGradientText(task.ID, colors.TaskBoxIDColor, config.FallbackTaskIDColor)
+	idGradient := gradient.RenderAdaptiveGradientText(task.ID, colors.TaskBoxIDColor, colors.FallbackTaskIDColor)
 	truncatedTitle := tview.Escape(util.TruncateText(task.Title, availableWidth))
 	priorityEmoji := taskpkg.PriorityLabel(task.Priority)
 	pointsVisual := util.GeneratePointsVisual(task.Points, config.GetMaxPoints(), colors.PointsFilledColor, colors.PointsUnfilledColor)
@@ -45,7 +45,7 @@ func buildCompactTaskContent(task *taskpkg.Task, colors *config.ColorConfig, ava
 // buildExpandedTaskContent builds the content string for expanded task display
 func buildExpandedTaskContent(task *taskpkg.Task, colors *config.ColorConfig, availableWidth int) string {
 	emoji := taskpkg.TypeEmoji(task.Type)
-	idGradient := gradient.RenderAdaptiveGradientText(task.ID, colors.TaskBoxIDColor, config.FallbackTaskIDColor)
+	idGradient := gradient.RenderAdaptiveGradientText(task.ID, colors.TaskBoxIDColor, colors.FallbackTaskIDColor)
 	truncatedTitle := tview.Escape(util.TruncateText(task.Title, availableWidth))
 
 	// Extract first 3 lines of description

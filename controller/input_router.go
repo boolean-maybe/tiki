@@ -232,7 +232,7 @@ func (ir *InputRouter) openDepsEditor(taskID string) bool {
 			Description: model.DepsEditorViewDesc,
 			ConfigIndex: -1,
 			Type:        "tiki",
-			Background:  config.DepsEditorBackground,
+			Background:  config.GetColors().DepsEditorBackground,
 		},
 		TaskID: taskID,
 		Lanes: []plugin.TikiLane{

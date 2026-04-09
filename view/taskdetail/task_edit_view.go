@@ -381,7 +381,7 @@ func (ev *TaskEditView) ensureTagsTextArea(task *taskpkg.Task) *tview.TextArea {
 		ev.tagsTextArea.SetBorder(false)
 		ev.tagsTextArea.SetBorderPadding(1, 1, 2, 2)
 		ev.tagsTextArea.SetPlaceholder("Enter tags separated by spaces")
-		ev.tagsTextArea.SetPlaceholderStyle(tcell.StyleDefault.Foreground(tcell.ColorGray))
+		ev.tagsTextArea.SetPlaceholderStyle(tcell.StyleDefault.Foreground(config.GetColors().TaskDetailPlaceholderColor))
 
 		ev.tagsTextArea.SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
 			if event.Key() == tcell.KeyCtrlS {
@@ -448,7 +448,7 @@ func (ev *TaskEditView) ensureTitleInput(task *taskpkg.Task) *tview.InputField {
 	if ev.titleInput == nil {
 		colors := config.GetColors()
 		ev.titleInput = tview.NewInputField()
-		ev.titleInput.SetFieldBackgroundColor(config.GetContentBackgroundColor())
+		ev.titleInput.SetFieldBackgroundColor(colors.ContentBackgroundColor)
 		ev.titleInput.SetFieldTextColor(colors.InputFieldTextColor)
 		ev.titleInput.SetBorder(false)
 

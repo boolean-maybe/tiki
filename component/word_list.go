@@ -59,7 +59,7 @@ func (w *WordList) Draw(screen tcell.Screen) {
 	}
 
 	wordStyle := tcell.StyleDefault.Foreground(w.fgColor).Background(w.bgColor)
-	spaceStyle := tcell.StyleDefault.Background(config.GetContentBackgroundColor())
+	spaceStyle := tcell.StyleDefault.Background(config.GetColors().ContentBackgroundColor)
 
 	currentX := x
 	currentY := y

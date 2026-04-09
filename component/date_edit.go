@@ -27,8 +27,9 @@ type DateEdit struct {
 // NewDateEdit creates a new date input field.
 func NewDateEdit() *DateEdit {
 	inputField := tview.NewInputField()
-	inputField.SetFieldBackgroundColor(config.GetContentBackgroundColor())
-	inputField.SetFieldTextColor(config.GetContentTextColor())
+	colors := config.GetColors()
+	inputField.SetFieldBackgroundColor(colors.ContentBackgroundColor)
+	inputField.SetFieldTextColor(colors.ContentTextColor)
 
 	de := &DateEdit{
 		InputField: inputField,
