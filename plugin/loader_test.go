@@ -236,6 +236,186 @@ func TestDefaultPlugin_NoDefault(t *testing.T) {
 	}
 }
 
+func TestLoadPluginsFromFile_LegacyConversion(t *testing.T) {
+	tmpDir := t.TempDir()
+	// workflow with legacy filter expressions that need conversion
+	workflowContent := `views:
+  - name: Board
+    key: "F5"
+    sort: Priority
+    lanes:
+      - name: Ready
+        filter: status = 'ready'
+        action: status = 'inProgress'
+`
+	workflowPath := filepath.Join(tmpDir, "workflow.yaml")
+	if err := os.WriteFile(workflowPath, []byte(workflowContent), 0644); err != nil {
+		t.Fatalf("write workflow.yaml: %v", err)
+	}
+
+	plugins, errs := loadPluginsFromFile(workflowPath, testSchema())
+	if len(errs) != 0 {
+		t.Fatalf("expected no errors, got: %v", errs)
+	}
+	if len(plugins) != 1 {
+		t.Fatalf("expected 1 plugin, got %d", len(plugins))
+	}
+
+	tp, ok := plugins[0].(*TikiPlugin)
+	if !ok {
+		t.Fatalf("expected TikiPlugin, got %T", plugins[0])
+	}
+
+	// filter should have been converted and parsed (with order by from sort)
+	if tp.Lanes[0].Filter == nil {
+		t.Fatal("expected filter to be parsed after legacy conversion")
+	}
+	if !tp.Lanes[0].Filter.IsSelect() {
+		t.Error("expected SELECT filter after conversion")
+	}
+	if tp.Lanes[0].Action == nil {
+		t.Fatal("expected action to be parsed after legacy conversion")
+	}
+	if !tp.Lanes[0].Action.IsUpdate() {
+		t.Error("expected UPDATE action after conversion")
+	}
+}
+
+func TestLoadPluginsFromFile_UnnamedPlugin(t *testing.T) {
+	tmpDir := t.TempDir()
+	workflowContent := `views:
+  - name: Valid
+    key: "V"
+    lanes:
+      - name: Todo
+        filter: select where status = "ready"
+  - lanes:
+      - name: Bad
+        filter: select where status = "done"
+`
+	workflowPath := filepath.Join(tmpDir, "workflow.yaml")
+	if err := os.WriteFile(workflowPath, []byte(workflowContent), 0644); err != nil {
+		t.Fatalf("write workflow.yaml: %v", err)
+	}
+
+	plugins, errs := loadPluginsFromFile(workflowPath, testSchema())
+	// unnamed plugin should be skipped, valid one should load
+	if len(plugins) != 1 {
+		t.Fatalf("expected 1 valid plugin, got %d", len(plugins))
+	}
+	if len(errs) != 1 {
+		t.Fatalf("expected 1 error for unnamed plugin, got %d: %v", len(errs), errs)
+	}
+	if plugins[0].GetName() != "Valid" {
+		t.Errorf("expected plugin 'Valid', got %q", plugins[0].GetName())
+	}
+}
+
+func TestLoadPluginsFromFile_InvalidYAML(t *testing.T) {
+	tmpDir := t.TempDir()
+	workflowPath := filepath.Join(tmpDir, "workflow.yaml")
+	if err := os.WriteFile(workflowPath, []byte("invalid: yaml: content: ["), 0644); err != nil {
+		t.Fatalf("write workflow.yaml: %v", err)
+	}
+
+	plugins, errs := loadPluginsFromFile(workflowPath, testSchema())
+	if plugins != nil {
+		t.Error("expected nil plugins for invalid YAML")
+	}
+	if len(errs) != 1 {
+		t.Fatalf("expected 1 error for invalid YAML, got %d: %v", len(errs), errs)
+	}
+}
+
+func TestLoadPluginsFromFile_EmptyViews(t *testing.T) {
+	tmpDir := t.TempDir()
+	workflowContent := `views: []
+`
+	workflowPath := filepath.Join(tmpDir, "workflow.yaml")
+	if err := os.WriteFile(workflowPath, []byte(workflowContent), 0644); err != nil {
+		t.Fatalf("write workflow.yaml: %v", err)
+	}
+
+	plugins, errs := loadPluginsFromFile(workflowPath, testSchema())
+	if len(plugins) != 0 {
+		t.Errorf("expected 0 plugins for empty views, got %d", len(plugins))
+	}
+	if len(errs) != 0 {
+		t.Errorf("expected 0 errors for empty views, got %d", len(errs))
+	}
+}
+
+func TestLoadPluginsFromFile_DokiConfigIndex(t *testing.T) {
+	tmpDir := t.TempDir()
+	workflowContent := `views:
+  - name: Board
+    key: "B"
+    lanes:
+      - name: Todo
+        filter: select where status = "ready"
+  - name: Docs
+    key: "D"
+    type: doki
+    fetcher: internal
+    text: "hello"
+`
+	workflowPath := filepath.Join(tmpDir, "workflow.yaml")
+	if err := os.WriteFile(workflowPath, []byte(workflowContent), 0644); err != nil {
+		t.Fatalf("write workflow.yaml: %v", err)
+	}
+
+	plugins, errs := loadPluginsFromFile(workflowPath, testSchema())
+	if len(errs) != 0 {
+		t.Fatalf("expected no errors, got: %v", errs)
+	}
+	if len(plugins) != 2 {
+		t.Fatalf("expected 2 plugins, got %d", len(plugins))
+	}
+
+	// verify DokiPlugin has correct ConfigIndex
+	dp, ok := plugins[1].(*DokiPlugin)
+	if !ok {
+		t.Fatalf("expected DokiPlugin, got %T", plugins[1])
+	}
+	if dp.ConfigIndex != 1 {
+		t.Errorf("expected DokiPlugin ConfigIndex 1, got %d", dp.ConfigIndex)
+	}
+}
+
+func TestMergePluginLists(t *testing.T) {
+	base := []Plugin{
+		&TikiPlugin{BasePlugin: BasePlugin{Name: "Board", FilePath: "base.yaml"}},
+		&TikiPlugin{BasePlugin: BasePlugin{Name: "Bugs", FilePath: "base.yaml"}},
+	}
+	overrides := []Plugin{
+		&TikiPlugin{BasePlugin: BasePlugin{Name: "Board", FilePath: "override.yaml"}},
+		&TikiPlugin{BasePlugin: BasePlugin{Name: "NewView", FilePath: "override.yaml"}},
+	}
+
+	result := mergePluginLists(base, overrides)
+
+	// Bugs (non-overridden) + Board (merged) + NewView (new)
+	if len(result) != 3 {
+		t.Fatalf("expected 3 plugins, got %d", len(result))
+	}
+
+	names := make([]string, len(result))
+	for i, p := range result {
+		names[i] = p.GetName()
+	}
+
+	// Bugs should come first (non-overridden base), then Board (merged), then NewView (new)
+	if names[0] != "Bugs" {
+		t.Errorf("expected first plugin 'Bugs', got %q", names[0])
+	}
+	if names[1] != "Board" {
+		t.Errorf("expected second plugin 'Board', got %q", names[1])
+	}
+	if names[2] != "NewView" {
+		t.Errorf("expected third plugin 'NewView', got %q", names[2])
+	}
+}
+
 func TestDefaultPlugin_MultipleDefaults(t *testing.T) {
 	plugins := []Plugin{
 		&TikiPlugin{BasePlugin: BasePlugin{Name: "A"}},

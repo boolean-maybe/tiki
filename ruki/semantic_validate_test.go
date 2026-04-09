@@ -75,6 +75,88 @@ func TestValidatedStatement_RequiresCreateTemplate(t *testing.T) {
 	}
 }
 
+func TestValidatedStatement_IsSelect(t *testing.T) {
+	tests := []struct {
+		name string
+		vs   *ValidatedStatement
+		want bool
+	}{
+		{"nil receiver", nil, false},
+		{"nil statement", &ValidatedStatement{statement: nil}, false},
+		{"select", &ValidatedStatement{statement: &Statement{Select: &SelectStmt{}}}, true},
+		{"update", &ValidatedStatement{statement: &Statement{Update: &UpdateStmt{}}}, false},
+		{"create", &ValidatedStatement{statement: &Statement{Create: &CreateStmt{}}}, false},
+		{"delete", &ValidatedStatement{statement: &Statement{Delete: &DeleteStmt{}}}, false},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := tt.vs.IsSelect(); got != tt.want {
+				t.Errorf("IsSelect() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestValidatedStatement_IsUpdate(t *testing.T) {
+	tests := []struct {
+		name string
+		vs   *ValidatedStatement
+		want bool
+	}{
+		{"nil receiver", nil, false},
+		{"nil statement", &ValidatedStatement{statement: nil}, false},
+		{"update", &ValidatedStatement{statement: &Statement{Update: &UpdateStmt{}}}, true},
+		{"select", &ValidatedStatement{statement: &Statement{Select: &SelectStmt{}}}, false},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := tt.vs.IsUpdate(); got != tt.want {
+				t.Errorf("IsUpdate() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestValidatedStatement_IsCreate(t *testing.T) {
+	tests := []struct {
+		name string
+		vs   *ValidatedStatement
+		want bool
+	}{
+		{"nil receiver", nil, false},
+		{"nil statement", &ValidatedStatement{statement: nil}, false},
+		{"create", &ValidatedStatement{statement: &Statement{Create: &CreateStmt{}}}, true},
+		{"select", &ValidatedStatement{statement: &Statement{Select: &SelectStmt{}}}, false},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := tt.vs.IsCreate(); got != tt.want {
+				t.Errorf("IsCreate() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestValidatedStatement_IsDelete(t *testing.T) {
+	tests := []struct {
+		name string
+		vs   *ValidatedStatement
+		want bool
+	}{
+		{"nil receiver", nil, false},
+		{"nil statement", &ValidatedStatement{statement: nil}, false},
+		{"delete", &ValidatedStatement{statement: &Statement{Delete: &DeleteStmt{}}}, true},
+		{"select", &ValidatedStatement{statement: &Statement{Select: &SelectStmt{}}}, false},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := tt.vs.IsDelete(); got != tt.want {
+				t.Errorf("IsDelete() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
 func TestValidatedStatement_Accessors(t *testing.T) {
 	vs := &ValidatedStatement{
 		runtime:    ExecutorRuntimePlugin,

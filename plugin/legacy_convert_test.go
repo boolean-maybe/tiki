@@ -832,11 +832,17 @@ func TestQuoteIfBareIdentifier(t *testing.T) {
 		{"ready", `"ready"`},
 		{"42", "42"},
 		{"3.14", "3.14"},
+		{"-7", "-7"},
+		{"-3.5", "-3.5"},
 		{"now()", "now()"},
 		{"user()", "user()"},
 		{`"already"`, `"already"`},
 		{"", ""},
 		{"TIKI-ABC123", `"TIKI-ABC123"`},
+		// not a bare identifier (contains space) — returned unchanged
+		{"hello world", "hello world"},
+		// starts with digit — not bare identifier, not numeric
+		{"0xDEAD", "0xDEAD"},
 	}
 
 	for _, tt := range tests {
@@ -846,5 +852,92 @@ func TestQuoteIfBareIdentifier(t *testing.T) {
 				t.Errorf("quoteIfBareIdentifier(%q) = %q, want %q", tt.input, got, tt.want)
 			}
 		})
+	}
+}
+
+func TestSplitTopLevelCommas_UnclosedDoubleQuote(t *testing.T) {
+	_, err := splitTopLevelCommas(`status="open, tags+=[a]`)
+	if err == nil {
+		t.Fatal("expected error for unclosed double quote")
+	}
+	if !strings.Contains(err.Error(), "unclosed quote") {
+		t.Errorf("expected 'unclosed quote' error, got: %v", err)
+	}
+}
+
+func TestConvertBracketValues_NonBracketEnclosed(t *testing.T) {
+	// bare identifier without brackets should be quoted
+	got := convertBracketValues("frontend")
+	if got != `"frontend"` {
+		t.Errorf("expected bare identifier to be quoted, got %q", got)
+	}
+
+	// single-quoted value without brackets
+	got = convertBracketValues("'needs review'")
+	if got != `"needs review"` {
+		t.Errorf("expected single-quoted value to be converted, got %q", got)
+	}
+}
+
+func TestConvertActionSegment_DoubleEquals(t *testing.T) {
+	got, err := convertActionSegment("status=='done'")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	// == should be handled: first = is found, then value starts with = and is stripped
+	if got != `status="done"` {
+		t.Errorf("got %q, want %q", got, `status="done"`)
+	}
+}
+
+func TestConvertAction_NoAssignmentOperator(t *testing.T) {
+	tr := NewLegacyConfigTransformer()
+	_, err := tr.ConvertAction("garbage_without_equals")
+	if err == nil {
+		t.Fatal("expected error for no assignment operator")
+	}
+	if !strings.Contains(err.Error(), "no assignment operator") {
+		t.Errorf("expected 'no assignment operator' error, got: %v", err)
+	}
+}
+
+func TestConvertPluginConfig_ActionConvertError(t *testing.T) {
+	tr := NewLegacyConfigTransformer()
+	cfg := &pluginFileConfig{
+		Name: "test",
+		Lanes: []PluginLaneConfig{
+			{Name: "all", Filter: ""},
+			// lane action with malformed brackets should be skipped with a warning
+			{Name: "bad", Filter: "", Action: "tags+=[unclosed"},
+		},
+	}
+	count := tr.ConvertPluginConfig(cfg)
+	// the malformed action should be skipped (not counted), but lane filter is empty (not counted)
+	if count != 0 {
+		t.Errorf("expected 0 conversions for malformed action, got %d", count)
+	}
+	// the action should remain unchanged due to conversion failure
+	if cfg.Lanes[1].Action != "tags+=[unclosed" {
+		t.Errorf("malformed action should be passed through unchanged, got %q", cfg.Lanes[1].Action)
+	}
+}
+
+func TestConvertPluginConfig_PluginActionConvertError(t *testing.T) {
+	tr := NewLegacyConfigTransformer()
+	cfg := &pluginFileConfig{
+		Name: "test",
+		Lanes: []PluginLaneConfig{
+			{Name: "all", Filter: ""},
+		},
+		Actions: []PluginActionConfig{
+			{Key: "b", Label: "Bad", Action: "tags+=[unclosed"},
+		},
+	}
+	count := tr.ConvertPluginConfig(cfg)
+	if count != 0 {
+		t.Errorf("expected 0 conversions for malformed plugin action, got %d", count)
+	}
+	if cfg.Actions[0].Action != "tags+=[unclosed" {
+		t.Errorf("malformed plugin action should be passed through unchanged, got %q", cfg.Actions[0].Action)
 	}
 }

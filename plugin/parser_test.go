@@ -459,6 +459,254 @@ func TestParsePluginConfig_DokiWithActions(t *testing.T) {
 	}
 }
 
+func TestParsePluginConfig_LaneFilterMustBeSelect(t *testing.T) {
+	schema := testSchema()
+	cfg := pluginFileConfig{
+		Name: "Test",
+		Key:  "T",
+		Lanes: []PluginLaneConfig{
+			{Name: "Bad", Filter: `update where id = id() set status = "ready"`},
+		},
+	}
+	_, err := parsePluginConfig(cfg, "test.yaml", schema)
+	if err == nil {
+		t.Fatal("expected error for non-SELECT filter")
+	}
+	if !strings.Contains(err.Error(), "filter must be a SELECT") {
+		t.Errorf("expected 'filter must be a SELECT' error, got: %v", err)
+	}
+}
+
+func TestParsePluginConfig_LaneActionMustBeUpdate(t *testing.T) {
+	schema := testSchema()
+	cfg := pluginFileConfig{
+		Name: "Test",
+		Key:  "T",
+		Lanes: []PluginLaneConfig{
+			{Name: "Bad", Filter: `select where status = "ready"`, Action: `select where status = "done"`},
+		},
+	}
+	_, err := parsePluginConfig(cfg, "test.yaml", schema)
+	if err == nil {
+		t.Fatal("expected error for non-UPDATE action")
+	}
+	if !strings.Contains(err.Error(), "action must be an UPDATE") {
+		t.Errorf("expected 'action must be an UPDATE' error, got: %v", err)
+	}
+}
+
+func TestParsePluginActions_SelectRejectedAsAction(t *testing.T) {
+	parser := testParser()
+	configs := []PluginActionConfig{
+		{Key: "s", Label: "Search", Action: `select where status = "ready"`},
+	}
+	_, err := parsePluginActions(configs, parser)
+	if err == nil {
+		t.Fatal("expected error for SELECT as plugin action")
+	}
+	if !strings.Contains(err.Error(), "not SELECT") {
+		t.Errorf("expected 'not SELECT' error, got: %v", err)
+	}
+}
+
+func TestParsePluginConfig_LaneFilterParseError(t *testing.T) {
+	schema := testSchema()
+	cfg := pluginFileConfig{
+		Name: "Test",
+		Key:  "T",
+		Lanes: []PluginLaneConfig{
+			{Name: "Bad", Filter: "totally invalid @@@"},
+		},
+	}
+	_, err := parsePluginConfig(cfg, "test.yaml", schema)
+	if err == nil {
+		t.Fatal("expected error for invalid filter expression")
+	}
+	if !strings.Contains(err.Error(), "parsing filter") {
+		t.Errorf("expected 'parsing filter' error, got: %v", err)
+	}
+}
+
+func TestParsePluginConfig_LaneActionParseError(t *testing.T) {
+	schema := testSchema()
+	cfg := pluginFileConfig{
+		Name: "Test",
+		Key:  "T",
+		Lanes: []PluginLaneConfig{
+			{Name: "Bad", Filter: `select where status = "ready"`, Action: "totally invalid @@@"},
+		},
+	}
+	_, err := parsePluginConfig(cfg, "test.yaml", schema)
+	if err == nil {
+		t.Fatal("expected error for invalid action expression")
+	}
+	if !strings.Contains(err.Error(), "parsing action") {
+		t.Errorf("expected 'parsing action' error, got: %v", err)
+	}
+}
+
+func TestParsePluginConfig_LaneMissingName(t *testing.T) {
+	schema := testSchema()
+	cfg := pluginFileConfig{
+		Name: "Test",
+		Key:  "T",
+		Lanes: []PluginLaneConfig{
+			{Name: "", Filter: `select where status = "ready"`},
+		},
+	}
+	_, err := parsePluginConfig(cfg, "test.yaml", schema)
+	if err == nil {
+		t.Fatal("expected error for lane missing name")
+	}
+	if !strings.Contains(err.Error(), "missing name") {
+		t.Errorf("expected 'missing name' error, got: %v", err)
+	}
+}
+
+func TestParsePluginConfig_LaneInvalidColumns(t *testing.T) {
+	schema := testSchema()
+	cfg := pluginFileConfig{
+		Name: "Test",
+		Key:  "T",
+		Lanes: []PluginLaneConfig{
+			{Name: "Bad", Columns: -1, Filter: `select where status = "ready"`},
+		},
+	}
+	_, err := parsePluginConfig(cfg, "test.yaml", schema)
+	if err == nil {
+		t.Fatal("expected error for invalid columns")
+	}
+	if !strings.Contains(err.Error(), "invalid columns") {
+		t.Errorf("expected 'invalid columns' error, got: %v", err)
+	}
+}
+
+func TestParsePluginConfig_LaneInvalidWidth(t *testing.T) {
+	schema := testSchema()
+	cfg := pluginFileConfig{
+		Name: "Test",
+		Key:  "T",
+		Lanes: []PluginLaneConfig{
+			{Name: "Bad", Width: 101, Filter: `select where status = "ready"`},
+		},
+	}
+	_, err := parsePluginConfig(cfg, "test.yaml", schema)
+	if err == nil {
+		t.Fatal("expected error for invalid width")
+	}
+	if !strings.Contains(err.Error(), "invalid width") {
+		t.Errorf("expected 'invalid width' error, got: %v", err)
+	}
+}
+
+func TestParsePluginConfig_TooManyLanes(t *testing.T) {
+	schema := testSchema()
+	lanes := make([]PluginLaneConfig, 11)
+	for i := range lanes {
+		lanes[i] = PluginLaneConfig{Name: "Lane", Filter: `select where status = "ready"`}
+	}
+	cfg := pluginFileConfig{
+		Name:  "Test",
+		Key:   "T",
+		Lanes: lanes,
+	}
+	_, err := parsePluginConfig(cfg, "test.yaml", schema)
+	if err == nil {
+		t.Fatal("expected error for too many lanes")
+	}
+	if !strings.Contains(err.Error(), "too many lanes") {
+		t.Errorf("expected 'too many lanes' error, got: %v", err)
+	}
+}
+
+func TestParsePluginConfig_NoLanes(t *testing.T) {
+	schema := testSchema()
+	cfg := pluginFileConfig{
+		Name:  "Test",
+		Key:   "T",
+		Type:  "tiki",
+		Lanes: []PluginLaneConfig{},
+	}
+	_, err := parsePluginConfig(cfg, "test.yaml", schema)
+	if err == nil {
+		t.Fatal("expected error for no lanes")
+	}
+	if !strings.Contains(err.Error(), "requires 'lanes'") {
+		t.Errorf("expected 'requires lanes' error, got: %v", err)
+	}
+}
+
+func TestParsePluginConfig_TikiWithURL(t *testing.T) {
+	schema := testSchema()
+	cfg := pluginFileConfig{
+		Name: "Test",
+		Key:  "T",
+		Type: "tiki",
+		URL:  "http://example.com",
+		Lanes: []PluginLaneConfig{
+			{Name: "Todo", Filter: `select where status = "ready"`},
+		},
+	}
+	_, err := parsePluginConfig(cfg, "test.yaml", schema)
+	if err == nil {
+		t.Fatal("expected error for tiki with url")
+	}
+	if !strings.Contains(err.Error(), "tiki plugin cannot have 'url'") {
+		t.Errorf("expected 'cannot have url' error, got: %v", err)
+	}
+}
+
+func TestParsePluginConfig_DokiWithLanes(t *testing.T) {
+	schema := testSchema()
+	cfg := pluginFileConfig{
+		Name:    "Test",
+		Key:     "T",
+		Type:    "doki",
+		Fetcher: "internal",
+		Text:    "content",
+		Lanes:   []PluginLaneConfig{{Name: "Bad"}},
+	}
+	_, err := parsePluginConfig(cfg, "test.yaml", schema)
+	if err == nil {
+		t.Fatal("expected error for doki with lanes")
+	}
+	if !strings.Contains(err.Error(), "doki plugin cannot have 'lanes'") {
+		t.Errorf("expected 'cannot have lanes' error, got: %v", err)
+	}
+}
+
+func TestParsePluginConfig_PluginActionsError(t *testing.T) {
+	schema := testSchema()
+	cfg := pluginFileConfig{
+		Name: "Test",
+		Key:  "T",
+		Lanes: []PluginLaneConfig{
+			{Name: "Todo", Filter: `select where status = "ready"`},
+		},
+		Actions: []PluginActionConfig{
+			{Key: "b", Label: "Bad", Action: "totally invalid @@@"},
+		},
+	}
+	_, err := parsePluginConfig(cfg, "test.yaml", schema)
+	if err == nil {
+		t.Fatal("expected error for invalid plugin action")
+	}
+}
+
+func TestParsePluginActions_NonPrintableKey(t *testing.T) {
+	parser := testParser()
+	configs := []PluginActionConfig{
+		{Key: "\x01", Label: "Test", Action: `update where id = id() set status="ready"`},
+	}
+	_, err := parsePluginActions(configs, parser)
+	if err == nil {
+		t.Fatal("expected error for non-printable key")
+	}
+	if !strings.Contains(err.Error(), "printable character") {
+		t.Errorf("expected 'printable character' error, got: %v", err)
+	}
+}
+
 func TestParsePluginYAML_ValidDoki(t *testing.T) {
 	validYAML := []byte(`
 name: Doc Plugin
