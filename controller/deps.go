@@ -2,11 +2,13 @@ package controller
 
 import (
 	"context"
+	"fmt"
 	"log/slog"
 	"strings"
 
 	"github.com/boolean-maybe/tiki/model"
 	"github.com/boolean-maybe/tiki/plugin"
+	"github.com/boolean-maybe/tiki/ruki"
 	"github.com/boolean-maybe/tiki/service"
 	"github.com/boolean-maybe/tiki/store"
 	"github.com/boolean-maybe/tiki/task"
@@ -34,6 +36,7 @@ func NewDepsController(
 	pluginDef *plugin.TikiPlugin,
 	navController *NavigationController,
 	statusline *model.StatuslineConfig,
+	schema ruki.Schema,
 ) *DepsController {
 	return &DepsController{
 		pluginBase: pluginBase{
@@ -44,6 +47,7 @@ func NewDepsController(
 			navController: navController,
 			statusline:    statusline,
 			registry:      DepsViewActions(),
+			schema:        schema,
 		},
 	}
 }
@@ -164,39 +168,42 @@ func (dc *DepsController) handleMoveTask(offset int) bool {
 
 	contextTaskID := dc.pluginDef.TaskID
 
-	// determine which tasks to update and how
-	type update struct {
-		taskID string
-		action plugin.LaneAction
-	}
-	var updates []update
-
+	// build a ruki UPDATE query for the dependency change
+	var query string
 	switch {
 	case sourceLane == depsLaneAll && targetLane == depsLaneBlocks:
-		updates = append(updates, update{movedTaskID, depsAction(plugin.ActionOperatorAdd, contextTaskID)})
+		query = fmt.Sprintf(`update where id = "%s" set dependsOn=dependsOn+["%s"]`, movedTaskID, contextTaskID)
 	case sourceLane == depsLaneAll && targetLane == depsLaneDepends:
-		updates = append(updates, update{contextTaskID, depsAction(plugin.ActionOperatorAdd, movedTaskID)})
+		query = fmt.Sprintf(`update where id = "%s" set dependsOn=dependsOn+["%s"]`, contextTaskID, movedTaskID)
 	case sourceLane == depsLaneBlocks && targetLane == depsLaneAll:
-		updates = append(updates, update{movedTaskID, depsAction(plugin.ActionOperatorRemove, contextTaskID)})
+		query = fmt.Sprintf(`update where id = "%s" set dependsOn=dependsOn-["%s"]`, movedTaskID, contextTaskID)
 	case sourceLane == depsLaneDepends && targetLane == depsLaneAll:
-		updates = append(updates, update{contextTaskID, depsAction(plugin.ActionOperatorRemove, movedTaskID)})
+		query = fmt.Sprintf(`update where id = "%s" set dependsOn=dependsOn-["%s"]`, contextTaskID, movedTaskID)
 	default:
 		return false
 	}
 
-	for _, u := range updates {
-		taskItem := dc.taskStore.GetTask(u.taskID)
-		if taskItem == nil {
-			slog.Error("deps move: task not found", "task_id", u.taskID)
-			return false
-		}
-		updated, err := plugin.ApplyLaneAction(taskItem, u.action, "")
-		if err != nil {
-			slog.Error("deps move: failed to apply action", "task_id", u.taskID, "error", err)
-			return false
-		}
+	parser := ruki.NewParser(dc.schema)
+	stmt, err := parser.ParseAndValidateStatement(query, ruki.ExecutorRuntimePlugin)
+	if err != nil {
+		slog.Error("deps move: failed to parse ruki query", "query", query, "error", err)
+		return false
+	}
+
+	executor := dc.newExecutor()
+	result, err := executor.Execute(stmt, dc.taskStore.GetAllTasks())
+	if err != nil {
+		slog.Error("deps move: failed to execute ruki query", "query", query, "error", err)
+		return false
+	}
+
+	if result.Update == nil || len(result.Update.Updated) == 0 {
+		return false
+	}
+
+	for _, updated := range result.Update.Updated {
 		if err := dc.mutationGate.UpdateTask(context.Background(), updated); err != nil {
-			slog.Error("deps move: failed to update task", "task_id", u.taskID, "error", err)
+			slog.Error("deps move: failed to update task", "task_id", updated.ID, "error", err)
 			if dc.statusline != nil {
 				dc.statusline.SetMessage(err.Error(), model.MessageLevelError, true)
 			}
@@ -206,17 +213,6 @@ func (dc *DepsController) handleMoveTask(offset int) bool {
 
 	dc.selectTaskInLane(targetLane, movedTaskID, dc.GetFilteredTasksForLane)
 	return true
-}
-
-// depsAction builds a LaneAction that adds or removes a single task ID from dependsOn.
-func depsAction(op plugin.ActionOperator, taskID string) plugin.LaneAction {
-	return plugin.LaneAction{
-		Ops: []plugin.LaneActionOp{{
-			Field:     plugin.ActionFieldDependsOn,
-			Operator:  op,
-			DependsOn: []string{taskID},
-		}},
-	}
 }
 
 // resolveDependsTasks looks up full task objects for the context task's DependsOn IDs.

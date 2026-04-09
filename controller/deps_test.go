@@ -5,6 +5,7 @@ import (
 	"slices"
 	"testing"
 
+	rukiRuntime "github.com/boolean-maybe/tiki/internal/ruki/runtime"
 	"github.com/boolean-maybe/tiki/model"
 	"github.com/boolean-maybe/tiki/plugin"
 	"github.com/boolean-maybe/tiki/service"
@@ -52,7 +53,7 @@ func newDepsTestEnv(t *testing.T) (*DepsController, store.Store) {
 	gate.SetStore(taskStore)
 
 	nav := newMockNavigationController()
-	dc := NewDepsController(taskStore, gate, pluginConfig, pluginDef, nav, nil)
+	dc := NewDepsController(taskStore, gate, pluginConfig, pluginDef, nav, nil, rukiRuntime.NewSchema())
 	return dc, taskStore
 }
 
@@ -467,7 +468,7 @@ func TestDepsController_DeleteTask_GateError(t *testing.T) {
 
 	nav := newMockNavigationController()
 	statusline := model.NewStatuslineConfig()
-	dc := NewDepsController(taskStore, gate, pluginConfig, pluginDef, nav, statusline)
+	dc := NewDepsController(taskStore, gate, pluginConfig, pluginDef, nav, statusline, rukiRuntime.NewSchema())
 
 	// select free task in All lane
 	dc.pluginConfig.SetSelectedLane(depsLaneAll)
@@ -512,7 +513,7 @@ func TestDepsController_MoveTask_UpdateError(t *testing.T) {
 
 	nav := newMockNavigationController()
 	statusline := model.NewStatuslineConfig()
-	dc := NewDepsController(taskStore, gate, pluginConfig, pluginDef, nav, statusline)
+	dc := NewDepsController(taskStore, gate, pluginConfig, pluginDef, nav, statusline, rukiRuntime.NewSchema())
 
 	// select free task in All lane, move left → Blocks
 	dc.pluginConfig.SetSelectedLane(depsLaneAll)
@@ -626,7 +627,7 @@ func newDepsNavEnv(t *testing.T, blockers int, allTasks int, depends int, laneCo
 	gate.SetStore(taskStore)
 
 	nav := newMockNavigationController()
-	return NewDepsController(taskStore, gate, pluginConfig, pluginDef, nav, nil)
+	return NewDepsController(taskStore, gate, pluginConfig, pluginDef, nav, nil, rukiRuntime.NewSchema())
 }
 
 func TestDepsController_NavRightAdjacentNonEmptyPreservesRow(t *testing.T) {

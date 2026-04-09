@@ -6,8 +6,10 @@ import (
 
 	"github.com/boolean-maybe/tiki/config"
 	"github.com/boolean-maybe/tiki/controller"
+	rukiRuntime "github.com/boolean-maybe/tiki/internal/ruki/runtime"
 	"github.com/boolean-maybe/tiki/model"
 	"github.com/boolean-maybe/tiki/plugin"
+	"github.com/boolean-maybe/tiki/ruki"
 	"github.com/boolean-maybe/tiki/service"
 	"github.com/boolean-maybe/tiki/store"
 	"github.com/boolean-maybe/tiki/store/tikistore"
@@ -35,6 +37,7 @@ type TestApp struct {
 	PluginControllers map[string]controller.PluginControllerInterface
 	PluginDefs        []plugin.Plugin
 	MutationGate      *service.TaskMutationGate
+	Schema            ruki.Schema
 	taskController    *controller.TaskController
 	statuslineConfig  *model.StatuslineConfig
 	headerConfig      *model.HeaderConfig
@@ -60,6 +63,9 @@ func NewTestApp(t *testing.T) *TestApp {
 		config.ClearStatusRegistry()
 		config.ResetPathManager()
 	})
+
+	// 0.5. Create ruki schema (needed by plugin parser and controllers)
+	schema := rukiRuntime.NewSchema()
 
 	// 1. Create temp dir for task files (auto-cleanup via t.TempDir())
 	taskDir := t.TempDir()
@@ -100,6 +106,7 @@ func NewTestApp(t *testing.T) *TestApp {
 		taskStore,
 		gate,
 		statuslineConfig,
+		schema,
 	)
 
 	// 6. Initialize View Layer
@@ -166,6 +173,7 @@ func NewTestApp(t *testing.T) *TestApp {
 		RootLayout:       rootLayout,
 		TaskStore:        taskStore,
 		MutationGate:     gate,
+		Schema:           schema,
 		NavController:    navController,
 		InputRouter:      inputRouter,
 		TaskDir:          taskDir,
@@ -314,7 +322,7 @@ func (ta *TestApp) Cleanup() {
 // This enables testing of plugin-related functionality.
 func (ta *TestApp) LoadPlugins() error {
 	// Load embedded plugins
-	plugins, err := plugin.LoadPlugins()
+	plugins, err := plugin.LoadPlugins(ta.Schema)
 	if err != nil {
 		return err
 	}
@@ -338,7 +346,7 @@ func (ta *TestApp) LoadPlugins() error {
 			}
 			pc.SetLaneLayout(columns, widths)
 			pluginControllers[p.GetName()] = controller.NewPluginController(
-				ta.TaskStore, ta.MutationGate, pc, tp, ta.NavController, ta.statuslineConfig,
+				ta.TaskStore, ta.MutationGate, pc, tp, ta.NavController, ta.statuslineConfig, ta.Schema,
 			)
 		} else if dp, ok := p.(*plugin.DokiPlugin); ok {
 			pluginControllers[p.GetName()] = controller.NewDokiController(
@@ -373,6 +381,7 @@ func (ta *TestApp) LoadPlugins() error {
 		ta.TaskStore,
 		ta.MutationGate,
 		ta.statuslineConfig,
+		ta.Schema,
 	)
 
 	// Update global input capture to handle plugin switching keys

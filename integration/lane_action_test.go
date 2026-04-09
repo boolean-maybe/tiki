@@ -21,12 +21,12 @@ func TestPluginView_MoveTaskAppliesLaneAction(t *testing.T) {
     lanes:
       - name: Backlog
         columns: 1
-        filter: status = 'backlog'
-        action: status=backlog, tags-=[moved]
+        filter: select where status = "backlog"
+        action: update where id = id() set status="backlog" tags=tags-["moved"]
       - name: Done
         columns: 1
-        filter: status = 'done'
-        action: status=done, tags+=[moved]
+        filter: select where status = "done"
+        action: update where id = id() set status="done" tags=tags+["moved"]
 `
 	if err := os.WriteFile(filepath.Join(tmpDir, "workflow.yaml"), []byte(workflowContent), 0644); err != nil {
 		t.Fatalf("failed to write workflow.yaml: %v", err)

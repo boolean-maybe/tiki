@@ -7,6 +7,7 @@ import (
 
 	"github.com/boolean-maybe/tiki/model"
 	"github.com/boolean-maybe/tiki/plugin"
+	"github.com/boolean-maybe/tiki/ruki"
 	"github.com/boolean-maybe/tiki/service"
 	"github.com/boolean-maybe/tiki/store"
 	"github.com/boolean-maybe/tiki/task"
@@ -22,6 +23,14 @@ type pluginBase struct {
 	navController *NavigationController
 	statusline    *model.StatuslineConfig
 	registry      *ActionRegistry
+	schema        ruki.Schema
+}
+
+// newExecutor creates a ruki executor configured for plugin runtime.
+func (pb *pluginBase) newExecutor() *ruki.Executor {
+	userName := getCurrentUserName(pb.taskStore)
+	return ruki.NewExecutor(pb.schema, func() string { return userName },
+		ruki.ExecutorRuntime{Mode: ruki.ExecutorRuntimePlugin})
 }
 
 func (pb *pluginBase) GetActionRegistry() *ActionRegistry { return pb.registry }

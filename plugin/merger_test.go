@@ -5,12 +5,24 @@ import (
 
 	"github.com/gdamore/tcell/v2"
 
-	"github.com/boolean-maybe/tiki/plugin/filter"
+	rukiRuntime "github.com/boolean-maybe/tiki/internal/ruki/runtime"
+	"github.com/boolean-maybe/tiki/ruki"
 )
 
+// mustParseFilter is a test helper that parses a ruki select statement or panics.
+func mustParseFilter(t *testing.T, expr string) *ruki.ValidatedStatement {
+	t.Helper()
+	schema := rukiRuntime.NewSchema()
+	parser := ruki.NewParser(schema)
+	stmt, err := parser.ParseAndValidateStatement(expr, ruki.ExecutorRuntimePlugin)
+	if err != nil {
+		t.Fatalf("failed to parse ruki statement %q: %v", expr, err)
+	}
+	return stmt
+}
+
 func TestMergePluginDefinitions_TikiToTiki(t *testing.T) {
-	baseFilter, _ := filter.ParseFilter("status = 'ready'")
-	baseSort, _ := ParseSort("Priority")
+	baseFilter := mustParseFilter(t, `select where status = "ready"`)
 
 	base := &TikiPlugin{
 		BasePlugin: BasePlugin{
@@ -25,11 +37,10 @@ func TestMergePluginDefinitions_TikiToTiki(t *testing.T) {
 		Lanes: []TikiLane{
 			{Name: "Todo", Columns: 1, Filter: baseFilter},
 		},
-		Sort:     baseSort,
 		ViewMode: "compact",
 	}
 
-	overrideFilter, _ := filter.ParseFilter("type = 'bug'")
+	overrideFilter := mustParseFilter(t, `select where type = "bug"`)
 	override := &TikiPlugin{
 		BasePlugin: BasePlugin{
 			Name:        "Base",
@@ -45,49 +56,42 @@ func TestMergePluginDefinitions_TikiToTiki(t *testing.T) {
 		Lanes: []TikiLane{
 			{Name: "Bugs", Columns: 1, Filter: overrideFilter},
 		},
-		Sort:     nil,
 		ViewMode: "expanded",
 	}
 
 	result := mergePluginDefinitions(base, override)
 	resultTiki, ok := result.(*TikiPlugin)
 	if !ok {
-		t.Fatal("Expected result to be *TikiPlugin")
+		t.Fatal("expected result to be *TikiPlugin")
 	}
 
-	// Check overridden values
+	// check overridden values
 	if resultTiki.Rune != 'O' {
-		t.Errorf("Expected rune 'O', got %q", resultTiki.Rune)
+		t.Errorf("expected rune 'O', got %q", resultTiki.Rune)
 	}
 	if resultTiki.Modifier != tcell.ModAlt {
-		t.Errorf("Expected ModAlt, got %v", resultTiki.Modifier)
+		t.Errorf("expected ModAlt, got %v", resultTiki.Modifier)
 	}
 	if resultTiki.Foreground != tcell.ColorGreen {
-		t.Errorf("Expected green foreground, got %v", resultTiki.Foreground)
+		t.Errorf("expected green foreground, got %v", resultTiki.Foreground)
 	}
 	if resultTiki.ViewMode != "expanded" {
-		t.Errorf("Expected expanded view, got %q", resultTiki.ViewMode)
+		t.Errorf("expected expanded view, got %q", resultTiki.ViewMode)
 	}
 	if len(resultTiki.Lanes) != 1 || resultTiki.Lanes[0].Filter == nil {
-		t.Error("Expected lane filter to be overridden")
-	}
-
-	// Check that base sort is kept when override has nil
-	if resultTiki.Sort == nil {
-		t.Error("Expected base sort to be retained")
+		t.Error("expected lane filter to be overridden")
 	}
 }
 
 func TestMergePluginDefinitions_PreservesModifier(t *testing.T) {
-	// This test verifies the bug fix where Modifier was not being copied from base
-	baseFilter, _ := filter.ParseFilter("status = 'ready'")
+	baseFilter := mustParseFilter(t, `select where status = "ready"`)
 
 	base := &TikiPlugin{
 		BasePlugin: BasePlugin{
 			Name:       "Base",
 			Key:        tcell.KeyRune,
 			Rune:       'M',
-			Modifier:   tcell.ModAlt, // This should be preserved
+			Modifier:   tcell.ModAlt, // this should be preserved
 			Foreground: tcell.ColorWhite,
 			Background: tcell.ColorDefault,
 			Type:       "tiki",
@@ -97,7 +101,7 @@ func TestMergePluginDefinitions_PreservesModifier(t *testing.T) {
 		},
 	}
 
-	// Override with no modifier change (Modifier: 0)
+	// override with no modifier change (Modifier: 0)
 	override := &TikiPlugin{
 		BasePlugin: BasePlugin{
 			Name:        "Base",
@@ -110,14 +114,14 @@ func TestMergePluginDefinitions_PreservesModifier(t *testing.T) {
 	result := mergePluginDefinitions(base, override)
 	resultTiki, ok := result.(*TikiPlugin)
 	if !ok {
-		t.Fatal("Expected result to be *TikiPlugin")
+		t.Fatal("expected result to be *TikiPlugin")
 	}
 
-	// The Modifier from base should be preserved
+	// the Modifier from base should be preserved
 	if resultTiki.Modifier != tcell.ModAlt {
-		t.Errorf("Expected ModAlt to be preserved from base, got %v", resultTiki.Modifier)
+		t.Errorf("expected ModAlt to be preserved from base, got %v", resultTiki.Modifier)
 	}
 	if resultTiki.Rune != 'M' {
-		t.Errorf("Expected rune 'M' to be preserved from base, got %q", resultTiki.Rune)
+		t.Errorf("expected rune 'M' to be preserved from base, got %q", resultTiki.Rune)
 	}
 }

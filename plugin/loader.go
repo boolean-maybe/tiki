@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/boolean-maybe/tiki/config"
+	"github.com/boolean-maybe/tiki/ruki"
 	"gopkg.in/yaml.v3"
 )
 
@@ -17,7 +18,7 @@ type WorkflowFile struct {
 
 // loadPluginsFromFile loads plugins from a single workflow.yaml file.
 // Returns the successfully loaded plugins and any validation errors encountered.
-func loadPluginsFromFile(path string) ([]Plugin, []string) {
+func loadPluginsFromFile(path string, schema ruki.Schema) ([]Plugin, []string) {
 	data, err := os.ReadFile(path)
 	if err != nil {
 		slog.Warn("failed to read workflow.yaml", "path", path, "error", err)
@@ -45,7 +46,7 @@ func loadPluginsFromFile(path string) ([]Plugin, []string) {
 		}
 
 		source := fmt.Sprintf("%s:%s", path, cfg.Name)
-		p, err := parsePluginConfig(cfg, source)
+		p, err := parsePluginConfig(cfg, source, schema)
 		if err != nil {
 			msg := fmt.Sprintf("%s: view %q: %v", path, cfg.Name, err)
 			slog.Warn("failed to load plugin from workflow.yaml", "name", cfg.Name, "error", err)
@@ -107,7 +108,7 @@ func mergePluginLists(base, overrides []Plugin) []Plugin {
 // Files are discovered via config.FindWorkflowFiles() which returns user config first, then project config.
 // Plugins from later files override same-named plugins from earlier files via field merging.
 // Returns an error when workflow files were found but no valid plugins could be loaded.
-func LoadPlugins() ([]Plugin, error) {
+func LoadPlugins(schema ruki.Schema) ([]Plugin, error) {
 	files := config.FindWorkflowFiles()
 	if len(files) == 0 {
 		slog.Debug("no workflow.yaml files found")
@@ -117,12 +118,12 @@ func LoadPlugins() ([]Plugin, error) {
 	var allErrors []string
 
 	// First file is the base (typically user config)
-	base, errs := loadPluginsFromFile(files[0])
+	base, errs := loadPluginsFromFile(files[0], schema)
 	allErrors = append(allErrors, errs...)
 
 	// Remaining files are overrides, merged in order
 	for _, path := range files[1:] {
-		overrides, errs := loadPluginsFromFile(path)
+		overrides, errs := loadPluginsFromFile(path, schema)
 		allErrors = append(allErrors, errs...)
 		if len(overrides) > 0 {
 			base = mergePluginLists(base, overrides)

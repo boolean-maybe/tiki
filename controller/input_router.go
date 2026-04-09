@@ -8,6 +8,7 @@ import (
 	"github.com/boolean-maybe/tiki/config"
 	"github.com/boolean-maybe/tiki/model"
 	"github.com/boolean-maybe/tiki/plugin"
+	"github.com/boolean-maybe/tiki/ruki"
 	"github.com/boolean-maybe/tiki/service"
 	"github.com/boolean-maybe/tiki/store"
 	"github.com/boolean-maybe/tiki/task"
@@ -51,6 +52,7 @@ type InputRouter struct {
 	taskStore         store.Store
 	mutationGate      *service.TaskMutationGate
 	statusline        *model.StatuslineConfig
+	schema            ruki.Schema
 	registerPlugin    func(name string, cfg *model.PluginConfig, def plugin.Plugin, ctrl PluginControllerInterface)
 }
 
@@ -62,6 +64,7 @@ func NewInputRouter(
 	taskStore store.Store,
 	mutationGate *service.TaskMutationGate,
 	statusline *model.StatuslineConfig,
+	schema ruki.Schema,
 ) *InputRouter {
 	return &InputRouter{
 		navController:     navController,
@@ -72,6 +75,7 @@ func NewInputRouter(
 		taskStore:         taskStore,
 		mutationGate:      mutationGate,
 		statusline:        statusline,
+		schema:            schema,
 	}
 }
 
@@ -244,7 +248,7 @@ func (ir *InputRouter) openDepsEditor(taskID string) bool {
 		pluginConfig.SetViewMode(vm)
 	}
 
-	ctrl := NewDepsController(ir.taskStore, ir.mutationGate, pluginConfig, pluginDef, ir.navController, ir.statusline)
+	ctrl := NewDepsController(ir.taskStore, ir.mutationGate, pluginConfig, pluginDef, ir.navController, ir.statusline, ir.schema)
 
 	if ir.registerPlugin != nil {
 		ir.registerPlugin(name, pluginConfig, pluginDef, ctrl)

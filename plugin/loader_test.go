@@ -4,26 +4,24 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
-	"time"
-
-	taskpkg "github.com/boolean-maybe/tiki/task"
 )
 
 func TestParsePluginConfig_FullyInline(t *testing.T) {
+	schema := testSchema()
+
 	cfg := pluginFileConfig{
 		Name:       "Inline Test",
 		Foreground: "#ffffff",
 		Background: "#000000",
 		Key:        "I",
 		Lanes: []PluginLaneConfig{
-			{Name: "Todo", Filter: "status = 'ready'"},
+			{Name: "Todo", Filter: `select where status = "ready"`},
 		},
-		Sort:    "Priority DESC",
 		View:    "expanded",
 		Default: true,
 	}
 
-	def, err := parsePluginConfig(cfg, "test")
+	def, err := parsePluginConfig(cfg, "test", schema)
 	if err != nil {
 		t.Fatalf("Expected no error, got: %v", err)
 	}
@@ -49,22 +47,12 @@ func TestParsePluginConfig_FullyInline(t *testing.T) {
 		t.Fatal("Expected lane filter to be parsed")
 	}
 
-	if len(tp.Sort) != 1 || tp.Sort[0].Field != "priority" || !tp.Sort[0].Descending {
-		t.Errorf("Expected sort 'Priority DESC', got %+v", tp.Sort)
+	if !tp.Lanes[0].Filter.IsSelect() {
+		t.Error("Expected lane filter to be a SELECT statement")
 	}
 
 	if !tp.IsDefault() {
 		t.Error("Expected IsDefault() to return true")
-	}
-
-	// test filter evaluation
-	task := &taskpkg.Task{
-		ID:     "TIKI-1",
-		Status: taskpkg.StatusReady,
-	}
-
-	if !tp.Lanes[0].Filter.Evaluate(task, time.Now(), "testuser") {
-		t.Error("Expected filter to match todo task")
 	}
 }
 
@@ -72,11 +60,11 @@ func TestParsePluginConfig_Minimal(t *testing.T) {
 	cfg := pluginFileConfig{
 		Name: "Minimal",
 		Lanes: []PluginLaneConfig{
-			{Name: "Bugs", Filter: "type = 'bug'"},
+			{Name: "Bugs", Filter: `select where type = "bug"`},
 		},
 	}
 
-	def, err := parsePluginConfig(cfg, "test")
+	def, err := parsePluginConfig(cfg, "test", testSchema())
 	if err != nil {
 		t.Fatalf("Expected no error, got: %v", err)
 	}
@@ -98,11 +86,11 @@ func TestParsePluginConfig_Minimal(t *testing.T) {
 func TestParsePluginConfig_NoName(t *testing.T) {
 	cfg := pluginFileConfig{
 		Lanes: []PluginLaneConfig{
-			{Name: "Todo", Filter: "status = 'ready'"},
+			{Name: "Todo", Filter: `select where status = "ready"`},
 		},
 	}
 
-	_, err := parsePluginConfig(cfg, "test")
+	_, err := parsePluginConfig(cfg, "test", testSchema())
 	if err == nil {
 		t.Fatal("Expected error for plugin without name")
 	}
@@ -117,7 +105,7 @@ func TestPluginTypeExplicit(t *testing.T) {
 		Text:    "some text",
 	}
 
-	def, err := parsePluginConfig(cfg, "test")
+	def, err := parsePluginConfig(cfg, "test", testSchema())
 	if err != nil {
 		t.Fatalf("Expected no error, got: %v", err)
 	}
@@ -140,8 +128,7 @@ func TestLoadPluginsFromFile_WorkflowFile(t *testing.T) {
     key: "F5"
     lanes:
       - name: Ready
-        filter: status = 'ready'
-    sort: Priority
+        filter: select where status = "ready"
   - name: TestDocs
     type: doki
     fetcher: internal
@@ -153,7 +140,7 @@ func TestLoadPluginsFromFile_WorkflowFile(t *testing.T) {
 		t.Fatalf("Failed to write workflow.yaml: %v", err)
 	}
 
-	plugins, errs := loadPluginsFromFile(workflowPath)
+	plugins, errs := loadPluginsFromFile(workflowPath, testSchema())
 	if len(errs) != 0 {
 		t.Fatalf("Expected no errors, got: %v", errs)
 	}
@@ -187,7 +174,7 @@ func TestLoadPluginsFromFile_WorkflowFile(t *testing.T) {
 
 func TestLoadPluginsFromFile_NoFile(t *testing.T) {
 	tmpDir := t.TempDir()
-	plugins, errs := loadPluginsFromFile(filepath.Join(tmpDir, "workflow.yaml"))
+	plugins, errs := loadPluginsFromFile(filepath.Join(tmpDir, "workflow.yaml"), testSchema())
 	if plugins != nil {
 		t.Errorf("Expected nil plugins when no workflow.yaml, got %d", len(plugins))
 	}
@@ -203,7 +190,7 @@ func TestLoadPluginsFromFile_InvalidPlugin(t *testing.T) {
     key: "V"
     lanes:
       - name: Todo
-        filter: status = 'ready'
+        filter: select where status = "ready"
   - name: Invalid
     type: unknown
 `
@@ -213,7 +200,7 @@ func TestLoadPluginsFromFile_InvalidPlugin(t *testing.T) {
 	}
 
 	// should load valid plugin and skip invalid one
-	plugins, errs := loadPluginsFromFile(workflowPath)
+	plugins, errs := loadPluginsFromFile(workflowPath, testSchema())
 	if len(plugins) != 1 {
 		t.Fatalf("Expected 1 valid plugin (invalid skipped), got %d", len(plugins))
 	}
