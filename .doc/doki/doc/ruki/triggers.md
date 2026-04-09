@@ -312,3 +312,7 @@ Triggers are loaded during application startup, after the store is initialized b
 - Each trigger definition is parsed with the ruki parser. A parse error in any trigger is **fail-fast**: the application will not start, and the error message identifies the failing trigger by its `description` (or by index if no description is set).
 - If no `triggers:` section is found in any workflow file, zero triggers are loaded and the app starts normally.
 - Successfully loaded triggers are logged with a count at startup.
+
+## Recipes
+
+For a catalog of ready-to-use trigger examples — WIP limits, recurring tasks, auto-escalation, and more — see [Trigger Ideas](../ideas/triggers.md).

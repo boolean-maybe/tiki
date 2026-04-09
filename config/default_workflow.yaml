@@ -111,11 +111,11 @@ triggers:
       before update
         where new.status = "done" and new.dependsOn any status != "done"
         deny "cannot complete: has open dependencies"
-  - description: no jumping from backlog to done
+  - description: tasks must pass through review before completion
     ruki: >
       before update
-        where old.status = "backlog" and new.status = "done"
-        deny "cannot move directly from backlog to done"
+        where new.status = "done" and old.status != "review"
+        deny "tasks must go through review before marking done"
   - description: remove deleted task from dependency lists
     ruki: >
       after delete
@@ -124,3 +124,19 @@ triggers:
     ruki: >
       every 1day
         delete where status = "done" and updatedAt < now() - 1day
+  - description: tasks must have an assignee before starting
+    ruki: >
+      before update
+        where new.status = "inProgress" and new.assignee is empty
+        deny "assign someone before moving to in-progress"
+  - description: auto-complete epics when all child tasks finish
+    ruki: >
+      after update
+        where new.status = "done" and new.type != "epic"
+        update where type = "epic" and new.id in dependsOn and dependsOn all status = "done"
+        set status="done"
+  - description: cannot delete tasks that are actively being worked
+    ruki: >
+      before delete
+        where old.status = "inProgress"
+        deny "cannot delete an in-progress task — move to backlog or done first"

@@ -9,3 +9,4 @@
 - [tiki format](tiki-format.md)
 - [Quick capture](quick-capture.md)
 - [AI skills](skills.md)
+- [Recipes](ideas/triggers.md)

@@ -16,6 +16,7 @@ New users: start with [Quick Start](quick-start.md) and [Examples](examples.md).
 
 ## More details
 
+- [Recipes](../ideas/triggers.md): ready-to-use trigger examples for common workflow patterns.
 - [Syntax](syntax.md): lexical structure and grammar-oriented reference.
 - [Semantics](semantics.md): statement behavior, trigger structure, qualifier scope, and evaluation model.
 - [Triggers](triggers.md): configuration, runtime execution model, cascade behavior, and operational patterns.
