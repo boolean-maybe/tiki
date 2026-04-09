@@ -35,6 +35,16 @@ func loadPluginsFromFile(path string, schema ruki.Schema) ([]Plugin, []string) {
 		return nil, nil
 	}
 
+	// convert legacy expressions to ruki before parsing
+	transformer := NewLegacyConfigTransformer()
+	totalConverted := 0
+	for i := range wf.Plugins {
+		totalConverted += transformer.ConvertPluginConfig(&wf.Plugins[i])
+	}
+	if totalConverted > 0 {
+		slog.Info("converted legacy workflow expressions to ruki", "count", totalConverted, "path", path)
+	}
+
 	var plugins []Plugin
 	var errs []string
 	for i, cfg := range wf.Plugins {

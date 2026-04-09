@@ -12,6 +12,7 @@ type pluginFileConfig struct {
 	Background  string               `yaml:"background"`
 	Key         string               `yaml:"key"` // single character
 	Filter      string               `yaml:"filter"`
+	Sort        string               `yaml:"sort"` // deprecated: only for deserializing old configs; converted to order-by and cleared by LegacyConfigTransformer
 	View        string               `yaml:"view"` // "compact" or "expanded" (default: compact)
 	Type        string               `yaml:"type"` // "tiki" or "doki" (default: tiki)
 	Fetcher     string               `yaml:"fetcher"`
