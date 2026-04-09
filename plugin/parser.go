@@ -50,9 +50,6 @@ func parsePluginConfig(cfg pluginFileConfig, source string, schema ruki.Schema) 
 	switch pluginType {
 	case "doki":
 		// Strict validation for Doki
-		if cfg.Filter != "" {
-			return nil, fmt.Errorf("doki plugin cannot have 'filter'")
-		}
 		if cfg.View != "" {
 			return nil, fmt.Errorf("doki plugin cannot have 'view'")
 		}
@@ -90,9 +87,6 @@ func parsePluginConfig(cfg pluginFileConfig, source string, schema ruki.Schema) 
 		}
 		if cfg.URL != "" {
 			return nil, fmt.Errorf("tiki plugin cannot have 'url'")
-		}
-		if cfg.Filter != "" {
-			return nil, fmt.Errorf("tiki plugin cannot have 'filter'")
 		}
 		if len(cfg.Lanes) == 0 {
 			return nil, fmt.Errorf("tiki plugin requires 'lanes'")

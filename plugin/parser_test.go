@@ -60,17 +60,6 @@ func TestDokiValidation(t *testing.T) {
 			wantError: "doki plugin with internal fetcher requires 'text'",
 		},
 		{
-			name: "Doki with Tiki fields",
-			cfg: pluginFileConfig{
-				Name:    "Doki with Filter",
-				Type:    "doki",
-				Fetcher: "internal",
-				Text:    "ok",
-				Filter:  "status='ready'",
-			},
-			wantError: "doki plugin cannot have 'filter'",
-		},
-		{
 			name: "Valid File Fetcher",
 			cfg: pluginFileConfig{
 				Name:    "Valid File",
@@ -214,24 +203,6 @@ func TestParsePluginConfig_UnknownType(t *testing.T) {
 	expected := "unknown plugin type: unknown"
 	if err.Error() != expected {
 		t.Errorf("Expected error '%s', got: %v", expected, err)
-	}
-}
-
-func TestParsePluginConfig_TikiWithInvalidFilter(t *testing.T) {
-	cfg := pluginFileConfig{
-		Name:   "Test",
-		Key:    "T",
-		Type:   "tiki",
-		Filter: "invalid ( filter",
-	}
-
-	_, err := parsePluginConfig(cfg, "test.yaml", testSchema())
-	if err == nil {
-		t.Fatal("Expected error for invalid top-level filter")
-	}
-
-	if !strings.Contains(err.Error(), "tiki plugin cannot have 'filter'") {
-		t.Errorf("Expected 'cannot have filter' error, got: %v", err)
 	}
 }
 
