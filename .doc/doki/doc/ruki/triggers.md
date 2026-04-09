@@ -63,7 +63,7 @@ after delete
 
 Triggers are defined in `workflow.yaml` under the `triggers:` key. Each entry has two fields:
 
-- `ruki` — the trigger rule in Ruki syntax (required)
+- `ruki` — the trigger rule in `ruki` syntax (required)
 - `description` — an optional label
 
 ```yaml
@@ -309,7 +309,7 @@ Time triggers are parsed and validated at startup alongside event triggers. A pa
 
 Triggers are loaded during application startup, after the store is initialized but before controllers are created.
 
-- Each trigger definition is parsed with the ruki parser. A parse error in any trigger is **fail-fast**: the application will not start, and the error message identifies the failing trigger by its `description` (or by index if no description is set).
+- Each trigger definition is parsed with the `ruki` parser. A parse error in any trigger is **fail-fast**: the application will not start, and the error message identifies the failing trigger by its `description` (or by index if no description is set).
 - If no `triggers:` section is found in any workflow file, zero triggers are loaded and the app starts normally.
 - Successfully loaded triggers are logged with a count at startup.
 

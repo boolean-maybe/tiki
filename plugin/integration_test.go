@@ -2,13 +2,20 @@ package plugin
 
 import (
 	"testing"
-	"time"
 
+	rukiRuntime "github.com/boolean-maybe/tiki/internal/ruki/runtime"
+	"github.com/boolean-maybe/tiki/ruki"
 	"github.com/boolean-maybe/tiki/task"
 )
 
-func TestPluginWithInFilter(t *testing.T) {
-	// Test loading a plugin definition with IN filter
+func newTestExecutor() *ruki.Executor {
+	schema := rukiRuntime.NewSchema()
+	return ruki.NewExecutor(schema, func() string { return "testuser" },
+		ruki.ExecutorRuntime{Mode: ruki.ExecutorRuntimePlugin})
+}
+
+func TestPluginWithTagFilter(t *testing.T) {
+	schema := rukiRuntime.NewSchema()
 	pluginYAML := `
 name: UI Tasks
 foreground: "#ffffff"
@@ -16,136 +23,119 @@ background: "#0000ff"
 key: U
 lanes:
   - name: UI
-    filter: tags IN ['ui', 'ux', 'design']
+    filter: select where "ui" in tags or "ux" in tags or "design" in tags
 `
 
-	def, err := parsePluginYAML([]byte(pluginYAML), "test")
+	def, err := parsePluginYAML([]byte(pluginYAML), "test", schema)
 	if err != nil {
-		t.Fatalf("Failed to parse plugin: %v", err)
+		t.Fatalf("failed to parse plugin: %v", err)
 	}
 
 	if def.GetName() != "UI Tasks" {
-		t.Errorf("Expected name 'UI Tasks', got '%s'", def.GetName())
+		t.Errorf("expected name 'UI Tasks', got '%s'", def.GetName())
 	}
 
 	tp, ok := def.(*TikiPlugin)
 	if !ok {
-		t.Fatalf("Expected TikiPlugin, got %T", def)
+		t.Fatalf("expected TikiPlugin, got %T", def)
 	}
 
 	if len(tp.Lanes) != 1 || tp.Lanes[0].Filter == nil {
-		t.Fatal("Expected lane filter to be parsed")
+		t.Fatal("expected lane filter to be parsed")
 	}
 
-	// Test filter evaluation with matching tasks
-	matchingTask := &task.Task{
-		ID:     "TIKI-1",
-		Title:  "Design mockups",
-		Tags:   []string{"ui", "design"},
-		Status: task.StatusReady,
+	allTasks := []*task.Task{
+		{ID: "TIKI-000001", Title: "Design mockups", Tags: []string{"ui", "design"}, Status: task.StatusReady},
+		{ID: "TIKI-000002", Title: "Backend API", Tags: []string{"backend", "api"}, Status: task.StatusReady},
+		{ID: "TIKI-000003", Title: "UX Research", Tags: []string{"ux", "research"}, Status: task.StatusReady},
 	}
 
-	if !tp.Lanes[0].Filter.Evaluate(matchingTask, time.Now(), "testuser") {
-		t.Error("Expected filter to match task with 'ui' and 'design' tags")
+	executor := newTestExecutor()
+	result, err := executor.Execute(tp.Lanes[0].Filter, allTasks)
+	if err != nil {
+		t.Fatalf("executor error: %v", err)
 	}
 
-	// Test filter evaluation with non-matching tasks
-	nonMatchingTask := &task.Task{
-		ID:     "TIKI-2",
-		Title:  "Backend API",
-		Tags:   []string{"backend", "api"},
-		Status: task.StatusReady,
+	filtered := result.Select.Tasks
+	if len(filtered) != 2 {
+		t.Fatalf("expected 2 matching tasks, got %d", len(filtered))
 	}
 
-	if tp.Lanes[0].Filter.Evaluate(nonMatchingTask, time.Now(), "testuser") {
-		t.Error("Expected filter to NOT match task with 'backend' and 'api' tags")
+	// task with "ui"+"design" and task with "ux" should match; "backend"+"api" should not
+	ids := map[string]bool{}
+	for _, tk := range filtered {
+		ids[tk.ID] = true
 	}
-
-	// Test with task that has one matching tag
-	partialMatchTask := &task.Task{
-		ID:     "TIKI-3",
-		Title:  "UX Research",
-		Tags:   []string{"ux", "research"},
-		Status: task.StatusReady,
+	if !ids["TIKI-000001"] {
+		t.Error("expected task TIKI-000001 (ui, design tags) to match")
 	}
-
-	if !tp.Lanes[0].Filter.Evaluate(partialMatchTask, time.Now(), "testuser") {
-		t.Error("Expected filter to match task with 'ux' tag")
+	if ids["TIKI-000002"] {
+		t.Error("expected task TIKI-000002 (backend, api tags) to NOT match")
+	}
+	if !ids["TIKI-000003"] {
+		t.Error("expected task TIKI-000003 (ux tag) to match")
 	}
 }
 
-func TestPluginWithComplexInFilter(t *testing.T) {
-	// Test plugin with combined filters
+func TestPluginWithComplexTagAndStatusFilter(t *testing.T) {
+	schema := rukiRuntime.NewSchema()
 	pluginYAML := `
 name: Active Work
 key: A
 lanes:
   - name: Active
-    filter: tags IN ['ui', 'backend'] AND status NOT IN ['done', 'backlog']
+    filter: select where ("ui" in tags or "backend" in tags) and status != "done" and status != "backlog"
 `
 
-	def, err := parsePluginYAML([]byte(pluginYAML), "test")
+	def, err := parsePluginYAML([]byte(pluginYAML), "test", schema)
 	if err != nil {
-		t.Fatalf("Failed to parse plugin: %v", err)
+		t.Fatalf("failed to parse plugin: %v", err)
 	}
 
 	tp, ok := def.(*TikiPlugin)
 	if !ok {
-		t.Fatalf("Expected TikiPlugin, got %T", def)
+		t.Fatalf("expected TikiPlugin, got %T", def)
 	}
 
-	// Should match: has 'ui' tag and status is 'ready' (not done)
-	matchingTask := &task.Task{
-		ID:     "TIKI-1",
-		Tags:   []string{"ui", "frontend"},
-		Status: task.StatusReady,
+	allTasks := []*task.Task{
+		{ID: "TIKI-000001", Tags: []string{"ui", "frontend"}, Status: task.StatusReady},
+		{ID: "TIKI-000002", Tags: []string{"ui"}, Status: task.StatusDone},
+		{ID: "TIKI-000003", Tags: []string{"docs", "testing"}, Status: task.StatusInProgress},
 	}
 
-	if !tp.Lanes[0].Filter.Evaluate(matchingTask, time.Now(), "testuser") {
-		t.Error("Expected filter to match active UI task")
+	executor := newTestExecutor()
+	result, err := executor.Execute(tp.Lanes[0].Filter, allTasks)
+	if err != nil {
+		t.Fatalf("executor error: %v", err)
 	}
 
-	// Should NOT match: has 'ui' tag but status is 'done'
-	doneTask := &task.Task{
-		ID:     "TIKI-2",
-		Tags:   []string{"ui"},
-		Status: task.StatusDone,
+	filtered := result.Select.Tasks
+	if len(filtered) != 1 {
+		t.Fatalf("expected 1 matching task, got %d", len(filtered))
 	}
-
-	if tp.Lanes[0].Filter.Evaluate(doneTask, time.Now(), "testuser") {
-		t.Error("Expected filter to NOT match done UI task")
-	}
-
-	// Should NOT match: status is active but no matching tags
-	noTagsTask := &task.Task{
-		ID:     "TIKI-3",
-		Tags:   []string{"docs", "testing"},
-		Status: task.StatusInProgress,
-	}
-
-	if tp.Lanes[0].Filter.Evaluate(noTagsTask, time.Now(), "testuser") {
-		t.Error("Expected filter to NOT match task without matching tags")
+	if filtered[0].ID != "TIKI-000001" {
+		t.Errorf("expected TIKI-000001, got %s", filtered[0].ID)
 	}
 }
 
-func TestPluginWithStatusInFilter(t *testing.T) {
-	// Test plugin filtering by status
+func TestPluginWithStatusFilter(t *testing.T) {
+	schema := rukiRuntime.NewSchema()
 	pluginYAML := `
 name: In Progress Work
 key: W
 lanes:
   - name: Active
-    filter: status IN ['ready', 'inProgress', 'inProgress']
+    filter: select where status = "ready" or status = "inProgress"
 `
 
-	def, err := parsePluginYAML([]byte(pluginYAML), "test")
+	def, err := parsePluginYAML([]byte(pluginYAML), "test", schema)
 	if err != nil {
-		t.Fatalf("Failed to parse plugin: %v", err)
+		t.Fatalf("failed to parse plugin: %v", err)
 	}
 
 	tp, ok := def.(*TikiPlugin)
 	if !ok {
-		t.Fatalf("Expected TikiPlugin, got %T", def)
+		t.Fatalf("expected TikiPlugin, got %T", def)
 	}
 
 	testCases := []struct {
@@ -153,23 +143,27 @@ lanes:
 		status task.Status
 		expect bool
 	}{
-		{"todo status", task.StatusReady, true},
+		{"ready status", task.StatusReady, true},
 		{"inProgress status", task.StatusInProgress, true},
-		{"blocked status", task.StatusInProgress, true},
 		{"done status", task.StatusDone, false},
 		{"review status", task.StatusReview, false},
 	}
 
+	executor := newTestExecutor()
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			task := &task.Task{
-				ID:     "TIKI-1",
-				Status: tc.status,
+			allTasks := []*task.Task{
+				{ID: "TIKI-000001", Status: tc.status},
 			}
 
-			result := tp.Lanes[0].Filter.Evaluate(task, time.Now(), "testuser")
-			if result != tc.expect {
-				t.Errorf("Expected %v for status %s, got %v", tc.expect, tc.status, result)
+			result, err := executor.Execute(tp.Lanes[0].Filter, allTasks)
+			if err != nil {
+				t.Fatalf("executor error: %v", err)
+			}
+
+			got := len(result.Select.Tasks) > 0
+			if got != tc.expect {
+				t.Errorf("expected match=%v for status %s, got %v", tc.expect, tc.status, got)
 			}
 		})
 	}

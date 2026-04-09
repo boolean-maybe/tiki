@@ -12,11 +12,11 @@
 
 ## Overview
 
-This page describes Ruki syntax. It starts with tokens and then shows the grammar for statements, triggers, conditions, and expressions.
+This page describes `ruki` syntax. It starts with tokens and then shows the grammar for statements, triggers, conditions, and expressions.
 
 ## Lexical structure
 
-Ruki uses these token classes:
+`ruki` uses these token classes:
 
 - comments: `--` to end of line
 - whitespace: ignored between tokens

@@ -107,8 +107,11 @@ func Bootstrap(tikiSkillContent, dokiSkillContent string) (*Result, error) {
 	headerConfig, layoutModel := InitHeaderAndLayoutModels()
 	statuslineConfig := InitStatuslineModel(tikiStore)
 
+	// Phase 5.5: Ruki schema (needed by plugin parser and trigger system)
+	schema := rukiRuntime.NewSchema()
+
 	// Phase 6: Plugin system
-	plugins, err := LoadPlugins()
+	plugins, err := LoadPlugins(schema)
 	if err != nil {
 		return nil, err
 	}
@@ -117,7 +120,6 @@ func Bootstrap(tikiSkillContent, dokiSkillContent string) (*Result, error) {
 	pluginConfigs, pluginDefs := BuildPluginConfigsAndDefs(plugins)
 
 	// Phase 6.5: Trigger system
-	schema := rukiRuntime.NewSchema()
 	userName, _, _ := taskStore.GetCurrentUser()
 	triggerEngine, triggerCount, err := service.LoadAndRegisterTriggers(gate, schema, func() string { return userName })
 	if err != nil {
@@ -138,6 +140,7 @@ func Bootstrap(tikiSkillContent, dokiSkillContent string) (*Result, error) {
 		plugins,
 		pluginConfigs,
 		statuslineConfig,
+		schema,
 	)
 
 	// Phase 8: Input routing
@@ -148,6 +151,7 @@ func Bootstrap(tikiSkillContent, dokiSkillContent string) (*Result, error) {
 		taskStore,
 		gate,
 		statuslineConfig,
+		schema,
 	)
 
 	// Phase 9: View factory and layout

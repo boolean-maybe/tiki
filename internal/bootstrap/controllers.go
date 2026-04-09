@@ -6,6 +6,7 @@ import (
 	"github.com/boolean-maybe/tiki/controller"
 	"github.com/boolean-maybe/tiki/model"
 	"github.com/boolean-maybe/tiki/plugin"
+	"github.com/boolean-maybe/tiki/ruki"
 	"github.com/boolean-maybe/tiki/service"
 	"github.com/boolean-maybe/tiki/store"
 )
@@ -25,6 +26,7 @@ func BuildControllers(
 	plugins []plugin.Plugin,
 	pluginConfigs map[string]*model.PluginConfig,
 	statuslineConfig *model.StatuslineConfig,
+	schema ruki.Schema,
 ) *Controllers {
 	navController := controller.NewNavigationController(app)
 	taskController := controller.NewTaskController(taskStore, mutationGate, navController, statuslineConfig)
@@ -39,6 +41,7 @@ func BuildControllers(
 				tp,
 				navController,
 				statuslineConfig,
+				schema,
 			)
 			continue
 		}

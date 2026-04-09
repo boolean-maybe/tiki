@@ -6,12 +6,13 @@ import (
 	"github.com/boolean-maybe/tiki/controller"
 	"github.com/boolean-maybe/tiki/model"
 	"github.com/boolean-maybe/tiki/plugin"
+	"github.com/boolean-maybe/tiki/ruki"
 )
 
 // LoadPlugins loads plugins from disk. Returns an error if workflow files
 // exist but contain no valid view definitions.
-func LoadPlugins() ([]plugin.Plugin, error) {
-	plugins, err := plugin.LoadPlugins()
+func LoadPlugins(schema ruki.Schema) ([]plugin.Plugin, error) {
+	plugins, err := plugin.LoadPlugins(schema)
 	if err != nil {
 		return nil, err
 	}

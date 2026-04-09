@@ -9,12 +9,11 @@ import (
 	"github.com/gdamore/tcell/v2"
 	"gopkg.in/yaml.v3"
 
-	"github.com/boolean-maybe/tiki/config"
-	"github.com/boolean-maybe/tiki/plugin/filter"
+	"github.com/boolean-maybe/tiki/ruki"
 )
 
 // parsePluginConfig parses a pluginFileConfig into a Plugin
-func parsePluginConfig(cfg pluginFileConfig, source string) (Plugin, error) {
+func parsePluginConfig(cfg pluginFileConfig, source string, schema ruki.Schema) (Plugin, error) {
 	if cfg.Name == "" {
 		return nil, fmt.Errorf("plugin must have a name (%s)", source)
 	}
@@ -51,12 +50,6 @@ func parsePluginConfig(cfg pluginFileConfig, source string) (Plugin, error) {
 	switch pluginType {
 	case "doki":
 		// Strict validation for Doki
-		if cfg.Filter != "" {
-			return nil, fmt.Errorf("doki plugin cannot have 'filter'")
-		}
-		if cfg.Sort != "" {
-			return nil, fmt.Errorf("doki plugin cannot have 'sort'")
-		}
 		if cfg.View != "" {
 			return nil, fmt.Errorf("doki plugin cannot have 'view'")
 		}
@@ -95,15 +88,14 @@ func parsePluginConfig(cfg pluginFileConfig, source string) (Plugin, error) {
 		if cfg.URL != "" {
 			return nil, fmt.Errorf("tiki plugin cannot have 'url'")
 		}
-		if cfg.Filter != "" {
-			return nil, fmt.Errorf("tiki plugin cannot have 'filter'")
-		}
 		if len(cfg.Lanes) == 0 {
 			return nil, fmt.Errorf("tiki plugin requires 'lanes'")
 		}
 		if len(cfg.Lanes) > 10 {
 			return nil, fmt.Errorf("tiki plugin has too many lanes (%d), max is 10", len(cfg.Lanes))
 		}
+
+		parser := ruki.NewParser(schema)
 
 		lanes := make([]TikiLane, 0, len(cfg.Lanes))
 		for i, lane := range cfg.Lanes {
@@ -120,26 +112,35 @@ func parsePluginConfig(cfg pluginFileConfig, source string) (Plugin, error) {
 			if lane.Width < 0 || lane.Width > 100 {
 				return nil, fmt.Errorf("lane %q has invalid width %d (must be 0-100)", lane.Name, lane.Width)
 			}
-			filterExpr, err := filter.ParseFilter(lane.Filter)
-			if err != nil {
-				return nil, fmt.Errorf("parsing filter for lane %q: %w", lane.Name, err)
-			}
-			if filterExpr != nil {
-				reg := config.GetStatusRegistry()
-				if err := filter.ValidateFilterStatuses(filterExpr, reg.IsValid); err != nil {
-					return nil, fmt.Errorf("view %q, lane %q: %w", cfg.Name, lane.Name, err)
+
+			var filterStmt *ruki.ValidatedStatement
+			if lane.Filter != "" {
+				filterStmt, err = parser.ParseAndValidateStatement(lane.Filter, ruki.ExecutorRuntimePlugin)
+				if err != nil {
+					return nil, fmt.Errorf("parsing filter for lane %q: %w", lane.Name, err)
+				}
+				if !filterStmt.IsSelect() {
+					return nil, fmt.Errorf("lane %q filter must be a SELECT statement", lane.Name)
 				}
 			}
-			action, err := ParseLaneAction(lane.Action)
-			if err != nil {
-				return nil, fmt.Errorf("parsing action for lane %q: %w", lane.Name, err)
+
+			var actionStmt *ruki.ValidatedStatement
+			if lane.Action != "" {
+				actionStmt, err = parser.ParseAndValidateStatement(lane.Action, ruki.ExecutorRuntimePlugin)
+				if err != nil {
+					return nil, fmt.Errorf("parsing action for lane %q: %w", lane.Name, err)
+				}
+				if !actionStmt.IsUpdate() {
+					return nil, fmt.Errorf("lane %q action must be an UPDATE statement", lane.Name)
+				}
 			}
+
 			lanes = append(lanes, TikiLane{
 				Name:    lane.Name,
 				Columns: columns,
 				Width:   lane.Width,
-				Filter:  filterExpr,
-				Action:  action,
+				Filter:  filterStmt,
+				Action:  actionStmt,
 			})
 		}
 
@@ -152,14 +153,8 @@ func parsePluginConfig(cfg pluginFileConfig, source string) (Plugin, error) {
 			slog.Warn("lane widths sum exceeds 100%", "plugin", cfg.Name, "sum", widthSum)
 		}
 
-		// Parse sort rules
-		sortRules, err := ParseSort(cfg.Sort)
-		if err != nil {
-			return nil, fmt.Errorf("parsing sort: %w", err)
-		}
-
 		// Parse plugin actions
-		actions, err := parsePluginActions(cfg.Actions)
+		actions, err := parsePluginActions(cfg.Actions, parser)
 		if err != nil {
 			return nil, fmt.Errorf("plugin %q (%s): %w", cfg.Name, source, err)
 		}
@@ -167,7 +162,6 @@ func parsePluginConfig(cfg pluginFileConfig, source string) (Plugin, error) {
 		return &TikiPlugin{
 			BasePlugin: base,
 			Lanes:      lanes,
-			Sort:       sortRules,
 			ViewMode:   cfg.View,
 			Actions:    actions,
 		}, nil
@@ -178,7 +172,7 @@ func parsePluginConfig(cfg pluginFileConfig, source string) (Plugin, error) {
 }
 
 // parsePluginActions parses and validates plugin action configs into PluginAction slice.
-func parsePluginActions(configs []PluginActionConfig) ([]PluginAction, error) {
+func parsePluginActions(configs []PluginActionConfig, parser *ruki.Parser) ([]PluginAction, error) {
 	if len(configs) == 0 {
 		return nil, nil
 	}
@@ -212,18 +206,18 @@ func parsePluginActions(configs []PluginActionConfig) ([]PluginAction, error) {
 			return nil, fmt.Errorf("action %d (key %q) missing 'action'", i, cfg.Key)
 		}
 
-		action, err := ParseLaneAction(cfg.Action)
+		actionStmt, err := parser.ParseAndValidateStatement(cfg.Action, ruki.ExecutorRuntimePlugin)
 		if err != nil {
 			return nil, fmt.Errorf("parsing action %d (key %q): %w", i, cfg.Key, err)
 		}
-		if len(action.Ops) == 0 {
-			return nil, fmt.Errorf("action %d (key %q) has empty action expression", i, cfg.Key)
+		if actionStmt.IsSelect() {
+			return nil, fmt.Errorf("action %d (key %q) must be UPDATE, CREATE, or DELETE — not SELECT", i, cfg.Key)
 		}
 
 		actions = append(actions, PluginAction{
 			Rune:   r,
 			Label:  cfg.Label,
-			Action: action,
+			Action: actionStmt,
 		})
 	}
 
@@ -231,11 +225,11 @@ func parsePluginActions(configs []PluginActionConfig) ([]PluginAction, error) {
 }
 
 // parsePluginYAML parses plugin YAML data into a Plugin
-func parsePluginYAML(data []byte, source string) (Plugin, error) {
+func parsePluginYAML(data []byte, source string, schema ruki.Schema) (Plugin, error) {
 	var cfg pluginFileConfig
 	if err := yaml.Unmarshal(data, &cfg); err != nil {
 		return nil, fmt.Errorf("parsing yaml: %w", err)
 	}
 
-	return parsePluginConfig(cfg, source)
+	return parsePluginConfig(cfg, source, schema)
 }

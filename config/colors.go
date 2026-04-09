@@ -45,6 +45,11 @@ type ColorConfig struct {
 	TaskDetailEditFocusText     string // tview color string like "[white]"
 	TaskDetailTagForeground     tcell.Color
 	TaskDetailTagBackground     tcell.Color
+	TaskDetailPlaceholderColor  tcell.Color
+
+	// Content area colors (base canvas for editable/readable content)
+	ContentBackgroundColor tcell.Color
+	ContentTextColor       tcell.Color
 
 	// Search box colors
 	SearchBoxLabelColor      tcell.Color
@@ -86,6 +91,13 @@ type ColorConfig struct {
 	HeaderActionPluginLabelColor string // tview color string for plugin action labels
 	HeaderActionViewKeyColor     string // tview color string for view action keys
 	HeaderActionViewLabelColor   string // tview color string for view action labels
+
+	// Plugin-specific colors
+	DepsEditorBackground tcell.Color // muted slate for dependency editor caption
+
+	// Fallback solid colors for gradient scenarios (used when UseGradients = false)
+	FallbackTaskIDColor   tcell.Color // Deep Sky Blue (end of task ID gradient)
+	FallbackBurndownColor tcell.Color // Purple (start of burndown gradient)
 
 	// Statusline colors (bottom bar, powerline style)
 	StatuslineBg       string // hex color for stat segment background, e.g. "#3a3a5c"
@@ -142,6 +154,11 @@ func DefaultColors() *ColorConfig {
 		TaskDetailEditFocusText:     "[white]",                        // White text after arrow
 		TaskDetailTagForeground:     tcell.NewRGBColor(180, 200, 220), // Light blue-gray text
 		TaskDetailTagBackground:     tcell.NewRGBColor(30, 50, 120),   // Dark blue background (more bluish)
+		TaskDetailPlaceholderColor:  tcell.ColorGray,                  // Gray for placeholder text in edit fields
+
+		// Content area (base canvas)
+		ContentBackgroundColor: tcell.ColorBlack, // dark theme: explicit black
+		ContentTextColor:       tcell.ColorWhite, // dark theme: white text
 
 		// Search box
 		SearchBoxLabelColor:      tcell.ColorWhite,
@@ -196,6 +213,13 @@ func DefaultColors() *ColorConfig {
 		HeaderActionViewKeyColor:     "#5fafff", // cyan for view-specific actions
 		HeaderActionViewLabelColor:   "#808080", // gray for view-specific labels
 
+		// Plugin-specific
+		DepsEditorBackground: tcell.NewHexColor(0x4e5768), // Muted slate
+
+		// Fallback solid colors (no-gradient terminals)
+		FallbackTaskIDColor:   tcell.NewRGBColor(0, 191, 255),  // Deep Sky Blue
+		FallbackBurndownColor: tcell.NewRGBColor(134, 90, 214), // Purple
+
 		// Statusline (Nord theme)
 		StatuslineBg:       "#434c5e", // Nord polar night 3
 		StatuslineFg:       "#d8dee9", // Nord snow storm 1
@@ -221,30 +245,14 @@ var UseGradients bool
 // Screen-wide gradients show more banding on 256-color terminals, so require truecolor
 var UseWideGradients bool
 
-// Plugin-specific background colors for code-only plugins
-var (
-	// DepsEditorBackground: muted slate for the dependency editor caption
-	DepsEditorBackground = tcell.NewHexColor(0x4e5768)
-)
-
-// Fallback solid colors for gradient scenarios (used when UseGradients = false)
-var (
-	// Caption title fallback: Royal Blue (end of gradient)
-	FallbackTitleColor = tcell.NewRGBColor(65, 105, 225)
-	// Task ID fallback: Deep Sky Blue (end of gradient)
-	FallbackTaskIDColor = tcell.NewRGBColor(0, 191, 255)
-	// Burndown chart fallback: Purple (start of gradient)
-	FallbackBurndownColor = tcell.NewRGBColor(134, 90, 214)
-	// Caption row fallback: Midpoint of Midnight Blue to Royal Blue
-	FallbackCaptionColor = tcell.NewRGBColor(45, 65, 169)
-)
-
 // GetColors returns the global color configuration with theme-aware overrides
 func GetColors() *ColorConfig {
 	if !colorsInitialized {
 		globalColors = DefaultColors()
 		// Apply theme-aware overrides for critical text colors
 		if GetEffectiveTheme() == "light" {
+			globalColors.ContentBackgroundColor = tcell.ColorDefault
+			globalColors.ContentTextColor = tcell.ColorBlack
 			globalColors.SearchBoxLabelColor = tcell.ColorBlack
 			globalColors.SearchBoxTextColor = tcell.ColorBlack
 			globalColors.InputFieldTextColor = tcell.ColorBlack

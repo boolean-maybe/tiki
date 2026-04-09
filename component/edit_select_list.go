@@ -29,8 +29,9 @@ func NewEditSelectList(values []string, allowTyping bool) *EditSelectList {
 	inputField := tview.NewInputField()
 
 	// Configure the input field
-	inputField.SetFieldBackgroundColor(config.GetContentBackgroundColor())
-	inputField.SetFieldTextColor(config.GetContentTextColor())
+	colors := config.GetColors()
+	inputField.SetFieldBackgroundColor(colors.ContentBackgroundColor)
+	inputField.SetFieldTextColor(colors.ContentTextColor)
 
 	esl := &EditSelectList{
 		InputField:   inputField,

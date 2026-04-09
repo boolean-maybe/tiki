@@ -3,7 +3,7 @@ package plugin
 import (
 	"github.com/gdamore/tcell/v2"
 
-	"github.com/boolean-maybe/tiki/plugin/filter"
+	"github.com/boolean-maybe/tiki/ruki"
 )
 
 // Plugin interface defines the common methods for all plugins
@@ -64,7 +64,6 @@ func (p *BasePlugin) IsDefault() bool {
 type TikiPlugin struct {
 	BasePlugin
 	Lanes    []TikiLane     // lane definitions for this plugin
-	Sort     []SortRule     // parsed sort rules (nil = default sort)
 	ViewMode string         // default view mode: "compact" or "expanded" (empty = compact)
 	Actions  []PluginAction // shortcut actions applied to the selected task
 	TaskID   string         // optional tiki associated with this plugin (code-only, not from workflow config)
@@ -89,7 +88,7 @@ type PluginActionConfig struct {
 type PluginAction struct {
 	Rune   rune
 	Label  string
-	Action LaneAction
+	Action *ruki.ValidatedStatement
 }
 
 // PluginLaneConfig represents a lane in YAML or config definitions.
@@ -106,6 +105,6 @@ type TikiLane struct {
 	Name    string
 	Columns int
 	Width   int // lane width as a percentage (0 = equal share of remaining space)
-	Filter  filter.FilterExpr
-	Action  LaneAction
+	Filter  *ruki.ValidatedStatement
+	Action  *ruki.ValidatedStatement
 }

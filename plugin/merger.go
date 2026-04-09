@@ -10,9 +10,8 @@ type pluginFileConfig struct {
 	Description string               `yaml:"description"` // short description shown in header info
 	Foreground  string               `yaml:"foreground"`  // hex color like "#ff0000" or named color
 	Background  string               `yaml:"background"`
-	Key         string               `yaml:"key"` // single character
-	Filter      string               `yaml:"filter"`
-	Sort        string               `yaml:"sort"`
+	Key         string               `yaml:"key"`  // single character
+	Sort        string               `yaml:"sort"` // deprecated: only for deserializing old configs; converted to order-by and cleared by LegacyConfigTransformer
 	View        string               `yaml:"view"` // "compact" or "expanded" (default: compact)
 	Type        string               `yaml:"type"` // "tiki" or "doki" (default: tiki)
 	Fetcher     string               `yaml:"fetcher"`
@@ -46,7 +45,6 @@ func mergePluginDefinitions(base Plugin, override Plugin) Plugin {
 				Default:     baseTiki.Default,
 			},
 			Lanes:    baseTiki.Lanes,
-			Sort:     baseTiki.Sort,
 			ViewMode: baseTiki.ViewMode,
 			Actions:  baseTiki.Actions,
 		}
@@ -68,9 +66,6 @@ func mergePluginDefinitions(base Plugin, override Plugin) Plugin {
 		}
 		if len(overrideTiki.Lanes) > 0 {
 			result.Lanes = overrideTiki.Lanes
-		}
-		if overrideTiki.Sort != nil {
-			result.Sort = overrideTiki.Sort
 		}
 		if overrideTiki.ViewMode != "" {
 			result.ViewMode = overrideTiki.ViewMode

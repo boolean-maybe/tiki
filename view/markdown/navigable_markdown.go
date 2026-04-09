@@ -47,7 +47,7 @@ func NewNavigableMarkdown(cfg NavigableMarkdownConfig) *NavigableMarkdown {
 		renderer = renderer.WithCodeBorder(b)
 	}
 	nm.viewer.SetRenderer(renderer)
-	nm.viewer.SetBackgroundColor(config.GetContentBackgroundColor())
+	nm.viewer.SetBackgroundColor(config.GetColors().ContentBackgroundColor)
 	if cfg.ImageManager != nil && cfg.ImageManager.Supported() {
 		nm.viewer.SetImageManager(cfg.ImageManager)
 	}

@@ -13,11 +13,11 @@
 
 ## Overview
 
-This page explains the value types used in Ruki. You do not write types explicitly. Ruki works them out from the values, expressions, built-in functions, and tiki fields you use.
+This page explains the value types used in `ruki`. You do not write types explicitly. `ruki` works them out from the values, expressions, built-in functions, and tiki fields you use.
 
 ## Value types
 
-Ruki uses these value types:
+`ruki` uses these value types:
 
 | Type | Meaning |
 |---|---|
@@ -37,7 +37,7 @@ Ruki uses these value types:
 
 ## Field catalog
 
-The workflow field catalog exposes these fields to Ruki:
+The workflow field catalog exposes these fields to `ruki`:
 
 | Field | Type |
 |---|---|

@@ -34,6 +34,19 @@ func (v *ValidatedStatement) RequiresCreateTemplate() bool {
 	return v != nil && v.statement != nil && v.statement.Create != nil
 }
 
+func (v *ValidatedStatement) IsSelect() bool {
+	return v != nil && v.statement != nil && v.statement.Select != nil
+}
+func (v *ValidatedStatement) IsUpdate() bool {
+	return v != nil && v.statement != nil && v.statement.Update != nil
+}
+func (v *ValidatedStatement) IsCreate() bool {
+	return v != nil && v.statement != nil && v.statement.Create != nil
+}
+func (v *ValidatedStatement) IsDelete() bool {
+	return v != nil && v.statement != nil && v.statement.Delete != nil
+}
+
 func (v *ValidatedStatement) mustBeSealed() error {
 	if v == nil || v.seal != validatedSeal || v.statement == nil {
 		return &UnvalidatedWrapperError{Wrapper: "statement"}

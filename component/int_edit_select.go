@@ -37,8 +37,9 @@ func NewIntEditSelect(min, max int, allowTyping bool) *IntEditSelect {
 	}
 
 	inputField := tview.NewInputField()
-	inputField.SetFieldBackgroundColor(config.GetContentBackgroundColor())
-	inputField.SetFieldTextColor(config.GetContentTextColor())
+	colors := config.GetColors()
+	inputField.SetFieldBackgroundColor(colors.ContentBackgroundColor)
+	inputField.SetFieldTextColor(colors.ContentTextColor)
 
 	ies := &IntEditSelect{
 		InputField:   inputField,

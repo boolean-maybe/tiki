@@ -114,7 +114,7 @@ func (b *Base) assembleMetadataBox(
 
 	metadataBox := tview.NewFrame(metadataContainer).SetBorders(0, 0, 0, 0, 0, 0)
 	metadataBox.SetBorder(true).SetTitle(
-		fmt.Sprintf(" %s ", gradient.RenderAdaptiveGradientText(task.ID, colors.TaskDetailIDColor, config.FallbackTaskIDColor)),
+		fmt.Sprintf(" %s ", gradient.RenderAdaptiveGradientText(task.ID, colors.TaskDetailIDColor, colors.FallbackTaskIDColor)),
 	).SetBorderColor(colors.TaskBoxUnselectedBorder)
 	metadataBox.SetBorderPadding(1, 0, 2, 2)
 

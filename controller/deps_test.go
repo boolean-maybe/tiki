@@ -5,6 +5,7 @@ import (
 	"slices"
 	"testing"
 
+	rukiRuntime "github.com/boolean-maybe/tiki/internal/ruki/runtime"
 	"github.com/boolean-maybe/tiki/model"
 	"github.com/boolean-maybe/tiki/plugin"
 	"github.com/boolean-maybe/tiki/service"
@@ -52,7 +53,7 @@ func newDepsTestEnv(t *testing.T) (*DepsController, store.Store) {
 	gate.SetStore(taskStore)
 
 	nav := newMockNavigationController()
-	dc := NewDepsController(taskStore, gate, pluginConfig, pluginDef, nav, nil)
+	dc := NewDepsController(taskStore, gate, pluginConfig, pluginDef, nav, nil, rukiRuntime.NewSchema())
 	return dc, taskStore
 }
 
@@ -467,7 +468,7 @@ func TestDepsController_DeleteTask_GateError(t *testing.T) {
 
 	nav := newMockNavigationController()
 	statusline := model.NewStatuslineConfig()
-	dc := NewDepsController(taskStore, gate, pluginConfig, pluginDef, nav, statusline)
+	dc := NewDepsController(taskStore, gate, pluginConfig, pluginDef, nav, statusline, rukiRuntime.NewSchema())
 
 	// select free task in All lane
 	dc.pluginConfig.SetSelectedLane(depsLaneAll)
@@ -512,7 +513,7 @@ func TestDepsController_MoveTask_UpdateError(t *testing.T) {
 
 	nav := newMockNavigationController()
 	statusline := model.NewStatuslineConfig()
-	dc := NewDepsController(taskStore, gate, pluginConfig, pluginDef, nav, statusline)
+	dc := NewDepsController(taskStore, gate, pluginConfig, pluginDef, nav, statusline, rukiRuntime.NewSchema())
 
 	// select free task in All lane, move left → Blocks
 	dc.pluginConfig.SetSelectedLane(depsLaneAll)
@@ -626,7 +627,7 @@ func newDepsNavEnv(t *testing.T, blockers int, allTasks int, depends int, laneCo
 	gate.SetStore(taskStore)
 
 	nav := newMockNavigationController()
-	return NewDepsController(taskStore, gate, pluginConfig, pluginDef, nav, nil)
+	return NewDepsController(taskStore, gate, pluginConfig, pluginDef, nav, nil, rukiRuntime.NewSchema())
 }
 
 func TestDepsController_NavRightAdjacentNonEmptyPreservesRow(t *testing.T) {
@@ -721,5 +722,67 @@ func TestDepsController_SuccessfulSwitchPersistsClampedTargetScroll(t *testing.T
 	}
 	if got := dc.pluginConfig.GetScrollOffsetForLane(depsLaneAll); got != 1 {
 		t.Fatalf("expected clamped scroll offset 1, got %d", got)
+	}
+}
+
+func TestDepsController_ShowNavigation(t *testing.T) {
+	dc, _ := newDepsTestEnv(t)
+	if dc.ShowNavigation() {
+		t.Error("DepsController.ShowNavigation() should return false")
+	}
+}
+
+func TestDepsController_GetFilteredTasksForLane_WithSearch(t *testing.T) {
+	dc, taskStore := newDepsTestEnv(t)
+
+	// set search results to only include the free task
+	free := taskStore.GetTask(testFreeID)
+	dc.pluginConfig.SetSearchResults([]task.SearchResult{{Task: free, Score: 1.0}}, "Free")
+
+	// All lane should now only show the free task (matching search)
+	allTasks := dc.GetFilteredTasksForLane(depsLaneAll)
+	if len(allTasks) != 1 {
+		t.Fatalf("expected 1 task with search narrowing, got %d", len(allTasks))
+	}
+	if allTasks[0].ID != testFreeID {
+		t.Errorf("expected %s, got %s", testFreeID, allTasks[0].ID)
+	}
+
+	// Blocks lane should be empty (no matching search results)
+	blocksTasks := dc.GetFilteredTasksForLane(depsLaneBlocks)
+	if len(blocksTasks) != 0 {
+		t.Errorf("expected 0 blocks tasks with search narrowing, got %d", len(blocksTasks))
+	}
+}
+
+func TestDepsController_GetFilteredTasksForLane_MissingContextTask(t *testing.T) {
+	dc, taskStore := newDepsTestEnv(t)
+
+	// delete the context task
+	taskStore.DeleteTask(testCtxID)
+
+	// all lanes should return nil when context task is missing
+	if dc.GetFilteredTasksForLane(depsLaneAll) != nil {
+		t.Error("expected nil when context task is missing")
+	}
+	if dc.GetFilteredTasksForLane(depsLaneBlocks) != nil {
+		t.Error("expected nil when context task is missing")
+	}
+	if dc.GetFilteredTasksForLane(depsLaneDepends) != nil {
+		t.Error("expected nil when context task is missing")
+	}
+}
+
+func TestDepsController_MoveTask_EmptySelection(t *testing.T) {
+	dc, _ := newDepsTestEnv(t)
+
+	// set selected lane to blocks but with an index beyond the task list
+	dc.pluginConfig.SetSelectedLane(depsLaneBlocks)
+	dc.pluginConfig.SetSelectedIndexForLane(depsLaneBlocks, 99) // beyond available tasks
+
+	// getSelectedTaskID should return "" for an index beyond the task list,
+	// so handleMoveTask should return false
+	if dc.handleMoveTask(1) {
+		t.Error("expected false when no task is selected (index out of range)")
 	}
 }

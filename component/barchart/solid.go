@@ -44,7 +44,7 @@ func barFillColor(bar Bar, row, total int, theme Theme) tcell.Color {
 
 	// Use adaptive gradient: solid color when gradients disabled
 	if !config.UseGradients {
-		return config.FallbackBurndownColor
+		return config.GetColors().FallbackBurndownColor
 	}
 
 	t := float64(row) / float64(total-1)

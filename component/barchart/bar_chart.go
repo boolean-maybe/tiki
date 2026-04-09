@@ -68,7 +68,7 @@ func DefaultTheme() Theme {
 		LabelColor:      colors.BurndownChartLabelColor,
 		ValueColor:      colors.BurndownChartValueColor,
 		BarColor:        colors.BurndownChartBarColor,
-		BackgroundColor: config.GetContentBackgroundColor(),
+		BackgroundColor: config.GetColors().ContentBackgroundColor,
 		BarGradientFrom: colors.BurndownChartGradientFrom.Start,
 		BarGradientTo:   colors.BurndownChartGradientTo.Start,
 		DotChar:         '⣿', // braille full cell for dense dot matrix
