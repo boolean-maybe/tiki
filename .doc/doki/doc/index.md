@@ -8,5 +8,5 @@
 - [ruki](ruki/index.md)
 - [tiki format](tiki-format.md)
 - [Quick capture](quick-capture.md)
-- [AI skills](skills.md)
+- [AI collaboration](ai.md)
 - [Recipes](ideas/triggers.md)

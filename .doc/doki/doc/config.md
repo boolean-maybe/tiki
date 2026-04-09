@@ -110,6 +110,12 @@ appearance:
                              # Examples: "dracula", "monokai", "catppuccin-macchiato"
     background: "#282a36"    # Code block background color (hex or ANSI e.g. "236")
     border: "#6272a4"        # Code block border color (hex or ANSI e.g. "244")
+
+# AI agent integration
+ai:
+  agent: claude              # AI tool for chat: "claude", "gemini", "codex", "opencode"
+                             # Enables AI collaboration features
+                             # Omit or leave empty to disable
 ```
 
 ### workflow.yaml
