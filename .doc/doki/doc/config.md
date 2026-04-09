@@ -62,7 +62,7 @@ Search order: user config dir (base) → `.doc/workflow.yaml` (project) → cwd 
 
 **Views (plugins)** — merged by name across files. The user config is the base; project and cwd files override individual fields:
 - Non-empty fields in the override replace the base (description, key, colors, view mode)
-- Non-empty arrays in the override replace the entire base array (lanes, actions, sort)
+- Non-empty arrays in the override replace the entire base array (lanes, actions)
 - Empty/zero fields in the override are ignored — the base value is kept
 - Views that only exist in the override are appended
 
@@ -149,18 +149,17 @@ views:
     key: "F1"
     lanes:
       - name: Ready
-        filter: status = 'ready' and type != 'epic'
-        action: status = 'ready'
+        filter: select where status = "ready" and type != "epic" order by priority, createdAt
+        action: update where id = id() set status="ready"
       - name: In Progress
-        filter: status = 'in_progress' and type != 'epic'
-        action: status = 'in_progress'
+        filter: select where status = "inProgress" and type != "epic" order by priority, createdAt
+        action: update where id = id() set status="inProgress"
       - name: Review
-        filter: status = 'review' and type != 'epic'
-        action: status = 'review'
+        filter: select where status = "review" and type != "epic" order by priority, createdAt
+        action: update where id = id() set status="review"
       - name: Done
-        filter: status = 'done' and type != 'epic'
-        action: status = 'done'
-    sort: Priority, CreatedAt
+        filter: select where status = "done" and type != "epic" order by priority, createdAt
+        action: update where id = id() set status="done"
   - name: Backlog
     description: "Tasks waiting to be picked up, sorted by priority"
     foreground: "#5fff87"
@@ -169,12 +168,11 @@ views:
     lanes:
       - name: Backlog
         columns: 4
-        filter: status = 'backlog' and type != 'epic'
+        filter: select where status = "backlog" and type != "epic" order by priority, id
     actions:
       - key: "b"
         label: "Add to board"
-        action: status = 'ready'
-    sort: Priority, ID
+        action: update where id = id() set status="ready"
   - name: Recent
     description: "Tasks changed in the last 24 hours, most recent first"
     foreground: "#f4d6a6"
@@ -183,8 +181,7 @@ views:
     lanes:
       - name: Recent
         columns: 4
-        filter: NOW - UpdatedAt < 24hours
-    sort: UpdatedAt DESC
+        filter: select where now() - updatedAt < 24hour order by updatedAt desc
   - name: Roadmap
     description: "Epics organized by Now, Next, and Later horizons"
     foreground: "#e2e8f0"
@@ -194,19 +191,18 @@ views:
       - name: Now
         columns: 1
         width: 25
-        filter: type = 'epic' AND status = 'ready'
-        action: status = 'ready'
+        filter: select where type = "epic" and status = "ready" order by priority, points desc
+        action: update where id = id() set status="ready"
       - name: Next
         columns: 1
         width: 25
-        filter: type = 'epic' AND status = 'backlog' AND priority = 1
-        action: status = 'backlog', priority = 1
+        filter: select where type = "epic" and status = "backlog" and priority = 1 order by priority, points desc
+        action: update where id = id() set status="backlog" priority=1
       - name: Later
         columns: 2
         width: 50
-        filter: type = 'epic' AND status = 'backlog' AND priority > 1
-        action: status = 'backlog', priority = 2
-    sort: Priority, Points DESC
+        filter: select where type = "epic" and status = "backlog" and priority > 1 order by priority, points desc
+        action: update where id = id() set status="backlog" priority=2
     view: expanded
   - name: Help
     description: "Keyboard shortcuts, navigation, and usage guide"

@@ -57,17 +57,16 @@ views:
     lanes:
       - name: Backlog
         columns: 4
-        filter: status = 'backlog' and type != 'epic'
+        filter: select where status = "backlog" and type != "epic" order by priority, id
     actions:
       - key: "b"
         label: "Add to board"
-        action: status = 'ready'
-    sort: Priority, ID
+        action: update where id = id() set status="ready"
 ```
 
 that translates to - show all tikis in the status `backlog`, sort by priority and then by ID arranged visually in 4 columns in a single lane.
 The `actions` section defines a keyboard shortcut `b` that moves the selected tiki to the board by setting its status to `ready`
-You define the name, caption colors, hotkey, tiki filter and sorting. Save this into a `workflow.yaml` file in the config directory
+You define the name, caption colors, hotkey, and `ruki` expressions for filtering and actions. Save this into a `workflow.yaml` file in the config directory
 
 Likewise the documentation is just a plugin:
 
@@ -98,28 +97,27 @@ name: Custom
 foreground: "#5fff87"
 background: "#005f00"
 key: "F4"
-sort: Priority, Title
 lanes:
   - name: Ready
     columns: 1
     width: 20
-    filter: status = 'ready'
-    action: status = 'ready'
+    filter: select where status = "ready" order by priority, title
+    action: update where id = id() set status="ready"
   - name: In Progress
     columns: 1
     width: 30
-    filter: status = 'in_progress'
-    action: status = 'in_progress'
+    filter: select where status = "inProgress" order by priority, title
+    action: update where id = id() set status="inProgress"
   - name: Review
     columns: 1
     width: 30
-    filter: status = 'review'
-    action: status = 'review'
+    filter: select where status = "review" order by priority, title
+    action: update where id = id() set status="review"
   - name: Done
     columns: 1
     width: 20
-    filter: status = 'done'
-    action: status = 'done'
+    filter: select where status = "done" order by priority, title
+    action: update where id = id() set status="done"
 ```
 
 ### Lane width
@@ -147,129 +145,90 @@ that apply to the currently selected tiki via a keyboard shortcut. These shortcu
 actions:
   - key: "b"
     label: "Add to board"
-    action: status = 'ready'
+    action: update where id = id() set status="ready"
   - key: "a"
     label: "Assign to me"
-    action: assignee = CURRENT_USER
+    action: update where id = id() set assignee=user()
 ```
 
 Each action has:
 - `key` - a single printable character used as the keyboard shortcut
 - `label` - description shown in the header
-- `action` - an action expression (same syntax as lane actions, see below)
+- `action` - a `ruki` `update` statement (same syntax as lane actions, see below)
 
 When the shortcut key is pressed, the action is applied to the currently selected tiki.
 For example, pressing `b` in the Backlog plugin changes the selected tiki's status to `ready`, effectively moving it to the board.
 
-### Action expression
+### ruki expressions
 
-The `action: status = 'backlog'` statement in a plugin is an action to be run when a tiki is moved into the lane. Here `=`
-means `assign` so status is assigned `backlog` when the tiki is moved. Likewise you can manipulate tags using `+-` (add)
-or `-=` (remove) expressions. For example, `tags += [idea, UI]` adds `idea` and `UI` tags to a tiki
+Plugin filters, lane actions, and plugin actions all use the `ruki` language. Filters use `select` statements and actions use `update` statements.
 
-#### Supported Fields
+#### Filter (select)
 
-- `status` - set workflow status (must be a key defined in `workflow.yaml` statuses)
-- `type` - set task type: `story`, `bug`, `spike`, `epic` (case-insensitive)
-- `priority` - set numeric priority (1-5)
-- `points` - set numeric points (0 or positive, up to max points)
-- `assignee` - set assignee string
-- `tags` - add/remove tags (list)
+The `filter` field uses a `ruki` `select` statement to determine which tikis appear in a lane. Sorting is part of the select — use `order by` to control display order.
 
-#### Operators
+```sql
+-- basic filter with sort
+select where status = "backlog" and type != "epic" order by priority, id
 
-- `=` assigns a value to `status`, `type`, `priority`, `points`, `assignee`
-- `+=` adds tags, `-=` removes tags
-- multiple operations are separated by commas: `status=done, tags+=[moved]`
+-- recent items, most recent first
+select where now() - updatedAt < 24hour order by updatedAt desc
 
-#### Literals
+-- multiple conditions
+select where type = "epic" and status = "backlog" and priority > 1 order by priority, points desc
 
-- strings can be quoted (`'in_progress'`, `"alex"`) or bare (`done`, `alex`)
-- use quotes when the value has spaces
-- integers are used for `priority` and `points`
-- tag lists use brackets: `tags += [ui, frontend]`
-- `CURRENT_USER` assigns the current git user to `assignee`
-- example: `assignee = CURRENT_USER`
-
-### Filter expression
-
-The `filter: status = 'backlog'` statement in a plugin is a filter expression that determines which tikis appear in the view.
-
-#### Supported Fields
-
-You can filter on these task fields:
-- `id` - Task identifier (e.g., 'TIKI-m7n2xk')
-- `title` - Task title text (case-insensitive)
-- `type` - Task type: 'story', 'bug', 'spike', or 'epic' (case-insensitive)
-- `status` - Workflow status (must match a key defined in `workflow.yaml` statuses)
-- `assignee` - Assigned user (case-insensitive)
-- `priority` - Numeric priority value
-- `points` - Story points estimate
-- `tags` (or `tag`) - List of tags (case-insensitive)
-- `createdAt` - Creation timestamp
-- `updatedAt` - Last update timestamp
-
-All string comparisons are case-insensitive.
-
-#### Operators
-
-- **Comparison**: `=` (or `==`), `!=`, `>`, `>=`, `<`, `<=`
-- **Logical**: `AND`, `OR`, `NOT` (precedence: NOT > AND > OR)
-- **Membership**: `IN`, `NOT IN` (check if value in list using `[val1, val2]`)
-- **Grouping**: Use parentheses `()` to control evaluation order
-
-#### Literals and Special Values
-
-**Special expressions**:
-- `CURRENT_USER` - Resolves to the current git user (works in comparisons and IN lists)
-- `NOW` - Current timestamp
-
-**Time expressions**:
-- `NOW - UpdatedAt` - Time elapsed since update
-- `NOW - CreatedAt` - Time since creation
-- Duration units: `min`/`minutes`, `hour`/`hours`, `day`/`days`, `week`/`weeks`, `month`/`months`
-- Examples: `2hours`, `14days`, `3weeks`, `60min`, `1month`
-- Operators: `+` (add), `-` (subtract or compute duration)
-
-**Special tag semantics**:
-- `tags IN ['ui', 'frontend']` matches if ANY task tag matches ANY list value
-- This allows intersection testing across tag arrays
-
-#### Examples
-
-```text
-# Multiple statuses
-status = 'ready' OR status = 'in_progress'
-
-# With tags
-tags IN ['frontend', 'urgent']
-
-# High priority bugs
-type = 'bug' AND priority = 0
-
-# Features and ideas assigned to me
-(type = 'feature' OR tags IN ['idea']) AND assignee = CURRENT_USER
-
-# Unassigned large tasks
-assignee = '' AND points >= 5
-
-# Recently created tasks not in backlog
-(NOW - CreatedAt < 2hours) AND status != 'backlog'
+-- assigned to me
+select where assignee = user() order by priority
 ```
 
-### Sorting
+#### Action (update)
 
-The `sort` field determines the order in which tikis appear in the view. You can sort by one or more fields, and control the direction (ascending or descending).
+The `action` field uses a `ruki` `update` statement. In plugin context, `id()` refers to the currently selected tiki.
 
-#### Sort Syntax
+```sql
+-- set status on move
+update where id = id() set status="ready"
 
-```text
-sort: Field1, Field2 DESC, Field3
+-- set multiple fields
+update where id = id() set status="backlog" priority=2
+
+-- assign to current user
+update where id = id() set assignee=user()
 ```
 
-#### Examples
+#### Supported fields
 
-```text
-# Sort by creation time descending (recent first), then priority, then title
-sort: CreatedAt DESC, Priority, Title
-```
+- `id` - task identifier (e.g., "TIKI-M7N2XK")
+- `title` - task title text
+- `type` - task type: "story", "bug", "spike", or "epic"
+- `status` - workflow status (must match a key defined in `workflow.yaml` statuses)
+- `assignee` - assigned user
+- `priority` - numeric priority value (1-5)
+- `points` - story points estimate
+- `tags` - list of tags
+- `dependsOn` - list of dependency tiki IDs
+- `due` - due date (YYYY-MM-DD format)
+- `recurrence` - recurrence pattern (cron format)
+- `createdAt` - creation timestamp
+- `updatedAt` - last update timestamp
+
+#### Conditions
+
+- **Comparison**: `=`, `!=`, `>`, `>=`, `<`, `<=`
+- **Logical**: `and`, `or`, `not` (precedence: not > and > or)
+- **Membership**: `"value" in field`, `status not in ["done", "cancelled"]`
+- **Emptiness**: `assignee is empty`, `tags is not empty`
+- **Quantifiers**: `dependsOn any status != "done"`, `dependsOn all status = "done"`
+- **Grouping**: parentheses `()` to control evaluation order
+
+#### Literals and built-ins
+
+- Strings: double-quoted (`"ready"`, `"alex"`)
+- Integers: `1`, `5`
+- Dates: `2026-03-25`
+- Durations: `2hour`, `14day`, `3week`, `1month`
+- Lists: `["bug", "frontend"]`
+- `user()` — current git user
+- `now()` — current timestamp
+- `id()` — currently selected tiki (in plugin context)
+- `count(select where ...)` — count matching tikis

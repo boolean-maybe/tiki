@@ -11,7 +11,7 @@
 
 ## Overview
 
-This page explains how Ruki statements, triggers, conditions, and expressions behave.
+This page explains how `ruki` statements, triggers, conditions, and expressions behave.
 
 ## Statement semantics
 

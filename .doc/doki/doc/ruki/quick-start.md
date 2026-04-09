@@ -11,18 +11,18 @@
 
 ## Overview
 
-This page is a practical introduction to the Ruki language. It covers the main statement forms, the conditions they use, and the trigger rules that let you block or react to changes.
+This page is a practical introduction to the `ruki` language. It covers the main statement forms, the conditions they use, and the trigger rules that let you block or react to changes.
 
 ## Mental model
 
-Ruki has two top-level forms:
+`ruki` has two top-level forms:
 
 - Statements: `select`, `create`, `update`, and `delete`
 - Triggers: `before` or `after` rules attached to `create`, `update`, or `delete`
 
 Statements read and change tiki fields such as `status`, `type`, `tags`, `dependsOn`, `priority`, and `due`. Triggers use the same fields and conditions, but add `before` or `after` timing around `create`, `update`, or `delete`.
 
-The simplest way to read Ruki is:
+The simplest way to read `ruki` is:
 
 - `select` filters tikis
 - `create` assigns fields for a new tiki

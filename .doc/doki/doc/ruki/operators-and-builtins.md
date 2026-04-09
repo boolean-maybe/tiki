@@ -13,7 +13,7 @@
 
 ## Overview
 
-This page describes the operators and built-in functions available in Ruki.
+This page describes the operators and built-in functions available in `ruki`.
 
 ## Operator precedence and associativity
 
@@ -201,7 +201,7 @@ create title="x" dependsOn=dependsOn + tags
 
 ## Built-in functions
 
-Ruki has these built-ins:
+`ruki` has these built-ins:
 
 | Name | Result type | Arguments | Notes |
 |---|---|---|---|
@@ -246,7 +246,7 @@ after update where new.status = "in progress" run("echo hello")
 
 ## Shell-related forms
 
-Ruki includes two shell-related forms:
+`ruki` includes two shell-related forms:
 
 - `call(...)` as a string-returning expression
 - `run(...)` as an `after`-trigger action

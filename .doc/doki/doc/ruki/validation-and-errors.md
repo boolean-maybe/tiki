@@ -13,13 +13,13 @@
 
 ## Overview
 
-This page explains the errors you can get in Ruki. It covers syntax errors, unknown fields, type mismatches, invalid enum values, unsupported operators, and invalid trigger structure.
+This page explains the errors you can get in `ruki`. It covers syntax errors, unknown fields, type mismatches, invalid enum values, unsupported operators, and invalid trigger structure.
 
 ## Validation layers
 
 ![Validation pipeline](images/validation-pipeline.svg)
 
-Ruki has two distinct failure stages:
+`ruki` has two distinct failure stages:
 
 1. Parse-time failures
 2. Validation-time failures

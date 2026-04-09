@@ -1,14 +1,14 @@
-# Ruki Documentation
+# ruki Documentation
 
 ## Table of contents
 
-- [Ruki](#ruki)
+- [ruki](#ruki)
 - [Quick start](#quick-start)
 - [More details](#more-details)
 
-## Ruki
+## ruki
 
-This section documents the Ruki language. Ruki is a small language for finding, creating, updating, and deleting tikis, with SQL-like statements and trigger rules.
+This section documents the `ruki` language. `ruki` is a small language for finding, creating, updating, and deleting tikis, with SQL-like statements and trigger rules.
 
 ## Quick start
 

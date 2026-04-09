@@ -194,11 +194,11 @@ When asked to remove or clear a due date:
 
 ### Query by due date
 
-Users can filter tasks by due date in the TUI using filter expressions:
-- `due = '2026-04-01'` - exact match
-- `due < '2026-04-01'` - before date
-- `due < NOW` - overdue tasks
-- `due - NOW < 7day` - due within 7 days
+Users can filter tasks by due date in the TUI using `ruki` select statements:
+- `select where due = 2026-04-01` - exact match
+- `select where due < 2026-04-01` - before date
+- `select where due < now()` - overdue tasks
+- `select where due - now() < 7day` - due within 7 days
 
 ### Validation
 
