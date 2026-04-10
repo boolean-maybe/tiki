@@ -26,12 +26,12 @@ func NewCompletionPrompt(words []string) *CompletionPrompt {
 
 	// Configure the input field
 	colors := config.GetColors()
-	inputField.SetFieldBackgroundColor(colors.ContentBackgroundColor)
-	inputField.SetFieldTextColor(colors.ContentTextColor)
+	inputField.SetFieldBackgroundColor(colors.ContentBackgroundColor.TCell())
+	inputField.SetFieldTextColor(colors.ContentTextColor.TCell())
 	cp := &CompletionPrompt{
 		InputField: inputField,
 		words:      words,
-		hintColor:  colors.CompletionHintColor,
+		hintColor:  colors.CompletionHintColor.TCell(),
 	}
 
 	return cp

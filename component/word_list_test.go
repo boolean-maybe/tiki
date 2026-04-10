@@ -60,8 +60,8 @@ func TestGetWords(t *testing.T) {
 
 func TestSetColors(t *testing.T) {
 	wl := NewWordList([]string{"test"})
-	fg := tcell.ColorRed
-	bg := tcell.ColorGreen
+	fg := config.NewColor(tcell.ColorRed)
+	bg := config.NewColor(tcell.ColorGreen)
 
 	result := wl.SetColors(fg, bg)
 

@@ -1,8 +1,14 @@
 package util
 
-import "testing"
+import (
+	"testing"
+
+	"github.com/boolean-maybe/tiki/config"
+)
 
 func TestGeneratePointsVisual(t *testing.T) {
+	blue := config.NewColorHex("#508cff")
+	gray := config.NewColorHex("#5f6982")
 	const blueColor = "[#508cff]"
 	const grayColor = "[#5f6982]"
 	const resetColor = "[-]"
@@ -65,7 +71,7 @@ func TestGeneratePointsVisual(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := GeneratePointsVisual(tt.points, tt.maxPoints, blueColor, grayColor)
+			got := GeneratePointsVisual(tt.points, tt.maxPoints, blue, gray)
 			if got != tt.want {
 				t.Errorf("GeneratePointsVisual(%d, %d) = %q, want %q", tt.points, tt.maxPoints, got, tt.want)
 			}

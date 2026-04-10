@@ -30,8 +30,8 @@ func NewEditSelectList(values []string, allowTyping bool) *EditSelectList {
 
 	// Configure the input field
 	colors := config.GetColors()
-	inputField.SetFieldBackgroundColor(colors.ContentBackgroundColor)
-	inputField.SetFieldTextColor(colors.ContentTextColor)
+	inputField.SetFieldBackgroundColor(colors.ContentBackgroundColor.TCell())
+	inputField.SetFieldTextColor(colors.ContentTextColor.TCell())
 
 	esl := &EditSelectList{
 		InputField:   inputField,

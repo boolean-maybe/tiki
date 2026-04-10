@@ -25,7 +25,7 @@ func DrawSingleLineBorder(screen tcell.Screen, x, y, width, height int) {
 	}
 
 	colors := config.GetColors()
-	style := tcell.StyleDefault.Foreground(colors.TaskBoxUnselectedBorder).Background(colors.ContentBackgroundColor)
+	style := tcell.StyleDefault.Foreground(colors.TaskBoxUnselectedBorder.TCell()).Background(colors.ContentBackgroundColor.TCell())
 
 	DrawSingleLineBorderWithStyle(screen, x, y, width, height, style)
 }

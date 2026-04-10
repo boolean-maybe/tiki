@@ -5,6 +5,7 @@ import (
 
 	"github.com/gdamore/tcell/v2"
 
+	"github.com/boolean-maybe/tiki/config"
 	rukiRuntime "github.com/boolean-maybe/tiki/internal/ruki/runtime"
 	"github.com/boolean-maybe/tiki/ruki"
 )
@@ -30,8 +31,8 @@ func TestMergePluginDefinitions_TikiToTiki(t *testing.T) {
 			Key:        tcell.KeyRune,
 			Rune:       'B',
 			Modifier:   0,
-			Foreground: tcell.ColorRed,
-			Background: tcell.ColorBlue,
+			Foreground: config.NewColor(tcell.ColorRed),
+			Background: config.NewColor(tcell.ColorBlue),
 			Type:       "tiki",
 		},
 		Lanes: []TikiLane{
@@ -47,8 +48,8 @@ func TestMergePluginDefinitions_TikiToTiki(t *testing.T) {
 			Key:         tcell.KeyRune,
 			Rune:        'O',
 			Modifier:    tcell.ModAlt,
-			Foreground:  tcell.ColorGreen,
-			Background:  tcell.ColorDefault,
+			Foreground:  config.NewColor(tcell.ColorGreen),
+			Background:  config.DefaultColor(),
 			FilePath:    "override.yaml",
 			ConfigIndex: 1,
 			Type:        "tiki",
@@ -72,7 +73,7 @@ func TestMergePluginDefinitions_TikiToTiki(t *testing.T) {
 	if resultTiki.Modifier != tcell.ModAlt {
 		t.Errorf("expected ModAlt, got %v", resultTiki.Modifier)
 	}
-	if resultTiki.Foreground != tcell.ColorGreen {
+	if resultTiki.Foreground.TCell() != tcell.ColorGreen {
 		t.Errorf("expected green foreground, got %v", resultTiki.Foreground)
 	}
 	if resultTiki.ViewMode != "expanded" {
@@ -92,8 +93,8 @@ func TestMergePluginDefinitions_PreservesModifier(t *testing.T) {
 			Key:        tcell.KeyRune,
 			Rune:       'M',
 			Modifier:   tcell.ModAlt, // this should be preserved
-			Foreground: tcell.ColorWhite,
-			Background: tcell.ColorDefault,
+			Foreground: config.NewColor(tcell.ColorWhite),
+			Background: config.DefaultColor(),
 			Type:       "tiki",
 		},
 		Lanes: []TikiLane{

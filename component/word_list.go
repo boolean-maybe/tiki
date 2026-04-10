@@ -14,8 +14,8 @@ import (
 type WordList struct {
 	*tview.Box
 	words   []string
-	fgColor tcell.Color
-	bgColor tcell.Color
+	fgColor config.Color
+	bgColor config.Color
 }
 
 // NewWordList creates a new WordList component.
@@ -43,7 +43,7 @@ func (w *WordList) GetWords() []string {
 }
 
 // SetColors sets the foreground and background colors.
-func (w *WordList) SetColors(fg, bg tcell.Color) *WordList {
+func (w *WordList) SetColors(fg, bg config.Color) *WordList {
 	w.fgColor = fg
 	w.bgColor = bg
 	return w
@@ -58,8 +58,8 @@ func (w *WordList) Draw(screen tcell.Screen) {
 		return
 	}
 
-	wordStyle := tcell.StyleDefault.Foreground(w.fgColor).Background(w.bgColor)
-	spaceStyle := tcell.StyleDefault.Background(config.GetColors().ContentBackgroundColor)
+	wordStyle := tcell.StyleDefault.Foreground(w.fgColor.TCell()).Background(w.bgColor.TCell())
+	spaceStyle := tcell.StyleDefault.Background(config.GetColors().ContentBackgroundColor.TCell())
 
 	currentX := x
 	currentY := y

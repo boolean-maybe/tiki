@@ -32,8 +32,8 @@ type RecurrenceEdit struct {
 func NewRecurrenceEdit() *RecurrenceEdit {
 	inputField := tview.NewInputField()
 	colors := config.GetColors()
-	inputField.SetFieldBackgroundColor(colors.ContentBackgroundColor)
-	inputField.SetFieldTextColor(colors.ContentTextColor)
+	inputField.SetFieldBackgroundColor(colors.ContentBackgroundColor.TCell())
+	inputField.SetFieldTextColor(colors.ContentTextColor.TCell())
 
 	re := &RecurrenceEdit{
 		InputField:  inputField,

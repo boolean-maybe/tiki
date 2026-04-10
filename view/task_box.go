@@ -18,11 +18,11 @@ import (
 // applyFrameStyle applies selected/unselected styling to a frame
 func applyFrameStyle(frame *tview.Frame, selected bool, colors *config.ColorConfig) {
 	if selected {
-		frame.SetBorderColor(colors.TaskBoxSelectedBorder)
+		frame.SetBorderColor(colors.TaskBoxSelectedBorder.TCell())
 	} else {
-		frame.SetBorderColor(colors.TaskBoxUnselectedBorder)
-		if colors.TaskBoxUnselectedBackground != tcell.ColorDefault {
-			frame.SetBackgroundColor(colors.TaskBoxUnselectedBackground)
+		frame.SetBorderColor(colors.TaskBoxUnselectedBorder.TCell())
+		if !colors.TaskBoxUnselectedBackground.IsDefault() {
+			frame.SetBackgroundColor(colors.TaskBoxUnselectedBackground.TCell())
 		}
 	}
 }
@@ -35,11 +35,14 @@ func buildCompactTaskContent(task *taskpkg.Task, colors *config.ColorConfig, ava
 	priorityEmoji := taskpkg.PriorityLabel(task.Priority)
 	pointsVisual := util.GeneratePointsVisual(task.Points, config.GetMaxPoints(), colors.PointsFilledColor, colors.PointsUnfilledColor)
 
+	titleTag := colors.TaskBoxTitleColor.Tag().String()
+	labelTag := colors.TaskBoxLabelColor.Tag().String()
+
 	return fmt.Sprintf("%s %s\n%s%s[-]\n%spriority[-] %s  %spoints[-] %s%s[-]",
 		emoji, idGradient,
-		colors.TaskBoxTitleColor, truncatedTitle,
-		colors.TaskBoxLabelColor, priorityEmoji,
-		colors.TaskBoxLabelColor, colors.TaskBoxLabelColor, pointsVisual)
+		titleTag, truncatedTitle,
+		labelTag, priorityEmoji,
+		labelTag, labelTag, pointsVisual)
 }
 
 // buildExpandedTaskContent builds the content string for expanded task display
@@ -64,25 +67,30 @@ func buildExpandedTaskContent(task *taskpkg.Task, colors *config.ColorConfig, av
 		descLine3 = tview.Escape(util.TruncateText(descLines[2], availableWidth))
 	}
 
+	titleTag := colors.TaskBoxTitleColor.Tag().String()
+	labelTag := colors.TaskBoxLabelColor.Tag().String()
+	descTag := colors.TaskBoxDescriptionColor.Tag().String()
+	tagValueTag := colors.TaskBoxTagValueColor.Tag().String()
+
 	// Build tags string
 	tagsStr := ""
 	if len(task.Tags) > 0 {
-		tagsStr = colors.TaskBoxLabelColor + "Tags:[-] " + colors.TaskBoxTagValueColor + tview.Escape(util.TruncateText(strings.Join(task.Tags, ", "), availableWidth-6)) + "[-]"
+		tagsStr = labelTag + "Tags:[-] " + tagValueTag + tview.Escape(util.TruncateText(strings.Join(task.Tags, ", "), availableWidth-6)) + "[-]"
 	}
 
 	// Build priority/points line
 	priorityEmoji := taskpkg.PriorityLabel(task.Priority)
 	pointsVisual := util.GeneratePointsVisual(task.Points, config.GetMaxPoints(), colors.PointsFilledColor, colors.PointsUnfilledColor)
 	priorityPointsStr := fmt.Sprintf("%spriority[-] %s  %spoints[-] %s%s[-]",
-		colors.TaskBoxLabelColor, priorityEmoji,
-		colors.TaskBoxLabelColor, colors.TaskBoxLabelColor, pointsVisual)
+		labelTag, priorityEmoji,
+		labelTag, labelTag, pointsVisual)
 
 	return fmt.Sprintf("%s %s\n%s%s[-]\n%s%s[-]\n%s%s[-]\n%s%s[-]\n%s\n%s",
 		emoji, idGradient,
-		colors.TaskBoxTitleColor, truncatedTitle,
-		colors.TaskBoxDescriptionColor, descLine1,
-		colors.TaskBoxDescriptionColor, descLine2,
-		colors.TaskBoxDescriptionColor, descLine3,
+		titleTag, truncatedTitle,
+		descTag, descLine1,
+		descTag, descLine2,
+		descTag, descLine3,
 		tagsStr, priorityPointsStr)
 }
 

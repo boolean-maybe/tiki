@@ -4,8 +4,8 @@ import "github.com/boolean-maybe/tiki/config"
 
 // ColorScheme defines color pairs for different action categories
 type ColorScheme struct {
-	KeyColor   string
-	LabelColor string
+	KeyColor   config.Color
+	LabelColor config.Color
 }
 
 // getColorScheme returns the color scheme for the given action type.

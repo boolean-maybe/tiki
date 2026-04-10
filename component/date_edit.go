@@ -28,8 +28,8 @@ type DateEdit struct {
 func NewDateEdit() *DateEdit {
 	inputField := tview.NewInputField()
 	colors := config.GetColors()
-	inputField.SetFieldBackgroundColor(colors.ContentBackgroundColor)
-	inputField.SetFieldTextColor(colors.ContentTextColor)
+	inputField.SetFieldBackgroundColor(colors.ContentBackgroundColor.TCell())
+	inputField.SetFieldTextColor(colors.ContentTextColor.TCell())
 
 	de := &DateEdit{
 		InputField: inputField,

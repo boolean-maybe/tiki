@@ -17,7 +17,7 @@ type ChartWidget struct {
 func NewChartWidgetSimple() *ChartWidget {
 	colors := config.GetColors()
 	chartTheme := barchart.DefaultTheme()
-	chartTheme.AxisColor = colors.BurndownChartAxisColor
+	chartTheme.AxisColor = colors.BurndownChartAxisColor.TCell()
 	chartTheme.BarGradientFrom = colors.BurndownHeaderGradientFrom.Start // Use header-specific gradient
 	chartTheme.BarGradientTo = colors.BurndownHeaderGradientTo.Start     // Use header-specific gradient
 	chartTheme.DotChar = '⣿'                                             // braille full cell for compact dots

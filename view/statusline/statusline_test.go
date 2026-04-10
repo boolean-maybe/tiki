@@ -11,15 +11,15 @@ import (
 
 func testColors() *config.ColorConfig {
 	return &config.ColorConfig{
-		StatuslineBg:       "#normal_bg",
-		StatuslineFg:       "#normal_fg",
-		StatuslineAccentBg: "#accent_bg",
-		StatuslineAccentFg: "#accent_fg",
-		StatuslineInfoFg:   "#info_fg",
-		StatuslineInfoBg:   "#info_bg",
-		StatuslineErrorFg:  "#error_fg",
-		StatuslineErrorBg:  "#error_bg",
-		StatuslineFillBg:   "#fill_bg",
+		StatuslineBg:       config.NewColorHex("#111111"),
+		StatuslineFg:       config.NewColorHex("#222222"),
+		StatuslineAccentBg: config.NewColorHex("#333333"),
+		StatuslineAccentFg: config.NewColorHex("#444444"),
+		StatuslineInfoFg:   config.NewColorHex("#555555"),
+		StatuslineInfoBg:   config.NewColorHex("#666666"),
+		StatuslineErrorFg:  config.NewColorHex("#777777"),
+		StatuslineErrorBg:  config.NewColorHex("#888888"),
+		StatuslineFillBg:   config.NewColorHex("#999999"),
 	}
 }
 
@@ -108,11 +108,11 @@ func TestRenderLeftSegments_singleSegment(t *testing.T) {
 	result := sw.renderLeftSegments(segments, colors)
 
 	// first segment (index 0) uses accent colors
-	if !strings.Contains(result, "[#accent_fg:#accent_bg] v1.0 ") {
+	if !strings.Contains(result, "[#444444:#333333] v1.0 ") {
 		t.Errorf("first segment should use accent colors, got %q", result)
 	}
 	// separator: fg=accent_bg (current), bg=fill (last segment)
-	if !strings.Contains(result, "[#accent_bg:#fill_bg]"+separatorRight) {
+	if !strings.Contains(result, "[#333333:#999999]"+separatorRight) {
 		t.Errorf("separator should transition to fill background, got %q", result)
 	}
 	// ends with color reset
@@ -132,15 +132,15 @@ func TestRenderLeftSegments_twoSegments(t *testing.T) {
 	result := sw.renderLeftSegments(segments, colors)
 
 	// first segment (index 0): accent
-	if !strings.Contains(result, "[#accent_fg:#accent_bg] v1.0 ") {
+	if !strings.Contains(result, "[#444444:#333333] v1.0 ") {
 		t.Errorf("first segment should use accent, got %q", result)
 	}
 	// separator between 1st and 2nd: fg=accent_bg, bg=normal_bg
-	if !strings.Contains(result, "[#accent_bg:#normal_bg]"+separatorRight) {
+	if !strings.Contains(result, "[#333333:#111111]"+separatorRight) {
 		t.Errorf("separator should transition accent→normal, got %q", result)
 	}
 	// second segment (index 1): normal
-	if !strings.Contains(result, "[#normal_fg:#normal_bg] main ") {
+	if !strings.Contains(result, "[#222222:#111111] main ") {
 		t.Errorf("second segment should use normal colors, got %q", result)
 	}
 }
@@ -161,11 +161,11 @@ func TestRenderRightSegments_singleSegment(t *testing.T) {
 	result := sw.renderRightSegments(segments, colors)
 
 	// index 0 (even) → accent colors
-	if !strings.Contains(result, "[#accent_fg:#accent_bg] 42 ") {
+	if !strings.Contains(result, "[#444444:#333333] 42 ") {
 		t.Errorf("segment 0 should use accent colors, got %q", result)
 	}
 	// separator: fg=accent_bg, bg=fill (first right segment)
-	if !strings.Contains(result, "[#accent_bg:#fill_bg]"+separatorLeft) {
+	if !strings.Contains(result, "[#333333:#999999]"+separatorLeft) {
 		t.Errorf("separator should be accent→fill, got %q", result)
 	}
 }
@@ -181,15 +181,15 @@ func TestRenderRightSegments_twoSegments(t *testing.T) {
 	result := sw.renderRightSegments(segments, colors)
 
 	// index 0 (even) → accent
-	if !strings.Contains(result, "[#accent_fg:#accent_bg] 42 ") {
+	if !strings.Contains(result, "[#444444:#333333] 42 ") {
 		t.Errorf("segment 0 should use accent, got %q", result)
 	}
 	// index 1 (odd) → normal
-	if !strings.Contains(result, "[#normal_fg:#normal_bg] 10 ") {
+	if !strings.Contains(result, "[#222222:#111111] 10 ") {
 		t.Errorf("segment 1 should use normal, got %q", result)
 	}
 	// separator between 0→1: fg=normal_bg, bg=accent_bg (prev segment)
-	if !strings.Contains(result, "[#normal_bg:#accent_bg]"+separatorLeft) {
+	if !strings.Contains(result, "[#111111:#333333]"+separatorLeft) {
 		t.Errorf("separator between segments should show normal→accent transition, got %q", result)
 	}
 }
@@ -206,13 +206,13 @@ func TestRenderRightSegments_threeSegments(t *testing.T) {
 	result := sw.renderRightSegments(segments, colors)
 
 	// index 0 → accent, index 1 → normal, index 2 → accent
-	if !strings.Contains(result, "[#accent_fg:#accent_bg] a ") {
+	if !strings.Contains(result, "[#444444:#333333] a ") {
 		t.Error("segment 0 should use accent")
 	}
-	if !strings.Contains(result, "[#normal_fg:#normal_bg] b ") {
+	if !strings.Contains(result, "[#222222:#111111] b ") {
 		t.Error("segment 1 should use normal")
 	}
-	if !strings.Contains(result, "[#accent_fg:#accent_bg] c ") {
+	if !strings.Contains(result, "[#444444:#333333] c ") {
 		t.Error("segment 2 should use accent")
 	}
 }
@@ -230,7 +230,7 @@ func TestRenderMessage_info(t *testing.T) {
 	colors := testColors()
 	result := sw.renderMessage("task saved", model.MessageLevelInfo, colors)
 
-	if !strings.Contains(result, "[#info_fg:#info_bg] task saved ") {
+	if !strings.Contains(result, "[#555555:#666666] task saved ") {
 		t.Errorf("info message should use info colors, got %q", result)
 	}
 	if !strings.HasSuffix(result, "[-:-]") {
@@ -243,7 +243,7 @@ func TestRenderMessage_error(t *testing.T) {
 	colors := testColors()
 	result := sw.renderMessage("validation failed", model.MessageLevelError, colors)
 
-	if !strings.Contains(result, "[#error_fg:#error_bg] validation failed ") {
+	if !strings.Contains(result, "[#777777:#888888] validation failed ") {
 		t.Errorf("error message should use error colors, got %q", result)
 	}
 	if !strings.HasSuffix(result, "[-:-]") {
@@ -255,18 +255,18 @@ func TestRightSegmentColors(t *testing.T) {
 	colors := testColors()
 
 	bg0, fg0 := segmentColors(0, colors)
-	if bg0 != "#accent_bg" || fg0 != "#accent_fg" {
-		t.Errorf("index 0: got (%s, %s), want accent", bg0, fg0)
+	if bg0.Hex() != colors.StatuslineAccentBg.Hex() || fg0.Hex() != colors.StatuslineAccentFg.Hex() {
+		t.Errorf("index 0: got (%s, %s), want accent", bg0.Hex(), fg0.Hex())
 	}
 
 	bg1, fg1 := segmentColors(1, colors)
-	if bg1 != "#normal_bg" || fg1 != "#normal_fg" {
-		t.Errorf("index 1: got (%s, %s), want normal", bg1, fg1)
+	if bg1.Hex() != colors.StatuslineBg.Hex() || fg1.Hex() != colors.StatuslineFg.Hex() {
+		t.Errorf("index 1: got (%s, %s), want normal", bg1.Hex(), fg1.Hex())
 	}
 
 	bg2, fg2 := segmentColors(2, colors)
-	if bg2 != "#accent_bg" || fg2 != "#accent_fg" {
-		t.Errorf("index 2: got (%s, %s), want accent", bg2, fg2)
+	if bg2.Hex() != colors.StatuslineAccentBg.Hex() || fg2.Hex() != colors.StatuslineAccentFg.Hex() {
+		t.Errorf("index 2: got (%s, %s), want accent", bg2.Hex(), fg2.Hex())
 	}
 }
 

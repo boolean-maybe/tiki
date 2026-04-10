@@ -30,24 +30,20 @@ func NewInfoWidget() *InfoWidget {
 func (iw *InfoWidget) SetViewInfo(name, description string) {
 	colors := config.GetColors()
 
-	// convert "[orange]" to "[orange::b]" for bold name
-	boldColor := makeBold(colors.HeaderInfoLabel)
+	boldColor := colors.HeaderInfoLabel.Tag().Bold().String()
+	separatorTag := colors.HeaderInfoSeparator.Tag().String()
+	descTag := colors.HeaderInfoDesc.Tag().String()
 
 	separator := strings.Repeat("─", InfoWidth)
 
 	var text string
 	if description != "" {
-		text = fmt.Sprintf("%s%s[-::-]\n%s%s[-]\n%s%s", boldColor, name, colors.HeaderInfoSeparator, separator, colors.HeaderInfoDesc, description)
+		text = fmt.Sprintf("%s%s[-::-]\n%s%s[-]\n%s%s", boldColor, name, separatorTag, separator, descTag, description)
 	} else {
 		text = fmt.Sprintf("%s%s[-::-]", boldColor, name)
 	}
 
 	iw.SetText(text)
-}
-
-// makeBold converts a tview color tag like "[orange]" to "[orange::b]"
-func makeBold(colorTag string) string {
-	return strings.TrimSuffix(colorTag, "]") + "::b]"
 }
 
 // Primitive returns the underlying tview primitive

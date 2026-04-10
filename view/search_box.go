@@ -21,9 +21,9 @@ func NewSearchBox() *SearchBox {
 
 	// Configure the input field (border drawn manually in Draw)
 	inputField.SetLabel("> ")
-	inputField.SetLabelColor(colors.SearchBoxLabelColor)
-	inputField.SetFieldBackgroundColor(colors.ContentBackgroundColor)
-	inputField.SetFieldTextColor(colors.ContentTextColor)
+	inputField.SetLabelColor(colors.SearchBoxLabelColor.TCell())
+	inputField.SetFieldBackgroundColor(colors.ContentBackgroundColor.TCell())
+	inputField.SetFieldTextColor(colors.ContentTextColor.TCell())
 	inputField.SetBorder(false)
 
 	sb := &SearchBox{
@@ -60,7 +60,7 @@ func (sb *SearchBox) Draw(screen tcell.Screen) {
 	}
 
 	// Fill interior with theme-aware background color
-	bgColor := config.GetColors().ContentBackgroundColor
+	bgColor := config.GetColors().ContentBackgroundColor.TCell()
 	bgStyle := tcell.StyleDefault.Background(bgColor)
 	for row := y; row < y+height; row++ {
 		for col := x; col < x+width; col++ {

@@ -57,8 +57,8 @@ func NewDokiView(
 
 func (dv *DokiView) build() {
 	// title bar with gradient background using plugin color
-	textColor := tcell.ColorDefault
-	if dv.pluginDef.Foreground != tcell.ColorDefault {
+	textColor := config.DefaultColor()
+	if !dv.pluginDef.Foreground.IsDefault() {
 		textColor = dv.pluginDef.Foreground
 	}
 	dv.titleBar = NewGradientCaptionRow([]string{dv.pluginDef.Name}, nil, dv.pluginDef.Background, textColor)

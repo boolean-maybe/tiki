@@ -381,9 +381,10 @@ func (c *TaskEditCoordinator) prepareView(activeView View, focus model.EditField
 	_ = c.FocusNextField(activeView)
 }
 
-// rejectionMessage extracts clean rejection reasons from an error.
-// If the error wraps a RejectionError, returns just the reasons without
-// the "failed to update task:" / "validation failed:" prefixes.
+// rejectionMessage extracts a clean user-facing message from an error.
+// For RejectionError: returns just the rejection reasons.
+// For other errors: unwraps to the root cause to strip wrapper prefixes
+// like "failed to update task: failed to save task:".
 func rejectionMessage(err error) string {
 	var re *service.RejectionError
 	if errors.As(err, &re) {
@@ -392,6 +393,14 @@ func rejectionMessage(err error) string {
 			reasons[i] = r.Reason
 		}
 		return strings.Join(reasons, "; ")
+	}
+	// unwrap to the innermost error for a clean message
+	for {
+		inner := errors.Unwrap(err)
+		if inner == nil {
+			break
+		}
+		err = inner
 	}
 	return err.Error()
 }

@@ -1,6 +1,6 @@
 package config
 
-// Color and style definitions for the UI: gradients, tcell colors, tview color tags.
+// Color and style definitions for the UI: gradients, unified Color values.
 
 import (
 	"github.com/gdamore/tcell/v2"
@@ -18,218 +18,330 @@ type ColorConfig struct {
 	CaptionFallbackGradient Gradient
 
 	// Task box colors
-	TaskBoxSelectedBackground   tcell.Color
-	TaskBoxSelectedText         tcell.Color
-	TaskBoxSelectedBorder       tcell.Color
-	TaskBoxUnselectedBorder     tcell.Color
-	TaskBoxUnselectedBackground tcell.Color
+	TaskBoxSelectedBackground   Color
+	TaskBoxSelectedText         Color
+	TaskBoxSelectedBorder       Color
+	TaskBoxUnselectedBorder     Color
+	TaskBoxUnselectedBackground Color
 	TaskBoxIDColor              Gradient
-	TaskBoxTitleColor           string // tview color string like "[#b8b8b8]"
-	TaskBoxLabelColor           string // tview color string like "[#767676]"
-	TaskBoxDescriptionColor     string // tview color string like "[#767676]"
-	TaskBoxTagValueColor        string // tview color string like "[#5a6f8f]"
-	TaskListSelectionColor      string // tview color string for selected row highlight, e.g. "[white:#3a5f8a]"
-	TaskListStatusDoneColor     string // tview color string for done status indicator, e.g. "[#00ff7f]"
-	TaskListStatusPendingColor  string // tview color string for pending status indicator, e.g. "[white]"
+	TaskBoxTitleColor           Color
+	TaskBoxLabelColor           Color
+	TaskBoxDescriptionColor     Color
+	TaskBoxTagValueColor        Color
+	TaskListSelectionFg         Color // selected row foreground
+	TaskListSelectionBg         Color // selected row background
+	TaskListStatusDoneColor     Color
+	TaskListStatusPendingColor  Color
 
 	// Task detail view colors
 	TaskDetailIDColor           Gradient
-	TaskDetailTitleText         string // tview color string like "[yellow]"
-	TaskDetailLabelText         string // tview color string like "[green]"
-	TaskDetailValueText         string // tview color string like "[white]"
-	TaskDetailCommentAuthor     string // tview color string like "[yellow]"
-	TaskDetailEditDimTextColor  string // tview color string like "[#808080]"
-	TaskDetailEditDimLabelColor string // tview color string like "[#606060]"
-	TaskDetailEditDimValueColor string // tview color string like "[#909090]"
-	TaskDetailEditFocusMarker   string // tview color string like "[yellow]"
-	TaskDetailEditFocusText     string // tview color string like "[white]"
-	TaskDetailTagForeground     tcell.Color
-	TaskDetailTagBackground     tcell.Color
-	TaskDetailPlaceholderColor  tcell.Color
+	TaskDetailTitleText         Color
+	TaskDetailLabelText         Color
+	TaskDetailValueText         Color
+	TaskDetailCommentAuthor     Color
+	TaskDetailEditDimTextColor  Color
+	TaskDetailEditDimLabelColor Color
+	TaskDetailEditDimValueColor Color
+	TaskDetailEditFocusMarker   Color
+	TaskDetailEditFocusText     Color
+	TaskDetailTagForeground     Color
+	TaskDetailTagBackground     Color
+	TaskDetailPlaceholderColor  Color
 
 	// Content area colors (base canvas for editable/readable content)
-	ContentBackgroundColor tcell.Color
-	ContentTextColor       tcell.Color
+	ContentBackgroundColor Color
+	ContentTextColor       Color
 
 	// Search box colors
-	SearchBoxLabelColor      tcell.Color
-	SearchBoxBackgroundColor tcell.Color
-	SearchBoxTextColor       tcell.Color
+	SearchBoxLabelColor      Color
+	SearchBoxBackgroundColor Color
+	SearchBoxTextColor       Color
 
 	// Input field colors (used in task detail edit mode)
-	InputFieldBackgroundColor tcell.Color
-	InputFieldTextColor       tcell.Color
+	InputFieldBackgroundColor Color
+	InputFieldTextColor       Color
 
 	// Completion prompt colors
-	CompletionHintColor tcell.Color
+	CompletionHintColor Color
 
 	// Burndown chart colors
-	BurndownChartAxisColor     tcell.Color
-	BurndownChartLabelColor    tcell.Color
-	BurndownChartValueColor    tcell.Color
-	BurndownChartBarColor      tcell.Color
+	BurndownChartAxisColor     Color
+	BurndownChartLabelColor    Color
+	BurndownChartValueColor    Color
+	BurndownChartBarColor      Color
 	BurndownChartGradientFrom  Gradient
 	BurndownChartGradientTo    Gradient
 	BurndownHeaderGradientFrom Gradient // Header-specific chart gradient
 	BurndownHeaderGradientTo   Gradient
 
 	// Header view colors
-	HeaderInfoLabel     string // tview color string for view name (bold)
-	HeaderInfoSeparator string // tview color string for horizontal rule below name
-	HeaderInfoDesc      string // tview color string for view description
-	HeaderKeyBinding    string // tview color string like "[yellow]"
-	HeaderKeyText       string // tview color string like "[white]"
+	HeaderInfoLabel     Color
+	HeaderInfoSeparator Color
+	HeaderInfoDesc      Color
+	HeaderKeyBinding    Color
+	HeaderKeyText       Color
 
 	// Points visual bar colors
-	PointsFilledColor   string // tview color string for filled segments
-	PointsUnfilledColor string // tview color string for unfilled segments
+	PointsFilledColor   Color
+	PointsUnfilledColor Color
 
 	// Header context help action colors
-	HeaderActionGlobalKeyColor   string // tview color string for global action keys
-	HeaderActionGlobalLabelColor string // tview color string for global action labels
-	HeaderActionPluginKeyColor   string // tview color string for plugin action keys
-	HeaderActionPluginLabelColor string // tview color string for plugin action labels
-	HeaderActionViewKeyColor     string // tview color string for view action keys
-	HeaderActionViewLabelColor   string // tview color string for view action labels
+	HeaderActionGlobalKeyColor   Color
+	HeaderActionGlobalLabelColor Color
+	HeaderActionPluginKeyColor   Color
+	HeaderActionPluginLabelColor Color
+	HeaderActionViewKeyColor     Color
+	HeaderActionViewLabelColor   Color
 
 	// Plugin-specific colors
-	DepsEditorBackground tcell.Color // muted slate for dependency editor caption
+	DepsEditorBackground Color // muted slate for dependency editor caption
 
 	// Fallback solid colors for gradient scenarios (used when UseGradients = false)
-	FallbackTaskIDColor   tcell.Color // Deep Sky Blue (end of task ID gradient)
-	FallbackBurndownColor tcell.Color // Purple (start of burndown gradient)
+	FallbackTaskIDColor   Color // Deep Sky Blue (end of task ID gradient)
+	FallbackBurndownColor Color // Purple (start of burndown gradient)
 
 	// Statusline colors (bottom bar, powerline style)
-	StatuslineBg       string // hex color for stat segment background, e.g. "#3a3a5c"
-	StatuslineFg       string // hex color for stat segment text, e.g. "#cccccc"
-	StatuslineAccentBg string // hex color for accent segment background (first segment), e.g. "#5f87af"
-	StatuslineAccentFg string // hex color for accent segment text, e.g. "#1c1c2e"
-	StatuslineInfoFg   string // hex color for info message text
-	StatuslineInfoBg   string // hex color for info message background
-	StatuslineErrorFg  string // hex color for error message text
-	StatuslineErrorBg  string // hex color for error message background
-	StatuslineFillBg   string // hex color for empty statusline area between segments
+	StatuslineBg       Color
+	StatuslineFg       Color
+	StatuslineAccentBg Color
+	StatuslineAccentFg Color
+	StatuslineInfoFg   Color
+	StatuslineInfoBg   Color
+	StatuslineErrorFg  Color
+	StatuslineErrorBg  Color
+	StatuslineFillBg   Color
 }
 
-// DefaultColors returns the default color configuration
-func DefaultColors() *ColorConfig {
-	return &ColorConfig{
-		// Caption fallback gradient
-		CaptionFallbackGradient: Gradient{
-			Start: [3]int{25, 25, 112},  // Midnight Blue (center)
-			End:   [3]int{65, 105, 225}, // Royal Blue (edges)
+// Palette defines the base color values used throughout the UI.
+// Each entry is a semantic name for a unique color; ColorConfig fields reference these.
+// To change a color everywhere it appears, change it here.
+type Palette struct {
+	HighlightColor   Color // yellow — accents, focus markers, key bindings, borders
+	TextColor        Color // white — primary text on dark background
+	TransparentColor Color // default/transparent — inherit background
+	MutedColor       Color // #808080 — de-emphasized text, placeholders, hints, unfocused borders
+	SubduedTextColor Color // #767676 — labels, descriptions
+	DimLabelColor    Color // #606060 — dimmed labels in edit mode
+	DimValueColor    Color // #909090 — dimmed values in edit mode
+	SoftTextColor    Color // #b8b8b8 — titles in task boxes
+	AccentColor      Color // #008000 — label text (green)
+	ValueColor       Color // #8c92ac — field values (cool gray)
+	TagFgColor       Color // #b4c8dc — tag chip foreground (light blue-gray)
+	TagBgColor       Color // #1e3278 — tag chip background (dark blue)
+	SuccessColor     Color // #00ff7f — spring green, done indicator
+	InfoLabelColor   Color // #ffa500 — orange, header view name
+	InfoSepColor     Color // #555555 — header separator
+	InfoDescColor    Color // #888888 — header description
+
+	// Selection
+	SelectionBgColor Color // #3a5f8a — steel blue selection row background
+	SelectionFgColor Color // ANSI 33 blue — selected task box background
+	SelectionText    Color // ANSI 117 — selected task box text
+
+	// Tags (task box inline)
+	TagValueColor Color // #5a6f8f — blueish gray for inline tag values
+
+	// Action key colors (header context help)
+	ActionKeyColor     Color // #ff8c00 — orange for plugin action keys
+	ActionLabelColor   Color // #b0b0b0 — light gray for plugin action labels
+	ViewActionKeyColor Color // #5fafff — cyan for view-specific action keys
+
+	// Points bar
+	PointsFilledColor   Color // #508cff — blue filled segments
+	PointsUnfilledColor Color // #5f6982 — gray unfilled segments
+
+	// Chart
+	ChartAxisColor  Color // #505050 — dark gray chart axis
+	ChartLabelColor Color // #c8c8c8 — light gray chart labels
+	ChartValueColor Color // #ebebeb — very light gray chart values
+	ChartBarColor   Color // #78aaff — light blue chart bars
+
+	// Gradients (not Color, but part of the palette)
+	IDGradient              Gradient // Dodger Blue → Deep Sky Blue
+	CaptionFallbackGradient Gradient // Midnight Blue → Royal Blue
+	DeepSkyBlue             Color    // #00bfff — fallback for ID gradient
+	DeepPurple              Color    // #865ad6 — fallback for burndown gradient
+
+	// Plugin-specific
+	DepsEditorBgColor Color // #4e5768 — muted slate
+
+	// Statusline (Nord palette)
+	NordPolarNight1 Color // #2e3440
+	NordPolarNight2 Color // #3b4252
+	NordPolarNight3 Color // #434c5e
+	NordSnowStorm1  Color // #d8dee9
+	NordFrostBlue   Color // #5e81ac
+	NordAuroraGreen Color // #a3be8c
+}
+
+// DefaultPalette returns the default color palette.
+func DefaultPalette() Palette {
+	return Palette{
+		HighlightColor:   NewColorHex("#ffff00"),
+		TextColor:        NewColorHex("#ffffff"),
+		TransparentColor: DefaultColor(),
+		MutedColor:       NewColorHex("#808080"),
+		SubduedTextColor: NewColorHex("#767676"),
+		DimLabelColor:    NewColorHex("#606060"),
+		DimValueColor:    NewColorHex("#909090"),
+		SoftTextColor:    NewColorHex("#b8b8b8"),
+		AccentColor:      NewColor(tcell.ColorGreen),
+		ValueColor:       NewColorHex("#8c92ac"),
+		TagFgColor:       NewColorRGB(180, 200, 220),
+		TagBgColor:       NewColorRGB(30, 50, 120),
+		SuccessColor:     NewColorHex("#00ff7f"),
+		InfoLabelColor:   NewColorHex("#ffa500"),
+		InfoSepColor:     NewColorHex("#555555"),
+		InfoDescColor:    NewColorHex("#888888"),
+
+		SelectionBgColor: NewColorHex("#3a5f8a"),
+		SelectionFgColor: NewColor(tcell.PaletteColor(33)),
+		SelectionText:    NewColor(tcell.PaletteColor(117)),
+
+		TagValueColor: NewColorHex("#5a6f8f"),
+
+		ActionKeyColor:     NewColorHex("#ff8c00"),
+		ActionLabelColor:   NewColorHex("#b0b0b0"),
+		ViewActionKeyColor: NewColorHex("#5fafff"),
+
+		PointsFilledColor:   NewColorHex("#508cff"),
+		PointsUnfilledColor: NewColorHex("#5f6982"),
+
+		ChartAxisColor:  NewColorRGB(80, 80, 80),
+		ChartLabelColor: NewColorRGB(200, 200, 200),
+		ChartValueColor: NewColorRGB(235, 235, 235),
+		ChartBarColor:   NewColorRGB(120, 170, 255),
+
+		IDGradient: Gradient{
+			Start: [3]int{30, 144, 255},
+			End:   [3]int{0, 191, 255},
 		},
+		CaptionFallbackGradient: Gradient{
+			Start: [3]int{25, 25, 112},
+			End:   [3]int{65, 105, 225},
+		},
+		DeepSkyBlue: NewColorRGB(0, 191, 255),
+		DeepPurple:  NewColorRGB(134, 90, 214),
+
+		DepsEditorBgColor: NewColorHex("#4e5768"),
+
+		NordPolarNight1: NewColorHex("#2e3440"),
+		NordPolarNight2: NewColorHex("#3b4252"),
+		NordPolarNight3: NewColorHex("#434c5e"),
+		NordSnowStorm1:  NewColorHex("#d8dee9"),
+		NordFrostBlue:   NewColorHex("#5e81ac"),
+		NordAuroraGreen: NewColorHex("#a3be8c"),
+	}
+}
+
+// DefaultColors returns the default color configuration built from the default palette.
+func DefaultColors() *ColorConfig {
+	return ColorsFromPalette(DefaultPalette())
+}
+
+// ColorsFromPalette builds a ColorConfig from a Palette.
+func ColorsFromPalette(p Palette) *ColorConfig {
+	deepPurpleSolid := Gradient{Start: [3]int{134, 90, 214}, End: [3]int{134, 90, 214}}
+	blueCyanSolid := Gradient{Start: [3]int{90, 170, 255}, End: [3]int{90, 170, 255}}
+	headerPurpleSolid := Gradient{Start: [3]int{160, 120, 230}, End: [3]int{160, 120, 230}}
+	headerCyanSolid := Gradient{Start: [3]int{110, 190, 255}, End: [3]int{110, 190, 255}}
+
+	return &ColorConfig{
+		CaptionFallbackGradient: p.CaptionFallbackGradient,
 
 		// Task box
-		TaskBoxSelectedBackground:   tcell.PaletteColor(33),  // Blue (ANSI 33)
-		TaskBoxSelectedText:         tcell.PaletteColor(117), // Light Blue (ANSI 117)
-		TaskBoxSelectedBorder:       tcell.ColorYellow,
-		TaskBoxUnselectedBorder:     tcell.ColorGray,
-		TaskBoxUnselectedBackground: tcell.ColorDefault, // transparent/no background
-		TaskBoxIDColor: Gradient{
-			Start: [3]int{30, 144, 255}, // Dodger Blue
-			End:   [3]int{0, 191, 255},  // Deep Sky Blue
-		},
-		TaskBoxTitleColor:          "[#b8b8b8]",       // Light gray
-		TaskBoxLabelColor:          "[#767676]",       // Darker gray for labels
-		TaskBoxDescriptionColor:    "[#767676]",       // Darker gray for description
-		TaskBoxTagValueColor:       "[#5a6f8f]",       // Blueish gray for tag values
-		TaskListSelectionColor:     "[white:#3a5f8a]", // White text on steel blue background
-		TaskListStatusDoneColor:    "[#00ff7f]",       // Spring green for done checkmark
-		TaskListStatusPendingColor: "[white]",         // White for pending circle
+		TaskBoxSelectedBackground:   p.SelectionFgColor,
+		TaskBoxSelectedText:         p.SelectionText,
+		TaskBoxSelectedBorder:       p.HighlightColor,
+		TaskBoxUnselectedBorder:     p.MutedColor,
+		TaskBoxUnselectedBackground: p.TransparentColor,
+		TaskBoxIDColor:              p.IDGradient,
+		TaskBoxTitleColor:           p.SoftTextColor,
+		TaskBoxLabelColor:           p.SubduedTextColor,
+		TaskBoxDescriptionColor:     p.SubduedTextColor,
+		TaskBoxTagValueColor:        p.TagValueColor,
+		TaskListSelectionFg:         p.TextColor,
+		TaskListSelectionBg:         p.SelectionBgColor,
+		TaskListStatusDoneColor:     p.SuccessColor,
+		TaskListStatusPendingColor:  p.TextColor,
 
 		// Task detail
-		TaskDetailIDColor: Gradient{
-			Start: [3]int{30, 144, 255}, // Dodger Blue (same as task box)
-			End:   [3]int{0, 191, 255},  // Deep Sky Blue
-		},
-		TaskDetailTitleText:         "[yellow]",
-		TaskDetailLabelText:         "[green]",
-		TaskDetailValueText:         "[#8c92ac]",
-		TaskDetailCommentAuthor:     "[yellow]",
-		TaskDetailEditDimTextColor:  "[#808080]",                      // Medium gray for dim text
-		TaskDetailEditDimLabelColor: "[#606060]",                      // Darker gray for dim labels
-		TaskDetailEditDimValueColor: "[#909090]",                      // Lighter gray for dim values
-		TaskDetailEditFocusMarker:   "[yellow]",                       // Yellow arrow for focus
-		TaskDetailEditFocusText:     "[white]",                        // White text after arrow
-		TaskDetailTagForeground:     tcell.NewRGBColor(180, 200, 220), // Light blue-gray text
-		TaskDetailTagBackground:     tcell.NewRGBColor(30, 50, 120),   // Dark blue background (more bluish)
-		TaskDetailPlaceholderColor:  tcell.ColorGray,                  // Gray for placeholder text in edit fields
+		TaskDetailIDColor:           p.IDGradient,
+		TaskDetailTitleText:         p.HighlightColor,
+		TaskDetailLabelText:         p.AccentColor,
+		TaskDetailValueText:         p.ValueColor,
+		TaskDetailCommentAuthor:     p.HighlightColor,
+		TaskDetailEditDimTextColor:  p.MutedColor,
+		TaskDetailEditDimLabelColor: p.DimLabelColor,
+		TaskDetailEditDimValueColor: p.DimValueColor,
+		TaskDetailEditFocusMarker:   p.HighlightColor,
+		TaskDetailEditFocusText:     p.TextColor,
+		TaskDetailTagForeground:     p.TagFgColor,
+		TaskDetailTagBackground:     p.TagBgColor,
+		TaskDetailPlaceholderColor:  p.MutedColor,
 
-		// Content area (base canvas)
-		ContentBackgroundColor: tcell.ColorBlack, // dark theme: explicit black
-		ContentTextColor:       tcell.ColorWhite, // dark theme: white text
+		// Content area
+		ContentBackgroundColor: NewColor(tcell.ColorBlack),
+		ContentTextColor:       p.TextColor,
 
 		// Search box
-		SearchBoxLabelColor:      tcell.ColorWhite,
-		SearchBoxBackgroundColor: tcell.ColorDefault, // Transparent
-		SearchBoxTextColor:       tcell.ColorWhite,
+		SearchBoxLabelColor:      p.TextColor,
+		SearchBoxBackgroundColor: p.TransparentColor,
+		SearchBoxTextColor:       p.TextColor,
 
-		// Input field colors
-		InputFieldBackgroundColor: tcell.ColorDefault, // Transparent
-		InputFieldTextColor:       tcell.ColorWhite,
+		// Input field
+		InputFieldBackgroundColor: p.TransparentColor,
+		InputFieldTextColor:       p.TextColor,
 
 		// Completion prompt
-		CompletionHintColor: tcell.NewRGBColor(128, 128, 128), // Medium gray for hint text
+		CompletionHintColor: p.MutedColor,
 
 		// Burndown chart
-		BurndownChartAxisColor:  tcell.NewRGBColor(80, 80, 80),    // Dark gray
-		BurndownChartLabelColor: tcell.NewRGBColor(200, 200, 200), // Light gray
-		BurndownChartValueColor: tcell.NewRGBColor(235, 235, 235), // Very light gray
-		BurndownChartBarColor:   tcell.NewRGBColor(120, 170, 255), // Light blue
-		BurndownChartGradientFrom: Gradient{
-			Start: [3]int{134, 90, 214}, // Deep purple
-			End:   [3]int{134, 90, 214}, // Deep purple (solid, not gradient)
-		},
-		BurndownChartGradientTo: Gradient{
-			Start: [3]int{90, 170, 255}, // Blue/cyan
-			End:   [3]int{90, 170, 255}, // Blue/cyan (solid, not gradient)
-		},
-		BurndownHeaderGradientFrom: Gradient{
-			Start: [3]int{160, 120, 230}, // Purple base for header chart
-			End:   [3]int{160, 120, 230}, // Purple base (solid)
-		},
-		BurndownHeaderGradientTo: Gradient{
-			Start: [3]int{110, 190, 255}, // Cyan top for header chart
-			End:   [3]int{110, 190, 255}, // Cyan top (solid)
-		},
+		BurndownChartAxisColor:     p.ChartAxisColor,
+		BurndownChartLabelColor:    p.ChartLabelColor,
+		BurndownChartValueColor:    p.ChartValueColor,
+		BurndownChartBarColor:      p.ChartBarColor,
+		BurndownChartGradientFrom:  deepPurpleSolid,
+		BurndownChartGradientTo:    blueCyanSolid,
+		BurndownHeaderGradientFrom: headerPurpleSolid,
+		BurndownHeaderGradientTo:   headerCyanSolid,
 
-		// Points visual bar
-		PointsFilledColor:   "[#508cff]", // Blue for filled segments
-		PointsUnfilledColor: "[#5f6982]", // Gray for unfilled segments
+		// Points bar
+		PointsFilledColor:   p.PointsFilledColor,
+		PointsUnfilledColor: p.PointsUnfilledColor,
 
 		// Header
-		HeaderInfoLabel:     "[orange]",
-		HeaderInfoSeparator: "[#555555]",
-		HeaderInfoDesc:      "[#888888]",
-		HeaderKeyBinding:    "[yellow]",
-		HeaderKeyText:       "[white]",
+		HeaderInfoLabel:     p.InfoLabelColor,
+		HeaderInfoSeparator: p.InfoSepColor,
+		HeaderInfoDesc:      p.InfoDescColor,
+		HeaderKeyBinding:    p.HighlightColor,
+		HeaderKeyText:       p.TextColor,
 
 		// Header context help actions
-		HeaderActionGlobalKeyColor:   "#ffff00", // yellow for global actions
-		HeaderActionGlobalLabelColor: "#ffffff", // white for global action labels
-		HeaderActionPluginKeyColor:   "#ff8c00", // orange for plugin actions
-		HeaderActionPluginLabelColor: "#b0b0b0", // light gray for plugin labels
-		HeaderActionViewKeyColor:     "#5fafff", // cyan for view-specific actions
-		HeaderActionViewLabelColor:   "#808080", // gray for view-specific labels
+		HeaderActionGlobalKeyColor:   p.HighlightColor,
+		HeaderActionGlobalLabelColor: p.TextColor,
+		HeaderActionPluginKeyColor:   p.ActionKeyColor,
+		HeaderActionPluginLabelColor: p.ActionLabelColor,
+		HeaderActionViewKeyColor:     p.ViewActionKeyColor,
+		HeaderActionViewLabelColor:   p.MutedColor,
 
 		// Plugin-specific
-		DepsEditorBackground: tcell.NewHexColor(0x4e5768), // Muted slate
+		DepsEditorBackground: p.DepsEditorBgColor,
 
-		// Fallback solid colors (no-gradient terminals)
-		FallbackTaskIDColor:   tcell.NewRGBColor(0, 191, 255),  // Deep Sky Blue
-		FallbackBurndownColor: tcell.NewRGBColor(134, 90, 214), // Purple
+		// Fallback solid colors
+		FallbackTaskIDColor:   p.DeepSkyBlue,
+		FallbackBurndownColor: p.DeepPurple,
 
-		// Statusline (Nord theme)
-		StatuslineBg:       "#434c5e", // Nord polar night 3
-		StatuslineFg:       "#d8dee9", // Nord snow storm 1
-		StatuslineAccentBg: "#5e81ac", // Nord frost blue
-		StatuslineAccentFg: "#2e3440", // Nord polar night 1
-		StatuslineInfoFg:   "#a3be8c", // Nord aurora green
-		StatuslineInfoBg:   "#3b4252", // Nord polar night 2
-		StatuslineErrorFg:  "#ffff00", // yellow, matches header global key color
-		StatuslineErrorBg:  "#3b4252", // Nord polar night 2
-		StatuslineFillBg:   "#3b4252", // Nord polar night 2
+		// Statusline
+		StatuslineBg:       p.NordPolarNight3,
+		StatuslineFg:       p.NordSnowStorm1,
+		StatuslineAccentBg: p.NordFrostBlue,
+		StatuslineAccentFg: p.NordPolarNight1,
+		StatuslineInfoFg:   p.NordAuroraGreen,
+		StatuslineInfoBg:   p.NordPolarNight2,
+		StatuslineErrorFg:  p.HighlightColor,
+		StatuslineErrorBg:  p.NordPolarNight2,
+		StatuslineFillBg:   p.NordPolarNight2,
 	}
 }
 
@@ -251,13 +363,14 @@ func GetColors() *ColorConfig {
 		globalColors = DefaultColors()
 		// Apply theme-aware overrides for critical text colors
 		if GetEffectiveTheme() == "light" {
-			globalColors.ContentBackgroundColor = tcell.ColorDefault
-			globalColors.ContentTextColor = tcell.ColorBlack
-			globalColors.SearchBoxLabelColor = tcell.ColorBlack
-			globalColors.SearchBoxTextColor = tcell.ColorBlack
-			globalColors.InputFieldTextColor = tcell.ColorBlack
-			globalColors.TaskDetailEditFocusText = "[black]"
-			globalColors.HeaderKeyText = "[black]"
+			black := NewColor(tcell.ColorBlack)
+			globalColors.ContentBackgroundColor = DefaultColor()
+			globalColors.ContentTextColor = black
+			globalColors.SearchBoxLabelColor = black
+			globalColors.SearchBoxTextColor = black
+			globalColors.InputFieldTextColor = black
+			globalColors.TaskDetailEditFocusText = black
+			globalColors.HeaderKeyText = black
 		}
 		colorsInitialized = true
 	}

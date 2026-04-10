@@ -10,11 +10,8 @@ import (
 	"github.com/boolean-maybe/tiki/store"
 	"github.com/boolean-maybe/tiki/task"
 
-	"github.com/gdamore/tcell/v2"
 	"github.com/rivo/tview"
 )
-
-// Note: tcell import is still used for pv.pluginDef.Background/Foreground checks
 
 // PluginView renders a filtered/sorted list of tasks across lanes
 type PluginView struct {
@@ -61,8 +58,8 @@ func NewPluginView(
 
 func (pv *PluginView) build() {
 	// title bar with gradient background using plugin color
-	textColor := tcell.ColorDefault
-	if pv.pluginDef.Foreground != tcell.ColorDefault {
+	textColor := config.DefaultColor()
+	if !pv.pluginDef.Foreground.IsDefault() {
 		textColor = pv.pluginDef.Foreground
 	}
 	laneNames := make([]string, len(pv.pluginDef.Lanes))

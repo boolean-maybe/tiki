@@ -64,11 +64,11 @@ type BarChart struct {
 func DefaultTheme() Theme {
 	colors := config.GetColors()
 	return Theme{
-		AxisColor:       colors.BurndownChartAxisColor,
-		LabelColor:      colors.BurndownChartLabelColor,
-		ValueColor:      colors.BurndownChartValueColor,
-		BarColor:        colors.BurndownChartBarColor,
-		BackgroundColor: config.GetColors().ContentBackgroundColor,
+		AxisColor:       colors.BurndownChartAxisColor.TCell(),
+		LabelColor:      colors.BurndownChartLabelColor.TCell(),
+		ValueColor:      colors.BurndownChartValueColor.TCell(),
+		BarColor:        colors.BurndownChartBarColor.TCell(),
+		BackgroundColor: config.GetColors().ContentBackgroundColor.TCell(),
 		BarGradientFrom: colors.BurndownChartGradientFrom.Start,
 		BarGradientTo:   colors.BurndownChartGradientTo.Start,
 		DotChar:         '⣿', // braille full cell for dense dot matrix

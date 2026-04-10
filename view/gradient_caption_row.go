@@ -15,12 +15,12 @@ type GradientCaptionRow struct {
 	laneNames  []string
 	laneWidths []int           // proportional widths (same values used in tview.Flex)
 	gradient   config.Gradient // computed gradient (for truecolor/256-color terminals)
-	textColor  tcell.Color
+	textColor  config.Color
 }
 
 // NewGradientCaptionRow creates a new gradient caption row widget.
 // laneWidths should match the flex proportions used for lane layout (nil = equal).
-func NewGradientCaptionRow(laneNames []string, laneWidths []int, bgColor tcell.Color, textColor tcell.Color) *GradientCaptionRow {
+func NewGradientCaptionRow(laneNames []string, laneWidths []int, bgColor config.Color, textColor config.Color) *GradientCaptionRow {
 	return &GradientCaptionRow{
 		Box:        tview.NewBox(),
 		laneNames:  laneNames,
@@ -106,7 +106,7 @@ func (gcr *GradientCaptionRow) Draw(screen tcell.Screen) {
 		}
 
 		// Render the cell with gradient background
-		style := tcell.StyleDefault.Foreground(gcr.textColor).Background(bgColor)
+		style := tcell.StyleDefault.Foreground(gcr.textColor.TCell()).Background(bgColor)
 		for row := 0; row < height; row++ {
 			screen.SetContent(x+col, y+row, char, nil, style)
 		}
@@ -154,7 +154,7 @@ const (
 )
 
 // computeCaptionGradient computes the gradient for caption background from a base color.
-func computeCaptionGradient(primary tcell.Color) config.Gradient {
+func computeCaptionGradient(primary config.Color) config.Gradient {
 	fallback := config.GetColors().CaptionFallbackGradient
 	if useVibrantPluginGradient {
 		return gradient.GradientFromColorVibrant(primary, vibrantBoost, fallback)

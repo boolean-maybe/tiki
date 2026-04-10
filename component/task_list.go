@@ -23,11 +23,12 @@ type TaskList struct {
 	selectionIndex     int
 	idColumnWidth      int             // computed from widest ID
 	idGradient         config.Gradient // gradient for ID text
-	idFallback         tcell.Color     // fallback solid color for ID
-	titleColor         string          // tview color tag for title, e.g. "[#b8b8b8]"
-	selectionColor     string          // tview color tag for selected row highlight
-	statusDoneColor    string          // tview color tag for done status indicator
-	statusPendingColor string          // tview color tag for pending status indicator
+	idFallback         config.Color    // fallback solid color for ID
+	titleColor         config.Color    // color for title text
+	selectionColor     config.Color    // foreground color for selected row highlight
+	selectionBgColor   config.Color    // background color for selected row highlight
+	statusDoneColor    config.Color    // color for done status indicator
+	statusPendingColor config.Color    // color for pending status indicator
 }
 
 // NewTaskList creates a new TaskList with the given maximum visible row count.
@@ -39,7 +40,8 @@ func NewTaskList(maxVisibleRows int) *TaskList {
 		idGradient:         colors.TaskBoxIDColor,
 		idFallback:         colors.FallbackTaskIDColor,
 		titleColor:         colors.TaskBoxTitleColor,
-		selectionColor:     colors.TaskListSelectionColor,
+		selectionColor:     colors.TaskListSelectionFg,
+		selectionBgColor:   colors.TaskListSelectionBg,
 		statusDoneColor:    colors.TaskListStatusDoneColor,
 		statusPendingColor: colors.TaskListStatusPendingColor,
 	}
@@ -92,14 +94,14 @@ func (tl *TaskList) ScrollDown() {
 }
 
 // SetIDColors overrides the gradient and fallback color for the ID column.
-func (tl *TaskList) SetIDColors(g config.Gradient, fallback tcell.Color) *TaskList {
+func (tl *TaskList) SetIDColors(g config.Gradient, fallback config.Color) *TaskList {
 	tl.idGradient = g
 	tl.idFallback = fallback
 	return tl
 }
 
-// SetTitleColor overrides the tview color tag for the title column.
-func (tl *TaskList) SetTitleColor(color string) *TaskList {
+// SetTitleColor overrides the color for the title column.
+func (tl *TaskList) SetTitleColor(color config.Color) *TaskList {
 	tl.titleColor = color
 	return tl
 }
@@ -134,9 +136,9 @@ func (tl *TaskList) buildRow(t *task.Task, selected bool, width int) string {
 	// Status indicator: done = checkmark, else circle
 	var statusIndicator string
 	if config.GetStatusRegistry().IsDone(string(t.Status)) {
-		statusIndicator = tl.statusDoneColor + "\u2713[-]"
+		statusIndicator = tl.statusDoneColor.Tag().String() + "\u2713[-]"
 	} else {
-		statusIndicator = tl.statusPendingColor + "\u25CB[-]"
+		statusIndicator = tl.statusPendingColor.Tag().String() + "\u25CB[-]"
 	}
 
 	// Gradient-rendered ID, padded to idColumnWidth
@@ -151,10 +153,10 @@ func (tl *TaskList) buildRow(t *task.Task, selected bool, width int) string {
 	titleAvailable := max(width-1-1-tl.idColumnWidth-1, 0)
 	truncatedTitle := tview.Escape(util.TruncateText(t.Title, titleAvailable))
 
-	row := fmt.Sprintf("%s %s %s%s[-]", statusIndicator, idText, tl.titleColor, truncatedTitle)
+	row := fmt.Sprintf("%s %s %s%s[-]", statusIndicator, idText, tl.titleColor.Tag().String(), truncatedTitle)
 
 	if selected {
-		row = tl.selectionColor + row
+		row = tl.selectionColor.Tag().WithBg(tl.selectionBgColor).String() + row
 	}
 
 	return row

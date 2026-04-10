@@ -1,6 +1,10 @@
 package util
 
-import "strings"
+import (
+	"strings"
+
+	"github.com/boolean-maybe/tiki/config"
+)
 
 // GeneratePointsVisual formats points as a visual representation using a styled bar.
 // Points are scaled to a 0-10 display range based on maxPoints configuration.
@@ -8,8 +12,8 @@ import "strings"
 // Parameters:
 //   - points: The task's point value
 //   - maxPoints: The configured maximum points value (for scaling)
-//   - filledColor: tview color tag for filled segments (e.g. "[#508cff]")
-//   - unfilledColor: tview color tag for unfilled segments (e.g. "[#5f6982]")
+//   - filledColor: Color for filled segments
+//   - unfilledColor: Color for unfilled segments
 //
 // Returns: A string with colored filled (❚) and unfilled (❘) segments representing the points value.
 //
@@ -17,8 +21,8 @@ import "strings"
 //
 // Example:
 //
-//	GeneratePointsVisual(7, 10, "[#508cff]", "[#5f6982]") returns a bar with 7 blue segments and 3 gray segments
-func GeneratePointsVisual(points int, maxPoints int, filledColor string, unfilledColor string) string {
+//	GeneratePointsVisual(7, 10, filledColor, unfilledColor) returns a bar with 7 blue segments and 3 gray segments
+func GeneratePointsVisual(points int, maxPoints int, filledColor config.Color, unfilledColor config.Color) string {
 	const displaySegments = 10
 	const filledChar = "❚"
 	const unfilledChar = "❘"
@@ -36,7 +40,7 @@ func GeneratePointsVisual(points int, maxPoints int, filledColor string, unfille
 
 	// Add filled segments
 	if displayPoints > 0 {
-		result.WriteString(filledColor)
+		result.WriteString(filledColor.Tag().String())
 		for i := 0; i < displayPoints; i++ {
 			result.WriteString(filledChar)
 		}
@@ -44,7 +48,7 @@ func GeneratePointsVisual(points int, maxPoints int, filledColor string, unfille
 
 	// Add unfilled segments
 	if displayPoints < displaySegments {
-		result.WriteString(unfilledColor)
+		result.WriteString(unfilledColor.Tag().String())
 		for i := displayPoints; i < displaySegments; i++ {
 			result.WriteString(unfilledChar)
 		}

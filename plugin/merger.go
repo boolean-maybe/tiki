@@ -1,9 +1,5 @@
 package plugin
 
-import (
-	"github.com/gdamore/tcell/v2"
-)
-
 // pluginFileConfig represents the YAML structure of a plugin file
 type pluginFileConfig struct {
 	Name        string               `yaml:"name"`
@@ -58,10 +54,10 @@ func mergePluginDefinitions(base Plugin, override Plugin) Plugin {
 			result.Rune = overrideTiki.Rune
 			result.Modifier = overrideTiki.Modifier
 		}
-		if overrideTiki.Foreground != tcell.ColorDefault {
+		if !overrideTiki.Foreground.IsDefault() {
 			result.Foreground = overrideTiki.Foreground
 		}
-		if overrideTiki.Background != tcell.ColorDefault {
+		if !overrideTiki.Background.IsDefault() {
 			result.Background = overrideTiki.Background
 		}
 		if len(overrideTiki.Lanes) > 0 {

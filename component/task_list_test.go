@@ -181,7 +181,7 @@ func TestFewerItemsThanViewport(t *testing.T) {
 func TestSetIDColors(t *testing.T) {
 	tl := NewTaskList(10)
 	g := config.Gradient{Start: [3]int{255, 0, 0}, End: [3]int{0, 255, 0}}
-	fb := tcell.ColorRed
+	fb := config.NewColor(tcell.ColorRed)
 
 	result := tl.SetIDColors(g, fb)
 	if result != tl {
@@ -197,12 +197,13 @@ func TestSetIDColors(t *testing.T) {
 
 func TestSetTitleColor(t *testing.T) {
 	tl := NewTaskList(10)
-	result := tl.SetTitleColor("[#ff0000]")
+	c := config.NewColor(tcell.ColorRed)
+	result := tl.SetTitleColor(c)
 	if result != tl {
 		t.Error("SetTitleColor should return self for chaining")
 	}
-	if tl.titleColor != "[#ff0000]" {
-		t.Errorf("Expected [#ff0000], got %s", tl.titleColor)
+	if tl.titleColor != c {
+		t.Errorf("Expected color red, got %v", tl.titleColor)
 	}
 }
 
@@ -270,14 +271,16 @@ func TestBuildRow(t *testing.T) {
 
 	t.Run("selected row has selection color prefix", func(t *testing.T) {
 		row := tl.buildRow(pendingTask, true, width)
-		if !strings.HasPrefix(row, tl.selectionColor) {
-			t.Errorf("selected row should start with selection color %q", tl.selectionColor)
+		selTag := tl.selectionColor.Tag().WithBg(tl.selectionBgColor).String()
+		if !strings.HasPrefix(row, selTag) {
+			t.Errorf("selected row should start with selection color %q", selTag)
 		}
 	})
 
 	t.Run("unselected row has no selection prefix", func(t *testing.T) {
 		row := tl.buildRow(pendingTask, false, width)
-		if strings.HasPrefix(row, tl.selectionColor) {
+		selTag := tl.selectionColor.Tag().WithBg(tl.selectionBgColor).String()
+		if strings.HasPrefix(row, selTag) {
 			t.Error("unselected row should not start with selection color")
 		}
 	})

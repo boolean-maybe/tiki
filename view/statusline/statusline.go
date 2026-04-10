@@ -102,7 +102,7 @@ func (sw *StatuslineWidget) render(width int) {
 	if padLen < 1 {
 		padLen = 1
 	}
-	padding := fmt.Sprintf("[-:%s]%s[-:-]", colors.StatuslineFillBg, strings.Repeat(" ", padLen))
+	padding := fmt.Sprintf("[-:%s]%s[-:-]", colors.StatuslineFillBg.Hex(), strings.Repeat(" ", padLen))
 
 	sw.SetText(left + msgRendered + padding + rightStats)
 }
@@ -121,14 +121,14 @@ func (sw *StatuslineWidget) renderLeftSegments(segments []statSegment, colors *c
 		bg, fg := segmentColors(i, colors)
 
 		// segment text: " value "
-		fmt.Fprintf(&b, "[%s:%s] %s ", fg, bg, seg.value)
+		fmt.Fprintf(&b, "[%s:%s] %s ", fg.Hex(), bg.Hex(), seg.value)
 
 		// separator: fg = current bg (creates the arrow), bg = next segment's bg or fill
 		nextBg := colors.StatuslineFillBg
 		if i < len(segments)-1 {
 			nextBg, _ = segmentColors(i+1, colors)
 		}
-		fmt.Fprintf(&b, "[%s:%s]%s", bg, nextBg, separatorRight)
+		fmt.Fprintf(&b, "[%s:%s]%s", bg.Hex(), nextBg.Hex(), separatorRight)
 	}
 
 	// reset colors
@@ -153,10 +153,10 @@ func (sw *StatuslineWidget) renderRightSegments(segments []statSegment, colors *
 		if i > 0 {
 			prevBg, _ = segmentColors(i-1, colors)
 		}
-		fmt.Fprintf(&b, "[%s:%s]%s", bg, prevBg, separatorLeft)
+		fmt.Fprintf(&b, "[%s:%s]%s", bg.Hex(), prevBg.Hex(), separatorLeft)
 
 		// segment text
-		fmt.Fprintf(&b, "[%s:%s] %s ", fg, bg, seg.value)
+		fmt.Fprintf(&b, "[%s:%s] %s ", fg.Hex(), bg.Hex(), seg.value)
 	}
 
 	// reset colors
@@ -166,7 +166,7 @@ func (sw *StatuslineWidget) renderRightSegments(segments []statSegment, colors *
 
 // segmentColors returns (bg, fg) for a segment at the given index.
 // Even indices use accent colors, odd indices use normal colors.
-func segmentColors(index int, colors *config.ColorConfig) (string, string) {
+func segmentColors(index int, colors *config.ColorConfig) (config.Color, config.Color) {
 	if index%2 == 0 {
 		return colors.StatuslineAccentBg, colors.StatuslineAccentFg
 	}
@@ -179,11 +179,11 @@ func (sw *StatuslineWidget) renderMessage(msg string, level model.MessageLevel, 
 		return ""
 	}
 	fg, bg := messageColors(level, colors)
-	return fmt.Sprintf("[%s:%s] %s [-:-]", fg, bg, msg)
+	return fmt.Sprintf("[%s:%s] %s [-:-]", fg.Hex(), bg.Hex(), msg)
 }
 
 // messageColors returns (fg, bg) for the given message level
-func messageColors(level model.MessageLevel, colors *config.ColorConfig) (string, string) {
+func messageColors(level model.MessageLevel, colors *config.ColorConfig) (config.Color, config.Color) {
 	switch level {
 	case model.MessageLevelError:
 		return colors.StatuslineErrorFg, colors.StatuslineErrorBg

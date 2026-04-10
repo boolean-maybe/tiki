@@ -3,6 +3,7 @@ package plugin
 import (
 	"github.com/gdamore/tcell/v2"
 
+	"github.com/boolean-maybe/tiki/config"
 	"github.com/boolean-maybe/tiki/ruki"
 )
 
@@ -24,8 +25,8 @@ type BasePlugin struct {
 	Key         tcell.Key     // tcell key constant (e.g. KeyCtrlH)
 	Rune        rune          // printable character (e.g. 'L')
 	Modifier    tcell.ModMask // modifier keys (Alt, Shift, Ctrl, etc.)
-	Foreground  tcell.Color   // caption text color
-	Background  tcell.Color   // caption background color
+	Foreground  config.Color  // caption text color
+	Background  config.Color  // caption background color
 	FilePath    string        // source file path (for error messages)
 	ConfigIndex int           // index in workflow.yaml views array (-1 if not from a config file)
 	Type        string        // plugin type: "tiki" or "doki"

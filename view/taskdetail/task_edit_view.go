@@ -381,7 +381,7 @@ func (ev *TaskEditView) ensureTagsTextArea(task *taskpkg.Task) *tview.TextArea {
 		ev.tagsTextArea.SetBorder(false)
 		ev.tagsTextArea.SetBorderPadding(1, 1, 2, 2)
 		ev.tagsTextArea.SetPlaceholder("Enter tags separated by spaces")
-		ev.tagsTextArea.SetPlaceholderStyle(tcell.StyleDefault.Foreground(config.GetColors().TaskDetailPlaceholderColor))
+		ev.tagsTextArea.SetPlaceholderStyle(tcell.StyleDefault.Foreground(config.GetColors().TaskDetailPlaceholderColor.TCell()))
 
 		ev.tagsTextArea.SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
 			if event.Key() == tcell.KeyCtrlS {
@@ -448,8 +448,8 @@ func (ev *TaskEditView) ensureTitleInput(task *taskpkg.Task) *tview.InputField {
 	if ev.titleInput == nil {
 		colors := config.GetColors()
 		ev.titleInput = tview.NewInputField()
-		ev.titleInput.SetFieldBackgroundColor(colors.ContentBackgroundColor)
-		ev.titleInput.SetFieldTextColor(colors.InputFieldTextColor)
+		ev.titleInput.SetFieldBackgroundColor(colors.ContentBackgroundColor.TCell())
+		ev.titleInput.SetFieldTextColor(colors.InputFieldTextColor.TCell())
 		ev.titleInput.SetBorder(false)
 
 		ev.titleInput.SetChangedFunc(func(text string) {
@@ -501,9 +501,9 @@ func (ev *TaskEditView) updateValidationState() {
 	if ev.metadataBox != nil {
 		colors := config.DefaultColors()
 		if len(ev.validationErrors) > 0 {
-			ev.metadataBox.SetBorderColor(colors.TaskBoxSelectedBorder)
+			ev.metadataBox.SetBorderColor(colors.TaskBoxSelectedBorder.TCell())
 		} else {
-			ev.metadataBox.SetBorderColor(colors.TaskBoxUnselectedBorder)
+			ev.metadataBox.SetBorderColor(colors.TaskBoxUnselectedBorder.TCell())
 		}
 	}
 }

@@ -4,7 +4,6 @@ import (
 	"testing"
 
 	"github.com/boolean-maybe/tiki/config"
-	"github.com/gdamore/tcell/v2"
 )
 
 func TestInterpolateRGB(t *testing.T) {
@@ -227,7 +226,7 @@ func TestGradientFromColor(t *testing.T) {
 	}
 
 	t.Run("black color uses fallback", func(t *testing.T) {
-		black := tcell.NewRGBColor(0, 0, 0)
+		black := config.NewColorRGB(0, 0, 0)
 		got := GradientFromColor(black, 0.5, fallback)
 		if got != fallback {
 			t.Errorf("GradientFromColor(black) should return fallback, got %v", got)
@@ -235,7 +234,7 @@ func TestGradientFromColor(t *testing.T) {
 	})
 
 	t.Run("non-black color creates gradient", func(t *testing.T) {
-		blue := tcell.NewRGBColor(0, 0, 200)
+		blue := config.NewColorRGB(0, 0, 200)
 		got := GradientFromColor(blue, 0.5, fallback)
 
 		// Should have base color and lighter version
@@ -257,7 +256,7 @@ func TestGradientFromColorVibrant(t *testing.T) {
 	}
 
 	t.Run("black color uses fallback", func(t *testing.T) {
-		black := tcell.NewRGBColor(0, 0, 0)
+		black := config.NewColorRGB(0, 0, 0)
 		got := GradientFromColorVibrant(black, 1.5, fallback)
 		if got != fallback {
 			t.Errorf("GradientFromColorVibrant(black) should return fallback, got %v", got)
@@ -265,7 +264,7 @@ func TestGradientFromColorVibrant(t *testing.T) {
 	})
 
 	t.Run("non-black color creates boosted gradient", func(t *testing.T) {
-		blue := tcell.NewRGBColor(0, 0, 100)
+		blue := config.NewColorRGB(0, 0, 100)
 		got := GradientFromColorVibrant(blue, 1.5, fallback)
 
 		// Should have base color and boosted version
@@ -301,7 +300,7 @@ func TestRenderAdaptiveGradientText(t *testing.T) {
 		Start: [3]int{30, 144, 255}, // Dodger Blue
 		End:   [3]int{0, 191, 255},  // Deep Sky Blue
 	}
-	fallback := tcell.NewRGBColor(0, 191, 255) // Deep Sky Blue
+	fallback := config.NewColorRGB(0, 191, 255) // Deep Sky Blue
 
 	tests := []struct {
 		name         string
@@ -427,15 +426,15 @@ func TestAdaptiveGradientRespectConfig(t *testing.T) {
 		Start: [3]int{100, 100, 100},
 		End:   [3]int{200, 200, 200},
 	}
-	fallback := tcell.NewRGBColor(200, 200, 200)
+	fallbackColor := config.NewColorRGB(200, 200, 200)
 	text := "Test"
 
 	// Test toggle behavior
 	config.UseGradients = true
-	resultWithGradients := RenderAdaptiveGradientText(text, gradient, fallback)
+	resultWithGradients := RenderAdaptiveGradientText(text, gradient, fallbackColor)
 
 	config.UseGradients = false
-	resultWithoutGradients := RenderAdaptiveGradientText(text, gradient, fallback)
+	resultWithoutGradients := RenderAdaptiveGradientText(text, gradient, fallbackColor)
 
 	// Results should be different
 	if resultWithGradients == resultWithoutGradients {

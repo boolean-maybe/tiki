@@ -29,7 +29,7 @@ type FieldRenderContext struct {
 }
 
 // getDimOrFullColor returns dim color if in edit mode and not focused, otherwise full color
-func getDimOrFullColor(mode RenderMode, focused bool, fullColor string, dimColor string) string {
+func getDimOrFullColor(mode RenderMode, focused bool, fullColor config.Color, dimColor config.Color) config.Color {
 	if mode == RenderModeEdit && !focused {
 		return dimColor
 	}
@@ -38,7 +38,7 @@ func getDimOrFullColor(mode RenderMode, focused bool, fullColor string, dimColor
 
 // getFocusMarker returns the focus marker string (arrow + text color) from colors config
 func getFocusMarker(colors *config.ColorConfig) string {
-	return colors.TaskDetailEditFocusMarker + "► " + colors.TaskDetailEditFocusText
+	return colors.TaskDetailEditFocusMarker.Tag().String() + "► " + colors.TaskDetailEditFocusText.Tag().String()
 }
 
 // RenderStatusText renders a status field as read-only text
@@ -46,15 +46,15 @@ func RenderStatusText(task *taskpkg.Task, ctx FieldRenderContext) tview.Primitiv
 	focused := ctx.Mode == RenderModeEdit && ctx.FocusedField == model.EditFieldStatus
 	statusDisplay := taskpkg.StatusDisplay(task.Status)
 
-	labelColor := getDimOrFullColor(ctx.Mode, focused, ctx.Colors.TaskDetailLabelText, ctx.Colors.TaskDetailEditDimLabelColor)
-	valueColor := getDimOrFullColor(ctx.Mode, focused, ctx.Colors.TaskDetailValueText, ctx.Colors.TaskDetailEditDimValueColor)
+	labelTag := getDimOrFullColor(ctx.Mode, focused, ctx.Colors.TaskDetailLabelText, ctx.Colors.TaskDetailEditDimLabelColor).Tag().String()
+	valueTag := getDimOrFullColor(ctx.Mode, focused, ctx.Colors.TaskDetailValueText, ctx.Colors.TaskDetailEditDimValueColor).Tag().String()
 
 	focusMarker := ""
 	if focused && ctx.Mode == RenderModeEdit {
 		focusMarker = getFocusMarker(ctx.Colors)
 	}
 
-	text := fmt.Sprintf("%s%s%-10s%s%s", focusMarker, labelColor, "Status:", valueColor, statusDisplay)
+	text := fmt.Sprintf("%s%s%-10s%s%s", focusMarker, labelTag, "Status:", valueTag, statusDisplay)
 	textView := tview.NewTextView().SetDynamicColors(true).SetText(text)
 	textView.SetBorderPadding(0, 0, 0, 0)
 
@@ -69,15 +69,15 @@ func RenderTypeText(task *taskpkg.Task, ctx FieldRenderContext) tview.Primitive 
 		typeDisplay = "[gray](none)[-]"
 	}
 
-	labelColor := getDimOrFullColor(ctx.Mode, focused, ctx.Colors.TaskDetailLabelText, ctx.Colors.TaskDetailEditDimLabelColor)
-	valueColor := getDimOrFullColor(ctx.Mode, focused, ctx.Colors.TaskDetailValueText, ctx.Colors.TaskDetailEditDimValueColor)
+	labelTag := getDimOrFullColor(ctx.Mode, focused, ctx.Colors.TaskDetailLabelText, ctx.Colors.TaskDetailEditDimLabelColor).Tag().String()
+	valueTag := getDimOrFullColor(ctx.Mode, focused, ctx.Colors.TaskDetailValueText, ctx.Colors.TaskDetailEditDimValueColor).Tag().String()
 
 	focusMarker := ""
 	if focused && ctx.Mode == RenderModeEdit {
 		focusMarker = getFocusMarker(ctx.Colors)
 	}
 
-	text := fmt.Sprintf("%s%s%-10s%s%s", focusMarker, labelColor, "Type:", valueColor, typeDisplay)
+	text := fmt.Sprintf("%s%s%-10s%s%s", focusMarker, labelTag, "Type:", valueTag, typeDisplay)
 	textView := tview.NewTextView().SetDynamicColors(true).SetText(text)
 	textView.SetBorderPadding(0, 0, 0, 0)
 
@@ -88,15 +88,15 @@ func RenderTypeText(task *taskpkg.Task, ctx FieldRenderContext) tview.Primitive 
 func RenderPriorityText(task *taskpkg.Task, ctx FieldRenderContext) tview.Primitive {
 	focused := ctx.Mode == RenderModeEdit && ctx.FocusedField == model.EditFieldPriority
 
-	labelColor := getDimOrFullColor(ctx.Mode, focused, ctx.Colors.TaskDetailLabelText, ctx.Colors.TaskDetailEditDimLabelColor)
-	valueColor := getDimOrFullColor(ctx.Mode, focused, ctx.Colors.TaskDetailValueText, ctx.Colors.TaskDetailEditDimValueColor)
+	labelTag := getDimOrFullColor(ctx.Mode, focused, ctx.Colors.TaskDetailLabelText, ctx.Colors.TaskDetailEditDimLabelColor).Tag().String()
+	valueTag := getDimOrFullColor(ctx.Mode, focused, ctx.Colors.TaskDetailValueText, ctx.Colors.TaskDetailEditDimValueColor).Tag().String()
 
 	focusMarker := ""
 	if focused && ctx.Mode == RenderModeEdit {
 		focusMarker = getFocusMarker(ctx.Colors)
 	}
 
-	text := fmt.Sprintf("%s%s%-10s%s%s", focusMarker, labelColor, "Priority:", valueColor, taskpkg.PriorityDisplay(task.Priority))
+	text := fmt.Sprintf("%s%s%-10s%s%s", focusMarker, labelTag, "Priority:", valueTag, taskpkg.PriorityDisplay(task.Priority))
 	textView := tview.NewTextView().SetDynamicColors(true).SetText(text)
 	textView.SetBorderPadding(0, 0, 0, 0)
 
@@ -107,15 +107,15 @@ func RenderPriorityText(task *taskpkg.Task, ctx FieldRenderContext) tview.Primit
 func RenderAssigneeText(task *taskpkg.Task, ctx FieldRenderContext) tview.Primitive {
 	focused := ctx.Mode == RenderModeEdit && ctx.FocusedField == model.EditFieldAssignee
 
-	labelColor := getDimOrFullColor(ctx.Mode, focused, ctx.Colors.TaskDetailLabelText, ctx.Colors.TaskDetailEditDimLabelColor)
-	valueColor := getDimOrFullColor(ctx.Mode, focused, ctx.Colors.TaskDetailValueText, ctx.Colors.TaskDetailEditDimValueColor)
+	labelTag := getDimOrFullColor(ctx.Mode, focused, ctx.Colors.TaskDetailLabelText, ctx.Colors.TaskDetailEditDimLabelColor).Tag().String()
+	valueTag := getDimOrFullColor(ctx.Mode, focused, ctx.Colors.TaskDetailValueText, ctx.Colors.TaskDetailEditDimValueColor).Tag().String()
 
 	focusMarker := ""
 	if focused && ctx.Mode == RenderModeEdit {
 		focusMarker = getFocusMarker(ctx.Colors)
 	}
 
-	text := fmt.Sprintf("%s%s%-10s%s%s", focusMarker, labelColor, "Assignee:", valueColor, tview.Escape(defaultString(task.Assignee, "Unassigned")))
+	text := fmt.Sprintf("%s%s%-10s%s%s", focusMarker, labelTag, "Assignee:", valueTag, tview.Escape(defaultString(task.Assignee, "Unassigned")))
 	textView := tview.NewTextView().SetDynamicColors(true).SetText(text)
 	textView.SetBorderPadding(0, 0, 0, 0)
 
@@ -126,15 +126,15 @@ func RenderAssigneeText(task *taskpkg.Task, ctx FieldRenderContext) tview.Primit
 func RenderPointsText(task *taskpkg.Task, ctx FieldRenderContext) tview.Primitive {
 	focused := ctx.Mode == RenderModeEdit && ctx.FocusedField == model.EditFieldPoints
 
-	labelColor := getDimOrFullColor(ctx.Mode, focused, ctx.Colors.TaskDetailLabelText, ctx.Colors.TaskDetailEditDimLabelColor)
-	valueColor := getDimOrFullColor(ctx.Mode, focused, ctx.Colors.TaskDetailValueText, ctx.Colors.TaskDetailEditDimValueColor)
+	labelTag := getDimOrFullColor(ctx.Mode, focused, ctx.Colors.TaskDetailLabelText, ctx.Colors.TaskDetailEditDimLabelColor).Tag().String()
+	valueTag := getDimOrFullColor(ctx.Mode, focused, ctx.Colors.TaskDetailValueText, ctx.Colors.TaskDetailEditDimValueColor).Tag().String()
 
 	focusMarker := ""
 	if focused && ctx.Mode == RenderModeEdit {
 		focusMarker = getFocusMarker(ctx.Colors)
 	}
 
-	text := fmt.Sprintf("%s%s%-10s%s%d", focusMarker, labelColor, "Points:", valueColor, task.Points)
+	text := fmt.Sprintf("%s%s%-10s%s%d", focusMarker, labelTag, "Points:", valueTag, task.Points)
 	textView := tview.NewTextView().SetDynamicColors(true).SetText(text)
 	textView.SetBorderPadding(0, 0, 0, 0)
 
@@ -144,8 +144,14 @@ func RenderPointsText(task *taskpkg.Task, ctx FieldRenderContext) tview.Primitiv
 // RenderTitleText renders a title as read-only text
 func RenderTitleText(task *taskpkg.Task, ctx FieldRenderContext) tview.Primitive {
 	focused := ctx.Mode == RenderModeEdit && ctx.FocusedField == model.EditFieldTitle
-	titleColor := getDimOrFullColor(ctx.Mode, focused, ctx.Colors.TaskDetailTitleText[:len(ctx.Colors.TaskDetailTitleText)-1]+"::b]", ctx.Colors.TaskDetailEditDimTextColor)
-	titleText := fmt.Sprintf("%s%s%s", titleColor, tview.Escape(task.Title), ctx.Colors.TaskDetailValueText)
+	var titleTag string
+	if ctx.Mode == RenderModeEdit && !focused {
+		titleTag = ctx.Colors.TaskDetailEditDimTextColor.Tag().String()
+	} else {
+		titleTag = ctx.Colors.TaskDetailTitleText.Tag().Bold().String()
+	}
+	valueTag := ctx.Colors.TaskDetailValueText.Tag().String()
+	titleText := fmt.Sprintf("%s%s%s", titleTag, tview.Escape(task.Title), valueTag)
 	titleBox := tview.NewTextView().
 		SetDynamicColors(true).
 		SetText(titleText)
@@ -159,7 +165,7 @@ func RenderTagsColumn(task *taskpkg.Task) tview.Primitive {
 		return tview.NewBox()
 	}
 	colors := config.GetColors()
-	label := tview.NewTextView().SetDynamicColors(true).SetText(fmt.Sprintf("%sTags", colors.TaskDetailLabelText))
+	label := tview.NewTextView().SetDynamicColors(true).SetText(fmt.Sprintf("%sTags", colors.TaskDetailLabelText.Tag().String()))
 	label.SetBorderPadding(0, 0, 0, 0)
 
 	col := tview.NewFlex().SetDirection(tview.FlexRow)
@@ -186,7 +192,7 @@ func RenderDependsOnColumn(task *taskpkg.Task, taskStore store.Store) tview.Prim
 	}
 
 	colors := config.GetColors()
-	label := tview.NewTextView().SetDynamicColors(true).SetText(fmt.Sprintf("%sDepends On", colors.TaskDetailLabelText))
+	label := tview.NewTextView().SetDynamicColors(true).SetText(fmt.Sprintf("%sDepends On", colors.TaskDetailLabelText.Tag().String()))
 	label.SetBorderPadding(0, 0, 0, 0)
 
 	col := tview.NewFlex().SetDirection(tview.FlexRow)
@@ -204,7 +210,7 @@ func RenderBlocksColumn(blocked []*taskpkg.Task) tview.Primitive {
 	}
 
 	colors := config.GetColors()
-	label := tview.NewTextView().SetDynamicColors(true).SetText(fmt.Sprintf("%sBlocks", colors.TaskDetailLabelText))
+	label := tview.NewTextView().SetDynamicColors(true).SetText(fmt.Sprintf("%sBlocks", colors.TaskDetailLabelText.Tag().String()))
 	label.SetBorderPadding(0, 0, 0, 0)
 
 	col := tview.NewFlex().SetDirection(tview.FlexRow)
@@ -217,7 +223,7 @@ func RenderBlocksColumn(blocked []*taskpkg.Task) tview.Primitive {
 // RenderAuthorText renders the author field as read-only text
 func RenderAuthorText(task *taskpkg.Task, colors *config.ColorConfig) tview.Primitive {
 	text := fmt.Sprintf("%s%-10s%s%s",
-		colors.TaskDetailEditDimLabelColor, "Author:", colors.TaskDetailValueText, tview.Escape(defaultString(task.CreatedBy, "Unknown")))
+		colors.TaskDetailEditDimLabelColor.Tag().String(), "Author:", colors.TaskDetailValueText.Tag().String(), tview.Escape(defaultString(task.CreatedBy, "Unknown")))
 	view := tview.NewTextView().SetDynamicColors(true).SetText(text)
 	view.SetBorderPadding(0, 0, 0, 0)
 	return view
@@ -230,7 +236,7 @@ func RenderCreatedText(task *taskpkg.Task, colors *config.ColorConfig) tview.Pri
 		createdAtStr = task.CreatedAt.Format("2006-01-02 15:04")
 	}
 	text := fmt.Sprintf("%s%-10s%s%s",
-		colors.TaskDetailEditDimLabelColor, "Created:", colors.TaskDetailValueText, createdAtStr)
+		colors.TaskDetailEditDimLabelColor.Tag().String(), "Created:", colors.TaskDetailValueText.Tag().String(), createdAtStr)
 	view := tview.NewTextView().SetDynamicColors(true).SetText(text)
 	view.SetBorderPadding(0, 0, 0, 0)
 	return view
@@ -243,7 +249,7 @@ func RenderUpdatedText(task *taskpkg.Task, colors *config.ColorConfig) tview.Pri
 		updatedAtStr = task.UpdatedAt.Format("2006-01-02 15:04")
 	}
 	text := fmt.Sprintf("%s%-10s%s%s",
-		colors.TaskDetailEditDimLabelColor, "Updated:", colors.TaskDetailValueText, updatedAtStr)
+		colors.TaskDetailEditDimLabelColor.Tag().String(), "Updated:", colors.TaskDetailValueText.Tag().String(), updatedAtStr)
 	view := tview.NewTextView().SetDynamicColors(true).SetText(text)
 	view.SetBorderPadding(0, 0, 0, 0)
 	return view
@@ -331,7 +337,7 @@ func RenderDueText(task *taskpkg.Task, colors *config.ColorConfig) tview.Primiti
 		dueDisplay = task.Due.Format("2006-01-02")
 	}
 	text := fmt.Sprintf("%s%-12s%s%s",
-		colors.TaskDetailEditDimLabelColor, "Due:", colors.TaskDetailValueText, dueDisplay)
+		colors.TaskDetailEditDimLabelColor.Tag().String(), "Due:", colors.TaskDetailValueText.Tag().String(), dueDisplay)
 	view := tview.NewTextView().SetDynamicColors(true).SetText(text)
 	view.SetBorderPadding(0, 0, 0, 0)
 	return view
@@ -341,7 +347,7 @@ func RenderDueText(task *taskpkg.Task, colors *config.ColorConfig) tview.Primiti
 func RenderRecurrenceText(task *taskpkg.Task, colors *config.ColorConfig) tview.Primitive {
 	display := taskpkg.RecurrenceDisplay(task.Recurrence)
 	text := fmt.Sprintf("%s%-12s%s%s",
-		colors.TaskDetailEditDimLabelColor, "Recurrence:", colors.TaskDetailValueText, display)
+		colors.TaskDetailEditDimLabelColor.Tag().String(), "Recurrence:", colors.TaskDetailValueText.Tag().String(), display)
 	view := tview.NewTextView().SetDynamicColors(true).SetText(text)
 	view.SetBorderPadding(0, 0, 0, 0)
 	return view

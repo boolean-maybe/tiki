@@ -120,7 +120,7 @@ func RenderGradientText(text string, gradient config.Gradient) string {
 
 // RenderAdaptiveGradientText renders text with gradient or solid color based on config.UseGradients.
 // When gradients are disabled, uses the gradient's end color as a solid color fallback.
-func RenderAdaptiveGradientText(text string, gradient config.Gradient, fallbackColor tcell.Color) string {
+func RenderAdaptiveGradientText(text string, gradient config.Gradient, fallbackColor config.Color) string {
 	if len(text) == 0 {
 		return ""
 	}
@@ -136,7 +136,7 @@ func RenderAdaptiveGradientText(text string, gradient config.Gradient, fallbackC
 }
 
 // GradientFromColor derives a gradient by lightening the base color.
-func GradientFromColor(primary tcell.Color, ratio float64, fallback config.Gradient) config.Gradient {
+func GradientFromColor(primary config.Color, ratio float64, fallback config.Gradient) config.Gradient {
 	r, g, b := primary.RGB()
 	if r == 0 && g == 0 && b == 0 {
 		return fallback
@@ -152,7 +152,7 @@ func GradientFromColor(primary tcell.Color, ratio float64, fallback config.Gradi
 }
 
 // GradientFromColorVibrant derives a vibrant gradient by boosting RGB values.
-func GradientFromColorVibrant(primary tcell.Color, boost float64, fallback config.Gradient) config.Gradient {
+func GradientFromColorVibrant(primary config.Color, boost float64, fallback config.Gradient) config.Gradient {
 	r, g, b := primary.RGB()
 	if r == 0 && g == 0 && b == 0 {
 		return fallback
