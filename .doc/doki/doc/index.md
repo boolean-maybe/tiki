@@ -9,4 +9,5 @@
 - [tiki format](tiki-format.md)
 - [Quick capture](quick-capture.md)
 - [AI collaboration](ai.md)
-- [Recipes](ideas/triggers.md)
+- [Recipes](ideas/plugins.md)
+- [Triggers](ideas/triggers.md)

@@ -2,6 +2,29 @@
 
 Candidate triggers for the default workflow. Each represents a common workflow pattern.
 
+- [WIP limit per assignee](#wip-limit-per-assignee)
+- [Require description for high-priority tasks](#require-description-for-high-priority-tasks)
+- [Auto-create next occurrence for recurring tasks](#auto-create-next-occurrence-for-recurring-tasks)
+- [Return stale in-progress tasks to backlog](#return-stale-in-progress-tasks-to-backlog)
+- [Unblock tasks when dependencies complete](#unblock-tasks-when-dependencies-complete)
+- [Prevent re-opening completed tasks directly](#prevent-re-opening-completed-tasks-directly)
+- [Auto-assign creator on start](#auto-assign-creator-on-start)
+- [Escalate overdue tasks](#escalate-overdue-tasks)
+- [Require points estimate before review](#require-points-estimate-before-review)
+- [Auto-tag bugs as urgent when high priority](#auto-tag-bugs-as-urgent-when-high-priority)
+- [Prevent epics from being assigned](#prevent-epics-from-being-assigned)
+- [Auto-remove urgent tag when priority drops](#auto-remove-urgent-tag-when-priority-drops)
+- [Notify on critical task creation via webhook](#notify-on-critical-task-creation-via-webhook)
+- [Spike time-box](#spike-time-box)
+- [Require task breakdown for large estimates](#require-task-breakdown-for-large-estimates)
+- [Propagate priority from epic to children](#propagate-priority-from-epic-to-children)
+- [Auto-set due date for in-progress tasks](#auto-set-due-date-for-in-progress-tasks)
+- [Require a title on creation](#require-a-title-on-creation)
+- [Prevent creating tasks as done](#prevent-creating-tasks-as-done)
+- [Epics require a description at creation](#epics-require-a-description-at-creation)
+- [Prevent deleting epics with active children](#prevent-deleting-epics-with-active-children)
+- [Block deletion of high-priority tasks](#block-deletion-of-high-priority-tasks)
+
 ## WIP limit per assignee
 
 Prevent overloading a single person with too many active tasks.

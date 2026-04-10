@@ -14,9 +14,15 @@ This section documents the `ruki` language. `ruki` is a small language for findi
 
 New users: start with [Quick Start](quick-start.md) and [Examples](examples.md).
 
+## Recipes
+
+ready-to-use examples for common workflow patterns
+
+- [Plugins](../ideas/plugins.md)
+- [Triggers](../ideas/triggers.md)
+
 ## More details
 
-- [Recipes](../ideas/triggers.md): ready-to-use trigger examples for common workflow patterns.
 - [Syntax](syntax.md): lexical structure and grammar-oriented reference.
 - [Semantics](semantics.md): statement behavior, trigger structure, qualifier scope, and evaluation model.
 - [Triggers](triggers.md): configuration, runtime execution model, cascade behavior, and operational patterns.

@@ -122,6 +122,14 @@ Triggers are configured in `workflow.yaml` under the `triggers:` key. See [Trigg
 
 ## Where to go next
 
+### Recipes
+ready-to-use examples for common workflow patterns
+
+- [Plugins](../ideas/plugins.md)
+- [Triggers](../ideas/triggers.md)
+
+### More info
+
 - Use [Triggers](triggers.md) for configuration, execution model, and runtime behavior.
 - Use [Syntax](syntax.md) for the grammar-level reference.
 - Use [Types And Values](types-and-values.md) for the type system and literal rules.
