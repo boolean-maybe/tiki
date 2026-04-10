@@ -2,6 +2,8 @@ Follow me on X: [![X Badge](https://img.shields.io/badge/-%23000000.svg?style=fl
 
 # tiki
 
+**Update:** [v0.4.0 and ruki](https://github.com/boolean-maybe/tiki/discussions/60)
+
 `tiki` is a terminal-first Markdown workspace for tasks, docs, prompts, and notes stored in your **git** repo
 
 ![Intro](assets/intro.png)
@@ -15,7 +17,8 @@ What `tiki` does:
 - **Wiki-style** documentation with multiple entry points
 - Keep a **to-do list** with priorities, status, assignee and size
 - Issue management with **Kanban/Scrum** style board and burndown chart
-- **Plugin-first** architecture - user-defined plugins with filters and actions like Backlog, Recent, Roadmap
+- SQL-like command language [ruki](.doc/doki/doc/ruki/index.md) to query and update tasks and define custom workflows
+- **Plugin-first** architecture - user-defined plugins based on [ruki](.doc/doki/doc/ruki/index.md) and custom views
 - AI **skills** to enable [Claude Code](https://code.claude.com), [Gemini CLI](https://github.com/google-gemini/gemini-cli), [Codex](https://openai.com/codex), [Opencode](https://opencode.ai) work with natural language commands like
   "_create a tiki from @my-file.md_"
   "_mark tiki ABC123 as complete_"
