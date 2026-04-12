@@ -119,51 +119,27 @@ type Palette struct {
 	HighlightColor   Color // yellow — accents, focus markers, key bindings, borders
 	TextColor        Color // white — primary text on dark background
 	TransparentColor Color // default/transparent — inherit background
-	MutedColor       Color // #808080 — de-emphasized text, placeholders, hints, unfocused borders
-	SubduedTextColor Color // #767676 — labels, descriptions
-	DimLabelColor    Color // #606060 — dimmed labels in edit mode
-	DimValueColor    Color // #909090 — dimmed values in edit mode
-	SoftTextColor    Color // #b8b8b8 — titles in task boxes
+	MutedColor       Color // #686868 — de-emphasized text, placeholders, hints, borders, dim values/labels, descriptions
+	SoftTextColor    Color // #b4b4b4 — secondary readable text (task box titles, action labels)
 	AccentColor      Color // #008000 — label text (green)
 	ValueColor       Color // #8c92ac — field values (cool gray)
 	TagFgColor       Color // #b4c8dc — tag chip foreground (light blue-gray)
 	TagBgColor       Color // #1e3278 — tag chip background (dark blue)
-	SuccessColor     Color // #00ff7f — spring green, done indicator
 	InfoLabelColor   Color // #ffa500 — orange, header view name
-	InfoSepColor     Color // #555555 — header separator
-	InfoDescColor    Color // #888888 — header description
 
 	// Selection
 	SelectionBgColor Color // #3a5f8a — steel blue selection row background
 	SelectionFgColor Color // ANSI 33 blue — selected task box background
 	SelectionText    Color // ANSI 117 — selected task box text
 
-	// Tags (task box inline)
-	TagValueColor Color // #5a6f8f — blueish gray for inline tag values
+	// Action key / accent blue
+	AccentBlue Color // #5fafff — cyan-blue (action keys, points bar, chart bars)
+	SlateColor Color // #5f6982 — muted blue-gray (tag values, unfilled bar segments)
 
-	// Action key colors (header context help)
-	ActionKeyColor     Color // #ff8c00 — orange for plugin action keys
-	ActionLabelColor   Color // #b0b0b0 — light gray for plugin action labels
-	ViewActionKeyColor Color // #5fafff — cyan for view-specific action keys
-
-	// Points bar
-	PointsFilledColor   Color // #508cff — blue filled segments
-	PointsUnfilledColor Color // #5f6982 — gray unfilled segments
-
-	// Chart
-	ChartAxisColor  Color // #505050 — dark gray chart axis
-	ChartLabelColor Color // #c8c8c8 — light gray chart labels
-	ChartValueColor Color // #ebebeb — very light gray chart values
-	ChartBarColor   Color // #78aaff — light blue chart bars
-
-	// Gradients (not Color, but part of the palette)
-	IDGradient              Gradient // Dodger Blue → Deep Sky Blue
+	// Gradients
 	CaptionFallbackGradient Gradient // Midnight Blue → Royal Blue
-	DeepSkyBlue             Color    // #00bfff — fallback for ID gradient
+	DeepSkyBlue             Color    // #00bfff — task ID base color + gradient fallback
 	DeepPurple              Color    // #865ad6 — fallback for burndown gradient
-
-	// Plugin-specific
-	DepsEditorBgColor Color // #4e5768 — muted slate
 
 	// Statusline (Nord palette)
 	NordPolarNight1 Color // #2e3440
@@ -180,50 +156,27 @@ func DefaultPalette() Palette {
 		HighlightColor:   NewColorHex("#ffff00"),
 		TextColor:        NewColorHex("#ffffff"),
 		TransparentColor: DefaultColor(),
-		MutedColor:       NewColorHex("#808080"),
-		SubduedTextColor: NewColorHex("#767676"),
-		DimLabelColor:    NewColorHex("#606060"),
-		DimValueColor:    NewColorHex("#909090"),
-		SoftTextColor:    NewColorHex("#b8b8b8"),
+		MutedColor:       NewColorHex("#686868"),
+		SoftTextColor:    NewColorHex("#b4b4b4"),
 		AccentColor:      NewColor(tcell.ColorGreen),
 		ValueColor:       NewColorHex("#8c92ac"),
 		TagFgColor:       NewColorRGB(180, 200, 220),
 		TagBgColor:       NewColorRGB(30, 50, 120),
-		SuccessColor:     NewColorHex("#00ff7f"),
 		InfoLabelColor:   NewColorHex("#ffa500"),
-		InfoSepColor:     NewColorHex("#555555"),
-		InfoDescColor:    NewColorHex("#888888"),
 
 		SelectionBgColor: NewColorHex("#3a5f8a"),
 		SelectionFgColor: NewColor(tcell.PaletteColor(33)),
 		SelectionText:    NewColor(tcell.PaletteColor(117)),
 
-		TagValueColor: NewColorHex("#5a6f8f"),
+		AccentBlue: NewColorHex("#5fafff"),
+		SlateColor: NewColorHex("#5f6982"),
 
-		ActionKeyColor:     NewColorHex("#ff8c00"),
-		ActionLabelColor:   NewColorHex("#b0b0b0"),
-		ViewActionKeyColor: NewColorHex("#5fafff"),
-
-		PointsFilledColor:   NewColorHex("#508cff"),
-		PointsUnfilledColor: NewColorHex("#5f6982"),
-
-		ChartAxisColor:  NewColorRGB(80, 80, 80),
-		ChartLabelColor: NewColorRGB(200, 200, 200),
-		ChartValueColor: NewColorRGB(235, 235, 235),
-		ChartBarColor:   NewColorRGB(120, 170, 255),
-
-		IDGradient: Gradient{
-			Start: [3]int{30, 144, 255},
-			End:   [3]int{0, 191, 255},
-		},
 		CaptionFallbackGradient: Gradient{
 			Start: [3]int{25, 25, 112},
 			End:   [3]int{65, 105, 225},
 		},
 		DeepSkyBlue: NewColorRGB(0, 191, 255),
 		DeepPurple:  NewColorRGB(134, 90, 214),
-
-		DepsEditorBgColor: NewColorHex("#4e5768"),
 
 		NordPolarNight1: NewColorHex("#2e3440"),
 		NordPolarNight2: NewColorHex("#3b4252"),
@@ -239,8 +192,25 @@ func DefaultColors() *ColorConfig {
 	return ColorsFromPalette(DefaultPalette())
 }
 
+// darkenRGB returns a darkened version of an RGB triple. ratio 0 = no change, 1 = black.
+func darkenRGB(rgb [3]int, ratio float64) [3]int {
+	return [3]int{
+		int(float64(rgb[0]) * (1 - ratio)),
+		int(float64(rgb[1]) * (1 - ratio)),
+		int(float64(rgb[2]) * (1 - ratio)),
+	}
+}
+
+// gradientFromColor derives a gradient from a single Color by darkening for the start.
+func gradientFromColor(c Color, darkenRatio float64) Gradient {
+	r, g, b := c.RGB()
+	end := [3]int{int(r), int(g), int(b)}
+	return Gradient{Start: darkenRGB(end, darkenRatio), End: end}
+}
+
 // ColorsFromPalette builds a ColorConfig from a Palette.
 func ColorsFromPalette(p Palette) *ColorConfig {
+	idGradient := gradientFromColor(p.DeepSkyBlue, 0.2)
 	deepPurpleSolid := Gradient{Start: [3]int{134, 90, 214}, End: [3]int{134, 90, 214}}
 	blueCyanSolid := Gradient{Start: [3]int{90, 170, 255}, End: [3]int{90, 170, 255}}
 	headerPurpleSolid := Gradient{Start: [3]int{160, 120, 230}, End: [3]int{160, 120, 230}}
@@ -255,25 +225,25 @@ func ColorsFromPalette(p Palette) *ColorConfig {
 		TaskBoxSelectedBorder:       p.HighlightColor,
 		TaskBoxUnselectedBorder:     p.MutedColor,
 		TaskBoxUnselectedBackground: p.TransparentColor,
-		TaskBoxIDColor:              p.IDGradient,
+		TaskBoxIDColor:              idGradient,
 		TaskBoxTitleColor:           p.SoftTextColor,
-		TaskBoxLabelColor:           p.SubduedTextColor,
-		TaskBoxDescriptionColor:     p.SubduedTextColor,
-		TaskBoxTagValueColor:        p.TagValueColor,
+		TaskBoxLabelColor:           p.MutedColor,
+		TaskBoxDescriptionColor:     p.MutedColor,
+		TaskBoxTagValueColor:        p.SlateColor,
 		TaskListSelectionFg:         p.TextColor,
 		TaskListSelectionBg:         p.SelectionBgColor,
-		TaskListStatusDoneColor:     p.SuccessColor,
+		TaskListStatusDoneColor:     p.AccentColor,
 		TaskListStatusPendingColor:  p.TextColor,
 
 		// Task detail
-		TaskDetailIDColor:           p.IDGradient,
+		TaskDetailIDColor:           idGradient,
 		TaskDetailTitleText:         p.HighlightColor,
 		TaskDetailLabelText:         p.AccentColor,
 		TaskDetailValueText:         p.ValueColor,
 		TaskDetailCommentAuthor:     p.HighlightColor,
 		TaskDetailEditDimTextColor:  p.MutedColor,
-		TaskDetailEditDimLabelColor: p.DimLabelColor,
-		TaskDetailEditDimValueColor: p.DimValueColor,
+		TaskDetailEditDimLabelColor: p.MutedColor,
+		TaskDetailEditDimValueColor: p.SoftTextColor,
 		TaskDetailEditFocusMarker:   p.HighlightColor,
 		TaskDetailEditFocusText:     p.TextColor,
 		TaskDetailTagForeground:     p.TagFgColor,
@@ -297,36 +267,36 @@ func ColorsFromPalette(p Palette) *ColorConfig {
 		CompletionHintColor: p.MutedColor,
 
 		// Burndown chart
-		BurndownChartAxisColor:     p.ChartAxisColor,
-		BurndownChartLabelColor:    p.ChartLabelColor,
-		BurndownChartValueColor:    p.ChartValueColor,
-		BurndownChartBarColor:      p.ChartBarColor,
+		BurndownChartAxisColor:     p.MutedColor,
+		BurndownChartLabelColor:    p.MutedColor,
+		BurndownChartValueColor:    p.MutedColor,
+		BurndownChartBarColor:      p.AccentBlue,
 		BurndownChartGradientFrom:  deepPurpleSolid,
 		BurndownChartGradientTo:    blueCyanSolid,
 		BurndownHeaderGradientFrom: headerPurpleSolid,
 		BurndownHeaderGradientTo:   headerCyanSolid,
 
 		// Points bar
-		PointsFilledColor:   p.PointsFilledColor,
-		PointsUnfilledColor: p.PointsUnfilledColor,
+		PointsFilledColor:   p.AccentBlue,
+		PointsUnfilledColor: p.SlateColor,
 
 		// Header
 		HeaderInfoLabel:     p.InfoLabelColor,
-		HeaderInfoSeparator: p.InfoSepColor,
-		HeaderInfoDesc:      p.InfoDescColor,
+		HeaderInfoSeparator: p.MutedColor,
+		HeaderInfoDesc:      p.MutedColor,
 		HeaderKeyBinding:    p.HighlightColor,
 		HeaderKeyText:       p.TextColor,
 
 		// Header context help actions
 		HeaderActionGlobalKeyColor:   p.HighlightColor,
 		HeaderActionGlobalLabelColor: p.TextColor,
-		HeaderActionPluginKeyColor:   p.ActionKeyColor,
-		HeaderActionPluginLabelColor: p.ActionLabelColor,
-		HeaderActionViewKeyColor:     p.ViewActionKeyColor,
+		HeaderActionPluginKeyColor:   p.InfoLabelColor,
+		HeaderActionPluginLabelColor: p.SoftTextColor,
+		HeaderActionViewKeyColor:     p.AccentBlue,
 		HeaderActionViewLabelColor:   p.MutedColor,
 
 		// Plugin-specific
-		DepsEditorBackground: p.DepsEditorBgColor,
+		DepsEditorBackground: p.NordPolarNight3,
 
 		// Fallback solid colors
 		FallbackTaskIDColor:   p.DeepSkyBlue,

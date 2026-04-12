@@ -54,6 +54,20 @@ func (c Color) Hex() string {
 	return fmt.Sprintf("#%02x%02x%02x", r, g, b)
 }
 
+// tagColor returns the color's name (e.g. "green") if it has one, otherwise its hex string.
+// Named colors are important for tview: "[green]" resolves to the terminal's ANSI palette,
+// which is often brighter than the literal hex equivalent "[#008000]".
+func (c Color) tagColor() string {
+	if c.color == tcell.ColorDefault {
+		return "-"
+	}
+	if name := c.color.Name(); name != "" {
+		return name
+	}
+	r, g, b := c.color.RGB()
+	return fmt.Sprintf("#%02x%02x%02x", r, g, b)
+}
+
 // Tag returns a ColorTag builder for constructing tview color tags.
 func (c Color) Tag() ColorTag {
 	return ColorTag{fg: c}
@@ -85,14 +99,15 @@ func (t ColorTag) WithBg(c Color) ColorTag {
 }
 
 // String renders the tview color tag string.
+// Named colors (e.g. "green") are preserved so tview uses the terminal's ANSI palette.
 //
 // Examples:
 //
-//	Color.Tag().String()             → "[#rrggbb]"
-//	Color.Tag().Bold().String()      → "[#rrggbb::b]"
-//	Color.Tag().WithBg(bg).String()  → "[#rrggbb:#rrggbb]"
+//	Color.Tag().String()             → "[green]" or "[#rrggbb]"
+//	Color.Tag().Bold().String()      → "[green::b]" or "[#rrggbb::b]"
+//	Color.Tag().WithBg(bg).String()  → "[green:#rrggbb]"
 func (t ColorTag) String() string {
-	fg := t.fg.Hex()
+	fg := t.fg.tagColor()
 
 	hasBg := t.bg != nil
 	if !hasBg && !t.bold {
@@ -101,7 +116,7 @@ func (t ColorTag) String() string {
 
 	bg := "-"
 	if hasBg {
-		bg = t.bg.Hex()
+		bg = t.bg.tagColor()
 	}
 
 	attr := ""
