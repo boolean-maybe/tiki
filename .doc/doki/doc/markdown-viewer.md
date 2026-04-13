@@ -1,6 +1,7 @@
 # Markdown viewer
 
 ![Markdown viewer demo](markdown-viewer.gif)
+see [requirements](image-requirements.md) for supported terminals, SVG and diagrams support
 
 ## Open Markdown
 `tiki` can be used as a navigable Markdown viewer. A Markdown file can be opened via:

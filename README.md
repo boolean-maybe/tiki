@@ -72,7 +72,7 @@ if you have no Markdown file to try - use this:
 ```
 tiki https://github.com/boolean-maybe/tiki/blob/main/testdata/go-concurrency.md
 ```
-
+see [requirements](.doc/doki/doc/image-requirements.md) for supported terminals, SVG and diagrams support
 
 All vim-like pager commands are supported in addition to:
 - `Tab/Enter` to select and load a link in the document
