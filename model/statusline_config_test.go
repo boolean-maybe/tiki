@@ -132,6 +132,23 @@ func TestStatuslineConfig_MessageAutoHide(t *testing.T) {
 	}
 }
 
+func TestStatuslineConfig_ErrorMessageDoesNotAutoHide(t *testing.T) {
+	sc := NewStatuslineConfig()
+
+	sc.SetMessage("persistent error", MessageLevelError, true)
+
+	msg, level, autoHide := sc.GetMessage()
+	if msg != "persistent error" {
+		t.Errorf("message = %q, want %q", msg, "persistent error")
+	}
+	if level != MessageLevelError {
+		t.Errorf("level = %q, want %q", level, MessageLevelError)
+	}
+	if autoHide {
+		t.Error("error message should never auto-hide")
+	}
+}
+
 func TestStatuslineConfig_MessageMakesVisible(t *testing.T) {
 	sc := NewStatuslineConfig()
 

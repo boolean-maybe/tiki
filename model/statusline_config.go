@@ -126,6 +126,9 @@ func (sc *StatuslineConfig) SetViewStats(stats map[string]StatValue) {
 // is true, the message is dismissed on the next keypress (via DismissAutoHide).
 // Setting a message makes the statusline visible.
 func (sc *StatuslineConfig) SetMessage(text string, level MessageLevel, autoHide bool) {
+	if level == MessageLevelError {
+		autoHide = false
+	}
 	sc.mu.Lock()
 	sc.message = text
 	sc.level = level
