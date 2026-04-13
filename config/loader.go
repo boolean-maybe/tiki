@@ -155,7 +155,7 @@ func setDefaults() {
 	// Appearance defaults
 	viper.SetDefault("appearance.theme", "auto")
 	viper.SetDefault("appearance.gradientThreshold", 256)
-	viper.SetDefault("appearance.codeBlock.theme", "nord")
+	// code block theme resolved dynamically in GetCodeBlockTheme()
 }
 
 // bindFlags binds supported command line flags to viper so they can override config values.
@@ -389,9 +389,16 @@ func GetGradientThreshold() int {
 	return threshold
 }
 
-// GetCodeBlockTheme returns the chroma syntax highlighting theme for code blocks
+// GetCodeBlockTheme returns the chroma syntax highlighting theme for code blocks.
+// defaults to "nord" (dark) or "github" (light) when not explicitly configured.
 func GetCodeBlockTheme() string {
-	return viper.GetString("appearance.codeBlock.theme")
+	if t := viper.GetString("appearance.codeBlock.theme"); t != "" {
+		return t
+	}
+	if GetEffectiveTheme() == "light" {
+		return "github"
+	}
+	return "nord"
 }
 
 // GetCodeBlockBackground returns the background color for code blocks

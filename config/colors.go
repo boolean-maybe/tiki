@@ -147,7 +147,7 @@ type Palette struct {
 	DeepPurple              Color    // #865ad6 — fallback for burndown gradient
 
 	// Content area
-	ContentBackgroundColor Color // canvas background (dark: black, light: transparent/default)
+	ContentBackgroundColor Color // canvas background (transparent/default — inherits terminal bg)
 
 	// Statusline (Nord palette)
 	NordPolarNight1 Color // #2e3440
@@ -187,7 +187,7 @@ func DarkPalette() Palette {
 		DeepSkyBlue: NewColorRGB(0, 191, 255),
 		DeepPurple:  NewColorRGB(134, 90, 214),
 
-		ContentBackgroundColor: NewColor(tcell.ColorBlack),
+		ContentBackgroundColor: DefaultColor(), // transparent — inherit terminal background
 
 		NordPolarNight1: NewColorHex("#2e3440"),
 		NordPolarNight2: NewColorHex("#3b4252"),

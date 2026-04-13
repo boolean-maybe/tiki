@@ -297,9 +297,14 @@ func InitColorAndGradientSupport(cfg *config.Config) *sysinfo.SystemInfo {
 			"wideGradients", config.UseWideGradients)
 	}
 
-	// set tview global background so all primitives inherit the theme background
+	// set tview global styles so all primitives inherit the theme colors.
+	// PrimaryTextColor must be set for light theme — tview defaults to white,
+	// which is invisible on light backgrounds.
 	colors := config.GetColors()
 	tview.Styles.PrimitiveBackgroundColor = colors.ContentBackgroundColor.TCell()
+	if config.GetEffectiveTheme() == "light" {
+		tview.Styles.PrimaryTextColor = colors.ContentTextColor.TCell()
+	}
 
 	return systemInfo
 }
