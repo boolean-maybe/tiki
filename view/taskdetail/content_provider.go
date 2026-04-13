@@ -38,19 +38,7 @@ func (p *taskDescriptionProvider) FetchContent(elem nav.NavElement) (string, err
 
 // looksLikeTikiID checks if a URL looks like a tiki ID (TIKI-XXXXXX, case-insensitive).
 func looksLikeTikiID(url string) bool {
-	if len(url) != 11 {
-		return false
-	}
-	upper := strings.ToUpper(url)
-	if upper[:5] != "TIKI-" {
-		return false
-	}
-	for _, c := range upper[5:] {
-		if (c < 'A' || c > 'Z') && (c < '0' || c > '9') {
-			return false
-		}
-	}
-	return true
+	return taskpkg.IsValidTikiIDFormat(strings.ToUpper(strings.TrimSpace(url)))
 }
 
 // formatTaskAsMarkdown renders a task as a readable markdown document.

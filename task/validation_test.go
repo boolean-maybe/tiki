@@ -151,10 +151,10 @@ func TestValidateDependsOn(t *testing.T) {
 		{"empty dependsOn", &Task{DependsOn: nil}, false},
 		{"valid single dependency", &Task{DependsOn: []string{"TIKI-ABC123"}}, false},
 		{"valid multiple dependencies", &Task{DependsOn: []string{"TIKI-ABC123", "TIKI-DEF456"}}, false},
+		{"valid long dependency", &Task{DependsOn: []string{"TIKI-THEMING"}}, false},
 		{"invalid format - lowercase", &Task{DependsOn: []string{"tiki-abc123"}}, true},
 		{"invalid format - wrong prefix", &Task{DependsOn: []string{"TASK-ABC123"}}, true},
-		{"invalid format - too short", &Task{DependsOn: []string{"TIKI-ABC"}}, true},
-		{"invalid format - too long", &Task{DependsOn: []string{"TIKI-ABC1234"}}, true},
+		{"valid shorter identifier", &Task{DependsOn: []string{"TIKI-ABC"}}, false},
 		{"invalid format - special chars", &Task{DependsOn: []string{"TIKI-ABC12!"}}, true},
 		{"mixed valid and invalid", &Task{DependsOn: []string{"TIKI-ABC123", "bad-id"}}, true},
 	}
@@ -282,11 +282,15 @@ func TestIsValidTikiIDFormat(t *testing.T) {
 	}{
 		{"TIKI-ABC123", true},
 		{"TIKI-000000", true},
+		{"TIKI-THEMING", true},
 		{"tiki-abc123", false},
-		{"TASK-ABC123", false},
-		{"TIKI-ABC", false},
-		{"TIKI-ABC1234", false},
+		{"PROJ-FEATURE1", false},
+		{"TIKI-ABC", true},
+		{"TIKI-ABC1234", true},
 		{"TIKI-ABC12!", false},
+		{"TIKI--ABC123", false},
+		{"TIKI ABC123", false},
+		{"NOHYPHEN", false},
 	}
 
 	for _, tt := range tests {

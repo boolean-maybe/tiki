@@ -67,10 +67,18 @@ func ValidatePoints(t *Task) string {
 
 // ValidateDependsOn returns an error message if any dependency ID is malformed.
 func ValidateDependsOn(t *Task) string {
+	invalid := make([]string, 0)
+	seen := make(map[string]struct{})
 	for _, dep := range t.DependsOn {
 		if !IsValidTikiIDFormat(dep) {
-			return fmt.Sprintf("invalid tiki ID format: %s (expected TIKI-XXXXXX)", dep)
+			if _, ok := seen[dep]; !ok {
+				invalid = append(invalid, dep)
+				seen[dep] = struct{}{}
+			}
 		}
+	}
+	if len(invalid) > 0 {
+		return fmt.Sprintf("invalid tiki ID format(s): %s (expected UPPERCASE-PREFIX and identifier, e.g. TIKI-ABC123)", strings.Join(invalid, ", "))
 	}
 	return ""
 }
@@ -113,15 +121,33 @@ func IsValidPoints(points int) bool {
 	return points <= config.GetMaxPoints()
 }
 
-// IsValidTikiIDFormat checks if a string matches the TIKI-XXXXXX format
-// where X is an uppercase alphanumeric character.
+// IsValidTikiIDFormat checks if a string matches an uppercase tiki ID:
+// TIKI-IDENTIFIER, where IDENTIFIER may contain additional '-' separators.
 func IsValidTikiIDFormat(id string) bool {
-	if len(id) != 11 || id[:5] != "TIKI-" {
+	if id == "" || strings.Contains(id, " ") {
 		return false
 	}
-	for _, c := range id[5:] {
-		if (c < 'A' || c > 'Z') && (c < '0' || c > '9') {
+
+	parts := strings.Split(id, "-")
+	if len(parts) < 2 {
+		return false
+	}
+	if parts[0] != "TIKI" {
+		return false
+	}
+
+	for i, p := range parts {
+		if p == "" {
 			return false
+		}
+		for _, c := range p {
+			if (c < 'A' || c > 'Z') && (c < '0' || c > '9') {
+				return false
+			}
+		}
+		// Prefix is already validated as TIKI; remaining segments use uppercase alnum.
+		if i == 0 {
+			continue
 		}
 	}
 	return true

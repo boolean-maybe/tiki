@@ -19,9 +19,10 @@ func TestLooksLikeTikiID(t *testing.T) {
 		{"Tiki-AbC123", true},
 		{"TIKI-ZZZZZZ", true},
 		{"TIKI-000000", true},
-		{"TIKI-ABC12", false},   // too short
-		{"TIKI-ABC1234", false}, // too long
+		{"TIKI-ABC12", true},
+		{"TIKI-ABC1234", true},
 		{"JIRA-ABC123", false},
+		{"PROJ-FEATURE-1", false},
 		{"tiki-abc12!", false},
 		{"", false},
 		{"not-a-tiki", false},
