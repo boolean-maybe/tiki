@@ -147,6 +147,15 @@ func TestStatuslineConfig_ErrorMessageDoesNotAutoHide(t *testing.T) {
 	if autoHide {
 		t.Error("error message should never auto-hide")
 	}
+
+	if sc.DismissAutoHide() {
+		t.Error("DismissAutoHide() should not dismiss an error message")
+	}
+
+	msg, level, autoHide = sc.GetMessage()
+	if msg != "persistent error" || level != MessageLevelError || autoHide {
+		t.Error("error message should remain unchanged after DismissAutoHide")
+	}
 }
 
 func TestStatuslineConfig_MessageMakesVisible(t *testing.T) {
