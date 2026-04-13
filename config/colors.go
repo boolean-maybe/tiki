@@ -2,10 +2,6 @@ package config
 
 // Color and style definitions for the UI: gradients, unified Color values.
 
-import (
-	"github.com/gdamore/tcell/v2"
-)
-
 // Gradient defines a start and end RGB color for a gradient transition
 type Gradient struct {
 	Start [3]int // R, G, B (0-255)
@@ -149,98 +145,13 @@ type Palette struct {
 	// Content area
 	ContentBackgroundColor Color // canvas background (transparent/default — inherits terminal bg)
 
-	// Statusline (Nord palette)
-	NordPolarNight1 Color // #2e3440
-	NordPolarNight2 Color // #3b4252
-	NordPolarNight3 Color // #434c5e
-	NordSnowStorm1  Color // #d8dee9
-	NordFrostBlue   Color // #5e81ac
-	NordAuroraGreen Color // #a3be8c
-}
-
-// DarkPalette returns the color palette for dark backgrounds.
-func DarkPalette() Palette {
-	return Palette{
-		HighlightColor:   NewColorHex("#ffff00"),
-		TextColor:        NewColorHex("#ffffff"),
-		TransparentColor: DefaultColor(),
-		MutedColor:       NewColorHex("#686868"),
-		SoftBorderColor:  NewColorHex("#686868"),
-		SoftTextColor:    NewColorHex("#b4b4b4"),
-		AccentColor:      NewColor(tcell.ColorGreen),
-		ValueColor:       NewColorHex("#8c92ac"),
-		InfoLabelColor:   NewColorHex("#ffa500"),
-
-		SelectionBgColor: NewColorHex("#3a5f8a"),
-
-		AccentBlue: NewColorHex("#5fafff"),
-		SlateColor: NewColorHex("#5f6982"),
-
-		LogoDotColor:    NewColorHex("#40e0d0"),
-		LogoShadeColor:  NewColorHex("#4682b4"),
-		LogoBorderColor: NewColorHex("#324664"),
-
-		CaptionFallbackGradient: Gradient{
-			Start: [3]int{25, 25, 112},
-			End:   [3]int{65, 105, 225},
-		},
-		DeepSkyBlue: NewColorRGB(0, 191, 255),
-		DeepPurple:  NewColorRGB(134, 90, 214),
-
-		ContentBackgroundColor: DefaultColor(), // transparent — inherit terminal background
-
-		NordPolarNight1: NewColorHex("#2e3440"),
-		NordPolarNight2: NewColorHex("#3b4252"),
-		NordPolarNight3: NewColorHex("#434c5e"),
-		NordSnowStorm1:  NewColorHex("#d8dee9"),
-		NordFrostBlue:   NewColorHex("#5e81ac"),
-		NordAuroraGreen: NewColorHex("#a3be8c"),
-	}
-}
-
-// LightPalette returns the color palette for light backgrounds.
-func LightPalette() Palette {
-	return Palette{
-		HighlightColor:   NewColorHex("#0055dd"), // vivid blue — accents, focus markers, key bindings
-		TextColor:        NewColor(tcell.ColorBlack),
-		TransparentColor: DefaultColor(),
-		MutedColor:       NewColorHex("#808080"), // medium gray — de-emphasized text, placeholders
-		SoftBorderColor:  NewColorHex("#d8dee9"), // light blue-gray — unselected box borders recede on light bg
-		SoftTextColor:    NewColorHex("#404040"), // dark gray — secondary readable text
-		AccentColor:      NewColorHex("#006400"), // dark green — labels
-		ValueColor:       NewColorHex("#4a4e6a"), // dark cool gray — field values
-		InfoLabelColor:   NewColorHex("#b85c00"), // darker orange — header view name
-
-		SelectionBgColor: NewColorHex("#b8d4f0"), // light blue — selection background
-
-		AccentBlue: NewColorHex("#0060c0"), // darker blue — action keys, points bar
-		SlateColor: NewColorHex("#7080a0"), // blue-gray — tag values, unfilled bar segments
-
-		LogoDotColor:    NewColorHex("#20a090"), // darker turquoise
-		LogoShadeColor:  NewColorHex("#3060a0"), // medium blue
-		LogoBorderColor: NewColorHex("#6080a0"), // lighter blue-gray (visible on light bg)
-
-		CaptionFallbackGradient: Gradient{
-			Start: [3]int{100, 140, 200},
-			End:   [3]int{60, 100, 180},
-		},
-		DeepSkyBlue: NewColorRGB(0, 100, 180),
-		DeepPurple:  NewColorRGB(90, 50, 160),
-
-		ContentBackgroundColor: DefaultColor(), // transparent — inherit terminal background
-
-		NordPolarNight1: NewColorHex("#eceff4"), // inverted: light background
-		NordPolarNight2: NewColorHex("#e5e9f0"),
-		NordPolarNight3: NewColorHex("#d8dee9"),
-		NordSnowStorm1:  NewColorHex("#2e3440"), // inverted: dark text
-		NordFrostBlue:   NewColorHex("#5e81ac"), // stays — good contrast on light
-		NordAuroraGreen: NewColorHex("#4c7a5a"), // darker green for light bg
-	}
-}
-
-// DefaultColors returns the default color configuration built from the dark palette.
-func DefaultColors() *ColorConfig {
-	return ColorsFromPalette(DarkPalette())
+	// Statusline
+	StatuslineDarkBg   Color // darkest statusline background (accent foreground)
+	StatuslineMidBg    Color // mid statusline background (info/error/fill)
+	StatuslineBorderBg Color // statusline main background + deps editor background
+	StatuslineText     Color // statusline primary text
+	StatuslineAccent   Color // statusline accent background
+	StatuslineOk       Color // statusline info/success foreground
 }
 
 // darkenRGB returns a darkened version of an RGB triple. ratio 0 = no change, 1 = black.
@@ -345,7 +256,7 @@ func ColorsFromPalette(p Palette) *ColorConfig {
 		HeaderActionViewLabelColor:   p.MutedColor,
 
 		// Plugin-specific
-		DepsEditorBackground: p.NordPolarNight3,
+		DepsEditorBackground: p.StatuslineBorderBg,
 
 		// Fallback solid colors
 		FallbackTaskIDColor:   p.DeepSkyBlue,
@@ -357,15 +268,15 @@ func ColorsFromPalette(p Palette) *ColorConfig {
 		LogoBorderColor: p.LogoBorderColor,
 
 		// Statusline
-		StatuslineBg:       p.NordPolarNight3,
-		StatuslineFg:       p.NordSnowStorm1,
-		StatuslineAccentBg: p.NordFrostBlue,
-		StatuslineAccentFg: p.NordPolarNight1,
-		StatuslineInfoFg:   p.NordAuroraGreen,
-		StatuslineInfoBg:   p.NordPolarNight2,
+		StatuslineBg:       p.StatuslineBorderBg,
+		StatuslineFg:       p.StatuslineText,
+		StatuslineAccentBg: p.StatuslineAccent,
+		StatuslineAccentFg: p.StatuslineDarkBg,
+		StatuslineInfoFg:   p.StatuslineOk,
+		StatuslineInfoBg:   p.StatuslineMidBg,
 		StatuslineErrorFg:  p.HighlightColor,
-		StatuslineErrorBg:  p.NordPolarNight2,
-		StatuslineFillBg:   p.NordPolarNight2,
+		StatuslineErrorBg:  p.StatuslineMidBg,
+		StatuslineFillBg:   p.StatuslineMidBg,
 	}
 }
 
@@ -384,11 +295,7 @@ var UseWideGradients bool
 // GetColors returns the global color configuration for the effective theme
 func GetColors() *ColorConfig {
 	if !colorsInitialized {
-		if GetEffectiveTheme() == "light" {
-			globalColors = ColorsFromPalette(LightPalette())
-		} else {
-			globalColors = ColorsFromPalette(DarkPalette())
-		}
+		globalColors = ColorsFromPalette(PaletteForTheme())
 		colorsInitialized = true
 	}
 	return globalColors

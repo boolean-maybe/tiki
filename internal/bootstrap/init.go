@@ -302,7 +302,7 @@ func InitColorAndGradientSupport(cfg *config.Config) *sysinfo.SystemInfo {
 	// which is invisible on light backgrounds.
 	colors := config.GetColors()
 	tview.Styles.PrimitiveBackgroundColor = colors.ContentBackgroundColor.TCell()
-	if config.GetEffectiveTheme() == "light" {
+	if config.IsLightTheme() {
 		tview.Styles.PrimaryTextColor = colors.ContentTextColor.TCell()
 	}
 

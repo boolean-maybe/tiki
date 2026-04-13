@@ -44,7 +44,7 @@ type Config struct {
 
 	// Appearance configuration
 	Appearance struct {
-		Theme             string `mapstructure:"theme"`             // "dark", "light", "auto"
+		Theme             string `mapstructure:"theme"`             // "auto", "dark", "light", or a named theme (see ThemeNames())
 		GradientThreshold int    `mapstructure:"gradientThreshold"` // Minimum color count for gradients (16, 256, 16777216)
 		CodeBlock         struct {
 			Theme      string `mapstructure:"theme"`      // chroma syntax theme (e.g. "dracula", "monokai")
@@ -390,15 +390,12 @@ func GetGradientThreshold() int {
 }
 
 // GetCodeBlockTheme returns the chroma syntax highlighting theme for code blocks.
-// defaults to "nord" (dark) or "github" (light) when not explicitly configured.
+// Defaults to the theme registry's chroma mapping when not explicitly configured.
 func GetCodeBlockTheme() string {
 	if t := viper.GetString("appearance.codeBlock.theme"); t != "" {
 		return t
 	}
-	if GetEffectiveTheme() == "light" {
-		return "github"
-	}
-	return "nord"
+	return ChromaThemeForEffective()
 }
 
 // GetCodeBlockBackground returns the background color for code blocks

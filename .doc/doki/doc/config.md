@@ -100,16 +100,15 @@ Backlog:
 
 # Appearance settings
 appearance:
-  theme: auto               # Theme: "auto" (detect from terminal), "dark", "light"
+  theme: auto               # Theme: "auto" (detect from terminal), "dark", "light",
+                            # or a named theme: "dracula", "tokyo-night", "gruvbox-dark",
+                            # "catppuccin-mocha", "solarized-dark", "nord", "monokai",
+                            # "one-dark", "catppuccin-latte", "solarized-light",
+                            # "gruvbox-light", "github-light"
   gradientThreshold: 256    # Minimum terminal colors for gradient rendering
                             # Options: 16, 256, 16777216 (truecolor)
                             # Gradients disabled if terminal has fewer colors
                             # Default: 256 (works well on most terminals)
-  codeBlock:
-    theme: dracula           # Chroma syntax theme for code blocks
-                             # Examples: "dracula", "monokai", "catppuccin-macchiato"
-    background: "#282a36"    # Code block background color (hex or ANSI e.g. "236")
-    border: "#6272a4"        # Code block border color (hex or ANSI e.g. "244")
 
 # AI agent integration
 ai:
