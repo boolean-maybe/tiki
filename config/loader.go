@@ -355,19 +355,28 @@ func GetTheme() string {
 	return theme
 }
 
+var cachedEffectiveTheme string
+
 // GetEffectiveTheme resolves "auto" to actual theme based on terminal detection.
 // Uses termenv OSC 11 query to detect the terminal's actual background color,
 // falling back to COLORFGBG env var, then dark.
+// Result is cached — safe to call after tview takes over the terminal.
 func GetEffectiveTheme() string {
+	if cachedEffectiveTheme != "" {
+		return cachedEffectiveTheme
+	}
 	theme := GetTheme()
 	if theme != "auto" {
+		cachedEffectiveTheme = theme
 		return theme
 	}
 	output := termenv.NewOutput(os.Stdout)
 	if output.HasDarkBackground() {
-		return "dark"
+		cachedEffectiveTheme = "dark"
+	} else {
+		cachedEffectiveTheme = "light"
 	}
-	return "light"
+	return cachedEffectiveTheme
 }
 
 // GetGradientThreshold returns the minimum color count required for gradients
