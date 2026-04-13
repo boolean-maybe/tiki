@@ -123,6 +123,7 @@ type Palette struct {
 	TextColor        Color // white — primary text on dark background
 	TransparentColor Color // default/transparent — inherit background
 	MutedColor       Color // #686868 — de-emphasized text, placeholders, hints, borders, dim values/labels, descriptions
+	SoftBorderColor  Color // subtle border for unselected task boxes (dark: matches MutedColor, light: recedes)
 	SoftTextColor    Color // #b4b4b4 — secondary readable text (task box titles, action labels)
 	AccentColor      Color // #008000 — label text (green)
 	ValueColor       Color // #8c92ac — field values (cool gray)
@@ -164,6 +165,7 @@ func DarkPalette() Palette {
 		TextColor:        NewColorHex("#ffffff"),
 		TransparentColor: DefaultColor(),
 		MutedColor:       NewColorHex("#686868"),
+		SoftBorderColor:  NewColorHex("#686868"),
 		SoftTextColor:    NewColorHex("#b4b4b4"),
 		AccentColor:      NewColor(tcell.ColorGreen),
 		ValueColor:       NewColorHex("#8c92ac"),
@@ -203,6 +205,7 @@ func LightPalette() Palette {
 		TextColor:        NewColor(tcell.ColorBlack),
 		TransparentColor: DefaultColor(),
 		MutedColor:       NewColorHex("#808080"), // medium gray — de-emphasized text, placeholders
+		SoftBorderColor:  NewColorHex("#d8dee9"), // light blue-gray — unselected box borders recede on light bg
 		SoftTextColor:    NewColorHex("#404040"), // dark gray — secondary readable text
 		AccentColor:      NewColorHex("#006400"), // dark green — labels
 		ValueColor:       NewColorHex("#4a4e6a"), // dark cool gray — field values
@@ -269,7 +272,7 @@ func ColorsFromPalette(p Palette) *ColorConfig {
 
 		// Task box
 		TaskBoxSelectedBorder:       p.HighlightColor,
-		TaskBoxUnselectedBorder:     p.MutedColor,
+		TaskBoxUnselectedBorder:     p.SoftBorderColor,
 		TaskBoxUnselectedBackground: p.TransparentColor,
 		TaskBoxIDColor:              idGradient,
 		TaskBoxTitleColor:           p.SoftTextColor,
