@@ -18,8 +18,6 @@ type ColorConfig struct {
 	CaptionFallbackGradient Gradient
 
 	// Task box colors
-	TaskBoxSelectedBackground   Color
-	TaskBoxSelectedText         Color
 	TaskBoxSelectedBorder       Color
 	TaskBoxUnselectedBorder     Color
 	TaskBoxUnselectedBackground Color
@@ -100,6 +98,11 @@ type ColorConfig struct {
 	FallbackTaskIDColor   Color // Deep Sky Blue (end of task ID gradient)
 	FallbackBurndownColor Color // Purple (start of burndown gradient)
 
+	// Logo colors (header art)
+	LogoDotColor    Color // bright turquoise (● dots)
+	LogoShadeColor  Color // medium blue (▓ shade)
+	LogoBorderColor Color // dark blue (▒ border)
+
 	// Statusline colors (bottom bar, powerline style)
 	StatuslineBg       Color
 	StatuslineFg       Color
@@ -123,23 +126,27 @@ type Palette struct {
 	SoftTextColor    Color // #b4b4b4 — secondary readable text (task box titles, action labels)
 	AccentColor      Color // #008000 — label text (green)
 	ValueColor       Color // #8c92ac — field values (cool gray)
-	TagFgColor       Color // #b4c8dc — tag chip foreground (light blue-gray)
-	TagBgColor       Color // #1e3278 — tag chip background (dark blue)
 	InfoLabelColor   Color // #ffa500 — orange, header view name
 
 	// Selection
 	SelectionBgColor Color // #3a5f8a — steel blue selection row background
-	SelectionFgColor Color // ANSI 33 blue — selected task box background
-	SelectionText    Color // ANSI 117 — selected task box text
 
 	// Action key / accent blue
 	AccentBlue Color // #5fafff — cyan-blue (action keys, points bar, chart bars)
 	SlateColor Color // #5f6982 — muted blue-gray (tag values, unfilled bar segments)
 
+	// Logo
+	LogoDotColor    Color // #40e0d0 — bright turquoise (● in header art)
+	LogoShadeColor  Color // #4682b4 — steel blue (▓ in header art)
+	LogoBorderColor Color // #324664 — dark navy (▒ in header art)
+
 	// Gradients
 	CaptionFallbackGradient Gradient // Midnight Blue → Royal Blue
 	DeepSkyBlue             Color    // #00bfff — task ID base color + gradient fallback
 	DeepPurple              Color    // #865ad6 — fallback for burndown gradient
+
+	// Content area
+	ContentBackgroundColor Color // canvas background (dark: black, light: transparent/default)
 
 	// Statusline (Nord palette)
 	NordPolarNight1 Color // #2e3440
@@ -150,8 +157,8 @@ type Palette struct {
 	NordAuroraGreen Color // #a3be8c
 }
 
-// DefaultPalette returns the default color palette.
-func DefaultPalette() Palette {
+// DarkPalette returns the color palette for dark backgrounds.
+func DarkPalette() Palette {
 	return Palette{
 		HighlightColor:   NewColorHex("#ffff00"),
 		TextColor:        NewColorHex("#ffffff"),
@@ -160,16 +167,16 @@ func DefaultPalette() Palette {
 		SoftTextColor:    NewColorHex("#b4b4b4"),
 		AccentColor:      NewColor(tcell.ColorGreen),
 		ValueColor:       NewColorHex("#8c92ac"),
-		TagFgColor:       NewColorRGB(180, 200, 220),
-		TagBgColor:       NewColorRGB(30, 50, 120),
 		InfoLabelColor:   NewColorHex("#ffa500"),
 
 		SelectionBgColor: NewColorHex("#3a5f8a"),
-		SelectionFgColor: NewColor(tcell.PaletteColor(33)),
-		SelectionText:    NewColor(tcell.PaletteColor(117)),
 
 		AccentBlue: NewColorHex("#5fafff"),
 		SlateColor: NewColorHex("#5f6982"),
+
+		LogoDotColor:    NewColorHex("#40e0d0"),
+		LogoShadeColor:  NewColorHex("#4682b4"),
+		LogoBorderColor: NewColorHex("#324664"),
 
 		CaptionFallbackGradient: Gradient{
 			Start: [3]int{25, 25, 112},
@@ -177,6 +184,8 @@ func DefaultPalette() Palette {
 		},
 		DeepSkyBlue: NewColorRGB(0, 191, 255),
 		DeepPurple:  NewColorRGB(134, 90, 214),
+
+		ContentBackgroundColor: NewColor(tcell.ColorBlack),
 
 		NordPolarNight1: NewColorHex("#2e3440"),
 		NordPolarNight2: NewColorHex("#3b4252"),
@@ -187,9 +196,48 @@ func DefaultPalette() Palette {
 	}
 }
 
-// DefaultColors returns the default color configuration built from the default palette.
+// LightPalette returns the color palette for light backgrounds.
+func LightPalette() Palette {
+	return Palette{
+		HighlightColor:   NewColorHex("#0055dd"), // vivid blue — accents, focus markers, key bindings
+		TextColor:        NewColor(tcell.ColorBlack),
+		TransparentColor: DefaultColor(),
+		MutedColor:       NewColorHex("#808080"), // medium gray — de-emphasized text, placeholders
+		SoftTextColor:    NewColorHex("#404040"), // dark gray — secondary readable text
+		AccentColor:      NewColorHex("#006400"), // dark green — labels
+		ValueColor:       NewColorHex("#4a4e6a"), // dark cool gray — field values
+		InfoLabelColor:   NewColorHex("#b85c00"), // darker orange — header view name
+
+		SelectionBgColor: NewColorHex("#b8d4f0"), // light blue — selection background
+
+		AccentBlue: NewColorHex("#0060c0"), // darker blue — action keys, points bar
+		SlateColor: NewColorHex("#7080a0"), // blue-gray — tag values, unfilled bar segments
+
+		LogoDotColor:    NewColorHex("#20a090"), // darker turquoise
+		LogoShadeColor:  NewColorHex("#3060a0"), // medium blue
+		LogoBorderColor: NewColorHex("#6080a0"), // lighter blue-gray (visible on light bg)
+
+		CaptionFallbackGradient: Gradient{
+			Start: [3]int{100, 140, 200},
+			End:   [3]int{60, 100, 180},
+		},
+		DeepSkyBlue: NewColorRGB(0, 100, 180),
+		DeepPurple:  NewColorRGB(90, 50, 160),
+
+		ContentBackgroundColor: DefaultColor(), // transparent — inherit terminal background
+
+		NordPolarNight1: NewColorHex("#eceff4"), // inverted: light background
+		NordPolarNight2: NewColorHex("#e5e9f0"),
+		NordPolarNight3: NewColorHex("#d8dee9"),
+		NordSnowStorm1:  NewColorHex("#2e3440"), // inverted: dark text
+		NordFrostBlue:   NewColorHex("#5e81ac"), // stays — good contrast on light
+		NordAuroraGreen: NewColorHex("#4c7a5a"), // darker green for light bg
+	}
+}
+
+// DefaultColors returns the default color configuration built from the dark palette.
 func DefaultColors() *ColorConfig {
-	return ColorsFromPalette(DefaultPalette())
+	return ColorsFromPalette(DarkPalette())
 }
 
 // darkenRGB returns a darkened version of an RGB triple. ratio 0 = no change, 1 = black.
@@ -220,8 +268,6 @@ func ColorsFromPalette(p Palette) *ColorConfig {
 		CaptionFallbackGradient: p.CaptionFallbackGradient,
 
 		// Task box
-		TaskBoxSelectedBackground:   p.SelectionFgColor,
-		TaskBoxSelectedText:         p.SelectionText,
 		TaskBoxSelectedBorder:       p.HighlightColor,
 		TaskBoxUnselectedBorder:     p.MutedColor,
 		TaskBoxUnselectedBackground: p.TransparentColor,
@@ -246,12 +292,12 @@ func ColorsFromPalette(p Palette) *ColorConfig {
 		TaskDetailEditDimValueColor: p.SoftTextColor,
 		TaskDetailEditFocusMarker:   p.HighlightColor,
 		TaskDetailEditFocusText:     p.TextColor,
-		TaskDetailTagForeground:     p.TagFgColor,
-		TaskDetailTagBackground:     p.TagBgColor,
+		TaskDetailTagForeground:     p.SoftTextColor,
+		TaskDetailTagBackground:     p.SelectionBgColor,
 		TaskDetailPlaceholderColor:  p.MutedColor,
 
 		// Content area
-		ContentBackgroundColor: NewColor(tcell.ColorBlack),
+		ContentBackgroundColor: p.ContentBackgroundColor,
 		ContentTextColor:       p.TextColor,
 
 		// Search box
@@ -302,6 +348,11 @@ func ColorsFromPalette(p Palette) *ColorConfig {
 		FallbackTaskIDColor:   p.DeepSkyBlue,
 		FallbackBurndownColor: p.DeepPurple,
 
+		// Logo
+		LogoDotColor:    p.LogoDotColor,
+		LogoShadeColor:  p.LogoShadeColor,
+		LogoBorderColor: p.LogoBorderColor,
+
 		// Statusline
 		StatuslineBg:       p.NordPolarNight3,
 		StatuslineFg:       p.NordSnowStorm1,
@@ -327,20 +378,13 @@ var UseGradients bool
 // Screen-wide gradients show more banding on 256-color terminals, so require truecolor
 var UseWideGradients bool
 
-// GetColors returns the global color configuration with theme-aware overrides
+// GetColors returns the global color configuration for the effective theme
 func GetColors() *ColorConfig {
 	if !colorsInitialized {
-		globalColors = DefaultColors()
-		// Apply theme-aware overrides for critical text colors
 		if GetEffectiveTheme() == "light" {
-			black := NewColor(tcell.ColorBlack)
-			globalColors.ContentBackgroundColor = DefaultColor()
-			globalColors.ContentTextColor = black
-			globalColors.SearchBoxLabelColor = black
-			globalColors.SearchBoxTextColor = black
-			globalColors.InputFieldTextColor = black
-			globalColors.TaskDetailEditFocusText = black
-			globalColors.HeaderKeyText = black
+			globalColors = ColorsFromPalette(LightPalette())
+		} else {
+			globalColors = ColorsFromPalette(DarkPalette())
 		}
 		colorsInitialized = true
 	}

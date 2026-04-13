@@ -499,7 +499,7 @@ func (ev *TaskEditView) updateValidationState() {
 
 	// Update border color based on validation
 	if ev.metadataBox != nil {
-		colors := config.DefaultColors()
+		colors := config.GetColors()
 		if len(ev.validationErrors) > 0 {
 			ev.metadataBox.SetBorderColor(colors.TaskBoxSelectedBorder.TCell())
 		} else {

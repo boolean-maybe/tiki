@@ -10,6 +10,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/muesli/termenv"
 	"github.com/spf13/pflag"
 	"github.com/spf13/viper"
 	"gopkg.in/yaml.v3"
@@ -354,24 +355,19 @@ func GetTheme() string {
 	return theme
 }
 
-// GetEffectiveTheme resolves "auto" to actual theme based on terminal detection
+// GetEffectiveTheme resolves "auto" to actual theme based on terminal detection.
+// Uses termenv OSC 11 query to detect the terminal's actual background color,
+// falling back to COLORFGBG env var, then dark.
 func GetEffectiveTheme() string {
 	theme := GetTheme()
 	if theme != "auto" {
 		return theme
 	}
-	// Detect via COLORFGBG env var (format: "fg;bg")
-	if colorfgbg := os.Getenv("COLORFGBG"); colorfgbg != "" {
-		parts := strings.Split(colorfgbg, ";")
-		if len(parts) >= 2 {
-			bg := parts[len(parts)-1]
-			// 0-7 = dark colors, 8+ = light colors
-			if bg >= "8" {
-				return "light"
-			}
-		}
+	output := termenv.NewOutput(os.Stdout)
+	if output.HasDarkBackground() {
+		return "dark"
 	}
-	return "dark" // default fallback
+	return "light"
 }
 
 // GetGradientThreshold returns the minimum color count required for gradients

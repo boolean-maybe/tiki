@@ -297,5 +297,9 @@ func InitColorAndGradientSupport(cfg *config.Config) *sysinfo.SystemInfo {
 			"wideGradients", config.UseWideGradients)
 	}
 
+	// set tview global background so all primitives inherit the theme background
+	colors := config.GetColors()
+	tview.Styles.PrimitiveBackgroundColor = colors.ContentBackgroundColor.TCell()
+
 	return systemInfo
 }

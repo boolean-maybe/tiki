@@ -66,7 +66,7 @@ func RenderTypeText(task *taskpkg.Task, ctx FieldRenderContext) tview.Primitive 
 	focused := ctx.Mode == RenderModeEdit && ctx.FocusedField == model.EditFieldType
 	typeDisplay := taskpkg.TypeDisplay(task.Type)
 	if task.Type == "" {
-		typeDisplay = "[gray](none)[-]"
+		typeDisplay = ctx.Colors.TaskDetailPlaceholderColor.Tag().String() + "(none)[-]"
 	}
 
 	labelTag := getDimOrFullColor(ctx.Mode, focused, ctx.Colors.TaskDetailLabelText, ctx.Colors.TaskDetailEditDimLabelColor).Tag().String()

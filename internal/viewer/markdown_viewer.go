@@ -201,21 +201,25 @@ func updateStatusBar(statusBar *tview.TextView, v *navtview.TextViewViewer) {
 	canBack := core.CanGoBack()
 	canForward := core.CanGoForward()
 
-	keyColor := "gray"
-	activeColor := "white"
-	status := fmt.Sprintf(" [yellow]%s[-] | Link:[%s]Tab/Shift-Tab[-] | Back:", fileName, keyColor)
+	colors := config.GetColors()
+	labelColor := colors.TaskBoxTitleColor.Hex()
+	keyColor := colors.CompletionHintColor.Hex()
+	activeColor := colors.ContentTextColor.Hex()
+	mutedColor := colors.CompletionHintColor.Hex()
+	accentColor := colors.HeaderInfoLabel.Tag().Bold().String()
+	status := fmt.Sprintf(" %s%s[-] | [%s]Link:[-][%s]Tab/Shift-Tab[-] | [%s]Back:[-]", accentColor, fileName, labelColor, keyColor, labelColor)
 	if canBack {
 		status += fmt.Sprintf("[%s]◀[-]", activeColor)
 	} else {
-		status += "[gray]◀[-]"
+		status += fmt.Sprintf("[%s]◀[-]", mutedColor)
 	}
-	status += " Fwd:"
+	status += fmt.Sprintf(" [%s]Fwd:[-]", labelColor)
 	if canForward {
 		status += fmt.Sprintf("[%s]▶[-]", activeColor)
 	} else {
-		status += "[gray]▶[-]"
+		status += fmt.Sprintf("[%s]▶[-]", mutedColor)
 	}
-	status += fmt.Sprintf(" | Scroll:[%s]j/k[-] Top/End:[%s]g/G[-] Refresh:[%s]r[-] Edit:[%s]e[-] Quit:[%s]q[-]", keyColor, keyColor, keyColor, keyColor, keyColor)
+	status += fmt.Sprintf(" | [%s]Scroll:[-][%s]j/k[-] [%s]Top/End:[-][%s]g/G[-] [%s]Refresh:[-][%s]r[-] [%s]Edit:[-][%s]e[-] [%s]Quit:[-][%s]q[-]", labelColor, keyColor, labelColor, keyColor, labelColor, keyColor, labelColor, keyColor, labelColor, keyColor)
 
 	statusBar.SetText(status)
 }
