@@ -12,6 +12,10 @@ func parseColor(s string, defaultColor tcell.Color) tcell.Color {
 	if s == "" {
 		return defaultColor
 	}
+	switch strings.ToLower(s) {
+	case "transparent", "none", "default", "inherit":
+		return tcell.ColorDefault
+	}
 
 	// tcell.GetColor handles both hex colors (#rrggbb) and named colors
 	color := tcell.GetColor(s)

@@ -12,21 +12,23 @@ import (
 // with a continuous horizontal background gradient spanning the entire screen width
 type GradientCaptionRow struct {
 	*tview.Box
-	laneNames  []string
-	laneWidths []int           // proportional widths (same values used in tview.Flex)
-	gradient   config.Gradient // computed gradient (for truecolor/256-color terminals)
-	textColor  config.Color
+	laneNames      []string
+	laneWidths     []int           // proportional widths (same values used in tview.Flex)
+	gradient       config.Gradient // computed gradient (for truecolor/256-color terminals)
+	textColor      config.Color
+	transparentBg  bool
 }
 
 // NewGradientCaptionRow creates a new gradient caption row widget.
 // laneWidths should match the flex proportions used for lane layout (nil = equal).
 func NewGradientCaptionRow(laneNames []string, laneWidths []int, bgColor config.Color, textColor config.Color) *GradientCaptionRow {
 	return &GradientCaptionRow{
-		Box:        tview.NewBox(),
-		laneNames:  laneNames,
-		laneWidths: laneWidths,
-		gradient:   computeCaptionGradient(bgColor),
-		textColor:  textColor,
+		Box:           tview.NewBox(),
+		laneNames:     laneNames,
+		laneWidths:    laneWidths,
+		gradient:      computeCaptionGradient(bgColor),
+		textColor:     textColor,
+		transparentBg: bgColor.IsDefault(),
 	}
 }
 
@@ -71,9 +73,12 @@ func (gcr *GradientCaptionRow) Draw(screen tcell.Screen) {
 			}
 		}
 
-		// Use adaptive gradient based on terminal color capabilities
+		// Use adaptive gradient based on terminal color capabilities.
+		// If plugin background is transparent/default, preserve terminal background.
 		var bgColor tcell.Color
-		if config.UseWideGradients {
+		if gcr.transparentBg {
+			bgColor = tcell.ColorDefault
+		} else if config.UseWideGradients {
 			// Truecolor: full gradient effect (dark center, bright edges)
 			bgColor = gradient.InterpolateColor(gcr.gradient, distanceFromCenter)
 		} else if config.UseGradients {

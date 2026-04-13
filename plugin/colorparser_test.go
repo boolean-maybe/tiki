@@ -68,6 +68,12 @@ func TestParseColor(t *testing.T) {
 			defaultColor: tcell.ColorWhite,
 			want:         tcell.GetColor("#ff0000"),
 		},
+		{
+			name:         "transparent keyword returns default color",
+			input:        "transparent",
+			defaultColor: tcell.ColorWhite,
+			want:         tcell.ColorDefault,
+		},
 	}
 
 	for _, tt := range tests {
