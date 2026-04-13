@@ -35,6 +35,8 @@ func mergePluginDefinitions(base Plugin, override Plugin) Plugin {
 				Modifier:    baseTiki.Modifier, // FIXED: Copy modifier from base
 				Foreground:  baseTiki.Foreground,
 				Background:  baseTiki.Background,
+				ForegroundSet: baseTiki.ForegroundSet,
+				BackgroundSet: baseTiki.BackgroundSet,
 				FilePath:    overrideTiki.FilePath,    // Use override's filepath for tracking
 				ConfigIndex: overrideTiki.ConfigIndex, // Use override's config index
 				Type:        baseTiki.Type,
@@ -54,11 +56,13 @@ func mergePluginDefinitions(base Plugin, override Plugin) Plugin {
 			result.Rune = overrideTiki.Rune
 			result.Modifier = overrideTiki.Modifier
 		}
-		if !overrideTiki.Foreground.IsDefault() {
+		if overrideTiki.ForegroundSet {
 			result.Foreground = overrideTiki.Foreground
+			result.ForegroundSet = true
 		}
-		if !overrideTiki.Background.IsDefault() {
+		if overrideTiki.BackgroundSet {
 			result.Background = overrideTiki.Background
+			result.BackgroundSet = true
 		}
 		if len(overrideTiki.Lanes) > 0 {
 			result.Lanes = overrideTiki.Lanes

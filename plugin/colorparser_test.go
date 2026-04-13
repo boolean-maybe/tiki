@@ -74,6 +74,18 @@ func TestParseColor(t *testing.T) {
 			defaultColor: tcell.ColorWhite,
 			want:         tcell.ColorDefault,
 		},
+		{
+			name:         "NONE keyword returns default color case-insensitively",
+			input:        "NONE",
+			defaultColor: tcell.ColorWhite,
+			want:         tcell.ColorDefault,
+		},
+		{
+			name:         "default keyword with whitespace returns default color",
+			input:        "  default  ",
+			defaultColor: tcell.ColorWhite,
+			want:         tcell.ColorDefault,
+		},
 	}
 
 	for _, tt := range tests {

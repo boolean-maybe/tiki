@@ -27,6 +27,8 @@ type BasePlugin struct {
 	Modifier    tcell.ModMask // modifier keys (Alt, Shift, Ctrl, etc.)
 	Foreground  config.Color  // caption text color
 	Background  config.Color  // caption background color
+	ForegroundSet bool        // true when foreground was explicitly configured
+	BackgroundSet bool        // true when background was explicitly configured
 	FilePath    string        // source file path (for error messages)
 	ConfigIndex int           // index in workflow.yaml views array (-1 if not from a config file)
 	Type        string        // plugin type: "tiki" or "doki"

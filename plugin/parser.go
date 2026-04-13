@@ -3,6 +3,7 @@ package plugin
 import (
 	"fmt"
 	"log/slog"
+	"strings"
 	"unicode"
 	"unicode/utf8"
 
@@ -21,6 +22,8 @@ func parsePluginConfig(cfg pluginFileConfig, source string, schema ruki.Schema) 
 
 	// Common fields
 	// Use ColorDefault as sentinel so views can detect "not specified" and use theme-appropriate colors
+	fgSet := strings.TrimSpace(cfg.Foreground) != ""
+	bgSet := strings.TrimSpace(cfg.Background) != ""
 	fg := config.NewColor(parseColor(cfg.Foreground, tcell.ColorDefault))
 	bg := config.NewColor(parseColor(cfg.Background, tcell.ColorDefault))
 
@@ -42,6 +45,8 @@ func parsePluginConfig(cfg pluginFileConfig, source string, schema ruki.Schema) 
 		Modifier:    mod,
 		Foreground:  fg,
 		Background:  bg,
+		ForegroundSet: fgSet,
+		BackgroundSet: bgSet,
 		FilePath:    source,
 		Type:        pluginType,
 		ConfigIndex: -1, // default, will be set by caller if needed

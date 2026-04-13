@@ -50,6 +50,8 @@ func TestMergePluginDefinitions_TikiToTiki(t *testing.T) {
 			Modifier:    tcell.ModAlt,
 			Foreground:  config.NewColor(tcell.ColorGreen),
 			Background:  config.DefaultColor(),
+			ForegroundSet: true,
+			BackgroundSet: false,
 			FilePath:    "override.yaml",
 			ConfigIndex: 1,
 			Type:        "tiki",
@@ -81,6 +83,45 @@ func TestMergePluginDefinitions_TikiToTiki(t *testing.T) {
 	}
 	if len(resultTiki.Lanes) != 1 || resultTiki.Lanes[0].Filter == nil {
 		t.Error("expected lane filter to be overridden")
+	}
+}
+
+func TestMergePluginDefinitions_ExplicitTransparentBackgroundOverrides(t *testing.T) {
+	baseFilter := mustParseFilter(t, `select where status = "ready"`)
+
+	base := &TikiPlugin{
+		BasePlugin: BasePlugin{
+			Name:          "Base",
+			Key:           tcell.KeyRune,
+			Rune:          'B',
+			Foreground:    config.NewColor(tcell.ColorRed),
+			Background:    config.NewColor(tcell.ColorBlue),
+			ForegroundSet: true,
+			BackgroundSet: true,
+			Type:          "tiki",
+		},
+		Lanes: []TikiLane{
+			{Name: "Todo", Columns: 1, Filter: baseFilter},
+		},
+	}
+
+	override := &TikiPlugin{
+		BasePlugin: BasePlugin{
+			Name:          "Base",
+			Background:    config.DefaultColor(),
+			BackgroundSet: true,
+			Type:          "tiki",
+		},
+	}
+
+	result := mergePluginDefinitions(base, override)
+	resultTiki, ok := result.(*TikiPlugin)
+	if !ok {
+		t.Fatal("expected result to be *TikiPlugin")
+	}
+
+	if !resultTiki.Background.IsDefault() {
+		t.Errorf("expected explicit transparent override to set default background, got %v", resultTiki.Background)
 	}
 }
 
