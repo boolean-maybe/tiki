@@ -36,7 +36,8 @@ func (p *taskDescriptionProvider) FetchContent(elem nav.NavElement) (string, err
 	return p.fileHTTP.FetchContent(elem)
 }
 
-// looksLikeTikiID checks if a URL looks like a tiki ID (TIKI-XXXXXX, case-insensitive).
+// looksLikeTikiID checks if a URL looks like a tiki ID:
+// TIKI-SEGMENT[-SEGMENT...], case-insensitive input, uppercase alnum segments.
 func looksLikeTikiID(url string) bool {
 	return taskpkg.IsValidTikiIDFormat(strings.ToUpper(strings.TrimSpace(url)))
 }

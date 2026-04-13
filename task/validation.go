@@ -78,7 +78,7 @@ func ValidateDependsOn(t *Task) string {
 		}
 	}
 	if len(invalid) > 0 {
-		return fmt.Sprintf("invalid tiki ID format(s): %s (expected UPPERCASE-PREFIX and identifier, e.g. TIKI-ABC123)", strings.Join(invalid, ", "))
+		return fmt.Sprintf("invalid tiki ID format(s): %s (expected TIKI-SEGMENT[-SEGMENT...], e.g. TIKI-ABC123)", strings.Join(invalid, ", "))
 	}
 	return ""
 }
