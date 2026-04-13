@@ -26,18 +26,18 @@ var themeRegistry = map[string]ThemeInfo{
 	// named dark themes
 	"dracula":          {Light: false, ChromaTheme: "dracula", NavidownStyle: "dracula", Palette: DraculaPalette},
 	"tokyo-night":      {Light: false, ChromaTheme: "tokyonight-night", NavidownStyle: "tokyo-night", Palette: TokyoNightPalette},
-	"gruvbox-dark":     {Light: false, ChromaTheme: "gruvbox", NavidownStyle: "dark", Palette: GruvboxDarkPalette},
-	"catppuccin-mocha": {Light: false, ChromaTheme: "catppuccin-mocha", NavidownStyle: "dark", Palette: CatppuccinMochaPalette},
-	"solarized-dark":   {Light: false, ChromaTheme: "solarized-dark256", NavidownStyle: "dark", Palette: SolarizedDarkPalette},
-	"nord":             {Light: false, ChromaTheme: "nord", NavidownStyle: "dark", Palette: NordPalette},
-	"monokai":          {Light: false, ChromaTheme: "monokai", NavidownStyle: "dark", Palette: MonokaiPalette},
-	"one-dark":         {Light: false, ChromaTheme: "onedark", NavidownStyle: "dark", Palette: OneDarkPalette},
+	"gruvbox-dark":     {Light: false, ChromaTheme: "gruvbox", NavidownStyle: "gruvbox-dark", Palette: GruvboxDarkPalette},
+	"catppuccin-mocha": {Light: false, ChromaTheme: "catppuccin-mocha", NavidownStyle: "catppuccin-mocha", Palette: CatppuccinMochaPalette},
+	"solarized-dark":   {Light: false, ChromaTheme: "solarized-dark256", NavidownStyle: "solarized-dark", Palette: SolarizedDarkPalette},
+	"nord":             {Light: false, ChromaTheme: "nord", NavidownStyle: "nord", Palette: NordPalette},
+	"monokai":          {Light: false, ChromaTheme: "monokai", NavidownStyle: "monokai", Palette: MonokaiPalette},
+	"one-dark":         {Light: false, ChromaTheme: "onedark", NavidownStyle: "one-dark", Palette: OneDarkPalette},
 
 	// named light themes
-	"catppuccin-latte": {Light: true, ChromaTheme: "catppuccin-latte", NavidownStyle: "light", Palette: CatppuccinLattePalette},
-	"solarized-light":  {Light: true, ChromaTheme: "solarized-light", NavidownStyle: "light", Palette: SolarizedLightPalette},
-	"gruvbox-light":    {Light: true, ChromaTheme: "gruvbox-light", NavidownStyle: "light", Palette: GruvboxLightPalette},
-	"github-light":     {Light: true, ChromaTheme: "github", NavidownStyle: "light", Palette: GithubLightPalette},
+	"catppuccin-latte": {Light: true, ChromaTheme: "catppuccin-latte", NavidownStyle: "catppuccin-latte", Palette: CatppuccinLattePalette},
+	"solarized-light":  {Light: true, ChromaTheme: "solarized-light", NavidownStyle: "solarized-light", Palette: SolarizedLightPalette},
+	"gruvbox-light":    {Light: true, ChromaTheme: "gruvbox-light", NavidownStyle: "gruvbox-light", Palette: GruvboxLightPalette},
+	"github-light":     {Light: true, ChromaTheme: "github", NavidownStyle: "github-light", Palette: GithubLightPalette},
 }
 
 var defaultTheme = themeRegistry["dark"]

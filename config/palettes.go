@@ -503,7 +503,7 @@ func SolarizedLightPalette() Palette {
 // Ref: https://github.com/morhetz/gruvbox
 func GruvboxLightPalette() Palette {
 	return Palette{
-		HighlightColor:   NewColorHex("#b57614"), // dark yellow
+		HighlightColor:   NewColorHex("#9d6104"), // dark yellow (deepened for light-bg contrast)
 		TextColor:        NewColorHex("#3c3836"), // fg (dark0_hard)
 		TransparentColor: DefaultColor(),
 		MutedColor:       NewColorHex("#928374"), // gray

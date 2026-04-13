@@ -97,6 +97,12 @@ func TestNavidownStylesValid(t *testing.T) {
 		"dark": true, "light": true,
 		"dracula": true, "tokyo-night": true,
 		"pink": true, "ascii": true, "notty": true,
+		// additional named themes
+		"gruvbox-dark": true, "catppuccin-mocha": true,
+		"solarized-dark": true, "nord": true,
+		"monokai": true, "one-dark": true,
+		"catppuccin-latte": true, "solarized-light": true,
+		"gruvbox-light": true, "github-light": true,
 	}
 	for name, info := range themeRegistry {
 		if !validNavidown[info.NavidownStyle] {
