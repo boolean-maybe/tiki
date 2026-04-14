@@ -4,6 +4,8 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+
+	"github.com/boolean-maybe/tiki/ruki"
 )
 
 func TestParsePluginConfig_FullyInline(t *testing.T) {
@@ -140,7 +142,7 @@ func TestLoadPluginsFromFile_WorkflowFile(t *testing.T) {
 		t.Fatalf("Failed to write workflow.yaml: %v", err)
 	}
 
-	plugins, errs := loadPluginsFromFile(workflowPath, testSchema())
+	plugins, _, errs := loadPluginsFromFile(workflowPath, testSchema())
 	if len(errs) != 0 {
 		t.Fatalf("Expected no errors, got: %v", errs)
 	}
@@ -174,7 +176,7 @@ func TestLoadPluginsFromFile_WorkflowFile(t *testing.T) {
 
 func TestLoadPluginsFromFile_NoFile(t *testing.T) {
 	tmpDir := t.TempDir()
-	plugins, errs := loadPluginsFromFile(filepath.Join(tmpDir, "workflow.yaml"), testSchema())
+	plugins, _, errs := loadPluginsFromFile(filepath.Join(tmpDir, "workflow.yaml"), testSchema())
 	if plugins != nil {
 		t.Errorf("Expected nil plugins when no workflow.yaml, got %d", len(plugins))
 	}
@@ -200,7 +202,7 @@ func TestLoadPluginsFromFile_InvalidPlugin(t *testing.T) {
 	}
 
 	// should load valid plugin and skip invalid one
-	plugins, errs := loadPluginsFromFile(workflowPath, testSchema())
+	plugins, _, errs := loadPluginsFromFile(workflowPath, testSchema())
 	if len(plugins) != 1 {
 		t.Fatalf("Expected 1 valid plugin (invalid skipped), got %d", len(plugins))
 	}
@@ -253,7 +255,7 @@ func TestLoadPluginsFromFile_LegacyConversion(t *testing.T) {
 		t.Fatalf("write workflow.yaml: %v", err)
 	}
 
-	plugins, errs := loadPluginsFromFile(workflowPath, testSchema())
+	plugins, _, errs := loadPluginsFromFile(workflowPath, testSchema())
 	if len(errs) != 0 {
 		t.Fatalf("expected no errors, got: %v", errs)
 	}
@@ -298,7 +300,7 @@ func TestLoadPluginsFromFile_UnnamedPlugin(t *testing.T) {
 		t.Fatalf("write workflow.yaml: %v", err)
 	}
 
-	plugins, errs := loadPluginsFromFile(workflowPath, testSchema())
+	plugins, _, errs := loadPluginsFromFile(workflowPath, testSchema())
 	// unnamed plugin should be skipped, valid one should load
 	if len(plugins) != 1 {
 		t.Fatalf("expected 1 valid plugin, got %d", len(plugins))
@@ -318,7 +320,7 @@ func TestLoadPluginsFromFile_InvalidYAML(t *testing.T) {
 		t.Fatalf("write workflow.yaml: %v", err)
 	}
 
-	plugins, errs := loadPluginsFromFile(workflowPath, testSchema())
+	plugins, _, errs := loadPluginsFromFile(workflowPath, testSchema())
 	if plugins != nil {
 		t.Error("expected nil plugins for invalid YAML")
 	}
@@ -336,7 +338,7 @@ func TestLoadPluginsFromFile_EmptyViews(t *testing.T) {
 		t.Fatalf("write workflow.yaml: %v", err)
 	}
 
-	plugins, errs := loadPluginsFromFile(workflowPath, testSchema())
+	plugins, _, errs := loadPluginsFromFile(workflowPath, testSchema())
 	if len(plugins) != 0 {
 		t.Errorf("expected 0 plugins for empty views, got %d", len(plugins))
 	}
@@ -364,7 +366,7 @@ func TestLoadPluginsFromFile_DokiConfigIndex(t *testing.T) {
 		t.Fatalf("write workflow.yaml: %v", err)
 	}
 
-	plugins, errs := loadPluginsFromFile(workflowPath, testSchema())
+	plugins, _, errs := loadPluginsFromFile(workflowPath, testSchema())
 	if len(errs) != 0 {
 		t.Fatalf("expected no errors, got: %v", errs)
 	}
@@ -414,6 +416,169 @@ func TestMergePluginLists(t *testing.T) {
 	if names[2] != "NewView" {
 		t.Errorf("expected third plugin 'NewView', got %q", names[2])
 	}
+}
+
+func TestLoadPluginsFromFile_GlobalActions(t *testing.T) {
+	tmpDir := t.TempDir()
+	workflowContent := `views:
+  actions:
+    - key: "a"
+      label: "Assign to me"
+      action: update where id = id() set assignee=user()
+  plugins:
+    - name: Board
+      key: "B"
+      lanes:
+        - name: Todo
+          filter: select where status = "ready"
+`
+	workflowPath := filepath.Join(tmpDir, "workflow.yaml")
+	if err := os.WriteFile(workflowPath, []byte(workflowContent), 0644); err != nil {
+		t.Fatalf("write workflow.yaml: %v", err)
+	}
+
+	plugins, globalActions, errs := loadPluginsFromFile(workflowPath, testSchema())
+	if len(errs) != 0 {
+		t.Fatalf("expected no errors, got: %v", errs)
+	}
+	if len(plugins) != 1 {
+		t.Fatalf("expected 1 plugin, got %d", len(plugins))
+	}
+	if len(globalActions) != 1 {
+		t.Fatalf("expected 1 global action, got %d", len(globalActions))
+	}
+	if globalActions[0].Rune != 'a' {
+		t.Errorf("expected rune 'a', got %q", globalActions[0].Rune)
+	}
+	if globalActions[0].Label != "Assign to me" {
+		t.Errorf("expected label 'Assign to me', got %q", globalActions[0].Label)
+	}
+}
+
+func TestLoadPluginsFromFile_LegacyFormatWithGlobalActions(t *testing.T) {
+	tmpDir := t.TempDir()
+	// old list format — should still load plugins (global actions not possible in old format)
+	workflowContent := `views:
+  - name: Board
+    key: "B"
+    lanes:
+      - name: Todo
+        filter: select where status = "ready"
+`
+	workflowPath := filepath.Join(tmpDir, "workflow.yaml")
+	if err := os.WriteFile(workflowPath, []byte(workflowContent), 0644); err != nil {
+		t.Fatalf("write workflow.yaml: %v", err)
+	}
+
+	plugins, globalActions, errs := loadPluginsFromFile(workflowPath, testSchema())
+	if len(errs) != 0 {
+		t.Fatalf("expected no errors, got: %v", errs)
+	}
+	if len(plugins) != 1 {
+		t.Fatalf("expected 1 plugin, got %d", len(plugins))
+	}
+	if len(globalActions) != 0 {
+		t.Errorf("expected 0 global actions from legacy format, got %d", len(globalActions))
+	}
+}
+
+func TestMergeGlobalActions(t *testing.T) {
+	stmt := mustParseAction(t, `update where id = id() set status="ready"`)
+
+	base := []PluginAction{
+		{Rune: 'a', Label: "Assign", Action: stmt},
+		{Rune: 'b', Label: "Board", Action: stmt},
+	}
+	overrides := []PluginAction{
+		{Rune: 'b', Label: "Board Override", Action: stmt},
+		{Rune: 'c', Label: "Create", Action: stmt},
+	}
+
+	result := mergeGlobalActions(base, overrides)
+	if len(result) != 3 {
+		t.Fatalf("expected 3 actions, got %d", len(result))
+	}
+	// 'a' unchanged, 'b' overridden, 'c' appended
+	if result[0].Label != "Assign" {
+		t.Errorf("expected 'Assign', got %q", result[0].Label)
+	}
+	if result[1].Label != "Board Override" {
+		t.Errorf("expected 'Board Override', got %q", result[1].Label)
+	}
+	if result[2].Label != "Create" {
+		t.Errorf("expected 'Create', got %q", result[2].Label)
+	}
+}
+
+func TestMergeGlobalActions_EmptyOverrides(t *testing.T) {
+	stmt := mustParseAction(t, `update where id = id() set status="ready"`)
+	base := []PluginAction{{Rune: 'a', Label: "Assign", Action: stmt}}
+	result := mergeGlobalActions(base, nil)
+	if len(result) != 1 {
+		t.Fatalf("expected 1 action, got %d", len(result))
+	}
+}
+
+func TestMergeGlobalActionsIntoPlugins(t *testing.T) {
+	stmt := mustParseAction(t, `update where id = id() set status="ready"`)
+
+	plugins := []Plugin{
+		&TikiPlugin{
+			BasePlugin: BasePlugin{Name: "Board"},
+			Actions:    []PluginAction{{Rune: 'b', Label: "Board action", Action: stmt}},
+		},
+		&TikiPlugin{
+			BasePlugin: BasePlugin{Name: "Backlog"},
+			Actions:    nil,
+		},
+		&DokiPlugin{
+			BasePlugin: BasePlugin{Name: "Help"},
+		},
+	}
+
+	globals := []PluginAction{
+		{Rune: 'a', Label: "Assign", Action: stmt},
+		{Rune: 'b', Label: "Global board", Action: stmt}, // conflicts with Board's 'b'
+	}
+
+	mergeGlobalActionsIntoPlugins(plugins, globals)
+
+	// Board: should have 'b' (local) + 'a' (global) — 'b' global skipped
+	board, ok := plugins[0].(*TikiPlugin)
+	if !ok {
+		t.Fatalf("Board: expected *TikiPlugin, got %T", plugins[0])
+	}
+	if len(board.Actions) != 2 {
+		t.Fatalf("Board: expected 2 actions, got %d", len(board.Actions))
+	}
+	if board.Actions[0].Label != "Board action" {
+		t.Errorf("Board: first action should be local 'Board action', got %q", board.Actions[0].Label)
+	}
+	if board.Actions[1].Label != "Assign" {
+		t.Errorf("Board: second action should be global 'Assign', got %q", board.Actions[1].Label)
+	}
+
+	// Backlog: should have both globals ('a' and 'b')
+	backlog, ok := plugins[1].(*TikiPlugin)
+	if !ok {
+		t.Fatalf("Backlog: expected *TikiPlugin, got %T", plugins[1])
+	}
+	if len(backlog.Actions) != 2 {
+		t.Fatalf("Backlog: expected 2 actions, got %d", len(backlog.Actions))
+	}
+
+	// Help (DokiPlugin): should have no actions (skipped)
+	// DokiPlugin has no Actions field — nothing to check
+}
+
+func mustParseAction(t *testing.T, input string) *ruki.ValidatedStatement {
+	t.Helper()
+	parser := testParser()
+	stmt, err := parser.ParseAndValidateStatement(input, ruki.ExecutorRuntimePlugin)
+	if err != nil {
+		t.Fatalf("parse ruki statement %q: %v", input, err)
+	}
+	return stmt
 }
 
 func TestDefaultPlugin_MultipleDefaults(t *testing.T) {

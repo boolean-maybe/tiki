@@ -450,8 +450,8 @@ triggers:
 	}
 
 	// modify a view mode (same as SavePluginViewMode logic)
-	if len(wf.Plugins) > 0 {
-		wf.Plugins[0]["view"] = "compact"
+	if len(wf.Views.Plugins) > 0 {
+		wf.Views.Plugins[0]["view"] = "compact"
 	}
 
 	if err := writeWorkflowFile(workflowPath, wf); err != nil {

@@ -50,16 +50,17 @@ how Backlog is defined:
 
 ```yaml
 views:
-  - name: Backlog
-    key: "F3"
-    lanes:
-      - name: Backlog
-        columns: 4
-        filter: select where status = "backlog" and type != "epic" order by priority, id
-    actions:
-      - key: "b"
-        label: "Add to board"
-        action: update where id = id() set status="ready"
+  plugins:
+    - name: Backlog
+      key: "F3"
+      lanes:
+        - name: Backlog
+          columns: 4
+          filter: select where status = "backlog" and type != "epic" order by priority, id
+      actions:
+        - key: "b"
+          label: "Add to board"
+          action: update where id = id() set status="ready"
 ```
 
 that translates to - show all tikis in the status `backlog`, sort by priority and then by ID arranged visually in 4 columns in a single lane.
@@ -70,11 +71,12 @@ Likewise the documentation is just a plugin:
 
 ```yaml
 views:
-  - name: Docs
-    type: doki
-    fetcher: file
-    url: "index.md"
-    key: "F2"
+  plugins:
+    - name: Docs
+      type: doki
+      fetcher: file
+      url: "index.md"
+      key: "F2"
 ```
 
 that translates to - show `index.md` file located under `.doc/doki`
@@ -130,7 +132,24 @@ lanes:
 
 If no lanes specify width, all lanes are equally sized (the default behavior).
 
-### Plugin actions
+### Global plugin actions
+
+You can define actions under `views.actions` that are available in **all** tiki plugin views:
+
+```yaml
+views:
+  actions:
+    - key: "a"
+      label: "Assign to me"
+      action: update where id = id() set assignee=user()
+  plugins:
+    - name: Kanban
+      ...
+```
+
+Global actions appear in the header alongside per-plugin actions. If a per-plugin action uses the same key, the per-plugin action takes precedence for that view. When multiple workflow files define `views.actions`, they merge by key — later files override same-keyed globals from earlier files.
+
+### Per-plugin actions
 
 In addition to lane actions that trigger when moving tikis between lanes, you can define plugin-level actions
 that apply to the currently selected tiki via a keyboard shortcut. These shortcuts are displayed in the header when the plugin is active.
@@ -148,14 +167,16 @@ actions:
 Each action has:
 - `key` - a single printable character used as the keyboard shortcut
 - `label` - description shown in the header
-- `action` - a `ruki` `update` statement (same syntax as lane actions, see below)
+- `action` - a `ruki` statement (`update`, `create`, `delete`, or `select`)
 
 When the shortcut key is pressed, the action is applied to the currently selected tiki.
 For example, pressing `b` in the Backlog plugin changes the selected tiki's status to `ready`, effectively moving it to the board.
 
+`select` actions execute for side-effects only — the output is ignored. They don't require a selected tiki.
+
 ### ruki expressions
 
-Plugin filters, lane actions, and plugin actions all use the `ruki` language. Filters use `select` statements and actions use `update` statements.
+Plugin filters, lane actions, and plugin actions all use the `ruki` language. Filters use `select` statements. Actions support `update`, `create`, `delete`, and `select` statements (`select` for side-effects only, output ignored).
 
 #### Filter (select)
 

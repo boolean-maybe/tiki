@@ -190,26 +190,62 @@ func GetConfig() *Config {
 	return appConfig
 }
 
+// viewsFileData represents the views section of workflow.yaml for read-modify-write.
+type viewsFileData struct {
+	Actions []map[string]interface{} `yaml:"actions,omitempty"`
+	Plugins []map[string]interface{} `yaml:"plugins"`
+}
+
 // workflowFileData represents the YAML structure of workflow.yaml for read-modify-write.
 // kept in config package to avoid import cycle with plugin package.
 // all top-level sections must be listed here to survive round-trip serialization.
 type workflowFileData struct {
 	Statuses []map[string]interface{} `yaml:"statuses,omitempty"`
-	Plugins  []map[string]interface{} `yaml:"views"`
+	Views    viewsFileData            `yaml:"views,omitempty"`
 	Triggers []map[string]interface{} `yaml:"triggers,omitempty"`
 }
 
 // readWorkflowFile reads and unmarshals workflow.yaml from the given path.
+// Handles both old list format (views: [...]) and new map format (views: {plugins: [...]}).
 func readWorkflowFile(path string) (*workflowFileData, error) {
 	data, err := os.ReadFile(path)
 	if err != nil {
 		return nil, fmt.Errorf("reading workflow.yaml: %w", err)
 	}
+
+	// convert legacy views list format to map format before unmarshaling
+	var raw map[string]interface{}
+	if err := yaml.Unmarshal(data, &raw); err != nil {
+		return nil, fmt.Errorf("parsing workflow.yaml: %w", err)
+	}
+	ConvertViewsListToMap(raw)
+	data, err = yaml.Marshal(raw)
+	if err != nil {
+		return nil, fmt.Errorf("re-marshaling workflow.yaml: %w", err)
+	}
+
 	var wf workflowFileData
 	if err := yaml.Unmarshal(data, &wf); err != nil {
 		return nil, fmt.Errorf("parsing workflow.yaml: %w", err)
 	}
 	return &wf, nil
+}
+
+// ConvertViewsListToMap converts old views list format to new map format in-place.
+// Old: views: [{name: Kanban, ...}]  →  New: views: {plugins: [{name: Kanban, ...}]}
+func ConvertViewsListToMap(raw map[string]interface{}) {
+	views, ok := raw["views"]
+	if !ok {
+		return
+	}
+	if _, isMap := views.(map[string]interface{}); isMap {
+		return
+	}
+	if list, isList := views.([]interface{}); isList {
+		raw["views"] = map[string]interface{}{
+			"plugins": list,
+		}
+	}
 }
 
 // writeWorkflowFile marshals and writes workflow.yaml to the given path.
@@ -250,7 +286,7 @@ func getPluginViewModeFromWorkflow(pluginName string, defaultValue string) strin
 		return defaultValue
 	}
 
-	for _, p := range wf.Plugins {
+	for _, p := range wf.Views.Plugins {
 		if name, ok := p["name"].(string); ok && name == pluginName {
 			if view, ok := p["view"].(string); ok && view != "" {
 				return view
@@ -279,13 +315,13 @@ func SavePluginViewMode(pluginName string, configIndex int, viewMode string) err
 		wf = &workflowFileData{}
 	}
 
-	if configIndex >= 0 && configIndex < len(wf.Plugins) {
+	if configIndex >= 0 && configIndex < len(wf.Views.Plugins) {
 		// update existing entry by index
-		wf.Plugins[configIndex]["view"] = viewMode
+		wf.Views.Plugins[configIndex]["view"] = viewMode
 	} else {
 		// find by name or create new entry
 		existingIndex := -1
-		for i, p := range wf.Plugins {
+		for i, p := range wf.Views.Plugins {
 			if name, ok := p["name"].(string); ok && name == pluginName {
 				existingIndex = i
 				break
@@ -293,13 +329,13 @@ func SavePluginViewMode(pluginName string, configIndex int, viewMode string) err
 		}
 
 		if existingIndex >= 0 {
-			wf.Plugins[existingIndex]["view"] = viewMode
+			wf.Views.Plugins[existingIndex]["view"] = viewMode
 		} else {
 			newEntry := map[string]interface{}{
 				"name": pluginName,
 				"view": viewMode,
 			}
-			wf.Plugins = append(wf.Plugins, newEntry)
+			wf.Views.Plugins = append(wf.Views.Plugins, newEntry)
 		}
 	}
 
