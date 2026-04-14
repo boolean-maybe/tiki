@@ -159,7 +159,7 @@ func (pc *PluginController) handlePluginAction(r rune) bool {
 	input := ruki.ExecutionInput{}
 	taskID := pc.getSelectedTaskID(pc.GetFilteredTasksForLane)
 
-	if pa.Action.IsUpdate() || pa.Action.IsDelete() {
+	if pa.Action.IsUpdate() || pa.Action.IsDelete() || pa.Action.IsPipe() {
 		if taskID == "" {
 			return false
 		}
@@ -210,6 +210,16 @@ func (pc *PluginController) handlePluginAction(r rune) bool {
 					pc.statusline.SetMessage(err.Error(), model.MessageLevelError, true)
 				}
 				return false
+			}
+		}
+	case result.Pipe != nil:
+		for _, row := range result.Pipe.Rows {
+			if err := service.ExecutePipeCommand(ctx, result.Pipe.Command, row); err != nil {
+				slog.Error("pipe command failed", "command", result.Pipe.Command, "args", row, "key", string(r), "error", err)
+				if pc.statusline != nil {
+					pc.statusline.SetMessage(err.Error(), model.MessageLevelError, true)
+				}
+				// non-fatal: continue remaining rows
 			}
 		}
 	}

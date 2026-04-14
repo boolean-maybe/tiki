@@ -17,6 +17,13 @@ func lowerStatement(g *statementGrammar) (*Statement, error) {
 		if err != nil {
 			return nil, err
 		}
+		if g.Select.Pipe != nil {
+			cmd, err := lowerExpr(&g.Select.Pipe.Command)
+			if err != nil {
+				return nil, err
+			}
+			s.Pipe = &RunAction{Command: cmd}
+		}
 		return &Statement{Select: s}, nil
 	case g.Create != nil:
 		s, err := lowerCreate(g.Create)

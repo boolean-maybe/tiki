@@ -23,6 +23,7 @@ type selectGrammar struct {
 	Fields  *fieldNamesGrammar `parser:"           | @@ )?"`
 	Where   *orCond            `parser:"( 'where' @@ )?"`
 	OrderBy *orderByGrammar    `parser:"@@?"`
+	Pipe    *runGrammar        `parser:"( Pipe @@ )?"`
 }
 
 // --- order by grammar ---

@@ -216,6 +216,49 @@ Order by inside a subquery:
 select where count(select where status = "done" order by priority) >= 1
 ```
 
+## Pipe validation errors
+
+Pipe actions on `select` have several restrictions:
+
+`select *` with pipe:
+
+```sql
+select * where status = "done" | run("echo $1")
+```
+
+Bare `select` with pipe:
+
+```sql
+select | run("echo $1")
+```
+
+Both are rejected because explicit field names are required when using a pipe.
+
+Non-string command:
+
+```sql
+select id where status = "done" | run(42)
+```
+
+Field references in command:
+
+```sql
+select id, title where status = "done" | run(title + " " + id)
+select id, title where status = "done" | run("echo " + title)
+```
+
+Field references are not allowed in the pipe command expression itself. Use positional arguments (`$1`, `$2`) instead.
+
+Pipe on non-select statements:
+
+```sql
+update where status = "done" set priority=1 | run("echo done")
+create title="x" | run("echo created")
+delete where id = "TIKI-ABC123" | run("echo deleted")
+```
+
+Pipe suffix is only valid on `select` statements.
+
 ## Built-in and subquery errors
 
 Unknown function:

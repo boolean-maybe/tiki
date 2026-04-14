@@ -25,6 +25,7 @@ var rukiLexer = lexer.MustSimple([]lexer.SimpleRule{
 	{Name: "LBracket", Pattern: `\[`},
 	{Name: "RBracket", Pattern: `\]`},
 	{Name: "Comma", Pattern: `,`},
+	{Name: "Pipe", Pattern: `\|`},
 	{Name: "Keyword", Pattern: keywordPattern()},
 	{Name: "Ident", Pattern: `[a-zA-Z_][a-zA-Z0-9_]*`},
 })

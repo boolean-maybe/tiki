@@ -48,8 +48,9 @@ The following EBNF-style summary shows the grammar:
 ```text
 statement        = selectStmt | createStmt | updateStmt | deleteStmt ;
 
-selectStmt       = "select" [ fieldList | "*" ] [ "where" condition ] [ orderBy ] ;
+selectStmt       = "select" [ fieldList | "*" ] [ "where" condition ] [ orderBy ] [ pipeAction ] ;
 fieldList        = identifier { "," identifier } ;
+pipeAction       = "|" runAction ;
 createStmt       = "create" assignment { assignment } ;
 
 orderBy          = "order" "by" sortField { "," sortField } ;

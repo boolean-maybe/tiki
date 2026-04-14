@@ -246,10 +246,32 @@ after update where new.status = "in progress" run("echo hello")
 
 ## Shell-related forms
 
-`ruki` includes two shell-related forms:
+`ruki` includes three shell-related forms:
 
-- `call(...)` as a string-returning expression
-- `run(...)` as an `after`-trigger action
+**`call(...)`** — a string-returning expression
 
-- `call(...)` returns a string
-- `run(...)` is used as the top-level action of an `after` trigger
+- Returns a string result from a shell command
+- Can be used in any expression context
+
+**`run(...)` in triggers** — an `after`-trigger action
+
+- Used as the top-level action of an `after` trigger
+- Command string may reference `old.` and `new.` fields
+- Example: `after update where new.status = "in progress" run("echo hello")`
+
+**`| run(...)` on select** — a pipe suffix
+
+- Executes a command for each row returned by `select`
+- Uses positional arguments `$1`, `$2`, etc. for field substitution
+- Command must be a string literal or expression, but **field references are not allowed in the command** itself
+- `|` is a statement suffix, not an operator
+- Example: `select id, title where status = "done" | run("myscript $1 $2")`
+
+Pipe `| run(...)` is distinct from trigger `run()`:
+
+| Form | Context | Field access | Substitution |
+|---|---|---|---|
+| trigger `run()` | after-trigger action | `old.`, `new.` allowed | expression evaluation |
+| pipe `| run()` | select suffix | field refs disallowed in command | positional args `$1`, `$2` |
+
+See [Semantics](semantics.md#pipe-actions-on-select) for pipe evaluation model.

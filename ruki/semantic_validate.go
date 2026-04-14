@@ -46,6 +46,9 @@ func (v *ValidatedStatement) IsCreate() bool {
 func (v *ValidatedStatement) IsDelete() bool {
 	return v != nil && v.statement != nil && v.statement.Delete != nil
 }
+func (v *ValidatedStatement) IsPipe() bool {
+	return v != nil && v.statement != nil && v.statement.Select != nil && v.statement.Select.Pipe != nil
+}
 
 func (v *ValidatedStatement) mustBeSealed() error {
 	if v == nil || v.seal != validatedSeal || v.statement == nil {
@@ -384,7 +387,18 @@ func scanSelectSemantics(sel *SelectStmt) (usesID bool, hasCall bool, err error)
 	if sel == nil {
 		return false, false, nil
 	}
-	return scanConditionSemantics(sel.Where)
+	u, c, err := scanConditionSemantics(sel.Where)
+	if err != nil {
+		return false, false, err
+	}
+	if sel.Pipe != nil {
+		u2, c2, err := scanExprSemantics(sel.Pipe.Command)
+		if err != nil {
+			return false, false, err
+		}
+		u, c = u || u2, c || c2
+	}
+	return u, c, nil
 }
 
 func scanTriggerSemantics(trig *Trigger) (usesID bool, hasCall bool, err error) {
@@ -566,11 +580,15 @@ func cloneSelect(sel *SelectStmt) *SelectStmt {
 	if sel.OrderBy != nil {
 		orderBy = append([]OrderByClause(nil), sel.OrderBy...)
 	}
-	return &SelectStmt{
+	out := &SelectStmt{
 		Fields:  fields,
 		Where:   cloneCondition(sel.Where),
 		OrderBy: orderBy,
 	}
+	if sel.Pipe != nil {
+		out.Pipe = &RunAction{Command: cloneExpr(sel.Pipe.Command)}
+	}
+	return out
 }
 
 func cloneCreate(cr *CreateStmt) *CreateStmt {

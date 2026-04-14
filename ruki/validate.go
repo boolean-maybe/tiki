@@ -67,7 +67,25 @@ func (p *Parser) validateStatement(s *Statement) error {
 				return err
 			}
 		}
-		return p.validateOrderBy(s.Select.OrderBy)
+		if err := p.validateOrderBy(s.Select.OrderBy); err != nil {
+			return err
+		}
+		if s.Select.Pipe != nil {
+			if len(s.Select.Fields) == 0 {
+				return fmt.Errorf("pipe requires explicit field names in select (not select * or bare select)")
+			}
+			typ, err := p.inferExprType(s.Select.Pipe.Command)
+			if err != nil {
+				return fmt.Errorf("pipe command: %w", err)
+			}
+			if typ != ValueString {
+				return fmt.Errorf("pipe command must be string, got %s", typeName(typ))
+			}
+			if exprContainsFieldRef(s.Select.Pipe.Command) {
+				return fmt.Errorf("pipe command must not contain field references — use $1, $2 for positional args")
+			}
+		}
+		return nil
 	default:
 		return fmt.Errorf("empty statement")
 	}
@@ -879,5 +897,35 @@ func typeName(t ValueType) string {
 		return "empty"
 	default:
 		return "unknown"
+	}
+}
+
+// exprContainsFieldRef returns true if the expression tree contains any
+// *FieldRef or *QualifiedRef node. Used to reject field references in
+// pipe commands, where positional args ($1, $2) should be used instead.
+func exprContainsFieldRef(expr Expr) bool {
+	switch e := expr.(type) {
+	case *FieldRef:
+		return true
+	case *QualifiedRef:
+		return true
+	case *BinaryExpr:
+		return exprContainsFieldRef(e.Left) || exprContainsFieldRef(e.Right)
+	case *FunctionCall:
+		for _, arg := range e.Args {
+			if exprContainsFieldRef(arg) {
+				return true
+			}
+		}
+		return false
+	case *ListLiteral:
+		for _, elem := range e.Elements {
+			if exprContainsFieldRef(elem) {
+				return true
+			}
+		}
+		return false
+	default:
+		return false
 	}
 }
