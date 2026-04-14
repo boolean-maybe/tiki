@@ -57,10 +57,15 @@ func NewPluginView(
 }
 
 func (pv *PluginView) build() {
-	// title bar with gradient background using plugin color
-	textColor := config.DefaultColor()
-	if !pv.pluginDef.Foreground.IsDefault() {
-		textColor = pv.pluginDef.Foreground
+	// title bar with gradient background using theme-derived caption colors
+	colors := config.GetColors()
+	pair := colors.CaptionColorForIndex(pv.pluginDef.ConfigIndex)
+	bgColor := pair.Background
+	textColor := pair.Foreground
+	if pv.pluginDef.ConfigIndex < 0 {
+		// code-only plugin (e.g. deps editor) — use explicit Background
+		bgColor = pv.pluginDef.Background
+		textColor = config.DefaultColor()
 	}
 	laneNames := make([]string, len(pv.pluginDef.Lanes))
 	for i, lane := range pv.pluginDef.Lanes {
@@ -70,7 +75,7 @@ func (pv *PluginView) build() {
 	for i := range pv.pluginDef.Lanes {
 		laneWidths[i] = pv.pluginConfig.GetWidthForLane(i)
 	}
-	pv.titleBar = NewGradientCaptionRow(laneNames, laneWidths, pv.pluginDef.Background, textColor)
+	pv.titleBar = NewGradientCaptionRow(laneNames, laneWidths, bgColor, textColor)
 
 	// lanes container (rows)
 	pv.lanes = tview.NewFlex().SetDirection(tview.FlexColumn)

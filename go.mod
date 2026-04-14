@@ -3,8 +3,9 @@ module github.com/boolean-maybe/tiki
 go 1.25.0
 
 require (
+	github.com/alecthomas/chroma/v2 v2.14.0
 	github.com/alecthomas/participle/v2 v2.1.4
-	github.com/boolean-maybe/navidown v0.4.16
+	github.com/boolean-maybe/navidown v0.4.18
 	github.com/charmbracelet/bubbles v0.21.1-0.20250623103423-23b8fd6302d7
 	github.com/charmbracelet/bubbletea v1.3.10
 	github.com/charmbracelet/huh v0.8.0
@@ -24,7 +25,6 @@ require (
 	dario.cat/mergo v1.0.0 // indirect
 	github.com/Microsoft/go-winio v0.6.2 // indirect
 	github.com/ProtonMail/go-crypto v1.1.6 // indirect
-	github.com/alecthomas/chroma/v2 v2.14.0 // indirect
 	github.com/atotto/clipboard v0.1.4 // indirect
 	github.com/aymanbagabas/go-osc52/v2 v2.0.1 // indirect
 	github.com/aymerick/douceur v0.2.0 // indirect

@@ -7,7 +7,6 @@ import (
 	"unicode"
 	"unicode/utf8"
 
-	"github.com/gdamore/tcell/v2"
 	"gopkg.in/yaml.v3"
 
 	"github.com/boolean-maybe/tiki/config"

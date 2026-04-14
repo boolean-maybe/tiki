@@ -182,9 +182,13 @@ func TestLoadConfigCodeBlockDefaults(t *testing.T) {
 		t.Fatalf("LoadConfig failed: %v", err)
 	}
 
-	// codeBlock.theme defaults to "nord"; background and border have no defaults
-	if cfg.Appearance.CodeBlock.Theme != "nord" {
-		t.Errorf("expected default codeBlock.theme 'nord', got '%s'", cfg.Appearance.CodeBlock.Theme)
+	// codeBlock.theme is empty in config (resolved dynamically by GetCodeBlockTheme)
+	if cfg.Appearance.CodeBlock.Theme != "" {
+		t.Errorf("expected empty default codeBlock.theme, got '%s'", cfg.Appearance.CodeBlock.Theme)
+	}
+	// GetCodeBlockTheme resolves to "nord" for dark (default) theme
+	if got := GetCodeBlockTheme(); got != "nord" {
+		t.Errorf("expected GetCodeBlockTheme() 'nord' for dark theme, got '%s'", got)
 	}
 	if cfg.Appearance.CodeBlock.Background != "" {
 		t.Errorf("expected empty default codeBlock.background, got '%s'", cfg.Appearance.CodeBlock.Background)

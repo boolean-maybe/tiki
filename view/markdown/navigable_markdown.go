@@ -36,7 +36,7 @@ func NewNavigableMarkdown(cfg NavigableMarkdownConfig) *NavigableMarkdown {
 		onStateChange: cfg.OnStateChange,
 	}
 	nm.viewer.SetAnsiConverter(navutil.NewAnsiConverter(true))
-	renderer := nav.NewANSIRendererWithStyle(config.GetEffectiveTheme())
+	renderer := nav.NewANSIRendererWithStyle(config.GetNavidownStyle())
 	if t := config.GetCodeBlockTheme(); t != "" {
 		renderer = renderer.WithCodeTheme(t)
 	}
