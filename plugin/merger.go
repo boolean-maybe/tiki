@@ -1,5 +1,15 @@
 package plugin
 
+// viewsSectionConfig represents the YAML structure of the views section.
+// views:
+//
+//	actions: [...]   # global plugin actions
+//	plugins: [...]   # plugin definitions
+type viewsSectionConfig struct {
+	Actions []PluginActionConfig `yaml:"actions"`
+	Plugins []pluginFileConfig   `yaml:"plugins"`
+}
+
 // pluginFileConfig represents the YAML structure of a plugin file
 type pluginFileConfig struct {
 	Name        string               `yaml:"name"`

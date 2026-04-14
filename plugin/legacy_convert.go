@@ -7,6 +7,7 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/boolean-maybe/tiki/config"
 	"github.com/boolean-maybe/tiki/workflow"
 )
 
@@ -54,6 +55,12 @@ type LegacyConfigTransformer struct{}
 // NewLegacyConfigTransformer creates a new transformer.
 func NewLegacyConfigTransformer() *LegacyConfigTransformer {
 	return &LegacyConfigTransformer{}
+}
+
+// ConvertViewsFormat converts the old views list format to the new map format in-place.
+// Delegates to config.ConvertViewsListToMap.
+func (t *LegacyConfigTransformer) ConvertViewsFormat(raw map[string]interface{}) {
+	config.ConvertViewsListToMap(raw)
 }
 
 // ConvertPluginConfig converts all legacy expressions in a plugin config in-place.
@@ -133,7 +140,8 @@ func isRukiAction(expr string) bool {
 	lower := strings.ToLower(strings.TrimSpace(expr))
 	return strings.HasPrefix(lower, "update") ||
 		strings.HasPrefix(lower, "create") ||
-		strings.HasPrefix(lower, "delete")
+		strings.HasPrefix(lower, "delete") ||
+		strings.HasPrefix(lower, "select")
 }
 
 // mergeSortIntoFilter appends an order-by clause to a filter, respecting existing order-by.

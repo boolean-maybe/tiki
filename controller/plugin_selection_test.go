@@ -1224,6 +1224,70 @@ func TestPluginController_HandleToggleViewMode(t *testing.T) {
 	}
 }
 
+func TestPluginController_HandlePluginAction_Select(t *testing.T) {
+	taskStore := store.NewInMemoryStore()
+	_ = taskStore.CreateTask(&task.Task{
+		ID: "T-1", Title: "Task 1", Status: task.StatusReady, Type: task.TypeStory, Priority: 3,
+	})
+
+	readyFilter := mustParseStmt(t, `select where status = "ready"`)
+	selectAction := mustParseStmt(t, `select where status = "ready"`)
+
+	pluginDef := &plugin.TikiPlugin{
+		BasePlugin: plugin.BasePlugin{Name: "TestPlugin"},
+		Lanes:      []plugin.TikiLane{{Name: "Ready", Columns: 1, Filter: readyFilter}},
+		Actions: []plugin.PluginAction{
+			{Rune: 's', Label: "Search Ready", Action: selectAction},
+		},
+	}
+	pluginConfig := model.NewPluginConfig("TestPlugin")
+	pluginConfig.SetLaneLayout([]int{1}, nil)
+	pluginConfig.SetSelectedLane(0)
+	pluginConfig.SetSelectedIndexForLane(0, 0)
+
+	schema := rukiRuntime.NewSchema()
+	gate := service.NewTaskMutationGate()
+	gate.SetStore(taskStore)
+	pc := NewPluginController(taskStore, gate, pluginConfig, pluginDef, nil, nil, schema)
+
+	if !pc.HandleAction(pluginActionID('s')) {
+		t.Error("expected true for SELECT plugin action")
+	}
+
+	// task should be unchanged (SELECT is side-effect only)
+	tk := taskStore.GetTask("T-1")
+	if tk.Status != task.StatusReady {
+		t.Errorf("expected status ready (unchanged), got %s", tk.Status)
+	}
+}
+
+func TestPluginController_HandlePluginAction_SelectNoSelectedTask(t *testing.T) {
+	taskStore := store.NewInMemoryStore()
+
+	emptyFilter := mustParseStmt(t, `select where status = "done"`)
+	selectAction := mustParseStmt(t, `select where status = "ready"`)
+
+	pluginDef := &plugin.TikiPlugin{
+		BasePlugin: plugin.BasePlugin{Name: "TestPlugin"},
+		Lanes:      []plugin.TikiLane{{Name: "Empty", Columns: 1, Filter: emptyFilter}},
+		Actions: []plugin.PluginAction{
+			{Rune: 's', Label: "Search Ready", Action: selectAction},
+		},
+	}
+	pluginConfig := model.NewPluginConfig("TestPlugin")
+	pluginConfig.SetLaneLayout([]int{1}, nil)
+
+	schema := rukiRuntime.NewSchema()
+	gate := service.NewTaskMutationGate()
+	gate.SetStore(taskStore)
+	pc := NewPluginController(taskStore, gate, pluginConfig, pluginDef, nil, nil, schema)
+
+	// SELECT should succeed even with no selected task
+	if !pc.HandleAction(pluginActionID('s')) {
+		t.Error("expected true for SELECT action even with no selected task")
+	}
+}
+
 func TestGetPluginActionRune(t *testing.T) {
 	tests := []struct {
 		name string

@@ -13,16 +13,19 @@
 - [Priority triage](#priority-triage--five-lane-plugin)
 - [By topic](#by-topic--tag-based-lanes)
 
-## Assign to me — plugin action
+## Assign to me — global plugin action
 
-Shortcut key that sets the selected task's assignee to the current git user.
+Shortcut key that sets the selected task's assignee to the current git user. Defined under `views.actions`, this shortcut is available in all tiki plugin views.
 
 ```yaml
-actions:
-  - key: "a"
-    label: "Assign to me"
-    action: update where id = id() set assignee=user()
+views:
+  actions:
+    - key: "a"
+      label: "Assign to me"
+      action: update where id = id() set assignee=user()
 ```
+
+The same format works as a per-plugin action (under a plugin's `actions:` key) if you only want it in a specific view.
 
 ## Add tag to task — plugin action
 

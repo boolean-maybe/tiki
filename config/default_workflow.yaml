@@ -21,73 +21,78 @@ statuses:
     done: true
 
 views:
-  - name: Kanban
-    description: "Move tiki to new status, search, create or delete"
-    default: true
-    key: "F1"
-    lanes:
-      - name: Ready
-        filter: select where status = "ready" and type != "epic" order by priority, createdAt
-        action: update where id = id() set status="ready"
-      - name: In Progress
-        filter: select where status = "inProgress" and type != "epic" order by priority, createdAt
-        action: update where id = id() set status="inProgress"
-      - name: Review
-        filter: select where status = "review" and type != "epic" order by priority, createdAt
-        action: update where id = id() set status="review"
-      - name: Done
-        filter: select where status = "done" and type != "epic" order by priority, createdAt
-        action: update where id = id() set status="done"
-  - name: Backlog
-    description: "Tasks waiting to be picked up, sorted by priority"
-    key: "F3"
-    lanes:
-      - name: Backlog
-        columns: 4
-        filter: select where status = "backlog" and type != "epic" order by priority, id
-    actions:
-      - key: "b"
-        label: "Add to board"
-        action: update where id = id() set status="ready"
-  - name: Recent
-    description: "Tasks changed in the last 24 hours, most recent first"
-    key: Ctrl-R
-    lanes:
-      - name: Recent
-        columns: 4
-        filter: select where now() - updatedAt < 24hour order by updatedAt desc
-  - name: Roadmap
-    description: "Epics organized by Now, Next, and Later horizons"
-    key: "F4"
-    lanes:
-      - name: Now
-        columns: 1
-        width: 25
-        filter: select where type = "epic" and status = "ready" order by priority, points desc
-        action: update where id = id() set status="ready"
-      - name: Next
-        columns: 1
-        width: 25
-        filter: select where type = "epic" and status = "backlog" and priority = 1 order by priority, points desc
-        action: update where id = id() set status="backlog" priority=1
-      - name: Later
-        columns: 2
-        width: 50
-        filter: select where type = "epic" and status = "backlog" and priority > 1 order by priority, points desc
-        action: update where id = id() set status="backlog" priority=2
-    view: expanded
-  - name: Help
-    description: "Keyboard shortcuts, navigation, and usage guide"
-    type: doki
-    fetcher: internal
-    text: "Help"
-    key: "?"
-  - name: Docs
-    description: "Project notes and documentation files"
-    type: doki
-    fetcher: file
-    url: "index.md"
-    key: "F2"
+  actions:
+    - key: "a"
+      label: "Assign to me"
+      action: update where id = id() set assignee=user()
+  plugins:
+    - name: Kanban
+      description: "Move tiki to new status, search, create or delete"
+      default: true
+      key: "F1"
+      lanes:
+        - name: Ready
+          filter: select where status = "ready" and type != "epic" order by priority, createdAt
+          action: update where id = id() set status="ready"
+        - name: In Progress
+          filter: select where status = "inProgress" and type != "epic" order by priority, createdAt
+          action: update where id = id() set status="inProgress"
+        - name: Review
+          filter: select where status = "review" and type != "epic" order by priority, createdAt
+          action: update where id = id() set status="review"
+        - name: Done
+          filter: select where status = "done" and type != "epic" order by priority, createdAt
+          action: update where id = id() set status="done"
+    - name: Backlog
+      description: "Tasks waiting to be picked up, sorted by priority"
+      key: "F3"
+      lanes:
+        - name: Backlog
+          columns: 4
+          filter: select where status = "backlog" and type != "epic" order by priority, id
+      actions:
+        - key: "b"
+          label: "Add to board"
+          action: update where id = id() set status="ready"
+    - name: Recent
+      description: "Tasks changed in the last 24 hours, most recent first"
+      key: Ctrl-R
+      lanes:
+        - name: Recent
+          columns: 4
+          filter: select where now() - updatedAt < 24hour order by updatedAt desc
+    - name: Roadmap
+      description: "Epics organized by Now, Next, and Later horizons"
+      key: "F4"
+      lanes:
+        - name: Now
+          columns: 1
+          width: 25
+          filter: select where type = "epic" and status = "ready" order by priority, points desc
+          action: update where id = id() set status="ready"
+        - name: Next
+          columns: 1
+          width: 25
+          filter: select where type = "epic" and status = "backlog" and priority = 1 order by priority, points desc
+          action: update where id = id() set status="backlog" priority=1
+        - name: Later
+          columns: 2
+          width: 50
+          filter: select where type = "epic" and status = "backlog" and priority > 1 order by priority, points desc
+          action: update where id = id() set status="backlog" priority=2
+      view: expanded
+    - name: Help
+      description: "Keyboard shortcuts, navigation, and usage guide"
+      type: doki
+      fetcher: internal
+      text: "Help"
+      key: "?"
+    - name: Docs
+      description: "Project notes and documentation files"
+      type: doki
+      fetcher: file
+      url: "index.md"
+      key: "F2"
 
 triggers:
   - description: block completion with open dependencies

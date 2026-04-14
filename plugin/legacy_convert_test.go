@@ -612,20 +612,31 @@ func TestLegacyWorkflowEndToEnd(t *testing.T) {
         action: type = 'bug', priority = 1
 `
 
+	// convert legacy views format (list → map) before unmarshaling
+	var raw map[string]interface{}
+	if err := yaml.Unmarshal([]byte(legacyYAML), &raw); err != nil {
+		t.Fatalf("failed to unmarshal raw YAML: %v", err)
+	}
+	transformer := NewLegacyConfigTransformer()
+	transformer.ConvertViewsFormat(raw)
+	normalizedData, err := yaml.Marshal(raw)
+	if err != nil {
+		t.Fatalf("failed to re-marshal: %v", err)
+	}
+
 	var wf WorkflowFile
-	if err := yaml.Unmarshal([]byte(legacyYAML), &wf); err != nil {
-		t.Fatalf("failed to unmarshal legacy YAML: %v", err)
+	if err := yaml.Unmarshal(normalizedData, &wf); err != nil {
+		t.Fatalf("failed to unmarshal workflow YAML: %v", err)
 	}
 
 	// convert legacy expressions
-	transformer := NewLegacyConfigTransformer()
-	for i := range wf.Plugins {
-		transformer.ConvertPluginConfig(&wf.Plugins[i])
+	for i := range wf.Views.Plugins {
+		transformer.ConvertPluginConfig(&wf.Views.Plugins[i])
 	}
 
 	// parse into plugin — this validates ruki parsing succeeds
 	schema := testSchema()
-	p, err := parsePluginConfig(wf.Plugins[0], "test", schema)
+	p, err := parsePluginConfig(wf.Views.Plugins[0], "test", schema)
 	if err != nil {
 		t.Fatalf("parsePluginConfig failed: %v", err)
 	}
@@ -703,7 +714,7 @@ func TestLegacyWorkflowEndToEnd(t *testing.T) {
 	}
 
 	// verify sort was merged: backlog filter should have order by
-	backlogFilter := wf.Plugins[0].Lanes[0].Filter
+	backlogFilter := wf.Views.Plugins[0].Lanes[0].Filter
 	if !strings.Contains(backlogFilter, "order by") {
 		t.Errorf("expected sort merged into backlog filter, got: %s", backlogFilter)
 	}
@@ -939,5 +950,69 @@ func TestConvertPluginConfig_PluginActionConvertError(t *testing.T) {
 	}
 	if cfg.Actions[0].Action != "tags+=[unclosed" {
 		t.Errorf("malformed plugin action should be passed through unchanged, got %q", cfg.Actions[0].Action)
+	}
+}
+
+func TestConvertViewsFormat_ListToMap(t *testing.T) {
+	tr := NewLegacyConfigTransformer()
+
+	raw := map[string]interface{}{
+		"views": []interface{}{
+			map[string]interface{}{"name": "Kanban"},
+			map[string]interface{}{"name": "Backlog"},
+		},
+	}
+	tr.ConvertViewsFormat(raw)
+
+	views, ok := raw["views"].(map[string]interface{})
+	if !ok {
+		t.Fatalf("expected views to be a map after conversion, got %T", raw["views"])
+	}
+	plugins, ok := views["plugins"].([]interface{})
+	if !ok {
+		t.Fatalf("expected views.plugins to be a list, got %T", views["plugins"])
+	}
+	if len(plugins) != 2 {
+		t.Fatalf("expected 2 plugins, got %d", len(plugins))
+	}
+}
+
+func TestConvertViewsFormat_AlreadyMap(t *testing.T) {
+	tr := NewLegacyConfigTransformer()
+
+	raw := map[string]interface{}{
+		"views": map[string]interface{}{
+			"plugins": []interface{}{
+				map[string]interface{}{"name": "Kanban"},
+			},
+			"actions": []interface{}{},
+		},
+	}
+	tr.ConvertViewsFormat(raw)
+
+	// should be unchanged
+	views, ok := raw["views"].(map[string]interface{})
+	if !ok {
+		t.Fatalf("expected views to remain a map, got %T", raw["views"])
+	}
+	plugins, ok := views["plugins"].([]interface{})
+	if !ok {
+		t.Fatalf("expected views.plugins to be a list, got %T", views["plugins"])
+	}
+	if len(plugins) != 1 {
+		t.Fatalf("expected 1 plugin, got %d", len(plugins))
+	}
+}
+
+func TestConvertViewsFormat_NoViewsKey(t *testing.T) {
+	tr := NewLegacyConfigTransformer()
+
+	raw := map[string]interface{}{
+		"statuses": []interface{}{},
+	}
+	tr.ConvertViewsFormat(raw)
+
+	if _, ok := raw["views"]; ok {
+		t.Fatal("should not create views key when it doesn't exist")
 	}
 }

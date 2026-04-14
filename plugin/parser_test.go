@@ -495,17 +495,20 @@ func TestParsePluginConfig_LaneActionMustBeUpdate(t *testing.T) {
 	}
 }
 
-func TestParsePluginActions_SelectRejectedAsAction(t *testing.T) {
+func TestParsePluginActions_SelectAllowedAsAction(t *testing.T) {
 	parser := testParser()
 	configs := []PluginActionConfig{
 		{Key: "s", Label: "Search", Action: `select where status = "ready"`},
 	}
-	_, err := parsePluginActions(configs, parser)
-	if err == nil {
-		t.Fatal("expected error for SELECT as plugin action")
+	actions, err := parsePluginActions(configs, parser)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
 	}
-	if !strings.Contains(err.Error(), "not plain SELECT") {
-		t.Errorf("expected 'not plain SELECT' error, got: %v", err)
+	if len(actions) != 1 {
+		t.Fatalf("expected 1 action, got %d", len(actions))
+	}
+	if !actions[0].Action.IsSelect() {
+		t.Error("expected action to be a SELECT statement")
 	}
 }
 

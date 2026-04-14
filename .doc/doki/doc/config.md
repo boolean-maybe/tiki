@@ -66,12 +66,15 @@ Search order: user config dir (base) → `.doc/workflow.yaml` (project) → cwd 
 - Empty/zero fields in the override are ignored — the base value is kept
 - Views that only exist in the override are appended
 
+**Global plugin actions** (`views.actions`) — merged by key across files. If two files define a global action with the same key, the later file's action wins. Global actions are appended to each tiki plugin's action list; per-plugin actions with the same key take precedence.
+
 A project only needs to define the views or fields it wants to change. Everything else is inherited from your user config.
 
 To disable all user-level views for a project, create a `.doc/workflow.yaml` with an explicitly empty views list:
 
 ```yaml
-views: []
+views:
+  plugins: []
 ```
 
 ### config.yaml
@@ -147,70 +150,111 @@ statuses:
     done: true
 
 views:
-  - name: Kanban
-    description: "Move tiki to new status, search, create or delete"
-    key: "F1"
-    lanes:
-      - name: Ready
-        filter: select where status = "ready" and type != "epic" order by priority, createdAt
-        action: update where id = id() set status="ready"
-      - name: In Progress
-        filter: select where status = "inProgress" and type != "epic" order by priority, createdAt
-        action: update where id = id() set status="inProgress"
-      - name: Review
-        filter: select where status = "review" and type != "epic" order by priority, createdAt
-        action: update where id = id() set status="review"
-      - name: Done
-        filter: select where status = "done" and type != "epic" order by priority, createdAt
-        action: update where id = id() set status="done"
-  - name: Backlog
-    description: "Tasks waiting to be picked up, sorted by priority"
-    key: "F3"
-    lanes:
-      - name: Backlog
-        columns: 4
-        filter: select where status = "backlog" and type != "epic" order by priority, id
-    actions:
-      - key: "b"
-        label: "Add to board"
-        action: update where id = id() set status="ready"
-  - name: Recent
-    description: "Tasks changed in the last 24 hours, most recent first"
-    key: Ctrl-R
-    lanes:
-      - name: Recent
-        columns: 4
-        filter: select where now() - updatedAt < 24hour order by updatedAt desc
-  - name: Roadmap
-    description: "Epics organized by Now, Next, and Later horizons"
-    key: "F4"
-    lanes:
-      - name: Now
-        columns: 1
-        width: 25
-        filter: select where type = "epic" and status = "ready" order by priority, points desc
-        action: update where id = id() set status="ready"
-      - name: Next
-        columns: 1
-        width: 25
-        filter: select where type = "epic" and status = "backlog" and priority = 1 order by priority, points desc
-        action: update where id = id() set status="backlog" priority=1
-      - name: Later
-        columns: 2
-        width: 50
-        filter: select where type = "epic" and status = "backlog" and priority > 1 order by priority, points desc
-        action: update where id = id() set status="backlog" priority=2
-    view: expanded
-  - name: Help
-    description: "Keyboard shortcuts, navigation, and usage guide"
-    type: doki
-    fetcher: internal
-    text: "Help"
-    key: "?"
-  - name: Docs
-    description: "Project notes and documentation files"
-    type: doki
-    fetcher: file
-    url: "index.md"
-    key: "F2"
+  actions:
+    - key: "a"
+      label: "Assign to me"
+      action: update where id = id() set assignee=user()
+  plugins:
+    - name: Kanban
+      description: "Move tiki to new status, search, create or delete"
+      key: "F1"
+      lanes:
+        - name: Ready
+          filter: select where status = "ready" and type != "epic" order by priority, createdAt
+          action: update where id = id() set status="ready"
+        - name: In Progress
+          filter: select where status = "inProgress" and type != "epic" order by priority, createdAt
+          action: update where id = id() set status="inProgress"
+        - name: Review
+          filter: select where status = "review" and type != "epic" order by priority, createdAt
+          action: update where id = id() set status="review"
+        - name: Done
+          filter: select where status = "done" and type != "epic" order by priority, createdAt
+          action: update where id = id() set status="done"
+    - name: Backlog
+      description: "Tasks waiting to be picked up, sorted by priority"
+      key: "F3"
+      lanes:
+        - name: Backlog
+          columns: 4
+          filter: select where status = "backlog" and type != "epic" order by priority, id
+      actions:
+        - key: "b"
+          label: "Add to board"
+          action: update where id = id() set status="ready"
+    - name: Recent
+      description: "Tasks changed in the last 24 hours, most recent first"
+      key: Ctrl-R
+      lanes:
+        - name: Recent
+          columns: 4
+          filter: select where now() - updatedAt < 24hour order by updatedAt desc
+    - name: Roadmap
+      description: "Epics organized by Now, Next, and Later horizons"
+      key: "F4"
+      lanes:
+        - name: Now
+          columns: 1
+          width: 25
+          filter: select where type = "epic" and status = "ready" order by priority, points desc
+          action: update where id = id() set status="ready"
+        - name: Next
+          columns: 1
+          width: 25
+          filter: select where type = "epic" and status = "backlog" and priority = 1 order by priority, points desc
+          action: update where id = id() set status="backlog" priority=1
+        - name: Later
+          columns: 2
+          width: 50
+          filter: select where type = "epic" and status = "backlog" and priority > 1 order by priority, points desc
+          action: update where id = id() set status="backlog" priority=2
+      view: expanded
+    - name: Help
+      description: "Keyboard shortcuts, navigation, and usage guide"
+      type: doki
+      fetcher: internal
+      text: "Help"
+      key: "?"
+    - name: Docs
+      description: "Project notes and documentation files"
+      type: doki
+      fetcher: file
+      url: "index.md"
+      key: "F2"
+
+triggers:
+  - description: block completion with open dependencies
+    ruki: >
+      before update
+        where new.status = "done" and new.dependsOn any status != "done"
+        deny "cannot complete: has open dependencies"
+  - description: tasks must pass through review before completion
+    ruki: >
+      before update
+        where new.status = "done" and old.status != "review"
+        deny "tasks must go through review before marking done"
+  - description: remove deleted task from dependency lists
+    ruki: >
+      after delete
+        update where old.id in dependsOn set dependsOn=dependsOn - [old.id]
+  - description: clean up completed tasks after 24 hours
+    ruki: >
+      every 1day
+        delete where status = "done" and updatedAt < now() - 1day
+  - description: tasks must have an assignee before starting
+    ruki: >
+      before update
+        where new.status = "inProgress" and new.assignee is empty
+        deny "assign someone before moving to in-progress"
+  - description: auto-complete epics when all child tasks finish
+    ruki: >
+      after update
+        where new.status = "done" and new.type != "epic"
+        update where type = "epic" and new.id in dependsOn and dependsOn all status = "done"
+        set status="done"
+  - description: cannot delete tasks that are actively being worked
+    ruki: >
+      before delete
+        where old.status = "inProgress"
+        deny "cannot delete an in-progress task — move to backlog or done first"
 ```

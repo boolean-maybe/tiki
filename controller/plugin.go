@@ -159,7 +159,12 @@ func (pc *PluginController) handlePluginAction(r rune) bool {
 	input := ruki.ExecutionInput{}
 	taskID := pc.getSelectedTaskID(pc.GetFilteredTasksForLane)
 
-	if pa.Action.IsUpdate() || pa.Action.IsDelete() || pa.Action.IsPipe() {
+	if pa.Action.IsSelect() && !pa.Action.IsPipe() {
+		// plain SELECT actions are side-effect only — pass task ID if available but don't require it
+		if taskID != "" {
+			input.SelectedTaskID = taskID
+		}
+	} else if pa.Action.IsUpdate() || pa.Action.IsDelete() || pa.Action.IsPipe() {
 		if taskID == "" {
 			return false
 		}
@@ -183,6 +188,10 @@ func (pc *PluginController) handlePluginAction(r rune) bool {
 
 	ctx := context.Background()
 	switch {
+	case result.Select != nil:
+		slog.Info("select plugin action executed", "task_id", taskID, "key", string(r),
+			"label", pa.Label, "matched", len(result.Select.Tasks))
+		return true
 	case result.Update != nil:
 		for _, updated := range result.Update.Updated {
 			if err := pc.mutationGate.UpdateTask(ctx, updated); err != nil {

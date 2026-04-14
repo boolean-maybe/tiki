@@ -372,21 +372,29 @@ func FindWorkflowFiles() []string {
 	return result
 }
 
-// hasEmptyViews returns true if the workflow file has an explicit empty views list (views: []).
+// hasEmptyViews returns true if the workflow file has an explicit empty views section.
+// Handles both old list format (views: []) and new map format (views: {plugins: []}).
 func hasEmptyViews(path string) bool {
 	data, err := os.ReadFile(path)
 	if err != nil {
 		return false
 	}
-	type viewsOnly struct {
-		Views []any `yaml:"views"`
+
+	var raw struct {
+		Views interface{} `yaml:"views"`
 	}
-	var vo viewsOnly
-	if err := yaml.Unmarshal(data, &vo); err != nil {
+	if err := yaml.Unmarshal(data, &raw); err != nil {
 		return false
 	}
-	// Explicitly empty (views: []) vs. not specified at all
-	return vo.Views != nil && len(vo.Views) == 0
+	switch v := raw.Views.(type) {
+	case []interface{}:
+		return len(v) == 0
+	case map[string]interface{}:
+		plugins, _ := v["plugins"].([]interface{})
+		return plugins != nil && len(plugins) == 0
+	default:
+		return false
+	}
 }
 
 // FindWorkflowFile searches for workflow.yaml in config search paths.
