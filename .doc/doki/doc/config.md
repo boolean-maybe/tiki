@@ -61,7 +61,7 @@ Search order: user config dir (base) → `.doc/workflow.yaml` (project) → cwd 
 **Statuses** — last file with a `statuses:` section wins (complete replacement). A project that defines its own statuses fully replaces the user-level defaults.
 
 **Views (plugins)** — merged by name across files. The user config is the base; project and cwd files override individual fields:
-- Non-empty fields in the override replace the base (description, key, colors, view mode)
+- Non-empty fields in the override replace the base (description, key, view mode)
 - Non-empty arrays in the override replace the entire base array (lanes, actions)
 - Empty/zero fields in the override are ignored — the base value is kept
 - Views that only exist in the override are appended
@@ -149,8 +149,6 @@ statuses:
 views:
   - name: Kanban
     description: "Move tiki to new status, search, create or delete"
-    foreground: "#87ceeb"
-    background: "#25496a"
     key: "F1"
     lanes:
       - name: Ready
@@ -167,8 +165,6 @@ views:
         action: update where id = id() set status="done"
   - name: Backlog
     description: "Tasks waiting to be picked up, sorted by priority"
-    foreground: "#5fff87"
-    background: "#0b3d2e"
     key: "F3"
     lanes:
       - name: Backlog
@@ -180,8 +176,6 @@ views:
         action: update where id = id() set status="ready"
   - name: Recent
     description: "Tasks changed in the last 24 hours, most recent first"
-    foreground: "#f4d6a6"
-    background: "#5a3d1b"
     key: Ctrl-R
     lanes:
       - name: Recent
@@ -189,8 +183,6 @@ views:
         filter: select where now() - updatedAt < 24hour order by updatedAt desc
   - name: Roadmap
     description: "Epics organized by Now, Next, and Later horizons"
-    foreground: "#e2e8f0"
-    background: "#2a5f5a"
     key: "F4"
     lanes:
       - name: Now
@@ -214,15 +206,11 @@ views:
     type: doki
     fetcher: internal
     text: "Help"
-    foreground: "#bcbcbc"
-    background: "#003399"
     key: "?"
   - name: Docs
     description: "Project notes and documentation files"
     type: doki
     fetcher: file
     url: "index.md"
-    foreground: "#ff9966"
-    background: "#2b3a42"
     key: "F2"
 ```

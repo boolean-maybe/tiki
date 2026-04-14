@@ -56,12 +56,16 @@ func NewDokiView(
 }
 
 func (dv *DokiView) build() {
-	// title bar with gradient background using plugin color
-	textColor := config.DefaultColor()
-	if !dv.pluginDef.Foreground.IsDefault() {
-		textColor = dv.pluginDef.Foreground
+	// title bar with gradient background using theme-derived caption colors
+	colors := config.GetColors()
+	pair := colors.CaptionColorForIndex(dv.pluginDef.ConfigIndex)
+	bgColor := pair.Background
+	textColor := pair.Foreground
+	if dv.pluginDef.ConfigIndex < 0 {
+		bgColor = dv.pluginDef.Background
+		textColor = config.DefaultColor()
 	}
-	dv.titleBar = NewGradientCaptionRow([]string{dv.pluginDef.Name}, nil, dv.pluginDef.Background, textColor)
+	dv.titleBar = NewGradientCaptionRow([]string{dv.pluginDef.Name}, nil, bgColor, textColor)
 
 	// Fetch initial content and create NavigableMarkdown with appropriate provider
 	var content string

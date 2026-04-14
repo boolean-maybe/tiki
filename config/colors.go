@@ -8,6 +8,12 @@ type Gradient struct {
 	End   [3]int // R, G, B (0-255)
 }
 
+// CaptionColorPair holds the foreground and background colors for a plugin caption row.
+type CaptionColorPair struct {
+	Foreground Color
+	Background Color
+}
+
 // ColorConfig holds all color and style definitions per view
 type ColorConfig struct {
 	// Caption colors
@@ -87,6 +93,9 @@ type ColorConfig struct {
 	HeaderActionViewKeyColor     Color
 	HeaderActionViewLabelColor   Color
 
+	// Plugin caption colors (auto-generated per theme)
+	CaptionColors []CaptionColorPair
+
 	// Plugin-specific colors
 	DepsEditorBackground Color // muted slate for dependency editor caption
 
@@ -152,6 +161,9 @@ type Palette struct {
 	StatuslineText     Color // statusline primary text
 	StatuslineAccent   Color // statusline accent background
 	StatuslineOk       Color // statusline info/success foreground
+
+	// Plugin caption colors (6 curated fg/bg pairs per theme)
+	CaptionColors []CaptionColorPair
 }
 
 // darkenRGB returns a darkened version of an RGB triple. ratio 0 = no change, 1 = black.
@@ -277,7 +289,19 @@ func ColorsFromPalette(p Palette) *ColorConfig {
 		StatuslineErrorFg:  p.HighlightColor,
 		StatuslineErrorBg:  p.StatuslineMidBg,
 		StatuslineFillBg:   p.StatuslineMidBg,
+
+		// Plugin caption colors
+		CaptionColors: p.CaptionColors,
 	}
+}
+
+// CaptionColorForIndex returns the caption color pair for a plugin at the given config index.
+// Wraps modulo slice length. Returns zero-value for negative index or empty slice.
+func (cc *ColorConfig) CaptionColorForIndex(index int) CaptionColorPair {
+	if index < 0 || len(cc.CaptionColors) == 0 {
+		return CaptionColorPair{}
+	}
+	return cc.CaptionColors[index%len(cc.CaptionColors)]
 }
 
 // Global color config instance

@@ -6,7 +6,6 @@ import (
 	"unicode"
 	"unicode/utf8"
 
-	"github.com/gdamore/tcell/v2"
 	"gopkg.in/yaml.v3"
 
 	"github.com/boolean-maybe/tiki/config"
@@ -20,9 +19,9 @@ func parsePluginConfig(cfg pluginFileConfig, source string, schema ruki.Schema) 
 	}
 
 	// Common fields
-	// Use ColorDefault as sentinel so views can detect "not specified" and use theme-appropriate colors
-	fg := config.NewColor(parseColor(cfg.Foreground, tcell.ColorDefault))
-	bg := config.NewColor(parseColor(cfg.Background, tcell.ColorDefault))
+	// caption colors are now auto-generated per theme; YAML fg/bg fields are silently ignored
+	fg := config.DefaultColor()
+	bg := config.DefaultColor()
 
 	key, r, mod, err := parseKey(cfg.Key)
 	if err != nil {

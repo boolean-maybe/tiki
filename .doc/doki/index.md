@@ -46,8 +46,6 @@ Just configuring multiple plugins. Create a file like `brainstorm.yaml`:
 ```text
         name: Brainstorm
         type: doki
-        foreground: "##ffff99"
-        background: "#996600"
         key: "F6"
         url: new-doc-root.md
 ```

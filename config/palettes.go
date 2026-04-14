@@ -44,6 +44,15 @@ func DarkPalette() Palette {
 		StatuslineText:     NewColorHex("#d8dee9"),
 		StatuslineAccent:   NewColorHex("#5e81ac"),
 		StatuslineOk:       NewColorHex("#a3be8c"),
+
+		CaptionColors: []CaptionColorPair{
+			{Foreground: NewColorHex("#87ceeb"), Background: NewColorHex("#25496a")}, // steel-blue (Kanban signature)
+			{Foreground: NewColorHex("#8cd98c"), Background: NewColorHex("#003300")}, // green
+			{Foreground: NewColorHex("#ffd78c"), Background: NewColorHex("#4d3200")}, // orange
+			{Foreground: NewColorHex("#a9f1ea"), Background: NewColorHex("#13433e")}, // teal
+			{Foreground: NewColorHex("#b7bcc7"), Background: NewColorHex("#1d2027")}, // blue-gray
+			{Foreground: NewColorHex("#b0c4d4"), Background: NewColorHex("#1e2d3a")}, // slate blue
+		},
 	}
 }
 
@@ -84,6 +93,15 @@ func LightPalette() Palette {
 		StatuslineText:     NewColorHex("#2e3440"),
 		StatuslineAccent:   NewColorHex("#5e81ac"),
 		StatuslineOk:       NewColorHex("#4c7a5a"),
+
+		CaptionColors: []CaptionColorPair{
+			{Foreground: NewColorHex("#e0f0ff"), Background: NewColorHex("#3a6a90")}, // steel-blue (Kanban signature)
+			{Foreground: NewColorHex("#d2ded6"), Background: NewColorHex("#467153")}, // green (StatuslineOk)
+			{Foreground: NewColorHex("#edd6bf"), Background: NewColorHex("#a45200")}, // orange (InfoLabelColor)
+			{Foreground: NewColorHex("#d2d3da"), Background: NewColorHex("#5a5e80")}, // indigo (ValueColor)
+			{Foreground: NewColorHex("#c7e7e3"), Background: NewColorHex("#1a8174")}, // teal (LogoDotColor)
+			{Foreground: NewColorHex("#dfdfdf"), Background: NewColorHex("#616161")}, // gray (MutedColor)
+		},
 	}
 }
 
@@ -125,6 +143,15 @@ func DraculaPalette() Palette {
 		StatuslineText:     NewColorHex("#f8f8f2"),
 		StatuslineAccent:   NewColorHex("#bd93f9"),
 		StatuslineOk:       NewColorHex("#50fa7b"),
+
+		CaptionColors: []CaptionColorPair{
+			{Foreground: NewColorHex("#cbf5fe"), Background: NewColorHex("#2a464c")}, // cyan
+			{Foreground: NewColorHex("#b0fdc4"), Background: NewColorHex("#184b25")}, // green
+			{Foreground: NewColorHex("#ffdfbd"), Background: NewColorHex("#4d3720")}, // orange
+			{Foreground: NewColorHex("#f9fdcb"), Background: NewColorHex("#484b2a")}, // yellow
+			{Foreground: NewColorHex("#b8c0d6"), Background: NewColorHex("#1d2231")}, // comment
+			{Foreground: NewColorHex("#ffc3e5"), Background: NewColorHex("#4d243b")}, // pink
+		},
 	}
 }
 
@@ -166,6 +193,15 @@ func TokyoNightPalette() Palette {
 		StatuslineText:     NewColorHex("#c0caf5"),
 		StatuslineAccent:   NewColorHex("#7aa2f7"),
 		StatuslineOk:       NewColorHex("#9ece6a"),
+
+		CaptionColors: []CaptionColorPair{
+			{Foreground: NewColorHex("#c5e9ff"), Background: NewColorHex("#263e4d")}, // sky-blue
+			{Foreground: NewColorHex("#d3e9bc"), Background: NewColorHex("#2f3e20")}, // green
+			{Foreground: NewColorHex("#ffd3b9"), Background: NewColorHex("#4d2f1e")}, // orange
+			{Foreground: NewColorHex("#efdbba"), Background: NewColorHex("#44341f")}, // yellow
+			{Foreground: NewColorHex("#b3b7ca"), Background: NewColorHex("#1a1d29")}, // comment
+			{Foreground: NewColorHex("#fbc2cc"), Background: NewColorHex("#4a232a")}, // red
+		},
 	}
 }
 
@@ -207,6 +243,15 @@ func GruvboxDarkPalette() Palette {
 		StatuslineText:     NewColorHex("#ebdbb2"),
 		StatuslineAccent:   NewColorHex("#689d6a"), // dark aqua
 		StatuslineOk:       NewColorHex("#b8bb26"),
+
+		CaptionColors: []CaptionColorPair{
+			{Foreground: NewColorHex("#c7d7d1"), Background: NewColorHex("#27322e")}, // aqua-blue
+			{Foreground: NewColorHex("#dfe09d"), Background: NewColorHex("#37380b")}, // green
+			{Foreground: NewColorHex("#ffc698"), Background: NewColorHex("#4c2608")}, // orange
+			{Foreground: NewColorHex("#fcdfaa"), Background: NewColorHex("#4b390e")}, // yellow
+			{Foreground: NewColorHex("#bab6b2"), Background: NewColorHex("#1f1c19")}, // gray
+			{Foreground: NewColorHex("#fd9a90"), Background: NewColorHex("#4b1610")}, // red
+		},
 	}
 }
 
@@ -248,6 +293,15 @@ func CatppuccinMochaPalette() Palette {
 		StatuslineText:     NewColorHex("#cdd6f4"),
 		StatuslineAccent:   NewColorHex("#89b4fa"),
 		StatuslineOk:       NewColorHex("#a6e3a1"),
+
+		CaptionColors: []CaptionColorPair{
+			{Foreground: NewColorHex("#c9dcfd"), Background: NewColorHex("#293648")}, // blue
+			{Foreground: NewColorHex("#d7f2d5"), Background: NewColorHex("#324430")}, // green
+			{Foreground: NewColorHex("#fdddc9"), Background: NewColorHex("#4b3629")}, // peach
+			{Foreground: NewColorHex("#fcf0d9"), Background: NewColorHex("#4b4435")}, // yellow
+			{Foreground: NewColorHex("#f9eaea"), Background: NewColorHex("#483d3d")}, // flamingo
+			{Foreground: NewColorHex("#cff2ec"), Background: NewColorHex("#2c4440")}, // teal
+		},
 	}
 }
 
@@ -289,6 +343,15 @@ func SolarizedDarkPalette() Palette {
 		StatuslineText:     NewColorHex("#839496"),
 		StatuslineAccent:   NewColorHex("#268bd2"),
 		StatuslineOk:       NewColorHex("#859900"),
+
+		CaptionColors: []CaptionColorPair{
+			{Foreground: NewColorHex("#9dcbeb"), Background: NewColorHex("#0b2a3f")}, // blue
+			{Foreground: NewColorHex("#c8d18c"), Background: NewColorHex("#282e00")}, // green
+			{Foreground: NewColorHex("#e8ae96"), Background: NewColorHex("#3d1707")}, // orange
+			{Foreground: NewColorHex("#9fd5d1"), Background: NewColorHex("#0d302e")}, // cyan
+			{Foreground: NewColorHex("#b4bec1"), Background: NewColorHex("#1a2123")}, // base01
+			{Foreground: NewColorHex("#ec908f"), Background: NewColorHex("#420f0e")}, // red
+		},
 	}
 }
 
@@ -330,6 +393,15 @@ func NordPalette() Palette {
 		StatuslineText:     NewColorHex("#d8dee9"), // nord4
 		StatuslineAccent:   NewColorHex("#5e81ac"), // nord10
 		StatuslineOk:       NewColorHex("#a3be8c"),
+
+		CaptionColors: []CaptionColorPair{
+			{Foreground: NewColorHex("#c9e3ea"), Background: NewColorHex("#293a3e")}, // frost-cyan
+			{Foreground: NewColorHex("#d6e2cb"), Background: NewColorHex("#31392a")}, // green
+			{Foreground: NewColorHex("#eac9bf"), Background: NewColorHex("#3e2922")}, // orange
+			{Foreground: NewColorHex("#f4e3c3"), Background: NewColorHex("#473d2a")}, // yellow
+			{Foreground: NewColorHex("#aeb3bc"), Background: NewColorHex("#171a20")}, // nord3
+			{Foreground: NewColorHex("#dca8ac"), Background: NewColorHex("#391d20")}, // red
+		},
 	}
 }
 
@@ -371,6 +443,15 @@ func MonokaiPalette() Palette {
 		StatuslineText:     NewColorHex("#f8f8f2"),
 		StatuslineAccent:   NewColorHex("#66d9ef"),
 		StatuslineOk:       NewColorHex("#a6e22e"),
+
+		CaptionColors: []CaptionColorPair{
+			{Foreground: NewColorHex("#baeef8"), Background: NewColorHex("#1f4148")}, // cyan
+			{Foreground: NewColorHex("#d7f2a1"), Background: NewColorHex("#32440e")}, // green
+			{Foreground: NewColorHex("#fed09a"), Background: NewColorHex("#4c2d09")}, // orange
+			{Foreground: NewColorHex("#f2eebc"), Background: NewColorHex("#454223")}, // yellow
+			{Foreground: NewColorHex("#c1bfb7"), Background: NewColorHex("#23221c")}, // comment
+			{Foreground: NewColorHex("#e08ea5"), Background: NewColorHex("#4b0c22")}, // pink-red
+		},
 	}
 }
 
@@ -412,6 +493,15 @@ func OneDarkPalette() Palette {
 		StatuslineText:     NewColorHex("#abb2bf"),
 		StatuslineAccent:   NewColorHex("#61afef"),
 		StatuslineOk:       NewColorHex("#98c379"),
+
+		CaptionColors: []CaptionColorPair{
+			{Foreground: NewColorHex("#b8dbf8"), Background: NewColorHex("#1d3548")}, // blue
+			{Foreground: NewColorHex("#d1e4c3"), Background: NewColorHex("#2e3b24")}, // green
+			{Foreground: NewColorHex("#ead2ba"), Background: NewColorHex("#3f2e1f")}, // orange
+			{Foreground: NewColorHex("#f1deba"), Background: NewColorHex("#453a25")}, // yellow
+			{Foreground: NewColorHex("#b6b9bf"), Background: NewColorHex("#1c1e22")}, // comment
+			{Foreground: NewColorHex("#eeb2b6"), Background: NewColorHex("#432123")}, // red
+		},
 	}
 }
 
@@ -455,6 +545,15 @@ func CatppuccinLattePalette() Palette {
 		StatuslineText:     NewColorHex("#4c4f69"),
 		StatuslineAccent:   NewColorHex("#1e66f5"),
 		StatuslineOk:       NewColorHex("#40a02b"),
+
+		CaptionColors: []CaptionColorPair{
+			{Foreground: NewColorHex("#c7d9fd"), Background: NewColorHex("#1e66f5")}, // blue (ValueColor)
+			{Foreground: NewColorHex("#f7e3c7"), Background: NewColorHex("#8d5a12")}, // yellow (HighlightColor)
+			{Foreground: NewColorHex("#ffd8c2"), Background: NewColorHex("#b54708")}, // peach (InfoLabelColor)
+			{Foreground: NewColorHex("#dedfe4"), Background: NewColorHex("#5e606f")}, // overlay0 (MutedColor)
+			{Foreground: NewColorHex("#c5e4e6"), Background: NewColorHex("#148187")}, // teal (LogoDotColor)
+			{Foreground: NewColorHex("#c0e9f9"), Background: NewColorHex("#0381b3")}, // sky (DeepSkyBlue)
+		},
 	}
 }
 
@@ -496,6 +595,15 @@ func SolarizedLightPalette() Palette {
 		StatuslineText:     NewColorHex("#657b83"),
 		StatuslineAccent:   NewColorHex("#268bd2"),
 		StatuslineOk:       NewColorHex("#859900"),
+
+		CaptionColors: []CaptionColorPair{
+			{Foreground: NewColorHex("#c9e2f4"), Background: NewColorHex("#2073ae")}, // blue (ValueColor)
+			{Foreground: NewColorHex("#ede2bf"), Background: NewColorHex("#826300")}, // yellow (HighlightColor)
+			{Foreground: NewColorHex("#f2d2c5"), Background: NewColorHex("#b74414")}, // orange (InfoLabelColor)
+			{Foreground: NewColorHex("#d5dbdd"), Background: NewColorHex("#52666d")}, // base01 (SoftTextColor)
+			{Foreground: NewColorHex("#cae8e5"), Background: NewColorHex("#217d76")}, // cyan (LogoDotColor)
+			{Foreground: NewColorHex("#e1e6bf"), Background: NewColorHex("#637200")}, // green (AccentColor)
+		},
 	}
 }
 
@@ -537,6 +645,15 @@ func GruvboxLightPalette() Palette {
 		StatuslineText:     NewColorHex("#3c3836"),
 		StatuslineAccent:   NewColorHex("#427b58"),
 		StatuslineOk:       NewColorHex("#79740e"),
+
+		CaptionColors: []CaptionColorPair{
+			{Foreground: NewColorHex("#e2d6c3"), Background: NewColorHex("#8b5b0f")}, // amber/ochre
+			{Foreground: NewColorHex("#dedcc3"), Background: NewColorHex("#6f6a0d")}, // green
+			{Foreground: NewColorHex("#ebcec0"), Background: NewColorHex("#c44103")}, // orange
+			{Foreground: NewColorHex("#d0ded5"), Background: NewColorHex("#3f7554")}, // aqua
+			{Foreground: NewColorHex("#dedbd8"), Background: NewColorHex("#6a5f55")}, // gray
+			{Foreground: NewColorHex("#e2d7d2"), Background: NewColorHex("#8b5e4b")}, // warm brown
+		},
 	}
 }
 
@@ -578,5 +695,14 @@ func GithubLightPalette() Palette {
 		StatuslineText:     NewColorHex("#1f2328"),
 		StatuslineAccent:   NewColorHex("#0969da"),
 		StatuslineOk:       NewColorHex("#116329"),
+
+		CaptionColors: []CaptionColorPair{
+			{Foreground: NewColorHex("#c2daf6"), Background: NewColorHex("#0a72ed")}, // blue
+			{Foreground: NewColorHex("#c4d8ca"), Background: NewColorHex("#188d3b")}, // green
+			{Foreground: NewColorHex("#e5cdbf"), Background: NewColorHex("#ba4600")}, // orange
+			{Foreground: NewColorHex("#e6d9bf"), Background: NewColorHex("#9a6700")}, // amber
+			{Foreground: NewColorHex("#d9dbdd"), Background: NewColorHex("#5b626a")}, // muted
+			{Foreground: NewColorHex("#e6d2d2"), Background: NewColorHex("#9b4a4a")}, // muted red
+		},
 	}
 }

@@ -71,8 +71,6 @@ how Backlog is defined:
 views:
   - name: Backlog
     description: "Tasks waiting to be picked up, sorted by priority"
-    foreground: "#5fff87"
-    background: "#0b3d2e"
     key: "F3"
     lanes:
       - name: Backlog
@@ -86,7 +84,7 @@ views:
 
 that translates to - show all tikis in the status `backlog`, sort by priority and then by ID arranged visually in 4 columns in a single lane.
 The `actions` section defines a keyboard shortcut `b` that moves the selected tiki to the board by setting its status to `ready`
-You define the name, description, caption colors, hotkey, and `ruki` expressions for filtering and actions. The `description` is displayed in the header when the view is active. Save this into a `workflow.yaml` file in the config directory
+You define the name, description, hotkey, and `ruki` expressions for filtering and actions. The `description` is displayed in the header when the view is active. Save this into a `workflow.yaml` file in the config directory
 
 Likewise the documentation is just a plugin:
 
@@ -97,8 +95,6 @@ views:
     type: doki
     fetcher: file
     url: "index.md"
-    foreground: "#ff9966"
-    background: "#2b3a42"
     key: "F2"
 ```
 
@@ -115,8 +111,6 @@ definition that roughly mimics the board:
 
 ```yaml
 name: Custom
-foreground: "#5fff87"
-background: "#005f00"
 key: "F4"
 lanes:
   - name: Ready
