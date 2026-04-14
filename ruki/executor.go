@@ -38,6 +38,14 @@ type Result struct {
 	Update *UpdateResult
 	Create *CreateResult
 	Delete *DeleteResult
+	Pipe   *PipeResult
+}
+
+// PipeResult holds the shell command and per-row positional args from a piped select.
+// The ruki executor builds this; the service layer performs the actual shell execution.
+type PipeResult struct {
+	Command string
+	Rows    [][]string
 }
 
 // UpdateResult holds the cloned, mutated tasks produced by an UPDATE statement.
@@ -138,12 +146,52 @@ func (e *Executor) executeSelect(sel *SelectStmt, tasks []*task.Task) (*Result, 
 		e.sortTasks(filtered, sel.OrderBy)
 	}
 
+	if sel.Pipe != nil {
+		return e.buildPipeResult(sel.Pipe, sel.Fields, filtered, tasks)
+	}
+
 	return &Result{
 		Select: &TaskProjection{
 			Tasks:  filtered,
 			Fields: sel.Fields,
 		},
 	}, nil
+}
+
+func (e *Executor) buildPipeResult(pipe *RunAction, fields []string, matched []*task.Task, allTasks []*task.Task) (*Result, error) {
+	// evaluate command once with a nil-sentinel task — validation ensures no field refs
+	cmdVal, err := e.evalExpr(pipe.Command, nil, allTasks)
+	if err != nil {
+		return nil, fmt.Errorf("pipe command: %w", err)
+	}
+	cmdStr, ok := cmdVal.(string)
+	if !ok {
+		return nil, fmt.Errorf("pipe command must evaluate to string, got %T", cmdVal)
+	}
+
+	rows := make([][]string, len(matched))
+	for i, t := range matched {
+		row := make([]string, len(fields))
+		for j, f := range fields {
+			row[j] = pipeArgString(extractField(t, f))
+		}
+		rows[i] = row
+	}
+
+	return &Result{Pipe: &PipeResult{Command: cmdStr, Rows: rows}}, nil
+}
+
+// pipeArgString space-joins list fields (tags, dependsOn) instead of using Go's
+// default fmt.Sprint which produces "[a b c]" with brackets.
+func pipeArgString(val interface{}) string {
+	if list, ok := val.([]interface{}); ok {
+		parts := make([]string, len(list))
+		for i, elem := range list {
+			parts[i] = normalizeToString(elem)
+		}
+		return strings.Join(parts, " ")
+	}
+	return normalizeToString(val)
 }
 
 func (e *Executor) executeUpdate(upd *UpdateStmt, tasks []*task.Task) (*Result, error) {

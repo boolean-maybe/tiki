@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
-	"os/exec"
 	"time"
 
 	"github.com/boolean-maybe/tiki/config"
@@ -17,9 +16,6 @@ import (
 // maxTriggerDepth is the maximum cascade depth for triggers.
 // Root mutation is depth 0; up to 8 cascades are allowed.
 const maxTriggerDepth = 8
-
-// runCommandTimeout is the timeout for run() commands executed by triggers.
-const runCommandTimeout = 30 * time.Second
 
 // triggerEntry holds a parsed trigger and its description for logging.
 type triggerEntry struct {
@@ -219,13 +215,7 @@ func (te *TriggerEngine) execRun(ctx context.Context, entry triggerEntry, tc *ru
 		return fmt.Errorf("trigger %q run evaluation failed: %w", entry.description, err)
 	}
 
-	runCtx, cancel := context.WithTimeout(ctx, runCommandTimeout)
-	defer cancel()
-
-	cmd := exec.CommandContext(runCtx, "sh", "-c", cmdStr) //nolint:gosec // cmdStr is a user-configured trigger action, intentionally dynamic
-	setProcessGroup(cmd)
-	cmd.WaitDelay = 3 * time.Second
-	output, err := cmd.CombinedOutput()
+	output, err := RunShellCommand(ctx, cmdStr)
 	if err != nil {
 		slog.Error("trigger run() command failed",
 			"trigger", entry.description,

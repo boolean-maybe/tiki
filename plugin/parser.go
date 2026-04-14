@@ -210,8 +210,8 @@ func parsePluginActions(configs []PluginActionConfig, parser *ruki.Parser) ([]Pl
 		if err != nil {
 			return nil, fmt.Errorf("parsing action %d (key %q): %w", i, cfg.Key, err)
 		}
-		if actionStmt.IsSelect() {
-			return nil, fmt.Errorf("action %d (key %q) must be UPDATE, CREATE, or DELETE — not SELECT", i, cfg.Key)
+		if actionStmt.IsSelect() && !actionStmt.IsPipe() {
+			return nil, fmt.Errorf("action %d (key %q) must be UPDATE, CREATE, DELETE, or a piped SELECT — not plain SELECT", i, cfg.Key)
 		}
 
 		actions = append(actions, PluginAction{

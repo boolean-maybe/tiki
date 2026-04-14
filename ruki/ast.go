@@ -13,11 +13,12 @@ type Statement struct {
 	Delete *DeleteStmt
 }
 
-// SelectStmt represents "select [fields] [where <condition>] [order by <field> [asc|desc], ...]".
+// SelectStmt represents "select [fields] [where <condition>] [order by <field> [asc|desc], ...] [| run(...)]".
 type SelectStmt struct {
 	Fields  []string        // nil = all ("select" or "select *"); non-nil = specific fields
 	Where   Condition       // nil = select all
 	OrderBy []OrderByClause // nil = unordered
+	Pipe    *RunAction      // optional pipe suffix: "| run(...)"
 }
 
 // CreateStmt represents "create <field>=<value>...".

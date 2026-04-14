@@ -3,6 +3,7 @@
 - [Assign to me](#assign-to-me--plugin-action)
 - [Add tag to task](#add-tag-to-task--plugin-action)
 - [Custom status + reject action](#custom-status--reject-action)
+- [Implement with Claude](#implement-with-claude--pipe-action)
 - [Search all tikis](#search-all-tikis--single-lane-plugin)
 - [Quick assign](#quick-assign--lane-based-assignment)
 - [Stale task detection](#stale-task-detection--time-trigger--plugin)
@@ -56,6 +57,19 @@ statuses:
     - key: "r"
       label: "Reject"
       action: update where id = id() set status="rejected"
+```
+
+## Implement with Claude Code — pipe action
+
+Shortcut key that pipes the selected task's title and description to Claude Code for implementation.
+
+```yaml
+actions:
+  - key: "i"
+    label: "Implement"
+    action: >
+      select title, description where id = id()
+      | run("claude -p 'Implement this: $1. Details: $2'")
 ```
 
 ## Search all tikis — single-lane plugin

@@ -63,6 +63,14 @@ delete where id = "TIKI-ABC123"
 delete where status = "cancelled" and "old" in tags
 ```
 
+`select` may pipe results to a shell command:
+
+```sql
+select id, title where status = "done" | run("myscript $1 $2")
+```
+
+Each row executes the command with field values as positional arguments (`$1`, `$2`).
+
 ## Conditions and expressions
 
 Conditions support:

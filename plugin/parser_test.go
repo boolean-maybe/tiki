@@ -504,8 +504,25 @@ func TestParsePluginActions_SelectRejectedAsAction(t *testing.T) {
 	if err == nil {
 		t.Fatal("expected error for SELECT as plugin action")
 	}
-	if !strings.Contains(err.Error(), "not SELECT") {
-		t.Errorf("expected 'not SELECT' error, got: %v", err)
+	if !strings.Contains(err.Error(), "not plain SELECT") {
+		t.Errorf("expected 'not plain SELECT' error, got: %v", err)
+	}
+}
+
+func TestParsePluginActions_PipeAcceptedAsAction(t *testing.T) {
+	parser := testParser()
+	configs := []PluginActionConfig{
+		{Key: "c", Label: "Copy ID", Action: `select id where id = id() | run("echo $1")`},
+	}
+	actions, err := parsePluginActions(configs, parser)
+	if err != nil {
+		t.Fatalf("expected pipe action to be accepted, got error: %v", err)
+	}
+	if len(actions) != 1 {
+		t.Fatalf("expected 1 action, got %d", len(actions))
+	}
+	if !actions[0].Action.IsPipe() {
+		t.Error("expected IsPipe() = true for pipe action")
 	}
 }
 

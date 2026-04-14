@@ -167,3 +167,39 @@ Binary `+` and `-` are semantic rather than purely numeric:
 
 For the detailed type rules and built-ins, see [Types And Values](types-and-values.md) and [Operators And Built-ins](operators-and-builtins.md).
 
+## Pipe actions on select
+
+`select` statements may include an optional pipe suffix:
+
+```text
+select <fields> where <condition> | run(<command>)
+```
+
+Evaluation model:
+
+- The `select` runs first, producing zero or more rows.
+- For each row, the `run()` command is executed with positional arguments (`$1`, `$2`, etc.) substituted from the selected fields in left-to-right order.
+- Each command execution has a **30-second timeout**.
+- Command failures are **non-fatal** — remaining rows still execute.
+- Stdout and stderr are **fire-and-forget** (not captured or returned).
+
+Rules:
+
+- Explicit field names are required — `select *` and bare `select` are rejected when used with a pipe.
+- The command expression must be a string literal or string-typed expression, but **field references are not allowed** in the command string itself.
+- Positional arguments `$1`, `$2`, etc. are substituted by the runtime before each command execution.
+
+Example:
+
+```sql
+select id, title where status = "done" | run("myscript $1 $2")
+```
+
+For a task with `id = "TIKI-ABC123"` and `title = "Fix bug"`, the command becomes:
+
+```bash
+myscript "TIKI-ABC123" "Fix bug"
+```
+
+Pipe `| run(...)` on select is distinct from trigger `run()` actions. See [Triggers](triggers.md) for the difference.
+
