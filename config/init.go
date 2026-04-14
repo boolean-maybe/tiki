@@ -1,6 +1,7 @@
 package config
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"log/slog"
@@ -145,6 +146,20 @@ func installAISkills(selectedTools []string, tikiSkillMdContent, dokiSkillMdCont
 		return fmt.Errorf("embedded doki SKILL.md content is empty")
 	}
 
+	type skillDef struct {
+		name    string
+		content string
+	}
+	skills := []skillDef{
+		{"tiki", tikiSkillMdContent},
+		{"doki", dokiSkillMdContent},
+	}
+
+	skillNames := make([]string, len(skills))
+	for i, s := range skills {
+		skillNames[i] = s.name
+	}
+
 	var errs []error
 	for _, toolKey := range selectedTools {
 		tool, ok := LookupAITool(toolKey)
@@ -153,14 +168,7 @@ func installAISkills(selectedTools []string, tikiSkillMdContent, dokiSkillMdCont
 			continue
 		}
 
-		// install each skill type (tiki, doki)
-		for _, skill := range []struct {
-			name    string
-			content string
-		}{
-			{"tiki", tikiSkillMdContent},
-			{"doki", dokiSkillMdContent},
-		} {
+		for _, skill := range skills {
 			path := tool.SkillPath(skill.name)
 			dir := filepath.Dir(path)
 			//nolint:gosec // G301: 0755 is appropriate for user-owned skill directories
@@ -172,10 +180,81 @@ func installAISkills(selectedTools []string, tikiSkillMdContent, dokiSkillMdCont
 				slog.Info("installed AI skill", "tool", toolKey, "skill", skill.name, "path", path)
 			}
 		}
+
+		if tool.SettingsFile != "" {
+			if err := ensureSkillPermissions(tool.SettingsFile, skillNames); err != nil {
+				errs = append(errs, fmt.Errorf("failed to update %s settings: %w", toolKey, err))
+			}
+		}
 	}
 
 	if len(errs) > 0 {
 		return errors.Join(errs...)
 	}
+	return nil
+}
+
+func skillPermissionEntry(name string) string {
+	return fmt.Sprintf("Skill(%s)", name)
+}
+
+// ensureSkillPermissions creates or updates a settings file to include
+// Skill(<name>) entries in permissions.allow for each given skill name.
+// Existing permissions and other top-level keys are preserved.
+func ensureSkillPermissions(settingsPath string, skillNames []string) error {
+	settings := make(map[string]any)
+
+	data, err := os.ReadFile(settingsPath)
+	if err != nil && !os.IsNotExist(err) {
+		return fmt.Errorf("reading %s: %w", settingsPath, err)
+	}
+	if len(data) > 0 {
+		if err := json.Unmarshal(data, &settings); err != nil {
+			return fmt.Errorf("parsing %s: %w", settingsPath, err)
+		}
+	}
+
+	perms, _ := settings["permissions"].(map[string]any)
+	if perms == nil {
+		perms = make(map[string]any)
+		settings["permissions"] = perms
+	}
+
+	allowRaw, _ := perms["allow"].([]any)
+	existing := make(map[string]bool, len(allowRaw))
+	for _, v := range allowRaw {
+		if s, ok := v.(string); ok {
+			existing[s] = true
+		}
+	}
+
+	changed := false
+	for _, name := range skillNames {
+		entry := skillPermissionEntry(name)
+		if !existing[entry] {
+			allowRaw = append(allowRaw, entry)
+			changed = true
+		}
+	}
+
+	if !changed {
+		return nil
+	}
+
+	perms["allow"] = allowRaw
+	out, err := json.MarshalIndent(settings, "", "  ")
+	if err != nil {
+		return fmt.Errorf("marshaling settings: %w", err)
+	}
+
+	if err := os.MkdirAll(filepath.Dir(settingsPath), 0750); err != nil {
+		return fmt.Errorf("creating directory for %s: %w", settingsPath, err)
+	}
+	//nolint:gosec // G306: 0644 is appropriate for user settings files
+	if err := os.WriteFile(settingsPath, append(out, '\n'), 0644); err != nil {
+		return fmt.Errorf("writing %s: %w", settingsPath, err)
+	}
+
+	slog.Info("updated Claude settings", "path", settingsPath, "skills", skillNames)
 	return nil
 }
