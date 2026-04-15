@@ -43,6 +43,7 @@ func TestSchemaFieldMapping(t *testing.T) {
 			spec, ok := s.Field(tt.name)
 			if !ok {
 				t.Fatalf("Field(%q) not found", tt.name)
+				return
 			}
 			if spec.Type != tt.wantType {
 				t.Errorf("Field(%q).Type = %d, want %d", tt.name, spec.Type, tt.wantType)

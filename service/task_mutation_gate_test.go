@@ -46,6 +46,7 @@ func TestCreateTask_Success(t *testing.T) {
 
 	if s.GetTask("TIKI-ABC123") == nil {
 		t.Fatal("task not persisted")
+		return
 	}
 
 	if tk.CreatedAt.IsZero() {
@@ -231,6 +232,7 @@ func TestDeleteTask_RejectedByValidator(t *testing.T) {
 	err := gate.DeleteTask(context.Background(), tk)
 	if err == nil {
 		t.Fatal("expected rejection")
+		return
 	}
 
 	if s.GetTask("TIKI-ABC123") == nil {

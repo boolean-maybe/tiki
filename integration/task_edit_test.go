@@ -922,6 +922,7 @@ func TestNewTask_WithStatusAndType_Saves(t *testing.T) {
 	task := findTaskByTitle(ta.TaskStore.GetAllTasks(), "Hey")
 	if task == nil {
 		t.Fatalf("new task not found in store")
+		return
 	}
 
 	t.Logf("Task found: Title=%q, Status=%v, Type=%v", task.Title, task.Status, task.Type)

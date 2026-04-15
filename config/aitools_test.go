@@ -25,6 +25,7 @@ func TestLookupAITool_Found(t *testing.T) {
 	tool, ok := LookupAITool("claude")
 	if !ok {
 		t.Fatal("expected to find claude")
+		return
 	}
 	if tool.Command != "claude" {
 		t.Errorf("expected command 'claude', got %q", tool.Command)

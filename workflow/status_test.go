@@ -146,6 +146,7 @@ func TestStatusRegistry_Lookup(t *testing.T) {
 	def, ok := reg.Lookup("ready")
 	if !ok {
 		t.Fatal("expected to find 'ready'")
+		return
 	}
 	if def.Label != "Ready" {
 		t.Errorf("expected label 'Ready', got %q", def.Label)

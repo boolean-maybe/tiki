@@ -1478,6 +1478,7 @@ func TestDurationLiteralUnknownUnitError(t *testing.T) {
 	add, ok := cmp.Right.(*BinaryExpr)
 	if !ok {
 		t.Fatal("expected *BinaryExpr")
+		return
 	}
 	add.Right = &DurationLiteral{Value: 1, Unit: "bogus"}
 

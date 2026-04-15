@@ -86,6 +86,7 @@ func TestParseSelect(t *testing.T) {
 			}
 			if stmt.Select == nil {
 				t.Fatal("expected Select, got nil")
+				return
 			}
 			if tt.wantWhere && stmt.Select.Where == nil {
 				t.Fatal("expected Where condition, got nil")
@@ -188,6 +189,7 @@ func TestParseDelete(t *testing.T) {
 			}
 			if stmt.Delete == nil {
 				t.Fatal("expected Delete, got nil")
+				return
 			}
 			if stmt.Delete.Where == nil {
 				t.Fatal("expected Where condition, got nil")
@@ -212,6 +214,7 @@ func TestParseExpressions(t *testing.T) {
 				sl, ok := stmt.Create.Assignments[0].Value.(*StringLiteral)
 				if !ok {
 					t.Fatalf("expected StringLiteral, got %T", stmt.Create.Assignments[0].Value)
+					return
 				}
 				if sl.Value != "hello world" {
 					t.Fatalf("expected %q, got %q", "hello world", sl.Value)
@@ -226,6 +229,7 @@ func TestParseExpressions(t *testing.T) {
 				il, ok := stmt.Create.Assignments[1].Value.(*IntLiteral)
 				if !ok {
 					t.Fatalf("expected IntLiteral, got %T", stmt.Create.Assignments[1].Value)
+					return
 				}
 				if il.Value != 2 {
 					t.Fatalf("expected 2, got %d", il.Value)
@@ -279,6 +283,7 @@ func TestParseExpressions(t *testing.T) {
 				fc, ok := stmt.Create.Assignments[1].Value.(*FunctionCall)
 				if !ok {
 					t.Fatalf("expected FunctionCall, got %T", stmt.Create.Assignments[1].Value)
+					return
 				}
 				if fc.Name != "next_date" {
 					t.Fatalf("expected next_date, got %s", fc.Name)
@@ -296,6 +301,7 @@ func TestParseExpressions(t *testing.T) {
 				be, ok := stmt.Create.Assignments[1].Value.(*BinaryExpr)
 				if !ok {
 					t.Fatalf("expected BinaryExpr, got %T", stmt.Create.Assignments[1].Value)
+					return
 				}
 				if be.Op != "+" {
 					t.Fatalf("expected +, got %s", be.Op)
@@ -314,6 +320,7 @@ func TestParseExpressions(t *testing.T) {
 				dur, ok := be.Right.(*DurationLiteral)
 				if !ok {
 					t.Fatalf("expected DurationLiteral, got %T", be.Right)
+					return
 				}
 				if dur.Value != 2 || dur.Unit != "day" {
 					t.Fatalf("expected 2day, got %d%s", dur.Value, dur.Unit)
@@ -349,6 +356,7 @@ func TestParseConditions(t *testing.T) {
 				cmp, ok := stmt.Select.Where.(*CompareExpr)
 				if !ok {
 					t.Fatalf("expected CompareExpr, got %T", stmt.Select.Where)
+					return
 				}
 				if cmp.Op != "=" {
 					t.Fatalf("expected =, got %s", cmp.Op)
@@ -363,6 +371,7 @@ func TestParseConditions(t *testing.T) {
 				ie, ok := stmt.Select.Where.(*IsEmptyExpr)
 				if !ok {
 					t.Fatalf("expected IsEmptyExpr, got %T", stmt.Select.Where)
+					return
 				}
 				if ie.Negated {
 					t.Fatal("expected Negated=false")
@@ -391,6 +400,7 @@ func TestParseConditions(t *testing.T) {
 				in, ok := stmt.Select.Where.(*InExpr)
 				if !ok {
 					t.Fatalf("expected InExpr, got %T", stmt.Select.Where)
+					return
 				}
 				if in.Negated {
 					t.Fatal("expected Negated=false")
@@ -419,6 +429,7 @@ func TestParseConditions(t *testing.T) {
 				bc, ok := stmt.Select.Where.(*BinaryCondition)
 				if !ok {
 					t.Fatalf("expected BinaryCondition, got %T", stmt.Select.Where)
+					return
 				}
 				if bc.Op != "and" {
 					t.Fatalf("expected and, got %s", bc.Op)
@@ -434,6 +445,7 @@ func TestParseConditions(t *testing.T) {
 				bc, ok := stmt.Select.Where.(*BinaryCondition)
 				if !ok {
 					t.Fatalf("expected BinaryCondition, got %T", stmt.Select.Where)
+					return
 				}
 				if bc.Op != "or" {
 					t.Fatalf("expected or at top, got %s", bc.Op)
@@ -442,6 +454,7 @@ func TestParseConditions(t *testing.T) {
 				right, ok := bc.Right.(*BinaryCondition)
 				if !ok {
 					t.Fatalf("expected BinaryCondition on right, got %T", bc.Right)
+					return
 				}
 				if right.Op != "and" {
 					t.Fatalf("expected and on right, got %s", right.Op)
@@ -470,6 +483,7 @@ func TestParseConditions(t *testing.T) {
 				bc, ok := stmt.Select.Where.(*BinaryCondition)
 				if !ok {
 					t.Fatalf("expected BinaryCondition, got %T", stmt.Select.Where)
+					return
 				}
 				if bc.Op != "and" {
 					t.Fatalf("expected and at top, got %s", bc.Op)
@@ -478,6 +492,7 @@ func TestParseConditions(t *testing.T) {
 				left, ok := bc.Left.(*BinaryCondition)
 				if !ok {
 					t.Fatalf("expected BinaryCondition on left, got %T", bc.Left)
+					return
 				}
 				if left.Op != "or" {
 					t.Fatalf("expected or on left, got %s", left.Op)
@@ -492,6 +507,7 @@ func TestParseConditions(t *testing.T) {
 				qe, ok := stmt.Select.Where.(*QuantifierExpr)
 				if !ok {
 					t.Fatalf("expected QuantifierExpr, got %T", stmt.Select.Where)
+					return
 				}
 				if qe.Kind != "any" {
 					t.Fatalf("expected any, got %s", qe.Kind)
@@ -506,6 +522,7 @@ func TestParseConditions(t *testing.T) {
 				qe, ok := stmt.Select.Where.(*QuantifierExpr)
 				if !ok {
 					t.Fatalf("expected QuantifierExpr, got %T", stmt.Select.Where)
+					return
 				}
 				if qe.Kind != "all" {
 					t.Fatalf("expected all, got %s", qe.Kind)
@@ -521,6 +538,7 @@ func TestParseConditions(t *testing.T) {
 				bc, ok := stmt.Select.Where.(*BinaryCondition)
 				if !ok {
 					t.Fatalf("expected BinaryCondition at top, got %T", stmt.Select.Where)
+					return
 				}
 				if bc.Op != "and" {
 					t.Fatalf("expected and, got %s", bc.Op)
@@ -699,6 +717,7 @@ func TestParseSelectOrderBy(t *testing.T) {
 			}
 			if stmt.Select == nil {
 				t.Fatal("expected Select")
+				return
 			}
 			if tt.wantWhere && stmt.Select.Where == nil {
 				t.Fatal("expected Where condition")

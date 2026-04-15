@@ -13,6 +13,7 @@ func TestNewPluginConfig(t *testing.T) {
 
 	if pc == nil {
 		t.Fatal("NewPluginConfig() returned nil")
+		return
 	}
 
 	if pc.GetPluginName() != "testplugin" {

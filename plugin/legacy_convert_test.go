@@ -644,6 +644,7 @@ func TestLegacyWorkflowEndToEnd(t *testing.T) {
 	tp, ok := p.(*TikiPlugin)
 	if !ok {
 		t.Fatalf("expected TikiPlugin, got %T", p)
+		return
 	}
 
 	if tp.Name != "Board" {

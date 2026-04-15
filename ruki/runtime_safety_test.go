@@ -120,6 +120,7 @@ func TestValidatedTriggerCloneIsolated(t *testing.T) {
 	clone := validated.TriggerClone()
 	if clone == nil {
 		t.Fatal("expected non-nil trigger clone")
+		return
 	}
 
 	clone.Timing = "after"
@@ -149,6 +150,7 @@ func TestValidatedTimeTriggerCloneIsolated(t *testing.T) {
 	clone := validated.TimeTriggerClone()
 	if clone == nil {
 		t.Fatal("expected non-nil time trigger clone")
+		return
 	}
 
 	clone.Interval = DurationLiteral{Value: 9, Unit: "week"}

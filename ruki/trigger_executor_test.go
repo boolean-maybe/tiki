@@ -1617,6 +1617,7 @@ func TestResolveQualifiedRef_OldNil(t *testing.T) {
 	// old.assignee resolved to nil → setField should set empty assignee
 	if result.Update == nil || len(result.Update.Updated) != 1 {
 		t.Fatal("expected 1 updated task")
+		return
 	}
 	if result.Update.Updated[0].Assignee != "" {
 		t.Errorf("expected empty assignee from old.assignee (old is nil), got %q", result.Update.Updated[0].Assignee)
@@ -2555,6 +2556,7 @@ func TestExecTimeTriggerAction_Create(t *testing.T) {
 	}
 	if result.Create == nil {
 		t.Fatal("expected Create result")
+		return
 	}
 	if result.Create.Task.Title != "daily standup" {
 		t.Fatalf("expected title='daily standup', got %q", result.Create.Task.Title)
@@ -2732,6 +2734,7 @@ func TestExecAction_RawTriggerPath(t *testing.T) {
 	}
 	if result.Update == nil || len(result.Update.Updated) != 1 {
 		t.Fatal("expected 1 updated task from raw trigger path")
+		return
 	}
 	if result.Update.Updated[0].Status != "inProgress" {
 		t.Fatalf("expected status=in_progress, got %q", result.Update.Updated[0].Status)
@@ -2827,6 +2830,7 @@ func TestExecTimeTriggerAction_RawTimeTriggerWithAction(t *testing.T) {
 	}
 	if result.Update == nil || len(result.Update.Updated) != 1 {
 		t.Fatal("expected 1 updated task from raw TimeTrigger path")
+		return
 	}
 	if result.Update.Updated[0].Status != "backlog" {
 		t.Fatalf("expected status=backlog, got %q", result.Update.Updated[0].Status)
@@ -2878,6 +2882,7 @@ func TestTriggerExecOverride_Execute_RawStatement(t *testing.T) {
 	}
 	if result.Update == nil || len(result.Update.Updated) != 1 {
 		t.Fatal("expected 1 updated task")
+		return
 	}
 	if result.Update.Updated[0].Status != "backlog" {
 		t.Fatalf("expected status=backlog, got %q", result.Update.Updated[0].Status)
@@ -3064,6 +3069,7 @@ func TestExecAction_ValidatedTriggerWithCreateAction(t *testing.T) {
 	}
 	if result.Create == nil {
 		t.Fatal("expected Create result")
+		return
 	}
 	if result.Create.Task.Title != "followup" {
 		t.Fatalf("expected title 'followup', got %q", result.Create.Task.Title)
@@ -3311,6 +3317,7 @@ func TestTriggerExecOverride_Execute_ValidatedStatement(t *testing.T) {
 	}
 	if result.Update == nil || len(result.Update.Updated) != 1 {
 		t.Fatal("expected 1 updated task")
+		return
 	}
 	if result.Update.Updated[0].Status != "inProgress" {
 		t.Fatalf("expected status 'in_progress', got %q", result.Update.Updated[0].Status)
@@ -3381,6 +3388,7 @@ func TestTriggerExecOverride_Execute_ValidatedStatementCreateWithTemplate(t *tes
 	}
 	if result.Create == nil {
 		t.Fatal("expected Create result")
+		return
 	}
 	if result.Create.Task.Title != "created" {
 		t.Fatalf("expected title 'created', got %q", result.Create.Task.Title)
@@ -3446,6 +3454,7 @@ func TestTriggerExecOverride_Execute_RawCreateNoTemplate(t *testing.T) {
 	}
 	if result.Create == nil {
 		t.Fatal("expected Create result")
+		return
 	}
 	if result.Create.Task.Title != "raw create" {
 		t.Fatalf("expected title 'raw create', got %q", result.Create.Task.Title)
@@ -3527,6 +3536,7 @@ func TestEvalExprRecursive_QualifiedRefInsideFunctionCall(t *testing.T) {
 	}
 	if result.Update == nil || len(result.Update.Updated) != 1 {
 		t.Fatal("expected 1 updated task")
+		return
 	}
 	if result.Update.Updated[0].Status != "review" {
 		t.Fatalf("expected status 'review', got %q", result.Update.Updated[0].Status)

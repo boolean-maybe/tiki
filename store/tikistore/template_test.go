@@ -37,6 +37,7 @@ func TestLoadTemplateTask_CwdWins(t *testing.T) {
 	task := loadTemplateTask()
 	if task == nil {
 		t.Fatal("loadTemplateTask() returned nil")
+		return
 	}
 	if task.Title != "cwd" {
 		t.Errorf("title = %q, want \"cwd\"", task.Title)

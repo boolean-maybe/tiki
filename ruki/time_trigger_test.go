@@ -60,9 +60,11 @@ func TestParseTimeTrigger_HappyPath(t *testing.T) {
 			}
 			if tt.wantCreate && result.Action.Create == nil {
 				t.Fatal("expected Create action")
+				return
 			}
 			if tt.wantUpdate && result.Action.Update == nil {
 				t.Fatal("expected Update action")
+				return
 			}
 			if tt.wantDelete && result.Action.Delete == nil {
 				t.Fatal("expected Delete action")
@@ -88,6 +90,7 @@ func TestParseTimeTrigger_ASTVerification(t *testing.T) {
 	// verify action is update with where and set
 	if tt.Action.Update == nil {
 		t.Fatal("expected Update action")
+		return
 	}
 	if tt.Action.Update.Where == nil {
 		t.Fatal("expected Where condition")
@@ -162,6 +165,7 @@ func TestParseRule_EventTrigger(t *testing.T) {
 	}
 	if rule.Trigger == nil {
 		t.Fatal("expected event Trigger, got nil")
+		return
 	}
 	if rule.TimeTrigger != nil {
 		t.Fatal("expected TimeTrigger to be nil")
@@ -180,6 +184,7 @@ func TestParseRule_TimeTrigger(t *testing.T) {
 	}
 	if rule.TimeTrigger == nil {
 		t.Fatal("expected TimeTrigger, got nil")
+		return
 	}
 	if rule.Trigger != nil {
 		t.Fatal("expected event Trigger to be nil")

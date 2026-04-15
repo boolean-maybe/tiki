@@ -13,6 +13,7 @@ func TestParseViewerInputFile(t *testing.T) {
 	}
 	if !ok {
 		t.Fatalf("expected viewer mode")
+		return
 	}
 	if spec.Kind != InputFile {
 		t.Fatalf("expected file input, got %s", spec.Kind)
@@ -36,6 +37,7 @@ func TestParseViewerInputStdin(t *testing.T) {
 	}
 	if !ok {
 		t.Fatalf("expected viewer mode")
+		return
 	}
 	if spec.Kind != InputStdin {
 		t.Fatalf("expected stdin input, got %s", spec.Kind)
@@ -49,6 +51,7 @@ func TestParseViewerInputURL(t *testing.T) {
 	}
 	if !ok {
 		t.Fatalf("expected viewer mode")
+		return
 	}
 	if spec.Kind != InputURL {
 		t.Fatalf("expected url input, got %s", spec.Kind)
@@ -65,6 +68,7 @@ func TestParseViewerInputGitHub(t *testing.T) {
 	}
 	if !ok {
 		t.Fatalf("expected viewer mode")
+		return
 	}
 	if spec.Kind != InputGitHub {
 		t.Fatalf("expected github input, got %s", spec.Kind)
@@ -100,6 +104,7 @@ func TestParseViewerInputFlags(t *testing.T) {
 	}
 	if !ok {
 		t.Fatalf("expected viewer mode")
+		return
 	}
 	if spec.Kind != InputFile {
 		t.Fatalf("expected file input, got %s", spec.Kind)
@@ -113,6 +118,7 @@ func TestParseViewerInputLogLevelMissingValue(t *testing.T) {
 	}
 	if !ok {
 		t.Fatalf("expected viewer mode")
+		return
 	}
 	if spec.Kind != InputFile {
 		t.Fatalf("expected file input, got %s", spec.Kind)
@@ -165,6 +171,7 @@ func TestParseViewerInputImageFile(t *testing.T) {
 	}
 	if !ok {
 		t.Fatalf("expected viewer mode")
+		return
 	}
 	if spec.Kind != InputImage {
 		t.Fatalf("expected image input, got %s", spec.Kind)

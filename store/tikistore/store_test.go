@@ -563,6 +563,7 @@ Task description`,
 
 			if task == nil {
 				t.Fatal("GetTask() returned nil")
+				return
 			}
 
 			if tt.expectZero {
@@ -665,6 +666,7 @@ Task description`,
 
 			if task == nil {
 				t.Fatal("GetTask() returned nil")
+				return
 			}
 
 			if task.Recurrence != tt.expectValue {
@@ -735,6 +737,7 @@ func TestSaveTask_Recurrence(t *testing.T) {
 			loaded := store.GetTask("TIKI-RECSVR")
 			if loaded == nil {
 				t.Fatal("GetTask() returned nil")
+				return
 			}
 			if loaded.Recurrence != task.Recurrence {
 				t.Errorf("round-trip failed: saved %q, loaded %q", task.Recurrence, loaded.Recurrence)

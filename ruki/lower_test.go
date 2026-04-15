@@ -333,6 +333,7 @@ func TestLower_BinaryExpr(t *testing.T) {
 			be, ok := a.Value.(*BinaryExpr)
 			if !ok {
 				t.Fatalf("expected BinaryExpr, got %T", a.Value)
+				return
 			}
 			if be.Op != "+" {
 				t.Errorf("expected '+', got %q", be.Op)
@@ -640,6 +641,7 @@ func TestLower_DeleteStatement(t *testing.T) {
 	}
 	if stmt.Delete == nil {
 		t.Fatal("expected delete statement")
+		return
 	}
 	if stmt.Delete.Where == nil {
 		t.Fatal("expected non-nil where in delete")

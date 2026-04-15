@@ -90,6 +90,7 @@ func TestParsePipeDoesNotBreakPlainSelect(t *testing.T) {
 			}
 			if stmt.Select == nil {
 				t.Fatal("expected Select")
+				return
 			}
 			if stmt.Select.Pipe != nil {
 				t.Fatal("expected no Pipe on plain select")
@@ -108,12 +109,15 @@ func TestLowerPipeProducesSelectAndPipe(t *testing.T) {
 	}
 	if stmt.Select == nil {
 		t.Fatal("expected Select non-nil")
+		return
 	}
 	if stmt.Select.Pipe == nil {
 		t.Fatal("expected Select.Pipe non-nil")
+		return
 	}
 	if stmt.Select.Pipe.Run == nil {
 		t.Fatal("expected Select.Pipe.Run non-nil")
+		return
 	}
 	if stmt.Select.Pipe.Run.Command == nil {
 		t.Fatal("expected Select.Pipe.Run.Command non-nil")
@@ -272,6 +276,7 @@ func TestExecutePipeReturnsResult(t *testing.T) {
 	}
 	if result.Pipe == nil {
 		t.Fatal("expected Pipe result")
+		return
 	}
 	if result.Select != nil {
 		t.Fatal("expected Select to be nil when pipe is present")
@@ -310,6 +315,7 @@ func TestExecuteSelectStillWorksWithoutPipe(t *testing.T) {
 	}
 	if result.Select == nil {
 		t.Fatal("expected Select result for plain select")
+		return
 	}
 	if result.Pipe != nil {
 		t.Fatal("expected no Pipe result for plain select")
@@ -386,9 +392,11 @@ func TestLowerClipboardPipe(t *testing.T) {
 	}
 	if stmt.Select.Pipe == nil {
 		t.Fatal("expected Select.Pipe non-nil")
+		return
 	}
 	if stmt.Select.Pipe.Clipboard == nil {
 		t.Fatal("expected Select.Pipe.Clipboard non-nil")
+		return
 	}
 	if stmt.Select.Pipe.Run != nil {
 		t.Fatal("expected Select.Pipe.Run nil for clipboard pipe")
@@ -473,6 +481,7 @@ func TestExecuteClipboardPipeReturnsResult(t *testing.T) {
 	}
 	if result.Clipboard == nil {
 		t.Fatal("expected Clipboard result")
+		return
 	}
 	if result.Pipe != nil {
 		t.Fatal("expected Pipe to be nil when clipboard is present")

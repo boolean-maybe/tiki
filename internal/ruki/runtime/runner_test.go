@@ -387,6 +387,7 @@ func TestRunQueryCreatePersists(t *testing.T) {
 	}
 	if found == nil {
 		t.Fatal("created task not found in store")
+		return
 	}
 	if !strings.HasPrefix(found.ID, "TIKI-") || len(found.ID) != 11 {
 		t.Errorf("ID = %q, want TIKI-XXXXXX format (11 chars)", found.ID)
@@ -432,6 +433,7 @@ func TestRunQueryCreateTemplateDefaults(t *testing.T) {
 	}
 	if found == nil {
 		t.Fatal("created task not found in store")
+		return
 	}
 	// InMemoryStore template has tags=["idea"], so result should be ["idea", "extra"]
 	if len(found.Tags) != 2 || found.Tags[0] != "idea" || found.Tags[1] != "extra" {

@@ -71,6 +71,7 @@ func TestParseTrigger_BeforeDeny(t *testing.T) {
 			}
 			if trig.Deny == nil {
 				t.Fatal("expected Deny, got nil")
+				return
 			}
 			if trig.Action != nil {
 				t.Fatal("expected nil Action in before-trigger")
@@ -182,12 +183,15 @@ func TestParseTrigger_AfterAction(t *testing.T) {
 			} else {
 				if trig.Action == nil {
 					t.Fatal("expected Action, got nil")
+					return
 				}
 				if tt.wantCreate && trig.Action.Create == nil {
 					t.Fatal("expected Create action")
+					return
 				}
 				if tt.wantUpdate && trig.Action.Update == nil {
 					t.Fatal("expected Update action")
+					return
 				}
 				if tt.wantDelete && trig.Action.Delete == nil {
 					t.Fatal("expected Delete action")

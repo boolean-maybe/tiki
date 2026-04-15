@@ -31,6 +31,7 @@ func TestParsePluginConfig_FullyInline(t *testing.T) {
 	tp, ok := def.(*TikiPlugin)
 	if !ok {
 		t.Fatalf("Expected TikiPlugin, got %T", def)
+		return
 	}
 
 	if tp.Name != "Inline Test" {
@@ -74,6 +75,7 @@ func TestParsePluginConfig_Minimal(t *testing.T) {
 	tp, ok := def.(*TikiPlugin)
 	if !ok {
 		t.Fatalf("Expected TikiPlugin, got %T", def)
+		return
 	}
 
 	if tp.Name != "Minimal" {

@@ -17,6 +17,7 @@ func TestParseViewerInputGitHubBlobURL(t *testing.T) {
 	}
 	if !ok {
 		t.Fatal("expected viewer mode")
+		return
 	}
 	if spec.Kind != InputGitHub {
 		t.Fatalf("expected github input, got %s", spec.Kind)
@@ -96,6 +97,7 @@ func TestParseViewerInputGitHubSingleSegmentFallsThrough(t *testing.T) {
 	}
 	if !ok {
 		t.Fatal("expected viewer mode (treated as file path)")
+		return
 	}
 	if spec.Kind != InputFile {
 		t.Fatalf("single-segment github path should fall through to file, got %s", spec.Kind)
@@ -114,6 +116,7 @@ func TestParseViewerInputGitLabBasic(t *testing.T) {
 	}
 	if !ok {
 		t.Fatal("expected viewer mode")
+		return
 	}
 	if spec.Kind != InputGitLab {
 		t.Fatalf("expected gitlab input, got %s", spec.Kind)
@@ -167,6 +170,7 @@ func TestParseViewerInputGitLabHTTPS(t *testing.T) {
 	}
 	if !ok {
 		t.Fatal("expected viewer mode")
+		return
 	}
 	if spec.Kind != InputGitLab {
 		t.Fatalf("expected gitlab input, got %s", spec.Kind)
@@ -183,6 +187,7 @@ func TestParseViewerInputGitLabSingleSegmentFallsThrough(t *testing.T) {
 	}
 	if !ok {
 		t.Fatal("expected viewer mode (file path fallthrough)")
+		return
 	}
 	if spec.Kind != InputFile {
 		t.Fatalf("single-segment gitlab path should fall through to file, got %s", spec.Kind)

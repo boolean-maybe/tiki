@@ -603,6 +603,7 @@ func TestParseAndValidateRule(t *testing.T) {
 		er, ok := rule.(ValidatedEventRule)
 		if !ok {
 			t.Fatalf("expected ValidatedEventRule, got %T", rule)
+			return
 		}
 		if er.RuntimeMode() != ExecutorRuntimeEventTrigger {
 			t.Errorf("runtime = %q, want %q", er.RuntimeMode(), ExecutorRuntimeEventTrigger)
@@ -622,6 +623,7 @@ func TestParseAndValidateRule(t *testing.T) {
 		tr, ok := rule.(ValidatedTimeRule)
 		if !ok {
 			t.Fatalf("expected ValidatedTimeRule, got %T", rule)
+			return
 		}
 		if tr.RuntimeMode() != ExecutorRuntimeTimeTrigger {
 			t.Errorf("runtime = %q, want %q", tr.RuntimeMode(), ExecutorRuntimeTimeTrigger)
@@ -1813,11 +1815,13 @@ func TestClone_MutationIsolation(t *testing.T) {
 		c, ok := cloneExpr(orig).(*ListLiteral)
 		if !ok {
 			t.Fatal("expected *ListLiteral")
+			return
 		}
 		c.Elements[0] = &StringLiteral{Value: "z"}
 		sl, ok := orig.Elements[0].(*StringLiteral)
 		if !ok {
 			t.Fatal("expected *StringLiteral")
+			return
 		}
 		if sl.Value != "a" {
 			t.Error("mutating cloned ListLiteral affected original")
@@ -1829,11 +1833,13 @@ func TestClone_MutationIsolation(t *testing.T) {
 		c, ok := cloneExpr(orig).(*FunctionCall)
 		if !ok {
 			t.Fatal("expected *FunctionCall")
+			return
 		}
 		c.Args[0] = &IntLiteral{Value: 999}
 		il, ok := orig.Args[0].(*IntLiteral)
 		if !ok {
 			t.Fatal("expected *IntLiteral")
+			return
 		}
 		if il.Value != 1 {
 			t.Error("mutating cloned FunctionCall args affected original")
@@ -2047,6 +2053,7 @@ func TestValidatedTimeTrigger_TimeTriggerClone_MutationIsolation(t *testing.T) {
 	c := vtt.TimeTriggerClone()
 	if c == nil {
 		t.Fatal("TimeTriggerClone() returned nil")
+		return
 	}
 	c.Interval.Value = 99
 	if vtt.IntervalLiteral().Value != 2 {

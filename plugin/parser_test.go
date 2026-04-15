@@ -264,6 +264,7 @@ background: "#0000ff"
 	tikiPlugin, ok := plugin.(*TikiPlugin)
 	if !ok {
 		t.Fatalf("Expected TikiPlugin, got %T", plugin)
+		return
 	}
 
 	if tikiPlugin.GetName() != "Test Plugin" {
@@ -745,6 +746,7 @@ foreground: "#00ff00"
 	dokiPlugin, ok := plugin.(*DokiPlugin)
 	if !ok {
 		t.Fatalf("Expected DokiPlugin, got %T", plugin)
+		return
 	}
 
 	if dokiPlugin.GetName() != "Doc Plugin" {
