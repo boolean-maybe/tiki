@@ -20,6 +20,10 @@ linters:
     errcheck:
       check-type-assertions: true
 
+    staticcheck:
+      checks:
+        - "-SA5011" # t.Fatal stops via runtime.Goexit; nil deref after guard is safe
+
     govet:
       enable-all: true
       disable:
