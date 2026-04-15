@@ -1,0 +1,42 @@
+# tiki
+
+> Terminal-first Markdown workspace for tasks, docs, and notes — stored in git, queried with ruki, extended with plugins and AI skills
+
+tiki manages two kinds of content: **tikis** (tasks/tickets as Markdown+YAML in `.doc/tiki/`) and **dokis** (documentation as Markdown in `.doc/doki/`). It includes a standalone Markdown viewer with images, Mermaid diagrams, and link navigation. Tasks support priority, status, assignee, size, tags, and dependencies. Views are Kanban/Scrum boards with burndown charts.
+
+Everything beyond the core is plugin-driven. `workflow.yaml` defines statuses and plugin views. Each plugin uses **ruki** — an SQL-like language for selecting, filtering, sorting, and updating tasks. Triggers (ruki statements that fire on task changes) enforce workflow rules. AI skills let Claude Code, Gemini CLI, Codex, and Opencode manage tikis and dokis through natural language.
+
+## Docs
+
+- [Quick Start](.doc/doki/doc/quick-start.md): getting started — markdown viewer, file management, tiki board, keyboard shortcuts
+- [Tiki Format](.doc/doki/doc/tiki-format.md): .doc directory structure, tiki Markdown+YAML spec, field types
+- [Configuration](.doc/doki/doc/config.md): config.yaml, workflow.yaml, config directories, settings reference
+- [Customization](.doc/doki/doc/customization.md): workflow statuses, plugin definitions, lanes, actions, views
+- [Installation](.doc/doki/doc/install.md): macOS, Linux, Windows, manual install
+- [Markdown Viewer](.doc/doki/doc/markdown-viewer.md): pager commands, link navigation, image/diagram rendering
+- [Quick Capture](.doc/doki/doc/quick-capture.md): creating tikis from CLI without opening the TUI
+
+## Ruki Language
+
+- [Quick Start](.doc/doki/doc/ruki/quick-start.md): mental model, CRUD operations, conditions, pipes, triggers
+- [Examples](.doc/doki/doc/ruki/examples.md): practical select/update/trigger statements with explanations
+- [Syntax](.doc/doki/doc/ruki/syntax.md): lexical structure, grammar, EBNF, operator tokens
+- [Semantics](.doc/doki/doc/ruki/semantics.md): statement behavior, trigger execution, expression evaluation
+- [Triggers](.doc/doki/doc/ruki/triggers.md): trigger configuration, patterns, execution pipeline, error handling
+- [Types and Values](.doc/doki/doc/ruki/types-and-values.md): value types, field catalog, type coercion
+- [Operators and Built-ins](.doc/doki/doc/ruki/operators-and-builtins.md): operator precedence, built-in functions
+
+## AI Skills
+
+- [AI Collaboration](.doc/doki/doc/ai.md): overview of AI integration, supported tools, prompt conventions
+- [Tiki Skill](ai/skills/tiki/SKILL.md): AI skill for creating, querying, updating, and deleting tikis
+- [Doki Skill](ai/skills/doki/SKILL.md): AI skill for managing documentation files
+
+## Optional
+
+- [Customization Examples](.doc/doki/doc/ideas/plugins.md): plugin recipes — assign, tags, Claude integration, scoped views
+- [Trigger Ideas](.doc/doki/doc/ideas/triggers.md): workflow trigger patterns — WIP limits, auto-assignment, staleness
+- [Themes](.doc/doki/doc/themes.md): theme configuration and available palettes
+- [Image Requirements](.doc/doki/doc/image-requirements.md): terminal image protocol support, SVG rendering dependencies
+- [Validation and Errors](.doc/doki/doc/ruki/validation-and-errors.md): ruki validation layers, error types, diagnostics
+- [Contributing](CONTRIBUTING.md): development setup, PR workflow, coding conventions
