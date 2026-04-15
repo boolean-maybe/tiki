@@ -158,6 +158,7 @@ func TestDepsEditor_MoveTask_AllToDepends_PersistsOnDisk(t *testing.T) {
 	updated := ta.TaskStore.GetTask(contextID)
 	if updated == nil {
 		t.Fatalf("context task not found in store")
+		return
 	}
 	if !slices.Contains(updated.DependsOn, freeID) {
 		t.Errorf("DependsOn = %v, want it to contain %s", updated.DependsOn, freeID)
@@ -170,6 +171,7 @@ func TestDepsEditor_MoveTask_AllToDepends_PersistsOnDisk(t *testing.T) {
 	reloaded := ta.TaskStore.GetTask(contextID)
 	if reloaded == nil {
 		t.Fatalf("context task not found after reload")
+		return
 	}
 	if !slices.Contains(reloaded.DependsOn, freeID) {
 		t.Errorf("after reload: DependsOn = %v, want it to contain %s", reloaded.DependsOn, freeID)
@@ -223,6 +225,7 @@ func TestDepsEditor_MoveTask_DependsToAll_RemovesDep(t *testing.T) {
 	updated := ta.TaskStore.GetTask(contextID)
 	if updated == nil {
 		t.Fatalf("context task not found in store")
+		return
 	}
 	if slices.Contains(updated.DependsOn, depID) {
 		t.Errorf("DependsOn = %v, should not contain %s after removal", updated.DependsOn, depID)
@@ -235,6 +238,7 @@ func TestDepsEditor_MoveTask_DependsToAll_RemovesDep(t *testing.T) {
 	reloaded := ta.TaskStore.GetTask(contextID)
 	if reloaded == nil {
 		t.Fatalf("context task not found after reload")
+		return
 	}
 	if slices.Contains(reloaded.DependsOn, depID) {
 		t.Errorf("after reload: DependsOn = %v, should not contain %s", reloaded.DependsOn, depID)

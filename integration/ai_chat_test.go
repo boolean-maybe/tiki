@@ -66,6 +66,7 @@ func TestTaskDetailView_ChatModifiesTask(t *testing.T) {
 	updated := ta.TaskStore.GetTask(taskID)
 	if updated == nil {
 		t.Fatal("task not found after chat")
+		return
 	}
 	if updated.Title != "AI Modified Title" {
 		t.Errorf("title = %q, want %q", updated.Title, "AI Modified Title")
@@ -114,6 +115,7 @@ func TestTaskDetailView_ChatNotAvailableWithoutConfig(t *testing.T) {
 	task := ta.TaskStore.GetTask(taskID)
 	if task == nil {
 		t.Fatal("task not found")
+		return
 	}
 	if task.Title != "Unchanged Title" {
 		t.Errorf("title = %q, want %q", task.Title, "Unchanged Title")
