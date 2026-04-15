@@ -245,16 +245,17 @@ func (s *InMemoryStore) NewTaskTemplate() (*task.Task, error) {
 	}
 
 	t := &task.Task{
-		ID:          taskID,
-		Title:       "",
-		Description: "",
-		Type:        task.TypeStory,
-		Status:      task.DefaultStatus(),
-		Priority:    7, // match embedded template default
-		Points:      1,
-		Tags:        []string{"idea"},
-		CreatedAt:   time.Now(),
-		CreatedBy:   "memory-user",
+		ID:           taskID,
+		Title:        "",
+		Description:  "",
+		Type:         task.TypeStory,
+		Status:       task.DefaultStatus(),
+		Priority:     7, // match embedded template default
+		Points:       1,
+		Tags:         []string{"idea"},
+		CustomFields: make(map[string]interface{}),
+		CreatedAt:    time.Now(),
+		CreatedBy:    "memory-user",
 	}
 	return t, nil
 }

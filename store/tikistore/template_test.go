@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/boolean-maybe/tiki/config"
+	"github.com/boolean-maybe/tiki/workflow"
 )
 
 func TestLoadTemplateTask_CwdWins(t *testing.T) {
@@ -34,7 +35,10 @@ func TestLoadTemplateTask_CwdWins(t *testing.T) {
 
 	config.ResetPathManager()
 
-	task := loadTemplateTask()
+	task, err := loadTemplateTask()
+	if err != nil {
+		t.Fatalf("loadTemplateTask() error: %v", err)
+	}
 	if task == nil {
 		t.Fatal("loadTemplateTask() returned nil")
 		return
@@ -62,7 +66,10 @@ func TestLoadTemplateTask_EmbeddedFallback(t *testing.T) {
 
 	config.ResetPathManager()
 
-	task := loadTemplateTask()
+	task, err := loadTemplateTask()
+	if err != nil {
+		t.Fatalf("loadTemplateTask() error: %v", err)
+	}
 	if task == nil {
 		t.Fatal("loadTemplateTask() returned nil, expected embedded template")
 	}
@@ -72,5 +79,37 @@ func TestLoadTemplateTask_EmbeddedFallback(t *testing.T) {
 	}
 	if task.Status != "backlog" {
 		t.Errorf("status = %q, want \"backlog\" from embedded template", task.Status)
+	}
+}
+
+func TestParseTaskTemplate_BadCustomFieldDemotedToUnknown(t *testing.T) {
+	config.MarkRegistriesLoadedForTest()
+	// register an int custom field so we can provoke a coercion failure
+	if err := workflow.RegisterCustomFields([]workflow.FieldDef{
+		{Name: "score", Type: workflow.TypeInt},
+	}); err != nil {
+		t.Fatalf("register custom fields: %v", err)
+	}
+	t.Cleanup(func() { workflow.ClearCustomFields() })
+
+	// template has valid built-in fields AND an invalid custom field (string for int)
+	tmpl := []byte("---\ntitle: keep me\npriority: 3\ntype: bug\nstatus: backlog\nscore: not_a_number\n---\nsome description")
+
+	task, err := parseTaskTemplate(tmpl)
+	if err != nil {
+		t.Fatalf("template should load despite bad custom field, got: %v", err)
+	}
+	if task == nil {
+		t.Fatal("expected non-nil task")
+	}
+	// built-in fields should still be populated
+	if task.Title != "keep me" {
+		t.Errorf("title = %q, want %q", task.Title, "keep me")
+	}
+	// bad custom field value should not appear in CustomFields
+	if task.CustomFields != nil {
+		if _, exists := task.CustomFields["score"]; exists {
+			t.Error("bad custom field value should not appear in CustomFields")
+		}
 	}
 }

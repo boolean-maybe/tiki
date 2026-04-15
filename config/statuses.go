@@ -29,11 +29,13 @@ var (
 )
 
 // LoadStatusRegistry reads the statuses: section from workflow.yaml files.
-// The last file from FindWorkflowFiles() that contains a non-empty statuses list wins
+// Uses FindRegistryWorkflowFiles (no views filtering) so files with empty views:
+// still contribute status definitions.
+// The last file that contains a non-empty statuses list wins
 // (most specific location takes precedence, matching plugin merge behavior).
 // Returns an error if no statuses are defined anywhere (no Go fallback).
 func LoadStatusRegistry() error {
-	files := FindWorkflowFiles()
+	files := FindRegistryWorkflowFiles()
 	if len(files) == 0 {
 		return fmt.Errorf("no workflow.yaml found; statuses must be defined in workflow.yaml")
 	}
@@ -116,6 +118,7 @@ func MaybeGetTypeRegistry() (*workflow.TypeRegistry, bool) {
 }
 
 // ResetStatusRegistry replaces the global registry with one built from the given defs.
+// Also clears custom fields so test helpers don't leak registry state.
 // Intended for tests only.
 func ResetStatusRegistry(defs []workflow.StatusDef) {
 	reg, err := workflow.NewStatusRegistry(defs)
@@ -130,14 +133,19 @@ func ResetStatusRegistry(defs []workflow.StatusDef) {
 	globalStatusRegistry = reg
 	globalTypeRegistry = typeReg
 	registryMu.Unlock()
+	workflow.ClearCustomFields()
+	registriesLoaded.Store(true)
 }
 
-// ClearStatusRegistry removes the global registries. Intended for test teardown.
+// ClearStatusRegistry removes the global registries and clears custom fields.
+// Intended for test teardown.
 func ClearStatusRegistry() {
 	registryMu.Lock()
 	globalStatusRegistry = nil
 	globalTypeRegistry = nil
 	registryMu.Unlock()
+	workflow.ClearCustomFields()
+	registriesLoaded.Store(false)
 }
 
 // --- internal ---

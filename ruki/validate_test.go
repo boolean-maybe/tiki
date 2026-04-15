@@ -1764,14 +1764,14 @@ func TestValidation_CheckCompareOpUnknown(t *testing.T) {
 }
 
 func TestValidation_IsOrderableType(t *testing.T) {
-	orderable := []ValueType{ValueInt, ValueDate, ValueTimestamp, ValueDuration, ValueString, ValueStatus, ValueTaskType, ValueID, ValueRef}
+	orderable := []ValueType{ValueInt, ValueDate, ValueTimestamp, ValueDuration, ValueString, ValueStatus, ValueTaskType, ValueID, ValueRef, ValueEnum, ValueBool}
 	for _, vt := range orderable {
 		if !isOrderableType(vt) {
 			t.Errorf("expected %s to be orderable", typeName(vt))
 		}
 	}
 
-	notOrderable := []ValueType{ValueBool, ValueListString, ValueListRef, ValueRecurrence}
+	notOrderable := []ValueType{ValueListString, ValueListRef, ValueRecurrence}
 	for _, vt := range notOrderable {
 		if isOrderableType(vt) {
 			t.Errorf("expected %s to NOT be orderable", typeName(vt))
@@ -2459,7 +2459,7 @@ func TestValidation_InferBinaryExprType_RightError(t *testing.T) {
 func TestValidation_CheckAssignmentCompat_UnresolvedEmpty(t *testing.T) {
 	p := newTestParser()
 	// rhsType == -1 but rhs is not an EmptyLiteral — exercises the rhsType == -1 branch
-	err := p.checkAssignmentCompat(ValueString, -1, &BinaryExpr{
+	err := p.checkAssignmentCompat(FieldSpec{Name: "title", Type: ValueString}, -1, &BinaryExpr{
 		Op:    "+",
 		Left:  &EmptyLiteral{},
 		Right: &EmptyLiteral{},
@@ -2516,5 +2516,239 @@ func TestValidation_InExprListElementTypeError(t *testing.T) {
 	}})
 	if err == nil {
 		t.Fatal("expected error for unknown function in list element")
+	}
+}
+
+// --- custom field validation tests ---
+
+// customTestSchema extends testSchema with custom enum, bool, and timestamp fields.
+type customTestSchema struct {
+	testSchema
+}
+
+func (customTestSchema) Field(name string) (FieldSpec, bool) {
+	customFields := map[string]FieldSpec{
+		"severity":  {Name: "severity", Type: ValueEnum, Custom: true, AllowedValues: []string{"low", "medium", "high", "critical"}},
+		"priority2": {Name: "priority2", Type: ValueEnum, Custom: true, AllowedValues: []string{"p0", "p1", "p2"}},
+		"approval":  {Name: "approval", Type: ValueEnum, Custom: true, AllowedValues: []string{"true", "false", "maybe"}},
+		"flag":      {Name: "flag", Type: ValueBool, Custom: true},
+		"startedAt": {Name: "startedAt", Type: ValueTimestamp, Custom: true},
+		"notes":     {Name: "notes", Type: ValueString, Custom: true},
+		"score":     {Name: "score", Type: ValueInt, Custom: true},
+		"labels":    {Name: "labels", Type: ValueListString, Custom: true},
+		"related":   {Name: "related", Type: ValueListRef, Custom: true},
+	}
+	if f, ok := customFields[name]; ok {
+		return f, true
+	}
+	// delegate to standard test schema for built-in fields
+	return testSchema{}.Field(name)
+}
+
+func newCustomParser() *Parser {
+	return NewParser(customTestSchema{})
+}
+
+func TestCustomEnumComparison(t *testing.T) {
+	p := newCustomParser()
+
+	_, err := p.ParseStatement(`select where severity = "low"`)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
+func TestCustomEnumUnknownValue(t *testing.T) {
+	p := newCustomParser()
+
+	_, err := p.ParseStatement(`select where severity = "unknown"`)
+	if err == nil {
+		t.Fatal("expected error for unknown enum value")
+	}
+	if !strings.Contains(err.Error(), `unknown value "unknown" for field "severity"`) {
+		t.Fatalf("expected unknown value error, got: %v", err)
+	}
+}
+
+func TestCustomEnumCrossFieldReject(t *testing.T) {
+	p := newCustomParser()
+
+	_, err := p.ParseStatement(`select where severity = priority2`)
+	if err == nil {
+		t.Fatal("expected error comparing two different enum fields")
+	}
+	if !strings.Contains(err.Error(), "different enum domains") {
+		t.Fatalf("expected cross-field enum error, got: %v", err)
+	}
+}
+
+func TestCustomBoolComparison(t *testing.T) {
+	p := newCustomParser()
+
+	tests := []struct {
+		name  string
+		input string
+	}{
+		{"flag = true", `select where flag = true`},
+		{"flag = false", `select where flag = false`},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			_, err := p.ParseStatement(tt.input)
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+		})
+	}
+}
+
+func TestCustomBoolOrderBy(t *testing.T) {
+	p := newCustomParser()
+
+	_, err := p.ParseStatement(`select order by flag`)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
+func TestCustomEnumOrderBy(t *testing.T) {
+	p := newCustomParser()
+
+	_, err := p.ParseStatement(`select order by severity`)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
+func TestCustomEnumIn(t *testing.T) {
+	p := newCustomParser()
+
+	tests := []struct {
+		name  string
+		input string
+	}{
+		{"in valid values", `select where severity in ["low", "high"]`},
+		{"not in valid values", `select where severity not in ["low"]`},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			_, err := p.ParseStatement(tt.input)
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+		})
+	}
+}
+
+func TestCustomEnumInInvalidValue(t *testing.T) {
+	p := newCustomParser()
+
+	_, err := p.ParseStatement(`select where severity in ["low", "bogus"]`)
+	if err == nil {
+		t.Fatal("expected error for invalid enum value in list")
+	}
+	if !strings.Contains(err.Error(), `unknown value "bogus" for field "severity"`) {
+		t.Fatalf("expected unknown value error, got: %v", err)
+	}
+}
+
+func TestDateTimestampCoercion(t *testing.T) {
+	p := newCustomParser()
+
+	// startedAt is a timestamp field; bare date literal should be accepted via coercion
+	_, err := p.ParseStatement(`select where startedAt >= 2026-04-15`)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
+func TestCustomEnumAssignment(t *testing.T) {
+	p := newCustomParser()
+
+	_, err := p.ParseStatement(`update where id = "X" set severity="high"`)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
+func TestCustomEnumAssignToString(t *testing.T) {
+	p := newCustomParser()
+
+	// assigning an enum field ref to a plain string field should be rejected
+	_, err := p.ParseStatement(`update where id = "X" set notes=severity`)
+	if err == nil {
+		t.Fatal("expected error assigning enum field to string field")
+	}
+	if !strings.Contains(err.Error(), "cannot assign") {
+		t.Fatalf("expected assignment error, got: %v", err)
+	}
+}
+
+func TestBoolStringCoercion_Assignment(t *testing.T) {
+	p := newCustomParser()
+
+	// string "true"/"false" should be assignable to a bool field
+	for _, stmt := range []string{
+		`update where id = "X" set flag="true"`,
+		`update where id = "X" set flag="false"`,
+	} {
+		t.Run(stmt, func(t *testing.T) {
+			if _, err := p.ParseStatement(stmt); err != nil {
+				t.Errorf("expected success, got: %v", err)
+			}
+		})
+	}
+}
+
+func TestBoolStringCoercion_Compare(t *testing.T) {
+	p := newCustomParser()
+
+	// string "true"/"false" should be comparable with a bool field
+	for _, stmt := range []string{
+		`select where flag = "true"`,
+		`select where flag = "false"`,
+	} {
+		t.Run(stmt, func(t *testing.T) {
+			if _, err := p.ParseStatement(stmt); err != nil {
+				t.Errorf("expected success, got: %v", err)
+			}
+		})
+	}
+}
+
+func TestBoolStringCoercion_InList(t *testing.T) {
+	p := newCustomParser()
+
+	// bool field in list of bool-string literals should succeed
+	stmt := `select where flag in ["true", "false"]`
+	if _, err := p.ParseStatement(stmt); err != nil {
+		t.Errorf("expected success, got: %v", err)
+	}
+}
+
+func TestEnumWithTrueFalseValues(t *testing.T) {
+	p := newCustomParser()
+
+	// enum with allowed values ["true", "false", "maybe"] should accept quoted strings
+	for _, stmt := range []string{
+		`update where id = "X" set approval="true"`,
+		`update where id = "X" set approval="false"`,
+		`update where id = "X" set approval="maybe"`,
+		`select where approval = "true"`,
+		`select where approval in ["true", "false"]`,
+	} {
+		t.Run(stmt, func(t *testing.T) {
+			if _, err := p.ParseStatement(stmt); err != nil {
+				t.Errorf("expected success, got: %v", err)
+			}
+		})
+	}
+
+	// bare true should become BoolLiteral and fail for enum field
+	_, err := p.ParseStatement(`update where id = "X" set approval=true`)
+	if err == nil {
+		t.Fatal("expected error assigning bare bool to enum field")
 	}
 }

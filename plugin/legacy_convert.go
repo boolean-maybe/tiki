@@ -12,28 +12,58 @@ import (
 )
 
 // fieldNameMap maps lowercase field names to their canonical form.
-// Built once from workflow.Fields() + the "tag"→"tags" alias.
+// Rebuilt from workflow.Fields() on demand; invalidated when custom fields change.
 var (
-	fieldNameMap  map[string]string
-	fieldNameOnce sync.Once
+	fieldNameMap map[string]string
+	fieldNameMu  sync.RWMutex
 )
 
+func init() {
+	workflow.OnCustomFieldsChanged(InvalidateFieldNameCache)
+}
+
 func buildFieldNameMap() {
-	fieldNameOnce.Do(func() {
-		fields := workflow.Fields()
-		fieldNameMap = make(map[string]string, len(fields)+1)
-		for _, f := range fields {
-			fieldNameMap[strings.ToLower(f.Name)] = f.Name
-		}
-		fieldNameMap["tag"] = "tags" // singular alias
-	})
+	fieldNameMu.RLock()
+	if fieldNameMap != nil {
+		fieldNameMu.RUnlock()
+		return
+	}
+	fieldNameMu.RUnlock()
+
+	fieldNameMu.Lock()
+	defer fieldNameMu.Unlock()
+	if fieldNameMap != nil {
+		return // double-check
+	}
+	rebuildFieldNameMapLocked()
+}
+
+func rebuildFieldNameMapLocked() {
+	fields := workflow.Fields()
+	m := make(map[string]string, len(fields)+1)
+	for _, f := range fields {
+		m[strings.ToLower(f.Name)] = f.Name
+	}
+	m["tag"] = "tags" // singular alias
+	fieldNameMap = m
+}
+
+// InvalidateFieldNameCache clears the cached field-name lookup so the next
+// legacy conversion picks up newly registered custom fields.
+func InvalidateFieldNameCache() {
+	fieldNameMu.Lock()
+	fieldNameMap = nil
+	fieldNameMu.Unlock()
 }
 
 // normalizeFieldName returns the canonical field name for a case-insensitive input.
 // Returns the input unchanged if not found in the catalog.
 func normalizeFieldName(name string) string {
 	buildFieldNameMap()
-	if canonical, ok := fieldNameMap[strings.ToLower(name)]; ok {
+	fieldNameMu.RLock()
+	canonical, ok := fieldNameMap[strings.ToLower(name)]
+	fieldNameMu.RUnlock()
+	if ok {
 		return canonical
 	}
 	return name
@@ -281,7 +311,7 @@ func expandInClause(fieldName, valuesStr string) string {
 	}
 	// scalar field: just lowercase the IN
 	canonical := normalizeFieldName(fieldName)
-	return canonical + " in [" + normalizeQuotedValues(valuesStr) + "]"
+	return canonical + " in [" + normalizeQuotedValues(valuesStr, canonical) + "]"
 }
 
 // expandNotInClause handles field NOT IN [...] expansion.
@@ -301,11 +331,11 @@ func expandNotInClause(fieldName, valuesStr string) string {
 		return "(" + strings.Join(parts, " and ") + ")"
 	}
 	canonical := normalizeFieldName(fieldName)
-	return canonical + " not in [" + normalizeQuotedValues(valuesStr) + "]"
+	return canonical + " not in [" + normalizeQuotedValues(valuesStr, canonical) + "]"
 }
 
 // parseBracketValues parses a comma-separated list of values from inside [...].
-// Ensures all values are double-quoted.
+// All values are double-quoted as string literals.
 func parseBracketValues(s string) []string {
 	parts := strings.Split(s, ",")
 	result := make([]string, 0, len(parts))
@@ -314,15 +344,16 @@ func parseBracketValues(s string) []string {
 		if p == "" {
 			continue
 		}
-		// strip existing quotes and re-quote with double quotes
 		p = strings.Trim(p, `"'`)
 		result = append(result, `"`+p+`"`)
 	}
 	return result
 }
 
-// normalizeQuotedValues ensures all values in a comma-separated list use double quotes.
-func normalizeQuotedValues(s string) string {
+// normalizeQuotedValues ensures all values in a comma-separated list use
+// type-aware quoting based on the target field.
+func normalizeQuotedValues(s string, fieldName string) string {
+	ft := lookupFieldType(fieldName)
 	parts := strings.Split(s, ",")
 	result := make([]string, 0, len(parts))
 	for _, p := range parts {
@@ -331,7 +362,7 @@ func normalizeQuotedValues(s string) string {
 			continue
 		}
 		p = strings.Trim(p, `"'`)
-		result = append(result, `"`+p+`"`)
+		result = append(result, quoteListElementForField(p, ft))
 	}
 	return strings.Join(result, ", ")
 }
@@ -455,13 +486,15 @@ func convertActionSegment(seg string) (string, error) {
 	if idx := strings.Index(seg, "+="); idx > 0 {
 		fieldName := normalizeFieldName(strings.TrimSpace(seg[:idx]))
 		value := strings.TrimSpace(seg[idx+2:])
-		converted := convertBracketValues(value)
+		ft := lookupFieldType(fieldName)
+		converted := convertBracketValuesTyped(value, ft)
 		return fieldName + "=" + fieldName + "+" + converted, nil
 	}
 	if idx := strings.Index(seg, "-="); idx > 0 {
 		fieldName := normalizeFieldName(strings.TrimSpace(seg[:idx]))
 		value := strings.TrimSpace(seg[idx+2:])
-		converted := convertBracketValues(value)
+		ft := lookupFieldType(fieldName)
+		converted := convertBracketValuesTyped(value, ft)
 		return fieldName + "=" + fieldName + "-" + converted, nil
 	}
 
@@ -481,8 +514,9 @@ func convertActionSegment(seg string) (string, error) {
 	value = reSingleQuoted.ReplaceAllString(value, `"$1"`)
 	// convert CURRENT_USER
 	value = reCurrentUser.ReplaceAllString(value, "user()")
-	// quote bare identifiers
-	value = quoteIfBareIdentifier(value)
+	// quote with type awareness
+	ft := lookupFieldType(fieldName)
+	value = quoteValueForField(value, ft)
 
 	return fieldName + "=" + value, nil
 }
@@ -505,12 +539,22 @@ func convertBracketValues(s string) string {
 		if p == "" {
 			continue
 		}
-		// strip existing quotes
 		p = strings.Trim(p, `"'`)
-		// re-quote — all values in action brackets must be strings
-		converted = append(converted, `"`+p+`"`)
+		converted = append(converted, quoteListElement(p))
 	}
 	return "[" + strings.Join(converted, ", ") + "]"
+}
+
+// quoteListElement quotes a list element value for ruki syntax.
+// Bool literals and numerics stay bare; everything else gets double-quoted.
+func quoteListElement(value string) string {
+	if strings.EqualFold(value, "true") || strings.EqualFold(value, "false") {
+		return strings.ToLower(value)
+	}
+	if reNumeric.MatchString(value) {
+		return value
+	}
+	return `"` + value + `"`
 }
 
 var (
@@ -524,6 +568,7 @@ var (
 
 // quoteIfBareIdentifier wraps a value in double quotes if it's a bare identifier
 // (not numeric, not a function call, not already quoted).
+// Bool literals (true/false) are left bare so the parser produces BoolLiteral nodes.
 func quoteIfBareIdentifier(value string) string {
 	if value == "" {
 		return value
@@ -537,10 +582,109 @@ func quoteIfBareIdentifier(value string) string {
 	if reFunctionCall.MatchString(value) {
 		return value // function call
 	}
+	if strings.EqualFold(value, "true") || strings.EqualFold(value, "false") {
+		return strings.ToLower(value) // bool literal — keep bare
+	}
 	if reBareIdentifier.MatchString(value) {
 		return `"` + value + `"`
 	}
 	return value
+}
+
+// lookupFieldType returns a pointer to the field's ValueType, or nil if unknown.
+func lookupFieldType(fieldName string) *workflow.ValueType {
+	fd, ok := workflow.Field(fieldName)
+	if !ok {
+		return nil
+	}
+	t := fd.Type
+	return &t
+}
+
+// quoteValueForField quotes a value according to the target field's type.
+// Only leaves bools bare for TypeBool, numbers bare for TypeInt.
+// Unknown field type defaults to quoting (safe fallback).
+func quoteValueForField(value string, ft *workflow.ValueType) string {
+	if value == "" {
+		return value
+	}
+	if strings.HasPrefix(value, `"`) {
+		return value
+	}
+	if reFunctionCall.MatchString(value) {
+		return value
+	}
+	if ft != nil {
+		switch *ft {
+		case workflow.TypeBool:
+			if strings.EqualFold(value, "true") || strings.EqualFold(value, "false") {
+				return strings.ToLower(value)
+			}
+		case workflow.TypeInt:
+			if reNumeric.MatchString(value) {
+				return value
+			}
+		}
+		// all other field types: quote bare identifiers, boolish and numeric strings
+		if reBareIdentifier.MatchString(value) || reNumeric.MatchString(value) ||
+			strings.EqualFold(value, "true") || strings.EqualFold(value, "false") {
+			return `"` + value + `"`
+		}
+		return value
+	}
+	// unknown field type: quote bare identifiers (safe fallback)
+	if reBareIdentifier.MatchString(value) {
+		return `"` + value + `"`
+	}
+	return value
+}
+
+// quoteListElementForField quotes a list element according to the target field's type.
+func quoteListElementForField(value string, ft *workflow.ValueType) string {
+	if ft != nil {
+		switch *ft {
+		case workflow.TypeBool:
+			if strings.EqualFold(value, "true") || strings.EqualFold(value, "false") {
+				return strings.ToLower(value)
+			}
+		case workflow.TypeInt:
+			if reNumeric.MatchString(value) {
+				return value
+			}
+		}
+		return `"` + value + `"`
+	}
+	// unknown field type: always quote (safe fallback)
+	return `"` + value + `"`
+}
+
+// convertBracketValuesTyped converts a bracket-enclosed list with type-aware quoting.
+func convertBracketValuesTyped(s string, ft *workflow.ValueType) string {
+	s = strings.TrimSpace(s)
+	if !strings.HasPrefix(s, "[") || !strings.HasSuffix(s, "]") {
+		s = reSingleQuoted.ReplaceAllString(s, `"$1"`)
+		return quoteValueForField(s, ft)
+	}
+
+	// for list fields, elements are always strings
+	elemType := ft
+	if ft != nil && (*ft == workflow.TypeListString || *ft == workflow.TypeListRef) {
+		st := workflow.TypeString
+		elemType = &st
+	}
+
+	inner := s[1 : len(s)-1]
+	parts := strings.Split(inner, ",")
+	converted := make([]string, 0, len(parts))
+	for _, p := range parts {
+		p = strings.TrimSpace(p)
+		if p == "" {
+			continue
+		}
+		p = strings.Trim(p, `"'`)
+		converted = append(converted, quoteListElementForField(p, elemType))
+	}
+	return "[" + strings.Join(converted, ", ") + "]"
 }
 
 // splitTopLevelCommas splits a string on commas, respecting [...] brackets and quotes.

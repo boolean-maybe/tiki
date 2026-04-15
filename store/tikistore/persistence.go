@@ -13,6 +13,7 @@ import (
 	"github.com/boolean-maybe/tiki/store"
 	"github.com/boolean-maybe/tiki/store/internal/git"
 	taskpkg "github.com/boolean-maybe/tiki/task"
+	"github.com/boolean-maybe/tiki/workflow"
 
 	"gopkg.in/yaml.v3"
 )
@@ -114,20 +115,28 @@ func (s *TikiStore) loadTaskFile(path string, authorMap map[string]*git.AuthorIn
 		}
 	}
 
+	// extract custom fields from frontmatter map
+	customFields, unknownFields, err := extractCustomFields(fmMap, path)
+	if err != nil {
+		return nil, err
+	}
+
 	task := &taskpkg.Task{
-		ID:          taskID,
-		Title:       fm.Title,
-		Description: strings.TrimSpace(body),
-		Type:        taskpkg.NormalizeType(fm.Type),
-		Status:      taskpkg.MapStatus(fm.Status),
-		Tags:        fm.Tags.ToStringSlice(),
-		DependsOn:   fm.DependsOn.ToStringSlice(),
-		Due:         fm.Due.ToTime(),
-		Recurrence:  fm.Recurrence.ToRecurrence(),
-		Assignee:    fm.Assignee,
-		Priority:    int(fm.Priority),
-		Points:      fm.Points,
-		LoadedMtime: info.ModTime(),
+		ID:            taskID,
+		Title:         fm.Title,
+		Description:   strings.TrimSpace(body),
+		Type:          taskpkg.NormalizeType(fm.Type),
+		Status:        taskpkg.MapStatus(fm.Status),
+		Tags:          fm.Tags.ToStringSlice(),
+		DependsOn:     fm.DependsOn.ToStringSlice(),
+		Due:           fm.Due.ToTime(),
+		Recurrence:    fm.Recurrence.ToRecurrence(),
+		Assignee:      fm.Assignee,
+		Priority:      int(fm.Priority),
+		Points:        fm.Points,
+		CustomFields:  customFields,
+		UnknownFields: unknownFields,
+		LoadedMtime:   info.ModTime(),
 	}
 
 	// Validate and default Priority field (1-5 range)
@@ -317,6 +326,18 @@ func (s *TikiStore) saveTask(task *taskpkg.Task) error {
 	var content strings.Builder
 	content.WriteString("---\n")
 	content.Write(yamlBytes)
+	// append custom fields
+	if len(task.CustomFields) > 0 {
+		if err := appendCustomFields(&content, task.CustomFields); err != nil {
+			return fmt.Errorf("marshaling custom fields: %w", err)
+		}
+	}
+	// append unknown fields so they survive round-trips
+	if len(task.UnknownFields) > 0 {
+		if err := appendUnknownFields(&content, task.UnknownFields); err != nil {
+			return fmt.Errorf("marshaling unknown fields: %w", err)
+		}
+	}
 	content.WriteString("---\n")
 	if task.Description != "" {
 		content.WriteString(task.Description)
@@ -361,4 +382,209 @@ func (s *TikiStore) taskFilePath(id string) string {
 	// convert ID to lowercase filename: TIKI-ABC123 -> tiki-abc123.md
 	filename := strings.ToLower(id) + ".md"
 	return filepath.Join(s.dir, filename)
+}
+
+// builtInFrontmatterKeys lists keys handled by the taskFrontmatter struct.
+var builtInFrontmatterKeys = map[string]bool{
+	"id": true, "title": true, "type": true, "status": true,
+	"tags": true, "dependsOn": true, "due": true, "recurrence": true,
+	"assignee": true, "priority": true, "points": true,
+}
+
+// extractCustomFields reads custom field values from a raw frontmatter map.
+// Built-in keys are skipped. Registered custom fields are coerced and returned
+// in the first map. Unrecognised non-builtin keys are preserved verbatim in
+// the second map so they survive a load→save round-trip.
+func extractCustomFields(fmMap map[string]interface{}, path string) (customFields, unknownFields map[string]interface{}, err error) {
+	if fmMap == nil {
+		return nil, nil, nil
+	}
+
+	registryChecked := false
+	for key, raw := range fmMap {
+		if builtInFrontmatterKeys[key] {
+			continue
+		}
+		// defer registry check until we actually encounter a non-builtin key
+		if !registryChecked {
+			if err := config.RequireWorkflowRegistriesLoaded(); err != nil {
+				return nil, nil, fmt.Errorf("extractCustomFields for %s: %w", path, err)
+			}
+			registryChecked = true
+		}
+		fd, ok := workflow.Field(key)
+		if !ok || !fd.Custom {
+			slog.Debug("preserving unknown field in frontmatter", "field", key, "file", path)
+			if unknownFields == nil {
+				unknownFields = make(map[string]interface{})
+			}
+			unknownFields[key] = raw
+			continue
+		}
+		val, err := coerceCustomValue(fd, raw)
+		if err != nil {
+			// stale value (e.g. removed enum option): demote to unknown so
+			// the task still loads and the value survives for repair
+			slog.Warn("demoting stale custom field value to unknown",
+				"field", key, "file", path, "error", err)
+			if unknownFields == nil {
+				unknownFields = make(map[string]interface{})
+			}
+			unknownFields[key] = raw
+			continue
+		}
+		if customFields == nil {
+			customFields = make(map[string]interface{})
+		}
+		customFields[key] = val
+	}
+	return customFields, unknownFields, nil
+}
+
+// coerceCustomValue converts a raw YAML value to the Go type expected by FieldDef.
+func coerceCustomValue(fd workflow.FieldDef, raw interface{}) (interface{}, error) {
+	switch fd.Type {
+	case workflow.TypeString:
+		s, ok := raw.(string)
+		if !ok {
+			return nil, fmt.Errorf("expected string, got %T", raw)
+		}
+		return s, nil
+
+	case workflow.TypeEnum:
+		s, ok := raw.(string)
+		if !ok {
+			return nil, fmt.Errorf("expected string for enum, got %T", raw)
+		}
+		for _, av := range fd.AllowedValues {
+			if strings.EqualFold(s, av) {
+				return av, nil // canonical casing
+			}
+		}
+		return nil, fmt.Errorf("value %q not in allowed values %v", s, fd.AllowedValues)
+
+	case workflow.TypeInt:
+		switch v := raw.(type) {
+		case int:
+			return v, nil
+		case float64:
+			if v != float64(int(v)) {
+				return nil, fmt.Errorf("value %g is not a whole number", v)
+			}
+			return int(v), nil
+		default:
+			return nil, fmt.Errorf("expected int, got %T", raw)
+		}
+
+	case workflow.TypeBool:
+		b, ok := raw.(bool)
+		if !ok {
+			return nil, fmt.Errorf("expected bool, got %T", raw)
+		}
+		return b, nil
+
+	case workflow.TypeTimestamp:
+		switch v := raw.(type) {
+		case time.Time:
+			return v, nil
+		case string:
+			if t, err := time.Parse(time.RFC3339, v); err == nil {
+				return t, nil
+			}
+			if t, err := time.Parse("2006-01-02", v); err == nil {
+				return t, nil
+			}
+			return nil, fmt.Errorf("cannot parse timestamp %q", v)
+		default:
+			return nil, fmt.Errorf("expected time or string for timestamp, got %T", raw)
+		}
+
+	case workflow.TypeListString:
+		return coerceStringList(raw)
+
+	case workflow.TypeListRef:
+		ss, err := coerceStringList(raw)
+		if err != nil {
+			return nil, err
+		}
+		for i, s := range ss {
+			ss[i] = strings.ToUpper(strings.TrimSpace(s))
+		}
+		// drop empties
+		filtered := ss[:0]
+		for _, s := range ss {
+			if s != "" {
+				filtered = append(filtered, s)
+			}
+		}
+		return filtered, nil
+
+	default:
+		return raw, nil
+	}
+}
+
+// coerceStringList converts a raw YAML value ([]interface{}) to []string.
+func coerceStringList(raw interface{}) ([]string, error) {
+	switch v := raw.(type) {
+	case []interface{}:
+		ss := make([]string, 0, len(v))
+		for _, item := range v {
+			s, ok := item.(string)
+			if !ok {
+				return nil, fmt.Errorf("list item: expected string, got %T", item)
+			}
+			ss = append(ss, s)
+		}
+		return ss, nil
+	case []string:
+		return v, nil
+	default:
+		return nil, fmt.Errorf("expected list, got %T", raw)
+	}
+}
+
+// appendCustomFields validates and marshals custom fields into the content builder.
+// Keys are written in sorted order after the struct YAML output.
+// Uses yaml.Marshal per field so that ambiguous string values (e.g. "true",
+// "2026-05-15") are properly quoted and round-trip without type corruption.
+func appendCustomFields(w *strings.Builder, fields map[string]interface{}) error {
+	keys := make([]string, 0, len(fields))
+	for k := range fields {
+		fd, ok := workflow.Field(k)
+		if !ok || !fd.Custom {
+			return fmt.Errorf("unknown custom field %q", k)
+		}
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+
+	for _, k := range keys {
+		out, err := yaml.Marshal(map[string]interface{}{k: fields[k]})
+		if err != nil {
+			return fmt.Errorf("marshaling field %q: %w", k, err)
+		}
+		w.Write(out)
+	}
+	return nil
+}
+
+// appendUnknownFields writes preserved unknown frontmatter keys back in sorted
+// order. These are keys that were present in the file but don't match any
+// currently registered custom field — preserved so they survive round-trips.
+func appendUnknownFields(w *strings.Builder, fields map[string]interface{}) error {
+	keys := make([]string, 0, len(fields))
+	for k := range fields {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+
+	for _, k := range keys {
+		out, err := yaml.Marshal(map[string]interface{}{k: fields[k]})
+		if err != nil {
+			return fmt.Errorf("marshaling unknown field %q: %w", k, err)
+		}
+		w.Write(out)
+	}
+	return nil
 }

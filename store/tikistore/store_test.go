@@ -8,7 +8,9 @@ import (
 	"testing"
 	"time"
 
+	"github.com/boolean-maybe/tiki/config"
 	taskpkg "github.com/boolean-maybe/tiki/task"
+	"github.com/boolean-maybe/tiki/workflow"
 )
 
 func TestSortTasks(t *testing.T) {
@@ -949,5 +951,481 @@ func TestSaveTask_Due(t *testing.T) {
 			// Clean up
 
 		})
+	}
+}
+
+func TestCustomFieldRoundTrip(t *testing.T) {
+	config.MarkRegistriesLoadedForTest()
+	// register custom fields
+	if err := workflow.RegisterCustomFields([]workflow.FieldDef{
+		{Name: "severity", Type: workflow.TypeEnum, AllowedValues: []string{"low", "medium", "high"}},
+		{Name: "score", Type: workflow.TypeInt},
+		{Name: "active", Type: workflow.TypeBool},
+		{Name: "notes", Type: workflow.TypeString},
+	}); err != nil {
+		t.Fatalf("register custom fields: %v", err)
+	}
+	t.Cleanup(func() { workflow.ClearCustomFields() })
+
+	tmpDir := t.TempDir()
+	store, err := NewTikiStore(tmpDir)
+	if err != nil {
+		t.Fatalf("NewTikiStore: %v", err)
+	}
+
+	original := &taskpkg.Task{
+		ID:       "TIKI-CUSTOM",
+		Title:    "Custom field test",
+		Status:   taskpkg.StatusReady,
+		Type:     "story",
+		Priority: 2,
+		CustomFields: map[string]interface{}{
+			"severity": "high",
+			"score":    42,
+			"active":   true,
+			"notes":    "some notes here",
+		},
+	}
+
+	// save
+	if err := store.saveTask(original); err != nil {
+		t.Fatalf("saveTask: %v", err)
+	}
+
+	// reload
+	path := store.taskFilePath(original.ID)
+	loaded, err := store.loadTaskFile(path, nil, nil)
+	if err != nil {
+		t.Fatalf("loadTaskFile: %v", err)
+	}
+
+	// verify custom fields survived
+	if loaded.CustomFields == nil {
+		t.Fatal("CustomFields is nil after reload")
+	}
+	if loaded.CustomFields["severity"] != "high" {
+		t.Errorf("severity = %v, want high", loaded.CustomFields["severity"])
+	}
+	if loaded.CustomFields["score"] != 42 {
+		t.Errorf("score = %v, want 42", loaded.CustomFields["score"])
+	}
+	if loaded.CustomFields["active"] != true {
+		t.Errorf("active = %v, want true", loaded.CustomFields["active"])
+	}
+	if loaded.CustomFields["notes"] != "some notes here" {
+		t.Errorf("notes = %v, want 'some notes here'", loaded.CustomFields["notes"])
+	}
+
+	// verify built-in fields are also correct
+	if loaded.Title != "Custom field test" {
+		t.Errorf("title = %q, want %q", loaded.Title, "Custom field test")
+	}
+	if loaded.Priority != 2 {
+		t.Errorf("priority = %d, want 2", loaded.Priority)
+	}
+}
+
+func TestCustomFieldRoundTrip_AmbiguousStrings(t *testing.T) {
+	config.MarkRegistriesLoadedForTest()
+	t.Cleanup(func() { workflow.ClearCustomFields() })
+
+	if err := workflow.RegisterCustomFields([]workflow.FieldDef{
+		{Name: "notes", Type: workflow.TypeString},
+		{Name: "labels", Type: workflow.TypeListString},
+		{Name: "yesno", Type: workflow.TypeEnum, AllowedValues: []string{"true", "false", "maybe"}},
+	}); err != nil {
+		t.Fatalf("register: %v", err)
+	}
+
+	tests := []struct {
+		name   string
+		fields map[string]interface{}
+		check  func(t *testing.T, cf map[string]interface{})
+	}{
+		{
+			name:   "string that looks like bool",
+			fields: map[string]interface{}{"notes": "true"},
+			check: func(t *testing.T, cf map[string]interface{}) {
+				if v, ok := cf["notes"].(string); !ok || v != "true" {
+					t.Errorf("notes = %v (%T), want string \"true\"", cf["notes"], cf["notes"])
+				}
+			},
+		},
+		{
+			name:   "string that looks like date",
+			fields: map[string]interface{}{"notes": "2026-05-15"},
+			check: func(t *testing.T, cf map[string]interface{}) {
+				if v, ok := cf["notes"].(string); !ok || v != "2026-05-15" {
+					t.Errorf("notes = %v (%T), want string \"2026-05-15\"", cf["notes"], cf["notes"])
+				}
+			},
+		},
+		{
+			name:   "string with colon",
+			fields: map[string]interface{}{"notes": "a: b"},
+			check: func(t *testing.T, cf map[string]interface{}) {
+				if v, ok := cf["notes"].(string); !ok || v != "a: b" {
+					t.Errorf("notes = %v (%T), want string \"a: b\"", cf["notes"], cf["notes"])
+				}
+			},
+		},
+		{
+			name:   "string that looks like int",
+			fields: map[string]interface{}{"notes": "42"},
+			check: func(t *testing.T, cf map[string]interface{}) {
+				if v, ok := cf["notes"].(string); !ok || v != "42" {
+					t.Errorf("notes = %v (%T), want string \"42\"", cf["notes"], cf["notes"])
+				}
+			},
+		},
+		{
+			name:   "list with ambiguous items",
+			fields: map[string]interface{}{"labels": []string{"true", "42", "2026-05-15"}},
+			check: func(t *testing.T, cf map[string]interface{}) {
+				want := []string{"true", "42", "2026-05-15"}
+				got, ok := cf["labels"].([]string)
+				if !ok {
+					t.Fatalf("labels type = %T, want []string", cf["labels"])
+				}
+				if !reflect.DeepEqual(got, want) {
+					t.Errorf("labels = %v, want %v", got, want)
+				}
+			},
+		},
+		{
+			name:   "enum value that looks like bool",
+			fields: map[string]interface{}{"yesno": "true"},
+			check: func(t *testing.T, cf map[string]interface{}) {
+				if v, ok := cf["yesno"].(string); !ok || v != "true" {
+					t.Errorf("yesno = %v (%T), want string \"true\"", cf["yesno"], cf["yesno"])
+				}
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			tmpDir := t.TempDir()
+			store, err := NewTikiStore(tmpDir)
+			if err != nil {
+				t.Fatalf("NewTikiStore: %v", err)
+			}
+
+			original := &taskpkg.Task{
+				ID:           "TIKI-AMBIG1",
+				Title:        "Ambiguous round-trip",
+				Status:       taskpkg.StatusReady,
+				Type:         "story",
+				Priority:     2,
+				CustomFields: tt.fields,
+			}
+
+			if err := store.saveTask(original); err != nil {
+				t.Fatalf("saveTask: %v", err)
+			}
+
+			path := store.taskFilePath(original.ID)
+			loaded, err := store.loadTaskFile(path, nil, nil)
+			if err != nil {
+				t.Fatalf("loadTaskFile: %v", err)
+			}
+			if loaded.CustomFields == nil {
+				t.Fatal("CustomFields is nil after reload")
+			}
+			tt.check(t, loaded.CustomFields)
+		})
+	}
+}
+
+func TestExtractCustomFields_PreservesStaleKeys(t *testing.T) {
+	config.MarkRegistriesLoadedForTest()
+	t.Cleanup(func() { workflow.ClearCustomFields() })
+
+	if err := workflow.RegisterCustomFields([]workflow.FieldDef{
+		{Name: "severity", Type: workflow.TypeEnum, AllowedValues: []string{"low", "medium", "high"}},
+	}); err != nil {
+		t.Fatalf("register: %v", err)
+	}
+
+	fmMap := map[string]interface{}{
+		"title":         "Test",
+		"status":        "ready",
+		"severity":      "high",
+		"removed_field": "old_value",
+	}
+
+	custom, unknown, err := extractCustomFields(fmMap, "test.md")
+	if err != nil {
+		t.Fatalf("extractCustomFields returned error: %v", err)
+	}
+	if custom["severity"] != "high" {
+		t.Errorf("severity = %v, want high", custom["severity"])
+	}
+	if _, exists := custom["removed_field"]; exists {
+		t.Error("stale key 'removed_field' should not appear in custom fields")
+	}
+	if unknown["removed_field"] != "old_value" {
+		t.Errorf("unknown[removed_field] = %v, want old_value", unknown["removed_field"])
+	}
+}
+
+func TestLoadTaskFile_StaleCustomField(t *testing.T) {
+	config.MarkRegistriesLoadedForTest()
+	t.Cleanup(func() { workflow.ClearCustomFields() })
+
+	// register only "severity" — the file will also contain "old_field"
+	if err := workflow.RegisterCustomFields([]workflow.FieldDef{
+		{Name: "severity", Type: workflow.TypeEnum, AllowedValues: []string{"low", "medium", "high"}},
+	}); err != nil {
+		t.Fatalf("register: %v", err)
+	}
+
+	tmpDir := t.TempDir()
+	store, err := NewTikiStore(tmpDir)
+	if err != nil {
+		t.Fatalf("NewTikiStore: %v", err)
+	}
+
+	// write a file with a stale custom field
+	content := `---
+title: Stale field test
+type: story
+status: ready
+priority: 2
+severity: high
+old_field: leftover_value
+---
+Description here`
+
+	filePath := filepath.Join(tmpDir, "tiki-stale1.md")
+	if err := os.WriteFile(filePath, []byte(content), 0644); err != nil {
+		t.Fatalf("write file: %v", err)
+	}
+
+	loaded, err := store.loadTaskFile(filePath, nil, nil)
+	if err != nil {
+		t.Fatalf("loadTaskFile should succeed with stale field, got: %v", err)
+	}
+	if loaded.ID != "TIKI-STALE1" {
+		t.Errorf("ID = %q, want TIKI-STALE1", loaded.ID)
+	}
+	if loaded.CustomFields == nil || loaded.CustomFields["severity"] != "high" {
+		t.Errorf("severity = %v, want high", loaded.CustomFields["severity"])
+	}
+	if _, exists := loaded.CustomFields["old_field"]; exists {
+		t.Error("stale key 'old_field' should not appear in CustomFields")
+	}
+	if loaded.UnknownFields == nil || loaded.UnknownFields["old_field"] != "leftover_value" {
+		t.Errorf("UnknownFields[old_field] = %v, want leftover_value", loaded.UnknownFields["old_field"])
+	}
+}
+
+func TestExtractCustomFields_StaleEnumValueDemotedToUnknown(t *testing.T) {
+	config.MarkRegistriesLoadedForTest()
+	t.Cleanup(func() { workflow.ClearCustomFields() })
+
+	// register severity with only "low" and "medium" — "high" was removed
+	if err := workflow.RegisterCustomFields([]workflow.FieldDef{
+		{Name: "severity", Type: workflow.TypeEnum, AllowedValues: []string{"low", "medium"}},
+	}); err != nil {
+		t.Fatalf("register: %v", err)
+	}
+
+	fmMap := map[string]interface{}{
+		"title":    "Test",
+		"status":   "ready",
+		"severity": "high", // stale value no longer in allowed values
+	}
+
+	custom, unknown, err := extractCustomFields(fmMap, "test.md")
+	if err != nil {
+		t.Fatalf("extractCustomFields should not error on stale enum value, got: %v", err)
+	}
+	if _, exists := custom["severity"]; exists {
+		t.Error("stale enum value should not appear in custom fields")
+	}
+	if unknown == nil || unknown["severity"] != "high" {
+		t.Errorf("unknown[severity] = %v, want 'high' (preserved for repair)", unknown["severity"])
+	}
+}
+
+func TestLoadTaskFile_StaleEnumValue_TaskStillLoads(t *testing.T) {
+	config.MarkRegistriesLoadedForTest()
+	t.Cleanup(func() { workflow.ClearCustomFields() })
+
+	// register severity without "critical"
+	if err := workflow.RegisterCustomFields([]workflow.FieldDef{
+		{Name: "severity", Type: workflow.TypeEnum, AllowedValues: []string{"low", "medium", "high"}},
+	}); err != nil {
+		t.Fatalf("register: %v", err)
+	}
+
+	tmpDir := t.TempDir()
+	store, err := NewTikiStore(tmpDir)
+	if err != nil {
+		t.Fatalf("NewTikiStore: %v", err)
+	}
+
+	content := `---
+title: Task with stale enum
+type: story
+status: ready
+priority: 2
+severity: critical
+---
+Description`
+
+	filePath := filepath.Join(tmpDir, "tiki-stale2.md")
+	if err := os.WriteFile(filePath, []byte(content), 0644); err != nil {
+		t.Fatalf("write file: %v", err)
+	}
+
+	loaded, err := store.loadTaskFile(filePath, nil, nil)
+	if err != nil {
+		t.Fatalf("loadTaskFile should succeed with stale enum value, got: %v", err)
+	}
+	if loaded.ID != "TIKI-STALE2" {
+		t.Errorf("ID = %q, want TIKI-STALE2", loaded.ID)
+	}
+	// stale value should be in UnknownFields, not CustomFields
+	if _, exists := loaded.CustomFields["severity"]; exists {
+		t.Error("stale enum value should not be in CustomFields")
+	}
+	if loaded.UnknownFields == nil || loaded.UnknownFields["severity"] != "critical" {
+		t.Errorf("UnknownFields[severity] = %v, want 'critical'", loaded.UnknownFields["severity"])
+	}
+}
+
+func TestCoerceCustomValue_IntRejectsFractional(t *testing.T) {
+	fd := workflow.FieldDef{Name: "score", Type: workflow.TypeInt}
+
+	_, err := coerceCustomValue(fd, 1.5)
+	if err == nil {
+		t.Fatal("expected error for fractional float, got nil")
+	}
+	if !strings.Contains(err.Error(), "not a whole number") {
+		t.Errorf("error = %q, want substring %q", err.Error(), "not a whole number")
+	}
+}
+
+func TestCoerceCustomValue_IntAcceptsWholeFloat(t *testing.T) {
+	fd := workflow.FieldDef{Name: "score", Type: workflow.TypeInt}
+
+	val, err := coerceCustomValue(fd, 3.0)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if val != 3 {
+		t.Errorf("val = %v, want 3", val)
+	}
+}
+
+func TestExtractCustomFields_ErrorWithoutRegistry(t *testing.T) {
+	config.ResetRegistriesLoadedForTest()
+	t.Cleanup(func() {
+		config.MarkRegistriesLoadedForTest()
+		workflow.ClearCustomFields()
+	})
+
+	fmMap := map[string]interface{}{
+		"title":    "Test",
+		"status":   "ready",
+		"severity": "high",
+	}
+
+	_, _, err := extractCustomFields(fmMap, "test.md")
+	if err == nil {
+		t.Fatal("expected error when registries not loaded, got nil")
+	}
+	if !strings.Contains(err.Error(), "workflow registries not loaded") {
+		t.Errorf("error = %q, want substring %q", err.Error(), "workflow registries not loaded")
+	}
+}
+
+func TestExtractCustomFields_OnlyBuiltinKeys_NoRegistryRequired(t *testing.T) {
+	config.ResetRegistriesLoadedForTest()
+	t.Cleanup(func() {
+		config.MarkRegistriesLoadedForTest()
+		workflow.ClearCustomFields()
+	})
+
+	// frontmatter with only built-in keys — should not require registry
+	fmMap := map[string]interface{}{
+		"title":    "Test",
+		"status":   "ready",
+		"priority": 2,
+	}
+
+	custom, unknown, err := extractCustomFields(fmMap, "test.md")
+	if err != nil {
+		t.Fatalf("extractCustomFields should succeed with only built-in keys: %v", err)
+	}
+	if len(custom) != 0 {
+		t.Errorf("expected no custom fields, got %v", custom)
+	}
+	if len(unknown) != 0 {
+		t.Errorf("expected no unknown fields, got %v", unknown)
+	}
+}
+
+func TestExtractCustomFields_NilMap_NoRegistryRequired(t *testing.T) {
+	config.ResetRegistriesLoadedForTest()
+	t.Cleanup(func() {
+		config.MarkRegistriesLoadedForTest()
+		workflow.ClearCustomFields()
+	})
+
+	custom, unknown, err := extractCustomFields(nil, "test.md")
+	if err != nil {
+		t.Fatalf("extractCustomFields(nil) should succeed: %v", err)
+	}
+	if custom != nil || unknown != nil {
+		t.Errorf("expected nils for nil input, got custom=%v unknown=%v", custom, unknown)
+	}
+}
+
+func TestSaveTask_PreservesUnknownFields(t *testing.T) {
+	config.MarkRegistriesLoadedForTest()
+	t.Cleanup(func() { workflow.ClearCustomFields() })
+
+	if err := workflow.RegisterCustomFields([]workflow.FieldDef{
+		{Name: "severity", Type: workflow.TypeEnum, AllowedValues: []string{"low", "medium", "high"}},
+	}); err != nil {
+		t.Fatalf("register: %v", err)
+	}
+
+	tmpDir := t.TempDir()
+	store, err := NewTikiStore(tmpDir)
+	if err != nil {
+		t.Fatalf("NewTikiStore: %v", err)
+	}
+
+	// write a file with a known custom field and an unknown field
+	content := "---\ntitle: Roundtrip test\ntype: story\nstatus: ready\npriority: 2\npoints: 3\nseverity: high\nold_field: leftover\n---\nBody text"
+	filePath := filepath.Join(tmpDir, "tiki-round1.md")
+	if err := os.WriteFile(filePath, []byte(content), 0644); err != nil {
+		t.Fatalf("write file: %v", err)
+	}
+
+	// load, then save without modification
+	loaded, err := store.loadTaskFile(filePath, nil, nil)
+	if err != nil {
+		t.Fatalf("loadTaskFile: %v", err)
+	}
+	if err := store.saveTask(loaded); err != nil {
+		t.Fatalf("saveTask: %v", err)
+	}
+
+	// re-read the file and verify the unknown field survived
+	data, err := os.ReadFile(filePath)
+	if err != nil {
+		t.Fatalf("ReadFile: %v", err)
+	}
+	fileContent := string(data)
+	if !strings.Contains(fileContent, "old_field: leftover") {
+		t.Errorf("unknown field lost after round-trip:\n%s", fileContent)
+	}
+	if !strings.Contains(fileContent, "severity: high") {
+		t.Errorf("custom field lost after round-trip:\n%s", fileContent)
 	}
 }

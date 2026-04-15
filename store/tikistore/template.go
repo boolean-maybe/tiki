@@ -13,6 +13,8 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
+const templateSource = "<template>"
+
 // templateFrontmatter represents the YAML frontmatter in template files
 type templateFrontmatter struct {
 	Title      string   `yaml:"title"`
@@ -29,7 +31,7 @@ type templateFrontmatter struct {
 
 // loadTemplateTask reads new.md from the highest-priority location
 // (cwd > .doc/ > user config), or falls back to the embedded template.
-func loadTemplateTask() *taskpkg.Task {
+func loadTemplateTask() (*taskpkg.Task, error) {
 	templatePath := config.FindTemplateFile()
 
 	if templatePath == "" {
@@ -48,25 +50,25 @@ func loadTemplateTask() *taskpkg.Task {
 }
 
 // loadEmbeddedTemplate loads the embedded config/new.md template
-func loadEmbeddedTemplate() *taskpkg.Task {
+func loadEmbeddedTemplate() (*taskpkg.Task, error) {
 	templateStr := config.GetDefaultNewTaskTemplate()
 	if templateStr == "" {
-		return nil
+		return nil, nil
 	}
 	return parseTaskTemplate([]byte(templateStr))
 }
 
 // parseTaskTemplate parses task template data from markdown with YAML frontmatter
-func parseTaskTemplate(data []byte) *taskpkg.Task {
+func parseTaskTemplate(data []byte) (*taskpkg.Task, error) {
 	content := strings.TrimSpace(string(data))
 	if !strings.HasPrefix(content, "---") {
-		return nil
+		return nil, nil
 	}
 
 	rest := content[3:]
 	idx := strings.Index(rest, "\n---")
 	if idx == -1 {
-		return nil
+		return nil, nil
 	}
 
 	frontmatter := strings.TrimSpace(rest[:idx])
@@ -74,7 +76,7 @@ func parseTaskTemplate(data []byte) *taskpkg.Task {
 
 	var fm templateFrontmatter
 	if err := yaml.Unmarshal([]byte(frontmatter), &fm); err != nil {
-		return nil
+		return nil, nil
 	}
 
 	// Parse due date if provided
@@ -94,19 +96,30 @@ func parseTaskTemplate(data []byte) *taskpkg.Task {
 		}
 	}
 
-	return &taskpkg.Task{
-		Title:       fm.Title,
-		Description: body,
-		Type:        taskpkg.NormalizeType(fm.Type),
-		Status:      taskpkg.NormalizeStatus(fm.Status),
-		Tags:        fm.Tags,
-		DependsOn:   fm.DependsOn,
-		Due:         dueTime,
-		Recurrence:  recurrence,
-		Assignee:    fm.Assignee,
-		Priority:    fm.Priority,
-		Points:      fm.Points,
+	// second pass: extract custom fields from frontmatter map
+	var fmMap map[string]interface{}
+	if err := yaml.Unmarshal([]byte(frontmatter), &fmMap); err != nil {
+		return nil, nil
 	}
+	customFields, _, err := extractCustomFields(fmMap, templateSource)
+	if err != nil {
+		return nil, fmt.Errorf("template custom fields: %w", err)
+	}
+
+	return &taskpkg.Task{
+		Title:        fm.Title,
+		Description:  body,
+		Type:         taskpkg.NormalizeType(fm.Type),
+		Status:       taskpkg.NormalizeStatus(fm.Status),
+		Tags:         fm.Tags,
+		DependsOn:    fm.DependsOn,
+		Due:          dueTime,
+		Recurrence:   recurrence,
+		Assignee:     fm.Assignee,
+		Priority:     fm.Priority,
+		Points:       fm.Points,
+		CustomFields: customFields,
+	}, nil
 }
 
 // setAuthorFromGit best-effort populates CreatedBy using current git user.
@@ -154,7 +167,10 @@ func (s *TikiStore) NewTaskTemplate() (*taskpkg.Task, error) {
 	taskID = normalizeTaskID(taskID)
 
 	// Load template (with defaults)
-	template := loadTemplateTask()
+	template, err := loadTemplateTask()
+	if err != nil {
+		return nil, fmt.Errorf("loading template: %w", err)
+	}
 
 	// Create base task with defaults
 	task := &taskpkg.Task{
@@ -181,6 +197,19 @@ func (s *TikiStore) NewTaskTemplate() (*taskpkg.Task, error) {
 		task.Recurrence = template.Recurrence
 		task.Assignee = template.Assignee
 		task.Status = template.Status
+	}
+
+	if template != nil && template.CustomFields != nil {
+		task.CustomFields = make(map[string]interface{}, len(template.CustomFields))
+		for k, v := range template.CustomFields {
+			if ss, ok := v.([]string); ok {
+				cp := make([]string, len(ss))
+				copy(cp, ss)
+				task.CustomFields[k] = cp
+			} else {
+				task.CustomFields[k] = v
+			}
+		}
 	}
 
 	// Ensure type has a value (fallback if template didn't provide)

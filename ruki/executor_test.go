@@ -2,6 +2,7 @@ package ruki
 
 import (
 	"fmt"
+	"reflect"
 	"strings"
 	"testing"
 	"time"
@@ -1464,6 +1465,7 @@ func TestExecuteSortByStatusTypeRecurrence(t *testing.T) {
 // --- extractField additional branches ---
 
 func TestExtractFieldAllFields(t *testing.T) {
+	e := newTestExecutor()
 	tk := &task.Task{
 		ID: "T1", Title: "hi", Description: "desc", Status: "ready",
 		Type: "bug", Priority: 1, Points: 3, Tags: []string{"a"},
@@ -1478,12 +1480,12 @@ func TestExtractFieldAllFields(t *testing.T) {
 		"createdBy", "createdAt", "updatedAt",
 	}
 	for _, f := range fields {
-		v := extractField(tk, f)
+		v := e.extractField(tk, f)
 		if v == nil {
 			t.Errorf("extractField(%q) returned nil", f)
 		}
 	}
-	if v := extractField(tk, "nonexistent"); v != nil {
+	if v := e.extractField(tk, "nonexistent"); v != nil {
 		t.Errorf("extractField(nonexistent) should be nil, got %v", v)
 	}
 }
@@ -3803,5 +3805,605 @@ func TestExecuteUnsupportedStatementType(t *testing.T) {
 	}
 	if !strings.Contains(err.Error(), "unsupported statement type") {
 		t.Errorf("expected 'unsupported statement type' error, got: %v", err)
+	}
+}
+
+// --- custom field executor tests ---
+
+func newCustomExecutor() *Executor {
+	return NewExecutor(customTestSchema{}, func() string { return "alice" }, ExecutorRuntime{Mode: ExecutorRuntimeCLI})
+}
+
+func newCustomParser2() *Parser {
+	return NewParser(customTestSchema{})
+}
+
+func TestExecutor_CustomFieldExtraction(t *testing.T) {
+	e := newCustomExecutor()
+
+	// task with no custom fields — extractField returns nil for unset fields
+	tk := &task.Task{ID: "T1", Title: "x", Status: "ready"}
+
+	if v := e.extractField(tk, "notes"); v != nil {
+		t.Errorf("notes unset: got %v, want nil", v)
+	}
+	if v := e.extractField(tk, "score"); v != nil {
+		t.Errorf("score unset: got %v, want nil", v)
+	}
+	if v := e.extractField(tk, "flag"); v != nil {
+		t.Errorf("flag unset: got %v, want nil", v)
+	}
+	if v := e.extractField(tk, "severity"); v != nil {
+		t.Errorf("severity unset: got %v, want nil", v)
+	}
+
+	// task with custom fields set — returns actual values
+	tk2 := &task.Task{
+		ID: "T2", Title: "y", Status: "ready",
+		CustomFields: map[string]interface{}{
+			"notes":    "hello",
+			"score":    42,
+			"flag":     true,
+			"severity": "high",
+		},
+	}
+	if v := e.extractField(tk2, "notes"); v != "hello" {
+		t.Errorf("notes: got %v, want hello", v)
+	}
+	if v := e.extractField(tk2, "score"); v != 42 {
+		t.Errorf("score: got %v, want 42", v)
+	}
+	if v := e.extractField(tk2, "flag"); v != true {
+		t.Errorf("flag: got %v, want true", v)
+	}
+	if v := e.extractField(tk2, "severity"); v != "high" {
+		t.Errorf("severity: got %v, want high", v)
+	}
+}
+
+func TestExecutor_CustomFieldSetAndGet(t *testing.T) {
+	e := newCustomExecutor()
+	tk := &task.Task{ID: "T1", Title: "x", Status: "ready"}
+
+	if err := e.setField(tk, "notes", "hello"); err != nil {
+		t.Fatalf("setField notes: %v", err)
+	}
+	if err := e.setField(tk, "score", 42); err != nil {
+		t.Fatalf("setField score: %v", err)
+	}
+	if err := e.setField(tk, "flag", true); err != nil {
+		t.Fatalf("setField flag: %v", err)
+	}
+	if err := e.setField(tk, "severity", "high"); err != nil {
+		t.Fatalf("setField severity: %v", err)
+	}
+
+	if v := e.extractField(tk, "notes"); v != "hello" {
+		t.Errorf("notes: got %v, want hello", v)
+	}
+	if v := e.extractField(tk, "score"); v != 42 {
+		t.Errorf("score: got %v, want 42", v)
+	}
+	if v := e.extractField(tk, "flag"); v != true {
+		t.Errorf("flag: got %v, want true", v)
+	}
+	if v := e.extractField(tk, "severity"); v != "high" {
+		t.Errorf("severity: got %v, want high", v)
+	}
+}
+
+func TestExecutor_UnsetCustomListFieldReturnsEmptyList(t *testing.T) {
+	e := newCustomExecutor()
+
+	// task with no custom fields at all
+	tk := &task.Task{ID: "T1", Title: "x", Status: "ready"}
+
+	// unset custom list fields should return []interface{}{}, not nil
+	labelsVal := e.extractField(tk, "labels")
+	if labelsVal == nil {
+		t.Fatal("unset labels should return empty list, got nil")
+	}
+	labels, ok := labelsVal.([]interface{})
+	if !ok {
+		t.Fatalf("labels type = %T, want []interface{}", labelsVal)
+	}
+	if len(labels) != 0 {
+		t.Errorf("labels len = %d, want 0", len(labels))
+	}
+
+	relVal := e.extractField(tk, "related")
+	if relVal == nil {
+		t.Fatal("unset related should return empty list, got nil")
+	}
+	related, ok := relVal.([]interface{})
+	if !ok {
+		t.Fatalf("related type = %T, want []interface{}", relVal)
+	}
+	if len(related) != 0 {
+		t.Errorf("related len = %d, want 0", len(related))
+	}
+}
+
+func TestExecutor_UnsetCustomListField_InExprWorks(t *testing.T) {
+	e := newCustomExecutor()
+	p := newCustomParser2()
+
+	// task with no "labels" set — in-expr should work without error
+	tasks := []*task.Task{
+		{ID: "T1", Title: "A", Status: "ready"},
+	}
+
+	stmt, err := p.ParseStatement(`select where "bug" in labels`)
+	if err != nil {
+		t.Fatalf("parse: %v", err)
+	}
+	result, err := e.Execute(stmt, tasks)
+	if err != nil {
+		t.Fatalf("execute should not error on unset custom list: %v", err)
+	}
+	if len(result.Select.Tasks) != 0 {
+		t.Errorf("expected 0 matching tasks, got %d", len(result.Select.Tasks))
+	}
+}
+
+func TestExecutor_UnsetCustomListField_AddWorks(t *testing.T) {
+	e := newCustomExecutor()
+	p := newCustomParser2()
+
+	// task with no "labels" set — update adding to list should work
+	tasks := []*task.Task{
+		{ID: "T1", Title: "A", Status: "ready"},
+	}
+
+	stmt, err := p.ParseStatement(`update where id = "T1" set labels = labels + ["new"]`)
+	if err != nil {
+		t.Fatalf("parse: %v", err)
+	}
+	result, err := e.Execute(stmt, tasks)
+	if err != nil {
+		t.Fatalf("execute should not error on unset custom list add: %v", err)
+	}
+	if len(result.Update.Updated) != 1 {
+		t.Fatalf("expected 1 updated task, got %d", len(result.Update.Updated))
+	}
+}
+
+func TestExecutor_CustomFieldNilDelete(t *testing.T) {
+	e := newCustomExecutor()
+	tk := &task.Task{
+		ID: "T1", Title: "x", Status: "ready",
+		CustomFields: map[string]interface{}{
+			"notes": "hello",
+			"score": 42,
+		},
+	}
+
+	if err := e.setField(tk, "notes", nil); err != nil {
+		t.Fatalf("setField nil: %v", err)
+	}
+	if _, exists := tk.CustomFields["notes"]; exists {
+		t.Error("notes should be deleted from CustomFields after nil set")
+	}
+	// extractField should return nil for deleted (unset) field
+	if v := e.extractField(tk, "notes"); v != nil {
+		t.Errorf("notes after delete: got %v, want nil", v)
+	}
+}
+
+func TestExecutor_SelectWhereCustomEnum(t *testing.T) {
+	e := newCustomExecutor()
+	p := newCustomParser2()
+
+	tasks := []*task.Task{
+		{ID: "T1", Title: "A", Status: "ready", CustomFields: map[string]interface{}{"severity": "low"}},
+		{ID: "T2", Title: "B", Status: "ready", CustomFields: map[string]interface{}{"severity": "high"}},
+		{ID: "T3", Title: "C", Status: "ready", CustomFields: map[string]interface{}{"severity": "low"}},
+		{ID: "T4", Title: "D", Status: "ready"}, // no severity set
+	}
+
+	stmt, err := p.ParseStatement(`select where severity = "low"`)
+	if err != nil {
+		t.Fatalf("parse: %v", err)
+	}
+	result, err := e.Execute(stmt, tasks)
+	if err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	if len(result.Select.Tasks) != 2 {
+		ids := make([]string, len(result.Select.Tasks))
+		for i, tk := range result.Select.Tasks {
+			ids[i] = tk.ID
+		}
+		t.Fatalf("expected 2 tasks, got %d: %v", len(result.Select.Tasks), ids)
+	}
+	if result.Select.Tasks[0].ID != "T1" || result.Select.Tasks[1].ID != "T3" {
+		t.Errorf("expected T1, T3; got %s, %s", result.Select.Tasks[0].ID, result.Select.Tasks[1].ID)
+	}
+}
+
+func TestExecutor_UpdateSetCustomField(t *testing.T) {
+	e := newCustomExecutor()
+	p := newCustomParser2()
+
+	tasks := []*task.Task{
+		{ID: "T1", Title: "A", Status: "ready", CustomFields: map[string]interface{}{"severity": "low"}},
+	}
+
+	stmt, err := p.ParseStatement(`update where id = "T1" set severity="high"`)
+	if err != nil {
+		t.Fatalf("parse: %v", err)
+	}
+	result, err := e.Execute(stmt, tasks)
+	if err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	if result.Update == nil || len(result.Update.Updated) != 1 {
+		t.Fatal("expected 1 updated task")
+	}
+	updated := result.Update.Updated[0]
+	if updated.CustomFields["severity"] != "high" {
+		t.Errorf("severity = %v, want high", updated.CustomFields["severity"])
+	}
+}
+
+func TestExecutor_OrderByCustomEnum(t *testing.T) {
+	e := newCustomExecutor()
+	p := newCustomParser2()
+
+	tasks := []*task.Task{
+		{ID: "T1", Title: "A", Status: "ready", CustomFields: map[string]interface{}{"severity": "high"}},
+		{ID: "T2", Title: "B", Status: "ready", CustomFields: map[string]interface{}{"severity": "critical"}},
+		{ID: "T3", Title: "C", Status: "ready", CustomFields: map[string]interface{}{"severity": "low"}},
+	}
+
+	stmt, err := p.ParseStatement(`select order by severity`)
+	if err != nil {
+		t.Fatalf("parse: %v", err)
+	}
+	result, err := e.Execute(stmt, tasks)
+	if err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	// enum values are compared as strings: "critical" < "high" < "low"
+	wantIDs := []string{"T2", "T1", "T3"}
+	if len(result.Select.Tasks) != 3 {
+		t.Fatalf("expected 3 tasks, got %d", len(result.Select.Tasks))
+	}
+	for i, wantID := range wantIDs {
+		if result.Select.Tasks[i].ID != wantID {
+			t.Errorf("task[%d].ID = %q, want %q", i, result.Select.Tasks[i].ID, wantID)
+		}
+	}
+}
+
+func TestExecutor_OrderByCustomBool(t *testing.T) {
+	e := newCustomExecutor()
+	p := newCustomParser2()
+
+	tasks := []*task.Task{
+		{ID: "T1", Title: "A", Status: "ready", CustomFields: map[string]interface{}{"flag": true}},
+		{ID: "T2", Title: "B", Status: "ready", CustomFields: map[string]interface{}{"flag": false}},
+		{ID: "T3", Title: "C", Status: "ready", CustomFields: map[string]interface{}{"flag": true}},
+	}
+
+	stmt, err := p.ParseStatement(`select order by flag`)
+	if err != nil {
+		t.Fatalf("parse: %v", err)
+	}
+	result, err := e.Execute(stmt, tasks)
+	if err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	// false < true: T2 first, then T1 and T3 (stable order)
+	if len(result.Select.Tasks) != 3 {
+		t.Fatalf("expected 3 tasks, got %d", len(result.Select.Tasks))
+	}
+	if result.Select.Tasks[0].ID != "T2" {
+		t.Errorf("task[0].ID = %q, want T2 (false before true)", result.Select.Tasks[0].ID)
+	}
+	if result.Select.Tasks[1].ID != "T1" {
+		t.Errorf("task[1].ID = %q, want T1", result.Select.Tasks[1].ID)
+	}
+	if result.Select.Tasks[2].ID != "T3" {
+		t.Errorf("task[2].ID = %q, want T3", result.Select.Tasks[2].ID)
+	}
+}
+
+func TestExecutor_BoolLiteralEval(t *testing.T) {
+	e := newCustomExecutor()
+
+	tasks := []*task.Task{
+		{ID: "T1", Title: "A", Status: "ready", CustomFields: map[string]interface{}{"flag": true}},
+		{ID: "T2", Title: "B", Status: "ready", CustomFields: map[string]interface{}{"flag": false}},
+	}
+
+	// manually construct statement with BoolLiteral (as lowering produces)
+	stmt := &Statement{
+		Select: &SelectStmt{
+			Where: &CompareExpr{
+				Left:  &FieldRef{Name: "flag"},
+				Op:    "=",
+				Right: &BoolLiteral{Value: true},
+			},
+		},
+	}
+	result, err := e.Execute(stmt, tasks)
+	if err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	if len(result.Select.Tasks) != 1 || result.Select.Tasks[0].ID != "T1" {
+		t.Fatalf("expected T1, got %v", result.Select.Tasks)
+	}
+
+	// test false literal
+	stmt2 := &Statement{
+		Select: &SelectStmt{
+			Where: &CompareExpr{
+				Left:  &FieldRef{Name: "flag"},
+				Op:    "=",
+				Right: &BoolLiteral{Value: false},
+			},
+		},
+	}
+	result2, err := e.Execute(stmt2, tasks)
+	if err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	if len(result2.Select.Tasks) != 1 || result2.Select.Tasks[0].ID != "T2" {
+		t.Fatalf("expected T2, got %v", result2.Select.Tasks)
+	}
+}
+
+func TestExecutor_BoolStringCoercion(t *testing.T) {
+	e := newCustomExecutor()
+
+	tasks := []*task.Task{
+		{ID: "T1", Title: "A", Status: "ready", CustomFields: map[string]interface{}{"flag": true}},
+		{ID: "T2", Title: "B", Status: "ready", CustomFields: map[string]interface{}{"flag": false}},
+	}
+
+	// compare bool field against string "true" — should coerce and match
+	stmt := &Statement{
+		Select: &SelectStmt{
+			Where: &CompareExpr{
+				Left:  &FieldRef{Name: "flag"},
+				Op:    "=",
+				Right: &StringLiteral{Value: "true"},
+			},
+		},
+	}
+	result, err := e.Execute(stmt, tasks)
+	if err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	if len(result.Select.Tasks) != 1 || result.Select.Tasks[0].ID != "T1" {
+		t.Errorf("bool=string 'true': got %v, want [T1]", result.Select.Tasks)
+	}
+
+	// compare bool field against string "FALSE" — case-insensitive coercion
+	stmt2 := &Statement{
+		Select: &SelectStmt{
+			Where: &CompareExpr{
+				Left:  &FieldRef{Name: "flag"},
+				Op:    "=",
+				Right: &StringLiteral{Value: "FALSE"},
+			},
+		},
+	}
+	result2, err := e.Execute(stmt2, tasks)
+	if err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	if len(result2.Select.Tasks) != 1 || result2.Select.Tasks[0].ID != "T2" {
+		t.Errorf("bool=string 'FALSE': got %v, want [T2]", result2.Select.Tasks)
+	}
+}
+
+func TestExecutor_BoolInCaseInsensitive(t *testing.T) {
+	e := newCustomExecutor()
+	p := newCustomParser2()
+
+	tasks := []*task.Task{
+		{ID: "T1", Title: "A", Status: "ready", CustomFields: map[string]interface{}{"flag": true}},
+		{ID: "T2", Title: "B", Status: "ready", CustomFields: map[string]interface{}{"flag": false}},
+	}
+
+	// bool field in list of string bool-literals with mixed case
+	stmt, err := p.ParseStatement(`select where flag in ["True", "FALSE"]`)
+	if err != nil {
+		t.Fatalf("parse: %v", err)
+	}
+	result, err := e.Execute(stmt, tasks)
+	if err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	if len(result.Select.Tasks) != 2 {
+		t.Errorf("bool in [True, FALSE]: got %d tasks, want 2", len(result.Select.Tasks))
+	}
+}
+
+func TestExecutor_NilDoesNotMatchZero(t *testing.T) {
+	e := newCustomExecutor()
+	p := newCustomParser2()
+
+	tasks := []*task.Task{
+		{ID: "T1", Title: "A", Status: "ready"}, // flag unset, score unset
+		{ID: "T2", Title: "B", Status: "ready", CustomFields: map[string]interface{}{"flag": false, "score": 0}},
+		{ID: "T3", Title: "C", Status: "ready", CustomFields: map[string]interface{}{"flag": true, "score": 42}},
+	}
+
+	// "flag = false" should only match T2 (explicitly false), not T1 (unset)
+	stmt, err := p.ParseStatement(`select where flag = false`)
+	if err != nil {
+		t.Fatalf("parse: %v", err)
+	}
+	result, err := e.Execute(stmt, tasks)
+	if err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	if len(result.Select.Tasks) != 1 || result.Select.Tasks[0].ID != "T2" {
+		ids := make([]string, len(result.Select.Tasks))
+		for i, tk := range result.Select.Tasks {
+			ids[i] = tk.ID
+		}
+		t.Errorf("flag=false: got %v, want [T2]", ids)
+	}
+
+	// "score = 0" should only match T2, not T1
+	stmt2, err := p.ParseStatement(`select where score = 0`)
+	if err != nil {
+		t.Fatalf("parse: %v", err)
+	}
+	result2, err := e.Execute(stmt2, tasks)
+	if err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	if len(result2.Select.Tasks) != 1 || result2.Select.Tasks[0].ID != "T2" {
+		ids := make([]string, len(result2.Select.Tasks))
+		for i, tk := range result2.Select.Tasks {
+			ids[i] = tk.ID
+		}
+		t.Errorf("score=0: got %v, want [T2]", ids)
+	}
+}
+
+func TestExecutor_NilMatchesIsEmpty(t *testing.T) {
+	e := newCustomExecutor()
+	p := newCustomParser2()
+
+	tasks := []*task.Task{
+		{ID: "T1", Title: "A", Status: "ready"}, // flag unset
+		{ID: "T2", Title: "B", Status: "ready", CustomFields: map[string]interface{}{"flag": true}},
+	}
+
+	// "flag is empty" should match T1 (unset → nil → isZeroValue true)
+	stmt, err := p.ParseStatement(`select where flag is empty`)
+	if err != nil {
+		t.Fatalf("parse: %v", err)
+	}
+	result, err := e.Execute(stmt, tasks)
+	if err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	if len(result.Select.Tasks) != 1 || result.Select.Tasks[0].ID != "T1" {
+		ids := make([]string, len(result.Select.Tasks))
+		for i, tk := range result.Select.Tasks {
+			ids[i] = tk.ID
+		}
+		t.Errorf("flag is empty: got %v, want [T1]", ids)
+	}
+}
+
+func TestExecutor_NilSortsFirst(t *testing.T) {
+	e := newCustomExecutor()
+	p := newCustomParser2()
+
+	tasks := []*task.Task{
+		{ID: "T1", Title: "A", Status: "ready", CustomFields: map[string]interface{}{"score": 10}},
+		{ID: "T2", Title: "B", Status: "ready"}, // score unset → nil
+		{ID: "T3", Title: "C", Status: "ready", CustomFields: map[string]interface{}{"score": 0}},
+	}
+
+	// "order by score" — nil sorts before 0 before 10
+	stmt, err := p.ParseStatement(`select order by score`)
+	if err != nil {
+		t.Fatalf("parse: %v", err)
+	}
+	result, err := e.Execute(stmt, tasks)
+	if err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	gotIDs := make([]string, len(result.Select.Tasks))
+	for i, tk := range result.Select.Tasks {
+		gotIDs[i] = tk.ID
+	}
+	wantIDs := []string{"T2", "T3", "T1"} // nil, 0, 10
+	if !reflect.DeepEqual(gotIDs, wantIDs) {
+		t.Errorf("order by score: got %v, want %v", gotIDs, wantIDs)
+	}
+}
+
+func TestExecutor_NilNotInList(t *testing.T) {
+	e := newCustomExecutor()
+	p := newCustomParser2()
+
+	tasks := []*task.Task{
+		{ID: "T1", Title: "A", Status: "ready"}, // severity unset
+		{ID: "T2", Title: "B", Status: "ready", CustomFields: map[string]interface{}{"severity": "low"}},
+	}
+
+	// unset field should not be "in" any list
+	stmt, err := p.ParseStatement(`select where severity in ["low"]`)
+	if err != nil {
+		t.Fatalf("parse: %v", err)
+	}
+	result, err := e.Execute(stmt, tasks)
+	if err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	if len(result.Select.Tasks) != 1 || result.Select.Tasks[0].ID != "T2" {
+		ids := make([]string, len(result.Select.Tasks))
+		for i, tk := range result.Select.Tasks {
+			ids[i] = tk.ID
+		}
+		t.Errorf("severity in [low]: got %v, want [T2]", ids)
+	}
+}
+
+func TestExecutor_EnumInCaseInsensitive(t *testing.T) {
+	e := newCustomExecutor()
+	p := newCustomParser2()
+
+	tasks := []*task.Task{
+		{ID: "T1", Title: "A", Status: "done", Type: "story", CustomFields: map[string]interface{}{"severity": "low"}},
+		{ID: "T2", Title: "B", Status: "ready", Type: "bug", CustomFields: map[string]interface{}{"severity": "high"}},
+		{ID: "T3", Title: "C", Status: "ready", Type: "story", CustomFields: map[string]interface{}{"severity": "critical"}},
+	}
+
+	tests := []struct {
+		name    string
+		query   string
+		wantIDs []string
+	}{
+		{
+			name:    "custom enum in with different case",
+			query:   `select where severity in ["LOW"]`,
+			wantIDs: []string{"T1"},
+		},
+		{
+			name:    "custom enum not-in with different case",
+			query:   `select where severity not in ["LOW", "HIGH"]`,
+			wantIDs: []string{"T3"},
+		},
+		{
+			name:    "custom enum in with mixed case list",
+			query:   `select where severity in ["High", "Critical"]`,
+			wantIDs: []string{"T2", "T3"},
+		},
+		{
+			name:    "built-in status in canonical case",
+			query:   `select where status in ["done"]`,
+			wantIDs: []string{"T1"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			stmt, err := p.ParseStatement(tt.query)
+			if err != nil {
+				t.Fatalf("parse: %v", err)
+			}
+			result, err := e.Execute(stmt, tasks)
+			if err != nil {
+				t.Fatalf("execute: %v", err)
+			}
+			gotIDs := make([]string, len(result.Select.Tasks))
+			for i, tk := range result.Select.Tasks {
+				gotIDs[i] = tk.ID
+			}
+			if !reflect.DeepEqual(gotIDs, tt.wantIDs) {
+				t.Errorf("got IDs %v, want %v", gotIDs, tt.wantIDs)
+			}
+		})
 	}
 }

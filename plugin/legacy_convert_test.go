@@ -4,8 +4,10 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/boolean-maybe/tiki/config"
 	"github.com/boolean-maybe/tiki/ruki"
 	"github.com/boolean-maybe/tiki/task"
+	"github.com/boolean-maybe/tiki/workflow"
 	"gopkg.in/yaml.v3"
 )
 
@@ -1015,5 +1017,153 @@ func TestConvertViewsFormat_NoViewsKey(t *testing.T) {
 
 	if _, ok := raw["views"]; ok {
 		t.Fatal("should not create views key when it doesn't exist")
+	}
+}
+
+func TestLegacyConvert_BoolLiteralBare(t *testing.T) {
+	config.MarkRegistriesLoadedForTest()
+	if err := workflow.RegisterCustomFields([]workflow.FieldDef{
+		{Name: "flag", Type: workflow.TypeBool, Custom: true},
+	}); err != nil {
+		t.Fatalf("register: %v", err)
+	}
+	t.Cleanup(func() { workflow.ClearCustomFields() })
+
+	tr := NewLegacyConfigTransformer()
+
+	// true/false values are emitted bare for TypeBool fields
+	got, err := tr.ConvertAction("flag=true")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	want := `update where id = id() set flag=true`
+	if got != want {
+		t.Errorf("ConvertAction(flag=true)\n  got:  %q\n  want: %q", got, want)
+	}
+
+	got, err = tr.ConvertAction("flag=false")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	want = `update where id = id() set flag=false`
+	if got != want {
+		t.Errorf("ConvertAction(flag=false)\n  got:  %q\n  want: %q", got, want)
+	}
+}
+
+func TestLegacyConvert_BoolInList(t *testing.T) {
+	config.MarkRegistriesLoadedForTest()
+	if err := workflow.RegisterCustomFields([]workflow.FieldDef{
+		{Name: "flag", Type: workflow.TypeBool, Custom: true},
+	}); err != nil {
+		t.Fatalf("register: %v", err)
+	}
+	t.Cleanup(func() { workflow.ClearCustomFields() })
+
+	tr := NewLegacyConfigTransformer()
+
+	// bool values in lists are emitted bare for TypeBool fields
+	got := tr.ConvertFilter("flag IN [true, false]")
+	want := `select where flag in [true, false]`
+	if got != want {
+		t.Errorf("ConvertFilter(flag IN [true, false])\n  got:  %q\n  want: %q", got, want)
+	}
+}
+
+func TestLegacyConvert_TypeAwareQuoting(t *testing.T) {
+	config.MarkRegistriesLoadedForTest()
+	if err := workflow.RegisterCustomFields([]workflow.FieldDef{
+		{Name: "severity", Type: workflow.TypeEnum, Custom: true, AllowedValues: []string{"low", "high", "true"}},
+		{Name: "notes", Type: workflow.TypeString, Custom: true},
+		{Name: "active", Type: workflow.TypeBool, Custom: true},
+		{Name: "score", Type: workflow.TypeInt, Custom: true},
+	}); err != nil {
+		t.Fatalf("register: %v", err)
+	}
+	t.Cleanup(func() { workflow.ClearCustomFields() })
+
+	tr := NewLegacyConfigTransformer()
+
+	tests := []struct {
+		name  string
+		input string
+		want  string
+	}{
+		{
+			name:  "enum field with bool-like value is quoted",
+			input: "severity=true",
+			want:  `update where id = id() set severity="true"`,
+		},
+		{
+			name:  "string field with numeric value is quoted",
+			input: "notes=42",
+			want:  `update where id = id() set notes="42"`,
+		},
+		{
+			name:  "bool field with true stays bare",
+			input: "active=true",
+			want:  `update where id = id() set active=true`,
+		},
+		{
+			name:  "int field with number stays bare",
+			input: "score=42",
+			want:  `update where id = id() set score=42`,
+		},
+		{
+			name:  "string field with bool-like value is quoted",
+			input: "notes=false",
+			want:  `update where id = id() set notes="false"`,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := tr.ConvertAction(tt.input)
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+			if got != tt.want {
+				t.Errorf("ConvertAction(%q)\n  got:  %q\n  want: %q", tt.input, got, tt.want)
+			}
+		})
+	}
+}
+
+func TestLegacyConvert_TypeAwareListQuoting(t *testing.T) {
+	config.MarkRegistriesLoadedForTest()
+	if err := workflow.RegisterCustomFields([]workflow.FieldDef{
+		{Name: "labels", Type: workflow.TypeListString, Custom: true},
+	}); err != nil {
+		t.Fatalf("register: %v", err)
+	}
+	t.Cleanup(func() { workflow.ClearCustomFields() })
+
+	tr := NewLegacyConfigTransformer()
+
+	// list<string> field: all elements must be quoted, even bool-like and numeric
+	got, err := tr.ConvertAction("labels+=[true, 42, hello]")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	want := `update where id = id() set labels=labels+["true", "42", "hello"]`
+	if got != want {
+		t.Errorf("ConvertAction(labels+=[true, 42, hello])\n  got:  %q\n  want: %q", got, want)
+	}
+}
+
+func TestLegacyConvert_UnknownFieldDefaultsToQuoting(t *testing.T) {
+	config.MarkRegistriesLoadedForTest()
+	t.Cleanup(func() { workflow.ClearCustomFields() })
+
+	tr := NewLegacyConfigTransformer()
+
+	// unknown field: "true" should be quoted as safe fallback
+	got, err := tr.ConvertAction("unknown_field=true")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	want := `update where id = id() set unknown_field="true"`
+	if got != want {
+		t.Errorf("ConvertAction(unknown_field=true)\n  got:  %q\n  want: %q", got, want)
 	}
 }

@@ -203,6 +203,7 @@ type workflowFileData struct {
 	Statuses []map[string]interface{} `yaml:"statuses,omitempty"`
 	Views    viewsFileData            `yaml:"views,omitempty"`
 	Triggers []map[string]interface{} `yaml:"triggers,omitempty"`
+	Fields   []map[string]interface{} `yaml:"fields,omitempty"`
 }
 
 // readWorkflowFile reads and unmarshals workflow.yaml from the given path.

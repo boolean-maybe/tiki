@@ -11,6 +11,9 @@
 - [Recent ideas](#recent-ideas--good-or-trash)
 - [Auto-delete stale tasks](#auto-delete-stale-tasks--time-trigger)
 - [Priority triage](#priority-triage--five-lane-plugin)
+- [Sprint board](#sprint-board--custom-enum-lanes)
+- [Severity triage](#severity-triage--custom-enum-filter--action)
+- [Subtasks in epic](#subtasks-in-epic--custom-taskidlist--quantifier-trigger)
 - [By topic](#by-topic--tag-based-lanes)
 
 ## Assign to me — global plugin action
@@ -197,6 +200,109 @@ One lane per priority level. Moving a task between lanes reassigns its priority.
     - name: Minimal
       filter: select where priority = 5 order by updatedAt desc
       action: update where id = id() set priority=5
+```
+
+## Sprint board — custom enum lanes
+
+Uses a custom `sprint` enum field. Lanes per sprint; moving a task between lanes reassigns it. The third lane catches unplanned backlog tasks.
+
+Requires:
+
+```yaml
+fields:
+  - name: sprint
+    type: enum
+    values: [sprint-7, sprint-8, sprint-9]
+```
+
+```yaml
+- name: Sprint Board
+  key: "F9"
+  lanes:
+    - name: Current Sprint
+      filter: select where sprint = "sprint-7" and status != "done" order by priority
+      action: update where id = id() set sprint="sprint-7"
+    - name: Next Sprint
+      filter: select where sprint = "sprint-8" order by priority
+      action: update where id = id() set sprint="sprint-8"
+    - name: Unplanned
+      filter: select where sprint is empty and status = "backlog" order by priority
+      action: update where id = id() set sprint=empty
+```
+
+## Severity triage — custom enum filter + action
+
+Lanes per severity level. The last lane combines two values with `or`. A per-plugin action lets you mark a task as trivial without moving it.
+
+Requires:
+
+```yaml
+fields:
+  - name: severity
+    type: enum
+    values: [critical, major, minor, trivial]
+```
+
+```yaml
+- name: Severity
+  key: "F10"
+  lanes:
+    - name: Critical
+      filter: select where severity = "critical" order by updatedAt desc
+      action: update where id = id() set severity="critical"
+    - name: Major
+      filter: select where severity = "major" order by updatedAt desc
+      action: update where id = id() set severity="major"
+    - name: Minor & Trivial
+      columns: 2
+      filter: >
+        select where severity = "minor" or severity = "trivial"
+        order by severity, priority
+      action: update where id = id() set severity="minor"
+  actions:
+    - key: "t"
+      label: "Trivial"
+      action: update where id = id() set severity="trivial"
+```
+
+## Subtasks in epic — custom taskIdList + quantifier trigger
+
+A `subtasks` field on parent tasks tracks their children (inverse of `dependsOn`). A trigger auto-completes the parent when every subtask is done. The plugin shows open vs. completed parents.
+
+Requires:
+
+```yaml
+fields:
+  - name: subtasks
+    type: taskIdList
+```
+
+```yaml
+triggers:
+  - description: close parent when all subtasks are done
+    ruki: >
+      every 5min
+        update where subtasks is not empty
+                     and status != "done"
+                     and all subtasks where status = "done"
+          set status="done"
+```
+
+```yaml
+- name: Epics
+  key: "F11"
+  lanes:
+    - name: In Progress
+      filter: >
+        select where subtasks is not empty
+                     and status != "done"
+        order by priority
+    - name: Completed
+      columns: 1
+      filter: >
+        select where subtasks is not empty
+                     and status = "done"
+        order by updatedAt desc
 ```
 
 ## By topic — tag-based lanes

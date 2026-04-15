@@ -9,6 +9,7 @@ import (
 
 	"github.com/boolean-maybe/tiki/ruki"
 	"github.com/boolean-maybe/tiki/task"
+	"github.com/boolean-maybe/tiki/workflow"
 )
 
 func TestTableFormatterProjectedFields(t *testing.T) {
@@ -554,5 +555,141 @@ func TestEscapeScalar(t *testing.T) {
 		if got != tt.want {
 			t.Errorf("escapeScalar(%q) = %q, want %q", tt.input, got, tt.want)
 		}
+	}
+}
+
+func TestFormatCustomFields(t *testing.T) {
+	// register custom fields so extractFieldValue and resolveFields find them
+	initTestRegistries()
+	if err := workflow.RegisterCustomFields([]workflow.FieldDef{
+		{Name: "severity", Type: workflow.TypeEnum, AllowedValues: []string{"low", "medium", "high"}},
+		{Name: "score", Type: workflow.TypeInt},
+		{Name: "active", Type: workflow.TypeBool},
+		{Name: "notes", Type: workflow.TypeString},
+	}); err != nil {
+		t.Fatalf("register custom fields: %v", err)
+	}
+	t.Cleanup(func() { workflow.ClearCustomFields() })
+
+	proj := &ruki.TaskProjection{
+		Fields: []string{"severity", "score", "active", "notes"},
+		Tasks: []*task.Task{
+			{
+				ID: "TIKI-CF0001", Title: "Custom", Status: "ready",
+				CustomFields: map[string]interface{}{
+					"severity": "high",
+					"score":    42,
+					"active":   true,
+					"notes":    "important",
+				},
+			},
+		},
+	}
+
+	var buf bytes.Buffer
+	if err := NewTableFormatter().Format(&buf, proj); err != nil {
+		t.Fatal(err)
+	}
+	out := buf.String()
+
+	if !strings.Contains(out, "high") {
+		t.Errorf("missing severity value:\n%s", out)
+	}
+	if !strings.Contains(out, "42") {
+		t.Errorf("missing score value:\n%s", out)
+	}
+	if !strings.Contains(out, "true") {
+		t.Errorf("missing active value:\n%s", out)
+	}
+	if !strings.Contains(out, "important") {
+		t.Errorf("missing notes value:\n%s", out)
+	}
+}
+
+func TestFormatMissingCustomFields(t *testing.T) {
+	initTestRegistries()
+	if err := workflow.RegisterCustomFields([]workflow.FieldDef{
+		{Name: "severity", Type: workflow.TypeEnum, AllowedValues: []string{"low", "medium", "high"}},
+		{Name: "score", Type: workflow.TypeInt},
+		{Name: "active", Type: workflow.TypeBool},
+		{Name: "notes", Type: workflow.TypeString},
+	}); err != nil {
+		t.Fatalf("register custom fields: %v", err)
+	}
+	t.Cleanup(func() { workflow.ClearCustomFields() })
+
+	// task with no custom fields set — should render as empty (nil → "")
+	proj := &ruki.TaskProjection{
+		Fields: []string{"score", "active"},
+		Tasks: []*task.Task{
+			{ID: "TIKI-CF0002", Title: "Empty", Status: "ready"},
+		},
+	}
+
+	var buf bytes.Buffer
+	if err := NewTableFormatter().Format(&buf, proj); err != nil {
+		t.Fatal(err)
+	}
+	out := buf.String()
+	lines := strings.Split(out, "\n")
+	// data row is lines[3]
+	dataRow := lines[3]
+	parts := strings.Split(dataRow, "|")
+
+	// score (int, unset) → ""
+	scoreCell := strings.TrimSpace(parts[1])
+	if scoreCell != "" {
+		t.Errorf("unset int custom field should render as empty, got %q", scoreCell)
+	}
+
+	// active (bool, unset) → ""
+	activeCell := strings.TrimSpace(parts[2])
+	if activeCell != "" {
+		t.Errorf("unset bool custom field should render as empty, got %q", activeCell)
+	}
+}
+
+func TestFormatSetToZeroVsUnset(t *testing.T) {
+	initTestRegistries()
+	if err := workflow.RegisterCustomFields([]workflow.FieldDef{
+		{Name: "score", Type: workflow.TypeInt},
+		{Name: "active", Type: workflow.TypeBool},
+	}); err != nil {
+		t.Fatalf("register custom fields: %v", err)
+	}
+	t.Cleanup(func() { workflow.ClearCustomFields() })
+
+	proj := &ruki.TaskProjection{
+		Fields: []string{"score", "active"},
+		Tasks: []*task.Task{
+			{ID: "TIKI-Z00001", Title: "Explicit zero", Status: "ready",
+				CustomFields: map[string]interface{}{"score": 0, "active": false}},
+			{ID: "TIKI-Z00002", Title: "Unset", Status: "ready"},
+		},
+	}
+
+	var buf bytes.Buffer
+	if err := NewTableFormatter().Format(&buf, proj); err != nil {
+		t.Fatal(err)
+	}
+	out := buf.String()
+	lines := strings.Split(out, "\n")
+
+	// first data row (explicit zero): score=0, active=false
+	row1 := strings.Split(lines[3], "|")
+	if s := strings.TrimSpace(row1[1]); s != "0" {
+		t.Errorf("explicit zero int should render as '0', got %q", s)
+	}
+	if s := strings.TrimSpace(row1[2]); s != "false" {
+		t.Errorf("explicit false bool should render as 'false', got %q", s)
+	}
+
+	// second data row (unset): both empty
+	row2 := strings.Split(lines[4], "|")
+	if s := strings.TrimSpace(row2[1]); s != "" {
+		t.Errorf("unset int should render as empty, got %q", s)
+	}
+	if s := strings.TrimSpace(row2[2]); s != "" {
+		t.Errorf("unset bool should render as empty, got %q", s)
 	}
 }

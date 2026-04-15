@@ -185,23 +185,23 @@ func (e *Executor) buildPipeResult(pipe *RunAction, fields []string, matched []*
 		return nil, fmt.Errorf("pipe command must evaluate to string, got %T", cmdVal)
 	}
 
-	rows := buildFieldRows(fields, matched)
+	rows := e.buildFieldRows(fields, matched)
 	return &Result{Pipe: &PipeResult{Command: cmdStr, Rows: rows}}, nil
 }
 
 func (e *Executor) buildClipboardResult(fields []string, matched []*task.Task) (*Result, error) {
-	rows := buildFieldRows(fields, matched)
+	rows := e.buildFieldRows(fields, matched)
 	return &Result{Clipboard: &ClipboardResult{Rows: rows}}, nil
 }
 
 // buildFieldRows extracts the requested fields from matched tasks as string rows.
 // Shared by both run() and clipboard() pipe targets.
-func buildFieldRows(fields []string, matched []*task.Task) [][]string {
+func (e *Executor) buildFieldRows(fields []string, matched []*task.Task) [][]string {
 	rows := make([][]string, len(matched))
 	for i, t := range matched {
 		row := make([]string, len(fields))
 		for j, f := range fields {
-			row[j] = pipeArgString(extractField(t, f))
+			row[j] = pipeArgString(e.extractField(t, f))
 		}
 		rows[i] = row
 	}
@@ -384,7 +384,7 @@ func (e *Executor) setField(t *task.Task, name string, val interface{}) error {
 			t.DependsOn = nil
 			return nil
 		}
-		t.DependsOn = toStringSlice(val)
+		t.DependsOn = normalizeRefList(toStringSlice(val))
 
 	case "due":
 		if val == nil {
@@ -423,7 +423,22 @@ func (e *Executor) setField(t *task.Task, name string, val interface{}) error {
 		t.Assignee = s
 
 	default:
-		return fmt.Errorf("unknown field %q", name)
+		fs, ok := e.schema.Field(name)
+		if !ok || !fs.Custom {
+			return fmt.Errorf("unknown field %q", name)
+		}
+		if val == nil {
+			delete(t.CustomFields, name)
+			return nil
+		}
+		coerced, err := coerceCustomFieldValue(fs, val)
+		if err != nil {
+			return fmt.Errorf("field %q: %w", name, err)
+		}
+		if t.CustomFields == nil {
+			t.CustomFields = make(map[string]interface{})
+		}
+		t.CustomFields[name] = coerced
 	}
 	return nil
 }
@@ -436,6 +451,73 @@ func toStringSlice(val interface{}) []string {
 	result := make([]string, len(list))
 	for i, elem := range list {
 		result[i] = normalizeToString(elem)
+	}
+	return result
+}
+
+func coerceCustomFieldValue(fs FieldSpec, val interface{}) (interface{}, error) {
+	switch fs.Type {
+	case ValueString:
+		s, ok := val.(string)
+		if !ok {
+			return nil, fmt.Errorf("expected string, got %T", val)
+		}
+		return s, nil
+	case ValueInt:
+		n, ok := val.(int)
+		if !ok {
+			return nil, fmt.Errorf("expected int, got %T", val)
+		}
+		return n, nil
+	case ValueBool:
+		if b, ok := val.(bool); ok {
+			return b, nil
+		}
+		if s, ok := val.(string); ok {
+			if b, err := parseBoolString(s); err == nil {
+				return b, nil
+			}
+		}
+		return nil, fmt.Errorf("expected bool, got %T", val)
+	case ValueTimestamp:
+		tv, ok := val.(time.Time)
+		if !ok {
+			return nil, fmt.Errorf("expected time.Time, got %T", val)
+		}
+		return tv, nil
+	case ValueEnum:
+		s, ok := val.(string)
+		if !ok {
+			return nil, fmt.Errorf("expected string, got %T", val)
+		}
+		for _, av := range fs.AllowedValues {
+			if strings.EqualFold(av, s) {
+				return av, nil
+			}
+		}
+		return nil, fmt.Errorf("invalid enum value %q", s)
+	case ValueListString:
+		return toStringSlice(val), nil
+	case ValueListRef:
+		raw := toStringSlice(val)
+		return normalizeRefList(raw), nil
+	default:
+		return nil, fmt.Errorf("unsupported custom field type")
+	}
+}
+
+// normalizeRefList trims whitespace and uppercases task ID references.
+func normalizeRefList(ss []string) []string {
+	var result []string
+	for _, s := range ss {
+		s = strings.TrimSpace(s)
+		if s == "" {
+			continue
+		}
+		result = append(result, strings.ToUpper(s))
+	}
+	if result == nil {
+		result = []string{}
 	}
 	return result
 }
@@ -543,10 +625,17 @@ func (e *Executor) evalIn(c *InExpr, t *task.Task, allTasks []*task.Task) (bool,
 
 	// list membership mode
 	if list, ok := collVal.([]interface{}); ok {
+		// unset field (nil) is not a member of any list
+		if val == nil {
+			return c.Negated, nil
+		}
 		valStr := normalizeToString(val)
+		// use case-insensitive comparison for enum-like fields
+		foldCase := isEnumLikeField(e.exprFieldType(c.Value))
 		found := false
 		for _, elem := range list {
-			if normalizeToString(elem) == valStr {
+			elemStr := normalizeToString(elem)
+			if foldCase && strings.EqualFold(valStr, elemStr) || !foldCase && valStr == elemStr {
 				found = true
 				break
 			}
@@ -631,12 +720,14 @@ func (e *Executor) evalQuantifier(q *QuantifierExpr, t *task.Task, allTasks []*t
 func (e *Executor) evalExpr(expr Expr, t *task.Task, allTasks []*task.Task) (interface{}, error) {
 	switch expr := expr.(type) {
 	case *FieldRef:
-		return extractField(t, expr.Name), nil
+		return e.extractField(t, expr.Name), nil
 	case *QualifiedRef:
 		return nil, fmt.Errorf("qualified references (old./new.) are not supported in standalone SELECT")
 	case *StringLiteral:
 		return expr.Value, nil
 	case *IntLiteral:
+		return expr.Value, nil
+	case *BoolLiteral:
 		return expr.Value, nil
 	case *DateLiteral:
 		return expr.Value, nil
@@ -854,8 +945,8 @@ func subtractValues(left, right interface{}) (interface{}, error) {
 func (e *Executor) sortTasks(tasks []*task.Task, clauses []OrderByClause) {
 	sort.SliceStable(tasks, func(i, j int) bool {
 		for _, c := range clauses {
-			vi := extractField(tasks[i], c.Field)
-			vj := extractField(tasks[j], c.Field)
+			vi := e.extractField(tasks[i], c.Field)
+			vj := e.extractField(tasks[j], c.Field)
 			cmp := compareForSort(vi, vj)
 			if cmp == 0 {
 				continue
@@ -887,6 +978,15 @@ func compareForSort(a, b interface{}) int {
 	case string:
 		bv, _ := b.(string)
 		return strings.Compare(av, bv)
+	case bool:
+		bv, _ := b.(bool)
+		if av == bv {
+			return 0
+		}
+		if !av && bv {
+			return -1 // false < true
+		}
+		return 1
 	case task.Status:
 		bv, _ := b.(task.Status)
 		return strings.Compare(string(av), string(bv))
@@ -933,7 +1033,7 @@ func compareInts(a, b int) int {
 
 func (e *Executor) compareValues(left, right interface{}, op string, leftExpr, rightExpr Expr) (bool, error) {
 	if left == nil || right == nil {
-		return compareWithNil(left, right, op)
+		return compareWithNil(left, right, op, leftExpr, rightExpr)
 	}
 
 	if leftList, ok := left.([]interface{}); ok {
@@ -945,6 +1045,20 @@ func (e *Executor) compareValues(left, right interface{}, op string, leftExpr, r
 	if lb, ok := left.(bool); ok {
 		if rb, ok := right.(bool); ok {
 			return compareBools(lb, rb, op)
+		}
+		// resilience: coerce string-encoded bool on right side
+		if rs, ok := right.(string); ok {
+			if rb, err := parseBoolString(rs); err == nil {
+				return compareBools(lb, rb, op)
+			}
+		}
+	}
+	if rb, ok := right.(bool); ok {
+		// resilience: coerce string-encoded bool on left side
+		if ls, ok := left.(string); ok {
+			if lb, err := parseBoolString(ls); err == nil {
+				return compareBools(lb, rb, op)
+			}
 		}
 	}
 
@@ -960,6 +1074,10 @@ func (e *Executor) compareValues(left, right interface{}, op string, leftExpr, r
 	case ValueTaskType:
 		ls := e.normalizeTypeStr(normalizeToString(left))
 		rs := e.normalizeTypeStr(normalizeToString(right))
+		return compareStrings(ls, rs, op)
+	case ValueEnum:
+		ls := strings.ToLower(normalizeToString(left))
+		rs := strings.ToLower(normalizeToString(right))
 		return compareStrings(ls, rs, op)
 	}
 
@@ -998,10 +1116,10 @@ func (e *Executor) compareValues(left, right interface{}, op string, leftExpr, r
 // resolveComparisonType returns the dominant field type for a comparison,
 // checking both sides for enum/id fields that need special handling.
 func (e *Executor) resolveComparisonType(left, right Expr) ValueType {
-	if t := e.exprFieldType(left); t == ValueID || t == ValueStatus || t == ValueTaskType {
+	if t := e.exprFieldType(left); t == ValueID || t == ValueStatus || t == ValueTaskType || t == ValueEnum {
 		return t
 	}
-	if t := e.exprFieldType(right); t == ValueID || t == ValueStatus || t == ValueTaskType {
+	if t := e.exprFieldType(right); t == ValueID || t == ValueStatus || t == ValueTaskType || t == ValueEnum {
 		return t
 	}
 	return -1
@@ -1029,6 +1147,13 @@ func (e *Executor) exprFieldType(expr Expr) ValueType {
 	return fs.Type
 }
 
+// isEnumLikeField returns true for field types that use case-insensitive
+// comparison in equality checks and should also use it for in/not-in.
+// Includes ValueBool so that "True"/"true"/"TRUE" all match in bool in-lists.
+func isEnumLikeField(t ValueType) bool {
+	return t == ValueEnum || t == ValueStatus || t == ValueTaskType || t == ValueID || t == ValueBool
+}
+
 func (e *Executor) normalizeStatusStr(s string) string {
 	if norm, ok := e.schema.NormalizeStatus(s); ok {
 		return norm
@@ -1043,16 +1168,32 @@ func (e *Executor) normalizeTypeStr(s string) string {
 	return s
 }
 
-func compareWithNil(left, right interface{}, op string) (bool, error) {
-	// treat nil as empty; treat zero-valued non-nil as also matching empty
-	leftEmpty := isZeroValue(left)
-	rightEmpty := isZeroValue(right)
-	bothEmpty := leftEmpty && rightEmpty
+func compareWithNil(left, right interface{}, op string, leftExpr, rightExpr Expr) (bool, error) {
+	// when comparing against EmptyLiteral, use zero-value semantics:
+	// nil and typed zeros both count as "empty"
+	_, leftIsEmpty := leftExpr.(*EmptyLiteral)
+	_, rightIsEmpty := rightExpr.(*EmptyLiteral)
+	if leftIsEmpty || rightIsEmpty {
+		leftEmpty := isZeroValue(left)
+		rightEmpty := isZeroValue(right)
+		bothEmpty := leftEmpty && rightEmpty
+		switch op {
+		case "=":
+			return bothEmpty, nil
+		case "!=":
+			return !bothEmpty, nil
+		default:
+			return false, nil
+		}
+	}
+
+	// concrete comparison: nil (unset field) only equals nil
+	bothNil := left == nil && right == nil
 	switch op {
 	case "=":
-		return bothEmpty, nil
+		return bothNil, nil
 	case "!=":
-		return !bothEmpty, nil
+		return !bothNil, nil
 	default:
 		return false, nil
 	}
@@ -1186,7 +1327,7 @@ func compareDurations(a, b time.Duration, op string) (bool, error) {
 
 // --- field extraction ---
 
-func extractField(t *task.Task, name string) interface{} {
+func (e *Executor) extractField(t *task.Task, name string) interface{} {
 	switch name {
 	case "id":
 		return t.ID
@@ -1219,11 +1360,43 @@ func extractField(t *task.Task, name string) interface{} {
 	case "updatedAt":
 		return t.UpdatedAt
 	default:
+		fs, ok := e.schema.Field(name)
+		if !ok || !fs.Custom {
+			return nil
+		}
+		if t.CustomFields != nil {
+			if v, exists := t.CustomFields[name]; exists {
+				if fs.Type == ValueListString || fs.Type == ValueListRef {
+					if ss, ok := v.([]string); ok {
+						return toInterfaceSlice(ss)
+					}
+				}
+				return v
+			}
+		}
+		// unset custom field: list types return empty list (consistent
+		// with built-in tags/dependsOn), scalars return nil
+		if fs.Type == ValueListString || fs.Type == ValueListRef {
+			return []interface{}{}
+		}
 		return nil
 	}
 }
 
 // --- helpers ---
+
+// parseBoolString converts a string "true"/"false" (case-insensitive) to a bool.
+// Returns an error for any other string.
+func parseBoolString(s string) (bool, error) {
+	switch strings.ToLower(s) {
+	case "true":
+		return true, nil
+	case "false":
+		return false, nil
+	default:
+		return false, fmt.Errorf("not a bool string: %q", s)
+	}
+}
 
 func toInterfaceSlice(ss []string) []interface{} {
 	if ss == nil {

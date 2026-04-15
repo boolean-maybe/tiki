@@ -35,12 +35,15 @@ const (
 	ValueListRef              // dependsOn
 	ValueStatus               // status enum
 	ValueTaskType             // type enum
+	ValueEnum                 // custom enum backed by FieldSpec.AllowedValues
 )
 
 // FieldSpec describes a single task field for the parser.
 type FieldSpec struct {
-	Name string
-	Type ValueType
+	Name          string
+	Type          ValueType
+	Custom        bool     // true for user-defined fields
+	AllowedValues []string // non-nil only for ValueEnum fields
 }
 
 // Parser parses ruki DSL statements and triggers.

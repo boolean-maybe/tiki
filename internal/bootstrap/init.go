@@ -77,9 +77,9 @@ func Bootstrap(tikiSkillContent, dokiSkillContent string) (*Result, error) {
 		slog.Warn("failed to install default workflow", "error", err)
 	}
 
-	// Phase 2.7: Load status definitions from workflow.yaml
-	if err := config.LoadStatusRegistry(); err != nil {
-		return nil, fmt.Errorf("load status registry: %w", err)
+	// Phase 2.7: Load workflow registries (statuses, types, custom fields)
+	if err := config.LoadWorkflowRegistries(); err != nil {
+		return nil, fmt.Errorf("load workflow registries: %w", err)
 	}
 
 	// Phase 3: Configuration and logging

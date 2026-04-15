@@ -727,6 +727,8 @@ func cloneExpr(expr Expr) Expr {
 		return &StringLiteral{Value: e.Value}
 	case *IntLiteral:
 		return &IntLiteral{Value: e.Value}
+	case *BoolLiteral:
+		return &BoolLiteral{Value: e.Value}
 	case *DateLiteral:
 		return &DateLiteral{Value: e.Value}
 	case *DurationLiteral:
