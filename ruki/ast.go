@@ -192,6 +192,11 @@ type BinaryExpr struct {
 	Right Expr
 }
 
+// BoolLiteral represents a bare true/false identifier lowered from FieldRef.
+type BoolLiteral struct {
+	Value bool
+}
+
 // SubQuery represents "select [where <condition>]" used inside count().
 type SubQuery struct {
 	Where Condition // nil = select all
@@ -207,6 +212,7 @@ func (*ListLiteral) exprNode()     {}
 func (*EmptyLiteral) exprNode()    {}
 func (*FunctionCall) exprNode()    {}
 func (*BinaryExpr) exprNode()      {}
+func (*BoolLiteral) exprNode()     {}
 func (*SubQuery) exprNode()        {}
 
 // --- order by ---

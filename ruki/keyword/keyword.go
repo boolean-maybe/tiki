@@ -37,6 +37,10 @@ func List() []string {
 	return result
 }
 
+// IdentPattern is the anchored regex for valid ruki identifiers.
+// Kept in sync with the Ident rule in the ruki lexer.
+const IdentPattern = `^[a-zA-Z_][a-zA-Z0-9_]*$`
+
 // Pattern returns the regex alternation for the lexer Keyword rule.
 func Pattern() string {
 	return `\b(` + strings.Join(reserved[:], "|") + `)\b`

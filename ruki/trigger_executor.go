@@ -220,12 +220,12 @@ func (e *triggerExecOverride) resolveQualifiedRef(qr *QualifiedRef) (interface{}
 		if e.tc.Old == nil {
 			return nil, nil // old is nil for create events
 		}
-		return extractField(e.tc.Old, qr.Name), nil
+		return e.extractField(e.tc.Old, qr.Name), nil
 	case "new":
 		if e.tc.New == nil {
 			return nil, nil // new is nil for delete events
 		}
-		return extractField(e.tc.New, qr.Name), nil
+		return e.extractField(e.tc.New, qr.Name), nil
 	default:
 		return nil, fmt.Errorf("unknown qualifier %q", qr.Qualifier)
 	}
@@ -238,7 +238,7 @@ func (e *triggerExecOverride) evalExprRecursive(expr Expr, t *task.Task, allTask
 	case *QualifiedRef:
 		return e.resolveQualifiedRef(expr)
 	case *FieldRef:
-		return extractField(t, expr.Name), nil
+		return e.extractField(t, expr.Name), nil
 	case *BinaryExpr:
 		leftVal, err := e.evalExpr(expr.Left, t, allTasks)
 		if err != nil {
@@ -342,10 +342,16 @@ func (e *triggerExecOverride) evalInOverride(c *InExpr, t *task.Task, allTasks [
 	}
 
 	if list, ok := collVal.([]interface{}); ok {
+		// unset field (nil) is not a member of any list
+		if val == nil {
+			return c.Negated, nil
+		}
 		valStr := normalizeToString(val)
+		foldCase := isEnumLikeField(e.exprFieldType(c.Value))
 		found := false
 		for _, elem := range list {
-			if normalizeToString(elem) == valStr {
+			elemStr := normalizeToString(elem)
+			if foldCase && strings.EqualFold(valStr, elemStr) || !foldCase && valStr == elemStr {
 				found = true
 				break
 			}

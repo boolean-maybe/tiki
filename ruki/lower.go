@@ -3,6 +3,7 @@ package ruki
 import (
 	"fmt"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/boolean-maybe/tiki/util/duration"
@@ -391,6 +392,13 @@ func lowerUnary(g *unaryExpr) (Expr, error) {
 	case g.Empty != nil:
 		return &EmptyLiteral{}, nil
 	case g.FieldRef != nil:
+		// intercept bare true/false identifiers as boolean literals
+		if strings.EqualFold(*g.FieldRef, "true") {
+			return &BoolLiteral{Value: true}, nil
+		}
+		if strings.EqualFold(*g.FieldRef, "false") {
+			return &BoolLiteral{Value: false}, nil
+		}
 		return &FieldRef{Name: *g.FieldRef}, nil
 	case g.Paren != nil:
 		return lowerExpr(g.Paren)

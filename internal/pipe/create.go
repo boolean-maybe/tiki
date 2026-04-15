@@ -82,9 +82,9 @@ func CreateTaskFromReader(r io.Reader) (string, error) {
 		return "", fmt.Errorf("project not initialized: run 'tiki init' first")
 	}
 
-	// Load status definitions before creating tasks
-	if err := config.LoadStatusRegistry(); err != nil {
-		return "", fmt.Errorf("load status registry: %w", err)
+	// load workflow registries (statuses, types, custom fields) before creating tasks
+	if err := config.LoadWorkflowRegistries(); err != nil {
+		return "", fmt.Errorf("load workflow registries: %w", err)
 	}
 
 	gate := service.BuildGate()

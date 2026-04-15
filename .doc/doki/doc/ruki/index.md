@@ -29,4 +29,5 @@ ready-to-use examples for common workflow patterns
 - [Types And Values](types-and-values.md): value categories, literals, `empty`, enums, and schema-dependent typing.
 - [Operators And Built-ins](operators-and-builtins.md): precedence, operators, built-in functions, and shell-adjacent capabilities.
 - [Validation And Errors](validation-and-errors.md): parse errors, validation failures, edge cases, and strictness rules.
+- [Custom Fields Reference](custom-fields-reference.md): coercion rules, enum isolation, persistence round-trips, schema evolution, and missing-field semantics.
 

@@ -1,6 +1,9 @@
 package ruki
 
-import "fmt"
+import (
+	"fmt"
+	"strings"
+)
 
 // validate.go — structural validation and semantic type-checking.
 
@@ -187,7 +190,7 @@ func (p *Parser) validateAssignments(assignments []Assignment) error {
 		if err != nil {
 			return fmt.Errorf("field %q: %w", a.Field, err)
 		}
-		if err := p.checkAssignmentCompat(fs.Type, rhsType, a.Value); err != nil {
+		if err := p.checkAssignmentCompat(fs, rhsType, a.Value); err != nil {
 			return fmt.Errorf("field %q: %w", a.Field, err)
 		}
 	}
@@ -251,7 +254,8 @@ func (p *Parser) validateLimit(limit *int) error {
 func isOrderableType(t ValueType) bool {
 	switch t {
 	case ValueInt, ValueDate, ValueTimestamp, ValueDuration,
-		ValueString, ValueStatus, ValueTaskType, ValueID, ValueRef:
+		ValueString, ValueStatus, ValueTaskType, ValueID, ValueRef,
+		ValueEnum, ValueBool:
 		return true
 	default:
 		return false
@@ -302,6 +306,26 @@ func (p *Parser) validateCompare(c *CompareExpr) error {
 	// resolve empty from context
 	leftType, rightType = resolveEmptyPair(leftType, rightType)
 
+	// implicit midnight-UTC coercion: timestamp vs date literal
+	if leftType == ValueTimestamp {
+		if _, ok := c.Right.(*DateLiteral); ok && rightType == ValueDate {
+			rightType = ValueTimestamp
+		}
+	}
+	if rightType == ValueTimestamp {
+		if _, ok := c.Left.(*DateLiteral); ok && leftType == ValueDate {
+			leftType = ValueTimestamp
+		}
+	}
+
+	// implicit bool coercion: string literal "true"/"false" vs bool field
+	if leftType == ValueBool && rightType == ValueString && isBoolStringLiteral(c.Right) {
+		rightType = ValueBool
+	}
+	if rightType == ValueBool && leftType == ValueString && isBoolStringLiteral(c.Left) {
+		leftType = ValueBool
+	}
+
 	if !typesCompatible(leftType, rightType) {
 		return fmt.Errorf("cannot compare %s %s %s", typeName(leftType), c.Op, typeName(rightType))
 	}
@@ -314,7 +338,7 @@ func (p *Parser) validateCompare(c *CompareExpr) error {
 
 	// use the most specific type for operator and enum validation
 	enumType := leftType
-	if rightType == ValueStatus || rightType == ValueTaskType {
+	if rightType == ValueStatus || rightType == ValueTaskType || rightType == ValueEnum {
 		enumType = rightType
 	}
 
@@ -344,11 +368,18 @@ func (p *Parser) validateIn(c *InExpr) error {
 		}
 		if !membershipCompatible(valType, elemType) {
 			ll, isLiteral := c.Collection.(*ListLiteral)
-			if !isLiteral || !isStringLike(valType) || !allStringLiterals(ll) {
-				return fmt.Errorf("element type mismatch: %s in %s", typeName(valType), typeName(collType))
+			// allow enum value checked against a list of string literals
+			enumInStringList := isLiteral && valType == ValueEnum && allStringLiterals(ll)
+			// allow bool field checked against a list of bool-string literals
+			boolInStringList := isLiteral && valType == ValueBool && allBoolStringLiterals(ll)
+			if !enumInStringList && !boolInStringList {
+				if !isLiteral || !isStringLike(valType) || !allStringLiterals(ll) {
+					return fmt.Errorf("element type mismatch: %s in %s", typeName(valType), typeName(collType))
+				}
 			}
 		}
-		return p.validateEnumListElements(c.Collection, valType)
+		enumField, _ := exprFieldName(c.Value)
+		return p.validateEnumListElements(c.Collection, valType, enumField)
 	}
 
 	// substring mode: both sides must be string (not string-like)
@@ -420,6 +451,9 @@ func (p *Parser) inferExprType(e Expr) (ValueType, error) {
 
 	case *ListLiteral:
 		return p.inferListType(e)
+
+	case *BoolLiteral:
+		return ValueBool, nil
 
 	case *EmptyLiteral:
 		return -1, nil // sentinel: resolved from context
@@ -662,12 +696,32 @@ func (p *Parser) validateEnumLiterals(left, right Expr, resolvedType ValueType) 
 			}
 		}
 	}
+	if resolvedType == ValueEnum {
+		fieldName, _ := exprFieldName(left)
+		if fieldName == "" {
+			fieldName, _ = exprFieldName(right)
+		}
+		if fieldName != "" {
+			if s, ok := right.(*StringLiteral); ok {
+				if _, valid := p.normalizeEnumValue(fieldName, s.Value); !valid {
+					return fmt.Errorf("unknown value %q for field %q", s.Value, fieldName)
+				}
+			}
+			if s, ok := left.(*StringLiteral); ok {
+				if _, valid := p.normalizeEnumValue(fieldName, s.Value); !valid {
+					return fmt.Errorf("unknown value %q for field %q", s.Value, fieldName)
+				}
+			}
+		}
+	}
 	return nil
 }
 
 // validateEnumListElements checks string literals inside a list expression
 // against the appropriate enum normalizer, based on the value type being checked.
-func (p *Parser) validateEnumListElements(collection Expr, valType ValueType) error {
+// enumFieldName is only used when valType is ValueEnum — it identifies the custom
+// enum field whose AllowedValues should be checked against.
+func (p *Parser) validateEnumListElements(collection Expr, valType ValueType, enumFieldName string) error {
 	ll, ok := collection.(*ListLiteral)
 	if !ok {
 		return nil
@@ -677,14 +731,20 @@ func (p *Parser) validateEnumListElements(collection Expr, valType ValueType) er
 		if !ok {
 			continue
 		}
-		if valType == ValueStatus {
+		switch valType {
+		case ValueStatus:
 			if _, valid := p.schema.NormalizeStatus(s.Value); !valid {
 				return fmt.Errorf("unknown status %q", s.Value)
 			}
-		}
-		if valType == ValueTaskType {
+		case ValueTaskType:
 			if _, valid := p.schema.NormalizeType(s.Value); !valid {
 				return fmt.Errorf("unknown type %q", s.Value)
+			}
+		case ValueEnum:
+			if enumFieldName != "" {
+				if _, valid := p.normalizeEnumValue(enumFieldName, s.Value); !valid {
+					return fmt.Errorf("unknown value %q for field %q", s.Value, enumFieldName)
+				}
 			}
 		}
 	}
@@ -693,7 +753,9 @@ func (p *Parser) validateEnumListElements(collection Expr, valType ValueType) er
 
 // --- assignment compatibility ---
 
-func (p *Parser) checkAssignmentCompat(fieldType, rhsType ValueType, rhs Expr) error {
+func (p *Parser) checkAssignmentCompat(fs FieldSpec, rhsType ValueType, rhs Expr) error {
+	fieldType := fs.Type
+
 	// empty is assignable to anything
 	if _, ok := rhs.(*EmptyLiteral); ok {
 		return nil
@@ -702,16 +764,41 @@ func (p *Parser) checkAssignmentCompat(fieldType, rhsType ValueType, rhs Expr) e
 		return nil
 	}
 
+	// implicit midnight-UTC coercion: date literal assignable to timestamp field
+	if fieldType == ValueTimestamp && rhsType == ValueDate {
+		if _, ok := rhs.(*DateLiteral); ok {
+			return nil
+		}
+	}
+
+	// implicit bool coercion: string literal "true"/"false" assignable to bool field
+	if fieldType == ValueBool && rhsType == ValueString && isBoolStringLiteral(rhs) {
+		return nil
+	}
+
 	if typesCompatible(fieldType, rhsType) {
-		// enum fields only accept same-type or string literals
+		// built-in enum fields only accept same-type or string literals
 		if (fieldType == ValueStatus || fieldType == ValueTaskType) && rhsType != fieldType {
 			if _, ok := rhs.(*StringLiteral); !ok {
 				return fmt.Errorf("cannot assign %s to %s field", typeName(rhsType), typeName(fieldType))
 			}
 		}
+		// custom enum fields only accept same-field enum or string literals
+		if fieldType == ValueEnum && rhsType != ValueEnum {
+			if _, ok := rhs.(*StringLiteral); !ok {
+				return fmt.Errorf("cannot assign %s to %s field", typeName(rhsType), typeName(fieldType))
+			}
+		}
+		if fieldType == ValueEnum && rhsType == ValueEnum {
+			// reject cross-field enum assignment
+			rhsField, _ := exprFieldName(rhs)
+			if rhsField != "" && rhsField != fs.Name {
+				return fmt.Errorf("cannot assign field %q to enum field %q (different enum domains)", rhsField, fs.Name)
+			}
+		}
 		// non-enum string-like fields reject enum-typed RHS
 		if (fieldType == ValueString || fieldType == ValueID || fieldType == ValueRef) &&
-			(rhsType == ValueStatus || rhsType == ValueTaskType) {
+			(rhsType == ValueStatus || rhsType == ValueTaskType || rhsType == ValueEnum) {
 			return fmt.Errorf("cannot assign %s to %s field", typeName(rhsType), typeName(fieldType))
 		}
 
@@ -729,7 +816,7 @@ func (p *Parser) checkAssignmentCompat(fieldType, rhsType ValueType, rhs Expr) e
 			}
 		}
 
-		// validate enum values
+		// validate built-in enum values
 		if fieldType == ValueStatus {
 			if s, ok := rhs.(*StringLiteral); ok {
 				if _, valid := p.schema.NormalizeStatus(s.Value); !valid {
@@ -741,6 +828,14 @@ func (p *Parser) checkAssignmentCompat(fieldType, rhsType ValueType, rhs Expr) e
 			if s, ok := rhs.(*StringLiteral); ok {
 				if _, valid := p.schema.NormalizeType(s.Value); !valid {
 					return fmt.Errorf("unknown type %q", s.Value)
+				}
+			}
+		}
+		// validate custom enum values
+		if fieldType == ValueEnum {
+			if s, ok := rhs.(*StringLiteral); ok {
+				if _, valid := p.normalizeEnumValue(fs.Name, s.Value); !valid {
+					return fmt.Errorf("unknown value %q for field %q", s.Value, fs.Name)
 				}
 			}
 		}
@@ -766,19 +861,20 @@ func typesCompatible(a, b ValueType) bool {
 	if a == -1 || b == -1 { // unresolved empty
 		return true
 	}
-	// string-like types are compatible with each other
+	// string-like types are compatible with each other for comparison/assignment
 	stringLike := map[ValueType]bool{
 		ValueString:   true,
 		ValueStatus:   true,
 		ValueTaskType: true,
 		ValueID:       true,
 		ValueRef:      true,
+		ValueEnum:     true,
 	}
 	return stringLike[a] && stringLike[b]
 }
 
 func isEnumType(t ValueType) bool {
-	return t == ValueStatus || t == ValueTaskType
+	return t == ValueStatus || t == ValueTaskType || t == ValueEnum
 }
 
 // allStringLiterals returns true if every element in the list is a *StringLiteral.
@@ -791,10 +887,40 @@ func allStringLiterals(ll *ListLiteral) bool {
 	return true
 }
 
+// isBoolStringLiteral reports whether e is a StringLiteral with value "true" or "false".
+// Used to coerce legacy-converted string values into bool-compatible operands.
+func isBoolStringLiteral(e Expr) bool {
+	s, ok := e.(*StringLiteral)
+	if !ok {
+		return false
+	}
+	return strings.EqualFold(s.Value, "true") || strings.EqualFold(s.Value, "false")
+}
+
+// allBoolStringLiterals reports whether every element in the list is a bool-string literal.
+func allBoolStringLiterals(ll *ListLiteral) bool {
+	for _, elem := range ll.Elements {
+		if !isBoolStringLiteral(elem) {
+			return false
+		}
+	}
+	return true
+}
+
 // checkCompareCompat rejects nonsensical cross-type comparisons in WHERE clauses.
 // e.g. status = title (enum vs string field) is rejected,
 // but status = "done" (enum vs string literal) is allowed.
 func (p *Parser) checkCompareCompat(leftType, rightType ValueType, left, right Expr) error {
+	// two custom enum fields: must reference the same field
+	if leftType == ValueEnum && rightType == ValueEnum {
+		lf, _ := exprFieldName(left)
+		rf, _ := exprFieldName(right)
+		if lf != "" && rf != "" && lf != rf {
+			return fmt.Errorf("cannot compare enum field %q with enum field %q (different enum domains)", lf, rf)
+		}
+		return nil
+	}
+
 	if isEnumType(leftType) && rightType != leftType {
 		if err := checkEnumOperand(leftType, rightType, right); err != nil {
 			return err
@@ -911,6 +1037,8 @@ func typeName(t ValueType) string {
 		return "status"
 	case ValueTaskType:
 		return "type"
+	case ValueEnum:
+		return "enum"
 	case -1:
 		return "empty"
 	default:
@@ -927,6 +1055,8 @@ func exprContainsFieldRef(expr Expr) bool {
 		return true
 	case *QualifiedRef:
 		return true
+	case *BoolLiteral:
+		return false
 	case *BinaryExpr:
 		return exprContainsFieldRef(e.Left) || exprContainsFieldRef(e.Right)
 	case *FunctionCall:
@@ -946,4 +1076,37 @@ func exprContainsFieldRef(expr Expr) bool {
 	default:
 		return false
 	}
+}
+
+// exprFieldName extracts the field name from a FieldRef or QualifiedRef.
+// Returns ("", false) for any other expression type.
+//
+//nolint:unparam // bool return is used by callers; string is used in enum domain checks
+func exprFieldName(expr Expr) (string, bool) {
+	switch e := expr.(type) {
+	case *FieldRef:
+		return e.Name, true
+	case *QualifiedRef:
+		return e.Name, true
+	default:
+		return "", false
+	}
+}
+
+// normalizeEnumValue validates a raw string against a custom enum field's
+// AllowedValues (case-insensitive). Returns the canonical value and true,
+// or ("", false) if not found.
+//
+//nolint:unparam // canonical string return reserved for future use in normalization paths
+func (p *Parser) normalizeEnumValue(fieldName, raw string) (string, bool) {
+	fs, ok := p.schema.Field(fieldName)
+	if !ok {
+		return "", false
+	}
+	for _, av := range fs.AllowedValues {
+		if strings.EqualFold(av, raw) {
+			return av, true
+		}
+	}
+	return "", false
 }

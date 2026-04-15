@@ -216,8 +216,8 @@ func runExec(args []string) int {
 		_, _ = fmt.Fprintf(os.Stderr, "warning: install default workflow: %v\n", err)
 	}
 
-	if err := config.LoadStatusRegistry(); err != nil {
-		_, _ = fmt.Fprintf(os.Stderr, "error: load status registry: %v\n", err)
+	if err := config.LoadWorkflowRegistries(); err != nil {
+		_, _ = fmt.Fprintf(os.Stderr, "error: load workflow registries: %v\n", err)
 		return exitStartupFailure
 	}
 

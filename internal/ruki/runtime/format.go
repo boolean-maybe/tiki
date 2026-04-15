@@ -134,6 +134,17 @@ func extractFieldValue(t *task.Task, name string) interface{} {
 	case "updatedAt":
 		return t.UpdatedAt
 	default:
+		fd, ok := workflow.Field(name)
+		if !ok || !fd.Custom {
+			return nil
+		}
+		if t.CustomFields != nil {
+			if v, exists := t.CustomFields[name]; exists {
+				return v
+			}
+		}
+		// unset custom field — return nil to match executor semantics;
+		// renderValue converts nil to "" so unset fields display as blank
 		return nil
 	}
 }
@@ -153,6 +164,10 @@ func renderValue(val interface{}, vt workflow.ValueType) string {
 		return renderList(val)
 	case workflow.TypeInt:
 		return renderInt(val)
+	case workflow.TypeEnum:
+		return escapeScalar(fmt.Sprint(val))
+	case workflow.TypeBool:
+		return fmt.Sprint(val)
 	default:
 		return escapeScalar(fmt.Sprint(val))
 	}
