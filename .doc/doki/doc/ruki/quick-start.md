@@ -40,6 +40,7 @@ select
 select title, status
 select id, title where status = "done"
 select where "bug" in tags and priority <= 2
+select where status != "done" order by priority limit 3
 ```
 
 `create` writes one or more assignments:

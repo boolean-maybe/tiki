@@ -9,6 +9,7 @@
 - [Type and operator errors](#type-and-operator-errors)
 - [Enum and list errors](#enum-and-list-errors)
 - [Order by errors](#order-by-errors)
+- [Limit errors](#limit-errors)
 - [Built-in and subquery errors](#built-in-and-subquery-errors)
 
 ## Overview
@@ -214,6 +215,22 @@ Order by inside a subquery:
 
 ```sql
 select where count(select where status = "done" order by priority) >= 1
+```
+
+## Limit errors
+
+Validation error (must be positive):
+
+```sql
+select limit 0
+```
+
+Parse errors (invalid token after `limit`):
+
+```sql
+select limit -1
+select limit "three"
+select limit
 ```
 
 ## Pipe validation errors

@@ -588,6 +588,10 @@ func cloneSelect(sel *SelectStmt) *SelectStmt {
 		Where:   cloneCondition(sel.Where),
 		OrderBy: orderBy,
 	}
+	if sel.Limit != nil {
+		v := *sel.Limit
+		out.Limit = &v
+	}
 	if sel.Pipe != nil {
 		out.Pipe = &PipeAction{}
 		if sel.Pipe.Run != nil {

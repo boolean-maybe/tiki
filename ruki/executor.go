@@ -153,6 +153,10 @@ func (e *Executor) executeSelect(sel *SelectStmt, tasks []*task.Task) (*Result, 
 		e.sortTasks(filtered, sel.OrderBy)
 	}
 
+	if sel.Limit != nil && *sel.Limit < len(filtered) {
+		filtered = filtered[:*sel.Limit]
+	}
+
 	if sel.Pipe != nil {
 		switch {
 		case sel.Pipe.Run != nil:

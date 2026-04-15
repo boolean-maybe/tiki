@@ -70,6 +70,9 @@ func (p *Parser) validateStatement(s *Statement) error {
 		if err := p.validateOrderBy(s.Select.OrderBy); err != nil {
 			return err
 		}
+		if err := p.validateLimit(s.Select.Limit); err != nil {
+			return err
+		}
 		if s.Select.Pipe != nil {
 			if len(s.Select.Fields) == 0 {
 				return fmt.Errorf("pipe requires explicit field names in select (not select * or bare select)")
@@ -229,6 +232,18 @@ func (p *Parser) validateOrderBy(clauses []OrderByClause) error {
 		if !isOrderableType(fs.Type) {
 			return fmt.Errorf("cannot order by %s field %q", typeName(fs.Type), c.Field)
 		}
+	}
+	return nil
+}
+
+// --- limit validation ---
+
+func (p *Parser) validateLimit(limit *int) error {
+	if limit == nil {
+		return nil
+	}
+	if *limit <= 0 {
+		return fmt.Errorf("limit must be a positive integer, got %d", *limit)
 	}
 	return nil
 }

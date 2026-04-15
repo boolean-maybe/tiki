@@ -13,11 +13,12 @@ type Statement struct {
 	Delete *DeleteStmt
 }
 
-// SelectStmt represents "select [fields] [where <condition>] [order by <field> [asc|desc], ...] [| run(...) | clipboard()]".
+// SelectStmt represents "select [fields] [where <condition>] [order by ...] [limit N] [| run(...) | clipboard()]".
 type SelectStmt struct {
 	Fields  []string        // nil = all ("select" or "select *"); non-nil = specific fields
 	Where   Condition       // nil = select all
 	OrderBy []OrderByClause // nil = unordered
+	Limit   *int            // nil = no limit; positive = max result count
 	Pipe    *PipeAction     // optional pipe suffix: "| run(...)" or "| clipboard()"
 }
 
