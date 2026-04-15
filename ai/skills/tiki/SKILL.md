@@ -1,237 +1,150 @@
 ---
 name: tiki
 description: view, create, update, delete tikis and manage dependencies
-allowed-tools: Read, Grep, Glob, Update, Edit, Write, WriteFile, Bash(git add:*), Bash(git rm:*)
+allowed-tools: Read, Grep, Glob, Write, Bash(tiki exec:*), Bash(git log:*), Bash(git blame:*)
 ---
 
 # tiki
 
-A tiki is a Markdown file in tiki format saved in the project `.doc/tiki` directory
-with a name like `tiki-abc123.md` in all lower letters.
-IMPORTANT! files are named in lowercase always
-If this directory does not exist prompt user for creation
+A tiki is a task stored as a Markdown file in `.doc/tiki/`.
+Filename: `tiki-<6char>.md` (lowercase) → ID: `TIKI-<6CHAR>` (uppercase).
+Example: `tiki-x7f4k2.md` → `TIKI-X7F4K2`
 
-## tiki ID format
+All CRUD operations go through `tiki exec '<ruki-statement>'`.
+This handles validation, triggers, file persistence, and git staging automatically.
+Never manually edit tiki files or run `git add`/`git rm` — `tiki exec` does it all.
 
-ID format: `TIKI-ABC123` where ABC123 is 6-char random alphanumeric
-**Derived from filename, NOT stored in frontmatter**
+For full `ruki` syntax, see `.doc/doki/doc/ruki/`.
 
-Examples:
-- Filename: `tiki-x7f4k2.md` → ID: `TIKI-X7F4K2`
+## Field reference
 
-## tiki format
+| Field | Type | Notes |
+|---|---|---|
+| `id` | `id` | immutable, auto-generated `TIKI-XXXXXX` |
+| `title` | `string` | required on create |
+| `description` | `string` | markdown body content |
+| `status` | `status` | from `workflow.yaml`, default `backlog` |
+| `type` | `type` | bug, feature, task, story, epic |
+| `priority` | `int` | 1–5 (1=high, 5=low), default 3 |
+| `points` | `int` | story points 1–10 |
+| `assignee` | `string` | |
+| `tags` | `list<string>` | |
+| `dependsOn` | `list<ref>` | list of tiki IDs |
+| `due` | `date` | `YYYY-MM-DD` format |
+| `recurrence` | `recurrence` | cron: `0 0 * * *` (daily), `0 0 * * MON` (weekly), `0 0 1 * *` (monthly) |
+| `createdBy` | `string` | immutable |
+| `createdAt` | `timestamp` | immutable |
+| `updatedAt` | `timestamp` | immutable |
 
-A tiki format is Markdown with some requirements:
+Priority descriptions: 1=high, 2=medium-high, 3=medium, 4=medium-low, 5=low.
+Valid statuses are configurable — check `statuses:` in `~/.config/tiki/workflow.yaml`.
 
-### frontmatter
+## Query
 
-```markdown
----
-title: My ticket
-type: story
-status: backlog
-priority: 3
-points: 5
-tags:
-  - markdown
-  - metadata
-dependsOn:
-  - TIKI-ABC123
-due: 2026-04-01
-recurrence: 0 0 * * MON
----
+```sh
+tiki exec 'select'                                                    # all tasks
+tiki exec 'select title, status'                                      # field projection
+tiki exec 'select id, title where status = "done"'                    # filter
+tiki exec 'select where "bug" in tags order by priority'              # tag filter + sort
+tiki exec 'select where due < now()'                                  # overdue
+tiki exec 'select where due - now() < 7day'                           # due within 7 days
+tiki exec 'select where dependsOn any status != "done"'               # blocked tasks
+tiki exec 'select where assignee = user()'                            # my tasks
 ```
 
-where fields can have these values:
-- type: bug, feature, task, story, epic
-- status: configurable via `workflow.yaml`. Default statuses: backlog, ready, in_progress, review, done.
-  To find valid statuses for the current project, check the `statuses:` section in `~/.config/tiki/workflow.yaml`.
-- priority: is any integer number from 1 to 5 where 1 is the highest priority. Mapped to priority description:
-  - high: 1
-  - medium-high: 2
-  - medium: 3
-  - medium-low: 4
-  - low: 5
-- points: story points from 1 to 10
-- dependsOn: list of tiki IDs (TIKI-XXXXXX format) this task depends on
-- due: due date in YYYY-MM-DD format (optional, date-only)
-- recurrence: recurrence pattern in cron format (optional). Supported: `0 0 * * *` (daily), `0 0 * * MON` (weekly on Monday, etc.), `0 0 1 * *` (monthly)
+Output is an ASCII table. To read a tiki's full markdown body, use `Read` on `.doc/tiki/tiki-<id>.md`.
 
-### body
+## Create
 
-The body of a tiki is normal Markdown
+```sh
+tiki exec 'create title="Fix login"'                                             # minimal
+tiki exec 'create title="Fix login" priority=2 status="ready" tags=["bug"]'      # full
+tiki exec 'create title="Review" due=2026-04-01 + 2day'                          # date arithmetic
+tiki exec 'create title="Sprint review" recurrence="0 0 * * MON"'               # recurrence
+```
 
-if a tiki needs an attachment it is implemented as a normal markdown link to file syntax for example:
-- Logs are attached [logs](mylogs.log)
-- Here is the ![screenshot](screenshot.jpg "check out this box")
-- Check out docs: <https://www.markdownguide.org>
-- Contact: <user@example.com>
-
-## Describe
-
-When asked a question about a tiki find its file and read it then answer the question
-If the question is who created this tiki or who updated it last - use the git username
-For example:
-- who created this tiki? use `git log --follow --diff-filter=A -- <file_path>` to see who created it
-- who edited this tiki? use `git blame <file_path>` to see who edited the file
-
-## View
-
-`Created` timestamp is taken from git file creation if available else from the file creation timestamp.
-
-`Author` is taken from git history as the git user who created the file.
-
-## Creation
-
-When asked to create a tiki:
-
-- Generate a random 6-character alphanumeric ID (lowercase letters and digits)
-- The filename should be lowercase: `tiki-abc123.md`
-- If status is not specified use the default status from `~/.config/tiki/workflow.yaml` (typically `backlog`)
-- If priority is not specified use 3
-- If type is not specified - prompt the user or use `story` by default
-
-Example: for random ID `x7f4k2`:
-- Filename: `tiki-x7f4k2.md`
-- tiki ID: `TIKI-X7F4K2`
+Output: `created TIKI-XXXXXX`. Defaults: status from workflow.yaml (typically `backlog`), priority 3, type `story`.
 
 ### Create from file
 
-if asked to create a tiki from Markdown or text file - create only a single tiki and use the entire content of the
-file as its description. Title should be a short sentence summarizing the file content
-
-#### git
-
-After a new tiki is created `git add` this file.
-IMPORTANT - only add, never commit the file without user asking and permitting
+When asked to create a tiki from a file:
+1. Read the source file
+2. Summarize its content into a short title
+3. Use the file content as the description:
+   ```sh
+   tiki exec 'create title="Summary of file" description="<escaped content>"'
+   ```
+Escape double quotes in the content with backslash.
 
 ## Update
 
-When asked to update a tiki - edit its file
-For example when user says "set TIKI-ABC123 in progress" find its file and edit its frontmatter line from
-`status: backlog` to `status: in progress`
+```sh
+tiki exec 'update where id = "TIKI-X7F4K2" set status="done"'                   # status change
+tiki exec 'update where id = "TIKI-X7F4K2" set priority=1'                       # priority
+tiki exec 'update where status = "ready" set status="cancelled"'                  # bulk update
+tiki exec 'update where id = "TIKI-X7F4K2" set tags=tags + ["urgent"]'           # add tag
+tiki exec 'update where id = "TIKI-X7F4K2" set due=2026-04-01'                   # set due date
+tiki exec 'update where id = "TIKI-X7F4K2" set due=empty'                        # clear due date
+tiki exec 'update where id = "TIKI-X7F4K2" set recurrence="0 0 * * MON"'         # set recurrence
+tiki exec 'update where id = "TIKI-X7F4K2" set recurrence=empty'                 # clear recurrence
+```
 
-### git
+Output: `updated N tasks`.
 
-After a tiki is updated `git add` this file
-IMPORTANT - only add, never commit the file without user asking and permitting
+### Implement
 
-## Deletion
+When asked to implement a tiki and the user approves implementation, set its status to `review`:
+```sh
+tiki exec 'update where id = "TIKI-X7F4K2" set status="review"'
+```
 
-When asked to delete a tiki `git rm` its file
-If for any reason `git rm` cannot be executed and the file is still there - delete the file
+## Delete
 
-## Implement
+```sh
+tiki exec 'delete where id = "TIKI-X7F4K2"'                          # by ID
+tiki exec 'delete where status = "cancelled"'                         # bulk
+```
 
-When asked to implement a tiki and the user approves implementation change its status to `review` and `git add` it
+Output: `deleted N tasks`.
 
 ## Dependencies
 
-Tikis can declare dependencies on other tikis via the `dependsOn` frontmatter field.
-Values are tiki IDs in `TIKI-XXXXXX` format. A dependency means this tiki is blocked by or requires the listed tikis.
+```sh
+# view a tiki's dependencies
+tiki exec 'select id, title, status, dependsOn where id = "TIKI-X7F4K2"'
 
-### View dependencies
+# find what depends on a tiki (reverse lookup)
+tiki exec 'select id, title where "TIKI-X7F4K2" in dependsOn'
 
-When asked about a tiki's dependencies, read its frontmatter `dependsOn` list.
-For each dependency ID, read that tiki file to show its title, status, and assignee.
-Highlight any dependencies that are not yet `done` -- these are blockers.
+# find blocked tasks (any dependency not done)
+tiki exec 'select id, title where dependsOn any status != "done"'
 
-Example: "what blocks TIKI-X7F4K2?"
-1. Read `.doc/tiki/tiki-x7f4k2.md` frontmatter
-2. For each ID in `dependsOn`, read that tiki and report its status
+# add a dependency
+tiki exec 'update where id = "TIKI-X7F4K2" set dependsOn=dependsOn + ["TIKI-ABC123"]'
 
-### Find dependents
-
-When asked "what depends on TIKI-ABC123?" -- grep all tiki files for that ID in their `dependsOn` field:
+# remove a dependency
+tiki exec 'update where id = "TIKI-X7F4K2" set dependsOn=dependsOn - ["TIKI-ABC123"]'
 ```
-grep -l "TIKI-ABC123" .doc/tiki/*.md
+
+## Provenance
+
+`ruki` does not access git history. Use git commands for authorship questions:
+
+```sh
+# who created this tiki
+git log --follow --diff-filter=A -- .doc/tiki/tiki-x7f4k2.md
+
+# who last edited this tiki
+git blame .doc/tiki/tiki-x7f4k2.md
 ```
-Then read each match and check if TIKI-ABC123 appears in its `dependsOn` list.
 
-### Add dependency
+Created timestamp and author are also available via:
+```sh
+tiki exec 'select createdAt, createdBy where id = "TIKI-X7F4K2"'
+```
 
-When asked to add a dependency (e.g. "TIKI-X7F4K2 depends on TIKI-ABC123"):
-1. Verify the target tiki exists: check `.doc/tiki/tiki-abc123.md` exists
-2. Read `.doc/tiki/tiki-x7f4k2.md`
-3. Add `TIKI-ABC123` to the `dependsOn` list (create the field if missing)
-4. Do not add duplicates
-5. `git add` the modified file
+## Important
 
-### Remove dependency
-
-When asked to remove a dependency:
-1. Read the tiki file
-2. Remove the specified ID from `dependsOn`
-3. If `dependsOn` becomes empty, remove the field entirely (omitempty)
-4. `git add` the modified file
-
-### Validation
-
-- Each value must be a valid tiki ID format: `TIKI-` followed by 6 alphanumeric characters
-- Each referenced tiki must exist in `.doc/tiki/`
-- Before adding, verify the target file exists; warn if it doesn't
-- Circular dependencies: warn the user but do not block (e.g. A depends on B, B depends on A)
-
-## Due Dates
-
-Tikis can have a due date via the `due` frontmatter field.
-The value must be in `YYYY-MM-DD` format (date-only, no time component).
-
-### Set due date
-
-When asked to set a due date (e.g. "set TIKI-X7F4K2 due date to April 1st 2026"):
-1. Read `.doc/tiki/tiki-x7f4k2.md`
-2. Add or update the `due` field with value `2026-04-01`
-3. Format must be `YYYY-MM-DD` (4-digit year, 2-digit month, 2-digit day)
-4. `git add` the modified file
-
-### Remove due date
-
-When asked to remove or clear a due date:
-1. Read the tiki file
-2. Remove the `due` field entirely (omitempty)
-3. `git add` the modified file
-
-### Query by due date
-
-Users can filter tasks by due date in the TUI using `ruki` select statements:
-- `select where due = 2026-04-01` - exact match
-- `select where due < 2026-04-01` - before date
-- `select where due < now()` - overdue tasks
-- `select where due - now() < 7day` - due within 7 days
-
-### Validation
-
-- Date must be in `YYYY-MM-DD` format
-- Must be a valid calendar date (no Feb 30, etc.)
-- Date-only (no time component)
-
-## Recurrence
-
-Tikis can have a recurrence pattern via the `recurrence` frontmatter field.
-The value must be a supported cron pattern. Displayed as English in the TUI (e.g. "Weekly on Monday").
-This is metadata-only — it does not auto-create tasks on completion.
-
-### Set recurrence
-
-When asked to set a recurrence (e.g. "set TIKI-X7F4K2 to recur weekly on Monday"):
-1. Read `.doc/tiki/tiki-x7f4k2.md`
-2. Add or update the `recurrence` field with value `0 0 * * MON`
-3. `git add` the modified file
-
-Supported patterns:
-- `0 0 * * *` — Daily
-- `0 0 * * MON` — Weekly on Monday (through SUN for other days)
-- `0 0 1 * *` — Monthly
-
-### Remove recurrence
-
-When asked to remove or clear a recurrence:
-1. Read the tiki file
-2. Remove the `recurrence` field entirely (omitempty)
-3. `git add` the modified file
-
-### Validation
-
-- Must be one of the supported cron patterns listed above
-- Empty/omitted means no recurrence
+- `tiki exec` handles `git add` and `git rm` automatically — never do manual git staging for tikis
+- Never commit without user permission
+- Exit codes: 0 = ok, 2 = usage error, 3 = startup failure, 4 = query error
