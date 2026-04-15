@@ -817,6 +817,7 @@ func TestTaskController_GetCurrentTask(t *testing.T) {
 	current := tc.GetCurrentTask()
 	if current == nil {
 		t.Fatal("GetCurrentTask returned nil")
+		return
 	}
 
 	if current.ID != original.ID {

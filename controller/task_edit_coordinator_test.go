@@ -141,6 +141,7 @@ func TestTaskEditCoordinator_Commit_SavesTags(t *testing.T) {
 	saved := taskStore.GetTask(draft.ID)
 	if saved == nil {
 		t.Fatal("task not found in store after commit")
+		return
 	}
 	if len(saved.Tags) != 2 || saved.Tags[0] != "api" || saved.Tags[1] != "backend" {
 		t.Errorf("saved tags = %v, want [api backend]", saved.Tags)
