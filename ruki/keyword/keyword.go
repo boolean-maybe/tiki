@@ -6,7 +6,7 @@ import "strings"
 var reserved = [...]string{
 	"select", "create", "update", "delete",
 	"where", "set", "order", "by",
-	"asc", "desc",
+	"asc", "desc", "limit",
 	"before", "after", "deny", "run",
 	"every", "clipboard",
 	"and", "or", "not",

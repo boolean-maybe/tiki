@@ -23,7 +23,14 @@ type selectGrammar struct {
 	Fields  *fieldNamesGrammar `parser:"           | @@ )?"`
 	Where   *orCond            `parser:"( 'where' @@ )?"`
 	OrderBy *orderByGrammar    `parser:"@@?"`
+	Limit   *limitGrammar      `parser:"@@?"`
 	Pipe    *pipeTargetGrammar `parser:"( Pipe @@ )?"`
+}
+
+// --- limit grammar ---
+
+type limitGrammar struct {
+	Value int `parser:"'limit' @Int"`
 }
 
 // --- order by grammar ---

@@ -19,6 +19,8 @@ func TestIsReserved(t *testing.T) {
 		{"new", true},
 		{"clipboard", true},
 		{"CLIPBOARD", true},
+		{"limit", true},
+		{"LIMIT", true},
 		{"title", false},
 		{"priority", false},
 		{"foobar", false},

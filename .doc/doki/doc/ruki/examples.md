@@ -45,6 +45,14 @@ select where status = "done" order by updatedAt desc
 select where "bug" in tags order by priority asc, createdAt desc
 ```
 
+Select with limit:
+
+```sql
+select order by priority limit 3
+select where "bug" in tags order by priority limit 5
+select id, title order by priority limit 2 | clipboard()
+```
+
 Create a tiki:
 
 ```sql

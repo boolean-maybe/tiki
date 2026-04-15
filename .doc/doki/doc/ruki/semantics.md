@@ -31,6 +31,12 @@ This page explains how `ruki` statements, triggers, conditions, and expressions 
 - Duplicate fields are rejected.
 - Only bare field names are allowed — `old.` and `new.` qualifiers are not valid in `order by`.
 
+`limit`
+
+- Must be a positive integer.
+- Applied after filtering and sorting, before any pipe action.
+- If the limit exceeds the result count, all results are returned (no error).
+
 `create`
 
 - `create` is a list of assignments.
@@ -172,8 +178,8 @@ For the detailed type rules and built-ins, see [Types And Values](types-and-valu
 `select` statements may include an optional pipe suffix:
 
 ```text
-select <fields> where <condition> | run(<command>)
-select <fields> where <condition> | clipboard()
+select <fields> where <condition> [order by ...] [limit N] | run(<command>)
+select <fields> where <condition> [order by ...] [limit N] | clipboard()
 ```
 
 ### `| run(...)` — shell execution

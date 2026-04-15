@@ -48,7 +48,7 @@ The following EBNF-style summary shows the grammar:
 ```text
 statement        = selectStmt | createStmt | updateStmt | deleteStmt ;
 
-selectStmt       = "select" [ fieldList | "*" ] [ "where" condition ] [ orderBy ] [ pipeAction ] ;
+selectStmt       = "select" [ fieldList | "*" ] [ "where" condition ] [ orderBy ] [ "limit" int ] [ pipeAction ] ;
 fieldList        = identifier { "," identifier } ;
 pipeAction       = "|" ( runAction | clipboardAction ) ;
 clipboardAction  = "clipboard" "(" ")" ;
@@ -83,7 +83,8 @@ Notes:
 - `update` requires both `where` and `set`.
 - `delete` requires `where`.
 - `order by` is only valid on `select`, not on subqueries inside `count(...)`.
-- `asc`, `desc`, `order`, and `by` are contextual keywords — they are only special in the ORDER BY clause.
+- `limit` truncates the result set to at most N rows, applied after filtering and sorting but before any pipe action.
+- `asc`, `desc`, `order`, `by`, and `limit` are contextual keywords — they are only special in the SELECT clause.
 - Bare `select` and `select *` both mean all fields. A field list like `select title, status` projects only the named fields.
 - `every` wraps a CRUD statement with a periodic interval. Only `create`, `update`, and `delete` are allowed
 
@@ -143,6 +144,14 @@ Order by:
 select order by priority
 select where status = "done" order by updatedAt desc
 select where "bug" in tags order by priority asc, createdAt desc
+```
+
+Limit:
+
+```sql
+select order by priority limit 3
+select where status != "done" order by priority limit 5
+select limit 1
 ```
 
 ## Expression grammar

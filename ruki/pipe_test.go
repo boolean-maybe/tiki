@@ -526,6 +526,37 @@ func TestExecuteClipboardMultipleRows(t *testing.T) {
 	}
 }
 
+// --- limit + pipe ---
+
+func TestExecuteClipboardWithLimit(t *testing.T) {
+	e := NewExecutor(testSchema{}, nil, ExecutorRuntime{Mode: ExecutorRuntimeCLI})
+	p := newTestParser()
+	tasks := makeTasks()
+
+	stmt, err := p.ParseStatement(`select id, priority order by priority limit 2 | clipboard()`)
+	if err != nil {
+		t.Fatalf("parse: %v", err)
+	}
+
+	result, err := e.Execute(stmt, tasks)
+	if err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	if result.Clipboard == nil {
+		t.Fatal("expected Clipboard result")
+	}
+	if len(result.Clipboard.Rows) != 2 {
+		t.Fatalf("expected 2 rows, got %d", len(result.Clipboard.Rows))
+	}
+	// sorted by priority asc: TIKI-000002 (pri 1), TIKI-000001 (pri 2)
+	if result.Clipboard.Rows[0][0] != "TIKI-000002" {
+		t.Errorf("row[0][0] = %q, want %q", result.Clipboard.Rows[0][0], "TIKI-000002")
+	}
+	if result.Clipboard.Rows[1][0] != "TIKI-000001" {
+		t.Errorf("row[1][0] = %q, want %q", result.Clipboard.Rows[1][0], "TIKI-000001")
+	}
+}
+
 // --- pipeArgString ---
 
 func TestPipeArgString(t *testing.T) {

@@ -299,6 +299,72 @@ func TestExecuteSelectNoOrderByPreservesInputOrder(t *testing.T) {
 	}
 }
 
+// --- limit ---
+
+func TestExecuteSelectLimit(t *testing.T) {
+	e := newTestExecutor()
+	p := newTestParser()
+	tasks := makeTasks()
+
+	tests := []struct {
+		name    string
+		input   string
+		wantIDs []string
+	}{
+		{
+			"limit fewer than available",
+			"select order by priority limit 2",
+			[]string{"TIKI-000002", "TIKI-000001"},
+		},
+		{
+			"limit equal to count",
+			"select limit 4",
+			[]string{"TIKI-000001", "TIKI-000002", "TIKI-000003", "TIKI-000004"},
+		},
+		{
+			"limit greater than count",
+			"select limit 100",
+			[]string{"TIKI-000001", "TIKI-000002", "TIKI-000003", "TIKI-000004"},
+		},
+		{
+			"limit 1",
+			"select order by priority limit 1",
+			[]string{"TIKI-000002"},
+		},
+		{
+			"limit with where",
+			"select where priority <= 2 order by priority limit 1",
+			[]string{"TIKI-000002"},
+		},
+		{
+			"limit without order by",
+			"select limit 2",
+			[]string{"TIKI-000001", "TIKI-000002"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			stmt, err := p.ParseStatement(tt.input)
+			if err != nil {
+				t.Fatalf("parse: %v", err)
+			}
+			result, err := e.Execute(stmt, tasks)
+			if err != nil {
+				t.Fatalf("execute: %v", err)
+			}
+			if len(result.Select.Tasks) != len(tt.wantIDs) {
+				t.Fatalf("expected %d tasks, got %d", len(tt.wantIDs), len(result.Select.Tasks))
+			}
+			for i, wantID := range tt.wantIDs {
+				if result.Select.Tasks[i].ID != wantID {
+					t.Errorf("task[%d].ID = %q, want %q", i, result.Select.Tasks[i].ID, wantID)
+				}
+			}
+		})
+	}
+}
+
 // --- enum normalization ---
 
 func TestExecuteEnumNormalization(t *testing.T) {

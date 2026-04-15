@@ -2495,6 +2495,17 @@ func TestValidation_BlocksNonLiteralString(t *testing.T) {
 	}
 }
 
+func TestValidation_LimitZero(t *testing.T) {
+	p := newTestParser()
+	_, err := p.ParseStatement("select limit 0")
+	if err == nil {
+		t.Fatal("expected error for limit 0")
+	}
+	if !strings.Contains(err.Error(), "limit must be a positive integer, got 0") {
+		t.Fatalf("expected limit validation error, got: %v", err)
+	}
+}
+
 func TestValidation_InExprListElementTypeError(t *testing.T) {
 	p := newTestParser()
 	// construct a case where inferListElementType fails:

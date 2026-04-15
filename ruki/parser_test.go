@@ -834,6 +834,28 @@ func TestParseSelectFieldsErrors(t *testing.T) {
 	}
 }
 
+func TestParseLimitErrors(t *testing.T) {
+	p := newTestParser()
+
+	tests := []struct {
+		name  string
+		input string
+	}{
+		{"limit without value", "select limit"},
+		{"limit with string", `select limit "three"`},
+		{"limit with negative", "select limit -1"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			_, err := p.ParseStatement(tt.input)
+			if err == nil {
+				t.Fatalf("expected parse error for %q, got nil", tt.input)
+			}
+		})
+	}
+}
+
 func TestParseComment(t *testing.T) {
 	p := newTestParser()
 
