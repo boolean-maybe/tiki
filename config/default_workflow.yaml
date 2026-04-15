@@ -25,6 +25,12 @@ views:
     - key: "a"
       label: "Assign to me"
       action: update where id = id() set assignee=user()
+    - key: "y"
+      label: "Copy ID"
+      action: select id where id = id() | clipboard()
+    - key: "Y"
+      label: "Copy content"
+      action: select title, description where id = id() | clipboard()
   plugins:
     - name: Kanban
       description: "Move tiki to new status, search, create or delete"
@@ -129,3 +135,9 @@ triggers:
       before delete
         where old.status = "inProgress"
         deny "cannot delete an in-progress task — move to backlog or done first"
+  - description: spawn next occurrence when recurring task completes
+    ruki: >
+      after update
+        where new.status = "done" and old.recurrence is not empty
+        create title=old.title priority=old.priority tags=old.tags
+               recurrence=old.recurrence due=next_date(old.recurrence) status="backlog"

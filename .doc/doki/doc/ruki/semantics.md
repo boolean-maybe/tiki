@@ -173,7 +173,10 @@ For the detailed type rules and built-ins, see [Types And Values](types-and-valu
 
 ```text
 select <fields> where <condition> | run(<command>)
+select <fields> where <condition> | clipboard()
 ```
+
+### `| run(...)` — shell execution
 
 Evaluation model:
 
@@ -202,4 +205,31 @@ myscript "TIKI-ABC123" "Fix bug"
 ```
 
 Pipe `| run(...)` on select is distinct from trigger `run()` actions. See [Triggers](triggers.md) for the difference.
+
+### `| clipboard()` — copy to clipboard
+
+Evaluation model:
+
+- The `select` runs first, producing zero or more rows.
+- The selected field values are written to the system clipboard.
+- Fields within a row are **tab-separated**; rows are **newline-separated**.
+- Uses `atotto/clipboard` internally — works on macOS, Linux (requires `xclip` or `xsel`), and Windows.
+
+Rules:
+
+- Explicit field names are required — same restriction as `| run(...)`.
+- `clipboard()` takes no arguments — the grammar enforces empty parentheses.
+
+Examples:
+
+```sql
+select id where id = id() | clipboard()
+select id, title where status = "done" | clipboard()
+```
+
+For a single task with `id = "TIKI-ABC123"` and `title = "Fix bug"`, the clipboard receives:
+
+```text
+TIKI-ABC123	Fix bug
+```
 

@@ -34,11 +34,18 @@ func NewExecutor(schema Schema, userFunc func() string, runtime ExecutorRuntime)
 // Result holds the output of executing a statement.
 // Exactly one variant is non-nil.
 type Result struct {
-	Select *TaskProjection
-	Update *UpdateResult
-	Create *CreateResult
-	Delete *DeleteResult
-	Pipe   *PipeResult
+	Select    *TaskProjection
+	Update    *UpdateResult
+	Create    *CreateResult
+	Delete    *DeleteResult
+	Pipe      *PipeResult
+	Clipboard *ClipboardResult
+}
+
+// ClipboardResult holds the row data from a clipboard-piped select.
+// The service layer writes these to the system clipboard.
+type ClipboardResult struct {
+	Rows [][]string
 }
 
 // PipeResult holds the shell command and per-row positional args from a piped select.
@@ -147,7 +154,12 @@ func (e *Executor) executeSelect(sel *SelectStmt, tasks []*task.Task) (*Result, 
 	}
 
 	if sel.Pipe != nil {
-		return e.buildPipeResult(sel.Pipe, sel.Fields, filtered, tasks)
+		switch {
+		case sel.Pipe.Run != nil:
+			return e.buildPipeResult(sel.Pipe.Run, sel.Fields, filtered, tasks)
+		case sel.Pipe.Clipboard != nil:
+			return e.buildClipboardResult(sel.Fields, filtered)
+		}
 	}
 
 	return &Result{
@@ -169,6 +181,18 @@ func (e *Executor) buildPipeResult(pipe *RunAction, fields []string, matched []*
 		return nil, fmt.Errorf("pipe command must evaluate to string, got %T", cmdVal)
 	}
 
+	rows := buildFieldRows(fields, matched)
+	return &Result{Pipe: &PipeResult{Command: cmdStr, Rows: rows}}, nil
+}
+
+func (e *Executor) buildClipboardResult(fields []string, matched []*task.Task) (*Result, error) {
+	rows := buildFieldRows(fields, matched)
+	return &Result{Clipboard: &ClipboardResult{Rows: rows}}, nil
+}
+
+// buildFieldRows extracts the requested fields from matched tasks as string rows.
+// Shared by both run() and clipboard() pipe targets.
+func buildFieldRows(fields []string, matched []*task.Task) [][]string {
 	rows := make([][]string, len(matched))
 	for i, t := range matched {
 		row := make([]string, len(fields))
@@ -177,8 +201,7 @@ func (e *Executor) buildPipeResult(pipe *RunAction, fields []string, matched []*
 		}
 		rows[i] = row
 	}
-
-	return &Result{Pipe: &PipeResult{Command: cmdStr, Rows: rows}}, nil
+	return rows
 }
 
 // pipeArgString space-joins list fields (tags, dependsOn) instead of using Go's

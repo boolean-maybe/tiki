@@ -23,7 +23,7 @@ type selectGrammar struct {
 	Fields  *fieldNamesGrammar `parser:"           | @@ )?"`
 	Where   *orCond            `parser:"( 'where' @@ )?"`
 	OrderBy *orderByGrammar    `parser:"@@?"`
-	Pipe    *runGrammar        `parser:"( Pipe @@ )?"`
+	Pipe    *pipeTargetGrammar `parser:"( Pipe @@ )?"`
 }
 
 // --- order by grammar ---
@@ -73,8 +73,17 @@ type actionGrammar struct {
 	Delete *deleteGrammar `parser:"| @@"`
 }
 
+type pipeTargetGrammar struct {
+	Run       *runGrammar       `parser:"  @@"`
+	Clipboard *clipboardGrammar `parser:"| @@"`
+}
+
 type runGrammar struct {
 	Command exprGrammar `parser:"'run' '(' @@ ')'"`
+}
+
+type clipboardGrammar struct {
+	Keyword string `parser:"@'clipboard' '(' ')'"`
 }
 
 type denyGrammar struct {

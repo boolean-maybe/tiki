@@ -112,8 +112,11 @@ func TestLowerPipeProducesSelectAndPipe(t *testing.T) {
 	if stmt.Select.Pipe == nil {
 		t.Fatal("expected Select.Pipe non-nil")
 	}
-	if stmt.Select.Pipe.Command == nil {
-		t.Fatal("expected Select.Pipe.Command non-nil")
+	if stmt.Select.Pipe.Run == nil {
+		t.Fatal("expected Select.Pipe.Run non-nil")
+	}
+	if stmt.Select.Pipe.Run.Command == nil {
+		t.Fatal("expected Select.Pipe.Run.Command non-nil")
 	}
 }
 
@@ -339,6 +342,178 @@ func TestExecutePipeListFieldSpaceJoined(t *testing.T) {
 	row := result.Pipe.Rows[0]
 	if row[1] != "a b c" {
 		t.Errorf("tags field = %q, want %q", row[1], "a b c")
+	}
+}
+
+// --- clipboard pipe: parser ---
+
+func TestParseClipboardPipe(t *testing.T) {
+	p := newTestParser()
+
+	tests := []struct {
+		name  string
+		input string
+	}{
+		{"basic clipboard", `select id where id = id() | clipboard()`},
+		{"multi-field clipboard", `select id, title where status = "done" | clipboard()`},
+		{"clipboard without where", `select id | clipboard()`},
+		{"clipboard with order by", `select id, priority order by priority | clipboard()`},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			stmt, err := p.ParseAndValidateStatement(tt.input, ExecutorRuntimePlugin)
+			if err != nil {
+				t.Fatalf("parse error: %v", err)
+			}
+			if !stmt.IsPipe() {
+				t.Fatal("expected IsPipe() true")
+			}
+			if !stmt.IsClipboardPipe() {
+				t.Fatal("expected IsClipboardPipe() true")
+			}
+		})
+	}
+}
+
+// --- clipboard pipe: lowering ---
+
+func TestLowerClipboardPipe(t *testing.T) {
+	p := newTestParser()
+	stmt, err := p.ParseStatement(`select id | clipboard()`)
+	if err != nil {
+		t.Fatalf("parse error: %v", err)
+	}
+	if stmt.Select.Pipe == nil {
+		t.Fatal("expected Select.Pipe non-nil")
+	}
+	if stmt.Select.Pipe.Clipboard == nil {
+		t.Fatal("expected Select.Pipe.Clipboard non-nil")
+	}
+	if stmt.Select.Pipe.Run != nil {
+		t.Fatal("expected Select.Pipe.Run nil for clipboard pipe")
+	}
+}
+
+// --- clipboard pipe: validation ---
+
+func TestClipboardPipeRejectSelectStar(t *testing.T) {
+	p := newTestParser()
+	_, err := p.ParseStatement(`select * | clipboard()`)
+	if err == nil {
+		t.Fatal("expected error for select * with clipboard pipe")
+	}
+	if !strings.Contains(err.Error(), "explicit field names") {
+		t.Errorf("expected 'explicit field names' error, got: %v", err)
+	}
+}
+
+func TestClipboardPipeRejectBareSelect(t *testing.T) {
+	p := newTestParser()
+	_, err := p.ParseStatement(`select | clipboard()`)
+	if err == nil {
+		t.Fatal("expected error for bare select with clipboard pipe")
+	}
+	if !strings.Contains(err.Error(), "explicit field names") {
+		t.Errorf("expected 'explicit field names' error, got: %v", err)
+	}
+}
+
+// --- clipboard pipe: semantic ---
+
+func TestIsClipboardPipeMethod(t *testing.T) {
+	p := newTestParser()
+
+	clipStmt, err := p.ParseAndValidateStatement(`select id where id = id() | clipboard()`, ExecutorRuntimePlugin)
+	if err != nil {
+		t.Fatalf("parse error: %v", err)
+	}
+	if !clipStmt.IsPipe() {
+		t.Error("expected IsPipe() = true")
+	}
+	if !clipStmt.IsClipboardPipe() {
+		t.Error("expected IsClipboardPipe() = true")
+	}
+
+	runStmt, err := p.ParseAndValidateStatement(`select id where id = id() | run("echo $1")`, ExecutorRuntimePlugin)
+	if err != nil {
+		t.Fatalf("parse error: %v", err)
+	}
+	if !runStmt.IsPipe() {
+		t.Error("expected IsPipe() = true for run pipe")
+	}
+	if runStmt.IsClipboardPipe() {
+		t.Error("expected IsClipboardPipe() = false for run pipe")
+	}
+
+	plainStmt, err := p.ParseAndValidateStatement(`select where status = "done"`, ExecutorRuntimeCLI)
+	if err != nil {
+		t.Fatalf("parse error: %v", err)
+	}
+	if plainStmt.IsClipboardPipe() {
+		t.Error("expected IsClipboardPipe() = false for plain select")
+	}
+}
+
+// --- clipboard pipe: executor ---
+
+func TestExecuteClipboardPipeReturnsResult(t *testing.T) {
+	e := NewExecutor(testSchema{}, nil, ExecutorRuntime{Mode: ExecutorRuntimePlugin})
+	p := newTestParser()
+	tasks := makeTasks()
+
+	stmt, err := p.ParseStatement(`select id, title where status = "done" | clipboard()`)
+	if err != nil {
+		t.Fatalf("parse: %v", err)
+	}
+
+	result, err := e.Execute(stmt, tasks, ExecutionInput{SelectedTaskID: "TIKI-000003"})
+	if err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	if result.Clipboard == nil {
+		t.Fatal("expected Clipboard result")
+	}
+	if result.Pipe != nil {
+		t.Fatal("expected Pipe to be nil when clipboard is present")
+	}
+	if result.Select != nil {
+		t.Fatal("expected Select to be nil when clipboard is present")
+	}
+	if len(result.Clipboard.Rows) != 1 {
+		t.Fatalf("expected 1 row (status=done), got %d", len(result.Clipboard.Rows))
+	}
+	row := result.Clipboard.Rows[0]
+	if len(row) != 2 {
+		t.Fatalf("expected 2 fields, got %d", len(row))
+	}
+	if row[0] != "TIKI-000003" {
+		t.Errorf("row[0] (id) = %q, want %q", row[0], "TIKI-000003")
+	}
+	if row[1] != "Write docs" {
+		t.Errorf("row[1] (title) = %q, want %q", row[1], "Write docs")
+	}
+}
+
+func TestExecuteClipboardMultipleRows(t *testing.T) {
+	e := NewExecutor(testSchema{}, nil, ExecutorRuntime{Mode: ExecutorRuntimeCLI})
+	p := newTestParser()
+	tasks := makeTasks()
+
+	stmt, err := p.ParseStatement(`select id, title | clipboard()`)
+	if err != nil {
+		t.Fatalf("parse: %v", err)
+	}
+
+	result, err := e.Execute(stmt, tasks)
+	if err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	if result.Clipboard == nil {
+		t.Fatal("expected Clipboard result")
+	}
+	if len(result.Clipboard.Rows) != len(tasks) {
+		t.Fatalf("expected %d rows, got %d", len(tasks), len(result.Clipboard.Rows))
 	}
 }
 

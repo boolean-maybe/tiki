@@ -246,7 +246,7 @@ after update where new.status = "in progress" run("echo hello")
 
 ## Shell-related forms
 
-`ruki` includes three shell-related forms:
+`ruki` includes four shell-related forms:
 
 **`call(...)`** — a string-returning expression
 
@@ -267,11 +267,20 @@ after update where new.status = "in progress" run("echo hello")
 - `|` is a statement suffix, not an operator
 - Example: `select id, title where status = "done" | run("myscript $1 $2")`
 
-Pipe `| run(...)` is distinct from trigger `run()`:
+**`| clipboard()` on select** — a pipe suffix
 
-| Form | Context | Field access | Substitution |
+- Copies selected field values to the system clipboard
+- Fields within a row are tab-separated; rows are newline-separated
+- Takes no arguments — grammar enforces empty parentheses
+- Cross-platform via `atotto/clipboard` (macOS, Linux, Windows)
+- Example: `select id where id = id() | clipboard()`
+
+Comparison of pipe targets and trigger actions:
+
+| Form | Context | Field access | Behavior |
 |---|---|---|---|
-| trigger `run()` | after-trigger action | `old.`, `new.` allowed | expression evaluation |
-| pipe `| run()` | select suffix | field refs disallowed in command | positional args `$1`, `$2` |
+| trigger `run()` | after-trigger action | `old.`, `new.` allowed | shell execution via expression evaluation |
+| pipe `\| run()` | select suffix | field refs disallowed in command | shell execution with positional args `$1`, `$2` |
+| pipe `\| clipboard()` | select suffix | n/a (no arguments) | writes rows to system clipboard |
 
 See [Semantics](semantics.md#pipe-actions-on-select) for pipe evaluation model.

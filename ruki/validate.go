@@ -74,16 +74,19 @@ func (p *Parser) validateStatement(s *Statement) error {
 			if len(s.Select.Fields) == 0 {
 				return fmt.Errorf("pipe requires explicit field names in select (not select * or bare select)")
 			}
-			typ, err := p.inferExprType(s.Select.Pipe.Command)
-			if err != nil {
-				return fmt.Errorf("pipe command: %w", err)
+			if s.Select.Pipe.Run != nil {
+				typ, err := p.inferExprType(s.Select.Pipe.Run.Command)
+				if err != nil {
+					return fmt.Errorf("pipe command: %w", err)
+				}
+				if typ != ValueString {
+					return fmt.Errorf("pipe command must be string, got %s", typeName(typ))
+				}
+				if exprContainsFieldRef(s.Select.Pipe.Run.Command) {
+					return fmt.Errorf("pipe command must not contain field references — use $1, $2 for positional args")
+				}
 			}
-			if typ != ValueString {
-				return fmt.Errorf("pipe command must be string, got %s", typeName(typ))
-			}
-			if exprContainsFieldRef(s.Select.Pipe.Command) {
-				return fmt.Errorf("pipe command must not contain field references — use $1, $2 for positional args")
-			}
+			// clipboard() has no arguments — grammar enforces empty parens
 		}
 		return nil
 	default:

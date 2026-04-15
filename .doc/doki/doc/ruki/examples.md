@@ -136,11 +136,12 @@ Use `call(...)` in a value:
 create title=call("echo hi")
 ```
 
-Pipe select results to a shell command:
+Pipe select results to a shell command or clipboard:
 
 ```sql
-select id where id = id() | run("echo $1 | pbcopy")
 select id, title where status = "done" | run("myscript $1 $2")
+select id where id = id() | clipboard()
+select description where id = id() | clipboard()
 ```
 
 ## Before triggers

@@ -18,11 +18,11 @@ func lowerStatement(g *statementGrammar) (*Statement, error) {
 			return nil, err
 		}
 		if g.Select.Pipe != nil {
-			cmd, err := lowerExpr(&g.Select.Pipe.Command)
+			pipe, err := lowerPipeTarget(g.Select.Pipe)
 			if err != nil {
 				return nil, err
 			}
-			s.Pipe = &RunAction{Command: cmd}
+			s.Pipe = pipe
 		}
 		return &Statement{Select: s}, nil
 	case g.Create != nil:
@@ -66,6 +66,21 @@ func lowerSelect(g *selectGrammar) (*SelectStmt, error) {
 	}
 	orderBy := lowerOrderBy(g.OrderBy)
 	return &SelectStmt{Fields: fields, Where: where, OrderBy: orderBy}, nil
+}
+
+func lowerPipeTarget(g *pipeTargetGrammar) (*PipeAction, error) {
+	switch {
+	case g.Run != nil:
+		cmd, err := lowerExpr(&g.Run.Command)
+		if err != nil {
+			return nil, err
+		}
+		return &PipeAction{Run: &RunAction{Command: cmd}}, nil
+	case g.Clipboard != nil:
+		return &PipeAction{Clipboard: &ClipboardAction{}}, nil
+	default:
+		return nil, fmt.Errorf("empty pipe target")
+	}
 }
 
 func lowerCreate(g *createGrammar) (*CreateStmt, error) {

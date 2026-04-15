@@ -13,13 +13,23 @@ type Statement struct {
 	Delete *DeleteStmt
 }
 
-// SelectStmt represents "select [fields] [where <condition>] [order by <field> [asc|desc], ...] [| run(...)]".
+// SelectStmt represents "select [fields] [where <condition>] [order by <field> [asc|desc], ...] [| run(...) | clipboard()]".
 type SelectStmt struct {
 	Fields  []string        // nil = all ("select" or "select *"); non-nil = specific fields
 	Where   Condition       // nil = select all
 	OrderBy []OrderByClause // nil = unordered
-	Pipe    *RunAction      // optional pipe suffix: "| run(...)"
+	Pipe    *PipeAction     // optional pipe suffix: "| run(...)" or "| clipboard()"
 }
+
+// PipeAction is a discriminated union for pipe targets.
+// Exactly one variant is non-nil.
+type PipeAction struct {
+	Run       *RunAction
+	Clipboard *ClipboardAction
+}
+
+// ClipboardAction represents "clipboard()" as a pipe target.
+type ClipboardAction struct{}
 
 // CreateStmt represents "create <field>=<value>...".
 type CreateStmt struct {

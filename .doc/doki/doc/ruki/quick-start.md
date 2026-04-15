@@ -63,13 +63,14 @@ delete where id = "TIKI-ABC123"
 delete where status = "cancelled" and "old" in tags
 ```
 
-`select` may pipe results to a shell command:
+`select` may pipe results to a shell command or to the clipboard:
 
 ```sql
 select id, title where status = "done" | run("myscript $1 $2")
+select id where id = id() | clipboard()
 ```
 
-Each row executes the command with field values as positional arguments (`$1`, `$2`).
+`| run(...)` executes the command for each row with field values as positional arguments (`$1`, `$2`). `| clipboard()` copies the selected fields to the system clipboard.
 
 ## Conditions and expressions
 

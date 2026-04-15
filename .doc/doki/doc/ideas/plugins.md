@@ -3,7 +3,7 @@
 - [Assign to me](#assign-to-me--plugin-action)
 - [Add tag to task](#add-tag-to-task--plugin-action)
 - [Custom status + reject action](#custom-status--reject-action)
-- [Implement with Claude](#implement-with-claude--pipe-action)
+- [Implement with Claude Code](#implement-with-claude-code--pipe-action)
 - [Search all tikis](#search-all-tikis--single-lane-plugin)
 - [Quick assign](#quick-assign--lane-based-assignment)
 - [Stale task detection](#stale-task-detection--time-trigger--plugin)

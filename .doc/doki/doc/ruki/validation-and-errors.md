@@ -218,21 +218,23 @@ select where count(select where status = "done" order by priority) >= 1
 
 ## Pipe validation errors
 
-Pipe actions on `select` have several restrictions:
+Pipe actions (`| run(...)` and `| clipboard()`) on `select` have several restrictions:
 
 `select *` with pipe:
 
 ```sql
 select * where status = "done" | run("echo $1")
+select * where status = "done" | clipboard()
 ```
 
 Bare `select` with pipe:
 
 ```sql
 select | run("echo $1")
+select | clipboard()
 ```
 
-Both are rejected because explicit field names are required when using a pipe.
+Both are rejected because explicit field names are required when using a pipe. This applies to both `run()` and `clipboard()` targets.
 
 Non-string command:
 

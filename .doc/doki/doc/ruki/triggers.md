@@ -248,7 +248,7 @@ The maximum cascade depth is **8**. Termination is graceful — a warning is log
 
 ## The run() action
 
-**Note:** This section describes trigger `run()` actions. For the pipe syntax `| run(...)` on select statements, see [Semantics](semantics.md#pipe-actions-on-select) and [Operators And Built-ins](operators-and-builtins.md#shell-related-forms).
+**Note:** This section describes trigger `run()` actions. For the pipe syntax `| run(...)` and `| clipboard()` on select statements, see [Semantics](semantics.md#pipe-actions-on-select) and [Operators And Built-ins](operators-and-builtins.md#shell-related-forms). Both `run()` and `clipboard()` are pipe-only targets — they cannot appear as trigger actions.
 
 When an after-trigger uses `run(...)`, the command expression is evaluated to a string, then executed:
 

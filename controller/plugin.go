@@ -231,6 +231,17 @@ func (pc *PluginController) handlePluginAction(r rune) bool {
 				// non-fatal: continue remaining rows
 			}
 		}
+	case result.Clipboard != nil:
+		if err := service.ExecuteClipboardPipe(result.Clipboard.Rows); err != nil {
+			slog.Error("clipboard pipe failed", "key", string(r), "error", err)
+			if pc.statusline != nil {
+				pc.statusline.SetMessage(err.Error(), model.MessageLevelError, true)
+			}
+			return false
+		}
+		if pc.statusline != nil {
+			pc.statusline.SetMessage("copied to clipboard", model.MessageLevelInfo, true)
+		}
 	}
 
 	slog.Info("plugin action applied", "task_id", taskID, "key", string(r), "label", pa.Label, "plugin", pc.pluginDef.Name)

@@ -49,6 +49,9 @@ func (v *ValidatedStatement) IsDelete() bool {
 func (v *ValidatedStatement) IsPipe() bool {
 	return v != nil && v.statement != nil && v.statement.Select != nil && v.statement.Select.Pipe != nil
 }
+func (v *ValidatedStatement) IsClipboardPipe() bool {
+	return v.IsPipe() && v.statement.Select.Pipe.Clipboard != nil
+}
 
 func (v *ValidatedStatement) mustBeSealed() error {
 	if v == nil || v.seal != validatedSeal || v.statement == nil {
@@ -391,8 +394,8 @@ func scanSelectSemantics(sel *SelectStmt) (usesID bool, hasCall bool, err error)
 	if err != nil {
 		return false, false, err
 	}
-	if sel.Pipe != nil {
-		u2, c2, err := scanExprSemantics(sel.Pipe.Command)
+	if sel.Pipe != nil && sel.Pipe.Run != nil {
+		u2, c2, err := scanExprSemantics(sel.Pipe.Run.Command)
 		if err != nil {
 			return false, false, err
 		}
@@ -586,7 +589,13 @@ func cloneSelect(sel *SelectStmt) *SelectStmt {
 		OrderBy: orderBy,
 	}
 	if sel.Pipe != nil {
-		out.Pipe = &RunAction{Command: cloneExpr(sel.Pipe.Command)}
+		out.Pipe = &PipeAction{}
+		if sel.Pipe.Run != nil {
+			out.Pipe.Run = &RunAction{Command: cloneExpr(sel.Pipe.Run.Command)}
+		}
+		if sel.Pipe.Clipboard != nil {
+			out.Pipe.Clipboard = &ClipboardAction{}
+		}
 	}
 	return out
 }

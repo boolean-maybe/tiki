@@ -50,7 +50,8 @@ statement        = selectStmt | createStmt | updateStmt | deleteStmt ;
 
 selectStmt       = "select" [ fieldList | "*" ] [ "where" condition ] [ orderBy ] [ pipeAction ] ;
 fieldList        = identifier { "," identifier } ;
-pipeAction       = "|" runAction ;
+pipeAction       = "|" ( runAction | clipboardAction ) ;
+clipboardAction  = "clipboard" "(" ")" ;
 createStmt       = "create" assignment { assignment } ;
 
 orderBy          = "order" "by" sortField { "," sortField } ;
