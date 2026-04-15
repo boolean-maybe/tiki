@@ -83,6 +83,7 @@ func TestNavigationState_CurrentView(t *testing.T) {
 	entry = nav.currentView()
 	if entry == nil {
 		t.Fatal("currentView() returned nil")
+		return
 	}
 	if entry.ViewID != model.TaskEditViewID {
 		t.Errorf("ViewID = %v, want %v", entry.ViewID, model.TaskEditViewID)
@@ -141,6 +142,7 @@ func TestNavigationState_PreviousView(t *testing.T) {
 	entry = nav.previousView()
 	if entry == nil {
 		t.Fatal("previousView() returned nil, want ViewEntry")
+		return
 	}
 	if entry.ViewID != model.TaskDetailViewID {
 		t.Errorf("previousView() ViewID = %v, want %v", entry.ViewID, model.TaskDetailViewID)
@@ -151,6 +153,7 @@ func TestNavigationState_PreviousView(t *testing.T) {
 	entry = nav.previousView()
 	if entry == nil {
 		t.Fatal("previousView() returned nil")
+		return
 	}
 	if entry.ViewID != model.TaskDetailViewID {
 		t.Errorf("previousView() ViewID = %v, want %v", entry.ViewID, model.TaskDetailViewID)
