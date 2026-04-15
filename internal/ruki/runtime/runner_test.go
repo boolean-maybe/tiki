@@ -204,6 +204,7 @@ func TestRunQueryUpdatePersists(t *testing.T) {
 	updated := s.GetTask("TIKI-AAA001")
 	if updated == nil {
 		t.Fatal("task not found after update")
+		return
 	}
 	if updated.Title != "Updated API" {
 		t.Errorf("expected title 'Updated API', got %q", updated.Title)

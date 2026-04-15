@@ -240,6 +240,7 @@ func TestTriggerEngine_AfterUpdateCascade(t *testing.T) {
 	persisted := s.GetTask("TIKI-URGENT")
 	if persisted == nil {
 		t.Fatal("task not found")
+		return
 	}
 	if persisted.Assignee != "autobot" {
 		t.Fatalf("expected assignee=autobot, got %q", persisted.Assignee)
@@ -289,6 +290,7 @@ func TestTriggerEngine_AfterDeleteCleanupDeps(t *testing.T) {
 	persisted := s.GetTask("TIKI-DOWN01")
 	if persisted == nil {
 		t.Fatal("downstream task missing")
+		return
 	}
 	if len(persisted.DependsOn) != 1 || persisted.DependsOn[0] != "TIKI-OTHER1" {
 		t.Fatalf("expected dependsOn=[TIKI-OTHER1], got %v", persisted.DependsOn)
@@ -494,6 +496,7 @@ func TestTriggerEngine_AfterUpdateCreateWithNextDate(t *testing.T) {
 	}
 	if created == nil {
 		t.Fatal("trigger-created task not found")
+		return
 	}
 	if created.Title != "Daily standup" {
 		t.Fatalf("expected title 'Daily standup', got %q", created.Title)
@@ -1275,6 +1278,7 @@ func TestTriggerEngine_StartScheduler_ActionErrorContinues(t *testing.T) {
 	persisted := s.GetTask("TIKI-ERR001")
 	if persisted == nil {
 		t.Fatal("task should still exist")
+		return
 	}
 	if persisted.CreatedBy != "" {
 		t.Errorf("createdBy should be unchanged, got %q", persisted.CreatedBy)
@@ -1365,6 +1369,7 @@ func TestTriggerEngine_ExecuteTimeTrigger_PersistError(t *testing.T) {
 	persisted := s.GetTask("TIKI-PER001")
 	if persisted == nil {
 		t.Fatal("task should still exist")
+		return
 	}
 	if persisted.Status != "ready" {
 		t.Errorf("status should be unchanged, got %q", persisted.Status)

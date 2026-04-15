@@ -53,6 +53,7 @@ func TestNewTask_Enter_SavesAndCreatesFile(t *testing.T) {
 	task := findTaskByTitle(ta.TaskStore.GetAllTasks(), "My New Task")
 	if task == nil {
 		t.Fatalf("new task not found in store")
+		return
 	}
 	if task.Title != "My New Task" {
 		t.Errorf("title = %q, want %q", task.Title, "My New Task")
@@ -130,6 +131,7 @@ func TestNewTask_CtrlS_SavesAndCreatesFile(t *testing.T) {
 	task := findTaskByTitle(ta.TaskStore.GetAllTasks(), "Task Saved With CtrlS")
 	if task == nil {
 		t.Fatalf("new task not found in store")
+		return
 	}
 	if task.Title != "Task Saved With CtrlS" {
 		t.Errorf("title = %q, want %q", task.Title, "Task Saved With CtrlS")
@@ -277,6 +279,7 @@ func TestTaskEdit_EnterInPointsFieldDoesNotSave(t *testing.T) {
 	task := ta.TaskStore.GetTask(taskID)
 	if task == nil {
 		t.Fatalf("task not found")
+		return
 	}
 	if task.Title != originalTitle {
 		t.Errorf("title was saved when it shouldn't have been: got %q, want %q", task.Title, originalTitle)
@@ -320,6 +323,7 @@ func TestTaskEdit_TitleChangesSaved(t *testing.T) {
 	task := ta.TaskStore.GetTask(taskID)
 	if task == nil {
 		t.Fatalf("task not found")
+		return
 	}
 	if task.Title != "Updated Title" {
 		t.Errorf("title = %q, want %q", task.Title, "Updated Title")
@@ -371,6 +375,7 @@ func TestTaskEdit_CtrlS_FromPointsField_Saves(t *testing.T) {
 	task := ta.TaskStore.GetTask(taskID)
 	if task == nil {
 		t.Fatalf("task not found")
+		return
 	}
 	if task.Title != "Modified Title" {
 		t.Errorf("title = %q, want %q (Ctrl+S should save from any field)", task.Title, "Modified Title")
@@ -413,6 +418,7 @@ func TestTaskEdit_Escape_FromTitleField_Cancels(t *testing.T) {
 	task := ta.TaskStore.GetTask(taskID)
 	if task == nil {
 		t.Fatalf("task not found")
+		return
 	}
 	if task.Title != originalTitle {
 		t.Errorf("title = %q, want %q (Escape should cancel)", task.Title, originalTitle)
@@ -498,6 +504,7 @@ func TestTaskEdit_Escape_FromPointsField_Cancels(t *testing.T) {
 	task := ta.TaskStore.GetTask(taskID)
 	if task == nil {
 		t.Fatalf("task not found")
+		return
 	}
 	if task.Title != originalTitle {
 		t.Errorf("title = %q, want %q (Escape should cancel from any field)", task.Title, originalTitle)
@@ -560,6 +567,7 @@ func TestTaskEdit_Tab_NavigatesForward(t *testing.T) {
 	task := ta.TaskStore.GetTask(taskID)
 	if task == nil {
 		t.Fatalf("task not found")
+		return
 	}
 	if task.Points != 5 {
 		t.Errorf("points = %d, want 5 (Tab should navigate to Points field)", task.Points)
@@ -611,6 +619,7 @@ func TestTaskEdit_Navigation_PreservesChanges(t *testing.T) {
 	task := ta.TaskStore.GetTask(taskID)
 	if task == nil {
 		t.Fatalf("task not found")
+		return
 	}
 	if task.Title != "New Title" {
 		t.Errorf("title = %q, want %q (changes should be preserved during navigation)", task.Title, "New Title")
@@ -675,6 +684,7 @@ func TestTaskEdit_MultipleFields_AllSaved(t *testing.T) {
 	task := ta.TaskStore.GetTask(taskID)
 	if task == nil {
 		t.Fatalf("task not found")
+		return
 	}
 	if task.Title != "New Multi-Field Title" {
 		t.Errorf("title = %q, want %q", task.Title, "New Multi-Field Title")
@@ -703,6 +713,7 @@ func TestTaskEdit_MultipleFields_AllDiscarded(t *testing.T) {
 	task := ta.TaskStore.GetTask(taskID)
 	if task == nil {
 		t.Fatalf("task not found after creation")
+		return
 	}
 	task.Priority = 3
 	task.Points = 5
@@ -745,6 +756,7 @@ func TestTaskEdit_MultipleFields_AllDiscarded(t *testing.T) {
 	task = ta.TaskStore.GetTask(taskID)
 	if task == nil {
 		t.Fatalf("task not found")
+		return
 	}
 	if task.Title != "Original Title" {
 		t.Errorf("title = %q, want %q (all changes should be discarded)", task.Title, "Original Title")
@@ -795,6 +807,7 @@ func TestNewTask_MultipleFields_AllSaved(t *testing.T) {
 	task := findTaskByTitle(ta.TaskStore.GetAllTasks(), "New Task With Multiple Fields")
 	if task == nil {
 		t.Fatalf("new task not found in store")
+		return
 	}
 	if task.Title != "New Task With Multiple Fields" {
 		t.Errorf("title = %q, want %q", task.Title, "New Task With Multiple Fields")
@@ -854,6 +867,7 @@ func TestNewTask_AfterEditingExistingTask_StatusAndTypeNotCorrupted(t *testing.T
 	newTask := findTaskByTitle(ta.TaskStore.GetAllTasks(), "New Task After Edit")
 	if newTask == nil {
 		t.Fatalf("new task not found in store")
+		return
 	}
 	if newTask.Title != "New Task After Edit" {
 		t.Errorf("title = %q, want %q", newTask.Title, "New Task After Edit")

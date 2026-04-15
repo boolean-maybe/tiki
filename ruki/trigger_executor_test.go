@@ -2420,6 +2420,7 @@ func TestGuardSentinel_BothNilFallback(t *testing.T) {
 	sentinel := te.guardSentinel(tc)
 	if sentinel == nil {
 		t.Fatal("expected non-nil sentinel even when both old and new are nil")
+		return
 	}
 	if sentinel.ID != "" {
 		t.Errorf("expected empty ID on fallback sentinel, got %q", sentinel.ID)
@@ -3487,6 +3488,7 @@ func TestValidateEventTriggerInput_RawTriggerSuccess(t *testing.T) {
 	}
 	if validated == nil {
 		t.Fatal("expected non-nil validated trigger")
+		return
 	}
 	if validated.RuntimeMode() != ExecutorRuntimeEventTrigger {
 		t.Fatalf("expected eventTrigger runtime, got %q", validated.RuntimeMode())

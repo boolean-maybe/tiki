@@ -57,6 +57,7 @@ func TestLower_DateLiteralInCondition(t *testing.T) {
 	dl, ok := cmp.Right.(*DateLiteral)
 	if !ok {
 		t.Fatalf("expected DateLiteral, got %T", cmp.Right)
+		return
 	}
 	if dl.Value.Year() != 2026 || dl.Value.Month() != 6 || dl.Value.Day() != 15 {
 		t.Errorf("unexpected date: %v", dl.Value)
@@ -78,6 +79,7 @@ func TestLower_IntLiteral(t *testing.T) {
 	il, ok := cmp.Right.(*IntLiteral)
 	if !ok {
 		t.Fatalf("expected IntLiteral, got %T", cmp.Right)
+		return
 	}
 	if il.Value != 3 {
 		t.Errorf("expected 3, got %d", il.Value)
@@ -95,6 +97,7 @@ func TestLower_EmptyLiteral(t *testing.T) {
 	ie, ok := stmt.Select.Where.(*IsEmptyExpr)
 	if !ok {
 		t.Fatalf("expected IsEmptyExpr, got %T", stmt.Select.Where)
+		return
 	}
 	if ie.Negated {
 		t.Error("expected non-negated is empty")
@@ -146,6 +149,7 @@ func TestLower_In(t *testing.T) {
 	in, ok := stmt.Select.Where.(*InExpr)
 	if !ok {
 		t.Fatalf("expected InExpr, got %T", stmt.Select.Where)
+		return
 	}
 	if in.Negated {
 		t.Error("expected non-negated in")
@@ -163,6 +167,7 @@ func TestLower_QuantifierAll(t *testing.T) {
 	q, ok := stmt.Select.Where.(*QuantifierExpr)
 	if !ok {
 		t.Fatalf("expected QuantifierExpr, got %T", stmt.Select.Where)
+		return
 	}
 	if q.Kind != "all" {
 		t.Errorf("expected 'all', got %q", q.Kind)
@@ -180,6 +185,7 @@ func TestLower_ParenCondition(t *testing.T) {
 	bc, ok := stmt.Select.Where.(*BinaryCondition)
 	if !ok {
 		t.Fatalf("expected BinaryCondition, got %T", stmt.Select.Where)
+		return
 	}
 	if bc.Op != "or" {
 		t.Errorf("expected 'or', got %q", bc.Op)
@@ -210,6 +216,7 @@ func TestLower_NotCondition(t *testing.T) {
 	nc, ok := stmt.Select.Where.(*NotCondition)
 	if !ok {
 		t.Fatalf("expected NotCondition, got %T", stmt.Select.Where)
+		return
 	}
 	if nc.Inner == nil {
 		t.Fatal("expected non-nil inner condition")
@@ -351,6 +358,7 @@ func TestLower_SubQuery(t *testing.T) {
 	fc, ok := cmp.Left.(*FunctionCall)
 	if !ok {
 		t.Fatalf("expected FunctionCall, got %T", cmp.Left)
+		return
 	}
 	if fc.Name != "count" {
 		t.Errorf("expected 'count', got %q", fc.Name)
@@ -358,6 +366,7 @@ func TestLower_SubQuery(t *testing.T) {
 	sq, ok := fc.Args[0].(*SubQuery)
 	if !ok {
 		t.Fatalf("expected SubQuery arg, got %T", fc.Args[0])
+		return
 	}
 	if sq.Where == nil {
 		t.Fatal("expected non-nil where in subquery")
@@ -383,6 +392,7 @@ func TestLower_SubQueryBare(t *testing.T) {
 	sq, ok := fc.Args[0].(*SubQuery)
 	if !ok {
 		t.Fatalf("expected SubQuery, got %T", fc.Args[0])
+		return
 	}
 	if sq.Where != nil {
 		t.Error("expected nil where in bare subquery")
@@ -404,6 +414,7 @@ func TestLower_QualifiedRef(t *testing.T) {
 	qr, ok := cmp.Left.(*QualifiedRef)
 	if !ok {
 		t.Fatalf("expected QualifiedRef, got %T", cmp.Left)
+		return
 	}
 	if qr.Qualifier != "old" || qr.Name != "status" {
 		t.Errorf("expected old.status, got %s.%s", qr.Qualifier, qr.Name)
@@ -456,6 +467,7 @@ func TestLower_EmptyStatement(t *testing.T) {
 	_, err := lowerStatement(&statementGrammar{})
 	if err == nil {
 		t.Fatal("expected error for empty statement grammar")
+		return
 	}
 	if err.Error() != "empty statement" {
 		t.Errorf("expected 'empty statement', got: %v", err)
@@ -468,6 +480,7 @@ func TestLower_EmptyTriggerAction(t *testing.T) {
 	err := lowerTriggerAction(&actionGrammar{}, trig)
 	if err == nil {
 		t.Fatal("expected error for empty trigger action")
+		return
 	}
 	if err.Error() != "empty trigger action" {
 		t.Errorf("expected 'empty trigger action', got: %v", err)
@@ -479,6 +492,7 @@ func TestLower_EmptyExpression(t *testing.T) {
 	_, err := lowerUnary(&unaryExpr{})
 	if err == nil {
 		t.Fatal("expected error for empty expression")
+		return
 	}
 	if err.Error() != "empty expression" {
 		t.Errorf("expected 'empty expression', got: %v", err)
@@ -523,6 +537,7 @@ func TestLower_SubQueryOrderByRejected(t *testing.T) {
 	_, err := lowerSubQuery(sq)
 	if err == nil {
 		t.Fatal("expected error for order by in subquery")
+		return
 	}
 	if err.Error() != "order by is not valid inside a subquery" {
 		t.Errorf("unexpected error: %v", err)
@@ -540,6 +555,7 @@ func TestLower_ExprCondBareExpression(t *testing.T) {
 	_, err := lowerExprCond(ec)
 	if err == nil {
 		t.Fatal("expected error for bare expression as condition")
+		return
 	}
 	if err.Error() != "expression used as condition without comparison operator" {
 		t.Errorf("unexpected error: %v", err)
@@ -667,6 +683,7 @@ func TestLower_OrCondChain(t *testing.T) {
 	bc, ok := stmt.Select.Where.(*BinaryCondition)
 	if !ok {
 		t.Fatalf("expected BinaryCondition, got %T", stmt.Select.Where)
+		return
 	}
 	if bc.Op != "or" {
 		t.Errorf("expected 'or', got %q", bc.Op)
@@ -684,6 +701,7 @@ func TestLower_AndCondChain(t *testing.T) {
 	bc, ok := stmt.Select.Where.(*BinaryCondition)
 	if !ok {
 		t.Fatalf("expected BinaryCondition, got %T", stmt.Select.Where)
+		return
 	}
 	if bc.Op != "and" {
 		t.Errorf("expected 'and', got %q", bc.Op)

@@ -401,6 +401,7 @@ func TestPluginActions_DeleteTask_DKey(t *testing.T) {
 	task := ta.TaskStore.GetTask("DELETE-1")
 	if task == nil {
 		t.Fatal("Test task DELETE-1 not found before deletion")
+		return
 	}
 
 	// Press 'd' to delete (assumes first task is selected)

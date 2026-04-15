@@ -254,6 +254,7 @@ func TestParseTrigger_QualifiedRefsInWhere(t *testing.T) {
 	qr, ok := leftCmp.Left.(*QualifiedRef)
 	if !ok {
 		t.Fatalf("expected QualifiedRef, got %T", leftCmp.Left)
+		return
 	}
 	if qr.Qualifier != "old" || qr.Name != "status" {
 		t.Fatalf("expected old.status, got %s.%s", qr.Qualifier, qr.Name)
@@ -267,6 +268,7 @@ func TestParseTrigger_QualifiedRefsInWhere(t *testing.T) {
 	qr2, ok := rightCmp.Left.(*QualifiedRef)
 	if !ok {
 		t.Fatalf("expected QualifiedRef, got %T", rightCmp.Left)
+		return
 	}
 	if qr2.Qualifier != "new" || qr2.Name != "status" {
 		t.Fatalf("expected new.status, got %s.%s", qr2.Qualifier, qr2.Name)

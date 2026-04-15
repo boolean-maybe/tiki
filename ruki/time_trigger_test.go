@@ -239,6 +239,7 @@ func TestValidateTimeTrigger_RejectsSelect(t *testing.T) {
 	err := p.validateTimeTrigger(tt)
 	if err == nil {
 		t.Fatal("expected error for select in time trigger")
+		return
 	}
 	if err.Error() != "time trigger action must not be select" {
 		t.Fatalf("unexpected error: %v", err)

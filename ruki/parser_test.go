@@ -558,6 +558,7 @@ func TestParseQualifiedRefs(t *testing.T) {
 	fr, ok := cmp.Left.(*FieldRef)
 	if !ok {
 		t.Fatalf("expected FieldRef, got %T", cmp.Left)
+		return
 	}
 	if fr.Name != "status" {
 		t.Fatalf("expected status, got %s", fr.Name)
@@ -581,6 +582,7 @@ func TestParseSubQuery(t *testing.T) {
 	fc, ok := cmp.Left.(*FunctionCall)
 	if !ok {
 		t.Fatalf("expected FunctionCall, got %T", cmp.Left)
+		return
 	}
 	if fc.Name != "count" {
 		t.Fatalf("expected count, got %s", fc.Name)
@@ -589,6 +591,7 @@ func TestParseSubQuery(t *testing.T) {
 	sq, ok := fc.Args[0].(*SubQuery)
 	if !ok {
 		t.Fatalf("expected SubQuery arg, got %T", fc.Args[0])
+		return
 	}
 	if sq.Where == nil {
 		t.Fatal("expected SubQuery Where, got nil")

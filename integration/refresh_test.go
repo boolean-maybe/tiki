@@ -105,6 +105,7 @@ func TestRefresh_ExternalModification(t *testing.T) {
 	taskAfter := ta.TaskStore.GetTask(taskID)
 	if taskAfter == nil {
 		t.Fatalf("task should still exist after refresh")
+		return
 	}
 	if taskAfter.Title != "Modified Title" {
 		t.Errorf("task title in store = %q, want %q", taskAfter.Title, "Modified Title")

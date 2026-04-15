@@ -71,6 +71,7 @@ func TestPluginView_MoveTaskAppliesLaneAction(t *testing.T) {
 	updated := ta.TaskStore.GetTask("TIKI-1")
 	if updated == nil {
 		t.Fatalf("expected task TIKI-1 to exist")
+		return
 	}
 	if updated.Status != task.StatusDone {
 		t.Fatalf("expected status done, got %v", updated.Status)
@@ -87,6 +88,7 @@ func TestPluginView_MoveTaskAppliesLaneAction(t *testing.T) {
 	updated = ta.TaskStore.GetTask("TIKI-1")
 	if updated == nil {
 		t.Fatalf("expected task TIKI-1 to exist")
+		return
 	}
 	if updated.Status != task.StatusBacklog {
 		t.Fatalf("expected status backlog, got %v", updated.Status)

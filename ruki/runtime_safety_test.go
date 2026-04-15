@@ -129,6 +129,7 @@ func TestValidatedTriggerCloneIsolated(t *testing.T) {
 	after := validated.TriggerClone()
 	if after == nil {
 		t.Fatal("expected non-nil trigger clone after mutation")
+		return
 	}
 	if after.Timing != "before" || after.Event != "create" {
 		t.Fatalf("validated trigger was mutated: timing=%q event=%q", after.Timing, after.Event)
@@ -156,6 +157,7 @@ func TestValidatedTimeTriggerCloneIsolated(t *testing.T) {
 	after := validated.TimeTriggerClone()
 	if after == nil {
 		t.Fatal("expected non-nil time trigger clone after mutation")
+		return
 	}
 	if after.Interval.Value != 2 || after.Interval.Unit != "day" {
 		t.Fatalf("validated time trigger interval was mutated: %+v", after.Interval)

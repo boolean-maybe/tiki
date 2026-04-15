@@ -51,6 +51,7 @@ func TestTaskEdit_ShiftTabBackward(t *testing.T) {
 	task := ta.TaskStore.GetTask(taskID)
 	if task == nil {
 		t.Fatalf("task not found")
+		return
 	}
 
 	// Verify points changed from default 1 to 2
@@ -102,6 +103,7 @@ func TestTaskEdit_StatusCycling(t *testing.T) {
 	task := ta.TaskStore.GetTask(taskID)
 	if task == nil {
 		t.Fatalf("task not found")
+		return
 	}
 
 	if task.Status != taskpkg.StatusDone {
@@ -151,6 +153,7 @@ func TestTaskEdit_TypeToggling(t *testing.T) {
 	task := ta.TaskStore.GetTask(taskID)
 	if task == nil {
 		t.Fatalf("task not found")
+		return
 	}
 
 	if task.Type != taskpkg.TypeEpic {
@@ -199,6 +202,7 @@ func TestTaskEdit_AssigneeInput(t *testing.T) {
 	task := ta.TaskStore.GetTask(taskID)
 	if task == nil {
 		t.Fatalf("task not found")
+		return
 	}
 
 	// Current behavior: appends to default "Unassigned" text
@@ -240,6 +244,7 @@ func TestTaskEdit_SaveAndContinue(t *testing.T) {
 	task := ta.TaskStore.GetTask(taskID)
 	if task == nil {
 		t.Fatalf("task not found")
+		return
 	}
 
 	if task.Title != "New Title" {
@@ -298,6 +303,7 @@ func TestTaskEdit_EscapeAndReEdit(t *testing.T) {
 	task := ta.TaskStore.GetTask(taskID)
 	if task == nil {
 		t.Fatalf("task not found")
+		return
 	}
 
 	if task.Title != "New Title" {
@@ -345,6 +351,7 @@ func TestTaskEdit_PriorityRange(t *testing.T) {
 	task := ta.TaskStore.GetTask(taskID)
 	if task == nil {
 		t.Fatalf("task not found")
+		return
 	}
 
 	if task.Priority != 5 {
@@ -394,6 +401,7 @@ func TestTaskEdit_PointsRange(t *testing.T) {
 	task := ta.TaskStore.GetTask(taskID)
 	if task == nil {
 		t.Fatalf("task not found")
+		return
 	}
 
 	if task.Points != 7 {

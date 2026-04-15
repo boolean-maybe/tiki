@@ -124,6 +124,7 @@ func TestCreateTask_RejectedByValidator(t *testing.T) {
 	re, ok := err.(*RejectionError)
 	if !ok {
 		t.Fatalf("expected *RejectionError, got %T", err)
+		return
 	}
 	if re.Rejections[0].Reason != "blocked" {
 		t.Errorf("unexpected reason: %s", re.Rejections[0].Reason)
@@ -300,6 +301,7 @@ func TestMultipleRejections(t *testing.T) {
 	re, ok := err.(*RejectionError)
 	if !ok {
 		t.Fatalf("expected *RejectionError, got %T", err)
+		return
 	}
 	if len(re.Rejections) != 2 {
 		t.Fatalf("expected 2 rejections, got %d", len(re.Rejections))
@@ -346,6 +348,7 @@ func TestFieldValidators_RejectInvalidTask(t *testing.T) {
 	re, ok := err.(*RejectionError)
 	if !ok {
 		t.Fatalf("expected *RejectionError, got %T", err)
+		return
 	}
 
 	found := false

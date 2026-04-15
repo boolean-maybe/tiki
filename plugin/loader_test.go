@@ -378,6 +378,7 @@ func TestLoadPluginsFromFile_DokiConfigIndex(t *testing.T) {
 	dp, ok := plugins[1].(*DokiPlugin)
 	if !ok {
 		t.Fatalf("expected DokiPlugin, got %T", plugins[1])
+		return
 	}
 	if dp.ConfigIndex != 1 {
 		t.Errorf("expected DokiPlugin ConfigIndex 1, got %d", dp.ConfigIndex)

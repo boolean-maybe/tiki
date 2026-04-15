@@ -27,6 +27,7 @@ func TestWrapFieldValidator_DeleteCase(t *testing.T) {
 	rejection = validator(badOld, nil, nil)
 	if rejection == nil {
 		t.Fatal("expected rejection for old task with empty title")
+		return
 	}
 	if rejection.Reason != "title required" {
 		t.Errorf("expected 'title required', got %q", rejection.Reason)

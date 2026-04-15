@@ -171,6 +171,7 @@ func TestTaskDetailView_InlineTitleEdit_Save(t *testing.T) {
 	task := ta.TaskStore.GetTask(taskID)
 	if task == nil {
 		t.Fatalf("task not found")
+		return
 	}
 	if task.Title != "New Edited Title" {
 		t.Errorf("title = %q, want %q", task.Title, "New Edited Title")
@@ -214,6 +215,7 @@ func TestTaskDetailView_InlineTitleEdit_Cancel(t *testing.T) {
 	task := ta.TaskStore.GetTask(taskID)
 	if task == nil {
 		t.Fatalf("task not found")
+		return
 	}
 	if task.Title != originalTitle {
 		t.Errorf("title = %q, want %q (should not have changed)", task.Title, originalTitle)
@@ -471,6 +473,7 @@ func TestTaskDetailView_InlineEdit_PreservesOtherFields(t *testing.T) {
 	task := ta.TaskStore.GetTask(taskID)
 	if task == nil {
 		t.Fatalf("task not found")
+		return
 	}
 
 	if task.Title != "New Title" {
