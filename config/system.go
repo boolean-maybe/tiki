@@ -165,6 +165,11 @@ func GetDefaultNewTaskTemplate() string {
 	return defaultNewTaskTemplate
 }
 
+// GetDefaultWorkflowYAML returns the embedded default workflow.yaml content
+func GetDefaultWorkflowYAML() string {
+	return defaultWorkflowYAML
+}
+
 // InstallDefaultWorkflow installs the default workflow.yaml to the user config directory
 // if it does not already exist. This runs on every launch to handle first-run and upgrade cases.
 func InstallDefaultWorkflow() error {

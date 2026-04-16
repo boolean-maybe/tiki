@@ -324,6 +324,9 @@ func GetUserConfigWorkflowFile() string {
 	return mustGetPathManager().UserConfigWorkflowFile()
 }
 
+// configFilename is the default name for the configuration file
+const configFilename = "config.yaml"
+
 // defaultWorkflowFilename is the default name for the workflow configuration file
 const defaultWorkflowFilename = "workflow.yaml"
 
