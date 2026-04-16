@@ -3,9 +3,11 @@ package config
 import (
 	_ "embed"
 	"fmt"
+	"log/slog"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
 	"strings"
 
 	gonanoid "github.com/matoous/go-nanoid/v2"
@@ -56,8 +58,35 @@ func GenerateRandomID() string {
 	return id
 }
 
+// sampleFrontmatterRe extracts type and status values from sample tiki frontmatter.
+var sampleFrontmatterRe = regexp.MustCompile(`(?m)^(type|status):\s*(.+)$`)
+
+// validateSampleTiki checks whether a sample tiki's type and status
+// are valid against the current workflow registries.
+func validateSampleTiki(template string) bool {
+	matches := sampleFrontmatterRe.FindAllStringSubmatch(template, -1)
+	statusReg := GetStatusRegistry()
+	typeReg := GetTypeRegistry()
+	for _, m := range matches {
+		key, val := m[1], strings.TrimSpace(m[2])
+		switch key {
+		case "type":
+			if _, ok := typeReg.ParseType(val); !ok {
+				return false
+			}
+		case "status":
+			if !statusReg.IsValid(val) {
+				return false
+			}
+		}
+	}
+	return true
+}
+
 // BootstrapSystem creates the task storage and seeds the initial tiki.
-func BootstrapSystem() error {
+// If createSamples is true, embedded sample tikis are validated against
+// the active workflow registries and only valid ones are written.
+func BootstrapSystem(createSamples bool) error {
 	// Create all necessary directories
 	if err := EnsureDirs(); err != nil {
 		return fmt.Errorf("ensure directories: %w", err)
@@ -66,59 +95,50 @@ func BootstrapSystem() error {
 	taskDir := GetTaskDir()
 	var createdFiles []string
 
-	// Helper function to create a sample tiki
-	createSampleTiki := func(template string) (string, error) {
-		randomID := GenerateRandomID()
-		taskID := fmt.Sprintf("TIKI-%s", randomID)
-		taskFilename := fmt.Sprintf("tiki-%s.md", randomID)
-		taskPath := filepath.Join(taskDir, taskFilename)
-
-		// Replace placeholder in template
-		taskContent := strings.Replace(template, "TIKI-XXXXXX", taskID, 1)
-		if err := os.WriteFile(taskPath, []byte(taskContent), 0644); err != nil {
-			return "", fmt.Errorf("write task: %w", err)
+	if createSamples {
+		// ensure workflow registries are loaded before validating samples;
+		// on first run this may require installing the default workflow first
+		if err := InstallDefaultWorkflow(); err != nil {
+			slog.Warn("failed to install default workflow for sample validation", "error", err)
 		}
-		return taskPath, nil
+		if err := LoadWorkflowRegistries(); err != nil {
+			slog.Warn("failed to load workflow registries for sample validation; skipping samples", "error", err)
+			createSamples = false
+		}
 	}
 
-	// Create board sample (original welcome tiki)
-	boardPath, err := createSampleTiki(initialTaskTemplate)
-	if err != nil {
-		return fmt.Errorf("create board sample: %w", err)
-	}
-	createdFiles = append(createdFiles, boardPath)
+	if createSamples {
+		type sampleDef struct {
+			name     string
+			template string
+		}
+		samples := []sampleDef{
+			{"board", initialTaskTemplate},
+			{"backlog 1", backlogSample1},
+			{"backlog 2", backlogSample2},
+			{"roadmap now", roadmapNowSample},
+			{"roadmap next", roadmapNextSample},
+			{"roadmap later", roadmapLaterSample},
+		}
 
-	// Create backlog samples
-	backlog1Path, err := createSampleTiki(backlogSample1)
-	if err != nil {
-		return fmt.Errorf("create backlog sample 1: %w", err)
-	}
-	createdFiles = append(createdFiles, backlog1Path)
+		for _, s := range samples {
+			if !validateSampleTiki(s.template) {
+				slog.Info("skipping incompatible sample tiki", "name", s.name)
+				continue
+			}
 
-	backlog2Path, err := createSampleTiki(backlogSample2)
-	if err != nil {
-		return fmt.Errorf("create backlog sample 2: %w", err)
-	}
-	createdFiles = append(createdFiles, backlog2Path)
+			randomID := GenerateRandomID()
+			taskID := fmt.Sprintf("TIKI-%s", randomID)
+			taskFilename := fmt.Sprintf("tiki-%s.md", randomID)
+			taskPath := filepath.Join(taskDir, taskFilename)
 
-	// Create roadmap samples
-	roadmapNowPath, err := createSampleTiki(roadmapNowSample)
-	if err != nil {
-		return fmt.Errorf("create roadmap now sample: %w", err)
+			taskContent := strings.Replace(s.template, "TIKI-XXXXXX", taskID, 1)
+			if err := os.WriteFile(taskPath, []byte(taskContent), 0644); err != nil {
+				return fmt.Errorf("create sample %s: %w", s.name, err)
+			}
+			createdFiles = append(createdFiles, taskPath)
+		}
 	}
-	createdFiles = append(createdFiles, roadmapNowPath)
-
-	roadmapNextPath, err := createSampleTiki(roadmapNextSample)
-	if err != nil {
-		return fmt.Errorf("create roadmap next sample: %w", err)
-	}
-	createdFiles = append(createdFiles, roadmapNextPath)
-
-	roadmapLaterPath, err := createSampleTiki(roadmapLaterSample)
-	if err != nil {
-		return fmt.Errorf("create roadmap later sample: %w", err)
-	}
-	createdFiles = append(createdFiles, roadmapLaterPath)
 
 	// Write doki documentation files
 	dokiDir := GetDokiDir()

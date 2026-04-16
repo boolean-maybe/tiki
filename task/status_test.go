@@ -9,14 +9,8 @@ import (
 
 func setupStatusTestRegistry(t *testing.T) {
 	t.Helper()
-	config.ResetStatusRegistry([]workflow.StatusDef{
-		{Key: "backlog", Label: "Backlog", Emoji: "📥", Default: true},
-		{Key: "ready", Label: "Ready", Emoji: "📋", Active: true},
-		{Key: "inProgress", Label: "In Progress", Emoji: "⚙️", Active: true},
-		{Key: "review", Label: "Review", Emoji: "👀", Active: true},
-		{Key: "done", Label: "Done", Emoji: "✅", Done: true},
-	})
-	t.Cleanup(func() { config.ClearStatusRegistry() })
+	config.ResetStatusRegistry(defaultTestStatusDefs())
+	t.Cleanup(func() { config.ResetStatusRegistry(defaultTestStatusDefs()) })
 }
 
 func TestParseStatus(t *testing.T) {
@@ -110,8 +104,9 @@ func TestStatusDisplay(t *testing.T) {
 func TestStatusDisplay_NoEmoji(t *testing.T) {
 	config.ResetStatusRegistry([]workflow.StatusDef{
 		{Key: "plain", Label: "Plain", Default: true},
+		{Key: "finished", Label: "Finished", Done: true},
 	})
-	t.Cleanup(func() { config.ClearStatusRegistry() })
+	t.Cleanup(func() { config.ResetStatusRegistry(defaultTestStatusDefs()) })
 
 	if got := StatusDisplay("plain"); got != "Plain" {
 		t.Errorf("StatusDisplay(%q) = %q, want %q (no emoji)", "plain", got, "Plain")

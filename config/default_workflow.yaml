@@ -20,6 +20,20 @@ statuses:
     emoji: "✅"
     done: true
 
+types:
+  - key: story
+    label: Story
+    emoji: "🌀"
+  - key: bug
+    label: Bug
+    emoji: "💥"
+  - key: spike
+    label: Spike
+    emoji: "🔍"
+  - key: epic
+    label: Epic
+    emoji: "🗂️"
+
 views:
   actions:
     - key: "a"

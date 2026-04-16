@@ -177,18 +177,25 @@ func TestStatusRegistry_Keys(t *testing.T) {
 	}
 }
 
-func TestStatusRegistry_NormalizesKeys(t *testing.T) {
-	custom := []StatusDef{
+func TestStatusRegistry_RejectsNonCanonicalKeys(t *testing.T) {
+	_, err := NewStatusRegistry([]StatusDef{
 		{Key: "In-Progress", Label: "In Progress", Default: true},
-		{Key: "  DONE  ", Label: "Done", Done: true},
+		{Key: "done", Label: "Done", Done: true},
+	})
+	if err == nil {
+		t.Fatal("expected error for non-canonical key")
 	}
-	reg := mustBuildStatusRegistry(t, custom)
+}
+
+func TestStatusRegistry_CanonicalKeysWork(t *testing.T) {
+	reg := mustBuildStatusRegistry(t, defaultTestStatuses())
 
 	if !reg.IsValid("inProgress") {
-		t.Error("expected 'inProgress' to be valid after normalization")
+		t.Error("expected 'inProgress' to be valid")
 	}
-	if !reg.IsValid("done") {
-		t.Error("expected 'done' to be valid after normalization")
+	// lookup normalizes input — "In-Progress" splits on separator to get "inProgress"
+	if !reg.IsValid("In-Progress") {
+		t.Error("expected 'In-Progress' to be valid via normalization")
 	}
 }
 
@@ -220,17 +227,25 @@ func TestNewStatusRegistry_Empty(t *testing.T) {
 	}
 }
 
-func TestNewStatusRegistry_DefaultFallsToFirst(t *testing.T) {
+func TestNewStatusRegistry_RequiresDefault(t *testing.T) {
 	defs := []StatusDef{
-		{Key: "alpha", Label: "Alpha"},
+		{Key: "alpha", Label: "Alpha", Done: true},
 		{Key: "beta", Label: "Beta"},
 	}
-	reg, err := NewStatusRegistry(defs)
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
+	_, err := NewStatusRegistry(defs)
+	if err == nil {
+		t.Fatal("expected error when no status is marked default")
 	}
-	if reg.DefaultKey() != "alpha" {
-		t.Errorf("expected default to fall back to first status 'alpha', got %q", reg.DefaultKey())
+}
+
+func TestNewStatusRegistry_RequiresDone(t *testing.T) {
+	defs := []StatusDef{
+		{Key: "alpha", Label: "Alpha", Default: true},
+		{Key: "beta", Label: "Beta"},
+	}
+	_, err := NewStatusRegistry(defs)
+	if err == nil {
+		t.Fatal("expected error when no status is marked done")
 	}
 }
 
@@ -247,51 +262,62 @@ func TestStatusRegistry_AllReturnsCopy(t *testing.T) {
 	}
 }
 
-func TestNewStatusRegistry_MultipleDoneWarns(t *testing.T) {
+func TestNewStatusRegistry_MultipleDoneErrors(t *testing.T) {
 	defs := []StatusDef{
 		{Key: "alpha", Label: "Alpha", Default: true, Done: true},
 		{Key: "beta", Label: "Beta", Done: true},
 	}
-	reg, err := NewStatusRegistry(defs)
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	// first done wins
-	if reg.DoneKey() != "alpha" {
-		t.Errorf("expected done key 'alpha', got %q", reg.DoneKey())
+	_, err := NewStatusRegistry(defs)
+	if err == nil {
+		t.Fatal("expected error for multiple done statuses")
 	}
 }
 
-func TestNewStatusRegistry_MultipleDefaultWarns(t *testing.T) {
+func TestNewStatusRegistry_MultipleDefaultErrors(t *testing.T) {
 	defs := []StatusDef{
 		{Key: "alpha", Label: "Alpha", Default: true},
-		{Key: "beta", Label: "Beta", Default: true},
+		{Key: "beta", Label: "Beta", Default: true, Done: true},
 	}
-	reg, err := NewStatusRegistry(defs)
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	// first default wins
-	if reg.DefaultKey() != "alpha" {
-		t.Errorf("expected default key 'alpha', got %q", reg.DefaultKey())
+	_, err := NewStatusRegistry(defs)
+	if err == nil {
+		t.Fatal("expected error for multiple default statuses")
 	}
 }
 
-func TestNewStatusRegistry_NoDoneKey(t *testing.T) {
+func TestNewStatusRegistry_DuplicateDisplay(t *testing.T) {
 	defs := []StatusDef{
-		{Key: "alpha", Label: "Alpha", Default: true},
-		{Key: "beta", Label: "Beta"},
+		{Key: "alpha", Label: "Open", Emoji: "🟢", Default: true},
+		{Key: "beta", Label: "Open", Emoji: "🟢", Done: true},
+	}
+	_, err := NewStatusRegistry(defs)
+	if err == nil {
+		t.Fatal("expected error for duplicate display")
+	}
+}
+
+func TestNewStatusRegistry_LabelDefaultsToKey(t *testing.T) {
+	defs := []StatusDef{
+		{Key: "alpha", Emoji: "🔵", Default: true},
+		{Key: "beta", Emoji: "🔴", Done: true},
 	}
 	reg, err := NewStatusRegistry(defs)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if reg.DoneKey() != "" {
-		t.Errorf("expected empty done key, got %q", reg.DoneKey())
+	def, _ := reg.Lookup("alpha")
+	if def.Label != "alpha" {
+		t.Errorf("expected label to default to key, got %q", def.Label)
 	}
-	// IsDone should return false for all statuses
-	if reg.IsDone("alpha") {
-		t.Error("expected alpha to not be done")
+}
+
+func TestNewStatusRegistry_EmptyWhitespaceLabel(t *testing.T) {
+	defs := []StatusDef{
+		{Key: "alpha", Label: "  ", Default: true},
+		{Key: "beta", Done: true},
+	}
+	_, err := NewStatusRegistry(defs)
+	if err == nil {
+		t.Fatal("expected error for whitespace-only label")
 	}
 }
 

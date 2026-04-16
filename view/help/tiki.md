@@ -91,10 +91,11 @@ title: Implement user authentication
 
 #### type
 
-Optional string. Default: `story`.
+Optional string. Defaults to the first type defined in `workflow.yaml`.
 
-Valid values: `story`, `bug`, `spike`, `epic`. Aliases `feature` and `task` resolve to `story`.
-In the TUI each type has an icon: Story 🌀, Bug 💥, Spike 🔍, Epic 🗂️.
+Valid values are the type keys defined in the `types:` section of `workflow.yaml`.
+Default types: `story`, `bug`, `spike`, `epic`. Each type can have a label and emoji
+configured in `workflow.yaml`. Aliases are not supported; use the canonical key.
 
 ```yaml
 type: bug

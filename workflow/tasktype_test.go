@@ -48,12 +48,10 @@ func TestTypeRegistry_ParseType(t *testing.T) {
 		{"bug", "bug", TypeBug, true},
 		{"spike", "spike", TypeSpike, true},
 		{"epic", "epic", TypeEpic, true},
-		{"feature alias", "feature", TypeStory, true},
-		{"task alias", "task", TypeStory, true},
 		{"case insensitive", "Story", TypeStory, true},
 		{"uppercase", "BUG", TypeBug, true},
-		{"unknown", "unknown", TypeStory, false},
-		{"empty", "", TypeStory, false},
+		{"unknown returns empty", "unknown", "", false},
+		{"empty returns empty", "", "", false},
 	}
 
 	for _, tt := range tests {
@@ -66,29 +64,29 @@ func TestTypeRegistry_ParseType(t *testing.T) {
 	}
 }
 
-func TestTypeRegistry_NormalizeType(t *testing.T) {
+func TestTypeRegistry_ParseDisplay(t *testing.T) {
 	reg := mustBuildTypeRegistry(t, DefaultTypeDefs())
 
 	tests := []struct {
-		name  string
-		input string
-		want  TaskType
+		name   string
+		input  string
+		want   TaskType
+		wantOK bool
 	}{
-		{"story", "story", TypeStory},
-		{"bug", "bug", TypeBug},
-		{"spike", "spike", TypeSpike},
-		{"epic", "epic", TypeEpic},
-		{"feature alias", "feature", TypeStory},
-		{"task alias", "task", TypeStory},
-		{"case insensitive", "EPIC", TypeEpic},
-		{"unknown defaults to story", "unknown", TypeStory},
-		{"empty defaults to story", "", TypeStory},
+		{"story display", "Story 🌀", TypeStory, true},
+		{"bug display", "Bug 💥", TypeBug, true},
+		{"spike display", "Spike 🔍", TypeSpike, true},
+		{"epic display", "Epic 🗂️", TypeEpic, true},
+		{"unknown returns empty", "Unknown", "", false},
+		{"label only", "Bug", "", false},
+		{"empty returns empty", "", "", false},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := reg.NormalizeType(tt.input); got != tt.want {
-				t.Errorf("NormalizeType(%q) = %q, want %q", tt.input, got, tt.want)
+			got, ok := reg.ParseDisplay(tt.input)
+			if got != tt.want || ok != tt.wantOK {
+				t.Errorf("ParseDisplay(%q) = (%q, %v), want (%q, %v)", tt.input, got, ok, tt.want, tt.wantOK)
 			}
 		})
 	}
@@ -163,31 +161,19 @@ func TestTypeRegistry_TypeDisplay(t *testing.T) {
 	}
 }
 
-func TestTypeRegistry_ParseDisplay(t *testing.T) {
+func TestTypeRegistry_DefaultType(t *testing.T) {
 	reg := mustBuildTypeRegistry(t, DefaultTypeDefs())
-
-	tests := []struct {
-		name   string
-		input  string
-		want   TaskType
-		wantOK bool
-	}{
-		{"story display", "Story 🌀", TypeStory, true},
-		{"bug display", "Bug 💥", TypeBug, true},
-		{"spike display", "Spike 🔍", TypeSpike, true},
-		{"epic display", "Epic 🗂️", TypeEpic, true},
-		{"unknown display", "Unknown", TypeStory, false},
-		{"label only", "Bug", TypeStory, false},
-		{"empty", "", TypeStory, false},
+	if got := reg.DefaultType(); got != TypeStory {
+		t.Errorf("DefaultType() = %q, want %q", got, TypeStory)
 	}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			got, ok := reg.ParseDisplay(tt.input)
-			if got != tt.want || ok != tt.wantOK {
-				t.Errorf("ParseDisplay(%q) = (%q, %v), want (%q, %v)", tt.input, got, ok, tt.want, tt.wantOK)
-			}
-		})
+	// custom registry: first type is the default
+	custom := mustBuildTypeRegistry(t, []TypeDef{
+		{Key: "task", Label: "Task"},
+		{Key: "bug", Label: "Bug"},
+	})
+	if got := custom.DefaultType(); got != "task" {
+		t.Errorf("DefaultType() = %q, want %q", got, "task")
 	}
 }
 
@@ -213,9 +199,6 @@ func TestTypeRegistry_IsValid(t *testing.T) {
 	if !reg.IsValid(TypeStory) {
 		t.Error("expected story to be valid")
 	}
-	if reg.IsValid("feature") {
-		t.Error("expected alias 'feature' to not be valid as primary key")
-	}
 	if reg.IsValid("unknown") {
 		t.Error("expected unknown to not be valid")
 	}
@@ -224,7 +207,6 @@ func TestTypeRegistry_IsValid(t *testing.T) {
 func TestTypeRegistry_LookupNormalizesInput(t *testing.T) {
 	reg := mustBuildTypeRegistry(t, DefaultTypeDefs())
 
-	// Lookup should normalize inputs just like StatusRegistry does
 	tests := []struct {
 		name  string
 		input TaskType
@@ -245,7 +227,6 @@ func TestTypeRegistry_LookupNormalizesInput(t *testing.T) {
 		})
 	}
 
-	// TypeLabel/TypeEmoji/IsValid should also normalize
 	if label := reg.TypeLabel("BUG"); label != "Bug" {
 		t.Errorf("TypeLabel(BUG) = %q, want %q", label, "Bug")
 	}
@@ -276,54 +257,64 @@ func TestNewTypeRegistry_DuplicateKey(t *testing.T) {
 	}
 }
 
-func TestNewTypeRegistry_DuplicateAlias(t *testing.T) {
-	defs := []TypeDef{
-		{Key: "story", Label: "Story", Aliases: []string{"feature"}},
-		{Key: "bug", Label: "Bug", Aliases: []string{"feature"}},
-	}
-	_, err := NewTypeRegistry(defs)
-	if err == nil {
-		t.Error("expected error for duplicate alias")
-	}
-}
-
-func TestNewTypeRegistry_AliasCollidesWithKey(t *testing.T) {
-	defs := []TypeDef{
-		{Key: "story", Label: "Story"},
-		{Key: "bug", Label: "Bug", Aliases: []string{"story"}},
-	}
-	_, err := NewTypeRegistry(defs)
-	if err == nil {
-		t.Error("expected error when alias collides with primary key")
-	}
-}
-
-func TestNewTypeRegistry_AliasCollidesWithLaterKey(t *testing.T) {
-	// alias "feature" on story should collide with later primary key "feature"
-	defs := []TypeDef{
-		{Key: "story", Label: "Story", Aliases: []string{"feature"}},
-		{Key: "feature", Label: "Feature"},
-	}
-	_, err := NewTypeRegistry(defs)
-	if err == nil {
-		t.Error("expected error when alias collides with a later primary key")
-	}
-}
-
-func TestNewTypeRegistry_FallbackNormalized(t *testing.T) {
+func TestNewTypeRegistry_NonCanonicalKey(t *testing.T) {
 	defs := []TypeDef{
 		{Key: "Story", Label: "Story"},
-		{Key: "bug", Label: "Bug"},
 	}
-	reg := mustBuildTypeRegistry(t, defs)
+	_, err := NewTypeRegistry(defs)
+	if err == nil {
+		t.Fatal("expected error for non-canonical key")
+	}
+	if got := err.Error(); got != `type key "Story" is not canonical; use "story"` {
+		t.Errorf("got error %q", got)
+	}
+}
 
-	// fallback should be normalized even though the input key was "Story"
-	got, ok := reg.ParseType("unknown-thing")
-	if ok {
-		t.Fatal("expected ok=false for unknown type")
+func TestNewTypeRegistry_LabelDefaultsToKey(t *testing.T) {
+	reg := mustBuildTypeRegistry(t, []TypeDef{
+		{Key: "task", Emoji: "📋"},
+	})
+	if got := reg.TypeLabel("task"); got != "task" {
+		t.Errorf("expected label to default to key, got %q", got)
 	}
-	if got != "story" {
-		t.Errorf("ParseType(unknown) = %q, want %q (normalized fallback)", got, "story")
+}
+
+func TestNewTypeRegistry_EmptyWhitespaceLabel(t *testing.T) {
+	_, err := NewTypeRegistry([]TypeDef{
+		{Key: "task", Label: "  "},
+	})
+	if err == nil {
+		t.Error("expected error for whitespace-only label")
+	}
+}
+
+func TestNewTypeRegistry_EmojiTrimmed(t *testing.T) {
+	reg := mustBuildTypeRegistry(t, []TypeDef{
+		{Key: "task", Label: "Task", Emoji: " 🔧 "},
+	})
+	if got := reg.TypeEmoji("task"); got != "🔧" {
+		t.Errorf("expected trimmed emoji, got %q", got)
+	}
+}
+
+func TestNewTypeRegistry_DuplicateDisplay(t *testing.T) {
+	_, err := NewTypeRegistry([]TypeDef{
+		{Key: "task", Label: "Item", Emoji: "📋"},
+		{Key: "work", Label: "Item", Emoji: "📋"},
+	})
+	if err == nil {
+		t.Error("expected error for duplicate display")
+	}
+}
+
+func TestNewTypeRegistry_DuplicateDisplayLabelOnly(t *testing.T) {
+	// duplicate label with no emoji — display is just the label
+	_, err := NewTypeRegistry([]TypeDef{
+		{Key: "task", Label: "Item"},
+		{Key: "work", Label: "Item"},
+	})
+	if err == nil {
+		t.Error("expected error for duplicate label-only display")
 	}
 }
 

@@ -6,6 +6,7 @@
 - [Markdown viewer](markdown-viewer.md)
 - [Image support](image-requirements.md)
 - [Custom fields](custom-fields.md)
+- [Custom statuses and types](custom-status-type.md)
 - [Customization](customization.md)
 - [Themes](themes.md)
 - [ruki](ruki/index.md)

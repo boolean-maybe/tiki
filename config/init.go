@@ -26,10 +26,17 @@ func IsProjectInitialized() bool {
 	return info.IsDir()
 }
 
+// InitOptions holds user choices from the init dialog.
+type InitOptions struct {
+	AITools     []string
+	SampleTasks bool
+}
+
 // PromptForProjectInit presents a Huh form for project initialization.
-// Returns (selectedAITools, proceed, error)
-func PromptForProjectInit() ([]string, bool, error) {
-	var selectedAITools []string
+// Returns (options, proceed, error)
+func PromptForProjectInit() (InitOptions, bool, error) {
+	var opts InitOptions
+	opts.SampleTasks = true // default enabled
 
 	// Create custom theme with brighter description and help text
 	theme := huh.ThemeCharm()
@@ -68,9 +75,9 @@ AI skills extend your AI assistant with commands to manage tasks and documentati
 Select AI assistants to install (optional), then press Enter to continue.
 Press Esc to cancel project initialization.`
 
-	options := make([]huh.Option[string], 0, len(AITools()))
+	aiOptions := make([]huh.Option[string], 0, len(AITools()))
 	for _, t := range AITools() {
-		options = append(options, huh.NewOption(fmt.Sprintf("%s (%s/)", t.DisplayName, t.SkillDir), t.Key))
+		aiOptions = append(aiOptions, huh.NewOption(fmt.Sprintf("%s (%s/)", t.DisplayName, t.SkillDir), t.Key))
 	}
 
 	form := huh.NewForm(
@@ -78,9 +85,13 @@ Press Esc to cancel project initialization.`
 			huh.NewMultiSelect[string]().
 				Title("Initialize project").
 				Description(description).
-				Options(options...).
+				Options(aiOptions...).
 				Filterable(false).
-				Value(&selectedAITools),
+				Value(&opts.AITools),
+			huh.NewConfirm().
+				Title("Create sample tasks").
+				Description("Seed project with example tikis (incompatible samples are skipped automatically)").
+				Value(&opts.SampleTasks),
 		),
 	).WithTheme(theme).
 		WithKeyMap(keymap).
@@ -89,12 +100,12 @@ Press Esc to cancel project initialization.`
 	err := form.Run()
 	if err != nil {
 		if errors.Is(err, huh.ErrUserAborted) {
-			return nil, false, nil
+			return InitOptions{}, false, nil
 		}
-		return nil, false, fmt.Errorf("form error: %w", err)
+		return InitOptions{}, false, fmt.Errorf("form error: %w", err)
 	}
 
-	return selectedAITools, true, nil
+	return opts, true, nil
 }
 
 // EnsureProjectInitialized bootstraps the project if .doc/tiki is missing.
@@ -107,7 +118,7 @@ func EnsureProjectInitialized(tikiSkillMdContent, dokiSkillMdContent string) (bo
 			return false, fmt.Errorf("failed to stat task directory: %w", err)
 		}
 
-		selectedTools, proceed, err := PromptForProjectInit()
+		opts, proceed, err := PromptForProjectInit()
 		if err != nil {
 			return false, fmt.Errorf("failed to prompt for project initialization: %w", err)
 		}
@@ -115,18 +126,18 @@ func EnsureProjectInitialized(tikiSkillMdContent, dokiSkillMdContent string) (bo
 			return false, nil
 		}
 
-		if err := BootstrapSystem(); err != nil {
+		if err := BootstrapSystem(opts.SampleTasks); err != nil {
 			return false, fmt.Errorf("failed to bootstrap project: %w", err)
 		}
 
 		// Install selected AI skills
-		if len(selectedTools) > 0 {
-			if err := installAISkills(selectedTools, tikiSkillMdContent, dokiSkillMdContent); err != nil {
+		if len(opts.AITools) > 0 {
+			if err := installAISkills(opts.AITools, tikiSkillMdContent, dokiSkillMdContent); err != nil {
 				// Non-fatal - log warning but continue
 				slog.Warn("some AI skills failed to install", "error", err)
 				fmt.Println("You can manually copy ai/skills/tiki/SKILL.md and ai/skills/doki/SKILL.md to the appropriate directories.")
 			} else {
-				fmt.Printf("✓ Installed AI skills for: %s\n", strings.Join(selectedTools, ", "))
+				fmt.Printf("✓ Installed AI skills for: %s\n", strings.Join(opts.AITools, ", "))
 			}
 		}
 

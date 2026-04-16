@@ -11,6 +11,7 @@ Everything beyond the core is plugin-driven. `workflow.yaml` defines statuses an
 - [Quick Start](.doc/doki/doc/quick-start.md): getting started — markdown viewer, file management, tiki board, keyboard shortcuts
 - [Tiki Format](.doc/doki/doc/tiki-format.md): .doc directory structure, tiki Markdown+YAML spec, field types
 - [Configuration](.doc/doki/doc/config.md): config.yaml, workflow.yaml, config directories, settings reference
+- [Custom Statuses and Types](.doc/doki/doc/custom-status-type.md): type and status definition rules, validation, key normalization, inheritance
 - [Customization](.doc/doki/doc/customization.md): workflow statuses, plugin definitions, lanes, actions, views
 - [Installation](.doc/doki/doc/install.md): macOS, Linux, Windows, manual install
 - [Markdown Viewer](.doc/doki/doc/markdown-viewer.md): pager commands, link navigation, image/diagram rendering

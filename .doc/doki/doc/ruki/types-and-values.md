@@ -111,10 +111,11 @@ select where due is empty
 
 `type`
 
-- normalized through the injected schema
+- validated through the injected schema against the `types:` section of `workflow.yaml`
 - production normalization lowercases, trims, and removes separators
 - default built-in types are `story`, `bug`, `spike`, and `epic`
-- default aliases include `feature` and `task` mapping to `story`
+- type keys must be canonical (matching normalized form); aliases are not supported
+- unknown type values are rejected — no silent fallback
 
 Examples:
 

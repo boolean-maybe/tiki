@@ -338,8 +338,8 @@ func TestInMemoryStore_NewTaskTemplate(t *testing.T) {
 	if tmpl.ID != strings.ToUpper(tmpl.ID) {
 		t.Errorf("ID = %q, should be uppercased", tmpl.ID)
 	}
-	if tmpl.Priority != 7 {
-		t.Errorf("Priority = %d, want 7", tmpl.Priority)
+	if tmpl.Priority != 3 {
+		t.Errorf("Priority = %d, want 3", tmpl.Priority)
 	}
 	if tmpl.Points != 1 {
 		t.Errorf("Points = %d, want 1", tmpl.Points)
@@ -350,8 +350,8 @@ func TestInMemoryStore_NewTaskTemplate(t *testing.T) {
 	if tmpl.Status != taskpkg.DefaultStatus() {
 		t.Errorf("Status = %q, want %q", tmpl.Status, taskpkg.DefaultStatus())
 	}
-	if tmpl.Type != taskpkg.TypeStory {
-		t.Errorf("Type = %q, want %q", tmpl.Type, taskpkg.TypeStory)
+	if tmpl.Type != taskpkg.DefaultType() {
+		t.Errorf("Type = %q, want %q", tmpl.Type, taskpkg.DefaultType())
 	}
 }
 

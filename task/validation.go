@@ -38,7 +38,7 @@ func ValidateStatus(t *Task) string {
 
 // ValidateType returns an error message if the task type is invalid.
 func ValidateType(t *Task) string {
-	if currentTypeRegistry().IsValid(t.Type) {
+	if requireTypeRegistry().IsValid(t.Type) {
 		return ""
 	}
 	return fmt.Sprintf("invalid type value: %s", t.Type)
