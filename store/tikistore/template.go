@@ -96,6 +96,19 @@ func parseTaskTemplate(data []byte) (*taskpkg.Task, error) {
 		}
 	}
 
+	// resolve type: missing defaults to first configured type,
+	// invalid non-empty type is a hard error
+	var taskType taskpkg.Type
+	if fm.Type == "" {
+		taskType = taskpkg.DefaultType()
+	} else {
+		var ok bool
+		taskType, ok = taskpkg.ParseType(fm.Type)
+		if !ok {
+			return nil, fmt.Errorf("invalid template type %q", fm.Type)
+		}
+	}
+
 	// second pass: extract custom fields from frontmatter map
 	var fmMap map[string]interface{}
 	if err := yaml.Unmarshal([]byte(frontmatter), &fmMap); err != nil {
@@ -109,7 +122,7 @@ func parseTaskTemplate(data []byte) (*taskpkg.Task, error) {
 	return &taskpkg.Task{
 		Title:        fm.Title,
 		Description:  body,
-		Type:         taskpkg.NormalizeType(fm.Type),
+		Type:         taskType,
 		Status:       taskpkg.NormalizeStatus(fm.Status),
 		Tags:         fm.Tags,
 		DependsOn:    fm.DependsOn,
@@ -177,9 +190,9 @@ func (s *TikiStore) NewTaskTemplate() (*taskpkg.Task, error) {
 		ID:          taskID,
 		Title:       "",
 		Description: "",
-		Status:      taskpkg.DefaultStatus(), // default fallback
-		Type:        taskpkg.TypeStory,       // default fallback
-		Priority:    3,                       // default: medium priority (1-5 scale)
+		Status:      taskpkg.DefaultStatus(),
+		Type:        taskpkg.DefaultType(),
+		Priority:    3, // default: medium priority (1-5 scale)
 		Points:      0,
 		CreatedAt:   time.Now(),
 	}
@@ -214,7 +227,7 @@ func (s *TikiStore) NewTaskTemplate() (*taskpkg.Task, error) {
 
 	// Ensure type has a value (fallback if template didn't provide)
 	if task.Type == "" {
-		task.Type = taskpkg.TypeStory
+		task.Type = taskpkg.DefaultType()
 	}
 
 	// Ensure status has a value

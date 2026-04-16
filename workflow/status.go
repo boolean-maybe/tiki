@@ -2,7 +2,6 @@ package workflow
 
 import (
 	"fmt"
-	"log/slog"
 	"strings"
 )
 
@@ -100,8 +99,24 @@ func splitCamelCase(s string) []string {
 	return words
 }
 
+// StatusDisplay returns "Label Emoji" for a status.
+func StatusDisplay(def StatusDef) string {
+	label := def.Label
+	if label == "" {
+		label = def.Key
+	}
+	emoji := strings.TrimSpace(def.Emoji)
+	if emoji == "" {
+		return label
+	}
+	return label + " " + emoji
+}
+
 // NewStatusRegistry constructs a StatusRegistry from the given definitions.
-// Returns an error if keys are empty, duplicated, or the list is empty.
+// Configured keys must be canonical (matching NormalizeStatusKey output).
+// Labels default to key when omitted; explicitly empty labels are rejected.
+// Emoji values are trimmed. Requires exactly one default and one done status.
+// Duplicate display strings are rejected.
 func NewStatusRegistry(defs []StatusDef) (*StatusRegistry, error) {
 	if len(defs) == 0 {
 		return nil, fmt.Errorf("statuses list is empty")
@@ -111,46 +126,64 @@ func NewStatusRegistry(defs []StatusDef) (*StatusRegistry, error) {
 		statuses: make([]StatusDef, 0, len(defs)),
 		byKey:    make(map[StatusKey]StatusDef, len(defs)),
 	}
+	displaySeen := make(map[string]StatusKey, len(defs))
 
 	for i, def := range defs {
 		if def.Key == "" {
 			return nil, fmt.Errorf("status at index %d has empty key", i)
 		}
 
-		normalized := NormalizeStatusKey(def.Key)
-		def.Key = string(normalized)
-
-		if _, exists := reg.byKey[normalized]; exists {
-			return nil, fmt.Errorf("duplicate status key %q", normalized)
+		// require canonical key
+		canonical := NormalizeStatusKey(def.Key)
+		if def.Key != string(canonical) {
+			return nil, fmt.Errorf("status key %q is not canonical; use %q", def.Key, canonical)
 		}
+		def.Key = string(canonical)
+
+		if _, exists := reg.byKey[canonical]; exists {
+			return nil, fmt.Errorf("duplicate status key %q", canonical)
+		}
+
+		// label: default to key when omitted, reject explicit empty/whitespace
+		if def.Label == "" {
+			def.Label = def.Key
+		} else if strings.TrimSpace(def.Label) == "" {
+			return nil, fmt.Errorf("status %q has empty/whitespace label", def.Key)
+		}
+
+		// emoji: trim whitespace
+		def.Emoji = strings.TrimSpace(def.Emoji)
+
+		// reject duplicate display strings
+		display := StatusDisplay(def)
+		if existingKey, exists := displaySeen[display]; exists {
+			return nil, fmt.Errorf("duplicate status display %q: statuses %q and %q", display, existingKey, canonical)
+		}
+		displaySeen[display] = canonical
 
 		if def.Default {
 			if reg.defaultKey != "" {
-				slog.Warn("multiple statuses marked default; using first", "first", reg.defaultKey, "duplicate", normalized)
-			} else {
-				reg.defaultKey = normalized
+				return nil, fmt.Errorf("multiple statuses marked default: %q and %q", reg.defaultKey, canonical)
 			}
+			reg.defaultKey = canonical
 		}
 		if def.Done {
 			if reg.doneKey != "" {
-				slog.Warn("multiple statuses marked done; using first", "first", reg.doneKey, "duplicate", normalized)
-			} else {
-				reg.doneKey = normalized
+				return nil, fmt.Errorf("multiple statuses marked done: %q and %q", reg.doneKey, canonical)
 			}
+			reg.doneKey = canonical
 		}
 
-		reg.byKey[normalized] = def
+		reg.byKey[canonical] = def
 		reg.statuses = append(reg.statuses, def)
 	}
 
-	// if no explicit default, use the first status
 	if reg.defaultKey == "" {
-		reg.defaultKey = StatusKey(reg.statuses[0].Key)
-		slog.Warn("no status marked default; using first status", "key", reg.defaultKey)
+		return nil, fmt.Errorf("no status marked default: true; exactly one is required")
 	}
 
 	if reg.doneKey == "" {
-		slog.Warn("no status marked done; task completion features may not work correctly")
+		return nil, fmt.Errorf("no status marked done: true; exactly one is required")
 	}
 
 	return reg, nil

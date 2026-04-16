@@ -248,9 +248,9 @@ func (s *InMemoryStore) NewTaskTemplate() (*task.Task, error) {
 		ID:           taskID,
 		Title:        "",
 		Description:  "",
-		Type:         task.TypeStory,
+		Type:         task.DefaultType(),
 		Status:       task.DefaultStatus(),
-		Priority:     7, // match embedded template default
+		Priority:     3,
 		Points:       1,
 		Tags:         []string{"idea"},
 		CustomFields: make(map[string]interface{}),

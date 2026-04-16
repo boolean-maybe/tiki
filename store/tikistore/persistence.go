@@ -121,11 +121,17 @@ func (s *TikiStore) loadTaskFile(path string, authorMap map[string]*git.AuthorIn
 		return nil, err
 	}
 
+	// validate type strictly — missing or unknown types are load errors
+	taskType, typeOK := taskpkg.ParseType(fm.Type)
+	if !typeOK {
+		return nil, fmt.Errorf("invalid or missing type %q", fm.Type)
+	}
+
 	task := &taskpkg.Task{
 		ID:            taskID,
 		Title:         fm.Title,
 		Description:   strings.TrimSpace(body),
-		Type:          taskpkg.NormalizeType(fm.Type),
+		Type:          taskType,
 		Status:        taskpkg.MapStatus(fm.Status),
 		Tags:          fm.Tags.ToStringSlice(),
 		DependsOn:     fm.DependsOn.ToStringSlice(),
@@ -259,9 +265,16 @@ func (s *TikiStore) ReloadTask(taskID string) error {
 		}
 	}
 
-	// Load the task file
+	// Load the task file — if it's now invalid (e.g. bad type after external edit),
+	// remove the stale in-memory copy rather than leaving it pretending the file is valid
 	task, err := s.loadTaskFile(filePath, authorMap, lastCommitMap)
 	if err != nil {
+		s.mu.Lock()
+		delete(s.tasks, normalizedID)
+		s.mu.Unlock()
+		slog.Warn("removed invalid task from memory after reload failure",
+			"task_id", normalizedID, "file", filePath, "error", err)
+		s.notifyListeners()
 		return fmt.Errorf("loading task file %s: %w", filePath, err)
 	}
 

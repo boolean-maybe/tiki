@@ -104,9 +104,9 @@ func TestSchemaNormalizeType(t *testing.T) {
 	}{
 		{"story", "story", true},
 		{"bug", "bug", true},
-		{"feature", "story", true},       // alias
-		{"task", "story", true},          // alias
-		{"unknown_type", "story", false}, // falls back to first type
+		{"feature", "", false},      // no aliases
+		{"task", "", false},         // no aliases
+		{"unknown_type", "", false}, // unknown returns empty
 	}
 
 	for _, tt := range tests {

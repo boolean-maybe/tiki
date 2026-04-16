@@ -215,7 +215,7 @@ update where id = id() set assignee=user()
 
 - `id` - task identifier (e.g., "TIKI-M7N2XK")
 - `title` - task title text
-- `type` - task type: "story", "bug", "spike", or "epic"
+- `type` - task type (must match a key defined in `workflow.yaml` types)
 - `status` - workflow status (must match a key defined in `workflow.yaml` statuses)
 - `assignee` - assigned user
 - `priority` - numeric priority value (1-5)

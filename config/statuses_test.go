@@ -152,19 +152,32 @@ func TestRegistry_Keys(t *testing.T) {
 	}
 }
 
-func TestRegistry_NormalizesKeys(t *testing.T) {
-	custom := []workflow.StatusDef{
+func TestRegistry_RejectsNonCanonicalKeys(t *testing.T) {
+	_, err := workflow.NewStatusRegistry([]workflow.StatusDef{
 		{Key: "In-Progress", Label: "In Progress", Default: true},
-		{Key: "  DONE  ", Label: "Done", Done: true},
+		{Key: "done", Label: "Done", Done: true},
+	})
+	if err == nil {
+		t.Fatal("expected error for non-canonical key")
+	}
+	if got := err.Error(); got != `status key "In-Progress" is not canonical; use "inProgress"` {
+		t.Errorf("got error %q", got)
+	}
+}
+
+func TestRegistry_CanonicalKeysWork(t *testing.T) {
+	custom := []workflow.StatusDef{
+		{Key: "inProgress", Label: "In Progress", Default: true},
+		{Key: "done", Label: "Done", Done: true},
 	}
 	setupTestRegistry(t, custom)
 	reg := GetStatusRegistry()
 
 	if !reg.IsValid("inProgress") {
-		t.Error("expected 'inProgress' to be valid after normalization")
+		t.Error("expected 'inProgress' to be valid")
 	}
 	if !reg.IsValid("done") {
-		t.Error("expected 'done' to be valid after normalization")
+		t.Error("expected 'done' to be valid")
 	}
 }
 
@@ -196,17 +209,87 @@ func TestBuildRegistry_Empty(t *testing.T) {
 	}
 }
 
-func TestBuildRegistry_DefaultFallsToFirst(t *testing.T) {
+func TestBuildRegistry_RequiresExplicitDefault(t *testing.T) {
 	defs := []workflow.StatusDef{
-		{Key: "alpha", Label: "Alpha"},
+		{Key: "alpha", Label: "Alpha", Done: true},
 		{Key: "beta", Label: "Beta"},
+	}
+	_, err := workflow.NewStatusRegistry(defs)
+	if err == nil {
+		t.Fatal("expected error when no status is marked default")
+	}
+}
+
+func TestBuildRegistry_RequiresExplicitDone(t *testing.T) {
+	defs := []workflow.StatusDef{
+		{Key: "alpha", Label: "Alpha", Default: true},
+		{Key: "beta", Label: "Beta"},
+	}
+	_, err := workflow.NewStatusRegistry(defs)
+	if err == nil {
+		t.Fatal("expected error when no status is marked done")
+	}
+}
+
+func TestBuildRegistry_RejectsDuplicateDefault(t *testing.T) {
+	defs := []workflow.StatusDef{
+		{Key: "alpha", Label: "Alpha", Default: true},
+		{Key: "beta", Label: "Beta", Default: true, Done: true},
+	}
+	_, err := workflow.NewStatusRegistry(defs)
+	if err == nil {
+		t.Fatal("expected error for duplicate default")
+	}
+}
+
+func TestBuildRegistry_RejectsDuplicateDone(t *testing.T) {
+	defs := []workflow.StatusDef{
+		{Key: "alpha", Label: "Alpha", Default: true, Done: true},
+		{Key: "beta", Label: "Beta", Done: true},
+	}
+	_, err := workflow.NewStatusRegistry(defs)
+	if err == nil {
+		t.Fatal("expected error for duplicate done")
+	}
+}
+
+func TestBuildRegistry_RejectsDuplicateDisplay(t *testing.T) {
+	defs := []workflow.StatusDef{
+		{Key: "alpha", Label: "Open", Emoji: "🟢", Default: true},
+		{Key: "beta", Label: "Open", Emoji: "🟢", Done: true},
+	}
+	_, err := workflow.NewStatusRegistry(defs)
+	if err == nil {
+		t.Fatal("expected error for duplicate display")
+	}
+}
+
+func TestBuildRegistry_LabelDefaultsToKey(t *testing.T) {
+	defs := []workflow.StatusDef{
+		{Key: "alpha", Emoji: "🔵", Default: true},
+		{Key: "beta", Emoji: "🔴", Done: true},
 	}
 	reg, err := workflow.NewStatusRegistry(defs)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if reg.DefaultKey() != "alpha" {
-		t.Errorf("expected default to fall back to first status 'alpha', got %q", reg.DefaultKey())
+	def, ok := reg.Lookup("alpha")
+	if !ok {
+		t.Fatal("expected to find alpha")
+	}
+	if def.Label != "alpha" {
+		t.Errorf("expected label to default to key, got %q", def.Label)
+	}
+}
+
+func TestBuildRegistry_EmptyWhitespaceLabel(t *testing.T) {
+	defs := []workflow.StatusDef{
+		{Key: "alpha", Label: "  ", Default: true},
+		{Key: "beta", Done: true},
+	}
+	_, err := workflow.NewStatusRegistry(defs)
+	if err == nil {
+		t.Fatal("expected error for whitespace-only label")
 	}
 }
 
@@ -430,6 +513,9 @@ statuses:
   - key: alpha
     label: Alpha
     default: true
+  - key: beta
+    label: Beta
+    done: true
 `)
 	f2 := writeTempWorkflow(t, dir2, `
 statuses: [[[invalid yaml
@@ -613,5 +699,242 @@ func TestLoadStatusRegistryFromFiles_AllFilesEmpty(t *testing.T) {
 	}
 	if path != "" {
 		t.Errorf("expected empty path, got %q", path)
+	}
+}
+
+// --- type loading tests ---
+
+func TestLoadTypesFromFile_HappyPath(t *testing.T) {
+	dir := t.TempDir()
+	f := writeTempWorkflow(t, dir, `
+types:
+  - key: story
+    label: Story
+    emoji: "🌀"
+  - key: bug
+    label: Bug
+    emoji: "💥"
+`)
+	reg, present, err := loadTypesFromFile(f)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !present {
+		t.Fatal("expected present=true")
+	}
+	if reg == nil {
+		t.Fatal("expected non-nil registry")
+	}
+	if !reg.IsValid("story") {
+		t.Error("expected story to be valid")
+	}
+	if !reg.IsValid("bug") {
+		t.Error("expected bug to be valid")
+	}
+}
+
+func TestLoadTypesFromFile_Absent(t *testing.T) {
+	dir := t.TempDir()
+	f := writeTempWorkflow(t, dir, `
+statuses:
+  - key: open
+    label: Open
+    default: true
+  - key: done
+    label: Done
+    done: true
+`)
+	reg, present, err := loadTypesFromFile(f)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if present {
+		t.Error("expected present=false when types: key is absent")
+	}
+	if reg != nil {
+		t.Error("expected nil registry when absent")
+	}
+}
+
+func TestLoadTypesFromFile_EmptyList(t *testing.T) {
+	dir := t.TempDir()
+	f := writeTempWorkflow(t, dir, `types: []`)
+	_, present, err := loadTypesFromFile(f)
+	if err == nil {
+		t.Fatal("expected error for types: []")
+	}
+	if !present {
+		t.Error("expected present=true even for empty list")
+	}
+}
+
+func TestLoadTypesFromFile_NonCanonicalKey(t *testing.T) {
+	dir := t.TempDir()
+	f := writeTempWorkflow(t, dir, `
+types:
+  - key: Story
+    label: Story
+`)
+	_, _, err := loadTypesFromFile(f)
+	if err == nil {
+		t.Fatal("expected error for non-canonical key")
+	}
+}
+
+func TestLoadTypesFromFile_UnknownKey(t *testing.T) {
+	dir := t.TempDir()
+	f := writeTempWorkflow(t, dir, `
+types:
+  - key: story
+    label: Story
+    aliases:
+      - feature
+`)
+	_, _, err := loadTypesFromFile(f)
+	if err == nil {
+		t.Fatal("expected error for unknown key 'aliases'")
+	}
+}
+
+func TestLoadTypesFromFile_MissingLabelDefaultsToKey(t *testing.T) {
+	dir := t.TempDir()
+	f := writeTempWorkflow(t, dir, `
+types:
+  - key: task
+    emoji: "📋"
+`)
+	reg, _, err := loadTypesFromFile(f)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if got := reg.TypeLabel("task"); got != "task" {
+		t.Errorf("expected label to default to key, got %q", got)
+	}
+}
+
+func TestLoadTypesFromFile_InvalidYAML(t *testing.T) {
+	dir := t.TempDir()
+	f := writeTempWorkflow(t, dir, `types: [[[invalid`)
+	_, _, err := loadTypesFromFile(f)
+	if err == nil {
+		t.Fatal("expected error for invalid YAML")
+	}
+}
+
+func TestLoadTypeRegistryFromFiles_LastFileWithTypesWins(t *testing.T) {
+	dir1 := t.TempDir()
+	dir2 := t.TempDir()
+
+	f1 := writeTempWorkflow(t, dir1, `
+types:
+  - key: alpha
+    label: Alpha
+`)
+	f2 := writeTempWorkflow(t, dir2, `
+types:
+  - key: beta
+    label: Beta
+  - key: gamma
+    label: Gamma
+`)
+
+	reg, path, err := loadTypeRegistryFromFiles([]string{f1, f2})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if path != f2 {
+		t.Errorf("expected path %q, got %q", f2, path)
+	}
+	if reg.IsValid("alpha") {
+		t.Error("expected alpha to NOT be valid (overridden)")
+	}
+	if !reg.IsValid("beta") {
+		t.Error("expected beta to be valid")
+	}
+}
+
+func TestLoadTypeRegistryFromFiles_SkipsFilesWithoutTypes(t *testing.T) {
+	dir1 := t.TempDir()
+	dir2 := t.TempDir()
+
+	f1 := writeTempWorkflow(t, dir1, `
+types:
+  - key: alpha
+    label: Alpha
+`)
+	f2 := writeTempWorkflow(t, dir2, `
+statuses:
+  - key: open
+    label: Open
+    default: true
+  - key: done
+    label: Done
+    done: true
+`)
+
+	reg, path, err := loadTypeRegistryFromFiles([]string{f1, f2})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if path != f1 {
+		t.Errorf("expected path %q (file with types), got %q", f1, path)
+	}
+	if !reg.IsValid("alpha") {
+		t.Error("expected alpha to be valid")
+	}
+}
+
+func TestLoadTypeRegistryFromFiles_FallbackToBuiltins(t *testing.T) {
+	dir := t.TempDir()
+	f := writeTempWorkflow(t, dir, `
+statuses:
+  - key: open
+    label: Open
+    default: true
+  - key: done
+    label: Done
+    done: true
+`)
+
+	reg, path, err := loadTypeRegistryFromFiles([]string{f})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if path != "<built-in>" {
+		t.Errorf("expected built-in path, got %q", path)
+	}
+	if !reg.IsValid("story") {
+		t.Error("expected built-in story type")
+	}
+}
+
+func TestLoadTypeRegistryFromFiles_ParseErrorStops(t *testing.T) {
+	dir := t.TempDir()
+	f := writeTempWorkflow(t, dir, `
+types:
+  - key: Story
+    label: Story
+`)
+	_, _, err := loadTypeRegistryFromFiles([]string{f})
+	if err == nil {
+		t.Fatal("expected error for non-canonical key")
+	}
+}
+
+func TestResetTypeRegistry(t *testing.T) {
+	setupTestRegistry(t, defaultTestStatuses())
+
+	custom := []workflow.TypeDef{
+		{Key: "task", Label: "Task"},
+		{Key: "incident", Label: "Incident"},
+	}
+	ResetTypeRegistry(custom)
+
+	reg := GetTypeRegistry()
+	if !reg.IsValid("task") {
+		t.Error("expected 'task' to be valid after ResetTypeRegistry")
+	}
+	if reg.IsValid("story") {
+		t.Error("expected 'story' to NOT be valid after ResetTypeRegistry")
 	}
 }

@@ -1,8 +1,6 @@
 package task
 
 import (
-	"fmt"
-
 	"github.com/boolean-maybe/tiki/config"
 	"github.com/boolean-maybe/tiki/workflow"
 )
@@ -19,59 +17,54 @@ const (
 	TypeEpic  = workflow.TypeEpic
 )
 
-// defaultTypeRegistry is built once from the built-in type definitions.
-// It serves as a fallback when config has not been initialized yet.
-var defaultTypeRegistry = func() *workflow.TypeRegistry {
-	reg, err := workflow.NewTypeRegistry(workflow.DefaultTypeDefs())
-	if err != nil {
-		panic(fmt.Sprintf("task: building default type registry: %v", err))
-	}
-	return reg
-}()
-
-// currentTypeRegistry returns the config-provided type registry when available,
-// falling back to the package-level default built from DefaultTypeDefs().
-func currentTypeRegistry() *workflow.TypeRegistry {
-	if reg, ok := config.MaybeGetTypeRegistry(); ok {
-		return reg
-	}
-	return defaultTypeRegistry
+// requireTypeRegistry returns the loaded type registry.
+// Panics if workflow registries have not been loaded — this is a programmer
+// error, not a user-facing path.
+func requireTypeRegistry() *workflow.TypeRegistry {
+	return config.GetTypeRegistry()
 }
 
 // ParseType parses a raw string into a Type with validation.
-// Returns the canonical key and true if recognized (including aliases),
-// or (TypeStory, false) for unknown types.
+// Returns the canonical key and true if recognized,
+// or ("", false) for unknown types.
+// Panics if registries are not loaded.
 func ParseType(t string) (Type, bool) {
-	return currentTypeRegistry().ParseType(t)
-}
-
-// NormalizeType standardizes a raw type string into a Type.
-func NormalizeType(t string) Type {
-	return currentTypeRegistry().NormalizeType(t)
+	return requireTypeRegistry().ParseType(t)
 }
 
 // TypeLabel returns a human-readable label for a task type.
+// Panics if registries are not loaded.
 func TypeLabel(taskType Type) string {
-	return currentTypeRegistry().TypeLabel(taskType)
+	return requireTypeRegistry().TypeLabel(taskType)
 }
 
 // TypeEmoji returns the emoji for a task type.
+// Panics if registries are not loaded.
 func TypeEmoji(taskType Type) string {
-	return currentTypeRegistry().TypeEmoji(taskType)
+	return requireTypeRegistry().TypeEmoji(taskType)
 }
 
 // TypeDisplay returns a formatted display string with label and emoji.
+// Panics if registries are not loaded.
 func TypeDisplay(taskType Type) string {
-	return currentTypeRegistry().TypeDisplay(taskType)
+	return requireTypeRegistry().TypeDisplay(taskType)
 }
 
 // ParseDisplay reverses a TypeDisplay() string back to a canonical key.
-// Returns (key, true) on match, or (fallback, false) for unrecognized display strings.
+// Returns (key, true) on match, or ("", false) for unrecognized display strings.
+// Panics if registries are not loaded.
 func ParseDisplay(display string) (Type, bool) {
-	return currentTypeRegistry().ParseDisplay(display)
+	return requireTypeRegistry().ParseDisplay(display)
 }
 
 // AllTypes returns the ordered list of all configured type keys.
+// Panics if registries are not loaded.
 func AllTypes() []Type {
-	return currentTypeRegistry().Keys()
+	return requireTypeRegistry().Keys()
+}
+
+// DefaultType returns the first configured type, used as the creation default.
+// Panics if registries are not loaded.
+func DefaultType() Type {
+	return requireTypeRegistry().DefaultType()
 }

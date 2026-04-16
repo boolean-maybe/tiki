@@ -7,7 +7,7 @@ while plugins control what you see and how you interact with your work. This sec
 ## Statuses
 
 Workflow statuses are defined in `workflow.yaml` under the `statuses:` key. Every tiki project must define 
-its statuses here — there is no hardcoded fallback. The default `workflow.yaml` ships with:
+its statuses here — there is no hardcoded fallback. See [Custom statuses and types](custom-status-type.md). The default `workflow.yaml` ships with:
 
 ```yaml
 statuses:
@@ -19,7 +19,7 @@ statuses:
     label: Ready
     emoji: "📋"
     active: true
-  - key: in_progress
+  - key: inProgress
     label: "In Progress"
     emoji: "⚙️"
     active: true
@@ -34,14 +34,42 @@ statuses:
 ```
 
 Each status has:
-- `key` — canonical identifier (lowercase, underscores). Used in filters, actions, and frontmatter.
-- `label` — display name shown in the UI
+- `key` — canonical camelCase identifier. Used in filters, actions, and frontmatter.
+- `label` — display name shown in the UI (defaults to key when omitted)
 - `emoji` — emoji shown alongside the label
 - `active` — marks the status as "active work" (used for activity tracking)
-- `default` — the status assigned to new tikis (exactly one status should have this)
-- `done` — marks the status as "completed" (used for completion tracking)
+- `default` — the status assigned to new tikis (exactly one required)
+- `done` — marks the status as "completed" (exactly one required)
 
 You can customize these to match your team's workflow. All filters and actions in view definitions (see below) must reference valid status keys.
+
+## Types
+
+Task types are defined in `workflow.yaml` under the `types:` key. If omitted, built-in defaults are used.
+See [Custom statuses and types](custom-status-type.md) for the full validation and inheritance rules. The default `workflow.yaml` ships with:
+
+```yaml
+types:
+  - key: story
+    label: Story
+    emoji: "🌀"
+  - key: bug
+    label: Bug
+    emoji: "💥"
+  - key: spike
+    label: Spike
+    emoji: "🔍"
+  - key: epic
+    label: Epic
+    emoji: "🗂️"
+```
+
+Each type has:
+- `key` — canonical lowercase identifier. Used in filters, actions, and frontmatter.
+- `label` — display name shown in the UI (defaults to key when omitted)
+- `emoji` — emoji shown alongside the label
+
+The first configured type is used as the default for new tikis.
 
 ## Task Template
 
@@ -53,14 +81,15 @@ The file uses YAML frontmatter for field defaults
 
 ```markdown
 ---
-type: story
-status: backlog
+title:
 points: 1
 priority: 3
 tags:
     - idea
 ---
 ```
+
+Type and status are omitted but can be added, otherwise they default to the first configured type and the status marked `default: true`.
 
 ## Plugins
 
@@ -240,7 +269,7 @@ update where id = id() set assignee=user()
 
 - `id` - task identifier (e.g., "TIKI-M7N2XK")
 - `title` - task title text
-- `type` - task type: "story", "bug", "spike", or "epic"
+- `type` - task type (must match a key defined in `workflow.yaml` types)
 - `status` - workflow status (must match a key defined in `workflow.yaml` statuses)
 - `assignee` - assigned user
 - `priority` - numeric priority value (1-5)

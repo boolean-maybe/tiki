@@ -145,7 +145,8 @@ func mergePluginLists(base, overrides []Plugin) []Plugin {
 // Files are discovered via config.FindWorkflowFiles() which returns user config first, then project config.
 // Plugins from later files override same-named plugins from earlier files via field merging.
 // Global actions are merged by key across files (later files override same-keyed globals from earlier files).
-// Returns an error when workflow files were found but no valid plugins could be loaded.
+// Returns an error when workflow files were found but no valid plugins could be loaded,
+// or when type-reference errors indicate an inconsistent merged workflow.
 func LoadPlugins(schema ruki.Schema) ([]Plugin, error) {
 	files := config.FindWorkflowFiles()
 	if len(files) == 0 {
@@ -171,6 +172,13 @@ func LoadPlugins(schema ruki.Schema) ([]Plugin, error) {
 		allGlobalActions = mergeGlobalActions(allGlobalActions, moreGlobals)
 	}
 
+	// type-reference errors in views/actions are fatal merged-workflow errors,
+	// not ordinary per-view parse errors that can be skipped
+	if typeErrs := filterTypeErrors(allErrors); len(typeErrs) > 0 {
+		return nil, fmt.Errorf("merged workflow references invalid types:\n  %s\n\nIf you redefined types: in a later workflow file, update views/actions/triggers to match",
+			strings.Join(typeErrs, "\n  "))
+	}
+
 	// merge global actions into each TikiPlugin
 	mergeGlobalActionsIntoPlugins(base, allGlobalActions)
 
@@ -186,6 +194,17 @@ func LoadPlugins(schema ruki.Schema) ([]Plugin, error) {
 	}
 
 	return base, nil
+}
+
+// filterTypeErrors extracts errors that mention unknown type references.
+func filterTypeErrors(errs []string) []string {
+	var typeErrs []string
+	for _, e := range errs {
+		if strings.Contains(e, "unknown type") {
+			typeErrs = append(typeErrs, e)
+		}
+	}
+	return typeErrs
 }
 
 // mergeGlobalActions merges override global actions into base by key (rune).

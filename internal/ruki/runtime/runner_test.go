@@ -439,9 +439,9 @@ func TestRunQueryCreateTemplateDefaults(t *testing.T) {
 	if len(found.Tags) != 2 || found.Tags[0] != "idea" || found.Tags[1] != "extra" {
 		t.Errorf("tags = %v, want [idea extra]", found.Tags)
 	}
-	// priority should be template default (7)
-	if found.Priority != 7 {
-		t.Errorf("priority = %d, want 7 (template default)", found.Priority)
+	// priority should be template default (3 = medium)
+	if found.Priority != 3 {
+		t.Errorf("priority = %d, want 3 (template default)", found.Priority)
 	}
 }
 
