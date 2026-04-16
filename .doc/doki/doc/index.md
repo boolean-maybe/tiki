@@ -1,7 +1,8 @@
 # Documentation
 - [Quick start](quick-start.md)
-- [Configuration](config.md)
 - [Installation](install.md)
+- [Configuration](config.md)
+- [Command line options](command-line.md)
 - [Markdown viewer](markdown-viewer.md)
 - [Image support](image-requirements.md)
 - [Custom fields](custom-fields.md)

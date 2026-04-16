@@ -62,6 +62,11 @@ func main() {
 		os.Exit(1)
 	}
 
+	// Handle config command
+	if len(os.Args) > 1 && os.Args[1] == "config" {
+		os.Exit(runConfig(os.Args[2:]))
+	}
+
 	// Handle exec command: execute ruki statement and exit
 	if len(os.Args) > 1 && os.Args[1] == "exec" {
 		os.Exit(runExec(os.Args[2:]))
@@ -83,7 +88,7 @@ func main() {
 
 	// Handle viewer mode (standalone markdown viewer)
 	// "init" is reserved to prevent treating it as a markdown file
-	viewerInput, runViewer, err := viewer.ParseViewerInput(os.Args[1:], map[string]struct{}{"init": {}, "demo": {}, "exec": {}})
+	viewerInput, runViewer, err := viewer.ParseViewerInput(os.Args[1:], map[string]struct{}{"init": {}, "demo": {}, "exec": {}, "config": {}})
 	if err != nil {
 		if errors.Is(err, viewer.ErrMultipleInputs) {
 			_, _ = fmt.Fprintln(os.Stderr, "error:", err)
@@ -178,7 +183,11 @@ func runDemo() error {
 	return nil
 }
 
-// exit codes for tiki exec
+// errHelpRequested is returned by arg parsers when the user asks for help.
+// Callers should print usage and exit cleanly — not treat it as a real error.
+var errHelpRequested = errors.New("help requested")
+
+// exit codes for CLI subcommands
 const (
 	exitOK             = 0
 	exitInternal       = 1
@@ -254,6 +263,7 @@ Usage:
   tiki                       Launch TUI in initialized repo
   tiki init                  Initialize project in current git repo
   tiki exec '<statement>'    Execute a ruki query and exit
+  tiki config reset [target] Reset config files (--global, --local, --current)
   tiki demo                  Clone demo project and launch TUI
   tiki file.md/URL           View markdown file or image
   echo "Title" | tiki        Create task from piped input
