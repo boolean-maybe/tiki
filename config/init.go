@@ -90,7 +90,7 @@ Press Esc to cancel project initialization.`
 				Value(&opts.AITools),
 			huh.NewConfirm().
 				Title("Create sample tasks").
-				Description("Seed project with example tikis (incompatible samples are skipped automatically)").
+				Description("Create example tikis in project").
 				Value(&opts.SampleTasks),
 		),
 	).WithTheme(theme).
