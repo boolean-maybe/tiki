@@ -32,16 +32,16 @@ tiki exec 'select where status = "ready" order by priority'
 tiki exec 'update where id = "TIKI-ABC123" set status="done"'
 ```
 
-### config
+### workflow
 
-Manage configuration files.
+Manage workflow configuration files.
 
-#### config reset
+#### workflow reset
 
 Reset configuration files to their defaults.
 
 ```bash
-tiki config reset [target] --scope
+tiki workflow reset [target] [--scope]
 ```
 
 **Targets** (omit to reset all three files):
@@ -49,7 +49,7 @@ tiki config reset [target] --scope
 - `workflow` — workflow.yaml
 - `new` — new.md (task template)
 
-**Scopes** (required):
+**Scopes** (default: `--local`):
 - `--global` — user config directory
 - `--local` — project config directory (`.doc/`)
 - `--current` — current working directory
@@ -60,13 +60,34 @@ For `--local` and `--current`, files are deleted so the next tier in the [preced
 
 ```bash
 # restore all global config to defaults
-tiki config reset --global
+tiki workflow reset --global
 
 # remove project workflow overrides (falls back to global)
-tiki config reset workflow --local
+tiki workflow reset workflow --local
 
 # remove cwd config override
-tiki config reset config --current
+tiki workflow reset config --current
+```
+
+#### workflow install
+
+Install a named workflow from the tiki repository. Downloads `workflow.yaml` and `new.md` into the scope directory, overwriting any existing files.
+
+```bash
+tiki workflow install <name> [--scope]
+```
+
+**Scopes** (default: `--local`):
+- `--global` — user config directory
+- `--local` — project config directory (`.doc/`)
+- `--current` — current working directory
+
+```bash
+# install the sprint workflow globally
+tiki workflow install sprint --global
+
+# install the kanban workflow for the current project
+tiki workflow install kanban --local
 ```
 
 ### demo

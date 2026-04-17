@@ -7,16 +7,16 @@ import (
 	"path/filepath"
 )
 
-// ResetScope identifies which config tier to reset.
-type ResetScope string
+// Scope identifies which config tier to operate on.
+type Scope string
 
 // ResetTarget identifies which config file to reset.
 type ResetTarget string
 
 const (
-	ScopeGlobal  ResetScope = "global"
-	ScopeLocal   ResetScope = "local"
-	ScopeCurrent ResetScope = "current"
+	ScopeGlobal  Scope = "global"
+	ScopeLocal   Scope = "local"
+	ScopeCurrent Scope = "current"
 
 	TargetAll      ResetTarget = ""
 	TargetConfig   ResetTarget = "config"
@@ -40,7 +40,7 @@ var resetEntries = []resetEntry{
 
 // ResetConfig resets configuration files for the given scope and target.
 // Returns the list of file paths that were actually modified or deleted.
-func ResetConfig(scope ResetScope, target ResetTarget) ([]string, error) {
+func ResetConfig(scope Scope, target ResetTarget) ([]string, error) {
 	dir, err := resolveDir(scope)
 	if err != nil {
 		return nil, err
@@ -67,7 +67,7 @@ func ResetConfig(scope ResetScope, target ResetTarget) ([]string, error) {
 }
 
 // resolveDir returns the directory path for the given scope.
-func resolveDir(scope ResetScope) (string, error) {
+func resolveDir(scope Scope) (string, error) {
 	switch scope {
 	case ScopeGlobal:
 		return GetConfigDir(), nil
@@ -87,6 +87,16 @@ func resolveDir(scope ResetScope) (string, error) {
 	}
 }
 
+// ValidResetTarget reports whether target is a recognized reset target.
+func ValidResetTarget(target ResetTarget) bool {
+	switch target {
+	case TargetAll, TargetConfig, TargetWorkflow, TargetNew:
+		return true
+	default:
+		return false
+	}
+}
+
 // filterEntries returns the reset entries matching the target.
 func filterEntries(target ResetTarget) ([]resetEntry, error) {
 	if target == TargetAll {
@@ -101,7 +111,7 @@ func filterEntries(target ResetTarget) ([]resetEntry, error) {
 	case TargetNew:
 		filename = templateFilename
 	default:
-		return nil, fmt.Errorf("unknown reset target: %q", target)
+		return nil, fmt.Errorf("unknown target: %q (use config, workflow, or new)", target)
 	}
 	for _, e := range resetEntries {
 		if e.filename == filename {
@@ -114,21 +124,25 @@ func filterEntries(target ResetTarget) ([]resetEntry, error) {
 // resetFile either overwrites or deletes a file depending on scope and available defaults.
 // For global scope with non-empty default content, the file is overwritten.
 // Otherwise the file is deleted. Returns true if the file was changed.
-func resetFile(path string, scope ResetScope, defaultContent string) (bool, error) {
+func resetFile(path string, scope Scope, defaultContent string) (bool, error) {
 	if scope == ScopeGlobal && defaultContent != "" {
-		return writeDefault(path, defaultContent)
+		return writeFileIfChanged(path, defaultContent)
 	}
 	return deleteIfExists(path)
 }
 
-// writeDefault writes defaultContent to path, creating parent dirs if needed.
-// Returns true if the file was actually changed (skips write when content already matches).
-func writeDefault(path string, content string) (bool, error) {
+// writeFileIfChanged writes content to path, skipping if the file already has identical content.
+// Returns true if the file was actually changed.
+func writeFileIfChanged(path string, content string) (bool, error) {
 	existing, err := os.ReadFile(path)
 	if err == nil && string(existing) == content {
 		return false, nil
 	}
+	return writeFile(path, content)
+}
 
+// writeFile writes content to path unconditionally, creating parent dirs if needed.
+func writeFile(path string, content string) (bool, error) {
 	dir := filepath.Dir(path)
 	//nolint:gosec // G301: 0755 is appropriate for config directory
 	if err := os.MkdirAll(dir, 0755); err != nil {

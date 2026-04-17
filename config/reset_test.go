@@ -24,8 +24,8 @@ func setupResetTest(t *testing.T) string {
 	return tikiDir
 }
 
-// writeFile is a test helper that writes content to path.
-func writeFile(t *testing.T, path, content string) {
+// writeTestFile is a test helper that writes content to path.
+func writeTestFile(t *testing.T, path, content string) {
 	t.Helper()
 	if err := os.WriteFile(path, []byte(content), 0644); err != nil {
 		t.Fatal(err)
@@ -36,9 +36,9 @@ func TestResetConfig_GlobalAll(t *testing.T) {
 	tikiDir := setupResetTest(t)
 
 	// seed all three files with custom content
-	writeFile(t, filepath.Join(tikiDir, "config.yaml"), "logging:\n  level: debug\n")
-	writeFile(t, filepath.Join(tikiDir, "workflow.yaml"), "custom: true\n")
-	writeFile(t, filepath.Join(tikiDir, "new.md"), "custom template\n")
+	writeTestFile(t, filepath.Join(tikiDir, "config.yaml"), "logging:\n  level: debug\n")
+	writeTestFile(t, filepath.Join(tikiDir, "workflow.yaml"), "custom: true\n")
+	writeTestFile(t, filepath.Join(tikiDir, "new.md"), "custom template\n")
 
 	affected, err := ResetConfig(ScopeGlobal, TargetAll)
 	if err != nil {
@@ -87,7 +87,7 @@ func TestResetConfig_GlobalSingleTarget(t *testing.T) {
 		t.Run(string(tt.target), func(t *testing.T) {
 			tikiDir := setupResetTest(t)
 
-			writeFile(t, filepath.Join(tikiDir, tt.filename), "custom\n")
+			writeTestFile(t, filepath.Join(tikiDir, tt.filename), "custom\n")
 
 			affected, err := ResetConfig(ScopeGlobal, tt.target)
 			if err != nil {
@@ -125,12 +125,12 @@ func TestResetConfig_LocalDeletesFiles(t *testing.T) {
 	pm.projectRoot = projectDir
 
 	// seed project config files
-	writeFile(t, filepath.Join(docDir, "config.yaml"), "custom\n")
-	writeFile(t, filepath.Join(docDir, "workflow.yaml"), "custom\n")
-	writeFile(t, filepath.Join(docDir, "new.md"), "custom\n")
+	writeTestFile(t, filepath.Join(docDir, "config.yaml"), "custom\n")
+	writeTestFile(t, filepath.Join(docDir, "workflow.yaml"), "custom\n")
+	writeTestFile(t, filepath.Join(docDir, "new.md"), "custom\n")
 
 	// also write global defaults so we can verify local doesn't overwrite
-	writeFile(t, filepath.Join(tikiDir, "workflow.yaml"), "global\n")
+	writeTestFile(t, filepath.Join(tikiDir, "workflow.yaml"), "global\n")
 
 	affected, err := ResetConfig(ScopeLocal, TargetAll)
 	if err != nil {
@@ -165,7 +165,7 @@ func TestResetConfig_CurrentDeletesFiles(t *testing.T) {
 	defer func() { _ = os.Chdir(originalDir) }()
 	_ = os.Chdir(cwdDir)
 
-	writeFile(t, filepath.Join(cwdDir, "workflow.yaml"), "override\n")
+	writeTestFile(t, filepath.Join(cwdDir, "workflow.yaml"), "override\n")
 
 	affected, err := ResetConfig(ScopeCurrent, TargetWorkflow)
 	if err != nil {
@@ -222,7 +222,7 @@ func TestResetConfig_GlobalSkipsWhenAlreadyDefault(t *testing.T) {
 	tikiDir := setupResetTest(t)
 
 	// write the embedded default content — reset should detect no change
-	writeFile(t, filepath.Join(tikiDir, "workflow.yaml"), GetDefaultWorkflowYAML())
+	writeTestFile(t, filepath.Join(tikiDir, "workflow.yaml"), GetDefaultWorkflowYAML())
 
 	affected, err := ResetConfig(ScopeGlobal, TargetWorkflow)
 	if err != nil {
@@ -230,6 +230,21 @@ func TestResetConfig_GlobalSkipsWhenAlreadyDefault(t *testing.T) {
 	}
 	if len(affected) != 0 {
 		t.Errorf("expected 0 affected files when already default, got %d", len(affected))
+	}
+}
+
+func TestValidResetTarget(t *testing.T) {
+	valid := []ResetTarget{TargetAll, TargetConfig, TargetWorkflow, TargetNew}
+	for _, target := range valid {
+		if !ValidResetTarget(target) {
+			t.Errorf("ValidResetTarget(%q) = false, want true", target)
+		}
+	}
+	invalid := []ResetTarget{"themes", "invalid", "reset"}
+	for _, target := range invalid {
+		if ValidResetTarget(target) {
+			t.Errorf("ValidResetTarget(%q) = true, want false", target)
+		}
 	}
 }
 
