@@ -1,0 +1,44 @@
+statuses:
+  - key: todo
+    label: Todo
+    emoji: "📌"
+    default: true
+    active: true
+  - key: done
+    label: Done
+    emoji: "✅"
+    done: true
+
+types:
+  - key: task
+    label: Task
+    emoji: "📝"
+
+views:
+  actions:
+    - key: "y"
+      label: "Copy ID"
+      action: select id where id = id() | clipboard()
+    - key: "Y"
+      label: "Copy content"
+      action: select title, description where id = id() | clipboard()
+  plugins:
+    - name: Todo
+      description: "Simple todo list with two lanes"
+      default: true
+      key: "F1"
+      lanes:
+        - name: Todo
+          columns: 3
+          filter: select where status = "todo" order by priority, createdAt
+          action: update where id = id() set status="todo"
+        - name: Done
+          columns: 1
+          filter: select where status = "done" order by updatedAt desc
+          action: update where id = id() set status="done"
+
+triggers:
+  - description: clean up completed tasks after 24 hours
+    ruki: >
+      every 1day
+        delete where status = "done" and updatedAt < now() - 1day
