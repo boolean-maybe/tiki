@@ -1,3 +1,8 @@
+description: |
+  Bug tracker for triaging and resolving customer-reported issues.
+  Six statuses (Open → Triaged → In Progress → In Review → Verified, plus Won't Fix),
+  three task types (Bug, Regression, Incident), and custom fields for severity,
+  environment, reporter, foundIn version, due date, regression flag, and escalation count.
 fields:
   - name: severity
     type: enum

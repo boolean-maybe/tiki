@@ -13,7 +13,8 @@ import (
 
 // WorkflowFile represents the YAML structure of a workflow.yaml file
 type WorkflowFile struct {
-	Views viewsSectionConfig `yaml:"views"`
+	Description string             `yaml:"description,omitempty"`
+	Views       viewsSectionConfig `yaml:"views"`
 }
 
 // loadPluginsFromFile loads plugins from a single workflow.yaml file.

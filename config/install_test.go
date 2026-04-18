@@ -127,6 +127,65 @@ func TestInstallWorkflow_InvalidName(t *testing.T) {
 	}
 }
 
+func TestDescribeWorkflow_Success(t *testing.T) {
+	_ = setupResetTest(t)
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/workflows/sprint/workflow.yaml" {
+			http.NotFound(w, r)
+			return
+		}
+		_, _ = w.Write([]byte("description: |\n  Sprint workflow.\n  Two-week cycles.\nstatuses:\n  - key: todo\n"))
+	}))
+	defer server.Close()
+
+	desc, err := DescribeWorkflow("sprint", server.URL)
+	if err != nil {
+		t.Fatalf("DescribeWorkflow() error = %v", err)
+	}
+	want := "Sprint workflow.\nTwo-week cycles.\n"
+	if desc != want {
+		t.Errorf("description = %q, want %q", desc, want)
+	}
+}
+
+func TestDescribeWorkflow_NoDescriptionField(t *testing.T) {
+	_ = setupResetTest(t)
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		_, _ = w.Write([]byte("statuses:\n  - key: todo\n"))
+	}))
+	defer server.Close()
+
+	desc, err := DescribeWorkflow("sprint", server.URL)
+	if err != nil {
+		t.Fatalf("DescribeWorkflow() error = %v", err)
+	}
+	if desc != "" {
+		t.Errorf("description = %q, want empty", desc)
+	}
+}
+
+func TestDescribeWorkflow_NotFound(t *testing.T) {
+	_ = setupResetTest(t)
+
+	server := httptest.NewServer(http.NotFoundHandler())
+	defer server.Close()
+
+	_, err := DescribeWorkflow("nonexistent", server.URL)
+	if err == nil {
+		t.Fatal("expected error for nonexistent workflow, got nil")
+	}
+}
+
+func TestDescribeWorkflow_InvalidName(t *testing.T) {
+	for _, name := range []string{"../../etc", "a b", "", "foo/bar", "-dash", "dot."} {
+		if _, err := DescribeWorkflow(name, "http://unused"); err == nil {
+			t.Errorf("expected error for name %q, got nil", name)
+		}
+	}
+}
+
 func TestInstallWorkflow_AtomicFetch(t *testing.T) {
 	tikiDir := setupResetTest(t)
 
