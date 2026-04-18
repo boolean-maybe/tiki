@@ -494,6 +494,59 @@ triggers:
 	}
 }
 
+func TestSavePluginViewMode_PreservesDescription(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	workflowContent := `description: |
+  Release workflow. Coordinate feature rollout through
+  Planned → Building → Staging → Canary → Released.
+statuses:
+  - key: backlog
+    label: Backlog
+    default: true
+  - key: done
+    label: Done
+    done: true
+views:
+  - name: Kanban
+    default: true
+    key: "F1"
+    lanes:
+      - name: Done
+        filter: status = 'done'
+        action: status = 'done'
+    sort: Priority, CreatedAt
+`
+	workflowPath := filepath.Join(tmpDir, "workflow.yaml")
+	if err := os.WriteFile(workflowPath, []byte(workflowContent), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	wf, err := readWorkflowFile(workflowPath)
+	if err != nil {
+		t.Fatalf("readWorkflowFile failed: %v", err)
+	}
+	wantDesc := "Release workflow. Coordinate feature rollout through\nPlanned → Building → Staging → Canary → Released.\n"
+	if wf.Description != wantDesc {
+		t.Errorf("description after read = %q, want %q", wf.Description, wantDesc)
+	}
+
+	if len(wf.Views.Plugins) > 0 {
+		wf.Views.Plugins[0]["view"] = "compact"
+	}
+	if err := writeWorkflowFile(workflowPath, wf); err != nil {
+		t.Fatalf("writeWorkflowFile failed: %v", err)
+	}
+
+	wf2, err := readWorkflowFile(workflowPath)
+	if err != nil {
+		t.Fatalf("readWorkflowFile after write failed: %v", err)
+	}
+	if wf2.Description != wantDesc {
+		t.Errorf("description after round-trip = %q, want %q", wf2.Description, wantDesc)
+	}
+}
+
 func TestGetConfig(t *testing.T) {
 	// Reset appConfig
 	appConfig = nil

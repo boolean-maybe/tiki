@@ -132,6 +132,53 @@ func TestParseScopeArgs(t *testing.T) {
 	}
 }
 
+func TestParsePositionalOnly(t *testing.T) {
+	tests := []struct {
+		name       string
+		args       []string
+		positional string
+		wantErr    error
+		errSubstr  string
+	}{
+		{name: "no args", args: nil},
+		{name: "single positional", args: []string{"sprint"}, positional: "sprint"},
+		{name: "help flag", args: []string{"--help"}, wantErr: errHelpRequested},
+		{name: "short help flag", args: []string{"-h"}, wantErr: errHelpRequested},
+		{name: "rejects scope", args: []string{"sprint", "--global"}, errSubstr: "unknown flag"},
+		{name: "rejects unknown flag", args: []string{"sprint", "--verbose"}, errSubstr: "unknown flag"},
+		{name: "multiple positional", args: []string{"a", "b"}, errSubstr: "multiple positional arguments"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			positional, err := parsePositionalOnly(tt.args)
+
+			if tt.wantErr != nil {
+				if !errors.Is(err, tt.wantErr) {
+					t.Fatalf("expected error %v, got %v", tt.wantErr, err)
+				}
+				return
+			}
+			if tt.errSubstr != "" {
+				if err == nil {
+					t.Fatal("expected error, got nil")
+				}
+				if msg := err.Error(); !strings.Contains(msg, tt.errSubstr) {
+					t.Fatalf("expected error containing %q, got %q", tt.errSubstr, msg)
+				}
+				return
+			}
+
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+			if positional != tt.positional {
+				t.Errorf("positional = %q, want %q", positional, tt.positional)
+			}
+		})
+	}
+}
+
 // --- runWorkflow dispatch tests ---
 
 func TestRunWorkflow_NoArgs(t *testing.T) {
@@ -276,6 +323,92 @@ func TestRunWorkflowInstall_DefaultsToLocal(t *testing.T) {
 
 func TestRunWorkflowInstall_Help(t *testing.T) {
 	if code := runWorkflowInstall([]string{"--help"}); code != exitOK {
+		t.Errorf("exit code = %d, want %d", code, exitOK)
+	}
+}
+
+// --- runWorkflowDescribe integration tests ---
+
+func TestRunWorkflowDescribe_Success(t *testing.T) {
+	_ = setupWorkflowTest(t)
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/workflows/sprint/workflow.yaml" {
+			http.NotFound(w, r)
+			return
+		}
+		_, _ = w.Write([]byte("description: |\n  sprint desc\n"))
+	}))
+	defer server.Close()
+	overrideBaseURL(t, server.URL)
+
+	if code := runWorkflowDescribe([]string{"sprint"}); code != exitOK {
+		t.Errorf("exit code = %d, want %d", code, exitOK)
+	}
+}
+
+func TestRunWorkflowDescribe_MissingName(t *testing.T) {
+	_ = setupWorkflowTest(t)
+
+	if code := runWorkflowDescribe(nil); code != exitUsage {
+		t.Errorf("exit code = %d, want %d", code, exitUsage)
+	}
+}
+
+func TestRunWorkflowDescribe_InvalidName(t *testing.T) {
+	_ = setupWorkflowTest(t)
+
+	if code := runWorkflowDescribe([]string{"../../etc"}); code != exitInternal {
+		t.Errorf("exit code = %d, want %d", code, exitInternal)
+	}
+}
+
+func TestRunWorkflowDescribe_NotFound(t *testing.T) {
+	_ = setupWorkflowTest(t)
+
+	server := httptest.NewServer(http.NotFoundHandler())
+	defer server.Close()
+	overrideBaseURL(t, server.URL)
+
+	if code := runWorkflowDescribe([]string{"nonexistent"}); code != exitInternal {
+		t.Errorf("exit code = %d, want %d", code, exitInternal)
+	}
+}
+
+func TestRunWorkflowDescribe_UnknownFlag(t *testing.T) {
+	_ = setupWorkflowTest(t)
+
+	if code := runWorkflowDescribe([]string{"sprint", "--verbose"}); code != exitUsage {
+		t.Errorf("exit code = %d, want %d", code, exitUsage)
+	}
+}
+
+func TestRunWorkflowDescribe_RejectsScopeFlags(t *testing.T) {
+	_ = setupWorkflowTest(t)
+
+	for _, flag := range []string{"--global", "--local", "--current"} {
+		if code := runWorkflowDescribe([]string{"sprint", flag}); code != exitUsage {
+			t.Errorf("%s: exit code = %d, want %d", flag, code, exitUsage)
+		}
+	}
+}
+
+func TestRunWorkflowDescribe_Help(t *testing.T) {
+	if code := runWorkflowDescribe([]string{"--help"}); code != exitOK {
+		t.Errorf("exit code = %d, want %d", code, exitOK)
+	}
+}
+
+func TestRunWorkflow_DescribeDispatch(t *testing.T) {
+	_ = setupWorkflowTest(t)
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		_, _ = w.Write([]byte("description: hi\n"))
+	}))
+	defer server.Close()
+	overrideBaseURL(t, server.URL)
+
+	if code := runWorkflow([]string{"describe", "sprint"}); code != exitOK {
 		t.Errorf("exit code = %d, want %d", code, exitOK)
 	}
 }

@@ -200,11 +200,12 @@ type viewsFileData struct {
 // kept in config package to avoid import cycle with plugin package.
 // all top-level sections must be listed here to survive round-trip serialization.
 type workflowFileData struct {
-	Statuses []map[string]interface{} `yaml:"statuses,omitempty"`
-	Types    []map[string]interface{} `yaml:"types,omitempty"`
-	Views    viewsFileData            `yaml:"views,omitempty"`
-	Triggers []map[string]interface{} `yaml:"triggers,omitempty"`
-	Fields   []map[string]interface{} `yaml:"fields,omitempty"`
+	Description string                   `yaml:"description,omitempty"`
+	Statuses    []map[string]interface{} `yaml:"statuses,omitempty"`
+	Types       []map[string]interface{} `yaml:"types,omitempty"`
+	Views       viewsFileData            `yaml:"views,omitempty"`
+	Triggers    []map[string]interface{} `yaml:"triggers,omitempty"`
+	Fields      []map[string]interface{} `yaml:"fields,omitempty"`
 }
 
 // readWorkflowFile reads and unmarshals workflow.yaml from the given path.

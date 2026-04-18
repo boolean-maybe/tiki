@@ -90,6 +90,26 @@ tiki workflow install sprint --global
 tiki workflow install kanban --local
 ```
 
+#### workflow describe
+
+Fetch a workflow's description from the tiki repository and print it to stdout.
+Reads the top-level `description` field of the named workflow's `workflow.yaml`.
+Prints nothing and exits 0 if the workflow has no description field.
+
+```bash
+tiki workflow describe <name>
+```
+
+**Examples:**
+
+```bash
+# preview the todo workflow before installing it
+tiki workflow describe todo
+
+# check what bug-tracker is for
+tiki workflow describe bug-tracker
+```
+
 ### demo
 
 Clone the demo project and launch the TUI. If the `tiki-demo` directory already exists it is reused.

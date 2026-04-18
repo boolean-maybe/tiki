@@ -4,6 +4,19 @@ tiki is highly customizable. `workflow.yaml` lets you define your workflow statu
 how tikis are displayed and organized. Statuses define the lifecycle stages your tasks move through, 
 while plugins control what you see and how you interact with your work. This section covers both.
 
+## Description
+
+An optional top-level `description:` field in `workflow.yaml` describes what
+the workflow is for. It supports multi-line text via YAML's block scalar (`|`)
+and is used by `tiki workflow describe <name>` to preview a workflow before
+installing it.
+
+```yaml
+description: |
+  Release workflow. Coordinate feature rollout through
+  Planned → Building → Staging → Canary → Released.
+```
+
 ## Statuses
 
 Workflow statuses are defined in `workflow.yaml` under the `statuses:` key. Every tiki project must define 

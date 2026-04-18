@@ -20,6 +20,8 @@ func runWorkflow(args []string) int {
 		return runWorkflowReset(args[1:])
 	case "install":
 		return runWorkflowInstall(args[1:])
+	case "describe":
+		return runWorkflowDescribe(args[1:])
 	case "--help", "-h":
 		printWorkflowUsage()
 		return exitOK
@@ -101,6 +103,43 @@ func runWorkflowInstall(args []string) int {
 	return exitOK
 }
 
+// runWorkflowDescribe implements `tiki workflow describe <name>`.
+// describe is a read-only network call, so scope flags are rejected
+// to keep the CLI surface honest.
+func runWorkflowDescribe(args []string) int {
+	name, err := parsePositionalOnly(args)
+	if errors.Is(err, errHelpRequested) {
+		printWorkflowDescribeUsage()
+		return exitOK
+	}
+	if err != nil {
+		_, _ = fmt.Fprintln(os.Stderr, "error:", err)
+		printWorkflowDescribeUsage()
+		return exitUsage
+	}
+
+	if name == "" {
+		_, _ = fmt.Fprintln(os.Stderr, "error: workflow name required")
+		printWorkflowDescribeUsage()
+		return exitUsage
+	}
+
+	desc, err := config.DescribeWorkflow(name, config.DefaultWorkflowBaseURL)
+	if err != nil {
+		_, _ = fmt.Fprintln(os.Stderr, "error:", err)
+		return exitInternal
+	}
+	if desc == "" {
+		return exitOK
+	}
+	if strings.HasSuffix(desc, "\n") {
+		fmt.Print(desc)
+	} else {
+		fmt.Println(desc)
+	}
+	return exitOK
+}
+
 // parseScopeArgs extracts an optional positional argument and a required --scope flag.
 // Returns errHelpRequested for --help/-h.
 func parseScopeArgs(args []string) (string, config.Scope, error) {
@@ -134,12 +173,33 @@ func parseScopeArgs(args []string) (string, config.Scope, error) {
 	return positional, config.Scope(scopeStr), nil
 }
 
+// parsePositionalOnly extracts a single positional argument and rejects any
+// flag other than --help/-h. Used by subcommands that don't take a scope.
+func parsePositionalOnly(args []string) (string, error) {
+	var positional string
+	for _, arg := range args {
+		switch arg {
+		case "--help", "-h":
+			return "", errHelpRequested
+		}
+		if strings.HasPrefix(arg, "--") {
+			return "", fmt.Errorf("unknown flag: %s", arg)
+		}
+		if positional != "" {
+			return "", fmt.Errorf("multiple positional arguments: %q and %q", positional, arg)
+		}
+		positional = arg
+	}
+	return positional, nil
+}
+
 func printWorkflowUsage() {
 	fmt.Print(`Usage: tiki workflow <command>
 
 Commands:
   reset [target] [--scope]      Reset config files to defaults
   install <name> [--scope]      Install a workflow from the tiki repository
+  describe <name>               Fetch and print a workflow's description
 
 Run 'tiki workflow <command> --help' for details.
 `)
@@ -176,5 +236,16 @@ Scopes (default: --local):
 
 Example:
   tiki workflow install sprint --global
+`)
+}
+
+func printWorkflowDescribeUsage() {
+	fmt.Print(`Usage: tiki workflow describe <name>
+
+Fetch a workflow's description from the tiki repository and print it.
+Reads the top-level 'description' field of the named workflow.yaml.
+
+Example:
+  tiki workflow describe todo
 `)
 }

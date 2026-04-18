@@ -8,6 +8,8 @@ import (
 	"path/filepath"
 	"regexp"
 	"time"
+
+	"gopkg.in/yaml.v3"
 )
 
 const (
@@ -34,10 +36,6 @@ var installFiles = []string{
 // to the directory for the given scope, overwriting existing files.
 // baseURL is the root URL before "/workflows" (e.g. "https://raw.githubusercontent.com/boolean-maybe/tiki/main").
 func InstallWorkflow(name string, scope Scope, baseURL string) ([]InstallResult, error) {
-	if !validWorkflowName.MatchString(name) {
-		return nil, fmt.Errorf("invalid workflow name %q: use letters, digits, hyphens, dots, or underscores", name)
-	}
-
 	dir, err := resolveDir(scope)
 	if err != nil {
 		return nil, err
@@ -49,7 +47,7 @@ func InstallWorkflow(name string, scope Scope, baseURL string) ([]InstallResult,
 		if err != nil {
 			return nil, fmt.Errorf("fetch %s/%s: %w", name, filename, err)
 		}
-		fetched[filename] = content
+		fetched[filename] = string(content)
 	}
 
 	var results []InstallResult
@@ -65,9 +63,32 @@ func InstallWorkflow(name string, scope Scope, baseURL string) ([]InstallResult,
 	return results, nil
 }
 
+// DescribeWorkflow fetches the workflow.yaml for name from baseURL and
+// returns the value of its top-level `description:` field. Returns empty
+// string if the field is absent.
+func DescribeWorkflow(name, baseURL string) (string, error) {
+	body, err := fetchWorkflowFile(baseURL, name, defaultWorkflowFilename)
+	if err != nil {
+		return "", err
+	}
+	var wf struct {
+		Description string `yaml:"description"`
+	}
+	if err := yaml.Unmarshal(body, &wf); err != nil {
+		return "", fmt.Errorf("parse %s/workflow.yaml: %w", name, err)
+	}
+	return wf.Description, nil
+}
+
 var httpClient = &http.Client{Timeout: httpTimeout}
 
-func fetchWorkflowFile(baseURL, name, filename string) (string, error) {
+// fetchWorkflowFile validates the workflow name and downloads a single file
+// from baseURL. Returns the raw body bytes.
+func fetchWorkflowFile(baseURL, name, filename string) ([]byte, error) {
+	if !validWorkflowName.MatchString(name) {
+		return nil, fmt.Errorf("invalid workflow name %q: use letters, digits, hyphens, dots, or underscores", name)
+	}
+
 	url := fmt.Sprintf("%s/workflows/%s/%s", baseURL, name, filename)
 
 	ctx, cancel := context.WithTimeout(context.Background(), httpTimeout)
@@ -75,26 +96,26 @@ func fetchWorkflowFile(baseURL, name, filename string) (string, error) {
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
 	if err != nil {
-		return "", fmt.Errorf("create request: %w", err)
+		return nil, fmt.Errorf("create request: %w", err)
 	}
 
 	resp, err := httpClient.Do(req)
 	if err != nil {
-		return "", fmt.Errorf("request failed: %w", err)
+		return nil, fmt.Errorf("request failed: %w", err)
 	}
 	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode == http.StatusNotFound {
-		return "", fmt.Errorf("workflow %q not found (%s)", name, filename)
+		return nil, fmt.Errorf("workflow %q not found (%s)", name, filename)
 	}
 	if resp.StatusCode != http.StatusOK {
-		return "", fmt.Errorf("unexpected HTTP %d for %s", resp.StatusCode, url)
+		return nil, fmt.Errorf("unexpected HTTP %d for %s", resp.StatusCode, url)
 	}
 
 	body, err := io.ReadAll(io.LimitReader(resp.Body, maxResponseSize))
 	if err != nil {
-		return "", fmt.Errorf("read response: %w", err)
+		return nil, fmt.Errorf("read response: %w", err)
 	}
 
-	return string(body), nil
+	return body, nil
 }

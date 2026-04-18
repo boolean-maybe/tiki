@@ -1,3 +1,7 @@
+description: |
+  Kanban-style workflow for small-team software work. Five statuses
+  (Backlog → Ready → In Progress → Review → Done) and four task types
+  (Story, Bug, Spike, Epic). Includes an "assign to me" action.
 statuses:
   - key: backlog
     label: Backlog
