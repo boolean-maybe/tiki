@@ -54,6 +54,10 @@ views:
     - key: "-"
       label: "Priority down"
       action: update where id = id() set priority = priority + 1
+    - key: "u"
+      label: "Flag urgent"
+      action: update where id = id() set priority=1 tags=tags+["urgent"]
+      hot: false
   plugins:
     - name: Kanban
       description: "Move tiki to change status, search, create or delete\nShift Left/Right to move"
