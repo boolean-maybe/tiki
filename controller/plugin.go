@@ -55,13 +55,17 @@ func NewPluginController(
 				"plugin", pluginDef.Name, "key", string(a.Rune),
 				"plugin_action", a.Label, "built_in_action", existing.Label)
 		}
-		pc.registry.Register(Action{
+		action := Action{
 			ID:           pluginActionID(a.Rune),
 			Key:          tcell.KeyRune,
 			Rune:         a.Rune,
 			Label:        a.Label,
-			ShowInHeader: true,
-		})
+			ShowInHeader: a.ShowInHeader,
+		}
+		if a.Action != nil && (a.Action.IsUpdate() || a.Action.IsDelete() || a.Action.IsPipe()) {
+			action.IsEnabled = selectionRequired
+		}
+		pc.registry.Register(action)
 	}
 
 	return pc

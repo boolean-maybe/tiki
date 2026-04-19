@@ -210,10 +210,15 @@ func parsePluginActions(configs []PluginActionConfig, parser *ruki.Parser) ([]Pl
 		if err != nil {
 			return nil, fmt.Errorf("parsing action %d (key %q): %w", i, cfg.Key, err)
 		}
+		showInHeader := true
+		if cfg.Hot != nil {
+			showInHeader = *cfg.Hot
+		}
 		actions = append(actions, PluginAction{
-			Rune:   r,
-			Label:  cfg.Label,
-			Action: actionStmt,
+			Rune:         r,
+			Label:        cfg.Label,
+			Action:       actionStmt,
+			ShowInHeader: showInHeader,
 		})
 	}
 

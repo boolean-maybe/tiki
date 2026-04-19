@@ -54,6 +54,8 @@ type InputRouter struct {
 	statusline        *model.StatuslineConfig
 	schema            ruki.Schema
 	registerPlugin    func(name string, cfg *model.PluginConfig, def plugin.Plugin, ctrl PluginControllerInterface)
+	headerConfig      *model.HeaderConfig
+	paletteConfig     *model.ActionPaletteConfig
 }
 
 // NewInputRouter creates an input router
@@ -79,6 +81,16 @@ func NewInputRouter(
 	}
 }
 
+// SetHeaderConfig wires the header config for fullscreen-aware header toggling.
+func (ir *InputRouter) SetHeaderConfig(hc *model.HeaderConfig) {
+	ir.headerConfig = hc
+}
+
+// SetPaletteConfig wires the palette config for ActionOpenPalette dispatch.
+func (ir *InputRouter) SetPaletteConfig(pc *model.ActionPaletteConfig) {
+	ir.paletteConfig = pc
+}
+
 // HandleInput processes a key event for the current view and routes it to the appropriate handler.
 // It processes events through multiple handlers in order:
 // 1. Search input (if search is active)
@@ -90,6 +102,15 @@ func NewInputRouter(
 // Returns true if the event was handled, false otherwise.
 func (ir *InputRouter) HandleInput(event *tcell.EventKey, currentView *ViewEntry) bool {
 	slog.Debug("input received", "name", event.Name(), "key", int(event.Key()), "rune", string(event.Rune()), "modifiers", int(event.Modifiers()))
+
+	// pre-gate: ActionOpenPalette (?) and ActionToggleHeader (F10) must fire before
+	// task-edit Prepare and before search/fullscreen/editor gates, so they stay truly
+	// global without triggering edit-session setup or focus churn.
+	if action := ir.globalActions.Match(event); action != nil {
+		if action.ID == ActionOpenPalette || action.ID == ActionToggleHeader {
+			return ir.handleGlobalAction(action.ID)
+		}
+	}
 
 	if currentView == nil {
 		return false
@@ -293,8 +314,6 @@ func (ir *InputRouter) handleGlobalAction(actionID ActionID) bool {
 	switch actionID {
 	case ActionBack:
 		if v := ir.navController.GetActiveView(); v != nil && v.GetViewID() == model.TaskEditViewID {
-			// Cancel edit session (discards changes) and close.
-			// This keeps the ActionBack behavior consistent across input paths.
 			return ir.taskEditCoord.CancelAndClose()
 		}
 		return ir.navController.HandleBack()
@@ -304,9 +323,187 @@ func (ir *InputRouter) handleGlobalAction(actionID ActionID) bool {
 	case ActionRefresh:
 		_ = ir.taskStore.Reload()
 		return true
+	case ActionOpenPalette:
+		if ir.paletteConfig != nil {
+			ir.paletteConfig.SetVisible(true)
+		}
+		return true
+	case ActionToggleHeader:
+		ir.toggleHeader()
+		return true
 	default:
 		return false
 	}
+}
+
+// toggleHeader toggles the stored user preference and recomputes effective visibility
+// against the live active view so fullscreen/header-hidden views stay force-hidden.
+func (ir *InputRouter) toggleHeader() {
+	if ir.headerConfig == nil {
+		return
+	}
+	newPref := !ir.headerConfig.GetUserPreference()
+	ir.headerConfig.SetUserPreference(newPref)
+
+	visible := newPref
+	if v := ir.navController.GetActiveView(); v != nil {
+		if hv, ok := v.(interface{ RequiresHeaderHidden() bool }); ok && hv.RequiresHeaderHidden() {
+			visible = false
+		}
+		if fv, ok := v.(FullscreenView); ok && fv.IsFullscreen() {
+			visible = false
+		}
+	}
+	ir.headerConfig.SetVisible(visible)
+}
+
+// HandleAction dispatches a palette-selected action by ID against the given view entry.
+// This is the controller-side fallback for palette execution — the palette tries
+// view.HandlePaletteAction first, then falls back here.
+func (ir *InputRouter) HandleAction(id ActionID, currentView *ViewEntry) bool {
+	if currentView == nil {
+		return false
+	}
+
+	// global actions
+	if ir.globalActions.ContainsID(id) {
+		return ir.handleGlobalAction(id)
+	}
+
+	activeView := ir.navController.GetActiveView()
+
+	switch currentView.ViewID {
+	case model.TaskDetailViewID:
+		taskID := model.DecodeTaskDetailParams(currentView.Params).TaskID
+		if taskID != "" {
+			ir.taskController.SetCurrentTask(taskID)
+		}
+		return ir.dispatchTaskAction(id, currentView.Params)
+
+	case model.TaskEditViewID:
+		if activeView != nil {
+			ir.taskEditCoord.Prepare(activeView, model.DecodeTaskEditParams(currentView.Params))
+		}
+		return ir.dispatchTaskEditAction(id, activeView)
+
+	default:
+		if model.IsPluginViewID(currentView.ViewID) {
+			return ir.dispatchPluginAction(id, currentView.ViewID)
+		}
+		return false
+	}
+}
+
+// dispatchTaskAction handles palette-dispatched task detail actions by ActionID.
+func (ir *InputRouter) dispatchTaskAction(id ActionID, _ map[string]interface{}) bool {
+	switch id {
+	case ActionEditTitle:
+		taskID := ir.taskController.GetCurrentTaskID()
+		if taskID == "" {
+			return false
+		}
+		ir.navController.PushView(model.TaskEditViewID, model.EncodeTaskEditParams(model.TaskEditParams{
+			TaskID: taskID,
+			Focus:  model.EditFieldTitle,
+		}))
+		return true
+	case ActionFullscreen:
+		activeView := ir.navController.GetActiveView()
+		if fullscreenView, ok := activeView.(FullscreenView); ok {
+			if fullscreenView.IsFullscreen() {
+				fullscreenView.ExitFullscreen()
+			} else {
+				fullscreenView.EnterFullscreen()
+			}
+			return true
+		}
+		return false
+	case ActionEditDesc:
+		taskID := ir.taskController.GetCurrentTaskID()
+		if taskID == "" {
+			return false
+		}
+		ir.navController.PushView(model.TaskEditViewID, model.EncodeTaskEditParams(model.TaskEditParams{
+			TaskID:   taskID,
+			Focus:    model.EditFieldDescription,
+			DescOnly: true,
+		}))
+		return true
+	case ActionEditTags:
+		taskID := ir.taskController.GetCurrentTaskID()
+		if taskID == "" {
+			return false
+		}
+		ir.navController.PushView(model.TaskEditViewID, model.EncodeTaskEditParams(model.TaskEditParams{
+			TaskID:   taskID,
+			TagsOnly: true,
+		}))
+		return true
+	case ActionEditDeps:
+		taskID := ir.taskController.GetCurrentTaskID()
+		if taskID == "" {
+			return false
+		}
+		return ir.openDepsEditor(taskID)
+	case ActionChat:
+		agent := config.GetAIAgent()
+		if agent == "" {
+			return false
+		}
+		taskID := ir.taskController.GetCurrentTaskID()
+		if taskID == "" {
+			return false
+		}
+		filename := strings.ToLower(taskID) + ".md"
+		taskFilePath := filepath.Join(config.GetTaskDir(), filename)
+		name, args := resolveAgentCommand(agent, taskFilePath)
+		ir.navController.SuspendAndRun(name, args...)
+		_ = ir.taskStore.ReloadTask(taskID)
+		return true
+	case ActionCloneTask:
+		return ir.taskController.HandleAction(id)
+	default:
+		return ir.taskController.HandleAction(id)
+	}
+}
+
+// dispatchTaskEditAction handles palette-dispatched task edit actions by ActionID.
+func (ir *InputRouter) dispatchTaskEditAction(id ActionID, activeView View) bool {
+	switch id {
+	case ActionSaveTask:
+		if activeView != nil {
+			return ir.taskEditCoord.CommitAndClose(activeView)
+		}
+		return false
+	default:
+		return false
+	}
+}
+
+// dispatchPluginAction handles palette-dispatched plugin actions by ActionID.
+func (ir *InputRouter) dispatchPluginAction(id ActionID, viewID model.ViewID) bool {
+	// handle plugin activation (switch to plugin)
+	if targetPluginName := GetPluginNameFromAction(id); targetPluginName != "" {
+		targetViewID := model.MakePluginViewID(targetPluginName)
+		if viewID != targetViewID {
+			ir.navController.ReplaceView(targetViewID, nil)
+			return true
+		}
+		return true
+	}
+
+	pluginName := model.GetPluginName(viewID)
+	ctrl, ok := ir.pluginControllers[pluginName]
+	if !ok {
+		return false
+	}
+
+	// search action needs special wiring
+	if id == ActionSearch {
+		return ir.handleSearchAction(ctrl)
+	}
+
+	return ctrl.HandleAction(id)
 }
 
 // handleSearchAction is a generic handler for ActionSearch across all searchable views

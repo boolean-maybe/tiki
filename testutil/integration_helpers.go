@@ -16,6 +16,7 @@ import (
 	taskpkg "github.com/boolean-maybe/tiki/task"
 	"github.com/boolean-maybe/tiki/view"
 	"github.com/boolean-maybe/tiki/view/header"
+	"github.com/boolean-maybe/tiki/view/palette"
 	"github.com/boolean-maybe/tiki/view/statusline"
 
 	"github.com/gdamore/tcell/v2"
@@ -41,7 +42,11 @@ type TestApp struct {
 	taskController    *controller.TaskController
 	statuslineConfig  *model.StatuslineConfig
 	headerConfig      *model.HeaderConfig
+	viewContext       *model.ViewContext
 	layoutModel       *model.LayoutModel
+	paletteConfig     *model.ActionPaletteConfig
+	actionPalette     *palette.ActionPalette
+	pages             *tview.Pages
 }
 
 // NewTestApp bootstraps the full MVC stack for integration testing.
@@ -113,11 +118,13 @@ func NewTestApp(t *testing.T) *TestApp {
 	viewFactory := view.NewViewFactory(taskStore)
 
 	// 7. Create header widget, statusline, and RootLayout
-	headerWidget := header.NewHeaderWidget(headerConfig)
+	viewContext := model.NewViewContext()
+	headerWidget := header.NewHeaderWidget(headerConfig, viewContext)
 	statuslineWidget := statusline.NewStatuslineWidget(statuslineConfig)
 	rootLayout := view.NewRootLayout(view.RootLayoutOpts{
 		Header:           headerWidget,
 		HeaderConfig:     headerConfig,
+		ViewContext:      viewContext,
 		LayoutModel:      layoutModel,
 		ViewFactory:      viewFactory,
 		TaskStore:        taskStore,
@@ -126,9 +133,7 @@ func NewTestApp(t *testing.T) *TestApp {
 		StatuslineWidget: statuslineWidget,
 	})
 
-	// Mirror main.go wiring: provide views a focus setter as they become active.
 	rootLayout.SetOnViewActivated(func(v controller.View) {
-		// generic focus settable check (covers TaskEditView and any other view with focus needs)
 		if focusSettable, ok := v.(controller.FocusSettable); ok {
 			focusSettable.SetFocusSetter(func(p tview.Primitive) {
 				app.SetFocus(p)
@@ -136,8 +141,6 @@ func NewTestApp(t *testing.T) *TestApp {
 		}
 	})
 
-	// IMPORTANT: Retroactively wire focus setter for any view already active
-	// (RootLayout may have activated a view during construction before callback was set)
 	currentView := rootLayout.GetContentView()
 	if currentView != nil {
 		if focusSettable, ok := currentView.(controller.FocusSettable); ok {
@@ -147,23 +150,59 @@ func NewTestApp(t *testing.T) *TestApp {
 		}
 	}
 
+	// 7.5 Action palette
+	paletteConfig := model.NewActionPaletteConfig()
+	inputRouter.SetHeaderConfig(headerConfig)
+	inputRouter.SetPaletteConfig(paletteConfig)
+	actionPalette := palette.NewActionPalette(viewContext, paletteConfig, inputRouter, navController)
+	actionPalette.SetChangedFunc()
+
+	// Build Pages root
+	pages := tview.NewPages()
+	pages.AddPage("base", rootLayout.GetPrimitive(), true, true)
+	paletteBox := tview.NewFlex()
+	paletteBox.AddItem(tview.NewBox(), 0, 1, false)
+	paletteBox.AddItem(actionPalette.GetPrimitive(), palette.PaletteMinWidth, 0, true)
+	pages.AddPage("palette", paletteBox, true, false)
+
+	var previousFocus tview.Primitive
+	paletteConfig.AddListener(func() {
+		if paletteConfig.IsVisible() {
+			previousFocus = app.GetFocus()
+			actionPalette.OnShow()
+			pages.ShowPage("palette")
+			app.SetFocus(actionPalette.GetFilterInput())
+		} else {
+			pages.HidePage("palette")
+			if previousFocus != nil {
+				app.SetFocus(previousFocus)
+			} else if cv := rootLayout.GetContentView(); cv != nil {
+				app.SetFocus(cv.GetPrimitive())
+			}
+			previousFocus = nil
+		}
+	})
+
 	// 8. Wire up callbacks
 	navController.SetOnViewChanged(func(viewID model.ViewID, params map[string]interface{}) {
 		layoutModel.SetContent(viewID, params)
 	})
 	navController.SetActiveViewGetter(rootLayout.GetContentView)
 
-	// 9. Set up global input capture
+	// 9. Set up global input capture (matches production)
 	app.SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
-		handled := inputRouter.HandleInput(event, navController.CurrentView())
-		if handled {
-			return nil // consume event
+		if paletteConfig.IsVisible() {
+			return event
 		}
-		return event // pass through
+		statuslineConfig.DismissAutoHide()
+		if inputRouter.HandleInput(event, navController.CurrentView()) {
+			return nil
+		}
+		return event
 	})
 
-	// 10. Set root layout
-	app.SetRoot(rootLayout.GetPrimitive(), true).EnableMouse(false)
+	// 10. Set root (Pages)
+	app.SetRoot(pages, true).EnableMouse(false)
 
 	// Note: Do NOT call app.Run() - we use app.Draw() + screen.Show() for synchronous testing
 
@@ -181,7 +220,11 @@ func NewTestApp(t *testing.T) *TestApp {
 		taskController:   taskController,
 		statuslineConfig: statuslineConfig,
 		headerConfig:     headerConfig,
+		viewContext:      viewContext,
 		layoutModel:      layoutModel,
+		paletteConfig:    paletteConfig,
+		actionPalette:    actionPalette,
+		pages:            pages,
 	}
 
 	// 11. Auto-load plugins since all views are now plugins
@@ -194,10 +237,9 @@ func NewTestApp(t *testing.T) *TestApp {
 
 // Draw forces a synchronous draw without running the app event loop
 func (ta *TestApp) Draw() {
-	// Get screen dimensions and set the root layout's rect
 	_, width, height := ta.Screen.GetContents()
-	ta.RootLayout.GetPrimitive().SetRect(0, 0, width, height)
-	ta.RootLayout.GetPrimitive().Draw(ta.Screen)
+	ta.pages.SetRect(0, 0, width, height)
+	ta.pages.Draw(ta.Screen)
 	ta.Screen.Show()
 }
 
@@ -313,9 +355,9 @@ func (ta *TestApp) DraftTask() *taskpkg.Task {
 
 // Cleanup tears down the test app and releases resources
 func (ta *TestApp) Cleanup() {
+	ta.actionPalette.Cleanup()
 	ta.RootLayout.Cleanup()
 	ta.Screen.Fini()
-	// TaskDir cleanup handled automatically by t.TempDir()
 }
 
 // LoadPlugins loads plugins from workflow.yaml files and wires them into the test app.
@@ -383,44 +425,19 @@ func (ta *TestApp) LoadPlugins() error {
 		ta.statuslineConfig,
 		ta.Schema,
 	)
+	ta.InputRouter.SetHeaderConfig(ta.headerConfig)
+	ta.InputRouter.SetPaletteConfig(ta.paletteConfig)
 
-	// Update global input capture to handle plugin switching keys
+	// Update global input capture (matches production pipeline)
 	ta.App.SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
-		// Check if search box has focus - if so, let it handle ALL input
-		if activeView := ta.NavController.GetActiveView(); activeView != nil {
-			if searchableView, ok := activeView.(controller.SearchableView); ok {
-				if searchableView.IsSearchBoxFocused() {
-					return event
-				}
-			}
+		if ta.paletteConfig.IsVisible() {
+			return event
 		}
-
-		currentView := ta.NavController.CurrentView()
-		if currentView != nil {
-			// Handle plugin switching between plugins
-			if model.IsPluginViewID(currentView.ViewID) {
-				if action := controller.GetPluginActions().Match(event); action != nil {
-					pluginName := controller.GetPluginNameFromAction(action.ID)
-					if pluginName != "" {
-						targetPluginID := model.MakePluginViewID(pluginName)
-						// Don't switch to the same plugin we're already viewing
-						if currentView.ViewID == targetPluginID {
-							return nil // no-op
-						}
-						// Replace current plugin with target plugin
-						ta.NavController.ReplaceView(targetPluginID, nil)
-						return nil
-					}
-				}
-			}
+		ta.statuslineConfig.DismissAutoHide()
+		if ta.InputRouter.HandleInput(event, ta.NavController.CurrentView()) {
+			return nil
 		}
-
-		// Let InputRouter handle the rest
-		handled := ta.InputRouter.HandleInput(event, ta.NavController.CurrentView())
-		if handled {
-			return nil // consume event
-		}
-		return event // pass through
+		return event
 	})
 
 	// Update ViewFactory with plugins
@@ -441,13 +458,14 @@ func (ta *TestApp) LoadPlugins() error {
 	})
 
 	// Recreate RootLayout with new view factory
-	headerWidget := header.NewHeaderWidget(ta.headerConfig)
+	headerWidget := header.NewHeaderWidget(ta.headerConfig, ta.viewContext)
 	ta.RootLayout.Cleanup()
 	slConfig := model.NewStatuslineConfig()
 	slWidget := statusline.NewStatuslineWidget(slConfig)
 	ta.RootLayout = view.NewRootLayout(view.RootLayoutOpts{
 		Header:           headerWidget,
 		HeaderConfig:     ta.headerConfig,
+		ViewContext:      ta.viewContext,
 		LayoutModel:      ta.layoutModel,
 		ViewFactory:      viewFactory,
 		TaskStore:        ta.TaskStore,
@@ -477,10 +495,33 @@ func (ta *TestApp) LoadPlugins() error {
 		}
 	}
 
-	// Set new root
-	ta.App.SetRoot(ta.RootLayout.GetPrimitive(), true)
+	// Update palette with new view context
+	ta.actionPalette.Cleanup()
+	ta.actionPalette = palette.NewActionPalette(ta.viewContext, ta.paletteConfig, ta.InputRouter, ta.NavController)
+	ta.actionPalette.SetChangedFunc()
+
+	// Rebuild Pages
+	ta.pages.RemovePage("palette")
+	ta.pages.RemovePage("base")
+	ta.pages.AddPage("base", ta.RootLayout.GetPrimitive(), true, true)
+	paletteBox := tview.NewFlex()
+	paletteBox.AddItem(tview.NewBox(), 0, 1, false)
+	paletteBox.AddItem(ta.actionPalette.GetPrimitive(), palette.PaletteMinWidth, 0, true)
+	ta.pages.AddPage("palette", paletteBox, true, false)
+
+	ta.App.SetRoot(ta.pages, true)
 
 	return nil
+}
+
+// GetHeaderConfig returns the header config for testing visibility assertions.
+func (ta *TestApp) GetHeaderConfig() *model.HeaderConfig {
+	return ta.headerConfig
+}
+
+// GetPaletteConfig returns the palette config for testing visibility assertions.
+func (ta *TestApp) GetPaletteConfig() *model.ActionPaletteConfig {
+	return ta.paletteConfig
 }
 
 // GetPluginConfig retrieves the PluginConfig for a given plugin name.

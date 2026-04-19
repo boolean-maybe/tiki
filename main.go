@@ -126,10 +126,11 @@ func main() {
 	defer result.App.Stop()
 	defer result.HeaderWidget.Cleanup()
 	defer result.RootLayout.Cleanup()
+	defer result.ActionPalette.Cleanup()
 	defer result.CancelFunc()
 
 	// Run application
-	if err := app.Run(result.App, result.RootLayout); err != nil {
+	if err := app.Run(result.App, result.AppRoot); err != nil {
 		slog.Error("application error", "error", err)
 		os.Exit(1)
 	}

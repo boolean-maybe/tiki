@@ -16,7 +16,7 @@ cd /tmp && tiki demo
 ```
 
 Move your tiki around the board with `Shift ←/Shift →`.
-Make sure to press `?` for help.
+Press `?` to open the Action Palette — it lists all available actions with their shortcuts.
 Press `F1` to open a sample doc root. Follow links with `Tab/Enter`
 
 ## AI skills
@@ -56,7 +56,7 @@ Store your notes in remotes!
 
 `tiki` TUI tool allows creating, viewing, editing and deleting tikis as well as creating custom plugins to
 view any selection, for example, Recent tikis, Architecture docs, Saved prompts, Security review, Future Roadmap
-Read more by pressing `?` for help
+Press `?` to open the Action Palette and discover all available actions
 
 # AI skills
 

@@ -233,8 +233,19 @@ actions:
 
 Each action has:
 - `key` - a single printable character used as the keyboard shortcut
-- `label` - description shown in the header
+- `label` - description shown in the header and action palette
 - `action` - a `ruki` statement (`update`, `create`, `delete`, or `select`)
+- `hot` - (optional) controls header visibility. `hot: true` shows the action in the header, `hot: false` hides it. When absent, actions default to visible in the header. This does not affect the action palette — all actions are always discoverable via `?` regardless of the `hot` setting
+
+Example — keeping a verbose action out of the header but still accessible from the palette:
+
+```yaml
+actions:
+  - key: "x"
+    label: "Archive and notify"
+    action: update where id = id() set status="done"
+    hot: false
+```
 
 When the shortcut key is pressed, the action is applied to the currently selected tiki.
 For example, pressing `b` in the Backlog plugin changes the selected tiki's status to `ready`, effectively moving it to the board.
