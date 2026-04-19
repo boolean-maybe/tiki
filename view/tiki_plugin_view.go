@@ -193,6 +193,28 @@ func (pv *PluginView) refresh() {
 	}
 }
 
+func (pv *PluginView) GetSelectedID() string {
+	lane := pv.pluginConfig.GetSelectedLane()
+	tasks := pv.getLaneTasks(lane)
+	idx := pv.pluginConfig.GetSelectedIndexForLane(lane)
+	if idx < 0 || idx >= len(tasks) {
+		return ""
+	}
+	return tasks[idx].ID
+}
+
+func (pv *PluginView) SetSelectedID(id string) {
+	for lane := range pv.pluginDef.Lanes {
+		for i, t := range pv.getLaneTasks(lane) {
+			if t.ID == id {
+				pv.pluginConfig.SetSelectedLane(lane)
+				pv.pluginConfig.SetSelectedIndexForLane(lane, i)
+				return
+			}
+		}
+	}
+}
+
 func (pv *PluginView) SetActionChangeHandler(handler func()) {
 	pv.actionChangeHandler = handler
 }

@@ -56,7 +56,7 @@ views:
       action: update where id = id() set priority = priority + 1
   plugins:
     - name: Kanban
-      description: "Move tiki to new status, search, create or delete"
+      description: "Move tiki to change status, search, create or delete\nShift Left/Right to move"
       default: true
       key: "F1"
       lanes:
