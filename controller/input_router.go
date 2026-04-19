@@ -113,11 +113,12 @@ func (ir *InputRouter) HandleInput(event *tcell.EventKey, currentView *ViewEntry
 		}
 	}
 
-	// pre-gate: ActionOpenPalette (*) and ActionToggleHeader (F10) must fire before
-	// task-edit Prepare and before search/fullscreen/editor gates, so they stay truly
-	// global without triggering edit-session setup or focus churn.
+	// pre-gate: global actions that must fire before task-edit Prepare() and before
+	// search/fullscreen/editor gates. ActionOpenPalette is suppressed in TaskEditView
+	// because '*' is a typeable rune that should be inserted into fields.
 	if action := ir.globalActions.Match(event); action != nil {
-		if action.ID == ActionOpenPalette || action.ID == ActionToggleHeader {
+		isTaskEdit := currentView != nil && currentView.ViewID == model.TaskEditViewID
+		if action.ID == ActionToggleHeader || (action.ID == ActionOpenPalette && !isTaskEdit) {
 			return ir.handleGlobalAction(action.ID)
 		}
 	}
