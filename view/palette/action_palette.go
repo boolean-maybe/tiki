@@ -39,7 +39,6 @@ type ActionPalette struct {
 	root          *tview.Flex
 	filterInput   *tview.InputField
 	listView      *tview.TextView
-	titleView     *tview.TextView
 	hintView      *tview.TextView
 	viewContext   *model.ViewContext
 	paletteConfig *model.ActionPaletteConfig
@@ -49,6 +48,7 @@ type ActionPalette struct {
 	rows          []paletteRow
 	visibleRows   []int // indices into rows for current filter
 	selectedIndex int   // index into visibleRows
+	lastWidth     int   // width used for last render, to detect resize
 
 	viewContextListenerID int
 }
@@ -69,36 +69,39 @@ func NewActionPalette(
 		navController: navController,
 	}
 
-	// title
-	ap.titleView = tview.NewTextView().SetDynamicColors(true)
-	ap.titleView.SetBackgroundColor(colors.ContentBackgroundColor.TCell())
-
 	// filter input
 	ap.filterInput = tview.NewInputField()
 	ap.filterInput.SetLabel(" ")
-	ap.filterInput.SetFieldBackgroundColor(colors.InputFieldBackgroundColor.TCell())
+	ap.filterInput.SetFieldBackgroundColor(colors.ContentBackgroundColor.TCell())
 	ap.filterInput.SetFieldTextColor(colors.InputFieldTextColor.TCell())
 	ap.filterInput.SetLabelColor(colors.SearchBoxLabelColor.TCell())
-	ap.filterInput.SetPlaceholder("type to search")
-	ap.filterInput.SetPlaceholderTextColor(colors.TaskDetailPlaceholderColor.TCell())
+	ap.filterInput.SetPlaceholder("Type to search")
+	ap.filterInput.SetPlaceholderStyle(tcell.StyleDefault.
+		Foreground(colors.TaskDetailPlaceholderColor.TCell()).
+		Background(colors.ContentBackgroundColor.TCell()))
 	ap.filterInput.SetBackgroundColor(colors.ContentBackgroundColor.TCell())
 
 	// list area
 	ap.listView = tview.NewTextView().SetDynamicColors(true)
 	ap.listView.SetBackgroundColor(colors.ContentBackgroundColor.TCell())
+	ap.listView.SetDrawFunc(func(screen tcell.Screen, x, y, width, height int) (int, int, int, int) {
+		if width != ap.lastWidth && width > 0 {
+			ap.renderList()
+		}
+		return x, y, width, height
+	})
 
 	// bottom hint
-	ap.hintView = tview.NewTextView().SetDynamicColors(true).SetTextAlign(tview.AlignCenter)
+	ap.hintView = tview.NewTextView().SetDynamicColors(true)
 	ap.hintView.SetBackgroundColor(colors.ContentBackgroundColor.TCell())
 	mutedHex := colors.TaskDetailPlaceholderColor.Hex()
-	ap.hintView.SetText(fmt.Sprintf("[%s]↑↓ Select  ⏎ Run  Esc Close", mutedHex))
+	ap.hintView.SetText(fmt.Sprintf(" [%s]↑↓ Select  ⏎ Run  Esc Close", mutedHex))
 
 	// root layout
 	ap.root = tview.NewFlex().SetDirection(tview.FlexRow)
 	ap.root.SetBackgroundColor(colors.ContentBackgroundColor.TCell())
 	ap.root.SetBorderColor(colors.TaskBoxUnselectedBorder.TCell())
 	ap.root.SetBorder(true)
-	ap.root.AddItem(ap.titleView, 1, 0, false)
 	ap.root.AddItem(ap.filterInput, 1, 0, true)
 	ap.root.AddItem(ap.listView, 0, 1, false)
 	ap.root.AddItem(ap.hintView, 1, 0, false)
@@ -131,22 +134,11 @@ func (ap *ActionPalette) OnShow() {
 	ap.selectedIndex = 0
 	ap.rebuildRows()
 	ap.renderList()
-	ap.updateTitle()
 }
 
 // Cleanup removes all listeners.
 func (ap *ActionPalette) Cleanup() {
 	ap.viewContext.RemoveListener(ap.viewContextListenerID)
-}
-
-func (ap *ActionPalette) updateTitle() {
-	colors := config.GetColors()
-	name := ap.viewContext.GetViewName()
-	if name == "" {
-		name = string(ap.viewContext.GetViewID())
-	}
-	labelHex := colors.HeaderInfoLabel.Hex()
-	ap.titleView.SetText(fmt.Sprintf(" [%s::b]Actions[-] — %s", labelHex, name))
 }
 
 func (ap *ActionPalette) rebuildRows() {
@@ -337,10 +329,11 @@ func (ap *ActionPalette) nextSelectableFrom(start, direction int) int {
 
 func (ap *ActionPalette) renderList() {
 	colors := config.GetColors()
-	_, _, width, _ := ap.root.GetInnerRect()
+	_, _, width, _ := ap.listView.GetInnerRect()
 	if width <= 0 {
 		width = PaletteMinWidth
 	}
+	ap.lastWidth = width
 
 	globalScheme := sectionColors(sectionGlobal)
 	viewsScheme := sectionColors(sectionViews)
@@ -363,19 +356,11 @@ func (ap *ActionPalette) renderList() {
 		row := ap.rows[rowIdx]
 
 		if row.separator {
-			var headerHex string
-			switch row.section {
-			case sectionGlobal:
-				headerHex = globalScheme.keyHex
-			case sectionViews:
-				headerHex = viewsScheme.keyHex
-			case sectionView:
-				headerHex = viewScheme.keyHex
-			}
 			if vi > 0 {
 				buf.WriteString("\n")
+				line := strings.Repeat("─", width)
+				buf.WriteString(fmt.Sprintf("[%s]%s[-]", mutedHex, line))
 			}
-			buf.WriteString(fmt.Sprintf(" [%s::b]%s[-::-]", headerHex, row.label))
 			continue
 		}
 
@@ -407,15 +392,21 @@ func (ap *ActionPalette) renderList() {
 			buf.WriteString("\n")
 		}
 
+		// build visible text: key column + label
+		visibleLen := 1 + keyColWidth + 1 + len([]rune(label)) // leading space + key + space + label
+		pad := ""
+		if visibleLen < width {
+			pad = strings.Repeat(" ", width-visibleLen)
+		}
+
 		if !row.enabled {
-			// greyed out
-			buf.WriteString(fmt.Sprintf(" [%s]%-*s %s[-]", mutedHex, keyColWidth, keyStr, label))
+			buf.WriteString(fmt.Sprintf(" [%s]%-*s %s%s[-]", mutedHex, keyColWidth, keyStr, label, pad))
 		} else if selected {
-			buf.WriteString(fmt.Sprintf(" [%s:%s:b]%-*s[-:-:-] [:%s:]%s[-:-:-]",
+			buf.WriteString(fmt.Sprintf("[%s:%s:b] %-*s[-:-:-][:%s:] %s%s[-:-:-]",
 				scheme.keyHex, selBgHex, keyColWidth, keyStr,
-				selBgHex, label))
+				selBgHex, label, pad))
 		} else {
-			buf.WriteString(fmt.Sprintf(" [%s]%-*s[-] %s", scheme.keyHex, keyColWidth, keyStr, label))
+			buf.WriteString(fmt.Sprintf(" [%s]%-*s[-] %s%s", scheme.keyHex, keyColWidth, keyStr, label, pad))
 		}
 	}
 
