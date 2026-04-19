@@ -4,7 +4,7 @@ import "path"
 
 // AITool defines a supported AI coding assistant.
 // To add a new tool, add an entry to the aiTools slice below.
-// NOTE: the action palette (press ?) surfaces available actions; update docs if tool names change.
+// NOTE: the action palette (press *) surfaces available actions; update docs if tool names change.
 type AITool struct {
 	Key          string // config identifier: "claude", "gemini", "codex", "opencode"
 	DisplayName  string // human-readable label for UI: "Claude Code"

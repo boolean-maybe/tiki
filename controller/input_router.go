@@ -106,14 +106,14 @@ func (ir *InputRouter) SetPaletteConfig(pc *model.ActionPaletteConfig) {
 func (ir *InputRouter) HandleInput(event *tcell.EventKey, currentView *ViewEntry) bool {
 	slog.Debug("input received", "name", event.Name(), "key", int(event.Key()), "rune", string(event.Rune()), "modifiers", int(event.Modifiers()))
 
-	// if the input box is focused, let it handle all input (including '?' and F10)
+	// if the input box is focused, let it handle all input (including '*' and F10)
 	if activeView := ir.navController.GetActiveView(); activeView != nil {
 		if iv, ok := activeView.(InputableView); ok && iv.IsInputBoxFocused() {
 			return false
 		}
 	}
 
-	// pre-gate: ActionOpenPalette (?) and ActionToggleHeader (F10) must fire before
+	// pre-gate: ActionOpenPalette (*) and ActionToggleHeader (F10) must fire before
 	// task-edit Prepare and before search/fullscreen/editor gates, so they stay truly
 	// global without triggering edit-session setup or focus churn.
 	if action := ir.globalActions.Match(event); action != nil {

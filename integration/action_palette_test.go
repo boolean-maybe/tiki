@@ -13,10 +13,10 @@ func TestActionPalette_OpenAndClose(t *testing.T) {
 	defer ta.Cleanup()
 	ta.Draw()
 
-	// ? opens the palette
-	ta.SendKey(tcell.KeyRune, '?', tcell.ModNone)
+	// * opens the palette
+	ta.SendKey(tcell.KeyRune, '*', tcell.ModNone)
 	if !ta.GetPaletteConfig().IsVisible() {
-		t.Fatal("palette should be visible after pressing '?'")
+		t.Fatal("palette should be visible after pressing '*'")
 	}
 
 	// Esc closes it
@@ -56,7 +56,7 @@ func TestActionPalette_ModalBlocksGlobals(t *testing.T) {
 	startVisible := hc.IsVisible()
 
 	// open palette
-	ta.SendKey(tcell.KeyRune, '?', tcell.ModNone)
+	ta.SendKey(tcell.KeyRune, '*', tcell.ModNone)
 	if !ta.GetPaletteConfig().IsVisible() {
 		t.Fatal("palette should be open")
 	}
@@ -72,23 +72,23 @@ func TestActionPalette_ModalBlocksGlobals(t *testing.T) {
 	ta.SendKey(tcell.KeyEscape, 0, tcell.ModNone)
 }
 
-func TestActionPalette_QuestionMarkFiltersInPalette(t *testing.T) {
+func TestActionPalette_AsteriskFiltersInPalette(t *testing.T) {
 	ta := testutil.NewTestApp(t)
 	defer ta.Cleanup()
 	ta.Draw()
 
 	// open palette
-	ta.SendKey(tcell.KeyRune, '?', tcell.ModNone)
+	ta.SendKey(tcell.KeyRune, '*', tcell.ModNone)
 	if !ta.GetPaletteConfig().IsVisible() {
 		t.Fatal("palette should be open")
 	}
 
-	// typing '?' while palette is open should be treated as filter text, not open another palette
-	ta.SendKeyToFocused(tcell.KeyRune, '?', tcell.ModNone)
+	// typing '*' while palette is open should be treated as filter text, not open another palette
+	ta.SendKeyToFocused(tcell.KeyRune, '*', tcell.ModNone)
 
 	// palette should still be open
 	if !ta.GetPaletteConfig().IsVisible() {
-		t.Fatal("palette should remain open when '?' is typed as filter")
+		t.Fatal("palette should remain open when '*' is typed as filter")
 	}
 
 	ta.SendKey(tcell.KeyEscape, 0, tcell.ModNone)

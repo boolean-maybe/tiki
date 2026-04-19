@@ -383,8 +383,8 @@ func TestInputAction_PaletteBlockedDuringModal(t *testing.T) {
 		t.Fatal("input box should be focused")
 	}
 
-	// '?' should be typed into the input box as text, not open the palette
-	ta.SendKey(tcell.KeyRune, '?', tcell.ModNone)
+	// '*' should be typed into the input box as text, not open the palette
+	ta.SendKey(tcell.KeyRune, '*', tcell.ModNone)
 	if ta.GetPaletteConfig().IsVisible() {
 		t.Fatal("palette should not open while input box is editing")
 	}

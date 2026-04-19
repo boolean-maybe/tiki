@@ -10,7 +10,7 @@ import (
 
 // InstallGlobalInputCapture installs the global keyboard handler
 // (palette modal short-circuit, statusline auto-hide dismiss, router dispatch).
-// F10 (toggle header) and ? (open palette) are both routed through InputRouter
+// F10 (toggle header) and * (open palette) are both routed through InputRouter
 // rather than handled here, so keyboard and palette-entered globals behave identically.
 func InstallGlobalInputCapture(
 	app *tview.Application,
