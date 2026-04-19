@@ -83,6 +83,21 @@ views:
     - key: "E"
       label: "Escalate"
       action: update where id = id() set escalations=escalations + 1
+    - key: "A"
+      label: "Assign to..."
+      action: update where id = id() set assignee=input()
+      input: string
+      hot: false
+    - key: "t"
+      label: "Add tag"
+      action: update where id = id() set tags=tags+[input()]
+      input: string
+      hot: false
+    - key: "T"
+      label: "Remove tag"
+      action: update where id = id() set tags=tags-[input()]
+      input: string
+      hot: false
   plugins:
     - name: Triage
       description: "Bug triage board — move bugs through the resolution pipeline"

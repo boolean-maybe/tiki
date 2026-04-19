@@ -317,3 +317,51 @@ select where select = 1
 create title=select
 ```
 
+## input() errors
+
+`input()` without `input:` declaration on the action:
+
+```sql
+update where id = id() set assignee = input()
+```
+
+Fails at workflow load time with: `input() requires 'input:' declaration on action`.
+
+`input:` declared but `input()` not used:
+
+```yaml
+- key: "a"
+  label: "Ready"
+  action: update where id = id() set status="ready"
+  input: string
+```
+
+Fails at workflow load time: `declares 'input: string' but does not use input()`.
+
+Duplicate `input()` (more than one call per action):
+
+```sql
+update where id = id() set assignee=input(), title=input()
+```
+
+Fails with: `input() may only be used once per action`.
+
+Type mismatch (declared type incompatible with target field):
+
+```yaml
+- key: "a"
+  label: "Assign to"
+  action: update where id = id() set assignee = input()
+  input: int
+```
+
+Fails at workflow load time: `int` is not assignable to string field `assignee`.
+
+`input()` with arguments:
+
+```sql
+update where id = id() set assignee = input("name")
+```
+
+Fails with: `input() takes no arguments`.
+

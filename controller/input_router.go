@@ -24,6 +24,9 @@ type PluginControllerInterface interface {
 	HandleAction(ActionID) bool
 	HandleSearch(string)
 	ShowNavigation() bool
+	GetActionInputSpec(ActionID) (prompt string, typ ruki.ValueType, hasInput bool)
+	CanStartActionInput(ActionID) (prompt string, typ ruki.ValueType, ok bool)
+	HandleActionInput(ActionID, string) InputSubmitResult
 }
 
 // TikiViewProvider is implemented by controllers that back a TikiPlugin view.
@@ -103,6 +106,13 @@ func (ir *InputRouter) SetPaletteConfig(pc *model.ActionPaletteConfig) {
 func (ir *InputRouter) HandleInput(event *tcell.EventKey, currentView *ViewEntry) bool {
 	slog.Debug("input received", "name", event.Name(), "key", int(event.Key()), "rune", string(event.Rune()), "modifiers", int(event.Modifiers()))
 
+	// if the input box is focused, let it handle all input (including '?' and F10)
+	if activeView := ir.navController.GetActiveView(); activeView != nil {
+		if iv, ok := activeView.(InputableView); ok && iv.IsInputBoxFocused() {
+			return false
+		}
+	}
+
 	// pre-gate: ActionOpenPalette (?) and ActionToggleHeader (F10) must fire before
 	// task-edit Prepare and before search/fullscreen/editor gates, so they stay truly
 	// global without triggering edit-session setup or focus churn.
@@ -125,7 +135,7 @@ func (ir *InputRouter) HandleInput(event *tcell.EventKey, currentView *ViewEntry
 		ir.taskEditCoord.Prepare(activeView, model.DecodeTaskEditParams(currentView.Params))
 	}
 
-	if stop, handled := ir.maybeHandleSearchInput(activeView, event); stop {
+	if stop, handled := ir.maybeHandleInputBox(activeView, event); stop {
 		return handled
 	}
 	if stop, handled := ir.maybeHandleFullscreenEscape(activeView, event); stop {
@@ -158,20 +168,20 @@ func (ir *InputRouter) HandleInput(event *tcell.EventKey, currentView *ViewEntry
 	}
 }
 
-// maybeHandleSearchInput handles search box focus/visibility semantics.
+// maybeHandleInputBox handles input box focus/visibility semantics.
 // stop=true means input routing should stop and return handled.
-func (ir *InputRouter) maybeHandleSearchInput(activeView View, event *tcell.EventKey) (stop bool, handled bool) {
-	searchableView, ok := activeView.(SearchableView)
+func (ir *InputRouter) maybeHandleInputBox(activeView View, event *tcell.EventKey) (stop bool, handled bool) {
+	inputableView, ok := activeView.(InputableView)
 	if !ok {
 		return false, false
 	}
-	if searchableView.IsSearchBoxFocused() {
-		// Search box has focus and handles input through tview.
+	if inputableView.IsInputBoxFocused() {
 		return true, false
 	}
-	// Search is visible but grid has focus - handle Esc to close search.
-	if searchableView.IsSearchVisible() && event.Key() == tcell.KeyEscape {
-		searchableView.HideSearch()
+	// visible but not focused (passive mode): Esc dismisses via cancel path
+	// so search-specific teardown fires (clearing results)
+	if inputableView.IsInputBoxVisible() && event.Key() == tcell.KeyEscape {
+		inputableView.CancelInputBox()
 		return true, true
 	}
 	return false, false
@@ -283,28 +293,29 @@ func (ir *InputRouter) openDepsEditor(taskID string) bool {
 // handlePluginInput routes input to the appropriate plugin controller
 func (ir *InputRouter) handlePluginInput(event *tcell.EventKey, viewID model.ViewID) bool {
 	pluginName := model.GetPluginName(viewID)
-	controller, ok := ir.pluginControllers[pluginName]
+	ctrl, ok := ir.pluginControllers[pluginName]
 	if !ok {
 		slog.Warn("plugin controller not found", "plugin", pluginName)
 		return false
 	}
 
-	registry := controller.GetActionRegistry()
+	registry := ctrl.GetActionRegistry()
 	if action := registry.Match(event); action != nil {
-		// Handle search action specially - show search box
 		if action.ID == ActionSearch {
-			return ir.handleSearchAction(controller)
+			return ir.handleSearchInput(ctrl)
 		}
-		// Handle plugin activation keys - switch to different plugin
 		if targetPluginName := GetPluginNameFromAction(action.ID); targetPluginName != "" {
 			targetViewID := model.MakePluginViewID(targetPluginName)
 			if viewID != targetViewID {
 				ir.navController.ReplaceView(targetViewID, nil)
 				return true
 			}
-			return true // already on this plugin, consume the event
+			return true
 		}
-		return controller.HandleAction(action.ID)
+		if _, _, hasInput := ctrl.GetActionInputSpec(action.ID); hasInput {
+			return ir.startActionInput(ctrl, action.ID)
+		}
+		return ctrl.HandleAction(action.ID)
 	}
 	return false
 }
@@ -363,6 +374,13 @@ func (ir *InputRouter) toggleHeader() {
 func (ir *InputRouter) HandleAction(id ActionID, currentView *ViewEntry) bool {
 	if currentView == nil {
 		return false
+	}
+
+	// block palette-dispatched actions while an input box is in editing mode
+	if activeView := ir.navController.GetActiveView(); activeView != nil {
+		if iv, ok := activeView.(InputableView); ok && iv.IsInputBoxFocused() {
+			return false
+		}
 	}
 
 	// global actions
@@ -482,7 +500,6 @@ func (ir *InputRouter) dispatchTaskEditAction(id ActionID, activeView View) bool
 
 // dispatchPluginAction handles palette-dispatched plugin actions by ActionID.
 func (ir *InputRouter) dispatchPluginAction(id ActionID, viewID model.ViewID) bool {
-	// handle plugin activation (switch to plugin)
 	if targetPluginName := GetPluginNameFromAction(id); targetPluginName != "" {
 		targetViewID := model.MakePluginViewID(targetPluginName)
 		if viewID != targetViewID {
@@ -498,35 +515,81 @@ func (ir *InputRouter) dispatchPluginAction(id ActionID, viewID model.ViewID) bo
 		return false
 	}
 
-	// search action needs special wiring
 	if id == ActionSearch {
-		return ir.handleSearchAction(ctrl)
+		return ir.handleSearchInput(ctrl)
+	}
+
+	if _, _, hasInput := ctrl.GetActionInputSpec(id); hasInput {
+		return ir.startActionInput(ctrl, id)
 	}
 
 	return ctrl.HandleAction(id)
 }
 
-// handleSearchAction is a generic handler for ActionSearch across all searchable views
-func (ir *InputRouter) handleSearchAction(controller interface{ HandleSearch(string) }) bool {
-	activeView := ir.navController.GetActiveView()
-	searchableView, ok := activeView.(SearchableView)
+// startActionInput opens the input box for an action that requires user input.
+func (ir *InputRouter) startActionInput(ctrl PluginControllerInterface, actionID ActionID) bool {
+	_, _, ok := ctrl.CanStartActionInput(actionID)
 	if !ok {
 		return false
 	}
 
-	// Set up focus callback
+	activeView := ir.navController.GetActiveView()
+	inputableView, ok := activeView.(InputableView)
+	if !ok {
+		return false
+	}
+
 	app := ir.navController.GetApp()
-	searchableView.SetFocusSetter(func(p tview.Primitive) {
+	inputableView.SetFocusSetter(func(p tview.Primitive) {
 		app.SetFocus(p)
 	})
 
-	// Wire up search submit handler to controller
-	searchableView.SetSearchSubmitHandler(controller.HandleSearch)
+	inputableView.SetInputSubmitHandler(func(text string) InputSubmitResult {
+		return ctrl.HandleActionInput(actionID, text)
+	})
 
-	// Show search box and focus it
-	searchBox := searchableView.ShowSearch()
-	if searchBox != nil {
-		app.SetFocus(searchBox)
+	inputableView.SetInputCancelHandler(func() {
+		inputableView.CancelInputBox()
+	})
+
+	inputBox := inputableView.ShowInputBox("> ", "")
+	if inputBox != nil {
+		app.SetFocus(inputBox)
+	}
+
+	return true
+}
+
+// handleSearchInput opens the input box in search mode for the active view.
+// Blocked when search is already passive — user must Esc first.
+func (ir *InputRouter) handleSearchInput(ctrl interface{ HandleSearch(string) }) bool {
+	activeView := ir.navController.GetActiveView()
+	inputableView, ok := activeView.(InputableView)
+	if !ok {
+		return false
+	}
+
+	if inputableView.IsSearchPassive() {
+		return true
+	}
+
+	app := ir.navController.GetApp()
+	inputableView.SetFocusSetter(func(p tview.Primitive) {
+		app.SetFocus(p)
+	})
+
+	inputableView.SetInputSubmitHandler(func(text string) InputSubmitResult {
+		trimmed := strings.TrimSpace(text)
+		if trimmed == "" {
+			return InputKeepEditing
+		}
+		ctrl.HandleSearch(trimmed)
+		return InputShowPassive
+	})
+
+	inputBox := inputableView.ShowSearchBox()
+	if inputBox != nil {
+		app.SetFocus(inputBox)
 	}
 
 	return true

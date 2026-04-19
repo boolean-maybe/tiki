@@ -780,11 +780,20 @@ func (e *Executor) evalFunctionCall(fc *FunctionCall, t *task.Task, allTasks []*
 		return e.evalNextDate(fc, t, allTasks)
 	case "blocks":
 		return e.evalBlocks(fc, t, allTasks)
+	case "input":
+		return e.evalInput()
 	case "call":
 		return nil, fmt.Errorf("call() is not supported yet")
 	default:
 		return nil, fmt.Errorf("unknown function %q", fc.Name)
 	}
+}
+
+func (e *Executor) evalInput() (interface{}, error) {
+	if !e.currentInput.HasInput {
+		return nil, &MissingInputValueError{}
+	}
+	return e.currentInput.InputValue, nil
 }
 
 func (e *Executor) evalID() (interface{}, error) {

@@ -3,6 +3,7 @@ package controller
 import (
 	"github.com/boolean-maybe/tiki/model"
 	"github.com/boolean-maybe/tiki/plugin"
+	"github.com/boolean-maybe/tiki/ruki"
 )
 
 // DokiController handles doki plugin view actions (documentation/markdown navigation).
@@ -59,6 +60,14 @@ func (dc *DokiController) HandleAction(actionID ActionID) bool {
 }
 
 // HandleSearch is not applicable for DokiPlugins (documentation views don't have search)
-func (dc *DokiController) HandleSearch(query string) {
-	// No-op: Doki plugins don't support search
+func (dc *DokiController) HandleSearch(query string) {}
+
+func (dc *DokiController) GetActionInputSpec(ActionID) (string, ruki.ValueType, bool) {
+	return "", 0, false
+}
+func (dc *DokiController) CanStartActionInput(ActionID) (string, ruki.ValueType, bool) {
+	return "", 0, false
+}
+func (dc *DokiController) HandleActionInput(ActionID, string) InputSubmitResult {
+	return InputKeepEditing
 }

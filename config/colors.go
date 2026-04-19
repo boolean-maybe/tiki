@@ -52,10 +52,10 @@ type ColorConfig struct {
 	ContentBackgroundColor Color
 	ContentTextColor       Color
 
-	// Search box colors
-	SearchBoxLabelColor      Color
-	SearchBoxBackgroundColor Color
-	SearchBoxTextColor       Color
+	// Input box colors
+	InputBoxLabelColor      Color
+	InputBoxBackgroundColor Color
+	InputBoxTextColor       Color
 
 	// Input field colors (used in task detail edit mode)
 	InputFieldBackgroundColor Color
@@ -226,10 +226,10 @@ func ColorsFromPalette(p Palette) *ColorConfig {
 		ContentBackgroundColor: p.ContentBackgroundColor,
 		ContentTextColor:       p.TextColor,
 
-		// Search box
-		SearchBoxLabelColor:      p.TextColor,
-		SearchBoxBackgroundColor: p.TransparentColor,
-		SearchBoxTextColor:       p.TextColor,
+		// Input box
+		InputBoxLabelColor:      p.TextColor,
+		InputBoxBackgroundColor: p.TransparentColor,
+		InputBoxTextColor:       p.TextColor,
 
 		// Input field
 		InputFieldBackgroundColor: p.TransparentColor,

@@ -154,6 +154,10 @@ views:
     - key: "a"
       label: "Assign to me"
       action: update where id = id() set assignee=user()
+    - key: "A"
+      label: "Assign to..."
+      action: update where id = id() set assignee=input()
+      input: string
   plugins:
     - name: Kanban
       description: "Move tiki to new status, search, create or delete"

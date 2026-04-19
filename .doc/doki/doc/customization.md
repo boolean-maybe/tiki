@@ -236,6 +236,7 @@ Each action has:
 - `label` - description shown in the header and action palette
 - `action` - a `ruki` statement (`update`, `create`, `delete`, or `select`)
 - `hot` - (optional) controls header visibility. `hot: true` shows the action in the header, `hot: false` hides it. When absent, actions default to visible in the header. This does not affect the action palette — all actions are always discoverable via `?` regardless of the `hot` setting
+- `input` - (optional) declares that the action prompts for user input before executing. The value is the scalar type of the input: `string`, `int`, `bool`, `date`, `timestamp`, or `duration`. The action's `ruki` statement must use `input()` to reference the value
 
 Example — keeping a verbose action out of the header but still accessible from the palette:
 
@@ -251,6 +252,52 @@ When the shortcut key is pressed, the action is applied to the currently selecte
 For example, pressing `b` in the Backlog plugin changes the selected tiki's status to `ready`, effectively moving it to the board.
 
 `select` actions execute for side-effects only — the output is ignored. They don't require a selected tiki.
+
+### Input-backed actions
+
+Actions with `input:` prompt the user for a value before executing. When the action key is pressed, a modal input box opens with the action label as the prompt. The user types a value and presses Enter to execute, or Esc to cancel.
+
+```yaml
+actions:
+  - key: "A"
+    label: "Assign to..."
+    action: update where id = id() set assignee = input()
+    input: string
+  - key: "t"
+    label: "Add tag"
+    action: update where id = id() set tags = tags + [input()]
+    input: string
+  - key: "T"
+    label: "Remove tag"
+    action: update where id = id() set tags = tags - [input()]
+    input: string
+  - key: "p"
+    label: "Set points"
+    action: update where id = id() set points = input()
+    input: int
+  - key: "D"
+    label: "Set due date"
+    action: update where id = id() set due = input()
+    input: date
+```
+
+The input box is modal while editing — other actions are blocked until Enter or Esc. If the entered value is invalid for the declared type (e.g. non-numeric text for `int`), an error appears in the statusline and the prompt stays open for correction.
+
+Supported `input:` types: `string`, `int`, `bool`, `date` (YYYY-MM-DD), `timestamp` (RFC3339 or YYYY-MM-DD), `duration` (e.g. `2day`, `1week`).
+
+Validation rules:
+- An action with `input:` must use `input()` in its `ruki` statement
+- An action using `input()` must declare `input:` — otherwise the workflow fails to load
+- `input()` may only appear once per action
+
+### Search and input box interaction
+
+The input box serves both search and action-input, with explicit mode tracking:
+
+- **Search editing**: pressing `/` opens the input box focused for typing. Enter with text applies the search and transitions to **search passive** mode. Enter on empty text is a no-op. Esc clears search and closes the box.
+- **Search passive**: the search box remains visible as a non-editable indicator showing the active query, while normal task navigation and actions are re-enabled. Pressing `/` again is blocked — dismiss the active search with Esc first, then open a new search. Esc clears the search results and closes the box.
+- **Action input**: pressing an input-backed action key opens a modal prompt. If search was passive, the prompt temporarily replaces the search indicator. Valid Enter executes the action and restores the passive search indicator (or closes if no prior search). Esc cancels and likewise restores passive search. Invalid Enter keeps the prompt open for correction.
+- **Modal blocking**: while search editing or action input is active, all other plugin actions and keyboard shortcuts are blocked. The action palette cannot open while the input box is editing.
 
 ### ruki expressions
 
@@ -324,6 +371,7 @@ update where id = id() set assignee=user()
 - `user()` — current user
 - `now()` — current timestamp
 - `id()` — currently selected tiki (in plugin context)
+- `input()` — user-supplied value (in actions with `input:` declaration)
 - `count(select where ...)` — count matching tikis
 
 For the full language reference, see the [ruki documentation](ruki/index.md).

@@ -210,6 +210,7 @@ create title="x" dependsOn=dependsOn + tags
 | `next_date(...)` | `date` | exactly 1 | argument must be `recurrence` |
 | `blocks(...)` | `list<ref>` | exactly 1 | argument must be `id`, `ref`, or string literal |
 | `id()` | `id` | 0 | valid only in plugin runtime; resolves to selected tiki ID |
+| `input()` | declared type | 0 | valid only in plugin actions with `input:` declaration |
 | `call(...)` | `string` | exactly 1 | argument must be `string` |
 | `user()` | `string` | 0 | no additional validation |
 
@@ -223,6 +224,8 @@ select where blocks(id) is empty
 select where id() in dependsOn
 create title=call("echo hi")
 select where assignee = user()
+update where id = id() set assignee = input()
+update where id = id() set tags = tags + [input()]
 ```
 
 Runtime notes:
@@ -231,6 +234,7 @@ Runtime notes:
 - When a validated statement uses `id()`, plugin execution must provide a non-empty selected task ID.
 - `id()` is rejected for CLI, event-trigger, and time-trigger semantic runtimes.
 - `call(...)` is currently rejected by semantic validation.
+- `input()` returns the value typed by the user at the action prompt. Its return type matches the `input:` declaration on the action (e.g. `input: string` means `input()` returns `string`). Only valid in plugin action statements that declare `input:`. May only appear once per action. Accepted `timestamp` input formats: RFC3339, with YYYY-MM-DD as a convenience fallback.
 
 `run(...)`
 

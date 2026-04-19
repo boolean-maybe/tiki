@@ -206,10 +206,34 @@ func parsePluginActions(configs []PluginActionConfig, parser *ruki.Parser) ([]Pl
 			return nil, fmt.Errorf("action %d (key %q) missing 'action'", i, cfg.Key)
 		}
 
-		actionStmt, err := parser.ParseAndValidateStatement(cfg.Action, ruki.ExecutorRuntimePlugin)
-		if err != nil {
-			return nil, fmt.Errorf("parsing action %d (key %q): %w", i, cfg.Key, err)
+		var (
+			actionStmt *ruki.ValidatedStatement
+			inputType  ruki.ValueType
+			hasInput   bool
+		)
+
+		if cfg.Input != "" {
+			typ, err := ruki.ParseScalarTypeName(cfg.Input)
+			if err != nil {
+				return nil, fmt.Errorf("action %d (key %q) input: %w", i, cfg.Key, err)
+			}
+			actionStmt, err = parser.ParseAndValidateStatementWithInput(cfg.Action, ruki.ExecutorRuntimePlugin, typ)
+			if err != nil {
+				return nil, fmt.Errorf("parsing action %d (key %q): %w", i, cfg.Key, err)
+			}
+			if !actionStmt.UsesInputBuiltin() {
+				return nil, fmt.Errorf("action %d (key %q) declares 'input: %s' but does not use input()", i, cfg.Key, cfg.Input)
+			}
+			inputType = typ
+			hasInput = true
+		} else {
+			var err error
+			actionStmt, err = parser.ParseAndValidateStatement(cfg.Action, ruki.ExecutorRuntimePlugin)
+			if err != nil {
+				return nil, fmt.Errorf("parsing action %d (key %q): %w", i, cfg.Key, err)
+			}
 		}
+
 		showInHeader := true
 		if cfg.Hot != nil {
 			showInHeader = *cfg.Hot
@@ -219,6 +243,8 @@ func parsePluginActions(configs []PluginActionConfig, parser *ruki.Parser) ([]Pl
 			Label:        cfg.Label,
 			Action:       actionStmt,
 			ShowInHeader: showInHeader,
+			InputType:    inputType,
+			HasInput:     hasInput,
 		})
 	}
 

@@ -22,14 +22,16 @@ func (e *UnvalidatedWrapperError) Error() string {
 
 // ValidatedStatement is an immutable, semantically validated statement wrapper.
 type ValidatedStatement struct {
-	seal       *validationSeal
-	runtime    ExecutorRuntimeMode
-	usesIDFunc bool
-	statement  *Statement
+	seal          *validationSeal
+	runtime       ExecutorRuntimeMode
+	usesIDFunc    bool
+	usesInputFunc bool
+	statement     *Statement
 }
 
 func (v *ValidatedStatement) RuntimeMode() ExecutorRuntimeMode { return v.runtime }
 func (v *ValidatedStatement) UsesIDBuiltin() bool              { return v.usesIDFunc }
+func (v *ValidatedStatement) UsesInputBuiltin() bool           { return v.usesInputFunc }
 func (v *ValidatedStatement) RequiresCreateTemplate() bool {
 	return v != nil && v.statement != nil && v.statement.Create != nil
 }
@@ -199,6 +201,21 @@ func (p *Parser) ParseAndValidateStatement(input string, runtime ExecutorRuntime
 	return NewSemanticValidator(runtime).ValidateStatement(stmt)
 }
 
+// ParseAndValidateStatementWithInput parses a statement with an input() type
+// declaration and applies runtime-aware semantic validation. The inputType is
+// set on the parser for the duration of the parse so that inferExprType can
+// resolve input() calls.
+func (p *Parser) ParseAndValidateStatementWithInput(input string, runtime ExecutorRuntimeMode, inputType ValueType) (*ValidatedStatement, error) {
+	p.inputType = &inputType
+	defer func() { p.inputType = nil }()
+
+	stmt, err := p.ParseStatement(input)
+	if err != nil {
+		return nil, err
+	}
+	return NewSemanticValidator(runtime).ValidateStatement(stmt)
+}
+
 // ParseAndValidateTrigger parses an event trigger and applies runtime-aware semantic validation.
 func (p *Parser) ParseAndValidateTrigger(input string, runtime ExecutorRuntimeMode) (*ValidatedTrigger, error) {
 	trig, err := p.ParseTrigger(input)
@@ -259,14 +276,22 @@ func (v *SemanticValidator) ValidateStatement(stmt *Statement) (*ValidatedStatem
 	if usesID && v.runtime != ExecutorRuntimePlugin {
 		return nil, fmt.Errorf("id() is only available in plugin runtime")
 	}
+	inputCount, err := countInputUsage(stmt)
+	if err != nil {
+		return nil, err
+	}
+	if inputCount > 1 {
+		return nil, fmt.Errorf("input() may only be used once per action")
+	}
 	if err := validateStatementAssignmentsSemantics(stmt); err != nil {
 		return nil, err
 	}
 	return &ValidatedStatement{
-		seal:       validatedSeal,
-		runtime:    v.runtime,
-		usesIDFunc: usesID,
-		statement:  cloneStatement(stmt),
+		seal:          validatedSeal,
+		runtime:       v.runtime,
+		usesIDFunc:    usesID,
+		usesInputFunc: inputCount == 1,
+		statement:     cloneStatement(stmt),
 	}, nil
 }
 
@@ -503,52 +528,197 @@ func scanConditionSemantics(cond Condition) (usesID bool, hasCall bool, err erro
 	}
 }
 
+type semanticFlags struct {
+	usesID     bool
+	hasCall    bool
+	inputCount int
+}
+
+func (f *semanticFlags) merge(other semanticFlags) {
+	f.usesID = f.usesID || other.usesID
+	f.hasCall = f.hasCall || other.hasCall
+	f.inputCount += other.inputCount
+}
+
 func scanExprSemantics(expr Expr) (usesID bool, hasCall bool, err error) {
+	flags, err := scanExprSemanticsEx(expr)
+	if err != nil {
+		return false, false, err
+	}
+	return flags.usesID, flags.hasCall, nil
+}
+
+func scanExprSemanticsEx(expr Expr) (semanticFlags, error) {
+	var f semanticFlags
 	if expr == nil {
-		return false, false, nil
+		return f, nil
 	}
 	switch e := expr.(type) {
 	case *FunctionCall:
 		if e.Name == "id" {
-			usesID = true
+			f.usesID = true
 		}
 		if e.Name == "call" {
-			hasCall = true
+			f.hasCall = true
+		}
+		if e.Name == "input" {
+			f.inputCount++
 		}
 		for _, arg := range e.Args {
-			u, c, err := scanExprSemantics(arg)
+			af, err := scanExprSemanticsEx(arg)
 			if err != nil {
-				return false, false, err
+				return f, err
 			}
-			usesID = usesID || u
-			hasCall = hasCall || c
+			f.merge(af)
 		}
-		return usesID, hasCall, nil
+		return f, nil
 	case *BinaryExpr:
-		u1, c1, err := scanExprSemantics(e.Left)
+		lf, err := scanExprSemanticsEx(e.Left)
 		if err != nil {
-			return false, false, err
+			return f, err
 		}
-		u2, c2, err := scanExprSemantics(e.Right)
+		rf, err := scanExprSemanticsEx(e.Right)
 		if err != nil {
-			return false, false, err
+			return f, err
 		}
-		return u1 || u2, c1 || c2, nil
+		f.merge(lf)
+		f.merge(rf)
+		return f, nil
 	case *ListLiteral:
 		for _, elem := range e.Elements {
-			u, c, err := scanExprSemantics(elem)
+			ef, err := scanExprSemanticsEx(elem)
 			if err != nil {
-				return false, false, err
+				return f, err
 			}
-			usesID = usesID || u
-			hasCall = hasCall || c
+			f.merge(ef)
 		}
-		return usesID, hasCall, nil
+		return f, nil
 	case *SubQuery:
-		return scanConditionSemantics(e.Where)
+		sf, err := scanConditionSemanticsEx(e.Where)
+		if err != nil {
+			return f, err
+		}
+		f.merge(sf)
+		return f, nil
 	default:
-		return false, false, nil
+		return f, nil
 	}
+}
+
+func scanConditionSemanticsEx(cond Condition) (semanticFlags, error) {
+	var f semanticFlags
+	if cond == nil {
+		return f, nil
+	}
+	switch c := cond.(type) {
+	case *BinaryCondition:
+		lf, err := scanConditionSemanticsEx(c.Left)
+		if err != nil {
+			return f, err
+		}
+		rf, err := scanConditionSemanticsEx(c.Right)
+		if err != nil {
+			return f, err
+		}
+		f.merge(lf)
+		f.merge(rf)
+		return f, nil
+	case *NotCondition:
+		return scanConditionSemanticsEx(c.Inner)
+	case *CompareExpr:
+		lf, err := scanExprSemanticsEx(c.Left)
+		if err != nil {
+			return f, err
+		}
+		rf, err := scanExprSemanticsEx(c.Right)
+		if err != nil {
+			return f, err
+		}
+		f.merge(lf)
+		f.merge(rf)
+		return f, nil
+	case *IsEmptyExpr:
+		return scanExprSemanticsEx(c.Expr)
+	case *InExpr:
+		vf, err := scanExprSemanticsEx(c.Value)
+		if err != nil {
+			return f, err
+		}
+		cf, err := scanExprSemanticsEx(c.Collection)
+		if err != nil {
+			return f, err
+		}
+		f.merge(vf)
+		f.merge(cf)
+		return f, nil
+	case *QuantifierExpr:
+		ef, err := scanExprSemanticsEx(c.Expr)
+		if err != nil {
+			return f, err
+		}
+		cf, err := scanConditionSemanticsEx(c.Condition)
+		if err != nil {
+			return f, err
+		}
+		f.merge(ef)
+		f.merge(cf)
+		return f, nil
+	default:
+		return f, fmt.Errorf("unknown condition type %T", c)
+	}
+}
+
+func countInputUsage(stmt *Statement) (int, error) {
+	var total semanticFlags
+	switch {
+	case stmt.Select != nil:
+		if stmt.Select.Where != nil {
+			f, err := scanConditionSemanticsEx(stmt.Select.Where)
+			if err != nil {
+				return 0, err
+			}
+			total.merge(f)
+		}
+		if stmt.Select.Pipe != nil && stmt.Select.Pipe.Run != nil {
+			f, err := scanExprSemanticsEx(stmt.Select.Pipe.Run.Command)
+			if err != nil {
+				return 0, err
+			}
+			total.merge(f)
+		}
+	case stmt.Create != nil:
+		for _, a := range stmt.Create.Assignments {
+			f, err := scanExprSemanticsEx(a.Value)
+			if err != nil {
+				return 0, err
+			}
+			total.merge(f)
+		}
+	case stmt.Update != nil:
+		if stmt.Update.Where != nil {
+			f, err := scanConditionSemanticsEx(stmt.Update.Where)
+			if err != nil {
+				return 0, err
+			}
+			total.merge(f)
+		}
+		for _, a := range stmt.Update.Set {
+			f, err := scanExprSemanticsEx(a.Value)
+			if err != nil {
+				return 0, err
+			}
+			total.merge(f)
+		}
+	case stmt.Delete != nil:
+		if stmt.Delete.Where != nil {
+			f, err := scanConditionSemanticsEx(stmt.Delete.Where)
+			if err != nil {
+				return 0, err
+			}
+			total.merge(f)
+		}
+	}
+	return total.inputCount, nil
 }
 
 func cloneStatement(stmt *Statement) *Statement {

@@ -4,9 +4,6 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
-	"time"
-
-	"github.com/boolean-maybe/tiki/util/duration"
 )
 
 // lower.go converts participle grammar structs into clean AST types.
@@ -215,7 +212,7 @@ func lowerRule(g *ruleGrammar) (*Rule, error) {
 // --- time trigger lowering ---
 
 func lowerTimeTrigger(g *timeTriggerGrammar) (*TimeTrigger, error) {
-	val, unit, err := duration.Parse(g.Interval)
+	val, unit, err := ParseDurationString(g.Interval)
 	if err != nil {
 		return nil, fmt.Errorf("invalid interval: %w", err)
 	}
@@ -481,7 +478,7 @@ func unquoteString(s string) string {
 }
 
 func parseDateLiteral(s string) (Expr, error) {
-	t, err := time.Parse("2006-01-02", s)
+	t, err := ParseDateString(s)
 	if err != nil {
 		return nil, fmt.Errorf("invalid date literal %q: %w", s, err)
 	}
@@ -489,7 +486,7 @@ func parseDateLiteral(s string) (Expr, error) {
 }
 
 func parseDurationLiteral(s string) (Expr, error) {
-	val, unit, err := duration.Parse(s)
+	val, unit, err := ParseDurationString(s)
 	if err != nil {
 		return nil, err
 	}
