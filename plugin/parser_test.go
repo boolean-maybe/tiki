@@ -761,3 +761,81 @@ foreground: "#00ff00"
 		t.Errorf("Expected URL, got %q", dokiPlugin.URL)
 	}
 }
+
+func TestParsePluginActions_HotDefault(t *testing.T) {
+	parser := testParser()
+	configs := []PluginActionConfig{
+		{Key: "b", Label: "Board", Action: `update where id = id() set status="ready"`},
+	}
+	actions, err := parsePluginActions(configs, parser)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !actions[0].ShowInHeader {
+		t.Error("absent hot should default to ShowInHeader=true")
+	}
+}
+
+func TestParsePluginActions_HotExplicitFalse(t *testing.T) {
+	parser := testParser()
+	hotFalse := false
+	configs := []PluginActionConfig{
+		{Key: "b", Label: "Board", Action: `update where id = id() set status="ready"`, Hot: &hotFalse},
+	}
+	actions, err := parsePluginActions(configs, parser)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if actions[0].ShowInHeader {
+		t.Error("hot: false should set ShowInHeader=false")
+	}
+}
+
+func TestParsePluginActions_HotExplicitTrue(t *testing.T) {
+	parser := testParser()
+	hotTrue := true
+	configs := []PluginActionConfig{
+		{Key: "b", Label: "Board", Action: `update where id = id() set status="ready"`, Hot: &hotTrue},
+	}
+	actions, err := parsePluginActions(configs, parser)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !actions[0].ShowInHeader {
+		t.Error("hot: true should set ShowInHeader=true")
+	}
+}
+
+func TestParsePluginYAML_HotFlagFromYAML(t *testing.T) {
+	yamlData := []byte(`
+name: Test
+key: T
+lanes:
+  - name: Backlog
+    filter: select where status = "backlog"
+actions:
+  - key: "b"
+    label: "Board"
+    action: update where id = id() set status = "ready"
+    hot: false
+  - key: "a"
+    label: "Assign"
+    action: update where id = id() set assignee = user()
+`)
+
+	p, err := parsePluginYAML(yamlData, "test.yaml", testSchema())
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	tiki, ok := p.(*TikiPlugin)
+	if !ok {
+		t.Fatalf("expected TikiPlugin, got %T", p)
+	}
+
+	if tiki.Actions[0].ShowInHeader {
+		t.Error("action with hot: false should have ShowInHeader=false")
+	}
+	if !tiki.Actions[1].ShowInHeader {
+		t.Error("action without hot should default to ShowInHeader=true")
+	}
+}

@@ -256,11 +256,13 @@ func (ev *TaskEditView) IsRecurrenceValueFocused() bool {
 func (ev *TaskEditView) UpdateHeaderForField(field model.EditField) {
 	if ev.descOnly {
 		ev.registry = controller.DescOnlyEditActions()
-		return
-	}
-	if ev.tagsOnly {
+	} else if ev.tagsOnly {
 		ev.registry = controller.TagsOnlyEditActions()
-		return
+	} else {
+		ev.registry = controller.GetActionsForField(field)
 	}
-	ev.registry = controller.GetActionsForField(field)
+
+	if ev.actionChangeHandler != nil {
+		ev.actionChangeHandler()
+	}
 }

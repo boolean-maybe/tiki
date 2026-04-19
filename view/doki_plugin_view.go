@@ -29,13 +29,14 @@ var customMd string
 
 // DokiView renders a documentation plugin (navigable markdown)
 type DokiView struct {
-	root         *tview.Flex
-	titleBar     tview.Primitive
-	md           *markdown.NavigableMarkdown
-	pluginDef    *plugin.DokiPlugin
-	registry     *controller.ActionRegistry
-	imageManager *navtview.ImageManager
-	mermaidOpts  *nav.MermaidOptions
+	root                *tview.Flex
+	titleBar            tview.Primitive
+	md                  *markdown.NavigableMarkdown
+	pluginDef           *plugin.DokiPlugin
+	registry            *controller.ActionRegistry
+	imageManager        *navtview.ImageManager
+	mermaidOpts         *nav.MermaidOptions
+	actionChangeHandler func()
 }
 
 // NewDokiView creates a doki view
@@ -172,6 +173,10 @@ func (dv *DokiView) OnBlur() {
 	}
 }
 
+func (dv *DokiView) SetActionChangeHandler(handler func()) {
+	dv.actionChangeHandler = handler
+}
+
 // UpdateNavigationActions updates the registry to reflect current navigation state
 func (dv *DokiView) UpdateNavigationActions() {
 	// Clear and rebuild the registry
@@ -211,6 +216,10 @@ func (dv *DokiView) UpdateNavigationActions() {
 			Label:        "Forward →",
 			ShowInHeader: true,
 		})
+	}
+
+	if dv.actionChangeHandler != nil {
+		dv.actionChangeHandler()
 	}
 }
 

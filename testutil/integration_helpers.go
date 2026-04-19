@@ -41,6 +41,7 @@ type TestApp struct {
 	taskController    *controller.TaskController
 	statuslineConfig  *model.StatuslineConfig
 	headerConfig      *model.HeaderConfig
+	viewContext       *model.ViewContext
 	layoutModel       *model.LayoutModel
 }
 
@@ -113,11 +114,13 @@ func NewTestApp(t *testing.T) *TestApp {
 	viewFactory := view.NewViewFactory(taskStore)
 
 	// 7. Create header widget, statusline, and RootLayout
-	headerWidget := header.NewHeaderWidget(headerConfig)
+	viewContext := model.NewViewContext()
+	headerWidget := header.NewHeaderWidget(headerConfig, viewContext)
 	statuslineWidget := statusline.NewStatuslineWidget(statuslineConfig)
 	rootLayout := view.NewRootLayout(view.RootLayoutOpts{
 		Header:           headerWidget,
 		HeaderConfig:     headerConfig,
+		ViewContext:      viewContext,
 		LayoutModel:      layoutModel,
 		ViewFactory:      viewFactory,
 		TaskStore:        taskStore,
@@ -181,6 +184,7 @@ func NewTestApp(t *testing.T) *TestApp {
 		taskController:   taskController,
 		statuslineConfig: statuslineConfig,
 		headerConfig:     headerConfig,
+		viewContext:      viewContext,
 		layoutModel:      layoutModel,
 	}
 
@@ -441,13 +445,14 @@ func (ta *TestApp) LoadPlugins() error {
 	})
 
 	// Recreate RootLayout with new view factory
-	headerWidget := header.NewHeaderWidget(ta.headerConfig)
+	headerWidget := header.NewHeaderWidget(ta.headerConfig, ta.viewContext)
 	ta.RootLayout.Cleanup()
 	slConfig := model.NewStatuslineConfig()
 	slWidget := statusline.NewStatuslineWidget(slConfig)
 	ta.RootLayout = view.NewRootLayout(view.RootLayoutOpts{
 		Header:           headerWidget,
 		HeaderConfig:     ta.headerConfig,
+		ViewContext:      ta.viewContext,
 		LayoutModel:      ta.layoutModel,
 		ViewFactory:      viewFactory,
 		TaskStore:        ta.TaskStore,

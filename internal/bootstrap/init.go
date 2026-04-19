@@ -116,7 +116,7 @@ func Bootstrap(tikiSkillContent, dokiSkillContent string) (*Result, error) {
 		return nil, err
 	}
 	InitPluginActionRegistry(plugins)
-	syncHeaderPluginActions(headerConfig)
+	viewContext := model.NewViewContext()
 	pluginConfigs, pluginDefs := BuildPluginConfigsAndDefs(plugins)
 
 	// Phase 6.5: Trigger system
@@ -163,11 +163,12 @@ func Bootstrap(tikiSkillContent, dokiSkillContent string) (*Result, error) {
 		viewFactory.RegisterPlugin(name, cfg, def, ctrl)
 	})
 
-	headerWidget := header.NewHeaderWidget(headerConfig)
+	headerWidget := header.NewHeaderWidget(headerConfig, viewContext)
 	statuslineWidget := statusline.NewStatuslineWidget(statuslineConfig)
 	rootLayout := view.NewRootLayout(view.RootLayoutOpts{
 		Header:           headerWidget,
 		HeaderConfig:     headerConfig,
+		ViewContext:      viewContext,
 		LayoutModel:      layoutModel,
 		ViewFactory:      viewFactory,
 		TaskStore:        taskStore,
@@ -217,12 +218,6 @@ func Bootstrap(tikiSkillContent, dokiSkillContent string) (*Result, error) {
 		TikiSkillContent: tikiSkillContent,
 		DokiSkillContent: dokiSkillContent,
 	}, nil
-}
-
-// syncHeaderPluginActions syncs plugin action shortcuts from the controller registry
-// into the header model.
-func syncHeaderPluginActions(headerConfig *model.HeaderConfig) {
-	headerConfig.SetPluginActions(controller.GetPluginActions().ToHeaderActions())
 }
 
 // wireOnViewActivated wires focus setters into views as they become active.

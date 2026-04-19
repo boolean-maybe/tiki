@@ -138,7 +138,7 @@ func TestCalculateHeaderLayout_chartHiddenContextFillsAvailable(t *testing.T) {
 
 func TestHeaderWidget_chartVisibilityThreshold_default(t *testing.T) {
 	headerConfig := model.NewHeaderConfig()
-	h := NewHeaderWidget(headerConfig)
+	h := NewHeaderWidget(headerConfig, model.NewViewContext())
 	defer h.Cleanup()
 
 	h.contextHelp.width = 10
@@ -154,7 +154,7 @@ func TestHeaderWidget_chartVisibilityThreshold_default(t *testing.T) {
 
 func TestHeaderWidget_chartVisibilityThreshold_growsWithContextHelp(t *testing.T) {
 	headerConfig := model.NewHeaderConfig()
-	h := NewHeaderWidget(headerConfig)
+	h := NewHeaderWidget(headerConfig, model.NewViewContext())
 	defer h.Cleanup()
 
 	h.contextHelp.width = 60

@@ -272,6 +272,13 @@ type RecurrencePartNavigable interface {
 	IsRecurrenceValueFocused() bool
 }
 
+// ActionChangeNotifier is implemented by views that mutate their action registry
+// or live enablement/presentation state while the same view instance stays active.
+// RootLayout wires the handler and reruns syncViewContextFromView when fired.
+type ActionChangeNotifier interface {
+	SetActionChangeHandler(handler func())
+}
+
 // ViewInfoProvider is a view that provides its name and description for the header info section
 type ViewInfoProvider interface {
 	GetViewName() string

@@ -46,7 +46,7 @@ func loadPluginsFromFile(path string, schema ruki.Schema) ([]Plugin, []PluginAct
 		return nil, nil, []string{fmt.Sprintf("%s: %v", path, err)}
 	}
 
-	if len(wf.Views.Plugins) == 0 {
+	if len(wf.Views.Plugins) == 0 && len(wf.Views.Actions) == 0 {
 		return nil, nil, nil
 	}
 
@@ -55,6 +55,7 @@ func loadPluginsFromFile(path string, schema ruki.Schema) ([]Plugin, []PluginAct
 	for i := range wf.Views.Plugins {
 		totalConverted += transformer.ConvertPluginConfig(&wf.Views.Plugins[i])
 	}
+	totalConverted += convertLegacyGlobalActions(transformer, wf.Views.Actions)
 	if totalConverted > 0 {
 		slog.Info("converted legacy workflow expressions to ruki", "count", totalConverted, "path", path)
 	}
@@ -255,6 +256,27 @@ func mergeGlobalActionsIntoPlugins(plugins []Plugin, globalActions []PluginActio
 			tp.Actions = append(tp.Actions, ga)
 		}
 	}
+}
+
+// convertLegacyGlobalActions converts legacy action expressions in global views.actions
+// to ruki format, matching the same conversion applied to per-plugin actions.
+func convertLegacyGlobalActions(transformer *LegacyConfigTransformer, actions []PluginActionConfig) int {
+	count := 0
+	for i := range actions {
+		action := &actions[i]
+		if action.Action != "" && !isRukiAction(action.Action) {
+			newAction, err := transformer.ConvertAction(action.Action)
+			if err != nil {
+				slog.Warn("failed to convert legacy global action, passing through",
+					"error", err, "action", action.Action, "key", action.Key)
+				continue
+			}
+			slog.Debug("converted legacy global action", "old", action.Action, "new", newAction, "key", action.Key)
+			action.Action = newAction
+			count++
+		}
+	}
+	return count
 }
 
 // DefaultPlugin returns the first plugin marked as default, or the first plugin

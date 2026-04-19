@@ -29,6 +29,7 @@ type PluginView struct {
 	selectionListenerID int
 	getLaneTasks        func(lane int) []*task.Task // injected from controller
 	ensureSelection     func() bool                 // injected from controller
+	actionChangeHandler func()
 }
 
 // NewPluginView creates a plugin view
@@ -186,6 +187,14 @@ func (pv *PluginView) refresh() {
 		// Sync scroll offset from view to model for later lane navigation
 		pv.pluginConfig.SetScrollOffsetForLane(laneIdx, laneContainer.GetScrollOffset())
 	}
+
+	if pv.actionChangeHandler != nil {
+		pv.actionChangeHandler()
+	}
+}
+
+func (pv *PluginView) SetActionChangeHandler(handler func()) {
+	pv.actionChangeHandler = handler
 }
 
 // GetPrimitive returns the root tview primitive

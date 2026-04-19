@@ -83,13 +83,15 @@ type PluginActionConfig struct {
 	Key    string `yaml:"key" mapstructure:"key"`
 	Label  string `yaml:"label" mapstructure:"label"`
 	Action string `yaml:"action" mapstructure:"action"`
+	Hot    *bool  `yaml:"hot,omitempty" mapstructure:"hot"`
 }
 
 // PluginAction represents a parsed shortcut action bound to a key.
 type PluginAction struct {
-	Rune   rune
-	Label  string
-	Action *ruki.ValidatedStatement
+	Rune         rune
+	Label        string
+	Action       *ruki.ValidatedStatement
+	ShowInHeader bool
 }
 
 // PluginLaneConfig represents a lane in YAML or config definitions.
