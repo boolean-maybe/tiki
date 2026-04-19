@@ -38,6 +38,8 @@ func (r ExecutorRuntime) normalize() ExecutorRuntime {
 type ExecutionInput struct {
 	SelectedTaskID string
 	CreateTemplate *task.Task
+	InputValue     interface{} // value returned by input() builtin
+	HasInput       bool        // distinguishes nil from unset
 }
 
 // RuntimeMismatchError reports execution with a wrapper validated for a
@@ -66,6 +68,13 @@ type MissingCreateTemplateError struct{}
 
 func (e *MissingCreateTemplateError) Error() string {
 	return "create template is required for create execution"
+}
+
+// MissingInputValueError reports execution of input() without a provided value.
+type MissingInputValueError struct{}
+
+func (e *MissingInputValueError) Error() string {
+	return "input value is required when input() is used"
 }
 
 var (

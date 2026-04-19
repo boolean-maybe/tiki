@@ -74,7 +74,7 @@ func NewActionPalette(
 	ap.filterInput.SetLabel(" ")
 	ap.filterInput.SetFieldBackgroundColor(colors.ContentBackgroundColor.TCell())
 	ap.filterInput.SetFieldTextColor(colors.InputFieldTextColor.TCell())
-	ap.filterInput.SetLabelColor(colors.SearchBoxLabelColor.TCell())
+	ap.filterInput.SetLabelColor(colors.InputBoxLabelColor.TCell())
 	ap.filterInput.SetPlaceholder("Type to search")
 	ap.filterInput.SetPlaceholderStyle(tcell.StyleDefault.
 		Foreground(colors.TaskDetailPlaceholderColor.TCell()).

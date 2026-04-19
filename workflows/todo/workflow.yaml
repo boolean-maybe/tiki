@@ -26,6 +26,16 @@ views:
     - key: "Y"
       label: "Copy content"
       action: select title, description where id = id() | clipboard()
+    - key: "t"
+      label: "Add tag"
+      action: update where id = id() set tags=tags+[input()]
+      input: string
+      hot: false
+    - key: "T"
+      label: "Remove tag"
+      action: update where id = id() set tags=tags-[input()]
+      input: string
+      hot: false
   plugins:
     - name: Todo
       description: "Simple todo list with two lanes"

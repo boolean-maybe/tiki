@@ -55,6 +55,7 @@ type Parser struct {
 	schema            Schema
 	qualifiers        qualifierPolicy // set before each validation pass
 	requireQualifiers bool            // when true, bare FieldRef is a parse error (trigger where-guards)
+	inputType         *ValueType      // set per-call for input() type inference; nil when not available
 }
 
 // NewParser constructs a Parser with the given schema for validation.

@@ -17,7 +17,7 @@ import (
 type PluginView struct {
 	root                *tview.Flex
 	titleBar            tview.Primitive
-	searchHelper        *SearchHelper
+	inputHelper         *InputHelper
 	lanes               *tview.Flex
 	laneBoxes           []*ScrollableList
 	taskStore           store.Store
@@ -82,10 +82,16 @@ func (pv *PluginView) build() {
 	pv.lanes = tview.NewFlex().SetDirection(tview.FlexColumn)
 	pv.laneBoxes = make([]*ScrollableList, 0, len(pv.pluginDef.Lanes))
 
-	// search helper - focus returns to lanes container
-	pv.searchHelper = NewSearchHelper(pv.lanes)
-	pv.searchHelper.SetCancelHandler(func() {
-		pv.HideSearch()
+	// input helper - focus returns to lanes container
+	pv.inputHelper = NewInputHelper(pv.lanes)
+	pv.inputHelper.SetCancelHandler(func() {
+		pv.cancelCurrentInput()
+	})
+	pv.inputHelper.SetCloseHandler(func() {
+		pv.removeInputBoxFromLayout()
+	})
+	pv.inputHelper.SetRestorePassiveHandler(func(_ string) {
+		// layout already has the input box; no rebuild needed
 	})
 
 	// root layout
@@ -95,16 +101,18 @@ func (pv *PluginView) build() {
 	pv.refresh()
 }
 
-// rebuildLayout rebuilds the root layout based on current state (search visibility)
+// rebuildLayout rebuilds the root layout based on current state
 func (pv *PluginView) rebuildLayout() {
 	pv.root.Clear()
 	pv.root.AddItem(pv.titleBar, 1, 0, false)
 
-	// Restore search box if search is active (e.g., returning from task details)
-	if pv.pluginConfig.IsSearchActive() {
+	if pv.inputHelper.IsVisible() {
+		pv.root.AddItem(pv.inputHelper.GetInputBox(), config.InputBoxHeight, 0, false)
+		pv.root.AddItem(pv.lanes, 0, 1, false)
+	} else if pv.pluginConfig.IsSearchActive() {
 		query := pv.pluginConfig.GetSearchQuery()
-		pv.searchHelper.ShowSearch(query)
-		pv.root.AddItem(pv.searchHelper.GetSearchBox(), config.SearchBoxHeight, 0, false)
+		pv.inputHelper.Show("> ", query, inputModeSearchPassive)
+		pv.root.AddItem(pv.inputHelper.GetInputBox(), config.InputBoxHeight, 0, false)
 		pv.root.AddItem(pv.lanes, 0, 1, false)
 	} else {
 		pv.root.AddItem(pv.lanes, 0, 1, true)
@@ -256,64 +264,104 @@ func (pv *PluginView) OnBlur() {
 	pv.pluginConfig.RemoveSelectionListener(pv.selectionListenerID)
 }
 
-// ShowSearch displays the search box and returns the primitive to focus
-func (pv *PluginView) ShowSearch() tview.Primitive {
-	if pv.searchHelper.IsVisible() {
-		return pv.searchHelper.GetSearchBox()
+// ShowInputBox displays the input box with the given prompt and initial text.
+// If search is currently passive, action-input temporarily replaces it.
+func (pv *PluginView) ShowInputBox(prompt, initial string) tview.Primitive {
+	wasVisible := pv.inputHelper.IsVisible()
+
+	inputBox := pv.inputHelper.Show(prompt, initial, inputModeActionInput)
+
+	if !wasVisible {
+		pv.root.Clear()
+		pv.root.AddItem(pv.titleBar, 1, 0, false)
+		pv.root.AddItem(pv.inputHelper.GetInputBox(), config.InputBoxHeight, 0, true)
+		pv.root.AddItem(pv.lanes, 0, 1, false)
 	}
 
-	query := pv.pluginConfig.GetSearchQuery()
-	searchBox := pv.searchHelper.ShowSearch(query)
-
-	// Rebuild layout with search box
-	pv.root.Clear()
-	pv.root.AddItem(pv.titleBar, 1, 0, false)
-	pv.root.AddItem(pv.searchHelper.GetSearchBox(), config.SearchBoxHeight, 0, true)
-	pv.root.AddItem(pv.lanes, 0, 1, false)
-
-	return searchBox
+	return inputBox
 }
 
-// HideSearch hides the search box and clears search results
-func (pv *PluginView) HideSearch() {
-	if !pv.searchHelper.IsVisible() {
+// ShowSearchBox opens the input box in search-editing mode.
+func (pv *PluginView) ShowSearchBox() tview.Primitive {
+	inputBox := pv.inputHelper.ShowSearch("")
+
+	pv.root.Clear()
+	pv.root.AddItem(pv.titleBar, 1, 0, false)
+	pv.root.AddItem(pv.inputHelper.GetInputBox(), config.InputBoxHeight, 0, true)
+	pv.root.AddItem(pv.lanes, 0, 1, false)
+
+	return inputBox
+}
+
+// HideInputBox hides the input box without touching search state.
+func (pv *PluginView) HideInputBox() {
+	if !pv.inputHelper.IsVisible() {
 		return
 	}
+	pv.inputHelper.Hide()
+	pv.removeInputBoxFromLayout()
+}
 
-	pv.searchHelper.HideSearch()
-
-	// Clear search results (restores pre-search selection)
-	pv.pluginConfig.ClearSearchResults()
-
-	// Rebuild layout without search box
+// removeInputBoxFromLayout rebuilds the layout without the input box and restores focus.
+func (pv *PluginView) removeInputBoxFromLayout() {
 	pv.root.Clear()
 	pv.root.AddItem(pv.titleBar, 1, 0, false)
 	pv.root.AddItem(pv.lanes, 0, 1, true)
 
-	// explicitly transfer focus to lanes (clears cursor from removed search box)
-	if pv.searchHelper.GetFocusSetter() != nil {
-		pv.searchHelper.GetFocusSetter()(pv.lanes)
+	if pv.inputHelper.GetFocusSetter() != nil {
+		pv.inputHelper.GetFocusSetter()(pv.lanes)
 	}
 }
 
-// IsSearchVisible returns whether the search box is currently visible
-func (pv *PluginView) IsSearchVisible() bool {
-	return pv.searchHelper.IsVisible()
+// cancelCurrentInput handles Esc based on the current input mode.
+func (pv *PluginView) cancelCurrentInput() {
+	switch pv.inputHelper.Mode() {
+	case inputModeSearchEditing, inputModeSearchPassive:
+		pv.inputHelper.Hide()
+		pv.pluginConfig.ClearSearchResults()
+		pv.removeInputBoxFromLayout()
+	case inputModeActionInput:
+		// finishInput handles restore-passive-search vs full-close
+		pv.inputHelper.finishInput()
+	default:
+		pv.inputHelper.Hide()
+		pv.removeInputBoxFromLayout()
+	}
 }
 
-// IsSearchBoxFocused returns whether the search box currently has focus
-func (pv *PluginView) IsSearchBoxFocused() bool {
-	return pv.searchHelper.HasFocus()
+// CancelInputBox triggers mode-aware cancel from the router
+func (pv *PluginView) CancelInputBox() {
+	pv.cancelCurrentInput()
 }
 
-// SetSearchSubmitHandler sets the callback for when search is submitted
-func (pv *PluginView) SetSearchSubmitHandler(handler func(text string)) {
-	pv.searchHelper.SetSubmitHandler(handler)
+// IsInputBoxVisible returns whether the input box is currently visible
+func (pv *PluginView) IsInputBoxVisible() bool {
+	return pv.inputHelper.IsVisible()
+}
+
+// IsInputBoxFocused returns whether the input box currently has focus
+func (pv *PluginView) IsInputBoxFocused() bool {
+	return pv.inputHelper.HasFocus()
+}
+
+// IsSearchPassive returns true if search is applied and the input box is passive
+func (pv *PluginView) IsSearchPassive() bool {
+	return pv.inputHelper.IsSearchPassive()
+}
+
+// SetInputSubmitHandler sets the callback for when input is submitted
+func (pv *PluginView) SetInputSubmitHandler(handler func(text string) controller.InputSubmitResult) {
+	pv.inputHelper.SetSubmitHandler(handler)
+}
+
+// SetInputCancelHandler sets the callback for when input is cancelled
+func (pv *PluginView) SetInputCancelHandler(handler func()) {
+	pv.inputHelper.SetCancelHandler(handler)
 }
 
 // SetFocusSetter sets the callback for requesting focus changes
 func (pv *PluginView) SetFocusSetter(setter func(p tview.Primitive)) {
-	pv.searchHelper.SetFocusSetter(setter)
+	pv.inputHelper.SetFocusSetter(setter)
 }
 
 // GetStats returns stats for the header and statusline (Total count of filtered tasks)
