@@ -68,6 +68,12 @@ views:
     - key: "Y"
       label: "Copy content"
       action: select title, description where id = id() | clipboard()
+    - key: "+"
+      label: "Priority up"
+      action: update where id = id() set priority = priority - 1
+    - key: "-"
+      label: "Priority down"
+      action: update where id = id() set priority = priority + 1
     - key: "R"
       label: "Mark regression"
       action: update where id = id() set regression=true

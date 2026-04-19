@@ -419,11 +419,14 @@ func TestDefaultGlobalActions(t *testing.T) {
 		}
 	}
 
-	// ActionOpenPalette should NOT show in header
+	// ActionOpenPalette should show in header with label "All"
 	for _, a := range actions {
 		if a.ID == ActionOpenPalette {
-			if a.ShowInHeader {
-				t.Error("ActionOpenPalette should have ShowInHeader=false")
+			if !a.ShowInHeader {
+				t.Error("ActionOpenPalette should have ShowInHeader=true")
+			}
+			if a.Label != "All" {
+				t.Errorf("ActionOpenPalette label = %q, want %q", a.Label, "All")
 			}
 			continue
 		}
