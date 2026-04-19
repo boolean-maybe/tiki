@@ -1,7 +1,6 @@
 package view
 
 import (
-	_ "embed"
 	"fmt"
 	"log/slog"
 
@@ -17,15 +16,6 @@ import (
 	"github.com/gdamore/tcell/v2"
 	"github.com/rivo/tview"
 )
-
-//go:embed help/help.md
-var helpMd string
-
-//go:embed help/tiki.md
-var tikiMd string
-
-//go:embed help/custom.md
-var customMd string
 
 // DokiView renders a documentation plugin (navigable markdown)
 type DokiView struct {
@@ -94,13 +84,15 @@ func (dv *DokiView) build() {
 			MermaidOptions: dv.mermaidOpts,
 		})
 
+	// fetcher: internal is intentionally preserved as a supported pattern for
+	// code-only internal docs, even though no default workflow currently uses it.
+	//
+	// The default Help plugin previously used this with embedded markdown:
+	//   cnt := map[string]string{"Help": helpMd, "tiki.md": tikiMd, "view.md": customMd}
+	//   provider := &internalDokiProvider{content: cnt}
+	// That usage was replaced by the action palette (press ? to open).
 	case "internal":
-		cnt := map[string]string{
-			"Help":    helpMd,
-			"tiki.md": tikiMd,
-			"view.md": customMd,
-		}
-		provider := &internalDokiProvider{content: cnt}
+		provider := &internalDokiProvider{content: map[string]string{}}
 		content, err = provider.FetchContent(nav.NavElement{Text: dv.pluginDef.Text})
 
 		dv.md = markdown.NewNavigableMarkdown(markdown.NavigableMarkdownConfig{

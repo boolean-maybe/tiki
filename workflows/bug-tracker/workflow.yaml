@@ -163,12 +163,6 @@ views:
         - key: "D"
           label: "Bump one week"
           action: update where id = id() set dueBy=now() + 7day
-    - name: Help
-      description: "Keyboard shortcuts, navigation, and usage guide"
-      type: doki
-      fetcher: internal
-      text: "Help"
-      key: "?"
     - name: Docs
       description: "Project notes and documentation files"
       type: doki
