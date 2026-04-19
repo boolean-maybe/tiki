@@ -19,6 +19,7 @@ const (
 	ActionRefresh        ActionID = "refresh"
 	ActionToggleViewMode ActionID = "toggle_view_mode"
 	ActionToggleHeader   ActionID = "toggle_header"
+	ActionOpenPalette    ActionID = "open_palette"
 )
 
 // ActionID values for task navigation and manipulation (used by plugins).
@@ -270,7 +271,8 @@ func DefaultGlobalActions() *ActionRegistry {
 	r.Register(Action{ID: ActionBack, Key: tcell.KeyEscape, Label: "Back", ShowInHeader: true, HideFromPalette: true})
 	r.Register(Action{ID: ActionQuit, Key: tcell.KeyRune, Rune: 'q', Label: "Quit", ShowInHeader: true})
 	r.Register(Action{ID: ActionRefresh, Key: tcell.KeyRune, Rune: 'r', Label: "Refresh", ShowInHeader: true})
-	r.Register(Action{ID: ActionToggleHeader, Key: tcell.KeyF10, Label: "Hide Header", ShowInHeader: true})
+	r.Register(Action{ID: ActionToggleHeader, Key: tcell.KeyF10, Label: "Toggle Header", ShowInHeader: true})
+	r.Register(Action{ID: ActionOpenPalette, Key: tcell.KeyRune, Rune: '?', Label: "Actions", ShowInHeader: false, HideFromPalette: true})
 	return r
 }
 

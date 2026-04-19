@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log/slog"
 
+	"github.com/gdamore/tcell/v2"
 	"github.com/rivo/tview"
 
 	"github.com/boolean-maybe/tiki/config"
@@ -20,6 +21,7 @@ import (
 	"github.com/boolean-maybe/tiki/util/sysinfo"
 	"github.com/boolean-maybe/tiki/view"
 	"github.com/boolean-maybe/tiki/view/header"
+	"github.com/boolean-maybe/tiki/view/palette"
 	"github.com/boolean-maybe/tiki/view/statusline"
 )
 
@@ -47,6 +49,10 @@ type Result struct {
 	StatuslineConfig *model.StatuslineConfig
 	StatuslineWidget *statusline.StatuslineWidget
 	RootLayout       *view.RootLayout
+	PaletteConfig    *model.ActionPaletteConfig
+	ActionPalette    *palette.ActionPalette
+	ViewContext      *model.ViewContext
+	AppRoot          tview.Primitive // Pages root for app.SetRoot
 	Context          context.Context
 	CancelFunc       context.CancelFunc
 	TikiSkillContent string
@@ -185,9 +191,38 @@ func Bootstrap(tikiSkillContent, dokiSkillContent string) (*Result, error) {
 	background.StartBurndownHistoryBuilder(ctx, tikiStore, headerConfig, application)
 	triggerEngine.StartScheduler(ctx)
 
+	// Phase 11.5: Action palette
+	paletteConfig := model.NewActionPaletteConfig()
+	inputRouter.SetHeaderConfig(headerConfig)
+	inputRouter.SetPaletteConfig(paletteConfig)
+
+	actionPalette := palette.NewActionPalette(viewContext, paletteConfig, inputRouter, controllers.Nav)
+	actionPalette.SetChangedFunc()
+
+	// Build Pages root: base = rootLayout, overlay = palette
+	pages := tview.NewPages()
+	pages.AddPage("base", rootLayout.GetPrimitive(), true, true)
+	paletteOverlay := buildPaletteOverlay(actionPalette)
+	pages.AddPage("palette", paletteOverlay, true, false)
+
+	// Wire palette visibility to Pages show/hide and focus management
+	var previousFocus tview.Primitive
+	paletteConfig.AddListener(func() {
+		if paletteConfig.IsVisible() {
+			previousFocus = application.GetFocus()
+			actionPalette.OnShow()
+			pages.ShowPage("palette")
+			application.SetFocus(actionPalette.GetFilterInput())
+		} else {
+			pages.HidePage("palette")
+			restoreFocusAfterPalette(application, previousFocus, rootLayout)
+			previousFocus = nil
+		}
+	})
+
 	// Phase 12: Navigation and input wiring
 	wireNavigation(controllers.Nav, layoutModel, rootLayout)
-	app.InstallGlobalInputCapture(application, headerConfig, statuslineConfig, inputRouter, controllers.Nav)
+	app.InstallGlobalInputCapture(application, paletteConfig, statuslineConfig, inputRouter, controllers.Nav)
 
 	// Phase 13: Initial view — use the first plugin marked default: true,
 	// or fall back to the first plugin in the list.
@@ -213,6 +248,10 @@ func Bootstrap(tikiSkillContent, dokiSkillContent string) (*Result, error) {
 		StatuslineConfig: statuslineConfig,
 		StatuslineWidget: statuslineWidget,
 		RootLayout:       rootLayout,
+		PaletteConfig:    paletteConfig,
+		ActionPalette:    actionPalette,
+		ViewContext:      viewContext,
+		AppRoot:          pages,
 		Context:          ctx,
 		CancelFunc:       cancel,
 		TikiSkillContent: tikiSkillContent,
@@ -239,6 +278,61 @@ func wireNavigation(navController *controller.NavigationController, layoutModel 
 		layoutModel.SetContent(viewID, params)
 	})
 	navController.SetActiveViewGetter(rootLayout.GetContentView)
+}
+
+// paletteOverlayFlex is a Flex that recomputes the palette width on every draw
+// to maintain 1/3 terminal width with a minimum floor.
+type paletteOverlayFlex struct {
+	*tview.Flex
+	palette         tview.Primitive
+	spacer          *tview.Box
+	lastPaletteSize int
+}
+
+func buildPaletteOverlay(ap *palette.ActionPalette) *paletteOverlayFlex {
+	overlay := &paletteOverlayFlex{
+		Flex:    tview.NewFlex(),
+		palette: ap.GetPrimitive(),
+	}
+	overlay.Flex.SetBackgroundColor(tcell.ColorDefault)
+	overlay.spacer = tview.NewBox()
+	overlay.spacer.SetBackgroundColor(tcell.ColorDefault)
+	overlay.Flex.AddItem(overlay.spacer, 0, 1, false)
+	overlay.Flex.AddItem(overlay.palette, palette.PaletteMinWidth, 0, true)
+	overlay.lastPaletteSize = palette.PaletteMinWidth
+	return overlay
+}
+
+func (o *paletteOverlayFlex) Draw(screen tcell.Screen) {
+	_, _, w, _ := o.GetRect()
+	pw := w / 3
+	if pw < palette.PaletteMinWidth {
+		pw = palette.PaletteMinWidth
+	}
+	if pw != o.lastPaletteSize {
+		o.Flex.Clear()
+		o.Flex.AddItem(o.spacer, 0, 1, false)
+		o.Flex.AddItem(o.palette, pw, 0, true)
+		o.lastPaletteSize = pw
+	}
+	o.Flex.Draw(screen)
+}
+
+// restoreFocusAfterPalette restores focus to the previously focused primitive,
+// falling back to FocusRestorer on the active view, then to the content view root.
+func restoreFocusAfterPalette(application *tview.Application, previousFocus tview.Primitive, rootLayout *view.RootLayout) {
+	if previousFocus != nil {
+		application.SetFocus(previousFocus)
+		return
+	}
+	if contentView := rootLayout.GetContentView(); contentView != nil {
+		if restorer, ok := contentView.(controller.FocusRestorer); ok {
+			if restorer.RestoreFocus() {
+				return
+			}
+		}
+		application.SetFocus(contentView.GetPrimitive())
+	}
 }
 
 // InitColorAndGradientSupport collects system information, auto-corrects TERM if needed,

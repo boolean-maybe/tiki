@@ -272,6 +272,20 @@ type RecurrencePartNavigable interface {
 	IsRecurrenceValueFocused() bool
 }
 
+// PaletteActionHandler is implemented by views that handle palette-dispatched actions
+// directly (e.g., DokiView replays navigation as synthetic key events).
+// The palette tries this before falling back to InputRouter.HandleAction.
+type PaletteActionHandler interface {
+	HandlePaletteAction(id ActionID) bool
+}
+
+// FocusRestorer is implemented by views that can recover focus after the palette closes
+// when the originally saved focused primitive is no longer valid (e.g., TaskDetailView
+// rebuilds its description primitive during store-driven refresh).
+type FocusRestorer interface {
+	RestoreFocus() bool
+}
+
 // ActionChangeNotifier is implemented by views that mutate their action registry
 // or live enablement/presentation state while the same view instance stays active.
 // RootLayout wires the handler and reruns syncViewContextFromView when fired.

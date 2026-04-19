@@ -404,11 +404,11 @@ func TestDefaultGlobalActions(t *testing.T) {
 	registry := DefaultGlobalActions()
 	actions := registry.GetActions()
 
-	if len(actions) != 4 {
-		t.Errorf("expected 4 global actions, got %d", len(actions))
+	if len(actions) != 5 {
+		t.Errorf("expected 5 global actions, got %d", len(actions))
 	}
 
-	expectedActions := []ActionID{ActionBack, ActionQuit, ActionRefresh, ActionToggleHeader}
+	expectedActions := []ActionID{ActionBack, ActionQuit, ActionRefresh, ActionToggleHeader, ActionOpenPalette}
 	for i, expected := range expectedActions {
 		if i >= len(actions) {
 			t.Errorf("missing action at index %d: want %v", i, expected)
@@ -417,8 +417,18 @@ func TestDefaultGlobalActions(t *testing.T) {
 		if actions[i].ID != expected {
 			t.Errorf("action at index %d: want %v, got %v", i, expected, actions[i].ID)
 		}
-		if !actions[i].ShowInHeader {
-			t.Errorf("global action %v should have ShowInHeader=true", expected)
+	}
+
+	// ActionOpenPalette should NOT show in header
+	for _, a := range actions {
+		if a.ID == ActionOpenPalette {
+			if a.ShowInHeader {
+				t.Error("ActionOpenPalette should have ShowInHeader=false")
+			}
+			continue
+		}
+		if !a.ShowInHeader {
+			t.Errorf("global action %v should have ShowInHeader=true", a.ID)
 		}
 	}
 }

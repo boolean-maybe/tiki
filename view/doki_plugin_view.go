@@ -223,6 +223,33 @@ func (dv *DokiView) UpdateNavigationActions() {
 	}
 }
 
+// HandlePaletteAction maps palette-dispatched actions to the markdown viewer's
+// existing key-driven behavior by replaying synthetic key events.
+func (dv *DokiView) HandlePaletteAction(id controller.ActionID) bool {
+	if dv.md == nil {
+		return false
+	}
+	var event *tcell.EventKey
+	switch id {
+	case "navigate_next_link":
+		event = tcell.NewEventKey(tcell.KeyTab, 0, tcell.ModNone)
+	case "navigate_prev_link":
+		event = tcell.NewEventKey(tcell.KeyBacktab, 0, tcell.ModNone)
+	case controller.ActionNavigateBack:
+		event = tcell.NewEventKey(tcell.KeyLeft, 0, tcell.ModNone)
+	case controller.ActionNavigateForward:
+		event = tcell.NewEventKey(tcell.KeyRight, 0, tcell.ModNone)
+	default:
+		return false
+	}
+	handler := dv.md.Viewer().InputHandler()
+	if handler != nil {
+		handler(event, nil)
+		return true
+	}
+	return false
+}
+
 // internalDokiProvider implements navidown.ContentProvider for embedded/internal docs.
 // It treats elem.URL as the lookup key, falling back to elem.Text for initial loads.
 type internalDokiProvider struct {
