@@ -285,7 +285,7 @@ func wireNavigation(navController *controller.NavigationController, layoutModel 
 type paletteOverlayFlex struct {
 	*tview.Flex
 	palette         tview.Primitive
-	spacer          *tview.Box
+	spacer          *tview.Flex
 	lastPaletteSize int
 }
 
@@ -294,9 +294,7 @@ func buildPaletteOverlay(ap *palette.ActionPalette) *paletteOverlayFlex {
 		Flex:    tview.NewFlex(),
 		palette: ap.GetPrimitive(),
 	}
-	overlay.Flex.SetBackgroundColor(tcell.ColorDefault)
-	overlay.spacer = tview.NewBox()
-	overlay.spacer.SetBackgroundColor(tcell.ColorDefault)
+	overlay.spacer = tview.NewFlex()
 	overlay.Flex.AddItem(overlay.spacer, 0, 1, false)
 	overlay.Flex.AddItem(overlay.palette, palette.PaletteMinWidth, 0, true)
 	overlay.lastPaletteSize = palette.PaletteMinWidth
