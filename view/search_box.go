@@ -19,12 +19,12 @@ func NewSearchBox() *SearchBox {
 	colors := config.GetColors()
 	inputField := tview.NewInputField()
 
-	// Configure the input field (border drawn manually in Draw)
 	inputField.SetLabel("> ")
 	inputField.SetLabelColor(colors.SearchBoxLabelColor.TCell())
 	inputField.SetFieldBackgroundColor(colors.ContentBackgroundColor.TCell())
 	inputField.SetFieldTextColor(colors.ContentTextColor.TCell())
-	inputField.SetBorder(false)
+	inputField.SetBorder(true)
+	inputField.SetBorderColor(colors.TaskBoxUnselectedBorder.TCell())
 
 	sb := &SearchBox{
 		InputField: inputField,
@@ -49,31 +49,6 @@ func (sb *SearchBox) SetCancelHandler(handler func()) *SearchBox {
 func (sb *SearchBox) Clear() *SearchBox {
 	sb.SetText("")
 	return sb
-}
-
-// Draw renders the search box with single-line borders
-// (overrides InputField.Draw to avoid double-line focus borders)
-func (sb *SearchBox) Draw(screen tcell.Screen) {
-	x, y, width, height := sb.GetRect()
-	if width <= 0 || height <= 0 {
-		return
-	}
-
-	// Fill interior with theme-aware background color
-	bgColor := config.GetColors().ContentBackgroundColor.TCell()
-	bgStyle := tcell.StyleDefault.Background(bgColor)
-	for row := y; row < y+height; row++ {
-		for col := x; col < x+width; col++ {
-			screen.SetContent(col, row, ' ', nil, bgStyle)
-		}
-	}
-
-	// Draw single-line border using shared utility
-	DrawSingleLineBorder(screen, x, y, width, height)
-
-	// Draw InputField inside border (offset by 1 for border)
-	sb.SetRect(x+1, y+1, width-2, height-2)
-	sb.InputField.Draw(screen)
 }
 
 // InputHandler handles key input for the search box

@@ -9,7 +9,6 @@ import (
 	"github.com/boolean-maybe/tiki/controller"
 	"github.com/boolean-maybe/tiki/model"
 	"github.com/boolean-maybe/tiki/util"
-	"github.com/boolean-maybe/tiki/view"
 
 	"github.com/gdamore/tcell/v2"
 	"github.com/rivo/tview"
@@ -35,32 +34,9 @@ type paletteRow struct {
 	label     string
 }
 
-// singleBorderFlex wraps a tview.Flex to draw single-line borders instead of
-// tview's default double-line borders on focus.
-type singleBorderFlex struct {
-	*tview.Flex
-}
-
-func (f *singleBorderFlex) Draw(screen tcell.Screen) {
-	x, y, width, height := f.GetRect()
-
-	colors := config.GetColors()
-	bgStyle := tcell.StyleDefault.Background(colors.ContentBackgroundColor.TCell())
-	for row := y; row < y+height; row++ {
-		for col := x; col < x+width; col++ {
-			screen.SetContent(col, row, ' ', nil, bgStyle)
-		}
-	}
-
-	view.DrawSingleLineBorder(screen, x, y, width, height)
-
-	f.Flex.SetRect(x+1, y+1, width-2, height-2)
-	f.Flex.Draw(screen)
-}
-
 // ActionPalette is a modal overlay listing all available actions, filterable by fuzzy typing.
 type ActionPalette struct {
-	root          *singleBorderFlex
+	root          *tview.Flex
 	filterInput   *tview.InputField
 	listView      *tview.TextView
 	hintView      *tview.TextView
@@ -121,14 +97,13 @@ func NewActionPalette(
 	mutedHex := colors.TaskDetailPlaceholderColor.Hex()
 	ap.hintView.SetText(fmt.Sprintf(" [%s]↑↓ Select  ⏎ Run  Esc Close", mutedHex))
 
-	// root layout — single-line border wrapper avoids tview's double-line focus borders
-	inner := tview.NewFlex().SetDirection(tview.FlexRow)
-	inner.SetBackgroundColor(colors.ContentBackgroundColor.TCell())
-	inner.SetBorder(false)
-	inner.AddItem(ap.filterInput, 1, 0, true)
-	inner.AddItem(ap.listView, 0, 1, false)
-	inner.AddItem(ap.hintView, 1, 0, false)
-	ap.root = &singleBorderFlex{Flex: inner}
+	ap.root = tview.NewFlex().SetDirection(tview.FlexRow)
+	ap.root.SetBackgroundColor(colors.ContentBackgroundColor.TCell())
+	ap.root.SetBorder(true)
+	ap.root.SetBorderColor(colors.TaskBoxUnselectedBorder.TCell())
+	ap.root.AddItem(ap.filterInput, 1, 0, true)
+	ap.root.AddItem(ap.listView, 0, 1, false)
+	ap.root.AddItem(ap.hintView, 1, 0, false)
 
 	// wire filter input to intercept all palette keys
 	ap.filterInput.SetInputCapture(ap.handleFilterInput)
