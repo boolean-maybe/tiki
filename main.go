@@ -135,11 +135,6 @@ func main() {
 		os.Exit(1)
 	}
 
-	// Save user preferences on shutdown
-	if err := config.SaveHeaderVisible(result.HeaderConfig.GetUserPreference()); err != nil {
-		slog.Warn("failed to save header visibility preference", "error", err)
-	}
-
 	// Keep logLevel variable referenced so it isn't optimized away in some builds
 	_ = result.LogLevel
 }

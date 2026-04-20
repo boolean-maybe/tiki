@@ -4,7 +4,6 @@ import (
 	"log/slog"
 	"sync"
 
-	"github.com/boolean-maybe/tiki/config"
 	"github.com/boolean-maybe/tiki/task"
 )
 
@@ -31,7 +30,6 @@ type PluginConfig struct {
 	preSearchLane    int
 	preSearchIndices []int
 	viewMode         ViewMode // compact or expanded display
-	configIndex      int      // index in workflow.yaml views array (-1 if not from a config file)
 	listeners        map[int]PluginSelectionListener
 	nextListenerID   int
 	searchState      SearchState // search state (embedded)
@@ -42,19 +40,11 @@ func NewPluginConfig(name string) *PluginConfig {
 	pc := &PluginConfig{
 		pluginName:     name,
 		viewMode:       ViewModeCompact,
-		configIndex:    -1, // Default to -1 (not in config)
 		listeners:      make(map[int]PluginSelectionListener),
-		nextListenerID: 1, // Start at 1 to avoid conflict with zero-value sentinel
+		nextListenerID: 1,
 	}
 	pc.SetLaneLayout([]int{4}, nil)
 	return pc
-}
-
-// SetConfigIndex sets the config index for this plugin
-func (pc *PluginConfig) SetConfigIndex(index int) {
-	pc.mu.Lock()
-	defer pc.mu.Unlock()
-	pc.configIndex = index
 }
 
 // GetPluginName returns the plugin name
@@ -280,15 +270,7 @@ func (pc *PluginConfig) ToggleViewMode() {
 	} else {
 		pc.viewMode = ViewModeCompact
 	}
-	newMode := pc.viewMode
-	pluginName := pc.pluginName
-	configIndex := pc.configIndex
 	pc.mu.Unlock()
-
-	// Save to config (same pattern as BoardConfig)
-	if err := config.SavePluginViewMode(pluginName, configIndex, string(newMode)); err != nil {
-		slog.Error("failed to save plugin view mode", "plugin", pluginName, "error", err)
-	}
 
 	pc.notifyListeners()
 }

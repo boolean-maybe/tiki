@@ -45,7 +45,6 @@ func BuildPluginConfigsAndDefs(plugins []plugin.Plugin) (map[string]*model.Plugi
 	pluginDefs := make(map[string]plugin.Plugin)
 	for _, p := range plugins {
 		pc := model.NewPluginConfig(p.GetName())
-		pc.SetConfigIndex(p.GetConfigIndex()) // Pass ConfigIndex for saving view mode changes
 
 		if tp, ok := p.(*plugin.TikiPlugin); ok {
 			if tp.ViewMode == "expanded" {

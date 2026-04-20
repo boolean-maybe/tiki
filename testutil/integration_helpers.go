@@ -375,7 +375,6 @@ func (ta *TestApp) LoadPlugins() error {
 
 	for _, p := range plugins {
 		pc := model.NewPluginConfig(p.GetName())
-		pc.SetConfigIndex(p.GetConfigIndex())
 		pluginConfigs[p.GetName()] = pc
 
 		// Create appropriate controller based on plugin type
