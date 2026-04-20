@@ -2,7 +2,7 @@ Follow me on X: [![X Badge](https://img.shields.io/badge/-%23000000.svg?style=fl
 
 # tiki
 
-**Update:** [v0.4.0 and ruki](https://github.com/boolean-maybe/tiki/discussions/60)
+**Update:** [v0.5.0 and custom fields](https://github.com/boolean-maybe/tiki/releases/tag/v0.5.0)
 
 `tiki` is a terminal-first Markdown workspace for tasks, docs, prompts, and notes stored in your **git** repo
 
