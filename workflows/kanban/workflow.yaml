@@ -1,3 +1,4 @@
+version: 0.5.0
 description: |
   Kanban-style workflow for small-team software work. Five statuses
   (Backlog → Ready → In Progress → Review → Done) and four task types

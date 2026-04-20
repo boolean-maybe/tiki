@@ -1,3 +1,4 @@
+version: 0.5.0
 description: |
   Bug tracker for triaging and resolving customer-reported issues.
   Six statuses (Open → Triaged → In Progress → In Review → Verified, plus Won't Fix),
