@@ -106,7 +106,14 @@ func (ir *InputRouter) SetPaletteConfig(pc *model.ActionPaletteConfig) {
 func (ir *InputRouter) HandleInput(event *tcell.EventKey, currentView *ViewEntry) bool {
 	slog.Debug("input received", "name", event.Name(), "key", int(event.Key()), "rune", string(event.Rune()), "modifiers", int(event.Modifiers()))
 
-	// if the input box is focused, let it handle all input (including '*' and F10)
+	// palette fires regardless of focus context (Ctrl+A can't conflict with typing)
+	if action := ir.globalActions.Match(event); action != nil {
+		if action.ID == ActionOpenPalette {
+			return ir.handleGlobalAction(action.ID)
+		}
+	}
+
+	// if the input box is focused, let it handle all remaining input (including F10)
 	if activeView := ir.navController.GetActiveView(); activeView != nil {
 		if iv, ok := activeView.(InputableView); ok && iv.IsInputBoxFocused() {
 			return false
@@ -114,11 +121,9 @@ func (ir *InputRouter) HandleInput(event *tcell.EventKey, currentView *ViewEntry
 	}
 
 	// pre-gate: global actions that must fire before task-edit Prepare() and before
-	// search/fullscreen/editor gates. ActionOpenPalette is suppressed in TaskEditView
-	// because '*' is a typeable rune that should be inserted into fields.
+	// search/fullscreen/editor gates
 	if action := ir.globalActions.Match(event); action != nil {
-		isTaskEdit := currentView != nil && currentView.ViewID == model.TaskEditViewID
-		if action.ID == ActionToggleHeader || (action.ID == ActionOpenPalette && !isTaskEdit) {
+		if action.ID == ActionToggleHeader {
 			return ir.handleGlobalAction(action.ID)
 		}
 	}

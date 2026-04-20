@@ -90,7 +90,7 @@ func (dv *DokiView) build() {
 	// The default Help plugin previously used this with embedded markdown:
 	//   cnt := map[string]string{"Help": helpMd, "tiki.md": tikiMd, "view.md": customMd}
 	//   provider := &internalDokiProvider{content: cnt}
-	// That usage was replaced by the action palette (press * to open).
+	// That usage was replaced by the action palette (press Ctrl+A to open).
 	case "internal":
 		provider := &internalDokiProvider{content: map[string]string{}}
 		content, err = provider.FetchContent(nav.NavElement{Text: dv.pluginDef.Text})

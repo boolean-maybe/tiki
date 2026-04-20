@@ -272,7 +272,7 @@ func DefaultGlobalActions() *ActionRegistry {
 	r.Register(Action{ID: ActionQuit, Key: tcell.KeyRune, Rune: 'q', Label: "Quit", ShowInHeader: true})
 	r.Register(Action{ID: ActionRefresh, Key: tcell.KeyRune, Rune: 'r', Label: "Refresh", ShowInHeader: true})
 	r.Register(Action{ID: ActionToggleHeader, Key: tcell.KeyF10, Label: "Toggle Header", ShowInHeader: true})
-	r.Register(Action{ID: ActionOpenPalette, Key: tcell.KeyRune, Rune: '*', Label: "All", ShowInHeader: true, HideFromPalette: true})
+	r.Register(Action{ID: ActionOpenPalette, Key: tcell.KeyCtrlA, Modifier: tcell.ModCtrl, Label: "All", ShowInHeader: true, HideFromPalette: true})
 	return r
 }
 
