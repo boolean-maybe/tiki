@@ -1,7 +1,7 @@
 .PHONY: help build install clean test lint snapshot
 
 # Build variables
-VERSION := $(shell git describe --tags --always --dirty 2>/dev/null || echo "dev")
+VERSION := $(shell git describe --tags --always --dirty 2>/dev/null | sed 's/^v//' || echo "dev")
 COMMIT := $(shell git rev-parse HEAD 2>/dev/null || echo "unknown")
 DATE := $(shell date -u +"%Y-%m-%dT%H:%M:%SZ")
 LDFLAGS := -ldflags "-X github.com/boolean-maybe/tiki/config.Version=$(VERSION) -X github.com/boolean-maybe/tiki/config.GitCommit=$(COMMIT) -X github.com/boolean-maybe/tiki/config.BuildDate=$(DATE)"
