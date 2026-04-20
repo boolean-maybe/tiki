@@ -419,7 +419,7 @@ func TestDefaultGlobalActions(t *testing.T) {
 		}
 	}
 
-	// ActionOpenPalette should show in header with label "All"
+	// ActionOpenPalette should show in header with label "All" and use Ctrl+A binding
 	for _, a := range actions {
 		if a.ID == ActionOpenPalette {
 			if !a.ShowInHeader {
@@ -427,6 +427,15 @@ func TestDefaultGlobalActions(t *testing.T) {
 			}
 			if a.Label != "All" {
 				t.Errorf("ActionOpenPalette label = %q, want %q", a.Label, "All")
+			}
+			if a.Key != tcell.KeyCtrlA {
+				t.Errorf("ActionOpenPalette Key = %v, want KeyCtrlA", a.Key)
+			}
+			if a.Modifier != tcell.ModCtrl {
+				t.Errorf("ActionOpenPalette Modifier = %v, want ModCtrl", a.Modifier)
+			}
+			if a.Rune != 0 {
+				t.Errorf("ActionOpenPalette Rune = %v, want 0", a.Rune)
 			}
 			continue
 		}

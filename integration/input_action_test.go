@@ -372,7 +372,7 @@ func TestInputAction_EmptySearchEnterIsNoOp(t *testing.T) {
 	ta.SendKey(tcell.KeyEscape, 0, tcell.ModNone)
 }
 
-func TestInputAction_PaletteBlockedDuringModal(t *testing.T) {
+func TestInputAction_PaletteOpensDuringModal(t *testing.T) {
 	ta := setupInputActionTest(t)
 	defer ta.Cleanup()
 
@@ -383,13 +383,13 @@ func TestInputAction_PaletteBlockedDuringModal(t *testing.T) {
 		t.Fatal("input box should be focused")
 	}
 
-	// '*' should be typed into the input box as text, not open the palette
-	ta.SendKey(tcell.KeyRune, '*', tcell.ModNone)
-	if ta.GetPaletteConfig().IsVisible() {
-		t.Fatal("palette should not open while input box is editing")
+	// Ctrl+A should open the palette even while input box is focused
+	ta.SendKey(tcell.KeyCtrlA, 0, tcell.ModCtrl)
+	if !ta.GetPaletteConfig().IsVisible() {
+		t.Fatal("palette should open when Ctrl+A is pressed with input box focused")
 	}
 
-	// cancel and clean up
+	// clean up
 	ta.SendKey(tcell.KeyEscape, 0, tcell.ModNone)
 }
 
