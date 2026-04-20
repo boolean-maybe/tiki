@@ -1,6 +1,6 @@
 package config
 
-// Viper configuration loader: merges config.yaml from multiple locations
+// Viper configuration loader: loads config.yaml from the highest-priority location
 
 import (
 	"fmt"
@@ -60,33 +60,28 @@ type Config struct {
 
 var appConfig *Config
 
-// LoadConfig loads configuration by merging config.yaml from multiple locations.
-// Files are merged in precedence order (user → project → cwd); later files override
-// earlier ones. Missing values fall back to built-in defaults.
+// LoadConfig loads configuration from the highest-priority config.yaml.
+// Only one file is used (cwd > project > user config). Missing values
+// fall back to built-in defaults.
 func LoadConfig() (*Config, error) {
 	viper.Reset()
 	viper.SetConfigType("yaml")
 	setDefaults()
 
-	// merge config files in precedence order (first = base, last = highest priority)
-	merged := 0
-	for _, path := range findConfigFiles() {
+	path := findConfigFile()
+	if path == "" {
+		slog.Debug("no config.yaml found, using defaults")
+	} else {
 		f, err := os.Open(path)
 		if err != nil {
-			slog.Warn("failed to open config file", "path", path, "error", err)
-			continue
+			return nil, fmt.Errorf("opening config %s: %w", path, err)
 		}
-		mergeErr := viper.MergeConfig(f)
+		readErr := viper.ReadConfig(f)
 		_ = f.Close()
-		if mergeErr != nil {
-			return nil, fmt.Errorf("merging config from %s: %w", path, mergeErr)
+		if readErr != nil {
+			return nil, fmt.Errorf("reading config from %s: %w", path, readErr)
 		}
-		merged++
-		slog.Debug("merged configuration", "file", path)
-	}
-
-	if merged == 0 {
-		slog.Debug("no config.yaml found, using defaults")
+		slog.Debug("loaded configuration", "file", path)
 	}
 
 	// environment variables and flags override everything
@@ -107,36 +102,15 @@ func LoadConfig() (*Config, error) {
 	return cfg, nil
 }
 
-// findConfigFiles returns existing config.yaml paths in merge order
-// (user config → project → cwd). Deduplicates by absolute path.
-func findConfigFiles() []string {
+// findConfigFile returns the highest-priority config.yaml that exists,
+// or empty string if none found. Priority: cwd > project > user config.
+func findConfigFile() string {
 	pm := mustGetPathManager()
-
-	candidates := []string{
-		pm.ConfigFile(), // user config (base)
-		filepath.Join(pm.ProjectConfigDir(), "config.yaml"), // project override
-		filepath.Join(".", "config.yaml"),                   // cwd override (highest)
-	}
-
-	var result []string
-	seen := make(map[string]bool)
-
-	for _, path := range candidates {
-		abs, err := filepath.Abs(path)
-		if err != nil {
-			abs = path
-		}
-		if seen[abs] {
-			continue
-		}
-		if _, err := os.Stat(path); err != nil {
-			continue
-		}
-		seen[abs] = true
-		result = append(result, path)
-	}
-
-	return result
+	return findHighestPriorityFile([]string{
+		pm.ConfigFile(),
+		filepath.Join(pm.ProjectConfigDir(), "config.yaml"),
+		filepath.Join(".", "config.yaml"),
+	})
 }
 
 // setDefaults sets default configuration values

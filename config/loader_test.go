@@ -197,7 +197,6 @@ func TestLoadConfigCodeBlockDefaults(t *testing.T) {
 }
 
 func TestLoadConfig_ProjectOverridesUser(t *testing.T) {
-	// set up user config dir with base settings
 	userDir := t.TempDir()
 	t.Setenv("XDG_CONFIG_HOME", userDir)
 	userTikiDir := filepath.Join(userDir, "tiki")
@@ -213,7 +212,6 @@ header:
 		t.Fatal(err)
 	}
 
-	// set up project dir with override for logging only
 	projectDir := t.TempDir()
 	docDir := filepath.Join(projectDir, ".doc")
 	if err := os.MkdirAll(docDir, 0750); err != nil {
@@ -226,7 +224,6 @@ logging:
 		t.Fatal(err)
 	}
 
-	// use a clean cwd with no config
 	cwdDir := t.TempDir()
 	originalDir, _ := os.Getwd()
 	defer func() { _ = os.Chdir(originalDir) }()
@@ -234,7 +231,6 @@ logging:
 
 	appConfig = nil
 	ResetPathManager()
-	// override project root to our test project dir
 	pm := mustGetPathManager()
 	pm.projectRoot = projectDir
 
@@ -243,13 +239,13 @@ logging:
 		t.Fatalf("LoadConfig failed: %v", err)
 	}
 
-	// project override wins
+	// project file wins exclusively
 	if cfg.Logging.Level != "debug" {
 		t.Errorf("expected logging.level 'debug' from project, got %q", cfg.Logging.Level)
 	}
-	// user setting preserved for fields not in project config
-	if cfg.Header.Visible != false {
-		t.Errorf("expected header.visible false from user config, got %v", cfg.Header.Visible)
+	// header.visible falls back to built-in default (true), not inherited from user config
+	if cfg.Header.Visible != true {
+		t.Errorf("expected header.visible true (built-in default), got %v", cfg.Header.Visible)
 	}
 }
 

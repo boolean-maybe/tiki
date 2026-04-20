@@ -15,7 +15,7 @@ import (
 func TestPluginView_MoveTaskAppliesLaneAction(t *testing.T) {
 	// create a temp workflow.yaml with the test plugin
 	tmpDir := t.TempDir()
-	workflowContent := `views:
+	workflowContent := testWorkflowPreamble + `views:
   - name: ActionTest
     key: "F4"
     lanes:

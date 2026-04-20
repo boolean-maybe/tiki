@@ -213,44 +213,33 @@ func TestLoadTriggerDefs_UserFallback(t *testing.T) {
 	}
 }
 
-func TestLoadTriggerDefs_EmptyListOverridesInherited(t *testing.T) {
-	userDir, projectDir, _ := setupTriggerPrecedenceTest(t)
+func TestLoadTriggerDefs_EmptyListIsAuthoritative(t *testing.T) {
+	_, _, cwdDir := setupTriggerPrecedenceTest(t)
 
-	writeTriggerFile(t, userDir, `triggers:
-  - description: "user trigger"
-    ruki: 'before update deny "user"'
-`)
-	// project explicitly disables triggers with empty list
-	writeTriggerFile(t, projectDir, "triggers: []\n")
+	// winning file explicitly has empty triggers
+	writeTriggerFile(t, cwdDir, "triggers: []\n")
 
 	defs, err := LoadTriggerDefs()
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 	if len(defs) != 0 {
-		t.Fatalf("expected 0 defs (empty list overrides user), got %d", len(defs))
+		t.Fatalf("expected 0 defs from explicit empty triggers, got %d", len(defs))
 	}
 }
 
-func TestLoadTriggerDefs_NoTriggersKeyDoesNotOverride(t *testing.T) {
-	userDir, projectDir, _ := setupTriggerPrecedenceTest(t)
+func TestLoadTriggerDefs_MissingTriggersKeyMeansNone(t *testing.T) {
+	_, _, cwdDir := setupTriggerPrecedenceTest(t)
 
-	writeTriggerFile(t, userDir, `triggers:
-  - description: "user trigger"
-    ruki: 'before update deny "user"'
-`)
-	// project has workflow.yaml but no triggers: key — should not override
-	writeTriggerFile(t, projectDir, "views:\n  - name: board\n")
+	// winning file has no triggers: key at all
+	writeTriggerFile(t, cwdDir, "views:\n  plugins:\n    - name: board\n")
 
 	defs, err := LoadTriggerDefs()
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if len(defs) != 1 {
-		t.Fatalf("expected 1 def (user preserved), got %d", len(defs))
-	}
-	if defs[0].Description != "user trigger" {
-		t.Errorf("expected user trigger, got %q", defs[0].Description)
+	if len(defs) != 0 {
+		t.Fatalf("expected 0 defs when triggers: key is absent, got %d", len(defs))
 	}
 }
 
