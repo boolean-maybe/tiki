@@ -3,8 +3,6 @@ package plugin
 import (
 	"fmt"
 	"log/slog"
-	"unicode"
-	"unicode/utf8"
 
 	"gopkg.in/yaml.v3"
 
@@ -23,7 +21,7 @@ func parsePluginConfig(cfg pluginFileConfig, source string, schema ruki.Schema) 
 	fg := config.DefaultColor()
 	bg := config.DefaultColor()
 
-	key, r, mod, err := parseKey(cfg.Key)
+	key, r, mod, _, err := parseCanonicalKey(cfg.Key)
 	if err != nil {
 		return nil, fmt.Errorf("plugin %q (%s): parsing key: %w", cfg.Name, source, err)
 	}
@@ -176,28 +174,22 @@ func parsePluginActions(configs []PluginActionConfig, parser *ruki.Parser) ([]Pl
 	if len(configs) == 0 {
 		return nil, nil
 	}
-	if len(configs) > 10 {
-		return nil, fmt.Errorf("too many actions (%d), max is 10", len(configs))
-	}
 
-	seen := make(map[rune]bool, len(configs))
+	seen := make(map[string]bool, len(configs))
 	actions := make([]PluginAction, 0, len(configs))
 
 	for i, cfg := range configs {
 		if cfg.Key == "" {
 			return nil, fmt.Errorf("action %d missing 'key'", i)
 		}
-		r, size := utf8.DecodeRuneInString(cfg.Key)
-		if r == utf8.RuneError || size != len(cfg.Key) {
-			return nil, fmt.Errorf("action %d key must be a single character, got %q", i, cfg.Key)
+		key, r, mod, keyStr, err := parseCanonicalKey(cfg.Key)
+		if err != nil {
+			return nil, fmt.Errorf("action %d key %q: %w", i, cfg.Key, err)
 		}
-		if !unicode.IsPrint(r) {
-			return nil, fmt.Errorf("action %d key must be a printable character, got %q", i, cfg.Key)
-		}
-		if seen[r] {
+		if seen[keyStr] {
 			return nil, fmt.Errorf("duplicate action key %q", cfg.Key)
 		}
-		seen[r] = true
+		seen[keyStr] = true
 
 		if cfg.Label == "" {
 			return nil, fmt.Errorf("action %d (key %q) missing 'label'", i, cfg.Key)
@@ -239,7 +231,10 @@ func parsePluginActions(configs []PluginActionConfig, parser *ruki.Parser) ([]Pl
 			showInHeader = *cfg.Hot
 		}
 		actions = append(actions, PluginAction{
+			Key:          key,
 			Rune:         r,
+			Modifier:     mod,
+			KeyStr:       keyStr,
 			Label:        cfg.Label,
 			Action:       actionStmt,
 			ShowInHeader: showInHeader,

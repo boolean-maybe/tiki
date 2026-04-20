@@ -3,6 +3,7 @@ package plugin
 import (
 	"fmt"
 	"strings"
+	"unicode"
 
 	"github.com/gdamore/tcell/v2"
 )
@@ -116,4 +117,82 @@ func parseFunctionKey(s string) (tcell.Key, bool) {
 	}
 
 	return 0, false
+}
+
+// normalizeParsedKey collapses equivalent bindings to a canonical form.
+// Shift+letter that only aliases the uppercase rune drops ModShift.
+// Examples: Shift-x → ('X', 0), Shift-X → ('X', 0), X → ('X', 0), x stays ('x', 0).
+func normalizeParsedKey(key tcell.Key, r rune, mod tcell.ModMask) (tcell.Key, rune, tcell.ModMask) {
+	if key == tcell.KeyRune && mod == tcell.ModShift && r >= 'A' && r <= 'Z' {
+		return tcell.KeyRune, r, 0
+	}
+	return key, r, mod
+}
+
+// formatKeyStr produces a canonical string from a normalized binding.
+// Modified keys use Modifier-X format (e.g. "Ctrl-U", "Alt-M", "Shift-F3").
+// Standalone function keys use "F5" format.
+// Plain runes use string(r).
+func formatKeyStr(key tcell.Key, r rune, mod tcell.ModMask) string {
+	var prefix string
+	switch {
+	case mod&tcell.ModCtrl != 0:
+		prefix = "Ctrl-"
+	case mod&tcell.ModAlt != 0:
+		prefix = "Alt-"
+	case mod&tcell.ModShift != 0:
+		prefix = "Shift-"
+	}
+
+	if key == tcell.KeyRune {
+		return prefix + string(r)
+	}
+
+	// ctrl+letter keys (KeyCtrlA=65 .. KeyCtrlZ=90) already include "Ctrl-" in
+	// their tcell.KeyNames entry, so use the letter directly to avoid doubling.
+	if key >= tcell.KeyCtrlA && key <= tcell.KeyCtrlZ {
+		letter := rune(key-tcell.KeyCtrlA) + 'A'
+		// prefix already has "Ctrl-" from ModCtrl; for bare ctrl keys without
+		// explicit ModCtrl (shouldn't happen after normalization), still produce "Ctrl-X"
+		if prefix == "" {
+			prefix = "Ctrl-"
+		}
+		return prefix + string(letter)
+	}
+
+	// function keys
+	if key >= tcell.KeyF1 && key <= tcell.KeyF12 {
+		num := int(key-tcell.KeyF1) + 1
+		return fmt.Sprintf("%sF%d", prefix, num)
+	}
+
+	// fallback to tcell name (without doubling modifier)
+	if name, ok := tcell.KeyNames[key]; ok {
+		return prefix + name
+	}
+	return prefix + fmt.Sprintf("Key(%d)", key)
+}
+
+// parseCanonicalKey is the single entry point for all config-originated key parsing.
+// It parses, normalizes, validates standalone runes, and returns the canonical KeyStr.
+func parseCanonicalKey(s string) (tcell.Key, rune, tcell.ModMask, string, error) {
+	key, r, mod, err := parseKey(s)
+	if err != nil {
+		return 0, 0, 0, "", err
+	}
+
+	// empty key binding (valid for optional activation keys)
+	if key == 0 && r == 0 && mod == 0 {
+		return 0, 0, 0, "", nil
+	}
+
+	key, r, mod = normalizeParsedKey(key, r, mod)
+
+	// standalone rune validation: reject non-printable runes
+	if key == tcell.KeyRune && mod == 0 && !unicode.IsPrint(r) {
+		return 0, 0, 0, "", fmt.Errorf("key must be a printable character, got %q", string(r))
+	}
+
+	keyStr := formatKeyStr(key, r, mod)
+	return key, r, mod, keyStr, nil
 }

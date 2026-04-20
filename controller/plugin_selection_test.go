@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"testing"
 
+	"github.com/gdamore/tcell/v2"
+
 	rukiRuntime "github.com/boolean-maybe/tiki/internal/ruki/runtime"
 	"github.com/boolean-maybe/tiki/model"
 	"github.com/boolean-maybe/tiki/plugin"
@@ -732,7 +734,7 @@ func TestPluginController_HandlePluginAction_Success(t *testing.T) {
 		Lanes:      []plugin.TikiLane{{Name: "Ready", Columns: 1, Filter: readyFilter}},
 		Actions: []plugin.PluginAction{
 			{
-				Rune:   'd',
+				Key: tcell.KeyRune, Rune: 'd', KeyStr: "d",
 				Label:  "Mark Done",
 				Action: markDoneAction,
 			},
@@ -748,7 +750,7 @@ func TestPluginController_HandlePluginAction_Success(t *testing.T) {
 	gate.SetStore(taskStore)
 	pc := NewPluginController(taskStore, gate, pluginConfig, pluginDef, nil, nil, schema)
 
-	if !pc.HandleAction(pluginActionID('d')) {
+	if !pc.HandleAction(pluginActionID("d")) {
 		t.Error("expected true for successful plugin action")
 	}
 
@@ -772,7 +774,7 @@ func TestPluginController_HandlePluginAction_Rejected(t *testing.T) {
 		Lanes:      []plugin.TikiLane{{Name: "Ready", Columns: 1, Filter: readyFilter}},
 		Actions: []plugin.PluginAction{
 			{
-				Rune:   'd',
+				Key: tcell.KeyRune, Rune: 'd', KeyStr: "d",
 				Label:  "Mark Done",
 				Action: markDoneAction,
 			},
@@ -792,7 +794,7 @@ func TestPluginController_HandlePluginAction_Rejected(t *testing.T) {
 	})
 	pc := NewPluginController(taskStore, gate, pluginConfig, pluginDef, nil, statusline, schema)
 
-	if pc.HandleAction(pluginActionID('d')) {
+	if pc.HandleAction(pluginActionID("d")) {
 		t.Error("expected false when plugin action is rejected by gate")
 	}
 
@@ -814,7 +816,7 @@ func TestPluginController_HandlePluginAction_Create(t *testing.T) {
 		Lanes:      []plugin.TikiLane{{Name: "Ready", Columns: 1, Filter: readyFilter}},
 		Actions: []plugin.PluginAction{
 			{
-				Rune:   'c',
+				Key: tcell.KeyRune, Rune: 'c', KeyStr: "c",
 				Label:  "Create",
 				Action: createAction,
 			},
@@ -829,7 +831,7 @@ func TestPluginController_HandlePluginAction_Create(t *testing.T) {
 	gate.SetStore(taskStore)
 	pc := NewPluginController(taskStore, gate, pluginConfig, pluginDef, nil, nil, schema)
 
-	if !pc.HandleAction(pluginActionID('c')) {
+	if !pc.HandleAction(pluginActionID("c")) {
 		t.Error("expected true for successful create action")
 	}
 
@@ -856,7 +858,7 @@ func TestPluginController_HandlePluginAction_Delete(t *testing.T) {
 		Lanes:      []plugin.TikiLane{{Name: "Done", Columns: 1, Filter: doneFilter}},
 		Actions: []plugin.PluginAction{
 			{
-				Rune:   'x',
+				Key: tcell.KeyRune, Rune: 'x', KeyStr: "x",
 				Label:  "Delete Done",
 				Action: deleteAction,
 			},
@@ -872,7 +874,7 @@ func TestPluginController_HandlePluginAction_Delete(t *testing.T) {
 	gate.SetStore(taskStore)
 	pc := NewPluginController(taskStore, gate, pluginConfig, pluginDef, nil, nil, schema)
 
-	if !pc.HandleAction(pluginActionID('x')) {
+	if !pc.HandleAction(pluginActionID("x")) {
 		t.Error("expected true for successful delete action")
 	}
 
@@ -901,7 +903,7 @@ func TestPluginController_HandlePluginAction_NoMatchingRune(t *testing.T) {
 	gate.SetStore(taskStore)
 	pc := NewPluginController(taskStore, gate, pluginConfig, pluginDef, nil, nil, schema)
 
-	if pc.HandleAction(pluginActionID('z')) {
+	if pc.HandleAction(pluginActionID("z")) {
 		t.Error("expected false for non-matching plugin action rune")
 	}
 }
@@ -916,7 +918,7 @@ func TestPluginController_HandlePluginAction_NoSelectedTask(t *testing.T) {
 		BasePlugin: plugin.BasePlugin{Name: "TestPlugin"},
 		Lanes:      []plugin.TikiLane{{Name: "Empty", Columns: 1, Filter: emptyFilter}},
 		Actions: []plugin.PluginAction{
-			{Rune: 'd', Label: "Done", Action: updateAction},
+			{Key: tcell.KeyRune, Rune: 'd', KeyStr: "d", Label: "Done", Action: updateAction},
 		},
 	}
 	pluginConfig := model.NewPluginConfig("TestPlugin")
@@ -927,7 +929,7 @@ func TestPluginController_HandlePluginAction_NoSelectedTask(t *testing.T) {
 	gate.SetStore(taskStore)
 	pc := NewPluginController(taskStore, gate, pluginConfig, pluginDef, nil, nil, schema)
 
-	if pc.HandleAction(pluginActionID('d')) {
+	if pc.HandleAction(pluginActionID("d")) {
 		t.Error("expected false when no task is selected for update action")
 	}
 }
@@ -1237,7 +1239,7 @@ func TestPluginController_HandlePluginAction_Select(t *testing.T) {
 		BasePlugin: plugin.BasePlugin{Name: "TestPlugin"},
 		Lanes:      []plugin.TikiLane{{Name: "Ready", Columns: 1, Filter: readyFilter}},
 		Actions: []plugin.PluginAction{
-			{Rune: 's', Label: "Search Ready", Action: selectAction},
+			{Key: tcell.KeyRune, Rune: 's', KeyStr: "s", Label: "Search Ready", Action: selectAction},
 		},
 	}
 	pluginConfig := model.NewPluginConfig("TestPlugin")
@@ -1250,7 +1252,7 @@ func TestPluginController_HandlePluginAction_Select(t *testing.T) {
 	gate.SetStore(taskStore)
 	pc := NewPluginController(taskStore, gate, pluginConfig, pluginDef, nil, nil, schema)
 
-	if !pc.HandleAction(pluginActionID('s')) {
+	if !pc.HandleAction(pluginActionID("s")) {
 		t.Error("expected true for SELECT plugin action")
 	}
 
@@ -1271,7 +1273,7 @@ func TestPluginController_HandlePluginAction_SelectNoSelectedTask(t *testing.T) 
 		BasePlugin: plugin.BasePlugin{Name: "TestPlugin"},
 		Lanes:      []plugin.TikiLane{{Name: "Empty", Columns: 1, Filter: emptyFilter}},
 		Actions: []plugin.PluginAction{
-			{Rune: 's', Label: "Search Ready", Action: selectAction},
+			{Key: tcell.KeyRune, Rune: 's', KeyStr: "s", Label: "Search Ready", Action: selectAction},
 		},
 	}
 	pluginConfig := model.NewPluginConfig("TestPlugin")
@@ -1283,7 +1285,7 @@ func TestPluginController_HandlePluginAction_SelectNoSelectedTask(t *testing.T) 
 	pc := NewPluginController(taskStore, gate, pluginConfig, pluginDef, nil, nil, schema)
 
 	// SELECT should succeed even with no selected task
-	if !pc.HandleAction(pluginActionID('s')) {
+	if !pc.HandleAction(pluginActionID("s")) {
 		t.Error("expected true for SELECT action even with no selected task")
 	}
 }
@@ -1312,7 +1314,7 @@ func TestPluginController_HandleActionInput_ValidInput(t *testing.T) {
 		BasePlugin: plugin.BasePlugin{Name: "TestPlugin"},
 		Lanes:      []plugin.TikiLane{{Name: "Ready", Columns: 1, Filter: readyFilter}},
 		Actions: []plugin.PluginAction{
-			{Rune: 'a', Label: "Assign to...", Action: assignAction, InputType: ruki.ValueString, HasInput: true},
+			{Key: tcell.KeyRune, Rune: 'a', KeyStr: "a", Label: "Assign to...", Action: assignAction, InputType: ruki.ValueString, HasInput: true},
 		},
 	}
 	pluginConfig := model.NewPluginConfig("TestPlugin")
@@ -1325,7 +1327,7 @@ func TestPluginController_HandleActionInput_ValidInput(t *testing.T) {
 	schema := rukiRuntime.NewSchema()
 	pc := NewPluginController(taskStore, gate, pluginConfig, pluginDef, nil, statusline, schema)
 
-	result := pc.HandleActionInput(pluginActionID('a'), "alice")
+	result := pc.HandleActionInput(pluginActionID("a"), "alice")
 	if result != InputClose {
 		t.Fatalf("expected InputClose for valid input, got %d", result)
 	}
@@ -1349,7 +1351,7 @@ func TestPluginController_HandleActionInput_InvalidInput(t *testing.T) {
 		BasePlugin: plugin.BasePlugin{Name: "TestPlugin"},
 		Lanes:      []plugin.TikiLane{{Name: "Ready", Columns: 1, Filter: readyFilter}},
 		Actions: []plugin.PluginAction{
-			{Rune: 'p', Label: "Set points", Action: pointsAction, InputType: ruki.ValueInt, HasInput: true},
+			{Key: tcell.KeyRune, Rune: 'p', KeyStr: "p", Label: "Set points", Action: pointsAction, InputType: ruki.ValueInt, HasInput: true},
 		},
 	}
 	pluginConfig := model.NewPluginConfig("TestPlugin")
@@ -1362,7 +1364,7 @@ func TestPluginController_HandleActionInput_InvalidInput(t *testing.T) {
 	schema := rukiRuntime.NewSchema()
 	pc := NewPluginController(taskStore, gate, pluginConfig, pluginDef, nil, statusline, schema)
 
-	result := pc.HandleActionInput(pluginActionID('p'), "abc")
+	result := pc.HandleActionInput(pluginActionID("p"), "abc")
 	if result != InputKeepEditing {
 		t.Fatalf("expected InputKeepEditing for invalid int input, got %d", result)
 	}
@@ -1390,7 +1392,7 @@ func TestPluginController_HandleActionInput_ExecutionFailure_StillCloses(t *test
 		BasePlugin: plugin.BasePlugin{Name: "TestPlugin"},
 		Lanes:      []plugin.TikiLane{{Name: "Ready", Columns: 1, Filter: readyFilter}},
 		Actions: []plugin.PluginAction{
-			{Rune: 'a', Label: "Assign to...", Action: assignAction, InputType: ruki.ValueString, HasInput: true},
+			{Key: tcell.KeyRune, Rune: 'a', KeyStr: "a", Label: "Assign to...", Action: assignAction, InputType: ruki.ValueString, HasInput: true},
 		},
 	}
 	pluginConfig := model.NewPluginConfig("TestPlugin")
@@ -1404,7 +1406,7 @@ func TestPluginController_HandleActionInput_ExecutionFailure_StillCloses(t *test
 	pc := NewPluginController(taskStore, gate, pluginConfig, pluginDef, nil, statusline, schema)
 
 	// valid parse, successful execution — still returns InputClose
-	result := pc.HandleActionInput(pluginActionID('a'), "bob")
+	result := pc.HandleActionInput(pluginActionID("a"), "bob")
 	if result != InputClose {
 		t.Fatalf("expected InputClose after valid parse (regardless of execution outcome), got %d", result)
 	}
@@ -1419,8 +1421,8 @@ func TestPluginController_GetActionInputSpec(t *testing.T) {
 		BasePlugin: plugin.BasePlugin{Name: "TestPlugin"},
 		Lanes:      []plugin.TikiLane{{Name: "Ready", Columns: 1, Filter: readyFilter}},
 		Actions: []plugin.PluginAction{
-			{Rune: 'a', Label: "Assign to...", Action: assignAction, InputType: ruki.ValueString, HasInput: true},
-			{Rune: 'd', Label: "Done", Action: markDoneAction},
+			{Key: tcell.KeyRune, Rune: 'a', KeyStr: "a", Label: "Assign to...", Action: assignAction, InputType: ruki.ValueString, HasInput: true},
+			{Key: tcell.KeyRune, Rune: 'd', KeyStr: "d", Label: "Done", Action: markDoneAction},
 		},
 	}
 	pluginConfig := model.NewPluginConfig("TestPlugin")
@@ -1431,7 +1433,7 @@ func TestPluginController_GetActionInputSpec(t *testing.T) {
 	gate.SetStore(store.NewInMemoryStore())
 	pc := NewPluginController(store.NewInMemoryStore(), gate, pluginConfig, pluginDef, nil, nil, schema)
 
-	prompt, typ, hasInput := pc.GetActionInputSpec(pluginActionID('a'))
+	prompt, typ, hasInput := pc.GetActionInputSpec(pluginActionID("a"))
 	if !hasInput {
 		t.Fatal("expected hasInput=true for 'a' action")
 	}
@@ -1442,27 +1444,27 @@ func TestPluginController_GetActionInputSpec(t *testing.T) {
 		t.Fatalf("expected prompt 'Assign to...: ', got %q", prompt)
 	}
 
-	_, _, hasInput = pc.GetActionInputSpec(pluginActionID('d'))
+	_, _, hasInput = pc.GetActionInputSpec(pluginActionID("d"))
 	if hasInput {
 		t.Fatal("expected hasInput=false for non-input 'd' action")
 	}
 }
 
-func TestGetPluginActionRune(t *testing.T) {
+func TestGetPluginActionKeyStr(t *testing.T) {
 	tests := []struct {
 		name string
 		id   ActionID
-		want rune
+		want string
 	}{
-		{"valid", pluginActionID('d'), 'd'},
-		{"not a plugin action", "some_action", 0},
-		{"empty suffix", ActionID(pluginActionPrefix), 0},
-		{"multi-char suffix", ActionID(pluginActionPrefix + "ab"), 0},
+		{"valid single rune", pluginActionID("d"), "d"},
+		{"valid composite", pluginActionID("Ctrl-U"), "Ctrl-U"},
+		{"not a plugin action", "some_action", ""},
+		{"empty suffix", ActionID(pluginActionPrefix), ""},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := getPluginActionRune(tt.id); got != tt.want {
-				t.Errorf("getPluginActionRune(%q) = %q, want %q", tt.id, got, tt.want)
+			if got := getPluginActionKeyStr(tt.id); got != tt.want {
+				t.Errorf("getPluginActionKeyStr(%q) = %q, want %q", tt.id, got, tt.want)
 			}
 		})
 	}

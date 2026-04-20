@@ -259,14 +259,15 @@ func TestActionRegistry_Match(t *testing.T) {
 			shouldFind: false,
 		},
 		{
-			name: "no match - wrong modifier",
+			name: "ctrl key without explicit ModCtrl still matches via normalization",
 			registry: func() *ActionRegistry {
 				r := NewActionRegistry()
 				r.Register(Action{ID: ActionSaveTask, Key: tcell.KeyCtrlS, Modifier: tcell.ModCtrl, Label: "Save"})
 				return r
 			},
 			event:      tcell.NewEventKey(tcell.KeyCtrlS, 0, tcell.ModNone),
-			shouldFind: false,
+			wantMatch:  ActionSaveTask,
+			shouldFind: true,
 		},
 		{
 			name: "match first when multiple actions registered",
@@ -568,14 +569,24 @@ func TestTaskDetailViewActions_ChatWithConfig(t *testing.T) {
 }
 
 func TestPluginActionID(t *testing.T) {
-	id := pluginActionID('b')
+	id := pluginActionID("b")
 	if id != "plugin_action:b" {
 		t.Errorf("expected 'plugin_action:b', got %q", id)
 	}
 
-	r := getPluginActionRune(id)
-	if r != 'b' {
-		t.Errorf("expected 'b', got %q", r)
+	keyStr := getPluginActionKeyStr(id)
+	if keyStr != "b" {
+		t.Errorf("expected 'b', got %q", keyStr)
+	}
+
+	// composite key
+	id = pluginActionID("Ctrl-U")
+	if id != "plugin_action:Ctrl-U" {
+		t.Errorf("expected 'plugin_action:Ctrl-U', got %q", id)
+	}
+	keyStr = getPluginActionKeyStr(id)
+	if keyStr != "Ctrl-U" {
+		t.Errorf("expected 'Ctrl-U', got %q", keyStr)
 	}
 }
 
@@ -605,25 +616,83 @@ func TestLookupRune_ConflictDetection(t *testing.T) {
 	}
 }
 
-func TestGetPluginActionRune_NotPluginAction(t *testing.T) {
+func TestGetPluginActionKeyStr_NotPluginAction(t *testing.T) {
 	tests := []struct {
 		name string
 		id   ActionID
+		want string
 	}{
-		{"empty", ""},
-		{"built-in", ActionNavUp},
-		{"plugin activation", "plugin:Kanban"},
-		{"partial prefix", "plugin_action:"},
-		{"multi-char", ActionID("plugin_action:ab")},
+		{"empty", "", ""},
+		{"built-in", ActionNavUp, ""},
+		{"plugin activation", "plugin:Kanban", ""},
+		{"partial prefix returns empty", ActionID("plugin_action:"), ""},
 	}
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			r := getPluginActionRune(tc.id)
-			if r != 0 {
-				t.Errorf("expected 0, got %q", r)
+			keyStr := getPluginActionKeyStr(tc.id)
+			if keyStr != tc.want {
+				t.Errorf("expected %q, got %q", tc.want, keyStr)
 			}
 		})
+	}
+
+	// multi-char suffix is now valid (e.g. "Ctrl-U")
+	t.Run("multi-char suffix valid for composite keys", func(t *testing.T) {
+		keyStr := getPluginActionKeyStr(ActionID("plugin_action:Ctrl-U"))
+		if keyStr != "Ctrl-U" {
+			t.Errorf("expected 'Ctrl-U', got %q", keyStr)
+		}
+	})
+}
+
+func TestMatchBinding_CtrlLetterNormalization(t *testing.T) {
+	registry := NewActionRegistry()
+	registry.Register(Action{
+		ID:       "test_ctrl_u",
+		Key:      tcell.KeyCtrlU,
+		Modifier: tcell.ModCtrl,
+	})
+
+	// all three encodings should match the same action
+	if a := registry.MatchBinding(tcell.KeyCtrlU, 0, tcell.ModCtrl); a == nil || a.ID != "test_ctrl_u" {
+		t.Error("KeyCtrlU+ModCtrl should match")
+	}
+	if a := registry.MatchBinding(tcell.KeyCtrlU, 0, 0); a == nil || a.ID != "test_ctrl_u" {
+		t.Error("KeyCtrlU+0 should match via normalization")
+	}
+	if a := registry.MatchBinding('U', 0, tcell.ModCtrl); a == nil || a.ID != "test_ctrl_u" {
+		t.Error("Key='U'+ModCtrl should match via normalization")
+	}
+}
+
+func TestMatchBinding_ExactRune(t *testing.T) {
+	registry := NewActionRegistry()
+	registry.Register(Action{
+		ID:   "test_q",
+		Key:  tcell.KeyRune,
+		Rune: 'q',
+	})
+
+	if a := registry.MatchBinding(tcell.KeyRune, 'q', 0); a == nil || a.ID != "test_q" {
+		t.Error("expected match for rune 'q'")
+	}
+	if a := registry.MatchBinding(tcell.KeyRune, 'x', 0); a != nil {
+		t.Error("expected no match for rune 'x'")
+	}
+}
+
+func TestMatchBinding_UnmodifiedRuneFallback(t *testing.T) {
+	registry := NewActionRegistry()
+	registry.Register(Action{
+		ID:   "test_q",
+		Key:  tcell.KeyRune,
+		Rune: 'q',
+	})
+
+	// unmodified rune action should match even with a modifier present
+	if a := registry.MatchBinding(tcell.KeyRune, 'q', tcell.ModAlt); a == nil || a.ID != "test_q" {
+		t.Error("unmodified rune action should match rune with any modifier")
 	}
 }
 

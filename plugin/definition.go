@@ -89,7 +89,10 @@ type PluginActionConfig struct {
 
 // PluginAction represents a parsed shortcut action bound to a key.
 type PluginAction struct {
+	Key          tcell.Key
 	Rune         rune
+	Modifier     tcell.ModMask
+	KeyStr       string // canonical key string for IDs, duplicate detection, and logging
 	Label        string
 	Action       *ruki.ValidatedStatement
 	ShowInHeader bool
