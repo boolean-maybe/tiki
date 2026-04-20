@@ -489,12 +489,12 @@ func TestMergeGlobalActions(t *testing.T) {
 	stmt := mustParseAction(t, `update where id = id() set status="ready"`)
 
 	base := []PluginAction{
-		{Rune: 'a', Label: "Assign", Action: stmt},
-		{Rune: 'b', Label: "Board", Action: stmt},
+		{Rune: 'a', KeyStr: "a", Label: "Assign", Action: stmt},
+		{Rune: 'b', KeyStr: "b", Label: "Board", Action: stmt},
 	}
 	overrides := []PluginAction{
-		{Rune: 'b', Label: "Board Override", Action: stmt},
-		{Rune: 'c', Label: "Create", Action: stmt},
+		{Rune: 'b', KeyStr: "b", Label: "Board Override", Action: stmt},
+		{Rune: 'c', KeyStr: "c", Label: "Create", Action: stmt},
 	}
 
 	result := mergeGlobalActions(base, overrides)
@@ -515,10 +515,29 @@ func TestMergeGlobalActions(t *testing.T) {
 
 func TestMergeGlobalActions_EmptyOverrides(t *testing.T) {
 	stmt := mustParseAction(t, `update where id = id() set status="ready"`)
-	base := []PluginAction{{Rune: 'a', Label: "Assign", Action: stmt}}
+	base := []PluginAction{{Rune: 'a', KeyStr: "a", Label: "Assign", Action: stmt}}
 	result := mergeGlobalActions(base, nil)
 	if len(result) != 1 {
 		t.Fatalf("expected 1 action, got %d", len(result))
+	}
+}
+
+func TestMergeGlobalActions_CanonicalKeyStr(t *testing.T) {
+	stmt := mustParseAction(t, `update where id = id() set status="ready"`)
+
+	base := []PluginAction{
+		{KeyStr: "Ctrl-U", Label: "Global Ctrl-U", Action: stmt},
+	}
+	overrides := []PluginAction{
+		{KeyStr: "Ctrl-U", Label: "Local Ctrl-U", Action: stmt},
+	}
+
+	result := mergeGlobalActions(base, overrides)
+	if len(result) != 1 {
+		t.Fatalf("expected 1 action (merged), got %d", len(result))
+	}
+	if result[0].Label != "Local Ctrl-U" {
+		t.Errorf("expected override label, got %q", result[0].Label)
 	}
 }
 
@@ -528,7 +547,7 @@ func TestMergeGlobalActionsIntoPlugins(t *testing.T) {
 	plugins := []Plugin{
 		&TikiPlugin{
 			BasePlugin: BasePlugin{Name: "Board"},
-			Actions:    []PluginAction{{Rune: 'b', Label: "Board action", Action: stmt}},
+			Actions:    []PluginAction{{Rune: 'b', KeyStr: "b", Label: "Board action", Action: stmt}},
 		},
 		&TikiPlugin{
 			BasePlugin: BasePlugin{Name: "Backlog"},
@@ -540,8 +559,8 @@ func TestMergeGlobalActionsIntoPlugins(t *testing.T) {
 	}
 
 	globals := []PluginAction{
-		{Rune: 'a', Label: "Assign", Action: stmt},
-		{Rune: 'b', Label: "Global board", Action: stmt}, // conflicts with Board's 'b'
+		{Rune: 'a', KeyStr: "a", Label: "Assign", Action: stmt},
+		{Rune: 'b', KeyStr: "b", Label: "Global board", Action: stmt}, // conflicts with Board's 'b'
 	}
 
 	mergeGlobalActionsIntoPlugins(plugins, globals)
@@ -574,7 +593,39 @@ func TestMergeGlobalActionsIntoPlugins(t *testing.T) {
 	// DokiPlugin has no Actions field — nothing to check
 }
 
-func mustParseAction(t *testing.T, input string) *ruki.ValidatedStatement {
+func TestMergeGlobalActionsIntoPlugins_ShiftedRuneAlias(t *testing.T) {
+	stmt := mustParseAction(t, `update where id = id() set status="ready"`)
+
+	plugins := []Plugin{
+		&TikiPlugin{
+			BasePlugin: BasePlugin{Name: "Board"},
+			Actions:    []PluginAction{{Rune: 'X', KeyStr: "X", Label: "Local X", Action: stmt}},
+		},
+	}
+
+	globals := []PluginAction{
+		{Rune: 'X', KeyStr: "X", Label: "Global X", Action: stmt},
+		{Rune: 'x', KeyStr: "x", Label: "Global x", Action: stmt},
+	}
+
+	mergeGlobalActionsIntoPlugins(plugins, globals)
+
+	board, ok := plugins[0].(*TikiPlugin)
+	if !ok {
+		t.Fatal("expected *TikiPlugin")
+	}
+	if len(board.Actions) != 2 {
+		t.Fatalf("expected 2 actions (local X + global x), got %d", len(board.Actions))
+	}
+	if board.Actions[0].Label != "Local X" {
+		t.Errorf("expected local X first, got %q", board.Actions[0].Label)
+	}
+	if board.Actions[1].Label != "Global x" {
+		t.Errorf("expected global x second, got %q", board.Actions[1].Label)
+	}
+}
+
+func mustParseAction(t *testing.T, input string) *ruki.ValidatedStatement { //nolint:unparam // test helper designed for varied inputs
 	t.Helper()
 	parser := testParser()
 	stmt, err := parser.ParseAndValidateStatement(input, ruki.ExecutorRuntimePlugin)

@@ -210,23 +210,23 @@ func filterTypeErrors(errs []string) []string {
 	return typeErrs
 }
 
-// mergeGlobalActions merges override global actions into base by key (rune).
-// Overrides with the same rune replace the base action.
+// mergeGlobalActions merges override global actions into base by canonical KeyStr.
+// Overrides with the same KeyStr replace the base action.
 func mergeGlobalActions(base, overrides []PluginAction) []PluginAction {
 	if len(overrides) == 0 {
 		return base
 	}
-	byRune := make(map[rune]int, len(base))
+	byKeyStr := make(map[string]int, len(base))
 	result := make([]PluginAction, len(base))
 	copy(result, base)
 	for i, a := range result {
-		byRune[a.Rune] = i
+		byKeyStr[a.KeyStr] = i
 	}
 	for _, o := range overrides {
-		if idx, ok := byRune[o.Rune]; ok {
+		if idx, ok := byKeyStr[o.KeyStr]; ok {
 			result[idx] = o
 		} else {
-			byRune[o.Rune] = len(result)
+			byKeyStr[o.KeyStr] = len(result)
 			result = append(result, o)
 		}
 	}
@@ -234,7 +234,7 @@ func mergeGlobalActions(base, overrides []PluginAction) []PluginAction {
 }
 
 // mergeGlobalActionsIntoPlugins appends global actions to each TikiPlugin.
-// Per-plugin actions with the same rune take precedence over globals (global is skipped).
+// Per-plugin actions with the same KeyStr take precedence over globals (global is skipped).
 func mergeGlobalActionsIntoPlugins(plugins []Plugin, globalActions []PluginAction) {
 	if len(globalActions) == 0 {
 		return
@@ -244,14 +244,14 @@ func mergeGlobalActionsIntoPlugins(plugins []Plugin, globalActions []PluginActio
 		if !ok {
 			continue
 		}
-		localRunes := make(map[rune]bool, len(tp.Actions))
+		localKeys := make(map[string]bool, len(tp.Actions))
 		for _, a := range tp.Actions {
-			localRunes[a.Rune] = true
+			localKeys[a.KeyStr] = true
 		}
 		for _, ga := range globalActions {
-			if localRunes[ga.Rune] {
+			if localKeys[ga.KeyStr] {
 				slog.Info("per-plugin action overrides global action",
-					"plugin", tp.Name, "key", string(ga.Rune), "global_label", ga.Label)
+					"plugin", tp.Name, "key", ga.KeyStr, "global_label", ga.Label)
 				continue
 			}
 			tp.Actions = append(tp.Actions, ga)

@@ -174,14 +174,15 @@ func NewActionRegistry() *ActionRegistry {
 	}
 }
 
-// Register adds an action to the registry
+// Register adds an action to the registry.
+// The binding is normalized before storage so lookups are always consistent.
 func (r *ActionRegistry) Register(action Action) {
+	action.Key, action.Rune, action.Modifier = normalizeBinding(action.Key, action.Rune, action.Modifier)
 	r.actions = append(r.actions, action)
-	mod := action.Modifier & (tcell.ModShift | tcell.ModCtrl | tcell.ModAlt | tcell.ModMeta)
 	if action.Key == tcell.KeyRune {
-		r.byRune[runeWithMod{action.Rune, mod}] = action
+		r.byRune[runeWithMod{action.Rune, action.Modifier}] = action
 	} else {
-		r.byKey[keyWithMod{action.Key, mod}] = action
+		r.byKey[keyWithMod{action.Key, action.Modifier}] = action
 	}
 }
 
@@ -213,47 +214,60 @@ func (r *ActionRegistry) LookupRune(ch rune) (Action, bool) {
 	return a, ok
 }
 
-// Match finds an action matching the given key event using O(1) map lookups.
-func (r *ActionRegistry) Match(event *tcell.EventKey) *Action {
-	// normalize modifier (ignore caps lock, num lock, etc.)
-	mod := event.Modifiers() & (tcell.ModShift | tcell.ModCtrl | tcell.ModAlt | tcell.ModMeta)
+// normalizeBinding collapses equivalent Ctrl+letter encodings to a canonical form.
+// Canonical form: KeyCtrlX + ModCtrl (where X is the ctrl key constant 1-26).
+// This normalizes: KeyCtrlX+0, KeyCtrlX+ModCtrl, and Key='X'+ModCtrl to the same form.
+func normalizeBinding(key tcell.Key, ch rune, mod tcell.ModMask) (tcell.Key, rune, tcell.ModMask) {
+	mod = mod & (tcell.ModShift | tcell.ModCtrl | tcell.ModAlt | tcell.ModMeta)
 
-	if event.Key() == tcell.KeyRune {
-		// exact rune+modifier lookup
-		if a, ok := r.byRune[runeWithMod{event.Rune(), mod}]; ok {
+	// KeyCtrlA(65)..KeyCtrlZ(90) — ensure ModCtrl is always set
+	if key >= tcell.KeyCtrlA && key <= tcell.KeyCtrlZ {
+		return key, 0, mod | tcell.ModCtrl
+	}
+
+	// Key='a'..'z' with ModCtrl → normalize to KeyCtrlX + ModCtrl
+	if mod&tcell.ModCtrl != 0 && key != tcell.KeyRune {
+		if key >= 'a' && key <= 'z' {
+			return key - 'a' + tcell.KeyCtrlA, 0, mod
+		}
+	}
+
+	return key, ch, mod
+}
+
+// matchBinding is the shared core lookup logic used by both Match() and MatchBinding().
+func (r *ActionRegistry) matchBinding(key tcell.Key, ch rune, mod tcell.ModMask) *Action {
+	key, ch, mod = normalizeBinding(key, ch, mod)
+
+	if key == tcell.KeyRune {
+		if a, ok := r.byRune[runeWithMod{ch, mod}]; ok {
 			return &a
 		}
 		// rune actions registered without a modifier match any modifier
 		if mod != 0 {
-			if a, ok := r.byRune[runeWithMod{event.Rune(), 0}]; ok && a.Modifier == 0 {
+			if a, ok := r.byRune[runeWithMod{ch, 0}]; ok && a.Modifier == 0 {
 				return &a
 			}
 		}
 		return nil
 	}
 
-	// special keys — exact key+modifier lookup
-	if a, ok := r.byKey[keyWithMod{event.Key(), mod}]; ok {
+	if a, ok := r.byKey[keyWithMod{key, mod}]; ok {
 		return &a
 	}
 
-	// Ctrl+letter fallback: tcell may send Key='A'-'Z' with ModCtrl,
-	// but actions may register KeyCtrlA-KeyCtrlZ (1-26)
-	if mod == tcell.ModCtrl {
-		var ctrlKeyCode tcell.Key
-		if event.Key() >= 'A' && event.Key() <= 'Z' {
-			ctrlKeyCode = event.Key() - 'A' + 1
-		} else if event.Key() >= 'a' && event.Key() <= 'z' {
-			ctrlKeyCode = event.Key() - 'a' + 1
-		}
-		if ctrlKeyCode != 0 {
-			if a, ok := r.byKey[keyWithMod{ctrlKeyCode, tcell.ModCtrl}]; ok {
-				return &a
-			}
-		}
-	}
-
 	return nil
+}
+
+// Match finds an action matching the given key event using O(1) map lookups.
+func (r *ActionRegistry) Match(event *tcell.EventKey) *Action {
+	return r.matchBinding(event.Key(), event.Rune(), event.Modifiers())
+}
+
+// MatchBinding finds an action matching the given key/rune/modifier triple.
+// Used for conflict detection during plugin action registration.
+func (r *ActionRegistry) MatchBinding(key tcell.Key, ch rune, mod tcell.ModMask) *Action {
+	return r.matchBinding(key, ch, mod)
 }
 
 // selectionRequired is an IsEnabled predicate that returns true only when

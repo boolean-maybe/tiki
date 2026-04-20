@@ -4,6 +4,8 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/gdamore/tcell/v2"
+
 	rukiRuntime "github.com/boolean-maybe/tiki/internal/ruki/runtime"
 	"github.com/boolean-maybe/tiki/ruki"
 )
@@ -168,6 +170,50 @@ func TestParsePluginConfig_InvalidKey(t *testing.T) {
 	}
 }
 
+func TestParsePluginConfig_ActivationKeyNormalization(t *testing.T) {
+	schema := testSchema()
+
+	tests := []struct {
+		name    string
+		keyStr  string
+		wantKey tcell.Key
+		wantR   rune
+		wantMod tcell.ModMask
+	}{
+		{"plain rune", "T", tcell.KeyRune, 'T', 0},
+		{"Ctrl-U", "Ctrl-U", tcell.KeyCtrlU, 0, tcell.ModCtrl},
+		{"ctrl-u lowercase", "ctrl-u", tcell.KeyCtrlU, 0, tcell.ModCtrl},
+		{"Alt-M", "Alt-M", tcell.KeyRune, 'M', tcell.ModAlt},
+		{"F5", "F5", tcell.KeyF5, 0, 0},
+		{"Shift-x normalizes to X", "Shift-x", tcell.KeyRune, 'X', 0},
+		{"Shift-X normalizes to X", "Shift-X", tcell.KeyRune, 'X', 0},
+		{"Shift-F3", "Shift-F3", tcell.KeyF3, 0, tcell.ModShift},
+		{"empty key is valid", "", 0, 0, 0},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			cfg := pluginFileConfig{
+				Name: "Test",
+				Key:  tt.keyStr,
+				Type: "tiki",
+				Lanes: []PluginLaneConfig{
+					{Name: "Todo", Filter: `select where status = "ready"`},
+				},
+			}
+			p, err := parsePluginConfig(cfg, "test.yaml", schema)
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+			gotKey, gotR, gotMod := p.GetActivationKey()
+			if gotKey != tt.wantKey || gotR != tt.wantR || gotMod != tt.wantMod {
+				t.Errorf("activation key for %q: got (%v, %q, %v), want (%v, %q, %v)",
+					tt.keyStr, gotKey, gotR, gotMod, tt.wantKey, tt.wantR, tt.wantMod)
+			}
+		})
+	}
+}
+
 func TestParsePluginConfig_DefaultTikiType(t *testing.T) {
 	cfg := pluginFileConfig{
 		Name: "Test",
@@ -304,6 +350,9 @@ func TestParsePluginActions_Valid(t *testing.T) {
 	if actions[0].Rune != 'b' {
 		t.Errorf("expected rune 'b', got %q", actions[0].Rune)
 	}
+	if actions[0].KeyStr != "b" {
+		t.Errorf("expected KeyStr 'b', got %q", actions[0].KeyStr)
+	}
 	if actions[0].Label != "Add to board" {
 		t.Errorf("expected label 'Add to board', got %q", actions[0].Label)
 	}
@@ -353,7 +402,7 @@ func TestParsePluginActions_Errors(t *testing.T) {
 		{
 			name:    "multi-character key",
 			configs: []PluginActionConfig{{Key: "ab", Label: "Test", Action: `update where id = id() set status="ready"`}},
-			wantErr: "single character",
+			wantErr: "invalid key",
 		},
 		{
 			name:    "missing label",
@@ -377,17 +426,6 @@ func TestParsePluginActions_Errors(t *testing.T) {
 				{Key: "b", Label: "Second", Action: `update where id = id() set status="done"`},
 			},
 			wantErr: "duplicate action key",
-		},
-		{
-			name: "too many actions",
-			configs: func() []PluginActionConfig {
-				configs := make([]PluginActionConfig, 11)
-				for i := range configs {
-					configs[i] = PluginActionConfig{Key: string(rune('a' + i)), Label: "Test", Action: `update where id = id() set status="ready"`}
-				}
-				return configs
-			}(),
-			wantErr: "too many actions",
 		},
 	}
 
@@ -726,6 +764,113 @@ func TestParsePluginActions_NonPrintableKey(t *testing.T) {
 	if !strings.Contains(err.Error(), "printable character") {
 		t.Errorf("expected 'printable character' error, got: %v", err)
 	}
+}
+
+func TestParsePluginActions_CompositeKeys(t *testing.T) {
+	parser := testParser()
+
+	t.Run("Ctrl-U as action key", func(t *testing.T) {
+		configs := []PluginActionConfig{
+			{Key: "Ctrl-U", Label: "Undo", Action: `update where id = id() set status="ready"`},
+		}
+		actions, err := parsePluginActions(configs, parser)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if len(actions) != 1 {
+			t.Fatalf("expected 1 action, got %d", len(actions))
+		}
+		if actions[0].KeyStr != "Ctrl-U" {
+			t.Errorf("expected KeyStr 'Ctrl-U', got %q", actions[0].KeyStr)
+		}
+		if actions[0].Modifier != tcell.ModCtrl {
+			t.Errorf("expected ModCtrl, got %v", actions[0].Modifier)
+		}
+	})
+
+	t.Run("Alt-M as action key", func(t *testing.T) {
+		configs := []PluginActionConfig{
+			{Key: "Alt-M", Label: "Mark", Action: `update where id = id() set status="ready"`},
+		}
+		actions, err := parsePluginActions(configs, parser)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if actions[0].KeyStr != "Alt-M" {
+			t.Errorf("expected KeyStr 'Alt-M', got %q", actions[0].KeyStr)
+		}
+	})
+
+	t.Run("F5 as action key", func(t *testing.T) {
+		configs := []PluginActionConfig{
+			{Key: "F5", Label: "Reload", Action: `update where id = id() set status="ready"`},
+		}
+		actions, err := parsePluginActions(configs, parser)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if actions[0].KeyStr != "F5" {
+			t.Errorf("expected KeyStr 'F5', got %q", actions[0].KeyStr)
+		}
+	})
+
+	t.Run("Shift-X normalizes to X", func(t *testing.T) {
+		configs := []PluginActionConfig{
+			{Key: "Shift-X", Label: "eXtra", Action: `update where id = id() set status="ready"`},
+		}
+		actions, err := parsePluginActions(configs, parser)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if actions[0].KeyStr != "X" {
+			t.Errorf("expected KeyStr 'X', got %q", actions[0].KeyStr)
+		}
+		if actions[0].Modifier != 0 {
+			t.Errorf("expected no modifier after normalization, got %v", actions[0].Modifier)
+		}
+	})
+
+	t.Run("duplicate Shift-x vs X", func(t *testing.T) {
+		configs := []PluginActionConfig{
+			{Key: "Shift-x", Label: "First", Action: `update where id = id() set status="ready"`},
+			{Key: "X", Label: "Second", Action: `update where id = id() set status="done"`},
+		}
+		_, err := parsePluginActions(configs, parser)
+		if err == nil {
+			t.Fatal("expected duplicate error for Shift-x vs X")
+		}
+		if !strings.Contains(err.Error(), "duplicate") {
+			t.Errorf("expected 'duplicate' error, got: %v", err)
+		}
+	})
+
+	t.Run("x and X are distinct", func(t *testing.T) {
+		configs := []PluginActionConfig{
+			{Key: "x", Label: "lowercase", Action: `update where id = id() set status="ready"`},
+			{Key: "X", Label: "uppercase", Action: `update where id = id() set status="done"`},
+		}
+		actions, err := parsePluginActions(configs, parser)
+		if err != nil {
+			t.Fatalf("expected no error for x vs X, got: %v", err)
+		}
+		if len(actions) != 2 {
+			t.Fatalf("expected 2 actions, got %d", len(actions))
+		}
+	})
+
+	t.Run("differently cased Ctrl spellings are duplicates", func(t *testing.T) {
+		configs := []PluginActionConfig{
+			{Key: "Ctrl-U", Label: "First", Action: `update where id = id() set status="ready"`},
+			{Key: "ctrl-u", Label: "Second", Action: `update where id = id() set status="done"`},
+		}
+		_, err := parsePluginActions(configs, parser)
+		if err == nil {
+			t.Fatal("expected duplicate error for differently-cased Ctrl spellings")
+		}
+		if !strings.Contains(err.Error(), "duplicate") {
+			t.Errorf("expected 'duplicate' error, got: %v", err)
+		}
+	})
 }
 
 func TestParsePluginYAML_ValidDoki(t *testing.T) {
