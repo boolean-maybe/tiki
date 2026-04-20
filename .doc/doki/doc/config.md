@@ -30,7 +30,7 @@ export XDG_CONFIG_HOME=~/my-config
 tiki  # Will use ~/my-config/tiki/ for configuration
 ```
 
-## Precedence and merging
+## Precedence
 
 `tiki` looks for configuration in three locations, from least specific to most specific:
 
@@ -38,44 +38,33 @@ tiki  # Will use ~/my-config/tiki/ for configuration
 2. **Project config directory** (`.doc/`) - shared with the team via git
 3. **Current working directory** (`./`) - local overrides, useful during development
 
-The more specific location always wins. This means each project can have its own workflow, statuses, and views that differ from your personal defaults. A design-team project might use statuses like "Draft / Review / Approved" while an engineering project uses "Backlog / In Progress / Done" — each defined in their own `.doc/workflow.yaml`.
+The single highest-priority file wins — no merging across files. This means each project can have its own workflow, statuses, and views that differ from your personal defaults. A design-team project might use statuses like "Draft / Review / Approved" while an engineering project uses "Backlog / In Progress / Done" — each defined in their own `.doc/workflow.yaml`.
 
-### config.yaml merging
+### config.yaml
 
-All `config.yaml` files found are merged together. A project config only needs to specify the values it wants to change — everything else is inherited from the user config. Missing values fall back to built-in defaults.
+The single highest-priority `config.yaml` found is loaded. Values not specified in that file fall back to built-in defaults (not inherited from lower-priority files).
 
-Search order: user config dir (base) → `.doc/config.yaml` (project) → cwd (highest priority).
+Search order: user config dir → `.doc/config.yaml` (project) → cwd. Last match wins.
 
 ### new.md (task template)
 
-`new.md` is searched in the same three locations but is **not merged** — the single highest-priority file found wins. If a project provides `.doc/new.md`, it completely replaces the user-level template. If no `new.md` is found anywhere, a built-in embedded template is used.
+`new.md` follows the same pattern — the single highest-priority file found wins. If a project provides `.doc/new.md`, it completely replaces the user-level template. If no `new.md` is found anywhere, a built-in embedded template is used.
 
 Search order: user config dir → `.doc/new.md` (project) → cwd. Last match wins.
 
-### workflow.yaml merging
+### workflow.yaml
 
-`workflow.yaml` is searched in all three locations. Files that exist are loaded and merged sequentially.
+The single highest-priority `workflow.yaml` found is loaded. All workflow-backed sections (statuses, types, views, global actions, fields, triggers) come from that one file. Lower-priority files are ignored entirely.
 
-Search order: user config dir (base) → `.doc/workflow.yaml` (project) → cwd (highest priority).
+Search order: user config dir → `.doc/workflow.yaml` (project) → cwd. Last match wins.
 
-**Statuses** — last file with a `statuses:` section wins (complete replacement). A project that defines its own statuses fully replaces the user-level defaults.
+- Missing `statuses:` in the winning file is an error.
+- Missing `types:` in the winning file is an error.
+- Missing `views:` or explicit empty `views: { plugins: [] }` means no views.
+- Missing `fields:` means no custom fields.
+- Missing `triggers:` means no triggers.
 
-**Views (plugins)** — merged by name across files. The user config is the base; project and cwd files override individual fields:
-- Non-empty fields in the override replace the base (description, key, view mode)
-- Non-empty arrays in the override replace the entire base array (lanes, actions)
-- Empty/zero fields in the override are ignored — the base value is kept
-- Views that only exist in the override are appended
-
-**Global plugin actions** (`views.actions`) — merged by key across files. If two files define a global action with the same key, the later file's action wins. Global actions are appended to each tiki plugin's action list; per-plugin actions with the same key take precedence.
-
-A project only needs to define the views or fields it wants to change. Everything else is inherited from your user config.
-
-To disable all user-level views for a project, create a `.doc/workflow.yaml` with an explicitly empty views list:
-
-```yaml
-views:
-  plugins: []
-```
+Global actions defined in `views.actions` are appended to each tiki plugin's action list; per-plugin actions with the same key take precedence.
 
 ### config.yaml
 

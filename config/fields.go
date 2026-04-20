@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"log/slog"
 	"os"
-	"path/filepath"
 	"sort"
 	"strings"
 	"sync/atomic"
@@ -65,72 +64,35 @@ func LoadWorkflowRegistries() error {
 	return nil
 }
 
-// LoadCustomFields reads the fields: section from all workflow.yaml files,
-// validates and merges definitions, and registers them with workflow.RegisterCustomFields.
-// Uses FindRegistryWorkflowFiles (no views filtering) so files with empty views:
-// still contribute custom field definitions.
-// Merge semantics: identical redefinitions allowed, conflicting redefinitions error.
+// LoadCustomFields reads the fields: section from the single highest-priority
+// workflow.yaml and registers them with workflow.RegisterCustomFields.
+// Missing fields: section means no custom fields.
 func LoadCustomFields() error {
 	files := FindRegistryWorkflowFiles()
 	if len(files) == 0 {
-		// no workflow files at all — no custom fields to register, clear any stale state
 		workflow.ClearCustomFields()
 		return nil
 	}
 
-	// collect all field definitions with their source file
-	type fieldSource struct {
-		def  customFieldYAML
-		file string
-	}
-	var allFields []fieldSource
-
-	for _, path := range files {
-		defs, err := readCustomFieldsFromFile(path)
-		if err != nil {
-			return fmt.Errorf("reading custom fields from %s: %w", path, err)
-		}
-		for _, d := range defs {
-			allFields = append(allFields, fieldSource{def: d, file: path})
-		}
+	rawDefs, err := readCustomFieldsFromFile(files[0])
+	if err != nil {
+		return fmt.Errorf("reading custom fields from %s: %w", files[0], err)
 	}
 
-	if len(allFields) == 0 {
+	if len(rawDefs) == 0 {
 		workflow.ClearCustomFields()
 		return nil
 	}
 
-	// merge: identical definitions allowed, conflicting definitions error
-	type mergedField struct {
-		def        workflow.FieldDef
-		sourceFile string
-	}
-	merged := make(map[string]*mergedField)
-
-	for _, fs := range allFields {
-		def, err := convertCustomFieldDef(fs.def)
+	defs := make([]workflow.FieldDef, 0, len(rawDefs))
+	for _, raw := range rawDefs {
+		def, err := convertCustomFieldDef(raw)
 		if err != nil {
-			return fmt.Errorf("field %q in %s: %w", fs.def.Name, fs.file, err)
+			return fmt.Errorf("field %q in %s: %w", raw.Name, files[0], err)
 		}
-
-		if existing, ok := merged[def.Name]; ok {
-			if !fieldDefsEqual(existing.def, def) {
-				return fmt.Errorf("conflicting definition for custom field %q: defined differently in %s and %s",
-					def.Name, existing.sourceFile, fs.file)
-			}
-			// identical redefinition — skip
-			continue
-		}
-
-		merged[def.Name] = &mergedField{def: def, sourceFile: fs.file}
+		defs = append(defs, def)
 	}
 
-	// build ordered slice for registration
-	defs := make([]workflow.FieldDef, 0, len(merged))
-	for _, m := range merged {
-		defs = append(defs, m.def)
-	}
-	// sort by name for deterministic ordering
 	sort.Slice(defs, func(i, j int) bool {
 		return defs[i].Name < defs[j].Name
 	})
@@ -143,38 +105,11 @@ func LoadCustomFields() error {
 	return nil
 }
 
-// FindRegistryWorkflowFiles returns all workflow.yaml files that exist,
-// without the views-filtering that FindWorkflowFiles applies.
-// Used by registry loaders (statuses, custom fields) that need to read
-// configuration sections regardless of whether the file defines views.
+// FindRegistryWorkflowFiles returns a single-element slice with the
+// highest-priority workflow.yaml, or nil if none found.
+// Delegates to FindWorkflowFiles — both now share the same semantics.
 func FindRegistryWorkflowFiles() []string {
-	pm := mustGetPathManager()
-
-	candidates := []string{
-		pm.UserConfigWorkflowFile(),
-		filepath.Join(pm.ProjectConfigDir(), defaultWorkflowFilename),
-		defaultWorkflowFilename, // relative to cwd
-	}
-
-	var result []string
-	seen := make(map[string]bool)
-
-	for _, path := range candidates {
-		abs, err := filepath.Abs(path)
-		if err != nil {
-			abs = path
-		}
-		if seen[abs] {
-			continue
-		}
-		if _, err := os.Stat(path); err != nil {
-			continue
-		}
-		seen[abs] = true
-		result = append(result, path)
-	}
-
-	return result
+	return FindWorkflowFiles()
 }
 
 // readCustomFieldsFromFile reads the fields: section from a single workflow.yaml.
@@ -249,24 +184,4 @@ func parseFieldType(s string) (workflow.ValueType, error) {
 	default:
 		return 0, fmt.Errorf("unknown field type %q (valid: text, integer, boolean, datetime, enum, stringList, taskIdList)", s)
 	}
-}
-
-// fieldDefsEqual returns true if two FieldDefs are structurally identical
-// (same name, same type, and for enums, same normalized values).
-func fieldDefsEqual(a, b workflow.FieldDef) bool {
-	if a.Name != b.Name || a.Type != b.Type {
-		return false
-	}
-	if a.Type == workflow.TypeEnum {
-		if len(a.AllowedValues) != len(b.AllowedValues) {
-			return false
-		}
-		// require exact spelling and order for duplicate enum declarations
-		for i := range a.AllowedValues {
-			if a.AllowedValues[i] != b.AllowedValues[i] {
-				return false
-			}
-		}
-	}
-	return true
 }

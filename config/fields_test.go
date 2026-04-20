@@ -162,64 +162,64 @@ fields:
 	}
 }
 
-func TestLoadCustomFields_ConflictingRedefinition(t *testing.T) {
+func TestLoadCustomFields_HighestPriorityFileWins(t *testing.T) {
 	cwdDir := setupLoadCustomFieldsTest(t)
 	pm := mustGetPathManager()
 
-	// write field definition in project config
+	// write fields in project config (lower priority)
 	projectWorkflow := filepath.Join(pm.ProjectConfigDir(), "workflow.yaml")
-	content1 := `
+	if err := os.WriteFile(projectWorkflow, []byte(`
 fields:
   - name: score
     type: integer
-`
-	if err := os.WriteFile(projectWorkflow, []byte(content1), 0644); err != nil {
+`), 0644); err != nil {
 		t.Fatal(err)
 	}
 
-	// write conflicting definition in cwd
-	content2 := `
+	// write different fields in cwd (highest priority)
+	if err := os.WriteFile(filepath.Join(cwdDir, "workflow.yaml"), []byte(`
 fields:
-  - name: score
+  - name: notes
     type: text
-`
-	if err := os.WriteFile(filepath.Join(cwdDir, "workflow.yaml"), []byte(content2), 0644); err != nil {
-		t.Fatal(err)
-	}
-
-	err := LoadCustomFields()
-	if err == nil {
-		t.Fatal("expected error for conflicting redefinition")
-	}
-}
-
-func TestLoadCustomFields_IdenticalRedefinition(t *testing.T) {
-	cwdDir := setupLoadCustomFieldsTest(t)
-	pm := mustGetPathManager()
-
-	// write identical definitions in two locations
-	content := `
-fields:
-  - name: score
-    type: integer
-`
-	projectWorkflow := filepath.Join(pm.ProjectConfigDir(), "workflow.yaml")
-	if err := os.WriteFile(projectWorkflow, []byte(content), 0644); err != nil {
-		t.Fatal(err)
-	}
-	if err := os.WriteFile(filepath.Join(cwdDir, "workflow.yaml"), []byte(content), 0644); err != nil {
+`), 0644); err != nil {
 		t.Fatal(err)
 	}
 
 	if err := LoadCustomFields(); err != nil {
-		t.Fatalf("identical redefinition should succeed: %v", err)
+		t.Fatalf("unexpected error: %v", err)
 	}
 
-	f, ok := workflow.Field("score")
-	if !ok {
-		t.Fatal("score field not found")
+	// only cwd fields should be loaded
+	if _, ok := workflow.Field("notes"); !ok {
+		t.Error("expected 'notes' from cwd workflow")
 	}
-	if f.Type != workflow.TypeInt {
-		t.Errorf("score.Type = %v, want TypeInt", f.Type)
+	if _, ok := workflow.Field("score"); ok {
+		t.Error("expected 'score' from project workflow to NOT be loaded")
+	}
+}
+
+func TestLoadCustomFields_MissingFieldsSection(t *testing.T) {
+	cwdDir := setupLoadCustomFieldsTest(t)
+
+	// workflow exists but has no fields: section
+	if err := os.WriteFile(filepath.Join(cwdDir, "workflow.yaml"), []byte(`
+statuses:
+  - key: open
+    label: Open
+    default: true
+  - key: done
+    label: Done
+    done: true
+`), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := LoadCustomFields(); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	// no custom fields should be registered
+	if _, ok := workflow.Field("score"); ok {
+		t.Error("expected no custom fields when fields: section is missing")
 	}
 }

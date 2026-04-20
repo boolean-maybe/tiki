@@ -13,7 +13,7 @@ import (
 	"github.com/gdamore/tcell/v2"
 )
 
-const inputActionWorkflow = `views:
+var inputActionWorkflow = testWorkflowPreamble + `views:
   plugins:
     - name: InputTest
       key: "F4"
@@ -470,15 +470,15 @@ func TestInputAction_InvalidInputKeepsPromptOpen(t *testing.T) {
 func TestInputAction_PreflightNoTaskSelected_NoPrompt(t *testing.T) {
 	tmpDir := t.TempDir()
 
-	// workflow with an empty lane (no tasks will match)
-	workflow := `views:
+	// workflow with a lane that will match no tasks (review lane, but test task is backlog)
+	workflow := testWorkflowPreamble + `views:
   plugins:
     - name: EmptyTest
       key: "F4"
       lanes:
         - name: Empty
           columns: 1
-          filter: select where status = "nonexistent" order by id
+          filter: select where status = "review" order by id
       actions:
         - key: "A"
           label: "Assign to..."
@@ -573,7 +573,7 @@ func TestInputAction_AddTagMutation(t *testing.T) {
 	}
 }
 
-const compositeKeyWorkflow = `views:
+var compositeKeyWorkflow = testWorkflowPreamble + `views:
   plugins:
     - name: CompositeTest
       key: "F4"

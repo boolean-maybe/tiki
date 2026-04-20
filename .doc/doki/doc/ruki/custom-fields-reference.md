@@ -20,14 +20,9 @@ Custom fields extend tiki's built-in field catalog with user-defined fields decl
 
 ## Registration and loading
 
-Custom field definitions are loaded from all `workflow.yaml` files across the three-tier search path (user config, project config, working directory). Files that define `fields:` but no `views:` still contribute field definitions.
+Custom field definitions come from the single highest-priority `workflow.yaml` (see [Configuration: Precedence](../config.md#precedence)). A missing `fields:` section means no custom fields are registered.
 
-Definitions from multiple files are merged by name:
-
-- **identical redefinition** (same name, same type, same enum values in same order): silently accepted
-- **conflicting redefinition** (same name, different type or values): fatal error naming both source files
-
-After merging, fields are sorted by name for deterministic ordering and registered into the field catalog alongside built-in fields. Once registered, custom fields are available for ruki parsing, validation, and execution.
+Fields are sorted by name for deterministic ordering and registered into the field catalog alongside built-in fields. Once registered, custom fields are available for ruki parsing, validation, and execution.
 
 Registration happens during bootstrap before any task or template loading occurs.
 

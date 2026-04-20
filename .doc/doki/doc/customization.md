@@ -58,8 +58,8 @@ You can customize these to match your team's workflow. All filters and actions i
 
 ## Types
 
-Task types are defined in `workflow.yaml` under the `types:` key. If omitted, built-in defaults are used.
-See [Custom statuses and types](custom-status-type.md) for the full validation and inheritance rules. The default `workflow.yaml` ships with:
+Task types are defined in `workflow.yaml` under the `types:` key. A missing `types:` section is an error.
+See [Custom statuses and types](custom-status-type.md) for the full validation rules. The default `workflow.yaml` ships with:
 
 ```yaml
 types:
@@ -214,7 +214,7 @@ views:
 
 Global actions appear in the header alongside per-plugin actions. If a per-plugin action uses the same key as a global action, the per-plugin action takes precedence for that view.
 
-When multiple workflow files define `views.actions`, they merge by key across files — later files override same-keyed globals from earlier files.
+Global actions come from the single active workflow file — there is no cross-file merging.
 
 ### Per-plugin actions
 

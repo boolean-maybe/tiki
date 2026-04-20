@@ -387,40 +387,6 @@ func TestLoadPluginsFromFile_DokiConfigIndex(t *testing.T) {
 	}
 }
 
-func TestMergePluginLists(t *testing.T) {
-	base := []Plugin{
-		&TikiPlugin{BasePlugin: BasePlugin{Name: "Board", FilePath: "base.yaml"}},
-		&TikiPlugin{BasePlugin: BasePlugin{Name: "Bugs", FilePath: "base.yaml"}},
-	}
-	overrides := []Plugin{
-		&TikiPlugin{BasePlugin: BasePlugin{Name: "Board", FilePath: "override.yaml"}},
-		&TikiPlugin{BasePlugin: BasePlugin{Name: "NewView", FilePath: "override.yaml"}},
-	}
-
-	result := mergePluginLists(base, overrides)
-
-	// Bugs (non-overridden) + Board (merged) + NewView (new)
-	if len(result) != 3 {
-		t.Fatalf("expected 3 plugins, got %d", len(result))
-	}
-
-	names := make([]string, len(result))
-	for i, p := range result {
-		names[i] = p.GetName()
-	}
-
-	// Bugs should come first (non-overridden base), then Board (merged), then NewView (new)
-	if names[0] != "Bugs" {
-		t.Errorf("expected first plugin 'Bugs', got %q", names[0])
-	}
-	if names[1] != "Board" {
-		t.Errorf("expected second plugin 'Board', got %q", names[1])
-	}
-	if names[2] != "NewView" {
-		t.Errorf("expected third plugin 'NewView', got %q", names[2])
-	}
-}
-
 func TestLoadPluginsFromFile_GlobalActions(t *testing.T) {
 	tmpDir := t.TempDir()
 	workflowContent := `views:
@@ -482,62 +448,6 @@ func TestLoadPluginsFromFile_LegacyFormatWithGlobalActions(t *testing.T) {
 	}
 	if len(globalActions) != 0 {
 		t.Errorf("expected 0 global actions from legacy format, got %d", len(globalActions))
-	}
-}
-
-func TestMergeGlobalActions(t *testing.T) {
-	stmt := mustParseAction(t, `update where id = id() set status="ready"`)
-
-	base := []PluginAction{
-		{Rune: 'a', KeyStr: "a", Label: "Assign", Action: stmt},
-		{Rune: 'b', KeyStr: "b", Label: "Board", Action: stmt},
-	}
-	overrides := []PluginAction{
-		{Rune: 'b', KeyStr: "b", Label: "Board Override", Action: stmt},
-		{Rune: 'c', KeyStr: "c", Label: "Create", Action: stmt},
-	}
-
-	result := mergeGlobalActions(base, overrides)
-	if len(result) != 3 {
-		t.Fatalf("expected 3 actions, got %d", len(result))
-	}
-	// 'a' unchanged, 'b' overridden, 'c' appended
-	if result[0].Label != "Assign" {
-		t.Errorf("expected 'Assign', got %q", result[0].Label)
-	}
-	if result[1].Label != "Board Override" {
-		t.Errorf("expected 'Board Override', got %q", result[1].Label)
-	}
-	if result[2].Label != "Create" {
-		t.Errorf("expected 'Create', got %q", result[2].Label)
-	}
-}
-
-func TestMergeGlobalActions_EmptyOverrides(t *testing.T) {
-	stmt := mustParseAction(t, `update where id = id() set status="ready"`)
-	base := []PluginAction{{Rune: 'a', KeyStr: "a", Label: "Assign", Action: stmt}}
-	result := mergeGlobalActions(base, nil)
-	if len(result) != 1 {
-		t.Fatalf("expected 1 action, got %d", len(result))
-	}
-}
-
-func TestMergeGlobalActions_CanonicalKeyStr(t *testing.T) {
-	stmt := mustParseAction(t, `update where id = id() set status="ready"`)
-
-	base := []PluginAction{
-		{KeyStr: "Ctrl-U", Label: "Global Ctrl-U", Action: stmt},
-	}
-	overrides := []PluginAction{
-		{KeyStr: "Ctrl-U", Label: "Local Ctrl-U", Action: stmt},
-	}
-
-	result := mergeGlobalActions(base, overrides)
-	if len(result) != 1 {
-		t.Fatalf("expected 1 action (merged), got %d", len(result))
-	}
-	if result[0].Label != "Local Ctrl-U" {
-		t.Errorf("expected override label, got %q", result[0].Label)
 	}
 }
 

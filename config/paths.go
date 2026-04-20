@@ -7,8 +7,6 @@ import (
 	"path/filepath"
 	"runtime"
 	"sync"
-
-	"gopkg.in/yaml.v3"
 )
 
 var (
@@ -333,24 +331,14 @@ const defaultWorkflowFilename = "workflow.yaml"
 // templateFilename is the default name for the task template file
 const templateFilename = "new.md"
 
-// FindWorkflowFiles returns all workflow.yaml files that exist and have non-empty views.
-// Ordering: user config file first (base), then project config file (overrides), then cwd.
-// This lets LoadPlugins load the base and merge overrides on top.
-func FindWorkflowFiles() []string {
-	pm := mustGetPathManager()
-
-	// Candidate paths in discovery order: user config (base) → project config → cwd
-	candidates := []string{
-		pm.UserConfigWorkflowFile(),
-		filepath.Join(pm.ProjectConfigDir(), defaultWorkflowFilename),
-		defaultWorkflowFilename, // relative to cwd
-	}
-
-	var result []string
+// findHighestPriorityFile returns the highest-priority existing file from
+// the standard search order: user config → project config → cwd.
+// The last existing (deduplicated) candidate wins.
+func findHighestPriorityFile(candidates []string) string {
+	var best string
 	seen := make(map[string]bool)
 
 	for _, path := range candidates {
-		// Resolve to absolute for dedup
 		abs, err := filepath.Abs(path)
 		if err != nil {
 			abs = path
@@ -358,57 +346,42 @@ func FindWorkflowFiles() []string {
 		if seen[abs] {
 			continue
 		}
-
 		if _, err := os.Stat(path); err != nil {
 			continue
 		}
-
-		// Check if the file has non-empty views
-		if hasEmptyViews(path) {
-			continue
-		}
-
 		seen[abs] = true
-		result = append(result, path)
+		best = path
 	}
 
-	return result
+	return best
 }
 
-// hasEmptyViews returns true if the workflow file has an explicit empty views section.
-// Handles both old list format (views: []) and new map format (views: {plugins: []}).
-func hasEmptyViews(path string) bool {
-	data, err := os.ReadFile(path)
-	if err != nil {
-		return false
-	}
-
-	var raw struct {
-		Views interface{} `yaml:"views"`
-	}
-	if err := yaml.Unmarshal(data, &raw); err != nil {
-		return false
-	}
-	switch v := raw.Views.(type) {
-	case []interface{}:
-		return len(v) == 0
-	case map[string]interface{}:
-		plugins, _ := v["plugins"].([]interface{})
-		return plugins != nil && len(plugins) == 0
-	default:
-		return false
+// workflowCandidates returns the standard workflow.yaml search paths
+// in priority order: user config (lowest) → project config → cwd (highest).
+func workflowCandidates() []string {
+	pm := mustGetPathManager()
+	return []string{
+		pm.UserConfigWorkflowFile(),
+		filepath.Join(pm.ProjectConfigDir(), defaultWorkflowFilename),
+		defaultWorkflowFilename, // relative to cwd
 	}
 }
 
-// FindWorkflowFile searches for workflow.yaml in config search paths.
-// Returns the first found path with non-empty views, or empty string if not found.
-// Convenience wrapper over FindWorkflowFiles for code that needs a single path.
+// FindWorkflowFiles returns a single-element slice with the highest-priority
+// workflow.yaml that exists, or nil if none found. All workflow-backed sections
+// (views, statuses, types, fields, triggers) come from this one file.
+func FindWorkflowFiles() []string {
+	best := findHighestPriorityFile(workflowCandidates())
+	if best == "" {
+		return nil
+	}
+	return []string{best}
+}
+
+// FindWorkflowFile returns the highest-priority workflow.yaml path,
+// or empty string if none found.
 func FindWorkflowFile() string {
-	files := FindWorkflowFiles()
-	if len(files) == 0 {
-		return ""
-	}
-	return files[0]
+	return findHighestPriorityFile(workflowCandidates())
 }
 
 // FindTemplateFile returns the highest-priority new.md file that exists,
