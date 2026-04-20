@@ -45,27 +45,33 @@ type TaskEditView struct {
 	tagsEditing        bool
 
 	// All callbacks
-	onTitleSave      func(string)
-	onTitleChange    func(string)
-	onTitleCancel    func()
-	onDescSave       func(string)
-	onDescCancel     func()
-	onStatusSave     func(string)
-	onTypeSave       func(string)
-	onPrioritySave   func(int)
-	onAssigneeSave   func(string)
-	onPointsSave     func(int)
-	onDueSave        func(string)
-	onRecurrenceSave func(string)
-	onTagsSave       func(string)
-	onTagsCancel     func()
+	onTitleSave         func(string)
+	onTitleChange       func(string)
+	onTitleCancel       func()
+	onDescSave          func(string)
+	onDescCancel        func()
+	onStatusSave        func(string)
+	onTypeSave          func(string)
+	onPrioritySave      func(int)
+	onAssigneeSave      func(string)
+	onPointsSave        func(int)
+	onDueSave           func(string)
+	onRecurrenceSave    func(string)
+	onTagsSave          func(string)
+	onTagsCancel        func()
+	actionChangeHandler func()
 }
 
 // Compile-time interface checks
 var (
-	_ controller.View          = (*TaskEditView)(nil)
-	_ controller.FocusSettable = (*TaskEditView)(nil)
+	_ controller.View                 = (*TaskEditView)(nil)
+	_ controller.FocusSettable        = (*TaskEditView)(nil)
+	_ controller.ActionChangeNotifier = (*TaskEditView)(nil)
 )
+
+func (ev *TaskEditView) SetActionChangeHandler(handler func()) {
+	ev.actionChangeHandler = handler
+}
 
 // NewTaskEditView creates a task edit view
 func NewTaskEditView(taskStore store.Store, taskID string, imageManager *navtview.ImageManager) *TaskEditView {
@@ -75,7 +81,7 @@ func NewTaskEditView(taskStore store.Store, taskID string, imageManager *navtvie
 			taskID:       taskID,
 			imageManager: imageManager,
 		},
-		registry:     controller.TaskEditViewActions(),
+		registry:     controller.GetActionsForField(model.EditFieldTitle),
 		viewID:       model.TaskEditViewID,
 		focusedField: model.EditFieldTitle,
 		titleEditing: true,
@@ -142,7 +148,11 @@ func (ev *TaskEditView) SetDescOnly(descOnly bool) {
 	ev.descOnly = descOnly
 	if descOnly {
 		ev.focusedField = model.EditFieldDescription
+		ev.registry = controller.DescOnlyEditActions()
 		ev.refresh()
+		if ev.actionChangeHandler != nil {
+			ev.actionChangeHandler()
+		}
 	}
 }
 
@@ -156,7 +166,11 @@ func (ev *TaskEditView) IsDescOnly() bool {
 func (ev *TaskEditView) SetTagsOnly(tagsOnly bool) {
 	ev.tagsOnly = tagsOnly
 	if tagsOnly {
+		ev.registry = controller.TagsOnlyEditActions()
 		ev.refresh()
+		if ev.actionChangeHandler != nil {
+			ev.actionChangeHandler()
+		}
 	}
 }
 

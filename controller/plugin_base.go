@@ -36,6 +36,15 @@ func (pb *pluginBase) newExecutor() *ruki.Executor {
 func (pb *pluginBase) GetActionRegistry() *ActionRegistry { return pb.registry }
 func (pb *pluginBase) GetPluginName() string              { return pb.pluginDef.Name }
 
+// default no-op implementations for input-backed action methods
+func (pb *pluginBase) GetActionInputSpec(ActionID) (string, ruki.ValueType, bool) {
+	return "", 0, false
+}
+func (pb *pluginBase) CanStartActionInput(ActionID) (string, ruki.ValueType, bool) {
+	return "", 0, false
+}
+func (pb *pluginBase) HandleActionInput(ActionID, string) InputSubmitResult { return InputKeepEditing }
+
 func (pb *pluginBase) handleNav(direction string, filteredTasks func(int) []*task.Task) bool {
 	lane := pb.pluginConfig.GetSelectedLane()
 	tasks := filteredTasks(lane)

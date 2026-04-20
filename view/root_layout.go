@@ -36,6 +36,8 @@ type RootLayout struct {
 	contentView   controller.View
 	lastParamsKey string
 
+	viewContext *model.ViewContext
+
 	headerListenerID      int
 	layoutListenerID      int
 	storeListenerID       int
@@ -50,6 +52,7 @@ type RootLayout struct {
 type RootLayoutOpts struct {
 	Header           *header.HeaderWidget
 	HeaderConfig     *model.HeaderConfig
+	ViewContext      *model.ViewContext
 	LayoutModel      *model.LayoutModel
 	ViewFactory      controller.ViewFactory
 	TaskStore        store.Store
@@ -65,6 +68,7 @@ func NewRootLayout(opts RootLayoutOpts) *RootLayout {
 		header:                opts.Header,
 		contentArea:           tview.NewFlex().SetDirection(tview.FlexRow),
 		headerConfig:          opts.HeaderConfig,
+		viewContext:           opts.ViewContext,
 		layoutModel:           opts.LayoutModel,
 		viewFactory:           opts.ViewFactory,
 		taskStore:             opts.TaskStore,
@@ -139,20 +143,8 @@ func (rl *RootLayout) onLayoutChange() {
 	rl.contentArea.AddItem(newView.GetPrimitive(), 0, 1, true)
 	rl.contentView = newView
 
-	// Update header with new view's actions
-	rl.headerConfig.SetViewActions(newView.GetActionRegistry().ToHeaderActions())
-
-	// Show or hide plugin navigation keys based on the view's declaration
-	if np, ok := newView.(controller.NavigationProvider); ok && np.ShowNavigation() {
-		rl.headerConfig.SetPluginActions(controller.GetPluginActions().ToHeaderActions())
-	} else {
-		rl.headerConfig.SetPluginActions(nil)
-	}
-
-	// Update header info section with view name and description
-	if vip, ok := newView.(controller.ViewInfoProvider); ok {
-		rl.headerConfig.SetViewInfo(vip.GetViewName(), vip.GetViewDescription())
-	}
+	// Sync view context (writes to both ViewContext and HeaderConfig for header actions)
+	rl.syncViewContextFromView(newView)
 
 	// Update statusline stats from the view
 	rl.updateStatuslineViewStats(newView)
@@ -166,6 +158,13 @@ func (rl *RootLayout) onLayoutChange() {
 	if notifier, ok := newView.(controller.FullscreenChangeNotifier); ok {
 		notifier.SetFullscreenChangeHandler(func(_ bool) {
 			rl.recomputeHeaderVisibility(newView)
+		})
+	}
+
+	// Wire up action change notifications (registry or enablement changes on the same view)
+	if notifier, ok := newView.(controller.ActionChangeNotifier); ok {
+		notifier.SetActionChangeHandler(func() {
+			rl.syncViewContextFromView(newView)
 		})
 	}
 
@@ -197,6 +196,32 @@ func (rl *RootLayout) onLayoutChange() {
 		}
 	}
 	rl.app.SetFocus(newView.GetPrimitive())
+}
+
+// syncViewContextFromView computes view name/description, view actions, and plugin actions
+// from the active view, then writes to both ViewContext (single atomic update) and HeaderConfig
+// (for backward-compatible header display during the transition period).
+func (rl *RootLayout) syncViewContextFromView(v controller.View) {
+	if v == nil {
+		return
+	}
+
+	viewActions := v.GetActionRegistry().ToHeaderActions()
+
+	var pluginActions []model.HeaderAction
+	if np, ok := v.(controller.NavigationProvider); ok && np.ShowNavigation() {
+		pluginActions = controller.GetPluginActions().ToHeaderActions()
+	}
+
+	var viewName, viewDesc string
+	if vip, ok := v.(controller.ViewInfoProvider); ok {
+		viewName = vip.GetViewName()
+		viewDesc = vip.GetViewDescription()
+	}
+
+	if rl.viewContext != nil {
+		rl.viewContext.SetFromView(v.GetViewID(), viewName, viewDesc, viewActions, pluginActions)
+	}
 }
 
 // recomputeHeaderVisibility computes header visibility based on view requirements and user preference

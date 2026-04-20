@@ -1,7 +1,6 @@
 package view
 
 import (
-	_ "embed"
 	"fmt"
 	"log/slog"
 
@@ -18,24 +17,16 @@ import (
 	"github.com/rivo/tview"
 )
 
-//go:embed help/help.md
-var helpMd string
-
-//go:embed help/tiki.md
-var tikiMd string
-
-//go:embed help/custom.md
-var customMd string
-
 // DokiView renders a documentation plugin (navigable markdown)
 type DokiView struct {
-	root         *tview.Flex
-	titleBar     tview.Primitive
-	md           *markdown.NavigableMarkdown
-	pluginDef    *plugin.DokiPlugin
-	registry     *controller.ActionRegistry
-	imageManager *navtview.ImageManager
-	mermaidOpts  *nav.MermaidOptions
+	root                *tview.Flex
+	titleBar            tview.Primitive
+	md                  *markdown.NavigableMarkdown
+	pluginDef           *plugin.DokiPlugin
+	registry            *controller.ActionRegistry
+	imageManager        *navtview.ImageManager
+	mermaidOpts         *nav.MermaidOptions
+	actionChangeHandler func()
 }
 
 // NewDokiView creates a doki view
@@ -93,13 +84,15 @@ func (dv *DokiView) build() {
 			MermaidOptions: dv.mermaidOpts,
 		})
 
+	// fetcher: internal is intentionally preserved as a supported pattern for
+	// code-only internal docs, even though no default workflow currently uses it.
+	//
+	// The default Help plugin previously used this with embedded markdown:
+	//   cnt := map[string]string{"Help": helpMd, "tiki.md": tikiMd, "view.md": customMd}
+	//   provider := &internalDokiProvider{content: cnt}
+	// That usage was replaced by the action palette (press Ctrl+A to open).
 	case "internal":
-		cnt := map[string]string{
-			"Help":    helpMd,
-			"tiki.md": tikiMd,
-			"view.md": customMd,
-		}
-		provider := &internalDokiProvider{content: cnt}
+		provider := &internalDokiProvider{content: map[string]string{}}
 		content, err = provider.FetchContent(nav.NavElement{Text: dv.pluginDef.Text})
 
 		dv.md = markdown.NewNavigableMarkdown(markdown.NavigableMarkdownConfig{
@@ -172,6 +165,10 @@ func (dv *DokiView) OnBlur() {
 	}
 }
 
+func (dv *DokiView) SetActionChangeHandler(handler func()) {
+	dv.actionChangeHandler = handler
+}
+
 // UpdateNavigationActions updates the registry to reflect current navigation state
 func (dv *DokiView) UpdateNavigationActions() {
 	// Clear and rebuild the registry
@@ -212,6 +209,37 @@ func (dv *DokiView) UpdateNavigationActions() {
 			ShowInHeader: true,
 		})
 	}
+
+	if dv.actionChangeHandler != nil {
+		dv.actionChangeHandler()
+	}
+}
+
+// HandlePaletteAction maps palette-dispatched actions to the markdown viewer's
+// existing key-driven behavior by replaying synthetic key events.
+func (dv *DokiView) HandlePaletteAction(id controller.ActionID) bool {
+	if dv.md == nil {
+		return false
+	}
+	var event *tcell.EventKey
+	switch id {
+	case "navigate_next_link":
+		event = tcell.NewEventKey(tcell.KeyTab, 0, tcell.ModNone)
+	case "navigate_prev_link":
+		event = tcell.NewEventKey(tcell.KeyBacktab, 0, tcell.ModNone)
+	case controller.ActionNavigateBack:
+		event = tcell.NewEventKey(tcell.KeyLeft, 0, tcell.ModNone)
+	case controller.ActionNavigateForward:
+		event = tcell.NewEventKey(tcell.KeyRight, 0, tcell.ModNone)
+	default:
+		return false
+	}
+	handler := dv.md.Viewer().InputHandler()
+	if handler != nil {
+		handler(event, nil)
+		return true
+	}
+	return false
 }
 
 // internalDokiProvider implements navidown.ContentProvider for embedded/internal docs.

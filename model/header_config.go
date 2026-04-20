@@ -25,17 +25,13 @@ type StatValue struct {
 	Priority int
 }
 
-// HeaderConfig manages ALL header state - both content AND visibility.
+// HeaderConfig manages header visibility and burndown state.
+// View identity and actions are now in ViewContext.
 // Thread-safe model that notifies listeners when state changes.
 type HeaderConfig struct {
 	mu sync.RWMutex
 
-	// Content state
-	viewActions     []HeaderAction
-	pluginActions   []HeaderAction
-	viewName        string // current view name for info section
-	viewDescription string // current view description for info section
-	burndown        []store.BurndownPoint
+	burndown []store.BurndownPoint
 
 	// Visibility state
 	visible        bool // current header visibility (may be overridden by fullscreen view)
@@ -54,59 +50,6 @@ func NewHeaderConfig() *HeaderConfig {
 		listeners:      make(map[int]func()),
 		nextListener:   1,
 	}
-}
-
-// SetViewActions updates the view-specific header actions
-func (hc *HeaderConfig) SetViewActions(actions []HeaderAction) {
-	hc.mu.Lock()
-	hc.viewActions = actions
-	hc.mu.Unlock()
-	hc.notifyListeners()
-}
-
-// GetViewActions returns the current view's header actions
-func (hc *HeaderConfig) GetViewActions() []HeaderAction {
-	hc.mu.RLock()
-	defer hc.mu.RUnlock()
-	return hc.viewActions
-}
-
-// SetPluginActions updates the plugin navigation header actions
-func (hc *HeaderConfig) SetPluginActions(actions []HeaderAction) {
-	hc.mu.Lock()
-	hc.pluginActions = actions
-	hc.mu.Unlock()
-	hc.notifyListeners()
-}
-
-// GetPluginActions returns the plugin navigation header actions
-func (hc *HeaderConfig) GetPluginActions() []HeaderAction {
-	hc.mu.RLock()
-	defer hc.mu.RUnlock()
-	return hc.pluginActions
-}
-
-// SetViewInfo sets the current view name and description for the header info section
-func (hc *HeaderConfig) SetViewInfo(name, description string) {
-	hc.mu.Lock()
-	hc.viewName = name
-	hc.viewDescription = description
-	hc.mu.Unlock()
-	hc.notifyListeners()
-}
-
-// GetViewName returns the current view name
-func (hc *HeaderConfig) GetViewName() string {
-	hc.mu.RLock()
-	defer hc.mu.RUnlock()
-	return hc.viewName
-}
-
-// GetViewDescription returns the current view description
-func (hc *HeaderConfig) GetViewDescription() string {
-	hc.mu.RLock()
-	defer hc.mu.RUnlock()
-	return hc.viewDescription
 }
 
 // SetBurndown updates the burndown chart data

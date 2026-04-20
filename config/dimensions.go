@@ -13,8 +13,8 @@ const (
 	TaskBoxPaddingExpanded = 4  // Width padding in expanded mode
 	TaskBoxMinWidth        = 10 // Minimum width fallback
 
-	// Search box dimensions
-	SearchBoxHeight = 3
+	// Input box dimensions
+	InputBoxHeight = 3
 
 	// TaskList default visible rows
 	TaskListDefaultMaxRows = 10

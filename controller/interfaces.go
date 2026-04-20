@@ -51,24 +51,46 @@ type SelectableView interface {
 	SetSelectedID(id string)
 }
 
-// SearchableView is a view that supports search functionality
-type SearchableView interface {
+// InputSubmitResult controls what happens to the input box after a submit callback.
+type InputSubmitResult int
+
+const (
+	InputKeepEditing InputSubmitResult = iota // keep the box open and focused for correction
+	InputShowPassive                          // keep the box visible but unfocused/non-editable
+	InputClose                                // close/hide the box
+)
+
+// InputableView is a view that supports an input box (for search, action input, etc.)
+type InputableView interface {
 	View
 
-	// ShowSearch displays the search box and returns the primitive to focus
-	ShowSearch() tview.Primitive
+	// ShowInputBox displays the input box for action-input mode.
+	// If search is passive, it temporarily replaces the search indicator.
+	ShowInputBox(prompt, initial string) tview.Primitive
 
-	// HideSearch hides the search box
-	HideSearch()
+	// ShowSearchBox opens the input box in search-editing mode.
+	ShowSearchBox() tview.Primitive
 
-	// IsSearchVisible returns whether the search box is currently visible
-	IsSearchVisible() bool
+	// HideInputBox hides the input box (generic widget teardown only, no search state)
+	HideInputBox()
 
-	// IsSearchBoxFocused returns whether the search box currently has focus
-	IsSearchBoxFocused() bool
+	// CancelInputBox triggers mode-aware cancel (search clears results, action-input restores passive search)
+	CancelInputBox()
 
-	// SetSearchSubmitHandler sets the callback for when search is submitted
-	SetSearchSubmitHandler(handler func(text string))
+	// IsInputBoxVisible returns whether the input box is currently visible (any mode)
+	IsInputBoxVisible() bool
+
+	// IsInputBoxFocused returns whether the input box currently has focus
+	IsInputBoxFocused() bool
+
+	// IsSearchPassive returns true if search is applied and the box is in passive/unfocused mode
+	IsSearchPassive() bool
+
+	// SetInputSubmitHandler sets the callback for when input is submitted
+	SetInputSubmitHandler(handler func(text string) InputSubmitResult)
+
+	// SetInputCancelHandler sets the callback for when input is cancelled
+	SetInputCancelHandler(handler func())
 
 	// SetFocusSetter sets the callback for requesting focus changes
 	SetFocusSetter(setter func(p tview.Primitive))
@@ -270,6 +292,27 @@ type RecurrencePartNavigable interface {
 	MoveRecurrencePartLeft() bool
 	MoveRecurrencePartRight() bool
 	IsRecurrenceValueFocused() bool
+}
+
+// PaletteActionHandler is implemented by views that handle palette-dispatched actions
+// directly (e.g., DokiView replays navigation as synthetic key events).
+// The palette tries this before falling back to InputRouter.HandleAction.
+type PaletteActionHandler interface {
+	HandlePaletteAction(id ActionID) bool
+}
+
+// FocusRestorer is implemented by views that can recover focus after the palette closes
+// when the originally saved focused primitive is no longer valid (e.g., TaskDetailView
+// rebuilds its description primitive during store-driven refresh).
+type FocusRestorer interface {
+	RestoreFocus() bool
+}
+
+// ActionChangeNotifier is implemented by views that mutate their action registry
+// or live enablement/presentation state while the same view instance stays active.
+// RootLayout wires the handler and reruns syncViewContextFromView when fired.
+type ActionChangeNotifier interface {
+	SetActionChangeHandler(handler func())
 }
 
 // ViewInfoProvider is a view that provides its name and description for the header info section

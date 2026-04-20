@@ -24,6 +24,9 @@ type PluginControllerInterface interface {
 	HandleAction(ActionID) bool
 	HandleSearch(string)
 	ShowNavigation() bool
+	GetActionInputSpec(ActionID) (prompt string, typ ruki.ValueType, hasInput bool)
+	CanStartActionInput(ActionID) (prompt string, typ ruki.ValueType, ok bool)
+	HandleActionInput(ActionID, string) InputSubmitResult
 }
 
 // TikiViewProvider is implemented by controllers that back a TikiPlugin view.
@@ -54,6 +57,8 @@ type InputRouter struct {
 	statusline        *model.StatuslineConfig
 	schema            ruki.Schema
 	registerPlugin    func(name string, cfg *model.PluginConfig, def plugin.Plugin, ctrl PluginControllerInterface)
+	headerConfig      *model.HeaderConfig
+	paletteConfig     *model.ActionPaletteConfig
 }
 
 // NewInputRouter creates an input router
@@ -79,6 +84,16 @@ func NewInputRouter(
 	}
 }
 
+// SetHeaderConfig wires the header config for fullscreen-aware header toggling.
+func (ir *InputRouter) SetHeaderConfig(hc *model.HeaderConfig) {
+	ir.headerConfig = hc
+}
+
+// SetPaletteConfig wires the palette config for ActionOpenPalette dispatch.
+func (ir *InputRouter) SetPaletteConfig(pc *model.ActionPaletteConfig) {
+	ir.paletteConfig = pc
+}
+
 // HandleInput processes a key event for the current view and routes it to the appropriate handler.
 // It processes events through multiple handlers in order:
 // 1. Search input (if search is active)
@@ -90,6 +105,28 @@ func NewInputRouter(
 // Returns true if the event was handled, false otherwise.
 func (ir *InputRouter) HandleInput(event *tcell.EventKey, currentView *ViewEntry) bool {
 	slog.Debug("input received", "name", event.Name(), "key", int(event.Key()), "rune", string(event.Rune()), "modifiers", int(event.Modifiers()))
+
+	// palette fires regardless of focus context (Ctrl+A can't conflict with typing)
+	if action := ir.globalActions.Match(event); action != nil {
+		if action.ID == ActionOpenPalette {
+			return ir.handleGlobalAction(action.ID)
+		}
+	}
+
+	// if the input box is focused, let it handle all remaining input (including F10)
+	if activeView := ir.navController.GetActiveView(); activeView != nil {
+		if iv, ok := activeView.(InputableView); ok && iv.IsInputBoxFocused() {
+			return false
+		}
+	}
+
+	// pre-gate: global actions that must fire before task-edit Prepare() and before
+	// search/fullscreen/editor gates
+	if action := ir.globalActions.Match(event); action != nil {
+		if action.ID == ActionToggleHeader {
+			return ir.handleGlobalAction(action.ID)
+		}
+	}
 
 	if currentView == nil {
 		return false
@@ -104,7 +141,7 @@ func (ir *InputRouter) HandleInput(event *tcell.EventKey, currentView *ViewEntry
 		ir.taskEditCoord.Prepare(activeView, model.DecodeTaskEditParams(currentView.Params))
 	}
 
-	if stop, handled := ir.maybeHandleSearchInput(activeView, event); stop {
+	if stop, handled := ir.maybeHandleInputBox(activeView, event); stop {
 		return handled
 	}
 	if stop, handled := ir.maybeHandleFullscreenEscape(activeView, event); stop {
@@ -137,20 +174,20 @@ func (ir *InputRouter) HandleInput(event *tcell.EventKey, currentView *ViewEntry
 	}
 }
 
-// maybeHandleSearchInput handles search box focus/visibility semantics.
+// maybeHandleInputBox handles input box focus/visibility semantics.
 // stop=true means input routing should stop and return handled.
-func (ir *InputRouter) maybeHandleSearchInput(activeView View, event *tcell.EventKey) (stop bool, handled bool) {
-	searchableView, ok := activeView.(SearchableView)
+func (ir *InputRouter) maybeHandleInputBox(activeView View, event *tcell.EventKey) (stop bool, handled bool) {
+	inputableView, ok := activeView.(InputableView)
 	if !ok {
 		return false, false
 	}
-	if searchableView.IsSearchBoxFocused() {
-		// Search box has focus and handles input through tview.
+	if inputableView.IsInputBoxFocused() {
 		return true, false
 	}
-	// Search is visible but grid has focus - handle Esc to close search.
-	if searchableView.IsSearchVisible() && event.Key() == tcell.KeyEscape {
-		searchableView.HideSearch()
+	// visible but not focused (passive mode): Esc dismisses via cancel path
+	// so search-specific teardown fires (clearing results)
+	if inputableView.IsInputBoxVisible() && event.Key() == tcell.KeyEscape {
+		inputableView.CancelInputBox()
 		return true, true
 	}
 	return false, false
@@ -262,28 +299,29 @@ func (ir *InputRouter) openDepsEditor(taskID string) bool {
 // handlePluginInput routes input to the appropriate plugin controller
 func (ir *InputRouter) handlePluginInput(event *tcell.EventKey, viewID model.ViewID) bool {
 	pluginName := model.GetPluginName(viewID)
-	controller, ok := ir.pluginControllers[pluginName]
+	ctrl, ok := ir.pluginControllers[pluginName]
 	if !ok {
 		slog.Warn("plugin controller not found", "plugin", pluginName)
 		return false
 	}
 
-	registry := controller.GetActionRegistry()
+	registry := ctrl.GetActionRegistry()
 	if action := registry.Match(event); action != nil {
-		// Handle search action specially - show search box
 		if action.ID == ActionSearch {
-			return ir.handleSearchAction(controller)
+			return ir.handleSearchInput(ctrl)
 		}
-		// Handle plugin activation keys - switch to different plugin
 		if targetPluginName := GetPluginNameFromAction(action.ID); targetPluginName != "" {
 			targetViewID := model.MakePluginViewID(targetPluginName)
 			if viewID != targetViewID {
 				ir.navController.ReplaceView(targetViewID, nil)
 				return true
 			}
-			return true // already on this plugin, consume the event
+			return true
 		}
-		return controller.HandleAction(action.ID)
+		if _, _, hasInput := ctrl.GetActionInputSpec(action.ID); hasInput {
+			return ir.startActionInput(ctrl, action.ID)
+		}
+		return ctrl.HandleAction(action.ID)
 	}
 	return false
 }
@@ -293,8 +331,6 @@ func (ir *InputRouter) handleGlobalAction(actionID ActionID) bool {
 	switch actionID {
 	case ActionBack:
 		if v := ir.navController.GetActiveView(); v != nil && v.GetViewID() == model.TaskEditViewID {
-			// Cancel edit session (discards changes) and close.
-			// This keeps the ActionBack behavior consistent across input paths.
 			return ir.taskEditCoord.CancelAndClose()
 		}
 		return ir.navController.HandleBack()
@@ -304,32 +340,262 @@ func (ir *InputRouter) handleGlobalAction(actionID ActionID) bool {
 	case ActionRefresh:
 		_ = ir.taskStore.Reload()
 		return true
+	case ActionOpenPalette:
+		if ir.paletteConfig != nil {
+			ir.paletteConfig.SetVisible(true)
+		}
+		return true
+	case ActionToggleHeader:
+		ir.toggleHeader()
+		return true
 	default:
 		return false
 	}
 }
 
-// handleSearchAction is a generic handler for ActionSearch across all searchable views
-func (ir *InputRouter) handleSearchAction(controller interface{ HandleSearch(string) }) bool {
+// toggleHeader toggles the stored user preference and recomputes effective visibility
+// against the live active view so fullscreen/header-hidden views stay force-hidden.
+func (ir *InputRouter) toggleHeader() {
+	if ir.headerConfig == nil {
+		return
+	}
+	newPref := !ir.headerConfig.GetUserPreference()
+	ir.headerConfig.SetUserPreference(newPref)
+
+	visible := newPref
+	if v := ir.navController.GetActiveView(); v != nil {
+		if hv, ok := v.(interface{ RequiresHeaderHidden() bool }); ok && hv.RequiresHeaderHidden() {
+			visible = false
+		}
+		if fv, ok := v.(FullscreenView); ok && fv.IsFullscreen() {
+			visible = false
+		}
+	}
+	ir.headerConfig.SetVisible(visible)
+}
+
+// HandleAction dispatches a palette-selected action by ID against the given view entry.
+// This is the controller-side fallback for palette execution — the palette tries
+// view.HandlePaletteAction first, then falls back here.
+func (ir *InputRouter) HandleAction(id ActionID, currentView *ViewEntry) bool {
+	if currentView == nil {
+		return false
+	}
+
+	// block palette-dispatched actions while an input box is in editing mode
+	if activeView := ir.navController.GetActiveView(); activeView != nil {
+		if iv, ok := activeView.(InputableView); ok && iv.IsInputBoxFocused() {
+			return false
+		}
+	}
+
+	// global actions
+	if ir.globalActions.ContainsID(id) {
+		return ir.handleGlobalAction(id)
+	}
+
 	activeView := ir.navController.GetActiveView()
-	searchableView, ok := activeView.(SearchableView)
+
+	switch currentView.ViewID {
+	case model.TaskDetailViewID:
+		taskID := model.DecodeTaskDetailParams(currentView.Params).TaskID
+		if taskID != "" {
+			ir.taskController.SetCurrentTask(taskID)
+		}
+		return ir.dispatchTaskAction(id, currentView.Params)
+
+	case model.TaskEditViewID:
+		if activeView != nil {
+			ir.taskEditCoord.Prepare(activeView, model.DecodeTaskEditParams(currentView.Params))
+		}
+		return ir.dispatchTaskEditAction(id, activeView)
+
+	default:
+		if model.IsPluginViewID(currentView.ViewID) {
+			return ir.dispatchPluginAction(id, currentView.ViewID)
+		}
+		return false
+	}
+}
+
+// dispatchTaskAction handles palette-dispatched task detail actions by ActionID.
+func (ir *InputRouter) dispatchTaskAction(id ActionID, _ map[string]interface{}) bool {
+	switch id {
+	case ActionEditTitle:
+		taskID := ir.taskController.GetCurrentTaskID()
+		if taskID == "" {
+			return false
+		}
+		ir.navController.PushView(model.TaskEditViewID, model.EncodeTaskEditParams(model.TaskEditParams{
+			TaskID: taskID,
+			Focus:  model.EditFieldTitle,
+		}))
+		return true
+	case ActionFullscreen:
+		activeView := ir.navController.GetActiveView()
+		if fullscreenView, ok := activeView.(FullscreenView); ok {
+			if fullscreenView.IsFullscreen() {
+				fullscreenView.ExitFullscreen()
+			} else {
+				fullscreenView.EnterFullscreen()
+			}
+			return true
+		}
+		return false
+	case ActionEditDesc:
+		taskID := ir.taskController.GetCurrentTaskID()
+		if taskID == "" {
+			return false
+		}
+		ir.navController.PushView(model.TaskEditViewID, model.EncodeTaskEditParams(model.TaskEditParams{
+			TaskID:   taskID,
+			Focus:    model.EditFieldDescription,
+			DescOnly: true,
+		}))
+		return true
+	case ActionEditTags:
+		taskID := ir.taskController.GetCurrentTaskID()
+		if taskID == "" {
+			return false
+		}
+		ir.navController.PushView(model.TaskEditViewID, model.EncodeTaskEditParams(model.TaskEditParams{
+			TaskID:   taskID,
+			TagsOnly: true,
+		}))
+		return true
+	case ActionEditDeps:
+		taskID := ir.taskController.GetCurrentTaskID()
+		if taskID == "" {
+			return false
+		}
+		return ir.openDepsEditor(taskID)
+	case ActionChat:
+		agent := config.GetAIAgent()
+		if agent == "" {
+			return false
+		}
+		taskID := ir.taskController.GetCurrentTaskID()
+		if taskID == "" {
+			return false
+		}
+		filename := strings.ToLower(taskID) + ".md"
+		taskFilePath := filepath.Join(config.GetTaskDir(), filename)
+		name, args := resolveAgentCommand(agent, taskFilePath)
+		ir.navController.SuspendAndRun(name, args...)
+		_ = ir.taskStore.ReloadTask(taskID)
+		return true
+	case ActionCloneTask:
+		return ir.taskController.HandleAction(id)
+	default:
+		return ir.taskController.HandleAction(id)
+	}
+}
+
+// dispatchTaskEditAction handles palette-dispatched task edit actions by ActionID.
+func (ir *InputRouter) dispatchTaskEditAction(id ActionID, activeView View) bool {
+	switch id {
+	case ActionSaveTask:
+		if activeView != nil {
+			return ir.taskEditCoord.CommitAndClose(activeView)
+		}
+		return false
+	default:
+		return false
+	}
+}
+
+// dispatchPluginAction handles palette-dispatched plugin actions by ActionID.
+func (ir *InputRouter) dispatchPluginAction(id ActionID, viewID model.ViewID) bool {
+	if targetPluginName := GetPluginNameFromAction(id); targetPluginName != "" {
+		targetViewID := model.MakePluginViewID(targetPluginName)
+		if viewID != targetViewID {
+			ir.navController.ReplaceView(targetViewID, nil)
+			return true
+		}
+		return true
+	}
+
+	pluginName := model.GetPluginName(viewID)
+	ctrl, ok := ir.pluginControllers[pluginName]
 	if !ok {
 		return false
 	}
 
-	// Set up focus callback
+	if id == ActionSearch {
+		return ir.handleSearchInput(ctrl)
+	}
+
+	if _, _, hasInput := ctrl.GetActionInputSpec(id); hasInput {
+		return ir.startActionInput(ctrl, id)
+	}
+
+	return ctrl.HandleAction(id)
+}
+
+// startActionInput opens the input box for an action that requires user input.
+func (ir *InputRouter) startActionInput(ctrl PluginControllerInterface, actionID ActionID) bool {
+	_, _, ok := ctrl.CanStartActionInput(actionID)
+	if !ok {
+		return false
+	}
+
+	activeView := ir.navController.GetActiveView()
+	inputableView, ok := activeView.(InputableView)
+	if !ok {
+		return false
+	}
+
 	app := ir.navController.GetApp()
-	searchableView.SetFocusSetter(func(p tview.Primitive) {
+	inputableView.SetFocusSetter(func(p tview.Primitive) {
 		app.SetFocus(p)
 	})
 
-	// Wire up search submit handler to controller
-	searchableView.SetSearchSubmitHandler(controller.HandleSearch)
+	inputableView.SetInputSubmitHandler(func(text string) InputSubmitResult {
+		return ctrl.HandleActionInput(actionID, text)
+	})
 
-	// Show search box and focus it
-	searchBox := searchableView.ShowSearch()
-	if searchBox != nil {
-		app.SetFocus(searchBox)
+	inputableView.SetInputCancelHandler(func() {
+		inputableView.CancelInputBox()
+	})
+
+	inputBox := inputableView.ShowInputBox("> ", "")
+	if inputBox != nil {
+		app.SetFocus(inputBox)
+	}
+
+	return true
+}
+
+// handleSearchInput opens the input box in search mode for the active view.
+// Blocked when search is already passive — user must Esc first.
+func (ir *InputRouter) handleSearchInput(ctrl interface{ HandleSearch(string) }) bool {
+	activeView := ir.navController.GetActiveView()
+	inputableView, ok := activeView.(InputableView)
+	if !ok {
+		return false
+	}
+
+	if inputableView.IsSearchPassive() {
+		return true
+	}
+
+	app := ir.navController.GetApp()
+	inputableView.SetFocusSetter(func(p tview.Primitive) {
+		app.SetFocus(p)
+	})
+
+	inputableView.SetInputSubmitHandler(func(text string) InputSubmitResult {
+		trimmed := strings.TrimSpace(text)
+		if trimmed == "" {
+			return InputKeepEditing
+		}
+		ctrl.HandleSearch(trimmed)
+		return InputShowPassive
+	})
+
+	inputBox := inputableView.ShowSearchBox()
+	if inputBox != nil {
+		app.SetFocus(inputBox)
 	}
 
 	return true

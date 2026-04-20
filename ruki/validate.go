@@ -515,6 +515,16 @@ func (p *Parser) inferListElementType(e Expr) (ValueType, error) {
 }
 
 func (p *Parser) inferFuncCallType(fc *FunctionCall) (ValueType, error) {
+	if fc.Name == "input" {
+		if len(fc.Args) != 0 {
+			return 0, fmt.Errorf("input() takes no arguments, got %d", len(fc.Args))
+		}
+		if p.inputType == nil {
+			return 0, fmt.Errorf("input() requires 'input:' declaration on action")
+		}
+		return *p.inputType, nil
+	}
+
 	builtin, ok := builtinFuncs[fc.Name]
 	if !ok {
 		return 0, fmt.Errorf("unknown function %q", fc.Name)

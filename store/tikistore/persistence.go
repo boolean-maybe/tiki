@@ -121,10 +121,12 @@ func (s *TikiStore) loadTaskFile(path string, authorMap map[string]*git.AuthorIn
 		return nil, err
 	}
 
-	// validate type strictly — missing or unknown types are load errors
 	taskType, typeOK := taskpkg.ParseType(fm.Type)
 	if !typeOK {
-		return nil, fmt.Errorf("invalid or missing type %q", fm.Type)
+		if fm.Type != "" {
+			return nil, fmt.Errorf("unknown type %q", fm.Type)
+		}
+		taskType = taskpkg.DefaultType()
 	}
 
 	task := &taskpkg.Task{

@@ -404,11 +404,11 @@ func TestDefaultGlobalActions(t *testing.T) {
 	registry := DefaultGlobalActions()
 	actions := registry.GetActions()
 
-	if len(actions) != 4 {
-		t.Errorf("expected 4 global actions, got %d", len(actions))
+	if len(actions) != 5 {
+		t.Errorf("expected 5 global actions, got %d", len(actions))
 	}
 
-	expectedActions := []ActionID{ActionBack, ActionQuit, ActionRefresh, ActionToggleHeader}
+	expectedActions := []ActionID{ActionBack, ActionQuit, ActionRefresh, ActionToggleHeader, ActionOpenPalette}
 	for i, expected := range expectedActions {
 		if i >= len(actions) {
 			t.Errorf("missing action at index %d: want %v", i, expected)
@@ -417,8 +417,30 @@ func TestDefaultGlobalActions(t *testing.T) {
 		if actions[i].ID != expected {
 			t.Errorf("action at index %d: want %v, got %v", i, expected, actions[i].ID)
 		}
-		if !actions[i].ShowInHeader {
-			t.Errorf("global action %v should have ShowInHeader=true", expected)
+	}
+
+	// ActionOpenPalette should show in header with label "All" and use Ctrl+A binding
+	for _, a := range actions {
+		if a.ID == ActionOpenPalette {
+			if !a.ShowInHeader {
+				t.Error("ActionOpenPalette should have ShowInHeader=true")
+			}
+			if a.Label != "All" {
+				t.Errorf("ActionOpenPalette label = %q, want %q", a.Label, "All")
+			}
+			if a.Key != tcell.KeyCtrlA {
+				t.Errorf("ActionOpenPalette Key = %v, want KeyCtrlA", a.Key)
+			}
+			if a.Modifier != tcell.ModCtrl {
+				t.Errorf("ActionOpenPalette Modifier = %v, want ModCtrl", a.Modifier)
+			}
+			if a.Rune != 0 {
+				t.Errorf("ActionOpenPalette Rune = %v, want 0", a.Rune)
+			}
+			continue
+		}
+		if !a.ShowInHeader {
+			t.Errorf("global action %v should have ShowInHeader=true", a.ID)
 		}
 	}
 }
@@ -628,5 +650,165 @@ func TestMatchWithModifiers(t *testing.T) {
 	match = registry.Match(event)
 	if match != nil {
 		t.Error("M (no modifier) should not match action with Alt-M binding")
+	}
+}
+
+func TestGetPaletteActions_HidesMarkedActions(t *testing.T) {
+	r := NewActionRegistry()
+	r.Register(Action{ID: ActionQuit, Key: tcell.KeyRune, Rune: 'q', Label: "Quit"})
+	r.Register(Action{ID: ActionBack, Key: tcell.KeyEscape, Label: "Back", HideFromPalette: true})
+	r.Register(Action{ID: ActionRefresh, Key: tcell.KeyRune, Rune: 'r', Label: "Refresh"})
+
+	actions := r.GetPaletteActions()
+	if len(actions) != 2 {
+		t.Fatalf("expected 2 palette actions, got %d", len(actions))
+	}
+	if actions[0].ID != ActionQuit {
+		t.Errorf("expected first action to be Quit, got %v", actions[0].ID)
+	}
+	if actions[1].ID != ActionRefresh {
+		t.Errorf("expected second action to be Refresh, got %v", actions[1].ID)
+	}
+}
+
+func TestGetPaletteActions_DedupsByActionID(t *testing.T) {
+	r := NewActionRegistry()
+	r.Register(Action{ID: ActionNavUp, Key: tcell.KeyUp, Label: "↑"})
+	r.Register(Action{ID: ActionNavUp, Key: tcell.KeyRune, Rune: 'k', Label: "↑ (vim)"})
+	r.Register(Action{ID: ActionNavDown, Key: tcell.KeyDown, Label: "↓"})
+
+	actions := r.GetPaletteActions()
+	if len(actions) != 2 {
+		t.Fatalf("expected 2 deduped actions, got %d", len(actions))
+	}
+	if actions[0].ID != ActionNavUp {
+		t.Errorf("expected first action to be NavUp, got %v", actions[0].ID)
+	}
+	if actions[0].Key != tcell.KeyUp {
+		t.Error("dedup should keep first registered binding (arrow key), not vim key")
+	}
+	if actions[1].ID != ActionNavDown {
+		t.Errorf("expected second action to be NavDown, got %v", actions[1].ID)
+	}
+}
+
+func TestGetPaletteActions_NilRegistry(t *testing.T) {
+	var r *ActionRegistry
+	if actions := r.GetPaletteActions(); actions != nil {
+		t.Errorf("expected nil from nil registry, got %v", actions)
+	}
+}
+
+func TestContainsID(t *testing.T) {
+	r := NewActionRegistry()
+	r.Register(Action{ID: ActionQuit, Key: tcell.KeyRune, Rune: 'q', Label: "Quit"})
+	r.Register(Action{ID: ActionBack, Key: tcell.KeyEscape, Label: "Back"})
+
+	if !r.ContainsID(ActionQuit) {
+		t.Error("expected ContainsID to find ActionQuit")
+	}
+	if !r.ContainsID(ActionBack) {
+		t.Error("expected ContainsID to find ActionBack")
+	}
+	if r.ContainsID(ActionRefresh) {
+		t.Error("expected ContainsID to not find ActionRefresh")
+	}
+}
+
+func TestContainsID_NilRegistry(t *testing.T) {
+	var r *ActionRegistry
+	if r.ContainsID(ActionQuit) {
+		t.Error("expected false from nil registry")
+	}
+}
+
+func TestDefaultGlobalActions_BackHiddenFromPalette(t *testing.T) {
+	registry := DefaultGlobalActions()
+	paletteActions := registry.GetPaletteActions()
+
+	for _, a := range paletteActions {
+		if a.ID == ActionBack {
+			t.Error("ActionBack should be hidden from palette")
+		}
+	}
+
+	if !registry.ContainsID(ActionBack) {
+		t.Error("ActionBack should still be registered in global actions")
+	}
+}
+
+func TestPluginViewActions_NavHiddenFromPalette(t *testing.T) {
+	registry := PluginViewActions()
+	paletteActions := registry.GetPaletteActions()
+
+	navIDs := map[ActionID]bool{
+		ActionNavUp: true, ActionNavDown: true,
+		ActionNavLeft: true, ActionNavRight: true,
+	}
+	for _, a := range paletteActions {
+		if navIDs[a.ID] {
+			t.Errorf("navigation action %v should be hidden from palette", a.ID)
+		}
+	}
+
+	// semantic actions should remain visible
+	found := map[ActionID]bool{}
+	for _, a := range paletteActions {
+		found[a.ID] = true
+	}
+	for _, want := range []ActionID{ActionOpenFromPlugin, ActionNewTask, ActionDeleteTask, ActionSearch} {
+		if !found[want] {
+			t.Errorf("expected palette-visible action %v", want)
+		}
+	}
+}
+
+func TestTaskEditActions_FieldLocalHidden_SaveVisible(t *testing.T) {
+	registry := TaskEditTitleActions()
+	paletteActions := registry.GetPaletteActions()
+
+	found := map[ActionID]bool{}
+	for _, a := range paletteActions {
+		found[a.ID] = true
+	}
+
+	if !found[ActionSaveTask] {
+		t.Error("Save should be palette-visible in task edit")
+	}
+	if found[ActionQuickSave] {
+		t.Error("Quick Save should be hidden from palette")
+	}
+	if found[ActionNextField] {
+		t.Error("Next field should be hidden from palette")
+	}
+	if found[ActionPrevField] {
+		t.Error("Prev field should be hidden from palette")
+	}
+}
+
+func TestInitPluginActions_ActivePluginDisabled(t *testing.T) {
+	InitPluginActions([]PluginInfo{
+		{Name: "Kanban", Key: tcell.KeyRune, Rune: '1'},
+		{Name: "Backlog", Key: tcell.KeyRune, Rune: '2'},
+	})
+
+	registry := GetPluginActions()
+	actions := registry.GetPaletteActions()
+
+	kanbanViewEntry := &ViewEntry{ViewID: model.MakePluginViewID("Kanban")}
+	backlogViewEntry := &ViewEntry{ViewID: model.MakePluginViewID("Backlog")}
+
+	for _, a := range actions {
+		if a.ID == "plugin:Kanban" {
+			if a.IsEnabled == nil {
+				t.Fatal("expected IsEnabled on plugin:Kanban")
+			}
+			if a.IsEnabled(kanbanViewEntry, nil) {
+				t.Error("Kanban activation should be disabled when Kanban view is active")
+			}
+			if !a.IsEnabled(backlogViewEntry, nil) {
+				t.Error("Kanban activation should be enabled when Backlog view is active")
+			}
+		}
 	}
 }

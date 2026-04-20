@@ -19,6 +19,7 @@ const (
 	ActionRefresh        ActionID = "refresh"
 	ActionToggleViewMode ActionID = "toggle_view_mode"
 	ActionToggleHeader   ActionID = "toggle_header"
+	ActionOpenPalette    ActionID = "open_palette"
 )
 
 // ActionID values for task navigation and manipulation (used by plugins).
@@ -92,6 +93,7 @@ func InitPluginActions(plugins []PluginInfo) {
 		if p.Key == 0 && p.Rune == 0 {
 			continue // skip plugins without key binding
 		}
+		pluginViewID := model.MakePluginViewID(p.Name)
 		pluginActionRegistry.Register(Action{
 			ID:           ActionID("plugin:" + p.Name),
 			Key:          p.Key,
@@ -99,6 +101,12 @@ func InitPluginActions(plugins []PluginInfo) {
 			Modifier:     p.Modifier,
 			Label:        p.Name,
 			ShowInHeader: true,
+			IsEnabled: func(view *ViewEntry, _ View) bool {
+				if view == nil {
+					return true
+				}
+				return view.ViewID != pluginViewID
+			},
 		})
 	}
 }
@@ -124,12 +132,14 @@ func GetPluginNameFromAction(id ActionID) string {
 
 // Action represents a keyboard shortcut binding
 type Action struct {
-	ID           ActionID
-	Key          tcell.Key
-	Rune         rune // for letter keys (when Key == tcell.KeyRune)
-	Label        string
-	Modifier     tcell.ModMask
-	ShowInHeader bool // whether to display in header bar
+	ID              ActionID
+	Key             tcell.Key
+	Rune            rune // for letter keys (when Key == tcell.KeyRune)
+	Label           string
+	Modifier        tcell.ModMask
+	ShowInHeader    bool // whether to display in header bar
+	HideFromPalette bool // when true, action is excluded from the action palette (zero value = visible)
+	IsEnabled       func(view *ViewEntry, activeView View) bool
 }
 
 // keyWithMod is a composite map key for special-key lookups, disambiguating
@@ -246,13 +256,23 @@ func (r *ActionRegistry) Match(event *tcell.EventKey) *Action {
 	return nil
 }
 
+// selectionRequired is an IsEnabled predicate that returns true only when
+// the active view has a non-empty selection (for use with plugin/deps actions).
+func selectionRequired(_ *ViewEntry, activeView View) bool {
+	if sv, ok := activeView.(SelectableView); ok {
+		return sv.GetSelectedID() != ""
+	}
+	return false
+}
+
 // DefaultGlobalActions returns common actions available in all views
 func DefaultGlobalActions() *ActionRegistry {
 	r := NewActionRegistry()
-	r.Register(Action{ID: ActionBack, Key: tcell.KeyEscape, Label: "Back", ShowInHeader: true})
+	r.Register(Action{ID: ActionBack, Key: tcell.KeyEscape, Label: "Back", ShowInHeader: true, HideFromPalette: true})
 	r.Register(Action{ID: ActionQuit, Key: tcell.KeyRune, Rune: 'q', Label: "Quit", ShowInHeader: true})
 	r.Register(Action{ID: ActionRefresh, Key: tcell.KeyRune, Rune: 'r', Label: "Refresh", ShowInHeader: true})
-	r.Register(Action{ID: ActionToggleHeader, Key: tcell.KeyF10, Label: "Hide Header", ShowInHeader: true})
+	r.Register(Action{ID: ActionToggleHeader, Key: tcell.KeyF10, Label: "Toggle Header", ShowInHeader: true})
+	r.Register(Action{ID: ActionOpenPalette, Key: tcell.KeyCtrlA, Modifier: tcell.ModCtrl, Label: "All", ShowInHeader: true, HideFromPalette: true})
 	return r
 }
 
@@ -265,6 +285,39 @@ func (r *ActionRegistry) GetHeaderActions() []Action {
 		}
 	}
 	return result
+}
+
+// GetPaletteActions returns palette-visible actions, deduped by ActionID (first registration wins).
+func (r *ActionRegistry) GetPaletteActions() []Action {
+	if r == nil {
+		return nil
+	}
+	seen := make(map[ActionID]bool)
+	var result []Action
+	for _, a := range r.actions {
+		if a.HideFromPalette {
+			continue
+		}
+		if seen[a.ID] {
+			continue
+		}
+		seen[a.ID] = true
+		result = append(result, a)
+	}
+	return result
+}
+
+// ContainsID returns true if the registry has an action with the given ID.
+func (r *ActionRegistry) ContainsID(id ActionID) bool {
+	if r == nil {
+		return false
+	}
+	for _, a := range r.actions {
+		if a.ID == id {
+			return true
+		}
+	}
+	return false
 }
 
 // ToHeaderActions converts the registry's header actions to model.HeaderAction slice.
@@ -293,15 +346,22 @@ func (r *ActionRegistry) ToHeaderActions() []model.HeaderAction {
 func TaskDetailViewActions() *ActionRegistry {
 	r := NewActionRegistry()
 
-	r.Register(Action{ID: ActionEditTitle, Key: tcell.KeyRune, Rune: 'e', Label: "Edit", ShowInHeader: true})
-	r.Register(Action{ID: ActionEditDesc, Key: tcell.KeyRune, Rune: 'D', Label: "Edit desc", ShowInHeader: true})
-	r.Register(Action{ID: ActionEditSource, Key: tcell.KeyRune, Rune: 's', Label: "Edit source", ShowInHeader: true})
+	taskDetailEnabled := func(view *ViewEntry, _ View) bool {
+		if view == nil || view.ViewID != model.TaskDetailViewID {
+			return false
+		}
+		return model.DecodeTaskDetailParams(view.Params).TaskID != ""
+	}
+
+	r.Register(Action{ID: ActionEditTitle, Key: tcell.KeyRune, Rune: 'e', Label: "Edit", ShowInHeader: true, IsEnabled: taskDetailEnabled})
+	r.Register(Action{ID: ActionEditDesc, Key: tcell.KeyRune, Rune: 'D', Label: "Edit desc", ShowInHeader: true, IsEnabled: taskDetailEnabled})
+	r.Register(Action{ID: ActionEditSource, Key: tcell.KeyRune, Rune: 's', Label: "Edit source", ShowInHeader: true, IsEnabled: taskDetailEnabled})
 	r.Register(Action{ID: ActionFullscreen, Key: tcell.KeyRune, Rune: 'f', Label: "Full screen", ShowInHeader: true})
-	r.Register(Action{ID: ActionEditDeps, Key: tcell.KeyCtrlD, Modifier: tcell.ModCtrl, Label: "Dependencies", ShowInHeader: true})
-	r.Register(Action{ID: ActionEditTags, Key: tcell.KeyRune, Rune: 'T', Label: "Edit tags", ShowInHeader: true})
+	r.Register(Action{ID: ActionEditDeps, Key: tcell.KeyCtrlD, Modifier: tcell.ModCtrl, Label: "Dependencies", ShowInHeader: true, IsEnabled: taskDetailEnabled})
+	r.Register(Action{ID: ActionEditTags, Key: tcell.KeyRune, Rune: 'T', Label: "Edit tags", ShowInHeader: true, IsEnabled: taskDetailEnabled})
 
 	if config.GetAIAgent() != "" {
-		r.Register(Action{ID: ActionChat, Key: tcell.KeyRune, Rune: 'c', Label: "Chat", ShowInHeader: true})
+		r.Register(Action{ID: ActionChat, Key: tcell.KeyRune, Rune: 'c', Label: "Chat", ShowInHeader: true, IsEnabled: taskDetailEnabled})
 	}
 
 	return r
@@ -321,8 +381,8 @@ func TaskEditViewActions() *ActionRegistry {
 	r := NewActionRegistry()
 
 	r.Register(Action{ID: ActionSaveTask, Key: tcell.KeyCtrlS, Label: "Save", ShowInHeader: true})
-	r.Register(Action{ID: ActionNextField, Key: tcell.KeyTab, Label: "Next", ShowInHeader: true})
-	r.Register(Action{ID: ActionPrevField, Key: tcell.KeyBacktab, Label: "Prev", ShowInHeader: true})
+	r.Register(Action{ID: ActionNextField, Key: tcell.KeyTab, Label: "Next", ShowInHeader: true, HideFromPalette: true})
+	r.Register(Action{ID: ActionPrevField, Key: tcell.KeyBacktab, Label: "Prev", ShowInHeader: true, HideFromPalette: true})
 
 	return r
 }
@@ -330,15 +390,15 @@ func TaskEditViewActions() *ActionRegistry {
 // CommonFieldNavigationActions returns actions available in all field editors (Tab/Shift-Tab navigation)
 func CommonFieldNavigationActions() *ActionRegistry {
 	r := NewActionRegistry()
-	r.Register(Action{ID: ActionNextField, Key: tcell.KeyTab, Label: "Next field", ShowInHeader: true})
-	r.Register(Action{ID: ActionPrevField, Key: tcell.KeyBacktab, Label: "Prev field", ShowInHeader: true})
+	r.Register(Action{ID: ActionNextField, Key: tcell.KeyTab, Label: "Next field", ShowInHeader: true, HideFromPalette: true})
+	r.Register(Action{ID: ActionPrevField, Key: tcell.KeyBacktab, Label: "Prev field", ShowInHeader: true, HideFromPalette: true})
 	return r
 }
 
 // TaskEditTitleActions returns actions available when editing the title field
 func TaskEditTitleActions() *ActionRegistry {
 	r := NewActionRegistry()
-	r.Register(Action{ID: ActionQuickSave, Key: tcell.KeyEnter, Label: "Quick Save", ShowInHeader: true})
+	r.Register(Action{ID: ActionQuickSave, Key: tcell.KeyEnter, Label: "Quick Save", ShowInHeader: true, HideFromPalette: true})
 	r.Register(Action{ID: ActionSaveTask, Key: tcell.KeyCtrlS, Label: "Save", ShowInHeader: true})
 	r.Merge(CommonFieldNavigationActions())
 	return r
@@ -347,16 +407,16 @@ func TaskEditTitleActions() *ActionRegistry {
 // TaskEditStatusActions returns actions available when editing the status field
 func TaskEditStatusActions() *ActionRegistry {
 	r := CommonFieldNavigationActions()
-	r.Register(Action{ID: ActionNextValue, Key: tcell.KeyDown, Label: "Next ↓", ShowInHeader: true})
-	r.Register(Action{ID: ActionPrevValue, Key: tcell.KeyUp, Label: "Prev ↑", ShowInHeader: true})
+	r.Register(Action{ID: ActionNextValue, Key: tcell.KeyDown, Label: "Next ↓", ShowInHeader: true, HideFromPalette: true})
+	r.Register(Action{ID: ActionPrevValue, Key: tcell.KeyUp, Label: "Prev ↑", ShowInHeader: true, HideFromPalette: true})
 	return r
 }
 
 // TaskEditTypeActions returns actions available when editing the type field
 func TaskEditTypeActions() *ActionRegistry {
 	r := CommonFieldNavigationActions()
-	r.Register(Action{ID: ActionNextValue, Key: tcell.KeyDown, Label: "Next ↓", ShowInHeader: true})
-	r.Register(Action{ID: ActionPrevValue, Key: tcell.KeyUp, Label: "Prev ↑", ShowInHeader: true})
+	r.Register(Action{ID: ActionNextValue, Key: tcell.KeyDown, Label: "Next ↓", ShowInHeader: true, HideFromPalette: true})
+	r.Register(Action{ID: ActionPrevValue, Key: tcell.KeyUp, Label: "Prev ↑", ShowInHeader: true, HideFromPalette: true})
 	return r
 }
 
@@ -370,8 +430,8 @@ func TaskEditPriorityActions() *ActionRegistry {
 // TaskEditAssigneeActions returns actions available when editing the assignee field
 func TaskEditAssigneeActions() *ActionRegistry {
 	r := CommonFieldNavigationActions()
-	r.Register(Action{ID: ActionNextValue, Key: tcell.KeyDown, Label: "Next ↓", ShowInHeader: true})
-	r.Register(Action{ID: ActionPrevValue, Key: tcell.KeyUp, Label: "Prev ↑", ShowInHeader: true})
+	r.Register(Action{ID: ActionNextValue, Key: tcell.KeyDown, Label: "Next ↓", ShowInHeader: true, HideFromPalette: true})
+	r.Register(Action{ID: ActionPrevValue, Key: tcell.KeyUp, Label: "Prev ↑", ShowInHeader: true, HideFromPalette: true})
 	return r
 }
 
@@ -385,19 +445,19 @@ func TaskEditPointsActions() *ActionRegistry {
 // TaskEditDueActions returns actions available when editing the due date field
 func TaskEditDueActions() *ActionRegistry {
 	r := CommonFieldNavigationActions()
-	r.Register(Action{ID: ActionNextValue, Key: tcell.KeyDown, Label: "Next ↓", ShowInHeader: true})
-	r.Register(Action{ID: ActionPrevValue, Key: tcell.KeyUp, Label: "Prev ↑", ShowInHeader: true})
-	r.Register(Action{ID: ActionClearField, Key: tcell.KeyCtrlU, Label: "Clear", ShowInHeader: true})
+	r.Register(Action{ID: ActionNextValue, Key: tcell.KeyDown, Label: "Next ↓", ShowInHeader: true, HideFromPalette: true})
+	r.Register(Action{ID: ActionPrevValue, Key: tcell.KeyUp, Label: "Prev ↑", ShowInHeader: true, HideFromPalette: true})
+	r.Register(Action{ID: ActionClearField, Key: tcell.KeyCtrlU, Label: "Clear", ShowInHeader: true, HideFromPalette: true})
 	return r
 }
 
 // TaskEditRecurrenceActions returns actions available when editing the recurrence field
 func TaskEditRecurrenceActions() *ActionRegistry {
 	r := CommonFieldNavigationActions()
-	r.Register(Action{ID: ActionNextValue, Key: tcell.KeyDown, Label: "Next ↓", ShowInHeader: true})
-	r.Register(Action{ID: ActionPrevValue, Key: tcell.KeyUp, Label: "Prev ↑", ShowInHeader: true})
-	r.Register(Action{ID: ActionNavLeft, Key: tcell.KeyLeft, Label: "← Part", ShowInHeader: true})
-	r.Register(Action{ID: ActionNavRight, Key: tcell.KeyRight, Label: "Part →", ShowInHeader: true})
+	r.Register(Action{ID: ActionNextValue, Key: tcell.KeyDown, Label: "Next ↓", ShowInHeader: true, HideFromPalette: true})
+	r.Register(Action{ID: ActionPrevValue, Key: tcell.KeyUp, Label: "Prev ↑", ShowInHeader: true, HideFromPalette: true})
+	r.Register(Action{ID: ActionNavLeft, Key: tcell.KeyLeft, Label: "← Part", ShowInHeader: true, HideFromPalette: true})
+	r.Register(Action{ID: ActionNavRight, Key: tcell.KeyRight, Label: "Part →", ShowInHeader: true, HideFromPalette: true})
 	return r
 }
 
@@ -455,22 +515,22 @@ func GetActionsForField(field model.EditField) *ActionRegistry {
 func PluginViewActions() *ActionRegistry {
 	r := NewActionRegistry()
 
-	// navigation (not shown in header)
-	r.Register(Action{ID: ActionNavUp, Key: tcell.KeyUp, Label: "↑"})
-	r.Register(Action{ID: ActionNavDown, Key: tcell.KeyDown, Label: "↓"})
-	r.Register(Action{ID: ActionNavLeft, Key: tcell.KeyLeft, Label: "←"})
-	r.Register(Action{ID: ActionNavRight, Key: tcell.KeyRight, Label: "→"})
-	r.Register(Action{ID: ActionNavUp, Key: tcell.KeyRune, Rune: 'k', Label: "↑"})
-	r.Register(Action{ID: ActionNavDown, Key: tcell.KeyRune, Rune: 'j', Label: "↓"})
-	r.Register(Action{ID: ActionNavLeft, Key: tcell.KeyRune, Rune: 'h', Label: "←"})
-	r.Register(Action{ID: ActionNavRight, Key: tcell.KeyRune, Rune: 'l', Label: "→"})
+	// navigation (not shown in header, hidden from palette)
+	r.Register(Action{ID: ActionNavUp, Key: tcell.KeyUp, Label: "↑", HideFromPalette: true})
+	r.Register(Action{ID: ActionNavDown, Key: tcell.KeyDown, Label: "↓", HideFromPalette: true})
+	r.Register(Action{ID: ActionNavLeft, Key: tcell.KeyLeft, Label: "←", HideFromPalette: true})
+	r.Register(Action{ID: ActionNavRight, Key: tcell.KeyRight, Label: "→", HideFromPalette: true})
+	r.Register(Action{ID: ActionNavUp, Key: tcell.KeyRune, Rune: 'k', Label: "↑", HideFromPalette: true})
+	r.Register(Action{ID: ActionNavDown, Key: tcell.KeyRune, Rune: 'j', Label: "↓", HideFromPalette: true})
+	r.Register(Action{ID: ActionNavLeft, Key: tcell.KeyRune, Rune: 'h', Label: "←", HideFromPalette: true})
+	r.Register(Action{ID: ActionNavRight, Key: tcell.KeyRune, Rune: 'l', Label: "→", HideFromPalette: true})
 
 	// plugin actions (shown in header)
-	r.Register(Action{ID: ActionOpenFromPlugin, Key: tcell.KeyEnter, Label: "Open", ShowInHeader: true})
-	r.Register(Action{ID: ActionMoveTaskLeft, Key: tcell.KeyLeft, Modifier: tcell.ModShift, Label: "Move ←", ShowInHeader: true})
-	r.Register(Action{ID: ActionMoveTaskRight, Key: tcell.KeyRight, Modifier: tcell.ModShift, Label: "Move →", ShowInHeader: true})
+	r.Register(Action{ID: ActionOpenFromPlugin, Key: tcell.KeyEnter, Label: "Open", ShowInHeader: true, IsEnabled: selectionRequired})
+	r.Register(Action{ID: ActionMoveTaskLeft, Key: tcell.KeyLeft, Modifier: tcell.ModShift, Label: "Move ←", ShowInHeader: true, IsEnabled: selectionRequired})
+	r.Register(Action{ID: ActionMoveTaskRight, Key: tcell.KeyRight, Modifier: tcell.ModShift, Label: "Move →", ShowInHeader: true, IsEnabled: selectionRequired})
 	r.Register(Action{ID: ActionNewTask, Key: tcell.KeyRune, Rune: 'n', Label: "New", ShowInHeader: true})
-	r.Register(Action{ID: ActionDeleteTask, Key: tcell.KeyRune, Rune: 'd', Label: "Delete", ShowInHeader: true})
+	r.Register(Action{ID: ActionDeleteTask, Key: tcell.KeyRune, Rune: 'd', Label: "Delete", ShowInHeader: true, IsEnabled: selectionRequired})
 	r.Register(Action{ID: ActionSearch, Key: tcell.KeyRune, Rune: '/', Label: "Search", ShowInHeader: true})
 	r.Register(Action{ID: ActionToggleViewMode, Key: tcell.KeyRune, Rune: 'v', Label: "View mode", ShowInHeader: true})
 
@@ -484,24 +544,24 @@ func PluginViewActions() *ActionRegistry {
 func DepsViewActions() *ActionRegistry {
 	r := NewActionRegistry()
 
-	// navigation (not shown in header)
-	r.Register(Action{ID: ActionNavUp, Key: tcell.KeyUp, Label: "↑"})
-	r.Register(Action{ID: ActionNavDown, Key: tcell.KeyDown, Label: "↓"})
-	r.Register(Action{ID: ActionNavLeft, Key: tcell.KeyLeft, Label: "←"})
-	r.Register(Action{ID: ActionNavRight, Key: tcell.KeyRight, Label: "→"})
-	r.Register(Action{ID: ActionNavUp, Key: tcell.KeyRune, Rune: 'k', Label: "↑"})
-	r.Register(Action{ID: ActionNavDown, Key: tcell.KeyRune, Rune: 'j', Label: "↓"})
-	r.Register(Action{ID: ActionNavLeft, Key: tcell.KeyRune, Rune: 'h', Label: "←"})
-	r.Register(Action{ID: ActionNavRight, Key: tcell.KeyRune, Rune: 'l', Label: "→"})
+	// navigation (not shown in header, hidden from palette)
+	r.Register(Action{ID: ActionNavUp, Key: tcell.KeyUp, Label: "↑", HideFromPalette: true})
+	r.Register(Action{ID: ActionNavDown, Key: tcell.KeyDown, Label: "↓", HideFromPalette: true})
+	r.Register(Action{ID: ActionNavLeft, Key: tcell.KeyLeft, Label: "←", HideFromPalette: true})
+	r.Register(Action{ID: ActionNavRight, Key: tcell.KeyRight, Label: "→", HideFromPalette: true})
+	r.Register(Action{ID: ActionNavUp, Key: tcell.KeyRune, Rune: 'k', Label: "↑", HideFromPalette: true})
+	r.Register(Action{ID: ActionNavDown, Key: tcell.KeyRune, Rune: 'j', Label: "↓", HideFromPalette: true})
+	r.Register(Action{ID: ActionNavLeft, Key: tcell.KeyRune, Rune: 'h', Label: "←", HideFromPalette: true})
+	r.Register(Action{ID: ActionNavRight, Key: tcell.KeyRune, Rune: 'l', Label: "→", HideFromPalette: true})
 
 	// move task between lanes (shown in header)
-	r.Register(Action{ID: ActionMoveTaskLeft, Key: tcell.KeyLeft, Modifier: tcell.ModShift, Label: "Move ←", ShowInHeader: true})
-	r.Register(Action{ID: ActionMoveTaskRight, Key: tcell.KeyRight, Modifier: tcell.ModShift, Label: "Move →", ShowInHeader: true})
+	r.Register(Action{ID: ActionMoveTaskLeft, Key: tcell.KeyLeft, Modifier: tcell.ModShift, Label: "Move ←", ShowInHeader: true, IsEnabled: selectionRequired})
+	r.Register(Action{ID: ActionMoveTaskRight, Key: tcell.KeyRight, Modifier: tcell.ModShift, Label: "Move →", ShowInHeader: true, IsEnabled: selectionRequired})
 
 	// task actions
-	r.Register(Action{ID: ActionOpenFromPlugin, Key: tcell.KeyEnter, Label: "Open", ShowInHeader: true})
+	r.Register(Action{ID: ActionOpenFromPlugin, Key: tcell.KeyEnter, Label: "Open", ShowInHeader: true, IsEnabled: selectionRequired})
 	r.Register(Action{ID: ActionNewTask, Key: tcell.KeyRune, Rune: 'n', Label: "New", ShowInHeader: true})
-	r.Register(Action{ID: ActionDeleteTask, Key: tcell.KeyRune, Rune: 'd', Label: "Delete", ShowInHeader: true})
+	r.Register(Action{ID: ActionDeleteTask, Key: tcell.KeyRune, Rune: 'd', Label: "Delete", ShowInHeader: true, IsEnabled: selectionRequired})
 
 	// view mode and search
 	r.Register(Action{ID: ActionSearch, Key: tcell.KeyRune, Rune: '/', Label: "Search", ShowInHeader: true})

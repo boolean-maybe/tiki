@@ -154,6 +154,10 @@ views:
     - key: "a"
       label: "Assign to me"
       action: update where id = id() set assignee=user()
+    - key: "A"
+      label: "Assign to..."
+      action: update where id = id() set assignee=input()
+      input: string
   plugins:
     - name: Kanban
       description: "Move tiki to new status, search, create or delete"
@@ -209,12 +213,6 @@ views:
           filter: select where type = "epic" and status = "backlog" and priority > 1 order by priority, points desc
           action: update where id = id() set status="backlog" priority=2
       view: expanded
-    - name: Help
-      description: "Keyboard shortcuts, navigation, and usage guide"
-      type: doki
-      fetcher: internal
-      text: "Help"
-      key: "?"
     - name: Docs
       description: "Project notes and documentation files"
       type: doki

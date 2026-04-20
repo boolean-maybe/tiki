@@ -1,3 +1,7 @@
+version: 0.5.0
+description: |
+  Default tiki workflow. A lightweight kanban-style flow with
+  Backlog → Ready → In Progress → Review → Done, plus Story / Bug / Spike / Epic task types.
 statuses:
   - key: backlog
     label: Backlog
@@ -45,9 +49,34 @@ views:
     - key: "Y"
       label: "Copy content"
       action: select title, description where id = id() | clipboard()
+    - key: "+"
+      label: "Priority up"
+      action: update where id = id() set priority = priority - 1
+    - key: "-"
+      label: "Priority down"
+      action: update where id = id() set priority = priority + 1
+    - key: "u"
+      label: "Flag urgent"
+      action: update where id = id() set priority=1 tags=tags+["urgent"]
+      hot: false
+    - key: "A"
+      label: "Assign to..."
+      action: update where id = id() set assignee=input()
+      input: string
+      hot: false
+    - key: "t"
+      label: "Add tag"
+      action: update where id = id() set tags=tags+[input()]
+      input: string
+      hot: false
+    - key: "T"
+      label: "Remove tag"
+      action: update where id = id() set tags=tags-[input()]
+      input: string
+      hot: false
   plugins:
     - name: Kanban
-      description: "Move tiki to new status, search, create or delete"
+      description: "Move tiki to change status, search, create or delete\nShift Left/Right to move"
       default: true
       key: "F1"
       lanes:
@@ -101,12 +130,6 @@ views:
           filter: select where type = "epic" and status = "backlog" and priority > 1 order by priority, points desc
           action: update where id = id() set status="backlog" priority=2
       view: expanded
-    - name: Help
-      description: "Keyboard shortcuts, navigation, and usage guide"
-      type: doki
-      fetcher: internal
-      text: "Help"
-      key: "?"
     - name: Docs
       description: "Project notes and documentation files"
       type: doki

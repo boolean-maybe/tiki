@@ -55,13 +55,17 @@ func NewPluginController(
 				"plugin", pluginDef.Name, "key", string(a.Rune),
 				"plugin_action", a.Label, "built_in_action", existing.Label)
 		}
-		pc.registry.Register(Action{
+		action := Action{
 			ID:           pluginActionID(a.Rune),
 			Key:          tcell.KeyRune,
 			Rune:         a.Rune,
 			Label:        a.Label,
-			ShowInHeader: true,
-		})
+			ShowInHeader: a.ShowInHeader,
+		}
+		if a.Action != nil && (a.Action.IsUpdate() || a.Action.IsDelete() || a.Action.IsPipe()) {
+			action.IsEnabled = selectionRequired
+		}
+		pc.registry.Register(action)
 	}
 
 	return pc
@@ -139,34 +143,33 @@ func (pc *PluginController) HandleSearch(query string) {
 	})
 }
 
-// handlePluginAction applies a plugin shortcut action to the currently selected task.
-func (pc *PluginController) handlePluginAction(r rune) bool {
-	// find the matching action definition
-	var pa *plugin.PluginAction
+// getPluginAction looks up a plugin action by ActionID.
+func (pc *PluginController) getPluginAction(actionID ActionID) (*plugin.PluginAction, rune, bool) {
+	r := getPluginActionRune(actionID)
+	if r == 0 {
+		return nil, 0, false
+	}
 	for i := range pc.pluginDef.Actions {
 		if pc.pluginDef.Actions[i].Rune == r {
-			pa = &pc.pluginDef.Actions[i]
-			break
+			return &pc.pluginDef.Actions[i], r, true
 		}
 	}
-	if pa == nil {
-		return false
-	}
+	return nil, 0, false
+}
 
-	executor := pc.newExecutor()
-	allTasks := pc.taskStore.GetAllTasks()
-
+// buildExecutionInput builds the base ExecutionInput for an action, performing
+// selection/create-template preflight. Returns ok=false if the action can't run.
+func (pc *PluginController) buildExecutionInput(pa *plugin.PluginAction) (ruki.ExecutionInput, bool) {
 	input := ruki.ExecutionInput{}
 	taskID := pc.getSelectedTaskID(pc.GetFilteredTasksForLane)
 
 	if pa.Action.IsSelect() && !pa.Action.IsPipe() {
-		// plain SELECT actions are side-effect only — pass task ID if available but don't require it
 		if taskID != "" {
 			input.SelectedTaskID = taskID
 		}
 	} else if pa.Action.IsUpdate() || pa.Action.IsDelete() || pa.Action.IsPipe() {
 		if taskID == "" {
-			return false
+			return input, false
 		}
 		input.SelectedTaskID = taskID
 	}
@@ -174,22 +177,33 @@ func (pc *PluginController) handlePluginAction(r rune) bool {
 	if pa.Action.IsCreate() {
 		template, err := pc.taskStore.NewTaskTemplate()
 		if err != nil {
-			slog.Error("failed to create task template for plugin action", "key", string(r), "error", err)
-			return false
+			slog.Error("failed to create task template for plugin action", "error", err)
+			return input, false
 		}
 		input.CreateTemplate = template
 	}
 
+	return input, true
+}
+
+// executeAndApply runs the executor and applies the result (store mutations, pipe, clipboard).
+func (pc *PluginController) executeAndApply(pa *plugin.PluginAction, input ruki.ExecutionInput, r rune) bool {
+	executor := pc.newExecutor()
+	allTasks := pc.taskStore.GetAllTasks()
+
 	result, err := executor.Execute(pa.Action, allTasks, input)
 	if err != nil {
-		slog.Error("failed to execute plugin action", "task_id", taskID, "key", string(r), "error", err)
+		slog.Error("failed to execute plugin action", "task_id", input.SelectedTaskID, "key", string(r), "error", err)
+		if pc.statusline != nil {
+			pc.statusline.SetMessage(err.Error(), model.MessageLevelError, true)
+		}
 		return false
 	}
 
 	ctx := context.Background()
 	switch {
 	case result.Select != nil:
-		slog.Info("select plugin action executed", "task_id", taskID, "key", string(r),
+		slog.Info("select plugin action executed", "task_id", input.SelectedTaskID, "key", string(r),
 			"label", pa.Label, "matched", len(result.Select.Tasks))
 		return true
 	case result.Update != nil:
@@ -228,7 +242,6 @@ func (pc *PluginController) handlePluginAction(r rune) bool {
 				if pc.statusline != nil {
 					pc.statusline.SetMessage(err.Error(), model.MessageLevelError, true)
 				}
-				// non-fatal: continue remaining rows
 			}
 		}
 	case result.Clipboard != nil:
@@ -244,8 +257,69 @@ func (pc *PluginController) handlePluginAction(r rune) bool {
 		}
 	}
 
-	slog.Info("plugin action applied", "task_id", taskID, "key", string(r), "label", pa.Label, "plugin", pc.pluginDef.Name)
+	slog.Info("plugin action applied", "task_id", input.SelectedTaskID, "key", string(r), "label", pa.Label, "plugin", pc.pluginDef.Name)
 	return true
+}
+
+// handlePluginAction applies a plugin shortcut action to the currently selected task.
+func (pc *PluginController) handlePluginAction(r rune) bool {
+	pa, _, ok := pc.getPluginAction(pluginActionID(r))
+	if !ok {
+		return false
+	}
+	input, ok := pc.buildExecutionInput(pa)
+	if !ok {
+		return false
+	}
+	return pc.executeAndApply(pa, input, r)
+}
+
+// GetActionInputSpec returns the prompt and input type for an action, if it has input.
+func (pc *PluginController) GetActionInputSpec(actionID ActionID) (string, ruki.ValueType, bool) {
+	pa, _, ok := pc.getPluginAction(actionID)
+	if !ok || !pa.HasInput {
+		return "", 0, false
+	}
+	return pa.Label + ": ", pa.InputType, true
+}
+
+// CanStartActionInput checks whether an input-backed action can currently run
+// (selection/create-template preflight passes).
+func (pc *PluginController) CanStartActionInput(actionID ActionID) (string, ruki.ValueType, bool) {
+	pa, _, ok := pc.getPluginAction(actionID)
+	if !ok || !pa.HasInput {
+		return "", 0, false
+	}
+	if _, ok := pc.buildExecutionInput(pa); !ok {
+		return "", 0, false
+	}
+	return pa.Label + ": ", pa.InputType, true
+}
+
+// HandleActionInput handles submitted text for an input-backed action.
+func (pc *PluginController) HandleActionInput(actionID ActionID, text string) InputSubmitResult {
+	pa, r, ok := pc.getPluginAction(actionID)
+	if !ok || !pa.HasInput {
+		return InputKeepEditing
+	}
+
+	val, err := ruki.ParseScalarValue(pa.InputType, text)
+	if err != nil {
+		if pc.statusline != nil {
+			pc.statusline.SetMessage(err.Error(), model.MessageLevelError, true)
+		}
+		return InputKeepEditing
+	}
+
+	input, ok := pc.buildExecutionInput(pa)
+	if !ok {
+		return InputClose
+	}
+	input.InputValue = val
+	input.HasInput = true
+
+	pc.executeAndApply(pa, input, r)
+	return InputClose
 }
 
 func (pc *PluginController) handleMoveTask(offset int) bool {

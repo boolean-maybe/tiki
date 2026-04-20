@@ -78,6 +78,16 @@ func (tv *TaskDetailView) OnFocus() {
 	tv.refresh()
 }
 
+// RestoreFocus sets focus to the current description viewer (which may have been
+// rebuilt by a store-driven refresh while the palette was open).
+func (tv *TaskDetailView) RestoreFocus() bool {
+	if tv.descView != nil && tv.focusSetter != nil {
+		tv.focusSetter(tv.descView)
+		return true
+	}
+	return false
+}
+
 // OnBlur is called when the view becomes inactive
 func (tv *TaskDetailView) OnBlur() {
 	if tv.storeListenerID != 0 {

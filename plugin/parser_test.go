@@ -761,3 +761,168 @@ foreground: "#00ff00"
 		t.Errorf("Expected URL, got %q", dokiPlugin.URL)
 	}
 }
+
+func TestParsePluginActions_HotDefault(t *testing.T) {
+	parser := testParser()
+	configs := []PluginActionConfig{
+		{Key: "b", Label: "Board", Action: `update where id = id() set status="ready"`},
+	}
+	actions, err := parsePluginActions(configs, parser)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !actions[0].ShowInHeader {
+		t.Error("absent hot should default to ShowInHeader=true")
+	}
+}
+
+func TestParsePluginActions_HotExplicitFalse(t *testing.T) {
+	parser := testParser()
+	hotFalse := false
+	configs := []PluginActionConfig{
+		{Key: "b", Label: "Board", Action: `update where id = id() set status="ready"`, Hot: &hotFalse},
+	}
+	actions, err := parsePluginActions(configs, parser)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if actions[0].ShowInHeader {
+		t.Error("hot: false should set ShowInHeader=false")
+	}
+}
+
+func TestParsePluginActions_HotExplicitTrue(t *testing.T) {
+	parser := testParser()
+	hotTrue := true
+	configs := []PluginActionConfig{
+		{Key: "b", Label: "Board", Action: `update where id = id() set status="ready"`, Hot: &hotTrue},
+	}
+	actions, err := parsePluginActions(configs, parser)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !actions[0].ShowInHeader {
+		t.Error("hot: true should set ShowInHeader=true")
+	}
+}
+
+func TestParsePluginYAML_HotFlagFromYAML(t *testing.T) {
+	yamlData := []byte(`
+name: Test
+key: T
+lanes:
+  - name: Backlog
+    filter: select where status = "backlog"
+actions:
+  - key: "b"
+    label: "Board"
+    action: update where id = id() set status = "ready"
+    hot: false
+  - key: "a"
+    label: "Assign"
+    action: update where id = id() set assignee = user()
+`)
+
+	p, err := parsePluginYAML(yamlData, "test.yaml", testSchema())
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	tiki, ok := p.(*TikiPlugin)
+	if !ok {
+		t.Fatalf("expected TikiPlugin, got %T", p)
+	}
+
+	if tiki.Actions[0].ShowInHeader {
+		t.Error("action with hot: false should have ShowInHeader=false")
+	}
+	if !tiki.Actions[1].ShowInHeader {
+		t.Error("action without hot should default to ShowInHeader=true")
+	}
+}
+
+func TestParsePluginActions_InputValid(t *testing.T) {
+	parser := testParser()
+	configs := []PluginActionConfig{
+		{Key: "a", Label: "Assign to", Action: `update where id = id() set assignee=input()`, Input: "string"},
+	}
+	actions, err := parsePluginActions(configs, parser)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(actions) != 1 {
+		t.Fatalf("expected 1 action, got %d", len(actions))
+	}
+	if !actions[0].HasInput {
+		t.Error("expected HasInput=true")
+	}
+	if actions[0].InputType != ruki.ValueString {
+		t.Errorf("expected InputType=ValueString, got %d", actions[0].InputType)
+	}
+}
+
+func TestParsePluginActions_InputIntValid(t *testing.T) {
+	parser := testParser()
+	configs := []PluginActionConfig{
+		{Key: "p", Label: "Set points", Action: `update where id = id() set points=input()`, Input: "int"},
+	}
+	actions, err := parsePluginActions(configs, parser)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !actions[0].HasInput {
+		t.Error("expected HasInput=true")
+	}
+	if actions[0].InputType != ruki.ValueInt {
+		t.Errorf("expected InputType=ValueInt, got %d", actions[0].InputType)
+	}
+}
+
+func TestParsePluginActions_InputTypeMismatch(t *testing.T) {
+	parser := testParser()
+	configs := []PluginActionConfig{
+		{Key: "a", Label: "Assign to", Action: `update where id = id() set assignee=input()`, Input: "int"},
+	}
+	_, err := parsePluginActions(configs, parser)
+	if err == nil {
+		t.Fatal("expected error for input type mismatch (int into string field)")
+	}
+}
+
+func TestParsePluginActions_InputWithoutInputFunc(t *testing.T) {
+	parser := testParser()
+	configs := []PluginActionConfig{
+		{Key: "a", Label: "Ready", Action: `update where id = id() set status="ready"`, Input: "string"},
+	}
+	_, err := parsePluginActions(configs, parser)
+	if err == nil {
+		t.Fatal("expected error: input: declared but input() not used")
+	}
+	if !strings.Contains(err.Error(), "does not use input()") {
+		t.Fatalf("unexpected error message: %v", err)
+	}
+}
+
+func TestParsePluginActions_InputUnsupportedType(t *testing.T) {
+	parser := testParser()
+	configs := []PluginActionConfig{
+		{Key: "a", Label: "Assign to", Action: `update where id = id() set assignee=input()`, Input: "enum"},
+	}
+	_, err := parsePluginActions(configs, parser)
+	if err == nil {
+		t.Fatal("expected error for unsupported input type")
+	}
+}
+
+func TestParsePluginActions_NoInputField_NoHasInput(t *testing.T) {
+	parser := testParser()
+	configs := []PluginActionConfig{
+		{Key: "a", Label: "Ready", Action: `update where id = id() set status="ready"`},
+	}
+	actions, err := parsePluginActions(configs, parser)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if actions[0].HasInput {
+		t.Error("expected HasInput=false for action without input: field")
+	}
+}
