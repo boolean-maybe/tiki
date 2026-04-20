@@ -16,9 +16,6 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-// lastConfigFile tracks the most recently merged config file path for saveConfig().
-var lastConfigFile string
-
 // Config holds all application configuration loaded from config.yaml
 type Config struct {
 	Version string `mapstructure:"version"`
@@ -70,9 +67,9 @@ func LoadConfig() (*Config, error) {
 	viper.Reset()
 	viper.SetConfigType("yaml")
 	setDefaults()
-	lastConfigFile = ""
 
 	// merge config files in precedence order (first = base, last = highest priority)
+	merged := 0
 	for _, path := range findConfigFiles() {
 		f, err := os.Open(path)
 		if err != nil {
@@ -84,11 +81,11 @@ func LoadConfig() (*Config, error) {
 		if mergeErr != nil {
 			return nil, fmt.Errorf("merging config from %s: %w", path, mergeErr)
 		}
-		lastConfigFile = path
+		merged++
 		slog.Debug("merged configuration", "file", path)
 	}
 
-	if lastConfigFile == "" {
+	if merged == 0 {
 		slog.Debug("no config.yaml found, using defaults")
 	}
 
@@ -254,25 +251,6 @@ func ConvertViewsListToMap(raw map[string]interface{}) {
 	}
 }
 
-// writeWorkflowFile marshals and writes workflow.yaml to the given path.
-func writeWorkflowFile(path string, wf *workflowFileData) error {
-	data, err := yaml.Marshal(wf)
-	if err != nil {
-		return fmt.Errorf("marshaling workflow.yaml: %w", err)
-	}
-	//nolint:gosec // G306: 0644 is appropriate for config file
-	if err := os.WriteFile(path, data, 0644); err != nil {
-		return fmt.Errorf("writing workflow.yaml: %w", err)
-	}
-	return nil
-}
-
-// GetBoardViewMode loads the board view mode from workflow.yaml.
-// Returns "expanded" as default if not found.
-func GetBoardViewMode() string {
-	return getPluginViewModeFromWorkflow("Board", "expanded")
-}
-
 // GetPluginViewMode reads a plugin's view mode from workflow.yaml by name.
 // Returns empty string if not found.
 func GetPluginViewMode(pluginName string) string {
@@ -303,57 +281,6 @@ func getPluginViewModeFromWorkflow(pluginName string, defaultValue string) strin
 	return defaultValue
 }
 
-// SavePluginViewMode saves a plugin's view mode to workflow.yaml.
-// configIndex: index in workflow.yaml plugins array (-1 to find/create by name)
-func SavePluginViewMode(pluginName string, configIndex int, viewMode string) error {
-	path := FindWorkflowFile()
-	if path == "" {
-		// create workflow.yaml in user config dir
-		path = GetUserConfigWorkflowFile()
-	}
-
-	var wf *workflowFileData
-
-	// try to read existing file
-	if existing, err := readWorkflowFile(path); err == nil {
-		wf = existing
-	} else {
-		wf = &workflowFileData{}
-	}
-
-	if configIndex >= 0 && configIndex < len(wf.Views.Plugins) {
-		// update existing entry by index
-		wf.Views.Plugins[configIndex]["view"] = viewMode
-	} else {
-		// find by name or create new entry
-		existingIndex := -1
-		for i, p := range wf.Views.Plugins {
-			if name, ok := p["name"].(string); ok && name == pluginName {
-				existingIndex = i
-				break
-			}
-		}
-
-		if existingIndex >= 0 {
-			wf.Views.Plugins[existingIndex]["view"] = viewMode
-		} else {
-			newEntry := map[string]interface{}{
-				"name": pluginName,
-				"view": viewMode,
-			}
-			wf.Views.Plugins = append(wf.Views.Plugins, newEntry)
-		}
-	}
-
-	return writeWorkflowFile(path, wf)
-}
-
-// SaveHeaderVisible saves the header visibility setting to config.yaml
-func SaveHeaderVisible(visible bool) error {
-	viper.Set("header.visible", visible)
-	return saveConfig()
-}
-
 // GetHeaderVisible returns the header visibility setting
 func GetHeaderVisible() bool {
 	return viper.GetBool("header.visible")
@@ -376,16 +303,6 @@ func GetMaxImageRows() int {
 		return 40
 	}
 	return rows
-}
-
-// saveConfig writes the current viper configuration to config.yaml.
-// Saves to the last merged config file, or the user config dir if none was loaded.
-func saveConfig() error {
-	configFile := lastConfigFile
-	if configFile == "" {
-		configFile = GetConfigFile()
-	}
-	return viper.WriteConfigAs(configFile)
 }
 
 // GetTheme returns the appearance theme setting

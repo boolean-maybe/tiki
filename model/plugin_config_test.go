@@ -1,6 +1,7 @@
 package model
 
 import (
+	"os"
 	"sync"
 	"testing"
 	"time"
@@ -285,9 +286,6 @@ func TestPluginConfig_ViewMode(t *testing.T) {
 func TestPluginConfig_ToggleViewMode(t *testing.T) {
 	pc := NewPluginConfig("test")
 
-	// Note: ToggleViewMode calls config.SavePluginViewMode which will fail in tests
-	// but should not affect the toggle logic
-
 	initial := pc.GetViewMode()
 
 	// Toggle
@@ -308,6 +306,41 @@ func TestPluginConfig_ToggleViewMode(t *testing.T) {
 	// Should return to initial
 	if pc.GetViewMode() != initial {
 		t.Error("ToggleViewMode() twice should return to initial state")
+	}
+}
+
+func TestPluginConfig_ToggleViewMode_SessionOnly(t *testing.T) {
+	tmpDir := t.TempDir()
+	workflowContent := `views:
+  plugins:
+    - name: TestPlugin
+      view: compact
+`
+	workflowPath := tmpDir + "/workflow.yaml"
+	if err := os.WriteFile(workflowPath, []byte(workflowContent), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	info, err := os.Stat(workflowPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	modBefore := info.ModTime()
+	sizeBefore := info.Size()
+
+	pc := NewPluginConfig("TestPlugin")
+	pc.ToggleViewMode()
+
+	if pc.GetViewMode() != ViewModeExpanded {
+		t.Fatal("expected expanded after toggle")
+	}
+
+	info, err = os.Stat(workflowPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if info.ModTime() != modBefore || info.Size() != sizeBefore {
+		t.Error("ToggleViewMode must not write to workflow.yaml")
 	}
 }
 
@@ -544,21 +577,6 @@ func TestPluginConfig_ConcurrentAccess(t *testing.T) {
 	}
 
 	// If we get here without panic, test passes
-}
-
-func TestPluginConfig_SetConfigIndex(t *testing.T) {
-	pc := NewPluginConfig("test")
-
-	// SetConfigIndex doesn't have a getter, but we're testing it doesn't panic
-	pc.SetConfigIndex(5)
-	pc.SetConfigIndex(-1)
-	pc.SetConfigIndex(0)
-
-	// Verify it doesn't affect other operations
-	pc.SetSelectedIndex(3)
-	if pc.GetSelectedIndex() != 3 {
-		t.Error("SetConfigIndex affected GetSelectedIndex")
-	}
 }
 
 func TestPluginConfig_GridNavigation_PartialLastRow(t *testing.T) {

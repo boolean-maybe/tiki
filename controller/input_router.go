@@ -279,10 +279,14 @@ func (ir *InputRouter) openDepsEditor(taskID string) bool {
 		},
 	}
 
+	if vm := config.GetPluginViewMode("Dependency"); vm != "" {
+		pluginDef.ViewMode = vm
+	}
+
 	pluginConfig := model.NewPluginConfig("Dependency")
 	pluginConfig.SetLaneLayout([]int{1, 2, 1}, []int{25, 50, 25})
-	if vm := config.GetPluginViewMode("Dependency"); vm != "" {
-		pluginConfig.SetViewMode(vm)
+	if pluginDef.ViewMode == "expanded" {
+		pluginConfig.SetViewMode("expanded")
 	}
 
 	ctrl := NewDepsController(ir.taskStore, ir.mutationGate, pluginConfig, pluginDef, ir.navController, ir.statusline, ir.schema)
