@@ -9,8 +9,8 @@ All vim-like pager commands are supported in addition to:
 
 ## File and issue management
 
-`cd` into your **git** repo and run `tiki init` to initialize
-Or you can also check out a demo project and play around:
+Run `tiki init my-directory` to initialize a project, then `cd my-directory` and run `tiki` to start
+Or check out a demo project and play around:
 ```
 cd /tmp && tiki demo
 ```

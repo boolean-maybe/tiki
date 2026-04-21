@@ -50,6 +50,7 @@ views:
       lanes:
         - name: Todo
           columns: 3
+          width: 75
           filter: select where status = "todo" order by priority, createdAt
           action: update where id = id() set status="todo"
         - name: Done

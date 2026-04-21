@@ -2,7 +2,7 @@
 
 ## Setting a theme
 
-Set the theme in your `config.yaml` under the `appearance` section (see [Configuration](config.md) for file locations and merging rules):
+Set the theme in your `config.yaml` under the `appearance` section (see [Configuration](config.md) for file locations and precedence):
 
 ```yaml
 appearance:

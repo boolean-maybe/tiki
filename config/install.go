@@ -21,6 +21,11 @@ var DefaultWorkflowBaseURL = "https://raw.githubusercontent.com/boolean-maybe/ti
 
 var validWorkflowName = regexp.MustCompile(`^[a-zA-Z0-9]([a-zA-Z0-9._-]*[a-zA-Z0-9])?$`)
 
+// ValidWorkflowName reports whether name is a valid workflow name.
+func ValidWorkflowName(name string) bool {
+	return validWorkflowName.MatchString(name)
+}
+
 // InstallResult describes the outcome for a single installed file.
 type InstallResult struct {
 	Path    string

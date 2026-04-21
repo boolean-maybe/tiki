@@ -227,6 +227,30 @@ func convertLegacyGlobalActions(transformer *LegacyConfigTransformer, actions []
 	return count
 }
 
+// LoadPluginsFromFile validates and loads plugins from an explicit workflow file
+// path using the provided schema. Returns an error when no valid plugins could
+// be loaded or when type-reference errors indicate an inconsistent workflow.
+// Used by init to validate a candidate workflow file without global path discovery.
+func LoadPluginsFromFile(path string, schema ruki.Schema) ([]Plugin, error) {
+	plugins, globalActions, errs := loadPluginsFromFile(path, schema)
+
+	if typeErrs := filterTypeErrors(errs); len(typeErrs) > 0 {
+		return nil, fmt.Errorf("workflow references invalid types:\n  %s",
+			strings.Join(typeErrs, "\n  "))
+	}
+
+	mergeGlobalActionsIntoPlugins(plugins, globalActions)
+
+	if len(plugins) == 0 {
+		if len(errs) > 0 {
+			return nil, fmt.Errorf("no valid views loaded:\n  %s", strings.Join(errs, "\n  "))
+		}
+		return nil, fmt.Errorf("no views defined in %s", path)
+	}
+
+	return plugins, nil
+}
+
 // DefaultPlugin returns the first plugin marked as default, or the first plugin
 // in the list if none are marked. The caller must ensure plugins is non-empty.
 func DefaultPlugin(plugins []Plugin) Plugin {

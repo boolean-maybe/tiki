@@ -12,10 +12,43 @@ Running `tiki` with no arguments launches the TUI in an initialized project.
 
 ### init
 
-Initialize a tiki project in the current git repository. Creates the `.doc/tiki/` directory structure for task storage.
+Initialize a tiki project. Creates the `.doc/tiki/` and `.doc/doki/` directory structures.
+
+If the target directory does not exist, it is created. If the directory is not a git repository, `git init` is run automatically.
+
+```
+tiki init [directory] [-w|--workflow <name>] [--ai-skill <list>] [--samples] [-n|--non-interactive]
+```
+
+| Option | Description |
+|---|---|
+| `directory` | Target directory (default: current directory) |
+| `-w`, `--workflow <name>` | Install a named workflow (e.g. `todo`, `kanban`, `bug-tracker`) |
+| `--ai-skill <list>` | AI skills to install, comma-separated (e.g. `claude,gemini`) |
+| `--samples` | Create bundled sample tasks (non-interactive mode only) |
+| `-n`, `--non-interactive` | Skip prompts, use only flags and defaults |
+
+**Sample tasks** are created if:
+- Interactive mode with default workflow: samples are created automatically
+- Non-interactive mode: samples are created only with `--samples`
+
+Running `tiki init` on an already-initialized project prints a message and exits without changes.
 
 ```bash
+# interactive init with AI skill selection
 tiki init
+
+# initialize a subdirectory (creates dir and git repo if needed)
+tiki init my-project
+
+# install a named workflow
+tiki init -w todo
+
+# initialize a subdirectory with a named workflow
+tiki init -w kanban my-project
+
+# fully non-interactive
+tiki init -n --ai-skill claude,gemini --samples
 ```
 
 ### exec
@@ -54,9 +87,9 @@ tiki workflow reset [target] [--scope]
 - `--local` — project config directory (`.doc/`)
 - `--current` — current working directory
 
-For `--global`, workflow.yaml and new.md are overwritten with embedded defaults. config.yaml is deleted (built-in defaults take over).
+For `--global`, workflow.yaml and new.md are overwritten with defaults. config.yaml is deleted (built-in defaults take over).
 
-For `--local` and `--current`, files are deleted so the next tier in the [precedence chain](config.md#precedence-and-merging) takes effect.
+For `--local` and `--current`, files are deleted so the next tier in the [precedence chain](config.md#precedence) takes effect.
 
 ```bash
 # restore all global config to defaults
