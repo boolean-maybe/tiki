@@ -301,7 +301,7 @@ The input box serves both search and action-input, with explicit mode tracking:
 
 ### ruki expressions
 
-Plugin filters, lane actions, and plugin actions all use the [ruki](ruki/index.md) language. Filters use `select` statements. Actions support `update`, `create`, `delete`, and `select` statements (`select` for side-effects only, output ignored).
+Plugin filters, lane actions, and plugin actions all use the [ruki](../ruki/index.md) language. Filters use `select` statements. Actions support `update`, `create`, `delete`, and `select` statements (`select` for side-effects only, output ignored).
 
 #### Filter (select)
 
@@ -374,4 +374,4 @@ update where id = id() set assignee=user()
 - `input()` — user-supplied value (in actions with `input:` declaration)
 - `count(select where ...)` — count matching tikis
 
-For the full language reference, see the [ruki documentation](ruki/index.md).
+For the full language reference, see the [ruki documentation](../ruki/index.md).

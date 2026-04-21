@@ -53,7 +53,7 @@ fields:
 
 Field names must not collide with built-in field names or ruki reserved keywords.
 
-Custom fields come from the `workflow.yaml` file (see [Configuration: Precedence](config.md#precedence))
+Custom fields come from the `workflow.yaml` file (see [Configuration: Precedence](../config.md#precedence))
 
 ## Field types
 
@@ -202,7 +202,7 @@ Search implementation details...
 
 Custom fields appear after the built-in fields, sorted alphabetically by name.
 
-On load, unknown frontmatter keys that are not registered custom fields are preserved as-is and survive save-load round-trips. This allows workflow changes without losing data — see [Schema evolution](ruki/custom-fields-reference.md#schema-evolution-and-stale-data) for details.
+On load, unknown frontmatter keys that are not registered custom fields are preserved as-is and survive save-load round-trips. This allows workflow changes without losing data — see [Schema evolution](../ruki/custom-fields-reference.md#schema-evolution-and-stale-data) for details.
 
 ## Templates
 

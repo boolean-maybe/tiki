@@ -78,7 +78,7 @@ Keys in `workflow.yaml` must already be in their canonical form. Input normaliza
 
 ### Required Sections
 
-All workflow-backed sections come from the single highest-priority `workflow.yaml` (see [Configuration: Precedence](config.md#precedence)).
+All workflow-backed sections come from the single highest-priority `workflow.yaml` (see [Configuration: Precedence](../config.md#precedence)).
 
 - Missing `statuses:` in the winning file is an error.
 - Missing `types:` in the winning file is an error.

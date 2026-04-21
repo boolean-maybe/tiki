@@ -93,22 +93,6 @@ this will clone and show a demo project. Once done you can try your own:
 Run `tiki init my-directory` to initialize a project, then `cd my-directory` and run `tiki` to start
 
 Move your tiki around the board with `Shift ←/Shift →`.
-Press `?` to open the Action Palette — it lists all available actions with their shortcuts.
-Press `F1` to open a sample doc root. Follow links with `Tab/Enter`
-
-```bash
-# initialize with defaults (interactive AI skill selection, bundled sample tasks)
-tiki init
-
-# initialize a different directory
-tiki init /path/to/repo
-
-# initialize with a custom workflow
-tiki init -w my-workflow.yaml
-
-# non-interactive with AI skills
-tiki init -n --ai-skill claude,gemini --samples
-```
 
 ### AI skills
 You will be prompted to install skills for
