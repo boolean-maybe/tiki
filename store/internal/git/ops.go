@@ -1,16 +1,6 @@
 package git
 
-import (
-	"time"
-
-	"github.com/boolean-maybe/tiki/store/internal/git/shell"
-)
-
-// AuthorInfo contains information about who created a file
-type AuthorInfo = shell.AuthorInfo
-
-// FileVersion represents the content of a file at a specific commit
-type FileVersion = shell.FileVersion
+import "time"
 
 // GitOps defines the interface for git operations
 type GitOps interface {
@@ -27,7 +17,8 @@ type GitOps interface {
 	AllUsers() ([]string, error)
 }
 
-// NewGitOps creates a new GitOps instance using the shell-out implementation by default
+// NewGitOps creates a new GitOps instance. Backend selection (shell vs go-git)
+// is deferred until the first method call, based on whether shell git is available.
 func NewGitOps(repoPath string) (GitOps, error) {
-	return NewGitShellUtil(repoPath)
+	return newSelector(repoPath), nil
 }

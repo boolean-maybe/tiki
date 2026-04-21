@@ -14,7 +14,6 @@ func (u *Util) LastCommitTime(filePath string) (time.Time, error) {
 		return time.Time{}, err
 	}
 
-	// Get most recent commit that modified this file
 	//nolint:gosec // G204: git command with controlled file path
 	cmd := exec.Command("git", "log", "-1", "--format=%aI", "--", relPath)
 	cmd.Dir = u.repoPath
@@ -32,9 +31,7 @@ func (u *Util) LastCommitTime(filePath string) (time.Time, error) {
 }
 
 // AllLastCommitTimes returns last commit timestamp for all files matching dirPattern in a single git command.
-// Returns a map of file paths to their last commit time.
 func (u *Util) AllLastCommitTimes(dirPattern string) (map[string]time.Time, error) {
-	// Get all commits (most recent first due to default reverse chronological order)
 	cmd := exec.Command("git", "log", "--all", "--format=%aI", "--name-only", "--", dirPattern) //nolint:gosec // G204: git command with controlled directory pattern
 	cmd.Dir = u.repoPath
 	output, err := cmd.Output()
@@ -53,12 +50,9 @@ func (u *Util) AllLastCommitTimes(dirPattern string) (map[string]time.Time, erro
 			continue
 		}
 
-		// Try to parse as a date (commit timestamp line)
 		if date, err := parseGitTime(line); err == nil {
 			currentDate = date
 		} else {
-			// This is a file name
-			// Only store the first occurrence (most recent commit due to reverse chronological order)
 			if _, exists := result[line]; !exists {
 				result[line] = currentDate
 			}
