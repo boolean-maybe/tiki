@@ -11,7 +11,7 @@ require (
 	github.com/charmbracelet/bubbletea v1.3.10
 	github.com/charmbracelet/huh v0.8.0
 	github.com/charmbracelet/lipgloss v1.1.1-0.20250404203927-76690c660834
-	github.com/gdamore/tcell/v2 v2.13.5
+	github.com/gdamore/tcell/v2 v2.13.9
 	github.com/go-git/go-git/v5 v5.16.4
 	github.com/matoous/go-nanoid/v2 v2.1.0
 	github.com/mattn/go-runewidth v0.0.16
