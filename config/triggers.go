@@ -34,6 +34,16 @@ func LoadTriggerDefs() ([]TriggerDef, error) {
 	return defs, nil
 }
 
+// LoadTriggerDefsFromFile reads trigger definitions from an explicit workflow
+// file path. Used by init to validate triggers without global path discovery.
+func LoadTriggerDefsFromFile(path string) ([]TriggerDef, error) {
+	defs, _, err := readTriggersFromFile(path)
+	if err != nil {
+		return nil, fmt.Errorf("reading triggers from %s: %w", path, err)
+	}
+	return defs, nil
+}
+
 // readTriggersFromFile reads a workflow.yaml and returns its triggers section.
 // Returns (defs, true, nil) if the file exists and has a triggers: key.
 // Returns (nil, false, nil) if the file doesn't exist or has no triggers: key.

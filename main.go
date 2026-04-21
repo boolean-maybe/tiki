@@ -56,6 +56,11 @@ func main() {
 		}
 	}
 
+	// Handle init command — must run before InitPaths (chdir may change cwd)
+	if len(os.Args) > 1 && os.Args[1] == "init" {
+		os.Exit(runInit(os.Args[2:]))
+	}
+
 	// Initialize paths early - this must succeed for the application to function
 	if err := config.InitPaths(); err != nil {
 		_, _ = fmt.Fprintln(os.Stderr, "error:", err)
@@ -83,12 +88,8 @@ func main() {
 		return
 	}
 
-	// Handle init command
-	initRequested := len(os.Args) > 1 && os.Args[1] == "init"
-
 	// Handle viewer mode (standalone markdown viewer)
-	// "init" is reserved to prevent treating it as a markdown file
-	viewerInput, runViewer, err := viewer.ParseViewerInput(os.Args[1:], map[string]struct{}{"init": {}, "demo": {}, "exec": {}, "workflow": {}})
+	viewerInput, runViewer, err := viewer.ParseViewerInput(os.Args[1:], map[string]struct{}{"demo": {}, "exec": {}, "workflow": {}})
 	if err != nil {
 		if errors.Is(err, viewer.ErrMultipleInputs) {
 			_, _ = fmt.Fprintln(os.Stderr, "error:", err)
@@ -106,19 +107,18 @@ func main() {
 	}
 
 	// Check if project is initialized before launching TUI
-	if !initRequested && !config.IsProjectInitialized() {
+	if !config.IsProjectInitialized() {
 		printUsage()
 		return
 	}
 
-	// Bootstrap application (handles init prompt if needed when initRequested)
+	// Bootstrap application
 	result, err := bootstrap.Bootstrap(tikiSkillMdContent, dokiSkillMdContent)
 	if err != nil {
 		_, _ = fmt.Fprintln(os.Stderr, "error:", err)
 		os.Exit(1)
 	}
 	if result == nil {
-		// User chose not to proceed with project initialization
 		return
 	}
 
@@ -257,7 +257,7 @@ func printUsage() {
 
 Usage:
   tiki                       Launch TUI in initialized repo
-  tiki init                  Initialize project in current git repo
+  tiki init [dir] [options]    Initialize project (exits without launching TUI)
   tiki exec '<statement>'    Execute a ruki query and exit
   tiki workflow reset [target]  Reset config files (--global, --local, --current)
   tiki workflow install <name>  Install a workflow (--global, --local, --current)

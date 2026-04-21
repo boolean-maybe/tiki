@@ -53,7 +53,7 @@ fields:
 
 Field names must not collide with built-in field names or ruki reserved keywords.
 
-Custom fields follow the same merge semantics as other `workflow.yaml` sections. If the same field is defined identically in multiple files (user config, project config, cwd), the duplicate is silently accepted. If definitions conflict (different type or different enum values), loading fails with an error.
+Custom fields come from the `workflow.yaml` file (see [Configuration: Precedence](config.md#precedence))
 
 ## Field types
 

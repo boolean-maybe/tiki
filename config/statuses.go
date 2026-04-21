@@ -129,6 +129,47 @@ func ResetTypeRegistry(defs []workflow.TypeDef) {
 	registryMu.Unlock()
 }
 
+// LoadRegistriesFromFile validates and loads statuses, types, and custom fields
+// from a single explicit workflow file path. Returns local registries without
+// touching global state. Used by init to validate a candidate workflow file.
+func LoadRegistriesFromFile(path string) (*workflow.StatusRegistry, *workflow.TypeRegistry, []workflow.FieldDef, error) {
+	statusReg, err := loadStatusesFromFile(path)
+	if err != nil {
+		return nil, nil, nil, fmt.Errorf("loading statuses: %w", err)
+	}
+	if statusReg == nil {
+		return nil, nil, nil, fmt.Errorf("no statuses defined; add a statuses: section")
+	}
+
+	typeReg, present, err := loadTypesFromFile(path)
+	if err != nil {
+		return nil, nil, nil, fmt.Errorf("loading types: %w", err)
+	}
+	if !present {
+		return nil, nil, nil, fmt.Errorf("no types defined; add a types: section")
+	}
+
+	rawDefs, err := readCustomFieldsFromFile(path)
+	if err != nil {
+		return nil, nil, nil, fmt.Errorf("reading custom fields: %w", err)
+	}
+
+	var fieldDefs []workflow.FieldDef
+	for _, raw := range rawDefs {
+		def, convErr := convertCustomFieldDef(raw)
+		if convErr != nil {
+			return nil, nil, nil, fmt.Errorf("field %q: %w", raw.Name, convErr)
+		}
+		fieldDefs = append(fieldDefs, def)
+	}
+
+	if err := workflow.ValidateCustomFields(fieldDefs); err != nil {
+		return nil, nil, nil, fmt.Errorf("custom fields: %w", err)
+	}
+
+	return statusReg, typeReg, fieldDefs, nil
+}
+
 // ClearStatusRegistry removes the global registries and clears custom fields.
 // Intended for test teardown.
 func ClearStatusRegistry() {

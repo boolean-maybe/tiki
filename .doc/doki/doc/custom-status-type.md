@@ -111,12 +111,6 @@ There are no built-in fallbacks for either section.
 - Missing `type` in a template defaults to the first configured type.
 - Invalid non-empty `type` in a template is a hard error; creation is aborted.
 
-### Sample Tasks at Init
-
-- Each embedded sample is validated against the active registries before writing.
-- Incompatible samples are silently skipped.
-- `tiki init` offers a "Create sample tasks" checkbox (default: enabled).
-
 ### Cross-Reference Errors
 
 If the active workflow file defines types that don't match the views, actions, or triggers in the same file, startup fails with a configuration error. There is no silent view-skipping or automatic remapping.
