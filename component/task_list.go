@@ -2,6 +2,7 @@ package component
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/gdamore/tcell/v2"
 	"github.com/rivo/tview"
@@ -54,13 +55,18 @@ func RenderTaskRow(t *task.Task, selected bool, width int, idColumnWidth int, co
 	titleAvailable := max(width-1-1-idColumnWidth-1, 0)
 	truncatedTitle := tview.Escape(util.TruncateText(t.Title, titleAvailable))
 
-	row := fmt.Sprintf("%s %s %s%s[-]", statusIndicator, idText, colors.TitleColor.Tag().String(), truncatedTitle)
+	row := fmt.Sprintf("%s %s %s%s", statusIndicator, idText, colors.TitleColor.Tag().String(), truncatedTitle)
 
 	if selected {
 		row = colors.SelectionFg.Tag().WithBg(colors.SelectionBg).String() + row
 	}
 
-	return row
+	visibleWidth := tview.TaggedStringWidth(row)
+	if pad := width - visibleWidth; pad > 0 {
+		row += strings.Repeat(" ", pad)
+	}
+
+	return row + "[-:-:-]"
 }
 
 // ComputeIDColumnWidth returns the width needed for the widest task ID.

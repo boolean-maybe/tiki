@@ -31,7 +31,7 @@ func TestTruncateText(t *testing.T) {
 			name:     "very small width",
 			text:     "hello",
 			maxWidth: 3,
-			expected: "hello",
+			expected: "hel",
 		},
 	}
 
