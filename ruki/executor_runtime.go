@@ -40,6 +40,8 @@ type ExecutionInput struct {
 	CreateTemplate *task.Task
 	InputValue     interface{} // value returned by input() builtin
 	HasInput       bool        // distinguishes nil from unset
+	ChooseValue    string      // task ID returned by choose() builtin
+	HasChoose      bool        // distinguishes empty from unset
 }
 
 // RuntimeMismatchError reports execution with a wrapper validated for a
@@ -75,6 +77,13 @@ type MissingInputValueError struct{}
 
 func (e *MissingInputValueError) Error() string {
 	return "input value is required when input() is used"
+}
+
+// MissingChooseValueError reports execution of choose() without a provided value.
+type MissingChooseValueError struct{}
+
+func (e *MissingChooseValueError) Error() string {
+	return "choose value is required when choose() is used"
 }
 
 var (

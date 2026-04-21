@@ -45,6 +45,7 @@ type TestApp struct {
 	viewContext       *model.ViewContext
 	layoutModel       *model.LayoutModel
 	paletteConfig     *model.ActionPaletteConfig
+	quickSelectConfig *model.QuickSelectConfig
 	actionPalette     *palette.ActionPalette
 	pages             *tview.Pages
 }
@@ -157,6 +158,13 @@ func NewTestApp(t *testing.T) *TestApp {
 	actionPalette := palette.NewActionPalette(viewContext, paletteConfig, inputRouter, navController)
 	actionPalette.SetChangedFunc()
 
+	// 7.6 QuickSelect
+	quickSelectConfig := model.NewQuickSelectConfig()
+	inputRouter.SetQuickSelectConfig(quickSelectConfig)
+	quickSelect := palette.NewQuickSelect(quickSelectConfig)
+	quickSelect.SetChangedFunc()
+	inputRouter.SetQuickSelectView(quickSelect)
+
 	// Build Pages root
 	pages := tview.NewPages()
 	pages.AddPage("base", rootLayout.GetPrimitive(), true, true)
@@ -164,6 +172,10 @@ func NewTestApp(t *testing.T) *TestApp {
 	paletteBox.AddItem(tview.NewBox(), 0, 1, false)
 	paletteBox.AddItem(actionPalette.GetPrimitive(), palette.PaletteMinWidth, 0, true)
 	pages.AddPage("palette", paletteBox, true, false)
+	quickSelectBox := tview.NewFlex()
+	quickSelectBox.AddItem(tview.NewBox(), 0, 1, false)
+	quickSelectBox.AddItem(quickSelect.GetPrimitive(), palette.PaletteMinWidth, 0, true)
+	pages.AddPage("quickselect", quickSelectBox, true, false)
 
 	var previousFocus tview.Primitive
 	paletteConfig.AddListener(func() {
@@ -183,6 +195,23 @@ func NewTestApp(t *testing.T) *TestApp {
 		}
 	})
 
+	var qsPreviousFocus tview.Primitive
+	quickSelectConfig.AddListener(func() {
+		if quickSelectConfig.IsVisible() {
+			qsPreviousFocus = app.GetFocus()
+			pages.ShowPage("quickselect")
+			app.SetFocus(quickSelect.GetFilterInput())
+		} else {
+			pages.HidePage("quickselect")
+			if qsPreviousFocus != nil {
+				app.SetFocus(qsPreviousFocus)
+			} else if cv := rootLayout.GetContentView(); cv != nil {
+				app.SetFocus(cv.GetPrimitive())
+			}
+			qsPreviousFocus = nil
+		}
+	})
+
 	// 8. Wire up callbacks
 	navController.SetOnViewChanged(func(viewID model.ViewID, params map[string]interface{}) {
 		layoutModel.SetContent(viewID, params)
@@ -192,6 +221,9 @@ func NewTestApp(t *testing.T) *TestApp {
 	// 9. Set up global input capture (matches production)
 	app.SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
 		if paletteConfig.IsVisible() {
+			return event
+		}
+		if quickSelectConfig.IsVisible() {
 			return event
 		}
 		statuslineConfig.DismissAutoHide()
@@ -207,24 +239,25 @@ func NewTestApp(t *testing.T) *TestApp {
 	// Note: Do NOT call app.Run() - we use app.Draw() + screen.Show() for synchronous testing
 
 	ta := &TestApp{
-		App:              app,
-		Screen:           screen,
-		RootLayout:       rootLayout,
-		TaskStore:        taskStore,
-		MutationGate:     gate,
-		Schema:           schema,
-		NavController:    navController,
-		InputRouter:      inputRouter,
-		TaskDir:          taskDir,
-		t:                t,
-		taskController:   taskController,
-		statuslineConfig: statuslineConfig,
-		headerConfig:     headerConfig,
-		viewContext:      viewContext,
-		layoutModel:      layoutModel,
-		paletteConfig:    paletteConfig,
-		actionPalette:    actionPalette,
-		pages:            pages,
+		App:               app,
+		Screen:            screen,
+		RootLayout:        rootLayout,
+		TaskStore:         taskStore,
+		MutationGate:      gate,
+		Schema:            schema,
+		NavController:     navController,
+		InputRouter:       inputRouter,
+		TaskDir:           taskDir,
+		t:                 t,
+		taskController:    taskController,
+		statuslineConfig:  statuslineConfig,
+		headerConfig:      headerConfig,
+		viewContext:       viewContext,
+		layoutModel:       layoutModel,
+		paletteConfig:     paletteConfig,
+		quickSelectConfig: quickSelectConfig,
+		actionPalette:     actionPalette,
+		pages:             pages,
 	}
 
 	// 11. Auto-load plugins since all views are now plugins
@@ -426,10 +459,21 @@ func (ta *TestApp) LoadPlugins() error {
 	)
 	ta.InputRouter.SetHeaderConfig(ta.headerConfig)
 	ta.InputRouter.SetPaletteConfig(ta.paletteConfig)
+	ta.InputRouter.SetQuickSelectConfig(ta.quickSelectConfig)
+
+	// Rebuild QuickSelect wiring with fresh config so listeners point to the new widget
+	ta.quickSelectConfig = model.NewQuickSelectConfig()
+	ta.InputRouter.SetQuickSelectConfig(ta.quickSelectConfig)
+	quickSelect := palette.NewQuickSelect(ta.quickSelectConfig)
+	quickSelect.SetChangedFunc()
+	ta.InputRouter.SetQuickSelectView(quickSelect)
 
 	// Update global input capture (matches production pipeline)
 	ta.App.SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
 		if ta.paletteConfig.IsVisible() {
+			return event
+		}
+		if ta.quickSelectConfig.IsVisible() {
 			return event
 		}
 		ta.statuslineConfig.DismissAutoHide()
@@ -500,6 +544,7 @@ func (ta *TestApp) LoadPlugins() error {
 	ta.actionPalette.SetChangedFunc()
 
 	// Rebuild Pages
+	ta.pages.RemovePage("quickselect")
 	ta.pages.RemovePage("palette")
 	ta.pages.RemovePage("base")
 	ta.pages.AddPage("base", ta.RootLayout.GetPrimitive(), true, true)
@@ -507,6 +552,28 @@ func (ta *TestApp) LoadPlugins() error {
 	paletteBox.AddItem(tview.NewBox(), 0, 1, false)
 	paletteBox.AddItem(ta.actionPalette.GetPrimitive(), palette.PaletteMinWidth, 0, true)
 	ta.pages.AddPage("palette", paletteBox, true, false)
+	quickSelectBox := tview.NewFlex()
+	quickSelectBox.AddItem(tview.NewBox(), 0, 1, false)
+	quickSelectBox.AddItem(quickSelect.GetPrimitive(), palette.PaletteMinWidth, 0, true)
+	ta.pages.AddPage("quickselect", quickSelectBox, true, false)
+
+	// wire QuickSelect visibility listener (fresh config = no stale listeners)
+	var qsPrev tview.Primitive
+	ta.quickSelectConfig.AddListener(func() {
+		if ta.quickSelectConfig.IsVisible() {
+			qsPrev = ta.App.GetFocus()
+			ta.pages.ShowPage("quickselect")
+			ta.App.SetFocus(quickSelect.GetFilterInput())
+		} else {
+			ta.pages.HidePage("quickselect")
+			if qsPrev != nil {
+				ta.App.SetFocus(qsPrev)
+			} else if cv := ta.RootLayout.GetContentView(); cv != nil {
+				ta.App.SetFocus(cv.GetPrimitive())
+			}
+			qsPrev = nil
+		}
+	})
 
 	ta.App.SetRoot(ta.pages, true)
 
@@ -521,6 +588,11 @@ func (ta *TestApp) GetHeaderConfig() *model.HeaderConfig {
 // GetPaletteConfig returns the palette config for testing visibility assertions.
 func (ta *TestApp) GetPaletteConfig() *model.ActionPaletteConfig {
 	return ta.paletteConfig
+}
+
+// GetQuickSelectConfig returns the quick-select config for testing visibility assertions.
+func (ta *TestApp) GetQuickSelectConfig() *model.QuickSelectConfig {
+	return ta.quickSelectConfig
 }
 
 // GetPluginConfig retrieves the PluginConfig for a given plugin name.

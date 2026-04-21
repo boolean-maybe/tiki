@@ -34,6 +34,7 @@ var builtinFuncs = map[string]struct {
 	maxArgs    int
 }{
 	"count":     {ValueInt, 1, 1},
+	"choose":    {ValueRef, 1, 1},
 	"id":        {ValueID, 0, 0},
 	"now":       {ValueTimestamp, 0, 0},
 	"next_date": {ValueDate, 1, 1},
@@ -465,7 +466,7 @@ func (p *Parser) inferExprType(e Expr) (ValueType, error) {
 		return p.inferBinaryExprType(e)
 
 	case *SubQuery:
-		return 0, fmt.Errorf("subquery is only valid as argument to count()")
+		return 0, fmt.Errorf("subquery is only valid as argument to count() or choose()")
 
 	default:
 		return 0, fmt.Errorf("unknown expression type %T", e)
@@ -552,6 +553,20 @@ func (p *Parser) inferFuncCallType(fc *FunctionCall) (ValueType, error) {
 			p.requireQualifiers = savedRequire
 			if err != nil {
 				return 0, fmt.Errorf("count() subquery: %w", err)
+			}
+		}
+	case "choose":
+		sq, ok := fc.Args[0].(*SubQuery)
+		if !ok {
+			return 0, fmt.Errorf("choose() argument must be a select subquery")
+		}
+		if sq.Where != nil {
+			savedRequire := p.requireQualifiers
+			p.requireQualifiers = false
+			err := p.validateCondition(sq.Where)
+			p.requireQualifiers = savedRequire
+			if err != nil {
+				return 0, fmt.Errorf("choose() subquery: %w", err)
 			}
 		}
 	case "blocks":

@@ -2,9 +2,17 @@ package ruki
 
 import (
 	"fmt"
+	"sort"
 
 	"github.com/boolean-maybe/tiki/task"
 )
+
+// interactiveBuiltins identifies builtins requiring user interaction (UI prompt).
+// Adding a new interactive builtin here automatically blocks it in triggers.
+var interactiveBuiltins = map[string]bool{
+	"input":  true,
+	"choose": true,
+}
 
 type validationSeal struct{}
 
@@ -22,16 +30,33 @@ func (e *UnvalidatedWrapperError) Error() string {
 
 // ValidatedStatement is an immutable, semantically validated statement wrapper.
 type ValidatedStatement struct {
-	seal          *validationSeal
-	runtime       ExecutorRuntimeMode
-	usesIDFunc    bool
-	usesInputFunc bool
-	statement     *Statement
+	seal             *validationSeal
+	runtime          ExecutorRuntimeMode
+	usesIDFunc       bool
+	usesInputFunc    bool
+	usesChooseFunc   bool
+	chooseFilter     *SubQuery
+	interactiveCalls map[string]int
+	statement        *Statement
 }
 
 func (v *ValidatedStatement) RuntimeMode() ExecutorRuntimeMode { return v.runtime }
 func (v *ValidatedStatement) UsesIDBuiltin() bool              { return v.usesIDFunc }
 func (v *ValidatedStatement) UsesInputBuiltin() bool           { return v.usesInputFunc }
+func (v *ValidatedStatement) UsesChooseBuiltin() bool          { return v.usesChooseFunc }
+func (v *ValidatedStatement) ChooseFilter() *SubQuery          { return v.chooseFilter }
+
+// HasAnyInteractive returns true if the statement uses any interactive builtin.
+// Backed by the interactiveCalls map so future builtins added to the
+// interactiveBuiltins set are automatically covered.
+func (v *ValidatedStatement) HasAnyInteractive() bool {
+	for _, count := range v.interactiveCalls {
+		if count > 0 {
+			return true
+		}
+	}
+	return false
+}
 func (v *ValidatedStatement) RequiresCreateTemplate() bool {
 	return v != nil && v.statement != nil && v.statement.Create != nil
 }
@@ -276,22 +301,43 @@ func (v *SemanticValidator) ValidateStatement(stmt *Statement) (*ValidatedStatem
 	if usesID && v.runtime != ExecutorRuntimePlugin {
 		return nil, fmt.Errorf("id() is only available in plugin runtime")
 	}
-	inputCount, err := countInputUsage(stmt)
+	flags, err := countInteractiveUsage(stmt)
 	if err != nil {
 		return nil, err
 	}
+	inputCount := flags.interactiveCalls["input"]
+	chooseCount := flags.interactiveCalls["choose"]
 	if inputCount > 1 {
 		return nil, fmt.Errorf("input() may only be used once per action")
+	}
+	if chooseCount > 1 {
+		return nil, fmt.Errorf("choose() may only be used once per action")
+	}
+	if inputCount > 0 && chooseCount > 0 {
+		return nil, fmt.Errorf("input() and choose() cannot be used in the same action")
+	}
+	if flags.hasAnyInteractive() && v.runtime != ExecutorRuntimePlugin {
+		return nil, fmt.Errorf("%s() requires user interaction and is only valid in plugin actions",
+			flags.interactiveNames()[0])
 	}
 	if err := validateStatementAssignmentsSemantics(stmt); err != nil {
 		return nil, err
 	}
+
+	var chooseFilter *SubQuery
+	if chooseCount == 1 {
+		chooseFilter = extractChooseSubQuery(stmt)
+	}
+
 	return &ValidatedStatement{
-		seal:          validatedSeal,
-		runtime:       v.runtime,
-		usesIDFunc:    usesID,
-		usesInputFunc: inputCount == 1,
-		statement:     cloneStatement(stmt),
+		seal:             validatedSeal,
+		runtime:          v.runtime,
+		usesIDFunc:       usesID,
+		usesInputFunc:    inputCount == 1,
+		usesChooseFunc:   chooseCount == 1,
+		chooseFilter:     chooseFilter,
+		interactiveCalls: flags.interactiveCalls,
+		statement:        cloneStatement(stmt),
 	}, nil
 }
 
@@ -309,6 +355,12 @@ func (v *SemanticValidator) ValidateTrigger(trig *Trigger) (*ValidatedTrigger, e
 	}
 	if usesID && v.runtime != ExecutorRuntimePlugin {
 		return nil, fmt.Errorf("id() is only available in plugin runtime")
+	}
+	// block interactive builtins in triggers
+	flags := scanTriggerSemanticsEx(trig)
+	if flags.hasAnyInteractive() {
+		return nil, fmt.Errorf("%s() requires user interaction and is not valid in triggers",
+			flags.interactiveNames()[0])
 	}
 	if trig.Action != nil {
 		if err := validateStatementAssignmentsSemantics(trig.Action); err != nil {
@@ -337,6 +389,12 @@ func (v *SemanticValidator) ValidateTimeTrigger(tt *TimeTrigger) (*ValidatedTime
 	}
 	if usesID && v.runtime != ExecutorRuntimePlugin {
 		return nil, fmt.Errorf("id() is only available in plugin runtime")
+	}
+	// block interactive builtins in time triggers
+	flags := scanTimeTriggerSemanticsEx(tt)
+	if flags.hasAnyInteractive() {
+		return nil, fmt.Errorf("%s() requires user interaction and is not valid in triggers",
+			flags.interactiveNames()[0])
 	}
 	if tt.Action != nil {
 		if err := validateStatementAssignmentsSemantics(tt.Action); err != nil {
@@ -462,6 +520,47 @@ func scanTimeTriggerSemantics(tt *TimeTrigger) (usesID bool, hasCall bool, err e
 	return scanStatementSemantics(tt.Action)
 }
 
+func scanTriggerSemanticsEx(trig *Trigger) semanticFlags {
+	var f semanticFlags
+	if trig.Where != nil {
+		wf, _ := scanConditionSemanticsEx(trig.Where)
+		f.merge(wf)
+	}
+	if trig.Action != nil {
+		af, _ := scanStatementSemanticsEx(trig.Action)
+		f.merge(af)
+	}
+	if trig.Run != nil {
+		rf, _ := scanExprSemanticsEx(trig.Run.Command)
+		f.merge(rf)
+	}
+	return f
+}
+
+func scanTimeTriggerSemanticsEx(tt *TimeTrigger) semanticFlags {
+	var f semanticFlags
+	if tt == nil || tt.Action == nil {
+		return f
+	}
+	af, _ := scanStatementSemanticsEx(tt.Action)
+	f.merge(af)
+	return f
+}
+
+func scanStatementSemanticsEx(stmt *Statement) (semanticFlags, error) {
+	flags, err := countInteractiveUsage(stmt)
+	if err != nil {
+		return flags, err
+	}
+	usesID, hasCall, err := scanStatementSemantics(stmt)
+	if err != nil {
+		return flags, err
+	}
+	flags.usesID = usesID
+	flags.hasCall = hasCall
+	return flags, nil
+}
+
 func scanAssignmentsSemantics(assignments []Assignment) (usesID bool, hasCall bool, err error) {
 	for _, a := range assignments {
 		u, c, err := scanExprSemantics(a.Value)
@@ -529,15 +628,41 @@ func scanConditionSemantics(cond Condition) (usesID bool, hasCall bool, err erro
 }
 
 type semanticFlags struct {
-	usesID     bool
-	hasCall    bool
-	inputCount int
+	usesID           bool
+	hasCall          bool
+	interactiveCalls map[string]int
 }
 
 func (f *semanticFlags) merge(other semanticFlags) {
 	f.usesID = f.usesID || other.usesID
 	f.hasCall = f.hasCall || other.hasCall
-	f.inputCount += other.inputCount
+	for name, count := range other.interactiveCalls {
+		if f.interactiveCalls == nil {
+			f.interactiveCalls = map[string]int{}
+		}
+		f.interactiveCalls[name] += count
+	}
+}
+
+func (f *semanticFlags) totalInteractive() int {
+	n := 0
+	for _, count := range f.interactiveCalls {
+		n += count
+	}
+	return n
+}
+
+func (f *semanticFlags) hasAnyInteractive() bool {
+	return f.totalInteractive() > 0
+}
+
+func (f *semanticFlags) interactiveNames() []string {
+	var names []string
+	for name := range f.interactiveCalls {
+		names = append(names, name)
+	}
+	sort.Strings(names)
+	return names
 }
 
 func scanExprSemantics(expr Expr) (usesID bool, hasCall bool, err error) {
@@ -561,8 +686,11 @@ func scanExprSemanticsEx(expr Expr) (semanticFlags, error) {
 		if e.Name == "call" {
 			f.hasCall = true
 		}
-		if e.Name == "input" {
-			f.inputCount++
+		if interactiveBuiltins[e.Name] {
+			if f.interactiveCalls == nil {
+				f.interactiveCalls = map[string]int{}
+			}
+			f.interactiveCalls[e.Name]++
 		}
 		for _, arg := range e.Args {
 			af, err := scanExprSemanticsEx(arg)
@@ -668,21 +796,21 @@ func scanConditionSemanticsEx(cond Condition) (semanticFlags, error) {
 	}
 }
 
-func countInputUsage(stmt *Statement) (int, error) {
+func countInteractiveUsage(stmt *Statement) (semanticFlags, error) {
 	var total semanticFlags
 	switch {
 	case stmt.Select != nil:
 		if stmt.Select.Where != nil {
 			f, err := scanConditionSemanticsEx(stmt.Select.Where)
 			if err != nil {
-				return 0, err
+				return total, err
 			}
 			total.merge(f)
 		}
 		if stmt.Select.Pipe != nil && stmt.Select.Pipe.Run != nil {
 			f, err := scanExprSemanticsEx(stmt.Select.Pipe.Run.Command)
 			if err != nil {
-				return 0, err
+				return total, err
 			}
 			total.merge(f)
 		}
@@ -690,7 +818,7 @@ func countInputUsage(stmt *Statement) (int, error) {
 		for _, a := range stmt.Create.Assignments {
 			f, err := scanExprSemanticsEx(a.Value)
 			if err != nil {
-				return 0, err
+				return total, err
 			}
 			total.merge(f)
 		}
@@ -698,14 +826,14 @@ func countInputUsage(stmt *Statement) (int, error) {
 		if stmt.Update.Where != nil {
 			f, err := scanConditionSemanticsEx(stmt.Update.Where)
 			if err != nil {
-				return 0, err
+				return total, err
 			}
 			total.merge(f)
 		}
 		for _, a := range stmt.Update.Set {
 			f, err := scanExprSemanticsEx(a.Value)
 			if err != nil {
-				return 0, err
+				return total, err
 			}
 			total.merge(f)
 		}
@@ -713,12 +841,129 @@ func countInputUsage(stmt *Statement) (int, error) {
 		if stmt.Delete.Where != nil {
 			f, err := scanConditionSemanticsEx(stmt.Delete.Where)
 			if err != nil {
-				return 0, err
+				return total, err
 			}
 			total.merge(f)
 		}
 	}
-	return total.inputCount, nil
+	return total, nil
+}
+
+// extractChooseSubQuery walks the statement AST and returns the SubQuery
+// from the first choose() call found. Returns nil if not found.
+func extractChooseSubQuery(stmt *Statement) *SubQuery {
+	var found *SubQuery
+	walkExprs(stmt, func(e Expr) bool {
+		fc, ok := e.(*FunctionCall)
+		if !ok || fc.Name != "choose" || len(fc.Args) == 0 {
+			return true
+		}
+		if sq, ok := fc.Args[0].(*SubQuery); ok {
+			found = sq
+			return false
+		}
+		return true
+	})
+	return found
+}
+
+// walkExprs visits every Expr node in a statement. The visitor returns false to stop.
+func walkExprs(stmt *Statement, visit func(Expr) bool) {
+	switch {
+	case stmt.Create != nil:
+		for _, a := range stmt.Create.Assignments {
+			if !walkExpr(a.Value, visit) {
+				return
+			}
+		}
+	case stmt.Update != nil:
+		if stmt.Update.Where != nil {
+			if !walkConditionExprs(stmt.Update.Where, visit) {
+				return
+			}
+		}
+		for _, a := range stmt.Update.Set {
+			if !walkExpr(a.Value, visit) {
+				return
+			}
+		}
+	case stmt.Select != nil:
+		if stmt.Select.Where != nil {
+			if !walkConditionExprs(stmt.Select.Where, visit) {
+				return
+			}
+		}
+	case stmt.Delete != nil:
+		if stmt.Delete.Where != nil {
+			walkConditionExprs(stmt.Delete.Where, visit)
+		}
+	}
+}
+
+func walkExpr(e Expr, visit func(Expr) bool) bool {
+	if e == nil {
+		return true
+	}
+	if !visit(e) {
+		return false
+	}
+	switch e := e.(type) {
+	case *BinaryExpr:
+		if !walkExpr(e.Left, visit) {
+			return false
+		}
+		return walkExpr(e.Right, visit)
+	case *FunctionCall:
+		for _, arg := range e.Args {
+			if !walkExpr(arg, visit) {
+				return false
+			}
+		}
+	case *ListLiteral:
+		for _, elem := range e.Elements {
+			if !walkExpr(elem, visit) {
+				return false
+			}
+		}
+	case *SubQuery:
+		if e.Where != nil {
+			return walkConditionExprs(e.Where, visit)
+		}
+	}
+	return true
+}
+
+func walkConditionExprs(c Condition, visit func(Expr) bool) bool {
+	if c == nil {
+		return true
+	}
+	switch c := c.(type) {
+	case *BinaryCondition:
+		if !walkConditionExprs(c.Left, visit) {
+			return false
+		}
+		return walkConditionExprs(c.Right, visit)
+	case *NotCondition:
+		return walkConditionExprs(c.Inner, visit)
+	case *CompareExpr:
+		if !walkExpr(c.Left, visit) {
+			return false
+		}
+		return walkExpr(c.Right, visit)
+	case *IsEmptyExpr:
+		return walkExpr(c.Expr, visit)
+	case *InExpr:
+		if !walkExpr(c.Value, visit) {
+			return false
+		}
+		return walkExpr(c.Collection, visit)
+	case *QuantifierExpr:
+		if !walkExpr(c.Expr, visit) {
+			return false
+		}
+		return walkConditionExprs(c.Condition, visit)
+	}
+	return true
 }
 
 func cloneStatement(stmt *Statement) *Statement {

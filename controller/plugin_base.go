@@ -45,6 +45,13 @@ func (pb *pluginBase) CanStartActionInput(ActionID) (string, ruki.ValueType, boo
 }
 func (pb *pluginBase) HandleActionInput(ActionID, string) InputSubmitResult { return InputKeepEditing }
 
+// default no-op implementations for choose-backed action methods
+func (pb *pluginBase) GetActionChooseSpec(ActionID) (string, bool) { return "", false }
+func (pb *pluginBase) CanStartActionChoose(ActionID) (string, []*task.Task, bool) {
+	return "", nil, false
+}
+func (pb *pluginBase) HandleActionChoose(ActionID, string) bool { return false }
+
 func (pb *pluginBase) handleNav(direction string, filteredTasks func(int) []*task.Task) bool {
 	lane := pb.pluginConfig.GetSelectedLane()
 	tasks := filteredTasks(lane)

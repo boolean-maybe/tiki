@@ -120,6 +120,9 @@ func parsePluginConfig(cfg pluginFileConfig, source string, schema ruki.Schema) 
 				if !filterStmt.IsSelect() {
 					return nil, fmt.Errorf("lane %q filter must be a SELECT statement", lane.Name)
 				}
+				if filterStmt.HasAnyInteractive() {
+					return nil, fmt.Errorf("lane %q filter cannot use interactive builtins (input/choose)", lane.Name)
+				}
 			}
 
 			var actionStmt *ruki.ValidatedStatement
@@ -130,6 +133,9 @@ func parsePluginConfig(cfg pluginFileConfig, source string, schema ruki.Schema) 
 				}
 				if !actionStmt.IsUpdate() {
 					return nil, fmt.Errorf("lane %q action must be an UPDATE statement", lane.Name)
+				}
+				if actionStmt.HasAnyInteractive() {
+					return nil, fmt.Errorf("lane %q action cannot use interactive builtins (input/choose)", lane.Name)
 				}
 			}
 
@@ -199,9 +205,11 @@ func parsePluginActions(configs []PluginActionConfig, parser *ruki.Parser) ([]Pl
 		}
 
 		var (
-			actionStmt *ruki.ValidatedStatement
-			inputType  ruki.ValueType
-			hasInput   bool
+			actionStmt   *ruki.ValidatedStatement
+			inputType    ruki.ValueType
+			hasInput     bool
+			hasChoose    bool
+			chooseFilter *ruki.SubQuery
 		)
 
 		if cfg.Input != "" {
@@ -226,6 +234,11 @@ func parsePluginActions(configs []PluginActionConfig, parser *ruki.Parser) ([]Pl
 			}
 		}
 
+		if actionStmt.UsesChooseBuiltin() {
+			hasChoose = true
+			chooseFilter = actionStmt.ChooseFilter()
+		}
+
 		showInHeader := true
 		if cfg.Hot != nil {
 			showInHeader = *cfg.Hot
@@ -240,6 +253,8 @@ func parsePluginActions(configs []PluginActionConfig, parser *ruki.Parser) ([]Pl
 			ShowInHeader: showInHeader,
 			InputType:    inputType,
 			HasInput:     hasInput,
+			HasChoose:    hasChoose,
+			ChooseFilter: chooseFilter,
 		})
 	}
 

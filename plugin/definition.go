@@ -98,6 +98,8 @@ type PluginAction struct {
 	ShowInHeader bool
 	InputType    ruki.ValueType
 	HasInput     bool
+	HasChoose    bool
+	ChooseFilter *ruki.SubQuery
 }
 
 // PluginLaneConfig represents a lane in YAML or config definitions.
