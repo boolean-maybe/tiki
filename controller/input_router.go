@@ -27,6 +27,15 @@ type PluginControllerInterface interface {
 	GetActionInputSpec(ActionID) (prompt string, typ ruki.ValueType, hasInput bool)
 	CanStartActionInput(ActionID) (prompt string, typ ruki.ValueType, ok bool)
 	HandleActionInput(ActionID, string) InputSubmitResult
+	GetActionChooseSpec(ActionID) (label string, hasChoose bool)
+	CanStartActionChoose(ActionID) (label string, candidates []*task.Task, ok bool)
+	HandleActionChoose(ActionID, string) bool
+}
+
+// QuickSelectView abstracts the QuickSelect view to avoid import cycles.
+type QuickSelectView interface {
+	OnShow(tasks []*task.Task)
+	GetFilterInput() tview.Primitive
 }
 
 // TikiViewProvider is implemented by controllers that back a TikiPlugin view.
@@ -59,6 +68,8 @@ type InputRouter struct {
 	registerPlugin    func(name string, cfg *model.PluginConfig, def plugin.Plugin, ctrl PluginControllerInterface)
 	headerConfig      *model.HeaderConfig
 	paletteConfig     *model.ActionPaletteConfig
+	quickSelectConfig *model.QuickSelectConfig
+	quickSelectView   QuickSelectView
 }
 
 // NewInputRouter creates an input router
@@ -92,6 +103,16 @@ func (ir *InputRouter) SetHeaderConfig(hc *model.HeaderConfig) {
 // SetPaletteConfig wires the palette config for ActionOpenPalette dispatch.
 func (ir *InputRouter) SetPaletteConfig(pc *model.ActionPaletteConfig) {
 	ir.paletteConfig = pc
+}
+
+// SetQuickSelectConfig wires the quick-select config for choose() dispatch.
+func (ir *InputRouter) SetQuickSelectConfig(qc *model.QuickSelectConfig) {
+	ir.quickSelectConfig = qc
+}
+
+// SetQuickSelectView wires the quick-select view (concrete type satisfies the interface).
+func (ir *InputRouter) SetQuickSelectView(qv QuickSelectView) {
+	ir.quickSelectView = qv
 }
 
 // HandleInput processes a key event for the current view and routes it to the appropriate handler.
@@ -322,6 +343,9 @@ func (ir *InputRouter) handlePluginInput(event *tcell.EventKey, viewID model.Vie
 			}
 			return true
 		}
+		if _, hasChoose := ctrl.GetActionChooseSpec(action.ID); hasChoose {
+			return ir.startActionChoose(ctrl, action.ID)
+		}
 		if _, _, hasInput := ctrl.GetActionInputSpec(action.ID); hasInput {
 			return ir.startActionInput(ctrl, action.ID)
 		}
@@ -529,6 +553,9 @@ func (ir *InputRouter) dispatchPluginAction(id ActionID, viewID model.ViewID) bo
 		return ir.handleSearchInput(ctrl)
 	}
 
+	if _, hasChoose := ctrl.GetActionChooseSpec(id); hasChoose {
+		return ir.startActionChoose(ctrl, id)
+	}
 	if _, _, hasInput := ctrl.GetActionInputSpec(id); hasInput {
 		return ir.startActionInput(ctrl, id)
 	}
@@ -567,6 +594,25 @@ func (ir *InputRouter) startActionInput(ctrl PluginControllerInterface, actionID
 		app.SetFocus(inputBox)
 	}
 
+	return true
+}
+
+// startActionChoose opens the QuickSelect picker for an action that uses choose().
+func (ir *InputRouter) startActionChoose(ctrl PluginControllerInterface, actionID ActionID) bool {
+	if ir.quickSelectConfig == nil || ir.quickSelectView == nil {
+		return false
+	}
+	_, candidates, ok := ctrl.CanStartActionChoose(actionID)
+	if !ok {
+		return false
+	}
+
+	ir.quickSelectConfig.SetOnSelect(func(taskID string) {
+		ctrl.HandleActionChoose(actionID, taskID)
+	})
+	ir.quickSelectConfig.SetOnCancel(func() {})
+	ir.quickSelectView.OnShow(candidates)
+	ir.quickSelectConfig.SetVisible(true)
 	return true
 }
 

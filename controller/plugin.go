@@ -313,6 +313,60 @@ func (pc *PluginController) HandleActionInput(actionID ActionID, text string) In
 	return InputClose
 }
 
+// GetActionChooseSpec returns the label and whether the action uses choose().
+func (pc *PluginController) GetActionChooseSpec(actionID ActionID) (string, bool) {
+	pa, ok := pc.getPluginAction(actionID)
+	if !ok || !pa.HasChoose {
+		return "", false
+	}
+	return pa.Label, true
+}
+
+// CanStartActionChoose checks preflight and evaluates the subquery to build candidates.
+func (pc *PluginController) CanStartActionChoose(actionID ActionID) (string, []*task.Task, bool) {
+	pa, ok := pc.getPluginAction(actionID)
+	if !ok || !pa.HasChoose {
+		return "", nil, false
+	}
+	input, ok := pc.buildExecutionInput(pa)
+	if !ok {
+		return "", nil, false
+	}
+
+	allTasks := pc.taskStore.GetAllTasks()
+	executor := pc.newExecutor()
+	candidates, err := executor.EvalSubQueryFilter(pa.ChooseFilter, allTasks, input)
+	if err != nil {
+		slog.Error("failed to evaluate choose filter", "key", pa.KeyStr, "error", err)
+		if pc.statusline != nil {
+			pc.statusline.SetMessage(err.Error(), model.MessageLevelError, true)
+		}
+		return "", nil, false
+	}
+	if len(candidates) == 0 {
+		if pc.statusline != nil {
+			pc.statusline.SetMessage("no matching tasks for choose()", model.MessageLevelError, true)
+		}
+		return "", nil, false
+	}
+	return pa.Label, candidates, true
+}
+
+// HandleActionChoose handles the selected task ID from the QuickSelect picker.
+func (pc *PluginController) HandleActionChoose(actionID ActionID, taskID string) bool {
+	pa, ok := pc.getPluginAction(actionID)
+	if !ok || !pa.HasChoose {
+		return false
+	}
+	input, ok := pc.buildExecutionInput(pa)
+	if !ok {
+		return false
+	}
+	input.ChooseValue = taskID
+	input.HasChoose = true
+	return pc.executeAndApply(pa, input)
+}
+
 func (pc *PluginController) handleMoveTask(offset int) bool {
 	taskID := pc.getSelectedTaskID(pc.GetFilteredTasksForLane)
 	if taskID == "" {
