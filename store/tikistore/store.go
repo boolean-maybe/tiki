@@ -90,8 +90,7 @@ func (s *TikiStore) SetTaskHistory(history *store.TaskHistory) {
 
 // IsGitRepo checks if the given path is a git repository (for pre-flight checks)
 func IsGitRepo(path string) bool {
-	_, err := git.NewGitShellUtil(path)
-	return err == nil
+	return git.IsRepo(path)
 }
 
 // GetCurrentUser returns the current git user name and email
