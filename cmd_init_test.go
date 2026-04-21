@@ -58,12 +58,14 @@ func TestParseInitArgs_NoArgs(t *testing.T) {
 }
 
 func TestParseInitArgs_DirectoryOnly(t *testing.T) {
-	opts, err := parseInitArgs([]string{"/tmp/myrepo"})
+	dir := t.TempDir()
+	opts, err := parseInitArgs([]string{dir})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if opts.Directory != "/tmp/myrepo" {
-		t.Errorf("directory = %q, want /tmp/myrepo", opts.Directory)
+	want, _ := filepath.Abs(dir)
+	if opts.Directory != want {
+		t.Errorf("directory = %q, want %q", opts.Directory, want)
 	}
 }
 
@@ -150,25 +152,28 @@ func TestParseInitArgs_NonInteractiveLong(t *testing.T) {
 }
 
 func TestParseInitArgs_DirectoryAndWorkflowMixed(t *testing.T) {
+	dir := t.TempDir()
+	wantDir, _ := filepath.Abs(dir)
+
 	// dir before -w
-	opts, err := parseInitArgs([]string{"/tmp/repo", "-w", "todo"})
+	opts, err := parseInitArgs([]string{dir, "-w", "todo"})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if opts.Directory != "/tmp/repo" {
-		t.Errorf("directory = %q, want /tmp/repo", opts.Directory)
+	if opts.Directory != wantDir {
+		t.Errorf("directory = %q, want %q", opts.Directory, wantDir)
 	}
 	if opts.WorkflowName != "todo" {
 		t.Errorf("workflow = %q, want todo", opts.WorkflowName)
 	}
 
 	// -w before dir
-	opts, err = parseInitArgs([]string{"-w", "kanban", "/tmp/repo"})
+	opts, err = parseInitArgs([]string{"-w", "kanban", dir})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if opts.Directory != "/tmp/repo" {
-		t.Errorf("directory = %q, want /tmp/repo", opts.Directory)
+	if opts.Directory != wantDir {
+		t.Errorf("directory = %q, want %q", opts.Directory, wantDir)
 	}
 	if opts.WorkflowName != "kanban" {
 		t.Errorf("workflow = %q, want kanban", opts.WorkflowName)
@@ -237,7 +242,12 @@ func TestValidateInitOpts_CreatesNonExistentDirectory(t *testing.T) {
 }
 
 func TestValidateInitOpts_UncreatableDirectory(t *testing.T) {
-	err := validateInitOpts(InitOpts{Directory: "/nonexistent/path/12345"})
+	// use a file as the parent — creating a subdirectory under a file always fails
+	f := filepath.Join(t.TempDir(), "notadir.txt")
+	if err := os.WriteFile(f, []byte("x"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	err := validateInitOpts(InitOpts{Directory: filepath.Join(f, "child")})
 	if err == nil {
 		t.Fatal("expected error for uncreatable directory")
 	}
