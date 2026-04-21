@@ -6,7 +6,11 @@ import "strings"
 // Does not account for color codes - use TruncateTextWithColors for colored text.
 func TruncateText(text string, maxWidth int) string {
 	if maxWidth <= 3 {
-		return text
+		runes := []rune(text)
+		if len(runes) <= maxWidth {
+			return text
+		}
+		return string(runes[:maxWidth])
 	}
 
 	runes := []rune(text)
