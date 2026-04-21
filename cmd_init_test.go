@@ -26,6 +26,12 @@ func setupInitTest(t *testing.T) string {
 		t.Fatalf("git init: %v", err)
 	}
 
+	originalDir, err := os.Getwd()
+	if err != nil {
+		t.Fatalf("getwd: %v", err)
+	}
+	t.Cleanup(func() { _ = os.Chdir(originalDir) })
+
 	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
 	t.Setenv("XDG_CACHE_HOME", t.TempDir())
 	config.ResetPathManager()
@@ -403,6 +409,12 @@ func TestRunInit_AlreadyInitialized(t *testing.T) {
 
 func TestRunInit_InitializesGitRepo(t *testing.T) {
 	dir := filepath.Join(t.TempDir(), "fresh")
+
+	originalDir, err := os.Getwd()
+	if err != nil {
+		t.Fatalf("getwd: %v", err)
+	}
+	t.Cleanup(func() { _ = os.Chdir(originalDir) })
 
 	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
 	t.Setenv("XDG_CACHE_HOME", t.TempDir())
