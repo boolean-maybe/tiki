@@ -76,13 +76,14 @@ Status and type keys use different normalization rules:
 
 Keys in `workflow.yaml` must already be in their canonical form. Input normalization (from user queries, ruki expressions, etc.) still applies at lookup time.
 
-### Inheritance and Override
+### Required Sections
 
-- A section (`statuses:` or `types:`) absent from a workflow file means "no opinion" -- it does not override the inherited value.
-- A non-empty section fully replaces inherited/built-in entries. No merging across files.
-- The last file (most specific location) with the section present wins.
-- If no file defines `types:`, built-in defaults are used (`story`, `bug`, `spike`, `epic`).
-- Statuses have no built-in fallback -- at least one workflow file must define `statuses:`.
+All workflow-backed sections come from the single highest-priority `workflow.yaml` (see [Configuration: Precedence](../config.md#precedence)).
+
+- Missing `statuses:` in the winning file is an error.
+- Missing `types:` in the winning file is an error.
+
+There are no built-in fallbacks for either section.
 
 ## Failure Behavior
 
@@ -110,15 +111,9 @@ Keys in `workflow.yaml` must already be in their canonical form. Input normaliza
 - Missing `type` in a template defaults to the first configured type.
 - Invalid non-empty `type` in a template is a hard error; creation is aborted.
 
-### Sample Tasks at Init
-
-- Each embedded sample is validated against the active registries before writing.
-- Incompatible samples are silently skipped.
-- `tiki init` offers a "Create sample tasks" checkbox (default: enabled).
-
 ### Cross-Reference Errors
 
-If a `types:` override removes type keys still referenced by inherited views, actions, or triggers, startup fails with a configuration error. There is no silent view-skipping or automatic remapping.
+If the active workflow file defines types that don't match the views, actions, or triggers in the same file, startup fails with a configuration error. There is no silent view-skipping or automatic remapping.
 
 ## Pre-Init Rules
 

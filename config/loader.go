@@ -1,6 +1,6 @@
 package config
 
-// Viper configuration loader: merges config.yaml from multiple locations
+// Viper configuration loader: loads config.yaml from the highest-priority location
 
 import (
 	"fmt"
@@ -15,9 +15,6 @@ import (
 	"github.com/spf13/viper"
 	"gopkg.in/yaml.v3"
 )
-
-// lastConfigFile tracks the most recently merged config file path for saveConfig().
-var lastConfigFile string
 
 // Config holds all application configuration loaded from config.yaml
 type Config struct {
@@ -63,33 +60,28 @@ type Config struct {
 
 var appConfig *Config
 
-// LoadConfig loads configuration by merging config.yaml from multiple locations.
-// Files are merged in precedence order (user → project → cwd); later files override
-// earlier ones. Missing values fall back to built-in defaults.
+// LoadConfig loads configuration from the highest-priority config.yaml.
+// Only one file is used (cwd > project > user config). Missing values
+// fall back to built-in defaults.
 func LoadConfig() (*Config, error) {
 	viper.Reset()
 	viper.SetConfigType("yaml")
 	setDefaults()
-	lastConfigFile = ""
 
-	// merge config files in precedence order (first = base, last = highest priority)
-	for _, path := range findConfigFiles() {
+	path := findConfigFile()
+	if path == "" {
+		slog.Debug("no config.yaml found, using defaults")
+	} else {
 		f, err := os.Open(path)
 		if err != nil {
-			slog.Warn("failed to open config file", "path", path, "error", err)
-			continue
+			return nil, fmt.Errorf("opening config %s: %w", path, err)
 		}
-		mergeErr := viper.MergeConfig(f)
+		readErr := viper.ReadConfig(f)
 		_ = f.Close()
-		if mergeErr != nil {
-			return nil, fmt.Errorf("merging config from %s: %w", path, mergeErr)
+		if readErr != nil {
+			return nil, fmt.Errorf("reading config from %s: %w", path, readErr)
 		}
-		lastConfigFile = path
-		slog.Debug("merged configuration", "file", path)
-	}
-
-	if lastConfigFile == "" {
-		slog.Debug("no config.yaml found, using defaults")
+		slog.Debug("loaded configuration", "file", path)
 	}
 
 	// environment variables and flags override everything
@@ -110,36 +102,15 @@ func LoadConfig() (*Config, error) {
 	return cfg, nil
 }
 
-// findConfigFiles returns existing config.yaml paths in merge order
-// (user config → project → cwd). Deduplicates by absolute path.
-func findConfigFiles() []string {
+// findConfigFile returns the highest-priority config.yaml that exists,
+// or empty string if none found. Priority: cwd > project > user config.
+func findConfigFile() string {
 	pm := mustGetPathManager()
-
-	candidates := []string{
-		pm.ConfigFile(), // user config (base)
-		filepath.Join(pm.ProjectConfigDir(), "config.yaml"), // project override
-		filepath.Join(".", "config.yaml"),                   // cwd override (highest)
-	}
-
-	var result []string
-	seen := make(map[string]bool)
-
-	for _, path := range candidates {
-		abs, err := filepath.Abs(path)
-		if err != nil {
-			abs = path
-		}
-		if seen[abs] {
-			continue
-		}
-		if _, err := os.Stat(path); err != nil {
-			continue
-		}
-		seen[abs] = true
-		result = append(result, path)
-	}
-
-	return result
+	return findHighestPriorityFile([]string{
+		pm.ConfigFile(),
+		filepath.Join(pm.ProjectConfigDir(), "config.yaml"),
+		filepath.Join(".", "config.yaml"),
+	})
 }
 
 // setDefaults sets default configuration values
@@ -254,25 +225,6 @@ func ConvertViewsListToMap(raw map[string]interface{}) {
 	}
 }
 
-// writeWorkflowFile marshals and writes workflow.yaml to the given path.
-func writeWorkflowFile(path string, wf *workflowFileData) error {
-	data, err := yaml.Marshal(wf)
-	if err != nil {
-		return fmt.Errorf("marshaling workflow.yaml: %w", err)
-	}
-	//nolint:gosec // G306: 0644 is appropriate for config file
-	if err := os.WriteFile(path, data, 0644); err != nil {
-		return fmt.Errorf("writing workflow.yaml: %w", err)
-	}
-	return nil
-}
-
-// GetBoardViewMode loads the board view mode from workflow.yaml.
-// Returns "expanded" as default if not found.
-func GetBoardViewMode() string {
-	return getPluginViewModeFromWorkflow("Board", "expanded")
-}
-
 // GetPluginViewMode reads a plugin's view mode from workflow.yaml by name.
 // Returns empty string if not found.
 func GetPluginViewMode(pluginName string) string {
@@ -303,57 +255,6 @@ func getPluginViewModeFromWorkflow(pluginName string, defaultValue string) strin
 	return defaultValue
 }
 
-// SavePluginViewMode saves a plugin's view mode to workflow.yaml.
-// configIndex: index in workflow.yaml plugins array (-1 to find/create by name)
-func SavePluginViewMode(pluginName string, configIndex int, viewMode string) error {
-	path := FindWorkflowFile()
-	if path == "" {
-		// create workflow.yaml in user config dir
-		path = GetUserConfigWorkflowFile()
-	}
-
-	var wf *workflowFileData
-
-	// try to read existing file
-	if existing, err := readWorkflowFile(path); err == nil {
-		wf = existing
-	} else {
-		wf = &workflowFileData{}
-	}
-
-	if configIndex >= 0 && configIndex < len(wf.Views.Plugins) {
-		// update existing entry by index
-		wf.Views.Plugins[configIndex]["view"] = viewMode
-	} else {
-		// find by name or create new entry
-		existingIndex := -1
-		for i, p := range wf.Views.Plugins {
-			if name, ok := p["name"].(string); ok && name == pluginName {
-				existingIndex = i
-				break
-			}
-		}
-
-		if existingIndex >= 0 {
-			wf.Views.Plugins[existingIndex]["view"] = viewMode
-		} else {
-			newEntry := map[string]interface{}{
-				"name": pluginName,
-				"view": viewMode,
-			}
-			wf.Views.Plugins = append(wf.Views.Plugins, newEntry)
-		}
-	}
-
-	return writeWorkflowFile(path, wf)
-}
-
-// SaveHeaderVisible saves the header visibility setting to config.yaml
-func SaveHeaderVisible(visible bool) error {
-	viper.Set("header.visible", visible)
-	return saveConfig()
-}
-
 // GetHeaderVisible returns the header visibility setting
 func GetHeaderVisible() bool {
 	return viper.GetBool("header.visible")
@@ -376,16 +277,6 @@ func GetMaxImageRows() int {
 		return 40
 	}
 	return rows
-}
-
-// saveConfig writes the current viper configuration to config.yaml.
-// Saves to the last merged config file, or the user config dir if none was loaded.
-func saveConfig() error {
-	configFile := lastConfigFile
-	if configFile == "" {
-		configFile = GetConfigFile()
-	}
-	return viper.WriteConfigAs(configFile)
 }
 
 // GetTheme returns the appearance theme setting

@@ -12,7 +12,7 @@
 - [After-trigger behavior](#after-trigger-behavior)
 - [Cascade depth](#cascade-depth)
 - [The run() action](#the-run-action)
-- [Configuration discovery details](#configuration-discovery-details)
+- [Configuration discovery](#configuration-discovery)
 - [Time triggers](#time-triggers)
 - [Startup and error handling](#startup-and-error-handling)
 
@@ -86,7 +86,7 @@ triggers:
       update where old.id in dependsOn set dependsOn=dependsOn - [old.id]
 ```
 
-`workflow.yaml` is searched in the standard configuration locations described in [Configuration](../config.md#configuration-precedence). If multiple files define a `triggers:` section, the last one wins — cwd overrides project, which overrides user. A file without a `triggers:` key does not override anything. An explicit empty list (`triggers: []`) overrides inherited triggers to zero.
+Triggers come from the single highest-priority `workflow.yaml` (see [Configuration: Precedence](../config.md#precedence)). A missing `triggers:` section means no triggers. An explicit empty list (`triggers: []`) also means no triggers.
 
 ## Patterns
 
@@ -259,19 +259,13 @@ When an after-trigger uses `run(...)`, the command expression is evaluated to a 
 
 The command string is dynamically evaluated from the trigger's expression, which may reference `old.id`, `new.status`, or other fields via string concatenation.
 
-## Configuration discovery details
+## Configuration discovery
 
-Trigger definitions are loaded from `workflow.yaml` using the standard [configuration precedence](../config.md#configuration-precedence). The **last file with a `triggers:` key wins**:
+Triggers come from the single highest-priority `workflow.yaml` (see [Configuration: Precedence](../config.md#precedence)). Lower-priority files are ignored entirely.
 
-| File | `triggers:` key | Effect |
-|---|---|---|
-| user config | yes, 2 triggers | base: 2 triggers |
-| project config | absent | no override, user triggers survive |
-| cwd config | `triggers: []` | override: 0 triggers |
-
-A file that exists but has no `triggers:` key expresses no opinion and does not override. An explicit empty list (`triggers: []`) is an active override that disables inherited triggers.
-
-If two candidate paths resolve to the same absolute path (e.g. when the project root is the current directory), the file is read once.
+- Missing `triggers:` section: no triggers.
+- Explicit `triggers: []`: no triggers.
+- `triggers:` with entries: those triggers are active.
 
 ## Time triggers
 

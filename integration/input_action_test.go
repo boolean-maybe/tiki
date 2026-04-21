@@ -13,7 +13,7 @@ import (
 	"github.com/gdamore/tcell/v2"
 )
 
-const inputActionWorkflow = `views:
+var inputActionWorkflow = testWorkflowPreamble + `views:
   plugins:
     - name: InputTest
       key: "F4"
@@ -470,15 +470,15 @@ func TestInputAction_InvalidInputKeepsPromptOpen(t *testing.T) {
 func TestInputAction_PreflightNoTaskSelected_NoPrompt(t *testing.T) {
 	tmpDir := t.TempDir()
 
-	// workflow with an empty lane (no tasks will match)
-	workflow := `views:
+	// workflow with a lane that will match no tasks (review lane, but test task is backlog)
+	workflow := testWorkflowPreamble + `views:
   plugins:
     - name: EmptyTest
       key: "F4"
       lanes:
         - name: Empty
           columns: 1
-          filter: select where status = "nonexistent" order by id
+          filter: select where status = "review" order by id
       actions:
         - key: "A"
           label: "Assign to..."
@@ -570,5 +570,60 @@ func TestInputAction_AddTagMutation(t *testing.T) {
 	}
 	if !found {
 		t.Fatalf("expected 'urgent' tag, got %v", updated.Tags)
+	}
+}
+
+var compositeKeyWorkflow = testWorkflowPreamble + `views:
+  plugins:
+    - name: CompositeTest
+      key: "F4"
+      lanes:
+        - name: All
+          columns: 1
+          filter: select where status = "backlog" order by id
+      actions:
+        - key: "Ctrl-U"
+          label: "Unblock"
+          action: update where id = id() set status="ready"
+`
+
+func TestInputAction_CompositeKeyPluginAction(t *testing.T) {
+	tmpDir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(tmpDir, "workflow.yaml"), []byte(compositeKeyWorkflow), 0644); err != nil {
+		t.Fatalf("failed to write workflow.yaml: %v", err)
+	}
+	origDir, err := os.Getwd()
+	if err != nil {
+		t.Fatalf("failed to get cwd: %v", err)
+	}
+	if err := os.Chdir(tmpDir); err != nil {
+		t.Fatalf("failed to chdir: %v", err)
+	}
+	t.Cleanup(func() { _ = os.Chdir(origDir) })
+
+	ta := testutil.NewTestApp(t)
+	if err := ta.LoadPlugins(); err != nil {
+		t.Fatalf("failed to load plugins: %v", err)
+	}
+
+	if err := testutil.CreateTestTask(ta.TaskDir, "TIKI-1", "Blocked Task", task.StatusBacklog, task.TypeStory); err != nil {
+		t.Fatalf("failed to create task: %v", err)
+	}
+	if err := ta.TaskStore.Reload(); err != nil {
+		t.Fatalf("failed to reload: %v", err)
+	}
+
+	ta.NavController.PushView(model.MakePluginViewID("CompositeTest"), nil)
+	ta.Draw()
+
+	// send Ctrl-U keypress through the real EventKey → Match → HandleAction path
+	ta.SendKey(tcell.KeyCtrlU, 0, tcell.ModCtrl)
+
+	if err := ta.TaskStore.Reload(); err != nil {
+		t.Fatalf("failed to reload: %v", err)
+	}
+	updated := ta.TaskStore.GetTask("TIKI-1")
+	if updated.Status != task.StatusReady {
+		t.Fatalf("expected status 'ready' after Ctrl-U action, got %q", updated.Status)
 	}
 }

@@ -42,6 +42,32 @@ func NewSchema() ruki.Schema {
 	}
 }
 
+// NewSchemaFromRegistries constructs a ruki.Schema from explicitly provided
+// registries and custom field definitions, without touching global state.
+// Used by init to validate a candidate workflow file.
+func NewSchemaFromRegistries(statusReg *workflow.StatusRegistry, typeReg *workflow.TypeRegistry, customFields []workflow.FieldDef) ruki.Schema {
+	fields := workflow.BuiltinFields()
+	fields = append(fields, customFields...)
+	byName := make(map[string]ruki.FieldSpec, len(fields))
+	for _, fd := range fields {
+		spec := ruki.FieldSpec{
+			Name:   fd.Name,
+			Type:   mapValueType(fd.Type),
+			Custom: fd.Custom,
+		}
+		if fd.AllowedValues != nil {
+			spec.AllowedValues = make([]string, len(fd.AllowedValues))
+			copy(spec.AllowedValues, fd.AllowedValues)
+		}
+		byName[fd.Name] = spec
+	}
+	return &workflowSchema{
+		statusReg:    statusReg,
+		typeReg:      typeReg,
+		fieldsByName: byName,
+	}
+}
+
 func (s *workflowSchema) Field(name string) (ruki.FieldSpec, bool) {
 	spec, ok := s.fieldsByName[name]
 	if !ok {

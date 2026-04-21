@@ -99,6 +99,11 @@ views:
       action: update where id = id() set tags=tags-[input()]
       input: string
       hot: false
+    - key: Ctrl-Q
+      label: "Quick create"
+      action: create title=input()
+      input: string
+      hot: false
   plugins:
     - name: Triage
       description: "Bug triage board — move bugs through the resolution pipeline"

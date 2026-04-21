@@ -3,7 +3,6 @@ package config
 import (
 	"fmt"
 	"os"
-	"path/filepath"
 
 	"gopkg.in/yaml.v3"
 )
@@ -19,45 +18,30 @@ type triggerFileData struct {
 	Triggers []TriggerDef `yaml:"triggers"`
 }
 
-// LoadTriggerDefs discovers and returns raw trigger definitions from workflow.yaml files.
-// Uses its own discovery path (not FindWorkflowFiles) to avoid the empty-views filter.
-// Override semantics: last file with a triggers: section wins (cwd > project > user).
-// An explicit empty list (triggers: []) overrides inherited triggers.
-// The caller is responsible for parsing each TriggerDef.Ruki with ruki.ParseTrigger.
+// LoadTriggerDefs reads trigger definitions from the single highest-priority
+// workflow.yaml. Missing triggers: section means no triggers.
 func LoadTriggerDefs() ([]TriggerDef, error) {
-	pm := mustGetPathManager()
-
-	// candidate paths in discovery order: user config → project config → cwd
-	candidates := []string{
-		pm.UserConfigWorkflowFile(),
-		filepath.Join(pm.ProjectConfigDir(), defaultWorkflowFilename),
-		defaultWorkflowFilename, // relative to cwd
+	path := FindWorkflowFile()
+	if path == "" {
+		return nil, nil
 	}
 
-	var winningDefs []TriggerDef
-	seen := make(map[string]bool)
-
-	for _, path := range candidates {
-		abs, err := filepath.Abs(path)
-		if err != nil {
-			abs = path
-		}
-		if seen[abs] {
-			continue
-		}
-		seen[abs] = true
-
-		defs, found, err := readTriggersFromFile(path)
-		if err != nil {
-			return nil, fmt.Errorf("reading triggers from %s: %w", path, err)
-		}
-		if found {
-			// last file with a triggers: section wins
-			winningDefs = defs
-		}
+	defs, _, err := readTriggersFromFile(path)
+	if err != nil {
+		return nil, fmt.Errorf("reading triggers from %s: %w", path, err)
 	}
 
-	return winningDefs, nil
+	return defs, nil
+}
+
+// LoadTriggerDefsFromFile reads trigger definitions from an explicit workflow
+// file path. Used by init to validate triggers without global path discovery.
+func LoadTriggerDefsFromFile(path string) ([]TriggerDef, error) {
+	defs, _, err := readTriggersFromFile(path)
+	if err != nil {
+		return nil, fmt.Errorf("reading triggers from %s: %w", path, err)
+	}
+	return defs, nil
 }
 
 // readTriggersFromFile reads a workflow.yaml and returns its triggers section.
@@ -73,7 +57,6 @@ func readTriggersFromFile(path string) ([]TriggerDef, bool, error) {
 	}
 
 	// check whether the YAML contains a triggers: key at all
-	// (absent section = no opinion, does not override)
 	var raw map[string]interface{}
 	if err := yaml.Unmarshal(data, &raw); err != nil {
 		return nil, false, fmt.Errorf("parsing YAML: %w", err)

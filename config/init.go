@@ -28,15 +28,14 @@ func IsProjectInitialized() bool {
 
 // InitOptions holds user choices from the init dialog.
 type InitOptions struct {
-	AITools     []string
-	SampleTasks bool
+	AITools []string
 }
 
 // PromptForProjectInit presents a Huh form for project initialization.
-// Returns (options, proceed, error)
-func PromptForProjectInit() (InitOptions, bool, error) {
+// hasCustomWorkflow adjusts the description text to reflect whether bundled
+// samples will be created. Returns (options, proceed, error).
+func PromptForProjectInit(hasCustomWorkflow bool) (InitOptions, bool, error) {
 	var opts InitOptions
-	opts.SampleTasks = true // default enabled
 
 	// Create custom theme with brighter description and help text
 	theme := huh.ThemeCharm()
@@ -59,14 +58,18 @@ func PromptForProjectInit() (InitOptions, bool, error) {
 		key.WithHelp("esc", "quit"),
 	)
 
-	description := `
-This will initialize your project by creating directories and sample tiki files:
+	var description string
+	if hasCustomWorkflow {
+		description = `
+This will initialize your project with a custom workflow:
 
 - .doc/doki directory to hold your Markdown documents
 - .doc/tiki directory to hold your tasks
-- a sample tiki task and a document
+- custom workflow installed as .doc/workflow.yaml
 
-Additionally, optional AI skills are installed if you choose to
+No sample tasks will be created with a custom workflow.
+
+Additionally, optional AI skills are installed if you choose to.
 AI skills extend your AI assistant with commands to manage tasks and documentation:
 
 • 'tiki' skill - Create, view, update, delete task tickets (.doc/tiki/*.md)
@@ -74,6 +77,23 @@ AI skills extend your AI assistant with commands to manage tasks and documentati
 
 Select AI assistants to install (optional), then press Enter to continue.
 Press Esc to cancel project initialization.`
+	} else {
+		description = `
+This will initialize your project by creating directories and bundled sample tikis:
+
+- .doc/doki directory to hold your Markdown documents
+- .doc/tiki directory to hold your tasks
+- bundled sample tikis and a document
+
+Additionally, optional AI skills are installed if you choose to.
+AI skills extend your AI assistant with commands to manage tasks and documentation:
+
+• 'tiki' skill - Create, view, update, delete task tickets (.doc/tiki/*.md)
+• 'doki' skill - Create and manage documentation files (.doc/doki/*.md)
+
+Select AI assistants to install (optional), then press Enter to continue.
+Press Esc to cancel project initialization.`
+	}
 
 	aiOptions := make([]huh.Option[string], 0, len(AITools()))
 	for _, t := range AITools() {
@@ -88,10 +108,6 @@ Press Esc to cancel project initialization.`
 				Options(aiOptions...).
 				Filterable(false).
 				Value(&opts.AITools),
-			huh.NewConfirm().
-				Title("Create sample tasks").
-				Description("Create example tikis in project").
-				Value(&opts.SampleTasks),
 		),
 	).WithTheme(theme).
 		WithKeyMap(keymap).
@@ -118,7 +134,7 @@ func EnsureProjectInitialized(tikiSkillMdContent, dokiSkillMdContent string) (bo
 			return false, fmt.Errorf("failed to stat task directory: %w", err)
 		}
 
-		opts, proceed, err := PromptForProjectInit()
+		opts, proceed, err := PromptForProjectInit(false)
 		if err != nil {
 			return false, fmt.Errorf("failed to prompt for project initialization: %w", err)
 		}
@@ -126,13 +142,13 @@ func EnsureProjectInitialized(tikiSkillMdContent, dokiSkillMdContent string) (bo
 			return false, nil
 		}
 
-		if err := BootstrapSystem(opts.SampleTasks); err != nil {
+		if err := BootstrapSystem(true); err != nil {
 			return false, fmt.Errorf("failed to bootstrap project: %w", err)
 		}
 
 		// Install selected AI skills
 		if len(opts.AITools) > 0 {
-			if err := installAISkills(opts.AITools, tikiSkillMdContent, dokiSkillMdContent); err != nil {
+			if err := InstallAISkills(opts.AITools, tikiSkillMdContent, dokiSkillMdContent); err != nil {
 				// Non-fatal - log warning but continue
 				slog.Warn("some AI skills failed to install", "error", err)
 				fmt.Println("You can manually copy ai/skills/tiki/SKILL.md and ai/skills/doki/SKILL.md to the appropriate directories.")
@@ -147,9 +163,9 @@ func EnsureProjectInitialized(tikiSkillMdContent, dokiSkillMdContent string) (bo
 	return true, nil
 }
 
-// installAISkills writes the embedded SKILL.md content to selected AI tool directories.
+// InstallAISkills writes the embedded SKILL.md content to selected AI tool directories.
 // Returns an aggregated error if any installations fail, but continues attempting all.
-func installAISkills(selectedTools []string, tikiSkillMdContent, dokiSkillMdContent string) error {
+func InstallAISkills(selectedTools []string, tikiSkillMdContent, dokiSkillMdContent string) error {
 	if len(tikiSkillMdContent) == 0 {
 		return fmt.Errorf("embedded tiki SKILL.md content is empty")
 	}

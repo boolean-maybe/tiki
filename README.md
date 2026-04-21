@@ -90,10 +90,9 @@ cd /tmp && tiki demo
 
 this will clone and show a demo project. Once done you can try your own:
 
-`cd` into your **git** repo and run `tiki init` to initialize.
+Run `tiki init my-directory` to initialize a project, then `cd my-directory` and run `tiki` to start
+
 Move your tiki around the board with `Shift ←/Shift →`.
-Press `?` to open the Action Palette — it lists all available actions with their shortcuts.
-Press `F1` to open a sample doc root. Follow links with `Tab/Enter`
 
 ### AI skills
 You will be prompted to install skills for

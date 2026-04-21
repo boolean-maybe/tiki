@@ -110,6 +110,14 @@ func ValidateFieldName(name string) error {
 	return nil
 }
 
+// BuiltinFields returns a copy of the built-in field catalog without any
+// custom fields. Used to construct a schema from explicit registries.
+func BuiltinFields() []FieldDef {
+	result := make([]FieldDef, len(fieldCatalog))
+	copy(result, fieldCatalog)
+	return result
+}
+
 // Fields returns the ordered list of all DSL-visible task fields
 // (built-in + custom). Returns deep copies so callers cannot mutate registry state.
 func Fields() []FieldDef {
@@ -123,6 +131,35 @@ func Fields() []FieldDef {
 		result = append(result, deepCopyFieldDef(f))
 	}
 	return result
+}
+
+// ValidateCustomFields checks custom field definitions for collisions with
+// built-in fields and case-insensitive duplicates, without modifying global state.
+// Used by init to validate a candidate workflow file.
+func ValidateCustomFields(defs []FieldDef) error {
+	builtInLower := make(map[string]string, len(fieldByName))
+	for name := range fieldByName {
+		builtInLower[strings.ToLower(name)] = name
+	}
+
+	seenLower := make(map[string]string, len(defs))
+	for _, d := range defs {
+		if err := ValidateFieldName(d.Name); err != nil {
+			return fmt.Errorf("custom field %q: %w", d.Name, err)
+		}
+		lower := strings.ToLower(d.Name)
+		if builtIn, ok := builtInLower[lower]; ok {
+			return fmt.Errorf("custom field %q collides with built-in field %q (case-insensitive)", d.Name, builtIn)
+		}
+		if prev, ok := seenLower[lower]; ok {
+			return fmt.Errorf("custom field %q collides with %q (case-insensitive)", d.Name, prev)
+		}
+		seenLower[lower] = d.Name
+		if d.Type == TypeEnum && len(d.AllowedValues) == 0 {
+			return fmt.Errorf("custom enum field %q requires non-empty values", d.Name)
+		}
+	}
+	return nil
 }
 
 // RegisterCustomFields validates and registers custom field definitions.

@@ -5,8 +5,6 @@ import (
 	"log/slog"
 	"strings"
 
-	"github.com/gdamore/tcell/v2"
-
 	"github.com/boolean-maybe/tiki/model"
 	"github.com/boolean-maybe/tiki/plugin"
 	"github.com/boolean-maybe/tiki/ruki"
@@ -46,19 +44,20 @@ func NewPluginController(
 	// register plugin-specific shortcut actions, warn about conflicts
 	globalActions := DefaultGlobalActions()
 	for _, a := range pluginDef.Actions {
-		if existing, ok := globalActions.LookupRune(a.Rune); ok {
+		if existing := globalActions.MatchBinding(a.Key, a.Rune, a.Modifier); existing != nil {
 			slog.Warn("plugin action key shadows global action and will be unreachable",
-				"plugin", pluginDef.Name, "key", string(a.Rune),
+				"plugin", pluginDef.Name, "key", a.KeyStr,
 				"plugin_action", a.Label, "global_action", existing.Label)
-		} else if existing, ok := pc.registry.LookupRune(a.Rune); ok {
+		} else if existing := pc.registry.MatchBinding(a.Key, a.Rune, a.Modifier); existing != nil {
 			slog.Warn("plugin action key shadows built-in action and will be unreachable",
-				"plugin", pluginDef.Name, "key", string(a.Rune),
+				"plugin", pluginDef.Name, "key", a.KeyStr,
 				"plugin_action", a.Label, "built_in_action", existing.Label)
 		}
 		action := Action{
-			ID:           pluginActionID(a.Rune),
-			Key:          tcell.KeyRune,
+			ID:           pluginActionID(a.KeyStr),
+			Key:          a.Key,
 			Rune:         a.Rune,
+			Modifier:     a.Modifier,
 			Label:        a.Label,
 			ShowInHeader: a.ShowInHeader,
 		}
@@ -74,26 +73,18 @@ func NewPluginController(
 const pluginActionPrefix = "plugin_action:"
 
 // pluginActionID returns an ActionID for a plugin shortcut action key.
-func pluginActionID(r rune) ActionID {
-	return ActionID(pluginActionPrefix + string(r))
+func pluginActionID(keyStr string) ActionID {
+	return ActionID(pluginActionPrefix + keyStr)
 }
 
-// getPluginActionRune extracts the rune from a plugin action ID.
-// Returns 0 if the ID is not a plugin action.
-func getPluginActionRune(id ActionID) rune {
+// getPluginActionKeyStr extracts the canonical key string from a plugin action ID.
+// Returns empty string if the ID is not a plugin action.
+func getPluginActionKeyStr(id ActionID) string {
 	s := string(id)
 	if !strings.HasPrefix(s, pluginActionPrefix) {
-		return 0
+		return ""
 	}
-	rest := s[len(pluginActionPrefix):]
-	if len(rest) == 0 {
-		return 0
-	}
-	runes := []rune(rest)
-	if len(runes) != 1 {
-		return 0
-	}
-	return runes[0]
+	return s[len(pluginActionPrefix):]
 }
 
 // ShowNavigation returns true — regular plugin views show plugin navigation keys.
@@ -129,8 +120,8 @@ func (pc *PluginController) HandleAction(actionID ActionID) bool {
 		pc.pluginConfig.ToggleViewMode()
 		return true
 	default:
-		if r := getPluginActionRune(actionID); r != 0 {
-			return pc.handlePluginAction(r)
+		if keyStr := getPluginActionKeyStr(actionID); keyStr != "" {
+			return pc.handlePluginAction(actionID)
 		}
 		return false
 	}
@@ -144,17 +135,17 @@ func (pc *PluginController) HandleSearch(query string) {
 }
 
 // getPluginAction looks up a plugin action by ActionID.
-func (pc *PluginController) getPluginAction(actionID ActionID) (*plugin.PluginAction, rune, bool) {
-	r := getPluginActionRune(actionID)
-	if r == 0 {
-		return nil, 0, false
+func (pc *PluginController) getPluginAction(actionID ActionID) (*plugin.PluginAction, bool) {
+	keyStr := getPluginActionKeyStr(actionID)
+	if keyStr == "" {
+		return nil, false
 	}
 	for i := range pc.pluginDef.Actions {
-		if pc.pluginDef.Actions[i].Rune == r {
-			return &pc.pluginDef.Actions[i], r, true
+		if pc.pluginDef.Actions[i].KeyStr == keyStr {
+			return &pc.pluginDef.Actions[i], true
 		}
 	}
-	return nil, 0, false
+	return nil, false
 }
 
 // buildExecutionInput builds the base ExecutionInput for an action, performing
@@ -187,13 +178,13 @@ func (pc *PluginController) buildExecutionInput(pa *plugin.PluginAction) (ruki.E
 }
 
 // executeAndApply runs the executor and applies the result (store mutations, pipe, clipboard).
-func (pc *PluginController) executeAndApply(pa *plugin.PluginAction, input ruki.ExecutionInput, r rune) bool {
+func (pc *PluginController) executeAndApply(pa *plugin.PluginAction, input ruki.ExecutionInput) bool {
 	executor := pc.newExecutor()
 	allTasks := pc.taskStore.GetAllTasks()
 
 	result, err := executor.Execute(pa.Action, allTasks, input)
 	if err != nil {
-		slog.Error("failed to execute plugin action", "task_id", input.SelectedTaskID, "key", string(r), "error", err)
+		slog.Error("failed to execute plugin action", "task_id", input.SelectedTaskID, "key", pa.KeyStr, "error", err)
 		if pc.statusline != nil {
 			pc.statusline.SetMessage(err.Error(), model.MessageLevelError, true)
 		}
@@ -203,13 +194,13 @@ func (pc *PluginController) executeAndApply(pa *plugin.PluginAction, input ruki.
 	ctx := context.Background()
 	switch {
 	case result.Select != nil:
-		slog.Info("select plugin action executed", "task_id", input.SelectedTaskID, "key", string(r),
+		slog.Info("select plugin action executed", "task_id", input.SelectedTaskID, "key", pa.KeyStr,
 			"label", pa.Label, "matched", len(result.Select.Tasks))
 		return true
 	case result.Update != nil:
 		for _, updated := range result.Update.Updated {
 			if err := pc.mutationGate.UpdateTask(ctx, updated); err != nil {
-				slog.Error("failed to update task after plugin action", "task_id", updated.ID, "key", string(r), "error", err)
+				slog.Error("failed to update task after plugin action", "task_id", updated.ID, "key", pa.KeyStr, "error", err)
 				if pc.statusline != nil {
 					pc.statusline.SetMessage(err.Error(), model.MessageLevelError, true)
 				}
@@ -219,7 +210,7 @@ func (pc *PluginController) executeAndApply(pa *plugin.PluginAction, input ruki.
 		}
 	case result.Create != nil:
 		if err := pc.mutationGate.CreateTask(ctx, result.Create.Task); err != nil {
-			slog.Error("failed to create task from plugin action", "key", string(r), "error", err)
+			slog.Error("failed to create task from plugin action", "key", pa.KeyStr, "error", err)
 			if pc.statusline != nil {
 				pc.statusline.SetMessage(err.Error(), model.MessageLevelError, true)
 			}
@@ -228,7 +219,7 @@ func (pc *PluginController) executeAndApply(pa *plugin.PluginAction, input ruki.
 	case result.Delete != nil:
 		for _, deleted := range result.Delete.Deleted {
 			if err := pc.mutationGate.DeleteTask(ctx, deleted); err != nil {
-				slog.Error("failed to delete task from plugin action", "task_id", deleted.ID, "key", string(r), "error", err)
+				slog.Error("failed to delete task from plugin action", "task_id", deleted.ID, "key", pa.KeyStr, "error", err)
 				if pc.statusline != nil {
 					pc.statusline.SetMessage(err.Error(), model.MessageLevelError, true)
 				}
@@ -238,7 +229,7 @@ func (pc *PluginController) executeAndApply(pa *plugin.PluginAction, input ruki.
 	case result.Pipe != nil:
 		for _, row := range result.Pipe.Rows {
 			if err := service.ExecutePipeCommand(ctx, result.Pipe.Command, row); err != nil {
-				slog.Error("pipe command failed", "command", result.Pipe.Command, "args", row, "key", string(r), "error", err)
+				slog.Error("pipe command failed", "command", result.Pipe.Command, "args", row, "key", pa.KeyStr, "error", err)
 				if pc.statusline != nil {
 					pc.statusline.SetMessage(err.Error(), model.MessageLevelError, true)
 				}
@@ -246,7 +237,7 @@ func (pc *PluginController) executeAndApply(pa *plugin.PluginAction, input ruki.
 		}
 	case result.Clipboard != nil:
 		if err := service.ExecuteClipboardPipe(result.Clipboard.Rows); err != nil {
-			slog.Error("clipboard pipe failed", "key", string(r), "error", err)
+			slog.Error("clipboard pipe failed", "key", pa.KeyStr, "error", err)
 			if pc.statusline != nil {
 				pc.statusline.SetMessage(err.Error(), model.MessageLevelError, true)
 			}
@@ -257,13 +248,13 @@ func (pc *PluginController) executeAndApply(pa *plugin.PluginAction, input ruki.
 		}
 	}
 
-	slog.Info("plugin action applied", "task_id", input.SelectedTaskID, "key", string(r), "label", pa.Label, "plugin", pc.pluginDef.Name)
+	slog.Info("plugin action applied", "task_id", input.SelectedTaskID, "key", pa.KeyStr, "label", pa.Label, "plugin", pc.pluginDef.Name)
 	return true
 }
 
 // handlePluginAction applies a plugin shortcut action to the currently selected task.
-func (pc *PluginController) handlePluginAction(r rune) bool {
-	pa, _, ok := pc.getPluginAction(pluginActionID(r))
+func (pc *PluginController) handlePluginAction(actionID ActionID) bool {
+	pa, ok := pc.getPluginAction(actionID)
 	if !ok {
 		return false
 	}
@@ -271,12 +262,12 @@ func (pc *PluginController) handlePluginAction(r rune) bool {
 	if !ok {
 		return false
 	}
-	return pc.executeAndApply(pa, input, r)
+	return pc.executeAndApply(pa, input)
 }
 
 // GetActionInputSpec returns the prompt and input type for an action, if it has input.
 func (pc *PluginController) GetActionInputSpec(actionID ActionID) (string, ruki.ValueType, bool) {
-	pa, _, ok := pc.getPluginAction(actionID)
+	pa, ok := pc.getPluginAction(actionID)
 	if !ok || !pa.HasInput {
 		return "", 0, false
 	}
@@ -286,7 +277,7 @@ func (pc *PluginController) GetActionInputSpec(actionID ActionID) (string, ruki.
 // CanStartActionInput checks whether an input-backed action can currently run
 // (selection/create-template preflight passes).
 func (pc *PluginController) CanStartActionInput(actionID ActionID) (string, ruki.ValueType, bool) {
-	pa, _, ok := pc.getPluginAction(actionID)
+	pa, ok := pc.getPluginAction(actionID)
 	if !ok || !pa.HasInput {
 		return "", 0, false
 	}
@@ -298,7 +289,7 @@ func (pc *PluginController) CanStartActionInput(actionID ActionID) (string, ruki
 
 // HandleActionInput handles submitted text for an input-backed action.
 func (pc *PluginController) HandleActionInput(actionID ActionID, text string) InputSubmitResult {
-	pa, r, ok := pc.getPluginAction(actionID)
+	pa, ok := pc.getPluginAction(actionID)
 	if !ok || !pa.HasInput {
 		return InputKeepEditing
 	}
@@ -318,7 +309,7 @@ func (pc *PluginController) HandleActionInput(actionID ActionID, text string) In
 	input.InputValue = val
 	input.HasInput = true
 
-	pc.executeAndApply(pa, input, r)
+	pc.executeAndApply(pa, input)
 	return InputClose
 }
 

@@ -369,11 +369,19 @@ statuses:
     label: Closed
     emoji: "🔒"
     done: true
+types:
+  - key: story
+    label: Story
+    emoji: "🌀"
+  - key: bug
+    label: Bug
+    emoji: "💥"
 views:
-  - name: board
-    lanes:
-      - name: Open
-        filter: "status = 'open'"
+  plugins:
+    - name: board
+      lanes:
+        - name: Open
+          filter: select where status = "open"
 `
 	if err := os.WriteFile(filepath.Join(cwdDir, "workflow.yaml"), []byte(content), 0644); err != nil {
 		t.Fatal(err)
@@ -391,7 +399,6 @@ views:
 		t.Errorf("expected done key 'closed', got %q", reg.DoneKey())
 	}
 
-	// type registry should also be initialized
 	typeReg := GetTypeRegistry()
 	if !typeReg.IsValid("story") {
 		t.Error("expected type 'story' to be valid after LoadStatusRegistry")
@@ -429,11 +436,9 @@ views:
 	}
 }
 
-func TestLoadStatusRegistryFromFiles_LastFileWins(t *testing.T) {
-	dir1 := t.TempDir()
-	dir2 := t.TempDir()
-
-	f1 := writeTempWorkflow(t, dir1, `
+func TestLoadStatusesFromFile_HappyPath(t *testing.T) {
+	dir := t.TempDir()
+	f := writeTempWorkflow(t, dir, `
 statuses:
   - key: alpha
     label: Alpha
@@ -442,88 +447,19 @@ statuses:
     label: Beta
     done: true
 `)
-	f2 := writeTempWorkflow(t, dir2, `
-statuses:
-  - key: gamma
-    label: Gamma
-    default: true
-  - key: delta
-    label: Delta
-    done: true
-`)
 
-	reg, path, err := loadStatusRegistryFromFiles([]string{f1, f2})
+	reg, err := loadStatusesFromFile(f)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 	if reg == nil {
 		t.Fatal("expected non-nil registry")
-	}
-	if path != f2 {
-		t.Errorf("expected path %q, got %q", f2, path)
-	}
-	if reg.DefaultKey() != "gamma" {
-		t.Errorf("expected default key 'gamma' from last file, got %q", reg.DefaultKey())
-	}
-	if len(reg.All()) != 2 {
-		t.Errorf("expected 2 statuses from last file, got %d", len(reg.All()))
-	}
-}
-
-func TestLoadStatusRegistryFromFiles_SkipsFileWithoutStatuses(t *testing.T) {
-	dir1 := t.TempDir()
-	dir2 := t.TempDir()
-
-	f1 := writeTempWorkflow(t, dir1, `
-statuses:
-  - key: alpha
-    label: Alpha
-    default: true
-  - key: beta
-    label: Beta
-    done: true
-`)
-	// second file has views but no statuses
-	f2 := writeTempWorkflow(t, dir2, `
-views:
-  - name: backlog
-`)
-
-	reg, path, err := loadStatusRegistryFromFiles([]string{f1, f2})
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	if reg == nil {
-		t.Fatal("expected non-nil registry")
-	}
-	if path != f1 {
-		t.Errorf("expected path %q (first file with statuses), got %q", f1, path)
 	}
 	if reg.DefaultKey() != "alpha" {
 		t.Errorf("expected default key 'alpha', got %q", reg.DefaultKey())
 	}
-}
-
-func TestLoadStatusRegistryFromFiles_ParseErrorStopsEarly(t *testing.T) {
-	dir1 := t.TempDir()
-	dir2 := t.TempDir()
-
-	f1 := writeTempWorkflow(t, dir1, `
-statuses:
-  - key: alpha
-    label: Alpha
-    default: true
-  - key: beta
-    label: Beta
-    done: true
-`)
-	f2 := writeTempWorkflow(t, dir2, `
-statuses: [[[invalid yaml
-`)
-
-	_, _, err := loadStatusRegistryFromFiles([]string{f1, f2})
-	if err == nil {
-		t.Fatal("expected error for malformed YAML in second file")
+	if len(reg.All()) != 2 {
+		t.Errorf("expected 2 statuses, got %d", len(reg.All()))
 	}
 }
 
@@ -611,27 +547,24 @@ func TestGetTypeRegistry_PanicsWhenUninitialized(t *testing.T) {
 	GetTypeRegistry()
 }
 
-func TestLoadStatusRegistryFromFiles_NoStatuses(t *testing.T) {
+func TestLoadStatusesFromFile_NoStatuses(t *testing.T) {
 	dir := t.TempDir()
 	f := writeTempWorkflow(t, dir, `
 views:
   - name: backlog
 `)
 
-	reg, path, err := loadStatusRegistryFromFiles([]string{f})
+	reg, err := loadStatusesFromFile(f)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 	if reg != nil {
 		t.Error("expected nil registry when no statuses defined")
 	}
-	if path != "" {
-		t.Errorf("expected empty path, got %q", path)
-	}
 }
 
-func TestLoadStatusRegistryFromFiles_ReadError(t *testing.T) {
-	_, _, err := loadStatusRegistryFromFiles([]string{"/nonexistent/path/workflow.yaml"})
+func TestLoadStatusesFromFile_ReadError(t *testing.T) {
+	_, err := loadStatusesFromFile("/nonexistent/path/workflow.yaml")
 	if err == nil {
 		t.Fatal("expected error for nonexistent file")
 	}
@@ -676,29 +609,6 @@ func TestLoadStatusRegistry_MalformedFile(t *testing.T) {
 	err := LoadStatusRegistry()
 	if err == nil {
 		t.Fatal("expected error for malformed workflow.yaml")
-	}
-}
-
-func TestLoadStatusRegistryFromFiles_AllFilesEmpty(t *testing.T) {
-	dir := t.TempDir()
-	f1 := filepath.Join(dir, "workflow1.yaml")
-	f2 := filepath.Join(dir, "workflow2.yaml")
-	if err := os.WriteFile(f1, []byte("other_key: true\n"), 0644); err != nil {
-		t.Fatalf("failed to write file: %v", err)
-	}
-	if err := os.WriteFile(f2, []byte("statuses: []\n"), 0644); err != nil {
-		t.Fatalf("failed to write file: %v", err)
-	}
-
-	reg, path, err := loadStatusRegistryFromFiles([]string{f1, f2})
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	if reg != nil {
-		t.Error("expected nil registry when all files have empty statuses")
-	}
-	if path != "" {
-		t.Errorf("expected empty path, got %q", path)
 	}
 }
 
@@ -821,103 +731,27 @@ func TestLoadTypesFromFile_InvalidYAML(t *testing.T) {
 	}
 }
 
-func TestLoadTypeRegistryFromFiles_LastFileWithTypesWins(t *testing.T) {
-	dir1 := t.TempDir()
-	dir2 := t.TempDir()
+func TestLoadStatusRegistry_MissingTypes(t *testing.T) {
+	cwdDir := setupLoadRegistryTest(t)
 
-	f1 := writeTempWorkflow(t, dir1, `
-types:
-  - key: alpha
-    label: Alpha
-`)
-	f2 := writeTempWorkflow(t, dir2, `
-types:
-  - key: beta
-    label: Beta
-  - key: gamma
-    label: Gamma
-`)
-
-	reg, path, err := loadTypeRegistryFromFiles([]string{f1, f2})
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	if path != f2 {
-		t.Errorf("expected path %q, got %q", f2, path)
-	}
-	if reg.IsValid("alpha") {
-		t.Error("expected alpha to NOT be valid (overridden)")
-	}
-	if !reg.IsValid("beta") {
-		t.Error("expected beta to be valid")
-	}
-}
-
-func TestLoadTypeRegistryFromFiles_SkipsFilesWithoutTypes(t *testing.T) {
-	dir1 := t.TempDir()
-	dir2 := t.TempDir()
-
-	f1 := writeTempWorkflow(t, dir1, `
-types:
-  - key: alpha
-    label: Alpha
-`)
-	f2 := writeTempWorkflow(t, dir2, `
+	content := `
 statuses:
   - key: open
     label: Open
+    emoji: "🔓"
     default: true
-  - key: done
-    label: Done
+  - key: closed
+    label: Closed
+    emoji: "🔒"
     done: true
-`)
+`
+	if err := os.WriteFile(filepath.Join(cwdDir, "workflow.yaml"), []byte(content), 0644); err != nil {
+		t.Fatal(err)
+	}
 
-	reg, path, err := loadTypeRegistryFromFiles([]string{f1, f2})
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	if path != f1 {
-		t.Errorf("expected path %q (file with types), got %q", f1, path)
-	}
-	if !reg.IsValid("alpha") {
-		t.Error("expected alpha to be valid")
-	}
-}
-
-func TestLoadTypeRegistryFromFiles_FallbackToBuiltins(t *testing.T) {
-	dir := t.TempDir()
-	f := writeTempWorkflow(t, dir, `
-statuses:
-  - key: open
-    label: Open
-    default: true
-  - key: done
-    label: Done
-    done: true
-`)
-
-	reg, path, err := loadTypeRegistryFromFiles([]string{f})
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	if path != "<built-in>" {
-		t.Errorf("expected built-in path, got %q", path)
-	}
-	if !reg.IsValid("story") {
-		t.Error("expected built-in story type")
-	}
-}
-
-func TestLoadTypeRegistryFromFiles_ParseErrorStops(t *testing.T) {
-	dir := t.TempDir()
-	f := writeTempWorkflow(t, dir, `
-types:
-  - key: Story
-    label: Story
-`)
-	_, _, err := loadTypeRegistryFromFiles([]string{f})
+	err := LoadStatusRegistry()
 	if err == nil {
-		t.Fatal("expected error for non-canonical key")
+		t.Fatal("expected error when types: section is missing")
 	}
 }
 

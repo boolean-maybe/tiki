@@ -34,10 +34,31 @@ tiki --version
 ```
 
 ## Initialize a project
+
+Run `tiki init` to initializes the project. 
+Next run `tiki`
+
 ```bash
 cd /path/to/your/git/repo
 tiki init
 ```
+
+You can also initialize a different directory directly:
+```bash
+tiki init /path/to/your/git/repo
+```
+
+For a custom workflow, pass `-w`:
+```bash
+tiki init -w my-workflow.yaml
+```
+
+For non-interactive use (CI, scripts):
+```bash
+tiki init -n --ai-skill claude,gemini --samples
+```
+
+See [command-line options](command-line.md#init) for the full flag reference.
 
 # Terminal Requirements
 

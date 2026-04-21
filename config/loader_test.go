@@ -4,8 +4,6 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
-
-	"gopkg.in/yaml.v3"
 )
 
 func TestLoadConfig(t *testing.T) {
@@ -199,7 +197,6 @@ func TestLoadConfigCodeBlockDefaults(t *testing.T) {
 }
 
 func TestLoadConfig_ProjectOverridesUser(t *testing.T) {
-	// set up user config dir with base settings
 	userDir := t.TempDir()
 	t.Setenv("XDG_CONFIG_HOME", userDir)
 	userTikiDir := filepath.Join(userDir, "tiki")
@@ -215,7 +212,6 @@ header:
 		t.Fatal(err)
 	}
 
-	// set up project dir with override for logging only
 	projectDir := t.TempDir()
 	docDir := filepath.Join(projectDir, ".doc")
 	if err := os.MkdirAll(docDir, 0750); err != nil {
@@ -228,7 +224,6 @@ logging:
 		t.Fatal(err)
 	}
 
-	// use a clean cwd with no config
 	cwdDir := t.TempDir()
 	originalDir, _ := os.Getwd()
 	defer func() { _ = os.Chdir(originalDir) }()
@@ -236,7 +231,6 @@ logging:
 
 	appConfig = nil
 	ResetPathManager()
-	// override project root to our test project dir
 	pm := mustGetPathManager()
 	pm.projectRoot = projectDir
 
@@ -245,13 +239,13 @@ logging:
 		t.Fatalf("LoadConfig failed: %v", err)
 	}
 
-	// project override wins
+	// project file wins exclusively
 	if cfg.Logging.Level != "debug" {
 		t.Errorf("expected logging.level 'debug' from project, got %q", cfg.Logging.Level)
 	}
-	// user setting preserved for fields not in project config
-	if cfg.Header.Visible != false {
-		t.Errorf("expected header.visible false from user config, got %v", cfg.Header.Visible)
+	// header.visible falls back to built-in default (true), not inherited from user config
+	if cfg.Header.Visible != true {
+		t.Errorf("expected header.visible true (built-in default), got %v", cfg.Header.Visible)
 	}
 }
 
@@ -406,144 +400,35 @@ func TestLoadConfigAIAgentDefault(t *testing.T) {
 	}
 }
 
-func TestSavePluginViewMode_PreservesTriggers(t *testing.T) {
+func TestGetPluginViewMode_ReadsFromWorkflow(t *testing.T) {
 	tmpDir := t.TempDir()
 
-	// write a workflow.yaml that includes triggers
-	workflowContent := `statuses:
-  - key: backlog
-    label: Backlog
-    default: true
-  - key: done
-    label: Done
-    done: true
-views:
-  - name: Kanban
-    default: true
-    key: "F1"
-    lanes:
-      - name: Done
-        filter: status = 'done'
-        action: status = 'done'
-    sort: Priority, CreatedAt
-triggers:
-  - description: block completion with open dependencies
-    ruki: >
-      before update
-        where new.status = "done" and new.dependsOn any status != "done"
-        deny "cannot complete: has open dependencies"
-  - description: no jumping from backlog to done
-    ruki: >
-      before update
-        where old.status = "backlog" and new.status = "done"
-        deny "cannot move directly from backlog to done"
+	workflowContent := `views:
+  plugins:
+    - name: Kanban
+      key: "F1"
+    - name: Dependency
+      view: expanded
 `
-	workflowPath := filepath.Join(tmpDir, "workflow.yaml")
-	if err := os.WriteFile(workflowPath, []byte(workflowContent), 0644); err != nil {
+	if err := os.WriteFile(filepath.Join(tmpDir, "workflow.yaml"), []byte(workflowContent), 0644); err != nil {
 		t.Fatal(err)
 	}
 
-	// simulate what SavePluginViewMode does: read → modify → write
-	wf, err := readWorkflowFile(workflowPath)
-	if err != nil {
-		t.Fatalf("readWorkflowFile failed: %v", err)
-	}
+	originalDir, _ := os.Getwd()
+	defer func() { _ = os.Chdir(originalDir) }()
+	_ = os.Chdir(tmpDir)
 
-	// modify a view mode (same as SavePluginViewMode logic)
-	if len(wf.Views.Plugins) > 0 {
-		wf.Views.Plugins[0]["view"] = "compact"
-	}
+	t.Setenv("XDG_CONFIG_HOME", tmpDir)
+	ResetPathManager()
 
-	if err := writeWorkflowFile(workflowPath, wf); err != nil {
-		t.Fatalf("writeWorkflowFile failed: %v", err)
+	if got := GetPluginViewMode("Dependency"); got != "expanded" {
+		t.Errorf("GetPluginViewMode(Dependency) = %q, want %q", got, "expanded")
 	}
-
-	// verify triggers survived the round-trip by reading raw YAML
-	rawData, err := os.ReadFile(workflowPath)
-	if err != nil {
-		t.Fatalf("reading workflow.yaml after write: %v", err)
+	if got := GetPluginViewMode("Kanban"); got != "" {
+		t.Errorf("GetPluginViewMode(Kanban) = %q, want empty (no view field)", got)
 	}
-
-	var raw map[string]interface{}
-	if err := yaml.Unmarshal(rawData, &raw); err != nil {
-		t.Fatalf("parsing raw YAML: %v", err)
-	}
-	triggers, ok := raw["triggers"]
-	if !ok {
-		t.Fatal("triggers section missing after round-trip write")
-	}
-	triggerList, ok := triggers.([]interface{})
-	if !ok {
-		t.Fatalf("triggers is not a list, got %T", triggers)
-	}
-	if len(triggerList) != 2 {
-		t.Fatalf("expected 2 triggers after round-trip, got %d", len(triggerList))
-	}
-
-	// also verify via typed struct
-	wf2, err := readWorkflowFile(workflowPath)
-	if err != nil {
-		t.Fatalf("readWorkflowFile after write failed: %v", err)
-	}
-	if len(wf2.Triggers) != 2 {
-		t.Fatalf("expected 2 triggers in struct after round-trip, got %d", len(wf2.Triggers))
-	}
-	desc0, _ := wf2.Triggers[0]["description"].(string)
-	if desc0 != "block completion with open dependencies" {
-		t.Errorf("trigger[0] description = %q, want %q", desc0, "block completion with open dependencies")
-	}
-}
-
-func TestSavePluginViewMode_PreservesDescription(t *testing.T) {
-	tmpDir := t.TempDir()
-
-	workflowContent := `description: |
-  Release workflow. Coordinate feature rollout through
-  Planned → Building → Staging → Canary → Released.
-statuses:
-  - key: backlog
-    label: Backlog
-    default: true
-  - key: done
-    label: Done
-    done: true
-views:
-  - name: Kanban
-    default: true
-    key: "F1"
-    lanes:
-      - name: Done
-        filter: status = 'done'
-        action: status = 'done'
-    sort: Priority, CreatedAt
-`
-	workflowPath := filepath.Join(tmpDir, "workflow.yaml")
-	if err := os.WriteFile(workflowPath, []byte(workflowContent), 0644); err != nil {
-		t.Fatal(err)
-	}
-
-	wf, err := readWorkflowFile(workflowPath)
-	if err != nil {
-		t.Fatalf("readWorkflowFile failed: %v", err)
-	}
-	wantDesc := "Release workflow. Coordinate feature rollout through\nPlanned → Building → Staging → Canary → Released.\n"
-	if wf.Description != wantDesc {
-		t.Errorf("description after read = %q, want %q", wf.Description, wantDesc)
-	}
-
-	if len(wf.Views.Plugins) > 0 {
-		wf.Views.Plugins[0]["view"] = "compact"
-	}
-	if err := writeWorkflowFile(workflowPath, wf); err != nil {
-		t.Fatalf("writeWorkflowFile failed: %v", err)
-	}
-
-	wf2, err := readWorkflowFile(workflowPath)
-	if err != nil {
-		t.Fatalf("readWorkflowFile after write failed: %v", err)
-	}
-	if wf2.Description != wantDesc {
-		t.Errorf("description after round-trip = %q, want %q", wf2.Description, wantDesc)
+	if got := GetPluginViewMode("NonExistent"); got != "" {
+		t.Errorf("GetPluginViewMode(NonExistent) = %q, want empty", got)
 	}
 }
 

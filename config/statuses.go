@@ -28,59 +28,41 @@ var (
 	registryMu           sync.RWMutex
 )
 
-// LoadStatusRegistry reads statuses: and types: from workflow.yaml files.
-// Both registries are loaded into locals first, then published atomically
-// so no intermediate state exists where one is updated and the other stale.
-// Returns an error if no statuses are defined anywhere (no Go fallback).
+// LoadStatusRegistry reads statuses: and types: from the single highest-priority
+// workflow.yaml. Returns an error if the file is missing, has no statuses, or
+// has no types.
 func LoadStatusRegistry() error {
 	files := FindRegistryWorkflowFiles()
 	if len(files) == 0 {
 		return fmt.Errorf("no workflow.yaml found; statuses must be defined in workflow.yaml")
 	}
 
-	statusReg, statusPath, err := loadStatusRegistryFromFiles(files)
+	path := files[0]
+
+	statusReg, err := loadStatusesFromFile(path)
 	if err != nil {
-		return err
+		return fmt.Errorf("loading statuses from %s: %w", path, err)
 	}
 	if statusReg == nil {
-		return fmt.Errorf("no statuses defined in workflow.yaml; add a statuses: section")
+		return fmt.Errorf("no statuses defined in %s; add a statuses: section", path)
 	}
 
-	typeReg, typePath, err := loadTypeRegistryFromFiles(files)
+	typeReg, present, err := loadTypesFromFile(path)
 	if err != nil {
-		return err
+		return fmt.Errorf("loading types from %s: %w", path, err)
+	}
+	if !present {
+		return fmt.Errorf("no types defined in %s; add a types: section", path)
 	}
 
-	// publish both atomically
 	registryMu.Lock()
 	globalStatusRegistry = statusReg
 	globalTypeRegistry = typeReg
 	registryMu.Unlock()
 
-	slog.Debug("loaded status registry", "file", statusPath, "count", len(statusReg.All()))
-	slog.Debug("loaded type registry", "file", typePath, "count", len(typeReg.All()))
+	slog.Debug("loaded status registry", "file", path, "count", len(statusReg.All()))
+	slog.Debug("loaded type registry", "file", path, "count", len(typeReg.All()))
 	return nil
-}
-
-// loadStatusRegistryFromFiles iterates workflow files and returns the registry
-// from the last file that contains a non-empty statuses section.
-// Returns a parse error immediately if any file is malformed.
-func loadStatusRegistryFromFiles(files []string) (*workflow.StatusRegistry, string, error) {
-	var lastReg *workflow.StatusRegistry
-	var lastFile string
-
-	for _, path := range files {
-		reg, err := loadStatusesFromFile(path)
-		if err != nil {
-			return nil, "", fmt.Errorf("loading statuses from %s: %w", path, err)
-		}
-		if reg != nil {
-			lastReg = reg
-			lastFile = path
-		}
-	}
-
-	return lastReg, lastFile, nil
 }
 
 // GetStatusRegistry returns the global StatusRegistry.
@@ -147,6 +129,47 @@ func ResetTypeRegistry(defs []workflow.TypeDef) {
 	registryMu.Unlock()
 }
 
+// LoadRegistriesFromFile validates and loads statuses, types, and custom fields
+// from a single explicit workflow file path. Returns local registries without
+// touching global state. Used by init to validate a candidate workflow file.
+func LoadRegistriesFromFile(path string) (*workflow.StatusRegistry, *workflow.TypeRegistry, []workflow.FieldDef, error) {
+	statusReg, err := loadStatusesFromFile(path)
+	if err != nil {
+		return nil, nil, nil, fmt.Errorf("loading statuses: %w", err)
+	}
+	if statusReg == nil {
+		return nil, nil, nil, fmt.Errorf("no statuses defined; add a statuses: section")
+	}
+
+	typeReg, present, err := loadTypesFromFile(path)
+	if err != nil {
+		return nil, nil, nil, fmt.Errorf("loading types: %w", err)
+	}
+	if !present {
+		return nil, nil, nil, fmt.Errorf("no types defined; add a types: section")
+	}
+
+	rawDefs, err := readCustomFieldsFromFile(path)
+	if err != nil {
+		return nil, nil, nil, fmt.Errorf("reading custom fields: %w", err)
+	}
+
+	var fieldDefs []workflow.FieldDef
+	for _, raw := range rawDefs {
+		def, convErr := convertCustomFieldDef(raw)
+		if convErr != nil {
+			return nil, nil, nil, fmt.Errorf("field %q: %w", raw.Name, convErr)
+		}
+		fieldDefs = append(fieldDefs, def)
+	}
+
+	if err := workflow.ValidateCustomFields(fieldDefs); err != nil {
+		return nil, nil, nil, fmt.Errorf("custom fields: %w", err)
+	}
+
+	return statusReg, typeReg, fieldDefs, nil
+}
+
 // ClearStatusRegistry removes the global registries and clears custom fields.
 // Intended for test teardown.
 func ClearStatusRegistry() {
@@ -192,7 +215,7 @@ var validTypeDefKeys = map[string]bool{
 
 // loadTypesFromFile loads types from a single workflow.yaml.
 // Returns (registry, present, error):
-//   - (nil, false, nil)  when the types: key is absent — file does not override
+//   - (nil, false, nil)  when the types: key is absent
 //   - (reg, true, nil)   when types: is present and valid
 //   - (nil, true, err)   when types: is present but invalid (empty list, bad entries)
 func loadTypesFromFile(path string) (*workflow.TypeRegistry, bool, error) {
@@ -209,7 +232,7 @@ func loadTypesFromFile(path string) (*workflow.TypeRegistry, bool, error) {
 
 	rawTypes, exists := raw["types"]
 	if !exists {
-		return nil, false, nil // absent — no opinion
+		return nil, false, nil // types: key absent
 	}
 
 	// present: validate the raw structure
@@ -247,34 +270,4 @@ func loadTypesFromFile(path string) (*workflow.TypeRegistry, bool, error) {
 		return nil, true, err
 	}
 	return reg, true, nil
-}
-
-// loadTypeRegistryFromFiles iterates workflow files. The last file that has a
-// types: key wins. Files without a types: key are skipped (no override).
-// If no file defines types:, returns a registry built from DefaultTypeDefs().
-func loadTypeRegistryFromFiles(files []string) (*workflow.TypeRegistry, string, error) {
-	var lastReg *workflow.TypeRegistry
-	var lastFile string
-
-	for _, path := range files {
-		reg, present, err := loadTypesFromFile(path)
-		if err != nil {
-			return nil, "", fmt.Errorf("loading types from %s: %w", path, err)
-		}
-		if present {
-			lastReg = reg
-			lastFile = path
-		}
-	}
-
-	if lastReg != nil {
-		return lastReg, lastFile, nil
-	}
-
-	// no file defined types: — fall back to built-in defaults
-	reg, err := workflow.NewTypeRegistry(workflow.DefaultTypeDefs())
-	if err != nil {
-		return nil, "", fmt.Errorf("building default type registry: %w", err)
-	}
-	return reg, "<built-in>", nil
 }

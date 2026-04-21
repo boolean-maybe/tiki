@@ -11,6 +11,34 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
+// viewsSectionConfig represents the YAML structure of the views section.
+// views:
+//
+//	actions: [...]   # global plugin actions
+//	plugins: [...]   # plugin definitions
+type viewsSectionConfig struct {
+	Actions []PluginActionConfig `yaml:"actions"`
+	Plugins []pluginFileConfig   `yaml:"plugins"`
+}
+
+// pluginFileConfig represents the YAML structure of a plugin file
+type pluginFileConfig struct {
+	Name        string               `yaml:"name"`
+	Description string               `yaml:"description"` // short description shown in header info
+	Foreground  string               `yaml:"foreground"`  // hex color like "#ff0000" or named color
+	Background  string               `yaml:"background"`
+	Key         string               `yaml:"key"`  // single character
+	Sort        string               `yaml:"sort"` // deprecated: only for deserializing old configs; converted to order-by and cleared by LegacyConfigTransformer
+	View        string               `yaml:"view"` // "compact" or "expanded" (default: compact)
+	Type        string               `yaml:"type"` // "tiki" or "doki" (default: tiki)
+	Fetcher     string               `yaml:"fetcher"`
+	Text        string               `yaml:"text"`
+	URL         string               `yaml:"url"`
+	Lanes       []PluginLaneConfig   `yaml:"lanes"`
+	Actions     []PluginActionConfig `yaml:"actions"`
+	Default     bool                 `yaml:"default"`
+}
+
 // WorkflowFile represents the YAML structure of a workflow.yaml file
 type WorkflowFile struct {
 	Version     string             `yaml:"version,omitempty"`
@@ -109,47 +137,9 @@ func loadPluginsFromFile(path string, schema ruki.Schema) ([]Plugin, []PluginAct
 	return plugins, globalActions, errs
 }
 
-// mergePluginLists merges override plugins on top of base plugins.
-// Overrides with the same name as base plugins are merged; new overrides are appended.
-func mergePluginLists(base, overrides []Plugin) []Plugin {
-	baseByName := make(map[string]Plugin)
-	for _, p := range base {
-		baseByName[p.GetName()] = p
-	}
-
-	overridden := make(map[string]bool)
-	mergedOverrides := make([]Plugin, 0, len(overrides))
-
-	for _, overridePlugin := range overrides {
-		if basePlugin, ok := baseByName[overridePlugin.GetName()]; ok {
-			merged := mergePluginDefinitions(basePlugin, overridePlugin)
-			mergedOverrides = append(mergedOverrides, merged)
-			overridden[overridePlugin.GetName()] = true
-			slog.Info("plugin override (merged)", "name", overridePlugin.GetName(),
-				"from", basePlugin.GetFilePath(), "to", overridePlugin.GetFilePath())
-		} else {
-			mergedOverrides = append(mergedOverrides, overridePlugin)
-		}
-	}
-
-	// Build final list: non-overridden base plugins + merged overrides
-	var result []Plugin
-	for _, p := range base {
-		if !overridden[p.GetName()] {
-			result = append(result, p)
-		}
-	}
-	result = append(result, mergedOverrides...)
-
-	return result
-}
-
-// LoadPlugins loads all plugins from workflow.yaml files: user config (base) + project config (overrides).
-// Files are discovered via config.FindWorkflowFiles() which returns user config first, then project config.
-// Plugins from later files override same-named plugins from earlier files via field merging.
-// Global actions are merged by key across files (later files override same-keyed globals from earlier files).
-// Returns an error when workflow files were found but no valid plugins could be loaded,
-// or when type-reference errors indicate an inconsistent merged workflow.
+// LoadPlugins loads plugins from the single highest-priority workflow.yaml file.
+// Returns an error when the workflow file was found but no valid plugins could be loaded,
+// or when type-reference errors indicate an inconsistent workflow.
 func LoadPlugins(schema ruki.Schema) ([]Plugin, error) {
 	files := config.FindWorkflowFiles()
 	if len(files) == 0 {
@@ -157,46 +147,26 @@ func LoadPlugins(schema ruki.Schema) ([]Plugin, error) {
 		return nil, nil
 	}
 
-	var allErrors []string
-	var allGlobalActions []PluginAction
+	path := files[0]
+	plugins, globalActions, errs := loadPluginsFromFile(path, schema)
 
-	// First file is the base (typically user config)
-	base, globalActions, errs := loadPluginsFromFile(files[0], schema)
-	allErrors = append(allErrors, errs...)
-	allGlobalActions = append(allGlobalActions, globalActions...)
-
-	// Remaining files are overrides, merged in order
-	for _, path := range files[1:] {
-		overrides, moreGlobals, errs := loadPluginsFromFile(path, schema)
-		allErrors = append(allErrors, errs...)
-		if len(overrides) > 0 {
-			base = mergePluginLists(base, overrides)
-		}
-		allGlobalActions = mergeGlobalActions(allGlobalActions, moreGlobals)
-	}
-
-	// type-reference errors in views/actions are fatal merged-workflow errors,
-	// not ordinary per-view parse errors that can be skipped
-	if typeErrs := filterTypeErrors(allErrors); len(typeErrs) > 0 {
-		return nil, fmt.Errorf("merged workflow references invalid types:\n  %s\n\nIf you redefined types: in a later workflow file, update views/actions/triggers to match",
+	if typeErrs := filterTypeErrors(errs); len(typeErrs) > 0 {
+		return nil, fmt.Errorf("workflow references invalid types:\n  %s",
 			strings.Join(typeErrs, "\n  "))
 	}
 
-	// merge global actions into each TikiPlugin
-	mergeGlobalActionsIntoPlugins(base, allGlobalActions)
+	mergeGlobalActionsIntoPlugins(plugins, globalActions)
 
-	if len(base) == 0 {
-		if len(allErrors) > 0 {
-			return nil, fmt.Errorf("no valid views loaded:\n  %s\n\nTo install fresh defaults, remove the workflow file(s) and restart tiki:\n\n  rm %s",
-				strings.Join(allErrors, "\n  "),
-				strings.Join(files, "\n  rm "))
+	if len(plugins) == 0 {
+		if len(errs) > 0 {
+			return nil, fmt.Errorf("no valid views loaded:\n  %s\n\nTo install fresh defaults, remove the workflow file and restart tiki:\n\n  rm %s",
+				strings.Join(errs, "\n  "), path)
 		}
-		return nil, fmt.Errorf("no views defined in %s\n\nTo install fresh defaults, remove the workflow file(s) and restart tiki:\n\n  rm %s",
-			strings.Join(files, ", "),
-			strings.Join(files, "\n  rm "))
+		return nil, fmt.Errorf("no views defined in %s\n\nTo install fresh defaults, remove the workflow file and restart tiki:\n\n  rm %s",
+			path, path)
 	}
 
-	return base, nil
+	return plugins, nil
 }
 
 // filterTypeErrors extracts errors that mention unknown type references.
@@ -210,31 +180,8 @@ func filterTypeErrors(errs []string) []string {
 	return typeErrs
 }
 
-// mergeGlobalActions merges override global actions into base by key (rune).
-// Overrides with the same rune replace the base action.
-func mergeGlobalActions(base, overrides []PluginAction) []PluginAction {
-	if len(overrides) == 0 {
-		return base
-	}
-	byRune := make(map[rune]int, len(base))
-	result := make([]PluginAction, len(base))
-	copy(result, base)
-	for i, a := range result {
-		byRune[a.Rune] = i
-	}
-	for _, o := range overrides {
-		if idx, ok := byRune[o.Rune]; ok {
-			result[idx] = o
-		} else {
-			byRune[o.Rune] = len(result)
-			result = append(result, o)
-		}
-	}
-	return result
-}
-
 // mergeGlobalActionsIntoPlugins appends global actions to each TikiPlugin.
-// Per-plugin actions with the same rune take precedence over globals (global is skipped).
+// Per-plugin actions with the same KeyStr take precedence over globals (global is skipped).
 func mergeGlobalActionsIntoPlugins(plugins []Plugin, globalActions []PluginAction) {
 	if len(globalActions) == 0 {
 		return
@@ -244,14 +191,14 @@ func mergeGlobalActionsIntoPlugins(plugins []Plugin, globalActions []PluginActio
 		if !ok {
 			continue
 		}
-		localRunes := make(map[rune]bool, len(tp.Actions))
+		localKeys := make(map[string]bool, len(tp.Actions))
 		for _, a := range tp.Actions {
-			localRunes[a.Rune] = true
+			localKeys[a.KeyStr] = true
 		}
 		for _, ga := range globalActions {
-			if localRunes[ga.Rune] {
+			if localKeys[ga.KeyStr] {
 				slog.Info("per-plugin action overrides global action",
-					"plugin", tp.Name, "key", string(ga.Rune), "global_label", ga.Label)
+					"plugin", tp.Name, "key", ga.KeyStr, "global_label", ga.Label)
 				continue
 			}
 			tp.Actions = append(tp.Actions, ga)
@@ -278,6 +225,30 @@ func convertLegacyGlobalActions(transformer *LegacyConfigTransformer, actions []
 		}
 	}
 	return count
+}
+
+// LoadPluginsFromFile validates and loads plugins from an explicit workflow file
+// path using the provided schema. Returns an error when no valid plugins could
+// be loaded or when type-reference errors indicate an inconsistent workflow.
+// Used by init to validate a candidate workflow file without global path discovery.
+func LoadPluginsFromFile(path string, schema ruki.Schema) ([]Plugin, error) {
+	plugins, globalActions, errs := loadPluginsFromFile(path, schema)
+
+	if typeErrs := filterTypeErrors(errs); len(typeErrs) > 0 {
+		return nil, fmt.Errorf("workflow references invalid types:\n  %s",
+			strings.Join(typeErrs, "\n  "))
+	}
+
+	mergeGlobalActionsIntoPlugins(plugins, globalActions)
+
+	if len(plugins) == 0 {
+		if len(errs) > 0 {
+			return nil, fmt.Errorf("no valid views loaded:\n  %s", strings.Join(errs, "\n  "))
+		}
+		return nil, fmt.Errorf("no views defined in %s", path)
+	}
+
+	return plugins, nil
 }
 
 // DefaultPlugin returns the first plugin marked as default, or the first plugin
