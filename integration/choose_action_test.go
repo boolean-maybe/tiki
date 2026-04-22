@@ -1,6 +1,7 @@
 package integration
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"testing"
@@ -224,6 +225,95 @@ func TestChooseAction_BareSelectShowsAllTasks(t *testing.T) {
 	qsc := ta.GetQuickSelectConfig()
 	if !qsc.IsVisible() {
 		t.Fatal("QuickSelect should be visible for bare select")
+	}
+
+	ta.SendKey(tcell.KeyEscape, 0, tcell.ModNone)
+}
+
+var scrollTestWorkflow = testWorkflowPreamble + `views:
+  plugins:
+    - name: ScrollTest
+      key: "F4"
+      lanes:
+        - name: All
+          columns: 1
+          filter: select where status = "backlog" order by id
+      actions:
+        - key: "p"
+          label: "Pick"
+          action: update where id = id() set assignee = choose(select)
+`
+
+func setupScrollTest(t *testing.T) *testutil.TestApp {
+	t.Helper()
+	tmpDir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(tmpDir, "workflow.yaml"), []byte(scrollTestWorkflow), 0644); err != nil {
+		t.Fatalf("write workflow.yaml: %v", err)
+	}
+	origDir, err := os.Getwd()
+	if err != nil {
+		t.Fatalf("getwd: %v", err)
+	}
+	if err := os.Chdir(tmpDir); err != nil {
+		t.Fatalf("chdir: %v", err)
+	}
+	t.Cleanup(func() { _ = os.Chdir(origDir) })
+
+	ta := testutil.NewTestApp(t)
+	if err := ta.LoadPlugins(); err != nil {
+		t.Fatalf("load plugins: %v", err)
+	}
+
+	for i := 0; i < 40; i++ {
+		id := fmt.Sprintf("TIKI-%06d", i)
+		title := fmt.Sprintf("ScrollTask%02d", i)
+		if err := testutil.CreateTestTask(ta.TaskDir, id, title, task.StatusBacklog, task.TypeStory); err != nil {
+			t.Fatalf("create task %s: %v", id, err)
+		}
+	}
+	if err := ta.TaskStore.Reload(); err != nil {
+		t.Fatalf("reload: %v", err)
+	}
+
+	ta.NavController.PushView(model.MakePluginViewID("ScrollTest"), nil)
+	ta.Draw()
+	return ta
+}
+
+func TestChooseAction_ScrollKeepsSelectionVisible(t *testing.T) {
+	ta := setupScrollTest(t)
+	defer ta.Cleanup()
+
+	ta.SendKey(tcell.KeyRune, 'p', tcell.ModNone)
+	qsc := ta.GetQuickSelectConfig()
+	if !qsc.IsVisible() {
+		t.Fatal("QuickSelect should be visible")
+	}
+
+	// screen is 80x40; quick-select overlay is PaletteMinWidth (30) on the right
+	// region: x=50, y=0, w=30, h=40
+	qsX, qsW := 50, 30
+	_, _, screenH := ta.Screen.GetContents()
+
+	// arrow down 35 times: index 0 → index 35 (36th task, first beyond 35-visible viewport)
+	for i := 0; i < 35; i++ {
+		ta.SendKey(tcell.KeyDown, 0, tcell.ModNone)
+	}
+
+	if !ta.FindTextInRegion("ScrollTask35", qsX, 0, qsW, screenH) {
+		t.Fatal("after scrolling down 35 times, ScrollTask35 should be visible in the picker")
+	}
+	if ta.FindTextInRegion("ScrollTask00", qsX, 0, qsW, screenH) {
+		t.Fatal("after scrolling down 35 times, ScrollTask00 should have scrolled out of the picker")
+	}
+
+	// wrap from last to first: press down until we wrap
+	for i := 35; i < 40; i++ {
+		ta.SendKey(tcell.KeyDown, 0, tcell.ModNone)
+	}
+	// now at index 0 (wrapped)
+	if !ta.FindTextInRegion("ScrollTask00", qsX, 0, qsW, screenH) {
+		t.Fatal("after wrapping to first, ScrollTask00 should be visible in the picker")
 	}
 
 	ta.SendKey(tcell.KeyEscape, 0, tcell.ModNone)

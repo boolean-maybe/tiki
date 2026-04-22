@@ -24,9 +24,11 @@ type QuickSelect struct {
 	candidateTasks []*task.Task
 	filteredTasks  []*task.Task
 	selectedIndex  int
+	scrollOffset   int
 	idColumnWidth  int
 	rowColors      component.TaskRowColors
 	lastWidth      int
+	lastHeight     int
 }
 
 // NewQuickSelect creates the quick-select widget.
@@ -52,7 +54,7 @@ func NewQuickSelect(quickSelectCfg *model.QuickSelectConfig) *QuickSelect {
 	qs.listView = tview.NewTextView().SetDynamicColors(true)
 	qs.listView.SetBackgroundColor(colors.ContentBackgroundColor.TCell())
 	qs.listView.SetDrawFunc(func(screen tcell.Screen, x, y, width, height int) (int, int, int, int) {
-		if width != qs.lastWidth && width > 0 {
+		if (width != qs.lastWidth || height != qs.lastHeight) && width > 0 {
 			qs.renderList()
 		}
 		return x, y, width, height
@@ -91,6 +93,7 @@ func (qs *QuickSelect) OnShow(tasks []*task.Task) {
 	qs.candidateTasks = tasks
 	qs.filterInput.SetText("")
 	qs.selectedIndex = 0
+	qs.scrollOffset = 0
 	qs.idColumnWidth = component.ComputeIDColumnWidth(tasks)
 	qs.filterTasks()
 	qs.renderList()
@@ -109,6 +112,7 @@ func (qs *QuickSelect) filterTasks() {
 	if query == "" {
 		qs.filteredTasks = make([]*task.Task, len(qs.candidateTasks))
 		copy(qs.filteredTasks, qs.candidateTasks)
+		qs.scrollOffset = 0
 		qs.clampSelection()
 		return
 	}
@@ -137,6 +141,7 @@ func (qs *QuickSelect) filterTasks() {
 	for i, m := range matches {
 		qs.filteredTasks[i] = m.task
 	}
+	qs.scrollOffset = 0
 	qs.clampSelection()
 }
 
@@ -147,11 +152,15 @@ func (qs *QuickSelect) clampSelection() {
 }
 
 func (qs *QuickSelect) renderList() {
-	_, _, width, _ := qs.listView.GetInnerRect()
+	_, _, width, height := qs.listView.GetInnerRect()
 	if width <= 0 {
 		width = PaletteMinWidth
 	}
+	if height <= 0 {
+		return
+	}
 	qs.lastWidth = width
+	qs.lastHeight = height
 
 	colors := config.GetColors()
 	mutedHex := colors.TaskDetailPlaceholderColor.Hex()
@@ -159,16 +168,29 @@ func (qs *QuickSelect) renderList() {
 	var buf strings.Builder
 
 	if len(qs.filteredTasks) == 0 {
+		buf.WriteString("\n")
 		buf.WriteString(fmt.Sprintf("[%s]  no matches", mutedHex))
 		qs.listView.SetText(buf.String())
 		return
 	}
 
-	for i, t := range qs.filteredTasks {
-		if i > 0 {
+	qs.ensureSelectionVisible()
+
+	maxVisible := height - 1
+	if maxVisible <= 0 {
+		maxVisible = 1
+	}
+	endIndex := qs.scrollOffset + maxVisible
+	if endIndex > len(qs.filteredTasks) {
+		endIndex = len(qs.filteredTasks)
+	}
+
+	buf.WriteString("\n")
+	for i := qs.scrollOffset; i < endIndex; i++ {
+		if i > qs.scrollOffset {
 			buf.WriteString("\n")
 		}
-		row := component.RenderTaskRow(t, i == qs.selectedIndex, width, qs.idColumnWidth, qs.rowColors)
+		row := component.RenderTaskRow(qs.filteredTasks[i], i == qs.selectedIndex, width, qs.idColumnWidth, qs.rowColors)
 		buf.WriteString(row)
 	}
 
@@ -222,6 +244,40 @@ func (qs *QuickSelect) moveSelection(direction int) {
 		qs.selectedIndex = n - 1
 	} else if qs.selectedIndex >= n {
 		qs.selectedIndex = 0
+	}
+	qs.ensureSelectionVisible()
+}
+
+func (qs *QuickSelect) ensureSelectionVisible() {
+	n := len(qs.filteredTasks)
+	if n == 0 {
+		qs.scrollOffset = 0
+		return
+	}
+
+	_, _, _, height := qs.listView.GetInnerRect()
+	maxVisible := height - 1
+	if maxVisible <= 0 {
+		maxVisible = 1
+	}
+
+	if qs.selectedIndex < qs.scrollOffset {
+		qs.scrollOffset = qs.selectedIndex
+	}
+	lastVisible := qs.scrollOffset + maxVisible - 1
+	if qs.selectedIndex > lastVisible {
+		qs.scrollOffset = qs.selectedIndex - maxVisible + 1
+	}
+
+	if qs.scrollOffset < 0 {
+		qs.scrollOffset = 0
+	}
+	maxOffset := n - maxVisible
+	if maxOffset < 0 {
+		maxOffset = 0
+	}
+	if qs.scrollOffset > maxOffset {
+		qs.scrollOffset = maxOffset
 	}
 }
 

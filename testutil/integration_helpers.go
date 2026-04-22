@@ -343,6 +343,17 @@ func (ta *TestApp) FindText(needle string) (bool, int, int) {
 	return false, 0, 0
 }
 
+// FindTextInRegion searches for a text string within a screen rectangle.
+func (ta *TestApp) FindTextInRegion(needle string, rx, ry, rw, rh int) bool {
+	for y := ry; y < ry+rh; y++ {
+		rowText := ta.GetTextAt(rx, y, rw)
+		if strings.Contains(rowText, needle) {
+			return true
+		}
+	}
+	return false
+}
+
 // DumpScreen prints the current screen content for debugging
 func (ta *TestApp) DumpScreen() {
 	_, width, height := ta.Screen.GetContents()
