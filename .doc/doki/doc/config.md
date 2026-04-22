@@ -54,7 +54,9 @@ Search order: user config dir → `.doc/new.md` (project) → cwd. Last match wi
 
 ### workflow.yaml
 
-The single highest-priority `workflow.yaml` found is loaded. All workflow-backed sections (statuses, types, views, global actions, fields, triggers) come from that one file. Lower-priority files are ignored entirely.
+The single highest-priority `workflow.yaml` found is loaded. All workflow-backed sections (statuses, types, views,
+global actions, fields, triggers) come from that one file. Lower-priority files are ignored entirely.
+See [Workflow format versions](workflow-format.md) for schema evolution.
 
 Search order: user config dir → `.doc/workflow.yaml` (project) → cwd. Last match wins.
 
