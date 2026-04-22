@@ -1,9 +1,12 @@
 package git
 
 import (
+	"io"
 	"os"
 	"os/exec"
 
+	"github.com/boolean-maybe/tiki/store/internal/git/internal/gogit"
+	"github.com/boolean-maybe/tiki/store/internal/git/internal/shell"
 	gogitlib "github.com/go-git/go-git/v5"
 )
 
@@ -26,6 +29,26 @@ func IsRepo(path string) bool {
 		return isRepoShell(path)
 	default:
 		return isRepoGoGit(path)
+	}
+}
+
+// Init initializes a new git repository at the given directory.
+func Init(dir string) error {
+	switch probeBackendKind() {
+	case backendShell:
+		return shell.Init(dir)
+	default:
+		return gogit.Init(dir)
+	}
+}
+
+// Clone clones a git repository from url into dir.
+func Clone(url, dir string, stdout, stderr io.Writer) error {
+	switch probeBackendKind() {
+	case backendShell:
+		return shell.Clone(url, dir, stdout, stderr)
+	default:
+		return gogit.Clone(url, dir, stdout, stderr)
 	}
 }
 

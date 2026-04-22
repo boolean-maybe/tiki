@@ -71,7 +71,8 @@ func Bootstrap(tikiSkillContent, dokiSkillContent string) (*Result, error) {
 	}
 
 	// Phase 2: Project initialization (creates dirs and seeds sample files)
-	proceed, err := EnsureProjectInitialized(tikiSkillContent, dokiSkillContent)
+	gitAdd := tikistore.NewGitAdder("")
+	proceed, err := EnsureProjectInitialized(tikiSkillContent, dokiSkillContent, gitAdd)
 	if err != nil {
 		return nil, err
 	}

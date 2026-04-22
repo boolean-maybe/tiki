@@ -127,7 +127,8 @@ Press Esc to cancel project initialization.`
 // EnsureProjectInitialized bootstraps the project if .doc/tiki is missing.
 // Returns (proceed, error).
 // If proceed is false, the user canceled initialization.
-func EnsureProjectInitialized(tikiSkillMdContent, dokiSkillMdContent string) (bool, error) {
+// gitAdd, when non-nil, is called to stage created files.
+func EnsureProjectInitialized(tikiSkillMdContent, dokiSkillMdContent string, gitAdd func(...string) error) (bool, error) {
 	taskDir := GetTaskDir()
 	if _, err := os.Stat(taskDir); err != nil {
 		if !os.IsNotExist(err) {
@@ -142,7 +143,7 @@ func EnsureProjectInitialized(tikiSkillMdContent, dokiSkillMdContent string) (bo
 			return false, nil
 		}
 
-		if err := BootstrapSystem(true); err != nil {
+		if err := BootstrapSystem(true, gitAdd); err != nil {
 			return false, fmt.Errorf("failed to bootstrap project: %w", err)
 		}
 
