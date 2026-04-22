@@ -1,7 +1,10 @@
 package controller
 
 import (
+	"github.com/boolean-maybe/tiki/model"
 	"github.com/boolean-maybe/tiki/task"
+
+	"github.com/rivo/tview"
 )
 
 // Test utilities for controller unit tests
@@ -13,6 +16,19 @@ func newMockNavigationController() *NavigationController {
 		navState: newViewStack(),
 	}
 }
+
+// mockSelectableView implements SelectableView for unit tests.
+type mockSelectableView struct {
+	selectedID string
+}
+
+func (m *mockSelectableView) GetPrimitive() tview.Primitive      { return nil }
+func (m *mockSelectableView) GetActionRegistry() *ActionRegistry { return NewActionRegistry() }
+func (m *mockSelectableView) GetViewID() model.ViewID            { return "" }
+func (m *mockSelectableView) OnFocus()                           {}
+func (m *mockSelectableView) OnBlur()                            {}
+func (m *mockSelectableView) GetSelectedID() string              { return m.selectedID }
+func (m *mockSelectableView) SetSelectedID(_ string)             {}
 
 // Test fixtures
 

@@ -10,6 +10,7 @@
 - [Enum and list errors](#enum-and-list-errors)
 - [Order by errors](#order-by-errors)
 - [Limit errors](#limit-errors)
+- [require errors](#require-errors)
 - [Built-in and subquery errors](#built-in-and-subquery-errors)
 
 ## Overview
@@ -315,6 +316,44 @@ select where count(select where status = "done") >= 1
 select where count(select where nosuchfield = "x") >= 1
 select where select = 1
 create title=select
+```
+
+## require errors
+
+Action `require` entries are validated at workflow load time. Each entry must be a non-empty string. A bare `!` (negation prefix with no attribute name) is rejected.
+
+Empty requirement:
+
+```yaml
+actions:
+  - key: "x"
+    label: "Bad"
+    action: update where id = id() set status="done"
+    require: [""]
+```
+
+Fails with: `empty requirement`.
+
+Bare negation:
+
+```yaml
+actions:
+  - key: "x"
+    label: "Bad"
+    action: update where id = id() set status="done"
+    require: ["!"]
+```
+
+Fails with: `bare '!' is not a valid requirement`.
+
+In YAML, negated requirements must be quoted to avoid parse errors:
+
+```yaml
+# correct — quoted
+require: ["!view:plugin:Kanban"]
+
+# incorrect — unquoted ! is a YAML tag indicator
+require: [!view:plugin:Kanban]
 ```
 
 ## input() errors

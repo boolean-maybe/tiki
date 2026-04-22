@@ -102,12 +102,7 @@ func InitPluginActions(plugins []PluginInfo) {
 			Modifier:     p.Modifier,
 			Label:        p.Name,
 			ShowInHeader: true,
-			IsEnabled: func(view *ViewEntry, _ View) bool {
-				if view == nil {
-					return true
-				}
-				return view.ViewID != pluginViewID
-			},
+			Require:      []Requirement{Requirement("!view:" + string(pluginViewID))},
 		})
 	}
 }
@@ -131,6 +126,101 @@ func GetPluginNameFromAction(id ActionID) string {
 	return ""
 }
 
+// Requirement is a declarative context attribute that an action needs to be enabled.
+// Positive values (e.g. "id", "ai") require the attribute to be present.
+// Negated values (e.g. "!view:plugin:Kanban") require the attribute to be absent.
+type Requirement string
+
+const (
+	RequireID Requirement = "id"
+	RequireAI Requirement = "ai"
+)
+
+// AppContext is a dynamic set of active context attributes built from live UI state.
+// Actions declare requirements against this set to determine enabled/disabled state.
+type AppContext struct {
+	attrs map[string]struct{}
+}
+
+// NewAppContext creates an empty AppContext.
+func NewAppContext() AppContext {
+	return AppContext{attrs: make(map[string]struct{})}
+}
+
+// Has returns true if the attribute is present.
+func (c AppContext) Has(attr string) bool {
+	_, ok := c.attrs[attr]
+	return ok
+}
+
+// Set adds an attribute to the context.
+func (c AppContext) Set(attr string) {
+	c.attrs[attr] = struct{}{}
+}
+
+// Delete removes an attribute from the context.
+func (c AppContext) Delete(attr string) {
+	delete(c.attrs, attr)
+}
+
+// Clone returns a shallow copy of the context.
+func (c AppContext) Clone() AppContext {
+	cp := NewAppContext()
+	for k := range c.attrs {
+		cp.attrs[k] = struct{}{}
+	}
+	return cp
+}
+
+// ActionEnabled returns true if the action's requirements are met by the context.
+// Empty requirements means always enabled.
+// Positive requirements must be present; negated requirements (prefixed with "!") must be absent.
+func ActionEnabled(a Action, ctx AppContext) bool {
+	for _, r := range a.Require {
+		if len(r) == 0 {
+			continue
+		}
+		if r[0] == '!' {
+			attr := string(r[1:])
+			if ctx.Has(attr) {
+				return false
+			}
+		} else {
+			if !ctx.Has(string(r)) {
+				return false
+			}
+		}
+	}
+	return true
+}
+
+// BuildAppContext constructs an AppContext from the current UI state.
+func BuildAppContext(currentView *ViewEntry, activeView View) AppContext {
+	ctx := NewAppContext()
+
+	if activeView != nil {
+		if sv, ok := activeView.(SelectableView); ok && sv.GetSelectedID() != "" {
+			ctx.Set(string(RequireID))
+		}
+	}
+
+	if currentView != nil && currentView.ViewID == model.TaskDetailViewID {
+		if model.DecodeTaskDetailParams(currentView.Params).TaskID != "" {
+			ctx.Set(string(RequireID))
+		}
+	}
+
+	if config.GetAIAgent() != "" {
+		ctx.Set(string(RequireAI))
+	}
+
+	if currentView != nil {
+		ctx.Set("view:" + string(currentView.ViewID))
+	}
+
+	return ctx
+}
+
 // Action represents a keyboard shortcut binding
 type Action struct {
 	ID              ActionID
@@ -140,7 +230,7 @@ type Action struct {
 	Modifier        tcell.ModMask
 	ShowInHeader    bool // whether to display in header bar
 	HideFromPalette bool // when true, action is excluded from the action palette (zero value = visible)
-	IsEnabled       func(view *ViewEntry, activeView View) bool
+	Require         []Requirement
 }
 
 // keyWithMod is a composite map key for special-key lookups, disambiguating
@@ -274,15 +364,6 @@ func (r *ActionRegistry) MatchBinding(key tcell.Key, ch rune, mod tcell.ModMask)
 	return r.matchBinding(key, ch, mod)
 }
 
-// selectionRequired is an IsEnabled predicate that returns true only when
-// the active view has a non-empty selection (for use with plugin/deps actions).
-func selectionRequired(_ *ViewEntry, activeView View) bool {
-	if sv, ok := activeView.(SelectableView); ok {
-		return sv.GetSelectedID() != ""
-	}
-	return false
-}
-
 // DefaultGlobalActions returns common actions available in all views
 func DefaultGlobalActions() *ActionRegistry {
 	r := NewActionRegistry()
@@ -339,9 +420,28 @@ func (r *ActionRegistry) ContainsID(id ActionID) bool {
 	return false
 }
 
+// GetByID returns the action with the given ID, or nil if not found.
+func (r *ActionRegistry) GetByID(id ActionID) *Action {
+	if r == nil {
+		return nil
+	}
+	for i := range r.actions {
+		if r.actions[i].ID == id {
+			return &r.actions[i]
+		}
+	}
+	return nil
+}
+
 // ToHeaderActions converts the registry's header actions to model.HeaderAction slice.
 // This bridges the controller→model boundary without requiring callers to do the mapping.
 func (r *ActionRegistry) ToHeaderActions() []model.HeaderAction {
+	return r.ToHeaderActionsForContext(NewAppContext())
+}
+
+// ToHeaderActionsForContext converts header actions with live enabled/disabled state
+// evaluated against the given AppContext.
+func (r *ActionRegistry) ToHeaderActionsForContext(ctx AppContext) []model.HeaderAction {
 	if r == nil {
 		return nil
 	}
@@ -355,6 +455,7 @@ func (r *ActionRegistry) ToHeaderActions() []model.HeaderAction {
 			Label:        a.Label,
 			Modifier:     a.Modifier,
 			ShowInHeader: a.ShowInHeader,
+			Enabled:      ActionEnabled(a, ctx),
 		}
 	}
 	return result
@@ -365,23 +466,14 @@ func (r *ActionRegistry) ToHeaderActions() []model.HeaderAction {
 func TaskDetailViewActions() *ActionRegistry {
 	r := NewActionRegistry()
 
-	taskDetailEnabled := func(view *ViewEntry, _ View) bool {
-		if view == nil || view.ViewID != model.TaskDetailViewID {
-			return false
-		}
-		return model.DecodeTaskDetailParams(view.Params).TaskID != ""
-	}
-
-	r.Register(Action{ID: ActionEditTitle, Key: tcell.KeyRune, Rune: 'e', Label: "Edit", ShowInHeader: true, IsEnabled: taskDetailEnabled})
-	r.Register(Action{ID: ActionEditDesc, Key: tcell.KeyRune, Rune: 'D', Label: "Edit desc", ShowInHeader: true, IsEnabled: taskDetailEnabled})
-	r.Register(Action{ID: ActionEditSource, Key: tcell.KeyRune, Rune: 's', Label: "Edit source", ShowInHeader: true, IsEnabled: taskDetailEnabled})
+	idReq := []Requirement{RequireID}
+	r.Register(Action{ID: ActionEditTitle, Key: tcell.KeyRune, Rune: 'e', Label: "Edit", ShowInHeader: true, Require: idReq})
+	r.Register(Action{ID: ActionEditDesc, Key: tcell.KeyRune, Rune: 'D', Label: "Edit desc", ShowInHeader: true, Require: idReq})
+	r.Register(Action{ID: ActionEditSource, Key: tcell.KeyRune, Rune: 's', Label: "Edit source", ShowInHeader: true, Require: idReq})
 	r.Register(Action{ID: ActionFullscreen, Key: tcell.KeyRune, Rune: 'f', Label: "Full screen", ShowInHeader: true})
-	r.Register(Action{ID: ActionEditDeps, Key: tcell.KeyCtrlD, Modifier: tcell.ModCtrl, Label: "Dependencies", ShowInHeader: true, IsEnabled: taskDetailEnabled})
-	r.Register(Action{ID: ActionEditTags, Key: tcell.KeyRune, Rune: 'T', Label: "Edit tags", ShowInHeader: true, IsEnabled: taskDetailEnabled})
-
-	if config.GetAIAgent() != "" {
-		r.Register(Action{ID: ActionChat, Key: tcell.KeyRune, Rune: 'c', Label: "Chat", ShowInHeader: true, IsEnabled: taskDetailEnabled})
-	}
+	r.Register(Action{ID: ActionEditDeps, Key: tcell.KeyCtrlD, Modifier: tcell.ModCtrl, Label: "Dependencies", ShowInHeader: true, Require: idReq})
+	r.Register(Action{ID: ActionEditTags, Key: tcell.KeyRune, Rune: 'T', Label: "Edit tags", ShowInHeader: true, Require: idReq})
+	r.Register(Action{ID: ActionChat, Key: tcell.KeyRune, Rune: 'c', Label: "Chat", ShowInHeader: true, Require: []Requirement{RequireAI, RequireID}})
 
 	return r
 }
@@ -545,11 +637,12 @@ func PluginViewActions() *ActionRegistry {
 	r.Register(Action{ID: ActionNavRight, Key: tcell.KeyRune, Rune: 'l', Label: "→", HideFromPalette: true})
 
 	// plugin actions (shown in header)
-	r.Register(Action{ID: ActionOpenFromPlugin, Key: tcell.KeyEnter, Label: "Open", ShowInHeader: true, IsEnabled: selectionRequired})
-	r.Register(Action{ID: ActionMoveTaskLeft, Key: tcell.KeyLeft, Modifier: tcell.ModShift, Label: "Move ←", ShowInHeader: true, IsEnabled: selectionRequired})
-	r.Register(Action{ID: ActionMoveTaskRight, Key: tcell.KeyRight, Modifier: tcell.ModShift, Label: "Move →", ShowInHeader: true, IsEnabled: selectionRequired})
+	idReq := []Requirement{RequireID}
+	r.Register(Action{ID: ActionOpenFromPlugin, Key: tcell.KeyEnter, Label: "Open", ShowInHeader: true, Require: idReq})
+	r.Register(Action{ID: ActionMoveTaskLeft, Key: tcell.KeyLeft, Modifier: tcell.ModShift, Label: "Move ←", ShowInHeader: true, Require: idReq})
+	r.Register(Action{ID: ActionMoveTaskRight, Key: tcell.KeyRight, Modifier: tcell.ModShift, Label: "Move →", ShowInHeader: true, Require: idReq})
 	r.Register(Action{ID: ActionNewTask, Key: tcell.KeyRune, Rune: 'n', Label: "New", ShowInHeader: true})
-	r.Register(Action{ID: ActionDeleteTask, Key: tcell.KeyRune, Rune: 'd', Label: "Delete", ShowInHeader: true, IsEnabled: selectionRequired})
+	r.Register(Action{ID: ActionDeleteTask, Key: tcell.KeyRune, Rune: 'd', Label: "Delete", ShowInHeader: true, Require: idReq})
 	r.Register(Action{ID: ActionSearch, Key: tcell.KeyRune, Rune: '/', Label: "Search", ShowInHeader: true})
 	r.Register(Action{ID: ActionToggleViewMode, Key: tcell.KeyRune, Rune: 'v', Label: "View mode", ShowInHeader: true})
 
@@ -574,13 +667,14 @@ func DepsViewActions() *ActionRegistry {
 	r.Register(Action{ID: ActionNavRight, Key: tcell.KeyRune, Rune: 'l', Label: "→", HideFromPalette: true})
 
 	// move task between lanes (shown in header)
-	r.Register(Action{ID: ActionMoveTaskLeft, Key: tcell.KeyLeft, Modifier: tcell.ModShift, Label: "Move ←", ShowInHeader: true, IsEnabled: selectionRequired})
-	r.Register(Action{ID: ActionMoveTaskRight, Key: tcell.KeyRight, Modifier: tcell.ModShift, Label: "Move →", ShowInHeader: true, IsEnabled: selectionRequired})
+	depsIdReq := []Requirement{RequireID}
+	r.Register(Action{ID: ActionMoveTaskLeft, Key: tcell.KeyLeft, Modifier: tcell.ModShift, Label: "Move ←", ShowInHeader: true, Require: depsIdReq})
+	r.Register(Action{ID: ActionMoveTaskRight, Key: tcell.KeyRight, Modifier: tcell.ModShift, Label: "Move →", ShowInHeader: true, Require: depsIdReq})
 
 	// task actions
-	r.Register(Action{ID: ActionOpenFromPlugin, Key: tcell.KeyEnter, Label: "Open", ShowInHeader: true, IsEnabled: selectionRequired})
+	r.Register(Action{ID: ActionOpenFromPlugin, Key: tcell.KeyEnter, Label: "Open", ShowInHeader: true, Require: depsIdReq})
 	r.Register(Action{ID: ActionNewTask, Key: tcell.KeyRune, Rune: 'n', Label: "New", ShowInHeader: true})
-	r.Register(Action{ID: ActionDeleteTask, Key: tcell.KeyRune, Rune: 'd', Label: "Delete", ShowInHeader: true, IsEnabled: selectionRequired})
+	r.Register(Action{ID: ActionDeleteTask, Key: tcell.KeyRune, Rune: 'd', Label: "Delete", ShowInHeader: true, Require: depsIdReq})
 
 	// view mode and search
 	r.Register(Action{ID: ActionSearch, Key: tcell.KeyRune, Rune: '/', Label: "Search", ShowInHeader: true})

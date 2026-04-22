@@ -237,6 +237,7 @@ Each action has:
 - `action` - a `ruki` statement (`update`, `create`, `delete`, or `select`)
 - `hot` - (optional) controls header visibility. `hot: true` shows the action in the header, `hot: false` hides it. When absent, actions default to visible in the header. This does not affect the action palette — all actions are always discoverable via `?` regardless of the `hot` setting
 - `input` - (optional) declares that the action prompts for user input before executing. The value is the scalar type of the input: `string`, `int`, `bool`, `date`, `timestamp`, or `duration`. The action's `ruki` statement must use `input()` to reference the value
+- `require` - (optional) a list of context attributes the action needs to be enabled. When requirements are not met, the action is visible but greyed out in the header and palette, and its hotkey does nothing. See [Action requirements](#action-requirements) below
 
 Example — keeping a verbose action out of the header but still accessible from the palette:
 
@@ -308,6 +309,63 @@ Validation rules:
 - `choose()` requires exactly one argument: a `select` subquery
 - `choose()` may only appear once per action
 - `choose()` and `input()` are mutually exclusive within a single action
+
+### Action requirements
+
+Actions can declare context requirements that control when they are enabled. Requirements are evaluated against the current 
+application. When any requirement is unmet, the action is disabled
+
+
+```yaml
+actions:
+  - key: "c"
+    label: "Chat about task"
+    action: select where id = id() | run("claude -p 'Discuss: $1'")
+    require: ["ai", "id"]
+```
+
+This action requires both `ai` (an AI agent configured in `config.yaml`) and `id` (a task selected in the current view).
+
+#### Built-in context attributes
+
+| Attribute | Set when |
+|-----------|----------|
+| `id` | A task is selected in the current view |
+| `ai` | `ai.agent` is configured in `config.yaml` |
+| `view:<view-id>` | Identifies the currently active view (e.g. `view:plugin:Kanban`) |
+
+#### Auto-inference
+
+You don't need to declare `require: ["id"]` for actions that use `id()` in their ruki statement — tiki automatically infers 
+the `id` requirement. Explicitly listing it is allowed but redundant.
+
+#### Bulk actions
+
+Mutating actions (`update`, `delete`) that do *not* use `id()` are bulk actions — they operate on all matching tasks, 
+not just the selected one. Bulk actions remain enabled even when nothing is selected:
+
+```yaml
+actions:
+  - key: "X"
+    label: "Delete all done"
+    action: delete where status = "done"
+```
+
+This action has no `id` requirement (neither explicit nor inferred) so it stays enabled regardless of selection state.
+
+#### Negated requirements
+
+Prefix a requirement with `!` to require that the attribute is *absent*. In YAML, negated requirements must be quoted:
+
+```yaml
+actions:
+  - key: "K"
+    label: "Go to Kanban"
+    action: select where status = "ready"
+    require: ["!view:plugin:Kanban"]
+```
+
+This action is disabled when the user is already on the Kanban view — the `view:plugin:Kanban` attribute would be present, failing the `!view:plugin:Kanban` check.
 
 ### Search and input box interaction
 

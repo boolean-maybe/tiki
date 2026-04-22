@@ -10,7 +10,7 @@ func TestViewContext_SetFromView_SingleNotification(t *testing.T) {
 	var count int32
 	vc.AddListener(func() { atomic.AddInt32(&count, 1) })
 
-	vc.SetFromView("plugin:Kanban", "Kanban", "desc", nil, nil)
+	vc.SetFromView("plugin:Kanban", "Kanban", "desc", nil, nil, nil)
 
 	if got := atomic.LoadInt32(&count); got != 1 {
 		t.Errorf("expected exactly 1 notification, got %d", got)
@@ -23,7 +23,7 @@ func TestViewContext_Getters(t *testing.T) {
 	viewActions := []HeaderAction{{ID: "edit", Label: "Edit"}}
 	pluginActions := []HeaderAction{{ID: "plugin:Kanban", Label: "Kanban"}}
 
-	vc.SetFromView(TaskDetailViewID, "Tiki Detail", "desc", viewActions, pluginActions)
+	vc.SetFromView(TaskDetailViewID, "Tiki Detail", "desc", nil, viewActions, pluginActions)
 
 	if vc.GetViewID() != TaskDetailViewID {
 		t.Errorf("expected %v, got %v", TaskDetailViewID, vc.GetViewID())
@@ -47,13 +47,13 @@ func TestViewContext_RemoveListener(t *testing.T) {
 	var count int32
 	id := vc.AddListener(func() { atomic.AddInt32(&count, 1) })
 
-	vc.SetFromView("v1", "n", "d", nil, nil)
+	vc.SetFromView("v1", "n", "d", nil, nil, nil)
 	if atomic.LoadInt32(&count) != 1 {
 		t.Fatal("listener should have fired once")
 	}
 
 	vc.RemoveListener(id)
-	vc.SetFromView("v2", "n", "d", nil, nil)
+	vc.SetFromView("v2", "n", "d", nil, nil, nil)
 	if atomic.LoadInt32(&count) != 1 {
 		t.Error("listener should not fire after removal")
 	}
@@ -65,7 +65,7 @@ func TestViewContext_MultipleListeners(t *testing.T) {
 	vc.AddListener(func() { atomic.AddInt32(&a, 1) })
 	vc.AddListener(func() { atomic.AddInt32(&b, 1) })
 
-	vc.SetFromView("v1", "n", "d", nil, nil)
+	vc.SetFromView("v1", "n", "d", nil, nil, nil)
 
 	if atomic.LoadInt32(&a) != 1 {
 		t.Errorf("listener A: expected 1, got %d", atomic.LoadInt32(&a))

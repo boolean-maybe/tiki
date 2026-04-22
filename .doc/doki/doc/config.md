@@ -66,6 +66,9 @@ Search order: user config dir → `.doc/workflow.yaml` (project) → cwd. Last m
 
 Global actions defined in `views.actions` are appended to each tiki plugin's action list; per-plugin actions with the same key take precedence.
 
+Actions can declare `require:` — a list of context attributes needed for the action to be enabled. Actions with unmet 
+requirements are visible but greyed out. See [Action requirements](customization/customization.md#action-requirements) for details.
+
 ### config.yaml
 
 Example `config.yaml` with available settings:

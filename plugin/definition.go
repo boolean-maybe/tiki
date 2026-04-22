@@ -80,11 +80,12 @@ type DokiPlugin struct {
 
 // PluginActionConfig represents a shortcut action in YAML or config definitions.
 type PluginActionConfig struct {
-	Key    string `yaml:"key" mapstructure:"key"`
-	Label  string `yaml:"label" mapstructure:"label"`
-	Action string `yaml:"action" mapstructure:"action"`
-	Hot    *bool  `yaml:"hot,omitempty" mapstructure:"hot"`
-	Input  string `yaml:"input,omitempty" mapstructure:"input"`
+	Key     string   `yaml:"key" mapstructure:"key"`
+	Label   string   `yaml:"label" mapstructure:"label"`
+	Action  string   `yaml:"action" mapstructure:"action"`
+	Hot     *bool    `yaml:"hot,omitempty" mapstructure:"hot"`
+	Input   string   `yaml:"input,omitempty" mapstructure:"input"`
+	Require []string `yaml:"require,omitempty" mapstructure:"require"`
 }
 
 // PluginAction represents a parsed shortcut action bound to a key.
@@ -100,6 +101,7 @@ type PluginAction struct {
 	HasInput     bool
 	HasChoose    bool
 	ChooseFilter *ruki.SubQuery
+	Require      []string // effective requirements after auto-inference from id() usage
 }
 
 // PluginLaneConfig represents a lane in YAML or config definitions.

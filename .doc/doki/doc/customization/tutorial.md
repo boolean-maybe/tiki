@@ -366,6 +366,13 @@ views:
 > only work in that view. If you override a plugin's `actions:` list, it
 > replaces the whole list for that plugin — same as lanes.
 
+> **Action requirements.** Actions can declare `require:` to control when
+> they are enabled. For example, `require: ["ai"]` disables the action when
+> no AI agent is configured. Actions using `id()` automatically require a
+> task selection — you don't need to add `require: ["id"]` manually. See
+> [Action requirements](customization.md#action-requirements) for the full
+> reference.
+
 ---
 
 ## 7. Custom fields
