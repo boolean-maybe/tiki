@@ -16,6 +16,10 @@ import (
 //   - FormatKeyBinding(tcell.KeyEscape, 0, 0) → "Esc"
 //   - FormatKeyBinding(tcell.KeyRune, 's', tcell.ModCtrl) → "Ctrl+s"
 func FormatKeyBinding(key tcell.Key, ch rune, mod tcell.ModMask) string {
+	if key == 0 && ch == 0 {
+		return ""
+	}
+
 	// For rune keys (including with modifiers like Ctrl+R), build the full string
 	if ch != 0 {
 		prefix := ""

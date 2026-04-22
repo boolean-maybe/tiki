@@ -367,21 +367,72 @@ func workflowCandidates() []string {
 	}
 }
 
+// findWorkflowFileWithScope walks the workflow candidates in priority order
+// and returns both the winning path and its classified scope. This is the
+// single source of truth — FindWorkflowFile and FindWorkflowFiles delegate here.
+func findWorkflowFileWithScope() (string, Scope) {
+	scopes := []Scope{ScopeGlobal, ScopeLocal, ScopeCurrent}
+	candidates := workflowCandidates()
+
+	var bestPath string
+	var bestScope Scope
+	seen := make(map[string]bool)
+
+	for i, path := range candidates {
+		abs, err := filepath.Abs(path)
+		if err != nil {
+			abs = path
+		}
+		if seen[abs] {
+			continue
+		}
+		if _, err := os.Stat(path); err != nil {
+			continue
+		}
+		seen[abs] = true
+		bestPath = path
+		bestScope = scopes[i]
+	}
+
+	return bestPath, bestScope
+}
+
+// FindWorkflowFileWithScope returns the highest-priority workflow.yaml path
+// and its classified scope. If no file is found, returns ("", "").
+func FindWorkflowFileWithScope() (string, Scope) {
+	return findWorkflowFileWithScope()
+}
+
 // FindWorkflowFiles returns a single-element slice with the highest-priority
 // workflow.yaml that exists, or nil if none found. All workflow-backed sections
 // (views, statuses, types, fields, triggers) come from this one file.
 func FindWorkflowFiles() []string {
-	best := findHighestPriorityFile(workflowCandidates())
-	if best == "" {
+	path, _ := findWorkflowFileWithScope()
+	if path == "" {
 		return nil
 	}
-	return []string{best}
+	return []string{path}
 }
 
 // FindWorkflowFile returns the highest-priority workflow.yaml path,
 // or empty string if none found.
 func FindWorkflowFile() string {
-	return findHighestPriorityFile(workflowCandidates())
+	path, _ := findWorkflowFileWithScope()
+	return path
+}
+
+// WorkflowScopeLabel returns a user-friendly label for display in the statusline.
+func WorkflowScopeLabel(scope Scope) string {
+	switch scope {
+	case ScopeGlobal:
+		return "global"
+	case ScopeLocal:
+		return "project"
+	case ScopeCurrent:
+		return "local"
+	default:
+		return string(scope)
+	}
 }
 
 // FindTemplateFile returns the highest-priority new.md file that exists,

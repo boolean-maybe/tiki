@@ -58,6 +58,8 @@ type Result struct {
 	CancelFunc        context.CancelFunc
 	TikiSkillContent  string
 	DokiSkillContent  string
+	WorkflowPath      string
+	WorkflowScope     config.Scope
 }
 
 // Bootstrap orchestrates the complete application initialization sequence.
@@ -89,6 +91,9 @@ func Bootstrap(tikiSkillContent, dokiSkillContent string) (*Result, error) {
 		return nil, fmt.Errorf("load workflow registries: %w", err)
 	}
 
+	// Phase 2.8: Resolve workflow file location for statusline and edit action
+	workflowPath, workflowScope := config.FindWorkflowFileWithScope()
+
 	// Phase 3: Configuration and logging
 	cfg, err := LoadConfig()
 	if err != nil {
@@ -112,7 +117,7 @@ func Bootstrap(tikiSkillContent, dokiSkillContent string) (*Result, error) {
 
 	// Phase 5: Model initialization
 	headerConfig, layoutModel := InitHeaderAndLayoutModels()
-	statuslineConfig := InitStatuslineModel(tikiStore)
+	statuslineConfig := InitStatuslineModel(tikiStore, workflowScope)
 
 	// Phase 5.5: Ruki schema (needed by plugin parser and trigger system)
 	schema := rukiRuntime.NewSchema()
@@ -196,6 +201,7 @@ func Bootstrap(tikiSkillContent, dokiSkillContent string) (*Result, error) {
 	paletteConfig := model.NewActionPaletteConfig()
 	inputRouter.SetHeaderConfig(headerConfig)
 	inputRouter.SetPaletteConfig(paletteConfig)
+	inputRouter.SetWorkflowPath(workflowPath)
 
 	actionPalette := palette.NewActionPalette(viewContext, paletteConfig, inputRouter, controllers.Nav)
 	actionPalette.SetChangedFunc()
@@ -286,6 +292,8 @@ func Bootstrap(tikiSkillContent, dokiSkillContent string) (*Result, error) {
 		CancelFunc:        cancel,
 		TikiSkillContent:  tikiSkillContent,
 		DokiSkillContent:  dokiSkillContent,
+		WorkflowPath:      workflowPath,
+		WorkflowScope:     workflowScope,
 	}, nil
 }
 

@@ -20,6 +20,7 @@ const (
 	ActionToggleViewMode ActionID = "toggle_view_mode"
 	ActionToggleHeader   ActionID = "toggle_header"
 	ActionOpenPalette    ActionID = "open_palette"
+	ActionEditWorkflow   ActionID = "edit_workflow"
 )
 
 // ActionID values for task navigation and manipulation (used by plugins).
@@ -179,6 +180,9 @@ func NewActionRegistry() *ActionRegistry {
 func (r *ActionRegistry) Register(action Action) {
 	action.Key, action.Rune, action.Modifier = normalizeBinding(action.Key, action.Rune, action.Modifier)
 	r.actions = append(r.actions, action)
+	if action.Key == 0 && action.Rune == 0 {
+		return // palette-only action — no keybinding to index
+	}
 	if action.Key == tcell.KeyRune {
 		r.byRune[runeWithMod{action.Rune, action.Modifier}] = action
 	} else {
@@ -287,6 +291,7 @@ func DefaultGlobalActions() *ActionRegistry {
 	r.Register(Action{ID: ActionRefresh, Key: tcell.KeyRune, Rune: 'r', Label: "Refresh", ShowInHeader: true})
 	r.Register(Action{ID: ActionToggleHeader, Key: tcell.KeyF10, Label: "Toggle Header", ShowInHeader: true})
 	r.Register(Action{ID: ActionOpenPalette, Key: tcell.KeyCtrlA, Modifier: tcell.ModCtrl, Label: "All", ShowInHeader: true, HideFromPalette: true})
+	r.Register(Action{ID: ActionEditWorkflow, Label: "Edit Workflow"})
 	return r
 }
 

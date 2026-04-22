@@ -70,6 +70,7 @@ type InputRouter struct {
 	paletteConfig     *model.ActionPaletteConfig
 	quickSelectConfig *model.QuickSelectConfig
 	quickSelectView   QuickSelectView
+	workflowPath      string
 }
 
 // NewInputRouter creates an input router
@@ -113,6 +114,11 @@ func (ir *InputRouter) SetQuickSelectConfig(qc *model.QuickSelectConfig) {
 // SetQuickSelectView wires the quick-select view (concrete type satisfies the interface).
 func (ir *InputRouter) SetQuickSelectView(qv QuickSelectView) {
 	ir.quickSelectView = qv
+}
+
+// SetWorkflowPath sets the resolved workflow.yaml path for the Edit Workflow action.
+func (ir *InputRouter) SetWorkflowPath(path string) {
+	ir.workflowPath = path
 }
 
 // HandleInput processes a key event for the current view and routes it to the appropriate handler.
@@ -375,6 +381,17 @@ func (ir *InputRouter) handleGlobalAction(actionID ActionID) bool {
 		return true
 	case ActionToggleHeader:
 		ir.toggleHeader()
+		return true
+	case ActionEditWorkflow:
+		if ir.workflowPath == "" {
+			ir.statusline.SetMessage("no workflow file found", model.MessageLevelError, true)
+			return true
+		}
+		if err := ir.navController.SuspendAndEdit(ir.workflowPath); err != nil {
+			ir.statusline.SetMessage("editor failed: "+err.Error(), model.MessageLevelError, true)
+		} else {
+			ir.statusline.SetMessage("restart tiki to apply workflow changes", model.MessageLevelInfo, true)
+		}
 		return true
 	default:
 		return false

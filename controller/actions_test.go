@@ -405,11 +405,11 @@ func TestDefaultGlobalActions(t *testing.T) {
 	registry := DefaultGlobalActions()
 	actions := registry.GetActions()
 
-	if len(actions) != 5 {
-		t.Errorf("expected 5 global actions, got %d", len(actions))
+	if len(actions) != 6 {
+		t.Errorf("expected 6 global actions, got %d", len(actions))
 	}
 
-	expectedActions := []ActionID{ActionBack, ActionQuit, ActionRefresh, ActionToggleHeader, ActionOpenPalette}
+	expectedActions := []ActionID{ActionBack, ActionQuit, ActionRefresh, ActionToggleHeader, ActionOpenPalette, ActionEditWorkflow}
 	for i, expected := range expectedActions {
 		if i >= len(actions) {
 			t.Errorf("missing action at index %d: want %v", i, expected)
@@ -437,6 +437,16 @@ func TestDefaultGlobalActions(t *testing.T) {
 			}
 			if a.Rune != 0 {
 				t.Errorf("ActionOpenPalette Rune = %v, want 0", a.Rune)
+			}
+			continue
+		}
+		// ActionEditWorkflow is palette-only (no key, no header)
+		if a.ID == ActionEditWorkflow {
+			if a.ShowInHeader {
+				t.Error("ActionEditWorkflow should have ShowInHeader=false")
+			}
+			if a.Label != "Edit Workflow" {
+				t.Errorf("ActionEditWorkflow label = %q, want %q", a.Label, "Edit Workflow")
 			}
 			continue
 		}
@@ -879,5 +889,28 @@ func TestInitPluginActions_ActivePluginDisabled(t *testing.T) {
 				t.Error("Kanban activation should be enabled when Backlog view is active")
 			}
 		}
+	}
+}
+
+func TestEditWorkflow_EmptyPath(t *testing.T) {
+	statusline := model.NewStatuslineConfig()
+	ir := &InputRouter{
+		navController: newMockNavigationController(),
+		globalActions: DefaultGlobalActions(),
+		statusline:    statusline,
+		workflowPath:  "",
+	}
+
+	handled := ir.handleGlobalAction(ActionEditWorkflow)
+	if !handled {
+		t.Error("ActionEditWorkflow should be handled")
+	}
+
+	msg, level, _ := statusline.GetMessage()
+	if msg != "no workflow file found" {
+		t.Errorf("message = %q, want %q", msg, "no workflow file found")
+	}
+	if level != model.MessageLevelError {
+		t.Errorf("level = %v, want MessageLevelError", level)
 	}
 }
