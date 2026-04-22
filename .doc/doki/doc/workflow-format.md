@@ -6,6 +6,76 @@ what it introduced and what changed from the previous version. For usage details
 
 ---
 
+## 0.5.1
+
+Expands action keys beyond single characters, adds `choose()` and `require` to actions,
+removes the 10-action limit.
+
+### Action key format expanded
+
+Action keys now support modifier combos and function keys:
+
+```yaml
+actions:
+  - key: Ctrl-Q
+    label: "Quick create"
+    action: create title=input()
+    input: string
+```
+
+Supported formats:
+- single character: `"a"`, `"Y"`, `"+"`
+- function keys: `F1` through `F12`
+- modifier combos: `Ctrl-X`, `Alt-X`, `Shift-X`
+- modifier + function key: `Ctrl-F1`, `Alt-F3`, `Shift-F5`
+
+Keys are normalized to a canonical form — `Shift-x` and `Shift-X` both become `X`.
+Duplicate detection uses the canonical string, not the raw input.
+
+### `choose()` builtin
+
+Actions can use `choose()` to open an interactive task picker:
+
+```yaml
+actions:
+  - key: "e"
+    label: "Link to epic"
+    action: update where id = choose(select where type = "epic") set dependsOn = dependsOn + id()
+```
+
+- `choose()` takes exactly one argument: a `select` subquery
+- may appear once per action
+- mutually exclusive with `input()` in the same action
+- lane filters and lane actions cannot use `choose()` or `input()`
+
+See [Choose-backed actions](customization/customization.md#choose-backed-actions).
+
+### `require` field on actions
+
+Actions can declare context requirements that control when they are enabled:
+
+```yaml
+actions:
+  - key: "c"
+    label: "Chat about task"
+    action: select where id = id() | run("claude -p 'Discuss: $1'")
+    require: ["ai", "id"]
+```
+
+- `require` — list of context attribute strings (optional)
+- built-in attributes: `id` (task selected), `ai` (AI agent configured), `view:<view-id>` (active view)
+- `id` is auto-inferred when the action uses `id()` — explicit `require: ["id"]` is allowed but redundant
+- negation: prefix with `!` (e.g. `"!view:plugin:Kanban"` — disabled when on Kanban view)
+- disabled actions show greyed out in header and palette; hotkey is ignored
+
+See [Action requirements](customization/customization.md#action-requirements).
+
+### 10-action limit removed
+
+Actions per section are no longer capped at 10.
+
+---
+
 ## 0.5.0 — Baseline
 
 First versioned workflow format. Establishes the complete schema.
@@ -162,73 +232,3 @@ Custom field definitions for task records. See [Custom fields](customization/cus
 ### Triggers
 
 Automation rules using ruki DSL. See [Triggers](ruki/triggers.md).
-
----
-
-## 0.5.1
-
-Expands action keys beyond single characters, adds `choose()` and `require` to actions,
-removes the 10-action limit.
-
-### Action key format expanded
-
-Action keys now support modifier combos and function keys:
-
-```yaml
-actions:
-  - key: Ctrl-Q
-    label: "Quick create"
-    action: create title=input()
-    input: string
-```
-
-Supported formats:
-- single character: `"a"`, `"Y"`, `"+"`
-- function keys: `F1` through `F12`
-- modifier combos: `Ctrl-X`, `Alt-X`, `Shift-X`
-- modifier + function key: `Ctrl-F1`, `Alt-F3`, `Shift-F5`
-
-Keys are normalized to a canonical form — `Shift-x` and `Shift-X` both become `X`.
-Duplicate detection uses the canonical string, not the raw input.
-
-### `choose()` builtin
-
-Actions can use `choose()` to open an interactive task picker:
-
-```yaml
-actions:
-  - key: "e"
-    label: "Link to epic"
-    action: update where id = choose(select where type = "epic") set dependsOn = dependsOn + id()
-```
-
-- `choose()` takes exactly one argument: a `select` subquery
-- may appear once per action
-- mutually exclusive with `input()` in the same action
-- lane filters and lane actions cannot use `choose()` or `input()`
-
-See [Choose-backed actions](customization/customization.md#choose-backed-actions).
-
-### `require` field on actions
-
-Actions can declare context requirements that control when they are enabled:
-
-```yaml
-actions:
-  - key: "c"
-    label: "Chat about task"
-    action: select where id = id() | run("claude -p 'Discuss: $1'")
-    require: ["ai", "id"]
-```
-
-- `require` — list of context attribute strings (optional)
-- built-in attributes: `id` (task selected), `ai` (AI agent configured), `view:<view-id>` (active view)
-- `id` is auto-inferred when the action uses `id()` — explicit `require: ["id"]` is allowed but redundant
-- negation: prefix with `!` (e.g. `"!view:plugin:Kanban"` — disabled when on Kanban view)
-- disabled actions show greyed out in header and palette; hotkey is ignored
-
-See [Action requirements](customization/customization.md#action-requirements).
-
-### 10-action limit removed
-
-Actions per section are no longer capped at 10.
