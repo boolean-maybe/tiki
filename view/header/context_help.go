@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/boolean-maybe/tiki/config"
 	"github.com/boolean-maybe/tiki/controller"
 	"github.com/boolean-maybe/tiki/model"
 	"github.com/boolean-maybe/tiki/util"
@@ -19,6 +20,7 @@ type cellData struct {
 	keyLen    int
 	labelLen  int
 	colorType int // 0=global, 1=plugin, 2=view
+	enabled   bool
 }
 
 const (
@@ -51,25 +53,24 @@ func (chw *ContextHelpWidget) GetWidth() int {
 	return chw.width
 }
 
-// SetActionsFromModel updates the display with actions from model.HeaderAction
-// This is the new model-based interface for the refactored architecture.
-func (chw *ContextHelpWidget) SetActionsFromModel(viewActions, pluginActions []model.HeaderAction) int {
-	// Section 1: Global actions (always present)
-	globalRegistry := controller.DefaultGlobalActions()
-	var globalControllerActions []controller.Action
+// SetActionsFromModel updates the display with actions from model.HeaderAction.
+// All three sections (global, plugin, view) flow through the same model.HeaderAction
+// path so enabled/disabled state is consistent.
+func (chw *ContextHelpWidget) SetActionsFromModel(globalActions, viewActions, pluginActions []model.HeaderAction) int {
 	globalIDs := make(map[controller.ActionID]bool)
-	for _, action := range globalRegistry.GetHeaderActions() {
-		globalControllerActions = append(globalControllerActions, action)
-		globalIDs[action.ID] = true
+	for _, a := range globalActions {
+		globalIDs[controller.ActionID(a.ID)] = true
 	}
 
-	// Section 2: Plugin "go to" actions (from HeaderConfig via model.HeaderAction)
-	pluginControllerActions := convertHeaderActions(pluginActions)
+	globalConverted := convertHeaderActions(globalActions)
+	pluginConverted := convertHeaderActions(pluginActions)
+	viewConverted := extractViewActionsFromModel(viewActions, globalIDs)
 
-	// Section 3: View-specific actions (from HeaderConfig via model.HeaderAction)
-	viewControllerActions := extractViewActionsFromModel(viewActions, globalIDs)
+	globalEnabled := extractEnabledMap(globalActions)
+	pluginEnabled := extractEnabledMap(pluginActions)
+	viewEnabled := extractEnabledMap(viewActions)
 
-	return chw.renderActionsGrid(globalControllerActions, pluginControllerActions, viewControllerActions)
+	return chw.renderActionsGridWithEnabled(globalConverted, pluginConverted, viewConverted, globalEnabled, pluginEnabled, viewEnabled)
 }
 
 // Primitive returns the underlying tview primitive
@@ -77,9 +78,10 @@ func (chw *ContextHelpWidget) Primitive() tview.Primitive {
 	return chw.TextView
 }
 
-// renderActionsGrid renders the actions grid - the core rendering logic shared by both methods
-func (chw *ContextHelpWidget) renderActionsGrid(
+// renderActionsGridWithEnabled renders the grid with per-action enabled state.
+func (chw *ContextHelpWidget) renderActionsGridWithEnabled(
 	globalActions, pluginActions, viewActions []controller.Action,
+	globalEnabled, pluginEnabled, viewEnabled map[controller.ActionID]bool,
 ) int {
 	numRows := HeaderHeight
 
@@ -97,9 +99,11 @@ func (chw *ContextHelpWidget) renderActionsGrid(
 		return 0
 	}
 
-	// Create and populate grid
+	// Create and populate grid with enabled state
 	gridData := createEmptyGrid(numRows, dims.totalCols)
-	populateGridCells(gridData, globalActions, pluginActions, viewActions, dims, numRows)
+	fillGridSectionWithEnabled(gridData, globalActions, 0, numRows, colorTypeGlobal, globalEnabled)
+	fillGridSectionWithEnabled(gridData, pluginActions, dims.globalCols, numRows, colorTypePlugin, pluginEnabled)
+	fillGridSectionWithEnabled(gridData, viewActions, dims.globalCols+dims.pluginCols, numRows, colorTypeView, viewEnabled)
 
 	// Calculate column widths
 	maxKeyLenPerCol := calculateMaxLengths(gridData, dims.totalCols, numRows, func(cell cellData) int { return cell.keyLen })
@@ -153,33 +157,21 @@ func createEmptyGrid(numRows, numCols int) [][]cellData {
 	return gridData
 }
 
-// populateGridCells fills the grid with action data from all three sections
-func populateGridCells(
-	gridData [][]cellData,
-	globalActions, pluginActions, viewActions []controller.Action,
-	dims gridDimensions,
-	numRows int,
-) {
-	// Fill global actions
-	fillGridSection(gridData, globalActions, 0, numRows, colorTypeGlobal)
-
-	// Fill plugin actions
-	fillGridSection(gridData, pluginActions, dims.globalCols, numRows, colorTypePlugin)
-
-	// Fill view actions
-	fillGridSection(gridData, viewActions, dims.globalCols+dims.pluginCols, numRows, colorTypeView)
-}
-
-// fillGridSection fills a section of the grid with actions of a specific color type
-func fillGridSection(gridData [][]cellData, actions []controller.Action, colOffset, numRows, colorType int) {
+// fillGridSectionWithEnabled fills a section with per-action enabled state.
+func fillGridSectionWithEnabled(gridData [][]cellData, actions []controller.Action, colOffset, numRows, colorType int, enabledMap map[controller.ActionID]bool) {
 	for i, action := range actions {
 		if action.ID == "" {
-			continue // skip empty padding cells
+			continue
 		}
 
 		col := colOffset + i/numRows
 		row := i % numRows
 		keyStr := util.FormatKeyBinding(action.Key, action.Rune, action.Modifier)
+
+		enabled := true
+		if e, ok := enabledMap[action.ID]; ok {
+			enabled = e
+		}
 
 		gridData[row][col] = cellData{
 			key:       keyStr,
@@ -187,6 +179,7 @@ func fillGridSection(gridData [][]cellData, actions []controller.Action, colOffs
 			keyLen:    len([]rune(keyStr)) + 2,
 			labelLen:  len([]rune(action.Label)),
 			colorType: colorType,
+			enabled:   enabled,
 		}
 	}
 }
@@ -235,9 +228,13 @@ func buildGridRow(rowData []cellData, maxKeyLenPerCol, maxLabelLenPerCol []int, 
 			continue
 		}
 
-		// Render cell with colors
-		scheme := getColorScheme(cell.colorType)
-		fmt.Fprintf(&line, "%s<%s>%s", scheme.KeyColor.Tag().String(), cell.key, scheme.LabelColor.Tag().String())
+		if !cell.enabled {
+			mutedTag := config.GetColors().TaskDetailPlaceholderColor.Tag().String()
+			fmt.Fprintf(&line, "%s<%s>%s", mutedTag, cell.key, mutedTag)
+		} else {
+			scheme := getColorScheme(cell.colorType)
+			fmt.Fprintf(&line, "%s<%s>%s", scheme.KeyColor.Tag().String(), cell.key, scheme.LabelColor.Tag().String())
+		}
 
 		// Add key padding
 		if keyPadding := maxKeyLenPerCol[col] - cell.keyLen; keyPadding > 0 {

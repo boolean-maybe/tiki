@@ -11,6 +11,7 @@ type ViewContext struct {
 	viewID          ViewID
 	viewName        string
 	viewDescription string
+	globalActions   []HeaderAction
 	viewActions     []HeaderAction
 	pluginActions   []HeaderAction
 
@@ -26,11 +27,12 @@ func NewViewContext() *ViewContext {
 }
 
 // SetFromView atomically updates all view-context fields and fires exactly one notification.
-func (vc *ViewContext) SetFromView(id ViewID, name, description string, viewActions, pluginActions []HeaderAction) {
+func (vc *ViewContext) SetFromView(id ViewID, name, description string, globalActions, viewActions, pluginActions []HeaderAction) {
 	vc.mu.Lock()
 	vc.viewID = id
 	vc.viewName = name
 	vc.viewDescription = description
+	vc.globalActions = globalActions
 	vc.viewActions = viewActions
 	vc.pluginActions = pluginActions
 	vc.mu.Unlock()
@@ -53,6 +55,12 @@ func (vc *ViewContext) GetViewDescription() string {
 	vc.mu.RLock()
 	defer vc.mu.RUnlock()
 	return vc.viewDescription
+}
+
+func (vc *ViewContext) GetGlobalActions() []HeaderAction {
+	vc.mu.RLock()
+	defer vc.mu.RUnlock()
+	return vc.globalActions
 }
 
 func (vc *ViewContext) GetViewActions() []HeaderAction {

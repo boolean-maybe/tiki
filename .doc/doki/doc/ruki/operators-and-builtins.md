@@ -235,6 +235,7 @@ Runtime notes:
 
 - `id()` is semantically valid only in plugin runtime.
 - When a validated statement uses `id()`, plugin execution must provide a non-empty selected task ID.
+- Actions using `id()` automatically gain an `id` [requirement](../customization/customization.md#action-requirements) — the action is disabled when no task is selected. Mutating actions (`update`, `delete`) that do not use `id()` are bulk actions and remain enabled without a selection.
 - `id()` is rejected for CLI, event-trigger, and time-trigger semantic runtimes.
 - `call(...)` is currently rejected by semantic validation.
 - `input()` returns the value typed by the user at the action prompt. Its return type matches the `input:` declaration on the action (e.g. `input: string` means `input()` returns `string`). Only valid in plugin action statements that declare `input:`. May only appear once per action. Accepted `timestamp` input formats: RFC3339, with YYYY-MM-DD as a convenience fallback.

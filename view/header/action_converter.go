@@ -19,6 +19,15 @@ func modelActionToControllerAction(a model.HeaderAction) controller.Action {
 	}
 }
 
+// extractEnabledMap builds a map from action ID to enabled state.
+func extractEnabledMap(actions []model.HeaderAction) map[controller.ActionID]bool {
+	m := make(map[controller.ActionID]bool, len(actions))
+	for _, a := range actions {
+		m[controller.ActionID(a.ID)] = a.Enabled
+	}
+	return m
+}
+
 // convertHeaderActions converts a slice of model.HeaderAction to controller.Action,
 // filtering out actions that should not be shown in the header.
 func convertHeaderActions(actions []model.HeaderAction) []controller.Action {

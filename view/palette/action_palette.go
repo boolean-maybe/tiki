@@ -145,6 +145,7 @@ func (ap *ActionPalette) rebuildRows() {
 
 	currentView := ap.navController.CurrentView()
 	activeView := ap.navController.GetActiveView()
+	ctx := controller.BuildAppContext(currentView, activeView)
 
 	globalActions := controller.DefaultGlobalActions().GetPaletteActions()
 	globalIDs := make(map[controller.ActionID]bool, len(globalActions))
@@ -159,7 +160,7 @@ func (ap *ActionPalette) rebuildRows() {
 			ap.rows = append(ap.rows, paletteRow{
 				action:  a,
 				section: sectionGlobal,
-				enabled: actionEnabled(a, currentView, activeView),
+				enabled: actionEnabled(a, ctx),
 			})
 		}
 	}
@@ -176,7 +177,7 @@ func (ap *ActionPalette) rebuildRows() {
 					ap.rows = append(ap.rows, paletteRow{
 						action:  a,
 						section: sectionViews,
-						enabled: actionEnabled(a, currentView, activeView),
+						enabled: actionEnabled(a, ctx),
 					})
 				}
 			}
@@ -199,7 +200,7 @@ func (ap *ActionPalette) rebuildRows() {
 				ap.rows = append(ap.rows, paletteRow{
 					action:  a,
 					section: sectionView,
-					enabled: actionEnabled(a, currentView, activeView),
+					enabled: actionEnabled(a, ctx),
 				})
 			}
 		}
@@ -208,11 +209,8 @@ func (ap *ActionPalette) rebuildRows() {
 	ap.filterRows()
 }
 
-func actionEnabled(a controller.Action, currentView *controller.ViewEntry, activeView controller.View) bool {
-	if a.IsEnabled == nil {
-		return true
-	}
-	return a.IsEnabled(currentView, activeView)
+func actionEnabled(a controller.Action, ctx controller.AppContext) bool {
+	return controller.ActionEnabled(a, ctx)
 }
 
 func (ap *ActionPalette) filterRows() {

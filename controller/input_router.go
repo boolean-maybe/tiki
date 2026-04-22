@@ -136,7 +136,11 @@ func (ir *InputRouter) HandleInput(event *tcell.EventKey, currentView *ViewEntry
 	// palette fires regardless of focus context (Ctrl+A can't conflict with typing)
 	if action := ir.globalActions.Match(event); action != nil {
 		if action.ID == ActionOpenPalette {
-			return ir.handleGlobalAction(action.ID)
+			ctx := BuildAppContext(currentView, ir.navController.GetActiveView())
+			if ActionEnabled(*action, ctx) {
+				return ir.handleGlobalAction(action.ID)
+			}
+			return false
 		}
 	}
 
@@ -151,7 +155,11 @@ func (ir *InputRouter) HandleInput(event *tcell.EventKey, currentView *ViewEntry
 	// search/fullscreen/editor gates
 	if action := ir.globalActions.Match(event); action != nil {
 		if action.ID == ActionToggleHeader {
-			return ir.handleGlobalAction(action.ID)
+			ctx := BuildAppContext(currentView, ir.navController.GetActiveView())
+			if ActionEnabled(*action, ctx) {
+				return ir.handleGlobalAction(action.ID)
+			}
+			return false
 		}
 	}
 
@@ -183,7 +191,11 @@ func (ir *InputRouter) HandleInput(event *tcell.EventKey, currentView *ViewEntry
 
 	// check global actions first
 	if action := ir.globalActions.Match(event); action != nil {
-		return ir.handleGlobalAction(action.ID)
+		ctx := BuildAppContext(currentView, activeView)
+		if ActionEnabled(*action, ctx) {
+			return ir.handleGlobalAction(action.ID)
+		}
+		return false
 	}
 
 	// route to view-specific controller
@@ -338,6 +350,12 @@ func (ir *InputRouter) handlePluginInput(event *tcell.EventKey, viewID model.Vie
 
 	registry := ctrl.GetActionRegistry()
 	if action := registry.Match(event); action != nil {
+		currentView := ir.navController.CurrentView()
+		activeView := ir.navController.GetActiveView()
+		ctx := BuildAppContext(currentView, activeView)
+		if !ActionEnabled(*action, ctx) {
+			return false
+		}
 		if action.ID == ActionSearch {
 			return ir.handleSearchInput(ctrl)
 		}
@@ -434,12 +452,25 @@ func (ir *InputRouter) HandleAction(id ActionID, currentView *ViewEntry) bool {
 		}
 	}
 
+	activeView := ir.navController.GetActiveView()
+	ctx := BuildAppContext(currentView, activeView)
+
 	// global actions
-	if ir.globalActions.ContainsID(id) {
+	if action := ir.globalActions.GetByID(id); action != nil {
+		if !ActionEnabled(*action, ctx) {
+			return false
+		}
 		return ir.handleGlobalAction(id)
 	}
 
-	activeView := ir.navController.GetActiveView()
+	// enforce requirements for palette-dispatched actions
+	if activeView != nil {
+		for _, a := range activeView.GetActionRegistry().GetActions() {
+			if a.ID == id && !ActionEnabled(a, ctx) {
+				return false
+			}
+		}
+	}
 
 	switch currentView.ViewID {
 	case model.TaskDetailViewID:
@@ -678,6 +709,12 @@ func (ir *InputRouter) handleTaskInput(event *tcell.EventKey, params map[string]
 
 	registry := ir.navController.GetActiveView().GetActionRegistry()
 	if action := registry.Match(event); action != nil {
+		currentView := ir.navController.CurrentView()
+		activeView := ir.navController.GetActiveView()
+		ctx := BuildAppContext(currentView, activeView)
+		if !ActionEnabled(*action, ctx) {
+			return false
+		}
 		switch action.ID {
 		case ActionEditTitle:
 			taskID := ir.taskController.GetCurrentTaskID()

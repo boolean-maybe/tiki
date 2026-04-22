@@ -107,7 +107,7 @@ func NewHeaderWidget(headerConfig *model.HeaderConfig, viewContext *model.ViewCo
 func (h *HeaderWidget) rebuild() {
 	if h.viewContext != nil {
 		h.info.SetViewInfo(h.viewContext.GetViewName(), h.viewContext.GetViewDescription())
-		h.contextHelp.SetActionsFromModel(h.viewContext.GetViewActions(), h.viewContext.GetPluginActions())
+		h.contextHelp.SetActionsFromModel(h.viewContext.GetGlobalActions(), h.viewContext.GetViewActions(), h.viewContext.GetPluginActions())
 	}
 
 	h.chart.UpdateBurndown(h.headerConfig.GetBurndown())

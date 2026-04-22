@@ -3,6 +3,7 @@ package plugin
 import (
 	"fmt"
 	"log/slog"
+	"strings"
 
 	"gopkg.in/yaml.v3"
 
@@ -239,6 +240,11 @@ func parsePluginActions(configs []PluginActionConfig, parser *ruki.Parser) ([]Pl
 			chooseFilter = actionStmt.ChooseFilter()
 		}
 
+		require, err := inferRequirements(cfg.Require, actionStmt, i, cfg.Key)
+		if err != nil {
+			return nil, err
+		}
+
 		showInHeader := true
 		if cfg.Hot != nil {
 			showInHeader = *cfg.Hot
@@ -255,10 +261,74 @@ func parsePluginActions(configs []PluginActionConfig, parser *ruki.Parser) ([]Pl
 			HasInput:     hasInput,
 			HasChoose:    hasChoose,
 			ChooseFilter: chooseFilter,
+			Require:      require,
 		})
 	}
 
 	return actions, nil
+}
+
+// inferRequirements validates explicit requirements and auto-infers "id" from id() usage.
+func inferRequirements(explicit []string, stmt *ruki.ValidatedStatement, idx int, key string) ([]string, error) {
+	for _, r := range explicit {
+		if err := validateRequirement(r); err != nil {
+			return nil, fmt.Errorf("action %d (key %q) require: %w", idx, key, err)
+		}
+	}
+
+	reqs := make([]string, len(explicit))
+	copy(reqs, explicit)
+
+	if stmt.UsesIDBuiltin() {
+		found := false
+		for _, r := range reqs {
+			if r == "id" {
+				found = true
+				break
+			}
+		}
+		if !found {
+			reqs = append(reqs, "id")
+		}
+	}
+
+	if len(reqs) == 0 {
+		return nil, nil
+	}
+	return dedup(reqs), nil
+}
+
+// validateRequirement checks that a requirement token is well-formed.
+func validateRequirement(r string) error {
+	if r == "" {
+		return fmt.Errorf("empty requirement")
+	}
+	if r == "!" {
+		return fmt.Errorf("bare '!' is not a valid requirement")
+	}
+	attr := r
+	if attr[0] == '!' {
+		attr = attr[1:]
+	}
+	if len(attr) > 0 && attr[0] == '!' {
+		return fmt.Errorf("requirement %q has multiple '!' prefixes", r)
+	}
+	if strings.TrimSpace(attr) != attr || strings.ContainsAny(attr, " \t\n") {
+		return fmt.Errorf("requirement %q contains invalid whitespace", r)
+	}
+	return nil
+}
+
+func dedup(items []string) []string {
+	seen := make(map[string]struct{}, len(items))
+	result := make([]string, 0, len(items))
+	for _, item := range items {
+		if _, exists := seen[item]; !exists {
+			seen[item] = struct{}{}
+			result = append(result, item)
+		}
+	}
+	return result
 }
 
 // parsePluginYAML parses plugin YAML data into a Plugin

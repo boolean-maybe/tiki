@@ -460,11 +460,11 @@ func TestTaskDetailViewActions(t *testing.T) {
 	registry := TaskDetailViewActions()
 	actions := registry.GetActions()
 
-	if len(actions) != 6 {
-		t.Errorf("expected 6 task detail actions, got %d", len(actions))
+	if len(actions) != 7 {
+		t.Errorf("expected 7 task detail actions (always includes Chat), got %d", len(actions))
 	}
 
-	expectedActions := []ActionID{ActionEditTitle, ActionEditDesc, ActionEditSource, ActionFullscreen, ActionEditDeps, ActionEditTags}
+	expectedActions := []ActionID{ActionEditTitle, ActionEditDesc, ActionEditSource, ActionFullscreen, ActionEditDeps, ActionEditTags, ActionChat}
 	for i, expected := range expectedActions {
 		if i >= len(actions) {
 			t.Errorf("missing action at index %d: want %v", i, expected)
@@ -542,19 +542,34 @@ func TestTaskDetailViewActions_HasEditDesc(t *testing.T) {
 	}
 }
 
-func TestTaskDetailViewActions_NoChatWithoutConfig(t *testing.T) {
-	// ensure ai.agent is not set
+func TestTaskDetailViewActions_ChatAlwaysRegistered(t *testing.T) {
 	viper.Set("ai.agent", "")
 	defer viper.Set("ai.agent", "")
 
 	registry := TaskDetailViewActions()
-	_, found := registry.LookupRune('c')
-	if found {
-		t.Error("chat action should not be registered when ai.agent is empty")
+	action, found := registry.LookupRune('c')
+	if !found {
+		t.Fatal("chat action should always be registered")
+	}
+	if action.ID != ActionChat {
+		t.Errorf("expected ActionChat, got %v", action.ID)
+	}
+
+	// with no AI agent, ActionEnabled should return false
+	ctx := NewAppContext()
+	ctx.Set(string(RequireID))
+	if ActionEnabled(action, ctx) {
+		t.Error("chat should be disabled when ai.agent is empty")
+	}
+
+	// total count should always be 7
+	actions := registry.GetActions()
+	if len(actions) != 7 {
+		t.Errorf("expected 7 actions, got %d", len(actions))
 	}
 }
 
-func TestTaskDetailViewActions_ChatWithConfig(t *testing.T) {
+func TestTaskDetailViewActions_ChatEnabledWithConfig(t *testing.T) {
 	viper.Set("ai.agent", "claude")
 	defer viper.Set("ai.agent", "")
 
@@ -562,7 +577,7 @@ func TestTaskDetailViewActions_ChatWithConfig(t *testing.T) {
 
 	action, found := registry.LookupRune('c')
 	if !found {
-		t.Fatal("chat action should be registered when ai.agent is configured")
+		t.Fatal("chat action should be registered")
 	}
 	if action.ID != ActionChat {
 		t.Errorf("expected ActionChat, got %v", action.ID)
@@ -571,10 +586,12 @@ func TestTaskDetailViewActions_ChatWithConfig(t *testing.T) {
 		t.Error("chat action should be shown in header")
 	}
 
-	// total count should be 7 (6 base + chat)
-	actions := registry.GetActions()
-	if len(actions) != 7 {
-		t.Errorf("expected 7 actions with ai.agent configured, got %d", len(actions))
+	ctx := BuildAppContext(
+		&ViewEntry{ViewID: model.TaskDetailViewID, Params: model.EncodeTaskDetailParams(model.TaskDetailParams{TaskID: "TIKI-ABC123"})},
+		nil,
+	)
+	if !ActionEnabled(action, ctx) {
+		t.Error("chat should be enabled when ai.agent is configured and task ID present")
 	}
 }
 
@@ -879,14 +896,158 @@ func TestInitPluginActions_ActivePluginDisabled(t *testing.T) {
 
 	for _, a := range actions {
 		if a.ID == "plugin:Kanban" {
-			if a.IsEnabled == nil {
-				t.Fatal("expected IsEnabled on plugin:Kanban")
+			if len(a.Require) == 0 {
+				t.Fatal("expected Require on plugin:Kanban")
 			}
-			if a.IsEnabled(kanbanViewEntry, nil) {
+			kanbanCtx := BuildAppContext(kanbanViewEntry, nil)
+			if ActionEnabled(a, kanbanCtx) {
 				t.Error("Kanban activation should be disabled when Kanban view is active")
 			}
-			if !a.IsEnabled(backlogViewEntry, nil) {
+			backlogCtx := BuildAppContext(backlogViewEntry, nil)
+			if !ActionEnabled(a, backlogCtx) {
 				t.Error("Kanban activation should be enabled when Backlog view is active")
+			}
+		}
+	}
+}
+
+func TestAppContext_SetHasDeleteClone(t *testing.T) {
+	ctx := NewAppContext()
+
+	if ctx.Has("id") {
+		t.Error("fresh context should not have 'id'")
+	}
+
+	ctx.Set("id")
+	if !ctx.Has("id") {
+		t.Error("context should have 'id' after Set")
+	}
+
+	ctx.Set("ai")
+	if !ctx.Has("ai") {
+		t.Error("context should have 'ai' after Set")
+	}
+
+	clone := ctx.Clone()
+	if !clone.Has("id") || !clone.Has("ai") {
+		t.Error("clone should have all attributes from original")
+	}
+
+	ctx.Delete("id")
+	if ctx.Has("id") {
+		t.Error("context should not have 'id' after Delete")
+	}
+	if !clone.Has("id") {
+		t.Error("clone should be independent from original")
+	}
+}
+
+func TestAppContext_ArbitraryAttributes(t *testing.T) {
+	ctx := NewAppContext()
+	ctx.Set("team:backend")
+	ctx.Set("view:plugin:Kanban")
+
+	if !ctx.Has("team:backend") {
+		t.Error("should have arbitrary attribute 'team:backend'")
+	}
+	if !ctx.Has("view:plugin:Kanban") {
+		t.Error("should have arbitrary attribute 'view:plugin:Kanban'")
+	}
+}
+
+func TestActionEnabled(t *testing.T) {
+	tests := []struct {
+		name    string
+		require []Requirement
+		attrs   []string
+		want    bool
+	}{
+		{"no requirements always enabled", nil, nil, true},
+		{"empty requirements always enabled", []Requirement{}, nil, true},
+		{"positive met", []Requirement{"id"}, []string{"id"}, true},
+		{"positive unmet", []Requirement{"id"}, nil, false},
+		{"multiple positive all met", []Requirement{"id", "ai"}, []string{"id", "ai"}, true},
+		{"multiple positive one unmet", []Requirement{"id", "ai"}, []string{"id"}, false},
+		{"negated met (absent)", []Requirement{"!view:plugin:Kanban"}, nil, true},
+		{"negated unmet (present)", []Requirement{"!view:plugin:Kanban"}, []string{"view:plugin:Kanban"}, false},
+		{"mixed positive and negated both met", []Requirement{"id", "!view:plugin:Kanban"}, []string{"id"}, true},
+		{"mixed positive met but negated unmet", []Requirement{"id", "!view:plugin:Kanban"}, []string{"id", "view:plugin:Kanban"}, false},
+		{"custom requirement", []Requirement{"foo"}, []string{"foo"}, true},
+		{"custom requirement absent", []Requirement{"foo"}, nil, false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ctx := NewAppContext()
+			for _, a := range tt.attrs {
+				ctx.Set(a)
+			}
+			action := Action{Require: tt.require}
+			got := ActionEnabled(action, ctx)
+			if got != tt.want {
+				t.Errorf("ActionEnabled() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestBuildAppContext_SelectableView(t *testing.T) {
+	pluginViewEntry := &ViewEntry{ViewID: model.MakePluginViewID("Kanban")}
+
+	mockView := &mockSelectableView{selectedID: "TIKI-ABC123"}
+	ctx := BuildAppContext(pluginViewEntry, mockView)
+	if !ctx.Has("id") {
+		t.Error("context should have 'id' when view has selection")
+	}
+	if !ctx.Has("view:" + string(model.MakePluginViewID("Kanban"))) {
+		t.Error("context should have view identity attribute")
+	}
+
+	emptyView := &mockSelectableView{selectedID: ""}
+	ctx = BuildAppContext(pluginViewEntry, emptyView)
+	if ctx.Has("id") {
+		t.Error("context should not have 'id' when view has no selection")
+	}
+}
+
+func TestBuildAppContext_TaskDetail(t *testing.T) {
+	entry := &ViewEntry{
+		ViewID: model.TaskDetailViewID,
+		Params: model.EncodeTaskDetailParams(model.TaskDetailParams{TaskID: "TIKI-ABC123"}),
+	}
+	ctx := BuildAppContext(entry, nil)
+	if !ctx.Has("id") {
+		t.Error("context should have 'id' from task detail params")
+	}
+
+	emptyEntry := &ViewEntry{
+		ViewID: model.TaskDetailViewID,
+		Params: model.EncodeTaskDetailParams(model.TaskDetailParams{}),
+	}
+	ctx = BuildAppContext(emptyEntry, nil)
+	if ctx.Has("id") {
+		t.Error("context should not have 'id' with empty task detail params")
+	}
+}
+
+func TestNoCallbackBasedEnablement(t *testing.T) {
+	registries := []*ActionRegistry{
+		DefaultGlobalActions(),
+		TaskDetailViewActions(),
+		PluginViewActions(),
+		DepsViewActions(),
+		TaskEditViewActions(),
+		ReadonlyTaskDetailViewActions(),
+	}
+
+	for _, r := range registries {
+		for _, a := range r.GetActions() {
+			if len(a.Require) > 0 {
+				for _, req := range a.Require {
+					if req == "" {
+						t.Errorf("action %v has empty requirement string", a.ID)
+					}
+				}
 			}
 		}
 	}
