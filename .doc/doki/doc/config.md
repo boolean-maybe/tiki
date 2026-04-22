@@ -84,12 +84,6 @@ tiki:
 logging:
   level: error              # Log level: "debug", "info", "warn", "error"
 
-# Plugin settings are defined in their YAML file but can be overridden here
-Kanban:
-  view: expanded            # Default board view: "compact", "expanded"
-Backlog:
-  view: compact
-
 # Appearance settings
 appearance:
   theme: auto               # Theme: "auto" (detect from terminal), "dark", "light",
@@ -175,6 +169,9 @@ views:
         - key: "b"
           label: "Add to board"
           action: update where id = id() set status="ready"
+        - key: "e"
+          label: "Link to epic"
+          action: update where id = choose(select where type = "epic") set dependsOn = dependsOn + id()
     - name: Recent
       description: "Tasks changed in the last 24 hours, most recent first"
       key: Ctrl-R
@@ -201,7 +198,11 @@ views:
           width: 50
           filter: select where type = "epic" and status = "backlog" and priority > 1 order by priority, points desc
           action: update where id = id() set status="backlog" priority=2
-      view: expanded
+      view: expanded              # Board view: "compact" or "expanded"
+      actions:
+        - key: "l"
+          label: "Add tiki to epic"
+          action: update where id = id() set dependsOn = dependsOn + choose(select where type != "epic")
     - name: Docs
       description: "Project notes and documentation files"
       type: doki

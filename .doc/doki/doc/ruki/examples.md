@@ -152,6 +152,13 @@ select id where id = id() | clipboard()
 select description where id = id() | clipboard()
 ```
 
+Pick a task interactively:
+
+```sql
+update where id = choose(select where type = "epic") set dependsOn = dependsOn + id()
+update where id = id() set dependsOn = dependsOn + choose(select where type != "epic")
+```
+
 ## Before triggers
 
 Block completion when dependencies remain open:

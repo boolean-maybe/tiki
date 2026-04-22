@@ -304,9 +304,9 @@ create title="x" due=next_date(42)
 
 Subquery restrictions:
 
-- only `count(...)` accepts a subquery
+- only `count(...)` and `choose(...)` accept a subquery
 - bare subqueries elsewhere are rejected
-- `count(...)` validates the subquery body recursively
+- `count(...)` and `choose(...)` validate the subquery body recursively
 
 Examples:
 
@@ -364,4 +364,49 @@ update where id = id() set assignee = input("name")
 ```
 
 Fails with: `input() takes no arguments`.
+
+## choose() errors
+
+`choose()` without a subquery argument:
+
+```sql
+update where id = id() set assignee = choose()
+```
+
+Fails with: `choose() expects 1 argument(s), got 0`.
+
+`choose()` with a non-subquery argument:
+
+```sql
+update where id = id() set assignee = choose("epic")
+```
+
+Fails with: `choose() argument must be a select subquery`.
+
+Duplicate `choose()` (more than one call per action):
+
+```sql
+update where id = id() set assignee = choose(select where status = "ready") title = choose(select where type = "epic")
+```
+
+Fails with: `choose() may only be used once per action`.
+
+`choose()` combined with `input()` in the same action:
+
+```yaml
+- key: "e"
+  label: "Link"
+  action: update where id = id() set assignee = input() title = choose(select)
+  input: string
+```
+
+Fails at workflow load time with: `input() and choose() cannot be used in the same action`.
+
+`choose()` outside plugin runtime (CLI, trigger):
+
+```sql
+update where status = "backlog" set assignee = choose(select)
+```
+
+Fails with: `choose() requires user interaction and is only valid in plugin actions`.
 

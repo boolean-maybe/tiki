@@ -15,6 +15,8 @@
 - [Severity triage](#severity-triage--custom-enum-filter--action)
 - [Subtasks in epic](#subtasks-in-epic--custom-taskidlist--quantifier-trigger)
 - [By topic](#by-topic--tag-based-lanes)
+- [Link to epic](#link-to-epic--choose-action)
+- [Add tiki to epic](#add-tiki-to-epic--choose-action)
 
 ## Assign to me — global plugin action
 
@@ -319,4 +321,26 @@ Split tasks into lanes by tag. Useful for viewing work across domains at a glanc
     - name: Backend
       columns: 2
       filter: select where "backend" in tags order by priority
+```
+
+## Link to epic — choose() action
+
+
+
+## Add tiki to epic — choose() action
+
+From the Backlog view opens a Quick Select picker showing only epics. Selecting one adds the current task to that epic's list.
+From the Roadmap view, pick any non-epic task and add it to the currently selected epic's list.
+
+```yaml
+- name: Backlog
+  actions:
+    - key: "e"
+      label: "Link to epic"
+      action: update where id = choose(select where type = "epic") set dependsOn = dependsOn + id()
+- name: Roadmap
+  actions:
+    - key: "l"
+      label: "Add tiki to epic"
+      action: update where id = id() set dependsOn = dependsOn + choose(select where type != "epic")
 ```

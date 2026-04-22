@@ -213,6 +213,7 @@ create title="x" dependsOn=dependsOn + tags
 | `input()` | declared type | 0 | valid only in plugin actions with `input:` declaration |
 | `call(...)` | `string` | exactly 1 | argument must be `string` |
 | `user()` | `string` | 0 | no additional validation |
+| `choose(...)` | `ref` | exactly 1 | argument must be a `select` subquery; plugin runtime only |
 
 Examples:
 
@@ -226,6 +227,8 @@ create title=call("echo hi")
 select where assignee = user()
 update where id = id() set assignee = input()
 update where id = id() set tags = tags + [input()]
+update where id = choose(select where type = "epic") set dependsOn = dependsOn + id()
+create title = input()
 ```
 
 Runtime notes:
@@ -235,6 +238,7 @@ Runtime notes:
 - `id()` is rejected for CLI, event-trigger, and time-trigger semantic runtimes.
 - `call(...)` is currently rejected by semantic validation.
 - `input()` returns the value typed by the user at the action prompt. Its return type matches the `input:` declaration on the action (e.g. `input: string` means `input()` returns `string`). Only valid in plugin action statements that declare `input:`. May only appear once per action. Accepted `timestamp` input formats: RFC3339, with YYYY-MM-DD as a convenience fallback.
+- `choose()` is semantically valid only in plugin runtime. Opens an interactive Quick Select picker — the user fuzzy-filters candidate tasks and confirms one with Enter. Esc cancels the operation. The selected task's ID is the return value. `choose()` may only appear once per action. `choose()` and `input()` are mutually exclusive within a single action. Rejected for CLI, event-trigger, and time-trigger semantic runtimes.
 
 `run(...)`
 

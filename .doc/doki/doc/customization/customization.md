@@ -281,14 +281,33 @@ actions:
     input: date
 ```
 
-The input box is modal while editing — other actions are blocked until Enter or Esc. If the entered value is invalid for the declared type (e.g. non-numeric text for `int`), an error appears in the statusline and the prompt stays open for correction.
-
 Supported `input:` types: `string`, `int`, `bool`, `date` (YYYY-MM-DD), `timestamp` (RFC3339 or YYYY-MM-DD), `duration` (e.g. `2day`, `1week`).
 
 Validation rules:
 - An action with `input:` must use `input()` in its `ruki` statement
 - An action using `input()` must declare `input:` — otherwise the workflow fails to load
 - `input()` may only appear once per action
+
+### Choose-backed actions
+
+Actions using `choose()` open an interactive Quick Select tiki picker. The subquery inside `choose()` determines which tikis appear as candidates
+
+```yaml
+actions:
+  - key: "e"
+    label: "Link to epic"
+    action: update where id = choose(select where type = "epic") set dependsOn = dependsOn + id()
+  - key: "l"
+    label: "Add tiki to epic"
+    action: update where id = id() set dependsOn = dependsOn + choose(select where type != "epic")
+```
+
+When the shortcut key is pressed, the Quick Select modal opens with the filtered candidate list. The user fuzzy-filters by typing, navigates with arrow keys, and confirms with Enter. Esc cancels the operation.
+
+Validation rules:
+- `choose()` requires exactly one argument: a `select` subquery
+- `choose()` may only appear once per action
+- `choose()` and `input()` are mutually exclusive within a single action
 
 ### Search and input box interaction
 
@@ -372,6 +391,7 @@ update where id = id() set assignee=user()
 - `now()` — current timestamp
 - `id()` — currently selected tiki (in plugin context)
 - `input()` — user-supplied value (in actions with `input:` declaration)
+- `choose(select where ...)` — interactively pick a task from Quick Select
 - `count(select where ...)` — count matching tikis
 
 For the full language reference, see the [ruki documentation](../ruki/index.md).

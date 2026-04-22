@@ -93,7 +93,7 @@ select where dependsOn all status = "done"
 select where not (status = "done" or priority = 1)
 ```
 
-Expressions include literals, field references, built-in calls, list literals, subqueries for `count(...)`, and `+` or `-` binary expressions:
+Expressions include literals, field references, built-in calls, list literals, subqueries for `count(...)` and `choose(...)`, and `+` or `-` binary expressions:
 
 ```sql
 create title="Fix login"
