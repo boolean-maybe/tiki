@@ -108,6 +108,9 @@ views:
         - key: "b"
           label: "Add to board"
           action: update where id = id() set status="ready"
+        - key: "e"
+          label: "Link to epic"
+          action: update where id = choose(select where type = "epic") set dependsOn = dependsOn + id()
     - name: Recent
       description: "Tasks changed in the last 24 hours, most recent first"
       key: Ctrl-R
@@ -135,6 +138,10 @@ views:
           filter: select where type = "epic" and status = "backlog" and priority > 1 order by priority, points desc
           action: update where id = id() set status="backlog" priority=2
       view: expanded
+      actions:
+        - key: "l"
+          label: "Add tiki to epic"
+          action: update where id = id() set dependsOn = dependsOn + choose(select where type != "epic")
     - name: Docs
       description: "Project notes and documentation files"
       type: doki
