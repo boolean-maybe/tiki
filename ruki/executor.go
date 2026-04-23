@@ -19,11 +19,8 @@ type Executor struct {
 }
 
 // NewExecutor constructs an Executor with the given schema and user function.
-// If userFunc is nil, calling user() at runtime will return "".
+// If userFunc is nil, calling user() at runtime will return an error.
 func NewExecutor(schema Schema, userFunc func() string, runtime ExecutorRuntime) *Executor {
-	if userFunc == nil {
-		userFunc = func() string { return "" }
-	}
 	return &Executor{
 		schema:   schema,
 		userFunc: userFunc,
@@ -779,6 +776,9 @@ func (e *Executor) evalFunctionCall(fc *FunctionCall, t *task.Task, allTasks []*
 	case "now":
 		return time.Now(), nil
 	case "user":
+		if e.userFunc == nil {
+			return nil, fmt.Errorf("user() is unavailable (git is disabled)")
+		}
 		return e.userFunc(), nil
 	case "count":
 		return e.evalCount(fc, allTasks)

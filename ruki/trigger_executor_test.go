@@ -1107,12 +1107,8 @@ func TestExecTimeTriggerActionValidatedRuntimeMismatch(t *testing.T) {
 
 func TestNewTriggerExecutor_NilUserFunc(t *testing.T) {
 	te := NewTriggerExecutor(testSchema{}, nil)
-	// nil userFunc should be replaced with a default that returns ""
-	if te.userFunc == nil {
-		t.Fatal("expected non-nil userFunc after nil init")
-	}
-	if got := te.userFunc(); got != "" {
-		t.Errorf("default userFunc should return empty string, got %q", got)
+	if te.userFunc != nil {
+		t.Fatal("expected nil userFunc to be preserved (user() should error at runtime)")
 	}
 }
 

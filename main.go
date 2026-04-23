@@ -195,16 +195,6 @@ func runExec(args []string) int {
 		return exitUsage
 	}
 
-	if err := bootstrap.EnsureGitRepo(); err != nil {
-		_, _ = fmt.Fprintln(os.Stderr, "error:", err)
-		return exitStartupFailure
-	}
-
-	if !config.IsProjectInitialized() {
-		_, _ = fmt.Fprintln(os.Stderr, "error: project not initialized: run 'tiki init' first")
-		return exitStartupFailure
-	}
-
 	cfg, err := bootstrap.LoadConfig()
 	if err != nil {
 		_, _ = fmt.Fprintf(os.Stderr, "error: load config: %v\n", err)
@@ -212,6 +202,23 @@ func runExec(args []string) int {
 	}
 
 	bootstrap.InitCLILogging(cfg)
+
+	if name := config.GetStoreName(); name != "tiki" {
+		_, _ = fmt.Fprintf(os.Stderr, "error: unknown store backend: %q (supported: tiki)\n", name)
+		return exitStartupFailure
+	}
+
+	if config.GetStoreGit() {
+		if err := bootstrap.EnsureGitRepo(); err != nil {
+			_, _ = fmt.Fprintln(os.Stderr, "error:", err)
+			return exitStartupFailure
+		}
+	}
+
+	if !config.IsProjectInitialized() {
+		_, _ = fmt.Fprintln(os.Stderr, "error: project not initialized: run 'tiki init' first")
+		return exitStartupFailure
+	}
 
 	if err := config.InstallDefaultWorkflow(); err != nil {
 		_, _ = fmt.Fprintf(os.Stderr, "warning: install default workflow: %v\n", err)
@@ -233,8 +240,11 @@ func runExec(args []string) int {
 
 	// load triggers so exec queries fire them
 	schema := rukiRuntime.NewSchema()
-	userName, _, _ := taskStore.GetCurrentUser()
-	if _, _, err := service.LoadAndRegisterTriggers(gate, schema, func() string { return userName }); err != nil {
+	var userFunc func() string
+	if userName, _, _ := taskStore.GetCurrentUser(); userName != "" {
+		userFunc = func() string { return userName }
+	}
+	if _, _, err := service.LoadAndRegisterTriggers(gate, schema, userFunc); err != nil {
 		_, _ = fmt.Fprintf(os.Stderr, "error: load triggers: %v\n", err)
 		return exitStartupFailure
 	}

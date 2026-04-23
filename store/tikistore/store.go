@@ -9,6 +9,7 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/boolean-maybe/tiki/config"
 	"github.com/boolean-maybe/tiki/store"
 	"github.com/boolean-maybe/tiki/store/internal/git"
 	taskpkg "github.com/boolean-maybe/tiki/task"
@@ -61,12 +62,13 @@ func NewTikiStore(dir string) (*TikiStore, error) {
 		upgrader:       &LegacyUpgrader{},
 	}
 
-	// Initialize git utility (best effort - don't fail if git is not available)
-	gitUtil, err := git.NewGitOps("")
-	if err == nil {
-		s.gitUtil = gitUtil
-	} else {
-		slog.Debug("git utility not initialized", "error", err)
+	if config.GetStoreGit() {
+		gitUtil, err := git.NewGitOps("")
+		if err == nil {
+			s.gitUtil = gitUtil
+		} else {
+			slog.Debug("git utility not initialized", "error", err)
+		}
 	}
 
 	s.mu.Lock()
@@ -93,13 +95,13 @@ func IsGitRepo(path string) bool {
 	return git.IsRepo(path)
 }
 
-// GetCurrentUser returns the current git user name and email
+// GetCurrentUser returns the current git user name and email.
+// Returns empty strings (no error) when git is unavailable so that callers
+// like resolveUser in runner.go succeed without git.
 func (s *TikiStore) GetCurrentUser() (name string, email string, err error) {
-	// No lock needed - gitUtil is immutable after initialization
 	if s.gitUtil == nil {
-		return "n/a", "", fmt.Errorf("git utility not available")
+		return "", "", nil
 	}
-
 	return s.gitUtil.CurrentUser()
 }
 

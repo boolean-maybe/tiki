@@ -10,7 +10,12 @@ import (
 
 // InitStores initializes the task stores.
 // Returns the tikiStore, a generic store interface, and any error.
+// Validates store.name here (in addition to Bootstrap) because runExec and
+// pipe paths call InitStores directly without going through Bootstrap.
 func InitStores() (*tikistore.TikiStore, store.Store, error) {
+	if name := config.GetStoreName(); name != "tiki" {
+		return nil, nil, fmt.Errorf("unknown store backend: %q (supported: tiki)", name)
+	}
 	tikiStore, err := tikistore.NewTikiStore(config.GetTaskDir())
 	if err != nil {
 		return nil, nil, fmt.Errorf("initialize task store: %w", err)
