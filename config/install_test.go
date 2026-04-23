@@ -15,8 +15,6 @@ func TestInstallWorkflow_Success(t *testing.T) {
 		switch r.URL.Path {
 		case "/workflows/sprint/workflow.yaml":
 			_, _ = w.Write([]byte("statuses:\n  - key: todo\n"))
-		case "/workflows/sprint/new.md":
-			_, _ = w.Write([]byte("---\ntitle:\n---\n"))
 		default:
 			http.NotFound(w, r)
 		}
@@ -27,13 +25,11 @@ func TestInstallWorkflow_Success(t *testing.T) {
 	if err != nil {
 		t.Fatalf("InstallWorkflow() error = %v", err)
 	}
-	if len(results) != 2 {
-		t.Fatalf("expected 2 results, got %d", len(results))
+	if len(results) != 1 {
+		t.Fatalf("expected 1 result, got %d", len(results))
 	}
-	for _, r := range results {
-		if !r.Changed {
-			t.Errorf("expected %s to be changed on fresh install", r.Path)
-		}
+	if !results[0].Changed {
+		t.Errorf("expected %s to be changed on fresh install", results[0].Path)
 	}
 
 	got, err := os.ReadFile(filepath.Join(tikiDir, "workflow.yaml"))
@@ -42,14 +38,6 @@ func TestInstallWorkflow_Success(t *testing.T) {
 	}
 	if string(got) != "statuses:\n  - key: todo\n" {
 		t.Errorf("workflow.yaml content = %q", string(got))
-	}
-
-	got, err = os.ReadFile(filepath.Join(tikiDir, "new.md"))
-	if err != nil {
-		t.Fatalf("read new.md: %v", err)
-	}
-	if string(got) != "---\ntitle:\n---\n" {
-		t.Errorf("new.md content = %q", string(got))
 	}
 }
 
@@ -189,25 +177,15 @@ func TestDescribeWorkflow_InvalidName(t *testing.T) {
 func TestInstallWorkflow_AtomicFetch(t *testing.T) {
 	tikiDir := setupResetTest(t)
 
-	callCount := 0
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		callCount++
-		if callCount == 1 {
-			_, _ = w.Write([]byte("ok"))
-			return
-		}
-		http.NotFound(w, r)
-	}))
+	server := httptest.NewServer(http.NotFoundHandler())
 	defer server.Close()
 
 	_, err := InstallWorkflow("partial", ScopeGlobal, server.URL)
 	if err == nil {
-		t.Fatal("expected error for partial failure, got nil")
+		t.Fatal("expected error for fetch failure, got nil")
 	}
 
-	for _, filename := range []string{"workflow.yaml", "new.md"} {
-		if _, statErr := os.Stat(filepath.Join(tikiDir, filename)); !os.IsNotExist(statErr) {
-			t.Errorf("%s should not exist after fetch failure", filename)
-		}
+	if _, statErr := os.Stat(filepath.Join(tikiDir, "workflow.yaml")); !os.IsNotExist(statErr) {
+		t.Error("workflow.yaml should not exist after fetch failure")
 	}
 }

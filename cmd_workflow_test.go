@@ -261,8 +261,6 @@ func TestRunWorkflowInstall_Success(t *testing.T) {
 		switch r.URL.Path {
 		case "/workflows/sprint/workflow.yaml":
 			_, _ = w.Write([]byte("sprint workflow"))
-		case "/workflows/sprint/new.md":
-			_, _ = w.Write([]byte("sprint template"))
 		default:
 			http.NotFound(w, r)
 		}
@@ -277,10 +275,6 @@ func TestRunWorkflowInstall_Success(t *testing.T) {
 	got, _ := os.ReadFile(filepath.Join(tikiDir, "workflow.yaml"))
 	if string(got) != "sprint workflow" {
 		t.Errorf("workflow.yaml = %q, want %q", got, "sprint workflow")
-	}
-	got, _ = os.ReadFile(filepath.Join(tikiDir, "new.md"))
-	if string(got) != "sprint template" {
-		t.Errorf("new.md = %q, want %q", got, "sprint template")
 	}
 }
 

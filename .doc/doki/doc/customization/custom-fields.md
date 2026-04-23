@@ -204,23 +204,27 @@ Custom fields appear after the built-in fields, sorted alphabetically by name.
 
 On load, unknown frontmatter keys that are not registered custom fields are preserved as-is and survive save-load round-trips. This allows workflow changes without losing data — see [Schema evolution](../ruki/custom-fields-reference.md#schema-evolution-and-stale-data) for details.
 
-## Templates
+## Field Defaults
 
-Custom fields can have defaults in `new.md`:
+Custom fields can declare a `default:` value directly in `workflow.yaml`. The value is
+validated against the field's type and enum constraints during workflow load — invalid
+defaults are hard errors, not silent fallbacks.
 
-```markdown
----
-type: story
-status: backlog
-priority: 3
-points: 1
-sprint: sprint-7
-blocked: false
-category: backend
----
+```yaml
+fields:
+  - name: severity
+    type: enum
+    values: [critical, high, medium, low]
+    default: medium
+  - name: blocked
+    type: boolean
+    default: false
+  - name: escalations
+    type: integer
+    default: 0
 ```
 
-Custom field values in the template are validated against their type definitions and enum constraints, the same as in task files.
+Fields without a `default:` key start empty on new tasks.
 
 ## Missing field behavior
 

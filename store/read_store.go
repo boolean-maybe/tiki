@@ -31,8 +31,8 @@ type ReadStore interface {
 	// GetAllUsers returns list of all git users for assignee selection
 	GetAllUsers() ([]string, error)
 
-	// NewTaskTemplate returns a new task populated with template defaults from new.md.
-	// The task will have an auto-generated ID, git author, and all fields from the template.
+	// NewTaskTemplate returns a new task populated with creation defaults
+	// from workflow registries (type, status, custom field defaults).
 	NewTaskTemplate() (*task.Task, error)
 
 	// AddListener registers a callback for change notifications.

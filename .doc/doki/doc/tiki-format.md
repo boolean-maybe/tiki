@@ -88,7 +88,8 @@ title: Implement user authentication
 
 #### type
 
-Optional string. Defaults to the first type defined in `workflow.yaml`.
+Optional string. Defaults to the type marked `default: true` in `workflow.yaml`,
+or the first type if none is marked.
 
 Valid values are the type keys defined in the `types:` section of `workflow.yaml`.
 Default types: `story`, `bug`, `spike`, `epic`. Each type can have a label and emoji

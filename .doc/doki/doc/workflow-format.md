@@ -6,6 +6,63 @@ what it introduced and what changed from the previous version. For usage details
 
 ---
 
+## 0.5.3
+
+Removes `new.md` task template files. Task-creation defaults now live entirely in `workflow.yaml`.
+
+### `new.md` removed
+
+The separate `new.md` template file (and its discovery/precedence chain) is eliminated.
+`tiki workflow install` no longer downloads `new.md`. `tiki workflow reset new` is removed.
+
+### Type `default: true`
+
+Type entries now support an optional `default: true` flag, matching status behavior.
+When set, that type is used for new tasks instead of the positional first-type fallback.
+Multiple `default: true` types are rejected at load time.
+
+```yaml
+types:
+  - key: bug
+    label: Bug
+    emoji: "🐛"
+    default: true
+  - key: regression
+    label: Regression
+    emoji: "🔁"
+```
+
+### Field `default:` key
+
+Custom field definitions accept an optional `default:` value. The value is validated
+against the field's type and enum constraints during workflow load — invalid defaults
+are hard errors. Valid defaults are copied into new tasks automatically.
+
+```yaml
+fields:
+  - name: severity
+    type: enum
+    values: [critical, high, medium, low]
+    default: medium
+  - name: regression
+    type: boolean
+    default: false
+```
+
+### Built-in defaults
+
+Built-in field defaults remain hardcoded and are not configurable:
+- `priority` = 3
+- `points` = 1
+- `tags` = `["idea"]`
+
+### Removed template-only defaults
+
+Fields that were only configurable via `new.md` frontmatter are dropped:
+`description`, `title`, `dependsOn`, `due`, `recurrence`, `assignee`.
+
+---
+
 ## 0.5.1
 
 Expands action keys beyond single characters, adds `choose()` and `require` to actions,
@@ -138,8 +195,8 @@ types:
 - `label` — display name (defaults to key)
 - `emoji` — unicode emoji
 
-At least one type required. First type is the default for new tasks. See
-[Custom statuses and types](customization/custom-status-type.md).
+At least one type required. Mark one type `default: true` to make it the creation default;
+if none is marked, the first type wins. See [Custom statuses and types](customization/custom-status-type.md).
 
 ### Views
 

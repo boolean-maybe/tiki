@@ -787,12 +787,12 @@ func TestNewTask_MultipleFields_AllSaved(t *testing.T) {
 	for i := 0; i < 3; i++ {
 		ta.SendKey(tcell.KeyTab, 0, tcell.ModNone)
 	}
-	// Set priority to 4 (default is 3 from new.md template, so press down 1 time)
+	// set priority to 4 (default is 3, so press down 1 time)
 	ta.SendKeyToFocused(tcell.KeyDown, 0, tcell.ModNone)
 
 	// Tab to Points field (1 more tab: Priority → Points)
 	ta.SendKey(tcell.KeyTab, 0, tcell.ModNone)
-	// Set points to 9 (default is 1 from new.md template, so press up 8 times)
+	// set points to 9 (default is 1, so press up 8 times)
 	for i := 0; i < 8; i++ {
 		ta.SendKeyToFocused(tcell.KeyUp, 0, tcell.ModNone)
 	}

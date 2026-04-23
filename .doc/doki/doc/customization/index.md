@@ -14,4 +14,4 @@ reference docs for the topic you need.
 - [Custom statuses and types](custom-status-type.md) — validation rules, key
   normalization, and failure behavior for statuses and types
 - [Custom fields](custom-fields.md) — add project-specific fields to every
-  task: field types, enum constraints, ruki integration, and template defaults
+  task: field types, enum constraints, ruki integration, and field defaults
