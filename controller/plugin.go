@@ -61,8 +61,12 @@ func NewPluginController(
 			Label:        a.Label,
 			ShowInHeader: a.ShowInHeader,
 		}
-		if a.Action != nil && (a.Action.IsUpdate() || a.Action.IsDelete() || a.Action.IsPipe()) {
-			action.IsEnabled = selectionRequired
+		if len(a.Require) > 0 {
+			reqs := make([]Requirement, len(a.Require))
+			for i, r := range a.Require {
+				reqs[i] = Requirement(r)
+			}
+			action.Require = reqs
 		}
 		pc.registry.Register(action)
 	}
@@ -154,14 +158,14 @@ func (pc *PluginController) buildExecutionInput(pa *plugin.PluginAction) (ruki.E
 	input := ruki.ExecutionInput{}
 	taskID := pc.getSelectedTaskID(pc.GetFilteredTasksForLane)
 
-	if pa.Action.IsSelect() && !pa.Action.IsPipe() {
-		if taskID != "" {
-			input.SelectedTaskID = taskID
-		}
-	} else if pa.Action.IsUpdate() || pa.Action.IsDelete() || pa.Action.IsPipe() {
+	requiresID := containsRequirement(pa.Require, string(RequireID))
+
+	if requiresID {
 		if taskID == "" {
 			return input, false
 		}
+		input.SelectedTaskID = taskID
+	} else if taskID != "" {
 		input.SelectedTaskID = taskID
 	}
 
@@ -175,6 +179,15 @@ func (pc *PluginController) buildExecutionInput(pa *plugin.PluginAction) (ruki.E
 	}
 
 	return input, true
+}
+
+func containsRequirement(reqs []string, target string) bool {
+	for _, r := range reqs {
+		if r == target {
+			return true
+		}
+	}
+	return false
 }
 
 // executeAndApply runs the executor and applies the result (store mutations, pipe, clipboard).
@@ -311,6 +324,60 @@ func (pc *PluginController) HandleActionInput(actionID ActionID, text string) In
 
 	pc.executeAndApply(pa, input)
 	return InputClose
+}
+
+// GetActionChooseSpec returns the label and whether the action uses choose().
+func (pc *PluginController) GetActionChooseSpec(actionID ActionID) (string, bool) {
+	pa, ok := pc.getPluginAction(actionID)
+	if !ok || !pa.HasChoose {
+		return "", false
+	}
+	return pa.Label, true
+}
+
+// CanStartActionChoose checks preflight and evaluates the subquery to build candidates.
+func (pc *PluginController) CanStartActionChoose(actionID ActionID) (string, []*task.Task, bool) {
+	pa, ok := pc.getPluginAction(actionID)
+	if !ok || !pa.HasChoose {
+		return "", nil, false
+	}
+	input, ok := pc.buildExecutionInput(pa)
+	if !ok {
+		return "", nil, false
+	}
+
+	allTasks := pc.taskStore.GetAllTasks()
+	executor := pc.newExecutor()
+	candidates, err := executor.EvalSubQueryFilter(pa.ChooseFilter, allTasks, input)
+	if err != nil {
+		slog.Error("failed to evaluate choose filter", "key", pa.KeyStr, "error", err)
+		if pc.statusline != nil {
+			pc.statusline.SetMessage(err.Error(), model.MessageLevelError, true)
+		}
+		return "", nil, false
+	}
+	if len(candidates) == 0 {
+		if pc.statusline != nil {
+			pc.statusline.SetMessage("no matching tasks for choose()", model.MessageLevelError, true)
+		}
+		return "", nil, false
+	}
+	return pa.Label, candidates, true
+}
+
+// HandleActionChoose handles the selected task ID from the QuickSelect picker.
+func (pc *PluginController) HandleActionChoose(actionID ActionID, taskID string) bool {
+	pa, ok := pc.getPluginAction(actionID)
+	if !ok || !pa.HasChoose {
+		return false
+	}
+	input, ok := pc.buildExecutionInput(pa)
+	if !ok {
+		return false
+	}
+	input.ChooseValue = taskID
+	input.HasChoose = true
+	return pc.executeAndApply(pa, input)
 }
 
 func (pc *PluginController) handleMoveTask(offset int) bool {

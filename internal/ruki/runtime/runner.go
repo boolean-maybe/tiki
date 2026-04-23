@@ -25,11 +25,11 @@ func RunQuery(gate *service.TaskMutationGate, query string, out io.Writer) error
 	schema := NewSchema()
 	parser := ruki.NewParser(schema)
 
-	userName, err := resolveUser(readStore)
+	userFunc, err := resolveUserFunc(readStore)
 	if err != nil {
 		return fmt.Errorf("resolve current user: %w", err)
 	}
-	executor := ruki.NewExecutor(schema, func() string { return userName }, ruki.ExecutorRuntime{Mode: ruki.ExecutorRuntimeCLI})
+	executor := ruki.NewExecutor(schema, userFunc, ruki.ExecutorRuntime{Mode: ruki.ExecutorRuntimeCLI})
 
 	stmt, err := parser.ParseAndValidateStatement(query, ruki.ExecutorRuntimeCLI)
 	if err != nil {
@@ -102,11 +102,11 @@ func RunSelectQuery(readStore store.ReadStore, query string, out io.Writer) erro
 		return fmt.Errorf("semantic validate: %w", err)
 	}
 
-	userName, err := resolveUser(readStore)
+	userFunc, err := resolveUserFunc(readStore)
 	if err != nil {
 		return fmt.Errorf("resolve current user: %w", err)
 	}
-	executor := ruki.NewExecutor(schema, func() string { return userName }, ruki.ExecutorRuntime{Mode: ruki.ExecutorRuntimeCLI})
+	executor := ruki.NewExecutor(schema, userFunc, ruki.ExecutorRuntime{Mode: ruki.ExecutorRuntimeCLI})
 
 	tasks := readStore.GetAllTasks()
 	result, err := executor.Execute(validated, tasks, ruki.ExecutionInput{})
@@ -176,12 +176,17 @@ func persistDelete(ctx context.Context, gate *service.TaskMutationGate, dr *ruki
 	return nil
 }
 
-// resolveUser returns the current user name from the store.
-// Returns an error if the user cannot be determined.
-func resolveUser(s store.ReadStore) (string, error) {
+// resolveUserFunc returns a userFunc closure for the executor, and an error
+// if user resolution failed unexpectedly (as opposed to being deliberately
+// unavailable). Returns nil userFunc when user is empty (git disabled),
+// which causes user() calls in queries to return a clear error.
+func resolveUserFunc(s store.ReadStore) (func() string, error) {
 	name, _, err := s.GetCurrentUser()
 	if err != nil {
-		return "", err
+		return nil, err
 	}
-	return name, nil
+	if name == "" {
+		return nil, nil
+	}
+	return func() string { return name }, nil
 }

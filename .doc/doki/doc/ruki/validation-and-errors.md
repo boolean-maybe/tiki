@@ -10,6 +10,7 @@
 - [Enum and list errors](#enum-and-list-errors)
 - [Order by errors](#order-by-errors)
 - [Limit errors](#limit-errors)
+- [require errors](#require-errors)
 - [Built-in and subquery errors](#built-in-and-subquery-errors)
 
 ## Overview
@@ -304,9 +305,9 @@ create title="x" due=next_date(42)
 
 Subquery restrictions:
 
-- only `count(...)` accepts a subquery
+- only `count(...)` and `choose(...)` accept a subquery
 - bare subqueries elsewhere are rejected
-- `count(...)` validates the subquery body recursively
+- `count(...)` and `choose(...)` validate the subquery body recursively
 
 Examples:
 
@@ -315,6 +316,44 @@ select where count(select where status = "done") >= 1
 select where count(select where nosuchfield = "x") >= 1
 select where select = 1
 create title=select
+```
+
+## require errors
+
+Action `require` entries are validated at workflow load time. Each entry must be a non-empty string. A bare `!` (negation prefix with no attribute name) is rejected.
+
+Empty requirement:
+
+```yaml
+actions:
+  - key: "x"
+    label: "Bad"
+    action: update where id = id() set status="done"
+    require: [""]
+```
+
+Fails with: `empty requirement`.
+
+Bare negation:
+
+```yaml
+actions:
+  - key: "x"
+    label: "Bad"
+    action: update where id = id() set status="done"
+    require: ["!"]
+```
+
+Fails with: `bare '!' is not a valid requirement`.
+
+In YAML, negated requirements must be quoted to avoid parse errors:
+
+```yaml
+# correct — quoted
+require: ["!view:plugin:Kanban"]
+
+# incorrect — unquoted ! is a YAML tag indicator
+require: [!view:plugin:Kanban]
 ```
 
 ## input() errors
@@ -364,4 +403,49 @@ update where id = id() set assignee = input("name")
 ```
 
 Fails with: `input() takes no arguments`.
+
+## choose() errors
+
+`choose()` without a subquery argument:
+
+```sql
+update where id = id() set assignee = choose()
+```
+
+Fails with: `choose() expects 1 argument(s), got 0`.
+
+`choose()` with a non-subquery argument:
+
+```sql
+update where id = id() set assignee = choose("epic")
+```
+
+Fails with: `choose() argument must be a select subquery`.
+
+Duplicate `choose()` (more than one call per action):
+
+```sql
+update where id = id() set assignee = choose(select where status = "ready") title = choose(select where type = "epic")
+```
+
+Fails with: `choose() may only be used once per action`.
+
+`choose()` combined with `input()` in the same action:
+
+```yaml
+- key: "e"
+  label: "Link"
+  action: update where id = id() set assignee = input() title = choose(select)
+  input: string
+```
+
+Fails at workflow load time with: `input() and choose() cannot be used in the same action`.
+
+`choose()` outside plugin runtime (CLI, trigger):
+
+```sql
+update where status = "backlog" set assignee = choose(select)
+```
+
+Fails with: `choose() requires user interaction and is only valid in plugin actions`.
 

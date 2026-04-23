@@ -118,6 +118,13 @@ func TestFormatKeyBinding(t *testing.T) {
 			mod:      0,
 			expected: "?",
 		},
+		{
+			name:     "keyless action returns empty string",
+			key:      0,
+			ch:       0,
+			mod:      0,
+			expected: "",
+		},
 	}
 
 	for _, tt := range tests {

@@ -193,11 +193,13 @@ func (tc *TaskController) handleEditSource() bool {
 	filename := strings.ToLower(task.ID) + ".md"
 	filePath := filepath.Join(config.GetTaskDir(), filename)
 
-	// Suspend the tview app and open the editor
-	tc.navController.SuspendAndEdit(filePath)
+	if err := tc.navController.SuspendAndEdit(filePath); err != nil {
+		if tc.statusline != nil {
+			tc.statusline.SetMessage("editor failed: "+err.Error(), model.MessageLevelError, true)
+		}
+		return true
+	}
 
-	// Reload only this task after editing (more efficient than reloading all tasks)
-	// This preserves any custom YAML fields, comments, or formatting added in the external editor
 	_ = tc.taskStore.ReloadTask(task.ID)
 
 	return true

@@ -15,6 +15,10 @@
 - [Severity triage](#severity-triage--custom-enum-filter--action)
 - [Subtasks in epic](#subtasks-in-epic--custom-taskidlist--quantifier-trigger)
 - [By topic](#by-topic--tag-based-lanes)
+- [Bulk cleanup](#bulk-cleanup--delete-without-selection)
+- [AI-gated action](#ai-gated-action--require)
+- [Link to epic](#link-to-epic--choose-action)
+- [Add tiki to epic](#add-tiki-to-epic--choose-action)
 
 ## Assign to me — global plugin action
 
@@ -319,4 +323,49 @@ Split tasks into lanes by tag. Useful for viewing work across domains at a glanc
     - name: Backend
       columns: 2
       filter: select where "backend" in tags order by priority
+```
+
+## Bulk cleanup — delete without selection
+
+A bulk action that deletes all done tasks without needing a selection. Because this action does not use `id()`, it has no `id` requirement and stays enabled even when nothing is selected.
+
+```yaml
+actions:
+  - key: "X"
+    label: "Delete all done"
+    action: delete where status = "done"
+```
+
+## AI-gated action — require
+
+An action that only enables when an AI agent is configured and a task is selected. The `ai` requirement is checked against `config.yaml`'s `ai.agent` setting. The `id` requirement is auto-inferred from `id()` usage — listing it explicitly is allowed but redundant.
+
+```yaml
+actions:
+  - key: "c"
+    label: "Chat about task"
+    action: select title, description where id = id() | run("claude -p 'Discuss: $1. Details: $2'")
+    require: ["ai"]
+```
+
+## Link to epic — choose() action
+
+
+
+## Add tiki to epic — choose() action
+
+From the Backlog view opens a Quick Select picker showing only epics. Selecting one adds the current task to that epic's list.
+From the Roadmap view, pick any non-epic task and add it to the currently selected epic's list.
+
+```yaml
+- name: Backlog
+  actions:
+    - key: "e"
+      label: "Link to epic"
+      action: update where id = choose(select where type = "epic") set dependsOn = dependsOn + id()
+- name: Roadmap
+  actions:
+    - key: "l"
+      label: "Add tiki to epic"
+      action: update where id = id() set dependsOn = dependsOn + choose(select where type != "epic")
 ```

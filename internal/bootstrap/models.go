@@ -20,10 +20,11 @@ func InitHeaderAndLayoutModels() (*model.HeaderConfig, *model.LayoutModel) {
 	return headerConfig, layoutModel
 }
 
-// InitStatuslineModel creates and populates the statusline config with base stats (version, branch, user).
-func InitStatuslineModel(tikiStore *tikistore.TikiStore) *model.StatuslineConfig {
+// InitStatuslineModel creates and populates the statusline config with base stats (version, workflow scope, branch, user).
+func InitStatuslineModel(tikiStore *tikistore.TikiStore, workflowScope config.Scope) *model.StatuslineConfig {
 	cfg := model.NewStatuslineConfig()
 	cfg.SetLeftStat("Version", config.Version, 0)
+	cfg.SetLeftStat("Workflow", config.WorkflowScopeLabel(workflowScope), 1)
 	for _, stat := range tikiStore.GetStats() {
 		value := stat.Value
 		if stat.Name == "Branch" {

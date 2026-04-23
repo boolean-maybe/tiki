@@ -1450,6 +1450,125 @@ func TestPluginController_GetActionInputSpec(t *testing.T) {
 	}
 }
 
+func TestPluginController_BulkAction_EnabledWithNoSelection(t *testing.T) {
+	ctx := NewAppContext()
+
+	action := Action{
+		ID:    pluginActionID("x"),
+		Label: "Bulk Delete Done",
+	}
+	if !ActionEnabled(action, ctx) {
+		t.Error("bulk action without id requirement should be enabled even with no selection")
+	}
+}
+
+func TestPluginController_BulkAction_ExecutesWithNoSelection(t *testing.T) {
+	taskStore := store.NewInMemoryStore()
+	_ = taskStore.CreateTask(&task.Task{
+		ID: "T-1", Title: "Task 1", Status: task.StatusDone, Type: task.TypeStory, Priority: 3,
+	})
+	_ = taskStore.CreateTask(&task.Task{
+		ID: "T-2", Title: "Task 2", Status: task.StatusDone, Type: task.TypeStory, Priority: 3,
+	})
+
+	doneFilter := mustParseStmt(t, `select where status = "done"`)
+	bulkDelete := mustParseStmt(t, `delete where status = "done"`)
+
+	pluginDef := &plugin.TikiPlugin{
+		BasePlugin: plugin.BasePlugin{Name: "TestPlugin"},
+		Lanes:      []plugin.TikiLane{{Name: "Done", Columns: 1, Filter: doneFilter}},
+		Actions: []plugin.PluginAction{
+			{
+				Key: tcell.KeyRune, Rune: 'x', KeyStr: "x",
+				Label:  "Bulk Delete Done",
+				Action: bulkDelete,
+			},
+		},
+	}
+	pluginConfig := model.NewPluginConfig("TestPlugin")
+	pluginConfig.SetLaneLayout([]int{1}, nil)
+	pluginConfig.SetSelectedLane(0)
+
+	schema := rukiRuntime.NewSchema()
+	gate := service.NewTaskMutationGate()
+	gate.SetStore(taskStore)
+	pc := NewPluginController(taskStore, gate, pluginConfig, pluginDef, nil, nil, schema)
+
+	if !pc.HandleAction(pluginActionID("x")) {
+		t.Error("bulk delete should succeed with no selection")
+	}
+
+	if taskStore.GetTask("T-1") != nil {
+		t.Error("T-1 should have been deleted by bulk action")
+	}
+	if taskStore.GetTask("T-2") != nil {
+		t.Error("T-2 should have been deleted by bulk action")
+	}
+}
+
+func TestPluginController_IDRequiredAction_FailsPreflightWithNoSelection(t *testing.T) {
+	taskStore := store.NewInMemoryStore()
+	_ = taskStore.CreateTask(&task.Task{
+		ID: "T-1", Title: "Task 1", Status: task.StatusReady, Type: task.TypeStory, Priority: 3,
+	})
+
+	// filter matches "done" but the task is "ready" → lane is empty, no selection possible
+	emptyFilter := mustParseStmt(t, `select where status = "done"`)
+	updateAction := mustParseStmt(t, `update where id = id() set status = "done"`)
+
+	pluginDef := &plugin.TikiPlugin{
+		BasePlugin: plugin.BasePlugin{Name: "TestPlugin"},
+		Lanes:      []plugin.TikiLane{{Name: "Empty", Columns: 1, Filter: emptyFilter}},
+		Actions: []plugin.PluginAction{
+			{
+				Key: tcell.KeyRune, Rune: 'm', KeyStr: "m",
+				Label:   "Mark Done",
+				Action:  updateAction,
+				Require: []string{"id"},
+			},
+		},
+	}
+	pluginConfig := model.NewPluginConfig("TestPlugin")
+	pluginConfig.SetLaneLayout([]int{1}, nil)
+	pluginConfig.SetSelectedLane(0)
+
+	schema := rukiRuntime.NewSchema()
+	gate := service.NewTaskMutationGate()
+	gate.SetStore(taskStore)
+	pc := NewPluginController(taskStore, gate, pluginConfig, pluginDef, nil, nil, schema)
+
+	if pc.HandleAction(pluginActionID("m")) {
+		t.Error("action with id requirement should fail preflight when nothing is selected")
+	}
+
+	// task should be unchanged
+	tk := taskStore.GetTask("T-1")
+	if tk.Status != task.StatusReady {
+		t.Errorf("expected status ready (unchanged), got %s", tk.Status)
+	}
+}
+
+func TestPluginController_IDRequiredAction_DisabledInAppContext(t *testing.T) {
+	ctx := NewAppContext()
+	// no "id" attribute — nothing selected
+
+	action := Action{
+		ID:      pluginActionID("d"),
+		Label:   "Mark Done",
+		Require: []Requirement{RequireID},
+	}
+
+	if ActionEnabled(action, ctx) {
+		t.Error("action requiring id should be disabled when no id in context")
+	}
+
+	// now add id to context
+	ctx.Set("id")
+	if !ActionEnabled(action, ctx) {
+		t.Error("action requiring id should be enabled when id is in context")
+	}
+}
+
 func TestGetPluginActionKeyStr(t *testing.T) {
 	tests := []struct {
 		name string

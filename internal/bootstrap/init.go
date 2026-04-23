@@ -32,43 +32,65 @@ type Result struct {
 	// SystemInfo contains client environment information collected during bootstrap.
 	// Fields include: OS, Architecture, TermType, DetectedTheme, ColorSupport, ColorCount.
 	// Collected early using terminfo lookup (no screen initialization needed).
-	SystemInfo       *sysinfo.SystemInfo
-	MutationGate     *service.TaskMutationGate
-	TikiStore        *tikistore.TikiStore
-	TaskStore        store.Store
-	HeaderConfig     *model.HeaderConfig
-	LayoutModel      *model.LayoutModel
-	Plugins          []plugin.Plugin
-	PluginConfigs    map[string]*model.PluginConfig
-	PluginDefs       map[string]plugin.Plugin
-	App              *tview.Application
-	Controllers      *Controllers
-	InputRouter      *controller.InputRouter
-	ViewFactory      *view.ViewFactory
-	HeaderWidget     *header.HeaderWidget
-	StatuslineConfig *model.StatuslineConfig
-	StatuslineWidget *statusline.StatuslineWidget
-	RootLayout       *view.RootLayout
-	PaletteConfig    *model.ActionPaletteConfig
-	ActionPalette    *palette.ActionPalette
-	ViewContext      *model.ViewContext
-	AppRoot          tview.Primitive // Pages root for app.SetRoot
-	Context          context.Context
-	CancelFunc       context.CancelFunc
-	TikiSkillContent string
-	DokiSkillContent string
+	SystemInfo        *sysinfo.SystemInfo
+	MutationGate      *service.TaskMutationGate
+	TikiStore         *tikistore.TikiStore
+	TaskStore         store.Store
+	HeaderConfig      *model.HeaderConfig
+	LayoutModel       *model.LayoutModel
+	Plugins           []plugin.Plugin
+	PluginConfigs     map[string]*model.PluginConfig
+	PluginDefs        map[string]plugin.Plugin
+	App               *tview.Application
+	Controllers       *Controllers
+	InputRouter       *controller.InputRouter
+	ViewFactory       *view.ViewFactory
+	HeaderWidget      *header.HeaderWidget
+	StatuslineConfig  *model.StatuslineConfig
+	StatuslineWidget  *statusline.StatuslineWidget
+	RootLayout        *view.RootLayout
+	PaletteConfig     *model.ActionPaletteConfig
+	QuickSelectConfig *model.QuickSelectConfig
+	ActionPalette     *palette.ActionPalette
+	ViewContext       *model.ViewContext
+	AppRoot           tview.Primitive // Pages root for app.SetRoot
+	Context           context.Context
+	CancelFunc        context.CancelFunc
+	TikiSkillContent  string
+	DokiSkillContent  string
+	WorkflowPath      string
+	WorkflowScope     config.Scope
 }
 
 // Bootstrap orchestrates the complete application initialization sequence.
 // It takes the embedded AI skill content and returns all initialized components.
 func Bootstrap(tikiSkillContent, dokiSkillContent string) (*Result, error) {
-	// Phase 1: Pre-flight checks
-	if err := EnsureGitRepo(); err != nil {
+	// Phase 0: Configuration and logging — loaded first so store.git and store.name
+	// are available before any git checks or side effects.
+	cfg, err := LoadConfig()
+	if err != nil {
 		return nil, err
+	}
+	logLevel := InitLogging(cfg)
+
+	// Phase 0.5: Validate store backend before any side effects
+	if name := config.GetStoreName(); name != "tiki" {
+		return nil, fmt.Errorf("unknown store backend: %q (supported: tiki)", name)
+	}
+
+	// Phase 1: Pre-flight git check (skipped when git is disabled)
+	if config.GetStoreGit() {
+		if err := EnsureGitRepo(); err != nil {
+			return nil, err
+		}
 	}
 
 	// Phase 2: Project initialization (creates dirs and seeds sample files)
-	proceed, err := EnsureProjectInitialized(tikiSkillContent, dokiSkillContent)
+	var gitAdd func(...string) error
+	if config.GetStoreGit() {
+		gitAdd = tikistore.NewGitAdder("")
+	}
+	proceed, err := EnsureProjectInitialized(tikiSkillContent, dokiSkillContent, gitAdd)
 	if err != nil {
 		return nil, err
 	}
@@ -88,12 +110,8 @@ func Bootstrap(tikiSkillContent, dokiSkillContent string) (*Result, error) {
 		return nil, fmt.Errorf("load workflow registries: %w", err)
 	}
 
-	// Phase 3: Configuration and logging
-	cfg, err := LoadConfig()
-	if err != nil {
-		return nil, err
-	}
-	logLevel := InitLogging(cfg)
+	// Phase 2.8: Resolve workflow file location for statusline and edit action
+	workflowPath, workflowScope := config.FindWorkflowFileWithScope()
 
 	// Phase 3.5: System information collection and gradient support initialization
 	// Collect early (before app creation) using terminfo lookup for future visual adjustments
@@ -111,7 +129,7 @@ func Bootstrap(tikiSkillContent, dokiSkillContent string) (*Result, error) {
 
 	// Phase 5: Model initialization
 	headerConfig, layoutModel := InitHeaderAndLayoutModels()
-	statuslineConfig := InitStatuslineModel(tikiStore)
+	statuslineConfig := InitStatuslineModel(tikiStore, workflowScope)
 
 	// Phase 5.5: Ruki schema (needed by plugin parser and trigger system)
 	schema := rukiRuntime.NewSchema()
@@ -126,8 +144,11 @@ func Bootstrap(tikiSkillContent, dokiSkillContent string) (*Result, error) {
 	pluginConfigs, pluginDefs := BuildPluginConfigsAndDefs(plugins)
 
 	// Phase 6.5: Trigger system
-	userName, _, _ := taskStore.GetCurrentUser()
-	triggerEngine, triggerCount, err := service.LoadAndRegisterTriggers(gate, schema, func() string { return userName })
+	var userFunc func() string
+	if userName, _, _ := taskStore.GetCurrentUser(); userName != "" {
+		userFunc = func() string { return userName }
+	}
+	triggerEngine, triggerCount, err := service.LoadAndRegisterTriggers(gate, schema, userFunc)
 	if err != nil {
 		return nil, fmt.Errorf("load triggers: %w", err)
 	}
@@ -195,15 +216,26 @@ func Bootstrap(tikiSkillContent, dokiSkillContent string) (*Result, error) {
 	paletteConfig := model.NewActionPaletteConfig()
 	inputRouter.SetHeaderConfig(headerConfig)
 	inputRouter.SetPaletteConfig(paletteConfig)
+	inputRouter.SetWorkflowPath(workflowPath)
 
 	actionPalette := palette.NewActionPalette(viewContext, paletteConfig, inputRouter, controllers.Nav)
 	actionPalette.SetChangedFunc()
 
-	// Build Pages root: base = rootLayout, overlay = palette
+	// Phase 11.6: QuickSelect
+	quickSelectConfig := model.NewQuickSelectConfig()
+	inputRouter.SetQuickSelectConfig(quickSelectConfig)
+
+	quickSelect := palette.NewQuickSelect(quickSelectConfig)
+	quickSelect.SetChangedFunc()
+	inputRouter.SetQuickSelectView(quickSelect)
+
+	// Build Pages root: base = rootLayout, overlay = palette + quickselect
 	pages := tview.NewPages()
 	pages.AddPage("base", rootLayout.GetPrimitive(), true, true)
 	paletteOverlay := buildPaletteOverlay(actionPalette)
 	pages.AddPage("palette", paletteOverlay, true, false)
+	quickSelectOverlay := buildQuickSelectOverlay(quickSelect)
+	pages.AddPage("quickselect", quickSelectOverlay, true, false)
 
 	// Wire palette visibility to Pages show/hide and focus management
 	var previousFocus tview.Primitive
@@ -220,42 +252,63 @@ func Bootstrap(tikiSkillContent, dokiSkillContent string) (*Result, error) {
 		}
 	})
 
+	// Wire QuickSelect visibility
+	var qsPreviousFocus tview.Primitive
+	quickSelectConfig.AddListener(func() {
+		if quickSelectConfig.IsVisible() {
+			qsPreviousFocus = application.GetFocus()
+			pages.ShowPage("quickselect")
+			application.SetFocus(quickSelect.GetFilterInput())
+		} else {
+			pages.HidePage("quickselect")
+			if qsPreviousFocus != nil {
+				application.SetFocus(qsPreviousFocus)
+			} else if cv := rootLayout.GetContentView(); cv != nil {
+				application.SetFocus(cv.GetPrimitive())
+			}
+			qsPreviousFocus = nil
+		}
+	})
+
 	// Phase 12: Navigation and input wiring
 	wireNavigation(controllers.Nav, layoutModel, rootLayout)
-	app.InstallGlobalInputCapture(application, paletteConfig, statuslineConfig, inputRouter, controllers.Nav)
+	app.InstallGlobalInputCapture(application, paletteConfig, quickSelectConfig, statuslineConfig, inputRouter, controllers.Nav)
 
 	// Phase 13: Initial view — use the first plugin marked default: true,
 	// or fall back to the first plugin in the list.
 	controllers.Nav.PushView(model.MakePluginViewID(plugin.DefaultPlugin(plugins).GetName()), nil)
 
 	return &Result{
-		Cfg:              cfg,
-		LogLevel:         logLevel,
-		SystemInfo:       systemInfo,
-		MutationGate:     gate,
-		TikiStore:        tikiStore,
-		TaskStore:        taskStore,
-		HeaderConfig:     headerConfig,
-		LayoutModel:      layoutModel,
-		Plugins:          plugins,
-		PluginConfigs:    pluginConfigs,
-		PluginDefs:       pluginDefs,
-		App:              application,
-		Controllers:      controllers,
-		InputRouter:      inputRouter,
-		ViewFactory:      viewFactory,
-		HeaderWidget:     headerWidget,
-		StatuslineConfig: statuslineConfig,
-		StatuslineWidget: statuslineWidget,
-		RootLayout:       rootLayout,
-		PaletteConfig:    paletteConfig,
-		ActionPalette:    actionPalette,
-		ViewContext:      viewContext,
-		AppRoot:          pages,
-		Context:          ctx,
-		CancelFunc:       cancel,
-		TikiSkillContent: tikiSkillContent,
-		DokiSkillContent: dokiSkillContent,
+		Cfg:               cfg,
+		LogLevel:          logLevel,
+		SystemInfo:        systemInfo,
+		MutationGate:      gate,
+		TikiStore:         tikiStore,
+		TaskStore:         taskStore,
+		HeaderConfig:      headerConfig,
+		LayoutModel:       layoutModel,
+		Plugins:           plugins,
+		PluginConfigs:     pluginConfigs,
+		PluginDefs:        pluginDefs,
+		App:               application,
+		Controllers:       controllers,
+		InputRouter:       inputRouter,
+		ViewFactory:       viewFactory,
+		HeaderWidget:      headerWidget,
+		StatuslineConfig:  statuslineConfig,
+		StatuslineWidget:  statuslineWidget,
+		RootLayout:        rootLayout,
+		PaletteConfig:     paletteConfig,
+		QuickSelectConfig: quickSelectConfig,
+		ActionPalette:     actionPalette,
+		ViewContext:       viewContext,
+		AppRoot:           pages,
+		Context:           ctx,
+		CancelFunc:        cancel,
+		TikiSkillContent:  tikiSkillContent,
+		DokiSkillContent:  dokiSkillContent,
+		WorkflowPath:      workflowPath,
+		WorkflowScope:     workflowScope,
 	}, nil
 }
 
@@ -312,6 +365,41 @@ func (o *paletteOverlayFlex) Draw(screen tcell.Screen) {
 		o.Flex.AddItem(o.spacer, 0, 1, false)
 		o.Flex.AddItem(o.palette, pw, 0, true)
 		o.lastPaletteSize = pw
+	}
+	o.Flex.Draw(screen)
+}
+
+// quickSelectOverlayFlex mirrors paletteOverlayFlex for the QuickSelect picker.
+type quickSelectOverlayFlex struct {
+	*tview.Flex
+	picker   tview.Primitive
+	spacer   *tview.Flex
+	lastSize int
+}
+
+func buildQuickSelectOverlay(qs *palette.QuickSelect) *quickSelectOverlayFlex {
+	overlay := &quickSelectOverlayFlex{
+		Flex:   tview.NewFlex(),
+		picker: qs.GetPrimitive(),
+	}
+	overlay.spacer = tview.NewFlex()
+	overlay.Flex.AddItem(overlay.spacer, 0, 1, false)
+	overlay.Flex.AddItem(overlay.picker, palette.PaletteMinWidth, 0, true)
+	overlay.lastSize = palette.PaletteMinWidth
+	return overlay
+}
+
+func (o *quickSelectOverlayFlex) Draw(screen tcell.Screen) {
+	_, _, w, _ := o.GetRect()
+	pw := w / 3
+	if pw < palette.PaletteMinWidth {
+		pw = palette.PaletteMinWidth
+	}
+	if pw != o.lastSize {
+		o.Flex.Clear()
+		o.Flex.AddItem(o.spacer, 0, 1, false)
+		o.Flex.AddItem(o.picker, pw, 0, true)
+		o.lastSize = pw
 	}
 	o.Flex.Draw(screen)
 }

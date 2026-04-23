@@ -4,6 +4,7 @@ import (
 	"github.com/boolean-maybe/tiki/model"
 	"github.com/boolean-maybe/tiki/plugin"
 	"github.com/boolean-maybe/tiki/ruki"
+	"github.com/boolean-maybe/tiki/task"
 )
 
 // DokiController handles doki plugin view actions (documentation/markdown navigation).
@@ -71,3 +72,8 @@ func (dc *DokiController) CanStartActionInput(ActionID) (string, ruki.ValueType,
 func (dc *DokiController) HandleActionInput(ActionID, string) InputSubmitResult {
 	return InputKeepEditing
 }
+func (dc *DokiController) GetActionChooseSpec(ActionID) (string, bool) { return "", false }
+func (dc *DokiController) CanStartActionChoose(ActionID) (string, []*task.Task, bool) {
+	return "", nil, false
+}
+func (dc *DokiController) HandleActionChoose(ActionID, string) bool { return false }

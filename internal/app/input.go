@@ -15,6 +15,7 @@ import (
 func InstallGlobalInputCapture(
 	app *tview.Application,
 	paletteConfig *model.ActionPaletteConfig,
+	quickSelectConfig *model.QuickSelectConfig,
 	statuslineConfig *model.StatuslineConfig,
 	inputRouter *controller.InputRouter,
 	navController *controller.NavigationController,
@@ -24,6 +25,10 @@ func InstallGlobalInputCapture(
 		// focused palette input field receives it. Do not dismiss statusline or
 		// dispatch through InputRouter — the palette is modal.
 		if paletteConfig != nil && paletteConfig.IsVisible() {
+			return event
+		}
+
+		if quickSelectConfig != nil && quickSelectConfig.IsVisible() {
 			return event
 		}
 

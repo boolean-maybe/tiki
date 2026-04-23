@@ -27,6 +27,15 @@ type PluginControllerInterface interface {
 	GetActionInputSpec(ActionID) (prompt string, typ ruki.ValueType, hasInput bool)
 	CanStartActionInput(ActionID) (prompt string, typ ruki.ValueType, ok bool)
 	HandleActionInput(ActionID, string) InputSubmitResult
+	GetActionChooseSpec(ActionID) (label string, hasChoose bool)
+	CanStartActionChoose(ActionID) (label string, candidates []*task.Task, ok bool)
+	HandleActionChoose(ActionID, string) bool
+}
+
+// QuickSelectView abstracts the QuickSelect view to avoid import cycles.
+type QuickSelectView interface {
+	OnShow(tasks []*task.Task)
+	GetFilterInput() tview.Primitive
 }
 
 // TikiViewProvider is implemented by controllers that back a TikiPlugin view.
@@ -59,6 +68,9 @@ type InputRouter struct {
 	registerPlugin    func(name string, cfg *model.PluginConfig, def plugin.Plugin, ctrl PluginControllerInterface)
 	headerConfig      *model.HeaderConfig
 	paletteConfig     *model.ActionPaletteConfig
+	quickSelectConfig *model.QuickSelectConfig
+	quickSelectView   QuickSelectView
+	workflowPath      string
 }
 
 // NewInputRouter creates an input router
@@ -94,6 +106,21 @@ func (ir *InputRouter) SetPaletteConfig(pc *model.ActionPaletteConfig) {
 	ir.paletteConfig = pc
 }
 
+// SetQuickSelectConfig wires the quick-select config for choose() dispatch.
+func (ir *InputRouter) SetQuickSelectConfig(qc *model.QuickSelectConfig) {
+	ir.quickSelectConfig = qc
+}
+
+// SetQuickSelectView wires the quick-select view (concrete type satisfies the interface).
+func (ir *InputRouter) SetQuickSelectView(qv QuickSelectView) {
+	ir.quickSelectView = qv
+}
+
+// SetWorkflowPath sets the resolved workflow.yaml path for the Edit Workflow action.
+func (ir *InputRouter) SetWorkflowPath(path string) {
+	ir.workflowPath = path
+}
+
 // HandleInput processes a key event for the current view and routes it to the appropriate handler.
 // It processes events through multiple handlers in order:
 // 1. Search input (if search is active)
@@ -109,7 +136,11 @@ func (ir *InputRouter) HandleInput(event *tcell.EventKey, currentView *ViewEntry
 	// palette fires regardless of focus context (Ctrl+A can't conflict with typing)
 	if action := ir.globalActions.Match(event); action != nil {
 		if action.ID == ActionOpenPalette {
-			return ir.handleGlobalAction(action.ID)
+			ctx := BuildAppContext(currentView, ir.navController.GetActiveView())
+			if ActionEnabled(*action, ctx) {
+				return ir.handleGlobalAction(action.ID)
+			}
+			return false
 		}
 	}
 
@@ -124,7 +155,11 @@ func (ir *InputRouter) HandleInput(event *tcell.EventKey, currentView *ViewEntry
 	// search/fullscreen/editor gates
 	if action := ir.globalActions.Match(event); action != nil {
 		if action.ID == ActionToggleHeader {
-			return ir.handleGlobalAction(action.ID)
+			ctx := BuildAppContext(currentView, ir.navController.GetActiveView())
+			if ActionEnabled(*action, ctx) {
+				return ir.handleGlobalAction(action.ID)
+			}
+			return false
 		}
 	}
 
@@ -156,7 +191,11 @@ func (ir *InputRouter) HandleInput(event *tcell.EventKey, currentView *ViewEntry
 
 	// check global actions first
 	if action := ir.globalActions.Match(event); action != nil {
-		return ir.handleGlobalAction(action.ID)
+		ctx := BuildAppContext(currentView, activeView)
+		if ActionEnabled(*action, ctx) {
+			return ir.handleGlobalAction(action.ID)
+		}
+		return false
 	}
 
 	// route to view-specific controller
@@ -311,6 +350,12 @@ func (ir *InputRouter) handlePluginInput(event *tcell.EventKey, viewID model.Vie
 
 	registry := ctrl.GetActionRegistry()
 	if action := registry.Match(event); action != nil {
+		currentView := ir.navController.CurrentView()
+		activeView := ir.navController.GetActiveView()
+		ctx := BuildAppContext(currentView, activeView)
+		if !ActionEnabled(*action, ctx) {
+			return false
+		}
 		if action.ID == ActionSearch {
 			return ir.handleSearchInput(ctrl)
 		}
@@ -321,6 +366,9 @@ func (ir *InputRouter) handlePluginInput(event *tcell.EventKey, viewID model.Vie
 				return true
 			}
 			return true
+		}
+		if _, hasChoose := ctrl.GetActionChooseSpec(action.ID); hasChoose {
+			return ir.startActionChoose(ctrl, action.ID)
 		}
 		if _, _, hasInput := ctrl.GetActionInputSpec(action.ID); hasInput {
 			return ir.startActionInput(ctrl, action.ID)
@@ -351,6 +399,17 @@ func (ir *InputRouter) handleGlobalAction(actionID ActionID) bool {
 		return true
 	case ActionToggleHeader:
 		ir.toggleHeader()
+		return true
+	case ActionEditWorkflow:
+		if ir.workflowPath == "" {
+			ir.statusline.SetMessage("no workflow file found", model.MessageLevelError, true)
+			return true
+		}
+		if err := ir.navController.SuspendAndEdit(ir.workflowPath); err != nil {
+			ir.statusline.SetMessage("editor failed: "+err.Error(), model.MessageLevelError, true)
+		} else {
+			ir.statusline.SetMessage("restart tiki to apply workflow changes", model.MessageLevelInfo, true)
+		}
 		return true
 	default:
 		return false
@@ -393,12 +452,25 @@ func (ir *InputRouter) HandleAction(id ActionID, currentView *ViewEntry) bool {
 		}
 	}
 
+	activeView := ir.navController.GetActiveView()
+	ctx := BuildAppContext(currentView, activeView)
+
 	// global actions
-	if ir.globalActions.ContainsID(id) {
+	if action := ir.globalActions.GetByID(id); action != nil {
+		if !ActionEnabled(*action, ctx) {
+			return false
+		}
 		return ir.handleGlobalAction(id)
 	}
 
-	activeView := ir.navController.GetActiveView()
+	// enforce requirements for palette-dispatched actions
+	if activeView != nil {
+		for _, a := range activeView.GetActionRegistry().GetActions() {
+			if a.ID == id && !ActionEnabled(a, ctx) {
+				return false
+			}
+		}
+	}
 
 	switch currentView.ViewID {
 	case model.TaskDetailViewID:
@@ -529,6 +601,9 @@ func (ir *InputRouter) dispatchPluginAction(id ActionID, viewID model.ViewID) bo
 		return ir.handleSearchInput(ctrl)
 	}
 
+	if _, hasChoose := ctrl.GetActionChooseSpec(id); hasChoose {
+		return ir.startActionChoose(ctrl, id)
+	}
 	if _, _, hasInput := ctrl.GetActionInputSpec(id); hasInput {
 		return ir.startActionInput(ctrl, id)
 	}
@@ -567,6 +642,25 @@ func (ir *InputRouter) startActionInput(ctrl PluginControllerInterface, actionID
 		app.SetFocus(inputBox)
 	}
 
+	return true
+}
+
+// startActionChoose opens the QuickSelect picker for an action that uses choose().
+func (ir *InputRouter) startActionChoose(ctrl PluginControllerInterface, actionID ActionID) bool {
+	if ir.quickSelectConfig == nil || ir.quickSelectView == nil {
+		return false
+	}
+	_, candidates, ok := ctrl.CanStartActionChoose(actionID)
+	if !ok {
+		return false
+	}
+
+	ir.quickSelectConfig.SetOnSelect(func(taskID string) {
+		ctrl.HandleActionChoose(actionID, taskID)
+	})
+	ir.quickSelectConfig.SetOnCancel(func() {})
+	ir.quickSelectView.OnShow(candidates)
+	ir.quickSelectConfig.SetVisible(true)
 	return true
 }
 
@@ -615,6 +709,12 @@ func (ir *InputRouter) handleTaskInput(event *tcell.EventKey, params map[string]
 
 	registry := ir.navController.GetActiveView().GetActionRegistry()
 	if action := registry.Match(event); action != nil {
+		currentView := ir.navController.CurrentView()
+		activeView := ir.navController.GetActiveView()
+		ctx := BuildAppContext(currentView, activeView)
+		if !ActionEnabled(*action, ctx) {
+			return false
+		}
 		switch action.ID {
 		case ActionEditTitle:
 			taskID := ir.taskController.GetCurrentTaskID()

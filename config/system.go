@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"log/slog"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"regexp"
 	"strings"
@@ -86,7 +85,8 @@ func validateSampleTiki(template string) bool {
 // BootstrapSystem creates the task storage and seeds the initial tiki.
 // If createSamples is true, embedded sample tikis are validated against
 // the active workflow registries and only valid ones are written.
-func BootstrapSystem(createSamples bool) error {
+// gitAdd, when non-nil, is called to stage created files (e.g. ops.Add).
+func BootstrapSystem(createSamples bool, gitAdd func(...string) error) error {
 	// Create all necessary directories
 	if err := EnsureDirs(); err != nil {
 		return fmt.Errorf("ensure directories: %w", err)
@@ -168,13 +168,10 @@ func BootstrapSystem(createSamples bool) error {
 	}
 	createdFiles = append(createdFiles, tikiMarkdownPNGPath)
 
-	// Git add all created files
-	gitArgs := append([]string{"add"}, createdFiles...)
-	//nolint:gosec // G204: git command with controlled file paths
-	cmd := exec.Command("git", gitArgs...)
-	if err := cmd.Run(); err != nil {
-		// Non-fatal: log but don't fail bootstrap if git add fails
-		fmt.Fprintf(os.Stderr, "warning: failed to git add files: %v\n", err)
+	if gitAdd != nil {
+		if err := gitAdd(createdFiles...); err != nil {
+			fmt.Fprintf(os.Stderr, "warning: failed to git add files: %v\n", err)
+		}
 	}
 
 	return nil

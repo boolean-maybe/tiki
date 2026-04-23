@@ -3,7 +3,6 @@ package main
 import (
 	"errors"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -18,11 +17,7 @@ func setupInitTest(t *testing.T) string {
 
 	repoDir := t.TempDir()
 
-	//nolint:gosec // G204: git init in test temp dir
-	cmd := exec.Command("git", "init", repoDir)
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
-	if err := cmd.Run(); err != nil {
+	if err := tikistore.GitInit(repoDir); err != nil {
 		t.Fatalf("git init: %v", err)
 	}
 

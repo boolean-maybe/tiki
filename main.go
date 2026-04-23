@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"log/slog"
 	"os"
-	"os/exec"
 
 	"github.com/boolean-maybe/tiki/config"
 	"github.com/boolean-maybe/tiki/internal/app"
@@ -15,6 +14,7 @@ import (
 	rukiRuntime "github.com/boolean-maybe/tiki/internal/ruki/runtime"
 	"github.com/boolean-maybe/tiki/internal/viewer"
 	"github.com/boolean-maybe/tiki/service"
+	"github.com/boolean-maybe/tiki/store/tikistore"
 	"github.com/boolean-maybe/tiki/util/sysinfo"
 )
 
@@ -165,11 +165,7 @@ func runDemo() error {
 		fmt.Printf("using existing %s directory\n", demoDirName)
 	} else {
 		fmt.Printf("cloning demo project into %s...\n", demoDirName)
-		//nolint:gosec // G204: fixed URL, not user-controlled
-		cmd := exec.Command("git", "clone", demoRepoURL)
-		cmd.Stdout = os.Stdout
-		cmd.Stderr = os.Stderr
-		if err := cmd.Run(); err != nil {
+		if err := tikistore.GitClone(demoRepoURL, demoDirName, os.Stdout, os.Stderr); err != nil {
 			return fmt.Errorf("git clone failed: %w", err)
 		}
 	}
@@ -199,16 +195,6 @@ func runExec(args []string) int {
 		return exitUsage
 	}
 
-	if err := bootstrap.EnsureGitRepo(); err != nil {
-		_, _ = fmt.Fprintln(os.Stderr, "error:", err)
-		return exitStartupFailure
-	}
-
-	if !config.IsProjectInitialized() {
-		_, _ = fmt.Fprintln(os.Stderr, "error: project not initialized: run 'tiki init' first")
-		return exitStartupFailure
-	}
-
 	cfg, err := bootstrap.LoadConfig()
 	if err != nil {
 		_, _ = fmt.Fprintf(os.Stderr, "error: load config: %v\n", err)
@@ -216,6 +202,23 @@ func runExec(args []string) int {
 	}
 
 	bootstrap.InitCLILogging(cfg)
+
+	if name := config.GetStoreName(); name != "tiki" {
+		_, _ = fmt.Fprintf(os.Stderr, "error: unknown store backend: %q (supported: tiki)\n", name)
+		return exitStartupFailure
+	}
+
+	if config.GetStoreGit() {
+		if err := bootstrap.EnsureGitRepo(); err != nil {
+			_, _ = fmt.Fprintln(os.Stderr, "error:", err)
+			return exitStartupFailure
+		}
+	}
+
+	if !config.IsProjectInitialized() {
+		_, _ = fmt.Fprintln(os.Stderr, "error: project not initialized: run 'tiki init' first")
+		return exitStartupFailure
+	}
 
 	if err := config.InstallDefaultWorkflow(); err != nil {
 		_, _ = fmt.Fprintf(os.Stderr, "warning: install default workflow: %v\n", err)
@@ -237,8 +240,11 @@ func runExec(args []string) int {
 
 	// load triggers so exec queries fire them
 	schema := rukiRuntime.NewSchema()
-	userName, _, _ := taskStore.GetCurrentUser()
-	if _, _, err := service.LoadAndRegisterTriggers(gate, schema, func() string { return userName }); err != nil {
+	var userFunc func() string
+	if userName, _, _ := taskStore.GetCurrentUser(); userName != "" {
+		userFunc = func() string { return userName }
+	}
+	if _, _, err := service.LoadAndRegisterTriggers(gate, schema, userFunc); err != nil {
 		_, _ = fmt.Fprintf(os.Stderr, "error: load triggers: %v\n", err)
 		return exitStartupFailure
 	}

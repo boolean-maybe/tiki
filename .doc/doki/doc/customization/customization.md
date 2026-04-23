@@ -237,6 +237,7 @@ Each action has:
 - `action` - a `ruki` statement (`update`, `create`, `delete`, or `select`)
 - `hot` - (optional) controls header visibility. `hot: true` shows the action in the header, `hot: false` hides it. When absent, actions default to visible in the header. This does not affect the action palette — all actions are always discoverable via `?` regardless of the `hot` setting
 - `input` - (optional) declares that the action prompts for user input before executing. The value is the scalar type of the input: `string`, `int`, `bool`, `date`, `timestamp`, or `duration`. The action's `ruki` statement must use `input()` to reference the value
+- `require` - (optional) a list of context attributes the action needs to be enabled. When requirements are not met, the action is visible but greyed out in the header and palette, and its hotkey does nothing. See [Action requirements](#action-requirements) below
 
 Example — keeping a verbose action out of the header but still accessible from the palette:
 
@@ -281,14 +282,90 @@ actions:
     input: date
 ```
 
-The input box is modal while editing — other actions are blocked until Enter or Esc. If the entered value is invalid for the declared type (e.g. non-numeric text for `int`), an error appears in the statusline and the prompt stays open for correction.
-
 Supported `input:` types: `string`, `int`, `bool`, `date` (YYYY-MM-DD), `timestamp` (RFC3339 or YYYY-MM-DD), `duration` (e.g. `2day`, `1week`).
 
 Validation rules:
 - An action with `input:` must use `input()` in its `ruki` statement
 - An action using `input()` must declare `input:` — otherwise the workflow fails to load
 - `input()` may only appear once per action
+
+### Choose-backed actions
+
+Actions using `choose()` open an interactive Quick Select tiki picker. The subquery inside `choose()` determines which tikis appear as candidates
+
+```yaml
+actions:
+  - key: "e"
+    label: "Link to epic"
+    action: update where id = choose(select where type = "epic") set dependsOn = dependsOn + id()
+  - key: "l"
+    label: "Add tiki to epic"
+    action: update where id = id() set dependsOn = dependsOn + choose(select where type != "epic")
+```
+
+When the shortcut key is pressed, the Quick Select modal opens with the filtered candidate list. The user fuzzy-filters by typing, navigates with arrow keys, and confirms with Enter. Esc cancels the operation.
+
+Validation rules:
+- `choose()` requires exactly one argument: a `select` subquery
+- `choose()` may only appear once per action
+- `choose()` and `input()` are mutually exclusive within a single action
+
+### Action requirements
+
+Actions can declare context requirements that control when they are enabled. Requirements are evaluated against the current 
+application. When any requirement is unmet, the action is disabled
+
+
+```yaml
+actions:
+  - key: "c"
+    label: "Chat about task"
+    action: select where id = id() | run("claude -p 'Discuss: $1'")
+    require: ["ai", "id"]
+```
+
+This action requires both `ai` (an AI agent configured in `config.yaml`) and `id` (a task selected in the current view).
+
+#### Built-in context attributes
+
+| Attribute | Set when |
+|-----------|----------|
+| `id` | A task is selected in the current view |
+| `ai` | `ai.agent` is configured in `config.yaml` |
+| `view:<view-id>` | Identifies the currently active view (e.g. `view:plugin:Kanban`) |
+
+#### Auto-inference
+
+You don't need to declare `require: ["id"]` for actions that use `id()` in their ruki statement — tiki automatically infers 
+the `id` requirement. Explicitly listing it is allowed but redundant.
+
+#### Bulk actions
+
+Mutating actions (`update`, `delete`) that do *not* use `id()` are bulk actions — they operate on all matching tasks, 
+not just the selected one. Bulk actions remain enabled even when nothing is selected:
+
+```yaml
+actions:
+  - key: "X"
+    label: "Delete all done"
+    action: delete where status = "done"
+```
+
+This action has no `id` requirement (neither explicit nor inferred) so it stays enabled regardless of selection state.
+
+#### Negated requirements
+
+Prefix a requirement with `!` to require that the attribute is *absent*. In YAML, negated requirements must be quoted:
+
+```yaml
+actions:
+  - key: "K"
+    label: "Go to Kanban"
+    action: select where status = "ready"
+    require: ["!view:plugin:Kanban"]
+```
+
+This action is disabled when the user is already on the Kanban view — the `view:plugin:Kanban` attribute would be present, failing the `!view:plugin:Kanban` check.
 
 ### Search and input box interaction
 
@@ -372,6 +449,7 @@ update where id = id() set assignee=user()
 - `now()` — current timestamp
 - `id()` — currently selected tiki (in plugin context)
 - `input()` — user-supplied value (in actions with `input:` declaration)
+- `choose(select where ...)` — interactively pick a task from Quick Select
 - `count(select where ...)` — count matching tikis
 
 For the full language reference, see the [ruki documentation](../ruki/index.md).

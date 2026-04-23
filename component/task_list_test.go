@@ -284,4 +284,29 @@ func TestBuildRow(t *testing.T) {
 			t.Error("unselected row should not start with selection color")
 		}
 	})
+
+	t.Run("selected row visible width equals requested width", func(t *testing.T) {
+		row := tl.buildRow(pendingTask, true, width)
+		visibleWidth := tview.TaggedStringWidth(row)
+		if visibleWidth != width {
+			t.Errorf("selected row visible width = %d, want %d", visibleWidth, width)
+		}
+	})
+
+	t.Run("unselected row visible width equals requested width", func(t *testing.T) {
+		row := tl.buildRow(pendingTask, false, width)
+		visibleWidth := tview.TaggedStringWidth(row)
+		if visibleWidth != width {
+			t.Errorf("unselected row visible width = %d, want %d", visibleWidth, width)
+		}
+	})
+
+	t.Run("every row ends with full style reset", func(t *testing.T) {
+		for _, sel := range []bool{true, false} {
+			row := tl.buildRow(pendingTask, sel, width)
+			if !strings.HasSuffix(row, "[-:-:-]") {
+				t.Errorf("selected=%v: row should end with [-:-:-], got suffix %q", sel, row[max(0, len(row)-10):])
+			}
+		}
+	})
 }

@@ -2,6 +2,7 @@ package component
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/gdamore/tcell/v2"
 	"github.com/rivo/tview"
@@ -11,6 +12,73 @@ import (
 	"github.com/boolean-maybe/tiki/util"
 	"github.com/boolean-maybe/tiki/util/gradient"
 )
+
+// TaskRowColors holds the color configuration for rendering a task row.
+type TaskRowColors struct {
+	IDGradient         config.Gradient
+	IDFallback         config.Color
+	TitleColor         config.Color
+	SelectionFg        config.Color
+	SelectionBg        config.Color
+	StatusDoneColor    config.Color
+	StatusPendingColor config.Color
+}
+
+// DefaultTaskRowColors returns TaskRowColors from the current theme config.
+func DefaultTaskRowColors() TaskRowColors {
+	colors := config.GetColors()
+	return TaskRowColors{
+		IDGradient:         colors.TaskBoxIDColor,
+		IDFallback:         colors.FallbackTaskIDColor,
+		TitleColor:         colors.TaskBoxTitleColor,
+		SelectionFg:        colors.TaskListSelectionFg,
+		SelectionBg:        colors.TaskListSelectionBg,
+		StatusDoneColor:    colors.TaskListStatusDoneColor,
+		StatusPendingColor: colors.TaskListStatusPendingColor,
+	}
+}
+
+// RenderTaskRow builds a tview-tagged string for a single task row.
+func RenderTaskRow(t *task.Task, selected bool, width int, idColumnWidth int, colors TaskRowColors) string {
+	var statusIndicator string
+	if config.GetStatusRegistry().IsDone(string(t.Status)) {
+		statusIndicator = colors.StatusDoneColor.Tag().String() + "✓[-]"
+	} else {
+		statusIndicator = colors.StatusPendingColor.Tag().String() + "○[-]"
+	}
+
+	idText := gradient.RenderAdaptiveGradientText(t.ID, colors.IDGradient, colors.IDFallback)
+	if padding := idColumnWidth - len(t.ID); padding > 0 {
+		idText += fmt.Sprintf("%*s", padding, "")
+	}
+
+	titleAvailable := max(width-1-1-idColumnWidth-1, 0)
+	truncatedTitle := tview.Escape(util.TruncateText(t.Title, titleAvailable))
+
+	row := fmt.Sprintf("%s %s %s%s", statusIndicator, idText, colors.TitleColor.Tag().String(), truncatedTitle)
+
+	if selected {
+		row = colors.SelectionFg.Tag().WithBg(colors.SelectionBg).String() + row
+	}
+
+	visibleWidth := tview.TaggedStringWidth(row)
+	if pad := width - visibleWidth; pad > 0 {
+		row += strings.Repeat(" ", pad)
+	}
+
+	return row + "[-:-:-]"
+}
+
+// ComputeIDColumnWidth returns the width needed for the widest task ID.
+func ComputeIDColumnWidth(tasks []*task.Task) int {
+	w := 0
+	for _, t := range tasks {
+		if len(t.ID) > w {
+			w = len(t.ID)
+		}
+	}
+	return w
+}
 
 // TaskList displays tasks in a compact tabular format with three columns:
 // status indicator, tiki ID (gradient-rendered), and title.
@@ -33,17 +101,17 @@ type TaskList struct {
 
 // NewTaskList creates a new TaskList with the given maximum visible row count.
 func NewTaskList(maxVisibleRows int) *TaskList {
-	colors := config.GetColors()
+	colors := DefaultTaskRowColors()
 	return &TaskList{
 		Box:                tview.NewBox(),
 		maxVisibleRows:     maxVisibleRows,
-		idGradient:         colors.TaskBoxIDColor,
-		idFallback:         colors.FallbackTaskIDColor,
-		titleColor:         colors.TaskBoxTitleColor,
-		selectionColor:     colors.TaskListSelectionFg,
-		selectionBgColor:   colors.TaskListSelectionBg,
-		statusDoneColor:    colors.TaskListStatusDoneColor,
-		statusPendingColor: colors.TaskListStatusPendingColor,
+		idGradient:         colors.IDGradient,
+		idFallback:         colors.IDFallback,
+		titleColor:         colors.TitleColor,
+		selectionColor:     colors.SelectionFg,
+		selectionBgColor:   colors.SelectionBg,
+		statusDoneColor:    colors.StatusDoneColor,
+		statusPendingColor: colors.StatusPendingColor,
 	}
 }
 
@@ -131,35 +199,16 @@ func (tl *TaskList) Draw(screen tcell.Screen) {
 	}
 }
 
-// buildRow constructs the tview-tagged string for a single row.
 func (tl *TaskList) buildRow(t *task.Task, selected bool, width int) string {
-	// Status indicator: done = checkmark, else circle
-	var statusIndicator string
-	if config.GetStatusRegistry().IsDone(string(t.Status)) {
-		statusIndicator = tl.statusDoneColor.Tag().String() + "\u2713[-]"
-	} else {
-		statusIndicator = tl.statusPendingColor.Tag().String() + "\u25CB[-]"
-	}
-
-	// Gradient-rendered ID, padded to idColumnWidth
-	idText := gradient.RenderAdaptiveGradientText(t.ID, tl.idGradient, tl.idFallback)
-	// Pad with spaces if ID is shorter than column width
-	if padding := tl.idColumnWidth - len(t.ID); padding > 0 {
-		idText += fmt.Sprintf("%*s", padding, "")
-	}
-
-	// Title: fill remaining width, truncated
-	// Layout: "X IDID  Title" => status(1) + space(1) + id(idColumnWidth) + space(1) + title
-	titleAvailable := max(width-1-1-tl.idColumnWidth-1, 0)
-	truncatedTitle := tview.Escape(util.TruncateText(t.Title, titleAvailable))
-
-	row := fmt.Sprintf("%s %s %s%s[-]", statusIndicator, idText, tl.titleColor.Tag().String(), truncatedTitle)
-
-	if selected {
-		row = tl.selectionColor.Tag().WithBg(tl.selectionBgColor).String() + row
-	}
-
-	return row
+	return RenderTaskRow(t, selected, width, tl.idColumnWidth, TaskRowColors{
+		IDGradient:         tl.idGradient,
+		IDFallback:         tl.idFallback,
+		TitleColor:         tl.titleColor,
+		SelectionFg:        tl.selectionColor,
+		SelectionBg:        tl.selectionBgColor,
+		StatusDoneColor:    tl.statusDoneColor,
+		StatusPendingColor: tl.statusPendingColor,
+	})
 }
 
 // ensureSelectionVisible adjusts scrollOffset so the selected row is within the viewport.
@@ -200,14 +249,8 @@ func (tl *TaskList) visibleRowCount(height int) int {
 	return maxVisible
 }
 
-// recomputeIDColumnWidth calculates the width needed for the widest task ID.
 func (tl *TaskList) recomputeIDColumnWidth() {
-	tl.idColumnWidth = 0
-	for _, t := range tl.tasks {
-		if len(t.ID) > tl.idColumnWidth {
-			tl.idColumnWidth = len(t.ID)
-		}
-	}
+	tl.idColumnWidth = ComputeIDColumnWidth(tl.tasks)
 }
 
 // clampSelection ensures selectionIndex is within [0, len(tasks)-1].

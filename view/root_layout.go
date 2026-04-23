@@ -206,11 +206,18 @@ func (rl *RootLayout) syncViewContextFromView(v controller.View) {
 		return
 	}
 
-	viewActions := v.GetActionRegistry().ToHeaderActions()
+	currentView := &controller.ViewEntry{
+		ViewID: rl.layoutModel.GetContentViewID(),
+		Params: rl.layoutModel.GetContentParams(),
+	}
+	ctx := controller.BuildAppContext(currentView, v)
+
+	globalActions := controller.DefaultGlobalActions().ToHeaderActionsForContext(ctx)
+	viewActions := v.GetActionRegistry().ToHeaderActionsForContext(ctx)
 
 	var pluginActions []model.HeaderAction
 	if np, ok := v.(controller.NavigationProvider); ok && np.ShowNavigation() {
-		pluginActions = controller.GetPluginActions().ToHeaderActions()
+		pluginActions = controller.GetPluginActions().ToHeaderActionsForContext(ctx)
 	}
 
 	var viewName, viewDesc string
@@ -220,7 +227,7 @@ func (rl *RootLayout) syncViewContextFromView(v controller.View) {
 	}
 
 	if rl.viewContext != nil {
-		rl.viewContext.SetFromView(v.GetViewID(), viewName, viewDesc, viewActions, pluginActions)
+		rl.viewContext.SetFromView(v.GetViewID(), viewName, viewDesc, globalActions, viewActions, pluginActions)
 	}
 }
 

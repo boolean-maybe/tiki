@@ -1,6 +1,7 @@
 package controller
 
 import (
+	"fmt"
 	"log/slog"
 	"os"
 	"os/exec"
@@ -136,17 +137,24 @@ func (nc *NavigationController) HandleQuit() {
 }
 
 // SuspendAndEdit suspends the tview application and opens the specified file in the user's default editor.
-// After the editor exits, the application resumes and redraws.
-func (nc *NavigationController) SuspendAndEdit(filePath string) {
-	nc.app.Suspend(func() {
+// After the editor exits, the application resumes and redraws. Returns an error if the app could not
+// suspend or if the editor failed.
+func (nc *NavigationController) SuspendAndEdit(filePath string) error {
+	var editorErr error
+	ok := nc.app.Suspend(func() {
 		opener := nc.editorOpener
 		if opener == nil {
 			opener = util.OpenInEditor
 		}
 		if err := opener(filePath); err != nil {
 			slog.Error("failed to open editor", "file", filePath, "error", err)
+			editorErr = err
 		}
 	})
+	if !ok {
+		return fmt.Errorf("could not suspend application")
+	}
+	return editorErr
 }
 
 // SetCommandRunner overrides the default command runner (useful for tests).

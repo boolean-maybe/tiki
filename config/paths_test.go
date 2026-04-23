@@ -520,3 +520,219 @@ func TestResetPathManager(t *testing.T) {
 		t.Error("ResetPathManager() did not allow re-initialization with different config")
 	}
 }
+
+func TestFindWorkflowFileWithScope_CwdWins(t *testing.T) {
+	userDir := t.TempDir()
+	t.Setenv("XDG_CONFIG_HOME", userDir)
+	userTikiDir := filepath.Join(userDir, "tiki")
+	if err := os.MkdirAll(userTikiDir, 0750); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(userTikiDir, "workflow.yaml"), []byte("version: 1"), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	cwdDir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(cwdDir, "workflow.yaml"), []byte("version: 1"), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	originalDir, _ := os.Getwd()
+	defer func() { _ = os.Chdir(originalDir) }()
+	_ = os.Chdir(cwdDir)
+
+	ResetPathManager()
+	pm := mustGetPathManager()
+	pm.projectRoot = t.TempDir() // empty project dir
+
+	path, scope := FindWorkflowFileWithScope()
+	if scope != ScopeCurrent {
+		t.Errorf("scope = %q, want %q", scope, ScopeCurrent)
+	}
+	pathAbs, _ := filepath.Abs(path)
+	wantAbs, _ := filepath.Abs("workflow.yaml")
+	if pathAbs != wantAbs {
+		t.Errorf("path = %q, want cwd file %q", pathAbs, wantAbs)
+	}
+}
+
+func TestFindWorkflowFileWithScope_ProjectWins(t *testing.T) {
+	userDir := t.TempDir()
+	t.Setenv("XDG_CONFIG_HOME", userDir)
+	userTikiDir := filepath.Join(userDir, "tiki")
+	if err := os.MkdirAll(userTikiDir, 0750); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(userTikiDir, "workflow.yaml"), []byte("version: 1"), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	projectDir := t.TempDir()
+	docDir := filepath.Join(projectDir, ".doc")
+	if err := os.MkdirAll(docDir, 0750); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(docDir, "workflow.yaml"), []byte("version: 1"), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	cwdDir := t.TempDir() // no workflow.yaml here
+	originalDir, _ := os.Getwd()
+	defer func() { _ = os.Chdir(originalDir) }()
+	_ = os.Chdir(cwdDir)
+
+	ResetPathManager()
+	pm := mustGetPathManager()
+	pm.projectRoot = projectDir
+
+	path, scope := FindWorkflowFileWithScope()
+	if scope != ScopeLocal {
+		t.Errorf("scope = %q, want %q", scope, ScopeLocal)
+	}
+	want := filepath.Join(docDir, "workflow.yaml")
+	if path != want {
+		t.Errorf("path = %q, want project file %q", path, want)
+	}
+}
+
+func TestFindWorkflowFileWithScope_GlobalFallback(t *testing.T) {
+	userDir := t.TempDir()
+	t.Setenv("XDG_CONFIG_HOME", userDir)
+	userTikiDir := filepath.Join(userDir, "tiki")
+	if err := os.MkdirAll(userTikiDir, 0750); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(userTikiDir, "workflow.yaml"), []byte("version: 1"), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	cwdDir := t.TempDir() // no workflow.yaml
+	originalDir, _ := os.Getwd()
+	defer func() { _ = os.Chdir(originalDir) }()
+	_ = os.Chdir(cwdDir)
+
+	ResetPathManager()
+	pm := mustGetPathManager()
+	pm.projectRoot = t.TempDir() // empty project dir
+
+	path, scope := FindWorkflowFileWithScope()
+	if scope != ScopeGlobal {
+		t.Errorf("scope = %q, want %q", scope, ScopeGlobal)
+	}
+	want := filepath.Join(userTikiDir, "workflow.yaml")
+	if path != want {
+		t.Errorf("path = %q, want global file %q", path, want)
+	}
+}
+
+func TestFindWorkflowFileWithScope_NoneFound(t *testing.T) {
+	userDir := t.TempDir()
+	t.Setenv("XDG_CONFIG_HOME", userDir)
+	if err := os.MkdirAll(filepath.Join(userDir, "tiki"), 0750); err != nil {
+		t.Fatal(err)
+	}
+
+	cwdDir := t.TempDir()
+	originalDir, _ := os.Getwd()
+	defer func() { _ = os.Chdir(originalDir) }()
+	_ = os.Chdir(cwdDir)
+
+	ResetPathManager()
+	pm := mustGetPathManager()
+	pm.projectRoot = t.TempDir()
+
+	path, scope := FindWorkflowFileWithScope()
+	if path != "" {
+		t.Errorf("path = %q, want empty", path)
+	}
+	if scope != "" {
+		t.Errorf("scope = %q, want empty (zero value)", scope)
+	}
+}
+
+func TestFindWorkflowFileWithScope_DedupCwdEqualsProjectDir(t *testing.T) {
+	// when cwd == ProjectConfigDir, candidates 2 and 3 resolve to the same
+	// absolute path. The project-dir candidate should win (ScopeLocal) because
+	// it appears first and dedup skips the cwd candidate.
+	userDir := t.TempDir()
+	t.Setenv("XDG_CONFIG_HOME", userDir)
+	if err := os.MkdirAll(filepath.Join(userDir, "tiki"), 0750); err != nil {
+		t.Fatal(err)
+	}
+
+	// resolve symlinks so both paths are canonical (macOS /var → /private/var)
+	projectDir, err := filepath.EvalSymlinks(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	docDir := filepath.Join(projectDir, ".doc")
+	if err := os.MkdirAll(docDir, 0750); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(docDir, "workflow.yaml"), []byte("version: 1"), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	// cd into .doc/ so cwd candidate resolves to the same file
+	originalDir, _ := os.Getwd()
+	defer func() { _ = os.Chdir(originalDir) }()
+	_ = os.Chdir(docDir)
+
+	ResetPathManager()
+	pm := mustGetPathManager()
+	pm.projectRoot = projectDir
+
+	_, scope := FindWorkflowFileWithScope()
+	if scope != ScopeLocal {
+		t.Errorf("scope = %q, want %q (project-dir candidate should win dedup)", scope, ScopeLocal)
+	}
+}
+
+func TestWorkflowScopeLabel(t *testing.T) {
+	tests := []struct {
+		scope Scope
+		want  string
+	}{
+		{ScopeGlobal, "global"},
+		{ScopeLocal, "project"},
+		{ScopeCurrent, "local"},
+		{Scope("unknown"), "unknown"},
+	}
+	for _, tt := range tests {
+		if got := WorkflowScopeLabel(tt.scope); got != tt.want {
+			t.Errorf("WorkflowScopeLabel(%q) = %q, want %q", tt.scope, got, tt.want)
+		}
+	}
+}
+
+func TestFindWorkflowFile_DelegatesToWithScope(t *testing.T) {
+	userDir := t.TempDir()
+	t.Setenv("XDG_CONFIG_HOME", userDir)
+	userTikiDir := filepath.Join(userDir, "tiki")
+	if err := os.MkdirAll(userTikiDir, 0750); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(userTikiDir, "workflow.yaml"), []byte("version: 1"), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	cwdDir := t.TempDir()
+	originalDir, _ := os.Getwd()
+	defer func() { _ = os.Chdir(originalDir) }()
+	_ = os.Chdir(cwdDir)
+
+	ResetPathManager()
+	pm := mustGetPathManager()
+	pm.projectRoot = t.TempDir()
+
+	path := FindWorkflowFile()
+	pathWithScope, _ := FindWorkflowFileWithScope()
+	if path != pathWithScope {
+		t.Errorf("FindWorkflowFile() = %q, FindWorkflowFileWithScope() = %q — should match", path, pathWithScope)
+	}
+
+	files := FindWorkflowFiles()
+	if len(files) != 1 || files[0] != path {
+		t.Errorf("FindWorkflowFiles() = %v, want [%q]", files, path)
+	}
+}

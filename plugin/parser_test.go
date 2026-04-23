@@ -1071,3 +1071,198 @@ func TestParsePluginActions_NoInputField_NoHasInput(t *testing.T) {
 		t.Error("expected HasInput=false for action without input: field")
 	}
 }
+
+func TestParsePluginActions_RequirePreserved(t *testing.T) {
+	parser := testParser()
+	configs := []PluginActionConfig{
+		{Key: "a", Label: "Ready", Action: `update where id = id() set status="ready"`, Require: []string{"id"}},
+	}
+	actions, err := parsePluginActions(configs, parser)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(actions[0].Require) != 1 || actions[0].Require[0] != "id" {
+		t.Errorf("expected require=[id], got %v", actions[0].Require)
+	}
+}
+
+func TestParsePluginActions_RequireAutoInferID(t *testing.T) {
+	parser := testParser()
+	configs := []PluginActionConfig{
+		{Key: "a", Label: "Ready", Action: `update where id = id() set status="ready"`},
+	}
+	actions, err := parsePluginActions(configs, parser)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	found := false
+	for _, r := range actions[0].Require {
+		if r == "id" {
+			found = true
+		}
+	}
+	if !found {
+		t.Errorf("expected auto-inferred 'id' requirement, got %v", actions[0].Require)
+	}
+}
+
+func TestParsePluginActions_RequireNoAutoInferWithoutID(t *testing.T) {
+	parser := testParser()
+	configs := []PluginActionConfig{
+		{Key: "a", Label: "Bulk", Action: `delete where status = "done"`},
+	}
+	actions, err := parsePluginActions(configs, parser)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(actions[0].Require) > 0 {
+		t.Errorf("expected no requirements for action without id(), got %v", actions[0].Require)
+	}
+}
+
+func TestParsePluginActions_RequireAIPlusAutoID(t *testing.T) {
+	parser := testParser()
+	configs := []PluginActionConfig{
+		{Key: "a", Label: "AI Ready", Action: `update where id = id() set status="ready"`, Require: []string{"ai"}},
+	}
+	actions, err := parsePluginActions(configs, parser)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	hasAI, hasID := false, false
+	for _, r := range actions[0].Require {
+		if r == "ai" {
+			hasAI = true
+		}
+		if r == "id" {
+			hasID = true
+		}
+	}
+	if !hasAI || !hasID {
+		t.Errorf("expected [ai, id], got %v", actions[0].Require)
+	}
+}
+
+func TestParsePluginActions_RequireCustomPreserved(t *testing.T) {
+	parser := testParser()
+	configs := []PluginActionConfig{
+		{Key: "a", Label: "Custom", Action: `select where status = "done"`, Require: []string{"foo"}},
+	}
+	actions, err := parsePluginActions(configs, parser)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(actions[0].Require) != 1 || actions[0].Require[0] != "foo" {
+		t.Errorf("expected [foo], got %v", actions[0].Require)
+	}
+}
+
+func TestParsePluginActions_RequireNegatedPreserved(t *testing.T) {
+	parser := testParser()
+	configs := []PluginActionConfig{
+		{Key: "a", Label: "Not KB", Action: `select where status = "done"`, Require: []string{"!view:plugin:Kanban"}},
+	}
+	actions, err := parsePluginActions(configs, parser)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(actions[0].Require) != 1 || actions[0].Require[0] != "!view:plugin:Kanban" {
+		t.Errorf("expected [!view:plugin:Kanban], got %v", actions[0].Require)
+	}
+}
+
+func TestParsePluginActions_RequireEmptyRejected(t *testing.T) {
+	parser := testParser()
+	configs := []PluginActionConfig{
+		{Key: "a", Label: "Bad", Action: `select where status = "done"`, Require: []string{""}},
+	}
+	_, err := parsePluginActions(configs, parser)
+	if err == nil {
+		t.Fatal("expected error for empty requirement")
+	}
+}
+
+func TestParsePluginActions_RequireBareExclamationRejected(t *testing.T) {
+	parser := testParser()
+	configs := []PluginActionConfig{
+		{Key: "a", Label: "Bad", Action: `select where status = "done"`, Require: []string{"!"}},
+	}
+	_, err := parsePluginActions(configs, parser)
+	if err == nil {
+		t.Fatal("expected error for bare '!' requirement")
+	}
+}
+
+func TestParsePluginActions_RequireDoubleNegationRejected(t *testing.T) {
+	parser := testParser()
+	configs := []PluginActionConfig{
+		{Key: "a", Label: "Bad", Action: `select where status = "done"`, Require: []string{"!!view:plugin:Kanban"}},
+	}
+	_, err := parsePluginActions(configs, parser)
+	if err == nil {
+		t.Fatal("expected error for double-negation requirement")
+	}
+}
+
+func TestParsePluginActions_RequireDedup(t *testing.T) {
+	parser := testParser()
+	configs := []PluginActionConfig{
+		{Key: "a", Label: "Dup", Action: `update where id = id() set status="ready"`, Require: []string{"id"}},
+	}
+	actions, err := parsePluginActions(configs, parser)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	count := 0
+	for _, r := range actions[0].Require {
+		if r == "id" {
+			count++
+		}
+	}
+	if count != 1 {
+		t.Errorf("expected exactly one 'id', got %d in %v", count, actions[0].Require)
+	}
+}
+
+func TestParsePluginActions_BulkActionExplicitRequireID(t *testing.T) {
+	parser := testParser()
+	configs := []PluginActionConfig{
+		{Key: "a", Label: "Selective Bulk", Action: `delete where status = "done"`, Require: []string{"id"}},
+	}
+	actions, err := parsePluginActions(configs, parser)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(actions[0].Require) != 1 || actions[0].Require[0] != "id" {
+		t.Errorf("expected explicit [id] preserved, got %v", actions[0].Require)
+	}
+}
+
+func TestParsePluginYAML_RequireQuotedNegation(t *testing.T) {
+	yaml := `
+name: Test
+key: "1"
+lanes:
+  - name: All
+    filter: 'select'
+actions:
+  - key: a
+    label: "Not here"
+    action: 'select where status = "done"'
+    require: ["!view:plugin:Kanban"]
+`
+	p, err := parsePluginYAML([]byte(yaml), "test.yaml", testSchema())
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	tp, ok := p.(*TikiPlugin)
+	if !ok {
+		t.Fatal("expected *TikiPlugin")
+	}
+	if len(tp.Actions) != 1 {
+		t.Fatalf("expected 1 action, got %d", len(tp.Actions))
+	}
+	if len(tp.Actions[0].Require) != 1 || tp.Actions[0].Require[0] != "!view:plugin:Kanban" {
+		t.Errorf("expected [!view:plugin:Kanban], got %v", tp.Actions[0].Require)
+	}
+}

@@ -13,7 +13,7 @@ import (
 // Util provides Git operations by shelling out to git commands
 type Util struct {
 	repoPath    string
-	cachedUsers []string // cached list of all users from git history
+	cachedUsers []string
 
 	currentUserMu     sync.Mutex
 	currentUserCached bool
@@ -70,7 +70,6 @@ func (u *Util) CurrentBranch() (string, error) {
 	return branch, nil
 }
 
-// toRelative converts an absolute path to a relative path from the repository root
 func (u *Util) toRelative(path string) (string, error) {
 	if filepath.IsAbs(path) {
 		relPath, err := filepath.Rel(u.repoPath, path)
@@ -82,7 +81,6 @@ func (u *Util) toRelative(path string) (string, error) {
 	return path, nil
 }
 
-// parseGitTime parses a git timestamp string in various formats
 func parseGitTime(dateStr string) (time.Time, error) {
 	formats := []string{
 		"2006-01-02 15:04:05 -0700",

@@ -19,11 +19,8 @@ type Executor struct {
 }
 
 // NewExecutor constructs an Executor with the given schema and user function.
-// If userFunc is nil, calling user() at runtime will return "".
+// If userFunc is nil, calling user() at runtime will return an error.
 func NewExecutor(schema Schema, userFunc func() string, runtime ExecutorRuntime) *Executor {
-	if userFunc == nil {
-		userFunc = func() string { return "" }
-	}
 	return &Executor{
 		schema:   schema,
 		userFunc: userFunc,
@@ -501,6 +498,12 @@ func coerceCustomFieldValue(fs FieldSpec, val interface{}) (interface{}, error) 
 	case ValueListRef:
 		raw := toStringSlice(val)
 		return normalizeRefList(raw), nil
+	case ValueRef:
+		s, ok := val.(string)
+		if !ok {
+			return nil, fmt.Errorf("expected string, got %T", val)
+		}
+		return strings.ToUpper(strings.TrimSpace(s)), nil
 	default:
 		return nil, fmt.Errorf("unsupported custom field type")
 	}
@@ -746,7 +749,7 @@ func (e *Executor) evalExpr(expr Expr, t *task.Task, allTasks []*task.Task) (int
 	case *BinaryExpr:
 		return e.evalBinaryExpr(expr, t, allTasks)
 	case *SubQuery:
-		return nil, fmt.Errorf("subquery is only valid as argument to count()")
+		return nil, fmt.Errorf("subquery is only valid as argument to count() or choose()")
 	default:
 		return nil, fmt.Errorf("unknown expression type %T", expr)
 	}
@@ -773,6 +776,9 @@ func (e *Executor) evalFunctionCall(fc *FunctionCall, t *task.Task, allTasks []*
 	case "now":
 		return time.Now(), nil
 	case "user":
+		if e.userFunc == nil {
+			return nil, fmt.Errorf("user() is unavailable (git is disabled)")
+		}
 		return e.userFunc(), nil
 	case "count":
 		return e.evalCount(fc, allTasks)
@@ -782,6 +788,8 @@ func (e *Executor) evalFunctionCall(fc *FunctionCall, t *task.Task, allTasks []*
 		return e.evalBlocks(fc, t, allTasks)
 	case "input":
 		return e.evalInput()
+	case "choose":
+		return e.evalChoose()
 	case "call":
 		return nil, fmt.Errorf("call() is not supported yet")
 	default:
@@ -794,6 +802,13 @@ func (e *Executor) evalInput() (interface{}, error) {
 		return nil, &MissingInputValueError{}
 	}
 	return e.currentInput.InputValue, nil
+}
+
+func (e *Executor) evalChoose() (interface{}, error) {
+	if !e.currentInput.HasChoose {
+		return nil, &MissingChooseValueError{}
+	}
+	return e.currentInput.ChooseValue, nil
 }
 
 func (e *Executor) evalID() (interface{}, error) {
@@ -826,6 +841,31 @@ func (e *Executor) evalCount(fc *FunctionCall, allTasks []*task.Task) (interface
 		}
 	}
 	return count, nil
+}
+
+// EvalSubQueryFilter evaluates a subquery WHERE clause against a set of tasks,
+// returning the matching tasks. Used by the controller to build candidate lists
+// for choose() before showing the picker.
+func (e *Executor) EvalSubQueryFilter(sq *SubQuery, tasks []*task.Task, input ExecutionInput) ([]*task.Task, error) {
+	e.currentInput = input
+	defer func() { e.currentInput = ExecutionInput{} }()
+
+	if sq == nil || sq.Where == nil {
+		result := make([]*task.Task, len(tasks))
+		copy(result, tasks)
+		return result, nil
+	}
+	var result []*task.Task
+	for _, t := range tasks {
+		match, err := e.evalCondition(sq.Where, t, tasks)
+		if err != nil {
+			return nil, err
+		}
+		if match {
+			result = append(result, t)
+		}
+	}
+	return result, nil
 }
 
 func (e *Executor) evalNextDate(fc *FunctionCall, t *task.Task, allTasks []*task.Task) (interface{}, error) {

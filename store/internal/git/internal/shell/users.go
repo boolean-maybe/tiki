@@ -6,17 +6,9 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
-	"time"
-)
 
-// AuthorInfo contains information about who created a file
-type AuthorInfo struct {
-	Name       string
-	Email      string
-	Date       time.Time
-	CommitHash string
-	Message    string
-}
+	"github.com/boolean-maybe/tiki/store/internal/git/internal/types"
+)
 
 // CurrentUser returns the current git user's name and email
 func (u *Util) CurrentUser() (name string, email string, err error) {
@@ -77,7 +69,7 @@ func (u *Util) CurrentUser() (name string, email string, err error) {
 }
 
 // Author returns information about who created a file
-func (u *Util) Author(filePath string) (*AuthorInfo, error) {
+func (u *Util) Author(filePath string) (*types.AuthorInfo, error) {
 	relPath := filePath
 	if filepath.IsAbs(filePath) {
 		var err error
@@ -116,7 +108,7 @@ func (u *Util) Author(filePath string) (*AuthorInfo, error) {
 		return nil, fmt.Errorf("failed to parse date %s: %w", dateStr, err)
 	}
 
-	return &AuthorInfo{
+	return &types.AuthorInfo{
 		Name:       authorName,
 		Email:      authorEmail,
 		Date:       date,
@@ -126,9 +118,7 @@ func (u *Util) Author(filePath string) (*AuthorInfo, error) {
 }
 
 // AllAuthors returns author information for all files matching dirPattern in a single git command.
-// Returns a map of file paths to their author info.
-func (u *Util) AllAuthors(dirPattern string) (map[string]*AuthorInfo, error) {
-	// Use git log with --diff-filter=A (added files), --name-only, and --reverse to get creation info
+func (u *Util) AllAuthors(dirPattern string) (map[string]*types.AuthorInfo, error) {
 	cmd := exec.Command("git", "log", "--all", "--diff-filter=A", "--format=%H|%an|%ae|%ai|%s", "--name-only", "--reverse", "--", dirPattern) //nolint:gosec // G204: git command with controlled directory pattern
 	cmd.Dir = u.repoPath
 	output, err := cmd.Output()
@@ -136,7 +126,7 @@ func (u *Util) AllAuthors(dirPattern string) (map[string]*AuthorInfo, error) {
 		return nil, fmt.Errorf("failed to get git log for %s: %w", dirPattern, err)
 	}
 
-	result := make(map[string]*AuthorInfo)
+	result := make(map[string]*types.AuthorInfo)
 	lines := strings.Split(strings.TrimSpace(string(output)), "\n")
 
 	var currentHash, currentAuthor, currentEmail, currentDate, currentMessage string
@@ -148,7 +138,6 @@ func (u *Util) AllAuthors(dirPattern string) (map[string]*AuthorInfo, error) {
 		}
 
 		if strings.Contains(line, "|") {
-			// This is a commit info line
 			parts := strings.SplitN(line, "|", 5)
 			if len(parts) < 5 {
 				continue
@@ -159,15 +148,13 @@ func (u *Util) AllAuthors(dirPattern string) (map[string]*AuthorInfo, error) {
 			currentDate = parts[3]
 			currentMessage = parts[4]
 		} else {
-			// This is a file name - parse the date and create AuthorInfo
 			date, err := parseGitTime(currentDate)
 			if err != nil {
 				continue
 			}
 
-			// Only store the first occurrence (earliest commit that added the file)
 			if _, exists := result[line]; !exists {
-				result[line] = &AuthorInfo{
+				result[line] = &types.AuthorInfo{
 					Name:       currentAuthor,
 					Email:      currentEmail,
 					Date:       date,
@@ -182,14 +169,11 @@ func (u *Util) AllAuthors(dirPattern string) (map[string]*AuthorInfo, error) {
 }
 
 // AllUsers returns a deduplicated list of all users who have made commits in the repository.
-// Results are cached after the first call.
 func (u *Util) AllUsers() ([]string, error) {
-	// Return cached result if available
 	if u.cachedUsers != nil {
 		return u.cachedUsers, nil
 	}
 
-	// Get all author names from git history
 	cmd := exec.Command("git", "log", "--all", "--format=%an")
 	cmd.Dir = u.repoPath
 	output, err := cmd.Output()
@@ -197,7 +181,6 @@ func (u *Util) AllUsers() ([]string, error) {
 		return nil, fmt.Errorf("failed to get git log for all users: %w", err)
 	}
 
-	// Parse output and deduplicate
 	seen := make(map[string]bool)
 	var users []string
 
@@ -210,7 +193,6 @@ func (u *Util) AllUsers() ([]string, error) {
 		}
 	}
 
-	// Cache the result
 	u.cachedUsers = users
 
 	return users, nil

@@ -28,8 +28,11 @@ type pluginBase struct {
 
 // newExecutor creates a ruki executor configured for plugin runtime.
 func (pb *pluginBase) newExecutor() *ruki.Executor {
-	userName := getCurrentUserName(pb.taskStore)
-	return ruki.NewExecutor(pb.schema, func() string { return userName },
+	var userFunc func() string
+	if userName := getCurrentUserName(pb.taskStore); userName != "" {
+		userFunc = func() string { return userName }
+	}
+	return ruki.NewExecutor(pb.schema, userFunc,
 		ruki.ExecutorRuntime{Mode: ruki.ExecutorRuntimePlugin})
 }
 
@@ -44,6 +47,13 @@ func (pb *pluginBase) CanStartActionInput(ActionID) (string, ruki.ValueType, boo
 	return "", 0, false
 }
 func (pb *pluginBase) HandleActionInput(ActionID, string) InputSubmitResult { return InputKeepEditing }
+
+// default no-op implementations for choose-backed action methods
+func (pb *pluginBase) GetActionChooseSpec(ActionID) (string, bool) { return "", false }
+func (pb *pluginBase) CanStartActionChoose(ActionID) (string, []*task.Task, bool) {
+	return "", nil, false
+}
+func (pb *pluginBase) HandleActionChoose(ActionID, string) bool { return false }
 
 func (pb *pluginBase) handleNav(direction string, filteredTasks func(int) []*task.Task) bool {
 	lane := pb.pluginConfig.GetSelectedLane()

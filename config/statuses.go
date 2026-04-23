@@ -133,6 +133,10 @@ func ResetTypeRegistry(defs []workflow.TypeDef) {
 // from a single explicit workflow file path. Returns local registries without
 // touching global state. Used by init to validate a candidate workflow file.
 func LoadRegistriesFromFile(path string) (*workflow.StatusRegistry, *workflow.TypeRegistry, []workflow.FieldDef, error) {
+	if err := CheckFileVersionCompatibility(path); err != nil {
+		return nil, nil, nil, err
+	}
+
 	statusReg, err := loadStatusesFromFile(path)
 	if err != nil {
 		return nil, nil, nil, fmt.Errorf("loading statuses: %w", err)

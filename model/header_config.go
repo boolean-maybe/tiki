@@ -17,6 +17,7 @@ type HeaderAction struct {
 	Label        string
 	Modifier     tcell.ModMask
 	ShowInHeader bool
+	Enabled      bool
 }
 
 // StatValue represents a single stat entry for the statusline

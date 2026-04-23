@@ -16,10 +16,8 @@ type TriggerExecutor struct {
 }
 
 // NewTriggerExecutor creates a TriggerExecutor.
+// If userFunc is nil, user() calls in trigger actions will return an error.
 func NewTriggerExecutor(schema Schema, userFunc func() string) *TriggerExecutor {
-	if userFunc == nil {
-		userFunc = func() string { return "" }
-	}
 	return &TriggerExecutor{schema: schema, userFunc: userFunc}
 }
 

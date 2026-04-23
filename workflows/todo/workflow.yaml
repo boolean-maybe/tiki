@@ -1,4 +1,4 @@
-version: 0.5.0
+version: 0.5.2
 description: |
   Minimal two-lane todo list. One task type, two statuses (Todo → Done).
   Use when you just want a lightweight checklist and don't need prioritization,

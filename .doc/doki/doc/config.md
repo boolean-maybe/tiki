@@ -54,7 +54,9 @@ Search order: user config dir → `.doc/new.md` (project) → cwd. Last match wi
 
 ### workflow.yaml
 
-The single highest-priority `workflow.yaml` found is loaded. All workflow-backed sections (statuses, types, views, global actions, fields, triggers) come from that one file. Lower-priority files are ignored entirely.
+The single highest-priority `workflow.yaml` found is loaded. All workflow-backed sections (statuses, types, views,
+global actions, fields, triggers) come from that one file. Lower-priority files are ignored entirely.
+See [Workflow format versions](workflow-format.md) for schema evolution.
 
 Search order: user config dir → `.doc/workflow.yaml` (project) → cwd. Last match wins.
 
@@ -65,6 +67,9 @@ Search order: user config dir → `.doc/workflow.yaml` (project) → cwd. Last m
 - Missing `triggers:` means no triggers.
 
 Global actions defined in `views.actions` are appended to each tiki plugin's action list; per-plugin actions with the same key take precedence.
+
+Actions can declare `require:` — a list of context attributes needed for the action to be enabled. Actions with unmet 
+requirements are visible but greyed out. See [Action requirements](customization/customization.md#action-requirements) for details.
 
 ### config.yaml
 
@@ -83,12 +88,6 @@ tiki:
 # Logging settings
 logging:
   level: error              # Log level: "debug", "info", "warn", "error"
-
-# Plugin settings are defined in their YAML file but can be overridden here
-Kanban:
-  view: expanded            # Default board view: "compact", "expanded"
-Backlog:
-  view: compact
 
 # Appearance settings
 appearance:
@@ -175,6 +174,9 @@ views:
         - key: "b"
           label: "Add to board"
           action: update where id = id() set status="ready"
+        - key: "e"
+          label: "Link to epic"
+          action: update where id = choose(select where type = "epic") set dependsOn = dependsOn + id()
     - name: Recent
       description: "Tasks changed in the last 24 hours, most recent first"
       key: Ctrl-R
@@ -201,7 +203,11 @@ views:
           width: 50
           filter: select where type = "epic" and status = "backlog" and priority > 1 order by priority, points desc
           action: update where id = id() set status="backlog" priority=2
-      view: expanded
+      view: expanded              # Board view: "compact" or "expanded"
+      actions:
+        - key: "l"
+          label: "Add tiki to epic"
+          action: update where id = id() set dependsOn = dependsOn + choose(select where type != "epic")
     - name: Docs
       description: "Project notes and documentation files"
       type: doki

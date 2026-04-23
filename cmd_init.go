@@ -3,7 +3,6 @@ package main
 import (
 	"fmt"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"strings"
 
@@ -113,10 +112,8 @@ func ensureDirectoryAndGitRepo(dir string) error {
 	}
 
 	if !tikistore.IsGitRepo(dir) {
-		//nolint:gosec // G204: git init with user-provided directory (already validated)
-		cmd := exec.Command("git", "init", dir)
-		if out, err := cmd.CombinedOutput(); err != nil {
-			return fmt.Errorf("git init %q: %s", dir, strings.TrimSpace(string(out)))
+		if err := tikistore.GitInit(dir); err != nil {
+			return err
 		}
 	}
 
@@ -211,7 +208,8 @@ func runInit(args []string) int {
 		}
 	}
 
-	if err := config.BootstrapSystem(createSamples); err != nil {
+	gitAdd := tikistore.NewGitAdder("")
+	if err := config.BootstrapSystem(createSamples, gitAdd); err != nil {
 		_, _ = fmt.Fprintf(os.Stderr, "error: bootstrap: %v\n", err)
 		return exitStartupFailure
 	}
