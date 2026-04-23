@@ -54,6 +54,9 @@ func ResetRegistriesLoadedForTest() {
 // workflow-registry-based sections (statuses, types, custom fields) from
 // workflow.yaml files. Callers must build a fresh ruki.Schema after this returns.
 func LoadWorkflowRegistries() error {
+	if err := checkWorkflowFileVersion(); err != nil {
+		return err
+	}
 	if err := LoadStatusRegistry(); err != nil {
 		return err
 	}
