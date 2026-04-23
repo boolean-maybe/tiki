@@ -65,13 +65,31 @@ type Result struct {
 // Bootstrap orchestrates the complete application initialization sequence.
 // It takes the embedded AI skill content and returns all initialized components.
 func Bootstrap(tikiSkillContent, dokiSkillContent string) (*Result, error) {
-	// Phase 1: Pre-flight checks
-	if err := EnsureGitRepo(); err != nil {
+	// Phase 0: Configuration and logging — loaded first so store.git and store.name
+	// are available before any git checks or side effects.
+	cfg, err := LoadConfig()
+	if err != nil {
 		return nil, err
+	}
+	logLevel := InitLogging(cfg)
+
+	// Phase 0.5: Validate store backend before any side effects
+	if name := config.GetStoreName(); name != "tiki" {
+		return nil, fmt.Errorf("unknown store backend: %q (supported: tiki)", name)
+	}
+
+	// Phase 1: Pre-flight git check (skipped when git is disabled)
+	if config.GetStoreGit() {
+		if err := EnsureGitRepo(); err != nil {
+			return nil, err
+		}
 	}
 
 	// Phase 2: Project initialization (creates dirs and seeds sample files)
-	gitAdd := tikistore.NewGitAdder("")
+	var gitAdd func(...string) error
+	if config.GetStoreGit() {
+		gitAdd = tikistore.NewGitAdder("")
+	}
 	proceed, err := EnsureProjectInitialized(tikiSkillContent, dokiSkillContent, gitAdd)
 	if err != nil {
 		return nil, err
@@ -94,13 +112,6 @@ func Bootstrap(tikiSkillContent, dokiSkillContent string) (*Result, error) {
 
 	// Phase 2.8: Resolve workflow file location for statusline and edit action
 	workflowPath, workflowScope := config.FindWorkflowFileWithScope()
-
-	// Phase 3: Configuration and logging
-	cfg, err := LoadConfig()
-	if err != nil {
-		return nil, err
-	}
-	logLevel := InitLogging(cfg)
 
 	// Phase 3.5: System information collection and gradient support initialization
 	// Collect early (before app creation) using terminfo lookup for future visual adjustments
@@ -133,8 +144,11 @@ func Bootstrap(tikiSkillContent, dokiSkillContent string) (*Result, error) {
 	pluginConfigs, pluginDefs := BuildPluginConfigsAndDefs(plugins)
 
 	// Phase 6.5: Trigger system
-	userName, _, _ := taskStore.GetCurrentUser()
-	triggerEngine, triggerCount, err := service.LoadAndRegisterTriggers(gate, schema, func() string { return userName })
+	var userFunc func() string
+	if userName, _, _ := taskStore.GetCurrentUser(); userName != "" {
+		userFunc = func() string { return userName }
+	}
+	triggerEngine, triggerCount, err := service.LoadAndRegisterTriggers(gate, schema, userFunc)
 	if err != nil {
 		return nil, fmt.Errorf("load triggers: %w", err)
 	}

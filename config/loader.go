@@ -56,6 +56,12 @@ type Config struct {
 	AI struct {
 		Agent string `mapstructure:"agent"`
 	} `mapstructure:"ai"`
+
+	// Store backend configuration
+	Store struct {
+		Name string `mapstructure:"name"` // backend name — only "tiki" supported
+		Git  bool   `mapstructure:"git"`  // false disables all git operations at runtime
+	} `mapstructure:"store"`
 }
 
 var appConfig *Config
@@ -129,6 +135,10 @@ func setDefaults() {
 	viper.SetDefault("appearance.theme", "auto")
 	viper.SetDefault("appearance.gradientThreshold", 256)
 	// code block theme resolved dynamically in GetCodeBlockTheme()
+
+	// Store defaults
+	viper.SetDefault("store.name", "tiki")
+	viper.SetDefault("store.git", true)
 }
 
 // bindFlags binds supported command line flags to viper so they can override config values.
@@ -344,4 +354,23 @@ func GetCodeBlockBorder() string {
 // GetAIAgent returns the configured AI agent tool name, or empty string if not configured
 func GetAIAgent() string {
 	return viper.GetString("ai.agent")
+}
+
+// GetStoreName returns the configured store backend name.
+// Returns "tiki" when config hasn't been loaded yet (safe default for test helpers).
+func GetStoreName() string {
+	if appConfig != nil && appConfig.Store.Name != "" {
+		return appConfig.Store.Name
+	}
+	return "tiki"
+}
+
+// GetStoreGit returns whether git integration is enabled.
+// Returns true when config hasn't been loaded yet (safe default for test helpers
+// that call NewTikiStore directly without LoadConfig).
+func GetStoreGit() bool {
+	if appConfig != nil {
+		return appConfig.Store.Git
+	}
+	return true
 }

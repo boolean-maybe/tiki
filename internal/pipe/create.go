@@ -74,8 +74,14 @@ func CreateTaskFromReader(r io.Reader) (string, error) {
 
 	title, description := parseInput(input)
 
-	if err := bootstrap.EnsureGitRepo(); err != nil {
-		return "", err
+	if _, err := config.LoadConfig(); err != nil {
+		return "", fmt.Errorf("load config: %w", err)
+	}
+
+	if config.GetStoreGit() {
+		if err := bootstrap.EnsureGitRepo(); err != nil {
+			return "", err
+		}
 	}
 
 	if !config.IsProjectInitialized() {
@@ -97,8 +103,11 @@ func CreateTaskFromReader(r io.Reader) (string, error) {
 
 	// load triggers so piped creates fire them
 	schema := rukiRuntime.NewSchema()
-	userName, _, _ := taskStore.GetCurrentUser()
-	if _, _, loadErr := service.LoadAndRegisterTriggers(gate, schema, func() string { return userName }); loadErr != nil {
+	var userFunc func() string
+	if userName, _, _ := taskStore.GetCurrentUser(); userName != "" {
+		userFunc = func() string { return userName }
+	}
+	if _, _, loadErr := service.LoadAndRegisterTriggers(gate, schema, userFunc); loadErr != nil {
 		return "", fmt.Errorf("load triggers: %w", loadErr)
 	}
 

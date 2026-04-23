@@ -68,12 +68,12 @@ func TestNewExecutorNilUserFunc(t *testing.T) {
 			},
 		},
 	}
-	result, err := e.Execute(stmt, tasks)
-	if err != nil {
-		t.Fatalf("execute: %v", err)
+	_, err := e.Execute(stmt, tasks)
+	if err == nil {
+		t.Fatal("expected error when user() called with nil userFunc")
 	}
-	if len(result.Select.Tasks) != 1 {
-		t.Fatalf("expected 1 task (empty assignee matches empty user()), got %d", len(result.Select.Tasks))
+	if !strings.Contains(err.Error(), "user() is unavailable") {
+		t.Fatalf("expected 'user() is unavailable' error, got: %v", err)
 	}
 }
 

@@ -28,8 +28,11 @@ type pluginBase struct {
 
 // newExecutor creates a ruki executor configured for plugin runtime.
 func (pb *pluginBase) newExecutor() *ruki.Executor {
-	userName := getCurrentUserName(pb.taskStore)
-	return ruki.NewExecutor(pb.schema, func() string { return userName },
+	var userFunc func() string
+	if userName := getCurrentUserName(pb.taskStore); userName != "" {
+		userFunc = func() string { return userName }
+	}
+	return ruki.NewExecutor(pb.schema, userFunc,
 		ruki.ExecutorRuntime{Mode: ruki.ExecutorRuntimePlugin})
 }
 
