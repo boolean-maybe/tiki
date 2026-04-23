@@ -47,7 +47,7 @@ func runWorkflowReset(args []string) int {
 
 	target := config.ResetTarget(positional)
 	if !config.ValidResetTarget(target) {
-		_, _ = fmt.Fprintf(os.Stderr, "error: unknown target: %q (use config, workflow, or new)\n", positional)
+		_, _ = fmt.Fprintf(os.Stderr, "error: unknown target: %q (use config or workflow)\n", positional)
 		printWorkflowResetUsage()
 		return exitUsage
 	}
@@ -213,7 +213,6 @@ Reset configuration files to their defaults.
 Targets (omit to reset all):
   config     Reset config.yaml
   workflow   Reset workflow.yaml
-  new        Reset new.md (task template)
 
 Scopes (default: --local):
   --global   User config directory
@@ -226,8 +225,8 @@ func printWorkflowInstallUsage() {
 	fmt.Print(`Usage: tiki workflow install <name> [--scope]
 
 Install a named workflow from the tiki repository.
-Downloads workflow.yaml and new.md into the scope directory,
-overwriting any existing files.
+Downloads workflow.yaml into the scope directory,
+overwriting any existing file.
 
 Scopes (default: --local):
   --global   User config directory

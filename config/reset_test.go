@@ -35,17 +35,16 @@ func writeTestFile(t *testing.T, path, content string) {
 func TestResetConfig_GlobalAll(t *testing.T) {
 	tikiDir := setupResetTest(t)
 
-	// seed all three files with custom content
+	// seed files with custom content
 	writeTestFile(t, filepath.Join(tikiDir, "config.yaml"), "logging:\n  level: debug\n")
 	writeTestFile(t, filepath.Join(tikiDir, "workflow.yaml"), "custom: true\n")
-	writeTestFile(t, filepath.Join(tikiDir, "new.md"), "custom template\n")
 
 	affected, err := ResetConfig(ScopeGlobal, TargetAll)
 	if err != nil {
 		t.Fatalf("ResetConfig() error = %v", err)
 	}
-	if len(affected) != 3 {
-		t.Fatalf("expected 3 affected files, got %d: %v", len(affected), affected)
+	if len(affected) != 2 {
+		t.Fatalf("expected 2 affected files, got %d: %v", len(affected), affected)
 	}
 
 	// config.yaml should be deleted (no embedded default)
@@ -61,15 +60,6 @@ func TestResetConfig_GlobalAll(t *testing.T) {
 	if string(got) != GetDefaultWorkflowYAML() {
 		t.Error("workflow.yaml does not match embedded default after global reset")
 	}
-
-	// new.md should contain embedded default
-	got, err = os.ReadFile(filepath.Join(tikiDir, "new.md"))
-	if err != nil {
-		t.Fatalf("read new.md: %v", err)
-	}
-	if string(got) != GetDefaultNewTaskTemplate() {
-		t.Error("new.md does not match embedded default after global reset")
-	}
 }
 
 func TestResetConfig_GlobalSingleTarget(t *testing.T) {
@@ -80,7 +70,6 @@ func TestResetConfig_GlobalSingleTarget(t *testing.T) {
 	}{
 		{TargetConfig, "config.yaml", true},
 		{TargetWorkflow, "workflow.yaml", false},
-		{TargetNew, "new.md", false},
 	}
 
 	for _, tt := range tests {
@@ -127,7 +116,6 @@ func TestResetConfig_LocalDeletesFiles(t *testing.T) {
 	// seed project config files
 	writeTestFile(t, filepath.Join(docDir, "config.yaml"), "custom\n")
 	writeTestFile(t, filepath.Join(docDir, "workflow.yaml"), "custom\n")
-	writeTestFile(t, filepath.Join(docDir, "new.md"), "custom\n")
 
 	// also write global defaults so we can verify local doesn't overwrite
 	writeTestFile(t, filepath.Join(tikiDir, "workflow.yaml"), "global\n")
@@ -136,12 +124,12 @@ func TestResetConfig_LocalDeletesFiles(t *testing.T) {
 	if err != nil {
 		t.Fatalf("ResetConfig() error = %v", err)
 	}
-	if len(affected) != 3 {
-		t.Fatalf("expected 3 affected files, got %d: %v", len(affected), affected)
+	if len(affected) != 2 {
+		t.Fatalf("expected 2 affected files, got %d: %v", len(affected), affected)
 	}
 
 	// all project files should be deleted
-	for _, name := range []string{"config.yaml", "workflow.yaml", "new.md"} {
+	for _, name := range []string{"config.yaml", "workflow.yaml"} {
 		if _, err := os.Stat(filepath.Join(docDir, name)); !os.IsNotExist(err) {
 			t.Errorf("project %s should be deleted after local reset", name)
 		}
@@ -234,7 +222,7 @@ func TestResetConfig_GlobalSkipsWhenAlreadyDefault(t *testing.T) {
 }
 
 func TestValidResetTarget(t *testing.T) {
-	valid := []ResetTarget{TargetAll, TargetConfig, TargetWorkflow, TargetNew}
+	valid := []ResetTarget{TargetAll, TargetConfig, TargetWorkflow}
 	for _, target := range valid {
 		if !ValidResetTarget(target) {
 			t.Errorf("ValidResetTarget(%q) = false, want true", target)

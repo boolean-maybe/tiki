@@ -63,7 +63,7 @@ func AllTypes() []Type {
 	return requireTypeRegistry().Keys()
 }
 
-// DefaultType returns the first configured type, used as the creation default.
+// DefaultType returns the creation-default type (explicit default or first type).
 // Panics if registries are not loaded.
 func DefaultType() Type {
 	return requireTypeRegistry().DefaultType()

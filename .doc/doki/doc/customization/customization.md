@@ -82,27 +82,36 @@ Each type has:
 - `label` — display name shown in the UI (defaults to key when omitted)
 - `emoji` — emoji shown alongside the label
 
-The first configured type is used as the default for new tikis.
+Mark one type `default: true` to use it as the creation default for new tikis.
+If no type is marked, the first configured type wins.
 
-## Task Template
+## Task Creation Defaults
 
-When you create a new tiki — whether in the TUI or command line — field defaults come from a template file. 
-Place `new.md` in your config directory to override the built-in defaults
-The file uses YAML frontmatter for field defaults
+When you create a new tiki, field defaults come from two sources:
 
-### Built-in default
+**Built-in defaults** (hardcoded, not configurable):
+- `priority` = 3
+- `points` = 1
+- `tags` = `["idea"]`
 
-```markdown
----
-title:
-points: 1
-priority: 3
-tags:
-    - idea
----
+**Workflow defaults** (configurable in `workflow.yaml`):
+- `status` — the status marked `default: true`
+- `type` — the type marked `default: true`, or the first type if none is marked
+- custom fields — any field with a `default:` value (see [Custom fields](custom-fields.md))
+
+```yaml
+types:
+  - key: bug
+    label: Bug
+    emoji: "🐛"
+    default: true
+
+fields:
+  - name: severity
+    type: enum
+    values: [critical, high, medium, low]
+    default: medium
 ```
-
-Type and status are omitted but can be added, otherwise they default to the first configured type and the status marked `default: true`.
 
 ## Plugins
 

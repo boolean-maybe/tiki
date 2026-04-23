@@ -9,6 +9,7 @@ import (
 	"github.com/boolean-maybe/tiki/config"
 	"github.com/boolean-maybe/tiki/store/internal/git"
 	"github.com/boolean-maybe/tiki/task"
+	"github.com/boolean-maybe/tiki/workflow"
 )
 
 // InMemoryStore is an in-memory implementation of Store.
@@ -245,19 +246,40 @@ func (s *InMemoryStore) NewTaskTemplate() (*task.Task, error) {
 	}
 
 	t := &task.Task{
-		ID:           taskID,
-		Title:        "",
-		Description:  "",
-		Type:         task.DefaultType(),
-		Status:       task.DefaultStatus(),
-		Priority:     3,
-		Points:       1,
-		Tags:         []string{"idea"},
-		CustomFields: make(map[string]interface{}),
-		CreatedAt:    time.Now(),
-		CreatedBy:    "memory-user",
+		ID:        taskID,
+		Type:      task.DefaultType(),
+		Status:    task.DefaultStatus(),
+		Priority:  3,
+		Points:    1,
+		Tags:      []string{"idea"},
+		CreatedAt: time.Now(),
+		CreatedBy: "memory-user",
 	}
+
+	t.CustomFields = buildMemoryFieldDefaults()
+
 	return t, nil
+}
+
+// buildMemoryFieldDefaults collects DefaultValue from custom field defs.
+func buildMemoryFieldDefaults() map[string]interface{} {
+	var defaults map[string]interface{}
+	for _, fd := range workflow.Fields() {
+		if !fd.Custom || fd.DefaultValue == nil {
+			continue
+		}
+		if defaults == nil {
+			defaults = make(map[string]interface{})
+		}
+		if ss, ok := fd.DefaultValue.([]string); ok {
+			cp := make([]string, len(ss))
+			copy(cp, ss)
+			defaults[fd.Name] = cp
+		} else {
+			defaults[fd.Name] = fd.DefaultValue
+		}
+	}
+	return defaults
 }
 
 // ensure InMemoryStore implements Store

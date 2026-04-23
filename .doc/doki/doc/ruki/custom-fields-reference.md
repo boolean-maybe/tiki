@@ -104,11 +104,12 @@ If a value cannot be coerced to the field's current type (e.g. a text value `"no
 
 tiki reads leniently and writes strictly. On load, unrecognized or incompatible values are preserved rather than rejected. On save, values are validated against the current schema.
 
-## Template defaults
+## Field defaults
 
-Custom fields in `new.md` templates follow the same coercion and validation rules as task files. If a template contains a value that cannot be coerced (e.g. a type mismatch), the invalid field is dropped with a warning and the template otherwise loads normally.
-
-Template custom field values are copied into new tasks created via `create` statements or the new-task UI flow.
+Custom fields can declare a `default:` value in `workflow.yaml`. Default values are validated
+against the field's type and enum constraints during workflow load — invalid defaults are hard
+errors. Valid defaults are copied into new tasks created via `create` statements or the
+new-task UI flow. Fields without a `default:` key start empty.
 
 ## Query behavior
 

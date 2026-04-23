@@ -77,17 +77,16 @@ Reset configuration files to their defaults.
 tiki workflow reset [target] [--scope]
 ```
 
-**Targets** (omit to reset all three files):
+**Targets** (omit to reset all files):
 - `config` — config.yaml
 - `workflow` — workflow.yaml
-- `new` — new.md (task template)
 
 **Scopes** (default: `--local`):
 - `--global` — user config directory
 - `--local` — project config directory (`.doc/`)
 - `--current` — current working directory
 
-For `--global`, workflow.yaml and new.md are overwritten with defaults. config.yaml is deleted (built-in defaults take over).
+For `--global`, workflow.yaml is overwritten with the default. config.yaml is deleted (built-in defaults take over).
 
 For `--local` and `--current`, files are deleted so the next tier in the [precedence chain](config.md#precedence) takes effect.
 
@@ -104,7 +103,7 @@ tiki workflow reset config --current
 
 #### workflow install
 
-Install a named workflow from the tiki repository. Downloads `workflow.yaml` and `new.md` into the scope directory, overwriting any existing files.
+Install a named workflow from the tiki repository. Downloads `workflow.yaml` into the scope directory, overwriting any existing file.
 
 ```bash
 tiki workflow install <name> [--scope]

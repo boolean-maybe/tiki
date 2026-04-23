@@ -30,9 +30,6 @@ var roadmapNextSample string
 //go:embed roadmap_later_sample.md
 var roadmapLaterSample string
 
-//go:embed new.md
-var defaultNewTaskTemplate string
-
 //go:embed index.md
 var dokiEntryPoint string
 
@@ -175,11 +172,6 @@ func BootstrapSystem(createSamples bool, gitAdd func(...string) error) error {
 	}
 
 	return nil
-}
-
-// GetDefaultNewTaskTemplate returns the embedded new.md template
-func GetDefaultNewTaskTemplate() string {
-	return defaultNewTaskTemplate
 }
 
 // GetDefaultWorkflowYAML returns the embedded default workflow.yaml content

@@ -4,7 +4,6 @@
 
 - `config-dir/config.yaml` main configuration file
 - `config-dir/workflow.yaml` plugins/view configuration
-- `config-dir/new.md` new tiki template - will be used when a new tiki is created
 
 ## Configuration directories
 
@@ -18,7 +17,6 @@
 Files stored here:
 - `config.yaml` - User-global configuration
 - `workflow.yaml` - Statuses and plugin/view definitions
-- `new.md` - Custom task template
 
 **Environment Variables**:
 - `XDG_CONFIG_HOME` - Override config directory location (all platforms)
@@ -45,12 +43,6 @@ The single highest-priority file wins — no merging across files. This means ea
 The single highest-priority `config.yaml` found is loaded. Values not specified in that file fall back to built-in defaults (not inherited from lower-priority files).
 
 Search order: user config dir → `.doc/config.yaml` (project) → cwd. Last match wins.
-
-### new.md (task template)
-
-`new.md` follows the same pattern — the single highest-priority file found wins. If a project provides `.doc/new.md`, it completely replaces the user-level template. If no `new.md` is found anywhere, a built-in embedded template is used.
-
-Search order: user config dir → `.doc/new.md` (project) → cwd. Last match wins.
 
 ### workflow.yaml
 

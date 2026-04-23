@@ -7,6 +7,7 @@ import (
 	"sort"
 	"strings"
 	"sync/atomic"
+	"time"
 
 	"github.com/boolean-maybe/tiki/workflow"
 	"gopkg.in/yaml.v3"
@@ -14,9 +15,10 @@ import (
 
 // customFieldYAML represents a single field entry in the workflow.yaml fields: section.
 type customFieldYAML struct {
-	Name   string   `yaml:"name"`
-	Type   string   `yaml:"type"`
-	Values []string `yaml:"values,omitempty"` // enum only
+	Name    string      `yaml:"name"`
+	Type    string      `yaml:"type"`
+	Values  []string    `yaml:"values,omitempty"`  // enum only
+	Default interface{} `yaml:"default,omitempty"` // optional creation default
 }
 
 // customFieldFileData is the minimal YAML structure for reading fields from workflow.yaml.
@@ -164,6 +166,14 @@ func convertCustomFieldDef(def customFieldYAML) (workflow.FieldDef, error) {
 		return workflow.FieldDef{}, fmt.Errorf("values list is only valid for enum fields")
 	}
 
+	if def.Default != nil {
+		coerced, err := coerceFieldDefault(vt, def.Default, fd.AllowedValues)
+		if err != nil {
+			return workflow.FieldDef{}, fmt.Errorf("invalid default: %w", err)
+		}
+		fd.DefaultValue = coerced
+	}
+
 	return fd, nil
 }
 
@@ -186,5 +196,105 @@ func parseFieldType(s string) (workflow.ValueType, error) {
 		return workflow.TypeListRef, nil
 	default:
 		return 0, fmt.Errorf("unknown field type %q (valid: text, integer, boolean, datetime, enum, stringList, taskIdList)", s)
+	}
+}
+
+// coerceFieldDefault validates and coerces a raw YAML default value to the
+// expected Go type for the given field type. Returns an error if the value
+// is incompatible.
+func coerceFieldDefault(vt workflow.ValueType, raw interface{}, allowed []string) (interface{}, error) {
+	switch vt {
+	case workflow.TypeString:
+		s, ok := raw.(string)
+		if !ok {
+			return nil, fmt.Errorf("expected string, got %T", raw)
+		}
+		return s, nil
+
+	case workflow.TypeInt:
+		switch v := raw.(type) {
+		case int:
+			return v, nil
+		case float64:
+			if v != float64(int(v)) {
+				return nil, fmt.Errorf("expected integer, got float %v", v)
+			}
+			return int(v), nil
+		default:
+			return nil, fmt.Errorf("expected integer, got %T", raw)
+		}
+
+	case workflow.TypeBool:
+		b, ok := raw.(bool)
+		if !ok {
+			return nil, fmt.Errorf("expected boolean, got %T", raw)
+		}
+		return b, nil
+
+	case workflow.TypeTimestamp:
+		s, ok := raw.(string)
+		if !ok {
+			return nil, fmt.Errorf("expected datetime string, got %T", raw)
+		}
+		if t, err := time.Parse(time.RFC3339, s); err == nil {
+			return t, nil
+		}
+		if t, err := time.Parse("2006-01-02", s); err == nil {
+			return t, nil
+		}
+		return nil, fmt.Errorf("cannot parse timestamp %q (expected RFC3339 or YYYY-MM-DD)", s)
+
+	case workflow.TypeEnum:
+		s, ok := raw.(string)
+		if !ok {
+			return nil, fmt.Errorf("expected string, got %T", raw)
+		}
+		for _, v := range allowed {
+			if v == s {
+				return s, nil
+			}
+		}
+		return nil, fmt.Errorf("value %q not in allowed values %v", s, allowed)
+
+	case workflow.TypeListString:
+		return coerceStringList(raw)
+
+	case workflow.TypeListRef:
+		ss, err := coerceStringList(raw)
+		if err != nil {
+			return nil, err
+		}
+		filtered := make([]string, 0, len(ss))
+		for _, s := range ss {
+			s = strings.ToUpper(strings.TrimSpace(s))
+			if s != "" {
+				filtered = append(filtered, s)
+			}
+		}
+		return filtered, nil
+
+	default:
+		return nil, fmt.Errorf("default values not supported for field type %d", vt)
+	}
+}
+
+func coerceStringList(raw interface{}) ([]string, error) {
+	switch v := raw.(type) {
+	case []interface{}:
+		result := make([]string, 0, len(v))
+		for i, item := range v {
+			s, ok := item.(string)
+			if !ok {
+				return nil, fmt.Errorf("element %d: expected string, got %T", i, item)
+			}
+			result = append(result, s)
+		}
+		return result, nil
+	case []string:
+		cp := make([]string, len(v))
+		copy(cp, v)
+		return cp, nil
+	default:
+		return nil, fmt.Errorf("expected list, got %T", raw)
 	}
 }

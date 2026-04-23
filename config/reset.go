@@ -21,7 +21,6 @@ const (
 	TargetAll      ResetTarget = ""
 	TargetConfig   ResetTarget = "config"
 	TargetWorkflow ResetTarget = "workflow"
-	TargetNew      ResetTarget = "new"
 )
 
 // resetEntry pairs a filename with the default content to restore for global scope.
@@ -35,7 +34,6 @@ var resetEntries = []resetEntry{
 	// TODO: embed a default config.yaml once one exists; until then, global reset deletes the file
 	{filename: configFilename, defaultContent: ""},
 	{filename: defaultWorkflowFilename, defaultContent: defaultWorkflowYAML},
-	{filename: templateFilename, defaultContent: defaultNewTaskTemplate},
 }
 
 // ResetConfig resets configuration files for the given scope and target.
@@ -90,7 +88,7 @@ func resolveDir(scope Scope) (string, error) {
 // ValidResetTarget reports whether target is a recognized reset target.
 func ValidResetTarget(target ResetTarget) bool {
 	switch target {
-	case TargetAll, TargetConfig, TargetWorkflow, TargetNew:
+	case TargetAll, TargetConfig, TargetWorkflow:
 		return true
 	default:
 		return false
@@ -108,10 +106,8 @@ func filterEntries(target ResetTarget) ([]resetEntry, error) {
 		filename = configFilename
 	case TargetWorkflow:
 		filename = defaultWorkflowFilename
-	case TargetNew:
-		filename = templateFilename
 	default:
-		return nil, fmt.Errorf("unknown target: %q (use config, workflow, or new)", target)
+		return nil, fmt.Errorf("unknown target: %q (use config or workflow)", target)
 	}
 	for _, e := range resetEntries {
 		if e.filename == filename {

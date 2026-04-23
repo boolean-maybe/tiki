@@ -34,7 +34,6 @@ type InstallResult struct {
 
 var installFiles = []string{
 	defaultWorkflowFilename,
-	templateFilename,
 }
 
 // InstallWorkflow fetches a named workflow from baseURL and writes its files

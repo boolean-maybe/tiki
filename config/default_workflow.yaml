@@ -1,4 +1,4 @@
-version: 0.5.2
+version: 0.5.3
 description: |
   Default tiki workflow. A lightweight kanban-style flow with
   Backlog → Ready → In Progress → Review → Done, plus Story / Bug / Spike / Epic task types.

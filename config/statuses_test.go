@@ -755,6 +755,61 @@ statuses:
 	}
 }
 
+func TestLoadTypesFromFile_DefaultTrue(t *testing.T) {
+	dir := t.TempDir()
+	f := writeTempWorkflow(t, dir, `
+types:
+  - key: story
+    label: Story
+  - key: bug
+    label: Bug
+    default: true
+`)
+	reg, present, err := loadTypesFromFile(f)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !present {
+		t.Fatal("expected present=true")
+	}
+	if got := reg.DefaultType(); got != "bug" {
+		t.Errorf("DefaultType() = %q, want %q", got, "bug")
+	}
+}
+
+func TestLoadTypesFromFile_MultipleDefaultsRejected(t *testing.T) {
+	dir := t.TempDir()
+	f := writeTempWorkflow(t, dir, `
+types:
+  - key: story
+    label: Story
+    default: true
+  - key: bug
+    label: Bug
+    default: true
+`)
+	_, _, err := loadTypesFromFile(f)
+	if err == nil {
+		t.Fatal("expected error for multiple default types")
+	}
+}
+
+func TestLoadTypesFromFile_NonBoolDefaultRejected(t *testing.T) {
+	dir := t.TempDir()
+	f := writeTempWorkflow(t, dir, `
+types:
+  - key: story
+    label: Story
+    default: "true"
+  - key: bug
+    label: Bug
+`)
+	_, _, err := loadTypesFromFile(f)
+	if err == nil {
+		t.Fatal("expected error for non-bool default value")
+	}
+}
+
 func TestResetTypeRegistry(t *testing.T) {
 	setupTestRegistry(t, defaultTestStatuses())
 

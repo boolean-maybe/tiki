@@ -181,11 +181,6 @@ func (pm *PathManager) UserConfigWorkflowFile() string {
 	return filepath.Join(pm.configDir, defaultWorkflowFilename)
 }
 
-// TemplateFile returns the path to the user's custom new.md template
-func (pm *PathManager) TemplateFile() string {
-	return filepath.Join(pm.configDir, "new.md")
-}
-
 // EnsureDirs creates all necessary directories with appropriate permissions
 func (pm *PathManager) EnsureDirs() error {
 	// Create user config directory
@@ -328,9 +323,6 @@ const configFilename = "config.yaml"
 // defaultWorkflowFilename is the default name for the workflow configuration file
 const defaultWorkflowFilename = "workflow.yaml"
 
-// templateFilename is the default name for the task template file
-const templateFilename = "new.md"
-
 // findHighestPriorityFile returns the highest-priority existing file from
 // the standard search order: user config → project config → cwd.
 // The last existing (deduplicated) candidate wins.
@@ -433,40 +425,6 @@ func WorkflowScopeLabel(scope Scope) string {
 	default:
 		return string(scope)
 	}
-}
-
-// FindTemplateFile returns the highest-priority new.md file that exists,
-// searching user config → .doc/ (project) → cwd. Returns empty string if
-// none found, in which case the caller should fall back to the embedded template.
-func FindTemplateFile() string {
-	pm := mustGetPathManager()
-
-	// candidate paths in discovery order: user config (base) → project → cwd (highest)
-	candidates := []string{
-		pm.TemplateFile(),
-		filepath.Join(pm.ProjectConfigDir(), templateFilename),
-		templateFilename,
-	}
-
-	var best string
-	seen := make(map[string]bool)
-
-	for _, path := range candidates {
-		abs, err := filepath.Abs(path)
-		if err != nil {
-			abs = path
-		}
-		if seen[abs] {
-			continue
-		}
-		if _, err := os.Stat(path); err != nil {
-			continue
-		}
-		seen[abs] = true
-		best = path
-	}
-
-	return best
 }
 
 // EnsureDirs creates all necessary directories with appropriate permissions

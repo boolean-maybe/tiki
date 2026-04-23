@@ -1,4 +1,4 @@
-version: 0.5.2
+version: 0.5.3
 description: |
   Bug tracker for triaging and resolving customer-reported issues.
   Six statuses (Open → Triaged → In Progress → In Review → Verified, plus Won't Fix),
@@ -8,6 +8,7 @@ fields:
   - name: severity
     type: enum
     values: [critical, high, medium, low]
+    default: medium
   - name: environment
     type: enum
     values: [prod, staging, dev]
@@ -19,8 +20,10 @@ fields:
     type: datetime
   - name: regression
     type: boolean
+    default: false
   - name: escalations
     type: integer
+    default: 0
 
 statuses:
   - key: open
@@ -51,6 +54,7 @@ types:
   - key: bug
     label: Bug
     emoji: "\U0001F41B"
+    default: true
   - key: regression
     label: Regression
     emoji: "\U0001F501"
