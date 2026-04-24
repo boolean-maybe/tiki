@@ -469,7 +469,7 @@ understand how they work, then add our own.
 
 ### Understanding a shipped trigger
 
-Here is one from the default workflow:
+Here is one from the bundled kanban workflow:
 
 ```yaml
 - description: tasks must pass through review before completion

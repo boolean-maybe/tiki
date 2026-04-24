@@ -33,7 +33,7 @@ type resetEntry struct {
 var resetEntries = []resetEntry{
 	// TODO: embed a default config.yaml once one exists; until then, global reset deletes the file
 	{filename: configFilename, defaultContent: ""},
-	{filename: defaultWorkflowFilename, defaultContent: defaultWorkflowYAML},
+	{filename: defaultWorkflowFilename, defaultContent: embeddedKanbanYAML},
 }
 
 // ResetConfig resets configuration files for the given scope and target.
@@ -62,6 +62,11 @@ func ResetConfig(scope Scope, target ResetTarget) ([]string, error) {
 	}
 
 	return affected, nil
+}
+
+// ResolveDir returns the directory path for the given scope.
+func ResolveDir(scope Scope) (string, error) {
+	return resolveDir(scope)
 }
 
 // resolveDir returns the directory path for the given scope.

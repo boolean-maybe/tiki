@@ -8,20 +8,33 @@ import (
 	"testing"
 )
 
-func TestInstallWorkflow_Success(t *testing.T) {
+const validTestWorkflow = `version: 0.5.3
+statuses:
+  - key: todo
+    label: Todo
+    default: true
+  - key: done
+    label: Done
+    done: true
+types:
+  - key: task
+    label: Task
+`
+
+func TestInstallWorkflow_URL(t *testing.T) {
 	tikiDir := setupResetTest(t)
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		switch r.URL.Path {
-		case "/workflows/sprint/workflow.yaml":
-			_, _ = w.Write([]byte("statuses:\n  - key: todo\n"))
-		default:
-			http.NotFound(w, r)
+		if r.URL.Path == "/workflow.yaml" {
+			_, _ = w.Write([]byte(validTestWorkflow))
+			return
 		}
+		http.NotFound(w, r)
 	}))
 	defer server.Close()
 
-	results, err := InstallWorkflow("sprint", ScopeGlobal, server.URL)
+	src := WorkflowSource{Kind: WorkflowSourceURL, Name: server.URL + "/workflow.yaml"}
+	results, err := InstallWorkflow(src, ScopeGlobal)
 	if err != nil {
 		t.Fatalf("InstallWorkflow() error = %v", err)
 	}
@@ -36,8 +49,56 @@ func TestInstallWorkflow_Success(t *testing.T) {
 	if err != nil {
 		t.Fatalf("read workflow.yaml: %v", err)
 	}
-	if string(got) != "statuses:\n  - key: todo\n" {
-		t.Errorf("workflow.yaml content = %q", string(got))
+	if string(got) != validTestWorkflow {
+		t.Errorf("workflow.yaml content mismatch")
+	}
+}
+
+func TestInstallWorkflow_Embedded(t *testing.T) {
+	tikiDir := setupResetTest(t)
+
+	src := WorkflowSource{Kind: WorkflowSourceEmbedded, Name: "todo"}
+	results, err := InstallWorkflow(src, ScopeGlobal)
+	if err != nil {
+		t.Fatalf("InstallWorkflow() error = %v", err)
+	}
+	if len(results) != 1 {
+		t.Fatalf("expected 1 result, got %d", len(results))
+	}
+	if !results[0].Changed {
+		t.Errorf("expected file to be changed on fresh install")
+	}
+
+	got, err := os.ReadFile(filepath.Join(tikiDir, "workflow.yaml"))
+	if err != nil {
+		t.Fatalf("read workflow.yaml: %v", err)
+	}
+	embedded, _ := LookupEmbeddedWorkflow("todo")
+	if string(got) != embedded {
+		t.Errorf("installed content does not match embedded todo workflow")
+	}
+}
+
+func TestInstallWorkflow_File(t *testing.T) {
+	tikiDir := setupResetTest(t)
+
+	srcFile := filepath.Join(t.TempDir(), "custom.yaml")
+	if err := os.WriteFile(srcFile, []byte(validTestWorkflow), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	src := WorkflowSource{Kind: WorkflowSourceFile, Name: srcFile}
+	results, err := InstallWorkflow(src, ScopeGlobal)
+	if err != nil {
+		t.Fatalf("InstallWorkflow() error = %v", err)
+	}
+	if !results[0].Changed {
+		t.Errorf("expected file to be changed")
+	}
+
+	got, _ := os.ReadFile(filepath.Join(tikiDir, "workflow.yaml"))
+	if string(got) != validTestWorkflow {
+		t.Errorf("workflow.yaml content mismatch")
 	}
 }
 
@@ -49,11 +110,12 @@ func TestInstallWorkflow_Overwrites(t *testing.T) {
 	}
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		_, _ = w.Write([]byte("new content"))
+		_, _ = w.Write([]byte(validTestWorkflow))
 	}))
 	defer server.Close()
 
-	results, err := InstallWorkflow("sprint", ScopeGlobal, server.URL)
+	src := WorkflowSource{Kind: WorkflowSourceURL, Name: server.URL + "/workflow.yaml"}
+	results, err := InstallWorkflow(src, ScopeGlobal)
 	if err != nil {
 		t.Fatalf("InstallWorkflow() error = %v", err)
 	}
@@ -64,20 +126,58 @@ func TestInstallWorkflow_Overwrites(t *testing.T) {
 	}
 
 	got, _ := os.ReadFile(filepath.Join(tikiDir, "workflow.yaml"))
-	if string(got) != "new content" {
-		t.Errorf("workflow.yaml not overwritten: %q", string(got))
+	if string(got) != validTestWorkflow {
+		t.Errorf("workflow.yaml not overwritten")
 	}
 }
 
-func TestInstallWorkflow_NotFound(t *testing.T) {
+func TestInstallWorkflow_URLNotFound(t *testing.T) {
 	_ = setupResetTest(t)
 
 	server := httptest.NewServer(http.NotFoundHandler())
 	defer server.Close()
 
-	_, err := InstallWorkflow("nonexistent", ScopeGlobal, server.URL)
+	src := WorkflowSource{Kind: WorkflowSourceURL, Name: server.URL + "/workflow.yaml"}
+	_, err := InstallWorkflow(src, ScopeGlobal)
 	if err == nil {
-		t.Fatal("expected error for nonexistent workflow, got nil")
+		t.Fatal("expected error for URL not found, got nil")
+	}
+}
+
+func TestInstallWorkflow_UnknownEmbedded(t *testing.T) {
+	_ = setupResetTest(t)
+
+	src := WorkflowSource{Kind: WorkflowSourceEmbedded, Name: "nonexistent"}
+	_, err := InstallWorkflow(src, ScopeGlobal)
+	if err == nil {
+		t.Fatal("expected error for unknown embedded workflow, got nil")
+	}
+}
+
+func TestInstallWorkflow_MissingFile(t *testing.T) {
+	_ = setupResetTest(t)
+
+	src := WorkflowSource{Kind: WorkflowSourceFile, Name: "/tmp/does-not-exist-workflow.yaml"}
+	_, err := InstallWorkflow(src, ScopeGlobal)
+	if err == nil {
+		t.Fatal("expected error for missing file, got nil")
+	}
+}
+
+func TestInstallWorkflowFromContent(t *testing.T) {
+	tikiDir := setupResetTest(t)
+
+	results, err := InstallWorkflowFromContent("test content", ScopeGlobal)
+	if err != nil {
+		t.Fatalf("InstallWorkflowFromContent() error = %v", err)
+	}
+	if !results[0].Changed {
+		t.Error("expected file to be changed")
+	}
+
+	got, _ := os.ReadFile(filepath.Join(tikiDir, "workflow.yaml"))
+	if string(got) != "test content" {
+		t.Errorf("workflow.yaml = %q, want %q", got, "test content")
 	}
 }
 
@@ -85,15 +185,16 @@ func TestInstallWorkflow_AlreadyUpToDate(t *testing.T) {
 	_ = setupResetTest(t)
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		_, _ = w.Write([]byte("same content"))
+		_, _ = w.Write([]byte(validTestWorkflow))
 	}))
 	defer server.Close()
 
-	if _, err := InstallWorkflow("sprint", ScopeGlobal, server.URL); err != nil {
+	src := WorkflowSource{Kind: WorkflowSourceURL, Name: server.URL + "/workflow.yaml"}
+	if _, err := InstallWorkflow(src, ScopeGlobal); err != nil {
 		t.Fatalf("first install: %v", err)
 	}
 
-	results, err := InstallWorkflow("sprint", ScopeGlobal, server.URL)
+	results, err := InstallWorkflow(src, ScopeGlobal)
 	if err != nil {
 		t.Fatalf("second install: %v", err)
 	}
@@ -104,22 +205,11 @@ func TestInstallWorkflow_AlreadyUpToDate(t *testing.T) {
 	}
 }
 
-func TestInstallWorkflow_InvalidName(t *testing.T) {
-	_ = setupResetTest(t)
-
-	for _, name := range []string{"../../etc", "a b", "", "foo/bar", "-dash", "dot."} {
-		_, err := InstallWorkflow(name, ScopeGlobal, "http://unused")
-		if err == nil {
-			t.Errorf("expected error for name %q, got nil", name)
-		}
-	}
-}
-
-func TestDescribeWorkflow_Success(t *testing.T) {
+func TestDescribeWorkflow_URL(t *testing.T) {
 	_ = setupResetTest(t)
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path != "/workflows/sprint/workflow.yaml" {
+		if r.URL.Path != "/workflow.yaml" {
 			http.NotFound(w, r)
 			return
 		}
@@ -127,13 +217,24 @@ func TestDescribeWorkflow_Success(t *testing.T) {
 	}))
 	defer server.Close()
 
-	desc, err := DescribeWorkflow("sprint", server.URL)
+	src := WorkflowSource{Kind: WorkflowSourceURL, Name: server.URL + "/workflow.yaml"}
+	desc, err := DescribeWorkflow(src)
 	if err != nil {
 		t.Fatalf("DescribeWorkflow() error = %v", err)
 	}
 	want := "Sprint workflow.\nTwo-week cycles.\n"
 	if desc != want {
 		t.Errorf("description = %q, want %q", desc, want)
+	}
+}
+
+func TestDescribeWorkflow_Embedded(t *testing.T) {
+	desc, err := DescribeWorkflow(WorkflowSource{Kind: WorkflowSourceEmbedded, Name: "kanban"})
+	if err != nil {
+		t.Fatalf("DescribeWorkflow() error = %v", err)
+	}
+	if desc == "" {
+		t.Error("expected non-empty description for embedded kanban")
 	}
 }
 
@@ -145,7 +246,8 @@ func TestDescribeWorkflow_NoDescriptionField(t *testing.T) {
 	}))
 	defer server.Close()
 
-	desc, err := DescribeWorkflow("sprint", server.URL)
+	src := WorkflowSource{Kind: WorkflowSourceURL, Name: server.URL + "/workflow.yaml"}
+	desc, err := DescribeWorkflow(src)
 	if err != nil {
 		t.Fatalf("DescribeWorkflow() error = %v", err)
 	}
@@ -154,38 +256,15 @@ func TestDescribeWorkflow_NoDescriptionField(t *testing.T) {
 	}
 }
 
-func TestDescribeWorkflow_NotFound(t *testing.T) {
+func TestDescribeWorkflow_URLNotFound(t *testing.T) {
 	_ = setupResetTest(t)
 
 	server := httptest.NewServer(http.NotFoundHandler())
 	defer server.Close()
 
-	_, err := DescribeWorkflow("nonexistent", server.URL)
+	src := WorkflowSource{Kind: WorkflowSourceURL, Name: server.URL + "/workflow.yaml"}
+	_, err := DescribeWorkflow(src)
 	if err == nil {
-		t.Fatal("expected error for nonexistent workflow, got nil")
-	}
-}
-
-func TestDescribeWorkflow_InvalidName(t *testing.T) {
-	for _, name := range []string{"../../etc", "a b", "", "foo/bar", "-dash", "dot."} {
-		if _, err := DescribeWorkflow(name, "http://unused"); err == nil {
-			t.Errorf("expected error for name %q, got nil", name)
-		}
-	}
-}
-
-func TestInstallWorkflow_AtomicFetch(t *testing.T) {
-	tikiDir := setupResetTest(t)
-
-	server := httptest.NewServer(http.NotFoundHandler())
-	defer server.Close()
-
-	_, err := InstallWorkflow("partial", ScopeGlobal, server.URL)
-	if err == nil {
-		t.Fatal("expected error for fetch failure, got nil")
-	}
-
-	if _, statErr := os.Stat(filepath.Join(tikiDir, "workflow.yaml")); !os.IsNotExist(statErr) {
-		t.Error("workflow.yaml should not exist after fetch failure")
+		t.Fatal("expected error for URL not found, got nil")
 	}
 }

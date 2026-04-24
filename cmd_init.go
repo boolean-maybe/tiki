@@ -12,11 +12,13 @@ import (
 
 // InitOpts holds parsed arguments for the init subcommand.
 type InitOpts struct {
-	Directory      string
-	WorkflowName   string
-	AISkills       []string
-	Samples        bool
-	NonInteractive bool
+	Directory       string
+	WorkflowName    string
+	WorkflowSource  config.WorkflowSource
+	WorkflowContent string
+	AISkills        []string
+	Samples         bool
+	NonInteractive  bool
 }
 
 // parseInitArgs parses `tiki init` arguments using manual iteration
@@ -98,7 +100,7 @@ func splitAndTrim(s string) []string {
 // ensureDirectoryAndGitRepo creates the directory if it doesn't exist and
 // initializes a git repository if one isn't already present.
 func ensureDirectoryAndGitRepo(dir string) error {
-	info, err := os.Stat(dir)
+	info, err := os.Stat(dir) //nolint:gosec // G703: dir comes from filepath.Abs in parseInitArgs
 	if err != nil {
 		if !os.IsNotExist(err) {
 			return fmt.Errorf("directory %q: %w", dir, err)
@@ -121,11 +123,10 @@ func ensureDirectoryAndGitRepo(dir string) error {
 }
 
 // validateInitOpts checks that the parsed options are valid before running init.
-func validateInitOpts(opts InitOpts) error {
-	if err := ensureDirectoryAndGitRepo(opts.Directory); err != nil {
-		return err
-	}
-
+// It classifies the workflow input and stores the resolved WorkflowSource on opts
+// so that file paths survive the later os.Chdir.
+// Workflow validation runs before directory creation to avoid side effects on failure.
+func validateInitOpts(opts *InitOpts) error {
 	for _, skill := range opts.AISkills {
 		if _, ok := config.LookupAITool(skill); !ok {
 			validKeys := make([]string, 0, len(config.AITools()))
@@ -141,9 +142,49 @@ func validateInitOpts(opts InitOpts) error {
 	}
 
 	if opts.WorkflowName != "" {
-		if !config.ValidWorkflowName(opts.WorkflowName) {
-			return fmt.Errorf("invalid workflow name %q: use letters, digits, hyphens, dots, or underscores", opts.WorkflowName)
+		src, err := config.ClassifyWorkflowInput(opts.WorkflowName)
+		if err != nil {
+			return fmt.Errorf("invalid workflow source %q: %w", opts.WorkflowName, err)
 		}
+		switch src.Kind {
+		case config.WorkflowSourceEmbedded:
+			if _, ok := config.LookupEmbeddedWorkflow(src.Name); !ok {
+				return fmt.Errorf("unknown workflow %q (available: %s)",
+					src.Name, strings.Join(config.EmbeddedWorkflowNames(), ", "))
+			}
+		case config.WorkflowSourceFile:
+			info, err := os.Stat(src.Name)
+			if err != nil {
+				return fmt.Errorf("workflow file %q: %w", src.Name, err)
+			}
+			if !info.Mode().IsRegular() {
+				return fmt.Errorf("workflow path %q is not a regular file", src.Name)
+			}
+		case config.WorkflowSourceURL:
+			// validated below via fetch
+		}
+
+		// pre-fetch and validate content so failures happen before project bootstrap
+		content, err := config.FetchWorkflowContent(src)
+		if err != nil {
+			return fmt.Errorf("fetch workflow %q: %w", opts.WorkflowName, err)
+		}
+		if src.Kind != config.WorkflowSourceEmbedded {
+			vw, err := config.ValidateWorkflowContent(content)
+			if err != nil {
+				return fmt.Errorf("invalid workflow %q: %w", opts.WorkflowName, err)
+			}
+			if err := validateWorkflowViews(vw, content); err != nil {
+				return fmt.Errorf("invalid workflow %q: %w", opts.WorkflowName, err)
+			}
+		}
+
+		opts.WorkflowSource = src
+		opts.WorkflowContent = content
+	}
+
+	if err := ensureDirectoryAndGitRepo(opts.Directory); err != nil {
+		return err
 	}
 
 	return nil
@@ -162,7 +203,7 @@ func runInit(args []string) int {
 		return exitUsage
 	}
 
-	if err := validateInitOpts(opts); err != nil {
+	if err := validateInitOpts(&opts); err != nil {
 		_, _ = fmt.Fprintln(os.Stderr, "error:", err)
 		return exitStartupFailure
 	}
@@ -227,7 +268,7 @@ func runInit(args []string) int {
 	}
 
 	if opts.WorkflowName != "" {
-		results, err := config.InstallWorkflow(opts.WorkflowName, config.ScopeLocal, config.DefaultWorkflowBaseURL)
+		results, err := config.InstallWorkflowFromContent(opts.WorkflowContent, config.ScopeLocal)
 		if err != nil {
 			_, _ = fmt.Fprintf(os.Stderr, "error: install workflow %q: %v\n", opts.WorkflowName, err)
 			return exitStartupFailure
@@ -252,18 +293,25 @@ Arguments:
   directory                    Target directory (default: current directory)
 
 Options:
-  -w, --workflow <name>        Install a named workflow (e.g. todo, kanban, bug-tracker)
+  -w, --workflow <source>      Install a workflow (embedded name, file path, or URL)
   --ai-skill <list>            AI skills to install (comma-separated: claude,gemini)
   --samples                    Create bundled sample tasks (non-interactive only)
   -n, --non-interactive        Skip prompts, use flags/defaults only
   -h, --help                   Show this help message
 
+Workflow sources:
+  Embedded names:  kanban, todo, bug-tracker
+  File path:       ./my-workflow.yaml, /path/to/workflow.yaml
+  URL:             https://example.com/workflow.yaml
+
 Examples:
-  tiki init                    Initialize current directory interactively
-  tiki init my-project         Initialize my-project subdirectory
-  tiki init -w todo            Initialize with the todo workflow
-  tiki init -w kanban test1    Initialize test1 with the kanban workflow
-  tiki init -n --samples       Initialize non-interactively with sample tasks
-  tiki init --ai-skill claude  Initialize with Claude Code AI skill
+  tiki init                              Initialize current directory interactively
+  tiki init my-project                   Initialize my-project subdirectory
+  tiki init -w todo                      Initialize with the todo workflow
+  tiki init -w kanban test1              Initialize test1 with the kanban workflow
+  tiki init -w ./custom.yaml             Initialize with a local workflow file
+  tiki init -w https://example.com/w.yaml  Initialize with a remote workflow
+  tiki init -n --samples                 Initialize non-interactively with sample tasks
+  tiki init --ai-skill claude            Initialize with Claude Code AI skill
 `)
 }
