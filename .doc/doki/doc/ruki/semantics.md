@@ -147,6 +147,7 @@ Conditions:
 - `is empty` and `is not empty` are allowed on every supported type
 - `in` and `not in` require a collection on the right side
 - `any` and `all` require `list<ref>` on the left side
+- list equality (`=` / `!=`) is set-like: order and duplicate count are ignored
 
 Expressions:
 
@@ -160,8 +161,8 @@ Binary `+` and `-` are semantic rather than purely numeric:
 
 - string-like `+` yields `string`
 - `int + int` and `int - int` yield `int`
-- `list<string> +/- string-or-list<string>` yields `list<string>`
-- `list<ref> +/- id-ref-compatible values` yields `list<ref>`
+- `list<string> +/- string-or-list<string>` yields `list<string>` with set semantics
+- `list<ref> +/- id-ref-compatible values` yields `list<ref>` with set semantics
 - `date + duration` yields `date`
 - `date - duration` yields `date`
 - `date - date` yields `duration`

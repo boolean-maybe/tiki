@@ -217,6 +217,21 @@ Task description`,
 			shouldLoad:        true,
 		},
 		{
+			name: "duplicate dependencies deduped",
+			fileContent: `---
+title: Test Task
+type: story
+status: backlog
+dependsOn:
+  - TIKI-ABC123
+  - tiki-abc123
+  - TIKI-DEF456
+---
+Task description`,
+			expectedDependsOn: []string{"TIKI-ABC123", "TIKI-DEF456"},
+			shouldLoad:        true,
+		},
+		{
 			name: "missing dependsOn field",
 			fileContent: `---
 title: Test Task
@@ -395,6 +410,21 @@ tags:
   - frontend
   - ""
   - backend
+---
+Task description`,
+			expectedTags: []string{"frontend", "backend"},
+			shouldLoad:   true,
+		},
+		{
+			name: "duplicate tags deduped",
+			fileContent: `---
+title: Test Task
+type: story
+status: backlog
+tags:
+  - frontend
+  - backend
+  - frontend
 ---
 Task description`,
 			expectedTags: []string{"frontend", "backend"},
@@ -1427,5 +1457,97 @@ func TestSaveTask_PreservesUnknownFields(t *testing.T) {
 	}
 	if !strings.Contains(fileContent, "severity: high") {
 		t.Errorf("custom field lost after round-trip:\n%s", fileContent)
+	}
+}
+
+func TestSaveTask_DedupesBuiltInCollections(t *testing.T) {
+	tmpDir := t.TempDir()
+	store, err := NewTikiStore(tmpDir)
+	if err != nil {
+		t.Fatalf("NewTikiStore: %v", err)
+	}
+
+	input := &taskpkg.Task{
+		ID:          "TIKI-SET001",
+		Title:       "dedupe built-ins",
+		Type:        taskpkg.TypeStory,
+		Status:      taskpkg.StatusBacklog,
+		Priority:    3,
+		Tags:        []string{"frontend", "backend", "frontend", " backend "},
+		DependsOn:   []string{"tiki-aaa001", "TIKI-AAA001", " TIKI-BBB002 "},
+		Description: "body",
+	}
+
+	if err := store.saveTask(input); err != nil {
+		t.Fatalf("saveTask: %v", err)
+	}
+
+	path := store.taskFilePath(input.ID)
+	loaded, err := store.loadTaskFile(path, nil, nil)
+	if err != nil {
+		t.Fatalf("loadTaskFile: %v", err)
+	}
+
+	if !reflect.DeepEqual(loaded.Tags, []string{"backend", "frontend"}) {
+		t.Errorf("loaded tags = %v, want [backend frontend]", loaded.Tags)
+	}
+	if !reflect.DeepEqual(loaded.DependsOn, []string{"TIKI-AAA001", "TIKI-BBB002"}) {
+		t.Errorf("loaded dependsOn = %v, want [TIKI-AAA001 TIKI-BBB002]", loaded.DependsOn)
+	}
+}
+
+func TestSaveTask_DedupesCustomListFields(t *testing.T) {
+	config.MarkRegistriesLoadedForTest()
+	t.Cleanup(func() { workflow.ClearCustomFields() })
+
+	if err := workflow.RegisterCustomFields([]workflow.FieldDef{
+		{Name: "labels", Type: workflow.TypeListString},
+		{Name: "related", Type: workflow.TypeListRef},
+	}); err != nil {
+		t.Fatalf("register: %v", err)
+	}
+
+	tmpDir := t.TempDir()
+	store, err := NewTikiStore(tmpDir)
+	if err != nil {
+		t.Fatalf("NewTikiStore: %v", err)
+	}
+
+	input := &taskpkg.Task{
+		ID:       "TIKI-SET002",
+		Title:    "dedupe custom",
+		Type:     taskpkg.TypeStory,
+		Status:   taskpkg.StatusBacklog,
+		Priority: 3,
+		CustomFields: map[string]interface{}{
+			"labels":  []string{"backend", "backend", " frontend ", ""},
+			"related": []string{"tiki-aaa001", "TIKI-AAA001", "tiki-bbb002"},
+		},
+	}
+
+	if err := store.saveTask(input); err != nil {
+		t.Fatalf("saveTask: %v", err)
+	}
+
+	path := store.taskFilePath(input.ID)
+	loaded, err := store.loadTaskFile(path, nil, nil)
+	if err != nil {
+		t.Fatalf("loadTaskFile: %v", err)
+	}
+
+	labels, ok := loaded.CustomFields["labels"].([]string)
+	if !ok {
+		t.Fatalf("labels type = %T, want []string", loaded.CustomFields["labels"])
+	}
+	if !reflect.DeepEqual(labels, []string{"backend", "frontend"}) {
+		t.Errorf("labels = %v, want [backend frontend]", labels)
+	}
+
+	related, ok := loaded.CustomFields["related"].([]string)
+	if !ok {
+		t.Fatalf("related type = %T, want []string", loaded.CustomFields["related"])
+	}
+	if !reflect.DeepEqual(related, []string{"TIKI-AAA001", "TIKI-BBB002"}) {
+		t.Errorf("related = %v, want [TIKI-AAA001 TIKI-BBB002]", related)
 	}
 }

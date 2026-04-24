@@ -226,7 +226,7 @@ func (tc *TaskController) SaveTitle(newTitle string) bool {
 // Returns true if a task was updated, false if no task is being edited.
 func (tc *TaskController) SaveTags(tags []string) bool {
 	return tc.updateTaskField(func(t *taskpkg.Task) {
-		t.Tags = tags
+		t.Tags = taskpkg.NormalizeStringSet(tags)
 	})
 }
 

@@ -69,6 +69,12 @@ func TestTagsValue_UnmarshalYAML(t *testing.T) {
 			expected: []string{"frontend", "backend"},
 			wantErr:  false,
 		},
+		{
+			name:     "dedupe duplicate tags",
+			yaml:     "tags: [frontend, backend, frontend, backend]",
+			expected: []string{"frontend", "backend"},
+			wantErr:  false,
+		},
 
 		// Invalid scenarios - should default to empty with no error
 		{

@@ -48,8 +48,8 @@ When custom field values are read from frontmatter YAML, they are coerced to the
 | `integer`     | integer or decimal number                     | integer pass-through; decimal accepted only if it represents a whole number (e.g. `3.0` → `3`, but `1.5` → error) |
 | `boolean`     | `true` / `false`                              | pass-through                                     |
 | `datetime`    | timestamp or date string                      | native YAML timestamps pass through; strings parsed as RFC3339, with fallback to `YYYY-MM-DD` |
-| `stringList`  | YAML list of strings                          | each element must be a string                    |
-| `taskIdList`  | YAML list of strings                          | each element coerced to uppercase, whitespace trimmed, empty entries dropped |
+| `stringList`  | YAML list of strings                          | strings only; trim, drop empty, dedupe |
+| `taskIdList`  | YAML list of strings                          | uppercase IDs; trim, drop empty, dedupe |
 
 ## Enum domain isolation
 
@@ -118,7 +118,7 @@ Custom fields behave identically to built-in fields in ruki queries:
 - usable in `where`, `order by`, `set`, `create`, and `select` field lists
 - support `is empty` / `is not empty` checks
 - support `in` / `not in` for list membership
-- list-type fields support `+` (append) and `-` (remove) operations
+- list-type fields support `+` (set union) and `-` (remove) operations
 - quantifiers (`any ... where`, `all ... where`) work on custom `taskIdList` fields
 
 ### Unset list fields

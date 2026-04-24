@@ -46,7 +46,7 @@ func TestBuildCustomFieldDefaults_WithDefaults(t *testing.T) {
 
 func TestBuildCustomFieldDefaults_SliceDefaultCopied(t *testing.T) {
 	config.MarkRegistriesLoadedForTest()
-	original := []string{"a", "b"}
+	original := []string{"a", "b", " a ", "b", ""}
 	if err := workflow.RegisterCustomFields([]workflow.FieldDef{
 		{Name: "labels", Type: workflow.TypeListString, DefaultValue: original},
 	}); err != nil {

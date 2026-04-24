@@ -9,6 +9,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	collectionutil "github.com/boolean-maybe/tiki/util/collections"
 	"github.com/boolean-maybe/tiki/workflow"
 	"gopkg.in/yaml.v3"
 )
@@ -264,14 +265,7 @@ func coerceFieldDefault(vt workflow.ValueType, raw interface{}, allowed []string
 		if err != nil {
 			return nil, err
 		}
-		filtered := make([]string, 0, len(ss))
-		for _, s := range ss {
-			s = strings.ToUpper(strings.TrimSpace(s))
-			if s != "" {
-				filtered = append(filtered, s)
-			}
-		}
-		return filtered, nil
+		return collectionutil.NormalizeRefSet(ss), nil
 
 	default:
 		return nil, fmt.Errorf("default values not supported for field type %d", vt)
@@ -289,11 +283,11 @@ func coerceStringList(raw interface{}) ([]string, error) {
 			}
 			result = append(result, s)
 		}
-		return result, nil
+		return collectionutil.NormalizeStringSet(result), nil
 	case []string:
 		cp := make([]string, len(v))
 		copy(cp, v)
-		return cp, nil
+		return collectionutil.NormalizeStringSet(cp), nil
 	default:
 		return nil, fmt.Errorf("expected list, got %T", raw)
 	}

@@ -56,6 +56,11 @@ Built-in field defaults remain hardcoded and are not configurable:
 - `points` = 1
 - `tags` = `["idea"]`
 
+List and collection defaults use set semantics:
+- values are trimmed
+- empty entries are dropped
+- duplicate entries are removed
+
 ### Removed template-only defaults
 
 Fields that were only configurable via `new.md` frontmatter are dropped:

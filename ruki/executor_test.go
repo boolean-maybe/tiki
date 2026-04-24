@@ -476,7 +476,7 @@ func TestExecuteListSetEquality(t *testing.T) {
 			1,
 		},
 		{
-			"multiplicity matters — different lengths",
+			"different members do not match",
 			[]*task.Task{
 				{ID: "T1", Title: "x", Status: "ready", Tags: []string{"a"}},
 			},
@@ -484,12 +484,12 @@ func TestExecuteListSetEquality(t *testing.T) {
 			0,
 		},
 		{
-			"multiplicity matters — duplicate vs single",
+			"duplicate vs single matches",
 			[]*task.Task{
 				{ID: "T1", Title: "x", Status: "ready", Tags: []string{"a", "a"}},
 			},
 			`select where tags = ["a"]`,
-			0,
+			1,
 		},
 		{
 			"empty list equality",
@@ -2412,13 +2412,21 @@ func TestComparisonHelperErrors(t *testing.T) {
 	}
 }
 
-// --- sortedMultisetEqual with same-length but different elements ---
+// --- sortedSetEqual helpers ---
 
-func TestSortedMultisetEqualMismatch(t *testing.T) {
+func TestSortedSetEqualMismatch(t *testing.T) {
 	a := []interface{}{"x", "y"}
 	b := []interface{}{"x", "z"}
-	if sortedMultisetEqual(a, b) {
+	if sortedSetEqual(a, b) {
 		t.Error("expected false for different elements")
+	}
+}
+
+func TestSortedSetEqualIgnoresDuplicates(t *testing.T) {
+	a := []interface{}{"x", "x"}
+	b := []interface{}{"x"}
+	if !sortedSetEqual(a, b) {
+		t.Error("expected duplicates to be ignored for set equality")
 	}
 }
 
@@ -2742,6 +2750,27 @@ func TestExecuteUpdateListPlusElement(t *testing.T) {
 	}
 }
 
+func TestExecuteUpdateListPlusElementIdempotent(t *testing.T) {
+	e := newTestExecutor()
+	p := newTestParser()
+	tasks := []*task.Task{
+		{ID: "TIKI-000001", Title: "x", Status: "ready", Tags: []string{"old", "old"}},
+	}
+
+	stmt, err := p.ParseStatement(`update where id = "TIKI-000001" set tags=tags+"old"`)
+	if err != nil {
+		t.Fatalf("parse: %v", err)
+	}
+	result, err := e.Execute(stmt, tasks)
+	if err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	u := result.Update.Updated[0]
+	if len(u.Tags) != 1 || u.Tags[0] != "old" {
+		t.Errorf("expected tags [old], got %v", u.Tags)
+	}
+}
+
 func TestExecuteUpdateListMinusList(t *testing.T) {
 	e := newTestExecutor()
 	p := newTestParser()
@@ -2844,6 +2873,27 @@ func TestExecuteUpdateDependsOnPlusList(t *testing.T) {
 	u := result.Update.Updated[0]
 	if len(u.DependsOn) != 2 || u.DependsOn[0] != "TIKI-Z" || u.DependsOn[1] != "TIKI-Y" {
 		t.Errorf("expected dependsOn [TIKI-Z TIKI-Y], got %v", u.DependsOn)
+	}
+}
+
+func TestExecuteUpdateDependsOnPlusListIdempotent(t *testing.T) {
+	e := newTestExecutor()
+	p := newTestParser()
+	tasks := []*task.Task{
+		{ID: "TIKI-000001", Title: "x", Status: "ready", DependsOn: []string{"TIKI-Y", "tiki-y"}},
+	}
+
+	stmt, err := p.ParseStatement(`update where id = "TIKI-000001" set dependsOn=dependsOn+["TIKI-Y"]`)
+	if err != nil {
+		t.Fatalf("parse: %v", err)
+	}
+	result, err := e.Execute(stmt, tasks)
+	if err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	u := result.Update.Updated[0]
+	if len(u.DependsOn) != 1 || u.DependsOn[0] != "TIKI-Y" {
+		t.Errorf("expected dependsOn [TIKI-Y], got %v", u.DependsOn)
 	}
 }
 

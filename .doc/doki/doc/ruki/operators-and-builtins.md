@@ -68,6 +68,8 @@ Supported by type:
 | `recurrence` | yes | no |
 | list types | yes | no |
 
+List equality uses set semantics: order and duplicate count do not affect `=` / `!=`.
+
 Examples:
 
 ```sql
@@ -166,16 +168,16 @@ before update where dependsOn any old.status = "done" deny "blocked"
 
 - string-like plus string-like yields `string`
 - `int + int` yields `int`
-- `list<string> + string` and `list<string> + list<string>` yield `list<string>`
-- `list<ref> + id-or-ref-compatible value` and `list<ref> + list<ref>` yield `list<ref>`
+- `list<string> + string` and `list<string> + list<string>` yield `list<string>` (set union, no duplicates)
+- `list<ref> + id-or-ref-compatible value` and `list<ref> + list<ref>` yield `list<ref>` (set union, no duplicates)
 - `date + duration` yields `date`
 - `timestamp + duration` yields `timestamp`
 
 `-`
 
 - `int - int` yields `int`
-- `list<string> - string` and `list<string> - list<string>` yield `list<string>`
-- `list<ref> - id-or-ref-compatible value` and `list<ref> - list<ref>` yield `list<ref>`
+- `list<string> - string` and `list<string> - list<string>` yield `list<string>` (remove matching entries)
+- `list<ref> - id-or-ref-compatible value` and `list<ref> - list<ref>` yield `list<ref>` (remove matching entries)
 - `date - duration` yields `date`
 - `date - date` yields `duration`
 - `timestamp - duration` yields `timestamp`

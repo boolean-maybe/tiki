@@ -150,7 +150,8 @@ assignee: booleanmaybe
 
 #### tags
 
-Optional string list. Arbitrary labels attached to a tiki. Empty and whitespace-only strings are filtered out.
+Optional string list. Arbitrary labels attached to a tiki.
+Values are trimmed, empty entries are dropped, and duplicates are removed.
 Default: empty. Both YAML list formats are accepted:
 
 ```yaml
@@ -165,8 +166,10 @@ tags: [frontend, urgent]
 
 #### dependsOn
 
-Optional string list. Each entry must be a valid tiki ID in `TIKI-XXXXXX` format (6-character alphanumeric suffix)
-referencing an existing tiki. IDs are automatically uppercased. A dependency means this tiki is blocked by the listed tikis.
+Optional string list. Each entry must be a valid tiki ID in `TIKI-XXXXXX` format
+(6-character alphanumeric suffix) referencing an existing tiki.
+IDs are automatically uppercased, empty entries are dropped, and duplicates are removed.
+A dependency means this tiki is blocked by the listed tikis.
 Default: empty. Both YAML list formats are accepted:
 
 ```yaml

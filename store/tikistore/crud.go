@@ -38,6 +38,7 @@ func (s *TikiStore) createTaskLocked(task *taskpkg.Task) error {
 	}
 
 	task.ID = normalizeTaskID(task.ID)
+	taskpkg.NormalizeCollectionFields(task)
 
 	if err := s.validateDependsOnLocked(task); err != nil {
 		return err
@@ -75,6 +76,7 @@ func (s *TikiStore) updateTaskLocked(task *taskpkg.Task) error {
 	defer s.mu.Unlock()
 
 	task.ID = normalizeTaskID(task.ID)
+	taskpkg.NormalizeCollectionFields(task)
 	oldTask, exists := s.tasks[task.ID]
 	if !exists {
 		return fmt.Errorf("task not found: %s", task.ID)

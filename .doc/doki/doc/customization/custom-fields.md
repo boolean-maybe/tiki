@@ -64,8 +64,14 @@ Custom fields come from the `workflow.yaml` file (see [Configuration: Precedence
 | `boolean`     | true or false                         | `bool`           |
 | `datetime`    | timestamp (RFC3339 or YYYY-MM-DD)     | `timestamp`      |
 | `enum`        | constrained string from `values` list | `enum`           |
-| `stringList`  | list of strings                       | `list<string>`   |
-| `taskIdList`  | list of tiki ID references            | `list<ref>`      |
+| `stringList`  | set-like list of strings              | `list<string>`   |
+| `taskIdList`  | set-like list of tiki ID references   | `list<ref>`      |
+
+For list field types, values are normalized with set semantics:
+- strings are trimmed
+- empty entries are dropped
+- duplicate entries are removed
+- `taskIdList` entries are uppercased
 
 ## Enum fields
 
@@ -110,6 +116,8 @@ select where deadline < 2026-05-01
 ```
 
 ### Updating with update set
+
+For list fields, `+` behaves like set union and `-` removes matching values.
 
 ```sql
 -- assign a sprint

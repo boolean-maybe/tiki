@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/boolean-maybe/tiki/task"
+	collectionutil "github.com/boolean-maybe/tiki/util/collections"
 	"github.com/boolean-maybe/tiki/util/duration"
 )
 
@@ -374,7 +375,7 @@ func (e *Executor) setField(t *task.Task, name string, val interface{}) error {
 			t.Tags = nil
 			return nil
 		}
-		t.Tags = toStringSlice(val)
+		t.Tags = collectionutil.NormalizeStringSet(toStringSlice(val))
 
 	case "dependsOn":
 		if val == nil {
@@ -441,15 +442,20 @@ func (e *Executor) setField(t *task.Task, name string, val interface{}) error {
 }
 
 func toStringSlice(val interface{}) []string {
-	list, ok := val.([]interface{})
-	if !ok {
+	switch list := val.(type) {
+	case []interface{}:
+		result := make([]string, len(list))
+		for i, elem := range list {
+			result[i] = normalizeToString(elem)
+		}
+		return result
+	case []string:
+		result := make([]string, len(list))
+		copy(result, list)
+		return result
+	default:
 		return nil
 	}
-	result := make([]string, len(list))
-	for i, elem := range list {
-		result[i] = normalizeToString(elem)
-	}
-	return result
 }
 
 func coerceCustomFieldValue(fs FieldSpec, val interface{}) (interface{}, error) {
@@ -494,7 +500,7 @@ func coerceCustomFieldValue(fs FieldSpec, val interface{}) (interface{}, error) 
 		}
 		return nil, fmt.Errorf("invalid enum value %q", s)
 	case ValueListString:
-		return toStringSlice(val), nil
+		return collectionutil.NormalizeStringSet(toStringSlice(val)), nil
 	case ValueListRef:
 		raw := toStringSlice(val)
 		return normalizeRefList(raw), nil
@@ -509,20 +515,9 @@ func coerceCustomFieldValue(fs FieldSpec, val interface{}) (interface{}, error) 
 	}
 }
 
-// normalizeRefList trims whitespace and uppercases task ID references.
+// normalizeRefList applies set-like normalization for task ID references.
 func normalizeRefList(ss []string) []string {
-	var result []string
-	for _, s := range ss {
-		s = strings.TrimSpace(s)
-		if s == "" {
-			continue
-		}
-		result = append(result, strings.ToUpper(s))
-	}
-	if result == nil {
-		result = []string{}
-	}
-	return result
+	return collectionutil.NormalizeRefSet(ss)
 }
 
 // --- filtering ---
@@ -940,15 +935,36 @@ func addValues(left, right interface{}) (interface{}, error) {
 		}
 	case []interface{}:
 		if r, ok := right.([]interface{}); ok {
-			result := make([]interface{}, len(l), len(l)+len(r))
-			copy(result, l)
-			return append(result, r...), nil
+			return appendUniqueListValues(l, r), nil
 		}
-		result := make([]interface{}, len(l), len(l)+1)
-		copy(result, l)
-		return append(result, right), nil
+		return appendUniqueListValues(l, []interface{}{right}), nil
 	}
 	return nil, fmt.Errorf("cannot add %T + %T", left, right)
+}
+
+func appendUniqueListValues(left, right []interface{}) []interface{} {
+	result := make([]interface{}, 0, len(left)+len(right))
+	seen := make(map[string]struct{}, len(left)+len(right))
+	for _, elem := range left {
+		key := normalizeToString(elem)
+		if _, exists := seen[key]; exists {
+			continue
+		}
+		seen[key] = struct{}{}
+		result = append(result, elem)
+	}
+	for _, elem := range right {
+		key := normalizeToString(elem)
+		if _, exists := seen[key]; exists {
+			continue
+		}
+		seen[key] = struct{}{}
+		result = append(result, elem)
+	}
+	if result == nil {
+		return []interface{}{}
+	}
+	return result
 }
 
 func subtractValues(left, right interface{}) (interface{}, error) {
@@ -1251,20 +1267,20 @@ func compareWithNil(left, right interface{}, op string, leftExpr, rightExpr Expr
 func compareListEquality(a, b []interface{}, op string) (bool, error) {
 	switch op {
 	case "=":
-		return sortedMultisetEqual(a, b), nil
+		return sortedSetEqual(a, b), nil
 	case "!=":
-		return !sortedMultisetEqual(a, b), nil
+		return !sortedSetEqual(a, b), nil
 	default:
 		return false, fmt.Errorf("operator %s not supported for list comparison", op)
 	}
 }
 
-func sortedMultisetEqual(a, b []interface{}) bool {
-	if len(a) != len(b) {
+func sortedSetEqual(a, b []interface{}) bool {
+	as := toSortedUniqueStrings(a)
+	bs := toSortedUniqueStrings(b)
+	if len(as) != len(bs) {
 		return false
 	}
-	as := toSortedStrings(a)
-	bs := toSortedStrings(b)
 	for i := range as {
 		if as[i] != bs[i] {
 			return false
@@ -1273,10 +1289,16 @@ func sortedMultisetEqual(a, b []interface{}) bool {
 	return true
 }
 
-func toSortedStrings(list []interface{}) []string {
-	s := make([]string, len(list))
-	for i, v := range list {
-		s[i] = normalizeToString(v)
+func toSortedUniqueStrings(list []interface{}) []string {
+	seen := make(map[string]struct{}, len(list))
+	s := make([]string, 0, len(list))
+	for _, v := range list {
+		value := normalizeToString(v)
+		if _, exists := seen[value]; exists {
+			continue
+		}
+		seen[value] = struct{}{}
+		s = append(s, value)
 	}
 	sort.Strings(s)
 	return s

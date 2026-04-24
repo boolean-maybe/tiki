@@ -13,6 +13,7 @@ import (
 	"github.com/boolean-maybe/tiki/store"
 	"github.com/boolean-maybe/tiki/store/internal/git"
 	taskpkg "github.com/boolean-maybe/tiki/task"
+	collectionutil "github.com/boolean-maybe/tiki/util/collections"
 	"github.com/boolean-maybe/tiki/workflow"
 
 	"gopkg.in/yaml.v3"
@@ -322,6 +323,9 @@ func (s *TikiStore) saveTask(task *taskpkg.Task) error {
 		Points:     task.Points,
 	}
 
+	fm.Tags = collectionutil.NormalizeStringSet(fm.Tags)
+	fm.DependsOn = collectionutil.NormalizeRefSet(fm.DependsOn)
+
 	// sort tags for consistent output
 	if len(fm.Tags) > 0 {
 		sort.Strings(fm.Tags)
@@ -522,17 +526,7 @@ func coerceCustomValue(fd workflow.FieldDef, raw interface{}) (interface{}, erro
 		if err != nil {
 			return nil, err
 		}
-		for i, s := range ss {
-			ss[i] = strings.ToUpper(strings.TrimSpace(s))
-		}
-		// drop empties
-		filtered := ss[:0]
-		for _, s := range ss {
-			if s != "" {
-				filtered = append(filtered, s)
-			}
-		}
-		return filtered, nil
+		return collectionutil.NormalizeRefSet(ss), nil
 
 	default:
 		return raw, nil
@@ -551,9 +545,11 @@ func coerceStringList(raw interface{}) ([]string, error) {
 			}
 			ss = append(ss, s)
 		}
-		return ss, nil
+		return collectionutil.NormalizeStringSet(ss), nil
 	case []string:
-		return v, nil
+		ss := make([]string, len(v))
+		copy(ss, v)
+		return collectionutil.NormalizeStringSet(ss), nil
 	default:
 		return nil, fmt.Errorf("expected list, got %T", raw)
 	}
@@ -575,7 +571,23 @@ func appendCustomFields(w *strings.Builder, fields map[string]interface{}) error
 	sort.Strings(keys)
 
 	for _, k := range keys {
-		out, err := yaml.Marshal(map[string]interface{}{k: fields[k]})
+		value := fields[k]
+		fd, _ := workflow.Field(k)
+		switch fd.Type {
+		case workflow.TypeListString:
+			ss, err := coerceStringList(value)
+			if err != nil {
+				return fmt.Errorf("invalid list value for %q: %w", k, err)
+			}
+			value = collectionutil.NormalizeStringSet(ss)
+		case workflow.TypeListRef:
+			ss, err := coerceStringList(value)
+			if err != nil {
+				return fmt.Errorf("invalid list value for %q: %w", k, err)
+			}
+			value = collectionutil.NormalizeRefSet(ss)
+		}
+		out, err := yaml.Marshal(map[string]interface{}{k: value})
 		if err != nil {
 			return fmt.Errorf("marshaling field %q: %w", k, err)
 		}

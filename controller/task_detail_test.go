@@ -1279,6 +1279,15 @@ func TestTaskController_SaveTags(t *testing.T) {
 			wantSuccess: true,
 		},
 		{
+			name: "duplicate tags deduped",
+			setupTask: func(tc *TaskController, s store.Store) {
+				tc.SetDraft(newTestTask())
+			},
+			tags:        []string{"frontend", " frontend ", "frontend", "backend"},
+			wantTags:    []string{"frontend", "backend"},
+			wantSuccess: true,
+		},
+		{
 			name: "empty tags slice",
 			setupTask: func(tc *TaskController, s store.Store) {
 				tc.SetDraft(newTestTask())
@@ -1293,7 +1302,7 @@ func TestTaskController_SaveTags(t *testing.T) {
 				tc.SetDraft(newTestTask())
 			},
 			tags:        nil,
-			wantTags:    nil,
+			wantTags:    []string{},
 			wantSuccess: true,
 		},
 		{

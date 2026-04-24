@@ -265,12 +265,24 @@ func TestCoerceFieldDefault_TimestampRejectsInvalid(t *testing.T) {
 }
 
 func TestCoerceFieldDefault_TaskIdListNormalized(t *testing.T) {
-	raw := []interface{}{" tiki-abc ", "TIKI-DEF", "  ", "tiki-ghi"}
+	raw := []interface{}{" tiki-abc ", "TIKI-DEF", "  ", "tiki-ghi", "TIKI-DEF"}
 	got, err := coerceFieldDefault(workflow.TypeListRef, raw, nil)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 	want := []string{"TIKI-ABC", "TIKI-DEF", "TIKI-GHI"}
+	if !reflect.DeepEqual(got, want) {
+		t.Errorf("got %v, want %v", got, want)
+	}
+}
+
+func TestCoerceFieldDefault_StringListNormalized(t *testing.T) {
+	raw := []interface{}{"  backend  ", "frontend", "backend", "", "frontend"}
+	got, err := coerceFieldDefault(workflow.TypeListString, raw, nil)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	want := []string{"backend", "frontend"}
 	if !reflect.DeepEqual(got, want) {
 		t.Errorf("got %v, want %v", got, want)
 	}

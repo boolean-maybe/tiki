@@ -63,6 +63,12 @@ func TestDependsOnValue_UnmarshalYAML(t *testing.T) {
 			expected: []string{"TIKI-ABC123", "TIKI-DEF456"},
 			wantErr:  false,
 		},
+		{
+			name:     "dedupe duplicate dependencies",
+			yaml:     "dependsOn: [TIKI-ABC123, tiki-abc123, TIKI-DEF456]",
+			expected: []string{"TIKI-ABC123", "TIKI-DEF456"},
+			wantErr:  false,
+		},
 
 		// Invalid scenarios - should default to empty with no error
 		{

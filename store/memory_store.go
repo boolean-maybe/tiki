@@ -9,6 +9,7 @@ import (
 	"github.com/boolean-maybe/tiki/config"
 	"github.com/boolean-maybe/tiki/store/internal/git"
 	"github.com/boolean-maybe/tiki/task"
+	collectionutil "github.com/boolean-maybe/tiki/util/collections"
 	"github.com/boolean-maybe/tiki/workflow"
 )
 
@@ -71,14 +72,15 @@ func (s *InMemoryStore) notifyListeners() {
 }
 
 // CreateTask adds a new task to the store
-func (s *InMemoryStore) CreateTask(task *task.Task) error {
+func (s *InMemoryStore) CreateTask(newTask *task.Task) error {
 	s.mu.Lock()
 
+	task.NormalizeCollectionFields(newTask)
 	now := time.Now()
-	task.CreatedAt = now
-	task.UpdatedAt = now
-	task.ID = normalizeTaskID(task.ID)
-	s.tasks[task.ID] = task
+	newTask.CreatedAt = now
+	newTask.UpdatedAt = now
+	newTask.ID = normalizeTaskID(newTask.ID)
+	s.tasks[newTask.ID] = newTask
 	s.mu.Unlock()
 	s.notifyListeners()
 	return nil
@@ -92,17 +94,18 @@ func (s *InMemoryStore) GetTask(id string) *task.Task {
 }
 
 // UpdateTask updates an existing task
-func (s *InMemoryStore) UpdateTask(task *task.Task) error {
+func (s *InMemoryStore) UpdateTask(updatedTask *task.Task) error {
 	s.mu.Lock()
 
-	task.ID = normalizeTaskID(task.ID)
-	if _, exists := s.tasks[task.ID]; !exists {
+	task.NormalizeCollectionFields(updatedTask)
+	updatedTask.ID = normalizeTaskID(updatedTask.ID)
+	if _, exists := s.tasks[updatedTask.ID]; !exists {
 		s.mu.Unlock()
-		return fmt.Errorf("task not found: %s", task.ID)
+		return fmt.Errorf("task not found: %s", updatedTask.ID)
 	}
 
-	task.UpdatedAt = time.Now()
-	s.tasks[task.ID] = task
+	updatedTask.UpdatedAt = time.Now()
+	s.tasks[updatedTask.ID] = updatedTask
 	s.mu.Unlock()
 	s.notifyListeners()
 	return nil
@@ -272,9 +275,16 @@ func buildMemoryFieldDefaults() map[string]interface{} {
 			defaults = make(map[string]interface{})
 		}
 		if ss, ok := fd.DefaultValue.([]string); ok {
-			cp := make([]string, len(ss))
-			copy(cp, ss)
-			defaults[fd.Name] = cp
+			switch fd.Type {
+			case workflow.TypeListRef:
+				defaults[fd.Name] = collectionutil.NormalizeRefSet(ss)
+			case workflow.TypeListString:
+				defaults[fd.Name] = collectionutil.NormalizeStringSet(ss)
+			default:
+				cp := make([]string, len(ss))
+				copy(cp, ss)
+				defaults[fd.Name] = cp
+			}
 		} else {
 			defaults[fd.Name] = fd.DefaultValue
 		}

@@ -8,6 +8,7 @@ import (
 
 	"github.com/boolean-maybe/tiki/config"
 	taskpkg "github.com/boolean-maybe/tiki/task"
+	collectionutil "github.com/boolean-maybe/tiki/util/collections"
 	"github.com/boolean-maybe/tiki/workflow"
 )
 
@@ -87,9 +88,16 @@ func buildCustomFieldDefaults() map[string]interface{} {
 			defaults = make(map[string]interface{})
 		}
 		if ss, ok := fd.DefaultValue.([]string); ok {
-			cp := make([]string, len(ss))
-			copy(cp, ss)
-			defaults[fd.Name] = cp
+			switch fd.Type {
+			case workflow.TypeListRef:
+				defaults[fd.Name] = collectionutil.NormalizeRefSet(ss)
+			case workflow.TypeListString:
+				defaults[fd.Name] = collectionutil.NormalizeStringSet(ss)
+			default:
+				cp := make([]string, len(ss))
+				copy(cp, ss)
+				defaults[fd.Name] = cp
+			}
 		} else {
 			defaults[fd.Name] = fd.DefaultValue
 		}
