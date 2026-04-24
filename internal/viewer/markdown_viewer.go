@@ -13,6 +13,7 @@ import (
 	navtview "github.com/boolean-maybe/navidown/navidown/tview"
 	"github.com/boolean-maybe/tiki/config"
 	"github.com/boolean-maybe/tiki/util"
+	"github.com/boolean-maybe/tiki/view/dokiindex"
 	"github.com/boolean-maybe/tiki/view/markdown"
 	"github.com/gdamore/tcell/v2"
 	"github.com/rivo/tview"
@@ -56,6 +57,8 @@ func Run(input InputSpec) error {
 	content, sourcePath, err := loadInitialContent(input, provider)
 	if err != nil {
 		content = markdown.FormatErrorContent(err)
+	} else {
+		content = dokiindex.InjectTags(content, sourcePath)
 	}
 
 	if sourcePath != "" {
@@ -125,6 +128,8 @@ func refreshContent(app *tview.Application, md *markdown.NavigableMarkdown, prov
 	content, err := provider.FetchContent(nav.NavElement{URL: srcPath})
 	if err != nil {
 		content = markdown.FormatErrorContent(err)
+	} else {
+		content = dokiindex.InjectTags(content, srcPath)
 	}
 
 	// one-shot before-draw to get the screen for Kitty image purge
