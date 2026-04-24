@@ -14,7 +14,6 @@ import (
 	rukiRuntime "github.com/boolean-maybe/tiki/internal/ruki/runtime"
 	"github.com/boolean-maybe/tiki/internal/viewer"
 	"github.com/boolean-maybe/tiki/service"
-	"github.com/boolean-maybe/tiki/store/tikistore"
 	"github.com/boolean-maybe/tiki/util/sysinfo"
 )
 
@@ -154,27 +153,6 @@ func runSysInfo() error {
 	return nil
 }
 
-const demoRepoURL = "https://github.com/boolean-maybe/tiki-demo.git"
-const demoDirName = "tiki-demo"
-
-// runDemo clones the demo repository if needed and changes into it.
-// Must be called before config.InitPaths() so the PathManager captures the demo dir as project root.
-func runDemo() error {
-	info, err := os.Stat(demoDirName)
-	if err == nil && info.IsDir() {
-		fmt.Printf("using existing %s directory\n", demoDirName)
-	} else {
-		fmt.Printf("cloning demo project into %s...\n", demoDirName)
-		if err := tikistore.GitClone(demoRepoURL, demoDirName, os.Stdout, os.Stderr); err != nil {
-			return fmt.Errorf("git clone failed: %w", err)
-		}
-	}
-	if err := os.Chdir(demoDirName); err != nil {
-		return fmt.Errorf("change to demo directory: %w", err)
-	}
-	return nil
-}
-
 // errHelpRequested is returned by arg parsers when the user asks for help.
 // Callers should print usage and exit cleanly — not treat it as a real error.
 var errHelpRequested = errors.New("help requested")
@@ -267,7 +245,7 @@ Usage:
   tiki exec '<statement>'    Execute a ruki query and exit
   tiki workflow reset [target]  Reset config files (--global, --local, --current)
   tiki workflow install <source> Install a workflow (--global, --local, --current)
-  tiki demo                  Clone demo project and launch TUI
+  tiki demo                  Launch demo project (extracts embedded files on first run)
   tiki file.md/URL           View markdown file or image
   echo "Title" | tiki        Create task from piped input
   tiki sysinfo               Display system information

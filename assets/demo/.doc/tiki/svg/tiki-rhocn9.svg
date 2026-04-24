@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="700" height="500">
+  <rect x="30" y="30.0" width="640" height="136.66666666666666" rx="8" fill="#f1f5f9" stroke="#cbd5e1" stroke-width="1"/>
+  <text x="40" y="48.0" font-family="sans-serif" font-size="10" fill="#94a3b8" font-weight="600">Layer 1</text>
+  <rect x="50.0" y="56.0" width="292.5" height="96.66666666666666" rx="5" fill="#2563eb" opacity="0.9"/>
+  <text x="196.25" y="109.33333333333333" text-anchor="middle" font-family="sans-serif" font-size="12" fill="#fff" font-weight="600">Test Jig</text>
+  <rect x="357.5" y="56.0" width="292.5" height="96.66666666666666" rx="5" fill="#3b82f6" opacity="0.9"/>
+  <text x="503.75" y="109.33333333333333" text-anchor="middle" font-family="sans-serif" font-size="12" fill="#fff" font-weight="600">ESC</text>
+  <rect x="30" y="176.66666666666666" width="640" height="136.66666666666666" rx="8" fill="#e2e8f0" stroke="#cbd5e1" stroke-width="1"/>
+  <text x="40" y="194.66666666666666" font-family="sans-serif" font-size="10" fill="#94a3b8" font-weight="600">Layer 2</text>
+  <rect x="50.0" y="202.66666666666666" width="292.5" height="96.66666666666666" rx="5" fill="#60a5fa" opacity="0.9"/>
+  <text x="196.25" y="256.0" text-anchor="middle" font-family="sans-serif" font-size="12" fill="#fff" font-weight="600">Motor</text>
+  <rect x="357.5" y="202.66666666666666" width="292.5" height="96.66666666666666" rx="5" fill="#93c5fd" opacity="0.9"/>
+  <text x="503.75" y="256.0" text-anchor="middle" font-family="sans-serif" font-size="12" fill="#fff" font-weight="600">DAQ</text>
+  <rect x="30" y="323.3333333333333" width="640" height="136.66666666666666" rx="8" fill="#f8fafc" stroke="#cbd5e1" stroke-width="1"/>
+  <text x="40" y="341.3333333333333" font-family="sans-serif" font-size="10" fill="#94a3b8" font-weight="600">Layer 3</text>
+  <rect x="50.0" y="349.3333333333333" width="600.0" height="96.66666666666666" rx="5" fill="#bfdbfe" opacity="0.9"/>
+  <text x="350.0" y="402.66666666666663" text-anchor="middle" font-family="sans-serif" font-size="12" fill="#fff" font-weight="600">Report</text>
+  <line x1="310.0" y1="166.66666666666666" x2="310.0" y2="176.66666666666666" stroke="#cbd5e1" stroke-width="1" stroke-dasharray="4,3"/>
+  <line x1="390.0" y1="166.66666666666666" x2="390.0" y2="176.66666666666666" stroke="#cbd5e1" stroke-width="1" stroke-dasharray="4,3"/>
+  <line x1="310.0" y1="313.3333333333333" x2="310.0" y2="323.3333333333333" stroke="#cbd5e1" stroke-width="1" stroke-dasharray="4,3"/>
+  <line x1="390.0" y1="313.3333333333333" x2="390.0" y2="323.3333333333333" stroke="#cbd5e1" stroke-width="1" stroke-dasharray="4,3"/>
+</svg>

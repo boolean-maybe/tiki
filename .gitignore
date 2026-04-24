@@ -19,5 +19,8 @@ out/
 # Tiki binary
 /tiki
 
+# Extracted demo project (source of truth lives in assets/demo/)
+/tiki-demo/
+
 # GoReleaser output
 /dist/

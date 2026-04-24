@@ -161,7 +161,7 @@ tiki workflow describe https://example.com/workflow.yaml
 
 ### demo
 
-Clone the demo project and launch the TUI. If the `tiki-demo` directory already exists it is reused.
+Launch the demo project. The demo files are extracted into a `tiki-demo/` directory in the current working directory.
 
 ```bash
 tiki demo

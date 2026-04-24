@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="700" height="150">
+  <defs>
+    <marker id="pipe_arrow" markerWidth="10" markerHeight="7" refX="10" refY="3.5" orient="auto" markerUnits="strokeWidth">
+      <polygon points="0 0, 10 3.5, 0 7" fill="#64748b"/>
+    </marker>
+  </defs>
+  <rect x="15.0" y="55.0" width="110" height="40" rx="10" fill="#2563eb"/>
+  <text x="70.0" y="80.0" text-anchor="middle" font-family="sans-serif" font-size="11" fill="#fff" font-weight="600">Checkout</text>
+  <line x1="128.0" y1="75.0" x2="152.0" y2="75.0" stroke="#64748b" stroke-width="2" marker-end="url(#pipe_arrow)"/>
+  <rect x="155.0" y="55.0" width="110" height="40" rx="10" fill="#059669"/>
+  <text x="210.0" y="80.0" text-anchor="middle" font-family="sans-serif" font-size="11" fill="#fff" font-weight="600">Build</text>
+  <line x1="268.0" y1="75.0" x2="292.0" y2="75.0" stroke="#64748b" stroke-width="2" marker-end="url(#pipe_arrow)"/>
+  <rect x="295.0" y="55.0" width="110" height="40" rx="10" fill="#d97706"/>
+  <text x="350.0" y="80.0" text-anchor="middle" font-family="sans-serif" font-size="11" fill="#fff" font-weight="600">Test</text>
+  <line x1="408.0" y1="75.0" x2="432.0" y2="75.0" stroke="#64748b" stroke-width="2" marker-end="url(#pipe_arrow)"/>
+  <rect x="435.0" y="55.0" width="110" height="40" rx="10" fill="#dc2626"/>
+  <text x="490.0" y="80.0" text-anchor="middle" font-family="sans-serif" font-size="11" fill="#fff" font-weight="600">Lint</text>
+  <line x1="548.0" y1="75.0" x2="572.0" y2="75.0" stroke="#64748b" stroke-width="2" marker-end="url(#pipe_arrow)"/>
+  <rect x="575.0" y="55.0" width="110" height="40" rx="10" fill="#7c3aed"/>
+  <text x="630.0" y="80.0" text-anchor="middle" font-family="sans-serif" font-size="11" fill="#fff" font-weight="600">Deploy</text>
+</svg>
