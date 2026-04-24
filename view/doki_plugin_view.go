@@ -8,6 +8,7 @@ import (
 	"github.com/boolean-maybe/tiki/controller"
 	"github.com/boolean-maybe/tiki/model"
 	"github.com/boolean-maybe/tiki/plugin"
+	"github.com/boolean-maybe/tiki/view/dokiindex"
 	"github.com/boolean-maybe/tiki/view/markdown"
 
 	"github.com/boolean-maybe/navidown/loaders"
@@ -74,6 +75,10 @@ func (dv *DokiView) build() {
 		sourcePath, _ = nav.ResolveMarkdownPath(dv.pluginDef.URL, "", searchRoots)
 		if sourcePath == "" {
 			sourcePath = dv.pluginDef.URL
+		}
+
+		if err == nil {
+			content = dokiindex.InjectTags(content, sourcePath)
 		}
 
 		dv.md = markdown.NewNavigableMarkdown(markdown.NavigableMarkdownConfig{
