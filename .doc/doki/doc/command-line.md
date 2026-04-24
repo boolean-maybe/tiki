@@ -17,13 +17,13 @@ Initialize a tiki project. Creates the `.doc/tiki/` and `.doc/doki/` directory s
 If the target directory does not exist, it is created. If the directory is not a git repository, `git init` is run automatically.
 
 ```
-tiki init [directory] [-w|--workflow <name>] [--ai-skill <list>] [--samples] [-n|--non-interactive]
+tiki init [directory] [-w|--workflow <source>] [--ai-skill <list>] [--samples] [-n|--non-interactive]
 ```
 
 | Option | Description |
 |---|---|
 | `directory` | Target directory (default: current directory) |
-| `-w`, `--workflow <name>` | Install a named workflow (e.g. `todo`, `kanban`, `bug-tracker`) |
+| `-w`, `--workflow <source>` | Install a workflow (embedded name, file path, or URL) |
 | `--ai-skill <list>` | AI skills to install, comma-separated (e.g. `claude,gemini`) |
 | `--samples` | Create bundled sample tasks (non-interactive mode only) |
 | `-n`, `--non-interactive` | Skip prompts, use only flags and defaults |
@@ -41,11 +41,17 @@ tiki init
 # initialize a subdirectory (creates dir and git repo if needed)
 tiki init my-project
 
-# install a named workflow
+# install a bundled workflow by name
 tiki init -w todo
 
-# initialize a subdirectory with a named workflow
+# initialize a subdirectory with a bundled workflow
 tiki init -w kanban my-project
+
+# install from a local file
+tiki init -w ./custom-workflow.yaml
+
+# install from a URL
+tiki init -w https://example.com/workflow.yaml
 
 # fully non-interactive
 tiki init -n --ai-skill claude,gemini --samples
@@ -103,11 +109,15 @@ tiki workflow reset config --current
 
 #### workflow install
 
-Install a named workflow from the tiki repository. Downloads `workflow.yaml` into the scope directory, overwriting any existing file.
+Install a workflow from a name, local file, or URL. Writes `workflow.yaml` into the
+scope directory, overwriting any existing file.
 
 ```bash
-tiki workflow install <name> [--scope]
+tiki workflow install <source> [--scope]
 ```
+
+**Sources:** bundled name (`kanban`, `todo`, `bug-tracker`), file path (`./custom.yaml`),
+or URL (`https://example.com/workflow.yaml`).
 
 **Scopes** (default: `--local`):
 - `--global` — user config directory
@@ -115,22 +125,26 @@ tiki workflow install <name> [--scope]
 - `--current` — current working directory
 
 ```bash
-# install the sprint workflow globally
-tiki workflow install sprint --global
+# install the kanban workflow globally
+tiki workflow install kanban --global
 
-# install the kanban workflow for the current project
-tiki workflow install kanban --local
+# install from a local file
+tiki workflow install ./custom.yaml --local
+
+# install from a URL
+tiki workflow install https://example.com/workflow.yaml --global
 ```
 
 #### workflow describe
 
-Fetch a workflow's description from the tiki repository and print it to stdout.
-Reads the top-level `description` field of the named workflow's `workflow.yaml`.
+Print a workflow's description. Reads the top-level `description` field from the workflow YAML.
 Prints nothing and exits 0 if the workflow has no description field.
 
 ```bash
-tiki workflow describe <name>
+tiki workflow describe <source>
 ```
+
+**Sources:** embedded name, file path, or URL (same as `workflow install`).
 
 **Examples:**
 
@@ -138,8 +152,11 @@ tiki workflow describe <name>
 # preview the todo workflow before installing it
 tiki workflow describe todo
 
-# check what bug-tracker is for
-tiki workflow describe bug-tracker
+# describe a local workflow file
+tiki workflow describe ./custom.yaml
+
+# describe a remote workflow
+tiki workflow describe https://example.com/workflow.yaml
 ```
 
 ### demo

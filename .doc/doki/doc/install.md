@@ -48,9 +48,11 @@ You can also initialize a different directory directly:
 tiki init /path/to/your/git/repo
 ```
 
-For a custom workflow, pass `-w`:
+For a custom workflow, pass `-w` with an bundled workflow name, file path, or URL:
 ```bash
-tiki init -w my-workflow.yaml
+tiki init -w todo
+tiki init -w ./my-workflow.yaml
+tiki init -w https://example.com/workflow.yaml
 ```
 
 For non-interactive use (CI, scripts):

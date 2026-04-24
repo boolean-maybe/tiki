@@ -3,10 +3,14 @@ package main
 import (
 	"errors"
 	"fmt"
+	"log/slog"
 	"os"
 	"strings"
 
 	"github.com/boolean-maybe/tiki/config"
+	"github.com/boolean-maybe/tiki/internal/ruki/runtime"
+	"github.com/boolean-maybe/tiki/plugin"
+	"github.com/boolean-maybe/tiki/ruki"
 )
 
 // runWorkflow dispatches workflow subcommands. Returns an exit code.
@@ -82,12 +86,41 @@ func runWorkflowInstall(args []string) int {
 	}
 
 	if name == "" {
-		_, _ = fmt.Fprintln(os.Stderr, "error: workflow name required")
+		_, _ = fmt.Fprintln(os.Stderr, "error: workflow source required")
 		printWorkflowInstallUsage()
 		return exitUsage
 	}
 
-	results, err := config.InstallWorkflow(name, scope, config.DefaultWorkflowBaseURL)
+	if _, err := config.ResolveDir(scope); err != nil {
+		_, _ = fmt.Fprintln(os.Stderr, "error:", err)
+		return exitInternal
+	}
+
+	src, err := config.ClassifyWorkflowInput(name)
+	if err != nil {
+		_, _ = fmt.Fprintln(os.Stderr, "error:", err)
+		return exitInternal
+	}
+
+	content, err := config.FetchWorkflowContent(src)
+	if err != nil {
+		_, _ = fmt.Fprintln(os.Stderr, "error:", err)
+		return exitInternal
+	}
+
+	if src.Kind != config.WorkflowSourceEmbedded {
+		vw, err := config.ValidateWorkflowContent(content)
+		if err != nil {
+			_, _ = fmt.Fprintf(os.Stderr, "error: invalid workflow: %v\n", err)
+			return exitInternal
+		}
+		if err := validateWorkflowViews(vw, content); err != nil {
+			_, _ = fmt.Fprintf(os.Stderr, "error: invalid workflow: %v\n", err)
+			return exitInternal
+		}
+	}
+
+	results, err := config.InstallWorkflowFromContent(content, scope)
 	if err != nil {
 		_, _ = fmt.Fprintln(os.Stderr, "error:", err)
 		return exitInternal
@@ -119,12 +152,18 @@ func runWorkflowDescribe(args []string) int {
 	}
 
 	if name == "" {
-		_, _ = fmt.Fprintln(os.Stderr, "error: workflow name required")
+		_, _ = fmt.Fprintln(os.Stderr, "error: workflow source required")
 		printWorkflowDescribeUsage()
 		return exitUsage
 	}
 
-	desc, err := config.DescribeWorkflow(name, config.DefaultWorkflowBaseURL)
+	src, err := config.ClassifyWorkflowInput(name)
+	if err != nil {
+		_, _ = fmt.Fprintln(os.Stderr, "error:", err)
+		return exitInternal
+	}
+
+	desc, err := config.DescribeWorkflow(src)
 	if err != nil {
 		_, _ = fmt.Fprintln(os.Stderr, "error:", err)
 		return exitInternal
@@ -193,13 +232,55 @@ func parsePositionalOnly(args []string) (string, error) {
 	return positional, nil
 }
 
+// validateWorkflowViews validates triggers and plugin views in a non-embedded
+// workflow. Requires the ValidatedWorkflow (from config.ValidateWorkflowContent)
+// and the raw YAML content (written to a temp file for plugin loading).
+func validateWorkflowViews(vw *config.ValidatedWorkflow, content string) error {
+	schema := runtime.NewSchemaFromRegistries(vw.StatusReg, vw.TypeReg, vw.FieldDefs)
+
+	if len(vw.TriggerDefs) > 0 {
+		parser := ruki.NewParser(schema)
+		for i, def := range vw.TriggerDefs {
+			desc := def.Description
+			if desc == "" {
+				desc = fmt.Sprintf("#%d", i+1)
+			}
+			if _, err := parser.ParseAndValidateRule(def.Ruki); err != nil {
+				return fmt.Errorf("trigger %q: %w", desc, err)
+			}
+		}
+	}
+
+	tmp, err := os.CreateTemp("", "tiki-validate-*.yaml")
+	if err != nil {
+		return fmt.Errorf("create temp file: %w", err)
+	}
+	defer func() { _ = os.Remove(tmp.Name()) }()
+
+	if _, err := tmp.Write([]byte(content)); err != nil {
+		_ = tmp.Close()
+		return fmt.Errorf("write temp file: %w", err)
+	}
+	if err := tmp.Close(); err != nil {
+		return fmt.Errorf("close temp file: %w", err)
+	}
+
+	// suppress INFO logs from plugin loader during validation-only pass
+	prev := slog.Default()
+	slog.SetDefault(slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelError})))
+	_, err = plugin.LoadPluginsFromFile(tmp.Name(), schema)
+	slog.SetDefault(prev)
+
+	return err
+}
+
 func printWorkflowUsage() {
 	fmt.Print(`Usage: tiki workflow <command>
 
 Commands:
   reset [target] [--scope]      Reset config files to defaults
-  install <name> [--scope]      Install a workflow from the tiki repository
-  describe <name>               Fetch and print a workflow's description
+  install <source> [--scope]    Install a workflow (embedded name, file path, or URL)
+  describe <source>             Print a workflow's description
 
 Run 'tiki workflow <command> --help' for details.
 `)
@@ -222,29 +303,42 @@ Scopes (default: --local):
 }
 
 func printWorkflowInstallUsage() {
-	fmt.Print(`Usage: tiki workflow install <name> [--scope]
+	fmt.Print(`Usage: tiki workflow install <source> [--scope]
 
-Install a named workflow from the tiki repository.
-Downloads workflow.yaml into the scope directory,
+Install a workflow from an embedded name, local file, or URL.
+Writes workflow.yaml into the scope directory,
 overwriting any existing file.
+
+Sources:
+  Embedded names:  kanban, todo, bug-tracker
+  File path:       ./my-workflow.yaml, /path/to/workflow.yaml
+  URL:             https://example.com/workflow.yaml
 
 Scopes (default: --local):
   --global   User config directory
   --local    Project config directory (.doc/)
   --current  Current working directory
 
-Example:
-  tiki workflow install sprint --global
+Examples:
+  tiki workflow install kanban --global
+  tiki workflow install ./custom.yaml --local
+  tiki workflow install https://example.com/workflow.yaml --global
 `)
 }
 
 func printWorkflowDescribeUsage() {
-	fmt.Print(`Usage: tiki workflow describe <name>
+	fmt.Print(`Usage: tiki workflow describe <source>
 
-Fetch a workflow's description from the tiki repository and print it.
-Reads the top-level 'description' field of the named workflow.yaml.
+Print a workflow's description. Reads the top-level 'description' field.
 
-Example:
+Sources:
+  Embedded names:  kanban, todo, bug-tracker
+  File path:       ./my-workflow.yaml
+  URL:             https://example.com/workflow.yaml
+
+Examples:
   tiki workflow describe todo
+  tiki workflow describe ./custom.yaml
+  tiki workflow describe https://example.com/workflow.yaml
 `)
 }

@@ -266,7 +266,7 @@ Usage:
   tiki init [dir] [options]    Initialize project (exits without launching TUI)
   tiki exec '<statement>'    Execute a ruki query and exit
   tiki workflow reset [target]  Reset config files (--global, --local, --current)
-  tiki workflow install <name>  Install a workflow (--global, --local, --current)
+  tiki workflow install <source> Install a workflow (--global, --local, --current)
   tiki demo                  Clone demo project and launch TUI
   tiki file.md/URL           View markdown file or image
   echo "Title" | tiki        Create task from piped input
