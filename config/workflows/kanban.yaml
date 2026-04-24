@@ -111,7 +111,7 @@ views:
           action: update where id = id() set status="ready"
         - key: "e"
           label: "Link to epic"
-          action: update where id = choose(select where type = "epic") set dependsOn = dependsOn + id()
+          action: update where id = choose(select where type = "epic" and id() not in dependsOn) set dependsOn = dependsOn + id()
     - name: Recent
       description: "Tasks changed in the last 24 hours, most recent first"
       key: Ctrl-R
