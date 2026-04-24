@@ -40,6 +40,10 @@ func runDemo() error {
 		}
 	}
 
+	if err := ensureDemoWorkflow(demoDirName); err != nil {
+		return fmt.Errorf("ensure demo workflow: %w", err)
+	}
+
 	if err := os.Chdir(demoDirName); err != nil {
 		return fmt.Errorf("change to demo directory: %w", err)
 	}
@@ -90,6 +94,24 @@ func reconcileGit() error {
 	}
 	if err := addFn("."); err != nil {
 		return fmt.Errorf("git add demo dir: %w", err)
+	}
+	return nil
+}
+
+// ensureDemoWorkflow writes the embedded kanban workflow to <dst>/.doc/workflow.yaml
+// when that file is absent. Idempotent: present file is left untouched so user
+// edits survive re-runs; missing file self-heals (e.g. after interrupted extract
+// or user deletion) rather than silently falling back to user-config scope.
+func ensureDemoWorkflow(dst string) error {
+	path := filepath.Join(dst, ".doc", "workflow.yaml")
+	if _, err := os.Stat(path); err == nil {
+		return nil
+	}
+	if err := os.MkdirAll(filepath.Dir(path), 0o750); err != nil {
+		return fmt.Errorf("create parent for %s: %w", path, err)
+	}
+	if err := os.WriteFile(path, []byte(config.GetDefaultWorkflowYAML()), 0o644); err != nil {
+		return fmt.Errorf("write %s: %w", path, err)
 	}
 	return nil
 }

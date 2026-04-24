@@ -66,10 +66,100 @@ func TestRunDemo_MaterializesAllFiles(t *testing.T) {
 		t.Errorf("file count = %d, want at least 131", got)
 	}
 
-	for _, rel := range []string{".doc", ".gitignore"} {
+	for _, rel := range []string{".doc", ".gitignore", ".doc/workflow.yaml"} {
 		if _, err := os.Stat(filepath.Join(demoRoot, rel)); err != nil {
 			t.Errorf("missing expected entry %q: %v", rel, err)
 		}
+	}
+}
+
+// TestRunDemo_WritesEmbeddedKanbanWorkflow pins the single-source-of-truth
+// contract: the demo's workflow.yaml must match the canonical embedded kanban
+// workflow byte-for-byte. Compares against config.GetDefaultWorkflowYAML() —
+// not a version literal — so the test survives future kanban updates.
+func TestRunDemo_WritesEmbeddedKanbanWorkflow(t *testing.T) {
+	setupDemoTest(t)
+	t.Setenv("TIKI_STORE_GIT", "false")
+
+	if err := runDemo(); err != nil {
+		t.Fatalf("runDemo: %v", err)
+	}
+
+	// runDemo chdirs into tiki-demo, so .doc/workflow.yaml is relative to cwd.
+	got, err := os.ReadFile(filepath.Join(".doc", "workflow.yaml"))
+	if err != nil {
+		t.Fatalf("read workflow: %v", err)
+	}
+	if string(got) != config.GetDefaultWorkflowYAML() {
+		t.Errorf("workflow.yaml does not match embedded kanban")
+	}
+}
+
+// TestRunDemo_PreservesExistingWorkflowEdits pins the "write if absent"
+// contract: a pre-existing workflow.yaml (e.g. user's local edits) must not
+// be clobbered on re-run. Regression guard against reverting to
+// "overwrite on every launch".
+func TestRunDemo_PreservesExistingWorkflowEdits(t *testing.T) {
+	setupDemoTest(t)
+	t.Setenv("TIKI_STORE_GIT", "false")
+
+	// pre-populate tiki-demo/.doc/workflow.yaml with a sentinel that is
+	// guaranteed to differ from the embedded kanban.
+	dir := filepath.Join(demoDirName, ".doc")
+	if err := os.MkdirAll(dir, 0o750); err != nil {
+		t.Fatalf("mkdir: %v", err)
+	}
+	custom := []byte("version: 9.9.9\n# user's edits\n")
+	wfPath := filepath.Join(dir, "workflow.yaml")
+	if err := os.WriteFile(wfPath, custom, 0o644); err != nil {
+		t.Fatalf("seed workflow: %v", err)
+	}
+
+	if err := runDemo(); err != nil {
+		t.Fatalf("runDemo: %v", err)
+	}
+
+	// cwd is now inside tiki-demo, so workflow.yaml is at ./.doc/workflow.yaml.
+	got, err := os.ReadFile(filepath.Join(".doc", "workflow.yaml"))
+	if err != nil {
+		t.Fatalf("read workflow: %v", err)
+	}
+	if string(got) != string(custom) {
+		t.Errorf("workflow.yaml was overwritten; want preserved user edits")
+	}
+}
+
+// TestRunDemo_HealsMissingWorkflowOnReuse guards the stranded-half-init
+// scenario: an existing tiki-demo/ dir without .doc/workflow.yaml (e.g. from
+// an interrupted prior run or a user deletion) must self-heal by writing the
+// embedded kanban rather than leaving the demo in a state where
+// FindWorkflowFile silently falls back to user-config or cwd scope.
+func TestRunDemo_HealsMissingWorkflowOnReuse(t *testing.T) {
+	setupDemoTest(t)
+	t.Setenv("TIKI_STORE_GIT", "false")
+
+	// pre-create tiki-demo/ with a sentinel but no .doc/workflow.yaml
+	if err := os.MkdirAll(demoDirName, 0o750); err != nil {
+		t.Fatalf("mkdir: %v", err)
+	}
+	sentinelPath := filepath.Join(demoDirName, "sentinel.txt")
+	if err := os.WriteFile(sentinelPath, []byte("keep me"), 0o644); err != nil {
+		t.Fatalf("write sentinel: %v", err)
+	}
+
+	if err := runDemo(); err != nil {
+		t.Fatalf("runDemo: %v", err)
+	}
+
+	got, err := os.ReadFile(filepath.Join(".doc", "workflow.yaml"))
+	if err != nil {
+		t.Fatalf("read healed workflow: %v", err)
+	}
+	if string(got) != config.GetDefaultWorkflowYAML() {
+		t.Errorf("healed workflow.yaml does not match embedded kanban")
+	}
+	if _, err := os.Stat("sentinel.txt"); err != nil {
+		t.Errorf("sentinel lost during heal: %v", err)
 	}
 }
 
@@ -94,9 +184,13 @@ func TestRunDemo_ReusesExistingDir(t *testing.T) {
 	if _, err := os.Stat("sentinel.txt"); err != nil {
 		t.Errorf("sentinel missing after reuse: %v", err)
 	}
-	// no .doc/ should have been written, because extraction was skipped
-	if _, err := os.Stat(".doc"); err == nil {
-		t.Errorf(".doc should not exist — reused dir should not be re-extracted")
+	// the embedded demo tree (tikis, gitignore) must not have been written,
+	// because extraction was skipped. .doc/workflow.yaml is allowed — it is
+	// written by ensureDemoWorkflow, not by the tree extractor.
+	for _, rel := range []string{".gitignore", ".doc/tiki"} {
+		if _, err := os.Stat(rel); err == nil {
+			t.Errorf("%s should not exist — reused dir should not be re-extracted", rel)
+		}
 	}
 }
 
