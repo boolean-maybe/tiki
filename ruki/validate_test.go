@@ -53,6 +53,52 @@ func TestValidation_TypeMismatch(t *testing.T) {
 	}
 }
 
+func TestValidation_BareBoolConditions(t *testing.T) {
+	p := newCustomParser()
+
+	valid := []string{
+		`select where true`,
+		`select where false`,
+		`select where flag`,
+		`select where not flag`,
+		`select where (flag) and true`,
+	}
+	for _, input := range valid {
+		t.Run("valid "+input, func(t *testing.T) {
+			_, err := p.ParseStatement(input)
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+		})
+	}
+
+	invalid := []struct {
+		name    string
+		input   string
+		wantErr string
+	}{
+		{"string field", `select where title`, "condition expression must be bool, got string"},
+		{"int field", `select where priority`, "condition expression must be bool, got int"},
+		{"date field", `select where due`, "condition expression must be bool, got date"},
+		{"list string field", `select where tags`, "condition expression must be bool, got list<string>"},
+		{"list ref field", `select where dependsOn`, "condition expression must be bool, got list<ref>"},
+		{"id field", `select where id`, "condition expression must be bool, got id"},
+		{"ref field", `select where epic`, "condition expression must be bool, got ref"},
+		{"subquery", `select where select`, "subquery is only valid as argument"},
+	}
+	for _, tt := range invalid {
+		t.Run(tt.name, func(t *testing.T) {
+			_, err := p.ParseStatement(tt.input)
+			if err == nil {
+				t.Fatal("expected error, got nil")
+			}
+			if !strings.Contains(err.Error(), tt.wantErr) {
+				t.Fatalf("expected error containing %q, got: %v", tt.wantErr, err)
+			}
+		})
+	}
+}
+
 func TestValidation_UnknownField(t *testing.T) {
 	p := newTestParser()
 
@@ -2535,6 +2581,7 @@ func (customTestSchema) Field(name string) (FieldSpec, bool) {
 		"startedAt": {Name: "startedAt", Type: ValueTimestamp, Custom: true},
 		"notes":     {Name: "notes", Type: ValueString, Custom: true},
 		"score":     {Name: "score", Type: ValueInt, Custom: true},
+		"epic":      {Name: "epic", Type: ValueRef, Custom: true},
 		"labels":    {Name: "labels", Type: ValueListString, Custom: true},
 		"related":   {Name: "related", Type: ValueListRef, Custom: true},
 	}

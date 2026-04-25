@@ -98,6 +98,11 @@ type NotCondition struct {
 	Inner Condition
 }
 
+// BoolExprCondition represents a bare bool expression used as a condition.
+type BoolExprCondition struct {
+	Expr Expr
+}
+
 // CompareExpr represents "<expr> <op> <expr>".
 type CompareExpr struct {
 	Left  Expr
@@ -125,12 +130,13 @@ type QuantifierExpr struct {
 	Condition Condition
 }
 
-func (*BinaryCondition) conditionNode() {}
-func (*NotCondition) conditionNode()    {}
-func (*CompareExpr) conditionNode()     {}
-func (*IsEmptyExpr) conditionNode()     {}
-func (*InExpr) conditionNode()          {}
-func (*QuantifierExpr) conditionNode()  {}
+func (*BinaryCondition) conditionNode()   {}
+func (*NotCondition) conditionNode()      {}
+func (*BoolExprCondition) conditionNode() {}
+func (*CompareExpr) conditionNode()       {}
+func (*IsEmptyExpr) conditionNode()       {}
+func (*InExpr) conditionNode()            {}
+func (*QuantifierExpr) conditionNode()    {}
 
 // --- expressions ---
 

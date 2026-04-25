@@ -1,6 +1,9 @@
 package ruki
 
-import "testing"
+import (
+	"strings"
+	"testing"
+)
 
 func TestParseTrigger_BeforeDeny(t *testing.T) {
 	p := newTestParser()
@@ -323,6 +326,23 @@ func TestParseTrigger_BareFieldInGuard_Rejected(t *testing.T) {
 				t.Fatal("expected error for bare field in trigger guard")
 			}
 		})
+	}
+}
+
+func TestParseTrigger_BareBoolFieldInGuardRequiresQualifier(t *testing.T) {
+	p := newCustomParser()
+
+	_, err := p.ParseTrigger(`before update where flag deny "blocked"`)
+	if err == nil {
+		t.Fatal("expected bare bool field to be rejected in trigger guard")
+	}
+	if !strings.Contains(err.Error(), "bare field") {
+		t.Fatalf("expected bare field error, got: %v", err)
+	}
+
+	_, err = p.ParseTrigger(`before update where new.flag deny "blocked"`)
+	if err != nil {
+		t.Fatalf("expected qualified bool field in trigger guard to pass: %v", err)
 	}
 }
 

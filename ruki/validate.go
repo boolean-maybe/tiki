@@ -276,6 +276,9 @@ func (p *Parser) validateCondition(c Condition) error {
 	case *NotCondition:
 		return p.validateCondition(c.Inner)
 
+	case *BoolExprCondition:
+		return p.validateBoolExprCondition(c)
+
 	case *CompareExpr:
 		return p.validateCompare(c)
 
@@ -292,6 +295,17 @@ func (p *Parser) validateCondition(c Condition) error {
 	default:
 		return fmt.Errorf("unknown condition type %T", c)
 	}
+}
+
+func (p *Parser) validateBoolExprCondition(c *BoolExprCondition) error {
+	exprType, err := p.inferExprType(c.Expr)
+	if err != nil {
+		return err
+	}
+	if exprType != ValueBool {
+		return fmt.Errorf("condition expression must be bool, got %s", typeName(exprType))
+	}
+	return nil
 }
 
 func (p *Parser) validateCompare(c *CompareExpr) error {

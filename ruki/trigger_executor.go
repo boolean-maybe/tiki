@@ -300,6 +300,12 @@ func (e *triggerExecOverride) evalCondition(c Condition, t *task.Task, allTasks 
 			return false, err
 		}
 		return !val, nil
+	case *BoolExprCondition:
+		val, err := e.evalExpr(c.Expr, t, allTasks)
+		if err != nil {
+			return false, err
+		}
+		return conditionBoolValue(val)
 	case *CompareExpr:
 		leftVal, err := e.evalExpr(c.Left, t, allTasks)
 		if err != nil {
