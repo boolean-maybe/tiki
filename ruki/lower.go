@@ -346,8 +346,7 @@ func lowerExprCond(g *exprCond) (Condition, error) {
 		return &QuantifierExpr{Expr: left, Kind: "all", Condition: cond}, nil
 
 	default:
-		// bare expression used as condition — this is a parse error
-		return nil, fmt.Errorf("expression used as condition without comparison operator")
+		return &BoolExprCondition{Expr: left}, nil
 	}
 }
 

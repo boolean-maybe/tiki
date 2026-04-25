@@ -590,6 +590,8 @@ func scanConditionSemantics(cond Condition) (usesID bool, hasCall bool, err erro
 		return u1 || u2, c1 || c2, nil
 	case *NotCondition:
 		return scanConditionSemantics(c.Inner)
+	case *BoolExprCondition:
+		return scanExprSemantics(c.Expr)
 	case *CompareExpr:
 		u1, c1, err := scanExprSemantics(c.Left)
 		if err != nil {
@@ -753,6 +755,8 @@ func scanConditionSemanticsEx(cond Condition) (semanticFlags, error) {
 		return f, nil
 	case *NotCondition:
 		return scanConditionSemanticsEx(c.Inner)
+	case *BoolExprCondition:
+		return scanExprSemanticsEx(c.Expr)
 	case *CompareExpr:
 		lf, err := scanExprSemanticsEx(c.Left)
 		if err != nil {
@@ -1101,6 +1105,8 @@ func cloneCondition(cond Condition) Condition {
 		}
 	case *NotCondition:
 		return &NotCondition{Inner: cloneCondition(c.Inner)}
+	case *BoolExprCondition:
+		return &BoolExprCondition{Expr: cloneExpr(c.Expr)}
 	case *CompareExpr:
 		return &CompareExpr{
 			Left:  cloneExpr(c.Left),

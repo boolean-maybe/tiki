@@ -98,6 +98,69 @@ func TestParseSelect(t *testing.T) {
 	}
 }
 
+func TestParseBareBoolConditions(t *testing.T) {
+	p := newCustomParser()
+
+	tests := []struct {
+		name  string
+		input string
+		check func(t *testing.T, cond Condition)
+	}{
+		{
+			"literal",
+			`select where true`,
+			func(t *testing.T, cond Condition) {
+				t.Helper()
+				bare, ok := cond.(*BoolExprCondition)
+				if !ok {
+					t.Fatalf("expected *BoolExprCondition, got %T", cond)
+				}
+				if lit, ok := bare.Expr.(*BoolLiteral); !ok || !lit.Value {
+					t.Fatalf("expected true BoolLiteral, got %T", bare.Expr)
+				}
+			},
+		},
+		{
+			"field",
+			`select where flag`,
+			func(t *testing.T, cond Condition) {
+				t.Helper()
+				bare, ok := cond.(*BoolExprCondition)
+				if !ok {
+					t.Fatalf("expected *BoolExprCondition, got %T", cond)
+				}
+				if ref, ok := bare.Expr.(*FieldRef); !ok || ref.Name != "flag" {
+					t.Fatalf("expected flag FieldRef, got %T", bare.Expr)
+				}
+			},
+		},
+		{
+			"not field",
+			`select where not flag`,
+			func(t *testing.T, cond Condition) {
+				t.Helper()
+				not, ok := cond.(*NotCondition)
+				if !ok {
+					t.Fatalf("expected *NotCondition, got %T", cond)
+				}
+				if _, ok := not.Inner.(*BoolExprCondition); !ok {
+					t.Fatalf("expected BoolExprCondition inner, got %T", not.Inner)
+				}
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			stmt, err := p.ParseStatement(tt.input)
+			if err != nil {
+				t.Fatalf("parse error: %v", err)
+			}
+			tt.check(t, stmt.Select.Where)
+		})
+	}
+}
+
 func TestParseCreate(t *testing.T) {
 	p := newTestParser()
 

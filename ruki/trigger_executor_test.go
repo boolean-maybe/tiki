@@ -54,6 +54,29 @@ func TestEvalGuard_QualifiedRefMatch(t *testing.T) {
 	}
 }
 
+func TestEvalGuard_QualifiedBareBoolExpr(t *testing.T) {
+	te := NewTriggerExecutor(customTestSchema{}, func() string { return "alice" })
+	p := newCustomParser()
+
+	trig, err := p.ParseTrigger(`before update where new.flag deny "blocked"`)
+	if err != nil {
+		t.Fatalf("parse: %v", err)
+	}
+
+	tc := &TriggerContext{
+		Old: &task.Task{ID: "TIKI-000001", CustomFields: map[string]interface{}{"flag": false}},
+		New: &task.Task{ID: "TIKI-000001", CustomFields: map[string]interface{}{"flag": true}},
+	}
+
+	ok, err := te.EvalGuard(trig, tc)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !ok {
+		t.Fatal("guard should match: new.flag is true")
+	}
+}
+
 func TestEvalGuard_QualifiedRefNoMatch(t *testing.T) {
 	te := newTestTriggerExecutor()
 	p := newTestParser()

@@ -161,6 +161,14 @@ func TestExecuteSelectWhere(t *testing.T) {
 			3, []string{"TIKI-000001", "TIKI-000002", "TIKI-000004"},
 		},
 		{
+			"bare true condition", `select where true`,
+			4, []string{"TIKI-000001", "TIKI-000002", "TIKI-000003", "TIKI-000004"},
+		},
+		{
+			"not bare false condition", `select where not false`,
+			4, []string{"TIKI-000001", "TIKI-000002", "TIKI-000003", "TIKI-000004"},
+		},
+		{
 			"in list", `select where status in ["done", "backlog"]`,
 			2, []string{"TIKI-000003", "TIKI-000004"},
 		},
@@ -3939,6 +3947,51 @@ func TestExecutor_CustomFieldSetAndGet(t *testing.T) {
 	}
 	if v := e.extractField(tk, "severity"); v != "high" {
 		t.Errorf("severity: got %v, want high", v)
+	}
+}
+
+func TestExecutor_BareBoolCustomFieldCondition(t *testing.T) {
+	e := newCustomExecutor()
+	p := newCustomParser2()
+	tasks := []*task.Task{
+		{
+			ID: "T1", Title: "true flag", Status: "ready",
+			CustomFields: map[string]interface{}{"flag": true},
+		},
+		{
+			ID: "T2", Title: "false flag", Status: "ready",
+			CustomFields: map[string]interface{}{"flag": false},
+		},
+	}
+
+	tests := []struct {
+		name    string
+		input   string
+		wantIDs []string
+	}{
+		{"bare flag", `select where flag`, []string{"T1"}},
+		{"not flag", `select where not flag`, []string{"T2"}},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			stmt, err := p.ParseStatement(tt.input)
+			if err != nil {
+				t.Fatalf("parse: %v", err)
+			}
+			result, err := e.Execute(stmt, tasks)
+			if err != nil {
+				t.Fatalf("execute: %v", err)
+			}
+			if len(result.Select.Tasks) != len(tt.wantIDs) {
+				t.Fatalf("expected %d tasks, got %d", len(tt.wantIDs), len(result.Select.Tasks))
+			}
+			for i, wantID := range tt.wantIDs {
+				if result.Select.Tasks[i].ID != wantID {
+					t.Errorf("task[%d].ID = %q, want %q", i, result.Select.Tasks[i].ID, wantID)
+				}
+			}
+		})
 	}
 }
 
