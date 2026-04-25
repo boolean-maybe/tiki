@@ -7,15 +7,21 @@ import (
 
 // validate.go — structural validation and semantic type-checking.
 
-// qualifierPolicy controls which old./new./outer. qualifiers are allowed during validation.
+// qualifierPolicy controls which old./new./outer./target./targets. qualifiers
+// are allowed during validation. target. and targets. are plugin-runtime
+// qualifiers; the structural validator admits them in standalone statement
+// parsing, while the semantic validator rejects them outside plugin runtime.
 type qualifierPolicy struct {
-	allowOld   bool
-	allowNew   bool
-	allowOuter bool
+	allowOld     bool
+	allowNew     bool
+	allowOuter   bool
+	allowTarget  bool
+	allowTargets bool
 }
 
-// no qualifiers allowed (standalone statements).
-var noQualifiers = qualifierPolicy{}
+// noQualifiers is the default for standalone statements. target. and targets.
+// are admitted structurally here; the semantic validator gates them by runtime.
+var noQualifiers = qualifierPolicy{allowTarget: true, allowTargets: true}
 
 func triggerQualifiers(event string) qualifierPolicy {
 	switch event {
@@ -159,9 +165,11 @@ func (p *Parser) validateTrigger(t *Trigger) error {
 func (p *Parser) validateRule(r *Rule) error {
 	switch {
 	case r.TimeTrigger != nil:
-		p.qualifiers = noQualifiers
+		// time triggers forbid target./targets. (plugin-only qualifiers)
+		p.qualifiers = qualifierPolicy{}
 		return p.validateTimeTrigger(r.TimeTrigger)
 	case r.Trigger != nil:
+		// event triggers forbid target./targets. (plugin-only qualifiers)
 		p.qualifiers = triggerQualifiers(r.Trigger.Event)
 		return p.validateTrigger(r.Trigger)
 	default:
@@ -176,7 +184,8 @@ func (p *Parser) validateTimeTrigger(tt *TimeTrigger) error {
 	if tt.Action.Select != nil {
 		return fmt.Errorf("time trigger action must not be select")
 	}
-	p.qualifiers = noQualifiers
+	// time triggers forbid all qualifiers including target./targets.
+	p.qualifiers = qualifierPolicy{}
 	return p.validateStatement(tt.Action)
 }
 
@@ -391,7 +400,13 @@ func (p *Parser) validateIn(c *InExpr) error {
 			enumInStringList := isLiteral && valType == ValueEnum && allStringLiterals(ll)
 			// allow bool field checked against a list of bool-string literals
 			boolInStringList := isLiteral && valType == ValueBool && allBoolStringLiterals(ll)
-			if !enumInStringList && !boolInStringList {
+			// allow an enum-typed value (status, type, or custom enum) on the
+			// left-hand side of a `in targets.<enum-field>` projection. The
+			// projection collapses enum-typed tasks to list<string>, but the
+			// underlying field semantics are still enum, so membership is
+			// well-defined when the two sides refer to the same domain.
+			enumInTargetsProjection := isEnumType(valType) && p.isTargetsEnumProjection(c.Collection, valType, c.Value)
+			if !enumInStringList && !boolInStringList && !enumInTargetsProjection {
 				if !isLiteral || !isStringLike(valType) || !allStringLiterals(ll) {
 					return fmt.Errorf("element type mismatch: %s in %s", typeName(valType), typeName(collType))
 				}
@@ -418,11 +433,16 @@ func (p *Parser) validateQuantifier(q *QuantifierExpr) error {
 		return fmt.Errorf("quantifier %s requires list<ref>, got %s", q.Kind, typeName(exprType))
 	}
 	// zone 3: quantifier bodies — bare fields refer to each related task.
-	// old./new. and requireQualifiers are reset, while outer. remains allowed
-	// when the quantifier itself appears inside a subquery.
+	// old./new. and requireQualifiers are reset, while outer./target./targets.
+	// remain allowed when the quantifier itself appears inside a context that
+	// already permits them.
 	savedQualifiers := p.qualifiers
 	savedRequire := p.requireQualifiers
-	p.qualifiers = qualifierPolicy{allowOuter: savedQualifiers.allowOuter}
+	p.qualifiers = qualifierPolicy{
+		allowOuter:   savedQualifiers.allowOuter,
+		allowTarget:  savedQualifiers.allowTarget,
+		allowTargets: savedQualifiers.allowTargets,
+	}
 	p.requireQualifiers = false
 	err = p.validateCondition(q.Condition)
 	p.qualifiers = savedQualifiers
@@ -458,12 +478,23 @@ func (p *Parser) inferExprType(e Expr) (ValueType, error) {
 			if !p.qualifiers.allowOuter {
 				return 0, fmt.Errorf("outer. qualifier is not valid in this context")
 			}
+		case "target":
+			if !p.qualifiers.allowTarget {
+				return 0, fmt.Errorf("target. qualifier is not valid in this context")
+			}
+		case "targets":
+			if !p.qualifiers.allowTargets {
+				return 0, fmt.Errorf("targets. qualifier is not valid in this context")
+			}
 		default:
 			return 0, fmt.Errorf("unknown qualifier %q", e.Qualifier)
 		}
 		fs, ok := p.schema.Field(e.Name)
 		if !ok {
 			return 0, fmt.Errorf("unknown field %q in %s.%s", e.Name, e.Qualifier, e.Name)
+		}
+		if e.Qualifier == "targets" {
+			return projectedListType(fs.Type, e.Name)
 		}
 		return fs.Type, nil
 
@@ -1031,6 +1062,47 @@ func resolveEmptyPair(a, b ValueType) (ValueType, ValueType) {
 		b = a
 	}
 	return a, b
+}
+
+// projectedListType returns the list type produced by targets.<field> for a
+// field whose underlying type is fieldType. It rejects scalar field types
+// that have no list<T> representation in ruki today (int, date, timestamp,
+// duration, bool, recurrence).
+func projectedListType(fieldType ValueType, fieldName string) (ValueType, error) {
+	switch fieldType {
+	case ValueID, ValueRef, ValueListRef:
+		return ValueListRef, nil
+	case ValueString, ValueStatus, ValueTaskType, ValueEnum, ValueListString:
+		return ValueListString, nil
+	default:
+		return 0, fmt.Errorf("targets.%s is not supported: no list<%s> representation", fieldName, typeName(fieldType))
+	}
+}
+
+// isTargetsEnumProjection reports whether collection is `targets.<field>`
+// referring to a schema field whose type matches the enum-typed value on the
+// other side of the membership check. This lets `status in targets.status`,
+// `type in targets.type`, and `<custom-enum> in targets.<same-enum>` validate
+// despite the projection widening the element type to string. For custom
+// enums it further requires that both operands name the same enum field so
+// cross-domain comparisons stay rejected.
+func (p *Parser) isTargetsEnumProjection(collection Expr, valType ValueType, value Expr) bool {
+	qr, ok := collection.(*QualifiedRef)
+	if !ok || qr.Qualifier != "targets" {
+		return false
+	}
+	fs, ok := p.schema.Field(qr.Name)
+	if !ok {
+		return false
+	}
+	if fs.Type != valType {
+		return false
+	}
+	if valType == ValueEnum {
+		lhs, _ := exprFieldName(value)
+		return lhs != "" && lhs == qr.Name
+	}
+	return true
 }
 
 func listElementType(t ValueType) ValueType {

@@ -127,7 +127,8 @@ func (e *Executor) Execute(stmt any, tasks []*task.Task, inputs ...ExecutionInpu
 				Runtime:      e.runtime.Mode,
 			}
 		}
-		if validated.usesIDFunc && e.runtime.Mode == ExecutorRuntimePlugin {
+		if e.runtime.Mode == ExecutorRuntimePlugin &&
+			(validated.usesIDFunc || validated.usesTargetQualifier) {
 			if err := checkSingleSelectionForID(input); err != nil {
 				return nil, err
 			}
@@ -753,6 +754,10 @@ func (e *Executor) evalExpr(expr Expr, ctx evalContext) (interface{}, error) {
 				return nil, fmt.Errorf("outer.%s is not available outside a subquery", expr.Name)
 			}
 			return e.extractField(ctx.outer, expr.Name), nil
+		case "target":
+			return e.evalTargetField(expr.Name, ctx)
+		case "targets":
+			return e.evalTargetsField(expr.Name, ctx)
 		case "old", "new":
 			return nil, fmt.Errorf("qualified references (old./new.) are not supported in standalone SELECT")
 		default:
@@ -877,6 +882,78 @@ func (e *Executor) evalSelectedCount() (interface{}, error) {
 		return nil, fmt.Errorf("selected_count() is only available in plugin runtime")
 	}
 	return e.currentInput.SelectionCount(), nil
+}
+
+// evalTargetField evaluates target.<field>. It enforces the same exactly-one
+// selection contract as id() and extracts the named field from the selected task.
+func (e *Executor) evalTargetField(name string, ctx evalContext) (interface{}, error) {
+	if e.runtime.Mode != ExecutorRuntimePlugin {
+		return nil, fmt.Errorf("target. qualifier is only available in plugin runtime")
+	}
+	if err := checkSingleSelectionForID(e.currentInput); err != nil {
+		return nil, err
+	}
+	id, _ := e.currentInput.SingleSelectedTaskID()
+	t, ok := findTaskByID(ctx.allTasks, id)
+	if !ok {
+		return nil, fmt.Errorf("target.%s: selected task %q not found", name, id)
+	}
+	return e.extractField(t, name), nil
+}
+
+// evalTargetsField evaluates targets.<field>. It projects the named field
+// across all selected tasks, flattens list-valued fields, and deduplicates
+// while preserving first-seen order (by selection order, then field value
+// order within a task).
+func (e *Executor) evalTargetsField(name string, ctx evalContext) (interface{}, error) {
+	if e.runtime.Mode != ExecutorRuntimePlugin {
+		return nil, fmt.Errorf("targets. qualifier is only available in plugin runtime")
+	}
+	selectedIDs := e.currentInput.SelectedTaskIDList()
+	if len(selectedIDs) == 0 {
+		return []interface{}{}, nil
+	}
+	result := make([]interface{}, 0, len(selectedIDs))
+	seen := make(map[string]struct{}, len(selectedIDs))
+	for _, id := range selectedIDs {
+		t, ok := findTaskByID(ctx.allTasks, id)
+		if !ok {
+			return nil, fmt.Errorf("targets.%s: selected task %q not found", name, id)
+		}
+		val := e.extractField(t, name)
+		if list, isList := val.([]interface{}); isList {
+			for _, elem := range list {
+				appendUniqueElem(&result, seen, elem)
+			}
+			continue
+		}
+		if val == nil {
+			continue
+		}
+		appendUniqueElem(&result, seen, val)
+	}
+	return result, nil
+}
+
+// findTaskByID returns the task with the given id from the list (case-insensitive).
+func findTaskByID(tasks []*task.Task, id string) (*task.Task, bool) {
+	for _, t := range tasks {
+		if strings.EqualFold(t.ID, id) {
+			return t, true
+		}
+	}
+	return nil, false
+}
+
+// appendUniqueElem appends v to *out when its normalized string key has not
+// been seen before. Shared dedupe primitive for targets.<field> projection.
+func appendUniqueElem(out *[]interface{}, seen map[string]struct{}, v interface{}) {
+	key := normalizeToString(v)
+	if _, exists := seen[key]; exists {
+		return
+	}
+	seen[key] = struct{}{}
+	*out = append(*out, v)
 }
 
 // checkSingleSelectionForID enforces the scalar id() contract: exactly one

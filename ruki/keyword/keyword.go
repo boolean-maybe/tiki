@@ -12,7 +12,7 @@ var reserved = [...]string{
 	"and", "or", "not",
 	"is", "empty", "in",
 	"any", "all",
-	"old", "new", "outer",
+	"old", "new", "outer", "target", "targets",
 }
 
 var reservedSet map[string]struct{}

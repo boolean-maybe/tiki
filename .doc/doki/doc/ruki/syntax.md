@@ -240,3 +240,5 @@ priority = 1 or (priority = 2 and status = "done")
 - `outer.` is only allowed inside subquery bodies, where it refers to the immediate parent row.
 - `old.` and `new.` are only allowed in some trigger conditions. See [Semantics](semantics.md) and
   [Validation And Errors](validation-and-errors.md).
+- `target.` and `targets.` are only allowed in plugin runtime, where they resolve against the
+  selected tasks. See [Plugin target qualifiers](semantics.md#plugin-target-qualifiers).

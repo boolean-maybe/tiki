@@ -124,6 +124,15 @@ func parsePluginConfig(cfg pluginFileConfig, source string, schema ruki.Schema) 
 				if filterStmt.HasAnyInteractive() {
 					return nil, fmt.Errorf("lane %q filter cannot use interactive builtins (input/choose)", lane.Name)
 				}
+				// lane filters run on every render with no selection payload;
+				// target./targets. would misbehave (error every render or project
+				// nothing). use them in lane actions or plugin actions instead.
+				if filterStmt.UsesTargetQualifier() {
+					return nil, fmt.Errorf("lane %q filter cannot use target. — no selection context at render time", lane.Name)
+				}
+				if filterStmt.UsesTargetsQualifier() {
+					return nil, fmt.Errorf("lane %q filter cannot use targets. — no selection context at render time", lane.Name)
+				}
 			}
 
 			var actionStmt *ruki.ValidatedStatement
@@ -269,9 +278,9 @@ func parsePluginActions(configs []PluginActionConfig, parser *ruki.Parser) ([]Pl
 }
 
 // inferRequirements validates explicit requirements and auto-infers selection
-// requirements from builtin usage:
-//   - id() → "id" (legacy alias for selection:one)
-//   - ids() → "selection:any" (at least one selection)
+// requirements from builtin and qualifier usage:
+//   - id() or target.<field> → "id" (legacy alias for selection:one)
+//   - ids() or targets.<field> → "selection:any" (at least one selection)
 //
 // selected_count() deliberately does NOT auto-infer anything: its whole
 // purpose is to let ruki branch on cardinality, including the zero case
@@ -289,10 +298,13 @@ func inferRequirements(explicit []string, stmt *ruki.ValidatedStatement, idx int
 	reqs := make([]string, len(explicit))
 	copy(reqs, explicit)
 
-	if stmt.UsesIDBuiltin() && !containsRequirement(reqs, "id") {
+	needsSingle := stmt.UsesIDBuiltin() || stmt.UsesTargetQualifier()
+	needsAny := stmt.UsesIDsBuiltin() || stmt.UsesTargetsQualifier()
+
+	if needsSingle && !containsRequirement(reqs, "id") {
 		reqs = append(reqs, "id")
 	}
-	if stmt.UsesIDsBuiltin() && !hasAnySelectionRequirement(reqs) {
+	if needsAny && !hasAnySelectionRequirement(reqs) {
 		reqs = append(reqs, "selection:any")
 	}
 

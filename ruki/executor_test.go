@@ -1,8 +1,10 @@
 package ruki
 
 import (
+	"errors"
 	"fmt"
 	"reflect"
+	"sort"
 	"strings"
 	"testing"
 	"time"
@@ -4670,5 +4672,242 @@ func TestExecutor_EnumInCaseInsensitive(t *testing.T) {
 				t.Errorf("got IDs %v, want %v", gotIDs, tt.wantIDs)
 			}
 		})
+	}
+}
+
+// --- target./targets. qualifier runtime semantics ---
+
+func newPluginExecutor() *Executor {
+	return NewExecutor(testSchema{}, func() string { return "alice" }, ExecutorRuntime{Mode: ExecutorRuntimePlugin})
+}
+
+func TestExecuteTargetField_SingleSelection(t *testing.T) {
+	p := newTestParser()
+	e := newPluginExecutor()
+
+	// use target.status to select any task whose status matches the selected task's status
+	v, err := p.ParseAndValidateStatement(`select where status = target.status`, ExecutorRuntimePlugin)
+	if err != nil {
+		t.Fatalf("validate: %v", err)
+	}
+	// selected task is TIKI-000001 (status=ready). TIKI-000001 is the only ready task.
+	input := ExecutionInput{SelectedTaskIDs: []string{"TIKI-000001"}}
+	res, err := e.Execute(v, makeTasks(), input)
+	if err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	if len(res.Select.Tasks) != 1 || res.Select.Tasks[0].ID != "TIKI-000001" {
+		t.Fatalf("unexpected result %v", taskIDs(res.Select.Tasks))
+	}
+}
+
+func TestExecuteTargetField_ZeroSelectionErrors(t *testing.T) {
+	p := newTestParser()
+	e := newPluginExecutor()
+	v, err := p.ParseAndValidateStatement(`select where id = target.id`, ExecutorRuntimePlugin)
+	if err != nil {
+		t.Fatalf("validate: %v", err)
+	}
+	_, err = e.Execute(v, makeTasks())
+	if err == nil {
+		t.Fatal("expected missing-selection error")
+	}
+	var missing *MissingSelectedTaskIDError
+	if !errors.As(err, &missing) {
+		t.Fatalf("expected MissingSelectedTaskIDError, got: %v", err)
+	}
+}
+
+func TestExecuteTargetField_MultipleSelectionErrors(t *testing.T) {
+	p := newTestParser()
+	e := newPluginExecutor()
+	v, err := p.ParseAndValidateStatement(`select where id = target.id`, ExecutorRuntimePlugin)
+	if err != nil {
+		t.Fatalf("validate: %v", err)
+	}
+	input := ExecutionInput{SelectedTaskIDs: []string{"TIKI-000001", "TIKI-000002"}}
+	_, err = e.Execute(v, makeTasks(), input)
+	if err == nil {
+		t.Fatal("expected ambiguous-selection error")
+	}
+	var amb *AmbiguousSelectedTaskIDError
+	if !errors.As(err, &amb) {
+		t.Fatalf("expected AmbiguousSelectedTaskIDError, got: %v", err)
+	}
+}
+
+func TestExecuteTargetsField_IDProjection(t *testing.T) {
+	p := newTestParser()
+	e := newPluginExecutor()
+	// targets.id yields the selected IDs as a list<ref>
+	v, err := p.ParseAndValidateStatement(`select where id in targets.id`, ExecutorRuntimePlugin)
+	if err != nil {
+		t.Fatalf("validate: %v", err)
+	}
+	input := ExecutionInput{SelectedTaskIDs: []string{"TIKI-000002", "TIKI-000004"}}
+	res, err := e.Execute(v, makeTasks(), input)
+	if err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	gotIDs := taskIDs(res.Select.Tasks)
+	want := []string{"TIKI-000002", "TIKI-000004"}
+	sort.Strings(gotIDs)
+	sort.Strings(want)
+	if !reflect.DeepEqual(gotIDs, want) {
+		t.Fatalf("got %v, want %v", gotIDs, want)
+	}
+}
+
+func TestExecuteTargetsField_FlattensListRef(t *testing.T) {
+	p := newTestParser()
+	e := newPluginExecutor()
+	// targets.dependsOn flattens list<ref> across selected tasks
+	v, err := p.ParseAndValidateStatement(`select where id in targets.dependsOn`, ExecutorRuntimePlugin)
+	if err != nil {
+		t.Fatalf("validate: %v", err)
+	}
+	// TIKI-000002 depends on TIKI-000001; TIKI-000004 has no deps
+	input := ExecutionInput{SelectedTaskIDs: []string{"TIKI-000002", "TIKI-000004"}}
+	res, err := e.Execute(v, makeTasks(), input)
+	if err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	gotIDs := taskIDs(res.Select.Tasks)
+	if !reflect.DeepEqual(gotIDs, []string{"TIKI-000001"}) {
+		t.Fatalf("expected [TIKI-000001], got %v", gotIDs)
+	}
+}
+
+func TestExecuteTargetsField_FlattensAndDedupsListString(t *testing.T) {
+	// targets.tags should flatten and dedupe in first-seen order.
+	// we test via evalTargetsField directly on an executor since tags is list<string>.
+	e := newPluginExecutor()
+	e.currentInput = ExecutionInput{SelectedTaskIDs: []string{"TIKI-000002", "TIKI-000001"}}
+	tasks := makeTasks()
+	val, err := e.evalTargetsField("tags", evalContext{allTasks: tasks})
+	if err != nil {
+		t.Fatalf("evalTargetsField: %v", err)
+	}
+	list, ok := val.([]interface{})
+	if !ok {
+		t.Fatalf("expected []interface{}, got %T", val)
+	}
+	got := make([]string, len(list))
+	for i, v := range list {
+		got[i] = normalizeToString(v)
+	}
+	// TIKI-000002 tags: [bug, frontend]; TIKI-000001 tags: [infra] — no dupes here
+	want := []string{"bug", "frontend", "infra"}
+	if !reflect.DeepEqual(got, want) {
+		t.Fatalf("got %v, want %v (preserve first-seen order)", got, want)
+	}
+}
+
+func TestExecuteTargetsField_EmptySelectionReturnsEmptyList(t *testing.T) {
+	e := newPluginExecutor()
+	e.currentInput = ExecutionInput{}
+	val, err := e.evalTargetsField("id", evalContext{allTasks: makeTasks()})
+	if err != nil {
+		t.Fatalf("evalTargetsField: %v", err)
+	}
+	list, ok := val.([]interface{})
+	if !ok {
+		t.Fatalf("expected []interface{}, got %T", val)
+	}
+	if len(list) != 0 {
+		t.Fatalf("expected empty list, got %v", list)
+	}
+}
+
+func TestExecuteTargetsField_MissingTaskRecord(t *testing.T) {
+	e := newPluginExecutor()
+	e.currentInput = ExecutionInput{SelectedTaskIDs: []string{"TIKI-999999"}}
+	_, err := e.evalTargetsField("id", evalContext{allTasks: makeTasks()})
+	if err == nil {
+		t.Fatal("expected missing-task error")
+	}
+	if !strings.Contains(err.Error(), "TIKI-999999") {
+		t.Fatalf("expected error to mention missing id, got: %v", err)
+	}
+}
+
+func TestExecuteTargetField_MissingTaskRecord(t *testing.T) {
+	e := newPluginExecutor()
+	e.currentInput = ExecutionInput{SelectedTaskIDs: []string{"TIKI-999999"}}
+	_, err := e.evalTargetField("id", evalContext{allTasks: makeTasks()})
+	if err == nil {
+		t.Fatal("expected missing-task error")
+	}
+	if !strings.Contains(err.Error(), "TIKI-999999") {
+		t.Fatalf("expected error to mention missing id, got: %v", err)
+	}
+}
+
+// target.<field> must enforce the exactly-one-selection contract at preflight,
+// not just when it is reached during evaluation — a short-circuited expression
+// would otherwise bypass the contract.
+func TestExecuteTargetField_PreflightRejectsZeroSelection(t *testing.T) {
+	p := newTestParser()
+	e := newPluginExecutor()
+	// `1 = 2` is always false; without a preflight, target.id is never evaluated
+	v, err := p.ParseAndValidateStatement(
+		`select where 1 = 2 and id = target.id`,
+		ExecutorRuntimePlugin,
+	)
+	if err != nil {
+		t.Fatalf("validate: %v", err)
+	}
+	_, err = e.Execute(v, makeTasks())
+	if err == nil {
+		t.Fatal("expected MissingSelectedTaskIDError even behind short-circuit")
+	}
+	var missing *MissingSelectedTaskIDError
+	if !errors.As(err, &missing) {
+		t.Fatalf("expected MissingSelectedTaskIDError, got: %v", err)
+	}
+}
+
+// End-to-end: `status in targets.status` must parse and return the subset of
+// tasks whose status appears in the selected tasks' statuses.
+func TestExecuteTargetsStatus_Membership(t *testing.T) {
+	p := newTestParser()
+	e := newPluginExecutor()
+	v, err := p.ParseAndValidateStatement(`select where status in targets.status`, ExecutorRuntimePlugin)
+	if err != nil {
+		t.Fatalf("validate: %v", err)
+	}
+	// selected tasks have statuses {ready, done} → expect TIKI-000001 (ready)
+	// and TIKI-000003 (done) to match, and the other two to drop out.
+	input := ExecutionInput{SelectedTaskIDs: []string{"TIKI-000001", "TIKI-000003"}}
+	res, err := e.Execute(v, makeTasks(), input)
+	if err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	gotIDs := taskIDs(res.Select.Tasks)
+	sort.Strings(gotIDs)
+	want := []string{"TIKI-000001", "TIKI-000003"}
+	if !reflect.DeepEqual(gotIDs, want) {
+		t.Fatalf("got %v, want %v", gotIDs, want)
+	}
+}
+
+func TestExecuteTargetField_PreflightRejectsMultiSelection(t *testing.T) {
+	p := newTestParser()
+	e := newPluginExecutor()
+	v, err := p.ParseAndValidateStatement(
+		`select where 1 = 2 and id = target.id`,
+		ExecutorRuntimePlugin,
+	)
+	if err != nil {
+		t.Fatalf("validate: %v", err)
+	}
+	input := ExecutionInput{SelectedTaskIDs: []string{"TIKI-000001", "TIKI-000002"}}
+	_, err = e.Execute(v, makeTasks(), input)
+	if err == nil {
+		t.Fatal("expected AmbiguousSelectedTaskIDError even behind short-circuit")
+	}
+	var amb *AmbiguousSelectedTaskIDError
+	if !errors.As(err, &amb) {
+		t.Fatalf("expected AmbiguousSelectedTaskIDError, got: %v", err)
 	}
 }
