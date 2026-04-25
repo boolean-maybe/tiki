@@ -106,10 +106,16 @@ select where not (status = "done" or priority = 1)
 
 ## Functions and dates
 
-Count matching tikis:
+Find tikis that nothing else depends on:
 
 ```sql
-select where count(select where status = "done") >= 1
+select where not exists(select where outer.id in dependsOn)
+```
+
+Find work owned by assignees who already have too much in progress:
+
+```sql
+select where count(select where assignee = outer.assignee and status = "in progress") >= 3
 ```
 
 Block an epic from completing when any dependency is unfinished:
@@ -165,6 +171,7 @@ Pick a task interactively:
 ```sql
 update where id = choose(select where type = "epic") set dependsOn = dependsOn + id()
 update where id = id() set dependsOn = dependsOn + choose(select where type != "epic")
+update where id = id() set dependsOn = dependsOn + choose(select where id != outer.id)
 ```
 
 ## Before triggers

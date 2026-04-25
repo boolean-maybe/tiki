@@ -1301,6 +1301,88 @@ func TestValidation_ExistsSubqueryValidated(t *testing.T) {
 	}
 }
 
+func TestValidation_OuterRefValidInSubqueries(t *testing.T) {
+	p := newTestParser()
+
+	valid := []struct {
+		name  string
+		input string
+	}{
+		{"count", `select where count(select where assignee = outer.assignee) > 1`},
+		{"choose", `update where id = id() set dependsOn=dependsOn + choose(select where id != outer.id)`},
+		{"exists", `select where not exists(select where outer.id in dependsOn)`},
+		{"nested subquery rebinding", `select where exists(select where exists(select where outer.id in dependsOn))`},
+		{"trigger subquery keeps new", `before update where exists(select where id = outer.id and assignee = new.assignee) deny "blocked"`},
+	}
+
+	for _, tt := range valid {
+		t.Run(tt.name, func(t *testing.T) {
+			_, err := p.ParseStatement(tt.input)
+			if strings.HasPrefix(tt.input, "before ") {
+				_, err = p.ParseTrigger(tt.input)
+			}
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+		})
+	}
+}
+
+func TestValidation_OuterRefRejectedOutsideSubqueries(t *testing.T) {
+	p := newTestParser()
+
+	tests := []struct {
+		name  string
+		input string
+		parse func(string) error
+	}{
+		{
+			name:  "top-level condition",
+			input: `select where outer.id = id`,
+			parse: func(input string) error {
+				_, err := p.ParseStatement(input)
+				return err
+			},
+		},
+		{
+			name:  "assignment",
+			input: `create title=outer.title`,
+			parse: func(input string) error {
+				_, err := p.ParseStatement(input)
+				return err
+			},
+		},
+		{
+			name:  "trigger guard",
+			input: `before update where outer.id = new.id deny "blocked"`,
+			parse: func(input string) error {
+				_, err := p.ParseTrigger(input)
+				return err
+			},
+		},
+		{
+			name:  "top-level quantifier body",
+			input: `select where dependsOn any outer.status = "done"`,
+			parse: func(input string) error {
+				_, err := p.ParseStatement(input)
+				return err
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := tt.parse(tt.input)
+			if err == nil {
+				t.Fatal("expected error, got nil")
+			}
+			if !strings.Contains(err.Error(), "outer.") {
+				t.Fatalf("expected outer. qualifier error, got: %v", err)
+			}
+		})
+	}
+}
+
 func TestValidation_QuantifierNoQualifiers(t *testing.T) {
 	p := newTestParser()
 

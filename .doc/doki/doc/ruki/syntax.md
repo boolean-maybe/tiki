@@ -181,7 +181,7 @@ unaryExpr        = funcCall
 
 funcCall         = identifier "(" [ expr { "," expr } ] ")" ;
 subQuery         = "select" [ "where" condition ] ;
-qualifiedRef     = ( "old" | "new" ) "." identifier ;
+qualifiedRef     = ( "old" | "new" | "outer" ) "." identifier ;
 listLiteral      = "[" [ expr { "," expr } ] "]" ;
 emptyLiteral     = "empty" ;
 fieldRef         = identifier ;
@@ -196,8 +196,9 @@ title
 old.status
 ["bug", "frontend"]
 next_date(recurrence)
-count(select where status = "done")
+count(select where assignee = outer.assignee)
 exists(select where id in new.dependsOn and status != "done")
+exists(select where outer.id in dependsOn)
 2026-03-25 + 2day
 tags + ["needs-triage"]
 ```
@@ -236,5 +237,6 @@ priority = 1 or (priority = 2 and status = "done")
 - `select` used inside expressions is only valid as a `count(...)`, `choose(...)`, or `exists(...)` argument. Bare
   subqueries are rejected during validation.
 - The grammar accepts `run(<expr>)`, but only as the top-level action of an `after` trigger.
+- `outer.` is only allowed inside subquery bodies, where it refers to the immediate parent row.
 - `old.` and `new.` are only allowed in some trigger conditions. See [Semantics](semantics.md) and
   [Validation And Errors](validation-and-errors.md).

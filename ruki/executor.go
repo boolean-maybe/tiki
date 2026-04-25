@@ -19,6 +19,17 @@ type Executor struct {
 	currentInput ExecutionInput
 }
 
+type evalContext struct {
+	current  *task.Task
+	outer    *task.Task
+	allTasks []*task.Task
+}
+
+func (ctx evalContext) withCurrent(current *task.Task) evalContext {
+	ctx.current = current
+	return ctx
+}
+
 // NewExecutor constructs an Executor with the given schema and user function.
 // If userFunc is nil, calling user() at runtime will return an error.
 func NewExecutor(schema Schema, userFunc func() string, runtime ExecutorRuntime) *Executor {
@@ -174,7 +185,7 @@ func (e *Executor) executeSelect(sel *SelectStmt, tasks []*task.Task) (*Result, 
 
 func (e *Executor) buildPipeResult(pipe *RunAction, fields []string, matched []*task.Task, allTasks []*task.Task) (*Result, error) {
 	// evaluate command once with a nil-sentinel task — validation ensures no field refs
-	cmdVal, err := e.evalExpr(pipe.Command, nil, allTasks)
+	cmdVal, err := e.evalExpr(pipe.Command, evalContext{allTasks: allTasks})
 	if err != nil {
 		return nil, fmt.Errorf("pipe command: %w", err)
 	}
@@ -232,7 +243,7 @@ func (e *Executor) executeUpdate(upd *UpdateStmt, tasks []*task.Task) (*Result, 
 
 	for _, clone := range clones {
 		for _, a := range upd.Set {
-			val, err := e.evalExpr(a.Value, clone, tasks)
+			val, err := e.evalExpr(a.Value, evalContext{current: clone, allTasks: tasks})
 			if err != nil {
 				return nil, fmt.Errorf("field %q: %w", a.Field, err)
 			}
@@ -257,7 +268,7 @@ func (e *Executor) executeCreate(cr *CreateStmt, tasks []*task.Task, requireTemp
 	}
 
 	for _, a := range cr.Assignments {
-		val, err := e.evalExpr(a.Value, t, tasks)
+		val, err := e.evalExpr(a.Value, evalContext{current: t, allTasks: tasks})
 		if err != nil {
 			return nil, fmt.Errorf("field %q: %w", a.Field, err)
 		}
@@ -530,7 +541,7 @@ func (e *Executor) filterTasks(where Condition, tasks []*task.Task) ([]*task.Tas
 	}
 	var result []*task.Task
 	for _, t := range tasks {
-		match, err := e.evalCondition(where, t, tasks)
+		match, err := e.evalCondition(where, evalContext{current: t, allTasks: tasks})
 		if err != nil {
 			return nil, err
 		}
@@ -543,30 +554,30 @@ func (e *Executor) filterTasks(where Condition, tasks []*task.Task) ([]*task.Tas
 
 // --- condition evaluation ---
 
-func (e *Executor) evalCondition(c Condition, t *task.Task, allTasks []*task.Task) (bool, error) {
+func (e *Executor) evalCondition(c Condition, ctx evalContext) (bool, error) {
 	switch c := c.(type) {
 	case *BinaryCondition:
-		return e.evalBinaryCondition(c, t, allTasks)
+		return e.evalBinaryCondition(c, ctx)
 	case *NotCondition:
-		val, err := e.evalCondition(c.Inner, t, allTasks)
+		val, err := e.evalCondition(c.Inner, ctx)
 		if err != nil {
 			return false, err
 		}
 		return !val, nil
 	case *BoolExprCondition:
-		val, err := e.evalExpr(c.Expr, t, allTasks)
+		val, err := e.evalExpr(c.Expr, ctx)
 		if err != nil {
 			return false, err
 		}
 		return conditionBoolValue(val)
 	case *CompareExpr:
-		return e.evalCompare(c, t, allTasks)
+		return e.evalCompare(c, ctx)
 	case *IsEmptyExpr:
-		return e.evalIsEmpty(c, t, allTasks)
+		return e.evalIsEmpty(c, ctx)
 	case *InExpr:
-		return e.evalIn(c, t, allTasks)
+		return e.evalIn(c, ctx)
 	case *QuantifierExpr:
-		return e.evalQuantifier(c, t, allTasks)
+		return e.evalQuantifier(c, ctx)
 	default:
 		return false, fmt.Errorf("unknown condition type %T", c)
 	}
@@ -580,8 +591,8 @@ func conditionBoolValue(val interface{}) (bool, error) {
 	return b, nil
 }
 
-func (e *Executor) evalBinaryCondition(c *BinaryCondition, t *task.Task, allTasks []*task.Task) (bool, error) {
-	left, err := e.evalCondition(c.Left, t, allTasks)
+func (e *Executor) evalBinaryCondition(c *BinaryCondition, ctx evalContext) (bool, error) {
+	left, err := e.evalCondition(c.Left, ctx)
 	if err != nil {
 		return false, err
 	}
@@ -590,31 +601,31 @@ func (e *Executor) evalBinaryCondition(c *BinaryCondition, t *task.Task, allTask
 		if !left {
 			return false, nil
 		}
-		return e.evalCondition(c.Right, t, allTasks)
+		return e.evalCondition(c.Right, ctx)
 	case "or":
 		if left {
 			return true, nil
 		}
-		return e.evalCondition(c.Right, t, allTasks)
+		return e.evalCondition(c.Right, ctx)
 	default:
 		return false, fmt.Errorf("unknown binary operator %q", c.Op)
 	}
 }
 
-func (e *Executor) evalCompare(c *CompareExpr, t *task.Task, allTasks []*task.Task) (bool, error) {
-	leftVal, err := e.evalExpr(c.Left, t, allTasks)
+func (e *Executor) evalCompare(c *CompareExpr, ctx evalContext) (bool, error) {
+	leftVal, err := e.evalExpr(c.Left, ctx)
 	if err != nil {
 		return false, err
 	}
-	rightVal, err := e.evalExpr(c.Right, t, allTasks)
+	rightVal, err := e.evalExpr(c.Right, ctx)
 	if err != nil {
 		return false, err
 	}
 	return e.compareValues(leftVal, rightVal, c.Op, c.Left, c.Right)
 }
 
-func (e *Executor) evalIsEmpty(c *IsEmptyExpr, t *task.Task, allTasks []*task.Task) (bool, error) {
-	val, err := e.evalExpr(c.Expr, t, allTasks)
+func (e *Executor) evalIsEmpty(c *IsEmptyExpr, ctx evalContext) (bool, error) {
+	val, err := e.evalExpr(c.Expr, ctx)
 	if err != nil {
 		return false, err
 	}
@@ -625,12 +636,12 @@ func (e *Executor) evalIsEmpty(c *IsEmptyExpr, t *task.Task, allTasks []*task.Ta
 	return empty, nil
 }
 
-func (e *Executor) evalIn(c *InExpr, t *task.Task, allTasks []*task.Task) (bool, error) {
-	val, err := e.evalExpr(c.Value, t, allTasks)
+func (e *Executor) evalIn(c *InExpr, ctx evalContext) (bool, error) {
+	val, err := e.evalExpr(c.Value, ctx)
 	if err != nil {
 		return false, err
 	}
-	collVal, err := e.evalExpr(c.Collection, t, allTasks)
+	collVal, err := e.evalExpr(c.Collection, ctx)
 	if err != nil {
 		return false, err
 	}
@@ -674,8 +685,8 @@ func (e *Executor) evalIn(c *InExpr, t *task.Task, allTasks []*task.Task) (bool,
 	return false, fmt.Errorf("in: collection is not a list or string")
 }
 
-func (e *Executor) evalQuantifier(q *QuantifierExpr, t *task.Task, allTasks []*task.Task) (bool, error) {
-	listVal, err := e.evalExpr(q.Expr, t, allTasks)
+func (e *Executor) evalQuantifier(q *QuantifierExpr, ctx evalContext) (bool, error) {
+	listVal, err := e.evalExpr(q.Expr, ctx)
 	if err != nil {
 		return false, err
 	}
@@ -688,7 +699,7 @@ func (e *Executor) evalQuantifier(q *QuantifierExpr, t *task.Task, allTasks []*t
 	refTasks := make([]*task.Task, 0, len(refs))
 	for _, ref := range refs {
 		refID := normalizeToString(ref)
-		for _, at := range allTasks {
+		for _, at := range ctx.allTasks {
 			if strings.EqualFold(at.ID, refID) {
 				refTasks = append(refTasks, at)
 				break
@@ -699,7 +710,7 @@ func (e *Executor) evalQuantifier(q *QuantifierExpr, t *task.Task, allTasks []*t
 	switch q.Kind {
 	case "any":
 		for _, rt := range refTasks {
-			match, err := e.evalCondition(q.Condition, rt, allTasks)
+			match, err := e.evalCondition(q.Condition, ctx.withCurrent(rt))
 			if err != nil {
 				return false, err
 			}
@@ -713,7 +724,7 @@ func (e *Executor) evalQuantifier(q *QuantifierExpr, t *task.Task, allTasks []*t
 			return true, nil // vacuous truth
 		}
 		for _, rt := range refTasks {
-			match, err := e.evalCondition(q.Condition, rt, allTasks)
+			match, err := e.evalCondition(q.Condition, ctx.withCurrent(rt))
 			if err != nil {
 				return false, err
 			}
@@ -729,12 +740,22 @@ func (e *Executor) evalQuantifier(q *QuantifierExpr, t *task.Task, allTasks []*t
 
 // --- expression evaluation ---
 
-func (e *Executor) evalExpr(expr Expr, t *task.Task, allTasks []*task.Task) (interface{}, error) {
+func (e *Executor) evalExpr(expr Expr, ctx evalContext) (interface{}, error) {
 	switch expr := expr.(type) {
 	case *FieldRef:
-		return e.extractField(t, expr.Name), nil
+		return e.extractField(ctx.current, expr.Name), nil
 	case *QualifiedRef:
-		return nil, fmt.Errorf("qualified references (old./new.) are not supported in standalone SELECT")
+		switch expr.Qualifier {
+		case "outer":
+			if ctx.outer == nil {
+				return nil, fmt.Errorf("outer.%s is not available outside a subquery", expr.Name)
+			}
+			return e.extractField(ctx.outer, expr.Name), nil
+		case "old", "new":
+			return nil, fmt.Errorf("qualified references (old./new.) are not supported in standalone SELECT")
+		default:
+			return nil, fmt.Errorf("unknown qualifier %q", expr.Qualifier)
+		}
 	case *StringLiteral:
 		return expr.Value, nil
 	case *IntLiteral:
@@ -750,13 +771,13 @@ func (e *Executor) evalExpr(expr Expr, t *task.Task, allTasks []*task.Task) (int
 		}
 		return d, nil
 	case *ListLiteral:
-		return e.evalListLiteral(expr, t, allTasks)
+		return e.evalListLiteral(expr, ctx)
 	case *EmptyLiteral:
 		return nil, nil
 	case *FunctionCall:
-		return e.evalFunctionCall(expr, t, allTasks)
+		return e.evalFunctionCall(expr, ctx)
 	case *BinaryExpr:
-		return e.evalBinaryExpr(expr, t, allTasks)
+		return e.evalBinaryExpr(expr, ctx)
 	case *SubQuery:
 		return nil, fmt.Errorf("subquery is only valid as argument to count(), choose(), or exists()")
 	default:
@@ -764,10 +785,10 @@ func (e *Executor) evalExpr(expr Expr, t *task.Task, allTasks []*task.Task) (int
 	}
 }
 
-func (e *Executor) evalListLiteral(ll *ListLiteral, t *task.Task, allTasks []*task.Task) (interface{}, error) {
+func (e *Executor) evalListLiteral(ll *ListLiteral, ctx evalContext) (interface{}, error) {
 	result := make([]interface{}, len(ll.Elements))
 	for i, elem := range ll.Elements {
-		val, err := e.evalExpr(elem, t, allTasks)
+		val, err := e.evalExpr(elem, ctx)
 		if err != nil {
 			return nil, err
 		}
@@ -778,7 +799,7 @@ func (e *Executor) evalListLiteral(ll *ListLiteral, t *task.Task, allTasks []*ta
 
 // --- function evaluation ---
 
-func (e *Executor) evalFunctionCall(fc *FunctionCall, t *task.Task, allTasks []*task.Task) (interface{}, error) {
+func (e *Executor) evalFunctionCall(fc *FunctionCall, ctx evalContext) (interface{}, error) {
 	switch fc.Name {
 	case "id":
 		return e.evalID()
@@ -790,13 +811,13 @@ func (e *Executor) evalFunctionCall(fc *FunctionCall, t *task.Task, allTasks []*
 		}
 		return e.userFunc(), nil
 	case "count":
-		return e.evalCount(fc, allTasks)
+		return e.evalCount(fc, ctx.current, ctx.allTasks)
 	case "exists":
-		return e.evalExists(fc, allTasks)
+		return e.evalExists(fc, ctx.current, ctx.allTasks)
 	case "next_date":
-		return e.evalNextDate(fc, t, allTasks)
+		return e.evalNextDate(fc, ctx)
 	case "blocks":
-		return e.evalBlocks(fc, t, allTasks)
+		return e.evalBlocks(fc, ctx)
 	case "input":
 		return e.evalInput()
 	case "choose":
@@ -833,7 +854,7 @@ func (e *Executor) evalID() (interface{}, error) {
 	return id, nil
 }
 
-func (e *Executor) evalCount(fc *FunctionCall, allTasks []*task.Task) (interface{}, error) {
+func (e *Executor) evalCount(fc *FunctionCall, parent *task.Task, allTasks []*task.Task) (interface{}, error) {
 	sq, ok := fc.Args[0].(*SubQuery)
 	if !ok {
 		return nil, fmt.Errorf("count() argument must be a select subquery")
@@ -843,7 +864,7 @@ func (e *Executor) evalCount(fc *FunctionCall, allTasks []*task.Task) (interface
 	}
 	count := 0
 	for _, t := range allTasks {
-		match, err := e.evalCondition(sq.Where, t, allTasks)
+		match, err := e.evalCondition(sq.Where, evalContext{current: t, outer: parent, allTasks: allTasks})
 		if err != nil {
 			return nil, err
 		}
@@ -854,7 +875,7 @@ func (e *Executor) evalCount(fc *FunctionCall, allTasks []*task.Task) (interface
 	return count, nil
 }
 
-func (e *Executor) evalExists(fc *FunctionCall, allTasks []*task.Task) (interface{}, error) {
+func (e *Executor) evalExists(fc *FunctionCall, parent *task.Task, allTasks []*task.Task) (interface{}, error) {
 	sq, ok := fc.Args[0].(*SubQuery)
 	if !ok {
 		return nil, fmt.Errorf("exists() argument must be a select subquery")
@@ -863,7 +884,7 @@ func (e *Executor) evalExists(fc *FunctionCall, allTasks []*task.Task) (interfac
 		return len(allTasks) > 0, nil
 	}
 	for _, t := range allTasks {
-		match, err := e.evalCondition(sq.Where, t, allTasks)
+		match, err := e.evalCondition(sq.Where, evalContext{current: t, outer: parent, allTasks: allTasks})
 		if err != nil {
 			return nil, err
 		}
@@ -877,7 +898,7 @@ func (e *Executor) evalExists(fc *FunctionCall, allTasks []*task.Task) (interfac
 // EvalSubQueryFilter evaluates a subquery WHERE clause against a set of tasks,
 // returning the matching tasks. Used by the controller to build candidate lists
 // for choose() before showing the picker.
-func (e *Executor) EvalSubQueryFilter(sq *SubQuery, tasks []*task.Task, input ExecutionInput) ([]*task.Task, error) {
+func (e *Executor) EvalSubQueryFilter(sq *SubQuery, tasks []*task.Task, input ExecutionInput, parents ...*task.Task) ([]*task.Task, error) {
 	e.currentInput = input
 	defer func() { e.currentInput = ExecutionInput{} }()
 
@@ -886,9 +907,10 @@ func (e *Executor) EvalSubQueryFilter(sq *SubQuery, tasks []*task.Task, input Ex
 		copy(result, tasks)
 		return result, nil
 	}
+	parent := chooseFilterParent(tasks, input, parents...)
 	var result []*task.Task
 	for _, t := range tasks {
-		match, err := e.evalCondition(sq.Where, t, tasks)
+		match, err := e.evalCondition(sq.Where, evalContext{current: t, outer: parent, allTasks: tasks})
 		if err != nil {
 			return nil, err
 		}
@@ -899,8 +921,23 @@ func (e *Executor) EvalSubQueryFilter(sq *SubQuery, tasks []*task.Task, input Ex
 	return result, nil
 }
 
-func (e *Executor) evalNextDate(fc *FunctionCall, t *task.Task, allTasks []*task.Task) (interface{}, error) {
-	val, err := e.evalExpr(fc.Args[0], t, allTasks)
+func chooseFilterParent(tasks []*task.Task, input ExecutionInput, parents ...*task.Task) *task.Task {
+	if len(parents) > 0 {
+		return parents[0]
+	}
+	if strings.TrimSpace(input.SelectedTaskID) == "" {
+		return nil
+	}
+	for _, t := range tasks {
+		if strings.EqualFold(t.ID, input.SelectedTaskID) {
+			return t
+		}
+	}
+	return nil
+}
+
+func (e *Executor) evalNextDate(fc *FunctionCall, ctx evalContext) (interface{}, error) {
+	val, err := e.evalExpr(fc.Args[0], ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -911,15 +948,15 @@ func (e *Executor) evalNextDate(fc *FunctionCall, t *task.Task, allTasks []*task
 	return task.NextOccurrence(rec), nil
 }
 
-func (e *Executor) evalBlocks(fc *FunctionCall, t *task.Task, allTasks []*task.Task) (interface{}, error) {
-	val, err := e.evalExpr(fc.Args[0], t, allTasks)
+func (e *Executor) evalBlocks(fc *FunctionCall, ctx evalContext) (interface{}, error) {
+	val, err := e.evalExpr(fc.Args[0], ctx)
 	if err != nil {
 		return nil, err
 	}
 	targetID := strings.ToUpper(normalizeToString(val))
 
 	var blockers []interface{}
-	for _, at := range allTasks {
+	for _, at := range ctx.allTasks {
 		for _, dep := range at.DependsOn {
 			if strings.EqualFold(dep, targetID) {
 				blockers = append(blockers, at.ID)
@@ -935,12 +972,12 @@ func (e *Executor) evalBlocks(fc *FunctionCall, t *task.Task, allTasks []*task.T
 
 // --- binary expression evaluation ---
 
-func (e *Executor) evalBinaryExpr(b *BinaryExpr, t *task.Task, allTasks []*task.Task) (interface{}, error) {
-	leftVal, err := e.evalExpr(b.Left, t, allTasks)
+func (e *Executor) evalBinaryExpr(b *BinaryExpr, ctx evalContext) (interface{}, error) {
+	leftVal, err := e.evalExpr(b.Left, ctx)
 	if err != nil {
 		return nil, err
 	}
-	rightVal, err := e.evalExpr(b.Right, t, allTasks)
+	rightVal, err := e.evalExpr(b.Right, ctx)
 	if err != nil {
 		return nil, err
 	}

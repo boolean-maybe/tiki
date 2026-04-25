@@ -150,9 +150,9 @@ type FieldRef struct {
 	Name string
 }
 
-// QualifiedRef represents "old.field" or "new.field".
+// QualifiedRef represents "old.field", "new.field", or "outer.field".
 type QualifiedRef struct {
-	Qualifier string // "old" or "new"
+	Qualifier string // "old", "new", or "outer"
 	Name      string
 }
 
@@ -203,7 +203,7 @@ type BoolLiteral struct {
 	Value bool
 }
 
-// SubQuery represents "select [where <condition>]" used inside count().
+// SubQuery represents "select [where <condition>]" used inside count(), choose(), or exists().
 type SubQuery struct {
 	Where Condition // nil = select all
 }

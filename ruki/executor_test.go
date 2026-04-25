@@ -44,6 +44,14 @@ func makeTasks() []*task.Task {
 	}
 }
 
+func taskIDs(tasks []*task.Task) []string {
+	ids := make([]string, len(tasks))
+	for i, t := range tasks {
+		ids[i] = t.ID
+	}
+	return ids
+}
+
 // --- nil guards ---
 
 func TestExecuteNilStatement(t *testing.T) {
@@ -750,6 +758,75 @@ func TestExecuteExistsEmptyTasks(t *testing.T) {
 	}
 	if len(result.Select.Tasks) != 0 {
 		t.Fatalf("expected no tasks, got %d", len(result.Select.Tasks))
+	}
+}
+
+func TestExecuteOuterCorrelatedSubqueries(t *testing.T) {
+	e := newTestExecutor()
+	p := newTestParser()
+	tasks := makeTasks()
+
+	tests := []struct {
+		name    string
+		input   string
+		wantIDs []string
+	}{
+		{
+			name:    "anti-reference query excludes tasks with blockers",
+			input:   `select where not exists(select where outer.id in dependsOn)`,
+			wantIDs: []string{"TIKI-000002", "TIKI-000003", "TIKI-000004"},
+		},
+		{
+			name:    "count correlates by assignee",
+			input:   `select where count(select where assignee = outer.assignee) > 1`,
+			wantIDs: []string{"TIKI-000001", "TIKI-000003"},
+		},
+		{
+			name:    "nested subquery rebinds outer",
+			input:   `select where exists(select where exists(select where outer.id in dependsOn))`,
+			wantIDs: []string{"TIKI-000001", "TIKI-000002", "TIKI-000003", "TIKI-000004"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			stmt, err := p.ParseStatement(tt.input)
+			if err != nil {
+				t.Fatalf("parse: %v", err)
+			}
+			result, err := e.Execute(stmt, tasks)
+			if err != nil {
+				t.Fatalf("execute: %v", err)
+			}
+			got := taskIDs(result.Select.Tasks)
+			if !reflect.DeepEqual(got, tt.wantIDs) {
+				t.Fatalf("expected IDs %v, got %v", tt.wantIDs, got)
+			}
+		})
+	}
+}
+
+func TestExecuteOuterWithSelectedTaskExclusion(t *testing.T) {
+	p := newTestParser()
+	stmt, err := p.ParseStatement(`select where id != id() and not exists(select where id = id() and outer.id in dependsOn)`)
+	if err != nil {
+		t.Fatalf("parse: %v", err)
+	}
+
+	tasks := []*task.Task{
+		{ID: "TIKI-000001", Title: "selected", Status: "ready", Type: "story", Priority: 3, DependsOn: []string{"TIKI-000002"}},
+		{ID: "TIKI-000002", Title: "dependency", Status: "ready", Type: "story", Priority: 3},
+		{ID: "TIKI-000003", Title: "candidate", Status: "ready", Type: "story", Priority: 3},
+	}
+	e := NewExecutor(testSchema{}, nil, ExecutorRuntime{Mode: ExecutorRuntimePlugin})
+	result, err := e.Execute(stmt, tasks, ExecutionInput{SelectedTaskID: "TIKI-000001"})
+	if err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	got := taskIDs(result.Select.Tasks)
+	want := []string{"TIKI-000003"}
+	if !reflect.DeepEqual(got, want) {
+		t.Fatalf("expected IDs %v, got %v", want, got)
 	}
 }
 

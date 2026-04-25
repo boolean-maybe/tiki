@@ -97,6 +97,7 @@ Qualifier rules depend on the event:
 - `delete` triggers: `old.` is allowed, `new.` is not
 - `update` triggers: both `old.` and `new.` are allowed
 - standalone statements: neither `old.` nor `new.` is allowed
+- `outer.` is allowed only inside a subquery body
 
 Examples:
 
@@ -104,19 +105,38 @@ Examples:
 before create where new.type = "story" and new.description is empty deny "stories must have a description"
 before delete where old.priority <= 2 deny "cannot delete high priority tikis"
 before update where old.status = "in progress" and new.status = "done" deny "review required"
+select where not exists(select where outer.id in dependsOn)
 ```
 
 ![Qualifier scope by context](images/qualifier-scope.svg)
 
 Important special case:
 
-- inside a quantifier body such as `dependsOn any ...`, qualifiers are disabled again
+- inside a quantifier body such as `dependsOn any ...`, `old.` and `new.` are disabled again
 - use bare fields inside the quantifier body, not `old.` or `new.`
+- `outer.` remains available if that quantifier body is itself inside a subquery
 
 Example:
 
 ```sql
 before update where dependsOn any status = "done" deny "blocked"
+```
+
+Correlated subqueries:
+
+- inside `count(select ...)`, `choose(select ...)`, and `exists(select ...)`, bare fields refer to the subquery's
+  candidate task
+- `outer.field` refers to the immediate parent row that invoked the subquery
+- nested subqueries rebind `outer.` to their direct parent subquery row, not to the top-level row
+- in trigger subqueries, `old.` and `new.` still refer to the trigger snapshots while `outer.` refers to the
+  guard or action target row
+
+Examples:
+
+```sql
+select where not exists(select where outer.id in dependsOn)
+select where count(select where assignee = outer.assignee and status = "in progress") > 1
+before update where exists(select where id = outer.id and assignee = new.assignee) deny "blocked"
 ```
 
 ## Time trigger semantics
