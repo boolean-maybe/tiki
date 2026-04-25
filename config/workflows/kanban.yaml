@@ -111,7 +111,7 @@ views:
           action: update where id = id() set status="ready"
         - key: "e"
           label: "Link to epic"
-          action: update where id = choose(select where type = "epic" and id() not in dependsOn) set dependsOn = dependsOn + id()
+          action: update where id = choose(select where type = "epic" and outer.id not in dependsOn) set dependsOn = dependsOn + id()
     - name: Recent
       description: "Tasks changed in the last 24 hours, most recent first"
       key: Ctrl-R
@@ -142,7 +142,7 @@ views:
       actions:
         - key: "l"
           label: "Add tiki to epic"
-          action: update where id = id() set dependsOn = dependsOn + choose(select where type != "epic")
+          action: update where id = id() set dependsOn = dependsOn + choose(select where type != "epic" and id not in outer.dependsOn)
     - name: Docs
       description: "Project notes and documentation files"
       type: doki
