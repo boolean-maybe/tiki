@@ -553,6 +553,12 @@ func (e *Executor) evalCondition(c Condition, t *task.Task, allTasks []*task.Tas
 			return false, err
 		}
 		return !val, nil
+	case *BoolExprCondition:
+		val, err := e.evalExpr(c.Expr, t, allTasks)
+		if err != nil {
+			return false, err
+		}
+		return conditionBoolValue(val)
 	case *CompareExpr:
 		return e.evalCompare(c, t, allTasks)
 	case *IsEmptyExpr:
@@ -564,6 +570,14 @@ func (e *Executor) evalCondition(c Condition, t *task.Task, allTasks []*task.Tas
 	default:
 		return false, fmt.Errorf("unknown condition type %T", c)
 	}
+}
+
+func conditionBoolValue(val interface{}) (bool, error) {
+	b, ok := val.(bool)
+	if !ok {
+		return false, fmt.Errorf("condition expression must evaluate to bool, got %T", val)
+	}
+	return b, nil
 }
 
 func (e *Executor) evalBinaryCondition(c *BinaryCondition, t *task.Task, allTasks []*task.Task) (bool, error) {

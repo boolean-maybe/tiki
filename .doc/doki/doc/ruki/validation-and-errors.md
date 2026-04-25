@@ -15,7 +15,8 @@
 
 ## Overview
 
-This page explains the errors you can get in `ruki`. It covers syntax errors, unknown fields, type mismatches, invalid enum values, unsupported operators, and invalid trigger structure.
+This page explains the errors you can get in `ruki`. It covers syntax errors, unknown fields, type mismatches,
+invalid enum values, unsupported operators, and invalid trigger structure.
 
 ## Validation layers
 
@@ -110,7 +111,8 @@ before update where dependsOn any old.status = "done" deny "blocked"
 
 ## Required field errors
 
-The resulting task from `create` must have a non-empty `title`. If the template does not provide one, a `title=...` assignment is required.
+The resulting task from `create` must have a non-empty `title`. If the template does not provide one, a
+`title=...` assignment is required.
 
 `title`, `status`, `type`, and `priority` reject `empty` assignment:
 
@@ -121,6 +123,14 @@ update where id = "TIKI-ABC123" set priority=empty
 ```
 
 ## Type and operator errors
+
+Bare expression conditions must be boolean:
+
+```sql
+select where title
+select where priority
+select where tags
+```
 
 Comparison mismatches:
 
@@ -178,7 +188,8 @@ List strictness:
 
 - list literals must be homogeneous
 - `list<string>` fields reject non-string elements
-- the special `list<ref>` assignment path accepts string-literal lists, but not arbitrary string fields or mixed element expressions
+- the special `list<ref>` assignment path accepts string-literal lists, but not arbitrary string fields or mixed
+  element expressions
 
 Invalid examples:
 
@@ -252,7 +263,8 @@ select | run("echo $1")
 select | clipboard()
 ```
 
-Both are rejected because explicit field names are required when using a pipe. This applies to both `run()` and `clipboard()` targets.
+Both are rejected because explicit field names are required when using a pipe. This applies to both `run()` and
+`clipboard()` targets.
 
 Non-string command:
 
@@ -320,7 +332,8 @@ create title=select
 
 ## require errors
 
-Action `require` entries are validated at workflow load time. Each entry must be a non-empty string. A bare `!` (negation prefix with no attribute name) is rejected.
+Action `require` entries are validated at workflow load time. Each entry must be a non-empty string. A bare `!`
+(negation prefix with no attribute name) is rejected.
 
 Empty requirement:
 

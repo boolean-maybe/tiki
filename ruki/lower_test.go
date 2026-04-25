@@ -545,7 +545,7 @@ func TestLower_SubQueryOrderByRejected(t *testing.T) {
 	}
 }
 
-// TestLower_ExprCondBareExpression exercises the default branch of lowerExprCond.
+// TestLower_ExprCondBareExpression exercises bare expression condition lowering.
 func TestLower_ExprCondBareExpression(t *testing.T) {
 	field := "title"
 	ec := &exprCond{
@@ -553,13 +553,16 @@ func TestLower_ExprCondBareExpression(t *testing.T) {
 			Left: unaryExpr{FieldRef: &field},
 		},
 	}
-	_, err := lowerExprCond(ec)
-	if err == nil {
-		t.Fatal("expected error for bare expression as condition")
-		return
+	cond, err := lowerExprCond(ec)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
 	}
-	if err.Error() != "expression used as condition without comparison operator" {
-		t.Errorf("unexpected error: %v", err)
+	bare, ok := cond.(*BoolExprCondition)
+	if !ok {
+		t.Fatalf("expected *BoolExprCondition, got %T", cond)
+	}
+	if _, ok := bare.Expr.(*FieldRef); !ok {
+		t.Fatalf("expected field ref expression, got %T", bare.Expr)
 	}
 }
 

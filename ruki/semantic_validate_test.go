@@ -1178,6 +1178,18 @@ func TestScanConditionSemantics_AllTypes(t *testing.T) {
 		}
 	})
 
+	t.Run("BoolExprCondition", func(t *testing.T) {
+		u, c, err := scanConditionSemantics(&BoolExprCondition{
+			Expr: &FunctionCall{Name: "call", Args: []Expr{&FunctionCall{Name: "id"}}},
+		})
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if !u || !c {
+			t.Errorf("expected (true, true), got (%v, %v)", u, c)
+		}
+	})
+
 	t.Run("CompareExpr", func(t *testing.T) {
 		u, c, err := scanConditionSemantics(&CompareExpr{
 			Left:  &FunctionCall{Name: "id"},
@@ -1341,6 +1353,7 @@ func TestScanExprSemantics(t *testing.T) {
 			&QualifiedRef{Qualifier: "old", Name: "status"},
 			&StringLiteral{Value: "x"},
 			&IntLiteral{Value: 42},
+			&BoolLiteral{Value: true},
 			&DateLiteral{},
 			&DurationLiteral{Value: 1, Unit: "day"},
 			&EmptyLiteral{},
@@ -1616,6 +1629,22 @@ func TestCloneCondition(t *testing.T) {
 		}
 	})
 
+	t.Run("BoolExprCondition", func(t *testing.T) {
+		orig := &BoolExprCondition{
+			Expr: &FieldRef{Name: "flag"},
+		}
+		c, ok := cloneCondition(orig).(*BoolExprCondition)
+		if !ok {
+			t.Fatal("expected *BoolExprCondition")
+		}
+		if c == orig {
+			t.Error("expected different pointer")
+		}
+		if c.Expr == orig.Expr {
+			t.Error("expected cloned expression")
+		}
+	})
+
 	t.Run("CompareExpr", func(t *testing.T) {
 		orig := &CompareExpr{
 			Left: &FieldRef{Name: "a"}, Op: "!=", Right: &IntLiteral{Value: 1},
@@ -1706,6 +1735,7 @@ func TestCloneExpr(t *testing.T) {
 			&QualifiedRef{Qualifier: "old", Name: "title"},
 			&StringLiteral{Value: "hello"},
 			&IntLiteral{Value: 42},
+			&BoolLiteral{Value: true},
 			&DateLiteral{},
 			&DurationLiteral{Value: 1, Unit: "day"},
 			&ListLiteral{Elements: []Expr{&StringLiteral{Value: "a"}}},
