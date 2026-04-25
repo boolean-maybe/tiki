@@ -35,6 +35,7 @@ var builtinFuncs = map[string]struct {
 }{
 	"count":     {ValueInt, 1, 1},
 	"choose":    {ValueRef, 1, 1},
+	"exists":    {ValueBool, 1, 1},
 	"id":        {ValueID, 0, 0},
 	"now":       {ValueTimestamp, 0, 0},
 	"next_date": {ValueDate, 1, 1},
@@ -480,7 +481,7 @@ func (p *Parser) inferExprType(e Expr) (ValueType, error) {
 		return p.inferBinaryExprType(e)
 
 	case *SubQuery:
-		return 0, fmt.Errorf("subquery is only valid as argument to count() or choose()")
+		return 0, fmt.Errorf("subquery is only valid as argument to count(), choose(), or exists()")
 
 	default:
 		return 0, fmt.Errorf("unknown expression type %T", e)
@@ -553,35 +554,9 @@ func (p *Parser) inferFuncCallType(fc *FunctionCall) (ValueType, error) {
 
 	// validate argument types for specific functions
 	switch fc.Name {
-	case "count":
-		sq, ok := fc.Args[0].(*SubQuery)
-		if !ok {
-			return 0, fmt.Errorf("count() argument must be a select subquery")
-		}
-		if sq.Where != nil {
-			// zone 4: subquery bodies — bare fields refer to each candidate task,
-			// qualifiers stay allowed (e.g. assignee = new.assignee), but requireQualifiers is reset
-			savedRequire := p.requireQualifiers
-			p.requireQualifiers = false
-			err := p.validateCondition(sq.Where)
-			p.requireQualifiers = savedRequire
-			if err != nil {
-				return 0, fmt.Errorf("count() subquery: %w", err)
-			}
-		}
-	case "choose":
-		sq, ok := fc.Args[0].(*SubQuery)
-		if !ok {
-			return 0, fmt.Errorf("choose() argument must be a select subquery")
-		}
-		if sq.Where != nil {
-			savedRequire := p.requireQualifiers
-			p.requireQualifiers = false
-			err := p.validateCondition(sq.Where)
-			p.requireQualifiers = savedRequire
-			if err != nil {
-				return 0, fmt.Errorf("choose() subquery: %w", err)
-			}
+	case "count", "choose", "exists":
+		if err := p.validateSubQueryFuncCall(fc.Name, fc.Args[0]); err != nil {
+			return 0, err
 		}
 	case "blocks":
 		argType, err := p.inferExprType(fc.Args[0])
@@ -615,6 +590,25 @@ func (p *Parser) inferFuncCallType(fc *FunctionCall) (ValueType, error) {
 	}
 
 	return builtin.returnType, nil
+}
+
+func (p *Parser) validateSubQueryFuncCall(name string, arg Expr) error {
+	sq, ok := arg.(*SubQuery)
+	if !ok {
+		return fmt.Errorf("%s() argument must be a select subquery", name)
+	}
+	if sq.Where == nil {
+		return nil
+	}
+	// zone 4: subquery bodies use candidate-task fields, so trigger guards stop requiring qualifiers.
+	savedRequire := p.requireQualifiers
+	p.requireQualifiers = false
+	err := p.validateCondition(sq.Where)
+	p.requireQualifiers = savedRequire
+	if err != nil {
+		return fmt.Errorf("%s() subquery: %w", name, err)
+	}
+	return nil
 }
 
 func (p *Parser) inferBinaryExprType(b *BinaryExpr) (ValueType, error) {

@@ -112,6 +112,14 @@ Count matching tikis:
 select where count(select where status = "done") >= 1
 ```
 
+Block an epic from completing when any dependency is unfinished:
+
+```sql
+before update where new.type = "epic" and new.status = "done"
+and exists(select where id in new.dependsOn and status != "done")
+deny "epic has unfinished dependencies"
+```
+
 Current user:
 
 ```sql
@@ -164,7 +172,8 @@ update where id = id() set dependsOn = dependsOn + choose(select where type != "
 Block completion when dependencies remain open:
 
 ```sql
-before update where new.status = "done" and dependsOn any status != "done" deny "cannot complete tiki with open dependencies"
+before update where new.status = "done" and dependsOn any status != "done"
+deny "cannot complete tiki with open dependencies"
 ```
 
 Require a description for high-priority work:
@@ -176,7 +185,9 @@ before update where new.priority <= 2 and new.description is empty deny "high pr
 Limit how many in-progress tikis someone can have:
 
 ```sql
-before update where new.status = "in progress" and count(select where assignee = new.assignee and status = "in progress") >= 3 deny "WIP limit reached for this assignee"
+before update where new.status = "in progress"
+and count(select where assignee = new.assignee and status = "in progress") >= 3
+deny "WIP limit reached for this assignee"
 ```
 
 ## After triggers
@@ -190,7 +201,9 @@ after create where new.priority <= 2 and new.assignee is empty update where id =
 Create the next recurring tiki:
 
 ```sql
-after update where new.status = "done" and old.recurrence is not empty create title=old.title priority=old.priority tags=old.tags recurrence=old.recurrence due=next_date(old.recurrence) status="ready"
+after update where new.status = "done" and old.recurrence is not empty
+create title=old.title priority=old.priority tags=old.tags recurrence=old.recurrence due=next_date(old.recurrence)
+status="ready"
 ```
 
 Clear recurrence on the completed source tiki:

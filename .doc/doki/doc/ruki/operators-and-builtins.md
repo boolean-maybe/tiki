@@ -208,6 +208,7 @@ create title="x" dependsOn=dependsOn + tags
 | Name | Result type | Arguments | Notes |
 |---|---|---|---|
 | `count(...)` | `int` | exactly 1 | argument must be a `select` subquery |
+| `exists(...)` | `bool` | exactly 1 | argument must be a `select` subquery; true when any tiki matches |
 | `now()` | `timestamp` | 0 | no additional validation |
 | `next_date(...)` | `date` | exactly 1 | argument must be `recurrence` |
 | `blocks(...)` | `list<ref>` | exactly 1 | argument must be `id`, `ref`, or string literal |
@@ -220,11 +221,14 @@ create title="x" dependsOn=dependsOn + tags
 Examples:
 
 ```sql
-select where count(select where status = "done") >= 1
 select where updatedAt < now()
 create title="x" due=next_date(recurrence)
 select where blocks(id) is empty
 select where id() in dependsOn
+select where count(select where status = "done") >= 1
+before update where new.type = "epic"
+and exists(select where id in new.dependsOn and status != "done")
+deny "epic has unfinished dependencies"
 create title=call("echo hi")
 select where assignee = user()
 update where id = id() set assignee = input()
@@ -237,11 +241,21 @@ Runtime notes:
 
 - `id()` is semantically valid only in plugin runtime.
 - When a validated statement uses `id()`, plugin execution must provide a non-empty selected task ID.
-- Actions using `id()` automatically gain an `id` [requirement](../customization/customization.md#action-requirements) — the action is disabled when no task is selected. Mutating actions (`update`, `delete`) that do not use `id()` are bulk actions and remain enabled without a selection.
+- Actions using `id()` automatically gain an `id`
+  [requirement](../customization/customization.md#action-requirements). The action is disabled when no task is
+  selected. Mutating actions (`update`, `delete`) that do not use `id()` are bulk actions and remain enabled without
+  a selection.
 - `id()` is rejected for CLI, event-trigger, and time-trigger semantic runtimes.
+- `exists(...)` is a non-interactive boolean builtin. Its subquery body is validated recursively.
 - `call(...)` is currently rejected by semantic validation.
-- `input()` returns the value typed by the user at the action prompt. Its return type matches the `input:` declaration on the action (e.g. `input: string` means `input()` returns `string`). Only valid in plugin action statements that declare `input:`. May only appear once per action. Accepted `timestamp` input formats: RFC3339, with YYYY-MM-DD as a convenience fallback.
-- `choose()` is semantically valid only in plugin runtime. Opens an interactive Quick Select picker — the user fuzzy-filters candidate tasks and confirms one with Enter. Esc cancels the operation. The selected task's ID is the return value. `choose()` may only appear once per action. `choose()` and `input()` are mutually exclusive within a single action. Rejected for CLI, event-trigger, and time-trigger semantic runtimes.
+- `input()` returns the value typed by the user at the action prompt. Its return type matches the `input:`
+  declaration on the action, so `input: string` means `input()` returns `string`. Only valid in plugin action
+  statements that declare `input:`. May only appear once per action. Accepted `timestamp` input formats: RFC3339,
+  with YYYY-MM-DD as a convenience fallback.
+- `choose()` is semantically valid only in plugin runtime. Opens an interactive Quick Select picker, where the user
+  fuzzy-filters candidate tasks and confirms one with Enter. Esc cancels the operation. The selected task's ID is the
+  return value. `choose()` may only appear once per action. `choose()` and `input()` are mutually exclusive within a
+  single action. Rejected for CLI, event-trigger, and time-trigger semantic runtimes.
 
 `run(...)`
 

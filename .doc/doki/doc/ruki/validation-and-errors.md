@@ -304,6 +304,7 @@ Argument count errors:
 ```sql
 select where now(1) = now()
 select where count() >= 1
+select where exists()
 select where user(1) = "bob"
 ```
 
@@ -317,15 +318,17 @@ create title="x" due=next_date(42)
 
 Subquery restrictions:
 
-- only `count(...)` and `choose(...)` accept a subquery
+- only `count(...)`, `choose(...)`, and `exists(...)` accept a subquery
 - bare subqueries elsewhere are rejected
-- `count(...)` and `choose(...)` validate the subquery body recursively
+- `count(...)`, `choose(...)`, and `exists(...)` validate the subquery body recursively
 
 Examples:
 
 ```sql
 select where count(select where status = "done") >= 1
 select where count(select where nosuchfield = "x") >= 1
+before update where exists(select where id in new.dependsOn and status != "done") deny "blocked"
+select where exists("x")
 select where select = 1
 create title=select
 ```

@@ -428,6 +428,8 @@ func (e *triggerExecOverride) evalFunctionCallOverride(fc *FunctionCall, t *task
 	switch fc.Name {
 	case "count":
 		return e.evalCountOverride(fc, allTasks)
+	case "exists":
+		return e.evalExistsOverride(fc, allTasks)
 	case "blocks":
 		return e.evalBlocksOverride(fc, t, allTasks)
 	case "next_date":
@@ -457,6 +459,26 @@ func (e *triggerExecOverride) evalCountOverride(fc *FunctionCall, allTasks []*ta
 		}
 	}
 	return count, nil
+}
+
+func (e *triggerExecOverride) evalExistsOverride(fc *FunctionCall, allTasks []*task.Task) (interface{}, error) {
+	sq, ok := fc.Args[0].(*SubQuery)
+	if !ok {
+		return nil, fmt.Errorf("exists() argument must be a select subquery")
+	}
+	if sq.Where == nil {
+		return len(allTasks) > 0, nil
+	}
+	for _, t := range allTasks {
+		match, err := e.evalCondition(sq.Where, t, allTasks)
+		if err != nil {
+			return nil, err
+		}
+		if match {
+			return true, nil
+		}
+	}
+	return false, nil
 }
 
 func (e *triggerExecOverride) evalBlocksOverride(fc *FunctionCall, t *task.Task, allTasks []*task.Task) (interface{}, error) {

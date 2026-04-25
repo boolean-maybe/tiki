@@ -83,7 +83,7 @@ Notes:
 - `create` requires at least one assignment.
 - `update` requires both `where` and `set`.
 - `delete` requires `where`.
-- `order by` is only valid on `select`, not on subqueries inside `count(...)` or `choose(...)`.
+- `order by` is only valid on `select`, not on subqueries inside `count(...)`, `choose(...)`, or `exists(...)`.
 - `limit` truncates the result set to at most N rows, applied after filtering and sorting but before any pipe action.
 - `asc`, `desc`, `order`, `by`, and `limit` are contextual keywords — they are only special in the SELECT clause.
 - Bare `select` and `select *` both mean all fields. A field list like `select title, status` projects only the
@@ -197,6 +197,7 @@ old.status
 ["bug", "frontend"]
 next_date(recurrence)
 count(select where status = "done")
+exists(select where id in new.dependsOn and status != "done")
 2026-03-25 + 2day
 tags + ["needs-triage"]
 ```
@@ -232,8 +233,8 @@ priority = 1 or (priority = 2 and status = "done")
 - `any` and `all` apply to the condition that comes right after them. If you want to combine that condition with
   `and` or `or`, use parentheses.
 - A condition can be a bare expression only when that expression has boolean type.
-- `select` used inside expressions is only valid as a `count(...)` or `choose(...)` argument. Bare subqueries are
-  rejected during validation.
+- `select` used inside expressions is only valid as a `count(...)`, `choose(...)`, or `exists(...)` argument. Bare
+  subqueries are rejected during validation.
 - The grammar accepts `run(<expr>)`, but only as the top-level action of an `after` trigger.
 - `old.` and `new.` are only allowed in some trigger conditions. See [Semantics](semantics.md) and
   [Validation And Errors](validation-and-errors.md).
