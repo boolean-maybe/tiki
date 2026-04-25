@@ -12,7 +12,8 @@
 
 ## Overview
 
-This page describes `ruki` syntax. It starts with tokens and then shows the grammar for statements, triggers, conditions, and expressions.
+This page describes `ruki` syntax. It starts with tokens and then shows the grammar for statements, triggers,
+conditions, and expressions.
 
 ## Lexical structure
 
@@ -85,7 +86,8 @@ Notes:
 - `order by` is only valid on `select`, not on subqueries inside `count(...)` or `choose(...)`.
 - `limit` truncates the result set to at most N rows, applied after filtering and sorting but before any pipe action.
 - `asc`, `desc`, `order`, `by`, and `limit` are contextual keywords — they are only special in the SELECT clause.
-- Bare `select` and `select *` both mean all fields. A field list like `select title, status` projects only the named fields.
+- Bare `select` and `select *` both mean all fields. A field list like `select title, status` projects only the
+  named fields.
 - `every` wraps a CRUD statement with a periodic interval. Only `create`, `update`, and `delete` are allowed
 
 ## Condition grammar
@@ -122,6 +124,9 @@ allTail          = "all" primaryCond ;
 Examples:
 
 ```sql
+select where true
+select where blocked
+select where not blocked
 select where status = "done"
 select where assignee is empty
 select where status not in ["done", "cancelled"]
@@ -156,7 +161,8 @@ select limit 1
 
 ## Expression grammar
 
-Expressions support literals, field references, qualifiers, function calls, list literals, parenthesized expressions, subqueries, and left-associative `+` or `-` chains:
+Expressions support literals, field references, qualifiers, function calls, list literals, parenthesized expressions,
+subqueries, and left-associative `+` or `-` chains:
 
 ```text
 expr             = unaryExpr { ("+" | "-") unaryExpr } ;
@@ -223,7 +229,11 @@ priority = 1 or (priority = 2 and status = "done")
 
 ## Syntax notes
 
-- `any` and `all` apply to the condition that comes right after them. If you want to combine that condition with `and` or `or`, use parentheses.
-- `select` used inside expressions is only valid as a `count(...)` or `choose(...)` argument. Bare subqueries are rejected during validation.
+- `any` and `all` apply to the condition that comes right after them. If you want to combine that condition with
+  `and` or `or`, use parentheses.
+- A condition can be a bare expression only when that expression has boolean type.
+- `select` used inside expressions is only valid as a `count(...)` or `choose(...)` argument. Bare subqueries are
+  rejected during validation.
 - The grammar accepts `run(<expr>)`, but only as the top-level action of an `after` trigger.
-- `old.` and `new.` are only allowed in some trigger conditions. See [Semantics](semantics.md) and [Validation And Errors](validation-and-errors.md).
+- `old.` and `new.` are only allowed in some trigger conditions. See [Semantics](semantics.md) and
+  [Validation And Errors](validation-and-errors.md).
