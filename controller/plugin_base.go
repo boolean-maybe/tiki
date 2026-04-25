@@ -292,6 +292,18 @@ func (pb *pluginBase) getSelectedTaskID(filteredTasks func(int) []*task.Task) st
 	return tasks[idx].ID
 }
 
+// getSelectedTaskIDs returns all currently selected task IDs. Today the UI
+// only supports single-selection, so the result is a one-item slice (or nil)
+// — but callers should treat this as the canonical multi-selection accessor
+// so plumbing is ready when true multi-select lands.
+func (pb *pluginBase) getSelectedTaskIDs(filteredTasks func(int) []*task.Task) []string {
+	id := pb.getSelectedTaskID(filteredTasks)
+	if id == "" {
+		return nil
+	}
+	return []string{id}
+}
+
 func (pb *pluginBase) selectTaskInLane(lane int, taskID string, filteredTasks func(int) []*task.Task) {
 	if lane < 0 || lane >= len(pb.pluginDef.Lanes) {
 		return

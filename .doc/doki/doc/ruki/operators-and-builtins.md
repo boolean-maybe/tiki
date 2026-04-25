@@ -212,7 +212,9 @@ create title="x" dependsOn=dependsOn + tags
 | `now()` | `timestamp` | 0 | no additional validation |
 | `next_date(...)` | `date` | exactly 1 | argument must be `recurrence` |
 | `blocks(...)` | `list<ref>` | exactly 1 | argument must be `id`, `ref`, or string literal |
-| `id()` | `id` | 0 | valid only in plugin runtime; resolves to selected tiki ID |
+| `id()` | `id` | 0 | plugin runtime only; requires exactly one selected tiki |
+| `ids()` | `list<ref>` | 0 | plugin runtime only; returns the full set of selected tiki IDs |
+| `selected_count()` | `int` | 0 | plugin runtime only; returns the number of selected tikis |
 | `input()` | declared type | 0 | valid only in plugin actions with `input:` declaration |
 | `call(...)` | `string` | exactly 1 | argument must be `string` |
 | `user()` | `string` | 0 | no additional validation |
@@ -233,19 +235,32 @@ create title=call("echo hi")
 select where assignee = user()
 update where id = id() set assignee = input()
 update where id = id() set tags = tags + [input()]
+update where id in ids() set status = "done"
 update where id = choose(select where type = "epic") set dependsOn = dependsOn + id()
 create title = input()
 ```
 
 Runtime notes:
 
-- `id()` is semantically valid only in plugin runtime.
-- When a validated statement uses `id()`, plugin execution must provide a non-empty selected task ID.
-- Actions using `id()` automatically gain an `id`
-  [requirement](../customization/customization.md#action-requirements). The action is disabled when no task is
-  selected. Mutating actions (`update`, `delete`) that do not use `id()` are bulk actions and remain enabled without
-  a selection.
-- `id()` is rejected for CLI, event-trigger, and time-trigger semantic runtimes.
+- `id()` is the scalar selection builtin. It is only valid in plugin runtime and requires the caller to provide
+  exactly one selected task ID. Zero selections raise `MissingSelectedTaskIDError`; two or more raise
+  `AmbiguousSelectedTaskIDError` (the message suggests switching to `ids()`).
+- Actions that reference `id()` automatically gain an `id`
+  [requirement](../customization/customization.md#action-requirements) which is equivalent to `selection:one`. The
+  action is disabled when the selection count is not exactly one.
+- `ids()` is the multi-selection builtin. It returns the full `list<ref>` of currently selected task IDs, so the
+  idiomatic multi-target update is `update where id in ids() set ...`. Zero selections produce an empty list
+  rather than an error, so the statement becomes a no-op when nothing is selected.
+- `selected_count()` returns the number of currently selected tasks, letting ruki branch on cardinality (e.g.
+  `select where selected_count() >= 2`).
+- Actions that reference `ids()` auto-infer a `selection:any` requirement (at least one selected task) unless the
+  author supplies an explicit `selection:*` requirement. Actions that reference `selected_count()` do **not**
+  auto-infer any selection requirement — the whole point of the builtin is to let ruki branch on cardinality
+  including the zero case, so gating the action on a non-zero selection would make that branch unreachable. See
+  [action requirements](../customization/customization.md#action-requirements) for the `selection:one`,
+  `selection:any`, and `selection:many` cardinality tokens.
+- `id()`, `ids()`, and `selected_count()` are all rejected for CLI, event-trigger, and time-trigger semantic
+  runtimes.
 - `exists(...)` is a non-interactive boolean builtin. Its subquery body is validated recursively.
 - `call(...)` is currently rejected by semantic validation.
 - `input()` returns the value typed by the user at the action prompt. Its return type matches the `input:`

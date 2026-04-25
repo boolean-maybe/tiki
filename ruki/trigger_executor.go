@@ -544,8 +544,10 @@ func (e *triggerExecOverride) Execute(stmt any, tasks []*task.Task, inputs ...Ex
 				Runtime:      e.runtime.Mode,
 			}
 		}
-		if validated.usesIDFunc && e.runtime.Mode == ExecutorRuntimePlugin && strings.TrimSpace(input.SelectedTaskID) == "" {
-			return nil, &MissingSelectedTaskIDError{}
+		if validated.usesIDFunc && e.runtime.Mode == ExecutorRuntimePlugin {
+			if err := checkSingleSelectionForID(input); err != nil {
+				return nil, err
+			}
 		}
 		rawStmt = validated.statement
 		if rawInput {

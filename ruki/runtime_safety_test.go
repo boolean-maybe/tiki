@@ -110,6 +110,136 @@ func TestExecutePluginIDRequiresSelectedTaskID(t *testing.T) {
 	}
 }
 
+func TestExecutePluginIDRejectsMultipleSelection(t *testing.T) {
+	p := newTestParser()
+	e := NewExecutor(testSchema{}, func() string { return "alice" }, ExecutorRuntime{Mode: ExecutorRuntimePlugin})
+
+	validated, err := p.ParseAndValidateStatement(`select where id() = "TIKI-000001"`, ExecutorRuntimePlugin)
+	if err != nil {
+		t.Fatalf("validate: %v", err)
+	}
+	input := ExecutionInput{SelectedTaskIDs: []string{"TIKI-000001", "TIKI-000002"}}
+	_, err = e.Execute(validated, makeTasks(), input)
+	if err == nil {
+		t.Fatal("expected ambiguous selected task id error")
+	}
+	var amb *AmbiguousSelectedTaskIDError
+	if !errors.As(err, &amb) {
+		t.Fatalf("expected AmbiguousSelectedTaskIDError, got: %v", err)
+	}
+	if amb.Count != 2 {
+		t.Errorf("Count = %d, want 2", amb.Count)
+	}
+}
+
+func TestExecutePluginIDsMatchesMultipleSelection(t *testing.T) {
+	p := newTestParser()
+	e := NewExecutor(testSchema{}, func() string { return "alice" }, ExecutorRuntime{Mode: ExecutorRuntimePlugin})
+
+	validated, err := p.ParseAndValidateStatement(
+		`update where id in ids() set status = "done"`,
+		ExecutorRuntimePlugin,
+	)
+	if err != nil {
+		t.Fatalf("validate: %v", err)
+	}
+	input := ExecutionInput{SelectedTaskIDs: []string{"TIKI-000001", "TIKI-000003"}}
+	res, err := e.Execute(validated, makeTasks(), input)
+	if err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	if res.Update == nil || len(res.Update.Updated) != 2 {
+		t.Fatalf("expected 2 updated tasks, got %+v", res.Update)
+	}
+	got := map[string]bool{}
+	for _, u := range res.Update.Updated {
+		got[u.ID] = true
+		if string(u.Status) != "done" {
+			t.Errorf("task %s status = %q, want done", u.ID, u.Status)
+		}
+	}
+	if !got["TIKI-000001"] || !got["TIKI-000003"] {
+		t.Errorf("expected TIKI-000001 and TIKI-000003 updated, got %v", got)
+	}
+}
+
+func TestExecutePluginIDsEmptySelectionReturnsEmptyList(t *testing.T) {
+	p := newTestParser()
+	e := NewExecutor(testSchema{}, func() string { return "alice" }, ExecutorRuntime{Mode: ExecutorRuntimePlugin})
+
+	validated, err := p.ParseAndValidateStatement(
+		`update where id in ids() set status = "done"`,
+		ExecutorRuntimePlugin,
+	)
+	if err != nil {
+		t.Fatalf("validate: %v", err)
+	}
+	res, err := e.Execute(validated, makeTasks())
+	if err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	if res.Update == nil || len(res.Update.Updated) != 0 {
+		t.Fatalf("expected zero updates, got %+v", res.Update)
+	}
+}
+
+func TestExecutePluginSelectedCountReturnsCount(t *testing.T) {
+	p := newTestParser()
+	e := NewExecutor(testSchema{}, func() string { return "alice" }, ExecutorRuntime{Mode: ExecutorRuntimePlugin})
+
+	validated, err := p.ParseAndValidateStatement(
+		`select where selected_count() >= 2`,
+		ExecutorRuntimePlugin,
+	)
+	if err != nil {
+		t.Fatalf("validate: %v", err)
+	}
+
+	res, err := e.Execute(validated, makeTasks())
+	if err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	if len(res.Select.Tasks) != 0 {
+		t.Errorf("zero selection: matched %d tasks, want 0", len(res.Select.Tasks))
+	}
+
+	res2, err := e.Execute(validated, makeTasks(), ExecutionInput{SelectedTaskIDs: []string{"A", "B"}})
+	if err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	if len(res2.Select.Tasks) == 0 {
+		t.Errorf("two selection: no tasks matched, want all")
+	}
+}
+
+func TestIDsBuiltinRejectedOutsidePluginRuntime(t *testing.T) {
+	p := newTestParser()
+	_, err := p.ParseAndValidateStatement(
+		`update where id in ids() set status = "done"`,
+		ExecutorRuntimeCLI,
+	)
+	if err == nil {
+		t.Fatal("expected validation error for ids() in CLI runtime")
+	}
+	if got := err.Error(); !strings.Contains(got, "ids() is only available in plugin runtime") {
+		t.Errorf("unexpected error: %v", got)
+	}
+}
+
+func TestSelectedCountBuiltinRejectedOutsidePluginRuntime(t *testing.T) {
+	p := newTestParser()
+	_, err := p.ParseAndValidateStatement(
+		`select where selected_count() > 0`,
+		ExecutorRuntimeCLI,
+	)
+	if err == nil {
+		t.Fatal("expected validation error for selected_count() in CLI runtime")
+	}
+	if got := err.Error(); !strings.Contains(got, "selected_count() is only available in plugin runtime") {
+		t.Errorf("unexpected error: %v", got)
+	}
+}
+
 func TestValidatedTriggerCloneIsolated(t *testing.T) {
 	p := newTestParser()
 

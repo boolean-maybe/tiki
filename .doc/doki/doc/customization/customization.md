@@ -339,19 +339,48 @@ This action requires both `ai` (an AI agent configured in `config.yaml`) and `id
 
 | Attribute | Set when |
 |-----------|----------|
-| `id` | A task is selected in the current view |
+| `id` | Exactly one task is selected — legacy alias for `selection:one` |
+| `selection:one` | Exactly one task is selected |
+| `selection:any` | One or more tasks are selected |
+| `selection:many` | Two or more tasks are selected |
 | `ai` | `ai.agent` is configured in `config.yaml` |
 | `view:<view-id>` | Identifies the currently active view (e.g. `view:plugin:Kanban`) |
 
+`id` and `selection:one` are equivalent; both require exactly one selected task. Prefer whichever reads better in
+context — `id` is shorter, `selection:one` is symmetric with the other cardinality tokens.
+
 #### Auto-inference
 
-You don't need to declare `require: ["id"]` for actions that use `id()` in their ruki statement — tiki automatically infers 
-the `id` requirement. Explicitly listing it is allowed but redundant.
+Tiki infers selection requirements from the ruki statement so authors rarely need to declare them explicitly:
+
+- Using `id()` auto-infers `id` (equivalent to `selection:one`).
+- Using `ids()` auto-infers `selection:any` — the action requires at least one selection but accepts any
+  cardinality above that. Override with an explicit `require:` entry (e.g. `["selection:many"]`) when you want to
+  constrain further.
+- Using `selected_count()` does **not** auto-infer anything. The builtin exists so ruki can branch on cardinality
+  (including the zero case), and auto-inferring `selection:any` would make the zero branch unreachable. Authors
+  who want gating should add an explicit `require:` entry.
+
+Explicitly listing an auto-inferred requirement is allowed but redundant.
+
+#### Multi-selection actions
+
+Use `ids()` in the ruki statement to operate on every selected task:
+
+```yaml
+actions:
+  - key: "D"
+    label: "Mark selected done"
+    action: update where id in ids() set status = "done"
+```
+
+This action inherits `selection:any`, so it is enabled as soon as at least one task is selected. To require two or
+more selected tasks (e.g. a merge operation), add `require: ["selection:many"]` explicitly.
 
 #### Bulk actions
 
-Mutating actions (`update`, `delete`) that do *not* use `id()` are bulk actions — they operate on all matching tasks, 
-not just the selected one. Bulk actions remain enabled even when nothing is selected:
+Mutating actions (`update`, `delete`) that do *not* use `id()` or `ids()` are bulk actions — they operate on all
+matching tasks, not just the selected ones. Bulk actions remain enabled even when nothing is selected:
 
 ```yaml
 actions:
@@ -360,7 +389,8 @@ actions:
     action: delete where status = "done"
 ```
 
-This action has no `id` requirement (neither explicit nor inferred) so it stays enabled regardless of selection state.
+This action has no selection requirement (neither explicit nor inferred) so it stays enabled regardless of
+selection state.
 
 #### Negated requirements
 

@@ -819,7 +819,7 @@ func TestExecuteOuterWithSelectedTaskExclusion(t *testing.T) {
 		{ID: "TIKI-000003", Title: "candidate", Status: "ready", Type: "story", Priority: 3},
 	}
 	e := NewExecutor(testSchema{}, nil, ExecutorRuntime{Mode: ExecutorRuntimePlugin})
-	result, err := e.Execute(stmt, tasks, ExecutionInput{SelectedTaskID: "TIKI-000001"})
+	result, err := e.Execute(stmt, tasks, NewSingleSelectionInput("TIKI-000001"))
 	if err != nil {
 		t.Fatalf("execute: %v", err)
 	}
@@ -3897,7 +3897,7 @@ func TestExecuteEvalIDPluginRuntime(t *testing.T) {
 	if err != nil {
 		t.Fatalf("validate: %v", err)
 	}
-	result, err := e.Execute(validated, tasks, ExecutionInput{SelectedTaskID: "TIKI-000001"})
+	result, err := e.Execute(validated, tasks, NewSingleSelectionInput("TIKI-000001"))
 	if err != nil {
 		t.Fatalf("execute: %v", err)
 	}
@@ -3914,7 +3914,7 @@ func TestExecuteEvalIDPluginRuntime(t *testing.T) {
 	if err != nil {
 		t.Fatalf("validate: %v", err)
 	}
-	result2, err := e.Execute(validated2, tasks, ExecutionInput{SelectedTaskID: "TIKI-000001"})
+	result2, err := e.Execute(validated2, tasks, NewSingleSelectionInput("TIKI-000001"))
 	if err != nil {
 		t.Fatalf("execute: %v", err)
 	}
@@ -3936,7 +3936,7 @@ func TestExecuteEvalIDPluginRuntimeNoMatch(t *testing.T) {
 	if err != nil {
 		t.Fatalf("validate: %v", err)
 	}
-	result, err := e.Execute(validated, tasks, ExecutionInput{SelectedTaskID: "TIKI-000002"})
+	result, err := e.Execute(validated, tasks, NewSingleSelectionInput("TIKI-000002"))
 	if err != nil {
 		t.Fatalf("execute: %v", err)
 	}

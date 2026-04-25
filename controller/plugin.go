@@ -156,17 +156,13 @@ func (pc *PluginController) getPluginAction(actionID ActionID) (*plugin.PluginAc
 // selection/create-template preflight. Returns ok=false if the action can't run.
 func (pc *PluginController) buildExecutionInput(pa *plugin.PluginAction) (ruki.ExecutionInput, bool) {
 	input := ruki.ExecutionInput{}
-	taskID := pc.getSelectedTaskID(pc.GetFilteredTasksForLane)
+	ids := pc.getSelectedTaskIDs(pc.GetFilteredTasksForLane)
 
-	requiresID := containsRequirement(pa.Require, string(RequireID))
-
-	if requiresID {
-		if taskID == "" {
-			return input, false
-		}
-		input.SelectedTaskID = taskID
-	} else if taskID != "" {
-		input.SelectedTaskID = taskID
+	if !selectionSatisfies(pa.Require, len(ids)) {
+		return input, false
+	}
+	if len(ids) > 0 {
+		input.SelectedTaskIDs = ids
 	}
 
 	if pa.Action.IsCreate() {
@@ -181,13 +177,53 @@ func (pc *PluginController) buildExecutionInput(pa *plugin.PluginAction) (ruki.E
 	return input, true
 }
 
-func containsRequirement(reqs []string, target string) bool {
+// selectionSatisfies reports whether the current selection count meets the
+// action's selection-cardinality requirements. It delegates to the same
+// AppContext/ActionEnabled pipeline used for UI enablement so positive,
+// negated, and non-selection requirements all evaluate consistently.
+//
+// Only selection-cardinality attributes are materialized here — other
+// attributes (view:*, ai, etc.) are evaluated by the UI layer before an
+// action can be dispatched, and re-checking them from the controller would
+// either duplicate state plumbing or produce false negatives. We therefore
+// ignore non-selection requirements instead of rejecting the action.
+func selectionSatisfies(reqs []string, count int) bool {
+	ctx := NewAppContext()
+	applySelectionCardinality(ctx, count)
+
+	a := Action{Require: selectionRequirements(reqs)}
+	return ActionEnabled(a, ctx)
+}
+
+// selectionRequirements filters a raw requirement list down to just the
+// selection-cardinality tokens (positive or negated) so selectionSatisfies
+// only evaluates against the selection context it actually populates.
+func selectionRequirements(reqs []string) []Requirement {
+	out := make([]Requirement, 0, len(reqs))
 	for _, r := range reqs {
-		if r == target {
-			return true
+		attr := r
+		if len(attr) > 0 && attr[0] == '!' {
+			attr = attr[1:]
+		}
+		switch attr {
+		case string(RequireID),
+			string(RequireSelectionOne),
+			string(RequireSelectionAny),
+			string(RequireSelectionMany):
+			out = append(out, Requirement(r))
 		}
 	}
-	return false
+	return out
+}
+
+// logSelectionFields returns the slog key/value pairs that describe the
+// current selection — task_id only when exactly one is selected, otherwise
+// just selected_count.
+func logSelectionFields(input ruki.ExecutionInput) []any {
+	if id, ok := input.SingleSelectedTaskID(); ok {
+		return []any{"task_id", id, "selected_count", 1}
+	}
+	return []any{"selected_count", input.SelectionCount()}
 }
 
 // executeAndApply runs the executor and applies the result (store mutations, pipe, clipboard).
@@ -197,7 +233,8 @@ func (pc *PluginController) executeAndApply(pa *plugin.PluginAction, input ruki.
 
 	result, err := executor.Execute(pa.Action, allTasks, input)
 	if err != nil {
-		slog.Error("failed to execute plugin action", "task_id", input.SelectedTaskID, "key", pa.KeyStr, "error", err)
+		args := append(logSelectionFields(input), "key", pa.KeyStr, "error", err)
+		slog.Error("failed to execute plugin action", args...)
 		if pc.statusline != nil {
 			pc.statusline.SetMessage(err.Error(), model.MessageLevelError, true)
 		}
@@ -207,8 +244,8 @@ func (pc *PluginController) executeAndApply(pa *plugin.PluginAction, input ruki.
 	ctx := context.Background()
 	switch {
 	case result.Select != nil:
-		slog.Info("select plugin action executed", "task_id", input.SelectedTaskID, "key", pa.KeyStr,
-			"label", pa.Label, "matched", len(result.Select.Tasks))
+		args := append(logSelectionFields(input), "key", pa.KeyStr, "label", pa.Label, "matched", len(result.Select.Tasks))
+		slog.Info("select plugin action executed", args...)
 		return true
 	case result.Update != nil:
 		for _, updated := range result.Update.Updated {
@@ -261,7 +298,8 @@ func (pc *PluginController) executeAndApply(pa *plugin.PluginAction, input ruki.
 		}
 	}
 
-	slog.Info("plugin action applied", "task_id", input.SelectedTaskID, "key", pa.KeyStr, "label", pa.Label, "plugin", pc.pluginDef.Name)
+	args := append(logSelectionFields(input), "key", pa.KeyStr, "label", pa.Label, "plugin", pc.pluginDef.Name)
+	slog.Info("plugin action applied", args...)
 	return true
 }
 
@@ -403,7 +441,7 @@ func (pc *PluginController) handleMoveTask(offset int) bool {
 
 	allTasks := pc.taskStore.GetAllTasks()
 	executor := pc.newExecutor()
-	result, err := executor.Execute(actionStmt, allTasks, ruki.ExecutionInput{SelectedTaskID: taskID})
+	result, err := executor.Execute(actionStmt, allTasks, ruki.NewSingleSelectionInput(taskID))
 	if err != nil {
 		slog.Error("failed to execute lane action", "task_id", taskID, "error", err)
 		return false

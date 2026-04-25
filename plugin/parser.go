@@ -268,7 +268,17 @@ func parsePluginActions(configs []PluginActionConfig, parser *ruki.Parser) ([]Pl
 	return actions, nil
 }
 
-// inferRequirements validates explicit requirements and auto-infers "id" from id() usage.
+// inferRequirements validates explicit requirements and auto-infers selection
+// requirements from builtin usage:
+//   - id() → "id" (legacy alias for selection:one)
+//   - ids() → "selection:any" (at least one selection)
+//
+// selected_count() deliberately does NOT auto-infer anything: its whole
+// purpose is to let ruki branch on cardinality, including the zero case
+// (e.g. `where selected_count() = 0`). Gating the action on a non-zero
+// selection would make that branch unreachable. Authors who want tighter
+// gating can add `require: ["selection:any"]` (or `selection:many`)
+// explicitly.
 func inferRequirements(explicit []string, stmt *ruki.ValidatedStatement, idx int, key string) ([]string, error) {
 	for _, r := range explicit {
 		if err := validateRequirement(r); err != nil {
@@ -279,23 +289,45 @@ func inferRequirements(explicit []string, stmt *ruki.ValidatedStatement, idx int
 	reqs := make([]string, len(explicit))
 	copy(reqs, explicit)
 
-	if stmt.UsesIDBuiltin() {
-		found := false
-		for _, r := range reqs {
-			if r == "id" {
-				found = true
-				break
-			}
-		}
-		if !found {
-			reqs = append(reqs, "id")
-		}
+	if stmt.UsesIDBuiltin() && !containsRequirement(reqs, "id") {
+		reqs = append(reqs, "id")
+	}
+	if stmt.UsesIDsBuiltin() && !hasAnySelectionRequirement(reqs) {
+		reqs = append(reqs, "selection:any")
 	}
 
 	if len(reqs) == 0 {
 		return nil, nil
 	}
 	return dedup(reqs), nil
+}
+
+func containsRequirement(reqs []string, target string) bool {
+	for _, r := range reqs {
+		if r == target {
+			return true
+		}
+	}
+	return false
+}
+
+// hasAnySelectionRequirement returns true when the requirement list already
+// constrains selection cardinality (positive or negated), so auto-inference
+// should not layer another one on top. A negated token like !selection:many
+// is still a cardinality constraint — it means "fewer than two" — so stacking
+// selection:any on top of it would silently change the author's intent.
+func hasAnySelectionRequirement(reqs []string) bool {
+	for _, r := range reqs {
+		attr := r
+		if len(attr) > 0 && attr[0] == '!' {
+			attr = attr[1:]
+		}
+		switch attr {
+		case "id", "selection:one", "selection:any", "selection:many":
+			return true
+		}
+	}
+	return false
 }
 
 // validateRequirement checks that a requirement token is well-formed.

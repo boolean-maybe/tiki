@@ -1120,6 +1120,92 @@ func TestParsePluginActions_RequireNoAutoInferWithoutID(t *testing.T) {
 	}
 }
 
+func TestParsePluginActions_RequireAutoInferSelectionAnyFromIDs(t *testing.T) {
+	parser := testParser()
+	configs := []PluginActionConfig{
+		{Key: "a", Label: "Done all", Action: `update where id in ids() set status = "done"`},
+	}
+	actions, err := parsePluginActions(configs, parser)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	found := false
+	for _, r := range actions[0].Require {
+		if r == "selection:any" {
+			found = true
+		}
+	}
+	if !found {
+		t.Errorf("expected auto-inferred 'selection:any' requirement from ids(), got %v", actions[0].Require)
+	}
+}
+
+// selected_count() must NOT auto-infer selection:any: ruki statements like
+// `where selected_count() = 0` need to remain reachable from the preflight.
+func TestParsePluginActions_RequireNoAutoInferFromSelectedCount(t *testing.T) {
+	parser := testParser()
+	configs := []PluginActionConfig{
+		{Key: "a", Label: "Cardinality branch", Action: `select where selected_count() >= 0`},
+	}
+	actions, err := parsePluginActions(configs, parser)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	for _, r := range actions[0].Require {
+		if r == "selection:any" || r == "id" || r == "selection:one" || r == "selection:many" {
+			t.Errorf("selected_count() should not auto-infer selection requirement, got %v", actions[0].Require)
+		}
+	}
+}
+
+// A negated selection requirement is still a cardinality constraint and must
+// suppress auto-inference from ids(); otherwise an explicit "!selection:many"
+// (meaning "0 or 1") would be silently augmented with "selection:any"
+// (meaning "at least 1"), narrowing the author's intent to "exactly 1".
+func TestParsePluginActions_RequireNegatedSelectionSuppressesAutoInfer(t *testing.T) {
+	cases := []struct {
+		name     string
+		negated  string
+		notSeen  string
+		wantKept string
+	}{
+		{"negated selection:many", "!selection:many", "selection:any", "!selection:many"},
+		{"negated id", "!id", "selection:any", "!id"},
+		{"negated selection:one", "!selection:one", "selection:any", "!selection:one"},
+		{"negated selection:any", "!selection:any", "selection:any", "!selection:any"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			parser := testParser()
+			configs := []PluginActionConfig{{
+				Key:     "a",
+				Label:   "Bulk",
+				Action:  `update where id in ids() set status = "done"`,
+				Require: []string{tc.negated},
+			}}
+			actions, err := parsePluginActions(configs, parser)
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+			gotKept, gotInferred := false, false
+			for _, r := range actions[0].Require {
+				if r == tc.wantKept {
+					gotKept = true
+				}
+				if r == tc.notSeen {
+					gotInferred = true
+				}
+			}
+			if !gotKept {
+				t.Errorf("expected %q preserved, got %v", tc.wantKept, actions[0].Require)
+			}
+			if gotInferred {
+				t.Errorf("expected auto-inference suppressed, but found %q in %v", tc.notSeen, actions[0].Require)
+			}
+		})
+	}
+}
+
 func TestParsePluginActions_RequireAIPlusAutoID(t *testing.T) {
 	parser := testParser()
 	configs := []PluginActionConfig{
