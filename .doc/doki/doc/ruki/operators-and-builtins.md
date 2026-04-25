@@ -225,7 +225,7 @@ select where updatedAt < now()
 create title="x" due=next_date(recurrence)
 select where blocks(id) is empty
 select where id() in dependsOn
-select where count(select where status = "done") >= 1
+select where count(select where assignee = outer.assignee and status = "in progress") >= 3
 before update where new.type = "epic"
 and exists(select where id in new.dependsOn and status != "done")
 deny "epic has unfinished dependencies"

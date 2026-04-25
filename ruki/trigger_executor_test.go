@@ -264,6 +264,33 @@ func TestEvalGuard_ExistsSubqueryNoMatch(t *testing.T) {
 	}
 }
 
+func TestEvalGuard_OuterOldAndNewResolveIndependently(t *testing.T) {
+	te := newTestTriggerExecutor()
+	p := newTestParser()
+
+	trig, err := p.ParseTrigger(`before update where new.status = "done" and exists(select where id = outer.id and status = old.status and outer.status = new.status) deny "blocked"`)
+	if err != nil {
+		t.Fatalf("parse: %v", err)
+	}
+
+	tc := &TriggerContext{
+		Old: &task.Task{ID: "TIKI-000001", Status: "ready"},
+		New: &task.Task{ID: "TIKI-000001", Status: "done"},
+		AllTasks: []*task.Task{
+			{ID: "TIKI-000001", Status: "ready"},
+			{ID: "TIKI-000002", Status: "done"},
+		},
+	}
+
+	ok, err := te.EvalGuard(trig, tc)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !ok {
+		t.Fatal("guard should match with outer=new sentinel, old=old snapshot, and new=new snapshot")
+	}
+}
+
 // --- ExecAction ---
 
 func TestExecAction_UpdateWithQualifiedRefs(t *testing.T) {
@@ -297,6 +324,39 @@ func TestExecAction_UpdateWithQualifiedRefs(t *testing.T) {
 	}
 	if result.Update.Updated[0].Assignee != "booleanmaybe" {
 		t.Fatalf("expected assignee=booleanmaybe, got %q", result.Update.Updated[0].Assignee)
+	}
+}
+
+func TestExecAction_OuterOldAndNewResolveIndependently(t *testing.T) {
+	te := newTestTriggerExecutor()
+	p := newTestParser()
+
+	trig, err := p.ParseTrigger(`after update update where exists(select where id = outer.id and status = outer.status and old.status = "ready" and new.status = "done") set assignee="alice"`)
+	if err != nil {
+		t.Fatalf("parse: %v", err)
+	}
+
+	tasks := []*task.Task{
+		{ID: "TIKI-000001", Title: "one", Status: "ready"},
+		{ID: "TIKI-000002", Title: "two", Status: "backlog"},
+	}
+	tc := &TriggerContext{
+		Old:      &task.Task{ID: "TIKI-CHANGED", Status: "ready"},
+		New:      &task.Task{ID: "TIKI-CHANGED", Status: "done"},
+		AllTasks: tasks,
+	}
+
+	result, err := te.ExecAction(trig, tc)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(result.Update.Updated) != 2 {
+		t.Fatalf("expected 2 updated tasks, got %d", len(result.Update.Updated))
+	}
+	for _, updated := range result.Update.Updated {
+		if updated.Assignee != "alice" {
+			t.Fatalf("expected assignee=alice for %s, got %q", updated.ID, updated.Assignee)
+		}
 	}
 }
 
@@ -2535,7 +2595,7 @@ func TestResolveQualifiedRef_NewNilReturnsNilNil(t *testing.T) {
 		New: nil, // simulates delete event
 	}
 	exec := te.newExecWithOverrides(tc)
-	val, err := exec.resolveQualifiedRef(&QualifiedRef{Qualifier: "new", Name: "status"})
+	val, err := exec.resolveQualifiedRef(&QualifiedRef{Qualifier: "new", Name: "status"}, evalContext{})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -2551,7 +2611,7 @@ func TestEvalExprRecursive_FieldRef(t *testing.T) {
 		New: &task.Task{ID: "TIKI-000001", Title: "my title"},
 	}
 	exec := te.newExecWithOverrides(tc)
-	val, err := exec.evalExprRecursive(&FieldRef{Name: "title"}, tc.New, nil)
+	val, err := exec.evalExprRecursive(&FieldRef{Name: "title"}, evalContext{current: tc.New})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -2601,7 +2661,7 @@ func TestEvalCountOverride_NonSubQueryArg(t *testing.T) {
 	_, err := exec.evalCountOverride(&FunctionCall{
 		Name: "count",
 		Args: []Expr{&IntLiteral{Value: 42}},
-	}, nil)
+	}, nil, nil)
 	if err == nil {
 		t.Fatal("expected error for count() with non-SubQuery arg")
 	}
@@ -2621,7 +2681,7 @@ func TestEvalExistsOverride_NonSubQueryArg(t *testing.T) {
 	_, err := exec.evalExistsOverride(&FunctionCall{
 		Name: "exists",
 		Args: []Expr{&IntLiteral{Value: 42}},
-	}, nil)
+	}, nil, nil)
 	if err == nil {
 		t.Fatal("expected error for exists() with non-SubQuery arg")
 	}
@@ -3017,7 +3077,7 @@ func TestEvalExprRecursive_StringLiteral(t *testing.T) {
 		New: &task.Task{ID: "TIKI-000001"},
 	}
 	exec := te.newExecWithOverrides(tc)
-	val, err := exec.evalExprRecursive(&StringLiteral{Value: "hello"}, tc.New, nil)
+	val, err := exec.evalExprRecursive(&StringLiteral{Value: "hello"}, evalContext{current: tc.New})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -3032,7 +3092,7 @@ func TestEvalExprRecursive_IntLiteral(t *testing.T) {
 		New: &task.Task{ID: "TIKI-000001"},
 	}
 	exec := te.newExecWithOverrides(tc)
-	val, err := exec.evalExprRecursive(&IntLiteral{Value: 42}, tc.New, nil)
+	val, err := exec.evalExprRecursive(&IntLiteral{Value: 42}, evalContext{current: tc.New})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -3048,7 +3108,7 @@ func TestEvalExprRecursive_DateLiteral(t *testing.T) {
 	}
 	exec := te.newExecWithOverrides(tc)
 	date := time.Date(2026, 1, 15, 0, 0, 0, 0, time.UTC)
-	val, err := exec.evalExprRecursive(&DateLiteral{Value: date}, tc.New, nil)
+	val, err := exec.evalExprRecursive(&DateLiteral{Value: date}, evalContext{current: tc.New})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -3064,7 +3124,7 @@ func TestEvalExprRecursive_DurationLiteral(t *testing.T) {
 	}
 	exec := te.newExecWithOverrides(tc)
 	dur := &DurationLiteral{Value: 2, Unit: "day"}
-	val, err := exec.evalExprRecursive(dur, tc.New, nil)
+	val, err := exec.evalExprRecursive(dur, evalContext{current: tc.New})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -3080,7 +3140,7 @@ func TestEvalExprRecursive_EmptyLiteral(t *testing.T) {
 		New: &task.Task{ID: "TIKI-000001"},
 	}
 	exec := te.newExecWithOverrides(tc)
-	val, err := exec.evalExprRecursive(&EmptyLiteral{}, tc.New, nil)
+	val, err := exec.evalExprRecursive(&EmptyLiteral{}, evalContext{current: tc.New})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -3758,7 +3818,7 @@ func TestEvalCountOverride_ErrorInConditionOverride(t *testing.T) {
 			Op:    "=",
 			Right: &StringLiteral{Value: "done"},
 		}}},
-	}, tc.AllTasks)
+	}, nil, tc.AllTasks)
 	if err == nil {
 		t.Fatal("expected error for unknown qualifier in count condition")
 	}

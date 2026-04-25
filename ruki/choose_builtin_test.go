@@ -236,6 +236,31 @@ func TestEvalSubQueryFilter_BareSelect_ReturnsAll(t *testing.T) {
 	}
 }
 
+func TestEvalSubQueryFilter_WithOuterSelectedTask(t *testing.T) {
+	p := newTestParser()
+	stmt, err := p.ParseStatement(`update where id = id() set dependsOn = dependsOn + choose(select where id != outer.id)`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	sq := extractChooseSubQuery(stmt)
+	if sq == nil {
+		t.Fatal("failed to extract choose subquery")
+	}
+
+	e := NewExecutor(testSchema{}, nil, ExecutorRuntime{Mode: ExecutorRuntimePlugin})
+	tasks := []*task.Task{
+		{ID: "TIKI-000001", Title: "self", Status: "ready", Type: "task", Priority: 3},
+		{ID: "TIKI-000002", Title: "other", Status: "ready", Type: "task", Priority: 3},
+	}
+	candidates, err := e.EvalSubQueryFilter(sq, tasks, ExecutionInput{SelectedTaskID: "TIKI-000001"})
+	if err != nil {
+		t.Fatalf("filter error: %v", err)
+	}
+	if len(candidates) != 1 || candidates[0].ID != "TIKI-000002" {
+		t.Fatalf("expected only TIKI-000002, got %v", taskIDs(candidates))
+	}
+}
+
 // --- coerceCustomFieldValue ref test ---
 
 func TestCoerceCustomFieldValue_Ref(t *testing.T) {

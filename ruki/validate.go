@@ -7,10 +7,11 @@ import (
 
 // validate.go — structural validation and semantic type-checking.
 
-// qualifierPolicy controls which old./new. qualifiers are allowed during validation.
+// qualifierPolicy controls which old./new./outer. qualifiers are allowed during validation.
 type qualifierPolicy struct {
-	allowOld bool
-	allowNew bool
+	allowOld   bool
+	allowNew   bool
+	allowOuter bool
 }
 
 // no qualifiers allowed (standalone statements).
@@ -414,11 +415,12 @@ func (p *Parser) validateQuantifier(q *QuantifierExpr) error {
 	if exprType != ValueListRef {
 		return fmt.Errorf("quantifier %s requires list<ref>, got %s", q.Kind, typeName(exprType))
 	}
-	// zone 3: quantifier bodies — bare fields refer to each related task,
-	// qualifiers and requireQualifiers are both reset for the body
+	// zone 3: quantifier bodies — bare fields refer to each related task.
+	// old./new. and requireQualifiers are reset, while outer. remains allowed
+	// when the quantifier itself appears inside a subquery.
 	savedQualifiers := p.qualifiers
 	savedRequire := p.requireQualifiers
-	p.qualifiers = noQualifiers
+	p.qualifiers = qualifierPolicy{allowOuter: savedQualifiers.allowOuter}
 	p.requireQualifiers = false
 	err = p.validateCondition(q.Condition)
 	p.qualifiers = savedQualifiers
@@ -441,11 +443,21 @@ func (p *Parser) inferExprType(e Expr) (ValueType, error) {
 		return fs.Type, nil
 
 	case *QualifiedRef:
-		if e.Qualifier == "old" && !p.qualifiers.allowOld {
-			return 0, fmt.Errorf("old. qualifier is not valid in this context")
-		}
-		if e.Qualifier == "new" && !p.qualifiers.allowNew {
-			return 0, fmt.Errorf("new. qualifier is not valid in this context")
+		switch e.Qualifier {
+		case "old":
+			if !p.qualifiers.allowOld {
+				return 0, fmt.Errorf("old. qualifier is not valid in this context")
+			}
+		case "new":
+			if !p.qualifiers.allowNew {
+				return 0, fmt.Errorf("new. qualifier is not valid in this context")
+			}
+		case "outer":
+			if !p.qualifiers.allowOuter {
+				return 0, fmt.Errorf("outer. qualifier is not valid in this context")
+			}
+		default:
+			return 0, fmt.Errorf("unknown qualifier %q", e.Qualifier)
 		}
 		fs, ok := p.schema.Field(e.Name)
 		if !ok {
@@ -601,9 +613,13 @@ func (p *Parser) validateSubQueryFuncCall(name string, arg Expr) error {
 		return nil
 	}
 	// zone 4: subquery bodies use candidate-task fields, so trigger guards stop requiring qualifiers.
+	// outer. is valid here and resolves to the immediate parent query row.
+	savedQualifiers := p.qualifiers
 	savedRequire := p.requireQualifiers
+	p.qualifiers.allowOuter = true
 	p.requireQualifiers = false
 	err := p.validateCondition(sq.Where)
+	p.qualifiers = savedQualifiers
 	p.requireQualifiers = savedRequire
 	if err != nil {
 		return fmt.Errorf("%s() subquery: %w", name, err)

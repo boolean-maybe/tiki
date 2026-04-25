@@ -98,6 +98,7 @@ Qualifier misuse:
 - `old.` is invalid in create-trigger contexts
 - `new.` is invalid in delete-trigger contexts
 - both are invalid inside quantifier bodies
+- `outer.` is invalid outside `count(...)`, `choose(...)`, and `exists(...)` subquery bodies
 
 Examples:
 
@@ -107,6 +108,9 @@ create title=old.title
 after create where old.status = "done" update where id = new.id set status="done"
 before delete where new.status = "done" deny "x"
 before update where dependsOn any old.status = "done" deny "blocked"
+select where outer.id = id
+create title=outer.title
+before update where outer.id = new.id deny "blocked"
 ```
 
 ## Required field errors
@@ -321,11 +325,13 @@ Subquery restrictions:
 - only `count(...)`, `choose(...)`, and `exists(...)` accept a subquery
 - bare subqueries elsewhere are rejected
 - `count(...)`, `choose(...)`, and `exists(...)` validate the subquery body recursively
+- subquery bodies may use `outer.` to refer to the immediate parent row
 
 Examples:
 
 ```sql
-select where count(select where status = "done") >= 1
+select where count(select where assignee = outer.assignee) >= 1
+select where exists(select where outer.id in dependsOn)
 select where count(select where nosuchfield = "x") >= 1
 before update where exists(select where id in new.dependsOn and status != "done") deny "blocked"
 select where exists("x")

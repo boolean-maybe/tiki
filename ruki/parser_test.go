@@ -679,6 +679,39 @@ func TestParseSubQuery(t *testing.T) {
 	}
 }
 
+func TestParseOuterQualifiedRefInSubQuery(t *testing.T) {
+	p := newTestParser()
+
+	stmt, err := p.ParseStatement(`select where exists(select where outer.id in dependsOn)`)
+	if err != nil {
+		t.Fatalf("parse error: %v", err)
+	}
+
+	bare, ok := stmt.Select.Where.(*BoolExprCondition)
+	if !ok {
+		t.Fatalf("expected BoolExprCondition, got %T", stmt.Select.Where)
+	}
+	call, ok := bare.Expr.(*FunctionCall)
+	if !ok {
+		t.Fatalf("expected FunctionCall, got %T", bare.Expr)
+	}
+	sq, ok := call.Args[0].(*SubQuery)
+	if !ok {
+		t.Fatalf("expected SubQuery arg, got %T", call.Args[0])
+	}
+	in, ok := sq.Where.(*InExpr)
+	if !ok {
+		t.Fatalf("expected InExpr, got %T", sq.Where)
+	}
+	outer, ok := in.Value.(*QualifiedRef)
+	if !ok {
+		t.Fatalf("expected QualifiedRef, got %T", in.Value)
+	}
+	if outer.Qualifier != "outer" || outer.Name != "id" {
+		t.Fatalf("expected outer.id, got %s.%s", outer.Qualifier, outer.Name)
+	}
+}
+
 func TestParseStatementErrors(t *testing.T) {
 	p := newTestParser()
 

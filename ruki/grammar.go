@@ -214,7 +214,7 @@ type subQueryExpr struct {
 }
 
 type qualRefExpr struct {
-	Qualifier string `parser:"@( 'old' | 'new' ) '.'"`
+	Qualifier string `parser:"@( 'old' | 'new' | 'outer' ) '.'"`
 	Name      string `parser:"@Ident"`
 }
 
