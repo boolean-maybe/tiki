@@ -12,9 +12,11 @@ import (
 	"github.com/boolean-maybe/tiki/config"
 )
 
-// setupWorkflowTest creates a temp config dir for workflow commands.
+// setupWorkflowTest creates isolated cwd and config dirs for workflow commands.
 func setupWorkflowTest(t *testing.T) string {
 	t.Helper()
+	t.Chdir(t.TempDir())
+
 	xdgDir := t.TempDir()
 	t.Setenv("XDG_CONFIG_HOME", xdgDir)
 	config.ResetPathManager()
