@@ -298,3 +298,113 @@ func TestValidatedTimeTriggerCloneIsolated(t *testing.T) {
 		t.Fatal("expected action to remain unchanged")
 	}
 }
+
+// target./targets. are plugin-only; non-plugin runtimes must reject them.
+
+func TestValidateStatement_RejectsTargetOutsidePluginRuntime(t *testing.T) {
+	p := newTestParser()
+	_, err := p.ParseAndValidateStatement(`select where id = target.id`, ExecutorRuntimeCLI)
+	if err == nil {
+		t.Fatal("expected runtime error")
+	}
+	if !strings.Contains(err.Error(), "target.") || !strings.Contains(err.Error(), "plugin") {
+		t.Fatalf("expected plugin-runtime error, got: %v", err)
+	}
+}
+
+func TestValidateStatement_RejectsTargetsOutsidePluginRuntime(t *testing.T) {
+	p := newTestParser()
+	_, err := p.ParseAndValidateStatement(`select where id in targets.id`, ExecutorRuntimeCLI)
+	if err == nil {
+		t.Fatal("expected runtime error")
+	}
+	if !strings.Contains(err.Error(), "targets.") || !strings.Contains(err.Error(), "plugin") {
+		t.Fatalf("expected plugin-runtime error, got: %v", err)
+	}
+}
+
+func TestValidateStatement_AcceptsTargetInPluginRuntime(t *testing.T) {
+	p := newTestParser()
+	v, err := p.ParseAndValidateStatement(`select where id = target.id`, ExecutorRuntimePlugin)
+	if err != nil {
+		t.Fatalf("expected success, got: %v", err)
+	}
+	if !v.UsesTargetQualifier() {
+		t.Fatal("expected UsesTargetQualifier=true")
+	}
+	if v.UsesTargetsQualifier() {
+		t.Fatal("expected UsesTargetsQualifier=false")
+	}
+}
+
+func TestValidateStatement_AcceptsTargetsInPluginRuntime(t *testing.T) {
+	p := newTestParser()
+	v, err := p.ParseAndValidateStatement(`select where id in targets.dependsOn`, ExecutorRuntimePlugin)
+	if err != nil {
+		t.Fatalf("expected success, got: %v", err)
+	}
+	if !v.UsesTargetsQualifier() {
+		t.Fatal("expected UsesTargetsQualifier=true")
+	}
+	if v.UsesTargetQualifier() {
+		t.Fatal("expected UsesTargetQualifier=false")
+	}
+}
+
+// target./targets. must be rejected inside event and time triggers.
+
+func TestValidateTrigger_RejectsTargetQualifier(t *testing.T) {
+	p := newTestParser()
+	_, err := p.ParseAndValidateTrigger(
+		`after update where new.status = "done" update where id = target.id set tags = ["x"]`,
+		ExecutorRuntimeEventTrigger,
+	)
+	if err == nil {
+		t.Fatal("expected rejection")
+	}
+	if !strings.Contains(err.Error(), "target.") {
+		t.Fatalf("expected target. rejection message, got: %v", err)
+	}
+}
+
+func TestValidateTrigger_RejectsTargetsQualifier(t *testing.T) {
+	p := newTestParser()
+	_, err := p.ParseAndValidateTrigger(
+		`after update where new.status = "done" update where id in targets.id set tags = ["x"]`,
+		ExecutorRuntimeEventTrigger,
+	)
+	if err == nil {
+		t.Fatal("expected rejection")
+	}
+	if !strings.Contains(err.Error(), "target") {
+		t.Fatalf("expected targets. rejection message, got: %v", err)
+	}
+}
+
+func TestValidateTimeTrigger_RejectsTargetQualifier(t *testing.T) {
+	p := newTestParser()
+	_, err := p.ParseAndValidateTimeTrigger(
+		`every 1hour update where id = target.id set tags = ["x"]`,
+		ExecutorRuntimeTimeTrigger,
+	)
+	if err == nil {
+		t.Fatal("expected rejection")
+	}
+	if !strings.Contains(err.Error(), "target") {
+		t.Fatalf("expected target rejection, got: %v", err)
+	}
+}
+
+func TestValidateTimeTrigger_RejectsTargetsQualifier(t *testing.T) {
+	p := newTestParser()
+	_, err := p.ParseAndValidateTimeTrigger(
+		`every 1hour update where id in targets.id set tags = ["x"]`,
+		ExecutorRuntimeTimeTrigger,
+	)
+	if err == nil {
+		t.Fatal("expected rejection")
+	}
+	if !strings.Contains(err.Error(), "target") {
+		t.Fatalf("expected targets rejection, got: %v", err)
+	}
+}

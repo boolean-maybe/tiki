@@ -1,6 +1,7 @@
 package ruki
 
 import (
+	"strings"
 	"testing"
 	"time"
 )
@@ -963,5 +964,75 @@ select where status = "done"`
 	}
 	if stmt.Select == nil {
 		t.Fatal("expected Select")
+	}
+}
+
+// target./targets. qualifier parser acceptance — structurally valid in any
+// standalone statement; the semantic validator gates them to plugin runtime.
+func TestParseTargetQualifier_Accepts(t *testing.T) {
+	p := newTestParser()
+
+	tests := []struct {
+		name  string
+		input string
+	}{
+		{"target.id in compare", `select where id = target.id`},
+		{"target.status in compare", `select where status = target.status`},
+		{"targets.id in membership", `select where id in targets.id`},
+		{"targets.dependsOn in membership", `select where id in targets.dependsOn`},
+		{"targets.tags in membership", `select where "infra" in targets.tags`},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if _, err := p.ParseStatement(tt.input); err != nil {
+				t.Fatalf("parse error: %v", err)
+			}
+		})
+	}
+}
+
+func TestParseTargetQualifier_UnknownField(t *testing.T) {
+	p := newTestParser()
+	tests := []struct {
+		name  string
+		input string
+	}{
+		{"target.nope", `select where id = target.nope`},
+		{"targets.nope", `select where id in targets.nope`},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			_, err := p.ParseStatement(tt.input)
+			if err == nil {
+				t.Fatalf("expected parse/validation error for %q, got nil", tt.input)
+			}
+			if !strings.Contains(err.Error(), "unknown field") {
+				t.Fatalf("expected unknown field error, got: %v", err)
+			}
+		})
+	}
+}
+
+func TestParseTargetsQualifier_UnsupportedScalarProjection(t *testing.T) {
+	p := newTestParser()
+	tests := []struct {
+		name  string
+		input string
+	}{
+		{"targets.priority (int)", `select where priority in targets.priority`},
+		{"targets.due (date)", `select where due in targets.due`},
+		{"targets.createdAt (timestamp)", `select where createdAt in targets.createdAt`},
+		{"targets.recurrence", `select where recurrence in targets.recurrence`},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			_, err := p.ParseStatement(tt.input)
+			if err == nil {
+				t.Fatalf("expected error for %q, got nil", tt.input)
+			}
+			if !strings.Contains(err.Error(), "targets.") || !strings.Contains(err.Error(), "not supported") {
+				t.Fatalf("expected unsupported projection error, got: %v", err)
+			}
+		})
 	}
 }

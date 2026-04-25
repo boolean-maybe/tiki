@@ -2931,3 +2931,64 @@ func TestEnumWithTrueFalseValues(t *testing.T) {
 		t.Fatal("expected error assigning bare bool to enum field")
 	}
 }
+
+// targets.<enum-field> projects to list<string> but membership against the
+// underlying enum field must still validate. These cases are documented as
+// supported; without the carve-out they fail with "element type mismatch".
+func TestTargetsEnumMembership(t *testing.T) {
+	p := newTestParser()
+	inputs := []string{
+		`select where status in targets.status`,
+		`select where type in targets.type`,
+	}
+	for _, in := range inputs {
+		t.Run(in, func(t *testing.T) {
+			if _, err := p.ParseStatement(in); err != nil {
+				t.Fatalf("expected success, got: %v", err)
+			}
+		})
+	}
+}
+
+func TestTargetsCustomEnumMembership(t *testing.T) {
+	p := newCustomParser()
+	// same-field projection is allowed
+	if _, err := p.ParseStatement(`select where severity in targets.severity`); err != nil {
+		t.Fatalf("expected success, got: %v", err)
+	}
+	// cross-enum-domain projection must still be rejected
+	_, err := p.ParseStatement(`select where severity in targets.priority2`)
+	if err == nil {
+		t.Fatal("expected cross-enum rejection")
+	}
+}
+
+func TestTargetsProjectionTypes(t *testing.T) {
+	p := newTestParser()
+
+	// targets.<ref-like> projects to list<ref> and is compatible with list<ref> fields
+	ok := []string{
+		`update where id = "X" set dependsOn = targets.id`,
+		`update where id = "X" set dependsOn = targets.dependsOn`,
+		`update where id = "X" set tags = targets.tags`,
+	}
+	for _, in := range ok {
+		t.Run("accepts/"+in, func(t *testing.T) {
+			if _, err := p.ParseStatement(in); err != nil {
+				t.Fatalf("expected success, got: %v", err)
+			}
+		})
+	}
+
+	// targets.<string-like> cannot be assigned to list<ref> fields (type mismatch)
+	bad := []string{
+		`update where id = "X" set dependsOn = targets.tags`,
+	}
+	for _, in := range bad {
+		t.Run("rejects/"+in, func(t *testing.T) {
+			if _, err := p.ParseStatement(in); err == nil {
+				t.Fatalf("expected error, got nil")
+			}
+		})
+	}
+}

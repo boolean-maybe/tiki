@@ -6,6 +6,7 @@
 - [Statement semantics](#statement-semantics)
 - [Trigger semantics](#trigger-semantics)
 - [Qualifier scope](#qualifier-scope)
+- [Plugin target qualifiers](#plugin-target-qualifiers)
 - [Time trigger semantics](#time-trigger-semantics)
 - [Condition and expression semantics](#condition-and-expression-semantics)
 
@@ -98,6 +99,9 @@ Qualifier rules depend on the event:
 - `update` triggers: both `old.` and `new.` are allowed
 - standalone statements: neither `old.` nor `new.` is allowed
 - `outer.` is allowed only inside a subquery body
+- `target.` and `targets.` are allowed only in plugin runtime (see
+  [Plugin target qualifiers](#plugin-target-qualifiers)); they are rejected in event triggers
+  and time triggers
 
 Examples:
 
@@ -139,6 +143,58 @@ select where count(select where assignee = outer.assignee and status = "in progr
 before update where exists(select where id = outer.id and assignee = new.assignee) deny "blocked"
 ```
 
+## Plugin target qualifiers
+
+Plugin runtime adds two qualifiers that resolve against the currently selected tasks:
+
+- `target.<field>` — the field value of the single selected task. Uses the same exactly-one-selection
+  contract as `id()`: zero selections raise `MissingSelectedTaskIDError`, more than one raises
+  `AmbiguousSelectedTaskIDError`.
+- `targets.<field>` — a deduped projection of the named field across all selected tasks, preserving
+  first-seen order (by selection order, then by field value order within a list field). Zero selected
+  tasks produce an empty list, matching `ids()`.
+
+Rules:
+
+- both qualifiers are only valid in plugin runtime; standalone CLI, event triggers, and time triggers
+  reject them at semantic validation time.
+- `targets.<field>` flattens list-valued fields. `targets.tags` and `targets.dependsOn` produce a flat
+  list of unique values rather than a list of lists.
+- `targets.<field>` does not automatically exclude the selected task IDs from the result. Subtract
+  them explicitly if needed (for example `targets.dependsOn - targets.id`).
+- projection types stay within existing list types:
+  - `id`, ref fields, and `list<ref>` fields project to `list<ref>`.
+  - `string`, `status`, `type`, enum, and `list<string>` fields project to `list<string>`.
+  - scalar types without a list representation (`int`, `date`, `timestamp`, `duration`, `bool`,
+    `recurrence`) are rejected — use `target.<field>` for those or convert explicitly.
+- a selected task ID that does not resolve to a known task raises a clear runtime error.
+- lane `filter:` expressions reject `target.` and `targets.` at parse time. Lane filters run on
+  every render with no selection payload, so those qualifiers cannot resolve. Use them in plugin
+  actions or lane `action:` expressions instead (lane actions receive the moved task as a single
+  selection).
+
+Examples:
+
+```sql
+-- act on the same task the user is focused on
+update where id = target.id set status = "done"
+
+-- expand work to the selected task's blockers, de-duped across the selection
+select where id in targets.dependsOn
+
+-- copy the selected task's assignee to other items in the board
+update where type = "bug" set assignee = target.assignee
+
+-- filter the board down to statuses the selection covers
+select where status in targets.status
+```
+
+Plugin actions that reference `target.<field>` or `targets.<field>` auto-infer the same selection
+requirements as `id()` and `ids()`: `target.` requires exactly one selected task, and `targets.`
+requires at least one. The executor preflights the single-selection contract before evaluating
+the statement, so the error surfaces even when `target.<field>` sits behind a short-circuited
+condition.
+
 ## Time trigger semantics
 
 Time triggers have the shape:
@@ -153,6 +209,7 @@ Rules:
 - the inner statement must be `create`, `update`, or `delete` — not `select`
 - `run()` is not allowed inside a time trigger
 - `old.` and `new.` qualifiers are not allowed — there is no mutation context for a periodic operation
+- `target.` and `targets.` are not allowed — time triggers have no plugin selection context
 - bare field references in the inner statement resolve against the tasks being matched, exactly as in standalone
   statements
 

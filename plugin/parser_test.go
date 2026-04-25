@@ -516,6 +516,66 @@ func TestParsePluginConfig_LaneFilterMustBeSelect(t *testing.T) {
 	}
 }
 
+// Lane filters run on every render without a selection payload. target. would
+// fail every render against the exactly-one contract; targets. would silently
+// project zero. Reject both at parse time with a clear message. (Lane actions
+// receive the moved task as a single selection, so they remain valid.)
+func TestParsePluginConfig_LaneFilterRejectsTargetQualifier(t *testing.T) {
+	schema := testSchema()
+	cfg := pluginFileConfig{
+		Name: "Test",
+		Key:  "T",
+		Lanes: []PluginLaneConfig{
+			{Name: "Bad", Filter: `select where id = target.id`},
+		},
+	}
+	_, err := parsePluginConfig(cfg, "test.yaml", schema)
+	if err == nil {
+		t.Fatal("expected rejection of target. in lane filter")
+	}
+	if !strings.Contains(err.Error(), "target.") {
+		t.Fatalf("expected error to mention target., got: %v", err)
+	}
+}
+
+func TestParsePluginConfig_LaneFilterRejectsTargetsQualifier(t *testing.T) {
+	schema := testSchema()
+	cfg := pluginFileConfig{
+		Name: "Test",
+		Key:  "T",
+		Lanes: []PluginLaneConfig{
+			{Name: "Bad", Filter: `select where id in targets.id`},
+		},
+	}
+	_, err := parsePluginConfig(cfg, "test.yaml", schema)
+	if err == nil {
+		t.Fatal("expected rejection of targets. in lane filter")
+	}
+	if !strings.Contains(err.Error(), "targets.") {
+		t.Fatalf("expected error to mention targets., got: %v", err)
+	}
+}
+
+// Lane actions fire on a specific moved task and receive it as a single
+// selection. target. and targets. must remain usable there.
+func TestParsePluginConfig_LaneActionAllowsTargetQualifier(t *testing.T) {
+	schema := testSchema()
+	cfg := pluginFileConfig{
+		Name: "Test",
+		Key:  "T",
+		Lanes: []PluginLaneConfig{
+			{
+				Name:   "OK",
+				Filter: `select where status = "ready"`,
+				Action: `update where id = target.id set status = "ready"`,
+			},
+		},
+	}
+	if _, err := parsePluginConfig(cfg, "test.yaml", schema); err != nil {
+		t.Fatalf("expected success, got: %v", err)
+	}
+}
+
 func TestParsePluginConfig_LaneActionMustBeUpdate(t *testing.T) {
 	schema := testSchema()
 	cfg := pluginFileConfig{
@@ -1117,6 +1177,50 @@ func TestParsePluginActions_RequireNoAutoInferWithoutID(t *testing.T) {
 	}
 	if len(actions[0].Require) > 0 {
 		t.Errorf("expected no requirements for action without id(), got %v", actions[0].Require)
+	}
+}
+
+// target.<field> must auto-infer the same "id" requirement as id(), so plugin
+// actions using it stay disabled until exactly one task is selected.
+func TestParsePluginActions_RequireAutoInferIDFromTargetQualifier(t *testing.T) {
+	parser := testParser()
+	configs := []PluginActionConfig{
+		{Key: "a", Label: "Copy assignee", Action: `update where type = "bug" set assignee = target.assignee`},
+	}
+	actions, err := parsePluginActions(configs, parser)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	found := false
+	for _, r := range actions[0].Require {
+		if r == "id" {
+			found = true
+		}
+	}
+	if !found {
+		t.Errorf("expected auto-inferred 'id' requirement from target., got %v", actions[0].Require)
+	}
+}
+
+// targets.<field> must auto-infer "selection:any" like ids(), so the action
+// stays disabled when nothing is selected.
+func TestParsePluginActions_RequireAutoInferSelectionAnyFromTargetsQualifier(t *testing.T) {
+	parser := testParser()
+	configs := []PluginActionConfig{
+		{Key: "b", Label: "Show blockers", Action: `select where id in targets.dependsOn`},
+	}
+	actions, err := parsePluginActions(configs, parser)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	found := false
+	for _, r := range actions[0].Require {
+		if r == "selection:any" {
+			found = true
+		}
+	}
+	if !found {
+		t.Errorf("expected auto-inferred 'selection:any' from targets., got %v", actions[0].Require)
 	}
 }
 

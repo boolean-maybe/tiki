@@ -229,6 +229,8 @@ func (e *triggerExecOverride) resolveQualifiedRef(qr *QualifiedRef, ctx evalCont
 			return nil, fmt.Errorf("outer.%s is not available outside a subquery", qr.Name)
 		}
 		return e.extractField(ctx.outer, qr.Name), nil
+	case "target", "targets":
+		return nil, fmt.Errorf("%s. qualifier is not valid in trigger execution", qr.Qualifier)
 	default:
 		return nil, fmt.Errorf("unknown qualifier %q", qr.Qualifier)
 	}

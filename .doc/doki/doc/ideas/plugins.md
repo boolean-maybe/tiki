@@ -17,8 +17,7 @@
 - [By topic](#by-topic--tag-based-lanes)
 - [Bulk cleanup](#bulk-cleanup--delete-without-selection)
 - [AI-gated action](#ai-gated-action--require)
-- [Link to epic](#link-to-epic--choose-action)
-- [Add tiki to epic](#add-tiki-to-epic--choose-action)
+- [Link to / add tiki to epic](#link-to--add-tiki-to-epic--choose-action)
 
 ## Assign to me — global plugin action
 
@@ -348,24 +347,28 @@ actions:
     require: ["ai"]
 ```
 
-## Link to epic — choose() action
+## Link to / add tiki to epic — choose() action
 
-
-
-## Add tiki to epic — choose() action
-
-From the Backlog view opens a Quick Select picker showing only epics. Selecting one adds the current task to that epic's list.
-From the Roadmap view, pick any non-epic task and add it to the currently selected epic's list.
+From the Backlog view opens a Quick Select picker showing only epics that the current tiki is not already linked to, and adds it to the chosen epic's list.
+From the Roadmap view, pick any non-epic tiki that is not already linked to the selected epic, and add it.
 
 ```yaml
 - name: Backlog
   actions:
     - key: "e"
       label: "Link to epic"
-      action: update where id = choose(select where type = "epic") set dependsOn = dependsOn + id()
+      action: update where id = choose(select where type = "epic" and id() not in dependsOn) set dependsOn = dependsOn + id()
 - name: Roadmap
   actions:
     - key: "l"
       label: "Add tiki to epic"
-      action: update where id = id() set dependsOn = dependsOn + choose(select where type != "epic")
+      action: update where id = id() set dependsOn = dependsOn + choose(select where type != "epic" and id not in target.dependsOn)
 ```
+
+A tiki is linked to an epic by adding its id to the epic's `dependsOn` list. Each filter hides
+epics/tikis where the link already exists:
+
+- Backlog: `id() not in dependsOn` — the candidate epic's own `dependsOn` doesn't already
+  contain this tiki.
+- Roadmap: `id not in target.dependsOn` — the candidate tiki's id is not already in the
+  selected epic's `dependsOn`.

@@ -30,16 +30,18 @@ func (e *UnvalidatedWrapperError) Error() string {
 
 // ValidatedStatement is an immutable, semantically validated statement wrapper.
 type ValidatedStatement struct {
-	seal                *validationSeal
-	runtime             ExecutorRuntimeMode
-	usesIDFunc          bool
-	usesIDsFunc         bool
-	usesSelectedCountFn bool
-	usesInputFunc       bool
-	usesChooseFunc      bool
-	chooseFilter        *SubQuery
-	interactiveCalls    map[string]int
-	statement           *Statement
+	seal                 *validationSeal
+	runtime              ExecutorRuntimeMode
+	usesIDFunc           bool
+	usesIDsFunc          bool
+	usesSelectedCountFn  bool
+	usesInputFunc        bool
+	usesChooseFunc       bool
+	usesTargetQualifier  bool
+	usesTargetsQualifier bool
+	chooseFilter         *SubQuery
+	interactiveCalls     map[string]int
+	statement            *Statement
 }
 
 func (v *ValidatedStatement) RuntimeMode() ExecutorRuntimeMode { return v.runtime }
@@ -48,6 +50,8 @@ func (v *ValidatedStatement) UsesIDsBuiltin() bool             { return v.usesID
 func (v *ValidatedStatement) UsesSelectedCountBuiltin() bool   { return v.usesSelectedCountFn }
 func (v *ValidatedStatement) UsesInputBuiltin() bool           { return v.usesInputFunc }
 func (v *ValidatedStatement) UsesChooseBuiltin() bool          { return v.usesChooseFunc }
+func (v *ValidatedStatement) UsesTargetQualifier() bool        { return v.usesTargetQualifier }
+func (v *ValidatedStatement) UsesTargetsQualifier() bool       { return v.usesTargetsQualifier }
 func (v *ValidatedStatement) ChooseFilter() *SubQuery          { return v.chooseFilter }
 
 // HasAnyInteractive returns true if the statement uses any interactive builtin.
@@ -311,6 +315,12 @@ func (v *SemanticValidator) ValidateStatement(stmt *Statement) (*ValidatedStatem
 	if flags.usesSelectedCount && v.runtime != ExecutorRuntimePlugin {
 		return nil, fmt.Errorf("selected_count() is only available in plugin runtime")
 	}
+	if flags.usesTarget && v.runtime != ExecutorRuntimePlugin {
+		return nil, fmt.Errorf("target. qualifier is only available in plugin runtime")
+	}
+	if flags.usesTargets && v.runtime != ExecutorRuntimePlugin {
+		return nil, fmt.Errorf("targets. qualifier is only available in plugin runtime")
+	}
 	inputCount := flags.interactiveCalls["input"]
 	chooseCount := flags.interactiveCalls["choose"]
 	if inputCount > 1 {
@@ -336,16 +346,18 @@ func (v *SemanticValidator) ValidateStatement(stmt *Statement) (*ValidatedStatem
 	}
 
 	return &ValidatedStatement{
-		seal:                validatedSeal,
-		runtime:             v.runtime,
-		usesIDFunc:          flags.usesID,
-		usesIDsFunc:         flags.usesIDs,
-		usesSelectedCountFn: flags.usesSelectedCount,
-		usesInputFunc:       inputCount == 1,
-		usesChooseFunc:      chooseCount == 1,
-		chooseFilter:        chooseFilter,
-		interactiveCalls:    flags.interactiveCalls,
-		statement:           cloneStatement(stmt),
+		seal:                 validatedSeal,
+		runtime:              v.runtime,
+		usesIDFunc:           flags.usesID,
+		usesIDsFunc:          flags.usesIDs,
+		usesSelectedCountFn:  flags.usesSelectedCount,
+		usesInputFunc:        inputCount == 1,
+		usesChooseFunc:       chooseCount == 1,
+		usesTargetQualifier:  flags.usesTarget,
+		usesTargetsQualifier: flags.usesTargets,
+		chooseFilter:         chooseFilter,
+		interactiveCalls:     flags.interactiveCalls,
+		statement:            cloneStatement(stmt),
 	}, nil
 }
 
@@ -369,6 +381,12 @@ func (v *SemanticValidator) ValidateTrigger(trig *Trigger) (*ValidatedTrigger, e
 	}
 	if flags.usesSelectedCount {
 		return nil, fmt.Errorf("selected_count() is not valid in triggers")
+	}
+	if flags.usesTarget {
+		return nil, fmt.Errorf("target. qualifier is not valid in triggers")
+	}
+	if flags.usesTargets {
+		return nil, fmt.Errorf("targets. qualifier is not valid in triggers")
 	}
 	if flags.hasAnyInteractive() {
 		return nil, fmt.Errorf("%s() requires user interaction and is not valid in triggers",
@@ -407,6 +425,12 @@ func (v *SemanticValidator) ValidateTimeTrigger(tt *TimeTrigger) (*ValidatedTime
 	}
 	if flags.usesSelectedCount {
 		return nil, fmt.Errorf("selected_count() is not valid in triggers")
+	}
+	if flags.usesTarget {
+		return nil, fmt.Errorf("target. qualifier is not valid in triggers")
+	}
+	if flags.usesTargets {
+		return nil, fmt.Errorf("targets. qualifier is not valid in triggers")
 	}
 	if flags.hasAnyInteractive() {
 		return nil, fmt.Errorf("%s() requires user interaction and is not valid in triggers",
@@ -653,6 +677,8 @@ type semanticFlags struct {
 	usesIDs           bool
 	usesSelectedCount bool
 	hasCall           bool
+	usesTarget        bool
+	usesTargets       bool
 	interactiveCalls  map[string]int
 }
 
@@ -661,6 +687,8 @@ func (f *semanticFlags) merge(other semanticFlags) {
 	f.usesIDs = f.usesIDs || other.usesIDs
 	f.usesSelectedCount = f.usesSelectedCount || other.usesSelectedCount
 	f.hasCall = f.hasCall || other.hasCall
+	f.usesTarget = f.usesTarget || other.usesTarget
+	f.usesTargets = f.usesTargets || other.usesTargets
 	for name, count := range other.interactiveCalls {
 		if f.interactiveCalls == nil {
 			f.interactiveCalls = map[string]int{}
@@ -704,6 +732,14 @@ func scanExprSemanticsEx(expr Expr) (semanticFlags, error) {
 		return f, nil
 	}
 	switch e := expr.(type) {
+	case *QualifiedRef:
+		switch e.Qualifier {
+		case "target":
+			f.usesTarget = true
+		case "targets":
+			f.usesTargets = true
+		}
+		return f, nil
 	case *FunctionCall:
 		switch e.Name {
 		case "id":
