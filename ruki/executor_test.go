@@ -687,6 +687,72 @@ func TestExecuteCount(t *testing.T) {
 	}
 }
 
+func TestExecuteExists(t *testing.T) {
+	e := newTestExecutor()
+	p := newTestParser()
+	tasks := makeTasks()
+
+	tests := []struct {
+		name      string
+		input     string
+		wantCount int
+	}{
+		{
+			name:      "matching subquery is true for every row",
+			input:     `select where exists(select where status = "done")`,
+			wantCount: 4,
+		},
+		{
+			name:      "nonmatching subquery is false for every row",
+			input:     `select where exists(select where status = "cancelled")`,
+			wantCount: 0,
+		},
+		{
+			name:      "not exists negates nonmatching subquery",
+			input:     `select where not exists(select where status = "cancelled")`,
+			wantCount: 4,
+		},
+		{
+			name:      "bare select checks whether any candidate exists",
+			input:     `select where exists(select)`,
+			wantCount: 4,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			stmt, err := p.ParseStatement(tt.input)
+			if err != nil {
+				t.Fatalf("parse: %v", err)
+			}
+			result, err := e.Execute(stmt, tasks)
+			if err != nil {
+				t.Fatalf("execute: %v", err)
+			}
+			if len(result.Select.Tasks) != tt.wantCount {
+				t.Fatalf("expected %d tasks, got %d", tt.wantCount, len(result.Select.Tasks))
+			}
+		})
+	}
+}
+
+func TestExecuteExistsEmptyTasks(t *testing.T) {
+	e := newTestExecutor()
+	p := newTestParser()
+
+	stmt, err := p.ParseStatement(`select where exists(select)`)
+	if err != nil {
+		t.Fatalf("parse: %v", err)
+	}
+	result, err := e.Execute(stmt, nil)
+	if err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	if len(result.Select.Tasks) != 0 {
+		t.Fatalf("expected no tasks, got %d", len(result.Select.Tasks))
+	}
+}
+
 func TestExecuteNextDate(t *testing.T) {
 	e := newTestExecutor()
 	p := newTestParser()
@@ -2163,6 +2229,25 @@ func TestExecuteCountSubqueryError(t *testing.T) {
 	_, err := e.Execute(stmt, tasks)
 	if err == nil {
 		t.Fatal("expected error from count subquery")
+	}
+}
+
+func TestExecuteExistsSubqueryError(t *testing.T) {
+	e := newTestExecutor()
+	tasks := makeTasks()
+
+	stmt := &Statement{Select: &SelectStmt{
+		Where: &BoolExprCondition{
+			Expr: &FunctionCall{Name: "exists", Args: []Expr{
+				&SubQuery{Where: &CompareExpr{
+					Left: &QualifiedRef{Qualifier: "old", Name: "status"}, Op: "=", Right: &StringLiteral{Value: "x"},
+				}},
+			}},
+		},
+	}}
+	_, err := e.Execute(stmt, tasks)
+	if err == nil {
+		t.Fatal("expected error from exists subquery")
 	}
 }
 

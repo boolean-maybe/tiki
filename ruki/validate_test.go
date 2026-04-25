@@ -146,6 +146,7 @@ func TestValidation_FunctionArgCount(t *testing.T) {
 	}{
 		{"now with args", `select where now(1) = now()`},
 		{"count no args", `select where count() >= 1`},
+		{"exists no args", `select where exists()`},
 		{"user with args", `select where user(1) = "bob"`},
 	}
 
@@ -184,6 +185,31 @@ func TestValidation_CountRequiresSubquery(t *testing.T) {
 	}
 	if !strings.Contains(err.Error(), "subquery") {
 		t.Fatalf("expected subquery error, got: %v", err)
+	}
+}
+
+func TestValidation_ExistsRequiresSubquery(t *testing.T) {
+	p := newTestParser()
+
+	tests := []struct {
+		name    string
+		input   string
+		wantErr string
+	}{
+		{"no arguments", `select where exists()`, "argument"},
+		{"string argument", `select where exists("x")`, "exists() argument must be a select subquery"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			_, err := p.ParseStatement(tt.input)
+			if err == nil {
+				t.Fatal("expected error, got nil")
+			}
+			if !strings.Contains(err.Error(), tt.wantErr) {
+				t.Fatalf("expected error containing %q, got: %v", tt.wantErr, err)
+			}
+		})
 	}
 }
 
@@ -434,6 +460,8 @@ func TestValidation_ValidFunctionUsages(t *testing.T) {
 		{"now", `select where updatedAt < now()`},
 		{"count with subquery", `select where count(select where status = "done") >= 1`},
 		{"count with bare select", `select where count(select) >= 0`},
+		{"exists with subquery", `select where exists(select where status = "done")`},
+		{"exists with bare select", `select where not exists(select)`},
 		{"next_date with recurrence field", `create title="x" due=next_date(recurrence)`},
 	}
 
@@ -1248,6 +1276,28 @@ func TestValidation_CountSubqueryValidated(t *testing.T) {
 	_, err = p.ParseTrigger(`before update where new.status = "in progress" and count(select where assignee = new.assignee and status = "in progress") >= 3 deny "WIP limit"`)
 	if err != nil {
 		t.Fatalf("unexpected error for count subquery with new.: %v", err)
+	}
+}
+
+func TestValidation_ExistsSubqueryValidated(t *testing.T) {
+	p := newTestParser()
+
+	_, err := p.ParseStatement(`select where exists(select where nosuchfield = "x")`)
+	if err == nil {
+		t.Fatal("expected error, got nil")
+	}
+	if !strings.Contains(err.Error(), "unknown field") {
+		t.Fatalf("expected unknown field error, got: %v", err)
+	}
+
+	_, err = p.ParseStatement(`select where exists(select where status = "done")`)
+	if err != nil {
+		t.Fatalf("unexpected error for valid exists subquery: %v", err)
+	}
+
+	_, err = p.ParseTrigger(`before update where new.status = "in progress" and exists(select where assignee = new.assignee and status = "in progress") deny "WIP limit"`)
+	if err != nil {
+		t.Fatalf("unexpected error for exists subquery with new.: %v", err)
 	}
 }
 

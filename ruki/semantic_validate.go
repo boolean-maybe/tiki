@@ -949,6 +949,8 @@ func walkConditionExprs(c Condition, visit func(Expr) bool) bool {
 		return walkConditionExprs(c.Right, visit)
 	case *NotCondition:
 		return walkConditionExprs(c.Inner, visit)
+	case *BoolExprCondition:
+		return walkExpr(c.Expr, visit)
 	case *CompareExpr:
 		if !walkExpr(c.Left, visit) {
 			return false

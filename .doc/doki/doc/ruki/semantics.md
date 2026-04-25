@@ -20,8 +20,8 @@ This page explains how `ruki` statements, triggers, conditions, and expressions 
 - `select` without `where` means a statement with no condition node.
 - `select where ...` validates the condition and its contained expressions.
 - `select ... order by <field> [asc|desc], ...` specifies result ordering.
-- A subquery form `select` or `select where ...` can appear only inside `count(...)` or `choose(...)`. Subqueries
-  do not support `order by`.
+- A subquery form `select` or `select where ...` can appear only inside `count(...)`, `choose(...)`, or
+  `exists(...)`. Subqueries do not support `order by`.
 
 `order by`
 
@@ -171,7 +171,7 @@ Expressions:
 - qualified references use the same field catalog, then apply qualifier-policy checks
 - list literals must be homogeneous
 - `empty` is a context-sensitive zero value, resolved by surrounding type checks
-- subqueries are only legal as the argument to `count(...)` or `choose(...)`
+- subqueries are only legal as the argument to `count(...)`, `choose(...)`, or `exists(...)`
 
 Binary `+` and `-` are semantic rather than purely numeric:
 

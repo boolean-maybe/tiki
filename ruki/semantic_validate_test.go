@@ -1957,6 +1957,40 @@ func TestIDDetection_NestedInBinaryExpr(t *testing.T) {
 	}
 }
 
+func TestSemanticValidation_ExistsSubqueryScanned(t *testing.T) {
+	p := newTestParser()
+
+	_, err := p.ParseAndValidateStatement(`select where exists(select where id = id())`, ExecutorRuntimeCLI)
+	if err == nil || !strings.Contains(err.Error(), "id() is only available in plugin runtime") {
+		t.Fatalf("expected id() rejection inside exists subquery, got: %v", err)
+	}
+
+	_, err = p.ParseAndValidateStatementWithInput(
+		`select where exists(select where assignee = input())`,
+		ExecutorRuntimeCLI,
+		ValueString,
+	)
+	if err == nil || !strings.Contains(err.Error(), "input() requires user interaction") {
+		t.Fatalf("expected input() rejection inside exists subquery, got: %v", err)
+	}
+
+	_, err = p.ParseAndValidateStatement(`select where exists(select where id = choose(select))`, ExecutorRuntimeCLI)
+	if err == nil || !strings.Contains(err.Error(), "choose() requires user interaction") {
+		t.Fatalf("expected choose() rejection inside exists subquery, got: %v", err)
+	}
+
+	vs, err := p.ParseAndValidateStatement(
+		`select where exists(select where id = choose(select where type = "epic"))`,
+		ExecutorRuntimePlugin,
+	)
+	if err != nil {
+		t.Fatalf("unexpected plugin validation error: %v", err)
+	}
+	if !vs.UsesChooseBuiltin() || vs.ChooseFilter() == nil {
+		t.Fatal("expected choose() metadata from inside exists subquery")
+	}
+}
+
 func TestCallDetection_NestedInListLiteral(t *testing.T) {
 	v := NewSemanticValidator(ExecutorRuntimeCLI)
 	stmt := &Statement{

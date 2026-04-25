@@ -209,6 +209,61 @@ func TestEvalGuard_CountSubqueryBelowLimit(t *testing.T) {
 	}
 }
 
+func TestEvalGuard_ExistsSubquery(t *testing.T) {
+	te := newTestTriggerExecutor()
+	p := newTestParser()
+
+	trig, err := p.ParseTrigger(`before update where new.status = "in progress" and exists(select where assignee = new.assignee and status = "in progress") deny "WIP limit"`)
+	if err != nil {
+		t.Fatalf("parse: %v", err)
+	}
+
+	tc := &TriggerContext{
+		Old: &task.Task{ID: "TIKI-000001", Status: "ready", Assignee: "alice"},
+		New: &task.Task{ID: "TIKI-000001", Status: "inProgress", Assignee: "alice"},
+		AllTasks: []*task.Task{
+			{ID: "TIKI-000001", Status: "inProgress", Assignee: "alice"},
+			{ID: "TIKI-000002", Status: "ready", Assignee: "alice"},
+			{ID: "TIKI-000003", Status: "inProgress", Assignee: "bob"},
+		},
+	}
+
+	ok, err := te.EvalGuard(trig, tc)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !ok {
+		t.Fatal("guard should match: an in-progress task exists for alice")
+	}
+}
+
+func TestEvalGuard_ExistsSubqueryNoMatch(t *testing.T) {
+	te := newTestTriggerExecutor()
+	p := newTestParser()
+
+	trig, err := p.ParseTrigger(`before update where new.status = "in progress" and exists(select where assignee = new.assignee and status = "in progress") deny "WIP limit"`)
+	if err != nil {
+		t.Fatalf("parse: %v", err)
+	}
+
+	tc := &TriggerContext{
+		Old: &task.Task{ID: "TIKI-000001", Status: "ready", Assignee: "alice"},
+		New: &task.Task{ID: "TIKI-000001", Status: "inProgress", Assignee: "alice"},
+		AllTasks: []*task.Task{
+			{ID: "TIKI-000001", Status: "ready", Assignee: "alice"},
+			{ID: "TIKI-000002", Status: "inProgress", Assignee: "bob"},
+		},
+	}
+
+	ok, err := te.EvalGuard(trig, tc)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if ok {
+		t.Fatal("guard should not match: no in-progress task exists for alice")
+	}
+}
+
 // --- ExecAction ---
 
 func TestExecAction_UpdateWithQualifiedRefs(t *testing.T) {
@@ -1295,6 +1350,32 @@ func TestEvalCountOverride_NoWhere(t *testing.T) {
 	}
 	if !ok {
 		t.Fatal("count(select) should return 4 which is >= 3")
+	}
+}
+
+func TestEvalExistsOverride_NoWhere(t *testing.T) {
+	te := newTestTriggerExecutor()
+	p := newTestParser()
+
+	trig, err := p.ParseTrigger(`before create where exists(select) deny "tasks exist"`)
+	if err != nil {
+		t.Fatalf("parse: %v", err)
+	}
+
+	tc := &TriggerContext{
+		New: &task.Task{ID: "TIKI-000004"},
+		AllTasks: []*task.Task{
+			{ID: "TIKI-000001"},
+			{ID: "TIKI-000002"},
+		},
+	}
+
+	ok, err := te.EvalGuard(trig, tc)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !ok {
+		t.Fatal("exists(select) should be true when tasks exist")
 	}
 }
 
@@ -2526,6 +2607,26 @@ func TestEvalCountOverride_NonSubQueryArg(t *testing.T) {
 	}
 	if !strings.Contains(err.Error(), "count() argument must be a select subquery") {
 		t.Fatalf("expected 'count() argument must be a select subquery' error, got: %v", err)
+	}
+}
+
+func TestEvalExistsOverride_NonSubQueryArg(t *testing.T) {
+	te := newTestTriggerExecutor()
+	tc := &TriggerContext{
+		Old:      &task.Task{ID: "TIKI-000001"},
+		New:      &task.Task{ID: "TIKI-000001"},
+		AllTasks: []*task.Task{{ID: "TIKI-000001"}},
+	}
+	exec := te.newExecWithOverrides(tc)
+	_, err := exec.evalExistsOverride(&FunctionCall{
+		Name: "exists",
+		Args: []Expr{&IntLiteral{Value: 42}},
+	}, nil)
+	if err == nil {
+		t.Fatal("expected error for exists() with non-SubQuery arg")
+	}
+	if !strings.Contains(err.Error(), "exists() argument must be a select subquery") {
+		t.Fatalf("expected 'exists() argument must be a select subquery' error, got: %v", err)
 	}
 }
 

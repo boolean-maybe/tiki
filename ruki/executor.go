@@ -758,7 +758,7 @@ func (e *Executor) evalExpr(expr Expr, t *task.Task, allTasks []*task.Task) (int
 	case *BinaryExpr:
 		return e.evalBinaryExpr(expr, t, allTasks)
 	case *SubQuery:
-		return nil, fmt.Errorf("subquery is only valid as argument to count() or choose()")
+		return nil, fmt.Errorf("subquery is only valid as argument to count(), choose(), or exists()")
 	default:
 		return nil, fmt.Errorf("unknown expression type %T", expr)
 	}
@@ -791,6 +791,8 @@ func (e *Executor) evalFunctionCall(fc *FunctionCall, t *task.Task, allTasks []*
 		return e.userFunc(), nil
 	case "count":
 		return e.evalCount(fc, allTasks)
+	case "exists":
+		return e.evalExists(fc, allTasks)
 	case "next_date":
 		return e.evalNextDate(fc, t, allTasks)
 	case "blocks":
@@ -850,6 +852,26 @@ func (e *Executor) evalCount(fc *FunctionCall, allTasks []*task.Task) (interface
 		}
 	}
 	return count, nil
+}
+
+func (e *Executor) evalExists(fc *FunctionCall, allTasks []*task.Task) (interface{}, error) {
+	sq, ok := fc.Args[0].(*SubQuery)
+	if !ok {
+		return nil, fmt.Errorf("exists() argument must be a select subquery")
+	}
+	if sq.Where == nil {
+		return len(allTasks) > 0, nil
+	}
+	for _, t := range allTasks {
+		match, err := e.evalCondition(sq.Where, t, allTasks)
+		if err != nil {
+			return nil, err
+		}
+		if match {
+			return true, nil
+		}
+	}
+	return false, nil
 }
 
 // EvalSubQueryFilter evaluates a subquery WHERE clause against a set of tasks,
