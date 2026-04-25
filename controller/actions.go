@@ -132,8 +132,11 @@ func GetPluginNameFromAction(id ActionID) string {
 type Requirement string
 
 const (
-	RequireID Requirement = "id"
-	RequireAI Requirement = "ai"
+	RequireID            Requirement = "id"
+	RequireAI            Requirement = "ai"
+	RequireSelectionOne  Requirement = "selection:one"
+	RequireSelectionAny  Requirement = "selection:any"
+	RequireSelectionMany Requirement = "selection:many"
 )
 
 // AppContext is a dynamic set of active context attributes built from live UI state.
@@ -198,17 +201,20 @@ func ActionEnabled(a Action, ctx AppContext) bool {
 func BuildAppContext(currentView *ViewEntry, activeView View) AppContext {
 	ctx := NewAppContext()
 
+	selectedCount := 0
 	if activeView != nil {
 		if sv, ok := activeView.(SelectableView); ok && sv.GetSelectedID() != "" {
-			ctx.Set(string(RequireID))
+			selectedCount = 1
 		}
 	}
 
-	if currentView != nil && currentView.ViewID == model.TaskDetailViewID {
+	if selectedCount == 0 && currentView != nil && currentView.ViewID == model.TaskDetailViewID {
 		if model.DecodeTaskDetailParams(currentView.Params).TaskID != "" {
-			ctx.Set(string(RequireID))
+			selectedCount = 1
 		}
 	}
+
+	applySelectionCardinality(ctx, selectedCount)
 
 	if config.GetAIAgent() != "" {
 		ctx.Set(string(RequireAI))
@@ -219,6 +225,22 @@ func BuildAppContext(currentView *ViewEntry, activeView View) AppContext {
 	}
 
 	return ctx
+}
+
+// applySelectionCardinality writes the current selection count into the
+// context as the three cardinality attributes. "id" is kept as the legacy
+// alias for "selection:one" so existing plugin actions continue to work.
+func applySelectionCardinality(ctx AppContext, count int) {
+	if count >= 1 {
+		ctx.Set(string(RequireSelectionAny))
+	}
+	if count == 1 {
+		ctx.Set(string(RequireID))
+		ctx.Set(string(RequireSelectionOne))
+	}
+	if count >= 2 {
+		ctx.Set(string(RequireSelectionMany))
+	}
 }
 
 // Action represents a keyboard shortcut binding

@@ -270,7 +270,7 @@ func TestExecutePipeReturnsResult(t *testing.T) {
 		t.Fatalf("parse: %v", err)
 	}
 
-	result, err := e.Execute(stmt, tasks, ExecutionInput{SelectedTaskID: "TIKI-000003"})
+	result, err := e.Execute(stmt, tasks, NewSingleSelectionInput("TIKI-000003"))
 	if err != nil {
 		t.Fatalf("execute: %v", err)
 	}
@@ -335,7 +335,7 @@ func TestExecutePipeListFieldSpaceJoined(t *testing.T) {
 		t.Fatalf("parse: %v", err)
 	}
 
-	result, err := e.Execute(stmt, tasks, ExecutionInput{SelectedTaskID: "TIKI-000001"})
+	result, err := e.Execute(stmt, tasks, NewSingleSelectionInput("TIKI-000001"))
 	if err != nil {
 		t.Fatalf("execute: %v", err)
 	}
@@ -475,7 +475,7 @@ func TestExecuteClipboardPipeReturnsResult(t *testing.T) {
 		t.Fatalf("parse: %v", err)
 	}
 
-	result, err := e.Execute(stmt, tasks, ExecutionInput{SelectedTaskID: "TIKI-000003"})
+	result, err := e.Execute(stmt, tasks, NewSingleSelectionInput("TIKI-000003"))
 	if err != nil {
 		t.Fatalf("execute: %v", err)
 	}

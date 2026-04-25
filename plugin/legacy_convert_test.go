@@ -725,7 +725,7 @@ func TestLegacyWorkflowEndToEnd(t *testing.T) {
 	// execute ready lane action to verify tag append works
 	actionResult, err := executor.Execute(tp.Lanes[1].Action, []*task.Task{
 		{ID: "TIKI-000003", Status: task.StatusReady, Tags: []string{}},
-	}, ruki.ExecutionInput{SelectedTaskID: "TIKI-000003"})
+	}, ruki.NewSingleSelectionInput("TIKI-000003"))
 	if err != nil {
 		t.Fatalf("ready action execute: %v", err)
 	}

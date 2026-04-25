@@ -34,15 +34,17 @@ var builtinFuncs = map[string]struct {
 	minArgs    int
 	maxArgs    int
 }{
-	"count":     {ValueInt, 1, 1},
-	"choose":    {ValueRef, 1, 1},
-	"exists":    {ValueBool, 1, 1},
-	"id":        {ValueID, 0, 0},
-	"now":       {ValueTimestamp, 0, 0},
-	"next_date": {ValueDate, 1, 1},
-	"blocks":    {ValueListRef, 1, 1},
-	"call":      {ValueString, 1, 1},
-	"user":      {ValueString, 0, 0},
+	"count":          {ValueInt, 1, 1},
+	"choose":         {ValueRef, 1, 1},
+	"exists":         {ValueBool, 1, 1},
+	"id":             {ValueID, 0, 0},
+	"ids":            {ValueListRef, 0, 0},
+	"selected_count": {ValueInt, 0, 0},
+	"now":            {ValueTimestamp, 0, 0},
+	"next_date":      {ValueDate, 1, 1},
+	"blocks":         {ValueListRef, 1, 1},
+	"call":           {ValueString, 1, 1},
+	"user":           {ValueString, 0, 0},
 }
 
 // --- structural validation ---

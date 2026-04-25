@@ -125,8 +125,13 @@ actions:
 ```
 
 - `require` — list of context attribute strings (optional)
-- built-in attributes: `id` (task selected), `ai` (AI agent configured), `view:<view-id>` (active view)
-- `id` is auto-inferred when the action uses `id()` — explicit `require: ["id"]` is allowed but redundant
+- selection cardinality attributes: `id` / `selection:one` (exactly one selected), `selection:any` (one or more),
+  `selection:many` (two or more)
+- other built-in attributes: `ai` (AI agent configured), `view:<view-id>` (active view)
+- `id` is auto-inferred when the action uses `id()`; `selection:any` is auto-inferred when the action uses
+  `ids()`; `selected_count()` does not auto-infer anything because it is designed for zero-selection branches
+- explicit entries are allowed but redundant unless you want to tighten the constraint (e.g.
+  `require: ["selection:many"]`)
 - negation: prefix with `!` (e.g. `"!view:plugin:Kanban"` — disabled when on Kanban view)
 - disabled actions show greyed out in header and palette; hotkey is ignored
 

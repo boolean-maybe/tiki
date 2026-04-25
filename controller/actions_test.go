@@ -999,6 +999,15 @@ func TestBuildAppContext_SelectableView(t *testing.T) {
 	if !ctx.Has("id") {
 		t.Error("context should have 'id' when view has selection")
 	}
+	if !ctx.Has(string(RequireSelectionOne)) {
+		t.Error("context should have 'selection:one' when view has single selection")
+	}
+	if !ctx.Has(string(RequireSelectionAny)) {
+		t.Error("context should have 'selection:any' when view has single selection")
+	}
+	if ctx.Has(string(RequireSelectionMany)) {
+		t.Error("context should NOT have 'selection:many' for single selection")
+	}
 	if !ctx.Has("view:" + string(model.MakePluginViewID("Kanban"))) {
 		t.Error("context should have view identity attribute")
 	}
@@ -1007,6 +1016,45 @@ func TestBuildAppContext_SelectableView(t *testing.T) {
 	ctx = BuildAppContext(pluginViewEntry, emptyView)
 	if ctx.Has("id") {
 		t.Error("context should not have 'id' when view has no selection")
+	}
+	if ctx.Has(string(RequireSelectionAny)) {
+		t.Error("context should not have 'selection:any' when nothing selected")
+	}
+}
+
+func TestSelectionSatisfies(t *testing.T) {
+	tests := []struct {
+		name  string
+		reqs  []string
+		count int
+		want  bool
+	}{
+		{"id + exactly one", []string{"id"}, 1, true},
+		{"id + zero", []string{"id"}, 0, false},
+		{"id + two rejects", []string{"id"}, 2, false},
+		{"selection:one + exactly one", []string{"selection:one"}, 1, true},
+		{"selection:one + three rejects", []string{"selection:one"}, 3, false},
+		{"selection:any + zero rejects", []string{"selection:any"}, 0, false},
+		{"selection:any + one ok", []string{"selection:any"}, 1, true},
+		{"selection:any + five ok", []string{"selection:any"}, 5, true},
+		{"selection:many + one rejects", []string{"selection:many"}, 1, false},
+		{"selection:many + two ok", []string{"selection:many"}, 2, true},
+		{"no requirements + zero ok", nil, 0, true},
+		{"unrelated requirement ignored", []string{"ai"}, 0, true},
+		// negated selection cardinality — honored just like other negated reqs
+		{"!selection:any + zero ok", []string{"!selection:any"}, 0, true},
+		{"!selection:any + one rejects", []string{"!selection:any"}, 1, false},
+		{"!selection:many + one ok", []string{"!selection:many"}, 1, true},
+		{"!selection:many + two rejects", []string{"!selection:many"}, 2, false},
+		{"!id + two ok", []string{"!id"}, 2, true},
+		{"!id + one rejects", []string{"!id"}, 1, false},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := selectionSatisfies(tt.reqs, tt.count); got != tt.want {
+				t.Errorf("selectionSatisfies(%v, %d) = %v, want %v", tt.reqs, tt.count, got, tt.want)
+			}
+		})
 	}
 }
 

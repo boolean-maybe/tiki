@@ -127,8 +127,10 @@ func (e *Executor) Execute(stmt any, tasks []*task.Task, inputs ...ExecutionInpu
 				Runtime:      e.runtime.Mode,
 			}
 		}
-		if validated.usesIDFunc && e.runtime.Mode == ExecutorRuntimePlugin && strings.TrimSpace(input.SelectedTaskID) == "" {
-			return nil, &MissingSelectedTaskIDError{}
+		if validated.usesIDFunc && e.runtime.Mode == ExecutorRuntimePlugin {
+			if err := checkSingleSelectionForID(input); err != nil {
+				return nil, err
+			}
 		}
 		rawStmt = validated.statement
 		if rawInput {
@@ -803,6 +805,10 @@ func (e *Executor) evalFunctionCall(fc *FunctionCall, ctx evalContext) (interfac
 	switch fc.Name {
 	case "id":
 		return e.evalID()
+	case "ids":
+		return e.evalIDs()
+	case "selected_count":
+		return e.evalSelectedCount()
 	case "now":
 		return time.Now(), nil
 	case "user":
@@ -847,11 +853,44 @@ func (e *Executor) evalID() (interface{}, error) {
 	if e.runtime.Mode != ExecutorRuntimePlugin {
 		return nil, fmt.Errorf("id() is only available in plugin runtime")
 	}
-	id := strings.TrimSpace(e.currentInput.SelectedTaskID)
-	if id == "" {
-		return nil, &MissingSelectedTaskIDError{}
+	if err := checkSingleSelectionForID(e.currentInput); err != nil {
+		return nil, err
 	}
+	id, _ := e.currentInput.SingleSelectedTaskID()
 	return id, nil
+}
+
+func (e *Executor) evalIDs() (interface{}, error) {
+	if e.runtime.Mode != ExecutorRuntimePlugin {
+		return nil, fmt.Errorf("ids() is only available in plugin runtime")
+	}
+	selected := e.currentInput.SelectedTaskIDList()
+	result := make([]interface{}, len(selected))
+	for i, id := range selected {
+		result[i] = id
+	}
+	return result, nil
+}
+
+func (e *Executor) evalSelectedCount() (interface{}, error) {
+	if e.runtime.Mode != ExecutorRuntimePlugin {
+		return nil, fmt.Errorf("selected_count() is only available in plugin runtime")
+	}
+	return e.currentInput.SelectionCount(), nil
+}
+
+// checkSingleSelectionForID enforces the scalar id() contract: exactly one
+// selected task id. Zero yields MissingSelectedTaskIDError; more than one
+// yields AmbiguousSelectedTaskIDError.
+func checkSingleSelectionForID(in ExecutionInput) error {
+	count := in.SelectionCount()
+	switch {
+	case count == 0:
+		return &MissingSelectedTaskIDError{}
+	case count > 1:
+		return &AmbiguousSelectedTaskIDError{Count: count}
+	}
+	return nil
 }
 
 func (e *Executor) evalCount(fc *FunctionCall, parent *task.Task, allTasks []*task.Task) (interface{}, error) {
@@ -925,11 +964,14 @@ func chooseFilterParent(tasks []*task.Task, input ExecutionInput, parents ...*ta
 	if len(parents) > 0 {
 		return parents[0]
 	}
-	if strings.TrimSpace(input.SelectedTaskID) == "" {
+	// outer parent is only well-defined for exactly-one selection;
+	// multi-select has no single "current" task to bind against.
+	selected, ok := input.SingleSelectedTaskID()
+	if !ok {
 		return nil
 	}
 	for _, t := range tasks {
-		if strings.EqualFold(t.ID, input.SelectedTaskID) {
+		if strings.EqualFold(t.ID, selected) {
 			return t
 		}
 	}
