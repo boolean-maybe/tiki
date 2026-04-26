@@ -275,11 +275,11 @@ actions:
     input: string
   - key: "t"
     label: "Add tag"
-    action: update where id = id() set tags = tags + [input()]
+    action: update where id = id() set tags = tags + input()
     input: string
   - key: "T"
     label: "Remove tag"
-    action: update where id = id() set tags = tags - [input()]
+    action: update where id = id() set tags = tags - input()
     input: string
   - key: "p"
     label: "Set points"
@@ -405,15 +405,6 @@ actions:
 ```
 
 This action is disabled when the user is already on the Kanban view — the `view:plugin:Kanban` attribute would be present, failing the `!view:plugin:Kanban` check.
-
-### Search and input box interaction
-
-The input box serves both search and action-input, with explicit mode tracking:
-
-- **Search editing**: pressing `/` opens the input box focused for typing. Enter with text applies the search and transitions to **search passive** mode. Enter on empty text is a no-op. Esc clears search and closes the box.
-- **Search passive**: the search box remains visible as a non-editable indicator showing the active query, while normal task navigation and actions are re-enabled. Pressing `/` again is blocked — dismiss the active search with Esc first, then open a new search. Esc clears the search results and closes the box.
-- **Action input**: pressing an input-backed action key opens a modal prompt. If search was passive, the prompt temporarily replaces the search indicator. Valid Enter executes the action and restores the passive search indicator (or closes if no prior search). Esc cancels and likewise restores passive search. Invalid Enter keeps the prompt open for correction.
-- **Modal blocking**: while search editing or action input is active, all other plugin actions and keyboard shortcuts are blocked. The action palette cannot open while the input box is editing.
 
 ### ruki expressions
 

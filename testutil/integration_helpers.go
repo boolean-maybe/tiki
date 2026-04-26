@@ -596,6 +596,11 @@ func (ta *TestApp) GetHeaderConfig() *model.HeaderConfig {
 	return ta.headerConfig
 }
 
+// GetStatuslineConfig returns the statusline config for testing message assertions.
+func (ta *TestApp) GetStatuslineConfig() *model.StatuslineConfig {
+	return ta.statuslineConfig
+}
+
 // GetPaletteConfig returns the palette config for testing visibility assertions.
 func (ta *TestApp) GetPaletteConfig() *model.ActionPaletteConfig {
 	return ta.paletteConfig

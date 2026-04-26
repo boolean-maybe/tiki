@@ -66,6 +66,7 @@ const (
 // ActionID values for plugin view actions.
 const (
 	ActionOpenFromPlugin ActionID = "open_from_plugin"
+	ActionExecute        ActionID = "execute"
 )
 
 // ActionID values for doki plugin (markdown navigation) actions.
@@ -667,6 +668,7 @@ func PluginViewActions() *ActionRegistry {
 	r.Register(Action{ID: ActionDeleteTask, Key: tcell.KeyRune, Rune: 'd', Label: "Delete", ShowInHeader: true, Require: idReq})
 	r.Register(Action{ID: ActionSearch, Key: tcell.KeyRune, Rune: '/', Label: "Search", ShowInHeader: true})
 	r.Register(Action{ID: ActionToggleViewMode, Key: tcell.KeyRune, Rune: 'v', Label: "View mode", ShowInHeader: true})
+	r.Register(Action{ID: ActionExecute, Key: tcell.KeyRune, Rune: '!', Label: "Execute", ShowInHeader: true})
 
 	// plugin activation keys are merged dynamically after plugins load
 	r.MergePluginActions()
