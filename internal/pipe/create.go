@@ -12,6 +12,7 @@ import (
 	"github.com/boolean-maybe/tiki/internal/bootstrap"
 	rukiRuntime "github.com/boolean-maybe/tiki/internal/ruki/runtime"
 	"github.com/boolean-maybe/tiki/service"
+	"github.com/boolean-maybe/tiki/store"
 )
 
 // IsPipedInput reports whether stdin is connected to a pipe or redirected file
@@ -101,11 +102,11 @@ func CreateTaskFromReader(r io.Reader) (string, error) {
 	}
 	gate.SetStore(taskStore)
 
-	// load triggers so piped creates fire them
+	// load triggers so piped creates fire them — shared identity projection
 	schema := rukiRuntime.NewSchema()
-	var userFunc func() string
-	if userName, _, _ := taskStore.GetCurrentUser(); userName != "" {
-		userFunc = func() string { return userName }
+	userFunc, userErr := store.CurrentUserDisplayFunc(taskStore)
+	if userErr != nil {
+		return "", fmt.Errorf("resolve current user: %w", userErr)
 	}
 	if _, _, loadErr := service.LoadAndRegisterTriggers(gate, schema, userFunc); loadErr != nil {
 		return "", fmt.Errorf("load triggers: %w", loadErr)

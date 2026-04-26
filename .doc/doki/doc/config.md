@@ -127,11 +127,44 @@ store:
   name: tiki                 # Store engine name
   git: true                  # Enable git integration: true (default), false
                              # When false, `tiki init` and `tiki demo` skip
-                             # `git init`, task saves do not auto-stage, tasks
-                             # created via the TUI get no author attribution,
-                             # the status line omits the branch name, and task
+                             # `git init`, task saves do not auto-stage, the
+                             # status line omits the branch name, and task
                              # history (which is derived from commits) is empty.
+                             # Author attribution still works in no-git mode via
+                             # the `identity` block or the OS account username.
+
+# Tiki identity — used by `user()` and task attribution
+identity:
+  name: "Your Name"          # Display name for the current user
+  email: "you@example.com"   # Email for the current user
+                             # Both fields are optional. When unset, tiki falls
+                             # back to git's user.name/user.email (if git is
+                             # enabled) and then to the OS account username.
+                             # Environment overrides: TIKI_IDENTITY_NAME,
+                             # TIKI_IDENTITY_EMAIL.
 ```
+
+## Identity resolution
+
+The `user()` ruki built-in and the "User" header stat resolve against a layered
+identity, in order:
+
+1. Configured `identity.name` / `identity.email` (or `TIKI_IDENTITY_NAME` /
+   `TIKI_IDENTITY_EMAIL` environment variables).
+2. Git user from `git config user.name` / `user.email`, when `store.git` is
+   `true` and git is available.
+3. OS account username from `os/user.Current()`, falling back to `$USER` /
+   `$LOGNAME` / `$USERNAME`. The OS fallback never invents a display name —
+   it returns the raw account username so behavior is predictable across
+   machines.
+
+Either `identity.name` or `identity.email` alone is sufficient — when only
+the email is set, it is used as the display name so `user()` still resolves
+consistently. The git layer is subject to the same promotion rule.
+
+When none of those sources resolve, `user()` returns an "unavailable" error
+and the "User" header stat displays `n/a`. Setting the `identity` block is
+the recommended way to enable `user()` in no-git workflows.
 
 ### workflow.yaml
 

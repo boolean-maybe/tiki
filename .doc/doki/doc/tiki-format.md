@@ -222,7 +222,11 @@ Fields such as:
 - `created at`
 - `updated at`
 
-are not stored and are calculated from git - the time and git user who created a tiki or the time it was last modified
+are not stored in the file. `created at` / `updated at` are derived from git history
+(commit times) with file mtime as a fallback when git is disabled or the file is
+uncommitted. `created by` is populated from git authorship when available; for
+uncommitted files or no-git mode it falls back to the current Tiki identity
+(configured `identity.name` or `identity.email` → git user → OS account name).
 
 
 ## Doki files

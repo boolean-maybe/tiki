@@ -143,10 +143,12 @@ func Bootstrap(tikiSkillContent, dokiSkillContent string) (*Result, error) {
 	viewContext := model.NewViewContext()
 	pluginConfigs, pluginDefs := BuildPluginConfigsAndDefs(plugins)
 
-	// Phase 6.5: Trigger system
-	var userFunc func() string
-	if userName, _, _ := taskStore.GetCurrentUser(); userName != "" {
-		userFunc = func() string { return userName }
+	// Phase 6.5: Trigger system — share the same identity projection as the
+	// runtime/plugin executors so email-only identity configurations reach
+	// `user()` calls inside triggers
+	userFunc, err := store.CurrentUserDisplayFunc(taskStore)
+	if err != nil {
+		return nil, fmt.Errorf("resolve current user: %w", err)
 	}
 	triggerEngine, triggerCount, err := service.LoadAndRegisterTriggers(gate, schema, userFunc)
 	if err != nil {

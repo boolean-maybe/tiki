@@ -12,8 +12,9 @@ import (
 	"github.com/boolean-maybe/tiki/workflow"
 )
 
-// setAuthorFromGit best-effort populates CreatedBy using current git user.
-func (s *TikiStore) setAuthorFromGit(task *taskpkg.Task) {
+// setAuthorFromIdentity best-effort populates CreatedBy using the current
+// Tiki identity (configured identity → git → OS user).
+func (s *TikiStore) setAuthorFromIdentity(task *taskpkg.Task) {
 	if task == nil || task.CreatedBy != "" {
 		return
 	}
@@ -71,7 +72,7 @@ func (s *TikiStore) NewTaskTemplate() (*taskpkg.Task, error) {
 
 	task.CustomFields = buildCustomFieldDefaults()
 
-	s.setAuthorFromGit(task)
+	s.setAuthorFromIdentity(task)
 
 	return task, nil
 }

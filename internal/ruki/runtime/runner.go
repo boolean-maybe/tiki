@@ -213,15 +213,8 @@ func persistDelete(ctx context.Context, gate *service.TaskMutationGate, dr *ruki
 
 // resolveUserFunc returns a userFunc closure for the executor, and an error
 // if user resolution failed unexpectedly (as opposed to being deliberately
-// unavailable). Returns nil userFunc when user is empty (git disabled),
-// which causes user() calls in queries to return a clear error.
+// unavailable). Delegates to store.CurrentUserDisplayFunc so CLI exec,
+// plugin actions, triggers, and pipe-create setup all share the same rule.
 func resolveUserFunc(s store.ReadStore) (func() string, error) {
-	name, _, err := s.GetCurrentUser()
-	if err != nil {
-		return nil, err
-	}
-	if name == "" {
-		return nil, nil
-	}
-	return func() string { return name }, nil
+	return store.CurrentUserDisplayFunc(s)
 }

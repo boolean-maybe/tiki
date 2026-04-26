@@ -475,7 +475,7 @@ update where id = id() set assignee=user()
 - Dates: `2026-03-25`
 - Durations: `2hour`, `14day`, `3week`, `1month`
 - Lists: `["bug", "frontend"]`
-- `user()` — current user
+- `user()` — current `tiki` identity (configured `identity.name` or `identity.email` → git user → OS user)
 - `now()` — current timestamp
 - `id()` — currently selected tiki (in plugin context)
 - `input()` — user-supplied value (in actions with `input:` declaration)

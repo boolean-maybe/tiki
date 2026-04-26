@@ -837,7 +837,7 @@ func (e *Executor) evalFunctionCall(fc *FunctionCall, ctx evalContext) (interfac
 		return time.Now(), nil
 	case "user":
 		if e.userFunc == nil {
-			return nil, fmt.Errorf("user() is unavailable (git is disabled)")
+			return nil, fmt.Errorf("user() is unavailable (no current user configured)")
 		}
 		return e.userFunc(), nil
 	case "count":

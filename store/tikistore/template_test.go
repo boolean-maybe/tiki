@@ -4,8 +4,58 @@ import (
 	"testing"
 
 	"github.com/boolean-maybe/tiki/config"
+	taskpkg "github.com/boolean-maybe/tiki/task"
 	"github.com/boolean-maybe/tiki/workflow"
 )
+
+// TestSetAuthorFromIdentity_EmailOnly_NoAngleEchoing reproduces a regression
+// from the user()/display-string promotion work: when only identity.email is
+// configured, currentUser returned (email, email) so author formatting
+// produced `me@example.com <me@example.com>`. Attribution should just be the
+// raw email in that case.
+func TestSetAuthorFromIdentity_EmailOnly_NoAngleEchoing(t *testing.T) {
+	isolateConfig(t)
+	setIdentityEnv(t, "", "me@example.com")
+
+	// build a store with no git util so attribution flows through the
+	// identity resolver's config layer only
+	s := &TikiStore{identity: newIdentityResolver(nil)}
+
+	task := &taskpkg.Task{}
+	s.setAuthorFromIdentity(task)
+
+	if task.CreatedBy != "me@example.com" {
+		t.Errorf("CreatedBy = %q, want 'me@example.com' (no angle form when only email is configured)", task.CreatedBy)
+	}
+}
+
+func TestSetAuthorFromIdentity_NameAndEmail_UsesAngleForm(t *testing.T) {
+	isolateConfig(t)
+	setIdentityEnv(t, "Alice", "alice@example.com")
+
+	s := &TikiStore{identity: newIdentityResolver(nil)}
+
+	task := &taskpkg.Task{}
+	s.setAuthorFromIdentity(task)
+
+	if task.CreatedBy != "Alice <alice@example.com>" {
+		t.Errorf("CreatedBy = %q, want 'Alice <alice@example.com>'", task.CreatedBy)
+	}
+}
+
+func TestSetAuthorFromIdentity_NameOnly_UsesName(t *testing.T) {
+	isolateConfig(t)
+	setIdentityEnv(t, "Alice", "")
+
+	s := &TikiStore{identity: newIdentityResolver(nil)}
+
+	task := &taskpkg.Task{}
+	s.setAuthorFromIdentity(task)
+
+	if task.CreatedBy != "Alice" {
+		t.Errorf("CreatedBy = %q, want 'Alice'", task.CreatedBy)
+	}
+}
 
 func TestBuildCustomFieldDefaults_NoCustomFields(t *testing.T) {
 	workflow.ClearCustomFields()

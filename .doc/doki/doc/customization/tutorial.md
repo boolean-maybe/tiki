@@ -285,8 +285,11 @@ A few new things here:
   (F1-F12), Ctrl combinations (like `Ctrl-R`), or single characters.
 - **`columns: 3`** — this lane uses a 3-column grid layout instead of a single
   tall list. Handy when you have many tasks and want to use the screen width.
-- **`user()`** — this is a handy shortcut that means "you" — whoever is
-  currently logged in.
+- **`user()`** — this is a handy shortcut that means "you". It resolves to
+  your configured `identity.name` (or `identity.email` if only the email is
+  set) from `config.yaml` (see
+  [Configuration](../config.md#identity-resolution)), falling back to your
+  git user or your OS account username when `identity` is unset.
 
 ---
 

@@ -24,7 +24,8 @@ func normalizeTaskID(id string) string {
 
 // TikiStore stores tasks as markdown files with YAML frontmatter.
 // Each task is a separate .md file in the configured directory.
-// Author and dates are retrieved from git (not stored in file).
+// Commit dates are retrieved from git (not stored in file); the current
+// Tiki identity comes from configured identity → git → OS user.
 type TikiStore struct {
 	mu             sync.RWMutex
 	dir            string // directory containing task files
@@ -34,6 +35,7 @@ type TikiStore struct {
 	gitUtil        git.GitOps         // git utility for auto-staging modified files
 	taskHistory    *store.TaskHistory // history for burndown computation
 	upgrader       *LegacyUpgrader    // normalizes legacy field values on load
+	identity       *identityResolver  // resolves current Tiki identity (config→git→OS)
 }
 
 // taskFrontmatter represents the YAML frontmatter in task files
@@ -70,6 +72,7 @@ func NewTikiStore(dir string) (*TikiStore, error) {
 			slog.Debug("git utility not initialized", "error", err)
 		}
 	}
+	s.identity = newIdentityResolver(s.gitUtil)
 
 	s.mu.Lock()
 	if err := s.loadLocked(); err != nil {
@@ -95,31 +98,34 @@ func IsGitRepo(path string) bool {
 	return git.IsRepo(path)
 }
 
-// GetCurrentUser returns the current git user name and email.
-// Returns empty strings (no error) when git is unavailable so that callers
-// like resolveUser in runner.go succeed without git.
+// GetCurrentUser returns the current Tiki identity (name and email).
+// Resolution order: configured `identity.*` → git user → OS user.
+// Returns empty strings (no error) when no source resolves, so that callers
+// like resolveUserFunc in runner.go can surface a clean "unavailable" error.
 func (s *TikiStore) GetCurrentUser() (name string, email string, err error) {
-	if s.gitUtil == nil {
+	if s.identity == nil {
 		return "", "", nil
 	}
-	return s.gitUtil.CurrentUser()
+	return s.identity.currentUser()
 }
 
-// GetStats returns statistics for the header (user, branch)
+// GetStats returns statistics for the header (user, branch).
+// User is sourced from the shared identity projection helper so the TUI
+// header agrees with ruki `user()`, plugin-action executors, trigger setup,
+// and pipe-create trigger setup. Branch stays git-only.
 func (s *TikiStore) GetStats() []store.Stat {
-	// No lock needed - gitUtil is immutable after initialization
+	// No lock needed - gitUtil and identity are immutable after initialization
 	stats := make([]store.Stat, 0, 2)
 
-	// User stat
+	// User stat — delegate to the shared helper so the UI cannot drift from
+	// every other consumer of the identity projection
 	user := "n/a"
-	if s.gitUtil != nil {
-		if name, _, err := s.gitUtil.CurrentUser(); err == nil && name != "" {
-			user = name
-		}
+	if display, err := store.CurrentUserDisplay(s); err == nil && display != "" {
+		user = display
 	}
 	stats = append(stats, store.Stat{Name: "User", Value: user, Order: 3})
 
-	// Branch stat
+	// Branch stat — git-only; no meaningful equivalent in no-git mode
 	branch := "n/a"
 	if s.gitUtil != nil {
 		if b, err := s.gitUtil.CurrentBranch(); err == nil {
@@ -149,14 +155,15 @@ func (s *TikiStore) GetBurndown() []store.BurndownPoint {
 	return s.taskHistory.Burndown()
 }
 
-// GetAllUsers returns list of all git users for assignee selection
+// GetAllUsers returns candidate identities for assignee selection.
+// In git mode, merges the configured identity with git's commit-author list.
+// In no-git mode, returns the resolved identity (configured or OS user).
 func (s *TikiStore) GetAllUsers() ([]string, error) {
-	// No lock needed - gitUtil is immutable after initialization
-	if s.gitUtil == nil {
-		return nil, fmt.Errorf("git utility not available")
+	// No lock needed - identity is immutable after initialization
+	if s.identity == nil {
+		return nil, nil
 	}
-
-	return s.gitUtil.AllUsers()
+	return s.identity.allUsers()
 }
 
 // ensure TikiStore implements Store

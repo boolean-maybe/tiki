@@ -130,6 +130,7 @@ Current user:
 
 ```sql
 select where assignee = user()
+update where id = id() set assignee = user()
 ```
 
 Compare timestamps:

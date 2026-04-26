@@ -217,7 +217,7 @@ create title="x" dependsOn=dependsOn + tags
 | `selected_count()` | `int` | 0 | plugin runtime only; returns the number of selected tikis |
 | `input()` | declared type | 0 | valid only in plugin actions with `input:` declaration |
 | `call(...)` | `string` | exactly 1 | argument must be `string` |
-| `user()` | `string` | 0 | no additional validation |
+| `user()` | `string` | 0 | resolves to the current Tiki identity (configured → git → OS user); errors if none resolves |
 | `choose(...)` | `ref` | exactly 1 | argument must be a `select` subquery; plugin runtime only |
 
 Examples:
@@ -261,6 +261,15 @@ Runtime notes:
   `selection:any`, and `selection:many` cardinality tokens.
 - `id()`, `ids()`, and `selected_count()` are all rejected for CLI, event-trigger, and time-trigger semantic
   runtimes.
+- `user()` returns the current Tiki identity. Resolution order:
+  configured `identity.name` or `identity.email` (via `config.yaml` or
+  `TIKI_IDENTITY_NAME` / `TIKI_IDENTITY_EMAIL`), then the git user when
+  `store.git` is `true`, then the OS account username. Either config field
+  alone is sufficient — when only email is set, it is used as the display
+  string. When none of those sources yields a value, `user()` returns an
+  error (`user() is unavailable (no current user configured)`). See
+  [Configuration / Identity resolution](../config.md#identity-resolution)
+  for the full layered behavior.
 - `exists(...)` is a non-interactive boolean builtin. Its subquery body is validated recursively.
 - `count(...)`, `exists(...)`, `now()`, `user()`, and other non-interactive builtins may appear as top-level
   expression statements: `tiki exec 'count(select where status = "done")'` prints the scalar result instead of

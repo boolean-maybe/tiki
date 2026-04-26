@@ -21,7 +21,7 @@
 
 ## Assign to me — global plugin action
 
-Shortcut key that sets the selected task's assignee to the current git user. Defined under `views.actions`, this shortcut is available in all tiki plugin views.
+Shortcut key that sets the selected task's assignee to the current user
 
 ```yaml
 views:
@@ -137,7 +137,7 @@ triggers:
 
 ## My tasks — user-scoped plugin
 
-Shows only tasks assigned to the current git user.
+Shows only tasks assigned to the current user
 
 ```yaml
 - name: My Tasks

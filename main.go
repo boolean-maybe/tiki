@@ -14,6 +14,7 @@ import (
 	rukiRuntime "github.com/boolean-maybe/tiki/internal/ruki/runtime"
 	"github.com/boolean-maybe/tiki/internal/viewer"
 	"github.com/boolean-maybe/tiki/service"
+	"github.com/boolean-maybe/tiki/store"
 	"github.com/boolean-maybe/tiki/util/sysinfo"
 )
 
@@ -216,11 +217,13 @@ func runExec(args []string) int {
 	}
 	gate.SetStore(taskStore)
 
-	// load triggers so exec queries fire them
+	// load triggers so exec queries fire them — same identity projection as
+	// bootstrap and the runtime executor, so email-only configs resolve user()
 	schema := rukiRuntime.NewSchema()
-	var userFunc func() string
-	if userName, _, _ := taskStore.GetCurrentUser(); userName != "" {
-		userFunc = func() string { return userName }
+	userFunc, err := store.CurrentUserDisplayFunc(taskStore)
+	if err != nil {
+		_, _ = fmt.Fprintf(os.Stderr, "error: resolve current user: %v\n", err)
+		return exitStartupFailure
 	}
 	if _, _, err := service.LoadAndRegisterTriggers(gate, schema, userFunc); err != nil {
 		_, _ = fmt.Fprintf(os.Stderr, "error: load triggers: %v\n", err)

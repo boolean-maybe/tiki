@@ -19,7 +19,8 @@ type ReadStore interface {
 	// Returns matching tasks sorted by ID with relevance scores.
 	Search(query string, filterFunc func(*task.Task) bool) []task.SearchResult
 
-	// GetCurrentUser returns the current git user name and email
+	// GetCurrentUser returns the current Tiki identity (name and email).
+	// Sourced from configured `identity.*` → git user → OS user.
 	GetCurrentUser() (name string, email string, err error)
 
 	// GetStats returns statistics for the header (user, branch, etc.)
@@ -28,7 +29,9 @@ type ReadStore interface {
 	// GetBurndown returns the burndown chart data
 	GetBurndown() []BurndownPoint
 
-	// GetAllUsers returns list of all git users for assignee selection
+	// GetAllUsers returns candidate identities for assignee selection.
+	// Merges the configured identity with git commit authors when git is enabled;
+	// otherwise returns the resolved identity (configured or OS user).
 	GetAllUsers() ([]string, error)
 
 	// NewTaskTemplate returns a new task populated with creation defaults

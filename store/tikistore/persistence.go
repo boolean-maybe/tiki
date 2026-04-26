@@ -202,25 +202,21 @@ func (s *TikiStore) loadTaskFile(path string, authorMap map[string]*git.AuthorIn
 	}
 
 	// Fallback to file metadata when git history is not available.
-	// This handles the case where files are staged or untracked.
+	// This handles the case where files are staged, untracked, or git is off.
 	// Once the file is committed, git history will be used instead.
 	if task.CreatedAt.IsZero() {
-		// No git history for this file - use file modification time as fallback
 		task.CreatedAt = info.ModTime()
 
-		// Try to get current git user for CreatedBy
-		if s.gitUtil != nil {
-			if name, email, err := s.gitUtil.CurrentUser(); err == nil {
-				// Prefer name, fall back to email
-				if name != "" {
-					task.CreatedBy = name
-				} else if email != "" {
-					task.CreatedBy = email
-				}
+		// route through the shared resolver so no-git mode and configured
+		// identities participate, not just the git user
+		if name, email, err := s.GetCurrentUser(); err == nil {
+			if name != "" {
+				task.CreatedBy = name
+			} else if email != "" {
+				task.CreatedBy = email
 			}
 		}
-
-		// If git user is not available, leave CreatedBy empty (will show "Unknown" in UI)
+		// If no identity resolves, leave CreatedBy empty (UI shows "Unknown")
 	}
 
 	s.upgrader.UpgradeTask(task)
