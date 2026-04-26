@@ -2,6 +2,17 @@
 
 A collection of handy tips, tricks, and frequently asked questions.
 
+## Contents
+
+- [Create tiki from markdown file](#create-tiki-from-markdown-file)
+- [Find tiki by ID](#find-tiki-by-id)
+- [Quick create](#quick-create)
+- [I created a new tiki but I can't find it](#i-created-a-new-tiki-but-i-cant-find-it)
+- [How to edit workflow file](#how-to-edit-workflow-file)
+- [Chat with AI](#chat-with-ai)
+- [Copy description](#copy-description)
+- [Quickly add or remove a tag](#quickly-add-or-remove-a-tag)
+
 ### Create tiki from markdown file
 
 Pipe a markdown file into `tiki`:
