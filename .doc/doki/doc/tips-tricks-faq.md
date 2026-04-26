@@ -12,6 +12,10 @@ A collection of handy tips, tricks, and frequently asked questions.
 - [Chat with AI](#chat-with-ai)
 - [Copy description](#copy-description)
 - [Quickly add or remove a tag](#quickly-add-or-remove-a-tag)
+- [Can I implement XYZ using tiki?](#can-i-implement-xyz-using-tiki)
+- [Remove an annoying tag from all tikis](#remove-an-annoying-tag-from-all-tikis)
+- [Daily standup digest](#daily-standup-digest)
+- [Sync tikis to GitHub issues](#sync-tikis-to-github-issues)
 
 ### Create tiki from markdown file
 
@@ -112,3 +116,37 @@ Under the hood these are list-arithmetic updates:
   action: update where id = id() set tags=tags-[input()]
   input: string
 ```
+
+### Can I implement XYZ using tiki?
+
+Yes.
+
+### Remove an annoying tag from all tikis
+
+Use `tiki exec` to run a ruki update across the whole store:
+
+```bash
+tiki exec 'update where "idea" in tags set tags=tags-"idea"'
+```
+
+### Daily standup digest
+
+Copy your in-flight work to the clipboard, ready to paste into Slack or standup notes:
+
+```bash
+tiki exec 'select id, title where status = "inProgress" and assignee = user() | clipboard()'
+```
+
+Add `order by updated desc limit 5` for a "what I touched recently" shortlist.
+
+### Sync tikis to GitHub issues
+
+Every CLI tool is a tiki integration. Tag the tikis you want to push, then pipe them into `gh`:
+
+```bash
+tiki exec 'select id, title, description where "sync-gh" in tags | run("gh issue create --title \"$2\" --body \"$3\" --label tiki:$1")'
+```
+
+The pipe runs the command once per matching tiki, substituting `$1`, `$2`, `$3` with the selected
+fields. Swap `gh issue create` for `curl`, `slack`, `jira`, or anything else — tiki doesn't need
+built-in integrations, ruki pipes *are* the integration layer.
