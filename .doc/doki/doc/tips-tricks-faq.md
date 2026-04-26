@@ -16,6 +16,7 @@ A collection of handy tips, tricks, and frequently asked questions.
 - [Remove an annoying tag from all tikis](#remove-an-annoying-tag-from-all-tikis)
 - [Daily standup digest](#daily-standup-digest)
 - [Sync tikis to GitHub issues](#sync-tikis-to-github-issues)
+- [How many tikis are in my project](#how-many-tikis-are-in-my-project)
 
 ### Create tiki from markdown file
 
@@ -150,3 +151,18 @@ tiki exec 'select id, title, description where "sync-gh" in tags | run("gh issue
 The pipe runs the command once per matching tiki, substituting `$1`, `$2`, `$3` with the selected
 fields. Swap `gh issue create` for `curl`, `slack`, `jira`, or anything else — tiki doesn't need
 built-in integrations, ruki pipes *are* the integration layer.
+
+### How many tikis are in my project
+
+Wrap a bare `select` in `count(...)` and `tiki exec` prints the number:
+
+```bash
+tiki exec 'count(select)'
+```
+
+Add a `where` clause to count a slice:
+
+```bash
+tiki exec 'count(select where status != "done")'
+tiki exec 'count(select where assignee = user() and status = "inProgress")'
+```
