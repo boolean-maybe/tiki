@@ -733,6 +733,75 @@ func TestRunQueryUserFunctionViaRunQuery(t *testing.T) {
 	}
 }
 
+// --- top-level expression statements via RunQuery ---
+
+func TestRunQueryScalarCount(t *testing.T) {
+	s := setupRunnerTest(t)
+
+	var buf bytes.Buffer
+	err := RunQuery(gateFor(s), `count(select where status = "ready")`, &buf)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	// must emit the scalar count with a trailing newline and no table frame
+	if buf.String() != "1\n" {
+		t.Errorf("expected \"1\\n\", got %q", buf.String())
+	}
+}
+
+func TestRunQueryScalarExists(t *testing.T) {
+	s := setupRunnerTest(t)
+
+	var buf bytes.Buffer
+	err := RunQuery(gateFor(s), `exists(select where status = "done")`, &buf)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if buf.String() != "true\n" {
+		t.Errorf("expected \"true\\n\", got %q", buf.String())
+	}
+}
+
+func TestRunQueryScalarExistsFalse(t *testing.T) {
+	s := setupRunnerTest(t)
+
+	var buf bytes.Buffer
+	err := RunQuery(gateFor(s), `exists(select where priority = 99)`, &buf)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if buf.String() != "false\n" {
+		t.Errorf("expected \"false\\n\", got %q", buf.String())
+	}
+}
+
+func TestRunQueryScalarArithmetic(t *testing.T) {
+	s := setupRunnerTest(t)
+
+	var buf bytes.Buffer
+	err := RunQuery(gateFor(s), `1 + 2`, &buf)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if buf.String() != "3\n" {
+		t.Errorf("expected \"3\\n\", got %q", buf.String())
+	}
+}
+
+func TestRunQueryScalarRejectsBareFieldRef(t *testing.T) {
+	s := setupRunnerTest(t)
+
+	var buf bytes.Buffer
+	err := RunQuery(gateFor(s), `priority`, &buf)
+	if err == nil {
+		t.Fatal("expected parse error for bare field at top level")
+	}
+	if !strings.Contains(err.Error(), "top level") && !strings.Contains(err.Error(), "not valid at the top level") {
+		t.Errorf("expected top-level rejection error, got: %v", err)
+	}
+}
+
 func TestRunQueryDeleteValidatorRejection(t *testing.T) {
 	s := setupRunnerTest(t)
 

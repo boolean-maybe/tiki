@@ -41,6 +41,12 @@ func lowerStatement(g *statementGrammar) (*Statement, error) {
 			return nil, err
 		}
 		return &Statement{Delete: s}, nil
+	case g.Expr != nil:
+		e, err := lowerExpr(&g.Expr.Expr)
+		if err != nil {
+			return nil, err
+		}
+		return &Statement{Expr: &ExprStmt{Expr: e}}, nil
 	default:
 		return nil, fmt.Errorf("empty statement")
 	}

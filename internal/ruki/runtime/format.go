@@ -149,6 +149,71 @@ func extractFieldValue(t *task.Task, name string) interface{} {
 	}
 }
 
+// FormatScalar renders a single scalar result as one line followed by a
+// newline. Dates render as YYYY-MM-DD, timestamps as RFC3339, lists as JSON
+// arrays, nil/unset as a blank line. This is the CLI output for top-level
+// expression statements like `count(select where status = "done")`.
+func FormatScalar(w io.Writer, res *ruki.ScalarResult) error {
+	if res == nil {
+		_, err := fmt.Fprintln(w, "")
+		return err
+	}
+	_, err := fmt.Fprintln(w, renderScalarValue(res.Value, res.Type))
+	return err
+}
+
+func renderScalarValue(val interface{}, typ ruki.ValueType) string {
+	if val == nil {
+		return ""
+	}
+	switch typ {
+	case ruki.ValueDate:
+		return renderDate(val)
+	case ruki.ValueTimestamp:
+		return renderTimestamp(val)
+	case ruki.ValueListString, ruki.ValueListRef:
+		return renderScalarList(val)
+	case ruki.ValueBool:
+		if b, ok := val.(bool); ok {
+			if b {
+				return "true"
+			}
+			return "false"
+		}
+		return fmt.Sprint(val)
+	case ruki.ValueInt:
+		return renderInt(val)
+	default:
+		return fmt.Sprint(val)
+	}
+}
+
+// renderScalarList handles the []interface{} form produced by ruki's
+// list-valued builtins, emitting JSON like ["a","b"] while also accepting
+// []string for symmetry with the table formatter path.
+func renderScalarList(val interface{}) string {
+	switch v := val.(type) {
+	case []string:
+		b, err := json.Marshal(v)
+		if err != nil {
+			return "[]"
+		}
+		return string(b)
+	case []interface{}:
+		ss := make([]string, len(v))
+		for i, elem := range v {
+			ss[i] = fmt.Sprint(elem)
+		}
+		b, err := json.Marshal(ss)
+		if err != nil {
+			return "[]"
+		}
+		return string(b)
+	default:
+		return fmt.Sprint(val)
+	}
+}
+
 // renderValue formats a value according to its workflow type.
 func renderValue(val interface{}, vt workflow.ValueType) string {
 	if val == nil {

@@ -81,6 +81,18 @@ func (v *ValidatedStatement) IsCreate() bool {
 func (v *ValidatedStatement) IsDelete() bool {
 	return v != nil && v.statement != nil && v.statement.Delete != nil
 }
+func (v *ValidatedStatement) IsExpr() bool {
+	return v != nil && v.statement != nil && v.statement.Expr != nil
+}
+
+// ExprStatement returns the underlying top-level expression statement, or nil
+// if the validated statement is not an expression statement.
+func (v *ValidatedStatement) ExprStatement() *ExprStmt {
+	if !v.IsExpr() {
+		return nil
+	}
+	return v.statement.Expr
+}
 func (v *ValidatedStatement) IsPipe() bool {
 	return v != nil && v.statement != nil && v.statement.Select != nil && v.statement.Select.Pipe != nil
 }
@@ -504,6 +516,8 @@ func scanStatementSemantics(stmt *Statement) (usesID bool, hasCall bool, err err
 		return u1 || u2, c1 || c2, nil
 	case stmt.Delete != nil:
 		return scanConditionSemantics(stmt.Delete.Where)
+	case stmt.Expr != nil:
+		return scanExprSemantics(stmt.Expr.Expr)
 	default:
 		return false, false, fmt.Errorf("empty statement")
 	}
@@ -912,6 +926,12 @@ func countInteractiveUsage(stmt *Statement) (semanticFlags, error) {
 			}
 			total.merge(f)
 		}
+	case stmt.Expr != nil:
+		f, err := scanExprSemanticsEx(stmt.Expr.Expr)
+		if err != nil {
+			return total, err
+		}
+		total.merge(f)
 	}
 	return total, nil
 }
@@ -964,6 +984,8 @@ func walkExprs(stmt *Statement, visit func(Expr) bool) {
 		if stmt.Delete.Where != nil {
 			walkConditionExprs(stmt.Delete.Where, visit)
 		}
+	case stmt.Expr != nil:
+		walkExpr(stmt.Expr.Expr, visit)
 	}
 }
 
@@ -1052,7 +1074,17 @@ func cloneStatement(stmt *Statement) *Statement {
 	if stmt.Delete != nil {
 		out.Delete = cloneDelete(stmt.Delete)
 	}
+	if stmt.Expr != nil {
+		out.Expr = cloneExprStmt(stmt.Expr)
+	}
 	return out
+}
+
+func cloneExprStmt(es *ExprStmt) *ExprStmt {
+	if es == nil {
+		return nil
+	}
+	return &ExprStmt{Expr: cloneExpr(es.Expr), Type: es.Type}
 }
 
 func cloneSelect(sel *SelectStmt) *SelectStmt {

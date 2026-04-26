@@ -246,7 +246,27 @@ func TestValidateTimeTrigger_RejectsSelect(t *testing.T) {
 		t.Fatal("expected error for select in time trigger")
 		return
 	}
-	if err.Error() != "time trigger action must not be select" {
+	if err.Error() != "time trigger action must be create, update, or delete" {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
+// TestValidateTimeTrigger_RejectsExpression guards against hand-built ASTs
+// that try to slip a top-level expression statement into a time-trigger action.
+func TestValidateTimeTrigger_RejectsExpression(t *testing.T) {
+	p := newTestParser()
+	tt := &TimeTrigger{
+		Interval: DurationLiteral{Value: 1, Unit: "day"},
+		Action: &Statement{Expr: &ExprStmt{
+			Expr: &FunctionCall{Name: "now"},
+			Type: ValueTimestamp,
+		}},
+	}
+	err := p.validateTimeTrigger(tt)
+	if err == nil {
+		t.Fatal("expected error for expression in time trigger")
+	}
+	if err.Error() != "time trigger action must be create, update, or delete" {
 		t.Fatalf("unexpected error: %v", err)
 	}
 }

@@ -73,6 +73,9 @@ func RunQuery(gate *service.TaskMutationGate, query string, out io.Writer) error
 	case result.Delete != nil:
 		return persistDelete(ctx, gate, result.Delete, out)
 
+	case result.Scalar != nil:
+		return FormatScalar(out, result.Scalar)
+
 	default:
 		return fmt.Errorf("unsupported statement type")
 	}

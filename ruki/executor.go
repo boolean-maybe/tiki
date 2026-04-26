@@ -49,6 +49,15 @@ type Result struct {
 	Delete    *DeleteResult
 	Pipe      *PipeResult
 	Clipboard *ClipboardResult
+	Scalar    *ScalarResult
+}
+
+// ScalarResult holds a single value produced by a top-level expression
+// statement, along with its inferred type so runtime formatters can
+// distinguish dates from timestamps, etc.
+type ScalarResult struct {
+	Value interface{}
+	Type  ValueType
 }
 
 // ClipboardResult holds the row data from a clipboard-piped select.
@@ -150,9 +159,19 @@ func (e *Executor) Execute(stmt any, tasks []*task.Task, inputs ...ExecutionInpu
 		return e.executeUpdate(rawStmt.Update, tasks)
 	case rawStmt.Delete != nil:
 		return e.executeDelete(rawStmt.Delete, tasks)
+	case rawStmt.Expr != nil:
+		return e.executeExpr(rawStmt.Expr, tasks)
 	default:
 		return nil, fmt.Errorf("empty statement")
 	}
+}
+
+func (e *Executor) executeExpr(es *ExprStmt, tasks []*task.Task) (*Result, error) {
+	val, err := e.evalExpr(es.Expr, evalContext{allTasks: tasks})
+	if err != nil {
+		return nil, err
+	}
+	return &Result{Scalar: &ScalarResult{Value: val, Type: es.Type}}, nil
 }
 
 func (e *Executor) executeSelect(sel *SelectStmt, tasks []*task.Task) (*Result, error) {

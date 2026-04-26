@@ -4911,3 +4911,111 @@ func TestExecuteTargetField_PreflightRejectsMultiSelection(t *testing.T) {
 		t.Fatalf("expected AmbiguousSelectedTaskIDError, got: %v", err)
 	}
 }
+
+// --- top-level expression statements ---
+
+func TestExecuteExprStmt_CountAllTasks(t *testing.T) {
+	p := newTestParser()
+	e := newTestExecutor()
+	stmt, err := p.ParseStatement(`count(select)`)
+	if err != nil {
+		t.Fatalf("parse: %v", err)
+	}
+	res, err := e.Execute(stmt, makeTasks())
+	if err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	if res.Scalar == nil {
+		t.Fatal("expected Scalar result")
+	}
+	if res.Scalar.Type != ValueInt {
+		t.Errorf("type = %s, want int", typeName(res.Scalar.Type))
+	}
+	if res.Scalar.Value != 4 {
+		t.Errorf("value = %v, want 4", res.Scalar.Value)
+	}
+}
+
+func TestExecuteExprStmt_CountWithWhere(t *testing.T) {
+	p := newTestParser()
+	e := newTestExecutor()
+	stmt, err := p.ParseStatement(`count(select where status = "done")`)
+	if err != nil {
+		t.Fatalf("parse: %v", err)
+	}
+	res, err := e.Execute(stmt, makeTasks())
+	if err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	if res.Scalar.Value != 1 {
+		t.Errorf("value = %v, want 1", res.Scalar.Value)
+	}
+}
+
+func TestExecuteExprStmt_ExistsTrueFalse(t *testing.T) {
+	p := newTestParser()
+	e := newTestExecutor()
+
+	tests := []struct {
+		name   string
+		query  string
+		expect bool
+	}{
+		{"exists done", `exists(select where status = "done")`, true},
+		{"exists impossible", `exists(select where priority = 99)`, false},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			stmt, err := p.ParseStatement(tt.query)
+			if err != nil {
+				t.Fatalf("parse: %v", err)
+			}
+			res, err := e.Execute(stmt, makeTasks())
+			if err != nil {
+				t.Fatalf("execute: %v", err)
+			}
+			if res.Scalar.Type != ValueBool {
+				t.Errorf("type = %s, want bool", typeName(res.Scalar.Type))
+			}
+			if res.Scalar.Value != tt.expect {
+				t.Errorf("value = %v, want %v", res.Scalar.Value, tt.expect)
+			}
+		})
+	}
+}
+
+func TestExecuteExprStmt_NowReturnsTimestamp(t *testing.T) {
+	p := newTestParser()
+	e := newTestExecutor()
+	stmt, err := p.ParseStatement(`now()`)
+	if err != nil {
+		t.Fatalf("parse: %v", err)
+	}
+	res, err := e.Execute(stmt, makeTasks())
+	if err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	if res.Scalar.Type != ValueTimestamp {
+		t.Errorf("type = %s, want timestamp", typeName(res.Scalar.Type))
+	}
+	if _, ok := res.Scalar.Value.(time.Time); !ok {
+		t.Errorf("value is %T, want time.Time", res.Scalar.Value)
+	}
+}
+
+func TestExecuteExprStmt_Arithmetic(t *testing.T) {
+	p := newTestParser()
+	e := newTestExecutor()
+	stmt, err := p.ParseStatement(`count(select where status = "done") + count(select where status = "ready")`)
+	if err != nil {
+		t.Fatalf("parse: %v", err)
+	}
+	res, err := e.Execute(stmt, makeTasks())
+	if err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	// 1 done + 1 ready = 2
+	if res.Scalar.Value != 2 {
+		t.Errorf("value = %v, want 2", res.Scalar.Value)
+	}
+}

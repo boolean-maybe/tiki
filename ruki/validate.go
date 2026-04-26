@@ -72,6 +72,8 @@ func (p *Parser) validateStatement(s *Statement) error {
 		return p.validateAssignments(s.Update.Set)
 	case s.Delete != nil:
 		return p.validateCondition(s.Delete.Where)
+	case s.Expr != nil:
+		return p.validateExprStmt(s.Expr)
 	case s.Select != nil:
 		if err := p.validateSelectFields(s.Select.Fields); err != nil {
 			return err
@@ -111,6 +113,25 @@ func (p *Parser) validateStatement(s *Statement) error {
 	}
 }
 
+// validateExprStmt type-checks a top-level expression statement. Bare field
+// references are rejected because there is no "current task" at the top
+// level; references inside subqueries still resolve against their candidate
+// task (validateSubQueryFuncCall resets the reject flag).
+func (p *Parser) validateExprStmt(es *ExprStmt) error {
+	if es == nil || es.Expr == nil {
+		return fmt.Errorf("empty expression statement")
+	}
+	savedReject := p.rejectBareFieldRefs
+	p.rejectBareFieldRefs = true
+	typ, err := p.inferExprType(es.Expr)
+	p.rejectBareFieldRefs = savedReject
+	if err != nil {
+		return err
+	}
+	es.Type = typ
+	return nil
+}
+
 func (p *Parser) validateTrigger(t *Trigger) error {
 	if t.Timing == "before" {
 		if t.Action != nil || t.Run != nil {
@@ -139,10 +160,12 @@ func (p *Parser) validateTrigger(t *Trigger) error {
 		}
 	}
 
-	// zone 2: action statement — bare fields resolve against target task
+	// zone 2: action statement — bare fields resolve against target task.
+	// allowlist the mutating variants so new Statement variants (e.g. Expr)
+	// fail closed instead of silently slipping through.
 	if t.Action != nil {
-		if t.Action.Select != nil {
-			return fmt.Errorf("trigger action must not be select")
+		if t.Action.Create == nil && t.Action.Update == nil && t.Action.Delete == nil {
+			return fmt.Errorf("trigger action must be create, update, or delete")
 		}
 		if err := p.validateStatement(t.Action); err != nil {
 			return err
@@ -181,8 +204,9 @@ func (p *Parser) validateTimeTrigger(tt *TimeTrigger) error {
 	if tt.Interval.Value <= 0 {
 		return fmt.Errorf("every interval must be positive, got %d%s", tt.Interval.Value, tt.Interval.Unit)
 	}
-	if tt.Action.Select != nil {
-		return fmt.Errorf("time trigger action must not be select")
+	if tt.Action == nil ||
+		(tt.Action.Create == nil && tt.Action.Update == nil && tt.Action.Delete == nil) {
+		return fmt.Errorf("time trigger action must be create, update, or delete")
 	}
 	// time triggers forbid all qualifiers including target./targets.
 	p.qualifiers = qualifierPolicy{}
@@ -458,6 +482,9 @@ func (p *Parser) inferExprType(e Expr) (ValueType, error) {
 		if p.requireQualifiers {
 			return 0, fmt.Errorf("bare field %q not allowed in trigger guard — use old.%s or new.%s", e.Name, e.Name, e.Name)
 		}
+		if p.rejectBareFieldRefs {
+			return 0, fmt.Errorf("bare field %q is not valid at the top level (no current task)", e.Name)
+		}
 		fs, ok := p.schema.Field(e.Name)
 		if !ok {
 			return 0, fmt.Errorf("unknown field %q", e.Name)
@@ -645,15 +672,19 @@ func (p *Parser) validateSubQueryFuncCall(name string, arg Expr) error {
 	if sq.Where == nil {
 		return nil
 	}
-	// zone 4: subquery bodies use candidate-task fields, so trigger guards stop requiring qualifiers.
+	// zone 4: subquery bodies use candidate-task fields, so trigger guards stop requiring qualifiers
+	// and top-level expression statements stop rejecting bare field refs.
 	// outer. is valid here and resolves to the immediate parent query row.
 	savedQualifiers := p.qualifiers
 	savedRequire := p.requireQualifiers
+	savedReject := p.rejectBareFieldRefs
 	p.qualifiers.allowOuter = true
 	p.requireQualifiers = false
+	p.rejectBareFieldRefs = false
 	err := p.validateCondition(sq.Where)
 	p.qualifiers = savedQualifiers
 	p.requireQualifiers = savedRequire
+	p.rejectBareFieldRefs = savedReject
 	if err != nil {
 		return fmt.Errorf("%s() subquery: %w", name, err)
 	}
