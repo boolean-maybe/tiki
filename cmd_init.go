@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/boolean-maybe/tiki/config"
+	"github.com/boolean-maybe/tiki/internal/bootstrap"
 	"github.com/boolean-maybe/tiki/store/tikistore"
 )
 
@@ -97,9 +98,10 @@ func splitAndTrim(s string) []string {
 	return result
 }
 
-// ensureDirectoryAndGitRepo creates the directory if it doesn't exist and
-// initializes a git repository if one isn't already present.
-func ensureDirectoryAndGitRepo(dir string) error {
+// ensureDirectory creates the directory if it doesn't exist and verifies it is
+// a directory if it does. No git side effects — safe to call before config load
+// and before os.Chdir.
+func ensureDirectory(dir string) error {
 	info, err := os.Stat(dir) //nolint:gosec // G703: dir comes from filepath.Abs in parseInitArgs
 	if err != nil {
 		if !os.IsNotExist(err) {
@@ -109,16 +111,36 @@ func ensureDirectoryAndGitRepo(dir string) error {
 		if err := os.MkdirAll(dir, 0755); err != nil {
 			return fmt.Errorf("create directory %q: %w", dir, err)
 		}
-	} else if !info.IsDir() {
+		return nil
+	}
+	if !info.IsDir() {
 		return fmt.Errorf("%q is not a directory", dir)
 	}
+	return nil
+}
 
-	if !tikistore.IsGitRepo(dir) {
-		if err := tikistore.GitInit(dir); err != nil {
-			return err
-		}
+// reconcileInitGit brings the current directory's git state in line with the
+// resolved `store.git` config. Must be called after LoadConfig so GetStoreGit
+// is authoritative. Idempotent: safe to call on fresh dirs, existing dirs, and
+// pre-existing git repos.
+func reconcileInitGit() error {
+	if !config.GetStoreGit() {
+		// user disabled git-backed store — leave any existing .git/ alone.
+		_, _ = fmt.Fprintln(os.Stderr, "info: store.git=false; skipping git repo init")
+		return nil
 	}
 
+	// check for a local .git entry, not an ancestor repo. tikistore.IsGitRepo
+	// walks up the directory tree, so running `tiki init ./sub` from inside an
+	// existing checkout would otherwise attach to the parent repo. os.Stat
+	// answers the right question: does *this* directory own a repo?
+	if _, err := os.Stat(".git"); err == nil {
+		return nil
+	}
+
+	if err := tikistore.GitInit("."); err != nil {
+		return fmt.Errorf("git init: %w", err)
+	}
 	return nil
 }
 
@@ -183,10 +205,6 @@ func validateInitOpts(opts *InitOpts) error {
 		opts.WorkflowContent = content
 	}
 
-	if err := ensureDirectoryAndGitRepo(opts.Directory); err != nil {
-		return err
-	}
-
 	return nil
 }
 
@@ -208,12 +226,31 @@ func runInit(args []string) int {
 		return exitStartupFailure
 	}
 
+	if err := ensureDirectory(opts.Directory); err != nil {
+		_, _ = fmt.Fprintln(os.Stderr, "error:", err)
+		return exitStartupFailure
+	}
+
 	if err := os.Chdir(opts.Directory); err != nil {
 		_, _ = fmt.Fprintf(os.Stderr, "error: chdir to %s: %v\n", opts.Directory, err)
 		return exitStartupFailure
 	}
 
+	// reset path manager so InitPaths observes the new cwd, then load config
+	// so GetStoreGit reflects TIKI_STORE_GIT / config.yaml values before
+	// reconcileInitGit runs. Matches cmd_demo.go:52-59.
+	config.ResetPathManager()
 	if err := config.InitPaths(); err != nil {
+		_, _ = fmt.Fprintln(os.Stderr, "error:", err)
+		return exitStartupFailure
+	}
+
+	if _, err := bootstrap.LoadConfig(); err != nil {
+		_, _ = fmt.Fprintln(os.Stderr, "error:", err)
+		return exitStartupFailure
+	}
+
+	if err := reconcileInitGit(); err != nil {
 		_, _ = fmt.Fprintln(os.Stderr, "error:", err)
 		return exitStartupFailure
 	}
@@ -249,7 +286,10 @@ func runInit(args []string) int {
 		}
 	}
 
-	gitAdd := tikistore.NewGitAdder("")
+	var gitAdd func(...string) error
+	if config.GetStoreGit() {
+		gitAdd = tikistore.NewGitAdder("")
+	}
 	if err := config.BootstrapSystem(createSamples, gitAdd); err != nil {
 		_, _ = fmt.Fprintf(os.Stderr, "error: bootstrap: %v\n", err)
 		return exitStartupFailure
@@ -287,7 +327,8 @@ func runInit(args []string) int {
 func printInitUsage() {
 	fmt.Print(`Usage: tiki init [directory] [options]
 
-Initialize a tiki project. Creates the directory and git repo if needed.
+Initialize a tiki project. Creates the directory, and initializes a git repo
+if store.git is enabled (the default; see config.md).
 
 Arguments:
   directory                    Target directory (default: current directory)

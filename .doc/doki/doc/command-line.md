@@ -14,7 +14,8 @@ Running `tiki` with no arguments launches the TUI in an initialized project.
 
 Initialize a tiki project. Creates the `.doc/tiki/` and `.doc/doki/` directory structures.
 
-If the target directory does not exist, it is created. If the directory is not a git repository, `git init` is run automatically.
+If the target directory does not exist, it is created. If the directory is not a git repository, `git init` is run
+automatically, unless `store.git` is set to `false` (see [Configuration](config.md)).
 
 ```
 tiki init [directory] [-w|--workflow <source>] [--ai-skill <list>] [--samples] [-n|--non-interactive]
@@ -32,13 +33,11 @@ tiki init [directory] [-w|--workflow <source>] [--ai-skill <list>] [--samples] [
 - Interactive mode with default workflow: samples are created automatically
 - Non-interactive mode: samples are created only with `--samples`
 
-Running `tiki init` on an already-initialized project prints a message and exits without changes.
-
 ```bash
 # interactive init with AI skill selection
 tiki init
 
-# initialize a subdirectory (creates dir and git repo if needed)
+# initialize a subdirectory (creates dir, and git repo if store.git is enabled)
 tiki init my-project
 
 # install a bundled workflow by name

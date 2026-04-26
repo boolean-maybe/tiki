@@ -28,6 +28,29 @@ export XDG_CONFIG_HOME=~/my-config
 tiki  # Will use ~/my-config/tiki/ for configuration
 ```
 
+### Overriding config via environment variables
+
+Every setting in `config.yaml` can be overridden by a `TIKI_*` environment variable.
+The mapping rule is mechanical:
+
+1. Prefix with `TIKI_`
+2. Replace each `.` in the config key with `_`
+3. Uppercase the result
+
+So `store.git` becomes `TIKI_STORE_GIT`, `logging.level` becomes `TIKI_LOGGING_LEVEL`,
+and `appearance.theme` becomes `TIKI_APPEARANCE_THEME`.
+
+Environment variables take precedence over every config file:
+
+```bash
+TIKI_STORE_GIT=false tiki init /tmp/sandbox     # one-off project without git
+TIKI_LOGGING_LEVEL=debug tiki                   # temporarily verbose logs
+TIKI_APPEARANCE_THEME=dracula tiki              # try a theme without editing files
+```
+
+The values are read during config load at the start of each `tiki` invocation, so
+changes take effect on the next run — not retroactively for a running process.
+
 ## Precedence
 
 `tiki` looks for configuration in three locations, from least specific to most specific:
@@ -98,6 +121,16 @@ ai:
   agent: claude              # AI tool for chat: "claude", "gemini", "codex", "opencode"
                              # Enables AI collaboration features
                              # Omit or leave empty to disable
+
+# Store backend configuration
+store:
+  name: tiki                 # Store engine name
+  git: true                  # Enable git integration: true (default), false
+                             # When false, `tiki init` and `tiki demo` skip
+                             # `git init`, task saves do not auto-stage, tasks
+                             # created via the TUI get no author attribution,
+                             # the status line omits the branch name, and task
+                             # history (which is derived from commits) is empty.
 ```
 
 ### workflow.yaml

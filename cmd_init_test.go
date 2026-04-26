@@ -10,6 +10,7 @@ import (
 	"testing"
 
 	"github.com/boolean-maybe/tiki/config"
+	"github.com/boolean-maybe/tiki/internal/bootstrap"
 	"github.com/boolean-maybe/tiki/store/tikistore"
 )
 
@@ -212,16 +213,10 @@ func TestParseInitArgs_WorkflowMissingValue(t *testing.T) {
 
 // --- validateInitOpts tests ---
 
-func TestValidateInitOpts_CreatesNonExistentDirectory(t *testing.T) {
+func TestEnsureDirectory_CreatesNonExistent(t *testing.T) {
 	dir := filepath.Join(t.TempDir(), "newproject")
 
-	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
-	t.Setenv("XDG_CACHE_HOME", t.TempDir())
-	config.ResetPathManager()
-	t.Cleanup(config.ResetPathManager)
-
-	err := validateInitOpts(&InitOpts{Directory: dir})
-	if err != nil {
+	if err := ensureDirectory(dir); err != nil {
 		t.Fatalf("expected directory to be created, got error: %v", err)
 	}
 
@@ -232,36 +227,31 @@ func TestValidateInitOpts_CreatesNonExistentDirectory(t *testing.T) {
 	if !info.IsDir() {
 		t.Fatal("created path is not a directory")
 	}
-
-	if !tikistore.IsGitRepo(dir) {
-		t.Fatal("expected git repo to be initialized in new directory")
-	}
 }
 
-func TestValidateInitOpts_UncreatableDirectory(t *testing.T) {
-	// use a file as the parent — creating a subdirectory under a file always fails
+func TestEnsureDirectory_UncreatablePath(t *testing.T) {
+	// file as parent: creating a subdirectory under a regular file always fails.
 	f := filepath.Join(t.TempDir(), "notadir.txt")
 	if err := os.WriteFile(f, []byte("x"), 0644); err != nil {
 		t.Fatal(err)
 	}
-	err := validateInitOpts(&InitOpts{Directory: filepath.Join(f, "child")})
-	if err == nil {
+	if err := ensureDirectory(filepath.Join(f, "child")); err == nil {
 		t.Fatal("expected error for uncreatable directory")
 	}
 }
 
-func TestValidateInitOpts_FileNotDirectory(t *testing.T) {
+func TestEnsureDirectory_FileNotDirectory(t *testing.T) {
 	f := filepath.Join(t.TempDir(), "file.txt")
 	if err := os.WriteFile(f, []byte("x"), 0644); err != nil {
 		t.Fatal(err)
 	}
-	err := validateInitOpts(&InitOpts{Directory: f})
+	err := ensureDirectory(f)
 	if err == nil || !strings.Contains(err.Error(), "not a directory") {
 		t.Fatalf("expected not-a-directory error, got %v", err)
 	}
 }
 
-func TestValidateInitOpts_InitializesGitInExistingDir(t *testing.T) {
+func TestReconcileInitGit_InitializesGitInExistingDir(t *testing.T) {
 	dir := t.TempDir()
 
 	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
@@ -269,13 +259,17 @@ func TestValidateInitOpts_InitializesGitInExistingDir(t *testing.T) {
 	config.ResetPathManager()
 	t.Cleanup(config.ResetPathManager)
 
-	err := validateInitOpts(&InitOpts{Directory: dir})
-	if err != nil {
+	t.Chdir(dir)
+	if _, err := bootstrap.LoadConfig(); err != nil {
+		t.Fatalf("load config: %v", err)
+	}
+
+	if err := reconcileInitGit(); err != nil {
 		t.Fatalf("expected git init to succeed, got: %v", err)
 	}
 
 	if !tikistore.IsGitRepo(dir) {
-		t.Fatal("expected directory to be a git repo after validation")
+		t.Fatal("expected directory to be a git repo after reconcileInitGit")
 	}
 }
 
@@ -551,5 +545,193 @@ func TestRunInit_InitializesGitRepo(t *testing.T) {
 	tikiDir := filepath.Join(dir, ".doc", "tiki")
 	if _, err := os.Stat(tikiDir); err != nil {
 		t.Fatalf("expected .doc/tiki to exist: %v", err)
+	}
+
+	gitDir := filepath.Join(dir, ".git")
+	if _, err := os.Stat(gitDir); err != nil {
+		t.Fatalf("expected .git to exist: %v", err)
+	}
+}
+
+// setupRunInitTest prepares a hermetic environment for runInit tests: isolated
+// XDG dirs, fresh path manager, and a restore-cwd cleanup so runInit's chdir
+// never leaks between tests. Mirrors setupDemoTest but does not chdir anywhere
+// (runInit chdirs into the target itself).
+func setupRunInitTest(t *testing.T) {
+	t.Helper()
+
+	originalDir, err := os.Getwd()
+	if err != nil {
+		t.Fatalf("getwd: %v", err)
+	}
+	t.Cleanup(func() { _ = os.Chdir(originalDir) })
+
+	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
+	t.Setenv("XDG_CACHE_HOME", t.TempDir())
+	config.ResetPathManager()
+	t.Cleanup(config.ResetPathManager)
+}
+
+func TestRunInit_NoGitWhenDisabled_FreshDir(t *testing.T) {
+	setupRunInitTest(t)
+	t.Setenv("TIKI_STORE_GIT", "false")
+
+	dir := filepath.Join(t.TempDir(), "fresh")
+
+	if code := runInit([]string{dir, "-n"}); code != exitOK {
+		t.Fatalf("exit code = %d, want %d", code, exitOK)
+	}
+
+	if _, err := os.Stat(filepath.Join(dir, ".doc", "tiki")); err != nil {
+		t.Fatalf("expected .doc/tiki: %v", err)
+	}
+	if _, err := os.Stat(filepath.Join(dir, ".git")); err == nil {
+		t.Error(".git should not exist with TIKI_STORE_GIT=false")
+	}
+}
+
+func TestRunInit_NoGitWhenDisabled_ExistingEmptyDir(t *testing.T) {
+	setupRunInitTest(t)
+	t.Setenv("TIKI_STORE_GIT", "false")
+
+	dir := t.TempDir() // already exists, empty
+
+	if code := runInit([]string{dir, "-n"}); code != exitOK {
+		t.Fatalf("exit code = %d, want %d", code, exitOK)
+	}
+
+	if _, err := os.Stat(filepath.Join(dir, ".doc", "tiki")); err != nil {
+		t.Fatalf("expected .doc/tiki: %v", err)
+	}
+	if _, err := os.Stat(filepath.Join(dir, ".git")); err == nil {
+		t.Error(".git should not exist with TIKI_STORE_GIT=false")
+	}
+}
+
+// TestRunInit_IsolatedFromParentRepo_FlagOff verifies that when store.git is
+// off and the parent directory is a git repo, runInit neither creates a
+// repo under the target nor touches the parent's index.
+func TestRunInit_IsolatedFromParentRepo_FlagOff(t *testing.T) {
+	setupRunInitTest(t)
+	t.Setenv("TIKI_STORE_GIT", "false")
+
+	parent := t.TempDir()
+	if err := tikistore.GitInit(parent); err != nil {
+		t.Fatalf("git init parent: %v", err)
+	}
+	sub := filepath.Join(parent, "sub")
+
+	if code := runInit([]string{sub, "-n"}); code != exitOK {
+		t.Fatalf("exit code = %d, want %d", code, exitOK)
+	}
+
+	if _, err := os.Stat(filepath.Join(sub, ".git")); err == nil {
+		t.Error("sub/.git should not exist with TIKI_STORE_GIT=false")
+	}
+	if _, err := os.Stat(filepath.Join(parent, ".git", "index")); err == nil {
+		t.Error("parent .git/index created — init leaked into parent repo")
+	}
+}
+
+// TestRunInit_IsolatedFromParentRepo_FlagOn is the regression guard for the
+// os.Stat(".git") vs tikistore.IsGitRepo design decision. With IsGitRepo
+// (ancestor walk), init would attach to the parent repo and sub/.git would
+// be absent. With os.Stat(".git") (local check), it correctly creates its own.
+func TestRunInit_IsolatedFromParentRepo_FlagOn(t *testing.T) {
+	setupRunInitTest(t)
+	t.Setenv("TIKI_STORE_GIT", "true")
+
+	parent := t.TempDir()
+	if err := tikistore.GitInit(parent); err != nil {
+		t.Fatalf("git init parent: %v", err)
+	}
+	sub := filepath.Join(parent, "sub")
+
+	if code := runInit([]string{sub, "-n"}); code != exitOK {
+		t.Fatalf("exit code = %d, want %d", code, exitOK)
+	}
+
+	// resolve symlinks on macOS (/var vs /private/var).
+	subResolved := resolvePath(t, sub)
+	if _, err := os.Stat(filepath.Join(subResolved, ".git")); err != nil {
+		t.Fatalf("expected sub/.git to exist: %v", err)
+	}
+
+	// belt and braces: parent repo's index must remain empty (a fresh git
+	// init never creates .git/index until something is staged).
+	if _, err := os.Stat(filepath.Join(parent, ".git", "index")); err == nil {
+		t.Error("parent .git/index created — init leaked into parent repo")
+	}
+}
+
+func TestRunInit_PreservesExistingGitWhenFlagOff(t *testing.T) {
+	setupRunInitTest(t)
+	t.Setenv("TIKI_STORE_GIT", "false")
+
+	dir := t.TempDir()
+	if err := tikistore.GitInit(dir); err != nil {
+		t.Fatalf("git init: %v", err)
+	}
+
+	// snapshot HEAD so we can assert it didn't change
+	headBefore, err := os.ReadFile(filepath.Join(dir, ".git", "HEAD"))
+	if err != nil {
+		t.Fatalf("read HEAD before: %v", err)
+	}
+
+	if code := runInit([]string{dir, "-n"}); code != exitOK {
+		t.Fatalf("exit code = %d, want %d", code, exitOK)
+	}
+
+	if _, err := os.Stat(filepath.Join(dir, ".git")); err != nil {
+		t.Fatalf(".git disappeared: %v", err)
+	}
+	headAfter, err := os.ReadFile(filepath.Join(dir, ".git", "HEAD"))
+	if err != nil {
+		t.Fatalf("read HEAD after: %v", err)
+	}
+	if string(headBefore) != string(headAfter) {
+		t.Errorf("HEAD changed: before=%q after=%q", headBefore, headAfter)
+	}
+}
+
+// TestRunInit_ReconcilesGitOnSecondRun verifies the Option A design:
+// reconcileInitGit runs before the IsProjectInitialized short-circuit, so
+// flipping TIKI_STORE_GIT between runs reconciles git state even when the
+// project is already initialized. Mirrors TestRunDemo_ReconcilesGitOnSecondRun.
+func TestRunInit_ReconcilesGitOnSecondRun(t *testing.T) {
+	setupRunInitTest(t)
+
+	dir := t.TempDir()
+
+	// first run: no git
+	t.Setenv("TIKI_STORE_GIT", "false")
+	if code := runInit([]string{dir, "-n"}); code != exitOK {
+		t.Fatalf("first runInit: exit code = %d", code)
+	}
+	if _, err := os.Stat(filepath.Join(dir, ".git")); err == nil {
+		t.Fatal(".git should not exist after first run")
+	}
+
+	// chdir back so the second call can parseInitArgs relative to a known cwd
+	originalDir, err := os.Getwd()
+	if err != nil {
+		t.Fatalf("getwd: %v", err)
+	}
+	t.Cleanup(func() { _ = os.Chdir(originalDir) })
+	if err := os.Chdir(filepath.Dir(dir)); err != nil {
+		t.Fatalf("chdir parent: %v", err)
+	}
+
+	// second run: enable git. project is already initialized, so runInit
+	// prints "project already initialized" after reconcileInitGit creates .git.
+	t.Setenv("TIKI_STORE_GIT", "true")
+	config.ResetPathManager()
+	if code := runInit([]string{dir, "-n"}); code != exitOK {
+		t.Fatalf("second runInit: exit code = %d", code)
+	}
+
+	if _, err := os.Stat(filepath.Join(dir, ".git")); err != nil {
+		t.Fatalf("expected .git after second run: %v", err)
 	}
 }
