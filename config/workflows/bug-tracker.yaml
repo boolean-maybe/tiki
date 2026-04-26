@@ -73,6 +73,10 @@ views:
     - key: "Y"
       label: "Copy content"
       action: select title, description where id = id() | clipboard()
+    - key: "o"
+      label: "Open in VS Code"
+      action: select filepath where id = id() | run("code \"$1\"")
+      hot: false
     - key: "+"
       label: "Priority up"
       action: update where id = id() set priority = priority - 1

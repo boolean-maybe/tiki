@@ -11,6 +11,7 @@ A collection of handy tips, tricks, and frequently asked questions.
 - [I created a new tiki but I can't find it](#i-created-a-new-tiki-but-i-cant-find-it)
 - [How to edit workflow file](#how-to-edit-workflow-file)
 - [Open a tiki project in Obsidian](#open-a-tiki-project-in-obsidian)
+- [Open the current tiki in VS Code](#open-the-current-tiki-in-vs-code)
 - [Chat with AI](#chat-with-ai)
 - [Copy description](#copy-description)
 - [Quickly add or remove a tag](#quickly-add-or-remove-a-tag)
@@ -112,6 +113,19 @@ ln -s .doc doc
 git add doc
 git commit -m "add doc symlink for Obsidian"
 ```
+
+### Open the current tiki in VS Code
+
+Add this to `views.actions` in your workflow YAML:
+
+```yaml
+- key: "o"
+  label: "Open in VS Code"
+  action: select filepath where id = id() | run("code \"$1\"")
+```
+
+`filepath` is the synthetic field with the tiki's absolute path; `$1` passes it to the `code`
+CLI, which opens the file in a VS Code window.
 
 ### Chat with AI
 
