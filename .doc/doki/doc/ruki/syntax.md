@@ -47,7 +47,7 @@ new.status
 The following EBNF-style summary shows the grammar:
 
 ```text
-statement        = selectStmt | createStmt | updateStmt | deleteStmt ;
+statement        = selectStmt | createStmt | updateStmt | deleteStmt | exprStmt ;
 
 selectStmt       = "select" [ fieldList | "*" ] [ "where" condition ] [ orderBy ] [ "limit" int ] [ pipeAction ] ;
 fieldList        = identifier { "," identifier } ;
@@ -59,6 +59,7 @@ orderBy          = "order" "by" sortField { "," sortField } ;
 sortField        = identifier [ "asc" | "desc" ] ;
 updateStmt       = "update" "where" condition "set" assignment { assignment } ;
 deleteStmt       = "delete" "where" condition ;
+exprStmt         = expr ;
 
 assignment       = identifier "=" expr ;
 
@@ -89,6 +90,11 @@ Notes:
 - Bare `select` and `select *` both mean all fields. A field list like `select title, status` projects only the
   named fields.
 - `every` wraps a CRUD statement with a periodic interval. Only `create`, `update`, and `delete` are allowed
+- An `exprStmt` is any expression used as a top-level statement. It returns a single scalar (or list) value
+  instead of a table of rows. Typical uses: `count(select where status = "done")`, `exists(select where priority = 1)`,
+  `now()`, or arithmetic like `count(select where status = "done") + count(select where status = "ready")`.
+  Bare field references (e.g. `title`) are rejected at the top level because there is no current task; they
+  remain valid inside subqueries like `count(select where status = "done")`.
 
 ## Condition grammar
 
@@ -157,6 +163,16 @@ Limit:
 select order by priority limit 3
 select where status != "done" order by priority limit 5
 select limit 1
+```
+
+Top-level expressions:
+
+```sql
+count(select)
+count(select where status != "done")
+exists(select where priority = 1)
+now()
+count(select where status = "done") + count(select where status = "ready")
 ```
 
 ## Expression grammar

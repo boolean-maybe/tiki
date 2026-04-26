@@ -2315,8 +2315,31 @@ func TestValidation_TriggerActionMustNotBeSelect(t *testing.T) {
 	if err == nil {
 		t.Fatal("expected error for trigger with select action")
 	}
-	if !strings.Contains(err.Error(), "trigger action must not be select") {
-		t.Errorf("expected 'trigger action must not be select' error, got: %v", err)
+	if !strings.Contains(err.Error(), "trigger action must be create, update, or delete") {
+		t.Errorf("expected allowlist error, got: %v", err)
+	}
+}
+
+// TestValidation_TriggerActionRejectsExpression guards against hand-built ASTs
+// that try to slip a top-level expression statement into a trigger action slot.
+// The grammar does not produce this, but the AST type permits it, so the
+// validator must allowlist create/update/delete rather than denylist select.
+func TestValidation_TriggerActionRejectsExpression(t *testing.T) {
+	p := newTestParser()
+	trig := &Trigger{
+		Timing: "after",
+		Event:  "update",
+		Action: &Statement{Expr: &ExprStmt{
+			Expr: &FunctionCall{Name: "now"},
+			Type: ValueTimestamp,
+		}},
+	}
+	err := p.validateTrigger(trig)
+	if err == nil {
+		t.Fatal("expected error for trigger with expression action")
+	}
+	if !strings.Contains(err.Error(), "trigger action must be create, update, or delete") {
+		t.Errorf("expected allowlist error, got: %v", err)
 	}
 }
 

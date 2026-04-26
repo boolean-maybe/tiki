@@ -244,6 +244,16 @@ func parsePluginActions(configs []PluginActionConfig, parser *ruki.Parser) ([]Pl
 			}
 		}
 
+		// scalar expression statements (e.g. count(select)) have nowhere to go
+		// in a plugin action — no rows to update, no scalar sink in the
+		// controller. reject at parse time rather than silently succeeding.
+		if actionStmt.IsExpr() {
+			return nil, fmt.Errorf(
+				"action %d (key %q): action must be create, update, delete, or select (got expression statement)",
+				i, cfg.Key,
+			)
+		}
+
 		if actionStmt.UsesChooseBuiltin() {
 			hasChoose = true
 			chooseFilter = actionStmt.ChooseFilter()

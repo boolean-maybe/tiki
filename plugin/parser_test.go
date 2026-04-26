@@ -628,6 +628,33 @@ func TestParsePluginActions_PipeAcceptedAsAction(t *testing.T) {
 	}
 }
 
+func TestParsePluginActions_RejectsExpressionStatement(t *testing.T) {
+	parser := testParser()
+
+	tests := []struct {
+		name   string
+		action string
+	}{
+		{"count top-level", `count(select)`},
+		{"count with where", `count(select where status = "done")`},
+		{"exists top-level", `exists(select where priority = 1)`},
+		{"now top-level", `now()`},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			configs := []PluginActionConfig{{Key: "x", Label: "Scalar", Action: tt.action}}
+			_, err := parsePluginActions(configs, parser)
+			if err == nil {
+				t.Fatal("expected error for expression statement as plugin action")
+			}
+			// message should steer the reader toward the supported action shapes
+			if !strings.Contains(err.Error(), "expression statement") {
+				t.Errorf("expected 'expression statement' in error, got: %v", err)
+			}
+		})
+	}
+}
+
 func TestParsePluginConfig_LaneFilterParseError(t *testing.T) {
 	schema := testSchema()
 	cfg := pluginFileConfig{

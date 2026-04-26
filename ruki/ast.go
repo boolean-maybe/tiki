@@ -11,6 +11,16 @@ type Statement struct {
 	Create *CreateStmt
 	Update *UpdateStmt
 	Delete *DeleteStmt
+	Expr   *ExprStmt
+}
+
+// ExprStmt represents a top-level expression whose value is returned as a
+// scalar (or list) result, e.g. `count(select where status = "done")` or
+// `now()`. The inferred type is captured so runtime formatting can distinguish
+// a date-valued time.Time from a timestamp.
+type ExprStmt struct {
+	Expr Expr
+	Type ValueType
 }
 
 // SelectStmt represents "select [fields] [where <condition>] [order by ...] [limit N] [| run(...) | clipboard()]".

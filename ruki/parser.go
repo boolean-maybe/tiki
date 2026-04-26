@@ -48,14 +48,15 @@ type FieldSpec struct {
 
 // Parser parses ruki DSL statements and triggers.
 type Parser struct {
-	stmtParser        *participle.Parser[statementGrammar]
-	triggerParser     *participle.Parser[triggerGrammar]
-	timeTriggerParser *participle.Parser[timeTriggerGrammar]
-	ruleParser        *participle.Parser[ruleGrammar]
-	schema            Schema
-	qualifiers        qualifierPolicy // set before each validation pass
-	requireQualifiers bool            // when true, bare FieldRef is a parse error (trigger where-guards)
-	inputType         *ValueType      // set per-call for input() type inference; nil when not available
+	stmtParser          *participle.Parser[statementGrammar]
+	triggerParser       *participle.Parser[triggerGrammar]
+	timeTriggerParser   *participle.Parser[timeTriggerGrammar]
+	ruleParser          *participle.Parser[ruleGrammar]
+	schema              Schema
+	qualifiers          qualifierPolicy // set before each validation pass
+	requireQualifiers   bool            // when true, bare FieldRef is a parse error (trigger where-guards)
+	rejectBareFieldRefs bool            // when true, bare FieldRef has no context (top-level expression statement)
+	inputType           *ValueType      // set per-call for input() type inference; nil when not available
 }
 
 // NewParser constructs a Parser with the given schema for validation.
@@ -88,6 +89,7 @@ func (p *Parser) ParseStatement(input string) (*Statement, error) {
 		return nil, err
 	}
 	p.qualifiers = noQualifiers
+	p.rejectBareFieldRefs = false
 	if err := p.validateStatement(stmt); err != nil {
 		return nil, err
 	}

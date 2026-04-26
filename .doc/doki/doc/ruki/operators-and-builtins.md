@@ -207,8 +207,8 @@ create title="x" dependsOn=dependsOn + tags
 
 | Name | Result type | Arguments | Notes |
 |---|---|---|---|
-| `count(...)` | `int` | exactly 1 | argument must be a `select` subquery |
-| `exists(...)` | `bool` | exactly 1 | argument must be a `select` subquery; true when any tiki matches |
+| `count(...)` | `int` | exactly 1 | argument must be a `select` subquery; usable as a top-level expression |
+| `exists(...)` | `bool` | exactly 1 | argument must be a `select` subquery; true when any tiki matches; usable as a top-level expression |
 | `now()` | `timestamp` | 0 | no additional validation |
 | `next_date(...)` | `date` | exactly 1 | argument must be `recurrence` |
 | `blocks(...)` | `list<ref>` | exactly 1 | argument must be `id`, `ref`, or string literal |
@@ -262,6 +262,10 @@ Runtime notes:
 - `id()`, `ids()`, and `selected_count()` are all rejected for CLI, event-trigger, and time-trigger semantic
   runtimes.
 - `exists(...)` is a non-interactive boolean builtin. Its subquery body is validated recursively.
+- `count(...)`, `exists(...)`, `now()`, `user()`, and other non-interactive builtins may appear as top-level
+  expression statements: `tiki exec 'count(select where status = "done")'` prints the scalar result instead of
+  a table. Bare field references are rejected at the top level (no current task), but remain valid inside the
+  subquery argument to `count(...)` or `exists(...)`.
 - `call(...)` is currently rejected by semantic validation.
 - `input()` returns the value typed by the user at the action prompt. Its return type matches the `input:`
   declaration on the action, so `input: string` means `input()` returns `string`. Only valid in plugin action
