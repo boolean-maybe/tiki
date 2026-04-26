@@ -85,8 +85,14 @@ tiki exec 'exists(select where priority = 1)'
 tiki exec 'now()'
 ```
 
-Use `count(...)` to get a number, `exists(...)` to get `true` or `false`, and `now()` for the current time.
-Numbers can be combined, for example `count(...) + count(...)`.
+Use `count(...)` to get a number or `exists(...)` to check for existence
+
+For scripting, add `--format json`
+```sh
+tiki exec --format json 'select id, title where status = "ready"'
+```
+
+See [Command line options](../command-line.md#exec) for the full list of JSON output shapes.
 
 ## Conditions and expressions
 

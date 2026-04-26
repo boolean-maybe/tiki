@@ -61,13 +61,26 @@ tiki init -n --ai-skill claude,gemini --samples
 Execute a [ruki](ruki/index.md) query and exit. Requires an initialized project.
 
 ```bash
-tiki exec '<ruki-statement>'
+tiki exec [--format table|json] [--] '<ruki-statement>'
 ```
+
+| Option | Description |
+|---|---|
+| `--format <table\|json>` | Output format. `table` (default) prints human-readable text; `json` emits compact JSON |
+| `--` | End-of-options marker. Use when the statement starts with `-` (e.g. a `--` ruki line comment) |
 
 Examples:
 ```bash
 tiki exec 'select where status = "ready" order by priority'
 tiki exec 'update where id = "TIKI-ABC123" set status="done"'
+
+# JSON output for scripting
+tiki exec --format json 'select id, title where status = "ready"'
+tiki exec --format=json 'count(select where assignee = user())'
+
+# statement that starts with a `--` ruki line comment
+tiki exec -- '-- backlog count
+count(select where status != "done")'
 ```
 
 ### workflow

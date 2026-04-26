@@ -802,6 +802,156 @@ func TestRunQueryScalarRejectsBareFieldRef(t *testing.T) {
 	}
 }
 
+// --- RunQueryWithOptions: JSON output ---
+
+func TestRunQueryWithOptionsSelectJSON(t *testing.T) {
+	s := setupRunnerTest(t)
+
+	var buf bytes.Buffer
+	err := RunQueryWithOptions(gateFor(s), `select id, title where status = "ready"`, &buf,
+		RunQueryOptions{OutputFormat: OutputJSON})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	out := strings.TrimSpace(buf.String())
+	// should be a JSON array, not a table
+	if !strings.HasPrefix(out, "[") || !strings.HasSuffix(out, "]") {
+		t.Errorf("expected JSON array, got:\n%s", out)
+	}
+	if strings.Contains(out, "+---") || strings.Contains(out, "|") {
+		t.Errorf("expected no table borders in JSON output:\n%s", out)
+	}
+	if !strings.Contains(out, `"TIKI-AAA001"`) || !strings.Contains(out, `"Build API"`) {
+		t.Errorf("missing expected row data:\n%s", out)
+	}
+}
+
+func TestRunQueryWithOptionsScalarJSON(t *testing.T) {
+	s := setupRunnerTest(t)
+
+	tests := []struct {
+		name  string
+		query string
+		want  string
+	}{
+		{"count", `count(select where status = "ready")`, "1"},
+		{"exists true", `exists(select where status = "done")`, "true"},
+		{"exists false", `exists(select where priority = 99)`, "false"},
+		{"arithmetic", `1 + 2`, "3"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var buf bytes.Buffer
+			err := RunQueryWithOptions(gateFor(s), tt.query, &buf,
+				RunQueryOptions{OutputFormat: OutputJSON})
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+			if got := strings.TrimSpace(buf.String()); got != tt.want {
+				t.Errorf("got %q, want %q", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestRunQueryWithOptionsUpdateJSON(t *testing.T) {
+	s := setupRunnerTest(t)
+
+	var buf bytes.Buffer
+	err := RunQueryWithOptions(gateFor(s), `update where id = "TIKI-AAA001" set title="x"`, &buf,
+		RunQueryOptions{OutputFormat: OutputJSON})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if got := strings.TrimSpace(buf.String()); got != `{"failed":0,"updated":1}` {
+		t.Errorf("got %q", got)
+	}
+}
+
+func TestRunQueryWithOptionsCreateJSON(t *testing.T) {
+	s := setupRunnerTest(t)
+
+	var buf bytes.Buffer
+	err := RunQueryWithOptions(gateFor(s), `create title="New" status="ready"`, &buf,
+		RunQueryOptions{OutputFormat: OutputJSON})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	out := strings.TrimSpace(buf.String())
+	// shape: {"created":"TIKI-XXXXXX"}
+	if !strings.HasPrefix(out, `{"created":"TIKI-`) || !strings.HasSuffix(out, `"}`) {
+		t.Errorf("unexpected create JSON: %q", out)
+	}
+}
+
+func TestRunQueryWithOptionsDeleteJSON(t *testing.T) {
+	s := setupRunnerTest(t)
+
+	var buf bytes.Buffer
+	err := RunQueryWithOptions(gateFor(s), `delete where id = "TIKI-AAA001"`, &buf,
+		RunQueryOptions{OutputFormat: OutputJSON})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if got := strings.TrimSpace(buf.String()); got != `{"deleted":1,"failed":0}` {
+		t.Errorf("got %q", got)
+	}
+}
+
+// a ruki statement may legitimately start with a `--` line comment. This
+// locks in the full path: such a statement is accepted by the runtime,
+// parsed past the leading comment, and executed normally.
+func TestRunQueryWithOptionsDashLeadingComment(t *testing.T) {
+	s := setupRunnerTest(t)
+
+	stmt := "-- backlog count\ncount(select where status = \"ready\")"
+
+	var buf bytes.Buffer
+	err := RunQueryWithOptions(gateFor(s), stmt, &buf, RunQueryOptions{OutputFormat: OutputJSON})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if got := strings.TrimSpace(buf.String()); got != "1" {
+		t.Errorf("got %q, want 1", got)
+	}
+}
+
+func TestRunQueryWithOptionsTableIsDefault(t *testing.T) {
+	s := setupRunnerTest(t)
+
+	// zero-value options ≡ OutputTable, and should match RunQuery output
+	var bufOpts bytes.Buffer
+	if err := RunQueryWithOptions(gateFor(s), `select id`, &bufOpts, RunQueryOptions{}); err != nil {
+		t.Fatal(err)
+	}
+	var bufDefault bytes.Buffer
+	if err := RunQuery(gateFor(s), `select id`, &bufDefault); err != nil {
+		t.Fatal(err)
+	}
+	if bufOpts.String() != bufDefault.String() {
+		t.Errorf("zero options should equal RunQuery output\ngot:  %q\nwant: %q", bufOpts.String(), bufDefault.String())
+	}
+}
+
+func TestRunQueryWithOptionsUpdatePartialFailureJSON(t *testing.T) {
+	s := setupRunnerTest(t)
+	_ = s.CreateTask(&task.Task{ID: "TIKI-CCC003", Title: "Third", Status: "ready", Priority: 3})
+	fs := &failingUpdateStore{Store: s, failID: "TIKI-AAA001"}
+
+	var buf bytes.Buffer
+	err := RunQueryWithOptions(gateFor(fs), `update where status = "ready" set priority=5`, &buf,
+		RunQueryOptions{OutputFormat: OutputJSON})
+	if err == nil {
+		t.Fatal("expected partial failure error")
+	}
+	// JSON summary should still be written before the error is returned
+	out := strings.TrimSpace(buf.String())
+	if !strings.HasPrefix(out, "{") || !strings.Contains(out, `"failed":1`) {
+		t.Errorf("expected JSON summary with failed=1, got: %q", out)
+	}
+}
+
 func TestRunQueryDeleteValidatorRejection(t *testing.T) {
 	s := setupRunnerTest(t)
 
