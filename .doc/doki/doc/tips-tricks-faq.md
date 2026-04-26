@@ -10,6 +10,7 @@ A collection of handy tips, tricks, and frequently asked questions.
 - [Quick create](#quick-create)
 - [I created a new tiki but I can't find it](#i-created-a-new-tiki-but-i-cant-find-it)
 - [How to edit workflow file](#how-to-edit-workflow-file)
+- [Open a tiki project in Obsidian](#open-a-tiki-project-in-obsidian)
 - [Chat with AI](#chat-with-ai)
 - [Copy description](#copy-description)
 - [Quickly add or remove a tag](#quickly-add-or-remove-a-tag)
@@ -92,6 +93,25 @@ YAML.
 There's no hotkey for it — open the action palette with `Ctrl-A` and pick **Edit Workflow**. Tiki
 opens the workflow YAML in `$EDITOR`. When you exit the editor, restart tiki for the changes to
 take effect.
+
+### Open a tiki project in Obsidian
+
+an Obsidian vault from folder needs to be created first, then:
+
+```
+obsidian vault=my-project open
+```
+![Tiki docs opened in Obsidian](images/obsidian.png)
+
+opens Obsidian vault and browse the markdown with backlinks, graph view, and live preview.
+
+```bash
+# Obsidian does not display dot folders
+ln -s .doc doc
+# if you want to keep in git
+git add doc
+git commit -m "add doc symlink for Obsidian"
+```
 
 ### Chat with AI
 
@@ -196,3 +216,4 @@ tiki exec 'count(select where assignee = user() and status = "inProgress")'
 
 These also work from `!` inside tiki — type the ruki statement and
 the count prints in the status line.
+
