@@ -6,6 +6,7 @@ A collection of handy tips, tricks, and frequently asked questions.
 
 - [Create tiki from markdown file](#create-tiki-from-markdown-file)
 - [Find tiki by ID](#find-tiki-by-id)
+- [Find recently edited tikis](#find-recently-edited-tikis)
 - [Quick create](#quick-create)
 - [I created a new tiki but I can't find it](#i-created-a-new-tiki-but-i-cant-find-it)
 - [How to edit workflow file](#how-to-edit-workflow-file)
@@ -36,6 +37,26 @@ Press `/` to open the search box, then start typing the ID. Matching is case-ins
 works on any substring, so `tiki-ab12c3`, `TIKI-AB12C3`, and `ab12c3` all find the same task.
 
 Press Enter to keep the filter active (search passive mode), or Esc to clear it.
+
+### Find recently edited tikis
+
+Press `Ctrl-R` to open the **Recent** view. It shows every tiki touched in the last 24 hours,
+most recently updated first. Useful for "what did I work on yesterday?" or picking up where you
+left off after lunch.
+
+Defined in the stock workflow YAML:
+
+```yaml
+- name: Recent
+  description: "Tasks changed in the last 24 hours, most recent first"
+  key: Ctrl-R
+  lanes:
+    - name: Recent
+      columns: 4
+      filter: select where now() - updatedAt < 24hour order by updatedAt desc
+```
+
+Widen the window by editing the filter — e.g. `< 7day` for a week, `< 1hour` for the last hour.
 
 ### Quick create
 
@@ -110,11 +131,11 @@ Under the hood these are list-arithmetic updates:
 ```yaml
 - key: "t"
   label: "Add tag"
-  action: update where id = id() set tags=tags+[input()]
+  action: update where id = id() set tags=tags+input()
   input: string
 - key: "T"
   label: "Remove tag"
-  action: update where id = id() set tags=tags-[input()]
+  action: update where id = id() set tags=tags-input()
   input: string
 ```
 
@@ -130,6 +151,8 @@ Use `tiki exec` to run a ruki update across the whole store:
 tiki exec 'update where "idea" in tags set tags=tags-"idea"'
 ```
 
+Or press `!` from any view and type the same statement
+
 ### Daily standup digest
 
 Copy your in-flight work to the clipboard, ready to paste into Slack or standup notes:
@@ -139,6 +162,8 @@ tiki exec 'select id, title where status = "inProgress" and assignee = user() | 
 ```
 
 Add `order by updated desc limit 5` for a "what I touched recently" shortlist.
+
+The same statement runs in-app: press `!` on any view
 
 ### Sync tikis to GitHub issues
 
@@ -151,6 +176,8 @@ tiki exec 'select id, title, description where "sync-gh" in tags | run("gh issue
 The pipe runs the command once per matching tiki, substituting `$1`, `$2`, `$3` with the selected
 fields. Swap `gh issue create` for `curl`, `slack`, `jira`, or anything else — tiki doesn't need
 built-in integrations, ruki pipes *are* the integration layer.
+
+Prefer running it without leaving the TUI? Press `!`, paste the statement and press Enter
 
 ### How many tikis are in my project
 
@@ -166,3 +193,6 @@ Add a `where` clause to count a slice:
 tiki exec 'count(select where status != "done")'
 tiki exec 'count(select where assignee = user() and status = "inProgress")'
 ```
+
+These also work from `!` inside tiki — type the ruki statement and
+the count prints in the status line.

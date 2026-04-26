@@ -73,12 +73,44 @@ func RunQuery(gate *service.TaskMutationGate, query string, out io.Writer) error
 	case result.Delete != nil:
 		return persistDelete(ctx, gate, result.Delete, out)
 
+	case result.Pipe != nil:
+		return executePipe(ctx, result.Pipe, out)
+
+	case result.Clipboard != nil:
+		if err := service.ExecuteClipboardPipe(result.Clipboard.Rows); err != nil {
+			return err
+		}
+		_, _ = fmt.Fprintf(out, "copied %d rows to clipboard\n", len(result.Clipboard.Rows))
+		return nil
+
 	case result.Scalar != nil:
 		return FormatScalar(out, result.Scalar)
 
 	default:
 		return fmt.Errorf("unsupported statement type")
 	}
+}
+
+// executePipe runs the pipe command for each row. If any row fails, the first
+// error is returned after all rows are attempted, matching the plugin-action
+// behavior in controller/plugin.go where per-row failures log but don't abort.
+func executePipe(ctx context.Context, pr *ruki.PipeResult, out io.Writer) error {
+	var firstErr error
+	succeeded := 0
+	for _, row := range pr.Rows {
+		if err := service.ExecutePipeCommand(ctx, pr.Command, row); err != nil {
+			if firstErr == nil {
+				firstErr = err
+			}
+			continue
+		}
+		succeeded++
+	}
+	if firstErr != nil {
+		return firstErr
+	}
+	_, _ = fmt.Fprintf(out, "ran command on %d rows\n", succeeded)
+	return nil
 }
 
 // RunSelectQuery is the read-only entry point restricted to SELECT statements.
