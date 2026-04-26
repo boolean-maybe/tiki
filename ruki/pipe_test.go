@@ -50,6 +50,7 @@ func TestParsePipeSelect(t *testing.T) {
 		{"multi-field pipe", `select id, title where status = "done" | run("myscript $1 $2")`},
 		{"pipe without where", `select id | run("echo $1")`},
 		{"pipe with order by", `select id, priority where status = "ready" order by priority | run("echo $1 $2")`},
+		{"filepath pipe", `select filepath | run("some-app $1")`},
 	}
 
 	for _, tt := range tests {
@@ -554,6 +555,39 @@ func TestExecuteClipboardWithLimit(t *testing.T) {
 	}
 	if result.Clipboard.Rows[1][0] != "TIKI-000001" {
 		t.Errorf("row[1][0] = %q, want %q", result.Clipboard.Rows[1][0], "TIKI-000001")
+	}
+}
+
+// --- filepath pipe ---
+
+func TestExecutePipeFilepath(t *testing.T) {
+	e := NewExecutor(testSchema{}, nil, ExecutorRuntime{Mode: ExecutorRuntimePlugin})
+	p := newTestParser()
+	tasks := []*task.Task{
+		{ID: "TIKI-000001", Title: "x", Status: "ready", Type: "story",
+			Priority: 1, FilePath: "/abs/path/tiki-000001.md"},
+	}
+
+	stmt, err := p.ParseAndValidateStatement(`select filepath | run("some-app $1")`, ExecutorRuntimePlugin)
+	if err != nil {
+		t.Fatalf("parse: %v", err)
+	}
+
+	result, err := e.Execute(stmt, tasks)
+	if err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	if result.Pipe == nil {
+		t.Fatal("expected Pipe result")
+	}
+	if result.Pipe.Command != "some-app $1" {
+		t.Errorf("command = %q, want %q", result.Pipe.Command, "some-app $1")
+	}
+	if len(result.Pipe.Rows) != 1 {
+		t.Fatalf("expected 1 row, got %d", len(result.Pipe.Rows))
+	}
+	if result.Pipe.Rows[0][0] != "/abs/path/tiki-000001.md" {
+		t.Errorf("row[0] = %q, want %q", result.Pipe.Rows[0][0], "/abs/path/tiki-000001.md")
 	}
 }
 

@@ -319,6 +319,7 @@ after update where new.status = "in progress" run("echo hello")
 - Command must be a string literal or expression, but **field references are not allowed in the command** itself
 - `|` is a statement suffix, not an operator
 - Example: `select id, title where status = "done" | run("myscript $1 $2")`
+- Example: `select filepath | run("some-app $1")` — pipes each task's absolute markdown file path as `$1`
 
 **`| clipboard()` on select** — a pipe suffix
 

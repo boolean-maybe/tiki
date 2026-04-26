@@ -56,6 +56,11 @@ The workflow field catalog exposes these fields to `ruki`:
 | `createdBy` | `string` |
 | `createdAt` | `timestamp` |
 | `updatedAt` | `timestamp` |
+| `filepath` | `string` |
+
+`filepath` is a synthetic, read-only field populated by the file-backed store. It holds the absolute path to the task's
+markdown file for persisted tasks, and is an empty string for in-memory or unsaved tasks. It never appears in YAML
+frontmatter and cannot be assigned via `create` or `update`.
 
 ## Literals
 

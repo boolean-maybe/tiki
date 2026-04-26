@@ -313,7 +313,7 @@ func (e *Executor) executeDelete(del *DeleteStmt, tasks []*task.Task) (*Result, 
 
 func (e *Executor) setField(t *task.Task, name string, val interface{}) error {
 	switch name {
-	case "id", "createdBy", "createdAt", "updatedAt":
+	case "id", "createdBy", "createdAt", "updatedAt", "filepath":
 		return fmt.Errorf("field %q is immutable", name)
 
 	case "title":
@@ -1641,6 +1641,8 @@ func (e *Executor) extractField(t *task.Task, name string) interface{} {
 		return t.CreatedAt
 	case "updatedAt":
 		return t.UpdatedAt
+	case "filepath":
+		return t.FilePath
 	default:
 		fs, ok := e.schema.Field(name)
 		if !ok || !fs.Custom {

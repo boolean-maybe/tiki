@@ -47,7 +47,7 @@ This page explains how `ruki` statements, triggers, conditions, and expressions 
   the task template.
 - Duplicate assignments to the same field are rejected.
 - Every assigned field must exist in the injected schema.
-- `id`, `createdBy`, `createdAt`, and `updatedAt` are immutable and cannot be assigned.
+- `id`, `createdBy`, `createdAt`, `updatedAt`, and `filepath` are immutable and cannot be assigned.
 
 `update`
 
@@ -55,7 +55,7 @@ This page explains how `ruki` statements, triggers, conditions, and expressions 
 - At least one assignment in `set` is required.
 - The `where` clause and every right-hand side expression are validated.
 - Duplicate assignments inside `set` are rejected.
-- `id`, `createdBy`, `createdAt`, and `updatedAt` are immutable and cannot be assigned.
+- `id`, `createdBy`, `createdAt`, `updatedAt`, and `filepath` are immutable and cannot be assigned.
 
 `delete`
 

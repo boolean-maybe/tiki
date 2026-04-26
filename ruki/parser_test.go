@@ -26,6 +26,7 @@ func (testSchema) Field(name string) (FieldSpec, bool) {
 		"createdBy":   {Name: "createdBy", Type: ValueString},
 		"createdAt":   {Name: "createdAt", Type: ValueTimestamp},
 		"updatedAt":   {Name: "updatedAt", Type: ValueTimestamp},
+		"filepath":    {Name: "filepath", Type: ValueString},
 	}
 	f, ok := fields[name]
 	return f, ok

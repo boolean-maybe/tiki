@@ -36,6 +36,7 @@ func TestSchemaFieldMapping(t *testing.T) {
 		{"createdAt", ruki.ValueTimestamp},
 		{"updatedAt", ruki.ValueTimestamp},
 		{"recurrence", ruki.ValueRecurrence},
+		{"filepath", ruki.ValueString},
 	}
 
 	for _, tt := range tests {

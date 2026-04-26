@@ -968,7 +968,7 @@ func TestExecuteCreateEnumNormalization(t *testing.T) {
 func TestExecuteCreateImmutableFieldRejected(t *testing.T) {
 	e := newTestExecutor()
 
-	for _, field := range []string{"id", "createdBy", "createdAt", "updatedAt"} {
+	for _, field := range []string{"id", "createdBy", "createdAt", "updatedAt", "filepath"} {
 		t.Run(field, func(t *testing.T) {
 			stmt := &Statement{
 				Create: &CreateStmt{
@@ -3209,7 +3209,7 @@ func TestExecuteUpdateImmutableFieldRejected(t *testing.T) {
 		{ID: "TIKI-000001", Title: "x", Status: "ready"},
 	}
 
-	fields := []string{"id", "createdBy", "createdAt", "updatedAt"}
+	fields := []string{"id", "createdBy", "createdAt", "updatedAt", "filepath"}
 	for _, field := range fields {
 		t.Run(field, func(t *testing.T) {
 			stmt := &Statement{

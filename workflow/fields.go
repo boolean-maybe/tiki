@@ -55,6 +55,7 @@ var fieldCatalog = []FieldDef{
 	{Name: "createdBy", Type: TypeString},
 	{Name: "createdAt", Type: TypeTimestamp},
 	{Name: "updatedAt", Type: TypeTimestamp},
+	{Name: "filepath", Type: TypeString},
 }
 
 // pre-built lookup for Field()

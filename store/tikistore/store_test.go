@@ -1551,3 +1551,138 @@ func TestSaveTask_DedupesCustomListFields(t *testing.T) {
 		t.Errorf("related = %v, want [TIKI-AAA001 TIKI-BBB002]", related)
 	}
 }
+
+func TestLoadTaskFile_FilePathAbsolute(t *testing.T) {
+	tmpDir := t.TempDir()
+	fileName := "tiki-fp0001.md"
+	content := `---
+title: Filepath Test
+type: story
+status: backlog
+---
+body`
+	testFile := filepath.Join(tmpDir, fileName)
+	if err := os.WriteFile(testFile, []byte(content), 0644); err != nil {
+		t.Fatalf("write file: %v", err)
+	}
+
+	store, err := NewTikiStore(tmpDir)
+	if err != nil {
+		t.Fatalf("NewTikiStore: %v", err)
+	}
+
+	// load with a relative path to prove loadTaskFile still resolves to absolute
+	rel, err := filepath.Rel(filepath.Dir(tmpDir), testFile)
+	if err != nil {
+		t.Fatalf("filepath.Rel: %v", err)
+	}
+	cwd, err := os.Getwd()
+	if err != nil {
+		t.Fatalf("Getwd: %v", err)
+	}
+	defer func() { _ = os.Chdir(cwd) }()
+	if err := os.Chdir(filepath.Dir(tmpDir)); err != nil {
+		t.Fatalf("Chdir: %v", err)
+	}
+
+	tk, err := store.loadTaskFile(rel, nil, nil)
+	if err != nil {
+		t.Fatalf("loadTaskFile: %v", err)
+	}
+	if !filepath.IsAbs(tk.FilePath) {
+		t.Errorf("FilePath is not absolute: %q", tk.FilePath)
+	}
+	if !strings.HasSuffix(tk.FilePath, fileName) {
+		t.Errorf("FilePath does not end with expected filename: %q", tk.FilePath)
+	}
+}
+
+func TestLoadSave_DropsStaleFilepathFrontmatter(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	// seed a file that already contains a stale filepath: key in frontmatter
+	fileName := "tiki-fp0003.md"
+	testFile := filepath.Join(tmpDir, fileName)
+	stale := `---
+title: Stale filepath
+type: story
+status: backlog
+priority: 3
+filepath: /stale/path/tiki-fp0003.md
+---
+body`
+	if err := os.WriteFile(testFile, []byte(stale), 0644); err != nil {
+		t.Fatalf("write file: %v", err)
+	}
+
+	store, err := NewTikiStore(tmpDir)
+	if err != nil {
+		t.Fatalf("NewTikiStore: %v", err)
+	}
+
+	tk := store.GetTask("TIKI-FP0003")
+	if tk == nil {
+		t.Fatal("GetTask returned nil")
+	}
+	// loaded FilePath must be the real absolute path, not the stale string
+	expectedAbs, _ := filepath.Abs(testFile)
+	if tk.FilePath != expectedAbs {
+		t.Errorf("FilePath = %q, want %q (real path, not stale)", tk.FilePath, expectedAbs)
+	}
+	// stale key must not leak into unknownFields
+	if _, exists := tk.UnknownFields["filepath"]; exists {
+		t.Errorf("stale filepath should not survive in UnknownFields, got %v", tk.UnknownFields["filepath"])
+	}
+
+	// save and re-read the file: stale key must be gone
+	if err := store.UpdateTask(tk); err != nil {
+		t.Fatalf("UpdateTask: %v", err)
+	}
+	content, err := os.ReadFile(testFile)
+	if err != nil {
+		t.Fatalf("read back: %v", err)
+	}
+	if strings.Contains(string(content), "filepath:") {
+		t.Errorf("stale 'filepath:' still present after save:\n%s", content)
+	}
+}
+
+func TestSaveTask_FilePathRefreshedAndNotSerialized(t *testing.T) {
+	tmpDir := t.TempDir()
+	store, err := NewTikiStore(tmpDir)
+	if err != nil {
+		t.Fatalf("NewTikiStore: %v", err)
+	}
+
+	tk := &taskpkg.Task{
+		ID:       "TIKI-FP0002",
+		Title:    "Save Filepath Test",
+		Type:     taskpkg.TypeStory,
+		Status:   "backlog",
+		Priority: 3,
+	}
+	if err := store.CreateTask(tk); err != nil {
+		t.Fatalf("CreateTask: %v", err)
+	}
+
+	if tk.FilePath == "" {
+		t.Fatal("FilePath not set after CreateTask")
+	}
+	if !filepath.IsAbs(tk.FilePath) {
+		t.Errorf("FilePath is not absolute: %q", tk.FilePath)
+	}
+	expectedPath := filepath.Join(tmpDir, "tiki-fp0002.md")
+	expectedAbs, _ := filepath.Abs(expectedPath)
+	if tk.FilePath != expectedAbs {
+		t.Errorf("FilePath = %q, want %q", tk.FilePath, expectedAbs)
+	}
+
+	// verify filepath is NOT serialized to YAML frontmatter
+	content, err := os.ReadFile(expectedPath)
+	if err != nil {
+		t.Fatalf("read saved file: %v", err)
+	}
+	if strings.Contains(string(content), "filepath:") {
+		t.Errorf("saved file should not contain 'filepath:' frontmatter key:\n%s", content)
+	}
+}

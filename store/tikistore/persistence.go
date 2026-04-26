@@ -130,6 +130,13 @@ func (s *TikiStore) loadTaskFile(path string, authorMap map[string]*git.AuthorIn
 		taskType = taskpkg.DefaultType()
 	}
 
+	absPath, absErr := filepath.Abs(path)
+	if absErr != nil {
+		// fall back to the raw path — still better than leaving it empty
+		slog.Debug("failed to resolve absolute task path, using raw path", "file", path, "error", absErr)
+		absPath = path
+	}
+
 	task := &taskpkg.Task{
 		ID:            taskID,
 		Title:         fm.Title,
@@ -146,6 +153,7 @@ func (s *TikiStore) loadTaskFile(path string, authorMap map[string]*git.AuthorIn
 		CustomFields:  customFields,
 		UnknownFields: unknownFields,
 		LoadedMtime:   info.ModTime(),
+		FilePath:      absPath,
 	}
 
 	// Validate and default Priority field (1-5 range)
@@ -376,6 +384,12 @@ func (s *TikiStore) saveTask(task *taskpkg.Task) error {
 				}
 			}
 		}
+		if absPath, absErr := filepath.Abs(path); absErr == nil {
+			task.FilePath = absPath
+		} else {
+			slog.Debug("failed to resolve absolute task path after save, using raw path", "task_id", task.ID, "path", path, "error", absErr)
+			task.FilePath = path
+		}
 		slog.Debug("task file saved and timestamps computed", "task_id", task.ID, "path", path, "new_mtime", task.LoadedMtime, "updated_at", task.UpdatedAt)
 	} else {
 		slog.Error("failed to stat file after save for mtime computation", "task_id", task.ID, "path", path, "error", err)
@@ -428,7 +442,14 @@ func extractCustomFields(fmMap map[string]interface{}, path string) (customField
 			registryChecked = true
 		}
 		fd, ok := workflow.Field(key)
-		if !ok || !fd.Custom {
+		if ok && !fd.Custom {
+			// registered built-in (e.g. synthetic read-only fields like
+			// filepath). These are derived, never persisted — drop whatever
+			// was in the file so stale values don't survive a round-trip.
+			slog.Debug("dropping synthetic built-in field from frontmatter", "field", key, "file", path)
+			continue
+		}
+		if !ok {
 			slog.Debug("preserving unknown field in frontmatter", "field", key, "file", path)
 			if unknownFields == nil {
 				unknownFields = make(map[string]interface{})

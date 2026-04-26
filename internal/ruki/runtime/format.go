@@ -133,6 +133,8 @@ func extractFieldValue(t *task.Task, name string) interface{} {
 		return t.CreatedAt
 	case "updatedAt":
 		return t.UpdatedAt
+	case "filepath":
+		return t.FilePath
 	default:
 		fd, ok := workflow.Field(name)
 		if !ok || !fd.Custom {

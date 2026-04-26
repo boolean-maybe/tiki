@@ -165,6 +165,7 @@ Pipe select results to a shell command or clipboard:
 select id, title where status = "done" | run("myscript $1 $2")
 select id where id = id() | clipboard()
 select description where id = id() | clipboard()
+select filepath | run("some-app $1")
 ```
 
 Pick a task interactively:
