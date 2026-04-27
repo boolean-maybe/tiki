@@ -554,26 +554,35 @@ func TestRunInit_InitializesGitRepo(t *testing.T) {
 }
 
 // setupRunInitTest prepares a hermetic environment for runInit tests: isolated
-// XDG dirs, fresh path manager, and a restore-cwd cleanup so runInit's chdir
+// XDG dirs, fresh path manager, and a restore-cwd hook so runInit's chdir
 // never leaks between tests. Mirrors setupDemoTest but does not chdir anywhere
 // (runInit chdirs into the target itself).
-func setupRunInitTest(t *testing.T) {
+//
+// Returns a restoreCwd function that the test body MUST invoke via defer
+// before returning. On Windows, t.TempDir() removal fails while any process is
+// chdir'd inside it ("file is being used by another process"). Using t.Cleanup
+// for the chdir-restore doesn't work because later t.TempDir() calls in the
+// test body register their removal cleanups LIFO — running AFTER the chdir
+// cleanup would help, but they actually run BEFORE it since they were
+// registered after. A defer in the test body always fires before any cleanup.
+func setupRunInitTest(t *testing.T) (restoreCwd func()) {
 	t.Helper()
 
 	originalDir, err := os.Getwd()
 	if err != nil {
 		t.Fatalf("getwd: %v", err)
 	}
-	t.Cleanup(func() { _ = os.Chdir(originalDir) })
 
 	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
 	t.Setenv("XDG_CACHE_HOME", t.TempDir())
 	config.ResetPathManager()
 	t.Cleanup(config.ResetPathManager)
+
+	return func() { _ = os.Chdir(originalDir) }
 }
 
 func TestRunInit_NoGitWhenDisabled_FreshDir(t *testing.T) {
-	setupRunInitTest(t)
+	defer setupRunInitTest(t)()
 	t.Setenv("TIKI_STORE_GIT", "false")
 
 	dir := filepath.Join(t.TempDir(), "fresh")
@@ -591,7 +600,7 @@ func TestRunInit_NoGitWhenDisabled_FreshDir(t *testing.T) {
 }
 
 func TestRunInit_NoGitWhenDisabled_ExistingEmptyDir(t *testing.T) {
-	setupRunInitTest(t)
+	defer setupRunInitTest(t)()
 	t.Setenv("TIKI_STORE_GIT", "false")
 
 	dir := t.TempDir() // already exists, empty
@@ -612,7 +621,7 @@ func TestRunInit_NoGitWhenDisabled_ExistingEmptyDir(t *testing.T) {
 // off and the parent directory is a git repo, runInit neither creates a
 // repo under the target nor touches the parent's index.
 func TestRunInit_IsolatedFromParentRepo_FlagOff(t *testing.T) {
-	setupRunInitTest(t)
+	defer setupRunInitTest(t)()
 	t.Setenv("TIKI_STORE_GIT", "false")
 
 	parent := t.TempDir()
@@ -638,7 +647,7 @@ func TestRunInit_IsolatedFromParentRepo_FlagOff(t *testing.T) {
 // (ancestor walk), init would attach to the parent repo and sub/.git would
 // be absent. With os.Stat(".git") (local check), it correctly creates its own.
 func TestRunInit_IsolatedFromParentRepo_FlagOn(t *testing.T) {
-	setupRunInitTest(t)
+	defer setupRunInitTest(t)()
 	t.Setenv("TIKI_STORE_GIT", "true")
 
 	parent := t.TempDir()
@@ -665,7 +674,7 @@ func TestRunInit_IsolatedFromParentRepo_FlagOn(t *testing.T) {
 }
 
 func TestRunInit_PreservesExistingGitWhenFlagOff(t *testing.T) {
-	setupRunInitTest(t)
+	defer setupRunInitTest(t)()
 	t.Setenv("TIKI_STORE_GIT", "false")
 
 	dir := t.TempDir()
@@ -700,7 +709,7 @@ func TestRunInit_PreservesExistingGitWhenFlagOff(t *testing.T) {
 // flipping TIKI_STORE_GIT between runs reconciles git state even when the
 // project is already initialized. Mirrors TestRunDemo_ReconcilesGitOnSecondRun.
 func TestRunInit_ReconcilesGitOnSecondRun(t *testing.T) {
-	setupRunInitTest(t)
+	defer setupRunInitTest(t)()
 
 	dir := t.TempDir()
 
@@ -714,11 +723,6 @@ func TestRunInit_ReconcilesGitOnSecondRun(t *testing.T) {
 	}
 
 	// chdir back so the second call can parseInitArgs relative to a known cwd
-	originalDir, err := os.Getwd()
-	if err != nil {
-		t.Fatalf("getwd: %v", err)
-	}
-	t.Cleanup(func() { _ = os.Chdir(originalDir) })
 	if err := os.Chdir(filepath.Dir(dir)); err != nil {
 		t.Fatalf("chdir parent: %v", err)
 	}
