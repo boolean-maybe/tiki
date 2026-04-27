@@ -1,0 +1,36 @@
+# Builds tiki from the repo, then ships a slim runtime image that launches
+# the embedded demo project via `tiki demo` on start. `tiki demo` extracts
+# the demo into ./tiki-demo, chdirs into it, and falls through to the normal
+# TUI bootstrap — so a single invocation is all that's needed.
+#
+# To use it:
+#   docker build -f docker/Dockerfile.tiki -t tiki-demo .
+#   docker run --rm -it tiki-demo
+#
+# Build context must be the repo root — `COPY . .` pulls the tiki source in.
+# The `-it` flags are required: tiki is a TUI and needs a TTY.
+
+FROM golang:1.25-bookworm AS build
+
+WORKDIR /src
+
+COPY go.mod go.sum ./
+RUN go mod download
+
+COPY . .
+
+RUN CGO_ENABLED=0 go build -trimpath -ldflags="-s -w" -o /out/tiki .
+
+FROM debian:bookworm-slim
+
+ENV TERM=xterm-256color
+
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends ca-certificates git \
+    && rm -rf /var/lib/apt/lists/*
+
+COPY --from=build /out/tiki /usr/local/bin/tiki
+
+WORKDIR /work
+
+CMD ["tiki", "demo"]

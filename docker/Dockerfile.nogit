@@ -1,0 +1,14 @@
+# To use it:
+#   docker build -f docker/Dockerfile.nogit -t tiki-nogit .
+#   docker run --rm -it tiki-nogit
+#
+# The build context is not used (no COPY), so any directory works as context.
+# The `-it` flags give you an interactive bash shell. This variant has no git.
+
+FROM debian:bookworm-slim
+
+ENV TERM=xterm-256color
+
+RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates curl vim-tiny && rm -rf /var/lib/apt/lists/*
+
+CMD ["bash"]

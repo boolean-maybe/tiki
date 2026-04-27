@@ -1,0 +1,83 @@
+# Builds tiki like Dockerfile.tiki does, but ships a runtime image that also
+# includes the external tools required for image rendering via the Kitty
+# graphics protocol: `resvg` (SVG), `mmdc` (Mermaid), and `dot` (Graphviz).
+# This image is much larger (~1.9 GB on arm64 vs ~300 MB) but renders the
+# full demo content in Kitty-capable terminals. Use Dockerfile.tiki for a
+# lean image.
+#
+# To use it:
+#   docker build -f docker/Dockerfile.tiki-images -t tiki-demo-images .
+#   docker run --rm -it \
+#       -e TERM -e TERM_PROGRAM \
+#       -e KITTY_WINDOW_ID -e WEZTERM_EXECUTABLE -e GHOSTTY_RESOURCES_DIR \
+#       tiki-demo-images
+#
+# The -e flags forward the host terminal's identity so tiki can detect Kitty
+# graphics support (see util/terminal.go). Without them, images fall back to
+# alt text even in a Kitty-capable terminal.
+#
+# Build context must be the repo root — `COPY . .` pulls the tiki source in.
+# The `-it` flags are required: tiki is a TUI and needs a TTY.
+
+FROM golang:1.25-bookworm AS tiki-build
+
+WORKDIR /src
+
+COPY go.mod go.sum ./
+RUN go mod download
+
+COPY . .
+
+RUN CGO_ENABLED=0 go build -trimpath -ldflags="-s -w" -o /out/tiki .
+
+# build resvg from source so the image works on both linux/amd64 and linux/arm64
+# (upstream only publishes x86_64 binaries). The resulting binary is static and
+# we copy only it into the final stage.
+FROM rust:1-bookworm AS resvg-build
+
+RUN cargo install resvg --version 0.47.0 --root /out
+
+# node:20-bookworm-slim ships a modern Node (mermaid-cli's deps require >=20)
+# while staying on the Debian package set, so apt-get still works for chromium,
+# graphviz, and git.
+FROM node:20-bookworm-slim
+
+# default TERM in the image. At run time, `docker run -e TERM` overrides
+# this with the host terminal's value (needed so ncurses/tcell pick the
+# right terminfo and so tiki's Kitty detection works).
+ENV TERM=xterm-256color
+
+# puppeteer inside mmdc needs --no-sandbox when running as root in a container,
+# and we point it at Debian's chromium rather than downloading its own copy.
+ENV PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium \
+    PUPPETEER_SKIP_DOWNLOAD=true
+
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends \
+        ca-certificates \
+        git \
+        graphviz \
+        chromium \
+        fonts-dejavu-core \
+    && npm install -g --no-fund --no-audit @mermaid-js/mermaid-cli \
+    && npm cache clean --force \
+    && rm -rf /var/lib/apt/lists/* /root/.npm
+
+# puppeteer-config.json tells mmdc to launch chromium with --no-sandbox, which
+# is required when running as root inside a container.
+RUN printf '{"args":["--no-sandbox","--disable-setuid-sandbox"]}' \
+    > /etc/puppeteer-config.json
+
+# wrap mmdc so callers don't need to pass -p themselves. node:20-bookworm-slim
+# places global npm bins in /usr/local/bin.
+RUN mv /usr/local/bin/mmdc /usr/local/bin/mmdc.bin \
+    && printf '#!/bin/sh\nexec /usr/local/bin/mmdc.bin -p /etc/puppeteer-config.json "$@"\n' \
+        > /usr/local/bin/mmdc \
+    && chmod +x /usr/local/bin/mmdc
+
+COPY --from=resvg-build /out/bin/resvg /usr/local/bin/resvg
+COPY --from=tiki-build /out/tiki /usr/local/bin/tiki
+
+WORKDIR /work
+
+CMD ["tiki", "demo"]
