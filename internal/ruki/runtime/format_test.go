@@ -693,3 +693,37 @@ func TestFormatSetToZeroVsUnset(t *testing.T) {
 		t.Errorf("unset bool should render as empty, got %q", s)
 	}
 }
+
+func TestFormatFilepath(t *testing.T) {
+	initTestRegistries()
+
+	proj := &ruki.TaskProjection{
+		Fields: []string{"id", "filepath"},
+		Tasks: []*task.Task{
+			{ID: "TIKI-FP0001", Title: "x", Status: "ready", FilePath: "/abs/path/tiki-fp0001.md"},
+			{ID: "TIKI-FP0002", Title: "y", Status: "ready"},
+		},
+	}
+
+	var buf bytes.Buffer
+	if err := NewTableFormatter().Format(&buf, proj); err != nil {
+		t.Fatal(err)
+	}
+	out := buf.String()
+
+	if !strings.Contains(out, "filepath") {
+		t.Errorf("header should contain 'filepath':\n%s", out)
+	}
+	if !strings.Contains(out, "/abs/path/tiki-fp0001.md") {
+		t.Errorf("missing FilePath value in output:\n%s", out)
+	}
+
+	lines := strings.Split(out, "\n")
+	// second data row (lines[4]) — unset FilePath should render as empty.
+	// Cells are wrapped by '|' so parts[0] is empty-before-first-pipe,
+	// parts[1] is the id cell, parts[2] is the filepath cell.
+	row2 := strings.Split(lines[4], "|")
+	if s := strings.TrimSpace(row2[2]); s != "" {
+		t.Errorf("unset FilePath should render as empty, got %q", s)
+	}
+}

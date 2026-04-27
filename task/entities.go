@@ -23,6 +23,7 @@ type Task struct {
 	CustomFields  map[string]interface{} // user-defined fields from workflow.yaml
 	UnknownFields map[string]interface{} // non-builtin keys not matching any registered custom field
 	LoadedMtime   time.Time              // File mtime when loaded (for optimistic locking)
+	FilePath      string                 // absolute path to the task markdown file (empty for in-memory tasks)
 }
 
 // Clone creates a deep copy of the task
@@ -46,6 +47,7 @@ func (t *Task) Clone() *Task {
 		CreatedAt:   t.CreatedAt,
 		UpdatedAt:   t.UpdatedAt,
 		LoadedMtime: t.LoadedMtime,
+		FilePath:    t.FilePath,
 	}
 
 	// Deep copy slices

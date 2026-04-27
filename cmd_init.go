@@ -7,16 +7,19 @@ import (
 	"strings"
 
 	"github.com/boolean-maybe/tiki/config"
+	"github.com/boolean-maybe/tiki/internal/bootstrap"
 	"github.com/boolean-maybe/tiki/store/tikistore"
 )
 
 // InitOpts holds parsed arguments for the init subcommand.
 type InitOpts struct {
-	Directory      string
-	WorkflowName   string
-	AISkills       []string
-	Samples        bool
-	NonInteractive bool
+	Directory       string
+	WorkflowName    string
+	WorkflowSource  config.WorkflowSource
+	WorkflowContent string
+	AISkills        []string
+	Samples         bool
+	NonInteractive  bool
 }
 
 // parseInitArgs parses `tiki init` arguments using manual iteration
@@ -95,10 +98,11 @@ func splitAndTrim(s string) []string {
 	return result
 }
 
-// ensureDirectoryAndGitRepo creates the directory if it doesn't exist and
-// initializes a git repository if one isn't already present.
-func ensureDirectoryAndGitRepo(dir string) error {
-	info, err := os.Stat(dir)
+// ensureDirectory creates the directory if it doesn't exist and verifies it is
+// a directory if it does. No git side effects — safe to call before config load
+// and before os.Chdir.
+func ensureDirectory(dir string) error {
+	info, err := os.Stat(dir) //nolint:gosec // G703: dir comes from filepath.Abs in parseInitArgs
 	if err != nil {
 		if !os.IsNotExist(err) {
 			return fmt.Errorf("directory %q: %w", dir, err)
@@ -107,25 +111,44 @@ func ensureDirectoryAndGitRepo(dir string) error {
 		if err := os.MkdirAll(dir, 0755); err != nil {
 			return fmt.Errorf("create directory %q: %w", dir, err)
 		}
-	} else if !info.IsDir() {
+		return nil
+	}
+	if !info.IsDir() {
 		return fmt.Errorf("%q is not a directory", dir)
 	}
+	return nil
+}
 
-	if !tikistore.IsGitRepo(dir) {
-		if err := tikistore.GitInit(dir); err != nil {
-			return err
-		}
+// reconcileInitGit brings the current directory's git state in line with the
+// resolved `store.git` config. Must be called after LoadConfig so GetStoreGit
+// is authoritative. Idempotent: safe to call on fresh dirs, existing dirs, and
+// pre-existing git repos.
+func reconcileInitGit() error {
+	if !config.GetStoreGit() {
+		// user disabled git-backed store — leave any existing .git/ alone.
+		_, _ = fmt.Fprintln(os.Stderr, "info: store.git=false; skipping git repo init")
+		return nil
 	}
 
+	// check for a local .git entry, not an ancestor repo. tikistore.IsGitRepo
+	// walks up the directory tree, so running `tiki init ./sub` from inside an
+	// existing checkout would otherwise attach to the parent repo. os.Stat
+	// answers the right question: does *this* directory own a repo?
+	if _, err := os.Stat(".git"); err == nil {
+		return nil
+	}
+
+	if err := tikistore.GitInit("."); err != nil {
+		return fmt.Errorf("git init: %w", err)
+	}
 	return nil
 }
 
 // validateInitOpts checks that the parsed options are valid before running init.
-func validateInitOpts(opts InitOpts) error {
-	if err := ensureDirectoryAndGitRepo(opts.Directory); err != nil {
-		return err
-	}
-
+// It classifies the workflow input and stores the resolved WorkflowSource on opts
+// so that file paths survive the later os.Chdir.
+// Workflow validation runs before directory creation to avoid side effects on failure.
+func validateInitOpts(opts *InitOpts) error {
 	for _, skill := range opts.AISkills {
 		if _, ok := config.LookupAITool(skill); !ok {
 			validKeys := make([]string, 0, len(config.AITools()))
@@ -141,9 +164,45 @@ func validateInitOpts(opts InitOpts) error {
 	}
 
 	if opts.WorkflowName != "" {
-		if !config.ValidWorkflowName(opts.WorkflowName) {
-			return fmt.Errorf("invalid workflow name %q: use letters, digits, hyphens, dots, or underscores", opts.WorkflowName)
+		src, err := config.ClassifyWorkflowInput(opts.WorkflowName)
+		if err != nil {
+			return fmt.Errorf("invalid workflow source %q: %w", opts.WorkflowName, err)
 		}
+		switch src.Kind {
+		case config.WorkflowSourceEmbedded:
+			if _, ok := config.LookupEmbeddedWorkflow(src.Name); !ok {
+				return fmt.Errorf("unknown workflow %q (available: %s)",
+					src.Name, strings.Join(config.EmbeddedWorkflowNames(), ", "))
+			}
+		case config.WorkflowSourceFile:
+			info, err := os.Stat(src.Name)
+			if err != nil {
+				return fmt.Errorf("workflow file %q: %w", src.Name, err)
+			}
+			if !info.Mode().IsRegular() {
+				return fmt.Errorf("workflow path %q is not a regular file", src.Name)
+			}
+		case config.WorkflowSourceURL:
+			// validated below via fetch
+		}
+
+		// pre-fetch and validate content so failures happen before project bootstrap
+		content, err := config.FetchWorkflowContent(src)
+		if err != nil {
+			return fmt.Errorf("fetch workflow %q: %w", opts.WorkflowName, err)
+		}
+		if src.Kind != config.WorkflowSourceEmbedded {
+			vw, err := config.ValidateWorkflowContent(content)
+			if err != nil {
+				return fmt.Errorf("invalid workflow %q: %w", opts.WorkflowName, err)
+			}
+			if err := validateWorkflowViews(vw, content); err != nil {
+				return fmt.Errorf("invalid workflow %q: %w", opts.WorkflowName, err)
+			}
+		}
+
+		opts.WorkflowSource = src
+		opts.WorkflowContent = content
 	}
 
 	return nil
@@ -162,7 +221,12 @@ func runInit(args []string) int {
 		return exitUsage
 	}
 
-	if err := validateInitOpts(opts); err != nil {
+	if err := validateInitOpts(&opts); err != nil {
+		_, _ = fmt.Fprintln(os.Stderr, "error:", err)
+		return exitStartupFailure
+	}
+
+	if err := ensureDirectory(opts.Directory); err != nil {
 		_, _ = fmt.Fprintln(os.Stderr, "error:", err)
 		return exitStartupFailure
 	}
@@ -172,7 +236,21 @@ func runInit(args []string) int {
 		return exitStartupFailure
 	}
 
+	// reset path manager so InitPaths observes the new cwd, then load config
+	// so GetStoreGit reflects TIKI_STORE_GIT / config.yaml values before
+	// reconcileInitGit runs. Matches cmd_demo.go:52-59.
+	config.ResetPathManager()
 	if err := config.InitPaths(); err != nil {
+		_, _ = fmt.Fprintln(os.Stderr, "error:", err)
+		return exitStartupFailure
+	}
+
+	if _, err := bootstrap.LoadConfig(); err != nil {
+		_, _ = fmt.Fprintln(os.Stderr, "error:", err)
+		return exitStartupFailure
+	}
+
+	if err := reconcileInitGit(); err != nil {
 		_, _ = fmt.Fprintln(os.Stderr, "error:", err)
 		return exitStartupFailure
 	}
@@ -208,7 +286,10 @@ func runInit(args []string) int {
 		}
 	}
 
-	gitAdd := tikistore.NewGitAdder("")
+	var gitAdd func(...string) error
+	if config.GetStoreGit() {
+		gitAdd = tikistore.NewGitAdder("")
+	}
 	if err := config.BootstrapSystem(createSamples, gitAdd); err != nil {
 		_, _ = fmt.Fprintf(os.Stderr, "error: bootstrap: %v\n", err)
 		return exitStartupFailure
@@ -227,7 +308,7 @@ func runInit(args []string) int {
 	}
 
 	if opts.WorkflowName != "" {
-		results, err := config.InstallWorkflow(opts.WorkflowName, config.ScopeLocal, config.DefaultWorkflowBaseURL)
+		results, err := config.InstallWorkflowFromContent(opts.WorkflowContent, config.ScopeLocal)
 		if err != nil {
 			_, _ = fmt.Fprintf(os.Stderr, "error: install workflow %q: %v\n", opts.WorkflowName, err)
 			return exitStartupFailure
@@ -246,24 +327,32 @@ func runInit(args []string) int {
 func printInitUsage() {
 	fmt.Print(`Usage: tiki init [directory] [options]
 
-Initialize a tiki project. Creates the directory and git repo if needed.
+Initialize a tiki project. Creates the directory, and initializes a git repo
+if store.git is enabled (the default; see config.md).
 
 Arguments:
   directory                    Target directory (default: current directory)
 
 Options:
-  -w, --workflow <name>        Install a named workflow (e.g. todo, kanban, bug-tracker)
+  -w, --workflow <source>      Install a workflow (embedded name, file path, or URL)
   --ai-skill <list>            AI skills to install (comma-separated: claude,gemini)
   --samples                    Create bundled sample tasks (non-interactive only)
   -n, --non-interactive        Skip prompts, use flags/defaults only
   -h, --help                   Show this help message
 
+Workflow sources:
+  Embedded names:  kanban, todo, bug-tracker
+  File path:       ./my-workflow.yaml, /path/to/workflow.yaml
+  URL:             https://example.com/workflow.yaml
+
 Examples:
-  tiki init                    Initialize current directory interactively
-  tiki init my-project         Initialize my-project subdirectory
-  tiki init -w todo            Initialize with the todo workflow
-  tiki init -w kanban test1    Initialize test1 with the kanban workflow
-  tiki init -n --samples       Initialize non-interactively with sample tasks
-  tiki init --ai-skill claude  Initialize with Claude Code AI skill
+  tiki init                              Initialize current directory interactively
+  tiki init my-project                   Initialize my-project subdirectory
+  tiki init -w todo                      Initialize with the todo workflow
+  tiki init -w kanban test1              Initialize test1 with the kanban workflow
+  tiki init -w ./custom.yaml             Initialize with a local workflow file
+  tiki init -w https://example.com/w.yaml  Initialize with a remote workflow
+  tiki init -n --samples                 Initialize non-interactively with sample tasks
+  tiki init --ai-skill claude            Initialize with Claude Code AI skill
 `)
 }

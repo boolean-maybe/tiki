@@ -1,6 +1,7 @@
 package ruki
 
 import (
+	"strings"
 	"testing"
 	"time"
 )
@@ -25,6 +26,7 @@ func (testSchema) Field(name string) (FieldSpec, bool) {
 		"createdBy":   {Name: "createdBy", Type: ValueString},
 		"createdAt":   {Name: "createdAt", Type: ValueTimestamp},
 		"updatedAt":   {Name: "updatedAt", Type: ValueTimestamp},
+		"filepath":    {Name: "filepath", Type: ValueString},
 	}
 	f, ok := fields[name]
 	return f, ok
@@ -94,6 +96,69 @@ func TestParseSelect(t *testing.T) {
 			if !tt.wantWhere && stmt.Select.Where != nil {
 				t.Fatal("expected nil Where, got condition")
 			}
+		})
+	}
+}
+
+func TestParseBareBoolConditions(t *testing.T) {
+	p := newCustomParser()
+
+	tests := []struct {
+		name  string
+		input string
+		check func(t *testing.T, cond Condition)
+	}{
+		{
+			"literal",
+			`select where true`,
+			func(t *testing.T, cond Condition) {
+				t.Helper()
+				bare, ok := cond.(*BoolExprCondition)
+				if !ok {
+					t.Fatalf("expected *BoolExprCondition, got %T", cond)
+				}
+				if lit, ok := bare.Expr.(*BoolLiteral); !ok || !lit.Value {
+					t.Fatalf("expected true BoolLiteral, got %T", bare.Expr)
+				}
+			},
+		},
+		{
+			"field",
+			`select where flag`,
+			func(t *testing.T, cond Condition) {
+				t.Helper()
+				bare, ok := cond.(*BoolExprCondition)
+				if !ok {
+					t.Fatalf("expected *BoolExprCondition, got %T", cond)
+				}
+				if ref, ok := bare.Expr.(*FieldRef); !ok || ref.Name != "flag" {
+					t.Fatalf("expected flag FieldRef, got %T", bare.Expr)
+				}
+			},
+		},
+		{
+			"not field",
+			`select where not flag`,
+			func(t *testing.T, cond Condition) {
+				t.Helper()
+				not, ok := cond.(*NotCondition)
+				if !ok {
+					t.Fatalf("expected *NotCondition, got %T", cond)
+				}
+				if _, ok := not.Inner.(*BoolExprCondition); !ok {
+					t.Fatalf("expected BoolExprCondition inner, got %T", not.Inner)
+				}
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			stmt, err := p.ParseStatement(tt.input)
+			if err != nil {
+				t.Fatalf("parse error: %v", err)
+			}
+			tt.check(t, stmt.Select.Where)
 		})
 	}
 }
@@ -616,6 +681,39 @@ func TestParseSubQuery(t *testing.T) {
 	}
 }
 
+func TestParseOuterQualifiedRefInSubQuery(t *testing.T) {
+	p := newTestParser()
+
+	stmt, err := p.ParseStatement(`select where exists(select where outer.id in dependsOn)`)
+	if err != nil {
+		t.Fatalf("parse error: %v", err)
+	}
+
+	bare, ok := stmt.Select.Where.(*BoolExprCondition)
+	if !ok {
+		t.Fatalf("expected BoolExprCondition, got %T", stmt.Select.Where)
+	}
+	call, ok := bare.Expr.(*FunctionCall)
+	if !ok {
+		t.Fatalf("expected FunctionCall, got %T", bare.Expr)
+	}
+	sq, ok := call.Args[0].(*SubQuery)
+	if !ok {
+		t.Fatalf("expected SubQuery arg, got %T", call.Args[0])
+	}
+	in, ok := sq.Where.(*InExpr)
+	if !ok {
+		t.Fatalf("expected InExpr, got %T", sq.Where)
+	}
+	outer, ok := in.Value.(*QualifiedRef)
+	if !ok {
+		t.Fatalf("expected QualifiedRef, got %T", in.Value)
+	}
+	if outer.Qualifier != "outer" || outer.Name != "id" {
+		t.Fatalf("expected outer.id, got %s.%s", outer.Qualifier, outer.Name)
+	}
+}
+
 func TestParseStatementErrors(t *testing.T) {
 	p := newTestParser()
 
@@ -867,5 +965,157 @@ select where status = "done"`
 	}
 	if stmt.Select == nil {
 		t.Fatal("expected Select")
+	}
+}
+
+// target./targets. qualifier parser acceptance — structurally valid in any
+// standalone statement; the semantic validator gates them to plugin runtime.
+func TestParseTargetQualifier_Accepts(t *testing.T) {
+	p := newTestParser()
+
+	tests := []struct {
+		name  string
+		input string
+	}{
+		{"target.id in compare", `select where id = target.id`},
+		{"target.status in compare", `select where status = target.status`},
+		{"targets.id in membership", `select where id in targets.id`},
+		{"targets.dependsOn in membership", `select where id in targets.dependsOn`},
+		{"targets.tags in membership", `select where "infra" in targets.tags`},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if _, err := p.ParseStatement(tt.input); err != nil {
+				t.Fatalf("parse error: %v", err)
+			}
+		})
+	}
+}
+
+func TestParseTargetQualifier_UnknownField(t *testing.T) {
+	p := newTestParser()
+	tests := []struct {
+		name  string
+		input string
+	}{
+		{"target.nope", `select where id = target.nope`},
+		{"targets.nope", `select where id in targets.nope`},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			_, err := p.ParseStatement(tt.input)
+			if err == nil {
+				t.Fatalf("expected parse/validation error for %q, got nil", tt.input)
+			}
+			if !strings.Contains(err.Error(), "unknown field") {
+				t.Fatalf("expected unknown field error, got: %v", err)
+			}
+		})
+	}
+}
+
+func TestParseTargetsQualifier_UnsupportedScalarProjection(t *testing.T) {
+	p := newTestParser()
+	tests := []struct {
+		name  string
+		input string
+	}{
+		{"targets.priority (int)", `select where priority in targets.priority`},
+		{"targets.due (date)", `select where due in targets.due`},
+		{"targets.createdAt (timestamp)", `select where createdAt in targets.createdAt`},
+		{"targets.recurrence", `select where recurrence in targets.recurrence`},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			_, err := p.ParseStatement(tt.input)
+			if err == nil {
+				t.Fatalf("expected error for %q, got nil", tt.input)
+			}
+			if !strings.Contains(err.Error(), "targets.") || !strings.Contains(err.Error(), "not supported") {
+				t.Fatalf("expected unsupported projection error, got: %v", err)
+			}
+		})
+	}
+}
+
+// --- top-level expression statements ---
+
+func TestParseExprStatement(t *testing.T) {
+	p := newTestParser()
+
+	tests := []struct {
+		name     string
+		input    string
+		wantType ValueType
+	}{
+		{"count select", `count(select)`, ValueInt},
+		{"count select where", `count(select where status = "done")`, ValueInt},
+		{"exists select where", `exists(select where priority = 1)`, ValueBool},
+		{"now", `now()`, ValueTimestamp},
+		{"int literal", `42`, ValueInt},
+		{"int arithmetic", `1 + 2`, ValueInt},
+		{"count plus count", `count(select where status = "done") + count(select where status = "ready")`, ValueInt},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			stmt, err := p.ParseStatement(tt.input)
+			if err != nil {
+				t.Fatalf("parse error: %v", err)
+			}
+			if stmt.Expr == nil {
+				t.Fatalf("expected Expr statement, got %+v", stmt)
+			}
+			if stmt.Expr.Type != tt.wantType {
+				t.Errorf("inferred type = %s, want %s", typeName(stmt.Expr.Type), typeName(tt.wantType))
+			}
+		})
+	}
+}
+
+func TestParseExprStatement_RejectsBareFieldRef(t *testing.T) {
+	p := newTestParser()
+
+	tests := []string{
+		`title`,
+		`priority`,
+		`status`,
+		`count(select) + priority`,
+	}
+	for _, input := range tests {
+		t.Run(input, func(t *testing.T) {
+			_, err := p.ParseStatement(input)
+			if err == nil {
+				t.Fatalf("expected error for bare field at top level, got nil")
+			}
+			if !strings.Contains(err.Error(), "top level") && !strings.Contains(err.Error(), "not valid at the top level") {
+				t.Errorf("expected top-level rejection error, got: %v", err)
+			}
+		})
+	}
+}
+
+func TestParseExprStatement_SubQueryFieldRefOK(t *testing.T) {
+	p := newTestParser()
+
+	// bare field refs are fine inside the subquery — they resolve against
+	// the candidate task the subquery iterates over.
+	stmt, err := p.ParseStatement(`count(select where status = "done" and priority <= 2)`)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if stmt.Expr == nil {
+		t.Fatal("expected Expr statement")
+	}
+}
+
+func TestParseExprStatement_UnknownFunction(t *testing.T) {
+	p := newTestParser()
+	_, err := p.ParseStatement(`mystery_fn()`)
+	if err == nil {
+		t.Fatal("expected unknown function error")
+	}
+	if !strings.Contains(err.Error(), "unknown function") {
+		t.Errorf("expected unknown function error, got: %v", err)
 	}
 }

@@ -7,14 +7,21 @@ import (
 
 // validate.go — structural validation and semantic type-checking.
 
-// qualifierPolicy controls which old./new. qualifiers are allowed during validation.
+// qualifierPolicy controls which old./new./outer./target./targets. qualifiers
+// are allowed during validation. target. and targets. are plugin-runtime
+// qualifiers; the structural validator admits them in standalone statement
+// parsing, while the semantic validator rejects them outside plugin runtime.
 type qualifierPolicy struct {
-	allowOld bool
-	allowNew bool
+	allowOld     bool
+	allowNew     bool
+	allowOuter   bool
+	allowTarget  bool
+	allowTargets bool
 }
 
-// no qualifiers allowed (standalone statements).
-var noQualifiers = qualifierPolicy{}
+// noQualifiers is the default for standalone statements. target. and targets.
+// are admitted structurally here; the semantic validator gates them by runtime.
+var noQualifiers = qualifierPolicy{allowTarget: true, allowTargets: true}
 
 func triggerQualifiers(event string) qualifierPolicy {
 	switch event {
@@ -33,14 +40,17 @@ var builtinFuncs = map[string]struct {
 	minArgs    int
 	maxArgs    int
 }{
-	"count":     {ValueInt, 1, 1},
-	"choose":    {ValueRef, 1, 1},
-	"id":        {ValueID, 0, 0},
-	"now":       {ValueTimestamp, 0, 0},
-	"next_date": {ValueDate, 1, 1},
-	"blocks":    {ValueListRef, 1, 1},
-	"call":      {ValueString, 1, 1},
-	"user":      {ValueString, 0, 0},
+	"count":          {ValueInt, 1, 1},
+	"choose":         {ValueRef, 1, 1},
+	"exists":         {ValueBool, 1, 1},
+	"id":             {ValueID, 0, 0},
+	"ids":            {ValueListRef, 0, 0},
+	"selected_count": {ValueInt, 0, 0},
+	"now":            {ValueTimestamp, 0, 0},
+	"next_date":      {ValueDate, 1, 1},
+	"blocks":         {ValueListRef, 1, 1},
+	"call":           {ValueString, 1, 1},
+	"user":           {ValueString, 0, 0},
 }
 
 // --- structural validation ---
@@ -62,6 +72,8 @@ func (p *Parser) validateStatement(s *Statement) error {
 		return p.validateAssignments(s.Update.Set)
 	case s.Delete != nil:
 		return p.validateCondition(s.Delete.Where)
+	case s.Expr != nil:
+		return p.validateExprStmt(s.Expr)
 	case s.Select != nil:
 		if err := p.validateSelectFields(s.Select.Fields); err != nil {
 			return err
@@ -101,6 +113,25 @@ func (p *Parser) validateStatement(s *Statement) error {
 	}
 }
 
+// validateExprStmt type-checks a top-level expression statement. Bare field
+// references are rejected because there is no "current task" at the top
+// level; references inside subqueries still resolve against their candidate
+// task (validateSubQueryFuncCall resets the reject flag).
+func (p *Parser) validateExprStmt(es *ExprStmt) error {
+	if es == nil || es.Expr == nil {
+		return fmt.Errorf("empty expression statement")
+	}
+	savedReject := p.rejectBareFieldRefs
+	p.rejectBareFieldRefs = true
+	typ, err := p.inferExprType(es.Expr)
+	p.rejectBareFieldRefs = savedReject
+	if err != nil {
+		return err
+	}
+	es.Type = typ
+	return nil
+}
+
 func (p *Parser) validateTrigger(t *Trigger) error {
 	if t.Timing == "before" {
 		if t.Action != nil || t.Run != nil {
@@ -129,10 +160,12 @@ func (p *Parser) validateTrigger(t *Trigger) error {
 		}
 	}
 
-	// zone 2: action statement — bare fields resolve against target task
+	// zone 2: action statement — bare fields resolve against target task.
+	// allowlist the mutating variants so new Statement variants (e.g. Expr)
+	// fail closed instead of silently slipping through.
 	if t.Action != nil {
-		if t.Action.Select != nil {
-			return fmt.Errorf("trigger action must not be select")
+		if t.Action.Create == nil && t.Action.Update == nil && t.Action.Delete == nil {
+			return fmt.Errorf("trigger action must be create, update, or delete")
 		}
 		if err := p.validateStatement(t.Action); err != nil {
 			return err
@@ -155,9 +188,11 @@ func (p *Parser) validateTrigger(t *Trigger) error {
 func (p *Parser) validateRule(r *Rule) error {
 	switch {
 	case r.TimeTrigger != nil:
-		p.qualifiers = noQualifiers
+		// time triggers forbid target./targets. (plugin-only qualifiers)
+		p.qualifiers = qualifierPolicy{}
 		return p.validateTimeTrigger(r.TimeTrigger)
 	case r.Trigger != nil:
+		// event triggers forbid target./targets. (plugin-only qualifiers)
 		p.qualifiers = triggerQualifiers(r.Trigger.Event)
 		return p.validateTrigger(r.Trigger)
 	default:
@@ -169,10 +204,12 @@ func (p *Parser) validateTimeTrigger(tt *TimeTrigger) error {
 	if tt.Interval.Value <= 0 {
 		return fmt.Errorf("every interval must be positive, got %d%s", tt.Interval.Value, tt.Interval.Unit)
 	}
-	if tt.Action.Select != nil {
-		return fmt.Errorf("time trigger action must not be select")
+	if tt.Action == nil ||
+		(tt.Action.Create == nil && tt.Action.Update == nil && tt.Action.Delete == nil) {
+		return fmt.Errorf("time trigger action must be create, update, or delete")
 	}
-	p.qualifiers = noQualifiers
+	// time triggers forbid all qualifiers including target./targets.
+	p.qualifiers = qualifierPolicy{}
 	return p.validateStatement(tt.Action)
 }
 
@@ -276,6 +313,9 @@ func (p *Parser) validateCondition(c Condition) error {
 	case *NotCondition:
 		return p.validateCondition(c.Inner)
 
+	case *BoolExprCondition:
+		return p.validateBoolExprCondition(c)
+
 	case *CompareExpr:
 		return p.validateCompare(c)
 
@@ -292,6 +332,17 @@ func (p *Parser) validateCondition(c Condition) error {
 	default:
 		return fmt.Errorf("unknown condition type %T", c)
 	}
+}
+
+func (p *Parser) validateBoolExprCondition(c *BoolExprCondition) error {
+	exprType, err := p.inferExprType(c.Expr)
+	if err != nil {
+		return err
+	}
+	if exprType != ValueBool {
+		return fmt.Errorf("condition expression must be bool, got %s", typeName(exprType))
+	}
+	return nil
 }
 
 func (p *Parser) validateCompare(c *CompareExpr) error {
@@ -373,7 +424,13 @@ func (p *Parser) validateIn(c *InExpr) error {
 			enumInStringList := isLiteral && valType == ValueEnum && allStringLiterals(ll)
 			// allow bool field checked against a list of bool-string literals
 			boolInStringList := isLiteral && valType == ValueBool && allBoolStringLiterals(ll)
-			if !enumInStringList && !boolInStringList {
+			// allow an enum-typed value (status, type, or custom enum) on the
+			// left-hand side of a `in targets.<enum-field>` projection. The
+			// projection collapses enum-typed tasks to list<string>, but the
+			// underlying field semantics are still enum, so membership is
+			// well-defined when the two sides refer to the same domain.
+			enumInTargetsProjection := isEnumType(valType) && p.isTargetsEnumProjection(c.Collection, valType, c.Value)
+			if !enumInStringList && !boolInStringList && !enumInTargetsProjection {
 				if !isLiteral || !isStringLike(valType) || !allStringLiterals(ll) {
 					return fmt.Errorf("element type mismatch: %s in %s", typeName(valType), typeName(collType))
 				}
@@ -399,11 +456,17 @@ func (p *Parser) validateQuantifier(q *QuantifierExpr) error {
 	if exprType != ValueListRef {
 		return fmt.Errorf("quantifier %s requires list<ref>, got %s", q.Kind, typeName(exprType))
 	}
-	// zone 3: quantifier bodies — bare fields refer to each related task,
-	// qualifiers and requireQualifiers are both reset for the body
+	// zone 3: quantifier bodies — bare fields refer to each related task.
+	// old./new. and requireQualifiers are reset, while outer./target./targets.
+	// remain allowed when the quantifier itself appears inside a context that
+	// already permits them.
 	savedQualifiers := p.qualifiers
 	savedRequire := p.requireQualifiers
-	p.qualifiers = noQualifiers
+	p.qualifiers = qualifierPolicy{
+		allowOuter:   savedQualifiers.allowOuter,
+		allowTarget:  savedQualifiers.allowTarget,
+		allowTargets: savedQualifiers.allowTargets,
+	}
 	p.requireQualifiers = false
 	err = p.validateCondition(q.Condition)
 	p.qualifiers = savedQualifiers
@@ -419,6 +482,9 @@ func (p *Parser) inferExprType(e Expr) (ValueType, error) {
 		if p.requireQualifiers {
 			return 0, fmt.Errorf("bare field %q not allowed in trigger guard — use old.%s or new.%s", e.Name, e.Name, e.Name)
 		}
+		if p.rejectBareFieldRefs {
+			return 0, fmt.Errorf("bare field %q is not valid at the top level (no current task)", e.Name)
+		}
 		fs, ok := p.schema.Field(e.Name)
 		if !ok {
 			return 0, fmt.Errorf("unknown field %q", e.Name)
@@ -426,15 +492,36 @@ func (p *Parser) inferExprType(e Expr) (ValueType, error) {
 		return fs.Type, nil
 
 	case *QualifiedRef:
-		if e.Qualifier == "old" && !p.qualifiers.allowOld {
-			return 0, fmt.Errorf("old. qualifier is not valid in this context")
-		}
-		if e.Qualifier == "new" && !p.qualifiers.allowNew {
-			return 0, fmt.Errorf("new. qualifier is not valid in this context")
+		switch e.Qualifier {
+		case "old":
+			if !p.qualifiers.allowOld {
+				return 0, fmt.Errorf("old. qualifier is not valid in this context")
+			}
+		case "new":
+			if !p.qualifiers.allowNew {
+				return 0, fmt.Errorf("new. qualifier is not valid in this context")
+			}
+		case "outer":
+			if !p.qualifiers.allowOuter {
+				return 0, fmt.Errorf("outer. qualifier is not valid in this context")
+			}
+		case "target":
+			if !p.qualifiers.allowTarget {
+				return 0, fmt.Errorf("target. qualifier is not valid in this context")
+			}
+		case "targets":
+			if !p.qualifiers.allowTargets {
+				return 0, fmt.Errorf("targets. qualifier is not valid in this context")
+			}
+		default:
+			return 0, fmt.Errorf("unknown qualifier %q", e.Qualifier)
 		}
 		fs, ok := p.schema.Field(e.Name)
 		if !ok {
 			return 0, fmt.Errorf("unknown field %q in %s.%s", e.Name, e.Qualifier, e.Name)
+		}
+		if e.Qualifier == "targets" {
+			return projectedListType(fs.Type, e.Name)
 		}
 		return fs.Type, nil
 
@@ -466,7 +553,7 @@ func (p *Parser) inferExprType(e Expr) (ValueType, error) {
 		return p.inferBinaryExprType(e)
 
 	case *SubQuery:
-		return 0, fmt.Errorf("subquery is only valid as argument to count() or choose()")
+		return 0, fmt.Errorf("subquery is only valid as argument to count(), choose(), or exists()")
 
 	default:
 		return 0, fmt.Errorf("unknown expression type %T", e)
@@ -539,35 +626,9 @@ func (p *Parser) inferFuncCallType(fc *FunctionCall) (ValueType, error) {
 
 	// validate argument types for specific functions
 	switch fc.Name {
-	case "count":
-		sq, ok := fc.Args[0].(*SubQuery)
-		if !ok {
-			return 0, fmt.Errorf("count() argument must be a select subquery")
-		}
-		if sq.Where != nil {
-			// zone 4: subquery bodies — bare fields refer to each candidate task,
-			// qualifiers stay allowed (e.g. assignee = new.assignee), but requireQualifiers is reset
-			savedRequire := p.requireQualifiers
-			p.requireQualifiers = false
-			err := p.validateCondition(sq.Where)
-			p.requireQualifiers = savedRequire
-			if err != nil {
-				return 0, fmt.Errorf("count() subquery: %w", err)
-			}
-		}
-	case "choose":
-		sq, ok := fc.Args[0].(*SubQuery)
-		if !ok {
-			return 0, fmt.Errorf("choose() argument must be a select subquery")
-		}
-		if sq.Where != nil {
-			savedRequire := p.requireQualifiers
-			p.requireQualifiers = false
-			err := p.validateCondition(sq.Where)
-			p.requireQualifiers = savedRequire
-			if err != nil {
-				return 0, fmt.Errorf("choose() subquery: %w", err)
-			}
+	case "count", "choose", "exists":
+		if err := p.validateSubQueryFuncCall(fc.Name, fc.Args[0]); err != nil {
+			return 0, err
 		}
 	case "blocks":
 		argType, err := p.inferExprType(fc.Args[0])
@@ -601,6 +662,33 @@ func (p *Parser) inferFuncCallType(fc *FunctionCall) (ValueType, error) {
 	}
 
 	return builtin.returnType, nil
+}
+
+func (p *Parser) validateSubQueryFuncCall(name string, arg Expr) error {
+	sq, ok := arg.(*SubQuery)
+	if !ok {
+		return fmt.Errorf("%s() argument must be a select subquery", name)
+	}
+	if sq.Where == nil {
+		return nil
+	}
+	// zone 4: subquery bodies use candidate-task fields, so trigger guards stop requiring qualifiers
+	// and top-level expression statements stop rejecting bare field refs.
+	// outer. is valid here and resolves to the immediate parent query row.
+	savedQualifiers := p.qualifiers
+	savedRequire := p.requireQualifiers
+	savedReject := p.rejectBareFieldRefs
+	p.qualifiers.allowOuter = true
+	p.requireQualifiers = false
+	p.rejectBareFieldRefs = false
+	err := p.validateCondition(sq.Where)
+	p.qualifiers = savedQualifiers
+	p.requireQualifiers = savedRequire
+	p.rejectBareFieldRefs = savedReject
+	if err != nil {
+		return fmt.Errorf("%s() subquery: %w", name, err)
+	}
+	return nil
 }
 
 func (p *Parser) inferBinaryExprType(b *BinaryExpr) (ValueType, error) {
@@ -1005,6 +1093,47 @@ func resolveEmptyPair(a, b ValueType) (ValueType, ValueType) {
 		b = a
 	}
 	return a, b
+}
+
+// projectedListType returns the list type produced by targets.<field> for a
+// field whose underlying type is fieldType. It rejects scalar field types
+// that have no list<T> representation in ruki today (int, date, timestamp,
+// duration, bool, recurrence).
+func projectedListType(fieldType ValueType, fieldName string) (ValueType, error) {
+	switch fieldType {
+	case ValueID, ValueRef, ValueListRef:
+		return ValueListRef, nil
+	case ValueString, ValueStatus, ValueTaskType, ValueEnum, ValueListString:
+		return ValueListString, nil
+	default:
+		return 0, fmt.Errorf("targets.%s is not supported: no list<%s> representation", fieldName, typeName(fieldType))
+	}
+}
+
+// isTargetsEnumProjection reports whether collection is `targets.<field>`
+// referring to a schema field whose type matches the enum-typed value on the
+// other side of the membership check. This lets `status in targets.status`,
+// `type in targets.type`, and `<custom-enum> in targets.<same-enum>` validate
+// despite the projection widening the element type to string. For custom
+// enums it further requires that both operands name the same enum field so
+// cross-domain comparisons stay rejected.
+func (p *Parser) isTargetsEnumProjection(collection Expr, valType ValueType, value Expr) bool {
+	qr, ok := collection.(*QualifiedRef)
+	if !ok || qr.Qualifier != "targets" {
+		return false
+	}
+	fs, ok := p.schema.Field(qr.Name)
+	if !ok {
+		return false
+	}
+	if fs.Type != valType {
+		return false
+	}
+	if valType == ValueEnum {
+		lhs, _ := exprFieldName(value)
+		return lhs != "" && lhs == qr.Name
+	}
+	return true
 }
 
 func listElementType(t ValueType) ValueType {

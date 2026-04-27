@@ -62,6 +62,12 @@ type Config struct {
 		Name string `mapstructure:"name"` // backend name — only "tiki" supported
 		Git  bool   `mapstructure:"git"`  // false disables all git operations at runtime
 	} `mapstructure:"store"`
+
+	// Identity configuration — preferred source for `user()` and UI attribution
+	Identity struct {
+		Name  string `mapstructure:"name"`  // display name for the current user
+		Email string `mapstructure:"email"` // email for the current user
+	} `mapstructure:"identity"`
 }
 
 var appConfig *Config
@@ -139,6 +145,10 @@ func setDefaults() {
 	// Store defaults
 	viper.SetDefault("store.name", "tiki")
 	viper.SetDefault("store.git", true)
+
+	// Identity defaults — empty so env overrides (TIKI_IDENTITY_*) bind correctly
+	viper.SetDefault("identity.name", "")
+	viper.SetDefault("identity.email", "")
 }
 
 // bindFlags binds supported command line flags to viper so they can override config values.
@@ -373,4 +383,22 @@ func GetStoreGit() bool {
 		return appConfig.Store.Git
 	}
 	return true
+}
+
+// GetIdentityName returns the configured Tiki identity name, or empty string if unset.
+// Env `TIKI_IDENTITY_NAME` overrides the config value.
+func GetIdentityName() string {
+	if appConfig != nil {
+		return strings.TrimSpace(appConfig.Identity.Name)
+	}
+	return ""
+}
+
+// GetIdentityEmail returns the configured Tiki identity email, or empty string if unset.
+// Env `TIKI_IDENTITY_EMAIL` overrides the config value.
+func GetIdentityEmail() string {
+	if appConfig != nil {
+		return strings.TrimSpace(appConfig.Identity.Email)
+	}
+	return ""
 }

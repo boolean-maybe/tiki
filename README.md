@@ -88,7 +88,7 @@ to try with a demo project just run:
 cd /tmp && tiki demo
 ```
 
-this will clone and show a demo project. Once done you can try your own:
+this will open a demo project. Once done you can try your own:
 
 Run `tiki init my-directory` to initialize a project, then `cd my-directory` and run `tiki` to start
 

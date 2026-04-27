@@ -517,6 +517,98 @@ func TestLoadConfigStoreDefaults(t *testing.T) {
 	}
 }
 
+func TestLoadConfigIdentity(t *testing.T) {
+	tmpDir := t.TempDir()
+	configPath := filepath.Join(tmpDir, "config.yaml")
+
+	configContent := `
+identity:
+  name: "Alice Example"
+  email: "alice@example.com"
+`
+	if err := os.WriteFile(configPath, []byte(configContent), 0644); err != nil {
+		t.Fatalf("failed to create test config: %v", err)
+	}
+
+	originalDir, _ := os.Getwd()
+	defer func() { _ = os.Chdir(originalDir) }()
+	_ = os.Chdir(tmpDir)
+
+	t.Setenv("XDG_CONFIG_HOME", tmpDir)
+	appConfig = nil
+	ResetPathManager()
+
+	cfg, err := LoadConfig()
+	if err != nil {
+		t.Fatalf("LoadConfig failed: %v", err)
+	}
+
+	if cfg.Identity.Name != "Alice Example" {
+		t.Errorf("expected identity.name 'Alice Example', got %q", cfg.Identity.Name)
+	}
+	if cfg.Identity.Email != "alice@example.com" {
+		t.Errorf("expected identity.email 'alice@example.com', got %q", cfg.Identity.Email)
+	}
+	if got := GetIdentityName(); got != "Alice Example" {
+		t.Errorf("GetIdentityName() = %q, want 'Alice Example'", got)
+	}
+	if got := GetIdentityEmail(); got != "alice@example.com" {
+		t.Errorf("GetIdentityEmail() = %q, want 'alice@example.com'", got)
+	}
+}
+
+func TestLoadConfigIdentityDefaults(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	originalDir, _ := os.Getwd()
+	defer func() { _ = os.Chdir(originalDir) }()
+	_ = os.Chdir(tmpDir)
+
+	appConfig = nil
+
+	cfg, err := LoadConfig()
+	if err != nil {
+		t.Fatalf("LoadConfig failed: %v", err)
+	}
+
+	if cfg.Identity.Name != "" {
+		t.Errorf("expected empty identity.name by default, got %q", cfg.Identity.Name)
+	}
+	if cfg.Identity.Email != "" {
+		t.Errorf("expected empty identity.email by default, got %q", cfg.Identity.Email)
+	}
+	if got := GetIdentityName(); got != "" {
+		t.Errorf("GetIdentityName() = %q, want empty", got)
+	}
+	if got := GetIdentityEmail(); got != "" {
+		t.Errorf("GetIdentityEmail() = %q, want empty", got)
+	}
+}
+
+func TestLoadConfigIdentityEnvOverride(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	originalDir, _ := os.Getwd()
+	defer func() { _ = os.Chdir(originalDir) }()
+	_ = os.Chdir(tmpDir)
+
+	appConfig = nil
+	t.Setenv("TIKI_IDENTITY_NAME", "Env Name")
+	t.Setenv("TIKI_IDENTITY_EMAIL", "env@example.com")
+
+	cfg, err := LoadConfig()
+	if err != nil {
+		t.Fatalf("LoadConfig failed: %v", err)
+	}
+
+	if cfg.Identity.Name != "Env Name" {
+		t.Errorf("expected identity.name 'Env Name' from env, got %q", cfg.Identity.Name)
+	}
+	if cfg.Identity.Email != "env@example.com" {
+		t.Errorf("expected identity.email 'env@example.com' from env, got %q", cfg.Identity.Email)
+	}
+}
+
 func TestLoadConfigStoreEnvOverride(t *testing.T) {
 	tmpDir := t.TempDir()
 

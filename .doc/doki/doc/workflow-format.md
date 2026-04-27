@@ -6,6 +6,68 @@ what it introduced and what changed from the previous version. For usage details
 
 ---
 
+## 0.5.3
+
+Removes `new.md` task template files. Task-creation defaults now live entirely in `workflow.yaml`.
+
+### `new.md` removed
+
+The separate `new.md` template file (and its discovery/precedence chain) is eliminated.
+`tiki workflow install` no longer downloads `new.md`. `tiki workflow reset new` is removed.
+
+### Type `default: true`
+
+Type entries now support an optional `default: true` flag, matching status behavior.
+When set, that type is used for new tasks instead of the positional first-type fallback.
+Multiple `default: true` types are rejected at load time.
+
+```yaml
+types:
+  - key: bug
+    label: Bug
+    emoji: "🐛"
+    default: true
+  - key: regression
+    label: Regression
+    emoji: "🔁"
+```
+
+### Field `default:` key
+
+Custom field definitions accept an optional `default:` value. The value is validated
+against the field's type and enum constraints during workflow load — invalid defaults
+are hard errors. Valid defaults are copied into new tasks automatically.
+
+```yaml
+fields:
+  - name: severity
+    type: enum
+    values: [critical, high, medium, low]
+    default: medium
+  - name: regression
+    type: boolean
+    default: false
+```
+
+### Built-in defaults
+
+Built-in field defaults remain hardcoded and are not configurable:
+- `priority` = 3
+- `points` = 1
+- `tags` = `["idea"]`
+
+List and collection defaults use set semantics:
+- values are trimmed
+- empty entries are dropped
+- duplicate entries are removed
+
+### Removed template-only defaults
+
+Fields that were only configurable via `new.md` frontmatter are dropped:
+`description`, `title`, `dependsOn`, `due`, `recurrence`, `assignee`.
+
+---
+
 ## 0.5.1
 
 Expands action keys beyond single characters, adds `choose()` and `require` to actions,
@@ -63,8 +125,13 @@ actions:
 ```
 
 - `require` — list of context attribute strings (optional)
-- built-in attributes: `id` (task selected), `ai` (AI agent configured), `view:<view-id>` (active view)
-- `id` is auto-inferred when the action uses `id()` — explicit `require: ["id"]` is allowed but redundant
+- selection cardinality attributes: `id` / `selection:one` (exactly one selected), `selection:any` (one or more),
+  `selection:many` (two or more)
+- other built-in attributes: `ai` (AI agent configured), `view:<view-id>` (active view)
+- `id` is auto-inferred when the action uses `id()`; `selection:any` is auto-inferred when the action uses
+  `ids()`; `selected_count()` does not auto-infer anything because it is designed for zero-selection branches
+- explicit entries are allowed but redundant unless you want to tighten the constraint (e.g.
+  `require: ["selection:many"]`)
 - negation: prefix with `!` (e.g. `"!view:plugin:Kanban"` — disabled when on Kanban view)
 - disabled actions show greyed out in header and palette; hotkey is ignored
 
@@ -138,8 +205,8 @@ types:
 - `label` — display name (defaults to key)
 - `emoji` — unicode emoji
 
-At least one type required. First type is the default for new tasks. See
-[Custom statuses and types](customization/custom-status-type.md).
+At least one type required. Mark one type `default: true` to make it the creation default;
+if none is marked, the first type wins. See [Custom statuses and types](customization/custom-status-type.md).
 
 ### Views
 

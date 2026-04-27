@@ -124,6 +124,15 @@ func parsePluginConfig(cfg pluginFileConfig, source string, schema ruki.Schema) 
 				if filterStmt.HasAnyInteractive() {
 					return nil, fmt.Errorf("lane %q filter cannot use interactive builtins (input/choose)", lane.Name)
 				}
+				// lane filters run on every render with no selection payload;
+				// target./targets. would misbehave (error every render or project
+				// nothing). use them in lane actions or plugin actions instead.
+				if filterStmt.UsesTargetQualifier() {
+					return nil, fmt.Errorf("lane %q filter cannot use target. — no selection context at render time", lane.Name)
+				}
+				if filterStmt.UsesTargetsQualifier() {
+					return nil, fmt.Errorf("lane %q filter cannot use targets. — no selection context at render time", lane.Name)
+				}
 			}
 
 			var actionStmt *ruki.ValidatedStatement
@@ -235,6 +244,16 @@ func parsePluginActions(configs []PluginActionConfig, parser *ruki.Parser) ([]Pl
 			}
 		}
 
+		// scalar expression statements (e.g. count(select)) have nowhere to go
+		// in a plugin action — no rows to update, no scalar sink in the
+		// controller. reject at parse time rather than silently succeeding.
+		if actionStmt.IsExpr() {
+			return nil, fmt.Errorf(
+				"action %d (key %q): action must be create, update, delete, or select (got expression statement)",
+				i, cfg.Key,
+			)
+		}
+
 		if actionStmt.UsesChooseBuiltin() {
 			hasChoose = true
 			chooseFilter = actionStmt.ChooseFilter()
@@ -268,7 +287,17 @@ func parsePluginActions(configs []PluginActionConfig, parser *ruki.Parser) ([]Pl
 	return actions, nil
 }
 
-// inferRequirements validates explicit requirements and auto-infers "id" from id() usage.
+// inferRequirements validates explicit requirements and auto-infers selection
+// requirements from builtin and qualifier usage:
+//   - id() or target.<field> → "id" (legacy alias for selection:one)
+//   - ids() or targets.<field> → "selection:any" (at least one selection)
+//
+// selected_count() deliberately does NOT auto-infer anything: its whole
+// purpose is to let ruki branch on cardinality, including the zero case
+// (e.g. `where selected_count() = 0`). Gating the action on a non-zero
+// selection would make that branch unreachable. Authors who want tighter
+// gating can add `require: ["selection:any"]` (or `selection:many`)
+// explicitly.
 func inferRequirements(explicit []string, stmt *ruki.ValidatedStatement, idx int, key string) ([]string, error) {
 	for _, r := range explicit {
 		if err := validateRequirement(r); err != nil {
@@ -279,23 +308,48 @@ func inferRequirements(explicit []string, stmt *ruki.ValidatedStatement, idx int
 	reqs := make([]string, len(explicit))
 	copy(reqs, explicit)
 
-	if stmt.UsesIDBuiltin() {
-		found := false
-		for _, r := range reqs {
-			if r == "id" {
-				found = true
-				break
-			}
-		}
-		if !found {
-			reqs = append(reqs, "id")
-		}
+	needsSingle := stmt.UsesIDBuiltin() || stmt.UsesTargetQualifier()
+	needsAny := stmt.UsesIDsBuiltin() || stmt.UsesTargetsQualifier()
+
+	if needsSingle && !containsRequirement(reqs, "id") {
+		reqs = append(reqs, "id")
+	}
+	if needsAny && !hasAnySelectionRequirement(reqs) {
+		reqs = append(reqs, "selection:any")
 	}
 
 	if len(reqs) == 0 {
 		return nil, nil
 	}
 	return dedup(reqs), nil
+}
+
+func containsRequirement(reqs []string, target string) bool {
+	for _, r := range reqs {
+		if r == target {
+			return true
+		}
+	}
+	return false
+}
+
+// hasAnySelectionRequirement returns true when the requirement list already
+// constrains selection cardinality (positive or negated), so auto-inference
+// should not layer another one on top. A negated token like !selection:many
+// is still a cardinality constraint — it means "fewer than two" — so stacking
+// selection:any on top of it would silently change the author's intent.
+func hasAnySelectionRequirement(reqs []string) bool {
+	for _, r := range reqs {
+		attr := r
+		if len(attr) > 0 && attr[0] == '!' {
+			attr = attr[1:]
+		}
+		switch attr {
+		case "id", "selection:one", "selection:any", "selection:many":
+			return true
+		}
+	}
+	return false
 }
 
 // validateRequirement checks that a requirement token is well-formed.

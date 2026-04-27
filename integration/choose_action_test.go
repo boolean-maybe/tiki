@@ -230,6 +230,102 @@ func TestChooseAction_BareSelectShowsAllTasks(t *testing.T) {
 	ta.SendKey(tcell.KeyEscape, 0, tcell.ModNone)
 }
 
+var filteredEpicWorkflow = testWorkflowPreamble + `views:
+  plugins:
+    - name: FilteredEpicTest
+      key: "F4"
+      lanes:
+        - name: All
+          columns: 1
+          filter: select where status = "backlog" order by id
+      actions:
+        - key: "e"
+          label: "Link to epic"
+          action: update where id = choose(select where type = "epic" and id() not in dependsOn) set dependsOn = dependsOn + id()
+`
+
+func setupFilteredEpicTest(t *testing.T) *testutil.TestApp {
+	t.Helper()
+	tmpDir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(tmpDir, "workflow.yaml"), []byte(filteredEpicWorkflow), 0644); err != nil {
+		t.Fatalf("failed to write workflow.yaml: %v", err)
+	}
+	origDir, err := os.Getwd()
+	if err != nil {
+		t.Fatalf("failed to get cwd: %v", err)
+	}
+	if err := os.Chdir(tmpDir); err != nil {
+		t.Fatalf("failed to chdir: %v", err)
+	}
+	t.Cleanup(func() { _ = os.Chdir(origDir) })
+
+	ta := testutil.NewTestApp(t)
+	if err := ta.LoadPlugins(); err != nil {
+		t.Fatalf("failed to load plugins: %v", err)
+	}
+
+	if err := testutil.CreateTestTask(ta.TaskDir, "TIKI-000001", "My Story", task.StatusBacklog, task.TypeStory); err != nil {
+		t.Fatalf("failed to create story task: %v", err)
+	}
+	if err := testutil.CreateTestTaskWithDeps(ta.TaskDir, "TIKI-000002", "Linked Epic", task.StatusBacklog, task.TypeEpic, []string{"TIKI-000001"}); err != nil {
+		t.Fatalf("failed to create linked epic task: %v", err)
+	}
+	if err := testutil.CreateTestTask(ta.TaskDir, "TIKI-000003", "Available Epic", task.StatusBacklog, task.TypeEpic); err != nil {
+		t.Fatalf("failed to create available epic task: %v", err)
+	}
+	if err := ta.TaskStore.Reload(); err != nil {
+		t.Fatalf("failed to reload: %v", err)
+	}
+
+	ta.NavController.PushView(model.MakePluginViewID("FilteredEpicTest"), nil)
+	ta.Draw()
+
+	return ta
+}
+
+func TestChooseAction_FiltersOutAlreadyLinkedEpics(t *testing.T) {
+	ta := setupFilteredEpicTest(t)
+	defer ta.Cleanup()
+
+	ta.SendKey(tcell.KeyRune, 'e', tcell.ModNone)
+
+	qsc := ta.GetQuickSelectConfig()
+	if !qsc.IsVisible() {
+		t.Fatal("QuickSelect should be visible")
+	}
+
+	qsX, qsW := 50, 30
+	_, _, screenH := ta.Screen.GetContents()
+	if ta.FindTextInRegion("TIKI-000002", qsX, 0, qsW, screenH) {
+		ta.DumpScreen()
+		t.Fatal("linked epic should not appear in QuickSelect")
+	}
+	if !ta.FindTextInRegion("TIKI-000003", qsX, 0, qsW, screenH) {
+		ta.DumpScreen()
+		t.Fatal("available epic should appear in QuickSelect")
+	}
+
+	ta.SendKey(tcell.KeyEnter, 0, tcell.ModNone)
+
+	if err := ta.TaskStore.Reload(); err != nil {
+		t.Fatalf("failed to reload: %v", err)
+	}
+	updated := ta.TaskStore.GetTask("TIKI-000003")
+	if updated == nil {
+		t.Fatal("epic not found")
+	}
+	found := false
+	for _, dep := range updated.DependsOn {
+		if dep == "TIKI-000001" {
+			found = true
+			break
+		}
+	}
+	if !found {
+		t.Fatalf("expected TIKI-000003 to depend on TIKI-000001, got %v", updated.DependsOn)
+	}
+}
+
 var scrollTestWorkflow = testWorkflowPreamble + `views:
   plugins:
     - name: ScrollTest

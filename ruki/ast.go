@@ -11,6 +11,16 @@ type Statement struct {
 	Create *CreateStmt
 	Update *UpdateStmt
 	Delete *DeleteStmt
+	Expr   *ExprStmt
+}
+
+// ExprStmt represents a top-level expression whose value is returned as a
+// scalar (or list) result, e.g. `count(select where status = "done")` or
+// `now()`. The inferred type is captured so runtime formatting can distinguish
+// a date-valued time.Time from a timestamp.
+type ExprStmt struct {
+	Expr Expr
+	Type ValueType
 }
 
 // SelectStmt represents "select [fields] [where <condition>] [order by ...] [limit N] [| run(...) | clipboard()]".
@@ -98,6 +108,11 @@ type NotCondition struct {
 	Inner Condition
 }
 
+// BoolExprCondition represents a bare bool expression used as a condition.
+type BoolExprCondition struct {
+	Expr Expr
+}
+
 // CompareExpr represents "<expr> <op> <expr>".
 type CompareExpr struct {
 	Left  Expr
@@ -125,12 +140,13 @@ type QuantifierExpr struct {
 	Condition Condition
 }
 
-func (*BinaryCondition) conditionNode() {}
-func (*NotCondition) conditionNode()    {}
-func (*CompareExpr) conditionNode()     {}
-func (*IsEmptyExpr) conditionNode()     {}
-func (*InExpr) conditionNode()          {}
-func (*QuantifierExpr) conditionNode()  {}
+func (*BinaryCondition) conditionNode()   {}
+func (*NotCondition) conditionNode()      {}
+func (*BoolExprCondition) conditionNode() {}
+func (*CompareExpr) conditionNode()       {}
+func (*IsEmptyExpr) conditionNode()       {}
+func (*InExpr) conditionNode()            {}
+func (*QuantifierExpr) conditionNode()    {}
 
 // --- expressions ---
 
@@ -144,9 +160,9 @@ type FieldRef struct {
 	Name string
 }
 
-// QualifiedRef represents "old.field" or "new.field".
+// QualifiedRef represents "old.field", "new.field", or "outer.field".
 type QualifiedRef struct {
-	Qualifier string // "old" or "new"
+	Qualifier string // "old", "new", or "outer"
 	Name      string
 }
 
@@ -197,7 +213,7 @@ type BoolLiteral struct {
 	Value bool
 }
 
-// SubQuery represents "select [where <condition>]" used inside count().
+// SubQuery represents "select [where <condition>]" used inside count(), choose(), or exists().
 type SubQuery struct {
 	Where Condition // nil = select all
 }

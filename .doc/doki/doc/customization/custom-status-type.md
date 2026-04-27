@@ -60,9 +60,13 @@ Valid keys in a status entry: `key`, `label`, `emoji`, `active`, `default`, `don
 
 ### Type-Only Behavior
 
-Types have no boolean flags. The first configured type is used as the creation default.
+Types support one optional boolean flag:
 
-Valid keys in a type entry: `key`, `label`, `emoji`.
+| Key | Required | Description |
+|---|---|---|
+| `default` | no | The type assigned to newly created tasks. At most one allowed; first type is fallback. |
+
+Valid keys in a type entry: `key`, `label`, `emoji`, `default`.
 
 ### Key Normalization
 
@@ -100,16 +104,12 @@ There are no built-in fallbacks for either section.
 | Missing `done: true` (statuses) | Error |
 | Multiple `default: true` (statuses) | Error |
 | Multiple `done: true` (statuses) | Error |
+| Multiple `default: true` (types) | Error |
 
 ### Invalid Saved Tasks
 
 - A tiki with a missing or unknown `type` fails to load and is skipped.
 - On single-task reload (`ReloadTask`), an invalid file causes the task to be removed from memory.
-
-### Invalid Templates
-
-- Missing `type` in a template defaults to the first configured type.
-- Invalid non-empty `type` in a template is a hard error; creation is aborted.
 
 ### Cross-Reference Errors
 

@@ -43,7 +43,7 @@ func (te *TriggerExecutor) EvalGuard(trig any, tc *TriggerContext) (bool, error)
 	// there is no "current task" — we use a sentinel that QualifiedRef overrides
 	sentinel := te.guardSentinel(tc)
 	exec := te.newExecWithOverrides(tc)
-	return exec.evalCondition(where, sentinel, tc.AllTasks)
+	return exec.evalCondition(where, evalContext{current: sentinel, allTasks: tc.AllTasks})
 }
 
 // ExecTimeTriggerAction executes a time trigger's action against all tasks.
@@ -144,7 +144,7 @@ func (te *TriggerExecutor) ExecRun(trig any, tc *TriggerContext) (string, error)
 	}
 	sentinel := te.guardSentinel(tc)
 	exec := te.newExecWithOverrides(tc)
-	val, err := exec.evalExpr(command, sentinel, tc.AllTasks)
+	val, err := exec.evalExpr(command, evalContext{current: sentinel, allTasks: tc.AllTasks})
 	if err != nil {
 		return "", fmt.Errorf("evaluating run command: %w", err)
 	}
@@ -203,16 +203,16 @@ func (te *TriggerExecutor) newExecWithOverrides(tc *TriggerContext) *triggerExec
 }
 
 // evalExpr overrides the base Executor to handle QualifiedRef.
-func (e *triggerExecOverride) evalExpr(expr Expr, t *task.Task, allTasks []*task.Task) (interface{}, error) {
+func (e *triggerExecOverride) evalExpr(expr Expr, ctx evalContext) (interface{}, error) {
 	if qr, ok := expr.(*QualifiedRef); ok {
-		return e.resolveQualifiedRef(qr)
+		return e.resolveQualifiedRef(qr, ctx)
 	}
 	// for non-QualifiedRef expressions, delegate to base but with our overridden evalExpr
 	// for nested expressions
-	return e.evalExprRecursive(expr, t, allTasks)
+	return e.evalExprRecursive(expr, ctx)
 }
 
-func (e *triggerExecOverride) resolveQualifiedRef(qr *QualifiedRef) (interface{}, error) {
+func (e *triggerExecOverride) resolveQualifiedRef(qr *QualifiedRef, ctx evalContext) (interface{}, error) {
 	switch qr.Qualifier {
 	case "old":
 		if e.tc.Old == nil {
@@ -224,6 +224,13 @@ func (e *triggerExecOverride) resolveQualifiedRef(qr *QualifiedRef) (interface{}
 			return nil, nil // new is nil for delete events
 		}
 		return e.extractField(e.tc.New, qr.Name), nil
+	case "outer":
+		if ctx.outer == nil {
+			return nil, fmt.Errorf("outer.%s is not available outside a subquery", qr.Name)
+		}
+		return e.extractField(ctx.outer, qr.Name), nil
+	case "target", "targets":
+		return nil, fmt.Errorf("%s. qualifier is not valid in trigger execution", qr.Qualifier)
 	default:
 		return nil, fmt.Errorf("unknown qualifier %q", qr.Qualifier)
 	}
@@ -231,18 +238,18 @@ func (e *triggerExecOverride) resolveQualifiedRef(qr *QualifiedRef) (interface{}
 
 // evalExprRecursive handles all expression types, dispatching QualifiedRef
 // to resolveQualifiedRef and delegating everything else to the base Executor.
-func (e *triggerExecOverride) evalExprRecursive(expr Expr, t *task.Task, allTasks []*task.Task) (interface{}, error) {
+func (e *triggerExecOverride) evalExprRecursive(expr Expr, ctx evalContext) (interface{}, error) {
 	switch expr := expr.(type) {
 	case *QualifiedRef:
-		return e.resolveQualifiedRef(expr)
+		return e.resolveQualifiedRef(expr, ctx)
 	case *FieldRef:
-		return e.extractField(t, expr.Name), nil
+		return e.extractField(ctx.current, expr.Name), nil
 	case *BinaryExpr:
-		leftVal, err := e.evalExpr(expr.Left, t, allTasks)
+		leftVal, err := e.evalExpr(expr.Left, ctx)
 		if err != nil {
 			return nil, err
 		}
-		rightVal, err := e.evalExpr(expr.Right, t, allTasks)
+		rightVal, err := e.evalExpr(expr.Right, ctx)
 		if err != nil {
 			return nil, err
 		}
@@ -257,7 +264,7 @@ func (e *triggerExecOverride) evalExprRecursive(expr Expr, t *task.Task, allTask
 	case *ListLiteral:
 		result := make([]interface{}, len(expr.Elements))
 		for i, elem := range expr.Elements {
-			val, err := e.evalExpr(elem, t, allTasks)
+			val, err := e.evalExpr(elem, ctx)
 			if err != nil {
 				return nil, err
 			}
@@ -265,18 +272,18 @@ func (e *triggerExecOverride) evalExprRecursive(expr Expr, t *task.Task, allTask
 		}
 		return result, nil
 	case *FunctionCall:
-		return e.evalFunctionCallOverride(expr, t, allTasks)
+		return e.evalFunctionCallOverride(expr, ctx)
 	default:
 		// StringLiteral, IntLiteral, DateLiteral, DurationLiteral, EmptyLiteral, SubQuery
-		return e.Executor.evalExpr(expr, t, allTasks)
+		return e.Executor.evalExpr(expr, ctx)
 	}
 }
 
 // evalCondition overrides the base to use our evalExpr for expression evaluation.
-func (e *triggerExecOverride) evalCondition(c Condition, t *task.Task, allTasks []*task.Task) (bool, error) {
+func (e *triggerExecOverride) evalCondition(c Condition, ctx evalContext) (bool, error) {
 	switch c := c.(type) {
 	case *BinaryCondition:
-		left, err := e.evalCondition(c.Left, t, allTasks)
+		left, err := e.evalCondition(c.Left, ctx)
 		if err != nil {
 			return false, err
 		}
@@ -285,33 +292,39 @@ func (e *triggerExecOverride) evalCondition(c Condition, t *task.Task, allTasks 
 			if !left {
 				return false, nil
 			}
-			return e.evalCondition(c.Right, t, allTasks)
+			return e.evalCondition(c.Right, ctx)
 		case "or":
 			if left {
 				return true, nil
 			}
-			return e.evalCondition(c.Right, t, allTasks)
+			return e.evalCondition(c.Right, ctx)
 		default:
 			return false, fmt.Errorf("unknown binary operator %q", c.Op)
 		}
 	case *NotCondition:
-		val, err := e.evalCondition(c.Inner, t, allTasks)
+		val, err := e.evalCondition(c.Inner, ctx)
 		if err != nil {
 			return false, err
 		}
 		return !val, nil
-	case *CompareExpr:
-		leftVal, err := e.evalExpr(c.Left, t, allTasks)
+	case *BoolExprCondition:
+		val, err := e.evalExpr(c.Expr, ctx)
 		if err != nil {
 			return false, err
 		}
-		rightVal, err := e.evalExpr(c.Right, t, allTasks)
+		return conditionBoolValue(val)
+	case *CompareExpr:
+		leftVal, err := e.evalExpr(c.Left, ctx)
+		if err != nil {
+			return false, err
+		}
+		rightVal, err := e.evalExpr(c.Right, ctx)
 		if err != nil {
 			return false, err
 		}
 		return e.compareValues(leftVal, rightVal, c.Op, c.Left, c.Right)
 	case *IsEmptyExpr:
-		val, err := e.evalExpr(c.Expr, t, allTasks)
+		val, err := e.evalExpr(c.Expr, ctx)
 		if err != nil {
 			return false, err
 		}
@@ -321,20 +334,20 @@ func (e *triggerExecOverride) evalCondition(c Condition, t *task.Task, allTasks 
 		}
 		return empty, nil
 	case *InExpr:
-		return e.evalInOverride(c, t, allTasks)
+		return e.evalInOverride(c, ctx)
 	case *QuantifierExpr:
-		return e.evalQuantifierOverride(c, t, allTasks)
+		return e.evalQuantifierOverride(c, ctx)
 	default:
 		return false, fmt.Errorf("unknown condition type %T", c)
 	}
 }
 
-func (e *triggerExecOverride) evalInOverride(c *InExpr, t *task.Task, allTasks []*task.Task) (bool, error) {
-	val, err := e.evalExpr(c.Value, t, allTasks)
+func (e *triggerExecOverride) evalInOverride(c *InExpr, ctx evalContext) (bool, error) {
+	val, err := e.evalExpr(c.Value, ctx)
 	if err != nil {
 		return false, err
 	}
-	collVal, err := e.evalExpr(c.Collection, t, allTasks)
+	collVal, err := e.evalExpr(c.Collection, ctx)
 	if err != nil {
 		return false, err
 	}
@@ -375,8 +388,8 @@ func (e *triggerExecOverride) evalInOverride(c *InExpr, t *task.Task, allTasks [
 	return false, fmt.Errorf("in: collection is not a list or string")
 }
 
-func (e *triggerExecOverride) evalQuantifierOverride(q *QuantifierExpr, t *task.Task, allTasks []*task.Task) (bool, error) {
-	listVal, err := e.evalExpr(q.Expr, t, allTasks)
+func (e *triggerExecOverride) evalQuantifierOverride(q *QuantifierExpr, ctx evalContext) (bool, error) {
+	listVal, err := e.evalExpr(q.Expr, ctx)
 	if err != nil {
 		return false, err
 	}
@@ -385,12 +398,12 @@ func (e *triggerExecOverride) evalQuantifierOverride(q *QuantifierExpr, t *task.
 		return false, fmt.Errorf("quantifier: expression is not a list")
 	}
 
-	refTasks := resolveRefTasks(refs, allTasks)
+	refTasks := resolveRefTasks(refs, ctx.allTasks)
 
 	switch q.Kind {
 	case "any":
 		for _, rt := range refTasks {
-			match, err := e.evalCondition(q.Condition, rt, allTasks)
+			match, err := e.evalCondition(q.Condition, ctx.withCurrent(rt))
 			if err != nil {
 				return false, err
 			}
@@ -404,7 +417,7 @@ func (e *triggerExecOverride) evalQuantifierOverride(q *QuantifierExpr, t *task.
 			return true, nil
 		}
 		for _, rt := range refTasks {
-			match, err := e.evalCondition(q.Condition, rt, allTasks)
+			match, err := e.evalCondition(q.Condition, ctx.withCurrent(rt))
 			if err != nil {
 				return false, err
 			}
@@ -418,21 +431,23 @@ func (e *triggerExecOverride) evalQuantifierOverride(q *QuantifierExpr, t *task.
 	}
 }
 
-func (e *triggerExecOverride) evalFunctionCallOverride(fc *FunctionCall, t *task.Task, allTasks []*task.Task) (interface{}, error) {
+func (e *triggerExecOverride) evalFunctionCallOverride(fc *FunctionCall, ctx evalContext) (interface{}, error) {
 	switch fc.Name {
 	case "count":
-		return e.evalCountOverride(fc, allTasks)
+		return e.evalCountOverride(fc, ctx.current, ctx.allTasks)
+	case "exists":
+		return e.evalExistsOverride(fc, ctx.current, ctx.allTasks)
 	case "blocks":
-		return e.evalBlocksOverride(fc, t, allTasks)
+		return e.evalBlocksOverride(fc, ctx)
 	case "next_date":
-		return e.evalNextDateOverride(fc, t, allTasks)
+		return e.evalNextDateOverride(fc, ctx)
 	default:
 		// now, user, call — delegate to base (no expression args needing QualifiedRef resolution)
-		return e.evalFunctionCall(fc, t, allTasks)
+		return e.Executor.evalFunctionCall(fc, ctx)
 	}
 }
 
-func (e *triggerExecOverride) evalCountOverride(fc *FunctionCall, allTasks []*task.Task) (interface{}, error) {
+func (e *triggerExecOverride) evalCountOverride(fc *FunctionCall, parent *task.Task, allTasks []*task.Task) (interface{}, error) {
 	sq, ok := fc.Args[0].(*SubQuery)
 	if !ok {
 		return nil, fmt.Errorf("count() argument must be a select subquery")
@@ -442,7 +457,7 @@ func (e *triggerExecOverride) evalCountOverride(fc *FunctionCall, allTasks []*ta
 	}
 	count := 0
 	for _, t := range allTasks {
-		match, err := e.evalCondition(sq.Where, t, allTasks)
+		match, err := e.evalCondition(sq.Where, evalContext{current: t, outer: parent, allTasks: allTasks})
 		if err != nil {
 			return nil, err
 		}
@@ -453,16 +468,36 @@ func (e *triggerExecOverride) evalCountOverride(fc *FunctionCall, allTasks []*ta
 	return count, nil
 }
 
-func (e *triggerExecOverride) evalBlocksOverride(fc *FunctionCall, t *task.Task, allTasks []*task.Task) (interface{}, error) {
-	val, err := e.evalExpr(fc.Args[0], t, allTasks)
+func (e *triggerExecOverride) evalExistsOverride(fc *FunctionCall, parent *task.Task, allTasks []*task.Task) (interface{}, error) {
+	sq, ok := fc.Args[0].(*SubQuery)
+	if !ok {
+		return nil, fmt.Errorf("exists() argument must be a select subquery")
+	}
+	if sq.Where == nil {
+		return len(allTasks) > 0, nil
+	}
+	for _, t := range allTasks {
+		match, err := e.evalCondition(sq.Where, evalContext{current: t, outer: parent, allTasks: allTasks})
+		if err != nil {
+			return nil, err
+		}
+		if match {
+			return true, nil
+		}
+	}
+	return false, nil
+}
+
+func (e *triggerExecOverride) evalBlocksOverride(fc *FunctionCall, ctx evalContext) (interface{}, error) {
+	val, err := e.evalExpr(fc.Args[0], ctx)
 	if err != nil {
 		return nil, err
 	}
-	return blocksLookup(val, allTasks), nil
+	return blocksLookup(val, ctx.allTasks), nil
 }
 
-func (e *triggerExecOverride) evalNextDateOverride(fc *FunctionCall, t *task.Task, allTasks []*task.Task) (interface{}, error) {
-	val, err := e.evalExpr(fc.Args[0], t, allTasks)
+func (e *triggerExecOverride) evalNextDateOverride(fc *FunctionCall, ctx evalContext) (interface{}, error) {
+	val, err := e.evalExpr(fc.Args[0], ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -511,8 +546,10 @@ func (e *triggerExecOverride) Execute(stmt any, tasks []*task.Task, inputs ...Ex
 				Runtime:      e.runtime.Mode,
 			}
 		}
-		if validated.usesIDFunc && e.runtime.Mode == ExecutorRuntimePlugin && strings.TrimSpace(input.SelectedTaskID) == "" {
-			return nil, &MissingSelectedTaskIDError{}
+		if validated.usesIDFunc && e.runtime.Mode == ExecutorRuntimePlugin {
+			if err := checkSingleSelectionForID(input); err != nil {
+				return nil, err
+			}
 		}
 		rawStmt = validated.statement
 		if rawInput {
@@ -547,7 +584,7 @@ func (e *triggerExecOverride) executeUpdate(upd *UpdateStmt, tasks []*task.Task)
 
 	for _, clone := range clones {
 		for _, a := range upd.Set {
-			val, err := e.evalExpr(a.Value, clone, tasks)
+			val, err := e.evalExpr(a.Value, evalContext{current: clone, allTasks: tasks})
 			if err != nil {
 				return nil, fmt.Errorf("field %q: %w", a.Field, err)
 			}
@@ -571,7 +608,7 @@ func (e *triggerExecOverride) executeCreate(cr *CreateStmt, tasks []*task.Task, 
 		t = &task.Task{}
 	}
 	for _, a := range cr.Assignments {
-		val, err := e.evalExpr(a.Value, t, tasks)
+		val, err := e.evalExpr(a.Value, evalContext{current: t, allTasks: tasks})
 		if err != nil {
 			return nil, fmt.Errorf("field %q: %w", a.Field, err)
 		}
@@ -598,7 +635,7 @@ func (e *triggerExecOverride) filterTasks(where Condition, tasks []*task.Task) (
 	}
 	var result []*task.Task
 	for _, t := range tasks {
-		match, err := e.evalCondition(where, t, tasks)
+		match, err := e.evalCondition(where, evalContext{current: t, allTasks: tasks})
 		if err != nil {
 			return nil, err
 		}

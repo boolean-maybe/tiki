@@ -12,7 +12,8 @@
 
 ## Overview
 
-This page describes `ruki` syntax. It starts with tokens and then shows the grammar for statements, triggers, conditions, and expressions.
+This page describes `ruki` syntax. It starts with tokens and then shows the grammar for statements, triggers,
+conditions, and expressions.
 
 ## Lexical structure
 
@@ -46,7 +47,7 @@ new.status
 The following EBNF-style summary shows the grammar:
 
 ```text
-statement        = selectStmt | createStmt | updateStmt | deleteStmt ;
+statement        = selectStmt | createStmt | updateStmt | deleteStmt | exprStmt ;
 
 selectStmt       = "select" [ fieldList | "*" ] [ "where" condition ] [ orderBy ] [ "limit" int ] [ pipeAction ] ;
 fieldList        = identifier { "," identifier } ;
@@ -58,6 +59,7 @@ orderBy          = "order" "by" sortField { "," sortField } ;
 sortField        = identifier [ "asc" | "desc" ] ;
 updateStmt       = "update" "where" condition "set" assignment { assignment } ;
 deleteStmt       = "delete" "where" condition ;
+exprStmt         = expr ;
 
 assignment       = identifier "=" expr ;
 
@@ -82,11 +84,17 @@ Notes:
 - `create` requires at least one assignment.
 - `update` requires both `where` and `set`.
 - `delete` requires `where`.
-- `order by` is only valid on `select`, not on subqueries inside `count(...)` or `choose(...)`.
+- `order by` is only valid on `select`, not on subqueries inside `count(...)`, `choose(...)`, or `exists(...)`.
 - `limit` truncates the result set to at most N rows, applied after filtering and sorting but before any pipe action.
 - `asc`, `desc`, `order`, `by`, and `limit` are contextual keywords — they are only special in the SELECT clause.
-- Bare `select` and `select *` both mean all fields. A field list like `select title, status` projects only the named fields.
+- Bare `select` and `select *` both mean all fields. A field list like `select title, status` projects only the
+  named fields.
 - `every` wraps a CRUD statement with a periodic interval. Only `create`, `update`, and `delete` are allowed
+- An `exprStmt` is any expression used as a top-level statement. It returns a single scalar (or list) value
+  instead of a table of rows. Typical uses: `count(select where status = "done")`, `exists(select where priority = 1)`,
+  `now()`, or arithmetic like `count(select where status = "done") + count(select where status = "ready")`.
+  Bare field references (e.g. `title`) are rejected at the top level because there is no current task; they
+  remain valid inside subqueries like `count(select where status = "done")`.
 
 ## Condition grammar
 
@@ -122,6 +130,9 @@ allTail          = "all" primaryCond ;
 Examples:
 
 ```sql
+select where true
+select where blocked
+select where not blocked
 select where status = "done"
 select where assignee is empty
 select where status not in ["done", "cancelled"]
@@ -154,9 +165,20 @@ select where status != "done" order by priority limit 5
 select limit 1
 ```
 
+Top-level expressions:
+
+```sql
+count(select)
+count(select where status != "done")
+exists(select where priority = 1)
+now()
+count(select where status = "done") + count(select where status = "ready")
+```
+
 ## Expression grammar
 
-Expressions support literals, field references, qualifiers, function calls, list literals, parenthesized expressions, subqueries, and left-associative `+` or `-` chains:
+Expressions support literals, field references, qualifiers, function calls, list literals, parenthesized expressions,
+subqueries, and left-associative `+` or `-` chains:
 
 ```text
 expr             = unaryExpr { ("+" | "-") unaryExpr } ;
@@ -175,7 +197,7 @@ unaryExpr        = funcCall
 
 funcCall         = identifier "(" [ expr { "," expr } ] ")" ;
 subQuery         = "select" [ "where" condition ] ;
-qualifiedRef     = ( "old" | "new" ) "." identifier ;
+qualifiedRef     = ( "old" | "new" | "outer" ) "." identifier ;
 listLiteral      = "[" [ expr { "," expr } ] "]" ;
 emptyLiteral     = "empty" ;
 fieldRef         = identifier ;
@@ -190,7 +212,9 @@ title
 old.status
 ["bug", "frontend"]
 next_date(recurrence)
-count(select where status = "done")
+count(select where assignee = outer.assignee)
+exists(select where id in new.dependsOn and status != "done")
+exists(select where outer.id in dependsOn)
 2026-03-25 + 2day
 tags + ["needs-triage"]
 ```
@@ -223,7 +247,14 @@ priority = 1 or (priority = 2 and status = "done")
 
 ## Syntax notes
 
-- `any` and `all` apply to the condition that comes right after them. If you want to combine that condition with `and` or `or`, use parentheses.
-- `select` used inside expressions is only valid as a `count(...)` or `choose(...)` argument. Bare subqueries are rejected during validation.
+- `any` and `all` apply to the condition that comes right after them. If you want to combine that condition with
+  `and` or `or`, use parentheses.
+- A condition can be a bare expression only when that expression has boolean type.
+- `select` used inside expressions is only valid as a `count(...)`, `choose(...)`, or `exists(...)` argument. Bare
+  subqueries are rejected during validation.
 - The grammar accepts `run(<expr>)`, but only as the top-level action of an `after` trigger.
-- `old.` and `new.` are only allowed in some trigger conditions. See [Semantics](semantics.md) and [Validation And Errors](validation-and-errors.md).
+- `outer.` is only allowed inside subquery bodies, where it refers to the immediate parent row.
+- `old.` and `new.` are only allowed in some trigger conditions. See [Semantics](semantics.md) and
+  [Validation And Errors](validation-and-errors.md).
+- `target.` and `targets.` are only allowed in plugin runtime, where they resolve against the
+  selected tasks. See [Plugin target qualifiers](semantics.md#plugin-target-qualifiers).

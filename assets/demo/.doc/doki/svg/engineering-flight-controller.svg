@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="600" height="400">
+  <defs>
+    <marker id="sa" markerWidth="10" markerHeight="7" refX="10" refY="3.5" orient="auto" markerUnits="strokeWidth">
+      <polygon points="0 0, 10 3.5, 0 7" fill="#64748b"/>
+    </marker>
+  </defs>
+  <rect x="245.0" y="62.0" width="110" height="36" rx="15" fill="#2563eb"/>
+  <text x="300.0" y="85.0" text-anchor="middle" font-family="sans-serif" font-size="12" fill="#fff">Manual</text>
+  <rect x="366.2435565298214" y="122.0" width="110" height="36" rx="15" fill="#059669"/>
+  <text x="421.2435565298214" y="145.0" text-anchor="middle" font-family="sans-serif" font-size="12" fill="#fff">Altitude Hold</text>
+  <rect x="366.24355652982143" y="242.0" width="110" height="36" rx="15" fill="#d97706"/>
+  <text x="421.24355652982143" y="265.0" text-anchor="middle" font-family="sans-serif" font-size="12" fill="#fff">Position Hold</text>
+  <rect x="245.0" y="302.0" width="110" height="36" rx="15" fill="#dc2626"/>
+  <text x="300.0" y="325.0" text-anchor="middle" font-family="sans-serif" font-size="12" fill="#fff">Waypoint Nav</text>
+  <rect x="123.75644347017862" y="242.00000000000006" width="110" height="36" rx="15" fill="#7c3aed"/>
+  <text x="178.75644347017862" y="265.00000000000006" text-anchor="middle" font-family="sans-serif" font-size="12" fill="#fff">Return to Home</text>
+  <rect x="123.7564434701786" y="122.0" width="110" height="36" rx="15" fill="#0891b2"/>
+  <text x="178.7564434701786" y="145.0" text-anchor="middle" font-family="sans-serif" font-size="12" fill="#fff">Auto Land</text>
+  <path d="M 339.43535901933194 89.58030767157126 Q 351.6217782649107 128.1865334794732 381.80819751048944 130.41969232842874" fill="none" stroke="#64748b" stroke-width="1.5" marker-end="url(#sa)"/>
+  <path d="M 421.2435565298214 161.6 Q 403.2435565298214 200.0 421.24355652982143 238.4" fill="none" stroke="#64748b" stroke-width="1.5" marker-end="url(#sa)"/>
+  <path d="M 381.8081975104895 269.5803076715713 Q 351.62177826491074 271.8134665205268 339.43535901933194 310.4196923284287" fill="none" stroke="#64748b" stroke-width="1.5" marker-end="url(#sa)"/>
+  <path d="M 260.56464098066806 310.4196923284287 Q 248.3782217350893 271.8134665205268 218.1918024895106 269.5803076715713" fill="none" stroke="#64748b" stroke-width="1.5" marker-end="url(#sa)"/>
+  <path d="M 178.75644347017862 238.40000000000006 Q 196.75644347017862 200.00000000000003 178.7564434701786 161.6" fill="none" stroke="#64748b" stroke-width="1.5" marker-end="url(#sa)"/>
+</svg>

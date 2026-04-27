@@ -1,11 +1,14 @@
 package store
 
 import (
+	"reflect"
 	"strings"
 	"testing"
 	"time"
 
+	"github.com/boolean-maybe/tiki/config"
 	taskpkg "github.com/boolean-maybe/tiki/task"
+	"github.com/boolean-maybe/tiki/workflow"
 )
 
 func TestInMemoryStore_CreateTask(t *testing.T) {
@@ -42,6 +45,27 @@ func TestInMemoryStore_CreateTask(t *testing.T) {
 				t.Errorf("GetTask(%q) returned nil after CreateTask", tt.expected)
 			}
 		})
+	}
+}
+
+func TestInMemoryStore_CreateTaskNormalizesCollections(t *testing.T) {
+	s := NewInMemoryStore()
+	input := &taskpkg.Task{
+		ID:        "TIKI-NORM01",
+		Title:     "normalize",
+		Tags:      []string{"frontend", "frontend", " backend ", ""},
+		DependsOn: []string{"tiki-aaa001", "TIKI-AAA001", "tiki-bbb002"},
+	}
+
+	if err := s.CreateTask(input); err != nil {
+		t.Fatalf("CreateTask() error = %v", err)
+	}
+
+	if !reflect.DeepEqual(input.Tags, []string{"frontend", "backend"}) {
+		t.Errorf("tags = %v, want [frontend backend]", input.Tags)
+	}
+	if !reflect.DeepEqual(input.DependsOn, []string{"TIKI-AAA001", "TIKI-BBB002"}) {
+		t.Errorf("dependsOn = %v, want [TIKI-AAA001 TIKI-BBB002]", input.DependsOn)
 	}
 }
 
@@ -352,6 +376,34 @@ func TestInMemoryStore_NewTaskTemplate(t *testing.T) {
 	}
 	if tmpl.Type != taskpkg.DefaultType() {
 		t.Errorf("Type = %q, want %q", tmpl.Type, taskpkg.DefaultType())
+	}
+}
+
+func TestBuildMemoryFieldDefaults_DedupesCollectionDefaults(t *testing.T) {
+	config.MarkRegistriesLoadedForTest()
+	t.Cleanup(func() { workflow.ClearCustomFields() })
+	if err := workflow.RegisterCustomFields([]workflow.FieldDef{
+		{Name: "labels", Type: workflow.TypeListString, DefaultValue: []string{"backend", " backend ", "backend"}},
+		{Name: "related", Type: workflow.TypeListRef, DefaultValue: []string{"tiki-aaa001", "TIKI-AAA001", "tiki-bbb002"}},
+	}); err != nil {
+		t.Fatalf("register: %v", err)
+	}
+
+	defaults := buildMemoryFieldDefaults()
+	labels, ok := defaults["labels"].([]string)
+	if !ok {
+		t.Fatalf("labels type = %T, want []string", defaults["labels"])
+	}
+	if !reflect.DeepEqual(labels, []string{"backend"}) {
+		t.Errorf("labels = %v, want [backend]", labels)
+	}
+
+	related, ok := defaults["related"].([]string)
+	if !ok {
+		t.Fatalf("related type = %T, want []string", defaults["related"])
+	}
+	if !reflect.DeepEqual(related, []string{"TIKI-AAA001", "TIKI-BBB002"}) {
+		t.Errorf("related = %v, want [TIKI-AAA001 TIKI-BBB002]", related)
 	}
 }
 

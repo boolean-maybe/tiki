@@ -3,7 +3,9 @@ package config
 import (
 	"os"
 	"path/filepath"
+	"reflect"
 	"testing"
+	"time"
 
 	"github.com/boolean-maybe/tiki/workflow"
 )
@@ -195,6 +197,149 @@ fields:
 	}
 	if _, ok := workflow.Field("score"); ok {
 		t.Error("expected 'score' from project workflow to NOT be loaded")
+	}
+}
+
+func TestCoerceFieldDefault_ValidTypes(t *testing.T) {
+	tests := []struct {
+		name    string
+		vt      workflow.ValueType
+		raw     interface{}
+		allowed []string
+		want    interface{}
+	}{
+		{"string", workflow.TypeString, "hello", nil, "hello"},
+		{"int", workflow.TypeInt, 42, nil, 42},
+		{"int from float", workflow.TypeInt, float64(3), nil, 3},
+		{"bool", workflow.TypeBool, false, nil, false},
+		{"enum valid", workflow.TypeEnum, "medium", []string{"low", "medium", "high"}, "medium"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := coerceFieldDefault(tt.vt, tt.raw, tt.allowed)
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+			if got != tt.want {
+				t.Errorf("got %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestCoerceFieldDefault_TimestampParsed(t *testing.T) {
+	tests := []struct {
+		name string
+		raw  string
+		want time.Time
+	}{
+		{"RFC3339", "2026-01-01T00:00:00Z", time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)},
+		{"date only", "2026-06-15", time.Date(2026, 6, 15, 0, 0, 0, 0, time.UTC)},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := coerceFieldDefault(workflow.TypeTimestamp, tt.raw, nil)
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+			tv, ok := got.(time.Time)
+			if !ok {
+				t.Fatalf("expected time.Time, got %T", got)
+			}
+			if !tv.Equal(tt.want) {
+				t.Errorf("got %v, want %v", tv, tt.want)
+			}
+		})
+	}
+}
+
+func TestCoerceFieldDefault_TimestampRejectsInvalid(t *testing.T) {
+	for _, raw := range []string{"not-a-date", "2026/01/01", "January 1"} {
+		t.Run(raw, func(t *testing.T) {
+			_, err := coerceFieldDefault(workflow.TypeTimestamp, raw, nil)
+			if err == nil {
+				t.Fatal("expected error for invalid timestamp")
+			}
+		})
+	}
+}
+
+func TestCoerceFieldDefault_TaskIdListNormalized(t *testing.T) {
+	raw := []interface{}{" tiki-abc ", "TIKI-DEF", "  ", "tiki-ghi", "TIKI-DEF"}
+	got, err := coerceFieldDefault(workflow.TypeListRef, raw, nil)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	want := []string{"TIKI-ABC", "TIKI-DEF", "TIKI-GHI"}
+	if !reflect.DeepEqual(got, want) {
+		t.Errorf("got %v, want %v", got, want)
+	}
+}
+
+func TestCoerceFieldDefault_StringListNormalized(t *testing.T) {
+	raw := []interface{}{"  backend  ", "frontend", "backend", "", "frontend"}
+	got, err := coerceFieldDefault(workflow.TypeListString, raw, nil)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	want := []string{"backend", "frontend"}
+	if !reflect.DeepEqual(got, want) {
+		t.Errorf("got %v, want %v", got, want)
+	}
+}
+
+func TestCoerceFieldDefault_InvalidValues(t *testing.T) {
+	tests := []struct {
+		name    string
+		vt      workflow.ValueType
+		raw     interface{}
+		allowed []string
+	}{
+		{"string got int", workflow.TypeString, 42, nil},
+		{"int got string", workflow.TypeInt, "hello", nil},
+		{"int got fractional", workflow.TypeInt, float64(1.5), nil},
+		{"bool got string", workflow.TypeBool, "yes", nil},
+		{"enum not in list", workflow.TypeEnum, "unknown", []string{"low", "medium"}},
+		{"enum got int", workflow.TypeEnum, 1, []string{"low"}},
+		{"timestamp invalid", workflow.TypeTimestamp, "not-a-date", nil},
+		{"timestamp wrong type", workflow.TypeTimestamp, 12345, nil},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			_, err := coerceFieldDefault(tt.vt, tt.raw, tt.allowed)
+			if err == nil {
+				t.Fatal("expected error")
+			}
+		})
+	}
+}
+
+func TestConvertCustomFieldDef_WithDefault(t *testing.T) {
+	raw := customFieldYAML{
+		Name:    "severity",
+		Type:    "enum",
+		Values:  []string{"low", "medium", "high"},
+		Default: "medium",
+	}
+	fd, err := convertCustomFieldDef(raw)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if fd.DefaultValue != "medium" {
+		t.Errorf("DefaultValue = %v, want \"medium\"", fd.DefaultValue)
+	}
+}
+
+func TestConvertCustomFieldDef_InvalidDefault(t *testing.T) {
+	raw := customFieldYAML{
+		Name:    "severity",
+		Type:    "enum",
+		Values:  []string{"low", "medium", "high"},
+		Default: "invalid",
+	}
+	_, err := convertCustomFieldDef(raw)
+	if err == nil {
+		t.Fatal("expected error for invalid default")
 	}
 }
 

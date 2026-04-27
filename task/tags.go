@@ -2,8 +2,8 @@ package task
 
 import (
 	"log/slog"
-	"strings"
 
+	collectionutil "github.com/boolean-maybe/tiki/util/collections"
 	"gopkg.in/yaml.v3"
 )
 
@@ -18,15 +18,7 @@ func (t *TagsValue) UnmarshalYAML(value *yaml.Node) error {
 	// Try to decode as []string (normal case)
 	var tags []string
 	if err := value.Decode(&tags); err == nil {
-		// Filter out empty strings and whitespace-only strings
-		filtered := make([]string, 0, len(tags))
-		for _, tag := range tags {
-			trimmed := strings.TrimSpace(tag)
-			if trimmed != "" {
-				filtered = append(filtered, trimmed)
-			}
-		}
-		*t = TagsValue(filtered)
+		*t = TagsValue(collectionutil.NormalizeStringSet(tags))
 		return nil
 	}
 

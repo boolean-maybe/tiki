@@ -88,7 +88,8 @@ title: Implement user authentication
 
 #### type
 
-Optional string. Defaults to the first type defined in `workflow.yaml`.
+Optional string. Defaults to the type marked `default: true` in `workflow.yaml`,
+or the first type if none is marked.
 
 Valid values are the type keys defined in the `types:` section of `workflow.yaml`.
 Default types: `story`, `bug`, `spike`, `epic`. Each type can have a label and emoji
@@ -149,7 +150,8 @@ assignee: booleanmaybe
 
 #### tags
 
-Optional string list. Arbitrary labels attached to a tiki. Empty and whitespace-only strings are filtered out.
+Optional string list. Arbitrary labels attached to a tiki.
+Values are trimmed, empty entries are dropped, and duplicates are removed.
 Default: empty. Both YAML list formats are accepted:
 
 ```yaml
@@ -164,8 +166,10 @@ tags: [frontend, urgent]
 
 #### dependsOn
 
-Optional string list. Each entry must be a valid tiki ID in `TIKI-XXXXXX` format (6-character alphanumeric suffix)
-referencing an existing tiki. IDs are automatically uppercased. A dependency means this tiki is blocked by the listed tikis.
+Optional string list. Each entry must be a valid tiki ID in `TIKI-XXXXXX` format
+(6-character alphanumeric suffix) referencing an existing tiki.
+IDs are automatically uppercased, empty entries are dropped, and duplicates are removed.
+A dependency means this tiki is blocked by the listed tikis.
 Default: empty. Both YAML list formats are accepted:
 
 ```yaml
@@ -218,7 +222,11 @@ Fields such as:
 - `created at`
 - `updated at`
 
-are not stored and are calculated from git - the time and git user who created a tiki or the time it was last modified
+are not stored in the file. `created at` / `updated at` are derived from git history
+(commit times) with file mtime as a fallback when git is disabled or the file is
+uncommitted. `created by` is populated from git authorship when available; for
+uncommitted files or no-git mode it falls back to the current Tiki identity
+(configured `identity.name` or `identity.email` → git user → OS account name).
 
 
 ## Doki files

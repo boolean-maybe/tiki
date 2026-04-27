@@ -5,6 +5,7 @@ import (
 	"slices"
 	"strings"
 
+	collectionutil "github.com/boolean-maybe/tiki/util/collections"
 	"gopkg.in/yaml.v3"
 )
 
@@ -20,15 +21,7 @@ func (d *DependsOnValue) UnmarshalYAML(value *yaml.Node) error {
 	// Try to decode as []string (normal case)
 	var deps []string
 	if err := value.Decode(&deps); err == nil {
-		// Filter out empty strings, trim whitespace, and uppercase IDs
-		filtered := make([]string, 0, len(deps))
-		for _, dep := range deps {
-			trimmed := strings.TrimSpace(dep)
-			if trimmed != "" {
-				filtered = append(filtered, strings.ToUpper(trimmed))
-			}
-		}
-		*d = DependsOnValue(filtered)
+		*d = DependsOnValue(collectionutil.NormalizeRefSet(deps))
 		return nil
 	}
 

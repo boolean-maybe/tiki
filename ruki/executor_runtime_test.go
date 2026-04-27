@@ -148,3 +148,104 @@ func TestErrorTypesWithErrorsAs(t *testing.T) {
 		})
 	}
 }
+
+func TestAmbiguousSelectedTaskIDErrorMessage(t *testing.T) {
+	err := &AmbiguousSelectedTaskIDError{Count: 3}
+	want := "id() requires exactly one selected task, got 3 — use ids() for multi-selection"
+	if got := err.Error(); got != want {
+		t.Errorf("Error() = %q, want %q", got, want)
+	}
+}
+
+func TestExecutionInputSelectionHelpers(t *testing.T) {
+	tests := []struct {
+		name        string
+		input       ExecutionInput
+		wantCount   int
+		wantHas     bool
+		wantSingle  string
+		wantHasOne  bool
+		wantIDsList []string
+	}{
+		{
+			name:        "zero selection",
+			input:       ExecutionInput{},
+			wantCount:   0,
+			wantHas:     false,
+			wantSingle:  "",
+			wantHasOne:  false,
+			wantIDsList: nil,
+		},
+		{
+			name:        "one selection",
+			input:       ExecutionInput{SelectedTaskIDs: []string{"TIKI-000001"}},
+			wantCount:   1,
+			wantHas:     true,
+			wantSingle:  "TIKI-000001",
+			wantHasOne:  true,
+			wantIDsList: []string{"TIKI-000001"},
+		},
+		{
+			name:        "many selection",
+			input:       ExecutionInput{SelectedTaskIDs: []string{"TIKI-000001", "TIKI-000002", "TIKI-000003"}},
+			wantCount:   3,
+			wantHas:     true,
+			wantSingle:  "",
+			wantHasOne:  false,
+			wantIDsList: []string{"TIKI-000001", "TIKI-000002", "TIKI-000003"},
+		},
+		{
+			name:        "empty strings ignored",
+			input:       ExecutionInput{SelectedTaskIDs: []string{"", "TIKI-000001", "  "}},
+			wantCount:   1,
+			wantHas:     true,
+			wantSingle:  "TIKI-000001",
+			wantHasOne:  true,
+			wantIDsList: []string{"TIKI-000001"},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := tt.input.SelectionCount(); got != tt.wantCount {
+				t.Errorf("SelectionCount() = %d, want %d", got, tt.wantCount)
+			}
+			if got := tt.input.HasSelection(); got != tt.wantHas {
+				t.Errorf("HasSelection() = %v, want %v", got, tt.wantHas)
+			}
+			gotSingle, gotHasOne := tt.input.SingleSelectedTaskID()
+			if gotSingle != tt.wantSingle || gotHasOne != tt.wantHasOne {
+				t.Errorf("SingleSelectedTaskID() = (%q, %v), want (%q, %v)",
+					gotSingle, gotHasOne, tt.wantSingle, tt.wantHasOne)
+			}
+			gotList := tt.input.SelectedTaskIDList()
+			if len(gotList) != len(tt.wantIDsList) {
+				t.Errorf("SelectedTaskIDList() length = %d, want %d", len(gotList), len(tt.wantIDsList))
+			}
+			for i := range gotList {
+				if i >= len(tt.wantIDsList) || gotList[i] != tt.wantIDsList[i] {
+					t.Errorf("SelectedTaskIDList()[%d] = %q, want %q", i, gotList[i], tt.wantIDsList[i])
+				}
+			}
+		})
+	}
+}
+
+func TestNewSingleSelectionInput(t *testing.T) {
+	tests := []struct {
+		name      string
+		taskID    string
+		wantCount int
+	}{
+		{"non-empty", "TIKI-000001", 1},
+		{"empty", "", 0},
+		{"whitespace", "   ", 0},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			in := NewSingleSelectionInput(tt.taskID)
+			if got := in.SelectionCount(); got != tt.wantCount {
+				t.Errorf("count = %d, want %d", got, tt.wantCount)
+			}
+		})
+	}
+}

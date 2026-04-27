@@ -1,11 +1,13 @@
 package controller
 
 import (
+	"bytes"
 	"log/slog"
 	"path/filepath"
 	"strings"
 
 	"github.com/boolean-maybe/tiki/config"
+	rukiRuntime "github.com/boolean-maybe/tiki/internal/ruki/runtime"
 	"github.com/boolean-maybe/tiki/model"
 	"github.com/boolean-maybe/tiki/plugin"
 	"github.com/boolean-maybe/tiki/ruki"
@@ -71,6 +73,7 @@ type InputRouter struct {
 	quickSelectConfig *model.QuickSelectConfig
 	quickSelectView   QuickSelectView
 	workflowPath      string
+	clipboardWriter   func([][]string) error
 }
 
 // NewInputRouter creates an input router
@@ -119,6 +122,12 @@ func (ir *InputRouter) SetQuickSelectView(qv QuickSelectView) {
 // SetWorkflowPath sets the resolved workflow.yaml path for the Edit Workflow action.
 func (ir *InputRouter) SetWorkflowPath(path string) {
 	ir.workflowPath = path
+}
+
+// SetClipboardWriter overrides the clipboard backend used by the Execute prompt.
+// Intended for tests that must avoid the real system clipboard. nil restores the default.
+func (ir *InputRouter) SetClipboardWriter(fn func([][]string) error) {
+	ir.clipboardWriter = fn
 }
 
 // HandleInput processes a key event for the current view and routes it to the appropriate handler.
@@ -358,6 +367,9 @@ func (ir *InputRouter) handlePluginInput(event *tcell.EventKey, viewID model.Vie
 		}
 		if action.ID == ActionSearch {
 			return ir.handleSearchInput(ctrl)
+		}
+		if action.ID == ActionExecute {
+			return ir.startExecuteInput()
 		}
 		if targetPluginName := GetPluginNameFromAction(action.ID); targetPluginName != "" {
 			targetViewID := model.MakePluginViewID(targetPluginName)
@@ -600,6 +612,9 @@ func (ir *InputRouter) dispatchPluginAction(id ActionID, viewID model.ViewID) bo
 	if id == ActionSearch {
 		return ir.handleSearchInput(ctrl)
 	}
+	if id == ActionExecute {
+		return ir.startExecuteInput()
+	}
 
 	if _, hasChoose := ctrl.GetActionChooseSpec(id); hasChoose {
 		return ir.startActionChoose(ctrl, id)
@@ -643,6 +658,64 @@ func (ir *InputRouter) startActionInput(ctrl PluginControllerInterface, actionID
 	}
 
 	return true
+}
+
+// startExecuteInput opens the InputBar in action-input mode for ad-hoc ruki
+// execution. Submitted text is run through rukiRuntime.RunQuery, the same path
+// used by `tiki exec`, so validation, mutation persistence and triggers stay
+// aligned with the CLI.
+func (ir *InputRouter) startExecuteInput() bool {
+	activeView := ir.navController.GetActiveView()
+	inputableView, ok := activeView.(InputableView)
+	if !ok {
+		return false
+	}
+
+	app := ir.navController.GetApp()
+	inputableView.SetFocusSetter(func(p tview.Primitive) {
+		app.SetFocus(p)
+	})
+
+	inputableView.SetInputSubmitHandler(func(text string) InputSubmitResult {
+		return ir.handleExecuteInput(text)
+	})
+
+	inputableView.SetInputCancelHandler(func() {
+		inputableView.CancelInputBox()
+	})
+
+	inputBox := inputableView.ShowInputBox("> ", "")
+	if inputBox != nil {
+		app.SetFocus(inputBox)
+	}
+
+	return true
+}
+
+// handleExecuteInput runs the submitted ruki statement through the shared CLI
+// runtime. Errors are shown in the statusline and keep the InputBar open so
+// the user can correct the statement without retyping it.
+func (ir *InputRouter) handleExecuteInput(text string) InputSubmitResult {
+	trimmed := strings.TrimSpace(text)
+	if trimmed == "" {
+		return InputKeepEditing
+	}
+
+	var buf bytes.Buffer
+	opts := rukiRuntime.RunQueryOptions{ClipboardWriter: ir.clipboardWriter}
+	if err := rukiRuntime.RunQueryWithOptions(ir.mutationGate, trimmed, &buf, opts); err != nil {
+		if ir.statusline != nil {
+			ir.statusline.SetMessage(err.Error(), model.MessageLevelError, true)
+		}
+		return InputKeepEditing
+	}
+
+	if ir.statusline != nil {
+		if summary := strings.TrimSpace(buf.String()); summary != "" {
+			ir.statusline.SetMessage(summary, model.MessageLevelInfo, true)
+		}
+	}
+	return InputClose
 }
 
 // startActionChoose opens the QuickSelect picker for an action that uses choose().

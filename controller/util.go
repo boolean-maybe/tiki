@@ -39,10 +39,14 @@ func setAuthorFromGit(task *task.Task, taskStore store.Store) {
 	}
 }
 
+// getCurrentUserName returns the display string for the current Tiki identity
+// (name, or email when name is empty). Delegates to store.CurrentUserDisplay
+// so plugin-action executors see the same identity rule as the ruki runtime,
+// CLI exec, triggers, and pipe-create setup.
 func getCurrentUserName(taskStore store.Store) string {
-	name, _, err := taskStore.GetCurrentUser()
+	display, err := store.CurrentUserDisplay(taskStore)
 	if err != nil {
 		return ""
 	}
-	return name
+	return display
 }

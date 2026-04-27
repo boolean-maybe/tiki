@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="600" height="400">
+  <defs>
+    <marker id="arrowhead" markerWidth="10" markerHeight="7" refX="10" refY="3.5" orient="auto" markerUnits="strokeWidth">
+      <polygon points="0 0, 10 3.5, 0 7" fill="#475569"/>
+    </marker>
+  </defs>
+  <rect x="210.0" y="22.857142857142858" width="180" height="40" rx="6" fill="#2563eb" opacity="0.9"/>
+  <text x="300.0" y="47.85714285714286" text-anchor="middle" font-family="sans-serif" font-size="13" fill="#fff">Pre-flight Inspection</text>
+  <line x1="300.0" y1="62.85714285714286" x2="300.0" y2="85.71428571428572" stroke="#475569" stroke-width="2" marker-end="url(#arrowhead)"/>
+  <rect x="210.0" y="85.71428571428572" width="180" height="40" rx="6" fill="#3b82f6" opacity="0.9"/>
+  <text x="300.0" y="110.71428571428572" text-anchor="middle" font-family="sans-serif" font-size="13" fill="#fff">Environment Check</text>
+  <line x1="300.0" y1="125.71428571428572" x2="300.0" y2="148.57142857142856" stroke="#475569" stroke-width="2" marker-end="url(#arrowhead)"/>
+  <rect x="210.0" y="148.57142857142856" width="180" height="40" rx="6" fill="#60a5fa" opacity="0.9"/>
+  <text x="300.0" y="173.57142857142856" text-anchor="middle" font-family="sans-serif" font-size="13" fill="#fff">Guided Test Flight</text>
+  <line x1="300.0" y1="188.57142857142856" x2="300.0" y2="211.42857142857144" stroke="#475569" stroke-width="2" marker-end="url(#arrowhead)"/>
+  <rect x="210.0" y="211.42857142857144" width="180" height="40" rx="6" fill="#93c5fd" opacity="0.9"/>
+  <text x="300.0" y="236.42857142857144" text-anchor="middle" font-family="sans-serif" font-size="13" fill="#fff">Autonomous Test</text>
+  <line x1="300.0" y1="251.42857142857144" x2="300.0" y2="274.2857142857143" stroke="#475569" stroke-width="2" marker-end="url(#arrowhead)"/>
+  <rect x="210.0" y="274.2857142857143" width="180" height="40" rx="6" fill="#bfdbfe" opacity="0.9"/>
+  <text x="300.0" y="299.2857142857143" text-anchor="middle" font-family="sans-serif" font-size="13" fill="#fff">Data Review</text>
+  <line x1="300.0" y1="314.2857142857143" x2="300.0" y2="337.1428571428571" stroke="#475569" stroke-width="2" marker-end="url(#arrowhead)"/>
+  <rect x="210.0" y="337.1428571428571" width="180" height="40" rx="6" fill="#2563eb" opacity="0.9"/>
+  <text x="300.0" y="362.1428571428571" text-anchor="middle" font-family="sans-serif" font-size="13" fill="#fff">Sign-off</text>
+</svg>

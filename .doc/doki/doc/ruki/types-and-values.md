@@ -56,6 +56,11 @@ The workflow field catalog exposes these fields to `ruki`:
 | `createdBy` | `string` |
 | `createdAt` | `timestamp` |
 | `updatedAt` | `timestamp` |
+| `filepath` | `string` |
+
+`filepath` is a synthetic, read-only field populated by the file-backed store. It holds the absolute path to the task's
+markdown file for persisted tasks, and is an empty string for in-memory or unsaved tasks. It never appears in YAML
+frontmatter and cannot be assigned via `create` or `update`.
 
 ## Literals
 
@@ -113,7 +118,7 @@ select where due is empty
 
 - validated through the injected schema against the `types:` section of `workflow.yaml`
 - production normalization lowercases, trims, and removes separators
-- the default workflow ships with `story`, `bug`, `spike`, and `epic`
+- the bundled kanban workflow ships with `story`, `bug`, `spike`, and `epic`
 - type keys must be canonical (matching normalized form); aliases are not supported
 - unknown type values are rejected — no silent fallback
 

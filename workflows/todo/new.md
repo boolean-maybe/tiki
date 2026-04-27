@@ -1,4 +1,0 @@
----
-title:
-priority: 3
----

@@ -33,8 +33,9 @@ const (
 type FieldDef struct {
 	Name          string
 	Type          ValueType
-	Custom        bool     // true for user-defined fields from workflow.yaml
-	AllowedValues []string // non-nil only for TypeEnum fields
+	Custom        bool        // true for user-defined fields from workflow.yaml
+	AllowedValues []string    // non-nil only for TypeEnum fields
+	DefaultValue  interface{} // nil = no default; set via workflow.yaml default: key
 }
 
 // fieldCatalog is the authoritative list of DSL-visible task fields.
@@ -54,6 +55,7 @@ var fieldCatalog = []FieldDef{
 	{Name: "createdBy", Type: TypeString},
 	{Name: "createdAt", Type: TypeTimestamp},
 	{Name: "updatedAt", Type: TypeTimestamp},
+	{Name: "filepath", Type: TypeString},
 }
 
 // pre-built lookup for Field()
@@ -191,13 +193,19 @@ func RegisterCustomFields(defs []FieldDef) error {
 			return fmt.Errorf("custom enum field %q requires non-empty values", d.Name)
 		}
 		c := FieldDef{
-			Name:   d.Name,
-			Type:   d.Type,
-			Custom: true,
+			Name:         d.Name,
+			Type:         d.Type,
+			Custom:       true,
+			DefaultValue: d.DefaultValue,
 		}
 		if d.AllowedValues != nil {
 			c.AllowedValues = make([]string, len(d.AllowedValues))
 			copy(c.AllowedValues, d.AllowedValues)
+		}
+		if ss, ok := c.DefaultValue.([]string); ok {
+			cp := make([]string, len(ss))
+			copy(cp, ss)
+			c.DefaultValue = cp
 		}
 		byName[d.Name] = c
 		copied = append(copied, c)
@@ -237,12 +245,17 @@ func notifyCustomFieldsChanged() {
 	}
 }
 
-// deepCopyFieldDef returns a copy of fd with a cloned AllowedValues slice.
+// deepCopyFieldDef returns a copy of fd with cloned AllowedValues and DefaultValue slices.
 func deepCopyFieldDef(fd FieldDef) FieldDef {
 	if fd.AllowedValues != nil {
 		vals := make([]string, len(fd.AllowedValues))
 		copy(vals, fd.AllowedValues)
 		fd.AllowedValues = vals
+	}
+	if ss, ok := fd.DefaultValue.([]string); ok {
+		cp := make([]string, len(ss))
+		copy(cp, ss)
+		fd.DefaultValue = cp
 	}
 	return fd
 }

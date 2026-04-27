@@ -338,6 +338,37 @@ func TestTypeRegistry_AllReturnsCopy(t *testing.T) {
 	}
 }
 
+func TestTypeRegistry_ExplicitDefault(t *testing.T) {
+	reg := mustBuildTypeRegistry(t, []TypeDef{
+		{Key: "story", Label: "Story"},
+		{Key: "bug", Label: "Bug", Default: true},
+		{Key: "spike", Label: "Spike"},
+	})
+	if got := reg.DefaultType(); got != "bug" {
+		t.Errorf("DefaultType() = %q, want %q", got, "bug")
+	}
+}
+
+func TestTypeRegistry_MultipleDefaultsRejected(t *testing.T) {
+	_, err := NewTypeRegistry([]TypeDef{
+		{Key: "story", Label: "Story", Default: true},
+		{Key: "bug", Label: "Bug", Default: true},
+	})
+	if err == nil {
+		t.Fatal("expected error for multiple default types")
+	}
+}
+
+func TestTypeRegistry_NoExplicitDefaultUsesFirst(t *testing.T) {
+	reg := mustBuildTypeRegistry(t, []TypeDef{
+		{Key: "spike", Label: "Spike"},
+		{Key: "bug", Label: "Bug"},
+	})
+	if got := reg.DefaultType(); got != "spike" {
+		t.Errorf("DefaultType() = %q, want first type %q", got, "spike")
+	}
+}
+
 func TestTypeConstants(t *testing.T) {
 	if TypeStory != "story" {
 		t.Errorf("TypeStory = %q", TypeStory)

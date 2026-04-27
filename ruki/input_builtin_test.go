@@ -99,9 +99,9 @@ func TestInputBuiltin_Executor_ReturnsValue(t *testing.T) {
 
 	testTask := &task.Task{ID: "TIKI-000001", Title: "test", Status: "ready", Type: "task", Priority: 3}
 	result, err := e.Execute(vs, []*task.Task{testTask}, ExecutionInput{
-		SelectedTaskID: "TIKI-000001",
-		InputValue:     "bob",
-		HasInput:       true,
+		SelectedTaskIDs: []string{"TIKI-000001"},
+		InputValue:      "bob",
+		HasInput:        true,
 	})
 	if err != nil {
 		t.Fatalf("execution error: %v", err)
@@ -133,7 +133,7 @@ func TestInputBuiltin_Executor_MissingInput(t *testing.T) {
 
 	testTask := &task.Task{ID: "TIKI-000001", Title: "test", Status: "ready", Type: "task", Priority: 3}
 	_, err = e.Execute(vs, []*task.Task{testTask}, ExecutionInput{
-		SelectedTaskID: "TIKI-000001",
+		SelectedTaskIDs: []string{"TIKI-000001"},
 	})
 	if err == nil {
 		t.Fatal("expected error for missing input")

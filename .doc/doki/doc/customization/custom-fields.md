@@ -64,8 +64,14 @@ Custom fields come from the `workflow.yaml` file (see [Configuration: Precedence
 | `boolean`     | true or false                         | `bool`           |
 | `datetime`    | timestamp (RFC3339 or YYYY-MM-DD)     | `timestamp`      |
 | `enum`        | constrained string from `values` list | `enum`           |
-| `stringList`  | list of strings                       | `list<string>`   |
-| `taskIdList`  | list of tiki ID references            | `list<ref>`      |
+| `stringList`  | set-like list of strings              | `list<string>`   |
+| `taskIdList`  | set-like list of tiki ID references   | `list<ref>`      |
+
+For list field types, values are normalized with set semantics:
+- strings are trimmed
+- empty entries are dropped
+- duplicate entries are removed
+- `taskIdList` entries are uppercased
 
 ## Enum fields
 
@@ -110,6 +116,8 @@ select where deadline < 2026-05-01
 ```
 
 ### Updating with update set
+
+For list fields, `+` behaves like set union and `-` removes matching values.
 
 ```sql
 -- assign a sprint
@@ -204,23 +212,27 @@ Custom fields appear after the built-in fields, sorted alphabetically by name.
 
 On load, unknown frontmatter keys that are not registered custom fields are preserved as-is and survive save-load round-trips. This allows workflow changes without losing data — see [Schema evolution](../ruki/custom-fields-reference.md#schema-evolution-and-stale-data) for details.
 
-## Templates
+## Field Defaults
 
-Custom fields can have defaults in `new.md`:
+Custom fields can declare a `default:` value directly in `workflow.yaml`. The value is
+validated against the field's type and enum constraints during workflow load — invalid
+defaults are hard errors, not silent fallbacks.
 
-```markdown
----
-type: story
-status: backlog
-priority: 3
-points: 1
-sprint: sprint-7
-blocked: false
-category: backend
----
+```yaml
+fields:
+  - name: severity
+    type: enum
+    values: [critical, high, medium, low]
+    default: medium
+  - name: blocked
+    type: boolean
+    default: false
+  - name: escalations
+    type: integer
+    default: 0
 ```
 
-Custom field values in the template are validated against their type definitions and enum constraints, the same as in task files.
+Fields without a `default:` key start empty on new tasks.
 
 ## Missing field behavior
 

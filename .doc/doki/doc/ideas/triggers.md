@@ -1,6 +1,6 @@
 # Trigger Ideas
 
-Candidate triggers for the default workflow. Each represents a common workflow pattern.
+Candidate triggers for the bundled kanban workflow. Each represents a common workflow pattern.
 
 - [WIP limit per assignee](#wip-limit-per-assignee)
 - [Require description for high-priority tasks](#require-description-for-high-priority-tasks)
@@ -114,7 +114,7 @@ If you pull something into in-progress without assigning it, you implicitly own 
 ```
 
 Note: this is the permissive alternative to the "require assignee before starting" trigger
-that ships in the default workflow. Use one or the other, not both.
+that ships in the bundled kanban workflow. Use one or the other, not both.
 
 ## Escalate overdue tasks
 

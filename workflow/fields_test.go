@@ -48,8 +48,8 @@ func TestField(t *testing.T) {
 
 func TestFields(t *testing.T) {
 	fields := Fields()
-	if len(fields) != 15 {
-		t.Fatalf("expected 15 fields, got %d", len(fields))
+	if len(fields) != 16 {
+		t.Fatalf("expected 16 fields, got %d", len(fields))
 	}
 
 	// verify it returns a copy
@@ -166,8 +166,8 @@ func TestRegisterCustomFields(t *testing.T) {
 
 	// verify Fields() includes custom fields
 	all := Fields()
-	if len(all) != 15+len(defs) {
-		t.Errorf("Fields() length = %d, want %d", len(all), 15+len(defs))
+	if len(all) != 16+len(defs) {
+		t.Errorf("Fields() length = %d, want %d", len(all), 16+len(defs))
 	}
 
 	// verify enum AllowedValues
@@ -269,8 +269,8 @@ func TestClearCustomFields(t *testing.T) {
 	}
 
 	// Fields() should return only built-ins
-	if len(Fields()) != 15 {
-		t.Errorf("Fields() = %d, want 15 after clear", len(Fields()))
+	if len(Fields()) != 16 {
+		t.Errorf("Fields() = %d, want 16 after clear", len(Fields()))
 	}
 }
 

@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"sort"
 	"strings"
 
 	gonanoid "github.com/matoous/go-nanoid/v2"
@@ -30,17 +31,44 @@ var roadmapNextSample string
 //go:embed roadmap_later_sample.md
 var roadmapLaterSample string
 
-//go:embed new.md
-var defaultNewTaskTemplate string
-
 //go:embed index.md
 var dokiEntryPoint string
 
 //go:embed linked.md
 var dokiLinked string
 
-//go:embed default_workflow.yaml
-var defaultWorkflowYAML string
+//go:embed workflows/kanban.yaml
+var embeddedKanbanYAML string
+
+//go:embed workflows/todo.yaml
+var embeddedTodoYAML string
+
+//go:embed workflows/bug-tracker.yaml
+var embeddedBugTrackerYAML string
+
+const DefaultEmbeddedWorkflowName = "kanban"
+
+var embeddedWorkflows = map[string]string{
+	"kanban":      embeddedKanbanYAML,
+	"todo":        embeddedTodoYAML,
+	"bug-tracker": embeddedBugTrackerYAML,
+}
+
+// LookupEmbeddedWorkflow returns the YAML content for a bundled workflow name.
+func LookupEmbeddedWorkflow(name string) (string, bool) {
+	content, ok := embeddedWorkflows[name]
+	return content, ok
+}
+
+// EmbeddedWorkflowNames returns the sorted list of bundled workflow names.
+func EmbeddedWorkflowNames() []string {
+	names := make([]string, 0, len(embeddedWorkflows))
+	for k := range embeddedWorkflows {
+		names = append(names, k)
+	}
+	sort.Strings(names)
+	return names
+}
 
 //go:embed markdown.png
 var markdownPNG []byte
@@ -177,14 +205,9 @@ func BootstrapSystem(createSamples bool, gitAdd func(...string) error) error {
 	return nil
 }
 
-// GetDefaultNewTaskTemplate returns the embedded new.md template
-func GetDefaultNewTaskTemplate() string {
-	return defaultNewTaskTemplate
-}
-
 // GetDefaultWorkflowYAML returns the embedded default workflow.yaml content
 func GetDefaultWorkflowYAML() string {
-	return defaultWorkflowYAML
+	return embeddedKanbanYAML
 }
 
 // InstallDefaultWorkflow installs the default workflow.yaml to the user config directory
@@ -205,7 +228,7 @@ func InstallDefaultWorkflow() error {
 	}
 
 	//nolint:gosec // G306: 0644 is appropriate for config file
-	if err := os.WriteFile(path, []byte(defaultWorkflowYAML), 0644); err != nil {
+	if err := os.WriteFile(path, []byte(embeddedKanbanYAML), 0644); err != nil {
 		return fmt.Errorf("write default workflow.yaml: %w", err)
 	}
 

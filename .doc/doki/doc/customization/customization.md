@@ -82,27 +82,36 @@ Each type has:
 - `label` — display name shown in the UI (defaults to key when omitted)
 - `emoji` — emoji shown alongside the label
 
-The first configured type is used as the default for new tikis.
+Mark one type `default: true` to use it as the creation default for new tikis.
+If no type is marked, the first configured type wins.
 
-## Task Template
+## Task Creation Defaults
 
-When you create a new tiki — whether in the TUI or command line — field defaults come from a template file. 
-Place `new.md` in your config directory to override the built-in defaults
-The file uses YAML frontmatter for field defaults
+When you create a new tiki, field defaults come from two sources:
 
-### Built-in default
+**Built-in defaults** (hardcoded, not configurable):
+- `priority` = 3
+- `points` = 1
+- `tags` = `["idea"]`
 
-```markdown
----
-title:
-points: 1
-priority: 3
-tags:
-    - idea
----
+**Workflow defaults** (configurable in `workflow.yaml`):
+- `status` — the status marked `default: true`
+- `type` — the type marked `default: true`, or the first type if none is marked
+- custom fields — any field with a `default:` value (see [Custom fields](custom-fields.md))
+
+```yaml
+types:
+  - key: bug
+    label: Bug
+    emoji: "🐛"
+    default: true
+
+fields:
+  - name: severity
+    type: enum
+    values: [critical, high, medium, low]
+    default: medium
 ```
-
-Type and status are omitted but can be added, otherwise they default to the first configured type and the status marked `default: true`.
 
 ## Plugins
 
@@ -266,11 +275,11 @@ actions:
     input: string
   - key: "t"
     label: "Add tag"
-    action: update where id = id() set tags = tags + [input()]
+    action: update where id = id() set tags = tags + input()
     input: string
   - key: "T"
     label: "Remove tag"
-    action: update where id = id() set tags = tags - [input()]
+    action: update where id = id() set tags = tags - input()
     input: string
   - key: "p"
     label: "Set points"
@@ -330,19 +339,48 @@ This action requires both `ai` (an AI agent configured in `config.yaml`) and `id
 
 | Attribute | Set when |
 |-----------|----------|
-| `id` | A task is selected in the current view |
+| `id` | Exactly one task is selected — legacy alias for `selection:one` |
+| `selection:one` | Exactly one task is selected |
+| `selection:any` | One or more tasks are selected |
+| `selection:many` | Two or more tasks are selected |
 | `ai` | `ai.agent` is configured in `config.yaml` |
 | `view:<view-id>` | Identifies the currently active view (e.g. `view:plugin:Kanban`) |
 
+`id` and `selection:one` are equivalent; both require exactly one selected task. Prefer whichever reads better in
+context — `id` is shorter, `selection:one` is symmetric with the other cardinality tokens.
+
 #### Auto-inference
 
-You don't need to declare `require: ["id"]` for actions that use `id()` in their ruki statement — tiki automatically infers 
-the `id` requirement. Explicitly listing it is allowed but redundant.
+Tiki infers selection requirements from the ruki statement so authors rarely need to declare them explicitly:
+
+- Using `id()` auto-infers `id` (equivalent to `selection:one`).
+- Using `ids()` auto-infers `selection:any` — the action requires at least one selection but accepts any
+  cardinality above that. Override with an explicit `require:` entry (e.g. `["selection:many"]`) when you want to
+  constrain further.
+- Using `selected_count()` does **not** auto-infer anything. The builtin exists so ruki can branch on cardinality
+  (including the zero case), and auto-inferring `selection:any` would make the zero branch unreachable. Authors
+  who want gating should add an explicit `require:` entry.
+
+Explicitly listing an auto-inferred requirement is allowed but redundant.
+
+#### Multi-selection actions
+
+Use `ids()` in the ruki statement to operate on every selected task:
+
+```yaml
+actions:
+  - key: "D"
+    label: "Mark selected done"
+    action: update where id in ids() set status = "done"
+```
+
+This action inherits `selection:any`, so it is enabled as soon as at least one task is selected. To require two or
+more selected tasks (e.g. a merge operation), add `require: ["selection:many"]` explicitly.
 
 #### Bulk actions
 
-Mutating actions (`update`, `delete`) that do *not* use `id()` are bulk actions — they operate on all matching tasks, 
-not just the selected one. Bulk actions remain enabled even when nothing is selected:
+Mutating actions (`update`, `delete`) that do *not* use `id()` or `ids()` are bulk actions — they operate on all
+matching tasks, not just the selected ones. Bulk actions remain enabled even when nothing is selected:
 
 ```yaml
 actions:
@@ -351,7 +389,8 @@ actions:
     action: delete where status = "done"
 ```
 
-This action has no `id` requirement (neither explicit nor inferred) so it stays enabled regardless of selection state.
+This action has no selection requirement (neither explicit nor inferred) so it stays enabled regardless of
+selection state.
 
 #### Negated requirements
 
@@ -366,15 +405,6 @@ actions:
 ```
 
 This action is disabled when the user is already on the Kanban view — the `view:plugin:Kanban` attribute would be present, failing the `!view:plugin:Kanban` check.
-
-### Search and input box interaction
-
-The input box serves both search and action-input, with explicit mode tracking:
-
-- **Search editing**: pressing `/` opens the input box focused for typing. Enter with text applies the search and transitions to **search passive** mode. Enter on empty text is a no-op. Esc clears search and closes the box.
-- **Search passive**: the search box remains visible as a non-editable indicator showing the active query, while normal task navigation and actions are re-enabled. Pressing `/` again is blocked — dismiss the active search with Esc first, then open a new search. Esc clears the search results and closes the box.
-- **Action input**: pressing an input-backed action key opens a modal prompt. If search was passive, the prompt temporarily replaces the search indicator. Valid Enter executes the action and restores the passive search indicator (or closes if no prior search). Esc cancels and likewise restores passive search. Invalid Enter keeps the prompt open for correction.
-- **Modal blocking**: while search editing or action input is active, all other plugin actions and keyboard shortcuts are blocked. The action palette cannot open while the input box is editing.
 
 ### ruki expressions
 
@@ -445,7 +475,7 @@ update where id = id() set assignee=user()
 - Dates: `2026-03-25`
 - Durations: `2hour`, `14day`, `3week`, `1month`
 - Lists: `["bug", "frontend"]`
-- `user()` — current user
+- `user()` — current `tiki` identity (configured `identity.name` or `identity.email` → git user → OS user)
 - `now()` — current timestamp
 - `id()` — currently selected tiki (in plugin context)
 - `input()` — user-supplied value (in actions with `input:` declaration)

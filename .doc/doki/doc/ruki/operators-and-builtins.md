@@ -68,6 +68,8 @@ Supported by type:
 | `recurrence` | yes | no |
 | list types | yes | no |
 
+List equality uses set semantics: order and duplicate count do not affect `=` / `!=`.
+
 Examples:
 
 ```sql
@@ -166,16 +168,16 @@ before update where dependsOn any old.status = "done" deny "blocked"
 
 - string-like plus string-like yields `string`
 - `int + int` yields `int`
-- `list<string> + string` and `list<string> + list<string>` yield `list<string>`
-- `list<ref> + id-or-ref-compatible value` and `list<ref> + list<ref>` yield `list<ref>`
+- `list<string> + string` and `list<string> + list<string>` yield `list<string>` (set union, no duplicates)
+- `list<ref> + id-or-ref-compatible value` and `list<ref> + list<ref>` yield `list<ref>` (set union, no duplicates)
 - `date + duration` yields `date`
 - `timestamp + duration` yields `timestamp`
 
 `-`
 
 - `int - int` yields `int`
-- `list<string> - string` and `list<string> - list<string>` yield `list<string>`
-- `list<ref> - id-or-ref-compatible value` and `list<ref> - list<ref>` yield `list<ref>`
+- `list<string> - string` and `list<string> - list<string>` yield `list<string>` (remove matching entries)
+- `list<ref> - id-or-ref-compatible value` and `list<ref> - list<ref>` yield `list<ref>` (remove matching entries)
 - `date - duration` yields `date`
 - `date - date` yields `duration`
 - `timestamp - duration` yields `timestamp`
@@ -205,41 +207,83 @@ create title="x" dependsOn=dependsOn + tags
 
 | Name | Result type | Arguments | Notes |
 |---|---|---|---|
-| `count(...)` | `int` | exactly 1 | argument must be a `select` subquery |
+| `count(...)` | `int` | exactly 1 | argument must be a `select` subquery; usable as a top-level expression |
+| `exists(...)` | `bool` | exactly 1 | argument must be a `select` subquery; true when any tiki matches; usable as a top-level expression |
 | `now()` | `timestamp` | 0 | no additional validation |
 | `next_date(...)` | `date` | exactly 1 | argument must be `recurrence` |
 | `blocks(...)` | `list<ref>` | exactly 1 | argument must be `id`, `ref`, or string literal |
-| `id()` | `id` | 0 | valid only in plugin runtime; resolves to selected tiki ID |
+| `id()` | `id` | 0 | plugin runtime only; requires exactly one selected tiki |
+| `ids()` | `list<ref>` | 0 | plugin runtime only; returns the full set of selected tiki IDs |
+| `selected_count()` | `int` | 0 | plugin runtime only; returns the number of selected tikis |
 | `input()` | declared type | 0 | valid only in plugin actions with `input:` declaration |
 | `call(...)` | `string` | exactly 1 | argument must be `string` |
-| `user()` | `string` | 0 | no additional validation |
+| `user()` | `string` | 0 | resolves to the current Tiki identity (configured → git → OS user); errors if none resolves |
 | `choose(...)` | `ref` | exactly 1 | argument must be a `select` subquery; plugin runtime only |
 
 Examples:
 
 ```sql
-select where count(select where status = "done") >= 1
 select where updatedAt < now()
 create title="x" due=next_date(recurrence)
 select where blocks(id) is empty
 select where id() in dependsOn
+select where count(select where assignee = outer.assignee and status = "in progress") >= 3
+before update where new.type = "epic"
+and exists(select where id in new.dependsOn and status != "done")
+deny "epic has unfinished dependencies"
 create title=call("echo hi")
 select where assignee = user()
 update where id = id() set assignee = input()
 update where id = id() set tags = tags + [input()]
+update where id in ids() set status = "done"
 update where id = choose(select where type = "epic") set dependsOn = dependsOn + id()
 create title = input()
 ```
 
 Runtime notes:
 
-- `id()` is semantically valid only in plugin runtime.
-- When a validated statement uses `id()`, plugin execution must provide a non-empty selected task ID.
-- Actions using `id()` automatically gain an `id` [requirement](../customization/customization.md#action-requirements) — the action is disabled when no task is selected. Mutating actions (`update`, `delete`) that do not use `id()` are bulk actions and remain enabled without a selection.
-- `id()` is rejected for CLI, event-trigger, and time-trigger semantic runtimes.
+- `id()` is the scalar selection builtin. It is only valid in plugin runtime and requires the caller to provide
+  exactly one selected task ID. Zero selections raise `MissingSelectedTaskIDError`; two or more raise
+  `AmbiguousSelectedTaskIDError` (the message suggests switching to `ids()`).
+- Actions that reference `id()` automatically gain an `id`
+  [requirement](../customization/customization.md#action-requirements) which is equivalent to `selection:one`. The
+  action is disabled when the selection count is not exactly one.
+- `ids()` is the multi-selection builtin. It returns the full `list<ref>` of currently selected task IDs, so the
+  idiomatic multi-target update is `update where id in ids() set ...`. Zero selections produce an empty list
+  rather than an error, so the statement becomes a no-op when nothing is selected.
+- `selected_count()` returns the number of currently selected tasks, letting ruki branch on cardinality (e.g.
+  `select where selected_count() >= 2`).
+- Actions that reference `ids()` auto-infer a `selection:any` requirement (at least one selected task) unless the
+  author supplies an explicit `selection:*` requirement. Actions that reference `selected_count()` do **not**
+  auto-infer any selection requirement — the whole point of the builtin is to let ruki branch on cardinality
+  including the zero case, so gating the action on a non-zero selection would make that branch unreachable. See
+  [action requirements](../customization/customization.md#action-requirements) for the `selection:one`,
+  `selection:any`, and `selection:many` cardinality tokens.
+- `id()`, `ids()`, and `selected_count()` are all rejected for CLI, event-trigger, and time-trigger semantic
+  runtimes.
+- `user()` returns the current Tiki identity. Resolution order:
+  configured `identity.name` or `identity.email` (via `config.yaml` or
+  `TIKI_IDENTITY_NAME` / `TIKI_IDENTITY_EMAIL`), then the git user when
+  `store.git` is `true`, then the OS account username. Either config field
+  alone is sufficient — when only email is set, it is used as the display
+  string. When none of those sources yields a value, `user()` returns an
+  error (`user() is unavailable (no current user configured)`). See
+  [Configuration / Identity resolution](../config.md#identity-resolution)
+  for the full layered behavior.
+- `exists(...)` is a non-interactive boolean builtin. Its subquery body is validated recursively.
+- `count(...)`, `exists(...)`, `now()`, `user()`, and other non-interactive builtins may appear as top-level
+  expression statements: `tiki exec 'count(select where status = "done")'` prints the scalar result instead of
+  a table. Bare field references are rejected at the top level (no current task), but remain valid inside the
+  subquery argument to `count(...)` or `exists(...)`.
 - `call(...)` is currently rejected by semantic validation.
-- `input()` returns the value typed by the user at the action prompt. Its return type matches the `input:` declaration on the action (e.g. `input: string` means `input()` returns `string`). Only valid in plugin action statements that declare `input:`. May only appear once per action. Accepted `timestamp` input formats: RFC3339, with YYYY-MM-DD as a convenience fallback.
-- `choose()` is semantically valid only in plugin runtime. Opens an interactive Quick Select picker — the user fuzzy-filters candidate tasks and confirms one with Enter. Esc cancels the operation. The selected task's ID is the return value. `choose()` may only appear once per action. `choose()` and `input()` are mutually exclusive within a single action. Rejected for CLI, event-trigger, and time-trigger semantic runtimes.
+- `input()` returns the value typed by the user at the action prompt. Its return type matches the `input:`
+  declaration on the action, so `input: string` means `input()` returns `string`. Only valid in plugin action
+  statements that declare `input:`. May only appear once per action. Accepted `timestamp` input formats: RFC3339,
+  with YYYY-MM-DD as a convenience fallback.
+- `choose()` is semantically valid only in plugin runtime. Opens an interactive Quick Select picker, where the user
+  fuzzy-filters candidate tasks and confirms one with Enter. Esc cancels the operation. The selected task's ID is the
+  return value. `choose()` may only appear once per action. `choose()` and `input()` are mutually exclusive within a
+  single action. Rejected for CLI, event-trigger, and time-trigger semantic runtimes.
 
 `run(...)`
 
@@ -275,6 +319,7 @@ after update where new.status = "in progress" run("echo hello")
 - Command must be a string literal or expression, but **field references are not allowed in the command** itself
 - `|` is a statement suffix, not an operator
 - Example: `select id, title where status = "done" | run("myscript $1 $2")`
+- Example: `select filepath | run("some-app $1")` — pipes each task's absolute markdown file path as `$1`
 
 **`| clipboard()` on select** — a pipe suffix
 

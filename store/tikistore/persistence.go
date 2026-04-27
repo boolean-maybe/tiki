@@ -13,6 +13,7 @@ import (
 	"github.com/boolean-maybe/tiki/store"
 	"github.com/boolean-maybe/tiki/store/internal/git"
 	taskpkg "github.com/boolean-maybe/tiki/task"
+	collectionutil "github.com/boolean-maybe/tiki/util/collections"
 	"github.com/boolean-maybe/tiki/workflow"
 
 	"gopkg.in/yaml.v3"
@@ -129,6 +130,13 @@ func (s *TikiStore) loadTaskFile(path string, authorMap map[string]*git.AuthorIn
 		taskType = taskpkg.DefaultType()
 	}
 
+	absPath, absErr := filepath.Abs(path)
+	if absErr != nil {
+		// fall back to the raw path — still better than leaving it empty
+		slog.Debug("failed to resolve absolute task path, using raw path", "file", path, "error", absErr)
+		absPath = path
+	}
+
 	task := &taskpkg.Task{
 		ID:            taskID,
 		Title:         fm.Title,
@@ -145,6 +153,7 @@ func (s *TikiStore) loadTaskFile(path string, authorMap map[string]*git.AuthorIn
 		CustomFields:  customFields,
 		UnknownFields: unknownFields,
 		LoadedMtime:   info.ModTime(),
+		FilePath:      absPath,
 	}
 
 	// Validate and default Priority field (1-5 range)
@@ -201,25 +210,21 @@ func (s *TikiStore) loadTaskFile(path string, authorMap map[string]*git.AuthorIn
 	}
 
 	// Fallback to file metadata when git history is not available.
-	// This handles the case where files are staged or untracked.
+	// This handles the case where files are staged, untracked, or git is off.
 	// Once the file is committed, git history will be used instead.
 	if task.CreatedAt.IsZero() {
-		// No git history for this file - use file modification time as fallback
 		task.CreatedAt = info.ModTime()
 
-		// Try to get current git user for CreatedBy
-		if s.gitUtil != nil {
-			if name, email, err := s.gitUtil.CurrentUser(); err == nil {
-				// Prefer name, fall back to email
-				if name != "" {
-					task.CreatedBy = name
-				} else if email != "" {
-					task.CreatedBy = email
-				}
+		// route through the shared resolver so no-git mode and configured
+		// identities participate, not just the git user
+		if name, email, err := s.GetCurrentUser(); err == nil {
+			if name != "" {
+				task.CreatedBy = name
+			} else if email != "" {
+				task.CreatedBy = email
 			}
 		}
-
-		// If git user is not available, leave CreatedBy empty (will show "Unknown" in UI)
+		// If no identity resolves, leave CreatedBy empty (UI shows "Unknown")
 	}
 
 	s.upgrader.UpgradeTask(task)
@@ -322,6 +327,9 @@ func (s *TikiStore) saveTask(task *taskpkg.Task) error {
 		Points:     task.Points,
 	}
 
+	fm.Tags = collectionutil.NormalizeStringSet(fm.Tags)
+	fm.DependsOn = collectionutil.NormalizeRefSet(fm.DependsOn)
+
 	// sort tags for consistent output
 	if len(fm.Tags) > 0 {
 		sort.Strings(fm.Tags)
@@ -376,6 +384,12 @@ func (s *TikiStore) saveTask(task *taskpkg.Task) error {
 				}
 			}
 		}
+		if absPath, absErr := filepath.Abs(path); absErr == nil {
+			task.FilePath = absPath
+		} else {
+			slog.Debug("failed to resolve absolute task path after save, using raw path", "task_id", task.ID, "path", path, "error", absErr)
+			task.FilePath = path
+		}
 		slog.Debug("task file saved and timestamps computed", "task_id", task.ID, "path", path, "new_mtime", task.LoadedMtime, "updated_at", task.UpdatedAt)
 	} else {
 		slog.Error("failed to stat file after save for mtime computation", "task_id", task.ID, "path", path, "error", err)
@@ -428,7 +442,14 @@ func extractCustomFields(fmMap map[string]interface{}, path string) (customField
 			registryChecked = true
 		}
 		fd, ok := workflow.Field(key)
-		if !ok || !fd.Custom {
+		if ok && !fd.Custom {
+			// registered built-in (e.g. synthetic read-only fields like
+			// filepath). These are derived, never persisted — drop whatever
+			// was in the file so stale values don't survive a round-trip.
+			slog.Debug("dropping synthetic built-in field from frontmatter", "field", key, "file", path)
+			continue
+		}
+		if !ok {
 			slog.Debug("preserving unknown field in frontmatter", "field", key, "file", path)
 			if unknownFields == nil {
 				unknownFields = make(map[string]interface{})
@@ -522,17 +543,7 @@ func coerceCustomValue(fd workflow.FieldDef, raw interface{}) (interface{}, erro
 		if err != nil {
 			return nil, err
 		}
-		for i, s := range ss {
-			ss[i] = strings.ToUpper(strings.TrimSpace(s))
-		}
-		// drop empties
-		filtered := ss[:0]
-		for _, s := range ss {
-			if s != "" {
-				filtered = append(filtered, s)
-			}
-		}
-		return filtered, nil
+		return collectionutil.NormalizeRefSet(ss), nil
 
 	default:
 		return raw, nil
@@ -551,9 +562,11 @@ func coerceStringList(raw interface{}) ([]string, error) {
 			}
 			ss = append(ss, s)
 		}
-		return ss, nil
+		return collectionutil.NormalizeStringSet(ss), nil
 	case []string:
-		return v, nil
+		ss := make([]string, len(v))
+		copy(ss, v)
+		return collectionutil.NormalizeStringSet(ss), nil
 	default:
 		return nil, fmt.Errorf("expected list, got %T", raw)
 	}
@@ -575,7 +588,23 @@ func appendCustomFields(w *strings.Builder, fields map[string]interface{}) error
 	sort.Strings(keys)
 
 	for _, k := range keys {
-		out, err := yaml.Marshal(map[string]interface{}{k: fields[k]})
+		value := fields[k]
+		fd, _ := workflow.Field(k)
+		switch fd.Type {
+		case workflow.TypeListString:
+			ss, err := coerceStringList(value)
+			if err != nil {
+				return fmt.Errorf("invalid list value for %q: %w", k, err)
+			}
+			value = collectionutil.NormalizeStringSet(ss)
+		case workflow.TypeListRef:
+			ss, err := coerceStringList(value)
+			if err != nil {
+				return fmt.Errorf("invalid list value for %q: %w", k, err)
+			}
+			value = collectionutil.NormalizeRefSet(ss)
+		}
+		out, err := yaml.Marshal(map[string]interface{}{k: value})
 		if err != nil {
 			return fmt.Errorf("marshaling field %q: %w", k, err)
 		}

@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log/slog"
 	"os"
+	"strings"
 
 	"github.com/boolean-maybe/tiki/config"
 	"github.com/boolean-maybe/tiki/internal/app"
@@ -14,7 +15,7 @@ import (
 	rukiRuntime "github.com/boolean-maybe/tiki/internal/ruki/runtime"
 	"github.com/boolean-maybe/tiki/internal/viewer"
 	"github.com/boolean-maybe/tiki/service"
-	"github.com/boolean-maybe/tiki/store/tikistore"
+	"github.com/boolean-maybe/tiki/store"
 	"github.com/boolean-maybe/tiki/util/sysinfo"
 )
 
@@ -154,27 +155,6 @@ func runSysInfo() error {
 	return nil
 }
 
-const demoRepoURL = "https://github.com/boolean-maybe/tiki-demo.git"
-const demoDirName = "tiki-demo"
-
-// runDemo clones the demo repository if needed and changes into it.
-// Must be called before config.InitPaths() so the PathManager captures the demo dir as project root.
-func runDemo() error {
-	info, err := os.Stat(demoDirName)
-	if err == nil && info.IsDir() {
-		fmt.Printf("using existing %s directory\n", demoDirName)
-	} else {
-		fmt.Printf("cloning demo project into %s...\n", demoDirName)
-		if err := tikistore.GitClone(demoRepoURL, demoDirName, os.Stdout, os.Stderr); err != nil {
-			return fmt.Errorf("git clone failed: %w", err)
-		}
-	}
-	if err := os.Chdir(demoDirName); err != nil {
-		return fmt.Errorf("change to demo directory: %w", err)
-	}
-	return nil
-}
-
 // errHelpRequested is returned by arg parsers when the user asks for help.
 // Callers should print usage and exit cleanly — not treat it as a real error.
 var errHelpRequested = errors.New("help requested")
@@ -188,10 +168,114 @@ const (
 	exitQueryError     = 4
 )
 
-// runExec implements `tiki exec '<statement>'`. Returns an exit code.
+// ExecOpts holds parsed arguments for the exec subcommand.
+type ExecOpts struct {
+	Statement string
+	Format    rukiRuntime.OutputFormat
+}
+
+// parseExecArgs parses `tiki exec` arguments, accepting a single ruki
+// statement plus an optional `--format table|json` flag. Follows the
+// parseInitArgs style.
+//
+// Supports the standard `--` end-of-options marker: every arg after `--` is
+// treated as positional, so ruki statements that legitimately start with `-`
+// (most commonly a leading `-- ruki line comment`) can be passed without
+// being mistaken for flags.
+func parseExecArgs(args []string) (ExecOpts, error) {
+	opts := ExecOpts{Format: rukiRuntime.OutputTable}
+	var statement string
+	endOfOptions := false
+
+	setFormat := func(value, origin string) error {
+		fmtVal, err := parseExecFormat(value)
+		if err != nil {
+			return fmt.Errorf("%s %s", origin, err.Error())
+		}
+		opts.Format = fmtVal
+		return nil
+	}
+
+	takeStatement := func(arg string) error {
+		if statement != "" {
+			return fmt.Errorf("multiple statements: only one ruki statement is allowed")
+		}
+		statement = arg
+		return nil
+	}
+
+	for i := 0; i < len(args); i++ {
+		arg := args[i]
+
+		if endOfOptions {
+			if err := takeStatement(arg); err != nil {
+				return ExecOpts{}, err
+			}
+			continue
+		}
+
+		switch {
+		case arg == "--":
+			endOfOptions = true
+
+		case arg == "--help" || arg == "-h":
+			return ExecOpts{}, errHelpRequested
+
+		case arg == "--format":
+			i++
+			if i >= len(args) {
+				return ExecOpts{}, fmt.Errorf("--format requires a value")
+			}
+			if err := setFormat(args[i], "--format"); err != nil { //nolint:gosec // G602: bounds checked above
+				return ExecOpts{}, err
+			}
+
+		case strings.HasPrefix(arg, "--format="):
+			if err := setFormat(strings.TrimPrefix(arg, "--format="), "--format="); err != nil {
+				return ExecOpts{}, err
+			}
+
+		case strings.HasPrefix(arg, "-"):
+			return ExecOpts{}, fmt.Errorf("unknown flag: %s (use -- to pass a statement that starts with '-')", arg)
+
+		default:
+			if err := takeStatement(arg); err != nil {
+				return ExecOpts{}, err
+			}
+		}
+	}
+
+	if statement == "" {
+		return ExecOpts{}, fmt.Errorf("missing ruki statement")
+	}
+
+	opts.Statement = statement
+	return opts, nil
+}
+
+// parseExecFormat maps the --format value to an OutputFormat. Only `table`
+// and `json` are accepted.
+func parseExecFormat(value string) (rukiRuntime.OutputFormat, error) {
+	switch value {
+	case "table":
+		return rukiRuntime.OutputTable, nil
+	case "json":
+		return rukiRuntime.OutputJSON, nil
+	default:
+		return 0, fmt.Errorf("unsupported format %q (supported: table, json)", value)
+	}
+}
+
+// runExec implements `tiki exec [--format table|json] '<statement>'`. Returns an exit code.
 func runExec(args []string) int {
-	if len(args) != 1 {
-		_, _ = fmt.Fprintln(os.Stderr, "usage: tiki exec '<ruki-statement>'")
+	opts, err := parseExecArgs(args)
+	if err != nil {
+		if errors.Is(err, errHelpRequested) {
+			printExecUsage()
+			return exitOK
+		}
+		_, _ = fmt.Fprintln(os.Stderr, "error:", err)
+		printExecUsage()
 		return exitUsage
 	}
 
@@ -238,23 +322,49 @@ func runExec(args []string) int {
 	}
 	gate.SetStore(taskStore)
 
-	// load triggers so exec queries fire them
+	// load triggers so exec queries fire them — same identity projection as
+	// bootstrap and the runtime executor, so email-only configs resolve user()
 	schema := rukiRuntime.NewSchema()
-	var userFunc func() string
-	if userName, _, _ := taskStore.GetCurrentUser(); userName != "" {
-		userFunc = func() string { return userName }
+	userFunc, err := store.CurrentUserDisplayFunc(taskStore)
+	if err != nil {
+		_, _ = fmt.Fprintf(os.Stderr, "error: resolve current user: %v\n", err)
+		return exitStartupFailure
 	}
 	if _, _, err := service.LoadAndRegisterTriggers(gate, schema, userFunc); err != nil {
 		_, _ = fmt.Fprintf(os.Stderr, "error: load triggers: %v\n", err)
 		return exitStartupFailure
 	}
 
-	if err := rukiRuntime.RunQuery(gate, args[0], os.Stdout); err != nil {
+	runOpts := rukiRuntime.RunQueryOptions{OutputFormat: opts.Format}
+	if err := rukiRuntime.RunQueryWithOptions(gate, opts.Statement, os.Stdout, runOpts); err != nil {
 		_, _ = fmt.Fprintln(os.Stderr, "error:", err)
 		return exitQueryError
 	}
 
 	return exitOK
+}
+
+// printExecUsage prints usage for the exec subcommand.
+func printExecUsage() {
+	fmt.Print(`Usage: tiki exec [options] [--] '<ruki-statement>'
+
+Execute a ruki statement and exit. Requires an initialized project.
+
+Options:
+  --format <table|json>    Output format (default: table)
+  --                       End of options; everything after is the statement
+  -h, --help               Show this help message
+
+Examples:
+  tiki exec 'select where status = "ready"'
+  tiki exec --format json 'select id, title where status = "ready"'
+  tiki exec --format=json 'count(select)'
+
+  # statements that start with '-' need the -- marker
+  # (e.g. a leading '--' ruki line comment)
+  tiki exec -- '-- backlog count
+count(select where status != "done")'
+`)
 }
 
 // printUsage prints usage information when tiki is run in an uninitialized repo.
@@ -264,10 +374,10 @@ func printUsage() {
 Usage:
   tiki                       Launch TUI in initialized repo
   tiki init [dir] [options]    Initialize project (exits without launching TUI)
-  tiki exec '<statement>'    Execute a ruki query and exit
+  tiki exec [--format table|json] '<statement>'    Execute a ruki query and exit
   tiki workflow reset [target]  Reset config files (--global, --local, --current)
-  tiki workflow install <name>  Install a workflow (--global, --local, --current)
-  tiki demo                  Clone demo project and launch TUI
+  tiki workflow install <source> Install a workflow (--global, --local, --current)
+  tiki demo                  Launch demo project (extracts embedded files on first run)
   tiki file.md/URL           View markdown file or image
   echo "Title" | tiki        Create task from piped input
   tiki sysinfo               Display system information

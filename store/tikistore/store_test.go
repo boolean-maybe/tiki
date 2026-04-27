@@ -217,6 +217,21 @@ Task description`,
 			shouldLoad:        true,
 		},
 		{
+			name: "duplicate dependencies deduped",
+			fileContent: `---
+title: Test Task
+type: story
+status: backlog
+dependsOn:
+  - TIKI-ABC123
+  - tiki-abc123
+  - TIKI-DEF456
+---
+Task description`,
+			expectedDependsOn: []string{"TIKI-ABC123", "TIKI-DEF456"},
+			shouldLoad:        true,
+		},
+		{
 			name: "missing dependsOn field",
 			fileContent: `---
 title: Test Task
@@ -395,6 +410,21 @@ tags:
   - frontend
   - ""
   - backend
+---
+Task description`,
+			expectedTags: []string{"frontend", "backend"},
+			shouldLoad:   true,
+		},
+		{
+			name: "duplicate tags deduped",
+			fileContent: `---
+title: Test Task
+type: story
+status: backlog
+tags:
+  - frontend
+  - backend
+  - frontend
 ---
 Task description`,
 			expectedTags: []string{"frontend", "backend"},
@@ -1427,5 +1457,232 @@ func TestSaveTask_PreservesUnknownFields(t *testing.T) {
 	}
 	if !strings.Contains(fileContent, "severity: high") {
 		t.Errorf("custom field lost after round-trip:\n%s", fileContent)
+	}
+}
+
+func TestSaveTask_DedupesBuiltInCollections(t *testing.T) {
+	tmpDir := t.TempDir()
+	store, err := NewTikiStore(tmpDir)
+	if err != nil {
+		t.Fatalf("NewTikiStore: %v", err)
+	}
+
+	input := &taskpkg.Task{
+		ID:          "TIKI-SET001",
+		Title:       "dedupe built-ins",
+		Type:        taskpkg.TypeStory,
+		Status:      taskpkg.StatusBacklog,
+		Priority:    3,
+		Tags:        []string{"frontend", "backend", "frontend", " backend "},
+		DependsOn:   []string{"tiki-aaa001", "TIKI-AAA001", " TIKI-BBB002 "},
+		Description: "body",
+	}
+
+	if err := store.saveTask(input); err != nil {
+		t.Fatalf("saveTask: %v", err)
+	}
+
+	path := store.taskFilePath(input.ID)
+	loaded, err := store.loadTaskFile(path, nil, nil)
+	if err != nil {
+		t.Fatalf("loadTaskFile: %v", err)
+	}
+
+	if !reflect.DeepEqual(loaded.Tags, []string{"backend", "frontend"}) {
+		t.Errorf("loaded tags = %v, want [backend frontend]", loaded.Tags)
+	}
+	if !reflect.DeepEqual(loaded.DependsOn, []string{"TIKI-AAA001", "TIKI-BBB002"}) {
+		t.Errorf("loaded dependsOn = %v, want [TIKI-AAA001 TIKI-BBB002]", loaded.DependsOn)
+	}
+}
+
+func TestSaveTask_DedupesCustomListFields(t *testing.T) {
+	config.MarkRegistriesLoadedForTest()
+	t.Cleanup(func() { workflow.ClearCustomFields() })
+
+	if err := workflow.RegisterCustomFields([]workflow.FieldDef{
+		{Name: "labels", Type: workflow.TypeListString},
+		{Name: "related", Type: workflow.TypeListRef},
+	}); err != nil {
+		t.Fatalf("register: %v", err)
+	}
+
+	tmpDir := t.TempDir()
+	store, err := NewTikiStore(tmpDir)
+	if err != nil {
+		t.Fatalf("NewTikiStore: %v", err)
+	}
+
+	input := &taskpkg.Task{
+		ID:       "TIKI-SET002",
+		Title:    "dedupe custom",
+		Type:     taskpkg.TypeStory,
+		Status:   taskpkg.StatusBacklog,
+		Priority: 3,
+		CustomFields: map[string]interface{}{
+			"labels":  []string{"backend", "backend", " frontend ", ""},
+			"related": []string{"tiki-aaa001", "TIKI-AAA001", "tiki-bbb002"},
+		},
+	}
+
+	if err := store.saveTask(input); err != nil {
+		t.Fatalf("saveTask: %v", err)
+	}
+
+	path := store.taskFilePath(input.ID)
+	loaded, err := store.loadTaskFile(path, nil, nil)
+	if err != nil {
+		t.Fatalf("loadTaskFile: %v", err)
+	}
+
+	labels, ok := loaded.CustomFields["labels"].([]string)
+	if !ok {
+		t.Fatalf("labels type = %T, want []string", loaded.CustomFields["labels"])
+	}
+	if !reflect.DeepEqual(labels, []string{"backend", "frontend"}) {
+		t.Errorf("labels = %v, want [backend frontend]", labels)
+	}
+
+	related, ok := loaded.CustomFields["related"].([]string)
+	if !ok {
+		t.Fatalf("related type = %T, want []string", loaded.CustomFields["related"])
+	}
+	if !reflect.DeepEqual(related, []string{"TIKI-AAA001", "TIKI-BBB002"}) {
+		t.Errorf("related = %v, want [TIKI-AAA001 TIKI-BBB002]", related)
+	}
+}
+
+func TestLoadTaskFile_FilePathAbsolute(t *testing.T) {
+	tmpDir := t.TempDir()
+	fileName := "tiki-fp0001.md"
+	content := `---
+title: Filepath Test
+type: story
+status: backlog
+---
+body`
+	testFile := filepath.Join(tmpDir, fileName)
+	if err := os.WriteFile(testFile, []byte(content), 0644); err != nil {
+		t.Fatalf("write file: %v", err)
+	}
+
+	store, err := NewTikiStore(tmpDir)
+	if err != nil {
+		t.Fatalf("NewTikiStore: %v", err)
+	}
+
+	// load with a relative path to prove loadTaskFile still resolves to absolute
+	rel, err := filepath.Rel(filepath.Dir(tmpDir), testFile)
+	if err != nil {
+		t.Fatalf("filepath.Rel: %v", err)
+	}
+	cwd, err := os.Getwd()
+	if err != nil {
+		t.Fatalf("Getwd: %v", err)
+	}
+	defer func() { _ = os.Chdir(cwd) }()
+	if err := os.Chdir(filepath.Dir(tmpDir)); err != nil {
+		t.Fatalf("Chdir: %v", err)
+	}
+
+	tk, err := store.loadTaskFile(rel, nil, nil)
+	if err != nil {
+		t.Fatalf("loadTaskFile: %v", err)
+	}
+	if !filepath.IsAbs(tk.FilePath) {
+		t.Errorf("FilePath is not absolute: %q", tk.FilePath)
+	}
+	if !strings.HasSuffix(tk.FilePath, fileName) {
+		t.Errorf("FilePath does not end with expected filename: %q", tk.FilePath)
+	}
+}
+
+func TestLoadSave_DropsStaleFilepathFrontmatter(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	// seed a file that already contains a stale filepath: key in frontmatter
+	fileName := "tiki-fp0003.md"
+	testFile := filepath.Join(tmpDir, fileName)
+	stale := `---
+title: Stale filepath
+type: story
+status: backlog
+priority: 3
+filepath: /stale/path/tiki-fp0003.md
+---
+body`
+	if err := os.WriteFile(testFile, []byte(stale), 0644); err != nil {
+		t.Fatalf("write file: %v", err)
+	}
+
+	store, err := NewTikiStore(tmpDir)
+	if err != nil {
+		t.Fatalf("NewTikiStore: %v", err)
+	}
+
+	tk := store.GetTask("TIKI-FP0003")
+	if tk == nil {
+		t.Fatal("GetTask returned nil")
+	}
+	// loaded FilePath must be the real absolute path, not the stale string
+	expectedAbs, _ := filepath.Abs(testFile)
+	if tk.FilePath != expectedAbs {
+		t.Errorf("FilePath = %q, want %q (real path, not stale)", tk.FilePath, expectedAbs)
+	}
+	// stale key must not leak into unknownFields
+	if _, exists := tk.UnknownFields["filepath"]; exists {
+		t.Errorf("stale filepath should not survive in UnknownFields, got %v", tk.UnknownFields["filepath"])
+	}
+
+	// save and re-read the file: stale key must be gone
+	if err := store.UpdateTask(tk); err != nil {
+		t.Fatalf("UpdateTask: %v", err)
+	}
+	content, err := os.ReadFile(testFile)
+	if err != nil {
+		t.Fatalf("read back: %v", err)
+	}
+	if strings.Contains(string(content), "filepath:") {
+		t.Errorf("stale 'filepath:' still present after save:\n%s", content)
+	}
+}
+
+func TestSaveTask_FilePathRefreshedAndNotSerialized(t *testing.T) {
+	tmpDir := t.TempDir()
+	store, err := NewTikiStore(tmpDir)
+	if err != nil {
+		t.Fatalf("NewTikiStore: %v", err)
+	}
+
+	tk := &taskpkg.Task{
+		ID:       "TIKI-FP0002",
+		Title:    "Save Filepath Test",
+		Type:     taskpkg.TypeStory,
+		Status:   "backlog",
+		Priority: 3,
+	}
+	if err := store.CreateTask(tk); err != nil {
+		t.Fatalf("CreateTask: %v", err)
+	}
+
+	if tk.FilePath == "" {
+		t.Fatal("FilePath not set after CreateTask")
+	}
+	if !filepath.IsAbs(tk.FilePath) {
+		t.Errorf("FilePath is not absolute: %q", tk.FilePath)
+	}
+	expectedPath := filepath.Join(tmpDir, "tiki-fp0002.md")
+	expectedAbs, _ := filepath.Abs(expectedPath)
+	if tk.FilePath != expectedAbs {
+		t.Errorf("FilePath = %q, want %q", tk.FilePath, expectedAbs)
+	}
+
+	// verify filepath is NOT serialized to YAML frontmatter
+	content, err := os.ReadFile(expectedPath)
+	if err != nil {
+		t.Fatalf("read saved file: %v", err)
+	}
+	if strings.Contains(string(content), "filepath:") {
+		t.Errorf("saved file should not contain 'filepath:' frontmatter key:\n%s", content)
 	}
 }

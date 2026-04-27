@@ -15,7 +15,8 @@
 
 ## Overview
 
-This page explains the errors you can get in `ruki`. It covers syntax errors, unknown fields, type mismatches, invalid enum values, unsupported operators, and invalid trigger structure.
+This page explains the errors you can get in `ruki`. It covers syntax errors, unknown fields, type mismatches,
+invalid enum values, unsupported operators, and invalid trigger structure.
 
 ## Validation layers
 
@@ -97,6 +98,7 @@ Qualifier misuse:
 - `old.` is invalid in create-trigger contexts
 - `new.` is invalid in delete-trigger contexts
 - both are invalid inside quantifier bodies
+- `outer.` is invalid outside `count(...)`, `choose(...)`, and `exists(...)` subquery bodies
 
 Examples:
 
@@ -106,11 +108,15 @@ create title=old.title
 after create where old.status = "done" update where id = new.id set status="done"
 before delete where new.status = "done" deny "x"
 before update where dependsOn any old.status = "done" deny "blocked"
+select where outer.id = id
+create title=outer.title
+before update where outer.id = new.id deny "blocked"
 ```
 
 ## Required field errors
 
-The resulting task from `create` must have a non-empty `title`. If the template does not provide one, a `title=...` assignment is required.
+The resulting task from `create` must have a non-empty `title`. If the template does not provide one, a
+`title=...` assignment is required.
 
 `title`, `status`, `type`, and `priority` reject `empty` assignment:
 
@@ -121,6 +127,14 @@ update where id = "TIKI-ABC123" set priority=empty
 ```
 
 ## Type and operator errors
+
+Bare expression conditions must be boolean:
+
+```sql
+select where title
+select where priority
+select where tags
+```
 
 Comparison mismatches:
 
@@ -178,7 +192,8 @@ List strictness:
 
 - list literals must be homogeneous
 - `list<string>` fields reject non-string elements
-- the special `list<ref>` assignment path accepts string-literal lists, but not arbitrary string fields or mixed element expressions
+- the special `list<ref>` assignment path accepts string-literal lists, but not arbitrary string fields or mixed
+  element expressions
 
 Invalid examples:
 
@@ -252,7 +267,8 @@ select | run("echo $1")
 select | clipboard()
 ```
 
-Both are rejected because explicit field names are required when using a pipe. This applies to both `run()` and `clipboard()` targets.
+Both are rejected because explicit field names are required when using a pipe. This applies to both `run()` and
+`clipboard()` targets.
 
 Non-string command:
 
@@ -292,6 +308,7 @@ Argument count errors:
 ```sql
 select where now(1) = now()
 select where count() >= 1
+select where exists()
 select where user(1) = "bob"
 ```
 
@@ -305,22 +322,27 @@ create title="x" due=next_date(42)
 
 Subquery restrictions:
 
-- only `count(...)` and `choose(...)` accept a subquery
+- only `count(...)`, `choose(...)`, and `exists(...)` accept a subquery
 - bare subqueries elsewhere are rejected
-- `count(...)` and `choose(...)` validate the subquery body recursively
+- `count(...)`, `choose(...)`, and `exists(...)` validate the subquery body recursively
+- subquery bodies may use `outer.` to refer to the immediate parent row
 
 Examples:
 
 ```sql
-select where count(select where status = "done") >= 1
+select where count(select where assignee = outer.assignee) >= 1
+select where exists(select where outer.id in dependsOn)
 select where count(select where nosuchfield = "x") >= 1
+before update where exists(select where id in new.dependsOn and status != "done") deny "blocked"
+select where exists("x")
 select where select = 1
 create title=select
 ```
 
 ## require errors
 
-Action `require` entries are validated at workflow load time. Each entry must be a non-empty string. A bare `!` (negation prefix with no attribute name) is rejected.
+Action `require` entries are validated at workflow load time. Each entry must be a non-empty string. A bare `!`
+(negation prefix with no attribute name) is rejected.
 
 Empty requirement:
 

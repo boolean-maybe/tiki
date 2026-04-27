@@ -14,16 +14,17 @@ Running `tiki` with no arguments launches the TUI in an initialized project.
 
 Initialize a tiki project. Creates the `.doc/tiki/` and `.doc/doki/` directory structures.
 
-If the target directory does not exist, it is created. If the directory is not a git repository, `git init` is run automatically.
+If the target directory does not exist, it is created. If the directory is not a git repository, `git init` is run
+automatically, unless `store.git` is set to `false` (see [Configuration](config.md)).
 
 ```
-tiki init [directory] [-w|--workflow <name>] [--ai-skill <list>] [--samples] [-n|--non-interactive]
+tiki init [directory] [-w|--workflow <source>] [--ai-skill <list>] [--samples] [-n|--non-interactive]
 ```
 
 | Option | Description |
 |---|---|
 | `directory` | Target directory (default: current directory) |
-| `-w`, `--workflow <name>` | Install a named workflow (e.g. `todo`, `kanban`, `bug-tracker`) |
+| `-w`, `--workflow <source>` | Install a workflow (embedded name, file path, or URL) |
 | `--ai-skill <list>` | AI skills to install, comma-separated (e.g. `claude,gemini`) |
 | `--samples` | Create bundled sample tasks (non-interactive mode only) |
 | `-n`, `--non-interactive` | Skip prompts, use only flags and defaults |
@@ -32,20 +33,24 @@ tiki init [directory] [-w|--workflow <name>] [--ai-skill <list>] [--samples] [-n
 - Interactive mode with default workflow: samples are created automatically
 - Non-interactive mode: samples are created only with `--samples`
 
-Running `tiki init` on an already-initialized project prints a message and exits without changes.
-
 ```bash
 # interactive init with AI skill selection
 tiki init
 
-# initialize a subdirectory (creates dir and git repo if needed)
+# initialize a subdirectory (creates dir, and git repo if store.git is enabled)
 tiki init my-project
 
-# install a named workflow
+# install a bundled workflow by name
 tiki init -w todo
 
-# initialize a subdirectory with a named workflow
+# initialize a subdirectory with a bundled workflow
 tiki init -w kanban my-project
+
+# install from a local file
+tiki init -w ./custom-workflow.yaml
+
+# install from a URL
+tiki init -w https://example.com/workflow.yaml
 
 # fully non-interactive
 tiki init -n --ai-skill claude,gemini --samples
@@ -56,13 +61,26 @@ tiki init -n --ai-skill claude,gemini --samples
 Execute a [ruki](ruki/index.md) query and exit. Requires an initialized project.
 
 ```bash
-tiki exec '<ruki-statement>'
+tiki exec [--format table|json] [--] '<ruki-statement>'
 ```
+
+| Option | Description |
+|---|---|
+| `--format <table\|json>` | Output format. `table` (default) prints human-readable text; `json` emits compact JSON |
+| `--` | End-of-options marker. Use when the statement starts with `-` (e.g. a `--` ruki line comment) |
 
 Examples:
 ```bash
 tiki exec 'select where status = "ready" order by priority'
 tiki exec 'update where id = "TIKI-ABC123" set status="done"'
+
+# JSON output for scripting
+tiki exec --format json 'select id, title where status = "ready"'
+tiki exec --format=json 'count(select where assignee = user())'
+
+# statement that starts with a `--` ruki line comment
+tiki exec -- '-- backlog count
+count(select where status != "done")'
 ```
 
 ### workflow
@@ -77,17 +95,16 @@ Reset configuration files to their defaults.
 tiki workflow reset [target] [--scope]
 ```
 
-**Targets** (omit to reset all three files):
+**Targets** (omit to reset all files):
 - `config` — config.yaml
 - `workflow` — workflow.yaml
-- `new` — new.md (task template)
 
 **Scopes** (default: `--local`):
 - `--global` — user config directory
 - `--local` — project config directory (`.doc/`)
 - `--current` — current working directory
 
-For `--global`, workflow.yaml and new.md are overwritten with defaults. config.yaml is deleted (built-in defaults take over).
+For `--global`, workflow.yaml is overwritten with the default. config.yaml is deleted (built-in defaults take over).
 
 For `--local` and `--current`, files are deleted so the next tier in the [precedence chain](config.md#precedence) takes effect.
 
@@ -104,11 +121,15 @@ tiki workflow reset config --current
 
 #### workflow install
 
-Install a named workflow from the tiki repository. Downloads `workflow.yaml` and `new.md` into the scope directory, overwriting any existing files.
+Install a workflow from a name, local file, or URL. Writes `workflow.yaml` into the
+scope directory, overwriting any existing file.
 
 ```bash
-tiki workflow install <name> [--scope]
+tiki workflow install <source> [--scope]
 ```
+
+**Sources:** bundled name (`kanban`, `todo`, `bug-tracker`), file path (`./custom.yaml`),
+or URL (`https://example.com/workflow.yaml`).
 
 **Scopes** (default: `--local`):
 - `--global` — user config directory
@@ -116,22 +137,26 @@ tiki workflow install <name> [--scope]
 - `--current` — current working directory
 
 ```bash
-# install the sprint workflow globally
-tiki workflow install sprint --global
+# install the kanban workflow globally
+tiki workflow install kanban --global
 
-# install the kanban workflow for the current project
-tiki workflow install kanban --local
+# install from a local file
+tiki workflow install ./custom.yaml --local
+
+# install from a URL
+tiki workflow install https://example.com/workflow.yaml --global
 ```
 
 #### workflow describe
 
-Fetch a workflow's description from the tiki repository and print it to stdout.
-Reads the top-level `description` field of the named workflow's `workflow.yaml`.
+Print a workflow's description. Reads the top-level `description` field from the workflow YAML.
 Prints nothing and exits 0 if the workflow has no description field.
 
 ```bash
-tiki workflow describe <name>
+tiki workflow describe <source>
 ```
+
+**Sources:** embedded name, file path, or URL (same as `workflow install`).
 
 **Examples:**
 
@@ -139,13 +164,16 @@ tiki workflow describe <name>
 # preview the todo workflow before installing it
 tiki workflow describe todo
 
-# check what bug-tracker is for
-tiki workflow describe bug-tracker
+# describe a local workflow file
+tiki workflow describe ./custom.yaml
+
+# describe a remote workflow
+tiki workflow describe https://example.com/workflow.yaml
 ```
 
 ### demo
 
-Clone the demo project and launch the TUI. If the `tiki-demo` directory already exists it is reused.
+Launch the demo project. The demo files are extracted into a `tiki-demo/` directory in the current working directory.
 
 ```bash
 tiki demo

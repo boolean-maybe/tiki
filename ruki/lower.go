@@ -41,6 +41,12 @@ func lowerStatement(g *statementGrammar) (*Statement, error) {
 			return nil, err
 		}
 		return &Statement{Delete: s}, nil
+	case g.Expr != nil:
+		e, err := lowerExpr(&g.Expr.Expr)
+		if err != nil {
+			return nil, err
+		}
+		return &Statement{Expr: &ExprStmt{Expr: e}}, nil
 	default:
 		return nil, fmt.Errorf("empty statement")
 	}
@@ -346,8 +352,7 @@ func lowerExprCond(g *exprCond) (Condition, error) {
 		return &QuantifierExpr{Expr: left, Kind: "all", Condition: cond}, nil
 
 	default:
-		// bare expression used as condition — this is a parse error
-		return nil, fmt.Errorf("expression used as condition without comparison operator")
+		return &BoolExprCondition{Expr: left}, nil
 	}
 }
 

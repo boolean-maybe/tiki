@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="700" height="500">
+  <rect x="30" y="30.0" width="640" height="210.0" rx="8" fill="#f1f5f9" stroke="#cbd5e1" stroke-width="1"/>
+  <text x="40" y="48.0" font-family="sans-serif" font-size="10" fill="#94a3b8" font-weight="600">Layer 1</text>
+  <rect x="50.0" y="56.0" width="190.0" height="170.0" rx="5" fill="#2563eb" opacity="0.9"/>
+  <text x="145.0" y="146.0" text-anchor="middle" font-family="sans-serif" font-size="12" fill="#fff" font-weight="600">Flight Controller</text>
+  <rect x="255.0" y="56.0" width="190.0" height="170.0" rx="5" fill="#3b82f6" opacity="0.9"/>
+  <text x="350.0" y="146.0" text-anchor="middle" font-family="sans-serif" font-size="12" fill="#fff" font-weight="600">Ground Station</text>
+  <rect x="460.0" y="56.0" width="190.0" height="170.0" rx="5" fill="#60a5fa" opacity="0.9"/>
+  <text x="555.0" y="146.0" text-anchor="middle" font-family="sans-serif" font-size="12" fill="#fff" font-weight="600">Fleet Manager</text>
+  <rect x="30" y="250.0" width="640" height="210.0" rx="8" fill="#e2e8f0" stroke="#cbd5e1" stroke-width="1"/>
+  <text x="40" y="268.0" font-family="sans-serif" font-size="10" fill="#94a3b8" font-weight="600">Layer 2</text>
+  <rect x="50.0" y="276.0" width="190.0" height="170.0" rx="5" fill="#93c5fd" opacity="0.9"/>
+  <text x="145.0" y="366.0" text-anchor="middle" font-family="sans-serif" font-size="12" fill="#fff" font-weight="600">Telemetry</text>
+  <rect x="255.0" y="276.0" width="190.0" height="170.0" rx="5" fill="#bfdbfe" opacity="0.9"/>
+  <text x="350.0" y="366.0" text-anchor="middle" font-family="sans-serif" font-size="12" fill="#fff" font-weight="600">Mission Planner</text>
+  <rect x="460.0" y="276.0" width="190.0" height="170.0" rx="5" fill="#2563eb" opacity="0.9"/>
+  <text x="555.0" y="366.0" text-anchor="middle" font-family="sans-serif" font-size="12" fill="#fff" font-weight="600">Auth Service</text>
+  <line x1="310.0" y1="240.0" x2="310.0" y2="250.0" stroke="#cbd5e1" stroke-width="1" stroke-dasharray="4,3"/>
+  <line x1="390.0" y1="240.0" x2="390.0" y2="250.0" stroke="#cbd5e1" stroke-width="1" stroke-dasharray="4,3"/>
+</svg>

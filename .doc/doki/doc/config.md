@@ -4,7 +4,6 @@
 
 - `config-dir/config.yaml` main configuration file
 - `config-dir/workflow.yaml` plugins/view configuration
-- `config-dir/new.md` new tiki template - will be used when a new tiki is created
 
 ## Configuration directories
 
@@ -18,7 +17,6 @@
 Files stored here:
 - `config.yaml` - User-global configuration
 - `workflow.yaml` - Statuses and plugin/view definitions
-- `new.md` - Custom task template
 
 **Environment Variables**:
 - `XDG_CONFIG_HOME` - Override config directory location (all platforms)
@@ -29,6 +27,29 @@ Example: To use a custom config location on macOS:
 export XDG_CONFIG_HOME=~/my-config
 tiki  # Will use ~/my-config/tiki/ for configuration
 ```
+
+### Overriding config via environment variables
+
+Every setting in `config.yaml` can be overridden by a `TIKI_*` environment variable.
+The mapping rule is mechanical:
+
+1. Prefix with `TIKI_`
+2. Replace each `.` in the config key with `_`
+3. Uppercase the result
+
+So `store.git` becomes `TIKI_STORE_GIT`, `logging.level` becomes `TIKI_LOGGING_LEVEL`,
+and `appearance.theme` becomes `TIKI_APPEARANCE_THEME`.
+
+Environment variables take precedence over every config file:
+
+```bash
+TIKI_STORE_GIT=false tiki init /tmp/sandbox     # one-off project without git
+TIKI_LOGGING_LEVEL=debug tiki                   # temporarily verbose logs
+TIKI_APPEARANCE_THEME=dracula tiki              # try a theme without editing files
+```
+
+The values are read during config load at the start of each `tiki` invocation, so
+changes take effect on the next run — not retroactively for a running process.
 
 ## Precedence
 
@@ -45,12 +66,6 @@ The single highest-priority file wins — no merging across files. This means ea
 The single highest-priority `config.yaml` found is loaded. Values not specified in that file fall back to built-in defaults (not inherited from lower-priority files).
 
 Search order: user config dir → `.doc/config.yaml` (project) → cwd. Last match wins.
-
-### new.md (task template)
-
-`new.md` follows the same pattern — the single highest-priority file found wins. If a project provides `.doc/new.md`, it completely replaces the user-level template. If no `new.md` is found anywhere, a built-in embedded template is used.
-
-Search order: user config dir → `.doc/new.md` (project) → cwd. Last match wins.
 
 ### workflow.yaml
 
@@ -106,7 +121,50 @@ ai:
   agent: claude              # AI tool for chat: "claude", "gemini", "codex", "opencode"
                              # Enables AI collaboration features
                              # Omit or leave empty to disable
+
+# Store backend configuration
+store:
+  name: tiki                 # Store engine name
+  git: true                  # Enable git integration: true (default), false
+                             # When false, `tiki init` and `tiki demo` skip
+                             # `git init`, task saves do not auto-stage, the
+                             # status line omits the branch name, and task
+                             # history (which is derived from commits) is empty.
+                             # Author attribution still works in no-git mode via
+                             # the `identity` block or the OS account username.
+
+# Tiki identity — used by `user()` and task attribution
+identity:
+  name: "Your Name"          # Display name for the current user
+  email: "you@example.com"   # Email for the current user
+                             # Both fields are optional. When unset, tiki falls
+                             # back to git's user.name/user.email (if git is
+                             # enabled) and then to the OS account username.
+                             # Environment overrides: TIKI_IDENTITY_NAME,
+                             # TIKI_IDENTITY_EMAIL.
 ```
+
+## Identity resolution
+
+The `user()` ruki built-in and the "User" header stat resolve against a layered
+identity, in order:
+
+1. Configured `identity.name` / `identity.email` (or `TIKI_IDENTITY_NAME` /
+   `TIKI_IDENTITY_EMAIL` environment variables).
+2. Git user from `git config user.name` / `user.email`, when `store.git` is
+   `true` and git is available.
+3. OS account username from `os/user.Current()`, falling back to `$USER` /
+   `$LOGNAME` / `$USERNAME`. The OS fallback never invents a display name —
+   it returns the raw account username so behavior is predictable across
+   machines.
+
+Either `identity.name` or `identity.email` alone is sufficient — when only
+the email is set, it is used as the display name so `user()` still resolves
+consistently. The git layer is subject to the same promotion rule.
+
+When none of those sources resolve, `user()` returns an "unavailable" error
+and the "User" header stat displays `n/a`. Setting the `identity` block is
+the recommended way to enable `user()` in no-git workflows.
 
 ### workflow.yaml
 

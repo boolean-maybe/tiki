@@ -53,6 +53,52 @@ func TestValidation_TypeMismatch(t *testing.T) {
 	}
 }
 
+func TestValidation_BareBoolConditions(t *testing.T) {
+	p := newCustomParser()
+
+	valid := []string{
+		`select where true`,
+		`select where false`,
+		`select where flag`,
+		`select where not flag`,
+		`select where (flag) and true`,
+	}
+	for _, input := range valid {
+		t.Run("valid "+input, func(t *testing.T) {
+			_, err := p.ParseStatement(input)
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+		})
+	}
+
+	invalid := []struct {
+		name    string
+		input   string
+		wantErr string
+	}{
+		{"string field", `select where title`, "condition expression must be bool, got string"},
+		{"int field", `select where priority`, "condition expression must be bool, got int"},
+		{"date field", `select where due`, "condition expression must be bool, got date"},
+		{"list string field", `select where tags`, "condition expression must be bool, got list<string>"},
+		{"list ref field", `select where dependsOn`, "condition expression must be bool, got list<ref>"},
+		{"id field", `select where id`, "condition expression must be bool, got id"},
+		{"ref field", `select where epic`, "condition expression must be bool, got ref"},
+		{"subquery", `select where select`, "subquery is only valid as argument"},
+	}
+	for _, tt := range invalid {
+		t.Run(tt.name, func(t *testing.T) {
+			_, err := p.ParseStatement(tt.input)
+			if err == nil {
+				t.Fatal("expected error, got nil")
+			}
+			if !strings.Contains(err.Error(), tt.wantErr) {
+				t.Fatalf("expected error containing %q, got: %v", tt.wantErr, err)
+			}
+		})
+	}
+}
+
 func TestValidation_UnknownField(t *testing.T) {
 	p := newTestParser()
 
@@ -100,6 +146,7 @@ func TestValidation_FunctionArgCount(t *testing.T) {
 	}{
 		{"now with args", `select where now(1) = now()`},
 		{"count no args", `select where count() >= 1`},
+		{"exists no args", `select where exists()`},
 		{"user with args", `select where user(1) = "bob"`},
 	}
 
@@ -138,6 +185,31 @@ func TestValidation_CountRequiresSubquery(t *testing.T) {
 	}
 	if !strings.Contains(err.Error(), "subquery") {
 		t.Fatalf("expected subquery error, got: %v", err)
+	}
+}
+
+func TestValidation_ExistsRequiresSubquery(t *testing.T) {
+	p := newTestParser()
+
+	tests := []struct {
+		name    string
+		input   string
+		wantErr string
+	}{
+		{"no arguments", `select where exists()`, "argument"},
+		{"string argument", `select where exists("x")`, "exists() argument must be a select subquery"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			_, err := p.ParseStatement(tt.input)
+			if err == nil {
+				t.Fatal("expected error, got nil")
+			}
+			if !strings.Contains(err.Error(), tt.wantErr) {
+				t.Fatalf("expected error containing %q, got: %v", tt.wantErr, err)
+			}
+		})
 	}
 }
 
@@ -388,6 +460,8 @@ func TestValidation_ValidFunctionUsages(t *testing.T) {
 		{"now", `select where updatedAt < now()`},
 		{"count with subquery", `select where count(select where status = "done") >= 1`},
 		{"count with bare select", `select where count(select) >= 0`},
+		{"exists with subquery", `select where exists(select where status = "done")`},
+		{"exists with bare select", `select where not exists(select)`},
 		{"next_date with recurrence field", `create title="x" due=next_date(recurrence)`},
 	}
 
@@ -1202,6 +1276,110 @@ func TestValidation_CountSubqueryValidated(t *testing.T) {
 	_, err = p.ParseTrigger(`before update where new.status = "in progress" and count(select where assignee = new.assignee and status = "in progress") >= 3 deny "WIP limit"`)
 	if err != nil {
 		t.Fatalf("unexpected error for count subquery with new.: %v", err)
+	}
+}
+
+func TestValidation_ExistsSubqueryValidated(t *testing.T) {
+	p := newTestParser()
+
+	_, err := p.ParseStatement(`select where exists(select where nosuchfield = "x")`)
+	if err == nil {
+		t.Fatal("expected error, got nil")
+	}
+	if !strings.Contains(err.Error(), "unknown field") {
+		t.Fatalf("expected unknown field error, got: %v", err)
+	}
+
+	_, err = p.ParseStatement(`select where exists(select where status = "done")`)
+	if err != nil {
+		t.Fatalf("unexpected error for valid exists subquery: %v", err)
+	}
+
+	_, err = p.ParseTrigger(`before update where new.status = "in progress" and exists(select where assignee = new.assignee and status = "in progress") deny "WIP limit"`)
+	if err != nil {
+		t.Fatalf("unexpected error for exists subquery with new.: %v", err)
+	}
+}
+
+func TestValidation_OuterRefValidInSubqueries(t *testing.T) {
+	p := newTestParser()
+
+	valid := []struct {
+		name  string
+		input string
+	}{
+		{"count", `select where count(select where assignee = outer.assignee) > 1`},
+		{"choose", `update where id = id() set dependsOn=dependsOn + choose(select where id != outer.id)`},
+		{"exists", `select where not exists(select where outer.id in dependsOn)`},
+		{"nested subquery rebinding", `select where exists(select where exists(select where outer.id in dependsOn))`},
+		{"trigger subquery keeps new", `before update where exists(select where id = outer.id and assignee = new.assignee) deny "blocked"`},
+	}
+
+	for _, tt := range valid {
+		t.Run(tt.name, func(t *testing.T) {
+			_, err := p.ParseStatement(tt.input)
+			if strings.HasPrefix(tt.input, "before ") {
+				_, err = p.ParseTrigger(tt.input)
+			}
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+		})
+	}
+}
+
+func TestValidation_OuterRefRejectedOutsideSubqueries(t *testing.T) {
+	p := newTestParser()
+
+	tests := []struct {
+		name  string
+		input string
+		parse func(string) error
+	}{
+		{
+			name:  "top-level condition",
+			input: `select where outer.id = id`,
+			parse: func(input string) error {
+				_, err := p.ParseStatement(input)
+				return err
+			},
+		},
+		{
+			name:  "assignment",
+			input: `create title=outer.title`,
+			parse: func(input string) error {
+				_, err := p.ParseStatement(input)
+				return err
+			},
+		},
+		{
+			name:  "trigger guard",
+			input: `before update where outer.id = new.id deny "blocked"`,
+			parse: func(input string) error {
+				_, err := p.ParseTrigger(input)
+				return err
+			},
+		},
+		{
+			name:  "top-level quantifier body",
+			input: `select where dependsOn any outer.status = "done"`,
+			parse: func(input string) error {
+				_, err := p.ParseStatement(input)
+				return err
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := tt.parse(tt.input)
+			if err == nil {
+				t.Fatal("expected error, got nil")
+			}
+			if !strings.Contains(err.Error(), "outer.") {
+				t.Fatalf("expected outer. qualifier error, got: %v", err)
+			}
+		})
 	}
 }
 
@@ -2137,8 +2315,31 @@ func TestValidation_TriggerActionMustNotBeSelect(t *testing.T) {
 	if err == nil {
 		t.Fatal("expected error for trigger with select action")
 	}
-	if !strings.Contains(err.Error(), "trigger action must not be select") {
-		t.Errorf("expected 'trigger action must not be select' error, got: %v", err)
+	if !strings.Contains(err.Error(), "trigger action must be create, update, or delete") {
+		t.Errorf("expected allowlist error, got: %v", err)
+	}
+}
+
+// TestValidation_TriggerActionRejectsExpression guards against hand-built ASTs
+// that try to slip a top-level expression statement into a trigger action slot.
+// The grammar does not produce this, but the AST type permits it, so the
+// validator must allowlist create/update/delete rather than denylist select.
+func TestValidation_TriggerActionRejectsExpression(t *testing.T) {
+	p := newTestParser()
+	trig := &Trigger{
+		Timing: "after",
+		Event:  "update",
+		Action: &Statement{Expr: &ExprStmt{
+			Expr: &FunctionCall{Name: "now"},
+			Type: ValueTimestamp,
+		}},
+	}
+	err := p.validateTrigger(trig)
+	if err == nil {
+		t.Fatal("expected error for trigger with expression action")
+	}
+	if !strings.Contains(err.Error(), "trigger action must be create, update, or delete") {
+		t.Errorf("expected allowlist error, got: %v", err)
 	}
 }
 
@@ -2535,6 +2736,7 @@ func (customTestSchema) Field(name string) (FieldSpec, bool) {
 		"startedAt": {Name: "startedAt", Type: ValueTimestamp, Custom: true},
 		"notes":     {Name: "notes", Type: ValueString, Custom: true},
 		"score":     {Name: "score", Type: ValueInt, Custom: true},
+		"epic":      {Name: "epic", Type: ValueRef, Custom: true},
 		"labels":    {Name: "labels", Type: ValueListString, Custom: true},
 		"related":   {Name: "related", Type: ValueListRef, Custom: true},
 	}
@@ -2750,5 +2952,66 @@ func TestEnumWithTrueFalseValues(t *testing.T) {
 	_, err := p.ParseStatement(`update where id = "X" set approval=true`)
 	if err == nil {
 		t.Fatal("expected error assigning bare bool to enum field")
+	}
+}
+
+// targets.<enum-field> projects to list<string> but membership against the
+// underlying enum field must still validate. These cases are documented as
+// supported; without the carve-out they fail with "element type mismatch".
+func TestTargetsEnumMembership(t *testing.T) {
+	p := newTestParser()
+	inputs := []string{
+		`select where status in targets.status`,
+		`select where type in targets.type`,
+	}
+	for _, in := range inputs {
+		t.Run(in, func(t *testing.T) {
+			if _, err := p.ParseStatement(in); err != nil {
+				t.Fatalf("expected success, got: %v", err)
+			}
+		})
+	}
+}
+
+func TestTargetsCustomEnumMembership(t *testing.T) {
+	p := newCustomParser()
+	// same-field projection is allowed
+	if _, err := p.ParseStatement(`select where severity in targets.severity`); err != nil {
+		t.Fatalf("expected success, got: %v", err)
+	}
+	// cross-enum-domain projection must still be rejected
+	_, err := p.ParseStatement(`select where severity in targets.priority2`)
+	if err == nil {
+		t.Fatal("expected cross-enum rejection")
+	}
+}
+
+func TestTargetsProjectionTypes(t *testing.T) {
+	p := newTestParser()
+
+	// targets.<ref-like> projects to list<ref> and is compatible with list<ref> fields
+	ok := []string{
+		`update where id = "X" set dependsOn = targets.id`,
+		`update where id = "X" set dependsOn = targets.dependsOn`,
+		`update where id = "X" set tags = targets.tags`,
+	}
+	for _, in := range ok {
+		t.Run("accepts/"+in, func(t *testing.T) {
+			if _, err := p.ParseStatement(in); err != nil {
+				t.Fatalf("expected success, got: %v", err)
+			}
+		})
+	}
+
+	// targets.<string-like> cannot be assigned to list<ref> fields (type mismatch)
+	bad := []string{
+		`update where id = "X" set dependsOn = targets.tags`,
+	}
+	for _, in := range bad {
+		t.Run("rejects/"+in, func(t *testing.T) {
+			if _, err := p.ParseStatement(in); err == nil {
+				t.Fatalf("expected error, got nil")
+			}
+		})
 	}
 }

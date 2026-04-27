@@ -14,3 +14,4 @@
 - [Recipes](ideas/plugins.md)
 - [Triggers](ideas/triggers.md)
 - [Workflow format versions](workflow-format.md)
+- [Tips, tricks, and FAQ](tips-tricks-faq.md)

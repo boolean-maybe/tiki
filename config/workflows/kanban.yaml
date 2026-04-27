@@ -1,0 +1,197 @@
+version: 0.5.3
+description: |
+  Kanban-style workflow for small-team software work. Five statuses
+  (Backlog → Ready → In Progress → Review → Done) and four task types
+  (Story, Bug, Spike, Epic). Includes an "assign to me" action.
+statuses:
+  - key: backlog
+    label: Backlog
+    emoji: "📥"
+    default: true
+  - key: ready
+    label: Ready
+    emoji: "📋"
+    active: true
+  - key: inProgress
+    label: "In Progress"
+    emoji: "⚙️"
+    active: true
+  - key: review
+    label: Review
+    emoji: "👀"
+    active: true
+  - key: done
+    label: Done
+    emoji: "✅"
+    done: true
+
+types:
+  - key: story
+    label: Story
+    emoji: "🌀"
+  - key: bug
+    label: Bug
+    emoji: "💥"
+  - key: spike
+    label: Spike
+    emoji: "🔍"
+  - key: epic
+    label: Epic
+    emoji: "🗂️"
+
+views:
+  actions:
+    - key: "a"
+      label: "Assign to me"
+      action: update where id = id() set assignee=user()
+    - key: "y"
+      label: "Copy ID"
+      action: select id where id = id() | clipboard()
+    - key: "Y"
+      label: "Copy content"
+      action: select title, description where id = id() | clipboard()
+    - key: "o"
+      label: "Open in VS Code"
+      action: select filepath where id = id() | run("code \"$1\"")
+      hot: false
+    - key: "+"
+      label: "Priority up"
+      action: update where id = id() set priority = priority - 1
+    - key: "-"
+      label: "Priority down"
+      action: update where id = id() set priority = priority + 1
+    - key: "u"
+      label: "Flag urgent"
+      action: update where id = id() set priority=1 tags=tags+["urgent"]
+      hot: false
+    - key: "A"
+      label: "Assign to..."
+      action: update where id = id() set assignee=input()
+      input: string
+      hot: false
+    - key: "t"
+      label: "Add tag"
+      action: update where id = id() set tags=tags+[input()]
+      input: string
+      hot: false
+    - key: "T"
+      label: "Remove tag"
+      action: update where id = id() set tags=tags-[input()]
+      input: string
+      hot: false
+    - key: Ctrl-Q
+      label: "Quick create"
+      action: create title=input()
+      input: string
+      hot: false
+  plugins:
+    - name: Kanban
+      description: "Move tiki to change status, search, create or delete\nShift Left/Right to move"
+      default: true
+      key: "F1"
+      lanes:
+        - name: Ready
+          filter: select where status = "ready" and type != "epic" order by priority, createdAt
+          action: update where id = id() set status="ready"
+        - name: In Progress
+          filter: select where status = "inProgress" and type != "epic" order by priority, createdAt
+          action: update where id = id() set status="inProgress"
+        - name: Review
+          filter: select where status = "review" and type != "epic" order by priority, createdAt
+          action: update where id = id() set status="review"
+        - name: Done
+          filter: select where status = "done" and type != "epic" order by priority, createdAt
+          action: update where id = id() set status="done"
+    - name: Backlog
+      description: "Tasks waiting to be picked up, sorted by priority"
+      key: "F3"
+      lanes:
+        - name: Backlog
+          columns: 4
+          filter: select where status = "backlog" and type != "epic" order by priority, id
+      actions:
+        - key: "b"
+          label: "Add to board"
+          action: update where id = id() set status="ready"
+        - key: "e"
+          label: "Link to epic"
+          action: update where id = choose(select where type = "epic" and outer.id not in dependsOn) set dependsOn = dependsOn + id()
+    - name: Recent
+      description: "Tasks changed in the last 24 hours, most recent first"
+      key: Ctrl-R
+      lanes:
+        - name: Recent
+          columns: 4
+          filter: select where now() - updatedAt < 24hour order by updatedAt desc
+    - name: Roadmap
+      description: "Epics organized by Now, Next, and Later horizons"
+      key: "F4"
+      lanes:
+        - name: Now
+          columns: 1
+          width: 25
+          filter: select where type = "epic" and status = "ready" order by priority, points desc
+          action: update where id = id() set status="ready"
+        - name: Next
+          columns: 1
+          width: 25
+          filter: select where type = "epic" and status = "backlog" and priority = 1 order by priority, points desc
+          action: update where id = id() set status="backlog" priority=1
+        - name: Later
+          columns: 2
+          width: 50
+          filter: select where type = "epic" and status = "backlog" and priority > 1 order by priority, points desc
+          action: update where id = id() set status="backlog" priority=2
+      view: expanded
+      actions:
+        - key: "l"
+          label: "Add tiki to epic"
+          action: update where id = id() set dependsOn = dependsOn + choose(select where type != "epic" and id not in outer.dependsOn)
+    - name: Docs
+      description: "Project notes and documentation files"
+      type: doki
+      fetcher: file
+      url: "index.md"
+      key: "F2"
+
+triggers:
+  - description: block completion with open dependencies
+    ruki: >
+      before update
+        where new.status = "done" and new.dependsOn any status != "done"
+        deny "cannot complete: has open dependencies"
+  - description: tasks must pass through review before completion
+    ruki: >
+      before update
+        where new.status = "done" and old.status != "review"
+        deny "tasks must go through review before marking done"
+  - description: remove deleted task from dependency lists
+    ruki: >
+      after delete
+        update where old.id in dependsOn set dependsOn=dependsOn - [old.id]
+  - description: clean up completed tasks after 24 hours
+    ruki: >
+      every 1day
+        delete where status = "done" and updatedAt < now() - 1day
+  - description: tasks must have an assignee before starting
+    ruki: >
+      before update
+        where new.status = "inProgress" and new.assignee is empty
+        deny "assign someone before moving to in-progress"
+  - description: auto-complete epics when all child tasks finish
+    ruki: >
+      after update
+        where new.status = "done" and new.type != "epic"
+        update where type = "epic" and new.id in dependsOn and dependsOn all status = "done"
+        set status="done"
+  - description: cannot delete tasks that are actively being worked
+    ruki: >
+      before delete
+        where old.status = "inProgress"
+        deny "cannot delete an in-progress task — move to backlog or done first"
+  - description: spawn next occurrence when recurring task completes
+    ruki: >
+      after update
+        where new.status = "done" and old.recurrence is not empty
+        create title=old.title priority=old.priority tags=old.tags
+               recurrence=old.recurrence due=next_date(old.recurrence) status="backlog"

@@ -516,6 +516,66 @@ func TestParsePluginConfig_LaneFilterMustBeSelect(t *testing.T) {
 	}
 }
 
+// Lane filters run on every render without a selection payload. target. would
+// fail every render against the exactly-one contract; targets. would silently
+// project zero. Reject both at parse time with a clear message. (Lane actions
+// receive the moved task as a single selection, so they remain valid.)
+func TestParsePluginConfig_LaneFilterRejectsTargetQualifier(t *testing.T) {
+	schema := testSchema()
+	cfg := pluginFileConfig{
+		Name: "Test",
+		Key:  "T",
+		Lanes: []PluginLaneConfig{
+			{Name: "Bad", Filter: `select where id = target.id`},
+		},
+	}
+	_, err := parsePluginConfig(cfg, "test.yaml", schema)
+	if err == nil {
+		t.Fatal("expected rejection of target. in lane filter")
+	}
+	if !strings.Contains(err.Error(), "target.") {
+		t.Fatalf("expected error to mention target., got: %v", err)
+	}
+}
+
+func TestParsePluginConfig_LaneFilterRejectsTargetsQualifier(t *testing.T) {
+	schema := testSchema()
+	cfg := pluginFileConfig{
+		Name: "Test",
+		Key:  "T",
+		Lanes: []PluginLaneConfig{
+			{Name: "Bad", Filter: `select where id in targets.id`},
+		},
+	}
+	_, err := parsePluginConfig(cfg, "test.yaml", schema)
+	if err == nil {
+		t.Fatal("expected rejection of targets. in lane filter")
+	}
+	if !strings.Contains(err.Error(), "targets.") {
+		t.Fatalf("expected error to mention targets., got: %v", err)
+	}
+}
+
+// Lane actions fire on a specific moved task and receive it as a single
+// selection. target. and targets. must remain usable there.
+func TestParsePluginConfig_LaneActionAllowsTargetQualifier(t *testing.T) {
+	schema := testSchema()
+	cfg := pluginFileConfig{
+		Name: "Test",
+		Key:  "T",
+		Lanes: []PluginLaneConfig{
+			{
+				Name:   "OK",
+				Filter: `select where status = "ready"`,
+				Action: `update where id = target.id set status = "ready"`,
+			},
+		},
+	}
+	if _, err := parsePluginConfig(cfg, "test.yaml", schema); err != nil {
+		t.Fatalf("expected success, got: %v", err)
+	}
+}
+
 func TestParsePluginConfig_LaneActionMustBeUpdate(t *testing.T) {
 	schema := testSchema()
 	cfg := pluginFileConfig{
@@ -565,6 +625,33 @@ func TestParsePluginActions_PipeAcceptedAsAction(t *testing.T) {
 	}
 	if !actions[0].Action.IsPipe() {
 		t.Error("expected IsPipe() = true for pipe action")
+	}
+}
+
+func TestParsePluginActions_RejectsExpressionStatement(t *testing.T) {
+	parser := testParser()
+
+	tests := []struct {
+		name   string
+		action string
+	}{
+		{"count top-level", `count(select)`},
+		{"count with where", `count(select where status = "done")`},
+		{"exists top-level", `exists(select where priority = 1)`},
+		{"now top-level", `now()`},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			configs := []PluginActionConfig{{Key: "x", Label: "Scalar", Action: tt.action}}
+			_, err := parsePluginActions(configs, parser)
+			if err == nil {
+				t.Fatal("expected error for expression statement as plugin action")
+			}
+			// message should steer the reader toward the supported action shapes
+			if !strings.Contains(err.Error(), "expression statement") {
+				t.Errorf("expected 'expression statement' in error, got: %v", err)
+			}
+		})
 	}
 }
 
@@ -1117,6 +1204,136 @@ func TestParsePluginActions_RequireNoAutoInferWithoutID(t *testing.T) {
 	}
 	if len(actions[0].Require) > 0 {
 		t.Errorf("expected no requirements for action without id(), got %v", actions[0].Require)
+	}
+}
+
+// target.<field> must auto-infer the same "id" requirement as id(), so plugin
+// actions using it stay disabled until exactly one task is selected.
+func TestParsePluginActions_RequireAutoInferIDFromTargetQualifier(t *testing.T) {
+	parser := testParser()
+	configs := []PluginActionConfig{
+		{Key: "a", Label: "Copy assignee", Action: `update where type = "bug" set assignee = target.assignee`},
+	}
+	actions, err := parsePluginActions(configs, parser)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	found := false
+	for _, r := range actions[0].Require {
+		if r == "id" {
+			found = true
+		}
+	}
+	if !found {
+		t.Errorf("expected auto-inferred 'id' requirement from target., got %v", actions[0].Require)
+	}
+}
+
+// targets.<field> must auto-infer "selection:any" like ids(), so the action
+// stays disabled when nothing is selected.
+func TestParsePluginActions_RequireAutoInferSelectionAnyFromTargetsQualifier(t *testing.T) {
+	parser := testParser()
+	configs := []PluginActionConfig{
+		{Key: "b", Label: "Show blockers", Action: `select where id in targets.dependsOn`},
+	}
+	actions, err := parsePluginActions(configs, parser)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	found := false
+	for _, r := range actions[0].Require {
+		if r == "selection:any" {
+			found = true
+		}
+	}
+	if !found {
+		t.Errorf("expected auto-inferred 'selection:any' from targets., got %v", actions[0].Require)
+	}
+}
+
+func TestParsePluginActions_RequireAutoInferSelectionAnyFromIDs(t *testing.T) {
+	parser := testParser()
+	configs := []PluginActionConfig{
+		{Key: "a", Label: "Done all", Action: `update where id in ids() set status = "done"`},
+	}
+	actions, err := parsePluginActions(configs, parser)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	found := false
+	for _, r := range actions[0].Require {
+		if r == "selection:any" {
+			found = true
+		}
+	}
+	if !found {
+		t.Errorf("expected auto-inferred 'selection:any' requirement from ids(), got %v", actions[0].Require)
+	}
+}
+
+// selected_count() must NOT auto-infer selection:any: ruki statements like
+// `where selected_count() = 0` need to remain reachable from the preflight.
+func TestParsePluginActions_RequireNoAutoInferFromSelectedCount(t *testing.T) {
+	parser := testParser()
+	configs := []PluginActionConfig{
+		{Key: "a", Label: "Cardinality branch", Action: `select where selected_count() >= 0`},
+	}
+	actions, err := parsePluginActions(configs, parser)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	for _, r := range actions[0].Require {
+		if r == "selection:any" || r == "id" || r == "selection:one" || r == "selection:many" {
+			t.Errorf("selected_count() should not auto-infer selection requirement, got %v", actions[0].Require)
+		}
+	}
+}
+
+// A negated selection requirement is still a cardinality constraint and must
+// suppress auto-inference from ids(); otherwise an explicit "!selection:many"
+// (meaning "0 or 1") would be silently augmented with "selection:any"
+// (meaning "at least 1"), narrowing the author's intent to "exactly 1".
+func TestParsePluginActions_RequireNegatedSelectionSuppressesAutoInfer(t *testing.T) {
+	cases := []struct {
+		name     string
+		negated  string
+		notSeen  string
+		wantKept string
+	}{
+		{"negated selection:many", "!selection:many", "selection:any", "!selection:many"},
+		{"negated id", "!id", "selection:any", "!id"},
+		{"negated selection:one", "!selection:one", "selection:any", "!selection:one"},
+		{"negated selection:any", "!selection:any", "selection:any", "!selection:any"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			parser := testParser()
+			configs := []PluginActionConfig{{
+				Key:     "a",
+				Label:   "Bulk",
+				Action:  `update where id in ids() set status = "done"`,
+				Require: []string{tc.negated},
+			}}
+			actions, err := parsePluginActions(configs, parser)
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+			gotKept, gotInferred := false, false
+			for _, r := range actions[0].Require {
+				if r == tc.wantKept {
+					gotKept = true
+				}
+				if r == tc.notSeen {
+					gotInferred = true
+				}
+			}
+			if !gotKept {
+				t.Errorf("expected %q preserved, got %v", tc.wantKept, actions[0].Require)
+			}
+			if gotInferred {
+				t.Errorf("expected auto-inference suppressed, but found %q in %v", tc.notSeen, actions[0].Require)
+			}
+		})
 	}
 }
 

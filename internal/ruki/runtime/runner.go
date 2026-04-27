@@ -12,9 +12,37 @@ import (
 	"github.com/boolean-maybe/tiki/task"
 )
 
+// OutputFormat selects the renderer for CLI query output. OutputTable is the
+// default text/table form; OutputJSON emits compact machine-readable JSON.
+type OutputFormat int
+
+const (
+	// OutputTable renders human-readable text: ASCII table for selects, plain
+	// text for scalars, and short English sentences for mutation summaries.
+	OutputTable OutputFormat = iota
+	// OutputJSON renders compact JSON: array of row objects for selects, bare
+	// JSON values for scalars, and small summary objects for mutations/pipes.
+	OutputJSON
+)
+
+// RunQueryOptions tunes CLI query execution. Zero value means table output
+// and the real system clipboard, matching the default RunQuery behavior.
+type RunQueryOptions struct {
+	OutputFormat OutputFormat
+	// ClipboardWriter is injected so tests can substitute a fake that doesn't
+	// require a GUI clipboard binary (xclip/xsel/pbcopy). nil → system clipboard.
+	ClipboardWriter func([][]string) error
+}
+
 // RunQuery parses and executes a ruki statement against the given gate,
-// writing formatted results to out.
+// writing formatted results to out in the default table/text form.
 func RunQuery(gate *service.TaskMutationGate, query string, out io.Writer) error {
+	return RunQueryWithOptions(gate, query, out, RunQueryOptions{OutputFormat: OutputTable})
+}
+
+// RunQueryWithOptions is the options-aware entry point used by `tiki exec`.
+// Callers that want the default text/table output should use RunQuery.
+func RunQueryWithOptions(gate *service.TaskMutationGate, query string, out io.Writer, opts RunQueryOptions) error {
 	query = strings.TrimSuffix(strings.TrimSpace(query), ";")
 	if query == "" {
 		return fmt.Errorf("empty query")
@@ -58,24 +86,72 @@ func RunQuery(gate *service.TaskMutationGate, query string, out io.Writer) error
 	}
 
 	ctx := context.Background()
+	json := opts.OutputFormat == OutputJSON
 
 	switch {
 	case result.Select != nil:
-		formatter := NewTableFormatter()
-		return formatter.Format(out, result.Select)
+		return selectFormatter(json).Format(out, result.Select)
 
 	case result.Update != nil:
-		return persistAndSummarize(ctx, gate, result.Update, out)
+		return persistAndSummarize(ctx, gate, result.Update, out, json)
 
 	case result.Create != nil:
-		return persistCreate(ctx, gate, result.Create, out)
+		return persistCreate(ctx, gate, result.Create, out, json)
 
 	case result.Delete != nil:
-		return persistDelete(ctx, gate, result.Delete, out)
+		return persistDelete(ctx, gate, result.Delete, out, json)
+
+	case result.Pipe != nil:
+		return executePipe(ctx, result.Pipe, out, json)
+
+	case result.Clipboard != nil:
+		writer := opts.ClipboardWriter
+		if writer == nil {
+			writer = service.ExecuteClipboardPipe
+		}
+		if err := writer(result.Clipboard.Rows); err != nil {
+			return err
+		}
+		return formatClipboardSummary(out, len(result.Clipboard.Rows), json)
+
+	case result.Scalar != nil:
+		if json {
+			return FormatScalarJSON(out, result.Scalar)
+		}
+		return FormatScalar(out, result.Scalar)
 
 	default:
 		return fmt.Errorf("unsupported statement type")
 	}
+}
+
+// selectFormatter returns the JSON or table formatter for select results.
+func selectFormatter(json bool) Formatter {
+	if json {
+		return NewJSONFormatter()
+	}
+	return NewTableFormatter()
+}
+
+// executePipe runs the pipe command for each row. If any row fails, the first
+// error is returned after all rows are attempted, matching the plugin-action
+// behavior in controller/plugin.go where per-row failures log but don't abort.
+func executePipe(ctx context.Context, pr *ruki.PipeResult, out io.Writer, json bool) error {
+	var firstErr error
+	succeeded := 0
+	for _, row := range pr.Rows {
+		if err := service.ExecutePipeCommand(ctx, pr.Command, row); err != nil {
+			if firstErr == nil {
+				firstErr = err
+			}
+			continue
+		}
+		succeeded++
+	}
+	if firstErr != nil {
+		return firstErr
+	}
+	return formatPipeSummary(out, succeeded, json)
 }
 
 // RunSelectQuery is the read-only entry point restricted to SELECT statements.
@@ -118,7 +194,7 @@ func RunSelectQuery(readStore store.ReadStore, query string, out io.Writer) erro
 	return formatter.Format(out, result.Select)
 }
 
-func persistAndSummarize(ctx context.Context, gate *service.TaskMutationGate, ur *ruki.UpdateResult, out io.Writer) error {
+func persistAndSummarize(ctx context.Context, gate *service.TaskMutationGate, ur *ruki.UpdateResult, out io.Writer, json bool) error {
 	var succeeded, failed int
 	var firstErr error
 
@@ -133,27 +209,27 @@ func persistAndSummarize(ctx context.Context, gate *service.TaskMutationGate, ur
 		}
 	}
 
-	if failed > 0 {
-		_, _ = fmt.Fprintf(out, "updated %d tasks (%d failed)\n", succeeded, failed)
-		return fmt.Errorf("update partially failed: %d of %d tasks failed: %w", failed, succeeded+failed, firstErr)
+	if werr := formatUpdateSummary(out, succeeded, failed, json); werr != nil {
+		return werr
 	}
 
-	_, _ = fmt.Fprintf(out, "updated %d tasks\n", succeeded)
+	if failed > 0 {
+		return fmt.Errorf("update partially failed: %d of %d tasks failed: %w", failed, succeeded+failed, firstErr)
+	}
 	return nil
 }
 
-func persistCreate(ctx context.Context, gate *service.TaskMutationGate, cr *ruki.CreateResult, out io.Writer) error {
+func persistCreate(ctx context.Context, gate *service.TaskMutationGate, cr *ruki.CreateResult, out io.Writer, json bool) error {
 	t := cr.Task
 
 	if err := gate.CreateTask(ctx, t); err != nil {
 		return fmt.Errorf("create task: %w", err)
 	}
 
-	_, _ = fmt.Fprintf(out, "created %s\n", t.ID)
-	return nil
+	return formatCreateSummary(out, t.ID, json)
 }
 
-func persistDelete(ctx context.Context, gate *service.TaskMutationGate, dr *ruki.DeleteResult, out io.Writer) error {
+func persistDelete(ctx context.Context, gate *service.TaskMutationGate, dr *ruki.DeleteResult, out io.Writer, json bool) error {
 	readStore := gate.ReadStore()
 	var succeeded, failed int
 	for _, t := range dr.Deleted {
@@ -167,26 +243,20 @@ func persistDelete(ctx context.Context, gate *service.TaskMutationGate, dr *ruki
 		}
 	}
 
-	if failed > 0 {
-		_, _ = fmt.Fprintf(out, "deleted %d tasks (%d failed)\n", succeeded, failed)
-		return fmt.Errorf("delete partially failed: %d of %d tasks failed", failed, succeeded+failed)
+	if werr := formatDeleteSummary(out, succeeded, failed, json); werr != nil {
+		return werr
 	}
 
-	_, _ = fmt.Fprintf(out, "deleted %d tasks\n", succeeded)
+	if failed > 0 {
+		return fmt.Errorf("delete partially failed: %d of %d tasks failed", failed, succeeded+failed)
+	}
 	return nil
 }
 
 // resolveUserFunc returns a userFunc closure for the executor, and an error
 // if user resolution failed unexpectedly (as opposed to being deliberately
-// unavailable). Returns nil userFunc when user is empty (git disabled),
-// which causes user() calls in queries to return a clear error.
+// unavailable). Delegates to store.CurrentUserDisplayFunc so CLI exec,
+// plugin actions, triggers, and pipe-create setup all share the same rule.
 func resolveUserFunc(s store.ReadStore) (func() string, error) {
-	name, _, err := s.GetCurrentUser()
-	if err != nil {
-		return nil, err
-	}
-	if name == "" {
-		return nil, nil
-	}
-	return func() string { return name }, nil
+	return store.CurrentUserDisplayFunc(s)
 }

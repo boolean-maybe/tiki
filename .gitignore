@@ -19,5 +19,11 @@ out/
 # Tiki binary
 /tiki
 
+# Go coverage output
+/coverage.out
+
+# Extracted demo project (source of truth lives in assets/demo/)
+/tiki-demo/
+
 # GoReleaser output
 /dist/

@@ -36,7 +36,7 @@ func TestStatuslineConfig_LeftStats(t *testing.T) {
 	sc := NewStatuslineConfig()
 
 	sc.SetLeftStat("Branch", "main", 3)
-	sc.SetLeftStat("User", "vbobrov", 4)
+	sc.SetLeftStat("User", "alice", 4)
 
 	stats := sc.GetLeftStats()
 	if len(stats) != 2 {
@@ -49,8 +49,8 @@ func TestStatuslineConfig_LeftStats(t *testing.T) {
 	if stats["Branch"].Priority != 3 {
 		t.Errorf("stats[Branch].Priority = %d, want 3", stats["Branch"].Priority)
 	}
-	if stats["User"].Value != "vbobrov" {
-		t.Errorf("stats[User].Value = %q, want %q", stats["User"].Value, "vbobrov")
+	if stats["User"].Value != "alice" {
+		t.Errorf("stats[User].Value = %q, want %q", stats["User"].Value, "alice")
 	}
 }
 

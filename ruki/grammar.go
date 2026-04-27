@@ -7,10 +7,19 @@ package ruki
 // --- top-level statement grammar ---
 
 type statementGrammar struct {
-	Select *selectGrammar `parser:"  @@"`
-	Create *createGrammar `parser:"| @@"`
-	Update *updateGrammar `parser:"| @@"`
-	Delete *deleteGrammar `parser:"| @@"`
+	Select *selectGrammar   `parser:"  @@"`
+	Create *createGrammar   `parser:"| @@"`
+	Update *updateGrammar   `parser:"| @@"`
+	Delete *deleteGrammar   `parser:"| @@"`
+	Expr   *exprStmtGrammar `parser:"| @@"`
+}
+
+// exprStmtGrammar parses a bare expression as a top-level statement.
+// The CRUD arms above are preferred because they start with reserved
+// keywords; anything else (function calls, literals, arithmetic) falls
+// through to this arm.
+type exprStmtGrammar struct {
+	Expr exprGrammar `parser:"@@"`
 }
 
 type fieldNamesGrammar struct {
@@ -214,7 +223,7 @@ type subQueryExpr struct {
 }
 
 type qualRefExpr struct {
-	Qualifier string `parser:"@( 'old' | 'new' ) '.'"`
+	Qualifier string `parser:"@( 'old' | 'new' | 'outer' | 'target' | 'targets' ) '.'"`
 	Name      string `parser:"@Ident"`
 }
 

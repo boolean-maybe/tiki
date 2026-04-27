@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="700" height="200">
+  <line x1="40" y1="100.0" x2="660" y2="100.0" stroke="#94a3b8" stroke-width="2.5" stroke-linecap="round"/>
+  <circle cx="60.0" cy="100.0" r="7" fill="#2563eb" stroke="#fff" stroke-width="2"/>
+  <line x1="60.0" y1="90.0" x2="60.0" y2="82.0" stroke="#2563eb" stroke-width="1" stroke-dasharray="3,2"/>
+  <text x="60.0" y="70.0" text-anchor="middle" font-family="sans-serif" font-size="12" fill="#2563eb" font-weight="600">v1 GA</text>
+  <circle cx="253.33333333333334" cy="100.0" r="7" fill="#059669" stroke="#fff" stroke-width="2"/>
+  <line x1="253.33333333333334" y1="110.0" x2="253.33333333333334" y2="128.0" stroke="#059669" stroke-width="1" stroke-dasharray="3,2"/>
+  <text x="253.33333333333334" y="142.0" text-anchor="middle" font-family="sans-serif" font-size="12" fill="#059669" font-weight="600">v2 Beta</text>
+  <circle cx="446.6666666666667" cy="100.0" r="7" fill="#d97706" stroke="#fff" stroke-width="2"/>
+  <line x1="446.6666666666667" y1="90.0" x2="446.6666666666667" y2="82.0" stroke="#d97706" stroke-width="1" stroke-dasharray="3,2"/>
+  <text x="446.6666666666667" y="70.0" text-anchor="middle" font-family="sans-serif" font-size="12" fill="#d97706" font-weight="600">v1 Deprecated</text>
+  <circle cx="640.0" cy="100.0" r="7" fill="#dc2626" stroke="#fff" stroke-width="2"/>
+  <line x1="640.0" y1="110.0" x2="640.0" y2="128.0" stroke="#dc2626" stroke-width="1" stroke-dasharray="3,2"/>
+  <text x="640.0" y="142.0" text-anchor="middle" font-family="sans-serif" font-size="12" fill="#dc2626" font-weight="600">v1 EOL</text>
+</svg>

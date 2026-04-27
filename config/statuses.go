@@ -214,7 +214,7 @@ func loadStatusesFromFile(path string) (*workflow.StatusRegistry, error) {
 
 // validTypeDefKeys is the set of allowed keys inside a types: entry.
 var validTypeDefKeys = map[string]bool{
-	"key": true, "label": true, "emoji": true,
+	"key": true, "label": true, "emoji": true, "default": true,
 }
 
 // loadTypesFromFile loads types from a single workflow.yaml.
@@ -257,7 +257,7 @@ func loadTypesFromFile(path string) (*workflow.TypeRegistry, bool, error) {
 		}
 		for k := range entryMap {
 			if !validTypeDefKeys[k] {
-				return nil, true, fmt.Errorf("type at index %d: unknown key %q (valid keys: key, label, emoji)", i, k)
+				return nil, true, fmt.Errorf("type at index %d: unknown key %q (valid keys: key, label, emoji, default)", i, k)
 			}
 		}
 
@@ -266,6 +266,13 @@ func loadTypesFromFile(path string) (*workflow.TypeRegistry, bool, error) {
 		def.Key = workflow.TaskType(keyRaw)
 		def.Label, _ = entryMap["label"].(string)
 		def.Emoji, _ = entryMap["emoji"].(string)
+		if raw, present := entryMap["default"]; present {
+			b, ok := raw.(bool)
+			if !ok {
+				return nil, true, fmt.Errorf("type %q: default must be a boolean, got %T", keyRaw, raw)
+			}
+			def.Default = b
+		}
 		defs = append(defs, def)
 	}
 

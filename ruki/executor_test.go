@@ -1,8 +1,10 @@
 package ruki
 
 import (
+	"errors"
 	"fmt"
 	"reflect"
+	"sort"
 	"strings"
 	"testing"
 	"time"
@@ -42,6 +44,14 @@ func makeTasks() []*task.Task {
 			CreatedAt: testDate(3, 4),
 		},
 	}
+}
+
+func taskIDs(tasks []*task.Task) []string {
+	ids := make([]string, len(tasks))
+	for i, t := range tasks {
+		ids[i] = t.ID
+	}
+	return ids
 }
 
 // --- nil guards ---
@@ -159,6 +169,14 @@ func TestExecuteSelectWhere(t *testing.T) {
 		{
 			"not condition", `select where not status = "done"`,
 			3, []string{"TIKI-000001", "TIKI-000002", "TIKI-000004"},
+		},
+		{
+			"bare true condition", `select where true`,
+			4, []string{"TIKI-000001", "TIKI-000002", "TIKI-000003", "TIKI-000004"},
+		},
+		{
+			"not bare false condition", `select where not false`,
+			4, []string{"TIKI-000001", "TIKI-000002", "TIKI-000003", "TIKI-000004"},
 		},
 		{
 			"in list", `select where status in ["done", "backlog"]`,
@@ -476,7 +494,7 @@ func TestExecuteListSetEquality(t *testing.T) {
 			1,
 		},
 		{
-			"multiplicity matters — different lengths",
+			"different members do not match",
 			[]*task.Task{
 				{ID: "T1", Title: "x", Status: "ready", Tags: []string{"a"}},
 			},
@@ -484,12 +502,12 @@ func TestExecuteListSetEquality(t *testing.T) {
 			0,
 		},
 		{
-			"multiplicity matters — duplicate vs single",
+			"duplicate vs single matches",
 			[]*task.Task{
 				{ID: "T1", Title: "x", Status: "ready", Tags: []string{"a", "a"}},
 			},
 			`select where tags = ["a"]`,
-			0,
+			1,
 		},
 		{
 			"empty list equality",
@@ -679,6 +697,141 @@ func TestExecuteCount(t *testing.T) {
 	}
 }
 
+func TestExecuteExists(t *testing.T) {
+	e := newTestExecutor()
+	p := newTestParser()
+	tasks := makeTasks()
+
+	tests := []struct {
+		name      string
+		input     string
+		wantCount int
+	}{
+		{
+			name:      "matching subquery is true for every row",
+			input:     `select where exists(select where status = "done")`,
+			wantCount: 4,
+		},
+		{
+			name:      "nonmatching subquery is false for every row",
+			input:     `select where exists(select where status = "cancelled")`,
+			wantCount: 0,
+		},
+		{
+			name:      "not exists negates nonmatching subquery",
+			input:     `select where not exists(select where status = "cancelled")`,
+			wantCount: 4,
+		},
+		{
+			name:      "bare select checks whether any candidate exists",
+			input:     `select where exists(select)`,
+			wantCount: 4,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			stmt, err := p.ParseStatement(tt.input)
+			if err != nil {
+				t.Fatalf("parse: %v", err)
+			}
+			result, err := e.Execute(stmt, tasks)
+			if err != nil {
+				t.Fatalf("execute: %v", err)
+			}
+			if len(result.Select.Tasks) != tt.wantCount {
+				t.Fatalf("expected %d tasks, got %d", tt.wantCount, len(result.Select.Tasks))
+			}
+		})
+	}
+}
+
+func TestExecuteExistsEmptyTasks(t *testing.T) {
+	e := newTestExecutor()
+	p := newTestParser()
+
+	stmt, err := p.ParseStatement(`select where exists(select)`)
+	if err != nil {
+		t.Fatalf("parse: %v", err)
+	}
+	result, err := e.Execute(stmt, nil)
+	if err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	if len(result.Select.Tasks) != 0 {
+		t.Fatalf("expected no tasks, got %d", len(result.Select.Tasks))
+	}
+}
+
+func TestExecuteOuterCorrelatedSubqueries(t *testing.T) {
+	e := newTestExecutor()
+	p := newTestParser()
+	tasks := makeTasks()
+
+	tests := []struct {
+		name    string
+		input   string
+		wantIDs []string
+	}{
+		{
+			name:    "anti-reference query excludes tasks with blockers",
+			input:   `select where not exists(select where outer.id in dependsOn)`,
+			wantIDs: []string{"TIKI-000002", "TIKI-000003", "TIKI-000004"},
+		},
+		{
+			name:    "count correlates by assignee",
+			input:   `select where count(select where assignee = outer.assignee) > 1`,
+			wantIDs: []string{"TIKI-000001", "TIKI-000003"},
+		},
+		{
+			name:    "nested subquery rebinds outer",
+			input:   `select where exists(select where exists(select where outer.id in dependsOn))`,
+			wantIDs: []string{"TIKI-000001", "TIKI-000002", "TIKI-000003", "TIKI-000004"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			stmt, err := p.ParseStatement(tt.input)
+			if err != nil {
+				t.Fatalf("parse: %v", err)
+			}
+			result, err := e.Execute(stmt, tasks)
+			if err != nil {
+				t.Fatalf("execute: %v", err)
+			}
+			got := taskIDs(result.Select.Tasks)
+			if !reflect.DeepEqual(got, tt.wantIDs) {
+				t.Fatalf("expected IDs %v, got %v", tt.wantIDs, got)
+			}
+		})
+	}
+}
+
+func TestExecuteOuterWithSelectedTaskExclusion(t *testing.T) {
+	p := newTestParser()
+	stmt, err := p.ParseStatement(`select where id != id() and not exists(select where id = id() and outer.id in dependsOn)`)
+	if err != nil {
+		t.Fatalf("parse: %v", err)
+	}
+
+	tasks := []*task.Task{
+		{ID: "TIKI-000001", Title: "selected", Status: "ready", Type: "story", Priority: 3, DependsOn: []string{"TIKI-000002"}},
+		{ID: "TIKI-000002", Title: "dependency", Status: "ready", Type: "story", Priority: 3},
+		{ID: "TIKI-000003", Title: "candidate", Status: "ready", Type: "story", Priority: 3},
+	}
+	e := NewExecutor(testSchema{}, nil, ExecutorRuntime{Mode: ExecutorRuntimePlugin})
+	result, err := e.Execute(stmt, tasks, NewSingleSelectionInput("TIKI-000001"))
+	if err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	got := taskIDs(result.Select.Tasks)
+	want := []string{"TIKI-000003"}
+	if !reflect.DeepEqual(got, want) {
+		t.Fatalf("expected IDs %v, got %v", want, got)
+	}
+}
+
 func TestExecuteNextDate(t *testing.T) {
 	e := newTestExecutor()
 	p := newTestParser()
@@ -815,7 +968,7 @@ func TestExecuteCreateEnumNormalization(t *testing.T) {
 func TestExecuteCreateImmutableFieldRejected(t *testing.T) {
 	e := newTestExecutor()
 
-	for _, field := range []string{"id", "createdBy", "createdAt", "updatedAt"} {
+	for _, field := range []string{"id", "createdBy", "createdAt", "updatedAt", "filepath"} {
 		t.Run(field, func(t *testing.T) {
 			stmt := &Statement{
 				Create: &CreateStmt{
@@ -2158,6 +2311,25 @@ func TestExecuteCountSubqueryError(t *testing.T) {
 	}
 }
 
+func TestExecuteExistsSubqueryError(t *testing.T) {
+	e := newTestExecutor()
+	tasks := makeTasks()
+
+	stmt := &Statement{Select: &SelectStmt{
+		Where: &BoolExprCondition{
+			Expr: &FunctionCall{Name: "exists", Args: []Expr{
+				&SubQuery{Where: &CompareExpr{
+					Left: &QualifiedRef{Qualifier: "old", Name: "status"}, Op: "=", Right: &StringLiteral{Value: "x"},
+				}},
+			}},
+		},
+	}}
+	_, err := e.Execute(stmt, tasks)
+	if err == nil {
+		t.Fatal("expected error from exists subquery")
+	}
+}
+
 // --- resolveComparisonType right-side field ---
 
 func TestExecuteResolveComparisonTypeRightSide(t *testing.T) {
@@ -2412,13 +2584,21 @@ func TestComparisonHelperErrors(t *testing.T) {
 	}
 }
 
-// --- sortedMultisetEqual with same-length but different elements ---
+// --- sortedSetEqual helpers ---
 
-func TestSortedMultisetEqualMismatch(t *testing.T) {
+func TestSortedSetEqualMismatch(t *testing.T) {
 	a := []interface{}{"x", "y"}
 	b := []interface{}{"x", "z"}
-	if sortedMultisetEqual(a, b) {
+	if sortedSetEqual(a, b) {
 		t.Error("expected false for different elements")
+	}
+}
+
+func TestSortedSetEqualIgnoresDuplicates(t *testing.T) {
+	a := []interface{}{"x", "x"}
+	b := []interface{}{"x"}
+	if !sortedSetEqual(a, b) {
+		t.Error("expected duplicates to be ignored for set equality")
 	}
 }
 
@@ -2742,6 +2922,27 @@ func TestExecuteUpdateListPlusElement(t *testing.T) {
 	}
 }
 
+func TestExecuteUpdateListPlusElementIdempotent(t *testing.T) {
+	e := newTestExecutor()
+	p := newTestParser()
+	tasks := []*task.Task{
+		{ID: "TIKI-000001", Title: "x", Status: "ready", Tags: []string{"old", "old"}},
+	}
+
+	stmt, err := p.ParseStatement(`update where id = "TIKI-000001" set tags=tags+"old"`)
+	if err != nil {
+		t.Fatalf("parse: %v", err)
+	}
+	result, err := e.Execute(stmt, tasks)
+	if err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	u := result.Update.Updated[0]
+	if len(u.Tags) != 1 || u.Tags[0] != "old" {
+		t.Errorf("expected tags [old], got %v", u.Tags)
+	}
+}
+
 func TestExecuteUpdateListMinusList(t *testing.T) {
 	e := newTestExecutor()
 	p := newTestParser()
@@ -2844,6 +3045,27 @@ func TestExecuteUpdateDependsOnPlusList(t *testing.T) {
 	u := result.Update.Updated[0]
 	if len(u.DependsOn) != 2 || u.DependsOn[0] != "TIKI-Z" || u.DependsOn[1] != "TIKI-Y" {
 		t.Errorf("expected dependsOn [TIKI-Z TIKI-Y], got %v", u.DependsOn)
+	}
+}
+
+func TestExecuteUpdateDependsOnPlusListIdempotent(t *testing.T) {
+	e := newTestExecutor()
+	p := newTestParser()
+	tasks := []*task.Task{
+		{ID: "TIKI-000001", Title: "x", Status: "ready", DependsOn: []string{"TIKI-Y", "tiki-y"}},
+	}
+
+	stmt, err := p.ParseStatement(`update where id = "TIKI-000001" set dependsOn=dependsOn+["TIKI-Y"]`)
+	if err != nil {
+		t.Fatalf("parse: %v", err)
+	}
+	result, err := e.Execute(stmt, tasks)
+	if err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	u := result.Update.Updated[0]
+	if len(u.DependsOn) != 1 || u.DependsOn[0] != "TIKI-Y" {
+		t.Errorf("expected dependsOn [TIKI-Y], got %v", u.DependsOn)
 	}
 }
 
@@ -2987,7 +3209,7 @@ func TestExecuteUpdateImmutableFieldRejected(t *testing.T) {
 		{ID: "TIKI-000001", Title: "x", Status: "ready"},
 	}
 
-	fields := []string{"id", "createdBy", "createdAt", "updatedAt"}
+	fields := []string{"id", "createdBy", "createdAt", "updatedAt", "filepath"}
 	for _, field := range fields {
 		t.Run(field, func(t *testing.T) {
 			stmt := &Statement{
@@ -3677,7 +3899,7 @@ func TestExecuteEvalIDPluginRuntime(t *testing.T) {
 	if err != nil {
 		t.Fatalf("validate: %v", err)
 	}
-	result, err := e.Execute(validated, tasks, ExecutionInput{SelectedTaskID: "TIKI-000001"})
+	result, err := e.Execute(validated, tasks, NewSingleSelectionInput("TIKI-000001"))
 	if err != nil {
 		t.Fatalf("execute: %v", err)
 	}
@@ -3694,7 +3916,7 @@ func TestExecuteEvalIDPluginRuntime(t *testing.T) {
 	if err != nil {
 		t.Fatalf("validate: %v", err)
 	}
-	result2, err := e.Execute(validated2, tasks, ExecutionInput{SelectedTaskID: "TIKI-000001"})
+	result2, err := e.Execute(validated2, tasks, NewSingleSelectionInput("TIKI-000001"))
 	if err != nil {
 		t.Fatalf("execute: %v", err)
 	}
@@ -3716,7 +3938,7 @@ func TestExecuteEvalIDPluginRuntimeNoMatch(t *testing.T) {
 	if err != nil {
 		t.Fatalf("validate: %v", err)
 	}
-	result, err := e.Execute(validated, tasks, ExecutionInput{SelectedTaskID: "TIKI-000002"})
+	result, err := e.Execute(validated, tasks, NewSingleSelectionInput("TIKI-000002"))
 	if err != nil {
 		t.Fatalf("execute: %v", err)
 	}
@@ -3889,6 +4111,51 @@ func TestExecutor_CustomFieldSetAndGet(t *testing.T) {
 	}
 	if v := e.extractField(tk, "severity"); v != "high" {
 		t.Errorf("severity: got %v, want high", v)
+	}
+}
+
+func TestExecutor_BareBoolCustomFieldCondition(t *testing.T) {
+	e := newCustomExecutor()
+	p := newCustomParser2()
+	tasks := []*task.Task{
+		{
+			ID: "T1", Title: "true flag", Status: "ready",
+			CustomFields: map[string]interface{}{"flag": true},
+		},
+		{
+			ID: "T2", Title: "false flag", Status: "ready",
+			CustomFields: map[string]interface{}{"flag": false},
+		},
+	}
+
+	tests := []struct {
+		name    string
+		input   string
+		wantIDs []string
+	}{
+		{"bare flag", `select where flag`, []string{"T1"}},
+		{"not flag", `select where not flag`, []string{"T2"}},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			stmt, err := p.ParseStatement(tt.input)
+			if err != nil {
+				t.Fatalf("parse: %v", err)
+			}
+			result, err := e.Execute(stmt, tasks)
+			if err != nil {
+				t.Fatalf("execute: %v", err)
+			}
+			if len(result.Select.Tasks) != len(tt.wantIDs) {
+				t.Fatalf("expected %d tasks, got %d", len(tt.wantIDs), len(result.Select.Tasks))
+			}
+			for i, wantID := range tt.wantIDs {
+				if result.Select.Tasks[i].ID != wantID {
+					t.Errorf("task[%d].ID = %q, want %q", i, result.Select.Tasks[i].ID, wantID)
+				}
+			}
+		})
 	}
 }
 
@@ -4405,5 +4672,350 @@ func TestExecutor_EnumInCaseInsensitive(t *testing.T) {
 				t.Errorf("got IDs %v, want %v", gotIDs, tt.wantIDs)
 			}
 		})
+	}
+}
+
+// --- target./targets. qualifier runtime semantics ---
+
+func newPluginExecutor() *Executor {
+	return NewExecutor(testSchema{}, func() string { return "alice" }, ExecutorRuntime{Mode: ExecutorRuntimePlugin})
+}
+
+func TestExecuteTargetField_SingleSelection(t *testing.T) {
+	p := newTestParser()
+	e := newPluginExecutor()
+
+	// use target.status to select any task whose status matches the selected task's status
+	v, err := p.ParseAndValidateStatement(`select where status = target.status`, ExecutorRuntimePlugin)
+	if err != nil {
+		t.Fatalf("validate: %v", err)
+	}
+	// selected task is TIKI-000001 (status=ready). TIKI-000001 is the only ready task.
+	input := ExecutionInput{SelectedTaskIDs: []string{"TIKI-000001"}}
+	res, err := e.Execute(v, makeTasks(), input)
+	if err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	if len(res.Select.Tasks) != 1 || res.Select.Tasks[0].ID != "TIKI-000001" {
+		t.Fatalf("unexpected result %v", taskIDs(res.Select.Tasks))
+	}
+}
+
+func TestExecuteTargetField_ZeroSelectionErrors(t *testing.T) {
+	p := newTestParser()
+	e := newPluginExecutor()
+	v, err := p.ParseAndValidateStatement(`select where id = target.id`, ExecutorRuntimePlugin)
+	if err != nil {
+		t.Fatalf("validate: %v", err)
+	}
+	_, err = e.Execute(v, makeTasks())
+	if err == nil {
+		t.Fatal("expected missing-selection error")
+	}
+	var missing *MissingSelectedTaskIDError
+	if !errors.As(err, &missing) {
+		t.Fatalf("expected MissingSelectedTaskIDError, got: %v", err)
+	}
+}
+
+func TestExecuteTargetField_MultipleSelectionErrors(t *testing.T) {
+	p := newTestParser()
+	e := newPluginExecutor()
+	v, err := p.ParseAndValidateStatement(`select where id = target.id`, ExecutorRuntimePlugin)
+	if err != nil {
+		t.Fatalf("validate: %v", err)
+	}
+	input := ExecutionInput{SelectedTaskIDs: []string{"TIKI-000001", "TIKI-000002"}}
+	_, err = e.Execute(v, makeTasks(), input)
+	if err == nil {
+		t.Fatal("expected ambiguous-selection error")
+	}
+	var amb *AmbiguousSelectedTaskIDError
+	if !errors.As(err, &amb) {
+		t.Fatalf("expected AmbiguousSelectedTaskIDError, got: %v", err)
+	}
+}
+
+func TestExecuteTargetsField_IDProjection(t *testing.T) {
+	p := newTestParser()
+	e := newPluginExecutor()
+	// targets.id yields the selected IDs as a list<ref>
+	v, err := p.ParseAndValidateStatement(`select where id in targets.id`, ExecutorRuntimePlugin)
+	if err != nil {
+		t.Fatalf("validate: %v", err)
+	}
+	input := ExecutionInput{SelectedTaskIDs: []string{"TIKI-000002", "TIKI-000004"}}
+	res, err := e.Execute(v, makeTasks(), input)
+	if err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	gotIDs := taskIDs(res.Select.Tasks)
+	want := []string{"TIKI-000002", "TIKI-000004"}
+	sort.Strings(gotIDs)
+	sort.Strings(want)
+	if !reflect.DeepEqual(gotIDs, want) {
+		t.Fatalf("got %v, want %v", gotIDs, want)
+	}
+}
+
+func TestExecuteTargetsField_FlattensListRef(t *testing.T) {
+	p := newTestParser()
+	e := newPluginExecutor()
+	// targets.dependsOn flattens list<ref> across selected tasks
+	v, err := p.ParseAndValidateStatement(`select where id in targets.dependsOn`, ExecutorRuntimePlugin)
+	if err != nil {
+		t.Fatalf("validate: %v", err)
+	}
+	// TIKI-000002 depends on TIKI-000001; TIKI-000004 has no deps
+	input := ExecutionInput{SelectedTaskIDs: []string{"TIKI-000002", "TIKI-000004"}}
+	res, err := e.Execute(v, makeTasks(), input)
+	if err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	gotIDs := taskIDs(res.Select.Tasks)
+	if !reflect.DeepEqual(gotIDs, []string{"TIKI-000001"}) {
+		t.Fatalf("expected [TIKI-000001], got %v", gotIDs)
+	}
+}
+
+func TestExecuteTargetsField_FlattensAndDedupsListString(t *testing.T) {
+	// targets.tags should flatten and dedupe in first-seen order.
+	// we test via evalTargetsField directly on an executor since tags is list<string>.
+	e := newPluginExecutor()
+	e.currentInput = ExecutionInput{SelectedTaskIDs: []string{"TIKI-000002", "TIKI-000001"}}
+	tasks := makeTasks()
+	val, err := e.evalTargetsField("tags", evalContext{allTasks: tasks})
+	if err != nil {
+		t.Fatalf("evalTargetsField: %v", err)
+	}
+	list, ok := val.([]interface{})
+	if !ok {
+		t.Fatalf("expected []interface{}, got %T", val)
+	}
+	got := make([]string, len(list))
+	for i, v := range list {
+		got[i] = normalizeToString(v)
+	}
+	// TIKI-000002 tags: [bug, frontend]; TIKI-000001 tags: [infra] — no dupes here
+	want := []string{"bug", "frontend", "infra"}
+	if !reflect.DeepEqual(got, want) {
+		t.Fatalf("got %v, want %v (preserve first-seen order)", got, want)
+	}
+}
+
+func TestExecuteTargetsField_EmptySelectionReturnsEmptyList(t *testing.T) {
+	e := newPluginExecutor()
+	e.currentInput = ExecutionInput{}
+	val, err := e.evalTargetsField("id", evalContext{allTasks: makeTasks()})
+	if err != nil {
+		t.Fatalf("evalTargetsField: %v", err)
+	}
+	list, ok := val.([]interface{})
+	if !ok {
+		t.Fatalf("expected []interface{}, got %T", val)
+	}
+	if len(list) != 0 {
+		t.Fatalf("expected empty list, got %v", list)
+	}
+}
+
+func TestExecuteTargetsField_MissingTaskRecord(t *testing.T) {
+	e := newPluginExecutor()
+	e.currentInput = ExecutionInput{SelectedTaskIDs: []string{"TIKI-999999"}}
+	_, err := e.evalTargetsField("id", evalContext{allTasks: makeTasks()})
+	if err == nil {
+		t.Fatal("expected missing-task error")
+	}
+	if !strings.Contains(err.Error(), "TIKI-999999") {
+		t.Fatalf("expected error to mention missing id, got: %v", err)
+	}
+}
+
+func TestExecuteTargetField_MissingTaskRecord(t *testing.T) {
+	e := newPluginExecutor()
+	e.currentInput = ExecutionInput{SelectedTaskIDs: []string{"TIKI-999999"}}
+	_, err := e.evalTargetField("id", evalContext{allTasks: makeTasks()})
+	if err == nil {
+		t.Fatal("expected missing-task error")
+	}
+	if !strings.Contains(err.Error(), "TIKI-999999") {
+		t.Fatalf("expected error to mention missing id, got: %v", err)
+	}
+}
+
+// target.<field> must enforce the exactly-one-selection contract at preflight,
+// not just when it is reached during evaluation — a short-circuited expression
+// would otherwise bypass the contract.
+func TestExecuteTargetField_PreflightRejectsZeroSelection(t *testing.T) {
+	p := newTestParser()
+	e := newPluginExecutor()
+	// `1 = 2` is always false; without a preflight, target.id is never evaluated
+	v, err := p.ParseAndValidateStatement(
+		`select where 1 = 2 and id = target.id`,
+		ExecutorRuntimePlugin,
+	)
+	if err != nil {
+		t.Fatalf("validate: %v", err)
+	}
+	_, err = e.Execute(v, makeTasks())
+	if err == nil {
+		t.Fatal("expected MissingSelectedTaskIDError even behind short-circuit")
+	}
+	var missing *MissingSelectedTaskIDError
+	if !errors.As(err, &missing) {
+		t.Fatalf("expected MissingSelectedTaskIDError, got: %v", err)
+	}
+}
+
+// End-to-end: `status in targets.status` must parse and return the subset of
+// tasks whose status appears in the selected tasks' statuses.
+func TestExecuteTargetsStatus_Membership(t *testing.T) {
+	p := newTestParser()
+	e := newPluginExecutor()
+	v, err := p.ParseAndValidateStatement(`select where status in targets.status`, ExecutorRuntimePlugin)
+	if err != nil {
+		t.Fatalf("validate: %v", err)
+	}
+	// selected tasks have statuses {ready, done} → expect TIKI-000001 (ready)
+	// and TIKI-000003 (done) to match, and the other two to drop out.
+	input := ExecutionInput{SelectedTaskIDs: []string{"TIKI-000001", "TIKI-000003"}}
+	res, err := e.Execute(v, makeTasks(), input)
+	if err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	gotIDs := taskIDs(res.Select.Tasks)
+	sort.Strings(gotIDs)
+	want := []string{"TIKI-000001", "TIKI-000003"}
+	if !reflect.DeepEqual(gotIDs, want) {
+		t.Fatalf("got %v, want %v", gotIDs, want)
+	}
+}
+
+func TestExecuteTargetField_PreflightRejectsMultiSelection(t *testing.T) {
+	p := newTestParser()
+	e := newPluginExecutor()
+	v, err := p.ParseAndValidateStatement(
+		`select where 1 = 2 and id = target.id`,
+		ExecutorRuntimePlugin,
+	)
+	if err != nil {
+		t.Fatalf("validate: %v", err)
+	}
+	input := ExecutionInput{SelectedTaskIDs: []string{"TIKI-000001", "TIKI-000002"}}
+	_, err = e.Execute(v, makeTasks(), input)
+	if err == nil {
+		t.Fatal("expected AmbiguousSelectedTaskIDError even behind short-circuit")
+	}
+	var amb *AmbiguousSelectedTaskIDError
+	if !errors.As(err, &amb) {
+		t.Fatalf("expected AmbiguousSelectedTaskIDError, got: %v", err)
+	}
+}
+
+// --- top-level expression statements ---
+
+func TestExecuteExprStmt_CountAllTasks(t *testing.T) {
+	p := newTestParser()
+	e := newTestExecutor()
+	stmt, err := p.ParseStatement(`count(select)`)
+	if err != nil {
+		t.Fatalf("parse: %v", err)
+	}
+	res, err := e.Execute(stmt, makeTasks())
+	if err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	if res.Scalar == nil {
+		t.Fatal("expected Scalar result")
+	}
+	if res.Scalar.Type != ValueInt {
+		t.Errorf("type = %s, want int", typeName(res.Scalar.Type))
+	}
+	if res.Scalar.Value != 4 {
+		t.Errorf("value = %v, want 4", res.Scalar.Value)
+	}
+}
+
+func TestExecuteExprStmt_CountWithWhere(t *testing.T) {
+	p := newTestParser()
+	e := newTestExecutor()
+	stmt, err := p.ParseStatement(`count(select where status = "done")`)
+	if err != nil {
+		t.Fatalf("parse: %v", err)
+	}
+	res, err := e.Execute(stmt, makeTasks())
+	if err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	if res.Scalar.Value != 1 {
+		t.Errorf("value = %v, want 1", res.Scalar.Value)
+	}
+}
+
+func TestExecuteExprStmt_ExistsTrueFalse(t *testing.T) {
+	p := newTestParser()
+	e := newTestExecutor()
+
+	tests := []struct {
+		name   string
+		query  string
+		expect bool
+	}{
+		{"exists done", `exists(select where status = "done")`, true},
+		{"exists impossible", `exists(select where priority = 99)`, false},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			stmt, err := p.ParseStatement(tt.query)
+			if err != nil {
+				t.Fatalf("parse: %v", err)
+			}
+			res, err := e.Execute(stmt, makeTasks())
+			if err != nil {
+				t.Fatalf("execute: %v", err)
+			}
+			if res.Scalar.Type != ValueBool {
+				t.Errorf("type = %s, want bool", typeName(res.Scalar.Type))
+			}
+			if res.Scalar.Value != tt.expect {
+				t.Errorf("value = %v, want %v", res.Scalar.Value, tt.expect)
+			}
+		})
+	}
+}
+
+func TestExecuteExprStmt_NowReturnsTimestamp(t *testing.T) {
+	p := newTestParser()
+	e := newTestExecutor()
+	stmt, err := p.ParseStatement(`now()`)
+	if err != nil {
+		t.Fatalf("parse: %v", err)
+	}
+	res, err := e.Execute(stmt, makeTasks())
+	if err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	if res.Scalar.Type != ValueTimestamp {
+		t.Errorf("type = %s, want timestamp", typeName(res.Scalar.Type))
+	}
+	if _, ok := res.Scalar.Value.(time.Time); !ok {
+		t.Errorf("value is %T, want time.Time", res.Scalar.Value)
+	}
+}
+
+func TestExecuteExprStmt_Arithmetic(t *testing.T) {
+	p := newTestParser()
+	e := newTestExecutor()
+	stmt, err := p.ParseStatement(`count(select where status = "done") + count(select where status = "ready")`)
+	if err != nil {
+		t.Fatalf("parse: %v", err)
+	}
+	res, err := e.Execute(stmt, makeTasks())
+	if err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	// 1 done + 1 ready = 2
+	if res.Scalar.Value != 2 {
+		t.Errorf("value = %v, want 2", res.Scalar.Value)
 	}
 }

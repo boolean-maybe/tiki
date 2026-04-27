@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="700" height="400">
+  <g>
+    <rect x="285.0" y="40" width="130" height="36" rx="6" fill="#2563eb" stroke="#2563eb" stroke-width="2"/>
+    <text x="350.0" y="63.0" text-anchor="middle" font-family="sans-serif" font-size="13" fill="#fff" font-weight="bold">REST API Reference</text>
+  </g>
+  <line x1="350.0" y1="76" x2="270.0" y2="170" stroke="#94a3b8" stroke-width="1.5"/>
+  <rect x="205.0" y="170" width="130" height="36" rx="6" fill="#3b82f6"/>
+  <text x="270.0" y="193.0" text-anchor="middle" font-family="sans-serif" font-size="12" fill="#fff">gRPC API Reference</text>
+  <line x1="350.0" y1="76" x2="430.0" y2="170" stroke="#94a3b8" stroke-width="1.5"/>
+  <rect x="365.0" y="170" width="130" height="36" rx="6" fill="#60a5fa"/>
+  <text x="430.0" y="193.0" text-anchor="middle" font-family="sans-serif" font-size="12" fill="#fff">WebSocket API</text>
+</svg>

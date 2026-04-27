@@ -106,16 +106,31 @@ select where not (status = "done" or priority = 1)
 
 ## Functions and dates
 
-Count matching tikis:
+Find tikis that nothing else depends on:
 
 ```sql
-select where count(select where status = "done") >= 1
+select where not exists(select where outer.id in dependsOn)
+```
+
+Find work owned by assignees who already have too much in progress:
+
+```sql
+select where count(select where assignee = outer.assignee and status = "in progress") >= 3
+```
+
+Block an epic from completing when any dependency is unfinished:
+
+```sql
+before update where new.type = "epic" and new.status = "done"
+and exists(select where id in new.dependsOn and status != "done")
+deny "epic has unfinished dependencies"
 ```
 
 Current user:
 
 ```sql
 select where assignee = user()
+update where id = id() set assignee = user()
 ```
 
 Compare timestamps:
@@ -150,6 +165,7 @@ Pipe select results to a shell command or clipboard:
 select id, title where status = "done" | run("myscript $1 $2")
 select id where id = id() | clipboard()
 select description where id = id() | clipboard()
+select filepath | run("some-app $1")
 ```
 
 Pick a task interactively:
@@ -157,6 +173,7 @@ Pick a task interactively:
 ```sql
 update where id = choose(select where type = "epic") set dependsOn = dependsOn + id()
 update where id = id() set dependsOn = dependsOn + choose(select where type != "epic")
+update where id = id() set dependsOn = dependsOn + choose(select where id != outer.id)
 ```
 
 ## Before triggers
@@ -164,7 +181,8 @@ update where id = id() set dependsOn = dependsOn + choose(select where type != "
 Block completion when dependencies remain open:
 
 ```sql
-before update where new.status = "done" and dependsOn any status != "done" deny "cannot complete tiki with open dependencies"
+before update where new.status = "done" and dependsOn any status != "done"
+deny "cannot complete tiki with open dependencies"
 ```
 
 Require a description for high-priority work:
@@ -176,7 +194,9 @@ before update where new.priority <= 2 and new.description is empty deny "high pr
 Limit how many in-progress tikis someone can have:
 
 ```sql
-before update where new.status = "in progress" and count(select where assignee = new.assignee and status = "in progress") >= 3 deny "WIP limit reached for this assignee"
+before update where new.status = "in progress"
+and count(select where assignee = new.assignee and status = "in progress") >= 3
+deny "WIP limit reached for this assignee"
 ```
 
 ## After triggers
@@ -190,7 +210,9 @@ after create where new.priority <= 2 and new.assignee is empty update where id =
 Create the next recurring tiki:
 
 ```sql
-after update where new.status = "done" and old.recurrence is not empty create title=old.title priority=old.priority tags=old.tags recurrence=old.recurrence due=next_date(old.recurrence) status="ready"
+after update where new.status = "done" and old.recurrence is not empty
+create title=old.title priority=old.priority tags=old.tags recurrence=old.recurrence due=next_date(old.recurrence)
+status="ready"
 ```
 
 Clear recurrence on the completed source tiki:

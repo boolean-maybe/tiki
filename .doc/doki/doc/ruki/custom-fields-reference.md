@@ -48,8 +48,8 @@ When custom field values are read from frontmatter YAML, they are coerced to the
 | `integer`     | integer or decimal number                     | integer pass-through; decimal accepted only if it represents a whole number (e.g. `3.0` → `3`, but `1.5` → error) |
 | `boolean`     | `true` / `false`                              | pass-through                                     |
 | `datetime`    | timestamp or date string                      | native YAML timestamps pass through; strings parsed as RFC3339, with fallback to `YYYY-MM-DD` |
-| `stringList`  | YAML list of strings                          | each element must be a string                    |
-| `taskIdList`  | YAML list of strings                          | each element coerced to uppercase, whitespace trimmed, empty entries dropped |
+| `stringList`  | YAML list of strings                          | strings only; trim, drop empty, dedupe |
+| `taskIdList`  | YAML list of strings                          | uppercase IDs; trim, drop empty, dedupe |
 
 ## Enum domain isolation
 
@@ -104,11 +104,12 @@ If a value cannot be coerced to the field's current type (e.g. a text value `"no
 
 tiki reads leniently and writes strictly. On load, unrecognized or incompatible values are preserved rather than rejected. On save, values are validated against the current schema.
 
-## Template defaults
+## Field defaults
 
-Custom fields in `new.md` templates follow the same coercion and validation rules as task files. If a template contains a value that cannot be coerced (e.g. a type mismatch), the invalid field is dropped with a warning and the template otherwise loads normally.
-
-Template custom field values are copied into new tasks created via `create` statements or the new-task UI flow.
+Custom fields can declare a `default:` value in `workflow.yaml`. Default values are validated
+against the field's type and enum constraints during workflow load — invalid defaults are hard
+errors. Valid defaults are copied into new tasks created via `create` statements or the
+new-task UI flow. Fields without a `default:` key start empty.
 
 ## Query behavior
 
@@ -117,7 +118,7 @@ Custom fields behave identically to built-in fields in ruki queries:
 - usable in `where`, `order by`, `set`, `create`, and `select` field lists
 - support `is empty` / `is not empty` checks
 - support `in` / `not in` for list membership
-- list-type fields support `+` (append) and `-` (remove) operations
+- list-type fields support `+` (set union) and `-` (remove) operations
 - quantifiers (`any ... where`, `all ... where`) work on custom `taskIdList` fields
 
 ### Unset list fields

@@ -1178,6 +1178,18 @@ func TestScanConditionSemantics_AllTypes(t *testing.T) {
 		}
 	})
 
+	t.Run("BoolExprCondition", func(t *testing.T) {
+		u, c, err := scanConditionSemantics(&BoolExprCondition{
+			Expr: &FunctionCall{Name: "call", Args: []Expr{&FunctionCall{Name: "id"}}},
+		})
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if !u || !c {
+			t.Errorf("expected (true, true), got (%v, %v)", u, c)
+		}
+	})
+
 	t.Run("CompareExpr", func(t *testing.T) {
 		u, c, err := scanConditionSemantics(&CompareExpr{
 			Left:  &FunctionCall{Name: "id"},
@@ -1341,6 +1353,7 @@ func TestScanExprSemantics(t *testing.T) {
 			&QualifiedRef{Qualifier: "old", Name: "status"},
 			&StringLiteral{Value: "x"},
 			&IntLiteral{Value: 42},
+			&BoolLiteral{Value: true},
 			&DateLiteral{},
 			&DurationLiteral{Value: 1, Unit: "day"},
 			&EmptyLiteral{},
@@ -1616,6 +1629,22 @@ func TestCloneCondition(t *testing.T) {
 		}
 	})
 
+	t.Run("BoolExprCondition", func(t *testing.T) {
+		orig := &BoolExprCondition{
+			Expr: &FieldRef{Name: "flag"},
+		}
+		c, ok := cloneCondition(orig).(*BoolExprCondition)
+		if !ok {
+			t.Fatal("expected *BoolExprCondition")
+		}
+		if c == orig {
+			t.Error("expected different pointer")
+		}
+		if c.Expr == orig.Expr {
+			t.Error("expected cloned expression")
+		}
+	})
+
 	t.Run("CompareExpr", func(t *testing.T) {
 		orig := &CompareExpr{
 			Left: &FieldRef{Name: "a"}, Op: "!=", Right: &IntLiteral{Value: 1},
@@ -1706,6 +1735,7 @@ func TestCloneExpr(t *testing.T) {
 			&QualifiedRef{Qualifier: "old", Name: "title"},
 			&StringLiteral{Value: "hello"},
 			&IntLiteral{Value: 42},
+			&BoolLiteral{Value: true},
 			&DateLiteral{},
 			&DurationLiteral{Value: 1, Unit: "day"},
 			&ListLiteral{Elements: []Expr{&StringLiteral{Value: "a"}}},
@@ -1924,6 +1954,40 @@ func TestIDDetection_NestedInBinaryExpr(t *testing.T) {
 	_, err := v.ValidateStatement(stmt)
 	if err == nil || !strings.Contains(err.Error(), "id() is only available in plugin runtime") {
 		t.Fatalf("expected id() rejection in nested BinaryExpr, got: %v", err)
+	}
+}
+
+func TestSemanticValidation_ExistsSubqueryScanned(t *testing.T) {
+	p := newTestParser()
+
+	_, err := p.ParseAndValidateStatement(`select where exists(select where id = id())`, ExecutorRuntimeCLI)
+	if err == nil || !strings.Contains(err.Error(), "id() is only available in plugin runtime") {
+		t.Fatalf("expected id() rejection inside exists subquery, got: %v", err)
+	}
+
+	_, err = p.ParseAndValidateStatementWithInput(
+		`select where exists(select where assignee = input())`,
+		ExecutorRuntimeCLI,
+		ValueString,
+	)
+	if err == nil || !strings.Contains(err.Error(), "input() requires user interaction") {
+		t.Fatalf("expected input() rejection inside exists subquery, got: %v", err)
+	}
+
+	_, err = p.ParseAndValidateStatement(`select where exists(select where id = choose(select))`, ExecutorRuntimeCLI)
+	if err == nil || !strings.Contains(err.Error(), "choose() requires user interaction") {
+		t.Fatalf("expected choose() rejection inside exists subquery, got: %v", err)
+	}
+
+	vs, err := p.ParseAndValidateStatement(
+		`select where exists(select where id = choose(select where type = "epic"))`,
+		ExecutorRuntimePlugin,
+	)
+	if err != nil {
+		t.Fatalf("unexpected plugin validation error: %v", err)
+	}
+	if !vs.UsesChooseBuiltin() || vs.ChooseFilter() == nil {
+		t.Fatal("expected choose() metadata from inside exists subquery")
 	}
 }
 
@@ -2493,5 +2557,101 @@ func TestScanStatementSemantics_SelectWhereError(t *testing.T) {
 	})
 	if err == nil || !strings.Contains(err.Error(), "unknown condition type") {
 		t.Fatalf("expected error from select where, got: %v", err)
+	}
+}
+
+// ---------------------------------------------------------------------------
+// 52. ValidatedStatement — IsExpr and ExprStatement accessors
+// ---------------------------------------------------------------------------
+
+func TestValidatedStatement_ExprAccessors(t *testing.T) {
+	p := newTestParser()
+	vs, err := p.ParseAndValidateStatement(`count(select where status = "done")`, ExecutorRuntimeCLI)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !vs.IsExpr() {
+		t.Fatal("expected IsExpr to be true")
+	}
+	if vs.ExprStatement() == nil {
+		t.Fatal("expected ExprStatement to be non-nil")
+	}
+	if vs.ExprStatement().Type != ValueInt {
+		t.Errorf("inferred type = %s, want int", typeName(vs.ExprStatement().Type))
+	}
+	// the other Is* accessors must be false
+	if vs.IsSelect() || vs.IsUpdate() || vs.IsCreate() || vs.IsDelete() {
+		t.Errorf("expected only IsExpr to be true")
+	}
+}
+
+// ---------------------------------------------------------------------------
+// 53. ExprStmt — call() rejected via semantic validation
+// ---------------------------------------------------------------------------
+
+func TestValidatedStatement_ExprRejectsCall(t *testing.T) {
+	p := newTestParser()
+	_, err := p.ParseAndValidateStatement(`call("echo hello")`, ExecutorRuntimeCLI)
+	if err == nil {
+		t.Fatal("expected call() rejection")
+	}
+	if !strings.Contains(err.Error(), "call() is not supported yet") {
+		t.Errorf("expected call() rejection error, got: %v", err)
+	}
+}
+
+// ---------------------------------------------------------------------------
+// 54. ExprStmt — id() only allowed in plugin runtime
+// ---------------------------------------------------------------------------
+
+func TestValidatedStatement_ExprIDRuntimeRestriction(t *testing.T) {
+	p := newTestParser()
+	_, err := p.ParseAndValidateStatement(`id()`, ExecutorRuntimeCLI)
+	if err == nil {
+		t.Fatal("expected id() restriction error for CLI runtime")
+	}
+	if !strings.Contains(err.Error(), "id() is only available in plugin runtime") {
+		t.Errorf("expected id() runtime error, got: %v", err)
+	}
+}
+
+// ---------------------------------------------------------------------------
+// 55. cloneStatement preserves Expr statement and its inferred type
+// ---------------------------------------------------------------------------
+
+func TestCloneStatement_PreservesExpr(t *testing.T) {
+	orig := &Statement{Expr: &ExprStmt{
+		Expr: &FunctionCall{Name: "now"},
+		Type: ValueTimestamp,
+	}}
+	clone := cloneStatement(orig)
+	if clone.Expr == nil {
+		t.Fatal("clone lost Expr statement")
+	}
+	if clone.Expr == orig.Expr {
+		t.Fatal("clone must copy Expr node, not alias the original")
+	}
+	if clone.Expr.Type != ValueTimestamp {
+		t.Errorf("clone lost inferred type: %s", typeName(clone.Expr.Type))
+	}
+	fc, ok := clone.Expr.Expr.(*FunctionCall)
+	if !ok || fc.Name != "now" {
+		t.Fatalf("clone lost underlying expression, got %T", clone.Expr.Expr)
+	}
+}
+
+// ---------------------------------------------------------------------------
+// 56. scanStatementSemantics — Expr statement propagates hasCall
+// ---------------------------------------------------------------------------
+
+func TestScanStatementSemantics_ExprCallPropagates(t *testing.T) {
+	_, hasCall, err := scanStatementSemantics(&Statement{
+		Expr: &ExprStmt{Expr: &FunctionCall{Name: "call", Args: []Expr{&StringLiteral{Value: "x"}}}},
+	})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !hasCall {
+		t.Error("expected hasCall=true for call() inside expression statement")
 	}
 }

@@ -19,9 +19,10 @@ const (
 // TypeDef defines a single task type with display metadata.
 // Keys must be canonical (matching NormalizeTypeKey output).
 type TypeDef struct {
-	Key   TaskType `yaml:"key"`
-	Label string   `yaml:"label,omitempty"`
-	Emoji string   `yaml:"emoji,omitempty"`
+	Key     TaskType `yaml:"key"`
+	Label   string   `yaml:"label,omitempty"`
+	Emoji   string   `yaml:"emoji,omitempty"`
+	Default bool     `yaml:"default,omitempty"`
 }
 
 // DefaultTypeDefs returns the built-in type definitions.
@@ -37,9 +38,10 @@ func DefaultTypeDefs() []TypeDef {
 // TypeRegistry is an ordered collection of valid task types.
 // Unknown input is never silently coerced — ParseType returns ("", false).
 type TypeRegistry struct {
-	types     []TypeDef
-	byKey     map[TaskType]TypeDef
-	byDisplay map[string]TaskType // display string → canonical key
+	types      []TypeDef
+	byKey      map[TaskType]TypeDef
+	byDisplay  map[string]TaskType // display string → canonical key
+	defaultKey TaskType            // explicit default; empty = use first type
 }
 
 // NormalizeTypeKey lowercases, trims, and strips all separators ("-", "_", " ").
@@ -67,6 +69,7 @@ func NewTypeRegistry(defs []TypeDef) (*TypeRegistry, error) {
 		byDisplay: make(map[string]TaskType, len(defs)),
 	}
 
+	var explicitDefault TaskType
 	for i, def := range defs {
 		if def.Key == "" {
 			return nil, fmt.Errorf("type at index %d has empty key", i)
@@ -100,10 +103,18 @@ func NewTypeRegistry(defs []TypeDef) (*TypeRegistry, error) {
 		}
 		reg.byDisplay[display] = def.Key
 
+		if def.Default {
+			if explicitDefault != "" {
+				return nil, fmt.Errorf("multiple default types: %q and %q", explicitDefault, canonical)
+			}
+			explicitDefault = canonical
+		}
+
 		reg.byKey[canonical] = def
 		reg.types = append(reg.types, def)
 	}
 
+	reg.defaultKey = explicitDefault
 	return reg, nil
 }
 
@@ -164,9 +175,12 @@ func (r *TypeRegistry) ParseDisplay(display string) (TaskType, bool) {
 	return "", false
 }
 
-// DefaultType returns the first configured type key — used as the creation
-// default when no type is specified. Requires at least one registered type.
+// DefaultType returns the creation-default type key. If a type has
+// Default: true, that type is returned; otherwise the first type wins.
 func (r *TypeRegistry) DefaultType() TaskType {
+	if r.defaultKey != "" {
+		return r.defaultKey
+	}
 	return r.types[0].Key
 }
 
