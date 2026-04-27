@@ -25,10 +25,13 @@ const (
 	OutputJSON
 )
 
-// RunQueryOptions tunes CLI query execution. Zero value means table output,
-// matching the default RunQuery behavior.
+// RunQueryOptions tunes CLI query execution. Zero value means table output
+// and the real system clipboard, matching the default RunQuery behavior.
 type RunQueryOptions struct {
 	OutputFormat OutputFormat
+	// ClipboardWriter is injected so tests can substitute a fake that doesn't
+	// require a GUI clipboard binary (xclip/xsel/pbcopy). nil → system clipboard.
+	ClipboardWriter func([][]string) error
 }
 
 // RunQuery parses and executes a ruki statement against the given gate,
@@ -102,7 +105,11 @@ func RunQueryWithOptions(gate *service.TaskMutationGate, query string, out io.Wr
 		return executePipe(ctx, result.Pipe, out, json)
 
 	case result.Clipboard != nil:
-		if err := service.ExecuteClipboardPipe(result.Clipboard.Rows); err != nil {
+		writer := opts.ClipboardWriter
+		if writer == nil {
+			writer = service.ExecuteClipboardPipe
+		}
+		if err := writer(result.Clipboard.Rows); err != nil {
 			return err
 		}
 		return formatClipboardSummary(out, len(result.Clipboard.Rows), json)

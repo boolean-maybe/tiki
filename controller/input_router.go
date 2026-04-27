@@ -73,6 +73,7 @@ type InputRouter struct {
 	quickSelectConfig *model.QuickSelectConfig
 	quickSelectView   QuickSelectView
 	workflowPath      string
+	clipboardWriter   func([][]string) error
 }
 
 // NewInputRouter creates an input router
@@ -121,6 +122,12 @@ func (ir *InputRouter) SetQuickSelectView(qv QuickSelectView) {
 // SetWorkflowPath sets the resolved workflow.yaml path for the Edit Workflow action.
 func (ir *InputRouter) SetWorkflowPath(path string) {
 	ir.workflowPath = path
+}
+
+// SetClipboardWriter overrides the clipboard backend used by the Execute prompt.
+// Intended for tests that must avoid the real system clipboard. nil restores the default.
+func (ir *InputRouter) SetClipboardWriter(fn func([][]string) error) {
+	ir.clipboardWriter = fn
 }
 
 // HandleInput processes a key event for the current view and routes it to the appropriate handler.
@@ -695,7 +702,8 @@ func (ir *InputRouter) handleExecuteInput(text string) InputSubmitResult {
 	}
 
 	var buf bytes.Buffer
-	if err := rukiRuntime.RunQuery(ir.mutationGate, trimmed, &buf); err != nil {
+	opts := rukiRuntime.RunQueryOptions{ClipboardWriter: ir.clipboardWriter}
+	if err := rukiRuntime.RunQueryWithOptions(ir.mutationGate, trimmed, &buf, opts); err != nil {
 		if ir.statusline != nil {
 			ir.statusline.SetMessage(err.Error(), model.MessageLevelError, true)
 		}

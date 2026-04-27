@@ -242,6 +242,12 @@ func TestExecuteAction_ClipboardPipeSuccessMessage(t *testing.T) {
 	ta := setupExecuteActionTest(t)
 	defer ta.Cleanup()
 
+	var captured [][]string
+	ta.InputRouter.SetClipboardWriter(func(rows [][]string) error {
+		captured = rows
+		return nil
+	})
+
 	ta.SendKey(tcell.KeyRune, '!', tcell.ModNone)
 	ta.SendText(`select id where status = "backlog" | clipboard()`)
 	ta.SendKey(tcell.KeyEnter, 0, tcell.ModNone)
@@ -257,6 +263,9 @@ func TestExecuteAction_ClipboardPipeSuccessMessage(t *testing.T) {
 	}
 	if !strings.Contains(msg, "copied 1 rows to clipboard") {
 		t.Fatalf("expected clipboard success summary, got %q", msg)
+	}
+	if len(captured) != 1 || len(captured[0]) != 1 || captured[0][0] != "TIKI-1" {
+		t.Fatalf("expected clipboard to receive [[TIKI-1]], got %v", captured)
 	}
 }
 
