@@ -920,13 +920,16 @@ func TestRunQueryWithOptionsDashLeadingComment(t *testing.T) {
 func TestRunQueryWithOptionsTableIsDefault(t *testing.T) {
 	s := setupRunnerTest(t)
 
-	// zero-value options ≡ OutputTable, and should match RunQuery output
+	// zero-value options ≡ OutputTable, and should match RunQuery output.
+	// order by id keeps both paths deterministic — underlying store iterates a
+	// map, so without a sort key row order would be nondeterministic across
+	// the two calls.
 	var bufOpts bytes.Buffer
-	if err := RunQueryWithOptions(gateFor(s), `select id`, &bufOpts, RunQueryOptions{}); err != nil {
+	if err := RunQueryWithOptions(gateFor(s), `select id order by id`, &bufOpts, RunQueryOptions{}); err != nil {
 		t.Fatal(err)
 	}
 	var bufDefault bytes.Buffer
-	if err := RunQuery(gateFor(s), `select id`, &bufDefault); err != nil {
+	if err := RunQuery(gateFor(s), `select id order by id`, &bufDefault); err != nil {
 		t.Fatal(err)
 	}
 	if bufOpts.String() != bufDefault.String() {
