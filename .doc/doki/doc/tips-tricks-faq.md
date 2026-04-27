@@ -6,6 +6,7 @@ A collection of handy tips, tricks, and frequently asked questions.
 
 - [Create tiki from markdown file](#create-tiki-from-markdown-file)
 - [Find tiki by ID](#find-tiki-by-id)
+- [Link to another tiki](#link-to-another-tiki)
 - [Find recently edited tikis](#find-recently-edited-tikis)
 - [Quick create](#quick-create)
 - [I created a new tiki but I can't find it](#i-created-a-new-tiki-but-i-cant-find-it)
@@ -39,6 +40,18 @@ Press `/` to open the search box, then start typing the ID. Matching is case-ins
 works on any substring, so `tiki-ab12c3`, `TIKI-AB12C3`, and `ab12c3` all find the same task.
 
 Press Enter to keep the filter active (search passive mode), or Esc to clear it.
+
+### Link to another tiki
+
+Inside a tiki's description you can cross-reference another tiki with a plain Markdown link whose
+target is the tiki ID:
+
+```markdown
+See also [the auth rewrite](TIKI-ABC123) for background.
+```
+
+Open the task detail view, press `Tab` to highlight the link, then Enter to navigate. The linked
+tiki is loaded in the same pane; `Left` / `Alt-Left` takes you back.
 
 ### Find recently edited tikis
 
