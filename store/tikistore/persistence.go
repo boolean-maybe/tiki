@@ -148,12 +148,27 @@ func (s *TikiStore) loadTaskFile(path string, authorMap map[string]*git.AuthorIn
 		return nil, err
 	}
 
-	taskType, typeOK := taskpkg.ParseType(fm.Type)
-	if !typeOK {
-		if fm.Type != "" {
-			return nil, fmt.Errorf("unknown type %q", fm.Type)
+	isWorkflow := document.IsWorkflowFrontmatter(fmMap)
+
+	// Type/status defaulting only applies to workflow docs. Plain docs keep
+	// their typed workflow fields zero-valued so ToDocument cannot synthesize
+	// workflow frontmatter from residual registry defaults and re-promote
+	// them on a body-only edit.
+	var taskType taskpkg.Type
+	if isWorkflow {
+		var typeOK bool
+		taskType, typeOK = taskpkg.ParseType(fm.Type)
+		if !typeOK {
+			if fm.Type != "" {
+				return nil, fmt.Errorf("unknown type %q", fm.Type)
+			}
+			taskType = taskpkg.DefaultType()
 		}
-		taskType = taskpkg.DefaultType()
+	} else if fm.Type != "" {
+		// A plain doc with an explicit `type:` would have been classified as
+		// workflow already; reaching this branch means fm.Type is empty.
+		// Guard anyway so future changes don't silently regress.
+		return nil, fmt.Errorf("plain document %s carries type %q unexpectedly", path, fm.Type)
 	}
 
 	absPath, absErr := filepath.Abs(path)
@@ -164,36 +179,43 @@ func (s *TikiStore) loadTaskFile(path string, authorMap map[string]*git.AuthorIn
 	}
 
 	task := &taskpkg.Task{
-		ID:            taskID,
-		Title:         fm.Title,
-		Description:   strings.TrimSpace(body),
-		Type:          taskType,
-		Status:        taskpkg.MapStatus(fm.Status),
-		Tags:          fm.Tags.ToStringSlice(),
-		DependsOn:     fm.DependsOn.ToStringSlice(),
-		Due:           fm.Due.ToTime(),
-		Recurrence:    fm.Recurrence.ToRecurrence(),
-		Assignee:      fm.Assignee,
-		Priority:      int(fm.Priority),
-		Points:        fm.Points,
-		CustomFields:  customFields,
-		UnknownFields: unknownFields,
-		LoadedMtime:   info.ModTime(),
-		FilePath:      absPath,
-		IsWorkflow:    document.IsWorkflowFrontmatter(fmMap),
+		ID:                  taskID,
+		Title:               fm.Title,
+		Description:         strings.TrimSpace(body),
+		CustomFields:        customFields,
+		UnknownFields:       unknownFields,
+		LoadedMtime:         info.ModTime(),
+		FilePath:            absPath,
+		IsWorkflow:          isWorkflow,
+		WorkflowFrontmatter: workflowSubsetFromFrontmatter(fmMap),
 	}
 
-	// Validate and default Priority field (1-5 range)
-	if task.Priority < taskpkg.MinPriority || task.Priority > taskpkg.MaxPriority {
-		slog.Debug("invalid priority value, using default", "task_id", task.ID, "file", path, "invalid_value", task.Priority, "default", taskpkg.DefaultPriority)
-		task.Priority = taskpkg.DefaultPriority
-	}
+	// Populate typed workflow fields only for workflow docs. Plain docs stay
+	// zero-valued; the preserved WorkflowFrontmatter (nil) and IsWorkflow=false
+	// together guarantee ToDocument emits a plain Document.
+	if isWorkflow {
+		task.Type = taskType
+		task.Status = taskpkg.MapStatus(fm.Status)
+		task.Tags = fm.Tags.ToStringSlice()
+		task.DependsOn = fm.DependsOn.ToStringSlice()
+		task.Due = fm.Due.ToTime()
+		task.Recurrence = fm.Recurrence.ToRecurrence()
+		task.Assignee = fm.Assignee
+		task.Priority = int(fm.Priority)
+		task.Points = fm.Points
 
-	// Validate and default Points field
-	maxPoints := config.GetMaxPoints()
-	if task.Points < 1 || task.Points > maxPoints {
-		task.Points = maxPoints / 2
-		slog.Debug("invalid points value, using default", "task_id", task.ID, "file", path, "invalid_value", fm.Points, "default", task.Points)
+		// Validate and default Priority field (1-5 range)
+		if task.Priority < taskpkg.MinPriority || task.Priority > taskpkg.MaxPriority {
+			slog.Debug("invalid priority value, using default", "task_id", task.ID, "file", path, "invalid_value", task.Priority, "default", taskpkg.DefaultPriority)
+			task.Priority = taskpkg.DefaultPriority
+		}
+
+		// Validate and default Points field
+		maxPoints := config.GetMaxPoints()
+		if task.Points < 1 || task.Points > maxPoints {
+			task.Points = maxPoints / 2
+			slog.Debug("invalid points value, using default", "task_id", task.ID, "file", path, "invalid_value", fm.Points, "default", task.Points)
+		}
 	}
 
 	// Compute UpdatedAt as max(file_mtime, last_git_commit_time)
@@ -380,34 +402,7 @@ func (s *TikiStore) saveTask(task *taskpkg.Task) error {
 		}
 	}
 
-	fm := taskFrontmatter{
-		ID:         task.ID,
-		Title:      task.Title,
-		Type:       string(task.Type),
-		Status:     taskpkg.StatusToString(task.Status),
-		Tags:       task.Tags,
-		DependsOn:  task.DependsOn,
-		Due:        taskpkg.DueValue{Time: task.Due},
-		Recurrence: taskpkg.RecurrenceValue{Value: task.Recurrence},
-		Assignee:   task.Assignee,
-		Priority:   taskpkg.PriorityValue(task.Priority),
-		Points:     task.Points,
-	}
-
-	fm.Tags = collectionutil.NormalizeStringSet(fm.Tags)
-	fm.DependsOn = collectionutil.NormalizeRefSet(fm.DependsOn)
-
-	// sort tags for consistent output
-	if len(fm.Tags) > 0 {
-		sort.Strings(fm.Tags)
-	}
-
-	// sort dependsOn for consistent output
-	if len(fm.DependsOn) > 0 {
-		sort.Strings(fm.DependsOn)
-	}
-
-	yamlBytes, err := yaml.Marshal(fm)
+	yamlBytes, err := marshalFrontmatter(task)
 	if err != nil {
 		slog.Error("failed to marshal frontmatter for task", "task_id", task.ID, "error", err)
 		return fmt.Errorf("marshaling frontmatter: %w", err)
@@ -466,6 +461,16 @@ func (s *TikiStore) saveTask(task *taskpkg.Task) error {
 		} else {
 			slog.Debug("failed to resolve absolute task path after save, using raw path", "task_id", task.ID, "path", path, "error", absErr)
 			task.FilePath = path
+		}
+		// Refresh the preserved workflow-frontmatter snapshot so it reflects
+		// exactly what we just wrote to disk. For plain docs the preserved
+		// map is always cleared (the save wrote no workflow keys). For
+		// workflow docs we keep the presence set that drove the sparse
+		// marshal — subsequent GetDocument calls see the same shape the
+		// file now has, and a future UpdateTask comparison against this
+		// task lines up with what's on disk.
+		if !task.IsWorkflow {
+			task.WorkflowFrontmatter = nil
 		}
 		slog.Debug("task file saved and timestamps computed", "task_id", task.ID, "path", path, "new_mtime", task.LoadedMtime, "updated_at", task.UpdatedAt)
 	} else {

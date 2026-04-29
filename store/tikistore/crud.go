@@ -20,6 +20,22 @@ func (s *TikiStore) CreateTask(task *taskpkg.Task) error {
 }
 
 func (s *TikiStore) createTaskLocked(task *taskpkg.Task) error {
+	// CreateTask is a workflow creation path by definition — everything that
+	// arrives here is a workflow item, even if the caller left IsWorkflow
+	// zero-valued. The presence-aware document-first entry point is
+	// CreateDocument, which calls storeNewDocumentLocked directly and keeps
+	// plain docs out of the workflow surface.
+	task.IsWorkflow = true
+	return s.storeNewDocumentLocked(task)
+}
+
+// storeNewDocumentLocked is the shared create path for CreateTask (workflow
+// only) and CreateDocument (workflow or plain). It allocates an id when
+// missing, validates dependsOn, and saves the file. The caller owns the
+// IsWorkflow decision — this function never flips it — so the serialized
+// frontmatter (workflow schema vs plain schema) matches the caller's intent
+// and survives a reload.
+func (s *TikiStore) storeNewDocumentLocked(task *taskpkg.Task) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
@@ -49,16 +65,10 @@ func (s *TikiStore) createTaskLocked(task *taskpkg.Task) error {
 		return err
 	}
 
-	// CreateTask is a workflow creation path by definition — everything that
-	// arrives here is a workflow item, even if the caller left IsWorkflow
-	// zero-valued. Plain docs are created by other means (editing files on
-	// disk without workflow fields).
-	task.IsWorkflow = true
-
 	s.tasks[task.ID] = task
 	if err := s.saveTask(task); err != nil {
 		delete(s.tasks, task.ID)
-		slog.Error("failed to save new task after creation", "task_id", task.ID, "error", err)
+		slog.Error("failed to save new document after creation", "task_id", task.ID, "error", err)
 		return fmt.Errorf("failed to save task: %w", err)
 	}
 	return nil
@@ -77,9 +87,17 @@ func (s *TikiStore) GetTask(id string) *taskpkg.Task {
 	return s.tasks[normalizeTaskID(id)]
 }
 
-// UpdateTask updates an existing task and saves it
+// UpdateTask updates an existing task and saves it.
+//
+// UpdateTask treats the task as workflow-capable: if the caller passes a
+// Task with IsWorkflow=false but the stored task is workflow, the workflow
+// flag is carried forward. This protects ruki/UI paths that rebuild a Task
+// from a subset of fields and forget to set IsWorkflow — a silent demotion
+// would hide the task from board/search views until the next reload.
+// Callers that need to explicitly demote (e.g. UpdateDocument stripping all
+// workflow frontmatter) must use the document-first API.
 func (s *TikiStore) UpdateTask(task *taskpkg.Task) error {
-	if err := s.updateTaskLocked(task); err != nil {
+	if err := s.updateTaskLocked(task, true); err != nil {
 		return err
 	}
 	slog.Info("task updated", "task_id", task.ID, "status", task.Status)
@@ -87,7 +105,12 @@ func (s *TikiStore) UpdateTask(task *taskpkg.Task) error {
 	return nil
 }
 
-func (s *TikiStore) updateTaskLocked(task *taskpkg.Task) error {
+// updateTaskLocked is the shared update path. carryWorkflow controls whether
+// a caller passing IsWorkflow=false over a workflow-flagged stored task has
+// their value forced back to true. Task-shaped callers pass true (protective
+// carry-forward); document-first callers pass false so explicit demotion
+// works.
+func (s *TikiStore) updateTaskLocked(task *taskpkg.Task, carryWorkflow bool) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
@@ -115,12 +138,36 @@ func (s *TikiStore) updateTaskLocked(task *taskpkg.Task) error {
 	if task.LoadedMtime.IsZero() {
 		task.LoadedMtime = oldTask.LoadedMtime
 	}
-	if !task.IsWorkflow && oldTask.IsWorkflow {
+	if carryWorkflow && !task.IsWorkflow && oldTask.IsWorkflow {
 		task.IsWorkflow = true
 	}
 
 	if err := s.validateDependsOnLocked(task); err != nil {
 		return err
+	}
+
+	// Seed the preserved presence set from the stored task when the caller
+	// passed a fresh Task that doesn't carry one. Without this, a task-API
+	// caller (ruki/UI) who builds a Task from typed fields only would wipe
+	// the presence set and cause saveTask to fall back to full-schema
+	// synthesis — undoing the sparse-preservation fix.
+	if task.IsWorkflow && task.WorkflowFrontmatter == nil && oldTask.WorkflowFrontmatter != nil {
+		task.WorkflowFrontmatter = cloneWorkflowFrontmatter(oldTask.WorkflowFrontmatter)
+	}
+
+	// Carry forward typed workflow field values from the stored task for any
+	// field whose incoming value is zero. Rationale is the same as the
+	// FilePath/LoadedMtime/IsWorkflow carry-forward above: task-shaped
+	// compatibility callers routinely build a fresh Task carrying only the
+	// fields they care about, and every other typed field is zero because
+	// the caller simply did not populate them. Without this carry-forward
+	// the sparse save would emit the zero values, effectively clearing
+	// workflow fields the caller never touched (the root cause the reviewer
+	// caught). Callers that intend to CLEAR a field should use the document-
+	// first API and remove the key from doc.Frontmatter.
+	if task.IsWorkflow {
+		carryTypedWorkflowValues(task, oldTask)
+		taskpkg.MergeTypedWorkflowDeltas(task, oldTask)
 	}
 
 	s.tasks[task.ID] = task
@@ -130,6 +177,68 @@ func (s *TikiStore) updateTaskLocked(task *taskpkg.Task) error {
 		return fmt.Errorf("failed to save task: %w", err)
 	}
 	return nil
+}
+
+// carryTypedWorkflowValues copies typed workflow field values from src into
+// dst for any field whose dst value is zero. dst's non-zero fields win
+// because they represent an explicit caller edit. Slice fields use a
+// non-aliasing copy so subsequent mutations on dst don't reach src.
+//
+// This is the field-by-field analog of the FilePath/LoadedMtime carry-
+// forward in updateTaskLocked. It runs only on the workflow-task path
+// because plain docs have no typed workflow fields to preserve.
+func carryTypedWorkflowValues(dst, src *taskpkg.Task) {
+	if dst == nil || src == nil {
+		return
+	}
+	if dst.Status == "" {
+		dst.Status = src.Status
+	}
+	if dst.Type == "" {
+		dst.Type = src.Type
+	}
+	if dst.Tags == nil && src.Tags != nil {
+		dst.Tags = append([]string(nil), src.Tags...)
+	}
+	if dst.DependsOn == nil && src.DependsOn != nil {
+		dst.DependsOn = append([]string(nil), src.DependsOn...)
+	}
+	if dst.Due.IsZero() {
+		dst.Due = src.Due
+	}
+	if dst.Recurrence == "" {
+		dst.Recurrence = src.Recurrence
+	}
+	if dst.Assignee == "" {
+		dst.Assignee = src.Assignee
+	}
+	if dst.Priority == 0 {
+		dst.Priority = src.Priority
+	}
+	if dst.Points == 0 {
+		dst.Points = src.Points
+	}
+}
+
+// cloneWorkflowFrontmatter returns a shallow copy of a preserved workflow
+// frontmatter map. Keys are strings and values are the YAML-decoded scalar
+// or slice shapes that do not need deep copies to stay isolated from
+// subsequent typed-field mutations.
+func cloneWorkflowFrontmatter(src map[string]interface{}) map[string]interface{} {
+	if src == nil {
+		return nil
+	}
+	out := make(map[string]interface{}, len(src))
+	for k, v := range src {
+		if ss, ok := v.([]string); ok {
+			cp := make([]string, len(ss))
+			copy(cp, ss)
+			out[k] = cp
+		} else {
+			out[k] = v
+		}
+	}
+	return out
 }
 
 // DeleteTask removes a task and its file
