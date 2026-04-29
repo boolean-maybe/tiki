@@ -1,3 +1,6 @@
+---
+id: "5YWWFF"
+---
 # Operations
 
 Manufacturing, testing, and maintenance procedures for the Celestia drone fleet.

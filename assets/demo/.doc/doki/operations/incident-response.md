@@ -1,3 +1,6 @@
+---
+id: "F0TJN1"
+---
 # Incident Response
 
 The incident response plan defines how the Celestia team handles drone malfunctions, security breaches, and safety events. Every incident is classified by severity and follows a structured response workflow.

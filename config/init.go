@@ -15,11 +15,13 @@ import (
 	"github.com/charmbracelet/lipgloss"
 )
 
-// IsProjectInitialized returns true if the project has been initialized
-// (i.e., the .doc/tiki directory exists).
+// IsProjectInitialized returns true if the project has been initialized —
+// detected by the presence of the unified document root (`.doc/`). Phase 2
+// makes `.doc/` the marker so a project whose documents live directly
+// under the root (or in arbitrary nested folders) is still recognized as
+// initialized, not just legacy projects with a `.doc/tiki/` subdirectory.
 func IsProjectInitialized() bool {
-	taskDir := GetTaskDir()
-	info, err := os.Stat(taskDir)
+	info, err := os.Stat(GetDocDir())
 	if err != nil {
 		return false
 	}
@@ -63,8 +65,7 @@ func PromptForProjectInit(hasCustomWorkflow bool) (InitOptions, bool, error) {
 		description = `
 This will initialize your project with a custom workflow:
 
-- .doc/doki directory to hold your Markdown documents
-- .doc/tiki directory to hold your tasks
+- .doc/ directory to hold your Markdown documents (tasks and plain docs)
 - custom workflow installed as .doc/workflow.yaml
 
 No sample tasks will be created with a custom workflow.
@@ -72,24 +73,23 @@ No sample tasks will be created with a custom workflow.
 Additionally, optional AI skills are installed if you choose to.
 AI skills extend your AI assistant with commands to manage tasks and documentation:
 
-• 'tiki' skill - Create, view, update, delete task tickets (.doc/tiki/*.md)
-• 'doki' skill - Create and manage documentation files (.doc/doki/*.md)
+• 'tiki' skill - Create, view, update, delete task documents
+• 'doki' skill - Create and manage plain markdown documents
 
 Select AI assistants to install (optional), then press Enter to continue.
 Press Esc to cancel project initialization.`
 	} else {
 		description = `
-This will initialize your project by creating directories and bundled sample tikis:
+This will initialize your project by creating directories and bundled samples:
 
-- .doc/doki directory to hold your Markdown documents
-- .doc/tiki directory to hold your tasks
-- bundled sample tikis and a document
+- .doc/ directory to hold your Markdown documents (tasks and plain docs)
+- bundled sample tasks and a starter document
 
 Additionally, optional AI skills are installed if you choose to.
 AI skills extend your AI assistant with commands to manage tasks and documentation:
 
-• 'tiki' skill - Create, view, update, delete task tickets (.doc/tiki/*.md)
-• 'doki' skill - Create and manage documentation files (.doc/doki/*.md)
+• 'tiki' skill - Create, view, update, delete task documents
+• 'doki' skill - Create and manage plain markdown documents
 
 Select AI assistants to install (optional), then press Enter to continue.
 Press Esc to cancel project initialization.`
@@ -124,13 +124,12 @@ Press Esc to cancel project initialization.`
 	return opts, true, nil
 }
 
-// EnsureProjectInitialized bootstraps the project if .doc/tiki is missing.
-// Returns (proceed, error).
-// If proceed is false, the user canceled initialization.
-// gitAdd, when non-nil, is called to stage created files.
+// EnsureProjectInitialized bootstraps the project if the unified document
+// root (`.doc/`) is missing. Returns (proceed, error). If proceed is false,
+// the user canceled initialization. gitAdd, when non-nil, is called to
+// stage created files.
 func EnsureProjectInitialized(tikiSkillMdContent, dokiSkillMdContent string, gitAdd func(...string) error) (bool, error) {
-	taskDir := GetTaskDir()
-	if _, err := os.Stat(taskDir); err != nil {
+	if _, err := os.Stat(GetDocDir()); err != nil {
 		if !os.IsNotExist(err) {
 			return false, fmt.Errorf("failed to stat task directory: %w", err)
 		}

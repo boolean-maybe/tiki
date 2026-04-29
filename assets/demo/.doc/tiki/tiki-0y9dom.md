@@ -1,4 +1,5 @@
 ---
+id: "0Y9DOM"
 title: "Fix battery percentage calculation on cold-weather flights"
 type: bug
 status: backlog
@@ -6,7 +7,7 @@ tags:
   - firmware
   - safety
 dependsOn:
-  - TIKI-3W5UZB
+  - 3W5UZB
 assignee: "mchen"
 priority: 2
 points: 3

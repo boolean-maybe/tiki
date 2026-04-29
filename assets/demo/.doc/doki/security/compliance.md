@@ -1,3 +1,6 @@
+---
+id: "G5LCSS"
+---
 # Compliance & Regulatory
 
 Celestia operates under FAA Part 107 regulations and pursues BVLOS waivers for extended autonomous operations. This document tracks compliance milestones and audit readiness.

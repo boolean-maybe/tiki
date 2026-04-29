@@ -50,4 +50,14 @@ type ReadStore interface {
 
 	// ReloadTask reloads a single task from disk by ID
 	ReloadTask(taskID string) error
+
+	// PathForID returns the on-disk path of the document with the given id,
+	// or the empty string when the id is unknown to the store.
+	//
+	// This is the authoritative resolver for any caller that needs to open,
+	// edit, delete, or stage the file for a task: it honors moves and
+	// nested layouts, unlike id-derived fallbacks that assume a fixed
+	// `.doc/tiki/<id>.md` location. Phase 2 invariant: path is mutable,
+	// id is identity — callers must not reconstruct paths themselves.
+	PathForID(id string) string
 }

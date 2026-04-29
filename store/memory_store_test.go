@@ -137,6 +137,31 @@ func TestInMemoryStore_UpdateTask(t *testing.T) {
 			t.Errorf("title = %q, want %q", reloaded.Title, "New Title")
 		}
 	})
+
+	// Mirrors the TikiStore test of the same shape: a caller that rebuilds
+	// a Task from only the fields it cares about (leaving IsWorkflow at
+	// its zero value) must not silently demote a workflow task to a plain
+	// doc. InMemoryStore is used by ruki tests and other paths; this guard
+	// keeps the two backends behaviorally consistent.
+	t.Run("preserves IsWorkflow when caller passes a fresh value", func(t *testing.T) {
+		s := NewInMemoryStore()
+		// CreateTask already flips IsWorkflow=true, matching the real store.
+		if err := s.CreateTask(&taskpkg.Task{ID: "WFMEM1", Title: "workflow"}); err != nil {
+			t.Fatalf("CreateTask() error = %v", err)
+		}
+		if !s.GetTask("WFMEM1").IsWorkflow {
+			t.Fatal("precondition: CreateTask should set IsWorkflow=true")
+		}
+
+		// Fresh Task — no IsWorkflow set, zero-value false.
+		fresh := &taskpkg.Task{ID: "WFMEM1", Title: "updated"}
+		if err := s.UpdateTask(fresh); err != nil {
+			t.Fatalf("UpdateTask() error = %v", err)
+		}
+		if !s.GetTask("WFMEM1").IsWorkflow {
+			t.Error("IsWorkflow demoted to false after UpdateTask — task would vanish from workflow-filtered views")
+		}
+	})
 }
 
 func TestInMemoryStore_DeleteTask(t *testing.T) {

@@ -92,6 +92,24 @@ func GenerateRandomID() string {
 // sampleFrontmatterRe extracts type and status values from sample tiki frontmatter.
 var sampleFrontmatterRe = regexp.MustCompile(`(?m)^(type|status):\s*(.+)$`)
 
+// withBundledDokiID returns body prepended with a minimal frontmatter
+// block carrying a freshly-generated bare id. Used for the two bundled
+// doki templates (`index.md`, `linked.md`) written during project init.
+// Phase 2's strict loader rejects any `.md` under `.doc/` without an id,
+// so these templates cannot ship as plain markdown — but embedding a
+// literal id in the template file itself would collide across projects,
+// so we wrap at write time instead.
+//
+// If body already starts with a frontmatter fence, the body is returned
+// unchanged — protection against double-wrapping if a future template
+// gets its own frontmatter.
+func withBundledDokiID(body string) string {
+	if strings.HasPrefix(body, "---\n") {
+		return body
+	}
+	return fmt.Sprintf("---\nid: %q\n---\n%s", GenerateRandomID(), body)
+}
+
 // validateSampleTiki checks whether a sample tiki's type and status
 // are valid against the current workflow registries.
 func validateSampleTiki(template string) bool {
@@ -153,6 +171,12 @@ func BootstrapSystem(createSamples bool, gitAdd func(...string) error) error {
 			{"roadmap later", roadmapLaterSample},
 		}
 
+		// Phase 2: samples land directly under the unified document root
+		// (`.doc/<ID>.md`), not the legacy `.doc/tiki/` subdirectory. This
+		// matches the default new-document location used by CreateTask and
+		// keeps a freshly-initialized project from having two different
+		// layouts (samples under .doc/tiki, new tasks under .doc).
+		sampleDir := GetDocDir()
 		for _, s := range samples {
 			if !validateSampleTiki(s.template) {
 				slog.Info("skipping incompatible sample tiki", "name", s.name)
@@ -162,7 +186,7 @@ func BootstrapSystem(createSamples bool, gitAdd func(...string) error) error {
 			taskID := GenerateRandomID()
 			// Phase 1 filename convention: <ID>.md (bare, case-preserving).
 			taskFilename := fmt.Sprintf("%s.md", taskID)
-			taskPath := filepath.Join(taskDir, taskFilename)
+			taskPath := filepath.Join(sampleDir, taskFilename)
 
 			// Samples embed `id: XXXXXX` as a placeholder; replace with the
 			// generated bare id for this instance. The replacement is
@@ -180,16 +204,21 @@ func BootstrapSystem(createSamples bool, gitAdd func(...string) error) error {
 		}
 	}
 
-	// Write doki documentation files
+	// Write doki documentation files. Phase 2's strict loader requires a
+	// frontmatter id on every managed `.md` file under `.doc/`; since these
+	// bundled dokis are plain markdown templates, we prepend a generated id
+	// at write time so each freshly-initialized project gets unique ids for
+	// its bundled docs (hardcoding a literal in the embed would give every
+	// project the same id and trip the duplicate-id gate when merging).
 	dokiDir := GetDokiDir()
 	indexPath := filepath.Join(dokiDir, "index.md")
-	if err := os.WriteFile(indexPath, []byte(dokiEntryPoint), 0644); err != nil {
+	if err := os.WriteFile(indexPath, []byte(withBundledDokiID(dokiEntryPoint)), 0644); err != nil {
 		return fmt.Errorf("write doki index: %w", err)
 	}
 	createdFiles = append(createdFiles, indexPath)
 
 	linkedPath := filepath.Join(dokiDir, "linked.md")
-	if err := os.WriteFile(linkedPath, []byte(dokiLinked), 0644); err != nil {
+	if err := os.WriteFile(linkedPath, []byte(withBundledDokiID(dokiLinked)), 0644); err != nil {
 		return fmt.Errorf("write doki linked: %w", err)
 	}
 	createdFiles = append(createdFiles, linkedPath)

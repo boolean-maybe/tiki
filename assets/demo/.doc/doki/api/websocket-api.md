@@ -1,3 +1,6 @@
+---
+id: "RTAI2B"
+---
 # WebSocket API
 
 The WebSocket API provides real-time bidirectional communication between the fleet dashboard and ground station. Clients subscribe to topics for telemetry streams, alerts, and mission status updates.

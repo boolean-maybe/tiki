@@ -1,4 +1,5 @@
 ---
+id: "3W5UZB"
 title: Fix race condition in battery monitoring ISR
 type: bug
 status: inProgress
@@ -6,8 +7,8 @@ tags:
     - firmware
     - safety
 dependsOn:
-    - TIKI-5LXO6Q
-    - TIKI-XAJI0Y
+    - 5LXO6Q
+    - XAJI0Y
 assignee: mchen
 priority: 1
 points: 3
@@ -117,4 +118,4 @@ firmware/
     ├── hal.h  
     └── config.h
 
-See also [TIKI-JIUJV6](TIKI-JIUJV6) for related context.
+See also [JIUJV6](JIUJV6) for related context.

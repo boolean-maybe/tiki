@@ -1,3 +1,6 @@
+---
+id: "DFJ182"
+---
 # API
 
 API reference documentation for all Celestia platform services.

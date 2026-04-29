@@ -1,3 +1,6 @@
+---
+id: "PRG237"
+---
 # Authentication & Authorization
 
 The Celestia platform uses OAuth 2.0 with PKCE for operator authentication and JWT bearer tokens for service-to-service authorization. Role-based access control governs what each operator can do within the fleet management system.

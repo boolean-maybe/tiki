@@ -16,7 +16,11 @@ func InitStores() (*tikistore.TikiStore, store.Store, error) {
 	if name := config.GetStoreName(); name != "tiki" {
 		return nil, nil, fmt.Errorf("unknown store backend: %q (supported: tiki)", name)
 	}
-	tikiStore, err := tikistore.NewTikiStore(config.GetTaskDir())
+	// Phase 2: the store scans the unified document root recursively, so we
+	// pass .doc/ here instead of .doc/tiki/. Any existing `.doc/tiki/*.md`
+	// files continue to load (they are picked up by the recursive walk);
+	// new documents are written at `.doc/<ID>.md` directly under the root.
+	tikiStore, err := tikistore.NewTikiStore(config.GetDocDir())
 	if err != nil {
 		return nil, nil, fmt.Errorf("initialize task store: %w", err)
 	}

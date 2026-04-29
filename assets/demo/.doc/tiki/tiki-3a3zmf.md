@@ -1,4 +1,5 @@
 ---
+id: "3A3ZMF"
 title: "Set up Kubernetes autoscaling for telemetry ingest service"
 status: ready
 tags:
@@ -79,4 +80,4 @@ echo "deploy complete"
 - [ ] Implement blue-green deployment for API gateway
 - [ ] Create disaster recovery runbook
 
-See also [TIKI-9XUY41](TIKI-9XUY41) for related context.
+See also [9XUY41](9XUY41) for related context.

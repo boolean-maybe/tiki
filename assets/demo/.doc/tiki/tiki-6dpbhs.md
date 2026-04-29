@@ -1,4 +1,5 @@
 ---
+id: "6DPBHS"
 title: "Design telemetry compression protocol for low-bandwidth links"
 status: ready
 tags:
@@ -122,4 +123,4 @@ impl SafetyMonitor {
 - [ ] Test motor failure response in hexacopter config
 - [ ] Calibrate compass interference map for new frame
 
-See also [TIKI-WNNHJ7](TIKI-WNNHJ7) for related context.
+See also [WNNHJ7](WNNHJ7) for related context.

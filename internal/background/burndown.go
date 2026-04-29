@@ -33,7 +33,10 @@ func StartBurndownHistoryBuilder(
 			return
 		}
 
-		history := store.NewTaskHistory(config.GetTaskDir(), gitUtil)
+		// Phase 2: burndown walks the unified document root so it sees both
+		// legacy `.doc/tiki/*.md` files and new `.doc/<ID>.md` files in one
+		// pass.
+		history := store.NewTaskHistory(config.GetDocDir(), gitUtil)
 		if history == nil {
 			return
 		}

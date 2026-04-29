@@ -1,3 +1,6 @@
+---
+id: "65L4PG"
+---
 # Field Testing Procedures
 
 Field testing validates drone behaviour in real-world conditions before fleet deployment. Each test campaign follows a structured protocol covering manual flight, autonomous missions, and edge-case scenarios.

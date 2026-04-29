@@ -30,8 +30,13 @@ type ViewFactory struct {
 
 // NewViewFactory creates a view factory
 func NewViewFactory(taskStore store.Store) *ViewFactory {
-	// Configure image resolver with task directory as search root for relative image paths
-	searchRoots := []string{config.GetTaskDir()}
+	// Configure image resolver with the unified document root as the primary
+	// search root so images referenced from nested or root-level `.md`
+	// documents resolve (e.g. `.doc/projects/foo/diagram.png` or
+	// `.doc/assets/logo.png`). The legacy task directory is kept as a
+	// fallback so existing projects with `.doc/tiki/markdown.png` keep
+	// rendering during the Phase 2 → Phase 8 transition.
+	searchRoots := []string{config.GetDocDir(), config.GetTaskDir()}
 	resolver := nav.NewImageResolver(searchRoots)
 	resolver.SetDarkMode(!config.IsLightTheme())
 	imgMgr := navtview.NewImageManager(resolver, 8, 16)

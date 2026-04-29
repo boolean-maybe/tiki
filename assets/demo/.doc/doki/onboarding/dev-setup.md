@@ -1,3 +1,6 @@
+---
+id: "5CYQ9Z"
+---
 # Developer Setup
 
 This guide walks new developers through setting up their local environment for Celestia development. Follow each step in order — later steps depend on earlier ones completing successfully.

@@ -1,3 +1,6 @@
+---
+id: "WGVW4D"
+---
 # Data Model
 
 The Celestia fleet database tracks drones, missions, waypoints, and telemetry records. The schema is designed for high write throughput from concurrent telemetry streams while supporting efficient queries for fleet-wide dashboards.

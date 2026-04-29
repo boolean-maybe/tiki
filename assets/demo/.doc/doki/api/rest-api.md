@@ -1,3 +1,6 @@
+---
+id: "83KIYX"
+---
 # REST API Reference
 
 The Celestia REST API provides CRUD operations for drones, missions, and fleet management. All endpoints require Bearer token authentication and return JSON responses with standard error envelopes.

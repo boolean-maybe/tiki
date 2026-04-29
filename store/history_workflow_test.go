@@ -4,10 +4,12 @@ import (
 	"testing"
 )
 
-// TestParseStatusFromContent_PlainDocIsNotWorkflow verifies the M2 fix:
-// a doc with frontmatter but no workflow fields is NOT treated as
-// DefaultStatus; the returned isWorkflow flag is false and burndown skips it.
-func TestParseStatusFromContent_PlainDocIsNotWorkflow(t *testing.T) {
+// TestParseIdentityFromContent_NoExplicitStatusIsSkipped verifies the
+// presence-aware rule: burndown only counts versions that carry an
+// explicit `status` field. Docs with no frontmatter, docs with only
+// non-status metadata, and docs with workflow-adjacent fields like
+// `priority` or `type` but no `status` must all be skipped.
+func TestParseIdentityFromContent_NoExplicitStatusIsSkipped(t *testing.T) {
 	cases := []struct {
 		name    string
 		content string
@@ -24,33 +26,48 @@ func TestParseStatusFromContent_PlainDocIsNotWorkflow(t *testing.T) {
 			name:    "frontmatter with unknown keys but no workflow keys",
 			content: "---\nid: PLAIN2\ntitle: Custom fields\nauthor: alice\n---\nbody\n",
 		},
+		{
+			name:    "priority set but no status — formerly counted, now skipped",
+			content: "---\nid: PARTL1\ntitle: partial\npriority: 1\n---\nbody\n",
+		},
+		{
+			name:    "type set but no status — formerly counted, now skipped",
+			content: "---\nid: PARTL2\ntitle: partial\ntype: story\n---\nbody\n",
+		},
+		{
+			name:    "empty string status — treated as absent",
+			content: "---\nid: PARTL3\ntitle: partial\nstatus: \"\"\n---\nbody\n",
+		},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			_, isWorkflow, err := parseStatusFromContent(tc.content)
+			ident, err := parseIdentityFromContent(tc.content)
 			if err != nil {
 				t.Fatalf("unexpected err: %v", err)
 			}
-			if isWorkflow {
-				t.Errorf("expected isWorkflow=false, got true — plain doc would leak into burndown")
+			if ident.hasExplicitStat {
+				t.Errorf("expected hasExplicitStat=false; version would leak into burndown")
 			}
 		})
 	}
 }
 
-// TestParseStatusFromContent_WorkflowDocIsCountedAsWorkflow verifies the
-// happy path: a doc with any workflow field comes back with isWorkflow=true
-// and the parsed status.
-func TestParseStatusFromContent_WorkflowDocIsCountedAsWorkflow(t *testing.T) {
+// TestParseIdentityFromContent_ExplicitStatusIsCounted verifies the happy
+// path: a version with an explicit non-empty `status` is counted and its
+// id is taken from the frontmatter (not the filename).
+func TestParseIdentityFromContent_ExplicitStatusIsCounted(t *testing.T) {
 	content := "---\nid: WORK01\ntitle: work item\ntype: story\nstatus: ready\npriority: 1\n---\nbody\n"
-	status, isWorkflow, err := parseStatusFromContent(content)
+	ident, err := parseIdentityFromContent(content)
 	if err != nil {
 		t.Fatalf("unexpected err: %v", err)
 	}
-	if !isWorkflow {
-		t.Error("expected isWorkflow=true for doc with workflow fields")
+	if !ident.hasExplicitStat {
+		t.Error("expected hasExplicitStat=true for doc with explicit status")
 	}
-	if string(status) == "" {
+	if string(ident.status) == "" {
 		t.Error("expected non-empty status for workflow doc")
+	}
+	if ident.id != "WORK01" {
+		t.Errorf("expected id=WORK01 from frontmatter, got %q", ident.id)
 	}
 }

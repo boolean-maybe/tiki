@@ -1,3 +1,6 @@
+---
+id: "T8CN9T"
+---
 # Threat Model
 
 The Celestia threat model identifies attack surfaces across the drone platform, from radio-frequency jamming to supply chain compromise. Each threat is rated using STRIDE methodology and mapped to specific mitigations.

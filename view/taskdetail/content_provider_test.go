@@ -9,28 +9,45 @@ import (
 	"github.com/boolean-maybe/tiki/task"
 )
 
-func TestLooksLikeTikiID(t *testing.T) {
+func TestExtractTaskID(t *testing.T) {
 	tests := []struct {
-		input string
-		want  bool
+		input     string
+		wantID    string
+		wantShape urlShape
+		wantOK    bool
 	}{
-		{"TIKI-ABC123", true},
-		{"tiki-abc123", true},
-		{"Tiki-AbC123", true},
-		{"TIKI-ZZZZZZ", true},
-		{"TIKI-000000", true},
-		{"TIKI-ABC12", false},   // too short
-		{"TIKI-ABC1234", false}, // too long
-		{"JIRA-ABC123", false},
-		{"tiki-abc12!", false},
-		{"", false},
-		{"not-a-tiki", false},
-		{"other.md", false},
+		// bare Phase-2 ids — the canonical form.
+		{"ABC123", "ABC123", urlShapeBareID, true},
+		{"abc123", "ABC123", urlShapeBareID, true},
+		{"AbC123", "ABC123", urlShapeBareID, true},
+		{"ZZZZZZ", "ZZZZZZ", urlShapeBareID, true},
+		{"000000", "000000", urlShapeBareID, true},
+		// legacy TIKI-* still accepted during the migration window.
+		{"TIKI-ABC123", "ABC123", urlShapeLegacyTiki, true},
+		{"tiki-abc123", "ABC123", urlShapeLegacyTiki, true},
+		{"Tiki-AbC123", "ABC123", urlShapeLegacyTiki, true},
+		// negatives: wrong length, wrong prefix, wrong charset.
+		{"ABC12", "", urlShapeNone, false},
+		{"ABC1234", "", urlShapeNone, false},
+		{"TIKI-ABC12", "", urlShapeNone, false},
+		{"TIKI-ABC1234", "", urlShapeNone, false},
+		{"JIRA-ABC123", "", urlShapeNone, false},
+		{"abc12!", "", urlShapeNone, false},
+		{"", "", urlShapeNone, false},
+		{"not-a-tiki", "", urlShapeNone, false},
+		{"other.md", "", urlShapeNone, false},
 	}
 	for _, tt := range tests {
 		t.Run(tt.input, func(t *testing.T) {
-			if got := looksLikeTikiID(tt.input); got != tt.want {
-				t.Errorf("looksLikeTikiID(%q) = %v, want %v", tt.input, got, tt.want)
+			got, shape, ok := extractTaskID(tt.input)
+			if ok != tt.wantOK {
+				t.Fatalf("extractTaskID(%q) ok=%v, want %v", tt.input, ok, tt.wantOK)
+			}
+			if got != tt.wantID {
+				t.Errorf("extractTaskID(%q) id=%q, want %q", tt.input, got, tt.wantID)
+			}
+			if shape != tt.wantShape {
+				t.Errorf("extractTaskID(%q) shape=%v, want %v", tt.input, shape, tt.wantShape)
 			}
 		})
 	}
@@ -39,7 +56,7 @@ func TestLooksLikeTikiID(t *testing.T) {
 func TestTaskDescriptionProvider_FetchContent_TikiID(t *testing.T) {
 	s := store.NewInMemoryStore()
 	_ = s.CreateTask(&task.Task{
-		ID:          "TIKI-ABC123",
+		ID:          "ABC123",
 		Title:       "Test Task",
 		Description: "some description",
 		Status:      task.StatusReady,
@@ -49,8 +66,8 @@ func TestTaskDescriptionProvider_FetchContent_TikiID(t *testing.T) {
 
 	provider := newTaskDescriptionProvider(s, nil)
 
-	t.Run("uppercase tiki ID", func(t *testing.T) {
-		content, err := provider.FetchContent(nav.NavElement{URL: "TIKI-ABC123"})
+	t.Run("bare uppercase ID", func(t *testing.T) {
+		content, err := provider.FetchContent(nav.NavElement{URL: "ABC123"})
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
@@ -65,8 +82,8 @@ func TestTaskDescriptionProvider_FetchContent_TikiID(t *testing.T) {
 		}
 	})
 
-	t.Run("lowercase tiki ID", func(t *testing.T) {
-		content, err := provider.FetchContent(nav.NavElement{URL: "tiki-abc123"})
+	t.Run("bare lowercase ID", func(t *testing.T) {
+		content, err := provider.FetchContent(nav.NavElement{URL: "abc123"})
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
@@ -75,10 +92,41 @@ func TestTaskDescriptionProvider_FetchContent_TikiID(t *testing.T) {
 		}
 	})
 
-	t.Run("not found tiki ID", func(t *testing.T) {
+	t.Run("legacy TIKI- prefix still resolves to bare id", func(t *testing.T) {
+		content, err := provider.FetchContent(nav.NavElement{URL: "TIKI-ABC123"})
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if !strings.Contains(content, "Test Task") {
+			t.Errorf("expected title in content, got: %s", content)
+		}
+	})
+
+	t.Run("unknown bare ID falls through to FileHTTP", func(t *testing.T) {
+		// A bare 6-char URL is ambiguous: it can be a document id or a
+		// filename. When the store doesn't have it, we must fall through
+		// to the file loader so a link to `ZZZZZZ.md` on disk still works.
+		// Without the fall-through, valid file links whose base name
+		// happens to match the bare-id shape would always error.
+		_, err := provider.FetchContent(nav.NavElement{URL: "ZZZZZZ"})
+		if err == nil {
+			t.Fatal("expected error for nonexistent file (nil search roots)")
+		}
+		// The error must NOT be the "task X not found" one — that would
+		// mean we bailed out instead of trying FileHTTP.
+		if strings.Contains(err.Error(), "task ZZZZZZ not found") {
+			t.Errorf("should have fallen through to FileHTTP, got task error: %v", err)
+		}
+	})
+
+	t.Run("unknown legacy TIKI- URL reports task-not-found", func(t *testing.T) {
+		// Legacy `TIKI-*` is an unambiguous task reference — nothing on
+		// disk uses that prefix — so the clearer "task not found" error
+		// is preserved. This catches callers using old-format links for
+		// ids that were since removed.
 		_, err := provider.FetchContent(nav.NavElement{URL: "TIKI-ZZZZZZ"})
 		if err == nil {
-			t.Fatal("expected error for missing task")
+			t.Fatal("expected task-not-found error for legacy URL")
 		}
 		if !strings.Contains(err.Error(), "not found") {
 			t.Errorf("expected 'not found' in error, got: %v", err)
@@ -93,7 +141,7 @@ func TestTaskDescriptionProvider_FetchContent_TikiID(t *testing.T) {
 			t.Fatal("expected error for nonexistent file")
 		}
 		// error should be from FileHTTP, not "not found" task error
-		if strings.Contains(err.Error(), "not found") && strings.Contains(err.Error(), "TIKI") {
+		if strings.Contains(err.Error(), "not found") && strings.Contains(err.Error(), "ABC123") {
 			t.Errorf("should not have attempted task lookup for non-tiki URL")
 		}
 	})

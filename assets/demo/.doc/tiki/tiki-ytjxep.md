@@ -1,4 +1,5 @@
 ---
+id: "YTJXEP"
 title: "Build flight log replay viewer with 3D trajectory"
 status: backlog
 tags:
@@ -94,4 +95,4 @@ def compute_flight_summary(
 - [ ] Support multi-monitor layout persistence
 - [ ] Add dark mode toggle for night operations
 
-See also [TIKI-PHT0HL](TIKI-PHT0HL) for related context.
+See also [PHT0HL](PHT0HL) for related context.

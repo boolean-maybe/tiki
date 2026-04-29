@@ -1,4 +1,5 @@
 ---
+id: "OH9SDB"
 title: "Fix dashboard WebSocket reconnect dropping last 10s of data"
 type: bug
 status: done
@@ -128,4 +129,4 @@ dashboard/
     ├── theme.css  
     └── widgets.css
 
-See also [TIKI-A753LC](TIKI-A753LC) for related context.
+See also [A753LC](A753LC) for related context.

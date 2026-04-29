@@ -1,4 +1,5 @@
 ---
+id: "30T9NT"
 title: "Implement mission abort sequence with safe landing fallback"
 status: ready
 tags:
@@ -101,4 +102,4 @@ return mission
 - [ ] Create post-mission report generator
 - [ ] Support contingency waypoints for weather diversion
 
-See also [TIKI-5LXO6Q](TIKI-5LXO6Q) for related context.
+See also [5LXO6Q](5LXO6Q) for related context.

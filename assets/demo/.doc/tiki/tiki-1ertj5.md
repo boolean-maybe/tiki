@@ -1,11 +1,12 @@
 ---
+id: "1ERTJ5"
 title: "Implement over-the-air firmware update mechanism"
 status: backlog
 tags:
   - firmware
   - infrastructure
 dependsOn:
-  - TIKI-DW2PCN
+  - DW2PCN
 due: 2026-06-15
 assignee: "mchen"
 priority: 2

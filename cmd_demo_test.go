@@ -3,6 +3,7 @@ package main
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/boolean-maybe/tiki/config"
@@ -70,6 +71,69 @@ func TestRunDemo_MaterializesAllFiles(t *testing.T) {
 		if _, err := os.Stat(filepath.Join(demoRoot, rel)); err != nil {
 			t.Errorf("missing expected entry %q: %v", rel, err)
 		}
+	}
+}
+
+// TestRunDemo_DemoLoadsCleanlyUnderStrictIDs is the Phase 2 regression
+// gate for the embedded demo dataset. It proves two invariants end-to-end:
+//
+//  1. every demo document (tiki + doki, flat and nested) carries a valid
+//     bare id in frontmatter — no missing/legacy/invalid-id diagnostics
+//     when loaded through the strict store;
+//  2. filename is decoupled from identity — the tiki files keep their
+//     legacy `tiki-<slug>.md` names while the stored id is the uppercase
+//     form in frontmatter, so the store must not be falling back to a
+//     filename-derived id anywhere.
+//
+// This test is the fixture the reviewer asked for: if a future change
+// reintroduces a filename-as-id assumption, this fails because
+// `tiki-xvg0fn.md` contains `id: "XVG0FN"` and the two must be resolved
+// independently.
+func TestRunDemo_DemoLoadsCleanlyUnderStrictIDs(t *testing.T) {
+	setupDemoTest(t)
+	t.Setenv("TIKI_STORE_GIT", "false")
+
+	if err := runDemo(); err != nil {
+		t.Fatalf("runDemo: %v", err)
+	}
+
+	// runDemo materialized workflow.yaml; the store needs the status / type
+	// / custom-field registries loaded from it before parsing any doc.
+	if err := config.LoadWorkflowRegistries(); err != nil {
+		t.Fatalf("LoadWorkflowRegistries: %v", err)
+	}
+
+	// runDemo chdirs into tiki-demo, so .doc is relative to cwd.
+	docRoot := filepath.Join(".", ".doc")
+	store, err := tikistore.NewTikiStore(docRoot)
+	if err != nil {
+		t.Fatalf("NewTikiStore on demo: %v", err)
+	}
+
+	diag := store.LoadDiagnostics()
+	if diag != nil && diag.HasIssues() {
+		t.Fatalf("demo load surfaced diagnostics: %s", diag.Summary())
+	}
+
+	// Sanity: at least some workflow tasks must be present. The embedded
+	// demo has 41 tiki files with status/priority/points — all should
+	// classify as workflow. If this drops to zero, a regression probably
+	// made IsWorkflow default to false.
+	if got := len(store.GetAllTasks()); got < 40 {
+		t.Errorf("workflow task count after demo load = %d, want >= 40", got)
+	}
+
+	// Sanity: a known task id from the demo must resolve. `XVG0FN` comes
+	// from `tiki-xvg0fn.md` under the "filename-is-not-identity" rule; if
+	// the store ever looked the task up via a reconstructed
+	// `.doc/tiki/XVG0FN.md` path, it would miss it because the actual
+	// file on disk is named `tiki-xvg0fn.md`.
+	task := store.GetTask("XVG0FN")
+	if task == nil {
+		t.Fatal("demo task XVG0FN missing after load")
+	}
+	if !strings.HasSuffix(task.FilePath, filepath.Join("tiki", "tiki-xvg0fn.md")) {
+		t.Errorf("task XVG0FN resolved to unexpected path: %s", task.FilePath)
 	}
 }
 

@@ -1,3 +1,6 @@
+---
+id: "0G5PDD"
+---
 # Ground Station
 
 The ground station software manages mission upload, real-time telemetry display, and fleet coordination. It validates all mission plans before transmission and maintains a persistent WebSocket connection to each active drone.

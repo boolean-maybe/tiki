@@ -1,3 +1,6 @@
+---
+id: "D0DO30"
+---
 # Security
 
 Security policies, threat models, and compliance documentation for the Celestia platform.

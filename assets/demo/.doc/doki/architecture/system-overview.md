@@ -1,3 +1,6 @@
+---
+id: "BQ9RBY"
+---
 # System Overview
 
 The Celestia platform comprises six core services that coordinate autonomous drone operations. Each service is independently deployable and communicates through well-defined APIs. The architecture favours eventual consistency to tolerate intermittent radio links.

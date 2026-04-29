@@ -471,14 +471,16 @@ func TestRunInit_NonInteractiveWithSamples(t *testing.T) {
 		t.Fatalf("exit code = %d, want %d", code, exitOK)
 	}
 
-	// verify sample tikis were created
-	tikiDir := filepath.Join(repoDir, ".doc", "tiki")
-	entries, _ := os.ReadDir(tikiDir)
+	// verify sample tikis were created. Phase 2: samples land directly under
+	// .doc/, not .doc/tiki/. The .doc/tiki/ directory still exists because
+	// EnsureDirs creates it (markdown.png still lives there during the
+	// Phase 2 → Phase 8 transition), so counting `.md` files specifically
+	// under .doc/ is the right assertion.
+	docDir := filepath.Join(repoDir, ".doc")
+	entries, _ := os.ReadDir(docDir)
 	var tikiFiles int
 	for _, e := range entries {
-		// Phase 1 filename convention: <ID>.md (bare, case-preserving).
-		// The old `tiki-<id>.md` shape is gone.
-		if !e.IsDir() && strings.HasSuffix(e.Name(), ".md") && e.Name() != "markdown.png" {
+		if !e.IsDir() && strings.HasSuffix(e.Name(), ".md") {
 			tikiFiles++
 		}
 	}

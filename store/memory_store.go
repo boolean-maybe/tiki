@@ -101,9 +101,20 @@ func (s *InMemoryStore) UpdateTask(updatedTask *task.Task) error {
 
 	task.NormalizeCollectionFields(updatedTask)
 	updatedTask.ID = normalizeTaskID(updatedTask.ID)
-	if _, exists := s.tasks[updatedTask.ID]; !exists {
+	oldTask, exists := s.tasks[updatedTask.ID]
+	if !exists {
 		s.mu.Unlock()
 		return fmt.Errorf("task not found: %s", updatedTask.ID)
+	}
+
+	// Carry forward workflow classification if the caller passed a fresh
+	// Task value. Mirrors TikiStore.UpdateTask — without this, a ruki or
+	// test path that rebuilds a Task from only the fields it cares about
+	// silently demotes a workflow task to a plain doc by leaving
+	// IsWorkflow at its zero value, and the task vanishes from board /
+	// list views that filter on IsWorkflow.
+	if !updatedTask.IsWorkflow && oldTask.IsWorkflow {
+		updatedTask.IsWorkflow = true
 	}
 
 	updatedTask.UpdatedAt = time.Now()
@@ -207,6 +218,20 @@ func (s *InMemoryStore) ReloadTask(taskID string) error {
 	// In-memory store doesn't have external storage to reload from
 	s.notifyListeners()
 	return nil
+}
+
+// PathForID returns the in-memory task's FilePath if set, or the empty
+// string. InMemoryStore has no filesystem backing, so production callers
+// should not rely on this returning a meaningful value — it exists to
+// satisfy the ReadStore interface. Tests that want the real path resolver
+// use the TikiStore backing implementation.
+func (s *InMemoryStore) PathForID(id string) string {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	if t, ok := s.tasks[normalizeTaskID(id)]; ok {
+		return t.FilePath
+	}
+	return ""
 }
 
 // GetCurrentUser returns a placeholder user (MemoryStore has no git integration)

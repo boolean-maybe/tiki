@@ -1,11 +1,12 @@
 ---
+id: "3GDPPQ"
 title: "Implement certificate rotation for drone fleet"
 status: backlog
 tags:
   - security
   - infrastructure
 dependsOn:
-  - TIKI-8MDD4V
+  - 8MDD4V
 due: 2026-06-01
 assignee: "rvolkov"
 priority: 1
