@@ -72,16 +72,24 @@ func (s *InMemoryStore) notifyListeners() {
 }
 
 // CreateTask adds a new task to the store. CreateTask is a workflow
-// creation path, so the resulting task is always workflow-capable.
+// creation path, so the resulting task is always workflow-capable. The
+// presence-aware document-first entry point is CreateDocument, which calls
+// storeNewDocumentLocked directly.
 func (s *InMemoryStore) CreateTask(newTask *task.Task) error {
-	s.mu.Lock()
+	newTask.IsWorkflow = true
+	return s.storeNewDocumentLocked(newTask)
+}
 
+// storeNewDocumentLocked is the shared create path for CreateTask (workflow
+// only) and CreateDocument (workflow or plain). The caller owns the
+// IsWorkflow decision.
+func (s *InMemoryStore) storeNewDocumentLocked(newTask *task.Task) error {
+	s.mu.Lock()
 	task.NormalizeCollectionFields(newTask)
 	now := time.Now()
 	newTask.CreatedAt = now
 	newTask.UpdatedAt = now
 	newTask.ID = normalizeTaskID(newTask.ID)
-	newTask.IsWorkflow = true
 	s.tasks[newTask.ID] = newTask
 	s.mu.Unlock()
 	s.notifyListeners()
@@ -95,8 +103,19 @@ func (s *InMemoryStore) GetTask(id string) *task.Task {
 	return s.tasks[normalizeTaskID(id)]
 }
 
-// UpdateTask updates an existing task
+// UpdateTask updates an existing task. Protects against silent workflow
+// demotion (see TikiStore.UpdateTask): callers that pass IsWorkflow=false
+// over a workflow-flagged stored task have the flag carried forward.
+// Document-first callers that need explicit demotion use UpdateDocument.
 func (s *InMemoryStore) UpdateTask(updatedTask *task.Task) error {
+	return s.updateLocked(updatedTask, true)
+}
+
+// updateLocked is the shared update path. carryWorkflow controls whether a
+// caller passing IsWorkflow=false over a workflow-flagged stored task has
+// their value forced back to true — true for task-shaped callers
+// (protective), false for document-first callers (explicit demotion works).
+func (s *InMemoryStore) updateLocked(updatedTask *task.Task, carryWorkflow bool) error {
 	s.mu.Lock()
 
 	task.NormalizeCollectionFields(updatedTask)
@@ -107,13 +126,7 @@ func (s *InMemoryStore) UpdateTask(updatedTask *task.Task) error {
 		return fmt.Errorf("task not found: %s", updatedTask.ID)
 	}
 
-	// Carry forward workflow classification if the caller passed a fresh
-	// Task value. Mirrors TikiStore.UpdateTask — without this, a ruki or
-	// test path that rebuilds a Task from only the fields it cares about
-	// silently demotes a workflow task to a plain doc by leaving
-	// IsWorkflow at its zero value, and the task vanishes from board /
-	// list views that filter on IsWorkflow.
-	if !updatedTask.IsWorkflow && oldTask.IsWorkflow {
+	if carryWorkflow && !updatedTask.IsWorkflow && oldTask.IsWorkflow {
 		updatedTask.IsWorkflow = true
 	}
 
@@ -132,13 +145,20 @@ func (s *InMemoryStore) DeleteTask(id string) {
 	s.notifyListeners()
 }
 
-// GetAllTasks returns all tasks
+// GetAllTasks returns workflow-capable tasks. Plain docs (IsWorkflow=false)
+// are filtered out so board/list/burndown surfaces and any other consumer of
+// the task-shaped compatibility API see only workflow items — matching
+// TikiStore.GetAllTasks. Document-first callers that want the unfiltered
+// view should use GetAllDocuments.
 func (s *InMemoryStore) GetAllTasks() []*task.Task {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
 	tasks := make([]*task.Task, 0, len(s.tasks))
 	for _, t := range s.tasks {
+		if !t.IsWorkflow {
+			continue
+		}
 		tasks = append(tasks, t)
 	}
 	return tasks

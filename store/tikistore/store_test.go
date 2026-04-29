@@ -1061,11 +1061,12 @@ func TestCustomFieldRoundTrip(t *testing.T) {
 	}
 
 	original := &taskpkg.Task{
-		ID:       "CUSTOM",
-		Title:    "Custom field test",
-		Status:   taskpkg.StatusReady,
-		Type:     "story",
-		Priority: 2,
+		ID:         "CUSTOM",
+		Title:      "Custom field test",
+		Status:     taskpkg.StatusReady,
+		Type:       "story",
+		Priority:   2,
+		IsWorkflow: true,
 		CustomFields: map[string]interface{}{
 			"severity": "high",
 			"score":    42,
@@ -1535,6 +1536,7 @@ func TestSaveTask_DedupesBuiltInCollections(t *testing.T) {
 		Tags:        []string{"frontend", "backend", "frontend", " backend "},
 		DependsOn:   []string{"aaa001", "AAA001", " BBB002 "},
 		Description: "body",
+		IsWorkflow:  true,
 	}
 
 	if err := store.saveTask(input); err != nil {

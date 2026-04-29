@@ -25,6 +25,22 @@ type Task struct {
 	LoadedMtime   time.Time              // File mtime when loaded (for optimistic locking)
 	FilePath      string                 // absolute path to the task markdown file (empty for in-memory tasks)
 	IsWorkflow    bool                   // true when the source document declares any workflow field (status/type/priority/etc); plain docs are false
+
+	// WorkflowFrontmatter preserves the verbatim subset of the source YAML
+	// frontmatter that carries workflow keys (status/type/priority/points/
+	// tags/dependsOn/due/recurrence/assignee). It is populated on load by
+	// the store and is the source of truth for presence-aware projection
+	// through ToDocument: keys absent from the source file stay absent in
+	// the projected Document, so a plain doc cannot be promoted by a body-
+	// only edit and a partially-workflow doc does not acquire synthetic
+	// defaults on round-trip.
+	//
+	// Nil for in-memory tasks built via NewTaskTemplate/CreateTask — those
+	// callers are workflow creation paths by definition and ToDocument
+	// falls back to value-derived emission in that case. Mutations that go
+	// through the store boundary refresh this map so subsequent round-trips
+	// see the new presence set.
+	WorkflowFrontmatter map[string]interface{}
 }
 
 // Clone creates a deep copy of the task
@@ -90,6 +106,19 @@ func (t *Task) Clone() *Task {
 				clone.UnknownFields[k] = cp
 			} else {
 				clone.UnknownFields[k] = v
+			}
+		}
+	}
+
+	if t.WorkflowFrontmatter != nil {
+		clone.WorkflowFrontmatter = make(map[string]interface{}, len(t.WorkflowFrontmatter))
+		for k, v := range t.WorkflowFrontmatter {
+			if ss, ok := v.([]string); ok {
+				cp := make([]string, len(ss))
+				copy(cp, ss)
+				clone.WorkflowFrontmatter[k] = cp
+			} else {
+				clone.WorkflowFrontmatter[k] = v
 			}
 		}
 	}
