@@ -71,7 +71,8 @@ func (s *InMemoryStore) notifyListeners() {
 	}
 }
 
-// CreateTask adds a new task to the store
+// CreateTask adds a new task to the store. CreateTask is a workflow
+// creation path, so the resulting task is always workflow-capable.
 func (s *InMemoryStore) CreateTask(newTask *task.Task) error {
 	s.mu.Lock()
 
@@ -80,6 +81,7 @@ func (s *InMemoryStore) CreateTask(newTask *task.Task) error {
 	newTask.CreatedAt = now
 	newTask.UpdatedAt = now
 	newTask.ID = normalizeTaskID(newTask.ID)
+	newTask.IsWorkflow = true
 	s.tasks[newTask.ID] = newTask
 	s.mu.Unlock()
 	s.notifyListeners()
@@ -131,7 +133,10 @@ func (s *InMemoryStore) GetAllTasks() []*task.Task {
 	return tasks
 }
 
-// Search searches tasks with optional filter function (simplified in-memory version)
+// Search searches workflow tasks with an optional caller-supplied filter.
+// Mirrors TikiStore.Search semantics: nil filter means "workflow tasks
+// only"; a non-nil filter is trusted as-is. See TikiStore.Search for the
+// presence-aware rationale.
 func (s *InMemoryStore) Search(query string, filterFunc func(*task.Task) bool) []task.SearchResult {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
@@ -141,12 +146,15 @@ func (s *InMemoryStore) Search(query string, filterFunc func(*task.Task) bool) [
 	var results []task.SearchResult
 
 	for _, t := range s.tasks {
-		// Apply filter function (or include all if nil)
-		if filterFunc != nil && !filterFunc(t) {
+		if filterFunc != nil {
+			if !filterFunc(t) {
+				continue
+			}
+		} else if !t.IsWorkflow {
+			// nil filter → workflow tasks only, matching GetAllTasks.
 			continue
 		}
 
-		// Apply query filter
 		if queryLower == "" || matchesQueryInMemory(t, queryLower) {
 			results = append(results, task.SearchResult{Task: t, Score: 1.0})
 		}
@@ -238,7 +246,9 @@ func (s *InMemoryStore) NewTaskTemplate() (*task.Task, error) {
 
 	var taskID string
 	for range maxIDAttempts {
-		taskID = normalizeTaskID(fmt.Sprintf("TIKI-%s", s.idGenerator()))
+		// Post-Phase-1: bare uppercase IDs; normalize for safety in case a
+		// test injects a generator that returns a non-canonical string.
+		taskID = normalizeTaskID(s.idGenerator())
 		if _, exists := s.tasks[taskID]; !exists {
 			break
 		}
@@ -249,14 +259,15 @@ func (s *InMemoryStore) NewTaskTemplate() (*task.Task, error) {
 	}
 
 	t := &task.Task{
-		ID:        taskID,
-		Type:      task.DefaultType(),
-		Status:    task.DefaultStatus(),
-		Priority:  3,
-		Points:    1,
-		Tags:      []string{"idea"},
-		CreatedAt: time.Now(),
-		CreatedBy: "memory-user",
+		ID:         taskID,
+		Type:       task.DefaultType(),
+		Status:     task.DefaultStatus(),
+		Priority:   3,
+		Points:     1,
+		Tags:       []string{"idea"},
+		CreatedAt:  time.Now(),
+		CreatedBy:  "memory-user",
+		IsWorkflow: true,
 	}
 
 	t.CustomFields = buildMemoryFieldDefaults()

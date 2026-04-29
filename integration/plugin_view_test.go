@@ -26,11 +26,11 @@ func setupPluginViewTest(t *testing.T) *testutil.TestApp {
 		status taskpkg.Status
 		typ    taskpkg.Type
 	}{
-		{"TIKI-1", "First Backlog Task", taskpkg.StatusBacklog, taskpkg.TypeStory},
-		{"TIKI-2", "Second Backlog Task", taskpkg.StatusBacklog, taskpkg.TypeBug},
-		{"TIKI-3", "Third Backlog Task", taskpkg.StatusBacklog, taskpkg.TypeStory},
-		{"TIKI-4", "Fourth Backlog Task", taskpkg.StatusBacklog, taskpkg.TypeBug},
-		{"TIKI-5", "Todo Task (not in backlog)", taskpkg.StatusReady, taskpkg.TypeStory},
+		{"000001", "First Backlog Task", taskpkg.StatusBacklog, taskpkg.TypeStory},
+		{"000002", "Second Backlog Task", taskpkg.StatusBacklog, taskpkg.TypeBug},
+		{"000003", "Third Backlog Task", taskpkg.StatusBacklog, taskpkg.TypeStory},
+		{"000004", "Fourth Backlog Task", taskpkg.StatusBacklog, taskpkg.TypeBug},
+		{"000005", "Todo Task (not in backlog)", taskpkg.StatusReady, taskpkg.TypeStory},
 	}
 
 	for _, task := range tasks {
@@ -130,15 +130,15 @@ func TestPluginView_FilterByStatus(t *testing.T) {
 	ta.SendKey(tcell.KeyF3, 0, tcell.ModNone) // F3 = Backlog plugin
 
 	// Verify backlog tasks are visible
-	found1, _, _ := ta.FindText("TIKI-1")
-	found2, _, _ := ta.FindText("TIKI-2")
+	found1, _, _ := ta.FindText("000001")
+	found2, _, _ := ta.FindText("000002")
 	if !found1 || !found2 {
 		ta.DumpScreen()
 		t.Errorf("backlog tasks should be visible in backlog plugin")
 	}
 
 	// Verify non-backlog task is NOT visible
-	found5, _, _ := ta.FindText("TIKI-5")
+	found5, _, _ := ta.FindText("000005")
 	if found5 {
 		ta.DumpScreen()
 		t.Errorf("todo task TIKI-5 should NOT be visible in backlog plugin")
@@ -165,7 +165,7 @@ func TestPluginView_OpenTask(t *testing.T) {
 	}
 
 	// Verify correct task is displayed
-	found, _, _ := ta.FindText("TIKI-1")
+	found, _, _ := ta.FindText("000001")
 	if !found {
 		ta.DumpScreen()
 		t.Errorf("TIKI-1 should be displayed in task detail")
@@ -228,7 +228,7 @@ func TestPluginView_DeleteTask(t *testing.T) {
 	ta.SendKey(tcell.KeyF3, 0, tcell.ModNone)
 
 	// Verify TIKI-1 is visible
-	found, _, _ := ta.FindText("TIKI-1")
+	found, _, _ := ta.FindText("000001")
 	if !found {
 		ta.DumpScreen()
 		t.Fatalf("TIKI-1 should be visible before delete")
@@ -242,13 +242,13 @@ func TestPluginView_DeleteTask(t *testing.T) {
 		t.Fatalf("failed to reload: %v", err)
 	}
 
-	task := ta.TaskStore.GetTask("TIKI-1")
+	task := ta.TaskStore.GetTask("000001")
 	if task != nil {
 		t.Errorf("TIKI-1 should be deleted from store")
 	}
 
 	// Verify file is removed
-	taskPath := filepath.Join(ta.TaskDir, "tiki-1.md")
+	taskPath := filepath.Join(ta.TaskDir, "000001.md")
 	if _, err := os.Stat(taskPath); !os.IsNotExist(err) {
 		t.Errorf("TIKI-1 file should be deleted")
 	}
@@ -265,8 +265,8 @@ func TestPluginView_Search(t *testing.T) {
 	ta.SendKey(tcell.KeyF3, 0, tcell.ModNone)
 
 	// Verify multiple tasks visible initially
-	found1, _, _ := ta.FindText("TIKI-1")
-	found2, _, _ := ta.FindText("TIKI-2")
+	found1, _, _ := ta.FindText("000001")
+	found2, _, _ := ta.FindText("000002")
 	if !found1 || !found2 {
 		ta.DumpScreen()
 		t.Fatalf("both tasks should be visible initially")
@@ -287,8 +287,8 @@ func TestPluginView_Search(t *testing.T) {
 	ta.SendKey(tcell.KeyEnter, 0, tcell.ModNone)
 
 	// Verify only TIKI-1 is visible
-	found1After, _, _ := ta.FindText("TIKI-1")
-	found2After, _, _ := ta.FindText("TIKI-2")
+	found1After, _, _ := ta.FindText("000001")
+	found2After, _, _ := ta.FindText("000002")
 	if !found1After {
 		ta.DumpScreen()
 		t.Errorf("TIKI-1 should be visible after search")
@@ -309,7 +309,7 @@ func TestPluginView_SearchNoResults(t *testing.T) {
 	}
 
 	// Create a single task
-	if err := testutil.CreateTestTask(ta.TaskDir, "TIKI-1", "First Task", taskpkg.StatusReady, taskpkg.TypeStory); err != nil {
+	if err := testutil.CreateTestTask(ta.TaskDir, "000001", "First Task", taskpkg.StatusReady, taskpkg.TypeStory); err != nil {
 		t.Fatalf("failed to create task: %v", err)
 	}
 	if err := ta.TaskStore.Reload(); err != nil {
@@ -321,7 +321,7 @@ func TestPluginView_SearchNoResults(t *testing.T) {
 	ta.Draw()
 
 	// Verify task is visible before search
-	foundBefore, _, _ := ta.FindText("TIKI-1")
+	foundBefore, _, _ := ta.FindText("000001")
 	if !foundBefore {
 		ta.DumpScreen()
 		t.Fatalf("TIKI-1 should be visible before search")
@@ -335,7 +335,7 @@ func TestPluginView_SearchNoResults(t *testing.T) {
 	ta.SendKey(tcell.KeyEnter, 0, tcell.ModNone)
 
 	// Verify task is NOT visible after no-match search
-	foundAfter, _, _ := ta.FindText("TIKI-1")
+	foundAfter, _, _ := ta.FindText("000001")
 	if foundAfter {
 		ta.DumpScreen()
 		t.Errorf("TIKI-1 should NOT be visible after no-match search")
@@ -345,7 +345,7 @@ func TestPluginView_SearchNoResults(t *testing.T) {
 	ta.SendKey(tcell.KeyEscape, 0, tcell.ModNone)
 
 	// Verify task reappears
-	foundCleared, _, _ := ta.FindText("TIKI-1")
+	foundCleared, _, _ := ta.FindText("000001")
 	if !foundCleared {
 		ta.DumpScreen()
 		t.Errorf("TIKI-1 should reappear after clearing search")
@@ -362,7 +362,7 @@ func TestPluginView_EmptyPlugin(t *testing.T) {
 	}
 
 	// Create only todo tasks (no backlog tasks)
-	if err := testutil.CreateTestTask(ta.TaskDir, "TIKI-1", "Todo Task", taskpkg.StatusReady, taskpkg.TypeStory); err != nil {
+	if err := testutil.CreateTestTask(ta.TaskDir, "000001", "Todo Task", taskpkg.StatusReady, taskpkg.TypeStory); err != nil {
 		t.Fatalf("failed to create task: %v", err)
 	}
 	if err := ta.TaskStore.Reload(); err != nil {
@@ -375,7 +375,7 @@ func TestPluginView_EmptyPlugin(t *testing.T) {
 	ta.SendKey(tcell.KeyF3, 0, tcell.ModNone) // F3 = Backlog plugin
 
 	// Verify no tasks are visible (empty plugin)
-	found, _, _ := ta.FindText("TIKI-1")
+	found, _, _ := ta.FindText("000001")
 	if found {
 		ta.DumpScreen()
 		t.Errorf("todo task should NOT be visible in backlog plugin")
@@ -466,12 +466,12 @@ func TestPluginView_MultiplePlugins(t *testing.T) {
 
 	// Create tasks for multiple plugins
 	// Backlog: status = backlog (also recent since just created)
-	if err := testutil.CreateTestTask(ta.TaskDir, "TIKI-1", "Backlog Task", taskpkg.StatusBacklog, taskpkg.TypeStory); err != nil {
+	if err := testutil.CreateTestTask(ta.TaskDir, "000001", "Backlog Task", taskpkg.StatusBacklog, taskpkg.TypeStory); err != nil {
 		t.Fatalf("failed to create task: %v", err)
 	}
 
 	// Recent: status = todo (also recent since just created)
-	if err := testutil.CreateTestTask(ta.TaskDir, "TIKI-2", "Recent Task", taskpkg.StatusReady, taskpkg.TypeStory); err != nil {
+	if err := testutil.CreateTestTask(ta.TaskDir, "000002", "Recent Task", taskpkg.StatusReady, taskpkg.TypeStory); err != nil {
 		t.Fatalf("failed to create task: %v", err)
 	}
 
@@ -485,13 +485,13 @@ func TestPluginView_MultiplePlugins(t *testing.T) {
 	ta.SendKey(tcell.KeyF3, 0, tcell.ModNone) // F3 = Backlog
 
 	// Verify only backlog task visible in Backlog plugin
-	found1, _, _ := ta.FindText("TIKI-1")
+	found1, _, _ := ta.FindText("000001")
 	if !found1 {
 		ta.DumpScreen()
 		t.Errorf("backlog task should be visible in backlog plugin")
 	}
 
-	found2InBacklog, _, _ := ta.FindText("TIKI-2")
+	found2InBacklog, _, _ := ta.FindText("000002")
 	if found2InBacklog {
 		ta.DumpScreen()
 		t.Errorf("todo task should NOT be visible in backlog plugin (filtered by status)")
@@ -502,13 +502,13 @@ func TestPluginView_MultiplePlugins(t *testing.T) {
 
 	// Verify BOTH tasks visible in Recent plugin (both were just created)
 	// Recent shows all recently modified/created tasks regardless of status
-	found1InRecent, _, _ := ta.FindText("TIKI-1")
+	found1InRecent, _, _ := ta.FindText("000001")
 	if !found1InRecent {
 		ta.DumpScreen()
 		t.Errorf("backlog task should be visible in recent plugin (recently created)")
 	}
 
-	found2InRecent, _, _ := ta.FindText("TIKI-2")
+	found2InRecent, _, _ := ta.FindText("000002")
 	if !found2InRecent {
 		ta.DumpScreen()
 		t.Errorf("todo task should be visible in recent plugin (recently created)")

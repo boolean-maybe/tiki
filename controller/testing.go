@@ -35,7 +35,7 @@ func (m *mockSelectableView) SetSelectedID(_ string)             {}
 // newTestTask creates a test task with default values
 func newTestTask() *task.Task {
 	return &task.Task{
-		ID:       "TIKI-1",
+		ID:       "000001",
 		Title:    "Test Task",
 		Status:   task.StatusReady,
 		Type:     task.TypeStory,
@@ -44,9 +44,9 @@ func newTestTask() *task.Task {
 	}
 }
 
-// newTestTaskWithID creates a test task with ID "DRAFT-1"
+// newTestTaskWithID creates a test task with ID "DRAFT1"
 func newTestTaskWithID() *task.Task {
 	t := newTestTask()
-	t.ID = "DRAFT-1"
+	t.ID = "DRAFT1"
 	return t
 }

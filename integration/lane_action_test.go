@@ -50,10 +50,10 @@ func TestPluginView_MoveTaskAppliesLaneAction(t *testing.T) {
 	}
 	defer ta.Cleanup()
 
-	if err := testutil.CreateTestTask(ta.TaskDir, "TIKI-1", "Backlog Task", task.StatusBacklog, task.TypeStory); err != nil {
+	if err := testutil.CreateTestTask(ta.TaskDir, "000001", "Backlog Task", task.StatusBacklog, task.TypeStory); err != nil {
 		t.Fatalf("failed to create task: %v", err)
 	}
-	if err := testutil.CreateTestTask(ta.TaskDir, "TIKI-2", "Done Task", task.StatusDone, task.TypeStory); err != nil {
+	if err := testutil.CreateTestTask(ta.TaskDir, "000002", "Done Task", task.StatusDone, task.TypeStory); err != nil {
 		t.Fatalf("failed to create task: %v", err)
 	}
 	if err := ta.TaskStore.Reload(); err != nil {
@@ -68,7 +68,7 @@ func TestPluginView_MoveTaskAppliesLaneAction(t *testing.T) {
 	if err := ta.TaskStore.Reload(); err != nil {
 		t.Fatalf("failed to reload tasks: %v", err)
 	}
-	updated := ta.TaskStore.GetTask("TIKI-1")
+	updated := ta.TaskStore.GetTask("000001")
 	if updated == nil {
 		t.Fatalf("expected task TIKI-1 to exist")
 		return
@@ -85,7 +85,7 @@ func TestPluginView_MoveTaskAppliesLaneAction(t *testing.T) {
 	if err := ta.TaskStore.Reload(); err != nil {
 		t.Fatalf("failed to reload tasks: %v", err)
 	}
-	updated = ta.TaskStore.GetTask("TIKI-1")
+	updated = ta.TaskStore.GetTask("000001")
 	if updated == nil {
 		t.Fatalf("expected task TIKI-1 to exist")
 		return

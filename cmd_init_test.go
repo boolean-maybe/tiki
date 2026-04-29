@@ -476,7 +476,9 @@ func TestRunInit_NonInteractiveWithSamples(t *testing.T) {
 	entries, _ := os.ReadDir(tikiDir)
 	var tikiFiles int
 	for _, e := range entries {
-		if strings.HasPrefix(e.Name(), "tiki-") && strings.HasSuffix(e.Name(), ".md") {
+		// Phase 1 filename convention: <ID>.md (bare, case-preserving).
+		// The old `tiki-<id>.md` shape is gone.
+		if !e.IsDir() && strings.HasSuffix(e.Name(), ".md") && e.Name() != "markdown.png" {
 			tikiFiles++
 		}
 	}

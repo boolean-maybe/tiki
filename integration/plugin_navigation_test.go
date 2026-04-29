@@ -32,19 +32,19 @@ func setupPluginTestData(t *testing.T, ta *testutil.TestApp) {
 		recent   bool // needs UpdatedAt within 2 hours
 	}{
 		// Backlog plugin: status = 'backlog'
-		{"TIKI-1", "Backlog Task 1", taskpkg.StatusBacklog, taskpkg.TypeStory, false},
-		{"TIKI-2", "Backlog Task 2", taskpkg.StatusBacklog, taskpkg.TypeBug, false},
+		{"000001", "Backlog Task 1", taskpkg.StatusBacklog, taskpkg.TypeStory, false},
+		{"000002", "Backlog Task 2", taskpkg.StatusBacklog, taskpkg.TypeBug, false},
 
 		// Recent plugin: UpdatedAt within 2 hours
-		{"TIKI-3", "Recent Task 1", taskpkg.StatusReady, taskpkg.TypeStory, true},
-		{"TIKI-4", "Recent Task 2", taskpkg.StatusInProgress, taskpkg.TypeBug, true},
+		{"000003", "Recent Task 1", taskpkg.StatusReady, taskpkg.TypeStory, true},
+		{"000004", "Recent Task 2", taskpkg.StatusInProgress, taskpkg.TypeBug, true},
 
 		// Roadmap plugin: type = 'epic'
-		{"TIKI-5", "Roadmap Epic 1", taskpkg.StatusReady, taskpkg.TypeEpic, false},
-		{"TIKI-6", "Roadmap Epic 2", taskpkg.StatusInProgress, taskpkg.TypeEpic, false},
+		{"000005", "Roadmap Epic 1", taskpkg.StatusReady, taskpkg.TypeEpic, false},
+		{"000006", "Roadmap Epic 2", taskpkg.StatusInProgress, taskpkg.TypeEpic, false},
 
 		// Multi-plugin match
-		{"TIKI-7", "Recent Backlog", taskpkg.StatusBacklog, taskpkg.TypeStory, true},
+		{"000007", "Recent Backlog", taskpkg.StatusBacklog, taskpkg.TypeStory, true},
 	}
 
 	for _, task := range tasks {
@@ -391,14 +391,14 @@ func TestPluginActions_DeleteTask_DKey(t *testing.T) {
 	defer ta.Cleanup()
 
 	// Create a specific task to delete
-	_ = testutil.CreateTestTask(ta.TaskDir, "DELETE-1", "To Delete", taskpkg.StatusBacklog, taskpkg.TypeStory)
+	_ = testutil.CreateTestTask(ta.TaskDir, "DELETE", "To Delete", taskpkg.StatusBacklog, taskpkg.TypeStory)
 	_ = ta.TaskStore.Reload()
 
 	ta.NavController.PushView(model.MakePluginViewID("Backlog"), nil)
 	ta.Draw()
 
 	// Verify task exists
-	task := ta.TaskStore.GetTask("DELETE-1")
+	task := ta.TaskStore.GetTask("DELETE")
 	if task == nil {
 		t.Fatal("Test task DELETE-1 not found before deletion")
 		return
@@ -769,9 +769,9 @@ func TestPluginActions_DeleteTask_UpdatesSelection(t *testing.T) {
 	}
 
 	// Create specific tasks for this test
-	_ = testutil.CreateTestTask(ta.TaskDir, "DEL-1", "Task 1", taskpkg.StatusBacklog, taskpkg.TypeStory)
-	_ = testutil.CreateTestTask(ta.TaskDir, "DEL-2", "Task 2", taskpkg.StatusBacklog, taskpkg.TypeStory)
-	_ = testutil.CreateTestTask(ta.TaskDir, "DEL-3", "Task 3", taskpkg.StatusBacklog, taskpkg.TypeStory)
+	_ = testutil.CreateTestTask(ta.TaskDir, "00DEL1", "Task 1", taskpkg.StatusBacklog, taskpkg.TypeStory)
+	_ = testutil.CreateTestTask(ta.TaskDir, "00DEL2", "Task 2", taskpkg.StatusBacklog, taskpkg.TypeStory)
+	_ = testutil.CreateTestTask(ta.TaskDir, "00DEL3", "Task 3", taskpkg.StatusBacklog, taskpkg.TypeStory)
 	_ = ta.TaskStore.Reload()
 
 	ta.NavController.PushView(model.MakePluginViewID("Backlog"), nil)

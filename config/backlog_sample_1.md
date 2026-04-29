@@ -1,4 +1,5 @@
 ---
+id: XXXXXX
 title: Create welcome package template
 type: story
 status: backlog

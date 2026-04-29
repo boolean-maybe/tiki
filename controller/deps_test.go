@@ -14,10 +14,10 @@ import (
 )
 
 const (
-	testCtxID  = "TIKI-AACTX0"
-	testBlkID  = "TIKI-AABLK0"
-	testDepID  = "TIKI-AADEP0"
-	testFreeID = "TIKI-AAFRE0"
+	testCtxID  = "AACTX0"
+	testBlkID  = "AABLK0"
+	testDepID  = "AADEP0"
+	testFreeID = "AAFRE0"
 )
 
 // newDepsTestEnv sets up a deps editor test environment with:
@@ -562,7 +562,7 @@ func newDepsNavEnv(t *testing.T, blockers int, allTasks int, depends int, laneCo
 	t.Helper()
 
 	taskStore := store.NewInMemoryStore()
-	contextID := "TIKI-CTXNAV0"
+	contextID := "CTXNAV0"
 	contextDepends := make([]string, 0, depends)
 	for i := 0; i < depends; i++ {
 		contextDepends = append(contextDepends, fmt.Sprintf("TIKI-DEP%03d", i))

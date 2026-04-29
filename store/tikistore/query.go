@@ -7,13 +7,23 @@ import (
 	taskpkg "github.com/boolean-maybe/tiki/task"
 )
 
-// GetAllTasks returns all tasks, sorted by priority then title
+// GetAllTasks returns workflow-capable tasks sorted by priority then title.
+//
+// Presence-aware contract: plain documents (markdown files whose frontmatter
+// lacks every workflow field — status/type/priority/points/tags/dependsOn/
+// due/recurrence/assignee) are NOT returned here. Boards, burndown, lists,
+// and any other surface that consumes GetAllTasks inherits this filter for
+// free. To include plain docs (e.g. for search or markdown-view surfaces),
+// callers should use a broader accessor once one exists.
 func (s *TikiStore) GetAllTasks() []*taskpkg.Task {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
 	tasks := make([]*taskpkg.Task, 0, len(s.tasks))
 	for _, t := range s.tasks {
+		if !t.IsWorkflow {
+			continue
+		}
 		tasks = append(tasks, t)
 	}
 	sortTasks(tasks)
@@ -41,9 +51,21 @@ func matchesQuery(task *taskpkg.Task, queryLower string) bool {
 	return false
 }
 
-// Search searches tasks with optional filter function.
-// query: case-insensitive search term (searches task IDs, titles, descriptions, and tags)
-// filterFunc: filter function to pre-filter tasks (nil = all tasks)
+// Search searches workflow tasks matching the given query.
+//
+// Presence-aware contract: a nil filterFunc means "all workflow tasks",
+// matching GetAllTasks. Plain docs (IsWorkflow=false) are never returned by
+// this API — Phase 1 Search is a task-search surface, not a general
+// document-search surface; a later phase will add a separate
+// document-search API that includes plain markdown.
+//
+// Callers that want to include plain docs must pass an explicit filterFunc
+// (which bypasses the workflow gate, since a custom filter is assumed to
+// know what it's selecting for).
+//
+// query: case-insensitive search term (searches task IDs, titles,
+// descriptions, and tags).
+// filterFunc: nil → workflow tasks only; non-nil → caller-defined filter.
 // Returns matching tasks sorted by priority then title with relevance scores.
 func (s *TikiStore) Search(query string, filterFunc func(*taskpkg.Task) bool) []taskpkg.SearchResult {
 	s.mu.RLock()
@@ -52,18 +74,22 @@ func (s *TikiStore) Search(query string, filterFunc func(*taskpkg.Task) bool) []
 	query = strings.TrimSpace(query)
 	queryLower := strings.ToLower(query)
 
-	// Step 1: Filter tasks using filterFunc (or include all if nil)
+	// Step 1: Filter tasks using filterFunc (or the workflow gate if nil).
 	var candidateTasks []*taskpkg.Task
 	if filterFunc != nil {
-		// Apply custom filter function
+		// Custom filter — assume caller knows what they're selecting for,
+		// including plain docs if that's what they want.
 		for _, t := range s.tasks {
 			if filterFunc(t) {
 				candidateTasks = append(candidateTasks, t)
 			}
 		}
 	} else {
-		// No filter = all tasks
+		// No filter = workflow tasks only, matching GetAllTasks semantics.
 		for _, t := range s.tasks {
+			if !t.IsWorkflow {
+				continue
+			}
 			candidateTasks = append(candidateTasks, t)
 		}
 	}

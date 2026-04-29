@@ -587,7 +587,7 @@ func TestTaskDetailViewActions_ChatEnabledWithConfig(t *testing.T) {
 	}
 
 	ctx := BuildAppContext(
-		&ViewEntry{ViewID: model.TaskDetailViewID, Params: model.EncodeTaskDetailParams(model.TaskDetailParams{TaskID: "TIKI-ABC123"})},
+		&ViewEntry{ViewID: model.TaskDetailViewID, Params: model.EncodeTaskDetailParams(model.TaskDetailParams{TaskID: "ABC123"})},
 		nil,
 	)
 	if !ActionEnabled(action, ctx) {
@@ -994,7 +994,7 @@ func TestActionEnabled(t *testing.T) {
 func TestBuildAppContext_SelectableView(t *testing.T) {
 	pluginViewEntry := &ViewEntry{ViewID: model.MakePluginViewID("Kanban")}
 
-	mockView := &mockSelectableView{selectedID: "TIKI-ABC123"}
+	mockView := &mockSelectableView{selectedID: "ABC123"}
 	ctx := BuildAppContext(pluginViewEntry, mockView)
 	if !ctx.Has("id") {
 		t.Error("context should have 'id' when view has selection")
@@ -1061,7 +1061,7 @@ func TestSelectionSatisfies(t *testing.T) {
 func TestBuildAppContext_TaskDetail(t *testing.T) {
 	entry := &ViewEntry{
 		ViewID: model.TaskDetailViewID,
-		Params: model.EncodeTaskDetailParams(model.TaskDetailParams{TaskID: "TIKI-ABC123"}),
+		Params: model.EncodeTaskDetailParams(model.TaskDetailParams{TaskID: "ABC123"}),
 	}
 	ctx := BuildAppContext(entry, nil)
 	if !ctx.Has("id") {

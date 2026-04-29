@@ -10,7 +10,7 @@ import (
 	"sort"
 	"strings"
 
-	gonanoid "github.com/matoous/go-nanoid/v2"
+	"github.com/boolean-maybe/tiki/document"
 )
 
 //go:embed board_sample.md
@@ -73,16 +73,20 @@ func EmbeddedWorkflowNames() []string {
 //go:embed markdown.png
 var markdownPNG []byte
 
-// GenerateRandomID generates a 6-character random alphanumeric ID (lowercase)
+// GenerateRandomIDForTest is an optional injection point used only by tests
+// that need deterministic id sequences (e.g. to exercise collision retries).
+// When non-nil, GenerateRandomID delegates here; otherwise it uses
+// document.NewID. Production code paths must not set this.
+var GenerateRandomIDForTest func() string
+
+// GenerateRandomID generates a bare uppercase document ID (no TIKI- prefix).
+// Callers must not prepend "TIKI-" any longer; the identifier is the raw ID.
+// Delegates to document.NewID so there is a single authoritative generator.
 func GenerateRandomID() string {
-	const alphabet = "abcdefghijklmnopqrstuvwxyz0123456789"
-	const length = 6
-	id, err := gonanoid.Generate(alphabet, length)
-	if err != nil {
-		// Fallback to simple implementation if nanoid fails
-		return "error0"
+	if GenerateRandomIDForTest != nil {
+		return GenerateRandomIDForTest()
 	}
-	return id
+	return document.NewID()
 }
 
 // sampleFrontmatterRe extracts type and status values from sample tiki frontmatter.
@@ -155,12 +159,20 @@ func BootstrapSystem(createSamples bool, gitAdd func(...string) error) error {
 				continue
 			}
 
-			randomID := GenerateRandomID()
-			taskID := fmt.Sprintf("TIKI-%s", randomID)
-			taskFilename := fmt.Sprintf("tiki-%s.md", randomID)
+			taskID := GenerateRandomID()
+			// Phase 1 filename convention: <ID>.md (bare, case-preserving).
+			taskFilename := fmt.Sprintf("%s.md", taskID)
 			taskPath := filepath.Join(taskDir, taskFilename)
 
-			taskContent := strings.Replace(s.template, "TIKI-XXXXXX", taskID, 1)
+			// Samples embed `id: XXXXXX` as a placeholder; replace with the
+			// generated bare id for this instance. The replacement is
+			// YAML-quoted so all-digit ids (e.g. "000001") survive strict
+			// load — without quotes, yaml.v3 decodes them as integers and
+			// loses leading zeros, failing ValidateID.
+			// Also back-compat with any pre-unification references to
+			// "TIKI-XXXXXX" that may linger in sample prose (not frontmatter).
+			taskContent := strings.ReplaceAll(s.template, "id: XXXXXX", fmt.Sprintf("id: %q", taskID))
+			taskContent = strings.ReplaceAll(taskContent, "TIKI-XXXXXX", taskID)
 			if err := os.WriteFile(taskPath, []byte(taskContent), 0644); err != nil {
 				return fmt.Errorf("create sample %s: %w", s.name, err)
 			}

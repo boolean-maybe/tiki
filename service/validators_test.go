@@ -15,7 +15,7 @@ func TestWrapFieldValidator_DeleteCase(t *testing.T) {
 		return ""
 	})
 
-	old := &task.Task{ID: "TIKI-DEL001", Title: "has title", Priority: 3}
+	old := &task.Task{ID: "DEL001", Title: "has title", Priority: 3}
 	// new is nil → delete case, validator should use old
 	rejection := validator(old, nil, nil)
 	if rejection != nil {
@@ -23,7 +23,7 @@ func TestWrapFieldValidator_DeleteCase(t *testing.T) {
 	}
 
 	// old with empty title → validator should reject
-	badOld := &task.Task{ID: "TIKI-DEL002", Title: "", Priority: 3}
+	badOld := &task.Task{ID: "DEL002", Title: "", Priority: 3}
 	rejection = validator(badOld, nil, nil)
 	if rejection == nil {
 		t.Fatal("expected rejection for old task with empty title")

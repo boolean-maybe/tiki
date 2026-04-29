@@ -17,9 +17,9 @@ func TestInMemoryStore_CreateTask(t *testing.T) {
 		inputID  string
 		expected string
 	}{
-		{"normalizes ID to uppercase", "tiki-abc123", "TIKI-ABC123"},
-		{"trims whitespace from ID", "  TIKI-XYZ  ", "TIKI-XYZ"},
-		{"already uppercase passthrough", "TIKI-DEF456", "TIKI-DEF456"},
+		{"normalizes ID to uppercase", "abc123", "ABC123"},
+		{"trims whitespace from ID", "  DEF456  ", "DEF456"},
+		{"already uppercase passthrough", "GHI789", "GHI789"},
 	}
 
 	for _, tt := range tests {
@@ -50,11 +50,18 @@ func TestInMemoryStore_CreateTask(t *testing.T) {
 
 func TestInMemoryStore_CreateTaskNormalizesCollections(t *testing.T) {
 	s := NewInMemoryStore()
+	// need existing tasks that dependsOn references so validation passes.
+	if err := s.CreateTask(&taskpkg.Task{ID: "AAA001", Title: "dep1"}); err != nil {
+		t.Fatalf("setup dep1: %v", err)
+	}
+	if err := s.CreateTask(&taskpkg.Task{ID: "BBB002", Title: "dep2"}); err != nil {
+		t.Fatalf("setup dep2: %v", err)
+	}
 	input := &taskpkg.Task{
-		ID:        "TIKI-NORM01",
+		ID:        "NORM01",
 		Title:     "normalize",
 		Tags:      []string{"frontend", "frontend", " backend ", ""},
-		DependsOn: []string{"tiki-aaa001", "TIKI-AAA001", "tiki-bbb002"},
+		DependsOn: []string{"aaa001", "AAA001", "bbb002"},
 	}
 
 	if err := s.CreateTask(input); err != nil {
@@ -64,15 +71,15 @@ func TestInMemoryStore_CreateTaskNormalizesCollections(t *testing.T) {
 	if !reflect.DeepEqual(input.Tags, []string{"frontend", "backend"}) {
 		t.Errorf("tags = %v, want [frontend backend]", input.Tags)
 	}
-	if !reflect.DeepEqual(input.DependsOn, []string{"TIKI-AAA001", "TIKI-BBB002"}) {
-		t.Errorf("dependsOn = %v, want [TIKI-AAA001 TIKI-BBB002]", input.DependsOn)
+	if !reflect.DeepEqual(input.DependsOn, []string{"AAA001", "BBB002"}) {
+		t.Errorf("dependsOn = %v, want [AAA001 BBB002]", input.DependsOn)
 	}
 }
 
 func TestInMemoryStore_UpdateTask(t *testing.T) {
 	t.Run("error when task not found", func(t *testing.T) {
 		s := NewInMemoryStore()
-		task := &taskpkg.Task{ID: "TIKI-MISSING", Title: "Ghost"}
+		task := &taskpkg.Task{ID: "MISSING", Title: "Ghost"}
 		err := s.UpdateTask(task)
 		if err == nil {
 			t.Error("expected error for non-existent task, got nil")
@@ -81,15 +88,15 @@ func TestInMemoryStore_UpdateTask(t *testing.T) {
 
 	t.Run("normalizes ID before update", func(t *testing.T) {
 		s := NewInMemoryStore()
-		if err := s.CreateTask(&taskpkg.Task{ID: "TIKI-ABC123", Title: "Original"}); err != nil {
+		if err := s.CreateTask(&taskpkg.Task{ID: "ABC123", Title: "Original"}); err != nil {
 			t.Fatalf("CreateTask() error = %v", err)
 		}
 
-		updated := &taskpkg.Task{ID: "tiki-abc123", Title: "Updated"}
+		updated := &taskpkg.Task{ID: "abc123", Title: "Updated"}
 		if err := s.UpdateTask(updated); err != nil {
 			t.Fatalf("UpdateTask() error = %v", err)
 		}
-		got := s.GetTask("TIKI-ABC123")
+		got := s.GetTask("ABC123")
 		if got == nil || got.Title != "Updated" {
 			t.Errorf("expected title %q, got %v", "Updated", got)
 		}
@@ -97,10 +104,10 @@ func TestInMemoryStore_UpdateTask(t *testing.T) {
 
 	t.Run("sets UpdatedAt after update", func(t *testing.T) {
 		s := NewInMemoryStore()
-		if err := s.CreateTask(&taskpkg.Task{ID: "TIKI-UPD001", Title: "Before"}); err != nil {
+		if err := s.CreateTask(&taskpkg.Task{ID: "UPD001", Title: "Before"}); err != nil {
 			t.Fatalf("CreateTask() error = %v", err)
 		}
-		task := s.GetTask("TIKI-UPD001")
+		task := s.GetTask("UPD001")
 		before := task.UpdatedAt
 
 		time.Sleep(time.Millisecond)
@@ -115,17 +122,17 @@ func TestInMemoryStore_UpdateTask(t *testing.T) {
 
 	t.Run("updates task fields roundtrip", func(t *testing.T) {
 		s := NewInMemoryStore()
-		if err := s.CreateTask(&taskpkg.Task{ID: "TIKI-RT0001", Title: "Old Title"}); err != nil {
+		if err := s.CreateTask(&taskpkg.Task{ID: "RT0001", Title: "Old Title"}); err != nil {
 			t.Fatalf("CreateTask() error = %v", err)
 		}
 
-		got := s.GetTask("TIKI-RT0001")
+		got := s.GetTask("RT0001")
 		got.Title = "New Title"
 		if err := s.UpdateTask(got); err != nil {
 			t.Fatalf("UpdateTask() error = %v", err)
 		}
 
-		reloaded := s.GetTask("TIKI-RT0001")
+		reloaded := s.GetTask("RT0001")
 		if reloaded.Title != "New Title" {
 			t.Errorf("title = %q, want %q", reloaded.Title, "New Title")
 		}
@@ -135,29 +142,29 @@ func TestInMemoryStore_UpdateTask(t *testing.T) {
 func TestInMemoryStore_DeleteTask(t *testing.T) {
 	t.Run("removes existing task", func(t *testing.T) {
 		s := NewInMemoryStore()
-		if err := s.CreateTask(&taskpkg.Task{ID: "TIKI-DEL001", Title: "To Delete"}); err != nil {
+		if err := s.CreateTask(&taskpkg.Task{ID: "DEL001", Title: "To Delete"}); err != nil {
 			t.Fatalf("CreateTask() error = %v", err)
 		}
 
-		s.DeleteTask("TIKI-DEL001")
-		if s.GetTask("TIKI-DEL001") != nil {
+		s.DeleteTask("DEL001")
+		if s.GetTask("DEL001") != nil {
 			t.Error("expected nil after delete, got task")
 		}
 	})
 
 	t.Run("no panic for non-existent ID", func(t *testing.T) {
 		s := NewInMemoryStore()
-		s.DeleteTask("TIKI-GHOST1") // should not panic
+		s.DeleteTask("GHOST1") // should not panic
 	})
 
 	t.Run("normalizes ID for delete", func(t *testing.T) {
 		s := NewInMemoryStore()
-		if err := s.CreateTask(&taskpkg.Task{ID: "TIKI-LOWER1", Title: "Task"}); err != nil {
+		if err := s.CreateTask(&taskpkg.Task{ID: "LOWER1", Title: "Task"}); err != nil {
 			t.Fatalf("CreateTask() error = %v", err)
 		}
 
-		s.DeleteTask("tiki-lower1") // lowercase
-		if s.GetTask("TIKI-LOWER1") != nil {
+		s.DeleteTask("lower1") // lowercase bare id
+		if s.GetTask("LOWER1") != nil {
 			t.Error("expected nil after delete with lowercase ID")
 		}
 	})
@@ -166,7 +173,7 @@ func TestInMemoryStore_DeleteTask(t *testing.T) {
 func TestInMemoryStore_AddComment(t *testing.T) {
 	t.Run("returns false for unknown task", func(t *testing.T) {
 		s := NewInMemoryStore()
-		ok := s.AddComment("TIKI-NOEXST", taskpkg.Comment{Text: "hello"})
+		ok := s.AddComment("NOEXST", taskpkg.Comment{Text: "hello"})
 		if ok {
 			t.Error("expected false for unknown task, got true")
 		}
@@ -174,10 +181,10 @@ func TestInMemoryStore_AddComment(t *testing.T) {
 
 	t.Run("returns true for known task", func(t *testing.T) {
 		s := NewInMemoryStore()
-		if err := s.CreateTask(&taskpkg.Task{ID: "TIKI-CMT001", Title: "Task"}); err != nil {
+		if err := s.CreateTask(&taskpkg.Task{ID: "CMT001", Title: "Task"}); err != nil {
 			t.Fatalf("CreateTask() error = %v", err)
 		}
-		ok := s.AddComment("TIKI-CMT001", taskpkg.Comment{Text: "first comment"})
+		ok := s.AddComment("CMT001", taskpkg.Comment{Text: "first comment"})
 		if !ok {
 			t.Error("expected true for known task")
 		}
@@ -185,13 +192,13 @@ func TestInMemoryStore_AddComment(t *testing.T) {
 
 	t.Run("sets comment CreatedAt", func(t *testing.T) {
 		s := NewInMemoryStore()
-		if err := s.CreateTask(&taskpkg.Task{ID: "TIKI-CMT002", Title: "Task"}); err != nil {
+		if err := s.CreateTask(&taskpkg.Task{ID: "CMT002", Title: "Task"}); err != nil {
 			t.Fatalf("CreateTask() error = %v", err)
 		}
 		comment := taskpkg.Comment{Text: "check timestamp"}
-		s.AddComment("TIKI-CMT002", comment)
+		s.AddComment("CMT002", comment)
 
-		got := s.GetTask("TIKI-CMT002")
+		got := s.GetTask("CMT002")
 		if got.Comments[0].CreatedAt.IsZero() {
 			t.Error("expected non-zero CreatedAt on comment")
 		}
@@ -199,13 +206,13 @@ func TestInMemoryStore_AddComment(t *testing.T) {
 
 	t.Run("appends to existing comments", func(t *testing.T) {
 		s := NewInMemoryStore()
-		if err := s.CreateTask(&taskpkg.Task{ID: "TIKI-CMT003", Title: "Task"}); err != nil {
+		if err := s.CreateTask(&taskpkg.Task{ID: "CMT003", Title: "Task"}); err != nil {
 			t.Fatalf("CreateTask() error = %v", err)
 		}
-		s.AddComment("TIKI-CMT003", taskpkg.Comment{Text: "one"})
-		s.AddComment("TIKI-CMT003", taskpkg.Comment{Text: "two"})
+		s.AddComment("CMT003", taskpkg.Comment{Text: "one"})
+		s.AddComment("CMT003", taskpkg.Comment{Text: "two"})
 
-		got := s.GetTask("TIKI-CMT003")
+		got := s.GetTask("CMT003")
 		if len(got.Comments) != 2 {
 			t.Errorf("expected 2 comments, got %d", len(got.Comments))
 		}
@@ -213,14 +220,35 @@ func TestInMemoryStore_AddComment(t *testing.T) {
 
 	t.Run("normalizes task ID", func(t *testing.T) {
 		s := NewInMemoryStore()
-		if err := s.CreateTask(&taskpkg.Task{ID: "TIKI-CMT004", Title: "Task"}); err != nil {
+		if err := s.CreateTask(&taskpkg.Task{ID: "CMT004", Title: "Task"}); err != nil {
 			t.Fatalf("CreateTask() error = %v", err)
 		}
-		ok := s.AddComment("tiki-cmt004", taskpkg.Comment{Text: "lowercase key"})
+		ok := s.AddComment("cmt004", taskpkg.Comment{Text: "lowercase key"})
 		if !ok {
 			t.Error("expected true with lowercase task ID")
 		}
 	})
+}
+
+// TestInMemoryStore_Search_NilFilterExcludesPlainDocs verifies the L4
+// contract for the in-memory store: nil filterFunc means "workflow tasks
+// only", matching TikiStore.Search and GetAllTasks.
+func TestInMemoryStore_Search_NilFilterExcludesPlainDocs(t *testing.T) {
+	s := NewInMemoryStore()
+	// direct map poke since CreateTask would set IsWorkflow=true.
+	s.tasks["WORK01"] = &taskpkg.Task{ID: "WORK01", Title: "workflow", IsWorkflow: true}
+	s.tasks["PLAIN1"] = &taskpkg.Task{ID: "PLAIN1", Title: "plain", IsWorkflow: false}
+
+	results := s.Search("", nil)
+	if len(results) != 1 || results[0].Task.ID != "WORK01" {
+		t.Errorf("nil filter: got %v, want [WORK01]", results)
+	}
+
+	// explicit caller filter bypasses the workflow gate.
+	all := s.Search("", func(*taskpkg.Task) bool { return true })
+	if len(all) != 2 {
+		t.Errorf("explicit filter: got %d, want 2", len(all))
+	}
 }
 
 func TestInMemoryStore_Search(t *testing.T) {
@@ -228,9 +256,9 @@ func TestInMemoryStore_Search(t *testing.T) {
 		tb.Helper()
 		s := NewInMemoryStore()
 		for _, task := range []*taskpkg.Task{
-			{ID: "TIKI-S00001", Title: "Alpha feature", Description: "desc alpha", Tags: []string{"ui", "frontend"}},
-			{ID: "TIKI-S00002", Title: "Beta Bug", Description: "beta description", Tags: []string{"backend"}},
-			{ID: "TIKI-S00003", Title: "Gamma chore", Description: "third task"},
+			{ID: "S00001", Title: "Alpha feature", Description: "desc alpha", Tags: []string{"ui", "frontend"}},
+			{ID: "S00002", Title: "Beta Bug", Description: "beta description", Tags: []string{"backend"}},
+			{ID: "S00003", Title: "Gamma chore", Description: "third task"},
 		} {
 			if err := s.CreateTask(task); err != nil {
 				tb.Fatalf("CreateTask() error = %v", err)
@@ -247,14 +275,14 @@ func TestInMemoryStore_Search(t *testing.T) {
 		maxResults int
 	}{
 		{"empty query + nil filter returns all", "", nil, 3, 3},
-		{"matches ID case-insensitive", "tiki-s00001", nil, 1, 1},
+		{"matches ID case-insensitive", "s00001", nil, 1, 1},
 		{"matches title case-insensitive", "alpha", nil, 1, 1},
 		{"matches description", "beta description", nil, 1, 1},
 		{"matches first tag", "ui", nil, 1, 1},
 		{"matches second tag", "backend", nil, 1, 1},
 		{"non-matching query returns empty", "zzz-no-match", nil, 0, 0},
-		{"filterFunc excludes tasks", "", func(t *taskpkg.Task) bool { return t.ID == "TIKI-S00001" }, 1, 1},
-		{"filterFunc + query intersection", "beta", func(t *taskpkg.Task) bool { return t.ID == "TIKI-S00002" }, 1, 1},
+		{"filterFunc excludes tasks", "", func(t *taskpkg.Task) bool { return t.ID == "S00001" }, 1, 1},
+		{"filterFunc + query intersection", "beta", func(t *taskpkg.Task) bool { return t.ID == "S00002" }, 1, 1},
 	}
 
 	for _, tt := range tests {
@@ -273,7 +301,7 @@ func TestInMemoryStore_Listeners(t *testing.T) {
 		s := NewInMemoryStore()
 		called := 0
 		s.AddListener(func() { called++ })
-		if err := s.CreateTask(&taskpkg.Task{ID: "TIKI-LIS001"}); err != nil {
+		if err := s.CreateTask(&taskpkg.Task{ID: "LIS001"}); err != nil {
 			t.Fatalf("CreateTask() error = %v", err)
 		}
 		if called != 1 {
@@ -283,12 +311,12 @@ func TestInMemoryStore_Listeners(t *testing.T) {
 
 	t.Run("called after UpdateTask", func(t *testing.T) {
 		s := NewInMemoryStore()
-		if err := s.CreateTask(&taskpkg.Task{ID: "TIKI-LIS002", Title: "orig"}); err != nil {
+		if err := s.CreateTask(&taskpkg.Task{ID: "LIS002", Title: "orig"}); err != nil {
 			t.Fatalf("CreateTask() error = %v", err)
 		}
 		called := 0
 		s.AddListener(func() { called++ })
-		task := s.GetTask("TIKI-LIS002")
+		task := s.GetTask("LIS002")
 		if err := s.UpdateTask(task); err != nil {
 			t.Fatalf("UpdateTask() error = %v", err)
 		}
@@ -299,12 +327,12 @@ func TestInMemoryStore_Listeners(t *testing.T) {
 
 	t.Run("called after DeleteTask", func(t *testing.T) {
 		s := NewInMemoryStore()
-		if err := s.CreateTask(&taskpkg.Task{ID: "TIKI-LIS003"}); err != nil {
+		if err := s.CreateTask(&taskpkg.Task{ID: "LIS003"}); err != nil {
 			t.Fatalf("CreateTask() error = %v", err)
 		}
 		called := 0
 		s.AddListener(func() { called++ })
-		s.DeleteTask("TIKI-LIS003")
+		s.DeleteTask("LIS003")
 		if called != 1 {
 			t.Errorf("listener called %d times, want 1", called)
 		}
@@ -312,12 +340,12 @@ func TestInMemoryStore_Listeners(t *testing.T) {
 
 	t.Run("called after AddComment success", func(t *testing.T) {
 		s := NewInMemoryStore()
-		if err := s.CreateTask(&taskpkg.Task{ID: "TIKI-LIS004"}); err != nil {
+		if err := s.CreateTask(&taskpkg.Task{ID: "LIS004"}); err != nil {
 			t.Fatalf("CreateTask() error = %v", err)
 		}
 		called := 0
 		s.AddListener(func() { called++ })
-		s.AddComment("TIKI-LIS004", taskpkg.Comment{Text: "hi"})
+		s.AddComment("LIS004", taskpkg.Comment{Text: "hi"})
 		if called != 1 {
 			t.Errorf("listener called %d times, want 1", called)
 		}
@@ -328,7 +356,7 @@ func TestInMemoryStore_Listeners(t *testing.T) {
 		called := 0
 		id := s.AddListener(func() { called++ })
 		s.RemoveListener(id)
-		if err := s.CreateTask(&taskpkg.Task{ID: "TIKI-LIS005"}); err != nil {
+		if err := s.CreateTask(&taskpkg.Task{ID: "LIS005"}); err != nil {
 			t.Fatalf("CreateTask() error = %v", err)
 		}
 		if called != 0 {
@@ -341,7 +369,7 @@ func TestInMemoryStore_Listeners(t *testing.T) {
 		a, b := 0, 0
 		s.AddListener(func() { a++ })
 		s.AddListener(func() { b++ })
-		if err := s.CreateTask(&taskpkg.Task{ID: "TIKI-LIS006"}); err != nil {
+		if err := s.CreateTask(&taskpkg.Task{ID: "LIS006"}); err != nil {
 			t.Fatalf("CreateTask() error = %v", err)
 		}
 		if a != 1 || b != 1 {
@@ -356,8 +384,9 @@ func TestInMemoryStore_NewTaskTemplate(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewTaskTemplate() error = %v", err)
 	}
-	if !strings.HasPrefix(tmpl.ID, "TIKI-") || len(tmpl.ID) != 11 {
-		t.Errorf("ID = %q, want TIKI-XXXXXX format (11 chars)", tmpl.ID)
+	// Post-Phase-1: IDs are bare uppercase (no TIKI- prefix), 6 chars.
+	if len(tmpl.ID) != 6 {
+		t.Errorf("ID = %q, want 6-character bare ID", tmpl.ID)
 	}
 	if tmpl.ID != strings.ToUpper(tmpl.ID) {
 		t.Errorf("ID = %q, should be uppercased", tmpl.ID)
@@ -384,7 +413,7 @@ func TestBuildMemoryFieldDefaults_DedupesCollectionDefaults(t *testing.T) {
 	t.Cleanup(func() { workflow.ClearCustomFields() })
 	if err := workflow.RegisterCustomFields([]workflow.FieldDef{
 		{Name: "labels", Type: workflow.TypeListString, DefaultValue: []string{"backend", " backend ", "backend"}},
-		{Name: "related", Type: workflow.TypeListRef, DefaultValue: []string{"tiki-aaa001", "TIKI-AAA001", "tiki-bbb002"}},
+		{Name: "related", Type: workflow.TypeListRef, DefaultValue: []string{"aaa001", "AAA001", "bbb002"}},
 	}); err != nil {
 		t.Fatalf("register: %v", err)
 	}
@@ -402,32 +431,32 @@ func TestBuildMemoryFieldDefaults_DedupesCollectionDefaults(t *testing.T) {
 	if !ok {
 		t.Fatalf("related type = %T, want []string", defaults["related"])
 	}
-	if !reflect.DeepEqual(related, []string{"TIKI-AAA001", "TIKI-BBB002"}) {
-		t.Errorf("related = %v, want [TIKI-AAA001 TIKI-BBB002]", related)
+	if !reflect.DeepEqual(related, []string{"AAA001", "BBB002"}) {
+		t.Errorf("related = %v, want [AAA001 BBB002]", related)
 	}
 }
 
 func TestInMemoryStore_NewTaskTemplateCollision(t *testing.T) {
 	s := NewInMemoryStore()
 
-	// pre-populate store with a task that will collide
-	_ = s.CreateTask(&taskpkg.Task{ID: "TIKI-AAAAAA", Title: "existing"})
+	// pre-populate store with a task that will collide on bare id
+	_ = s.CreateTask(&taskpkg.Task{ID: "AAAAAA", Title: "existing"})
 
 	callCount := 0
 	s.idGenerator = func() string {
 		callCount++
 		if callCount == 1 {
-			return "aaaaaa" // will collide (normalized to TIKI-AAAAAA)
+			return "AAAAAA" // will collide with existing bare id
 		}
-		return "bbbbbb" // will succeed
+		return "BBBBBB" // will succeed
 	}
 
 	tmpl, err := s.NewTaskTemplate()
 	if err != nil {
 		t.Fatalf("NewTaskTemplate() error = %v", err)
 	}
-	if tmpl.ID != "TIKI-BBBBBB" {
-		t.Errorf("ID = %q, want TIKI-BBBBBB (should skip collision)", tmpl.ID)
+	if tmpl.ID != "BBBBBB" {
+		t.Errorf("ID = %q, want BBBBBB (should skip collision)", tmpl.ID)
 	}
 	if callCount != 2 {
 		t.Errorf("idGenerator called %d times, want 2 (one collision + one success)", callCount)
@@ -438,9 +467,9 @@ func TestInMemoryStore_NewTaskTemplateExhaustion(t *testing.T) {
 	s := NewInMemoryStore()
 
 	// pre-populate with the only ID the generator will ever produce
-	_ = s.CreateTask(&taskpkg.Task{ID: "TIKI-AAAAAA", Title: "existing"})
+	_ = s.CreateTask(&taskpkg.Task{ID: "AAAAAA", Title: "existing"})
 
-	s.idGenerator = func() string { return "aaaaaa" }
+	s.idGenerator = func() string { return "AAAAAA" }
 
 	_, err := s.NewTaskTemplate()
 	if err == nil {
@@ -462,7 +491,7 @@ func TestInMemoryStore_GetAllTasks(t *testing.T) {
 
 	t.Run("3 tasks returns len 3", func(t *testing.T) {
 		s := NewInMemoryStore()
-		for _, id := range []string{"TIKI-ALL001", "TIKI-ALL002", "TIKI-ALL003"} {
+		for _, id := range []string{"ALL001", "ALL002", "ALL003"} {
 			if err := s.CreateTask(&taskpkg.Task{ID: id}); err != nil {
 				t.Fatalf("CreateTask(%s) error = %v", id, err)
 			}
@@ -475,7 +504,7 @@ func TestInMemoryStore_GetAllTasks(t *testing.T) {
 
 	t.Run("returns same pointers, not copies", func(t *testing.T) {
 		s := NewInMemoryStore()
-		original := &taskpkg.Task{ID: "TIKI-PTR001", Title: "Pointer Task"}
+		original := &taskpkg.Task{ID: "PTR001", Title: "Pointer Task"}
 		if err := s.CreateTask(original); err != nil {
 			t.Fatalf("CreateTask() error = %v", err)
 		}
@@ -486,7 +515,7 @@ func TestInMemoryStore_GetAllTasks(t *testing.T) {
 		}
 		// mutate via pointer returned from GetAllTasks
 		tasks[0].Title = "Mutated"
-		reloaded := s.GetTask("TIKI-PTR001")
+		reloaded := s.GetTask("PTR001")
 		if reloaded.Title != "Mutated" {
 			t.Errorf("title = %q, want %q — GetAllTasks should return pointers to stored tasks", reloaded.Title, "Mutated")
 		}
@@ -495,13 +524,13 @@ func TestInMemoryStore_GetAllTasks(t *testing.T) {
 
 func TestSearch_WithQueryAndFilter(t *testing.T) {
 	s := NewInMemoryStore()
-	if err := s.CreateTask(&taskpkg.Task{ID: "TIKI-SRC001", Title: "Bug in parser", Tags: []string{"backend"}}); err != nil {
+	if err := s.CreateTask(&taskpkg.Task{ID: "SRC001", Title: "Bug in parser", Tags: []string{"backend"}}); err != nil {
 		t.Fatalf("failed to create task: %v", err)
 	}
-	if err := s.CreateTask(&taskpkg.Task{ID: "TIKI-SRC002", Title: "Bug in UI", Tags: []string{"frontend"}}); err != nil {
+	if err := s.CreateTask(&taskpkg.Task{ID: "SRC002", Title: "Bug in UI", Tags: []string{"frontend"}}); err != nil {
 		t.Fatalf("failed to create task: %v", err)
 	}
-	if err := s.CreateTask(&taskpkg.Task{ID: "TIKI-SRC003", Title: "Feature request", Tags: []string{"backend"}}); err != nil {
+	if err := s.CreateTask(&taskpkg.Task{ID: "SRC003", Title: "Feature request", Tags: []string{"backend"}}); err != nil {
 		t.Fatalf("failed to create task: %v", err)
 	}
 
@@ -517,14 +546,14 @@ func TestSearch_WithQueryAndFilter(t *testing.T) {
 	if len(results) != 1 {
 		t.Fatalf("expected 1 result (Bug + backend), got %d", len(results))
 	}
-	if results[0].Task.ID != "TIKI-SRC001" {
-		t.Errorf("expected TIKI-SRC001, got %s", results[0].Task.ID)
+	if results[0].Task.ID != "SRC001" {
+		t.Errorf("expected SRC001, got %s", results[0].Task.ID)
 	}
 }
 
 func TestSearch_FilterRejectsAll(t *testing.T) {
 	s := NewInMemoryStore()
-	if err := s.CreateTask(&taskpkg.Task{ID: "TIKI-REJ001", Title: "Task"}); err != nil {
+	if err := s.CreateTask(&taskpkg.Task{ID: "REJ001", Title: "Task"}); err != nil {
 		t.Fatalf("failed to create task: %v", err)
 	}
 
@@ -538,7 +567,7 @@ func TestSearch_FilterRejectsAll(t *testing.T) {
 
 func TestSearch_MatchesTags(t *testing.T) {
 	s := NewInMemoryStore()
-	if err := s.CreateTask(&taskpkg.Task{ID: "TIKI-TAG001", Title: "No match in title", Tags: []string{"backend"}}); err != nil {
+	if err := s.CreateTask(&taskpkg.Task{ID: "TAG001", Title: "No match in title", Tags: []string{"backend"}}); err != nil {
 		t.Fatalf("failed to create task: %v", err)
 	}
 
@@ -550,13 +579,13 @@ func TestSearch_MatchesTags(t *testing.T) {
 
 func TestNewTaskTemplate_IDCollision(t *testing.T) {
 	s := NewInMemoryStore()
-	// pre-populate so the generated ID always collides
-	if err := s.CreateTask(&taskpkg.Task{ID: "TIKI-FIXED", Title: "blocker"}); err != nil {
+	// pre-populate so the generated bare ID always collides
+	if err := s.CreateTask(&taskpkg.Task{ID: "FIXED1", Title: "blocker"}); err != nil {
 		t.Fatalf("failed to create task: %v", err)
 	}
 
 	// set idGenerator to always return the same ID
-	s.idGenerator = func() string { return "FIXED" }
+	s.idGenerator = func() string { return "FIXED1" }
 
 	_, err := s.NewTaskTemplate()
 	if err == nil {

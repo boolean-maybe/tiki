@@ -3,7 +3,6 @@ package tikistore
 import (
 	"fmt"
 	"log/slog"
-	"os"
 	"time"
 
 	"github.com/boolean-maybe/tiki/config"
@@ -46,28 +45,32 @@ func (s *TikiStore) NewTaskTemplate() (*taskpkg.Task, error) {
 		return nil, err
 	}
 
+	// Identity uniqueness is checked against the in-memory index (s.tasks),
+	// not the filesystem — a task loaded from a renamed file occupies an id
+	// without occupying <taskdir>/<id>.md, so an os.Stat probe would falsely
+	// report the id free.
 	var taskID string
-	for {
-		randomID := config.GenerateRandomID()
-		taskID = fmt.Sprintf("TIKI-%s", randomID)
-
-		path := s.taskFilePath(taskID)
-		if _, err := os.Stat(path); os.IsNotExist(err) {
+	for i := 0; ; i++ {
+		candidate := normalizeTaskID(config.GenerateRandomID())
+		if _, taken := s.tasks[candidate]; !taken {
+			taskID = candidate
 			break
 		}
-		slog.Debug("ID collision detected during template creation, regenerating", "id", taskID)
+		if i > maxGenerateRetries {
+			return nil, fmt.Errorf("failed to generate unique task id after %d attempts", maxGenerateRetries)
+		}
+		slog.Debug("ID collision detected in index, regenerating", "id", candidate)
 	}
 
-	taskID = normalizeTaskID(taskID)
-
 	task := &taskpkg.Task{
-		ID:        taskID,
-		Status:    taskpkg.DefaultStatus(),
-		Type:      taskpkg.DefaultType(),
-		Priority:  3,
-		Points:    1,
-		Tags:      []string{"idea"},
-		CreatedAt: time.Now(),
+		ID:         taskID,
+		Status:     taskpkg.DefaultStatus(),
+		Type:       taskpkg.DefaultType(),
+		Priority:   3,
+		Points:     1,
+		Tags:       []string{"idea"},
+		CreatedAt:  time.Now(),
+		IsWorkflow: true,
 	}
 
 	task.CustomFields = buildCustomFieldDefaults()

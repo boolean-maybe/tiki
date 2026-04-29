@@ -715,7 +715,7 @@ func TestTaskController_CommitEditSession_Draft(t *testing.T) {
 	}
 
 	// Verify task was created in store
-	created := taskStore.GetTask("DRAFT-1")
+	created := taskStore.GetTask("DRAFT1")
 	if created == nil {
 		t.Fatal("Task was not created in store")
 		return

@@ -79,7 +79,7 @@ func newNavHarness(columns []int, counts []int) *navHarness {
 func TestEnsureFirstNonEmptyLaneSelectionSelectsFirstTask(t *testing.T) {
 	taskStore := store.NewInMemoryStore()
 	if err := taskStore.CreateTask(&task.Task{
-		ID:     "T-1",
+		ID:     "0000T1",
 		Title:  "Task 1",
 		Status: task.StatusReady,
 		Type:   task.TypeStory,
@@ -87,7 +87,7 @@ func TestEnsureFirstNonEmptyLaneSelectionSelectsFirstTask(t *testing.T) {
 		t.Fatalf("create task: %v", err)
 	}
 	if err := taskStore.CreateTask(&task.Task{
-		ID:     "T-2",
+		ID:     "0000T2",
 		Title:  "Task 2",
 		Status: task.StatusReady,
 		Type:   task.TypeStory,
@@ -129,7 +129,7 @@ func TestEnsureFirstNonEmptyLaneSelectionSelectsFirstTask(t *testing.T) {
 func TestEnsureFirstNonEmptyLaneSelectionKeepsCurrentLane(t *testing.T) {
 	taskStore := store.NewInMemoryStore()
 	if err := taskStore.CreateTask(&task.Task{
-		ID:     "T-1",
+		ID:     "0000T1",
 		Title:  "Task 1",
 		Status: task.StatusReady,
 		Type:   task.TypeStory,
@@ -521,7 +521,7 @@ func TestLaneSwitchFromEmptySourceUsesTopViewportContext(t *testing.T) {
 func TestPluginController_HandleOpenTask(t *testing.T) {
 	taskStore := store.NewInMemoryStore()
 	_ = taskStore.CreateTask(&task.Task{
-		ID: "T-1", Title: "Task 1", Status: task.StatusReady, Type: task.TypeStory,
+		ID: "0000T1", Title: "Task 1", Status: task.StatusReady, Type: task.TypeStory,
 	})
 
 	todoFilter := mustParseStmt(t, `select where status = "ready"`)
@@ -573,7 +573,7 @@ func TestPluginController_HandleOpenTask_Empty(t *testing.T) {
 func TestPluginController_HandleDeleteTask(t *testing.T) {
 	taskStore := store.NewInMemoryStore()
 	_ = taskStore.CreateTask(&task.Task{
-		ID: "T-1", Title: "Task 1", Status: task.StatusReady, Type: task.TypeStory, Priority: 3,
+		ID: "0000T1", Title: "Task 1", Status: task.StatusReady, Type: task.TypeStory, Priority: 3,
 	})
 
 	todoFilter := mustParseStmt(t, `select where status = "ready"`)
@@ -595,7 +595,7 @@ func TestPluginController_HandleDeleteTask(t *testing.T) {
 		t.Error("expected HandleAction(delete) to return true")
 	}
 
-	if taskStore.GetTask("T-1") != nil {
+	if taskStore.GetTask("0000T1") != nil {
 		t.Error("task should have been deleted")
 	}
 }
@@ -623,7 +623,7 @@ func TestPluginController_HandleDeleteTask_Empty(t *testing.T) {
 func TestPluginController_HandleDeleteTask_Rejected(t *testing.T) {
 	taskStore := store.NewInMemoryStore()
 	_ = taskStore.CreateTask(&task.Task{
-		ID: "T-1", Title: "Task 1", Status: task.StatusReady, Type: task.TypeStory, Priority: 3,
+		ID: "0000T1", Title: "Task 1", Status: task.StatusReady, Type: task.TypeStory, Priority: 3,
 	})
 
 	todoFilter := mustParseStmt(t, `select where status = "ready"`)
@@ -650,7 +650,7 @@ func TestPluginController_HandleDeleteTask_Rejected(t *testing.T) {
 	}
 
 	// task should still exist
-	if taskStore.GetTask("T-1") == nil {
+	if taskStore.GetTask("0000T1") == nil {
 		t.Error("task should not have been deleted")
 	}
 }
@@ -681,7 +681,7 @@ func TestPluginController_GetNameAndRegistry(t *testing.T) {
 func TestPluginController_HandleMoveTask_Rejected(t *testing.T) {
 	taskStore := store.NewInMemoryStore()
 	_ = taskStore.CreateTask(&task.Task{
-		ID: "T-1", Title: "Task 1", Status: task.StatusReady, Type: task.TypeStory, Priority: 3,
+		ID: "0000T1", Title: "Task 1", Status: task.StatusReady, Type: task.TypeStory, Priority: 3,
 	})
 
 	readyFilter := mustParseStmt(t, `select where status = "ready"`)
@@ -714,7 +714,7 @@ func TestPluginController_HandleMoveTask_Rejected(t *testing.T) {
 	}
 
 	// task should still have original status
-	tk := taskStore.GetTask("T-1")
+	tk := taskStore.GetTask("0000T1")
 	if tk.Status != task.StatusReady {
 		t.Errorf("expected status ready, got %s", tk.Status)
 	}
@@ -723,7 +723,7 @@ func TestPluginController_HandleMoveTask_Rejected(t *testing.T) {
 func TestPluginController_HandlePluginAction_Success(t *testing.T) {
 	taskStore := store.NewInMemoryStore()
 	_ = taskStore.CreateTask(&task.Task{
-		ID: "T-1", Title: "Task 1", Status: task.StatusReady, Type: task.TypeStory, Priority: 3,
+		ID: "0000T1", Title: "Task 1", Status: task.StatusReady, Type: task.TypeStory, Priority: 3,
 	})
 
 	readyFilter := mustParseStmt(t, `select where status = "ready"`)
@@ -754,7 +754,7 @@ func TestPluginController_HandlePluginAction_Success(t *testing.T) {
 		t.Error("expected true for successful plugin action")
 	}
 
-	tk := taskStore.GetTask("T-1")
+	tk := taskStore.GetTask("0000T1")
 	if tk.Status != "done" {
 		t.Errorf("expected status done, got %s", tk.Status)
 	}
@@ -763,7 +763,7 @@ func TestPluginController_HandlePluginAction_Success(t *testing.T) {
 func TestPluginController_HandlePluginAction_Rejected(t *testing.T) {
 	taskStore := store.NewInMemoryStore()
 	_ = taskStore.CreateTask(&task.Task{
-		ID: "T-1", Title: "Task 1", Status: task.StatusReady, Type: task.TypeStory, Priority: 3,
+		ID: "0000T1", Title: "Task 1", Status: task.StatusReady, Type: task.TypeStory, Priority: 3,
 	})
 
 	readyFilter := mustParseStmt(t, `select where status = "ready"`)
@@ -799,7 +799,7 @@ func TestPluginController_HandlePluginAction_Rejected(t *testing.T) {
 	}
 
 	// task should still have original status
-	tk2 := taskStore.GetTask("T-1")
+	tk2 := taskStore.GetTask("0000T1")
 	if tk2.Status != task.StatusReady {
 		t.Errorf("expected status ready, got %s", tk2.Status)
 	}
@@ -847,7 +847,7 @@ func TestPluginController_HandlePluginAction_Create(t *testing.T) {
 func TestPluginController_HandlePluginAction_Delete(t *testing.T) {
 	taskStore := store.NewInMemoryStore()
 	_ = taskStore.CreateTask(&task.Task{
-		ID: "T-1", Title: "Task 1", Status: task.StatusDone, Type: task.TypeStory, Priority: 3,
+		ID: "0000T1", Title: "Task 1", Status: task.StatusDone, Type: task.TypeStory, Priority: 3,
 	})
 
 	doneFilter := mustParseStmt(t, `select where status = "done"`)
@@ -878,7 +878,7 @@ func TestPluginController_HandlePluginAction_Delete(t *testing.T) {
 		t.Error("expected true for successful delete action")
 	}
 
-	if taskStore.GetTask("T-1") != nil {
+	if taskStore.GetTask("0000T1") != nil {
 		t.Error("task should have been deleted")
 	}
 }
@@ -886,7 +886,7 @@ func TestPluginController_HandlePluginAction_Delete(t *testing.T) {
 func TestPluginController_HandlePluginAction_NoMatchingRune(t *testing.T) {
 	taskStore := store.NewInMemoryStore()
 	_ = taskStore.CreateTask(&task.Task{
-		ID: "T-1", Title: "Task 1", Status: task.StatusReady, Type: task.TypeStory, Priority: 3,
+		ID: "0000T1", Title: "Task 1", Status: task.StatusReady, Type: task.TypeStory, Priority: 3,
 	})
 
 	readyFilter := mustParseStmt(t, `select where status = "ready"`)
@@ -937,7 +937,7 @@ func TestPluginController_HandlePluginAction_NoSelectedTask(t *testing.T) {
 func TestPluginController_HandleMoveTask_NoActionOnTargetLane(t *testing.T) {
 	taskStore := store.NewInMemoryStore()
 	_ = taskStore.CreateTask(&task.Task{
-		ID: "T-1", Title: "Task 1", Status: task.StatusReady, Type: task.TypeStory, Priority: 3,
+		ID: "0000T1", Title: "Task 1", Status: task.StatusReady, Type: task.TypeStory, Priority: 3,
 	})
 
 	readyFilter := mustParseStmt(t, `select where status = "ready"`)
@@ -968,7 +968,7 @@ func TestPluginController_HandleMoveTask_NoActionOnTargetLane(t *testing.T) {
 func TestPluginController_HandleMoveTask_Success(t *testing.T) {
 	taskStore := store.NewInMemoryStore()
 	_ = taskStore.CreateTask(&task.Task{
-		ID: "T-1", Title: "Task 1", Status: task.StatusReady, Type: task.TypeStory, Priority: 3,
+		ID: "0000T1", Title: "Task 1", Status: task.StatusReady, Type: task.TypeStory, Priority: 3,
 	})
 
 	readyFilter := mustParseStmt(t, `select where status = "ready"`)
@@ -996,7 +996,7 @@ func TestPluginController_HandleMoveTask_Success(t *testing.T) {
 		t.Error("expected true for successful move")
 	}
 
-	tk := taskStore.GetTask("T-1")
+	tk := taskStore.GetTask("0000T1")
 	if tk.Status != "done" {
 		t.Errorf("expected status done, got %s", tk.Status)
 	}
@@ -1005,7 +1005,7 @@ func TestPluginController_HandleMoveTask_Success(t *testing.T) {
 func TestPluginController_HandleMoveTask_OutOfBounds(t *testing.T) {
 	taskStore := store.NewInMemoryStore()
 	_ = taskStore.CreateTask(&task.Task{
-		ID: "T-1", Title: "Task 1", Status: task.StatusReady, Type: task.TypeStory, Priority: 3,
+		ID: "0000T1", Title: "Task 1", Status: task.StatusReady, Type: task.TypeStory, Priority: 3,
 	})
 
 	readyFilter := mustParseStmt(t, `select where status = "ready"`)
@@ -1080,7 +1080,7 @@ func TestPluginController_GetFilteredTasksForLane_OutOfRange(t *testing.T) {
 func TestPluginController_GetFilteredTasksForLane_NilFilter(t *testing.T) {
 	taskStore := store.NewInMemoryStore()
 	_ = taskStore.CreateTask(&task.Task{
-		ID: "T-1", Title: "Task 1", Status: task.StatusReady, Type: task.TypeStory, Priority: 3,
+		ID: "0000T1", Title: "Task 1", Status: task.StatusReady, Type: task.TypeStory, Priority: 3,
 	})
 
 	pluginDef := &plugin.TikiPlugin{
@@ -1104,10 +1104,10 @@ func TestPluginController_GetFilteredTasksForLane_NilFilter(t *testing.T) {
 func TestPluginController_GetFilteredTasksForLane_WithSearchNarrowing(t *testing.T) {
 	taskStore := store.NewInMemoryStore()
 	_ = taskStore.CreateTask(&task.Task{
-		ID: "T-1", Title: "Alpha", Status: task.StatusReady, Type: task.TypeStory, Priority: 3,
+		ID: "0000T1", Title: "Alpha", Status: task.StatusReady, Type: task.TypeStory, Priority: 3,
 	})
 	_ = taskStore.CreateTask(&task.Task{
-		ID: "T-2", Title: "Beta", Status: task.StatusReady, Type: task.TypeStory, Priority: 3,
+		ID: "0000T2", Title: "Beta", Status: task.StatusReady, Type: task.TypeStory, Priority: 3,
 	})
 
 	readyFilter := mustParseStmt(t, `select where status = "ready"`)
@@ -1123,14 +1123,14 @@ func TestPluginController_GetFilteredTasksForLane_WithSearchNarrowing(t *testing
 	gate.SetStore(taskStore)
 	pc := NewPluginController(taskStore, gate, pluginConfig, pluginDef, nil, nil, schema)
 
-	t1 := taskStore.GetTask("T-1")
+	t1 := taskStore.GetTask("0000T1")
 	pluginConfig.SetSearchResults([]task.SearchResult{{Task: t1, Score: 1.0}}, "Alpha")
 
 	tasks := pc.GetFilteredTasksForLane(0)
 	if len(tasks) != 1 {
 		t.Fatalf("expected 1 task with search narrowing, got %d", len(tasks))
 	}
-	if tasks[0].ID != "T-1" {
+	if tasks[0].ID != "0000T1" {
 		t.Errorf("expected T-1, got %s", tasks[0].ID)
 	}
 }
@@ -1158,7 +1158,7 @@ func TestPluginController_HandleAction_UnknownAction(t *testing.T) {
 func TestPluginController_HandleSearch(t *testing.T) {
 	taskStore := store.NewInMemoryStore()
 	_ = taskStore.CreateTask(&task.Task{
-		ID: "T-1", Title: "Alpha", Status: task.StatusReady, Type: task.TypeStory, Priority: 3,
+		ID: "0000T1", Title: "Alpha", Status: task.StatusReady, Type: task.TypeStory, Priority: 3,
 	})
 
 	readyFilter := mustParseStmt(t, `select where status = "ready"`)
@@ -1229,7 +1229,7 @@ func TestPluginController_HandleToggleViewMode(t *testing.T) {
 func TestPluginController_HandlePluginAction_Select(t *testing.T) {
 	taskStore := store.NewInMemoryStore()
 	_ = taskStore.CreateTask(&task.Task{
-		ID: "T-1", Title: "Task 1", Status: task.StatusReady, Type: task.TypeStory, Priority: 3,
+		ID: "0000T1", Title: "Task 1", Status: task.StatusReady, Type: task.TypeStory, Priority: 3,
 	})
 
 	readyFilter := mustParseStmt(t, `select where status = "ready"`)
@@ -1257,7 +1257,7 @@ func TestPluginController_HandlePluginAction_Select(t *testing.T) {
 	}
 
 	// task should be unchanged (SELECT is side-effect only)
-	tk := taskStore.GetTask("T-1")
+	tk := taskStore.GetTask("0000T1")
 	if tk.Status != task.StatusReady {
 		t.Errorf("expected status ready (unchanged), got %s", tk.Status)
 	}
@@ -1304,7 +1304,7 @@ func mustParseStmtWithInput(t *testing.T, input string, inputType ruki.ValueType
 func TestPluginController_HandleActionInput_ValidInput(t *testing.T) {
 	taskStore := store.NewInMemoryStore()
 	_ = taskStore.CreateTask(&task.Task{
-		ID: "T-1", Title: "Task 1", Status: task.StatusReady, Type: task.TypeStory, Priority: 3,
+		ID: "0000T1", Title: "Task 1", Status: task.StatusReady, Type: task.TypeStory, Priority: 3,
 	})
 
 	readyFilter := mustParseStmt(t, `select where status = "ready"`)
@@ -1332,7 +1332,7 @@ func TestPluginController_HandleActionInput_ValidInput(t *testing.T) {
 		t.Fatalf("expected InputClose for valid input, got %d", result)
 	}
 
-	updated := taskStore.GetTask("T-1")
+	updated := taskStore.GetTask("0000T1")
 	if updated.Assignee != "alice" {
 		t.Fatalf("expected assignee=alice, got %q", updated.Assignee)
 	}
@@ -1341,7 +1341,7 @@ func TestPluginController_HandleActionInput_ValidInput(t *testing.T) {
 func TestPluginController_HandleActionInput_InvalidInput(t *testing.T) {
 	taskStore := store.NewInMemoryStore()
 	_ = taskStore.CreateTask(&task.Task{
-		ID: "T-1", Title: "Task 1", Status: task.StatusReady, Type: task.TypeStory, Priority: 3,
+		ID: "0000T1", Title: "Task 1", Status: task.StatusReady, Type: task.TypeStory, Priority: 3,
 	})
 
 	readyFilter := mustParseStmt(t, `select where status = "ready"`)
@@ -1382,7 +1382,7 @@ func TestPluginController_HandleActionInput_ExecutionFailure_StillCloses(t *test
 	// Instead, test with a task that exists but use input on a field
 	// where the assignment succeeds at parse/execution level.
 	_ = taskStore.CreateTask(&task.Task{
-		ID: "T-1", Title: "Task 1", Status: task.StatusReady, Type: task.TypeStory, Priority: 3,
+		ID: "0000T1", Title: "Task 1", Status: task.StatusReady, Type: task.TypeStory, Priority: 3,
 	})
 
 	readyFilter := mustParseStmt(t, `select where status = "ready"`)
@@ -1465,10 +1465,10 @@ func TestPluginController_BulkAction_EnabledWithNoSelection(t *testing.T) {
 func TestPluginController_BulkAction_ExecutesWithNoSelection(t *testing.T) {
 	taskStore := store.NewInMemoryStore()
 	_ = taskStore.CreateTask(&task.Task{
-		ID: "T-1", Title: "Task 1", Status: task.StatusDone, Type: task.TypeStory, Priority: 3,
+		ID: "0000T1", Title: "Task 1", Status: task.StatusDone, Type: task.TypeStory, Priority: 3,
 	})
 	_ = taskStore.CreateTask(&task.Task{
-		ID: "T-2", Title: "Task 2", Status: task.StatusDone, Type: task.TypeStory, Priority: 3,
+		ID: "0000T2", Title: "Task 2", Status: task.StatusDone, Type: task.TypeStory, Priority: 3,
 	})
 
 	doneFilter := mustParseStmt(t, `select where status = "done"`)
@@ -1498,10 +1498,10 @@ func TestPluginController_BulkAction_ExecutesWithNoSelection(t *testing.T) {
 		t.Error("bulk delete should succeed with no selection")
 	}
 
-	if taskStore.GetTask("T-1") != nil {
+	if taskStore.GetTask("0000T1") != nil {
 		t.Error("T-1 should have been deleted by bulk action")
 	}
-	if taskStore.GetTask("T-2") != nil {
+	if taskStore.GetTask("0000T2") != nil {
 		t.Error("T-2 should have been deleted by bulk action")
 	}
 }
@@ -1509,7 +1509,7 @@ func TestPluginController_BulkAction_ExecutesWithNoSelection(t *testing.T) {
 func TestPluginController_IDRequiredAction_FailsPreflightWithNoSelection(t *testing.T) {
 	taskStore := store.NewInMemoryStore()
 	_ = taskStore.CreateTask(&task.Task{
-		ID: "T-1", Title: "Task 1", Status: task.StatusReady, Type: task.TypeStory, Priority: 3,
+		ID: "0000T1", Title: "Task 1", Status: task.StatusReady, Type: task.TypeStory, Priority: 3,
 	})
 
 	// filter matches "done" but the task is "ready" → lane is empty, no selection possible
@@ -1542,7 +1542,7 @@ func TestPluginController_IDRequiredAction_FailsPreflightWithNoSelection(t *test
 	}
 
 	// task should be unchanged
-	tk := taskStore.GetTask("T-1")
+	tk := taskStore.GetTask("0000T1")
 	if tk.Status != task.StatusReady {
 		t.Errorf("expected status ready (unchanged), got %s", tk.Status)
 	}

@@ -14,7 +14,7 @@ func TestReloadTask_CaseDuplicate(t *testing.T) {
 
 	// Create a task with a lowercase suffix ID
 	task := &taskpkg.Task{
-		ID:       "TIKI-6eqdue",
+		ID:       "6EQDUE",
 		Title:    "Case Duplicate",
 		Type:     taskpkg.TypeStory,
 		Status:   taskpkg.StatusBacklog,
@@ -26,7 +26,7 @@ func TestReloadTask_CaseDuplicate(t *testing.T) {
 	}
 
 	// Reload by lowercase ID; should not create a duplicate entry.
-	if err := store.ReloadTask("TIKI-6eqdue"); err != nil {
+	if err := store.ReloadTask("6EQDUE"); err != nil {
 		t.Fatalf("ReloadTask failed: %v", err)
 	}
 
@@ -38,7 +38,7 @@ func TestReloadTask_CaseDuplicate(t *testing.T) {
 	foundUpper := false
 	for _, tsk := range tasks {
 		switch tsk.ID {
-		case "TIKI-6EQDUE":
+		case "6EQDUE":
 			foundUpper = true
 		}
 	}
