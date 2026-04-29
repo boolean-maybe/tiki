@@ -7,8 +7,10 @@ allowed-tools: Read, Grep, Glob, Write, Bash(tiki exec:*), Bash(git log:*), Bash
 # tiki
 
 A tiki is a task stored as a Markdown file in `.doc/tiki/`.
-Filename: `tiki-<6char>.md` (lowercase) → ID: `TIKI-<6CHAR>` (uppercase).
-Example: `tiki-x7f4k2.md` → `TIKI-X7F4K2`
+IDs are 6-character uppercase alphanumeric strings stored in the `id:`
+frontmatter field (e.g. `X7F4K2`). The filename is not a source of identity —
+the frontmatter is. Pre-unification `TIKI-XXXXXX` ids are no longer
+recognized: they load as errors and must be edited to a bare form manually.
 
 All CRUD operations go through `tiki exec '<ruki-statement>'`.
 This handles validation, triggers, file persistence, and git staging automatically.
@@ -20,7 +22,7 @@ For full `ruki` syntax, see `.doc/doki/doc/ruki/`.
 
 | Field | Type | Notes |
 |---|---|---|
-| `id` | `id` | immutable, auto-generated `TIKI-XXXXXX` |
+| `id` | `id` | immutable, auto-generated bare 6-char uppercase alphanumeric (e.g. `X7F4K2`) |
 | `title` | `string` | required on create |
 | `description` | `string` | markdown body content |
 | `status` | `status` | from `workflow.yaml`, default `backlog` |
@@ -63,7 +65,8 @@ tiki exec 'create title="Review" due=2026-04-01 + 2day'                         
 tiki exec 'create title="Sprint review" recurrence="0 0 * * MON"'               # recurrence
 ```
 
-Output: `created TIKI-XXXXXX`. Defaults: status from workflow.yaml (typically `backlog`), priority 3, type `story`.
+Output: `created <ID>` (bare 6-char id).
+Defaults: status from workflow.yaml (typically `backlog`), priority 3, type `story`.
 
 ### Create from file
 

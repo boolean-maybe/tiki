@@ -166,8 +166,8 @@ tags: [frontend, urgent]
 
 #### dependsOn
 
-Optional string list. Each entry must be a valid tiki ID in `TIKI-XXXXXX` format
-(6-character alphanumeric suffix) referencing an existing tiki.
+Optional string list. Each entry must be a valid bare 6-character uppercase
+alphanumeric document ID referencing an existing tiki.
 IDs are automatically uppercased, empty entries are dropped, and duplicates are removed.
 A dependency means this tiki is blocked by the listed tikis.
 Default: empty. Both YAML list formats are accepted:
@@ -175,11 +175,11 @@ Default: empty. Both YAML list formats are accepted:
 ```yaml
 # block list
 dependsOn:
-    - TIKI-ABC123
-    - TIKI-DEF456
+    - ABC123
+    - DEF456
 
 # inline list
-dependsOn: [TIKI-ABC123, TIKI-DEF456]
+dependsOn: [ABC123, DEF456]
 ```
 
 #### due

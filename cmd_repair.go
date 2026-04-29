@@ -29,7 +29,7 @@ func runRepair(args []string) int {
 func runRepairIDs(args []string) int {
 	fs := flag.NewFlagSet("tiki repair ids", flag.ContinueOnError)
 	check := fs.Bool("check", false, "report issues without modifying files")
-	fix := fs.Bool("fix", false, "write fixes to disk")
+	fix := fs.Bool("fix", false, "insert missing ids; leaves existing (even invalid) ids in place unless --regenerate-duplicates is set")
 	regenDup := fs.Bool("regenerate-duplicates", false, "with --fix, regenerate ids for duplicates (keeps the first sorted path unchanged)")
 	if err := fs.Parse(args); err != nil {
 		return 2
@@ -45,9 +45,8 @@ func runRepairIDs(args []string) int {
 		mode = repair.ModeFix
 	}
 
-	// Phase 2: repair walks the unified document root so it sees the same
-	// files the store loads — both legacy `.doc/tiki/*.md` and new
-	// `.doc/<ID>.md`, including nested layouts.
+	// repair walks the unified `.doc/` root recursively so it sees the same
+	// files the store loads, including nested layouts and `.doc/<ID>.md`.
 	dir := config.GetDocDir()
 	rep, err := repair.RepairIDs(repair.Options{
 		Dir:                  dir,

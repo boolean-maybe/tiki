@@ -16,8 +16,11 @@ type Mode int
 const (
 	// ModeCheck reports issues without modifying any files.
 	ModeCheck Mode = iota
-	// ModeFix writes changes: inserts missing ids, replaces legacy TIKI-
-	// values with bare ids, and optionally regenerates duplicates.
+	// ModeFix inserts missing ids and, when RegenerateDuplicates is true,
+	// assigns fresh ids to all-but-one file in each duplicate set. It never
+	// rewrites an existing, non-duplicate id — including ids that look like
+	// pre-unification TIKI-XXXXXX values. Those are reported as invalid and
+	// the user decides whether to edit them by hand.
 	ModeFix
 )
 
@@ -38,14 +41,15 @@ type Options struct {
 }
 
 // Report summarizes what RepairIDs found (and, in ModeFix, what it changed).
+// Invalid ids (including TIKI-XXXXXX shapes) are reported but never rewritten
+// automatically; the unified format treats bare ids as the only supported
+// identity and does not maintain a migration path for old values.
 type Report struct {
 	Scanned         int
 	MissingID       []string // paths whose frontmatter lacked an id
-	LegacyID        []string // paths with TIKI-XXXXXX ids
-	InvalidID       []string // paths with an id that is neither bare nor legacy
+	InvalidID       []string // paths with an id that is not a bare document id
 	DuplicateIDs    map[string][]string
 	FixedMissingID  []string
-	FixedLegacyID   []string
 	FixedDuplicates []string
 	ParseErrors     map[string]error
 }
@@ -56,12 +60,14 @@ func (r *Report) HasIssues() bool {
 	if r == nil {
 		return false
 	}
-	return len(r.MissingID) > 0 || len(r.LegacyID) > 0 || len(r.InvalidID) > 0 || len(r.DuplicateIDs) > 0 || len(r.ParseErrors) > 0
+	return len(r.MissingID) > 0 || len(r.InvalidID) > 0 || len(r.DuplicateIDs) > 0 || len(r.ParseErrors) > 0
 }
 
 // RepairIDs scans opts.Dir for managed markdown files and reports, or fixes,
 // id-related issues. The function is safe to call in ModeCheck: no writes.
-// In ModeFix, changes are narrow textual edits to each affected file.
+// In ModeFix, changes are narrow textual edits: an id is inserted when
+// missing, and duplicates are regenerated only when RegenerateDuplicates is
+// set. Invalid ids are never rewritten.
 func RepairIDs(opts Options) (*Report, error) {
 	if opts.Dir == "" {
 		return nil, fmt.Errorf("repair: Dir is required")
@@ -90,17 +96,17 @@ func RepairIDs(opts Options) (*Report, error) {
 		switch {
 		case !sr.hadID:
 			rep.MissingID = append(rep.MissingID, full)
-		case sr.wasLegacy:
-			rep.LegacyID = append(rep.LegacyID, full)
 		case sr.wasInvalid:
 			rep.InvalidID = append(rep.InvalidID, full)
 		}
 	}
 
-	// pass 2 — duplicate detection across successfully-parsed files.
+	// pass 2 — duplicate detection across files whose id is a valid bare
+	// document id. Invalid-id files are excluded so a cluster of malformed
+	// values cannot mask a real collision between valid ids.
 	idToPaths := map[string][]string{}
 	for _, sr := range results {
-		if sr.id == "" {
+		if sr.id == "" || sr.wasInvalid {
 			continue
 		}
 		key := strings.ToUpper(sr.id)
@@ -117,8 +123,9 @@ func RepairIDs(opts Options) (*Report, error) {
 		return rep, nil
 	}
 
-	// pass 3 — fix. Order: missing ids first (pure insert), then legacy id
-	// replacements, then duplicate regeneration if requested.
+	// pass 3 — fix. Only two kinds of edit happen here: insert missing ids,
+	// and (optionally) regenerate duplicate ids. Invalid ids are reported
+	// but never auto-rewritten.
 	occupied := map[string]struct{}{}
 	for id := range idToPaths {
 		occupied[id] = struct{}{}
@@ -135,19 +142,6 @@ func RepairIDs(opts Options) (*Report, error) {
 		}
 		occupied[newID] = struct{}{}
 		rep.FixedMissingID = append(rep.FixedMissingID, sr.path)
-	}
-
-	for _, sr := range results {
-		if !sr.wasLegacy && !sr.wasInvalid {
-			continue
-		}
-		newID := nextFreeID(occupied)
-		if err := replaceFrontmatterID(sr.path, newID); err != nil {
-			rep.ParseErrors[sr.path] = err
-			continue
-		}
-		occupied[newID] = struct{}{}
-		rep.FixedLegacyID = append(rep.FixedLegacyID, sr.path)
 	}
 
 	if opts.RegenerateDuplicates {
@@ -169,8 +163,9 @@ func RepairIDs(opts Options) (*Report, error) {
 }
 
 // classifyFile reads path, parses its frontmatter, and returns a scan result.
-// A nil error with fmBroken=true indicates the file had no recoverable
-// frontmatter; the caller records it and moves on.
+// Any id that is not a valid bare document id is marked invalid; the unified
+// format has no notion of a "legacy" id, so TIKI-XXXXXX values fall into the
+// same bucket as any other malformed value.
 func classifyFile(path string) (*scanResultT, error) {
 	content, err := os.ReadFile(path) //nolint:gosec // G304: repair walks the user's .doc dir by design
 	if err != nil {
@@ -187,14 +182,8 @@ func classifyFile(path string) (*scanResultT, error) {
 	}
 	sr.hadID = true
 	normalized := document.NormalizeID(raw)
-	switch {
-	case document.IsValidID(normalized):
-		sr.id = normalized
-	case isLegacyTikiID(normalized):
-		sr.id = normalized
-		sr.wasLegacy = true
-	default:
-		sr.id = normalized
+	sr.id = normalized
+	if !document.IsValidID(normalized) {
 		sr.wasInvalid = true
 	}
 	return sr, nil
@@ -208,7 +197,6 @@ type scanResultT struct {
 	fm         document.ParsedFrontmatter
 	id         string
 	hadID      bool
-	wasLegacy  bool
 	wasInvalid bool
 }
 
@@ -249,7 +237,7 @@ func replaceFrontmatterID(path, newID string) error {
 func rewriteFrontmatterID(content, newID string) (string, error) {
 	// no frontmatter: prepend a minimal block. "\uFEFF" is the UTF-8 BOM.
 	// The id is quoted so all-digit ids (e.g. "000001") survive a strict
-	// load \u2014 unquoted yaml would decode them as integers and drop leading
+	// load — unquoted yaml would decode them as integers and drop leading
 	// zeros.
 	if !strings.HasPrefix(strings.TrimPrefix(content, "\uFEFF"), "---") {
 		return fmt.Sprintf("---\nid: %q\n---\n%s", newID, content), nil
@@ -319,7 +307,6 @@ func isTopLevelIDLine(line string) bool {
 func WriteReport(w io.Writer, rep *Report, mode Mode) {
 	_, _ = fmt.Fprintf(w, "scanned %d file(s)\n", rep.Scanned)
 	section(w, "missing id", rep.MissingID)
-	section(w, "legacy TIKI- id", rep.LegacyID)
 	section(w, "invalid id", rep.InvalidID)
 	if len(rep.DuplicateIDs) > 0 {
 		_, _ = fmt.Fprintf(w, "\nduplicate ids (%d):\n", len(rep.DuplicateIDs))
@@ -338,7 +325,6 @@ func WriteReport(w io.Writer, rep *Report, mode Mode) {
 	}
 	if mode == ModeFix {
 		section(w, "fixed (added missing id)", rep.FixedMissingID)
-		section(w, "fixed (replaced legacy id)", rep.FixedLegacyID)
 		section(w, "fixed (regenerated duplicate)", rep.FixedDuplicates)
 	}
 }
