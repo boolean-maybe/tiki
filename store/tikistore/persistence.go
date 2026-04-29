@@ -123,10 +123,11 @@ func (s *TikiStore) loadTaskFile(path string, authorMap map[string]*git.AuthorIn
 		return nil, newLoadError(LoadReasonParseError, fmt.Errorf("parsing yaml: %w", err))
 	}
 
-	// Strict identity: frontmatter id is required, must be a valid bare
-	// document id. Missing, legacy (TIKI-*), or otherwise-invalid ids are
-	// hard load errors; the remedy is `tiki repair ids --fix`. Load never
-	// mutates files.
+	// Strict identity: frontmatter id is required and must be a valid bare
+	// document id. Missing or malformed ids are hard load errors — load
+	// never mutates files. `tiki repair ids --fix` backfills missing ids;
+	// malformed ids (including pre-unification TIKI- values) are reported
+	// and left for the user to edit.
 	var fmMap map[string]interface{}
 	if err := yaml.Unmarshal([]byte(frontmatter), &fmMap); err != nil {
 		fmMap = nil
@@ -138,11 +139,7 @@ func (s *TikiStore) loadTaskFile(path string, authorMap map[string]*git.AuthorIn
 	}
 	taskID := document.NormalizeID(rawID)
 	if !document.IsValidID(taskID) {
-		reason := LoadReasonInvalidID
-		if strings.HasPrefix(taskID, "TIKI-") {
-			reason = LoadReasonLegacyID
-		}
-		return nil, newLoadError(reason, fmt.Errorf("%s: invalid document id %q: expected %d uppercase alphanumeric characters; run `tiki repair ids --fix` to migrate", path, taskID, document.IDLength))
+		return nil, newLoadError(LoadReasonInvalidID, fmt.Errorf("%s: invalid document id %q: expected %d uppercase alphanumeric characters", path, taskID, document.IDLength))
 	}
 
 	// extract custom fields from frontmatter map

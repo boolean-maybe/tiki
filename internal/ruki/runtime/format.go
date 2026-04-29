@@ -471,8 +471,8 @@ func formatUpdateSummary(w io.Writer, succeeded, failed int, jsonOut bool) error
 }
 
 // formatCreateSummary writes the summary for a CREATE statement.
-// Text form: "created TIKI-XXXXXX".
-// JSON form: {"created":"TIKI-XXXXXX"}.
+// Text form: "created <ID>" using the bare document id.
+// JSON form: {"created":"<ID>"}.
 func formatCreateSummary(w io.Writer, id string, jsonOut bool) error {
 	if jsonOut {
 		return writeJSONLine(w, map[string]string{"created": id})

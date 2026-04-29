@@ -14,11 +14,10 @@ type LoadReason int
 const (
 	// LoadReasonMissingID means the file had no frontmatter id.
 	LoadReasonMissingID LoadReason = iota
-	// LoadReasonLegacyID means the frontmatter id matched the pre-unification
-	// TIKI-XXXXXX form. Run `tiki repair ids --fix` to migrate.
-	LoadReasonLegacyID
-	// LoadReasonInvalidID covers every other malformed id value: wrong shape,
-	// unsupported type, etc.
+	// LoadReasonInvalidID covers every malformed id value: wrong shape,
+	// unsupported type, pre-unification TIKI-XXXXXX values, etc. The unified
+	// format recognizes only bare document ids, so there is no dedicated
+	// bucket for older identity schemes.
 	LoadReasonInvalidID
 	// LoadReasonDuplicateID means another file had already registered this id.
 	// The first file wins; subsequent occurrences are reported here.
@@ -35,8 +34,6 @@ func (r LoadReason) String() string {
 	switch r {
 	case LoadReasonMissingID:
 		return "missing id"
-	case LoadReasonLegacyID:
-		return "legacy TIKI- id"
 	case LoadReasonInvalidID:
 		return "invalid id"
 	case LoadReasonDuplicateID:
@@ -118,6 +115,17 @@ func (d *LoadDiagnostics) HasIssues() bool {
 
 // Summary returns a multi-line human-readable summary suitable for a
 // startup warning banner. Empty string when HasIssues() is false.
+//
+// The trailing guidance is reason-aware and each repair path is suggested
+// only for rejections it can actually resolve:
+//   - missing ids -> `--fix` backfills them
+//   - duplicate ids -> `--fix --regenerate-duplicates` reassigns ids on all
+//     but the first (sorted) file in each duplicate set
+//   - invalid / parse / other -> manual edits; repair will not rewrite an
+//     existing id unless explicitly asked to (which only applies to
+//     duplicates, above)
+//
+// See writeSummaryGuidance for the exact branching logic.
 func (d *LoadDiagnostics) Summary() string {
 	rejections := d.Rejections()
 	if len(rejections) == 0 {
@@ -129,7 +137,7 @@ func (d *LoadDiagnostics) Summary() string {
 	}
 	var b strings.Builder
 	fmt.Fprintf(&b, "%d file(s) failed to load:\n", len(rejections))
-	for _, reason := range []LoadReason{LoadReasonMissingID, LoadReasonLegacyID, LoadReasonInvalidID, LoadReasonDuplicateID, LoadReasonParseError, LoadReasonOther} {
+	for _, reason := range []LoadReason{LoadReasonMissingID, LoadReasonInvalidID, LoadReasonDuplicateID, LoadReasonParseError, LoadReasonOther} {
 		paths := byReason[reason]
 		if len(paths) == 0 {
 			continue
@@ -139,6 +147,34 @@ func (d *LoadDiagnostics) Summary() string {
 			fmt.Fprintf(&b, "    - %s\n", p)
 		}
 	}
-	b.WriteString("Run `tiki repair ids --check` for details and `tiki repair ids --fix` to repair.\n")
+	writeSummaryGuidance(&b, byReason)
 	return b.String()
+}
+
+// writeSummaryGuidance appends the "what to do about this" paragraph. Kept
+// separate so the branching is easy to audit: each repair path is suggested
+// only when the rejections in question can actually be resolved by it.
+//
+//   - missing ids    -> `--fix` backfills them
+//   - duplicate ids  -> `--fix --regenerate-duplicates` assigns new ids
+//     to all-but-one file in each duplicate set (opt-in so the
+//     user picks which file keeps the id)
+//   - invalid / parse / other -> no automated repair; manual edit required
+func writeSummaryGuidance(b *strings.Builder, byReason map[LoadReason][]string) {
+	hasMissing := len(byReason[LoadReasonMissingID]) > 0
+	hasDuplicate := len(byReason[LoadReasonDuplicateID]) > 0
+	hasManual := len(byReason[LoadReasonInvalidID]) > 0 ||
+		len(byReason[LoadReasonParseError]) > 0 ||
+		len(byReason[LoadReasonOther]) > 0
+
+	b.WriteString("Run `tiki repair ids --check` for details.\n")
+	if hasMissing {
+		b.WriteString("Run `tiki repair ids --fix` to backfill missing ids.\n")
+	}
+	if hasDuplicate {
+		b.WriteString("Run `tiki repair ids --fix --regenerate-duplicates` to assign new ids to all but the first (sorted) file in each duplicate set.\n")
+	}
+	if hasManual {
+		b.WriteString("Invalid and unparseable files require manual edits; repair will not rewrite existing id values.\n")
+	}
 }

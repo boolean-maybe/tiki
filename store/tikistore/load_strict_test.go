@@ -39,12 +39,13 @@ func TestLoadTaskFile_MissingIDIsHardError(t *testing.T) {
 	}
 }
 
-// TestLoadTaskFile_LegacyIDIsHardError verifies that TIKI-XXXXXX ids are
-// rejected: the compatibility layer is gone, only the repair command knows
-// how to migrate them.
-func TestLoadTaskFile_LegacyIDIsHardError(t *testing.T) {
+// TestLoadTaskFile_TIKIPrefixedIDIsInvalid verifies that a pre-unification
+// TIKI-XXXXXX value is rejected just like any other malformed id. The
+// unified format recognizes only bare document ids; there is no compatibility
+// layer, no stripping, no dedicated classification.
+func TestLoadTaskFile_TIKIPrefixedIDIsInvalid(t *testing.T) {
 	dir := t.TempDir()
-	path := filepath.Join(dir, "legacy.md")
+	path := filepath.Join(dir, "tiki-prefixed.md")
 	if err := os.WriteFile(path, []byte("---\nid: TIKI-ABC123\ntitle: legacy\ntype: story\nstatus: ready\npriority: 1\n---\nbody\n"), 0o644); err != nil {
 		t.Fatalf("write: %v", err)
 	}
@@ -53,17 +54,27 @@ func TestLoadTaskFile_LegacyIDIsHardError(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewTikiStore: %v", err)
 	}
-	// legacy id must not load under any lookup shape.
+	// TIKI- prefixed id must not load under any lookup shape.
 	if tk := s.GetTask("TIKI-ABC123"); tk != nil {
-		t.Error("legacy id should have been rejected at load")
+		t.Error("TIKI- prefixed id should have been rejected at load")
 	}
 	if tk := s.GetTask("ABC123"); tk != nil {
-		t.Error("legacy id should not strip to a bare id at load")
+		t.Error("TIKI- prefixed id must not strip to a bare id at load")
 	}
 	// file must remain byte-for-byte unchanged.
 	got, _ := os.ReadFile(path)
 	if !strings.Contains(string(got), "id: TIKI-ABC123") {
-		t.Errorf("load mutated legacy file: %s", got)
+		t.Errorf("load mutated the file: %s", got)
+	}
+	// and the rejection must be classified generically, not as a dedicated
+	// legacy bucket — the concept no longer exists.
+	diag := s.LoadDiagnostics()
+	rejections := diag.Rejections()
+	if len(rejections) != 1 {
+		t.Fatalf("expected 1 rejection, got %d: %+v", len(rejections), rejections)
+	}
+	if rejections[0].Reason != LoadReasonInvalidID {
+		t.Errorf("expected LoadReasonInvalidID, got %v", rejections[0].Reason)
 	}
 }
 

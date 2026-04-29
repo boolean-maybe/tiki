@@ -19,11 +19,14 @@ func writeFile(t *testing.T, dir, name, content string) string {
 	return p
 }
 
-func TestRepairIDs_checkReportsMissingLegacyAndDuplicates(t *testing.T) {
+func TestRepairIDs_checkReportsMissingInvalidAndDuplicates(t *testing.T) {
 	dir := t.TempDir()
 
 	writeFile(t, dir, "missing.md", "---\ntitle: hello\n---\nbody\n")
+	// TIKI-XXXXXX is no longer a recognized identity; it lands in InvalidID
+	// alongside any other malformed value, and stays there even in --fix.
 	writeFile(t, dir, "legacy.md", "---\nid: TIKI-ABC123\ntitle: hello\n---\nbody\n")
+	writeFile(t, dir, "short.md", "---\nid: AB\ntitle: hello\n---\nbody\n")
 	writeFile(t, dir, "valid.md", "---\nid: \"XYZ789\"\ntitle: hello\n---\nbody\n")
 	writeFile(t, dir, "dup-a.md", "---\nid: \"QQQQQQ\"\ntitle: a\n---\nbody\n")
 	writeFile(t, dir, "dup-b.md", "---\nid: \"QQQQQQ\"\ntitle: b\n---\nbody\n")
@@ -32,14 +35,14 @@ func TestRepairIDs_checkReportsMissingLegacyAndDuplicates(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if rep.Scanned != 5 {
-		t.Errorf("Scanned = %d, want 5", rep.Scanned)
+	if rep.Scanned != 6 {
+		t.Errorf("Scanned = %d, want 6", rep.Scanned)
 	}
 	if len(rep.MissingID) != 1 {
 		t.Errorf("MissingID = %v, want 1 entry", rep.MissingID)
 	}
-	if len(rep.LegacyID) != 1 {
-		t.Errorf("LegacyID = %v, want 1 entry", rep.LegacyID)
+	if len(rep.InvalidID) != 2 {
+		t.Errorf("InvalidID = %v, want 2 entries (TIKI- and short)", rep.InvalidID)
 	}
 	if _, has := rep.DuplicateIDs["QQQQQQ"]; !has {
 		t.Errorf("DuplicateIDs missing QQQQQQ: %+v", rep.DuplicateIDs)
@@ -90,24 +93,38 @@ func TestRepairIDs_fixMissingID(t *testing.T) {
 	}
 }
 
-func TestRepairIDs_fixLegacyID(t *testing.T) {
+// TestRepairIDs_fixDoesNotRewriteInvalidID is the Phase 3 contract: --fix only
+// inserts missing ids (and, with --regenerate-duplicates, rewrites dupes). An
+// invalid id — including one that looks like a pre-unification TIKI- value —
+// must be reported but left byte-for-byte on disk. The user decides the fix.
+func TestRepairIDs_fixDoesNotRewriteInvalidID(t *testing.T) {
 	dir := t.TempDir()
-	p := writeFile(t, dir, "legacy.md", "---\nid: TIKI-ABC123\ntitle: hello\n---\nbody\n")
+	legacyPath := writeFile(t, dir, "legacy.md", "---\nid: TIKI-ABC123\ntitle: hello\n---\nbody\n")
+	shortPath := writeFile(t, dir, "short.md", "---\nid: AB\ntitle: hello\n---\nbody\n")
+	legacyBefore, _ := os.ReadFile(legacyPath)
+	shortBefore, _ := os.ReadFile(shortPath)
 
 	rep, err := RepairIDs(Options{Dir: dir, Mode: ModeFix})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if len(rep.FixedLegacyID) != 1 {
-		t.Fatalf("FixedLegacyID = %v, want 1 entry", rep.FixedLegacyID)
+	if len(rep.InvalidID) != 2 {
+		t.Errorf("InvalidID = %v, want 2 entries", rep.InvalidID)
 	}
 
-	content, err := os.ReadFile(p)
+	legacyAfter, err := os.ReadFile(legacyPath)
 	if err != nil {
-		t.Fatalf("read: %v", err)
+		t.Fatalf("read legacy after: %v", err)
 	}
-	if strings.Contains(string(content), "TIKI-") {
-		t.Errorf("legacy id still present: %s", content)
+	if string(legacyAfter) != string(legacyBefore) {
+		t.Errorf("legacy file mutated by --fix:\nbefore: %q\nafter:  %q", legacyBefore, legacyAfter)
+	}
+	shortAfter, err := os.ReadFile(shortPath)
+	if err != nil {
+		t.Fatalf("read short after: %v", err)
+	}
+	if string(shortAfter) != string(shortBefore) {
+		t.Errorf("short-id file mutated by --fix:\nbefore: %q\nafter:  %q", shortBefore, shortAfter)
 	}
 }
 
@@ -139,7 +156,7 @@ func TestRepairIDs_fixDuplicatesRequiresFlag(t *testing.T) {
 }
 
 func TestRewriteFrontmatterID_preservesOtherFields(t *testing.T) {
-	in := "---\nid: TIKI-ABC123\ntitle: hello\ntype: story\n---\nbody\n\nmore body\n"
+	in := "---\nid: OLD001\ntitle: hello\ntype: story\n---\nbody\n\nmore body\n"
 	out, err := rewriteFrontmatterID(in, "ZZZZZZ")
 	if err != nil {
 		t.Fatalf("unexpected err: %v", err)
@@ -147,7 +164,7 @@ func TestRewriteFrontmatterID_preservesOtherFields(t *testing.T) {
 	if !strings.Contains(out, `id: "ZZZZZZ"`) {
 		t.Errorf("new id missing: %s", out)
 	}
-	if strings.Contains(out, "TIKI-ABC123") {
+	if strings.Contains(out, "OLD001") {
 		t.Errorf("old id not replaced: %s", out)
 	}
 	if !strings.Contains(out, "title: hello") {
@@ -313,7 +330,7 @@ func TestRepairIDs_walksRecursivelyAndExcludesConfig(t *testing.T) {
 	}
 
 	// Config files must never appear in any report bucket.
-	for _, bucket := range [][]string{rep.MissingID, rep.LegacyID, rep.InvalidID} {
+	for _, bucket := range [][]string{rep.MissingID, rep.InvalidID} {
 		for _, p := range bucket {
 			if strings.HasSuffix(p, "config.md") || strings.HasSuffix(p, "workflow.md") {
 				t.Errorf("reserved config file leaked into report: %s", p)
@@ -324,10 +341,10 @@ func TestRepairIDs_walksRecursivelyAndExcludesConfig(t *testing.T) {
 
 func TestWriteReport_includesSections(t *testing.T) {
 	rep := &Report{
-		Scanned:       3,
-		MissingID:     []string{"/a/b.md"},
-		LegacyID:      []string{"/a/c.md"},
-		FixedLegacyID: []string{"/a/c.md"},
+		Scanned:        3,
+		MissingID:      []string{"/a/b.md"},
+		InvalidID:      []string{"/a/c.md"},
+		FixedMissingID: []string{"/a/b.md"},
 	}
 	var buf bytes.Buffer
 	WriteReport(&buf, rep, ModeFix)
@@ -338,7 +355,14 @@ func TestWriteReport_includesSections(t *testing.T) {
 	if !strings.Contains(out, "missing id") || !strings.Contains(out, "/a/b.md") {
 		t.Errorf("missing-id section missing: %s", out)
 	}
-	if !strings.Contains(out, "fixed (replaced legacy id)") {
+	if !strings.Contains(out, "invalid id") || !strings.Contains(out, "/a/c.md") {
+		t.Errorf("invalid-id section missing: %s", out)
+	}
+	if !strings.Contains(out, "fixed (added missing id)") {
 		t.Errorf("fix section missing: %s", out)
+	}
+	// explicit negative: no trace of the removed legacy bucket.
+	if strings.Contains(out, "legacy") {
+		t.Errorf("legacy wording must not appear in report: %s", out)
 	}
 }
