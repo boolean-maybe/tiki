@@ -1,4 +1,5 @@
 ---
+id: "DW2PCN"
 title: "Design sensor interface abstraction layer for IMU hot-swap"
 status: backlog
 tags:
@@ -99,4 +100,4 @@ void imu_data_ready_isr(void) {
 - [ ] Profile ISR latency under full sensor load
 - [ ] Document memory map for STM32H7 target
 
-See also [TIKI-58DRC1](TIKI-58DRC1) for related context.
+See also [58DRC1](58DRC1) for related context.

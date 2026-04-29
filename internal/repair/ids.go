@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"path/filepath"
 	"sort"
 	"strings"
 
@@ -24,8 +23,11 @@ const (
 
 // Options configures a repair run.
 type Options struct {
-	// Dir is the directory containing .md files to inspect. Non-recursive;
-	// Phase 2 will flip this to recursive as part of the .doc/**/*.md move.
+	// Dir is the root to inspect. Phase 2: walked recursively via
+	// document.WalkDocuments so `tiki repair` sees the same set of files
+	// the document store loads (including nested layouts and new
+	// `.doc/<ID>.md` placements). The shared walker also excludes reserved
+	// project config files and hidden subdirectories.
 	Dir string
 	// Mode is ModeCheck or ModeFix.
 	Mode Mode
@@ -69,19 +71,15 @@ func RepairIDs(opts Options) (*Report, error) {
 		ParseErrors:  map[string]error{},
 	}
 
-	entries, err := os.ReadDir(opts.Dir)
+	paths, err := document.WalkDocuments(opts.Dir)
 	if err != nil {
-		return nil, fmt.Errorf("reading %s: %w", opts.Dir, err)
+		return nil, fmt.Errorf("walking %s: %w", opts.Dir, err)
 	}
 
 	// pass 1 — classify. Collect ids so we can detect duplicates before
 	// any write touches the filesystem.
 	var results []*scanResultT
-	for _, entry := range entries {
-		if entry.IsDir() || !strings.HasSuffix(entry.Name(), ".md") {
-			continue
-		}
-		full := filepath.Join(opts.Dir, entry.Name())
+	for _, full := range paths {
 		rep.Scanned++
 		sr, err := classifyFile(full)
 		if err != nil {

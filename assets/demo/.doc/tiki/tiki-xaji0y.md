@@ -1,4 +1,5 @@
 ---
+id: "XAJI0Y"
 title: "Implement GPS failover for RTK correction module"
 status: ready
 tags:
@@ -115,4 +116,4 @@ firmware/
     ├── hal.h  
     └── config.h
 
-See also [TIKI-IKCIDK](TIKI-IKCIDK) for related context.
+See also [IKCIDK](IKCIDK) for related context.

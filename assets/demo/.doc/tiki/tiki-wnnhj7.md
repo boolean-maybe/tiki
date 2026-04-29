@@ -1,4 +1,5 @@
 ---
+id: "WNNHJ7"
 title: Migrate CI pipeline from Jenkins to GitHub Actions
 type: story
 status: inProgress
@@ -85,4 +86,4 @@ infrastructure/
         ├── production/  
         └── staging/
 
-See also [TIKI-DW2PCN](TIKI-DW2PCN) for related context.
+See also [DW2PCN](DW2PCN) for related context.

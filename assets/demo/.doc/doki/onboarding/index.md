@@ -1,3 +1,6 @@
+---
+id: "4G36CR"
+---
 # Onboarding
 
 New hire setup and team information for the Celestia engineering organization.

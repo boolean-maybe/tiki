@@ -1,3 +1,6 @@
+---
+id: "BVP95O"
+---
 # Flight Controller
 
 The flight controller implements a cascaded PID architecture that translates high-level navigation commands into motor thrust outputs. Multiple flight modes provide increasing levels of autonomy.

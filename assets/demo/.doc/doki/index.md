@@ -1,3 +1,6 @@
+---
+id: "KT83SG"
+---
 # Celestia Robotics Documentation
 
 Celestia Robotics builds autonomous drone systems for commercial and industrial applications. This documentation hub covers every aspect of the platform — from architecture and engineering to security, operations, onboarding, and API reference.

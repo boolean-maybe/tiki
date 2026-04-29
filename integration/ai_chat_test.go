@@ -38,13 +38,17 @@ func TestTaskDetailView_ChatModifiesTask(t *testing.T) {
 		if name != "claude" {
 			t.Errorf("expected command 'claude', got %q", name)
 		}
-		// verify --append-system-prompt is passed with task file path
+		// verify --append-system-prompt is passed with task file path.
+		// Phase 2: filenames are the bare uppercase id (no lowercase
+		// convention), and the path comes from the task's own FilePath via
+		// store.PathForID — which is an absolute path, not something the
+		// test can reconstruct by joining ta.TaskDir + lower(id).
 		if len(args) < 2 || args[0] != "--append-system-prompt" {
 			t.Errorf("expected --append-system-prompt arg, got %v", args)
-		} else if !strings.Contains(args[1], strings.ToLower(taskID)) {
-			t.Errorf("expected prompt to reference task ID, got %q", args[1])
+		} else if !strings.Contains(args[1], taskID+".md") {
+			t.Errorf("expected prompt to reference %s.md, got %q", taskID, args[1])
 		}
-		taskPath := filepath.Join(ta.TaskDir, strings.ToLower(taskID)+".md")
+		taskPath := filepath.Join(ta.TaskDir, taskID+".md")
 		content, err := os.ReadFile(taskPath)
 		if err != nil {
 			return err

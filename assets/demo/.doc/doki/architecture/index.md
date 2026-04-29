@@ -1,3 +1,6 @@
+---
+id: "2HUP1D"
+---
 # Architecture
 
 Core system architecture and design decisions for the Celestia drone platform.

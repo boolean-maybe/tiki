@@ -1,3 +1,6 @@
+---
+id: "D2YLAO"
+---
 # Deployment Guide
 
 Celestia services are deployed as containers on a Kubernetes cluster with Helm charts managing configuration per environment. The CI/CD pipeline enforces automated testing gates before any production rollout.

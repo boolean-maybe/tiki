@@ -1,3 +1,6 @@
+---
+id: "LE0PKJ"
+---
 # Team Structure
 
 The Celestia engineering organization is structured around domain teams, each owning specific services and areas of expertise. Teams operate with high autonomy but align through shared architecture reviews and cross-team guilds.

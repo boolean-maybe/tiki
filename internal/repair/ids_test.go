@@ -257,6 +257,71 @@ func TestIsTopLevelIDLine(t *testing.T) {
 	}
 }
 
+// TestRepairIDs_walksRecursivelyAndExcludesConfig is the Phase 2 gate:
+// `tiki repair ids` must see the same files the store sees. A missing id
+// on a nested document or a new `.doc/<ID>.md` must be reported and
+// fixable; reserved top-level config files must never be misread as
+// documents (a valid-looking `workflow.md` should not be inserted-into).
+func TestRepairIDs_walksRecursivelyAndExcludesConfig(t *testing.T) {
+	root := t.TempDir()
+
+	// flat-at-root: gets reported.
+	writeFile(t, root, "flat-missing.md", "---\ntitle: flat\n---\nbody\n")
+	// nested one level deep: must be reached by the recursive walk.
+	nestedDir := filepath.Join(root, "docs")
+	//nolint:gosec // G301: 0755 matches the rest of the repair test suite
+	if err := os.MkdirAll(nestedDir, 0o755); err != nil {
+		t.Fatalf("mkdir nested: %v", err)
+	}
+	writeFile(t, nestedDir, "nested-missing.md", "---\ntitle: nested\n---\nbody\n")
+	// legacy-layout subdir (`.doc/tiki/<file>.md`): also picked up.
+	legacyDir := filepath.Join(root, "tiki")
+	//nolint:gosec // G301: 0755 matches the rest of the repair test suite
+	if err := os.MkdirAll(legacyDir, 0o755); err != nil {
+		t.Fatalf("mkdir legacy: %v", err)
+	}
+	writeFile(t, legacyDir, "legacy-missing.md", "---\ntitle: legacy-layout\n---\nbody\n")
+	// reserved project config files: must never be treated as documents.
+	writeFile(t, root, "workflow.md", "---\ntitle: reserved\n---\nbody\n")
+	writeFile(t, root, "config.md", "---\ntitle: reserved\n---\nbody\n")
+
+	rep, err := RepairIDs(Options{Dir: root, Mode: ModeCheck})
+	if err != nil {
+		t.Fatalf("RepairIDs: %v", err)
+	}
+
+	// Three real documents, no config files.
+	if rep.Scanned != 3 {
+		t.Errorf("Scanned = %d, want 3 (config files must be excluded)", rep.Scanned)
+	}
+	if len(rep.MissingID) != 3 {
+		t.Errorf("MissingID count = %d, want 3: %v", len(rep.MissingID), rep.MissingID)
+	}
+
+	// Ensure every expected path is reported — regression guard against a
+	// walker that skips nested directories.
+	want := map[string]bool{
+		filepath.Join(root, "flat-missing.md"):        true,
+		filepath.Join(nestedDir, "nested-missing.md"): true,
+		filepath.Join(legacyDir, "legacy-missing.md"): true,
+	}
+	for _, p := range rep.MissingID {
+		delete(want, p)
+	}
+	for p := range want {
+		t.Errorf("expected MissingID to include %s", p)
+	}
+
+	// Config files must never appear in any report bucket.
+	for _, bucket := range [][]string{rep.MissingID, rep.LegacyID, rep.InvalidID} {
+		for _, p := range bucket {
+			if strings.HasSuffix(p, "config.md") || strings.HasSuffix(p, "workflow.md") {
+				t.Errorf("reserved config file leaked into report: %s", p)
+			}
+		}
+	}
+}
+
 func TestWriteReport_includesSections(t *testing.T) {
 	rep := &Report{
 		Scanned:       3,

@@ -100,17 +100,23 @@ func (s *TikiStore) updateTaskLocked(task *taskpkg.Task) error {
 
 	// Carry forward identity-bound state from the loaded task if the caller
 	// passed a fresh Task value. Without this, a caller that constructs a
-	// Task from scratch (empty FilePath/LoadedMtime) would:
+	// Task from scratch would:
 	//   • lose the loaded path, so save would target <id>.md instead of the
 	//     renamed file the user is editing — the high finding's escape hatch;
 	//   • silently bypass the optimistic-locking mtime check, defeating
-	//     external-edit detection.
+	//     external-edit detection;
+	//   • silently demote a workflow document to a plain doc by leaving
+	//     IsWorkflow at its zero value, which hides the task from
+	//     GetAllTasks / search / board views until the next reload.
 	// Callers that *want* to reset these can set them explicitly.
 	if task.FilePath == "" {
 		task.FilePath = oldTask.FilePath
 	}
 	if task.LoadedMtime.IsZero() {
 		task.LoadedMtime = oldTask.LoadedMtime
+	}
+	if !task.IsWorkflow && oldTask.IsWorkflow {
+		task.IsWorkflow = true
 	}
 
 	if err := s.validateDependsOnLocked(task); err != nil {

@@ -1,4 +1,5 @@
 ---
+id: "IKCIDK"
 title: "Integrate ground station map with live drone tracks"
 status: inProgress
 tags:
@@ -94,4 +95,4 @@ def compute_flight_summary(
 - [ ] Support multi-monitor layout persistence
 - [ ] Add dark mode toggle for night operations
 
-See also [TIKI-OH9SDB](TIKI-OH9SDB) for related context.
+See also [OH9SDB](OH9SDB) for related context.

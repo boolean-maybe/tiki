@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"log/slog"
 	"path/filepath"
-	"strings"
 
 	"github.com/boolean-maybe/tiki/config"
 	"github.com/boolean-maybe/tiki/model"
@@ -189,9 +188,14 @@ func (tc *TaskController) handleEditSource() bool {
 		return false
 	}
 
-	// Construct the file path for this task
-	filename := strings.ToLower(task.ID) + ".md"
-	filePath := filepath.Join(config.GetTaskDir(), filename)
+	// Use the task's own path so renames, moves, and new-at-root layouts
+	// all target the real file. Falling back to the id-derived default
+	// keeps the behavior meaningful for in-memory tasks that haven't
+	// been persisted yet.
+	filePath := task.FilePath
+	if filePath == "" {
+		filePath = filepath.Join(config.GetDocDir(), task.ID+".md")
+	}
 
 	if err := tc.navController.SuspendAndEdit(filePath); err != nil {
 		if tc.statusline != nil {
@@ -200,7 +204,13 @@ func (tc *TaskController) handleEditSource() bool {
 		return true
 	}
 
-	_ = tc.taskStore.ReloadTask(task.ID)
+	// Surface reload errors — after an external edit the file's frontmatter
+	// may have gained a conflict (collision, invalid id, unknown type) the
+	// user needs to resolve. Silently swallowing the error leaves the UI
+	// showing stale data with no hint that anything went wrong.
+	if err := tc.taskStore.ReloadTask(task.ID); err != nil && tc.statusline != nil {
+		tc.statusline.SetMessage("reload failed: "+err.Error(), model.MessageLevelError, true)
+	}
 
 	return true
 }

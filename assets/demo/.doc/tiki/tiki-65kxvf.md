@@ -1,11 +1,12 @@
 ---
+id: "65KXVF"
 title: "Implement protobuf schema registry for telemetry messages"
 status: backlog
 tags:
   - api
   - infrastructure
 dependsOn:
-  - TIKI-6DPBHS
+  - 6DPBHS
 assignee: "jnakamura"
 priority: 2
 points: 5
@@ -83,4 +84,4 @@ Multiple services produce and consume telemetry protobufs but there is no schema
 - [ ] Build integration test suite for v1 endpoints
 - [ ] Add gRPC gateway for internal service calls
 
-See also [TIKI-MVIHCW](TIKI-MVIHCW) for related context.
+See also [MVIHCW](MVIHCW) for related context.

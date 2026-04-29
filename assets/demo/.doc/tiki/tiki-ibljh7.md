@@ -1,11 +1,12 @@
 ---
+id: "IBLJH7"
 title: "Implement role-based access control for operator console"
 status: review
 tags:
   - security
   - compliance
 dependsOn:
-  - TIKI-8MDD4V
+  - 8MDD4V
 assignee: "rvolkov"
 priority: 2
 points: 5
@@ -104,4 +105,4 @@ resource "aws_cloudwatch_log_group" "telemetry_ingest" {
 - [ ] Create incident response playbook for drone hijack
 - [ ] Audit all API endpoints for authorization gaps
 
-See also [TIKI-Q85JSG](TIKI-Q85JSG) for related context.
+See also [Q85JSG](Q85JSG) for related context.

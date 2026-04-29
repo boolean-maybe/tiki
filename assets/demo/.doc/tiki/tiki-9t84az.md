@@ -1,11 +1,12 @@
 ---
+id: "9T84AZ"
 title: "Implement geofence enforcement engine in mission planner"
 status: backlog
 tags:
   - safety
   - compliance
 dependsOn:
-  - TIKI-30T9NT
+  - 30T9NT
 due: 2026-05-15
 assignee: "akowalski"
 priority: 1
@@ -128,4 +129,4 @@ mission/
     ├── survey_grid.json  
     └── linear_inspect.json
 
-See also [TIKI-1ERTJ5](TIKI-1ERTJ5) for related context.
+See also [1ERTJ5](1ERTJ5) for related context.

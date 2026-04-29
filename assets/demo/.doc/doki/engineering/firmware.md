@@ -1,3 +1,6 @@
+---
+id: "P40LU2"
+---
 # Firmware Architecture
 
 The Celestia flight firmware runs on an STM32H7 microcontroller with a real-time operating system. The boot sequence performs hardware validation, sensor calibration, and radio link establishment before entering the main control loop.

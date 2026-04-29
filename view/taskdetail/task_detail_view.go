@@ -1,9 +1,7 @@
 package taskdetail
 
 import (
-	"fmt"
 	"path/filepath"
-	"strings"
 
 	"github.com/boolean-maybe/tiki/config"
 	"github.com/boolean-maybe/tiki/controller"
@@ -170,8 +168,17 @@ func (tv *TaskDetailView) buildMetadataColumns(task *taskpkg.Task, ctx FieldRend
 
 func (tv *TaskDetailView) buildDescription(task *taskpkg.Task) tview.Primitive {
 	desc := defaultString(task.Description, "(No description)")
-	taskSourcePath := getTaskFilePath(task.ID)
-	searchRoots := []string{config.GetTaskDir()}
+	taskSourcePath := taskSourcePathFor(task)
+
+	// Image / relative-link search roots. The document's own directory wins
+	// for sibling assets (`![[image.png]]` next to the doc); the unified
+	// .doc/ root is the fallback so tasks with image paths relative to the
+	// root (e.g. `.doc/assets/foo.png`) resolve too. Keeping .doc/tiki in
+	// the list protects docs still sitting under the legacy layout.
+	searchRoots := []string{config.GetDocDir(), config.GetTaskDir()}
+	if taskSourcePath != "" {
+		searchRoots = append([]string{filepath.Dir(taskSourcePath)}, searchRoots...)
+	}
 
 	tv.navMarkdown = markdown.NewNavigableMarkdown(markdown.NavigableMarkdownConfig{
 		Provider:       newTaskDescriptionProvider(tv.taskStore, searchRoots),
@@ -185,14 +192,19 @@ func (tv *TaskDetailView) buildDescription(task *taskpkg.Task) tview.Primitive {
 	return tv.navMarkdown.Viewer()
 }
 
-// getTaskFilePath constructs the file path for a task based on its ID
-// This enables relative image path resolution in markdown content
-func getTaskFilePath(taskID string) string {
-	// Task files are named like "tiki-z53pc9.md" (lowercase) in the task directory
-	// but the task ID in the struct is "TIKI-z53pc9" (uppercase prefix)
-	// Convert to lowercase for the filename
-	taskFilename := fmt.Sprintf("%s.md", strings.ToLower(taskID))
-	return filepath.Join(config.GetTaskDir(), taskFilename)
+// taskSourcePathFor returns the on-disk path of the task's markdown file for
+// use as the markdown view's source path (image root, relative-link base).
+// Honors task.FilePath when the task was loaded from disk — so renames and
+// nested layouts resolve correctly — and falls back to the id-derived
+// default under the document root for tasks that have no path yet.
+func taskSourcePathFor(task *taskpkg.Task) string {
+	if task == nil {
+		return ""
+	}
+	if task.FilePath != "" {
+		return task.FilePath
+	}
+	return filepath.Join(config.GetDocDir(), task.ID+".md")
 }
 
 // EnterFullscreen switches the view to fullscreen mode (description only)

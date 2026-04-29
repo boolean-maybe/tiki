@@ -45,7 +45,10 @@ func runRepairIDs(args []string) int {
 		mode = repair.ModeFix
 	}
 
-	dir := config.GetTaskDir()
+	// Phase 2: repair walks the unified document root so it sees the same
+	// files the store loads — both legacy `.doc/tiki/*.md` and new
+	// `.doc/<ID>.md`, including nested layouts.
+	dir := config.GetDocDir()
 	rep, err := repair.RepairIDs(repair.Options{
 		Dir:                  dir,
 		Mode:                 mode,

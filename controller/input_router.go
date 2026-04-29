@@ -566,11 +566,20 @@ func (ir *InputRouter) dispatchTaskAction(id ActionID, _ map[string]interface{})
 		if taskID == "" {
 			return false
 		}
-		filename := strings.ToLower(taskID) + ".md"
-		taskFilePath := filepath.Join(config.GetTaskDir(), filename)
+		taskFilePath := ir.taskStore.PathForID(taskID)
+		if taskFilePath == "" {
+			// Unknown to the store — fall back to the id-derived default so
+			// the chat agent still gets a plausible target path.
+			taskFilePath = filepath.Join(config.GetDocDir(), taskID+".md")
+		}
 		name, args := resolveAgentCommand(agent, taskFilePath)
 		ir.navController.SuspendAndRun(name, args...)
-		_ = ir.taskStore.ReloadTask(taskID)
+		// Surface reload errors — the chat agent may have edited the file
+		// into a state the strict loader refuses (id collision, invalid
+		// type, …) and the user needs to know instead of seeing stale data.
+		if err := ir.taskStore.ReloadTask(taskID); err != nil && ir.statusline != nil {
+			ir.statusline.SetMessage("reload failed: "+err.Error(), model.MessageLevelError, true)
+		}
 		return true
 	case ActionCloneTask:
 		return ir.taskController.HandleAction(id)
@@ -847,11 +856,15 @@ func (ir *InputRouter) handleTaskInput(event *tcell.EventKey, params map[string]
 			if taskID == "" {
 				return false
 			}
-			filename := strings.ToLower(taskID) + ".md"
-			taskFilePath := filepath.Join(config.GetTaskDir(), filename)
+			taskFilePath := ir.taskStore.PathForID(taskID)
+			if taskFilePath == "" {
+				taskFilePath = filepath.Join(config.GetDocDir(), taskID+".md")
+			}
 			name, args := resolveAgentCommand(agent, taskFilePath)
 			ir.navController.SuspendAndRun(name, args...)
-			_ = ir.taskStore.ReloadTask(taskID)
+			if err := ir.taskStore.ReloadTask(taskID); err != nil && ir.statusline != nil {
+				ir.statusline.SetMessage("reload failed: "+err.Error(), model.MessageLevelError, true)
+			}
 			return true
 		default:
 			return ir.taskController.HandleAction(action.ID)

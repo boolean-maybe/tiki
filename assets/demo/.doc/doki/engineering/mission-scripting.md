@@ -1,3 +1,6 @@
+---
+id: "MGA1RF"
+---
 # Mission Scripting
 
 Operators define autonomous missions using a Lua-based scripting DSL. Scripts are validated against safety constraints, compiled into waypoint plans, and uploaded to drones for execution.

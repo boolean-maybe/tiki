@@ -1,11 +1,12 @@
 ---
+id: "9XUY41"
 title: "Add waypoint upload validation to ground station"
 status: review
 tags:
   - ground-station
   - safety
 dependsOn:
-  - TIKI-IKCIDK
+  - IKCIDK
 assignee: "jnakamura"
 priority: 2
 points: 3
@@ -102,4 +103,4 @@ ground-station/
     ├── tiles/  
     └── icons/
 
-See also [TIKI-YTJXEP](TIKI-YTJXEP) for related context.
+See also [YTJXEP](YTJXEP) for related context.

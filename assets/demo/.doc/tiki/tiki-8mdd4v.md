@@ -1,4 +1,5 @@
 ---
+id: "8MDD4V"
 title: Add mTLS authentication to drone command API
 type: story
 status: ready
@@ -6,7 +7,7 @@ tags:
     - api
     - security
 dependsOn:
-    - TIKI-5LXO6Q
+    - 5LXO6Q
 due: "2026-05-01"
 assignee: rvolkov
 priority: 1
@@ -124,4 +125,4 @@ security/
     ├── cert-rotate.sh  
     └── audit-scan.sh
 
-See also [TIKI-IBLJH7](TIKI-IBLJH7) for related context.
+See also [IBLJH7](IBLJH7) for related context.

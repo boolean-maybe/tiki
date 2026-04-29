@@ -1,3 +1,6 @@
+---
+id: "HJ23NJ"
+---
 # Communication Protocol
 
 The Celestia communication protocol governs all message exchanges between airborne drones and ground infrastructure. It implements a three-phase handshake with automatic fallback to low-bandwidth mode when signal quality degrades.

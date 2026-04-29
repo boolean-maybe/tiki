@@ -1,4 +1,5 @@
 ---
+id: "Q85JSG"
 title: "Add real-time wind estimation display to dashboard"
 status: backlog
 tags:
@@ -113,4 +114,4 @@ dashboard/
     ├── theme.css  
     └── widgets.css
 
-See also [TIKI-9XPSEI](TIKI-9XPSEI) for related context.
+See also [9XPSEI](9XPSEI) for related context.

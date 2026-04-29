@@ -1,3 +1,6 @@
+---
+id: "4JQ6FC"
+---
 # Maintenance Schedule
 
 Celestia drones follow a preventive maintenance schedule based on flight hours and calendar time. The schedule ensures airworthiness and extends the operational lifespan of each unit.

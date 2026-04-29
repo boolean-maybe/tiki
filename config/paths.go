@@ -147,17 +147,37 @@ func (pm *PathManager) ConfigFile() string {
 	return filepath.Join(pm.configDir, "config.yaml")
 }
 
-// TaskDir returns the project-local task directory
+// DocDir returns the unified document root (.doc/). All managed markdown
+// documents live somewhere under this directory regardless of whether they
+// are workflow tikis or plain doki docs; Phase 2 makes this the single scan
+// root for the document store.
+func (pm *PathManager) DocDir() string {
+	return filepath.Join(pm.projectRoot, ".doc")
+}
+
+// TaskDir returns the legacy project-local task directory (.doc/tiki).
+//
+// Deprecated: callers should use DocDir instead. The document store now
+// scans .doc/ recursively and places new documents at .doc/<ID>.md.
+// Kept during the migration so callers that still reference .doc/tiki for
+// legacy content (existing sample files, embedded assets, file-open dialogs)
+// continue to resolve the same path.
 func (pm *PathManager) TaskDir() string {
 	return filepath.Join(pm.projectRoot, ".doc", "tiki")
 }
 
-// DokiDir returns the project-local documentation directory
+// DokiDir returns the legacy project-local doki directory (.doc/doki).
+//
+// Deprecated: callers should use DocDir instead. Kept for the same reason
+// as TaskDir — during the Phase 2–Phase 8 transition window some call sites
+// still address doki-specific content by path.
 func (pm *PathManager) DokiDir() string {
 	return filepath.Join(pm.projectRoot, ".doc", "doki")
 }
 
-// ProjectConfigDir returns the project-level config directory (.doc/)
+// ProjectConfigDir returns the project-level config directory (.doc/).
+// Identical to DocDir by construction — workflow.yaml and config.yaml live
+// alongside document files at the unified root.
 func (pm *PathManager) ProjectConfigDir() string {
 	return filepath.Join(pm.projectRoot, ".doc")
 }
@@ -287,12 +307,24 @@ func GetConfigFile() string {
 	return mustGetPathManager().ConfigFile()
 }
 
-// GetTaskDir returns the project-local task directory
+// GetDocDir returns the unified document root (.doc/). Phase 2 of the
+// unified-document migration makes this the single scan root for the
+// document store; new documents are written at .doc/<ID>.md and loaded
+// via recursive walk.
+func GetDocDir() string {
+	return mustGetPathManager().DocDir()
+}
+
+// GetTaskDir returns the legacy project-local task directory.
+//
+// Deprecated: prefer GetDocDir. See PathManager.TaskDir for the full rationale.
 func GetTaskDir() string {
 	return mustGetPathManager().TaskDir()
 }
 
-// GetDokiDir returns the project-local documentation directory
+// GetDokiDir returns the legacy project-local doki directory.
+//
+// Deprecated: prefer GetDocDir. See PathManager.DokiDir for the full rationale.
 func GetDokiDir() string {
 	return mustGetPathManager().DokiDir()
 }

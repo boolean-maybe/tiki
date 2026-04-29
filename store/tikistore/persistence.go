@@ -21,35 +21,44 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-// loadLocked reads all task files from the directory.
+// loadLocked reads all task files from the document root, scanning
+// recursively so documents organized in subdirectories load alongside
+// flat ones. Phase 2 generalizes the store from a single flat task
+// directory to `.doc/**/*.md`; excluded files (config.yaml, workflow.yaml,
+// non-markdown, hidden paths) are skipped and every loaded file must
+// carry a valid bare frontmatter id.
+//
 // Caller must hold s.mu lock.
 func (s *TikiStore) loadLocked() error {
-	slog.Debug("loading tasks from directory", "dir", s.dir)
+	slog.Debug("loading documents from directory", "dir", s.dir)
 	// create directory if it doesn't exist
-	//nolint:gosec // G301: 0755 is appropriate for task storage directory
+	//nolint:gosec // G301: 0755 is appropriate for document storage directory
 	if err := os.MkdirAll(s.dir, 0755); err != nil {
-		slog.Error("failed to create task directory", "dir", s.dir, "error", err)
+		slog.Error("failed to create document directory", "dir", s.dir, "error", err)
 		return fmt.Errorf("creating directory: %w", err)
 	}
 
-	entries, err := os.ReadDir(s.dir)
+	docPaths, err := s.collectDocumentPaths()
 	if err != nil {
-		slog.Error("failed to read task directory", "dir", s.dir, "error", err)
-		return fmt.Errorf("reading directory: %w", err)
+		slog.Error("failed to walk document directory", "dir", s.dir, "error", err)
+		return fmt.Errorf("walking directory: %w", err)
 	}
 
-	// Pre-fetch all author info in one batch git operation
+	// Pre-fetch all author info in one batch git operation. The old flat-dir
+	// code used a `<dir>/*.md` glob; with recursive loading we pass the
+	// directory itself so git's pathspec walks every nested `.md` file. The
+	// returned map is keyed by repo-relative path, matching both flat and
+	// nested layouts identically.
 	var authorMap map[string]*git.AuthorInfo
 	var lastCommitMap map[string]time.Time
 	if s.gitUtil != nil {
-		dirPattern := filepath.Join(s.dir, "*.md")
-		if authors, err := s.gitUtil.AllAuthors(dirPattern); err == nil {
+		if authors, err := s.gitUtil.AllAuthors(s.dir); err == nil {
 			authorMap = authors
 		} else {
 			slog.Warn("failed to batch fetch authors", "error", err)
 		}
 
-		if lastCommits, err := s.gitUtil.AllLastCommitTimes(dirPattern); err == nil {
+		if lastCommits, err := s.gitUtil.AllLastCommitTimes(s.dir); err == nil {
 			lastCommitMap = lastCommits
 		} else {
 			slog.Warn("failed to batch fetch last commit times", "error", err)
@@ -59,12 +68,7 @@ func (s *TikiStore) loadLocked() error {
 	// reset diagnostics for this load cycle so callers see a fresh report.
 	s.diagnostics = newLoadDiagnostics()
 	idIndex := document.NewIndex()
-	for _, entry := range entries {
-		if entry.IsDir() || !strings.HasSuffix(entry.Name(), ".md") {
-			continue
-		}
-
-		filePath := filepath.Join(s.dir, entry.Name())
+	for _, filePath := range docPaths {
 		task, err := s.loadTaskFile(filePath, authorMap, lastCommitMap)
 		if err != nil {
 			// classify via *loadError; fall back to LoadReasonOther.
@@ -321,8 +325,35 @@ func (s *TikiStore) ReloadTask(taskID string) error {
 		return fmt.Errorf("loading task file %s: %w", filePath, err)
 	}
 
-	// Update the task in the map
+	// Enforce the same id invariants the full load path enforces: a
+	// ReloadTask must not leave stale entries behind when the file's
+	// frontmatter id has changed, and must refuse to overwrite another
+	// task's entry with this one.
 	s.mu.Lock()
+	if task.ID != normalizedID {
+		// id changed in the frontmatter (e.g. user edited it externally).
+		// Drop the old map entry first — whatever the next branch does,
+		// the old id is no longer backed by any file on disk and must not
+		// linger in the index.
+		delete(s.tasks, normalizedID)
+
+		// Refuse to promote the new id if another loaded task already owns
+		// it — that would silently overwrite the peer in memory while both
+		// files sit on disk. Leave the new id un-indexed too: the file at
+		// task.FilePath still exists, but the store refuses to claim it
+		// until the collision is resolved (e.g. via
+		// `tiki repair ids --fix --regenerate-duplicates`). The next full
+		// Reload will surface the duplicate through LoadDiagnostics.
+		if peer, taken := s.tasks[task.ID]; taken && peer.FilePath != task.FilePath {
+			s.mu.Unlock()
+			slog.Error("refusing to reload: id change would collide with another task",
+				"old_id", normalizedID, "new_id", task.ID,
+				"new_file", task.FilePath, "existing_file", peer.FilePath)
+			s.notifyListeners()
+			return fmt.Errorf("reload: id change %s → %s collides with %s at %s",
+				normalizedID, task.ID, task.ID, peer.FilePath)
+		}
+	}
 	s.tasks[task.ID] = task
 	s.mu.Unlock()
 
@@ -406,6 +437,16 @@ func (s *TikiStore) saveTask(task *taskpkg.Task) error {
 		content.WriteString("\n")
 	}
 
+	// Ensure parent directory exists; with recursive loading a document's
+	// FilePath may point into a subdirectory that hasn't been created on this
+	// filesystem (e.g. a file dragged into a new folder on another machine
+	// and replayed via git pull).
+	//nolint:gosec // G301: 0755 matches the existing dir permissions
+	if err := os.MkdirAll(filepath.Dir(path), 0755); err != nil {
+		slog.Error("failed to create parent directory for document", "task_id", task.ID, "path", path, "error", err)
+		return fmt.Errorf("creating parent directory: %w", err)
+	}
+
 	if err := os.WriteFile(path, []byte(content.String()), 0644); err != nil {
 		slog.Error("failed to write task file", "task_id", task.ID, "path", path, "error", err)
 		return fmt.Errorf("writing file: %w", err)
@@ -448,9 +489,18 @@ func (s *TikiStore) saveTask(task *taskpkg.Task) error {
 // taskFilePath returns the default on-disk path for a brand-new task whose
 // file has not yet been created. Once a task is loaded from disk, save and
 // delete operations should target task.FilePath — not this — so renames are
-// preserved. Phase 2 generalizes this to `.doc/<ID>.md`.
+// preserved. In Phase 2 this resolves to `.doc/<ID>.md` because the store
+// is rooted at the unified document directory.
 func (s *TikiStore) taskFilePath(id string) string {
 	return filepath.Join(s.dir, id+".md")
+}
+
+// collectDocumentPaths delegates to the shared document.WalkDocuments so
+// the store and the `tiki repair` command classify "managed document" files
+// identically. Centralizing the walk prevents drift between what the store
+// refuses to load and what repair silently skips.
+func (s *TikiStore) collectDocumentPaths() ([]string, error) {
+	return document.WalkDocuments(s.dir)
 }
 
 // pathForTask returns the on-disk path to use for an operation on t.

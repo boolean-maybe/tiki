@@ -1,4 +1,5 @@
 ---
+id: "JIUJV6"
 title: "Set up structured logging with correlation IDs"
 status: done
 tags:
@@ -108,4 +109,4 @@ spec:
 - [ ] Implement blue-green deployment for API gateway
 - [ ] Create disaster recovery runbook
 
-See also [TIKI-1T2TAL](TIKI-1T2TAL) for related context.
+See also [1T2TAL](1T2TAL) for related context.

@@ -1,3 +1,6 @@
+---
+id: "YX5NBV"
+---
 # Telemetry Pipeline
 
 The telemetry pipeline ingests high-frequency sensor data from the drone fleet, deserializes protobuf payloads, enriches them with fleet metadata, and fans out to both persistent storage and real-time dashboard consumers.

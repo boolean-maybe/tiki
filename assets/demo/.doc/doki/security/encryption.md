@@ -1,3 +1,6 @@
+---
+id: "QKEIIH"
+---
 # Encryption Standards
 
 All data in the Celestia platform is encrypted at rest and in transit. The encryption architecture uses a layered key hierarchy with hardware security modules (HSMs) protecting master keys.

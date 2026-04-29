@@ -1,3 +1,6 @@
+---
+id: "65CONJ"
+---
 # gRPC API Reference
 
 Internal service-to-service communication uses gRPC with Protocol Buffers. The service mesh provides load balancing, retries, and circuit breaking through Envoy sidecars.

@@ -1,3 +1,6 @@
+---
+id: "LRUIMD"
+---
 # Drone State Machine
 
 Every drone in the Celestia fleet follows a deterministic state machine governing its lifecycle from power-on to shutdown. Transitions are triggered by a combination of operator commands and onboard sensor events.

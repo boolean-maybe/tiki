@@ -65,7 +65,12 @@ func (dv *DokiView) build() {
 
 	switch dv.pluginDef.Fetcher {
 	case "file":
-		searchRoots := []string{config.GetDokiDir()}
+		// Phase 2: the legacy doki directory stays first so existing plugin
+		// configs (`URL: "index.md"` → `.doc/doki/index.md`) resolve
+		// unchanged. The unified document root is added as a fallback so
+		// a doki plugin that points at a document elsewhere under `.doc/`
+		// (including nested directories or `.doc/` itself) still resolves.
+		searchRoots := []string{config.GetDokiDir(), config.GetDocDir()}
 		provider := &loaders.FileHTTP{SearchRoots: searchRoots}
 
 		content, err = provider.FetchContent(nav.NavElement{URL: dv.pluginDef.URL})

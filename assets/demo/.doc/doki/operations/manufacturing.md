@@ -1,3 +1,6 @@
+---
+id: "ZN6ADR"
+---
 # Manufacturing Process
 
 Each Celestia drone goes through a six-stage manufacturing pipeline from bare PCB to packaged unit. Every stage has quality gates with automated test fixtures to catch defects early.

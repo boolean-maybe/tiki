@@ -1,3 +1,6 @@
+---
+id: "58TTBM"
+---
 # Coding Standards
 
 Celestia enforces consistent coding standards across all languages used in the platform. Automated linting catches style issues, while code review focuses on correctness, security, and maintainability.

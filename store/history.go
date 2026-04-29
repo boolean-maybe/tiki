@@ -71,9 +71,12 @@ func (h *TaskHistory) Build() error {
 	h.activeDeltas = nil
 	h.baseActive = 0
 
-	// Use batched git operations to get all file versions at once
-	dirPattern := filepath.Join(h.taskDir, "*.md")
-	allVersions, err := h.gitOps.AllFileVersionsSince(dirPattern, h.windowStart, true)
+	// Use batched git operations to get all file versions at once.
+	// Phase 2: pass the document root directly so git's pathspec recurses
+	// into subdirectories (the old `<dir>/*.md` glob would have missed any
+	// nested layout like `.doc/tiki/<ID>.md` once the store root moves up
+	// to `.doc/`).
+	allVersions, err := h.gitOps.AllFileVersionsSince(h.taskDir, h.windowStart, true)
 	if err != nil {
 		return fmt.Errorf("getting file versions: %w", err)
 	}
@@ -84,9 +87,11 @@ func (h *TaskHistory) Build() error {
 			continue
 		}
 
-		taskID := deriveTaskID(filepath.Base(filePath))
-
-		// Parse status from each version
+		// Parse status from each version. The id is taken from the first
+		// version that exposes one in its frontmatter; the filename is a
+		// fallback only — with Phase 2 paths are mutable and identity is
+		// frontmatter, so keying transitions by filename after a rename
+		// would split one task's history into two.
 		type versionStatus struct {
 			when   time.Time
 			status task.Status
@@ -94,22 +99,31 @@ func (h *TaskHistory) Build() error {
 		}
 
 		var statuses []versionStatus
+		var frontmatterID string
 		for _, version := range versions {
-			status, isWorkflow, err := parseStatusFromContent(version.Content)
+			ident, err := parseIdentityFromContent(version.Content)
 			if err != nil {
 				return fmt.Errorf("parsing status for %s at %s: %w", filePath, version.Hash, err)
 			}
-			if !isWorkflow {
-				// Plain doc at this version — skip rather than default to
-				// DefaultStatus. If the file later gains workflow fields,
-				// burndown will pick it up from that point forward.
+			if frontmatterID == "" && ident.id != "" {
+				frontmatterID = ident.id
+			}
+			if !ident.hasExplicitStat {
+				// No explicit `status` at this version — skip rather than
+				// default to DefaultStatus. Matches the presence-aware rule:
+				// a file with only `priority: high` is not yet workflow work.
 				continue
 			}
 			statuses = append(statuses, versionStatus{
 				when:   version.When,
-				status: status,
+				status: ident.status,
 				hash:   version.Hash,
 			})
+		}
+
+		taskID := frontmatterID
+		if taskID == "" {
+			taskID = deriveTaskID(filepath.Base(filePath))
 		}
 
 		// Build events from statuses (same logic as before)
@@ -237,42 +251,60 @@ func (h *TaskHistory) recordEvents(events []statusEvent) {
 	}
 }
 
-// parseStatusFromContent returns the workflow status recorded for a
-// particular git version of a task file. The second return value is false
-// when the file is not a workflow document at this version — i.e. its
-// frontmatter lacks every workflow-classifying key (status, type, priority,
-// points, tags, dependsOn, due, recurrence, assignee). Plain docs must be
-// skipped by burndown, not silently promoted to DefaultStatus; this was the
-// M2 finding in the code review.
-func parseStatusFromContent(content string) (task.Status, bool, error) {
-	defaultStatus := task.DefaultStatus()
+// versionIdentity is the per-git-version view of a file that burndown needs:
+// the document id (if the frontmatter carries one), the recorded workflow
+// status, and a flag that says "this version counts for burndown". The flag
+// is tighter than IsWorkflowFrontmatter: burndown only includes versions
+// that expose an explicit `status` field, not merely any workflow-coloured
+// key. A file with `priority: high` but no `status` is NOT counted, matching
+// the presence-aware rule in the plan ("burndown must include only documents
+// with explicit workflow status from the active workflow registry").
+type versionIdentity struct {
+	id              string
+	status          task.Status
+	hasExplicitStat bool
+}
+
+// parseIdentityFromContent parses a git-versioned file's frontmatter and
+// returns the burndown-relevant identity. The returned id is the bare
+// frontmatter id (uppercased) when present; callers fall back to the
+// filename only when id is empty, which protects transition bookkeeping
+// from filename-based keying after renames.
+//
+// Replaces the old parseStatusFromContent, whose `isWorkflow` flag was too
+// permissive: it returned true whenever any workflow-coloured key was
+// present and then defaulted missing `status` to DefaultStatus, which
+// silently promoted partial documents into the burndown chart.
+func parseIdentityFromContent(content string) (versionIdentity, error) {
+	var out versionIdentity
 	frontmatter, _, err := ParseFrontmatter(content)
 	if err != nil {
-		return defaultStatus, false, err
+		return out, err
 	}
-
 	if frontmatter == "" {
-		// No frontmatter at all → not a workflow document.
-		return defaultStatus, false, nil
+		return out, nil
 	}
-
 	var fm map[string]interface{}
 	if err := yaml.Unmarshal([]byte(frontmatter), &fm); err != nil {
-		return defaultStatus, false, err
+		return out, err
 	}
 
-	if !document.IsWorkflowFrontmatter(fm) {
-		// Has frontmatter but no workflow fields → plain doc. Skip.
-		return defaultStatus, false, nil
+	if raw, ok := document.FrontmatterID(fm); ok {
+		out.id = document.NormalizeID(raw)
 	}
 
-	statusVal := defaultStatus
-	if rawStatus, ok := fm["status"]; ok {
-		if s, ok := rawStatus.(string); ok && s != "" {
-			statusVal = task.MapStatus(s)
-		}
+	// The burndown gate: require an explicit, non-empty `status` string.
+	rawStatus, has := fm["status"]
+	if !has {
+		return out, nil
 	}
-	return statusVal, true, nil
+	s, isStr := rawStatus.(string)
+	if !isStr || s == "" {
+		return out, nil
+	}
+	out.status = task.MapStatus(s)
+	out.hasExplicitStat = true
+	return out, nil
 }
 
 func isActiveStatus(status task.Status) bool {

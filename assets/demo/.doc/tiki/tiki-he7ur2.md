@@ -1,11 +1,12 @@
 ---
+id: "HE7UR2"
 title: "Add multi-vehicle mission coordination API"
 status: backlog
 tags:
   - api
   - flight-controller
 dependsOn:
-  - TIKI-65KXVF
+  - 65KXVF
 assignee: "jnakamura"
 priority: 2
 points: 8

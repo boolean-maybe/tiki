@@ -1,3 +1,6 @@
+---
+id: "3HJG5W"
+---
 # Fleet Dashboard
 
 The fleet dashboard provides operators with a real-time view of all drones, their positions, battery levels, and mission progress. It is built as a React SPA communicating with the ground station API.

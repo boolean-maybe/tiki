@@ -1,11 +1,12 @@
 ---
+id: "XVG0FN"
 title: "Investigate telemetry timestamp drift on multi-core STM32H7"
 status: inProgress
 tags:
   - firmware
   - telemetry
 dependsOn:
-  - TIKI-3W5UZB
+  - 3W5UZB
 assignee: "mchen"
 priority: 2
 points: 3
@@ -145,4 +146,4 @@ impl SafetyMonitor {
 - [ ] Profile ISR latency under full sensor load
 - [ ] Document memory map for STM32H7 target
 
-See also [TIKI-9T84AZ](TIKI-9T84AZ) for related context.
+See also [9T84AZ](9T84AZ) for related context.

@@ -1,4 +1,5 @@
 ---
+id: "5LXO6Q"
 title: Create API versioning strategy and deprecation policy
 type: spike
 status: done
@@ -6,9 +7,9 @@ tags:
     - api
     - documentation
 dependsOn:
-    - TIKI-3GDPPQ
-    - TIKI-I64CIY
-    - TIKI-XAJI0Y
+    - 3GDPPQ
+    - I64CIY
+    - XAJI0Y
 assignee: jnakamura
 priority: 3
 points: 3
@@ -132,4 +133,4 @@ api/
         ├── telemetry.go  
         └── mission.go
 
-See also [TIKI-65KXVF](TIKI-65KXVF) for related context.
+See also [65KXVF](65KXVF) for related context.
