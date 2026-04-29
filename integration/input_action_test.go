@@ -59,7 +59,7 @@ func setupInputActionTest(t *testing.T) *testutil.TestApp {
 		t.Fatalf("failed to load plugins: %v", err)
 	}
 
-	if err := testutil.CreateTestTask(ta.TaskDir, "TIKI-1", "Test Task", task.StatusBacklog, task.TypeStory); err != nil {
+	if err := testutil.CreateTestTask(ta.TaskDir, "000001", "Test Task", task.StatusBacklog, task.TypeStory); err != nil {
 		t.Fatalf("failed to create task: %v", err)
 	}
 	if err := ta.TaskStore.Reload(); err != nil {
@@ -116,7 +116,7 @@ func TestInputAction_EnterAppliesMutation(t *testing.T) {
 	if err := ta.TaskStore.Reload(); err != nil {
 		t.Fatalf("failed to reload: %v", err)
 	}
-	updated := ta.TaskStore.GetTask("TIKI-1")
+	updated := ta.TaskStore.GetTask("000001")
 	if updated == nil {
 		t.Fatal("task not found")
 	}
@@ -141,7 +141,7 @@ func TestInputAction_EscCancelsWithoutMutation(t *testing.T) {
 	if err := ta.TaskStore.Reload(); err != nil {
 		t.Fatalf("failed to reload: %v", err)
 	}
-	updated := ta.TaskStore.GetTask("TIKI-1")
+	updated := ta.TaskStore.GetTask("000001")
 	if updated == nil {
 		t.Fatal("task not found")
 	}
@@ -165,7 +165,7 @@ func TestInputAction_NonInputActionStillWorks(t *testing.T) {
 	if err := ta.TaskStore.Reload(); err != nil {
 		t.Fatalf("failed to reload: %v", err)
 	}
-	updated := ta.TaskStore.GetTask("TIKI-1")
+	updated := ta.TaskStore.GetTask("000001")
 	if updated == nil {
 		t.Fatal("task not found")
 	}
@@ -191,7 +191,7 @@ func TestInputAction_ModalBlocksOtherActions(t *testing.T) {
 	if err := ta.TaskStore.Reload(); err != nil {
 		t.Fatalf("failed to reload: %v", err)
 	}
-	updated := ta.TaskStore.GetTask("TIKI-1")
+	updated := ta.TaskStore.GetTask("000001")
 	if updated.Status != task.StatusBacklog {
 		t.Fatalf("expected status backlog (action should be blocked while modal), got %v", updated.Status)
 	}
@@ -282,7 +282,7 @@ func TestInputAction_PassiveSearchReplacedByActionInput(t *testing.T) {
 	if err := ta.TaskStore.Reload(); err != nil {
 		t.Fatalf("failed to reload: %v", err)
 	}
-	updated := ta.TaskStore.GetTask("TIKI-1")
+	updated := ta.TaskStore.GetTask("000001")
 	if updated == nil {
 		t.Fatal("task not found")
 	}
@@ -317,7 +317,7 @@ func TestInputAction_ActionInputEscRestoresPassiveSearch(t *testing.T) {
 	if err := ta.TaskStore.Reload(); err != nil {
 		t.Fatalf("failed to reload: %v", err)
 	}
-	updated := ta.TaskStore.GetTask("TIKI-1")
+	updated := ta.TaskStore.GetTask("000001")
 	if updated.Assignee != "" {
 		t.Fatalf("expected empty assignee after cancel, got %q", updated.Assignee)
 	}
@@ -341,7 +341,7 @@ func TestInputAction_SearchEditingBlocksPluginActions(t *testing.T) {
 	if err := ta.TaskStore.Reload(); err != nil {
 		t.Fatalf("failed to reload: %v", err)
 	}
-	updated := ta.TaskStore.GetTask("TIKI-1")
+	updated := ta.TaskStore.GetTask("000001")
 	if updated.Status != task.StatusBacklog {
 		t.Fatalf("expected status backlog (action blocked during search editing), got %v", updated.Status)
 	}
@@ -422,7 +422,7 @@ func TestInputAction_PaletteDispatchOpensPrompt(t *testing.T) {
 	if err := ta.TaskStore.Reload(); err != nil {
 		t.Fatalf("failed to reload: %v", err)
 	}
-	updated := ta.TaskStore.GetTask("TIKI-1")
+	updated := ta.TaskStore.GetTask("000001")
 	if updated.Assignee != "eve" {
 		t.Fatalf("expected assignee=eve via palette dispatch, got %q", updated.Assignee)
 	}
@@ -434,7 +434,7 @@ func TestInputAction_InvalidInputKeepsPromptOpen(t *testing.T) {
 
 	iv := getActiveInputableView(ta)
 
-	originalTask := ta.TaskStore.GetTask("TIKI-1")
+	originalTask := ta.TaskStore.GetTask("000001")
 	originalPoints := originalTask.Points
 
 	// open int input (points)
@@ -459,7 +459,7 @@ func TestInputAction_InvalidInputKeepsPromptOpen(t *testing.T) {
 	if err := ta.TaskStore.Reload(); err != nil {
 		t.Fatalf("failed to reload: %v", err)
 	}
-	updated := ta.TaskStore.GetTask("TIKI-1")
+	updated := ta.TaskStore.GetTask("000001")
 	if updated.Points != originalPoints {
 		t.Fatalf("expected points=%d (unchanged), got %d", originalPoints, updated.Points)
 	}
@@ -499,7 +499,7 @@ func TestInputAction_PreflightNoTaskSelected_NoPrompt(t *testing.T) {
 	defer ta.Cleanup()
 
 	// create a task, but it won't match the filter
-	if err := testutil.CreateTestTask(ta.TaskDir, "TIKI-1", "Test", task.StatusBacklog, task.TypeStory); err != nil {
+	if err := testutil.CreateTestTask(ta.TaskDir, "000001", "Test", task.StatusBacklog, task.TypeStory); err != nil {
 		t.Fatalf("failed to create task: %v", err)
 	}
 	if err := ta.TaskStore.Reload(); err != nil {
@@ -557,7 +557,7 @@ func TestInputAction_AddTagMutation(t *testing.T) {
 	if err := ta.TaskStore.Reload(); err != nil {
 		t.Fatalf("failed to reload: %v", err)
 	}
-	updated := ta.TaskStore.GetTask("TIKI-1")
+	updated := ta.TaskStore.GetTask("000001")
 	if updated == nil {
 		t.Fatal("task not found")
 	}
@@ -606,7 +606,7 @@ func TestInputAction_CompositeKeyPluginAction(t *testing.T) {
 		t.Fatalf("failed to load plugins: %v", err)
 	}
 
-	if err := testutil.CreateTestTask(ta.TaskDir, "TIKI-1", "Blocked Task", task.StatusBacklog, task.TypeStory); err != nil {
+	if err := testutil.CreateTestTask(ta.TaskDir, "000001", "Blocked Task", task.StatusBacklog, task.TypeStory); err != nil {
 		t.Fatalf("failed to create task: %v", err)
 	}
 	if err := ta.TaskStore.Reload(); err != nil {
@@ -622,7 +622,7 @@ func TestInputAction_CompositeKeyPluginAction(t *testing.T) {
 	if err := ta.TaskStore.Reload(); err != nil {
 		t.Fatalf("failed to reload: %v", err)
 	}
-	updated := ta.TaskStore.GetTask("TIKI-1")
+	updated := ta.TaskStore.GetTask("000001")
 	if updated.Status != task.StatusReady {
 		t.Fatalf("expected status 'ready' after Ctrl-U action, got %q", updated.Status)
 	}

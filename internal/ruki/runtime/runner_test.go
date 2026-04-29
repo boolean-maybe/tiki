@@ -372,8 +372,9 @@ func TestRunQueryCreatePersists(t *testing.T) {
 	}
 
 	out := buf.String()
-	if !strings.Contains(out, "created TIKI-") {
-		t.Fatalf("expected 'created TIKI-' in output, got: %s", out)
+	// Post-Phase-1: created IDs are bare uppercase (no TIKI- prefix).
+	if !strings.Contains(out, "created ") {
+		t.Fatalf("expected 'created ' in output, got: %s", out)
 	}
 
 	// verify task exists in store
@@ -389,8 +390,9 @@ func TestRunQueryCreatePersists(t *testing.T) {
 		t.Fatal("created task not found in store")
 		return
 	}
-	if !strings.HasPrefix(found.ID, "TIKI-") || len(found.ID) != 11 {
-		t.Errorf("ID = %q, want TIKI-XXXXXX format (11 chars)", found.ID)
+	// Post-Phase-1: IDs are bare uppercase, 6 chars.
+	if len(found.ID) != 6 {
+		t.Errorf("ID = %q, want 6-character bare ID", found.ID)
 	}
 	if found.Priority != 1 {
 		t.Errorf("priority = %d, want 1", found.Priority)
@@ -879,8 +881,8 @@ func TestRunQueryWithOptionsCreateJSON(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 	out := strings.TrimSpace(buf.String())
-	// shape: {"created":"TIKI-XXXXXX"}
-	if !strings.HasPrefix(out, `{"created":"TIKI-`) || !strings.HasSuffix(out, `"}`) {
+	// Post-Phase-1: shape is {"created":"XXXXXX"} (bare uppercase id).
+	if !strings.HasPrefix(out, `{"created":"`) || !strings.HasSuffix(out, `"}`) {
 		t.Errorf("unexpected create JSON: %q", out)
 	}
 }

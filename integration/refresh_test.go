@@ -23,7 +23,7 @@ func TestRefresh_FromKanban(t *testing.T) {
 	}
 
 	// Create initial task
-	if err := testutil.CreateTestTask(ta.TaskDir, "TIKI-1", "First Task", taskpkg.StatusReady, taskpkg.TypeStory); err != nil {
+	if err := testutil.CreateTestTask(ta.TaskDir, "000001", "First Task", taskpkg.StatusReady, taskpkg.TypeStory); err != nil {
 		t.Fatalf("failed to create test task: %v", err)
 	}
 	if err := ta.TaskStore.Reload(); err != nil {
@@ -35,14 +35,14 @@ func TestRefresh_FromKanban(t *testing.T) {
 	ta.Draw()
 
 	// Verify TIKI-1 is visible
-	found, _, _ := ta.FindText("TIKI-1")
+	found, _, _ := ta.FindText("000001")
 	if !found {
 		ta.DumpScreen()
 		t.Errorf("TIKI-1 should be visible initially")
 	}
 
 	// Create a new task externally (simulating external modification)
-	if err := testutil.CreateTestTask(ta.TaskDir, "TIKI-2", "New External Task", taskpkg.StatusReady, taskpkg.TypeStory); err != nil {
+	if err := testutil.CreateTestTask(ta.TaskDir, "000002", "New External Task", taskpkg.StatusReady, taskpkg.TypeStory); err != nil {
 		t.Fatalf("failed to create external task: %v", err)
 	}
 
@@ -50,7 +50,7 @@ func TestRefresh_FromKanban(t *testing.T) {
 	ta.SendKey(tcell.KeyRune, 'r', tcell.ModNone)
 
 	// Verify TIKI-2 is now visible
-	found2, _, _ := ta.FindText("TIKI-2")
+	found2, _, _ := ta.FindText("000002")
 	if !found2 {
 		ta.DumpScreen()
 		t.Errorf("TIKI-2 should be visible after refresh")
@@ -68,7 +68,7 @@ func TestRefresh_ExternalModification(t *testing.T) {
 	}
 
 	// Create task
-	taskID := "TIKI-1"
+	taskID := "000001"
 	if err := testutil.CreateTestTask(ta.TaskDir, taskID, "Original Title", taskpkg.StatusReady, taskpkg.TypeStory); err != nil {
 		t.Fatalf("failed to create test task: %v", err)
 	}
@@ -126,10 +126,10 @@ func TestRefresh_ExternalDeletion(t *testing.T) {
 	}
 
 	// Create two tasks
-	if err := testutil.CreateTestTask(ta.TaskDir, "TIKI-1", "First Task", taskpkg.StatusReady, taskpkg.TypeStory); err != nil {
+	if err := testutil.CreateTestTask(ta.TaskDir, "000001", "First Task", taskpkg.StatusReady, taskpkg.TypeStory); err != nil {
 		t.Fatalf("failed to create test task: %v", err)
 	}
-	if err := testutil.CreateTestTask(ta.TaskDir, "TIKI-2", "Second Task", taskpkg.StatusReady, taskpkg.TypeStory); err != nil {
+	if err := testutil.CreateTestTask(ta.TaskDir, "000002", "Second Task", taskpkg.StatusReady, taskpkg.TypeStory); err != nil {
 		t.Fatalf("failed to create test task: %v", err)
 	}
 	if err := ta.TaskStore.Reload(); err != nil {
@@ -141,15 +141,15 @@ func TestRefresh_ExternalDeletion(t *testing.T) {
 	ta.Draw()
 
 	// Verify both tasks visible
-	found1, _, _ := ta.FindText("TIKI-1")
-	found2, _, _ := ta.FindText("TIKI-2")
+	found1, _, _ := ta.FindText("000001")
+	found2, _, _ := ta.FindText("000002")
 	if !found1 || !found2 {
 		ta.DumpScreen()
 		t.Errorf("both tasks should be visible initially")
 	}
 
 	// Delete TIKI-1 externally
-	taskPath := filepath.Join(ta.TaskDir, "tiki-1.md")
+	taskPath := filepath.Join(ta.TaskDir, "000001.md")
 	if err := os.Remove(taskPath); err != nil {
 		t.Fatalf("failed to delete task file: %v", err)
 	}
@@ -158,14 +158,14 @@ func TestRefresh_ExternalDeletion(t *testing.T) {
 	ta.SendKey(tcell.KeyRune, 'r', tcell.ModNone)
 
 	// Verify TIKI-1 is gone
-	found1After, _, _ := ta.FindText("TIKI-1")
+	found1After, _, _ := ta.FindText("000001")
 	if found1After {
 		ta.DumpScreen()
 		t.Errorf("TIKI-1 should NOT be visible after deletion and refresh")
 	}
 
 	// Verify TIKI-2 still visible
-	found2After, _, _ := ta.FindText("TIKI-2")
+	found2After, _, _ := ta.FindText("000002")
 	if !found2After {
 		ta.DumpScreen()
 		t.Errorf("TIKI-2 should still be visible after refresh")
@@ -189,10 +189,10 @@ func TestRefresh_PreservesSelection(t *testing.T) {
 	}
 
 	// Create tasks
-	if err := testutil.CreateTestTask(ta.TaskDir, "TIKI-1", "First Task", taskpkg.StatusReady, taskpkg.TypeStory); err != nil {
+	if err := testutil.CreateTestTask(ta.TaskDir, "000001", "First Task", taskpkg.StatusReady, taskpkg.TypeStory); err != nil {
 		t.Fatalf("failed to create test task: %v", err)
 	}
-	if err := testutil.CreateTestTask(ta.TaskDir, "TIKI-2", "Second Task", taskpkg.StatusReady, taskpkg.TypeStory); err != nil {
+	if err := testutil.CreateTestTask(ta.TaskDir, "000002", "Second Task", taskpkg.StatusReady, taskpkg.TypeStory); err != nil {
 		t.Fatalf("failed to create test task: %v", err)
 	}
 	if err := ta.TaskStore.Reload(); err != nil {
@@ -213,7 +213,7 @@ func TestRefresh_PreservesSelection(t *testing.T) {
 	}
 
 	// Create a new task externally (doesn't affect selection)
-	if err := testutil.CreateTestTask(ta.TaskDir, "TIKI-3", "Third Task", taskpkg.StatusReady, taskpkg.TypeStory); err != nil {
+	if err := testutil.CreateTestTask(ta.TaskDir, "000003", "Third Task", taskpkg.StatusReady, taskpkg.TypeStory); err != nil {
 		t.Fatalf("failed to create test task: %v", err)
 	}
 
@@ -239,10 +239,10 @@ func TestRefresh_ResetsSelectionWhenTaskDeleted(t *testing.T) {
 	}
 
 	// Create tasks
-	if err := testutil.CreateTestTask(ta.TaskDir, "TIKI-1", "First Task", taskpkg.StatusReady, taskpkg.TypeStory); err != nil {
+	if err := testutil.CreateTestTask(ta.TaskDir, "000001", "First Task", taskpkg.StatusReady, taskpkg.TypeStory); err != nil {
 		t.Fatalf("failed to create test task: %v", err)
 	}
-	if err := testutil.CreateTestTask(ta.TaskDir, "TIKI-2", "Second Task", taskpkg.StatusReady, taskpkg.TypeStory); err != nil {
+	if err := testutil.CreateTestTask(ta.TaskDir, "000002", "Second Task", taskpkg.StatusReady, taskpkg.TypeStory); err != nil {
 		t.Fatalf("failed to create test task: %v", err)
 	}
 	if err := ta.TaskStore.Reload(); err != nil {
@@ -263,7 +263,7 @@ func TestRefresh_ResetsSelectionWhenTaskDeleted(t *testing.T) {
 	}
 
 	// Delete TIKI-2 externally (the selected task)
-	taskPath := filepath.Join(ta.TaskDir, "tiki-2.md")
+	taskPath := filepath.Join(ta.TaskDir, "000002.md")
 	if err := os.Remove(taskPath); err != nil {
 		t.Fatalf("failed to delete task file: %v", err)
 	}
@@ -277,7 +277,7 @@ func TestRefresh_ResetsSelectionWhenTaskDeleted(t *testing.T) {
 	}
 
 	// Verify TIKI-1 is still visible
-	found1, _, _ := ta.FindText("TIKI-1")
+	found1, _, _ := ta.FindText("000001")
 	if !found1 {
 		ta.DumpScreen()
 		t.Errorf("TIKI-1 should be visible after refresh")
@@ -295,7 +295,7 @@ func TestRefresh_FromTaskDetail(t *testing.T) {
 	}
 
 	// Create task
-	taskID := "TIKI-1"
+	taskID := "000001"
 	if err := testutil.CreateTestTask(ta.TaskDir, taskID, "Original Title", taskpkg.StatusReady, taskpkg.TypeStory); err != nil {
 		t.Fatalf("failed to create test task: %v", err)
 	}
@@ -342,10 +342,10 @@ func TestRefresh_WithActiveSearch(t *testing.T) {
 	}
 
 	// Create tasks
-	if err := testutil.CreateTestTask(ta.TaskDir, "TIKI-1", "Alpha Task", taskpkg.StatusReady, taskpkg.TypeStory); err != nil {
+	if err := testutil.CreateTestTask(ta.TaskDir, "000001", "Alpha Task", taskpkg.StatusReady, taskpkg.TypeStory); err != nil {
 		t.Fatalf("failed to create test task: %v", err)
 	}
-	if err := testutil.CreateTestTask(ta.TaskDir, "TIKI-2", "Beta Task", taskpkg.StatusReady, taskpkg.TypeStory); err != nil {
+	if err := testutil.CreateTestTask(ta.TaskDir, "000002", "Beta Task", taskpkg.StatusReady, taskpkg.TypeStory); err != nil {
 		t.Fatalf("failed to create test task: %v", err)
 	}
 	if err := ta.TaskStore.Reload(); err != nil {
@@ -362,8 +362,8 @@ func TestRefresh_WithActiveSearch(t *testing.T) {
 	ta.SendKey(tcell.KeyEnter, 0, tcell.ModNone)
 
 	// Verify only TIKI-1 visible
-	found1, _, _ := ta.FindText("TIKI-1")
-	found2, _, _ := ta.FindText("TIKI-2")
+	found1, _, _ := ta.FindText("000001")
+	found2, _, _ := ta.FindText("000002")
 	if !found1 || found2 {
 		ta.DumpScreen()
 		t.Errorf("search should filter to only TIKI-1")
@@ -377,7 +377,7 @@ func TestRefresh_WithActiveSearch(t *testing.T) {
 	// This test just verifies refresh doesn't crash with active search
 
 	// Verify TIKI-1 is still visible (search still active)
-	found1After, _, _ := ta.FindText("TIKI-1")
+	found1After, _, _ := ta.FindText("000001")
 	if !found1After {
 		ta.DumpScreen()
 		t.Errorf("TIKI-1 should still be visible (search persists after refresh)")
@@ -395,7 +395,7 @@ func TestRefresh_MultipleRefreshes(t *testing.T) {
 	}
 
 	// Create initial task
-	if err := testutil.CreateTestTask(ta.TaskDir, "TIKI-1", "First Task", taskpkg.StatusReady, taskpkg.TypeStory); err != nil {
+	if err := testutil.CreateTestTask(ta.TaskDir, "000001", "First Task", taskpkg.StatusReady, taskpkg.TypeStory); err != nil {
 		t.Fatalf("failed to create test task: %v", err)
 	}
 	if err := ta.TaskStore.Reload(); err != nil {
@@ -410,13 +410,13 @@ func TestRefresh_MultipleRefreshes(t *testing.T) {
 	ta.SendKey(tcell.KeyRune, 'r', tcell.ModNone)
 
 	// Verify TIKI-1 still visible
-	found, _, _ := ta.FindText("TIKI-1")
+	found, _, _ := ta.FindText("000001")
 	if !found {
 		t.Errorf("TIKI-1 should be visible after first refresh")
 	}
 
 	// Add a new task
-	if err := testutil.CreateTestTask(ta.TaskDir, "TIKI-2", "Second Task", taskpkg.StatusReady, taskpkg.TypeStory); err != nil {
+	if err := testutil.CreateTestTask(ta.TaskDir, "000002", "Second Task", taskpkg.StatusReady, taskpkg.TypeStory); err != nil {
 		t.Fatalf("failed to create test task: %v", err)
 	}
 
@@ -424,8 +424,8 @@ func TestRefresh_MultipleRefreshes(t *testing.T) {
 	ta.SendKey(tcell.KeyRune, 'r', tcell.ModNone)
 
 	// Verify both tasks visible
-	found1, _, _ := ta.FindText("TIKI-1")
-	found2, _, _ := ta.FindText("TIKI-2")
+	found1, _, _ := ta.FindText("000001")
+	found2, _, _ := ta.FindText("000002")
 	if !found1 || !found2 {
 		ta.DumpScreen()
 		t.Errorf("both tasks should be visible after second refresh")
@@ -435,8 +435,8 @@ func TestRefresh_MultipleRefreshes(t *testing.T) {
 	ta.SendKey(tcell.KeyRune, 'r', tcell.ModNone)
 
 	// Verify both tasks still visible
-	found1Again, _, _ := ta.FindText("TIKI-1")
-	found2Again, _, _ := ta.FindText("TIKI-2")
+	found1Again, _, _ := ta.FindText("000001")
+	found2Again, _, _ := ta.FindText("000002")
 	if !found1Again || !found2Again {
 		ta.DumpScreen()
 		t.Errorf("both tasks should be visible after third refresh")

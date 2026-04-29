@@ -1,4 +1,5 @@
 ---
+id: XXXXXX
 title: Inconsistent formatting in monthly reports
 type: bug
 status: backlog

@@ -30,12 +30,14 @@ func TestParseFrontmatter(t *testing.T) {
 		{
 			name: "valid frontmatter with all fields",
 			input: `---
+id: ABC123
 title: Test Task
 type: story
 status: todo
 ---
 Task description here`,
-			expectedFrontmatter: `title: Test Task
+			expectedFrontmatter: `id: ABC123
+title: Test Task
 type: story
 status: todo`,
 			expectedBody: "Task description here",
@@ -44,13 +46,15 @@ status: todo`,
 		{
 			name: "valid frontmatter with body containing markdown",
 			input: `---
+id: ABC123
 title: Bug Fix
 type: bug
 status: in_progress
 ---
 ## Description
 This is a **bold** bug.`,
-			expectedFrontmatter: `title: Bug Fix
+			expectedFrontmatter: `id: ABC123
+title: Bug Fix
 type: bug
 status: in_progress`,
 			expectedBody: `## Description
@@ -60,6 +64,7 @@ This is a **bold** bug.`,
 		{
 			name: "missing closing delimiter",
 			input: `---
+id: ABC123
 title: Incomplete
 status: todo
 This should fail`,
@@ -77,22 +82,25 @@ This should fail`,
 		{
 			name: "empty frontmatter",
 			input: `---
+id: ABC123
 ---
 Body text here`,
-			expectedFrontmatter: "",
+			expectedFrontmatter: "id: ABC123",
 			expectedBody:        "Body text here",
 			expectError:         false,
 		},
 		{
 			name: "frontmatter with extra whitespace",
 			input: `---
+id: ABC123
 title: Whitespace Test
 ---
 
 Body with leading newline`,
-			expectedFrontmatter: `title: Whitespace Test`,
-			expectedBody:        "\nBody with leading newline",
-			expectError:         false,
+			expectedFrontmatter: `id: ABC123
+title: Whitespace Test`,
+			expectedBody: "\nBody with leading newline",
+			expectError:  false,
 		},
 	}
 

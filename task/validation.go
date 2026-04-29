@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/boolean-maybe/tiki/config"
+	"github.com/boolean-maybe/tiki/document"
 )
 
 // Priority validation constants
@@ -66,10 +67,12 @@ func ValidatePoints(t *Task) string {
 }
 
 // ValidateDependsOn returns an error message if any dependency ID is malformed.
+// Only bare document IDs are accepted — legacy TIKI-XXXXXX values are not
+// valid references. Run `tiki repair ids --fix` to migrate legacy IDs.
 func ValidateDependsOn(t *Task) string {
 	for _, dep := range t.DependsOn {
-		if !IsValidTikiIDFormat(dep) {
-			return fmt.Sprintf("invalid tiki ID format: %s (expected TIKI-XXXXXX)", dep)
+		if !document.IsValidID(dep) {
+			return fmt.Sprintf("invalid document ID format: %s (expected %d uppercase alphanumeric chars)", dep, document.IDLength)
 		}
 	}
 	return ""
@@ -111,20 +114,6 @@ func IsValidPoints(points int) bool {
 		return false
 	}
 	return points <= config.GetMaxPoints()
-}
-
-// IsValidTikiIDFormat checks if a string matches the TIKI-XXXXXX format
-// where X is an uppercase alphanumeric character.
-func IsValidTikiIDFormat(id string) bool {
-	if len(id) != 11 || id[:5] != "TIKI-" {
-		return false
-	}
-	for _, c := range id[5:] {
-		if (c < 'A' || c > 'Z') && (c < '0' || c > '9') {
-			return false
-		}
-	}
-	return true
 }
 
 // AllValidators returns the complete list of field validation functions.

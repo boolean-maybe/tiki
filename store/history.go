@@ -7,6 +7,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/boolean-maybe/tiki/document"
 	"github.com/boolean-maybe/tiki/store/internal/git"
 	"github.com/boolean-maybe/tiki/task"
 
@@ -94,9 +95,15 @@ func (h *TaskHistory) Build() error {
 
 		var statuses []versionStatus
 		for _, version := range versions {
-			status, err := parseStatusFromContent(version.Content)
+			status, isWorkflow, err := parseStatusFromContent(version.Content)
 			if err != nil {
 				return fmt.Errorf("parsing status for %s at %s: %w", filePath, version.Hash, err)
+			}
+			if !isWorkflow {
+				// Plain doc at this version — skip rather than default to
+				// DefaultStatus. If the file later gains workflow fields,
+				// burndown will pick it up from that point forward.
+				continue
 			}
 			statuses = append(statuses, versionStatus{
 				when:   version.When,
@@ -230,20 +237,33 @@ func (h *TaskHistory) recordEvents(events []statusEvent) {
 	}
 }
 
-func parseStatusFromContent(content string) (task.Status, error) {
+// parseStatusFromContent returns the workflow status recorded for a
+// particular git version of a task file. The second return value is false
+// when the file is not a workflow document at this version — i.e. its
+// frontmatter lacks every workflow-classifying key (status, type, priority,
+// points, tags, dependsOn, due, recurrence, assignee). Plain docs must be
+// skipped by burndown, not silently promoted to DefaultStatus; this was the
+// M2 finding in the code review.
+func parseStatusFromContent(content string) (task.Status, bool, error) {
 	defaultStatus := task.DefaultStatus()
 	frontmatter, _, err := ParseFrontmatter(content)
 	if err != nil {
-		return defaultStatus, err
+		return defaultStatus, false, err
 	}
 
 	if frontmatter == "" {
-		return defaultStatus, nil
+		// No frontmatter at all → not a workflow document.
+		return defaultStatus, false, nil
 	}
 
 	var fm map[string]interface{}
 	if err := yaml.Unmarshal([]byte(frontmatter), &fm); err != nil {
-		return defaultStatus, err
+		return defaultStatus, false, err
+	}
+
+	if !document.IsWorkflowFrontmatter(fm) {
+		// Has frontmatter but no workflow fields → plain doc. Skip.
+		return defaultStatus, false, nil
 	}
 
 	statusVal := defaultStatus
@@ -252,8 +272,7 @@ func parseStatusFromContent(content string) (task.Status, error) {
 			statusVal = task.MapStatus(s)
 		}
 	}
-
-	return statusVal, nil
+	return statusVal, true, nil
 }
 
 func isActiveStatus(status task.Status) bool {

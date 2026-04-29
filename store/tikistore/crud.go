@@ -23,26 +23,37 @@ func (s *TikiStore) createTaskLocked(task *taskpkg.Task) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	// generate ID if not provided
+	// generate ID if not provided. Identity uniqueness is checked against the
+	// in-memory index (s.tasks), not the filesystem — a task loaded from a
+	// renamed file occupies an id without occupying <taskdir>/<id>.md, so an
+	// os.Stat probe would falsely report the id free.
 	if task.ID == "" {
-		for {
-			randomID := config.GenerateRandomID()
-			task.ID = fmt.Sprintf("TIKI-%s", randomID)
-
-			path := s.taskFilePath(task.ID)
-			if _, err := os.Stat(path); os.IsNotExist(err) {
+		for i := 0; ; i++ {
+			candidate := normalizeTaskID(config.GenerateRandomID())
+			if _, taken := s.tasks[candidate]; !taken {
+				task.ID = candidate
 				break
 			}
-			slog.Debug("ID collision detected, regenerating", "id", task.ID)
+			if i > maxGenerateRetries {
+				return fmt.Errorf("failed to generate unique task id after %d attempts", maxGenerateRetries)
+			}
+			slog.Debug("ID collision detected in index, regenerating", "id", candidate)
 		}
+	} else {
+		task.ID = normalizeTaskID(task.ID)
 	}
 
-	task.ID = normalizeTaskID(task.ID)
 	taskpkg.NormalizeCollectionFields(task)
 
 	if err := s.validateDependsOnLocked(task); err != nil {
 		return err
 	}
+
+	// CreateTask is a workflow creation path by definition — everything that
+	// arrives here is a workflow item, even if the caller left IsWorkflow
+	// zero-valued. Plain docs are created by other means (editing files on
+	// disk without workflow fields).
+	task.IsWorkflow = true
 
 	s.tasks[task.ID] = task
 	if err := s.saveTask(task); err != nil {
@@ -52,6 +63,11 @@ func (s *TikiStore) createTaskLocked(task *taskpkg.Task) error {
 	}
 	return nil
 }
+
+// maxGenerateRetries caps the id-generation retry loop so a pathological
+// index (e.g. someone wedged the whole 36^6 space) surfaces an error
+// instead of looping forever.
+const maxGenerateRetries = 100
 
 // GetTask retrieves a task by ID
 func (s *TikiStore) GetTask(id string) *taskpkg.Task {
@@ -80,6 +96,21 @@ func (s *TikiStore) updateTaskLocked(task *taskpkg.Task) error {
 	oldTask, exists := s.tasks[task.ID]
 	if !exists {
 		return fmt.Errorf("task not found: %s", task.ID)
+	}
+
+	// Carry forward identity-bound state from the loaded task if the caller
+	// passed a fresh Task value. Without this, a caller that constructs a
+	// Task from scratch (empty FilePath/LoadedMtime) would:
+	//   • lose the loaded path, so save would target <id>.md instead of the
+	//     renamed file the user is editing — the high finding's escape hatch;
+	//   • silently bypass the optimistic-locking mtime check, defeating
+	//     external-edit detection.
+	// Callers that *want* to reset these can set them explicitly.
+	if task.FilePath == "" {
+		task.FilePath = oldTask.FilePath
+	}
+	if task.LoadedMtime.IsZero() {
+		task.LoadedMtime = oldTask.LoadedMtime
 	}
 
 	if err := s.validateDependsOnLocked(task); err != nil {
@@ -111,11 +142,13 @@ func (s *TikiStore) deleteTaskLocked(id string) bool {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	if _, exists := s.tasks[id]; !exists {
+	existing, exists := s.tasks[id]
+	if !exists {
 		return false
 	}
 
-	path := s.taskFilePath(id)
+	// use the loaded file path so a renamed/moved file still gets cleaned up.
+	path := s.pathForTask(existing)
 
 	// try git rm first if git is available
 	removed := false

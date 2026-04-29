@@ -24,10 +24,10 @@ func TestTaskDeletion_FromKanban(t *testing.T) {
 	}
 
 	// Create tasks
-	if err := testutil.CreateTestTask(ta.TaskDir, "TIKI-1", "First Task", taskpkg.StatusReady, taskpkg.TypeStory); err != nil {
+	if err := testutil.CreateTestTask(ta.TaskDir, "000001", "First Task", taskpkg.StatusReady, taskpkg.TypeStory); err != nil {
 		t.Fatalf("failed to create task: %v", err)
 	}
-	if err := testutil.CreateTestTask(ta.TaskDir, "TIKI-2", "Second Task", taskpkg.StatusReady, taskpkg.TypeStory); err != nil {
+	if err := testutil.CreateTestTask(ta.TaskDir, "000002", "Second Task", taskpkg.StatusReady, taskpkg.TypeStory); err != nil {
 		t.Fatalf("failed to create task: %v", err)
 	}
 	if err := ta.TaskStore.Reload(); err != nil {
@@ -39,7 +39,7 @@ func TestTaskDeletion_FromKanban(t *testing.T) {
 	ta.Draw()
 
 	// Verify TIKI-1 visible
-	found, _, _ := ta.FindText("TIKI-1")
+	found, _, _ := ta.FindText("000001")
 	if !found {
 		ta.DumpScreen()
 		t.Fatalf("TIKI-1 should be visible before delete")
@@ -53,19 +53,19 @@ func TestTaskDeletion_FromKanban(t *testing.T) {
 		t.Fatalf("failed to reload: %v", err)
 	}
 
-	task := ta.TaskStore.GetTask("TIKI-1")
+	task := ta.TaskStore.GetTask("000001")
 	if task != nil {
 		t.Errorf("TIKI-1 should be deleted from store")
 	}
 
 	// Verify file removed
-	taskPath := filepath.Join(ta.TaskDir, "tiki-1.md")
+	taskPath := filepath.Join(ta.TaskDir, "000001.md")
 	if _, err := os.Stat(taskPath); !os.IsNotExist(err) {
 		t.Errorf("TIKI-1 file should be deleted")
 	}
 
 	// Verify TIKI-2 still visible
-	found2, _, _ := ta.FindText("TIKI-2")
+	found2, _, _ := ta.FindText("000002")
 	if !found2 {
 		ta.DumpScreen()
 		t.Errorf("TIKI-2 should still be visible after deleting TIKI-1")
@@ -83,13 +83,13 @@ func TestTaskDeletion_SelectionMoves(t *testing.T) {
 	}
 
 	// Create three tasks
-	if err := testutil.CreateTestTask(ta.TaskDir, "TIKI-1", "First Task", taskpkg.StatusReady, taskpkg.TypeStory); err != nil {
+	if err := testutil.CreateTestTask(ta.TaskDir, "000001", "First Task", taskpkg.StatusReady, taskpkg.TypeStory); err != nil {
 		t.Fatalf("failed to create task: %v", err)
 	}
-	if err := testutil.CreateTestTask(ta.TaskDir, "TIKI-2", "Second Task", taskpkg.StatusReady, taskpkg.TypeStory); err != nil {
+	if err := testutil.CreateTestTask(ta.TaskDir, "000002", "Second Task", taskpkg.StatusReady, taskpkg.TypeStory); err != nil {
 		t.Fatalf("failed to create task: %v", err)
 	}
-	if err := testutil.CreateTestTask(ta.TaskDir, "TIKI-3", "Third Task", taskpkg.StatusReady, taskpkg.TypeStory); err != nil {
+	if err := testutil.CreateTestTask(ta.TaskDir, "000003", "Third Task", taskpkg.StatusReady, taskpkg.TypeStory); err != nil {
 		t.Fatalf("failed to create task: %v", err)
 	}
 	if err := ta.TaskStore.Reload(); err != nil {
@@ -119,7 +119,7 @@ func TestTaskDeletion_SelectionMoves(t *testing.T) {
 	}
 
 	// Verify TIKI-3 is visible
-	found3, _, _ := ta.FindText("TIKI-3")
+	found3, _, _ := ta.FindText("000003")
 	if !found3 {
 		ta.DumpScreen()
 		t.Errorf("TIKI-3 should be visible after deleting TIKI-2")
@@ -137,7 +137,7 @@ func TestTaskDeletion_LastTaskInLane(t *testing.T) {
 	}
 
 	// Create only one task in todo lane
-	if err := testutil.CreateTestTask(ta.TaskDir, "TIKI-1", "Only Task", taskpkg.StatusReady, taskpkg.TypeStory); err != nil {
+	if err := testutil.CreateTestTask(ta.TaskDir, "000001", "Only Task", taskpkg.StatusReady, taskpkg.TypeStory); err != nil {
 		t.Fatalf("failed to create task: %v", err)
 	}
 	if err := ta.TaskStore.Reload(); err != nil {
@@ -149,7 +149,7 @@ func TestTaskDeletion_LastTaskInLane(t *testing.T) {
 	ta.Draw()
 
 	// Verify TIKI-1 visible
-	found, _, _ := ta.FindText("TIKI-1")
+	found, _, _ := ta.FindText("000001")
 	if !found {
 		ta.DumpScreen()
 		t.Fatalf("TIKI-1 should be visible")
@@ -164,7 +164,7 @@ func TestTaskDeletion_LastTaskInLane(t *testing.T) {
 	}
 
 	// Verify task deleted
-	task := ta.TaskStore.GetTask("TIKI-1")
+	task := ta.TaskStore.GetTask("000001")
 	if task != nil {
 		t.Errorf("TIKI-1 should be deleted")
 	}
@@ -225,8 +225,8 @@ func TestTaskDeletion_MultipleSequential(t *testing.T) {
 	}
 
 	// Verify TIKI-4 and TIKI-5 still exist
-	task4 := ta.TaskStore.GetTask("TIKI-4")
-	task5 := ta.TaskStore.GetTask("TIKI-5")
+	task4 := ta.TaskStore.GetTask("000004")
+	task5 := ta.TaskStore.GetTask("000005")
 	if task4 == nil || task5 == nil {
 		t.Errorf("TIKI-4 and TIKI-5 should still exist")
 	}
@@ -243,7 +243,7 @@ func TestTaskDeletion_FromDifferentLane(t *testing.T) {
 	}
 
 	// Create task in in_progress lane
-	if err := testutil.CreateTestTask(ta.TaskDir, "TIKI-1", "In Progress Task", taskpkg.StatusInProgress, taskpkg.TypeStory); err != nil {
+	if err := testutil.CreateTestTask(ta.TaskDir, "000001", "In Progress Task", taskpkg.StatusInProgress, taskpkg.TypeStory); err != nil {
 		t.Fatalf("failed to create task: %v", err)
 	}
 	if err := ta.TaskStore.Reload(); err != nil {
@@ -258,7 +258,7 @@ func TestTaskDeletion_FromDifferentLane(t *testing.T) {
 	ta.SendKey(tcell.KeyRight, 0, tcell.ModNone)
 
 	// Verify TIKI-1 visible
-	found, _, _ := ta.FindText("TIKI-1")
+	found, _, _ := ta.FindText("000001")
 	if !found {
 		ta.DumpScreen()
 		t.Fatalf("TIKI-1 should be visible in in_progress lane")
@@ -272,7 +272,7 @@ func TestTaskDeletion_FromDifferentLane(t *testing.T) {
 		t.Fatalf("failed to reload: %v", err)
 	}
 
-	task := ta.TaskStore.GetTask("TIKI-1")
+	task := ta.TaskStore.GetTask("000001")
 	if task != nil {
 		t.Errorf("TIKI-1 should be deleted")
 	}
@@ -289,7 +289,7 @@ func TestTaskDeletion_CannotDeleteFromTaskDetail(t *testing.T) {
 	}
 
 	// Create task
-	if err := testutil.CreateTestTask(ta.TaskDir, "TIKI-1", "Task to Not Delete", taskpkg.StatusReady, taskpkg.TypeStory); err != nil {
+	if err := testutil.CreateTestTask(ta.TaskDir, "000001", "Task to Not Delete", taskpkg.StatusReady, taskpkg.TypeStory); err != nil {
 		t.Fatalf("failed to create task: %v", err)
 	}
 	if err := ta.TaskStore.Reload(); err != nil {
@@ -315,7 +315,7 @@ func TestTaskDeletion_CannotDeleteFromTaskDetail(t *testing.T) {
 		t.Fatalf("failed to reload: %v", err)
 	}
 
-	task := ta.TaskStore.GetTask("TIKI-1")
+	task := ta.TaskStore.GetTask("000001")
 	if task == nil {
 		t.Errorf("TIKI-1 should NOT be deleted from task detail view")
 	}
@@ -337,13 +337,13 @@ func TestTaskDeletion_WithMultipleLanes(t *testing.T) {
 	}
 
 	// Create tasks in different lanes
-	if err := testutil.CreateTestTask(ta.TaskDir, "TIKI-1", "Todo Task", taskpkg.StatusReady, taskpkg.TypeStory); err != nil {
+	if err := testutil.CreateTestTask(ta.TaskDir, "000001", "Todo Task", taskpkg.StatusReady, taskpkg.TypeStory); err != nil {
 		t.Fatalf("failed to create task: %v", err)
 	}
-	if err := testutil.CreateTestTask(ta.TaskDir, "TIKI-2", "In Progress Task", taskpkg.StatusInProgress, taskpkg.TypeStory); err != nil {
+	if err := testutil.CreateTestTask(ta.TaskDir, "000002", "In Progress Task", taskpkg.StatusInProgress, taskpkg.TypeStory); err != nil {
 		t.Fatalf("failed to create task: %v", err)
 	}
-	if err := testutil.CreateTestTask(ta.TaskDir, "TIKI-3", "Done Task", taskpkg.StatusDone, taskpkg.TypeStory); err != nil {
+	if err := testutil.CreateTestTask(ta.TaskDir, "000003", "Done Task", taskpkg.StatusDone, taskpkg.TypeStory); err != nil {
 		t.Fatalf("failed to create task: %v", err)
 	}
 	if err := ta.TaskStore.Reload(); err != nil {
@@ -363,15 +363,15 @@ func TestTaskDeletion_WithMultipleLanes(t *testing.T) {
 	}
 
 	// Verify TIKI-1 deleted
-	if ta.TaskStore.GetTask("TIKI-1") != nil {
+	if ta.TaskStore.GetTask("000001") != nil {
 		t.Errorf("TIKI-1 should be deleted")
 	}
 
 	// Verify TIKI-2 and TIKI-3 still exist (in other lanes)
-	if ta.TaskStore.GetTask("TIKI-2") == nil {
+	if ta.TaskStore.GetTask("000002") == nil {
 		t.Errorf("TIKI-2 (in different lane) should still exist")
 	}
-	if ta.TaskStore.GetTask("TIKI-3") == nil {
+	if ta.TaskStore.GetTask("000003") == nil {
 		t.Errorf("TIKI-3 (in different lane) should still exist")
 	}
 }

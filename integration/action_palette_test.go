@@ -114,7 +114,7 @@ func TestActionPalette_OpensInTaskEdit(t *testing.T) {
 	ta := testutil.NewTestApp(t)
 	defer ta.Cleanup()
 
-	if err := testutil.CreateTestTask(ta.TaskDir, "TIKI-1", "Test", taskpkg.StatusReady, taskpkg.TypeStory); err != nil {
+	if err := testutil.CreateTestTask(ta.TaskDir, "000001", "Test", taskpkg.StatusReady, taskpkg.TypeStory); err != nil {
 		t.Fatalf("create task: %v", err)
 	}
 	if err := ta.TaskStore.Reload(); err != nil {
@@ -122,7 +122,7 @@ func TestActionPalette_OpensInTaskEdit(t *testing.T) {
 	}
 
 	ta.NavController.PushView(model.TaskEditViewID, model.EncodeTaskEditParams(model.TaskEditParams{
-		TaskID: "TIKI-1",
+		TaskID: "000001",
 		Focus:  model.EditFieldTitle,
 	}))
 	ta.Draw()

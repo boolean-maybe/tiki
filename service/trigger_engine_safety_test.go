@@ -25,7 +25,7 @@ func TestTriggerEngine_ValidatedOnlyBeforeEntryDenies(t *testing.T) {
 	engine.RegisterWithGate(gate)
 
 	err = gate.CreateTask(context.Background(), &task.Task{
-		ID:       "TIKI-VAL001",
+		ID:       "VAL001",
 		Title:    "should be blocked",
 		Status:   "ready",
 		Type:     "story",
@@ -49,7 +49,7 @@ func TestTriggerEngine_EmptyEventEntryIsSkipped(t *testing.T) {
 	}
 
 	err := gate.CreateTask(context.Background(), &task.Task{
-		ID:       "TIKI-EMP001",
+		ID:       "EMP001",
 		Title:    "allowed",
 		Status:   "ready",
 		Type:     "story",

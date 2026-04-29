@@ -22,29 +22,29 @@ func TestSortTasks(t *testing.T) {
 		{
 			name: "sort by priority first, then title",
 			tasks: []*taskpkg.Task{
-				{ID: "TIKI-abc123", Title: "Zebra Task", Priority: 2},
-				{ID: "TIKI-def456", Title: "Alpha Task", Priority: 1},
-				{ID: "TIKI-ghi789", Title: "Beta Task", Priority: 1},
+				{ID: "ABC123", Title: "Zebra Task", Priority: 2},
+				{ID: "DEF456", Title: "Alpha Task", Priority: 1},
+				{ID: "GHI789", Title: "Beta Task", Priority: 1},
 			},
-			expected: []string{"TIKI-def456", "TIKI-ghi789", "TIKI-abc123"}, // Alpha, Beta (both P1), then Zebra (P2)
+			expected: []string{"DEF456", "GHI789", "ABC123"}, // Alpha, Beta (both P1), then Zebra (P2)
 		},
 		{
 			name: "same priority - alphabetical by title",
 			tasks: []*taskpkg.Task{
-				{ID: "TIKI-abc10z", Title: "Zebra", Priority: 3},
-				{ID: "TIKI-abc2zz", Title: "Apple", Priority: 3},
-				{ID: "TIKI-abc1zz", Title: "Mango", Priority: 3},
+				{ID: "ABC10Z", Title: "Zebra", Priority: 3},
+				{ID: "ABC2ZZ", Title: "Apple", Priority: 3},
+				{ID: "ABC1ZZ", Title: "Mango", Priority: 3},
 			},
-			expected: []string{"TIKI-abc2zz", "TIKI-abc1zz", "TIKI-abc10z"}, // Apple, Mango, Zebra
+			expected: []string{"ABC2ZZ", "ABC1ZZ", "ABC10Z"}, // Apple, Mango, Zebra
 		},
 		{
 			name: "same priority and title - tiebreak by ID",
 			tasks: []*taskpkg.Task{
-				{ID: "TIKI-ccc333", Title: "Same", Priority: 2},
-				{ID: "TIKI-aaa111", Title: "Same", Priority: 2},
-				{ID: "TIKI-bbb222", Title: "Same", Priority: 2},
+				{ID: "CCC333", Title: "Same", Priority: 2},
+				{ID: "AAA111", Title: "Same", Priority: 2},
+				{ID: "BBB222", Title: "Same", Priority: 2},
 			},
-			expected: []string{"TIKI-aaa111", "TIKI-bbb222", "TIKI-ccc333"},
+			expected: []string{"AAA111", "BBB222", "CCC333"},
 		},
 		{
 			name:     "empty task list",
@@ -54,9 +54,9 @@ func TestSortTasks(t *testing.T) {
 		{
 			name: "single task",
 			tasks: []*taskpkg.Task{
-				{ID: "TIKI-abc1zz", Title: "Only Task", Priority: 3},
+				{ID: "ABC1ZZ", Title: "Only Task", Priority: 3},
 			},
-			expected: []string{"TIKI-abc1zz"},
+			expected: []string{"ABC1ZZ"},
 		},
 	}
 
@@ -80,17 +80,19 @@ func TestSortTasks(t *testing.T) {
 func TestSearch_MatchesTaskID(t *testing.T) {
 	store := &TikiStore{
 		tasks: map[string]*taskpkg.Task{
-			"TIKI-ABC123": {
-				ID:       "TIKI-ABC123",
-				Title:    "Unrelated Title",
-				Status:   taskpkg.StatusBacklog,
-				Priority: 1,
+			"ABC123": {
+				ID:         "ABC123",
+				Title:      "Unrelated Title",
+				Status:     taskpkg.StatusBacklog,
+				Priority:   1,
+				IsWorkflow: true,
 			},
-			"TIKI-DEF456": {
-				ID:       "TIKI-DEF456",
-				Title:    "Another Title",
-				Status:   taskpkg.StatusReady,
-				Priority: 2,
+			"DEF456": {
+				ID:         "DEF456",
+				Title:      "Another Title",
+				Status:     taskpkg.StatusReady,
+				Priority:   2,
+				IsWorkflow: true,
 			},
 		},
 	}
@@ -99,34 +101,37 @@ func TestSearch_MatchesTaskID(t *testing.T) {
 	if len(results) != 1 {
 		t.Fatalf("result count = %d, want 1", len(results))
 	}
-	if results[0].Task.ID != "TIKI-ABC123" {
-		t.Errorf("results[0].Task.ID = %q, want %q", results[0].Task.ID, "TIKI-ABC123")
+	if results[0].Task.ID != "ABC123" {
+		t.Errorf("results[0].Task.ID = %q, want %q", results[0].Task.ID, "ABC123")
 	}
 }
 
 func TestSearch_AllTasksIncludesDescription(t *testing.T) {
 	store := &TikiStore{
 		tasks: map[string]*taskpkg.Task{
-			"TIKI-aaa111": {
-				ID:          "TIKI-aaa111",
+			"AAA111": {
+				ID:          "AAA111",
 				Title:       "Alpha Task",
 				Description: "Contains the keyword needle",
 				Status:      taskpkg.StatusBacklog,
 				Priority:    2,
+				IsWorkflow:  true,
 			},
-			"TIKI-bbb222": {
-				ID:          "TIKI-bbb222",
+			"BBB222": {
+				ID:          "BBB222",
 				Title:       "Beta Task",
 				Description: "No match here",
 				Status:      taskpkg.StatusReady,
 				Priority:    1,
+				IsWorkflow:  true,
 			},
-			"TIKI-ccc333": {
-				ID:          "TIKI-ccc333",
+			"CCC333": {
+				ID:          "CCC333",
 				Title:       "Gamma Task",
 				Description: "Another needle appears",
 				Status:      taskpkg.StatusReview,
 				Priority:    3,
+				IsWorkflow:  true,
 			},
 		},
 	}
@@ -136,7 +141,7 @@ func TestSearch_AllTasksIncludesDescription(t *testing.T) {
 		t.Fatalf("result count = %d, want 2", len(results))
 	}
 
-	expectedIDs := []string{"TIKI-aaa111", "TIKI-ccc333"} // sorted by priority then title
+	expectedIDs := []string{"AAA111", "CCC333"} // sorted by priority then title
 	for i, result := range results {
 		if result.Task.ID != expectedIDs[i] {
 			t.Errorf("results[%d].Task.ID = %q, want %q", i, result.Task.ID, expectedIDs[i])
@@ -150,18 +155,20 @@ func TestSearch_AllTasksIncludesDescription(t *testing.T) {
 func TestSearch_MatchesTags(t *testing.T) {
 	store := &TikiStore{
 		tasks: map[string]*taskpkg.Task{
-			"TIKI-TAG001": {
-				ID:       "TIKI-TAG001",
-				Title:    "Tagged Task",
-				Status:   taskpkg.StatusBacklog,
-				Priority: 1,
-				Tags:     []string{"frontend", "ui"},
+			"TAG001": {
+				ID:         "TAG001",
+				Title:      "Tagged Task",
+				Status:     taskpkg.StatusBacklog,
+				Priority:   1,
+				Tags:       []string{"frontend", "ui"},
+				IsWorkflow: true,
 			},
-			"TIKI-TAG002": {
-				ID:       "TIKI-TAG002",
-				Title:    "Untagged Task",
-				Status:   taskpkg.StatusReady,
-				Priority: 2,
+			"TAG002": {
+				ID:         "TAG002",
+				Title:      "Untagged Task",
+				Status:     taskpkg.StatusReady,
+				Priority:   2,
+				IsWorkflow: true,
 			},
 		},
 	}
@@ -170,8 +177,8 @@ func TestSearch_MatchesTags(t *testing.T) {
 	if len(results) != 1 {
 		t.Fatalf("result count = %d, want 1", len(results))
 	}
-	if results[0].Task.ID != "TIKI-TAG001" {
-		t.Errorf("results[0].Task.ID = %q, want %q", results[0].Task.ID, "TIKI-TAG001")
+	if results[0].Task.ID != "TAG001" {
+		t.Errorf("results[0].Task.ID = %q, want %q", results[0].Task.ID, "TAG001")
 	}
 
 	results = store.Search("backend", nil)
@@ -192,48 +199,52 @@ func TestLoadTaskFile_DependsOn(t *testing.T) {
 		{
 			name: "valid dependsOn list",
 			fileContent: `---
+id: ABC123
 title: Test Task
 type: story
 status: backlog
 dependsOn:
-  - TIKI-ABC123
-  - TIKI-DEF456
+  - ABC123
+  - DEF456
 ---
 Task description`,
-			expectedDependsOn: []string{"TIKI-ABC123", "TIKI-DEF456"},
+			expectedDependsOn: []string{"ABC123", "DEF456"},
 			shouldLoad:        true,
 		},
 		{
 			name: "lowercase IDs uppercased",
 			fileContent: `---
+id: ABC123
 title: Test Task
 type: story
 status: backlog
 dependsOn:
-  - tiki-abc123
+  - abc123
 ---
 Task description`,
-			expectedDependsOn: []string{"TIKI-ABC123"},
+			expectedDependsOn: []string{"ABC123"},
 			shouldLoad:        true,
 		},
 		{
 			name: "duplicate dependencies deduped",
 			fileContent: `---
+id: ABC123
 title: Test Task
 type: story
 status: backlog
 dependsOn:
-  - TIKI-ABC123
-  - tiki-abc123
-  - TIKI-DEF456
+  - ABC123
+  - abc123
+  - DEF456
 ---
 Task description`,
-			expectedDependsOn: []string{"TIKI-ABC123", "TIKI-DEF456"},
+			expectedDependsOn: []string{"ABC123", "DEF456"},
 			shouldLoad:        true,
 		},
 		{
 			name: "missing dependsOn field",
 			fileContent: `---
+id: ABC123
 title: Test Task
 type: story
 status: backlog
@@ -245,6 +256,7 @@ Task description`,
 		{
 			name: "empty dependsOn array",
 			fileContent: `---
+id: ABC123
 title: Test Task
 type: story
 status: backlog
@@ -257,6 +269,7 @@ Task description`,
 		{
 			name: "invalid dependsOn - scalar",
 			fileContent: `---
+id: ABC123
 title: Test Task
 type: story
 status: backlog
@@ -317,6 +330,7 @@ func TestLoadTaskFile_InvalidTags(t *testing.T) {
 		{
 			name: "valid tags list",
 			fileContent: `---
+id: ABC123
 title: Test Task
 type: story
 status: backlog
@@ -331,6 +345,7 @@ Task description`,
 		{
 			name: "invalid tags - scalar string",
 			fileContent: `---
+id: ABC123
 title: Test Task
 type: story
 status: backlog
@@ -343,6 +358,7 @@ Task description`,
 		{
 			name: "invalid tags - number",
 			fileContent: `---
+id: ABC123
 title: Test Task
 type: story
 status: backlog
@@ -355,6 +371,7 @@ Task description`,
 		{
 			name: "invalid tags - boolean",
 			fileContent: `---
+id: ABC123
 title: Test Task
 type: story
 status: backlog
@@ -367,6 +384,7 @@ Task description`,
 		{
 			name: "invalid tags - object",
 			fileContent: `---
+id: ABC123
 title: Test Task
 type: story
 status: backlog
@@ -380,6 +398,7 @@ Task description`,
 		{
 			name: "missing tags field",
 			fileContent: `---
+id: ABC123
 title: Test Task
 type: story
 status: backlog
@@ -391,6 +410,7 @@ Task description`,
 		{
 			name: "empty tags array",
 			fileContent: `---
+id: ABC123
 title: Test Task
 type: story
 status: backlog
@@ -403,6 +423,7 @@ Task description`,
 		{
 			name: "tags with empty strings filtered",
 			fileContent: `---
+id: ABC123
 title: Test Task
 type: story
 status: backlog
@@ -418,6 +439,7 @@ Task description`,
 		{
 			name: "duplicate tags deduped",
 			fileContent: `---
+id: ABC123
 title: Test Task
 type: story
 status: backlog
@@ -498,6 +520,7 @@ func TestLoadTaskFile_Due(t *testing.T) {
 		{
 			name: "valid due date",
 			fileContent: `---
+id: TEST01
 title: Test Task
 type: story
 status: backlog
@@ -511,6 +534,7 @@ Task description`,
 		{
 			name: "valid due date with quotes",
 			fileContent: `---
+id: TEST01
 title: Test Task
 type: story
 status: backlog
@@ -524,6 +548,7 @@ Task description`,
 		{
 			name: "missing due field",
 			fileContent: `---
+id: TEST01
 title: Test Task
 type: story
 status: backlog
@@ -535,6 +560,7 @@ Task description`,
 		{
 			name: "empty due field",
 			fileContent: `---
+id: TEST01
 title: Test Task
 type: story
 status: backlog
@@ -547,6 +573,7 @@ Task description`,
 		{
 			name: "invalid due date format",
 			fileContent: `---
+id: TEST01
 title: Test Task
 type: story
 status: backlog
@@ -559,6 +586,7 @@ Task description`,
 		{
 			name: "invalid due date - number",
 			fileContent: `---
+id: TEST01
 title: Test Task
 type: story
 status: backlog
@@ -573,7 +601,7 @@ Task description`,
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			// Create task file
-			testFile := filepath.Join(tmpDir, "TIKI-TEST01.md")
+			testFile := filepath.Join(tmpDir, "TEST01.md")
 			if err := os.WriteFile(testFile, []byte(tt.fileContent), 0644); err != nil {
 				t.Fatalf("failed to write test file: %v", err)
 			}
@@ -585,7 +613,7 @@ Task description`,
 			}
 
 			// Get task
-			task := store.GetTask("TIKI-TEST01")
+			task := store.GetTask("TEST01")
 			if !tt.shouldLoad {
 				if task != nil {
 					t.Error("expected nil task, but got one")
@@ -630,6 +658,7 @@ func TestLoadTaskFile_Recurrence(t *testing.T) {
 		{
 			name: "valid recurrence daily",
 			fileContent: `---
+id: REC001
 title: Test Task
 type: story
 status: backlog
@@ -642,6 +671,7 @@ Task description`,
 		{
 			name: "valid recurrence weekly",
 			fileContent: `---
+id: REC001
 title: Test Task
 type: story
 status: backlog
@@ -654,6 +684,7 @@ Task description`,
 		{
 			name: "missing recurrence field",
 			fileContent: `---
+id: REC001
 title: Test Task
 type: story
 status: backlog
@@ -665,6 +696,7 @@ Task description`,
 		{
 			name: "invalid recurrence defaults to empty",
 			fileContent: `---
+id: REC001
 title: Test Task
 type: story
 status: backlog
@@ -678,7 +710,7 @@ Task description`,
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			testFile := filepath.Join(tmpDir, "TIKI-REC001.md")
+			testFile := filepath.Join(tmpDir, "REC001.md")
 			if err := os.WriteFile(testFile, []byte(tt.fileContent), 0644); err != nil {
 				t.Fatalf("failed to write test file: %v", err)
 			}
@@ -688,7 +720,7 @@ Task description`,
 				t.Fatalf("NewTikiStore() error = %v", err)
 			}
 
-			task := store.GetTask("TIKI-REC001")
+			task := store.GetTask("REC001")
 			if !tt.shouldLoad {
 				if task != nil {
 					t.Error("expected nil task, but got one")
@@ -736,7 +768,7 @@ func TestSaveTask_Recurrence(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			task := &taskpkg.Task{
-				ID:          "TIKI-RECSVR",
+				ID:          "RECSVR",
 				Title:       "Test Save Recurrence",
 				Type:        taskpkg.TypeStory,
 				Status:      "backlog",
@@ -749,7 +781,7 @@ func TestSaveTask_Recurrence(t *testing.T) {
 				t.Fatalf("CreateTask() error = %v", err)
 			}
 
-			filePath := filepath.Join(tmpDir, "tiki-recsvr.md")
+			filePath := filepath.Join(tmpDir, "RECSVR.md")
 			content, err := os.ReadFile(filePath)
 			if err != nil {
 				t.Fatalf("failed to read saved file: %v", err)
@@ -766,7 +798,7 @@ func TestSaveTask_Recurrence(t *testing.T) {
 			}
 
 			// Verify round-trip
-			loaded := store.GetTask("TIKI-RECSVR")
+			loaded := store.GetTask("RECSVR")
 			if loaded == nil {
 				t.Fatal("GetTask() returned nil")
 				return
@@ -794,43 +826,43 @@ func TestMatchesQuery(t *testing.T) {
 		},
 		{
 			name:     "empty query returns false",
-			task:     &taskpkg.Task{ID: "TIKI-MQ0001", Title: "Hello"},
+			task:     &taskpkg.Task{ID: "MQ0001", Title: "Hello"},
 			query:    "",
 			expected: false,
 		},
 		{
 			name:     "match by ID case-insensitive",
-			task:     &taskpkg.Task{ID: "TIKI-ABC123"},
-			query:    "tiki-abc",
+			task:     &taskpkg.Task{ID: "ABC123"},
+			query:    "abc",
 			expected: true,
 		},
 		{
 			name:     "match by title",
-			task:     &taskpkg.Task{ID: "TIKI-MQ0002", Title: "Hello World"},
+			task:     &taskpkg.Task{ID: "MQ0002", Title: "Hello World"},
 			query:    "hello",
 			expected: true,
 		},
 		{
 			name:     "match by description",
-			task:     &taskpkg.Task{ID: "TIKI-MQ0003", Description: "some text here"},
+			task:     &taskpkg.Task{ID: "MQ0003", Description: "some text here"},
 			query:    "some",
 			expected: true,
 		},
 		{
 			name:     "match by first tag",
-			task:     &taskpkg.Task{ID: "TIKI-MQ0004", Tags: []string{"frontend"}},
+			task:     &taskpkg.Task{ID: "MQ0004", Tags: []string{"frontend"}},
 			query:    "frontend",
 			expected: true,
 		},
 		{
 			name:     "match by second tag",
-			task:     &taskpkg.Task{ID: "TIKI-MQ0005", Tags: []string{"a", "backend"}},
+			task:     &taskpkg.Task{ID: "MQ0005", Tags: []string{"a", "backend"}},
 			query:    "backend",
 			expected: true,
 		},
 		{
 			name:     "no match",
-			task:     &taskpkg.Task{ID: "TIKI-X", Title: "foo"},
+			task:     &taskpkg.Task{ID: "X", Title: "foo"},
 			query:    "zzz",
 			expected: false,
 		},
@@ -850,9 +882,9 @@ func TestSearch_WithFilterFunc(t *testing.T) {
 	buildStore := func() *TikiStore {
 		return &TikiStore{
 			tasks: map[string]*taskpkg.Task{
-				"TIKI-F00001": {ID: "TIKI-F00001", Title: "Alpha", Priority: 1},
-				"TIKI-F00002": {ID: "TIKI-F00002", Title: "Beta", Priority: 2},
-				"TIKI-F00003": {ID: "TIKI-F00003", Title: "Gamma", Priority: 3},
+				"F00001": {ID: "F00001", Title: "Alpha", Priority: 1},
+				"F00002": {ID: "F00002", Title: "Beta", Priority: 2},
+				"F00003": {ID: "F00003", Title: "Gamma", Priority: 3},
 			},
 		}
 	}
@@ -867,12 +899,12 @@ func TestSearch_WithFilterFunc(t *testing.T) {
 
 	t.Run("filter includes subset returns subset", func(t *testing.T) {
 		s := buildStore()
-		results := s.Search("", func(t *taskpkg.Task) bool { return t.ID == "TIKI-F00001" })
+		results := s.Search("", func(t *taskpkg.Task) bool { return t.ID == "F00001" })
 		if len(results) != 1 {
 			t.Errorf("got %d results, want 1", len(results))
 		}
-		if results[0].Task.ID != "TIKI-F00001" {
-			t.Errorf("got ID %q, want TIKI-F00001", results[0].Task.ID)
+		if results[0].Task.ID != "F00001" {
+			t.Errorf("got ID %q, want F00001", results[0].Task.ID)
 		}
 	})
 
@@ -880,26 +912,51 @@ func TestSearch_WithFilterFunc(t *testing.T) {
 		s := buildStore()
 		// filter allows F00001 and F00002, query matches only "Beta"
 		results := s.Search("beta", func(t *taskpkg.Task) bool {
-			return t.ID == "TIKI-F00001" || t.ID == "TIKI-F00002"
+			return t.ID == "F00001" || t.ID == "F00002"
 		})
 		if len(results) != 1 {
 			t.Errorf("got %d results, want 1", len(results))
 		}
-		if results[0].Task.ID != "TIKI-F00002" {
-			t.Errorf("got ID %q, want TIKI-F00002", results[0].Task.ID)
+		if results[0].Task.ID != "F00002" {
+			t.Errorf("got ID %q, want F00002", results[0].Task.ID)
 		}
 	})
 
-	t.Run("nil filter + empty query returns all tasks", func(t *testing.T) {
+	t.Run("nil filter + empty query returns all workflow tasks", func(t *testing.T) {
 		s := &TikiStore{
 			tasks: map[string]*taskpkg.Task{
-				"TIKI-G00001": {ID: "TIKI-G00001", Title: "One"},
-				"TIKI-G00002": {ID: "TIKI-G00002", Title: "Two"},
+				"G00001": {ID: "G00001", Title: "One", IsWorkflow: true},
+				"G00002": {ID: "G00002", Title: "Two", IsWorkflow: true},
 			},
 		}
 		results := s.Search("", nil)
 		if len(results) != 2 {
 			t.Errorf("got %d results, want 2", len(results))
+		}
+	})
+
+	// L4 regression: a plain doc (IsWorkflow=false) must NOT be returned
+	// when filterFunc is nil. Callers that want plain docs pass an explicit
+	// filter.
+	t.Run("nil filter excludes plain docs", func(t *testing.T) {
+		s := &TikiStore{
+			tasks: map[string]*taskpkg.Task{
+				"WORK01": {ID: "WORK01", Title: "workflow item", IsWorkflow: true},
+				"PLAIN1": {ID: "PLAIN1", Title: "plain doc", IsWorkflow: false},
+			},
+		}
+		results := s.Search("", nil)
+		if len(results) != 1 {
+			t.Fatalf("got %d results, want 1", len(results))
+		}
+		if results[0].Task.ID != "WORK01" {
+			t.Errorf("expected WORK01, got %q — plain doc leaked through nil filter", results[0].Task.ID)
+		}
+
+		// non-nil filter → caller is trusted, plain doc is included.
+		all := s.Search("", func(*taskpkg.Task) bool { return true })
+		if len(all) != 2 {
+			t.Errorf("explicit filter got %d, want 2 (both plain + workflow)", len(all))
 		}
 	})
 }
@@ -937,7 +994,7 @@ func TestSaveTask_Due(t *testing.T) {
 			}
 
 			task := &taskpkg.Task{
-				ID:          "TIKI-SAVE01",
+				ID:          "SAVE01",
 				Title:       "Test Save",
 				Type:        taskpkg.TypeStory,
 				Status:      "backlog",
@@ -952,7 +1009,7 @@ func TestSaveTask_Due(t *testing.T) {
 			}
 
 			// Read file and check frontmatter
-			filePath := filepath.Join(tmpDir, "tiki-save01.md")
+			filePath := filepath.Join(tmpDir, "SAVE01.md")
 			content, err := os.ReadFile(filePath)
 			if err != nil {
 				t.Fatalf("failed to read saved file: %v", err)
@@ -969,7 +1026,7 @@ func TestSaveTask_Due(t *testing.T) {
 			}
 
 			// Verify round-trip
-			loaded := store.GetTask("TIKI-SAVE01")
+			loaded := store.GetTask("SAVE01")
 			if loaded == nil {
 				t.Fatal("GetTask() returned nil")
 			}
@@ -1004,7 +1061,7 @@ func TestCustomFieldRoundTrip(t *testing.T) {
 	}
 
 	original := &taskpkg.Task{
-		ID:       "TIKI-CUSTOM",
+		ID:       "CUSTOM",
 		Title:    "Custom field test",
 		Status:   taskpkg.StatusReady,
 		Type:     "story",
@@ -1142,7 +1199,7 @@ func TestCustomFieldRoundTrip_AmbiguousStrings(t *testing.T) {
 			}
 
 			original := &taskpkg.Task{
-				ID:           "TIKI-AMBIG1",
+				ID:           "AMBIG1",
 				Title:        "Ambiguous round-trip",
 				Status:       taskpkg.StatusReady,
 				Type:         "story",
@@ -1218,6 +1275,7 @@ func TestLoadTaskFile_StaleCustomField(t *testing.T) {
 
 	// write a file with a stale custom field
 	content := `---
+id: STALE1
 title: Stale field test
 type: story
 status: ready
@@ -1227,7 +1285,7 @@ old_field: leftover_value
 ---
 Description here`
 
-	filePath := filepath.Join(tmpDir, "tiki-stale1.md")
+	filePath := filepath.Join(tmpDir, "STALE1.md")
 	if err := os.WriteFile(filePath, []byte(content), 0644); err != nil {
 		t.Fatalf("write file: %v", err)
 	}
@@ -1236,8 +1294,8 @@ Description here`
 	if err != nil {
 		t.Fatalf("loadTaskFile should succeed with stale field, got: %v", err)
 	}
-	if loaded.ID != "TIKI-STALE1" {
-		t.Errorf("ID = %q, want TIKI-STALE1", loaded.ID)
+	if loaded.ID != "STALE1" {
+		t.Errorf("ID = %q, want STALE1", loaded.ID)
 	}
 	if loaded.CustomFields == nil || loaded.CustomFields["severity"] != "high" {
 		t.Errorf("severity = %v, want high", loaded.CustomFields["severity"])
@@ -1297,6 +1355,7 @@ func TestLoadTaskFile_StaleEnumValue_TaskStillLoads(t *testing.T) {
 	}
 
 	content := `---
+id: STALE2
 title: Task with stale enum
 type: story
 status: ready
@@ -1305,7 +1364,7 @@ severity: critical
 ---
 Description`
 
-	filePath := filepath.Join(tmpDir, "tiki-stale2.md")
+	filePath := filepath.Join(tmpDir, "STALE2.md")
 	if err := os.WriteFile(filePath, []byte(content), 0644); err != nil {
 		t.Fatalf("write file: %v", err)
 	}
@@ -1314,8 +1373,8 @@ Description`
 	if err != nil {
 		t.Fatalf("loadTaskFile should succeed with stale enum value, got: %v", err)
 	}
-	if loaded.ID != "TIKI-STALE2" {
-		t.Errorf("ID = %q, want TIKI-STALE2", loaded.ID)
+	if loaded.ID != "STALE2" {
+		t.Errorf("ID = %q, want STALE2", loaded.ID)
 	}
 	// stale value should be in UnknownFields, not CustomFields
 	if _, exists := loaded.CustomFields["severity"]; exists {
@@ -1431,8 +1490,8 @@ func TestSaveTask_PreservesUnknownFields(t *testing.T) {
 	}
 
 	// write a file with a known custom field and an unknown field
-	content := "---\ntitle: Roundtrip test\ntype: story\nstatus: ready\npriority: 2\npoints: 3\nseverity: high\nold_field: leftover\n---\nBody text"
-	filePath := filepath.Join(tmpDir, "tiki-round1.md")
+	content := "---\nid: ROUND1\ntitle: Roundtrip test\ntype: story\nstatus: ready\npriority: 2\npoints: 3\nseverity: high\nold_field: leftover\n---\nBody text"
+	filePath := filepath.Join(tmpDir, "ROUND1.md")
 	if err := os.WriteFile(filePath, []byte(content), 0644); err != nil {
 		t.Fatalf("write file: %v", err)
 	}
@@ -1468,13 +1527,13 @@ func TestSaveTask_DedupesBuiltInCollections(t *testing.T) {
 	}
 
 	input := &taskpkg.Task{
-		ID:          "TIKI-SET001",
+		ID:          "SET001",
 		Title:       "dedupe built-ins",
 		Type:        taskpkg.TypeStory,
 		Status:      taskpkg.StatusBacklog,
 		Priority:    3,
 		Tags:        []string{"frontend", "backend", "frontend", " backend "},
-		DependsOn:   []string{"tiki-aaa001", "TIKI-AAA001", " TIKI-BBB002 "},
+		DependsOn:   []string{"aaa001", "AAA001", " BBB002 "},
 		Description: "body",
 	}
 
@@ -1491,8 +1550,8 @@ func TestSaveTask_DedupesBuiltInCollections(t *testing.T) {
 	if !reflect.DeepEqual(loaded.Tags, []string{"backend", "frontend"}) {
 		t.Errorf("loaded tags = %v, want [backend frontend]", loaded.Tags)
 	}
-	if !reflect.DeepEqual(loaded.DependsOn, []string{"TIKI-AAA001", "TIKI-BBB002"}) {
-		t.Errorf("loaded dependsOn = %v, want [TIKI-AAA001 TIKI-BBB002]", loaded.DependsOn)
+	if !reflect.DeepEqual(loaded.DependsOn, []string{"AAA001", "BBB002"}) {
+		t.Errorf("loaded dependsOn = %v, want [AAA001 BBB002]", loaded.DependsOn)
 	}
 }
 
@@ -1514,14 +1573,14 @@ func TestSaveTask_DedupesCustomListFields(t *testing.T) {
 	}
 
 	input := &taskpkg.Task{
-		ID:       "TIKI-SET002",
+		ID:       "SET002",
 		Title:    "dedupe custom",
 		Type:     taskpkg.TypeStory,
 		Status:   taskpkg.StatusBacklog,
 		Priority: 3,
 		CustomFields: map[string]interface{}{
 			"labels":  []string{"backend", "backend", " frontend ", ""},
-			"related": []string{"tiki-aaa001", "TIKI-AAA001", "tiki-bbb002"},
+			"related": []string{"aaa001", "AAA001", "bbb002"},
 		},
 	}
 
@@ -1547,15 +1606,16 @@ func TestSaveTask_DedupesCustomListFields(t *testing.T) {
 	if !ok {
 		t.Fatalf("related type = %T, want []string", loaded.CustomFields["related"])
 	}
-	if !reflect.DeepEqual(related, []string{"TIKI-AAA001", "TIKI-BBB002"}) {
-		t.Errorf("related = %v, want [TIKI-AAA001 TIKI-BBB002]", related)
+	if !reflect.DeepEqual(related, []string{"AAA001", "BBB002"}) {
+		t.Errorf("related = %v, want [AAA001 BBB002]", related)
 	}
 }
 
 func TestLoadTaskFile_FilePathAbsolute(t *testing.T) {
 	tmpDir := t.TempDir()
-	fileName := "tiki-fp0001.md"
+	fileName := "FP0001.md"
 	content := `---
+id: ABC123
 title: Filepath Test
 type: story
 status: backlog
@@ -1601,14 +1661,15 @@ func TestLoadSave_DropsStaleFilepathFrontmatter(t *testing.T) {
 	tmpDir := t.TempDir()
 
 	// seed a file that already contains a stale filepath: key in frontmatter
-	fileName := "tiki-fp0003.md"
+	fileName := "FP0003.md"
 	testFile := filepath.Join(tmpDir, fileName)
 	stale := `---
+id: FP0003
 title: Stale filepath
 type: story
 status: backlog
 priority: 3
-filepath: /stale/path/tiki-fp0003.md
+filepath: /stale/path/FP0003.md
 ---
 body`
 	if err := os.WriteFile(testFile, []byte(stale), 0644); err != nil {
@@ -1620,7 +1681,7 @@ body`
 		t.Fatalf("NewTikiStore: %v", err)
 	}
 
-	tk := store.GetTask("TIKI-FP0003")
+	tk := store.GetTask("FP0003")
 	if tk == nil {
 		t.Fatal("GetTask returned nil")
 	}
@@ -1655,7 +1716,7 @@ func TestSaveTask_FilePathRefreshedAndNotSerialized(t *testing.T) {
 	}
 
 	tk := &taskpkg.Task{
-		ID:       "TIKI-FP0002",
+		ID:       "FP0002",
 		Title:    "Save Filepath Test",
 		Type:     taskpkg.TypeStory,
 		Status:   "backlog",
@@ -1671,7 +1732,7 @@ func TestSaveTask_FilePathRefreshedAndNotSerialized(t *testing.T) {
 	if !filepath.IsAbs(tk.FilePath) {
 		t.Errorf("FilePath is not absolute: %q", tk.FilePath)
 	}
-	expectedPath := filepath.Join(tmpDir, "tiki-fp0002.md")
+	expectedPath := filepath.Join(tmpDir, "FP0002.md")
 	expectedAbs, _ := filepath.Abs(expectedPath)
 	if tk.FilePath != expectedAbs {
 		t.Errorf("FilePath = %q, want %q", tk.FilePath, expectedAbs)

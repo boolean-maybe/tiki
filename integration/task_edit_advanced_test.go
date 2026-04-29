@@ -16,7 +16,7 @@ func TestTaskEdit_ShiftTabBackward(t *testing.T) {
 	defer ta.Cleanup()
 
 	// Create task
-	taskID := "TIKI-1"
+	taskID := "000001"
 	if err := testutil.CreateTestTask(ta.TaskDir, taskID, "Test Task", taskpkg.StatusReady, taskpkg.TypeStory); err != nil {
 		t.Fatalf("failed to create task: %v", err)
 	}
@@ -66,7 +66,7 @@ func TestTaskEdit_StatusCycling(t *testing.T) {
 	defer ta.Cleanup()
 
 	// Create task
-	taskID := "TIKI-1"
+	taskID := "000001"
 	if err := testutil.CreateTestTask(ta.TaskDir, taskID, "Test Task", taskpkg.StatusReady, taskpkg.TypeStory); err != nil {
 		t.Fatalf("failed to create task: %v", err)
 	}
@@ -117,7 +117,7 @@ func TestTaskEdit_TypeToggling(t *testing.T) {
 	defer ta.Cleanup()
 
 	// Create task with Story type
-	taskID := "TIKI-1"
+	taskID := "000001"
 	if err := testutil.CreateTestTask(ta.TaskDir, taskID, "Test Task", taskpkg.StatusReady, taskpkg.TypeStory); err != nil {
 		t.Fatalf("failed to create task: %v", err)
 	}
@@ -169,7 +169,7 @@ func TestTaskEdit_AssigneeInput(t *testing.T) {
 	defer ta.Cleanup()
 
 	// Create task
-	taskID := "TIKI-1"
+	taskID := "000001"
 	if err := testutil.CreateTestTask(ta.TaskDir, taskID, "Test Task", taskpkg.StatusReady, taskpkg.TypeStory); err != nil {
 		t.Fatalf("failed to create task: %v", err)
 	}
@@ -218,7 +218,7 @@ func TestTaskEdit_SaveAndContinue(t *testing.T) {
 	defer ta.Cleanup()
 
 	// Create task
-	taskID := "TIKI-1"
+	taskID := "000001"
 	if err := testutil.CreateTestTask(ta.TaskDir, taskID, "Original Title", taskpkg.StatusReady, taskpkg.TypeStory); err != nil {
 		t.Fatalf("failed to create task: %v", err)
 	}
@@ -258,7 +258,7 @@ func TestTaskEdit_EscapeAndReEdit(t *testing.T) {
 	defer ta.Cleanup()
 
 	// Create task
-	taskID := "TIKI-1"
+	taskID := "000001"
 	originalTitle := "Original Title"
 	if err := testutil.CreateTestTask(ta.TaskDir, taskID, originalTitle, taskpkg.StatusReady, taskpkg.TypeStory); err != nil {
 		t.Fatalf("failed to create task: %v", err)
@@ -317,7 +317,7 @@ func TestTaskEdit_PriorityRange(t *testing.T) {
 	defer ta.Cleanup()
 
 	// Create task
-	taskID := "TIKI-1"
+	taskID := "000001"
 	if err := testutil.CreateTestTask(ta.TaskDir, taskID, "Test Task", taskpkg.StatusReady, taskpkg.TypeStory); err != nil {
 		t.Fatalf("failed to create task: %v", err)
 	}
@@ -365,7 +365,7 @@ func TestTaskEdit_PointsRange(t *testing.T) {
 	defer ta.Cleanup()
 
 	// Create task
-	taskID := "TIKI-1"
+	taskID := "000001"
 	if err := testutil.CreateTestTask(ta.TaskDir, taskID, "Test Task", taskpkg.StatusReady, taskpkg.TypeStory); err != nil {
 		t.Fatalf("failed to create task: %v", err)
 	}

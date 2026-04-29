@@ -27,11 +27,11 @@ func TestDepsEditor_OpenFromTaskDetail(t *testing.T) {
 	ta := testutil.NewTestApp(t)
 	defer ta.Cleanup()
 
-	contextID := "TIKI-CTXA01"
+	contextID := "CTXA01"
 	if err := testutil.CreateTestTask(ta.TaskDir, contextID, "Context Task", taskpkg.StatusReady, taskpkg.TypeStory); err != nil {
 		t.Fatalf("create context task: %v", err)
 	}
-	if err := testutil.CreateTestTask(ta.TaskDir, "TIKI-FREE01", "Free Task", taskpkg.StatusReady, taskpkg.TypeStory); err != nil {
+	if err := testutil.CreateTestTask(ta.TaskDir, "FREE01", "Free Task", taskpkg.StatusReady, taskpkg.TypeStory); err != nil {
 		t.Fatalf("create free task: %v", err)
 	}
 	if err := ta.TaskStore.Reload(); err != nil {
@@ -60,10 +60,10 @@ func TestDepsEditor_LanesShowCorrectTasks(t *testing.T) {
 	ta := testutil.NewTestApp(t)
 	defer ta.Cleanup()
 
-	contextID := "TIKI-CTXA02"
-	depID := "TIKI-DEP002"
-	blockerID := "TIKI-BLK002"
-	freeID := "TIKI-FRE002"
+	contextID := "CTXA02"
+	depID := "DEP002"
+	blockerID := "BLK002"
+	freeID := "FRE002"
 
 	// context depends on dep; blocker depends on context
 	if err := testutil.CreateTestTaskWithDeps(ta.TaskDir, contextID, "Context Task", taskpkg.StatusReady, taskpkg.TypeStory, []string{depID}); err != nil {
@@ -127,8 +127,8 @@ func TestDepsEditor_MoveTask_AllToDepends_PersistsOnDisk(t *testing.T) {
 	ta := testutil.NewTestApp(t)
 	defer ta.Cleanup()
 
-	contextID := "TIKI-CTXA03"
-	freeID := "TIKI-FRE003"
+	contextID := "CTXA03"
+	freeID := "FRE003"
 
 	if err := testutil.CreateTestTask(ta.TaskDir, contextID, "Context Task", taskpkg.StatusReady, taskpkg.TypeStory); err != nil {
 		t.Fatalf("create context: %v", err)
@@ -184,9 +184,9 @@ func TestDepsEditor_MoveTask_DependsToAll_RemovesDep(t *testing.T) {
 	ta := testutil.NewTestApp(t)
 	defer ta.Cleanup()
 
-	contextID := "TIKI-CTXA04"
-	depID := "TIKI-DEP004"
-	freeID := "TIKI-FRE004"
+	contextID := "CTXA04"
+	depID := "DEP004"
+	freeID := "FRE004"
 
 	if err := testutil.CreateTestTaskWithDeps(ta.TaskDir, contextID, "Context Task", taskpkg.StatusReady, taskpkg.TypeStory, []string{depID}); err != nil {
 		t.Fatalf("create context: %v", err)
@@ -251,7 +251,7 @@ func TestDepsEditor_ReopenIsSameView(t *testing.T) {
 	ta := testutil.NewTestApp(t)
 	defer ta.Cleanup()
 
-	contextID := "TIKI-CTXA05"
+	contextID := "CTXA05"
 	if err := testutil.CreateTestTask(ta.TaskDir, contextID, "Context Task", taskpkg.StatusReady, taskpkg.TypeStory); err != nil {
 		t.Fatalf("create context: %v", err)
 	}

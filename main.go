@@ -78,6 +78,11 @@ func main() {
 		os.Exit(runExec(os.Args[2:]))
 	}
 
+	// Handle repair command: inspect/fix document ids and exit
+	if len(os.Args) > 1 && os.Args[1] == "repair" {
+		os.Exit(runRepair(os.Args[2:]))
+	}
+
 	// Handle piped stdin: create a task and exit without launching TUI
 	if pipe.IsPipedInput() && !pipe.HasPositionalArgs(os.Args[1:]) {
 		taskID, err := pipe.CreateTaskFromReader(os.Stdin)
@@ -121,6 +126,17 @@ func main() {
 	}
 	if result == nil {
 		return
+	}
+
+	// Surface any files the store refused to load as a prominent stderr
+	// warning before the TUI takes over. Users can see the summary scroll
+	// past on launch and then run `tiki repair ids --check|--fix` to address
+	// it — we don't block startup because the TUI itself might be the
+	// fastest way for a user to see which files are affected.
+	if diag := result.TikiStore.LoadDiagnostics(); diag.HasIssues() {
+		_, _ = fmt.Fprintln(os.Stderr, "\n=== tiki: load warnings ===")
+		_, _ = fmt.Fprint(os.Stderr, diag.Summary())
+		_, _ = fmt.Fprintln(os.Stderr, "===========================")
 	}
 
 	// Cleanup on exit

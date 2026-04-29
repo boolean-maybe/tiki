@@ -33,7 +33,7 @@ func TestCreateTask_Success(t *testing.T) {
 	gate, s := newGateWithStore()
 
 	tk := &task.Task{
-		ID:       "TIKI-ABC123",
+		ID:       "ABC123",
 		Title:    "test task",
 		Status:   task.StatusBacklog,
 		Type:     task.TypeStory,
@@ -44,7 +44,7 @@ func TestCreateTask_Success(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	if s.GetTask("TIKI-ABC123") == nil {
+	if s.GetTask("ABC123") == nil {
 		t.Fatal("task not persisted")
 		return
 	}
@@ -73,7 +73,7 @@ func TestCreateTask_DoesNotOverwriteCreatedAt(t *testing.T) {
 	gate.SetStore(spy)
 
 	tk := &task.Task{
-		ID:        "TIKI-ABC123",
+		ID:        "ABC123",
 		Title:     "test",
 		Status:    task.StatusBacklog,
 		Type:      task.TypeStory,
@@ -110,7 +110,7 @@ func TestCreateTask_RejectedByValidator(t *testing.T) {
 	})
 
 	tk := &task.Task{
-		ID:       "TIKI-ABC123",
+		ID:       "ABC123",
 		Title:    "test",
 		Status:   task.StatusBacklog,
 		Type:     task.TypeStory,
@@ -130,7 +130,7 @@ func TestCreateTask_RejectedByValidator(t *testing.T) {
 	if re.Rejections[0].Reason != "blocked" {
 		t.Errorf("unexpected reason: %s", re.Rejections[0].Reason)
 	}
-	if s.GetTask("TIKI-ABC123") != nil {
+	if s.GetTask("ABC123") != nil {
 		t.Error("task should not have been persisted")
 	}
 }
@@ -139,7 +139,7 @@ func TestUpdateTask_Success(t *testing.T) {
 	gate, s := newGateWithStore()
 
 	tk := &task.Task{
-		ID:       "TIKI-ABC123",
+		ID:       "ABC123",
 		Title:    "original",
 		Status:   task.StatusBacklog,
 		Type:     task.TypeStory,
@@ -152,7 +152,7 @@ func TestUpdateTask_Success(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	stored := s.GetTask("TIKI-ABC123")
+	stored := s.GetTask("ABC123")
 	if stored.Title != "updated" {
 		t.Errorf("title not updated: got %q", stored.Title)
 	}
@@ -171,7 +171,7 @@ func TestUpdateTask_RejectedByValidator(t *testing.T) {
 	})
 
 	original := &task.Task{
-		ID:       "TIKI-ABC123",
+		ID:       "ABC123",
 		Title:    "good",
 		Status:   task.StatusBacklog,
 		Type:     task.TypeStory,
@@ -187,7 +187,7 @@ func TestUpdateTask_RejectedByValidator(t *testing.T) {
 		t.Fatal("expected rejection")
 	}
 
-	stored := s.GetTask("TIKI-ABC123")
+	stored := s.GetTask("ABC123")
 	if stored.Title != "good" {
 		t.Errorf("task should not have been updated: got %q", stored.Title)
 	}
@@ -197,7 +197,7 @@ func TestDeleteTask_Success(t *testing.T) {
 	gate, s := newGateWithStore()
 
 	tk := &task.Task{
-		ID:       "TIKI-ABC123",
+		ID:       "ABC123",
 		Title:    "to delete",
 		Status:   task.StatusBacklog,
 		Type:     task.TypeStory,
@@ -209,7 +209,7 @@ func TestDeleteTask_Success(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	if s.GetTask("TIKI-ABC123") != nil {
+	if s.GetTask("ABC123") != nil {
 		t.Error("task should have been deleted")
 	}
 }
@@ -221,7 +221,7 @@ func TestDeleteTask_RejectedByValidator(t *testing.T) {
 	})
 
 	tk := &task.Task{
-		ID:       "TIKI-ABC123",
+		ID:       "ABC123",
 		Title:    "protected",
 		Status:   task.StatusBacklog,
 		Type:     task.TypeStory,
@@ -235,7 +235,7 @@ func TestDeleteTask_RejectedByValidator(t *testing.T) {
 		return
 	}
 
-	if s.GetTask("TIKI-ABC123") == nil {
+	if s.GetTask("ABC123") == nil {
 		t.Error("task should not have been deleted")
 	}
 }
@@ -244,7 +244,7 @@ func TestAddComment_Success(t *testing.T) {
 	gate, s := newGateWithStore()
 
 	tk := &task.Task{
-		ID:       "TIKI-ABC123",
+		ID:       "ABC123",
 		Title:    "test",
 		Status:   task.StatusBacklog,
 		Type:     task.TypeStory,
@@ -257,11 +257,11 @@ func TestAddComment_Success(t *testing.T) {
 		Author: "user",
 		Text:   "hello",
 	}
-	if err := gate.AddComment("TIKI-ABC123", comment); err != nil {
+	if err := gate.AddComment("ABC123", comment); err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	stored := s.GetTask("TIKI-ABC123")
+	stored := s.GetTask("ABC123")
 	if len(stored.Comments) != 1 {
 		t.Fatalf("expected 1 comment, got %d", len(stored.Comments))
 	}
@@ -271,7 +271,7 @@ func TestAddComment_TaskNotFound(t *testing.T) {
 	gate, _ := newGateWithStore()
 
 	comment := task.Comment{ID: "c1", Author: "user", Text: "hello"}
-	err := gate.AddComment("TIKI-NONEXIST", comment)
+	err := gate.AddComment("NONEXI", comment)
 	if err == nil {
 		t.Fatal("expected error for missing task")
 	}
@@ -288,7 +288,7 @@ func TestMultipleRejections(t *testing.T) {
 	})
 
 	tk := &task.Task{
-		ID:       "TIKI-ABC123",
+		ID:       "ABC123",
 		Title:    "test",
 		Status:   task.StatusBacklog,
 		Type:     task.TypeStory,
@@ -330,7 +330,7 @@ func TestFieldValidators_RejectInvalidTask(t *testing.T) {
 
 	// create a valid task first so UpdateTask can find it in the store
 	valid := &task.Task{
-		ID:       "TIKI-ABC123",
+		ID:       "ABC123",
 		Title:    "test",
 		Status:   task.StatusBacklog,
 		Type:     task.TypeStory,
@@ -370,7 +370,7 @@ func TestFieldValidators_AcceptValidTask(t *testing.T) {
 	RegisterFieldValidators(gate)
 
 	tk := &task.Task{
-		ID:       "TIKI-ABC123",
+		ID:       "ABC123",
 		Title:    "valid task",
 		Status:   task.StatusBacklog,
 		Type:     task.TypeStory,
@@ -386,7 +386,7 @@ func TestReadStore(t *testing.T) {
 	gate, s := newGateWithStore()
 
 	tk := &task.Task{
-		ID:       "TIKI-ABC123",
+		ID:       "ABC123",
 		Title:    "test",
 		Status:   task.StatusBacklog,
 		Type:     task.TypeStory,
@@ -395,7 +395,7 @@ func TestReadStore(t *testing.T) {
 	_ = s.CreateTask(tk)
 
 	rs := gate.ReadStore()
-	if rs.GetTask("TIKI-ABC123") == nil {
+	if rs.GetTask("ABC123") == nil {
 		t.Error("ReadStore should return task from underlying store")
 	}
 }
@@ -423,7 +423,7 @@ func TestCreateValidatorDoesNotAffectUpdate(t *testing.T) {
 
 	// update should still work
 	tk := &task.Task{
-		ID:       "TIKI-ABC123",
+		ID:       "ABC123",
 		Title:    "test",
 		Status:   task.StatusBacklog,
 		Type:     task.TypeStory,
@@ -444,7 +444,7 @@ func TestBuildGate(t *testing.T) {
 
 	// BuildGate registers field validators, so an invalid task should be rejected
 	tk := &task.Task{
-		ID:       "TIKI-ABC123",
+		ID:       "ABC123",
 		Title:    "", // invalid
 		Status:   task.StatusBacklog,
 		Type:     task.TypeStory,
@@ -465,7 +465,7 @@ func TestAfterHook_CalledWithCorrectOldNew(t *testing.T) {
 	gate, s := newGateWithStore()
 
 	tk := &task.Task{
-		ID:       "TIKI-ABC123",
+		ID:       "ABC123",
 		Title:    "original",
 		Status:   task.StatusBacklog,
 		Type:     task.TypeStory,
@@ -498,7 +498,7 @@ func TestAfterHook_ErrorSwallowed(t *testing.T) {
 	gate, s := newGateWithStore()
 
 	tk := &task.Task{
-		ID:       "TIKI-ABC123",
+		ID:       "ABC123",
 		Title:    "test",
 		Status:   task.StatusBacklog,
 		Type:     task.TypeStory,
@@ -518,7 +518,7 @@ func TestAfterHook_ErrorSwallowed(t *testing.T) {
 	}
 
 	// task should still be persisted
-	stored := s.GetTask("TIKI-ABC123")
+	stored := s.GetTask("ABC123")
 	if stored.Title != "new title" {
 		t.Errorf("task should have been updated despite hook error, got %q", stored.Title)
 	}
@@ -550,7 +550,7 @@ func TestAfterHook_CreateAndDelete(t *testing.T) {
 	})
 
 	tk := &task.Task{
-		ID:       "TIKI-ABC123",
+		ID:       "ABC123",
 		Title:    "new task",
 		Status:   task.StatusBacklog,
 		Type:     task.TypeStory,
@@ -570,7 +570,7 @@ func TestAfterHook_CreateAndDelete(t *testing.T) {
 		t.Error("delete after-hook not called")
 	}
 
-	if s.GetTask("TIKI-ABC123") != nil {
+	if s.GetTask("ABC123") != nil {
 		t.Error("task should have been deleted")
 	}
 }
@@ -579,7 +579,7 @@ func TestAfterHook_Ordering(t *testing.T) {
 	gate, s := newGateWithStore()
 
 	tk := &task.Task{
-		ID:       "TIKI-ABC123",
+		ID:       "ABC123",
 		Title:    "test",
 		Status:   task.StatusBacklog,
 		Type:     task.TypeStory,
@@ -589,7 +589,7 @@ func TestAfterHook_Ordering(t *testing.T) {
 
 	// hook A mutates a second task through the gate
 	second := &task.Task{
-		ID:       "TIKI-BBB222",
+		ID:       "BBB222",
 		Title:    "second",
 		Status:   task.StatusBacklog,
 		Type:     task.TypeStory,
@@ -599,10 +599,10 @@ func TestAfterHook_Ordering(t *testing.T) {
 
 	gate.OnAfterUpdate(func(ctx context.Context, _, new *task.Task) error {
 		// only fire for the original trigger, not for the cascaded mutation
-		if new.ID != "TIKI-ABC123" {
+		if new.ID != "ABC123" {
 			return nil
 		}
-		sec := s.GetTask("TIKI-BBB222")
+		sec := s.GetTask("BBB222")
 		if sec == nil {
 			return nil
 		}
@@ -614,7 +614,7 @@ func TestAfterHook_Ordering(t *testing.T) {
 	// hook B checks that it sees hook A's mutation
 	var hookBSawMutation bool
 	gate.OnAfterUpdate(func(_ context.Context, _, _ *task.Task) error {
-		sec := s.GetTask("TIKI-BBB222")
+		sec := s.GetTask("BBB222")
 		if sec != nil && sec.Title == "modified by hook A" {
 			hookBSawMutation = true
 		}
@@ -637,7 +637,7 @@ func TestCreateTask_DepthExceeded(t *testing.T) {
 
 	ctx := withTriggerDepth(context.Background(), maxTriggerDepth+1)
 	tk := &task.Task{
-		ID: "TIKI-DEPTH1", Title: "test", Status: task.StatusBacklog,
+		ID: "DEPTH1", Title: "test", Status: task.StatusBacklog,
 		Type: task.TypeStory, Priority: 3,
 	}
 	err := gate.CreateTask(ctx, tk)
@@ -653,7 +653,7 @@ func TestDeleteTask_DepthExceeded(t *testing.T) {
 	gate, s := newGateWithStore()
 
 	tk := &task.Task{
-		ID: "TIKI-DEPTH2", Title: "test", Status: task.StatusBacklog,
+		ID: "DEPTH2", Title: "test", Status: task.StatusBacklog,
 		Type: task.TypeStory, Priority: 3,
 	}
 	_ = s.CreateTask(tk)
@@ -674,7 +674,7 @@ func TestCreateTask_StoreError(t *testing.T) {
 	gate.SetStore(fs)
 
 	tk := &task.Task{
-		ID: "TIKI-CRERR1", Title: "test", Status: task.StatusBacklog,
+		ID: "CRERR1", Title: "test", Status: task.StatusBacklog,
 		Type: task.TypeStory, Priority: 3,
 	}
 	err := gate.CreateTask(context.Background(), tk)
@@ -685,11 +685,11 @@ func TestCreateTask_StoreError(t *testing.T) {
 
 func TestUpdateTask_StoreError(t *testing.T) {
 	gate := NewTaskMutationGate()
-	fs := &failingUpdateStore{Store: store.NewInMemoryStore(), failID: "TIKI-UPERR1"}
+	fs := &failingUpdateStore{Store: store.NewInMemoryStore(), failID: "UPERR1"}
 	gate.SetStore(fs)
 
 	tk := &task.Task{
-		ID: "TIKI-UPERR1", Title: "test", Status: task.StatusBacklog,
+		ID: "UPERR1", Title: "test", Status: task.StatusBacklog,
 		Type: task.TypeStory, Priority: 3,
 	}
 	_ = fs.CreateTask(tk)
@@ -749,7 +749,7 @@ func TestDeleteTask_AlreadyDeleted(t *testing.T) {
 	gate.SetStore(s)
 
 	// delete a task that doesn't exist in store — should return nil gracefully
-	phantom := &task.Task{ID: "TIKI-GONE01", Title: "gone"}
+	phantom := &task.Task{ID: "GONE01", Title: "gone"}
 	err := gate.DeleteTask(context.Background(), phantom)
 	if err != nil {
 		t.Fatalf("expected nil for already-deleted task, got: %v", err)
@@ -761,7 +761,7 @@ func TestUpdateTask_TaskNotFound(t *testing.T) {
 	s := store.NewInMemoryStore()
 	gate.SetStore(s)
 
-	missing := &task.Task{ID: "TIKI-MISS01", Title: "missing"}
+	missing := &task.Task{ID: "MISS01", Title: "missing"}
 	err := gate.UpdateTask(context.Background(), missing)
 	if err == nil {
 		t.Fatal("expected error for missing task")

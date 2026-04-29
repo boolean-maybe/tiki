@@ -97,15 +97,15 @@ func TestTriggerEngine_BeforeCreateDenyAggregate(t *testing.T) {
 	entry := parseTriggerEntry(t, "task cap",
 		`before create where count(select where assignee = new.assignee) >= 3 deny "task cap reached"`)
 
-	existing1 := &task.Task{ID: "TIKI-CAP001", Title: "e1", Status: "ready", Assignee: "alice", Type: "story", Priority: 3}
-	existing2 := &task.Task{ID: "TIKI-CAP002", Title: "e2", Status: "ready", Assignee: "alice", Type: "story", Priority: 3}
+	existing1 := &task.Task{ID: "CAP001", Title: "e1", Status: "ready", Assignee: "alice", Type: "story", Priority: 3}
+	existing2 := &task.Task{ID: "CAP002", Title: "e2", Status: "ready", Assignee: "alice", Type: "story", Priority: 3}
 	gate, _ := newGateWithStoreAndTasks(existing1, existing2)
 
 	engine := NewTriggerEngine([]triggerEntry{entry}, nil, ruki.NewTriggerExecutor(testTriggerSchema{}, nil))
 	engine.RegisterWithGate(gate)
 
 	// create a 3rd task for alice — count(alice tasks) = 3, should be denied
-	newTask := &task.Task{ID: "TIKI-CAP003", Title: "e3", Status: "ready", Assignee: "alice", Type: "story", Priority: 3}
+	newTask := &task.Task{ID: "CAP003", Title: "e3", Status: "ready", Assignee: "alice", Type: "story", Priority: 3}
 	err := gate.CreateTask(context.Background(), newTask)
 	if err == nil {
 		t.Fatal("expected task cap denial, got nil")
@@ -119,14 +119,14 @@ func TestTriggerEngine_BeforeCreateAllowUnderAggregate(t *testing.T) {
 	entry := parseTriggerEntry(t, "task cap",
 		`before create where count(select where assignee = new.assignee) >= 3 deny "task cap reached"`)
 
-	existing := &task.Task{ID: "TIKI-CAP001", Title: "e1", Status: "ready", Assignee: "alice", Type: "story", Priority: 3}
+	existing := &task.Task{ID: "CAP001", Title: "e1", Status: "ready", Assignee: "alice", Type: "story", Priority: 3}
 	gate, _ := newGateWithStoreAndTasks(existing)
 
 	engine := NewTriggerEngine([]triggerEntry{entry}, nil, ruki.NewTriggerExecutor(testTriggerSchema{}, nil))
 	engine.RegisterWithGate(gate)
 
 	// create a 2nd task for alice — count(alice tasks) = 2, should be allowed
-	newTask := &task.Task{ID: "TIKI-CAP002", Title: "e2", Status: "ready", Assignee: "alice", Type: "story", Priority: 3}
+	newTask := &task.Task{ID: "CAP002", Title: "e2", Status: "ready", Assignee: "alice", Type: "story", Priority: 3}
 	if err := gate.CreateTask(context.Background(), newTask); err != nil {
 		t.Fatalf("unexpected denial: %v", err)
 	}
@@ -136,8 +136,8 @@ func TestTriggerEngine_BeforeDeny(t *testing.T) {
 	entry := parseTriggerEntry(t, "block completion with open deps",
 		`before update where old.status = "inProgress" and new.status = "done" deny "cannot skip review"`)
 
-	dep := &task.Task{ID: "TIKI-DEP001", Title: "dep", Status: "inProgress", Type: "story", Priority: 3}
-	main := &task.Task{ID: "TIKI-MAIN01", Title: "main", Status: "inProgress", Type: "story", Priority: 3}
+	dep := &task.Task{ID: "DEP001", Title: "dep", Status: "inProgress", Type: "story", Priority: 3}
+	main := &task.Task{ID: "MAIN01", Title: "main", Status: "inProgress", Type: "story", Priority: 3}
 	gate, _ := newGateWithStoreAndTasks(dep, main)
 
 	engine := NewTriggerEngine([]triggerEntry{entry}, nil, ruki.NewTriggerExecutor(testTriggerSchema{}, nil))
@@ -159,7 +159,7 @@ func TestTriggerEngine_BeforeDenyNoMatch(t *testing.T) {
 	entry := parseTriggerEntry(t, "block completion",
 		`before update where old.status = "inProgress" and new.status = "done" deny "no"`)
 
-	tk := &task.Task{ID: "TIKI-000001", Title: "test", Status: "ready", Type: "story", Priority: 3}
+	tk := &task.Task{ID: "000001", Title: "test", Status: "ready", Type: "story", Priority: 3}
 	gate, _ := newGateWithStoreAndTasks(tk)
 
 	engine := NewTriggerEngine([]triggerEntry{entry}, nil, ruki.NewTriggerExecutor(testTriggerSchema{}, nil))
@@ -181,9 +181,9 @@ func TestTriggerEngine_BeforeDenyWIPLimit(t *testing.T) {
 		`before update where new.status = "in progress" and count(select where assignee = new.assignee and status = "in progress") >= 3 deny "WIP limit reached"`)
 
 	// two tasks already in_progress for alice, plus the one about to transition
-	existing1 := &task.Task{ID: "TIKI-WIP001", Title: "a1", Status: "inProgress", Assignee: "alice", Type: "story", Priority: 3}
-	existing2 := &task.Task{ID: "TIKI-WIP002", Title: "a2", Status: "inProgress", Assignee: "alice", Type: "story", Priority: 3}
-	target := &task.Task{ID: "TIKI-WIP003", Title: "a3", Status: "ready", Assignee: "alice", Type: "story", Priority: 3}
+	existing1 := &task.Task{ID: "WIP001", Title: "a1", Status: "inProgress", Assignee: "alice", Type: "story", Priority: 3}
+	existing2 := &task.Task{ID: "WIP002", Title: "a2", Status: "inProgress", Assignee: "alice", Type: "story", Priority: 3}
+	target := &task.Task{ID: "WIP003", Title: "a3", Status: "ready", Assignee: "alice", Type: "story", Priority: 3}
 	gate, _ := newGateWithStoreAndTasks(existing1, existing2, target)
 
 	engine := NewTriggerEngine([]triggerEntry{entry}, nil, ruki.NewTriggerExecutor(testTriggerSchema{}, nil))
@@ -206,8 +206,8 @@ func TestTriggerEngine_BeforeAllowUnderWIPLimit(t *testing.T) {
 		`before update where new.status = "in progress" and count(select where assignee = new.assignee and status = "in progress") >= 3 deny "WIP limit reached"`)
 
 	// only one task already in_progress for alice
-	existing := &task.Task{ID: "TIKI-WIP001", Title: "a1", Status: "inProgress", Assignee: "alice", Type: "story", Priority: 3}
-	target := &task.Task{ID: "TIKI-WIP002", Title: "a2", Status: "ready", Assignee: "alice", Type: "story", Priority: 3}
+	existing := &task.Task{ID: "WIP001", Title: "a1", Status: "inProgress", Assignee: "alice", Type: "story", Priority: 3}
+	target := &task.Task{ID: "WIP002", Title: "a2", Status: "ready", Assignee: "alice", Type: "story", Priority: 3}
 	gate, _ := newGateWithStoreAndTasks(existing, target)
 
 	engine := NewTriggerEngine([]triggerEntry{entry}, nil, ruki.NewTriggerExecutor(testTriggerSchema{}, nil))
@@ -232,12 +232,12 @@ func TestTriggerEngine_AfterUpdateCascade(t *testing.T) {
 	engine.RegisterWithGate(gate)
 
 	// create an urgent task without assignee — trigger should auto-assign
-	tk := &task.Task{ID: "TIKI-URGENT", Title: "urgent bug", Status: "ready", Type: "bug", Priority: 1}
+	tk := &task.Task{ID: "URGENT", Title: "urgent bug", Status: "ready", Type: "bug", Priority: 1}
 	if err := gate.CreateTask(context.Background(), tk); err != nil {
 		t.Fatalf("create failed: %v", err)
 	}
 
-	persisted := s.GetTask("TIKI-URGENT")
+	persisted := s.GetTask("URGENT")
 	if persisted == nil {
 		t.Fatal("task not found")
 		return
@@ -256,12 +256,12 @@ func TestTriggerEngine_AfterTriggerNoMatchSkipped(t *testing.T) {
 	engine.RegisterWithGate(gate)
 
 	// create a low-priority task — trigger should NOT fire
-	tk := &task.Task{ID: "TIKI-LOWPRI", Title: "low pri", Status: "ready", Type: "story", Priority: 5}
+	tk := &task.Task{ID: "LOWPRI", Title: "low pri", Status: "ready", Type: "story", Priority: 5}
 	if err := gate.CreateTask(context.Background(), tk); err != nil {
 		t.Fatalf("create failed: %v", err)
 	}
 
-	persisted := s.GetTask("TIKI-LOWPRI")
+	persisted := s.GetTask("LOWPRI")
 	if persisted.Assignee != "" {
 		t.Fatalf("expected empty assignee, got %q", persisted.Assignee)
 	}
@@ -271,12 +271,12 @@ func TestTriggerEngine_AfterDeleteCleanupDeps(t *testing.T) {
 	entry := parseTriggerEntry(t, "cleanup deps on delete",
 		`after delete update where old.id in dependsOn set dependsOn=dependsOn - [old.id]`)
 
-	dep := &task.Task{ID: "TIKI-DEP001", Title: "dep", Status: "done", Type: "story", Priority: 3}
+	dep := &task.Task{ID: "DEP001", Title: "dep", Status: "done", Type: "story", Priority: 3}
 	downstream := &task.Task{
-		ID: "TIKI-DOWN01", Title: "downstream", Status: "ready", Type: "story", Priority: 3,
-		DependsOn: []string{"TIKI-DEP001", "TIKI-OTHER1"},
+		ID: "DOWN01", Title: "downstream", Status: "ready", Type: "story", Priority: 3,
+		DependsOn: []string{"DEP001", "OTHER1"},
 	}
-	other := &task.Task{ID: "TIKI-OTHER1", Title: "other", Status: "done", Type: "story", Priority: 3}
+	other := &task.Task{ID: "OTHER1", Title: "other", Status: "done", Type: "story", Priority: 3}
 	gate, s := newGateWithStoreAndTasks(dep, downstream, other)
 
 	engine := NewTriggerEngine([]triggerEntry{entry}, nil, ruki.NewTriggerExecutor(testTriggerSchema{}, nil))
@@ -287,12 +287,12 @@ func TestTriggerEngine_AfterDeleteCleanupDeps(t *testing.T) {
 		t.Fatalf("delete failed: %v", err)
 	}
 
-	persisted := s.GetTask("TIKI-DOWN01")
+	persisted := s.GetTask("DOWN01")
 	if persisted == nil {
 		t.Fatal("downstream task missing")
 		return
 	}
-	if len(persisted.DependsOn) != 1 || persisted.DependsOn[0] != "TIKI-OTHER1" {
+	if len(persisted.DependsOn) != 1 || persisted.DependsOn[0] != "OTHER1" {
 		t.Fatalf("expected dependsOn=[TIKI-OTHER1], got %v", persisted.DependsOn)
 	}
 }
@@ -306,13 +306,13 @@ func TestTriggerEngine_AfterCascadePartialFailureSurfaced(t *testing.T) {
 	entry := parseTriggerEntry(t, "cascade to peers",
 		`after create where new.priority = 1 update where assignee = new.assignee and id != new.id set priority=1`)
 
-	peer1 := &task.Task{ID: "TIKI-PEER01", Title: "peer1", Status: "ready", Assignee: "alice", Type: "story", Priority: 5}
-	peer2 := &task.Task{ID: "TIKI-PEER02", Title: "peer2", Status: "ready", Assignee: "alice", Type: "story", Priority: 5}
+	peer1 := &task.Task{ID: "PEER01", Title: "peer1", Status: "ready", Assignee: "alice", Type: "story", Priority: 5}
+	peer2 := &task.Task{ID: "PEER02", Title: "peer2", Status: "ready", Assignee: "alice", Type: "story", Priority: 5}
 	gate, s := newGateWithStoreAndTasks(peer1, peer2)
 
 	// register a validator that blocks updates to TIKI-PEER02 specifically
 	gate.OnUpdate(func(old, new *task.Task, allTasks []*task.Task) *Rejection {
-		if new.ID == "TIKI-PEER02" && new.Priority == 1 {
+		if new.ID == "PEER02" && new.Priority == 1 {
 			return &Rejection{Reason: "peer2 blocked"}
 		}
 		return nil
@@ -322,19 +322,19 @@ func TestTriggerEngine_AfterCascadePartialFailureSurfaced(t *testing.T) {
 	engine.RegisterWithGate(gate)
 
 	// create a task that fires the trigger
-	trigger := &task.Task{ID: "TIKI-TRIG01", Title: "trigger", Status: "ready", Assignee: "alice", Type: "story", Priority: 1}
+	trigger := &task.Task{ID: "TRIG01", Title: "trigger", Status: "ready", Assignee: "alice", Type: "story", Priority: 1}
 	if err := gate.CreateTask(context.Background(), trigger); err != nil {
 		t.Fatalf("create failed: %v", err)
 	}
 
 	// peer1 should have been updated (priority=1)
-	p1 := s.GetTask("TIKI-PEER01")
+	p1 := s.GetTask("PEER01")
 	if p1.Priority != 1 {
 		t.Errorf("peer1 priority = %d, want 1 (cascade should succeed)", p1.Priority)
 	}
 
 	// peer2 should NOT have been updated (blocked by validator)
-	p2 := s.GetTask("TIKI-PEER02")
+	p2 := s.GetTask("PEER02")
 	if p2.Priority != 5 {
 		t.Errorf("peer2 priority = %d, want 5 (cascade should have been blocked)", p2.Priority)
 	}
@@ -347,7 +347,7 @@ func TestTriggerEngine_RecursionLimit(t *testing.T) {
 	entry := parseTriggerEntry(t, "infinite cascade",
 		`after update where new.status = "inProgress" update where id = old.id set priority=new.priority`)
 
-	tk := &task.Task{ID: "TIKI-LOOP01", Title: "loop", Status: "ready", Type: "story", Priority: 3}
+	tk := &task.Task{ID: "LOOP01", Title: "loop", Status: "ready", Type: "story", Priority: 3}
 	gate, _ := newGateWithStoreAndTasks(tk)
 
 	engine := NewTriggerEngine([]triggerEntry{entry}, nil, ruki.NewTriggerExecutor(testTriggerSchema{}, nil))
@@ -365,12 +365,12 @@ func TestTriggerEngine_RecursionLimit(t *testing.T) {
 
 func TestTriggerEngine_DepthExceededAtGateLevel(t *testing.T) {
 	gate, _ := newGateWithStoreAndTasks(
-		&task.Task{ID: "TIKI-000001", Title: "test", Status: "ready", Type: "story", Priority: 3},
+		&task.Task{ID: "000001", Title: "test", Status: "ready", Type: "story", Priority: 3},
 	)
 
 	// simulate a context already at max+1 depth
 	ctx := withTriggerDepth(context.Background(), maxTriggerDepth+1)
-	updated := &task.Task{ID: "TIKI-000001", Title: "test", Status: "inProgress", Type: "story", Priority: 3}
+	updated := &task.Task{ID: "000001", Title: "test", Status: "inProgress", Type: "story", Priority: 3}
 	err := gate.UpdateTask(ctx, updated)
 	if err == nil {
 		t.Fatal("expected depth exceeded error")
@@ -395,7 +395,7 @@ func TestTriggerEngine_RunCommand(t *testing.T) {
 	entry := parseTriggerEntry(t, "echo trigger",
 		`after update where new.status = "done" run("echo " + old.id)`)
 
-	tk := &task.Task{ID: "TIKI-RUN001", Title: "run test", Status: "inProgress", Type: "story", Priority: 3}
+	tk := &task.Task{ID: "RUN001", Title: "run test", Status: "inProgress", Type: "story", Priority: 3}
 	gate, _ := newGateWithStoreAndTasks(tk)
 
 	engine := NewTriggerEngine([]triggerEntry{entry}, nil, ruki.NewTriggerExecutor(testTriggerSchema{}, nil))
@@ -414,7 +414,7 @@ func TestTriggerEngine_RunCommandFailure(t *testing.T) {
 	entry := parseTriggerEntry(t, "failing command",
 		`after update where new.status = "done" run("exit 1")`)
 
-	tk := &task.Task{ID: "TIKI-FAIL01", Title: "fail test", Status: "inProgress", Type: "story", Priority: 3}
+	tk := &task.Task{ID: "FAIL01", Title: "fail test", Status: "inProgress", Type: "story", Priority: 3}
 	gate, _ := newGateWithStoreAndTasks(tk)
 
 	engine := NewTriggerEngine([]triggerEntry{entry}, nil, ruki.NewTriggerExecutor(testTriggerSchema{}, nil))
@@ -434,7 +434,7 @@ func TestTriggerEngine_RunCommandTimeout(t *testing.T) {
 	entry := parseTriggerEntry(t, "slow command",
 		`after update where new.status = "done" run("sleep 30")`)
 
-	tk := &task.Task{ID: "TIKI-SLOW01", Title: "slow", Status: "inProgress", Type: "story", Priority: 3}
+	tk := &task.Task{ID: "SLOW01", Title: "slow", Status: "inProgress", Type: "story", Priority: 3}
 	gate, _ := newGateWithStoreAndTasks(tk)
 
 	engine := NewTriggerEngine([]triggerEntry{entry}, nil, ruki.NewTriggerExecutor(testTriggerSchema{}, nil))
@@ -465,7 +465,7 @@ func TestTriggerEngine_AfterUpdateCreateWithNextDate(t *testing.T) {
 		`after update where new.status = "done" and old.recurrence is not empty create title=old.title status="ready" type=old.type priority=old.priority due=next_date(old.recurrence)`)
 
 	tk := &task.Task{
-		ID: "TIKI-REC001", Title: "Daily standup", Status: "inProgress",
+		ID: "REC001", Title: "Daily standup", Status: "inProgress",
 		Type: "story", Priority: 3, Recurrence: task.RecurrenceDaily,
 	}
 	gate, s := newGateWithStoreAndTasks(tk)
@@ -489,7 +489,7 @@ func TestTriggerEngine_AfterUpdateCreateWithNextDate(t *testing.T) {
 	// find created task by predicate, not by slice index
 	var created *task.Task
 	for _, at := range allTasks {
-		if at.ID != "TIKI-REC001" {
+		if at.ID != "REC001" {
 			created = at
 			break
 		}
@@ -517,7 +517,7 @@ func TestTriggerEngine_BeforeDeleteDeny(t *testing.T) {
 	entry := parseTriggerEntry(t, "block delete of high priority",
 		`before delete where old.priority <= 2 deny "cannot delete high priority tasks"`)
 
-	tk := &task.Task{ID: "TIKI-PRIO01", Title: "critical", Status: "inProgress", Type: "story", Priority: 1}
+	tk := &task.Task{ID: "PRIO01", Title: "critical", Status: "inProgress", Type: "story", Priority: 1}
 	gate, _ := newGateWithStoreAndTasks(tk)
 
 	engine := NewTriggerEngine([]triggerEntry{entry}, nil, ruki.NewTriggerExecutor(testTriggerSchema{}, nil))
@@ -536,7 +536,7 @@ func TestTriggerEngine_BeforeDeleteAllow(t *testing.T) {
 	entry := parseTriggerEntry(t, "block delete of high priority",
 		`before delete where old.priority <= 2 deny "cannot delete high priority tasks"`)
 
-	tk := &task.Task{ID: "TIKI-LOWP01", Title: "low priority", Status: "ready", Type: "story", Priority: 5}
+	tk := &task.Task{ID: "LOWP01", Title: "low priority", Status: "ready", Type: "story", Priority: 5}
 	gate, _ := newGateWithStoreAndTasks(tk)
 
 	engine := NewTriggerEngine([]triggerEntry{entry}, nil, ruki.NewTriggerExecutor(testTriggerSchema{}, nil))
@@ -554,7 +554,7 @@ func TestTriggerEngine_AfterDeleteCascadeCreate(t *testing.T) {
 	entry := parseTriggerEntry(t, "create archive on delete",
 		`after delete create title="archived: " + old.title status="done" type=old.type priority=5`)
 
-	tk := &task.Task{ID: "TIKI-ADEL01", Title: "delete me", Status: "ready", Type: "bug", Priority: 3}
+	tk := &task.Task{ID: "ADEL01", Title: "delete me", Status: "ready", Type: "bug", Priority: 3}
 	gate, s := newGateWithStoreAndTasks(tk)
 
 	engine := NewTriggerEngine([]triggerEntry{entry}, nil, ruki.NewTriggerExecutor(testTriggerSchema{}, nil))
@@ -565,7 +565,7 @@ func TestTriggerEngine_AfterDeleteCascadeCreate(t *testing.T) {
 	}
 
 	// original should be gone
-	if s.GetTask("TIKI-ADEL01") != nil {
+	if s.GetTask("ADEL01") != nil {
 		t.Fatal("original task should have been deleted")
 	}
 
@@ -633,7 +633,7 @@ func TestTriggerEngine_BeforeCreateUnconditionalDeny(t *testing.T) {
 	engine := NewTriggerEngine([]triggerEntry{entry}, nil, ruki.NewTriggerExecutor(testTriggerSchema{}, nil))
 	engine.RegisterWithGate(gate)
 
-	tk := &task.Task{ID: "TIKI-NEW001", Title: "new", Status: "ready", Type: "story", Priority: 3}
+	tk := &task.Task{ID: "NEW001", Title: "new", Status: "ready", Type: "story", Priority: 3}
 	err := gate.CreateTask(context.Background(), tk)
 	if err == nil {
 		t.Fatal("expected denial")
@@ -647,7 +647,7 @@ func TestTriggerEngine_BeforeDeleteUnconditionalDeny(t *testing.T) {
 	entry := parseTriggerEntry(t, "block all deletes",
 		`before delete deny "deletes are forbidden"`)
 
-	tk := &task.Task{ID: "TIKI-DEL001", Title: "test", Status: "ready", Type: "story", Priority: 3}
+	tk := &task.Task{ID: "DEL001", Title: "test", Status: "ready", Type: "story", Priority: 3}
 	gate, _ := newGateWithStoreAndTasks(tk)
 
 	engine := NewTriggerEngine([]triggerEntry{entry}, nil, ruki.NewTriggerExecutor(testTriggerSchema{}, nil))
@@ -703,7 +703,7 @@ func TestTriggerEngine_BeforeGuardEvalError(t *testing.T) {
 		Right: &ruki.StringLiteral{Value: "ready"},
 	}
 
-	tk := &task.Task{ID: "TIKI-ERR001", Title: "test", Status: "ready", Type: "story", Priority: 3}
+	tk := &task.Task{ID: "ERR001", Title: "test", Status: "ready", Type: "story", Priority: 3}
 	gate, _ := newGateWithStoreAndTasks(tk)
 
 	engine := NewTriggerEngine([]triggerEntry{entry}, nil, ruki.NewTriggerExecutor(testTriggerSchema{}, nil))
@@ -732,7 +732,7 @@ func TestTriggerEngine_AfterGuardEvalError(t *testing.T) {
 		Right: &ruki.StringLiteral{Value: "inProgress"},
 	}
 
-	tk := &task.Task{ID: "TIKI-ERR001", Title: "test", Status: "ready", Type: "story", Priority: 3}
+	tk := &task.Task{ID: "ERR001", Title: "test", Status: "ready", Type: "story", Priority: 3}
 	gate, s := newGateWithStoreAndTasks(tk)
 
 	engine := NewTriggerEngine([]triggerEntry{entry}, nil, ruki.NewTriggerExecutor(testTriggerSchema{}, nil))
@@ -746,7 +746,7 @@ func TestTriggerEngine_AfterGuardEvalError(t *testing.T) {
 	}
 
 	// the after-trigger should NOT have fired (guard errored → skipped)
-	persisted := s.GetTask("TIKI-ERR001")
+	persisted := s.GetTask("ERR001")
 	if persisted.Title != "test" {
 		t.Errorf("title should remain unchanged, got %q", persisted.Title)
 	}
@@ -760,7 +760,7 @@ func TestTriggerEngine_ExecActionError(t *testing.T) {
 	// overwrite the action with an empty statement to trigger exec error
 	entry.trigger.Action = &ruki.Statement{}
 
-	tk := &task.Task{ID: "TIKI-ERR002", Title: "test", Status: "ready", Type: "story", Priority: 3}
+	tk := &task.Task{ID: "ERR002", Title: "test", Status: "ready", Type: "story", Priority: 3}
 	gate, s := newGateWithStoreAndTasks(tk)
 
 	engine := NewTriggerEngine([]triggerEntry{entry}, nil, ruki.NewTriggerExecutor(testTriggerSchema{}, nil))
@@ -774,7 +774,7 @@ func TestTriggerEngine_ExecActionError(t *testing.T) {
 	}
 
 	// the task should have been updated (the after-trigger's action failed, but the mutation itself succeeded)
-	persisted := s.GetTask("TIKI-ERR002")
+	persisted := s.GetTask("ERR002")
 	if persisted.Status != "inProgress" {
 		t.Errorf("expected status in_progress, got %q", persisted.Status)
 	}
@@ -790,12 +790,12 @@ func TestTriggerEngine_AfterDeleteCascadeDelete(t *testing.T) {
 	entry := parseTriggerEntry(t, "cascade delete deps",
 		`after delete delete where old.id in dependsOn`)
 
-	parent := &task.Task{ID: "TIKI-PAR001", Title: "parent", Status: "done", Type: "story", Priority: 3}
+	parent := &task.Task{ID: "PAR001", Title: "parent", Status: "done", Type: "story", Priority: 3}
 	child := &task.Task{
-		ID: "TIKI-CHI001", Title: "child", Status: "ready", Type: "story", Priority: 3,
-		DependsOn: []string{"TIKI-PAR001"},
+		ID: "CHI001", Title: "child", Status: "ready", Type: "story", Priority: 3,
+		DependsOn: []string{"PAR001"},
 	}
-	unrelated := &task.Task{ID: "TIKI-UNR001", Title: "unrelated", Status: "ready", Type: "story", Priority: 3}
+	unrelated := &task.Task{ID: "UNR001", Title: "unrelated", Status: "ready", Type: "story", Priority: 3}
 	gate, s := newGateWithStoreAndTasks(parent, child, unrelated)
 
 	engine := NewTriggerEngine([]triggerEntry{entry}, nil, ruki.NewTriggerExecutor(testTriggerSchema{}, nil))
@@ -806,15 +806,15 @@ func TestTriggerEngine_AfterDeleteCascadeDelete(t *testing.T) {
 	}
 
 	// parent should be gone
-	if s.GetTask("TIKI-PAR001") != nil {
+	if s.GetTask("PAR001") != nil {
 		t.Error("parent task should have been deleted")
 	}
 	// child should be gone (cascade delete)
-	if s.GetTask("TIKI-CHI001") != nil {
+	if s.GetTask("CHI001") != nil {
 		t.Error("child task should have been cascade-deleted")
 	}
 	// unrelated should remain
-	if s.GetTask("TIKI-UNR001") == nil {
+	if s.GetTask("UNR001") == nil {
 		t.Error("unrelated task should remain")
 	}
 }
@@ -871,7 +871,7 @@ func TestLoadAndRegisterTriggers_WithValidTriggers(t *testing.T) {
 	}
 
 	// verify the before-trigger works: try moving a task to done
-	tk := &task.Task{ID: "TIKI-LRT001", Title: "test", Status: "ready", Type: "story", Priority: 3}
+	tk := &task.Task{ID: "LRT001", Title: "test", Status: "ready", Type: "story", Priority: 3}
 	if err := gate.CreateTask(context.Background(), tk); err != nil {
 		t.Fatalf("create failed: %v", err)
 	}
@@ -944,7 +944,7 @@ func TestTriggerEngine_PersistCreateTemplateError(t *testing.T) {
 	RegisterFieldValidators(gate)
 	gate.SetStore(s)
 
-	tk := &task.Task{ID: "TIKI-TPL001", Title: "original", Status: "ready", Type: "story", Priority: 3}
+	tk := &task.Task{ID: "TPL001", Title: "original", Status: "ready", Type: "story", Priority: 3}
 	if err := gate.CreateTask(context.Background(), tk); err != nil {
 		t.Fatal(err)
 	}
@@ -973,7 +973,7 @@ func TestTriggerEngine_PersistCreateGateError(t *testing.T) {
 	entry := parseTriggerEntry(t, "create on delete",
 		`after delete create title="valid title" status="ready" type=old.type priority=3`)
 
-	tk := &task.Task{ID: "TIKI-GCR001", Title: "original", Status: "ready", Type: "story", Priority: 3}
+	tk := &task.Task{ID: "GCR001", Title: "original", Status: "ready", Type: "story", Priority: 3}
 	gate, _ := newGateWithStoreAndTasks(tk)
 
 	// add a custom create validator that rejects all trigger-created tasks
@@ -999,8 +999,8 @@ func TestTriggerEngine_PersistDeleteError(t *testing.T) {
 	cascadeDelete := parseTriggerEntry(t, "cascade delete",
 		`after update where new.status = "done" delete where id != old.id`)
 
-	tk := &task.Task{ID: "TIKI-PDL001", Title: "main", Status: "ready", Type: "story", Priority: 3}
-	other := &task.Task{ID: "TIKI-PDL002", Title: "other", Status: "ready", Type: "story", Priority: 3}
+	tk := &task.Task{ID: "PDL001", Title: "main", Status: "ready", Type: "story", Priority: 3}
+	other := &task.Task{ID: "PDL002", Title: "other", Status: "ready", Type: "story", Priority: 3}
 	gate, _ := newGateWithStoreAndTasks(tk, other)
 
 	entries := []triggerEntry{blockDelete, cascadeDelete}
@@ -1055,7 +1055,7 @@ func TestTriggerEngine_ExecRunEvalError(t *testing.T) {
 		Command: &ruki.QualifiedRef{Qualifier: "mid", Name: "title"},
 	}
 
-	tk := &task.Task{ID: "TIKI-RNE001", Title: "test", Status: "ready", Type: "story", Priority: 3}
+	tk := &task.Task{ID: "RNE001", Title: "test", Status: "ready", Type: "story", Priority: 3}
 	gate, _ := newGateWithStoreAndTasks(tk)
 
 	engine := NewTriggerEngine([]triggerEntry{entry}, nil, ruki.NewTriggerExecutor(testTriggerSchema{}, nil))
@@ -1180,8 +1180,8 @@ func TestTriggerEngine_StartScheduler_TickExecutes(t *testing.T) {
 		t.Fatalf("parse: %v", err)
 	}
 
-	doneTk := &task.Task{ID: "TIKI-DONE01", Title: "done task", Status: "done", Type: "story", Priority: 3}
-	activeTk := &task.Task{ID: "TIKI-ACT001", Title: "active", Status: "ready", Type: "story", Priority: 3}
+	doneTk := &task.Task{ID: "DONE01", Title: "done task", Status: "done", Type: "story", Priority: 3}
+	activeTk := &task.Task{ID: "ACT001", Title: "active", Status: "ready", Type: "story", Priority: 3}
 	gate, s := newGateWithStoreAndTasks(doneTk, activeTk)
 
 	engine := NewTriggerEngine(nil, []TimeTriggerEntry{
@@ -1200,11 +1200,11 @@ func TestTriggerEngine_StartScheduler_TickExecutes(t *testing.T) {
 	cancel()
 
 	// done task should have been deleted
-	if s.GetTask("TIKI-DONE01") != nil {
+	if s.GetTask("DONE01") != nil {
 		t.Fatal("expected done task to be deleted by time trigger")
 	}
 	// active task should remain
-	if s.GetTask("TIKI-ACT001") == nil {
+	if s.GetTask("ACT001") == nil {
 		t.Fatal("expected active task to remain")
 	}
 }
@@ -1258,7 +1258,7 @@ func TestTriggerEngine_StartScheduler_ActionErrorContinues(t *testing.T) {
 		t.Fatalf("parse: %v", err)
 	}
 
-	tk := &task.Task{ID: "TIKI-ERR001", Title: "test", Status: "ready", Type: "story", Priority: 3}
+	tk := &task.Task{ID: "ERR001", Title: "test", Status: "ready", Type: "story", Priority: 3}
 	gate, s := newGateWithStoreAndTasks(tk)
 
 	engine := NewTriggerEngine(nil, []TimeTriggerEntry{
@@ -1275,7 +1275,7 @@ func TestTriggerEngine_StartScheduler_ActionErrorContinues(t *testing.T) {
 	cancel()
 
 	// task should remain unchanged since the action errored
-	persisted := s.GetTask("TIKI-ERR001")
+	persisted := s.GetTask("ERR001")
 	if persisted == nil {
 		t.Fatal("task should still exist")
 		return
@@ -1293,7 +1293,7 @@ func TestTriggerEngine_StartScheduler_ValidTriggerRuns(t *testing.T) {
 		t.Fatalf("parse: %v", err)
 	}
 
-	doneTk := &task.Task{ID: "TIKI-SCH001", Title: "done task", Status: "done", Type: "story", Priority: 3}
+	doneTk := &task.Task{ID: "SCH001", Title: "done task", Status: "done", Type: "story", Priority: 3}
 	gate, s := newGateWithStoreAndTasks(doneTk)
 
 	engine := NewTriggerEngine(nil, []TimeTriggerEntry{
@@ -1309,7 +1309,7 @@ func TestTriggerEngine_StartScheduler_ValidTriggerRuns(t *testing.T) {
 	time.Sleep(1500 * time.Millisecond)
 	cancel()
 
-	if s.GetTask("TIKI-SCH001") != nil {
+	if s.GetTask("SCH001") != nil {
 		t.Fatal("expected done task to be deleted by scheduler")
 	}
 }
@@ -1344,7 +1344,7 @@ func TestTriggerEngine_ExecuteTimeTrigger_PersistError(t *testing.T) {
 		t.Fatalf("parse: %v", err)
 	}
 
-	tk := &task.Task{ID: "TIKI-PER001", Title: "target", Status: "ready", Type: "story", Priority: 3}
+	tk := &task.Task{ID: "PER001", Title: "target", Status: "ready", Type: "story", Priority: 3}
 	gate, s := newGateWithStoreAndTasks(tk)
 
 	// register a before-update validator that always denies
@@ -1366,7 +1366,7 @@ func TestTriggerEngine_ExecuteTimeTrigger_PersistError(t *testing.T) {
 	cancel()
 
 	// task should remain unchanged since persist was rejected
-	persisted := s.GetTask("TIKI-PER001")
+	persisted := s.GetTask("PER001")
 	if persisted == nil {
 		t.Fatal("task should still exist")
 		return

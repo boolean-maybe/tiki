@@ -1,6 +1,7 @@
 package tikistore
 
 import (
+	"errors"
 	"fmt"
 	"log/slog"
 	"os"
@@ -10,6 +11,7 @@ import (
 	"time"
 
 	"github.com/boolean-maybe/tiki/config"
+	"github.com/boolean-maybe/tiki/document"
 	"github.com/boolean-maybe/tiki/store"
 	"github.com/boolean-maybe/tiki/store/internal/git"
 	taskpkg "github.com/boolean-maybe/tiki/task"
@@ -54,6 +56,9 @@ func (s *TikiStore) loadLocked() error {
 		}
 	}
 
+	// reset diagnostics for this load cycle so callers see a fresh report.
+	s.diagnostics = newLoadDiagnostics()
+	idIndex := document.NewIndex()
 	for _, entry := range entries {
 		if entry.IsDir() || !strings.HasSuffix(entry.Name(), ".md") {
 			continue
@@ -62,58 +67,78 @@ func (s *TikiStore) loadLocked() error {
 		filePath := filepath.Join(s.dir, entry.Name())
 		task, err := s.loadTaskFile(filePath, authorMap, lastCommitMap)
 		if err != nil {
-			slog.Error("failed to load task file", "file", filePath, "error", err)
-			// log error but continue loading other files
+			// classify via *loadError; fall back to LoadReasonOther.
+			reason := LoadReasonOther
+			var le *loadError
+			if errors.As(err, &le) {
+				reason = le.reason
+			}
+			s.diagnostics.record(filePath, reason, err.Error())
+			slog.Error("failed to load task file", "file", filePath, "reason", reason, "error", err)
 			continue
 		}
 
+		if err := idIndex.Register(task.ID, filePath); err != nil {
+			// duplicate id: refuse to silently pick a winner. Both files stay
+			// on disk; run `tiki repair ids --fix --regenerate-duplicates` to
+			// resolve.
+			s.diagnostics.record(filePath, LoadReasonDuplicateID, err.Error())
+			slog.Error("duplicate document id detected, skipping later occurrence",
+				"task_id", task.ID, "file", filePath, "error", err)
+			continue
+		}
 		s.tasks[task.ID] = task
 		slog.Debug("loaded task", "task_id", task.ID, "file", filePath)
 	}
-	slog.Info("finished loading tasks", "num_tasks", len(s.tasks))
+	slog.Info("finished loading tasks", "num_tasks", len(s.tasks), "rejections", len(s.diagnostics.Rejections()))
 	return nil
 }
 
-// loadTaskFile parses a single markdown file into a Task
+// loadTaskFile parses a single markdown file into a Task. Returns a
+// *loadError on identity/frontmatter failures so loadLocked can classify
+// the rejection; unwrap via errors.As for the general case.
 func (s *TikiStore) loadTaskFile(path string, authorMap map[string]*git.AuthorInfo, lastCommitMap map[string]time.Time) (*taskpkg.Task, error) {
 	// Get file info for mtime (optimistic locking)
 	info, err := os.Stat(path)
 	if err != nil {
-		return nil, fmt.Errorf("stat file: %w", err)
+		return nil, newLoadError(LoadReasonOther, fmt.Errorf("stat file: %w", err))
 	}
 
 	content, err := os.ReadFile(path)
 	if err != nil {
-		return nil, fmt.Errorf("reading file: %w", err)
+		return nil, newLoadError(LoadReasonOther, fmt.Errorf("reading file: %w", err))
 	}
 
 	frontmatter, body, err := store.ParseFrontmatter(string(content))
 	if err != nil {
-		return nil, fmt.Errorf("parsing frontmatter: %w", err)
+		return nil, newLoadError(LoadReasonParseError, fmt.Errorf("parsing frontmatter: %w", err))
 	}
 
 	var fm taskFrontmatter
 	if err := yaml.Unmarshal([]byte(frontmatter), &fm); err != nil {
-		return nil, fmt.Errorf("parsing yaml: %w", err)
+		return nil, newLoadError(LoadReasonParseError, fmt.Errorf("parsing yaml: %w", err))
 	}
 
-	// Derive ID from filename: "tiki-abc123.md" -> "TIKI-ABC123"
-	// IGNORE fm.ID even if present - filename is authoritative
-	filename := filepath.Base(path)
-	taskID := strings.ToUpper(strings.TrimSuffix(filename, ".md"))
-
-	// Log warning if frontmatter has ID that differs from filename
-	// Parse frontmatter as generic map to check for ID field
+	// Strict identity: frontmatter id is required, must be a valid bare
+	// document id. Missing, legacy (TIKI-*), or otherwise-invalid ids are
+	// hard load errors; the remedy is `tiki repair ids --fix`. Load never
+	// mutates files.
 	var fmMap map[string]interface{}
-	if err := yaml.Unmarshal([]byte(frontmatter), &fmMap); err == nil {
-		if rawID, ok := fmMap["id"]; ok {
-			if idStr, ok := rawID.(string); ok && idStr != "" && !strings.EqualFold(idStr, taskID) {
-				slog.Warn("ignoring frontmatter ID mismatch, using filename",
-					"file", path,
-					"frontmatter_id", idStr,
-					"filename_id", taskID)
-			}
+	if err := yaml.Unmarshal([]byte(frontmatter), &fmMap); err != nil {
+		fmMap = nil
+	}
+
+	rawID, hasID := document.FrontmatterID(fmMap)
+	if !hasID || rawID == "" {
+		return nil, newLoadError(LoadReasonMissingID, fmt.Errorf("missing frontmatter id in %s: run `tiki repair ids --fix` to backfill", path))
+	}
+	taskID := document.NormalizeID(rawID)
+	if !document.IsValidID(taskID) {
+		reason := LoadReasonInvalidID
+		if strings.HasPrefix(taskID, "TIKI-") {
+			reason = LoadReasonLegacyID
 		}
+		return nil, newLoadError(reason, fmt.Errorf("%s: invalid document id %q: expected %d uppercase alphanumeric characters; run `tiki repair ids --fix` to migrate", path, taskID, document.IDLength))
 	}
 
 	// extract custom fields from frontmatter map
@@ -154,6 +179,7 @@ func (s *TikiStore) loadTaskFile(path string, authorMap map[string]*git.AuthorIn
 		UnknownFields: unknownFields,
 		LoadedMtime:   info.ModTime(),
 		FilePath:      absPath,
+		IsWorkflow:    document.IsWorkflowFrontmatter(fmMap),
 	}
 
 	// Validate and default Priority field (1-5 range)
@@ -251,14 +277,24 @@ func (s *TikiStore) Reload() error {
 	return nil
 }
 
-// ReloadTask reloads a single task from disk by ID
+// ReloadTask reloads a single task from disk by ID.
+// Uses the loaded task's FilePath so renamed files still reload from their
+// current location. For IDs unknown to the store, falls back to the
+// id-derived default path (used by CreateTask reload-after-save flows).
 func (s *TikiStore) ReloadTask(taskID string) error {
 	normalizedID := normalizeTaskID(taskID)
 	slog.Debug("reloading single task", "task_id", normalizedID)
 
-	// Construct file path
-	filename := strings.ToLower(normalizedID) + ".md"
-	filePath := filepath.Join(s.dir, filename)
+	s.mu.RLock()
+	existing := s.tasks[normalizedID]
+	s.mu.RUnlock()
+
+	var filePath string
+	if existing != nil && existing.FilePath != "" {
+		filePath = existing.FilePath
+	} else {
+		filePath = s.taskFilePath(normalizedID)
+	}
 
 	// Fetch git info for this single file
 	var authorMap map[string]*git.AuthorInfo
@@ -295,9 +331,11 @@ func (s *TikiStore) ReloadTask(taskID string) error {
 	return nil
 }
 
-// saveTask writes a task to its markdown file
+// saveTask writes a task to its markdown file. For loaded tasks the path
+// follows task.FilePath so renames are preserved; new tasks land at the
+// id-derived default path.
 func (s *TikiStore) saveTask(task *taskpkg.Task) error {
-	path := s.taskFilePath(task.ID)
+	path := s.pathForTask(task)
 	slog.Debug("attempting to save task", "task_id", task.ID, "path", path)
 
 	// Check for external modification (optimistic locking)
@@ -315,6 +353,7 @@ func (s *TikiStore) saveTask(task *taskpkg.Task) error {
 	}
 
 	fm := taskFrontmatter{
+		ID:         task.ID,
 		Title:      task.Title,
 		Type:       string(task.Type),
 		Status:     taskpkg.StatusToString(task.Status),
@@ -406,11 +445,23 @@ func (s *TikiStore) saveTask(task *taskpkg.Task) error {
 	return nil
 }
 
-// taskFilePath returns the file path for a task ID
+// taskFilePath returns the default on-disk path for a brand-new task whose
+// file has not yet been created. Once a task is loaded from disk, save and
+// delete operations should target task.FilePath — not this — so renames are
+// preserved. Phase 2 generalizes this to `.doc/<ID>.md`.
 func (s *TikiStore) taskFilePath(id string) string {
-	// convert ID to lowercase filename: TIKI-ABC123 -> tiki-abc123.md
-	filename := strings.ToLower(id) + ".md"
-	return filepath.Join(s.dir, filename)
+	return filepath.Join(s.dir, id+".md")
+}
+
+// pathForTask returns the on-disk path to use for an operation on t.
+// If t already has a FilePath (was loaded from disk), that path wins so
+// rename/move are preserved. Only when FilePath is empty (brand-new task
+// being created) do we fall back to the id-derived path.
+func (s *TikiStore) pathForTask(t *taskpkg.Task) string {
+	if t != nil && t.FilePath != "" {
+		return t.FilePath
+	}
+	return s.taskFilePath(t.ID)
 }
 
 // builtInFrontmatterKeys lists keys handled by the taskFrontmatter struct.

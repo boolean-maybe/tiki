@@ -18,7 +18,7 @@ func TestNavigationState_PushPop(t *testing.T) {
 	}
 
 	// Push second view with params
-	params := model.EncodeTaskDetailParams(model.TaskDetailParams{TaskID: "TIKI-1"})
+	params := model.EncodeTaskDetailParams(model.TaskDetailParams{TaskID: "000001"})
 	nav.push(model.TaskDetailViewID, params)
 
 	// Verify depth
@@ -35,7 +35,7 @@ func TestNavigationState_PushPop(t *testing.T) {
 	if entry.ViewID != model.TaskDetailViewID {
 		t.Errorf("ViewID = %v, want %v", entry.ViewID, model.TaskDetailViewID)
 	}
-	if model.DecodeTaskDetailParams(entry.Params).TaskID != "TIKI-1" {
+	if model.DecodeTaskDetailParams(entry.Params).TaskID != "000001" {
 		t.Errorf("taskID param = %v, want TIKI-1", model.DecodeTaskDetailParams(entry.Params).TaskID)
 	}
 
@@ -149,7 +149,7 @@ func TestNavigationState_PreviousView(t *testing.T) {
 	}
 
 	// Three views - should return second
-	nav.push(model.TaskEditViewID, model.EncodeTaskEditParams(model.TaskEditParams{TaskID: "TIKI-5"}))
+	nav.push(model.TaskEditViewID, model.EncodeTaskEditParams(model.TaskEditParams{TaskID: "000005"}))
 	entry = nav.previousView()
 	if entry == nil {
 		t.Fatal("previousView() returned nil")
@@ -304,13 +304,13 @@ func TestNavigationState_ParameterPassing(t *testing.T) {
 	}
 
 	// Push view with multiple params
-	params := model.EncodeTaskDetailParams(model.TaskDetailParams{TaskID: "TIKI-42"})
+	params := model.EncodeTaskDetailParams(model.TaskDetailParams{TaskID: "000042"})
 	params["readOnly"] = true
 	params["index"] = 123
 	nav.push(model.TaskEditViewID, params)
 	entry = nav.currentView()
 
-	if model.DecodeTaskDetailParams(entry.Params).TaskID != "TIKI-42" {
+	if model.DecodeTaskDetailParams(entry.Params).TaskID != "000042" {
 		t.Errorf("taskID param = %v, want TIKI-42", model.DecodeTaskDetailParams(entry.Params).TaskID)
 	}
 	if entry.Params["readOnly"] != true {
@@ -322,7 +322,7 @@ func TestNavigationState_ParameterPassing(t *testing.T) {
 
 	// Pop and verify params are preserved
 	entry = nav.pop()
-	if model.DecodeTaskDetailParams(entry.Params).TaskID != "TIKI-42" {
+	if model.DecodeTaskDetailParams(entry.Params).TaskID != "000042" {
 		t.Error("params should be preserved through pop()")
 	}
 }
@@ -337,7 +337,7 @@ func TestNavigationState_ComplexNavigationFlow(t *testing.T) {
 	}
 
 	// Open task from board
-	nav.push(model.TaskDetailViewID, model.EncodeTaskDetailParams(model.TaskDetailParams{TaskID: "TIKI-1"}))
+	nav.push(model.TaskDetailViewID, model.EncodeTaskDetailParams(model.TaskDetailParams{TaskID: "000001"}))
 	if nav.depth() != 2 {
 		t.Error("should have 2 views after opening task")
 	}

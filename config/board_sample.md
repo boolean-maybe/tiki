@@ -1,4 +1,5 @@
 ---
+id: XXXXXX
 title: Welcome to tiki-land!
 type: story
 status: ready

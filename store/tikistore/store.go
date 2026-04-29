@@ -36,10 +36,17 @@ type TikiStore struct {
 	taskHistory    *store.TaskHistory // history for burndown computation
 	upgrader       *LegacyUpgrader    // normalizes legacy field values on load
 	identity       *identityResolver  // resolves current Tiki identity (config→git→OS)
+	diagnostics    *LoadDiagnostics   // rejections from the most recent load/reload cycle
 }
 
-// taskFrontmatter represents the YAML frontmatter in task files
+// taskFrontmatter represents the YAML frontmatter in task files.
+//
+// id became authoritative in Phase 1 of the unified-document migration:
+// loadTaskFile prefers fm.ID when present and valid, falling back to the
+// filename-derived ID for legacy files; save writes id: back so every file
+// has it after one load+save cycle.
 type taskFrontmatter struct {
+	ID         string                  `yaml:"id,omitempty"`
 	Title      string                  `yaml:"title"`
 	Type       string                  `yaml:"type"`
 	Status     string                  `yaml:"status"`
@@ -62,6 +69,7 @@ func NewTikiStore(dir string) (*TikiStore, error) {
 		listeners:      make(map[int]store.ChangeListener),
 		nextListenerID: 1, // Start at 1 to avoid conflict with zero-value sentinel
 		upgrader:       &LegacyUpgrader{},
+		diagnostics:    newLoadDiagnostics(),
 	}
 
 	if config.GetStoreGit() {
@@ -91,6 +99,15 @@ func (s *TikiStore) SetTaskHistory(history *store.TaskHistory) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.taskHistory = history
+}
+
+// LoadDiagnostics returns the rejections accumulated during the most recent
+// load/reload cycle. Nil-safe: callers can use HasIssues() / Summary() /
+// Rejections() directly on the returned value.
+func (s *TikiStore) LoadDiagnostics() *LoadDiagnostics {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	return s.diagnostics
 }
 
 // IsGitRepo checks if the given path is a git repository (for pre-flight checks)

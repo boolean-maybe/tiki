@@ -149,14 +149,14 @@ func TestValidateDependsOn(t *testing.T) {
 		wantErr bool
 	}{
 		{"empty dependsOn", &Task{DependsOn: nil}, false},
-		{"valid single dependency", &Task{DependsOn: []string{"TIKI-ABC123"}}, false},
-		{"valid multiple dependencies", &Task{DependsOn: []string{"TIKI-ABC123", "TIKI-DEF456"}}, false},
-		{"invalid format - lowercase", &Task{DependsOn: []string{"tiki-abc123"}}, true},
-		{"invalid format - wrong prefix", &Task{DependsOn: []string{"TASK-ABC123"}}, true},
-		{"invalid format - too short", &Task{DependsOn: []string{"TIKI-ABC"}}, true},
-		{"invalid format - too long", &Task{DependsOn: []string{"TIKI-ABC1234"}}, true},
-		{"invalid format - special chars", &Task{DependsOn: []string{"TIKI-ABC12!"}}, true},
-		{"mixed valid and invalid", &Task{DependsOn: []string{"TIKI-ABC123", "bad-id"}}, true},
+		{"valid single dependency", &Task{DependsOn: []string{"ABC123"}}, false},
+		{"valid multiple dependencies", &Task{DependsOn: []string{"ABC123", "DEF456"}}, false},
+		{"invalid format - legacy TIKI- is no longer valid", &Task{DependsOn: []string{"TIKI-ABC123"}}, true},
+		{"invalid format - lowercase", &Task{DependsOn: []string{"abc123"}}, true},
+		{"invalid format - too short", &Task{DependsOn: []string{"ABC"}}, true},
+		{"invalid format - too long", &Task{DependsOn: []string{"ABC1234"}}, true},
+		{"invalid format - special chars", &Task{DependsOn: []string{"ABC12!"}}, true},
+		{"mixed valid and invalid", &Task{DependsOn: []string{"ABC123", "bad-id"}}, true},
 	}
 
 	for _, tt := range tests {
@@ -272,29 +272,6 @@ func TestAllValidators_ValidTask(t *testing.T) {
 		if msg := fn(tk); msg != "" {
 			t.Errorf("unexpected validation error: %s", msg)
 		}
-	}
-}
-
-func TestIsValidTikiIDFormat(t *testing.T) {
-	tests := []struct {
-		id   string
-		want bool
-	}{
-		{"TIKI-ABC123", true},
-		{"TIKI-000000", true},
-		{"tiki-abc123", false},
-		{"TASK-ABC123", false},
-		{"TIKI-ABC", false},
-		{"TIKI-ABC1234", false},
-		{"TIKI-ABC12!", false},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.id, func(t *testing.T) {
-			if got := IsValidTikiIDFormat(tt.id); got != tt.want {
-				t.Errorf("IsValidTikiIDFormat(%q) = %v, want %v", tt.id, got, tt.want)
-			}
-		})
 	}
 }
 

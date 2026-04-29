@@ -25,7 +25,7 @@ func TestTaskDetailView_ChatModifiesTask(t *testing.T) {
 	defer viper.Set("ai.agent", "")
 
 	// create a task
-	taskID := "TIKI-CHAT01"
+	taskID := "CHAT01"
 	if err := testutil.CreateTestTask(ta.TaskDir, taskID, "Original Title", taskpkg.StatusReady, taskpkg.TypeStory); err != nil {
 		t.Fatalf("failed to create test task: %v", err)
 	}
@@ -83,7 +83,7 @@ func TestTaskDetailView_ChatNotAvailableWithoutConfig(t *testing.T) {
 	viper.Set("ai.agent", "")
 
 	// create a task
-	taskID := "TIKI-NOCHAT"
+	taskID := "NOCHAT"
 	if err := testutil.CreateTestTask(ta.TaskDir, taskID, "Unchanged Title", taskpkg.StatusReady, taskpkg.TypeStory); err != nil {
 		t.Fatalf("failed to create test task: %v", err)
 	}
