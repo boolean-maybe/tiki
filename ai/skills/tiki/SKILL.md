@@ -1,6 +1,6 @@
 ---
 name: tiki
-description: view, create, update, delete tikis and manage dependencies
+description: "View, create, update, and delete tikis (task/ticket items) and manage dependency relationships between them via ruki queries. Use when the user asks to manage tasks, query or filter tikis, update task status or priority, or work with tiki dependencies."
 allowed-tools: Read, Grep, Glob, Write, Bash(tiki exec:*), Bash(git log:*), Bash(git blame:*)
 ---
 
@@ -78,7 +78,13 @@ Escape double quotes in the content with backslash.
 
 ## Update
 
+For bulk operations, first preview affected tasks before applying changes:
+
 ```sh
+# preview: check which tasks will be affected
+tiki exec 'select id, title where status = "ready"'
+
+# then apply the change
 tiki exec 'update where id = "TIKI-X7F4K2" set status="done"'                   # status change
 tiki exec 'update where id = "TIKI-X7F4K2" set priority=1'                       # priority
 tiki exec 'update where status = "ready" set status="cancelled"'                  # bulk update
@@ -100,7 +106,13 @@ tiki exec 'update where id = "TIKI-X7F4K2" set status="review"'
 
 ## Delete
 
+For bulk deletes, first preview affected tasks:
+
 ```sh
+# preview: check which tasks will be deleted
+tiki exec 'select id, title where status = "cancelled"'
+
+# then delete
 tiki exec 'delete where id = "TIKI-X7F4K2"'                          # by ID
 tiki exec 'delete where status = "cancelled"'                         # bulk
 ```
@@ -147,4 +159,5 @@ tiki exec 'select createdAt, createdBy where id = "TIKI-X7F4K2"'
 
 - `tiki exec` handles `git add` and `git rm` automatically — never do manual git staging for tikis
 - Never commit without user permission
-- Exit codes: 0 = ok, 2 = usage error, 3 = startup failure, 4 = query error
+- Always preview before bulk update/delete to confirm the right tasks are targeted
+- Exit codes: 0 = ok, 2 = usage error (check command syntax), 3 = startup failure (check tiki installation), 4 = query error (check ruki syntax against `.doc/doki/doc/ruki/`)
