@@ -12,6 +12,39 @@ import (
 	"github.com/boolean-maybe/tiki/task"
 )
 
+// allDocsAsTasks returns every loaded document projected as a Task, including
+// plain documents that GetAllTasks filters out.
+//
+// Phase 5 requires ruki `select`, `update`, and `delete` to operate across the
+// full `.doc/` tree: `select where has(status)` must be able to see plain
+// docs in order to exclude them, and `update set status = …` must be able to
+// promote them. GetAllTasks applies the workflow-only filter at the store
+// boundary, so the CLI would never see plain docs unless we bypass it.
+//
+// Implementation: prefer DocumentReadStore.GetAllDocuments (the unfiltered
+// view) and project each document via task.FromDocument, which preserves
+// FilePath, LoadedMtime, and WorkflowFrontmatter. These fields are what
+// updateTaskLocked uses to carry forward identity-bound state when a fresh
+// Task value lands in the store, so persistence through the gate still picks
+// the right file and enforces optimistic locking.
+//
+// Fallback to GetAllTasks for ReadStore implementations that predate the
+// document-neutral API (tests using bare mocks). Those callers simply retain
+// the old workflow-only behavior.
+func allDocsAsTasks(rs store.ReadStore) []*task.Task {
+	if docStore, ok := rs.(store.DocumentReadStore); ok {
+		docs := docStore.GetAllDocuments()
+		tasks := make([]*task.Task, 0, len(docs))
+		for _, d := range docs {
+			if t := task.FromDocument(d); t != nil {
+				tasks = append(tasks, t)
+			}
+		}
+		return tasks
+	}
+	return rs.GetAllTasks()
+}
+
 // OutputFormat selects the renderer for CLI query output. OutputTable is the
 // default text/table form; OutputJSON emits compact machine-readable JSON.
 type OutputFormat int
@@ -79,7 +112,7 @@ func RunQueryWithOptions(gate *service.TaskMutationGate, query string, out io.Wr
 		input.CreateTemplate = template
 	}
 
-	tasks := readStore.GetAllTasks()
+	tasks := allDocsAsTasks(readStore)
 	result, err := executor.Execute(stmt, tasks, input)
 	if err != nil {
 		return fmt.Errorf("execute: %w", err)
@@ -184,7 +217,7 @@ func RunSelectQuery(readStore store.ReadStore, query string, out io.Writer) erro
 	}
 	executor := ruki.NewExecutor(schema, userFunc, ruki.ExecutorRuntime{Mode: ruki.ExecutorRuntimeCLI})
 
-	tasks := readStore.GetAllTasks()
+	tasks := allDocsAsTasks(readStore)
 	result, err := executor.Execute(validated, tasks, ruki.ExecutionInput{})
 	if err != nil {
 		return fmt.Errorf("execute: %w", err)

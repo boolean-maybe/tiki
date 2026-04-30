@@ -27,8 +27,8 @@ This page explains the value types used in `ruki`. You do not write types explic
 | `timestamp` | timestamp values such as `createdAt` and `updatedAt` |
 | `duration` | duration literals and date or timestamp differences |
 | `bool` | boolean result type (reserved, not currently produced by any expression) |
-| `id` | tiki identifier |
-| `ref` | tiki reference |
+| `id` | bare document identifier (`^[A-Z0-9]{6}$`) |
+| `ref` | bare document reference (same format as `id`) |
 | `recurrence` | recurrence value |
 | `list<string>` | list of strings |
 | `list<ref>` | list of references |
@@ -142,15 +142,17 @@ List rules are intentionally strict:
 
 Important edge cases:
 
-- `dependsOn=["TIKI-ABC123"]` is valid because a string-literal list can be assigned to `list<ref>`
-- `dependsOn=["TIKI-ABC123", title]` is invalid because `list<ref>` assignment only permits literal string elements in that special case
+- `dependsOn=["ABC123"]` is valid because a string-literal list can be assigned to `list<ref>`
+- `dependsOn=["ABC123", title]` is invalid because `list<ref>` assignment only permits literal string elements in that special case
+- `dependsOn=["TIKI-ABC"]` is invalid: references must be bare document IDs (`^[A-Z0-9]{6}$`), not the
+  legacy TIKI-prefixed format
 - `tags=[1, 2]` is invalid because `tags` is `list<string>`
 
 Examples:
 
 ```sql
 create title="x" tags=["bug", "frontend"]
-create title="x" dependsOn=["TIKI-ABC123", "TIKI-DEF456"]
+create title="x" dependsOn=["ABC123", "DEF456"]
 create title="x" dependsOn=[]
 ```
 
@@ -158,7 +160,8 @@ Invalid examples:
 
 ```sql
 create title="x" tags=[1, 2]
-create title="x" dependsOn=["TIKI-ABC123", title]
+create title="x" dependsOn=["ABC123", title]
+create title="x" dependsOn=["TIKI-ABC"]      -- legacy prefixed ID rejected
 select where status in ["done", 1]
 ```
 

@@ -232,6 +232,55 @@ Conditions:
 - `any` and `all` require `list<ref>` on the left side
 - list equality (`=` / `!=`) is set-like: order and duplicate count are ignored
 
+### Absent workflow fields
+
+Workflow fields — `status`, `type`, `priority`, `points`, `tags`, `dependsOn`, `due`, `recurrence`, `assignee`
+— are present-aware. A value is *present* when the source document's frontmatter declares the key, and *absent*
+otherwise. Plain documents (ordinary Markdown under `.doc/` with only `id` and `title`) have every workflow
+field absent.
+
+Rules that follow from presence:
+
+- `where <field> <op> <value>` evaluates **false** when `<field>` is absent, regardless of operator — this
+  covers `=`, `!=`, `<`, `>`, and every other comparison. `where priority = 0` does **not** match documents
+  that never declared priority; only documents whose frontmatter literally wrote `priority: 0` match.
+- `where <list> is empty` and `where <list> is not empty` both evaluate false on an absent list field. An
+  absent list is neither empty nor non-empty — it has no value at all. Only a *present-but-empty* list
+  (one whose frontmatter wrote `tags: []` or `dependsOn: []` explicitly) matches `is empty`.
+- `where <list> = []` likewise does not match absent list fields. A caller who wants "list is declared as
+  empty" must target documents with explicit `tags: []` in frontmatter.
+- `all` and `any` quantifiers return false over an absent list field. The vacuous-truth shortcut for `all`
+  applies only to a present-but-empty list.
+- `in` and `not in` both return false when either side references an absent workflow field — the rule is
+  symmetric. `where assignee not in ["bob"]` does **not** match documents whose `assignee` is absent,
+  because absence is not "some value that isn't bob"; it is no value. Use `has(assignee)` (or its negation
+  `not has(assignee)`) to express presence intent explicitly.
+- `where has(<field>)` is the only predicate that returns true for "field is present". Use it to filter
+  workflow-carrying documents out of a mixed `.doc/` tree: `select where has(status)`. `has()` also accepts
+  qualified references — `has(new.assignee)` is the canonical "new task declares an assignee" predicate in
+  triggers.
+- `order by <field>` places absent values *after* present values for ascending order and *before* them for
+  descending. This is deterministic in either direction.
+- Projections (`select id, title, priority`) render absent scalar fields as empty cells in the table
+  formatter and as JSON `null` in the JSON formatter. List fields always render as `[]` so downstream
+  scripts can iterate without a null check; if the caller needs to distinguish "absent list" from
+  "present-empty list", they should gate the select with `has(<field>)` in the where clause.
+- Arithmetic contexts (`set dependsOn = dependsOn + "ABC123"`, `set tags = tags - ["a"]`) treat an absent
+  list operand as an empty list because the expression *constructs* a new list. The assignment then
+  promotes the document to workflow — this is the canonical "first-time add" idiom.
+
+Custom user-defined fields keep the older "nil == empty" semantics: `where flag is empty` continues to
+match tasks that never set `flag`. The present-aware rule is scoped to built-in workflow fields so Phase 5
+does not quietly alter custom-field behavior.
+
+Setting **any** workflow field on a plain document is a *promotion*:
+`update where id = "ABC123" set status = "ready"` turns the plain document into a workflow document. The
+same applies to assignments of `type`, `tags`, `dependsOn`, `due`, `recurrence`, `assignee`, `priority`,
+and `points`. Without promotion on every workflow-field `set`, the save path would take the plain-document
+branch and silently drop the assigned value. Documents promoted this way save with the newly set frontmatter
+key written to disk, so the next load sees them as workflow documents. Promotion preserves sparse
+serialization — `set points = 0` writes exactly `points: 0`, not the full workflow schema.
+
 Examples:
 
 ```sql

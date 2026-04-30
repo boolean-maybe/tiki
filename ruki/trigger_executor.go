@@ -253,6 +253,15 @@ func (e *triggerExecOverride) evalExprRecursive(expr Expr, ctx evalContext) (int
 		if err != nil {
 			return nil, err
 		}
+		// Phase 5: absent list workflow fields coerce to an empty
+		// []interface{} for arithmetic contexts so trigger actions like
+		// `set tags = tags + ["auto"]` and
+		// `set dependsOn = dependsOn + old.id` work on plain tasks —
+		// the same promotion idiom the base executor already supports.
+		// Without this, a trigger action targeting a document with no
+		// prior dependsOn/tags fails with "cannot add <nil> + string".
+		leftVal = e.coerceAbsentListForArithmetic(expr.Left, leftVal)
+		rightVal = e.coerceAbsentListForArithmetic(expr.Right, rightVal)
 		switch expr.Op {
 		case "+":
 			return addValues(leftVal, rightVal)
@@ -328,6 +337,12 @@ func (e *triggerExecOverride) evalCondition(c Condition, ctx evalContext) (bool,
 		if err != nil {
 			return false, err
 		}
+		// Phase 5: an absent workflow field is neither empty nor not-
+		// empty; both variants of the predicate return false. Trigger
+		// contexts follow the same rule as the plain executor.
+		if val == nil && isWorkflowFieldRef(c.Expr) {
+			return false, nil
+		}
 		empty := isZeroValue(val)
 		if c.Negated {
 			return !empty, nil
@@ -352,8 +367,20 @@ func (e *triggerExecOverride) evalInOverride(c *InExpr, ctx evalContext) (bool, 
 		return false, err
 	}
 
+	// Phase 5: if either side references an absent workflow field, the
+	// whole predicate evaluates false — for both `in` and `not in`. Kept
+	// in sync with the plain-executor evalIn so trigger guards and CLI
+	// selects agree on absent-field semantics.
+	leftAbsent := val == nil && isWorkflowFieldRef(c.Value)
+	rightAbsent := collVal == nil && isWorkflowFieldRef(c.Collection)
+	if leftAbsent || rightAbsent {
+		return false, nil
+	}
+
 	if list, ok := collVal.([]interface{}); ok {
-		// unset field (nil) is not a member of any list
+		// unset non-workflow value (custom field or similar) is not a
+		// member of any list — pre-Phase-5 behavior preserved for
+		// custom fields.
 		if val == nil {
 			return c.Negated, nil
 		}
@@ -385,6 +412,12 @@ func (e *triggerExecOverride) evalInOverride(c *InExpr, ctx evalContext) (bool, 
 		return found, nil
 	}
 
+	// Non-workflow nil collection (e.g. absent custom list field) keeps
+	// the old c.Negated fallback so custom-field triggers unchanged.
+	if collVal == nil {
+		return c.Negated, nil
+	}
+
 	return false, fmt.Errorf("in: collection is not a list or string")
 }
 
@@ -392,6 +425,12 @@ func (e *triggerExecOverride) evalQuantifierOverride(q *QuantifierExpr, ctx eval
 	listVal, err := e.evalExpr(q.Expr, ctx)
 	if err != nil {
 		return false, err
+	}
+	// Phase 5: absent list workflow fields evaluate to nil in trigger
+	// contexts too. A quantifier over an absent field returns false for
+	// both `any` and `all`, matching the plain-executor behavior.
+	if listVal == nil && isWorkflowFieldRef(q.Expr) {
+		return false, nil
 	}
 	refs, ok := listVal.([]interface{})
 	if !ok {
@@ -441,10 +480,71 @@ func (e *triggerExecOverride) evalFunctionCallOverride(fc *FunctionCall, ctx eva
 		return e.evalBlocksOverride(fc, ctx)
 	case "next_date":
 		return e.evalNextDateOverride(fc, ctx)
+	case "has":
+		// In a trigger guard the executor has no real "current row" —
+		// ctx.current is a sentinel (tc.New or tc.Old). Base evalHas
+		// reads ctx.current/ctx.outer, which means has(old.status)
+		// would always be false and has(new.status) would be wrong
+		// inside a subquery. Resolve qualifiers through TriggerContext
+		// directly, mirroring resolveQualifiedRef so every qualified
+		// access in a trigger goes through one source of truth.
+		return e.evalHasOverride(fc, ctx)
 	default:
 		// now, user, call — delegate to base (no expression args needing QualifiedRef resolution)
 		return e.Executor.evalFunctionCall(fc, ctx)
 	}
+}
+
+// evalHasOverride implements has(<field>) for trigger contexts. The
+// qualifier resolution follows the same rules as resolveQualifiedRef:
+//   - bare has(status) reads the current row (used inside subqueries where
+//     ctx.current is the candidate task)
+//   - has(new.status) reads tc.New regardless of ctx, matching
+//     `new.status = "done"` semantics
+//   - has(old.status) reads tc.Old regardless of ctx
+//   - has(outer.status) reads ctx.outer (the parent row of a subquery)
+//
+// target./targets. are not reachable here — triggerQualifiers never
+// grants them — so we surface a clear "trigger runtime" error if a
+// future refactor ever slips through.
+//
+// A nil task in any branch returns false — absent resolves to absent.
+func (e *triggerExecOverride) evalHasOverride(fc *FunctionCall, ctx evalContext) (interface{}, error) {
+	if len(fc.Args) != 1 {
+		return nil, fmt.Errorf("has() expects 1 argument, got %d", len(fc.Args))
+	}
+	var name, qualifier string
+	switch ref := fc.Args[0].(type) {
+	case *FieldRef:
+		name = ref.Name
+	case *QualifiedRef:
+		name = ref.Name
+		qualifier = ref.Qualifier
+	default:
+		return nil, fmt.Errorf("has() argument must be a field reference, e.g. has(status) or has(new.status)")
+	}
+	var target *task.Task
+	switch qualifier {
+	case "":
+		target = ctx.current
+	case "new":
+		target = e.tc.New
+	case "old":
+		target = e.tc.Old
+	case "outer":
+		if ctx.outer == nil {
+			return nil, fmt.Errorf("has(outer.%s) is not available outside a subquery", name)
+		}
+		target = ctx.outer
+	case "target", "targets":
+		return nil, fmt.Errorf("has(%s.%s): %s. qualifier is not valid in trigger contexts", qualifier, name, qualifier)
+	default:
+		return nil, fmt.Errorf("has(%s.%s): unknown qualifier %q", qualifier, name, qualifier)
+	}
+	if target == nil {
+		return false, nil
+	}
+	return hasWorkflowField(target, name), nil
 }
 
 func (e *triggerExecOverride) evalCountOverride(fc *FunctionCall, parent *task.Task, allTasks []*task.Task) (interface{}, error) {
@@ -500,6 +600,13 @@ func (e *triggerExecOverride) evalNextDateOverride(fc *FunctionCall, ctx evalCon
 	val, err := e.evalExpr(fc.Args[0], ctx)
 	if err != nil {
 		return nil, err
+	}
+	// Phase 5: mirror the base executor — an absent recurrence
+	// propagates as nil so `where next_date(new.recurrence) is not
+	// empty` evaluates to false on tasks without a recurrence key
+	// instead of aborting the trigger with a type error.
+	if val == nil {
+		return nil, nil
 	}
 	rec, ok := val.(task.Recurrence)
 	if !ok {

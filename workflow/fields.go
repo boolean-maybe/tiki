@@ -9,7 +9,7 @@ import (
 	"github.com/boolean-maybe/tiki/ruki/keyword"
 )
 
-// ValueType identifies the semantic type of a task field.
+// ValueType identifies the semantic type of a document field.
 type ValueType int
 
 const (
@@ -19,17 +19,17 @@ const (
 	TypeTimestamp            // full timestamp (e.g. createdAt, updatedAt)
 	TypeDuration             // reserved for future use
 	TypeBool                 // reserved for future use
-	TypeID                   // task identifier
-	TypeRef                  // reference to another task ID
+	TypeID                   // bare document identifier (^[A-Z0-9]{6}$)
+	TypeRef                  // reference to another document ID
 	TypeRecurrence           // structured cron-based recurrence pattern
 	TypeListString           // []string (e.g. tags)
-	TypeListRef              // []string of task ID references (e.g. dependsOn)
+	TypeListRef              // []string of document ID references (e.g. dependsOn)
 	TypeStatus               // workflow status enum backed by StatusRegistry
-	TypeTaskType             // task type enum backed by TypeRegistry
+	TypeTaskType             // document type enum backed by TypeRegistry
 	TypeEnum                 // custom enum backed by FieldDef.AllowedValues
 )
 
-// FieldDef describes a single task field's name and semantic type.
+// FieldDef describes a single document field's name and semantic type.
 type FieldDef struct {
 	Name          string
 	Type          ValueType
@@ -38,7 +38,7 @@ type FieldDef struct {
 	DefaultValue  interface{} // nil = no default; set via workflow.yaml default: key
 }
 
-// fieldCatalog is the authoritative list of DSL-visible task fields.
+// fieldCatalog is the authoritative list of DSL-visible document fields.
 var fieldCatalog = []FieldDef{
 	{Name: "id", Type: TypeID},
 	{Name: "title", Type: TypeString},
@@ -120,7 +120,7 @@ func BuiltinFields() []FieldDef {
 	return result
 }
 
-// Fields returns the ordered list of all DSL-visible task fields
+// Fields returns the ordered list of all DSL-visible document fields
 // (built-in + custom). Returns deep copies so callers cannot mutate registry state.
 func Fields() []FieldDef {
 	customMu.RLock()

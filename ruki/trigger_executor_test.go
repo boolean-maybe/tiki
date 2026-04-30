@@ -477,14 +477,14 @@ func TestExecAction_CleanupDependsOnDelete(t *testing.T) {
 		t.Fatalf("parse: %v", err)
 	}
 
-	deleted := &task.Task{ID: "TIKI-DEL001", Title: "Deleted"}
+	deleted := &task.Task{ID: "DELDEL", Title: "Deleted"}
 	downstream := &task.Task{
-		ID: "TIKI-DOWN01", Title: "Downstream", Status: "ready",
-		DependsOn: []string{"TIKI-DEL001", "TIKI-OTHER1"},
+		ID: "DOWN01", Title: "Downstream", Status: "ready",
+		DependsOn: []string{"DELDEL", "OTHER1"},
 	}
 	unrelated := &task.Task{
-		ID: "TIKI-OTHER1", Title: "Unrelated", Status: "done",
-		DependsOn: []string{"TIKI-OTHER2"},
+		ID: "OTHER1", Title: "Unrelated", Status: "done",
+		DependsOn: []string{"OTHER2"},
 	}
 
 	tc := &TriggerContext{
@@ -504,8 +504,8 @@ func TestExecAction_CleanupDependsOnDelete(t *testing.T) {
 		t.Fatalf("expected 1 updated (downstream only), got %d", len(result.Update.Updated))
 	}
 	updated := result.Update.Updated[0]
-	if len(updated.DependsOn) != 1 || updated.DependsOn[0] != "TIKI-OTHER1" {
-		t.Fatalf("expected dependsOn=[TIKI-OTHER1], got %v", updated.DependsOn)
+	if len(updated.DependsOn) != 1 || updated.DependsOn[0] != "OTHER1" {
+		t.Fatalf("expected dependsOn=[OTHER1], got %v", updated.DependsOn)
 	}
 }
 
@@ -1335,6 +1335,11 @@ func TestEvalCondition_IsEmpty(t *testing.T) {
 	te := newTestTriggerExecutor()
 	p := newTestParser()
 
+	// Phase 5: `is empty` on an absent workflow field returns false. For
+	// this trigger to fire on truly-empty assignee (explicitly written as
+	// empty string in frontmatter), the incoming task is marked with
+	// WorkflowFrontmatter carrying an explicit assignee key. Triggers
+	// that want to match missing-assignee should use `not has(assignee)`.
 	trig, err := p.ParseTrigger(`before create where new.assignee is empty deny "no assignee"`)
 	if err != nil {
 		t.Fatalf("parse: %v", err)
@@ -1342,14 +1347,17 @@ func TestEvalCondition_IsEmpty(t *testing.T) {
 
 	tc := &TriggerContext{
 		Old: nil,
-		New: &task.Task{ID: "TIKI-000001", Assignee: ""},
+		New: &task.Task{
+			ID: "TIKI-000001", Assignee: "",
+			WorkflowFrontmatter: map[string]interface{}{"assignee": ""},
+		},
 	}
 	ok, err := te.EvalGuard(trig, tc)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 	if !ok {
-		t.Fatal("is empty should match when assignee is blank")
+		t.Fatal("is empty should match when assignee is present-but-empty")
 	}
 }
 
@@ -1500,7 +1508,12 @@ func TestEvalQuantifierOverride_AllNoMatch(t *testing.T) {
 func TestEvalQuantifierOverride_AllEmptyList(t *testing.T) {
 	te := newTestTriggerExecutor()
 
-	// all on empty list is vacuously true
+	// Phase 5: `all` over a PRESENT empty list is vacuously true. To mark
+	// dependsOn as "present but empty" (rather than absent), the task
+	// carries an explicit WorkflowFrontmatter entry — this matches what
+	// the store populates for a document whose frontmatter wrote
+	// `dependsOn: []`. A truly-absent dependsOn would evaluate to false,
+	// per the Phase 5 predicate-on-absent-field rule.
 	trig := &Trigger{
 		Timing: "before",
 		Event:  "update",
@@ -1514,9 +1527,10 @@ func TestEvalQuantifierOverride_AllEmptyList(t *testing.T) {
 		Deny: strPtr("all done"),
 	}
 
+	presentEmpty := map[string]interface{}{"dependsOn": ""}
 	tc := &TriggerContext{
-		Old: &task.Task{ID: "TIKI-000001", DependsOn: nil},
-		New: &task.Task{ID: "TIKI-000001", DependsOn: nil},
+		Old: &task.Task{ID: "TIKI-000001", DependsOn: nil, WorkflowFrontmatter: presentEmpty},
+		New: &task.Task{ID: "TIKI-000001", DependsOn: nil, WorkflowFrontmatter: presentEmpty},
 	}
 
 	ok, err := te.EvalGuard(trig, tc)
@@ -1524,7 +1538,7 @@ func TestEvalQuantifierOverride_AllEmptyList(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 	if !ok {
-		t.Fatal("all on empty list should be vacuously true")
+		t.Fatal("all on present-empty list should be vacuously true")
 	}
 }
 
@@ -1967,15 +1981,19 @@ func TestEvalQuantifierOverride_AllWithEmptyList(t *testing.T) {
 	te := newTestTriggerExecutor()
 	p := newTestParser()
 
-	// "all dependsOn have status = done" with empty dependsOn should be vacuously true
+	// Phase 5: `all` over a PRESENT empty list is vacuously true; the
+	// test marks dependsOn as present via WorkflowFrontmatter. Absent
+	// dependsOn would return false and the guard would allow the update,
+	// not the behavior this test documents.
 	trig, err := p.ParseTrigger(`before update where new.dependsOn all status = "done" deny "open deps"`)
 	if err != nil {
 		t.Fatalf("parse: %v", err)
 	}
 
+	presentEmpty := map[string]interface{}{"dependsOn": ""}
 	tc := &TriggerContext{
-		Old: &task.Task{ID: "TIKI-000001", DependsOn: []string{}},
-		New: &task.Task{ID: "TIKI-000001", DependsOn: []string{}},
+		Old: &task.Task{ID: "TIKI-000001", DependsOn: []string{}, WorkflowFrontmatter: presentEmpty},
+		New: &task.Task{ID: "TIKI-000001", DependsOn: []string{}, WorkflowFrontmatter: presentEmpty},
 	}
 
 	ok, err := te.EvalGuard(trig, tc)
@@ -1983,7 +2001,7 @@ func TestEvalQuantifierOverride_AllWithEmptyList(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 	if !ok {
-		t.Fatal("all with empty list should be vacuously true")
+		t.Fatal("all with present-empty list should be vacuously true")
 	}
 }
 
@@ -2032,8 +2050,13 @@ func TestEvalCondition_IsEmptyOverride(t *testing.T) {
 		Deny: strPtr("unassigned"),
 	}
 
+	// Phase 5: `is empty` only matches present-but-empty fields. Mark
+	// assignee as present explicitly so the trigger fires.
 	tc := &TriggerContext{
-		New: &task.Task{ID: "TIKI-000001", Assignee: ""},
+		New: &task.Task{
+			ID: "TIKI-000001", Assignee: "",
+			WorkflowFrontmatter: map[string]interface{}{"assignee": ""},
+		},
 	}
 
 	ok, err := te.EvalGuard(trig, tc)
@@ -2041,7 +2064,7 @@ func TestEvalCondition_IsEmptyOverride(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 	if !ok {
-		t.Fatal("empty assignee should match 'is empty'")
+		t.Fatal("present-but-empty assignee should match 'is empty'")
 	}
 }
 
@@ -2082,10 +2105,10 @@ func TestEvalExprRecursive_BinaryExprSubtract(t *testing.T) {
 		t.Fatalf("parse: %v", err)
 	}
 
-	dep := &task.Task{ID: "TIKI-DEP001", Status: "done"}
+	dep := &task.Task{ID: "DEP001", Status: "done"}
 	downstream := &task.Task{
-		ID: "TIKI-DOWN01", Status: "ready",
-		DependsOn: []string{"TIKI-DEP001", "TIKI-OTHER1"},
+		ID: "DOWN01", Status: "ready",
+		DependsOn: []string{"DEP001", "OTHER1"},
 	}
 	tc := &TriggerContext{
 		Old:      dep,
@@ -2101,8 +2124,8 @@ func TestEvalExprRecursive_BinaryExprSubtract(t *testing.T) {
 		t.Fatal("expected update result")
 	}
 	updated := result.Update.Updated[0]
-	if len(updated.DependsOn) != 1 || updated.DependsOn[0] != "TIKI-OTHER1" {
-		t.Errorf("expected dependsOn=[TIKI-OTHER1], got %v", updated.DependsOn)
+	if len(updated.DependsOn) != 1 || updated.DependsOn[0] != "OTHER1" {
+		t.Errorf("expected dependsOn=[OTHER1], got %v", updated.DependsOn)
 	}
 }
 
