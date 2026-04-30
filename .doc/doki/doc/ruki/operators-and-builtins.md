@@ -208,7 +208,8 @@ create title="x" dependsOn=dependsOn + tags
 | Name | Result type | Arguments | Notes |
 |---|---|---|---|
 | `count(...)` | `int` | exactly 1 | argument must be a `select` subquery; usable as a top-level expression |
-| `exists(...)` | `bool` | exactly 1 | argument must be a `select` subquery; true when any tiki matches; usable as a top-level expression |
+| `exists(...)` | `bool` | exactly 1 | argument must be a `select` subquery; true when any document matches; usable as a top-level expression |
+| `has(...)` | `bool` | exactly 1 | argument must be a bare or qualified field reference (`has(status)`, `has(new.status)`, `has(outer.status)`, `has(target.status)`, `has(targets.status)`); true when the referenced task has an explicit value for that workflow field — used to distinguish "absent" from "present with zero value". See qualifier rules below. |
 | `now()` | `timestamp` | 0 | no additional validation |
 | `next_date(...)` | `date` | exactly 1 | argument must be `recurrence` |
 | `blocks(...)` | `list<ref>` | exactly 1 | argument must be `id`, `ref`, or string literal |
@@ -233,6 +234,7 @@ and exists(select where id in new.dependsOn and status != "done")
 deny "epic has unfinished dependencies"
 create title=call("echo hi")
 select where assignee = user()
+select where has(status) and not has(assignee)
 update where id = id() set assignee = input()
 update where id = id() set tags = tags + [input()]
 update where id in ids() set status = "done"
@@ -271,6 +273,20 @@ Runtime notes:
   [Configuration / Identity resolution](../config.md#identity-resolution)
   for the full layered behavior.
 - `exists(...)` is a non-interactive boolean builtin. Its subquery body is validated recursively.
+- `has(<field>)` is the presence predicate. It returns `true` when the current document has an explicit value
+  for the named workflow field and `false` when the field is absent. This is the only way to distinguish
+  "absent" from "present with zero value": `where priority = 0` only matches documents whose priority was
+  explicitly set to `0`, while `where has(priority)` matches any document that declares priority at all.
+  Plain documents (no workflow frontmatter) always report every workflow field as absent, so
+  `select where has(status)` is the canonical filter for "show only workflow documents". The argument must
+  be a bare or qualified field reference — `has("status")` with a string literal is rejected. Qualifier
+  resolution mirrors ordinary field references and is gated by the surrounding context:
+  - `has(outer.X)` — parent-query row; valid only inside a `count()`/`choose()`/`exists()` subquery body.
+  - `has(target.X)` — the exactly-one selected task; valid only in plugin runtime (same cardinality contract
+    as `target.X` reads).
+  - `has(targets.X)` — true iff **any** selected task has the field present; valid only in plugin runtime.
+    Zero selections always yield `false`.
+  - `has(new.X)` / `has(old.X)` — the proposed/previous task in trigger guards and actions.
 - `count(...)`, `exists(...)`, `now()`, `user()`, and other non-interactive builtins may appear as top-level
   expression statements: `tiki exec 'count(select where status = "done")'` prints the scalar result instead of
   a table. Bare field references are rejected at the top level (no current task), but remain valid inside the

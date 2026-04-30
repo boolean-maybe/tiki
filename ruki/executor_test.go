@@ -191,15 +191,34 @@ func TestExecuteSelectWhere(t *testing.T) {
 			1, []string{"TIKI-000002"},
 		},
 		{
+			// Phase 5: `is empty` on an absent workflow field returns
+			// false. TIKI-000004 has no Assignee set, so it is absent
+			// rather than "present but empty" — use `not has(assignee)`
+			// to surface absent-assignee documents instead.
 			"is empty", `select where assignee is empty`,
-			1, []string{"TIKI-000004"},
+			0, nil,
 		},
 		{
+			// Phase 5: `is not empty` on an absent field also returns
+			// false. The three tasks with explicit assignees still match
+			// because their frontmatter carries an assignee key.
 			"is not empty", `select where assignee is not empty`,
 			3, []string{"TIKI-000001", "TIKI-000002", "TIKI-000003"},
 		},
 		{
+			// Phase 5: absent list fields behave the same as absent
+			// scalars — `tags is empty` on a doc with no tags key is
+			// false. Use `not has(tags)` for presence-check semantics.
 			"tags is empty", `select where tags is empty`,
+			0, nil,
+		},
+		{
+			// Phase 5: has() is the explicit-absence escape hatch.
+			"not has assignee", `select where not has(assignee)`,
+			1, []string{"TIKI-000004"},
+		},
+		{
+			"not has tags", `select where not has(tags)`,
 			1, []string{"TIKI-000004"},
 		},
 	}
@@ -258,9 +277,11 @@ func TestExecuteSelectOrderBy(t *testing.T) {
 			[]string{"TIKI-000002", "TIKI-000004", "TIKI-000001", "TIKI-000003"},
 		},
 		{
+			// Phase 5: TIKI-000004 has no due date set → absent → sorts last
+			// for ascending. The remaining three order chronologically.
 			"order by due",
 			"select order by due",
-			[]string{"TIKI-000004", "TIKI-000002", "TIKI-000001", "TIKI-000003"},
+			[]string{"TIKI-000002", "TIKI-000001", "TIKI-000003", "TIKI-000004"},
 		},
 		{
 			"multi-field sort",
@@ -510,19 +531,38 @@ func TestExecuteListSetEquality(t *testing.T) {
 			1,
 		},
 		{
-			"empty list equality",
+			// Phase 5: a present-but-empty tags field equals []. The
+			// explicit WorkflowFrontmatter entry marks the field as
+			// present, matching what the store populates when loading
+			// a document that wrote `tags: []` in its frontmatter.
+			"present empty list equals []",
 			[]*task.Task{
-				{ID: "T1", Title: "x", Status: "ready", Tags: []string{}},
+				{
+					ID: "T1", Title: "x", Status: "ready", Tags: []string{},
+					WorkflowFrontmatter: map[string]interface{}{"status": "ready", "tags": ""},
+				},
 			},
 			`select where tags = []`,
 			1,
 		},
 		{
-			"nil tags equals empty list",
+			// Phase 5: an absent tags field does NOT equal [] — absent
+			// means "no value", not "empty value". The caller should use
+			// `not has(tags)` to match documents that never declared
+			// tags at all.
+			"absent tags does not equal []",
 			[]*task.Task{
 				{ID: "T1", Title: "x", Status: "ready"},
 			},
 			`select where tags = []`,
+			0,
+		},
+		{
+			"absent tags matches not has(tags)",
+			[]*task.Task{
+				{ID: "T1", Title: "x", Status: "ready"},
+			},
+			`select where not has(tags)`,
 			1,
 		},
 		{
@@ -1251,9 +1291,16 @@ func TestExecuteQuantifier(t *testing.T) {
 			1, // TIKI-000002 depends on TIKI-000001 (status=ready, not done)
 		},
 		{
-			"all — all deps done (vacuously true for no deps)",
+			// Phase 5: `all` over an absent list field returns false, not
+			// vacuous truth. Only TIKI-000002 has an explicit dependsOn
+			// (single dep TIKI-000001 with status=ready), so `all status
+			// = "done"` is also false there. Zero matches overall. The
+			// vacuous-truth shortcut still applies when the list field is
+			// present but empty — callers can opt into that by setting
+			// `dependsOn: []` in frontmatter explicitly.
+			"all — absent dependsOn evaluates false",
 			`select where dependsOn all status = "done"`,
-			3, // TIKI-000001, TIKI-000003, TIKI-000004 (no deps = vacuous truth)
+			0,
 		},
 	}
 
@@ -1376,12 +1423,17 @@ func TestExecuteCompareWithNil(t *testing.T) {
 		{ID: "T2", Title: "y", Status: "ready", Assignee: "bob"},
 	}
 
+	// Phase 5: T1's assignee is absent (no WorkflowFrontmatter, typed
+	// field zero), so every comparison on it returns false, including
+	// `!= empty`. T2's present non-empty assignee makes `!= empty` match;
+	// `= empty` matches nothing because T1 is absent (not empty) and
+	// T2's value is non-empty.
 	tests := []struct {
 		name    string
 		op      string
 		wantIDs []string
 	}{
-		{"field = empty", "=", []string{"T1"}},
+		{"field = empty", "=", nil},
 		{"field != empty", "!=", []string{"T2"}},
 	}
 
@@ -1741,8 +1793,11 @@ func TestCompareForSort(t *testing.T) {
 		want int
 	}{
 		{"nil nil", nil, nil, 0},
-		{"nil left", nil, 1, -1},
-		{"nil right", 1, nil, 1},
+		// Phase 5 semantics: absent (nil) values sort AFTER present values
+		// for ascending order, so a nil left compares greater (+1) and a
+		// nil right compares less (-1). See compareForSort comment.
+		{"nil left", nil, 1, 1},
+		{"nil right", 1, nil, -1},
 		{"int lt", 1, 2, -1},
 		{"int eq", 2, 2, 0},
 		{"int gt", 3, 2, 1},
@@ -1833,6 +1888,12 @@ func TestExecuteIDNotEqual(t *testing.T) {
 
 func TestExecuteRecurrenceComparison(t *testing.T) {
 	e := newTestExecutor()
+	// Phase 5: T2's recurrence is absent (typed zero, no
+	// WorkflowFrontmatter), so a comparison on it returns false even
+	// when both sides are the same absent field. Only T1 (present
+	// recurrence) satisfies `recurrence = recurrence`. To regain the
+	// self-equality behavior for absent fields, callers can guard with
+	// `has(recurrence)`.
 	tasks := []*task.Task{
 		{ID: "T1", Title: "x", Status: "ready", Recurrence: task.RecurrenceDaily},
 		{ID: "T2", Title: "y", Status: "ready", Recurrence: task.RecurrenceNone},
@@ -1851,8 +1912,11 @@ func TestExecuteRecurrenceComparison(t *testing.T) {
 	if err != nil {
 		t.Fatalf("execute: %v", err)
 	}
-	if len(result.Select.Tasks) != 2 {
-		t.Fatalf("expected 2, got %d", len(result.Select.Tasks))
+	if len(result.Select.Tasks) != 1 {
+		t.Fatalf("expected 1 (only T1, T2's absent recurrence yields false), got %d", len(result.Select.Tasks))
+	}
+	if result.Select.Tasks[0].ID != "T1" {
+		t.Fatalf("expected T1, got %s", result.Select.Tasks[0].ID)
 	}
 }
 
@@ -2370,7 +2434,10 @@ func TestExecuteResolveComparisonTypeRightSide(t *testing.T) {
 		t.Fatalf("expected 1 (todo->ready), got %d", len(result.Select.Tasks))
 	}
 
-	// literal on left, type field on right
+	// literal on left, type field on right. Phase 5: the task's type is
+	// absent, so any comparison against it returns false (including !=).
+	// The caller would add a task with an explicit type value here, or
+	// use `not has(type)` if the intent is to match missing-type docs.
 	stmt3 := &Statement{Select: &SelectStmt{
 		Where: &CompareExpr{
 			Left:  &StringLiteral{Value: "feature"},
@@ -2382,9 +2449,8 @@ func TestExecuteResolveComparisonTypeRightSide(t *testing.T) {
 	if err != nil {
 		t.Fatalf("execute: %v", err)
 	}
-	// status is "ready", type is "" — "feature" normalizes to "story", "" doesn't normalize → not equal
-	if len(result.Select.Tasks) != 1 {
-		t.Fatalf("expected 1, got %d", len(result.Select.Tasks))
+	if len(result.Select.Tasks) != 0 {
+		t.Fatalf("expected 0 (absent type yields false predicate), got %d", len(result.Select.Tasks))
 	}
 }
 
@@ -2648,6 +2714,10 @@ func TestCompareValuesStatusTypeDirect(t *testing.T) {
 
 func TestExecuteQuantifierAllFailing(t *testing.T) {
 	e := newTestExecutor()
+	// Phase 5: T2 and T3 have no dependsOn → absent → `all` returns
+	// false. T1 has deps but at least one is not done → false. Zero
+	// matches overall. A caller who wants the old vacuous-truth shortcut
+	// must declare `dependsOn: []` explicitly (present-but-empty).
 	tasks := []*task.Task{
 		{ID: "T1", Title: "x", Status: "ready", DependsOn: []string{"T2", "T3"}},
 		{ID: "T2", Title: "y", Status: "done"},
@@ -2662,21 +2732,23 @@ func TestExecuteQuantifierAllFailing(t *testing.T) {
 	if err != nil {
 		t.Fatalf("execute: %v", err)
 	}
-	// T1 depends on T2(done) and T3(ready) — not all done
-	// T2 has no deps → vacuous truth
-	// T3 has no deps → vacuous truth
-	wantCount := 2
-	if len(result.Select.Tasks) != wantCount {
+	if len(result.Select.Tasks) != 0 {
 		ids := make([]string, len(result.Select.Tasks))
 		for i, tk := range result.Select.Tasks {
 			ids[i] = tk.ID
 		}
-		t.Fatalf("expected %d tasks, got %d: %v", wantCount, len(result.Select.Tasks), ids)
+		t.Fatalf("expected 0 tasks, got %d: %v", len(result.Select.Tasks), ids)
 	}
 }
 
 func TestExecuteQuantifierAllPassing(t *testing.T) {
 	e := newTestExecutor()
+	// Phase 5: only T1 matches — its deps (T2, T3) are both done. T2 and
+	// T3 have no dependsOn field declared, so `all` on an absent list
+	// returns false rather than vacuously true. Declaring
+	// `dependsOn: []` in frontmatter (modeled here via
+	// WorkflowFrontmatter) would opt back into vacuous truth, but the
+	// default position is that absent fields fail every predicate.
 	tasks := []*task.Task{
 		{ID: "T1", Title: "x", Status: "ready", DependsOn: []string{"T2", "T3"}},
 		{ID: "T2", Title: "y", Status: "done"},
@@ -2691,13 +2763,12 @@ func TestExecuteQuantifierAllPassing(t *testing.T) {
 	if err != nil {
 		t.Fatalf("execute: %v", err)
 	}
-	// all 3: T1 deps are T2+T3 both done, T2+T3 have no deps (vacuous)
-	if len(result.Select.Tasks) != 3 {
+	if len(result.Select.Tasks) != 1 || result.Select.Tasks[0].ID != "T1" {
 		ids := make([]string, len(result.Select.Tasks))
 		for i, tk := range result.Select.Tasks {
 			ids[i] = tk.ID
 		}
-		t.Fatalf("expected 3 tasks, got %d: %v", len(result.Select.Tasks), ids)
+		t.Fatalf("expected [T1], got %v", ids)
 	}
 }
 
@@ -3013,7 +3084,7 @@ func TestExecuteUpdateDependsOnPlusElement(t *testing.T) {
 		{ID: "TIKI-000001", Title: "x", Status: "ready", DependsOn: []string{}},
 	}
 
-	stmt, err := p.ParseStatement(`update where id = "TIKI-000001" set dependsOn=dependsOn+"TIKI-Y"`)
+	stmt, err := p.ParseStatement(`update where id = "TIKI-000001" set dependsOn=dependsOn+"YYYYYY"`)
 	if err != nil {
 		t.Fatalf("parse: %v", err)
 	}
@@ -3022,8 +3093,8 @@ func TestExecuteUpdateDependsOnPlusElement(t *testing.T) {
 		t.Fatalf("execute: %v", err)
 	}
 	u := result.Update.Updated[0]
-	if len(u.DependsOn) != 1 || u.DependsOn[0] != "TIKI-Y" {
-		t.Errorf("expected dependsOn [TIKI-Y], got %v", u.DependsOn)
+	if len(u.DependsOn) != 1 || u.DependsOn[0] != "YYYYYY" {
+		t.Errorf("expected dependsOn [YYYYYY], got %v", u.DependsOn)
 	}
 }
 
@@ -3031,10 +3102,10 @@ func TestExecuteUpdateDependsOnPlusList(t *testing.T) {
 	e := newTestExecutor()
 	p := newTestParser()
 	tasks := []*task.Task{
-		{ID: "TIKI-000001", Title: "x", Status: "ready", DependsOn: []string{"TIKI-Z"}},
+		{ID: "TIKI-000001", Title: "x", Status: "ready", DependsOn: []string{"ZZZZZZ"}},
 	}
 
-	stmt, err := p.ParseStatement(`update where id = "TIKI-000001" set dependsOn=dependsOn+["TIKI-Y"]`)
+	stmt, err := p.ParseStatement(`update where id = "TIKI-000001" set dependsOn=dependsOn+["YYYYYY"]`)
 	if err != nil {
 		t.Fatalf("parse: %v", err)
 	}
@@ -3043,8 +3114,8 @@ func TestExecuteUpdateDependsOnPlusList(t *testing.T) {
 		t.Fatalf("execute: %v", err)
 	}
 	u := result.Update.Updated[0]
-	if len(u.DependsOn) != 2 || u.DependsOn[0] != "TIKI-Z" || u.DependsOn[1] != "TIKI-Y" {
-		t.Errorf("expected dependsOn [TIKI-Z TIKI-Y], got %v", u.DependsOn)
+	if len(u.DependsOn) != 2 || u.DependsOn[0] != "ZZZZZZ" || u.DependsOn[1] != "YYYYYY" {
+		t.Errorf("expected dependsOn [ZZZZZZ YYYYYY], got %v", u.DependsOn)
 	}
 }
 
@@ -3052,10 +3123,10 @@ func TestExecuteUpdateDependsOnPlusListIdempotent(t *testing.T) {
 	e := newTestExecutor()
 	p := newTestParser()
 	tasks := []*task.Task{
-		{ID: "TIKI-000001", Title: "x", Status: "ready", DependsOn: []string{"TIKI-Y", "tiki-y"}},
+		{ID: "TIKI-000001", Title: "x", Status: "ready", DependsOn: []string{"YYYYYY", "yyyyyy"}},
 	}
 
-	stmt, err := p.ParseStatement(`update where id = "TIKI-000001" set dependsOn=dependsOn+["TIKI-Y"]`)
+	stmt, err := p.ParseStatement(`update where id = "TIKI-000001" set dependsOn=dependsOn+["YYYYYY"]`)
 	if err != nil {
 		t.Fatalf("parse: %v", err)
 	}
@@ -3064,8 +3135,8 @@ func TestExecuteUpdateDependsOnPlusListIdempotent(t *testing.T) {
 		t.Fatalf("execute: %v", err)
 	}
 	u := result.Update.Updated[0]
-	if len(u.DependsOn) != 1 || u.DependsOn[0] != "TIKI-Y" {
-		t.Errorf("expected dependsOn [TIKI-Y], got %v", u.DependsOn)
+	if len(u.DependsOn) != 1 || u.DependsOn[0] != "YYYYYY" {
+		t.Errorf("expected dependsOn [YYYYYY], got %v", u.DependsOn)
 	}
 }
 
@@ -3073,10 +3144,10 @@ func TestExecuteUpdateDependsOnMinusElement(t *testing.T) {
 	e := newTestExecutor()
 	p := newTestParser()
 	tasks := []*task.Task{
-		{ID: "TIKI-000001", Title: "x", Status: "ready", DependsOn: []string{"TIKI-Y", "TIKI-Z"}},
+		{ID: "TIKI-000001", Title: "x", Status: "ready", DependsOn: []string{"YYYYYY", "ZZZZZZ"}},
 	}
 
-	stmt, err := p.ParseStatement(`update where id = "TIKI-000001" set dependsOn=dependsOn-"TIKI-Y"`)
+	stmt, err := p.ParseStatement(`update where id = "TIKI-000001" set dependsOn=dependsOn-"YYYYYY"`)
 	if err != nil {
 		t.Fatalf("parse: %v", err)
 	}
@@ -3085,8 +3156,8 @@ func TestExecuteUpdateDependsOnMinusElement(t *testing.T) {
 		t.Fatalf("execute: %v", err)
 	}
 	u := result.Update.Updated[0]
-	if len(u.DependsOn) != 1 || u.DependsOn[0] != "TIKI-Z" {
-		t.Errorf("expected dependsOn [TIKI-Z], got %v", u.DependsOn)
+	if len(u.DependsOn) != 1 || u.DependsOn[0] != "ZZZZZZ" {
+		t.Errorf("expected dependsOn [ZZZZZZ], got %v", u.DependsOn)
 	}
 }
 
@@ -3094,10 +3165,10 @@ func TestExecuteUpdateDependsOnMinusList(t *testing.T) {
 	e := newTestExecutor()
 	p := newTestParser()
 	tasks := []*task.Task{
-		{ID: "TIKI-000001", Title: "x", Status: "ready", DependsOn: []string{"TIKI-Y", "TIKI-Z"}},
+		{ID: "TIKI-000001", Title: "x", Status: "ready", DependsOn: []string{"YYYYYY", "ZZZZZZ"}},
 	}
 
-	stmt, err := p.ParseStatement(`update where id = "TIKI-000001" set dependsOn=dependsOn-["TIKI-Y"]`)
+	stmt, err := p.ParseStatement(`update where id = "TIKI-000001" set dependsOn=dependsOn-["YYYYYY"]`)
 	if err != nil {
 		t.Fatalf("parse: %v", err)
 	}
@@ -3106,8 +3177,8 @@ func TestExecuteUpdateDependsOnMinusList(t *testing.T) {
 		t.Fatalf("execute: %v", err)
 	}
 	u := result.Update.Updated[0]
-	if len(u.DependsOn) != 1 || u.DependsOn[0] != "TIKI-Z" {
-		t.Errorf("expected dependsOn [TIKI-Z], got %v", u.DependsOn)
+	if len(u.DependsOn) != 1 || u.DependsOn[0] != "ZZZZZZ" {
+		t.Errorf("expected dependsOn [ZZZZZZ], got %v", u.DependsOn)
 	}
 }
 
@@ -4561,7 +4632,11 @@ func TestExecutor_NilMatchesIsEmpty(t *testing.T) {
 	}
 }
 
-func TestExecutor_NilSortsFirst(t *testing.T) {
+func TestExecutor_NilSortsLast(t *testing.T) {
+	// Phase 5 semantics: absent values sort AFTER present values for
+	// ascending order. Descending inverts via the order-by clause so
+	// absent values end up at the end of ascending sorts and at the
+	// beginning of descending sorts — deterministic in either direction.
 	e := newCustomExecutor()
 	p := newCustomParser2()
 
@@ -4571,7 +4646,7 @@ func TestExecutor_NilSortsFirst(t *testing.T) {
 		{ID: "T3", Title: "C", Status: "ready", CustomFields: map[string]interface{}{"score": 0}},
 	}
 
-	// "order by score" — nil sorts before 0 before 10
+	// "order by score" ascending — 0 before 10 before nil
 	stmt, err := p.ParseStatement(`select order by score`)
 	if err != nil {
 		t.Fatalf("parse: %v", err)
@@ -4584,7 +4659,7 @@ func TestExecutor_NilSortsFirst(t *testing.T) {
 	for i, tk := range result.Select.Tasks {
 		gotIDs[i] = tk.ID
 	}
-	wantIDs := []string{"T2", "T3", "T1"} // nil, 0, 10
+	wantIDs := []string{"T3", "T1", "T2"} // 0, 10, nil
 	if !reflect.DeepEqual(gotIDs, wantIDs) {
 		t.Errorf("order by score: got %v, want %v", gotIDs, wantIDs)
 	}

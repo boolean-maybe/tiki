@@ -6,6 +6,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/boolean-maybe/tiki/document"
 	"github.com/boolean-maybe/tiki/task"
 	collectionutil "github.com/boolean-maybe/tiki/util/collections"
 	"github.com/boolean-maybe/tiki/util/duration"
@@ -357,6 +358,7 @@ func (e *Executor) setField(t *task.Task, name string, val interface{}) error {
 			return fmt.Errorf("unknown status %q", s)
 		}
 		t.Status = task.Status(norm)
+		promoteToWorkflow(t, "status")
 
 	case "type":
 		if val == nil {
@@ -375,6 +377,7 @@ func (e *Executor) setField(t *task.Task, name string, val interface{}) error {
 			return fmt.Errorf("unknown type %q", s)
 		}
 		t.Type = task.Type(norm)
+		promoteToWorkflow(t, "type")
 
 	case "priority":
 		if val == nil {
@@ -388,10 +391,12 @@ func (e *Executor) setField(t *task.Task, name string, val interface{}) error {
 			return fmt.Errorf("priority must be between %d and %d", task.MinPriority, task.MaxPriority)
 		}
 		t.Priority = n
+		promoteToWorkflow(t, "priority")
 
 	case "points":
 		if val == nil {
 			t.Points = 0
+			promoteToWorkflow(t, "points")
 			return nil
 		}
 		n, ok := val.(int)
@@ -402,24 +407,34 @@ func (e *Executor) setField(t *task.Task, name string, val interface{}) error {
 			return fmt.Errorf("invalid points value: %d", n)
 		}
 		t.Points = n
+		promoteToWorkflow(t, "points")
 
 	case "tags":
 		if val == nil {
 			t.Tags = nil
+			promoteToWorkflow(t, "tags")
 			return nil
 		}
 		t.Tags = collectionutil.NormalizeStringSet(toStringSlice(val))
+		promoteToWorkflow(t, "tags")
 
 	case "dependsOn":
 		if val == nil {
 			t.DependsOn = nil
+			promoteToWorkflow(t, "dependsOn")
 			return nil
 		}
-		t.DependsOn = normalizeRefList(toStringSlice(val))
+		refs := normalizeRefList(toStringSlice(val))
+		if err := validateBareRefs(refs, "dependsOn"); err != nil {
+			return err
+		}
+		t.DependsOn = refs
+		promoteToWorkflow(t, "dependsOn")
 
 	case "due":
 		if val == nil {
 			t.Due = time.Time{}
+			promoteToWorkflow(t, "due")
 			return nil
 		}
 		d, ok := val.(time.Time)
@@ -427,10 +442,12 @@ func (e *Executor) setField(t *task.Task, name string, val interface{}) error {
 			return fmt.Errorf("due must be a date, got %T", val)
 		}
 		t.Due = d
+		promoteToWorkflow(t, "due")
 
 	case "recurrence":
 		if val == nil {
 			t.Recurrence = ""
+			promoteToWorkflow(t, "recurrence")
 			return nil
 		}
 		switch v := val.(type) {
@@ -441,10 +458,12 @@ func (e *Executor) setField(t *task.Task, name string, val interface{}) error {
 		default:
 			return fmt.Errorf("recurrence must be a string, got %T", val)
 		}
+		promoteToWorkflow(t, "recurrence")
 
 	case "assignee":
 		if val == nil {
 			t.Assignee = ""
+			promoteToWorkflow(t, "assignee")
 			return nil
 		}
 		s, ok := val.(string)
@@ -452,6 +471,7 @@ func (e *Executor) setField(t *task.Task, name string, val interface{}) error {
 			return fmt.Errorf("assignee must be a string, got %T", val)
 		}
 		t.Assignee = s
+		promoteToWorkflow(t, "assignee")
 
 	default:
 		fs, ok := e.schema.Field(name)
@@ -535,22 +555,193 @@ func coerceCustomFieldValue(fs FieldSpec, val interface{}) (interface{}, error) 
 	case ValueListString:
 		return collectionutil.NormalizeStringSet(toStringSlice(val)), nil
 	case ValueListRef:
-		raw := toStringSlice(val)
-		return normalizeRefList(raw), nil
+		refs := normalizeRefList(toStringSlice(val))
+		if err := validateBareRefs(refs, fs.Name); err != nil {
+			return nil, err
+		}
+		return refs, nil
 	case ValueRef:
 		s, ok := val.(string)
 		if !ok {
 			return nil, fmt.Errorf("expected string, got %T", val)
 		}
-		return strings.ToUpper(strings.TrimSpace(s)), nil
+		ref := strings.ToUpper(strings.TrimSpace(s))
+		if !document.IsValidID(ref) {
+			return nil, fmt.Errorf("%s reference %q is not a bare document id (expected %d uppercase alphanumeric chars)", fs.Name, ref, document.IDLength)
+		}
+		return ref, nil
 	default:
 		return nil, fmt.Errorf("unsupported custom field type")
 	}
 }
 
-// normalizeRefList applies set-like normalization for task ID references.
+// normalizeRefList applies set-like normalization for document ID references.
 func normalizeRefList(ss []string) []string {
 	return collectionutil.NormalizeRefSet(ss)
+}
+
+// validateBareRefs rejects any entry that is not a bare document ID.
+// fieldName is used in the error message so callers can distinguish dependsOn
+// from custom ref fields.
+func validateBareRefs(refs []string, fieldName string) error {
+	for _, r := range refs {
+		if !document.IsValidID(r) {
+			return fmt.Errorf("%s reference %q is not a bare document id (expected %d uppercase alphanumeric chars)", fieldName, r, document.IDLength)
+		}
+	}
+	return nil
+}
+
+// promoteToWorkflow marks a plain document as workflow-capable after a
+// workflow-setting edit and records the assigned field in the presence
+// map whenever recording it is load-bearing for save fidelity. Callers
+// must invoke this from every setField branch that handles a workflow
+// field (status, type, tags, dependsOn, due, recurrence, assignee,
+// priority, points). Without promotion at each workflow-field
+// assignment, the save path takes the plain-doc branch and silently
+// drops the assigned value — data loss.
+//
+// The seeding decision depends on both wasPlain (did IsWorkflow flip?)
+// and the presence-map state, giving three load-bearing cases. The
+// discriminator for WHETHER to seed is actually "does the presence map
+// already exist?", not wasPlain alone — see case 3 for the subtlety.
+//
+//  1. Plain doc getting a workflow field for the first time —
+//     wasPlain=true, WorkflowFrontmatter nil. Seed the presence map so
+//     the save path takes the SPARSE branch and writes only the keys the
+//     caller set. Otherwise `update set points = 0` on a plain doc would
+//     fall through to the full-schema synthesizer and materialize every
+//     workflow field with registry defaults.
+//
+//  2. Fresh workflow create template — wasPlain=false,
+//     WorkflowFrontmatter nil. The template carries creation defaults
+//     (type, priority, points, custom field defaults) that belong on disk
+//     for a newly-created document. marshalFrontmatter reads the nil
+//     presence map as "write the FULL schema with all defaults". Seeding
+//     presence here would flip the save into sparse mode and drop every
+//     default the caller did not explicitly assign. Don't.
+//
+//  3. Loaded sparse workflow doc being edited — wasPlain=false,
+//     WorkflowFrontmatter non-nil. The load path populated the map from
+//     the source YAML (e.g. a file that only wrote `status:` produces
+//     WorkflowFrontmatter={status}). Adding a new field via
+//     `update set points = 0` must ALSO seed presence: without it, both
+//     the presence map and MergeTypedWorkflowDeltas skip zero/empty
+//     values, and the sparse save path writes only the original keys —
+//     losing the user's explicit `points: 0` or `dependsOn: []`
+//     assignment. Since the map is already sparse, adding a key keeps
+//     the save in sparse mode (good) and ensures the assigned value
+//     lands on disk.
+//
+// fieldName must be a workflow key (status/type/tags/dependsOn/due/
+// recurrence/assignee/priority/points); passing anything else is a
+// programming error and will still promote the task but not seed presence.
+func promoteToWorkflow(t *task.Task, fieldName string) {
+	if t == nil {
+		return
+	}
+	wasPlain := !t.IsWorkflow
+	t.IsWorkflow = true
+	if fieldName == "" {
+		return
+	}
+	// Case 2: already-workflow task with a nil presence map is a create
+	// template — leave the map nil so the save path writes the full
+	// workflow schema with all defaults.
+	if !wasPlain && t.WorkflowFrontmatter == nil {
+		return
+	}
+	if t.WorkflowFrontmatter == nil {
+		// Case 1: first-time promotion of a plain doc. Allocate the map
+		// so the save path switches to sparse mode and writes only the
+		// keys the caller set.
+		t.WorkflowFrontmatter = make(map[string]interface{})
+	}
+	// Cases 1 and 3: record the assigned field. Store a sentinel value —
+	// marshalSparseWorkflowFrontmatter reads the CURRENT typed field, not
+	// the value in this map, so we only need to record presence. An
+	// empty string works for any key because marshalWorkflowField never
+	// consults the map value.
+	if _, exists := t.WorkflowFrontmatter[fieldName]; !exists {
+		t.WorkflowFrontmatter[fieldName] = ""
+	}
+}
+
+// isWorkflowFieldRef reports whether expr is a reference to a built-in
+// workflow field whose presence is tracked by Phase 5 semantics. Combined
+// with a nil runtime value at the call site, this is the "absent workflow
+// field" signal used by predicate short-circuiting so `where dependsOn =
+// []` and `where tags is empty` do not match plain documents.
+//
+// Scoping is intentional: custom user fields keep the older "nil == empty"
+// semantics so that `where flag is empty` continues to match tasks that
+// never set `flag`. Built-in identity/audit fields (id, title, createdAt,
+// etc.) are always present on a loaded task and therefore not included.
+// Both bare (`dependsOn`) and qualified (`old.dependsOn`, `new.tags`)
+// references count.
+func isWorkflowFieldRef(expr Expr) bool {
+	var name string
+	switch e := expr.(type) {
+	case *FieldRef:
+		name = e.Name
+	case *QualifiedRef:
+		name = e.Name
+	default:
+		return false
+	}
+	switch name {
+	case "status", "type", "priority", "points", "tags",
+		"dependsOn", "due", "recurrence", "assignee":
+		return true
+	}
+	return false
+}
+
+// hasWorkflowField reports whether the task carries an explicit workflow
+// value for the named field, implementing Phase 5 presence-aware semantics.
+//
+// Source of truth order:
+//  1. WorkflowFrontmatter map — authoritative for store-loaded tasks, records
+//     exactly which YAML keys were present on disk.
+//  2. Fallback for in-memory tasks (tests, ruki create, hand-built fixtures):
+//     the field counts as present iff the typed value is non-zero. This
+//     matches user intent for callers that construct Tasks directly with
+//     typed fields: if they set t.Priority = 3, they meant to set priority.
+//
+// The net effect for plain documents: a doc loaded with no workflow
+// frontmatter returns nil for every workflow field, so predicates like
+// `where priority = 0` do not accidentally match it. A doc loaded with
+// `priority: 0` explicitly written returns int(0), so `where priority = 0`
+// matches as the author intended.
+func hasWorkflowField(t *task.Task, name string) bool {
+	if t == nil {
+		return false
+	}
+	if t.WorkflowFrontmatter != nil {
+		_, ok := t.WorkflowFrontmatter[name]
+		return ok
+	}
+	switch name {
+	case "status":
+		return t.Status != ""
+	case "type":
+		return t.Type != ""
+	case "priority":
+		return t.Priority != 0
+	case "points":
+		return t.Points != 0
+	case "tags":
+		return len(t.Tags) > 0
+	case "dependsOn":
+		return len(t.DependsOn) > 0
+	case "due":
+		return !t.Due.IsZero()
+	case "recurrence":
+		return t.Recurrence != ""
+	case "assignee":
+		return t.Assignee != ""
+	}
+	return false
 }
 
 // --- filtering ---
@@ -651,6 +842,15 @@ func (e *Executor) evalIsEmpty(c *IsEmptyExpr, ctx evalContext) (bool, error) {
 	if err != nil {
 		return false, err
 	}
+	// Phase 5: an absent workflow field is not "empty" — it has no value
+	// at all. Both `dependsOn is empty` and `dependsOn is not empty` on a
+	// plain document return false so the caller must use has(dependsOn)
+	// for explicit presence checks. Only field refs resolving to nil get
+	// this short-circuit; a bare list literal or other expression that
+	// evaluates to nil still participates in normal is-empty semantics.
+	if val == nil && isWorkflowFieldRef(c.Expr) {
+		return false, nil
+	}
 	empty := isZeroValue(val)
 	if c.Negated {
 		return !empty, nil
@@ -668,9 +868,25 @@ func (e *Executor) evalIn(c *InExpr, ctx evalContext) (bool, error) {
 		return false, err
 	}
 
+	// Phase 5: if either side references an absent workflow field, the
+	// whole predicate evaluates false — for both `in` AND `not in`. This
+	// closes the hole where `where assignee not in ["bob"]` matched plain
+	// documents (absent assignee) by falling through to the
+	// `return c.Negated` branches. has(<field>) is the only way to ask
+	// "is this field present?". Custom field refs and string-literal
+	// operands still follow their prior semantics below — the scoping
+	// via isWorkflowFieldRef is what preserves backwards compatibility
+	// for custom fields.
+	leftAbsent := val == nil && isWorkflowFieldRef(c.Value)
+	rightAbsent := collVal == nil && isWorkflowFieldRef(c.Collection)
+	if leftAbsent || rightAbsent {
+		return false, nil
+	}
+
 	// list membership mode
 	if list, ok := collVal.([]interface{}); ok {
-		// unset field (nil) is not a member of any list
+		// unset non-workflow value on the left (e.g. a custom field) is
+		// not a member of any list — keep the pre-Phase-5 behavior.
 		if val == nil {
 			return c.Negated, nil
 		}
@@ -704,6 +920,13 @@ func (e *Executor) evalIn(c *InExpr, ctx evalContext) (bool, error) {
 		return found, nil
 	}
 
+	// Non-workflow nil collection (e.g. absent custom field) — keep the
+	// pre-Phase-5 c.Negated fallback so `custom not in [...]` on an
+	// unset custom field matches.
+	if collVal == nil {
+		return c.Negated, nil
+	}
+
 	return false, fmt.Errorf("in: collection is not a list or string")
 }
 
@@ -711,6 +934,15 @@ func (e *Executor) evalQuantifier(q *QuantifierExpr, ctx evalContext) (bool, err
 	listVal, err := e.evalExpr(q.Expr, ctx)
 	if err != nil {
 		return false, err
+	}
+	// Phase 5: an absent list workflow field resolves to nil. A quantifier
+	// over an absent field returns false for BOTH `any` and `all` — the
+	// vacuous-truth shortcut for `all` intentionally does NOT apply when
+	// the list is absent rather than empty, because "predicates on absent
+	// fields evaluate false except explicit absence checks" (the
+	// has(<field>) predicate is the escape hatch).
+	if listVal == nil && isWorkflowFieldRef(q.Expr) {
+		return false, nil
 	}
 	refs, ok := listVal.([]interface{})
 	if !ok {
@@ -844,6 +1076,8 @@ func (e *Executor) evalFunctionCall(fc *FunctionCall, ctx evalContext) (interfac
 		return e.evalCount(fc, ctx.current, ctx.allTasks)
 	case "exists":
 		return e.evalExists(fc, ctx.current, ctx.allTasks)
+	case "has":
+		return e.evalHas(fc, ctx)
 	case "next_date":
 		return e.evalNextDate(fc, ctx)
 	case "blocks":
@@ -871,6 +1105,106 @@ func (e *Executor) evalChoose() (interface{}, error) {
 		return nil, &MissingChooseValueError{}
 	}
 	return e.currentInput.ChooseValue, nil
+}
+
+// evalHas implements the has(<field>) presence predicate. It returns true
+// when the referenced task has an explicit value for the named workflow
+// field, false otherwise. Unlike equality comparisons which silently
+// return false on absent fields, has() lets a caller distinguish "present
+// with zero value" from "absent entirely" — the primary use case is ruki
+// queries that want to surface only workflow documents (e.g. where
+// has(status)).
+//
+// Argument contract: a single bare or qualified field reference. The
+// runtime resolves the same qualifier set as ordinary field references
+// in each context:
+//   - bare has(X) → current row (the task ruki is iterating over, or
+//     the subquery candidate)
+//   - has(outer.X) → the parent-query row (only inside a subquery body)
+//   - has(target.X) → the exactly-one selected task (plugin runtime)
+//   - has(targets.X) → true iff ANY selected task has the field present
+//     (plugin runtime)
+//   - has(new.X) / has(old.X) → handled by the trigger executor
+//     override; the base executor is never in a trigger context so
+//     reaching those qualifiers here is a programming error
+//
+// String literals and other expression kinds are rejected at validation
+// time so they never reach this function.
+func (e *Executor) evalHas(fc *FunctionCall, ctx evalContext) (interface{}, error) {
+	if len(fc.Args) != 1 {
+		return nil, fmt.Errorf("has() expects 1 argument, got %d", len(fc.Args))
+	}
+	var name, qualifier string
+	switch ref := fc.Args[0].(type) {
+	case *FieldRef:
+		name = ref.Name
+	case *QualifiedRef:
+		name = ref.Name
+		qualifier = ref.Qualifier
+	default:
+		return nil, fmt.Errorf("has() argument must be a field reference, e.g. has(status) or has(target.status)")
+	}
+	switch qualifier {
+	case "":
+		if ctx.current == nil {
+			return false, nil
+		}
+		return hasWorkflowField(ctx.current, name), nil
+	case "outer":
+		if ctx.outer == nil {
+			return nil, fmt.Errorf("has(outer.%s) is not available outside a subquery", name)
+		}
+		return hasWorkflowField(ctx.outer, name), nil
+	case "target":
+		// Reuse evalTargetField's runtime-mode and selection checks so
+		// errors are identical to those a bare target.X would raise.
+		// The field value it returns is nil iff the field is absent on
+		// the selected task — which is exactly hasWorkflowField's
+		// answer for scalars. For robustness against the list case
+		// (where an absent list still returns nil via the extractField
+		// change), look up the task and consult hasWorkflowField
+		// directly after the policy/selection gates pass.
+		if e.runtime.Mode != ExecutorRuntimePlugin {
+			return nil, fmt.Errorf("has(target.%s): target. qualifier is only available in plugin runtime", name)
+		}
+		if err := checkSingleSelectionForID(e.currentInput); err != nil {
+			return nil, err
+		}
+		id, _ := e.currentInput.SingleSelectedTaskID()
+		t, ok := findTaskByID(ctx.allTasks, id)
+		if !ok {
+			return nil, fmt.Errorf("has(target.%s): selected task %q not found", name, id)
+		}
+		return hasWorkflowField(t, name), nil
+	case "targets":
+		// has(targets.X) returns true iff ANY selected task has field X
+		// present. Mirrors evalTargetsField's runtime-mode gate. Zero
+		// selected tasks → false (no task to have the field).
+		if e.runtime.Mode != ExecutorRuntimePlugin {
+			return nil, fmt.Errorf("has(targets.%s): targets. qualifier is only available in plugin runtime", name)
+		}
+		selectedIDs := e.currentInput.SelectedTaskIDList()
+		for _, id := range selectedIDs {
+			t, ok := findTaskByID(ctx.allTasks, id)
+			if !ok {
+				return nil, fmt.Errorf("has(targets.%s): selected task %q not found", name, id)
+			}
+			if hasWorkflowField(t, name) {
+				return true, nil
+			}
+		}
+		return false, nil
+	case "new", "old":
+		// new./old. are only evaluable in trigger contexts, where the
+		// trigger executor override intercepts has() before the base
+		// runs. Reaching this branch means the validator let a trigger-
+		// only qualifier through in a non-trigger context, which is a
+		// programming error — surface it clearly rather than silently
+		// returning false.
+		return nil, fmt.Errorf("has(%s.%s): %s. qualifier is only available in trigger guards and actions", qualifier, name, qualifier)
+	default:
+		return nil, fmt.Errorf("has(%s.%s): unknown qualifier %q", qualifier, name, qualifier)
+	}
 }
 
 func (e *Executor) evalID() (interface{}, error) {
@@ -1079,6 +1413,11 @@ func (e *Executor) evalNextDate(fc *FunctionCall, ctx evalContext) (interface{},
 	if err != nil {
 		return nil, err
 	}
+	// Phase 5: absent recurrence propagates as nil so `is not empty` filters
+	// out documents without recurrence rather than surfacing a type error.
+	if val == nil {
+		return nil, nil
+	}
 	rec, ok := val.(task.Recurrence)
 	if !ok {
 		return nil, fmt.Errorf("next_date() argument must be a recurrence value")
@@ -1120,6 +1459,17 @@ func (e *Executor) evalBinaryExpr(b *BinaryExpr, ctx evalContext) (interface{}, 
 		return nil, err
 	}
 
+	// Phase 5: absent list fields resolve to nil in predicate contexts, but
+	// arithmetic contexts (`dependsOn + "X"`, `tags - ["a"]`) construct a
+	// NEW list and the absence of a left-hand list should be treated as
+	// "start from empty, then add/remove". The assignment target then
+	// triggers promotion via setField, so the resulting write records the
+	// explicit new value. Without this coercion, `set dependsOn =
+	// dependsOn + "X"` on a plain document would fail with "cannot add
+	// nil + string" — breaking one of the main promotion idioms.
+	leftVal = e.coerceAbsentListForArithmetic(b.Left, leftVal)
+	rightVal = e.coerceAbsentListForArithmetic(b.Right, rightVal)
+
 	switch b.Op {
 	case "+":
 		return addValues(leftVal, rightVal)
@@ -1128,6 +1478,36 @@ func (e *Executor) evalBinaryExpr(b *BinaryExpr, ctx evalContext) (interface{}, 
 	default:
 		return nil, fmt.Errorf("unknown binary operator %q", b.Op)
 	}
+}
+
+// coerceAbsentListForArithmetic replaces a nil result from a field-ref
+// evaluation with an empty []interface{} when the target field is list-
+// valued. Scalar field refs that resolve to nil stay nil so their existing
+// arithmetic errors surface unchanged. Custom list fields are included via
+// schema lookup so `set myRefs = myRefs + [...]` also works when myRefs
+// was absent.
+func (e *Executor) coerceAbsentListForArithmetic(expr Expr, val interface{}) interface{} {
+	if val != nil {
+		return val
+	}
+	var name string
+	switch ex := expr.(type) {
+	case *FieldRef:
+		name = ex.Name
+	case *QualifiedRef:
+		name = ex.Name
+	default:
+		return val
+	}
+	if name == "tags" || name == "dependsOn" {
+		return []interface{}{}
+	}
+	if fs, ok := e.schema.Field(name); ok {
+		if fs.Type == ValueListString || fs.Type == ValueListRef {
+			return []interface{}{}
+		}
+	}
+	return val
 }
 
 func addValues(left, right interface{}) (interface{}, error) {
@@ -1237,14 +1617,19 @@ func (e *Executor) sortTasks(tasks []*task.Task, clauses []OrderByClause) {
 }
 
 func compareForSort(a, b interface{}) int {
+	// Phase 5 semantics: absent values sort AFTER present ones for ascending,
+	// so a nil on the left is "greater" than a present value. Descending
+	// naturally inverts via c.Desc in sortTasks, so absent values appear at
+	// the END of ascending sorts and the BEGINNING of descending sorts —
+	// matching the plan's deterministic-placement rule.
 	if a == nil && b == nil {
 		return 0
 	}
 	if a == nil {
-		return -1
+		return 1
 	}
 	if b == nil {
-		return 1
+		return -1
 	}
 
 	switch av := a.(type) {
@@ -1308,6 +1693,19 @@ func compareInts(a, b int) int {
 // --- comparison ---
 
 func (e *Executor) compareValues(left, right interface{}, op string, leftExpr, rightExpr Expr) (bool, error) {
+	// Phase 5: a comparison involving an absent workflow field evaluates
+	// false for every operator — the plan's rule is "predicates on absent
+	// fields evaluate false except explicit absence checks". That covers
+	// `=`, `!=`, `<`, `>`, and every other comparison op. The has(<field>)
+	// predicate is the only way to ask "is this present". This also closes
+	// the hole where `where dependsOn = []` on a plain document matched
+	// because EmptyLiteral → nil and the compareWithNil branch treated
+	// nil-vs-EmptyLiteral as both-empty.
+	leftAbsent := left == nil && isWorkflowFieldRef(leftExpr)
+	rightAbsent := right == nil && isWorkflowFieldRef(rightExpr)
+	if leftAbsent || rightAbsent {
+		return false, nil
+	}
 	if left == nil || right == nil {
 		return compareWithNil(left, right, op, leftExpr, rightExpr)
 	}
@@ -1618,22 +2016,57 @@ func (e *Executor) extractField(t *task.Task, name string) interface{} {
 	case "description":
 		return t.Description
 	case "status":
+		if !hasWorkflowField(t, "status") {
+			return nil
+		}
 		return t.Status
 	case "type":
+		if !hasWorkflowField(t, "type") {
+			return nil
+		}
 		return t.Type
 	case "priority":
+		if !hasWorkflowField(t, "priority") {
+			return nil
+		}
 		return t.Priority
 	case "points":
+		if !hasWorkflowField(t, "points") {
+			return nil
+		}
 		return t.Points
 	case "tags":
+		// Phase 5 list semantics: return nil (not []) for absent list
+		// workflow fields so predicates like `tags is empty`,
+		// `tags = []`, and `all tags ...` evaluate false on plain
+		// documents instead of treating the absent field as a present
+		// empty list. Presence is exposed via has(tags). Predicate sites
+		// that receive nil treat it as "predicate false except for the
+		// explicit absence-check path" — see evalIsEmpty, evalQuantifier,
+		// and compareValues.
+		if !hasWorkflowField(t, "tags") {
+			return nil
+		}
 		return toInterfaceSlice(t.Tags)
 	case "dependsOn":
+		if !hasWorkflowField(t, "dependsOn") {
+			return nil
+		}
 		return toInterfaceSlice(t.DependsOn)
 	case "due":
+		if !hasWorkflowField(t, "due") {
+			return nil
+		}
 		return t.Due
 	case "recurrence":
+		if !hasWorkflowField(t, "recurrence") {
+			return nil
+		}
 		return t.Recurrence
 	case "assignee":
+		if !hasWorkflowField(t, "assignee") {
+			return nil
+		}
 		return t.Assignee
 	case "createdBy":
 		return t.CreatedBy

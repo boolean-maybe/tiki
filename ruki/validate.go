@@ -43,6 +43,7 @@ var builtinFuncs = map[string]struct {
 	"count":          {ValueInt, 1, 1},
 	"choose":         {ValueRef, 1, 1},
 	"exists":         {ValueBool, 1, 1},
+	"has":            {ValueBool, 1, 1},
 	"id":             {ValueID, 0, 0},
 	"ids":            {ValueListRef, 0, 0},
 	"selected_count": {ValueInt, 0, 0},
@@ -630,6 +631,10 @@ func (p *Parser) inferFuncCallType(fc *FunctionCall) (ValueType, error) {
 		if err := p.validateSubQueryFuncCall(fc.Name, fc.Args[0]); err != nil {
 			return 0, err
 		}
+	case "has":
+		if err := p.validateHasFuncCall(fc.Args[0]); err != nil {
+			return 0, err
+		}
 	case "blocks":
 		argType, err := p.inferExprType(fc.Args[0])
 		if err != nil {
@@ -662,6 +667,37 @@ func (p *Parser) inferFuncCallType(fc *FunctionCall) (ValueType, error) {
 	}
 
 	return builtin.returnType, nil
+}
+
+// validateHasFuncCall rejects anything other than a single field reference
+// as the argument to has(). Both bare (`has(status)`) and qualified
+// (`has(new.status)`, `has(old.assignee)`) forms are accepted — the latter
+// are meaningful in trigger contexts where the predicate needs to ask
+// "did the new or old version of the task declare this field?". The
+// reason for the stricter contract vs. arbitrary expressions is semantic
+// clarity: has() answers "is this field *present*", which is only
+// meaningful with a concrete field name, not a string literal or function
+// call.
+//
+// Argument validation routes through inferExprType so that bare and
+// qualified refs obey the SAME qualifier-policy rules as ordinary
+// field references: `has(old.status)` is rejected in CLI context,
+// `has(target.status)` is rejected outside plugin target contexts, and
+// bare `has(status)` is rejected in trigger guards where bare refs are
+// otherwise rejected. Without this, those forms would parse silently
+// and either evaluate false at runtime or produce confusing errors —
+// hiding authoring mistakes until execution time.
+func (p *Parser) validateHasFuncCall(arg Expr) error {
+	switch arg.(type) {
+	case *FieldRef, *QualifiedRef:
+		// fall through to shared qualifier/schema checks below
+	default:
+		return fmt.Errorf("has() argument must be a field reference, e.g. has(status) or has(new.status)")
+	}
+	if _, err := p.inferExprType(arg); err != nil {
+		return fmt.Errorf("has(): %w", err)
+	}
+	return nil
 }
 
 func (p *Parser) validateSubQueryFuncCall(name string, arg Expr) error {

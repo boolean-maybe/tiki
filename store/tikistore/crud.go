@@ -6,6 +6,7 @@ import (
 	"os"
 
 	"github.com/boolean-maybe/tiki/config"
+	"github.com/boolean-maybe/tiki/document"
 	taskpkg "github.com/boolean-maybe/tiki/task"
 )
 
@@ -146,6 +147,15 @@ func (s *TikiStore) updateTaskLocked(task *taskpkg.Task, carryWorkflow bool) err
 		return err
 	}
 
+	// Snapshot the caller's EXPLICIT presence set before we seed from
+	// oldTask. Any key in here is one the caller added (typically via
+	// ruki's promoteToWorkflow when the caller assigned a workflow
+	// field), and represents an explicit caller edit whose zero value
+	// must survive carry-forward. After seeding the map from oldTask we
+	// can no longer tell "caller added this" from "carried from old" by
+	// looking at the map alone.
+	callerExplicit := collectKeys(task.WorkflowFrontmatter)
+
 	// Seed the preserved presence set from the stored task when the caller
 	// passed a fresh Task that doesn't carry one. Without this, a task-API
 	// caller (ruki/UI) who builds a Task from typed fields only would wipe
@@ -166,7 +176,7 @@ func (s *TikiStore) updateTaskLocked(task *taskpkg.Task, carryWorkflow bool) err
 	// caught). Callers that intend to CLEAR a field should use the document-
 	// first API and remove the key from doc.Frontmatter.
 	if task.IsWorkflow {
-		carryTypedWorkflowValues(task, oldTask)
+		carryTypedWorkflowValues(task, oldTask, callerExplicit)
 		taskpkg.MergeTypedWorkflowDeltas(task, oldTask)
 	}
 
@@ -180,44 +190,74 @@ func (s *TikiStore) updateTaskLocked(task *taskpkg.Task, carryWorkflow bool) err
 }
 
 // carryTypedWorkflowValues copies typed workflow field values from src into
-// dst for any field whose dst value is zero. dst's non-zero fields win
-// because they represent an explicit caller edit. Slice fields use a
-// non-aliasing copy so subsequent mutations on dst don't reach src.
+// dst for any field whose dst value is zero AND the caller did NOT
+// explicitly declare the field. dst's non-zero fields win because they
+// represent an explicit caller edit; dst's zero-but-explicit fields win
+// too, because under Phase 5 semantics a zero-with-presence is an
+// explicit caller assignment (e.g. `set points = 0` or
+// `set dependsOn = []`) that must survive the save.
+//
+// callerExplicit is the set of workflow keys the caller placed in
+// task.WorkflowFrontmatter BEFORE updateTaskLocked seeded it from the
+// stored task. That distinction matters: after seeding, the map carries
+// all the old keys, so "key in map" can no longer distinguish "caller
+// added this" from "inherited from old".
+//
+// Slice fields use a non-aliasing copy so subsequent mutations on dst
+// don't reach src.
 //
 // This is the field-by-field analog of the FilePath/LoadedMtime carry-
 // forward in updateTaskLocked. It runs only on the workflow-task path
 // because plain docs have no typed workflow fields to preserve.
-func carryTypedWorkflowValues(dst, src *taskpkg.Task) {
+func carryTypedWorkflowValues(dst, src *taskpkg.Task, callerExplicit map[string]struct{}) {
 	if dst == nil || src == nil {
 		return
 	}
-	if dst.Status == "" {
+	explicit := func(fieldName string) bool {
+		_, ok := callerExplicit[fieldName]
+		return ok
+	}
+	if dst.Status == "" && !explicit("status") {
 		dst.Status = src.Status
 	}
-	if dst.Type == "" {
+	if dst.Type == "" && !explicit("type") {
 		dst.Type = src.Type
 	}
-	if dst.Tags == nil && src.Tags != nil {
+	if dst.Tags == nil && src.Tags != nil && !explicit("tags") {
 		dst.Tags = append([]string(nil), src.Tags...)
 	}
-	if dst.DependsOn == nil && src.DependsOn != nil {
+	if dst.DependsOn == nil && src.DependsOn != nil && !explicit("dependsOn") {
 		dst.DependsOn = append([]string(nil), src.DependsOn...)
 	}
-	if dst.Due.IsZero() {
+	if dst.Due.IsZero() && !explicit("due") {
 		dst.Due = src.Due
 	}
-	if dst.Recurrence == "" {
+	if dst.Recurrence == "" && !explicit("recurrence") {
 		dst.Recurrence = src.Recurrence
 	}
-	if dst.Assignee == "" {
+	if dst.Assignee == "" && !explicit("assignee") {
 		dst.Assignee = src.Assignee
 	}
-	if dst.Priority == 0 {
+	if dst.Priority == 0 && !explicit("priority") {
 		dst.Priority = src.Priority
 	}
-	if dst.Points == 0 {
+	if dst.Points == 0 && !explicit("points") {
 		dst.Points = src.Points
 	}
+}
+
+// collectKeys returns the set of keys in m. Used to snapshot the
+// caller's explicit workflow-frontmatter declarations before
+// updateTaskLocked seeds the presence map from the stored task.
+func collectKeys(m map[string]interface{}) map[string]struct{} {
+	if len(m) == 0 {
+		return nil
+	}
+	out := make(map[string]struct{}, len(m))
+	for k := range m {
+		out[k] = struct{}{}
+	}
+	return out
 }
 
 // cloneWorkflowFrontmatter returns a shallow copy of a preserved workflow
@@ -311,13 +351,20 @@ func (s *TikiStore) addCommentLocked(taskID string, comment taskpkg.Comment) boo
 	return true
 }
 
-// validateDependsOnLocked checks that all dependsOn IDs reference existing tasks.
+// validateDependsOnLocked checks that all dependsOn IDs reference existing
+// documents in the store. References do not need to be workflow-capable —
+// any loaded document (plain or workflow) is a valid target per Phase 5
+// semantics. IDs must be bare (^[A-Z0-9]{6}$); legacy TIKI-prefixed IDs are
+// rejected.
 // Caller must hold s.mu lock.
 func (s *TikiStore) validateDependsOnLocked(task *taskpkg.Task) error {
 	for _, depID := range task.DependsOn {
 		normalized := normalizeTaskID(depID)
+		if !document.IsValidID(normalized) {
+			return fmt.Errorf("dependsOn reference %q is not a bare document id (expected %d uppercase alphanumeric chars)", normalized, document.IDLength)
+		}
 		if _, exists := s.tasks[normalized]; !exists {
-			return fmt.Errorf("dependsOn references non-existent tiki: %s", normalized)
+			return fmt.Errorf("dependsOn references non-existent document: %s", normalized)
 		}
 	}
 	return nil

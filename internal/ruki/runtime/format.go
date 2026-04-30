@@ -101,6 +101,12 @@ func formatCell(t *task.Task, fd workflow.FieldDef) string {
 }
 
 // extractFieldValue pulls a raw value from a task by field name.
+//
+// Phase 5 presence-aware rendering: workflow fields that are absent on the
+// source document return nil rather than typed zero values. renderValue (for
+// tables) converts nil to "", and jsonCellValue emits JSON null. This means
+// a plain doc projected with `select id, title, priority` shows priority as
+// empty/null rather than a misleading 0.
 func extractFieldValue(t *task.Task, name string) interface{} {
 	switch name {
 	case "id":
@@ -110,22 +116,49 @@ func extractFieldValue(t *task.Task, name string) interface{} {
 	case "description":
 		return t.Description
 	case "status":
+		if !workflowFieldPresent(t, "status") {
+			return nil
+		}
 		return string(t.Status)
 	case "type":
+		if !workflowFieldPresent(t, "type") {
+			return nil
+		}
 		return string(t.Type)
 	case "tags":
+		if !workflowFieldPresent(t, "tags") {
+			return nil
+		}
 		return t.Tags
 	case "dependsOn":
+		if !workflowFieldPresent(t, "dependsOn") {
+			return nil
+		}
 		return t.DependsOn
 	case "due":
+		if !workflowFieldPresent(t, "due") {
+			return nil
+		}
 		return t.Due
 	case "recurrence":
+		if !workflowFieldPresent(t, "recurrence") {
+			return nil
+		}
 		return string(t.Recurrence)
 	case "assignee":
+		if !workflowFieldPresent(t, "assignee") {
+			return nil
+		}
 		return t.Assignee
 	case "priority":
+		if !workflowFieldPresent(t, "priority") {
+			return nil
+		}
 		return t.Priority
 	case "points":
+		if !workflowFieldPresent(t, "points") {
+			return nil
+		}
 		return t.Points
 	case "createdBy":
 		return t.CreatedBy
@@ -149,6 +182,46 @@ func extractFieldValue(t *task.Task, name string) interface{} {
 		// renderValue converts nil to "" so unset fields display as blank
 		return nil
 	}
+}
+
+// workflowFieldPresent mirrors the executor's hasWorkflowField for the
+// formatter. Kept local rather than imported from ruki because format.go is
+// a downstream presentation layer — coupling it to an executor internal
+// would invert the dependency direction.
+//
+// Presence rules (must stay in sync with ruki.hasWorkflowField):
+//  1. WorkflowFrontmatter present → authoritative key membership.
+//  2. Otherwise (hand-built in-memory tasks) → non-zero typed field counts
+//     as present.
+func workflowFieldPresent(t *task.Task, name string) bool {
+	if t == nil {
+		return false
+	}
+	if t.WorkflowFrontmatter != nil {
+		_, ok := t.WorkflowFrontmatter[name]
+		return ok
+	}
+	switch name {
+	case "status":
+		return t.Status != ""
+	case "type":
+		return t.Type != ""
+	case "priority":
+		return t.Priority != 0
+	case "points":
+		return t.Points != 0
+	case "tags":
+		return len(t.Tags) > 0
+	case "dependsOn":
+		return len(t.DependsOn) > 0
+	case "due":
+		return !t.Due.IsZero()
+	case "recurrence":
+		return t.Recurrence != ""
+	case "assignee":
+		return t.Assignee != ""
+	}
+	return false
 }
 
 // FormatScalar renders a single scalar result as one line followed by a

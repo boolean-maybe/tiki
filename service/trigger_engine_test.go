@@ -224,8 +224,13 @@ func TestTriggerEngine_BeforeAllowUnderWIPLimit(t *testing.T) {
 // --- after-trigger tests ---
 
 func TestTriggerEngine_AfterUpdateCascade(t *testing.T) {
+	// Phase 5: `is empty` on an absent workflow field returns false, so
+	// the canonical "auto-assign when no assignee is set" trigger is
+	// expressed with `not has(assignee)` rather than `assignee is empty`.
+	// The latter only matches when the frontmatter explicitly wrote
+	// `assignee: ""`.
 	entry := parseTriggerEntry(t, "auto-assign urgent",
-		`after create where new.priority <= 2 and new.assignee is empty update where id = new.id set assignee="autobot"`)
+		`after create where new.priority <= 2 and not has(new.assignee) update where id = new.id set assignee="autobot"`)
 
 	gate, s := newGateWithStoreAndTasks()
 	engine := NewTriggerEngine([]triggerEntry{entry}, nil, ruki.NewTriggerExecutor(testTriggerSchema{}, nil))

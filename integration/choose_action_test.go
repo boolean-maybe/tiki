@@ -230,6 +230,12 @@ func TestChooseAction_BareSelectShowsAllTasks(t *testing.T) {
 	ta.SendKey(tcell.KeyEscape, 0, tcell.ModNone)
 }
 
+// Phase 5: `not in` on an absent workflow field evaluates false, so
+// epics that have never declared dependsOn are excluded from a bare
+// `id() not in dependsOn` filter. The idiomatic migration is to disjoin
+// the presence check — `(not has(dependsOn) or id() not in dependsOn)` —
+// which keeps the "exclude epics that already depend on me" intent while
+// letting brand-new epics (no dependsOn key at all) pass through.
 var filteredEpicWorkflow = testWorkflowPreamble + `views:
   plugins:
     - name: FilteredEpicTest
@@ -241,7 +247,7 @@ var filteredEpicWorkflow = testWorkflowPreamble + `views:
       actions:
         - key: "e"
           label: "Link to epic"
-          action: update where id = choose(select where type = "epic" and id() not in dependsOn) set dependsOn = dependsOn + id()
+          action: update where id = choose(select where type = "epic" and (not has(dependsOn) or id() not in dependsOn)) set dependsOn = dependsOn + id()
 `
 
 func setupFilteredEpicTest(t *testing.T) *testutil.TestApp {

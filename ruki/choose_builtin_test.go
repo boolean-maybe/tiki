@@ -265,12 +265,21 @@ func TestEvalSubQueryFilter_WithOuterSelectedTask(t *testing.T) {
 
 func TestCoerceCustomFieldValue_Ref(t *testing.T) {
 	fs := FieldSpec{Name: "epic", Type: ValueRef, Custom: true}
-	val, err := coerceCustomFieldValue(fs, "  tiki-abc  ")
+	// Phase 5: ref values must be bare IDs; normalization still uppercases
+	// and trims whitespace.
+	val, err := coerceCustomFieldValue(fs, "  abc123  ")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if val != "TIKI-ABC" {
-		t.Fatalf("expected TIKI-ABC, got %q", val)
+	if val != "ABC123" {
+		t.Fatalf("expected ABC123, got %q", val)
+	}
+}
+
+func TestCoerceCustomFieldValue_Ref_NonBareRejected(t *testing.T) {
+	fs := FieldSpec{Name: "epic", Type: ValueRef, Custom: true}
+	if _, err := coerceCustomFieldValue(fs, "TIKI-ABC"); err == nil {
+		t.Fatal("expected error for legacy TIKI-prefixed ref value")
 	}
 }
 
@@ -312,7 +321,7 @@ func TestChooseBuiltin_EndToEnd_CustomRefField(t *testing.T) {
 	}
 	result, err := e.Execute(vs, tasks, ExecutionInput{
 		SelectedTaskIDs: []string{"TIKI-000001"},
-		ChooseValue:     "TIKI-EPIC01",
+		ChooseValue:     "EPIC01",
 		HasChoose:       true,
 	})
 	if err != nil {
@@ -326,8 +335,8 @@ func TestChooseBuiltin_EndToEnd_CustomRefField(t *testing.T) {
 	if !ok {
 		t.Fatal("expected 'epic' in CustomFields")
 	}
-	if epicVal != "TIKI-EPIC01" {
-		t.Fatalf("expected epic=TIKI-EPIC01, got %q", epicVal)
+	if epicVal != "EPIC01" {
+		t.Fatalf("expected epic=EPIC01, got %q", epicVal)
 	}
 }
 

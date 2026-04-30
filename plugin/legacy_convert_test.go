@@ -681,12 +681,25 @@ func TestLegacyWorkflowEndToEnd(t *testing.T) {
 	// execute filters against test tasks to verify they actually work
 	executor := newTestExecutor()
 
+	// Phase 5 note: this test exercises legacy filter conversion end-to-
+	// end, including rewritten predicates like `"blocked" not in tags`
+	// and `status = 'backlog'`. Under Phase 5, absent workflow fields
+	// fail every non-has() predicate, so each task declares the workflow
+	// keys it relies on via WorkflowFrontmatter to stand in for what the
+	// store would populate when reading these tasks from disk.
+	statusOnly := map[string]interface{}{"status": "", "assignee": ""}
+	statusAndTags := map[string]interface{}{"status": "", "assignee": "", "tags": ""}
 	allTasks := []*task.Task{
-		{ID: "TIKI-000001", Status: task.StatusBacklog, Priority: 3, Tags: []string{}, Assignee: "testuser"},
-		{ID: "TIKI-000002", Status: task.StatusBacklog, Priority: 1, Tags: []string{"blocked"}, Assignee: "testuser"},
-		{ID: "TIKI-000003", Status: task.StatusReady, Priority: 2, Assignee: "testuser"},
-		{ID: "TIKI-000004", Status: task.StatusReady, Priority: 1, Assignee: "other"},
-		{ID: "TIKI-000005", Status: task.StatusDone, Priority: 5, Assignee: "testuser"},
+		{ID: "TIKI-000001", Status: task.StatusBacklog, Priority: 3, Tags: []string{}, Assignee: "testuser",
+			WorkflowFrontmatter: statusAndTags},
+		{ID: "TIKI-000002", Status: task.StatusBacklog, Priority: 1, Tags: []string{"blocked"}, Assignee: "testuser",
+			WorkflowFrontmatter: statusAndTags},
+		{ID: "TIKI-000003", Status: task.StatusReady, Priority: 2, Assignee: "testuser",
+			WorkflowFrontmatter: statusOnly},
+		{ID: "TIKI-000004", Status: task.StatusReady, Priority: 1, Assignee: "other",
+			WorkflowFrontmatter: statusOnly},
+		{ID: "TIKI-000005", Status: task.StatusDone, Priority: 5, Assignee: "testuser",
+			WorkflowFrontmatter: statusOnly},
 	}
 
 	// backlog lane: status='backlog' AND tags NOT IN ['blocked']
