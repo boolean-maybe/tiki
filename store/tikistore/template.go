@@ -33,10 +33,14 @@ func (s *TikiStore) setAuthorFromIdentity(task *taskpkg.Task) {
 	}
 }
 
-// NewTaskTemplate returns a new task populated with creation defaults.
-// Built-in defaults: priority=3, points=1, tags=["idea"].
-// Type and status come from their registries (explicit default or first entry).
-// Custom field defaults come from workflow.yaml field definitions.
+// NewTaskTemplate returns a new document populated with creation defaults.
+// When the active workflow has a default status, this returns a workflow task
+// (built-in defaults: priority=3, points=1, tags=["idea"]; type and status from
+// the registries; custom field defaults from workflow.yaml). When no default
+// status is configured, this returns a plain document with IsWorkflow=false
+// and only id/createdAt populated — callers fill in title/body. The status
+// registry treats a missing `default: true` as an explicit opt-out of
+// workflow capture for this workflow.
 func (s *TikiStore) NewTaskTemplate() (*taskpkg.Task, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -62,18 +66,21 @@ func (s *TikiStore) NewTaskTemplate() (*taskpkg.Task, error) {
 		slog.Debug("ID collision detected in index, regenerating", "id", candidate)
 	}
 
+	defaultStatus := taskpkg.DefaultStatus()
 	task := &taskpkg.Task{
-		ID:         taskID,
-		Status:     taskpkg.DefaultStatus(),
-		Type:       taskpkg.DefaultType(),
-		Priority:   3,
-		Points:     1,
-		Tags:       []string{"idea"},
-		CreatedAt:  time.Now(),
-		IsWorkflow: true,
+		ID:        taskID,
+		CreatedAt: time.Now(),
 	}
 
-	task.CustomFields = buildCustomFieldDefaults()
+	if defaultStatus != "" {
+		task.Status = defaultStatus
+		task.Type = taskpkg.DefaultType()
+		task.Priority = 3
+		task.Points = 1
+		task.Tags = []string{"idea"}
+		task.IsWorkflow = true
+		task.CustomFields = buildCustomFieldDefaults()
+	}
 
 	s.setAuthorFromIdentity(task)
 

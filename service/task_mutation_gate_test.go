@@ -382,6 +382,129 @@ func TestFieldValidators_AcceptValidTask(t *testing.T) {
 	}
 }
 
+// TestFieldValidators_AcceptPlainDocument exercises the Phase 7 contract
+// through the mutation gate: a plain-doc template (no status, type, priority,
+// points) must pass validation and persist successfully. This is the path
+// piped input and ruki `create` take when the active workflow has no
+// `default: true` status, so any regression here silently breaks capture
+// for notes-only workflows.
+func TestFieldValidators_AcceptPlainDocument(t *testing.T) {
+	gate, s := newGateWithStore()
+	RegisterFieldValidators(gate)
+
+	plain := &task.Task{
+		ID:         "PLAIN1",
+		Title:      "a note",
+		IsWorkflow: false,
+	}
+
+	if err := gate.CreateTask(context.Background(), plain); err != nil {
+		t.Fatalf("plain-doc create rejected by gate: %v", err)
+	}
+
+	// The store was called (no in-mem filter prevented persistence). A plain
+	// doc does not appear in GetAllTasks (which filters to workflow items)
+	// but GetTask returns it by id.
+	if got := s.GetTask("PLAIN1"); got == nil {
+		t.Error("plain doc was not persisted")
+	}
+}
+
+// TestFieldValidators_RequireTitleEvenForPlainDocs ensures that document-level
+// validators still fire on plain docs — a plain doc with an empty title must
+// be rejected. Otherwise the workflow-only skip would over-reach and let bad
+// input through.
+func TestFieldValidators_RequireTitleEvenForPlainDocs(t *testing.T) {
+	gate, _ := newGateWithStore()
+	RegisterFieldValidators(gate)
+
+	missingTitle := &task.Task{
+		ID:         "PLAIN2",
+		IsWorkflow: false,
+	}
+
+	if err := gate.CreateTask(context.Background(), missingTitle); err == nil {
+		t.Fatal("gate accepted plain doc with empty title; document-level validators should still run")
+	}
+}
+
+// TestFieldValidators_AcceptSparseWorkflowCreate covers the Phase 1/5
+// presence-aware contract under a no-default workflow: a ruki create that
+// sets only `priority` promotes the template to workflow-capable but leaves
+// `status` and `type` absent. The gate must validate the fields that are
+// present (priority must be in range) and accept empty `status`/`type` as
+// absent rather than invalid. Without this, `create title="x" priority=1`
+// is rejected end-to-end in notes-only workflows, breaking the Phase 7 CLI
+// contract.
+func TestFieldValidators_AcceptSparseWorkflowCreate(t *testing.T) {
+	// Swap to a workflow with no default status so the workflow can legally
+	// produce workflow docs without a status set.
+	config.ResetStatusRegistry([]workflow.StatusDef{
+		{Key: "alpha", Label: "Alpha"},
+		{Key: "done", Label: "Done", Done: true},
+	})
+	t.Cleanup(func() {
+		config.ResetStatusRegistry([]workflow.StatusDef{
+			{Key: "backlog", Label: "Backlog", Emoji: "📥", Default: true},
+			{Key: "ready", Label: "Ready", Emoji: "📋", Active: true},
+			{Key: "inProgress", Label: "In Progress", Emoji: "⚙️", Active: true},
+			{Key: "done", Label: "Done", Emoji: "✅", Done: true},
+		})
+	})
+
+	gate, s := newGateWithStore()
+	RegisterFieldValidators(gate)
+
+	sparse := &task.Task{
+		ID:         "SPARS1",
+		Title:      "sparse workflow item",
+		Priority:   1,
+		IsWorkflow: true,
+	}
+
+	if err := gate.CreateTask(context.Background(), sparse); err != nil {
+		t.Fatalf("sparse workflow create rejected by gate: %v", err)
+	}
+	if s.GetTask("SPARS1") == nil {
+		t.Error("sparse workflow doc was not persisted")
+	}
+}
+
+// TestFieldValidators_RejectInvalidFieldOnPlainUpdate closes a bypass hole:
+// before this test's fix, a caller could update an existing workflow task
+// with `IsWorkflow=false, Priority=99` and the gate would skip ValidatePriority
+// because the new task claimed to be plain. The store then carry-forwarded
+// IsWorkflow=true and persisted the out-of-range priority. The validator
+// must inspect present-and-invalid fields regardless of the caller's
+// IsWorkflow flag.
+func TestFieldValidators_RejectInvalidFieldOnPlainUpdate(t *testing.T) {
+	gate, s := newGateWithStore()
+	RegisterFieldValidators(gate)
+
+	// seed an existing workflow task via the in-memory store (force-flips
+	// IsWorkflow=true) so the carry-forward path is active on update.
+	if err := s.CreateTask(&task.Task{
+		ID:       "BYPASS",
+		Title:    "seed",
+		Status:   task.StatusBacklog,
+		Type:     task.TypeStory,
+		Priority: 3,
+	}); err != nil {
+		t.Fatalf("seed: %v", err)
+	}
+
+	// caller pretends to be a plain doc but supplies an out-of-range priority.
+	bad := &task.Task{
+		ID:         "BYPASS",
+		Title:      "seed",
+		Priority:   99,
+		IsWorkflow: false,
+	}
+	if err := gate.UpdateTask(context.Background(), bad); err == nil {
+		t.Fatal("gate accepted out-of-range priority on an IsWorkflow=false update against a workflow-flagged stored task")
+	}
+}
+
 func TestReadStore(t *testing.T) {
 	gate, s := newGateWithStore()
 

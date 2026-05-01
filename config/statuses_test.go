@@ -209,14 +209,21 @@ func TestBuildRegistry_Empty(t *testing.T) {
 	}
 }
 
-func TestBuildRegistry_RequiresExplicitDefault(t *testing.T) {
+// TestBuildRegistry_AllowsNoExplicitDefault verifies the Phase 7 relaxation:
+// a workflow.yaml with no `default: true` status now loads successfully.
+// DefaultKey() returning "" signals that piped/ruki capture should produce
+// plain documents instead of workflow tasks for this workflow.
+func TestBuildRegistry_AllowsNoExplicitDefault(t *testing.T) {
 	defs := []workflow.StatusDef{
 		{Key: "alpha", Label: "Alpha", Done: true},
 		{Key: "beta", Label: "Beta"},
 	}
-	_, err := workflow.NewStatusRegistry(defs)
-	if err == nil {
-		t.Fatal("expected error when no status is marked default")
+	reg, err := workflow.NewStatusRegistry(defs)
+	if err != nil {
+		t.Fatalf("unexpected error when no status is marked default: %v", err)
+	}
+	if reg.DefaultKey() != "" {
+		t.Errorf("DefaultKey() = %q, want empty string", reg.DefaultKey())
 	}
 }
 

@@ -21,12 +21,14 @@ func (s *TikiStore) CreateTask(task *taskpkg.Task) error {
 }
 
 func (s *TikiStore) createTaskLocked(task *taskpkg.Task) error {
-	// CreateTask is a workflow creation path by definition — everything that
-	// arrives here is a workflow item, even if the caller left IsWorkflow
-	// zero-valued. The presence-aware document-first entry point is
-	// CreateDocument, which calls storeNewDocumentLocked directly and keeps
-	// plain docs out of the workflow surface.
-	task.IsWorkflow = true
+	// Honor the caller's IsWorkflow. Phase 7: when a workflow has no default
+	// status, NewTaskTemplate returns a plain template (IsWorkflow=false) and
+	// piped/ruki capture flows through CreateTask as a plain document. For
+	// workflows that do declare a default, NewTaskTemplate sets IsWorkflow=true
+	// and the same path persists a workflow item. The presence-aware
+	// document-first entry point (CreateDocument) remains the canonical way to
+	// create plain docs from frontmatter; this relaxation just stops forcing a
+	// promotion on task-shaped callers that followed the registry's signal.
 	return s.storeNewDocumentLocked(task)
 }
 

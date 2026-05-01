@@ -489,6 +489,221 @@ func TestRunInit_NonInteractiveWithSamples(t *testing.T) {
 	}
 }
 
+// TestRunInit_DefaultCreatesLocalWorkflow verifies the Phase 7 contract that
+// `tiki init` with no --workflow still produces a project-local
+// `.doc/workflow.yaml`. Before the fix the default bundle landed only in the
+// user config directory, so a fresh clone of an initialized repo depended on
+// global user state for workflow resolution.
+func TestRunInit_DefaultCreatesLocalWorkflow(t *testing.T) {
+	repoDir := setupInitTest(t)
+
+	code := runInit([]string{repoDir, "-n"})
+	if code != exitOK {
+		t.Fatalf("exit code = %d, want %d", code, exitOK)
+	}
+
+	localWorkflow := filepath.Join(repoDir, ".doc", "workflow.yaml")
+	if _, err := os.Stat(localWorkflow); err != nil {
+		t.Fatalf("expected .doc/workflow.yaml to exist after default init: %v", err)
+	}
+}
+
+// TestRunInit_SamplesValidateAgainstLocalNotGlobalWorkflow reproduces the
+// ordering bug the reviewer flagged: BootstrapSystem validates bundled
+// samples against whichever workflow is currently active, so an
+// incompatible **global** user workflow could cause every sample to be
+// rejected while the init path still reported success. Phase 7 requires
+// samples to be validated against the **project-local** workflow that init
+// is about to install. The fix is to install .doc/workflow.yaml before
+// BootstrapSystem seeds samples, so the registry-precedence chain picks
+// up the project-local file instead of the unrelated global one.
+func TestRunInit_SamplesValidateAgainstLocalNotGlobalWorkflow(t *testing.T) {
+	repoDir := setupInitTest(t)
+
+	// seed a user-level workflow with statuses that do NOT overlap with the
+	// bundled sample statuses (samples use backlog/ready/inProgress/review/
+	// done from the kanban workflow). With the old ordering the sample
+	// validator would run against this workflow and reject every sample.
+	xdg := os.Getenv("XDG_CONFIG_HOME")
+	if xdg == "" {
+		t.Fatal("XDG_CONFIG_HOME not set by setupInitTest")
+	}
+	globalDir := filepath.Join(xdg, "tiki")
+	//nolint:gosec // G703: globalDir derives from test-controlled XDG_CONFIG_HOME
+	if err := os.MkdirAll(globalDir, 0750); err != nil {
+		t.Fatalf("mkdir global config: %v", err)
+	}
+	globalYAML := `version: "0.6.0"
+statuses:
+  - key: open
+    label: Open
+    default: true
+  - key: closed
+    label: Closed
+    done: true
+types:
+  - key: note
+    label: Note
+views:
+  - name: All
+    kind: list
+    default: true
+    lanes:
+      - name: All
+        filter: select
+`
+	globalPath := filepath.Join(globalDir, "workflow.yaml")
+	//nolint:gosec // G703 & G306: globalPath derives from test-controlled XDG_CONFIG_HOME; 0644 is the standard config perm
+	if err := os.WriteFile(globalPath, []byte(globalYAML), 0644); err != nil {
+		t.Fatalf("write global workflow: %v", err)
+	}
+
+	code := runInit([]string{repoDir, "-n", "--samples"})
+	if code != exitOK {
+		t.Fatalf("exit code = %d, want %d", code, exitOK)
+	}
+
+	docDir := filepath.Join(repoDir, ".doc")
+	entries, err := os.ReadDir(docDir)
+	if err != nil {
+		t.Fatalf("read .doc: %v", err)
+	}
+	var mdCount int
+	for _, e := range entries {
+		if e.IsDir() || !strings.HasSuffix(e.Name(), ".md") {
+			continue
+		}
+		mdCount++
+	}
+	if mdCount == 0 {
+		t.Error("no sample .md files created under .doc/; samples were validated against the global workflow instead of the project-local workflow")
+	}
+}
+
+// TestRunInit_BackfillsWorkflowOnPartialDotDoc reproduces the reviewer's
+// scenario: a pre-existing `.doc/` (from a partial init, manual mkdir, or a
+// legacy unified project created before Phase 7 wrote the local workflow
+// file) currently makes `tiki init` short-circuit with "project already
+// initialized" before the local workflow install runs. Phase 7 makes the
+// local `.doc/workflow.yaml` part of the init contract, so re-init must
+// backfill it when missing. The write-if-absent guard in
+// installDefaultLocalWorkflow keeps the re-init idempotent for already-
+// compliant projects.
+func TestRunInit_BackfillsWorkflowOnPartialDotDoc(t *testing.T) {
+	repoDir := setupInitTest(t)
+
+	// simulate a partial or legacy initialization: .doc/ exists, but no
+	// local workflow.yaml. This is exactly what triggers the "project
+	// already initialized" short-circuit.
+	docDir := filepath.Join(repoDir, ".doc")
+	if err := os.MkdirAll(docDir, 0750); err != nil {
+		t.Fatalf("mkdir .doc: %v", err)
+	}
+
+	code := runInit([]string{repoDir, "-n"})
+	if code != exitOK {
+		t.Fatalf("exit code = %d, want %d", code, exitOK)
+	}
+
+	localWorkflow := filepath.Join(docDir, "workflow.yaml")
+	if _, err := os.Stat(localWorkflow); err != nil {
+		t.Fatalf("re-init did not backfill .doc/workflow.yaml on a partial .doc/: %v", err)
+	}
+}
+
+// TestRunInit_InstallsExplicitWorkflowOnPartialDotDoc reproduces the
+// reviewer's scenario for the explicit `--workflow` path: a pre-existing
+// `.doc/` made `tiki init -n -w todo <dir>` short-circuit with "project
+// already initialized" and no `.doc/workflow.yaml`. Phase 7 makes the
+// local workflow part of the init contract; an explicit user request to
+// install a workflow must not silently no-op on re-init. The fix is to
+// honor `--workflow` in the already-initialized branch too, overwriting
+// any stale local file since the user explicitly named a workflow (same
+// semantics as `tiki workflow install <source> --local`).
+func TestRunInit_InstallsExplicitWorkflowOnPartialDotDoc(t *testing.T) {
+	repoDir := setupInitTest(t)
+
+	docDir := filepath.Join(repoDir, ".doc")
+	if err := os.MkdirAll(docDir, 0750); err != nil {
+		t.Fatalf("mkdir .doc: %v", err)
+	}
+
+	code := runInit([]string{repoDir, "-n", "-w", "todo"})
+	if code != exitOK {
+		t.Fatalf("exit code = %d, want %d", code, exitOK)
+	}
+
+	localWorkflow := filepath.Join(docDir, "workflow.yaml")
+	got, err := os.ReadFile(localWorkflow)
+	if err != nil {
+		t.Fatalf("re-init with --workflow did not install .doc/workflow.yaml: %v", err)
+	}
+
+	// todo workflow uses distinct statuses (e.g. "todo"/"done") — check for
+	// a todo-specific marker so we know the *requested* workflow landed,
+	// not just any file.
+	if !strings.Contains(string(got), "todo") {
+		t.Errorf("expected todo workflow content, got:\n%s", got)
+	}
+}
+
+// TestInstallDefaultLocalWorkflow_PropagatesError verifies the helper does
+// not swallow install errors. The caller (runInit) converts any non-nil
+// return into `exitStartupFailure`, matching the explicit --workflow path —
+// a silent failure here would produce the exact bug the reviewer flagged:
+// init reports success while leaving the project dependent on global user
+// state. We exercise the failure path by calling the helper before `.doc/`
+// exists, which makes `ScopeLocal` dir resolution fail.
+func TestInstallDefaultLocalWorkflow_PropagatesError(t *testing.T) {
+	repoDir := setupInitTest(t)
+	// Keep repoDir empty — no `.doc/` yet. resolveDir(ScopeLocal) rejects
+	// uninitialized projects, which is our trigger for an install failure.
+	if err := os.Chdir(repoDir); err != nil {
+		t.Fatalf("chdir: %v", err)
+	}
+	config.ResetPathManager()
+	if err := config.InitPaths(); err != nil {
+		t.Fatalf("InitPaths: %v", err)
+	}
+
+	if err := installDefaultLocalWorkflow(); err == nil {
+		t.Fatal("expected error when called before project is initialized; got nil")
+	}
+}
+
+// TestRunInit_DefaultDoesNotOverwriteExistingLocalWorkflow guards against a
+// re-init (or races with hand-edited files) clobbering a user-maintained
+// `.doc/workflow.yaml`. The default-install path must be "write-if-absent",
+// not "overwrite".
+func TestRunInit_DefaultDoesNotOverwriteExistingLocalWorkflow(t *testing.T) {
+	repoDir := setupInitTest(t)
+
+	// Pre-seed a distinctive workflow.yaml before running init so we can
+	// verify it survives.
+	docDir := filepath.Join(repoDir, ".doc")
+	if err := os.MkdirAll(docDir, 0750); err != nil {
+		t.Fatalf("mkdir .doc: %v", err)
+	}
+	localWorkflow := filepath.Join(docDir, "workflow.yaml")
+	sentinel := "# pre-existing local workflow — must not be overwritten\n"
+	if err := os.WriteFile(localWorkflow, []byte(sentinel), 0644); err != nil {
+		t.Fatalf("seed workflow: %v", err)
+	}
+
+	code := runInit([]string{repoDir, "-n"})
+	if code != exitOK {
+		t.Fatalf("exit code = %d, want %d", code, exitOK)
+	}
+
+	got, err := os.ReadFile(localWorkflow)
+	if err != nil {
+		t.Fatalf("read workflow: %v", err)
+	}
+	if string(got) != sentinel {
+		t.Errorf("pre-existing workflow was overwritten.\n got: %q\nwant: %q", string(got), sentinel)
+	}
+}
+
 func TestRunInit_NonInteractiveWithAISkills(t *testing.T) {
 	repoDir := setupInitTest(t)
 

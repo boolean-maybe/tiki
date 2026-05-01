@@ -118,3 +118,127 @@ func TestBuildCustomFieldDefaults_SliceDefaultCopied(t *testing.T) {
 		t.Error("returned slice should be a copy, not the original")
 	}
 }
+
+// TestNewTaskTemplate_WorkflowCaptureWithDefaultStatus verifies that when the
+// active workflow declares a `default: true` status, NewTaskTemplate produces
+// a workflow-capable task with populated defaults. This is the historical
+// behavior preserved for task-tracker workflows (kanban, todo, bug-tracker).
+func TestNewTaskTemplate_WorkflowCaptureWithDefaultStatus(t *testing.T) {
+	config.ResetStatusRegistry([]workflow.StatusDef{
+		{Key: "backlog", Label: "Backlog", Default: true},
+		{Key: "done", Label: "Done", Done: true},
+	})
+	t.Cleanup(func() {
+		config.ResetStatusRegistry([]workflow.StatusDef{
+			{Key: "backlog", Label: "Backlog", Default: true},
+			{Key: "done", Label: "Done", Done: true},
+		})
+	})
+
+	s, err := NewTikiStore(t.TempDir())
+	if err != nil {
+		t.Fatalf("NewTikiStore: %v", err)
+	}
+
+	tmpl, err := s.NewTaskTemplate()
+	if err != nil {
+		t.Fatalf("NewTaskTemplate: %v", err)
+	}
+	if !tmpl.IsWorkflow {
+		t.Error("IsWorkflow = false, want true when default status is configured")
+	}
+	if tmpl.Status != "backlog" {
+		t.Errorf("Status = %q, want %q", tmpl.Status, "backlog")
+	}
+	if tmpl.Priority == 0 {
+		t.Error("Priority = 0, want populated workflow default")
+	}
+}
+
+// TestNewTaskTemplate_PlainCaptureWithoutDefaultStatus verifies the Phase 7
+// semantics: a workflow with no `default: true` status signals "capture as
+// plain document." NewTaskTemplate returns a bare template with IsWorkflow=false
+// and no workflow field defaults; the piped/ruki capture paths then persist a
+// plain .md with only id+title in the frontmatter.
+func TestNewTaskTemplate_PlainCaptureWithoutDefaultStatus(t *testing.T) {
+	config.ResetStatusRegistry([]workflow.StatusDef{
+		{Key: "alpha", Label: "Alpha"},
+		{Key: "done", Label: "Done", Done: true},
+	})
+	t.Cleanup(func() {
+		config.ResetStatusRegistry([]workflow.StatusDef{
+			{Key: "backlog", Label: "Backlog", Default: true},
+			{Key: "done", Label: "Done", Done: true},
+		})
+	})
+
+	s, err := NewTikiStore(t.TempDir())
+	if err != nil {
+		t.Fatalf("NewTikiStore: %v", err)
+	}
+
+	tmpl, err := s.NewTaskTemplate()
+	if err != nil {
+		t.Fatalf("NewTaskTemplate: %v", err)
+	}
+	if tmpl.IsWorkflow {
+		t.Error("IsWorkflow = true, want false when no default status configured")
+	}
+	if tmpl.Status != "" {
+		t.Errorf("Status = %q, want empty", tmpl.Status)
+	}
+	if tmpl.Priority != 0 {
+		t.Errorf("Priority = %d, want 0 (no workflow defaults on plain docs)", tmpl.Priority)
+	}
+	if tmpl.Points != 0 {
+		t.Errorf("Points = %d, want 0 (no workflow defaults on plain docs)", tmpl.Points)
+	}
+	if len(tmpl.Tags) != 0 {
+		t.Errorf("Tags = %v, want empty (no workflow defaults on plain docs)", tmpl.Tags)
+	}
+	if tmpl.ID == "" {
+		t.Error("ID was not populated; plain capture must still generate an id")
+	}
+}
+
+// TestCreateTask_HonorsPlainIsWorkflow verifies the end-to-end Phase 7 contract:
+// a plain template produced by NewTaskTemplate survives CreateTask without
+// being auto-promoted to a workflow item. This is the path piped capture uses.
+func TestCreateTask_HonorsPlainIsWorkflow(t *testing.T) {
+	config.ResetStatusRegistry([]workflow.StatusDef{
+		{Key: "alpha", Label: "Alpha"},
+		{Key: "done", Label: "Done", Done: true},
+	})
+	t.Cleanup(func() {
+		config.ResetStatusRegistry([]workflow.StatusDef{
+			{Key: "backlog", Label: "Backlog", Default: true},
+			{Key: "done", Label: "Done", Done: true},
+		})
+	})
+
+	s, err := NewTikiStore(t.TempDir())
+	if err != nil {
+		t.Fatalf("NewTikiStore: %v", err)
+	}
+
+	tmpl, err := s.NewTaskTemplate()
+	if err != nil {
+		t.Fatalf("NewTaskTemplate: %v", err)
+	}
+	tmpl.Title = "piped note"
+
+	if err := s.CreateTask(tmpl); err != nil {
+		t.Fatalf("CreateTask: %v", err)
+	}
+
+	stored := s.GetTask(tmpl.ID)
+	if stored == nil {
+		t.Fatalf("GetTask returned nil after CreateTask(%s)", tmpl.ID)
+	}
+	if stored.IsWorkflow {
+		t.Error("stored.IsWorkflow = true, want false — plain capture was promoted to workflow item")
+	}
+	if got := len(s.GetAllTasks()); got != 0 {
+		t.Errorf("GetAllTasks returned %d, want 0 — plain docs must be filtered out of workflow views", got)
+	}
+}

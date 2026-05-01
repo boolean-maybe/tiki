@@ -12,7 +12,9 @@ Running `tiki` with no arguments launches the TUI in an initialized project.
 
 ### init
 
-Initialize a tiki project. Creates the `.doc/tiki/` and `.doc/doki/` directory structures.
+Initialize a tiki project. Creates the unified `.doc/` directory and seeds sample documents as
+`.doc/<ID>.md`. Workflow tasks and plain documents share the same directory; identity lives in the
+document's frontmatter (`id:`), not in the file path.
 
 If the target directory does not exist, it is created. If the directory is not a git repository, `git init` is run
 automatically, unless `store.git` is set to `false` (see [Configuration](config.md)).
@@ -72,7 +74,7 @@ tiki exec [--format table|json] [--] '<ruki-statement>'
 Examples:
 ```bash
 tiki exec 'select where status = "ready" order by priority'
-tiki exec 'update where id = "TIKI-ABC123" set status="done"'
+tiki exec 'update where id = "ABC123" set status="done"'
 
 # JSON output for scripting
 tiki exec --format json 'select id, title where status = "ready"'
@@ -202,12 +204,23 @@ See [Markdown viewer](markdown-viewer.md) for navigation and keybindings.
 
 ## Piped input
 
-When stdin is piped and no positional arguments are given, tiki creates a task from the input. The first line becomes the title; the rest becomes the description.
+When stdin is piped and no positional arguments are given, tiki creates a document from the input. The
+first line becomes the title; the rest becomes the description.
 
 ```bash
 echo "Fix the login bug" | tiki
 tiki < bug-report.md
 ```
+
+Whether the new document is a **workflow task** or a **plain document** is decided by the active
+workflow:
+
+- If the workflow declares a status with `default: true` (as kanban, todo, and bug-tracker do),
+  captured input becomes a workflow task with the default status, type, priority, and points filled
+  in. It appears on board/list views.
+- If the workflow has no `default: true` status, captured input becomes a plain document with only
+  `id` and `title` in the frontmatter. It does not appear on workflow views but is reachable by id
+  and by file path.
 
 See [Quick capture](quick-capture.md) for more examples.
 

@@ -14,12 +14,13 @@ func TestReloadTask_CaseDuplicate(t *testing.T) {
 
 	// Create a task with a lowercase suffix ID
 	task := &taskpkg.Task{
-		ID:       "6EQDUE",
-		Title:    "Case Duplicate",
-		Type:     taskpkg.TypeStory,
-		Status:   taskpkg.StatusBacklog,
-		Priority: 3,
-		Points:   1,
+		ID:         "6EQDUE",
+		Title:      "Case Duplicate",
+		Type:       taskpkg.TypeStory,
+		Status:     taskpkg.StatusBacklog,
+		Priority:   3,
+		Points:     1,
+		IsWorkflow: true,
 	}
 	if err := store.CreateTask(task); err != nil {
 		t.Fatalf("CreateTask failed: %v", err)

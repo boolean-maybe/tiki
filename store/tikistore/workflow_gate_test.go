@@ -10,11 +10,12 @@ import (
 
 func createValidTaskForGateTest() *taskpkg.Task {
 	return &taskpkg.Task{
-		ID:       "CREAT1",
-		Title:    "created",
-		Type:     taskpkg.TypeStory,
-		Status:   "ready",
-		Priority: 1,
+		ID:         "CREAT1",
+		Title:      "created",
+		Type:       taskpkg.TypeStory,
+		Status:     "ready",
+		Priority:   1,
+		IsWorkflow: true,
 	}
 }
 

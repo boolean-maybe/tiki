@@ -115,8 +115,10 @@ func StatusDisplay(def StatusDef) string {
 // NewStatusRegistry constructs a StatusRegistry from the given definitions.
 // Configured keys must be canonical (matching NormalizeStatusKey output).
 // Labels default to key when omitted; explicitly empty labels are rejected.
-// Emoji values are trimmed. Requires exactly one default and one done status.
-// Duplicate display strings are rejected.
+// Emoji values are trimmed. At most one default status is allowed; when no
+// status is marked default, DefaultKey() returns "" and new captures create
+// plain documents instead of workflow tasks. Exactly one done status is
+// required. Duplicate display strings are rejected.
 func NewStatusRegistry(defs []StatusDef) (*StatusRegistry, error) {
 	if len(defs) == 0 {
 		return nil, fmt.Errorf("statuses list is empty")
@@ -178,10 +180,6 @@ func NewStatusRegistry(defs []StatusDef) (*StatusRegistry, error) {
 		reg.statuses = append(reg.statuses, def)
 	}
 
-	if reg.defaultKey == "" {
-		return nil, fmt.Errorf("no status marked default: true; exactly one is required")
-	}
-
 	if reg.doneKey == "" {
 		return nil, fmt.Errorf("no status marked done: true; exactly one is required")
 	}
@@ -221,7 +219,10 @@ func (r *StatusRegistry) IsDone(key string) bool {
 	return ok && def.Done
 }
 
-// DefaultKey returns the key of the status with default: true.
+// DefaultKey returns the key of the status with default: true, or "" when no
+// default is configured. An empty default signals that new captures should be
+// created as plain documents (no status/type/priority/points) rather than
+// workflow tasks.
 func (r *StatusRegistry) DefaultKey() StatusKey {
 	return r.defaultKey
 }

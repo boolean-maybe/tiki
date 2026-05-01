@@ -30,15 +30,25 @@ func ValidateTitle(t *Task) string {
 }
 
 // ValidateStatus returns an error message if the task status is invalid.
+// An empty status is treated as absent (Phase 1 presence-aware contract) and
+// passes validation — only set values are checked against the registry.
 func ValidateStatus(t *Task) string {
+	if t.Status == "" {
+		return ""
+	}
 	if config.GetStatusRegistry().IsValid(string(t.Status)) {
 		return ""
 	}
 	return fmt.Sprintf("invalid status value: %s", t.Status)
 }
 
-// ValidateType returns an error message if the task type is invalid.
+// ValidateType returns an error message if the task type is invalid. An
+// empty type is treated as absent and passes validation; only set values
+// are checked against the registry.
 func ValidateType(t *Task) string {
+	if t.Type == "" {
+		return ""
+	}
 	if requireTypeRegistry().IsValid(t.Type) {
 		return ""
 	}
@@ -46,7 +56,12 @@ func ValidateType(t *Task) string {
 }
 
 // ValidatePriority returns an error message if the task priority is out of range.
+// A zero priority is treated as absent (Phase 1 presence-aware contract) and
+// passes validation; only set values are range-checked.
 func ValidatePriority(t *Task) string {
+	if t.Priority == 0 {
+		return ""
+	}
 	if t.Priority < MinPriority || t.Priority > MaxPriority {
 		return fmt.Sprintf("priority must be between %d and %d", MinPriority, MaxPriority)
 	}
@@ -117,7 +132,11 @@ func IsValidPoints(points int) bool {
 }
 
 // AllValidators returns the complete list of field validation functions.
-// Each returns an error message (empty string = valid).
+// Each returns an error message (empty string = valid). Workflow-field
+// validators treat a zero value as absent and return success — a plain
+// document (id+title only) or a sparse workflow document (a subset of
+// workflow fields set) therefore passes validation without any IsWorkflow-
+// based gating at the caller. Title is always required.
 func AllValidators() []func(*Task) string {
 	return []func(*Task) string{
 		ValidateTitle,
