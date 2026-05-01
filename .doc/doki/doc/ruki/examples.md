@@ -150,7 +150,7 @@ Add to or remove from a list:
 
 ```sql
 create title="x" tags=tags + ["needs-triage"]
-create title="x" dependsOn=dependsOn - ["TIKI-ABC123"]
+create title="x" dependsOn=dependsOn - ["ABC123"]
 ```
 
 Use `call(...)` in a value:

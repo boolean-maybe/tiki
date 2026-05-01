@@ -9,15 +9,15 @@ All vim-like pager commands are supported in addition to:
 
 ## File and issue management
 
-Run `tiki init my-directory` to initialize a project, then `cd my-directory` and run `tiki` to start
+Run `tiki init my-directory` to initialize a project, then `cd my-directory` and run `tiki` to start.
 Or check out a demo project and play around:
 ```
 cd /tmp && tiki demo
 ```
 
-Move your tiki around the board with `Shift ←/Shift →`.
+Move a task around the board with `Shift ←/Shift →`.
 Press `?` to open the Action Palette — it lists all available actions with their shortcuts.
-Press `F1` to open a sample doc root. Follow links with `Tab/Enter`
+Press `F2` to open the Docs view and follow links with `Tab/Enter`.
 
 ## AI skills
 You will be prompted to install skills for
@@ -26,45 +26,55 @@ You will be prompted to install skills for
 - [Codex](https://openai.com/codex)
 - [Opencode](https://opencode.ai)
 
-if you choose to you can mention `tiki` in your prompts to create/find/edit your tikis
+once installed, mention documents by id in your prompts to create, find, or edit them.
 ![Claude](assets/claude.png)
 
 Happy tikking!
 
-# tiki
-Keep your tickets in your pockets!
+# The managed document model
 
-`tiki` refers to a task or a ticket (hence tiki) stored in your **git** repo
+`tiki` manages a single Markdown workspace under `.doc/`. Everything `tiki` touches is a Markdown file with
+YAML frontmatter and a required bare `id`:
 
-- like a ticket it can have a status, priority, assignee, points, type and multiple tags attached to it
-- they are essentially just Markdown files and you can use full Markdown syntax to describe a story or a bug
-- they are stored in `.doc/tiki` subdirectory and are **git**-controlled - they are added to **git** when they are created,
-  removed when they are done and the entire history is preserved in **git** repo
-- because they are in **git** they can be perfectly synced up to the state of your repo or a branch
-- you can use either the `tiki` CLI tool or any of the AI coding assistant to work with your tikis
+```md
+---
+id: ABC123
+title: Implement search
+status: backlog
+priority: 2
+---
 
-# doki
-Store your notes in remotes!
+Markdown body.
+```
 
-`doki` refers to any file in Markdown format that is stored in the `.doc/doki` subdirectory of the **git** repo.
+- Documents live anywhere under `.doc/` — the folder structure is yours to organize. Identity is in the
+  `id` frontmatter field, not in the file path.
+- **Workflow documents** carry `status`, `type`, `priority`, or `points` and show up on board/list views.
+- **Plain documents** carry only `id` and `title` (and optional custom fields). They are reachable by id
+  or path, rendered by wiki and detail views, and invisible to workflow views.
+- Everything is git-controlled — added, updated, and removed along with your code. History is preserved.
 
-- like tikis they are **git**-controlled and can be maintained in perfect sync with the repo state
-- `tiki` CLI tool allows creating multiple doc roots like: Documentation, Brainstorming, Prompts etc.
-- it also allows viewing and navigation (follow links)
+See [Document format](tiki-format.md) for the full frontmatter reference.
 
-# tiki TUI tool
+# Using tiki
 
-`tiki` TUI tool allows creating, viewing, editing and deleting tikis as well as creating custom plugins to
-view any selection, for example, Recent tikis, Architecture docs, Saved prompts, Security review, Future Roadmap
-Press `?` to open the Action Palette and discover all available actions
+`tiki` exposes its workspace in two ways:
+
+- The **CLI** — `tiki exec '<ruki-statement>'` runs queries and updates non-interactively;
+  `echo ... | tiki` captures pipes as documents.
+- The **TUI** — run `tiki` with no arguments in an initialized project. Lets you create, view, edit, and
+  delete documents, and compose custom views (Recent, Architecture notes, Saved prompts, Security review,
+  Future roadmap, …) via `workflow.yaml`. Press `?` for the Action Palette.
 
 # AI skills
 
-`tiki` adds optional [agent skills](https://agentskills.io/home) to the repo upon initialization
+`tiki` adds optional [agent skills](https://agentskills.io/home) to the repo upon initialization.
 If installed you can:
 
-- work with [Claude Code](https://code.claude.com), [Gemini CLI](https://github.com/google-gemini/gemini-cli), [Codex](https://openai.com/codex), [Opencode](https://opencode.ai) by simply mentioning `tiki` or `doki` in your prompts
-- create, find, modify and delete tikis using AI
-- create tikis/dokis directly from Markdown files
-- Refer to tikis or dokis when implementing with AI-assisted development - `implement tiki xxxxxxx`
-- Keep a history of prompts/plans by saving prompts or plans with your repo
+- work with [Claude Code](https://code.claude.com),
+  [Gemini CLI](https://github.com/google-gemini/gemini-cli), [Codex](https://openai.com/codex), and
+  [Opencode](https://opencode.ai) by mentioning documents or ids in your prompts
+- create, find, modify, and delete documents using AI
+- create documents directly from Markdown files
+- reference documents by id when implementing with AI-assisted development — `implement ABC123`
+- keep a history of prompts/plans by saving them as documents alongside your repo

@@ -56,14 +56,14 @@ create title="Fix login" priority=2 status="ready" tags=["bug"]
 `update` always has a `where` clause and a `set` clause:
 
 ```sql
-update where id = "TIKI-ABC123" set status="done"
+update where id = "ABC123" set status="done"
 update where status = "ready" and "sprint-3" in tags set status="cancelled"
 ```
 
 `delete` always has a `where` clause:
 
 ```sql
-delete where id = "TIKI-ABC123"
+delete where id = "ABC123"
 delete where status = "cancelled" and "old" in tags
 ```
 

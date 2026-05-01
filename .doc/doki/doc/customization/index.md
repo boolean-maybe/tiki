@@ -10,7 +10,7 @@ reference docs for the topic you need.
 - [Customization tutorial](tutorial.md) — step-by-step guide: add statuses and
   types, build views, write triggers, and set up a theme
 - [Customization reference](customization.md) — complete reference for
-  `workflow.yaml`: plugins, lanes, actions, and the task template
+  `workflow.yaml`: view kinds, lanes, global and per-view actions, and custom fields
 - [Custom statuses and types](custom-status-type.md) — validation rules, key
   normalization, and failure behavior for statuses and types
 - [Custom fields](custom-fields.md) — add project-specific fields to every

@@ -8,7 +8,7 @@
 - [Image support](image-requirements.md)
 - [Themes](themes.md)
 - [ruki](ruki/index.md)
-- [tiki format](tiki-format.md)
+- [Document format](tiki-format.md)
 - [Quick capture](quick-capture.md)
 - [AI collaboration](ai.md)
 - [Recipes](ideas/plugins.md)

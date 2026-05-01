@@ -34,24 +34,26 @@ If the first line is a markdown heading (`# Title`, `## Title`, etc.), the leadi
 stripped automatically for the task title. The full original markdown — heading included — is kept
 as the description.
 
-### Find tiki by ID
+### Find document by ID
 
-Press `/` to open the search box, then start typing the ID. Matching is case-insensitive and
-works on any substring, so `tiki-ab12c3`, `TIKI-AB12C3`, and `ab12c3` all find the same task.
+Press `/` to open the search box, then start typing the id. Matching is case-insensitive and works on
+any substring, so `ab12c3` and `AB12C3` both find the same document.
 
 Press Enter to keep the filter active (search passive mode), or Esc to clear it.
 
-### Link to another tiki
+### Link to another document
 
-Inside a tiki's description you can cross-reference another tiki with a plain Markdown link whose
-target is the tiki ID:
+Inside a document body you can cross-reference another document with a wikilink-style reference:
 
 ```markdown
-See also [the auth rewrite](TIKI-ABC123) for background.
+See also [[ABC123]] for background.
 ```
 
-Open the task detail view, press `Tab` to highlight the link, then Enter to navigate. The linked
-tiki is loaded in the same pane; `Left` / `Alt-Left` takes you back.
+Wikilinks resolve through the document index, so they survive file moves. Open the detail view,
+press `Tab` to highlight the link, then Enter to navigate. The linked document loads in the same
+pane; `Left` / `Alt-Left` takes you back.
+
+Plain Markdown links also work — use them for anchored links inside a document or for external URLs.
 
 ### Find recently edited tikis
 
@@ -129,15 +131,17 @@ git commit -m "add doc symlink for Obsidian"
 
 ### Open the current tiki in VS Code
 
-Add this to `views.actions` in your workflow YAML:
+Add this to the top-level `actions:` list in your workflow YAML:
 
 ```yaml
-- key: "o"
-  label: "Open in VS Code"
-  action: select filepath where id = id() | run("code \"$1\"")
+actions:
+  - key: "o"
+    kind: ruki
+    label: "Open in VS Code"
+    action: select filepath where id = id() | run("code \"$1\"")
 ```
 
-`filepath` is the synthetic field with the tiki's absolute path; `$1` passes it to the `code`
+`filepath` is the synthetic field with the document's absolute path; `$1` passes it to the `code`
 CLI, which opens the file in a VS Code window.
 
 ### Chat with AI
@@ -217,7 +221,10 @@ The same statement runs in-app: press `!` on any view
 Every CLI tool is a tiki integration. Tag the tikis you want to push, then pipe them into `gh`:
 
 ```bash
-tiki exec 'select id, title, description where "sync-gh" in tags | run("gh issue create --title \"$2\" --body \"$3\" --label tiki:$1")'
+tiki exec '
+  select id, title, description where "sync-gh" in tags
+  | run("gh issue create --title \"$2\" --body \"$3\" --label tiki:$1")
+'
 ```
 
 The pipe runs the command once per matching tiki, substituting `$1`, `$2`, `$3` with the selected

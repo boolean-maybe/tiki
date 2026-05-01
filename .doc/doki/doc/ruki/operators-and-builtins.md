@@ -188,7 +188,7 @@ Examples:
 ```sql
 create title="hello" + " world"
 create title="x" tags=tags + ["new"]
-create title="x" dependsOn=dependsOn - ["TIKI-ABC123"]
+create title="x" dependsOn=dependsOn - ["ABC123"]
 create title="x" due=2026-03-25 + 2day
 select where updatedAt - createdAt > 1day
 ```

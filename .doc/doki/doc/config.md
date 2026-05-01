@@ -59,11 +59,15 @@ changes take effect on the next run — not retroactively for a running process.
 2. **Project config directory** (`.doc/`) - shared with the team via git
 3. **Current working directory** (`./`) - local overrides, useful during development
 
-The single highest-priority file wins — no merging across files. This means each project can have its own workflow, statuses, and views that differ from your personal defaults. A design-team project might use statuses like "Draft / Review / Approved" while an engineering project uses "Backlog / In Progress / Done" — each defined in their own `.doc/workflow.yaml`.
+The single highest-priority file wins — no merging across files. This means each project can have
+its own workflow, statuses, and views that differ from your personal defaults. A design-team project
+might use statuses like "Draft / Review / Approved" while an engineering project uses
+"Backlog / In Progress / Done" — each defined in their own `.doc/workflow.yaml`.
 
 ### config.yaml
 
-The single highest-priority `config.yaml` found is loaded. Values not specified in that file fall back to built-in defaults (not inherited from lower-priority files).
+The single highest-priority `config.yaml` found is loaded. Values not specified in that file fall
+back to built-in defaults (not inherited from lower-priority files).
 
 Search order: user config dir → `.doc/config.yaml` (project) → cwd. Last match wins.
 
@@ -77,14 +81,19 @@ Search order: user config dir → `.doc/workflow.yaml` (project) → cwd. Last m
 
 - Missing `statuses:` in the winning file is an error.
 - Missing `types:` in the winning file is an error.
-- Missing `views:` or explicit empty `views: { plugins: [] }` means no views.
+- Missing `views:` or explicit empty `views: []` means no views. The pre-0.6.0 `views: { plugins: [] }`
+  wrapper is rejected by the parser.
 - Missing `fields:` means no custom fields.
 - Missing `triggers:` means no triggers.
 
-Global actions defined in `views.actions` are appended to each tiki plugin's action list; per-plugin actions with the same key take precedence.
+Global actions are declared at the **top level** under `actions:` (not nested under `views:`) and apply to
+every view. Per-view actions with the same key override globals for that view. See
+[Workflow format versions](workflow-format.md) for the full 0.6.0 schema and the migration map from
+pre-0.6.0 configs.
 
-Actions can declare `require:` — a list of context attributes needed for the action to be enabled. Actions with unmet 
-requirements are visible but greyed out. See [Action requirements](customization/customization.md#action-requirements) for details.
+Actions can declare `require:` — a list of context attributes needed for the action to be enabled.
+Actions with unmet requirements are visible but greyed out. See
+[Action requirements](customization/customization.md#action-requirements) for details.
 
 ### config.yaml
 
@@ -195,83 +204,89 @@ statuses:
     emoji: "✅"
     done: true
 
-views:
-  actions:
-    - key: "a"
-      label: "Assign to me"
-      action: update where id = id() set assignee=user()
-    - key: "A"
-      label: "Assign to..."
-      action: update where id = id() set assignee=input()
-      input: string
-  plugins:
-    - name: Kanban
-      description: "Move tiki to new status, search, create or delete"
-      key: "F1"
-      lanes:
-        - name: Ready
-          filter: select where status = "ready" and type != "epic" order by priority, createdAt
-          action: update where id = id() set status="ready"
-        - name: In Progress
-          filter: select where status = "inProgress" and type != "epic" order by priority, createdAt
-          action: update where id = id() set status="inProgress"
-        - name: Review
-          filter: select where status = "review" and type != "epic" order by priority, createdAt
-          action: update where id = id() set status="review"
-        - name: Done
-          filter: select where status = "done" and type != "epic" order by priority, createdAt
-          action: update where id = id() set status="done"
-    - name: Backlog
-      description: "Tasks waiting to be picked up, sorted by priority"
-      key: "F3"
-      lanes:
-        - name: Backlog
-          columns: 4
-          filter: select where status = "backlog" and type != "epic" order by priority, id
-      actions:
-        - key: "b"
-          label: "Add to board"
-          action: update where id = id() set status="ready"
-        - key: "e"
-          label: "Link to epic"
-          action: update where id = choose(select where type = "epic") set dependsOn = dependsOn + id()
-    - name: Recent
-      description: "Tasks changed in the last 24 hours, most recent first"
-      key: Ctrl-R
-      lanes:
-        - name: Recent
-          columns: 4
-          filter: select where now() - updatedAt < 24hour order by updatedAt desc
-    - name: Roadmap
-      description: "Epics organized by Now, Next, and Later horizons"
-      key: "F4"
-      lanes:
-        - name: Now
-          columns: 1
-          width: 25
-          filter: select where type = "epic" and status = "ready" order by priority, points desc
-          action: update where id = id() set status="ready"
-        - name: Next
-          columns: 1
-          width: 25
-          filter: select where type = "epic" and status = "backlog" and priority = 1 order by priority, points desc
-          action: update where id = id() set status="backlog" priority=1
-        - name: Later
-          columns: 2
-          width: 50
-          filter: select where type = "epic" and status = "backlog" and priority > 1 order by priority, points desc
-          action: update where id = id() set status="backlog" priority=2
-      view: expanded              # Board view: "compact" or "expanded"
-      actions:
-        - key: "l"
-          label: "Add tiki to epic"
-          action: update where id = id() set dependsOn = dependsOn + choose(select where type != "epic")
-    - name: Docs
-      description: "Project notes and documentation files"
-      type: doki
-      fetcher: file
-      url: "index.md"
-      key: "F2"
+actions:                        # top-level global actions (available from every view)
+  - key: "a"
+    kind: ruki
+    label: "Assign to me"
+    action: update where id = id() set assignee=user()
+  - key: "A"
+    kind: ruki
+    label: "Assign to..."
+    action: update where id = id() set assignee=input()
+    input: string
+
+views:                          # top-level list of views (no plugins: wrapper)
+  - name: Kanban
+    kind: board
+    description: "Move documents to new status, search, create or delete"
+    default: true
+    key: "F1"
+    lanes:
+      - name: Ready
+        filter: select where status = "ready" and type != "epic" order by priority, createdAt
+        action: update where id = id() set status="ready"
+      - name: In Progress
+        filter: select where status = "inProgress" and type != "epic" order by priority, createdAt
+        action: update where id = id() set status="inProgress"
+      - name: Review
+        filter: select where status = "review" and type != "epic" order by priority, createdAt
+        action: update where id = id() set status="review"
+      - name: Done
+        filter: select where status = "done" and type != "epic" order by priority, createdAt
+        action: update where id = id() set status="done"
+  - name: Backlog
+    kind: board
+    description: "Tasks waiting to be picked up, sorted by priority"
+    key: "F3"
+    lanes:
+      - name: Backlog
+        columns: 4
+        filter: select where status = "backlog" and type != "epic" order by priority, id
+    actions:
+      - key: "b"
+        label: "Add to board"
+        action: update where id = id() set status="ready"
+      - key: "e"
+        label: "Link to epic"
+        action: update where id = choose(select where type = "epic") set dependsOn = dependsOn + id()
+  - name: Recent
+    kind: board
+    description: "Tasks changed in the last 24 hours, most recent first"
+    key: Ctrl-R
+    lanes:
+      - name: Recent
+        columns: 4
+        filter: select where now() - updatedAt < 24hour order by updatedAt desc
+  - name: Roadmap
+    kind: board
+    description: "Epics organized by Now, Next, and Later horizons"
+    mode: expanded              # "compact" or "expanded"
+    key: "F4"
+    lanes:
+      - name: Now
+        columns: 1
+        width: 25
+        filter: select where type = "epic" and status = "ready" order by priority, points desc
+        action: update where id = id() set status="ready"
+      - name: Next
+        columns: 1
+        width: 25
+        filter: select where type = "epic" and status = "backlog" and priority = 1 order by priority, points desc
+        action: update where id = id() set status="backlog" priority=1
+      - name: Later
+        columns: 2
+        width: 50
+        filter: select where type = "epic" and status = "backlog" and priority > 1 order by priority, points desc
+        action: update where id = id() set status="backlog" priority=2
+    actions:
+      - key: "l"
+        label: "Add to epic"
+        action: update where id = id() set dependsOn = dependsOn + choose(select where type != "epic")
+  - name: Docs
+    kind: wiki
+    description: "Project notes and documentation files"
+    path: "index.md"
+    key: "F2"
 
 triggers:
   - description: block completion with open dependencies
