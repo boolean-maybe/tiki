@@ -21,6 +21,7 @@ name: UI Tasks
 foreground: "#ffffff"
 background: "#0000ff"
 key: U
+kind: board
 lanes:
   - name: UI
     filter: select where "ui" in tags or "ux" in tags or "design" in tags
@@ -82,6 +83,7 @@ func TestPluginWithComplexTagAndStatusFilter(t *testing.T) {
 	pluginYAML := `
 name: Active Work
 key: A
+kind: board
 lanes:
   - name: Active
     filter: select where ("ui" in tags or "backend" in tags) and status != "done" and status != "backlog"
@@ -123,6 +125,7 @@ func TestPluginWithStatusFilter(t *testing.T) {
 	pluginYAML := `
 name: In Progress Work
 key: W
+kind: board
 lanes:
   - name: Active
     filter: select where status = "ready" or status = "inProgress"

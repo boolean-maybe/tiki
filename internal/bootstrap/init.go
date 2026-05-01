@@ -135,7 +135,7 @@ func Bootstrap(tikiSkillContent, dokiSkillContent string) (*Result, error) {
 	schema := rukiRuntime.NewSchema()
 
 	// Phase 6: Plugin system
-	plugins, err := LoadPlugins(schema)
+	plugins, globalActions, err := LoadPlugins(schema)
 	if err != nil {
 		return nil, err
 	}
@@ -167,6 +167,7 @@ func Bootstrap(tikiSkillContent, dokiSkillContent string) (*Result, error) {
 		taskStore,
 		gate,
 		plugins,
+		globalActions,
 		pluginConfigs,
 		statuslineConfig,
 		schema,
@@ -185,7 +186,7 @@ func Bootstrap(tikiSkillContent, dokiSkillContent string) (*Result, error) {
 
 	// Phase 9: View factory and layout
 	viewFactory := view.NewViewFactory(taskStore)
-	viewFactory.SetPlugins(pluginConfigs, pluginDefs, controllers.Plugins)
+	viewFactory.SetPlugins(pluginConfigs, pluginDefs, controllers.Plugins, globalActions)
 
 	// Wire dynamic plugin registration (deps editor creates plugins at runtime)
 	inputRouter.SetPluginRegistrar(func(name string, cfg *model.PluginConfig, def plugin.Plugin, ctrl controller.PluginControllerInterface) {

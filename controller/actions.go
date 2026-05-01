@@ -82,20 +82,59 @@ type PluginInfo struct {
 	Key      tcell.Key
 	Rune     rune
 	Modifier tcell.ModMask
+	// Require carries the view's own `require:` list from workflow.yaml
+	// (BasePlugin.Require). 6B.15: the direct activation-key action for
+	// this view must respect the view's declared requirements so a
+	// detail view with `require: ["selection:one"]` cannot be opened
+	// with no selection, regardless of how the navigation was triggered.
+	Require []string
 }
 
 // pluginActionRegistry holds plugin navigation actions (populated at init time)
 var pluginActionRegistry *ActionRegistry
 
+// pluginViewRequires maps plugin view name → the view's own require: list
+// from workflow.yaml. Populated alongside the activation-key registry so
+// `kind: view` action dispatchers can consult the target view's
+// requirements without depending on the plugin package.
+var pluginViewRequires map[string][]string
+
 // InitPluginActions creates the plugin action registry from loaded plugins.
 // Called once during app initialization after plugins are loaded.
+//
+// The activation action's Require list is the union of:
+//   - `!view:<id>` — prevents re-opening the view we're already on.
+//   - the view's own `require:` from workflow.yaml, EXCLUDING `view:*`
+//     tokens. View-family requirements describe *target*-scoped state
+//     ("require that the current view be X") and must not be evaluated
+//     against the source view's id by the source-scoped UI enablement
+//     gate. They are instead honored by the target-scoped
+//     TargetViewEnabled check that runs inside activateTargetView at
+//     dispatch time, matching what `kind: view` action dispatch does
+//     (6B.22 / 6B.24).
+//
+// Source-safe requirements (selection cardinality, `ai`, custom tokens)
+// remain in the merged list so the UI correctly greys out the activation
+// key when the source view can't satisfy them — no round-trip through
+// the dispatcher needed for those.
 func InitPluginActions(plugins []PluginInfo) {
 	pluginActionRegistry = NewActionRegistry()
+	pluginViewRequires = make(map[string][]string, len(plugins))
 	for _, p := range plugins {
+		if len(p.Require) > 0 {
+			pluginViewRequires[p.Name] = p.Require
+		}
 		if p.Key == 0 && p.Rune == 0 {
 			continue // skip plugins without key binding
 		}
 		pluginViewID := model.MakePluginViewID(p.Name)
+		require := []Requirement{Requirement("!view:" + string(pluginViewID))}
+		for _, r := range p.Require {
+			if isViewScopedRequirement(r) {
+				continue
+			}
+			require = append(require, Requirement(r))
+		}
 		pluginActionRegistry.Register(Action{
 			ID:           ActionID("plugin:" + p.Name),
 			Key:          p.Key,
@@ -103,9 +142,73 @@ func InitPluginActions(plugins []PluginInfo) {
 			Modifier:     p.Modifier,
 			Label:        p.Name,
 			ShowInHeader: true,
-			Require:      []Requirement{Requirement("!view:" + string(pluginViewID))},
+			Require:      require,
 		})
 	}
+}
+
+// isViewScopedRequirement reports whether a require token names the
+// `view:*` family (positive or negated). Those tokens are target-scoped
+// when attached to a view's require list and must not be evaluated at the
+// source-scoped UI enablement gate — see InitPluginActions comment.
+func isViewScopedRequirement(token string) bool {
+	t := token
+	if len(t) > 0 && t[0] == '!' {
+		t = t[1:]
+	}
+	return len(t) >= len("view:") && t[:len("view:")] == "view:"
+}
+
+// PluginViewRequire returns the view-level require: list for the named view.
+// Returns nil when the view is unknown or declares no requirements.
+// Consumed by kind: view dispatchers so navigation to a target view is gated
+// on the target's own declared requirements, not just the action's.
+func PluginViewRequire(viewName string) []string {
+	if pluginViewRequires == nil {
+		return nil
+	}
+	return pluginViewRequires[viewName]
+}
+
+// TargetViewEnabled reports whether navigation to the named view satisfies
+// the target's own `require:` list. Unlike selectionSatisfies (which only
+// materializes selection-cardinality attributes), this evaluates the full
+// attribute set — `view:*`, `ai`, custom tokens — against the AppContext
+// the target view will inhabit post-navigation.
+//
+// carriedSelection is the number of task ids the caller intends to pass
+// into the target's params (0 or 1 today).
+//
+// 6B.20: initial fix. Required for correctness on kind: view dispatch,
+// which previously went through selectionSatisfies and silently dropped
+// non-selection requirements. Direct-key activation already honors the
+// full list because InitPluginActions merges the view's require into the
+// activation action and the InputRouter enablement gate runs ActionEnabled
+// on it.
+//
+// 6B.22: the context is built from scratch for the target view rather
+// than inherited from the source. Previously the source's `view:<id>`
+// attribute leaked into evaluation, so a target declaring
+// `!view:plugin:<self>` or `view:plugin:<other>` got the wrong answer.
+// Attributes preserved from global state: `ai` (agent-configured); the
+// target supplies `view:<target-id>` and the carried selection.
+func TargetViewEnabled(targetViewName string, carriedSelection int) bool {
+	target := PluginViewRequire(targetViewName)
+	if len(target) == 0 {
+		return true
+	}
+	ctx := NewAppContext()
+	applySelectionCardinality(ctx, carriedSelection)
+	ctx.Set("view:" + string(model.MakePluginViewID(targetViewName)))
+	if config.GetAIAgent() != "" {
+		ctx.Set(string(RequireAI))
+	}
+
+	reqs := make([]Requirement, 0, len(target))
+	for _, r := range target {
+		reqs = append(reqs, Requirement(r))
+	}
+	return ActionEnabled(Action{Require: reqs}, ctx)
 }
 
 // GetPluginActions returns the plugin action registry
@@ -211,6 +314,18 @@ func BuildAppContext(currentView *ViewEntry, activeView View) AppContext {
 
 	if selectedCount == 0 && currentView != nil && currentView.ViewID == model.TaskDetailViewID {
 		if model.DecodeTaskDetailParams(currentView.Params).TaskID != "" {
+			selectedCount = 1
+		}
+	}
+
+	// Phase 6B.3/6B.7: plugin views (wiki, detail, board, list) may carry a
+	// selected task id via PluginViewParams. If the active view did not
+	// report a selection — e.g. the view does not implement SelectableView
+	// yet, or its selection is set after this gate runs — consult the nav
+	// params as a second source so actions gated on selection:one still
+	// dispatch from views that received a selection via nav passthrough.
+	if selectedCount == 0 && currentView != nil && model.IsPluginViewID(currentView.ViewID) {
+		if model.DecodePluginViewParams(currentView.Params).TaskID != "" {
 			selectedCount = 1
 		}
 	}

@@ -18,136 +18,88 @@ func testParser() *ruki.Parser {
 	return ruki.NewParser(testSchema())
 }
 
-func TestDokiValidation(t *testing.T) {
+func TestWikiValidation(t *testing.T) {
 	schema := testSchema()
-
-	tests := []struct {
+	cases := []struct {
 		name      string
 		cfg       pluginFileConfig
 		wantError string
 	}{
-		{
-			name: "Missing Fetcher",
-			cfg: pluginFileConfig{
-				Name: "Invalid Doki",
-				Type: "doki",
-			},
-			wantError: "doki plugin fetcher must be 'file' or 'internal'",
-		},
-		{
-			name: "Invalid Fetcher",
-			cfg: pluginFileConfig{
-				Name:    "Invalid Fetcher",
-				Type:    "doki",
-				Fetcher: "http",
-			},
-			wantError: "doki plugin fetcher must be 'file' or 'internal'",
-		},
-		{
-			name: "File Fetcher Missing URL",
-			cfg: pluginFileConfig{
-				Name:    "File No URL",
-				Type:    "doki",
-				Fetcher: "file",
-			},
-			wantError: "doki plugin with file fetcher requires 'url'",
-		},
-		{
-			name: "Internal Fetcher Missing Text",
-			cfg: pluginFileConfig{
-				Name:    "Internal No Text",
-				Type:    "doki",
-				Fetcher: "internal",
-			},
-			wantError: "doki plugin with internal fetcher requires 'text'",
-		},
-		{
-			name: "Valid File Fetcher",
-			cfg: pluginFileConfig{
-				Name:    "Valid File",
-				Type:    "doki",
-				Fetcher: "file",
-				URL:     "http://example.com",
-			},
-			wantError: "",
-		},
-		{
-			name: "Valid Internal Fetcher",
-			cfg: pluginFileConfig{
-				Name:    "Valid Internal",
-				Type:    "doki",
-				Fetcher: "internal",
-				Text:    "content",
-			},
-			wantError: "",
-		},
+		{"missing path", pluginFileConfig{Name: "Docs", Kind: "wiki"}, "requires `path:`"},
+		{"document not implemented", pluginFileConfig{Name: "Docs", Kind: "wiki", Document: "ABC123"}, "ID-based resolution) is not yet implemented"},
+		{"lanes rejected", pluginFileConfig{Name: "Docs", Kind: "wiki", Path: "x.md", Lanes: []PluginLaneConfig{{Name: "x", Filter: "select"}}}, "`lanes:` only valid on board"},
+		{"per-view actions rejected", pluginFileConfig{Name: "Docs", Kind: "wiki", Path: "x.md", Actions: []PluginActionConfig{{Key: "x", Label: "x", Action: `update where id = id() set status="ready"`}}}, "cannot have per-view `actions:`"},
+		{"valid with path", pluginFileConfig{Name: "Docs", Kind: "wiki", Path: "x.md"}, ""},
 	}
-
-	for _, tc := range tests {
+	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			_, err := parsePluginConfig(tc.cfg, "test", schema)
-			if tc.wantError != "" {
-				if err == nil {
-					t.Errorf("Expected error containing '%s', got nil", tc.wantError)
-				} else if !strings.Contains(err.Error(), tc.wantError) {
-					t.Errorf("Expected error containing '%s', got '%v'", tc.wantError, err)
-				}
-			} else {
+			_, err := parsePluginConfig(tc.cfg, "test", schema, nil)
+			if tc.wantError == "" {
 				if err != nil {
-					t.Errorf("Expected no error, got '%v'", err)
+					t.Fatalf("unexpected error: %v", err)
 				}
+				return
+			}
+			if err == nil {
+				t.Fatalf("expected error containing %q, got nil", tc.wantError)
+			}
+			if !strings.Contains(err.Error(), tc.wantError) {
+				t.Errorf("expected error containing %q, got %q", tc.wantError, err.Error())
 			}
 		})
 	}
 }
 
-func TestTikiValidation(t *testing.T) {
+// TestLegacyFieldRejection asserts each pre-Phase-6 field produces a clear
+// error that points at the new syntax.
+func TestLegacyFieldRejection(t *testing.T) {
 	schema := testSchema()
-
-	tests := []struct {
+	cases := []struct {
 		name      string
 		cfg       pluginFileConfig
 		wantError string
 	}{
-		{
-			name: "Tiki with Doki fields (Fetcher)",
-			cfg: pluginFileConfig{
-				Name:    "Tiki with Fetcher",
-				Type:    "tiki",
-				Fetcher: "file",
-				Lanes: []PluginLaneConfig{
-					{Name: "Todo", Filter: `select where status = "ready"`},
-				},
-			},
-			wantError: "tiki plugin cannot have 'fetcher'",
-		},
-		{
-			name: "Tiki with Doki fields (Text)",
-			cfg: pluginFileConfig{
-				Name: "Tiki with Text",
-				Type: "tiki",
-				Text: "text",
-				Lanes: []PluginLaneConfig{
-					{Name: "Todo", Filter: `select where status = "ready"`},
-				},
-			},
-			wantError: "tiki plugin cannot have 'text'",
-		},
+		{"type: tiki", pluginFileConfig{Name: "X", Type: "tiki"}, "use `kind: board`"},
+		{"type: doki", pluginFileConfig{Name: "X", Type: "doki"}, "use `kind: wiki`"},
+		{"view field", pluginFileConfig{Name: "X", View: "compact"}, "`view:` as a display mode"},
+		{"fetcher field", pluginFileConfig{Name: "X", Fetcher: "file"}, "use `document:` or `path:`"},
+		{"text field", pluginFileConfig{Name: "X", Text: "t"}, "use `document:` or `path:`"},
+		{"url field", pluginFileConfig{Name: "X", URL: "u"}, "use `document:` or `path:`"},
+		{"sort field", pluginFileConfig{Name: "X", Sort: "priority"}, "use `order by`"},
 	}
-
-	for _, tc := range tests {
+	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			_, err := parsePluginConfig(tc.cfg, "test", schema)
-			if tc.wantError != "" {
-				if err == nil {
-					t.Errorf("Expected error containing '%s', got nil", tc.wantError)
-				} else if !strings.Contains(err.Error(), tc.wantError) {
-					t.Errorf("Expected error containing '%s', got '%v'", tc.wantError, err)
-				}
-			} else {
-				if err != nil {
-					t.Errorf("Expected no error, got '%v'", err)
-				}
+			_, err := parsePluginConfig(tc.cfg, "test", schema, nil)
+			if err == nil {
+				t.Fatalf("expected rejection, got nil")
+			}
+			if !strings.Contains(err.Error(), tc.wantError) {
+				t.Errorf("expected error containing %q, got %q", tc.wantError, err.Error())
+			}
+		})
+	}
+}
+
+func TestUnknownAndReservedKinds(t *testing.T) {
+	schema := testSchema()
+	cases := []struct {
+		name      string
+		cfg       pluginFileConfig
+		wantError string
+	}{
+		{"missing kind", pluginFileConfig{Name: "X"}, "missing `kind:`"},
+		{"unknown kind", pluginFileConfig{Name: "X", Kind: "galaxy"}, "unknown view kind"},
+		{"timeline reserved", pluginFileConfig{Name: "X", Kind: "timeline"}, "reserved but not yet implemented"},
+		{"search reserved", pluginFileConfig{Name: "X", Kind: "search"}, "kind: search` is reserved but not yet implemented"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			_, err := parsePluginConfig(tc.cfg, "test", schema, nil)
+			if err == nil {
+				t.Fatalf("expected error, got nil")
+			}
+			if !strings.Contains(err.Error(), tc.wantError) {
+				t.Errorf("expected error containing %q, got %q", tc.wantError, err.Error())
 			}
 		})
 	}
@@ -157,10 +109,10 @@ func TestParsePluginConfig_InvalidKey(t *testing.T) {
 	cfg := pluginFileConfig{
 		Name: "Test",
 		Key:  "InvalidKey",
-		Type: "tiki",
+		Kind: "board",
 	}
 
-	_, err := parsePluginConfig(cfg, "test.yaml", testSchema())
+	_, err := parsePluginConfig(cfg, "test.yaml", testSchema(), nil)
 	if err == nil {
 		t.Fatal("Expected error for invalid key format")
 	}
@@ -196,12 +148,12 @@ func TestParsePluginConfig_ActivationKeyNormalization(t *testing.T) {
 			cfg := pluginFileConfig{
 				Name: "Test",
 				Key:  tt.keyStr,
-				Type: "tiki",
+				Kind: "board",
 				Lanes: []PluginLaneConfig{
 					{Name: "Todo", Filter: `select where status = "ready"`},
 				},
 			}
-			p, err := parsePluginConfig(cfg, "test.yaml", schema)
+			p, err := parsePluginConfig(cfg, "test.yaml", schema, nil)
 			if err != nil {
 				t.Fatalf("unexpected error: %v", err)
 			}
@@ -214,64 +166,22 @@ func TestParsePluginConfig_ActivationKeyNormalization(t *testing.T) {
 	}
 }
 
-func TestParsePluginConfig_DefaultTikiType(t *testing.T) {
+// TestParsePluginConfig_BoardKindExplicit asserts kind: board builds a TikiPlugin.
+func TestParsePluginConfig_BoardKindExplicit(t *testing.T) {
 	cfg := pluginFileConfig{
 		Name: "Test",
 		Key:  "T",
+		Kind: "board",
 		Lanes: []PluginLaneConfig{
 			{Name: "Todo", Filter: `select where status = "ready"`},
 		},
-		// Type not specified, should default to "tiki"
 	}
-
-	plugin, err := parsePluginConfig(cfg, "test.yaml", testSchema())
+	p, err := parsePluginConfig(cfg, "test.yaml", testSchema(), nil)
 	if err != nil {
 		t.Fatalf("Expected no error, got: %v", err)
 	}
-
-	if _, ok := plugin.(*TikiPlugin); !ok {
-		t.Errorf("Expected TikiPlugin when type not specified, got %T", plugin)
-	}
-}
-
-func TestParsePluginConfig_UnknownType(t *testing.T) {
-	cfg := pluginFileConfig{
-		Name: "Test",
-		Key:  "T",
-		Type: "unknown",
-	}
-
-	_, err := parsePluginConfig(cfg, "test.yaml", testSchema())
-	if err == nil {
-		t.Fatal("Expected error for unknown plugin type")
-	}
-
-	expected := "unknown plugin type: unknown"
-	if err.Error() != expected {
-		t.Errorf("Expected error '%s', got: %v", expected, err)
-	}
-}
-
-// TestParsePluginConfig_TikiWithInvalidSort removed - the sort parser is very lenient
-// and accepts most field names. Invalid syntax would be caught by ParseSort internally.
-
-func TestParsePluginConfig_DokiWithView(t *testing.T) {
-	cfg := pluginFileConfig{
-		Name:    "Test",
-		Key:     "T",
-		Type:    "doki",
-		Fetcher: "internal",
-		Text:    "content",
-		View:    "expanded", // Doki shouldn't have view
-	}
-
-	_, err := parsePluginConfig(cfg, "test.yaml", testSchema())
-	if err == nil {
-		t.Fatal("Expected error for doki with view field")
-	}
-
-	if !strings.Contains(err.Error(), "doki plugin cannot have 'view'") {
-		t.Errorf("Expected 'cannot have view' error, got: %v", err)
+	if _, ok := p.(*TikiPlugin); !ok {
+		t.Errorf("Expected TikiPlugin for kind: board, got %T", p)
 	}
 }
 
@@ -292,12 +202,12 @@ func TestParsePluginYAML_ValidTiki(t *testing.T) {
 	validYAML := []byte(`
 name: Test Plugin
 key: T
-type: tiki
+kind: board
 lanes:
   - name: Todo
     columns: 4
     filter: select where status = "ready"
-view: expanded
+mode: expanded
 foreground: "#ff0000"
 background: "#0000ff"
 `)
@@ -317,8 +227,8 @@ background: "#0000ff"
 		t.Errorf("Expected name 'Test Plugin', got %q", tikiPlugin.GetName())
 	}
 
-	if tikiPlugin.ViewMode != "expanded" {
-		t.Errorf("Expected view mode 'expanded', got %q", tikiPlugin.ViewMode)
+	if tikiPlugin.Mode != "expanded" {
+		t.Errorf("Expected view mode 'expanded', got %q", tikiPlugin.Mode)
 	}
 
 	if len(tikiPlugin.Lanes) != 1 {
@@ -338,7 +248,7 @@ func TestParsePluginActions_Valid(t *testing.T) {
 		{Key: "a", Label: "Assign to me", Action: `update where id = id() set assignee=user()`},
 	}
 
-	actions, err := parsePluginActions(configs, parser)
+	actions, err := parsePluginActions(configs, parser, nil)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -377,7 +287,7 @@ func TestParsePluginActions_Valid(t *testing.T) {
 func TestParsePluginActions_Empty(t *testing.T) {
 	parser := testParser()
 
-	actions, err := parsePluginActions(nil, parser)
+	actions, err := parsePluginActions(nil, parser, nil)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -410,9 +320,9 @@ func TestParsePluginActions_Errors(t *testing.T) {
 			wantErr: "missing 'label'",
 		},
 		{
-			name:    "missing action",
+			name:    "missing action and view",
 			configs: []PluginActionConfig{{Key: "b", Label: "Test", Action: ""}},
-			wantErr: "missing 'action'",
+			wantErr: "must set either `action:` (ruki) or `view:`",
 		},
 		{
 			name:    "invalid action expression",
@@ -431,7 +341,7 @@ func TestParsePluginActions_Errors(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			_, err := parsePluginActions(tc.configs, parser)
+			_, err := parsePluginActions(tc.configs, parser, nil)
 			if err == nil {
 				t.Fatalf("expected error containing %q", tc.wantErr)
 			}
@@ -446,6 +356,7 @@ func TestParsePluginYAML_TikiWithActions(t *testing.T) {
 	yamlData := []byte(`
 name: Test
 key: T
+kind: board
 lanes:
   - name: Backlog
     filter: select where status = "backlog"
@@ -477,37 +388,17 @@ actions:
 	}
 }
 
-func TestParsePluginConfig_DokiWithActions(t *testing.T) {
-	cfg := pluginFileConfig{
-		Name:    "Test",
-		Key:     "T",
-		Type:    "doki",
-		Fetcher: "internal",
-		Text:    "content",
-		Actions: []PluginActionConfig{
-			{Key: "b", Label: "Test", Action: `update where id = id() set status="ready"`},
-		},
-	}
-
-	_, err := parsePluginConfig(cfg, "test.yaml", testSchema())
-	if err == nil {
-		t.Fatal("expected error for doki with actions")
-	}
-	if !strings.Contains(err.Error(), "doki plugin cannot have 'actions'") {
-		t.Errorf("expected 'cannot have actions' error, got: %v", err)
-	}
-}
-
 func TestParsePluginConfig_LaneFilterMustBeSelect(t *testing.T) {
 	schema := testSchema()
 	cfg := pluginFileConfig{
 		Name: "Test",
 		Key:  "T",
+		Kind: "board",
 		Lanes: []PluginLaneConfig{
 			{Name: "Bad", Filter: `update where id = id() set status = "ready"`},
 		},
 	}
-	_, err := parsePluginConfig(cfg, "test.yaml", schema)
+	_, err := parsePluginConfig(cfg, "test.yaml", schema, nil)
 	if err == nil {
 		t.Fatal("expected error for non-SELECT filter")
 	}
@@ -525,11 +416,12 @@ func TestParsePluginConfig_LaneFilterRejectsTargetQualifier(t *testing.T) {
 	cfg := pluginFileConfig{
 		Name: "Test",
 		Key:  "T",
+		Kind: "board",
 		Lanes: []PluginLaneConfig{
 			{Name: "Bad", Filter: `select where id = target.id`},
 		},
 	}
-	_, err := parsePluginConfig(cfg, "test.yaml", schema)
+	_, err := parsePluginConfig(cfg, "test.yaml", schema, nil)
 	if err == nil {
 		t.Fatal("expected rejection of target. in lane filter")
 	}
@@ -543,11 +435,12 @@ func TestParsePluginConfig_LaneFilterRejectsTargetsQualifier(t *testing.T) {
 	cfg := pluginFileConfig{
 		Name: "Test",
 		Key:  "T",
+		Kind: "board",
 		Lanes: []PluginLaneConfig{
 			{Name: "Bad", Filter: `select where id in targets.id`},
 		},
 	}
-	_, err := parsePluginConfig(cfg, "test.yaml", schema)
+	_, err := parsePluginConfig(cfg, "test.yaml", schema, nil)
 	if err == nil {
 		t.Fatal("expected rejection of targets. in lane filter")
 	}
@@ -563,6 +456,7 @@ func TestParsePluginConfig_LaneActionAllowsTargetQualifier(t *testing.T) {
 	cfg := pluginFileConfig{
 		Name: "Test",
 		Key:  "T",
+		Kind: "board",
 		Lanes: []PluginLaneConfig{
 			{
 				Name:   "OK",
@@ -571,7 +465,7 @@ func TestParsePluginConfig_LaneActionAllowsTargetQualifier(t *testing.T) {
 			},
 		},
 	}
-	if _, err := parsePluginConfig(cfg, "test.yaml", schema); err != nil {
+	if _, err := parsePluginConfig(cfg, "test.yaml", schema, nil); err != nil {
 		t.Fatalf("expected success, got: %v", err)
 	}
 }
@@ -581,11 +475,12 @@ func TestParsePluginConfig_LaneActionMustBeUpdate(t *testing.T) {
 	cfg := pluginFileConfig{
 		Name: "Test",
 		Key:  "T",
+		Kind: "board",
 		Lanes: []PluginLaneConfig{
 			{Name: "Bad", Filter: `select where status = "ready"`, Action: `select where status = "done"`},
 		},
 	}
-	_, err := parsePluginConfig(cfg, "test.yaml", schema)
+	_, err := parsePluginConfig(cfg, "test.yaml", schema, nil)
 	if err == nil {
 		t.Fatal("expected error for non-UPDATE action")
 	}
@@ -599,7 +494,7 @@ func TestParsePluginActions_SelectAllowedAsAction(t *testing.T) {
 	configs := []PluginActionConfig{
 		{Key: "s", Label: "Search", Action: `select where status = "ready"`},
 	}
-	actions, err := parsePluginActions(configs, parser)
+	actions, err := parsePluginActions(configs, parser, nil)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -616,7 +511,7 @@ func TestParsePluginActions_PipeAcceptedAsAction(t *testing.T) {
 	configs := []PluginActionConfig{
 		{Key: "c", Label: "Copy ID", Action: `select id where id = id() | run("echo $1")`},
 	}
-	actions, err := parsePluginActions(configs, parser)
+	actions, err := parsePluginActions(configs, parser, nil)
 	if err != nil {
 		t.Fatalf("expected pipe action to be accepted, got error: %v", err)
 	}
@@ -643,7 +538,7 @@ func TestParsePluginActions_RejectsExpressionStatement(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			configs := []PluginActionConfig{{Key: "x", Label: "Scalar", Action: tt.action}}
-			_, err := parsePluginActions(configs, parser)
+			_, err := parsePluginActions(configs, parser, nil)
 			if err == nil {
 				t.Fatal("expected error for expression statement as plugin action")
 			}
@@ -660,11 +555,12 @@ func TestParsePluginConfig_LaneFilterParseError(t *testing.T) {
 	cfg := pluginFileConfig{
 		Name: "Test",
 		Key:  "T",
+		Kind: "board",
 		Lanes: []PluginLaneConfig{
 			{Name: "Bad", Filter: "totally invalid @@@"},
 		},
 	}
-	_, err := parsePluginConfig(cfg, "test.yaml", schema)
+	_, err := parsePluginConfig(cfg, "test.yaml", schema, nil)
 	if err == nil {
 		t.Fatal("expected error for invalid filter expression")
 	}
@@ -678,11 +574,12 @@ func TestParsePluginConfig_LaneActionParseError(t *testing.T) {
 	cfg := pluginFileConfig{
 		Name: "Test",
 		Key:  "T",
+		Kind: "board",
 		Lanes: []PluginLaneConfig{
 			{Name: "Bad", Filter: `select where status = "ready"`, Action: "totally invalid @@@"},
 		},
 	}
-	_, err := parsePluginConfig(cfg, "test.yaml", schema)
+	_, err := parsePluginConfig(cfg, "test.yaml", schema, nil)
 	if err == nil {
 		t.Fatal("expected error for invalid action expression")
 	}
@@ -696,11 +593,12 @@ func TestParsePluginConfig_LaneMissingName(t *testing.T) {
 	cfg := pluginFileConfig{
 		Name: "Test",
 		Key:  "T",
+		Kind: "board",
 		Lanes: []PluginLaneConfig{
 			{Name: "", Filter: `select where status = "ready"`},
 		},
 	}
-	_, err := parsePluginConfig(cfg, "test.yaml", schema)
+	_, err := parsePluginConfig(cfg, "test.yaml", schema, nil)
 	if err == nil {
 		t.Fatal("expected error for lane missing name")
 	}
@@ -714,11 +612,12 @@ func TestParsePluginConfig_LaneInvalidColumns(t *testing.T) {
 	cfg := pluginFileConfig{
 		Name: "Test",
 		Key:  "T",
+		Kind: "board",
 		Lanes: []PluginLaneConfig{
 			{Name: "Bad", Columns: -1, Filter: `select where status = "ready"`},
 		},
 	}
-	_, err := parsePluginConfig(cfg, "test.yaml", schema)
+	_, err := parsePluginConfig(cfg, "test.yaml", schema, nil)
 	if err == nil {
 		t.Fatal("expected error for invalid columns")
 	}
@@ -732,11 +631,12 @@ func TestParsePluginConfig_LaneInvalidWidth(t *testing.T) {
 	cfg := pluginFileConfig{
 		Name: "Test",
 		Key:  "T",
+		Kind: "board",
 		Lanes: []PluginLaneConfig{
 			{Name: "Bad", Width: 101, Filter: `select where status = "ready"`},
 		},
 	}
-	_, err := parsePluginConfig(cfg, "test.yaml", schema)
+	_, err := parsePluginConfig(cfg, "test.yaml", schema, nil)
 	if err == nil {
 		t.Fatal("expected error for invalid width")
 	}
@@ -754,9 +654,10 @@ func TestParsePluginConfig_TooManyLanes(t *testing.T) {
 	cfg := pluginFileConfig{
 		Name:  "Test",
 		Key:   "T",
+		Kind:  "board",
 		Lanes: lanes,
 	}
-	_, err := parsePluginConfig(cfg, "test.yaml", schema)
+	_, err := parsePluginConfig(cfg, "test.yaml", schema, nil)
 	if err == nil {
 		t.Fatal("expected error for too many lanes")
 	}
@@ -770,10 +671,10 @@ func TestParsePluginConfig_NoLanes(t *testing.T) {
 	cfg := pluginFileConfig{
 		Name:  "Test",
 		Key:   "T",
-		Type:  "tiki",
+		Kind:  "board",
 		Lanes: []PluginLaneConfig{},
 	}
-	_, err := parsePluginConfig(cfg, "test.yaml", schema)
+	_, err := parsePluginConfig(cfg, "test.yaml", schema, nil)
 	if err == nil {
 		t.Fatal("expected error for no lanes")
 	}
@@ -782,50 +683,12 @@ func TestParsePluginConfig_NoLanes(t *testing.T) {
 	}
 }
 
-func TestParsePluginConfig_TikiWithURL(t *testing.T) {
-	schema := testSchema()
-	cfg := pluginFileConfig{
-		Name: "Test",
-		Key:  "T",
-		Type: "tiki",
-		URL:  "http://example.com",
-		Lanes: []PluginLaneConfig{
-			{Name: "Todo", Filter: `select where status = "ready"`},
-		},
-	}
-	_, err := parsePluginConfig(cfg, "test.yaml", schema)
-	if err == nil {
-		t.Fatal("expected error for tiki with url")
-	}
-	if !strings.Contains(err.Error(), "tiki plugin cannot have 'url'") {
-		t.Errorf("expected 'cannot have url' error, got: %v", err)
-	}
-}
-
-func TestParsePluginConfig_DokiWithLanes(t *testing.T) {
-	schema := testSchema()
-	cfg := pluginFileConfig{
-		Name:    "Test",
-		Key:     "T",
-		Type:    "doki",
-		Fetcher: "internal",
-		Text:    "content",
-		Lanes:   []PluginLaneConfig{{Name: "Bad"}},
-	}
-	_, err := parsePluginConfig(cfg, "test.yaml", schema)
-	if err == nil {
-		t.Fatal("expected error for doki with lanes")
-	}
-	if !strings.Contains(err.Error(), "doki plugin cannot have 'lanes'") {
-		t.Errorf("expected 'cannot have lanes' error, got: %v", err)
-	}
-}
-
 func TestParsePluginConfig_PluginActionsError(t *testing.T) {
 	schema := testSchema()
 	cfg := pluginFileConfig{
 		Name: "Test",
 		Key:  "T",
+		Kind: "board",
 		Lanes: []PluginLaneConfig{
 			{Name: "Todo", Filter: `select where status = "ready"`},
 		},
@@ -833,7 +696,7 @@ func TestParsePluginConfig_PluginActionsError(t *testing.T) {
 			{Key: "b", Label: "Bad", Action: "totally invalid @@@"},
 		},
 	}
-	_, err := parsePluginConfig(cfg, "test.yaml", schema)
+	_, err := parsePluginConfig(cfg, "test.yaml", schema, nil)
 	if err == nil {
 		t.Fatal("expected error for invalid plugin action")
 	}
@@ -844,7 +707,7 @@ func TestParsePluginActions_NonPrintableKey(t *testing.T) {
 	configs := []PluginActionConfig{
 		{Key: "\x01", Label: "Test", Action: `update where id = id() set status="ready"`},
 	}
-	_, err := parsePluginActions(configs, parser)
+	_, err := parsePluginActions(configs, parser, nil)
 	if err == nil {
 		t.Fatal("expected error for non-printable key")
 	}
@@ -860,7 +723,7 @@ func TestParsePluginActions_CompositeKeys(t *testing.T) {
 		configs := []PluginActionConfig{
 			{Key: "Ctrl-U", Label: "Undo", Action: `update where id = id() set status="ready"`},
 		}
-		actions, err := parsePluginActions(configs, parser)
+		actions, err := parsePluginActions(configs, parser, nil)
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
@@ -879,7 +742,7 @@ func TestParsePluginActions_CompositeKeys(t *testing.T) {
 		configs := []PluginActionConfig{
 			{Key: "Alt-M", Label: "Mark", Action: `update where id = id() set status="ready"`},
 		}
-		actions, err := parsePluginActions(configs, parser)
+		actions, err := parsePluginActions(configs, parser, nil)
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
@@ -892,7 +755,7 @@ func TestParsePluginActions_CompositeKeys(t *testing.T) {
 		configs := []PluginActionConfig{
 			{Key: "F5", Label: "Reload", Action: `update where id = id() set status="ready"`},
 		}
-		actions, err := parsePluginActions(configs, parser)
+		actions, err := parsePluginActions(configs, parser, nil)
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
@@ -905,7 +768,7 @@ func TestParsePluginActions_CompositeKeys(t *testing.T) {
 		configs := []PluginActionConfig{
 			{Key: "Shift-X", Label: "eXtra", Action: `update where id = id() set status="ready"`},
 		}
-		actions, err := parsePluginActions(configs, parser)
+		actions, err := parsePluginActions(configs, parser, nil)
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
@@ -922,7 +785,7 @@ func TestParsePluginActions_CompositeKeys(t *testing.T) {
 			{Key: "Shift-x", Label: "First", Action: `update where id = id() set status="ready"`},
 			{Key: "X", Label: "Second", Action: `update where id = id() set status="done"`},
 		}
-		_, err := parsePluginActions(configs, parser)
+		_, err := parsePluginActions(configs, parser, nil)
 		if err == nil {
 			t.Fatal("expected duplicate error for Shift-x vs X")
 		}
@@ -936,7 +799,7 @@ func TestParsePluginActions_CompositeKeys(t *testing.T) {
 			{Key: "x", Label: "lowercase", Action: `update where id = id() set status="ready"`},
 			{Key: "X", Label: "uppercase", Action: `update where id = id() set status="done"`},
 		}
-		actions, err := parsePluginActions(configs, parser)
+		actions, err := parsePluginActions(configs, parser, nil)
 		if err != nil {
 			t.Fatalf("expected no error for x vs X, got: %v", err)
 		}
@@ -950,7 +813,7 @@ func TestParsePluginActions_CompositeKeys(t *testing.T) {
 			{Key: "Ctrl-U", Label: "First", Action: `update where id = id() set status="ready"`},
 			{Key: "ctrl-u", Label: "Second", Action: `update where id = id() set status="done"`},
 		}
-		_, err := parsePluginActions(configs, parser)
+		_, err := parsePluginActions(configs, parser, nil)
 		if err == nil {
 			t.Fatal("expected duplicate error for differently-cased Ctrl spellings")
 		}
@@ -960,37 +823,33 @@ func TestParsePluginActions_CompositeKeys(t *testing.T) {
 	})
 }
 
-func TestParsePluginYAML_ValidDoki(t *testing.T) {
+func TestParsePluginYAML_ValidWiki(t *testing.T) {
 	validYAML := []byte(`
 name: Doc Plugin
 key: D
-type: doki
-fetcher: file
-url: http://example.com/doc
+kind: wiki
+path: index.md
 foreground: "#00ff00"
 `)
 
-	plugin, err := parsePluginYAML(validYAML, "test.yaml", testSchema())
+	p, err := parsePluginYAML(validYAML, "test.yaml", testSchema())
 	if err != nil {
 		t.Fatalf("Expected no error, got: %v", err)
 	}
 
-	dokiPlugin, ok := plugin.(*DokiPlugin)
+	doki, ok := p.(*DokiPlugin)
 	if !ok {
-		t.Fatalf("Expected DokiPlugin, got %T", plugin)
-		return
+		t.Fatalf("Expected DokiPlugin, got %T", p)
 	}
 
-	if dokiPlugin.GetName() != "Doc Plugin" {
-		t.Errorf("Expected name 'Doc Plugin', got %q", dokiPlugin.GetName())
+	if doki.GetName() != "Doc Plugin" {
+		t.Errorf("Expected name 'Doc Plugin', got %q", doki.GetName())
 	}
-
-	if dokiPlugin.Fetcher != "file" {
-		t.Errorf("Expected fetcher 'file', got %q", dokiPlugin.Fetcher)
+	if doki.GetKind() != KindWiki {
+		t.Errorf("Expected kind wiki, got %q", doki.GetKind())
 	}
-
-	if dokiPlugin.URL != "http://example.com/doc" {
-		t.Errorf("Expected URL, got %q", dokiPlugin.URL)
+	if doki.DocumentPath != "index.md" {
+		t.Errorf("Expected path 'index.md', got %q", doki.DocumentPath)
 	}
 }
 
@@ -999,7 +858,7 @@ func TestParsePluginActions_HotDefault(t *testing.T) {
 	configs := []PluginActionConfig{
 		{Key: "b", Label: "Board", Action: `update where id = id() set status="ready"`},
 	}
-	actions, err := parsePluginActions(configs, parser)
+	actions, err := parsePluginActions(configs, parser, nil)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -1014,7 +873,7 @@ func TestParsePluginActions_HotExplicitFalse(t *testing.T) {
 	configs := []PluginActionConfig{
 		{Key: "b", Label: "Board", Action: `update where id = id() set status="ready"`, Hot: &hotFalse},
 	}
-	actions, err := parsePluginActions(configs, parser)
+	actions, err := parsePluginActions(configs, parser, nil)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -1029,7 +888,7 @@ func TestParsePluginActions_HotExplicitTrue(t *testing.T) {
 	configs := []PluginActionConfig{
 		{Key: "b", Label: "Board", Action: `update where id = id() set status="ready"`, Hot: &hotTrue},
 	}
-	actions, err := parsePluginActions(configs, parser)
+	actions, err := parsePluginActions(configs, parser, nil)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -1042,6 +901,7 @@ func TestParsePluginYAML_HotFlagFromYAML(t *testing.T) {
 	yamlData := []byte(`
 name: Test
 key: T
+kind: board
 lanes:
   - name: Backlog
     filter: select where status = "backlog"
@@ -1077,7 +937,7 @@ func TestParsePluginActions_InputValid(t *testing.T) {
 	configs := []PluginActionConfig{
 		{Key: "a", Label: "Assign to", Action: `update where id = id() set assignee=input()`, Input: "string"},
 	}
-	actions, err := parsePluginActions(configs, parser)
+	actions, err := parsePluginActions(configs, parser, nil)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -1097,7 +957,7 @@ func TestParsePluginActions_InputIntValid(t *testing.T) {
 	configs := []PluginActionConfig{
 		{Key: "p", Label: "Set points", Action: `update where id = id() set points=input()`, Input: "int"},
 	}
-	actions, err := parsePluginActions(configs, parser)
+	actions, err := parsePluginActions(configs, parser, nil)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -1114,7 +974,7 @@ func TestParsePluginActions_InputTypeMismatch(t *testing.T) {
 	configs := []PluginActionConfig{
 		{Key: "a", Label: "Assign to", Action: `update where id = id() set assignee=input()`, Input: "int"},
 	}
-	_, err := parsePluginActions(configs, parser)
+	_, err := parsePluginActions(configs, parser, nil)
 	if err == nil {
 		t.Fatal("expected error for input type mismatch (int into string field)")
 	}
@@ -1125,7 +985,7 @@ func TestParsePluginActions_InputWithoutInputFunc(t *testing.T) {
 	configs := []PluginActionConfig{
 		{Key: "a", Label: "Ready", Action: `update where id = id() set status="ready"`, Input: "string"},
 	}
-	_, err := parsePluginActions(configs, parser)
+	_, err := parsePluginActions(configs, parser, nil)
 	if err == nil {
 		t.Fatal("expected error: input: declared but input() not used")
 	}
@@ -1139,7 +999,7 @@ func TestParsePluginActions_InputUnsupportedType(t *testing.T) {
 	configs := []PluginActionConfig{
 		{Key: "a", Label: "Assign to", Action: `update where id = id() set assignee=input()`, Input: "enum"},
 	}
-	_, err := parsePluginActions(configs, parser)
+	_, err := parsePluginActions(configs, parser, nil)
 	if err == nil {
 		t.Fatal("expected error for unsupported input type")
 	}
@@ -1150,7 +1010,7 @@ func TestParsePluginActions_NoInputField_NoHasInput(t *testing.T) {
 	configs := []PluginActionConfig{
 		{Key: "a", Label: "Ready", Action: `update where id = id() set status="ready"`},
 	}
-	actions, err := parsePluginActions(configs, parser)
+	actions, err := parsePluginActions(configs, parser, nil)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -1164,7 +1024,7 @@ func TestParsePluginActions_RequirePreserved(t *testing.T) {
 	configs := []PluginActionConfig{
 		{Key: "a", Label: "Ready", Action: `update where id = id() set status="ready"`, Require: []string{"id"}},
 	}
-	actions, err := parsePluginActions(configs, parser)
+	actions, err := parsePluginActions(configs, parser, nil)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -1178,7 +1038,7 @@ func TestParsePluginActions_RequireAutoInferID(t *testing.T) {
 	configs := []PluginActionConfig{
 		{Key: "a", Label: "Ready", Action: `update where id = id() set status="ready"`},
 	}
-	actions, err := parsePluginActions(configs, parser)
+	actions, err := parsePluginActions(configs, parser, nil)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -1198,7 +1058,7 @@ func TestParsePluginActions_RequireNoAutoInferWithoutID(t *testing.T) {
 	configs := []PluginActionConfig{
 		{Key: "a", Label: "Bulk", Action: `delete where status = "done"`},
 	}
-	actions, err := parsePluginActions(configs, parser)
+	actions, err := parsePluginActions(configs, parser, nil)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -1214,7 +1074,7 @@ func TestParsePluginActions_RequireAutoInferIDFromTargetQualifier(t *testing.T) 
 	configs := []PluginActionConfig{
 		{Key: "a", Label: "Copy assignee", Action: `update where type = "bug" set assignee = target.assignee`},
 	}
-	actions, err := parsePluginActions(configs, parser)
+	actions, err := parsePluginActions(configs, parser, nil)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -1236,7 +1096,7 @@ func TestParsePluginActions_RequireAutoInferSelectionAnyFromTargetsQualifier(t *
 	configs := []PluginActionConfig{
 		{Key: "b", Label: "Show blockers", Action: `select where id in targets.dependsOn`},
 	}
-	actions, err := parsePluginActions(configs, parser)
+	actions, err := parsePluginActions(configs, parser, nil)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -1256,7 +1116,7 @@ func TestParsePluginActions_RequireAutoInferSelectionAnyFromIDs(t *testing.T) {
 	configs := []PluginActionConfig{
 		{Key: "a", Label: "Done all", Action: `update where id in ids() set status = "done"`},
 	}
-	actions, err := parsePluginActions(configs, parser)
+	actions, err := parsePluginActions(configs, parser, nil)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -1278,7 +1138,7 @@ func TestParsePluginActions_RequireNoAutoInferFromSelectedCount(t *testing.T) {
 	configs := []PluginActionConfig{
 		{Key: "a", Label: "Cardinality branch", Action: `select where selected_count() >= 0`},
 	}
-	actions, err := parsePluginActions(configs, parser)
+	actions, err := parsePluginActions(configs, parser, nil)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -1314,7 +1174,7 @@ func TestParsePluginActions_RequireNegatedSelectionSuppressesAutoInfer(t *testin
 				Action:  `update where id in ids() set status = "done"`,
 				Require: []string{tc.negated},
 			}}
-			actions, err := parsePluginActions(configs, parser)
+			actions, err := parsePluginActions(configs, parser, nil)
 			if err != nil {
 				t.Fatalf("unexpected error: %v", err)
 			}
@@ -1342,7 +1202,7 @@ func TestParsePluginActions_RequireAIPlusAutoID(t *testing.T) {
 	configs := []PluginActionConfig{
 		{Key: "a", Label: "AI Ready", Action: `update where id = id() set status="ready"`, Require: []string{"ai"}},
 	}
-	actions, err := parsePluginActions(configs, parser)
+	actions, err := parsePluginActions(configs, parser, nil)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -1365,7 +1225,7 @@ func TestParsePluginActions_RequireCustomPreserved(t *testing.T) {
 	configs := []PluginActionConfig{
 		{Key: "a", Label: "Custom", Action: `select where status = "done"`, Require: []string{"foo"}},
 	}
-	actions, err := parsePluginActions(configs, parser)
+	actions, err := parsePluginActions(configs, parser, nil)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -1379,7 +1239,7 @@ func TestParsePluginActions_RequireNegatedPreserved(t *testing.T) {
 	configs := []PluginActionConfig{
 		{Key: "a", Label: "Not KB", Action: `select where status = "done"`, Require: []string{"!view:plugin:Kanban"}},
 	}
-	actions, err := parsePluginActions(configs, parser)
+	actions, err := parsePluginActions(configs, parser, nil)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -1393,7 +1253,7 @@ func TestParsePluginActions_RequireEmptyRejected(t *testing.T) {
 	configs := []PluginActionConfig{
 		{Key: "a", Label: "Bad", Action: `select where status = "done"`, Require: []string{""}},
 	}
-	_, err := parsePluginActions(configs, parser)
+	_, err := parsePluginActions(configs, parser, nil)
 	if err == nil {
 		t.Fatal("expected error for empty requirement")
 	}
@@ -1404,7 +1264,7 @@ func TestParsePluginActions_RequireBareExclamationRejected(t *testing.T) {
 	configs := []PluginActionConfig{
 		{Key: "a", Label: "Bad", Action: `select where status = "done"`, Require: []string{"!"}},
 	}
-	_, err := parsePluginActions(configs, parser)
+	_, err := parsePluginActions(configs, parser, nil)
 	if err == nil {
 		t.Fatal("expected error for bare '!' requirement")
 	}
@@ -1415,7 +1275,7 @@ func TestParsePluginActions_RequireDoubleNegationRejected(t *testing.T) {
 	configs := []PluginActionConfig{
 		{Key: "a", Label: "Bad", Action: `select where status = "done"`, Require: []string{"!!view:plugin:Kanban"}},
 	}
-	_, err := parsePluginActions(configs, parser)
+	_, err := parsePluginActions(configs, parser, nil)
 	if err == nil {
 		t.Fatal("expected error for double-negation requirement")
 	}
@@ -1426,7 +1286,7 @@ func TestParsePluginActions_RequireDedup(t *testing.T) {
 	configs := []PluginActionConfig{
 		{Key: "a", Label: "Dup", Action: `update where id = id() set status="ready"`, Require: []string{"id"}},
 	}
-	actions, err := parsePluginActions(configs, parser)
+	actions, err := parsePluginActions(configs, parser, nil)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -1446,7 +1306,7 @@ func TestParsePluginActions_BulkActionExplicitRequireID(t *testing.T) {
 	configs := []PluginActionConfig{
 		{Key: "a", Label: "Selective Bulk", Action: `delete where status = "done"`, Require: []string{"id"}},
 	}
-	actions, err := parsePluginActions(configs, parser)
+	actions, err := parsePluginActions(configs, parser, nil)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -1459,6 +1319,7 @@ func TestParsePluginYAML_RequireQuotedNegation(t *testing.T) {
 	yaml := `
 name: Test
 key: "1"
+kind: board
 lanes:
   - name: All
     filter: 'select'
@@ -1481,5 +1342,143 @@ actions:
 	}
 	if len(tp.Actions[0].Require) != 1 || tp.Actions[0].Require[0] != "!view:plugin:Kanban" {
 		t.Errorf("expected [!view:plugin:Kanban], got %v", tp.Actions[0].Require)
+	}
+}
+
+// --- ActionKindView tests --------------------------------------------------
+//
+// Covers the `kind: view` code path end-to-end at the parser level: shape
+// validation, inference when `kind:` is omitted, cross-view name resolution,
+// and the "action: and view: both set" / "neither set" error branches.
+
+// TestParsePluginActions_ViewKindExplicit parses a `kind: view` action and
+// asserts the PluginAction carries the right target view.
+func TestParsePluginActions_ViewKindExplicit(t *testing.T) {
+	parser := testParser()
+	configs := []PluginActionConfig{
+		{Key: "F11", Kind: "view", Label: "Open kanban", View: "Kanban"},
+	}
+	viewNames := map[string]struct{}{"Kanban": {}}
+
+	actions, err := parsePluginActions(configs, parser, viewNames)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(actions) != 1 {
+		t.Fatalf("expected 1 action, got %d", len(actions))
+	}
+	if actions[0].Kind != ActionKindView {
+		t.Errorf("expected ActionKindView, got %q", actions[0].Kind)
+	}
+	if actions[0].TargetView != "Kanban" {
+		t.Errorf("expected TargetView=Kanban, got %q", actions[0].TargetView)
+	}
+	if actions[0].Action != nil {
+		t.Errorf("view-kind actions must not carry a ruki statement, got %v", actions[0].Action)
+	}
+}
+
+// TestParsePluginActions_ViewKindInferred asserts the parser infers
+// ActionKindView when `view:` is present but `kind:` is omitted.
+func TestParsePluginActions_ViewKindInferred(t *testing.T) {
+	parser := testParser()
+	configs := []PluginActionConfig{
+		{Key: "F11", Label: "Open kanban", View: "Kanban"},
+	}
+	viewNames := map[string]struct{}{"Kanban": {}}
+
+	actions, err := parsePluginActions(configs, parser, viewNames)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if actions[0].Kind != ActionKindView {
+		t.Errorf("expected inferred ActionKindView, got %q", actions[0].Kind)
+	}
+}
+
+// TestParsePluginActions_ViewKindErrors covers the four error branches:
+// missing `view:` target, `action:` set on a view-kind action, both set, and
+// `view:` referencing an unknown view name.
+func TestParsePluginActions_ViewKindErrors(t *testing.T) {
+	parser := testParser()
+	knownViews := map[string]struct{}{"Kanban": {}}
+
+	cases := []struct {
+		name      string
+		cfg       PluginActionConfig
+		viewNames map[string]struct{}
+		wantError string
+	}{
+		{
+			name:      "missing view target",
+			cfg:       PluginActionConfig{Key: "F11", Kind: "view", Label: "Open"},
+			viewNames: knownViews,
+			wantError: "kind: view requires `view:`",
+		},
+		{
+			name:      "both action and view set",
+			cfg:       PluginActionConfig{Key: "F11", Kind: "view", Label: "Open", Action: `select where status = "done"`, View: "Kanban"},
+			viewNames: knownViews,
+			wantError: "kind: view must not set `action:`",
+		},
+		{
+			name:      "unknown view name",
+			cfg:       PluginActionConfig{Key: "F11", Kind: "view", Label: "Open", View: "NotAView"},
+			viewNames: knownViews,
+			wantError: `references unknown view "NotAView"`,
+		},
+		{
+			name:      "input field rejected on view kind",
+			cfg:       PluginActionConfig{Key: "F11", Kind: "view", Label: "Open", View: "Kanban", Input: "string"},
+			viewNames: knownViews,
+			wantError: "does not support `input:`",
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			_, err := parsePluginActions([]PluginActionConfig{tc.cfg}, parser, tc.viewNames)
+			if err == nil {
+				t.Fatalf("expected error containing %q, got nil", tc.wantError)
+			}
+			if !strings.Contains(err.Error(), tc.wantError) {
+				t.Errorf("expected error containing %q, got %q", tc.wantError, err.Error())
+			}
+		})
+	}
+}
+
+// TestParsePluginActions_AmbiguousKindInference asserts that when neither
+// `action:` nor `view:` is set, the parser refuses rather than silently
+// guessing a kind.
+func TestParsePluginActions_AmbiguousKindInference(t *testing.T) {
+	parser := testParser()
+	configs := []PluginActionConfig{
+		{Key: "x", Label: "Ambiguous"},
+	}
+	_, err := parsePluginActions(configs, parser, nil)
+	if err == nil {
+		t.Fatal("expected error when neither action: nor view: is set")
+	}
+	if !strings.Contains(err.Error(), "must set either `action:` (ruki) or `view:`") {
+		t.Errorf("expected neither-set error, got %q", err.Error())
+	}
+}
+
+// TestParsePluginActions_BothActionAndViewSet asserts the combination
+// `action: + view:` without explicit kind is an error (the disambiguation
+// message must point at `kind:`).
+func TestParsePluginActions_BothActionAndViewSet(t *testing.T) {
+	parser := testParser()
+	configs := []PluginActionConfig{
+		{Key: "x", Label: "Both", Action: `select where status = "done"`, View: "Kanban"},
+	}
+	viewNames := map[string]struct{}{"Kanban": {}}
+	_, err := parsePluginActions(configs, parser, viewNames)
+	if err == nil {
+		t.Fatal("expected error when both action: and view: are set without an explicit kind:")
+	}
+	if !strings.Contains(err.Error(), "use `kind:` to disambiguate") {
+		t.Errorf("expected disambiguate error, got %q", err.Error())
 	}
 }

@@ -183,44 +183,28 @@ func GetConfig() *Config {
 	return appConfig
 }
 
-// viewsFileData represents the views section of workflow.yaml for read-modify-write.
-type viewsFileData struct {
-	Actions []map[string]interface{} `yaml:"actions,omitempty"`
-	Plugins []map[string]interface{} `yaml:"plugins"`
-}
-
-// workflowFileData represents the YAML structure of workflow.yaml for read-modify-write.
-// kept in config package to avoid import cycle with plugin package.
-// all top-level sections must be listed here to survive round-trip serialization.
+// workflowFileData represents the YAML structure of workflow.yaml for
+// read-modify-write. Kept in config package to avoid import cycles with the
+// plugin package. All top-level sections must be listed to survive
+// round-trip serialization.
 type workflowFileData struct {
 	Version     string                   `yaml:"version,omitempty"`
 	Description string                   `yaml:"description,omitempty"`
 	Statuses    []map[string]interface{} `yaml:"statuses,omitempty"`
 	Types       []map[string]interface{} `yaml:"types,omitempty"`
-	Views       viewsFileData            `yaml:"views,omitempty"`
+	Views       []map[string]interface{} `yaml:"views,omitempty"`
+	Actions     []map[string]interface{} `yaml:"actions,omitempty"`
 	Triggers    []map[string]interface{} `yaml:"triggers,omitempty"`
 	Fields      []map[string]interface{} `yaml:"fields,omitempty"`
 }
 
 // readWorkflowFile reads and unmarshals workflow.yaml from the given path.
-// Handles both old list format (views: [...]) and new map format (views: {plugins: [...]}).
+// No legacy shape conversion — callers must use the Phase-6 schema.
 func readWorkflowFile(path string) (*workflowFileData, error) {
 	data, err := os.ReadFile(path)
 	if err != nil {
 		return nil, fmt.Errorf("reading workflow.yaml: %w", err)
 	}
-
-	// convert legacy views list format to map format before unmarshaling
-	var raw map[string]interface{}
-	if err := yaml.Unmarshal(data, &raw); err != nil {
-		return nil, fmt.Errorf("parsing workflow.yaml: %w", err)
-	}
-	ConvertViewsListToMap(raw)
-	data, err = yaml.Marshal(raw)
-	if err != nil {
-		return nil, fmt.Errorf("re-marshaling workflow.yaml: %w", err)
-	}
-
 	var wf workflowFileData
 	if err := yaml.Unmarshal(data, &wf); err != nil {
 		return nil, fmt.Errorf("parsing workflow.yaml: %w", err)
@@ -228,51 +212,29 @@ func readWorkflowFile(path string) (*workflowFileData, error) {
 	return &wf, nil
 }
 
-// ConvertViewsListToMap converts old views list format to new map format in-place.
-// Old: views: [{name: Kanban, ...}]  →  New: views: {plugins: [{name: Kanban, ...}]}
-func ConvertViewsListToMap(raw map[string]interface{}) {
-	views, ok := raw["views"]
-	if !ok {
-		return
-	}
-	if _, isMap := views.(map[string]interface{}); isMap {
-		return
-	}
-	if list, isList := views.([]interface{}); isList {
-		raw["views"] = map[string]interface{}{
-			"plugins": list,
-		}
-	}
-}
-
-// GetPluginViewMode reads a plugin's view mode from workflow.yaml by name.
-// Returns empty string if not found.
+// GetPluginViewMode reads a view's `mode:` field from workflow.yaml by name.
+// Returns empty string when unset or when the view is not found.
 func GetPluginViewMode(pluginName string) string {
-	return getPluginViewModeFromWorkflow(pluginName, "")
-}
-
-// getPluginViewModeFromWorkflow reads a plugin's view mode from workflow.yaml by name.
-func getPluginViewModeFromWorkflow(pluginName string, defaultValue string) string {
 	path := FindWorkflowFile()
 	if path == "" {
-		return defaultValue
+		return ""
 	}
-
 	wf, err := readWorkflowFile(path)
 	if err != nil {
 		slog.Debug("failed to read workflow.yaml for view mode", "error", err)
-		return defaultValue
+		return ""
 	}
-
-	for _, p := range wf.Views.Plugins {
-		if name, ok := p["name"].(string); ok && name == pluginName {
-			if view, ok := p["view"].(string); ok && view != "" {
-				return view
-			}
+	for _, v := range wf.Views {
+		name, _ := v["name"].(string)
+		if name != pluginName {
+			continue
 		}
+		if mode, ok := v["mode"].(string); ok && mode != "" {
+			return mode
+		}
+		return ""
 	}
-
-	return defaultValue
+	return ""
 }
 
 // GetHeaderVisible returns the header visibility setting

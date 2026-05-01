@@ -1,4 +1,4 @@
-version: 0.5.3
+version: "0.6.0"
 description: |
   Bug tracker for triaging and resolving customer-reported issues.
   Six statuses (Open → Triaged → In Progress → In Review → Verified, plus Won't Fix),
@@ -36,7 +36,7 @@ statuses:
     active: true
   - key: inProgress
     label: "In Progress"
-    emoji: "\u2699\uFE0F"
+    emoji: "⚙️"
     active: true
   - key: inReview
     label: "In Review"
@@ -44,7 +44,7 @@ statuses:
     active: true
   - key: verified
     label: Verified
-    emoji: "\u2705"
+    emoji: "✅"
     done: true
   - key: wontFix
     label: "Won't Fix"
@@ -62,148 +62,155 @@ types:
     label: Incident
     emoji: "\U0001F525"
 
+actions:
+  - key: "a"
+    label: "Assign to me"
+    action: update where id = id() set assignee=user()
+  - key: "y"
+    label: "Copy ID"
+    action: select id where id = id() | clipboard()
+  - key: "Y"
+    label: "Copy content"
+    action: select title, description where id = id() | clipboard()
+  - key: "o"
+    label: "Open in VS Code"
+    action: select filepath where id = id() | run("code \"$1\"")
+    hot: false
+  - key: "+"
+    label: "Priority up"
+    action: update where id = id() set priority = priority - 1
+  - key: "-"
+    label: "Priority down"
+    action: update where id = id() set priority = priority + 1
+  - key: "R"
+    label: "Mark regression"
+    action: update where id = id() set regression=true
+  - key: "r"
+    label: "Clear regression"
+    action: update where id = id() set regression=false
+  - key: "E"
+    label: "Escalate"
+    action: update where id = id() set escalations=escalations + 1
+  - key: "A"
+    label: "Assign to..."
+    action: update where id = id() set assignee=input()
+    input: string
+    hot: false
+  - key: "t"
+    label: "Add tag"
+    action: update where id = id() set tags=tags+[input()]
+    input: string
+    hot: false
+  - key: "T"
+    label: "Remove tag"
+    action: update where id = id() set tags=tags-[input()]
+    input: string
+    hot: false
+  - key: Ctrl-Q
+    label: "Quick create"
+    action: create title=input()
+    input: string
+    hot: false
+
 views:
-  actions:
-    - key: "a"
-      label: "Assign to me"
-      action: update where id = id() set assignee=user()
-    - key: "y"
-      label: "Copy ID"
-      action: select id where id = id() | clipboard()
-    - key: "Y"
-      label: "Copy content"
-      action: select title, description where id = id() | clipboard()
-    - key: "o"
-      label: "Open in VS Code"
-      action: select filepath where id = id() | run("code \"$1\"")
-      hot: false
-    - key: "+"
-      label: "Priority up"
-      action: update where id = id() set priority = priority - 1
-    - key: "-"
-      label: "Priority down"
-      action: update where id = id() set priority = priority + 1
-    - key: "R"
-      label: "Mark regression"
-      action: update where id = id() set regression=true
-    - key: "r"
-      label: "Clear regression"
-      action: update where id = id() set regression=false
-    - key: "E"
-      label: "Escalate"
-      action: update where id = id() set escalations=escalations + 1
-    - key: "A"
-      label: "Assign to..."
-      action: update where id = id() set assignee=input()
-      input: string
-      hot: false
-    - key: "t"
-      label: "Add tag"
-      action: update where id = id() set tags=tags+[input()]
-      input: string
-      hot: false
-    - key: "T"
-      label: "Remove tag"
-      action: update where id = id() set tags=tags-[input()]
-      input: string
-      hot: false
-    - key: Ctrl-Q
-      label: "Quick create"
-      action: create title=input()
-      input: string
-      hot: false
-  plugins:
-    - name: Triage
-      description: "Bug triage board — move bugs through the resolution pipeline"
-      default: true
-      key: "F1"
-      lanes:
-        - name: Open
-          filter: select where status = "open" order by priority, createdAt
-          action: update where id = id() set status="open"
-        - name: Triaged
-          filter: select where status = "triaged" order by priority, createdAt
-          action: update where id = id() set status="triaged"
-        - name: In Progress
-          filter: select where status = "inProgress" order by priority, createdAt
-          action: update where id = id() set status="inProgress"
-        - name: In Review
-          filter: select where status = "inReview" order by priority, createdAt
-          action: update where id = id() set status="inReview"
-        - name: Verified
-          filter: select where status = "verified" order by priority, createdAt
-          action: update where id = id() set status="verified"
-      actions:
-        - key: "w"
-          label: "Won't fix"
-          action: update where id = id() set status="wontFix"
-    - name: Severity
-      description: "Bugs grouped by severity level"
-      key: "F2"
-      lanes:
-        - name: Critical
-          columns: 2
-          width: 40
-          filter: select where severity = "critical" and status != "verified" and status != "wontFix" order by priority, createdAt
-          action: update where id = id() set severity="critical"
-        - name: High
-          filter: select where severity = "high" and status != "verified" and status != "wontFix" order by priority, createdAt
-          action: update where id = id() set severity="high"
-        - name: Medium
-          filter: select where severity = "medium" and status != "verified" and status != "wontFix" order by priority, createdAt
-          action: update where id = id() set severity="medium"
-        - name: Low
-          filter: select where severity = "low" and status != "verified" and status != "wontFix" order by priority, createdAt
-          action: update where id = id() set severity="low"
-      actions:
-        - key: "c"
-          label: "Clear severity"
-          action: update where id = id() set severity=empty
-    - name: Environments
-      description: "Bugs grouped by environment — prod, staging, dev"
-      key: "F3"
-      lanes:
-        - name: Prod
-          columns: 1
-          filter: select where environment = "prod" and status != "verified" and status != "wontFix" order by priority, createdAt
-          action: update where id = id() set environment="prod"
-        - name: Staging
-          columns: 1
-          filter: select where environment = "staging" and status != "verified" and status != "wontFix" order by priority, createdAt
-          action: update where id = id() set environment="staging"
-        - name: Dev
-          columns: 1
-          filter: select where environment = "dev" and status != "verified" and status != "wontFix" order by priority, createdAt
-          action: update where id = id() set environment="dev"
-        - name: Unspecified
-          columns: 1
-          filter: select where environment is empty and status != "verified" and status != "wontFix" order by priority, createdAt
-    - name: SLA Watch
-      description: "Deadline tracking — overdue, due today, this week, and unscheduled"
-      key: "F4"
-      view: expanded
-      lanes:
-        - name: Overdue
-          filter: select where dueBy is not empty and dueBy < now() and status != "verified" and status != "wontFix" order by dueBy
-        - name: Due Today
-          filter: select where dueBy >= now() and dueBy < now() + 1day order by priority
-        - name: This Week
-          filter: select where dueBy >= now() + 1day and dueBy < now() + 7day order by dueBy
-        - name: No SLA
-          filter: select where dueBy is empty and status != "verified" and status != "wontFix" order by priority
-      actions:
-        - key: "d"
-          label: "Clear deadline"
-          action: update where id = id() set dueBy=empty
-        - key: "D"
-          label: "Bump one week"
-          action: update where id = id() set dueBy=now() + 7day
-    - name: Docs
-      description: "Project notes and documentation files"
-      type: doki
-      fetcher: file
-      url: "index.md"
-      key: "F5"
+  - name: Triage
+    kind: board
+    description: "Bug triage board — move bugs through the resolution pipeline"
+    default: true
+    key: "F1"
+    lanes:
+      - name: Open
+        filter: select where status = "open" order by priority, createdAt
+        action: update where id = id() set status="open"
+      - name: Triaged
+        filter: select where status = "triaged" order by priority, createdAt
+        action: update where id = id() set status="triaged"
+      - name: In Progress
+        filter: select where status = "inProgress" order by priority, createdAt
+        action: update where id = id() set status="inProgress"
+      - name: In Review
+        filter: select where status = "inReview" order by priority, createdAt
+        action: update where id = id() set status="inReview"
+      - name: Verified
+        filter: select where status = "verified" order by priority, createdAt
+        action: update where id = id() set status="verified"
+    actions:
+      - key: "w"
+        label: "Won't fix"
+        action: update where id = id() set status="wontFix"
+
+  - name: Severity
+    kind: board
+    description: "Bugs grouped by severity level"
+    key: "F2"
+    lanes:
+      - name: Critical
+        columns: 2
+        width: 40
+        filter: select where severity = "critical" and status != "verified" and status != "wontFix" order by priority, createdAt
+        action: update where id = id() set severity="critical"
+      - name: High
+        filter: select where severity = "high" and status != "verified" and status != "wontFix" order by priority, createdAt
+        action: update where id = id() set severity="high"
+      - name: Medium
+        filter: select where severity = "medium" and status != "verified" and status != "wontFix" order by priority, createdAt
+        action: update where id = id() set severity="medium"
+      - name: Low
+        filter: select where severity = "low" and status != "verified" and status != "wontFix" order by priority, createdAt
+        action: update where id = id() set severity="low"
+    actions:
+      - key: "c"
+        label: "Clear severity"
+        action: update where id = id() set severity=empty
+
+  - name: Environments
+    kind: board
+    description: "Bugs grouped by environment — prod, staging, dev"
+    key: "F3"
+    lanes:
+      - name: Prod
+        columns: 1
+        filter: select where environment = "prod" and status != "verified" and status != "wontFix" order by priority, createdAt
+        action: update where id = id() set environment="prod"
+      - name: Staging
+        columns: 1
+        filter: select where environment = "staging" and status != "verified" and status != "wontFix" order by priority, createdAt
+        action: update where id = id() set environment="staging"
+      - name: Dev
+        columns: 1
+        filter: select where environment = "dev" and status != "verified" and status != "wontFix" order by priority, createdAt
+        action: update where id = id() set environment="dev"
+      - name: Unspecified
+        columns: 1
+        filter: select where environment is empty and status != "verified" and status != "wontFix" order by priority, createdAt
+
+  - name: SLA Watch
+    kind: board
+    description: "Deadline tracking — overdue, due today, this week, and unscheduled"
+    key: "F4"
+    mode: expanded
+    lanes:
+      - name: Overdue
+        filter: select where dueBy is not empty and dueBy < now() and status != "verified" and status != "wontFix" order by dueBy
+      - name: Due Today
+        filter: select where dueBy >= now() and dueBy < now() + 1day order by priority
+      - name: This Week
+        filter: select where dueBy >= now() + 1day and dueBy < now() + 7day order by dueBy
+      - name: No SLA
+        filter: select where dueBy is empty and status != "verified" and status != "wontFix" order by priority
+    actions:
+      - key: "d"
+        label: "Clear deadline"
+        action: update where id = id() set dueBy=empty
+      - key: "D"
+        label: "Bump one week"
+        action: update where id = id() set dueBy=now() + 7day
+
+  - name: Docs
+    kind: wiki
+    description: "Project notes and documentation files"
+    path: "index.md"
+    key: "F5"
 
 triggers:
   - description: critical bugs must specify environment

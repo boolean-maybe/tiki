@@ -6,6 +6,143 @@ what it introduced and what changed from the previous version. For usage details
 
 ---
 
+## 0.6.0
+
+Breaking redesign of the views and actions schema as part of the unified-documents effort.
+Removes the `type: tiki` / `type: doki` split and replaces it with explicit view kinds.
+Promotes `actions:` to a top-level section so globals are not coupled to the views wrapper.
+No backwards-compatibility shims — old workflows must migrate.
+
+### New top-level shape
+
+```yaml
+version: "0.6.0"
+
+statuses:
+  - key: backlog
+    label: Backlog
+    default: true
+
+types:
+  - key: story
+    label: Story
+
+fields:
+  - name: severity
+    type: enum
+    values: [low, medium, high]
+
+actions:                       # top-level global actions
+  - key: "a"
+    kind: ruki
+    label: "Assign to me"
+    action: update where id = id() set assignee=user()
+  - key: F11
+    kind: view
+    label: "Open board"
+    view: kanban               # name of a view declared below
+
+views:                         # top-level list (no `plugins:` wrapper)
+  - name: kanban               # stable identifier (used by actions[].view)
+    label: Kanban              # optional display text — falls back to name
+    kind: board
+    default: true
+    mode: compact              # renamed from old `view: compact|expanded`
+    lanes:
+      - name: Backlog
+        filter: select where status = "backlog"
+      - name: Done
+        filter: select where status = "done"
+
+  - name: docs
+    kind: wiki
+    path: index.md              # `document: <ID>` (ID-based binding) is not yet implemented
+
+  - name: selected
+    kind: detail
+    require: ["selection:one"]
+```
+
+### View `kind:` replaces `type:`
+
+| kind      | purpose                                                                  | required fields           | status                                |
+|-----------|--------------------------------------------------------------------------|---------------------------|---------------------------------------|
+| `board`   | kanban-style lanes with per-lane filters and move actions                | `lanes`                   | shipped                               |
+| `list`    | single-column list view                                                  | `lanes` (typically one)   | shipped                               |
+| `wiki`    | markdown viewer bound to a document by relative path                     | `path:`                   | shipped (path only; see below)        |
+| `detail`  | markdown viewer of the currently-selected document                       | —                         | shipped                               |
+| `search`  | the global search view                                                   | —                         | **not implemented** — parser rejects  |
+| `timeline`| future phase                                                             | —                         | reserved — parser rejects             |
+
+`wiki` views accept `path:` today. The alternative `document: <ID>` form (binding a wiki view to a task by id
+rather than by relative path) is **not implemented**: the parser rejects any view that sets `document:`. A clean
+ID-binding story needs a richer document-index contract than the current `store.PathForID` exposes, so it is
+deferred as a future enhancement without a scheduled phase.
+
+### Top-level `actions:` with `kind: ruki | view`
+
+Actions declared at the top level are global — available from every view. A view's own `actions:` list still
+overrides globals by key. There are two action kinds:
+
+- `kind: ruki` — runs a ruki statement (this is the pre-Phase-6 behavior; the `action:` field carries it).
+  Fires from every view kind. When invoked from a wiki/detail view that received a selection via navigation,
+  that selection threads into the ruki `ExecutionInput` so `id()` and `set <field> = ...` resolve against it.
+  Exception: the interactive variants — actions that set `input:` or use `choose()` — currently fire only from
+  board/list views. On wiki/detail views they are filtered out of the action registry and refused by the
+  dispatcher, because non-board controllers do not implement the input/choose prompt pipeline today. A future
+  enhancement may lift this restriction (see "Not implemented in Phase 6" in the plan).
+- `kind: view` — navigates to another view by name. The target must exist in the `views:` list. When one task
+  is selected on the source view (or the source view received a selection via a prior `kind: view` action), the
+  selection is encoded into `PluginViewParams` and carried into the target so `require: ["selection:one"]` on
+  the target view is honored and `kind: detail` views render the carried document.
+
+When `kind:` is omitted, the parser infers it: `action:` set ⇒ `ruki`; `view:` set ⇒ `view`. Setting both or
+neither is an error.
+
+### `[[ID]]` wikilinks
+
+Markdown bodies may reference other documents by their bare ID inside `[[...]]` brackets. Resolution goes
+through `store.ReadStore.PathForID` + `GetTask` so links survive file moves. Unknown ids render as a literal
+`[[<ID>]]` with a `*(not found)*` marker so broken references are visible rather than silently dropped. Wiring
+is active on task detail views and wiki/detail plugin views.
+
+### Migration from 0.5.x
+
+Old configs are rejected with specific errors that point at the new syntax. The mapping:
+
+| pre-0.6.0                                       | 0.6.0                                                 |
+|------------------------------------------------|-------------------------------------------------------|
+| `type: tiki`                                   | `kind: board` (or `kind: list` for 1-lane views)      |
+| `type: doki` + `fetcher: file` + `url: x.md`   | `kind: wiki` + `path: x.md`                           |
+| `type: doki` + `fetcher: internal` + `text:`   | write a `.md` file under `.doc/` and use `kind: wiki` |
+| `views.plugins:` wrapper                       | top-level `views:` list                               |
+| `views.actions:`                               | top-level `actions:`                                  |
+| `view: compact`/`view: expanded` on a view     | `mode: compact`/`mode: expanded`                      |
+| `sort: <field>` on a view                      | `order by <field>` inside each lane's `filter:`       |
+
+### Rejection-error table
+
+Users upgrading will see one of these messages; each names the legacy field and points at its replacement:
+
+- `"type" is no longer supported — use kind: board instead`
+- `"type" is no longer supported — use kind: wiki instead`
+- `"view:" as a display mode is no longer supported — use mode: compact or mode: expanded on a board/list view`
+- `"fetcher" is no longer supported — use document: or path: on a kind: wiki view`
+- `"text" is no longer supported — use document: or path: on a kind: wiki view`
+- `"url" is no longer supported — use document: or path: on a kind: wiki view`
+- `"sort" is no longer supported — use order by inside a lane's filter: ruki statement`
+- `views: must be a top-level list — the views.plugins wrapper is no longer supported`
+- `unknown view kind "X" — expected board, list, wiki, or detail`
+- `kind: timeline is reserved but not yet implemented`
+- `kind: search is reserved but not yet implemented` (the built-in global search UI is not plugin-instantiable today)
+- `document: (ID-based resolution) is not yet implemented — use path: with a relative filepath`
+
+Loading is fail-closed: any one of these errors (or any lane/action/require parse failure) refuses the whole
+workflow rather than silently loading only the views that parsed. A partial workflow would diverge from what you
+declared, so boot is refused until the file is fixed.
+
+---
+
 ## 0.5.3
 
 Removes `new.md` task template files. Task-creation defaults now live entirely in `workflow.yaml`.

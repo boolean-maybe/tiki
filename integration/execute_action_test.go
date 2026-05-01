@@ -34,13 +34,13 @@ func initGitRepo(t *testing.T, dir string) {
 }
 
 var executeActionWorkflow = testWorkflowPreamble + `views:
-  plugins:
-    - name: ExecuteTest
-      key: "F4"
-      lanes:
-        - name: All
-          columns: 1
-          filter: select where status = "backlog" order by id
+  - name: ExecuteTest
+    kind: board
+    key: "F4"
+    lanes:
+      - name: All
+        columns: 1
+        filter: select where status = "backlog" order by id
 `
 
 func setupExecuteActionTest(t *testing.T) *testutil.TestApp {

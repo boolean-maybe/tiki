@@ -180,12 +180,27 @@ func (tv *TaskDetailView) buildDescription(task *taskpkg.Task) tview.Primitive {
 		searchRoots = append([]string{filepath.Dir(taskSourcePath)}, searchRoots...)
 	}
 
+	// Phase 6B.11: wrap the description provider so every FetchContent call
+	// — both the initial description render AND every navigated-through
+	// click — runs its body through wikilink rewriting. The earlier
+	// implementation only rewrote the initial description and left click
+	// targets raw, so nested `[[ID]]` links stopped resolving after the
+	// first navigation.
+	resolver := &markdown.StoreResolver{Store: tv.taskStore}
+	wrapped := markdown.NewWikilinkProvider(
+		newTaskDescriptionProvider(tv.taskStore, searchRoots),
+		resolver,
+	)
 	tv.navMarkdown = markdown.NewNavigableMarkdown(markdown.NavigableMarkdownConfig{
-		Provider:       newTaskDescriptionProvider(tv.taskStore, searchRoots),
+		Provider:       wrapped,
 		SearchRoots:    searchRoots,
 		ImageManager:   tv.imageManager,
 		MermaidOptions: tv.mermaidOpts,
 	})
+	// Rewrite the initial description the same way the provider will
+	// rewrite subsequent fetches — SetMarkdownWithSource does not round-trip
+	// through FetchContent, so this body needs explicit treatment.
+	desc = markdown.RewriteWikilinks(desc, resolver)
 	tv.navMarkdown.SetMarkdownWithSource(desc, taskSourcePath, false)
 	tv.navMarkdown.Viewer().SetBorderPadding(1, 1, 2, 2)
 	tv.descView = tv.navMarkdown.Viewer()

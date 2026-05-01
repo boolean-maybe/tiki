@@ -303,17 +303,61 @@ func (pc *PluginController) executeAndApply(pa *plugin.PluginAction, input ruki.
 	return true
 }
 
-// handlePluginAction applies a plugin shortcut action to the currently selected task.
+// handlePluginAction applies a plugin shortcut action. Ruki-kind actions run
+// through the executor pipeline; view-kind actions navigate to another view.
 func (pc *PluginController) handlePluginAction(actionID ActionID) bool {
 	pa, ok := pc.getPluginAction(actionID)
 	if !ok {
 		return false
+	}
+	if pa.Kind == plugin.ActionKindView {
+		return pc.handleViewAction(pa)
 	}
 	input, ok := pc.buildExecutionInput(pa)
 	if !ok {
 		return false
 	}
 	return pc.executeAndApply(pa, input)
+}
+
+// handleViewAction switches to the target view declared by a kind: view action.
+// Two gates run before navigation:
+//   - the action's own `require:` (e.g. an action may demand selection:one
+//     on the source view before it's allowed to fire at all).
+//   - the target view's `require:` (e.g. a `kind: detail` view declares
+//     selection:one so it refuses to open without a selection).
+//
+// Both are evaluated against the current selection because kind: view
+// carries selection through; a separate pair for the target would need
+// its own context, which is not how passthrough works today.
+//
+// When exactly one task is selected, its id is carried into the target
+// view's params (6B.3) so `kind: detail` and other selection-aware
+// views see the current selection.
+func (pc *PluginController) handleViewAction(pa *plugin.PluginAction) bool {
+	ids := pc.getSelectedTaskIDs(pc.GetFilteredTasksForLane)
+	if !selectionSatisfies(pa.Require, len(ids)) {
+		return false
+	}
+	if pa.TargetView == "" {
+		return false
+	}
+	// Carried selection is what the target view will see. `kind: view`
+	// passthrough today carries at most one id (when exactly one task is
+	// selected on the source), matching the encode branch below.
+	carried := 0
+	if len(ids) == 1 {
+		carried = 1
+	}
+	if !TargetViewEnabled(pa.TargetView, carried) {
+		return false
+	}
+	var params map[string]interface{}
+	if len(ids) == 1 {
+		params = model.EncodePluginViewParams(model.PluginViewParams{TaskID: ids[0]})
+	}
+	pc.navController.PushView(model.MakePluginViewID(pa.TargetView), params)
+	return true
 }
 
 // GetActionInputSpec returns the prompt and input type for an action, if it has input.

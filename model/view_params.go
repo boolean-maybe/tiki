@@ -85,6 +85,37 @@ func EncodeTaskEditParams(p TaskEditParams) map[string]interface{} {
 	return m
 }
 
+// PluginViewParams are params accepted by any plugin view. TaskID carries the
+// selected document across `kind: view` navigation (6B.3) and drives
+// `kind: detail` rendering (6B.2). Boards / lists / wikis ignore TaskID —
+// only the detail kind reads it today.
+type PluginViewParams struct {
+	TaskID string
+}
+
+// EncodePluginViewParams serializes PluginViewParams to a navigation map.
+// Returns nil when there is nothing to carry — callers that want "push a
+// view with no selection context" can pass nil directly.
+func EncodePluginViewParams(p PluginViewParams) map[string]interface{} {
+	if p.TaskID == "" {
+		return nil
+	}
+	return map[string]interface{}{paramTaskID: p.TaskID}
+}
+
+// DecodePluginViewParams extracts PluginViewParams from a navigation map.
+// Unknown keys are ignored; an empty map yields a zero-valued struct.
+func DecodePluginViewParams(params map[string]interface{}) PluginViewParams {
+	var p PluginViewParams
+	if params == nil {
+		return p
+	}
+	if id, ok := params[paramTaskID].(string); ok {
+		p.TaskID = id
+	}
+	return p
+}
+
 // DecodeTaskEditParams converts a navigation params map into typed params.
 func DecodeTaskEditParams(params map[string]interface{}) TaskEditParams {
 	var p TaskEditParams

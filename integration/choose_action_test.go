@@ -15,23 +15,23 @@ import (
 )
 
 var chooseActionWorkflow = testWorkflowPreamble + `views:
-  plugins:
-    - name: ChooseTest
-      key: "F4"
-      lanes:
-        - name: All
-          columns: 1
-          filter: select where status = "backlog" order by id
-      actions:
-        - key: "e"
-          label: "Set Assignee from Epic"
-          action: update where id = id() set assignee = choose(select where type = "epic")
-        - key: "p"
-          label: "Set Assignee from All"
-          action: update where id = id() set assignee = choose(select)
-        - key: "b"
-          label: "Add to board"
-          action: update where id = id() set status="ready"
+  - name: ChooseTest
+    kind: board
+    key: "F4"
+    lanes:
+      - name: All
+        columns: 1
+        filter: select where status = "backlog" order by id
+    actions:
+      - key: "e"
+        label: "Set Assignee from Epic"
+        action: update where id = id() set assignee = choose(select where type = "epic")
+      - key: "p"
+        label: "Set Assignee from All"
+        action: update where id = id() set assignee = choose(select)
+      - key: "b"
+        label: "Add to board"
+        action: update where id = id() set status="ready"
 `
 
 func setupChooseActionTest(t *testing.T) *testutil.TestApp {
@@ -237,17 +237,17 @@ func TestChooseAction_BareSelectShowsAllTasks(t *testing.T) {
 // which keeps the "exclude epics that already depend on me" intent while
 // letting brand-new epics (no dependsOn key at all) pass through.
 var filteredEpicWorkflow = testWorkflowPreamble + `views:
-  plugins:
-    - name: FilteredEpicTest
-      key: "F4"
-      lanes:
-        - name: All
-          columns: 1
-          filter: select where status = "backlog" order by id
-      actions:
-        - key: "e"
-          label: "Link to epic"
-          action: update where id = choose(select where type = "epic" and (not has(dependsOn) or id() not in dependsOn)) set dependsOn = dependsOn + id()
+  - name: FilteredEpicTest
+    kind: board
+    key: "F4"
+    lanes:
+      - name: All
+        columns: 1
+        filter: select where status = "backlog" order by id
+    actions:
+      - key: "e"
+        label: "Link to epic"
+        action: update where id = choose(select where type = "epic" and (not has(dependsOn) or id() not in dependsOn)) set dependsOn = dependsOn + id()
 `
 
 func setupFilteredEpicTest(t *testing.T) *testutil.TestApp {
@@ -333,17 +333,17 @@ func TestChooseAction_FiltersOutAlreadyLinkedEpics(t *testing.T) {
 }
 
 var scrollTestWorkflow = testWorkflowPreamble + `views:
-  plugins:
-    - name: ScrollTest
-      key: "F4"
-      lanes:
-        - name: All
-          columns: 1
-          filter: select where status = "backlog" order by id
-      actions:
-        - key: "p"
-          label: "Pick"
-          action: update where id = id() set assignee = choose(select)
+  - name: ScrollTest
+    kind: board
+    key: "F4"
+    lanes:
+      - name: All
+        columns: 1
+        filter: select where status = "backlog" order by id
+    actions:
+      - key: "p"
+        label: "Pick"
+        action: update where id = id() set assignee = choose(select)
 `
 
 func setupScrollTest(t *testing.T) *testutil.TestApp {

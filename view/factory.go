@@ -26,6 +26,7 @@ type ViewFactory struct {
 	pluginConfigs     map[string]*model.PluginConfig
 	pluginDefs        map[string]plugin.Plugin
 	pluginControllers map[string]controller.PluginControllerInterface
+	globalActions     []plugin.PluginAction
 }
 
 // NewViewFactory creates a view factory
@@ -50,15 +51,19 @@ func NewViewFactory(taskStore store.Store) *ViewFactory {
 	}
 }
 
-// SetPlugins configures plugin support in the factory
+// SetPlugins configures plugin support in the factory. globalActions carries
+// the workflow's top-level `actions:` list so non-board views can surface
+// `kind: view` entries in their own registry.
 func (f *ViewFactory) SetPlugins(
 	configs map[string]*model.PluginConfig,
 	defs map[string]plugin.Plugin,
 	controllers map[string]controller.PluginControllerInterface,
+	globalActions []plugin.PluginAction,
 ) {
 	f.pluginConfigs = configs
 	f.pluginDefs = defs
 	f.pluginControllers = controllers
+	f.globalActions = globalActions
 }
 
 // RegisterPlugin registers a dynamically created plugin (e.g., deps editor) with the view factory.
@@ -100,28 +105,51 @@ func (f *ViewFactory) CreateView(viewID model.ViewID, params map[string]interfac
 			pluginDef := f.pluginDefs[pluginName]
 			pluginControllerInterface := f.pluginControllers[pluginName]
 
-			if pluginDef != nil {
-				if tikiPlugin, ok := pluginDef.(*plugin.TikiPlugin); ok && pluginConfig != nil && pluginControllerInterface != nil {
-					if tikiCtrl, ok := pluginControllerInterface.(controller.TikiViewProvider); ok {
-						v = NewPluginView(
-							f.taskStore,
-							pluginConfig,
-							tikiPlugin,
-							tikiCtrl.GetFilteredTasksForLane,
-							tikiCtrl.EnsureFirstNonEmptyLaneSelection,
-							tikiCtrl.GetActionRegistry(),
-							tikiCtrl.ShowNavigation(),
-						)
-					} else {
-						slog.Error("plugin controller does not implement TikiViewProvider", "plugin", pluginName)
-					}
-				} else if dokiPlugin, ok := pluginDef.(*plugin.DokiPlugin); ok {
-					v = NewDokiView(dokiPlugin, f.imageManager, f.mermaidOpts)
-				} else {
-					slog.Error("unknown plugin type or missing config", "plugin", pluginName)
-				}
-			} else {
+			if pluginDef == nil {
 				slog.Error("plugin not found", "plugin", pluginName)
+				break
+			}
+			switch pluginDef.GetKind() {
+			case plugin.KindBoard, plugin.KindList:
+				tikiPlugin, ok := pluginDef.(*plugin.TikiPlugin)
+				if !ok {
+					slog.Error("board/list plugin is not a TikiPlugin", "plugin", pluginName)
+					break
+				}
+				if pluginConfig == nil || pluginControllerInterface == nil {
+					slog.Error("missing plugin config or controller", "plugin", pluginName)
+					break
+				}
+				tikiCtrl, ok := pluginControllerInterface.(controller.TikiViewProvider)
+				if !ok {
+					slog.Error("plugin controller does not implement TikiViewProvider", "plugin", pluginName)
+					break
+				}
+				v = NewPluginView(
+					f.taskStore,
+					pluginConfig,
+					tikiPlugin,
+					tikiCtrl.GetFilteredTasksForLane,
+					tikiCtrl.EnsureFirstNonEmptyLaneSelection,
+					tikiCtrl.GetActionRegistry(),
+					tikiCtrl.ShowNavigation(),
+				)
+			case plugin.KindWiki, plugin.KindDetail:
+				dokiPlugin, ok := pluginDef.(*plugin.DokiPlugin)
+				if !ok {
+					slog.Error("wiki/detail plugin is not a DokiPlugin", "plugin", pluginName)
+					break
+				}
+				pluginParams := model.DecodePluginViewParams(params)
+				// Propagate the selected task id into the controller so
+				// outbound `kind: view` / `kind: ruki` actions from this
+				// view see the selection that was passed in.
+				if dc, ok := pluginControllerInterface.(*controller.DokiController); ok {
+					dc.SetSelectedTaskID(pluginParams.TaskID)
+				}
+				v = NewDokiView(dokiPlugin, f.imageManager, f.mermaidOpts, f.globalActions, f.taskStore, pluginParams.TaskID)
+			default:
+				slog.Error("unknown plugin kind", "plugin", pluginName, "kind", pluginDef.GetKind())
 			}
 		} else {
 			slog.Error("unknown view ID", "viewID", viewID)

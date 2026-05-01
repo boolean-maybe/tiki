@@ -42,7 +42,7 @@ func newDepsTestEnv(t *testing.T) (*DepsController, store.Store) {
 	}
 
 	pluginDef := &plugin.TikiPlugin{
-		BasePlugin: plugin.BasePlugin{Name: "Dependency:" + testCtxID, ConfigIndex: -1, Type: "tiki"},
+		BasePlugin: plugin.BasePlugin{Name: "Dependency:" + testCtxID, ConfigIndex: -1, Kind: plugin.KindBoard},
 		TaskID:     testCtxID,
 		Lanes:      []plugin.TikiLane{{Name: "Blocks"}, {Name: "All"}, {Name: "Depends"}},
 	}
@@ -452,7 +452,7 @@ func TestDepsController_DeleteTask_GateError(t *testing.T) {
 	}
 
 	pluginDef := &plugin.TikiPlugin{
-		BasePlugin: plugin.BasePlugin{Name: "Dependency:" + testCtxID, ConfigIndex: -1, Type: "tiki"},
+		BasePlugin: plugin.BasePlugin{Name: "Dependency:" + testCtxID, ConfigIndex: -1, Kind: plugin.KindBoard},
 		TaskID:     testCtxID,
 		Lanes:      []plugin.TikiLane{{Name: "Blocks"}, {Name: "All"}, {Name: "Depends"}},
 	}
@@ -497,7 +497,7 @@ func TestDepsController_MoveTask_UpdateError(t *testing.T) {
 	}
 
 	pluginDef := &plugin.TikiPlugin{
-		BasePlugin: plugin.BasePlugin{Name: "Dependency:" + testCtxID, ConfigIndex: -1, Type: "tiki"},
+		BasePlugin: plugin.BasePlugin{Name: "Dependency:" + testCtxID, ConfigIndex: -1, Kind: plugin.KindBoard},
 		TaskID:     testCtxID,
 		Lanes:      []plugin.TikiLane{{Name: "Blocks"}, {Name: "All"}, {Name: "Depends"}},
 	}
@@ -616,7 +616,7 @@ func newDepsNavEnv(t *testing.T, blockers int, allTasks int, depends int, laneCo
 	}
 
 	pluginDef := &plugin.TikiPlugin{
-		BasePlugin: plugin.BasePlugin{Name: "Dependency:" + contextID, ConfigIndex: -1, Type: "tiki"},
+		BasePlugin: plugin.BasePlugin{Name: "Dependency:" + contextID, ConfigIndex: -1, Kind: plugin.KindBoard},
 		TaskID:     contextID,
 		Lanes:      []plugin.TikiLane{{Name: "Blocks"}, {Name: "All"}, {Name: "Depends"}},
 	}

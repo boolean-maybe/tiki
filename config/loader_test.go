@@ -404,11 +404,18 @@ func TestGetPluginViewMode_ReadsFromWorkflow(t *testing.T) {
 	tmpDir := t.TempDir()
 
 	workflowContent := `views:
-  plugins:
-    - name: Kanban
-      key: "F1"
-    - name: Dependency
-      view: expanded
+  - name: Kanban
+    kind: board
+    key: "F1"
+    lanes:
+      - name: Ready
+        filter: select where status = "ready"
+  - name: Dependency
+    kind: board
+    mode: expanded
+    lanes:
+      - name: Blocks
+        filter: select where status = "ready"
 `
 	if err := os.WriteFile(filepath.Join(tmpDir, "workflow.yaml"), []byte(workflowContent), 0644); err != nil {
 		t.Fatal(err)

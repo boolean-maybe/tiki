@@ -17,6 +17,7 @@ func TestPluginView_MoveTaskAppliesLaneAction(t *testing.T) {
 	tmpDir := t.TempDir()
 	workflowContent := testWorkflowPreamble + `views:
   - name: ActionTest
+    kind: board
     key: "F4"
     lanes:
       - name: Backlog
