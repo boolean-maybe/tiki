@@ -168,9 +168,9 @@ func (pm *PathManager) TaskDir() string {
 
 // DokiDir returns the legacy project-local doki directory (.doc/doki).
 //
-// Deprecated: callers should use DocDir instead. Kept for the same reason
-// as TaskDir — during the Phase 2–Phase 8 transition window some call sites
-// still address doki-specific content by path.
+// Deprecated: callers should use DocDir instead. Kept so existing projects
+// with content under .doc/doki continue to resolve the same path; Phase 8
+// stopped creating this subdirectory for fresh projects.
 func (pm *PathManager) DokiDir() string {
 	return filepath.Join(pm.projectRoot, ".doc", "doki")
 }
@@ -201,7 +201,12 @@ func (pm *PathManager) UserConfigWorkflowFile() string {
 	return filepath.Join(pm.configDir, defaultWorkflowFilename)
 }
 
-// EnsureDirs creates all necessary directories with appropriate permissions
+// EnsureDirs creates all necessary directories with appropriate permissions.
+// Phase 8 of the unified-document migration stops creating the legacy
+// `.doc/tiki` and `.doc/doki` subdirectories on project init; fresh projects
+// only see the unified `.doc/` root. Existing projects that still have those
+// subdirectories are unaffected — nothing removes them — they just no longer
+// get recreated by tiki itself.
 func (pm *PathManager) EnsureDirs() error {
 	// Create user config directory
 	//nolint:gosec // G301: 0755 is appropriate for config directory
@@ -213,15 +218,10 @@ func (pm *PathManager) EnsureDirs() error {
 	//nolint:gosec // G301: 0755 is appropriate for cache directory
 	_ = os.MkdirAll(pm.cacheDir, 0755)
 
-	// Create project directories
-	//nolint:gosec // G301: 0755 is appropriate for task directory
-	if err := os.MkdirAll(pm.TaskDir(), 0755); err != nil {
-		return fmt.Errorf("create task directory %s: %w", pm.TaskDir(), err)
-	}
-
-	//nolint:gosec // G301: 0755 is appropriate for doki directory
-	if err := os.MkdirAll(pm.DokiDir(), 0755); err != nil {
-		return fmt.Errorf("create doki directory %s: %w", pm.DokiDir(), err)
+	// Create the unified document root.
+	//nolint:gosec // G301: 0755 is appropriate for project document directory
+	if err := os.MkdirAll(pm.DocDir(), 0755); err != nil {
+		return fmt.Errorf("create document directory %s: %w", pm.DocDir(), err)
 	}
 
 	return nil

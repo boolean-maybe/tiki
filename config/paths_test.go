@@ -251,12 +251,14 @@ func TestPathManagerEnsureDirs(t *testing.T) {
 		t.Fatalf("EnsureDirs() error = %v", err)
 	}
 
-	// Verify directories were created
+	// Phase 8: EnsureDirs creates the unified .doc/ root but no longer
+	// provisions .doc/tiki or .doc/doki. Verify the unified layout — and
+	// explicitly assert the legacy subdirs are absent so regressions that
+	// reintroduce them fail here.
 	dirs := []string{
 		pm.ConfigDir(),
 		pm.CacheDir(),
-		pm.TaskDir(),
-		pm.DokiDir(),
+		pm.DocDir(),
 	}
 
 	for _, dir := range dirs {
@@ -273,6 +275,12 @@ func TestPathManagerEnsureDirs(t *testing.T) {
 			if info.Mode().Perm() != 0755 {
 				t.Errorf("directory %q has permissions %o, want 0755", dir, info.Mode().Perm())
 			}
+		}
+	}
+
+	for _, legacy := range []string{pm.TaskDir(), pm.DokiDir()} {
+		if _, err := os.Stat(legacy); err == nil {
+			t.Errorf("legacy directory %q should not be created by EnsureDirs", legacy)
 		}
 	}
 }

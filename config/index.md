@@ -18,7 +18,7 @@ Press `Tab/Shift-Tab` to select below links and `Enter` to open:
   - [Tables](#tables)
   - [Task Lists](#task-lists)
 
-![Markdown Support](markdown.png)
+![Markdown Support](assets/markdown.png)
 
 ## Introduction
 
@@ -41,22 +41,27 @@ This is just a single example, but you can also create multiple entry points suc
 - Architecture
 - Prompts
 
-## Configure plugin
+## Configure views
 
-Just configuring multiple plugins. Create a file like `brainstorm.yaml`:
+Add additional entry points as `views` in your project's `.doc/workflow.yaml`.
+Each wiki view opens a Markdown document by relative path under `.doc/`:
 
-```text
-        name: Brainstorm
-        type: doki
-        key: "F6"
-        url: new-doc-root.md
+```yaml
+views:
+    - name: brainstorm
+      label: Brainstorm
+      kind: wiki
+      path: brainstorm.md
 ```
 
-and place it where the `tiki` executable is. Then add it as a plugin to the tiki `config.yaml` located in the same directory:
+Bind a key to open it from anywhere via a top-level action:
 
-```text
-        plugins:
-            - file: brainstorm.yaml
+```yaml
+actions:
+    - key: "F6"
+      label: Open brainstorm
+      kind: view
+      view: brainstorm
 ```
 
 ## Features
@@ -72,11 +77,12 @@ and place it where the `tiki` executable is. Then add it as a plugin to the tiki
 ```
 /projects/my-app
 ├── .doc/
-│   └── doki/
-│       ├── index.md
-│       ├── getting-started.md
-│       ├── installation.md
-│       └── architecture.md
+│   ├── index.md
+│   ├── getting-started.md
+│   ├── installation.md
+│   ├── architecture.md
+│   └── assets/
+│       └── markdown.png
 ├── src/
 │   ├── components/
 │   │   ├── Header.tsx

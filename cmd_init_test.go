@@ -6,6 +6,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"testing"
 
@@ -444,22 +445,26 @@ func TestRunInit_NonInteractiveDefaultNoSamples(t *testing.T) {
 		t.Fatalf("exit code = %d, want %d", code, exitOK)
 	}
 
-	// verify .doc/tiki exists (project initialized)
-	tikiDir := filepath.Join(repoDir, ".doc", "tiki")
-	if _, err := os.Stat(tikiDir); err != nil {
-		t.Fatalf("expected .doc/tiki to exist: %v", err)
+	// verify .doc/ exists (project initialized). Phase 8 no longer creates
+	// .doc/tiki; the unified layout is a single document root.
+	docDir := filepath.Join(repoDir, ".doc")
+	if _, err := os.Stat(docDir); err != nil {
+		t.Fatalf("expected .doc to exist: %v", err)
 	}
 
-	// with -n (no --samples), no sample tiki files should be created
-	entries, _ := os.ReadDir(tikiDir)
-	var tikiFiles int
+	// with -n (no --samples), no sample workflow docs should be created.
+	// Bundled non-sample docs (index.md, linked.md) are still written, so
+	// check specifically for files matching the bare-<ID>.md pattern.
+	entries, _ := os.ReadDir(docDir)
+	bare := regexp.MustCompile(`^[A-Z0-9]{6}\.md$`)
+	var workflowSamples int
 	for _, e := range entries {
-		if strings.HasPrefix(e.Name(), "tiki-") && strings.HasSuffix(e.Name(), ".md") {
-			tikiFiles++
+		if !e.IsDir() && bare.MatchString(e.Name()) {
+			workflowSamples++
 		}
 	}
-	if tikiFiles != 0 {
-		t.Errorf("expected 0 sample tikis, found %d", tikiFiles)
+	if workflowSamples != 0 {
+		t.Errorf("expected 0 sample workflow docs with -n, found %d", workflowSamples)
 	}
 }
 
@@ -471,11 +476,9 @@ func TestRunInit_NonInteractiveWithSamples(t *testing.T) {
 		t.Fatalf("exit code = %d, want %d", code, exitOK)
 	}
 
-	// verify sample tikis were created. Phase 2: samples land directly under
-	// .doc/, not .doc/tiki/. The .doc/tiki/ directory still exists because
-	// EnsureDirs creates it (markdown.png still lives there during the
-	// Phase 2 → Phase 8 transition), so counting `.md` files specifically
-	// under .doc/ is the right assertion.
+	// verify sample tikis were created. Phase 8: samples land directly under
+	// `.doc/<ID>.md`; there is no `.doc/tiki/` subdirectory. Counting `.md`
+	// files at the document root is the right assertion.
 	docDir := filepath.Join(repoDir, ".doc")
 	entries, _ := os.ReadDir(docDir)
 	var tikiFiles int
@@ -761,9 +764,9 @@ func TestRunInit_InitializesGitRepo(t *testing.T) {
 		t.Fatalf("exit code = %d, want %d", code, exitOK)
 	}
 
-	tikiDir := filepath.Join(dir, ".doc", "tiki")
-	if _, err := os.Stat(tikiDir); err != nil {
-		t.Fatalf("expected .doc/tiki to exist: %v", err)
+	docDir := filepath.Join(dir, ".doc")
+	if _, err := os.Stat(docDir); err != nil {
+		t.Fatalf("expected .doc to exist: %v", err)
 	}
 
 	gitDir := filepath.Join(dir, ".git")
@@ -810,8 +813,8 @@ func TestRunInit_NoGitWhenDisabled_FreshDir(t *testing.T) {
 		t.Fatalf("exit code = %d, want %d", code, exitOK)
 	}
 
-	if _, err := os.Stat(filepath.Join(dir, ".doc", "tiki")); err != nil {
-		t.Fatalf("expected .doc/tiki: %v", err)
+	if _, err := os.Stat(filepath.Join(dir, ".doc")); err != nil {
+		t.Fatalf("expected .doc: %v", err)
 	}
 	if _, err := os.Stat(filepath.Join(dir, ".git")); err == nil {
 		t.Error(".git should not exist with TIKI_STORE_GIT=false")
@@ -828,8 +831,8 @@ func TestRunInit_NoGitWhenDisabled_ExistingEmptyDir(t *testing.T) {
 		t.Fatalf("exit code = %d, want %d", code, exitOK)
 	}
 
-	if _, err := os.Stat(filepath.Join(dir, ".doc", "tiki")); err != nil {
-		t.Fatalf("expected .doc/tiki: %v", err)
+	if _, err := os.Stat(filepath.Join(dir, ".doc")); err != nil {
+		t.Fatalf("expected .doc: %v", err)
 	}
 	if _, err := os.Stat(filepath.Join(dir, ".git")); err == nil {
 		t.Error(".git should not exist with TIKI_STORE_GIT=false")
