@@ -3,6 +3,7 @@ package tikistore
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	taskpkg "github.com/boolean-maybe/tiki/task"
@@ -173,6 +174,55 @@ func TestRecursiveLoad_NestedSavePreservesPath(t *testing.T) {
 	}
 	if _, err := os.Stat(filepath.Join(root, "FFFFFF.md")); !os.IsNotExist(err) {
 		t.Errorf("duplicate created at root; save ignored FilePath: err=%v", err)
+	}
+}
+
+// TestPhase10_PathForIDReflectsFileMove proves the invariant the plan calls
+// out: a `[[ID]]` link must survive a file move. The rewriter consults
+// PathForID each time, so what really needs to work is the store tracking
+// the current on-disk path after a file is moved and the store reloaded.
+//
+// Without this, a moved document would still resolve to its stale original
+// path, and any consumer that reads or stages the file via PathForID would
+// silently hit the wrong location.
+func TestPhase10_PathForIDReflectsFileMove(t *testing.T) {
+	root := t.TempDir()
+	origDir := filepath.Join(root, "projects", "old")
+	origPath := filepath.Join(origDir, "MOVEDD.md")
+	writeDoc(t, origPath, "MOVEDD", "movable doc")
+
+	store, err := NewTikiStore(root)
+	if err != nil {
+		t.Fatalf("NewTikiStore: %v", err)
+	}
+	if !pathEndsWith(store.PathForID("MOVEDD"), filepath.Join("projects", "old", "MOVEDD.md")) {
+		t.Fatalf("initial PathForID wrong: %q", store.PathForID("MOVEDD"))
+	}
+
+	// Simulate the user moving the file on disk (e.g. via `git mv` or a
+	// file manager) — same id, new location, no content change.
+	newDir := filepath.Join(root, "projects", "new", "nested")
+	newPath := filepath.Join(newDir, "MOVEDD.md")
+	//nolint:gosec // G301: 0755 matches the rest of the test suite's temp-dir perms
+	if err := os.MkdirAll(newDir, 0755); err != nil {
+		t.Fatalf("mkdir new: %v", err)
+	}
+	if err := os.Rename(origPath, newPath); err != nil {
+		t.Fatalf("rename: %v", err)
+	}
+
+	if err := store.Reload(); err != nil {
+		t.Fatalf("Reload: %v", err)
+	}
+
+	got := store.PathForID("MOVEDD")
+	if !pathEndsWith(got, filepath.Join("projects", "new", "nested", "MOVEDD.md")) {
+		t.Errorf("PathForID did not reflect move; got %q, want path ending in projects/new/nested/MOVEDD.md", got)
+	}
+	// Stale path must not still be returned — a consumer that trusts it
+	// would edit/stage a file that no longer exists.
+	if strings.Contains(got, filepath.Join("projects", "old")) {
+		t.Errorf("PathForID still points to pre-move location: %q", got)
 	}
 }
 
