@@ -98,6 +98,30 @@ func splitAndTrim(s string) []string {
 	return result
 }
 
+// installDefaultLocalWorkflow writes the bundled default workflow to
+// `.doc/workflow.yaml` when no such file exists yet. Returning nil without
+// writing is correct behavior for a pre-existing file — users who maintain
+// their own local workflow.yaml must have it preserved across re-inits.
+// Phase 7 requires project-local workflow state so a fresh clone of an
+// initialized repo is self-contained; this helper is the default-workflow
+// equivalent of the explicit `--workflow <source>` install path.
+func installDefaultLocalWorkflow() error {
+	path := filepath.Join(config.GetDocDir(), "workflow.yaml")
+	if _, err := os.Stat(path); err == nil {
+		return nil
+	}
+	results, err := config.InstallWorkflowFromContent(config.GetDefaultWorkflowYAML(), config.ScopeLocal)
+	if err != nil {
+		return err
+	}
+	for _, r := range results {
+		if r.Changed {
+			fmt.Println("installed", r.Path)
+		}
+	}
+	return nil
+}
+
 // ensureDirectory creates the directory if it doesn't exist and verifies it is
 // a directory if it does. No git side effects — safe to call before config load
 // and before os.Chdir.
@@ -256,6 +280,37 @@ func runInit(args []string) int {
 	}
 
 	if config.IsProjectInitialized() {
+		// Phase 7 backfill: an existing `.doc/` from a partial init or a
+		// legacy unified project may lack the local workflow.yaml that
+		// Phase 7 made part of the init contract. Keep the re-init path
+		// idempotent for compliant projects while bringing partial/legacy
+		// ones up to spec.
+		//
+		// --workflow <source> on re-init is an explicit user request;
+		// install the requested workflow unconditionally (overwrite any
+		// stale local file), matching the semantics of
+		// `tiki workflow install <source> --local`. Without this branch,
+		// the user's explicit request would be silently ignored.
+		//
+		// Default re-init is write-if-absent so hand-edited workflows
+		// survive.
+		if opts.WorkflowName != "" {
+			results, err := config.InstallWorkflowFromContent(opts.WorkflowContent, config.ScopeLocal)
+			if err != nil {
+				_, _ = fmt.Fprintf(os.Stderr, "error: install workflow %q: %v\n", opts.WorkflowName, err)
+				return exitStartupFailure
+			}
+			for _, r := range results {
+				if r.Changed {
+					fmt.Println("installed", r.Path)
+				}
+			}
+		} else {
+			if err := installDefaultLocalWorkflow(); err != nil {
+				_, _ = fmt.Fprintf(os.Stderr, "error: install local workflow: %v\n", err)
+				return exitStartupFailure
+			}
+		}
 		fmt.Println("project already initialized")
 		return exitOK
 	}
@@ -290,21 +345,24 @@ func runInit(args []string) int {
 	if config.GetStoreGit() {
 		gitAdd = tikistore.NewGitAdder("")
 	}
-	if err := config.BootstrapSystem(createSamples, gitAdd); err != nil {
-		_, _ = fmt.Fprintf(os.Stderr, "error: bootstrap: %v\n", err)
+
+	// Phase 7 ordering: install the project-local workflow BEFORE
+	// BootstrapSystem seeds bundled samples. BootstrapSystem validates each
+	// sample's frontmatter against the active workflow registry, and the
+	// registry-precedence chain picks the highest-priority workflow.yaml
+	// among {user-global, project-local, cwd}. Without the project-local
+	// file in place first, samples would be validated against whichever
+	// workflow the user has at the global level — a legacy or custom
+	// global workflow whose statuses don't match the bundled kanban
+	// samples would cause every sample to be silently skipped.
+	//
+	// Directory creation must happen before the install because
+	// InstallWorkflowFromContent(..., ScopeLocal) gates on
+	// IsProjectInitialized(). EnsureDirs is idempotent, so the
+	// BootstrapSystem call below re-creates them without side effects.
+	if err := config.EnsureDirs(); err != nil {
+		_, _ = fmt.Fprintf(os.Stderr, "error: ensure directories: %v\n", err)
 		return exitStartupFailure
-	}
-
-	if len(aiSkills) > 0 {
-		if err := config.InstallAISkills(aiSkills, tikiSkillMdContent, dokiSkillMdContent); err != nil {
-			_, _ = fmt.Fprintf(os.Stderr, "warning: some AI skills failed to install: %v\n", err)
-		} else {
-			fmt.Printf("installed AI skills for: %s\n", strings.Join(aiSkills, ", "))
-		}
-	}
-
-	if err := config.InstallDefaultWorkflow(); err != nil {
-		_, _ = fmt.Fprintf(os.Stderr, "warning: install default workflow: %v\n", err)
 	}
 
 	if opts.WorkflowName != "" {
@@ -318,6 +376,36 @@ func runInit(args []string) int {
 				fmt.Println("installed", r.Path)
 			}
 		}
+	} else {
+		// Default-workflow install (write-if-absent). Failure is fatal for
+		// the same reason as the explicit --workflow path: a project that
+		// reports "project initialized" but lacks the required local
+		// workflow would silently fall back to global user state.
+		if err := installDefaultLocalWorkflow(); err != nil {
+			_, _ = fmt.Fprintf(os.Stderr, "error: install local workflow: %v\n", err)
+			return exitStartupFailure
+		}
+	}
+
+	if err := config.BootstrapSystem(createSamples, gitAdd); err != nil {
+		_, _ = fmt.Fprintf(os.Stderr, "error: bootstrap: %v\n", err)
+		return exitStartupFailure
+	}
+
+	if len(aiSkills) > 0 {
+		if err := config.InstallAISkills(aiSkills, tikiSkillMdContent, dokiSkillMdContent); err != nil {
+			_, _ = fmt.Fprintf(os.Stderr, "warning: some AI skills failed to install: %v\n", err)
+		} else {
+			fmt.Printf("installed AI skills for: %s\n", strings.Join(aiSkills, ", "))
+		}
+	}
+
+	// User-level fallback install runs last and is best-effort: the
+	// project-local workflow already exists, so this only seeds a user
+	// default for future projects that have no local workflow of their
+	// own.
+	if err := config.InstallDefaultWorkflow(); err != nil {
+		_, _ = fmt.Fprintf(os.Stderr, "warning: install default workflow: %v\n", err)
 	}
 
 	fmt.Println("project initialized")

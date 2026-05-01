@@ -71,10 +71,13 @@ func (s *InMemoryStore) notifyListeners() {
 	}
 }
 
-// CreateTask adds a new task to the store. CreateTask is a workflow
-// creation path, so the resulting task is always workflow-capable. The
-// presence-aware document-first entry point is CreateDocument, which calls
-// storeNewDocumentLocked directly.
+// CreateTask adds a new task to the store. InMemoryStore is a test fixture
+// and deliberately keeps the pre-Phase-7 "always workflow" semantics so that
+// ~150 existing call sites don't need to set IsWorkflow explicitly. The
+// production TikiStore (tikistore.TikiStore.CreateTask) honors the caller's
+// IsWorkflow so piped/ruki capture against workflows with no default status
+// produces plain documents. Tests that specifically need plain-doc
+// semantics should call CreateDocument instead.
 func (s *InMemoryStore) CreateTask(newTask *task.Task) error {
 	newTask.IsWorkflow = true
 	return s.storeNewDocumentLocked(newTask)
@@ -303,19 +306,22 @@ func (s *InMemoryStore) NewTaskTemplate() (*task.Task, error) {
 		return nil, fmt.Errorf("failed to generate unique task ID after %d attempts", maxIDAttempts)
 	}
 
+	defaultStatus := task.DefaultStatus()
 	t := &task.Task{
-		ID:         taskID,
-		Type:       task.DefaultType(),
-		Status:     task.DefaultStatus(),
-		Priority:   3,
-		Points:     1,
-		Tags:       []string{"idea"},
-		CreatedAt:  time.Now(),
-		CreatedBy:  "memory-user",
-		IsWorkflow: true,
+		ID:        taskID,
+		CreatedAt: time.Now(),
+		CreatedBy: "memory-user",
 	}
 
-	t.CustomFields = buildMemoryFieldDefaults()
+	if defaultStatus != "" {
+		t.Status = defaultStatus
+		t.Type = task.DefaultType()
+		t.Priority = 3
+		t.Points = 1
+		t.Tags = []string{"idea"}
+		t.IsWorkflow = true
+		t.CustomFields = buildMemoryFieldDefaults()
+	}
 
 	return t, nil
 }

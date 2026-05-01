@@ -227,14 +227,21 @@ func TestNewStatusRegistry_Empty(t *testing.T) {
 	}
 }
 
-func TestNewStatusRegistry_RequiresDefault(t *testing.T) {
+// TestNewStatusRegistry_AllowsNoDefault verifies the Phase 7 relaxation:
+// a workflow without any `default: true` status loads successfully, and
+// DefaultKey() returns "" as the signal that new captures should be
+// created as plain documents rather than workflow tasks.
+func TestNewStatusRegistry_AllowsNoDefault(t *testing.T) {
 	defs := []StatusDef{
 		{Key: "alpha", Label: "Alpha", Done: true},
 		{Key: "beta", Label: "Beta"},
 	}
-	_, err := NewStatusRegistry(defs)
-	if err == nil {
-		t.Fatal("expected error when no status is marked default")
+	reg, err := NewStatusRegistry(defs)
+	if err != nil {
+		t.Fatalf("unexpected error when no status is marked default: %v", err)
+	}
+	if reg.DefaultKey() != "" {
+		t.Errorf("DefaultKey() = %q, want empty string", reg.DefaultKey())
 	}
 }
 

@@ -55,7 +55,10 @@ func TestValidateStatus(t *testing.T) {
 		{"valid review", &Task{Status: StatusReview}, false},
 		{"valid done", &Task{Status: StatusDone}, false},
 		{"invalid status", &Task{Status: "invalid"}, true},
-		{"empty status", &Task{Status: ""}, true},
+		// Phase 1 presence-aware contract: an empty status means absent,
+		// not invalid. Plain docs and sparse workflow docs can legally omit
+		// status.
+		{"empty status is absent, not invalid", &Task{Status: ""}, false},
 	}
 
 	for _, tt := range tests {
@@ -79,7 +82,10 @@ func TestValidateType(t *testing.T) {
 		{"valid spike", &Task{Type: TypeSpike}, false},
 		{"valid epic", &Task{Type: TypeEpic}, false},
 		{"invalid type", &Task{Type: "invalid"}, true},
-		{"empty type", &Task{Type: ""}, true},
+		// Phase 1 presence-aware contract: an empty type means absent,
+		// not invalid. Plain docs and sparse workflow docs can legally
+		// omit type.
+		{"empty type is absent, not invalid", &Task{Type: ""}, false},
 	}
 
 	for _, tt := range tests {
@@ -101,7 +107,10 @@ func TestValidatePriority(t *testing.T) {
 		{"valid priority 1", &Task{Priority: 1}, false},
 		{"valid priority 3", &Task{Priority: 3}, false},
 		{"valid priority 5", &Task{Priority: 5}, false},
-		{"invalid priority 0", &Task{Priority: 0}, true},
+		// Phase 1 presence-aware contract: zero priority means absent,
+		// not invalid. Plain docs and sparse workflow docs can legally
+		// omit priority.
+		{"priority 0 is absent, not invalid", &Task{Priority: 0}, false},
 		{"invalid priority 6", &Task{Priority: 6}, true},
 		{"invalid priority -1", &Task{Priority: -1}, true},
 		{"invalid priority 10", &Task{Priority: 10}, true},

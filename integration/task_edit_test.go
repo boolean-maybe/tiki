@@ -144,12 +144,13 @@ func TestEditSource_DuplicateCaseIDs_Repro(t *testing.T) {
 
 	// Create a task with lowercase suffix ID directly in the store.
 	task := &taskpkg.Task{
-		ID:       "6EQDUE",
-		Title:    "Edit Source Duplicate",
-		Type:     taskpkg.TypeStory,
-		Status:   taskpkg.StatusBacklog,
-		Priority: 3,
-		Points:   1,
+		ID:         "6EQDUE",
+		Title:      "Edit Source Duplicate",
+		Type:       taskpkg.TypeStory,
+		Status:     taskpkg.StatusBacklog,
+		Priority:   3,
+		Points:     1,
+		IsWorkflow: true,
 	}
 	if err := ta.TaskStore.CreateTask(task); err != nil {
 		t.Fatalf("CreateTask failed: %v", err)

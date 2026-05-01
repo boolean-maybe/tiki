@@ -145,15 +145,17 @@ func TestInMemoryStore_UpdateTask(t *testing.T) {
 	// keeps the two backends behaviorally consistent.
 	t.Run("preserves IsWorkflow when caller passes a fresh value", func(t *testing.T) {
 		s := NewInMemoryStore()
-		// CreateTask already flips IsWorkflow=true, matching the real store.
-		if err := s.CreateTask(&taskpkg.Task{ID: "WFMEM1", Title: "workflow"}); err != nil {
+		// Post-Phase-7: CreateTask honors the caller's IsWorkflow instead of
+		// forcing it true, so explicit opt-in is required for a workflow item.
+		if err := s.CreateTask(&taskpkg.Task{ID: "WFMEM1", Title: "workflow", IsWorkflow: true}); err != nil {
 			t.Fatalf("CreateTask() error = %v", err)
 		}
 		if !s.GetTask("WFMEM1").IsWorkflow {
-			t.Fatal("precondition: CreateTask should set IsWorkflow=true")
+			t.Fatal("precondition: CreateTask should persist IsWorkflow=true")
 		}
 
-		// Fresh Task — no IsWorkflow set, zero-value false.
+		// Fresh Task — no IsWorkflow set, zero-value false. UpdateTask must
+		// still carry it forward from the stored workflow task.
 		fresh := &taskpkg.Task{ID: "WFMEM1", Title: "updated"}
 		if err := s.UpdateTask(fresh); err != nil {
 			t.Fatalf("UpdateTask() error = %v", err)
@@ -281,9 +283,9 @@ func TestInMemoryStore_Search(t *testing.T) {
 		tb.Helper()
 		s := NewInMemoryStore()
 		for _, task := range []*taskpkg.Task{
-			{ID: "S00001", Title: "Alpha feature", Description: "desc alpha", Tags: []string{"ui", "frontend"}},
-			{ID: "S00002", Title: "Beta Bug", Description: "beta description", Tags: []string{"backend"}},
-			{ID: "S00003", Title: "Gamma chore", Description: "third task"},
+			{ID: "S00001", Title: "Alpha feature", Description: "desc alpha", Tags: []string{"ui", "frontend"}, IsWorkflow: true},
+			{ID: "S00002", Title: "Beta Bug", Description: "beta description", Tags: []string{"backend"}, IsWorkflow: true},
+			{ID: "S00003", Title: "Gamma chore", Description: "third task", IsWorkflow: true},
 		} {
 			if err := s.CreateTask(task); err != nil {
 				tb.Fatalf("CreateTask() error = %v", err)
@@ -517,7 +519,7 @@ func TestInMemoryStore_GetAllTasks(t *testing.T) {
 	t.Run("3 tasks returns len 3", func(t *testing.T) {
 		s := NewInMemoryStore()
 		for _, id := range []string{"ALL001", "ALL002", "ALL003"} {
-			if err := s.CreateTask(&taskpkg.Task{ID: id}); err != nil {
+			if err := s.CreateTask(&taskpkg.Task{ID: id, IsWorkflow: true}); err != nil {
 				t.Fatalf("CreateTask(%s) error = %v", id, err)
 			}
 		}
@@ -529,7 +531,7 @@ func TestInMemoryStore_GetAllTasks(t *testing.T) {
 
 	t.Run("returns same pointers, not copies", func(t *testing.T) {
 		s := NewInMemoryStore()
-		original := &taskpkg.Task{ID: "PTR001", Title: "Pointer Task"}
+		original := &taskpkg.Task{ID: "PTR001", Title: "Pointer Task", IsWorkflow: true}
 		if err := s.CreateTask(original); err != nil {
 			t.Fatalf("CreateTask() error = %v", err)
 		}
@@ -592,7 +594,7 @@ func TestSearch_FilterRejectsAll(t *testing.T) {
 
 func TestSearch_MatchesTags(t *testing.T) {
 	s := NewInMemoryStore()
-	if err := s.CreateTask(&taskpkg.Task{ID: "TAG001", Title: "No match in title", Tags: []string{"backend"}}); err != nil {
+	if err := s.CreateTask(&taskpkg.Task{ID: "TAG001", Title: "No match in title", Tags: []string{"backend"}, IsWorkflow: true}); err != nil {
 		t.Fatalf("failed to create task: %v", err)
 	}
 

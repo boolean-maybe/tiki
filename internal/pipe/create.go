@@ -54,7 +54,10 @@ func HasPositionalArgs(args []string) bool {
 }
 
 // CreateTaskFromReader reads piped input, parses it into title/description,
-// and creates a new tiki task. Returns the task ID (e.g. "TIKI-ABC123").
+// and creates a new document. When the active workflow has a default status,
+// the result is a workflow task; otherwise the result is a plain doc with
+// only id and title in the frontmatter. Returns the generated bare document
+// id (e.g. "ABC123").
 func CreateTaskFromReader(r io.Reader) (string, error) {
 	// Suppress info/debug logs for the non-interactive pipe path.
 	// The pipe path bypasses bootstrap (which normally configures logging),

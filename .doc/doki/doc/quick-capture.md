@@ -1,8 +1,20 @@
 # Quick capture
 
-Create tiki tasks straight from the command line
+Create documents straight from the command line.
 
 First line becomes the title. Everything after becomes the description.
+
+## Workflow task vs plain document
+
+Whether the new document is a **workflow task** or a **plain document** is decided by the active
+workflow:
+
+- Workflows with a `default: true` status (kanban, todo, bug-tracker) capture input as **workflow
+  tasks** — status, type, priority, and points are filled in from registry defaults, and the new
+  item shows up on board/list views.
+- Workflows with no `default: true` status capture input as **plain documents** — only `id:` and
+  `title:` go in the frontmatter, and the document stays out of workflow views. Useful for
+  notes-only projects where piped input should be a note, not a task.
 
 ## Examples
 

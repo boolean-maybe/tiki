@@ -775,6 +775,7 @@ func TestSaveTask_Recurrence(t *testing.T) {
 				Priority:    3,
 				Recurrence:  tt.recurrence,
 				Description: "Test description",
+				IsWorkflow:  true,
 			}
 
 			if err := store.CreateTask(task); err != nil {
@@ -1001,6 +1002,7 @@ func TestSaveTask_Due(t *testing.T) {
 				Priority:    3,
 				Due:         dueTime,
 				Description: "Test description",
+				IsWorkflow:  true,
 			}
 
 			// Save task

@@ -5,7 +5,15 @@ import (
 )
 
 // RegisterFieldValidators registers standard field validators with the gate.
-// Each validator runs on both create and update operations.
+// Every validator runs on every create and update. Gating lives inside each
+// validator: workflow-field validators (ValidateStatus, ValidateType,
+// ValidatePriority, ValidatePoints, ValidateDue, ValidateRecurrence) treat a
+// zero value as absent and return success, matching the Phase 1
+// presence-aware contract. This ensures sparse workflow creates succeed in
+// no-default workflows and closes the IsWorkflow=false update-bypass hole
+// where a caller's flag could skip validation of a present-and-invalid
+// field — the store's workflow carry-forward would then persist the bad
+// value.
 func RegisterFieldValidators(g *TaskMutationGate) {
 	for _, fn := range task.AllValidators() {
 		wrapped := wrapFieldValidator(fn)

@@ -30,10 +30,10 @@ func newDepsTestEnv(t *testing.T) (*DepsController, store.Store) {
 	taskStore := store.NewInMemoryStore()
 
 	tasks := []*task.Task{
-		{ID: testCtxID, Title: "Context", Status: task.StatusReady, Type: task.TypeStory, Priority: 3, DependsOn: []string{testDepID}},
-		{ID: testBlkID, Title: "Blocker", Status: task.StatusReady, Type: task.TypeStory, Priority: 3, DependsOn: []string{testCtxID}},
-		{ID: testDepID, Title: "Depends", Status: task.StatusReady, Type: task.TypeStory, Priority: 3},
-		{ID: testFreeID, Title: "Free", Status: task.StatusReady, Type: task.TypeStory, Priority: 3},
+		{ID: testCtxID, Title: "Context", Status: task.StatusReady, Type: task.TypeStory, Priority: 3, DependsOn: []string{testDepID}, IsWorkflow: true},
+		{ID: testBlkID, Title: "Blocker", Status: task.StatusReady, Type: task.TypeStory, Priority: 3, DependsOn: []string{testCtxID}, IsWorkflow: true},
+		{ID: testDepID, Title: "Depends", Status: task.StatusReady, Type: task.TypeStory, Priority: 3, IsWorkflow: true},
+		{ID: testFreeID, Title: "Free", Status: task.StatusReady, Type: task.TypeStory, Priority: 3, IsWorkflow: true},
 	}
 	for _, tt := range tasks {
 		if err := taskStore.CreateTask(tt); err != nil {
@@ -440,10 +440,10 @@ func TestDepsController_DeleteTask_GateError(t *testing.T) {
 	taskStore := store.NewInMemoryStore()
 
 	tasks := []*task.Task{
-		{ID: testCtxID, Title: "Context", Status: task.StatusReady, Type: task.TypeStory, Priority: 3, DependsOn: []string{testDepID}},
-		{ID: testBlkID, Title: "Blocker", Status: task.StatusReady, Type: task.TypeStory, Priority: 3, DependsOn: []string{testCtxID}},
-		{ID: testDepID, Title: "Depends", Status: task.StatusReady, Type: task.TypeStory, Priority: 3},
-		{ID: testFreeID, Title: "Free", Status: task.StatusReady, Type: task.TypeStory, Priority: 3},
+		{ID: testCtxID, Title: "Context", Status: task.StatusReady, Type: task.TypeStory, Priority: 3, DependsOn: []string{testDepID}, IsWorkflow: true},
+		{ID: testBlkID, Title: "Blocker", Status: task.StatusReady, Type: task.TypeStory, Priority: 3, DependsOn: []string{testCtxID}, IsWorkflow: true},
+		{ID: testDepID, Title: "Depends", Status: task.StatusReady, Type: task.TypeStory, Priority: 3, IsWorkflow: true},
+		{ID: testFreeID, Title: "Free", Status: task.StatusReady, Type: task.TypeStory, Priority: 3, IsWorkflow: true},
 	}
 	for _, tt := range tasks {
 		if err := taskStore.CreateTask(tt); err != nil {
@@ -485,10 +485,10 @@ func TestDepsController_MoveTask_UpdateError(t *testing.T) {
 	taskStore := store.NewInMemoryStore()
 
 	tasks := []*task.Task{
-		{ID: testCtxID, Title: "Context", Status: task.StatusReady, Type: task.TypeStory, Priority: 3, DependsOn: []string{testDepID}},
-		{ID: testBlkID, Title: "Blocker", Status: task.StatusReady, Type: task.TypeStory, Priority: 3, DependsOn: []string{testCtxID}},
-		{ID: testDepID, Title: "Depends", Status: task.StatusReady, Type: task.TypeStory, Priority: 3},
-		{ID: testFreeID, Title: "Free", Status: task.StatusReady, Type: task.TypeStory, Priority: 3},
+		{ID: testCtxID, Title: "Context", Status: task.StatusReady, Type: task.TypeStory, Priority: 3, DependsOn: []string{testDepID}, IsWorkflow: true},
+		{ID: testBlkID, Title: "Blocker", Status: task.StatusReady, Type: task.TypeStory, Priority: 3, DependsOn: []string{testCtxID}, IsWorkflow: true},
+		{ID: testDepID, Title: "Depends", Status: task.StatusReady, Type: task.TypeStory, Priority: 3, IsWorkflow: true},
+		{ID: testFreeID, Title: "Free", Status: task.StatusReady, Type: task.TypeStory, Priority: 3, IsWorkflow: true},
 	}
 	for _, tt := range tasks {
 		if err := taskStore.CreateTask(tt); err != nil {
@@ -568,23 +568,25 @@ func newDepsNavEnv(t *testing.T, blockers int, allTasks int, depends int, laneCo
 		contextDepends = append(contextDepends, fmt.Sprintf("TIKI-DEP%03d", i))
 	}
 	if err := taskStore.CreateTask(&task.Task{
-		ID:        contextID,
-		Title:     "Context",
-		Status:    task.StatusReady,
-		Type:      task.TypeStory,
-		Priority:  3,
-		DependsOn: contextDepends,
+		ID:         contextID,
+		Title:      "Context",
+		Status:     task.StatusReady,
+		Type:       task.TypeStory,
+		Priority:   3,
+		DependsOn:  contextDepends,
+		IsWorkflow: true,
 	}); err != nil {
 		t.Fatalf("create context: %v", err)
 	}
 
 	for i := 0; i < depends; i++ {
 		if err := taskStore.CreateTask(&task.Task{
-			ID:       fmt.Sprintf("TIKI-DEP%03d", i),
-			Title:    "Depends",
-			Status:   task.StatusReady,
-			Type:     task.TypeStory,
-			Priority: 3,
+			ID:         fmt.Sprintf("TIKI-DEP%03d", i),
+			Title:      "Depends",
+			Status:     task.StatusReady,
+			Type:       task.TypeStory,
+			Priority:   3,
+			IsWorkflow: true,
 		}); err != nil {
 			t.Fatalf("create depends task: %v", err)
 		}
@@ -592,12 +594,13 @@ func newDepsNavEnv(t *testing.T, blockers int, allTasks int, depends int, laneCo
 
 	for i := 0; i < blockers; i++ {
 		if err := taskStore.CreateTask(&task.Task{
-			ID:        fmt.Sprintf("TIKI-BLK%03d", i),
-			Title:     "Blocker",
-			Status:    task.StatusReady,
-			Type:      task.TypeStory,
-			Priority:  3,
-			DependsOn: []string{contextID},
+			ID:         fmt.Sprintf("TIKI-BLK%03d", i),
+			Title:      "Blocker",
+			Status:     task.StatusReady,
+			Type:       task.TypeStory,
+			Priority:   3,
+			DependsOn:  []string{contextID},
+			IsWorkflow: true,
 		}); err != nil {
 			t.Fatalf("create blocker task: %v", err)
 		}
@@ -605,11 +608,12 @@ func newDepsNavEnv(t *testing.T, blockers int, allTasks int, depends int, laneCo
 
 	for i := 0; i < allTasks; i++ {
 		if err := taskStore.CreateTask(&task.Task{
-			ID:       fmt.Sprintf("TIKI-ALL%03d", i),
-			Title:    "All",
-			Status:   task.StatusReady,
-			Type:     task.TypeStory,
-			Priority: 3,
+			ID:         fmt.Sprintf("TIKI-ALL%03d", i),
+			Title:      "All",
+			Status:     task.StatusReady,
+			Type:       task.TypeStory,
+			Priority:   3,
+			IsWorkflow: true,
 		}); err != nil {
 			t.Fatalf("create all lane task: %v", err)
 		}

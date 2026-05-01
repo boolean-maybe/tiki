@@ -70,13 +70,13 @@ func TestRunSelectQuery_UserFromConfigNoGit(t *testing.T) {
 
 	if err := s.CreateTask(&task.Task{
 		ID: "TIKI-XYZ001", Title: "Mine", Status: "ready",
-		Priority: 2, Assignee: "Configured Alice",
+		Priority: 2, Assignee: "Configured Alice", IsWorkflow: true,
 	}); err != nil {
 		t.Fatalf("CreateTask: %v", err)
 	}
 	if err := s.CreateTask(&task.Task{
 		ID: "TIKI-XYZ002", Title: "Theirs", Status: "ready",
-		Priority: 2, Assignee: "Bob",
+		Priority: 2, Assignee: "Bob", IsWorkflow: true,
 	}); err != nil {
 		t.Fatalf("CreateTask: %v", err)
 	}
@@ -99,7 +99,7 @@ func TestRunQuery_UpdateAssigneeUserInNoGit(t *testing.T) {
 	s := newNoGitStoreWithIdentity(t, "Configured Alice", "alice@example.com")
 
 	if err := s.CreateTask(&task.Task{
-		ID: "TIKI-UPD001", Title: "Assign me", Status: "ready", Priority: 2,
+		ID: "TIKI-UPD001", Title: "Assign me", Status: "ready", Priority: 2, IsWorkflow: true,
 	}); err != nil {
 		t.Fatalf("CreateTask: %v", err)
 	}
@@ -144,7 +144,7 @@ func TestRunQuery_UserEmailOnlyConfig(t *testing.T) {
 	}
 	if err := s.CreateTask(&task.Task{
 		ID: "TIKI-EML001", Title: "Mine", Status: "ready",
-		Priority: 2, Assignee: "me@example.com",
+		Priority: 2, Assignee: "me@example.com", IsWorkflow: true,
 	}); err != nil {
 		t.Fatalf("CreateTask: %v", err)
 	}
