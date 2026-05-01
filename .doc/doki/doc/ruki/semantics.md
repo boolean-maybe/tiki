@@ -350,10 +350,10 @@ Example:
 select id, title where status = "done" | run("myscript $1 $2")
 ```
 
-For a task with `id = "TIKI-ABC123"` and `title = "Fix bug"`, the command becomes:
+For a task with `id = "ABC123"` and `title = "Fix bug"`, the command becomes:
 
 ```bash
-myscript "TIKI-ABC123" "Fix bug"
+myscript "ABC123" "Fix bug"
 ```
 
 Pipe `| run(...)` on select is distinct from trigger `run()` actions. See [Triggers](triggers.md) for the difference.
@@ -379,9 +379,9 @@ select id where id = id() | clipboard()
 select id, title where status = "done" | clipboard()
 ```
 
-For a single task with `id = "TIKI-ABC123"` and `title = "Fix bug"`, the clipboard receives:
+For a single task with `id = "ABC123"` and `title = "Fix bug"`, the clipboard receives:
 
 ```text
-TIKI-ABC123	Fix bug
+ABC123	Fix bug
 ```
 

@@ -1,8 +1,14 @@
 # Customization
 
-tiki is highly customizable. `workflow.yaml` lets you define your workflow statuses and configure views (plugins) for 
-how tikis are displayed and organized. Statuses define the lifecycle stages your tasks move through, 
-while plugins control what you see and how you interact with your work. This section covers both.
+tiki is highly customizable. `workflow.yaml` lets you define your workflow statuses, types, custom fields, and
+the **views** that shape how documents are displayed and how you interact with them. Statuses define the
+lifecycle stages tasks move through; views decide what you see on each screen (board lanes, list filters,
+wiki pages, or document detail) and which keyboard actions are available. This section covers both.
+
+> **Version.** This reference describes the 0.6.0 `workflow.yaml` schema that ships with unified documents.
+> Pre-0.6.0 `type: tiki` / `type: doki` plugins, `views: plugins:` wrappers, `fetcher:`/`url:`/`text:`, and
+> `view: compact|expanded` are no longer accepted. See [Workflow format versions](../workflow-format.md)
+> for the migration map and rejection-error table.
 
 ## Description
 
@@ -19,8 +25,9 @@ description: |
 
 ## Statuses
 
-Workflow statuses are defined in `workflow.yaml` under the `statuses:` key. Every tiki project must define 
-its statuses here — there is no hardcoded fallback. See [Custom statuses and types](custom-status-type.md). The default `workflow.yaml` ships with:
+Workflow statuses are defined in `workflow.yaml` under the `statuses:` key. Every project must define
+its statuses here — there is no hardcoded fallback. See
+[Custom statuses and types](custom-status-type.md). The default `workflow.yaml` ships with:
 
 ```yaml
 statuses:
@@ -51,15 +58,17 @@ Each status has:
 - `label` — display name shown in the UI (defaults to key when omitted)
 - `emoji` — emoji shown alongside the label
 - `active` — marks the status as "active work" (used for activity tracking)
-- `default` — the status assigned to new tikis (exactly one required)
+- `default` — the status assigned to new workflow documents (exactly one required)
 - `done` — marks the status as "completed" (exactly one required)
 
-You can customize these to match your team's workflow. All filters and actions in view definitions (see below) must reference valid status keys.
+You can customize these to match your team's workflow. All filters and actions in view definitions
+(see below) must reference valid status keys.
 
 ## Types
 
-Task types are defined in `workflow.yaml` under the `types:` key. A missing `types:` section is an error.
-See [Custom statuses and types](custom-status-type.md) for the full validation rules. The default `workflow.yaml` ships with:
+Task types are defined in `workflow.yaml` under the `types:` key. A missing `types:` section is an
+error. See [Custom statuses and types](custom-status-type.md) for the full validation rules. The
+default `workflow.yaml` ships with:
 
 ```yaml
 types:
@@ -82,12 +91,12 @@ Each type has:
 - `label` — display name shown in the UI (defaults to key when omitted)
 - `emoji` — emoji shown alongside the label
 
-Mark one type `default: true` to use it as the creation default for new tikis.
+Mark one type `default: true` to use it as the creation default for new workflow documents.
 If no type is marked, the first configured type wins.
 
 ## Task Creation Defaults
 
-When you create a new tiki, field defaults come from two sources:
+When you create a new workflow document, field defaults come from two sources:
 
 **Built-in defaults** (hardcoded, not configurable):
 - `priority` = 3
@@ -113,84 +122,115 @@ fields:
     default: medium
 ```
 
-## Plugins
+## Views
 
-tiki TUI app is much like a lego - everything is a customizable view. Here is, for example,
-how Backlog is defined:
+Every screen in the tiki TUI is a **view**. Views are defined at the top level of `workflow.yaml` under a
+`views:` list. Each view has a `kind:` that decides what it does:
 
-```yaml
-views:
-  plugins:
-    - name: Backlog
-      description: "Tasks waiting to be picked up, sorted by priority"
-      key: "F3"
-      lanes:
-        - name: Backlog
-          columns: 4
-          filter: select where status = "backlog" and type != "epic" order by priority, id
-      actions:
-        - key: "b"
-          label: "Add to board"
-          action: update where id = id() set status="ready"
-```
+| kind | purpose | required fields |
+|---|---|---|
+| `board` | kanban-style lanes with per-lane filters and move actions | `lanes:` |
+| `list` | single-column list view | `lanes:` (typically one) |
+| `wiki` | markdown viewer bound to a document by relative path | `path:` |
+| `detail` | markdown viewer for the currently-selected document | — |
 
-that translates to - show all tikis in the status `backlog`, sort by priority and then by ID arranged visually in 4 columns in a single lane.
-The `actions` section defines a keyboard shortcut `b` that moves the selected tiki to the board by setting its status to `ready`
-You define the name, description, hotkey, and `ruki` expressions for filtering and actions. The `description` is displayed in the header when the view is active. Save this into a `workflow.yaml` file in the config directory
+Views are matched to keyboard shortcuts via `key:`, and at most one view may be marked `default: true` so
+the TUI knows which screen to open on startup.
 
-Likewise the documentation is just a plugin:
+Here is a simple single-lane board called Backlog:
 
 ```yaml
 views:
-  plugins:
-    - name: Docs
-      description: "Project notes and documentation files"
-      type: doki
-      fetcher: file
-      url: "index.md"
-      key: "F2"
+  - name: Backlog
+    label: Backlog
+    description: "Tasks waiting to be picked up, sorted by priority"
+    kind: board
+    key: "F3"
+    lanes:
+      - name: Backlog
+        columns: 4
+        filter: select where status = "backlog" and type != "epic" order by priority, id
+    actions:
+      - key: "b"
+        label: "Add to board"
+        action: update where id = id() set status="ready"
 ```
 
-that translates to - show `index.md` file located under `.doc/doki`
-installed in the same way
+This shows every document in `status = "backlog"`, sorts by priority and then id, and arranges them visually
+in 4 columns inside a single lane. The `actions:` list defines a keyboard shortcut `b` that moves the
+selected document to the board by setting its status to `ready`.
 
-### Multi-lane plugin
-
-Backlog is a pretty simple plugin in that it displays all tikis in a single lane. Multi-lane tiki plugins offer functionality
-similar to that of the board. You can define multiple lanes per view and move tikis around with Shift-Left/Shift-Right
-much like in the board. You can create a multi-lane plugin by defining multiple lanes in its definition and assigning
-actions to each lane. An action defines what happens when you move a tiki into the lane. Here is a multi-lane plugin
-definition that roughly mimics the board:
+A documentation view is simply a `kind: wiki` entry pointing at a relative Markdown file under `.doc/`:
 
 ```yaml
-name: Custom
-key: "F4"
-lanes:
-  - name: Ready
-    columns: 1
-    width: 20
-    filter: select where status = "ready" order by priority, title
-    action: update where id = id() set status="ready"
-  - name: In Progress
-    columns: 1
-    width: 30
-    filter: select where status = "inProgress" order by priority, title
-    action: update where id = id() set status="inProgress"
-  - name: Review
-    columns: 1
-    width: 30
-    filter: select where status = "review" order by priority, title
-    action: update where id = id() set status="review"
-  - name: Done
-    columns: 1
-    width: 20
-    filter: select where status = "done" order by priority, title
-    action: update where id = id() set status="done"
+views:
+  - name: Docs
+    label: Docs
+    description: "Project notes and documentation files"
+    kind: wiki
+    path: "index.md"
+    key: "F2"
 ```
+
+Path resolution is relative to `.doc/` — this example loads `.doc/index.md`. You can nest any depth:
+`path: "architecture/index.md"` loads `.doc/architecture/index.md`.
+
+### Multi-lane board
+
+A board view with multiple lanes lets you move documents between lanes with `Shift-←`/`Shift-→`, just like
+the main kanban. Each lane declares a `filter:` (a ruki `select` statement) and optionally an `action:` (a
+ruki `update` statement that fires when a document is moved *into* the lane):
+
+```yaml
+views:
+  - name: Custom
+    label: Custom
+    kind: board
+    key: "F4"
+    lanes:
+      - name: Ready
+        columns: 1
+        width: 20
+        filter: select where status = "ready" order by priority, title
+        action: update where id = id() set status="ready"
+      - name: In Progress
+        columns: 1
+        width: 30
+        filter: select where status = "inProgress" order by priority, title
+        action: update where id = id() set status="inProgress"
+      - name: Review
+        columns: 1
+        width: 30
+        filter: select where status = "review" order by priority, title
+        action: update where id = id() set status="review"
+      - name: Done
+        columns: 1
+        width: 20
+        filter: select where status = "done" order by priority, title
+        action: update where id = id() set status="done"
+```
+
+### Compact vs expanded
+
+Board and list views support a `mode:` field that switches between compact and expanded card layouts:
+
+```yaml
+views:
+  - name: Kanban
+    kind: board
+    mode: compact          # or: mode: expanded
+    lanes:
+      - name: Backlog
+        filter: select where status = "backlog"
+```
+
+This replaces the pre-0.6.0 `view: compact`/`view: expanded` field, which is no longer accepted.
 
 ### Lane width
 
-Each lane can optionally specify a `width` as a percentage (1-100) to control how much horizontal space it occupies. Widths are relative proportions — they don't need to sum to 100. If width is omitted, the lane gets an equal share of the remaining space.
+Each lane can optionally specify a `width` as a percentage (1-100) to control how much horizontal
+space it occupies. Widths are relative proportions — they don't need to sum to 100. If width is
+omitted, the lane gets an equal share of the remaining space.
 
 ```yaml
 lanes:
@@ -204,31 +244,52 @@ lanes:
 
 If no lanes specify width, all lanes are equally sized (the default behavior).
 
-### Global plugin actions
+### Global actions
 
-You can define actions under `views.actions` that are available in **all** tiki plugin views. This avoids repeating common shortcuts in every plugin definition.
+You can define actions at the top level of `workflow.yaml` under `actions:`. Top-level actions are **global**
+— they are available from every view:
 
 ```yaml
+actions:
+  - key: "a"
+    label: "Assign to me"
+    kind: ruki
+    action: update where id = id() set assignee=user()
+  - key: F11
+    kind: view
+    label: "Open board"
+    view: kanban          # name of a view declared below
+
 views:
-  actions:
-    - key: "a"
-      label: "Assign to me"
-      action: update where id = id() set assignee=user()
-  plugins:
-    - name: Kanban
-      ...
-    - name: Backlog
-      ...
+  - name: kanban
+    kind: board
+    ...
+  - name: backlog
+    kind: board
+    ...
 ```
 
-Global actions appear in the header alongside per-plugin actions. If a per-plugin action uses the same key as a global action, the per-plugin action takes precedence for that view.
+Two action kinds are supported at the top level:
 
-Global actions come from the single active workflow file — there is no cross-file merging.
+- **`kind: ruki`** — executes a ruki statement (`update`, `select`, `delete`, …). This is the classic
+  keyboard-shortcut behavior. The `action:` field carries the statement. When invoked from a wiki or
+  detail view that received a selection via navigation, that selection threads into the ruki statement
+  so `id()` resolves against it.
+- **`kind: view`** — navigates to another view by name. The `view:` field names the target view. If the
+  target is a `kind: detail` view (or otherwise requires a selection), the current selection is carried
+  through and `require: ["selection:one"]` is honored.
 
-### Per-plugin actions
+When `kind:` is omitted, the parser infers it: `action:` set ⇒ `kind: ruki`, `view:` set ⇒ `kind: view`.
 
-In addition to lane actions that trigger when moving tikis between lanes, you can define plugin-level actions
-that apply to the currently selected tiki via a keyboard shortcut. These shortcuts are displayed in the header when the plugin is active.
+Global actions appear in the header alongside per-view actions. If a per-view action uses the same key as
+a global action, the per-view action takes precedence for that view. There is no cross-file merging — the
+single active workflow file wins.
+
+### Per-view actions
+
+In addition to lane actions (which fire when moving documents between lanes), each view can declare a
+per-view `actions:` list. These shortcuts apply to the currently selected document and are displayed in the
+header when the view is active.
 
 ```yaml
 actions:
@@ -244,9 +305,15 @@ Each action has:
 - `key` - a single printable character used as the keyboard shortcut
 - `label` - description shown in the header and action palette
 - `action` - a `ruki` statement (`update`, `create`, `delete`, or `select`)
-- `hot` - (optional) controls header visibility. `hot: true` shows the action in the header, `hot: false` hides it. When absent, actions default to visible in the header. This does not affect the action palette — all actions are always discoverable via `?` regardless of the `hot` setting
-- `input` - (optional) declares that the action prompts for user input before executing. The value is the scalar type of the input: `string`, `int`, `bool`, `date`, `timestamp`, or `duration`. The action's `ruki` statement must use `input()` to reference the value
-- `require` - (optional) a list of context attributes the action needs to be enabled. When requirements are not met, the action is visible but greyed out in the header and palette, and its hotkey does nothing. See [Action requirements](#action-requirements) below
+- `hot` - (optional) controls header visibility. `hot: true` shows the action in the header,
+  `hot: false` hides it. When absent, actions default to visible in the header. This does not affect
+  the action palette — all actions are always discoverable via `?` regardless of the `hot` setting
+- `input` - (optional) declares that the action prompts for user input before executing. The value is
+  the scalar type of the input: `string`, `int`, `bool`, `date`, `timestamp`, or `duration`. The
+  action's `ruki` statement must use `input()` to reference the value
+- `require` - (optional) a list of context attributes the action needs to be enabled. When
+  requirements are not met, the action is visible but greyed out in the header and palette, and its
+  hotkey does nothing. See [Action requirements](#action-requirements) below
 
 Example — keeping a verbose action out of the header but still accessible from the palette:
 
@@ -258,14 +325,17 @@ actions:
     hot: false
 ```
 
-When the shortcut key is pressed, the action is applied to the currently selected tiki.
-For example, pressing `b` in the Backlog plugin changes the selected tiki's status to `ready`, effectively moving it to the board.
+When the shortcut key is pressed, the action is applied to the currently selected document.
+For example, pressing `b` in the Backlog view changes the selected document's status to `ready`,
+effectively moving it to the board.
 
-`select` actions execute for side-effects only — the output is ignored. They don't require a selected tiki.
+`select` actions execute for side effects only — the output is ignored. They don't require a selected document.
 
 ### Input-backed actions
 
-Actions with `input:` prompt the user for a value before executing. When the action key is pressed, a modal input box opens with the action label as the prompt. The user types a value and presses Enter to execute, or Esc to cancel.
+Actions with `input:` prompt the user for a value before executing. When the action key is pressed,
+a modal input box opens with the action label as the prompt. The user types a value and presses
+Enter to execute, or Esc to cancel.
 
 ```yaml
 actions:
@@ -291,7 +361,8 @@ actions:
     input: date
 ```
 
-Supported `input:` types: `string`, `int`, `bool`, `date` (YYYY-MM-DD), `timestamp` (RFC3339 or YYYY-MM-DD), `duration` (e.g. `2day`, `1week`).
+Supported `input:` types: `string`, `int`, `bool`, `date` (YYYY-MM-DD), `timestamp` (RFC3339 or
+YYYY-MM-DD), `duration` (e.g. `2day`, `1week`).
 
 Validation rules:
 - An action with `input:` must use `input()` in its `ruki` statement
@@ -300,7 +371,8 @@ Validation rules:
 
 ### Choose-backed actions
 
-Actions using `choose()` open an interactive Quick Select tiki picker. The subquery inside `choose()` determines which tikis appear as candidates
+Actions using `choose()` open an interactive Quick Select document picker. The subquery inside
+`choose()` determines which documents appear as candidates.
 
 ```yaml
 actions:
@@ -308,11 +380,13 @@ actions:
     label: "Link to epic"
     action: update where id = choose(select where type = "epic") set dependsOn = dependsOn + id()
   - key: "l"
-    label: "Add tiki to epic"
+    label: "Add to epic"
     action: update where id = id() set dependsOn = dependsOn + choose(select where type != "epic")
 ```
 
-When the shortcut key is pressed, the Quick Select modal opens with the filtered candidate list. The user fuzzy-filters by typing, navigates with arrow keys, and confirms with Enter. Esc cancels the operation.
+When the shortcut key is pressed, the Quick Select modal opens with the filtered candidate list.
+The user fuzzy-filters by typing, navigates with arrow keys, and confirms with Enter. Esc cancels
+the operation.
 
 Validation rules:
 - `choose()` requires exactly one argument: a `select` subquery
@@ -321,8 +395,8 @@ Validation rules:
 
 ### Action requirements
 
-Actions can declare context requirements that control when they are enabled. Requirements are evaluated against the current 
-application. When any requirement is unmet, the action is disabled
+Actions can declare context requirements that control when they are enabled. Requirements are
+evaluated against the current application. When any requirement is unmet, the action is disabled.
 
 
 ```yaml
@@ -404,15 +478,19 @@ actions:
     require: ["!view:plugin:Kanban"]
 ```
 
-This action is disabled when the user is already on the Kanban view — the `view:plugin:Kanban` attribute would be present, failing the `!view:plugin:Kanban` check.
+This action is disabled when the user is already on the Kanban view — the `view:plugin:Kanban`
+attribute would be present, failing the `!view:plugin:Kanban` check.
 
 ### ruki expressions
 
-Plugin filters, lane actions, and plugin actions all use the [ruki](../ruki/index.md) language. Filters use `select` statements. Actions support `update`, `create`, `delete`, and `select` statements (`select` for side-effects only, output ignored).
+View filters, lane actions, and per-view/global actions all use the [ruki](../ruki/index.md)
+language. Filters use `select` statements. Actions support `update`, `create`, `delete`, and
+`select` statements (`select` for side effects only, output ignored).
 
 #### Filter (select)
 
-The `filter` field uses a `ruki` `select` statement to determine which tikis appear in a lane. Sorting is part of the select — use `order by` to control display order.
+The `filter` field uses a `ruki` `select` statement to determine which documents appear in a lane.
+Sorting is part of the select — use `order by` to control display order.
 
 ```sql
 -- basic filter with sort
@@ -430,7 +508,7 @@ select where assignee = user() order by priority
 
 #### Action (update)
 
-The `action` field uses a `ruki` `update` statement. In plugin context, `id()` refers to the currently selected tiki.
+The `action` field uses a `ruki` `update` statement. In view context, `id()` refers to the currently selected document.
 
 ```sql
 -- set status on move
@@ -445,7 +523,7 @@ update where id = id() set assignee=user()
 
 #### Supported fields
 
-- `id` - task identifier (e.g., "TIKI-M7N2XK")
+- `id` - document identifier (bare 6-char uppercase, e.g. `"M7N2XK"`)
 - `title` - task title text
 - `type` - task type (must match a key defined in `workflow.yaml` types)
 - `status` - workflow status (must match a key defined in `workflow.yaml` statuses)
@@ -453,7 +531,7 @@ update where id = id() set assignee=user()
 - `priority` - numeric priority value (1-5)
 - `points` - story points estimate
 - `tags` - list of tags
-- `dependsOn` - list of dependency tiki IDs
+- `dependsOn` - list of document ids this document depends on
 - `due` - due date (YYYY-MM-DD format)
 - `recurrence` - recurrence pattern (cron format)
 - `createdAt` - creation timestamp
@@ -477,9 +555,9 @@ update where id = id() set assignee=user()
 - Lists: `["bug", "frontend"]`
 - `user()` — current `tiki` identity (configured `identity.name` or `identity.email` → git user → OS user)
 - `now()` — current timestamp
-- `id()` — currently selected tiki (in plugin context)
+- `id()` — currently selected document (in view context)
 - `input()` — user-supplied value (in actions with `input:` declaration)
 - `choose(select where ...)` — interactively pick a task from Quick Select
-- `count(select where ...)` — count matching tikis
+- `count(select where ...)` — count matching documents
 
 For the full language reference, see the [ruki documentation](../ruki/index.md).

@@ -88,7 +88,7 @@ Immutable field errors:
 - `id`, `createdBy`, `createdAt`, and `updatedAt` cannot be assigned in `create` or `update`
 
 ```sql
-create title="x" id="TIKI-ABC123"
+create title="x" id="ABC123"           -- id is immutable and cannot be assigned
 update where status = "done" set createdBy="someone"
 ```
 
@@ -123,7 +123,7 @@ The resulting task from `create` must have a non-empty `title`. If the template 
 ```sql
 create title="" priority=2
 create title="x" status=empty
-update where id = "TIKI-ABC123" set priority=empty
+update where id = "ABC123" set priority=empty
 ```
 
 ## Type and operator errors
@@ -200,7 +200,7 @@ Invalid examples:
 ```sql
 select where status in ["done", 1]
 create title="x" tags=[1, 2]
-create title="x" dependsOn=["TIKI-ABC123", title]
+create title="x" dependsOn=["ABC123", title]   -- list<ref> requires literal string elements
 select where status in dependsOn
 select where tags any status = "done"
 ```
@@ -290,7 +290,7 @@ Pipe on non-select statements:
 ```sql
 update where status = "done" set priority=1 | run("echo done")
 create title="x" | run("echo created")
-delete where id = "TIKI-ABC123" | run("echo deleted")
+delete where id = "ABC123" | run("echo deleted")
 ```
 
 Pipe suffix is only valid on `select` statements.

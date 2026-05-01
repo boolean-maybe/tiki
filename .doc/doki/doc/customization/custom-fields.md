@@ -13,16 +13,20 @@
 
 ## Overview
 
-Custom fields let you extend tikis with project-specific data beyond the built-in fields (title, status, priority, etc.). Define them in `workflow.yaml` and they become first-class citizens: usable in ruki queries, persisted in task frontmatter, and available across all views.
+Custom fields extend managed documents with project-specific data beyond the built-in frontmatter
+fields (`title`, `status`, `priority`, and so on). Define them in `workflow.yaml` and they become
+first-class citizens: usable in ruki queries, persisted in document frontmatter, and available across
+all views. They apply to both workflow documents and plain documents — any managed document can carry
+custom-field values.
 
 Use cases include:
 
 - tracking a sprint or milestone name
 - adding an effort estimate or story-point alternative
-- flagging tasks with a boolean (e.g. `blocked`, `reviewed`)
+- flagging a document with a boolean (e.g. `blocked`, `reviewed`)
 - recording a deadline timestamp with time-of-day precision
-- categorizing tasks with a constrained set of values (enum)
-- linking related tasks beyond `dependsOn`
+- categorizing documents with a constrained set of values (enum)
+- linking related documents beyond `dependsOn`
 
 ## Defining custom fields
 
@@ -65,7 +69,7 @@ Custom fields come from the `workflow.yaml` file (see [Configuration: Precedence
 | `datetime`    | timestamp (RFC3339 or YYYY-MM-DD)     | `timestamp`      |
 | `enum`        | constrained string from `values` list | `enum`           |
 | `stringList`  | set-like list of strings              | `list<string>`   |
-| `taskIdList`  | set-like list of tiki ID references   | `list<ref>`      |
+| `taskIdList`  | set-like list of document id references| `list<ref>`      |
 
 For list field types, values are normalized with set semantics:
 - strings are trimmed
@@ -75,7 +79,9 @@ For list field types, values are normalized with set semantics:
 
 ## Enum fields
 
-Enum fields require a `values:` list. Only those values are accepted when setting the field (case-insensitive matching, canonical casing preserved). Attempting to assign a value outside the list produces a validation error.
+Enum fields require a `values:` list. Only those values are accepted when setting the field
+(case-insensitive matching, canonical casing preserved). Attempting to assign a value outside the
+list produces a validation error.
 
 ```yaml
 fields:
@@ -88,13 +94,16 @@ fields:
       - trivial
 ```
 
-Enum domains are field-scoped: two different enum fields maintain independent value sets. Cross-field enum assignment (e.g. `set severity = category`) is rejected even if the values happen to overlap.
+Enum domains are field-scoped: two different enum fields maintain independent value sets.
+Cross-field enum assignment (e.g. `set severity = category`) is rejected even if the values happen
+to overlap.
 
 Non-enum fields must not include a `values:` list.
 
 ## Using custom fields in ruki
 
-Custom fields work the same as built-in fields in all ruki contexts: `select`, `update`, `create`, `order by`, `where`, and triggers.
+Custom fields work the same as built-in fields in all ruki contexts: `select`, `update`, `create`,
+`order by`, `where`, and triggers.
 
 ### Filtering with select where
 
@@ -161,35 +170,36 @@ create title="Fix crash" severity="critical" blocked=false
 
 ### Plugin filters and actions
 
-Custom fields integrate into plugin definitions in `workflow.yaml`:
+Custom fields integrate into view definitions in `workflow.yaml`:
 
 ```yaml
 views:
-  plugins:
-    - name: Sprint Board
-      key: "F5"
-      lanes:
-        - name: Current Sprint
-          filter: select where sprint = "sprint-7" and status != "done" order by effort desc
-          action: update where id = id() set sprint="sprint-7"
-        - name: Next Sprint
-          filter: select where sprint = "sprint-8" order by priority
-          action: update where id = id() set sprint="sprint-8"
-      actions:
-        - key: "b"
-          label: "Mark blocked"
-          action: update where id = id() set blocked=true
+  - name: Sprint Board
+    kind: board
+    key: "F5"
+    lanes:
+      - name: Current Sprint
+        filter: select where sprint = "sprint-7" and status != "done" order by effort desc
+        action: update where id = id() set sprint="sprint-7"
+      - name: Next Sprint
+        filter: select where sprint = "sprint-8" order by priority
+        action: update where id = id() set sprint="sprint-8"
+    actions:
+      - key: "b"
+        label: "Mark blocked"
+        action: update where id = id() set blocked=true
 ```
 
 ## Storage and frontmatter
 
-Custom fields are stored in task frontmatter alongside built-in fields:
+Custom fields are stored in document frontmatter alongside built-in fields:
 
 ```yaml
 ---
+id: Q7XR2K
 title: Implement search
 type: story
-status: in_progress
+status: inProgress
 priority: 2
 points: 3
 tags:
@@ -203,14 +213,16 @@ reviewers:
 - alice
 - bob
 relatedTasks:
-- TIKI-ABC123
+- ABC123
 ---
 Search implementation details...
 ```
 
 Custom fields appear after the built-in fields, sorted alphabetically by name.
 
-On load, unknown frontmatter keys that are not registered custom fields are preserved as-is and survive save-load round-trips. This allows workflow changes without losing data — see [Schema evolution](../ruki/custom-fields-reference.md#schema-evolution-and-stale-data) for details.
+On load, unknown frontmatter keys that are not registered custom fields are preserved as-is and
+survive save-load round-trips. This allows workflow changes without losing data — see
+[Schema evolution](../ruki/custom-fields-reference.md#schema-evolution-and-stale-data) for details.
 
 ## Field Defaults
 
@@ -248,7 +260,8 @@ When a custom field is not set on a task, ruki returns the typed zero value for 
 | `stringList`  | `[]` (empty list)  |
 | `taskIdList`  | `[]` (empty list)  |
 
-This means `select where blocked = false` matches both tasks explicitly set to `false` and tasks that never had the `blocked` field set. Use `is empty` / `is not empty` to distinguish:
+This means `select where blocked = false` matches both tasks explicitly set to `false` and tasks
+that never had the `blocked` field set. Use `is empty` / `is not empty` to distinguish:
 
 ```sql
 -- tasks that explicitly have blocked set (to any value)
@@ -258,4 +271,7 @@ select where blocked is not empty
 select where blocked is empty
 ```
 
-Note: for boolean and integer fields, the zero value (`false`, `0`) is also the `empty` value. An explicitly stored `false` and a missing boolean field are indistinguishable at query time. If you need the distinction, consider using an enum field with explicit values (e.g. `yes` / `no` / not set via `empty`).
+Note: for boolean and integer fields, the zero value (`false`, `0`) is also the `empty` value. An
+explicitly stored `false` and a missing boolean field are indistinguishable at query time. If you
+need the distinction, consider using an enum field with explicit values (e.g. `yes` / `no` / not set
+via `empty`).

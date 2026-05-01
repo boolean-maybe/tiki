@@ -195,33 +195,35 @@ Notice the key is still `review`. Your existing tasks that are in review will
 keep working perfectly — they just show up under the name "Testing" now. We also
 swapped the emoji to a test tube to match.
 
-Now for the Kanban view itself. Views live under `views: plugins:` in your
-workflow file. Here is our customized Kanban:
+Now for the Kanban view itself. Views live at the top level of `workflow.yaml`
+under `views:`. Every view declares a `kind:` (here, `board`) that tells tiki
+what shape to draw. Here is our customized Kanban:
 
 ```yaml
 views:
-  plugins:
-    - name: Kanban
-      description: "Your team's sprint board"
-      default: true
-      key: "F1"
-      lanes:
-        - name: Ready
-          filter: select where status = "ready" and type != "epic" order by priority, createdAt
-          action: update where id = id() set status="ready"
-        - name: In Progress
-          filter: select where status = "inProgress" and type != "epic" order by priority, createdAt
-          action: update where id = id() set status="inProgress"
-        - name: Blocked
-          width: 15
-          filter: select where status = "blocked" and type != "epic" order by priority, createdAt
-          action: update where id = id() set status="blocked"
-        - name: Testing
-          filter: select where status = "review" and type != "epic" order by priority, createdAt
-          action: update where id = id() set status="review"
-        - name: Done
-          filter: select where status = "done" and type != "epic" order by priority, createdAt
-          action: update where id = id() set status="done"
+  - name: Kanban
+    label: Kanban
+    description: "Your team's sprint board"
+    kind: board
+    default: true
+    key: "F1"
+    lanes:
+      - name: Ready
+        filter: select where status = "ready" and type != "epic" order by priority, createdAt
+        action: update where id = id() set status="ready"
+      - name: In Progress
+        filter: select where status = "inProgress" and type != "epic" order by priority, createdAt
+        action: update where id = id() set status="inProgress"
+      - name: Blocked
+        width: 15
+        filter: select where status = "blocked" and type != "epic" order by priority, createdAt
+        action: update where id = id() set status="blocked"
+      - name: Testing
+        filter: select where status = "review" and type != "epic" order by priority, createdAt
+        action: update where id = id() set status="review"
+      - name: Done
+        filter: select where status = "done" and type != "epic" order by priority, createdAt
+        action: update where id = id() set status="done"
 ```
 
 There is a lot here, so let us unpack it piece by piece.
@@ -256,7 +258,7 @@ Blocked a width of 15 — it is a narrower column since hopefully not many tasks
 are stuck. Lanes without a width share the remaining space equally.
 
 > **When you override a view's lanes, you replace all of them.** tiki merges
-> views by name — so writing a plugin called "Kanban" overrides the default
+> views by name — so writing a view called "Kanban" overrides the default
 > Kanban. But the `lanes:` list inside it is replaced wholesale, not merged.
 > Make sure to include every lane you want.
 
@@ -267,16 +269,18 @@ are stuck. Lanes without a width share the remaining space equally.
 The Kanban board shows everyone's work. But sometimes you just want to see
 your own tasks. Let us add a "My Tasks" view.
 
-Add this as another entry under `views: plugins:` (after the Kanban definition):
+Add this as another entry under the top-level `views:` list (after the Kanban
+definition):
 
 ```yaml
-    - name: My Tasks
-      description: "Tasks assigned to you"
-      key: "F5"
-      lanes:
-        - name: My Tasks
-          columns: 3
-          filter: select where assignee = user() and status != "done" order by priority, createdAt
+  - name: My Tasks
+    description: "Tasks assigned to you"
+    kind: board
+    key: "F5"
+    lanes:
+      - name: My Tasks
+        columns: 3
+        filter: select where assignee = user() and status != "done" order by priority, createdAt
 ```
 
 A few new things here:
@@ -353,21 +357,22 @@ uncluttered. You can still find it in the action palette (press `*` to open it).
 
 ### Adding our own action
 
-Let us add a "Mark blocked" shortcut. This goes under `views: actions:` — these
-are **global actions** that work in every view:
+Let us add a "Mark blocked" shortcut. This goes under the **top-level**
+`actions:` section — entries there are **global actions** available from every
+view:
 
 ```yaml
-views:
-  actions:
-    - key: "k"
-      label: "Mark blocked"
-      action: update where id = id() set status="blocked"
+actions:
+  - key: "k"
+    kind: ruki
+    label: "Mark blocked"
+    action: update where id = id() set status="blocked"
 ```
 
-> **Per-plugin vs global actions.** Global actions (under `views: actions:`)
-> work everywhere. Per-plugin actions (under a specific plugin's `actions:`)
-> only work in that view. If you override a plugin's `actions:` list, it
-> replaces the whole list for that plugin — same as lanes.
+> **Per-view vs global actions.** Global actions (top-level `actions:`) work
+> everywhere. Per-view actions (under a specific view's `actions:`) only work
+> in that view. If you override a view's `actions:` list, it replaces the whole
+> list for that view — same as lanes.
 
 > **Action requirements.** Actions can declare `require:` to control when
 > they are enabled. For example, `require: ["ai"]` disables the action when
@@ -414,7 +419,7 @@ The `type` tells tiki what kind of data the field holds:
 | `datetime` | A date and time | 2026-03-25 |
 | `enum` | One of a fixed set of choices | critical, high, medium, low |
 | `stringList` | A list of text values | ["alice", "bob"] |
-| `taskIdList` | A list of task references | ["TIKI-A1B2C3"] |
+| `taskIdList` | A list of document references | ["A1B2C3"] |
 
 For `enum` fields, you provide a `values:` list — only those choices are
 accepted.
@@ -424,23 +429,24 @@ accepted.
 Now let us build a "Bug Triage" view that groups bugs by severity:
 
 ```yaml
-    - name: Bug Triage
-      description: "Bugs grouped by severity"
-      key: "F6"
-      lanes:
-        - name: Critical
-          width: 30
-          filter: select where severity = "critical" and status != "done" order by priority, createdAt
-          action: update where id = id() set severity="critical"
-        - name: High
-          filter: select where severity = "high" and status != "done" order by priority, createdAt
-          action: update where id = id() set severity="high"
-        - name: Medium
-          filter: select where severity = "medium" and status != "done" order by priority, createdAt
-          action: update where id = id() set severity="medium"
-        - name: Low
-          filter: select where severity = "low" and status != "done" order by priority, createdAt
-          action: update where id = id() set severity="low"
+  - name: Bug Triage
+    description: "Bugs grouped by severity"
+    kind: board
+    key: "F6"
+    lanes:
+      - name: Critical
+        width: 30
+        filter: select where severity = "critical" and status != "done" order by priority, createdAt
+        action: update where id = id() set severity="critical"
+      - name: High
+        filter: select where severity = "high" and status != "done" order by priority, createdAt
+        action: update where id = id() set severity="high"
+      - name: Medium
+        filter: select where severity = "medium" and status != "done" order by priority, createdAt
+        action: update where id = id() set severity="medium"
+      - name: Low
+        filter: select where severity = "low" and status != "done" order by priority, createdAt
+        action: update where id = id() set severity="low"
 ```
 
 Custom fields work exactly like built-in fields in filters and actions. Moving
@@ -448,14 +454,15 @@ a task to the "Critical" lane sets its severity to critical.
 
 ### An action with custom field input
 
-Let us also add a shortcut to set the estimate. Add this to your global
-actions:
+Let us also add a shortcut to set the estimate. Add this to your top-level
+`actions:` list (global actions):
 
 ```yaml
-    - key: "e"
-      label: "Set estimate"
-      action: update where id = id() set estimate=input()
-      input: int
+  - key: "e"
+    kind: ruki
+    label: "Set estimate"
+    action: update where id = id() set estimate=input()
+    input: int
 ```
 
 Press `e`, type a number, and the estimate is saved.
@@ -555,36 +562,36 @@ the priority to 1 automatically.
 
 ## 9. Documentation views
 
-The default workflow includes a Docs view that shows markdown files from your
-project. It looks like this:
+The default workflow includes a Docs view that renders Markdown files from your
+project. It uses `kind: wiki` — a view that shows a document body (and anything
+you navigate to via links) instead of a list of tasks:
 
 ```yaml
-    - name: Docs
-      description: "Project notes and documentation files"
-      type: doki
-      fetcher: file
-      url: "index.md"
-      key: "F2"
+  - name: Docs
+    label: Docs
+    description: "Project notes and documentation files"
+    kind: wiki
+    path: "index.md"
+    key: "F2"
 ```
 
-A documentation view (called a "doki" plugin) does not show tasks — it shows
-markdown files instead. The `url` points to a file inside `.doc/doki/` that
-serves as the entry point, and you navigate from there by following links.
+`path:` is resolved relative to `.doc/`, so this loads `.doc/index.md` as the
+entry point. You navigate from there by following links — plain Markdown links
+to relative paths, or `[[ID]]` wikilinks to other managed documents.
 
-You can add more documentation views by adding more doki plugin entries. For
+You can add more documentation views by adding more `kind: wiki` entries. For
 example, an architecture notes section:
 
 ```yaml
-    - name: Architecture
-      description: "System architecture and design decisions"
-      type: doki
-      fetcher: file
-      url: "architecture/index.md"
-      key: "F7"
+  - name: Architecture
+    description: "System architecture and design decisions"
+    kind: wiki
+    path: "architecture/index.md"
+    key: "F7"
 ```
 
 This creates a separate view at F7 pointing to a different starting file. You
-would create `.doc/doki/architecture/index.md` with links to your architecture
+would create `.doc/architecture/index.md` with links to your architecture
 documents.
 
 ---
@@ -633,12 +640,13 @@ appearance:
 
 ### Compact vs expanded view
 
-Individual views can use either a compact or expanded layout. You can set this
-per-plugin in `workflow.yaml`:
+Board and list views can use either a compact or expanded layout. Set the
+`mode:` field on the view in `workflow.yaml`:
 
 ```yaml
-    - name: Roadmap
-      view: expanded
+  - name: Roadmap
+    kind: board
+    mode: expanded
 ```
 
 ---
@@ -707,76 +715,80 @@ fields:
   - name: estimate
     type: integer
 
+# Global actions: keyboard shortcuts available in every view
+actions:
+  - key: "k"
+    kind: ruki
+    label: "Mark blocked"
+    action: update where id = id() set status="blocked"
+  - key: "e"
+    kind: ruki
+    label: "Set estimate"
+    action: update where id = id() set estimate=input()
+    input: int
+
 views:
-  # Global actions: keyboard shortcuts available in every view
-  actions:
-    - key: "k"
-      label: "Mark blocked"
-      action: update where id = id() set status="blocked"
-    - key: "e"
-      label: "Set estimate"
-      action: update where id = id() set estimate=input()
-      input: int
+  # The main board with our added Blocked and renamed Testing lanes
+  - name: Kanban
+    label: Kanban
+    description: "Your team's sprint board"
+    kind: board
+    default: true
+    key: "F1"
+    lanes:
+      - name: Ready
+        filter: select where status = "ready" and type != "epic" order by priority, createdAt
+        action: update where id = id() set status="ready"
+      - name: In Progress
+        filter: select where status = "inProgress" and type != "epic" order by priority, createdAt
+        action: update where id = id() set status="inProgress"
+      - name: Blocked
+        width: 15
+        filter: select where status = "blocked" and type != "epic" order by priority, createdAt
+        action: update where id = id() set status="blocked"
+      - name: Testing
+        filter: select where status = "review" and type != "epic" order by priority, createdAt
+        action: update where id = id() set status="review"
+      - name: Done
+        filter: select where status = "done" and type != "epic" order by priority, createdAt
+        action: update where id = id() set status="done"
 
-  plugins:
-    # The main board with our added Blocked and renamed Testing lanes
-    - name: Kanban
-      description: "Your team's sprint board"
-      default: true
-      key: "F1"
-      lanes:
-        - name: Ready
-          filter: select where status = "ready" and type != "epic" order by priority, createdAt
-          action: update where id = id() set status="ready"
-        - name: In Progress
-          filter: select where status = "inProgress" and type != "epic" order by priority, createdAt
-          action: update where id = id() set status="inProgress"
-        - name: Blocked
-          width: 15
-          filter: select where status = "blocked" and type != "epic" order by priority, createdAt
-          action: update where id = id() set status="blocked"
-        - name: Testing
-          filter: select where status = "review" and type != "epic" order by priority, createdAt
-          action: update where id = id() set status="review"
-        - name: Done
-          filter: select where status = "done" and type != "epic" order by priority, createdAt
-          action: update where id = id() set status="done"
+  # Your personal task list
+  - name: My Tasks
+    description: "Tasks assigned to you"
+    kind: board
+    key: "F5"
+    lanes:
+      - name: My Tasks
+        columns: 3
+        filter: select where assignee = user() and status != "done" order by priority, createdAt
 
-    # Your personal task list
-    - name: My Tasks
-      description: "Tasks assigned to you"
-      key: "F5"
-      lanes:
-        - name: My Tasks
-          columns: 3
-          filter: select where assignee = user() and status != "done" order by priority, createdAt
+  # Bugs grouped by severity
+  - name: Bug Triage
+    description: "Bugs grouped by severity"
+    kind: board
+    key: "F6"
+    lanes:
+      - name: Critical
+        width: 30
+        filter: select where severity = "critical" and status != "done" order by priority, createdAt
+        action: update where id = id() set severity="critical"
+      - name: High
+        filter: select where severity = "high" and status != "done" order by priority, createdAt
+        action: update where id = id() set severity="high"
+      - name: Medium
+        filter: select where severity = "medium" and status != "done" order by priority, createdAt
+        action: update where id = id() set severity="medium"
+      - name: Low
+        filter: select where severity = "low" and status != "done" order by priority, createdAt
+        action: update where id = id() set severity="low"
 
-    # Bugs grouped by severity
-    - name: Bug Triage
-      description: "Bugs grouped by severity"
-      key: "F6"
-      lanes:
-        - name: Critical
-          width: 30
-          filter: select where severity = "critical" and status != "done" order by priority, createdAt
-          action: update where id = id() set severity="critical"
-        - name: High
-          filter: select where severity = "high" and status != "done" order by priority, createdAt
-          action: update where id = id() set severity="high"
-        - name: Medium
-          filter: select where severity = "medium" and status != "done" order by priority, createdAt
-          action: update where id = id() set severity="medium"
-        - name: Low
-          filter: select where severity = "low" and status != "done" order by priority, createdAt
-          action: update where id = id() set severity="low"
-
-    # Architecture documentation
-    - name: Architecture
-      description: "System architecture and design decisions"
-      type: doki
-      fetcher: file
-      url: "architecture/index.md"
-      key: "F7"
+  # Architecture documentation
+  - name: Architecture
+    description: "System architecture and design decisions"
+    kind: wiki
+    path: "architecture/index.md"
+    key: "F7"
 
 # Triggers: automation rules
 # This section replaces the entire default trigger list.

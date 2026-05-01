@@ -13,15 +13,20 @@ Follow me on X: [![X Badge](https://img.shields.io/badge/-%23000000.svg?style=fl
 What `tiki` does:
 
 - Standalone **Markdown viewer** with images, Mermaid diagrams, and link/TOC navigation
-- Keep, search, view and version Markdown files in the **git repo**
-- **Wiki-style** documentation with multiple entry points
+- Keep, search, view and version Markdown documents in the **git repo** — everything lives under a single
+  `.doc/` tree, identified by a bare frontmatter `id`
+- **Wiki-style** documentation with arbitrary folder hierarchy and multiple entry points
 - Keep a **to-do list** with priorities, status, assignee and size
 - Issue management with **Kanban/Scrum** style board and burndown chart
-- SQL-like command language [ruki](.doc/doki/doc/ruki/index.md) to query and update tasks and define custom workflows
-- **Plugin-first** architecture - user-defined plugins based on [ruki](.doc/doki/doc/ruki/index.md) and custom views
-- AI **skills** to enable [Claude Code](https://code.claude.com), [Gemini CLI](https://github.com/google-gemini/gemini-cli), [Codex](https://openai.com/codex), [Opencode](https://opencode.ai) work with natural language commands like
-  "_create a tiki from @my-file.md_"
-  "_mark tiki ABC123 as complete_"
+- SQL-like command language [ruki](.doc/doki/doc/ruki/index.md) to query and update documents and define
+  custom workflows
+- **Plugin-first** architecture — user-defined views based on [ruki](.doc/doki/doc/ruki/index.md) and
+  custom view kinds (`board`, `list`, `wiki`, `detail`)
+- AI **skills** to enable [Claude Code](https://code.claude.com),
+  [Gemini CLI](https://github.com/google-gemini/gemini-cli), [Codex](https://openai.com/codex), and
+  [Opencode](https://opencode.ai) work with natural language commands like
+  "_create a task from @my-file.md_"
+  "_mark ABC123 as complete_"
 
 ## Installation
 
@@ -92,7 +97,7 @@ this will open a demo project. Once done you can try your own:
 
 Run `tiki init my-directory` to initialize a project, then `cd my-directory` and run `tiki` to start
 
-Move your tiki around the board with `Shift ←/Shift →`.
+Move a task around the board with `Shift ←/Shift →`.
 
 ### AI skills
 You will be prompted to install skills for
@@ -101,12 +106,12 @@ You will be prompted to install skills for
 - [Codex](https://openai.com/codex)
 - [Opencode](https://opencode.ai)
 
-if you choose to you can mention `tiki` in your prompts to create/find/edit your tikis
+once installed, mention documents by id in your prompts to create, find, or edit them.
 ![Claude](assets/claude.png)
 
 ### Quick capture
 
-Quick capture ideas by redirecting to `tiki`:
+Quick-capture ideas by redirecting to `tiki`:
 ```bash
 echo "cool idea" | tiki
 gh issue view 42 --json title,body -q '"\(.title)\n\n\(.body)"' | tiki
@@ -116,43 +121,50 @@ grep ERROR server.log | sort -u | while read -r line; do echo "$line" | tiki; do
 
 Read more [quick capture docs](.doc/doki/doc/quick-capture.md).
 
-## tiki
-Keep your tickets in your pockets!
+## The managed document model
 
-`tiki` refers to a task or a ticket (hence tiki) stored in your **git** repo
+One format, one workspace: everything `tiki` manages is a Markdown file with YAML frontmatter under `.doc/`.
 
-- like a ticket it can have a status, priority, assignee, points, type and multiple tags attached to it
-- they are essentially just Markdown files and you can use full Markdown syntax to describe a story or a bug
-- they are stored in `.doc/tiki` subdirectory and are **git**-controlled - they are added to **git** when they are created,
-removed when they are done and the entire history is preserved in **git** repo
-- because they are in **git** they can be perfectly synced up to the state of your repo or a branch
-- you can use either the `tiki` CLI tool or any of the AI coding assistant to work with your tikis
+```md
+---
+id: ABC123
+title: Implement search
+status: backlog
+priority: 2
+---
 
-## doki
-Store your notes in remotes!
+Markdown body.
+```
 
-`doki` refers to any file in Markdown format that is stored in the `.doc/doki` subdirectory of the **git** repo. 
+- **Identity is in the frontmatter.** Every managed document has a bare 6-character uppercase `id` (e.g. `ABC123`).
+  The file path is mutable organization, not identity — move or rename files freely, the `id` follows the document.
+- **`.doc/**/*.md` is managed.** The whole tree is scanned recursively. Workflow config files (`workflow.yaml`,
+  `config.yaml`) and non-Markdown assets are excluded.
+- **Workflow fields are optional.** A document with `status`, `type`, `priority`, or `points` in its frontmatter
+  participates in board/list views and burndown. A document without those fields is a plain note — reachable by id
+  or path, rendered in markdown views, invisible to workflow views.
+- **Views decide behavior.** Board and list views filter by workflow fields; wiki and detail views render document
+  bodies. No persistent tiki-vs-doki split.
+- **Git-controlled.** Documents are added, updated, and removed via git as you work. History is preserved.
 
-- like tikis they are **git**-controlled and can be maintained in perfect sync with the repo state
-- `tiki` CLI tool allows creating multiple doc roots like: Documentation, Brainstorming, Prompts etc.
-- it also allows viewing and navigation (follow links)
+## The tiki TUI
 
-## tiki TUI tool
-
-`tiki` TUI tool allows creating, viewing, editing and deleting tikis as well as creating custom plugins to 
-view any selection, for example, Recent tikis, Architecture docs, Saved prompts, Security review, Future Roadmap
-Press `?` to open the Action Palette and discover all available actions 
+`tiki` opens a terminal UI that lets you create, view, edit, and delete documents, plus compose custom views
+over any slice of the workspace — Recent items, Architecture notes, Saved prompts, Security reviews, Future roadmap.
+Press `?` to open the Action Palette and discover every available action.
 
 ## AI skills
 
-`tiki` adds optional [agent skills](https://agentskills.io/home) to the repo upon initialization
+`tiki` adds optional [agent skills](https://agentskills.io/home) to the repo upon initialization.
 If installed you can:
 
-- work with [Claude Code](https://code.claude.com), [Gemini CLI](https://github.com/google-gemini/gemini-cli), [Codex](https://openai.com/codex), [Opencode](https://opencode.ai) by simply mentioning `tiki` or `doki` in your prompts
-- create, find, modify and delete tikis using AI
-- create tikis/dokis directly from Markdown files
-- Refer to tikis or dokis when implementing with AI-assisted development - `implement tiki xxxxxxx`
-- Keep a history of prompts/plans by saving prompts or plans with your repo
+- work with [Claude Code](https://code.claude.com),
+  [Gemini CLI](https://github.com/google-gemini/gemini-cli), [Codex](https://openai.com/codex), and
+  [Opencode](https://opencode.ai) by mentioning documents or ids in your prompts
+- create, find, modify, and delete documents using AI
+- create documents directly from Markdown files
+- reference documents by id when implementing with AI-assisted development — `implement ABC123`
+- keep a history of prompts/plans by saving them as documents alongside your repo
 
 ## Feedback
 
