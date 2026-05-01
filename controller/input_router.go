@@ -372,12 +372,10 @@ func (ir *InputRouter) handlePluginInput(event *tcell.EventKey, viewID model.Vie
 			return ir.startExecuteInput()
 		}
 		if targetPluginName := GetPluginNameFromAction(action.ID); targetPluginName != "" {
-			targetViewID := model.MakePluginViewID(targetPluginName)
-			if viewID != targetViewID {
-				ir.navController.ReplaceView(targetViewID, nil)
-				return true
-			}
-			return true
+			// 6B.18 + 6B.24: selection passthrough + target-scoped
+			// require evaluation in a single shared helper so direct
+			// activation matches `kind: view` semantics.
+			return ir.activateTargetView(viewID, model.MakePluginViewID(targetPluginName), targetPluginName)
 		}
 		if _, hasChoose := ctrl.GetActionChooseSpec(action.ID); hasChoose {
 			return ir.startActionChoose(ctrl, action.ID)
@@ -601,15 +599,71 @@ func (ir *InputRouter) dispatchTaskEditAction(id ActionID, activeView View) bool
 	}
 }
 
+// currentSelectionID returns the active view's currently-selected task id,
+// or the empty string when no view/selection is available.
+func (ir *InputRouter) currentSelectionID() string {
+	active := ir.navController.GetActiveView()
+	if active == nil {
+		return ""
+	}
+	sv, ok := active.(SelectableView)
+	if !ok {
+		return ""
+	}
+	return sv.GetSelectedID()
+}
+
+// currentSelectionParams encodes the active view's selection into
+// PluginViewParams for navigation dispatch that needs to carry selection.
+// Returns nil when there is no active view, no selection, or the active
+// view doesn't implement SelectableView; in those cases
+// ReplaceView/PushView receives nil params which matches pre-6B.18
+// behavior.
+func (ir *InputRouter) currentSelectionParams() map[string]interface{} {
+	id := ir.currentSelectionID()
+	if id == "" {
+		return nil
+	}
+	return model.EncodePluginViewParams(model.PluginViewParams{TaskID: id})
+}
+
+// activateTargetView is the shared direct-activation dispatcher. It
+// evaluates the target view's require: list in target-scope — matching
+// what `kind: view` action dispatch does — so both activation paths
+// agree on whether navigation is allowed. Without this, direct activation
+// would fall back to source-scoped evaluation via the merged require on
+// the plugin:<name> activation action, producing different answers for
+// `view:*` and other target-scoped requirements (6B.24).
+//
+// Returns true when navigation fired, false when the target-scoped
+// gate refused (the caller's UI-level gate already passed, so returning
+// false here silently swallows the keypress — matching how refused
+// `kind: view` dispatches behave).
+func (ir *InputRouter) activateTargetView(currentViewID, targetViewID model.ViewID, targetName string) bool {
+	if currentViewID == targetViewID {
+		// no-op navigation: pressing the view's own activation key
+		// while already on it. The merged `!view:<self>` require
+		// handles this at UI level; defensively match the legacy
+		// success-without-navigation behavior here too.
+		return true
+	}
+	carried := 0
+	if ir.currentSelectionID() != "" {
+		carried = 1
+	}
+	if !TargetViewEnabled(targetName, carried) {
+		return false
+	}
+	ir.navController.ReplaceView(targetViewID, ir.currentSelectionParams())
+	return true
+}
+
 // dispatchPluginAction handles palette-dispatched plugin actions by ActionID.
 func (ir *InputRouter) dispatchPluginAction(id ActionID, viewID model.ViewID) bool {
 	if targetPluginName := GetPluginNameFromAction(id); targetPluginName != "" {
-		targetViewID := model.MakePluginViewID(targetPluginName)
-		if viewID != targetViewID {
-			ir.navController.ReplaceView(targetViewID, nil)
-			return true
-		}
-		return true
+		// 6B.18 + 6B.24: shared helper runs target-scoped require check
+		// and carries selection in one place.
+		return ir.activateTargetView(viewID, model.MakePluginViewID(targetPluginName), targetPluginName)
 	}
 
 	pluginName := model.GetPluginName(viewID)

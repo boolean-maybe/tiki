@@ -140,7 +140,14 @@ func (f *ViewFactory) CreateView(viewID model.ViewID, params map[string]interfac
 					slog.Error("wiki/detail plugin is not a DokiPlugin", "plugin", pluginName)
 					break
 				}
-				v = NewDokiView(dokiPlugin, f.imageManager, f.mermaidOpts, f.globalActions)
+				pluginParams := model.DecodePluginViewParams(params)
+				// Propagate the selected task id into the controller so
+				// outbound `kind: view` / `kind: ruki` actions from this
+				// view see the selection that was passed in.
+				if dc, ok := pluginControllerInterface.(*controller.DokiController); ok {
+					dc.SetSelectedTaskID(pluginParams.TaskID)
+				}
+				v = NewDokiView(dokiPlugin, f.imageManager, f.mermaidOpts, f.globalActions, f.taskStore, pluginParams.TaskID)
 			default:
 				slog.Error("unknown plugin kind", "plugin", pluginName, "kind", pluginDef.GetKind())
 			}

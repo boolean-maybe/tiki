@@ -8,6 +8,7 @@ import (
 	"github.com/boolean-maybe/tiki/controller"
 	"github.com/boolean-maybe/tiki/model"
 	"github.com/boolean-maybe/tiki/plugin"
+	"github.com/boolean-maybe/tiki/store"
 	"github.com/boolean-maybe/tiki/view/markdown"
 
 	"github.com/boolean-maybe/navidown/loaders"
@@ -18,9 +19,13 @@ import (
 )
 
 // DokiView renders a documentation plugin (navigable markdown).
-// globalViewActions carries the workflow-level `kind: view` actions so the
-// header and action palette (which read this view's registry) show them
-// alongside the built-in navigation actions.
+// surfacedGlobals carries the workflow-level global actions (both
+// `kind: view` and `kind: ruki`) so the header and action palette (which
+// read this view's registry) show them alongside the built-in navigation
+// actions. Keyboard dispatch for both kinds is routed by DokiController.
+// taskStore is used to resolve `[[ID]]` wikilinks against the document
+// store and (for `kind: detail`) to render the selected document's
+// markdown body.
 type DokiView struct {
 	root                *tview.Flex
 	titleBar            tview.Primitive
@@ -29,42 +34,67 @@ type DokiView struct {
 	registry            *controller.ActionRegistry
 	imageManager        *navtview.ImageManager
 	mermaidOpts         *nav.MermaidOptions
-	globalViewActions   []plugin.PluginAction
+	taskStore           store.ReadStore
+	surfacedGlobals     []plugin.PluginAction
+	selectedTaskID      string // 6B.2: for kind: detail, the document to render
 	actionChangeHandler func()
 }
 
 // NewDokiView creates a doki view. globalActions is the workflow's top-level
-// actions list; only `kind: view` entries are surfaced in the view registry
-// (the controller mirrors this for keyboard dispatch).
+// actions list; both `kind: view` and `kind: ruki` entries are surfaced in
+// the view registry (DokiController routes keyboard dispatch for both).
+// taskStore may be nil for unit tests that don't exercise wikilink
+// resolution. selectedTaskID is the document id to render for `kind: detail`
+// views (ignored for wiki); pass empty to get the "no document selected"
+// placeholder.
 func NewDokiView(
 	pluginDef *plugin.DokiPlugin,
 	imageManager *navtview.ImageManager,
 	mermaidOpts *nav.MermaidOptions,
 	globalActions []plugin.PluginAction,
+	taskStore store.ReadStore,
+	selectedTaskID string,
 ) *DokiView {
 	dv := &DokiView{
-		pluginDef:         pluginDef,
-		registry:          controller.NewActionRegistry(),
-		imageManager:      imageManager,
-		mermaidOpts:       mermaidOpts,
-		globalViewActions: filterViewKindActions(globalActions),
+		pluginDef:       pluginDef,
+		registry:        controller.NewActionRegistry(),
+		imageManager:    imageManager,
+		mermaidOpts:     mermaidOpts,
+		taskStore:       taskStore,
+		surfacedGlobals: surfacedGlobalActions(globalActions),
+		selectedTaskID:  selectedTaskID,
 	}
 
 	dv.build()
 	return dv
 }
 
-// filterViewKindActions keeps only `kind: view` actions — the ones the view
-// registry should surface for non-board views at Phase 6A. `kind: ruki`
-// globals are handled only on board views today; surfacing them in doki
-// view registries would be misleading because they would not actually fire.
-func filterViewKindActions(globals []plugin.PluginAction) []plugin.PluginAction {
+// surfacedGlobalActions returns the global actions the view should surface
+// in its registry (header + palette). Mirrors the filtering DokiController
+// applies to its own registry so UI and keyboard dispatch agree:
+//
+//   - view-kind actions surface unconditionally
+//   - ruki-kind actions surface ONLY when non-interactive. `input:` and
+//     `choose()` actions need the input/choose pipeline which DokiController
+//     does not implement; showing them would lie about what pressing the
+//     key would do (the controller refuses to fire them).
+//
+// Future work (phase6.md): implement GetActionInputSpec / GetActionChooseSpec
+// on DokiController so interactive ruki globals can fire from non-board views
+// too, at which point this filter can widen.
+func surfacedGlobalActions(globals []plugin.PluginAction) []plugin.PluginAction {
 	if len(globals) == 0 {
 		return nil
 	}
 	out := make([]plugin.PluginAction, 0, len(globals))
 	for _, ga := range globals {
-		if ga.Kind == plugin.ActionKindView {
+		switch ga.Kind {
+		case plugin.ActionKindView:
+			out = append(out, ga)
+		case plugin.ActionKindRuki:
+			if ga.HasInput || ga.HasChoose {
+				continue
+			}
 			out = append(out, ga)
 		}
 	}
@@ -99,10 +129,10 @@ func (dv *DokiView) build() {
 	dv.titleBar = NewGradientCaptionRow([]string{dv.pluginDef.Name}, nil, bgColor, textColor)
 
 	// Fetch initial content and create NavigableMarkdown with appropriate provider.
-	// Phase 6A supports `path:` only for wiki views; `document:` (ID-based
-	// resolution) is rejected at parse time until Phase 6B. Detail views carry
-	// no bound document and render a placeholder until selection binding
-	// lands in Phase 6B.
+	// Wiki views render the file at `path:`; `document: <ID>` binding is
+	// rejected at parse time. Detail views render the task whose id was
+	// carried in via PluginViewParams (6B.3), or a placeholder when no
+	// selection was passed.
 	var content string
 	var sourcePath string
 	var err error
@@ -110,17 +140,34 @@ func (dv *DokiView) build() {
 	// legacy doki root stays first so older configs still resolve; the
 	// unified `.doc/` root handles documents anywhere under the new layout.
 	searchRoots := []string{config.GetDokiDir(), config.GetDocDir()}
-	provider := &loaders.FileHTTP{SearchRoots: searchRoots}
+	fileProvider := &loaders.FileHTTP{SearchRoots: searchRoots}
 
-	if target := dv.pluginDef.DocumentPath; target != "" {
+	// Wrap the file provider in a wikilink rewriter so `[[ID]]` spans inside
+	// the fetched markdown resolve through the document store. The wrapper
+	// applies to every FetchContent call — initial load and every navigated
+	// click — so all markdown reaching the renderer has been processed.
+	resolver := &markdown.StoreResolver{Store: dv.taskStore}
+	provider := markdown.NewWikilinkProvider(fileProvider, resolver)
+
+	switch {
+	case dv.pluginDef.DocumentPath != "":
+		target := dv.pluginDef.DocumentPath
 		content, err = provider.FetchContent(nav.NavElement{URL: target})
 		sourcePath, _ = nav.ResolveMarkdownPath(target, "", searchRoots)
 		if sourcePath == "" {
 			sourcePath = target
 		}
-	} else {
-		// kind: detail — selection-driven rendering lands in 6B.
-		content = "(select a document)"
+	case dv.pluginDef.GetKind() == plugin.KindDetail && dv.selectedTaskID != "" && dv.taskStore != nil:
+		// 6B.2: render the selected document. The provider's bare-id
+		// lookup handles formatting the task body into markdown; wikilinks
+		// inside are resolved by the same WikilinkProvider wrapper.
+		content, err = provider.FetchContent(nav.NavElement{URL: dv.selectedTaskID})
+		if path := dv.taskStore.PathForID(dv.selectedTaskID); path != "" {
+			sourcePath = path
+		}
+	default:
+		// kind: detail with no selection, or a kind without a content source
+		content = "(no document selected)"
 	}
 
 	dv.md = markdown.NewNavigableMarkdown(markdown.NavigableMarkdownConfig{
@@ -152,6 +199,24 @@ func (dv *DokiView) rebuildLayout() {
 	dv.root.Clear()
 	dv.root.AddItem(dv.titleBar, 1, 0, false)
 	dv.root.AddItem(dv.md.Viewer(), 0, 1, true)
+}
+
+// GetSelectedID implements controller.SelectableView. Returns the task id
+// this view was navigated to with (for kind: detail) or the empty string
+// when the view has no carried selection (kind: wiki on its own, or a
+// detail view opened without a source selection). Load-bearing for the
+// InputRouter enablement gate: actions with `require: ["selection:one"]`
+// read this to decide whether to dispatch from a doki view.
+func (dv *DokiView) GetSelectedID() string {
+	return dv.selectedTaskID
+}
+
+// SetSelectedID lets the harness inject a selection after construction.
+// Doki views do not expose an in-view selection gesture today — selection
+// arrives via PluginViewParams at navigation time — so this is primarily a
+// contract fill for SelectableView.
+func (dv *DokiView) SetSelectedID(id string) {
+	dv.selectedTaskID = id
 }
 
 // ShowNavigation returns true — doki views always show plugin navigation keys.
@@ -240,7 +305,7 @@ func (dv *DokiView) UpdateNavigationActions() {
 	// to grey out / block an action. Dropping it here would let the palette
 	// fire a `selection:one` action on a view with no selection, which the
 	// controller would then silently refuse.
-	for _, ga := range dv.globalViewActions {
+	for _, ga := range dv.surfacedGlobals {
 		dv.registry.Register(controller.Action{
 			ID:           controller.ActionID("plugin_action:" + ga.KeyStr),
 			Key:          ga.Key,

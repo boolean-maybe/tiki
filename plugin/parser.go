@@ -73,7 +73,8 @@ func parsePluginConfig(cfg pluginFileConfig, source string, schema ruki.Schema, 
 			cfg.Name, source)
 	}
 	if strings.ToLower(cfg.Kind) == string(KindSearch) {
-		return nil, fmt.Errorf("plugin %q (%s): `kind: search` is reserved for Phase 6B and not yet implemented",
+		return nil, fmt.Errorf("plugin %q (%s): `kind: search` is reserved but not yet implemented "+
+			"(the built-in global search UI is not plugin-instantiable; declaring it as a workflow view is a future enhancement)",
 			cfg.Name, source)
 	}
 	if !IsValidKind(cfg.Kind) {
@@ -266,8 +267,9 @@ func parseWikiPlugin(cfg pluginFileConfig, base BasePlugin) (Plugin, error) {
 	}
 	if cfg.Document != "" {
 		return nil, fmt.Errorf(
-			"plugin %q: `document:` (ID-based resolution) is not yet implemented; use `path:` in Phase 6A. "+
-				"ID-based resolution lands in Phase 6B.", cfg.Name)
+			"plugin %q: `document:` (ID-based resolution) is not yet implemented — "+
+				"use `path:` with a relative filepath. ID-based binding is a future enhancement.",
+			cfg.Name)
 	}
 	if cfg.Path == "" {
 		return nil, fmt.Errorf("plugin %q: kind: wiki requires `path:` (relative path to a markdown document)", cfg.Name)

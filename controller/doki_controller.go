@@ -6,33 +6,45 @@ import (
 	"github.com/boolean-maybe/tiki/model"
 	"github.com/boolean-maybe/tiki/plugin"
 	"github.com/boolean-maybe/tiki/ruki"
+	"github.com/boolean-maybe/tiki/service"
+	"github.com/boolean-maybe/tiki/store"
 	"github.com/boolean-maybe/tiki/task"
 )
 
 // DokiController handles non-board view actions (wiki, detail, search).
 // These views are read-only and do not own task filtering/sorting state.
 //
-// As of Phase 6A, DokiController registers global `kind: view` actions so
-// cross-view navigation works from any view kind. Global `kind: ruki` actions
-// require the store/mutation/schema plumbing that PluginController owns; they
-// are intentionally NOT executed from non-board views in 6A and will land in
-// Phase 6B when the executor is hoisted into a shared helper.
+// Global-action wiring:
+//   - `kind: view` actions dispatch through HandleAction → handleGlobalAction
+//     to switch to the named view; the current selection (carried in from
+//     the source view's navigation params) propagates into the target.
+//   - `kind: ruki` actions dispatch through the shared PluginExecutor so
+//     the same mutation/pipe/clipboard pipeline used by board views fires
+//     here too. If the view was navigated to with a selected task id, that
+//     id is carried into the ruki ExecutionInput.
 type DokiController struct {
-	pluginDef     plugin.Plugin
-	navController *NavigationController
-	statusline    *model.StatuslineConfig
-	registry      *ActionRegistry
-	globalActions []plugin.PluginAction
+	pluginDef      plugin.Plugin
+	navController  *NavigationController
+	statusline     *model.StatuslineConfig
+	registry       *ActionRegistry
+	globalActions  []plugin.PluginAction
+	executor       *PluginExecutor
+	selectedTaskID string // 6B.3: carried from source view via PluginViewParams
 }
 
 // NewDokiController creates a controller backing any non-board plugin view.
-// globalActions is the workflow's top-level actions list; only `kind: view`
-// entries are wired through at Phase 6A.
+// globalActions is the workflow's top-level actions list; both `kind: view`
+// and `kind: ruki` entries are wired through. taskStore / mutationGate /
+// schema may be nil for minimal test fixtures that don't exercise ruki
+// globals (in which case kind: ruki actions silently fall through).
 func NewDokiController(
 	pluginDef plugin.Plugin,
 	navController *NavigationController,
 	statusline *model.StatuslineConfig,
 	globalActions []plugin.PluginAction,
+	taskStore store.Store,
+	mutationGate *service.TaskMutationGate,
+	schema ruki.Schema,
 ) *DokiController {
 	dc := &DokiController{
 		pluginDef:     pluginDef,
@@ -41,16 +53,45 @@ func NewDokiController(
 		registry:      DokiViewActions(),
 		globalActions: globalActions,
 	}
-	dc.mergeGlobalViewActions()
+	if taskStore != nil && mutationGate != nil && schema != nil {
+		dc.executor = NewPluginExecutor(taskStore, mutationGate, statusline, schema,
+			pluginDef.GetName(), nil)
+	}
+	dc.mergeGlobalActions()
 	return dc
 }
 
-// mergeGlobalViewActions adds every `kind: view` action from the workflow's
-// top-level actions list into this view's action registry. Ruki-kind globals
-// are deliberately excluded at 6A — see the type comment.
-func (dc *DokiController) mergeGlobalViewActions() {
+// mergeGlobalActions registers surfaceable top-level actions into this
+// view's action registry so header + palette see them, and keyboard
+// dispatch routes through HandleAction below.
+//
+// Not everything is surfaced:
+//   - view-kind actions surface unconditionally.
+//   - ruki-kind actions surface only when the executor is wired AND the
+//     action is non-interactive. The doki controller does not implement
+//     the input/choose pipeline (GetActionInputSpec / GetActionChooseSpec
+//     return empty), so dispatching an `input:` or `choose()` action here
+//     would fire it with an uninitialized prompt. Filter them out at
+//     registration time so the UI reflects what can actually run.
+//     Implementing the interactive pipeline on non-board views is a
+//     future enhancement; see phase6.md.
+func (dc *DokiController) mergeGlobalActions() {
 	for _, ga := range dc.globalActions {
-		if ga.Kind != plugin.ActionKindView {
+		switch ga.Kind {
+		case plugin.ActionKindView:
+			// surfaced unconditionally; navigation has no store deps
+		case plugin.ActionKindRuki:
+			if dc.executor == nil {
+				// no executor plumbing; don't surface an action we can't fire
+				continue
+			}
+			if ga.HasInput || ga.HasChoose {
+				slog.Debug("interactive ruki global not surfaced on non-board view",
+					"view", dc.pluginDef.GetName(), "key", ga.KeyStr, "label", ga.Label,
+					"input", ga.HasInput, "choose", ga.HasChoose)
+				continue
+			}
+		default:
 			continue
 		}
 		actionID := ActionID("plugin_action:" + ga.KeyStr)
@@ -80,6 +121,13 @@ func toRequirements(raw []string) []Requirement {
 	return out
 }
 
+// SetSelectedTaskID records the task id this view was navigated to with.
+// Invoked by the view layer after decoding PluginViewParams so outbound
+// `kind: view` actions and inbound `kind: ruki` globals see the selection.
+func (dc *DokiController) SetSelectedTaskID(id string) {
+	dc.selectedTaskID = id
+}
+
 // GetActionRegistry returns the actions for the view
 func (dc *DokiController) GetActionRegistry() *ActionRegistry {
 	return dc.registry
@@ -94,7 +142,7 @@ func (dc *DokiController) GetPluginName() string {
 func (dc *DokiController) ShowNavigation() bool { return true }
 
 // HandleAction routes navigation actions to the NavigableMarkdown component
-// and dispatches global `kind: view` actions to switch to the target view.
+// and dispatches global actions (both `kind: view` and `kind: ruki`).
 func (dc *DokiController) HandleAction(actionID ActionID) bool {
 	switch actionID {
 	case ActionNavigateBack, ActionNavigateForward:
@@ -108,25 +156,64 @@ func (dc *DokiController) HandleAction(actionID ActionID) bool {
 }
 
 // handleGlobalAction dispatches a global action by its canonical key string.
-// In 6A only `kind: view` actions are dispatched; ruki-kind globals are
-// silently ignored from non-board views and will be wired in 6B.
+// View-kind actions switch the current view. Ruki-kind actions run through
+// the shared PluginExecutor against an empty selection (doki views have no
+// intrinsic selection; selection passthrough from a source view lands in
+// 6B.3).
 func (dc *DokiController) handleGlobalAction(keyStr string) bool {
 	for i := range dc.globalActions {
 		ga := &dc.globalActions[i]
 		if ga.KeyStr != keyStr {
 			continue
 		}
-		if ga.Kind == plugin.ActionKindView {
+		switch ga.Kind {
+		case plugin.ActionKindView:
 			if ga.TargetView == "" {
 				return false
 			}
-			dc.navController.PushView(model.MakePluginViewID(ga.TargetView), nil)
+			// 6B.15/6B.20/6B.22: honor the target view's own require:
+			// in full. The doki view's carried selection is 0 or 1
+			// depending on whether a task id was threaded in via
+			// PluginViewParams; the target context is built fresh
+			// from the target's own identity so view:* requirements
+			// resolve against the target, not this view.
+			selected := 0
+			if dc.selectedTaskID != "" {
+				selected = 1
+			}
+			if !TargetViewEnabled(ga.TargetView, selected) {
+				return false
+			}
+			var params map[string]interface{}
+			if dc.selectedTaskID != "" {
+				params = model.EncodePluginViewParams(model.PluginViewParams{TaskID: dc.selectedTaskID})
+			}
+			dc.navController.PushView(model.MakePluginViewID(ga.TargetView), params)
 			return true
+		case plugin.ActionKindRuki:
+			if dc.executor == nil {
+				return false
+			}
+			// 6B.13 belt-and-suspenders: mergeGlobalActions filters
+			// HasInput/HasChoose actions out of the registry so they
+			// shouldn't reach here, but an action registered via a
+			// different path (future code) could. Refuse rather than
+			// fire with an empty input/choose payload.
+			if ga.HasInput || ga.HasChoose {
+				slog.Debug("interactive ruki global refused on non-board view",
+					"view", dc.pluginDef.GetName(), "key", keyStr)
+				return false
+			}
+			var selection []string
+			if dc.selectedTaskID != "" {
+				selection = []string{dc.selectedTaskID}
+			}
+			input, ok := dc.executor.BuildExecutionInput(ga, selection)
+			if !ok {
+				return false
+			}
+			return dc.executor.Execute(ga, input)
 		}
-		// ga.Kind == plugin.ActionKindRuki — not wired from non-board views in 6A.
-		slog.Debug("ruki-kind global action ignored from non-board view (6B)",
-			"key", keyStr, "view", dc.pluginDef.GetName())
-		return false
 	}
 	return false
 }

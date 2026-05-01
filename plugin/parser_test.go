@@ -26,7 +26,7 @@ func TestWikiValidation(t *testing.T) {
 		wantError string
 	}{
 		{"missing path", pluginFileConfig{Name: "Docs", Kind: "wiki"}, "requires `path:`"},
-		{"document deferred to 6B", pluginFileConfig{Name: "Docs", Kind: "wiki", Document: "ABC123"}, "Phase 6B"},
+		{"document not implemented", pluginFileConfig{Name: "Docs", Kind: "wiki", Document: "ABC123"}, "ID-based resolution) is not yet implemented"},
 		{"lanes rejected", pluginFileConfig{Name: "Docs", Kind: "wiki", Path: "x.md", Lanes: []PluginLaneConfig{{Name: "x", Filter: "select"}}}, "`lanes:` only valid on board"},
 		{"per-view actions rejected", pluginFileConfig{Name: "Docs", Kind: "wiki", Path: "x.md", Actions: []PluginActionConfig{{Key: "x", Label: "x", Action: `update where id = id() set status="ready"`}}}, "cannot have per-view `actions:`"},
 		{"valid with path", pluginFileConfig{Name: "Docs", Kind: "wiki", Path: "x.md"}, ""},
@@ -90,7 +90,7 @@ func TestUnknownAndReservedKinds(t *testing.T) {
 		{"missing kind", pluginFileConfig{Name: "X"}, "missing `kind:`"},
 		{"unknown kind", pluginFileConfig{Name: "X", Kind: "galaxy"}, "unknown view kind"},
 		{"timeline reserved", pluginFileConfig{Name: "X", Kind: "timeline"}, "reserved but not yet implemented"},
-		{"search reserved for 6B", pluginFileConfig{Name: "X", Kind: "search"}, "reserved for Phase 6B"},
+		{"search reserved", pluginFileConfig{Name: "X", Kind: "search"}, "kind: search` is reserved but not yet implemented"},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {

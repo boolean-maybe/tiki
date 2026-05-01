@@ -436,6 +436,7 @@ func (ta *TestApp) LoadPlugins() error {
 		} else if dp, ok := p.(*plugin.DokiPlugin); ok {
 			pluginControllers[p.GetName()] = controller.NewDokiController(
 				dp, ta.NavController, ta.statuslineConfig, globalActions,
+				ta.TaskStore, ta.MutationGate, ta.Schema,
 			)
 		}
 	}
@@ -454,6 +455,7 @@ func (ta *TestApp) LoadPlugins() error {
 			Key:      pk,
 			Rune:     pr,
 			Modifier: pm,
+			Require:  p.GetRequire(),
 		})
 	}
 	controller.InitPluginActions(pluginInfos)

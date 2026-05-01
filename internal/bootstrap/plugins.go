@@ -36,6 +36,9 @@ func InitPluginActionRegistry(plugins []plugin.Plugin) {
 			Key:      pk,
 			Rune:     pr,
 			Modifier: pm,
+			// Surface the view's own require: so the activation-key gate
+			// honors it (6B.15).
+			Require: p.GetRequire(),
 		})
 	}
 	controller.InitPluginActions(pluginInfos)

@@ -45,6 +45,11 @@ type Plugin interface {
 	GetConfigIndex() int
 	GetKind() ViewKind
 	IsDefault() bool
+	// GetRequire returns the view's own `require:` list from workflow.yaml.
+	// Consumed by the direct activation-key gate and `kind: view` action
+	// dispatch so a view's declared requirements are honored regardless of
+	// how navigation was triggered (6B.15).
+	GetRequire() []string
 }
 
 // BasePlugin holds the common fields for all plugins
@@ -98,6 +103,12 @@ func (p *BasePlugin) GetKind() ViewKind {
 
 func (p *BasePlugin) IsDefault() bool {
 	return p.Default
+}
+
+// GetRequire returns the view-level require: list declared in workflow.yaml.
+// Empty (nil or zero-length) means the view has no declared requirements.
+func (p *BasePlugin) GetRequire() []string {
+	return p.Require
 }
 
 // TikiPlugin backs board and list view kinds. The name is retained from the
