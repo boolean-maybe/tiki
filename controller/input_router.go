@@ -316,7 +316,7 @@ func (ir *InputRouter) openDepsEditor(taskID string) bool {
 			Name:        name,
 			Description: model.DepsEditorViewDesc,
 			ConfigIndex: -1,
-			Type:        "tiki",
+			Kind:        plugin.KindBoard,
 			Background:  config.GetColors().DepsEditorBackground,
 		},
 		TaskID: taskID,
@@ -328,12 +328,12 @@ func (ir *InputRouter) openDepsEditor(taskID string) bool {
 	}
 
 	if vm := config.GetPluginViewMode("Dependency"); vm != "" {
-		pluginDef.ViewMode = vm
+		pluginDef.Mode = vm
 	}
 
 	pluginConfig := model.NewPluginConfig("Dependency")
 	pluginConfig.SetLaneLayout([]int{1, 2, 1}, []int{25, 50, 25})
-	if pluginDef.ViewMode == "expanded" {
+	if pluginDef.Mode == "expanded" {
 		pluginConfig.SetViewMode("expanded")
 	}
 

@@ -19,11 +19,15 @@ type Controllers struct {
 }
 
 // BuildControllers constructs navigation/domain/plugin controllers for the application.
+// globalActions carries the workflow's top-level `actions:` list so non-board
+// views can reach them too (6A wires `kind: view` navigation; `kind: ruki`
+// dispatch from non-board views lands in 6B).
 func BuildControllers(
 	app *tview.Application,
 	taskStore store.Store,
 	mutationGate *service.TaskMutationGate,
 	plugins []plugin.Plugin,
+	globalActions []plugin.PluginAction,
 	pluginConfigs map[string]*model.PluginConfig,
 	statuslineConfig *model.StatuslineConfig,
 	schema ruki.Schema,
@@ -33,7 +37,12 @@ func BuildControllers(
 
 	pluginControllers := make(map[string]controller.PluginControllerInterface)
 	for _, p := range plugins {
-		if tp, ok := p.(*plugin.TikiPlugin); ok {
+		switch p.GetKind() {
+		case plugin.KindBoard, plugin.KindList:
+			tp, ok := p.(*plugin.TikiPlugin)
+			if !ok {
+				continue
+			}
 			pluginControllers[p.GetName()] = controller.NewPluginController(
 				taskStore,
 				mutationGate,
@@ -43,10 +52,8 @@ func BuildControllers(
 				statuslineConfig,
 				schema,
 			)
-			continue
-		}
-		if dp, ok := p.(*plugin.DokiPlugin); ok {
-			pluginControllers[p.GetName()] = controller.NewDokiController(dp, navController, statuslineConfig)
+		case plugin.KindWiki, plugin.KindDetail:
+			pluginControllers[p.GetName()] = controller.NewDokiController(p, navController, statuslineConfig, globalActions)
 		}
 	}
 

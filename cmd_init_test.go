@@ -330,17 +330,17 @@ types:
   - key: task
     label: Task
 views:
-  plugins:
-    - name: Board
-      default: true
-      key: "F1"
-      lanes:
-        - name: Todo
-          filter: select where status = "todo" order by priority
-          action: update where id = id() set status="todo"
-        - name: Done
-          filter: select where status = "done" order by priority
-          action: update where id = id() set status="done"
+  - name: Board
+    kind: board
+    default: true
+    key: "F1"
+    lanes:
+      - name: Todo
+        filter: select where status = "todo" order by priority
+        action: update where id = id() set status="todo"
+      - name: Done
+        filter: select where status = "done" order by priority
+        action: update where id = id() set status="done"
 `
 	tmp := filepath.Join(t.TempDir(), "custom.yaml")
 	if err := os.WriteFile(tmp, []byte(validWorkflow), 0644); err != nil {

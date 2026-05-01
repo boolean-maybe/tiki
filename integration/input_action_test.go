@@ -14,29 +14,29 @@ import (
 )
 
 var inputActionWorkflow = testWorkflowPreamble + `views:
-  plugins:
-    - name: InputTest
-      key: "F4"
-      lanes:
-        - name: All
-          columns: 1
-          filter: select where status = "backlog" order by id
-      actions:
-        - key: "A"
-          label: "Assign to..."
-          action: update where id = id() set assignee=input()
-          input: string
-        - key: "t"
-          label: "Add tag"
-          action: update where id = id() set tags=tags+[input()]
-          input: string
-        - key: "p"
-          label: "Set points"
-          action: update where id = id() set points=input()
-          input: int
-        - key: "b"
-          label: "Add to board"
-          action: update where id = id() set status="ready"
+  - name: InputTest
+    kind: board
+    key: "F4"
+    lanes:
+      - name: All
+        columns: 1
+        filter: select where status = "backlog" order by id
+    actions:
+      - key: "A"
+        label: "Assign to..."
+        action: update where id = id() set assignee=input()
+        input: string
+      - key: "t"
+        label: "Add tag"
+        action: update where id = id() set tags=tags+[input()]
+        input: string
+      - key: "p"
+        label: "Set points"
+        action: update where id = id() set points=input()
+        input: int
+      - key: "b"
+        label: "Add to board"
+        action: update where id = id() set status="ready"
 `
 
 func setupInputActionTest(t *testing.T) *testutil.TestApp {
@@ -472,18 +472,18 @@ func TestInputAction_PreflightNoTaskSelected_NoPrompt(t *testing.T) {
 
 	// workflow with a lane that will match no tasks (review lane, but test task is backlog)
 	workflow := testWorkflowPreamble + `views:
-  plugins:
-    - name: EmptyTest
-      key: "F4"
-      lanes:
-        - name: Empty
-          columns: 1
-          filter: select where status = "review" order by id
-      actions:
-        - key: "A"
-          label: "Assign to..."
-          action: update where id = id() set assignee=input()
-          input: string
+  - name: EmptyTest
+    kind: board
+    key: "F4"
+    lanes:
+      - name: Empty
+        columns: 1
+        filter: select where status = "review" order by id
+    actions:
+      - key: "A"
+        label: "Assign to..."
+        action: update where id = id() set assignee=input()
+        input: string
 `
 	if err := os.WriteFile(filepath.Join(tmpDir, "workflow.yaml"), []byte(workflow), 0644); err != nil {
 		t.Fatalf("failed to write workflow.yaml: %v", err)
@@ -574,17 +574,17 @@ func TestInputAction_AddTagMutation(t *testing.T) {
 }
 
 var compositeKeyWorkflow = testWorkflowPreamble + `views:
-  plugins:
-    - name: CompositeTest
-      key: "F4"
-      lanes:
-        - name: All
-          columns: 1
-          filter: select where status = "backlog" order by id
-      actions:
-        - key: "Ctrl-U"
-          label: "Unblock"
-          action: update where id = id() set status="ready"
+  - name: CompositeTest
+    kind: board
+    key: "F4"
+    lanes:
+      - name: All
+        columns: 1
+        filter: select where status = "backlog" order by id
+    actions:
+      - key: "Ctrl-U"
+        label: "Unblock"
+        action: update where id = id() set status="ready"
 `
 
 func TestInputAction_CompositeKeyPluginAction(t *testing.T) {

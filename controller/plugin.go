@@ -303,17 +303,36 @@ func (pc *PluginController) executeAndApply(pa *plugin.PluginAction, input ruki.
 	return true
 }
 
-// handlePluginAction applies a plugin shortcut action to the currently selected task.
+// handlePluginAction applies a plugin shortcut action. Ruki-kind actions run
+// through the executor pipeline; view-kind actions navigate to another view.
 func (pc *PluginController) handlePluginAction(actionID ActionID) bool {
 	pa, ok := pc.getPluginAction(actionID)
 	if !ok {
 		return false
+	}
+	if pa.Kind == plugin.ActionKindView {
+		return pc.handleViewAction(pa)
 	}
 	input, ok := pc.buildExecutionInput(pa)
 	if !ok {
 		return false
 	}
 	return pc.executeAndApply(pa, input)
+}
+
+// handleViewAction switches to the target view declared by a kind: view action.
+// Selection is evaluated against the current lane so an action requiring
+// selection:one is blocked when nothing is selected.
+func (pc *PluginController) handleViewAction(pa *plugin.PluginAction) bool {
+	ids := pc.getSelectedTaskIDs(pc.GetFilteredTasksForLane)
+	if !selectionSatisfies(pa.Require, len(ids)) {
+		return false
+	}
+	if pa.TargetView == "" {
+		return false
+	}
+	pc.navController.PushView(model.MakePluginViewID(pa.TargetView), nil)
+	return true
 }
 
 // GetActionInputSpec returns the prompt and input type for an action, if it has input.

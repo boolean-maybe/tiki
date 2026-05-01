@@ -1,4 +1,4 @@
-version: 0.5.3
+version: "0.6.0"
 description: |
   Kanban-style workflow for small-team software work. Five statuses
   (Backlog → Ready → In Progress → Review → Done) and four task types
@@ -39,120 +39,127 @@ types:
     label: Epic
     emoji: "🗂️"
 
+actions:
+  - key: "a"
+    label: "Assign to me"
+    action: update where id = id() set assignee=user()
+  - key: "y"
+    label: "Copy ID"
+    action: select id where id = id() | clipboard()
+  - key: "Y"
+    label: "Copy content"
+    action: select title, description where id = id() | clipboard()
+  - key: "o"
+    label: "Open in VS Code"
+    action: select filepath where id = id() | run("code \"$1\"")
+    hot: false
+  - key: "+"
+    label: "Priority up"
+    action: update where id = id() set priority = priority - 1
+  - key: "-"
+    label: "Priority down"
+    action: update where id = id() set priority = priority + 1
+  - key: "u"
+    label: "Flag urgent"
+    action: update where id = id() set priority=1 tags=tags+["urgent"]
+    hot: false
+  - key: "A"
+    label: "Assign to..."
+    action: update where id = id() set assignee=input()
+    input: string
+    hot: false
+  - key: "t"
+    label: "Add tag"
+    action: update where id = id() set tags=tags+[input()]
+    input: string
+    hot: false
+  - key: "T"
+    label: "Remove tag"
+    action: update where id = id() set tags=tags-[input()]
+    input: string
+    hot: false
+  - key: Ctrl-Q
+    label: "Quick create"
+    action: create title=input()
+    input: string
+    hot: false
+
 views:
-  actions:
-    - key: "a"
-      label: "Assign to me"
-      action: update where id = id() set assignee=user()
-    - key: "y"
-      label: "Copy ID"
-      action: select id where id = id() | clipboard()
-    - key: "Y"
-      label: "Copy content"
-      action: select title, description where id = id() | clipboard()
-    - key: "o"
-      label: "Open in VS Code"
-      action: select filepath where id = id() | run("code \"$1\"")
-      hot: false
-    - key: "+"
-      label: "Priority up"
-      action: update where id = id() set priority = priority - 1
-    - key: "-"
-      label: "Priority down"
-      action: update where id = id() set priority = priority + 1
-    - key: "u"
-      label: "Flag urgent"
-      action: update where id = id() set priority=1 tags=tags+["urgent"]
-      hot: false
-    - key: "A"
-      label: "Assign to..."
-      action: update where id = id() set assignee=input()
-      input: string
-      hot: false
-    - key: "t"
-      label: "Add tag"
-      action: update where id = id() set tags=tags+[input()]
-      input: string
-      hot: false
-    - key: "T"
-      label: "Remove tag"
-      action: update where id = id() set tags=tags-[input()]
-      input: string
-      hot: false
-    - key: Ctrl-Q
-      label: "Quick create"
-      action: create title=input()
-      input: string
-      hot: false
-  plugins:
-    - name: Kanban
-      description: "Move tiki to change status, search, create or delete\nShift Left/Right to move"
-      default: true
-      key: "F1"
-      lanes:
-        - name: Ready
-          filter: select where status = "ready" and type != "epic" order by priority, createdAt
-          action: update where id = id() set status="ready"
-        - name: In Progress
-          filter: select where status = "inProgress" and type != "epic" order by priority, createdAt
-          action: update where id = id() set status="inProgress"
-        - name: Review
-          filter: select where status = "review" and type != "epic" order by priority, createdAt
-          action: update where id = id() set status="review"
-        - name: Done
-          filter: select where status = "done" and type != "epic" order by priority, createdAt
-          action: update where id = id() set status="done"
-    - name: Backlog
-      description: "Tasks waiting to be picked up, sorted by priority"
-      key: "F3"
-      lanes:
-        - name: Backlog
-          columns: 4
-          filter: select where status = "backlog" and type != "epic" order by priority, id
-      actions:
-        - key: "b"
-          label: "Add to board"
-          action: update where id = id() set status="ready"
-        - key: "e"
-          label: "Link to epic"
-          action: update where id = choose(select where type = "epic" and outer.id not in dependsOn) set dependsOn = dependsOn + id()
-    - name: Recent
-      description: "Tasks changed in the last 24 hours, most recent first"
-      key: Ctrl-R
-      lanes:
-        - name: Recent
-          columns: 4
-          filter: select where now() - updatedAt < 24hour order by updatedAt desc
-    - name: Roadmap
-      description: "Epics organized by Now, Next, and Later horizons"
-      key: "F4"
-      lanes:
-        - name: Now
-          columns: 1
-          width: 25
-          filter: select where type = "epic" and status = "ready" order by priority, points desc
-          action: update where id = id() set status="ready"
-        - name: Next
-          columns: 1
-          width: 25
-          filter: select where type = "epic" and status = "backlog" and priority = 1 order by priority, points desc
-          action: update where id = id() set status="backlog" priority=1
-        - name: Later
-          columns: 2
-          width: 50
-          filter: select where type = "epic" and status = "backlog" and priority > 1 order by priority, points desc
-          action: update where id = id() set status="backlog" priority=2
-      view: expanded
-      actions:
-        - key: "l"
-          label: "Add tiki to epic"
-          action: update where id = id() set dependsOn = dependsOn + choose(select where type != "epic" and id not in outer.dependsOn)
-    - name: Docs
-      description: "Project notes and documentation files"
-      type: doki
-      fetcher: file
-      url: "index.md"
-      key: "F2"
+  - name: Kanban
+    kind: board
+    description: "Move tiki to change status, search, create or delete\nShift Left/Right to move"
+    default: true
+    key: "F1"
+    lanes:
+      - name: Ready
+        filter: select where status = "ready" and type != "epic" order by priority, createdAt
+        action: update where id = id() set status="ready"
+      - name: In Progress
+        filter: select where status = "inProgress" and type != "epic" order by priority, createdAt
+        action: update where id = id() set status="inProgress"
+      - name: Review
+        filter: select where status = "review" and type != "epic" order by priority, createdAt
+        action: update where id = id() set status="review"
+      - name: Done
+        filter: select where status = "done" and type != "epic" order by priority, createdAt
+        action: update where id = id() set status="done"
+
+  - name: Backlog
+    kind: board
+    description: "Tasks waiting to be picked up, sorted by priority"
+    key: "F3"
+    lanes:
+      - name: Backlog
+        columns: 4
+        filter: select where status = "backlog" and type != "epic" order by priority, id
+    actions:
+      - key: "b"
+        label: "Add to board"
+        action: update where id = id() set status="ready"
+      - key: "e"
+        label: "Link to epic"
+        action: update where id = choose(select where type = "epic" and (not has(dependsOn) or outer.id not in dependsOn)) set dependsOn = dependsOn + id()
+
+  - name: Recent
+    kind: board
+    description: "Tasks changed in the last 24 hours, most recent first"
+    key: Ctrl-R
+    lanes:
+      - name: Recent
+        columns: 4
+        filter: select where now() - updatedAt < 24hour order by updatedAt desc
+
+  - name: Roadmap
+    kind: board
+    description: "Epics organized by Now, Next, and Later horizons"
+    key: "F4"
+    mode: expanded
+    lanes:
+      - name: Now
+        columns: 1
+        width: 25
+        filter: select where type = "epic" and status = "ready" order by priority, points desc
+        action: update where id = id() set status="ready"
+      - name: Next
+        columns: 1
+        width: 25
+        filter: select where type = "epic" and status = "backlog" and priority = 1 order by priority, points desc
+        action: update where id = id() set status="backlog" priority=1
+      - name: Later
+        columns: 2
+        width: 50
+        filter: select where type = "epic" and status = "backlog" and priority > 1 order by priority, points desc
+        action: update where id = id() set status="backlog" priority=2
+    actions:
+      - key: "l"
+        label: "Add tiki to epic"
+        action: update where id = id() set dependsOn = dependsOn + choose(select where type != "epic" and (not has(outer.dependsOn) or id not in outer.dependsOn))
+
+  - name: Docs
+    kind: wiki
+    description: "Project notes and documentation files"
+    path: "index.md"
+    key: "F2"
 
 triggers:
   - description: block completion with open dependencies

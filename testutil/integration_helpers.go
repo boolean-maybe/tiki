@@ -407,8 +407,8 @@ func (ta *TestApp) Cleanup() {
 // LoadPlugins loads plugins from workflow.yaml files and wires them into the test app.
 // This enables testing of plugin-related functionality.
 func (ta *TestApp) LoadPlugins() error {
-	// Load embedded plugins
-	plugins, err := plugin.LoadPlugins(ta.Schema)
+	// Load embedded plugins and the top-level global actions list.
+	plugins, globalActions, err := plugin.LoadPluginsAndGlobals(ta.Schema)
 	if err != nil {
 		return err
 	}
@@ -435,7 +435,7 @@ func (ta *TestApp) LoadPlugins() error {
 			)
 		} else if dp, ok := p.(*plugin.DokiPlugin); ok {
 			pluginControllers[p.GetName()] = controller.NewDokiController(
-				dp, ta.NavController, ta.statuslineConfig,
+				dp, ta.NavController, ta.statuslineConfig, globalActions,
 			)
 		}
 	}
@@ -502,7 +502,7 @@ func (ta *TestApp) LoadPlugins() error {
 	}
 
 	viewFactory := view.NewViewFactory(ta.TaskStore)
-	viewFactory.SetPlugins(pluginConfigs, pluginDefs, pluginControllers)
+	viewFactory.SetPlugins(pluginConfigs, pluginDefs, pluginControllers, globalActions)
 	ta.ViewFactory = viewFactory
 
 	// Wire dynamic plugin registration so openDepsEditor can register deps views at runtime.

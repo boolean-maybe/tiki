@@ -17,7 +17,10 @@ import (
 	"github.com/rivo/tview"
 )
 
-// DokiView renders a documentation plugin (navigable markdown)
+// DokiView renders a documentation plugin (navigable markdown).
+// globalViewActions carries the workflow-level `kind: view` actions so the
+// header and action palette (which read this view's registry) show them
+// alongside the built-in navigation actions.
 type DokiView struct {
 	root                *tview.Flex
 	titleBar            tview.Primitive
@@ -26,24 +29,61 @@ type DokiView struct {
 	registry            *controller.ActionRegistry
 	imageManager        *navtview.ImageManager
 	mermaidOpts         *nav.MermaidOptions
+	globalViewActions   []plugin.PluginAction
 	actionChangeHandler func()
 }
 
-// NewDokiView creates a doki view
+// NewDokiView creates a doki view. globalActions is the workflow's top-level
+// actions list; only `kind: view` entries are surfaced in the view registry
+// (the controller mirrors this for keyboard dispatch).
 func NewDokiView(
 	pluginDef *plugin.DokiPlugin,
 	imageManager *navtview.ImageManager,
 	mermaidOpts *nav.MermaidOptions,
+	globalActions []plugin.PluginAction,
 ) *DokiView {
 	dv := &DokiView{
-		pluginDef:    pluginDef,
-		registry:     controller.NewActionRegistry(),
-		imageManager: imageManager,
-		mermaidOpts:  mermaidOpts,
+		pluginDef:         pluginDef,
+		registry:          controller.NewActionRegistry(),
+		imageManager:      imageManager,
+		mermaidOpts:       mermaidOpts,
+		globalViewActions: filterViewKindActions(globalActions),
 	}
 
 	dv.build()
 	return dv
+}
+
+// filterViewKindActions keeps only `kind: view` actions — the ones the view
+// registry should surface for non-board views at Phase 6A. `kind: ruki`
+// globals are handled only on board views today; surfacing them in doki
+// view registries would be misleading because they would not actually fire.
+func filterViewKindActions(globals []plugin.PluginAction) []plugin.PluginAction {
+	if len(globals) == 0 {
+		return nil
+	}
+	out := make([]plugin.PluginAction, 0, len(globals))
+	for _, ga := range globals {
+		if ga.Kind == plugin.ActionKindView {
+			out = append(out, ga)
+		}
+	}
+	return out
+}
+
+// pluginRequirementsToController converts the plugin-layer []string require
+// list into the controller-layer []Requirement slice the ActionRegistry and
+// enablement pipeline expect. Kept local to avoid pushing a view-layer
+// dependency into plugin or controller.
+func pluginRequirementsToController(raw []string) []controller.Requirement {
+	if len(raw) == 0 {
+		return nil
+	}
+	out := make([]controller.Requirement, 0, len(raw))
+	for _, r := range raw {
+		out = append(out, controller.Requirement(r))
+	}
+	return out
 }
 
 func (dv *DokiView) build() {
@@ -58,63 +98,38 @@ func (dv *DokiView) build() {
 	}
 	dv.titleBar = NewGradientCaptionRow([]string{dv.pluginDef.Name}, nil, bgColor, textColor)
 
-	// Fetch initial content and create NavigableMarkdown with appropriate provider
+	// Fetch initial content and create NavigableMarkdown with appropriate provider.
+	// Phase 6A supports `path:` only for wiki views; `document:` (ID-based
+	// resolution) is rejected at parse time until Phase 6B. Detail views carry
+	// no bound document and render a placeholder until selection binding
+	// lands in Phase 6B.
 	var content string
 	var sourcePath string
 	var err error
 
-	switch dv.pluginDef.Fetcher {
-	case "file":
-		// Phase 2: the legacy doki directory stays first so existing plugin
-		// configs (`URL: "index.md"` → `.doc/doki/index.md`) resolve
-		// unchanged. The unified document root is added as a fallback so
-		// a doki plugin that points at a document elsewhere under `.doc/`
-		// (including nested directories or `.doc/` itself) still resolves.
-		searchRoots := []string{config.GetDokiDir(), config.GetDocDir()}
-		provider := &loaders.FileHTTP{SearchRoots: searchRoots}
+	// legacy doki root stays first so older configs still resolve; the
+	// unified `.doc/` root handles documents anywhere under the new layout.
+	searchRoots := []string{config.GetDokiDir(), config.GetDocDir()}
+	provider := &loaders.FileHTTP{SearchRoots: searchRoots}
 
-		content, err = provider.FetchContent(nav.NavElement{URL: dv.pluginDef.URL})
-
-		// Resolve initial source path for stable relative navigation
-		sourcePath, _ = nav.ResolveMarkdownPath(dv.pluginDef.URL, "", searchRoots)
+	if target := dv.pluginDef.DocumentPath; target != "" {
+		content, err = provider.FetchContent(nav.NavElement{URL: target})
+		sourcePath, _ = nav.ResolveMarkdownPath(target, "", searchRoots)
 		if sourcePath == "" {
-			sourcePath = dv.pluginDef.URL
+			sourcePath = target
 		}
-
-		dv.md = markdown.NewNavigableMarkdown(markdown.NavigableMarkdownConfig{
-			Provider:       provider,
-			SearchRoots:    searchRoots,
-			OnStateChange:  dv.UpdateNavigationActions,
-			ImageManager:   dv.imageManager,
-			MermaidOptions: dv.mermaidOpts,
-		})
-
-	// fetcher: internal is intentionally preserved as a supported pattern for
-	// code-only internal docs, even though no default workflow currently uses it.
-	//
-	// The default Help plugin previously used this with embedded markdown:
-	//   cnt := map[string]string{"Help": helpMd, "tiki.md": tikiMd, "view.md": customMd}
-	//   provider := &internalDokiProvider{content: cnt}
-	// That usage was replaced by the action palette (press Ctrl+A to open).
-	case "internal":
-		provider := &internalDokiProvider{content: map[string]string{}}
-		content, err = provider.FetchContent(nav.NavElement{Text: dv.pluginDef.Text})
-
-		dv.md = markdown.NewNavigableMarkdown(markdown.NavigableMarkdownConfig{
-			Provider:       provider,
-			OnStateChange:  dv.UpdateNavigationActions,
-			ImageManager:   dv.imageManager,
-			MermaidOptions: dv.mermaidOpts,
-		})
-
-	default:
-		content = "Error: Unknown fetcher type"
-		dv.md = markdown.NewNavigableMarkdown(markdown.NavigableMarkdownConfig{
-			OnStateChange:  dv.UpdateNavigationActions,
-			ImageManager:   dv.imageManager,
-			MermaidOptions: dv.mermaidOpts,
-		})
+	} else {
+		// kind: detail — selection-driven rendering lands in 6B.
+		content = "(select a document)"
 	}
+
+	dv.md = markdown.NewNavigableMarkdown(markdown.NavigableMarkdownConfig{
+		Provider:       provider,
+		SearchRoots:    searchRoots,
+		OnStateChange:  dv.UpdateNavigationActions,
+		ImageManager:   dv.imageManager,
+		MermaidOptions: dv.mermaidOpts,
+	})
 
 	if err != nil {
 		slog.Error("failed to fetch doki content", "plugin", dv.pluginDef.Name, "error", err)
@@ -215,6 +230,28 @@ func (dv *DokiView) UpdateNavigationActions() {
 		})
 	}
 
+	// Surface workflow-level `kind: view` actions so the header and action
+	// palette show them alongside the built-in navigation actions. Without
+	// this, globals would fire on keystroke (via the controller) but stay
+	// invisible in every UI affordance that reads this registry.
+	//
+	// `Require` must be propagated: header/palette enablement and palette
+	// dispatch consult the registry entry's Require list to decide whether
+	// to grey out / block an action. Dropping it here would let the palette
+	// fire a `selection:one` action on a view with no selection, which the
+	// controller would then silently refuse.
+	for _, ga := range dv.globalViewActions {
+		dv.registry.Register(controller.Action{
+			ID:           controller.ActionID("plugin_action:" + ga.KeyStr),
+			Key:          ga.Key,
+			Rune:         ga.Rune,
+			Modifier:     ga.Modifier,
+			Label:        ga.Label,
+			ShowInHeader: ga.ShowInHeader,
+			Require:      pluginRequirementsToController(ga.Require),
+		})
+	}
+
 	if dv.actionChangeHandler != nil {
 		dv.actionChangeHandler()
 	}
@@ -245,22 +282,4 @@ func (dv *DokiView) HandlePaletteAction(id controller.ActionID) bool {
 		return true
 	}
 	return false
-}
-
-// internalDokiProvider implements navidown.ContentProvider for embedded/internal docs.
-// It treats elem.URL as the lookup key, falling back to elem.Text for initial loads.
-type internalDokiProvider struct {
-	content map[string]string
-}
-
-func (p *internalDokiProvider) FetchContent(elem nav.NavElement) (string, error) {
-	if p == nil {
-		return "", nil
-	}
-	// Use URL for link navigation, Text for initial load
-	key := elem.URL
-	if key == "" {
-		key = elem.Text
-	}
-	return p.content[key], nil
 }
