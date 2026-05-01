@@ -1,5 +1,5 @@
 ---
-id: "Q85JSG"
+id: Q85JSG
 title: "Add real-time wind estimation display to dashboard"
 type: story
 status: backlog

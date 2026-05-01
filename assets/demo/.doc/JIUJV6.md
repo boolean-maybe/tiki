@@ -1,5 +1,5 @@
 ---
-id: "JIUJV6"
+id: JIUJV6
 title: "Set up structured logging with correlation IDs"
 type: story
 status: done

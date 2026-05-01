@@ -1,5 +1,5 @@
 ---
-id: "MVIHCW"
+id: MVIHCW
 title: "Build configuration validation CLI tool"
 type: story
 status: backlog

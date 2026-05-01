@@ -1,5 +1,5 @@
 ---
-id: "UZFK8U"
+id: UZFK8U
 title: "Fix payload drop mechanism servo jitter under vibration"
 type: bug
 status: backlog

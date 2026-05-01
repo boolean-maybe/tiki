@@ -1,5 +1,5 @@
 ---
-id: "1T2TAL"
+id: 1T2TAL
 title: "Weekly flight test systems checklist"
 type: story
 status: backlog

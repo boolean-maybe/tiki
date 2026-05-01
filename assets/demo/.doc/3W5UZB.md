@@ -1,5 +1,5 @@
 ---
-id: "3W5UZB"
+id: 3W5UZB
 title: Fix race condition in battery monitoring ISR
 type: bug
 status: inProgress

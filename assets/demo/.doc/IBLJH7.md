@@ -1,5 +1,5 @@
 ---
-id: "IBLJH7"
+id: IBLJH7
 title: "Implement role-based access control for operator console"
 type: story
 status: review

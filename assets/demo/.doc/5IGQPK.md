@@ -1,5 +1,5 @@
 ---
-id: "5IGQPK"
+id: 5IGQPK
 title: "Build dashboard notification center for mission events"
 type: story
 status: backlog

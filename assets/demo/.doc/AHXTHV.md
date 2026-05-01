@@ -1,5 +1,5 @@
 ---
-id: "AHXTHV"
+id: AHXTHV
 title: "Build fleet health overview dashboard widget"
 type: story
 status: ready

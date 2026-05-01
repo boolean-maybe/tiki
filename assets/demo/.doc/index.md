@@ -1,5 +1,5 @@
 ---
-id: "KT83SG"
+id: KT83SG
 ---
 # Celestia Robotics Documentation
 

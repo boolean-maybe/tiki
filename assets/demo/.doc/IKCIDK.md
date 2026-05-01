@@ -1,5 +1,5 @@
 ---
-id: "IKCIDK"
+id: IKCIDK
 title: "Integrate ground station map with live drone tracks"
 type: story
 status: inProgress

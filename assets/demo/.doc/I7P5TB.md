@@ -1,5 +1,5 @@
 ---
-id: "I7P5TB"
+id: I7P5TB
 title: "Add Terraform modules for multi-region telemetry deployment"
 type: story
 status: backlog

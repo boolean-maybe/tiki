@@ -1,5 +1,5 @@
 ---
-id: "0Y9DOM"
+id: 0Y9DOM
 title: "Fix battery percentage calculation on cold-weather flights"
 type: bug
 status: backlog

@@ -1,5 +1,5 @@
 ---
-id: "I64CIY"
+id: I64CIY
 title: "Implement emergency frequency hopping for RF interference"
 type: story
 status: backlog

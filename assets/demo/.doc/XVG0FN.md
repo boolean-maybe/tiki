@@ -1,5 +1,5 @@
 ---
-id: "XVG0FN"
+id: XVG0FN
 title: "Investigate telemetry timestamp drift on multi-core STM32H7"
 type: spike
 status: inProgress

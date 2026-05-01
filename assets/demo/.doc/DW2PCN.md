@@ -1,5 +1,5 @@
 ---
-id: "DW2PCN"
+id: DW2PCN
 title: "Design sensor interface abstraction layer for IMU hot-swap"
 type: spike
 status: backlog

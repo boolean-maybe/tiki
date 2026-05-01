@@ -1,5 +1,5 @@
 ---
-id: "PVS7HZ"
+id: PVS7HZ
 title: "Edge computing platform for on-drone ML inference"
 type: epic
 status: backlog

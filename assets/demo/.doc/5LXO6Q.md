@@ -1,5 +1,5 @@
 ---
-id: "5LXO6Q"
+id: 5LXO6Q
 title: Create API versioning strategy and deprecation policy
 type: spike
 status: done

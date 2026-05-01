@@ -1,5 +1,5 @@
 ---
-id: "HE7UR2"
+id: HE7UR2
 title: "Add multi-vehicle mission coordination API"
 type: story
 status: backlog

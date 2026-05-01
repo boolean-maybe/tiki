@@ -1,5 +1,5 @@
 ---
-id: "3GDPPQ"
+id: 3GDPPQ
 title: "Implement certificate rotation for drone fleet"
 type: story
 status: backlog

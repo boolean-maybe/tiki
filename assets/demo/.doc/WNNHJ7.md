@@ -1,5 +1,5 @@
 ---
-id: "WNNHJ7"
+id: WNNHJ7
 title: Migrate CI pipeline from Jenkins to GitHub Actions
 type: story
 status: inProgress

@@ -1,5 +1,5 @@
 ---
-id: "3A3ZMF"
+id: 3A3ZMF
 title: "Set up Kubernetes autoscaling for telemetry ingest service"
 type: story
 status: ready

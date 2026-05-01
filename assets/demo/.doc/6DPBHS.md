@@ -1,5 +1,5 @@
 ---
-id: "6DPBHS"
+id: 6DPBHS
 title: "Design telemetry compression protocol for low-bandwidth links"
 type: spike
 status: ready

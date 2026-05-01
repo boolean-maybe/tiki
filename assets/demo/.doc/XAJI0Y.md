@@ -1,5 +1,5 @@
 ---
-id: "XAJI0Y"
+id: XAJI0Y
 title: "Implement GPS failover for RTK correction module"
 type: story
 status: ready

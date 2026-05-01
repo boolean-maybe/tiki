@@ -1,5 +1,5 @@
 ---
-id: "OH9SDB"
+id: OH9SDB
 title: "Fix dashboard WebSocket reconnect dropping last 10s of data"
 type: bug
 status: done

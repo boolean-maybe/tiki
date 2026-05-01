@@ -1,5 +1,5 @@
 ---
-id: "8MDD4V"
+id: 8MDD4V
 title: Add mTLS authentication to drone command API
 type: story
 status: ready

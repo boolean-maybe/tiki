@@ -1,5 +1,5 @@
 ---
-id: "F8CGVY"
+id: F8CGVY
 title: "Ground station UI rewrite with real-time collaboration"
 type: epic
 status: ready

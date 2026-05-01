@@ -1,5 +1,5 @@
 ---
-id: "YTJXEP"
+id: YTJXEP
 title: "Build flight log replay viewer with 3D trajectory"
 type: story
 status: backlog
