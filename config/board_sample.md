@@ -23,7 +23,7 @@ check it out: https://github.com/boolean-maybe/tiki
 - [x] AI native
 - [x] rich **Markdown** format
 
-![Markdown](markdown.png)
+![Markdown](assets/markdown.png)
 ## Git managed
 
 `tikis` (short for tickets) are just **Markdown** files in your repository
@@ -31,11 +31,12 @@ check it out: https://github.com/boolean-maybe/tiki
 ```
 /projects/my-app
 ├── .doc/
-│   └── tiki/
-│       ├── tiki-k3x9m2.md
-│       ├── tiki-7wq4na.md
-│       ├── tiki-p8j1fz.md
-│       └── tiki-5r2bvh.md
+│   ├── K3X9M2.md
+│   ├── 7WQ4NA.md
+│   ├── P8J1FZ.md
+│   ├── 5R2BVH.md
+│   └── assets/
+│       └── markdown.png
 ├── src/
 │   ├── components/
 │   │   ├── Header.tsx
@@ -62,7 +63,7 @@ A built-in `tiki` command displays a nice Scrum/Kanban board and a searchable Ba
 since they are simple **Markdown** files they can also be easily manipulated via AI. For example, you can
 use Claude Code with skills to search, create, view, update and delete `tikis`
 
-> hey Claude show me a tiki TIKI-m7n2xk
+> hey Claude show me tiki M7N2XK
 > change it from story to a bug
 > and assign priority 1
 

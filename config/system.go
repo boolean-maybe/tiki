@@ -132,17 +132,23 @@ func validateSampleTiki(template string) bool {
 	return true
 }
 
-// BootstrapSystem creates the task storage and seeds the initial tiki.
-// If createSamples is true, embedded sample tikis are validated against
-// the active workflow registries and only valid ones are written.
+// BootstrapSystem creates the document storage and seeds the initial sample
+// documents. If createSamples is true, embedded workflow samples are validated
+// against the active workflow registries and only valid ones are written.
 // gitAdd, when non-nil, is called to stage created files (e.g. ops.Add).
+//
+// Phase 8 of the unified-document migration removes all references to the
+// legacy `.doc/tiki` and `.doc/doki` subdirectories here:
+//   - samples land directly under `.doc/<ID>.md`
+//   - bundled doki index/linked land directly under `.doc/`
+//   - `markdown.png` is written once under `.doc/assets/`, not duplicated
+//     into two legacy subdirectories.
 func BootstrapSystem(createSamples bool, gitAdd func(...string) error) error {
 	// Create all necessary directories
 	if err := EnsureDirs(); err != nil {
 		return fmt.Errorf("ensure directories: %w", err)
 	}
 
-	taskDir := GetTaskDir()
 	var createdFiles []string
 
 	if createSamples {
@@ -171,11 +177,9 @@ func BootstrapSystem(createSamples bool, gitAdd func(...string) error) error {
 			{"roadmap later", roadmapLaterSample},
 		}
 
-		// Phase 2: samples land directly under the unified document root
-		// (`.doc/<ID>.md`), not the legacy `.doc/tiki/` subdirectory. This
-		// matches the default new-document location used by CreateTask and
-		// keeps a freshly-initialized project from having two different
-		// layouts (samples under .doc/tiki, new tasks under .doc).
+		// Samples land directly under the unified document root (`.doc/<ID>.md`).
+		// This matches the default new-document location used by CreateTask so
+		// bundled samples and user-created tasks share one layout.
 		sampleDir := GetDocDir()
 		for _, s := range samples {
 			if !validateSampleTiki(s.template) {
@@ -204,38 +208,40 @@ func BootstrapSystem(createSamples bool, gitAdd func(...string) error) error {
 		}
 	}
 
-	// Write doki documentation files. Phase 2's strict loader requires a
-	// frontmatter id on every managed `.md` file under `.doc/`; since these
-	// bundled dokis are plain markdown templates, we prepend a generated id
-	// at write time so each freshly-initialized project gets unique ids for
-	// its bundled docs (hardcoding a literal in the embed would give every
-	// project the same id and trip the duplicate-id gate when merging).
-	dokiDir := GetDokiDir()
-	indexPath := filepath.Join(dokiDir, "index.md")
+	// Write bundled documentation templates. Phase 2's strict loader requires
+	// a frontmatter id on every managed `.md` file under `.doc/`; since the
+	// bundled templates ship as plain markdown, we prepend a generated id at
+	// write time so each freshly-initialized project gets unique ids for its
+	// bundled docs. Phase 8 lands these at the unified document root — no
+	// more `.doc/doki/` subdirectory.
+	docDir := GetDocDir()
+	indexPath := filepath.Join(docDir, "index.md")
 	if err := os.WriteFile(indexPath, []byte(withBundledDokiID(dokiEntryPoint)), 0644); err != nil {
-		return fmt.Errorf("write doki index: %w", err)
+		return fmt.Errorf("write document index: %w", err)
 	}
 	createdFiles = append(createdFiles, indexPath)
 
-	linkedPath := filepath.Join(dokiDir, "linked.md")
+	linkedPath := filepath.Join(docDir, "linked.md")
 	if err := os.WriteFile(linkedPath, []byte(withBundledDokiID(dokiLinked)), 0644); err != nil {
-		return fmt.Errorf("write doki linked: %w", err)
+		return fmt.Errorf("write document linked: %w", err)
 	}
 	createdFiles = append(createdFiles, linkedPath)
 
-	// Copy markdown.png to doki directory
-	dokiMarkdownPNGPath := filepath.Join(dokiDir, "markdown.png")
-	if err := os.WriteFile(dokiMarkdownPNGPath, markdownPNG, 0644); err != nil {
-		return fmt.Errorf("write doki markdown.png: %w", err)
+	// Phase 8: markdown.png is a shared asset, written once under
+	// `.doc/assets/`. Prior releases duplicated it into both `.doc/tiki/` and
+	// `.doc/doki/` so each subdirectory could resolve `![](markdown.png)`
+	// locally; under the unified layout there is one root for documents and
+	// one well-known asset directory.
+	assetsDir := filepath.Join(docDir, "assets")
+	//nolint:gosec // G301: 0755 is appropriate for project assets directory
+	if err := os.MkdirAll(assetsDir, 0755); err != nil {
+		return fmt.Errorf("create assets directory %s: %w", assetsDir, err)
 	}
-	createdFiles = append(createdFiles, dokiMarkdownPNGPath)
-
-	// Copy markdown.png to task directory
-	tikiMarkdownPNGPath := filepath.Join(taskDir, "markdown.png")
-	if err := os.WriteFile(tikiMarkdownPNGPath, markdownPNG, 0644); err != nil {
-		return fmt.Errorf("write tiki markdown.png: %w", err)
+	markdownPNGPath := filepath.Join(assetsDir, "markdown.png")
+	if err := os.WriteFile(markdownPNGPath, markdownPNG, 0644); err != nil {
+		return fmt.Errorf("write markdown.png: %w", err)
 	}
-	createdFiles = append(createdFiles, tikiMarkdownPNGPath)
+	createdFiles = append(createdFiles, markdownPNGPath)
 
 	if gitAdd != nil {
 		if err := gitAdd(createdFiles...); err != nil {

@@ -3,6 +3,7 @@ package main
 import (
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"testing"
 
@@ -74,21 +75,17 @@ func TestRunDemo_MaterializesAllFiles(t *testing.T) {
 	}
 }
 
-// TestRunDemo_DemoLoadsCleanlyUnderStrictIDs is the Phase 2 regression
-// gate for the embedded demo dataset. It proves two invariants end-to-end:
+// TestRunDemo_DemoLoadsCleanlyUnderStrictIDs is the regression gate for the
+// embedded demo dataset under the Phase 8 unified layout. It proves:
 //
-//  1. every demo document (tiki + doki, flat and nested) carries a valid
+//  1. every demo document (workflow + plain, flat and nested) carries a valid
 //     bare id in frontmatter — no missing/legacy/invalid-id diagnostics
 //     when loaded through the strict store;
-//  2. filename is decoupled from identity — the tiki files keep their
-//     legacy `tiki-<slug>.md` names while the stored id is the uppercase
-//     form in frontmatter, so the store must not be falling back to a
-//     filename-derived id anywhere.
-//
-// This test is the fixture the reviewer asked for: if a future change
-// reintroduces a filename-as-id assumption, this fails because
-// `tiki-xvg0fn.md` contains `id: "XVG0FN"` and the two must be resolved
-// independently.
+//  2. filename equals `<ID>.md` for workflow documents under the unified
+//     layout, and the store resolves the id to that exact path — so any
+//     regression that reintroduces a slug-derived filename scheme or a
+//     legacy `.doc/tiki/` subdirectory fails here;
+//  3. the demo never creates the legacy `.doc/tiki/` or `.doc/doki/` roots.
 func TestRunDemo_DemoLoadsCleanlyUnderStrictIDs(t *testing.T) {
 	setupDemoTest(t)
 	t.Setenv("TIKI_STORE_GIT", "false")
@@ -116,24 +113,30 @@ func TestRunDemo_DemoLoadsCleanlyUnderStrictIDs(t *testing.T) {
 	}
 
 	// Sanity: at least some workflow tasks must be present. The embedded
-	// demo has 41 tiki files with status/priority/points — all should
+	// demo has 41 workflow files with status/priority/points — all should
 	// classify as workflow. If this drops to zero, a regression probably
 	// made IsWorkflow default to false.
 	if got := len(store.GetAllTasks()); got < 40 {
 		t.Errorf("workflow task count after demo load = %d, want >= 40", got)
 	}
 
-	// Sanity: a known task id from the demo must resolve. `XVG0FN` comes
-	// from `tiki-xvg0fn.md` under the "filename-is-not-identity" rule; if
-	// the store ever looked the task up via a reconstructed
-	// `.doc/tiki/XVG0FN.md` path, it would miss it because the actual
-	// file on disk is named `tiki-xvg0fn.md`.
+	// Sanity: a known task id from the demo must resolve to its unified path.
+	// Under Phase 8 the file is `.doc/XVG0FN.md` — flat at the document root,
+	// not under a `tiki/` subdir.
 	task := store.GetTask("XVG0FN")
 	if task == nil {
 		t.Fatal("demo task XVG0FN missing after load")
 	}
-	if !strings.HasSuffix(task.FilePath, filepath.Join("tiki", "tiki-xvg0fn.md")) {
-		t.Errorf("task XVG0FN resolved to unexpected path: %s", task.FilePath)
+	wantSuffix := filepath.Join(".doc", "XVG0FN.md")
+	if !strings.HasSuffix(task.FilePath, wantSuffix) {
+		t.Errorf("task XVG0FN resolved to %s, want suffix %s", task.FilePath, wantSuffix)
+	}
+
+	// Phase 8 invariant: demo must not create legacy subdirectories.
+	for _, legacy := range []string{".doc/tiki", ".doc/doki"} {
+		if _, err := os.Stat(legacy); err == nil {
+			t.Errorf("legacy directory %s must not exist in unified demo", legacy)
+		}
 	}
 }
 
@@ -227,6 +230,103 @@ func TestRunDemo_HealsMissingWorkflowOnReuse(t *testing.T) {
 	}
 }
 
+// TestRunDemo_UnifiedLayout pins the Phase 8 demo-shape contract end-to-end:
+// the extracted demo must have no `.doc/tiki` or `.doc/doki` subtrees, must
+// place workflow documents flat at `.doc/<ID>.md` with uppercase bare names,
+// and must keep shared media under `.doc/assets/`. If a regression brings
+// the old split-tree layout back (via embed changes, bootstrap changes, or a
+// stray copy step) this fails loudly.
+func TestRunDemo_UnifiedLayout(t *testing.T) {
+	setupDemoTest(t)
+	t.Setenv("TIKI_STORE_GIT", "false")
+
+	if err := runDemo(); err != nil {
+		t.Fatalf("runDemo: %v", err)
+	}
+
+	// runDemo chdirs into tiki-demo, so paths are relative to cwd.
+	for _, legacy := range []string{".doc/tiki", ".doc/doki"} {
+		if _, err := os.Stat(legacy); err == nil {
+			t.Errorf("legacy directory %s must not exist in unified demo", legacy)
+		}
+	}
+
+	// assets/ must exist and hold the shared markdown.png (no per-subtree copies).
+	if _, err := os.Stat(".doc/assets"); err != nil {
+		t.Errorf(".doc/assets missing: %v", err)
+	}
+
+	// At least one workflow doc must be present as `.doc/<ID>.md` with a bare
+	// uppercase filename. Scan the doc root and count qualifiers.
+	entries, err := os.ReadDir(".doc")
+	if err != nil {
+		t.Fatalf("read .doc: %v", err)
+	}
+	barePattern := regexp.MustCompile(`^[A-Z0-9]{6}\.md$`)
+	var bareCount int
+	for _, e := range entries {
+		if e.IsDir() {
+			if e.Name() == "tiki" || e.Name() == "doki" {
+				t.Errorf("unexpected legacy subdir %s in unified demo", e.Name())
+			}
+			continue
+		}
+		name := e.Name()
+		if strings.HasPrefix(name, "tiki-") {
+			t.Errorf("legacy-named workflow file %s; want bare <ID>.md", name)
+		}
+		if barePattern.MatchString(name) {
+			bareCount++
+		}
+	}
+	if bareCount < 40 {
+		t.Errorf("bare-ID workflow file count = %d, want >= 40", bareCount)
+	}
+
+	// Demo workflow docs carry explicit workflow fields (status, type,
+	// priority, points); demo plain docs carry only id. Spot-check a known
+	// workflow file carrying all four — if its frontmatter loses any of
+	// them, the board / burndown / type-filter flows regress.
+	body, err := os.ReadFile(".doc/9XPSEI.md")
+	if err != nil {
+		t.Fatalf("read demo workflow doc: %v", err)
+	}
+	for _, field := range []string{"status:", "type:", "priority:", "points:"} {
+		if !strings.Contains(string(body), field) {
+			t.Errorf("demo workflow doc 9XPSEI missing %s field", field)
+		}
+	}
+
+	// Plain doc spot-check: `.doc/index.md` is a bundled plain document —
+	// it must declare an id but no workflow fields.
+	plain, err := os.ReadFile(".doc/index.md")
+	if err != nil {
+		t.Fatalf("read demo plain doc: %v", err)
+	}
+	plainStr := string(plain)
+	if !strings.Contains(plainStr, "id:") {
+		t.Error("demo plain doc .doc/index.md missing id")
+	}
+	// Frontmatter ends at the second `---` line; only look above it.
+	if end := strings.Index(plainStr[4:], "---"); end > 0 {
+		frontmatter := plainStr[:4+end]
+		for _, forbidden := range []string{"status:", "priority:", "points:"} {
+			if strings.Contains(frontmatter, forbidden) {
+				t.Errorf("demo plain doc .doc/index.md must not carry workflow field %s", forbidden)
+			}
+		}
+	}
+
+	// The demo must exercise both relative markdown links and `[[ID]]` links
+	// per the Phase 8 plan.
+	if !strings.Contains(plainStr, "](architecture/index.md)") {
+		t.Error("demo index should contain relative markdown link")
+	}
+	if !strings.Contains(plainStr, "[[9XPSEI]]") && !strings.Contains(plainStr, "[[XVG0FN]]") {
+		t.Error("demo index should contain at least one [[ID]] link")
+	}
+}
+
 func TestRunDemo_ReusesExistingDir(t *testing.T) {
 	setupDemoTest(t)
 	t.Setenv("TIKI_STORE_GIT", "false")
@@ -248,10 +348,12 @@ func TestRunDemo_ReusesExistingDir(t *testing.T) {
 	if _, err := os.Stat("sentinel.txt"); err != nil {
 		t.Errorf("sentinel missing after reuse: %v", err)
 	}
-	// the embedded demo tree (tikis, gitignore) must not have been written,
-	// because extraction was skipped. .doc/workflow.yaml is allowed — it is
-	// written by ensureDemoWorkflow, not by the tree extractor.
-	for _, rel := range []string{".gitignore", ".doc/tiki"} {
+	// the embedded demo tree (workflow docs, gitignore, assets) must not
+	// have been written, because extraction was skipped. .doc/workflow.yaml
+	// is allowed — it is written by ensureDemoWorkflow, not by the tree
+	// extractor. XVG0FN.md is a representative flat workflow doc from the
+	// unified Phase 8 layout.
+	for _, rel := range []string{".gitignore", ".doc/XVG0FN.md", ".doc/assets"} {
 		if _, err := os.Stat(rel); err == nil {
 			t.Errorf("%s should not exist — reused dir should not be re-extracted", rel)
 		}
