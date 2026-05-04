@@ -50,6 +50,19 @@ func IsSchemaKnown(name string) bool {
 	return ok
 }
 
+// IsIdentityField reports whether name is one of the tiki identity/audit fields
+// that live as struct fields or reserved metadata rather than in the generic
+// Fields map (id, title, body, createdBy, createdAt, updatedAt, path/filepath).
+func IsIdentityField(name string) bool {
+	switch name {
+	case "id", "title", "description", "body",
+		"createdBy", "createdAt", "updatedAt",
+		"filepath", "path":
+		return true
+	}
+	return false
+}
+
 // Has reports whether the field is present in the map. A nil Fields map is
 // treated as empty. This is the presence check that backs ruki's has(field).
 func (t *Tiki) Has(name string) bool {
@@ -113,9 +126,8 @@ func (t *Tiki) Delete(name string) {
 }
 
 // markStale records that a Fields key carries Unknown-rather-than-Custom
-// provenance (loaded as UnknownFields on a registered Custom key, typically
-// because the source value failed coercion). Intended for the task adapter;
-// unexported because it is a persistence seam, not a generic Tiki contract.
+// provenance (loaded on a registered Custom key whose value failed coercion).
+// Unexported: this is a persistence seam, not a generic Tiki contract.
 func (t *Tiki) markStale(name string) {
 	if t == nil {
 		return
@@ -128,21 +140,9 @@ func (t *Tiki) markStale(name string) {
 
 // MarkStaleForPersistence is the exported variant of markStale for use by
 // the persistence adapter (tikistore) when propagating the stale-provenance
-// set from a parsedTiki onto a loaded Tiki. This is the only caller outside
-// the tiki package that needs to set stale provenance; all other callers
-// should use markStale via the task adapter.
+// set from a parsedTiki onto a loaded Tiki.
 func (t *Tiki) MarkStaleForPersistence(name string) {
 	t.markStale(name)
-}
-
-// isStale reports whether name carries Unknown-provenance. Unexported: only
-// the task adapter consults this on save-path routing.
-func (t *Tiki) isStale(name string) bool {
-	if t == nil || t.stale == nil {
-		return false
-	}
-	_, ok := t.stale[name]
-	return ok
 }
 
 // StaleKeys returns a snapshot of the stale-provenance set as a

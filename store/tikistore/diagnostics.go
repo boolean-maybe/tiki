@@ -52,7 +52,7 @@ type LoadRejection struct {
 	Message string
 }
 
-// loadError is the internal error shape returned by loadTaskFile so
+// loadError is the internal error shape returned by loadTikiFile so
 // loadLocked can classify rejections without reparsing the error string.
 type loadError struct {
 	reason LoadReason

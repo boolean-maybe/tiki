@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	taskpkg "github.com/boolean-maybe/tiki/task"
+	tikipkg "github.com/boolean-maybe/tiki/tiki"
 )
 
 // TestPhase5_DependsOnRejectsNonBareID proves that validateDependsOnLocked
@@ -21,16 +21,20 @@ func TestPhase5_DependsOnRejectsNonBareID(t *testing.T) {
 		t.Fatalf("NewTikiStore: %v", err)
 	}
 	// Seed a valid target so the only possible failure is the format check.
-	target := &taskpkg.Task{ID: "AAAAAA", Title: "target", Status: "ready"}
-	if err := s.CreateTask(target); err != nil {
+	target := tikipkg.New()
+	target.ID = "AAAAAA"
+	target.Title = "target"
+	target.Set("status", "ready")
+	if err := s.CreateTiki(target); err != nil {
 		t.Fatalf("seed target: %v", err)
 	}
 
-	dependent := &taskpkg.Task{
-		ID: "BBBBBB", Title: "dependent", Status: "ready",
-		DependsOn: []string{"TIKI-AAA"},
-	}
-	err = s.CreateTask(dependent)
+	dependent := tikipkg.New()
+	dependent.ID = "BBBBBB"
+	dependent.Title = "dependent"
+	dependent.Set("status", "ready")
+	dependent.Set("dependsOn", []string{"TIKI-AAA"})
+	err = s.CreateTiki(dependent)
 	if err == nil {
 		t.Fatal("expected error for non-bare dependsOn id")
 	}
@@ -50,16 +54,20 @@ func TestPhase5_DependsOnAcceptsBareID(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewTikiStore: %v", err)
 	}
-	target := &taskpkg.Task{ID: "AAAAAA", Title: "target", Status: "ready"}
-	if err := s.CreateTask(target); err != nil {
+	target := tikipkg.New()
+	target.ID = "AAAAAA"
+	target.Title = "target"
+	target.Set("status", "ready")
+	if err := s.CreateTiki(target); err != nil {
 		t.Fatalf("seed: %v", err)
 	}
 
-	dependent := &taskpkg.Task{
-		ID: "BBBBBB", Title: "dependent", Status: "ready",
-		DependsOn: []string{"AAAAAA"},
-	}
-	if err := s.CreateTask(dependent); err != nil {
+	dependent := tikipkg.New()
+	dependent.ID = "BBBBBB"
+	dependent.Title = "dependent"
+	dependent.Set("status", "ready")
+	dependent.Set("dependsOn", []string{"AAAAAA"})
+	if err := s.CreateTiki(dependent); err != nil {
 		t.Fatalf("create dependent: %v", err)
 	}
 }
@@ -75,11 +83,12 @@ func TestPhase5_DependsOnMissingTargetRejected(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewTikiStore: %v", err)
 	}
-	orphan := &taskpkg.Task{
-		ID: "BBBBBB", Title: "orphan", Status: "ready",
-		DependsOn: []string{"ZZZZZZ"}, // well-formed but not seeded
-	}
-	err = s.CreateTask(orphan)
+	orphan := tikipkg.New()
+	orphan.ID = "BBBBBB"
+	orphan.Title = "orphan"
+	orphan.Set("status", "ready")
+	orphan.Set("dependsOn", []string{"ZZZZZZ"}) // well-formed but not seeded
+	err = s.CreateTiki(orphan)
 	if err == nil {
 		t.Fatal("expected error for missing dependsOn target")
 	}

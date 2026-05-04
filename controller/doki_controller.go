@@ -8,7 +8,7 @@ import (
 	"github.com/boolean-maybe/tiki/ruki"
 	"github.com/boolean-maybe/tiki/service"
 	"github.com/boolean-maybe/tiki/store"
-	"github.com/boolean-maybe/tiki/task"
+	tikipkg "github.com/boolean-maybe/tiki/tiki"
 )
 
 // DokiController handles non-board view actions (wiki, detail, search).
@@ -231,7 +231,7 @@ func (dc *DokiController) HandleActionInput(ActionID, string) InputSubmitResult 
 	return InputKeepEditing
 }
 func (dc *DokiController) GetActionChooseSpec(ActionID) (string, bool) { return "", false }
-func (dc *DokiController) CanStartActionChoose(ActionID) (string, []*task.Task, bool) {
+func (dc *DokiController) CanStartActionChoose(ActionID) (string, []*tikipkg.Tiki, bool) {
 	return "", nil, false
 }
 func (dc *DokiController) HandleActionChoose(ActionID, string) bool { return false }

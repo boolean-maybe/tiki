@@ -7,7 +7,7 @@ import (
 	"github.com/boolean-maybe/tiki/controller"
 	"github.com/boolean-maybe/tiki/model"
 	"github.com/boolean-maybe/tiki/store"
-	taskpkg "github.com/boolean-maybe/tiki/task"
+	tikipkg "github.com/boolean-maybe/tiki/tiki"
 	"github.com/boolean-maybe/tiki/view/markdown"
 
 	nav "github.com/boolean-maybe/navidown/navidown"
@@ -107,8 +107,8 @@ func (tv *TaskDetailView) refresh() {
 		tv.navMarkdown = nil
 	}
 
-	task := tv.GetTask()
-	if task == nil {
+	tk := tv.GetTiki()
+	if tk == nil {
 		notFound := tview.NewTextView().SetText("Task not found")
 		tv.content.AddItem(notFound, 0, 1, false)
 		return
@@ -117,11 +117,11 @@ func (tv *TaskDetailView) refresh() {
 	colors := config.GetColors()
 
 	if !tv.fullscreen {
-		metadataBox := tv.buildMetadataBox(task, colors)
+		metadataBox := tv.buildMetadataBox(tk, colors)
 		tv.content.AddItem(metadataBox, 10, 0, false)
 	}
 
-	descPrimitive := tv.buildDescription(task)
+	descPrimitive := tv.buildDescription(tk)
 	tv.content.AddItem(descPrimitive, 0, 1, true)
 
 	// Ensure focus is restored to description after refresh
@@ -130,45 +130,44 @@ func (tv *TaskDetailView) refresh() {
 	}
 }
 
-func (tv *TaskDetailView) buildMetadataBox(task *taskpkg.Task, colors *config.ColorConfig) *tview.Frame {
+func (tv *TaskDetailView) buildMetadataBox(tk *tikipkg.Tiki, colors *config.ColorConfig) *tview.Frame {
 	ctx := FieldRenderContext{Mode: RenderModeView, Colors: colors}
-	titlePrimitive := tv.buildTitlePrimitive(task, colors)
-	col1, col2, col3 := tv.buildMetadataColumns(task, ctx, colors)
-	return tv.assembleMetadataBox(task, colors, titlePrimitive, col1, col2, col3, 1)
+	titlePrimitive := tv.buildTitlePrimitive(tk, colors)
+	col1, col2, col3 := tv.buildMetadataColumns(tk, ctx, colors)
+	return tv.assembleMetadataBox(tk, colors, titlePrimitive, col1, col2, col3, 1)
 }
 
-func (tv *TaskDetailView) buildTitlePrimitive(task *taskpkg.Task, colors *config.ColorConfig) tview.Primitive {
-	// View mode rendering
+func (tv *TaskDetailView) buildTitlePrimitive(tk *tikipkg.Tiki, colors *config.ColorConfig) tview.Primitive {
 	ctx := FieldRenderContext{Mode: RenderModeView, Colors: colors}
-	return RenderTitleText(task, ctx)
+	return RenderTitleText(tk, ctx)
 }
 
-func (tv *TaskDetailView) buildMetadataColumns(task *taskpkg.Task, ctx FieldRenderContext, colors *config.ColorConfig) (*tview.Flex, *tview.Flex, *tview.Flex) {
+func (tv *TaskDetailView) buildMetadataColumns(tk *tikipkg.Tiki, ctx FieldRenderContext, colors *config.ColorConfig) (*tview.Flex, *tview.Flex, *tview.Flex) {
 	// Column 1: Status, Type, Priority, Points
 	col1 := tview.NewFlex().SetDirection(tview.FlexRow)
-	col1.AddItem(RenderStatusText(task, ctx), 1, 0, false)
-	col1.AddItem(RenderTypeText(task, ctx), 1, 0, false)
-	col1.AddItem(RenderPriorityText(task, ctx), 1, 0, false)
-	col1.AddItem(RenderPointsText(task, ctx), 1, 0, false)
+	col1.AddItem(RenderStatusText(tk, ctx), 1, 0, false)
+	col1.AddItem(RenderTypeText(tk, ctx), 1, 0, false)
+	col1.AddItem(RenderPriorityText(tk, ctx), 1, 0, false)
+	col1.AddItem(RenderPointsText(tk, ctx), 1, 0, false)
 
 	// Column 2: Assignee, Author, Created, Updated
 	col2 := tview.NewFlex().SetDirection(tview.FlexRow)
-	col2.AddItem(RenderAssigneeText(task, ctx), 1, 0, false)
-	col2.AddItem(RenderAuthorText(task, colors), 1, 0, false)
-	col2.AddItem(RenderCreatedText(task, colors), 1, 0, false)
-	col2.AddItem(RenderUpdatedText(task, colors), 1, 0, false)
+	col2.AddItem(RenderAssigneeText(tk, ctx), 1, 0, false)
+	col2.AddItem(RenderAuthorText(tk, colors), 1, 0, false)
+	col2.AddItem(RenderCreatedText(tk, colors), 1, 0, false)
+	col2.AddItem(RenderUpdatedText(tk, colors), 1, 0, false)
 
 	// Column 3: Due, Recurrence
 	col3 := tview.NewFlex().SetDirection(tview.FlexRow)
-	col3.AddItem(RenderDueText(task, colors), 1, 0, false)
-	col3.AddItem(RenderRecurrenceText(task, colors), 1, 0, false)
+	col3.AddItem(RenderDueText(tk, colors), 1, 0, false)
+	col3.AddItem(RenderRecurrenceText(tk, colors), 1, 0, false)
 
 	return col1, col2, col3
 }
 
-func (tv *TaskDetailView) buildDescription(task *taskpkg.Task) tview.Primitive {
-	desc := defaultString(task.Description, "(No description)")
-	taskSourcePath := taskSourcePathFor(task)
+func (tv *TaskDetailView) buildDescription(tk *tikipkg.Tiki) tview.Primitive {
+	desc := defaultString(tk.Body, "(No description)")
+	taskSourcePath := taskSourcePathFor(tk)
 
 	// Image / relative-link search roots. The document's own directory wins
 	// for sibling assets (`![[image.png]]` next to the doc); the unified
@@ -180,7 +179,7 @@ func (tv *TaskDetailView) buildDescription(task *taskpkg.Task) tview.Primitive {
 		searchRoots = append([]string{filepath.Dir(taskSourcePath)}, searchRoots...)
 	}
 
-	// Phase 6B.11: wrap the description provider so every FetchContent call
+	// wrap the description provider so every FetchContent call
 	// — both the initial description render AND every navigated-through
 	// click — runs its body through wikilink rewriting. The earlier
 	// implementation only rewrote the initial description and left click
@@ -207,19 +206,19 @@ func (tv *TaskDetailView) buildDescription(task *taskpkg.Task) tview.Primitive {
 	return tv.navMarkdown.Viewer()
 }
 
-// taskSourcePathFor returns the on-disk path of the task's markdown file for
+// taskSourcePathFor returns the on-disk path of the tiki's markdown file for
 // use as the markdown view's source path (image root, relative-link base).
-// Honors task.FilePath when the task was loaded from disk — so renames and
+// Honors tk.Path when the tiki was loaded from disk — so renames and
 // nested layouts resolve correctly — and falls back to the id-derived
-// default under the document root for tasks that have no path yet.
-func taskSourcePathFor(task *taskpkg.Task) string {
-	if task == nil {
+// default under the document root for tikis that have no path yet.
+func taskSourcePathFor(tk *tikipkg.Tiki) string {
+	if tk == nil {
 		return ""
 	}
-	if task.FilePath != "" {
-		return task.FilePath
+	if tk.Path != "" {
+		return tk.Path
 	}
-	return filepath.Join(config.GetDocDir(), task.ID+".md")
+	return filepath.Join(config.GetDocDir(), tk.ID+".md")
 }
 
 // EnterFullscreen switches the view to fullscreen mode (description only)

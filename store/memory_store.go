@@ -113,11 +113,48 @@ func (s *InMemoryStore) DeleteTiki(id string) {
 
 // NewTikiTemplate returns a new tiki populated with creation defaults.
 func (s *InMemoryStore) NewTikiTemplate() (*tikipkg.Tiki, error) {
-	t, err := s.NewTaskTemplate()
-	if err != nil {
-		return nil, err
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
+	var taskID string
+	for range maxIDAttempts {
+		taskID = normalizeTaskID(s.idGenerator())
+		if _, exists := s.tikis[taskID]; !exists {
+			break
+		}
+		taskID = "" // mark as failed so we can detect exhaustion
 	}
-	return tikipkg.FromTask(t), nil
+	if taskID == "" {
+		return nil, fmt.Errorf("failed to generate unique task ID after %d attempts", maxIDAttempts)
+	}
+
+	tk := tikipkg.New()
+	tk.ID = taskID
+	tk.CreatedAt = time.Now()
+
+	if defaultStatus := task.DefaultStatus(); defaultStatus != "" {
+		tk.Set(tikipkg.FieldStatus, string(defaultStatus))
+		tk.Set(tikipkg.FieldType, string(task.DefaultType()))
+		tk.Set(tikipkg.FieldPriority, 3)
+		tk.Set(tikipkg.FieldPoints, 1)
+		tk.Set(tikipkg.FieldTags, []string{"idea"})
+		for k, v := range buildMemoryFieldDefaults() {
+			tk.Set(k, v)
+		}
+	}
+
+	if name, email, err := s.GetCurrentUser(); err == nil {
+		switch {
+		case name != "" && email != "":
+			tk.Set("createdBy", fmt.Sprintf("%s <%s>", name, email))
+		case name != "":
+			tk.Set("createdBy", name)
+		case email != "":
+			tk.Set("createdBy", email)
+		}
+	}
+
+	return tk, nil
 }
 
 // storeNewTikiLocked is the shared create path. The caller owns the
@@ -181,145 +218,9 @@ func hasAnyWorkflowFieldMem(tk *tikipkg.Tiki) bool {
 	return false
 }
 
-// CreateTask adds a new task to the store. InMemoryStore is a test fixture
-// and deliberately keeps the pre-Phase-7 "always workflow" semantics so that
-// ~150 existing call sites don't need to set IsWorkflow explicitly. The
-// production TikiStore (tikistore.TikiStore.CreateTask) honors the caller's
-// IsWorkflow so piped/ruki capture against workflows with no default status
-// produces plain documents. Tests that specifically need plain-doc
-// semantics should call CreateDocument instead.
-//
-// The original task struct is updated in-place with the normalized ID and
-// timestamps so callers that inspect the task after creation see the
-// canonical values (matching the previous map[string]*task.Task behavior).
-func (s *InMemoryStore) CreateTask(newTask *task.Task) error {
-	newTask.IsWorkflow = true
-	task.NormalizeCollectionFields(newTask)
-	tk := tikipkg.FromTask(newTask)
-	if err := s.storeNewTikiLocked(tk); err != nil {
-		return err
-	}
-	// carry normalized values back to the caller's task struct
-	newTask.ID = tk.ID
-	newTask.CreatedAt = tk.CreatedAt
-	newTask.UpdatedAt = tk.UpdatedAt
-	return nil
-}
-
-// storeNewDocumentLocked is kept for document-first callers (CreateDocument).
-// The caller owns the IsWorkflow decision.
-func (s *InMemoryStore) storeNewDocumentLocked(tk *tikipkg.Tiki) error {
-	return s.storeNewTikiLocked(tk)
-}
-
-// GetTask retrieves a task by ID. Phase 5 compatibility adapter over GetTiki.
-func (s *InMemoryStore) GetTask(id string) *task.Task {
-	return tikipkg.ToTask(s.GetTiki(id))
-}
-
-// UpdateTask updates an existing task. Protects against silent workflow
-// demotion (see TikiStore.UpdateTask): callers that pass IsWorkflow=false
-// over a workflow-flagged stored task have the flag carried forward.
-// Document-first callers that need explicit demotion use UpdateDocument.
-// The original task struct is updated in-place with the new UpdatedAt
-// timestamp so callers that inspect the task after update see the canonical value.
-func (s *InMemoryStore) UpdateTask(updatedTask *task.Task) error {
-	if storedTiki := s.GetTiki(updatedTask.ID); storedTiki != nil && hasAnyWorkflowFieldMem(storedTiki) {
-		oldTask := tikipkg.ToTask(storedTiki)
-		// Grow WorkflowFrontmatter to include every stored workflow field so
-		// FromTask's applyPresenceMap emits all stored fields, not just the
-		// subset the caller happened to set. See TikiStore.UpdateTask for the
-		// full rationale.
-		if updatedTask.WorkflowFrontmatter == nil {
-			updatedTask.WorkflowFrontmatter = make(map[string]interface{}, len(storedTiki.Fields))
-		}
-		for _, k := range tikipkg.SchemaKnownFields {
-			if storedTiki.Has(k) {
-				if _, already := updatedTask.WorkflowFrontmatter[k]; !already {
-					updatedTask.WorkflowFrontmatter[k] = struct{}{}
-				}
-			}
-		}
-		task.CarryZeroTypedFields(updatedTask, oldTask)
-		// promote before merging so a fresh compat caller with IsWorkflow=false
-		// still gets newly non-zero fields merged into WorkflowFrontmatter.
-		updatedTask.IsWorkflow = true
-		task.MergeTypedWorkflowDeltas(updatedTask, oldTask)
-	}
-	tk := tikipkg.FromTask(updatedTask)
-	if err := s.updateTikiLocked(tk, true); err != nil {
-		return err
-	}
-	updatedTask.UpdatedAt = tk.UpdatedAt
-	return nil
-}
-
-// updateLocked is kept as a document-first update path.
-// carryWorkflow=false means no protective carry-forward, so explicit demotion works.
-func (s *InMemoryStore) updateLocked(tk *tikipkg.Tiki, carryWorkflow bool) error {
-	return s.updateTikiLocked(tk, carryWorkflow)
-}
-
 // DeleteTask removes a task from the store
 func (s *InMemoryStore) DeleteTask(id string) {
 	s.DeleteTiki(id)
-}
-
-// GetAllTasks returns all tikis projected to tasks. Plain docs are included;
-// callers that want only workflow-capable items should filter by
-// hasAnyWorkflowFieldMem or use a ruki query with has(status).
-func (s *InMemoryStore) GetAllTasks() []*task.Task {
-	tikis := s.GetAllTikis()
-	tasks := make([]*task.Task, 0, len(tikis))
-	for _, tk := range tikis {
-		tasks = append(tasks, tikipkg.ToTask(tk))
-	}
-	return tasks
-}
-
-// Search searches workflow tasks with an optional caller-supplied filter.
-// Mirrors TikiStore.Search semantics: nil filter means "workflow tasks
-// only"; a non-nil filter is trusted as-is. See TikiStore.Search for the
-// presence-aware rationale.
-func (s *InMemoryStore) Search(query string, filterFunc func(*task.Task) bool) []task.SearchResult {
-	s.mu.RLock()
-	defer s.mu.RUnlock()
-
-	query = strings.TrimSpace(query)
-	queryLower := strings.ToLower(query)
-	var results []task.SearchResult
-
-	for _, tk := range s.tikis {
-		t := tikipkg.ToTask(tk)
-		if filterFunc != nil {
-			if !filterFunc(t) {
-				continue
-			}
-		} else if !hasAnyWorkflowFieldMem(tk) {
-			// nil filter → workflow tasks only, matching GetAllTasks.
-			continue
-		}
-
-		if queryLower == "" || matchesQueryInMemory(t, queryLower) {
-			results = append(results, task.SearchResult{Task: t, Score: 1.0})
-		}
-	}
-
-	return results
-}
-
-func matchesQueryInMemory(t *task.Task, queryLower string) bool {
-	if strings.Contains(strings.ToLower(t.ID), queryLower) ||
-		strings.Contains(strings.ToLower(t.Title), queryLower) ||
-		strings.Contains(strings.ToLower(t.Description), queryLower) {
-		return true
-	}
-	for _, tag := range t.Tags {
-		if strings.Contains(strings.ToLower(tag), queryLower) {
-			return true
-		}
-	}
-	return false
 }
 
 // SearchTikis searches all tikis (including plain docs) with an optional
@@ -352,34 +253,18 @@ func (s *InMemoryStore) SearchTikis(query string, filter func(*tikipkg.Tiki) boo
 }
 
 func matchesTikiQueryMem(tk *tikipkg.Tiki, queryLower string) bool {
-	return strings.Contains(strings.ToLower(tk.ID), queryLower) ||
+	if strings.Contains(strings.ToLower(tk.ID), queryLower) ||
 		strings.Contains(strings.ToLower(tk.Title), queryLower) ||
-		strings.Contains(strings.ToLower(tk.Body), queryLower)
-}
-
-// AddComment adds a comment to a task
-func (s *InMemoryStore) AddComment(taskID string, comment task.Comment) bool {
-	s.mu.Lock()
-
-	taskID = normalizeTaskID(taskID)
-	tk, exists := s.tikis[taskID]
-	if !exists {
-		s.mu.Unlock()
-		return false
+		strings.Contains(strings.ToLower(tk.Body), queryLower) {
+		return true
 	}
-
-	// project to task, append comment, project back
-	t := tikipkg.ToTask(tk)
-	comment.CreatedAt = time.Now()
-	t.Comments = append(t.Comments, comment)
-	t.UpdatedAt = time.Now()
-	updated := tikipkg.FromTask(t)
-	updated.Path = tk.Path
-	updated.LoadedMtime = tk.LoadedMtime
-	s.tikis[taskID] = updated
-	s.mu.Unlock()
-	s.notifyListeners()
-	return true
+	tags, _, _ := tk.StringSliceField(tikipkg.FieldTags)
+	for _, tag := range tags {
+		if strings.Contains(strings.ToLower(tag), queryLower) {
+			return true
+		}
+	}
+	return false
 }
 
 // Reload is a no-op for in-memory store (no disk backing)
@@ -433,45 +318,6 @@ func (s *InMemoryStore) GetGitOps() git.GitOps {
 }
 
 const maxIDAttempts = 100
-
-// NewTaskTemplate returns a new task with hardcoded defaults and an auto-generated ID.
-func (s *InMemoryStore) NewTaskTemplate() (*task.Task, error) {
-	s.mu.RLock()
-	defer s.mu.RUnlock()
-
-	var taskID string
-	for range maxIDAttempts {
-		// Post-Phase-1: bare uppercase IDs; normalize for safety in case a
-		// test injects a generator that returns a non-canonical string.
-		taskID = normalizeTaskID(s.idGenerator())
-		if _, exists := s.tikis[taskID]; !exists {
-			break
-		}
-		taskID = "" // mark as failed so we can detect exhaustion
-	}
-	if taskID == "" {
-		return nil, fmt.Errorf("failed to generate unique task ID after %d attempts", maxIDAttempts)
-	}
-
-	defaultStatus := task.DefaultStatus()
-	t := &task.Task{
-		ID:        taskID,
-		CreatedAt: time.Now(),
-		CreatedBy: "memory-user",
-	}
-
-	if defaultStatus != "" {
-		t.Status = defaultStatus
-		t.Type = task.DefaultType()
-		t.Priority = 3
-		t.Points = 1
-		t.Tags = []string{"idea"}
-		t.IsWorkflow = true
-		t.CustomFields = buildMemoryFieldDefaults()
-	}
-
-	return t, nil
-}
 
 // buildMemoryFieldDefaults collects DefaultValue from custom field defs.
 func buildMemoryFieldDefaults() map[string]interface{} {

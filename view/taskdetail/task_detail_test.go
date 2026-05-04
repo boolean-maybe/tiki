@@ -7,36 +7,38 @@ import (
 	"github.com/boolean-maybe/tiki/config"
 	"github.com/boolean-maybe/tiki/store"
 	"github.com/boolean-maybe/tiki/task"
+	tikipkg "github.com/boolean-maybe/tiki/tiki"
 )
+
+// newTestViewTiki creates a *tikipkg.Tiki test fixture for view-layer tests.
+func newTestViewTiki(id string) *tikipkg.Tiki {
+	tk := tikipkg.New()
+	tk.ID = id
+	tk.Title = "Test Task"
+	tk.Set(tikipkg.FieldStatus, string(task.StatusReady))
+	tk.Set(tikipkg.FieldType, string(task.TypeStory))
+	tk.Set(tikipkg.FieldPriority, 3)
+	tk.Set(tikipkg.FieldPoints, 5)
+	tk.Set(tikipkg.FieldAssignee, "user@example.com")
+	tk.Set("createdBy", "creator@example.com")
+	tk.CreatedAt = time.Date(2024, 1, 1, 12, 0, 0, 0, time.UTC)
+	tk.UpdatedAt = time.Date(2024, 1, 2, 14, 30, 0, 0, time.UTC)
+	return tk
+}
 
 // TestBuildMetadataColumns_Structure verifies that buildMetadataColumns returns 3 flex containers
 func TestBuildMetadataColumns_Structure(t *testing.T) {
-	// Setup
 	s := store.NewInMemoryStore()
-	task := &task.Task{
-		ID:          "TIKI-1",
-		Title:       "Test Task",
-		Description: "Test description",
-		Status:      task.StatusReady,
-		Type:        task.TypeStory,
-		Priority:    3,
-		Points:      5,
-		Assignee:    "user@example.com",
-		CreatedBy:   "creator@example.com",
-		CreatedAt:   time.Date(2024, 1, 1, 12, 0, 0, 0, time.UTC),
-		UpdatedAt:   time.Date(2024, 1, 2, 14, 30, 0, 0, time.UTC),
-	}
+	tk := newTestViewTiki("TIKI01")
 
-	view := NewTaskDetailView(s, task.ID, false, nil, nil)
-	view.SetFallbackTask(task)
+	view := NewTaskDetailView(s, tk.ID, false, nil, nil)
+	view.SetFallbackTiki(tk)
 
 	colors := config.GetColors()
 	ctx := FieldRenderContext{Mode: RenderModeView, Colors: colors}
 
-	// Execute
-	col1, col2, col3 := view.buildMetadataColumns(task, ctx, colors)
+	col1, col2, col3 := view.buildMetadataColumns(tk, ctx, colors)
 
-	// Verify all three columns are returned and non-nil
 	if col1 == nil {
 		t.Error("Expected col1 to be non-nil")
 	}
@@ -50,25 +52,16 @@ func TestBuildMetadataColumns_Structure(t *testing.T) {
 
 // TestBuildMetadataColumns_Column1Fields verifies column 1 contains Status, Type, Priority, Points
 func TestBuildMetadataColumns_Column1Fields(t *testing.T) {
-	// Setup
 	s := store.NewInMemoryStore()
-	task := &task.Task{
-		ID:       "TIKI-1",
-		Title:    "Test Task",
-		Status:   task.StatusReady,
-		Type:     task.TypeStory,
-		Priority: 3,
-		Points:   5,
-	}
+	tk := newTestViewTiki("TIKI01")
 
-	view := NewTaskDetailView(s, task.ID, false, nil, nil)
-	view.SetFallbackTask(task)
+	view := NewTaskDetailView(s, tk.ID, false, nil, nil)
+	view.SetFallbackTiki(tk)
 
 	colors := config.GetColors()
 	ctx := FieldRenderContext{Mode: RenderModeView, Colors: colors}
 
-	// Execute
-	col1, _, _ := view.buildMetadataColumns(task, ctx, colors)
+	col1, _, _ := view.buildMetadataColumns(tk, ctx, colors)
 
 	// Verify column 1 has 4 items (Status, Type, Priority, Points)
 	if col1.GetItemCount() != 4 {
@@ -78,25 +71,16 @@ func TestBuildMetadataColumns_Column1Fields(t *testing.T) {
 
 // TestBuildMetadataColumns_Column2Fields verifies column 2 contains Assignee, Author, Created, Updated
 func TestBuildMetadataColumns_Column2Fields(t *testing.T) {
-	// Setup
 	s := store.NewInMemoryStore()
-	task := &task.Task{
-		ID:        "TIKI-1",
-		Title:     "Test Task",
-		Assignee:  "user@example.com",
-		CreatedBy: "creator@example.com",
-		CreatedAt: time.Date(2024, 1, 1, 12, 0, 0, 0, time.UTC),
-		UpdatedAt: time.Date(2024, 1, 2, 14, 30, 0, 0, time.UTC),
-	}
+	tk := newTestViewTiki("TIKI01")
 
-	view := NewTaskDetailView(s, task.ID, false, nil, nil)
-	view.SetFallbackTask(task)
+	view := NewTaskDetailView(s, tk.ID, false, nil, nil)
+	view.SetFallbackTiki(tk)
 
 	colors := config.GetColors()
 	ctx := FieldRenderContext{Mode: RenderModeView, Colors: colors}
 
-	// Execute
-	_, col2, _ := view.buildMetadataColumns(task, ctx, colors)
+	_, col2, _ := view.buildMetadataColumns(tk, ctx, colors)
 
 	// Verify column 2 has 4 items (Assignee, Author, Created, Updated)
 	if col2.GetItemCount() != 4 {
@@ -106,21 +90,18 @@ func TestBuildMetadataColumns_Column2Fields(t *testing.T) {
 
 // TestBuildMetadataColumns_Column3Fields verifies column 3 contains Due, Recurrence
 func TestBuildMetadataColumns_Column3Fields(t *testing.T) {
-	// Setup
 	s := store.NewInMemoryStore()
-	task := &task.Task{
-		ID:    "TIKI-1",
-		Title: "Test Task",
-	}
+	tk := tikipkg.New()
+	tk.ID = "TIKI01"
+	tk.Title = "Test Task"
 
-	view := NewTaskDetailView(s, task.ID, false, nil, nil)
-	view.SetFallbackTask(task)
+	view := NewTaskDetailView(s, tk.ID, false, nil, nil)
+	view.SetFallbackTiki(tk)
 
 	colors := config.GetColors()
 	ctx := FieldRenderContext{Mode: RenderModeView, Colors: colors}
 
-	// Execute
-	_, _, col3 := view.buildMetadataColumns(task, ctx, colors)
+	_, _, col3 := view.buildMetadataColumns(tk, ctx, colors)
 
 	// Verify column 3 has 2 items (Due, Recurrence)
 	if col3.GetItemCount() != 2 {

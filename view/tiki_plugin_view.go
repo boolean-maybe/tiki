@@ -8,7 +8,7 @@ import (
 	"github.com/boolean-maybe/tiki/model"
 	"github.com/boolean-maybe/tiki/plugin"
 	"github.com/boolean-maybe/tiki/store"
-	"github.com/boolean-maybe/tiki/task"
+	tikipkg "github.com/boolean-maybe/tiki/tiki"
 
 	"github.com/rivo/tview"
 )
@@ -27,8 +27,8 @@ type PluginView struct {
 	showNavigation      bool
 	storeListenerID     int
 	selectionListenerID int
-	getLaneTasks        func(lane int) []*task.Task // injected from controller
-	ensureSelection     func() bool                 // injected from controller
+	getLaneTasks        func(lane int) []*tikipkg.Tiki // injected from controller
+	ensureSelection     func() bool                    // injected from controller
 	actionChangeHandler func()
 }
 
@@ -37,7 +37,7 @@ func NewPluginView(
 	taskStore store.Store,
 	pluginConfig *model.PluginConfig,
 	pluginDef *plugin.TikiPlugin,
-	getLaneTasks func(lane int) []*task.Task,
+	getLaneTasks func(lane int) []*tikipkg.Tiki,
 	ensureSelection func() bool,
 	registry *controller.ActionRegistry,
 	showNavigation bool,

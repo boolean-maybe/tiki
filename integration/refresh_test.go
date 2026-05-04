@@ -88,8 +88,8 @@ func TestRefresh_ExternalModification(t *testing.T) {
 	}
 
 	// Verify task exists in store
-	task := ta.TaskStore.GetTask(taskID)
-	if task == nil || task.Title != "Original Title" {
+	tiki := ta.TaskStore.GetTiki(taskID)
+	if tiki == nil || tiki.Title != "Original Title" {
 		t.Fatalf("task should exist with original title")
 	}
 
@@ -102,13 +102,13 @@ func TestRefresh_ExternalModification(t *testing.T) {
 	ta.SendKey(tcell.KeyRune, 'r', tcell.ModNone)
 
 	// Verify task store has updated title
-	taskAfter := ta.TaskStore.GetTask(taskID)
-	if taskAfter == nil {
+	tikiAfter := ta.TaskStore.GetTiki(taskID)
+	if tikiAfter == nil {
 		t.Fatalf("task should still exist after refresh")
 		return
 	}
-	if taskAfter.Title != "Modified Title" {
-		t.Errorf("task title in store = %q, want %q", taskAfter.Title, "Modified Title")
+	if tikiAfter.Title != "Modified Title" {
+		t.Errorf("task title in store = %q, want %q", tikiAfter.Title, "Modified Title")
 	}
 
 	// Note: The UI may not immediately reflect the change due to view caching,
@@ -172,9 +172,9 @@ func TestRefresh_ExternalDeletion(t *testing.T) {
 	}
 
 	// Verify task store count
-	tasks := ta.TaskStore.GetAllTasks()
-	if len(tasks) != 1 {
-		t.Errorf("task store should have 1 task after refresh, got %d", len(tasks))
+	tikis := ta.TaskStore.GetAllTikis()
+	if len(tikis) != 1 {
+		t.Errorf("task store should have 1 task after refresh, got %d", len(tikis))
 	}
 }
 

@@ -8,7 +8,8 @@ import (
 	"github.com/rivo/tview"
 
 	"github.com/boolean-maybe/tiki/config"
-	taskpkg "github.com/boolean-maybe/tiki/task"
+	"github.com/boolean-maybe/tiki/task"
+	tikipkg "github.com/boolean-maybe/tiki/tiki"
 	"github.com/boolean-maybe/tiki/util"
 	"github.com/boolean-maybe/tiki/util/gradient"
 )
@@ -27,13 +28,42 @@ func applyFrameStyle(frame *tview.Frame, selected bool, colors *config.ColorConf
 	}
 }
 
+// tikiTypeEmoji returns the emoji for the tiki's type field.
+func tikiTypeEmoji(tk *tikipkg.Tiki) string {
+	s, _, _ := tk.StringField(tikipkg.FieldType)
+	return task.TypeEmoji(task.Type(s))
+}
+
+// tikiPriorityEmoji returns the emoji label for the tiki's priority field,
+// or "─" when the field is absent (no priority set). This prevents absent
+// priority from rendering as high-priority red (PriorityLabel(0) → 🔴).
+func tikiPriorityEmoji(tk *tikipkg.Tiki) string {
+	n, present, _ := tk.IntField(tikipkg.FieldPriority)
+	if !present {
+		return "─"
+	}
+	return task.PriorityLabel(n)
+}
+
+// tikiPoints returns the numeric points stored in Fields, or 0 if absent.
+func tikiPoints(tk *tikipkg.Tiki) int {
+	n, _, _ := tk.IntField(tikipkg.FieldPoints)
+	return n
+}
+
+// tikiTags returns the tags slice stored in Fields, or nil if absent.
+func tikiTags(tk *tikipkg.Tiki) []string {
+	ss, _, _ := tk.StringSliceField(tikipkg.FieldTags)
+	return ss
+}
+
 // buildCompactTaskContent builds the content string for compact task display
-func buildCompactTaskContent(task *taskpkg.Task, colors *config.ColorConfig, availableWidth int) string {
-	emoji := taskpkg.TypeEmoji(task.Type)
-	idGradient := gradient.RenderAdaptiveGradientText(task.ID, colors.TaskBoxIDColor, colors.FallbackTaskIDColor)
-	truncatedTitle := tview.Escape(util.TruncateText(task.Title, availableWidth))
-	priorityEmoji := taskpkg.PriorityLabel(task.Priority)
-	pointsVisual := util.GeneratePointsVisual(task.Points, config.GetMaxPoints(), colors.PointsFilledColor, colors.PointsUnfilledColor)
+func buildCompactTaskContent(tk *tikipkg.Tiki, colors *config.ColorConfig, availableWidth int) string {
+	emoji := tikiTypeEmoji(tk)
+	idGradient := gradient.RenderAdaptiveGradientText(tk.ID, colors.TaskBoxIDColor, colors.FallbackTaskIDColor)
+	truncatedTitle := tview.Escape(util.TruncateText(tk.Title, availableWidth))
+	priorityEmoji := tikiPriorityEmoji(tk)
+	pointsVisual := util.GeneratePointsVisual(tikiPoints(tk), config.GetMaxPoints(), colors.PointsFilledColor, colors.PointsUnfilledColor)
 
 	titleTag := colors.TaskBoxTitleColor.Tag().String()
 	labelTag := colors.TaskBoxLabelColor.Tag().String()
@@ -46,13 +76,13 @@ func buildCompactTaskContent(task *taskpkg.Task, colors *config.ColorConfig, ava
 }
 
 // buildExpandedTaskContent builds the content string for expanded task display
-func buildExpandedTaskContent(task *taskpkg.Task, colors *config.ColorConfig, availableWidth int) string {
-	emoji := taskpkg.TypeEmoji(task.Type)
-	idGradient := gradient.RenderAdaptiveGradientText(task.ID, colors.TaskBoxIDColor, colors.FallbackTaskIDColor)
-	truncatedTitle := tview.Escape(util.TruncateText(task.Title, availableWidth))
+func buildExpandedTaskContent(tk *tikipkg.Tiki, colors *config.ColorConfig, availableWidth int) string {
+	emoji := tikiTypeEmoji(tk)
+	idGradient := gradient.RenderAdaptiveGradientText(tk.ID, colors.TaskBoxIDColor, colors.FallbackTaskIDColor)
+	truncatedTitle := tview.Escape(util.TruncateText(tk.Title, availableWidth))
 
-	// Extract first 3 lines of description
-	descLines := strings.Split(task.Description, "\n")
+	// Extract first 3 lines of body (description)
+	descLines := strings.Split(tk.Body, "\n")
 	descLine1 := ""
 	descLine2 := ""
 	descLine3 := ""
@@ -74,13 +104,13 @@ func buildExpandedTaskContent(task *taskpkg.Task, colors *config.ColorConfig, av
 
 	// Build tags string
 	tagsStr := ""
-	if len(task.Tags) > 0 {
-		tagsStr = labelTag + "Tags:[-] " + tagValueTag + tview.Escape(util.TruncateText(strings.Join(task.Tags, ", "), availableWidth-6)) + "[-]"
+	if tags := tikiTags(tk); len(tags) > 0 {
+		tagsStr = labelTag + "Tags:[-] " + tagValueTag + tview.Escape(util.TruncateText(strings.Join(tags, ", "), availableWidth-6)) + "[-]"
 	}
 
 	// Build priority/points line
-	priorityEmoji := taskpkg.PriorityLabel(task.Priority)
-	pointsVisual := util.GeneratePointsVisual(task.Points, config.GetMaxPoints(), colors.PointsFilledColor, colors.PointsUnfilledColor)
+	priorityEmoji := tikiPriorityEmoji(tk)
+	pointsVisual := util.GeneratePointsVisual(tikiPoints(tk), config.GetMaxPoints(), colors.PointsFilledColor, colors.PointsUnfilledColor)
 	priorityPointsStr := fmt.Sprintf("%spriority[-] %s  %spoints[-] %s%s[-]",
 		labelTag, priorityEmoji,
 		labelTag, labelTag, pointsVisual)
@@ -95,7 +125,7 @@ func buildExpandedTaskContent(task *taskpkg.Task, colors *config.ColorConfig, av
 }
 
 // CreateCompactTaskBox creates a compact styled task box widget (3 lines)
-func CreateCompactTaskBox(task *taskpkg.Task, selected bool, colors *config.ColorConfig) *tview.Frame {
+func CreateCompactTaskBox(tk *tikipkg.Tiki, selected bool, colors *config.ColorConfig) *tview.Frame {
 	textView := tview.NewTextView().
 		SetDynamicColors(true).
 		SetWordWrap(false)
@@ -105,7 +135,7 @@ func CreateCompactTaskBox(task *taskpkg.Task, selected bool, colors *config.Colo
 		if availableWidth < config.TaskBoxMinWidth {
 			availableWidth = config.TaskBoxMinWidth
 		}
-		content := buildCompactTaskContent(task, colors, availableWidth)
+		content := buildCompactTaskContent(tk, colors, availableWidth)
 		textView.SetText(content)
 		return x, y, width, height
 	})
@@ -118,7 +148,7 @@ func CreateCompactTaskBox(task *taskpkg.Task, selected bool, colors *config.Colo
 }
 
 // CreateExpandedTaskBox creates an expanded styled task box widget (7 lines)
-func CreateExpandedTaskBox(task *taskpkg.Task, selected bool, colors *config.ColorConfig) *tview.Frame {
+func CreateExpandedTaskBox(tk *tikipkg.Tiki, selected bool, colors *config.ColorConfig) *tview.Frame {
 	textView := tview.NewTextView().
 		SetDynamicColors(true).
 		SetWordWrap(false)
@@ -128,7 +158,7 @@ func CreateExpandedTaskBox(task *taskpkg.Task, selected bool, colors *config.Col
 		if availableWidth < config.TaskBoxMinWidth {
 			availableWidth = config.TaskBoxMinWidth
 		}
-		content := buildExpandedTaskContent(task, colors, availableWidth)
+		content := buildExpandedTaskContent(tk, colors, availableWidth)
 		textView.SetText(content)
 		return x, y, width, height
 	})

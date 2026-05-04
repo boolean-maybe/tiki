@@ -41,9 +41,9 @@ func TestCreateTask_IDUniquenessChecksMap(t *testing.T) {
 	}
 	t.Cleanup(func() { config.GenerateRandomIDForTest = prev })
 
-	newTask, err := s.NewTaskTemplate()
+	newTask, err := s.NewTikiTemplate()
 	if err != nil {
-		t.Fatalf("NewTaskTemplate: %v", err)
+		t.Fatalf("NewTikiTemplate: %v", err)
 	}
 	if newTask.ID == "ABC123" {
 		t.Fatal("generator returned the id of an existing (renamed-file) task — map-based uniqueness check failed")
@@ -55,8 +55,13 @@ func TestCreateTask_IDUniquenessChecksMap(t *testing.T) {
 		t.Errorf("generator should have been called until a unique id was produced, got %d calls", call)
 	}
 
-	// the original loaded task must still exist under its original path.
-	if tk := s.GetTask("ABC123"); tk == nil || tk.FilePath != renamed {
-		t.Errorf("loaded task overwritten; FilePath=%q", tk.FilePath)
+	// the original loaded tiki must still exist under its original path.
+	if tk := s.GetTiki("ABC123"); tk == nil || tk.Path != renamed {
+		t.Errorf("loaded tiki overwritten; Path=%q", func() string {
+			if tk == nil {
+				return "<nil>"
+			}
+			return tk.Path
+		}())
 	}
 }

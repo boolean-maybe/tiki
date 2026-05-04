@@ -1,12 +1,12 @@
 package integration
 
 import (
-	"slices"
 	"testing"
 
 	"github.com/boolean-maybe/tiki/model"
 	taskpkg "github.com/boolean-maybe/tiki/task"
 	"github.com/boolean-maybe/tiki/testutil"
+	tikipkg "github.com/boolean-maybe/tiki/tiki"
 
 	"github.com/gdamore/tcell/v2"
 )
@@ -155,26 +155,42 @@ func TestDepsEditor_MoveTask_AllToDepends_PersistsOnDisk(t *testing.T) {
 	ta.Draw()
 
 	// verify in-memory state
-	updated := ta.TaskStore.GetTask(contextID)
+	updated := ta.TaskStore.GetTiki(contextID)
 	if updated == nil {
 		t.Fatalf("context task not found in store")
 		return
 	}
-	if !slices.Contains(updated.DependsOn, freeID) {
-		t.Errorf("DependsOn = %v, want it to contain %s", updated.DependsOn, freeID)
+	updatedDeps, _, _ := updated.StringSliceField(tikipkg.FieldDependsOn)
+	found := false
+	for _, d := range updatedDeps {
+		if d == freeID {
+			found = true
+			break
+		}
+	}
+	if !found {
+		t.Errorf("DependsOn = %v, want it to contain %s", updatedDeps, freeID)
 	}
 
 	// verify persisted to disk
 	if err := ta.TaskStore.Reload(); err != nil {
 		t.Fatalf("reload after move: %v", err)
 	}
-	reloaded := ta.TaskStore.GetTask(contextID)
+	reloaded := ta.TaskStore.GetTiki(contextID)
 	if reloaded == nil {
 		t.Fatalf("context task not found after reload")
 		return
 	}
-	if !slices.Contains(reloaded.DependsOn, freeID) {
-		t.Errorf("after reload: DependsOn = %v, want it to contain %s", reloaded.DependsOn, freeID)
+	reloadedDeps, _, _ := reloaded.StringSliceField(tikipkg.FieldDependsOn)
+	foundAfterReload := false
+	for _, d := range reloadedDeps {
+		if d == freeID {
+			foundAfterReload = true
+			break
+		}
+	}
+	if !foundAfterReload {
+		t.Errorf("after reload: DependsOn = %v, want it to contain %s", reloadedDeps, freeID)
 	}
 }
 
@@ -222,26 +238,34 @@ func TestDepsEditor_MoveTask_DependsToAll_RemovesDep(t *testing.T) {
 	ta.Draw()
 
 	// verify in-memory state
-	updated := ta.TaskStore.GetTask(contextID)
+	updated := ta.TaskStore.GetTiki(contextID)
 	if updated == nil {
 		t.Fatalf("context task not found in store")
 		return
 	}
-	if slices.Contains(updated.DependsOn, depID) {
-		t.Errorf("DependsOn = %v, should not contain %s after removal", updated.DependsOn, depID)
+	updatedDeps, _, _ := updated.StringSliceField(tikipkg.FieldDependsOn)
+	for _, d := range updatedDeps {
+		if d == depID {
+			t.Errorf("DependsOn = %v, should not contain %s after removal", updatedDeps, depID)
+			break
+		}
 	}
 
 	// verify persisted to disk
 	if err := ta.TaskStore.Reload(); err != nil {
 		t.Fatalf("reload after move: %v", err)
 	}
-	reloaded := ta.TaskStore.GetTask(contextID)
+	reloaded := ta.TaskStore.GetTiki(contextID)
 	if reloaded == nil {
 		t.Fatalf("context task not found after reload")
 		return
 	}
-	if slices.Contains(reloaded.DependsOn, depID) {
-		t.Errorf("after reload: DependsOn = %v, should not contain %s", reloaded.DependsOn, depID)
+	reloadedDeps, _, _ := reloaded.StringSliceField(tikipkg.FieldDependsOn)
+	for _, d := range reloadedDeps {
+		if d == depID {
+			t.Errorf("after reload: DependsOn = %v, should not contain %s", reloadedDeps, depID)
+			break
+		}
 	}
 }
 

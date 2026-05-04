@@ -13,7 +13,7 @@ import (
 	"github.com/boolean-maybe/tiki/ruki"
 	"github.com/boolean-maybe/tiki/service"
 	"github.com/boolean-maybe/tiki/store"
-	"github.com/boolean-maybe/tiki/task"
+	tikipkg "github.com/boolean-maybe/tiki/tiki"
 
 	"github.com/gdamore/tcell/v2"
 	"github.com/rivo/tview"
@@ -30,20 +30,20 @@ type PluginControllerInterface interface {
 	CanStartActionInput(ActionID) (prompt string, typ ruki.ValueType, ok bool)
 	HandleActionInput(ActionID, string) InputSubmitResult
 	GetActionChooseSpec(ActionID) (label string, hasChoose bool)
-	CanStartActionChoose(ActionID) (label string, candidates []*task.Task, ok bool)
+	CanStartActionChoose(ActionID) (label string, candidates []*tikipkg.Tiki, ok bool)
 	HandleActionChoose(ActionID, string) bool
 }
 
 // QuickSelectView abstracts the QuickSelect view to avoid import cycles.
 type QuickSelectView interface {
-	OnShow(tasks []*task.Task)
+	OnShow(tikis []*tikipkg.Tiki)
 	GetFilterInput() tview.Primitive
 }
 
 // TikiViewProvider is implemented by controllers that back a TikiPlugin view.
 // The view factory uses this to create PluginView without knowing the concrete controller type.
 type TikiViewProvider interface {
-	GetFilteredTasksForLane(lane int) []*task.Task
+	GetFilteredTasksForLane(lane int) []*tikipkg.Tiki
 	EnsureFirstNonEmptyLaneSelection() bool
 	GetActionRegistry() *ActionRegistry
 	ShowNavigation() bool
@@ -786,7 +786,7 @@ func (ir *InputRouter) startActionChoose(ctrl PluginControllerInterface, actionI
 	if ir.quickSelectConfig == nil || ir.quickSelectView == nil {
 		return false
 	}
-	_, candidates, ok := ctrl.CanStartActionChoose(actionID)
+	_, tikis, ok := ctrl.CanStartActionChoose(actionID)
 	if !ok {
 		return false
 	}
@@ -795,7 +795,7 @@ func (ir *InputRouter) startActionChoose(ctrl PluginControllerInterface, actionI
 		ctrl.HandleActionChoose(actionID, taskID)
 	})
 	ir.quickSelectConfig.SetOnCancel(func() {})
-	ir.quickSelectView.OnShow(candidates)
+	ir.quickSelectView.OnShow(tikis)
 	ir.quickSelectConfig.SetVisible(true)
 	return true
 }

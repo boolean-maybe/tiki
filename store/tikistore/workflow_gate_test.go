@@ -5,25 +5,24 @@ import (
 	"path/filepath"
 	"testing"
 
-	taskpkg "github.com/boolean-maybe/tiki/task"
+	tikipkg "github.com/boolean-maybe/tiki/tiki"
 )
 
-func createValidTaskForGateTest() *taskpkg.Task {
-	return &taskpkg.Task{
-		ID:         "CREAT1",
-		Title:      "created",
-		Type:       taskpkg.TypeStory,
-		Status:     "ready",
-		Priority:   1,
-		IsWorkflow: true,
-	}
+func createValidTikiForGateTest() *tikipkg.Tiki {
+	tk := tikipkg.New()
+	tk.ID = "CREAT1"
+	tk.Title = "created"
+	tk.Set("type", "story")
+	tk.Set("status", "ready")
+	tk.Set("priority", 1)
+	return tk
 }
 
-// TestGetAllTasks_IncludesPlainDocs verifies the Phase 5 contract: GetAllTasks
-// returns all tikis projected to tasks, including plain docs. Workflow-only
-// filtering belongs in the caller (e.g. ruki `select where has(status)` or
-// hasAnyWorkflowField) not at the store boundary.
-func TestGetAllTasks_IncludesPlainDocs(t *testing.T) {
+// TestGetAllTikis_IncludesPlainDocs verifies the Phase 5 contract: GetAllTikis
+// returns all tikis, including plain docs. Workflow-only filtering belongs in
+// the caller (e.g. ruki `select where has(status)` or hasAnyWorkflowField)
+// not at the store boundary.
+func TestGetAllTikis_IncludesPlainDocs(t *testing.T) {
 	dir := t.TempDir()
 
 	// plain doc: only id + title, no workflow fields.
@@ -43,9 +42,9 @@ func TestGetAllTasks_IncludesPlainDocs(t *testing.T) {
 		t.Fatalf("NewTikiStore: %v", err)
 	}
 
-	all := s.GetAllTasks()
+	all := s.GetAllTikis()
 	if len(all) != 2 {
-		t.Fatalf("GetAllTasks returned %d tasks, want 2 (plain + workflow)", len(all))
+		t.Fatalf("GetAllTikis returned %d tikis, want 2 (plain + workflow)", len(all))
 	}
 
 	ids := map[string]bool{}
@@ -53,42 +52,38 @@ func TestGetAllTasks_IncludesPlainDocs(t *testing.T) {
 		ids[tk.ID] = true
 	}
 	if !ids["PLAIN1"] {
-		t.Error("plain doc should appear in GetAllTasks")
+		t.Error("plain doc should appear in GetAllTikis")
 	}
 	if !ids["WORK01"] {
-		t.Error("workflow doc should appear in GetAllTasks")
+		t.Error("workflow doc should appear in GetAllTikis")
 	}
 
-	// GetTask still finds both by id.
-	if tk := s.GetTask("PLAIN1"); tk == nil {
-		t.Error("GetTask should find plain docs by id")
-	} else if tk.IsWorkflow {
-		t.Error("plain doc should have IsWorkflow=false")
+	// GetTiki still finds both by id.
+	if tk := s.GetTiki("PLAIN1"); tk == nil {
+		t.Error("GetTiki should find plain docs by id")
+	} else if hasAnyWorkflowField(tk) {
+		t.Error("plain doc should have no workflow fields")
 	}
-	if tk := s.GetTask("WORK01"); tk == nil || !tk.IsWorkflow {
-		t.Error("workflow doc should be marked IsWorkflow=true")
-	}
-
-	// GetAllTikis and GetAllTasks agree on count.
-	if len(s.GetAllTikis()) != len(all) {
-		t.Errorf("GetAllTikis count %d != GetAllTasks count %d", len(s.GetAllTikis()), len(all))
+	if tk := s.GetTiki("WORK01"); tk == nil || !hasAnyWorkflowField(tk) {
+		t.Error("workflow doc should have workflow fields")
 	}
 }
 
-// TestGetAllTasks_CreatedTasksAreWorkflow verifies that CreateTask marks the
-// task as workflow-capable so programmatically-created tasks appear on boards.
-func TestGetAllTasks_CreatedTasksAreWorkflow(t *testing.T) {
+// TestGetAllTikis_CreatedTikiIsWorkflow verifies that CreateTiki with workflow
+// fields marks the tiki as workflow-capable so programmatically-created tikis
+// appear on boards.
+func TestGetAllTikis_CreatedTikiIsWorkflow(t *testing.T) {
 	dir := t.TempDir()
 	s, err := NewTikiStore(dir)
 	if err != nil {
 		t.Fatalf("NewTikiStore: %v", err)
 	}
 
-	if err := s.CreateTask(createValidTaskForGateTest()); err != nil {
-		t.Fatalf("CreateTask: %v", err)
+	if err := s.CreateTiki(createValidTikiForGateTest()); err != nil {
+		t.Fatalf("CreateTiki: %v", err)
 	}
 
-	if got := len(s.GetAllTasks()); got != 1 {
-		t.Errorf("GetAllTasks after CreateTask: got %d, want 1", got)
+	if got := len(s.GetAllTikis()); got != 1 {
+		t.Errorf("GetAllTikis after CreateTiki: got %d, want 1", got)
 	}
 }

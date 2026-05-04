@@ -48,15 +48,16 @@ func TestTaskEdit_ShiftTabBackward(t *testing.T) {
 	if err := ta.TaskStore.Reload(); err != nil {
 		t.Fatalf("failed to reload: %v", err)
 	}
-	task := ta.TaskStore.GetTask(taskID)
-	if task == nil {
+	tk := ta.TaskStore.GetTiki(taskID)
+	if tk == nil {
 		t.Fatalf("task not found")
 		return
 	}
 
 	// Verify points changed from default 1 to 2
-	if task.Points != 2 {
-		t.Errorf("points = %d, want 2 after Shift+Tab to Points field", task.Points)
+	points, _, _ := tk.IntField("points")
+	if points != 2 {
+		t.Errorf("points = %d, want 2 after Shift+Tab to Points field", points)
 	}
 }
 
@@ -100,14 +101,15 @@ func TestTaskEdit_StatusCycling(t *testing.T) {
 	if err := ta.TaskStore.Reload(); err != nil {
 		t.Fatalf("failed to reload: %v", err)
 	}
-	task := ta.TaskStore.GetTask(taskID)
-	if task == nil {
+	tk := ta.TaskStore.GetTiki(taskID)
+	if tk == nil {
 		t.Fatalf("task not found")
 		return
 	}
 
-	if task.Status != taskpkg.StatusDone {
-		t.Errorf("after 3 Down presses, status = %v, want done", task.Status)
+	status, _, _ := tk.StringField("status")
+	if status != string(taskpkg.StatusDone) {
+		t.Errorf("after 3 Down presses, status = %v, want done", status)
 	}
 }
 
@@ -150,14 +152,15 @@ func TestTaskEdit_TypeToggling(t *testing.T) {
 	if err := ta.TaskStore.Reload(); err != nil {
 		t.Fatalf("failed to reload: %v", err)
 	}
-	task := ta.TaskStore.GetTask(taskID)
-	if task == nil {
+	tk := ta.TaskStore.GetTiki(taskID)
+	if tk == nil {
 		t.Fatalf("task not found")
 		return
 	}
 
-	if task.Type != taskpkg.TypeEpic {
-		t.Errorf("after 3 Down presses, type = %v, want epic", task.Type)
+	typField, _, _ := tk.StringField("type")
+	if typField != string(taskpkg.TypeEpic) {
+		t.Errorf("after 3 Down presses, type = %v, want epic", typField)
 	}
 }
 
@@ -199,16 +202,17 @@ func TestTaskEdit_AssigneeInput(t *testing.T) {
 	if err := ta.TaskStore.Reload(); err != nil {
 		t.Fatalf("failed to reload: %v", err)
 	}
-	task := ta.TaskStore.GetTask(taskID)
-	if task == nil {
+	tk := ta.TaskStore.GetTiki(taskID)
+	if tk == nil {
 		t.Fatalf("task not found")
 		return
 	}
 
 	// Current behavior: appends to default "Unassigned" text
 	expected := "Unassignedjohn.doe"
-	if task.Assignee != expected {
-		t.Errorf("assignee = %q, want %q", task.Assignee, expected)
+	assignee, _, _ := tk.StringField("assignee")
+	if assignee != expected {
+		t.Errorf("assignee = %q, want %q", assignee, expected)
 	}
 }
 
@@ -241,14 +245,14 @@ func TestTaskEdit_SaveAndContinue(t *testing.T) {
 	if err := ta.TaskStore.Reload(); err != nil {
 		t.Fatalf("failed to reload: %v", err)
 	}
-	task := ta.TaskStore.GetTask(taskID)
-	if task == nil {
+	tk := ta.TaskStore.GetTiki(taskID)
+	if tk == nil {
 		t.Fatalf("task not found")
 		return
 	}
 
-	if task.Title != "New Title" {
-		t.Errorf("title = %q, want %q", task.Title, "New Title")
+	if tk.Title != "New Title" {
+		t.Errorf("title = %q, want %q", tk.Title, "New Title")
 	}
 }
 
@@ -281,7 +285,7 @@ func TestTaskEdit_EscapeAndReEdit(t *testing.T) {
 	ta.SendKey(tcell.KeyEscape, 0, tcell.ModNone)
 
 	// Verify editing state cleared
-	if ta.EditingTask() != nil {
+	if ta.EditingTiki() != nil {
 		t.Errorf("editing task should be nil after cancel")
 	}
 
@@ -300,14 +304,14 @@ func TestTaskEdit_EscapeAndReEdit(t *testing.T) {
 	if err := ta.TaskStore.Reload(); err != nil {
 		t.Fatalf("failed to reload: %v", err)
 	}
-	task := ta.TaskStore.GetTask(taskID)
-	if task == nil {
+	tk := ta.TaskStore.GetTiki(taskID)
+	if tk == nil {
 		t.Fatalf("task not found")
 		return
 	}
 
-	if task.Title != "New Title" {
-		t.Errorf("title = %q, want %q", task.Title, "New Title")
+	if tk.Title != "New Title" {
+		t.Errorf("title = %q, want %q", tk.Title, "New Title")
 	}
 }
 
@@ -348,14 +352,15 @@ func TestTaskEdit_PriorityRange(t *testing.T) {
 	if err := ta.TaskStore.Reload(); err != nil {
 		t.Fatalf("failed to reload: %v", err)
 	}
-	task := ta.TaskStore.GetTask(taskID)
-	if task == nil {
+	tk := ta.TaskStore.GetTiki(taskID)
+	if tk == nil {
 		t.Fatalf("task not found")
 		return
 	}
 
-	if task.Priority != 5 {
-		t.Errorf("priority = %d, want 5", task.Priority)
+	priority, _, _ := tk.IntField("priority")
+	if priority != 5 {
+		t.Errorf("priority = %d, want 5", priority)
 	}
 }
 
@@ -398,14 +403,15 @@ func TestTaskEdit_PointsRange(t *testing.T) {
 	if err := ta.TaskStore.Reload(); err != nil {
 		t.Fatalf("failed to reload: %v", err)
 	}
-	task := ta.TaskStore.GetTask(taskID)
-	if task == nil {
+	tk := ta.TaskStore.GetTiki(taskID)
+	if tk == nil {
 		t.Fatalf("task not found")
 		return
 	}
 
-	if task.Points != 7 {
-		t.Errorf("points = %d, want 7", task.Points)
+	points, _, _ := tk.IntField("points")
+	if points != 7 {
+		t.Errorf("points = %d, want 7", points)
 	}
 
 	// That's sufficient to verify points field cycling works

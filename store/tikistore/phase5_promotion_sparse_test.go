@@ -6,8 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/boolean-maybe/tiki/document"
-	taskpkg "github.com/boolean-maybe/tiki/task"
+	tikipkg "github.com/boolean-maybe/tiki/tiki"
 )
 
 // TestPhase5_PromotionWithZeroValueWritesSparseYAML proves the second review
@@ -16,15 +15,9 @@ import (
 // must NOT fall through to the full-workflow-schema serializer — the file
 // should contain only the field the caller explicitly set.
 //
-// Pre-fix failure mode: promoteToWorkflow only flipped IsWorkflow, leaving
-// WorkflowFrontmatter nil. MergeTypedWorkflowDeltas skipped zero values, so
-// the presence map never grew. marshalFrontmatter then took the
-// nil-WorkflowFrontmatter branch and called buildWorkflowFrontmatter, which
-// wrote every workflow key with registry defaults.
-//
-// The fix makes promoteToWorkflow also seed WorkflowFrontmatter with the
-// exact promoting key so marshalSparseWorkflowFrontmatter runs and emits
-// only that key.
+// In the tiki model, exact-presence semantics give us this for free: setting
+// only `points` on a cloned plain tiki means only that key is in Fields, so
+// only that key is written to disk.
 func TestPhase5_PromotionWithZeroValueWritesSparseYAML(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
 	tmp := t.TempDir()
@@ -42,25 +35,21 @@ func TestPhase5_PromotionWithZeroValueWritesSparseYAML(t *testing.T) {
 		t.Fatalf("NewTikiStore: %v", err)
 	}
 
-	// Start from the loaded task so FilePath/LoadedMtime are correct.
-	loaded := s.GetDocument("PLAINX")
-	if loaded == nil {
+	// Verify precondition: loads as plain (no workflow fields).
+	stored := s.GetTiki("PLAINX")
+	if stored == nil {
 		t.Fatal("expected PLAINX to load")
 	}
-	if got := document.IsWorkflowFrontmatter(loaded.Frontmatter); got {
-		t.Fatalf("precondition: PLAINX must load as plain, got workflow=%v", got)
+	if hasAnyWorkflowField(stored) {
+		t.Fatalf("precondition: PLAINX must load as plain, got workflow=true")
 	}
 
-	// Simulate exactly what ruki setField does after `set points = 0` on a
-	// plain doc: Points=0, IsWorkflow=true, WorkflowFrontmatter seeded with
-	// the promoting key so marshal takes the sparse path.
-	promoted := taskpkg.FromDocument(loaded)
-	promoted.Points = 0
-	promoted.IsWorkflow = true
-	promoted.WorkflowFrontmatter = map[string]interface{}{"points": ""}
-
-	if err := s.UpdateTask(promoted); err != nil {
-		t.Fatalf("UpdateTask: %v", err)
+	// Promote by setting only points=0. Exact-presence: only this key lands
+	// on disk — no status, type, priority, tags, etc.
+	updated := stored.Clone()
+	updated.Set(tikipkg.FieldPoints, 0)
+	if err := s.UpdateTiki(updated); err != nil {
+		t.Fatalf("UpdateTiki: %v", err)
 	}
 
 	// Read the file back. The sparse write path should produce a header
@@ -85,28 +74,17 @@ func TestPhase5_PromotionWithZeroValueWritesSparseYAML(t *testing.T) {
 }
 
 // TestPhase5_SparseWorkflowZeroAssignmentPersists closes a sparse-workflow
-// edge case: a document loaded with only `status:` has
-// WorkflowFrontmatter={status}. Running `set points = 0` must persist
-// the new `points:` key, not silently drop it on save.
+// edge case: a document loaded with only `status:` has Fields={status}. Running
+// `set points = 0` must persist the new `points:` key, not silently drop it.
 //
-// Pre-fix failure mode: after an earlier iteration scoped presence
-// seeding to only plain-document promotion, already-workflow sparse
-// tasks stopped seeding new keys. MergeTypedWorkflowDeltas already
-// skips zero/empty values, so `points = 0` left both the presence map
-// unchanged and the typed delta suppressed — the sparse save path then
-// wrote only the original `status:` and the user's explicit `points: 0`
-// assignment disappeared.
-//
-// The fix extends the seeding rule: if the presence map is already
-// non-nil (sparse workflow doc), always record the assigned field so
-// zero/empty values land on disk.
+// In the tiki model: clone the loaded tiki (Fields={status}), Set("points", 0)
+// to grow Fields to {status, points}, then UpdateTiki. Exact-presence writes
+// both keys and nothing else.
 func TestPhase5_SparseWorkflowZeroAssignmentPersists(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
 	tmp := t.TempDir()
 
-	// Seed a sparse workflow document on disk: frontmatter has `status`
-	// only. This is what the store produces after loading a file whose
-	// frontmatter wrote a single workflow key.
+	// Seed a sparse workflow document on disk: frontmatter has `status` only.
 	sparsePath := filepath.Join(tmp, "SPARSE.md")
 	sparse := "---\nid: SPARSE\ntitle: sparse doc\nstatus: ready\n---\n\nbody\n"
 	if err := os.WriteFile(sparsePath, []byte(sparse), 0644); err != nil {
@@ -117,26 +95,20 @@ func TestPhase5_SparseWorkflowZeroAssignmentPersists(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewTikiStore: %v", err)
 	}
-	loaded := s.GetDocument("SPARSE")
-	if loaded == nil {
+	stored := s.GetTiki("SPARSE")
+	if stored == nil {
 		t.Fatal("expected SPARSE to load")
 	}
-	if !document.IsWorkflowFrontmatter(loaded.Frontmatter) {
+	if !hasAnyWorkflowField(stored) {
 		t.Fatal("precondition: SPARSE should load as workflow (has status)")
 	}
 
-	// Simulate what ruki setField does after `set points = 0` on this
-	// already-workflow-sparse doc: IsWorkflow already true, presence
-	// map already has {status}, and the fix adds the `points` key.
-	updated := taskpkg.FromDocument(loaded)
-	updated.Points = 0
-	if updated.WorkflowFrontmatter == nil {
-		updated.WorkflowFrontmatter = map[string]interface{}{}
-	}
-	updated.WorkflowFrontmatter["points"] = ""
-
-	if err := s.UpdateTask(updated); err != nil {
-		t.Fatalf("UpdateTask: %v", err)
+	// Clone, then add points=0 to the existing Fields set. Both status and
+	// points should be present on disk after save.
+	updated := stored.Clone()
+	updated.Set(tikipkg.FieldPoints, 0)
+	if err := s.UpdateTiki(updated); err != nil {
+		t.Fatalf("UpdateTiki: %v", err)
 	}
 
 	// Read the file back. Both `status:` (original) and `points: 0`
@@ -162,8 +134,8 @@ func TestPhase5_SparseWorkflowZeroAssignmentPersists(t *testing.T) {
 }
 
 // TestPhase5_PromotionWithEmptyListWritesSparseYAML is the dependsOn=[] twin
-// of the points=0 test. Both values are "zero" from MergeTypedWorkflowDeltas'
-// point of view, so both must seed the presence map at promotion time.
+// of the points=0 test. Setting only dependsOn on a plain doc should produce
+// a sparse file with just that one workflow key.
 func TestPhase5_PromotionWithEmptyListWritesSparseYAML(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
 	tmp := t.TempDir()
@@ -179,18 +151,16 @@ func TestPhase5_PromotionWithEmptyListWritesSparseYAML(t *testing.T) {
 		t.Fatalf("NewTikiStore: %v", err)
 	}
 
-	loaded := s.GetDocument("PLAINY")
-	if loaded == nil {
+	stored := s.GetTiki("PLAINY")
+	if stored == nil {
 		t.Fatal("expected PLAINY to load")
 	}
 
-	promoted := taskpkg.FromDocument(loaded)
-	promoted.DependsOn = nil // empty list
-	promoted.IsWorkflow = true
-	promoted.WorkflowFrontmatter = map[string]interface{}{"dependsOn": ""}
-
-	if err := s.UpdateTask(promoted); err != nil {
-		t.Fatalf("UpdateTask: %v", err)
+	// Promote by setting only dependsOn (empty list).
+	updated := stored.Clone()
+	updated.Set(tikipkg.FieldDependsOn, []string{})
+	if err := s.UpdateTiki(updated); err != nil {
+		t.Fatalf("UpdateTiki: %v", err)
 	}
 
 	got, err := os.ReadFile(plainPath)

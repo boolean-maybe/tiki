@@ -8,6 +8,7 @@ import (
 	"github.com/boolean-maybe/tiki/model"
 	"github.com/boolean-maybe/tiki/task"
 	"github.com/boolean-maybe/tiki/testutil"
+	tikipkg "github.com/boolean-maybe/tiki/tiki"
 
 	"github.com/gdamore/tcell/v2"
 )
@@ -69,16 +70,18 @@ func TestPluginView_MoveTaskAppliesLaneAction(t *testing.T) {
 	if err := ta.TaskStore.Reload(); err != nil {
 		t.Fatalf("failed to reload tasks: %v", err)
 	}
-	updated := ta.TaskStore.GetTask("000001")
+	updated := ta.TaskStore.GetTiki("000001")
 	if updated == nil {
 		t.Fatalf("expected task TIKI-1 to exist")
 		return
 	}
-	if updated.Status != task.StatusDone {
-		t.Fatalf("expected status done, got %v", updated.Status)
+	status, _, _ := updated.StringField("status")
+	tags, _, _ := updated.StringSliceField(tikipkg.FieldTags)
+	if status != string(task.StatusDone) {
+		t.Fatalf("expected status done, got %v", status)
 	}
-	if !containsTag(updated.Tags, "moved") {
-		t.Fatalf("expected moved tag, got %v", updated.Tags)
+	if !containsTag(tags, "moved") {
+		t.Fatalf("expected moved tag, got %v", tags)
 	}
 
 	ta.SendKey(tcell.KeyLeft, 0, tcell.ModShift)
@@ -86,16 +89,18 @@ func TestPluginView_MoveTaskAppliesLaneAction(t *testing.T) {
 	if err := ta.TaskStore.Reload(); err != nil {
 		t.Fatalf("failed to reload tasks: %v", err)
 	}
-	updated = ta.TaskStore.GetTask("000001")
+	updated = ta.TaskStore.GetTiki("000001")
 	if updated == nil {
 		t.Fatalf("expected task TIKI-1 to exist")
 		return
 	}
-	if updated.Status != task.StatusBacklog {
-		t.Fatalf("expected status backlog, got %v", updated.Status)
+	status2, _, _ := updated.StringField("status")
+	tags2, _, _ := updated.StringSliceField(tikipkg.FieldTags)
+	if status2 != string(task.StatusBacklog) {
+		t.Fatalf("expected status backlog, got %v", status2)
 	}
-	if containsTag(updated.Tags, "moved") {
-		t.Fatalf("expected moved tag removed, got %v", updated.Tags)
+	if containsTag(tags2, "moved") {
+		t.Fatalf("expected moved tag removed, got %v", tags2)
 	}
 }
 

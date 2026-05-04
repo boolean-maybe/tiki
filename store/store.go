@@ -1,7 +1,6 @@
 package store
 
 import (
-	"github.com/boolean-maybe/tiki/task"
 	tikipkg "github.com/boolean-maybe/tiki/tiki"
 )
 
@@ -10,15 +9,9 @@ import (
 type Store interface {
 	ReadStore
 
-	// CreateTask adds a new task to the store.
+	// CreateTiki adds a new tiki to the store.
 	// Returns error if save fails (IO error, ErrConflict).
-	CreateTask(task *task.Task) error
-
-	// UpdateTask updates an existing task using carry-forward semantics:
-	// stored workflow fields missing from the incoming task are merged in.
-	// Use this for UI/partial callers that only set the fields they care about.
-	// Returns error if save fails (IO error, ErrConflict).
-	UpdateTask(task *task.Task) error
+	CreateTiki(tk *tikipkg.Tiki) error
 
 	// UpdateTiki updates an existing tiki using exact-presence semantics:
 	// the tiki's field map is authoritative — absent fields are deleted.
@@ -29,9 +22,6 @@ type Store interface {
 
 	// DeleteTask removes a task from the store
 	DeleteTask(id string)
-
-	// AddComment adds a comment to a task
-	AddComment(taskID string, comment task.Comment) bool
 }
 
 // ChangeListener is called when the store's data changes

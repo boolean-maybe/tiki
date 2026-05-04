@@ -98,10 +98,6 @@ func (s *TikiStore) loadLocked() error {
 // loadTikiFile parses a single markdown file into a *tiki.Tiki. Returns a
 // *loadError on identity/frontmatter failures so loadLocked can classify
 // the rejection; unwrap via errors.As for the general case.
-//
-// Phase 5: the load path now terminates at *tiki.Tiki (no longer projects
-// to *taskpkg.Task). Workflow defaults/validation that used to run on the
-// Task projection now operate directly on the Tiki's Fields map.
 func (s *TikiStore) loadTikiFile(path string, authorMap map[string]*git.AuthorInfo, lastCommitMap map[string]time.Time) (*tiki.Tiki, error) {
 	info, err := os.Stat(path)
 	if err != nil {
@@ -128,7 +124,7 @@ func (s *TikiStore) loadTikiFile(path string, authorMap map[string]*git.AuthorIn
 	// Type validation: workflow docs with an unknown explicit type are a
 	// hard load error (matches pre-Phase-3 behavior). Plain docs have no
 	// `type:` in their frontmatter so this check is a no-op for them.
-	isWorkflow := document.IsWorkflowFrontmatter(parsed.raw)
+	isWorkflow := hasAnyWorkflowField(parsed.t)
 	if isWorkflow {
 		if rawType, ok := parsed.raw["type"].(string); ok && rawType != "" {
 			if _, typeOK := taskpkg.ParseType(rawType); !typeOK {
@@ -266,7 +262,7 @@ func (s *TikiStore) Reload() error {
 // ReloadTask reloads a single task from disk by ID.
 // Uses the loaded tiki's Path so renamed files still reload from their
 // current location. For IDs unknown to the store, falls back to the
-// id-derived default path (used by CreateTask reload-after-save flows).
+// id-derived default path.
 func (s *TikiStore) ReloadTask(taskID string) error {
 	normalizedID := normalizeTaskID(taskID)
 	slog.Debug("reloading single task", "task_id", normalizedID)
@@ -384,6 +380,17 @@ func validateCustomFieldEntry(k string, v interface{}, fd workflow.FieldDef) err
 		if _, err := coerceStringList(v); err != nil {
 			return fmt.Errorf("invalid list value for %q: %w", k, err)
 		}
+	case workflow.TypeEnum:
+		s, ok := v.(string)
+		if !ok {
+			return fmt.Errorf("enum field %q must be a string, got %T", k, v)
+		}
+		for _, allowed := range fd.AllowedValues {
+			if s == allowed {
+				return nil
+			}
+		}
+		return fmt.Errorf("invalid enum value %q for field %q (allowed: %v)", s, k, fd.AllowedValues)
 	}
 	return nil
 }
@@ -510,38 +517,6 @@ func (s *TikiStore) pathForTiki(tk *tiki.Tiki) string {
 	return s.taskFilePath(tk.ID)
 }
 
-// validateCustomFields enforces the save-time contract inherited from the
-// pre-Phase-3 appendCustomFields helper:
-//
-//  1. every key in Task.CustomFields must be a registered Custom field;
-//  2. for list-typed custom fields (TypeListString, TypeListRef), the
-//     value must coerce to a string list — a scalar or wrong-shape value
-//     fails the save with "invalid list value for %q: ...".
-//
-// Task.UnknownFields is the load-only slot for values that came off disk
-// but didn't match a registered Custom field (or failed coercion); those
-// bypass both checks by design so they round-trip verbatim for repair.
-//
-// Non-list custom types (enum, int, string, timestamp, bool) are not
-// value-checked here because the emitter relies on yaml.Marshal to handle
-// them and a type mismatch surfaces as a marshaling error downstream. The
-// appendCustomFields path likewise only pre-validated list shapes.
-func validateCustomFields(customFields map[string]interface{}) error {
-	for k, v := range customFields {
-		fd, ok := workflow.Field(k)
-		if !ok || !fd.Custom {
-			return fmt.Errorf("unknown custom field %q", k)
-		}
-		switch fd.Type {
-		case workflow.TypeListString, workflow.TypeListRef:
-			if _, err := coerceStringList(v); err != nil {
-				return fmt.Errorf("invalid list value for %q: %w", k, err)
-			}
-		}
-	}
-	return nil
-}
-
 // builtInFrontmatterKeys lists keys handled by the taskFrontmatter struct.
 var builtInFrontmatterKeys = map[string]bool{
 	"id": true, "title": true, "type": true, "status": true,
@@ -554,9 +529,10 @@ var builtInFrontmatterKeys = map[string]bool{
 // in the first map. Unrecognised non-builtin keys are preserved verbatim in
 // the second map so they survive a load→save round-trip.
 //
-// Phase 3: production loads go through buildFieldsFromFrontmatter in
-// tiki_bridge.go — this helper survives only for the focused unit tests in
-// store_test.go that exercise the registry/coercion rules in isolation.
+// extractCustomFields splits a frontmatter map into known-custom and unknown
+// fields. Production loads go through buildFieldsFromFrontmatter in
+// tiki_bridge.go; this helper exists for unit tests that exercise coercion rules
+// in isolation.
 func extractCustomFields(fmMap map[string]interface{}) (customFields, unknownFields map[string]interface{}, err error) {
 	if fmMap == nil {
 		return nil, nil, nil
@@ -703,48 +679,4 @@ func coerceStringList(raw interface{}) ([]string, error) {
 	default:
 		return nil, fmt.Errorf("expected list, got %T", raw)
 	}
-}
-
-// Phase 3: the append{Custom,Unknown}Fields helpers are gone. Save now
-// routes through marshalTikiFrontmatter in tiki_bridge.go, which emits
-// workflow-schema keys, custom fields, and unknown fields through a
-// single presence-driven path.
-
-// saveTask is a Phase 5 compatibility adapter over saveTiki for callers
-// (mostly tests) that still operate on *taskpkg.Task.
-func (s *TikiStore) saveTask(task *taskpkg.Task) error {
-	return s.saveTiki(taskToTiki(task))
-}
-
-// loadTaskFile is a Phase 5 compatibility adapter over loadTikiFile for
-// callers (mostly tests) that expect a *taskpkg.Task back. The author and
-// last-commit maps are not fetched here (tests pass nil and this helper
-// is not used on the hot load path); callers that need git metadata use
-// loadTikiFile directly.
-func (s *TikiStore) loadTaskFile(path string) (*taskpkg.Task, error) {
-	tk, err := s.loadTikiFile(path, nil, nil)
-	if err != nil {
-		return nil, err
-	}
-	pt := &parsedTiki{t: tk, raw: buildRawFromTiki(tk), stale: tk.StaleKeys()}
-	return tikiToTask(pt), nil
-}
-
-// buildRawFromTiki reconstructs a raw frontmatter map from a Tiki's Fields
-// for use in the IsWorkflowFrontmatter check inside tikiToTask. The raw map
-// only needs to carry the keys that are present in Fields — the check is
-// purely presence-based.
-func buildRawFromTiki(tk *tiki.Tiki) map[string]interface{} {
-	if tk == nil {
-		return nil
-	}
-	raw := make(map[string]interface{}, len(tk.Fields)+2)
-	raw["id"] = tk.ID
-	if tk.Title != "" {
-		raw["title"] = tk.Title
-	}
-	for k, v := range tk.Fields {
-		raw[k] = v
-	}
-	return raw
 }

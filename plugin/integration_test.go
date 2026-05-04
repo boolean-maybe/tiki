@@ -5,8 +5,7 @@ import (
 
 	rukiRuntime "github.com/boolean-maybe/tiki/internal/ruki/runtime"
 	"github.com/boolean-maybe/tiki/ruki"
-	"github.com/boolean-maybe/tiki/task"
-	"github.com/boolean-maybe/tiki/tiki"
+	tikipkg "github.com/boolean-maybe/tiki/tiki"
 )
 
 func newTestExecutor() *ruki.Executor {
@@ -15,33 +14,16 @@ func newTestExecutor() *ruki.Executor {
 		ruki.ExecutorRuntime{Mode: ruki.ExecutorRuntimePlugin})
 }
 
-// tasksAsTikis converts task fixtures for ruki execution and marks them as
-// workflow-declaring so derived presence emits the schema fields these
-// tests query against.
-func tasksAsTikis(tasks []*task.Task) []*tiki.Tiki {
-	out := make([]*tiki.Tiki, 0, len(tasks))
-	for _, t := range tasks {
-		if !t.IsWorkflow {
-			c := t.Clone()
-			c.IsWorkflow = true
-			t = c
-		}
-		if tk := tiki.FromTask(t); tk != nil {
-			out = append(out, tk)
-		}
+func newWFTiki(id, status string, tags []string) *tikipkg.Tiki {
+	tk := tikipkg.New()
+	tk.ID = id
+	if status != "" {
+		tk.Set(tikipkg.FieldStatus, status)
 	}
-	return out
-}
-
-// tikisAsTasks unwraps tikis to task.Task for assertions against legacy fields.
-func tikisAsTasks(tks []*tiki.Tiki) []*task.Task {
-	out := make([]*task.Task, 0, len(tks))
-	for _, tk := range tks {
-		if t := tiki.ToTask(tk); t != nil {
-			out = append(out, t)
-		}
+	if len(tags) > 0 {
+		tk.Set(tikipkg.FieldTags, tags)
 	}
-	return out
+	return tk
 }
 
 func TestPluginWithTagFilter(t *testing.T) {
@@ -75,19 +57,19 @@ lanes:
 		t.Fatal("expected lane filter to be parsed")
 	}
 
-	allTasks := []*task.Task{
-		{ID: "TIKI-000001", Title: "Design mockups", Tags: []string{"ui", "design"}, Status: task.StatusReady},
-		{ID: "TIKI-000002", Title: "Backend API", Tags: []string{"backend", "api"}, Status: task.StatusReady},
-		{ID: "TIKI-000003", Title: "UX Research", Tags: []string{"ux", "research"}, Status: task.StatusReady},
+	allTikis := []*tikipkg.Tiki{
+		newWFTiki("T00001", "ready", []string{"ui", "design"}),
+		newWFTiki("T00002", "ready", []string{"backend", "api"}),
+		newWFTiki("T00003", "ready", []string{"ux", "research"}),
 	}
 
 	executor := newTestExecutor()
-	result, err := executor.Execute(tp.Lanes[0].Filter, tasksAsTikis(allTasks))
+	result, err := executor.Execute(tp.Lanes[0].Filter, allTikis)
 	if err != nil {
 		t.Fatalf("executor error: %v", err)
 	}
 
-	filtered := tikisAsTasks(result.Select.Tikis)
+	filtered := result.Select.Tikis
 	if len(filtered) != 2 {
 		t.Fatalf("expected 2 matching tasks, got %d", len(filtered))
 	}
@@ -97,14 +79,14 @@ lanes:
 	for _, tk := range filtered {
 		ids[tk.ID] = true
 	}
-	if !ids["TIKI-000001"] {
-		t.Error("expected task TIKI-000001 (ui, design tags) to match")
+	if !ids["T00001"] {
+		t.Error("expected T00001 (ui, design tags) to match")
 	}
-	if ids["TIKI-000002"] {
-		t.Error("expected task TIKI-000002 (backend, api tags) to NOT match")
+	if ids["T00002"] {
+		t.Error("expected T00002 (backend, api tags) to NOT match")
 	}
-	if !ids["TIKI-000003"] {
-		t.Error("expected task TIKI-000003 (ux tag) to match")
+	if !ids["T00003"] {
+		t.Error("expected T00003 (ux tag) to match")
 	}
 }
 
@@ -129,24 +111,24 @@ lanes:
 		t.Fatalf("expected TikiPlugin, got %T", def)
 	}
 
-	allTasks := []*task.Task{
-		{ID: "TIKI-000001", Tags: []string{"ui", "frontend"}, Status: task.StatusReady},
-		{ID: "TIKI-000002", Tags: []string{"ui"}, Status: task.StatusDone},
-		{ID: "TIKI-000003", Tags: []string{"docs", "testing"}, Status: task.StatusInProgress},
+	allTikis := []*tikipkg.Tiki{
+		newWFTiki("T00001", "ready", []string{"ui", "frontend"}),
+		newWFTiki("T00002", "done", []string{"ui"}),
+		newWFTiki("T00003", "inProgress", []string{"docs", "testing"}),
 	}
 
 	executor := newTestExecutor()
-	result, err := executor.Execute(tp.Lanes[0].Filter, tasksAsTikis(allTasks))
+	result, err := executor.Execute(tp.Lanes[0].Filter, allTikis)
 	if err != nil {
 		t.Fatalf("executor error: %v", err)
 	}
 
-	filtered := tikisAsTasks(result.Select.Tikis)
+	filtered := result.Select.Tikis
 	if len(filtered) != 1 {
 		t.Fatalf("expected 1 matching task, got %d", len(filtered))
 	}
-	if filtered[0].ID != "TIKI-000001" {
-		t.Errorf("expected TIKI-000001, got %s", filtered[0].ID)
+	if filtered[0].ID != "T00001" {
+		t.Errorf("expected T00001, got %s", filtered[0].ID)
 	}
 }
 
@@ -173,28 +155,26 @@ lanes:
 
 	testCases := []struct {
 		name   string
-		status task.Status
+		status string
 		expect bool
 	}{
-		{"ready status", task.StatusReady, true},
-		{"inProgress status", task.StatusInProgress, true},
-		{"done status", task.StatusDone, false},
-		{"review status", task.StatusReview, false},
+		{"ready status", "ready", true},
+		{"inProgress status", "inProgress", true},
+		{"done status", "done", false},
+		{"review status", "review", false},
 	}
 
 	executor := newTestExecutor()
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			allTasks := []*task.Task{
-				{ID: "TIKI-000001", Status: tc.status},
-			}
+			tikis := []*tikipkg.Tiki{newWFTiki("T00001", tc.status, nil)}
 
-			result, err := executor.Execute(tp.Lanes[0].Filter, tasksAsTikis(allTasks))
+			result, err := executor.Execute(tp.Lanes[0].Filter, tikis)
 			if err != nil {
 				t.Fatalf("executor error: %v", err)
 			}
 
-			got := len(tikisAsTasks(result.Select.Tikis)) > 0
+			got := len(result.Select.Tikis) > 0
 			if got != tc.expect {
 				t.Errorf("expected match=%v for status %s, got %v", tc.expect, tc.status, got)
 			}

@@ -9,7 +9,6 @@ import (
 	"github.com/boolean-maybe/tiki/ruki"
 	"github.com/boolean-maybe/tiki/service"
 	"github.com/boolean-maybe/tiki/store"
-	"github.com/boolean-maybe/tiki/task"
 	"github.com/boolean-maybe/tiki/tiki"
 )
 
@@ -76,15 +75,14 @@ func RunQueryWithOptions(gate *service.TaskMutationGate, query string, out io.Wr
 	// (e.g. tags=tags+["new"]) resolve from template defaults
 	var input ruki.ExecutionInput
 	if stmt.RequiresCreateTemplate() {
-		var template *task.Task
-		template, err = readStore.NewTaskTemplate()
-		if err != nil {
-			return fmt.Errorf("create template: %w", err)
+		tmpl, tmplErr := readStore.NewTikiTemplate()
+		if tmplErr != nil {
+			return fmt.Errorf("create template: %w", tmplErr)
 		}
-		if template == nil {
+		if tmpl == nil {
 			return fmt.Errorf("create template: store returned nil template")
 		}
-		input.CreateTemplate = tiki.FromTask(template)
+		input.CreateTemplate = tmpl
 	}
 
 	tikis := allDocsAsTikis(readStore)
@@ -228,23 +226,19 @@ func persistAndSummarize(ctx context.Context, gate *service.TaskMutationGate, ur
 }
 
 func persistCreate(ctx context.Context, gate *service.TaskMutationGate, cr *ruki.CreateResult, out io.Writer, json bool) error {
-	t := tiki.ToTask(cr.Tiki)
-
-	if err := gate.CreateTask(ctx, t); err != nil {
+	if err := gate.CreateTiki(ctx, cr.Tiki); err != nil {
 		return fmt.Errorf("create task: %w", err)
 	}
-
-	return formatCreateSummary(out, t.ID, json)
+	return formatCreateSummary(out, cr.Tiki.ID, json)
 }
 
 func persistDelete(ctx context.Context, gate *service.TaskMutationGate, dr *ruki.DeleteResult, out io.Writer, json bool) error {
 	readStore := gate.ReadStore()
 	var succeeded, failed int
 	for _, tk := range dr.Deleted {
-		t := tiki.ToTask(tk)
-		if err := gate.DeleteTask(ctx, t); err != nil {
+		if err := gate.DeleteTiki(ctx, tk); err != nil {
 			failed++
-		} else if readStore.GetTask(t.ID) != nil {
+		} else if readStore.GetTiki(tk.ID) != nil {
 			// store silently failed to delete
 			failed++
 		} else {

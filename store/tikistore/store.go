@@ -41,10 +41,9 @@ type TikiStore struct {
 
 // taskFrontmatter represents the YAML frontmatter in task files.
 //
-// id became authoritative in Phase 1 of the unified-document migration:
-// loadTaskFile prefers fm.ID when present and valid, falling back to the
-// filename-derived ID for legacy files; save writes id: back so every file
-// has it after one load+save cycle.
+// id is authoritative: loadTikiFile prefers fm.ID when present and valid,
+// falling back to the filename-derived ID for legacy files; save writes id:
+// back so every file has it after one load+save cycle.
 type taskFrontmatter struct {
 	ID         string                  `yaml:"id,omitempty"`
 	Title      string                  `yaml:"title"`

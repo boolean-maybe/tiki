@@ -52,7 +52,7 @@ type StoreResolver struct {
 	Store store.ReadStore
 }
 
-// Resolve implements Resolver against the task store. Only tasks whose ID
+// Resolve implements Resolver against the task store. Only tikis whose ID
 // matches the canonical bare form resolve — legacy prefixed IDs do not.
 func (r *StoreResolver) Resolve(id string) (string, string, bool) {
 	if r == nil || r.Store == nil {
@@ -61,18 +61,18 @@ func (r *StoreResolver) Resolve(id string) (string, string, bool) {
 	if !document.IsValidID(id) {
 		return "", "", false
 	}
-	t := r.Store.GetTask(id)
-	if t == nil {
+	tk := r.Store.GetTiki(id)
+	if tk == nil {
 		return "", "", false
 	}
-	title := t.Title
+	title := tk.Title
 	if title == "" {
 		title = id
 	}
 	return title, r.Store.PathForID(id), true
 }
 
-// ResolveBody implements BodyResolver by rendering the task as markdown.
+// ResolveBody implements BodyResolver by rendering the tiki as markdown.
 // Returns ok=false when the id is unknown to the store.
 func (r *StoreResolver) ResolveBody(id string) (string, bool) {
 	if r == nil || r.Store == nil {
@@ -81,15 +81,15 @@ func (r *StoreResolver) ResolveBody(id string) (string, bool) {
 	if !document.IsValidID(id) {
 		return "", false
 	}
-	t := r.Store.GetTask(id)
-	if t == nil {
+	tk := r.Store.GetTiki(id)
+	if tk == nil {
 		return "", false
 	}
 	var b strings.Builder
-	b.WriteString("# " + t.Title + "\n\n")
-	b.WriteString("**" + t.ID + "**\n\n")
-	if t.Description != "" {
-		b.WriteString(t.Description)
+	b.WriteString("# " + tk.Title + "\n\n")
+	b.WriteString("**" + tk.ID + "**\n\n")
+	if tk.Body != "" {
+		b.WriteString(tk.Body)
 		b.WriteString("\n")
 	}
 	return b.String(), true

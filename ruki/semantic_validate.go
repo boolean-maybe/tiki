@@ -54,6 +54,17 @@ func (v *ValidatedStatement) UsesTargetQualifier() bool        { return v.usesTa
 func (v *ValidatedStatement) UsesTargetsQualifier() bool       { return v.usesTargetsQualifier }
 func (v *ValidatedStatement) ChooseFilter() *SubQuery          { return v.chooseFilter }
 
+// HasOrderBy returns true when the underlying statement is a select with an
+// explicit "order by" clause. Callers can use this to skip a secondary sort
+// when ruki's own ordering is sufficient, or to apply a fallback sort when
+// no ordering was requested.
+func (v *ValidatedStatement) HasOrderBy() bool {
+	if v.statement == nil || v.statement.Select == nil {
+		return false
+	}
+	return len(v.statement.Select.OrderBy) > 0
+}
+
 // HasAnyInteractive returns true if the statement uses any interactive builtin.
 // Backed by the interactiveCalls map so future builtins added to the
 // interactiveBuiltins set are automatically covered.

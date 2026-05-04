@@ -10,6 +10,7 @@ import (
 	"github.com/boolean-maybe/tiki/service"
 	"github.com/boolean-maybe/tiki/store"
 	"github.com/boolean-maybe/tiki/task"
+	tikipkg "github.com/boolean-maybe/tiki/tiki"
 	"github.com/boolean-maybe/tiki/workflow"
 )
 
@@ -33,10 +34,10 @@ func TestTaskController_SetDraft(t *testing.T) {
 	navController := newMockNavigationController()
 	tc := NewTaskController(taskStore, gate, navController, nil)
 
-	draft := newTestTask()
+	draft := newTestTiki()
 	tc.SetDraft(draft)
 
-	if tc.GetDraftTask() != draft {
+	if tc.GetDraftTiki() == nil {
 		t.Error("SetDraft did not set the draft task")
 	}
 
@@ -52,10 +53,10 @@ func TestTaskController_ClearDraft(t *testing.T) {
 	navController := newMockNavigationController()
 	tc := NewTaskController(taskStore, gate, navController, nil)
 
-	tc.SetDraft(newTestTask())
+	tc.SetDraft(newTestTiki())
 	tc.ClearDraft()
 
-	if tc.GetDraftTask() != nil {
+	if tc.GetDraftTiki() != nil {
 		t.Error("ClearDraft did not clear the draft task")
 	}
 }
@@ -70,7 +71,7 @@ func TestTaskController_StartEditSession(t *testing.T) {
 	// Create a task in the store
 	original := newTestTask()
 	original.LoadedMtime = time.Now()
-	_ = taskStore.CreateTask(original)
+	_ = taskStore.CreateTiki(original)
 
 	// Start edit session
 	editingTask := tc.StartEditSession(original.ID)
@@ -84,7 +85,7 @@ func TestTaskController_StartEditSession(t *testing.T) {
 		t.Errorf("StartEditSession returned wrong task, got ID %q, want %q", editingTask.ID, original.ID)
 	}
 
-	if tc.GetEditingTask() == nil {
+	if tc.GetEditingTiki() == nil {
 		t.Error("StartEditSession did not set editingTask")
 	}
 
@@ -116,13 +117,13 @@ func TestTaskController_CancelEditSession(t *testing.T) {
 
 	// Start an edit session
 	original := newTestTask()
-	_ = taskStore.CreateTask(original)
+	_ = taskStore.CreateTiki(original)
 	tc.StartEditSession(original.ID)
 
 	// Cancel it
 	tc.CancelEditSession()
 
-	if tc.GetEditingTask() != nil {
+	if tc.GetEditingTiki() != nil {
 		t.Error("CancelEditSession did not clear editingTask")
 	}
 
@@ -144,7 +145,7 @@ func TestTaskController_SaveStatus(t *testing.T) {
 		{
 			name: "valid status on draft task",
 			setupTask: func(tc *TaskController, s store.Store) {
-				tc.SetDraft(newTestTask())
+				tc.SetDraft(newTestTiki())
 			},
 			statusDisplay: task.StatusDisplay(task.StatusReady),
 			wantStatus:    task.StatusReady,
@@ -154,7 +155,7 @@ func TestTaskController_SaveStatus(t *testing.T) {
 			name: "valid status on editing task",
 			setupTask: func(tc *TaskController, s store.Store) {
 				t := newTestTask()
-				_ = s.CreateTask(t)
+				_ = s.CreateTiki(t)
 				tc.StartEditSession(t.ID)
 			},
 			statusDisplay: task.StatusDisplay(task.StatusInProgress),
@@ -165,9 +166,9 @@ func TestTaskController_SaveStatus(t *testing.T) {
 			name: "draft takes priority over editing",
 			setupTask: func(tc *TaskController, s store.Store) {
 				t := newTestTask()
-				_ = s.CreateTask(t)
+				_ = s.CreateTiki(t)
 				tc.StartEditSession(t.ID)
-				tc.SetDraft(newTestTaskWithID())
+				tc.SetDraft(newTestTikiWithID())
 			},
 			statusDisplay: task.StatusDisplay(task.StatusDone),
 			wantStatus:    task.StatusDone,
@@ -176,7 +177,7 @@ func TestTaskController_SaveStatus(t *testing.T) {
 		{
 			name: "invalid status normalizes to default",
 			setupTask: func(tc *TaskController, s store.Store) {
-				tc.SetDraft(newTestTask())
+				tc.SetDraft(newTestTiki())
 			},
 			statusDisplay: "InvalidStatus",
 			wantStatus:    task.StatusBacklog, // NormalizeStatus defaults to backlog
@@ -209,12 +210,14 @@ func TestTaskController_SaveStatus(t *testing.T) {
 			}
 
 			if tt.wantSuccess {
-				var actualStatus task.Status
-				if tc.draftTask != nil {
-					actualStatus = tc.draftTask.Status
-				} else if tc.editingTask != nil {
-					actualStatus = tc.editingTask.Status
+				var activeTiki *tikipkg.Tiki
+				if tc.draftTiki != nil {
+					activeTiki = tc.draftTiki
+				} else if tc.editingTiki != nil {
+					activeTiki = tc.editingTiki
 				}
+				statusStr, _, _ := activeTiki.StringField(tikipkg.FieldStatus)
+				actualStatus := task.Status(statusStr)
 				if actualStatus != tt.wantStatus {
 					t.Errorf("task.Status = %v, want %v", actualStatus, tt.wantStatus)
 				}
@@ -234,7 +237,7 @@ func TestTaskController_SaveType(t *testing.T) {
 		{
 			name: "valid type on draft task",
 			setupTask: func(tc *TaskController, s store.Store) {
-				tc.SetDraft(newTestTask())
+				tc.SetDraft(newTestTiki())
 			},
 			typeDisplay: task.TypeDisplay(task.TypeBug),
 			wantType:    task.TypeBug,
@@ -244,7 +247,7 @@ func TestTaskController_SaveType(t *testing.T) {
 			name: "valid type on editing task",
 			setupTask: func(tc *TaskController, s store.Store) {
 				t := newTestTask()
-				_ = s.CreateTask(t)
+				_ = s.CreateTiki(t)
 				tc.StartEditSession(t.ID)
 			},
 			typeDisplay: task.TypeDisplay(task.TypeSpike),
@@ -254,7 +257,7 @@ func TestTaskController_SaveType(t *testing.T) {
 		{
 			name: "invalid type is rejected",
 			setupTask: func(tc *TaskController, s store.Store) {
-				tc.SetDraft(newTestTask())
+				tc.SetDraft(newTestTiki())
 			},
 			typeDisplay: "InvalidType",
 			wantType:    task.TypeStory, // task type unchanged from setup
@@ -287,12 +290,14 @@ func TestTaskController_SaveType(t *testing.T) {
 			}
 
 			if tt.wantSuccess {
-				var actualType task.Type
-				if tc.draftTask != nil {
-					actualType = tc.draftTask.Type
-				} else if tc.editingTask != nil {
-					actualType = tc.editingTask.Type
+				var activeTiki *tikipkg.Tiki
+				if tc.draftTiki != nil {
+					activeTiki = tc.draftTiki
+				} else if tc.editingTiki != nil {
+					activeTiki = tc.editingTiki
 				}
+				typeStr, _, _ := activeTiki.StringField(tikipkg.FieldType)
+				actualType := task.Type(typeStr)
 				if actualType != tt.wantType {
 					t.Errorf("task.Type = %v, want %v", actualType, tt.wantType)
 				}
@@ -312,7 +317,7 @@ func TestTaskController_SavePriority(t *testing.T) {
 		{
 			name: "valid priority on draft task",
 			setupTask: func(tc *TaskController, s store.Store) {
-				tc.SetDraft(newTestTask())
+				tc.SetDraft(newTestTiki())
 			},
 			priority:     1,
 			wantPriority: 1,
@@ -322,7 +327,7 @@ func TestTaskController_SavePriority(t *testing.T) {
 			name: "valid priority on editing task",
 			setupTask: func(tc *TaskController, s store.Store) {
 				t := newTestTask()
-				_ = s.CreateTask(t)
+				_ = s.CreateTiki(t)
 				tc.StartEditSession(t.ID)
 			},
 			priority:     5,
@@ -332,7 +337,7 @@ func TestTaskController_SavePriority(t *testing.T) {
 		{
 			name: "invalid priority - negative",
 			setupTask: func(tc *TaskController, s store.Store) {
-				tc.SetDraft(newTestTask())
+				tc.SetDraft(newTestTiki())
 			},
 			priority:    -1,
 			wantSuccess: false,
@@ -340,7 +345,7 @@ func TestTaskController_SavePriority(t *testing.T) {
 		{
 			name: "invalid priority - too high",
 			setupTask: func(tc *TaskController, s store.Store) {
-				tc.SetDraft(newTestTask())
+				tc.SetDraft(newTestTiki())
 			},
 			priority:    10,
 			wantSuccess: false,
@@ -372,12 +377,13 @@ func TestTaskController_SavePriority(t *testing.T) {
 			}
 
 			if tt.wantSuccess {
-				var actualPriority int
-				if tc.draftTask != nil {
-					actualPriority = tc.draftTask.Priority
-				} else if tc.editingTask != nil {
-					actualPriority = tc.editingTask.Priority
+				var activeTiki *tikipkg.Tiki
+				if tc.draftTiki != nil {
+					activeTiki = tc.draftTiki
+				} else if tc.editingTiki != nil {
+					activeTiki = tc.editingTiki
 				}
+				actualPriority, _, _ := activeTiki.IntField(tikipkg.FieldPriority)
 				if actualPriority != tt.wantPriority {
 					t.Errorf("task.Priority = %v, want %v", actualPriority, tt.wantPriority)
 				}
@@ -397,7 +403,7 @@ func TestTaskController_SaveAssignee(t *testing.T) {
 		{
 			name: "valid assignee on draft task",
 			setupTask: func(tc *TaskController, s store.Store) {
-				tc.SetDraft(newTestTask())
+				tc.SetDraft(newTestTiki())
 			},
 			assignee:     "john.doe",
 			wantAssignee: "john.doe",
@@ -406,7 +412,7 @@ func TestTaskController_SaveAssignee(t *testing.T) {
 		{
 			name: "unassigned becomes empty string",
 			setupTask: func(tc *TaskController, s store.Store) {
-				tc.SetDraft(newTestTask())
+				tc.SetDraft(newTestTiki())
 			},
 			assignee:     "Unassigned",
 			wantAssignee: "",
@@ -416,7 +422,7 @@ func TestTaskController_SaveAssignee(t *testing.T) {
 			name: "valid assignee on editing task",
 			setupTask: func(tc *TaskController, s store.Store) {
 				t := newTestTask()
-				_ = s.CreateTask(t)
+				_ = s.CreateTiki(t)
 				tc.StartEditSession(t.ID)
 			},
 			assignee:     "jane.smith",
@@ -450,12 +456,13 @@ func TestTaskController_SaveAssignee(t *testing.T) {
 			}
 
 			if tt.wantSuccess {
-				var actualAssignee string
-				if tc.draftTask != nil {
-					actualAssignee = tc.draftTask.Assignee
-				} else if tc.editingTask != nil {
-					actualAssignee = tc.editingTask.Assignee
+				var activeTiki *tikipkg.Tiki
+				if tc.draftTiki != nil {
+					activeTiki = tc.draftTiki
+				} else if tc.editingTiki != nil {
+					activeTiki = tc.editingTiki
 				}
+				actualAssignee, _, _ := activeTiki.StringField(tikipkg.FieldAssignee)
 				if actualAssignee != tt.wantAssignee {
 					t.Errorf("task.Assignee = %q, want %q", actualAssignee, tt.wantAssignee)
 				}
@@ -475,7 +482,7 @@ func TestTaskController_SavePoints(t *testing.T) {
 		{
 			name: "valid points on draft task",
 			setupTask: func(tc *TaskController, s store.Store) {
-				tc.SetDraft(newTestTask())
+				tc.SetDraft(newTestTiki())
 			},
 			points:      8,
 			wantPoints:  8,
@@ -485,7 +492,7 @@ func TestTaskController_SavePoints(t *testing.T) {
 			name: "valid points on editing task",
 			setupTask: func(tc *TaskController, s store.Store) {
 				t := newTestTask()
-				_ = s.CreateTask(t)
+				_ = s.CreateTiki(t)
 				tc.StartEditSession(t.ID)
 			},
 			points:      3,
@@ -495,7 +502,7 @@ func TestTaskController_SavePoints(t *testing.T) {
 		{
 			name: "invalid points - negative",
 			setupTask: func(tc *TaskController, s store.Store) {
-				tc.SetDraft(newTestTask())
+				tc.SetDraft(newTestTiki())
 			},
 			points:      -1,
 			wantSuccess: false,
@@ -527,12 +534,13 @@ func TestTaskController_SavePoints(t *testing.T) {
 			}
 
 			if tt.wantSuccess {
-				var actualPoints int
-				if tc.draftTask != nil {
-					actualPoints = tc.draftTask.Points
-				} else if tc.editingTask != nil {
-					actualPoints = tc.editingTask.Points
+				var activeTiki *tikipkg.Tiki
+				if tc.draftTiki != nil {
+					activeTiki = tc.draftTiki
+				} else if tc.editingTiki != nil {
+					activeTiki = tc.editingTiki
 				}
+				actualPoints, _, _ := activeTiki.IntField(tikipkg.FieldPoints)
 				if actualPoints != tt.wantPoints {
 					t.Errorf("task.Points = %v, want %v", actualPoints, tt.wantPoints)
 				}
@@ -552,7 +560,7 @@ func TestTaskController_SaveTitle(t *testing.T) {
 		{
 			name: "valid title on draft task",
 			setupTask: func(tc *TaskController, s store.Store) {
-				tc.SetDraft(newTestTask())
+				tc.SetDraft(newTestTiki())
 			},
 			title:       "New Title",
 			wantTitle:   "New Title",
@@ -562,7 +570,7 @@ func TestTaskController_SaveTitle(t *testing.T) {
 			name: "valid title on editing task",
 			setupTask: func(tc *TaskController, s store.Store) {
 				t := newTestTask()
-				_ = s.CreateTask(t)
+				_ = s.CreateTiki(t)
 				tc.StartEditSession(t.ID)
 			},
 			title:       "Updated Title",
@@ -573,9 +581,9 @@ func TestTaskController_SaveTitle(t *testing.T) {
 			name: "draft takes priority over editing",
 			setupTask: func(tc *TaskController, s store.Store) {
 				t := newTestTask()
-				_ = s.CreateTask(t)
+				_ = s.CreateTiki(t)
 				tc.StartEditSession(t.ID)
-				tc.SetDraft(newTestTaskWithID())
+				tc.SetDraft(newTestTikiWithID())
 			},
 			title:       "Draft Title",
 			wantTitle:   "Draft Title",
@@ -608,14 +616,14 @@ func TestTaskController_SaveTitle(t *testing.T) {
 			}
 
 			if tt.wantSuccess {
-				var actualTitle string
-				if tc.draftTask != nil {
-					actualTitle = tc.draftTask.Title
-				} else if tc.editingTask != nil {
-					actualTitle = tc.editingTask.Title
+				var activeTiki *tikipkg.Tiki
+				if tc.draftTiki != nil {
+					activeTiki = tc.draftTiki
+				} else if tc.editingTiki != nil {
+					activeTiki = tc.editingTiki
 				}
-				if actualTitle != tt.wantTitle {
-					t.Errorf("task.Title = %q, want %q", actualTitle, tt.wantTitle)
+				if activeTiki.Title != tt.wantTitle {
+					t.Errorf("task.Title = %q, want %q", activeTiki.Title, tt.wantTitle)
 				}
 			}
 		})
@@ -633,7 +641,7 @@ func TestTaskController_SaveDescription(t *testing.T) {
 		{
 			name: "valid description on draft task",
 			setupTask: func(tc *TaskController, s store.Store) {
-				tc.SetDraft(newTestTask())
+				tc.SetDraft(newTestTiki())
 			},
 			description:     "New description",
 			wantDescription: "New description",
@@ -643,7 +651,7 @@ func TestTaskController_SaveDescription(t *testing.T) {
 			name: "valid description on editing task",
 			setupTask: func(tc *TaskController, s store.Store) {
 				t := newTestTask()
-				_ = s.CreateTask(t)
+				_ = s.CreateTiki(t)
 				tc.StartEditSession(t.ID)
 			},
 			description:     "Updated description",
@@ -677,14 +685,14 @@ func TestTaskController_SaveDescription(t *testing.T) {
 			}
 
 			if tt.wantSuccess {
-				var actualDescription string
-				if tc.draftTask != nil {
-					actualDescription = tc.draftTask.Description
-				} else if tc.editingTask != nil {
-					actualDescription = tc.editingTask.Description
+				var activeTiki *tikipkg.Tiki
+				if tc.draftTiki != nil {
+					activeTiki = tc.draftTiki
+				} else if tc.editingTiki != nil {
+					activeTiki = tc.editingTiki
 				}
-				if actualDescription != tt.wantDescription {
-					t.Errorf("task.Description = %q, want %q", actualDescription, tt.wantDescription)
+				if activeTiki.Body != tt.wantDescription {
+					t.Errorf("task.Description = %q, want %q", activeTiki.Body, tt.wantDescription)
 				}
 			}
 		})
@@ -700,7 +708,7 @@ func TestTaskController_CommitEditSession_Draft(t *testing.T) {
 	navController := newMockNavigationController()
 	tc := NewTaskController(taskStore, gate, navController, nil)
 
-	draft := newTestTaskWithID()
+	draft := newTestTikiWithID()
 	draft.Title = "Draft Title"
 	tc.SetDraft(draft)
 
@@ -710,12 +718,12 @@ func TestTaskController_CommitEditSession_Draft(t *testing.T) {
 	}
 
 	// Verify draft was cleared
-	if tc.GetDraftTask() != nil {
+	if tc.GetDraftTiki() != nil {
 		t.Error("CommitEditSession did not clear draft")
 	}
 
 	// Verify task was created in store
-	created := taskStore.GetTask("DRAFT1")
+	created := taskStore.GetTiki("DRAFT1")
 	if created == nil {
 		t.Fatal("Task was not created in store")
 		return
@@ -733,7 +741,7 @@ func TestTaskController_CommitEditSession_DraftValidationFailure(t *testing.T) {
 	navController := newMockNavigationController()
 	tc := NewTaskController(taskStore, gate, navController, nil)
 
-	draft := newTestTaskWithID()
+	draft := newTestTikiWithID()
 	draft.Title = "" // Invalid - empty title
 	tc.SetDraft(draft)
 
@@ -743,7 +751,7 @@ func TestTaskController_CommitEditSession_DraftValidationFailure(t *testing.T) {
 	}
 
 	// Draft should still exist since validation failed
-	if tc.GetDraftTask() == nil {
+	if tc.GetDraftTiki() == nil {
 		t.Error("Draft was cleared despite validation failure")
 	}
 }
@@ -757,11 +765,11 @@ func TestTaskController_CommitEditSession_Existing(t *testing.T) {
 
 	// Create original task
 	original := newTestTask()
-	_ = taskStore.CreateTask(original)
+	_ = taskStore.CreateTiki(original)
 
 	// Start edit session and modify
 	tc.StartEditSession(original.ID)
-	tc.editingTask.Title = "Modified Title"
+	tc.editingTiki.Title = "Modified Title"
 
 	err := tc.CommitEditSession()
 	if err != nil {
@@ -769,12 +777,12 @@ func TestTaskController_CommitEditSession_Existing(t *testing.T) {
 	}
 
 	// Verify editing task was cleared
-	if tc.GetEditingTask() != nil {
+	if tc.GetEditingTiki() != nil {
 		t.Error("CommitEditSession did not clear editingTask")
 	}
 
 	// Verify task was updated in store
-	updated := taskStore.GetTask(original.ID)
+	updated := taskStore.GetTiki(original.ID)
 	if updated == nil {
 		t.Fatal("Task not found in store")
 		return
@@ -809,12 +817,12 @@ func TestTaskController_GetCurrentTask(t *testing.T) {
 
 	// Create task
 	original := newTestTask()
-	_ = taskStore.CreateTask(original)
+	_ = taskStore.CreateTiki(original)
 
 	// Set as current
 	tc.SetCurrentTask(original.ID)
 
-	current := tc.GetCurrentTask()
+	current := tc.GetCurrentTiki()
 	if current == nil {
 		t.Fatal("GetCurrentTask returned nil")
 		return
@@ -832,7 +840,7 @@ func TestTaskController_GetCurrentTask_Empty(t *testing.T) {
 	navController := newMockNavigationController()
 	tc := NewTaskController(taskStore, gate, navController, nil)
 
-	current := tc.GetCurrentTask()
+	current := tc.GetCurrentTiki()
 	if current != nil {
 		t.Error("GetCurrentTask should return nil when currentTaskID is empty")
 	}
@@ -847,7 +855,7 @@ func TestTaskController_GetCurrentTask_NonExistent(t *testing.T) {
 
 	tc.SetCurrentTask("NONEXISTENT")
 
-	current := tc.GetCurrentTask()
+	current := tc.GetCurrentTiki()
 	if current != nil {
 		t.Error("GetCurrentTask should return nil for non-existent task")
 	}
@@ -925,7 +933,7 @@ func TestTaskController_SaveDue(t *testing.T) {
 		{
 			name: "valid date on draft task",
 			setupTask: func(tc *TaskController, s store.Store) {
-				tc.SetDraft(newTestTask())
+				tc.SetDraft(newTestTiki())
 			},
 			dateStr:     "2025-06-15",
 			wantDue:     "2025-06-15",
@@ -935,7 +943,7 @@ func TestTaskController_SaveDue(t *testing.T) {
 			name: "valid date on editing task",
 			setupTask: func(tc *TaskController, s store.Store) {
 				t := newTestTask()
-				_ = s.CreateTask(t)
+				_ = s.CreateTiki(t)
 				tc.StartEditSession(t.ID)
 			},
 			dateStr:     "2025-12-31",
@@ -946,7 +954,7 @@ func TestTaskController_SaveDue(t *testing.T) {
 			name: "empty string clears due date",
 			setupTask: func(tc *TaskController, s store.Store) {
 				draft := newTestTask()
-				draft.Due = time.Date(2025, 6, 15, 0, 0, 0, 0, time.UTC)
+				draft.Set(tikipkg.FieldDue, time.Date(2025, 6, 15, 0, 0, 0, 0, time.UTC))
 				tc.SetDraft(draft)
 			},
 			dateStr:     "",
@@ -956,7 +964,7 @@ func TestTaskController_SaveDue(t *testing.T) {
 		{
 			name: "invalid date returns false",
 			setupTask: func(tc *TaskController, s store.Store) {
-				tc.SetDraft(newTestTask())
+				tc.SetDraft(newTestTiki())
 			},
 			dateStr:     "not-a-date",
 			wantSuccess: false,
@@ -988,12 +996,13 @@ func TestTaskController_SaveDue(t *testing.T) {
 			}
 
 			if tt.wantSuccess {
-				var actualDue time.Time
-				if tc.draftTask != nil {
-					actualDue = tc.draftTask.Due
-				} else if tc.editingTask != nil {
-					actualDue = tc.editingTask.Due
+				var activeTiki *tikipkg.Tiki
+				if tc.draftTiki != nil {
+					activeTiki = tc.draftTiki
+				} else if tc.editingTiki != nil {
+					activeTiki = tc.editingTiki
 				}
+				actualDue, _, _ := activeTiki.TimeField(tikipkg.FieldDue)
 
 				var actualStr string
 				if !actualDue.IsZero() {
@@ -1030,7 +1039,7 @@ func TestTaskController_HandleAction(t *testing.T) {
 
 			if tt.hasTask {
 				original := newTestTask()
-				_ = taskStore.CreateTask(original)
+				_ = taskStore.CreateTiki(original)
 				tc.SetCurrentTask(original.ID)
 			}
 
@@ -1054,7 +1063,7 @@ func TestTaskController_SaveRecurrence(t *testing.T) {
 		{
 			name: "valid daily recurrence on draft",
 			setupTask: func(tc *TaskController, s store.Store) {
-				tc.SetDraft(newTestTask())
+				tc.SetDraft(newTestTiki())
 			},
 			cron:           string(task.RecurrenceDaily),
 			wantRecurrence: task.RecurrenceDaily,
@@ -1065,8 +1074,8 @@ func TestTaskController_SaveRecurrence(t *testing.T) {
 			name: "clear recurrence sets none and clears due",
 			setupTask: func(tc *TaskController, s store.Store) {
 				draft := newTestTask()
-				draft.Due = time.Date(2025, 6, 15, 0, 0, 0, 0, time.UTC)
-				draft.Recurrence = task.RecurrenceDaily
+				draft.Set(tikipkg.FieldDue, time.Date(2025, 6, 15, 0, 0, 0, 0, time.UTC))
+				draft.Set(tikipkg.FieldRecurrence, string(task.RecurrenceDaily))
 				tc.SetDraft(draft)
 			},
 			cron:           string(task.RecurrenceNone),
@@ -1077,7 +1086,7 @@ func TestTaskController_SaveRecurrence(t *testing.T) {
 		{
 			name: "invalid recurrence rejected",
 			setupTask: func(tc *TaskController, s store.Store) {
-				tc.SetDraft(newTestTask())
+				tc.SetDraft(newTestTiki())
 			},
 			cron:        "invalid-cron",
 			wantSuccess: false,
@@ -1107,14 +1116,17 @@ func TestTaskController_SaveRecurrence(t *testing.T) {
 				t.Errorf("SaveRecurrence() = %v, want %v", got, tt.wantSuccess)
 			}
 
-			if tt.wantSuccess && tc.draftTask != nil {
-				if tc.draftTask.Recurrence != tt.wantRecurrence {
-					t.Errorf("Recurrence = %q, want %q", tc.draftTask.Recurrence, tt.wantRecurrence)
+			if tt.wantSuccess && tc.draftTiki != nil {
+				recurrenceStr, _, _ := tc.draftTiki.StringField(tikipkg.FieldRecurrence)
+				actualRecurrence := task.Recurrence(recurrenceStr)
+				if actualRecurrence != tt.wantRecurrence {
+					t.Errorf("Recurrence = %q, want %q", actualRecurrence, tt.wantRecurrence)
 				}
-				if tt.wantDueSet && tc.draftTask.Due.IsZero() {
+				dueTime, _, _ := tc.draftTiki.TimeField(tikipkg.FieldDue)
+				if tt.wantDueSet && dueTime.IsZero() {
 					t.Error("expected Due to be set for non-none recurrence")
 				}
-				if !tt.wantDueSet && !tc.draftTask.Due.IsZero() {
+				if !tt.wantDueSet && !dueTime.IsZero() {
 					t.Error("expected Due to be zero for none recurrence")
 				}
 			}
@@ -1122,7 +1134,7 @@ func TestTaskController_SaveRecurrence(t *testing.T) {
 	}
 }
 
-func TestTaskController_UpdateTask(t *testing.T) {
+func TestTaskController_UpdateTiki(t *testing.T) {
 	taskStore := store.NewInMemoryStore()
 	gate := service.NewTaskMutationGate()
 	gate.SetStore(taskStore)
@@ -1130,15 +1142,18 @@ func TestTaskController_UpdateTask(t *testing.T) {
 	tc := NewTaskController(taskStore, gate, navController, nil)
 
 	original := newTestTask()
-	_ = taskStore.CreateTask(original)
+	_ = taskStore.CreateTiki(original)
 
-	updated := original.Clone()
-	updated.Title = "Updated via UpdateTask"
-	tc.UpdateTask(updated)
+	// Start an edit session, modify the title, and commit
+	tiki := tc.StartEditSession(original.ID)
+	tiki.Title = "Updated via UpdateTiki"
+	if err := tc.CommitEditSession(); err != nil {
+		t.Fatalf("CommitEditSession failed: %v", err)
+	}
 
-	persisted := taskStore.GetTask(original.ID)
-	if persisted.Title != "Updated via UpdateTask" {
-		t.Errorf("task not updated, got title %q", persisted.Title)
+	persisted := taskStore.GetTiki(original.ID)
+	if persisted.Title != "Updated via UpdateTiki" {
+		t.Errorf("tiki not updated, got title %q", persisted.Title)
 	}
 }
 
@@ -1156,19 +1171,20 @@ func TestTaskController_AddComment(t *testing.T) {
 	}
 
 	original := newTestTask()
-	_ = taskStore.CreateTask(original)
+	_ = taskStore.CreateTiki(original)
 	tc.SetCurrentTask(original.ID)
 
 	if !tc.AddComment("user", "hello") {
 		t.Error("expected true for successful comment")
 	}
 
-	persisted := taskStore.GetTask(original.ID)
-	if len(persisted.Comments) != 1 {
-		t.Fatalf("expected 1 comment, got %d", len(persisted.Comments))
+	persistedTiki := taskStore.GetTiki(original.ID)
+	persistedComments, _ := persistedTiki.Fields["comments"].([]task.Comment)
+	if len(persistedComments) != 1 {
+		t.Fatalf("expected 1 comment, got %d", len(persistedComments))
 	}
-	if persisted.Comments[0].Text != "hello" {
-		t.Errorf("comment text = %q, want %q", persisted.Comments[0].Text, "hello")
+	if persistedComments[0].Text != "hello" {
+		t.Errorf("comment text = %q, want %q", persistedComments[0].Text, "hello")
 	}
 }
 
@@ -1194,42 +1210,14 @@ func TestTaskController_CommitEditSession_UpdateError(t *testing.T) {
 	tc := NewTaskController(taskStore, gate, navController, nil)
 
 	original := newTestTask()
-	_ = taskStore.CreateTask(original)
+	_ = taskStore.CreateTiki(original)
 	tc.StartEditSession(original.ID)
-	tc.editingTask.Title = "" // invalid - empty title will fail validation
+	tc.editingTiki.Title = "" // invalid - empty title will fail validation
 
 	err := tc.CommitEditSession()
 	if err == nil {
 		t.Fatal("expected error for empty title in edit session")
 	}
-}
-
-func TestTaskController_AddComment_Error(t *testing.T) {
-	// use a store wrapper that makes AddComment fail
-	taskStore := store.NewInMemoryStore()
-	fs := &failingCommentStore{Store: taskStore}
-	gate := service.NewTaskMutationGate()
-	gate.SetStore(fs)
-	navController := newMockNavigationController()
-	statusline := model.NewStatuslineConfig()
-	tc := NewTaskController(fs, gate, navController, statusline)
-
-	original := newTestTask()
-	_ = fs.CreateTask(original)
-	tc.SetCurrentTask(original.ID)
-
-	if tc.AddComment("user", "hello") {
-		t.Error("expected false when AddComment fails")
-	}
-}
-
-// failingCommentStore wraps a Store and always fails AddComment.
-type failingCommentStore struct {
-	store.Store
-}
-
-func (f *failingCommentStore) AddComment(_ string, _ task.Comment) bool {
-	return false
 }
 
 func TestTaskController_SaveType_InvalidType(t *testing.T) {
@@ -1240,7 +1228,7 @@ func TestTaskController_SaveType_InvalidType(t *testing.T) {
 	tc := NewTaskController(taskStore, gate, navController, nil)
 
 	original := newTestTask()
-	_ = taskStore.CreateTask(original)
+	_ = taskStore.CreateTiki(original)
 	tc.StartEditSession(original.ID)
 
 	// unrecognized display string
@@ -1261,7 +1249,7 @@ func TestTaskController_SaveTags(t *testing.T) {
 		{
 			name: "valid tags on draft task",
 			setupTask: func(tc *TaskController, s store.Store) {
-				tc.SetDraft(newTestTask())
+				tc.SetDraft(newTestTiki())
 			},
 			tags:        []string{"api", "backend"},
 			wantTags:    []string{"api", "backend"},
@@ -1271,7 +1259,7 @@ func TestTaskController_SaveTags(t *testing.T) {
 			name: "valid tags on editing task",
 			setupTask: func(tc *TaskController, s store.Store) {
 				t := newTestTask()
-				_ = s.CreateTask(t)
+				_ = s.CreateTiki(t)
 				tc.StartEditSession(t.ID)
 			},
 			tags:        []string{"frontend", "ui"},
@@ -1281,7 +1269,7 @@ func TestTaskController_SaveTags(t *testing.T) {
 		{
 			name: "duplicate tags deduped",
 			setupTask: func(tc *TaskController, s store.Store) {
-				tc.SetDraft(newTestTask())
+				tc.SetDraft(newTestTiki())
 			},
 			tags:        []string{"frontend", " frontend ", "frontend", "backend"},
 			wantTags:    []string{"frontend", "backend"},
@@ -1290,7 +1278,7 @@ func TestTaskController_SaveTags(t *testing.T) {
 		{
 			name: "empty tags slice",
 			setupTask: func(tc *TaskController, s store.Store) {
-				tc.SetDraft(newTestTask())
+				tc.SetDraft(newTestTiki())
 			},
 			tags:        []string{},
 			wantTags:    []string{},
@@ -1299,7 +1287,7 @@ func TestTaskController_SaveTags(t *testing.T) {
 		{
 			name: "nil tags",
 			setupTask: func(tc *TaskController, s store.Store) {
-				tc.SetDraft(newTestTask())
+				tc.SetDraft(newTestTiki())
 			},
 			tags:        nil,
 			wantTags:    []string{},
@@ -1309,9 +1297,9 @@ func TestTaskController_SaveTags(t *testing.T) {
 			name: "draft takes priority over editing",
 			setupTask: func(tc *TaskController, s store.Store) {
 				t := newTestTask()
-				_ = s.CreateTask(t)
+				_ = s.CreateTiki(t)
 				tc.StartEditSession(t.ID)
-				tc.SetDraft(newTestTaskWithID())
+				tc.SetDraft(newTestTikiWithID())
 			},
 			tags:        []string{"draft-tag"},
 			wantTags:    []string{"draft-tag"},
@@ -1344,11 +1332,15 @@ func TestTaskController_SaveTags(t *testing.T) {
 			}
 
 			if tt.wantSuccess {
-				var actualTags []string
-				if tc.draftTask != nil {
-					actualTags = tc.draftTask.Tags
-				} else if tc.editingTask != nil {
-					actualTags = tc.editingTask.Tags
+				var activeTiki *tikipkg.Tiki
+				if tc.draftTiki != nil {
+					activeTiki = tc.draftTiki
+				} else if tc.editingTiki != nil {
+					activeTiki = tc.editingTiki
+				}
+				actualTags, _, _ := activeTiki.StringSliceField(tikipkg.FieldTags)
+				if actualTags == nil {
+					actualTags = []string{}
 				}
 				if !slices.Equal(actualTags, tt.wantTags) {
 					t.Errorf("task.Tags = %v, want %v", actualTags, tt.wantTags)

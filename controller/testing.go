@@ -2,7 +2,7 @@ package controller
 
 import (
 	"github.com/boolean-maybe/tiki/model"
-	"github.com/boolean-maybe/tiki/task"
+	tikipkg "github.com/boolean-maybe/tiki/tiki"
 
 	"github.com/rivo/tview"
 )
@@ -32,24 +32,31 @@ func (m *mockSelectableView) SetSelectedID(_ string)             {}
 
 // Test fixtures
 
-// newTestTask creates a test task with default values. CreateTask honors the
-// caller's IsWorkflow, so workflow test fixtures must declare it explicitly —
-// otherwise the task is persisted as a plain doc.
-func newTestTask() *task.Task {
-	return &task.Task{
-		ID:         "000001",
-		Title:      "Test Task",
-		Status:     task.StatusReady,
-		Type:       task.TypeStory,
-		Priority:   3,
-		Points:     5,
-		IsWorkflow: true,
-	}
+// newTestTask creates a workflow tiki with default test values.
+func newTestTask() *tikipkg.Tiki {
+	tk := tikipkg.New()
+	tk.ID = "000001"
+	tk.Title = "Test Task"
+	tk.Set(tikipkg.FieldStatus, "ready")
+	tk.Set(tikipkg.FieldType, "story")
+	tk.Set(tikipkg.FieldPriority, 3)
+	tk.Set(tikipkg.FieldPoints, 5)
+	return tk
 }
 
-// newTestTaskWithID creates a test task with ID "DRAFT1"
-func newTestTaskWithID() *task.Task {
-	t := newTestTask()
-	t.ID = "DRAFT1"
-	return t
+// newTestTaskWithID creates a workflow tiki with ID "DRAFT1".
+func newTestTaskWithID() *tikipkg.Tiki {
+	tk := newTestTask()
+	tk.ID = "DRAFT1"
+	return tk
+}
+
+// newTestTiki creates a test tiki with default values (matches newTestTask).
+func newTestTiki() *tikipkg.Tiki {
+	return newTestTask()
+}
+
+// newTestTikiWithID creates a test tiki with ID "DRAFT1".
+func newTestTikiWithID() *tikipkg.Tiki {
+	return newTestTaskWithID()
 }

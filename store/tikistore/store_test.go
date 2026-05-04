@@ -14,13 +14,12 @@ import (
 	"github.com/boolean-maybe/tiki/workflow"
 )
 
-// makeTikiMap converts a slice or map of *taskpkg.Task into a map[string]*tikipkg.Tiki
-// for direct injection into TikiStore.tikis in tests.
-func makeTikiMap(tasks ...*taskpkg.Task) map[string]*tikipkg.Tiki {
-	out := make(map[string]*tikipkg.Tiki, len(tasks))
-	for _, t := range tasks {
-		tk := tikipkg.FromTask(t)
-		out[t.ID] = tk
+// makeTikiMap builds a map[string]*tikipkg.Tiki for direct injection into
+// TikiStore.tikis in tests.
+func makeTikiMap(tikis ...*tikipkg.Tiki) map[string]*tikipkg.Tiki {
+	out := make(map[string]*tikipkg.Tiki, len(tikis))
+	for _, tk := range tikis {
+		out[tk.ID] = tk
 	}
 	return out
 }
@@ -89,67 +88,61 @@ func TestSortTasks(t *testing.T) {
 	}
 }
 
-func TestSearch_MatchesTaskID(t *testing.T) {
+func TestSearchTikis_MatchesID(t *testing.T) {
+	mkWF := func(id, title, status string, priority int) *tikipkg.Tiki {
+		tk := tikipkg.New()
+		tk.ID = id
+		tk.Title = title
+		tk.Set(tikipkg.FieldStatus, status)
+		tk.Set(tikipkg.FieldPriority, priority)
+		return tk
+	}
 	store := &TikiStore{
 		tikis: makeTikiMap(
-			&taskpkg.Task{ID: "ABC123", Title: "Unrelated Title", Status: taskpkg.StatusBacklog, Priority: 1, IsWorkflow: true},
-			&taskpkg.Task{ID: "DEF456", Title: "Another Title", Status: taskpkg.StatusReady, Priority: 2, IsWorkflow: true},
+			mkWF("ABC123", "Unrelated Title", "backlog", 1),
+			mkWF("DEF456", "Another Title", "ready", 2),
 		),
 	}
 
-	results := store.Search("abc123", nil)
+	results := store.SearchTikis("abc123", nil)
 	if len(results) != 1 {
 		t.Fatalf("result count = %d, want 1", len(results))
 	}
-	if results[0].Task.ID != "ABC123" {
-		t.Errorf("results[0].Task.ID = %q, want %q", results[0].Task.ID, "ABC123")
+	if results[0].ID != "ABC123" {
+		t.Errorf("results[0].ID = %q, want %q", results[0].ID, "ABC123")
 	}
 }
 
-func TestSearch_AllTasksIncludesDescription(t *testing.T) {
+func TestSearchTikis_MatchesBody(t *testing.T) {
+	mkWF := func(id, title, body, status string, priority int) *tikipkg.Tiki {
+		tk := tikipkg.New()
+		tk.ID = id
+		tk.Title = title
+		tk.Body = body
+		tk.Set(tikipkg.FieldStatus, status)
+		tk.Set(tikipkg.FieldPriority, priority)
+		return tk
+	}
+	// Description maps to Body in tiki model.
 	store := &TikiStore{
 		tikis: makeTikiMap(
-			&taskpkg.Task{ID: "AAA111", Title: "Alpha Task", Description: "Contains the keyword needle", Status: taskpkg.StatusBacklog, Priority: 2, IsWorkflow: true},
-			&taskpkg.Task{ID: "BBB222", Title: "Beta Task", Description: "No match here", Status: taskpkg.StatusReady, Priority: 1, IsWorkflow: true},
-			&taskpkg.Task{ID: "CCC333", Title: "Gamma Task", Description: "Another needle appears", Status: taskpkg.StatusReview, Priority: 3, IsWorkflow: true},
+			mkWF("AAA111", "Alpha Task", "Contains the keyword needle", "backlog", 2),
+			mkWF("BBB222", "Beta Task", "No match here", "ready", 1),
+			mkWF("CCC333", "Gamma Task", "Another needle appears", "review", 3),
 		),
 	}
 
-	results := store.Search("needle", nil)
+	results := store.SearchTikis("needle", nil)
 	if len(results) != 2 {
 		t.Fatalf("result count = %d, want 2", len(results))
 	}
 
-	expectedIDs := []string{"AAA111", "CCC333"} // sorted by priority then title
+	// SearchTikis sorts by title ascending.
+	expectedIDs := []string{"AAA111", "CCC333"} // Alpha, Gamma
 	for i, result := range results {
-		if result.Task.ID != expectedIDs[i] {
-			t.Errorf("results[%d].Task.ID = %q, want %q", i, result.Task.ID, expectedIDs[i])
+		if result.ID != expectedIDs[i] {
+			t.Errorf("results[%d].ID = %q, want %q", i, result.ID, expectedIDs[i])
 		}
-		if result.Score != 1.0 {
-			t.Errorf("results[%d].Score = %f, want 1.0", i, result.Score)
-		}
-	}
-}
-
-func TestSearch_MatchesTags(t *testing.T) {
-	store := &TikiStore{
-		tikis: makeTikiMap(
-			&taskpkg.Task{ID: "TAG001", Title: "Tagged Task", Status: taskpkg.StatusBacklog, Priority: 1, Tags: []string{"frontend", "ui"}, IsWorkflow: true},
-			&taskpkg.Task{ID: "TAG002", Title: "Untagged Task", Status: taskpkg.StatusReady, Priority: 2, IsWorkflow: true},
-		),
-	}
-
-	results := store.Search("frontend", nil)
-	if len(results) != 1 {
-		t.Fatalf("result count = %d, want 1", len(results))
-	}
-	if results[0].Task.ID != "TAG001" {
-		t.Errorf("results[0].Task.ID = %q, want %q", results[0].Task.ID, "TAG001")
-	}
-
-	results = store.Search("backend", nil)
-	if len(results) != 0 {
-		t.Fatalf("result count = %d, want 0", len(results))
 	}
 }
 
@@ -260,22 +253,26 @@ Task description`,
 				t.Fatalf("Failed to create TikiStore: %v", storeErr)
 			}
 
-			task, err := store.loadTaskFile(testFile)
+			tk, err := store.loadTikiFile(testFile, nil, nil)
 
 			if tt.shouldLoad {
 				if err != nil {
-					t.Fatalf("loadTaskFile() unexpected error = %v", err)
+					t.Fatalf("loadTikiFile() unexpected error = %v", err)
 				}
-				if task == nil {
-					t.Fatal("loadTaskFile() returned nil task")
+				if tk == nil {
+					t.Fatal("loadTikiFile() returned nil tiki")
 				}
 
-				if !reflect.DeepEqual(task.DependsOn, tt.expectedDependsOn) {
-					t.Errorf("task.DependsOn = %v, expected %v", task.DependsOn, tt.expectedDependsOn)
+				dependsOn, present, _ := tk.StringSliceField(tikipkg.FieldDependsOn)
+				if !present {
+					dependsOn = []string{}
+				}
+				if !reflect.DeepEqual(dependsOn, tt.expectedDependsOn) {
+					t.Errorf("dependsOn = %v, expected %v", dependsOn, tt.expectedDependsOn)
 				}
 			} else {
 				if err == nil {
-					t.Error("loadTaskFile() expected error but got none")
+					t.Error("loadTikiFile() expected error but got none")
 				}
 			}
 
@@ -435,39 +432,43 @@ Task description`,
 				t.Fatalf("Failed to create TikiStore: %v", storeErr)
 			}
 
-			// Load the task file directly
-			task, err := store.loadTaskFile(testFile)
+			// Load the tiki file directly
+			tk, err := store.loadTikiFile(testFile, nil, nil)
 
 			if tt.shouldLoad {
 				if err != nil {
-					t.Fatalf("loadTaskFile() unexpected error = %v", err)
+					t.Fatalf("loadTikiFile() unexpected error = %v", err)
 				}
-				if task == nil {
-					t.Fatal("loadTaskFile() returned nil task")
+				if tk == nil {
+					t.Fatal("loadTikiFile() returned nil tiki")
 				}
 
 				// Verify tags
-				if !reflect.DeepEqual(task.Tags, tt.expectedTags) {
-					t.Errorf("task.Tags = %v, expected %v", task.Tags, tt.expectedTags)
+				tags, present, _ := tk.StringSliceField(tikipkg.FieldTags)
+				if !present {
+					tags = []string{}
+				}
+				if !reflect.DeepEqual(tags, tt.expectedTags) {
+					t.Errorf("tags = %v, expected %v", tags, tt.expectedTags)
 				}
 
 				// Verify other fields still work
-				if task.Title != "Test Task" {
-					t.Errorf("task.Title = %q, expected %q", task.Title, "Test Task")
+				if tk.Title != "Test Task" {
+					t.Errorf("Title = %q, expected %q", tk.Title, "Test Task")
 				}
-				if task.Type != taskpkg.TypeStory {
-					t.Errorf("task.Type = %q, expected %q", task.Type, taskpkg.TypeStory)
+				typeStr, _, _ := tk.StringField(tikipkg.FieldType)
+				if typeStr != string(taskpkg.TypeStory) {
+					t.Errorf("type = %q, expected %q", typeStr, taskpkg.TypeStory)
 				}
-				if task.Status != taskpkg.StatusBacklog {
-					t.Errorf("task.Status = %q, expected %q", task.Status, taskpkg.StatusBacklog)
+				statusStr, _, _ := tk.StringField(tikipkg.FieldStatus)
+				if statusStr != string(taskpkg.StatusBacklog) {
+					t.Errorf("status = %q, expected %q", statusStr, taskpkg.StatusBacklog)
 				}
 			} else {
 				if err == nil {
-					t.Error("loadTaskFile() expected error but got none")
+					t.Error("loadTikiFile() expected error but got none")
 				}
 			}
-
-			// Clean up test file
 
 		})
 	}
@@ -578,35 +579,34 @@ Task description`,
 				t.Fatalf("NewTikiStore() error = %v", err)
 			}
 
-			// Get task
-			task := store.GetTask("TEST01")
+			// Get tiki
+			tk := store.GetTiki("TEST01")
 			if !tt.shouldLoad {
-				if task != nil {
-					t.Error("expected nil task, but got one")
+				if tk != nil {
+					t.Error("expected nil tiki, but got one")
 				}
 				return
 			}
 
-			if task == nil {
-				t.Fatal("GetTask() returned nil")
+			if tk == nil {
+				t.Fatal("GetTiki() returned nil")
 				return
 			}
 
+			due, _, _ := tk.TimeField(tikipkg.FieldDue)
 			if tt.expectZero {
-				if !task.Due.IsZero() {
-					t.Errorf("expected zero due time, got = %v", task.Due)
+				if !due.IsZero() {
+					t.Errorf("expected zero due time, got = %v", due)
 				}
 			} else {
-				if task.Due.IsZero() {
+				if due.IsZero() {
 					t.Error("expected non-zero due time, got zero")
 				}
-				got := task.Due.Format(taskpkg.DateFormat)
+				got := due.Format(taskpkg.DateFormat)
 				if got != tt.expectValue {
 					t.Errorf("due date got = %v, expected %v", got, tt.expectValue)
 				}
 			}
-
-			// Clean up test file
 
 		})
 	}
@@ -686,21 +686,22 @@ Task description`,
 				t.Fatalf("NewTikiStore() error = %v", err)
 			}
 
-			task := store.GetTask("REC001")
+			tk := store.GetTiki("REC001")
 			if !tt.shouldLoad {
-				if task != nil {
-					t.Error("expected nil task, but got one")
+				if tk != nil {
+					t.Error("expected nil tiki, but got one")
 				}
 				return
 			}
 
-			if task == nil {
-				t.Fatal("GetTask() returned nil")
+			if tk == nil {
+				t.Fatal("GetTiki() returned nil")
 				return
 			}
 
-			if task.Recurrence != tt.expectValue {
-				t.Errorf("recurrence got = %q, expected %q", task.Recurrence, tt.expectValue)
+			recStr, _, _ := tk.StringField(tikipkg.FieldRecurrence)
+			if taskpkg.Recurrence(recStr) != tt.expectValue {
+				t.Errorf("recurrence got = %q, expected %q", recStr, tt.expectValue)
 			}
 
 		})
@@ -733,19 +734,19 @@ func TestSaveTask_Recurrence(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			task := &taskpkg.Task{
-				ID:          "RECSVR",
-				Title:       "Test Save Recurrence",
-				Type:        taskpkg.TypeStory,
-				Status:      "backlog",
-				Priority:    3,
-				Recurrence:  tt.recurrence,
-				Description: "Test description",
-				IsWorkflow:  true,
+			tk := tikipkg.New()
+			tk.ID = "RECSVR"
+			tk.Title = "Test Save Recurrence"
+			tk.Set("type", string(taskpkg.TypeStory))
+			tk.Set("status", "backlog")
+			tk.Set("priority", 3)
+			tk.Body = "Test description"
+			if tt.recurrence != taskpkg.RecurrenceNone {
+				tk.Set(tikipkg.FieldRecurrence, string(tt.recurrence))
 			}
 
-			if err := store.CreateTask(task); err != nil {
-				t.Fatalf("CreateTask() error = %v", err)
+			if err := store.CreateTiki(tk); err != nil {
+				t.Fatalf("CreateTiki() error = %v", err)
 			}
 
 			filePath := filepath.Join(tmpDir, "RECSVR.md")
@@ -764,72 +765,80 @@ func TestSaveTask_Recurrence(t *testing.T) {
 				t.Errorf("did not expect 'recurrence:' in frontmatter (omitempty), but found.\nFile content:\n%s", fileStr)
 			}
 
-			// Verify round-trip
-			loaded := store.GetTask("RECSVR")
+			// Verify round-trip via tiki API.
+			loaded := store.GetTiki("RECSVR")
 			if loaded == nil {
-				t.Fatal("GetTask() returned nil")
+				t.Fatal("GetTiki() returned nil")
 				return
 			}
-			if loaded.Recurrence != task.Recurrence {
-				t.Errorf("round-trip failed: saved %q, loaded %q", task.Recurrence, loaded.Recurrence)
+			recStr, _, _ := loaded.StringField(tikipkg.FieldRecurrence)
+			if taskpkg.Recurrence(recStr) != tt.recurrence {
+				t.Errorf("round-trip failed: saved %q, loaded %q", tt.recurrence, recStr)
 			}
 
 		})
 	}
 }
 
-func TestMatchesQuery(t *testing.T) {
+func TestMatchesTikiQuery(t *testing.T) {
 	tests := []struct {
 		name     string
-		task     *taskpkg.Task
+		tiki     *tikipkg.Tiki
 		query    string
 		expected bool
 	}{
 		{
-			name:     "nil task returns false",
-			task:     nil,
+			name:     "nil tiki returns false",
+			tiki:     nil,
 			query:    "foo",
 			expected: false,
 		},
 		{
 			name:     "empty query returns false",
-			task:     &taskpkg.Task{ID: "MQ0001", Title: "Hello"},
+			tiki:     &tikipkg.Tiki{ID: "MQ0001", Title: "Hello"},
 			query:    "",
 			expected: false,
 		},
 		{
-			name:     "match by ID case-insensitive",
-			task:     &taskpkg.Task{ID: "ABC123"},
+			name: "match by ID case-insensitive",
+			tiki: func() *tikipkg.Tiki {
+				tk := tikipkg.New()
+				tk.ID = "ABC123"
+				return tk
+			}(),
 			query:    "abc",
 			expected: true,
 		},
 		{
-			name:     "match by title",
-			task:     &taskpkg.Task{ID: "MQ0002", Title: "Hello World"},
+			name: "match by title",
+			tiki: func() *tikipkg.Tiki {
+				tk := tikipkg.New()
+				tk.ID = "MQ0002"
+				tk.Title = "Hello World"
+				return tk
+			}(),
 			query:    "hello",
 			expected: true,
 		},
 		{
-			name:     "match by description",
-			task:     &taskpkg.Task{ID: "MQ0003", Description: "some text here"},
+			name: "match by body (description)",
+			tiki: func() *tikipkg.Tiki {
+				tk := tikipkg.New()
+				tk.ID = "MQ0003"
+				tk.Body = "some text here"
+				return tk
+			}(),
 			query:    "some",
 			expected: true,
 		},
 		{
-			name:     "match by first tag",
-			task:     &taskpkg.Task{ID: "MQ0004", Tags: []string{"frontend"}},
-			query:    "frontend",
-			expected: true,
-		},
-		{
-			name:     "match by second tag",
-			task:     &taskpkg.Task{ID: "MQ0005", Tags: []string{"a", "backend"}},
-			query:    "backend",
-			expected: true,
-		},
-		{
-			name:     "no match",
-			task:     &taskpkg.Task{ID: "X", Title: "foo"},
+			name: "no match",
+			tiki: func() *tikipkg.Tiki {
+				tk := tikipkg.New()
+				tk.ID = "NOMTCH"
+				tk.Title = "foo"
+				return tk
+			}(),
 			query:    "zzz",
 			expected: false,
 		},
@@ -837,28 +846,35 @@ func TestMatchesQuery(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := matchesQuery(tt.task, tt.query)
+			got := matchesTikiQuery(tt.tiki, strings.ToLower(tt.query))
 			if got != tt.expected {
-				t.Errorf("matchesQuery() = %v, want %v", got, tt.expected)
+				t.Errorf("matchesTikiQuery() = %v, want %v", got, tt.expected)
 			}
 		})
 	}
 }
 
-func TestSearch_WithFilterFunc(t *testing.T) {
+func TestSearchTikis_WithFilterFunc(t *testing.T) {
+	mkTiki := func(id, title string, priority int) *tikipkg.Tiki {
+		tk := tikipkg.New()
+		tk.ID = id
+		tk.Title = title
+		tk.Set(tikipkg.FieldPriority, priority)
+		return tk
+	}
 	buildStore := func() *TikiStore {
 		return &TikiStore{
 			tikis: makeTikiMap(
-				&taskpkg.Task{ID: "F00001", Title: "Alpha", Priority: 1},
-				&taskpkg.Task{ID: "F00002", Title: "Beta", Priority: 2},
-				&taskpkg.Task{ID: "F00003", Title: "Gamma", Priority: 3},
+				mkTiki("F00001", "Alpha", 1),
+				mkTiki("F00002", "Beta", 2),
+				mkTiki("F00003", "Gamma", 3),
 			),
 		}
 	}
 
 	t.Run("filter excludes all returns empty", func(t *testing.T) {
 		s := buildStore()
-		results := s.Search("", func(*taskpkg.Task) bool { return false })
+		results := s.SearchTikis("", func(*tikipkg.Tiki) bool { return false })
 		if len(results) != 0 {
 			t.Errorf("got %d results, want 0", len(results))
 		}
@@ -866,65 +882,45 @@ func TestSearch_WithFilterFunc(t *testing.T) {
 
 	t.Run("filter includes subset returns subset", func(t *testing.T) {
 		s := buildStore()
-		results := s.Search("", func(t *taskpkg.Task) bool { return t.ID == "F00001" })
+		results := s.SearchTikis("", func(tk *tikipkg.Tiki) bool { return tk.ID == "F00001" })
 		if len(results) != 1 {
 			t.Errorf("got %d results, want 1", len(results))
 		}
-		if results[0].Task.ID != "F00001" {
-			t.Errorf("got ID %q, want F00001", results[0].Task.ID)
+		if results[0].ID != "F00001" {
+			t.Errorf("got ID %q, want F00001", results[0].ID)
 		}
 	})
 
 	t.Run("filter + query intersection", func(t *testing.T) {
 		s := buildStore()
 		// filter allows F00001 and F00002, query matches only "Beta"
-		results := s.Search("beta", func(t *taskpkg.Task) bool {
-			return t.ID == "F00001" || t.ID == "F00002"
+		results := s.SearchTikis("beta", func(tk *tikipkg.Tiki) bool {
+			return tk.ID == "F00001" || tk.ID == "F00002"
 		})
 		if len(results) != 1 {
 			t.Errorf("got %d results, want 1", len(results))
 		}
-		if results[0].Task.ID != "F00002" {
-			t.Errorf("got ID %q, want F00002", results[0].Task.ID)
+		if results[0].ID != "F00002" {
+			t.Errorf("got ID %q, want F00002", results[0].ID)
 		}
 	})
 
-	t.Run("nil filter + empty query returns all workflow tasks", func(t *testing.T) {
+	t.Run("nil filter + empty query returns all tikis", func(t *testing.T) {
+		mkTiki2 := func(id, title string) *tikipkg.Tiki {
+			tk := tikipkg.New()
+			tk.ID = id
+			tk.Title = title
+			return tk
+		}
 		s := &TikiStore{
 			tikis: makeTikiMap(
-				&taskpkg.Task{ID: "G00001", Title: "One", IsWorkflow: true},
-				&taskpkg.Task{ID: "G00002", Title: "Two", IsWorkflow: true},
+				mkTiki2("G00001", "One"),
+				mkTiki2("G00002", "Two"),
 			),
 		}
-		results := s.Search("", nil)
+		results := s.SearchTikis("", nil)
 		if len(results) != 2 {
 			t.Errorf("got %d results, want 2", len(results))
-		}
-	})
-
-	// L4 regression: a plain doc (IsWorkflow=false) must NOT be returned
-	// when filterFunc is nil. Callers that want plain docs pass an explicit
-	// filter.
-	t.Run("nil filter excludes plain docs", func(t *testing.T) {
-		s := &TikiStore{
-			tikis: makeTikiMap(
-				&taskpkg.Task{ID: "WORK01", Title: "workflow item", IsWorkflow: true},
-				// plain doc has no schema fields
-				&taskpkg.Task{ID: "PLAIN1", Title: "plain doc", IsWorkflow: false},
-			),
-		}
-		results := s.Search("", nil)
-		if len(results) != 1 {
-			t.Fatalf("got %d results, want 1", len(results))
-		}
-		if results[0].Task.ID != "WORK01" {
-			t.Errorf("expected WORK01, got %q — plain doc leaked through nil filter", results[0].Task.ID)
-		}
-
-		// non-nil filter → caller is trusted, plain doc is included.
-		all := s.Search("", func(*taskpkg.Task) bool { return true })
-		if len(all) != 2 {
-			t.Errorf("explicit filter got %d, want 2 (both plain + workflow)", len(all))
 		}
 	})
 }
@@ -961,20 +957,20 @@ func TestSaveTask_Due(t *testing.T) {
 				dueTime, _ = time.Parse(taskpkg.DateFormat, tt.dueValue)
 			}
 
-			task := &taskpkg.Task{
-				ID:          "SAVE01",
-				Title:       "Test Save",
-				Type:        taskpkg.TypeStory,
-				Status:      "backlog",
-				Priority:    3,
-				Due:         dueTime,
-				Description: "Test description",
-				IsWorkflow:  true,
+			tk := tikipkg.New()
+			tk.ID = "SAVE01"
+			tk.Title = "Test Save"
+			tk.Set("type", string(taskpkg.TypeStory))
+			tk.Set("status", "backlog")
+			tk.Set("priority", 3)
+			tk.Body = "Test description"
+			if !dueTime.IsZero() {
+				tk.Set(tikipkg.FieldDue, dueTime)
 			}
 
-			// Save task
-			if err := store.CreateTask(task); err != nil {
-				t.Fatalf("CreateTask() error = %v", err)
+			// Save tiki
+			if err := store.CreateTiki(tk); err != nil {
+				t.Fatalf("CreateTiki() error = %v", err)
 			}
 
 			// Read file and check frontmatter
@@ -994,17 +990,15 @@ func TestSaveTask_Due(t *testing.T) {
 				t.Errorf("did not expect 'due:' in frontmatter (omitempty), but found.\nFile content:\n%s", fileStr)
 			}
 
-			// Verify round-trip
-			loaded := store.GetTask("SAVE01")
-			if loaded == nil {
-				t.Fatal("GetTask() returned nil")
+			// Verify round-trip via tiki API.
+			loadedTk := store.GetTiki("SAVE01")
+			if loadedTk == nil {
+				t.Fatal("GetTiki() returned nil")
 			}
-
-			if !loaded.Due.Equal(task.Due) {
-				t.Errorf("round-trip failed: saved %v, loaded %v", task.Due, loaded.Due)
+			due, _, _ := loadedTk.TimeField(tikipkg.FieldDue)
+			if !due.Equal(dueTime) {
+				t.Errorf("round-trip failed: saved %v, loaded %v", dueTime, due)
 			}
-
-			// Clean up
 
 		})
 	}
@@ -1029,56 +1023,54 @@ func TestCustomFieldRoundTrip(t *testing.T) {
 		t.Fatalf("NewTikiStore: %v", err)
 	}
 
-	original := &taskpkg.Task{
-		ID:         "CUSTOM",
-		Title:      "Custom field test",
-		Status:     taskpkg.StatusReady,
-		Type:       "story",
-		Priority:   2,
-		IsWorkflow: true,
-		CustomFields: map[string]interface{}{
-			"severity": "high",
-			"score":    42,
-			"active":   true,
-			"notes":    "some notes here",
-		},
-	}
+	original := tikipkg.New()
+	original.ID = "CUSTOM"
+	original.Title = "Custom field test"
+	original.Set(tikipkg.FieldStatus, string(taskpkg.StatusReady))
+	original.Set(tikipkg.FieldType, "story")
+	original.Set(tikipkg.FieldPriority, 2)
+	original.Set("severity", "high")
+	original.Set("score", 42)
+	original.Set("active", true)
+	original.Set("notes", "some notes here")
 
 	// save
-	if err := store.saveTask(original); err != nil {
-		t.Fatalf("saveTask: %v", err)
+	if err := store.saveTiki(original); err != nil {
+		t.Fatalf("saveTiki: %v", err)
 	}
 
 	// reload
 	path := store.taskFilePath(original.ID)
-	loaded, err := store.loadTaskFile(path)
+	loaded, err := store.loadTikiFile(path, nil, nil)
 	if err != nil {
-		t.Fatalf("loadTaskFile: %v", err)
+		t.Fatalf("loadTikiFile: %v", err)
 	}
 
 	// verify custom fields survived
-	if loaded.CustomFields == nil {
-		t.Fatal("CustomFields is nil after reload")
+	severity, hasSeverity, _ := loaded.StringField("severity")
+	if !hasSeverity || severity != "high" {
+		t.Errorf("severity = %v, want high", loaded.Fields["severity"])
 	}
-	if loaded.CustomFields["severity"] != "high" {
-		t.Errorf("severity = %v, want high", loaded.CustomFields["severity"])
+	score, hasScore, _ := loaded.IntField("score")
+	if !hasScore || score != 42 {
+		t.Errorf("score = %v, want 42", loaded.Fields["score"])
 	}
-	if loaded.CustomFields["score"] != 42 {
-		t.Errorf("score = %v, want 42", loaded.CustomFields["score"])
+	active, hasActive := loaded.Get("active")
+	if !hasActive || active != true {
+		t.Errorf("active = %v, want true", loaded.Fields["active"])
 	}
-	if loaded.CustomFields["active"] != true {
-		t.Errorf("active = %v, want true", loaded.CustomFields["active"])
-	}
-	if loaded.CustomFields["notes"] != "some notes here" {
-		t.Errorf("notes = %v, want 'some notes here'", loaded.CustomFields["notes"])
+	notes, hasNotes, _ := loaded.StringField("notes")
+	if !hasNotes || notes != "some notes here" {
+		t.Errorf("notes = %v, want 'some notes here'", loaded.Fields["notes"])
 	}
 
 	// verify built-in fields are also correct
 	if loaded.Title != "Custom field test" {
 		t.Errorf("title = %q, want %q", loaded.Title, "Custom field test")
 	}
-	if loaded.Priority != 2 {
-		t.Errorf("priority = %d, want 2", loaded.Priority)
+	priority, _, _ := loaded.IntField(tikipkg.FieldPriority)
+	if priority != 2 {
+		t.Errorf("priority = %d, want 2", priority)
 	}
 }
 
@@ -1097,52 +1089,52 @@ func TestCustomFieldRoundTrip_AmbiguousStrings(t *testing.T) {
 	tests := []struct {
 		name   string
 		fields map[string]interface{}
-		check  func(t *testing.T, cf map[string]interface{})
+		check  func(t *testing.T, fields map[string]interface{})
 	}{
 		{
 			name:   "string that looks like bool",
 			fields: map[string]interface{}{"notes": "true"},
-			check: func(t *testing.T, cf map[string]interface{}) {
-				if v, ok := cf["notes"].(string); !ok || v != "true" {
-					t.Errorf("notes = %v (%T), want string \"true\"", cf["notes"], cf["notes"])
+			check: func(t *testing.T, fields map[string]interface{}) {
+				if v, ok := fields["notes"].(string); !ok || v != "true" {
+					t.Errorf("notes = %v (%T), want string \"true\"", fields["notes"], fields["notes"])
 				}
 			},
 		},
 		{
 			name:   "string that looks like date",
 			fields: map[string]interface{}{"notes": "2026-05-15"},
-			check: func(t *testing.T, cf map[string]interface{}) {
-				if v, ok := cf["notes"].(string); !ok || v != "2026-05-15" {
-					t.Errorf("notes = %v (%T), want string \"2026-05-15\"", cf["notes"], cf["notes"])
+			check: func(t *testing.T, fields map[string]interface{}) {
+				if v, ok := fields["notes"].(string); !ok || v != "2026-05-15" {
+					t.Errorf("notes = %v (%T), want string \"2026-05-15\"", fields["notes"], fields["notes"])
 				}
 			},
 		},
 		{
 			name:   "string with colon",
 			fields: map[string]interface{}{"notes": "a: b"},
-			check: func(t *testing.T, cf map[string]interface{}) {
-				if v, ok := cf["notes"].(string); !ok || v != "a: b" {
-					t.Errorf("notes = %v (%T), want string \"a: b\"", cf["notes"], cf["notes"])
+			check: func(t *testing.T, fields map[string]interface{}) {
+				if v, ok := fields["notes"].(string); !ok || v != "a: b" {
+					t.Errorf("notes = %v (%T), want string \"a: b\"", fields["notes"], fields["notes"])
 				}
 			},
 		},
 		{
 			name:   "string that looks like int",
 			fields: map[string]interface{}{"notes": "42"},
-			check: func(t *testing.T, cf map[string]interface{}) {
-				if v, ok := cf["notes"].(string); !ok || v != "42" {
-					t.Errorf("notes = %v (%T), want string \"42\"", cf["notes"], cf["notes"])
+			check: func(t *testing.T, fields map[string]interface{}) {
+				if v, ok := fields["notes"].(string); !ok || v != "42" {
+					t.Errorf("notes = %v (%T), want string \"42\"", fields["notes"], fields["notes"])
 				}
 			},
 		},
 		{
 			name:   "list with ambiguous items",
 			fields: map[string]interface{}{"labels": []string{"true", "42", "2026-05-15"}},
-			check: func(t *testing.T, cf map[string]interface{}) {
+			check: func(t *testing.T, fields map[string]interface{}) {
 				want := []string{"true", "42", "2026-05-15"}
-				got, ok := cf["labels"].([]string)
+				got, ok := fields["labels"].([]string)
 				if !ok {
-					t.Fatalf("labels type = %T, want []string", cf["labels"])
+					t.Fatalf("labels type = %T, want []string", fields["labels"])
 				}
 				if !reflect.DeepEqual(got, want) {
 					t.Errorf("labels = %v, want %v", got, want)
@@ -1152,9 +1144,9 @@ func TestCustomFieldRoundTrip_AmbiguousStrings(t *testing.T) {
 		{
 			name:   "enum value that looks like bool",
 			fields: map[string]interface{}{"yesno": "true"},
-			check: func(t *testing.T, cf map[string]interface{}) {
-				if v, ok := cf["yesno"].(string); !ok || v != "true" {
-					t.Errorf("yesno = %v (%T), want string \"true\"", cf["yesno"], cf["yesno"])
+			check: func(t *testing.T, fields map[string]interface{}) {
+				if v, ok := fields["yesno"].(string); !ok || v != "true" {
+					t.Errorf("yesno = %v (%T), want string \"true\"", fields["yesno"], fields["yesno"])
 				}
 			},
 		},
@@ -1168,28 +1160,26 @@ func TestCustomFieldRoundTrip_AmbiguousStrings(t *testing.T) {
 				t.Fatalf("NewTikiStore: %v", err)
 			}
 
-			original := &taskpkg.Task{
-				ID:           "AMBIG1",
-				Title:        "Ambiguous round-trip",
-				Status:       taskpkg.StatusReady,
-				Type:         "story",
-				Priority:     2,
-				CustomFields: tt.fields,
+			original := tikipkg.New()
+			original.ID = "AMBIG1"
+			original.Title = "Ambiguous round-trip"
+			original.Set(tikipkg.FieldStatus, string(taskpkg.StatusReady))
+			original.Set(tikipkg.FieldType, "story")
+			original.Set(tikipkg.FieldPriority, 2)
+			for k, v := range tt.fields {
+				original.Set(k, v)
 			}
 
-			if err := store.saveTask(original); err != nil {
-				t.Fatalf("saveTask: %v", err)
+			if err := store.saveTiki(original); err != nil {
+				t.Fatalf("saveTiki: %v", err)
 			}
 
 			path := store.taskFilePath(original.ID)
-			loaded, err := store.loadTaskFile(path)
+			loaded, err := store.loadTikiFile(path, nil, nil)
 			if err != nil {
-				t.Fatalf("loadTaskFile: %v", err)
+				t.Fatalf("loadTikiFile: %v", err)
 			}
-			if loaded.CustomFields == nil {
-				t.Fatal("CustomFields is nil after reload")
-			}
-			tt.check(t, loaded.CustomFields)
+			tt.check(t, loaded.Fields)
 		})
 	}
 }
@@ -1260,21 +1250,30 @@ Description here`
 		t.Fatalf("write file: %v", err)
 	}
 
-	loaded, err := store.loadTaskFile(filePath)
+	loaded, err := store.loadTikiFile(filePath, nil, nil)
 	if err != nil {
-		t.Fatalf("loadTaskFile should succeed with stale field, got: %v", err)
+		t.Fatalf("loadTikiFile should succeed with stale field, got: %v", err)
 	}
 	if loaded.ID != "STALE1" {
 		t.Errorf("ID = %q, want STALE1", loaded.ID)
 	}
-	if loaded.CustomFields == nil || loaded.CustomFields["severity"] != "high" {
-		t.Errorf("severity = %v, want high", loaded.CustomFields["severity"])
+	severity, hasSeverity, _ := loaded.StringField("severity")
+	if !hasSeverity || severity != "high" {
+		t.Errorf("severity = %v, want high", loaded.Fields["severity"])
 	}
-	if _, exists := loaded.CustomFields["old_field"]; exists {
-		t.Error("stale key 'old_field' should not appear in CustomFields")
+	staleKeys := loaded.StaleKeys()
+	if _, exists := staleKeys["old_field"]; exists {
+		// old_field is unknown (not registered custom), so it lives in Fields but not stale
+		t.Error("unknown key 'old_field' should not be marked stale")
 	}
-	if loaded.UnknownFields == nil || loaded.UnknownFields["old_field"] != "leftover_value" {
-		t.Errorf("UnknownFields[old_field] = %v, want leftover_value", loaded.UnknownFields["old_field"])
+	// old_field is an unregistered key — it lands in Fields and round-trips as unknown
+	oldFieldVal, hasOldField := loaded.Get("old_field")
+	if !hasOldField || oldFieldVal != "leftover_value" {
+		t.Errorf("Fields[old_field] = %v, want leftover_value", oldFieldVal)
+	}
+	// severity is a registered custom field with a valid value — must not be stale
+	if _, isStaleSeverity := staleKeys["severity"]; isStaleSeverity {
+		t.Error("severity should not be stale")
 	}
 }
 
@@ -1339,19 +1338,21 @@ Description`
 		t.Fatalf("write file: %v", err)
 	}
 
-	loaded, err := store.loadTaskFile(filePath)
+	loaded, err := store.loadTikiFile(filePath, nil, nil)
 	if err != nil {
-		t.Fatalf("loadTaskFile should succeed with stale enum value, got: %v", err)
+		t.Fatalf("loadTikiFile should succeed with stale enum value, got: %v", err)
 	}
 	if loaded.ID != "STALE2" {
 		t.Errorf("ID = %q, want STALE2", loaded.ID)
 	}
-	// stale value should be in UnknownFields, not CustomFields
-	if _, exists := loaded.CustomFields["severity"]; exists {
-		t.Error("stale enum value should not be in CustomFields")
+	// stale value should be marked stale (demoted from custom) and survive in Fields
+	staleKeys := loaded.StaleKeys()
+	if _, isStale := staleKeys["severity"]; !isStale {
+		t.Error("stale enum value should be marked stale")
 	}
-	if loaded.UnknownFields == nil || loaded.UnknownFields["severity"] != "critical" {
-		t.Errorf("UnknownFields[severity] = %v, want 'critical'", loaded.UnknownFields["severity"])
+	severityVal, hasSeverity := loaded.Get("severity")
+	if !hasSeverity || severityVal != "critical" {
+		t.Errorf("Fields[severity] = %v, want 'critical' (preserved for repair)", severityVal)
 	}
 }
 
@@ -1467,12 +1468,12 @@ func TestSaveTask_PreservesUnknownFields(t *testing.T) {
 	}
 
 	// load, then save without modification
-	loaded, err := store.loadTaskFile(filePath)
+	loaded, err := store.loadTikiFile(filePath, nil, nil)
 	if err != nil {
-		t.Fatalf("loadTaskFile: %v", err)
+		t.Fatalf("loadTikiFile: %v", err)
 	}
-	if err := store.saveTask(loaded); err != nil {
-		t.Fatalf("saveTask: %v", err)
+	if err := store.saveTiki(loaded); err != nil {
+		t.Fatalf("saveTiki: %v", err)
 	}
 
 	// re-read the file and verify the unknown field survived
@@ -1496,33 +1497,33 @@ func TestSaveTask_DedupesBuiltInCollections(t *testing.T) {
 		t.Fatalf("NewTikiStore: %v", err)
 	}
 
-	input := &taskpkg.Task{
-		ID:          "SET001",
-		Title:       "dedupe built-ins",
-		Type:        taskpkg.TypeStory,
-		Status:      taskpkg.StatusBacklog,
-		Priority:    3,
-		Tags:        []string{"frontend", "backend", "frontend", " backend "},
-		DependsOn:   []string{"aaa001", "AAA001", " BBB002 "},
-		Description: "body",
-		IsWorkflow:  true,
-	}
+	input := tikipkg.New()
+	input.ID = "SET001"
+	input.Title = "dedupe built-ins"
+	input.Set(tikipkg.FieldType, string(taskpkg.TypeStory))
+	input.Set(tikipkg.FieldStatus, string(taskpkg.StatusBacklog))
+	input.Set(tikipkg.FieldPriority, 3)
+	input.Set(tikipkg.FieldTags, []string{"frontend", "backend", "frontend", " backend "})
+	input.Set(tikipkg.FieldDependsOn, []string{"aaa001", "AAA001", " BBB002 "})
+	input.Body = "body"
 
-	if err := store.saveTask(input); err != nil {
-		t.Fatalf("saveTask: %v", err)
+	if err := store.saveTiki(input); err != nil {
+		t.Fatalf("saveTiki: %v", err)
 	}
 
 	path := store.taskFilePath(input.ID)
-	loaded, err := store.loadTaskFile(path)
+	loaded, err := store.loadTikiFile(path, nil, nil)
 	if err != nil {
-		t.Fatalf("loadTaskFile: %v", err)
+		t.Fatalf("loadTikiFile: %v", err)
 	}
 
-	if !reflect.DeepEqual(loaded.Tags, []string{"backend", "frontend"}) {
-		t.Errorf("loaded tags = %v, want [backend frontend]", loaded.Tags)
+	tags, _, _ := loaded.StringSliceField(tikipkg.FieldTags)
+	if !reflect.DeepEqual(tags, []string{"backend", "frontend"}) {
+		t.Errorf("loaded tags = %v, want [backend frontend]", tags)
 	}
-	if !reflect.DeepEqual(loaded.DependsOn, []string{"AAA001", "BBB002"}) {
-		t.Errorf("loaded dependsOn = %v, want [AAA001 BBB002]", loaded.DependsOn)
+	dependsOn, _, _ := loaded.StringSliceField(tikipkg.FieldDependsOn)
+	if !reflect.DeepEqual(dependsOn, []string{"AAA001", "BBB002"}) {
+		t.Errorf("loaded dependsOn = %v, want [AAA001 BBB002]", dependsOn)
 	}
 }
 
@@ -1543,39 +1544,36 @@ func TestSaveTask_DedupesCustomListFields(t *testing.T) {
 		t.Fatalf("NewTikiStore: %v", err)
 	}
 
-	input := &taskpkg.Task{
-		ID:       "SET002",
-		Title:    "dedupe custom",
-		Type:     taskpkg.TypeStory,
-		Status:   taskpkg.StatusBacklog,
-		Priority: 3,
-		CustomFields: map[string]interface{}{
-			"labels":  []string{"backend", "backend", " frontend ", ""},
-			"related": []string{"aaa001", "AAA001", "bbb002"},
-		},
-	}
+	input := tikipkg.New()
+	input.ID = "SET002"
+	input.Title = "dedupe custom"
+	input.Set(tikipkg.FieldType, string(taskpkg.TypeStory))
+	input.Set(tikipkg.FieldStatus, string(taskpkg.StatusBacklog))
+	input.Set(tikipkg.FieldPriority, 3)
+	input.Set("labels", []string{"backend", "backend", " frontend ", ""})
+	input.Set("related", []string{"aaa001", "AAA001", "bbb002"})
 
-	if err := store.saveTask(input); err != nil {
-		t.Fatalf("saveTask: %v", err)
+	if err := store.saveTiki(input); err != nil {
+		t.Fatalf("saveTiki: %v", err)
 	}
 
 	path := store.taskFilePath(input.ID)
-	loaded, err := store.loadTaskFile(path)
+	loaded, err := store.loadTikiFile(path, nil, nil)
 	if err != nil {
-		t.Fatalf("loadTaskFile: %v", err)
+		t.Fatalf("loadTikiFile: %v", err)
 	}
 
-	labels, ok := loaded.CustomFields["labels"].([]string)
+	labels, ok := loaded.Fields["labels"].([]string)
 	if !ok {
-		t.Fatalf("labels type = %T, want []string", loaded.CustomFields["labels"])
+		t.Fatalf("labels type = %T, want []string", loaded.Fields["labels"])
 	}
 	if !reflect.DeepEqual(labels, []string{"backend", "frontend"}) {
 		t.Errorf("labels = %v, want [backend frontend]", labels)
 	}
 
-	related, ok := loaded.CustomFields["related"].([]string)
+	related, ok := loaded.Fields["related"].([]string)
 	if !ok {
-		t.Fatalf("related type = %T, want []string", loaded.CustomFields["related"])
+		t.Fatalf("related type = %T, want []string", loaded.Fields["related"])
 	}
 	if !reflect.DeepEqual(related, []string{"AAA001", "BBB002"}) {
 		t.Errorf("related = %v, want [AAA001 BBB002]", related)
@@ -1616,15 +1614,15 @@ body`
 		t.Fatalf("Chdir: %v", err)
 	}
 
-	tk, err := store.loadTaskFile(rel)
+	tk, err := store.loadTikiFile(rel, nil, nil)
 	if err != nil {
-		t.Fatalf("loadTaskFile: %v", err)
+		t.Fatalf("loadTikiFile: %v", err)
 	}
-	if !filepath.IsAbs(tk.FilePath) {
-		t.Errorf("FilePath is not absolute: %q", tk.FilePath)
+	if !filepath.IsAbs(tk.Path) {
+		t.Errorf("Path is not absolute: %q", tk.Path)
 	}
-	if !strings.HasSuffix(tk.FilePath, fileName) {
-		t.Errorf("FilePath does not end with expected filename: %q", tk.FilePath)
+	if !strings.HasSuffix(tk.Path, fileName) {
+		t.Errorf("Path does not end with expected filename: %q", tk.Path)
 	}
 }
 
@@ -1652,23 +1650,24 @@ body`
 		t.Fatalf("NewTikiStore: %v", err)
 	}
 
-	tk := store.GetTask("FP0003")
+	tk := store.GetTiki("FP0003")
 	if tk == nil {
-		t.Fatal("GetTask returned nil")
+		t.Fatal("GetTiki returned nil")
 	}
-	// loaded FilePath must be the real absolute path, not the stale string
+	// loaded Path must be the real absolute path, not the stale string
 	expectedAbs, _ := filepath.Abs(testFile)
-	if tk.FilePath != expectedAbs {
-		t.Errorf("FilePath = %q, want %q (real path, not stale)", tk.FilePath, expectedAbs)
+	if tk.Path != expectedAbs {
+		t.Errorf("Path = %q, want %q (real path, not stale)", tk.Path, expectedAbs)
 	}
-	// stale key must not leak into unknownFields
-	if _, exists := tk.UnknownFields["filepath"]; exists {
-		t.Errorf("stale filepath should not survive in UnknownFields, got %v", tk.UnknownFields["filepath"])
+	// stale key must not leak into Fields or UnknownFields
+	if _, exists := tk.Fields["filepath"]; exists {
+		t.Errorf("stale filepath should not survive in Fields, got %v", tk.Fields["filepath"])
 	}
 
 	// save and re-read the file: stale key must be gone
-	if err := store.UpdateTask(tk); err != nil {
-		t.Fatalf("UpdateTask: %v", err)
+	updated := tk.Clone()
+	if err := store.UpdateTiki(updated); err != nil {
+		t.Fatalf("UpdateTiki: %v", err)
 	}
 	content, err := os.ReadFile(testFile)
 	if err != nil {
@@ -1686,27 +1685,26 @@ func TestSaveTask_FilePathRefreshedAndNotSerialized(t *testing.T) {
 		t.Fatalf("NewTikiStore: %v", err)
 	}
 
-	tk := &taskpkg.Task{
-		ID:       "FP0002",
-		Title:    "Save Filepath Test",
-		Type:     taskpkg.TypeStory,
-		Status:   "backlog",
-		Priority: 3,
-	}
-	if err := store.CreateTask(tk); err != nil {
-		t.Fatalf("CreateTask: %v", err)
+	tk := tikipkg.New()
+	tk.ID = "FP0002"
+	tk.Title = "Save Filepath Test"
+	tk.Set("type", "story")
+	tk.Set("status", "backlog")
+	tk.Set("priority", 3)
+	if err := store.CreateTiki(tk); err != nil {
+		t.Fatalf("CreateTiki: %v", err)
 	}
 
-	if tk.FilePath == "" {
-		t.Fatal("FilePath not set after CreateTask")
+	if tk.Path == "" {
+		t.Fatal("Path not set after CreateTiki")
 	}
-	if !filepath.IsAbs(tk.FilePath) {
-		t.Errorf("FilePath is not absolute: %q", tk.FilePath)
+	if !filepath.IsAbs(tk.Path) {
+		t.Errorf("Path is not absolute: %q", tk.Path)
 	}
 	expectedPath := filepath.Join(tmpDir, "FP0002.md")
 	expectedAbs, _ := filepath.Abs(expectedPath)
-	if tk.FilePath != expectedAbs {
-		t.Errorf("FilePath = %q, want %q", tk.FilePath, expectedAbs)
+	if tk.Path != expectedAbs {
+		t.Errorf("Path = %q, want %q", tk.Path, expectedAbs)
 	}
 
 	// verify filepath is NOT serialized to YAML frontmatter

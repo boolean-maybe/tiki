@@ -6,7 +6,7 @@ import (
 	"fmt"
 
 	"github.com/boolean-maybe/tiki/store"
-	"github.com/boolean-maybe/tiki/task"
+	tikipkg "github.com/boolean-maybe/tiki/tiki"
 )
 
 // Helper functions shared across controllers.
@@ -18,9 +18,12 @@ func generateID() string {
 	return hex.EncodeToString(bytes)
 }
 
-// setAuthorFromGit best-effort populates CreatedBy using current git user via store.
-func setAuthorFromGit(task *task.Task, taskStore store.Store) {
-	if task == nil || task.CreatedBy != "" {
+// setAuthorOnTiki best-effort populates createdBy on a tiki using the current git user via store.
+func setAuthorOnTiki(tk *tikipkg.Tiki, taskStore store.Store) {
+	if tk == nil {
+		return
+	}
+	if existing, _, _ := tk.StringField("createdBy"); existing != "" {
 		return
 	}
 
@@ -29,13 +32,17 @@ func setAuthorFromGit(task *task.Task, taskStore store.Store) {
 		return
 	}
 
+	var author string
 	switch {
 	case name != "" && email != "":
-		task.CreatedBy = fmt.Sprintf("%s <%s>", name, email)
+		author = fmt.Sprintf("%s <%s>", name, email)
 	case name != "":
-		task.CreatedBy = name
+		author = name
 	case email != "":
-		task.CreatedBy = email
+		author = email
+	}
+	if author != "" {
+		tk.Set("createdBy", author)
 	}
 }
 

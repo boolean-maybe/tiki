@@ -10,7 +10,7 @@ import (
 	"github.com/boolean-maybe/tiki/plugin"
 	"github.com/boolean-maybe/tiki/service"
 	"github.com/boolean-maybe/tiki/store"
-	"github.com/boolean-maybe/tiki/task"
+	tikipkg "github.com/boolean-maybe/tiki/tiki"
 )
 
 const (
@@ -19,6 +19,20 @@ const (
 	testDepID  = "AADEP0"
 	testFreeID = "AAFRE0"
 )
+
+// newWorkflowTiki creates a workflow tiki with the given id/title/dependsOn for test seeding.
+func newWorkflowTiki(id, title string, dependsOn []string) *tikipkg.Tiki {
+	tk := tikipkg.New()
+	tk.ID = id
+	tk.Title = title
+	tk.Set("status", "ready")
+	tk.Set("type", "story")
+	tk.Set("priority", 3)
+	if len(dependsOn) > 0 {
+		tk.Set(tikipkg.FieldDependsOn, dependsOn)
+	}
+	return tk
+}
 
 // newDepsTestEnv sets up a deps editor test environment with:
 // - contextTask whose dependsOn contains testDepID
@@ -29,15 +43,15 @@ func newDepsTestEnv(t *testing.T) (*DepsController, store.Store) {
 	t.Helper()
 	taskStore := store.NewInMemoryStore()
 
-	tasks := []*task.Task{
-		{ID: testCtxID, Title: "Context", Status: task.StatusReady, Type: task.TypeStory, Priority: 3, DependsOn: []string{testDepID}, IsWorkflow: true},
-		{ID: testBlkID, Title: "Blocker", Status: task.StatusReady, Type: task.TypeStory, Priority: 3, DependsOn: []string{testCtxID}, IsWorkflow: true},
-		{ID: testDepID, Title: "Depends", Status: task.StatusReady, Type: task.TypeStory, Priority: 3, IsWorkflow: true},
-		{ID: testFreeID, Title: "Free", Status: task.StatusReady, Type: task.TypeStory, Priority: 3, IsWorkflow: true},
+	tikis := []*tikipkg.Tiki{
+		newWorkflowTiki(testCtxID, "Context", []string{testDepID}),
+		newWorkflowTiki(testBlkID, "Blocker", []string{testCtxID}),
+		newWorkflowTiki(testDepID, "Depends", nil),
+		newWorkflowTiki(testFreeID, "Free", nil),
 	}
-	for _, tt := range tasks {
-		if err := taskStore.CreateTask(tt); err != nil {
-			t.Fatalf("create task %s: %v", tt.ID, err)
+	for _, tk := range tikis {
+		if err := taskStore.CreateTiki(tk); err != nil {
+			t.Fatalf("create tiki %s: %v", tk.ID, err)
 		}
 	}
 
@@ -57,10 +71,10 @@ func newDepsTestEnv(t *testing.T) (*DepsController, store.Store) {
 	return dc, taskStore
 }
 
-func taskIDs(tasks []*task.Task) []string {
-	ids := make([]string, len(tasks))
-	for i, t := range tasks {
-		ids[i] = t.ID
+func taskIDs(tikis []*tikipkg.Tiki) []string {
+	ids := make([]string, len(tikis))
+	for i, tk := range tikis {
+		ids[i] = tk.ID
 	}
 	return ids
 }
@@ -128,9 +142,10 @@ func TestDepsController_MoveTask_AllToBlocks(t *testing.T) {
 	}
 
 	// free task should now have context task in its dependsOn
-	free := taskStore.GetTask(testFreeID)
-	if !slices.Contains(free.DependsOn, testCtxID) {
-		t.Errorf("free.DependsOn should contain %s, got %v", testCtxID, free.DependsOn)
+	free := taskStore.GetTiki(testFreeID)
+	freeDeps, _, _ := free.StringSliceField(tikipkg.FieldDependsOn)
+	if !slices.Contains(freeDeps, testCtxID) {
+		t.Errorf("free.DependsOn should contain %s, got %v", testCtxID, freeDeps)
 	}
 }
 
@@ -145,9 +160,10 @@ func TestDepsController_MoveTask_AllToDepends(t *testing.T) {
 	}
 
 	// context task should now have free task in its dependsOn
-	ctx := taskStore.GetTask(testCtxID)
-	if !slices.Contains(ctx.DependsOn, testFreeID) {
-		t.Errorf("ctx.DependsOn should contain %s, got %v", testFreeID, ctx.DependsOn)
+	ctx := taskStore.GetTiki(testCtxID)
+	ctxDeps, _, _ := ctx.StringSliceField(tikipkg.FieldDependsOn)
+	if !slices.Contains(ctxDeps, testFreeID) {
+		t.Errorf("ctx.DependsOn should contain %s, got %v", testFreeID, ctxDeps)
 	}
 }
 
@@ -161,9 +177,10 @@ func TestDepsController_MoveTask_BlocksToAll(t *testing.T) {
 		t.Fatal("move should succeed")
 	}
 
-	blk := taskStore.GetTask(testBlkID)
-	if slices.Contains(blk.DependsOn, testCtxID) {
-		t.Errorf("blk.DependsOn should not contain %s after move, got %v", testCtxID, blk.DependsOn)
+	blk := taskStore.GetTiki(testBlkID)
+	blkDeps, _, _ := blk.StringSliceField(tikipkg.FieldDependsOn)
+	if slices.Contains(blkDeps, testCtxID) {
+		t.Errorf("blk.DependsOn should not contain %s after move, got %v", testCtxID, blkDeps)
 	}
 }
 
@@ -177,9 +194,10 @@ func TestDepsController_MoveTask_DependsToAll(t *testing.T) {
 		t.Fatal("move should succeed")
 	}
 
-	ctx := taskStore.GetTask(testCtxID)
-	if slices.Contains(ctx.DependsOn, testDepID) {
-		t.Errorf("ctx.DependsOn should not contain %s after move, got %v", testDepID, ctx.DependsOn)
+	ctx := taskStore.GetTiki(testCtxID)
+	ctxDeps, _, _ := ctx.StringSliceField(tikipkg.FieldDependsOn)
+	if slices.Contains(ctxDeps, testDepID) {
+		t.Errorf("ctx.DependsOn should not contain %s after move, got %v", testDepID, ctxDeps)
 	}
 }
 
@@ -233,7 +251,7 @@ func TestDepsController_HandleSearch(t *testing.T) {
 		}
 		found := false
 		for _, sr := range results {
-			if sr.Task.ID == testFreeID {
+			if sr.ID == testFreeID {
 				found = true
 			}
 		}
@@ -346,7 +364,7 @@ func TestDepsController_HandleAction(t *testing.T) {
 		if !result {
 			t.Error("delete should succeed when a task is selected")
 		}
-		if taskStore.GetTask(deletedID) != nil {
+		if taskStore.GetTiki(deletedID) != nil {
 			t.Errorf("task %s should have been deleted", deletedID)
 		}
 	})
@@ -417,9 +435,9 @@ func TestDepsController_EnsureFirstNonEmptyLaneSelection(t *testing.T) {
 	t.Run("current lane empty — switches to first non-empty", func(t *testing.T) {
 		dc, taskStore := newDepsTestEnv(t)
 		// move free task into depends so All lane becomes empty
-		free := taskStore.GetTask(testFreeID)
-		free.DependsOn = []string{testCtxID}
-		if err := taskStore.UpdateTask(free); err != nil {
+		free := taskStore.GetTiki(testFreeID).Clone()
+		free.Set(tikipkg.FieldDependsOn, []string{testCtxID})
+		if err := taskStore.UpdateTiki(free); err != nil {
 			t.Fatal(err)
 		}
 
@@ -439,15 +457,14 @@ func TestDepsController_DeleteTask_GateError(t *testing.T) {
 	// when gate rejects delete, handleDeleteTask should return false
 	taskStore := store.NewInMemoryStore()
 
-	tasks := []*task.Task{
-		{ID: testCtxID, Title: "Context", Status: task.StatusReady, Type: task.TypeStory, Priority: 3, DependsOn: []string{testDepID}, IsWorkflow: true},
-		{ID: testBlkID, Title: "Blocker", Status: task.StatusReady, Type: task.TypeStory, Priority: 3, DependsOn: []string{testCtxID}, IsWorkflow: true},
-		{ID: testDepID, Title: "Depends", Status: task.StatusReady, Type: task.TypeStory, Priority: 3, IsWorkflow: true},
-		{ID: testFreeID, Title: "Free", Status: task.StatusReady, Type: task.TypeStory, Priority: 3, IsWorkflow: true},
-	}
-	for _, tt := range tasks {
-		if err := taskStore.CreateTask(tt); err != nil {
-			t.Fatalf("create task %s: %v", tt.ID, err)
+	for _, tk := range []*tikipkg.Tiki{
+		newWorkflowTiki(testCtxID, "Context", []string{testDepID}),
+		newWorkflowTiki(testBlkID, "Blocker", []string{testCtxID}),
+		newWorkflowTiki(testDepID, "Depends", nil),
+		newWorkflowTiki(testFreeID, "Free", nil),
+	} {
+		if err := taskStore.CreateTiki(tk); err != nil {
+			t.Fatalf("create tiki %s: %v", tk.ID, err)
 		}
 	}
 
@@ -462,7 +479,7 @@ func TestDepsController_DeleteTask_GateError(t *testing.T) {
 	gate := service.NewTaskMutationGate()
 	gate.SetStore(taskStore)
 	// register a before-delete validator that blocks all deletes
-	gate.OnDelete(func(old, new *task.Task, allTasks []*task.Task) *service.Rejection {
+	gate.OnDelete(func(old, new *tikipkg.Tiki, allTikis []*tikipkg.Tiki) *service.Rejection {
 		return &service.Rejection{Reason: "deletes blocked for test"}
 	})
 
@@ -484,15 +501,14 @@ func TestDepsController_MoveTask_UpdateError(t *testing.T) {
 	// when gate rejects the update, statusline should receive the error
 	taskStore := store.NewInMemoryStore()
 
-	tasks := []*task.Task{
-		{ID: testCtxID, Title: "Context", Status: task.StatusReady, Type: task.TypeStory, Priority: 3, DependsOn: []string{testDepID}, IsWorkflow: true},
-		{ID: testBlkID, Title: "Blocker", Status: task.StatusReady, Type: task.TypeStory, Priority: 3, DependsOn: []string{testCtxID}, IsWorkflow: true},
-		{ID: testDepID, Title: "Depends", Status: task.StatusReady, Type: task.TypeStory, Priority: 3, IsWorkflow: true},
-		{ID: testFreeID, Title: "Free", Status: task.StatusReady, Type: task.TypeStory, Priority: 3, IsWorkflow: true},
-	}
-	for _, tt := range tasks {
-		if err := taskStore.CreateTask(tt); err != nil {
-			t.Fatalf("create task %s: %v", tt.ID, err)
+	for _, tk := range []*tikipkg.Tiki{
+		newWorkflowTiki(testCtxID, "Context", []string{testDepID}),
+		newWorkflowTiki(testBlkID, "Blocker", []string{testCtxID}),
+		newWorkflowTiki(testDepID, "Depends", nil),
+		newWorkflowTiki(testFreeID, "Free", nil),
+	} {
+		if err := taskStore.CreateTiki(tk); err != nil {
+			t.Fatalf("create tiki %s: %v", tk.ID, err)
 		}
 	}
 
@@ -507,7 +523,7 @@ func TestDepsController_MoveTask_UpdateError(t *testing.T) {
 	gate := service.NewTaskMutationGate()
 	gate.SetStore(taskStore)
 	// register a validator that blocks all updates
-	gate.OnUpdate(func(old, new *task.Task, allTasks []*task.Task) *service.Rejection {
+	gate.OnUpdate(func(old, new *tikipkg.Tiki, allTikis []*tikipkg.Tiki) *service.Rejection {
 		return &service.Rejection{Reason: "updates blocked for test"}
 	})
 
@@ -565,56 +581,26 @@ func newDepsNavEnv(t *testing.T, blockers int, allTasks int, depends int, laneCo
 	contextID := "CTXNAV0"
 	contextDepends := make([]string, 0, depends)
 	for i := 0; i < depends; i++ {
-		contextDepends = append(contextDepends, fmt.Sprintf("TIKI-DEP%03d", i))
+		contextDepends = append(contextDepends, fmt.Sprintf("DEP%04d", i))
 	}
-	if err := taskStore.CreateTask(&task.Task{
-		ID:         contextID,
-		Title:      "Context",
-		Status:     task.StatusReady,
-		Type:       task.TypeStory,
-		Priority:   3,
-		DependsOn:  contextDepends,
-		IsWorkflow: true,
-	}); err != nil {
+	if err := taskStore.CreateTiki(newWorkflowTiki(contextID, "Context", contextDepends)); err != nil {
 		t.Fatalf("create context: %v", err)
 	}
 
 	for i := 0; i < depends; i++ {
-		if err := taskStore.CreateTask(&task.Task{
-			ID:         fmt.Sprintf("TIKI-DEP%03d", i),
-			Title:      "Depends",
-			Status:     task.StatusReady,
-			Type:       task.TypeStory,
-			Priority:   3,
-			IsWorkflow: true,
-		}); err != nil {
+		if err := taskStore.CreateTiki(newWorkflowTiki(fmt.Sprintf("DEP%04d", i), "Depends", nil)); err != nil {
 			t.Fatalf("create depends task: %v", err)
 		}
 	}
 
 	for i := 0; i < blockers; i++ {
-		if err := taskStore.CreateTask(&task.Task{
-			ID:         fmt.Sprintf("TIKI-BLK%03d", i),
-			Title:      "Blocker",
-			Status:     task.StatusReady,
-			Type:       task.TypeStory,
-			Priority:   3,
-			DependsOn:  []string{contextID},
-			IsWorkflow: true,
-		}); err != nil {
+		if err := taskStore.CreateTiki(newWorkflowTiki(fmt.Sprintf("BLK%04d", i), "Blocker", []string{contextID})); err != nil {
 			t.Fatalf("create blocker task: %v", err)
 		}
 	}
 
 	for i := 0; i < allTasks; i++ {
-		if err := taskStore.CreateTask(&task.Task{
-			ID:         fmt.Sprintf("TIKI-ALL%03d", i),
-			Title:      "All",
-			Status:     task.StatusReady,
-			Type:       task.TypeStory,
-			Priority:   3,
-			IsWorkflow: true,
-		}); err != nil {
+		if err := taskStore.CreateTiki(newWorkflowTiki(fmt.Sprintf("ALL%04d", i), "All", nil)); err != nil {
 			t.Fatalf("create all lane task: %v", err)
 		}
 	}
@@ -740,8 +726,8 @@ func TestDepsController_GetFilteredTasksForLane_WithSearch(t *testing.T) {
 	dc, taskStore := newDepsTestEnv(t)
 
 	// set search results to only include the free task
-	free := taskStore.GetTask(testFreeID)
-	dc.pluginConfig.SetSearchResults([]task.SearchResult{{Task: free, Score: 1.0}}, "Free")
+	free := taskStore.GetTiki(testFreeID)
+	dc.pluginConfig.SetSearchResults([]*tikipkg.Tiki{free}, "Free")
 
 	// All lane should now only show the free task (matching search)
 	allTasks := dc.GetFilteredTasksForLane(depsLaneAll)

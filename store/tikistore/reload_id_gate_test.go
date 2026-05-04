@@ -21,7 +21,7 @@ func TestReloadTask_IDChangeRemovesStaleEntry(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewTikiStore: %v", err)
 	}
-	if store.GetTask("ORIG01") == nil {
+	if store.GetTiki("ORIG01") == nil {
 		t.Fatal("precondition: ORIG01 must be loaded")
 	}
 
@@ -33,10 +33,10 @@ func TestReloadTask_IDChangeRemovesStaleEntry(t *testing.T) {
 		t.Fatalf("ReloadTask: %v", err)
 	}
 
-	if got := store.GetTask("ORIG01"); got != nil {
+	if got := store.GetTiki("ORIG01"); got != nil {
 		t.Error("stale entry under old id ORIG01 should have been removed")
 	}
-	if got := store.GetTask("NEWID1"); got == nil {
+	if got := store.GetTiki("NEWID1"); got == nil {
 		t.Error("expected NEWID1 to be registered after reload")
 	}
 }
@@ -75,16 +75,16 @@ func TestReloadTask_IDChangeRefusesCollisionWithPeer(t *testing.T) {
 	}
 
 	// Peer preserved: AAAAAA still maps to AAAAAA.md, not to BBBBBB.md.
-	if got := store.GetTask("AAAAAA"); got == nil {
+	if got := store.GetTiki("AAAAAA"); got == nil {
 		t.Fatal("peer AAAAAA must not be evicted by the rejected reload")
-	} else if !strings.HasSuffix(got.FilePath, "AAAAAA.md") {
-		t.Errorf("peer AAAAAA now points at wrong file: %s", got.FilePath)
+	} else if !strings.HasSuffix(got.Path, "AAAAAA.md") {
+		t.Errorf("peer AAAAAA now points at wrong file: %s", got.Path)
 	}
 
 	// Stale old id gone: BBBBBB.md no longer has id BBBBBB on disk, so the
-	// store must not keep reporting a task at that key. Otherwise a board
+	// store must not keep reporting a tiki at that key. Otherwise a board
 	// would render a ghost entry whose file has silently moved identity.
-	if got := store.GetTask("BBBBBB"); got != nil {
+	if got := store.GetTiki("BBBBBB"); got != nil {
 		t.Errorf("stale BBBBBB entry should have been dropped on collision, got %+v", got)
 	}
 }
@@ -108,12 +108,12 @@ func TestReloadTask_SameIDUpdatesInPlace(t *testing.T) {
 		t.Fatalf("ReloadTask: %v", err)
 	}
 
-	task := store.GetTask("SAME01")
-	if task == nil {
+	tk := store.GetTiki("SAME01")
+	if tk == nil {
 		t.Fatal("SAME01 missing after reload")
 	}
-	if task.Title != "new title" {
-		t.Errorf("title not updated: got %q", task.Title)
+	if tk.Title != "new title" {
+		t.Errorf("title not updated: got %q", tk.Title)
 	}
 }
 

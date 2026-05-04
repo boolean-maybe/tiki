@@ -4,11 +4,12 @@ import (
 	"github.com/boolean-maybe/tiki/component"
 	"github.com/boolean-maybe/tiki/config"
 	taskpkg "github.com/boolean-maybe/tiki/task"
+	tikipkg "github.com/boolean-maybe/tiki/tiki"
 )
 
 // This file contains the edit field component creation methods for TaskEditView.
 
-func (ev *TaskEditView) ensureStatusSelectList(task *taskpkg.Task) *component.EditSelectList {
+func (ev *TaskEditView) ensureStatusSelectList(tk *tikipkg.Tiki) *component.EditSelectList {
 	if ev.statusSelectList == nil {
 		allStatuses := taskpkg.AllStatuses()
 		statusOptions := make([]string, len(allStatuses))
@@ -16,10 +17,11 @@ func (ev *TaskEditView) ensureStatusSelectList(task *taskpkg.Task) *component.Ed
 			statusOptions[i] = taskpkg.StatusDisplay(s)
 		}
 
+		statusStr, _, _ := tk.StringField(tikipkg.FieldStatus)
 		colors := config.GetColors()
 		ev.statusSelectList = component.NewEditSelectList(statusOptions, false)
 		ev.statusSelectList.SetLabel(getFocusMarker(colors) + "Status:   ")
-		ev.statusSelectList.SetInitialValue(taskpkg.StatusDisplay(task.Status))
+		ev.statusSelectList.SetInitialValue(taskpkg.StatusDisplay(taskpkg.Status(statusStr)))
 
 		ev.statusSelectList.SetSubmitHandler(func(text string) {
 			if ev.onStatusSave != nil {
@@ -31,7 +33,7 @@ func (ev *TaskEditView) ensureStatusSelectList(task *taskpkg.Task) *component.Ed
 	return ev.statusSelectList
 }
 
-func (ev *TaskEditView) ensureTypeSelectList(task *taskpkg.Task) *component.EditSelectList {
+func (ev *TaskEditView) ensureTypeSelectList(tk *tikipkg.Tiki) *component.EditSelectList {
 	if ev.typeSelectList == nil {
 		allTypes := taskpkg.AllTypes()
 		typeOptions := make([]string, len(allTypes))
@@ -39,10 +41,11 @@ func (ev *TaskEditView) ensureTypeSelectList(task *taskpkg.Task) *component.Edit
 			typeOptions[i] = taskpkg.TypeDisplay(t)
 		}
 
+		typeStr, _, _ := tk.StringField(tikipkg.FieldType)
 		colors := config.GetColors()
 		ev.typeSelectList = component.NewEditSelectList(typeOptions, false)
 		ev.typeSelectList.SetLabel(getFocusMarker(colors) + "Type:     ")
-		ev.typeSelectList.SetInitialValue(taskpkg.TypeDisplay(task.Type))
+		ev.typeSelectList.SetInitialValue(taskpkg.TypeDisplay(taskpkg.Type(typeStr)))
 
 		ev.typeSelectList.SetSubmitHandler(func(text string) {
 			if ev.onTypeSave != nil {
@@ -54,14 +57,15 @@ func (ev *TaskEditView) ensureTypeSelectList(task *taskpkg.Task) *component.Edit
 	return ev.typeSelectList
 }
 
-func (ev *TaskEditView) ensurePrioritySelectList(task *taskpkg.Task) *component.EditSelectList {
+func (ev *TaskEditView) ensurePrioritySelectList(tk *tikipkg.Tiki) *component.EditSelectList {
 	if ev.prioritySelectList == nil {
 		priorityOptions := taskpkg.AllPriorityDisplayValues()
 
+		priority, _, _ := tk.IntField(tikipkg.FieldPriority)
 		colors := config.GetColors()
 		ev.prioritySelectList = component.NewEditSelectList(priorityOptions, false)
 		ev.prioritySelectList.SetLabel(getFocusMarker(colors) + "Priority: ")
-		ev.prioritySelectList.SetInitialValue(taskpkg.PriorityDisplay(task.Priority))
+		ev.prioritySelectList.SetInitialValue(taskpkg.PriorityDisplay(priority))
 
 		ev.prioritySelectList.SetSubmitHandler(func(text string) {
 			if ev.onPrioritySave != nil {
@@ -73,8 +77,9 @@ func (ev *TaskEditView) ensurePrioritySelectList(task *taskpkg.Task) *component.
 	return ev.prioritySelectList
 }
 
-func (ev *TaskEditView) ensurePointsInput(task *taskpkg.Task) *component.IntEditSelect {
+func (ev *TaskEditView) ensurePointsInput(tk *tikipkg.Tiki) *component.IntEditSelect {
 	if ev.pointsInput == nil {
+		points, _, _ := tk.IntField(tikipkg.FieldPoints)
 		colors := config.GetColors()
 		ev.pointsInput = component.NewIntEditSelect(1, config.GetMaxPoints(), false)
 		ev.pointsInput.SetLabel(getFocusMarker(colors) + "Points:  ")
@@ -87,15 +92,16 @@ func (ev *TaskEditView) ensurePointsInput(task *taskpkg.Task) *component.IntEdit
 			}
 		})
 
-		ev.pointsInput.SetValue(task.Points)
+		ev.pointsInput.SetValue(points)
 	}
 	// Don't reset value if widget already exists - preserve user edits
 
 	return ev.pointsInput
 }
 
-func (ev *TaskEditView) ensureDueInput(task *taskpkg.Task) *component.DateEdit {
+func (ev *TaskEditView) ensureDueInput(tk *tikipkg.Tiki) *component.DateEdit {
 	if ev.dueInput == nil {
+		due, _, _ := tk.TimeField(tikipkg.FieldDue)
 		colors := config.GetColors()
 		ev.dueInput = component.NewDateEdit()
 		ev.dueInput.SetLabel(getFocusMarker(colors) + "Due:        ")
@@ -109,8 +115,8 @@ func (ev *TaskEditView) ensureDueInput(task *taskpkg.Task) *component.DateEdit {
 		})
 
 		var initialValue string
-		if !task.Due.IsZero() {
-			initialValue = task.Due.Format(taskpkg.DateFormat)
+		if !due.IsZero() {
+			initialValue = due.Format(taskpkg.DateFormat)
 		}
 		ev.dueInput.SetInitialValue(initialValue)
 	}
@@ -118,8 +124,9 @@ func (ev *TaskEditView) ensureDueInput(task *taskpkg.Task) *component.DateEdit {
 	return ev.dueInput
 }
 
-func (ev *TaskEditView) ensureRecurrenceInput(task *taskpkg.Task) *component.RecurrenceEdit {
+func (ev *TaskEditView) ensureRecurrenceInput(tk *tikipkg.Tiki) *component.RecurrenceEdit {
 	if ev.recurrenceInput == nil {
+		recurrenceStr, _, _ := tk.StringField(tikipkg.FieldRecurrence)
 		colors := config.GetColors()
 		ev.recurrenceInput = component.NewRecurrenceEdit()
 		ev.recurrenceInput.SetLabel(getFocusMarker(colors) + "Recurrence: ")
@@ -129,7 +136,7 @@ func (ev *TaskEditView) ensureRecurrenceInput(task *taskpkg.Task) *component.Rec
 				ev.onRecurrenceSave(value)
 			}
 
-			// sync due widget with auto-computed value from the updated in-memory task
+			// sync due widget with auto-computed value from the updated in-memory tiki
 			ev.syncDueFromTask()
 
 			// full refresh needed: tview can't swap a single primitive in a flex layout,
@@ -138,13 +145,13 @@ func (ev *TaskEditView) ensureRecurrenceInput(task *taskpkg.Task) *component.Rec
 			ev.updateValidationState()
 		})
 
-		ev.recurrenceInput.SetInitialValue(string(task.Recurrence))
+		ev.recurrenceInput.SetInitialValue(recurrenceStr)
 	}
 
 	return ev.recurrenceInput
 }
 
-func (ev *TaskEditView) ensureAssigneeSelectList(task *taskpkg.Task) *component.EditSelectList {
+func (ev *TaskEditView) ensureAssigneeSelectList(tk *tikipkg.Tiki) *component.EditSelectList {
 	if ev.assigneeSelectList == nil {
 		var assigneeOptions []string
 		if users, err := ev.taskStore.GetAllUsers(); err == nil {
@@ -155,11 +162,12 @@ func (ev *TaskEditView) ensureAssigneeSelectList(task *taskpkg.Task) *component.
 			assigneeOptions = []string{"Unassigned"}
 		}
 
+		assignee, _, _ := tk.StringField(tikipkg.FieldAssignee)
 		colors := config.GetColors()
 		ev.assigneeSelectList = component.NewEditSelectList(assigneeOptions, true)
 		ev.assigneeSelectList.SetLabel(getFocusMarker(colors) + "Assignee: ")
 
-		initialValue := task.Assignee
+		initialValue := assignee
 		if initialValue == "" {
 			initialValue = "Unassigned"
 		}

@@ -4,7 +4,7 @@ import (
 	"testing"
 
 	"github.com/boolean-maybe/tiki/store"
-	"github.com/boolean-maybe/tiki/task"
+	tikipkg "github.com/boolean-maybe/tiki/tiki"
 )
 
 // identityOnlyStore is a minimal store.Store implementation that only
@@ -53,16 +53,17 @@ func TestGetCurrentUserName_BothEmpty(t *testing.T) {
 	}
 }
 
-// TestSetAuthorFromGit_EmailOnly_NoAngleEchoing asserts the raw-tuple
-// contract at the controller layer: CreatedBy must not be formatted as
+// TestSetAuthorOnTiki_EmailOnly_NoAngleEchoing asserts the raw-tuple
+// contract at the controller layer: createdBy must not be formatted as
 // `me@example.com <me@example.com>` when only email is configured. This
 // mirrors the tikistore template test and covers the controller path that
 // the UI uses for non-template task creation.
-func TestSetAuthorFromGit_EmailOnly_NoAngleEchoing(t *testing.T) {
+func TestSetAuthorOnTiki_EmailOnly_NoAngleEchoing(t *testing.T) {
 	s := &identityOnlyStore{email: "me@example.com"}
-	tk := &task.Task{}
-	setAuthorFromGit(tk, s)
-	if tk.CreatedBy != "me@example.com" {
-		t.Errorf("CreatedBy = %q, want 'me@example.com'", tk.CreatedBy)
+	tk := tikipkg.New()
+	setAuthorOnTiki(tk, s)
+	createdBy, _, _ := tk.StringField("createdBy")
+	if createdBy != "me@example.com" {
+		t.Errorf("createdBy = %q, want 'me@example.com'", createdBy)
 	}
 }

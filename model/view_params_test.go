@@ -3,8 +3,15 @@ package model
 import (
 	"testing"
 
-	taskpkg "github.com/boolean-maybe/tiki/task"
+	tikipkg "github.com/boolean-maybe/tiki/tiki"
 )
+
+func newTestDraftTiki(id, title string) *tikipkg.Tiki {
+	tk := tikipkg.New()
+	tk.ID = id
+	tk.Title = title
+	return tk
+}
 
 func TestTaskDetailParams_EncodeDecodeRoundTrip(t *testing.T) {
 	tests := []struct {
@@ -125,13 +132,7 @@ func TestTaskDetailParams_ReadOnlyRoundTrip(t *testing.T) {
 }
 
 func TestTaskEditParams_EncodeDecodeRoundTrip(t *testing.T) {
-	draftTask := &taskpkg.Task{
-		ID:       "TIKI-42",
-		Title:    "Test Task",
-		Status:   taskpkg.StatusReady,
-		Type:     taskpkg.TypeStory,
-		Priority: 3,
-	}
+	draftTask := newTestDraftTiki("T1KI42", "Test Task")
 
 	tests := []struct {
 		name   string
@@ -146,7 +147,7 @@ func TestTaskEditParams_EncodeDecodeRoundTrip(t *testing.T) {
 		{
 			name: "task ID with draft",
 			params: TaskEditParams{
-				TaskID: "TIKI-42",
+				TaskID: "T1KI42",
 				Draft:  draftTask,
 			},
 		},
@@ -160,7 +161,7 @@ func TestTaskEditParams_EncodeDecodeRoundTrip(t *testing.T) {
 		{
 			name: "all fields",
 			params: TaskEditParams{
-				TaskID: "TIKI-42",
+				TaskID: "T1KI42",
 				Draft:  draftTask,
 				Focus:  EditFieldDescription,
 			},
@@ -232,10 +233,7 @@ func TestTaskEditParams_DescOnlyRoundTrip(t *testing.T) {
 
 func TestTaskEditParams_DraftWithoutTaskID(t *testing.T) {
 	// When Draft is present but TaskID is empty, TaskID should be inferred from Draft
-	draftTask := &taskpkg.Task{
-		ID:    "TIKI-100",
-		Title: "Draft Task",
-	}
+	draftTask := newTestDraftTiki("T1KI00", "Draft Task")
 
 	params := TaskEditParams{
 		TaskID: "",
@@ -249,14 +247,14 @@ func TestTaskEditParams_DraftWithoutTaskID(t *testing.T) {
 		t.Fatal("EncodeTaskEditParams returned nil")
 	}
 
-	if encoded["taskID"] != "TIKI-100" {
-		t.Errorf("taskID = %v, want TIKI-100", encoded["taskID"])
+	if encoded["taskID"] != "T1KI00" {
+		t.Errorf("taskID = %v, want T1KI00", encoded["taskID"])
 	}
 
 	// Decoding should preserve the inference
 	decoded := DecodeTaskEditParams(encoded)
-	if decoded.TaskID != "TIKI-100" {
-		t.Errorf("decoded TaskID = %q, want TIKI-100", decoded.TaskID)
+	if decoded.TaskID != "T1KI00" {
+		t.Errorf("decoded TaskID = %q, want T1KI00", decoded.TaskID)
 	}
 }
 
@@ -344,7 +342,7 @@ func TestTaskEditParams_DecodeInvalidParams(t *testing.T) {
 			name: "wrong type for draft",
 			params: map[string]interface{}{
 				"taskID":    "TIKI-1",
-				"draftTask": "not a task",
+				"draftTask": "not a tiki",
 			},
 			want: TaskEditParams{TaskID: "TIKI-1"},
 		},
@@ -379,10 +377,7 @@ func TestTaskEditParams_DecodeInvalidParams(t *testing.T) {
 
 func TestTaskEditParams_DraftTaskIDInference(t *testing.T) {
 	// When Draft has an ID but TaskID param is empty, it should be inferred
-	draftTask := &taskpkg.Task{
-		ID:    "TIKI-999",
-		Title: "Draft",
-	}
+	draftTask := newTestDraftTiki("T1KI99", "Draft")
 
 	params := map[string]interface{}{
 		"taskID":    "",
@@ -392,8 +387,8 @@ func TestTaskEditParams_DraftTaskIDInference(t *testing.T) {
 	decoded := DecodeTaskEditParams(params)
 
 	// TaskID should be inferred from Draft
-	if decoded.TaskID != "TIKI-999" {
-		t.Errorf("TaskID = %q, want TIKI-999 (inferred from Draft)", decoded.TaskID)
+	if decoded.TaskID != "T1KI99" {
+		t.Errorf("TaskID = %q, want T1KI99 (inferred from Draft)", decoded.TaskID)
 	}
 
 	if decoded.Draft == nil {
@@ -405,7 +400,7 @@ func TestTaskEditParams_NilDraftNoInference(t *testing.T) {
 	// When Draft is nil, TaskID should not be inferred
 	params := map[string]interface{}{
 		"taskID":    "",
-		"draftTask": (*taskpkg.Task)(nil),
+		"draftTask": (*tikipkg.Tiki)(nil),
 	}
 
 	decoded := DecodeTaskEditParams(params)
@@ -428,13 +423,11 @@ func TestViewParams_ParamKeyConstants(t *testing.T) {
 		t.Error("TaskDetailParams should use 'taskID' key")
 	}
 
+	draft := newTestDraftTiki("TIKI01", "Test")
 	editParams := EncodeTaskEditParams(TaskEditParams{
-		TaskID: "TIKI-1",
-		Draft: &taskpkg.Task{
-			ID:    "TIKI-1",
-			Title: "Test",
-		},
-		Focus: EditFieldTitle,
+		TaskID: "TIKI01",
+		Draft:  draft,
+		Focus:  EditFieldTitle,
 	})
 
 	if _, ok := editParams["taskID"]; !ok {

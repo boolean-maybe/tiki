@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/boolean-maybe/tiki/task"
+	tikipkg "github.com/boolean-maybe/tiki/tiki"
 )
 
 func TestNewPluginConfig(t *testing.T) {
@@ -357,9 +357,9 @@ func TestPluginConfig_SearchState(t *testing.T) {
 	pc.SavePreSearchState()
 
 	// Set search results
-	results := []task.SearchResult{
-		{Task: &task.Task{ID: "TIKI-1", Title: "Match"}, Score: 1.0},
-		{Task: &task.Task{ID: "TIKI-2", Title: "Match 2"}, Score: 0.8},
+	results := []*tikipkg.Tiki{
+		{ID: "ABC001", Title: "Match"},
+		{ID: "ABC002", Title: "Match 2"},
 	}
 	pc.SetSearchResults(results, "match")
 
@@ -552,7 +552,7 @@ func TestPluginConfig_ConcurrentAccess(t *testing.T) {
 	go func() {
 		for i := range 25 {
 			pc.SavePreSearchState()
-			pc.SetSearchResults([]task.SearchResult{{Task: &task.Task{ID: "T-1"}, Score: 1.0}}, "query")
+			pc.SetSearchResults([]*tikipkg.Tiki{{ID: "ABC001"}}, "query")
 			if i%2 == 0 {
 				pc.ClearSearchResults()
 			}

@@ -10,6 +10,7 @@ import (
 	"github.com/boolean-maybe/tiki/model"
 	"github.com/boolean-maybe/tiki/task"
 	"github.com/boolean-maybe/tiki/testutil"
+	tikipkg "github.com/boolean-maybe/tiki/tiki"
 
 	"github.com/gdamore/tcell/v2"
 )
@@ -111,13 +112,14 @@ func TestChooseAction_EnterAppliesMutation(t *testing.T) {
 	if err := ta.TaskStore.Reload(); err != nil {
 		t.Fatalf("failed to reload: %v", err)
 	}
-	updated := ta.TaskStore.GetTask("000001")
+	updated := ta.TaskStore.GetTiki("000001")
 	if updated == nil {
 		t.Fatal("task not found")
 	}
 	// should be one of the epic task IDs
-	if updated.Assignee != "000002" && updated.Assignee != "000003" {
-		t.Fatalf("expected assignee to be TIKI-2 or TIKI-3, got %q", updated.Assignee)
+	updatedAssignee, _, _ := updated.StringField("assignee")
+	if updatedAssignee != "000002" && updatedAssignee != "000003" {
+		t.Fatalf("expected assignee to be TIKI-2 or TIKI-3, got %q", updatedAssignee)
 	}
 }
 
@@ -141,12 +143,13 @@ func TestChooseAction_EscCancelsWithoutMutation(t *testing.T) {
 	if err := ta.TaskStore.Reload(); err != nil {
 		t.Fatalf("failed to reload: %v", err)
 	}
-	updated := ta.TaskStore.GetTask("000001")
+	updated := ta.TaskStore.GetTiki("000001")
 	if updated == nil {
 		t.Fatal("task not found")
 	}
-	if updated.Assignee != "" {
-		t.Fatalf("expected empty assignee after cancel, got %q", updated.Assignee)
+	canceledAssignee, _, _ := updated.StringField("assignee")
+	if canceledAssignee != "" {
+		t.Fatalf("expected empty assignee after cancel, got %q", canceledAssignee)
 	}
 }
 
@@ -165,12 +168,13 @@ func TestChooseAction_NonChooseActionStillWorks(t *testing.T) {
 	if err := ta.TaskStore.Reload(); err != nil {
 		t.Fatalf("failed to reload: %v", err)
 	}
-	updated := ta.TaskStore.GetTask("000001")
+	updated := ta.TaskStore.GetTiki("000001")
 	if updated == nil {
 		t.Fatal("task not found")
 	}
-	if updated.Status != task.StatusReady {
-		t.Fatalf("expected status ready, got %v", updated.Status)
+	nonChooseStatus, _, _ := updated.StringField("status")
+	if nonChooseStatus != string(task.StatusReady) {
+		t.Fatalf("expected status ready, got %v", nonChooseStatus)
 	}
 }
 
@@ -191,9 +195,10 @@ func TestChooseAction_ModalBlocksOtherActions(t *testing.T) {
 	if err := ta.TaskStore.Reload(); err != nil {
 		t.Fatalf("failed to reload: %v", err)
 	}
-	updated := ta.TaskStore.GetTask("000001")
-	if updated.Status != task.StatusBacklog {
-		t.Fatalf("expected status backlog (action blocked while modal), got %v", updated.Status)
+	updated := ta.TaskStore.GetTiki("000001")
+	blockedStatus, _, _ := updated.StringField("status")
+	if blockedStatus != string(task.StatusBacklog) {
+		t.Fatalf("expected status backlog (action blocked while modal), got %v", blockedStatus)
 	}
 
 	ta.SendKey(tcell.KeyEscape, 0, tcell.ModNone)
@@ -316,19 +321,20 @@ func TestChooseAction_FiltersOutAlreadyLinkedEpics(t *testing.T) {
 	if err := ta.TaskStore.Reload(); err != nil {
 		t.Fatalf("failed to reload: %v", err)
 	}
-	updated := ta.TaskStore.GetTask("000003")
+	updated := ta.TaskStore.GetTiki("000003")
 	if updated == nil {
 		t.Fatal("epic not found")
 	}
+	deps, _, _ := updated.StringSliceField(tikipkg.FieldDependsOn)
 	found := false
-	for _, dep := range updated.DependsOn {
+	for _, dep := range deps {
 		if dep == "000001" {
 			found = true
 			break
 		}
 	}
 	if !found {
-		t.Fatalf("expected TIKI-000003 to depend on TIKI-000001, got %v", updated.DependsOn)
+		t.Fatalf("expected 000003 to depend on 000001, got %v", deps)
 	}
 }
 

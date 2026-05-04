@@ -12,25 +12,18 @@ import (
 	"github.com/boolean-maybe/tiki/workflow"
 )
 
-// setAuthorFromIdentity best-effort populates CreatedBy using the current
-// Tiki identity (configured identity → git → OS user).
-func (s *TikiStore) setAuthorFromIdentity(task *taskpkg.Task) {
-	if task == nil || task.CreatedBy != "" {
-		return
-	}
-
+func (s *TikiStore) setAuthorFromIdentityTiki(tk *tikipkg.Tiki) {
 	name, email, err := s.GetCurrentUser()
-	if err != nil {
+	if err != nil || (name == "" && email == "") {
 		return
 	}
-
 	switch {
 	case name != "" && email != "":
-		task.CreatedBy = fmt.Sprintf("%s <%s>", name, email)
+		tk.Set("createdBy", fmt.Sprintf("%s <%s>", name, email))
 	case name != "":
-		task.CreatedBy = name
-	case email != "":
-		task.CreatedBy = email
+		tk.Set("createdBy", name)
+	default:
+		tk.Set("createdBy", email)
 	}
 }
 
@@ -42,19 +35,13 @@ func (s *TikiStore) setAuthorFromIdentity(task *taskpkg.Task) {
 // populated — callers fill in title/body. The status registry treats a missing
 // `default: true` as an explicit opt-out of workflow capture for this workflow.
 func (s *TikiStore) NewTikiTemplate() (*tikipkg.Tiki, error) {
-	t, err := s.NewTaskTemplate()
-	if err != nil {
-		return nil, err
-	}
-	return tikipkg.FromTask(t), nil
-}
-
-// NewTaskTemplate returns a new document populated with creation defaults.
-// Phase 5 compatibility adapter over NewTikiTemplate.
-func (s *TikiStore) NewTaskTemplate() (*taskpkg.Task, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	return s.newTikiTemplateLocked()
+}
 
+// newTikiTemplateLocked builds a template tiki. Caller must hold s.mu.
+func (s *TikiStore) newTikiTemplateLocked() (*tikipkg.Tiki, error) {
 	if err := config.RequireWorkflowRegistriesLoaded(); err != nil {
 		return nil, err
 	}
@@ -76,25 +63,24 @@ func (s *TikiStore) NewTaskTemplate() (*taskpkg.Task, error) {
 		slog.Debug("ID collision detected in index, regenerating", "id", candidate)
 	}
 
-	defaultStatus := taskpkg.DefaultStatus()
-	task := &taskpkg.Task{
-		ID:        taskID,
-		CreatedAt: time.Now(),
+	tk := tikipkg.New()
+	tk.ID = taskID
+	tk.CreatedAt = time.Now()
+
+	if defaultStatus := taskpkg.DefaultStatus(); defaultStatus != "" {
+		tk.Set(tikipkg.FieldStatus, string(defaultStatus))
+		tk.Set(tikipkg.FieldType, string(taskpkg.DefaultType()))
+		tk.Set(tikipkg.FieldPriority, 3)
+		tk.Set(tikipkg.FieldPoints, 1)
+		tk.Set(tikipkg.FieldTags, []string{"idea"})
+		for k, v := range buildCustomFieldDefaults() {
+			tk.Set(k, v)
+		}
 	}
 
-	if defaultStatus != "" {
-		task.Status = defaultStatus
-		task.Type = taskpkg.DefaultType()
-		task.Priority = 3
-		task.Points = 1
-		task.Tags = []string{"idea"}
-		task.IsWorkflow = true
-		task.CustomFields = buildCustomFieldDefaults()
-	}
+	s.setAuthorFromIdentityTiki(tk)
 
-	s.setAuthorFromIdentity(task)
-
-	return task, nil
+	return tk, nil
 }
 
 // buildCustomFieldDefaults collects DefaultValue from all custom field

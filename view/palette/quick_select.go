@@ -10,10 +10,10 @@ import (
 	"github.com/boolean-maybe/tiki/component"
 	"github.com/boolean-maybe/tiki/config"
 	"github.com/boolean-maybe/tiki/model"
-	"github.com/boolean-maybe/tiki/task"
+	tikipkg "github.com/boolean-maybe/tiki/tiki"
 )
 
-// QuickSelect is a modal overlay listing candidate tasks, filterable by fuzzy typing.
+// QuickSelect is a modal overlay listing candidate tikis, filterable by fuzzy typing.
 type QuickSelect struct {
 	root           *tview.Flex
 	filterInput    *tview.InputField
@@ -21,8 +21,8 @@ type QuickSelect struct {
 	hintView       *tview.TextView
 	quickSelectCfg *model.QuickSelectConfig
 
-	candidateTasks []*task.Task
-	filteredTasks  []*task.Task
+	candidateTikis []*tikipkg.Tiki
+	filteredTikis  []*tikipkg.Tiki
 	selectedIndex  int
 	scrollOffset   int
 	idColumnWidth  int
@@ -88,13 +88,13 @@ func (qs *QuickSelect) GetFilterInput() tview.Primitive {
 	return qs.filterInput
 }
 
-// OnShow resets state and receives the pre-filtered candidate tasks.
-func (qs *QuickSelect) OnShow(tasks []*task.Task) {
-	qs.candidateTasks = tasks
+// OnShow resets state and receives the pre-filtered candidate tikis.
+func (qs *QuickSelect) OnShow(tikis []*tikipkg.Tiki) {
+	qs.candidateTikis = tikis
 	qs.filterInput.SetText("")
 	qs.selectedIndex = 0
 	qs.scrollOffset = 0
-	qs.idColumnWidth = component.ComputeIDColumnWidth(tasks)
+	qs.idColumnWidth = component.ComputeIDColumnWidth(tikis)
 	qs.filterTasks()
 	qs.renderList()
 }
@@ -110,23 +110,23 @@ func (qs *QuickSelect) SetChangedFunc() {
 func (qs *QuickSelect) filterTasks() {
 	query := qs.filterInput.GetText()
 	if query == "" {
-		qs.filteredTasks = make([]*task.Task, len(qs.candidateTasks))
-		copy(qs.filteredTasks, qs.candidateTasks)
+		qs.filteredTikis = make([]*tikipkg.Tiki, len(qs.candidateTikis))
+		copy(qs.filteredTikis, qs.candidateTikis)
 		qs.scrollOffset = 0
 		qs.clampSelection()
 		return
 	}
 
 	type scored struct {
-		task  *task.Task
+		tiki  *tikipkg.Tiki
 		score int
 	}
 	var matches []scored
-	for _, t := range qs.candidateTasks {
-		text := t.ID + " " + t.Title
+	for _, tk := range qs.candidateTikis {
+		text := tk.ID + " " + tk.Title
 		matched, score := fuzzyMatch(query, text)
 		if matched {
-			matches = append(matches, scored{t, score})
+			matches = append(matches, scored{tk, score})
 		}
 	}
 
@@ -137,16 +137,16 @@ func (qs *QuickSelect) filterTasks() {
 		}
 	}
 
-	qs.filteredTasks = make([]*task.Task, len(matches))
+	qs.filteredTikis = make([]*tikipkg.Tiki, len(matches))
 	for i, m := range matches {
-		qs.filteredTasks[i] = m.task
+		qs.filteredTikis[i] = m.tiki
 	}
 	qs.scrollOffset = 0
 	qs.clampSelection()
 }
 
 func (qs *QuickSelect) clampSelection() {
-	if qs.selectedIndex >= len(qs.filteredTasks) {
+	if qs.selectedIndex >= len(qs.filteredTikis) {
 		qs.selectedIndex = 0
 	}
 }
@@ -167,7 +167,7 @@ func (qs *QuickSelect) renderList() {
 
 	var buf strings.Builder
 
-	if len(qs.filteredTasks) == 0 {
+	if len(qs.filteredTikis) == 0 {
 		buf.WriteString("\n")
 		buf.WriteString(fmt.Sprintf("[%s]  no matches", mutedHex))
 		qs.listView.SetText(buf.String())
@@ -181,8 +181,8 @@ func (qs *QuickSelect) renderList() {
 		maxVisible = 1
 	}
 	endIndex := qs.scrollOffset + maxVisible
-	if endIndex > len(qs.filteredTasks) {
-		endIndex = len(qs.filteredTasks)
+	if endIndex > len(qs.filteredTikis) {
+		endIndex = len(qs.filteredTikis)
 	}
 
 	buf.WriteString("\n")
@@ -190,7 +190,7 @@ func (qs *QuickSelect) renderList() {
 		if i > qs.scrollOffset {
 			buf.WriteString("\n")
 		}
-		row := component.RenderTaskRow(qs.filteredTasks[i], i == qs.selectedIndex, width, qs.idColumnWidth, qs.rowColors)
+		row := component.RenderTaskRow(qs.filteredTikis[i], i == qs.selectedIndex, width, qs.idColumnWidth, qs.rowColors)
 		buf.WriteString(row)
 	}
 
@@ -235,7 +235,7 @@ func (qs *QuickSelect) handleFilterInput(event *tcell.EventKey) *tcell.EventKey 
 }
 
 func (qs *QuickSelect) moveSelection(direction int) {
-	n := len(qs.filteredTasks)
+	n := len(qs.filteredTikis)
 	if n == 0 {
 		return
 	}
@@ -249,7 +249,7 @@ func (qs *QuickSelect) moveSelection(direction int) {
 }
 
 func (qs *QuickSelect) ensureSelectionVisible() {
-	n := len(qs.filteredTasks)
+	n := len(qs.filteredTikis)
 	if n == 0 {
 		qs.scrollOffset = 0
 		return
@@ -282,10 +282,10 @@ func (qs *QuickSelect) ensureSelectionVisible() {
 }
 
 func (qs *QuickSelect) dispatchSelected() {
-	if qs.selectedIndex >= len(qs.filteredTasks) {
+	if qs.selectedIndex >= len(qs.filteredTikis) {
 		qs.quickSelectCfg.Cancel()
 		return
 	}
-	t := qs.filteredTasks[qs.selectedIndex]
-	qs.quickSelectCfg.Select(t.ID)
+	tk := qs.filteredTikis[qs.selectedIndex]
+	qs.quickSelectCfg.Select(tk.ID)
 }

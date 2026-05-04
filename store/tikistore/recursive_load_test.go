@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	taskpkg "github.com/boolean-maybe/tiki/task"
+	tikipkg "github.com/boolean-maybe/tiki/tiki"
 )
 
 // TestRecursiveLoad_PicksUpNestedDocuments verifies the Phase 2 contract:
@@ -29,7 +29,7 @@ func TestRecursiveLoad_PicksUpNestedDocuments(t *testing.T) {
 	}
 
 	for _, id := range []string{"AAAAAA", "BBBBBB", "CCCCCC"} {
-		if task := store.GetTask(id); task == nil {
+		if tk := store.GetTiki(id); tk == nil {
 			t.Errorf("expected document %s to load, but it was missing", id)
 		}
 	}
@@ -67,16 +67,16 @@ func TestRecursiveLoad_ExcludesProjectConfigFiles(t *testing.T) {
 	// Only AAAAAA should be loaded — the two bogus `.md` config files must be
 	// skipped even though they carry valid-looking frontmatter. A failure
 	// here would mean a user's `config.md` gets promoted to a workflow doc.
-	if got := len(store.GetAllTasks()); got != 1 {
-		t.Errorf("unexpected task count after load: got %d, want 1", got)
+	if got := len(store.GetAllTikis()); got != 1 {
+		t.Errorf("unexpected tiki count after load: got %d, want 1", got)
 	}
-	if store.GetTask("AAAAAA") == nil {
+	if store.GetTiki("AAAAAA") == nil {
 		t.Error("AAAAAA missing after load")
 	}
-	if store.GetTask("ZZZZZZ") != nil {
+	if store.GetTiki("ZZZZZZ") != nil {
 		t.Error("config.md incorrectly loaded as ZZZZZZ")
 	}
-	if store.GetTask("YYYYYY") != nil {
+	if store.GetTiki("YYYYYY") != nil {
 		t.Error("workflow.md incorrectly loaded as YYYYYY")
 	}
 }
@@ -96,19 +96,19 @@ func TestRecursiveLoad_SkipsHiddenDirectories(t *testing.T) {
 		t.Fatalf("NewTikiStore: %v", err)
 	}
 
-	if store.GetTask("ZZZZZZ") != nil {
+	if store.GetTiki("ZZZZZZ") != nil {
 		t.Error("hidden .obsidian doc was loaded; expected directory to be skipped")
 	}
-	if store.GetTask("YYYYYY") != nil {
+	if store.GetTiki("YYYYYY") != nil {
 		t.Error("hidden .git doc was loaded; expected directory to be skipped")
 	}
-	if store.GetTask("AAAAAA") == nil {
+	if store.GetTiki("AAAAAA") == nil {
 		t.Error("visible doc unexpectedly missing")
 	}
 }
 
 // TestRecursiveLoad_NewTaskLandsAtDocRoot verifies the Phase 2 save default:
-// a brand-new document written via CreateTask ends up directly under the
+// a brand-new document written via CreateTiki ends up directly under the
 // scan root (`<root>/<ID>.md`), not under a `tiki/` subdirectory. The
 // recursive walker must then find it on reload.
 func TestRecursiveLoad_NewTaskLandsAtDocRoot(t *testing.T) {
@@ -118,15 +118,14 @@ func TestRecursiveLoad_NewTaskLandsAtDocRoot(t *testing.T) {
 		t.Fatalf("NewTikiStore: %v", err)
 	}
 
-	task := &taskpkg.Task{
-		ID:       "EEEEEE",
-		Title:    "new doc",
-		Type:     taskpkg.TypeStory,
-		Status:   "backlog",
-		Priority: 3,
-	}
-	if err := store.CreateTask(task); err != nil {
-		t.Fatalf("CreateTask: %v", err)
+	tk := tikipkg.New()
+	tk.ID = "EEEEEE"
+	tk.Title = "new doc"
+	tk.Set("type", "story")
+	tk.Set("status", "backlog")
+	tk.Set("priority", 3)
+	if err := store.CreateTiki(tk); err != nil {
+		t.Fatalf("CreateTiki: %v", err)
 	}
 
 	want := filepath.Join(root, "EEEEEE.md")
@@ -138,7 +137,7 @@ func TestRecursiveLoad_NewTaskLandsAtDocRoot(t *testing.T) {
 	if err := store.Reload(); err != nil {
 		t.Fatalf("Reload: %v", err)
 	}
-	if store.GetTask("EEEEEE") == nil {
+	if store.GetTiki("EEEEEE") == nil {
 		t.Error("new doc missing after reload; recursive walker failed to find it")
 	}
 }
@@ -158,13 +157,14 @@ func TestRecursiveLoad_NestedSavePreservesPath(t *testing.T) {
 		t.Fatalf("NewTikiStore: %v", err)
 	}
 
-	task := store.GetTask("FFFFFF")
-	if task == nil {
+	tk := store.GetTiki("FFFFFF")
+	if tk == nil {
 		t.Fatal("FFFFFF missing after load")
 	}
-	task.Title = "updated"
-	if err := store.UpdateTask(task); err != nil {
-		t.Fatalf("UpdateTask: %v", err)
+	updated := tk.Clone()
+	updated.Title = "updated"
+	if err := store.UpdateTiki(updated); err != nil {
+		t.Fatalf("UpdateTiki: %v", err)
 	}
 
 	// The original nested file must still be the only copy; no duplicate
@@ -173,7 +173,7 @@ func TestRecursiveLoad_NestedSavePreservesPath(t *testing.T) {
 		t.Errorf("nested file disappeared after save: %v", err)
 	}
 	if _, err := os.Stat(filepath.Join(root, "FFFFFF.md")); !os.IsNotExist(err) {
-		t.Errorf("duplicate created at root; save ignored FilePath: err=%v", err)
+		t.Errorf("duplicate created at root; save ignored loaded path: err=%v", err)
 	}
 }
 

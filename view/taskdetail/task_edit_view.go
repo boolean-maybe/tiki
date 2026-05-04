@@ -7,8 +7,10 @@ import (
 	"github.com/boolean-maybe/tiki/config"
 	"github.com/boolean-maybe/tiki/controller"
 	"github.com/boolean-maybe/tiki/model"
+	"github.com/boolean-maybe/tiki/service"
 	"github.com/boolean-maybe/tiki/store"
 	taskpkg "github.com/boolean-maybe/tiki/task"
+	tikipkg "github.com/boolean-maybe/tiki/tiki"
 
 	navtview "github.com/boolean-maybe/navidown/navidown/tview"
 	"github.com/gdamore/tcell/v2"
@@ -91,17 +93,17 @@ func NewTaskEditView(taskStore store.Store, taskID string, imageManager *navtvie
 	ev.build()
 
 	// Eagerly create all edit field widgets to ensure they exist before focus management
-	task := ev.GetTask()
-	if task != nil {
-		ev.ensureTitleInput(task)
-		ev.ensureDescTextArea(task)
-		ev.ensureStatusSelectList(task)
-		ev.ensureTypeSelectList(task)
-		ev.ensurePrioritySelectList(task)
-		ev.ensureAssigneeSelectList(task)
-		ev.ensurePointsInput(task)
-		ev.ensureDueInput(task)
-		ev.ensureRecurrenceInput(task)
+	tk := ev.GetTiki()
+	if tk != nil {
+		ev.ensureTitleInput(tk)
+		ev.ensureDescTextArea(tk)
+		ev.ensureStatusSelectList(tk)
+		ev.ensureTypeSelectList(tk)
+		ev.ensurePrioritySelectList(tk)
+		ev.ensureAssigneeSelectList(tk)
+		ev.ensurePointsInput(tk)
+		ev.ensureDueInput(tk)
+		ev.ensureRecurrenceInput(tk)
 	}
 
 	ev.refresh()
@@ -109,22 +111,22 @@ func NewTaskEditView(taskStore store.Store, taskID string, imageManager *navtvie
 	return ev
 }
 
-// GetTask returns the appropriate task based on mode (prioritizes editing copy)
-func (ev *TaskEditView) GetTask() *taskpkg.Task {
+// GetTiki returns the appropriate tiki based on mode (prioritizes editing copy)
+func (ev *TaskEditView) GetTiki() *tikipkg.Tiki {
 	if ev.taskController != nil {
-		if draftTask := ev.taskController.GetDraftTask(); draftTask != nil {
-			return draftTask
+		if draftTiki := ev.taskController.GetDraftTiki(); draftTiki != nil {
+			return draftTiki
 		}
-		if editingTask := ev.taskController.GetEditingTask(); editingTask != nil {
-			return editingTask
+		if editingTiki := ev.taskController.GetEditingTiki(); editingTiki != nil {
+			return editingTiki
 		}
 	}
 
-	task := ev.taskStore.GetTask(ev.taskID)
-	if task == nil && ev.fallbackTask != nil && ev.fallbackTask.ID == ev.taskID {
-		task = ev.fallbackTask
+	tk := ev.taskStore.GetTiki(ev.taskID)
+	if tk == nil && ev.fallbackTiki != nil && ev.fallbackTiki.ID == ev.taskID {
+		tk = ev.fallbackTiki
 	}
-	return task
+	return tk
 }
 
 // GetActionRegistry returns the view's action registry
@@ -194,8 +196,8 @@ func (ev *TaskEditView) refresh() {
 	ev.content.Clear()
 	ev.descView = nil
 
-	task := ev.GetTask()
-	if task == nil {
+	tk := ev.GetTiki()
+	if tk == nil {
 		notFound := tview.NewTextView().SetText("Task not found")
 		ev.content.AddItem(notFound, 0, 1, false)
 		return
@@ -204,22 +206,22 @@ func (ev *TaskEditView) refresh() {
 	colors := config.GetColors()
 
 	if !ev.fullscreen {
-		metadataBox := ev.buildMetadataBox(task, colors)
+		metadataBox := ev.buildMetadataBox(tk, colors)
 		ev.content.AddItem(metadataBox, 10, 0, false)
 	}
 
 	if ev.tagsOnly {
-		tagsTextArea := ev.ensureTagsTextArea(task)
+		tagsTextArea := ev.ensureTagsTextArea(tk)
 		ev.content.AddItem(tagsTextArea, 0, 1, true)
 	} else {
-		descPrimitive := ev.buildDescription(task)
+		descPrimitive := ev.buildDescription(tk)
 		ev.content.AddItem(descPrimitive, 0, 1, true)
 	}
 
 	ev.updateValidationState()
 }
 
-func (ev *TaskEditView) buildMetadataBox(task *taskpkg.Task, colors *config.ColorConfig) *tview.Frame {
+func (ev *TaskEditView) buildMetadataBox(tk *tikipkg.Tiki, colors *config.ColorConfig) *tview.Frame {
 	mode := RenderModeEdit
 	if ev.descOnly || ev.tagsOnly {
 		mode = RenderModeView
@@ -229,19 +231,19 @@ func (ev *TaskEditView) buildMetadataBox(task *taskpkg.Task, colors *config.Colo
 		FocusedField: ev.focusedField,
 		Colors:       colors,
 	}
-	titlePrimitive := ev.buildTitlePrimitive(task, colors)
-	col1, col2, col3 := ev.buildMetadataColumns(task, ctx, colors)
-	metadataBox := ev.assembleMetadataBox(task, colors, titlePrimitive, col1, col2, col3, 1)
+	titlePrimitive := ev.buildTitlePrimitive(tk, colors)
+	col1, col2, col3 := ev.buildMetadataColumns(tk, ctx, colors)
+	metadataBox := ev.assembleMetadataBox(tk, colors, titlePrimitive, col1, col2, col3, 1)
 	ev.metadataBox = metadataBox
 	return metadataBox
 }
 
-func (ev *TaskEditView) buildTitlePrimitive(task *taskpkg.Task, colors *config.ColorConfig) tview.Primitive {
+func (ev *TaskEditView) buildTitlePrimitive(tk *tikipkg.Tiki, colors *config.ColorConfig) tview.Primitive {
 	if ev.descOnly || ev.tagsOnly {
 		ctx := FieldRenderContext{Mode: RenderModeView, Colors: colors}
-		return RenderTitleText(task, ctx)
+		return RenderTitleText(tk, ctx)
 	}
-	input := ev.ensureTitleInput(task)
+	input := ev.ensureTitleInput(tk)
 	focused := ev.focusedField == model.EditFieldTitle
 	if focused {
 		input.SetLabel(getFocusMarker(colors))
@@ -251,110 +253,115 @@ func (ev *TaskEditView) buildTitlePrimitive(task *taskpkg.Task, colors *config.C
 	return input
 }
 
-func (ev *TaskEditView) buildMetadataColumns(task *taskpkg.Task, ctx FieldRenderContext, colors *config.ColorConfig) (*tview.Flex, *tview.Flex, *tview.Flex) {
+func (ev *TaskEditView) buildMetadataColumns(tk *tikipkg.Tiki, ctx FieldRenderContext, colors *config.ColorConfig) (*tview.Flex, *tview.Flex, *tview.Flex) {
 	// Column 1: Status, Type, Priority, Points
 	col1 := tview.NewFlex().SetDirection(tview.FlexRow)
-	col1.AddItem(ev.buildStatusField(task, ctx), 1, 0, false)
-	col1.AddItem(ev.buildTypeField(task, ctx), 1, 0, false)
-	col1.AddItem(ev.buildPriorityField(task, ctx), 1, 0, false)
-	col1.AddItem(ev.buildPointsField(task, ctx), 1, 0, false)
+	col1.AddItem(ev.buildStatusField(tk, ctx), 1, 0, false)
+	col1.AddItem(ev.buildTypeField(tk, ctx), 1, 0, false)
+	col1.AddItem(ev.buildPriorityField(tk, ctx), 1, 0, false)
+	col1.AddItem(ev.buildPointsField(tk, ctx), 1, 0, false)
 
 	// Column 2: Assignee, Author, Created, Updated
 	col2 := tview.NewFlex().SetDirection(tview.FlexRow)
-	col2.AddItem(ev.buildAssigneeField(task, ctx), 1, 0, false)
-	col2.AddItem(RenderAuthorText(task, colors), 1, 0, false)
-	col2.AddItem(RenderCreatedText(task, colors), 1, 0, false)
-	col2.AddItem(RenderUpdatedText(task, colors), 1, 0, false)
+	col2.AddItem(ev.buildAssigneeField(tk, ctx), 1, 0, false)
+	col2.AddItem(RenderAuthorText(tk, colors), 1, 0, false)
+	col2.AddItem(RenderCreatedText(tk, colors), 1, 0, false)
+	col2.AddItem(RenderUpdatedText(tk, colors), 1, 0, false)
 
 	// Column 3: Due, Recurrence
 	col3 := tview.NewFlex().SetDirection(tview.FlexRow)
-	col3.AddItem(ev.buildDueField(task, ctx), 1, 0, false)
-	col3.AddItem(ev.buildRecurrenceField(task, ctx), 1, 0, false)
+	col3.AddItem(ev.buildDueField(tk, ctx), 1, 0, false)
+	col3.AddItem(ev.buildRecurrenceField(tk, ctx), 1, 0, false)
 
 	return col1, col2, col3
 }
 
-func (ev *TaskEditView) buildStatusField(task *taskpkg.Task, ctx FieldRenderContext) tview.Primitive {
+func (ev *TaskEditView) buildStatusField(tk *tikipkg.Tiki, ctx FieldRenderContext) tview.Primitive {
 	if ctx.FocusedField == model.EditFieldStatus {
-		return ev.ensureStatusSelectList(task)
+		return ev.ensureStatusSelectList(tk)
 	}
-	return RenderStatusText(task, ctx)
+	return RenderStatusText(tk, ctx)
 }
 
-func (ev *TaskEditView) buildTypeField(task *taskpkg.Task, ctx FieldRenderContext) tview.Primitive {
+func (ev *TaskEditView) buildTypeField(tk *tikipkg.Tiki, ctx FieldRenderContext) tview.Primitive {
 	if ctx.FocusedField == model.EditFieldType {
-		return ev.ensureTypeSelectList(task)
+		return ev.ensureTypeSelectList(tk)
 	}
-	return RenderTypeText(task, ctx)
+	return RenderTypeText(tk, ctx)
 }
 
-func (ev *TaskEditView) buildPriorityField(task *taskpkg.Task, ctx FieldRenderContext) tview.Primitive {
+func (ev *TaskEditView) buildPriorityField(tk *tikipkg.Tiki, ctx FieldRenderContext) tview.Primitive {
 	if ctx.FocusedField == model.EditFieldPriority {
-		return ev.ensurePrioritySelectList(task)
+		return ev.ensurePrioritySelectList(tk)
 	}
-	return RenderPriorityText(task, ctx)
+	return RenderPriorityText(tk, ctx)
 }
 
-func (ev *TaskEditView) buildAssigneeField(task *taskpkg.Task, ctx FieldRenderContext) tview.Primitive {
+func (ev *TaskEditView) buildAssigneeField(tk *tikipkg.Tiki, ctx FieldRenderContext) tview.Primitive {
 	if ctx.FocusedField == model.EditFieldAssignee {
-		return ev.ensureAssigneeSelectList(task)
+		return ev.ensureAssigneeSelectList(tk)
 	}
-	return RenderAssigneeText(task, ctx)
+	return RenderAssigneeText(tk, ctx)
 }
 
-func (ev *TaskEditView) buildPointsField(task *taskpkg.Task, ctx FieldRenderContext) tview.Primitive {
+func (ev *TaskEditView) buildPointsField(tk *tikipkg.Tiki, ctx FieldRenderContext) tview.Primitive {
 	if ctx.FocusedField == model.EditFieldPoints {
-		return ev.ensurePointsInput(task)
+		return ev.ensurePointsInput(tk)
 	}
-	return RenderPointsText(task, ctx)
+	return RenderPointsText(tk, ctx)
 }
 
-func (ev *TaskEditView) buildDueField(task *taskpkg.Task, ctx FieldRenderContext) tview.Primitive {
+func (ev *TaskEditView) buildDueField(tk *tikipkg.Tiki, ctx FieldRenderContext) tview.Primitive {
 	if ev.isDueReadOnly() {
-		return RenderDueText(task, ctx.Colors)
+		return RenderDueText(tk, ctx.Colors)
 	}
 	if ctx.FocusedField == model.EditFieldDue {
-		return ev.ensureDueInput(task)
+		return ev.ensureDueInput(tk)
 	}
-	return RenderDueText(task, ctx.Colors)
+	return RenderDueText(tk, ctx.Colors)
 }
 
 // isDueReadOnly returns true when recurrence is set, making Due auto-computed.
 func (ev *TaskEditView) isDueReadOnly() bool {
-	task := ev.GetTask()
-	return task != nil && task.Recurrence != taskpkg.RecurrenceNone
+	tk := ev.GetTiki()
+	if tk == nil {
+		return false
+	}
+	recurrenceStr, _, _ := tk.StringField(tikipkg.FieldRecurrence)
+	return recurrenceStr != "" && taskpkg.Recurrence(recurrenceStr) != taskpkg.RecurrenceNone
 }
 
 // syncDueFromTask updates the dueInput widget to reflect the auto-computed Due
-// from the in-memory task. Called after recurrence changes.
+// from the in-memory tiki. Called after recurrence changes.
 func (ev *TaskEditView) syncDueFromTask() {
 	if ev.dueInput == nil {
 		return
 	}
-	task := ev.GetTask()
-	if task == nil {
+	tk := ev.GetTiki()
+	if tk == nil {
 		return
 	}
+	due, _, _ := tk.TimeField(tikipkg.FieldDue)
 	var dateStr string
-	if !task.Due.IsZero() {
-		dateStr = task.Due.Format(taskpkg.DateFormat)
+	if !due.IsZero() {
+		dateStr = due.Format(taskpkg.DateFormat)
 	}
 	ev.dueInput.SetInitialValue(dateStr)
 }
 
-func (ev *TaskEditView) buildRecurrenceField(task *taskpkg.Task, ctx FieldRenderContext) tview.Primitive {
+func (ev *TaskEditView) buildRecurrenceField(tk *tikipkg.Tiki, ctx FieldRenderContext) tview.Primitive {
 	if ctx.FocusedField == model.EditFieldRecurrence {
-		return ev.ensureRecurrenceInput(task)
+		return ev.ensureRecurrenceInput(tk)
 	}
-	return RenderRecurrenceText(task, ctx.Colors)
+	return RenderRecurrenceText(tk, ctx.Colors)
 }
 
-func (ev *TaskEditView) buildDescription(task *taskpkg.Task) tview.Primitive {
-	textArea := ev.ensureDescTextArea(task)
+func (ev *TaskEditView) buildDescription(tk *tikipkg.Tiki) tview.Primitive {
+	textArea := ev.ensureDescTextArea(tk)
 	return textArea
 }
 
-func (ev *TaskEditView) ensureDescTextArea(task *taskpkg.Task) *tview.TextArea {
+func (ev *TaskEditView) ensureDescTextArea(tk *tikipkg.Tiki) *tview.TextArea {
 	if ev.descTextArea == nil {
 		ev.descTextArea = tview.NewTextArea()
 		ev.descTextArea.SetBorder(false)
@@ -380,16 +387,16 @@ func (ev *TaskEditView) ensureDescTextArea(task *taskpkg.Task) *tview.TextArea {
 			return event
 		})
 
-		ev.descTextArea.SetText(task.Description, false)
+		ev.descTextArea.SetText(tk.Body, false)
 	} else if !ev.descEditing {
-		ev.descTextArea.SetText(task.Description, false)
+		ev.descTextArea.SetText(tk.Body, false)
 	}
 
 	ev.descEditing = true
 	return ev.descTextArea
 }
 
-func (ev *TaskEditView) ensureTagsTextArea(task *taskpkg.Task) *tview.TextArea {
+func (ev *TaskEditView) ensureTagsTextArea(tk *tikipkg.Tiki) *tview.TextArea {
 	if ev.tagsTextArea == nil {
 		ev.tagsTextArea = tview.NewTextArea()
 		ev.tagsTextArea.SetBorder(false)
@@ -413,9 +420,11 @@ func (ev *TaskEditView) ensureTagsTextArea(task *taskpkg.Task) *tview.TextArea {
 			return event
 		})
 
-		ev.tagsTextArea.SetText(strings.Join(task.Tags, " "), false)
+		tags, _, _ := tk.StringSliceField(tikipkg.FieldTags)
+		ev.tagsTextArea.SetText(strings.Join(tags, " "), false)
 	} else if !ev.tagsEditing {
-		ev.tagsTextArea.SetText(strings.Join(task.Tags, " "), false)
+		tags, _, _ := tk.StringSliceField(tikipkg.FieldTags)
+		ev.tagsTextArea.SetText(strings.Join(tags, " "), false)
 	}
 
 	ev.tagsEditing = true
@@ -425,9 +434,10 @@ func (ev *TaskEditView) ensureTagsTextArea(task *taskpkg.Task) *tview.TextArea {
 // GetEditedTags returns the current tags from the tags editor, split by whitespace.
 func (ev *TaskEditView) GetEditedTags() []string {
 	if ev.tagsTextArea == nil {
-		task := ev.GetTask()
-		if task != nil {
-			return task.Tags
+		tk := ev.GetTiki()
+		if tk != nil {
+			tags, _, _ := tk.StringSliceField(tikipkg.FieldTags)
+			return tags
 		}
 		return nil
 	}
@@ -436,11 +446,11 @@ func (ev *TaskEditView) GetEditedTags() []string {
 
 // ShowTagsEditor displays the tags text area and returns the primitive to focus
 func (ev *TaskEditView) ShowTagsEditor() tview.Primitive {
-	task := ev.GetTask()
-	if task == nil {
+	tk := ev.GetTiki()
+	if tk == nil {
 		return nil
 	}
-	return ev.ensureTagsTextArea(task)
+	return ev.ensureTagsTextArea(tk)
 }
 
 // IsTagsTextAreaFocused returns whether the tags text area currently has focus
@@ -458,7 +468,7 @@ func (ev *TaskEditView) SetTagsCancelHandler(handler func()) {
 	ev.onTagsCancel = handler
 }
 
-func (ev *TaskEditView) ensureTitleInput(task *taskpkg.Task) *tview.InputField {
+func (ev *TaskEditView) ensureTitleInput(tk *tikipkg.Tiki) *tview.InputField {
 	if ev.titleInput == nil {
 		colors := config.GetColors()
 		ev.titleInput = tview.NewInputField()
@@ -486,32 +496,30 @@ func (ev *TaskEditView) ensureTitleInput(task *taskpkg.Task) *tview.InputField {
 			}
 		})
 
-		ev.titleInput.SetText(task.Title)
+		ev.titleInput.SetText(tk.Title)
 	} else if !ev.titleEditing {
-		ev.titleInput.SetText(task.Title)
+		ev.titleInput.SetText(tk.Title)
 	}
 
 	ev.titleEditing = true
 	return ev.titleInput
 }
 
-// updateValidationState runs validation checks and updates the border color
+// updateValidationState runs validation checks and updates the border color.
+// Builds a tiki snapshot from current widget values and validates each field.
 func (ev *TaskEditView) updateValidationState() {
-	// Get current task state from widgets
-	task := ev.buildTaskFromWidgets()
-	if task == nil {
+	snapshot := ev.buildTikiSnapshotFromWidgets()
+	if snapshot == nil {
 		return
 	}
 
-	// Run field validators
 	ev.validationErrors = nil
-	for _, fn := range taskpkg.AllValidators() {
-		if msg := fn(task); msg != "" {
+	for _, fn := range service.AllTikiValidators() {
+		if msg := fn(snapshot); msg != "" {
 			ev.validationErrors = append(ev.validationErrors, msg)
 		}
 	}
 
-	// Update border color based on validation
 	if ev.metadataBox != nil {
 		colors := config.GetColors()
 		if len(ev.validationErrors) > 0 {
@@ -522,32 +530,51 @@ func (ev *TaskEditView) updateValidationState() {
 	}
 }
 
-// buildTaskFromWidgets creates a task snapshot from current widget values
-func (ev *TaskEditView) buildTaskFromWidgets() *taskpkg.Task {
-	task := ev.GetTask()
-	if task == nil {
+// buildTikiSnapshotFromWidgets creates a tiki snapshot from current widget values
+// for validation purposes — overlaying live widget state onto the stored tiki.
+func (ev *TaskEditView) buildTikiSnapshotFromWidgets() *tikipkg.Tiki {
+	tk := ev.GetTiki()
+	if tk == nil {
 		return nil
 	}
 
-	// Create snapshot with current widget values
-	snapshot := task.Clone()
+	snapshot := tk.Clone()
 
 	if ev.titleInput != nil {
 		snapshot.Title = ev.titleInput.GetText()
 	}
 	if ev.prioritySelectList != nil {
-		snapshot.Priority = taskpkg.PriorityFromDisplay(ev.prioritySelectList.GetText())
+		p := taskpkg.PriorityFromDisplay(ev.prioritySelectList.GetText())
+		if p != 0 {
+			snapshot.Set(tikipkg.FieldPriority, p)
+		} else {
+			snapshot.Delete(tikipkg.FieldPriority)
+		}
 	}
 	if ev.pointsInput != nil {
-		snapshot.Points = ev.pointsInput.GetValue()
+		pts := ev.pointsInput.GetValue()
+		if pts != 0 {
+			snapshot.Set(tikipkg.FieldPoints, pts)
+		} else {
+			snapshot.Delete(tikipkg.FieldPoints)
+		}
 	}
 	if ev.dueInput != nil {
 		if parsed, ok := taskpkg.ParseDueDate(ev.dueInput.GetCurrentText()); ok {
-			snapshot.Due = parsed
+			if parsed.IsZero() {
+				snapshot.Delete(tikipkg.FieldDue)
+			} else {
+				snapshot.Set(tikipkg.FieldDue, parsed)
+			}
 		}
 	}
 	if ev.recurrenceInput != nil {
-		snapshot.Recurrence = taskpkg.Recurrence(ev.recurrenceInput.GetValue())
+		r := taskpkg.Recurrence(ev.recurrenceInput.GetValue())
+		if r == taskpkg.RecurrenceNone || r == "" {
+			snapshot.Delete(tikipkg.FieldRecurrence)
+		} else {
+			snapshot.Set(tikipkg.FieldRecurrence, string(r))
+		}
 	}
 
 	return snapshot
@@ -585,11 +612,11 @@ func (ev *TaskEditView) ExitFullscreen() {
 
 // ShowTitleEditor displays the title input field
 func (ev *TaskEditView) ShowTitleEditor() tview.Primitive {
-	task := ev.GetTask()
-	if task == nil {
+	tk := ev.GetTiki()
+	if tk == nil {
 		return nil
 	}
-	return ev.ensureTitleInput(task)
+	return ev.ensureTitleInput(tk)
 }
 
 // HideTitleEditor is a no-op in edit mode (title always visible)
@@ -624,11 +651,11 @@ func (ev *TaskEditView) SetTitleCancelHandler(handler func()) {
 
 // ShowDescriptionEditor displays the description text area
 func (ev *TaskEditView) ShowDescriptionEditor() tview.Primitive {
-	task := ev.GetTask()
-	if task == nil {
+	tk := ev.GetTiki()
+	if tk == nil {
 		return nil
 	}
-	return ev.ensureDescTextArea(task)
+	return ev.ensureDescTextArea(tk)
 }
 
 // HideDescriptionEditor is a no-op in edit mode
@@ -662,12 +689,12 @@ func (ev *TaskEditView) GetEditedTitle() string {
 		return ev.titleInput.GetText()
 	}
 
-	task := ev.GetTask()
-	if task == nil {
+	tk := ev.GetTiki()
+	if tk == nil {
 		return ""
 	}
 
-	return task.Title
+	return tk.Title
 }
 
 // GetEditedDescription returns the current description text in the editor
@@ -676,12 +703,12 @@ func (ev *TaskEditView) GetEditedDescription() string {
 		return ev.descTextArea.GetText()
 	}
 
-	task := ev.GetTask()
-	if task == nil {
+	tk := ev.GetTiki()
+	if tk == nil {
 		return ""
 	}
 
-	return task.Description
+	return tk.Body
 }
 
 // SetStatusSaveHandler sets the callback for when status is saved
