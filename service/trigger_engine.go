@@ -10,8 +10,54 @@ import (
 	"github.com/boolean-maybe/tiki/config"
 	"github.com/boolean-maybe/tiki/ruki"
 	"github.com/boolean-maybe/tiki/task"
+	"github.com/boolean-maybe/tiki/tiki"
 	"github.com/boolean-maybe/tiki/util/duration"
 )
+
+// tasksToTikis projects the gate's task snapshot into tikis for ruki
+// execution. Triggers run in trigger context, so ruki sees the same
+// *tiki.Tiki shape every other executor consumer gets.
+//
+// The gate's before-create validators run BEFORE the store finalizes the
+// new task (and before the store sets IsWorkflow=true), so the proposed
+// task still has IsWorkflow=false even when its typed fields clearly
+// describe a workflow document. taskToTikiForTrigger bridges that gap by
+// promoting to workflow when any schema-known value is non-zero, so
+// trigger guards can rely on the standard presence semantics.
+func tasksToTikis(tasks []*task.Task) []*tiki.Tiki {
+	out := make([]*tiki.Tiki, 0, len(tasks))
+	for _, t := range tasks {
+		if tk := taskToTikiForTrigger(t); tk != nil {
+			out = append(out, tk)
+		}
+	}
+	return out
+}
+
+// taskToTikiForTrigger is the trigger-path equivalent of tiki.FromTask,
+// with the "promote to workflow when any typed value is non-zero" rule
+// applied up front. Necessary because the gate's before-create validator
+// runs before the store flips IsWorkflow=true on the proposed task.
+func taskToTikiForTrigger(t *task.Task) *tiki.Tiki {
+	if t == nil {
+		return nil
+	}
+	if !t.IsWorkflow && hasAnyWorkflowValueForTrigger(t) {
+		c := t.Clone()
+		c.IsWorkflow = true
+		return tiki.FromTask(c)
+	}
+	return tiki.FromTask(t)
+}
+
+func hasAnyWorkflowValueForTrigger(t *task.Task) bool {
+	if t == nil {
+		return false
+	}
+	return t.Status != "" || t.Type != "" || t.Priority != 0 || t.Points != 0 ||
+		len(t.Tags) > 0 || len(t.DependsOn) > 0 || !t.Due.IsZero() ||
+		t.Recurrence != "" || t.Assignee != ""
+}
 
 // maxTriggerDepth is the maximum cascade depth for triggers.
 // Root mutation is depth 0; up to 8 cascades are allowed.
@@ -116,7 +162,11 @@ func (te *TriggerEngine) RegisterWithGate(gate *TaskMutationGate) {
 // Fail-closed: guard evaluation errors produce a rejection.
 func (te *TriggerEngine) makeBeforeValidator(entry triggerEntry) MutationValidator {
 	return func(old, new *task.Task, allTasks []*task.Task) *Rejection {
-		tc := &ruki.TriggerContext{Old: old, New: new, AllTasks: allTasks}
+		tc := &ruki.TriggerContext{
+			Old:      taskToTikiForTrigger(old),
+			New:      taskToTikiForTrigger(new),
+			AllTikis: tasksToTikis(allTasks),
+		}
 		match, err := te.executor.EvalGuard(eventTriggerForExec(entry), tc)
 		if err != nil {
 			return &Rejection{
@@ -145,7 +195,11 @@ func (te *TriggerEngine) makeAfterHook(entry triggerEntry) AfterHook {
 		}
 
 		allTasks := te.gate.ReadStore().GetAllTasks()
-		tc := &ruki.TriggerContext{Old: old, New: new, AllTasks: allTasks}
+		tc := &ruki.TriggerContext{
+			Old:      taskToTikiForTrigger(old),
+			New:      taskToTikiForTrigger(new),
+			AllTikis: tasksToTikis(allTasks),
+		}
 
 		match, err := te.executor.EvalGuard(eventTriggerForExec(entry), tc)
 		if err != nil {
@@ -176,7 +230,7 @@ func (te *TriggerEngine) execAction(ctx context.Context, entry triggerEntry, tc 
 		if tmpl == nil {
 			return fmt.Errorf("create template: store returned nil template")
 		}
-		input.CreateTemplate = tmpl
+		input.CreateTemplate = taskToTikiForTrigger(tmpl)
 	}
 	result, err := te.executor.ExecAction(eventTriggerForExec(entry), tc, input)
 	if err != nil {
@@ -189,18 +243,20 @@ func (te *TriggerEngine) persistResult(ctx context.Context, result *ruki.Result)
 	var errs []error
 	switch {
 	case result.Update != nil:
-		for _, t := range result.Update.Updated {
+		for _, tk := range result.Update.Updated {
+			t := tiki.ToTask(tk)
 			if err := te.gate.UpdateTask(ctx, t); err != nil {
 				errs = append(errs, fmt.Errorf("update %s: %w", t.ID, err))
 			}
 		}
 	case result.Create != nil:
-		t := result.Create.Task
+		t := tiki.ToTask(result.Create.Tiki)
 		if err := te.gate.CreateTask(ctx, t); err != nil {
 			return fmt.Errorf("trigger create failed: %w", err)
 		}
 	case result.Delete != nil:
-		for _, t := range result.Delete.Deleted {
+		for _, tk := range result.Delete.Deleted {
+			t := tiki.ToTask(tk)
 			if err := te.gate.DeleteTask(ctx, t); err != nil {
 				errs = append(errs, fmt.Errorf("delete %s: %w", t.ID, err))
 			}
@@ -349,9 +405,9 @@ func (te *TriggerEngine) executeTimeTrigger(ctx context.Context, entry TimeTrigg
 			slog.Error("create template failed", "trigger", entry.Description, "error", "store returned nil template")
 			return
 		}
-		input.CreateTemplate = tmpl
+		input.CreateTemplate = taskToTikiForTrigger(tmpl)
 	}
-	result, err := te.executor.ExecTimeTriggerAction(timeTriggerForExec(entry), allTasks, input)
+	result, err := te.executor.ExecTimeTriggerAction(timeTriggerForExec(entry), tasksToTikis(allTasks), input)
 	if err != nil {
 		slog.Error("time trigger action failed",
 			"trigger", entry.Description, "error", err)

@@ -8,11 +8,12 @@ import (
 
 	"github.com/boolean-maybe/tiki/document"
 	"github.com/boolean-maybe/tiki/task"
+	"github.com/boolean-maybe/tiki/tiki"
 	collectionutil "github.com/boolean-maybe/tiki/util/collections"
 	"github.com/boolean-maybe/tiki/util/duration"
 )
 
-// Executor evaluates parsed ruki statements against a set of tasks.
+// Executor evaluates parsed ruki statements against a set of tikis.
 type Executor struct {
 	schema       Schema
 	userFunc     func() string
@@ -21,12 +22,25 @@ type Executor struct {
 }
 
 type evalContext struct {
-	current  *task.Task
-	outer    *task.Task
-	allTasks []*task.Task
+	current  *tiki.Tiki
+	outer    *tiki.Tiki
+	allTikis []*tiki.Tiki
+	// inAssignmentRHS is true while the executor is evaluating the RHS
+	// of an `update set <field> = <expr>` or `create <field> = <expr>`
+	// assignment. It enables a narrow carve-out to absent-field hard-
+	// error semantics: bare or qualified references to registered
+	// workflow fields (schema-known or Custom) that are absent on the
+	// target tiki auto-zero during `+`/`-` arithmetic and plain
+	// reference reads, so idioms like `set tags = tags + [x]`,
+	// `set priority = priority - 1`, and `create tags = old.tags`
+	// work on docs that lack the field. Unregistered names still
+	// hard-error so typos like `set taggs = taggs + [x]` fail loudly.
+	// Scoped tightly: not active in WHERE, ORDER BY, subquery filters,
+	// or bare reads outside an assignment RHS.
+	inAssignmentRHS bool
 }
 
-func (ctx evalContext) withCurrent(current *task.Task) evalContext {
+func (ctx evalContext) withCurrent(current *tiki.Tiki) evalContext {
 	ctx.current = current
 	return ctx
 }
@@ -44,7 +58,7 @@ func NewExecutor(schema Schema, userFunc func() string, runtime ExecutorRuntime)
 // Result holds the output of executing a statement.
 // Exactly one variant is non-nil.
 type Result struct {
-	Select    *TaskProjection
+	Select    *TikiProjection
 	Update    *UpdateResult
 	Create    *CreateResult
 	Delete    *DeleteResult
@@ -74,31 +88,31 @@ type PipeResult struct {
 	Rows    [][]string
 }
 
-// UpdateResult holds the cloned, mutated tasks produced by an UPDATE statement.
+// UpdateResult holds the cloned, mutated tikis produced by an UPDATE statement.
 type UpdateResult struct {
-	Updated []*task.Task
+	Updated []*tiki.Tiki
 }
 
-// CreateResult holds the new task produced by a CREATE statement.
+// CreateResult holds the new tiki produced by a CREATE statement.
 type CreateResult struct {
-	Task *task.Task
+	Tiki *tiki.Tiki
 }
 
-// DeleteResult holds the tasks matched by a DELETE statement's WHERE clause.
+// DeleteResult holds the tikis matched by a DELETE statement's WHERE clause.
 type DeleteResult struct {
-	Deleted []*task.Task
+	Deleted []*tiki.Tiki
 }
 
-// TaskProjection holds the filtered, sorted tasks and the requested field list.
-type TaskProjection struct {
-	Tasks  []*task.Task
+// TikiProjection holds the filtered, sorted tikis and the requested field list.
+type TikiProjection struct {
+	Tikis  []*tiki.Tiki
 	Fields []string // user-requested fields; nil/empty = all fields
 }
 
 // Execute dispatches on the statement type and returns results.
 // Preferred input is *ValidatedStatement; raw *Statement is accepted as a
 // low-level path and will be semantically validated for executor runtime mode.
-func (e *Executor) Execute(stmt any, tasks []*task.Task, inputs ...ExecutionInput) (*Result, error) {
+func (e *Executor) Execute(stmt any, tikis []*tiki.Tiki, inputs ...ExecutionInput) (*Result, error) {
 	var input ExecutionInput
 	if len(inputs) > 0 {
 		input = inputs[0]
@@ -153,36 +167,38 @@ func (e *Executor) Execute(stmt any, tasks []*task.Task, inputs ...ExecutionInpu
 
 	switch {
 	case rawStmt.Select != nil:
-		return e.executeSelect(rawStmt.Select, tasks)
+		return e.executeSelect(rawStmt.Select, tikis)
 	case rawStmt.Create != nil:
-		return e.executeCreate(rawStmt.Create, tasks, requiresCreateTemplate)
+		return e.executeCreate(rawStmt.Create, tikis, requiresCreateTemplate)
 	case rawStmt.Update != nil:
-		return e.executeUpdate(rawStmt.Update, tasks)
+		return e.executeUpdate(rawStmt.Update, tikis)
 	case rawStmt.Delete != nil:
-		return e.executeDelete(rawStmt.Delete, tasks)
+		return e.executeDelete(rawStmt.Delete, tikis)
 	case rawStmt.Expr != nil:
-		return e.executeExpr(rawStmt.Expr, tasks)
+		return e.executeExpr(rawStmt.Expr, tikis)
 	default:
 		return nil, fmt.Errorf("empty statement")
 	}
 }
 
-func (e *Executor) executeExpr(es *ExprStmt, tasks []*task.Task) (*Result, error) {
-	val, err := e.evalExpr(es.Expr, evalContext{allTasks: tasks})
+func (e *Executor) executeExpr(es *ExprStmt, tikis []*tiki.Tiki) (*Result, error) {
+	val, err := e.evalExpr(es.Expr, evalContext{allTikis: tikis})
 	if err != nil {
 		return nil, err
 	}
 	return &Result{Scalar: &ScalarResult{Value: val, Type: es.Type}}, nil
 }
 
-func (e *Executor) executeSelect(sel *SelectStmt, tasks []*task.Task) (*Result, error) {
-	filtered, err := e.filterTasks(sel.Where, tasks)
+func (e *Executor) executeSelect(sel *SelectStmt, tikis []*tiki.Tiki) (*Result, error) {
+	filtered, err := e.filterTikis(sel.Where, tikis)
 	if err != nil {
 		return nil, err
 	}
 
 	if len(sel.OrderBy) > 0 {
-		e.sortTasks(filtered, sel.OrderBy)
+		if err := e.sortTikis(filtered, sel.OrderBy); err != nil {
+			return nil, err
+		}
 	}
 
 	if sel.Limit != nil && *sel.Limit < len(filtered) {
@@ -192,23 +208,23 @@ func (e *Executor) executeSelect(sel *SelectStmt, tasks []*task.Task) (*Result, 
 	if sel.Pipe != nil {
 		switch {
 		case sel.Pipe.Run != nil:
-			return e.buildPipeResult(sel.Pipe.Run, sel.Fields, filtered, tasks)
+			return e.buildPipeResult(sel.Pipe.Run, sel.Fields, filtered, tikis)
 		case sel.Pipe.Clipboard != nil:
 			return e.buildClipboardResult(sel.Fields, filtered)
 		}
 	}
 
 	return &Result{
-		Select: &TaskProjection{
-			Tasks:  filtered,
+		Select: &TikiProjection{
+			Tikis:  filtered,
 			Fields: sel.Fields,
 		},
 	}, nil
 }
 
-func (e *Executor) buildPipeResult(pipe *RunAction, fields []string, matched []*task.Task, allTasks []*task.Task) (*Result, error) {
-	// evaluate command once with a nil-sentinel task — validation ensures no field refs
-	cmdVal, err := e.evalExpr(pipe.Command, evalContext{allTasks: allTasks})
+func (e *Executor) buildPipeResult(pipe *RunAction, fields []string, matched []*tiki.Tiki, allTikis []*tiki.Tiki) (*Result, error) {
+	// evaluate command once with a nil-sentinel tiki — validation ensures no field refs
+	cmdVal, err := e.evalExpr(pipe.Command, evalContext{allTikis: allTikis})
 	if err != nil {
 		return nil, fmt.Errorf("pipe command: %w", err)
 	}
@@ -217,27 +233,39 @@ func (e *Executor) buildPipeResult(pipe *RunAction, fields []string, matched []*
 		return nil, fmt.Errorf("pipe command must evaluate to string, got %T", cmdVal)
 	}
 
-	rows := e.buildFieldRows(fields, matched)
+	rows, err := e.buildFieldRows(fields, matched)
+	if err != nil {
+		return nil, err
+	}
 	return &Result{Pipe: &PipeResult{Command: cmdStr, Rows: rows}}, nil
 }
 
-func (e *Executor) buildClipboardResult(fields []string, matched []*task.Task) (*Result, error) {
-	rows := e.buildFieldRows(fields, matched)
+func (e *Executor) buildClipboardResult(fields []string, matched []*tiki.Tiki) (*Result, error) {
+	rows, err := e.buildFieldRows(fields, matched)
+	if err != nil {
+		return nil, err
+	}
 	return &Result{Clipboard: &ClipboardResult{Rows: rows}}, nil
 }
 
-// buildFieldRows extracts the requested fields from matched tasks as string rows.
-// Shared by both run() and clipboard() pipe targets.
-func (e *Executor) buildFieldRows(fields []string, matched []*task.Task) [][]string {
+// buildFieldRows extracts the requested fields from matched tikis as string rows.
+// Absent-field reads produce empty cells rather than propagating the hard
+// error: pipe and clipboard sinks are presentation-layer consumers and a
+// missing field should render blank, not abort the whole operation.
+func (e *Executor) buildFieldRows(fields []string, matched []*tiki.Tiki) ([][]string, error) {
 	rows := make([][]string, len(matched))
 	for i, t := range matched {
 		row := make([]string, len(fields))
 		for j, f := range fields {
-			row[j] = pipeArgString(e.extractField(t, f))
+			val, err := e.extractFieldForDisplay(t, f)
+			if err != nil {
+				return nil, err
+			}
+			row[j] = pipeArgString(val)
 		}
 		rows[i] = row
 	}
-	return rows
+	return rows, nil
 }
 
 // pipeArgString space-joins list fields (tags, dependsOn) instead of using Go's
@@ -253,20 +281,20 @@ func pipeArgString(val interface{}) string {
 	return normalizeToString(val)
 }
 
-func (e *Executor) executeUpdate(upd *UpdateStmt, tasks []*task.Task) (*Result, error) {
-	matched, err := e.filterTasks(upd.Where, tasks)
+func (e *Executor) executeUpdate(upd *UpdateStmt, tikis []*tiki.Tiki) (*Result, error) {
+	matched, err := e.filterTikis(upd.Where, tikis)
 	if err != nil {
 		return nil, err
 	}
 
-	clones := make([]*task.Task, len(matched))
+	clones := make([]*tiki.Tiki, len(matched))
 	for i, t := range matched {
 		clones[i] = t.Clone()
 	}
 
 	for _, clone := range clones {
 		for _, a := range upd.Set {
-			val, err := e.evalExpr(a.Value, evalContext{current: clone, allTasks: tasks})
+			val, err := e.evalExpr(a.Value, evalContext{current: clone, allTikis: tikis, inAssignmentRHS: true})
 			if err != nil {
 				return nil, fmt.Errorf("field %q: %w", a.Field, err)
 			}
@@ -279,19 +307,19 @@ func (e *Executor) executeUpdate(upd *UpdateStmt, tasks []*task.Task) (*Result, 
 	return &Result{Update: &UpdateResult{Updated: clones}}, nil
 }
 
-func (e *Executor) executeCreate(cr *CreateStmt, tasks []*task.Task, requireTemplate bool) (*Result, error) {
+func (e *Executor) executeCreate(cr *CreateStmt, tikis []*tiki.Tiki, requireTemplate bool) (*Result, error) {
 	if requireTemplate && e.currentInput.CreateTemplate == nil {
 		return nil, &MissingCreateTemplateError{}
 	}
-	var t *task.Task
+	var t *tiki.Tiki
 	if e.currentInput.CreateTemplate != nil {
 		t = e.currentInput.CreateTemplate.Clone()
 	} else {
-		t = &task.Task{}
+		t = tiki.New()
 	}
 
 	for _, a := range cr.Assignments {
-		val, err := e.evalExpr(a.Value, evalContext{current: t, allTasks: tasks})
+		val, err := e.evalExpr(a.Value, evalContext{current: t, allTikis: tikis, inAssignmentRHS: true})
 		if err != nil {
 			return nil, fmt.Errorf("field %q: %w", a.Field, err)
 		}
@@ -300,11 +328,11 @@ func (e *Executor) executeCreate(cr *CreateStmt, tasks []*task.Task, requireTemp
 		}
 	}
 
-	return &Result{Create: &CreateResult{Task: t}}, nil
+	return &Result{Create: &CreateResult{Tiki: t}}, nil
 }
 
-func (e *Executor) executeDelete(del *DeleteStmt, tasks []*task.Task) (*Result, error) {
-	matched, err := e.filterTasks(del.Where, tasks)
+func (e *Executor) executeDelete(del *DeleteStmt, tikis []*tiki.Tiki) (*Result, error) {
+	matched, err := e.filterTikis(del.Where, tikis)
 	if err != nil {
 		return nil, err
 	}
@@ -312,9 +340,9 @@ func (e *Executor) executeDelete(del *DeleteStmt, tasks []*task.Task) (*Result, 
 	return &Result{Delete: &DeleteResult{Deleted: matched}}, nil
 }
 
-func (e *Executor) setField(t *task.Task, name string, val interface{}) error {
+func (e *Executor) setField(t *tiki.Tiki, name string, val interface{}) error {
 	switch name {
-	case "id", "createdBy", "createdAt", "updatedAt", "filepath":
+	case "id", "createdBy", "createdAt", "updatedAt", "filepath", "path":
 		return fmt.Errorf("field %q is immutable", name)
 
 	case "title":
@@ -330,56 +358,46 @@ func (e *Executor) setField(t *task.Task, name string, val interface{}) error {
 		}
 		t.Title = s
 
-	case "description":
+	case "description", "body":
 		if val == nil {
-			t.Description = ""
+			t.Body = ""
 			return nil
 		}
 		s, ok := val.(string)
 		if !ok {
 			return fmt.Errorf("description must be a string, got %T", val)
 		}
-		t.Description = s
+		t.Body = s
 
-	case "status":
+	case tiki.FieldStatus:
 		if val == nil {
 			return fmt.Errorf("cannot set status to empty")
 		}
-		s, ok := val.(string)
+		s, ok := coerceSetString(val)
 		if !ok {
-			sv, ok2 := val.(task.Status)
-			if !ok2 {
-				return fmt.Errorf("status must be a string, got %T", val)
-			}
-			s = string(sv)
+			return fmt.Errorf("status must be a string, got %T", val)
 		}
 		norm, valid := e.schema.NormalizeStatus(s)
 		if !valid {
 			return fmt.Errorf("unknown status %q", s)
 		}
-		t.Status = task.Status(norm)
-		promoteToWorkflow(t, "status")
+		t.Set(name, norm)
 
-	case "type":
+	case tiki.FieldType:
 		if val == nil {
 			return fmt.Errorf("cannot set type to empty")
 		}
-		s, ok := val.(string)
+		s, ok := coerceSetString(val)
 		if !ok {
-			tv, ok2 := val.(task.Type)
-			if !ok2 {
-				return fmt.Errorf("type must be a string, got %T", val)
-			}
-			s = string(tv)
+			return fmt.Errorf("type must be a string, got %T", val)
 		}
 		norm, valid := e.schema.NormalizeType(s)
 		if !valid {
 			return fmt.Errorf("unknown type %q", s)
 		}
-		t.Type = task.Type(norm)
-		promoteToWorkflow(t, "type")
+		t.Set(name, norm)
 
-	case "priority":
+	case tiki.FieldPriority:
 		if val == nil {
 			return fmt.Errorf("cannot set priority to empty")
 		}
@@ -390,13 +408,11 @@ func (e *Executor) setField(t *task.Task, name string, val interface{}) error {
 		if !task.IsValidPriority(n) {
 			return fmt.Errorf("priority must be between %d and %d", task.MinPriority, task.MaxPriority)
 		}
-		t.Priority = n
-		promoteToWorkflow(t, "priority")
+		t.Set(name, n)
 
-	case "points":
+	case tiki.FieldPoints:
 		if val == nil {
-			t.Points = 0
-			promoteToWorkflow(t, "points")
+			t.Delete(name)
 			return nil
 		}
 		n, ok := val.(int)
@@ -406,72 +422,58 @@ func (e *Executor) setField(t *task.Task, name string, val interface{}) error {
 		if !task.IsValidPoints(n) {
 			return fmt.Errorf("invalid points value: %d", n)
 		}
-		t.Points = n
-		promoteToWorkflow(t, "points")
+		t.Set(name, n)
 
-	case "tags":
+	case tiki.FieldTags:
 		if val == nil {
-			t.Tags = nil
-			promoteToWorkflow(t, "tags")
+			t.Delete(name)
 			return nil
 		}
-		t.Tags = collectionutil.NormalizeStringSet(toStringSlice(val))
-		promoteToWorkflow(t, "tags")
+		t.Set(name, collectionutil.NormalizeStringSet(toStringSlice(val)))
 
-	case "dependsOn":
+	case tiki.FieldDependsOn:
 		if val == nil {
-			t.DependsOn = nil
-			promoteToWorkflow(t, "dependsOn")
+			t.Delete(name)
 			return nil
 		}
 		refs := normalizeRefList(toStringSlice(val))
 		if err := validateBareRefs(refs, "dependsOn"); err != nil {
 			return err
 		}
-		t.DependsOn = refs
-		promoteToWorkflow(t, "dependsOn")
+		t.Set(name, refs)
 
-	case "due":
+	case tiki.FieldDue:
 		if val == nil {
-			t.Due = time.Time{}
-			promoteToWorkflow(t, "due")
+			t.Delete(name)
 			return nil
 		}
 		d, ok := val.(time.Time)
 		if !ok {
 			return fmt.Errorf("due must be a date, got %T", val)
 		}
-		t.Due = d
-		promoteToWorkflow(t, "due")
+		t.Set(name, d)
 
-	case "recurrence":
+	case tiki.FieldRecurrence:
 		if val == nil {
-			t.Recurrence = ""
-			promoteToWorkflow(t, "recurrence")
+			t.Delete(name)
 			return nil
 		}
-		switch v := val.(type) {
-		case string:
-			t.Recurrence = task.Recurrence(v)
-		case task.Recurrence:
-			t.Recurrence = v
-		default:
+		s, ok := coerceSetString(val)
+		if !ok {
 			return fmt.Errorf("recurrence must be a string, got %T", val)
 		}
-		promoteToWorkflow(t, "recurrence")
+		t.Set(name, s)
 
-	case "assignee":
+	case tiki.FieldAssignee:
 		if val == nil {
-			t.Assignee = ""
-			promoteToWorkflow(t, "assignee")
+			t.Delete(name)
 			return nil
 		}
 		s, ok := val.(string)
 		if !ok {
 			return fmt.Errorf("assignee must be a string, got %T", val)
 		}
-		t.Assignee = s
-		promoteToWorkflow(t, "assignee")
+		t.Set(name, s)
 
 	default:
 		fs, ok := e.schema.Field(name)
@@ -479,19 +481,33 @@ func (e *Executor) setField(t *task.Task, name string, val interface{}) error {
 			return fmt.Errorf("unknown field %q", name)
 		}
 		if val == nil {
-			delete(t.CustomFields, name)
+			t.Delete(name)
 			return nil
 		}
 		coerced, err := coerceCustomFieldValue(fs, val)
 		if err != nil {
 			return fmt.Errorf("field %q: %w", name, err)
 		}
-		if t.CustomFields == nil {
-			t.CustomFields = make(map[string]interface{})
-		}
-		t.CustomFields[name] = coerced
+		t.Set(name, coerced)
 	}
 	return nil
+}
+
+// coerceSetString converts task-typed string wrappers produced by legacy test
+// fixtures to plain strings before schema normalization.
+func coerceSetString(val interface{}) (string, bool) {
+	switch v := val.(type) {
+	case string:
+		return v, true
+	case task.Status:
+		return string(v), true
+	case task.Type:
+		return string(v), true
+	case task.Recurrence:
+		return string(v), true
+	default:
+		return "", false
+	}
 }
 
 func toStringSlice(val interface{}) []string {
@@ -581,8 +597,6 @@ func normalizeRefList(ss []string) []string {
 }
 
 // validateBareRefs rejects any entry that is not a bare document ID.
-// fieldName is used in the error message so callers can distinguish dependsOn
-// from custom ref fields.
 func validateBareRefs(refs []string, fieldName string) error {
 	for _, r := range refs {
 		if !document.IsValidID(r) {
@@ -592,169 +606,17 @@ func validateBareRefs(refs []string, fieldName string) error {
 	return nil
 }
 
-// promoteToWorkflow marks a plain document as workflow-capable after a
-// workflow-setting edit and records the assigned field in the presence
-// map whenever recording it is load-bearing for save fidelity. Callers
-// must invoke this from every setField branch that handles a workflow
-// field (status, type, tags, dependsOn, due, recurrence, assignee,
-// priority, points). Without promotion at each workflow-field
-// assignment, the save path takes the plain-doc branch and silently
-// drops the assigned value — data loss.
-//
-// The seeding decision depends on both wasPlain (did IsWorkflow flip?)
-// and the presence-map state, giving three load-bearing cases. The
-// discriminator for WHETHER to seed is actually "does the presence map
-// already exist?", not wasPlain alone — see case 3 for the subtlety.
-//
-//  1. Plain doc getting a workflow field for the first time —
-//     wasPlain=true, WorkflowFrontmatter nil. Seed the presence map so
-//     the save path takes the SPARSE branch and writes only the keys the
-//     caller set. Otherwise `update set points = 0` on a plain doc would
-//     fall through to the full-schema synthesizer and materialize every
-//     workflow field with registry defaults.
-//
-//  2. Fresh workflow create template — wasPlain=false,
-//     WorkflowFrontmatter nil. The template carries creation defaults
-//     (type, priority, points, custom field defaults) that belong on disk
-//     for a newly-created document. marshalFrontmatter reads the nil
-//     presence map as "write the FULL schema with all defaults". Seeding
-//     presence here would flip the save into sparse mode and drop every
-//     default the caller did not explicitly assign. Don't.
-//
-//  3. Loaded sparse workflow doc being edited — wasPlain=false,
-//     WorkflowFrontmatter non-nil. The load path populated the map from
-//     the source YAML (e.g. a file that only wrote `status:` produces
-//     WorkflowFrontmatter={status}). Adding a new field via
-//     `update set points = 0` must ALSO seed presence: without it, both
-//     the presence map and MergeTypedWorkflowDeltas skip zero/empty
-//     values, and the sparse save path writes only the original keys —
-//     losing the user's explicit `points: 0` or `dependsOn: []`
-//     assignment. Since the map is already sparse, adding a key keeps
-//     the save in sparse mode (good) and ensures the assigned value
-//     lands on disk.
-//
-// fieldName must be a workflow key (status/type/tags/dependsOn/due/
-// recurrence/assignee/priority/points); passing anything else is a
-// programming error and will still promote the task but not seed presence.
-func promoteToWorkflow(t *task.Task, fieldName string) {
-	if t == nil {
-		return
-	}
-	wasPlain := !t.IsWorkflow
-	t.IsWorkflow = true
-	if fieldName == "" {
-		return
-	}
-	// Case 2: already-workflow task with a nil presence map is a create
-	// template — leave the map nil so the save path writes the full
-	// workflow schema with all defaults.
-	if !wasPlain && t.WorkflowFrontmatter == nil {
-		return
-	}
-	if t.WorkflowFrontmatter == nil {
-		// Case 1: first-time promotion of a plain doc. Allocate the map
-		// so the save path switches to sparse mode and writes only the
-		// keys the caller set.
-		t.WorkflowFrontmatter = make(map[string]interface{})
-	}
-	// Cases 1 and 3: record the assigned field. Store a sentinel value —
-	// marshalSparseWorkflowFrontmatter reads the CURRENT typed field, not
-	// the value in this map, so we only need to record presence. An
-	// empty string works for any key because marshalWorkflowField never
-	// consults the map value.
-	if _, exists := t.WorkflowFrontmatter[fieldName]; !exists {
-		t.WorkflowFrontmatter[fieldName] = ""
-	}
-}
-
-// isWorkflowFieldRef reports whether expr is a reference to a built-in
-// workflow field whose presence is tracked by Phase 5 semantics. Combined
-// with a nil runtime value at the call site, this is the "absent workflow
-// field" signal used by predicate short-circuiting so `where dependsOn =
-// []` and `where tags is empty` do not match plain documents.
-//
-// Scoping is intentional: custom user fields keep the older "nil == empty"
-// semantics so that `where flag is empty` continues to match tasks that
-// never set `flag`. Built-in identity/audit fields (id, title, createdAt,
-// etc.) are always present on a loaded task and therefore not included.
-// Both bare (`dependsOn`) and qualified (`old.dependsOn`, `new.tags`)
-// references count.
-func isWorkflowFieldRef(expr Expr) bool {
-	var name string
-	switch e := expr.(type) {
-	case *FieldRef:
-		name = e.Name
-	case *QualifiedRef:
-		name = e.Name
-	default:
-		return false
-	}
-	switch name {
-	case "status", "type", "priority", "points", "tags",
-		"dependsOn", "due", "recurrence", "assignee":
-		return true
-	}
-	return false
-}
-
-// hasWorkflowField reports whether the task carries an explicit workflow
-// value for the named field, implementing Phase 5 presence-aware semantics.
-//
-// Source of truth order:
-//  1. WorkflowFrontmatter map — authoritative for store-loaded tasks, records
-//     exactly which YAML keys were present on disk.
-//  2. Fallback for in-memory tasks (tests, ruki create, hand-built fixtures):
-//     the field counts as present iff the typed value is non-zero. This
-//     matches user intent for callers that construct Tasks directly with
-//     typed fields: if they set t.Priority = 3, they meant to set priority.
-//
-// The net effect for plain documents: a doc loaded with no workflow
-// frontmatter returns nil for every workflow field, so predicates like
-// `where priority = 0` do not accidentally match it. A doc loaded with
-// `priority: 0` explicitly written returns int(0), so `where priority = 0`
-// matches as the author intended.
-func hasWorkflowField(t *task.Task, name string) bool {
-	if t == nil {
-		return false
-	}
-	if t.WorkflowFrontmatter != nil {
-		_, ok := t.WorkflowFrontmatter[name]
-		return ok
-	}
-	switch name {
-	case "status":
-		return t.Status != ""
-	case "type":
-		return t.Type != ""
-	case "priority":
-		return t.Priority != 0
-	case "points":
-		return t.Points != 0
-	case "tags":
-		return len(t.Tags) > 0
-	case "dependsOn":
-		return len(t.DependsOn) > 0
-	case "due":
-		return !t.Due.IsZero()
-	case "recurrence":
-		return t.Recurrence != ""
-	case "assignee":
-		return t.Assignee != ""
-	}
-	return false
-}
-
 // --- filtering ---
 
-func (e *Executor) filterTasks(where Condition, tasks []*task.Task) ([]*task.Task, error) {
+func (e *Executor) filterTikis(where Condition, tikis []*tiki.Tiki) ([]*tiki.Tiki, error) {
 	if where == nil {
-		result := make([]*task.Task, len(tasks))
-		copy(result, tasks)
+		result := make([]*tiki.Tiki, len(tikis))
+		copy(result, tikis)
 		return result, nil
 	}
-	var result []*task.Task
-	for _, t := range tasks {
-		match, err := e.evalCondition(where, evalContext{current: t, allTasks: tasks})
+	var result []*tiki.Tiki
+	for _, t := range tikis {
+		match, err := e.evalCondition(where, evalContext{current: t, allTikis: tikis})
 		if err != nil {
 			return nil, err
 		}
@@ -825,73 +687,156 @@ func (e *Executor) evalBinaryCondition(c *BinaryCondition, ctx evalContext) (boo
 	}
 }
 
+// evalCompare evaluates equality/inequality/ordering comparisons with
+// missing-field-aware semantics (Phase 4 updated plan):
+//
+//   - missing = value → false
+//   - missing != value → true
+//   - missing = empty / missing != empty → follow is-empty/zero-value path
+//     (missing is treated as empty), so missing = empty → true,
+//     missing != empty → false
+//   - missing <, >, <=, >= → hard-error (no defined ordering for absent)
+//
+// The rule applies symmetrically to both sides of the operator. Plain
+// AbsentFieldError propagation still carries any other errors (e.g. type
+// mismatches) so those surface unchanged.
 func (e *Executor) evalCompare(c *CompareExpr, ctx evalContext) (bool, error) {
-	leftVal, err := e.evalExpr(c.Left, ctx)
+	leftVal, leftAbsent, err := evalComparand(e, c.Left, ctx)
 	if err != nil {
 		return false, err
 	}
-	rightVal, err := e.evalExpr(c.Right, ctx)
+	rightVal, rightAbsent, err := evalComparand(e, c.Right, ctx)
 	if err != nil {
 		return false, err
 	}
+
+	// If either side is an absent field reference, apply defined semantics.
+	if leftAbsent || rightAbsent {
+		return missingFieldCompareResult(c.Op, leftAbsent, rightAbsent, c.Left, c.Right, leftVal, rightVal)
+	}
+
 	return e.compareValues(leftVal, rightVal, c.Op, c.Left, c.Right)
 }
 
+// evalComparand evaluates an expression as a comparison operand. The
+// second return reports whether the expression resolved to an absent
+// registered-field read (so missing-field semantics apply). Any non-
+// absent error propagates.
+//
+// Shared helper for comparison-like predicates (=, !=, is empty, in,
+// quantifier). Free-function shape so both the base Executor and the
+// trigger override can reuse it via their own evalExpr.
+func absorbAbsent(evalFn func(Expr, evalContext) (interface{}, error), expr Expr, ctx evalContext) (interface{}, bool, error) {
+	v, err := evalFn(expr, ctx)
+	if err == nil {
+		return v, false, nil
+	}
+	if _, ok := err.(*AbsentFieldError); ok {
+		return nil, true, nil
+	}
+	return nil, false, err
+}
+
+// evalComparand is the base-executor convenience wrapper around
+// absorbAbsent. Equivalent to absorbAbsent(e.evalExpr, ...).
+func evalComparand(e *Executor, expr Expr, ctx evalContext) (interface{}, bool, error) {
+	return absorbAbsent(e.evalExpr, expr, ctx)
+}
+
+// missingFieldCompareResult implements the updated Phase-4 rules for
+// comparisons involving a missing field on either side.
+func missingFieldCompareResult(op string, leftAbsent, rightAbsent bool, leftExpr, rightExpr Expr, leftVal, rightVal interface{}) (bool, error) {
+	_, leftIsEmpty := leftExpr.(*EmptyLiteral)
+	_, rightIsEmpty := rightExpr.(*EmptyLiteral)
+
+	switch op {
+	case "=":
+		if leftIsEmpty || rightIsEmpty {
+			// missing is treated as empty: absent = empty is true.
+			if leftAbsent || rightAbsent {
+				return true, nil
+			}
+			// neither absent, fall through to zero-value compare path.
+			return compareWithNil(leftVal, rightVal, op, leftExpr, rightExpr)
+		}
+		// absent = concrete-value → false
+		return false, nil
+	case "!=":
+		if leftIsEmpty || rightIsEmpty {
+			// absent != empty is false (absent IS empty under this rule).
+			if leftAbsent || rightAbsent {
+				return false, nil
+			}
+			return compareWithNil(leftVal, rightVal, op, leftExpr, rightExpr)
+		}
+		// absent != concrete-value → true
+		return true, nil
+	case "<", ">", "<=", ">=":
+		// Ordering on an absent field is undefined; hard-error.
+		var name string
+		if leftAbsent {
+			name = fieldRefName(leftExpr)
+		} else {
+			name = fieldRefName(rightExpr)
+		}
+		return false, fmt.Errorf("ordering comparison %q on absent field %q has no defined result; guard with has(%s)", op, name, name)
+	default:
+		return false, fmt.Errorf("unknown operator %q", op)
+	}
+}
+
+// fieldRefName extracts the underlying name from a FieldRef or
+// QualifiedRef for error messages; returns "" for anything else.
+func fieldRefName(expr Expr) string {
+	switch ref := expr.(type) {
+	case *FieldRef:
+		return ref.Name
+	case *QualifiedRef:
+		return ref.Qualifier + "." + ref.Name
+	}
+	return ""
+}
+
+// evalIsEmpty treats an absent-field read as empty, matching the updated
+// Phase-4 rule that `missing is empty` is true and `missing is not empty`
+// is false. Non-absent errors still propagate.
 func (e *Executor) evalIsEmpty(c *IsEmptyExpr, ctx evalContext) (bool, error) {
-	val, err := e.evalExpr(c.Expr, ctx)
+	val, absent, err := evalComparand(e, c.Expr, ctx)
 	if err != nil {
 		return false, err
 	}
-	// Phase 5: an absent workflow field is not "empty" — it has no value
-	// at all. Both `dependsOn is empty` and `dependsOn is not empty` on a
-	// plain document return false so the caller must use has(dependsOn)
-	// for explicit presence checks. Only field refs resolving to nil get
-	// this short-circuit; a bare list literal or other expression that
-	// evaluates to nil still participates in normal is-empty semantics.
-	if val == nil && isWorkflowFieldRef(c.Expr) {
-		return false, nil
-	}
-	empty := isZeroValue(val)
+	empty := absent || isZeroValue(val)
 	if c.Negated {
 		return !empty, nil
 	}
 	return empty, nil
 }
 
+// evalIn gives missing LHS a defined result: `missing in [...]` is false,
+// `missing not in [...]` is true. Parity with = / != semantics keeps the
+// absent-field behavior consistent across predicates.
 func (e *Executor) evalIn(c *InExpr, ctx evalContext) (bool, error) {
-	val, err := e.evalExpr(c.Value, ctx)
+	val, valAbsent, err := evalComparand(e, c.Value, ctx)
 	if err != nil {
 		return false, err
 	}
-	collVal, err := e.evalExpr(c.Collection, ctx)
+	collVal, collAbsent, err := evalComparand(e, c.Collection, ctx)
 	if err != nil {
 		return false, err
 	}
 
-	// Phase 5: if either side references an absent workflow field, the
-	// whole predicate evaluates false — for both `in` AND `not in`. This
-	// closes the hole where `where assignee not in ["bob"]` matched plain
-	// documents (absent assignee) by falling through to the
-	// `return c.Negated` branches. has(<field>) is the only way to ask
-	// "is this field present?". Custom field refs and string-literal
-	// operands still follow their prior semantics below — the scoping
-	// via isWorkflowFieldRef is what preserves backwards compatibility
-	// for custom fields.
-	leftAbsent := val == nil && isWorkflowFieldRef(c.Value)
-	rightAbsent := collVal == nil && isWorkflowFieldRef(c.Collection)
-	if leftAbsent || rightAbsent {
-		return false, nil
+	// If either side is an absent field ref, the value is "not a member"
+	// by definition: `in` → false, `not in` → true.
+	if valAbsent || collAbsent {
+		return c.Negated, nil
 	}
 
 	// list membership mode
 	if list, ok := collVal.([]interface{}); ok {
-		// unset non-workflow value on the left (e.g. a custom field) is
-		// not a member of any list — keep the pre-Phase-5 behavior.
 		if val == nil {
 			return c.Negated, nil
 		}
 		valStr := normalizeToString(val)
-		// use case-insensitive comparison for enum-like fields
 		foldCase := isEnumLikeField(e.exprFieldType(c.Value))
 		found := false
 		for _, elem := range list {
@@ -907,7 +852,7 @@ func (e *Executor) evalIn(c *InExpr, ctx evalContext) (bool, error) {
 		return found, nil
 	}
 
-	// substring mode — guarded assertions, no panics on hand-built ASTs
+	// substring mode
 	if haystack, ok := collVal.(string); ok {
 		needle, ok := val.(string)
 		if !ok {
@@ -920,9 +865,6 @@ func (e *Executor) evalIn(c *InExpr, ctx evalContext) (bool, error) {
 		return found, nil
 	}
 
-	// Non-workflow nil collection (e.g. absent custom field) — keep the
-	// pre-Phase-5 c.Negated fallback so `custom not in [...]` on an
-	// unset custom field matches.
 	if collVal == nil {
 		return c.Negated, nil
 	}
@@ -930,32 +872,30 @@ func (e *Executor) evalIn(c *InExpr, ctx evalContext) (bool, error) {
 	return false, fmt.Errorf("in: collection is not a list or string")
 }
 
+// evalQuantifier treats an absent list field as an empty list:
+// `missing any cond` → false (no elements to satisfy), `missing all cond`
+// → true (vacuous truth). Matches the missing-field symmetry in the
+// other predicate operators.
 func (e *Executor) evalQuantifier(q *QuantifierExpr, ctx evalContext) (bool, error) {
-	listVal, err := e.evalExpr(q.Expr, ctx)
+	listVal, absent, err := evalComparand(e, q.Expr, ctx)
 	if err != nil {
 		return false, err
 	}
-	// Phase 5: an absent list workflow field resolves to nil. A quantifier
-	// over an absent field returns false for BOTH `any` and `all` — the
-	// vacuous-truth shortcut for `all` intentionally does NOT apply when
-	// the list is absent rather than empty, because "predicates on absent
-	// fields evaluate false except explicit absence checks" (the
-	// has(<field>) predicate is the escape hatch).
-	if listVal == nil && isWorkflowFieldRef(q.Expr) {
-		return false, nil
+	if absent {
+		return q.Kind == "all", nil
 	}
 	refs, ok := listVal.([]interface{})
 	if !ok {
 		return false, fmt.Errorf("quantifier: expression is not a list")
 	}
 
-	// find referenced tasks
-	refTasks := make([]*task.Task, 0, len(refs))
+	// find referenced tikis
+	refTikis := make([]*tiki.Tiki, 0, len(refs))
 	for _, ref := range refs {
 		refID := normalizeToString(ref)
-		for _, at := range ctx.allTasks {
+		for _, at := range ctx.allTikis {
 			if strings.EqualFold(at.ID, refID) {
-				refTasks = append(refTasks, at)
+				refTikis = append(refTikis, at)
 				break
 			}
 		}
@@ -963,10 +903,13 @@ func (e *Executor) evalQuantifier(q *QuantifierExpr, ctx evalContext) (bool, err
 
 	switch q.Kind {
 	case "any":
-		for _, rt := range refTasks {
+		for _, rt := range refTikis {
+			// Soft-false per subquery-iteration rule: a quantifier body
+			// evaluating against an absent field on a referenced tiki
+			// does not kill the outer query.
 			match, err := e.evalCondition(q.Condition, ctx.withCurrent(rt))
 			if err != nil {
-				return false, err
+				continue
 			}
 			if match {
 				return true, nil
@@ -974,13 +917,15 @@ func (e *Executor) evalQuantifier(q *QuantifierExpr, ctx evalContext) (bool, err
 		}
 		return false, nil
 	case "all":
-		if len(refTasks) == 0 {
+		if len(refTikis) == 0 {
 			return true, nil // vacuous truth
 		}
-		for _, rt := range refTasks {
+		for _, rt := range refTikis {
 			match, err := e.evalCondition(q.Condition, ctx.withCurrent(rt))
 			if err != nil {
-				return false, err
+				// absent-field on one referenced tiki means "no match"
+				// for that tiki → `all` fails.
+				return false, nil
 			}
 			if !match {
 				return false, nil
@@ -997,14 +942,14 @@ func (e *Executor) evalQuantifier(q *QuantifierExpr, ctx evalContext) (bool, err
 func (e *Executor) evalExpr(expr Expr, ctx evalContext) (interface{}, error) {
 	switch expr := expr.(type) {
 	case *FieldRef:
-		return e.extractField(ctx.current, expr.Name), nil
+		return e.readFieldRefWithCarveOut(ctx.current, expr.Name, ctx)
 	case *QualifiedRef:
 		switch expr.Qualifier {
 		case "outer":
 			if ctx.outer == nil {
 				return nil, fmt.Errorf("outer.%s is not available outside a subquery", expr.Name)
 			}
-			return e.extractField(ctx.outer, expr.Name), nil
+			return e.readFieldRefWithCarveOut(ctx.outer, expr.Name, ctx)
 		case "target":
 			return e.evalTargetField(expr.Name, ctx)
 		case "targets":
@@ -1073,9 +1018,9 @@ func (e *Executor) evalFunctionCall(fc *FunctionCall, ctx evalContext) (interfac
 		}
 		return e.userFunc(), nil
 	case "count":
-		return e.evalCount(fc, ctx.current, ctx.allTasks)
+		return e.evalCount(fc, ctx.current, ctx.allTikis)
 	case "exists":
-		return e.evalExists(fc, ctx.current, ctx.allTasks)
+		return e.evalExists(fc, ctx.current, ctx.allTikis)
 	case "has":
 		return e.evalHas(fc, ctx)
 	case "next_date":
@@ -1108,28 +1053,8 @@ func (e *Executor) evalChoose() (interface{}, error) {
 }
 
 // evalHas implements the has(<field>) presence predicate. It returns true
-// when the referenced task has an explicit value for the named workflow
-// field, false otherwise. Unlike equality comparisons which silently
-// return false on absent fields, has() lets a caller distinguish "present
-// with zero value" from "absent entirely" — the primary use case is ruki
-// queries that want to surface only workflow documents (e.g. where
-// has(status)).
-//
-// Argument contract: a single bare or qualified field reference. The
-// runtime resolves the same qualifier set as ordinary field references
-// in each context:
-//   - bare has(X) → current row (the task ruki is iterating over, or
-//     the subquery candidate)
-//   - has(outer.X) → the parent-query row (only inside a subquery body)
-//   - has(target.X) → the exactly-one selected task (plugin runtime)
-//   - has(targets.X) → true iff ANY selected task has the field present
-//     (plugin runtime)
-//   - has(new.X) / has(old.X) → handled by the trigger executor
-//     override; the base executor is never in a trigger context so
-//     reaching those qualifiers here is a programming error
-//
-// String literals and other expression kinds are rejected at validation
-// time so they never reach this function.
+// when the referenced tiki has an explicit value for the named field, false
+// otherwise. Presence-safe by construction.
 func (e *Executor) evalHas(fc *FunctionCall, ctx evalContext) (interface{}, error) {
 	if len(fc.Args) != 1 {
 		return nil, fmt.Errorf("has() expects 1 argument, got %d", len(fc.Args))
@@ -1149,21 +1074,13 @@ func (e *Executor) evalHas(fc *FunctionCall, ctx evalContext) (interface{}, erro
 		if ctx.current == nil {
 			return false, nil
 		}
-		return hasWorkflowField(ctx.current, name), nil
+		return tikiHas(ctx.current, name), nil
 	case "outer":
 		if ctx.outer == nil {
 			return nil, fmt.Errorf("has(outer.%s) is not available outside a subquery", name)
 		}
-		return hasWorkflowField(ctx.outer, name), nil
+		return tikiHas(ctx.outer, name), nil
 	case "target":
-		// Reuse evalTargetField's runtime-mode and selection checks so
-		// errors are identical to those a bare target.X would raise.
-		// The field value it returns is nil iff the field is absent on
-		// the selected task — which is exactly hasWorkflowField's
-		// answer for scalars. For robustness against the list case
-		// (where an absent list still returns nil via the extractField
-		// change), look up the task and consult hasWorkflowField
-		// directly after the policy/selection gates pass.
 		if e.runtime.Mode != ExecutorRuntimePlugin {
 			return nil, fmt.Errorf("has(target.%s): target. qualifier is only available in plugin runtime", name)
 		}
@@ -1171,40 +1088,43 @@ func (e *Executor) evalHas(fc *FunctionCall, ctx evalContext) (interface{}, erro
 			return nil, err
 		}
 		id, _ := e.currentInput.SingleSelectedTaskID()
-		t, ok := findTaskByID(ctx.allTasks, id)
+		t, ok := findTikiByID(ctx.allTikis, id)
 		if !ok {
 			return nil, fmt.Errorf("has(target.%s): selected task %q not found", name, id)
 		}
-		return hasWorkflowField(t, name), nil
+		return tikiHas(t, name), nil
 	case "targets":
-		// has(targets.X) returns true iff ANY selected task has field X
-		// present. Mirrors evalTargetsField's runtime-mode gate. Zero
-		// selected tasks → false (no task to have the field).
 		if e.runtime.Mode != ExecutorRuntimePlugin {
 			return nil, fmt.Errorf("has(targets.%s): targets. qualifier is only available in plugin runtime", name)
 		}
 		selectedIDs := e.currentInput.SelectedTaskIDList()
 		for _, id := range selectedIDs {
-			t, ok := findTaskByID(ctx.allTasks, id)
+			t, ok := findTikiByID(ctx.allTikis, id)
 			if !ok {
 				return nil, fmt.Errorf("has(targets.%s): selected task %q not found", name, id)
 			}
-			if hasWorkflowField(t, name) {
+			if tikiHas(t, name) {
 				return true, nil
 			}
 		}
 		return false, nil
 	case "new", "old":
-		// new./old. are only evaluable in trigger contexts, where the
-		// trigger executor override intercepts has() before the base
-		// runs. Reaching this branch means the validator let a trigger-
-		// only qualifier through in a non-trigger context, which is a
-		// programming error — surface it clearly rather than silently
-		// returning false.
 		return nil, fmt.Errorf("has(%s.%s): %s. qualifier is only available in trigger guards and actions", qualifier, name, qualifier)
 	default:
 		return nil, fmt.Errorf("has(%s.%s): unknown qualifier %q", qualifier, name, qualifier)
 	}
+}
+
+// tikiHas reports whether the tiki carries an explicit value for name.
+// Identity fields are always present.
+func tikiHas(t *tiki.Tiki, name string) bool {
+	if t == nil {
+		return false
+	}
+	if tiki.IsIdentityField(name) {
+		return true
+	}
+	return t.Has(name)
 }
 
 func (e *Executor) evalID() (interface{}, error) {
@@ -1237,8 +1157,7 @@ func (e *Executor) evalSelectedCount() (interface{}, error) {
 	return e.currentInput.SelectionCount(), nil
 }
 
-// evalTargetField evaluates target.<field>. It enforces the same exactly-one
-// selection contract as id() and extracts the named field from the selected task.
+// evalTargetField evaluates target.<field>.
 func (e *Executor) evalTargetField(name string, ctx evalContext) (interface{}, error) {
 	if e.runtime.Mode != ExecutorRuntimePlugin {
 		return nil, fmt.Errorf("target. qualifier is only available in plugin runtime")
@@ -1247,17 +1166,16 @@ func (e *Executor) evalTargetField(name string, ctx evalContext) (interface{}, e
 		return nil, err
 	}
 	id, _ := e.currentInput.SingleSelectedTaskID()
-	t, ok := findTaskByID(ctx.allTasks, id)
+	t, ok := findTikiByID(ctx.allTikis, id)
 	if !ok {
 		return nil, fmt.Errorf("target.%s: selected task %q not found", name, id)
 	}
-	return e.extractField(t, name), nil
+	return e.extractField(t, name)
 }
 
 // evalTargetsField evaluates targets.<field>. It projects the named field
-// across all selected tasks, flattens list-valued fields, and deduplicates
-// while preserving first-seen order (by selection order, then field value
-// order within a task).
+// across all selected tikis, flattens list-valued fields, and deduplicates
+// while preserving first-seen order.
 func (e *Executor) evalTargetsField(name string, ctx evalContext) (interface{}, error) {
 	if e.runtime.Mode != ExecutorRuntimePlugin {
 		return nil, fmt.Errorf("targets. qualifier is only available in plugin runtime")
@@ -1269,11 +1187,16 @@ func (e *Executor) evalTargetsField(name string, ctx evalContext) (interface{}, 
 	result := make([]interface{}, 0, len(selectedIDs))
 	seen := make(map[string]struct{}, len(selectedIDs))
 	for _, id := range selectedIDs {
-		t, ok := findTaskByID(ctx.allTasks, id)
+		t, ok := findTikiByID(ctx.allTikis, id)
 		if !ok {
 			return nil, fmt.Errorf("targets.%s: selected task %q not found", name, id)
 		}
-		val := e.extractField(t, name)
+		// targets. projection is presentation-layer: skip tikis missing
+		// the field rather than propagating the absent-field error.
+		val, err := e.extractField(t, name)
+		if err != nil {
+			continue
+		}
 		if list, isList := val.([]interface{}); isList {
 			for _, elem := range list {
 				appendUniqueElem(&result, seen, elem)
@@ -1288,9 +1211,9 @@ func (e *Executor) evalTargetsField(name string, ctx evalContext) (interface{}, 
 	return result, nil
 }
 
-// findTaskByID returns the task with the given id from the list (case-insensitive).
-func findTaskByID(tasks []*task.Task, id string) (*task.Task, bool) {
-	for _, t := range tasks {
+// findTikiByID returns the tiki with the given id from the list (case-insensitive).
+func findTikiByID(tikis []*tiki.Tiki, id string) (*tiki.Tiki, bool) {
+	for _, t := range tikis {
 		if strings.EqualFold(t.ID, id) {
 			return t, true
 		}
@@ -1309,9 +1232,7 @@ func appendUniqueElem(out *[]interface{}, seen map[string]struct{}, v interface{
 	*out = append(*out, v)
 }
 
-// checkSingleSelectionForID enforces the scalar id() contract: exactly one
-// selected task id. Zero yields MissingSelectedTaskIDError; more than one
-// yields AmbiguousSelectedTaskIDError.
+// checkSingleSelectionForID enforces the scalar id() contract.
 func checkSingleSelectionForID(in ExecutionInput) error {
 	count := in.SelectionCount()
 	switch {
@@ -1323,19 +1244,20 @@ func checkSingleSelectionForID(in ExecutionInput) error {
 	return nil
 }
 
-func (e *Executor) evalCount(fc *FunctionCall, parent *task.Task, allTasks []*task.Task) (interface{}, error) {
+func (e *Executor) evalCount(fc *FunctionCall, parent *tiki.Tiki, allTikis []*tiki.Tiki) (interface{}, error) {
 	sq, ok := fc.Args[0].(*SubQuery)
 	if !ok {
 		return nil, fmt.Errorf("count() argument must be a select subquery")
 	}
 	if sq.Where == nil {
-		return len(allTasks), nil
+		return len(allTikis), nil
 	}
 	count := 0
-	for _, t := range allTasks {
-		match, err := e.evalCondition(sq.Where, evalContext{current: t, outer: parent, allTasks: allTasks})
+	for _, t := range allTikis {
+		// Soft-false per subquery-iteration rule.
+		match, err := e.evalCondition(sq.Where, evalContext{current: t, outer: parent, allTikis: allTikis})
 		if err != nil {
-			return nil, err
+			continue
 		}
 		if match {
 			count++
@@ -1344,18 +1266,18 @@ func (e *Executor) evalCount(fc *FunctionCall, parent *task.Task, allTasks []*ta
 	return count, nil
 }
 
-func (e *Executor) evalExists(fc *FunctionCall, parent *task.Task, allTasks []*task.Task) (interface{}, error) {
+func (e *Executor) evalExists(fc *FunctionCall, parent *tiki.Tiki, allTikis []*tiki.Tiki) (interface{}, error) {
 	sq, ok := fc.Args[0].(*SubQuery)
 	if !ok {
 		return nil, fmt.Errorf("exists() argument must be a select subquery")
 	}
 	if sq.Where == nil {
-		return len(allTasks) > 0, nil
+		return len(allTikis) > 0, nil
 	}
-	for _, t := range allTasks {
-		match, err := e.evalCondition(sq.Where, evalContext{current: t, outer: parent, allTasks: allTasks})
+	for _, t := range allTikis {
+		match, err := e.evalCondition(sq.Where, evalContext{current: t, outer: parent, allTikis: allTikis})
 		if err != nil {
-			return nil, err
+			continue
 		}
 		if match {
 			return true, nil
@@ -1364,24 +1286,26 @@ func (e *Executor) evalExists(fc *FunctionCall, parent *task.Task, allTasks []*t
 	return false, nil
 }
 
-// EvalSubQueryFilter evaluates a subquery WHERE clause against a set of tasks,
-// returning the matching tasks. Used by the controller to build candidate lists
-// for choose() before showing the picker.
-func (e *Executor) EvalSubQueryFilter(sq *SubQuery, tasks []*task.Task, input ExecutionInput, parents ...*task.Task) ([]*task.Task, error) {
+// EvalSubQueryFilter evaluates a subquery WHERE clause against a set of tikis,
+// returning the matching tikis. Used by the controller to build candidate
+// lists for choose() before showing the picker.
+func (e *Executor) EvalSubQueryFilter(sq *SubQuery, tikis []*tiki.Tiki, input ExecutionInput, parents ...*tiki.Tiki) ([]*tiki.Tiki, error) {
 	e.currentInput = input
 	defer func() { e.currentInput = ExecutionInput{} }()
 
 	if sq == nil || sq.Where == nil {
-		result := make([]*task.Task, len(tasks))
-		copy(result, tasks)
+		result := make([]*tiki.Tiki, len(tikis))
+		copy(result, tikis)
 		return result, nil
 	}
-	parent := chooseFilterParent(tasks, input, parents...)
-	var result []*task.Task
-	for _, t := range tasks {
-		match, err := e.evalCondition(sq.Where, evalContext{current: t, outer: parent, allTasks: tasks})
+	parent := chooseFilterParent(tikis, input, parents...)
+	var result []*tiki.Tiki
+	for _, t := range tikis {
+		// Soft-false per subquery-iteration rule: choose() candidates that
+		// hit an absent-field error are simply not offered.
+		match, err := e.evalCondition(sq.Where, evalContext{current: t, outer: parent, allTikis: tikis})
 		if err != nil {
-			return nil, err
+			continue
 		}
 		if match {
 			result = append(result, t)
@@ -1390,17 +1314,15 @@ func (e *Executor) EvalSubQueryFilter(sq *SubQuery, tasks []*task.Task, input Ex
 	return result, nil
 }
 
-func chooseFilterParent(tasks []*task.Task, input ExecutionInput, parents ...*task.Task) *task.Task {
+func chooseFilterParent(tikis []*tiki.Tiki, input ExecutionInput, parents ...*tiki.Tiki) *tiki.Tiki {
 	if len(parents) > 0 {
 		return parents[0]
 	}
-	// outer parent is only well-defined for exactly-one selection;
-	// multi-select has no single "current" task to bind against.
 	selected, ok := input.SingleSelectedTaskID()
 	if !ok {
 		return nil
 	}
-	for _, t := range tasks {
+	for _, t := range tikis {
 		if strings.EqualFold(t.ID, selected) {
 			return t
 		}
@@ -1409,18 +1331,45 @@ func chooseFilterParent(tasks []*task.Task, input ExecutionInput, parents ...*ta
 }
 
 func (e *Executor) evalNextDate(fc *FunctionCall, ctx evalContext) (interface{}, error) {
+	// Only allow bare/qualified refs to recurrence, not arbitrary string
+	// literals — next_date("daily") would bypass the recurrence type
+	// contract. The validator enforces this upstream; the runtime check
+	// below is a defense-in-depth for hand-built ASTs.
+	if _, isField := fc.Args[0].(*FieldRef); !isField {
+		if _, isQual := fc.Args[0].(*QualifiedRef); !isQual {
+			// Still evaluate so we can surface a typed error. Only
+			// task.Recurrence is accepted from non-field callers.
+			val, err := e.evalExpr(fc.Args[0], ctx)
+			if err != nil {
+				return nil, err
+			}
+			if val == nil {
+				return nil, nil
+			}
+			if rec, ok := val.(task.Recurrence); ok {
+				return task.NextOccurrence(rec), nil
+			}
+			return nil, fmt.Errorf("next_date() argument must be a recurrence value, got %T", val)
+		}
+	}
+
 	val, err := e.evalExpr(fc.Args[0], ctx)
 	if err != nil {
 		return nil, err
 	}
-	// Phase 5: absent recurrence propagates as nil so `is not empty` filters
-	// out documents without recurrence rather than surfacing a type error.
 	if val == nil {
 		return nil, nil
 	}
-	rec, ok := val.(task.Recurrence)
-	if !ok {
-		return nil, fmt.Errorf("next_date() argument must be a recurrence value")
+	// Accept string (from Fields map, which holds recurrence as canonical
+	// string) or task.Recurrence.
+	var rec task.Recurrence
+	switch v := val.(type) {
+	case task.Recurrence:
+		rec = v
+	case string:
+		rec = task.Recurrence(v)
+	default:
+		return nil, fmt.Errorf("next_date() argument must be a recurrence value, got %T", val)
 	}
 	return task.NextOccurrence(rec), nil
 }
@@ -1433,8 +1382,14 @@ func (e *Executor) evalBlocks(fc *FunctionCall, ctx evalContext) (interface{}, e
 	targetID := strings.ToUpper(normalizeToString(val))
 
 	var blockers []interface{}
-	for _, at := range ctx.allTasks {
-		for _, dep := range at.DependsOn {
+	for _, at := range ctx.allTikis {
+		// Skip tikis without a dependsOn field per the blocks-scan
+		// soft-false rule: absent lists don't block anything.
+		deps, ok := tikiStringSlice(at, tiki.FieldDependsOn)
+		if !ok {
+			continue
+		}
+		for _, dep := range deps {
 			if strings.EqualFold(dep, targetID) {
 				blockers = append(blockers, at.ID)
 				break
@@ -1445,6 +1400,31 @@ func (e *Executor) evalBlocks(fc *FunctionCall, ctx evalContext) (interface{}, e
 		blockers = []interface{}{}
 	}
 	return blockers, nil
+}
+
+// tikiStringSlice reads a string-slice-typed field without propagating an
+// absent-field error. Returns (slice, true) when the field is present (even
+// if empty); (nil, false) when absent.
+func tikiStringSlice(t *tiki.Tiki, name string) ([]string, bool) {
+	if t == nil {
+		return nil, false
+	}
+	v, ok := t.Get(name)
+	if !ok {
+		return nil, false
+	}
+	switch s := v.(type) {
+	case []string:
+		return s, true
+	case []interface{}:
+		out := make([]string, 0, len(s))
+		for _, elem := range s {
+			out = append(out, normalizeToString(elem))
+		}
+		return out, true
+	default:
+		return nil, true
+	}
 }
 
 // --- binary expression evaluation ---
@@ -1459,17 +1439,6 @@ func (e *Executor) evalBinaryExpr(b *BinaryExpr, ctx evalContext) (interface{}, 
 		return nil, err
 	}
 
-	// Phase 5: absent list fields resolve to nil in predicate contexts, but
-	// arithmetic contexts (`dependsOn + "X"`, `tags - ["a"]`) construct a
-	// NEW list and the absence of a left-hand list should be treated as
-	// "start from empty, then add/remove". The assignment target then
-	// triggers promotion via setField, so the resulting write records the
-	// explicit new value. Without this coercion, `set dependsOn =
-	// dependsOn + "X"` on a plain document would fail with "cannot add
-	// nil + string" — breaking one of the main promotion idioms.
-	leftVal = e.coerceAbsentListForArithmetic(b.Left, leftVal)
-	rightVal = e.coerceAbsentListForArithmetic(b.Right, rightVal)
-
 	switch b.Op {
 	case "+":
 		return addValues(leftVal, rightVal)
@@ -1480,34 +1449,70 @@ func (e *Executor) evalBinaryExpr(b *BinaryExpr, ctx evalContext) (interface{}, 
 	}
 }
 
-// coerceAbsentListForArithmetic replaces a nil result from a field-ref
-// evaluation with an empty []interface{} when the target field is list-
-// valued. Scalar field refs that resolve to nil stay nil so their existing
-// arithmetic errors surface unchanged. Custom list fields are included via
-// schema lookup so `set myRefs = myRefs + [...]` also works when myRefs
-// was absent.
-func (e *Executor) coerceAbsentListForArithmetic(expr Expr, val interface{}) interface{} {
-	if val != nil {
-		return val
-	}
-	var name string
-	switch ex := expr.(type) {
-	case *FieldRef:
-		name = ex.Name
-	case *QualifiedRef:
-		name = ex.Name
-	default:
-		return val
-	}
-	if name == "tags" || name == "dependsOn" {
-		return []interface{}{}
-	}
-	if fs, ok := e.schema.Field(name); ok {
-		if fs.Type == ValueListString || fs.Type == ValueListRef {
-			return []interface{}{}
+// readFieldRefWithCarveOut reads a field reference off a tiki, applying the
+// assignment-RHS auto-zero carve-out. When ctx.inAssignmentRHS is true and
+// the field is absent on the target tiki, the function returns the type-
+// appropriate zero for registered workflow fields (schema-known or Custom)
+// instead of hard-erroring. Unregistered field names fall through to the
+// normal hard-error path so typos keep failing loudly.
+//
+// Outside an assignment RHS, the function behaves identically to
+// extractField — absent reads error uniformly.
+func (e *Executor) readFieldRefWithCarveOut(t *tiki.Tiki, name string, ctx evalContext) (interface{}, error) {
+	if ctx.inAssignmentRHS && t != nil && !tiki.IsIdentityField(name) && !t.Has(name) {
+		if zero, ok := e.registeredFieldZero(name); ok {
+			return zero, nil
 		}
 	}
-	return val
+	return e.extractField(t, name)
+}
+
+// registeredFieldZero returns the type-appropriate zero value for a
+// registered workflow field. The first return is the zero; the second is
+// false for names that are not registered (so the caller falls through to
+// the normal hard-error path).
+func (e *Executor) registeredFieldZero(name string) (interface{}, bool) {
+	if tiki.IsSchemaKnown(name) {
+		return schemaKnownZero(name), true
+	}
+	fs, ok := e.schema.Field(name)
+	if !ok || !fs.Custom {
+		return nil, false
+	}
+	return customFieldZero(fs.Type), true
+}
+
+// schemaKnownZero returns the zero value for a schema-known field by name.
+func schemaKnownZero(name string) interface{} {
+	switch name {
+	case tiki.FieldTags, tiki.FieldDependsOn:
+		return []interface{}{}
+	case tiki.FieldPriority, tiki.FieldPoints:
+		return 0
+	case tiki.FieldDue:
+		return time.Time{}
+	case tiki.FieldStatus, tiki.FieldType, tiki.FieldRecurrence, tiki.FieldAssignee:
+		return ""
+	}
+	return ""
+}
+
+// customFieldZero returns the zero value for a registered Custom field by
+// its ValueType.
+func customFieldZero(t ValueType) interface{} {
+	switch t {
+	case ValueListString, ValueListRef:
+		return []interface{}{}
+	case ValueInt:
+		return 0
+	case ValueBool:
+		return false
+	case ValueTimestamp:
+		return time.Time{}
+	case ValueString, ValueEnum, ValueRef:
+		return ""
+	}
+	return ""
 }
 
 func addValues(left, right interface{}) (interface{}, error) {
@@ -1529,8 +1534,18 @@ func addValues(left, right interface{}) (interface{}, error) {
 			return appendUniqueListValues(l, r), nil
 		}
 		return appendUniqueListValues(l, []interface{}{right}), nil
+	case []string:
+		return addValues(stringSliceToInterface(l), right)
 	}
 	return nil, fmt.Errorf("cannot add %T + %T", left, right)
+}
+
+func stringSliceToInterface(ss []string) []interface{} {
+	out := make([]interface{}, len(ss))
+	for i, s := range ss {
+		out[i] = s
+	}
+	return out
 }
 
 func appendUniqueListValues(left, right []interface{}) []interface{} {
@@ -1592,18 +1607,37 @@ func subtractValues(left, right interface{}) (interface{}, error) {
 			result = []interface{}{}
 		}
 		return result, nil
+	case []string:
+		return subtractValues(stringSliceToInterface(l), right)
 	}
 	return nil, fmt.Errorf("cannot subtract %T - %T", left, right)
 }
 
 // --- sorting ---
 
-func (e *Executor) sortTasks(tasks []*task.Task, clauses []OrderByClause) {
-	sort.SliceStable(tasks, func(i, j int) bool {
-		for _, c := range clauses {
-			vi := e.extractField(tasks[i], c.Field)
-			vj := e.extractField(tasks[j], c.Field)
-			cmp := compareForSort(vi, vj)
+func (e *Executor) sortTikis(tikis []*tiki.Tiki, clauses []OrderByClause) error {
+	// Pre-extract all sort keys so a missing field surfaces as an error
+	// before sort.Slice starts swapping.
+	keys := make([][]interface{}, len(tikis))
+	for i, t := range tikis {
+		row := make([]interface{}, len(clauses))
+		for j, c := range clauses {
+			v, err := e.extractField(t, c.Field)
+			if err != nil {
+				return fmt.Errorf("order by %q: %w", c.Field, err)
+			}
+			row[j] = v
+		}
+		keys[i] = row
+	}
+	indices := make([]int, len(tikis))
+	for i := range indices {
+		indices[i] = i
+	}
+	sort.SliceStable(indices, func(i, j int) bool {
+		ki, kj := keys[indices[i]], keys[indices[j]]
+		for idx, c := range clauses {
+			cmp := compareForSort(ki[idx], kj[idx])
 			if cmp == 0 {
 				continue
 			}
@@ -1614,14 +1648,16 @@ func (e *Executor) sortTasks(tasks []*task.Task, clauses []OrderByClause) {
 		}
 		return false
 	})
+	// reorder tikis in place
+	tmp := make([]*tiki.Tiki, len(tikis))
+	for i, idx := range indices {
+		tmp[i] = tikis[idx]
+	}
+	copy(tikis, tmp)
+	return nil
 }
 
 func compareForSort(a, b interface{}) int {
-	// Phase 5 semantics: absent values sort AFTER present ones for ascending,
-	// so a nil on the left is "greater" than a present value. Descending
-	// naturally inverts via c.Desc in sortTasks, so absent values appear at
-	// the END of ascending sorts and the BEGINNING of descending sorts —
-	// matching the plan's deterministic-placement rule.
 	if a == nil && b == nil {
 		return 0
 	}
@@ -1645,7 +1681,7 @@ func compareForSort(a, b interface{}) int {
 			return 0
 		}
 		if !av && bv {
-			return -1 // false < true
+			return -1
 		}
 		return 1
 	case task.Status:
@@ -1693,19 +1729,6 @@ func compareInts(a, b int) int {
 // --- comparison ---
 
 func (e *Executor) compareValues(left, right interface{}, op string, leftExpr, rightExpr Expr) (bool, error) {
-	// Phase 5: a comparison involving an absent workflow field evaluates
-	// false for every operator — the plan's rule is "predicates on absent
-	// fields evaluate false except explicit absence checks". That covers
-	// `=`, `!=`, `<`, `>`, and every other comparison op. The has(<field>)
-	// predicate is the only way to ask "is this present". This also closes
-	// the hole where `where dependsOn = []` on a plain document matched
-	// because EmptyLiteral → nil and the compareWithNil branch treated
-	// nil-vs-EmptyLiteral as both-empty.
-	leftAbsent := left == nil && isWorkflowFieldRef(leftExpr)
-	rightAbsent := right == nil && isWorkflowFieldRef(rightExpr)
-	if leftAbsent || rightAbsent {
-		return false, nil
-	}
 	if left == nil || right == nil {
 		return compareWithNil(left, right, op, leftExpr, rightExpr)
 	}
@@ -1715,12 +1738,17 @@ func (e *Executor) compareValues(left, right interface{}, op string, leftExpr, r
 			return compareListEquality(leftList, rightList, op)
 		}
 	}
+	if leftList, ok := left.([]string); ok {
+		return compareListEquality(stringSliceToInterface(leftList), ensureInterfaceSlice(right), op)
+	}
+	if rightList, ok := right.([]string); ok {
+		return compareListEquality(ensureInterfaceSlice(left), stringSliceToInterface(rightList), op)
+	}
 
 	if lb, ok := left.(bool); ok {
 		if rb, ok := right.(bool); ok {
 			return compareBools(lb, rb, op)
 		}
-		// resilience: coerce string-encoded bool on right side
 		if rs, ok := right.(string); ok {
 			if rb, err := parseBoolString(rs); err == nil {
 				return compareBools(lb, rb, op)
@@ -1728,7 +1756,6 @@ func (e *Executor) compareValues(left, right interface{}, op string, leftExpr, r
 		}
 	}
 	if rb, ok := right.(bool); ok {
-		// resilience: coerce string-encoded bool on left side
 		if ls, ok := left.(string); ok {
 			if lb, err := parseBoolString(ls); err == nil {
 				return compareBools(lb, rb, op)
@@ -1787,8 +1814,18 @@ func (e *Executor) compareValues(left, right interface{}, op string, leftExpr, r
 	}
 }
 
-// resolveComparisonType returns the dominant field type for a comparison,
-// checking both sides for enum/id fields that need special handling.
+func ensureInterfaceSlice(v interface{}) []interface{} {
+	switch s := v.(type) {
+	case []interface{}:
+		return s
+	case []string:
+		return stringSliceToInterface(s)
+	default:
+		return []interface{}{v}
+	}
+}
+
+// resolveComparisonType returns the dominant field type for a comparison.
 func (e *Executor) resolveComparisonType(left, right Expr) ValueType {
 	if t := e.exprFieldType(left); t == ValueID || t == ValueStatus || t == ValueTaskType || t == ValueEnum {
 		return t
@@ -1823,7 +1860,6 @@ func (e *Executor) exprFieldType(expr Expr) ValueType {
 
 // isEnumLikeField returns true for field types that use case-insensitive
 // comparison in equality checks and should also use it for in/not-in.
-// Includes ValueBool so that "True"/"true"/"TRUE" all match in bool in-lists.
 func isEnumLikeField(t ValueType) bool {
 	return t == ValueEnum || t == ValueStatus || t == ValueTaskType || t == ValueID || t == ValueBool
 }
@@ -1843,8 +1879,7 @@ func (e *Executor) normalizeTypeStr(s string) string {
 }
 
 func compareWithNil(left, right interface{}, op string, leftExpr, rightExpr Expr) (bool, error) {
-	// when comparing against EmptyLiteral, use zero-value semantics:
-	// nil and typed zeros both count as "empty"
+	// when comparing against EmptyLiteral, use zero-value semantics
 	_, leftIsEmpty := leftExpr.(*EmptyLiteral)
 	_, rightIsEmpty := rightExpr.(*EmptyLiteral)
 	if leftIsEmpty || rightIsEmpty {
@@ -1861,7 +1896,6 @@ func compareWithNil(left, right interface{}, op string, leftExpr, rightExpr Expr
 		}
 	}
 
-	// concrete comparison: nil (unset field) only equals nil
 	bothNil := left == nil && right == nil
 	switch op {
 	case "=":
@@ -2007,103 +2041,97 @@ func compareDurations(a, b time.Duration, op string) (bool, error) {
 
 // --- field extraction ---
 
-func (e *Executor) extractField(t *task.Task, name string) interface{} {
+// extractField reads a field off a tiki. Identity/audit fields always succeed.
+// For any other name, an absent field hard-errors — callers that need
+// presence-safety must go through has(<field>) or use extractFieldForDisplay
+// for presentation-layer consumers that should render blank.
+func (e *Executor) extractField(t *tiki.Tiki, name string) (interface{}, error) {
+	if t == nil {
+		return nil, fmt.Errorf("no current row to read %q from", name)
+	}
 	switch name {
 	case "id":
-		return t.ID
+		return t.ID, nil
 	case "title":
-		return t.Title
-	case "description":
-		return t.Description
-	case "status":
-		if !hasWorkflowField(t, "status") {
-			return nil
-		}
-		return t.Status
-	case "type":
-		if !hasWorkflowField(t, "type") {
-			return nil
-		}
-		return t.Type
-	case "priority":
-		if !hasWorkflowField(t, "priority") {
-			return nil
-		}
-		return t.Priority
-	case "points":
-		if !hasWorkflowField(t, "points") {
-			return nil
-		}
-		return t.Points
-	case "tags":
-		// Phase 5 list semantics: return nil (not []) for absent list
-		// workflow fields so predicates like `tags is empty`,
-		// `tags = []`, and `all tags ...` evaluate false on plain
-		// documents instead of treating the absent field as a present
-		// empty list. Presence is exposed via has(tags). Predicate sites
-		// that receive nil treat it as "predicate false except for the
-		// explicit absence-check path" — see evalIsEmpty, evalQuantifier,
-		// and compareValues.
-		if !hasWorkflowField(t, "tags") {
-			return nil
-		}
-		return toInterfaceSlice(t.Tags)
-	case "dependsOn":
-		if !hasWorkflowField(t, "dependsOn") {
-			return nil
-		}
-		return toInterfaceSlice(t.DependsOn)
-	case "due":
-		if !hasWorkflowField(t, "due") {
-			return nil
-		}
-		return t.Due
-	case "recurrence":
-		if !hasWorkflowField(t, "recurrence") {
-			return nil
-		}
-		return t.Recurrence
-	case "assignee":
-		if !hasWorkflowField(t, "assignee") {
-			return nil
-		}
-		return t.Assignee
+		return t.Title, nil
+	case "description", "body":
+		return t.Body, nil
 	case "createdBy":
-		return t.CreatedBy
+		// CreatedBy doesn't round-trip through the Tiki model (Phase 4
+		// does not carry author metadata). Return empty string so identity
+		// extraction is lossless enough for pipe/display use cases.
+		v, _ := t.Get("createdBy")
+		if s, ok := v.(string); ok {
+			return s, nil
+		}
+		return "", nil
 	case "createdAt":
-		return t.CreatedAt
+		return t.CreatedAt, nil
 	case "updatedAt":
-		return t.UpdatedAt
-	case "filepath":
-		return t.FilePath
-	default:
-		fs, ok := e.schema.Field(name)
-		if !ok || !fs.Custom {
-			return nil
-		}
-		if t.CustomFields != nil {
-			if v, exists := t.CustomFields[name]; exists {
-				if fs.Type == ValueListString || fs.Type == ValueListRef {
-					if ss, ok := v.([]string); ok {
-						return toInterfaceSlice(ss)
-					}
-				}
-				return v
-			}
-		}
-		// unset custom field: list types return empty list (consistent
-		// with built-in tags/dependsOn), scalars return nil
-		if fs.Type == ValueListString || fs.Type == ValueListRef {
-			return []interface{}{}
-		}
-		return nil
+		return t.UpdatedAt, nil
+	case "filepath", "path":
+		return t.Path, nil
 	}
+
+	v, ok := t.Get(name)
+	if !ok {
+		return nil, absentFieldError(t, name)
+	}
+	return normalizeExtractedValue(v), nil
+}
+
+// extractFieldForDisplay is the presentation-layer variant used by pipe/
+// clipboard rendering and formatters. Absent fields return nil rather than
+// erroring — a missing field renders as a blank cell, not an aborted query.
+func (e *Executor) extractFieldForDisplay(t *tiki.Tiki, name string) (interface{}, error) {
+	v, err := e.extractField(t, name)
+	if err != nil {
+		// Only swallow absent-field errors; surface any other error
+		// (e.g. subquery misuse) so bugs don't hide.
+		if _, isAbsent := err.(*AbsentFieldError); isAbsent {
+			return nil, nil
+		}
+		return nil, err
+	}
+	return v, nil
+}
+
+// normalizeExtractedValue converts []string to []interface{} so list-typed
+// fields participate in ruki's list arithmetic uniformly.
+func normalizeExtractedValue(v interface{}) interface{} {
+	if ss, ok := v.([]string); ok {
+		return toInterfaceSlice(ss)
+	}
+	return v
+}
+
+// AbsentFieldError is returned by extractField when a non-identity field is
+// absent on a tiki. Callers that want presence-safety can detect it via
+// errors.As; otherwise it propagates up to kill the query.
+type AbsentFieldError struct {
+	TikiID string
+	Field  string
+}
+
+func (e *AbsentFieldError) Error() string {
+	id := e.TikiID
+	if id == "" {
+		id = "<unidentified>"
+	}
+	return fmt.Sprintf("tiki %s: field %q is not set", id, e.Field)
+}
+
+func absentFieldError(t *tiki.Tiki, name string) error {
+	id := ""
+	if t != nil {
+		id = t.ID
+	}
+	return &AbsentFieldError{TikiID: id, Field: name}
 }
 
 // --- helpers ---
 
 // parseBoolString converts a string "true"/"false" (case-insensitive) to a bool.
-// Returns an error for any other string.
 func parseBoolString(s string) (bool, error) {
 	switch strings.ToLower(s) {
 	case "true":
@@ -2172,6 +2200,8 @@ func isZeroValue(v interface{}) bool {
 	case task.Recurrence:
 		return v == ""
 	case []interface{}:
+		return len(v) == 0
+	case []string:
 		return len(v) == 0
 	default:
 		return false

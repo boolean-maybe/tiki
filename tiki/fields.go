@@ -86,20 +86,54 @@ func (t *Tiki) Require(name string) (interface{}, error) {
 // Set writes a field value, allocating the Fields map lazily. Setting a nil
 // value is allowed and represents an explicitly-present nil, distinct from an
 // absent field — use Delete to remove.
+//
+// An explicit Set clears any stale-provenance marker on the key: a caller
+// deliberately writing a new value is treated as a repair, so the key will
+// round-trip back to persistence as a normal Custom field (not Unknown).
 func (t *Tiki) Set(name string, value interface{}) {
 	if t.Fields == nil {
 		t.Fields = map[string]interface{}{}
 	}
 	t.Fields[name] = value
+	if t.stale != nil {
+		delete(t.stale, name)
+	}
 }
 
 // Delete removes a field. Safe to call for absent fields and on a Tiki with a
-// nil Fields map.
+// nil Fields map. Any stale-provenance marker for the key is also cleared.
 func (t *Tiki) Delete(name string) {
 	if t == nil || t.Fields == nil {
 		return
 	}
 	delete(t.Fields, name)
+	if t.stale != nil {
+		delete(t.stale, name)
+	}
+}
+
+// markStale records that a Fields key carries Unknown-rather-than-Custom
+// provenance (loaded as UnknownFields on a registered Custom key, typically
+// because the source value failed coercion). Intended for the task adapter;
+// unexported because it is a persistence seam, not a generic Tiki contract.
+func (t *Tiki) markStale(name string) {
+	if t == nil {
+		return
+	}
+	if t.stale == nil {
+		t.stale = map[string]struct{}{}
+	}
+	t.stale[name] = struct{}{}
+}
+
+// isStale reports whether name carries Unknown-provenance. Unexported: only
+// the task adapter consults this on save-path routing.
+func (t *Tiki) isStale(name string) bool {
+	if t == nil || t.stale == nil {
+		return false
+	}
+	_, ok := t.stale[name]
+	return ok
 }
 
 // identity is a best-effort label for error messages.

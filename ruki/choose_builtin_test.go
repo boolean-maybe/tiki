@@ -147,7 +147,7 @@ func TestChooseBuiltin_Executor_ReturnsValue(t *testing.T) {
 
 	e := NewExecutor(testSchema{}, nil, ExecutorRuntime{Mode: ExecutorRuntimePlugin})
 	testTask := &task.Task{ID: "TIKI-000001", Title: "test", Status: "ready", Type: "task", Priority: 3}
-	result, err := e.Execute(vs, []*task.Task{testTask}, ExecutionInput{
+	result, err := e.testExec(vs, []*task.Task{testTask}, ExecutionInput{
 		SelectedTaskIDs: []string{"TIKI-000001"},
 		ChooseValue:     "TIKI-000002",
 		HasChoose:       true,
@@ -175,7 +175,7 @@ func TestChooseBuiltin_Executor_MissingChoose(t *testing.T) {
 
 	e := NewExecutor(testSchema{}, nil, ExecutorRuntime{Mode: ExecutorRuntimePlugin})
 	testTask := &task.Task{ID: "TIKI-000001", Title: "test", Status: "ready", Type: "task", Priority: 3}
-	_, err = e.Execute(vs, []*task.Task{testTask}, ExecutionInput{
+	_, err = e.testExec(vs, []*task.Task{testTask}, ExecutionInput{
 		SelectedTaskIDs: []string{"TIKI-000001"},
 	})
 	if err == nil {
@@ -207,7 +207,7 @@ func TestEvalSubQueryFilter_WithIDExclusion(t *testing.T) {
 		{ID: "TIKI-000002", Title: "other", Status: "ready", Type: "task", Priority: 3},
 		{ID: "TIKI-000003", Title: "third", Status: "ready", Type: "task", Priority: 3},
 	}
-	candidates, err := e.EvalSubQueryFilter(sq, tasks, NewSingleSelectionInput("TIKI-000001"))
+	candidates, err := e.EvalSubQueryFilter(sq, tikisFromTasks(tasks), NewSingleSelectionInput("TIKI-000001"))
 	if err != nil {
 		t.Fatalf("filter error: %v", err)
 	}
@@ -227,7 +227,7 @@ func TestEvalSubQueryFilter_BareSelect_ReturnsAll(t *testing.T) {
 		{ID: "TIKI-000001", Title: "a", Status: "ready", Type: "task", Priority: 3},
 		{ID: "TIKI-000002", Title: "b", Status: "ready", Type: "task", Priority: 3},
 	}
-	candidates, err := e.EvalSubQueryFilter(&SubQuery{}, tasks, ExecutionInput{})
+	candidates, err := e.EvalSubQueryFilter(&SubQuery{}, tikisFromTasks(tasks), ExecutionInput{})
 	if err != nil {
 		t.Fatalf("filter error: %v", err)
 	}
@@ -252,12 +252,12 @@ func TestEvalSubQueryFilter_WithOuterSelectedTask(t *testing.T) {
 		{ID: "TIKI-000001", Title: "self", Status: "ready", Type: "task", Priority: 3},
 		{ID: "TIKI-000002", Title: "other", Status: "ready", Type: "task", Priority: 3},
 	}
-	candidates, err := e.EvalSubQueryFilter(sq, tasks, NewSingleSelectionInput("TIKI-000001"))
+	candidates, err := e.EvalSubQueryFilter(sq, tikisFromTasks(tasks), NewSingleSelectionInput("TIKI-000001"))
 	if err != nil {
 		t.Fatalf("filter error: %v", err)
 	}
 	if len(candidates) != 1 || candidates[0].ID != "TIKI-000002" {
-		t.Fatalf("expected only TIKI-000002, got %v", taskIDs(candidates))
+		t.Fatalf("expected only TIKI-000002, got %v", taskIDs(tikisToTasks(candidates)))
 	}
 }
 
@@ -319,7 +319,7 @@ func TestChooseBuiltin_EndToEnd_CustomRefField(t *testing.T) {
 	tasks := []*task.Task{
 		{ID: "TIKI-000001", Title: "target", Status: "ready", Type: "task", Priority: 3},
 	}
-	result, err := e.Execute(vs, tasks, ExecutionInput{
+	result, err := e.testExec(vs, tasks, ExecutionInput{
 		SelectedTaskIDs: []string{"TIKI-000001"},
 		ChooseValue:     "EPIC01",
 		HasChoose:       true,

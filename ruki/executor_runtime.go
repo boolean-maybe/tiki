@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/boolean-maybe/tiki/task"
+	"github.com/boolean-maybe/tiki/tiki"
 )
 
 // ExecutorRuntimeMode identifies the semantic/runtime environment in which
@@ -42,7 +42,7 @@ func (r ExecutorRuntime) normalize() ExecutorRuntime {
 // and selected_count() returns len().
 type ExecutionInput struct {
 	SelectedTaskIDs []string
-	CreateTemplate  *task.Task
+	CreateTemplate  *tiki.Tiki
 	InputValue      interface{} // value returned by input() builtin
 	HasInput        bool        // distinguishes nil from unset
 	ChooseValue     string      // task ID returned by choose() builtin

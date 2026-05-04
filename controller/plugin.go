@@ -11,7 +11,25 @@ import (
 	"github.com/boolean-maybe/tiki/service"
 	"github.com/boolean-maybe/tiki/store"
 	"github.com/boolean-maybe/tiki/task"
+	"github.com/boolean-maybe/tiki/tiki"
 )
+
+// tasksToTikis converts a task slice to a tiki slice at the ruki boundary.
+// Presence is faithful to what tiki.FromTask derives from the task — sparse
+// via WorkflowFrontmatter when set, value-derived otherwise — so has(field)
+// returns the same answer in TUI, plugin, CLI, and trigger execution.
+// Actions that mutate optional fields (priority, tags, dependsOn) must
+// guard with has(field) in their ruki; this function intentionally does
+// not fabricate presence for absent list fields.
+func tasksToTikis(tasks []*task.Task) []*tiki.Tiki {
+	out := make([]*tiki.Tiki, 0, len(tasks))
+	for _, t := range tasks {
+		if tk := tiki.FromTask(t); tk != nil {
+			out = append(out, tk)
+		}
+	}
+	return out
+}
 
 // PluginController handles plugin view actions: navigation, open, create, delete.
 type PluginController struct {
@@ -171,7 +189,7 @@ func (pc *PluginController) buildExecutionInput(pa *plugin.PluginAction) (ruki.E
 			slog.Error("failed to create task template for plugin action", "error", err)
 			return input, false
 		}
-		input.CreateTemplate = template
+		input.CreateTemplate = tiki.FromTask(template)
 	}
 
 	return input, true
@@ -229,9 +247,9 @@ func logSelectionFields(input ruki.ExecutionInput) []any {
 // executeAndApply runs the executor and applies the result (store mutations, pipe, clipboard).
 func (pc *PluginController) executeAndApply(pa *plugin.PluginAction, input ruki.ExecutionInput) bool {
 	executor := pc.newExecutor()
-	allTasks := pc.taskStore.GetAllTasks()
+	allTikis := tasksToTikis(pc.taskStore.GetAllTasks())
 
-	result, err := executor.Execute(pa.Action, allTasks, input)
+	result, err := executor.Execute(pa.Action, allTikis, input)
 	if err != nil {
 		args := append(logSelectionFields(input), "key", pa.KeyStr, "error", err)
 		slog.Error("failed to execute plugin action", args...)
@@ -244,11 +262,12 @@ func (pc *PluginController) executeAndApply(pa *plugin.PluginAction, input ruki.
 	ctx := context.Background()
 	switch {
 	case result.Select != nil:
-		args := append(logSelectionFields(input), "key", pa.KeyStr, "label", pa.Label, "matched", len(result.Select.Tasks))
+		args := append(logSelectionFields(input), "key", pa.KeyStr, "label", pa.Label, "matched", len(result.Select.Tikis))
 		slog.Info("select plugin action executed", args...)
 		return true
 	case result.Update != nil:
-		for _, updated := range result.Update.Updated {
+		for _, tk := range result.Update.Updated {
+			updated := tiki.ToTask(tk)
 			if err := pc.mutationGate.UpdateTask(ctx, updated); err != nil {
 				slog.Error("failed to update task after plugin action", "task_id", updated.ID, "key", pa.KeyStr, "error", err)
 				if pc.statusline != nil {
@@ -259,7 +278,8 @@ func (pc *PluginController) executeAndApply(pa *plugin.PluginAction, input ruki.
 			pc.ensureSearchResultIncludesTask(updated)
 		}
 	case result.Create != nil:
-		if err := pc.mutationGate.CreateTask(ctx, result.Create.Task); err != nil {
+		created := tiki.ToTask(result.Create.Tiki)
+		if err := pc.mutationGate.CreateTask(ctx, created); err != nil {
 			slog.Error("failed to create task from plugin action", "key", pa.KeyStr, "error", err)
 			if pc.statusline != nil {
 				pc.statusline.SetMessage(err.Error(), model.MessageLevelError, true)
@@ -267,7 +287,8 @@ func (pc *PluginController) executeAndApply(pa *plugin.PluginAction, input ruki.
 			return false
 		}
 	case result.Delete != nil:
-		for _, deleted := range result.Delete.Deleted {
+		for _, tk := range result.Delete.Deleted {
+			deleted := tiki.ToTask(tk)
 			if err := pc.mutationGate.DeleteTask(ctx, deleted); err != nil {
 				slog.Error("failed to delete task from plugin action", "task_id", deleted.ID, "key", pa.KeyStr, "error", err)
 				if pc.statusline != nil {
@@ -428,9 +449,9 @@ func (pc *PluginController) CanStartActionChoose(actionID ActionID) (string, []*
 		return "", nil, false
 	}
 
-	allTasks := pc.taskStore.GetAllTasks()
+	allTikis := tasksToTikis(pc.taskStore.GetAllTasks())
 	executor := pc.newExecutor()
-	candidates, err := executor.EvalSubQueryFilter(pa.ChooseFilter, allTasks, input)
+	candidateTikis, err := executor.EvalSubQueryFilter(pa.ChooseFilter, allTikis, input)
 	if err != nil {
 		slog.Error("failed to evaluate choose filter", "key", pa.KeyStr, "error", err)
 		if pc.statusline != nil {
@@ -438,11 +459,17 @@ func (pc *PluginController) CanStartActionChoose(actionID ActionID) (string, []*
 		}
 		return "", nil, false
 	}
-	if len(candidates) == 0 {
+	if len(candidateTikis) == 0 {
 		if pc.statusline != nil {
 			pc.statusline.SetMessage("no matching tasks for choose()", model.MessageLevelError, true)
 		}
 		return "", nil, false
+	}
+	candidates := make([]*task.Task, 0, len(candidateTikis))
+	for _, tk := range candidateTikis {
+		if t := tiki.ToTask(tk); t != nil {
+			candidates = append(candidates, t)
+		}
 	}
 	return pa.Label, candidates, true
 }
@@ -483,9 +510,9 @@ func (pc *PluginController) handleMoveTask(offset int) bool {
 		return false
 	}
 
-	allTasks := pc.taskStore.GetAllTasks()
+	allTikis := tasksToTikis(pc.taskStore.GetAllTasks())
 	executor := pc.newExecutor()
-	result, err := executor.Execute(actionStmt, allTasks, ruki.NewSingleSelectionInput(taskID))
+	result, err := executor.Execute(actionStmt, allTikis, ruki.NewSingleSelectionInput(taskID))
 	if err != nil {
 		slog.Error("failed to execute lane action", "task_id", taskID, "error", err)
 		return false
@@ -495,7 +522,7 @@ func (pc *PluginController) handleMoveTask(offset int) bool {
 		return false
 	}
 
-	updated := result.Update.Updated[0]
+	updated := tiki.ToTask(result.Update.Updated[0])
 	if err := pc.mutationGate.UpdateTask(context.Background(), updated); err != nil {
 		slog.Error("failed to update task after lane move", "task_id", taskID, "error", err)
 		if pc.statusline != nil {
@@ -526,12 +553,18 @@ func (pc *PluginController) GetFilteredTasksForLane(lane int) []*task.Task {
 		filtered = allTasks
 	} else {
 		executor := pc.newExecutor()
-		result, err := executor.Execute(filterStmt, allTasks)
+		allTikis := tasksToTikis(allTasks)
+		result, err := executor.Execute(filterStmt, allTikis)
 		if err != nil {
 			slog.Error("failed to execute lane filter", "lane", lane, "error", err)
 			return nil
 		}
-		filtered = result.Select.Tasks
+		filtered = make([]*task.Task, 0, len(result.Select.Tikis))
+		for _, tk := range result.Select.Tikis {
+			if t := tiki.ToTask(tk); t != nil {
+				filtered = append(filtered, t)
+			}
+		}
 	}
 
 	// narrow by search results if active

@@ -14,7 +14,7 @@ func TestExecuteRawStatementRejectsCallBeforeEvaluation(t *testing.T) {
 	if err != nil {
 		t.Fatalf("parse: %v", err)
 	}
-	_, err = e.Execute(stmt, makeTasks())
+	_, err = e.testExec(stmt, makeTasks())
 	if err == nil {
 		t.Fatal("expected semantic validation error")
 	}
@@ -31,7 +31,7 @@ func TestExecuteRawStatementRejectsIDOutsidePluginRuntime(t *testing.T) {
 	if err != nil {
 		t.Fatalf("parse: %v", err)
 	}
-	_, err = e.Execute(stmt, makeTasks())
+	_, err = e.testExec(stmt, makeTasks())
 	if err == nil {
 		t.Fatal("expected semantic validation error")
 	}
@@ -48,7 +48,7 @@ func TestExecuteValidatedStatementRuntimeMismatch(t *testing.T) {
 	if err != nil {
 		t.Fatalf("validate: %v", err)
 	}
-	_, err = e.Execute(validated, makeTasks())
+	_, err = e.testExec(validated, makeTasks())
 	if err == nil {
 		t.Fatal("expected runtime mismatch error")
 	}
@@ -64,7 +64,7 @@ func TestExecuteUnsealedValidatedStatementRejected(t *testing.T) {
 		statement: &Statement{Select: &SelectStmt{}},
 	}
 
-	_, err := e.Execute(unsealed, makeTasks())
+	_, err := e.testExec(unsealed, makeTasks())
 	if err == nil {
 		t.Fatal("expected unvalidated wrapper error")
 	}
@@ -82,7 +82,7 @@ func TestExecuteValidatedCreateRequiresTemplate(t *testing.T) {
 	if err != nil {
 		t.Fatalf("validate: %v", err)
 	}
-	_, err = e.Execute(validated, nil)
+	_, err = e.testExec(validated, nil)
 	if err == nil {
 		t.Fatal("expected missing create template error")
 	}
@@ -100,7 +100,7 @@ func TestExecutePluginIDRequiresSelectedTaskID(t *testing.T) {
 	if err != nil {
 		t.Fatalf("validate: %v", err)
 	}
-	_, err = e.Execute(validated, makeTasks())
+	_, err = e.testExec(validated, makeTasks())
 	if err == nil {
 		t.Fatal("expected missing selected task id error")
 	}
@@ -119,7 +119,7 @@ func TestExecutePluginIDRejectsMultipleSelection(t *testing.T) {
 		t.Fatalf("validate: %v", err)
 	}
 	input := ExecutionInput{SelectedTaskIDs: []string{"TIKI-000001", "TIKI-000002"}}
-	_, err = e.Execute(validated, makeTasks(), input)
+	_, err = e.testExec(validated, makeTasks(), input)
 	if err == nil {
 		t.Fatal("expected ambiguous selected task id error")
 	}
@@ -144,7 +144,7 @@ func TestExecutePluginIDsMatchesMultipleSelection(t *testing.T) {
 		t.Fatalf("validate: %v", err)
 	}
 	input := ExecutionInput{SelectedTaskIDs: []string{"TIKI-000001", "TIKI-000003"}}
-	res, err := e.Execute(validated, makeTasks(), input)
+	res, err := e.testExec(validated, makeTasks(), input)
 	if err != nil {
 		t.Fatalf("execute: %v", err)
 	}
@@ -174,7 +174,7 @@ func TestExecutePluginIDsEmptySelectionReturnsEmptyList(t *testing.T) {
 	if err != nil {
 		t.Fatalf("validate: %v", err)
 	}
-	res, err := e.Execute(validated, makeTasks())
+	res, err := e.testExec(validated, makeTasks())
 	if err != nil {
 		t.Fatalf("execute: %v", err)
 	}
@@ -195,7 +195,7 @@ func TestExecutePluginSelectedCountReturnsCount(t *testing.T) {
 		t.Fatalf("validate: %v", err)
 	}
 
-	res, err := e.Execute(validated, makeTasks())
+	res, err := e.testExec(validated, makeTasks())
 	if err != nil {
 		t.Fatalf("execute: %v", err)
 	}
@@ -203,7 +203,7 @@ func TestExecutePluginSelectedCountReturnsCount(t *testing.T) {
 		t.Errorf("zero selection: matched %d tasks, want 0", len(res.Select.Tasks))
 	}
 
-	res2, err := e.Execute(validated, makeTasks(), ExecutionInput{SelectedTaskIDs: []string{"A", "B"}})
+	res2, err := e.testExec(validated, makeTasks(), ExecutionInput{SelectedTaskIDs: []string{"A", "B"}})
 	if err != nil {
 		t.Fatalf("execute: %v", err)
 	}

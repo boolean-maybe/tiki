@@ -273,8 +273,10 @@ func TestTriggerEngine_AfterTriggerNoMatchSkipped(t *testing.T) {
 }
 
 func TestTriggerEngine_AfterDeleteCleanupDeps(t *testing.T) {
+	// Phase 4: guard the filter with has(dependsOn) so candidate tasks
+	// without a dependsOn field don't hard-error the whole trigger.
 	entry := parseTriggerEntry(t, "cleanup deps on delete",
-		`after delete update where old.id in dependsOn set dependsOn=dependsOn - [old.id]`)
+		`after delete update where has(dependsOn) and old.id in dependsOn set dependsOn=dependsOn - [old.id]`)
 
 	dep := &task.Task{ID: "DEP001", Title: "dep", Status: "done", Type: "story", Priority: 3}
 	downstream := &task.Task{
@@ -792,8 +794,10 @@ func TestTriggerEngine_ExecActionError(t *testing.T) {
 func TestTriggerEngine_AfterDeleteCascadeDelete(t *testing.T) {
 	// exercises the persistResult delete branch:
 	// when a task is deleted, also delete all tasks that depend on it
+	// Phase 4: guard the filter so tasks without dependsOn don't
+	// hard-error the cascade.
 	entry := parseTriggerEntry(t, "cascade delete deps",
-		`after delete delete where old.id in dependsOn`)
+		`after delete delete where has(dependsOn) and old.id in dependsOn`)
 
 	parent := &task.Task{ID: "PAR001", Title: "parent", Status: "done", Type: "story", Priority: 3}
 	child := &task.Task{

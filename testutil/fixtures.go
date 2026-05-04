@@ -24,12 +24,19 @@ func CreateTestTaskWithDeps(dir, id, title string, status task.Status, taskType 
 	filename := bareID + ".md"
 	filePath := filepath.Join(dir, filename)
 
-	depsYAML := ""
+	// Phase 4: workflow-declaring docs must carry explicit presence for list
+	// fields so ruki actions that do `tags + [...]` or `dependsOn + [...]`
+	// don't hard-error on absent fields. Real save paths emit `tags: []`
+	// and `dependsOn: []` for workflow docs whose lists are empty; mirror
+	// that here so fixtures match the on-disk shape users see.
+	depsYAML := "dependsOn:"
 	if len(dependsOn) > 0 {
-		depsYAML = "dependsOn:\n"
+		depsYAML += "\n"
 		for _, dep := range dependsOn {
 			depsYAML += fmt.Sprintf("  - %s\n", normalizeBareID(dep))
 		}
+	} else {
+		depsYAML += " []\n"
 	}
 
 	// Quote the id so YAML preserves leading zeros in all-numeric ids like
@@ -42,6 +49,7 @@ type: %s
 status: %s
 priority: 3
 points: 1
+tags: []
 %s---
 %s
 `, bareID, title, taskType, status, depsYAML, title)

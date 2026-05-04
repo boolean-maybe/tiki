@@ -98,7 +98,7 @@ func TestInputBuiltin_Executor_ReturnsValue(t *testing.T) {
 	e := NewExecutor(testSchema{}, func() string { return "alice" }, ExecutorRuntime{Mode: ExecutorRuntimePlugin})
 
 	testTask := &task.Task{ID: "TIKI-000001", Title: "test", Status: "ready", Type: "task", Priority: 3}
-	result, err := e.Execute(vs, []*task.Task{testTask}, ExecutionInput{
+	result, err := e.testExec(vs, []*task.Task{testTask}, ExecutionInput{
 		SelectedTaskIDs: []string{"TIKI-000001"},
 		InputValue:      "bob",
 		HasInput:        true,
@@ -132,7 +132,7 @@ func TestInputBuiltin_Executor_MissingInput(t *testing.T) {
 	e := NewExecutor(testSchema{}, func() string { return "alice" }, ExecutorRuntime{Mode: ExecutorRuntimePlugin})
 
 	testTask := &task.Task{ID: "TIKI-000001", Title: "test", Status: "ready", Type: "task", Priority: 3}
-	_, err = e.Execute(vs, []*task.Task{testTask}, ExecutionInput{
+	_, err = e.testExec(vs, []*task.Task{testTask}, ExecutionInput{
 		SelectedTaskIDs: []string{"TIKI-000001"},
 	})
 	if err == nil {

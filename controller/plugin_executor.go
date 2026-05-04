@@ -10,6 +10,7 @@ import (
 	"github.com/boolean-maybe/tiki/service"
 	"github.com/boolean-maybe/tiki/store"
 	"github.com/boolean-maybe/tiki/task"
+	"github.com/boolean-maybe/tiki/tiki"
 )
 
 // PluginExecutor owns the deps needed to run a ruki-kind plugin action. It
@@ -77,7 +78,7 @@ func (pe *PluginExecutor) BuildExecutionInput(pa *plugin.PluginAction, selectedI
 			slog.Error("failed to create task template for plugin action", "error", err)
 			return input, false
 		}
-		input.CreateTemplate = template
+		input.CreateTemplate = tiki.FromTask(template)
 	}
 	return input, true
 }
@@ -92,9 +93,9 @@ func (pe *PluginExecutor) Execute(pa *plugin.PluginAction, input ruki.ExecutionI
 
 	executor := ruki.NewExecutor(pe.schema, pe.userFunc(),
 		ruki.ExecutorRuntime{Mode: ruki.ExecutorRuntimePlugin})
-	allTasks := pe.taskStore.GetAllTasks()
+	allTikis := tasksToTikis(pe.taskStore.GetAllTasks())
 
-	result, err := executor.Execute(pa.Action, allTasks, input)
+	result, err := executor.Execute(pa.Action, allTikis, input)
 	if err != nil {
 		args := append(logSelectionFields(input), "key", pa.KeyStr, "error", err)
 		slog.Error("failed to execute plugin action", args...)
@@ -113,11 +114,12 @@ func (pe *PluginExecutor) applyResult(pa *plugin.PluginAction, input ruki.Execut
 	ctx := context.Background()
 	switch {
 	case result.Select != nil:
-		args := append(logSelectionFields(input), "key", pa.KeyStr, "label", pa.Label, "matched", len(result.Select.Tasks))
+		args := append(logSelectionFields(input), "key", pa.KeyStr, "label", pa.Label, "matched", len(result.Select.Tikis))
 		slog.Info("select plugin action executed", args...)
 		return true
 	case result.Update != nil:
-		for _, updated := range result.Update.Updated {
+		for _, tk := range result.Update.Updated {
+			updated := tiki.ToTask(tk)
 			if err := pe.mutationGate.UpdateTask(ctx, updated); err != nil {
 				slog.Error("failed to update task after plugin action", "task_id", updated.ID, "key", pa.KeyStr, "error", err)
 				pe.setError(err)
@@ -128,13 +130,15 @@ func (pe *PluginExecutor) applyResult(pa *plugin.PluginAction, input ruki.Execut
 			}
 		}
 	case result.Create != nil:
-		if err := pe.mutationGate.CreateTask(ctx, result.Create.Task); err != nil {
+		created := tiki.ToTask(result.Create.Tiki)
+		if err := pe.mutationGate.CreateTask(ctx, created); err != nil {
 			slog.Error("failed to create task from plugin action", "key", pa.KeyStr, "error", err)
 			pe.setError(err)
 			return false
 		}
 	case result.Delete != nil:
-		for _, deleted := range result.Delete.Deleted {
+		for _, tk := range result.Delete.Deleted {
+			deleted := tiki.ToTask(tk)
 			if err := pe.mutationGate.DeleteTask(ctx, deleted); err != nil {
 				slog.Error("failed to delete task from plugin action", "task_id", deleted.ID, "key", pa.KeyStr, "error", err)
 				pe.setError(err)

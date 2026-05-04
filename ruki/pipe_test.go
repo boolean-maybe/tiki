@@ -271,7 +271,7 @@ func TestExecutePipeReturnsResult(t *testing.T) {
 		t.Fatalf("parse: %v", err)
 	}
 
-	result, err := e.Execute(stmt, tasks, NewSingleSelectionInput("TIKI-000003"))
+	result, err := e.testExec(stmt, tasks, NewSingleSelectionInput("TIKI-000003"))
 	if err != nil {
 		t.Fatalf("execute: %v", err)
 	}
@@ -310,7 +310,7 @@ func TestExecuteSelectStillWorksWithoutPipe(t *testing.T) {
 		t.Fatalf("parse: %v", err)
 	}
 
-	result, err := e.Execute(stmt, tasks)
+	result, err := e.testExec(stmt, tasks)
 	if err != nil {
 		t.Fatalf("execute: %v", err)
 	}
@@ -336,7 +336,7 @@ func TestExecutePipeListFieldSpaceJoined(t *testing.T) {
 		t.Fatalf("parse: %v", err)
 	}
 
-	result, err := e.Execute(stmt, tasks, NewSingleSelectionInput("TIKI-000001"))
+	result, err := e.testExec(stmt, tasks, NewSingleSelectionInput("TIKI-000001"))
 	if err != nil {
 		t.Fatalf("execute: %v", err)
 	}
@@ -476,7 +476,7 @@ func TestExecuteClipboardPipeReturnsResult(t *testing.T) {
 		t.Fatalf("parse: %v", err)
 	}
 
-	result, err := e.Execute(stmt, tasks, NewSingleSelectionInput("TIKI-000003"))
+	result, err := e.testExec(stmt, tasks, NewSingleSelectionInput("TIKI-000003"))
 	if err != nil {
 		t.Fatalf("execute: %v", err)
 	}
@@ -515,7 +515,7 @@ func TestExecuteClipboardMultipleRows(t *testing.T) {
 		t.Fatalf("parse: %v", err)
 	}
 
-	result, err := e.Execute(stmt, tasks)
+	result, err := e.testExec(stmt, tasks)
 	if err != nil {
 		t.Fatalf("execute: %v", err)
 	}
@@ -539,7 +539,7 @@ func TestExecuteClipboardWithLimit(t *testing.T) {
 		t.Fatalf("parse: %v", err)
 	}
 
-	result, err := e.Execute(stmt, tasks)
+	result, err := e.testExec(stmt, tasks)
 	if err != nil {
 		t.Fatalf("execute: %v", err)
 	}
@@ -573,7 +573,7 @@ func TestExecutePipeFilepath(t *testing.T) {
 		t.Fatalf("parse: %v", err)
 	}
 
-	result, err := e.Execute(stmt, tasks)
+	result, err := e.testExec(stmt, tasks)
 	if err != nil {
 		t.Fatalf("execute: %v", err)
 	}

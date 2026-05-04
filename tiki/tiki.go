@@ -47,6 +47,19 @@ type Tiki struct {
 
 	// UpdatedAt is max(file mtime, latest git commit time).
 	UpdatedAt time.Time
+
+	// stale records the subset of Fields keys that were loaded from disk
+	// as UnknownFields provenance despite matching a registered Custom
+	// field (e.g. a value that failed coercion on load and was demoted).
+	// These keys round-trip back to Task.UnknownFields through ToTask so
+	// persistence's validateCustomFields does not reject the save. Any
+	// explicit Set or Delete clears the stale marker — an overwrite is
+	// treated as a legitimate repair, restoring normal Custom routing.
+	//
+	// The map is intentionally unexported: it is provenance metadata, not
+	// part of the generic Tiki.Fields contract that ruki and API callers
+	// reason about.
+	stale map[string]struct{}
 }
 
 // SearchResult pairs a tiki with a relevance score (higher is better).
@@ -81,6 +94,12 @@ func (t *Tiki) Clone() *Tiki {
 		clone.Fields = make(map[string]interface{}, len(t.Fields))
 		for k, v := range t.Fields {
 			clone.Fields[k] = cloneFieldValue(v)
+		}
+	}
+	if t.stale != nil {
+		clone.stale = make(map[string]struct{}, len(t.stale))
+		for k := range t.stale {
+			clone.stale[k] = struct{}{}
 		}
 	}
 	return clone
