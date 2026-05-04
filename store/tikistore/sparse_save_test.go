@@ -9,17 +9,17 @@ import (
 	tikipkg "github.com/boolean-maybe/tiki/tiki"
 )
 
-// TestUpdateDocument_BodyEditDoesNotExpandSparseFrontmatter proves the
-// current review finding is closed: a workflow tiki loaded with only
-// `status:` present must stay sparse on disk after a body-only UpdateTiki.
-// Before the fix, saveTask always ran the full workflow schema and added
-// `type:`, `priority:`, `points:` etc.
-func TestUpdateDocument_BodyEditDoesNotExpandSparseFrontmatter(t *testing.T) {
+// TestUpdateTiki_BodyEditPreservesExactFieldPresence pins the exact-
+// presence rule against body edits: a tiki loaded with only `status:`
+// among the schema-known keys must stay shaped that way on disk after a
+// body-only UpdateTiki. Pre-Phase-3 saveTask always ran the full schema
+// and added type/priority/points/...
+func TestUpdateTiki_BodyEditPreservesExactFieldPresence(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
 	tmp := t.TempDir()
 
 	sparsePath := filepath.Join(tmp, "SPARSE.md")
-	// Only `status` among workflow keys; no type/priority/points/tags/etc.
+	// Only `status` among schema-known keys; no type/priority/points/tags/etc.
 	sparse := "---\nid: SPARSE\ntitle: sparse\nstatus: ready\n---\n\nbody v1\n"
 	if err := os.WriteFile(sparsePath, []byte(sparse), 0644); err != nil {
 		t.Fatalf("write: %v", err)
@@ -58,8 +58,8 @@ func TestUpdateDocument_BodyEditDoesNotExpandSparseFrontmatter(t *testing.T) {
 		}
 	}
 
-	// And a reload must keep the tiki classified as workflow with only
-	// status present — not gain any defaulted keys the next time around.
+	// And a reload must keep the field presence set unchanged — only
+	// status should be present, not any defaulted keys.
 	if err := s.Reload(); err != nil {
 		t.Fatalf("Reload: %v", err)
 	}
@@ -78,9 +78,9 @@ func TestUpdateDocument_BodyEditDoesNotExpandSparseFrontmatter(t *testing.T) {
 }
 
 // TestUpdateTiki_TypedEditOnSparseDocGrowsPresenceSetOnlyForEditedKey
-// verifies the tiki-native path: setting a single typed field on a sparse
-// workflow tiki grows the presence set for only that field. Other absent
-// workflow keys stay absent.
+// verifies the tiki-native path: setting a single typed field on a sparsely-
+// populated tiki grows the presence set for only that field. Other absent
+// schema-known keys stay absent.
 func TestUpdateTiki_TypedEditOnSparseDocGrowsPresenceSetOnlyForEditedKey(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
 	tmp := t.TempDir()
@@ -120,18 +120,18 @@ func TestUpdateTiki_TypedEditOnSparseDocGrowsPresenceSetOnlyForEditedKey(t *test
 	}
 	for _, forbidden := range []string{"type:", "points:", "tags:", "dependsOn:", "assignee:", "recurrence:", "due:"} {
 		if strings.Contains(contents, forbidden) {
-			t.Errorf("untouched workflow key %q leaked after typed edit; contents:\n%s",
+			t.Errorf("untouched schema-known key %q leaked after typed edit; contents:\n%s",
 				forbidden, contents)
 		}
 	}
 }
 
-// TestSaveTask_NewInMemoryWorkflowTaskUsesFullSchema verifies the fallback
-// path: a brand-new workflow tiki (created in code, no preserved
-// frontmatter) serializes with the full workflow schema so boards and lists
-// continue to see complete metadata. The sparse path only kicks in when
-// there is a preserved presence set to honor.
-func TestSaveTask_NewInMemoryWorkflowTaskUsesFullSchema(t *testing.T) {
+// TestCreateTiki_TemplateDerivedTikiSerializesWithDefaultedFields verifies
+// the fallback path: a brand-new tiki built via NewTikiTemplate carries
+// the full set of workflow-declared defaults in Fields, so its first save
+// emits status/type/priority. Defaults flow from the template, not from
+// any save-time synthesis.
+func TestCreateTiki_TemplateDerivedTikiSerializesWithDefaultedFields(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
 	tmp := t.TempDir()
 	s, err := NewTikiStore(tmp)
@@ -155,7 +155,7 @@ func TestSaveTask_NewInMemoryWorkflowTaskUsesFullSchema(t *testing.T) {
 	contents := string(data)
 	for _, required := range []string{"status:", "type:", "priority:"} {
 		if !strings.Contains(contents, required) {
-			t.Errorf("new workflow tiki missing required %q; contents:\n%s", required, contents)
+			t.Errorf("template-derived tiki missing required %q; contents:\n%s", required, contents)
 		}
 	}
 }

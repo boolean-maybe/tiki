@@ -20,8 +20,8 @@ type Store interface {
 	// Returns error if save fails (IO error, ErrConflict).
 	UpdateTiki(tk *tikipkg.Tiki) error
 
-	// DeleteTask removes a task from the store
-	DeleteTask(id string)
+	// DeleteTiki removes a tiki from the store and deletes its file.
+	DeleteTiki(id string)
 }
 
 // ChangeListener is called when the store's data changes

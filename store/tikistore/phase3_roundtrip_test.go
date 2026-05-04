@@ -31,7 +31,7 @@ func TestPhase3_SaveRejectsUnregisteredCustomField(t *testing.T) {
 		t.Fatalf("NewTikiStore: %v", err)
 	}
 
-	// Seed a workflow tiki on disk so UpdateTiki has something to target.
+	// Seed a tiki on disk so UpdateTiki has something to target.
 	seed := `---
 id: BOGUS1
 title: v1
@@ -196,11 +196,11 @@ body
 	}
 }
 
-// TestPhase3_CreateTikiWithWorkflowFieldPreservesClassification pins the
-// second review finding: a tiki created with a workflow field must produce
-// a file that reloads as workflow. Callers that want a workflow tiki must
-// set at least one workflow field explicitly.
-func TestPhase3_CreateTikiWithWorkflowFieldPreservesClassification(t *testing.T) {
+// TestPhase3_CreateTikiPreservesSchemaFieldsAcrossReload verifies that a
+// schema-known field set on creation survives a save → load round-trip.
+// Callers that want presence of a schema-known field must set it explicitly;
+// the store does not synthesize one.
+func TestPhase3_CreateTikiPreservesSchemaFieldsAcrossReload(t *testing.T) {
 	tmp := t.TempDir()
 	s, err := NewTikiStore(tmp)
 	if err != nil {
@@ -209,7 +209,7 @@ func TestPhase3_CreateTikiWithWorkflowFieldPreservesClassification(t *testing.T)
 
 	wf := tikipkg.New()
 	wf.ID = "WFZERO"
-	wf.Title = "workflow with status"
+	wf.Title = "carries status"
 	wf.Set("status", "ready")
 	if err := s.CreateTiki(wf); err != nil {
 		t.Fatalf("CreateTiki: %v", err)
@@ -222,7 +222,7 @@ func TestPhase3_CreateTikiWithWorkflowFieldPreservesClassification(t *testing.T)
 	if tk == nil {
 		t.Fatal("GetTiki after reload = nil")
 	}
-	if !hasAnyWorkflowField(tk) {
-		t.Errorf("round-trip demoted workflow tiki to plain; would vanish from workflow-filtered views")
+	if !hasAnySchemaField(tk) {
+		t.Errorf("round-trip dropped the schema-known field set on create — file would no longer match has(status) filters")
 	}
 }

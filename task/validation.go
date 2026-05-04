@@ -69,6 +69,9 @@ func ValidatePriority(t *Task) string {
 }
 
 // ValidatePoints returns an error message if story points are out of range.
+// Points == 0 is the explicit "unestimated" sentinel and is always valid;
+// only positive values out of [1, maxPoints] fail validation. The load-
+// side clamp in tikistore mirrors this rule so 0 round-trips on disk.
 func ValidatePoints(t *Task) string {
 	if t.Points == 0 {
 		return ""

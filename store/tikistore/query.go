@@ -7,9 +7,11 @@ import (
 	tikipkg "github.com/boolean-maybe/tiki/tiki"
 )
 
-// hasAnyWorkflowField reports whether tk has at least one schema-known
-// workflow field in its Fields map.
-func hasAnyWorkflowField(tk *tikipkg.Tiki) bool {
+// hasAnySchemaField reports whether tk carries at least one schema-known
+// field in its Fields map. Used by the persistence layer to gate behaviors
+// that only apply when typed (status/type/priority/etc.) data is present —
+// this is presence-of-fields, not a workflow/plain classification.
+func hasAnySchemaField(tk *tikipkg.Tiki) bool {
 	if tk == nil {
 		return false
 	}

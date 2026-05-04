@@ -597,17 +597,17 @@ func TestRunQueryDeletePartialFailure(t *testing.T) {
 	}
 }
 
-// failingDeleteStore wraps a Store and silently no-ops DeleteTask for a specific ID.
+// failingDeleteStore wraps a Store and silently no-ops DeleteTiki for a specific ID.
 type failingDeleteStore struct {
 	store.Store
 	failID string
 }
 
-func (f *failingDeleteStore) DeleteTask(id string) {
+func (f *failingDeleteStore) DeleteTiki(id string) {
 	if id == f.failID {
 		return // simulate silent failure
 	}
-	f.Store.DeleteTask(id)
+	f.Store.DeleteTiki(id)
 }
 
 func TestRunQueryEmptyQuery(t *testing.T) {
@@ -665,7 +665,7 @@ func TestRunQuerySelectViaRunQuery(t *testing.T) {
 	}
 }
 
-// --- DELETE partial failure via silent DeleteTask no-op detection ---
+// --- DELETE partial failure via silent DeleteTiki no-op detection ---
 
 func TestRunQueryDeleteSilentFailure(t *testing.T) {
 	s := setupRunnerTest(t)
@@ -696,15 +696,15 @@ func TestRunSelectQueryExecuteError(t *testing.T) {
 	}
 }
 
-// failingDeleteTaskStore wraps a Store and makes DeleteTask error via the gate.
-type failingDeleteTaskStore struct {
+// failingDeleteTikiStore wraps a Store and makes DeleteTiki error via the gate.
+type failingDeleteTikiStore struct {
 	store.Store
 	failID string
 }
 
-func (f *failingDeleteTaskStore) DeleteTask(id string) {
+func (f *failingDeleteTikiStore) DeleteTiki(id string) {
 	if id != f.failID {
-		f.Store.DeleteTask(id)
+		f.Store.DeleteTiki(id)
 	}
 	// for failID: silently no-op
 }
@@ -714,7 +714,7 @@ func TestRunQueryDeleteGateError(t *testing.T) {
 
 	// use a gate with a validator that rejects the delete
 	g := service.NewTaskMutationGate()
-	fds := &failingDeleteTaskStore{Store: s, failID: "TIKI-AAA001"}
+	fds := &failingDeleteTikiStore{Store: s, failID: "TIKI-AAA001"}
 	g.SetStore(fds)
 
 	var buf bytes.Buffer
