@@ -169,6 +169,71 @@ func MergeTypedWorkflowDeltas(newTask, oldTask *Task) {
 	}
 }
 
+// CarryZeroTypedFields copies typed workflow values from src into dst for any
+// field that (a) is declared in dst.WorkflowFrontmatter as a sentinel
+// placeholder (struct{}{}) AND (b) has a zero value on dst. Fields with an
+// actual value in WorkflowFrontmatter — even an empty slice — are intentional
+// and are not overridden. Fields the caller explicitly set (non-zero on dst)
+// are also left alone.
+//
+// The sentinel check is the key distinction: UpdateTask's growth step seeds
+// WorkflowFrontmatter with struct{}{} markers for stored keys the incoming
+// task did not touch. A ruki-produced Task has actual values (including empty
+// slices) in WorkflowFrontmatter for every field it set. Carrying over a
+// struct{}{} sentinel is safe; carrying over an actual-but-zero value would
+// silently override the caller's intentional empty result (e.g. tags=[]).
+//
+// Used by UpdateTask compat adapters: after seeding WorkflowFrontmatter from
+// the stored task's presence set, the incoming task's typed fields may still
+// be zero for keys the caller did not touch. Calling this ensures FromTask's
+// applyPresenceMap path emits the stored values for those keys rather than
+// empty strings / zeros.
+func CarryZeroTypedFields(dst, src *Task) {
+	if dst == nil || src == nil {
+		return
+	}
+	for _, k := range workflowKeys {
+		fmVal, ok := dst.WorkflowFrontmatter[k]
+		if !ok {
+			continue
+		}
+		// only carry when the entry is a sentinel placeholder, not an actual value
+		if _, isSentinel := fmVal.(struct{}); !isSentinel {
+			continue
+		}
+		dstVal := typedWorkflowValue(dst, k)
+		if !isZeroWorkflowValue(k, dstVal) {
+			continue // caller set this field explicitly — leave it alone
+		}
+		// WorkflowFrontmatter has a sentinel for this key and dst typed field is
+		// zero; fill from src so applyPresenceMap emits the stored value.
+		switch k {
+		case fmKeyStatus:
+			dst.Status = src.Status
+		case fmKeyType:
+			dst.Type = src.Type
+		case fmKeyTags:
+			if len(src.Tags) > 0 {
+				dst.Tags = append([]string(nil), src.Tags...)
+			}
+		case fmKeyDependsOn:
+			if len(src.DependsOn) > 0 {
+				dst.DependsOn = append([]string(nil), src.DependsOn...)
+			}
+		case fmKeyDue:
+			dst.Due = src.Due
+		case fmKeyRecurrence:
+			dst.Recurrence = src.Recurrence
+		case fmKeyAssignee:
+			dst.Assignee = src.Assignee
+		case fmKeyPriority:
+			dst.Priority = src.Priority
+		case fmKeyPoints:
+			dst.Points = src.Points
+		}
+	}
+}
+
 // typedWorkflowValue projects a Task's typed workflow field back into the
 // generic shape that lives in WorkflowFrontmatter. Kept in sync with
 // workflowFrontmatterFromTask so the two paths do not drift.

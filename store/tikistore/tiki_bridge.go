@@ -261,9 +261,19 @@ func marshalTikiFrontmatter(t *tiki.Tiki) ([]byte, error) {
 	}
 
 	// Then emit remaining (custom + unknown) keys in sorted order.
+	// "createdBy" and "comments" are in-memory-only fields that must not
+	// be written to disk: they carry runtime audit metadata and in-memory
+	// comment state respectively.
+	inMemoryOnlyFields := map[string]struct{}{
+		"createdBy": {},
+		"comments":  {},
+	}
 	remaining := make([]string, 0, len(t.Fields))
 	for k := range t.Fields {
 		if _, done := emitted[k]; done {
+			continue
+		}
+		if _, skip := inMemoryOnlyFields[k]; skip {
 			continue
 		}
 		remaining = append(remaining, k)

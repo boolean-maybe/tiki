@@ -1,9 +1,25 @@
 package task
 
 import (
+	"sort"
+
 	collectionutil "github.com/boolean-maybe/tiki/util/collections"
 	"github.com/boolean-maybe/tiki/workflow"
 )
+
+// Sort sorts tasks by priority ascending (lower = higher priority), then by
+// title, then by ID as a tiebreaker. Sorting is stable within a tie.
+func Sort(tasks []*Task) {
+	sort.SliceStable(tasks, func(i, j int) bool {
+		if tasks[i].Priority != tasks[j].Priority {
+			return tasks[i].Priority < tasks[j].Priority
+		}
+		if tasks[i].Title != tasks[j].Title {
+			return tasks[i].Title < tasks[j].Title
+		}
+		return tasks[i].ID < tasks[j].ID
+	})
+}
 
 // normalizeStringSet trims values, drops empties, and removes duplicates.
 func NormalizeStringSet(values []string) []string {

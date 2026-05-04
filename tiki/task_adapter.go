@@ -50,6 +50,14 @@ func FromTask(t *task.Task) *Tiki {
 		out.Set("createdBy", t.CreatedBy)
 	}
 
+	// comments are stored in Fields under "comments" so the round-trip
+	// through Tiki does not lose in-memory comment state.
+	if len(t.Comments) > 0 {
+		cp := make([]task.Comment, len(t.Comments))
+		copy(cp, t.Comments)
+		out.Set("comments", cp)
+	}
+
 	if t.IsWorkflow {
 		if t.WorkflowFrontmatter != nil {
 			applyPresenceMap(out, t, t.WorkflowFrontmatter)
@@ -178,13 +186,26 @@ func ToTask(t *Tiki) *task.Task {
 		}
 	}
 
+	if v, ok := t.Fields["comments"]; ok {
+		if comments, isSlice := v.([]task.Comment); isSlice {
+			cp := make([]task.Comment, len(comments))
+			copy(cp, comments)
+			out.Comments = cp
+		}
+	}
+
 	presence := map[string]interface{}{}
 	for _, name := range SchemaKnownFields {
 		v, ok := t.Fields[name]
 		if !ok {
 			continue
 		}
-		presence[name] = struct{}{}
+		// Store the actual field value (not a struct{}{} presence marker) so
+		// document round-trips through task.FromDocument/applyWorkflowFrontmatter
+		// can recover the typed value. applyPresenceMap in FromTask only reads
+		// the map keys (for presence), so actual values are ignored there; the
+		// real typed value is read from the Task fields by setWorkflowFieldFromTask.
+		presence[name] = v
 		applyWorkflowFieldToTask(out, name, v)
 	}
 
@@ -203,7 +224,7 @@ func ToTask(t *Tiki) *task.Task {
 	}
 
 	for k, v := range t.Fields {
-		if IsSchemaKnown(k) || k == "createdBy" {
+		if IsSchemaKnown(k) || k == "createdBy" || k == "comments" {
 			continue
 		}
 		fd, registered := workflow.Field(k)

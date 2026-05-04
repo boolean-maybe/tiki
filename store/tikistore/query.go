@@ -5,29 +5,34 @@ import (
 	"strings"
 
 	taskpkg "github.com/boolean-maybe/tiki/task"
+	tikipkg "github.com/boolean-maybe/tiki/tiki"
 )
 
-// GetAllTasks returns workflow-capable tasks sorted by priority then title.
-//
-// Presence-aware contract: plain documents (markdown files whose frontmatter
-// lacks every workflow field — status/type/priority/points/tags/dependsOn/
-// due/recurrence/assignee) are NOT returned here. Boards, lists, and any
-// other surface that consumes GetAllTasks inherits this filter for
-// free. To include plain docs (e.g. for search or markdown-view surfaces),
-// callers should use a broader accessor once one exists.
+// GetAllTasks returns all tikis projected to tasks, sorted by priority then title.
+// Plain docs are included; callers that want only workflow-capable items should
+// filter with hasAnyWorkflowField or use a ruki query with has(status).
 func (s *TikiStore) GetAllTasks() []*taskpkg.Task {
-	s.mu.RLock()
-	defer s.mu.RUnlock()
-
-	tasks := make([]*taskpkg.Task, 0, len(s.tasks))
-	for _, t := range s.tasks {
-		if !t.IsWorkflow {
-			continue
-		}
-		tasks = append(tasks, t)
+	tikis := s.GetAllTikis()
+	tasks := make([]*taskpkg.Task, 0, len(tikis))
+	for _, tk := range tikis {
+		tasks = append(tasks, tikipkg.ToTask(tk))
 	}
-	sortTasks(tasks)
+	taskpkg.Sort(tasks)
 	return tasks
+}
+
+// hasAnyWorkflowField reports whether tk has at least one schema-known
+// workflow field in its Fields map.
+func hasAnyWorkflowField(tk *tikipkg.Tiki) bool {
+	if tk == nil {
+		return false
+	}
+	for _, f := range tikipkg.SchemaKnownFields {
+		if tk.Has(f) {
+			return true
+		}
+	}
+	return false
 }
 
 func matchesQuery(task *taskpkg.Task, queryLower string) bool {
@@ -51,22 +56,20 @@ func matchesQuery(task *taskpkg.Task, queryLower string) bool {
 	return false
 }
 
+func matchesTikiQuery(tk *tikipkg.Tiki, queryLower string) bool {
+	if tk == nil || queryLower == "" {
+		return false
+	}
+	return strings.Contains(strings.ToLower(tk.ID), queryLower) ||
+		strings.Contains(strings.ToLower(tk.Title), queryLower) ||
+		strings.Contains(strings.ToLower(tk.Body), queryLower)
+}
+
 // Search searches workflow tasks matching the given query.
 //
-// Presence-aware contract: a nil filterFunc means "all workflow tasks",
-// matching GetAllTasks. Plain docs (IsWorkflow=false) are never returned by
-// this API — Phase 1 Search is a task-search surface, not a general
-// document-search surface; a later phase will add a separate
-// document-search API that includes plain markdown.
-//
-// Callers that want to include plain docs must pass an explicit filterFunc
-// (which bypasses the workflow gate, since a custom filter is assumed to
-// know what it's selecting for).
-//
-// query: case-insensitive search term (searches task IDs, titles,
-// descriptions, and tags).
-// filterFunc: nil → workflow tasks only; non-nil → caller-defined filter.
-// Returns matching tasks sorted by priority then title with relevance scores.
+// Presence-aware contract: a nil filterFunc means "all workflow tasks".
+// Plain docs (no workflow fields) are never returned by this API.
+// Callers that want to include plain docs should use SearchTikis.
 func (s *TikiStore) Search(query string, filterFunc func(*taskpkg.Task) bool) []taskpkg.SearchResult {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
@@ -74,33 +77,27 @@ func (s *TikiStore) Search(query string, filterFunc func(*taskpkg.Task) bool) []
 	query = strings.TrimSpace(query)
 	queryLower := strings.ToLower(query)
 
-	// Step 1: Filter tasks using filterFunc (or the workflow gate if nil).
 	var candidateTasks []*taskpkg.Task
 	if filterFunc != nil {
-		// Custom filter — assume caller knows what they're selecting for,
-		// including plain docs if that's what they want.
-		for _, t := range s.tasks {
+		for _, tk := range s.tikis {
+			t := tikipkg.ToTask(tk)
 			if filterFunc(t) {
 				candidateTasks = append(candidateTasks, t)
 			}
 		}
 	} else {
-		// No filter = workflow tasks only, matching GetAllTasks semantics.
-		for _, t := range s.tasks {
-			if !t.IsWorkflow {
+		for _, tk := range s.tikis {
+			if !hasAnyWorkflowField(tk) {
 				continue
 			}
-			candidateTasks = append(candidateTasks, t)
+			candidateTasks = append(candidateTasks, tikipkg.ToTask(tk))
 		}
 	}
 
-	// Step 2: Apply search query if not empty
 	var matchedTasks []*taskpkg.Task
 	if queryLower == "" {
-		// Empty query returns all candidate tasks
 		matchedTasks = candidateTasks
 	} else {
-		// Filter by query
 		for _, t := range candidateTasks {
 			if matchesQuery(t, queryLower) {
 				matchedTasks = append(matchedTasks, t)
@@ -108,28 +105,39 @@ func (s *TikiStore) Search(query string, filterFunc func(*taskpkg.Task) bool) []
 		}
 	}
 
-	// Step 3: Sort and convert to results
-	sortTasks(matchedTasks)
+	taskpkg.Sort(matchedTasks)
 	results := make([]taskpkg.SearchResult, len(matchedTasks))
 	for i, t := range matchedTasks {
-		results[i] = taskpkg.SearchResult{
-			Task:  t,
-			Score: 1.0, // Future: implement proper relevance scoring
-		}
+		results[i] = taskpkg.SearchResult{Task: t, Score: 1.0}
 	}
-
 	return results
 }
 
-// sortTasks sorts tasks by priority first (lower number = higher priority), then by title, then by ID as tiebreaker
-func sortTasks(tasks []*taskpkg.Task) {
-	sort.Slice(tasks, func(i, j int) bool {
-		if tasks[i].Priority != tasks[j].Priority {
-			return tasks[i].Priority < tasks[j].Priority
+// SearchTikis searches all tikis (including plain docs) with an optional
+// tiki-native filter. query matches against id, title, and body.
+// filter is applied before the text match; nil means no pre-filter.
+// Results are sorted by title then id.
+func (s *TikiStore) SearchTikis(query string, filter func(*tikipkg.Tiki) bool) []*tikipkg.Tiki {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
+	queryLower := strings.ToLower(strings.TrimSpace(query))
+	var results []*tikipkg.Tiki
+	for _, tk := range s.tikis {
+		if filter != nil && !filter(tk) {
+			continue
 		}
-		if tasks[i].Title != tasks[j].Title {
-			return tasks[i].Title < tasks[j].Title
+		if queryLower != "" && !matchesTikiQuery(tk, queryLower) {
+			continue
 		}
-		return tasks[i].ID < tasks[j].ID
+		results = append(results, tk)
+	}
+	sort.Slice(results, func(i, j int) bool {
+		ti, tj := strings.ToLower(results[i].Title), strings.ToLower(results[j].Title)
+		if ti != tj {
+			return ti < tj
+		}
+		return results[i].ID < results[j].ID
 	})
+	return results
 }

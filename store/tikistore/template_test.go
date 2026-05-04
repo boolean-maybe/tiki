@@ -238,7 +238,11 @@ func TestCreateTask_HonorsPlainIsWorkflow(t *testing.T) {
 	if stored.IsWorkflow {
 		t.Error("stored.IsWorkflow = true, want false — plain capture was promoted to workflow item")
 	}
-	if got := len(s.GetAllTasks()); got != 0 {
-		t.Errorf("GetAllTasks returned %d, want 0 — plain docs must be filtered out of workflow views", got)
+	// Phase 5: GetAllTasks includes plain docs; callers filter with has(status) / hasAnyWorkflowField.
+	if got := len(s.GetAllTasks()); got != 1 {
+		t.Errorf("GetAllTasks returned %d, want 1 (plain doc is included since Phase 5)", got)
+	}
+	if all := s.GetAllTasks(); all[0].IsWorkflow {
+		t.Error("plain doc projected from GetAllTasks must not have IsWorkflow=true")
 	}
 }

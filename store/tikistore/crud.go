@@ -8,49 +8,52 @@ import (
 	"github.com/boolean-maybe/tiki/config"
 	"github.com/boolean-maybe/tiki/document"
 	taskpkg "github.com/boolean-maybe/tiki/task"
+	tikipkg "github.com/boolean-maybe/tiki/tiki"
 )
 
-// CreateTask adds a new task and saves it to a file
-func (s *TikiStore) CreateTask(task *taskpkg.Task) error {
-	if err := s.createTaskLocked(task); err != nil {
+// GetTiki retrieves a tiki by ID. Returns nil when not found.
+func (s *TikiStore) GetTiki(id string) *tikipkg.Tiki {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	return s.tikis[normalizeTaskID(id)]
+}
+
+// GetTask retrieves a task by ID. Phase 5 compatibility adapter over GetTiki.
+func (s *TikiStore) GetTask(id string) *taskpkg.Task {
+	slog.Debug("retrieving task", "task_id", id)
+	return tikipkg.ToTask(s.GetTiki(id))
+}
+
+// CreateTiki adds a new tiki and saves it to a file.
+func (s *TikiStore) CreateTiki(tk *tikipkg.Tiki) error {
+	if err := s.createTikiLocked(tk); err != nil {
 		return err
 	}
-	slog.Info("task created", "task_id", task.ID, "status", task.Status)
+	slog.Info("task created", "task_id", tk.ID)
 	s.notifyListeners()
 	return nil
 }
 
-func (s *TikiStore) createTaskLocked(task *taskpkg.Task) error {
-	// Honor the caller's IsWorkflow. Phase 7: when a workflow has no default
-	// status, NewTaskTemplate returns a plain template (IsWorkflow=false) and
-	// piped/ruki capture flows through CreateTask as a plain document. For
-	// workflows that do declare a default, NewTaskTemplate sets IsWorkflow=true
-	// and the same path persists a workflow item. The presence-aware
-	// document-first entry point (CreateDocument) remains the canonical way to
-	// create plain docs from frontmatter; this relaxation just stops forcing a
-	// promotion on task-shaped callers that followed the registry's signal.
-	return s.storeNewDocumentLocked(task)
+func (s *TikiStore) createTikiLocked(tk *tikipkg.Tiki) error {
+	return s.storeNewDocumentLocked(tk)
 }
 
 // storeNewDocumentLocked is the shared create path for CreateTask (workflow
-// only) and CreateDocument (workflow or plain). It allocates an id when
-// missing, validates dependsOn, and saves the file. The caller owns the
-// IsWorkflow decision — this function never flips it — so the serialized
-// frontmatter (workflow schema vs plain schema) matches the caller's intent
-// and survives a reload.
-func (s *TikiStore) storeNewDocumentLocked(task *taskpkg.Task) error {
+// only), CreateTiki, and CreateDocument (workflow or plain). The caller owns
+// the workflow-presence decision — this function never adds workflow fields.
+func (s *TikiStore) storeNewDocumentLocked(tk *tikipkg.Tiki) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
 	// generate ID if not provided. Identity uniqueness is checked against the
-	// in-memory index (s.tasks), not the filesystem — a task loaded from a
-	// renamed file occupies an id without occupying <taskdir>/<id>.md, so an
+	// in-memory index (s.tikis), not the filesystem — a tiki loaded from a
+	// renamed file occupies an id without occupying <dir>/<id>.md, so an
 	// os.Stat probe would falsely report the id free.
-	if task.ID == "" {
+	if tk.ID == "" {
 		for i := 0; ; i++ {
 			candidate := normalizeTaskID(config.GenerateRandomID())
-			if _, taken := s.tasks[candidate]; !taken {
-				task.ID = candidate
+			if _, taken := s.tikis[candidate]; !taken {
+				tk.ID = candidate
 				break
 			}
 			if i > maxGenerateRetries {
@@ -59,19 +62,17 @@ func (s *TikiStore) storeNewDocumentLocked(task *taskpkg.Task) error {
 			slog.Debug("ID collision detected in index, regenerating", "id", candidate)
 		}
 	} else {
-		task.ID = normalizeTaskID(task.ID)
+		tk.ID = normalizeTaskID(tk.ID)
 	}
 
-	taskpkg.NormalizeCollectionFields(task)
-
-	if err := s.validateDependsOnLocked(task); err != nil {
+	if err := s.validateDependsOnLocked(tk); err != nil {
 		return err
 	}
 
-	s.tasks[task.ID] = task
-	if err := s.saveTask(task); err != nil {
-		delete(s.tasks, task.ID)
-		slog.Error("failed to save new document after creation", "task_id", task.ID, "error", err)
+	s.tikis[tk.ID] = tk
+	if err := s.saveTiki(tk); err != nil {
+		delete(s.tikis, tk.ID)
+		slog.Error("failed to save new document after creation", "task_id", tk.ID, "error", err)
 		return fmt.Errorf("failed to save task: %w", err)
 	}
 	return nil
@@ -82,230 +83,191 @@ func (s *TikiStore) storeNewDocumentLocked(task *taskpkg.Task) error {
 // instead of looping forever.
 const maxGenerateRetries = 100
 
-// GetTask retrieves a task by ID
-func (s *TikiStore) GetTask(id string) *taskpkg.Task {
-	slog.Debug("retrieving task", "task_id", id)
-	s.mu.RLock()
-	defer s.mu.RUnlock()
-	return s.tasks[normalizeTaskID(id)]
-}
+// CreateTask adds a new task. Phase 5 compatibility adapter over CreateTiki.
+func (s *TikiStore) CreateTask(task *taskpkg.Task) error {
+	// Honor the caller's IsWorkflow. Phase 7: when a workflow has no default
+	// status, NewTaskTemplate returns a plain template (IsWorkflow=false) and
+	// piped/ruki capture flows through CreateTask as a plain document.
 
-// UpdateTask updates an existing task and saves it.
-//
-// UpdateTask treats the task as workflow-capable: if the caller passes a
-// Task with IsWorkflow=false but the stored task is workflow, the workflow
-// flag is carried forward. This protects ruki/UI paths that rebuild a Task
-// from a subset of fields and forget to set IsWorkflow — a silent demotion
-// would hide the task from board/search views until the next reload.
-// Callers that need to explicitly demote (e.g. UpdateDocument stripping all
-// workflow frontmatter) must use the document-first API.
-func (s *TikiStore) UpdateTask(task *taskpkg.Task) error {
-	if err := s.updateTaskLocked(task, true); err != nil {
+	// Validate custom fields at the task-shaped boundary.
+	if err := validateCustomFields(task.CustomFields); err != nil {
+		slog.Error("custom-field validation failed on create", "task_id", task.ID, "error", err)
 		return err
 	}
-	slog.Info("task updated", "task_id", task.ID, "status", task.Status)
+
+	tk := tikipkg.FromTask(task)
+	// dependsOn is a referential-integrity constraint validated at store
+	// boundary for every document, regardless of IsWorkflow. If the caller
+	// passed DependsOn but IsWorkflow=false, FromTask skips it — copy it
+	// explicitly so validateDependsOnLocked can enforce the check.
+	if len(task.DependsOn) > 0 && !tk.Has("dependsOn") {
+		tk.Set("dependsOn", append([]string(nil), task.DependsOn...))
+	}
+	if err := s.CreateTiki(tk); err != nil {
+		return err
+	}
+	// carry back the generated ID and path
+	task.ID = tk.ID
+	task.FilePath = tk.Path
+	slog.Info("task created", "task_id", task.ID, "status", task.Status)
+	return nil
+}
+
+// GetAllTikis returns every loaded tiki, including plain docs.
+func (s *TikiStore) GetAllTikis() []*tikipkg.Tiki {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	out := make([]*tikipkg.Tiki, 0, len(s.tikis))
+	for _, tk := range s.tikis {
+		out = append(out, tk)
+	}
+	return out
+}
+
+// UpdateTiki updates an existing tiki and saves it. The incoming tiki's field
+// set is authoritative (exact presence): fields absent in tk are not carried
+// forward from the stored tiki, so a native or ruki caller that deletes a
+// field (e.g. due, assignee) sees that deletion land on disk.
+//
+// Task-shaped callers that need carry-forward semantics (i.e. a partial Task
+// that only sets a few fields) go through UpdateTask, which performs the
+// carry-forward merge before projecting to a Tiki and calling UpdateTiki.
+func (s *TikiStore) UpdateTiki(tk *tikipkg.Tiki) error {
+	if err := s.updateTikiCore(tk, false); err != nil {
+		return err
+	}
+	slog.Info("task updated", "task_id", tk.ID)
 	s.notifyListeners()
 	return nil
 }
 
-// updateTaskLocked is the shared update path. carryWorkflow controls whether
-// a caller passing IsWorkflow=false over a workflow-flagged stored task has
-// their value forced back to true. Task-shaped callers pass true (protective
-// carry-forward); document-first callers pass false so explicit demotion
-// works.
-func (s *TikiStore) updateTaskLocked(task *taskpkg.Task, carryWorkflow bool) error {
+// updateTikiCore persists an updated tiki. Path and LoadedMtime are carried
+// forward from the stored tiki when absent on the incoming tiki (same as the
+// pre-Phase-5 FilePath/LoadedMtime carry-forward). The field map is used as-is:
+// no schema-known fields are injected or merged from the stored tiki.
+func (s *TikiStore) updateTikiCore(tk *tikipkg.Tiki, _ bool) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	task.ID = normalizeTaskID(task.ID)
-	taskpkg.NormalizeCollectionFields(task)
-	oldTask, exists := s.tasks[task.ID]
+	tk.ID = normalizeTaskID(tk.ID)
+	old, exists := s.tikis[tk.ID]
 	if !exists {
-		return fmt.Errorf("task not found: %s", task.ID)
+		return fmt.Errorf("task not found: %s", tk.ID)
 	}
 
-	// Carry forward identity-bound state from the loaded task if the caller
-	// passed a fresh Task value. Without this, a caller that constructs a
-	// Task from scratch would:
-	//   • lose the loaded path, so save would target <id>.md instead of the
-	//     renamed file the user is editing — the high finding's escape hatch;
-	//   • silently bypass the optimistic-locking mtime check, defeating
-	//     external-edit detection;
-	//   • silently demote a workflow document to a plain doc by leaving
-	//     IsWorkflow at its zero value, which hides the task from
-	//     GetAllTasks / search / board views until the next reload.
-	// Callers that *want* to reset these can set them explicitly.
-	if task.FilePath == "" {
-		task.FilePath = oldTask.FilePath
+	if tk.Path == "" {
+		tk.Path = old.Path
 	}
-	if task.LoadedMtime.IsZero() {
-		task.LoadedMtime = oldTask.LoadedMtime
-	}
-	if carryWorkflow && !task.IsWorkflow && oldTask.IsWorkflow {
-		task.IsWorkflow = true
+	if tk.LoadedMtime.IsZero() {
+		tk.LoadedMtime = old.LoadedMtime
 	}
 
-	if err := s.validateDependsOnLocked(task); err != nil {
+	if err := s.validateDependsOnLocked(tk); err != nil {
 		return err
 	}
 
-	// Snapshot the caller's EXPLICIT presence set before we seed from
-	// oldTask. Any key in here is one the caller added (typically via
-	// ruki's promoteToWorkflow when the caller assigned a workflow
-	// field), and represents an explicit caller edit whose zero value
-	// must survive carry-forward. After seeding the map from oldTask we
-	// can no longer tell "caller added this" from "carried from old" by
-	// looking at the map alone.
-	callerExplicit := collectKeys(task.WorkflowFrontmatter)
-
-	// Seed the preserved presence set from the stored task when the caller
-	// passed a fresh Task that doesn't carry one. Without this, a task-API
-	// caller (ruki/UI) who builds a Task from typed fields only would wipe
-	// the presence set and cause saveTask to fall back to full-schema
-	// synthesis — undoing the sparse-preservation fix.
-	if task.IsWorkflow && task.WorkflowFrontmatter == nil && oldTask.WorkflowFrontmatter != nil {
-		task.WorkflowFrontmatter = cloneWorkflowFrontmatter(oldTask.WorkflowFrontmatter)
-	}
-
-	// Carry forward typed workflow field values from the stored task for any
-	// field whose incoming value is zero. Rationale is the same as the
-	// FilePath/LoadedMtime/IsWorkflow carry-forward above: task-shaped
-	// compatibility callers routinely build a fresh Task carrying only the
-	// fields they care about, and every other typed field is zero because
-	// the caller simply did not populate them. Without this carry-forward
-	// the sparse save would emit the zero values, effectively clearing
-	// workflow fields the caller never touched (the root cause the reviewer
-	// caught). Callers that intend to CLEAR a field should use the document-
-	// first API and remove the key from doc.Frontmatter.
-	if task.IsWorkflow {
-		carryTypedWorkflowValues(task, oldTask, callerExplicit)
-		taskpkg.MergeTypedWorkflowDeltas(task, oldTask)
-	}
-
-	s.tasks[task.ID] = task
-	if err := s.saveTask(task); err != nil {
-		s.tasks[task.ID] = oldTask
-		slog.Error("failed to save updated task", "task_id", task.ID, "error", err)
+	s.tikis[tk.ID] = tk
+	if err := s.saveTiki(tk); err != nil {
+		s.tikis[tk.ID] = old
+		slog.Error("failed to save updated task", "task_id", tk.ID, "error", err)
 		return fmt.Errorf("failed to save task: %w", err)
 	}
 	return nil
 }
 
-// carryTypedWorkflowValues copies typed workflow field values from src into
-// dst for any field whose dst value is zero AND the caller did NOT
-// explicitly declare the field. dst's non-zero fields win because they
-// represent an explicit caller edit; dst's zero-but-explicit fields win
-// too, because under Phase 5 semantics a zero-with-presence is an
-// explicit caller assignment (e.g. `set points = 0` or
-// `set dependsOn = []`) that must survive the save.
+// UpdateTask updates an existing task. Phase 5 compatibility adapter over UpdateTiki.
 //
-// callerExplicit is the set of workflow keys the caller placed in
-// task.WorkflowFrontmatter BEFORE updateTaskLocked seeded it from the
-// stored task. That distinction matters: after seeding, the map carries
-// all the old keys, so "key in map" can no longer distinguish "caller
-// added this" from "inherited from old".
-//
-// Slice fields use a non-aliasing copy so subsequent mutations on dst
-// don't reach src.
-//
-// This is the field-by-field analog of the FilePath/LoadedMtime carry-
-// forward in updateTaskLocked. It runs only on the workflow-task path
-// because plain docs have no typed workflow fields to preserve.
-func carryTypedWorkflowValues(dst, src *taskpkg.Task, callerExplicit map[string]struct{}) {
-	if dst == nil || src == nil {
-		return
+// UpdateTask treats the task as workflow-capable: if the stored tiki has any
+// workflow field, those fields are carried forward into the outgoing tiki so a
+// caller that rebuilds a Task from only a few fields (title, ID) does not
+// silently wipe the rest. Callers that need explicit demotion (removing a
+// workflow key) must use UpdateDocument.
+func (s *TikiStore) UpdateTask(task *taskpkg.Task) error {
+	// Validate custom fields before the tiki projection so the task-shaped
+	// contract from pre-Phase-5 (unregistered keys in CustomFields are errors)
+	// is preserved. This mirrors the validateCustomFields call that lived in
+	// saveTask pre-Phase-5.
+	if err := validateCustomFields(task.CustomFields); err != nil {
+		slog.Error("custom-field validation failed", "task_id", task.ID, "error", err)
+		return err
 	}
-	explicit := func(fieldName string) bool {
-		_, ok := callerExplicit[fieldName]
-		return ok
-	}
-	if dst.Status == "" && !explicit("status") {
-		dst.Status = src.Status
-	}
-	if dst.Type == "" && !explicit("type") {
-		dst.Type = src.Type
-	}
-	if dst.Tags == nil && src.Tags != nil && !explicit("tags") {
-		dst.Tags = append([]string(nil), src.Tags...)
-	}
-	if dst.DependsOn == nil && src.DependsOn != nil && !explicit("dependsOn") {
-		dst.DependsOn = append([]string(nil), src.DependsOn...)
-	}
-	if dst.Due.IsZero() && !explicit("due") {
-		dst.Due = src.Due
-	}
-	if dst.Recurrence == "" && !explicit("recurrence") {
-		dst.Recurrence = src.Recurrence
-	}
-	if dst.Assignee == "" && !explicit("assignee") {
-		dst.Assignee = src.Assignee
-	}
-	if dst.Priority == 0 && !explicit("priority") {
-		dst.Priority = src.Priority
-	}
-	if dst.Points == 0 && !explicit("points") {
-		dst.Points = src.Points
-	}
-}
 
-// collectKeys returns the set of keys in m. Used to snapshot the
-// caller's explicit workflow-frontmatter declarations before
-// updateTaskLocked seeds the presence map from the stored task.
-func collectKeys(m map[string]interface{}) map[string]struct{} {
-	if len(m) == 0 {
-		return nil
-	}
-	out := make(map[string]struct{}, len(m))
-	for k := range m {
-		out[k] = struct{}{}
-	}
-	return out
-}
+	s.mu.RLock()
+	storedTiki, exists := s.tikis[normalizeTaskID(task.ID)]
+	s.mu.RUnlock()
 
-// cloneWorkflowFrontmatter returns a shallow copy of a preserved workflow
-// frontmatter map. Keys are strings and values are the YAML-decoded scalar
-// or slice shapes that do not need deep copies to stay isolated from
-// subsequent typed-field mutations.
-func cloneWorkflowFrontmatter(src map[string]interface{}) map[string]interface{} {
-	if src == nil {
-		return nil
-	}
-	out := make(map[string]interface{}, len(src))
-	for k, v := range src {
-		if ss, ok := v.([]string); ok {
-			cp := make([]string, len(ss))
-			copy(cp, ss)
-			out[k] = cp
-		} else {
-			out[k] = v
+	if exists && hasAnyWorkflowField(storedTiki) {
+		// Project the stored tiki to a Task so we have typed values to carry.
+		oldTask := tikipkg.ToTask(storedTiki)
+
+		// Grow WorkflowFrontmatter to include every stored workflow field.
+		// This ensures FromTask's applyPresenceMap emits all stored fields,
+		// not just the subset the caller touched. Without this, a ruki action
+		// that only sets status would produce a tiki with only status in
+		// Fields, and UpdateTiki's exact-presence save would drop type,
+		// priority, and all other stored fields.
+		//
+		// Keys already in the caller's map are left alone — they represent
+		// explicit caller intent (e.g. a newly added field via ruki). New keys
+		// added from the stored set are also carried through CarryZeroTypedFields
+		// below so the typed Task fields agree with the presence map.
+		if task.WorkflowFrontmatter == nil {
+			task.WorkflowFrontmatter = make(map[string]interface{}, len(storedTiki.Fields))
 		}
+		for _, k := range tikipkg.SchemaKnownFields {
+			if storedTiki.Has(k) {
+				if _, already := task.WorkflowFrontmatter[k]; !already {
+					task.WorkflowFrontmatter[k] = struct{}{}
+				}
+			}
+		}
+
+		// Carry stored typed values for any field the caller left at zero
+		// that is now declared in the grown WorkflowFrontmatter.
+		taskpkg.CarryZeroTypedFields(task, oldTask)
+
+		// Promote before merging so a fresh compat caller (IsWorkflow=false) that
+		// sets a new non-zero field (e.g. Priority: 1) still gets it merged into
+		// WorkflowFrontmatter. MergeTypedWorkflowDeltas is grow-only and never
+		// removes stored keys.
+		task.IsWorkflow = true
+		taskpkg.MergeTypedWorkflowDeltas(task, oldTask)
 	}
-	return out
+
+	tk := tikipkg.FromTask(task)
+
+	if err := s.UpdateTiki(tk); err != nil {
+		return err
+	}
+	// carry back path for callers that inspect task.FilePath after update
+	task.FilePath = tk.Path
+	slog.Info("task updated", "task_id", task.ID, "status", task.Status)
+	return nil
 }
 
-// DeleteTask removes a task and its file
-func (s *TikiStore) DeleteTask(id string) {
+// DeleteTiki removes a tiki and its file.
+func (s *TikiStore) DeleteTiki(id string) {
 	normalizedID := normalizeTaskID(id)
-	if !s.deleteTaskLocked(normalizedID) {
+	if !s.deleteTikiLocked(normalizedID) {
 		return
 	}
 	slog.Info("task deleted", "task_id", normalizedID)
 	s.notifyListeners()
 }
 
-// deleteTaskLocked removes the task file and in-memory entry.
-// Returns true if the task was deleted.
-func (s *TikiStore) deleteTaskLocked(id string) bool {
+// deleteTikiLocked removes the tiki file and in-memory entry.
+// Returns true if the tiki was deleted.
+func (s *TikiStore) deleteTikiLocked(id string) bool {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	existing, exists := s.tasks[id]
+	existing, exists := s.tikis[id]
 	if !exists {
 		return false
 	}
 
 	// use the loaded file path so a renamed/moved file still gets cleaned up.
-	path := s.pathForTask(existing)
+	path := s.pathForTiki(existing)
 
 	// try git rm first if git is available
 	removed := false
@@ -325,8 +287,13 @@ func (s *TikiStore) deleteTaskLocked(id string) bool {
 		}
 	}
 
-	delete(s.tasks, id)
+	delete(s.tikis, id)
 	return true
+}
+
+// DeleteTask removes a task and its file. Phase 5 compatibility adapter over DeleteTiki.
+func (s *TikiStore) DeleteTask(id string) {
+	s.DeleteTiki(id)
 }
 
 // AddComment adds a comment to a task.
@@ -344,12 +311,25 @@ func (s *TikiStore) addCommentLocked(taskID string, comment taskpkg.Comment) boo
 	defer s.mu.Unlock()
 
 	taskID = normalizeTaskID(taskID)
-	task, exists := s.tasks[taskID]
+	tk, exists := s.tikis[taskID]
 	if !exists {
 		return false
 	}
 
+	// comments are stored in the tiki's Fields under a "comments" key.
+	// For backward compatibility the comment list lives on the Task, so
+	// we project the tiki to a task, append the comment, and update via
+	// the task adapter path. This avoids duplicating comment serialization
+	// logic; Phase 6 can lift this once comments move to Fields.
+	task := tikipkg.ToTask(tk)
+	if task == nil {
+		return false
+	}
 	task.Comments = append(task.Comments, comment)
+	updated := tikipkg.FromTask(task)
+	updated.Path = tk.Path
+	updated.LoadedMtime = tk.LoadedMtime
+	s.tikis[taskID] = updated
 	return true
 }
 
@@ -359,13 +339,14 @@ func (s *TikiStore) addCommentLocked(taskID string, comment taskpkg.Comment) boo
 // semantics. IDs must be bare (^[A-Z0-9]{6}$); legacy TIKI-prefixed IDs are
 // rejected.
 // Caller must hold s.mu lock.
-func (s *TikiStore) validateDependsOnLocked(task *taskpkg.Task) error {
-	for _, depID := range task.DependsOn {
+func (s *TikiStore) validateDependsOnLocked(tk *tikipkg.Tiki) error {
+	deps, _, _ := tk.StringSliceField("dependsOn")
+	for _, depID := range deps {
 		normalized := normalizeTaskID(depID)
 		if !document.IsValidID(normalized) {
 			return fmt.Errorf("dependsOn reference %q is not a bare document id (expected %d uppercase alphanumeric chars)", normalized, document.IDLength)
 		}
-		if _, exists := s.tasks[normalized]; !exists {
+		if _, exists := s.tikis[normalized]; !exists {
 			return fmt.Errorf("dependsOn references non-existent document: %s", normalized)
 		}
 	}

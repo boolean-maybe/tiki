@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/boolean-maybe/tiki/task"
+	tikipkg "github.com/boolean-maybe/tiki/tiki"
 )
 
 // fakeUserStore is a minimal ReadStore that only implements the methods
@@ -15,9 +16,15 @@ type fakeUserStore struct {
 	userErr error
 }
 
-func (f *fakeUserStore) GetTask(string) *task.Task { return nil }
-func (f *fakeUserStore) GetAllTasks() []*task.Task { return nil }
+func (f *fakeUserStore) GetTask(string) *task.Task               { return nil }
+func (f *fakeUserStore) GetAllTasks() []*task.Task               { return nil }
+func (f *fakeUserStore) GetTiki(string) *tikipkg.Tiki            { return nil }
+func (f *fakeUserStore) GetAllTikis() []*tikipkg.Tiki            { return nil }
+func (f *fakeUserStore) NewTikiTemplate() (*tikipkg.Tiki, error) { return nil, nil }
 func (f *fakeUserStore) Search(string, func(*task.Task) bool) []task.SearchResult {
+	return nil
+}
+func (f *fakeUserStore) SearchTikis(string, func(*tikipkg.Tiki) bool) []*tikipkg.Tiki {
 	return nil
 }
 func (f *fakeUserStore) GetCurrentUser() (string, string, error) {

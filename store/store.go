@@ -2,6 +2,7 @@ package store
 
 import (
 	"github.com/boolean-maybe/tiki/task"
+	tikipkg "github.com/boolean-maybe/tiki/tiki"
 )
 
 // Store is the interface for task storage engines.
@@ -13,9 +14,18 @@ type Store interface {
 	// Returns error if save fails (IO error, ErrConflict).
 	CreateTask(task *task.Task) error
 
-	// UpdateTask updates an existing task.
+	// UpdateTask updates an existing task using carry-forward semantics:
+	// stored workflow fields missing from the incoming task are merged in.
+	// Use this for UI/partial callers that only set the fields they care about.
 	// Returns error if save fails (IO error, ErrConflict).
 	UpdateTask(task *task.Task) error
+
+	// UpdateTiki updates an existing tiki using exact-presence semantics:
+	// the tiki's field map is authoritative — absent fields are deleted.
+	// Use this for ruki-result callers that have already computed the full
+	// intended post-mutation state.
+	// Returns error if save fails (IO error, ErrConflict).
+	UpdateTiki(tk *tikipkg.Tiki) error
 
 	// DeleteTask removes a task from the store
 	DeleteTask(id string)

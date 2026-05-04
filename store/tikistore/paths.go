@@ -11,22 +11,21 @@ import (
 // that was renamed or moved into a subdirectory resolves to its real
 // location instead of the id-derived default.
 //
-// The lookup uses the in-memory task map as the authoritative id→path index;
-// a separate map would duplicate state. Callers should not mutate the
-// returned string (it is already a value, not a reference).
+// The lookup uses the in-memory tiki map as the authoritative id→path index.
+// Callers should not mutate the returned string (it is already a value, not a reference).
 func (s *TikiStore) PathForID(id string) string {
 	normalized := normalizeTaskID(id)
 	s.mu.RLock()
 	defer s.mu.RUnlock()
-	if t, ok := s.tasks[normalized]; ok {
-		return t.FilePath
+	if tk, ok := s.tikis[normalized]; ok {
+		return tk.Path
 	}
 	return ""
 }
 
-// IDForPath returns the document id whose FilePath matches the given path,
+// IDForPath returns the document id whose Path matches the given path,
 // or the empty string when no loaded document lives there. Comparison is
-// exact string equality: the store normalizes every FilePath through
+// exact string equality: the store normalizes every Path through
 // filepath.Abs at load time, so callers who obtained `path` the same way
 // (e.g. via filepath.Abs of a user-supplied relative path) will match.
 // Callers on case-insensitive filesystems who hand in a differently-cased
@@ -42,8 +41,8 @@ func (s *TikiStore) IDForPath(path string) string {
 	}
 	s.mu.RLock()
 	defer s.mu.RUnlock()
-	for id, t := range s.tasks {
-		if t.FilePath == path {
+	for id, tk := range s.tikis {
+		if tk.Path == path {
 			return id
 		}
 	}
@@ -56,10 +55,10 @@ func (s *TikiStore) IDForPath(path string) string {
 func (s *TikiStore) AllPaths() []string {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
-	out := make([]string, 0, len(s.tasks))
-	for _, t := range s.tasks {
-		if t.FilePath != "" {
-			out = append(out, t.FilePath)
+	out := make([]string, 0, len(s.tikis))
+	for _, tk := range s.tikis {
+		if tk.Path != "" {
+			out = append(out, tk.Path)
 		}
 	}
 	sort.Strings(out)

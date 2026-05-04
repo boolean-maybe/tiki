@@ -14,23 +14,6 @@ import (
 	"github.com/boolean-maybe/tiki/tiki"
 )
 
-// tasksToTikis converts a task slice to a tiki slice at the ruki boundary.
-// Presence is faithful to what tiki.FromTask derives from the task — sparse
-// via WorkflowFrontmatter when set, value-derived otherwise — so has(field)
-// returns the same answer in TUI, plugin, CLI, and trigger execution.
-// Actions that mutate optional fields (priority, tags, dependsOn) must
-// guard with has(field) in their ruki; this function intentionally does
-// not fabricate presence for absent list fields.
-func tasksToTikis(tasks []*task.Task) []*tiki.Tiki {
-	out := make([]*tiki.Tiki, 0, len(tasks))
-	for _, t := range tasks {
-		if tk := tiki.FromTask(t); tk != nil {
-			out = append(out, tk)
-		}
-	}
-	return out
-}
-
 // PluginController handles plugin view actions: navigation, open, create, delete.
 type PluginController struct {
 	pluginBase
@@ -247,7 +230,7 @@ func logSelectionFields(input ruki.ExecutionInput) []any {
 // executeAndApply runs the executor and applies the result (store mutations, pipe, clipboard).
 func (pc *PluginController) executeAndApply(pa *plugin.PluginAction, input ruki.ExecutionInput) bool {
 	executor := pc.newExecutor()
-	allTikis := tasksToTikis(pc.taskStore.GetAllTasks())
+	allTikis := pc.taskStore.GetAllTikis()
 
 	result, err := executor.Execute(pa.Action, allTikis, input)
 	if err != nil {
@@ -267,15 +250,14 @@ func (pc *PluginController) executeAndApply(pa *plugin.PluginAction, input ruki.
 		return true
 	case result.Update != nil:
 		for _, tk := range result.Update.Updated {
-			updated := tiki.ToTask(tk)
-			if err := pc.mutationGate.UpdateTask(ctx, updated); err != nil {
-				slog.Error("failed to update task after plugin action", "task_id", updated.ID, "key", pa.KeyStr, "error", err)
+			if err := pc.mutationGate.UpdateTiki(ctx, tk); err != nil {
+				slog.Error("failed to update task after plugin action", "task_id", tk.ID, "key", pa.KeyStr, "error", err)
 				if pc.statusline != nil {
 					pc.statusline.SetMessage(err.Error(), model.MessageLevelError, true)
 				}
 				return false
 			}
-			pc.ensureSearchResultIncludesTask(updated)
+			pc.ensureSearchResultIncludesTask(tiki.ToTask(tk))
 		}
 	case result.Create != nil:
 		created := tiki.ToTask(result.Create.Tiki)
@@ -449,7 +431,7 @@ func (pc *PluginController) CanStartActionChoose(actionID ActionID) (string, []*
 		return "", nil, false
 	}
 
-	allTikis := tasksToTikis(pc.taskStore.GetAllTasks())
+	allTikis := pc.taskStore.GetAllTikis()
 	executor := pc.newExecutor()
 	candidateTikis, err := executor.EvalSubQueryFilter(pa.ChooseFilter, allTikis, input)
 	if err != nil {
@@ -471,6 +453,7 @@ func (pc *PluginController) CanStartActionChoose(actionID ActionID) (string, []*
 			candidates = append(candidates, t)
 		}
 	}
+	task.Sort(candidates)
 	return pa.Label, candidates, true
 }
 
@@ -510,7 +493,7 @@ func (pc *PluginController) handleMoveTask(offset int) bool {
 		return false
 	}
 
-	allTikis := tasksToTikis(pc.taskStore.GetAllTasks())
+	allTikis := pc.taskStore.GetAllTikis()
 	executor := pc.newExecutor()
 	result, err := executor.Execute(actionStmt, allTikis, ruki.NewSingleSelectionInput(taskID))
 	if err != nil {
@@ -522,8 +505,8 @@ func (pc *PluginController) handleMoveTask(offset int) bool {
 		return false
 	}
 
-	updated := tiki.ToTask(result.Update.Updated[0])
-	if err := pc.mutationGate.UpdateTask(context.Background(), updated); err != nil {
+	movedTiki := result.Update.Updated[0]
+	if err := pc.mutationGate.UpdateTiki(context.Background(), movedTiki); err != nil {
 		slog.Error("failed to update task after lane move", "task_id", taskID, "error", err)
 		if pc.statusline != nil {
 			pc.statusline.SetMessage(err.Error(), model.MessageLevelError, true)
@@ -531,7 +514,7 @@ func (pc *PluginController) handleMoveTask(offset int) bool {
 		return false
 	}
 
-	pc.ensureSearchResultIncludesTask(updated)
+	pc.ensureSearchResultIncludesTask(tiki.ToTask(movedTiki))
 	pc.selectTaskInLane(targetLane, taskID, pc.GetFilteredTasksForLane)
 	return true
 }
@@ -546,14 +529,21 @@ func (pc *PluginController) GetFilteredTasksForLane(lane int) []*task.Task {
 	}
 
 	filterStmt := pc.pluginDef.Lanes[lane].Filter
-	allTasks := pc.taskStore.GetAllTasks()
+	allTikis := pc.taskStore.GetAllTikis()
 
 	var filtered []*task.Task
+	needsSort := false
 	if filterStmt == nil {
-		filtered = allTasks
+		// no filter: project all tikis from the map — order is nondeterministic
+		filtered = make([]*task.Task, 0, len(allTikis))
+		for _, tk := range allTikis {
+			if t := tiki.ToTask(tk); t != nil {
+				filtered = append(filtered, t)
+			}
+		}
+		needsSort = true
 	} else {
 		executor := pc.newExecutor()
-		allTikis := tasksToTikis(allTasks)
 		result, err := executor.Execute(filterStmt, allTikis)
 		if err != nil {
 			slog.Error("failed to execute lane filter", "lane", lane, "error", err)
@@ -565,6 +555,7 @@ func (pc *PluginController) GetFilteredTasksForLane(lane int) []*task.Task {
 				filtered = append(filtered, t)
 			}
 		}
+		// ruki already applied order by; no secondary sort needed
 	}
 
 	// narrow by search results if active
@@ -574,8 +565,13 @@ func (pc *PluginController) GetFilteredTasksForLane(lane int) []*task.Task {
 			searchTaskMap[result.Task.ID] = true
 		}
 		filtered = filterTasksBySearch(filtered, searchTaskMap)
+		// search narrowing disrupts order; re-sort
+		needsSort = true
 	}
 
+	if needsSort {
+		task.Sort(filtered)
+	}
 	return filtered
 }
 
