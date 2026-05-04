@@ -4,8 +4,6 @@ import (
 	"sync"
 	"testing"
 	"time"
-
-	"github.com/boolean-maybe/tiki/store"
 )
 
 func TestNewHeaderConfig(t *testing.T) {
@@ -21,39 +19,6 @@ func TestNewHeaderConfig(t *testing.T) {
 
 	if !hc.GetUserPreference() {
 		t.Error("initial GetUserPreference() = false, want true")
-	}
-
-	if len(hc.GetBurndown()) != 0 {
-		t.Error("initial GetBurndown() should be empty")
-	}
-}
-
-func TestHeaderConfig_Burndown(t *testing.T) {
-	hc := NewHeaderConfig()
-
-	date1 := time.Date(2024, 1, 1, 0, 0, 0, 0, time.UTC)
-	date2 := time.Date(2024, 1, 2, 0, 0, 0, 0, time.UTC)
-	date3 := time.Date(2024, 1, 3, 0, 0, 0, 0, time.UTC)
-
-	points := []store.BurndownPoint{
-		{Date: date1, Remaining: 100},
-		{Date: date2, Remaining: 80},
-		{Date: date3, Remaining: 60},
-	}
-
-	hc.SetBurndown(points)
-
-	got := hc.GetBurndown()
-	if len(got) != 3 {
-		t.Errorf("len(GetBurndown()) = %d, want 3", len(got))
-	}
-
-	if !got[0].Date.Equal(date1) {
-		t.Errorf("Burndown[0].Date = %v, want %v", got[0].Date, date1)
-	}
-
-	if got[0].Remaining != 100 {
-		t.Errorf("Burndown[0].Remaining = %d, want 100", got[0].Remaining)
 	}
 }
 
@@ -134,7 +99,6 @@ func TestHeaderConfig_ListenerNotification(t *testing.T) {
 		name   string
 		action func()
 	}{
-		{"SetBurndown", func() { hc.SetBurndown([]store.BurndownPoint{{Date: time.Date(2024, 1, 1, 0, 0, 0, 0, time.UTC)}}) }},
 		{"SetVisible", func() { hc.SetVisible(false); hc.SetVisible(true) }},
 		{"ToggleUserPreference", func() { hc.ToggleUserPreference() }},
 	}
@@ -155,7 +119,7 @@ func TestHeaderConfig_ListenerNotification(t *testing.T) {
 	hc.RemoveListener(listenerID)
 
 	called = false
-	hc.SetBurndown(nil)
+	hc.SetVisible(false)
 
 	time.Sleep(10 * time.Millisecond)
 
@@ -209,7 +173,7 @@ func TestHeaderConfig_MultipleListeners(t *testing.T) {
 	id1 := hc.AddListener(listener1)
 	id2 := hc.AddListener(listener2)
 
-	hc.SetBurndown(nil)
+	hc.SetVisible(false)
 
 	time.Sleep(10 * time.Millisecond)
 
@@ -221,7 +185,7 @@ func TestHeaderConfig_MultipleListeners(t *testing.T) {
 
 	hc.RemoveListener(id1)
 
-	hc.SetBurndown(nil)
+	hc.SetVisible(true)
 
 	time.Sleep(10 * time.Millisecond)
 
@@ -233,7 +197,7 @@ func TestHeaderConfig_MultipleListeners(t *testing.T) {
 
 	hc.RemoveListener(id2)
 
-	hc.SetBurndown(nil)
+	hc.SetVisible(false)
 
 	time.Sleep(10 * time.Millisecond)
 
@@ -260,32 +224,15 @@ func TestHeaderConfig_ConcurrentAccess(t *testing.T) {
 	}()
 
 	go func() {
-		for range 50 {
-			hc.SetBurndown(nil)
-		}
-		done <- true
-	}()
-
-	go func() {
 		for range 100 {
-			_ = hc.GetBurndown()
 			_ = hc.IsVisible()
 			_ = hc.GetUserPreference()
 		}
 		done <- true
 	}()
 
-	for range 3 {
+	for range 2 {
 		<-done
-	}
-}
-
-func TestHeaderConfig_EmptyBurndown(t *testing.T) {
-	hc := NewHeaderConfig()
-
-	hc.SetBurndown([]store.BurndownPoint{})
-	if len(hc.GetBurndown()) != 0 {
-		t.Error("GetBurndown() should return empty slice")
 	}
 }
 

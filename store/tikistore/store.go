@@ -32,11 +32,10 @@ type TikiStore struct {
 	tasks          map[string]*taskpkg.Task
 	listeners      map[int]store.ChangeListener
 	nextListenerID int
-	gitUtil        git.GitOps         // git utility for auto-staging modified files
-	taskHistory    *store.TaskHistory // history for burndown computation
-	upgrader       *LegacyUpgrader    // normalizes legacy field values on load
-	identity       *identityResolver  // resolves current Tiki identity (config→git→OS)
-	diagnostics    *LoadDiagnostics   // rejections from the most recent load/reload cycle
+	gitUtil        git.GitOps        // git utility for auto-staging modified files
+	upgrader       *LegacyUpgrader   // normalizes legacy field values on load
+	identity       *identityResolver // resolves current Tiki identity (config→git→OS)
+	diagnostics    *LoadDiagnostics  // rejections from the most recent load/reload cycle
 }
 
 // taskFrontmatter represents the YAML frontmatter in task files.
@@ -94,13 +93,6 @@ func NewTikiStore(dir string) (*TikiStore, error) {
 	return s, nil
 }
 
-// SetTaskHistory sets the task history instance (called after background build completes)
-func (s *TikiStore) SetTaskHistory(history *store.TaskHistory) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	s.taskHistory = history
-}
-
 // LoadDiagnostics returns the rejections accumulated during the most recent
 // load/reload cycle. Nil-safe: callers can use HasIssues() / Summary() /
 // Rejections() directly on the returned value.
@@ -154,22 +146,10 @@ func (s *TikiStore) GetStats() []store.Stat {
 	return stats
 }
 
-// GetGitOps returns the git operations instance (needed for history construction)
+// GetGitOps returns the git operations instance.
 func (s *TikiStore) GetGitOps() git.GitOps {
 	// No lock needed - gitUtil is immutable after initialization
 	return s.gitUtil
-}
-
-// GetBurndown returns the burndown chart data
-func (s *TikiStore) GetBurndown() []store.BurndownPoint {
-	s.mu.RLock()
-	defer s.mu.RUnlock()
-
-	if s.taskHistory == nil {
-		return nil
-	}
-
-	return s.taskHistory.Burndown()
 }
 
 // GetAllUsers returns candidate identities for assignee selection.

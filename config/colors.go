@@ -64,16 +64,6 @@ type ColorConfig struct {
 	// Completion prompt colors
 	CompletionHintColor Color
 
-	// Burndown chart colors
-	BurndownChartAxisColor     Color
-	BurndownChartLabelColor    Color
-	BurndownChartValueColor    Color
-	BurndownChartBarColor      Color
-	BurndownChartGradientFrom  Gradient
-	BurndownChartGradientTo    Gradient
-	BurndownHeaderGradientFrom Gradient // Header-specific chart gradient
-	BurndownHeaderGradientTo   Gradient
-
 	// Header view colors
 	HeaderInfoLabel     Color
 	HeaderInfoSeparator Color
@@ -100,8 +90,7 @@ type ColorConfig struct {
 	DepsEditorBackground Color // muted slate for dependency editor caption
 
 	// Fallback solid colors for gradient scenarios (used when UseGradients = false)
-	FallbackTaskIDColor   Color // Deep Sky Blue (end of task ID gradient)
-	FallbackBurndownColor Color // Purple (start of burndown gradient)
+	FallbackTaskIDColor Color // Deep Sky Blue (end of task ID gradient)
 
 	// Logo colors (header art)
 	LogoDotColor    Color // bright turquoise (● dots)
@@ -149,7 +138,6 @@ type Palette struct {
 	// Gradients
 	CaptionFallbackGradient Gradient // Midnight Blue → Royal Blue
 	DeepSkyBlue             Color    // #00bfff — task ID base color + gradient fallback
-	DeepPurple              Color    // #865ad6 — fallback for burndown gradient
 
 	// Content area
 	ContentBackgroundColor Color // canvas background (transparent/default — inherits terminal bg)
@@ -185,10 +173,6 @@ func gradientFromColor(c Color, darkenRatio float64) Gradient {
 // ColorsFromPalette builds a ColorConfig from a Palette.
 func ColorsFromPalette(p Palette) *ColorConfig {
 	idGradient := gradientFromColor(p.DeepSkyBlue, 0.2)
-	deepPurpleSolid := Gradient{Start: [3]int{134, 90, 214}, End: [3]int{134, 90, 214}}
-	blueCyanSolid := Gradient{Start: [3]int{90, 170, 255}, End: [3]int{90, 170, 255}}
-	headerPurpleSolid := Gradient{Start: [3]int{160, 120, 230}, End: [3]int{160, 120, 230}}
-	headerCyanSolid := Gradient{Start: [3]int{110, 190, 255}, End: [3]int{110, 190, 255}}
 
 	return &ColorConfig{
 		CaptionFallbackGradient: p.CaptionFallbackGradient,
@@ -238,16 +222,6 @@ func ColorsFromPalette(p Palette) *ColorConfig {
 		// Completion prompt
 		CompletionHintColor: p.MutedColor,
 
-		// Burndown chart
-		BurndownChartAxisColor:     p.MutedColor,
-		BurndownChartLabelColor:    p.MutedColor,
-		BurndownChartValueColor:    p.MutedColor,
-		BurndownChartBarColor:      p.AccentBlue,
-		BurndownChartGradientFrom:  deepPurpleSolid,
-		BurndownChartGradientTo:    blueCyanSolid,
-		BurndownHeaderGradientFrom: headerPurpleSolid,
-		BurndownHeaderGradientTo:   headerCyanSolid,
-
 		// Points bar
 		PointsFilledColor:   p.AccentBlue,
 		PointsUnfilledColor: p.SlateColor,
@@ -271,8 +245,7 @@ func ColorsFromPalette(p Palette) *ColorConfig {
 		DepsEditorBackground: p.StatuslineBorderBg,
 
 		// Fallback solid colors
-		FallbackTaskIDColor:   p.DeepSkyBlue,
-		FallbackBurndownColor: p.DeepPurple,
+		FallbackTaskIDColor: p.DeepSkyBlue,
 
 		// Logo
 		LogoDotColor:    p.LogoDotColor,

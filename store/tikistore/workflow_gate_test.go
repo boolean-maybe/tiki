@@ -21,7 +21,7 @@ func createValidTaskForGateTest() *taskpkg.Task {
 
 // TestGetAllTasks_FiltersPlainDocs verifies the presence-aware contract from
 // the plan: a markdown file with `id` and `title` only must not surface on
-// board/burndown/list views that consume GetAllTasks.
+// board/list views that consume GetAllTasks.
 func TestGetAllTasks_FiltersPlainDocs(t *testing.T) {
 	dir := t.TempDir()
 

@@ -24,7 +24,6 @@ func (f *fakeUserStore) GetCurrentUser() (string, string, error) {
 	return f.name, f.email, f.userErr
 }
 func (f *fakeUserStore) GetStats() []Stat                     { return nil }
-func (f *fakeUserStore) GetBurndown() []BurndownPoint         { return nil }
 func (f *fakeUserStore) GetAllUsers() ([]string, error)       { return nil, nil }
 func (f *fakeUserStore) NewTaskTemplate() (*task.Task, error) { return nil, nil }
 func (f *fakeUserStore) AddListener(ChangeListener) int       { return 0 }

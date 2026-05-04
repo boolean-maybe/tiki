@@ -17,7 +17,7 @@ What `tiki` does:
   `.doc/` tree, identified by a bare frontmatter `id`
 - **Wiki-style** documentation with arbitrary folder hierarchy and multiple entry points
 - Keep a **to-do list** with priorities, status, assignee and size
-- Issue management with **Kanban/Scrum** style board and burndown chart
+- Issue management with **Kanban/Scrum** style board
 - SQL-like command language [ruki](.doc/doki/doc/ruki/index.md) to query and update documents and define
   custom workflows
 - **Plugin-first** architecture — user-defined views based on [ruki](.doc/doki/doc/ruki/index.md) and
@@ -141,7 +141,7 @@ Markdown body.
 - **`.doc/**/*.md` is managed.** The whole tree is scanned recursively. Workflow config files (`workflow.yaml`,
   `config.yaml`) and non-Markdown assets are excluded.
 - **Workflow fields are optional.** A document with `status`, `type`, `priority`, or `points` in its frontmatter
-  participates in board/list views and burndown. A document without those fields is a plain note — reachable by id
+  participates in board/list views. A document without those fields is a plain note — reachable by id
   or path, rendered in markdown views, invisible to workflow views.
 - **Views decide behavior.** Board and list views filter by workflow fields; wiki and detail views render document
   bodies. No persistent tiki-vs-doki split.

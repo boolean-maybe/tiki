@@ -12,7 +12,7 @@ func TestIsPluginViewID(t *testing.T) {
 	}{
 		{
 			name:     "plugin view with name",
-			viewID:   "plugin:burndown",
+			viewID:   "plugin:kanban",
 			expected: true,
 		},
 		{
@@ -80,8 +80,8 @@ func TestGetPluginName(t *testing.T) {
 	}{
 		{
 			name:         "simple plugin name",
-			viewID:       "plugin:burndown",
-			expectedName: "burndown",
+			viewID:       "plugin:kanban",
+			expectedName: "kanban",
 		},
 		{
 			name:         "hyphenated plugin name",
@@ -143,8 +143,8 @@ func TestMakePluginViewID(t *testing.T) {
 	}{
 		{
 			name:       "simple name",
-			pluginName: "burndown",
-			expected:   "plugin:burndown",
+			pluginName: "kanban",
+			expected:   "plugin:kanban",
 		},
 		{
 			name:       "hyphenated name",
@@ -196,7 +196,7 @@ func TestMakePluginViewID(t *testing.T) {
 func TestViewID_RoundTrip(t *testing.T) {
 	// Test that MakePluginViewID and GetPluginName are inverses
 	testNames := []string{
-		"burndown",
+		"kanban",
 		"my-plugin",
 		"my_plugin",
 		"plugin123",

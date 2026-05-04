@@ -4,7 +4,7 @@ package document
 // participating in the workflow. Presence of any one of these in the file's
 // frontmatter promotes a plain markdown document to a workflow item; absence
 // of all of them means the document is a plain doc and should not appear on
-// boards, burndown, or any other workflow-only surface.
+// boards or any other workflow-only surface.
 //
 // Kept in the document package so the classifier has a single source of
 // truth across the store boundary and repair tooling.

@@ -11,7 +11,6 @@ import (
 	"github.com/boolean-maybe/tiki/config"
 	"github.com/boolean-maybe/tiki/controller"
 	"github.com/boolean-maybe/tiki/internal/app"
-	"github.com/boolean-maybe/tiki/internal/background"
 	rukiRuntime "github.com/boolean-maybe/tiki/internal/ruki/runtime"
 	"github.com/boolean-maybe/tiki/model"
 	"github.com/boolean-maybe/tiki/plugin"
@@ -212,7 +211,6 @@ func Bootstrap(tikiSkillContent, dokiSkillContent string) (*Result, error) {
 
 	// Phase 11: Background tasks
 	ctx, cancel := context.WithCancel(context.Background()) //nolint:gosec // G118: cancel stored in Result.CancelFunc, called by app shutdown
-	background.StartBurndownHistoryBuilder(ctx, tikiStore, headerConfig, application)
 	triggerEngine.StartScheduler(ctx)
 
 	// Phase 11.5: Action palette

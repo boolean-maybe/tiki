@@ -27,5 +27,5 @@ const (
 	MetadataDepMinWidth     = 30 // shedding threshold for Depends On (TaskList truncates gracefully)
 	MetadataBlkMinWidth     = 30 // shedding threshold for Blocks (TaskList truncates gracefully)
 	// Note: Header dimensions are already centralized in view/header/header.go:
-	// HeaderHeight, HeaderColumnSpacing, StatsWidth, ChartWidth, LogoWidth
+	// HeaderHeight, HeaderColumnSpacing, InfoWidth, LogoWidth
 )

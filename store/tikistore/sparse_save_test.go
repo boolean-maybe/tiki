@@ -121,7 +121,7 @@ func TestUpdateTask_TypedEditOnSparseDocGrowsPresenceSetOnlyForEditedKey(t *test
 
 // TestSaveTask_NewInMemoryWorkflowTaskUsesFullSchema verifies the fallback
 // path: a brand-new workflow task (created in code, no preserved
-// frontmatter) serializes with the full workflow schema so boards/burndown
+// frontmatter) serializes with the full workflow schema so boards and lists
 // continue to see complete metadata. The sparse path only kicks in when
 // there is a preserved presence set to honor.
 func TestSaveTask_NewInMemoryWorkflowTaskUsesFullSchema(t *testing.T) {
