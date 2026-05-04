@@ -183,11 +183,6 @@ func (s *TikiStore) deleteTikiLocked(id string) bool {
 	return true
 }
 
-// DeleteTask removes a task and its file. Phase 5 compatibility adapter over DeleteTiki.
-func (s *TikiStore) DeleteTask(id string) {
-	s.DeleteTiki(id)
-}
-
 // validateDependsOnLocked checks that all dependsOn IDs reference existing
 // documents in the store. References do not need to be workflow-capable —
 // any loaded document (plain or workflow) is a valid target per Phase 5

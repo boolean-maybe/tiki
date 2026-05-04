@@ -171,11 +171,12 @@ func (s *InMemoryStore) storeNewTikiLocked(tk *tikipkg.Tiki) error {
 	return nil
 }
 
-// updateTikiLocked is the shared update path. carryWorkflow controls whether
-// a stored tiki with workflow fields should force workflow fields onto an
-// incoming tiki that has none — true for task-shaped callers (protective),
-// false for document-first callers (explicit demotion works).
-func (s *InMemoryStore) updateTikiLocked(tk *tikipkg.Tiki, carryWorkflow bool) error {
+// updateTikiLocked is the shared update path. carrySchemaFields controls
+// whether stored schema-known fields should be carried forward onto an
+// incoming tiki that omits them — true for task-shaped callers (protective
+// against accidental field loss), false for tiki-native callers that rely
+// on exact-presence semantics.
+func (s *InMemoryStore) updateTikiLocked(tk *tikipkg.Tiki, carrySchemaFields bool) error {
 	s.mu.Lock()
 
 	tk.ID = normalizeTaskID(tk.ID)
@@ -185,10 +186,11 @@ func (s *InMemoryStore) updateTikiLocked(tk *tikipkg.Tiki, carryWorkflow bool) e
 		return fmt.Errorf("task not found: %s", tk.ID)
 	}
 
-	// protective carry-forward: if the stored tiki has workflow fields and
-	// the incoming tiki has none, carry the stored workflow fields forward
-	// so callers that only update one field don't accidentally demote.
-	if carryWorkflow && !hasAnyWorkflowFieldMem(tk) && hasAnyWorkflowFieldMem(old) {
+	// protective carry-forward: if the stored tiki carries schema-known
+	// fields and the incoming tiki has none, carry the stored values
+	// forward so callers that only update one field don't accidentally
+	// drop the rest.
+	if carrySchemaFields && !hasAnySchemaFieldMem(tk) && hasAnySchemaFieldMem(old) {
 		for _, k := range tikipkg.SchemaKnownFields {
 			if !tk.Has(k) {
 				if v, ok := old.Fields[k]; ok {
@@ -205,8 +207,8 @@ func (s *InMemoryStore) updateTikiLocked(tk *tikipkg.Tiki, carryWorkflow bool) e
 	return nil
 }
 
-// hasAnyWorkflowFieldMem is the InMemoryStore equivalent of tikistore.hasAnyWorkflowField.
-func hasAnyWorkflowFieldMem(tk *tikipkg.Tiki) bool {
+// hasAnySchemaFieldMem is the InMemoryStore equivalent of tikistore.hasAnySchemaField.
+func hasAnySchemaFieldMem(tk *tikipkg.Tiki) bool {
 	if tk == nil {
 		return false
 	}
@@ -216,11 +218,6 @@ func hasAnyWorkflowFieldMem(tk *tikipkg.Tiki) bool {
 		}
 	}
 	return false
-}
-
-// DeleteTask removes a task from the store
-func (s *InMemoryStore) DeleteTask(id string) {
-	s.DeleteTiki(id)
 }
 
 // SearchTikis searches all tikis (including plain docs) with an optional

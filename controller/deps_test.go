@@ -749,7 +749,7 @@ func TestDepsController_GetFilteredTasksForLane_MissingContextTask(t *testing.T)
 	dc, taskStore := newDepsTestEnv(t)
 
 	// delete the context task
-	taskStore.DeleteTask(testCtxID)
+	taskStore.DeleteTiki(testCtxID)
 
 	// all lanes should return nil when context task is missing
 	if dc.GetFilteredTasksForLane(depsLaneAll) != nil {

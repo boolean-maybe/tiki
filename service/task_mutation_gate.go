@@ -193,7 +193,7 @@ func (g *TaskMutationGate) DeleteTiki(ctx context.Context, tk *tikipkg.Tiki) err
 	if err := g.runValidators(g.deleteValidators, old, nil, allTikis); err != nil {
 		return err
 	}
-	g.store.DeleteTask(tk.ID)
+	g.store.DeleteTiki(tk.ID)
 	g.runAfterHooks(ctx, g.afterDeleteHooks, old, nil)
 	return nil
 }

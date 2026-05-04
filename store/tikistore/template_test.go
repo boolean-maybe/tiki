@@ -120,10 +120,11 @@ func TestBuildCustomFieldDefaults_SliceDefaultCopied(t *testing.T) {
 	}
 }
 
-// TestNewTikiTemplate_WorkflowCaptureWithDefaultStatus verifies that when the
-// active workflow declares a `default: true` status, NewTikiTemplate produces
-// a workflow-capable tiki with populated defaults.
-func TestNewTikiTemplate_WorkflowCaptureWithDefaultStatus(t *testing.T) {
+// TestNewTikiTemplate_AppliesDefaultStatusFromWorkflow verifies that when
+// the active workflow declares a `default: true` status, NewTikiTemplate
+// produces a tiki whose Fields carry the declared status (and the rest of
+// the workflow's declared defaults).
+func TestNewTikiTemplate_AppliesDefaultStatusFromWorkflow(t *testing.T) {
 	config.ResetStatusRegistry([]workflow.StatusDef{
 		{Key: "backlog", Label: "Backlog", Default: true},
 		{Key: "done", Label: "Done", Done: true},
@@ -144,8 +145,8 @@ func TestNewTikiTemplate_WorkflowCaptureWithDefaultStatus(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewTikiTemplate: %v", err)
 	}
-	if !hasAnyWorkflowField(tmpl) {
-		t.Error("no workflow fields, want workflow-capable tiki when default status is configured")
+	if !hasAnySchemaField(tmpl) {
+		t.Error("template has no schema-known fields, want defaults when a default status is configured")
 	}
 	if status, _, _ := tmpl.StringField(tikipkg.FieldStatus); status != "backlog" {
 		t.Errorf("Status = %q, want %q", status, "backlog")
@@ -155,12 +156,12 @@ func TestNewTikiTemplate_WorkflowCaptureWithDefaultStatus(t *testing.T) {
 	}
 }
 
-// TestNewTikiTemplate_PlainCaptureWithoutDefaultStatus verifies the Phase 7
-// semantics: a workflow with no `default: true` status signals "capture as
-// plain document." NewTikiTemplate returns a bare tiki with no workflow field
-// defaults; the piped/ruki capture paths then persist a plain .md with only
-// id+title in the frontmatter.
-func TestNewTikiTemplate_PlainCaptureWithoutDefaultStatus(t *testing.T) {
+// TestNewTikiTemplate_BareWhenNoDefaultStatusConfigured pins the contract
+// for Quick Capture's "no default status" branch: NewTikiTemplate returns a
+// bare tiki with no schema-known fields, so the resulting capture lands as
+// a markdown file with only id+title in the frontmatter. Defaults are only
+// emitted when the caller (here, the workflow registry) asked for them.
+func TestNewTikiTemplate_BareWhenNoDefaultStatusConfigured(t *testing.T) {
 	config.ResetStatusRegistry([]workflow.StatusDef{
 		{Key: "alpha", Label: "Alpha"},
 		{Key: "done", Label: "Done", Done: true},
@@ -181,31 +182,31 @@ func TestNewTikiTemplate_PlainCaptureWithoutDefaultStatus(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewTikiTemplate: %v", err)
 	}
-	if hasAnyWorkflowField(tmpl) {
-		t.Error("has workflow fields, want plain tiki when no default status configured")
+	if hasAnySchemaField(tmpl) {
+		t.Error("template carries schema-known fields, want bare tiki when no default status is configured")
 	}
 	if status, ok, _ := tmpl.StringField(tikipkg.FieldStatus); ok && status != "" {
 		t.Errorf("Status = %q, want empty", status)
 	}
 	if priority, ok, _ := tmpl.IntField(tikipkg.FieldPriority); ok && priority != 0 {
-		t.Errorf("Priority = %d, want 0 (no workflow defaults on plain docs)", priority)
+		t.Errorf("Priority = %d, want 0 (no defaults emitted)", priority)
 	}
 	if points, ok, _ := tmpl.IntField(tikipkg.FieldPoints); ok && points != 0 {
-		t.Errorf("Points = %d, want 0 (no workflow defaults on plain docs)", points)
+		t.Errorf("Points = %d, want 0 (no defaults emitted)", points)
 	}
 	if tags, ok, _ := tmpl.StringSliceField(tikipkg.FieldTags); ok && len(tags) != 0 {
-		t.Errorf("Tags = %v, want empty (no workflow defaults on plain docs)", tags)
+		t.Errorf("Tags = %v, want empty (no defaults emitted)", tags)
 	}
 	if tmpl.ID == "" {
-		t.Error("ID was not populated; plain capture must still generate an id")
+		t.Error("ID was not populated; capture must still generate an id")
 	}
 }
 
-// TestCreateTiki_HonorsPlainTemplate verifies the end-to-end Phase 7 contract:
-// a plain template produced by NewTikiTemplate (when no default status is
-// configured) survives CreateTiki without being auto-promoted to a workflow
-// item. This is the path piped capture uses.
-func TestCreateTiki_HonorsPlainTemplate(t *testing.T) {
+// TestCreateTiki_HonorsBareTemplate verifies the end-to-end contract: a
+// bare template produced by NewTikiTemplate (when no default status is
+// configured) survives CreateTiki without acquiring schema-known fields.
+// This is the path piped capture uses.
+func TestCreateTiki_HonorsBareTemplate(t *testing.T) {
 	config.ResetStatusRegistry([]workflow.StatusDef{
 		{Key: "alpha", Label: "Alpha"},
 		{Key: "done", Label: "Done", Done: true},
@@ -236,14 +237,15 @@ func TestCreateTiki_HonorsPlainTemplate(t *testing.T) {
 	if stored == nil {
 		t.Fatalf("GetTiki returned nil after CreateTiki(%s)", tmpl.ID)
 	}
-	if hasAnyWorkflowField(stored) {
-		t.Error("hasAnyWorkflowField = true, want false — plain capture was promoted to workflow item")
+	if hasAnySchemaField(stored) {
+		t.Error("bare capture gained schema-known fields after CreateTiki — defaults must only be emitted when explicitly configured")
 	}
-	// Phase 5: GetAllTikis includes plain docs; callers filter with has(status) / hasAnyWorkflowField.
+	// GetAllTikis returns every loaded tiki; presence-based filtering is
+	// the caller's responsibility (e.g. ruki `select where has(status)`).
 	if got := len(s.GetAllTikis()); got != 1 {
-		t.Errorf("GetAllTikis returned %d, want 1 (plain doc is included since Phase 5)", got)
+		t.Errorf("GetAllTikis returned %d, want 1", got)
 	}
-	if all := s.GetAllTikis(); hasAnyWorkflowField(all[0]) {
-		t.Error("plain doc from GetAllTikis must not have any workflow fields")
+	if all := s.GetAllTikis(); hasAnySchemaField(all[0]) {
+		t.Error("bare doc from GetAllTikis must not carry schema-known fields")
 	}
 }

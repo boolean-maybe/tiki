@@ -121,11 +121,12 @@ func (s *TikiStore) loadTikiFile(path string, authorMap map[string]*git.AuthorIn
 	}
 	parsed.t.LoadedMtime = info.ModTime()
 
-	// Type validation: workflow docs with an unknown explicit type are a
-	// hard load error (matches pre-Phase-3 behavior). Plain docs have no
-	// `type:` in their frontmatter so this check is a no-op for them.
-	isWorkflow := hasAnyWorkflowField(parsed.t)
-	if isWorkflow {
+	// Type validation: a tiki that carries any schema-known field with an
+	// unknown explicit `type` is a hard load error. Tikis without any
+	// schema-known fields have no `type:` in their frontmatter so this
+	// check is a no-op for them.
+	hasSchemaFields := hasAnySchemaField(parsed.t)
+	if hasSchemaFields {
 		if rawType, ok := parsed.raw["type"].(string); ok && rawType != "" {
 			if _, typeOK := taskpkg.ParseType(rawType); !typeOK {
 				return nil, fmt.Errorf("unknown type %q", rawType)
@@ -150,18 +151,18 @@ func (s *TikiStore) loadTikiFile(path string, authorMap map[string]*git.AuthorIn
 		tk.MarkStaleForPersistence(k)
 	}
 
-	// Apply workflow validation / clamping on the Tiki's Fields map.
-	// Matches the pre-Phase-3 behavior where only workflow docs got
-	// Priority/Points clamping; plain docs keep their zero values.
+	// Apply schema validation / clamping on the Tiki's Fields map. Only
+	// runs when at least one schema-known field is present; tikis without
+	// any schema-known fields keep their zero values intact.
 	//
 	// NOTE: We intentionally do NOT inject a default "type" here even for
-	// workflow files that omit it. The tiki Fields map must faithfully
-	// reflect what is on disk (sparse presence); applying a default type
-	// would cause GetDocument to leak "type" into the frontmatter for files
-	// that never had it, violating sparse-presence semantics.
-	// The default type is applied at the task projection layer (ToTask / tikiToTask)
-	// for display and query purposes without polluting the tiki's field map.
-	if isWorkflow {
+	// files that omit it. The tiki Fields map must faithfully reflect
+	// what is on disk (exact-presence); applying a default type would
+	// leak "type" into the frontmatter for files that never had it.
+	// The default type is applied at the task projection layer (ToTask /
+	// tikiToTask) for display and query purposes without polluting the
+	// tiki's field map.
+	if hasSchemaFields {
 		if priority, ok := coerceIntForYAML(tk.Fields["priority"]); ok {
 			if priority < taskpkg.MinPriority || priority > taskpkg.MaxPriority {
 				slog.Debug("invalid priority value, using default",
@@ -170,9 +171,13 @@ func (s *TikiStore) loadTikiFile(path string, authorMap map[string]*git.AuthorIn
 				tk.Set("priority", taskpkg.DefaultPriority)
 			}
 		}
+		// points: 0 is a meaningful "unestimated" sentinel that
+		// task.ValidatePoints accepts as valid; preserve it on load so
+		// exact-presence round-trips. Negative or above-max values are
+		// still clamped to maxPoints/2.
 		maxPoints := config.GetMaxPoints()
 		if points, ok := coerceIntForYAML(tk.Fields["points"]); ok {
-			if points < 1 || points > maxPoints {
+			if points < 0 || points > maxPoints {
 				slog.Debug("invalid points value, using default",
 					"task_id", tk.ID, "file", path, "invalid_value", points,
 					"default", maxPoints/2)

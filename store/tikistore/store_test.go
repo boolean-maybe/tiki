@@ -146,6 +146,48 @@ func TestSearchTikis_MatchesBody(t *testing.T) {
 	}
 }
 
+// TestSearchTikis_MatchesTags verifies the disk-backed store's SearchTikis
+// also queries the tags slice — not just id/title/body — so a tag-only
+// query surfaces tikis whose other text fields don't mention the term.
+func TestSearchTikis_MatchesTags(t *testing.T) {
+	mk := func(id, title, body string, tags []string) *tikipkg.Tiki {
+		tk := tikipkg.New()
+		tk.ID = id
+		tk.Title = title
+		tk.Body = body
+		if tags != nil {
+			tk.Set(tikipkg.FieldTags, tags)
+		}
+		return tk
+	}
+	store := &TikiStore{
+		tikis: makeTikiMap(
+			mk("TAG001", "Unrelated Title", "Unrelated body", []string{"backend", "perf"}),
+			mk("TAG002", "Different Title", "Different body", []string{"frontend"}),
+			mk("TAG003", "Untagged", "no tag", nil),
+		),
+	}
+
+	results := store.SearchTikis("backend", nil)
+	if len(results) != 1 || results[0].ID != "TAG001" {
+		ids := make([]string, len(results))
+		for i, r := range results {
+			ids[i] = r.ID
+		}
+		t.Fatalf("tag-only query: got %v, want [TAG001]", ids)
+	}
+
+	// Case-insensitive substring match on a tag also surfaces the tiki.
+	if results := store.SearchTikis("FRONT", nil); len(results) != 1 || results[0].ID != "TAG002" {
+		t.Errorf("case-insensitive tag substring did not match: got %d results", len(results))
+	}
+
+	// A query that misses every tag, title, body, and id returns nothing.
+	if results := store.SearchTikis("nomatch", nil); len(results) != 0 {
+		t.Errorf("non-matching query returned results: %v", results)
+	}
+}
+
 func TestLoadTaskFile_DependsOn(t *testing.T) {
 	tmpDir := t.TempDir()
 

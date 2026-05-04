@@ -27,10 +27,3 @@ func (u *LegacyUpgrader) UpgradeTiki(tk *tikipkg.Tiki) {
 		}
 	}
 }
-
-// UpgradeTask normalizes legacy field values to current conventions.
-// Phase 5 compatibility adapter — delegates to UpgradeTiki via round-trip.
-func (u *LegacyUpgrader) UpgradeTask(t *taskpkg.Task) *taskpkg.Task {
-	t.Status = taskpkg.MapStatus(string(t.Status))
-	return t
-}

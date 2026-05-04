@@ -176,25 +176,26 @@ func TestInMemoryStore_UpdateTiki(t *testing.T) {
 			t.Fatalf("CreateTiki() error = %v", err)
 		}
 
-		// Update with a plain tiki (no workflow fields).
-		plain := &tikipkg.Tiki{ID: "WFMEM1", Title: "updated"}
-		if err := s.UpdateTiki(plain); err != nil {
+		// Update with a tiki that carries no schema-known fields. Exact-
+		// presence semantics drop the previously-stored status.
+		bare := &tikipkg.Tiki{ID: "WFMEM1", Title: "updated"}
+		if err := s.UpdateTiki(bare); err != nil {
 			t.Fatalf("UpdateTiki() error = %v", err)
 		}
-		if hasAnyWorkflowFieldMem(s.GetTiki("WFMEM1")) {
-			t.Error("workflow fields should be removed with exact-presence UpdateTiki")
+		if hasAnySchemaFieldMem(s.GetTiki("WFMEM1")) {
+			t.Error("schema-known fields should be removed with exact-presence UpdateTiki")
 		}
 	})
 }
 
-func TestInMemoryStore_DeleteTask(t *testing.T) {
+func TestInMemoryStore_DeleteTiki(t *testing.T) {
 	t.Run("removes existing tiki", func(t *testing.T) {
 		s := NewInMemoryStore()
 		if err := s.CreateTiki(&tikipkg.Tiki{ID: "DEL001", Title: "To Delete"}); err != nil {
 			t.Fatalf("CreateTiki() error = %v", err)
 		}
 
-		s.DeleteTask("DEL001")
+		s.DeleteTiki("DEL001")
 		if s.GetTiki("DEL001") != nil {
 			t.Error("expected nil after delete, got tiki")
 		}
@@ -202,7 +203,7 @@ func TestInMemoryStore_DeleteTask(t *testing.T) {
 
 	t.Run("no panic for non-existent ID", func(t *testing.T) {
 		s := NewInMemoryStore()
-		s.DeleteTask("GHOST1") // should not panic
+		s.DeleteTiki("GHOST1") // should not panic
 	})
 
 	t.Run("normalizes ID for delete", func(t *testing.T) {
@@ -211,7 +212,7 @@ func TestInMemoryStore_DeleteTask(t *testing.T) {
 			t.Fatalf("CreateTiki() error = %v", err)
 		}
 
-		s.DeleteTask("lower1") // lowercase bare id
+		s.DeleteTiki("lower1") // lowercase bare id
 		if s.GetTiki("LOWER1") != nil {
 			t.Error("expected nil after delete with lowercase ID")
 		}
@@ -246,32 +247,34 @@ func TestInMemoryStore_TikiComment(t *testing.T) {
 	})
 }
 
-// TestInMemoryStore_Search_NilFilterExcludesPlainDocs verifies the L4
-// contract for the in-memory store: nil filter means "no pre-filter" for
-// SearchTikis (includes all) but a workflow-field check can be applied via filter.
-func TestInMemoryStore_Search_NilFilterExcludesPlainDocs(t *testing.T) {
+// TestInMemoryStore_Search_FilterIsCallerSupplied verifies the search
+// contract: nil filter returns every tiki, while a caller-supplied predicate
+// (here, "has any schema-known field") narrows the result set. The store
+// itself does not classify tikis — filtering is purely caller-driven.
+func TestInMemoryStore_Search_FilterIsCallerSupplied(t *testing.T) {
 	s := NewInMemoryStore()
-	// a workflow tiki must have at least one schema-known field.
-	workTiki := tikipkg.New()
-	workTiki.ID = "WORK01"
-	workTiki.Title = "workflow"
-	workTiki.Set("status", "backlog")
-	s.tikis["WORK01"] = workTiki
-	// a plain tiki has no schema-known fields.
-	plainTiki := tikipkg.New()
-	plainTiki.ID = "PLAIN1"
-	plainTiki.Title = "plain"
-	s.tikis["PLAIN1"] = plainTiki
+	// one tiki has a schema-known field set.
+	withSchema := tikipkg.New()
+	withSchema.ID = "WITH01"
+	withSchema.Title = "has status"
+	withSchema.Set("status", "backlog")
+	s.tikis["WITH01"] = withSchema
+	// the other has only id+title — no schema-known fields.
+	bare := tikipkg.New()
+	bare.ID = "BARE01"
+	bare.Title = "bare"
+	s.tikis["BARE01"] = bare
 
-	// SearchTikis with a workflow filter matches only workflow tikis.
+	// SearchTikis with a presence-of-schema filter matches only the one
+	// that has a schema-known field set.
 	results := s.SearchTikis("", func(tk *tikipkg.Tiki) bool {
-		return hasAnyWorkflowFieldMem(tk)
+		return hasAnySchemaFieldMem(tk)
 	})
-	if len(results) != 1 || results[0].ID != "WORK01" {
-		t.Errorf("workflow filter: got %v, want [WORK01]", results)
+	if len(results) != 1 || results[0].ID != "WITH01" {
+		t.Errorf("schema-presence filter: got %v, want [WITH01]", results)
 	}
 
-	// nil filter returns all tikis.
+	// nil filter returns all tikis regardless of field-map shape.
 	all := s.SearchTikis("", nil)
 	if len(all) != 2 {
 		t.Errorf("nil filter: got %d, want 2", len(all))
@@ -358,14 +361,14 @@ func TestInMemoryStore_Listeners(t *testing.T) {
 		}
 	})
 
-	t.Run("called after DeleteTask", func(t *testing.T) {
+	t.Run("called after DeleteTiki", func(t *testing.T) {
 		s := NewInMemoryStore()
 		if err := s.CreateTiki(&tikipkg.Tiki{ID: "LIS003"}); err != nil {
 			t.Fatalf("CreateTiki() error = %v", err)
 		}
 		called := 0
 		s.AddListener(func() { called++ })
-		s.DeleteTask("LIS003")
+		s.DeleteTiki("LIS003")
 		if called != 1 {
 			t.Errorf("listener called %d times, want 1", called)
 		}
@@ -598,18 +601,32 @@ func TestSearchTikis_MatchesTags(t *testing.T) {
 	wf := tikipkg.New()
 	wf.ID = "TAG001"
 	wf.Title = "No match in title"
+	wf.Body = "No match in body either"
 	wf.Set("tags", []string{"backend"})
 	wf.Set("status", "ready")
 	if err := s.CreateTiki(wf); err != nil {
 		t.Fatalf("failed to create tiki: %v", err)
 	}
 
-	// SearchTikis searches title and body; tags are in body-adjacent fields
-	// not directly in body. A tag-only search via SearchTikis won't match —
-	// use a filter for tag matching.
-	results := s.SearchTikis("No match in title", nil)
-	if len(results) != 1 {
-		t.Fatalf("expected 1 result (title match), got %d", len(results))
+	// SearchTikis searches id, title, body, AND tags — a tag-only query
+	// must surface the tiki even when neither title nor body matches.
+	results := s.SearchTikis("backend", nil)
+	if len(results) != 1 || results[0].ID != "TAG001" {
+		ids := make([]string, len(results))
+		for i, r := range results {
+			ids[i] = r.ID
+		}
+		t.Fatalf("tag-only query: got %v, want [TAG001]", ids)
+	}
+
+	// Substring within a tag should also match (case-insensitive).
+	if results := s.SearchTikis("BACK", nil); len(results) != 1 || results[0].ID != "TAG001" {
+		t.Errorf("case-insensitive tag substring did not match: got %d results", len(results))
+	}
+
+	// And a query that does not match the tag, title, or body returns nothing.
+	if results := s.SearchTikis("frontend", nil); len(results) != 0 {
+		t.Errorf("non-matching query returned results: %v", results)
 	}
 }
 

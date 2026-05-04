@@ -53,9 +53,9 @@ func TestSaveTask_UsesLoadedPath(t *testing.T) {
 	}
 }
 
-// TestDeleteTask_UsesLoadedPath verifies delete targets the loaded path so a
+// TestDeleteTiki_UsesLoadedPath verifies delete targets the loaded path so a
 // moved/renamed file still gets cleaned up.
-func TestDeleteTask_UsesLoadedPath(t *testing.T) {
+func TestDeleteTiki_UsesLoadedPath(t *testing.T) {
 	tmpDir := t.TempDir()
 	custom := filepath.Join(tmpDir, "moved.md")
 	content := "---\nid: DEL001\ntitle: go away\ntype: story\nstatus: ready\npriority: 1\n---\nbody\n"
@@ -68,7 +68,7 @@ func TestDeleteTask_UsesLoadedPath(t *testing.T) {
 		t.Fatalf("NewTikiStore: %v", err)
 	}
 
-	s.DeleteTask("DEL001")
+	s.DeleteTiki("DEL001")
 
 	if _, err := os.Stat(custom); !os.IsNotExist(err) {
 		t.Errorf("delete did not remove the loaded file: err=%v", err)
