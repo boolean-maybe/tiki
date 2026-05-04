@@ -149,7 +149,7 @@ func (s *InMemoryStore) DeleteTask(id string) {
 }
 
 // GetAllTasks returns workflow-capable tasks. Plain docs (IsWorkflow=false)
-// are filtered out so board/list/burndown surfaces and any other consumer of
+// are filtered out so board/list surfaces and any other consumer of
 // the task-shaped compatibility API see only workflow items — matching
 // TikiStore.GetAllTasks. Document-first callers that want the unfiltered
 // view should use GetAllDocuments.
@@ -268,11 +268,6 @@ func (s *InMemoryStore) GetStats() []Stat {
 		{Name: "User", Value: "memory-user", Order: 3},
 		{Name: "Branch", Value: "memory", Order: 4},
 	}
-}
-
-// GetBurndown returns nil for MemoryStore (no history tracking)
-func (s *InMemoryStore) GetBurndown() []BurndownPoint {
-	return nil
 }
 
 // GetAllUsers returns a placeholder user list for MemoryStore

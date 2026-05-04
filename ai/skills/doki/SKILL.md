@@ -8,8 +8,7 @@ allowed-tools: Read, Grep, Glob, Edit, Write, Bash(tiki exec:*), Bash(git add:*)
 
 A `doki` is a **plain managed document** in the unified `.doc/` workspace — a Markdown file with
 frontmatter that carries **only** `id:` (and typically `title:`), with no workflow fields. Use plain
-documents for docs, notes, prompts, design pages, and wiki content that should not appear on board views
-or count toward burndown.
+documents for docs, notes, prompts, design pages, and wiki content that should not appear on board views.
 
 - Every managed document has a bare 6-character uppercase alphanumeric `id` (e.g. `Q9V3LM`) stored in the
   `id:` frontmatter field. Identity is in the frontmatter, not the filename.

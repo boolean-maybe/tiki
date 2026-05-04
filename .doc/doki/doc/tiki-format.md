@@ -53,7 +53,7 @@ Markdown body.
 
 ## Workflow fields (optional)
 
-A managed document participates in workflow views (board, list, burndown) when it declares explicit workflow
+A managed document participates in workflow views (board, list) when it declares explicit workflow
 fields in frontmatter. Absence is preserved: a document without `status` has no status, not a defaulted one.
 Default values apply only in explicit creation paths — `ruki create`, piped capture into a workflow-capture
 project, sample task generation, and the TUI's create action.
@@ -101,8 +101,7 @@ type: bug
 ### `status`
 
 Optional. Must match a status key defined in your project's `workflow.yaml`. When absent, the document does
-not appear on board/list views and is not counted in burndown. On explicit creation, the status marked
-`default: true` is applied.
+not appear on board/list views. On explicit creation, the status marked `default: true` is applied.
 
 ```yaml
 status: inProgress
@@ -239,7 +238,6 @@ reference. Plain documents:
 
 - are rendered by markdown, wiki, and detail views
 - do not appear on board/list views
-- do not contribute to burndown
 - can still be queried by `ruki` — predicates on absent workflow fields evaluate false, so most
   workflow queries skip plain documents naturally. To filter *by presence*, use the `has(...)` builtin.
   A document is classified as workflow when **any** of nine frontmatter keys is present: `status`,

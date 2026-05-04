@@ -286,7 +286,7 @@ func TestRunDemo_UnifiedLayout(t *testing.T) {
 	// Demo workflow docs carry explicit workflow fields (status, type,
 	// priority, points); demo plain docs carry only id. Spot-check a known
 	// workflow file carrying all four — if its frontmatter loses any of
-	// them, the board / burndown / type-filter flows regress.
+	// them, the board / list / type-filter flows regress.
 	body, err := os.ReadFile(".doc/9XPSEI.md")
 	if err != nil {
 		t.Fatalf("read demo workflow doc: %v", err)

@@ -26,9 +26,6 @@ type ReadStore interface {
 	// GetStats returns statistics for the header (user, branch, etc.)
 	GetStats() []Stat
 
-	// GetBurndown returns the burndown chart data
-	GetBurndown() []BurndownPoint
-
 	// GetAllUsers returns candidate identities for assignee selection.
 	// Merges the configured identity with git commit authors when git is enabled;
 	// otherwise returns the resolved identity (configured or OS user).

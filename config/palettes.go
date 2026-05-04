@@ -34,7 +34,6 @@ func DarkPalette() Palette {
 			End:   [3]int{65, 105, 225},
 		},
 		DeepSkyBlue: NewColorRGB(0, 191, 255),
-		DeepPurple:  NewColorRGB(134, 90, 214),
 
 		ContentBackgroundColor: DefaultColor(),
 
@@ -83,7 +82,6 @@ func LightPalette() Palette {
 			End:   [3]int{60, 100, 180},
 		},
 		DeepSkyBlue: NewColorRGB(0, 100, 180),
-		DeepPurple:  NewColorRGB(90, 50, 160),
 
 		ContentBackgroundColor: DefaultColor(),
 
@@ -133,7 +131,6 @@ func DraculaPalette() Palette {
 			End:   [3]int{68, 71, 90},
 		},
 		DeepSkyBlue: NewColorHex("#8be9fd"),
-		DeepPurple:  NewColorHex("#bd93f9"),
 
 		ContentBackgroundColor: DefaultColor(),
 
@@ -183,7 +180,6 @@ func TokyoNightPalette() Palette {
 			End:   [3]int{59, 66, 97},
 		},
 		DeepSkyBlue: NewColorHex("#7dcfff"),
-		DeepPurple:  NewColorHex("#bb9af7"),
 
 		ContentBackgroundColor: DefaultColor(),
 
@@ -233,7 +229,6 @@ func GruvboxDarkPalette() Palette {
 			End:   [3]int{80, 73, 69},
 		},
 		DeepSkyBlue: NewColorHex("#83a598"),
-		DeepPurple:  NewColorHex("#d3869b"), // purple
 
 		ContentBackgroundColor: DefaultColor(),
 
@@ -283,7 +278,6 @@ func CatppuccinMochaPalette() Palette {
 			End:   [3]int{69, 71, 90},
 		},
 		DeepSkyBlue: NewColorHex("#89dceb"), // sky
-		DeepPurple:  NewColorHex("#cba6f7"), // mauve
 
 		ContentBackgroundColor: DefaultColor(),
 
@@ -333,7 +327,6 @@ func SolarizedDarkPalette() Palette {
 			End:   [3]int{7, 54, 66},
 		},
 		DeepSkyBlue: NewColorHex("#268bd2"),
-		DeepPurple:  NewColorHex("#6c71c4"), // violet
 
 		ContentBackgroundColor: DefaultColor(),
 
@@ -383,7 +376,6 @@ func NordPalette() Palette {
 			End:   [3]int{59, 66, 82},
 		},
 		DeepSkyBlue: NewColorHex("#88c0d0"),
-		DeepPurple:  NewColorHex("#b48ead"), // nord15 — purple
 
 		ContentBackgroundColor: DefaultColor(),
 
@@ -433,7 +425,6 @@ func MonokaiPalette() Palette {
 			End:   [3]int{73, 72, 62},
 		},
 		DeepSkyBlue: NewColorHex("#66d9ef"),
-		DeepPurple:  NewColorHex("#ae81ff"), // purple
 
 		ContentBackgroundColor: DefaultColor(),
 
@@ -483,7 +474,6 @@ func OneDarkPalette() Palette {
 			End:   [3]int{62, 68, 82},
 		},
 		DeepSkyBlue: NewColorHex("#61afef"),
-		DeepPurple:  NewColorHex("#c678dd"), // purple
 
 		ContentBackgroundColor: DefaultColor(),
 
@@ -535,7 +525,6 @@ func CatppuccinLattePalette() Palette {
 			End:   [3]int{204, 208, 218},
 		},
 		DeepSkyBlue: NewColorHex("#04a5e5"), // sky
-		DeepPurple:  NewColorHex("#8839ef"), // mauve
 
 		ContentBackgroundColor: DefaultColor(),
 
@@ -585,7 +574,6 @@ func SolarizedLightPalette() Palette {
 			End:   [3]int{238, 232, 213},
 		},
 		DeepSkyBlue: NewColorHex("#268bd2"),
-		DeepPurple:  NewColorHex("#6c71c4"), // violet
 
 		ContentBackgroundColor: DefaultColor(),
 
@@ -635,7 +623,6 @@ func GruvboxLightPalette() Palette {
 			End:   [3]int{235, 219, 178},
 		},
 		DeepSkyBlue: NewColorHex("#076678"),
-		DeepPurple:  NewColorHex("#8f3f71"), // dark purple
 
 		ContentBackgroundColor: DefaultColor(),
 
@@ -685,7 +672,6 @@ func GithubLightPalette() Palette {
 			End:   [3]int{246, 248, 250},
 		},
 		DeepSkyBlue: NewColorHex("#0969da"),
-		DeepPurple:  NewColorHex("#8250df"), // purple
 
 		ContentBackgroundColor: DefaultColor(),
 

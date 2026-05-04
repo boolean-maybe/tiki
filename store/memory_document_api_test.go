@@ -47,7 +47,7 @@ func TestInMemoryStore_CreateDocument_workflowPromotion(t *testing.T) {
 // aware guarantee: a document with no workflow fields is NOT promoted to a
 // workflow item by CreateDocument, even though CreateTask unconditionally
 // promotes. The underlying Task stored in memory keeps IsWorkflow=false, so
-// surfaces that honor the flag (board views, burndown, TikiStore.GetAllTasks)
+// surfaces that honor the flag (board views, TikiStore.GetAllTasks)
 // skip plain docs. InMemoryStore.GetAllTasks does not currently apply the
 // workflow filter — that is a pre-existing inconsistency with TikiStore's
 // GetAllTasks and is out of scope for Phase 4.
@@ -151,7 +151,7 @@ func TestInMemoryStore_DeleteDocument_removesFromBothSurfaces(t *testing.T) {
 // TestInMemoryStore_GetAllTasks_FiltersPlainDocs proves review finding #4
 // is closed: GetAllTasks on the in-memory store applies the IsWorkflow
 // filter just like TikiStore.GetAllTasks, so plain docs created via
-// CreateDocument do not leak into board/list/burndown surfaces that
+// CreateDocument do not leak into board/list surfaces that
 // consume the task-shaped API.
 func TestInMemoryStore_GetAllTasks_FiltersPlainDocs(t *testing.T) {
 	s := NewInMemoryStore()

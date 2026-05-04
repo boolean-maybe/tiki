@@ -11,8 +11,8 @@ import (
 //
 // Presence-aware contract: plain documents (markdown files whose frontmatter
 // lacks every workflow field — status/type/priority/points/tags/dependsOn/
-// due/recurrence/assignee) are NOT returned here. Boards, burndown, lists,
-// and any other surface that consumes GetAllTasks inherits this filter for
+// due/recurrence/assignee) are NOT returned here. Boards, lists, and any
+// other surface that consumes GetAllTasks inherits this filter for
 // free. To include plain docs (e.g. for search or markdown-view surfaces),
 // callers should use a broader accessor once one exists.
 func (s *TikiStore) GetAllTasks() []*taskpkg.Task {
