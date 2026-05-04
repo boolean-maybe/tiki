@@ -1244,7 +1244,7 @@ func TestExtractCustomFields_PreservesStaleKeys(t *testing.T) {
 		"removed_field": "old_value",
 	}
 
-	custom, unknown, err := extractCustomFields(fmMap, "test.md")
+	custom, unknown, err := extractCustomFields(fmMap)
 	if err != nil {
 		t.Fatalf("extractCustomFields returned error: %v", err)
 	}
@@ -1328,7 +1328,7 @@ func TestExtractCustomFields_StaleEnumValueDemotedToUnknown(t *testing.T) {
 		"severity": "high", // stale value no longer in allowed values
 	}
 
-	custom, unknown, err := extractCustomFields(fmMap, "test.md")
+	custom, unknown, err := extractCustomFields(fmMap)
 	if err != nil {
 		t.Fatalf("extractCustomFields should not error on stale enum value, got: %v", err)
 	}
@@ -1425,7 +1425,7 @@ func TestExtractCustomFields_ErrorWithoutRegistry(t *testing.T) {
 		"severity": "high",
 	}
 
-	_, _, err := extractCustomFields(fmMap, "test.md")
+	_, _, err := extractCustomFields(fmMap)
 	if err == nil {
 		t.Fatal("expected error when registries not loaded, got nil")
 	}
@@ -1448,7 +1448,7 @@ func TestExtractCustomFields_OnlyBuiltinKeys_NoRegistryRequired(t *testing.T) {
 		"priority": 2,
 	}
 
-	custom, unknown, err := extractCustomFields(fmMap, "test.md")
+	custom, unknown, err := extractCustomFields(fmMap)
 	if err != nil {
 		t.Fatalf("extractCustomFields should succeed with only built-in keys: %v", err)
 	}
@@ -1467,7 +1467,7 @@ func TestExtractCustomFields_NilMap_NoRegistryRequired(t *testing.T) {
 		workflow.ClearCustomFields()
 	})
 
-	custom, unknown, err := extractCustomFields(nil, "test.md")
+	custom, unknown, err := extractCustomFields(nil)
 	if err != nil {
 		t.Fatalf("extractCustomFields(nil) should succeed: %v", err)
 	}

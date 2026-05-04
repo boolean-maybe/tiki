@@ -6,19 +6,15 @@ import (
 	"log/slog"
 	"os"
 	"path/filepath"
-	"sort"
 	"strings"
 	"time"
 
 	"github.com/boolean-maybe/tiki/config"
 	"github.com/boolean-maybe/tiki/document"
-	"github.com/boolean-maybe/tiki/store"
 	"github.com/boolean-maybe/tiki/store/internal/git"
 	taskpkg "github.com/boolean-maybe/tiki/task"
 	collectionutil "github.com/boolean-maybe/tiki/util/collections"
 	"github.com/boolean-maybe/tiki/workflow"
-
-	"gopkg.in/yaml.v3"
 )
 
 // loadLocked reads all task files from the document root, scanning
@@ -101,8 +97,12 @@ func (s *TikiStore) loadLocked() error {
 // loadTaskFile parses a single markdown file into a Task. Returns a
 // *loadError on identity/frontmatter failures so loadLocked can classify
 // the rejection; unwrap via errors.As for the general case.
+//
+// Phase 3 routes the parse through the Tiki bridge: bytes → *tiki.Tiki →
+// *taskpkg.Task. The Tiki's Fields map is the canonical representation of
+// frontmatter state inside the load path; the Task projection is rebuilt
+// from it so downstream callers still see the task-shaped API.
 func (s *TikiStore) loadTaskFile(path string, authorMap map[string]*git.AuthorInfo, lastCommitMap map[string]time.Time) (*taskpkg.Task, error) {
-	// Get file info for mtime (optimistic locking)
 	info, err := os.Stat(path)
 	if err != nil {
 		return nil, newLoadError(LoadReasonOther, fmt.Errorf("stat file: %w", err))
@@ -113,108 +113,67 @@ func (s *TikiStore) loadTaskFile(path string, authorMap map[string]*git.AuthorIn
 		return nil, newLoadError(LoadReasonOther, fmt.Errorf("reading file: %w", err))
 	}
 
-	frontmatter, body, err := store.ParseFrontmatter(string(content))
-	if err != nil {
-		return nil, newLoadError(LoadReasonParseError, fmt.Errorf("parsing frontmatter: %w", err))
-	}
-
-	var fm taskFrontmatter
-	if err := yaml.Unmarshal([]byte(frontmatter), &fm); err != nil {
-		return nil, newLoadError(LoadReasonParseError, fmt.Errorf("parsing yaml: %w", err))
-	}
-
-	// Strict identity: frontmatter id is required and must be a valid bare
-	// document id. Missing or malformed ids are hard load errors — load
-	// never mutates files. `tiki repair ids --fix` backfills missing ids;
-	// malformed ids (including pre-unification TIKI- values) are reported
-	// and left for the user to edit.
-	var fmMap map[string]interface{}
-	if err := yaml.Unmarshal([]byte(frontmatter), &fmMap); err != nil {
-		fmMap = nil
-	}
-
-	rawID, hasID := document.FrontmatterID(fmMap)
-	if !hasID || rawID == "" {
-		return nil, newLoadError(LoadReasonMissingID, fmt.Errorf("missing frontmatter id in %s: run `tiki repair ids --fix` to backfill", path))
-	}
-	taskID := document.NormalizeID(rawID)
-	if !document.IsValidID(taskID) {
-		return nil, newLoadError(LoadReasonInvalidID, fmt.Errorf("%s: invalid document id %q: expected %d uppercase alphanumeric characters", path, taskID, document.IDLength))
-	}
-
-	// extract custom fields from frontmatter map
-	customFields, unknownFields, err := extractCustomFields(fmMap, path)
-	if err != nil {
-		return nil, err
-	}
-
-	isWorkflow := document.IsWorkflowFrontmatter(fmMap)
-
-	// Type/status defaulting only applies to workflow docs. Plain docs keep
-	// their typed workflow fields zero-valued so ToDocument cannot synthesize
-	// workflow frontmatter from residual registry defaults and re-promote
-	// them on a body-only edit.
-	var taskType taskpkg.Type
-	if isWorkflow {
-		var typeOK bool
-		taskType, typeOK = taskpkg.ParseType(fm.Type)
-		if !typeOK {
-			if fm.Type != "" {
-				return nil, fmt.Errorf("unknown type %q", fm.Type)
-			}
-			taskType = taskpkg.DefaultType()
-		}
-	} else if fm.Type != "" {
-		// A plain doc with an explicit `type:` would have been classified as
-		// workflow already; reaching this branch means fm.Type is empty.
-		// Guard anyway so future changes don't silently regress.
-		return nil, fmt.Errorf("plain document %s carries type %q unexpectedly", path, fm.Type)
-	}
-
 	absPath, absErr := filepath.Abs(path)
 	if absErr != nil {
-		// fall back to the raw path — still better than leaving it empty
 		slog.Debug("failed to resolve absolute task path, using raw path", "file", path, "error", absErr)
 		absPath = path
 	}
 
-	task := &taskpkg.Task{
-		ID:                  taskID,
-		Title:               fm.Title,
-		Description:         strings.TrimSpace(body),
-		CustomFields:        customFields,
-		UnknownFields:       unknownFields,
-		LoadedMtime:         info.ModTime(),
-		FilePath:            absPath,
-		IsWorkflow:          isWorkflow,
-		WorkflowFrontmatter: workflowSubsetFromFrontmatter(fmMap),
+	parsed, err := loadTikiFromBytes(absPath, content)
+	if err != nil {
+		return nil, err
+	}
+	parsed.t.LoadedMtime = info.ModTime()
+
+	// Type validation: workflow docs with an unknown explicit type are a
+	// hard load error (matches pre-Phase-3 behavior). Plain docs have no
+	// `type:` in their frontmatter so this check is a no-op for them.
+	isWorkflow := document.IsWorkflowFrontmatter(parsed.raw)
+	if isWorkflow {
+		if rawType, ok := parsed.raw["type"].(string); ok && rawType != "" {
+			if _, typeOK := taskpkg.ParseType(rawType); !typeOK {
+				return nil, fmt.Errorf("unknown type %q", rawType)
+			}
+		} else if fmType, ok := parsed.t.Fields["type"].(string); ok && fmType != "" {
+			// belt-and-suspenders — Fields["type"] set from taskFrontmatter.Type
+			if _, typeOK := taskpkg.ParseType(fmType); !typeOK {
+				return nil, fmt.Errorf("unknown type %q", fmType)
+			}
+		}
+		// Default `type` when absent from Fields but classified workflow (e.g.
+		// a doc that carries only `status:` — it's workflow via presence but
+		// has no type on disk). Preserving the pre-Phase-3 behavior.
+		if _, hasType := parsed.t.Fields["type"]; !hasType {
+			if def := taskpkg.DefaultType(); def != "" {
+				// do NOT add `type` to Fields — we must not manufacture a
+				// presence the file doesn't have. Defaulting happens on the
+				// Task projection below.
+				_ = def
+			}
+		}
 	}
 
-	// Populate typed workflow fields only for workflow docs. Plain docs stay
-	// zero-valued; the preserved WorkflowFrontmatter (nil) and IsWorkflow=false
-	// together guarantee ToDocument emits a plain Document.
-	if isWorkflow {
-		task.Type = taskType
-		task.Status = taskpkg.MapStatus(fm.Status)
-		task.Tags = fm.Tags.ToStringSlice()
-		task.DependsOn = fm.DependsOn.ToStringSlice()
-		task.Due = fm.Due.ToTime()
-		task.Recurrence = fm.Recurrence.ToRecurrence()
-		task.Assignee = fm.Assignee
-		task.Priority = int(fm.Priority)
-		task.Points = fm.Points
+	task := tikiToTask(parsed)
 
-		// Validate and default Priority field (1-5 range)
+	// Apply workflow defaults / validation on the projected Task. This matches
+	// the pre-Phase-3 behavior where only workflow tasks got Priority/Points
+	// clamping; plain tasks keep their zero values.
+	if task.IsWorkflow {
+		if task.Type == "" {
+			task.Type = taskpkg.DefaultType()
+		}
 		if task.Priority < taskpkg.MinPriority || task.Priority > taskpkg.MaxPriority {
-			slog.Debug("invalid priority value, using default", "task_id", task.ID, "file", path, "invalid_value", task.Priority, "default", taskpkg.DefaultPriority)
+			slog.Debug("invalid priority value, using default",
+				"task_id", task.ID, "file", path, "invalid_value", task.Priority,
+				"default", taskpkg.DefaultPriority)
 			task.Priority = taskpkg.DefaultPriority
 		}
-
-		// Validate and default Points field
 		maxPoints := config.GetMaxPoints()
 		if task.Points < 1 || task.Points > maxPoints {
+			slog.Debug("invalid points value, using default",
+				"task_id", task.ID, "file", path, "invalid_value", task.Points,
+				"default", maxPoints/2)
 			task.Points = maxPoints / 2
-			slog.Debug("invalid points value, using default", "task_id", task.ID, "file", path, "invalid_value", fm.Points, "default", task.Points)
 		}
 	}
 
@@ -402,7 +361,24 @@ func (s *TikiStore) saveTask(task *taskpkg.Task) error {
 		}
 	}
 
-	yamlBytes, err := marshalFrontmatter(task)
+	// Phase 3: the save path converts Task → Tiki, then emits YAML from the
+	// generic Fields map. Field presence drives key emission (no more
+	// plain/sparse/full branching), so a file round-trips without acquiring
+	// synthetic keys and without losing ones the user authored by hand.
+	//
+	// Validate caller-provided CustomFields up-front: every key must be a
+	// registered Custom field, and list-typed values must coerce to a
+	// string list. Matches the pre-Phase-3 appendCustomFields contract —
+	// unregistered keys or wrong-shape list values are programming errors
+	// and must fail the save rather than silently landing on disk as
+	// unknown pass-throughs. UnknownFields is a load-only slot (stale or
+	// unregistered values preserved for repair) and bypasses this check.
+	if err := validateCustomFields(task.CustomFields); err != nil {
+		slog.Error("custom-field validation failed", "task_id", task.ID, "error", err)
+		return err
+	}
+	tikiValue := taskToTiki(task)
+	yamlBytes, err := marshalTikiFrontmatter(tikiValue)
 	if err != nil {
 		slog.Error("failed to marshal frontmatter for task", "task_id", task.ID, "error", err)
 		return fmt.Errorf("marshaling frontmatter: %w", err)
@@ -411,18 +387,6 @@ func (s *TikiStore) saveTask(task *taskpkg.Task) error {
 	var content strings.Builder
 	content.WriteString("---\n")
 	content.Write(yamlBytes)
-	// append custom fields
-	if len(task.CustomFields) > 0 {
-		if err := appendCustomFields(&content, task.CustomFields); err != nil {
-			return fmt.Errorf("marshaling custom fields: %w", err)
-		}
-	}
-	// append unknown fields so they survive round-trips
-	if len(task.UnknownFields) > 0 {
-		if err := appendUnknownFields(&content, task.UnknownFields); err != nil {
-			return fmt.Errorf("marshaling unknown fields: %w", err)
-		}
-	}
 	content.WriteString("---\n")
 	if task.Description != "" {
 		content.WriteString(task.Description)
@@ -516,6 +480,38 @@ func (s *TikiStore) pathForTask(t *taskpkg.Task) string {
 	return s.taskFilePath(t.ID)
 }
 
+// validateCustomFields enforces the save-time contract inherited from the
+// pre-Phase-3 appendCustomFields helper:
+//
+//  1. every key in Task.CustomFields must be a registered Custom field;
+//  2. for list-typed custom fields (TypeListString, TypeListRef), the
+//     value must coerce to a string list — a scalar or wrong-shape value
+//     fails the save with "invalid list value for %q: ...".
+//
+// Task.UnknownFields is the load-only slot for values that came off disk
+// but didn't match a registered Custom field (or failed coercion); those
+// bypass both checks by design so they round-trip verbatim for repair.
+//
+// Non-list custom types (enum, int, string, timestamp, bool) are not
+// value-checked here because the emitter relies on yaml.Marshal to handle
+// them and a type mismatch surfaces as a marshaling error downstream. The
+// appendCustomFields path likewise only pre-validated list shapes.
+func validateCustomFields(customFields map[string]interface{}) error {
+	for k, v := range customFields {
+		fd, ok := workflow.Field(k)
+		if !ok || !fd.Custom {
+			return fmt.Errorf("unknown custom field %q", k)
+		}
+		switch fd.Type {
+		case workflow.TypeListString, workflow.TypeListRef:
+			if _, err := coerceStringList(v); err != nil {
+				return fmt.Errorf("invalid list value for %q: %w", k, err)
+			}
+		}
+	}
+	return nil
+}
+
 // builtInFrontmatterKeys lists keys handled by the taskFrontmatter struct.
 var builtInFrontmatterKeys = map[string]bool{
 	"id": true, "title": true, "type": true, "status": true,
@@ -527,7 +523,11 @@ var builtInFrontmatterKeys = map[string]bool{
 // Built-in keys are skipped. Registered custom fields are coerced and returned
 // in the first map. Unrecognised non-builtin keys are preserved verbatim in
 // the second map so they survive a load→save round-trip.
-func extractCustomFields(fmMap map[string]interface{}, path string) (customFields, unknownFields map[string]interface{}, err error) {
+//
+// Phase 3: production loads go through buildFieldsFromFrontmatter in
+// tiki_bridge.go — this helper survives only for the focused unit tests in
+// store_test.go that exercise the registry/coercion rules in isolation.
+func extractCustomFields(fmMap map[string]interface{}) (customFields, unknownFields map[string]interface{}, err error) {
 	if fmMap == nil {
 		return nil, nil, nil
 	}
@@ -540,7 +540,7 @@ func extractCustomFields(fmMap map[string]interface{}, path string) (customField
 		// defer registry check until we actually encounter a non-builtin key
 		if !registryChecked {
 			if err := config.RequireWorkflowRegistriesLoaded(); err != nil {
-				return nil, nil, fmt.Errorf("extractCustomFields for %s: %w", path, err)
+				return nil, nil, fmt.Errorf("extractCustomFields: %w", err)
 			}
 			registryChecked = true
 		}
@@ -549,11 +549,11 @@ func extractCustomFields(fmMap map[string]interface{}, path string) (customField
 			// registered built-in (e.g. synthetic read-only fields like
 			// filepath). These are derived, never persisted — drop whatever
 			// was in the file so stale values don't survive a round-trip.
-			slog.Debug("dropping synthetic built-in field from frontmatter", "field", key, "file", path)
+			slog.Debug("dropping synthetic built-in field from frontmatter", "field", key)
 			continue
 		}
 		if !ok {
-			slog.Debug("preserving unknown field in frontmatter", "field", key, "file", path)
+			slog.Debug("preserving unknown field in frontmatter", "field", key)
 			if unknownFields == nil {
 				unknownFields = make(map[string]interface{})
 			}
@@ -565,7 +565,7 @@ func extractCustomFields(fmMap map[string]interface{}, path string) (customField
 			// stale value (e.g. removed enum option): demote to unknown so
 			// the task still loads and the value survives for repair
 			slog.Warn("demoting stale custom field value to unknown",
-				"field", key, "file", path, "error", err)
+				"field", key, "error", err)
 			if unknownFields == nil {
 				unknownFields = make(map[string]interface{})
 			}
@@ -675,63 +675,7 @@ func coerceStringList(raw interface{}) ([]string, error) {
 	}
 }
 
-// appendCustomFields validates and marshals custom fields into the content builder.
-// Keys are written in sorted order after the struct YAML output.
-// Uses yaml.Marshal per field so that ambiguous string values (e.g. "true",
-// "2026-05-15") are properly quoted and round-trip without type corruption.
-func appendCustomFields(w *strings.Builder, fields map[string]interface{}) error {
-	keys := make([]string, 0, len(fields))
-	for k := range fields {
-		fd, ok := workflow.Field(k)
-		if !ok || !fd.Custom {
-			return fmt.Errorf("unknown custom field %q", k)
-		}
-		keys = append(keys, k)
-	}
-	sort.Strings(keys)
-
-	for _, k := range keys {
-		value := fields[k]
-		fd, _ := workflow.Field(k)
-		switch fd.Type {
-		case workflow.TypeListString:
-			ss, err := coerceStringList(value)
-			if err != nil {
-				return fmt.Errorf("invalid list value for %q: %w", k, err)
-			}
-			value = collectionutil.NormalizeStringSet(ss)
-		case workflow.TypeListRef:
-			ss, err := coerceStringList(value)
-			if err != nil {
-				return fmt.Errorf("invalid list value for %q: %w", k, err)
-			}
-			value = collectionutil.NormalizeRefSet(ss)
-		}
-		out, err := yaml.Marshal(map[string]interface{}{k: value})
-		if err != nil {
-			return fmt.Errorf("marshaling field %q: %w", k, err)
-		}
-		w.Write(out)
-	}
-	return nil
-}
-
-// appendUnknownFields writes preserved unknown frontmatter keys back in sorted
-// order. These are keys that were present in the file but don't match any
-// currently registered custom field — preserved so they survive round-trips.
-func appendUnknownFields(w *strings.Builder, fields map[string]interface{}) error {
-	keys := make([]string, 0, len(fields))
-	for k := range fields {
-		keys = append(keys, k)
-	}
-	sort.Strings(keys)
-
-	for _, k := range keys {
-		out, err := yaml.Marshal(map[string]interface{}{k: fields[k]})
-		if err != nil {
-			return fmt.Errorf("marshaling unknown field %q: %w", k, err)
-		}
-		w.Write(out)
-	}
-	return nil
-}
+// Phase 3: the append{Custom,Unknown}Fields helpers are gone. Save now
+// routes through marshalTikiFrontmatter in tiki_bridge.go, which emits
+// workflow-schema keys, custom fields, and unknown fields through a
+// single presence-driven path.
