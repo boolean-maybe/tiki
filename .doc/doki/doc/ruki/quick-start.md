@@ -77,7 +77,7 @@ select id where id = id() | clipboard()
 `| run(...)` executes the command for each row with field values as positional arguments (`$1`, `$2`).
 `| clipboard()` copies the selected fields to the system clipboard.
 
-You can also ask a direct question and get a single answer back instead of a table:
+A bare expression runs as a top-level statement that returns a single scalar (or list) value instead of a table:
 
 ```sh
 tiki exec 'count(select where status != "done")'
@@ -85,7 +85,10 @@ tiki exec 'exists(select where priority = 1)'
 tiki exec 'now()'
 ```
 
-Use `count(...)` to get a number or `exists(...)` to check for existence
+`count(...)` and `exists(...)` take a subquery and collapse it to a scalar, so they are the typical way to turn
+a filter into a number or boolean. Arithmetic works too (`count(...) + count(...)`). Bare field references like
+`title` or `priority` are rejected at the top level because there is no current task, but they remain valid
+inside the subquery arguments to `count(...)`, `exists(...)`, and `choose(...)`.
 
 For scripting, add `--format json`
 ```sh

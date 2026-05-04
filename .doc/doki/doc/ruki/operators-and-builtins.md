@@ -208,7 +208,7 @@ create title="x" dependsOn=dependsOn + tags
 | Name | Result type | Arguments | Notes |
 |---|---|---|---|
 | `count(...)` | `int` | exactly 1 | argument must be a `select` subquery; usable as a top-level expression |
-| `exists(...)` | `bool` | exactly 1 | argument must be a `select` subquery; true when any document matches; usable as a top-level expression |
+| `exists(...)` | `bool` | exactly 1 | argument must be a `select` subquery; true when any tiki matches; usable as a top-level expression |
 | `has(...)` | `bool` | exactly 1 | argument must be a bare or qualified field reference (`has(status)`, `has(new.status)`, `has(outer.status)`, `has(target.status)`, `has(targets.status)`); true when the referenced task has an explicit value for that workflow field — used to distinguish "absent" from "present with zero value". See qualifier rules below. |
 | `now()` | `timestamp` | 0 | no additional validation |
 | `next_date(...)` | `date` | exactly 1 | argument must be `recurrence` |
