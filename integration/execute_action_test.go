@@ -115,12 +115,13 @@ func TestExecuteAction_EnterRunsRukiAndCloses(t *testing.T) {
 	if err := ta.TaskStore.Reload(); err != nil {
 		t.Fatalf("failed to reload: %v", err)
 	}
-	updated := ta.TaskStore.GetTask("000001")
+	updated := ta.TaskStore.GetTiki("000001")
 	if updated == nil {
 		t.Fatal("task not found")
 	}
-	if updated.Assignee != "alice" {
-		t.Fatalf("expected assignee=alice after execute, got %q", updated.Assignee)
+	assignee, _, _ := updated.StringField("assignee")
+	if assignee != "alice" {
+		t.Fatalf("expected assignee=alice after execute, got %q", assignee)
 	}
 }
 
@@ -140,12 +141,13 @@ func TestExecuteAction_EscCancelsWithoutMutation(t *testing.T) {
 	if err := ta.TaskStore.Reload(); err != nil {
 		t.Fatalf("failed to reload: %v", err)
 	}
-	updated := ta.TaskStore.GetTask("000001")
+	updated := ta.TaskStore.GetTiki("000001")
 	if updated == nil {
 		t.Fatal("task not found")
 	}
-	if updated.Assignee != "" {
-		t.Fatalf("expected empty assignee after Esc, got %q", updated.Assignee)
+	assignee, _, _ := updated.StringField("assignee")
+	if assignee != "" {
+		t.Fatalf("expected empty assignee after Esc, got %q", assignee)
 	}
 }
 
@@ -210,9 +212,13 @@ func TestExecuteAction_PaletteDispatchOpensPrompt(t *testing.T) {
 	if err := ta.TaskStore.Reload(); err != nil {
 		t.Fatalf("failed to reload: %v", err)
 	}
-	updated := ta.TaskStore.GetTask("000001")
-	if updated.Assignee != "eve" {
-		t.Fatalf("expected assignee=eve via palette dispatch, got %q", updated.Assignee)
+	updated := ta.TaskStore.GetTiki("000001")
+	if updated == nil {
+		t.Fatal("task not found")
+	}
+	assignee, _, _ := updated.StringField("assignee")
+	if assignee != "eve" {
+		t.Fatalf("expected assignee=eve via palette dispatch, got %q", assignee)
 	}
 }
 

@@ -6,7 +6,7 @@ import (
 	"testing"
 
 	"github.com/boolean-maybe/tiki/ruki"
-	"github.com/boolean-maybe/tiki/task"
+	tikipkg "github.com/boolean-maybe/tiki/tiki"
 )
 
 func TestTriggerEngine_ValidatedOnlyBeforeEntryDenies(t *testing.T) {
@@ -20,16 +20,18 @@ func TestTriggerEngine_ValidatedOnlyBeforeEntryDenies(t *testing.T) {
 		description: "validated-only",
 		validated:   validated,
 	}
-	gate, _ := newGateWithStoreAndTasks()
+	gate, _ := newGateWithStoreAndTikis()
 	engine := NewTriggerEngine([]triggerEntry{entry}, nil, ruki.NewTriggerExecutor(testTriggerSchema{}, nil))
 	engine.RegisterWithGate(gate)
 
-	err = gate.CreateTask(context.Background(), &task.Task{
-		ID:       "VAL001",
-		Title:    "should be blocked",
-		Status:   "ready",
-		Type:     "story",
-		Priority: 3,
+	err = gate.CreateTiki(context.Background(), &tikipkg.Tiki{
+		ID:    "VAL001",
+		Title: "should be blocked",
+		Fields: map[string]interface{}{
+			tikipkg.FieldStatus:   "ready",
+			tikipkg.FieldType:     "story",
+			tikipkg.FieldPriority: 3,
+		},
 	})
 	if err == nil {
 		t.Fatal("expected create denial")
@@ -40,7 +42,7 @@ func TestTriggerEngine_ValidatedOnlyBeforeEntryDenies(t *testing.T) {
 }
 
 func TestTriggerEngine_EmptyEventEntryIsSkipped(t *testing.T) {
-	gate, _ := newGateWithStoreAndTasks()
+	gate, _ := newGateWithStoreAndTikis()
 	engine := NewTriggerEngine([]triggerEntry{{description: "empty"}}, nil, ruki.NewTriggerExecutor(testTriggerSchema{}, nil))
 	engine.RegisterWithGate(gate)
 
@@ -48,12 +50,14 @@ func TestTriggerEngine_EmptyEventEntryIsSkipped(t *testing.T) {
 		t.Fatal("expected empty event entry to be skipped")
 	}
 
-	err := gate.CreateTask(context.Background(), &task.Task{
-		ID:       "EMP001",
-		Title:    "allowed",
-		Status:   "ready",
-		Type:     "story",
-		Priority: 3,
+	err := gate.CreateTiki(context.Background(), &tikipkg.Tiki{
+		ID:    "EMP001",
+		Title: "allowed",
+		Fields: map[string]interface{}{
+			tikipkg.FieldStatus:   "ready",
+			tikipkg.FieldType:     "story",
+			tikipkg.FieldPriority: 3,
+		},
 	})
 	if err != nil {
 		t.Fatalf("unexpected create error: %v", err)
@@ -67,7 +71,7 @@ func TestTriggerEngine_ValidatedOnlyTimeEntryExecutes(t *testing.T) {
 		t.Fatalf("validate: %v", err)
 	}
 
-	gate, s := newGateWithStoreAndTasks()
+	gate, s := newGateWithStoreAndTikis()
 	engine := NewTriggerEngine(nil, []TimeTriggerEntry{
 		{
 			Description: "validated-time",
@@ -78,9 +82,9 @@ func TestTriggerEngine_ValidatedOnlyTimeEntryExecutes(t *testing.T) {
 
 	engine.executeTimeTrigger(context.Background(), engine.timeTriggers[0])
 
-	all := s.GetAllTasks()
+	all := s.GetAllTikis()
 	if len(all) != 1 {
-		t.Fatalf("expected one created task, got %d", len(all))
+		t.Fatalf("expected one created tiki, got %d", len(all))
 	}
 	if all[0].Title != "from validated time trigger" {
 		t.Fatalf("expected created title to match, got %q", all[0].Title)
@@ -88,7 +92,7 @@ func TestTriggerEngine_ValidatedOnlyTimeEntryExecutes(t *testing.T) {
 }
 
 func TestTriggerEngine_StartSchedulerEmptyTimeEntryNoPanic(t *testing.T) {
-	gate, _ := newGateWithStoreAndTasks()
+	gate, _ := newGateWithStoreAndTikis()
 	engine := NewTriggerEngine(nil, []TimeTriggerEntry{
 		{Description: "empty-time-entry"},
 	}, ruki.NewTriggerExecutor(testTriggerSchema{}, nil))

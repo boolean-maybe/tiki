@@ -7,10 +7,9 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/boolean-maybe/tiki/document"
 	"github.com/boolean-maybe/tiki/store"
 	"github.com/boolean-maybe/tiki/store/tikistore"
-	"github.com/boolean-maybe/tiki/task"
+	tikipkg "github.com/boolean-maybe/tiki/tiki"
 )
 
 // TestPhase5_CLISelectIncludesPlainDocs proves the first review finding is
@@ -26,15 +25,19 @@ func TestPhase5_CLISelectIncludesPlainDocs(t *testing.T) {
 
 	s := store.NewInMemoryStore()
 	// Seed a workflow doc and a plain doc side by side.
-	if err := s.CreateTask(&task.Task{ID: "WRKFL1", Title: "workflow item", Status: "ready", Priority: 1}); err != nil {
+	wf := tikipkg.New()
+	wf.ID = "WRKFL1"
+	wf.Title = "workflow item"
+	wf.Set("status", "ready")
+	wf.Set("priority", 1)
+	if err := s.CreateTiki(wf); err != nil {
 		t.Fatalf("seed workflow: %v", err)
 	}
-	if err := s.CreateDocument(&document.Document{
-		ID:    "PLAIN1",
-		Title: "plain note",
-		Body:  "just a markdown note",
-		// no workflow frontmatter — plain doc
-	}); err != nil {
+	plain := tikipkg.New()
+	plain.ID = "PLAIN1"
+	plain.Title = "plain note"
+	plain.Body = "just a markdown note"
+	if err := s.CreateTiki(plain); err != nil {
 		t.Fatalf("seed plain: %v", err)
 	}
 
@@ -60,10 +63,19 @@ func TestPhase5_CLIHasStatusFiltersPlainDocs(t *testing.T) {
 	setupRunnerTest(t)
 
 	s := store.NewInMemoryStore()
-	if err := s.CreateTask(&task.Task{ID: "WRKFL1", Title: "workflow", Status: "ready", Priority: 1}); err != nil {
+	wf2 := tikipkg.New()
+	wf2.ID = "WRKFL1"
+	wf2.Title = "workflow"
+	wf2.Set("status", "ready")
+	wf2.Set("priority", 1)
+	if err := s.CreateTiki(wf2); err != nil {
 		t.Fatalf("seed workflow: %v", err)
 	}
-	if err := s.CreateDocument(&document.Document{ID: "PLAIN1", Title: "plain", Body: "note"}); err != nil {
+	plain2 := tikipkg.New()
+	plain2.ID = "PLAIN1"
+	plain2.Title = "plain"
+	plain2.Body = "note"
+	if err := s.CreateTiki(plain2); err != nil {
 		t.Fatalf("seed plain: %v", err)
 	}
 

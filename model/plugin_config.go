@@ -4,7 +4,7 @@ import (
 	"log/slog"
 	"sync"
 
-	"github.com/boolean-maybe/tiki/task"
+	tikipkg "github.com/boolean-maybe/tiki/tiki"
 )
 
 // ViewMode represents the display mode for task boxes
@@ -299,7 +299,7 @@ func (pc *PluginConfig) SavePreSearchState() {
 }
 
 // SetSearchResults sets filtered search results and query
-func (pc *PluginConfig) SetSearchResults(results []task.SearchResult, query string) {
+func (pc *PluginConfig) SetSearchResults(results []*tikipkg.Tiki, query string) {
 	pc.searchState.SetSearchResults(results, query)
 	pc.notifyListeners()
 }
@@ -321,7 +321,7 @@ func (pc *PluginConfig) ClearSearchResults() {
 }
 
 // GetSearchResults returns current search results (nil if no search active)
-func (pc *PluginConfig) GetSearchResults() []task.SearchResult {
+func (pc *PluginConfig) GetSearchResults() []*tikipkg.Tiki {
 	return pc.searchState.GetSearchResults()
 }
 

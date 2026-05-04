@@ -116,20 +116,20 @@ func TestRunDemo_DemoLoadsCleanlyUnderStrictIDs(t *testing.T) {
 	// demo has 41 workflow files with status/priority/points — all should
 	// classify as workflow. If this drops to zero, a regression probably
 	// made IsWorkflow default to false.
-	if got := len(store.GetAllTasks()); got < 40 {
-		t.Errorf("workflow task count after demo load = %d, want >= 40", got)
+	if got := len(store.GetAllTikis()); got < 40 {
+		t.Errorf("workflow tiki count after demo load = %d, want >= 40", got)
 	}
 
 	// Sanity: a known task id from the demo must resolve to its unified path.
 	// Under Phase 8 the file is `.doc/XVG0FN.md` — flat at the document root,
 	// not under a `tiki/` subdir.
-	task := store.GetTask("XVG0FN")
-	if task == nil {
-		t.Fatal("demo task XVG0FN missing after load")
+	demoTiki := store.GetTiki("XVG0FN")
+	if demoTiki == nil {
+		t.Fatal("demo tiki XVG0FN missing after load")
 	}
 	wantSuffix := filepath.Join(".doc", "XVG0FN.md")
-	if !strings.HasSuffix(task.FilePath, wantSuffix) {
-		t.Errorf("task XVG0FN resolved to %s, want suffix %s", task.FilePath, wantSuffix)
+	if !strings.HasSuffix(demoTiki.Path, wantSuffix) {
+		t.Errorf("tiki XVG0FN resolved to %s, want suffix %s", demoTiki.Path, wantSuffix)
 	}
 
 	// Phase 8 invariant: demo must not create legacy subdirectories.

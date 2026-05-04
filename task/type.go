@@ -68,3 +68,9 @@ func AllTypes() []Type {
 func DefaultType() Type {
 	return requireTypeRegistry().DefaultType()
 }
+
+// IsValidType reports whether t is a recognized type key.
+// Panics if registries are not loaded.
+func IsValidType(t Type) bool {
+	return requireTypeRegistry().IsValid(t)
+}

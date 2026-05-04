@@ -9,7 +9,7 @@ import (
 	"github.com/boolean-maybe/tiki/config"
 	"github.com/boolean-maybe/tiki/service"
 	"github.com/boolean-maybe/tiki/store/tikistore"
-	"github.com/boolean-maybe/tiki/task"
+	tikipkg "github.com/boolean-maybe/tiki/tiki"
 	"github.com/boolean-maybe/tiki/workflow"
 )
 
@@ -68,17 +68,24 @@ func TestRunSelectQuery_UserFromConfigNoGit(t *testing.T) {
 	ensureStatusesLoaded(t)
 	s := newNoGitStoreWithIdentity(t, "Configured Alice", "alice@example.com")
 
-	if err := s.CreateTask(&task.Task{
-		ID: "TIKI-XYZ001", Title: "Mine", Status: "ready",
-		Priority: 2, Assignee: "Configured Alice", IsWorkflow: true,
-	}); err != nil {
-		t.Fatalf("CreateTask: %v", err)
+	mine := tikipkg.New()
+	mine.ID = "XYZ001"
+	mine.Title = "Mine"
+	mine.Set("status", "ready")
+	mine.Set("priority", 2)
+	mine.Set("assignee", "Configured Alice")
+	if err := s.CreateTiki(mine); err != nil {
+		t.Fatalf("CreateTiki mine: %v", err)
 	}
-	if err := s.CreateTask(&task.Task{
-		ID: "TIKI-XYZ002", Title: "Theirs", Status: "ready",
-		Priority: 2, Assignee: "Bob", IsWorkflow: true,
-	}); err != nil {
-		t.Fatalf("CreateTask: %v", err)
+
+	theirs := tikipkg.New()
+	theirs.ID = "XYZ002"
+	theirs.Title = "Theirs"
+	theirs.Set("status", "ready")
+	theirs.Set("priority", 2)
+	theirs.Set("assignee", "Bob")
+	if err := s.CreateTiki(theirs); err != nil {
+		t.Fatalf("CreateTiki theirs: %v", err)
 	}
 
 	var buf bytes.Buffer
@@ -86,11 +93,11 @@ func TestRunSelectQuery_UserFromConfigNoGit(t *testing.T) {
 		t.Fatalf("RunSelectQuery: %v", err)
 	}
 	out := buf.String()
-	if !strings.Contains(out, "TIKI-XYZ001") {
-		t.Errorf("expected TIKI-XYZ001 in output:\n%s", out)
+	if !strings.Contains(out, "XYZ001") {
+		t.Errorf("expected XYZ001 in output:\n%s", out)
 	}
-	if strings.Contains(out, "TIKI-XYZ002") {
-		t.Errorf("TIKI-XYZ002 should be filtered out:\n%s", out)
+	if strings.Contains(out, "XYZ002") {
+		t.Errorf("XYZ002 should be filtered out:\n%s", out)
 	}
 }
 
@@ -98,27 +105,31 @@ func TestRunQuery_UpdateAssigneeUserInNoGit(t *testing.T) {
 	ensureStatusesLoaded(t)
 	s := newNoGitStoreWithIdentity(t, "Configured Alice", "alice@example.com")
 
-	if err := s.CreateTask(&task.Task{
-		ID: "TIKI-UPD001", Title: "Assign me", Status: "ready", Priority: 2, IsWorkflow: true,
-	}); err != nil {
-		t.Fatalf("CreateTask: %v", err)
+	tk := tikipkg.New()
+	tk.ID = "UPD001"
+	tk.Title = "Assign me"
+	tk.Set("status", "ready")
+	tk.Set("priority", 2)
+	if err := s.CreateTiki(tk); err != nil {
+		t.Fatalf("CreateTiki: %v", err)
 	}
 
 	gate := service.NewTaskMutationGate()
 	gate.SetStore(s)
 
 	var buf bytes.Buffer
-	err := RunQuery(gate, `update where id = "TIKI-UPD001" set assignee = user()`, &buf)
+	err := RunQuery(gate, `update where id = "UPD001" set assignee = user()`, &buf)
 	if err != nil {
 		t.Fatalf("RunQuery update: %v", err)
 	}
 
-	got := s.GetTask("TIKI-UPD001")
+	got := s.GetTiki("UPD001")
 	if got == nil {
-		t.Fatal("task TIKI-UPD001 not found after update")
+		t.Fatal("tiki UPD001 not found after update")
 	}
-	if got.Assignee != "Configured Alice" {
-		t.Errorf("assignee = %q, want 'Configured Alice'", got.Assignee)
+	assignee, _, _ := got.StringField("assignee")
+	if assignee != "Configured Alice" {
+		t.Errorf("assignee = %q, want 'Configured Alice'", assignee)
 	}
 }
 
@@ -142,19 +153,22 @@ func TestRunQuery_UserEmailOnlyConfig(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewTikiStore: %v", err)
 	}
-	if err := s.CreateTask(&task.Task{
-		ID: "TIKI-EML001", Title: "Mine", Status: "ready",
-		Priority: 2, Assignee: "me@example.com", IsWorkflow: true,
-	}); err != nil {
-		t.Fatalf("CreateTask: %v", err)
+	eml := tikipkg.New()
+	eml.ID = "EML001"
+	eml.Title = "Mine"
+	eml.Set("status", "ready")
+	eml.Set("priority", 2)
+	eml.Set("assignee", "me@example.com")
+	if err := s.CreateTiki(eml); err != nil {
+		t.Fatalf("CreateTiki: %v", err)
 	}
 
 	var buf bytes.Buffer
 	if err := RunSelectQuery(s, `select id where assignee = user()`, &buf); err != nil {
 		t.Fatalf("RunSelectQuery: %v", err)
 	}
-	if !strings.Contains(buf.String(), "TIKI-EML001") {
-		t.Errorf("expected TIKI-EML001 in output when user() resolves from email-only config:\n%s", buf.String())
+	if !strings.Contains(buf.String(), "EML001") {
+		t.Errorf("expected EML001 in output when user() resolves from email-only config:\n%s", buf.String())
 	}
 }
 

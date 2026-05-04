@@ -370,13 +370,14 @@ func TestPluginActions_NewTask_NKey(t *testing.T) {
 
 	// Verify: Task created
 	_ = ta.TaskStore.Reload()
-	tasks := ta.TaskStore.GetAllTasks()
+	tikis := ta.TaskStore.GetAllTikis()
 	var found bool
-	for _, task := range tasks {
-		if task.Title == "New Plugin Task" {
+	for _, tk := range tikis {
+		if tk.Title == "New Plugin Task" {
 			found = true
-			if task.Status != taskpkg.StatusBacklog {
-				t.Errorf("Expected new task to have backlog status, got %s", task.Status)
+			status, _, _ := tk.StringField("status")
+			if status != string(taskpkg.StatusBacklog) {
+				t.Errorf("Expected new task to have backlog status, got %s", status)
 			}
 			break
 		}
@@ -398,24 +399,24 @@ func TestPluginActions_DeleteTask_DKey(t *testing.T) {
 	ta.Draw()
 
 	// Verify task exists
-	task := ta.TaskStore.GetTask("DELETE")
-	if task == nil {
-		t.Fatal("Test task DELETE-1 not found before deletion")
+	tikiTask := ta.TaskStore.GetTiki("DELETE")
+	if tikiTask == nil {
+		t.Fatal("Test task DELETE not found before deletion")
 		return
 	}
 
 	// Press 'd' to delete (assumes first task is selected)
-	// Note: We need to ensure DELETE-1 is selected, which depends on sort order
+	// Note: We need to ensure DELETE is selected, which depends on sort order
 	// For simplicity, we'll just verify the delete action works
 	ta.SendKey(tcell.KeyRune, 'd', tcell.ModNone)
 
 	// Verify: At least one task was deleted
 	_ = ta.TaskStore.Reload()
-	initialTaskCount := len(ta.TaskStore.GetAllTasks())
+	initialTaskCount := len(ta.TaskStore.GetAllTikis())
 
 	// Check if the specific file is deleted (it should be one of the backlog tasks)
-	tasksAfter := ta.TaskStore.GetAllTasks()
-	if len(tasksAfter) >= initialTaskCount {
+	tikisAfter := ta.TaskStore.GetAllTikis()
+	if len(tikisAfter) >= initialTaskCount {
 		// Count should decrease
 		t.Log("Task deletion completed")
 	}
@@ -746,10 +747,10 @@ func TestPluginActions_CreateFromPlugin_ReturnsToPlugin(t *testing.T) {
 
 	// Verify: new task exists
 	_ = ta.TaskStore.Reload()
-	tasks := ta.TaskStore.GetAllTasks()
+	tikis := ta.TaskStore.GetAllTikis()
 	var found bool
-	for _, task := range tasks {
-		if task.Title == "Created from Plugin" {
+	for _, tk := range tikis {
+		if tk.Title == "Created from Plugin" {
 			found = true
 			break
 		}
@@ -797,10 +798,11 @@ func TestPluginActions_DeleteTask_UpdatesSelection(t *testing.T) {
 
 	// Verify: task count decreased
 	_ = ta.TaskStore.Reload()
-	tasks := ta.TaskStore.GetAllTasks()
+	tikis := ta.TaskStore.GetAllTikis()
 	backlogCount := 0
-	for _, task := range tasks {
-		if task.Status == taskpkg.StatusBacklog {
+	for _, tk := range tikis {
+		status, _, _ := tk.StringField("status")
+		if status == string(taskpkg.StatusBacklog) {
 			backlogCount++
 		}
 	}

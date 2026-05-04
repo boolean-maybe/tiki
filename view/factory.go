@@ -27,6 +27,10 @@ type ViewFactory struct {
 	pluginDefs        map[string]plugin.Plugin
 	pluginControllers map[string]controller.PluginControllerInterface
 	globalActions     []plugin.PluginAction
+	// dokiControllerFactory creates a fresh DokiController for each view navigation,
+	// preventing the shared-singleton problem where SetSelectedTaskID on one navigation
+	// would overwrite the selected task ID seen by a previously-pushed view of the same plugin.
+	dokiControllerFactory func(pluginDef plugin.Plugin, selectedTaskID string) *controller.DokiController
 }
 
 // NewViewFactory creates a view factory
@@ -66,6 +70,13 @@ func (f *ViewFactory) SetPlugins(
 	f.globalActions = globalActions
 }
 
+// SetDokiControllerFactory registers a factory function that creates a fresh
+// DokiController per view navigation, capturing nav/status/gate/schema from
+// the bootstrap context. Must be called before any doki view is created.
+func (f *ViewFactory) SetDokiControllerFactory(fn func(pluginDef plugin.Plugin, selectedTaskID string) *controller.DokiController) {
+	f.dokiControllerFactory = fn
+}
+
 // RegisterPlugin registers a dynamically created plugin (e.g., deps editor) with the view factory.
 func (f *ViewFactory) RegisterPlugin(name string, cfg *model.PluginConfig, def plugin.Plugin, ctrl controller.PluginControllerInterface) {
 	f.pluginConfigs[name] = cfg
@@ -87,7 +98,7 @@ func (f *ViewFactory) CreateView(viewID model.ViewID, params map[string]interfac
 		v = taskdetail.NewTaskEditView(f.taskStore, editParams.TaskID, f.imageManager)
 		if tev, ok := v.(*taskdetail.TaskEditView); ok {
 			if editParams.Draft != nil {
-				tev.SetFallbackTask(editParams.Draft)
+				tev.SetFallbackTiki(editParams.Draft)
 			}
 			if editParams.DescOnly {
 				tev.SetDescOnly(true)
@@ -141,10 +152,14 @@ func (f *ViewFactory) CreateView(viewID model.ViewID, params map[string]interfac
 					break
 				}
 				pluginParams := model.DecodePluginViewParams(params)
-				// Propagate the selected task id into the controller so
-				// outbound `kind: view` / `kind: ruki` actions from this
-				// view see the selection that was passed in.
-				if dc, ok := pluginControllerInterface.(*controller.DokiController); ok {
+				// Create a fresh DokiController per navigation so each view
+				// instance on the nav stack holds its own selectedTaskID. The
+				// shared map entry is updated so InputRouter always dispatches
+				// through the controller that owns the currently-active view.
+				if f.dokiControllerFactory != nil {
+					freshCtrl := f.dokiControllerFactory(pluginDef, pluginParams.TaskID)
+					f.pluginControllers[pluginName] = freshCtrl
+				} else if dc, ok := pluginControllerInterface.(*controller.DokiController); ok {
 					dc.SetSelectedTaskID(pluginParams.TaskID)
 				}
 				v = NewDokiView(dokiPlugin, f.imageManager, f.mermaidOpts, f.globalActions, f.taskStore, pluginParams.TaskID)

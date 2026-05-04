@@ -200,14 +200,15 @@ func TestPluginView_CreateTask(t *testing.T) {
 		t.Fatalf("failed to reload: %v", err)
 	}
 
-	allTasks := ta.TaskStore.GetAllTasks()
+	allTikis := ta.TaskStore.GetAllTikis()
 	var found bool
-	for _, task := range allTasks {
-		if task.Title == "New Plugin Task" {
+	for _, tk := range allTikis {
+		if tk.Title == "New Plugin Task" {
 			found = true
 			// Task created from backlog plugin should have backlog status
-			if task.Status != taskpkg.StatusBacklog {
-				t.Errorf("new task status = %v, want %v", task.Status, taskpkg.StatusBacklog)
+			status, _, _ := tk.StringField("status")
+			if status != string(taskpkg.StatusBacklog) {
+				t.Errorf("new task status = %v, want %v", status, taskpkg.StatusBacklog)
 			}
 			break
 		}
@@ -242,8 +243,8 @@ func TestPluginView_DeleteTask(t *testing.T) {
 		t.Fatalf("failed to reload: %v", err)
 	}
 
-	task := ta.TaskStore.GetTask("000001")
-	if task != nil {
+	deletedTiki := ta.TaskStore.GetTiki("000001")
+	if deletedTiki != nil {
 		t.Errorf("TIKI-1 should be deleted from store")
 	}
 

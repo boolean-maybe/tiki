@@ -3,79 +3,56 @@ package runtime
 import (
 	"time"
 
-	"github.com/boolean-maybe/tiki/task"
 	"github.com/boolean-maybe/tiki/tiki"
 )
 
-// tikiFromLegacy builds a tiki from task-shaped fields for format tests.
-// Mirrors the Phase 4 tikiFromTask convention: any non-zero schema field
-// promotes to workflow so formatters render the expected values.
-func tikiFromLegacy(t legacyFields) *tiki.Tiki {
-	src := &task.Task{
-		ID:          t.ID,
-		Title:       t.Title,
-		Description: t.Description,
-		Status:      task.Status(t.Status),
-		Type:        task.Type(t.Type),
-		Priority:    t.Priority,
-		Points:      t.Points,
-		Tags:        t.Tags,
-		DependsOn:   t.DependsOn,
-		Due:         t.Due,
-		Recurrence:  task.Recurrence(t.Recurrence),
-		Assignee:    t.Assignee,
-		CreatedBy:   t.CreatedBy,
-		CreatedAt:   t.CreatedAt,
-		UpdatedAt:   t.UpdatedAt,
-		FilePath:    t.FilePath,
+// tikiFromLegacy builds a tiki from legacy field values for format tests.
+// Any non-zero schema field marks the tiki as workflow so formatters render
+// the expected values. Full-schema presence is applied for fields that need
+// "present empty" semantics (assignee, tags, etc.) to render as blank cells
+// rather than "<absent>".
+func tikiFromLegacy(f legacyFields) *tiki.Tiki {
+	tk := tiki.New()
+	tk.ID = f.ID
+	tk.Title = f.Title
+	tk.Body = f.Description
+	tk.CreatedAt = f.CreatedAt
+	tk.UpdatedAt = f.UpdatedAt
+	tk.Path = f.FilePath
+	if f.CreatedBy != "" {
+		tk.Set("createdBy", f.CreatedBy)
 	}
-	workflow := src.Status != "" || src.Type != "" || src.Priority != 0 || src.Points != 0 ||
-		src.Tags != nil || src.DependsOn != nil || !src.Due.IsZero() ||
-		src.Recurrence != "" || src.Assignee != ""
+
+	workflow := f.Status != "" || f.Type != "" || f.Priority != 0 || f.Points != 0 ||
+		f.Tags != nil || f.DependsOn != nil || !f.Due.IsZero() ||
+		f.Recurrence != "" || f.Assignee != ""
+
 	if workflow {
-		src.IsWorkflow = true
-	}
-	out := tiki.FromTask(src)
-	if out == nil {
-		return nil
-	}
-	// Full-schema presence: initialize each schema key whose typed value
-	// is present on the fixture, even when the Go zero is indistinguishable
-	// from unset. This matches the Phase 4 test convention used across ruki
-	// tests — formatters need present-empty strings to render as blank
-	// cells rather than "<absent>".
-	if workflow {
-		if t.Tags != nil && !out.Has(tiki.FieldTags) {
-			out.Set(tiki.FieldTags, append([]string(nil), t.Tags...))
+		tk.Set(tiki.FieldStatus, f.Status)
+		tk.Set(tiki.FieldType, f.Type)
+		tk.Set(tiki.FieldPriority, f.Priority)
+		tk.Set(tiki.FieldPoints, f.Points)
+		tk.Set(tiki.FieldAssignee, f.Assignee)
+		tk.Set(tiki.FieldDue, f.Due)
+		tk.Set(tiki.FieldRecurrence, f.Recurrence)
+		if f.Tags != nil {
+			tk.Set(tiki.FieldTags, append([]string(nil), f.Tags...))
+		} else {
+			tk.Set(tiki.FieldTags, []string{})
 		}
-		if t.DependsOn != nil && !out.Has(tiki.FieldDependsOn) {
-			out.Set(tiki.FieldDependsOn, append([]string(nil), t.DependsOn...))
-		}
-		if !out.Has(tiki.FieldAssignee) {
-			out.Set(tiki.FieldAssignee, t.Assignee)
-		}
-		if !out.Has(tiki.FieldDue) {
-			out.Set(tiki.FieldDue, t.Due)
-		}
-		if !out.Has(tiki.FieldRecurrence) {
-			out.Set(tiki.FieldRecurrence, string(src.Recurrence))
-		}
-		if !out.Has(tiki.FieldPoints) {
-			out.Set(tiki.FieldPoints, t.Points)
-		}
-		if !out.Has(tiki.FieldPriority) {
-			out.Set(tiki.FieldPriority, t.Priority)
+		if f.DependsOn != nil {
+			tk.Set(tiki.FieldDependsOn, append([]string(nil), f.DependsOn...))
+		} else {
+			tk.Set(tiki.FieldDependsOn, []string{})
 		}
 	}
-	for k, v := range t.CustomFields {
-		out.Set(k, v)
+	for k, v := range f.CustomFields {
+		tk.Set(k, v)
 	}
-	return out
+	return tk
 }
 
-// legacyFields mirrors the task.Task fields that format tests care about,
-// so migrating a fixture is a find-replace from "&task.Task{" to
-// "tikiFromLegacy(legacyFields{" with a closing paren added.
+// legacyFields mirrors the task.Task fields that format tests care about.
 type legacyFields struct {
 	ID           string
 	Title        string

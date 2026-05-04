@@ -3,7 +3,7 @@ package model
 import (
 	"testing"
 
-	"github.com/boolean-maybe/tiki/task"
+	tikipkg "github.com/boolean-maybe/tiki/tiki"
 )
 
 func TestSearchState_GridBasedFlow(t *testing.T) {
@@ -18,9 +18,9 @@ func TestSearchState_GridBasedFlow(t *testing.T) {
 	ss.SavePreSearchState(5)
 
 	// Set search results
-	results := []task.SearchResult{
-		{Task: &task.Task{ID: "TIKI-1", Title: "Test 1"}, Score: 0.9},
-		{Task: &task.Task{ID: "TIKI-2", Title: "Test 2"}, Score: 0.7},
+	results := []*tikipkg.Tiki{
+		{ID: "ABC001", Title: "Test 1"},
+		{ID: "ABC002", Title: "Test 2"},
 	}
 	ss.SetSearchResults(results, "test query")
 
@@ -75,8 +75,8 @@ func TestSearchState_PaneBasedFlow(t *testing.T) {
 	ss.SavePreSearchPaneState("inProgress", 3)
 
 	// Set search results
-	results := []task.SearchResult{
-		{Task: &task.Task{ID: "TIKI-10", Title: "Match"}, Score: 1.0},
+	results := []*tikipkg.Tiki{
+		{ID: "ABC010", Title: "Match"},
 	}
 	ss.SetSearchResults(results, "match")
 
@@ -103,8 +103,8 @@ func TestSearchState_MultipleSearchCycles(t *testing.T) {
 
 	// First search cycle
 	ss.SavePreSearchState(10)
-	ss.SetSearchResults([]task.SearchResult{
-		{Task: &task.Task{ID: "TIKI-1"}, Score: 0.8},
+	ss.SetSearchResults([]*tikipkg.Tiki{
+		{ID: "ABC001"},
 	}, "first")
 
 	if ss.GetSearchQuery() != "first" {
@@ -119,9 +119,9 @@ func TestSearchState_MultipleSearchCycles(t *testing.T) {
 
 	// Second search cycle with different state
 	ss.SavePreSearchState(20)
-	ss.SetSearchResults([]task.SearchResult{
-		{Task: &task.Task{ID: "TIKI-2"}, Score: 0.9},
-		{Task: &task.Task{ID: "TIKI-3"}, Score: 0.6},
+	ss.SetSearchResults([]*tikipkg.Tiki{
+		{ID: "ABC002"},
+		{ID: "ABC003"},
 	}, "second")
 
 	if ss.GetSearchQuery() != "second" {
@@ -144,7 +144,7 @@ func TestSearchState_EmptySearchResults(t *testing.T) {
 	ss := &SearchState{}
 
 	// Search with empty results
-	ss.SetSearchResults([]task.SearchResult{}, "no matches")
+	ss.SetSearchResults([]*tikipkg.Tiki{}, "no matches")
 
 	// Should still be considered active search (empty results != nil results)
 	if !ss.IsSearchActive() {
@@ -216,8 +216,8 @@ func TestSearchState_ConcurrentAccess(t *testing.T) {
 	go func() {
 		for i := range 100 {
 			ss.SavePreSearchState(i)
-			ss.SetSearchResults([]task.SearchResult{
-				{Task: &task.Task{ID: "TIKI-1"}, Score: 0.5},
+			ss.SetSearchResults([]*tikipkg.Tiki{
+				{ID: "ABC001"},
 			}, "concurrent")
 			ss.ClearSearchResults()
 		}
@@ -245,8 +245,8 @@ func TestSearchState_QueryPreservation(t *testing.T) {
 	ss := &SearchState{}
 
 	// Set results with query
-	ss.SetSearchResults([]task.SearchResult{
-		{Task: &task.Task{ID: "TIKI-1"}, Score: 1.0},
+	ss.SetSearchResults([]*tikipkg.Tiki{
+		{ID: "ABC001"},
 	}, "important query")
 
 	// Query should persist across result retrievals

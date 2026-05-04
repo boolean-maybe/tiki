@@ -4,7 +4,6 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/boolean-maybe/tiki/task"
 	tikipkg "github.com/boolean-maybe/tiki/tiki"
 )
 
@@ -16,28 +15,22 @@ type fakeUserStore struct {
 	userErr error
 }
 
-func (f *fakeUserStore) GetTask(string) *task.Task               { return nil }
-func (f *fakeUserStore) GetAllTasks() []*task.Task               { return nil }
 func (f *fakeUserStore) GetTiki(string) *tikipkg.Tiki            { return nil }
 func (f *fakeUserStore) GetAllTikis() []*tikipkg.Tiki            { return nil }
 func (f *fakeUserStore) NewTikiTemplate() (*tikipkg.Tiki, error) { return nil, nil }
-func (f *fakeUserStore) Search(string, func(*task.Task) bool) []task.SearchResult {
-	return nil
-}
 func (f *fakeUserStore) SearchTikis(string, func(*tikipkg.Tiki) bool) []*tikipkg.Tiki {
 	return nil
 }
 func (f *fakeUserStore) GetCurrentUser() (string, string, error) {
 	return f.name, f.email, f.userErr
 }
-func (f *fakeUserStore) GetStats() []Stat                     { return nil }
-func (f *fakeUserStore) GetAllUsers() ([]string, error)       { return nil, nil }
-func (f *fakeUserStore) NewTaskTemplate() (*task.Task, error) { return nil, nil }
-func (f *fakeUserStore) AddListener(ChangeListener) int       { return 0 }
-func (f *fakeUserStore) RemoveListener(int)                   {}
-func (f *fakeUserStore) Reload() error                        { return nil }
-func (f *fakeUserStore) ReloadTask(string) error              { return nil }
-func (f *fakeUserStore) PathForID(string) string              { return "" }
+func (f *fakeUserStore) GetStats() []Stat               { return nil }
+func (f *fakeUserStore) GetAllUsers() ([]string, error) { return nil, nil }
+func (f *fakeUserStore) AddListener(ChangeListener) int { return 0 }
+func (f *fakeUserStore) RemoveListener(int)             {}
+func (f *fakeUserStore) Reload() error                  { return nil }
+func (f *fakeUserStore) ReloadTask(string) error        { return nil }
+func (f *fakeUserStore) PathForID(string) string        { return "" }
 
 func TestCurrentUserDisplay_NamePreferred(t *testing.T) {
 	s := &fakeUserStore{name: "Alice", email: "alice@example.com"}

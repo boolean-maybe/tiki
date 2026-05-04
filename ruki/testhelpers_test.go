@@ -6,67 +6,88 @@ import (
 )
 
 // tikiFromTask is the Phase 4 test helper: most existing fixtures are
-// task.Task{...} slices; wrap them through tiki.FromTask at the executor
+// task.Task{...} slices; wrap them through this helper at the executor
 // boundary so tests keep reading naturally.
 //
-// Hand-built fixtures in these tests use the convention "if a schema-known
-// typed field is non-zero, the task is workflow-declaring", mirroring the
-// pre-Phase-3 behavior of NewTaskTemplate. Mark IsWorkflow on a clone so
-// tiki.FromTask's derived-presence branch emits those fields.
+// The convention: any non-zero schema field makes the task workflow-declaring.
+// The helper applies full-schema presence — every schema field is set in the
+// tiki map — so formatters and filters behave as if the tiki was created via
+// NewTikiTemplate (all fields present). Tests that want absent-field semantics
+// should skip this helper and build the tiki with tiki.New() directly.
 func tikiFromTask(t *task.Task) *tiki.Tiki {
 	if t == nil {
 		return nil
 	}
-	src := t
+	tk := tiki.New()
+	tk.ID = t.ID
+	tk.Title = t.Title
+	tk.Body = t.Description
+	tk.CreatedAt = t.CreatedAt
+	tk.UpdatedAt = t.UpdatedAt
+	tk.Path = t.FilePath
+	if t.CreatedBy != "" {
+		tk.Set("createdBy", t.CreatedBy)
+	}
+
 	workflow := t.IsWorkflow || hasAnyWorkflowValue(t)
-	if workflow && !t.IsWorkflow {
-		src = t.Clone()
-		src.IsWorkflow = true
-	}
-	out := tiki.FromTask(src)
-	if out == nil {
-		return nil
-	}
-	if !workflow {
-		return out
-	}
-	// Test-only "full-schema presence" convention: a workflow-declaring
-	// test fixture carries presence for every schema-known field even
-	// when the typed value is the Go zero. This mirrors the pre-Phase-3
-	// test ergonomics where `Assignee: ""` counted as "present empty"
-	// so `assignee is empty` matched. Tests that specifically want
-	// absent-field semantics should skip this helper and build the
-	// tiki with tiki.New() directly.
-	if !out.Has(tiki.FieldAssignee) {
-		out.Set(tiki.FieldAssignee, t.Assignee)
-	}
-	if !out.Has(tiki.FieldTags) {
+	if workflow {
+		// only set fields that are non-zero, mirroring setWorkflowFieldFromTask
+		// behavior: absent zero-values must stay absent so has(field) returns false.
+		if t.Status != "" {
+			tk.Set(tiki.FieldStatus, string(t.Status))
+		}
+		if t.Type != "" {
+			tk.Set(tiki.FieldType, string(t.Type))
+		}
+		if t.Priority != 0 {
+			tk.Set(tiki.FieldPriority, t.Priority)
+		}
+		if t.Points != 0 {
+			tk.Set(tiki.FieldPoints, t.Points)
+		}
+		if t.Assignee != "" {
+			tk.Set(tiki.FieldAssignee, t.Assignee)
+		}
+		if !t.Due.IsZero() {
+			tk.Set(tiki.FieldDue, t.Due)
+		}
+		if t.Recurrence != "" {
+			tk.Set(tiki.FieldRecurrence, string(t.Recurrence))
+		}
 		if t.Tags != nil {
-			out.Set(tiki.FieldTags, append([]string(nil), t.Tags...))
-		} else {
-			out.Set(tiki.FieldTags, []string{})
+			tk.Set(tiki.FieldTags, append([]string(nil), t.Tags...))
 		}
-	}
-	if !out.Has(tiki.FieldDependsOn) {
 		if t.DependsOn != nil {
-			out.Set(tiki.FieldDependsOn, append([]string(nil), t.DependsOn...))
-		} else {
-			out.Set(tiki.FieldDependsOn, []string{})
+			tk.Set(tiki.FieldDependsOn, append([]string(nil), t.DependsOn...))
+		}
+		// full-schema presence: initialize list fields to empty slice when explicitly nil
+		// so formatters get "present empty" vs absent for their rendering decisions.
+		if !tk.Has(tiki.FieldTags) {
+			tk.Set(tiki.FieldTags, []string{})
+		}
+		if !tk.Has(tiki.FieldDependsOn) {
+			tk.Set(tiki.FieldDependsOn, []string{})
+		}
+		if !tk.Has(tiki.FieldAssignee) {
+			tk.Set(tiki.FieldAssignee, t.Assignee) // explicitly-set empty string
+		}
+		if !tk.Has(tiki.FieldDue) {
+			tk.Set(tiki.FieldDue, t.Due) // zero time
+		}
+		if !tk.Has(tiki.FieldRecurrence) {
+			tk.Set(tiki.FieldRecurrence, string(t.Recurrence)) // empty string
+		}
+		if !tk.Has(tiki.FieldPoints) {
+			tk.Set(tiki.FieldPoints, t.Points) // zero int
+		}
+		if !tk.Has(tiki.FieldPriority) {
+			tk.Set(tiki.FieldPriority, t.Priority) // zero int
 		}
 	}
-	if !out.Has(tiki.FieldDue) {
-		out.Set(tiki.FieldDue, t.Due)
+	for k, v := range t.CustomFields {
+		tk.Set(k, v)
 	}
-	if !out.Has(tiki.FieldRecurrence) {
-		out.Set(tiki.FieldRecurrence, string(t.Recurrence))
-	}
-	if !out.Has(tiki.FieldPoints) {
-		out.Set(tiki.FieldPoints, t.Points)
-	}
-	if !out.Has(tiki.FieldPriority) {
-		out.Set(tiki.FieldPriority, t.Priority)
-	}
-	return out
+	return tk
 }
 
 func hasAnyWorkflowValue(t *task.Task) bool {
@@ -113,13 +134,8 @@ func (te *TriggerExecutor) testExecTimeAction(tt any, allTasks []*task.Task, inp
 //
 // Tests use local custom schemas (chooseTestSchema, newCustomExecutor's
 // registered fields) that are NOT mirrored in the global workflow registry.
-// tiki.ToTask consults that global registry and would route these local
-// custom fields to UnknownFields — breaking assertions like
-// updated.CustomFields["severity"]. The test shim here is deliberately
-// more permissive than production ToTask: every non-schema-known Fields
-// key lands in CustomFields so assertion ergonomics stay intact. Tests
-// that specifically exercise the Custom/Unknown split exercise
-// tiki.ToTask directly instead.
+// This shim is deliberately more permissive: every non-schema-known field
+// lands in CustomFields so assertion ergonomics stay intact.
 func tikisToTasks(tks []*tiki.Tiki) []*task.Task {
 	out := make([]*task.Task, 0, len(tks))
 	for _, tk := range tks {
@@ -131,20 +147,73 @@ func tikisToTasks(tks []*tiki.Tiki) []*task.Task {
 }
 
 func tikiToTaskForTest(tk *tiki.Tiki) *task.Task {
-	t := tiki.ToTask(tk)
-	if t == nil {
+	if tk == nil {
 		return nil
 	}
-	// Merge UnknownFields into CustomFields for test assertions — see
-	// tikisToTasks docstring.
-	if len(t.UnknownFields) > 0 {
-		if t.CustomFields == nil {
-			t.CustomFields = map[string]interface{}{}
+	createdBy := ""
+	if s, _, _ := tk.StringField("createdBy"); s != "" {
+		createdBy = s
+	}
+	t := &task.Task{
+		ID:         tk.ID,
+		Title:      tk.Title,
+		CreatedBy:  createdBy,
+		CreatedAt:  tk.CreatedAt,
+		UpdatedAt:  tk.UpdatedAt,
+		FilePath:   tk.Path,
+		IsWorkflow: false,
+	}
+
+	if v, ok, _ := tk.StringField(tiki.FieldStatus); ok {
+		t.Status = task.Status(v)
+	}
+	if v, ok, _ := tk.StringField(tiki.FieldType); ok {
+		t.Type = task.Type(v)
+	}
+	if v, ok, _ := tk.IntField(tiki.FieldPriority); ok {
+		t.Priority = v
+	}
+	if v, ok, _ := tk.IntField(tiki.FieldPoints); ok {
+		t.Points = v
+	}
+	if v, ok, _ := tk.StringField(tiki.FieldAssignee); ok {
+		t.Assignee = v
+	}
+	if v, ok, _ := tk.TimeField(tiki.FieldDue); ok {
+		t.Due = v
+	}
+	if v, ok, _ := tk.StringField(tiki.FieldRecurrence); ok {
+		t.Recurrence = task.Recurrence(v)
+	}
+	if v, ok, _ := tk.StringSliceField(tiki.FieldTags); ok {
+		t.Tags = v
+	}
+	if v, ok, _ := tk.StringSliceField(tiki.FieldDependsOn); ok {
+		t.DependsOn = v
+	}
+	t.Description = tk.Body
+
+	// IsWorkflow mirrors the old ToTask behavior: true when any schema-known
+	// field is present in the tiki map.
+	for _, f := range tiki.SchemaKnownFields {
+		if tk.Has(f) {
+			t.IsWorkflow = true
+			break
 		}
-		for k, v := range t.UnknownFields {
+	}
+
+	// collect all non-schema-known fields into CustomFields for test assertions
+	schemaSet := make(map[string]bool, len(tiki.SchemaKnownFields))
+	for _, f := range tiki.SchemaKnownFields {
+		schemaSet[f] = true
+	}
+	for k, v := range tk.Fields {
+		if !schemaSet[k] {
+			if t.CustomFields == nil {
+				t.CustomFields = map[string]interface{}{}
+			}
 			t.CustomFields[k] = v
 		}
-		t.UnknownFields = nil
 	}
 	return t
 }
@@ -152,10 +221,7 @@ func tikiToTaskForTest(tk *tiki.Tiki) *task.Task {
 // testExec is a thin task-shaped wrapper around Executor.Execute: accepts
 // []*task.Task for fixture compatibility, converts to tikis for the real
 // call, and converts result-bearing variants back so existing test
-// assertions keep working. Call sites should treat it as a drop-in
-// replacement for the old task-shaped Execute method; tests that need to
-// inspect the tiki-shaped result directly should call Execute with
-// tikisFromTasks explicitly.
+// assertions keep working.
 func (e *Executor) testExec(stmt any, tasks []*task.Task, inputs ...ExecutionInput) (*testResult, error) {
 	result, err := e.Execute(stmt, tikisFromTasks(tasks), inputs...)
 	if err != nil {
@@ -215,7 +281,7 @@ func wrapResult(r *Result) *testResult {
 		out.Update = &testUpdate{Updated: tikisToTasks(r.Update.Updated)}
 	}
 	if r.Create != nil {
-		out.Create = &testCreate{Task: tiki.ToTask(r.Create.Tiki)}
+		out.Create = &testCreate{Task: tikiToTaskForTest(r.Create.Tiki)}
 	}
 	if r.Delete != nil {
 		out.Delete = &testDelete{Deleted: tikisToTasks(r.Delete.Deleted)}

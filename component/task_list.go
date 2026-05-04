@@ -8,7 +8,7 @@ import (
 	"github.com/rivo/tview"
 
 	"github.com/boolean-maybe/tiki/config"
-	"github.com/boolean-maybe/tiki/task"
+	tikipkg "github.com/boolean-maybe/tiki/tiki"
 	"github.com/boolean-maybe/tiki/util"
 	"github.com/boolean-maybe/tiki/util/gradient"
 )
@@ -38,22 +38,23 @@ func DefaultTaskRowColors() TaskRowColors {
 	}
 }
 
-// RenderTaskRow builds a tview-tagged string for a single task row.
-func RenderTaskRow(t *task.Task, selected bool, width int, idColumnWidth int, colors TaskRowColors) string {
+// RenderTaskRow builds a tview-tagged string for a single tiki row.
+func RenderTaskRow(tk *tikipkg.Tiki, selected bool, width int, idColumnWidth int, colors TaskRowColors) string {
+	status, _, _ := tk.StringField(tikipkg.FieldStatus)
 	var statusIndicator string
-	if config.GetStatusRegistry().IsDone(string(t.Status)) {
+	if config.GetStatusRegistry().IsDone(status) {
 		statusIndicator = colors.StatusDoneColor.Tag().String() + "✓[-]"
 	} else {
 		statusIndicator = colors.StatusPendingColor.Tag().String() + "○[-]"
 	}
 
-	idText := gradient.RenderAdaptiveGradientText(t.ID, colors.IDGradient, colors.IDFallback)
-	if padding := idColumnWidth - len(t.ID); padding > 0 {
+	idText := gradient.RenderAdaptiveGradientText(tk.ID, colors.IDGradient, colors.IDFallback)
+	if padding := idColumnWidth - len(tk.ID); padding > 0 {
 		idText += fmt.Sprintf("%*s", padding, "")
 	}
 
 	titleAvailable := max(width-1-1-idColumnWidth-1, 0)
-	truncatedTitle := tview.Escape(util.TruncateText(t.Title, titleAvailable))
+	truncatedTitle := tview.Escape(util.TruncateText(tk.Title, titleAvailable))
 
 	row := fmt.Sprintf("%s %s %s%s", statusIndicator, idText, colors.TitleColor.Tag().String(), truncatedTitle)
 
@@ -69,23 +70,23 @@ func RenderTaskRow(t *task.Task, selected bool, width int, idColumnWidth int, co
 	return row + "[-:-:-]"
 }
 
-// ComputeIDColumnWidth returns the width needed for the widest task ID.
-func ComputeIDColumnWidth(tasks []*task.Task) int {
+// ComputeIDColumnWidth returns the width needed for the widest tiki ID.
+func ComputeIDColumnWidth(tikis []*tikipkg.Tiki) int {
 	w := 0
-	for _, t := range tasks {
-		if len(t.ID) > w {
-			w = len(t.ID)
+	for _, tk := range tikis {
+		if len(tk.ID) > w {
+			w = len(tk.ID)
 		}
 	}
 	return w
 }
 
-// TaskList displays tasks in a compact tabular format with three columns:
+// TaskList displays tikis in a compact tabular format with three columns:
 // status indicator, tiki ID (gradient-rendered), and title.
 // It supports configurable visible row count, scrolling, and row selection.
 type TaskList struct {
 	*tview.Box
-	tasks              []*task.Task
+	tikis              []*tikipkg.Tiki
 	maxVisibleRows     int
 	scrollOffset       int
 	selectionIndex     int
@@ -115,9 +116,9 @@ func NewTaskList(maxVisibleRows int) *TaskList {
 	}
 }
 
-// SetTasks replaces the task data, recomputes the ID column width, and clamps scroll/selection.
-func (tl *TaskList) SetTasks(tasks []*task.Task) *TaskList {
-	tl.tasks = tasks
+// SetTasks replaces the tiki data, recomputes the ID column width, and clamps scroll/selection.
+func (tl *TaskList) SetTasks(tikis []*tikipkg.Tiki) *TaskList {
+	tl.tikis = tikis
 	tl.recomputeIDColumnWidth()
 	tl.clampSelection()
 	tl.clampScroll()
@@ -137,12 +138,12 @@ func (tl *TaskList) GetSelectedIndex() int {
 	return tl.selectionIndex
 }
 
-// GetSelectedTask returns the currently selected task, or nil if none.
-func (tl *TaskList) GetSelectedTask() *task.Task {
-	if tl.selectionIndex < 0 || tl.selectionIndex >= len(tl.tasks) {
+// GetSelectedTask returns the currently selected tiki, or nil if none.
+func (tl *TaskList) GetSelectedTask() *tikipkg.Tiki {
+	if tl.selectionIndex < 0 || tl.selectionIndex >= len(tl.tikis) {
 		return nil
 	}
-	return tl.tasks[tl.selectionIndex]
+	return tl.tikis[tl.selectionIndex]
 }
 
 // ScrollUp moves the selection up by one row.
@@ -155,7 +156,7 @@ func (tl *TaskList) ScrollUp() {
 
 // ScrollDown moves the selection down by one row.
 func (tl *TaskList) ScrollDown() {
-	if tl.selectionIndex < len(tl.tasks)-1 {
+	if tl.selectionIndex < len(tl.tikis)-1 {
 		tl.selectionIndex++
 		tl.ensureSelectionVisible()
 	}
@@ -179,7 +180,7 @@ func (tl *TaskList) Draw(screen tcell.Screen) {
 	tl.DrawForSubclass(screen, tl)
 
 	x, y, width, height := tl.GetInnerRect()
-	if width <= 0 || height <= 0 || len(tl.tasks) == 0 {
+	if width <= 0 || height <= 0 || len(tl.tikis) == 0 {
 		return
 	}
 
@@ -189,18 +190,18 @@ func (tl *TaskList) Draw(screen tcell.Screen) {
 
 	for i := range visibleRows {
 		itemIndex := tl.scrollOffset + i
-		if itemIndex >= len(tl.tasks) {
+		if itemIndex >= len(tl.tikis) {
 			break
 		}
 
-		t := tl.tasks[itemIndex]
-		row := tl.buildRow(t, itemIndex == tl.selectionIndex, width)
+		tk := tl.tikis[itemIndex]
+		row := tl.buildRow(tk, itemIndex == tl.selectionIndex, width)
 		tview.Print(screen, row, x, y+i, width, tview.AlignLeft, tcell.ColorDefault)
 	}
 }
 
-func (tl *TaskList) buildRow(t *task.Task, selected bool, width int) string {
-	return RenderTaskRow(t, selected, width, tl.idColumnWidth, TaskRowColors{
+func (tl *TaskList) buildRow(tk *tikipkg.Tiki, selected bool, width int) string {
+	return RenderTaskRow(tk, selected, width, tl.idColumnWidth, TaskRowColors{
 		IDGradient:         tl.idGradient,
 		IDFallback:         tl.idFallback,
 		TitleColor:         tl.titleColor,
@@ -213,7 +214,7 @@ func (tl *TaskList) buildRow(t *task.Task, selected bool, width int) string {
 
 // ensureSelectionVisible adjusts scrollOffset so the selected row is within the viewport.
 func (tl *TaskList) ensureSelectionVisible() {
-	if len(tl.tasks) == 0 {
+	if len(tl.tikis) == 0 {
 		return
 	}
 
@@ -243,27 +244,27 @@ func (tl *TaskList) visibleRowCount(height int) int {
 	if tl.maxVisibleRows > 0 && maxVisible > tl.maxVisibleRows {
 		maxVisible = tl.maxVisibleRows
 	}
-	if maxVisible > len(tl.tasks) {
-		maxVisible = len(tl.tasks)
+	if maxVisible > len(tl.tikis) {
+		maxVisible = len(tl.tikis)
 	}
 	return maxVisible
 }
 
 func (tl *TaskList) recomputeIDColumnWidth() {
-	tl.idColumnWidth = ComputeIDColumnWidth(tl.tasks)
+	tl.idColumnWidth = ComputeIDColumnWidth(tl.tikis)
 }
 
-// clampSelection ensures selectionIndex is within [0, len(tasks)-1].
+// clampSelection ensures selectionIndex is within [0, len(tikis)-1].
 func (tl *TaskList) clampSelection() {
-	if len(tl.tasks) == 0 {
+	if len(tl.tikis) == 0 {
 		tl.selectionIndex = 0
 		return
 	}
 	if tl.selectionIndex < 0 {
 		tl.selectionIndex = 0
 	}
-	if tl.selectionIndex >= len(tl.tasks) {
-		tl.selectionIndex = len(tl.tasks) - 1
+	if tl.selectionIndex >= len(tl.tikis) {
+		tl.selectionIndex = len(tl.tikis) - 1
 	}
 }
 
@@ -279,7 +280,7 @@ func (tl *TaskList) clampScroll() {
 		return
 	}
 
-	maxOffset := max(len(tl.tasks)-maxVisible, 0)
+	maxOffset := max(len(tl.tikis)-maxVisible, 0)
 	if tl.scrollOffset > maxOffset {
 		tl.scrollOffset = maxOffset
 	}

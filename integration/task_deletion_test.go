@@ -53,7 +53,7 @@ func TestTaskDeletion_FromKanban(t *testing.T) {
 		t.Fatalf("failed to reload: %v", err)
 	}
 
-	task := ta.TaskStore.GetTask("000001")
+	task := ta.TaskStore.GetTiki("000001")
 	if task != nil {
 		t.Errorf("TIKI-1 should be deleted from store")
 	}
@@ -164,7 +164,7 @@ func TestTaskDeletion_LastTaskInLane(t *testing.T) {
 	}
 
 	// Verify task deleted
-	task := ta.TaskStore.GetTask("000001")
+	task := ta.TaskStore.GetTiki("000001")
 	if task != nil {
 		t.Errorf("TIKI-1 should be deleted")
 	}
@@ -190,9 +190,9 @@ func TestTaskDeletion_MultipleSequential(t *testing.T) {
 	}
 
 	// Create five tasks
-	for i := 1; i <= 5; i++ {
-		taskID := fmt.Sprintf("TIKI-%d", i)
-		title := fmt.Sprintf("Task %d", i)
+	taskIDs := []string{"SEQ001", "SEQ002", "SEQ003", "SEQ004", "SEQ005"}
+	for i, taskID := range taskIDs {
+		title := fmt.Sprintf("Task %d", i+1)
 		if err := testutil.CreateTestTask(ta.TaskDir, taskID, title, taskpkg.StatusReady, taskpkg.TypeStory); err != nil {
 			t.Fatalf("failed to create task: %v", err)
 		}
@@ -219,16 +219,16 @@ func TestTaskDeletion_MultipleSequential(t *testing.T) {
 		t.Fatalf("failed to reload: %v", err)
 	}
 
-	allTasks := ta.TaskStore.GetAllTasks()
+	allTasks := ta.TaskStore.GetAllTikis()
 	if len(allTasks) != 2 {
 		t.Errorf("expected 2 tasks remaining, got %d", len(allTasks))
 	}
 
-	// Verify TIKI-4 and TIKI-5 still exist
-	task4 := ta.TaskStore.GetTask("000004")
-	task5 := ta.TaskStore.GetTask("000005")
+	// Verify SEQ004 and SEQ005 still exist
+	task4 := ta.TaskStore.GetTiki("SEQ004")
+	task5 := ta.TaskStore.GetTiki("SEQ005")
 	if task4 == nil || task5 == nil {
-		t.Errorf("TIKI-4 and TIKI-5 should still exist")
+		t.Errorf("SEQ004 and SEQ005 should still exist")
 	}
 }
 
@@ -272,7 +272,7 @@ func TestTaskDeletion_FromDifferentLane(t *testing.T) {
 		t.Fatalf("failed to reload: %v", err)
 	}
 
-	task := ta.TaskStore.GetTask("000001")
+	task := ta.TaskStore.GetTiki("000001")
 	if task != nil {
 		t.Errorf("TIKI-1 should be deleted")
 	}
@@ -315,7 +315,7 @@ func TestTaskDeletion_CannotDeleteFromTaskDetail(t *testing.T) {
 		t.Fatalf("failed to reload: %v", err)
 	}
 
-	task := ta.TaskStore.GetTask("000001")
+	task := ta.TaskStore.GetTiki("000001")
 	if task == nil {
 		t.Errorf("TIKI-1 should NOT be deleted from task detail view")
 	}
@@ -363,15 +363,15 @@ func TestTaskDeletion_WithMultipleLanes(t *testing.T) {
 	}
 
 	// Verify TIKI-1 deleted
-	if ta.TaskStore.GetTask("000001") != nil {
+	if ta.TaskStore.GetTiki("000001") != nil {
 		t.Errorf("TIKI-1 should be deleted")
 	}
 
 	// Verify TIKI-2 and TIKI-3 still exist (in other lanes)
-	if ta.TaskStore.GetTask("000002") == nil {
+	if ta.TaskStore.GetTiki("000002") == nil {
 		t.Errorf("TIKI-2 (in different lane) should still exist")
 	}
-	if ta.TaskStore.GetTask("000003") == nil {
+	if ta.TaskStore.GetTiki("000003") == nil {
 		t.Errorf("TIKI-3 (in different lane) should still exist")
 	}
 }

@@ -67,7 +67,7 @@ func TestTaskDetailView_ChatModifiesTask(t *testing.T) {
 	ta.SendKey(tcell.KeyRune, 'c', tcell.ModNone)
 
 	// verify task was reloaded with the modified title
-	updated := ta.TaskStore.GetTask(taskID)
+	updated := ta.TaskStore.GetTiki(taskID)
 	if updated == nil {
 		t.Fatal("task not found after chat")
 		return
@@ -116,12 +116,12 @@ func TestTaskDetailView_ChatNotAvailableWithoutConfig(t *testing.T) {
 	}
 
 	// verify task is unchanged
-	task := ta.TaskStore.GetTask(taskID)
-	if task == nil {
+	unchanged := ta.TaskStore.GetTiki(taskID)
+	if unchanged == nil {
 		t.Fatal("task not found")
 		return
 	}
-	if task.Title != "Unchanged Title" {
-		t.Errorf("title = %q, want %q", task.Title, "Unchanged Title")
+	if unchanged.Title != "Unchanged Title" {
+		t.Errorf("title = %q, want %q", unchanged.Title, "Unchanged Title")
 	}
 }

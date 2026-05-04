@@ -6,7 +6,7 @@ import (
 	"github.com/boolean-maybe/tiki/model"
 	"github.com/boolean-maybe/tiki/service"
 	"github.com/boolean-maybe/tiki/store"
-	"github.com/boolean-maybe/tiki/task"
+	tikipkg "github.com/boolean-maybe/tiki/tiki"
 
 	"github.com/gdamore/tcell/v2"
 	"github.com/rivo/tview"
@@ -97,7 +97,7 @@ func TestTaskEditCoordinator_HandleKey_Escape(t *testing.T) {
 	gate.SetStore(taskStore)
 	nav := newMockNavigationController()
 	tc := NewTaskController(taskStore, gate, nav, nil)
-	tc.SetDraft(newTestTask())
+	tc.SetDraft(newTestTiki())
 
 	coord := NewTaskEditCoordinator(nav, tc)
 	event := tcell.NewEventKey(tcell.KeyEscape, 0, tcell.ModNone)
@@ -107,7 +107,7 @@ func TestTaskEditCoordinator_HandleKey_Escape(t *testing.T) {
 		t.Error("HandleKey(Escape) should return true")
 	}
 
-	if tc.GetDraftTask() != nil {
+	if tc.GetDraftTiki() != nil {
 		t.Error("Escape should clear draft task")
 	}
 }
@@ -121,7 +121,7 @@ func TestTaskEditCoordinator_Commit_SavesTags(t *testing.T) {
 	nav := newMockNavigationController()
 	tc := NewTaskController(taskStore, gate, nav, nil)
 
-	draft := newTestTask()
+	draft := newTestTiki()
 	draft.Title = "Tagged Task"
 	tc.SetDraft(draft)
 
@@ -138,13 +138,14 @@ func TestTaskEditCoordinator_Commit_SavesTags(t *testing.T) {
 	}
 
 	// verify task was committed to store with correct tags
-	saved := taskStore.GetTask(draft.ID)
+	saved := taskStore.GetTiki(draft.ID)
 	if saved == nil {
 		t.Fatal("task not found in store after commit")
 		return
 	}
-	if len(saved.Tags) != 2 || saved.Tags[0] != "api" || saved.Tags[1] != "backend" {
-		t.Errorf("saved tags = %v, want [api backend]", saved.Tags)
+	savedTags, _, _ := saved.StringSliceField("tags")
+	if len(savedTags) != 2 || savedTags[0] != "api" || savedTags[1] != "backend" {
+		t.Errorf("saved tags = %v, want [api backend]", savedTags)
 	}
 }
 
@@ -169,7 +170,7 @@ func TestTaskEditCoordinator_Commit_ValidationFails(t *testing.T) {
 	sl := model.NewStatuslineConfig()
 	nav := newMockNavigationController()
 	tc := NewTaskController(taskStore, gate, nav, sl)
-	tc.SetDraft(newTestTask())
+	tc.SetDraft(newTestTiki())
 
 	coord := NewTaskEditCoordinator(nav, tc)
 	view := &mockValidatableEditView{
@@ -206,7 +207,7 @@ func TestTaskEditCoordinator_Commit_ValidationMultipleErrors(t *testing.T) {
 	sl := model.NewStatuslineConfig()
 	nav := newMockNavigationController()
 	tc := NewTaskController(taskStore, gate, nav, sl)
-	tc.SetDraft(newTestTask())
+	tc.SetDraft(newTestTiki())
 
 	coord := NewTaskEditCoordinator(nav, tc)
 	view := &mockValidatableEditView{
@@ -239,7 +240,7 @@ func TestTaskEditCoordinator_Commit_ValidationFailsNilStatusline(t *testing.T) {
 	gate.SetStore(taskStore)
 	nav := newMockNavigationController()
 	tc := NewTaskController(taskStore, gate, nav, nil)
-	tc.SetDraft(newTestTask())
+	tc.SetDraft(newTestTiki())
 
 	coord := NewTaskEditCoordinator(nav, tc)
 	view := &mockValidatableEditView{
@@ -387,7 +388,7 @@ func TestTaskEditCoordinator_Commit_ErrorDisplaysStatusline(t *testing.T) {
 	taskStore := store.NewInMemoryStore()
 	gate := service.NewTaskMutationGate()
 	gate.SetStore(taskStore)
-	gate.OnUpdate(func(_, _ *task.Task, _ []*task.Task) *service.Rejection {
+	gate.OnUpdate(func(_, _ *tikipkg.Tiki, _ []*tikipkg.Tiki) *service.Rejection {
 		return &service.Rejection{Reason: "blocked by trigger"}
 	})
 
@@ -396,7 +397,7 @@ func TestTaskEditCoordinator_Commit_ErrorDisplaysStatusline(t *testing.T) {
 	tc := NewTaskController(taskStore, gate, nav, sl)
 
 	original := newTestTask()
-	_ = taskStore.CreateTask(original)
+	_ = taskStore.CreateTiki(original)
 	tc.StartEditSession(original.ID)
 
 	coord := NewTaskEditCoordinator(nav, tc)
@@ -427,7 +428,7 @@ func TestTaskEditCoordinator_Commit_ErrorNilStatuslineNoOp(t *testing.T) {
 	taskStore := store.NewInMemoryStore()
 	gate := service.NewTaskMutationGate()
 	gate.SetStore(taskStore)
-	gate.OnUpdate(func(_, _ *task.Task, _ []*task.Task) *service.Rejection {
+	gate.OnUpdate(func(_, _ *tikipkg.Tiki, _ []*tikipkg.Tiki) *service.Rejection {
 		return &service.Rejection{Reason: "blocked"}
 	})
 
@@ -435,7 +436,7 @@ func TestTaskEditCoordinator_Commit_ErrorNilStatuslineNoOp(t *testing.T) {
 	tc := NewTaskController(taskStore, gate, nav, nil) // nil statusline
 
 	original := newTestTask()
-	_ = taskStore.CreateTask(original)
+	_ = taskStore.CreateTiki(original)
 	tc.StartEditSession(original.ID)
 
 	coord := NewTaskEditCoordinator(nav, tc)
@@ -456,10 +457,10 @@ func TestTaskEditCoordinator_Commit_MultipleRejectionsDisplayCleanly(t *testing.
 	taskStore := store.NewInMemoryStore()
 	gate := service.NewTaskMutationGate()
 	gate.SetStore(taskStore)
-	gate.OnUpdate(func(_, _ *task.Task, _ []*task.Task) *service.Rejection {
+	gate.OnUpdate(func(_, _ *tikipkg.Tiki, _ []*tikipkg.Tiki) *service.Rejection {
 		return &service.Rejection{Reason: "WIP limit reached"}
 	})
-	gate.OnUpdate(func(_, _ *task.Task, _ []*task.Task) *service.Rejection {
+	gate.OnUpdate(func(_, _ *tikipkg.Tiki, _ []*tikipkg.Tiki) *service.Rejection {
 		return &service.Rejection{Reason: "blocked by freeze"}
 	})
 
@@ -468,7 +469,7 @@ func TestTaskEditCoordinator_Commit_MultipleRejectionsDisplayCleanly(t *testing.
 	tc := NewTaskController(taskStore, gate, nav, sl)
 
 	original := newTestTask()
-	_ = taskStore.CreateTask(original)
+	_ = taskStore.CreateTiki(original)
 	tc.StartEditSession(original.ID)
 
 	coord := NewTaskEditCoordinator(nav, tc)

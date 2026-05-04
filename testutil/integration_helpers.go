@@ -13,7 +13,7 @@ import (
 	"github.com/boolean-maybe/tiki/service"
 	"github.com/boolean-maybe/tiki/store"
 	"github.com/boolean-maybe/tiki/store/tikistore"
-	taskpkg "github.com/boolean-maybe/tiki/task"
+	tikipkg "github.com/boolean-maybe/tiki/tiki"
 	"github.com/boolean-maybe/tiki/view"
 	"github.com/boolean-maybe/tiki/view/header"
 	"github.com/boolean-maybe/tiki/view/palette"
@@ -387,14 +387,14 @@ func (ta *TestApp) SendText(text string) {
 	}
 }
 
-// EditingTask returns the current in-memory editing copy (if any).
-func (ta *TestApp) EditingTask() *taskpkg.Task {
-	return ta.taskController.GetEditingTask()
+// EditingTiki returns the current in-memory editing copy (if any).
+func (ta *TestApp) EditingTiki() *tikipkg.Tiki {
+	return ta.taskController.GetEditingTiki()
 }
 
-// DraftTask returns the current draft task (if any).
-func (ta *TestApp) DraftTask() *taskpkg.Task {
-	return ta.taskController.GetDraftTask()
+// DraftTiki returns the current draft tiki (if any).
+func (ta *TestApp) DraftTiki() *tikipkg.Tiki {
+	return ta.taskController.GetDraftTiki()
 }
 
 // Cleanup tears down the test app and releases resources

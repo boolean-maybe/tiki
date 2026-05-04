@@ -5,13 +5,15 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	tikipkg "github.com/boolean-maybe/tiki/tiki"
 )
 
 // TestUpdateDocument_BodyEditDoesNotExpandSparseFrontmatter proves the
-// current review finding is closed: a workflow doc loaded with only
-// `status:` present must stay sparse on disk after a body-only
-// UpdateDocument. Before the fix, saveTask always ran the full workflow
-// schema and added `type:`, `priority:`, `points:` etc.
+// current review finding is closed: a workflow tiki loaded with only
+// `status:` present must stay sparse on disk after a body-only UpdateTiki.
+// Before the fix, saveTask always ran the full workflow schema and added
+// `type:`, `priority:`, `points:` etc.
 func TestUpdateDocument_BodyEditDoesNotExpandSparseFrontmatter(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
 	tmp := t.TempDir()
@@ -28,14 +30,15 @@ func TestUpdateDocument_BodyEditDoesNotExpandSparseFrontmatter(t *testing.T) {
 		t.Fatalf("NewTikiStore: %v", err)
 	}
 
-	// Body-only edit through the document API.
-	doc := s.GetDocument("SPARSE")
-	if doc == nil {
-		t.Fatal("GetDocument: nil")
+	// Body-only edit through the tiki API.
+	tk := s.GetTiki("SPARSE")
+	if tk == nil {
+		t.Fatal("GetTiki: nil")
 	}
-	doc.Body = "body v2\n"
-	if err := s.UpdateDocument(doc); err != nil {
-		t.Fatalf("UpdateDocument: %v", err)
+	updated := tk.Clone()
+	updated.Body = "body v2\n"
+	if err := s.UpdateTiki(updated); err != nil {
+		t.Fatalf("UpdateTiki: %v", err)
 	}
 
 	data, err := os.ReadFile(sparsePath)
@@ -55,30 +58,30 @@ func TestUpdateDocument_BodyEditDoesNotExpandSparseFrontmatter(t *testing.T) {
 		}
 	}
 
-	// And a reload must keep the doc classified as workflow with only
+	// And a reload must keep the tiki classified as workflow with only
 	// status present — not gain any defaulted keys the next time around.
 	if err := s.Reload(); err != nil {
 		t.Fatalf("Reload: %v", err)
 	}
-	doc2 := s.GetDocument("SPARSE")
-	if doc2 == nil {
-		t.Fatal("GetDocument after reload: nil")
+	tk2 := s.GetTiki("SPARSE")
+	if tk2 == nil {
+		t.Fatal("GetTiki after reload: nil")
 	}
-	if _, has := doc2.Frontmatter["status"]; !has {
+	if _, has := tk2.Fields[tikipkg.FieldStatus]; !has {
 		t.Error("status missing after reload")
 	}
 	for _, k := range []string{"type", "priority", "points", "tags", "dependsOn", "assignee", "recurrence", "due"} {
-		if _, has := doc2.Frontmatter[k]; has {
-			t.Errorf("key %q reappeared after reload: %v", k, doc2.Frontmatter[k])
+		if _, has := tk2.Fields[k]; has {
+			t.Errorf("key %q reappeared after reload: %v", k, tk2.Fields[k])
 		}
 	}
 }
 
-// TestUpdateTask_TypedEditOnSparseDocGrowsPresenceSetOnlyForEditedKey
-// verifies the task-API path: ruki/UI callers set a typed field, and that
-// field (and only that field) grows the presence set. Other absent workflow
-// keys stay absent.
-func TestUpdateTask_TypedEditOnSparseDocGrowsPresenceSetOnlyForEditedKey(t *testing.T) {
+// TestUpdateTiki_TypedEditOnSparseDocGrowsPresenceSetOnlyForEditedKey
+// verifies the tiki-native path: setting a single typed field on a sparse
+// workflow tiki grows the presence set for only that field. Other absent
+// workflow keys stay absent.
+func TestUpdateTiki_TypedEditOnSparseDocGrowsPresenceSetOnlyForEditedKey(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
 	tmp := t.TempDir()
 
@@ -93,13 +96,17 @@ func TestUpdateTask_TypedEditOnSparseDocGrowsPresenceSetOnlyForEditedKey(t *test
 		t.Fatalf("NewTikiStore: %v", err)
 	}
 
-	// Task-API edit: change priority (was absent from file, defaulted to 3
-	// on load per the current load-path behavior). Simulate a ruki-style
-	// caller that sets the typed field explicitly.
-	loaded := s.GetTask("SPARSE").Clone()
-	loaded.Priority = 1 // genuine user edit — was defaulted 3
-	if err := s.UpdateTask(loaded); err != nil {
-		t.Fatalf("UpdateTask: %v", err)
+	// Tiki-native edit: change priority (was absent from file). Clone the
+	// loaded tiki and set only priority — exact-presence writes only the
+	// fields present in Fields.
+	loaded := s.GetTiki("SPARSE")
+	if loaded == nil {
+		t.Fatal("GetTiki: nil")
+	}
+	updated := loaded.Clone()
+	updated.Set(tikipkg.FieldPriority, 1)
+	if err := s.UpdateTiki(updated); err != nil {
+		t.Fatalf("UpdateTiki: %v", err)
 	}
 
 	data, _ := os.ReadFile(sparsePath)
@@ -120,7 +127,7 @@ func TestUpdateTask_TypedEditOnSparseDocGrowsPresenceSetOnlyForEditedKey(t *test
 }
 
 // TestSaveTask_NewInMemoryWorkflowTaskUsesFullSchema verifies the fallback
-// path: a brand-new workflow task (created in code, no preserved
+// path: a brand-new workflow tiki (created in code, no preserved
 // frontmatter) serializes with the full workflow schema so boards and lists
 // continue to see complete metadata. The sparse path only kicks in when
 // there is a preserved presence set to honor.
@@ -132,13 +139,13 @@ func TestSaveTask_NewInMemoryWorkflowTaskUsesFullSchema(t *testing.T) {
 		t.Fatalf("NewTikiStore: %v", err)
 	}
 
-	tk, err := s.NewTaskTemplate()
+	tk, err := s.NewTikiTemplate()
 	if err != nil {
-		t.Fatalf("NewTaskTemplate: %v", err)
+		t.Fatalf("NewTikiTemplate: %v", err)
 	}
 	tk.Title = "new one"
-	if err := s.CreateTask(tk); err != nil {
-		t.Fatalf("CreateTask: %v", err)
+	if err := s.CreateTiki(tk); err != nil {
+		t.Fatalf("CreateTiki: %v", err)
 	}
 
 	data, err := os.ReadFile(filepath.Join(tmp, tk.ID+".md"))
@@ -148,8 +155,7 @@ func TestSaveTask_NewInMemoryWorkflowTaskUsesFullSchema(t *testing.T) {
 	contents := string(data)
 	for _, required := range []string{"status:", "type:", "priority:"} {
 		if !strings.Contains(contents, required) {
-			t.Errorf("new workflow task missing required %q; contents:\n%s", required, contents)
+			t.Errorf("new workflow tiki missing required %q; contents:\n%s", required, contents)
 		}
 	}
-
 }

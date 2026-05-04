@@ -9,7 +9,7 @@ import (
 	"github.com/boolean-maybe/tiki/model"
 	"github.com/boolean-maybe/tiki/plugin"
 	"github.com/boolean-maybe/tiki/store"
-	"github.com/boolean-maybe/tiki/task"
+	tikipkg "github.com/boolean-maybe/tiki/tiki"
 )
 
 func TestPluginViewRefreshResetsNonSelectedLaneScrollOffset(t *testing.T) {
@@ -27,17 +27,15 @@ func TestPluginViewRefreshResetsNonSelectedLaneScrollOffset(t *testing.T) {
 		},
 	}
 
-	tasks := make([]*task.Task, 10)
+	tasks := make([]*tikipkg.Tiki, 10)
 	for i := range tasks {
-		tasks[i] = &task.Task{
-			ID:     fmt.Sprintf("T-%d", i),
-			Title:  fmt.Sprintf("Task %d", i),
-			Status: task.StatusReady,
-			Type:   task.TypeStory,
-		}
+		tk := tikipkg.New()
+		tk.ID = fmt.Sprintf("T-%d", i)
+		tk.Title = fmt.Sprintf("Task %d", i)
+		tasks[i] = tk
 	}
 
-	pv := NewPluginView(taskStore, pluginConfig, pluginDef, func(lane int) []*task.Task {
+	pv := NewPluginView(taskStore, pluginConfig, pluginDef, func(lane int) []*tikipkg.Tiki {
 		return tasks
 	}, nil, controller.PluginViewActions(), true)
 
@@ -97,17 +95,15 @@ func TestPluginViewGridLayout_RowCount(t *testing.T) {
 				Lanes:      []plugin.TikiLane{{Name: "Lane", Columns: tt.columns}},
 			}
 
-			tasks := make([]*task.Task, tt.numTasks)
+			tasks := make([]*tikipkg.Tiki, tt.numTasks)
 			for i := range tasks {
-				tasks[i] = &task.Task{
-					ID:     fmt.Sprintf("T-%d", i),
-					Title:  fmt.Sprintf("Task %d", i),
-					Status: task.StatusReady,
-					Type:   task.TypeStory,
-				}
+				tk := tikipkg.New()
+				tk.ID = fmt.Sprintf("T-%d", i)
+				tk.Title = fmt.Sprintf("Task %d", i)
+				tasks[i] = tk
 			}
 
-			pv := NewPluginView(taskStore, pluginConfig, pluginDef, func(lane int) []*task.Task {
+			pv := NewPluginView(taskStore, pluginConfig, pluginDef, func(lane int) []*tikipkg.Tiki {
 				return tasks
 			}, nil, controller.PluginViewActions(), true)
 
@@ -145,17 +141,15 @@ func TestPluginViewGridLayout_SelectedRow(t *testing.T) {
 				Lanes:      []plugin.TikiLane{{Name: "Lane", Columns: tt.columns}},
 			}
 
-			tasks := make([]*task.Task, tt.numTasks)
+			tasks := make([]*tikipkg.Tiki, tt.numTasks)
 			for i := range tasks {
-				tasks[i] = &task.Task{
-					ID:     fmt.Sprintf("T-%d", i),
-					Title:  fmt.Sprintf("Task %d", i),
-					Status: task.StatusReady,
-					Type:   task.TypeStory,
-				}
+				tk := tikipkg.New()
+				tk.ID = fmt.Sprintf("T-%d", i)
+				tk.Title = fmt.Sprintf("Task %d", i)
+				tasks[i] = tk
 			}
 
-			pv := NewPluginView(taskStore, pluginConfig, pluginDef, func(lane int) []*task.Task {
+			pv := NewPluginView(taskStore, pluginConfig, pluginDef, func(lane int) []*tikipkg.Tiki {
 				return tasks
 			}, nil, controller.PluginViewActions(), true)
 
@@ -185,17 +179,15 @@ func TestPluginViewRefreshPreservesScrollOffset(t *testing.T) {
 		},
 	}
 
-	tasks := make([]*task.Task, 10)
+	tasks := make([]*tikipkg.Tiki, 10)
 	for i := range tasks {
-		tasks[i] = &task.Task{
-			ID:     fmt.Sprintf("T-%d", i),
-			Title:  fmt.Sprintf("Task %d", i),
-			Status: task.StatusReady,
-			Type:   task.TypeStory,
-		}
+		tk := tikipkg.New()
+		tk.ID = fmt.Sprintf("T-%d", i)
+		tk.Title = fmt.Sprintf("Task %d", i)
+		tasks[i] = tk
 	}
 
-	pv := NewPluginView(taskStore, pluginConfig, pluginDef, func(lane int) []*task.Task {
+	pv := NewPluginView(taskStore, pluginConfig, pluginDef, func(lane int) []*tikipkg.Tiki {
 		return tasks
 	}, nil, controller.PluginViewActions(), true)
 

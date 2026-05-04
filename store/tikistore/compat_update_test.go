@@ -6,25 +6,14 @@ import (
 	"strings"
 	"testing"
 
-	taskpkg "github.com/boolean-maybe/tiki/task"
+	tikipkg "github.com/boolean-maybe/tiki/tiki"
 )
 
-// TestUpdateTask_FreshPartialTaskDoesNotEraseWorkflowKeys proves the
-// current review finding is closed: a task-shaped compatibility caller
-// that builds a fresh Task value carrying only the fields it cares about
-// must NOT lose existing workflow keys whose typed values it left zero.
-//
-// Pre-fix failure mode: a sparse workflow file contained only
-// `status: ready`. A caller updated only the title with
-// Task{ID, Title}. updateTaskLocked carried IsWorkflow forward, seeded
-// WorkflowFrontmatter={status}, then MergeTypedWorkflowDeltas saw
-// incoming Status=="" differ from old Status=="ready" and DELETED the
-// status key. saveTask then wrote a workflow task with no workflow keys,
-// re-classifying the file as plain on the next load.
-//
-// The fix makes MergeTypedWorkflowDeltas grow-only: zeros on the
-// incoming task mean "caller did not set this" and are ignored.
-func TestUpdateTask_FreshPartialTaskDoesNotEraseWorkflowKeys(t *testing.T) {
+// TestUpdateTiki_SparseWorkflowDocPreservesExistingKeys verifies that
+// UpdateTiki with a full-presence tiki preserves all keys from the original
+// sparse workflow file when they are explicitly set on the incoming tiki.
+// This is the tiki-native equivalent of the old UpdateTask carry-forward test.
+func TestUpdateTiki_SparseWorkflowDocPreservesExistingKeys(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
 	tmp := t.TempDir()
 
@@ -39,13 +28,16 @@ func TestUpdateTask_FreshPartialTaskDoesNotEraseWorkflowKeys(t *testing.T) {
 		t.Fatalf("NewTikiStore: %v", err)
 	}
 
-	// Task-shaped compatibility caller: builds a fresh Task with only the
-	// fields it cares about (ID and new title). Every other typed field is
-	// zero because the caller simply did not populate them. The store must
-	// preserve everything else — path, mtime, IsWorkflow, AND the sparse
-	// workflow presence set.
-	if err := s.UpdateTask(&taskpkg.Task{ID: "SPARSE", Title: "v2"}); err != nil {
-		t.Fatalf("UpdateTask: %v", err)
+	// tiki-native update: load the stored tiki and update only the title,
+	// leaving all other fields (including status) intact.
+	stored := s.GetTiki("SPARSE")
+	if stored == nil {
+		t.Fatal("GetTiki = nil")
+	}
+	updated := stored.Clone()
+	updated.Title = "v2"
+	if err := s.UpdateTiki(updated); err != nil {
+		t.Fatalf("UpdateTiki: %v", err)
 	}
 
 	data, err := os.ReadFile(sparsePath)
@@ -55,29 +47,28 @@ func TestUpdateTask_FreshPartialTaskDoesNotEraseWorkflowKeys(t *testing.T) {
 	contents := string(data)
 
 	if !strings.Contains(contents, "status: ready") {
-		t.Errorf("status key erased by partial UpdateTask; contents:\n%s", contents)
+		t.Errorf("status key erased by UpdateTiki; contents:\n%s", contents)
 	}
 	if !strings.Contains(contents, "title: v2") {
 		t.Errorf("title edit did not persist; contents:\n%s", contents)
 	}
 
-	// Reload must still classify as workflow — the pre-fix bug wrote the
-	// file with no workflow keys so it reloaded as plain.
+	// Reload must still classify as workflow.
 	if err := s.Reload(); err != nil {
 		t.Fatalf("Reload: %v", err)
 	}
-	if tk := s.GetTask("SPARSE"); tk == nil {
-		t.Fatal("GetTask after reload = nil")
-	} else if !tk.IsWorkflow {
-		t.Error("sparse workflow doc demoted to plain across partial UpdateTask + reload")
+	if tk := s.GetTiki("SPARSE"); tk == nil {
+		t.Fatal("GetTiki after reload = nil")
+	} else if !hasAnyWorkflowField(tk) {
+		t.Error("sparse workflow doc demoted to plain across UpdateTiki + reload")
 	}
 }
 
-// TestUpdateTask_FreshPartialTaskPreservesEveryWorkflowKey extends the
-// case above to a fuller workflow doc: a file with status, type, and
-// priority present. A partial UpdateTask that only changes the title must
-// preserve all three.
-func TestUpdateTask_FreshPartialTaskPreservesEveryWorkflowKey(t *testing.T) {
+// TestUpdateTiki_FullWorkflowDocPreservesEveryKey extends the sparse case
+// to a fuller workflow doc: a file with status, type, and priority present.
+// A tiki-native update that only changes the title must preserve all three
+// when the caller loads the stored tiki first and modifies in-place.
+func TestUpdateTiki_FullWorkflowDocPreservesEveryKey(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
 	tmp := t.TempDir()
 
@@ -92,24 +83,29 @@ func TestUpdateTask_FreshPartialTaskPreservesEveryWorkflowKey(t *testing.T) {
 		t.Fatalf("NewTikiStore: %v", err)
 	}
 
-	if err := s.UpdateTask(&taskpkg.Task{ID: "FULL01", Title: "v2"}); err != nil {
-		t.Fatalf("UpdateTask: %v", err)
+	stored := s.GetTiki("FULL01")
+	if stored == nil {
+		t.Fatal("GetTiki = nil")
+	}
+	updated := stored.Clone()
+	updated.Title = "v2"
+	if err := s.UpdateTiki(updated); err != nil {
+		t.Fatalf("UpdateTiki: %v", err)
 	}
 
 	data, _ := os.ReadFile(filePath)
 	contents := string(data)
 	for _, required := range []string{"title: v2", "status: ready", "type: story", "priority: 2"} {
 		if !strings.Contains(contents, required) {
-			t.Errorf("expected %q in file after partial UpdateTask; contents:\n%s", required, contents)
+			t.Errorf("expected %q in file after UpdateTiki; contents:\n%s", required, contents)
 		}
 	}
 }
 
-// TestUpdateDocument_ExplicitKeyRemovalStillWorks verifies the complement:
-// the document-first API must still be able to remove a workflow key by
-// omitting it from doc.Frontmatter. Grow-only on the task API path does
-// NOT apply to the document API path, because doc.Frontmatter IS the
-// authoritative presence set.
+// TestUpdateDocument_ExplicitKeyRemovalStillWorks verifies the tiki API can
+// remove a workflow key by omitting it from the tiki's Fields map. This uses
+// UpdateTiki with exact-presence semantics: a field absent from Fields is
+// treated as explicitly removed.
 func TestUpdateDocument_ExplicitKeyRemovalStillWorks(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
 	tmp := t.TempDir()
@@ -125,14 +121,15 @@ func TestUpdateDocument_ExplicitKeyRemovalStillWorks(t *testing.T) {
 		t.Fatalf("NewTikiStore: %v", err)
 	}
 
-	doc := s.GetDocument("TRIM01")
-	if doc == nil {
-		t.Fatal("GetDocument: nil")
+	tk := s.GetTiki("TRIM01")
+	if tk == nil {
+		t.Fatal("GetTiki: nil")
 	}
-	// Remove priority explicitly — document API honors this.
-	delete(doc.Frontmatter, "priority")
-	if err := s.UpdateDocument(doc); err != nil {
-		t.Fatalf("UpdateDocument: %v", err)
+	// Remove priority explicitly — tiki exact-presence semantics honor this.
+	updated := tk.Clone()
+	updated.Delete(tikipkg.FieldPriority)
+	if err := s.UpdateTiki(updated); err != nil {
+		t.Fatalf("UpdateTiki: %v", err)
 	}
 
 	data, _ := os.ReadFile(filePath)
@@ -141,6 +138,48 @@ func TestUpdateDocument_ExplicitKeyRemovalStillWorks(t *testing.T) {
 		t.Errorf("status should be preserved; contents:\n%s", contents)
 	}
 	if strings.Contains(contents, "priority:") {
-		t.Errorf("priority should be removed via document API; contents:\n%s", contents)
+		t.Errorf("priority should be removed via tiki API; contents:\n%s", contents)
+	}
+}
+
+// TestUpdateTiki_ExplicitDemotionWorksWithUpdateTiki verifies that
+// UpdateTiki (exact-presence semantics) can demote a workflow doc to plain
+// by omitting all workflow fields from the incoming tiki.
+func TestUpdateTiki_ExplicitDemotionWorksWithUpdateTiki(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+	tmp := t.TempDir()
+
+	filePath := filepath.Join(tmp, "DEMOT1.md")
+	src := "---\nid: DEMOT1\ntitle: workflow\nstatus: ready\n---\n\nbody\n"
+	if err := os.WriteFile(filePath, []byte(src), 0644); err != nil {
+		t.Fatalf("write: %v", err)
+	}
+
+	s, err := NewTikiStore(tmp)
+	if err != nil {
+		t.Fatalf("NewTikiStore: %v", err)
+	}
+
+	// Build a plain tiki (no workflow fields) and call UpdateTiki.
+	plain := tikipkg.New()
+	plain.ID = "DEMOT1"
+	plain.Title = "now plain"
+	if err := s.UpdateTiki(plain); err != nil {
+		t.Fatalf("UpdateTiki: %v", err)
+	}
+
+	data, _ := os.ReadFile(filePath)
+	contents := string(data)
+	if strings.Contains(contents, "status:") {
+		t.Errorf("status should be removed via UpdateTiki; contents:\n%s", contents)
+	}
+
+	if err := s.Reload(); err != nil {
+		t.Fatalf("Reload: %v", err)
+	}
+	if tk := s.GetTiki("DEMOT1"); tk == nil {
+		t.Fatal("GetTiki after reload = nil")
+	} else if hasAnyWorkflowField(tk) {
+		t.Error("tiki should be plain after demotion via UpdateTiki")
 	}
 }

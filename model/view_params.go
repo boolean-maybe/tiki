@@ -1,6 +1,6 @@
 package model
 
-import taskpkg "github.com/boolean-maybe/tiki/task"
+import tikipkg "github.com/boolean-maybe/tiki/tiki"
 
 // typed view params live here to avoid stringly-typed param maps being spread across layers.
 
@@ -51,7 +51,7 @@ func DecodeTaskDetailParams(params map[string]interface{}) TaskDetailParams {
 // TaskEditParams are params for TaskEditViewID.
 type TaskEditParams struct {
 	TaskID   string
-	Draft    *taskpkg.Task
+	Draft    *tikipkg.Tiki
 	Focus    EditField
 	DescOnly bool
 	TagsOnly bool
@@ -125,7 +125,7 @@ func DecodeTaskEditParams(params map[string]interface{}) TaskEditParams {
 	if id, ok := params[paramTaskID].(string); ok {
 		p.TaskID = id
 	}
-	if draft, ok := params[paramDraftTask].(*taskpkg.Task); ok {
+	if draft, ok := params[paramDraftTask].(*tikipkg.Tiki); ok {
 		p.Draft = draft
 		if p.TaskID == "" && draft != nil {
 			p.TaskID = draft.ID

@@ -5,21 +5,20 @@ import (
 	"testing"
 
 	"github.com/boolean-maybe/tiki/config"
-	"github.com/boolean-maybe/tiki/task"
+	tikipkg "github.com/boolean-maybe/tiki/tiki"
 	"github.com/gdamore/tcell/v2"
 	"github.com/rivo/tview"
 )
 
-func makeTasks(ids ...string) []*task.Task {
-	tasks := make([]*task.Task, len(ids))
+func makeTasks(ids ...string) []*tikipkg.Tiki {
+	tikis := make([]*tikipkg.Tiki, len(ids))
 	for i, id := range ids {
-		tasks[i] = &task.Task{
-			ID:     id,
-			Title:  "Task " + id,
-			Status: task.StatusBacklog,
-		}
+		tk := tikipkg.New()
+		tk.ID = id
+		tk.Title = "Task " + id
+		tikis[i] = tk
 	}
-	return tasks
+	return tikis
 }
 
 func TestNewTaskList(t *testing.T) {
@@ -232,24 +231,31 @@ func TestGetSelectedIndex(t *testing.T) {
 func TestBuildRow(t *testing.T) {
 	tl := NewTaskList(10)
 
-	pendingTask := &task.Task{ID: "TIKI-ABC001", Title: "My pending task", Status: task.StatusBacklog}
-	doneTask := &task.Task{ID: "TIKI-ABC002", Title: "My done task", Status: task.StatusDone}
+	pendingTask := tikipkg.New()
+	pendingTask.ID = "ABC001"
+	pendingTask.Title = "My pending task"
+	// no status field — treated as pending
+
+	doneTask := tikipkg.New()
+	doneTask.ID = "ABC002"
+	doneTask.Title = "My done task"
+	doneTask.Set(tikipkg.FieldStatus, "done")
 
 	// set tasks so idColumnWidth is computed
-	tl.SetTasks([]*task.Task{pendingTask, doneTask})
+	tl.SetTasks([]*tikipkg.Tiki{pendingTask, doneTask})
 
 	width := 80
 
 	t.Run("pending task shows circle", func(t *testing.T) {
 		row := tl.buildRow(pendingTask, false, width)
-		if !strings.Contains(row, "\u25CB") {
+		if !strings.Contains(row, "○") {
 			t.Error("pending task row should contain circle (○)")
 		}
 	})
 
 	t.Run("done task shows checkmark", func(t *testing.T) {
 		row := tl.buildRow(doneTask, false, width)
-		if !strings.Contains(row, "\u2713") {
+		if !strings.Contains(row, "✓") {
 			t.Error("done task row should contain checkmark (✓)")
 		}
 	})

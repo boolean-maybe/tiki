@@ -6,10 +6,10 @@ import (
 	"strings"
 	"testing"
 
-	taskpkg "github.com/boolean-maybe/tiki/task"
+	tikipkg "github.com/boolean-maybe/tiki/tiki"
 )
 
-// TestSaveTask_UsesLoadedPath verifies the high-finding fix: after a task is
+// TestSaveTask_UsesLoadedPath verifies the high-finding fix: after a tiki is
 // loaded from a file with any path, subsequent save/delete/reload operations
 // must target the loaded path — not an id-derived default path.
 func TestSaveTask_UsesLoadedPath(t *testing.T) {
@@ -26,24 +26,25 @@ func TestSaveTask_UsesLoadedPath(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewTikiStore: %v", err)
 	}
-	tk := s.GetTask("PATH01")
+	tk := s.GetTiki("PATH01")
 	if tk == nil {
-		t.Fatal("task not loaded")
+		t.Fatal("tiki not loaded")
 	}
 
 	// update — this should NOT create a new file at <id>.md.
-	tk.Title = "Updated"
-	if err := s.UpdateTask(tk); err != nil {
-		t.Fatalf("UpdateTask: %v", err)
+	updated := tk.Clone()
+	updated.Title = "Updated"
+	if err := s.UpdateTiki(updated); err != nil {
+		t.Fatalf("UpdateTiki: %v", err)
 	}
 
 	// the original file must be the one updated.
-	updated, err := os.ReadFile(custom)
+	data, err := os.ReadFile(custom)
 	if err != nil {
 		t.Fatalf("read custom: %v", err)
 	}
-	if !strings.Contains(string(updated), "title: Updated") {
-		t.Errorf("update did not write to loaded path: %s", updated)
+	if !strings.Contains(string(data), "title: Updated") {
+		t.Errorf("update did not write to loaded path: %s", data)
 	}
 
 	// there must NOT be a duplicate file at the id-derived default path.
@@ -74,21 +75,26 @@ func TestDeleteTask_UsesLoadedPath(t *testing.T) {
 	}
 }
 
-// TestCreateTask_NewFileUsesIDDerivedPath verifies the fallback: a brand-new
-// task (FilePath empty) lands at <id>.md under the task dir.
-func TestCreateTask_NewFileUsesIDDerivedPath(t *testing.T) {
+// TestCreateTiki_NewFileUsesIDDerivedPath verifies the fallback: a brand-new
+// tiki (Path empty) lands at <id>.md under the tiki dir.
+func TestCreateTiki_NewFileUsesIDDerivedPath(t *testing.T) {
 	tmpDir := t.TempDir()
 	s, err := NewTikiStore(tmpDir)
 	if err != nil {
 		t.Fatalf("NewTikiStore: %v", err)
 	}
 
-	task := &taskpkg.Task{ID: "NEW001", Title: "fresh", Type: taskpkg.TypeStory, Status: "ready", Priority: 1}
-	if err := s.CreateTask(task); err != nil {
-		t.Fatalf("CreateTask: %v", err)
+	wf := tikipkg.New()
+	wf.ID = "NEW001"
+	wf.Title = "fresh"
+	wf.Set("type", "story")
+	wf.Set("status", "ready")
+	wf.Set("priority", 1)
+	if err := s.CreateTiki(wf); err != nil {
+		t.Fatalf("CreateTiki: %v", err)
 	}
 
 	if _, err := os.Stat(filepath.Join(tmpDir, "NEW001.md")); err != nil {
-		t.Errorf("expected new task file at NEW001.md, stat err: %v", err)
+		t.Errorf("expected new tiki file at NEW001.md, stat err: %v", err)
 	}
 }

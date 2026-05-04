@@ -5,14 +5,14 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/boolean-maybe/tiki/document"
+	tikipkg "github.com/boolean-maybe/tiki/tiki"
 )
 
 // TestCreateDocument_PlainDocFileHasNoWorkflowKeys proves the review's
-// High finding #1 is closed: a plain document created via CreateDocument
-// must be serialized WITHOUT workflow keys (status/type/priority/points)
-// in the YAML frontmatter. If workflow keys leak into the file, a reload
-// would re-promote the doc through document.IsWorkflowFrontmatter.
+// High finding #1 is closed: a plain tiki created via CreateTiki must be
+// serialized WITHOUT workflow keys (status/type/priority/points) in the
+// YAML frontmatter. If workflow keys leak into the file, a reload would
+// re-promote the doc through hasAnyWorkflowField.
 func TestCreateDocument_PlainDocFileHasNoWorkflowKeys(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
 	tmp := t.TempDir()
@@ -21,12 +21,12 @@ func TestCreateDocument_PlainDocFileHasNoWorkflowKeys(t *testing.T) {
 		t.Fatalf("NewTikiStore: %v", err)
 	}
 
-	if err := s.CreateDocument(&document.Document{
-		ID:    "PLAIN1",
-		Title: "plain doc",
-		Body:  "hello",
-	}); err != nil {
-		t.Fatalf("CreateDocument: %v", err)
+	tk := tikipkg.New()
+	tk.ID = "PLAIN1"
+	tk.Title = "plain doc"
+	tk.Body = "hello"
+	if err := s.CreateTiki(tk); err != nil {
+		t.Fatalf("CreateTiki: %v", err)
 	}
 
 	data, err := os.ReadFile(tmp + "/PLAIN1.md")
@@ -44,20 +44,19 @@ func TestCreateDocument_PlainDocFileHasNoWorkflowKeys(t *testing.T) {
 	if err := s.Reload(); err != nil {
 		t.Fatalf("Reload: %v", err)
 	}
-	tk := s.GetTask("PLAIN1")
-	if tk == nil {
-		t.Fatal("GetTask after Reload = nil")
+	loaded := s.GetTiki("PLAIN1")
+	if loaded == nil {
+		t.Fatal("GetTiki after Reload = nil")
 	}
-	if tk.IsWorkflow {
+	if hasAnyWorkflowField(loaded) {
 		t.Error("plain doc was promoted to workflow on reload — workflow keys persisted to disk")
 	}
 }
 
 // TestUpdateDocument_DemotesWorkflowDocWhenFrontmatterStripped proves the
 // review's High finding #2 is closed: a caller can demote a workflow doc
-// back to plain by stripping every workflow key from the frontmatter and
-// calling UpdateDocument. UpdateTask's protective carry-forward must not
-// fire on the document-first path.
+// back to plain by stripping every workflow field from the tiki and calling
+// UpdateTiki.
 func TestUpdateDocument_DemotesWorkflowDocWhenFrontmatterStripped(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
 	tmp := t.TempDir()
@@ -67,57 +66,57 @@ func TestUpdateDocument_DemotesWorkflowDocWhenFrontmatterStripped(t *testing.T) 
 	}
 
 	// Create as workflow.
-	if err := s.CreateDocument(&document.Document{
-		ID:    "DEMO01",
-		Title: "will be demoted",
-		Frontmatter: map[string]interface{}{
-			"status":   "ready",
-			"priority": 2,
-		},
-	}); err != nil {
-		t.Fatalf("CreateDocument workflow: %v", err)
+	tk := tikipkg.New()
+	tk.ID = "DEMO01"
+	tk.Title = "will be demoted"
+	tk.Set(tikipkg.FieldStatus, "ready")
+	tk.Set(tikipkg.FieldPriority, 2)
+	if err := s.CreateTiki(tk); err != nil {
+		t.Fatalf("CreateTiki workflow: %v", err)
 	}
 
 	// Confirm starting state.
-	before := s.GetTask("DEMO01")
-	if before == nil || !before.IsWorkflow {
-		t.Fatalf("precondition: expected workflow task, got %+v", before)
+	before := s.GetTiki("DEMO01")
+	if before == nil || !hasAnyWorkflowField(before) {
+		t.Fatalf("precondition: expected workflow tiki, got %+v", before)
 	}
 
-	// Now update with no workflow frontmatter — explicit demotion.
-	doc := s.GetDocument("DEMO01")
-	doc.Frontmatter = nil
-	if err := s.UpdateDocument(doc); err != nil {
-		t.Fatalf("UpdateDocument: %v", err)
+	// Now update with no workflow fields — explicit demotion via a plain tiki.
+	plain := tikipkg.New()
+	plain.ID = "DEMO01"
+	plain.Title = "will be demoted"
+	plain.Path = before.Path
+	plain.LoadedMtime = before.LoadedMtime
+	if err := s.UpdateTiki(plain); err != nil {
+		t.Fatalf("UpdateTiki: %v", err)
 	}
 
-	after := s.GetTask("DEMO01")
+	after := s.GetTiki("DEMO01")
 	if after == nil {
-		t.Fatal("GetTask after UpdateDocument = nil")
+		t.Fatal("GetTiki after UpdateTiki = nil")
 	}
-	if after.IsWorkflow {
-		t.Error("UpdateDocument failed to demote: IsWorkflow still true")
+	if hasAnyWorkflowField(after) {
+		t.Error("UpdateTiki failed to demote: tiki still has workflow fields")
 	}
 
 	// And it must persist across a reload.
 	if err := s.Reload(); err != nil {
 		t.Fatalf("Reload: %v", err)
 	}
-	reloaded := s.GetTask("DEMO01")
+	reloaded := s.GetTiki("DEMO01")
 	if reloaded == nil {
 		t.Fatal("reloaded doc missing")
 	}
-	if reloaded.IsWorkflow {
+	if hasAnyWorkflowField(reloaded) {
 		t.Error("demotion did not survive reload — workflow keys still on disk")
 	}
 }
 
-// TestUpdateTask_StillCarriesWorkflowForwardForTaskCallers proves the
-// demotion change does not regress the protective carry-forward on the
-// task-shaped API: a caller that passes a fresh Task with IsWorkflow=false
-// over a workflow-flagged stored task still has the flag carried forward,
-// matching the pre-existing semantics (and the reason the guard exists).
-func TestUpdateTask_StillCarriesWorkflowForwardForTaskCallers(t *testing.T) {
+// TestUpdateTiki_StillPreservesWorkflowFieldsWhenCallerLoadsFirst proves that
+// a caller who loads the stored tiki first and modifies it does not lose
+// existing workflow fields — UpdateTiki is exact-presence, so the caller
+// must carry the fields they want to keep.
+func TestUpdateTiki_StillPreservesWorkflowFieldsWhenCallerLoadsFirst(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
 	tmp := t.TempDir()
 	s, err := NewTikiStore(tmp)
@@ -125,22 +124,27 @@ func TestUpdateTask_StillCarriesWorkflowForwardForTaskCallers(t *testing.T) {
 		t.Fatalf("NewTikiStore: %v", err)
 	}
 
-	if err := s.CreateDocument(&document.Document{
-		ID:          "CARRY1",
-		Title:       "workflow",
-		Frontmatter: map[string]interface{}{"status": "ready"},
-	}); err != nil {
-		t.Fatalf("CreateDocument: %v", err)
+	tk := tikipkg.New()
+	tk.ID = "CARRY1"
+	tk.Title = "workflow"
+	tk.Set(tikipkg.FieldStatus, "ready")
+	if err := s.CreateTiki(tk); err != nil {
+		t.Fatalf("CreateTiki: %v", err)
 	}
 
-	// Simulate a ruki/UI caller that rebuilt a fresh Task and forgot IsWorkflow.
-	fresh := s.GetTask("CARRY1").Clone()
-	fresh.IsWorkflow = false
-	if err := s.UpdateTask(fresh); err != nil {
-		t.Fatalf("UpdateTask: %v", err)
+	// Load, clone, and update — workflow fields are carried because the
+	// caller took them from the stored tiki.
+	stored := s.GetTiki("CARRY1")
+	if stored == nil {
+		t.Fatal("GetTiki = nil")
+	}
+	updated := stored.Clone()
+	updated.Title = "updated"
+	if err := s.UpdateTiki(updated); err != nil {
+		t.Fatalf("UpdateTiki: %v", err)
 	}
 
-	if got := s.GetTask("CARRY1"); got == nil || !got.IsWorkflow {
-		t.Errorf("UpdateTask should carry workflow forward; got %+v", got)
+	if got := s.GetTiki("CARRY1"); got == nil || !hasAnyWorkflowField(got) {
+		t.Errorf("UpdateTiki should preserve workflow fields when caller cloned stored tiki; got %+v", got)
 	}
 }

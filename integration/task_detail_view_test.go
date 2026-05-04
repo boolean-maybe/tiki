@@ -168,13 +168,13 @@ func TestTaskDetailView_InlineTitleEdit_Save(t *testing.T) {
 	if err := ta.TaskStore.Reload(); err != nil {
 		t.Fatalf("failed to reload tasks: %v", err)
 	}
-	task := ta.TaskStore.GetTask(taskID)
-	if task == nil {
+	tk := ta.TaskStore.GetTiki(taskID)
+	if tk == nil {
 		t.Fatalf("task not found")
 		return
 	}
-	if task.Title != "New Edited Title" {
-		t.Errorf("title = %q, want %q", task.Title, "New Edited Title")
+	if tk.Title != "New Edited Title" {
+		t.Errorf("title = %q, want %q", tk.Title, "New Edited Title")
 	}
 }
 
@@ -212,13 +212,13 @@ func TestTaskDetailView_InlineTitleEdit_Cancel(t *testing.T) {
 	if err := ta.TaskStore.Reload(); err != nil {
 		t.Fatalf("failed to reload tasks: %v", err)
 	}
-	task := ta.TaskStore.GetTask(taskID)
-	if task == nil {
+	tk := ta.TaskStore.GetTiki(taskID)
+	if tk == nil {
 		t.Fatalf("task not found")
 		return
 	}
-	if task.Title != originalTitle {
-		t.Errorf("title = %q, want %q (should not have changed)", task.Title, originalTitle)
+	if tk.Title != originalTitle {
+		t.Errorf("title = %q, want %q (should not have changed)", tk.Title, originalTitle)
 	}
 }
 
@@ -472,19 +472,21 @@ func TestTaskDetailView_InlineEdit_PreservesOtherFields(t *testing.T) {
 	if err := ta.TaskStore.Reload(); err != nil {
 		t.Fatalf("failed to reload tasks: %v", err)
 	}
-	task := ta.TaskStore.GetTask(taskID)
-	if task == nil {
+	tk := ta.TaskStore.GetTiki(taskID)
+	if tk == nil {
 		t.Fatalf("task not found")
 		return
 	}
 
-	if task.Title != "New Title" {
-		t.Errorf("title = %q, want %q", task.Title, "New Title")
+	if tk.Title != "New Title" {
+		t.Errorf("title = %q, want %q", tk.Title, "New Title")
 	}
-	if task.Status != taskpkg.StatusReady {
-		t.Errorf("status = %v, want %v (should be preserved)", task.Status, taskpkg.StatusReady)
+	status, _, _ := tk.StringField("status")
+	if status != string(taskpkg.StatusReady) {
+		t.Errorf("status = %v, want %v (should be preserved)", status, taskpkg.StatusReady)
 	}
-	if task.Type != taskpkg.TypeBug {
-		t.Errorf("type = %v, want %v (should be preserved)", task.Type, taskpkg.TypeBug)
+	typField, _, _ := tk.StringField("type")
+	if typField != string(taskpkg.TypeBug) {
+		t.Errorf("type = %v, want %v (should be preserved)", typField, taskpkg.TypeBug)
 	}
 }

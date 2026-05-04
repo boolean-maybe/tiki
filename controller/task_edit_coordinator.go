@@ -241,7 +241,7 @@ func (c *TaskEditCoordinator) prepareView(activeView View, focus model.EditField
 		}
 
 		// Only start edit session for non-draft tasks
-		if c.taskController.draftTask == nil {
+		if c.taskController.draftTiki == nil {
 			taskID := c.taskController.currentTaskID
 			if taskID != "" {
 				c.taskController.StartEditSession(taskID)

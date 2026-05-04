@@ -187,6 +187,15 @@ func Bootstrap(tikiSkillContent, dokiSkillContent string) (*Result, error) {
 	viewFactory := view.NewViewFactory(taskStore)
 	viewFactory.SetPlugins(pluginConfigs, pluginDefs, controllers.Plugins, globalActions)
 
+	// Wire fresh-per-navigation DokiController creation so each view instance
+	// on the nav stack holds its own selectedTaskID (prevents a second doki
+	// navigation from overwriting the first view's context).
+	viewFactory.SetDokiControllerFactory(func(def plugin.Plugin, selectedTaskID string) *controller.DokiController {
+		dc := controller.NewDokiController(def, controllers.Nav, statuslineConfig, globalActions, taskStore, gate, schema)
+		dc.SetSelectedTaskID(selectedTaskID)
+		return dc
+	})
+
 	// Wire dynamic plugin registration (deps editor creates plugins at runtime)
 	inputRouter.SetPluginRegistrar(func(name string, cfg *model.PluginConfig, def plugin.Plugin, ctrl controller.PluginControllerInterface) {
 		viewFactory.RegisterPlugin(name, cfg, def, ctrl)

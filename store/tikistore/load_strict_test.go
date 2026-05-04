@@ -29,8 +29,8 @@ func TestLoadTaskFile_MissingIDIsHardError(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewTikiStore: %v", err)
 	}
-	if tasks := s.GetAllTasks(); len(tasks) != 0 {
-		t.Errorf("expected 0 loaded tasks, got %d — file without id must not load", len(tasks))
+	if tikis := s.GetAllTikis(); len(tikis) != 0 {
+		t.Errorf("expected 0 loaded tikis, got %d — file without id must not load", len(tikis))
 	}
 	// file must remain untouched: no migration-on-load.
 	got, _ := os.ReadFile(path)
@@ -55,10 +55,10 @@ func TestLoadTaskFile_TIKIPrefixedIDIsInvalid(t *testing.T) {
 		t.Fatalf("NewTikiStore: %v", err)
 	}
 	// TIKI- prefixed id must not load under any lookup shape.
-	if tk := s.GetTask("TIKI-ABC123"); tk != nil {
+	if tk := s.GetTiki("TIKI-ABC123"); tk != nil {
 		t.Error("TIKI- prefixed id should have been rejected at load")
 	}
-	if tk := s.GetTask("ABC123"); tk != nil {
+	if tk := s.GetTiki("ABC123"); tk != nil {
 		t.Error("TIKI- prefixed id must not strip to a bare id at load")
 	}
 	// file must remain byte-for-byte unchanged.
@@ -99,13 +99,13 @@ func TestLoadTaskFile_DuplicateIDSkipped(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewTikiStore: %v", err)
 	}
-	// exactly one task should be registered under DUPLIC.
-	tk := s.GetTask("DUPLIC")
+	// exactly one tiki should be registered under DUPLIC.
+	tk := s.GetTiki("DUPLIC")
 	if tk == nil {
-		t.Fatal("expected one task under duplicate id, got none")
+		t.Fatal("expected one tiki under duplicate id, got none")
 	}
-	if len(s.GetAllTasks()) != 1 {
-		t.Errorf("expected exactly 1 task loaded, got %d", len(s.GetAllTasks()))
+	if len(s.GetAllTikis()) != 1 {
+		t.Errorf("expected exactly 1 tiki loaded, got %d", len(s.GetAllTikis()))
 	}
 	// both files are still on disk (we do not delete).
 	if _, err := os.Stat(first); err != nil {

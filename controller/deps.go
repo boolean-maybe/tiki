@@ -11,7 +11,7 @@ import (
 	"github.com/boolean-maybe/tiki/ruki"
 	"github.com/boolean-maybe/tiki/service"
 	"github.com/boolean-maybe/tiki/store"
-	"github.com/boolean-maybe/tiki/task"
+	tikipkg "github.com/boolean-maybe/tiki/tiki"
 )
 
 // lane indices for the deps editor
@@ -103,41 +103,42 @@ func (dc *DepsController) HandleSearch(query string) {
 	})
 }
 
-// GetFilteredTasksForLane returns tasks for a given lane of the deps editor.
-// Lane 0 (Blocks): tasks whose dependsOn contains the context task.
-// Lane 1 (All): all tasks minus context task, blocks set, and depends set.
-// Lane 2 (Depends): tasks listed in the context task's dependsOn.
-func (dc *DepsController) GetFilteredTasksForLane(lane int) []*task.Task {
+// GetFilteredTasksForLane returns tikis for a given lane of the deps editor.
+// Lane 0 (Blocks): tikis whose dependsOn contains the context tiki.
+// Lane 1 (All): all tikis minus context tiki, blocks set, and depends set.
+// Lane 2 (Depends): tikis listed in the context tiki's dependsOn.
+func (dc *DepsController) GetFilteredTasksForLane(lane int) []*tikipkg.Tiki {
 	if lane < 0 || lane >= len(dc.pluginDef.Lanes) {
 		return nil
 	}
 
-	contextTask := dc.taskStore.GetTask(dc.pluginDef.TaskID)
-	if contextTask == nil {
+	contextTiki := dc.taskStore.GetTiki(dc.pluginDef.TaskID)
+	if contextTiki == nil {
 		return nil
 	}
 
-	allTasks := dc.taskStore.GetAllTasks()
-	blocksSet := task.FindBlockedTasks(allTasks, contextTask.ID)
-	dependsSet := dc.resolveDependsTasks(contextTask, allTasks)
+	allTikis := dc.taskStore.GetAllTikis()
+	blocksSet := findBlockedTikis(allTikis, contextTiki.ID)
+	dependsSet := dc.resolveDependsTikis(contextTiki, allTikis)
 
-	var result []*task.Task
+	var result []*tikipkg.Tiki
 	switch lane {
 	case depsLaneAll:
-		result = dc.computeAllLane(allTasks, contextTask.ID, blocksSet, dependsSet)
+		result = dc.computeAllLane(allTikis, contextTiki.ID, blocksSet, dependsSet)
 	case depsLaneBlocks:
 		result = blocksSet
 	case depsLaneDepends:
 		result = dependsSet
 	}
+	sortTikisByPriorityTitle(result)
 
 	// narrow by search results if active
 	if searchResults := dc.pluginConfig.GetSearchResults(); searchResults != nil {
 		searchMap := make(map[string]bool, len(searchResults))
-		for _, sr := range searchResults {
-			searchMap[sr.Task.ID] = true
+		for _, tk := range searchResults {
+			searchMap[tk.ID] = true
 		}
-		result = filterTasksBySearch(result, searchMap)
+		result = filterTikisBySearch(result, searchMap)
 	}
 
 	return result
@@ -146,10 +147,10 @@ func (dc *DepsController) GetFilteredTasksForLane(lane int) []*task.Task {
 // handleMoveTask applies dependency changes based on the source→target lane transition.
 //
 //	From → To      | What changes
-//	All → Blocks   | moved task: dependsOn += [contextTaskID]
-//	All → Depends  | context task: dependsOn += [movedTaskID]
-//	Blocks → All   | moved task: dependsOn -= [contextTaskID]
-//	Depends → All  | context task: dependsOn -= [movedTaskID]
+//	All → Blocks   | moved tiki: dependsOn += [contextTikiID]
+//	All → Depends  | context tiki: dependsOn += [movedTikiID]
+//	Blocks → All   | moved tiki: dependsOn -= [contextTikiID]
+//	Depends → All  | context tiki: dependsOn -= [movedTikiID]
 func (dc *DepsController) handleMoveTask(offset int) bool {
 	if offset != -1 && offset != 1 {
 		return false
@@ -218,38 +219,55 @@ func (dc *DepsController) handleMoveTask(offset int) bool {
 	return true
 }
 
-// resolveDependsTasks looks up full task objects for the context task's DependsOn IDs.
-func (dc *DepsController) resolveDependsTasks(contextTask *task.Task, allTasks []*task.Task) []*task.Task {
-	if len(contextTask.DependsOn) == 0 {
+// resolveDependsTikis looks up full tiki objects for the context tiki's dependsOn IDs.
+func (dc *DepsController) resolveDependsTikis(contextTiki *tikipkg.Tiki, allTikis []*tikipkg.Tiki) []*tikipkg.Tiki {
+	deps, _, _ := contextTiki.StringSliceField("dependsOn")
+	if len(deps) == 0 {
 		return nil
 	}
-	idMap := make(map[string]bool, len(contextTask.DependsOn))
-	for _, id := range contextTask.DependsOn {
+	idMap := make(map[string]bool, len(deps))
+	for _, id := range deps {
 		idMap[strings.ToUpper(id)] = true
 	}
-	var result []*task.Task
-	for _, t := range allTasks {
-		if idMap[t.ID] {
-			result = append(result, t)
+	var result []*tikipkg.Tiki
+	for _, tk := range allTikis {
+		if idMap[tk.ID] {
+			result = append(result, tk)
 		}
 	}
 	return result
 }
 
-// computeAllLane returns all tasks minus the context task, blocks set, and depends set.
-func (dc *DepsController) computeAllLane(allTasks []*task.Task, contextID string, blocks, depends []*task.Task) []*task.Task {
+// computeAllLane returns all tikis minus the context tiki, blocks set, and depends set.
+func (dc *DepsController) computeAllLane(allTikis []*tikipkg.Tiki, contextID string, blocks, depends []*tikipkg.Tiki) []*tikipkg.Tiki {
 	exclude := make(map[string]bool, len(blocks)+len(depends)+1)
 	exclude[contextID] = true
-	for _, t := range blocks {
-		exclude[t.ID] = true
+	for _, tk := range blocks {
+		exclude[tk.ID] = true
 	}
-	for _, t := range depends {
-		exclude[t.ID] = true
+	for _, tk := range depends {
+		exclude[tk.ID] = true
 	}
-	var result []*task.Task
-	for _, t := range allTasks {
-		if !exclude[t.ID] {
-			result = append(result, t)
+	var result []*tikipkg.Tiki
+	for _, tk := range allTikis {
+		if !exclude[tk.ID] {
+			result = append(result, tk)
+		}
+	}
+	return result
+}
+
+// findBlockedTikis returns all tikis whose dependsOn contains the given ID.
+// This is the tiki-native equivalent of task.FindBlockedTasks.
+func findBlockedTikis(allTikis []*tikipkg.Tiki, contextID string) []*tikipkg.Tiki {
+	var result []*tikipkg.Tiki
+	for _, tk := range allTikis {
+		deps, _, _ := tk.StringSliceField("dependsOn")
+		for _, dep := range deps {
+			if strings.ToUpper(dep) == contextID {
+				result = append(result, tk)
+				break
+			}
 		}
 	}
 	return result

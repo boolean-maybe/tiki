@@ -9,15 +9,16 @@ import (
 	"github.com/boolean-maybe/tiki/model"
 	taskpkg "github.com/boolean-maybe/tiki/task"
 	"github.com/boolean-maybe/tiki/testutil"
+	tikipkg "github.com/boolean-maybe/tiki/tiki"
 
 	"github.com/gdamore/tcell/v2"
 )
 
-// findTaskByTitle finds a task by its title in a slice of tasks
-func findTaskByTitle(tasks []*taskpkg.Task, title string) *taskpkg.Task {
-	for _, t := range tasks {
-		if t.Title == title {
-			return t
+// findTaskByTitle finds a tiki by its title in a slice of tikis
+func findTaskByTitle(tikis []*tikipkg.Tiki, title string) *tikipkg.Tiki {
+	for _, tk := range tikis {
+		if tk.Title == title {
+			return tk
 		}
 	}
 	return nil
@@ -50,7 +51,7 @@ func TestNewTask_Enter_SavesAndCreatesFile(t *testing.T) {
 	}
 
 	// Find the new task by title (IDs are now random)
-	task := findTaskByTitle(ta.TaskStore.GetAllTasks(), "My New Task")
+	task := findTaskByTitle(ta.TaskStore.GetAllTikis(), "My New Task")
 	if task == nil {
 		t.Fatalf("new task not found in store")
 		return
@@ -89,7 +90,7 @@ func TestNewTask_Escape_DiscardsWithoutCreatingFile(t *testing.T) {
 	}
 
 	// Should have no tasks (find by title since IDs are random)
-	task := findTaskByTitle(ta.TaskStore.GetAllTasks(), "Task To Discard")
+	task := findTaskByTitle(ta.TaskStore.GetAllTikis(), "Task To Discard")
 	if task != nil {
 		t.Errorf("task should not exist after escape, but found: %+v", task)
 	}
@@ -128,7 +129,7 @@ func TestNewTask_CtrlS_SavesAndCreatesFile(t *testing.T) {
 		t.Fatalf("failed to reload tasks: %v", err)
 	}
 
-	task := findTaskByTitle(ta.TaskStore.GetAllTasks(), "Task Saved With CtrlS")
+	task := findTaskByTitle(ta.TaskStore.GetAllTikis(), "Task Saved With CtrlS")
 	if task == nil {
 		t.Fatalf("new task not found in store")
 		return
@@ -143,20 +144,19 @@ func TestEditSource_DuplicateCaseIDs_Repro(t *testing.T) {
 	defer ta.Cleanup()
 
 	// Create a task with lowercase suffix ID directly in the store.
-	task := &taskpkg.Task{
-		ID:         "6EQDUE",
-		Title:      "Edit Source Duplicate",
-		Type:       taskpkg.TypeStory,
-		Status:     taskpkg.StatusBacklog,
-		Priority:   3,
-		Points:     1,
-		IsWorkflow: true,
+	taskID := "6EQDUE"
+	tk := tikipkg.New()
+	tk.ID = taskID
+	tk.Title = "Edit Source Duplicate"
+	tk.Set("type", string(taskpkg.TypeStory))
+	tk.Set("status", string(taskpkg.StatusBacklog))
+	tk.Set("priority", 3)
+	tk.Set("points", 1)
+	if err := ta.TaskStore.CreateTiki(tk); err != nil {
+		t.Fatalf("CreateTiki failed: %v", err)
 	}
-	if err := ta.TaskStore.CreateTask(task); err != nil {
-		t.Fatalf("CreateTask failed: %v", err)
-	}
-	if task.ID != "6EQDUE" {
-		t.Fatalf("expected task ID to be normalized, got %q", task.ID)
+	if tk.ID != "6EQDUE" {
+		t.Fatalf("expected task ID to be normalized, got %q", tk.ID)
 	}
 
 	// Mock editor to modify the task file and return immediately.
@@ -171,7 +171,7 @@ func TestEditSource_DuplicateCaseIDs_Repro(t *testing.T) {
 
 	// Open task detail view directly.
 	ta.NavController.PushView(model.TaskDetailViewID, model.EncodeTaskDetailParams(model.TaskDetailParams{
-		TaskID: task.ID,
+		TaskID: taskID,
 	}))
 	ta.Draw()
 
@@ -179,7 +179,7 @@ func TestEditSource_DuplicateCaseIDs_Repro(t *testing.T) {
 	ta.SendKey(tcell.KeyRune, 's', tcell.ModNone)
 
 	// Expect a single task in store (no case-duplicate).
-	tasks := ta.TaskStore.GetAllTasks()
+	tasks := ta.TaskStore.GetAllTikis()
 	if len(tasks) != 1 {
 		t.Fatalf("expected 1 task after edit source, got %d", len(tasks))
 	}
@@ -196,9 +196,9 @@ func TestEditSource_DuplicateCaseIDs_Repro(t *testing.T) {
 	}
 
 	// Ensure file path is the lowercased ID (edit source uses this file).
-	taskPath := filepath.Join(ta.TaskDir, strings.ToLower(task.ID)+".md")
-	if _, err := os.Stat(taskPath); os.IsNotExist(err) {
-		t.Fatalf("expected task file to exist at %s", taskPath)
+	taskFilePath := filepath.Join(ta.TaskDir, strings.ToLower(taskID)+".md")
+	if _, err := os.Stat(taskFilePath); os.IsNotExist(err) {
+		t.Fatalf("expected task file to exist at %s", taskFilePath)
 	}
 }
 
@@ -223,7 +223,7 @@ func TestNewTask_EmptyTitle_DoesNotSave(t *testing.T) {
 	}
 
 	// Should have no tasks
-	tasks := ta.TaskStore.GetAllTasks()
+	tasks := ta.TaskStore.GetAllTikis()
 	if len(tasks) > 0 {
 		t.Errorf("task with empty title should not be saved, but found: %+v", tasks)
 	}
@@ -277,7 +277,7 @@ func TestTaskEdit_EnterInPointsFieldDoesNotSave(t *testing.T) {
 	if err := ta.TaskStore.Reload(); err != nil {
 		t.Fatalf("failed to reload tasks: %v", err)
 	}
-	task := ta.TaskStore.GetTask(taskID)
+	task := ta.TaskStore.GetTiki(taskID)
 	if task == nil {
 		t.Fatalf("task not found")
 		return
@@ -321,7 +321,7 @@ func TestTaskEdit_TitleChangesSaved(t *testing.T) {
 	if err := ta.TaskStore.Reload(); err != nil {
 		t.Fatalf("failed to reload tasks: %v", err)
 	}
-	task := ta.TaskStore.GetTask(taskID)
+	task := ta.TaskStore.GetTiki(taskID)
 	if task == nil {
 		t.Fatalf("task not found")
 		return
@@ -373,7 +373,7 @@ func TestTaskEdit_CtrlS_FromPointsField_Saves(t *testing.T) {
 	if err := ta.TaskStore.Reload(); err != nil {
 		t.Fatalf("failed to reload tasks: %v", err)
 	}
-	task := ta.TaskStore.GetTask(taskID)
+	task := ta.TaskStore.GetTiki(taskID)
 	if task == nil {
 		t.Fatalf("task not found")
 		return
@@ -416,7 +416,7 @@ func TestTaskEdit_Escape_FromTitleField_Cancels(t *testing.T) {
 	if err := ta.TaskStore.Reload(); err != nil {
 		t.Fatalf("failed to reload tasks: %v", err)
 	}
-	task := ta.TaskStore.GetTask(taskID)
+	task := ta.TaskStore.GetTiki(taskID)
 	if task == nil {
 		t.Fatalf("task not found")
 		return
@@ -449,18 +449,18 @@ func TestTaskEdit_Escape_ClearsEditSessionState(t *testing.T) {
 	// Make sure an edit session is actually started (coordinator prepares on first input event in edit view)
 	ta.SendKeyToFocused(tcell.KeyCtrlL, 0, tcell.ModNone)
 	ta.SendText("Modified Title")
-	if ta.EditingTask() == nil {
+	if ta.EditingTiki() == nil {
 		t.Fatalf("expected editing task to be non-nil after starting edit session")
 	}
 
 	// Press Escape to cancel - should discard changes and clear session state.
 	ta.SendKey(tcell.KeyEscape, 0, tcell.ModNone)
 
-	if ta.EditingTask() != nil {
-		t.Fatalf("expected editing task to be nil after cancel, got %+v", ta.EditingTask())
+	if ta.EditingTiki() != nil {
+		t.Fatalf("expected editing task to be nil after cancel, got %+v", ta.EditingTiki())
 	}
-	if ta.DraftTask() != nil {
-		t.Fatalf("expected draft task to be nil after cancel, got %+v", ta.DraftTask())
+	if ta.DraftTiki() != nil {
+		t.Fatalf("expected draft task to be nil after cancel, got %+v", ta.DraftTiki())
 	}
 }
 
@@ -502,7 +502,7 @@ func TestTaskEdit_Escape_FromPointsField_Cancels(t *testing.T) {
 	if err := ta.TaskStore.Reload(); err != nil {
 		t.Fatalf("failed to reload tasks: %v", err)
 	}
-	task := ta.TaskStore.GetTask(taskID)
+	task := ta.TaskStore.GetTiki(taskID)
 	if task == nil {
 		t.Fatalf("task not found")
 		return
@@ -565,13 +565,14 @@ func TestTaskEdit_Tab_NavigatesForward(t *testing.T) {
 	if err := ta.TaskStore.Reload(); err != nil {
 		t.Fatalf("failed to reload tasks: %v", err)
 	}
-	task := ta.TaskStore.GetTask(taskID)
-	if task == nil {
+	tk := ta.TaskStore.GetTiki(taskID)
+	if tk == nil {
 		t.Fatalf("task not found")
 		return
 	}
-	if task.Points != 5 {
-		t.Errorf("points = %d, want 5 (Tab should navigate to Points field)", task.Points)
+	points, _, _ := tk.IntField("points")
+	if points != 5 {
+		t.Errorf("points = %d, want 5 (Tab should navigate to Points field)", points)
 	}
 }
 
@@ -617,16 +618,17 @@ func TestTaskEdit_Navigation_PreservesChanges(t *testing.T) {
 	if err := ta.TaskStore.Reload(); err != nil {
 		t.Fatalf("failed to reload tasks: %v", err)
 	}
-	task := ta.TaskStore.GetTask(taskID)
-	if task == nil {
+	tk := ta.TaskStore.GetTiki(taskID)
+	if tk == nil {
 		t.Fatalf("task not found")
 		return
 	}
-	if task.Title != "New Title" {
-		t.Errorf("title = %q, want %q (changes should be preserved during navigation)", task.Title, "New Title")
+	if tk.Title != "New Title" {
+		t.Errorf("title = %q, want %q (changes should be preserved during navigation)", tk.Title, "New Title")
 	}
-	if task.Points != 8 {
-		t.Errorf("points = %d, want 8 (changes should be preserved during navigation)", task.Points)
+	points, _, _ := tk.IntField("points")
+	if points != 8 {
+		t.Errorf("points = %d, want 8 (changes should be preserved during navigation)", points)
 	}
 }
 
@@ -682,19 +684,21 @@ func TestTaskEdit_MultipleFields_AllSaved(t *testing.T) {
 	if err := ta.TaskStore.Reload(); err != nil {
 		t.Fatalf("failed to reload tasks: %v", err)
 	}
-	task := ta.TaskStore.GetTask(taskID)
-	if task == nil {
+	tk := ta.TaskStore.GetTiki(taskID)
+	if tk == nil {
 		t.Fatalf("task not found")
 		return
 	}
-	if task.Title != "New Multi-Field Title" {
-		t.Errorf("title = %q, want %q", task.Title, "New Multi-Field Title")
+	if tk.Title != "New Multi-Field Title" {
+		t.Errorf("title = %q, want %q", tk.Title, "New Multi-Field Title")
 	}
-	if task.Priority != 5 {
-		t.Errorf("priority = %d, want 5", task.Priority)
+	priority, _, _ := tk.IntField("priority")
+	if priority != 5 {
+		t.Errorf("priority = %d, want 5", priority)
 	}
-	if task.Points != 8 {
-		t.Errorf("points = %d, want 8", task.Points)
+	points, _, _ := tk.IntField("points")
+	if points != 8 {
+		t.Errorf("points = %d, want 8", points)
 	}
 }
 
@@ -711,14 +715,15 @@ func TestTaskEdit_MultipleFields_AllDiscarded(t *testing.T) {
 		t.Fatalf("failed to reload tasks: %v", err)
 	}
 	// Set initial priority and points
-	task := ta.TaskStore.GetTask(taskID)
-	if task == nil {
+	initTk := ta.TaskStore.GetTiki(taskID)
+	if initTk == nil {
 		t.Fatalf("task not found after creation")
 		return
 	}
-	task.Priority = 3
-	task.Points = 5
-	_ = ta.TaskStore.UpdateTask(task)
+	updTk := initTk.Clone()
+	updTk.Set("priority", 3)
+	updTk.Set("points", 5)
+	_ = ta.TaskStore.UpdateTiki(updTk)
 	if err := ta.TaskStore.Reload(); err != nil {
 		t.Fatalf("failed to reload tasks: %v", err)
 	}
@@ -754,19 +759,21 @@ func TestTaskEdit_MultipleFields_AllDiscarded(t *testing.T) {
 	if err := ta.TaskStore.Reload(); err != nil {
 		t.Fatalf("failed to reload tasks: %v", err)
 	}
-	task = ta.TaskStore.GetTask(taskID)
-	if task == nil {
+	reloadedTk := ta.TaskStore.GetTiki(taskID)
+	if reloadedTk == nil {
 		t.Fatalf("task not found")
 		return
 	}
-	if task.Title != "Original Title" {
-		t.Errorf("title = %q, want %q (all changes should be discarded)", task.Title, "Original Title")
+	if reloadedTk.Title != "Original Title" {
+		t.Errorf("title = %q, want %q (all changes should be discarded)", reloadedTk.Title, "Original Title")
 	}
-	if task.Priority != 3 {
-		t.Errorf("priority = %d, want 3 (all changes should be discarded)", task.Priority)
+	reloadedPriority, _, _ := reloadedTk.IntField("priority")
+	if reloadedPriority != 3 {
+		t.Errorf("priority = %d, want 3 (all changes should be discarded)", reloadedPriority)
 	}
-	if task.Points != 5 {
-		t.Errorf("points = %d, want 5 (all changes should be discarded)", task.Points)
+	reloadedPoints, _, _ := reloadedTk.IntField("points")
+	if reloadedPoints != 5 {
+		t.Errorf("points = %d, want 5 (all changes should be discarded)", reloadedPoints)
 	}
 }
 
@@ -805,19 +812,21 @@ func TestNewTask_MultipleFields_AllSaved(t *testing.T) {
 	if err := ta.TaskStore.Reload(); err != nil {
 		t.Fatalf("failed to reload tasks: %v", err)
 	}
-	task := findTaskByTitle(ta.TaskStore.GetAllTasks(), "New Task With Multiple Fields")
-	if task == nil {
+	tk := findTaskByTitle(ta.TaskStore.GetAllTikis(), "New Task With Multiple Fields")
+	if tk == nil {
 		t.Fatalf("new task not found in store")
 		return
 	}
-	if task.Title != "New Task With Multiple Fields" {
-		t.Errorf("title = %q, want %q", task.Title, "New Task With Multiple Fields")
+	if tk.Title != "New Task With Multiple Fields" {
+		t.Errorf("title = %q, want %q", tk.Title, "New Task With Multiple Fields")
 	}
-	if task.Priority != 4 {
-		t.Errorf("priority = %d, want 4", task.Priority)
+	priority, _, _ := tk.IntField("priority")
+	if priority != 4 {
+		t.Errorf("priority = %d, want 4", priority)
 	}
-	if task.Points != 9 {
-		t.Errorf("points = %d, want 9", task.Points)
+	points, _, _ := tk.IntField("points")
+	if points != 9 {
+		t.Errorf("points = %d, want 9", points)
 	}
 }
 
@@ -865,20 +874,22 @@ func TestNewTask_AfterEditingExistingTask_StatusAndTypeNotCorrupted(t *testing.T
 	if err := ta.TaskStore.Reload(); err != nil {
 		t.Fatalf("failed to reload tasks: %v", err)
 	}
-	newTask := findTaskByTitle(ta.TaskStore.GetAllTasks(), "New Task After Edit")
-	if newTask == nil {
+	newTk := findTaskByTitle(ta.TaskStore.GetAllTikis(), "New Task After Edit")
+	if newTk == nil {
 		t.Fatalf("new task not found in store")
 		return
 	}
-	if newTask.Title != "New Task After Edit" {
-		t.Errorf("title = %q, want %q", newTask.Title, "New Task After Edit")
+	if newTk.Title != "New Task After Edit" {
+		t.Errorf("title = %q, want %q", newTk.Title, "New Task After Edit")
 	}
 	// Check status and type are not corrupted
-	if newTask.Status != taskpkg.StatusBacklog {
-		t.Errorf("status = %v, want %v (status should not be corrupted)", newTask.Status, taskpkg.StatusBacklog)
+	newStatus, _, _ := newTk.StringField("status")
+	if newStatus != string(taskpkg.StatusBacklog) {
+		t.Errorf("status = %v, want %v (status should not be corrupted)", newStatus, taskpkg.StatusBacklog)
 	}
-	if newTask.Type != taskpkg.TypeStory {
-		t.Errorf("type = %v, want %v (type should not be corrupted)", newTask.Type, taskpkg.TypeStory)
+	newType, _, _ := newTk.StringField("type")
+	if newType != string(taskpkg.TypeStory) {
+		t.Errorf("type = %v, want %v (type should not be corrupted)", newType, taskpkg.TypeStory)
 	}
 }
 
@@ -920,21 +931,23 @@ func TestNewTask_WithStatusAndType_Saves(t *testing.T) {
 		t.Fatalf("failed to reload tasks: %v", err)
 	}
 
-	task := findTaskByTitle(ta.TaskStore.GetAllTasks(), "Hey")
-	if task == nil {
+	tk := findTaskByTitle(ta.TaskStore.GetAllTikis(), "Hey")
+	if tk == nil {
 		t.Fatalf("new task not found in store")
 		return
 	}
 
-	t.Logf("Task found: Title=%q, Status=%v, Type=%v", task.Title, task.Status, task.Type)
+	heyStatus, _, _ := tk.StringField("status")
+	heyType, _, _ := tk.StringField("type")
+	t.Logf("Task found: Title=%q, Status=%v, Type=%v", tk.Title, heyStatus, heyType)
 
-	if task.Title != "Hey" {
-		t.Errorf("title = %q, want %q", task.Title, "Hey")
+	if tk.Title != "Hey" {
+		t.Errorf("title = %q, want %q", tk.Title, "Hey")
 	}
-	if task.Status != taskpkg.StatusReview {
-		t.Errorf("status = %v, want %v", task.Status, taskpkg.StatusReview)
+	if heyStatus != string(taskpkg.StatusReview) {
+		t.Errorf("status = %v, want %v", heyStatus, taskpkg.StatusReview)
 	}
-	if task.Type != taskpkg.TypeBug {
-		t.Errorf("type = %v, want %v", task.Type, taskpkg.TypeBug)
+	if heyType != string(taskpkg.TypeBug) {
+		t.Errorf("type = %v, want %v", heyType, taskpkg.TypeBug)
 	}
 }

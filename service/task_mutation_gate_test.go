@@ -9,7 +9,7 @@ import (
 
 	"github.com/boolean-maybe/tiki/config"
 	"github.com/boolean-maybe/tiki/store"
-	"github.com/boolean-maybe/tiki/task"
+	tikipkg "github.com/boolean-maybe/tiki/tiki"
 	"github.com/boolean-maybe/tiki/workflow"
 )
 
@@ -29,23 +29,25 @@ func newGateWithStore() (*TaskMutationGate, store.Store) {
 	return gate, s
 }
 
-func TestCreateTask_Success(t *testing.T) {
+func newWorkflowTiki(id, title string) *tikipkg.Tiki {
+	tk := &tikipkg.Tiki{ID: id, Title: title}
+	tk.Set(tikipkg.FieldStatus, "backlog")
+	tk.Set(tikipkg.FieldType, "story")
+	tk.Set(tikipkg.FieldPriority, 3)
+	return tk
+}
+
+func TestCreateTiki_Success(t *testing.T) {
 	gate, s := newGateWithStore()
 
-	tk := &task.Task{
-		ID:       "ABC123",
-		Title:    "test task",
-		Status:   task.StatusBacklog,
-		Type:     task.TypeStory,
-		Priority: 3,
-	}
+	tk := newWorkflowTiki("ABC123", "test task")
 
-	if err := gate.CreateTask(context.Background(), tk); err != nil {
+	if err := gate.CreateTiki(context.Background(), tk); err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	if s.GetTask("ABC123") == nil {
-		t.Fatal("task not persisted")
+	if s.GetTiki("ABC123") == nil {
+		t.Fatal("tiki not persisted")
 		return
 	}
 
@@ -57,10 +59,8 @@ func TestCreateTask_Success(t *testing.T) {
 	}
 }
 
-func TestCreateTask_DoesNotOverwriteCreatedAt(t *testing.T) {
+func TestCreateTiki_DoesNotOverwriteCreatedAt(t *testing.T) {
 	// verify the gate does not zero an existing CreatedAt before passing to store.
-	// note: the in-memory store unconditionally sets CreatedAt, so we test
-	// the gate's behavior by checking the task state *before* store.CreateTask.
 	gate := NewTaskMutationGate()
 
 	var passedCreatedAt time.Time
@@ -68,20 +68,14 @@ func TestCreateTask_DoesNotOverwriteCreatedAt(t *testing.T) {
 
 	spy := &spyStore{
 		Store:    store.NewInMemoryStore(),
-		onCreate: func(tk *task.Task) { passedCreatedAt = tk.CreatedAt },
+		onCreate: func(tk *tikipkg.Tiki) { passedCreatedAt = tk.CreatedAt },
 	}
 	gate.SetStore(spy)
 
-	tk := &task.Task{
-		ID:        "ABC123",
-		Title:     "test",
-		Status:    task.StatusBacklog,
-		Type:      task.TypeStory,
-		Priority:  3,
-		CreatedAt: past,
-	}
+	tk := newWorkflowTiki("ABC123", "test")
+	tk.CreatedAt = past
 
-	if err := gate.CreateTask(context.Background(), tk); err != nil {
+	if err := gate.CreateTiki(context.Background(), tk); err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
@@ -93,31 +87,25 @@ func TestCreateTask_DoesNotOverwriteCreatedAt(t *testing.T) {
 // spyStore wraps a Store and calls hooks before delegating.
 type spyStore struct {
 	store.Store
-	onCreate func(*task.Task)
+	onCreate func(*tikipkg.Tiki)
 }
 
-func (s *spyStore) CreateTask(tk *task.Task) error {
+func (s *spyStore) CreateTiki(tk *tikipkg.Tiki) error {
 	if s.onCreate != nil {
 		s.onCreate(tk)
 	}
-	return s.Store.CreateTask(tk)
+	return s.Store.CreateTiki(tk)
 }
 
-func TestCreateTask_RejectedByValidator(t *testing.T) {
+func TestCreateTiki_RejectedByValidator(t *testing.T) {
 	gate, s := newGateWithStore()
-	gate.OnCreate(func(_, _ *task.Task, _ []*task.Task) *Rejection {
+	gate.OnCreate(func(_, _ *tikipkg.Tiki, _ []*tikipkg.Tiki) *Rejection {
 		return &Rejection{Reason: "blocked"}
 	})
 
-	tk := &task.Task{
-		ID:       "ABC123",
-		Title:    "test",
-		Status:   task.StatusBacklog,
-		Type:     task.TypeStory,
-		Priority: 3,
-	}
+	tk := newWorkflowTiki("ABC123", "test")
 
-	err := gate.CreateTask(context.Background(), tk)
+	err := gate.CreateTiki(context.Background(), tk)
 	if err == nil {
 		t.Fatal("expected rejection error")
 	}
@@ -130,29 +118,23 @@ func TestCreateTask_RejectedByValidator(t *testing.T) {
 	if re.Rejections[0].Reason != "blocked" {
 		t.Errorf("unexpected reason: %s", re.Rejections[0].Reason)
 	}
-	if s.GetTask("ABC123") != nil {
-		t.Error("task should not have been persisted")
+	if s.GetTiki("ABC123") != nil {
+		t.Error("tiki should not have been persisted")
 	}
 }
 
-func TestUpdateTask_Success(t *testing.T) {
+func TestUpdateTiki_Success(t *testing.T) {
 	gate, s := newGateWithStore()
 
-	tk := &task.Task{
-		ID:       "ABC123",
-		Title:    "original",
-		Status:   task.StatusBacklog,
-		Type:     task.TypeStory,
-		Priority: 3,
-	}
-	_ = s.CreateTask(tk)
+	tk := newWorkflowTiki("ABC123", "original")
+	_ = s.CreateTiki(tk)
 
 	tk.Title = "updated"
-	if err := gate.UpdateTask(context.Background(), tk); err != nil {
+	if err := gate.UpdateTiki(context.Background(), tk); err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	stored := s.GetTask("ABC123")
+	stored := s.GetTiki("ABC123")
 	if stored.Title != "updated" {
 		t.Errorf("title not updated: got %q", stored.Title)
 	}
@@ -161,141 +143,79 @@ func TestUpdateTask_Success(t *testing.T) {
 	}
 }
 
-func TestUpdateTask_RejectedByValidator(t *testing.T) {
+func TestUpdateTiki_RejectedByValidator(t *testing.T) {
 	gate, s := newGateWithStore()
-	gate.OnUpdate(func(_, new *task.Task, _ []*task.Task) *Rejection {
+	gate.OnUpdate(func(_, new *tikipkg.Tiki, _ []*tikipkg.Tiki) *Rejection {
 		if new.Title == "bad" {
 			return &Rejection{Reason: "title cannot be 'bad'"}
 		}
 		return nil
 	})
 
-	original := &task.Task{
-		ID:       "ABC123",
-		Title:    "good",
-		Status:   task.StatusBacklog,
-		Type:     task.TypeStory,
-		Priority: 3,
-	}
-	_ = s.CreateTask(original)
+	original := newWorkflowTiki("ABC123", "good")
+	_ = s.CreateTiki(original)
 
-	// clone to avoid mutating the store's pointer
 	modified := original.Clone()
 	modified.Title = "bad"
-	err := gate.UpdateTask(context.Background(), modified)
+	err := gate.UpdateTiki(context.Background(), modified)
 	if err == nil {
 		t.Fatal("expected rejection")
 	}
 
-	stored := s.GetTask("ABC123")
+	stored := s.GetTiki("ABC123")
 	if stored.Title != "good" {
-		t.Errorf("task should not have been updated: got %q", stored.Title)
+		t.Errorf("tiki should not have been updated: got %q", stored.Title)
 	}
 }
 
-func TestDeleteTask_Success(t *testing.T) {
+func TestDeleteTiki_Success(t *testing.T) {
 	gate, s := newGateWithStore()
 
-	tk := &task.Task{
-		ID:       "ABC123",
-		Title:    "to delete",
-		Status:   task.StatusBacklog,
-		Type:     task.TypeStory,
-		Priority: 3,
-	}
-	_ = s.CreateTask(tk)
+	tk := newWorkflowTiki("ABC123", "to delete")
+	_ = s.CreateTiki(tk)
 
-	if err := gate.DeleteTask(context.Background(), tk); err != nil {
+	if err := gate.DeleteTiki(context.Background(), tk); err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	if s.GetTask("ABC123") != nil {
-		t.Error("task should have been deleted")
+	if s.GetTiki("ABC123") != nil {
+		t.Error("tiki should have been deleted")
 	}
 }
 
-func TestDeleteTask_RejectedByValidator(t *testing.T) {
+func TestDeleteTiki_RejectedByValidator(t *testing.T) {
 	gate, s := newGateWithStore()
-	gate.OnDelete(func(_, _ *task.Task, _ []*task.Task) *Rejection {
+	gate.OnDelete(func(_, _ *tikipkg.Tiki, _ []*tikipkg.Tiki) *Rejection {
 		return &Rejection{Reason: "cannot delete"}
 	})
 
-	tk := &task.Task{
-		ID:       "ABC123",
-		Title:    "protected",
-		Status:   task.StatusBacklog,
-		Type:     task.TypeStory,
-		Priority: 3,
-	}
-	_ = s.CreateTask(tk)
+	tk := newWorkflowTiki("ABC123", "protected")
+	_ = s.CreateTiki(tk)
 
-	err := gate.DeleteTask(context.Background(), tk)
+	err := gate.DeleteTiki(context.Background(), tk)
 	if err == nil {
 		t.Fatal("expected rejection")
 		return
 	}
 
-	if s.GetTask("ABC123") == nil {
-		t.Error("task should not have been deleted")
-	}
-}
-
-func TestAddComment_Success(t *testing.T) {
-	gate, s := newGateWithStore()
-
-	tk := &task.Task{
-		ID:       "ABC123",
-		Title:    "test",
-		Status:   task.StatusBacklog,
-		Type:     task.TypeStory,
-		Priority: 3,
-	}
-	_ = s.CreateTask(tk)
-
-	comment := task.Comment{
-		ID:     "c1",
-		Author: "user",
-		Text:   "hello",
-	}
-	if err := gate.AddComment("ABC123", comment); err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-
-	stored := s.GetTask("ABC123")
-	if len(stored.Comments) != 1 {
-		t.Fatalf("expected 1 comment, got %d", len(stored.Comments))
-	}
-}
-
-func TestAddComment_TaskNotFound(t *testing.T) {
-	gate, _ := newGateWithStore()
-
-	comment := task.Comment{ID: "c1", Author: "user", Text: "hello"}
-	err := gate.AddComment("NONEXI", comment)
-	if err == nil {
-		t.Fatal("expected error for missing task")
+	if s.GetTiki("ABC123") == nil {
+		t.Error("tiki should not have been deleted")
 	}
 }
 
 func TestMultipleRejections(t *testing.T) {
 	gate, _ := newGateWithStore()
 
-	gate.OnCreate(func(_, _ *task.Task, _ []*task.Task) *Rejection {
+	gate.OnCreate(func(_, _ *tikipkg.Tiki, _ []*tikipkg.Tiki) *Rejection {
 		return &Rejection{Reason: "reason one"}
 	})
-	gate.OnCreate(func(_, _ *task.Task, _ []*task.Task) *Rejection {
+	gate.OnCreate(func(_, _ *tikipkg.Tiki, _ []*tikipkg.Tiki) *Rejection {
 		return &Rejection{Reason: "reason two"}
 	})
 
-	tk := &task.Task{
-		ID:       "ABC123",
-		Title:    "test",
-		Status:   task.StatusBacklog,
-		Type:     task.TypeStory,
-		Priority: 3,
-	}
+	tk := newWorkflowTiki("ABC123", "test")
 
-	err := gate.CreateTask(context.Background(), tk)
+	err := gate.CreateTiki(context.Background(), tk)
 	if err == nil {
 		t.Fatal("expected rejection error")
 	}
@@ -328,21 +248,15 @@ func TestFieldValidators_RejectInvalidTask(t *testing.T) {
 	gate, s := newGateWithStore()
 	RegisterFieldValidators(gate)
 
-	// create a valid task first so UpdateTask can find it in the store
-	valid := &task.Task{
-		ID:       "ABC123",
-		Title:    "test",
-		Status:   task.StatusBacklog,
-		Type:     task.TypeStory,
-		Priority: 3,
-	}
-	_ = s.CreateTask(valid)
+	// create a valid tiki first so UpdateTiki can find it in the store
+	valid := newWorkflowTiki("ABC123", "test")
+	_ = s.CreateTiki(valid)
 
 	// now try to update with invalid priority — should be rejected
 	tk := valid.Clone()
-	tk.Priority = 99
+	tk.Set(tikipkg.FieldPriority, 99)
 
-	err := gate.UpdateTask(context.Background(), tk)
+	err := gate.UpdateTiki(context.Background(), tk)
 	if err == nil {
 		t.Fatal("expected rejection for invalid priority")
 	}
@@ -369,76 +283,49 @@ func TestFieldValidators_AcceptValidTask(t *testing.T) {
 	gate, _ := newGateWithStore()
 	RegisterFieldValidators(gate)
 
-	tk := &task.Task{
-		ID:       "ABC123",
-		Title:    "valid task",
-		Status:   task.StatusBacklog,
-		Type:     task.TypeStory,
-		Priority: 3,
-	}
+	tk := newWorkflowTiki("ABC123", "valid task")
 
-	if err := gate.CreateTask(context.Background(), tk); err != nil {
+	if err := gate.CreateTiki(context.Background(), tk); err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 }
 
 // TestFieldValidators_AcceptPlainDocument exercises the Phase 7 contract
 // through the mutation gate: a plain-doc template (no status, type, priority,
-// points) must pass validation and persist successfully. This is the path
-// piped input and ruki `create` take when the active workflow has no
-// `default: true` status, so any regression here silently breaks capture
-// for notes-only workflows.
+// points) must pass validation and persist successfully.
 func TestFieldValidators_AcceptPlainDocument(t *testing.T) {
 	gate, s := newGateWithStore()
 	RegisterFieldValidators(gate)
 
-	plain := &task.Task{
-		ID:         "PLAIN1",
-		Title:      "a note",
-		IsWorkflow: false,
-	}
+	plain := &tikipkg.Tiki{ID: "PLAIN1", Title: "a note"}
 
-	if err := gate.CreateTask(context.Background(), plain); err != nil {
+	if err := gate.CreateTiki(context.Background(), plain); err != nil {
 		t.Fatalf("plain-doc create rejected by gate: %v", err)
 	}
 
-	// The store was called (no in-mem filter prevented persistence). A plain
-	// doc does not appear in GetAllTasks (which filters to workflow items)
-	// but GetTask returns it by id.
-	if got := s.GetTask("PLAIN1"); got == nil {
+	if got := s.GetTiki("PLAIN1"); got == nil {
 		t.Error("plain doc was not persisted")
 	}
 }
 
 // TestFieldValidators_RequireTitleEvenForPlainDocs ensures that document-level
 // validators still fire on plain docs — a plain doc with an empty title must
-// be rejected. Otherwise the workflow-only skip would over-reach and let bad
-// input through.
+// be rejected.
 func TestFieldValidators_RequireTitleEvenForPlainDocs(t *testing.T) {
 	gate, _ := newGateWithStore()
 	RegisterFieldValidators(gate)
 
-	missingTitle := &task.Task{
-		ID:         "PLAIN2",
-		IsWorkflow: false,
-	}
+	missingTitle := &tikipkg.Tiki{ID: "PLAIN2"}
 
-	if err := gate.CreateTask(context.Background(), missingTitle); err == nil {
+	if err := gate.CreateTiki(context.Background(), missingTitle); err == nil {
 		t.Fatal("gate accepted plain doc with empty title; document-level validators should still run")
 	}
 }
 
-// TestFieldValidators_AcceptSparseWorkflowCreate covers the Phase 1/5
-// presence-aware contract under a no-default workflow: a ruki create that
-// sets only `priority` promotes the template to workflow-capable but leaves
-// `status` and `type` absent. The gate must validate the fields that are
-// present (priority must be in range) and accept empty `status`/`type` as
-// absent rather than invalid. Without this, `create title="x" priority=1`
-// is rejected end-to-end in notes-only workflows, breaking the Phase 7 CLI
-// contract.
+// TestFieldValidators_AcceptSparseWorkflowCreate covers the presence-aware
+// contract: a tiki that sets only priority but no status or type must pass
+// validation because absent fields are not invalid.
 func TestFieldValidators_AcceptSparseWorkflowCreate(t *testing.T) {
-	// Swap to a workflow with no default status so the workflow can legally
-	// produce workflow docs without a status set.
 	config.ResetStatusRegistry([]workflow.StatusDef{
 		{Key: "alpha", Label: "Alpha"},
 		{Key: "done", Label: "Done", Done: true},
@@ -455,71 +342,26 @@ func TestFieldValidators_AcceptSparseWorkflowCreate(t *testing.T) {
 	gate, s := newGateWithStore()
 	RegisterFieldValidators(gate)
 
-	sparse := &task.Task{
-		ID:         "SPARS1",
-		Title:      "sparse workflow item",
-		Priority:   1,
-		IsWorkflow: true,
-	}
+	sparse := &tikipkg.Tiki{ID: "SPARS1", Title: "sparse workflow item"}
+	sparse.Set(tikipkg.FieldPriority, 1)
 
-	if err := gate.CreateTask(context.Background(), sparse); err != nil {
+	if err := gate.CreateTiki(context.Background(), sparse); err != nil {
 		t.Fatalf("sparse workflow create rejected by gate: %v", err)
 	}
-	if s.GetTask("SPARS1") == nil {
+	if s.GetTiki("SPARS1") == nil {
 		t.Error("sparse workflow doc was not persisted")
-	}
-}
-
-// TestFieldValidators_RejectInvalidFieldOnPlainUpdate closes a bypass hole:
-// before this test's fix, a caller could update an existing workflow task
-// with `IsWorkflow=false, Priority=99` and the gate would skip ValidatePriority
-// because the new task claimed to be plain. The store then carry-forwarded
-// IsWorkflow=true and persisted the out-of-range priority. The validator
-// must inspect present-and-invalid fields regardless of the caller's
-// IsWorkflow flag.
-func TestFieldValidators_RejectInvalidFieldOnPlainUpdate(t *testing.T) {
-	gate, s := newGateWithStore()
-	RegisterFieldValidators(gate)
-
-	// seed an existing workflow task via the in-memory store (force-flips
-	// IsWorkflow=true) so the carry-forward path is active on update.
-	if err := s.CreateTask(&task.Task{
-		ID:       "BYPASS",
-		Title:    "seed",
-		Status:   task.StatusBacklog,
-		Type:     task.TypeStory,
-		Priority: 3,
-	}); err != nil {
-		t.Fatalf("seed: %v", err)
-	}
-
-	// caller pretends to be a plain doc but supplies an out-of-range priority.
-	bad := &task.Task{
-		ID:         "BYPASS",
-		Title:      "seed",
-		Priority:   99,
-		IsWorkflow: false,
-	}
-	if err := gate.UpdateTask(context.Background(), bad); err == nil {
-		t.Fatal("gate accepted out-of-range priority on an IsWorkflow=false update against a workflow-flagged stored task")
 	}
 }
 
 func TestReadStore(t *testing.T) {
 	gate, s := newGateWithStore()
 
-	tk := &task.Task{
-		ID:       "ABC123",
-		Title:    "test",
-		Status:   task.StatusBacklog,
-		Type:     task.TypeStory,
-		Priority: 3,
-	}
-	_ = s.CreateTask(tk)
+	tk := newWorkflowTiki("ABC123", "test")
+	_ = s.CreateTiki(tk)
 
 	rs := gate.ReadStore()
-	if rs.GetTask("ABC123") == nil {
-		t.Error("ReadStore should return task from underlying store")
+	if rs.GetTiki("ABC123") == nil {
+		t.Error("ReadStore should return tiki from underlying store")
 	}
 }
 
@@ -533,29 +375,23 @@ func TestEnsureStore_Panics(t *testing.T) {
 		}
 	}()
 
-	_ = gate.CreateTask(context.Background(), &task.Task{})
+	_ = gate.CreateTiki(context.Background(), &tikipkg.Tiki{})
 }
 
 func TestCreateValidatorDoesNotAffectUpdate(t *testing.T) {
 	gate, s := newGateWithStore()
 
 	// register a validator only on create
-	gate.OnCreate(func(_, _ *task.Task, _ []*task.Task) *Rejection {
+	gate.OnCreate(func(_, _ *tikipkg.Tiki, _ []*tikipkg.Tiki) *Rejection {
 		return &Rejection{Reason: "create blocked"}
 	})
 
 	// update should still work
-	tk := &task.Task{
-		ID:       "ABC123",
-		Title:    "test",
-		Status:   task.StatusBacklog,
-		Type:     task.TypeStory,
-		Priority: 3,
-	}
-	_ = s.CreateTask(tk)
+	tk := newWorkflowTiki("ABC123", "test")
+	_ = s.CreateTiki(tk)
 
 	tk.Title = "updated"
-	if err := gate.UpdateTask(context.Background(), tk); err != nil {
+	if err := gate.UpdateTiki(context.Background(), tk); err != nil {
 		t.Fatalf("update should not be affected by create validator: %v", err)
 	}
 }
@@ -565,21 +401,18 @@ func TestBuildGate(t *testing.T) {
 	s := store.NewInMemoryStore()
 	gate.SetStore(s)
 
-	// BuildGate registers field validators, so an invalid task should be rejected
-	tk := &task.Task{
-		ID:       "ABC123",
-		Title:    "", // invalid
-		Status:   task.StatusBacklog,
-		Type:     task.TypeStory,
-		Priority: 3,
-	}
-	if err := gate.CreateTask(context.Background(), tk); err == nil {
+	// BuildGate registers field validators, so an invalid tiki should be rejected
+	tk := &tikipkg.Tiki{ID: "ABC123"} // empty title → invalid
+	tk.Set(tikipkg.FieldStatus, "backlog")
+	tk.Set(tikipkg.FieldType, "story")
+	tk.Set(tikipkg.FieldPriority, 3)
+	if err := gate.CreateTiki(context.Background(), tk); err == nil {
 		t.Fatal("expected rejection for empty title")
 	}
 
-	// a valid task should succeed
+	// a valid tiki should succeed
 	tk.Title = "valid"
-	if err := gate.CreateTask(context.Background(), tk); err != nil {
+	if err := gate.CreateTiki(context.Background(), tk); err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 }
@@ -587,17 +420,11 @@ func TestBuildGate(t *testing.T) {
 func TestAfterHook_CalledWithCorrectOldNew(t *testing.T) {
 	gate, s := newGateWithStore()
 
-	tk := &task.Task{
-		ID:       "ABC123",
-		Title:    "original",
-		Status:   task.StatusBacklog,
-		Type:     task.TypeStory,
-		Priority: 3,
-	}
-	_ = s.CreateTask(tk)
+	tk := newWorkflowTiki("ABC123", "original")
+	_ = s.CreateTiki(tk)
 
-	var hookOld, hookNew *task.Task
-	gate.OnAfterUpdate(func(_ context.Context, old, new *task.Task) error {
+	var hookOld, hookNew *tikipkg.Tiki
+	gate.OnAfterUpdate(func(_ context.Context, old, new *tikipkg.Tiki) error {
 		hookOld = old
 		hookNew = new
 		return nil
@@ -605,7 +432,7 @@ func TestAfterHook_CalledWithCorrectOldNew(t *testing.T) {
 
 	updated := tk.Clone()
 	updated.Title = "changed"
-	if err := gate.UpdateTask(context.Background(), updated); err != nil {
+	if err := gate.UpdateTiki(context.Background(), updated); err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
@@ -620,30 +447,24 @@ func TestAfterHook_CalledWithCorrectOldNew(t *testing.T) {
 func TestAfterHook_ErrorSwallowed(t *testing.T) {
 	gate, s := newGateWithStore()
 
-	tk := &task.Task{
-		ID:       "ABC123",
-		Title:    "test",
-		Status:   task.StatusBacklog,
-		Type:     task.TypeStory,
-		Priority: 3,
-	}
-	_ = s.CreateTask(tk)
+	tk := newWorkflowTiki("ABC123", "test")
+	_ = s.CreateTiki(tk)
 
-	gate.OnAfterUpdate(func(_ context.Context, _, _ *task.Task) error {
+	gate.OnAfterUpdate(func(_ context.Context, _, _ *tikipkg.Tiki) error {
 		return fmt.Errorf("hook error")
 	})
 
 	updated := tk.Clone()
 	updated.Title = "new title"
 	// error from after-hook should not propagate
-	if err := gate.UpdateTask(context.Background(), updated); err != nil {
+	if err := gate.UpdateTiki(context.Background(), updated); err != nil {
 		t.Fatalf("after-hook error should not propagate: %v", err)
 	}
 
-	// task should still be persisted
-	stored := s.GetTask("ABC123")
+	// tiki should still be persisted
+	stored := s.GetTiki("ABC123")
 	if stored.Title != "new title" {
-		t.Errorf("task should have been updated despite hook error, got %q", stored.Title)
+		t.Errorf("tiki should have been updated despite hook error, got %q", stored.Title)
 	}
 }
 
@@ -651,7 +472,7 @@ func TestAfterHook_CreateAndDelete(t *testing.T) {
 	gate, s := newGateWithStore()
 
 	var createCalled, deleteCalled bool
-	gate.OnAfterCreate(func(_ context.Context, old, new *task.Task) error {
+	gate.OnAfterCreate(func(_ context.Context, old, new *tikipkg.Tiki) error {
 		createCalled = true
 		if old != nil {
 			t.Error("create after-hook: old should be nil")
@@ -661,7 +482,7 @@ func TestAfterHook_CreateAndDelete(t *testing.T) {
 		}
 		return nil
 	})
-	gate.OnAfterDelete(func(_ context.Context, old, new *task.Task) error {
+	gate.OnAfterDelete(func(_ context.Context, old, new *tikipkg.Tiki) error {
 		deleteCalled = true
 		if old == nil || old.Title != "new task" {
 			t.Error("delete after-hook: old should have title")
@@ -672,72 +493,54 @@ func TestAfterHook_CreateAndDelete(t *testing.T) {
 		return nil
 	})
 
-	tk := &task.Task{
-		ID:       "ABC123",
-		Title:    "new task",
-		Status:   task.StatusBacklog,
-		Type:     task.TypeStory,
-		Priority: 3,
-	}
-	if err := gate.CreateTask(context.Background(), tk); err != nil {
+	tk := newWorkflowTiki("ABC123", "new task")
+	if err := gate.CreateTiki(context.Background(), tk); err != nil {
 		t.Fatalf("create error: %v", err)
 	}
 	if !createCalled {
 		t.Error("create after-hook not called")
 	}
 
-	if err := gate.DeleteTask(context.Background(), tk); err != nil {
+	if err := gate.DeleteTiki(context.Background(), tk); err != nil {
 		t.Fatalf("delete error: %v", err)
 	}
 	if !deleteCalled {
 		t.Error("delete after-hook not called")
 	}
 
-	if s.GetTask("ABC123") != nil {
-		t.Error("task should have been deleted")
+	if s.GetTiki("ABC123") != nil {
+		t.Error("tiki should have been deleted")
 	}
 }
 
 func TestAfterHook_Ordering(t *testing.T) {
 	gate, s := newGateWithStore()
 
-	tk := &task.Task{
-		ID:       "ABC123",
-		Title:    "test",
-		Status:   task.StatusBacklog,
-		Type:     task.TypeStory,
-		Priority: 3,
-	}
-	_ = s.CreateTask(tk)
+	tk := newWorkflowTiki("ABC123", "test")
+	_ = s.CreateTiki(tk)
 
-	// hook A mutates a second task through the gate
-	second := &task.Task{
-		ID:       "BBB222",
-		Title:    "second",
-		Status:   task.StatusBacklog,
-		Type:     task.TypeStory,
-		Priority: 3,
-	}
-	_ = s.CreateTask(second)
+	// hook A mutates a second tiki through the gate
+	second := newWorkflowTiki("BBB222", "second")
+	_ = s.CreateTiki(second)
 
-	gate.OnAfterUpdate(func(ctx context.Context, _, new *task.Task) error {
+	gate.OnAfterUpdate(func(ctx context.Context, _, new *tikipkg.Tiki) error {
 		// only fire for the original trigger, not for the cascaded mutation
 		if new.ID != "ABC123" {
 			return nil
 		}
-		sec := s.GetTask("BBB222")
+		sec := s.GetTiki("BBB222")
 		if sec == nil {
 			return nil
 		}
 		upd := sec.Clone()
 		upd.Title = "modified by hook A"
-		return gate.UpdateTask(ctx, upd)
+		return gate.UpdateTiki(ctx, upd)
 	})
 
 	// hook B checks that it sees hook A's mutation
 	var hookBSawMutation bool
-	gate.OnAfterUpdate(func(_ context.Context, _, _ *task.Task) error {
-		sec := s.GetTask("BBB222")
+	gate.OnAfterUpdate(func(_ context.Context, _, _ *tikipkg.Tiki) error {
+		sec := s.GetTiki("BBB222")
 		if sec != nil && sec.Title == "modified by hook A" {
 			hookBSawMutation = true
 		}
@@ -746,7 +549,7 @@ func TestAfterHook_Ordering(t *testing.T) {
 
 	updated := tk.Clone()
 	updated.Title = "trigger"
-	if err := gate.UpdateTask(context.Background(), updated); err != nil {
+	if err := gate.UpdateTiki(context.Background(), updated); err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
@@ -755,15 +558,12 @@ func TestAfterHook_Ordering(t *testing.T) {
 	}
 }
 
-func TestCreateTask_DepthExceeded(t *testing.T) {
+func TestCreateTiki_DepthExceeded(t *testing.T) {
 	gate, _ := newGateWithStore()
 
 	ctx := withTriggerDepth(context.Background(), maxTriggerDepth+1)
-	tk := &task.Task{
-		ID: "DEPTH1", Title: "test", Status: task.StatusBacklog,
-		Type: task.TypeStory, Priority: 3,
-	}
-	err := gate.CreateTask(ctx, tk)
+	tk := newWorkflowTiki("DEPTH1", "test")
+	err := gate.CreateTiki(ctx, tk)
 	if err == nil {
 		t.Fatal("expected depth exceeded error")
 	}
@@ -772,17 +572,14 @@ func TestCreateTask_DepthExceeded(t *testing.T) {
 	}
 }
 
-func TestDeleteTask_DepthExceeded(t *testing.T) {
+func TestDeleteTiki_DepthExceeded(t *testing.T) {
 	gate, s := newGateWithStore()
 
-	tk := &task.Task{
-		ID: "DEPTH2", Title: "test", Status: task.StatusBacklog,
-		Type: task.TypeStory, Priority: 3,
-	}
-	_ = s.CreateTask(tk)
+	tk := newWorkflowTiki("DEPTH2", "test")
+	_ = s.CreateTiki(tk)
 
 	ctx := withTriggerDepth(context.Background(), maxTriggerDepth+1)
-	err := gate.DeleteTask(ctx, tk)
+	err := gate.DeleteTiki(ctx, tk)
 	if err == nil {
 		t.Fatal("expected depth exceeded error")
 	}
@@ -791,60 +588,54 @@ func TestDeleteTask_DepthExceeded(t *testing.T) {
 	}
 }
 
-func TestCreateTask_StoreError(t *testing.T) {
+func TestCreateTiki_StoreError(t *testing.T) {
 	gate := NewTaskMutationGate()
 	fs := &failingCreateStore{Store: store.NewInMemoryStore()}
 	gate.SetStore(fs)
 
-	tk := &task.Task{
-		ID: "CRERR1", Title: "test", Status: task.StatusBacklog,
-		Type: task.TypeStory, Priority: 3,
-	}
-	err := gate.CreateTask(context.Background(), tk)
+	tk := newWorkflowTiki("CRERR1", "test")
+	err := gate.CreateTiki(context.Background(), tk)
 	if err == nil {
 		t.Fatal("expected store error")
 	}
 }
 
-func TestUpdateTask_StoreError(t *testing.T) {
+func TestUpdateTiki_StoreError(t *testing.T) {
 	gate := NewTaskMutationGate()
 	fs := &failingUpdateStore{Store: store.NewInMemoryStore(), failID: "UPERR1"}
 	gate.SetStore(fs)
 
-	tk := &task.Task{
-		ID: "UPERR1", Title: "test", Status: task.StatusBacklog,
-		Type: task.TypeStory, Priority: 3,
-	}
-	_ = fs.CreateTask(tk)
+	tk := newWorkflowTiki("UPERR1", "test")
+	_ = fs.CreateTiki(tk)
 
 	updated := tk.Clone()
 	updated.Title = "updated"
-	err := gate.UpdateTask(context.Background(), updated)
+	err := gate.UpdateTiki(context.Background(), updated)
 	if err == nil {
 		t.Fatal("expected store error")
 	}
 }
 
-// failingCreateStore fails CreateTask
+// failingCreateStore fails CreateTiki
 type failingCreateStore struct {
 	store.Store
 }
 
-func (f *failingCreateStore) CreateTask(_ *task.Task) error {
+func (f *failingCreateStore) CreateTiki(_ *tikipkg.Tiki) error {
 	return fmt.Errorf("simulated create failure")
 }
 
-// failingUpdateStore fails UpdateTask for a specific ID
+// failingUpdateStore fails UpdateTiki for a specific ID
 type failingUpdateStore struct {
 	store.Store
 	failID string
 }
 
-func (f *failingUpdateStore) UpdateTask(t *task.Task) error {
-	if t.ID == f.failID {
+func (f *failingUpdateStore) UpdateTiki(tk *tikipkg.Tiki) error {
+	if tk.ID == f.failID {
 		return fmt.Errorf("simulated update failure")
 	}
-	return f.Store.UpdateTask(t)
+	return f.Store.UpdateTiki(tk)
 }
 
 func TestTriggerDepth_NilContext(t *testing.T) {
@@ -866,28 +657,28 @@ func TestWithTriggerDepth_NilContext(t *testing.T) {
 	}
 }
 
-func TestDeleteTask_AlreadyDeleted(t *testing.T) {
+func TestDeleteTiki_AlreadyDeleted(t *testing.T) {
 	gate := NewTaskMutationGate()
 	s := store.NewInMemoryStore()
 	gate.SetStore(s)
 
-	// delete a task that doesn't exist in store — should return nil gracefully
-	phantom := &task.Task{ID: "GONE01", Title: "gone"}
-	err := gate.DeleteTask(context.Background(), phantom)
+	// delete a tiki that doesn't exist in store — should return nil gracefully
+	phantom := &tikipkg.Tiki{ID: "GONE01", Title: "gone"}
+	err := gate.DeleteTiki(context.Background(), phantom)
 	if err != nil {
-		t.Fatalf("expected nil for already-deleted task, got: %v", err)
+		t.Fatalf("expected nil for already-deleted tiki, got: %v", err)
 	}
 }
 
-func TestUpdateTask_TaskNotFound(t *testing.T) {
+func TestUpdateTiki_TikiNotFound(t *testing.T) {
 	gate := NewTaskMutationGate()
 	s := store.NewInMemoryStore()
 	gate.SetStore(s)
 
-	missing := &task.Task{ID: "MISS01", Title: "missing"}
-	err := gate.UpdateTask(context.Background(), missing)
+	missing := &tikipkg.Tiki{ID: "MISS01", Title: "missing"}
+	err := gate.UpdateTiki(context.Background(), missing)
 	if err == nil {
-		t.Fatal("expected error for missing task")
+		t.Fatal("expected error for missing tiki")
 	}
 	if !strings.Contains(err.Error(), "task not found") {
 		t.Fatalf("expected 'task not found' error, got: %v", err)

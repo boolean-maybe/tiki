@@ -10,7 +10,7 @@ import (
 	"github.com/boolean-maybe/tiki/ruki"
 	"github.com/boolean-maybe/tiki/service"
 	"github.com/boolean-maybe/tiki/store"
-	"github.com/boolean-maybe/tiki/task"
+	tikipkg "github.com/boolean-maybe/tiki/tiki"
 )
 
 // pluginBase holds the shared fields and methods common to PluginController and DepsController.
@@ -50,12 +50,12 @@ func (pb *pluginBase) HandleActionInput(ActionID, string) InputSubmitResult { re
 
 // default no-op implementations for choose-backed action methods
 func (pb *pluginBase) GetActionChooseSpec(ActionID) (string, bool) { return "", false }
-func (pb *pluginBase) CanStartActionChoose(ActionID) (string, []*task.Task, bool) {
+func (pb *pluginBase) CanStartActionChoose(ActionID) (string, []*tikipkg.Tiki, bool) {
 	return "", nil, false
 }
 func (pb *pluginBase) HandleActionChoose(ActionID, string) bool { return false }
 
-func (pb *pluginBase) handleNav(direction string, filteredTasks func(int) []*task.Task) bool {
+func (pb *pluginBase) handleNav(direction string, filteredTasks func(int) []*tikipkg.Tiki) bool {
 	lane := pb.pluginConfig.GetSelectedLane()
 	tasks := filteredTasks(lane)
 	switch direction {
@@ -68,7 +68,7 @@ func (pb *pluginBase) handleNav(direction string, filteredTasks func(int) []*tas
 	}
 }
 
-func (pb *pluginBase) handleVerticalNav(direction string, lane int, tasks []*task.Task) bool {
+func (pb *pluginBase) handleVerticalNav(direction string, lane int, tasks []*tikipkg.Tiki) bool {
 	if len(tasks) == 0 {
 		return false
 	}
@@ -88,7 +88,7 @@ func (pb *pluginBase) handleVerticalNav(direction string, lane int, tasks []*tas
 	return pb.pluginConfig.MoveSelection(direction, len(tasks))
 }
 
-func (pb *pluginBase) handleHorizontalNav(direction string, lane int, tasks []*task.Task, filteredTasks func(int) []*task.Task) bool {
+func (pb *pluginBase) handleHorizontalNav(direction string, lane int, tasks []*tikipkg.Tiki, filteredTasks func(int) []*tikipkg.Tiki) bool {
 	if len(tasks) > 0 {
 		storedIndex := pb.pluginConfig.GetSelectedIndexForLane(lane)
 		clampedIndex := clampTaskIndex(storedIndex, len(tasks))
@@ -101,7 +101,7 @@ func (pb *pluginBase) handleHorizontalNav(direction string, lane int, tasks []*t
 	return pb.handleLaneSwitch(direction, filteredTasks)
 }
 
-func (pb *pluginBase) handleLaneSwitch(direction string, filteredTasks func(int) []*task.Task) bool {
+func (pb *pluginBase) handleLaneSwitch(direction string, filteredTasks func(int) []*tikipkg.Tiki) bool {
 	if pb.pluginDef == nil {
 		return false
 	}
@@ -145,7 +145,7 @@ func (pb *pluginBase) handleLaneSwitch(direction string, filteredTasks func(int)
 	return false
 }
 
-func (pb *pluginBase) applyLaneSwitch(targetLane int, targetTasks []*task.Task, direction string, rowOffsetInViewport int, preserveRow bool) bool {
+func (pb *pluginBase) applyLaneSwitch(targetLane int, targetTasks []*tikipkg.Tiki, direction string, rowOffsetInViewport int, preserveRow bool) bool {
 	if len(targetTasks) == 0 {
 		return false
 	}
@@ -282,7 +282,7 @@ func rowDirectionalIndex(direction string, row int, columns int, taskCount int) 
 	}
 }
 
-func (pb *pluginBase) getSelectedTaskID(filteredTasks func(int) []*task.Task) string {
+func (pb *pluginBase) getSelectedTaskID(filteredTasks func(int) []*tikipkg.Tiki) string {
 	lane := pb.pluginConfig.GetSelectedLane()
 	tasks := filteredTasks(lane)
 	idx := pb.pluginConfig.GetSelectedIndexForLane(lane)
@@ -296,7 +296,7 @@ func (pb *pluginBase) getSelectedTaskID(filteredTasks func(int) []*task.Task) st
 // only supports single-selection, so the result is a one-item slice (or nil)
 // — but callers should treat this as the canonical multi-selection accessor
 // so plumbing is ready when true multi-select lands.
-func (pb *pluginBase) getSelectedTaskIDs(filteredTasks func(int) []*task.Task) []string {
+func (pb *pluginBase) getSelectedTaskIDs(filteredTasks func(int) []*tikipkg.Tiki) []string {
 	id := pb.getSelectedTaskID(filteredTasks)
 	if id == "" {
 		return nil
@@ -304,7 +304,7 @@ func (pb *pluginBase) getSelectedTaskIDs(filteredTasks func(int) []*task.Task) [
 	return []string{id}
 }
 
-func (pb *pluginBase) selectTaskInLane(lane int, taskID string, filteredTasks func(int) []*task.Task) {
+func (pb *pluginBase) selectTaskInLane(lane int, taskID string, filteredTasks func(int) []*tikipkg.Tiki) {
 	if lane < 0 || lane >= len(pb.pluginDef.Lanes) {
 		return
 	}
@@ -320,7 +320,7 @@ func (pb *pluginBase) selectTaskInLane(lane int, taskID string, filteredTasks fu
 	pb.pluginConfig.SetSelectedIndexForLane(lane, targetIndex)
 }
 
-func (pb *pluginBase) selectFirstNonEmptyLane(filteredTasks func(int) []*task.Task) bool {
+func (pb *pluginBase) selectFirstNonEmptyLane(filteredTasks func(int) []*tikipkg.Tiki) bool {
 	for lane := range pb.pluginDef.Lanes {
 		if len(filteredTasks(lane)) > 0 {
 			pb.pluginConfig.SetSelectedLaneAndIndex(lane, 0)
@@ -331,7 +331,7 @@ func (pb *pluginBase) selectFirstNonEmptyLane(filteredTasks func(int) []*task.Ta
 }
 
 // EnsureFirstNonEmptyLaneSelection selects the first non-empty lane if the current lane is empty.
-func (pb *pluginBase) EnsureFirstNonEmptyLaneSelection(filteredTasks func(int) []*task.Task) bool {
+func (pb *pluginBase) EnsureFirstNonEmptyLaneSelection(filteredTasks func(int) []*tikipkg.Tiki) bool {
 	if pb.pluginDef == nil {
 		return false
 	}
@@ -350,16 +350,16 @@ func (pb *pluginBase) handleSearch(query string, selectFirst func() bool) {
 		return
 	}
 	pb.pluginConfig.SavePreSearchState()
-	results := pb.taskStore.Search(query, nil)
+	results := pb.taskStore.SearchTikis(query, nil)
 	if len(results) == 0 {
-		pb.pluginConfig.SetSearchResults([]task.SearchResult{}, query)
+		pb.pluginConfig.SetSearchResults([]*tikipkg.Tiki{}, query)
 		return
 	}
 	pb.pluginConfig.SetSearchResults(results, query)
 	selectFirst()
 }
 
-func (pb *pluginBase) handleOpenTask(filteredTasks func(int) []*task.Task) bool {
+func (pb *pluginBase) handleOpenTask(filteredTasks func(int) []*tikipkg.Tiki) bool {
 	taskID := pb.getSelectedTaskID(filteredTasks)
 	if taskID == "" {
 		return false
@@ -371,7 +371,7 @@ func (pb *pluginBase) handleOpenTask(filteredTasks func(int) []*task.Task) bool 
 }
 
 func (pb *pluginBase) handleNewTask() bool {
-	t, err := pb.taskStore.NewTaskTemplate()
+	t, err := pb.taskStore.NewTikiTemplate()
 	if err != nil {
 		slog.Error("failed to create task template", "error", err)
 		return false
@@ -385,16 +385,16 @@ func (pb *pluginBase) handleNewTask() bool {
 	return true
 }
 
-func (pb *pluginBase) handleDeleteTask(filteredTasks func(int) []*task.Task) bool {
+func (pb *pluginBase) handleDeleteTask(filteredTasks func(int) []*tikipkg.Tiki) bool {
 	taskID := pb.getSelectedTaskID(filteredTasks)
 	if taskID == "" {
 		return false
 	}
-	taskItem := pb.taskStore.GetTask(taskID)
-	if taskItem == nil {
+	tk := pb.taskStore.GetTiki(taskID)
+	if tk == nil {
 		return false
 	}
-	if err := pb.mutationGate.DeleteTask(context.Background(), taskItem); err != nil {
+	if err := pb.mutationGate.DeleteTiki(context.Background(), tk); err != nil {
 		slog.Error("failed to delete task", "task_id", taskID, "error", err)
 		if pb.statusline != nil {
 			pb.statusline.SetMessage(err.Error(), model.MessageLevelError, true)
@@ -404,15 +404,43 @@ func (pb *pluginBase) handleDeleteTask(filteredTasks func(int) []*task.Task) boo
 	return true
 }
 
-func filterTasksBySearch(tasks []*task.Task, searchMap map[string]bool) []*task.Task {
+func filterTikisBySearch(tikis []*tikipkg.Tiki, searchMap map[string]bool) []*tikipkg.Tiki {
 	if searchMap == nil {
-		return tasks
+		return tikis
 	}
-	filtered := make([]*task.Task, 0, len(tasks))
-	for _, t := range tasks {
-		if searchMap[t.ID] {
-			filtered = append(filtered, t)
+	filtered := make([]*tikipkg.Tiki, 0, len(tikis))
+	for _, tk := range tikis {
+		if searchMap[tk.ID] {
+			filtered = append(filtered, tk)
 		}
 	}
 	return filtered
+}
+
+// sortTikisByPriorityTitle sorts tikis by priority (ascending) then title (ascending).
+// Zero priority (absent field) sorts last, matching task.Sort behavior.
+func sortTikisByPriorityTitle(tikis []*tikipkg.Tiki) {
+	n := len(tikis)
+	for i := 1; i < n; i++ {
+		for j := i; j > 0; j-- {
+			pi := tikiPriorityForSort(tikis[j])
+			pj := tikiPriorityForSort(tikis[j-1])
+			ti, tj := strings.ToLower(tikis[j].Title), strings.ToLower(tikis[j-1].Title)
+			if pi < pj || (pi == pj && ti < tj) || (pi == pj && ti == tj && tikis[j].ID < tikis[j-1].ID) {
+				tikis[j], tikis[j-1] = tikis[j-1], tikis[j]
+			} else {
+				break
+			}
+		}
+	}
+}
+
+func tikiPriorityForSort(tk *tikipkg.Tiki) int {
+	if tk == nil {
+		return 0
+	}
+	if n, ok := tk.Fields[tikipkg.FieldPriority].(int); ok {
+		return n
+	}
+	return 0
 }

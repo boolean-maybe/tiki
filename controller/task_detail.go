@@ -11,6 +11,7 @@ import (
 	"github.com/boolean-maybe/tiki/service"
 	"github.com/boolean-maybe/tiki/store"
 	taskpkg "github.com/boolean-maybe/tiki/task"
+	tikipkg "github.com/boolean-maybe/tiki/tiki"
 
 	"time"
 )
@@ -24,8 +25,8 @@ type TaskController struct {
 	navController *NavigationController
 	statusline    *model.StatuslineConfig
 	currentTaskID string
-	draftTask     *taskpkg.Task // For new task creation only
-	editingTask   *taskpkg.Task // In-memory copy being edited (existing tasks)
+	draftTiki     *tikipkg.Tiki // For new task creation only
+	editingTiki   *tikipkg.Tiki // In-memory copy being edited (existing tasks)
 	originalMtime time.Time     // LoadedMtime when edit started
 	registry      *ActionRegistry
 	editRegistry  *ActionRegistry
@@ -55,92 +56,92 @@ func (tc *TaskController) SetCurrentTask(taskID string) {
 	tc.currentTaskID = taskID
 }
 
-// SetDraft sets a draft task for creation flow (not yet persisted).
-func (tc *TaskController) SetDraft(task *taskpkg.Task) {
-	tc.draftTask = task
-	if task != nil {
-		tc.currentTaskID = task.ID
+// SetDraft sets a draft tiki for creation flow (not yet persisted).
+func (tc *TaskController) SetDraft(tk *tikipkg.Tiki) {
+	tc.draftTiki = tk
+	if tk != nil {
+		tc.currentTaskID = tk.ID
 	}
 }
 
-// ClearDraft removes any in-progress draft task.
+// ClearDraft removes any in-progress draft.
 func (tc *TaskController) ClearDraft() {
-	tc.draftTask = nil
+	tc.draftTiki = nil
 }
 
-// StartEditSession creates an in-memory copy of the specified task for editing.
-// It loads the task from the store and records its modification time for optimistic locking.
-// Returns the editing copy, or nil if the task cannot be found.
-func (tc *TaskController) StartEditSession(taskID string) *taskpkg.Task {
-	task := tc.taskStore.GetTask(taskID)
-	if task == nil {
+// StartEditSession creates an in-memory copy of the specified tiki for editing.
+// It loads the tiki from the store and records its modification time for optimistic locking.
+// Returns the editing copy, or nil if the tiki cannot be found.
+func (tc *TaskController) StartEditSession(taskID string) *tikipkg.Tiki {
+	tk := tc.taskStore.GetTiki(taskID)
+	if tk == nil {
 		return nil
 	}
 
-	tc.editingTask = task.Clone()
-	tc.originalMtime = task.LoadedMtime
+	tc.editingTiki = tk.Clone()
+	tc.originalMtime = tk.LoadedMtime
 	tc.currentTaskID = taskID
 
-	return tc.editingTask
+	return tc.editingTiki
 }
 
-// GetEditingTask returns the task being edited (or nil if not editing)
-func (tc *TaskController) GetEditingTask() *taskpkg.Task {
-	return tc.editingTask
+// GetEditingTiki returns the tiki being edited (or nil if not editing)
+func (tc *TaskController) GetEditingTiki() *tikipkg.Tiki {
+	return tc.editingTiki
 }
 
-// GetDraftTask returns the draft task being created (or nil if not creating)
-func (tc *TaskController) GetDraftTask() *taskpkg.Task {
-	return tc.draftTask
+// GetDraftTiki returns the draft tiki being created (or nil if not creating)
+func (tc *TaskController) GetDraftTiki() *tikipkg.Tiki {
+	return tc.draftTiki
 }
 
 // CancelEditSession discards the editing copy without saving changes.
-// This clears the in-memory editing task and resets the current task ID.
+// This clears the in-memory editing tiki and resets the current task ID.
 func (tc *TaskController) CancelEditSession() {
-	tc.editingTask = nil
+	tc.editingTiki = nil
 	tc.originalMtime = time.Time{}
 	tc.currentTaskID = ""
 }
 
 // CommitEditSession validates and persists changes from the current edit session.
-// For draft tasks (new task creation), it validates, sets timestamps, and creates the file.
-// For existing tasks, it checks for external modifications and updates the task in the store.
-// Returns an error if validation fails or the task cannot be saved.
+// For draft tikis (new task creation), it validates, sets timestamps, and creates the file.
+// For existing tikis, it checks for external modifications and updates the tiki in the store.
+// Returns an error if validation fails or the tiki cannot be saved.
 func (tc *TaskController) CommitEditSession() error {
-	// Handle draft task creation
-	if tc.draftTask != nil {
-		setAuthorFromGit(tc.draftTask, tc.taskStore)
+	// Handle draft tiki creation
+	if tc.draftTiki != nil {
+		setAuthorOnTiki(tc.draftTiki, tc.taskStore)
 
-		if err := tc.mutationGate.CreateTask(context.Background(), tc.draftTask); err != nil {
-			slog.Error("failed to create draft task", "error", err)
+		if err := tc.mutationGate.CreateTiki(context.Background(), tc.draftTiki); err != nil {
+			slog.Error("failed to create draft tiki", "error", err)
 			return fmt.Errorf("failed to create task: %w", err)
 		}
 
 		// Clear the draft
-		tc.draftTask = nil
+		tc.draftTiki = nil
 		return nil
 	}
 
 	// Handle existing task updates
-	if tc.editingTask == nil {
+	if tc.editingTiki == nil {
 		return nil // No active edit session, nothing to commit
 	}
 
 	// Check for conflicts (file was modified externally)
-	currentTask := tc.taskStore.GetTask(tc.currentTaskID)
-	if currentTask != nil && !currentTask.LoadedMtime.Equal(tc.originalMtime) {
+	currentTiki := tc.taskStore.GetTiki(tc.currentTaskID)
+	if currentTiki != nil && !currentTiki.LoadedMtime.Equal(tc.originalMtime) {
 		// TODO: Better error handling - show error to user
 		slog.Warn("task was modified externally", "taskID", tc.currentTaskID)
 		// For now, proceed with save (last write wins)
 	}
 
-	if err := tc.mutationGate.UpdateTask(context.Background(), tc.editingTask); err != nil {
-		slog.Error("failed to update task", "taskID", tc.currentTaskID, "error", err)
+	if err := tc.mutationGate.UpdateTiki(context.Background(), tc.editingTiki); err != nil {
+		slog.Error("failed to update tiki", "taskID", tc.currentTaskID, "error", err)
 		return fmt.Errorf("failed to update task: %w", err)
 	}
 
 	// Clear the edit session
-	tc.editingTask = nil
+	tc.editingTiki = nil
 	tc.originalMtime = time.Time{}
 
 	return nil
@@ -172,8 +173,8 @@ func (tc *TaskController) HandleAction(actionID ActionID) bool {
 }
 
 func (tc *TaskController) handleEditTitle() bool {
-	task := tc.GetCurrentTask()
-	if task == nil {
+	tk := tc.GetCurrentTiki()
+	if tk == nil {
 		return false
 	}
 
@@ -183,18 +184,18 @@ func (tc *TaskController) handleEditTitle() bool {
 }
 
 func (tc *TaskController) handleEditSource() bool {
-	task := tc.GetCurrentTask()
-	if task == nil {
+	tk := tc.GetCurrentTiki()
+	if tk == nil {
 		return false
 	}
 
-	// Use the task's own path so renames, moves, and new-at-root layouts
+	// Use the tiki's own path so renames, moves, and new-at-root layouts
 	// all target the real file. Falling back to the id-derived default
-	// keeps the behavior meaningful for in-memory tasks that haven't
+	// keeps the behavior meaningful for in-memory tikis that haven't
 	// been persisted yet.
-	filePath := task.FilePath
+	filePath := tk.Path
 	if filePath == "" {
-		filePath = filepath.Join(config.GetDocDir(), task.ID+".md")
+		filePath = filepath.Join(config.GetDocDir(), tk.ID+".md")
 	}
 
 	if err := tc.navController.SuspendAndEdit(filePath); err != nil {
@@ -208,76 +209,76 @@ func (tc *TaskController) handleEditSource() bool {
 	// may have gained a conflict (collision, invalid id, unknown type) the
 	// user needs to resolve. Silently swallowing the error leaves the UI
 	// showing stale data with no hint that anything went wrong.
-	if err := tc.taskStore.ReloadTask(task.ID); err != nil && tc.statusline != nil {
+	if err := tc.taskStore.ReloadTask(tk.ID); err != nil && tc.statusline != nil {
 		tc.statusline.SetMessage("reload failed: "+err.Error(), model.MessageLevelError, true)
 	}
 
 	return true
 }
 
-// SaveTitle saves the new title to the current task (draft or editing).
-// For draft tasks (new task creation), updates the draft; for editing tasks, updates the editing copy.
-// Returns true if a task was updated, false if no task is being edited.
+// SaveTitle saves the new title to the current tiki (draft or editing).
+// For draft tikis (new task creation), updates the draft; for editing tikis, updates the editing copy.
+// Returns true if a tiki was updated, false if no tiki is being edited.
 func (tc *TaskController) SaveTitle(newTitle string) bool {
-	// Update draft task first (new task creation takes priority)
-	if tc.draftTask != nil {
-		tc.draftTask.Title = newTitle
+	if tc.draftTiki != nil {
+		tc.draftTiki.Title = newTitle
 		return true
 	}
-	// Otherwise update editing task (existing task editing)
-	if tc.editingTask != nil {
-		tc.editingTask.Title = newTitle
+	if tc.editingTiki != nil {
+		tc.editingTiki.Title = newTitle
 		return true
 	}
 	return false
 }
 
-// SaveTags saves the new tags to the current task (draft or editing).
-// Returns true if a task was updated, false if no task is being edited.
+// SaveTags saves the new tags to the current tiki (draft or editing).
+// Returns true if a tiki was updated, false if no tiki is being edited.
 func (tc *TaskController) SaveTags(tags []string) bool {
-	return tc.updateTaskField(func(t *taskpkg.Task) {
-		t.Tags = taskpkg.NormalizeStringSet(tags)
+	return tc.updateTikiField(func(tk *tikipkg.Tiki) {
+		normalized := taskpkg.NormalizeStringSet(tags)
+		if len(normalized) > 0 {
+			tk.Set(tikipkg.FieldTags, normalized)
+		} else {
+			tk.Delete(tikipkg.FieldTags)
+		}
 	})
 }
 
-// SaveDescription saves the new description to the current task (draft or editing).
-// For draft tasks (new task creation), updates the draft; for editing tasks, updates the editing copy.
-// Returns true if a task was updated, false if no task is being edited.
+// SaveDescription saves the new description to the current tiki (draft or editing).
+// For draft tikis (new task creation), updates the draft; for editing tikis, updates the editing copy.
+// Returns true if a tiki was updated, false if no tiki is being edited.
 func (tc *TaskController) SaveDescription(newDescription string) bool {
-	// Update draft task first (new task creation takes priority)
-	if tc.draftTask != nil {
-		tc.draftTask.Description = newDescription
+	if tc.draftTiki != nil {
+		tc.draftTiki.Body = newDescription
 		return true
 	}
-	// Otherwise update editing task (existing task editing)
-	if tc.editingTask != nil {
-		tc.editingTask.Description = newDescription
-		return true
-	}
-	return false
-}
-
-// updateTaskField updates a field in either the draft task or editing task.
-// It applies the setter function to the appropriate task based on priority:
-// draft task (new task creation) takes priority over editing task (existing task edit).
-// Returns true if a task was updated, false if no task is being edited.
-func (tc *TaskController) updateTaskField(setter func(*taskpkg.Task)) bool {
-	if tc.draftTask != nil {
-		setter(tc.draftTask)
-		return true
-	}
-	if tc.editingTask != nil {
-		setter(tc.editingTask)
+	if tc.editingTiki != nil {
+		tc.editingTiki.Body = newDescription
 		return true
 	}
 	return false
 }
 
-// SaveStatus saves the new status to the current task after validating the display value.
+// updateTikiField updates a field in either the draft tiki or editing tiki.
+// It applies the setter function to the appropriate tiki based on priority:
+// draft tiki (new task creation) takes priority over editing tiki (existing task edit).
+// Returns true if a tiki was updated, false if no tiki is being edited.
+func (tc *TaskController) updateTikiField(setter func(*tikipkg.Tiki)) bool {
+	if tc.draftTiki != nil {
+		setter(tc.draftTiki)
+		return true
+	}
+	if tc.editingTiki != nil {
+		setter(tc.editingTiki)
+		return true
+	}
+	return false
+}
+
+// SaveStatus saves the new status to the current tiki after validating the display value.
 // Returns true if the status was successfully updated, false otherwise.
 func (tc *TaskController) SaveStatus(statusDisplay string) bool {
-	// Parse status display back to TaskStatus
-	// Try to match the display string to a known status
+	// parse status display back to Status
 	var newStatus taskpkg.Status
 	statusFound := false
 
@@ -294,20 +295,18 @@ func (tc *TaskController) SaveStatus(statusDisplay string) bool {
 		newStatus = taskpkg.NormalizeStatus(statusDisplay)
 	}
 
-	// Validate status
-	tempTask := &taskpkg.Task{Status: newStatus}
-	if msg := taskpkg.ValidateStatus(tempTask); msg != "" {
-		slog.Warn("invalid status", "display", statusDisplay, "normalized", newStatus, "error", msg)
+	// Validate status: non-empty values must be registered
+	if newStatus != "" && !config.GetStatusRegistry().IsValid(string(newStatus)) {
+		slog.Warn("invalid status", "display", statusDisplay, "normalized", newStatus)
 		return false
 	}
 
-	// Use generic updater
-	return tc.updateTaskField(func(t *taskpkg.Task) {
-		t.Status = newStatus
+	return tc.updateTikiField(func(tk *tikipkg.Tiki) {
+		tk.Set(tikipkg.FieldStatus, string(newStatus))
 	})
 }
 
-// SaveType saves the new type to the current task after validating the display value.
+// SaveType saves the new type to the current tiki after validating the display value.
 // Returns true if the type was successfully updated, false otherwise.
 func (tc *TaskController) SaveType(typeDisplay string) bool {
 	// reverse the display string ("Bug 💥") back to a canonical key ("bug")
@@ -317,34 +316,30 @@ func (tc *TaskController) SaveType(typeDisplay string) bool {
 		return false
 	}
 
-	// Validate type
-	tempTask := &taskpkg.Task{Type: newType}
-	if msg := taskpkg.ValidateType(tempTask); msg != "" {
-		slog.Warn("invalid type", "display", typeDisplay, "normalized", newType, "error", msg)
-		return false
-	}
-
-	return tc.updateTaskField(func(t *taskpkg.Task) {
-		t.Type = newType
+	return tc.updateTikiField(func(tk *tikipkg.Tiki) {
+		tk.Set(tikipkg.FieldType, string(newType))
 	})
 }
 
-// SavePriority saves the new priority to the current task.
+// SavePriority saves the new priority to the current tiki.
 // Returns true if the priority was successfully updated, false otherwise.
 func (tc *TaskController) SavePriority(priority int) bool {
-	// Validate priority
-	tempTask := &taskpkg.Task{Priority: priority}
-	if msg := taskpkg.ValidatePriority(tempTask); msg != "" {
-		slog.Warn("invalid priority", "value", priority, "error", msg)
+	// Validate priority: zero means absent (valid); non-zero must be in range
+	if priority != 0 && !taskpkg.IsValidPriority(priority) {
+		slog.Warn("invalid priority", "value", priority)
 		return false
 	}
 
-	return tc.updateTaskField(func(t *taskpkg.Task) {
-		t.Priority = priority
+	return tc.updateTikiField(func(tk *tikipkg.Tiki) {
+		if priority == 0 {
+			tk.Delete(tikipkg.FieldPriority)
+		} else {
+			tk.Set(tikipkg.FieldPriority, priority)
+		}
 	})
 }
 
-// SaveAssignee saves the new assignee to the current task.
+// SaveAssignee saves the new assignee to the current tiki.
 // The special value "Unassigned" is normalized to an empty string.
 // Returns true if the assignee was successfully updated, false otherwise.
 func (tc *TaskController) SaveAssignee(assignee string) bool {
@@ -353,27 +348,34 @@ func (tc *TaskController) SaveAssignee(assignee string) bool {
 		assignee = ""
 	}
 
-	return tc.updateTaskField(func(t *taskpkg.Task) {
-		t.Assignee = assignee
+	return tc.updateTikiField(func(tk *tikipkg.Tiki) {
+		if assignee == "" {
+			tk.Delete(tikipkg.FieldAssignee)
+		} else {
+			tk.Set(tikipkg.FieldAssignee, assignee)
+		}
 	})
 }
 
-// SavePoints saves the new story points to the current task.
+// SavePoints saves the new story points to the current tiki.
 // Returns true if the points were successfully updated, false otherwise.
 func (tc *TaskController) SavePoints(points int) bool {
-	// Validate points
-	tempTask := &taskpkg.Task{Points: points}
-	if msg := taskpkg.ValidatePoints(tempTask); msg != "" {
-		slog.Warn("invalid points", "value", points, "error", msg)
+	// Validate points: zero means absent (valid); non-zero must be in range
+	if !taskpkg.IsValidPoints(points) {
+		slog.Warn("invalid points", "value", points)
 		return false
 	}
 
-	return tc.updateTaskField(func(t *taskpkg.Task) {
-		t.Points = points
+	return tc.updateTikiField(func(tk *tikipkg.Tiki) {
+		if points == 0 {
+			tk.Delete(tikipkg.FieldPoints)
+		} else {
+			tk.Set(tikipkg.FieldPoints, points)
+		}
 	})
 }
 
-// SaveDue saves the new due date to the current task.
+// SaveDue saves the new due date to the current tiki.
 // Empty string clears the due date (sets to zero time).
 // Returns true if the due date was successfully updated, false otherwise.
 func (tc *TaskController) SaveDue(dateStr string) bool {
@@ -381,12 +383,16 @@ func (tc *TaskController) SaveDue(dateStr string) bool {
 	if !ok {
 		return false
 	}
-	return tc.updateTaskField(func(t *taskpkg.Task) {
-		t.Due = parsed
+	return tc.updateTikiField(func(tk *tikipkg.Tiki) {
+		if parsed.IsZero() {
+			tk.Delete(tikipkg.FieldDue)
+		} else {
+			tk.Set(tikipkg.FieldDue, parsed)
+		}
 	})
 }
 
-// SaveRecurrence saves the new recurrence cron expression to the current task.
+// SaveRecurrence saves the new recurrence cron expression to the current tiki.
 // When recurrence is set, Due is auto-computed as the next occurrence.
 // When recurrence is cleared, Due is also cleared.
 // Returns true if the recurrence was successfully updated, false otherwise.
@@ -396,12 +402,13 @@ func (tc *TaskController) SaveRecurrence(cron string) bool {
 		slog.Warn("invalid recurrence", "cron", cron)
 		return false
 	}
-	return tc.updateTaskField(func(t *taskpkg.Task) {
-		t.Recurrence = r
+	return tc.updateTikiField(func(tk *tikipkg.Tiki) {
 		if r == taskpkg.RecurrenceNone {
-			t.Due = time.Time{}
+			tk.Delete(tikipkg.FieldRecurrence)
+			tk.Delete(tikipkg.FieldDue)
 		} else {
-			t.Due = taskpkg.NextOccurrence(r)
+			tk.Set(tikipkg.FieldRecurrence, string(r))
+			tk.Set(tikipkg.FieldDue, taskpkg.NextOccurrence(r))
 		}
 	})
 }
@@ -411,13 +418,13 @@ func (tc *TaskController) handleCloneTask() bool {
 	return true
 }
 
-// GetCurrentTask returns the task being viewed or edited.
+// GetCurrentTiki returns the tiki being viewed or edited.
 // Returns nil if no task is currently active.
-func (tc *TaskController) GetCurrentTask() *taskpkg.Task {
+func (tc *TaskController) GetCurrentTiki() *tikipkg.Tiki {
 	if tc.currentTaskID == "" {
 		return nil
 	}
-	return tc.taskStore.GetTask(tc.currentTaskID)
+	return tc.taskStore.GetTiki(tc.currentTaskID)
 }
 
 // GetCurrentTaskID returns the ID of the current task
@@ -435,11 +442,6 @@ func (tc *TaskController) SetFocusedField(field model.EditField) {
 	tc.focusedField = field
 }
 
-// UpdateTask persists changes to the specified task via the mutation gate.
-func (tc *TaskController) UpdateTask(task *taskpkg.Task) {
-	_ = tc.mutationGate.UpdateTask(context.Background(), task)
-}
-
 // AddComment adds a new comment to the current task with the specified author and text.
 // Returns false if no task is currently active, true if the comment was added successfully.
 func (tc *TaskController) AddComment(author, text string) bool {
@@ -447,17 +449,33 @@ func (tc *TaskController) AddComment(author, text string) bool {
 		return false
 	}
 
-	comment := taskpkg.Comment{
-		ID:     generateID(),
-		Author: author,
-		Text:   text,
-	}
-	if err := tc.mutationGate.AddComment(tc.currentTaskID, comment); err != nil {
+	tk := tc.taskStore.GetTiki(tc.currentTaskID)
+	if tk == nil {
+		err := fmt.Errorf("task not found: %s", tc.currentTaskID)
 		slog.Error("failed to add comment", "taskID", tc.currentTaskID, "error", err)
 		if tc.statusline != nil {
 			tc.statusline.SetMessage(err.Error(), model.MessageLevelError, true)
 		}
 		return false
 	}
+
+	comment := taskpkg.Comment{
+		ID:        generateID(),
+		Author:    author,
+		Text:      text,
+		CreatedAt: time.Now(),
+	}
+
+	var existing []taskpkg.Comment
+	if v, ok := tk.Fields["comments"]; ok {
+		if cs, ok := v.([]taskpkg.Comment); ok {
+			existing = append(existing, cs...)
+		}
+	}
+	// comments is in-memory-only: it is explicitly excluded from frontmatter
+	// serialization (tiki_bridge.go inMemoryOnlyFields). Mutate the stored
+	// pointer directly rather than routing through UpdateTiki, which would
+	// trigger an unnecessary file write and fire validators/hooks/triggers.
+	tk.Set("comments", append(existing, comment))
 	return true
 }

@@ -10,8 +10,7 @@ import (
 	"github.com/boolean-maybe/tiki/ruki"
 	"github.com/boolean-maybe/tiki/service"
 	"github.com/boolean-maybe/tiki/store"
-	"github.com/boolean-maybe/tiki/task"
-	"github.com/boolean-maybe/tiki/tiki"
+	tikipkg "github.com/boolean-maybe/tiki/tiki"
 )
 
 // PluginController handles plugin view actions: navigation, open, create, delete.
@@ -167,12 +166,12 @@ func (pc *PluginController) buildExecutionInput(pa *plugin.PluginAction) (ruki.E
 	}
 
 	if pa.Action.IsCreate() {
-		template, err := pc.taskStore.NewTaskTemplate()
+		template, err := pc.taskStore.NewTikiTemplate()
 		if err != nil {
 			slog.Error("failed to create task template for plugin action", "error", err)
 			return input, false
 		}
-		input.CreateTemplate = tiki.FromTask(template)
+		input.CreateTemplate = template
 	}
 
 	return input, true
@@ -257,11 +256,10 @@ func (pc *PluginController) executeAndApply(pa *plugin.PluginAction, input ruki.
 				}
 				return false
 			}
-			pc.ensureSearchResultIncludesTask(tiki.ToTask(tk))
+			pc.ensureSearchResultIncludesTiki(tk)
 		}
 	case result.Create != nil:
-		created := tiki.ToTask(result.Create.Tiki)
-		if err := pc.mutationGate.CreateTask(ctx, created); err != nil {
+		if err := pc.mutationGate.CreateTiki(ctx, result.Create.Tiki); err != nil {
 			slog.Error("failed to create task from plugin action", "key", pa.KeyStr, "error", err)
 			if pc.statusline != nil {
 				pc.statusline.SetMessage(err.Error(), model.MessageLevelError, true)
@@ -270,9 +268,8 @@ func (pc *PluginController) executeAndApply(pa *plugin.PluginAction, input ruki.
 		}
 	case result.Delete != nil:
 		for _, tk := range result.Delete.Deleted {
-			deleted := tiki.ToTask(tk)
-			if err := pc.mutationGate.DeleteTask(ctx, deleted); err != nil {
-				slog.Error("failed to delete task from plugin action", "task_id", deleted.ID, "key", pa.KeyStr, "error", err)
+			if err := pc.mutationGate.DeleteTiki(ctx, tk); err != nil {
+				slog.Error("failed to delete task from plugin action", "task_id", tk.ID, "key", pa.KeyStr, "error", err)
 				if pc.statusline != nil {
 					pc.statusline.SetMessage(err.Error(), model.MessageLevelError, true)
 				}
@@ -421,7 +418,7 @@ func (pc *PluginController) GetActionChooseSpec(actionID ActionID) (string, bool
 }
 
 // CanStartActionChoose checks preflight and evaluates the subquery to build candidates.
-func (pc *PluginController) CanStartActionChoose(actionID ActionID) (string, []*task.Task, bool) {
+func (pc *PluginController) CanStartActionChoose(actionID ActionID) (string, []*tikipkg.Tiki, bool) {
 	pa, ok := pc.getPluginAction(actionID)
 	if !ok || !pa.HasChoose {
 		return "", nil, false
@@ -447,14 +444,8 @@ func (pc *PluginController) CanStartActionChoose(actionID ActionID) (string, []*
 		}
 		return "", nil, false
 	}
-	candidates := make([]*task.Task, 0, len(candidateTikis))
-	for _, tk := range candidateTikis {
-		if t := tiki.ToTask(tk); t != nil {
-			candidates = append(candidates, t)
-		}
-	}
-	task.Sort(candidates)
-	return pa.Label, candidates, true
+	sortTikisByPriorityTitle(candidateTikis)
+	return pa.Label, candidateTikis, true
 }
 
 // HandleActionChoose handles the selected task ID from the QuickSelect picker.
@@ -514,13 +505,13 @@ func (pc *PluginController) handleMoveTask(offset int) bool {
 		return false
 	}
 
-	pc.ensureSearchResultIncludesTask(tiki.ToTask(movedTiki))
+	pc.ensureSearchResultIncludesTiki(movedTiki)
 	pc.selectTaskInLane(targetLane, taskID, pc.GetFilteredTasksForLane)
 	return true
 }
 
-// GetFilteredTasksForLane returns tasks filtered and sorted for a specific lane.
-func (pc *PluginController) GetFilteredTasksForLane(lane int) []*task.Task {
+// GetFilteredTasksForLane returns tikis filtered and sorted for a specific lane.
+func (pc *PluginController) GetFilteredTasksForLane(lane int) []*tikipkg.Tiki {
 	if pc.pluginDef == nil {
 		return nil
 	}
@@ -531,16 +522,12 @@ func (pc *PluginController) GetFilteredTasksForLane(lane int) []*task.Task {
 	filterStmt := pc.pluginDef.Lanes[lane].Filter
 	allTikis := pc.taskStore.GetAllTikis()
 
-	var filtered []*task.Task
+	var filtered []*tikipkg.Tiki
 	needsSort := false
 	if filterStmt == nil {
-		// no filter: project all tikis from the map — order is nondeterministic
-		filtered = make([]*task.Task, 0, len(allTikis))
-		for _, tk := range allTikis {
-			if t := tiki.ToTask(tk); t != nil {
-				filtered = append(filtered, t)
-			}
-		}
+		// no filter: use all tikis — order is nondeterministic from the map
+		filtered = make([]*tikipkg.Tiki, 0, len(allTikis))
+		filtered = append(filtered, allTikis...)
 		needsSort = true
 	} else {
 		executor := pc.newExecutor()
@@ -549,33 +536,29 @@ func (pc *PluginController) GetFilteredTasksForLane(lane int) []*task.Task {
 			slog.Error("failed to execute lane filter", "lane", lane, "error", err)
 			return nil
 		}
-		filtered = make([]*task.Task, 0, len(result.Select.Tikis))
-		for _, tk := range result.Select.Tikis {
-			if t := tiki.ToTask(tk); t != nil {
-				filtered = append(filtered, t)
-			}
-		}
-		// ruki already applied order by; no secondary sort needed
+		filtered = result.Select.Tikis
+		// only skip secondary sort when the filter statement carries its own order by
+		needsSort = !filterStmt.HasOrderBy()
 	}
 
 	// narrow by search results if active
 	if searchResults := pc.pluginConfig.GetSearchResults(); searchResults != nil {
 		searchTaskMap := make(map[string]bool, len(searchResults))
-		for _, result := range searchResults {
-			searchTaskMap[result.Task.ID] = true
+		for _, tk := range searchResults {
+			searchTaskMap[tk.ID] = true
 		}
-		filtered = filterTasksBySearch(filtered, searchTaskMap)
+		filtered = filterTikisBySearch(filtered, searchTaskMap)
 		// search narrowing disrupts order; re-sort
 		needsSort = true
 	}
 
 	if needsSort {
-		task.Sort(filtered)
+		sortTikisByPriorityTitle(filtered)
 	}
 	return filtered
 }
 
-func (pc *PluginController) ensureSearchResultIncludesTask(updated *task.Task) {
+func (pc *PluginController) ensureSearchResultIncludesTiki(updated *tikipkg.Tiki) {
 	if updated == nil {
 		return
 	}
@@ -583,15 +566,12 @@ func (pc *PluginController) ensureSearchResultIncludesTask(updated *task.Task) {
 	if searchResults == nil {
 		return
 	}
-	for _, result := range searchResults {
-		if result.Task != nil && result.Task.ID == updated.ID {
+	for _, tk := range searchResults {
+		if tk != nil && tk.ID == updated.ID {
 			return
 		}
 	}
 
-	searchResults = append(searchResults, task.SearchResult{
-		Task:  updated,
-		Score: 1.0,
-	})
+	searchResults = append(searchResults, updated)
 	pc.pluginConfig.SetSearchResults(searchResults, pc.pluginConfig.GetSearchQuery())
 }

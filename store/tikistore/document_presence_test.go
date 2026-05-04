@@ -6,14 +6,13 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/boolean-maybe/tiki/document"
-	"github.com/boolean-maybe/tiki/store"
+	tikipkg "github.com/boolean-maybe/tiki/tiki"
 )
 
-// TestGetDocument_PlainDocRemainsPainAfterReload proves review finding #1
-// is closed: a plain doc loaded from disk must project through GetDocument
-// with an empty Frontmatter, so a caller that does
-// UpdateDocument(GetDocument(id)) does NOT promote it.
+// TestGetDocument_PlainDocRemainsPlainAfterReload proves review finding #1
+// is closed: a plain tiki loaded from disk must have an empty Fields map
+// (no workflow keys), so a caller that does UpdateTiki(GetTiki(id)) does NOT
+// promote it.
 //
 // Before the fix, loadTaskFile assigned default Priority/Points/Status to
 // every task (including plain docs), and ToDocument then synthesized
@@ -36,22 +35,20 @@ func TestGetDocument_PlainDocRemainsPlainAfterReload(t *testing.T) {
 		t.Fatalf("NewTikiStore: %v", err)
 	}
 
-	doc := s.GetDocument("PLAIN1")
-	if doc == nil {
-		t.Fatal("GetDocument returned nil")
+	tk := s.GetTiki("PLAIN1")
+	if tk == nil {
+		t.Fatal("GetTiki returned nil")
 	}
-	if doc.Frontmatter != nil {
-		t.Errorf("plain doc leaked workflow frontmatter: %+v", doc.Frontmatter)
-	}
-	if document.IsWorkflowFrontmatter(doc.Frontmatter) {
-		t.Error("projected Document classifies as workflow — should stay plain")
+	if hasAnyWorkflowField(tk) {
+		t.Errorf("plain tiki leaked workflow fields: %+v", tk.Fields)
 	}
 
 	// And the round-trip update must keep it plain and keep the disk YAML
 	// free of workflow keys.
-	doc.Body = "edited body\n"
-	if err := s.UpdateDocument(doc); err != nil {
-		t.Fatalf("UpdateDocument: %v", err)
+	updated := tk.Clone()
+	updated.Body = "edited body\n"
+	if err := s.UpdateTiki(updated); err != nil {
+		t.Fatalf("UpdateTiki: %v", err)
 	}
 
 	data, err := os.ReadFile(plainPath)
@@ -65,20 +62,19 @@ func TestGetDocument_PlainDocRemainsPlainAfterReload(t *testing.T) {
 		}
 	}
 
-	// And after a reload the memory-resident task stays plain.
+	// And after a reload the memory-resident tiki stays plain.
 	if err := s.Reload(); err != nil {
 		t.Fatalf("Reload: %v", err)
 	}
-	if tk := s.GetTask("PLAIN1"); tk != nil && tk.IsWorkflow {
+	if reloaded := s.GetTiki("PLAIN1"); reloaded != nil && hasAnyWorkflowField(reloaded) {
 		t.Error("plain doc re-promoted across reload — disk state still leaks workflow keys")
 	}
 }
 
 // TestGetDocument_PreservesAbsentWorkflowKeys proves review finding #2 is
-// closed: a workflow doc whose source YAML carries only `status` must not
-// acquire synthetic `type`, `priority`, or `points` keys when projected
-// through GetDocument. The preserved source-frontmatter subset is the
-// authoritative presence set.
+// closed: a workflow tiki whose source YAML carries only `status` must not
+// acquire synthetic `type`, `priority`, or `points` keys. The preserved
+// source-frontmatter subset is the authoritative presence set.
 func TestGetDocument_PreservesAbsentWorkflowKeys(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
 	tmp := t.TempDir()
@@ -93,23 +89,23 @@ func TestGetDocument_PreservesAbsentWorkflowKeys(t *testing.T) {
 		t.Fatalf("NewTikiStore: %v", err)
 	}
 
-	doc := s.GetDocument("SPARSE")
-	if doc == nil {
-		t.Fatal("GetDocument returned nil")
+	tk := s.GetTiki("SPARSE")
+	if tk == nil {
+		t.Fatal("GetTiki returned nil")
 	}
-	if _, has := doc.Frontmatter["status"]; !has {
-		t.Error("status should be present in projected frontmatter")
+	if _, has := tk.Fields[tikipkg.FieldStatus]; !has {
+		t.Error("status should be present in tiki Fields")
 	}
 	for _, k := range []string{"type", "priority", "points", "tags", "dependsOn", "due", "recurrence", "assignee"} {
-		if _, has := doc.Frontmatter[k]; has {
-			t.Errorf("absent workflow key %q leaked into projected frontmatter: %v",
-				k, doc.Frontmatter[k])
+		if _, has := tk.Fields[k]; has {
+			t.Errorf("absent workflow key %q leaked into tiki Fields: %v",
+				k, tk.Fields[k])
 		}
 	}
 }
 
 // TestNewDocumentTemplate_EmitsDefaultsFromSynthesis proves the fallback
-// path: an in-memory workflow task built via NewDocumentTemplate has no
+// path: an in-memory workflow tiki built via NewTikiTemplate has no
 // preserved frontmatter (it came from code, not disk), so projection falls
 // back to typed-value synthesis. This is the "workflow creation path
 // applies defaults" rule from the plan and must keep working.
@@ -121,21 +117,18 @@ func TestNewDocumentTemplate_EmitsDefaultsFromSynthesis(t *testing.T) {
 		t.Fatalf("NewTikiStore: %v", err)
 	}
 
-	doc, err := s.NewDocumentTemplate()
+	tk, err := s.NewTikiTemplate()
 	if err != nil {
-		t.Fatalf("NewDocumentTemplate: %v", err)
+		t.Fatalf("NewTikiTemplate: %v", err)
 	}
 	// Template must be workflow-classified and carry synthesized defaults.
-	if doc.Frontmatter == nil {
-		t.Fatal("template Document has nil Frontmatter — defaults should be synthesized")
+	if !hasAnyWorkflowField(tk) {
+		t.Fatal("template tiki has no workflow fields — defaults should be synthesized")
 	}
-	if _, has := doc.Frontmatter["status"]; !has {
+	if _, has := tk.Fields[tikipkg.FieldStatus]; !has {
 		t.Error("template is missing status default")
 	}
-	if _, has := doc.Frontmatter["priority"]; !has {
+	if _, has := tk.Fields[tikipkg.FieldPriority]; !has {
 		t.Error("template is missing priority default")
 	}
-
-	// Ensure TikiStore still satisfies DocumentStore after all this wiring.
-	var _ store.DocumentStore = s
 }

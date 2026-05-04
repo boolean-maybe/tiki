@@ -3,7 +3,7 @@ package tikistore
 import (
 	"testing"
 
-	taskpkg "github.com/boolean-maybe/tiki/task"
+	tikipkg "github.com/boolean-maybe/tiki/tiki"
 )
 
 func TestReloadTask_CaseDuplicate(t *testing.T) {
@@ -12,34 +12,31 @@ func TestReloadTask_CaseDuplicate(t *testing.T) {
 		t.Fatalf("failed to create store: %v", err)
 	}
 
-	// Create a task with a lowercase suffix ID
-	task := &taskpkg.Task{
-		ID:         "6EQDUE",
-		Title:      "Case Duplicate",
-		Type:       taskpkg.TypeStory,
-		Status:     taskpkg.StatusBacklog,
-		Priority:   3,
-		Points:     1,
-		IsWorkflow: true,
-	}
-	if err := store.CreateTask(task); err != nil {
-		t.Fatalf("CreateTask failed: %v", err)
+	// Create a tiki with ID 6EQDUE.
+	tk := tikipkg.New()
+	tk.ID = "6EQDUE"
+	tk.Title = "Case Duplicate"
+	tk.Set("type", "story")
+	tk.Set("status", "backlog")
+	tk.Set("priority", 3)
+	tk.Set("points", 1)
+	if err := store.CreateTiki(tk); err != nil {
+		t.Fatalf("CreateTiki failed: %v", err)
 	}
 
-	// Reload by lowercase ID; should not create a duplicate entry.
+	// Reload by ID; should not create a duplicate entry.
 	if err := store.ReloadTask("6EQDUE"); err != nil {
 		t.Fatalf("ReloadTask failed: %v", err)
 	}
 
-	tasks := store.GetAllTasks()
-	if len(tasks) != 1 {
-		t.Fatalf("expected 1 task after reload, got %d", len(tasks))
+	tikis := store.GetAllTikis()
+	if len(tikis) != 1 {
+		t.Fatalf("expected 1 tiki after reload, got %d", len(tikis))
 	}
 
 	foundUpper := false
-	for _, tsk := range tasks {
-		switch tsk.ID {
-		case "6EQDUE":
+	for _, tik := range tikis {
+		if tik.ID == "6EQDUE" {
 			foundUpper = true
 		}
 	}

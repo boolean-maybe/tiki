@@ -654,12 +654,13 @@ views:
 		t.Fatalf("post-action reload: %v", err)
 	}
 	for _, id := range []string{"000001", "000002"} {
-		t2 := ta.TaskStore.GetTask(id)
+		t2 := ta.TaskStore.GetTiki(id)
 		if t2 == nil {
 			t.Fatalf("task %s missing after action", id)
 		}
-		if t2.Priority != 1 {
-			t.Errorf("task %s priority = %d, want 1 (ruki global from wiki view)", id, t2.Priority)
+		priority, _, _ := t2.IntField("priority")
+		if priority != 1 {
+			t.Errorf("task %s priority = %d, want 1 (ruki global from wiki view)", id, priority)
 		}
 	}
 }

@@ -8,7 +8,7 @@ import (
 	nav "github.com/boolean-maybe/navidown/navidown"
 	"github.com/boolean-maybe/tiki/document"
 	"github.com/boolean-maybe/tiki/store"
-	taskpkg "github.com/boolean-maybe/tiki/task"
+	tikipkg "github.com/boolean-maybe/tiki/tiki"
 )
 
 // taskDescriptionProvider is a ContentProvider for task detail descriptions.
@@ -34,8 +34,8 @@ func (p *taskDescriptionProvider) FetchContent(elem nav.NavElement) (string, err
 	// valid file links keep working. The file resolver produces its own
 	// not-found error if nothing is on disk either.
 	if id, ok := extractTaskID(elem.URL); ok {
-		if task := p.store.GetTask(id); task != nil {
-			return formatTaskAsMarkdown(task), nil
+		if tk := p.store.GetTiki(id); tk != nil {
+			return formatTikiAsMarkdown(tk), nil
 		}
 	}
 	return p.fileHTTP.FetchContent(elem)
@@ -52,17 +52,21 @@ func extractTaskID(url string) (string, bool) {
 	return "", false
 }
 
-// formatTaskAsMarkdown renders a task as a readable markdown document.
-func formatTaskAsMarkdown(task *taskpkg.Task) string {
+// formatTikiAsMarkdown renders a tiki as a readable markdown document.
+func formatTikiAsMarkdown(tk *tikipkg.Tiki) string {
 	var b strings.Builder
-	fmt.Fprintf(&b, "# %s\n\n", task.Title)
-	fmt.Fprintf(&b, "**%s** · %s · %s", task.ID, task.Status, task.Type)
-	if task.Priority > 0 {
-		fmt.Fprintf(&b, " · P%d", task.Priority)
+	fmt.Fprintf(&b, "# %s\n\n", tk.Title)
+
+	statusStr, _, _ := tk.StringField(tikipkg.FieldStatus)
+	typeStr, _, _ := tk.StringField(tikipkg.FieldType)
+	fmt.Fprintf(&b, "**%s** · %s · %s", tk.ID, statusStr, typeStr)
+
+	if priority, _, _ := tk.IntField(tikipkg.FieldPriority); priority > 0 {
+		fmt.Fprintf(&b, " · P%d", priority)
 	}
 	b.WriteString("\n\n")
-	if task.Description != "" {
-		b.WriteString(task.Description)
+	if tk.Body != "" {
+		b.WriteString(tk.Body)
 		b.WriteString("\n")
 	}
 	return b.String()

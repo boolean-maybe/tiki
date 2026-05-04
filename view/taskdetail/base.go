@@ -2,11 +2,12 @@ package taskdetail
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/boolean-maybe/tiki/config"
 	"github.com/boolean-maybe/tiki/controller"
 	"github.com/boolean-maybe/tiki/store"
-	taskpkg "github.com/boolean-maybe/tiki/task"
+	tikipkg "github.com/boolean-maybe/tiki/tiki"
 	"github.com/boolean-maybe/tiki/util/gradient"
 
 	nav "github.com/boolean-maybe/navidown/navidown"
@@ -29,7 +30,7 @@ type Base struct {
 	descView     tview.Primitive
 
 	// Task data
-	fallbackTask   *taskpkg.Task
+	fallbackTiki   *tikipkg.Tiki
 	taskController *controller.TaskController
 
 	// Shared state
@@ -45,13 +46,13 @@ func (b *Base) build() {
 	b.root.AddItem(b.content, 0, 1, true)
 }
 
-// GetTask returns the task from the store or the fallback task
-func (b *Base) GetTask() *taskpkg.Task {
-	task := b.taskStore.GetTask(b.taskID)
-	if task == nil && b.fallbackTask != nil && b.fallbackTask.ID == b.taskID {
-		task = b.fallbackTask
+// GetTiki returns the tiki from the store or the fallback tiki
+func (b *Base) GetTiki() *tikipkg.Tiki {
+	tk := b.taskStore.GetTiki(b.taskID)
+	if tk == nil && b.fallbackTiki != nil && b.fallbackTiki.ID == b.taskID {
+		tk = b.fallbackTiki
 	}
-	return task
+	return tk
 }
 
 // GetPrimitive returns the root tview primitive
@@ -59,9 +60,9 @@ func (b *Base) GetPrimitive() tview.Primitive {
 	return b.root
 }
 
-// SetFallbackTask sets a task to render when it does not yet exist in the store (draft mode)
-func (b *Base) SetFallbackTask(task *taskpkg.Task) {
-	b.fallbackTask = task
+// SetFallbackTiki sets a tiki to render when it does not yet exist in the store (draft mode)
+func (b *Base) SetFallbackTiki(tk *tikipkg.Tiki) {
+	b.fallbackTiki = tk
 }
 
 // SetTaskController sets the task controller for edit session management
@@ -88,7 +89,7 @@ func (b *Base) IsFullscreen() bool {
 // primitives. It computes blocked tasks once and passes them to both BuildSectionInputs
 // and RenderBlocksColumn, avoiding a double-scan.
 func (b *Base) assembleMetadataBox(
-	task *taskpkg.Task,
+	tk *tikipkg.Tiki,
 	colors *config.ColorConfig,
 	titlePrimitive tview.Primitive,
 	col1, col2, col3 *tview.Flex,
@@ -98,23 +99,23 @@ func (b *Base) assembleMetadataBox(
 	metadataContainer.AddItem(titlePrimitive, titleHeight, 0, titleHeight > 0)
 	metadataContainer.AddItem(tview.NewBox(), 1, 0, false)
 
-	blocked := taskpkg.FindBlockedTasks(b.taskStore.GetAllTasks(), task.ID)
+	blocked := findBlockedTikis(b.taskStore.GetAllTikis(), tk.ID)
 	primitives := map[SectionID]tview.Primitive{
 		SectionStatusGroup: col1,
 		SectionPeopleGroup: col2,
 		SectionDueGroup:    col3,
-		SectionTags:        RenderTagsColumn(task),
-		SectionDependsOn:   RenderDependsOnColumn(task, b.taskStore),
+		SectionTags:        RenderTagsColumn(tk),
+		SectionDependsOn:   RenderDependsOnColumn(tk, b.taskStore),
 		SectionBlocks:      RenderBlocksColumn(blocked),
 	}
 
-	inputs := BuildSectionInputs(task, len(blocked) > 0)
+	inputs := BuildSectionInputs(tk, len(blocked) > 0)
 	metadataRow := newResponsiveMetadataRow(inputs, primitives)
 	metadataContainer.AddItem(metadataRow, 0, 1, false)
 
 	metadataBox := tview.NewFrame(metadataContainer).SetBorders(0, 0, 0, 0, 0, 0)
 	metadataBox.SetBorder(true).SetTitle(
-		fmt.Sprintf(" %s ", gradient.RenderAdaptiveGradientText(task.ID, colors.TaskDetailIDColor, colors.FallbackTaskIDColor)),
+		fmt.Sprintf(" %s ", gradient.RenderAdaptiveGradientText(tk.ID, colors.TaskDetailIDColor, colors.FallbackTaskIDColor)),
 	).SetBorderColor(colors.TaskBoxUnselectedBorder.TCell())
 	metadataBox.SetBorderPadding(1, 0, 2, 2)
 
@@ -127,4 +128,19 @@ func defaultString(s, def string) string {
 		return def
 	}
 	return s
+}
+
+// findBlockedTikis returns all tikis whose dependsOn list contains contextID.
+func findBlockedTikis(allTikis []*tikipkg.Tiki, contextID string) []*tikipkg.Tiki {
+	var result []*tikipkg.Tiki
+	for _, tk := range allTikis {
+		deps, _, _ := tk.StringSliceField(tikipkg.FieldDependsOn)
+		for _, dep := range deps {
+			if strings.ToUpper(dep) == contextID {
+				result = append(result, tk)
+				break
+			}
+		}
+	}
+	return result
 }

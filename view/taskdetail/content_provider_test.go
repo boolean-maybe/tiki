@@ -7,6 +7,7 @@ import (
 	nav "github.com/boolean-maybe/navidown/navidown"
 	"github.com/boolean-maybe/tiki/store"
 	"github.com/boolean-maybe/tiki/task"
+	tikipkg "github.com/boolean-maybe/tiki/tiki"
 )
 
 func TestExtractTaskID(t *testing.T) {
@@ -50,14 +51,14 @@ func TestExtractTaskID(t *testing.T) {
 
 func TestTaskDescriptionProvider_FetchContent_TikiID(t *testing.T) {
 	s := store.NewInMemoryStore()
-	_ = s.CreateTask(&task.Task{
-		ID:          "ABC123",
-		Title:       "Test Task",
-		Description: "some description",
-		Status:      task.StatusReady,
-		Type:        task.TypeStory,
-		Priority:    2,
-	})
+	tk := tikipkg.New()
+	tk.ID = "ABC123"
+	tk.Title = "Test Task"
+	tk.Body = "some description"
+	tk.Set("status", "ready")
+	tk.Set("type", "story")
+	tk.Set("priority", 2)
+	_ = s.CreateTiki(tk)
 
 	provider := newTaskDescriptionProvider(s, nil)
 
@@ -134,17 +135,17 @@ func TestTaskDescriptionProvider_FetchContent_TikiID(t *testing.T) {
 	})
 }
 
-func TestFormatTaskAsMarkdown(t *testing.T) {
+func TestFormatTikiAsMarkdown(t *testing.T) {
 	t.Run("with all fields", func(t *testing.T) {
-		tk := &task.Task{
-			ID:          "ABC123",
-			Title:       "My Task",
-			Description: "detailed desc",
-			Status:      task.StatusInProgress,
-			Type:        task.TypeBug,
-			Priority:    1,
-		}
-		md := formatTaskAsMarkdown(tk)
+		tk := tikipkg.New()
+		tk.ID = "ABC123"
+		tk.Title = "My Task"
+		tk.Body = "detailed desc"
+		tk.Set(tikipkg.FieldStatus, string(task.StatusInProgress))
+		tk.Set(tikipkg.FieldType, string(task.TypeBug))
+		tk.Set(tikipkg.FieldPriority, 1)
+
+		md := formatTikiAsMarkdown(tk)
 		if !strings.HasPrefix(md, "# My Task\n") {
 			t.Errorf("expected title as h1, got: %s", md)
 		}
@@ -160,26 +161,26 @@ func TestFormatTaskAsMarkdown(t *testing.T) {
 	})
 
 	t.Run("no priority", func(t *testing.T) {
-		tk := &task.Task{
-			ID:     "ABC123",
-			Title:  "No Prio",
-			Status: task.StatusReady,
-			Type:   task.TypeStory,
-		}
-		md := formatTaskAsMarkdown(tk)
+		tk := tikipkg.New()
+		tk.ID = "ABC123"
+		tk.Title = "No Prio"
+		tk.Set(tikipkg.FieldStatus, string(task.StatusReady))
+		tk.Set(tikipkg.FieldType, string(task.TypeStory))
+
+		md := formatTikiAsMarkdown(tk)
 		if strings.Contains(md, "P0") {
 			t.Error("should not show P0 for zero priority")
 		}
 	})
 
 	t.Run("empty description", func(t *testing.T) {
-		tk := &task.Task{
-			ID:     "ABC123",
-			Title:  "No Desc",
-			Status: task.StatusReady,
-			Type:   task.TypeStory,
-		}
-		md := formatTaskAsMarkdown(tk)
+		tk := tikipkg.New()
+		tk.ID = "ABC123"
+		tk.Title = "No Desc"
+		tk.Set(tikipkg.FieldStatus, string(task.StatusReady))
+		tk.Set(tikipkg.FieldType, string(task.TypeStory))
+
+		md := formatTikiAsMarkdown(tk)
 		// should end after the metadata line
 		lines := strings.Split(strings.TrimSpace(md), "\n")
 		if len(lines) != 3 { // title, blank, metadata

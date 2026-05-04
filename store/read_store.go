@@ -1,21 +1,12 @@
 package store
 
 import (
-	"github.com/boolean-maybe/tiki/task"
 	tikipkg "github.com/boolean-maybe/tiki/tiki"
 )
 
 // ReadStore is the read-only subset of Store.
 // Consumers that only need to query tasks should depend on this interface.
 type ReadStore interface {
-	// GetTask retrieves a task by ID
-	GetTask(id string) *task.Task
-
-	// GetAllTasks returns all tikis projected to tasks. Plain docs are included;
-	// callers that want only workflow-capable items should use GetAllTikis and
-	// filter by has(status) / hasAnyWorkflowField as appropriate.
-	GetAllTasks() []*task.Task
-
 	// GetTiki retrieves a tiki by ID. Returns nil when not found.
 	GetTiki(id string) *tikipkg.Tiki
 
@@ -24,12 +15,6 @@ type ReadStore interface {
 
 	// NewTikiTemplate returns a new tiki populated with creation defaults.
 	NewTikiTemplate() (*tikipkg.Tiki, error)
-
-	// Search searches workflow tasks with optional filter function.
-	// query: case-insensitive search term (searches task IDs, titles, descriptions, and tags)
-	// filterFunc: optional filter function to pre-filter tasks (nil = workflow tasks only)
-	// Returns matching tasks sorted by priority then title with relevance scores.
-	Search(query string, filterFunc func(*task.Task) bool) []task.SearchResult
 
 	// SearchTikis searches all tikis (including plain docs) with an optional
 	// tiki-native filter. query matches against id, title, and body.
@@ -48,10 +33,6 @@ type ReadStore interface {
 	// Merges the configured identity with git commit authors when git is enabled;
 	// otherwise returns the resolved identity (configured or OS user).
 	GetAllUsers() ([]string, error)
-
-	// NewTaskTemplate returns a new task populated with creation defaults
-	// from workflow registries (type, status, custom field defaults).
-	NewTaskTemplate() (*task.Task, error)
 
 	// AddListener registers a callback for change notifications.
 	// returns a listener ID that can be used to remove the listener.

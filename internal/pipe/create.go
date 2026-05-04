@@ -115,19 +115,19 @@ func CreateTaskFromReader(r io.Reader) (string, error) {
 		return "", fmt.Errorf("load triggers: %w", loadErr)
 	}
 
-	task, err := taskStore.NewTaskTemplate()
+	tmpl, err := taskStore.NewTikiTemplate()
 	if err != nil {
 		return "", fmt.Errorf("create task template: %w", err)
 	}
 
-	task.Title = title
-	task.Description = description
+	tmpl.Title = title
+	tmpl.Body = description
 
-	if err := gate.CreateTask(context.Background(), task); err != nil {
+	if err := gate.CreateTiki(context.Background(), tmpl); err != nil {
 		return "", fmt.Errorf("create task: %w", err)
 	}
 
-	return task.ID, nil
+	return tmpl.ID, nil
 }
 
 // parseInput splits piped text into title and description.
