@@ -30,7 +30,7 @@ func TestPhase5_Trigger_HasNewFieldTrueWhenPresent(t *testing.T) {
 		ID: "HAS001", Assignee: "alice",
 		WorkflowFrontmatter: map[string]interface{}{"assignee": ""},
 	}
-	tc := &TriggerContext{Old: nil, New: withAssignee}
+	tc := &TriggerContext{Old: nil, New: tikiFromTask(withAssignee)}
 
 	ok, err := te.EvalGuard(trig, tc)
 	if err != nil {
@@ -52,7 +52,7 @@ func TestPhase5_Trigger_HasNewFieldFalseWhenAbsent(t *testing.T) {
 
 	// No WorkflowFrontmatter, typed Assignee zero → absent.
 	plain := &task.Task{ID: "PLAIN1"}
-	tc := &TriggerContext{Old: nil, New: plain}
+	tc := &TriggerContext{Old: nil, New: tikiFromTask(plain)}
 
 	ok, err := te.EvalGuard(trig, tc)
 	if err != nil {
@@ -82,7 +82,7 @@ func TestPhase5_Trigger_HasOldFieldTrueWhenPresent(t *testing.T) {
 		WorkflowFrontmatter: map[string]interface{}{"status": "ready"},
 	}
 	newTask := &task.Task{ID: "TK01", Status: "done"}
-	tc := &TriggerContext{Old: oldTask, New: newTask}
+	tc := &TriggerContext{Old: tikiFromTask(oldTask), New: tikiFromTask(newTask)}
 
 	ok, err := te.EvalGuard(trig, tc)
 	if err != nil {
@@ -104,7 +104,7 @@ func TestPhase5_Trigger_HasOldFieldFalseWhenAbsent(t *testing.T) {
 
 	oldTask := &task.Task{ID: "TK01"} // no assignee declared
 	newTask := &task.Task{ID: "TK01", Assignee: "alice"}
-	tc := &TriggerContext{Old: oldTask, New: newTask}
+	tc := &TriggerContext{Old: tikiFromTask(oldTask), New: tikiFromTask(newTask)}
 
 	ok, err := te.EvalGuard(trig, tc)
 	if err != nil {
@@ -139,7 +139,7 @@ func TestPhase5_Trigger_HasOldAndHasNewResolveDistinctTasks(t *testing.T) {
 		ID: "TK01", Status: "ready",
 		WorkflowFrontmatter: map[string]interface{}{"status": "ready"},
 	}
-	tc := &TriggerContext{Old: oldTask, New: newTask}
+	tc := &TriggerContext{Old: tikiFromTask(oldTask), New: tikiFromTask(newTask)}
 
 	ok, err := te.EvalGuard(trig, tc)
 	if err != nil {
@@ -158,7 +158,7 @@ func TestPhase5_Trigger_HasOldAndHasNewResolveDistinctTasks(t *testing.T) {
 		ID: "TK02", Status: "done",
 		WorkflowFrontmatter: map[string]interface{}{"status": "done"},
 	}
-	tc2 := &TriggerContext{Old: oldTask2, New: newTask2}
+	tc2 := &TriggerContext{Old: tikiFromTask(oldTask2), New: tikiFromTask(newTask2)}
 	ok, err = te.EvalGuard(trig, tc2)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)

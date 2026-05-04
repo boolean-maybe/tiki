@@ -23,8 +23,10 @@ func setupRunnerTest(t *testing.T) store.Store {
 	})
 
 	s := store.NewInMemoryStore()
-	_ = s.CreateTask(&task.Task{ID: "TIKI-AAA001", Title: "Build API", Status: "ready", Priority: 1})
-	_ = s.CreateTask(&task.Task{ID: "TIKI-BBB002", Title: "Write Docs", Status: "done", Priority: 2})
+	// Phase 4: give every fixture an explicit assignee (even if empty)
+	// so queries that read assignee don't hard-error on the absent case.
+	_ = s.CreateTask(&task.Task{ID: "TIKI-AAA001", Title: "Build API", Status: "ready", Priority: 1, Assignee: "nobody"})
+	_ = s.CreateTask(&task.Task{ID: "TIKI-BBB002", Title: "Write Docs", Status: "done", Priority: 2, Assignee: "nobody"})
 	return s
 }
 

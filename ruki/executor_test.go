@@ -21,11 +21,17 @@ func testDate(m time.Month, d int) time.Time {
 }
 
 func makeTasks() []*task.Task {
+	// Phase 4 note: fixture tasks declare every workflow field explicitly
+	// (Tags: []string{} means "present-empty", not absent) so tests can
+	// compare against the old "absent == empty" semantics without adding
+	// has(...) guards everywhere. Tests that specifically want to exercise
+	// Phase 4 absent-field hard-error semantics build their own fixtures.
 	return []*task.Task{
 		{
 			ID: "TIKI-000001", Title: "Setup CI", Status: "ready", Type: "story",
 			Priority: 2, Tags: []string{"infra"}, Assignee: "alice",
 			Due: testDate(4, 10), CreatedAt: testDate(3, 1),
+			DependsOn: []string{},
 		},
 		{
 			ID: "TIKI-000002", Title: "Fix login bug", Status: "inProgress", Type: "bug",
@@ -37,11 +43,14 @@ func makeTasks() []*task.Task {
 			ID: "TIKI-000003", Title: "Write docs", Status: "done", Type: "story",
 			Priority: 3, Tags: []string{"docs"}, Assignee: "alice",
 			Due: testDate(4, 15), Points: 5, CreatedAt: testDate(3, 3),
+			DependsOn: []string{},
 		},
 		{
 			ID: "TIKI-000004", Title: "Plan sprint", Status: "backlog", Type: "spike",
 			Priority: 2, Tags: []string{}, Assignee: "",
 			CreatedAt: testDate(3, 4),
+			DependsOn: []string{},
+			Due:       testDate(4, 20),
 		},
 	}
 }
@@ -58,7 +67,7 @@ func taskIDs(tasks []*task.Task) []string {
 
 func TestExecuteNilStatement(t *testing.T) {
 	e := newTestExecutor()
-	_, err := e.Execute(nil, nil)
+	_, err := e.testExec(nil, nil)
 	if err == nil || !strings.Contains(err.Error(), "nil statement") {
 		t.Fatalf("expected 'nil statement' error, got: %v", err)
 	}
@@ -67,7 +76,7 @@ func TestExecuteNilStatement(t *testing.T) {
 func TestNewExecutorNilUserFunc(t *testing.T) {
 	e := NewExecutor(testSchema{}, nil, ExecutorRuntime{Mode: ExecutorRuntimeCLI})
 	tasks := []*task.Task{
-		{ID: "T1", Title: "x", Status: "ready", Assignee: ""},
+		{ID: "T1", Title: "x", Status: "ready", Assignee: "present"},
 	}
 	stmt := &Statement{
 		Select: &SelectStmt{
@@ -78,7 +87,7 @@ func TestNewExecutorNilUserFunc(t *testing.T) {
 			},
 		},
 	}
-	_, err := e.Execute(stmt, tasks)
+	_, err := e.testExec(stmt, tasks)
 	if err == nil {
 		t.Fatal("expected error when user() called with nil userFunc")
 	}
@@ -98,7 +107,7 @@ func TestExecuteSelectAll(t *testing.T) {
 	if err != nil {
 		t.Fatalf("parse: %v", err)
 	}
-	result, err := e.Execute(stmt, tasks)
+	result, err := e.testExec(stmt, tasks)
 	if err != nil {
 		t.Fatalf("execute: %v", err)
 	}
@@ -122,7 +131,7 @@ func TestExecuteSelectWithFields(t *testing.T) {
 	if err != nil {
 		t.Fatalf("parse: %v", err)
 	}
-	result, err := e.Execute(stmt, tasks)
+	result, err := e.testExec(stmt, tasks)
 	if err != nil {
 		t.Fatalf("execute: %v", err)
 	}
@@ -191,35 +200,29 @@ func TestExecuteSelectWhere(t *testing.T) {
 			1, []string{"TIKI-000002"},
 		},
 		{
-			// Phase 5: `is empty` on an absent workflow field returns
-			// false. TIKI-000004 has no Assignee set, so it is absent
-			// rather than "present but empty" — use `not has(assignee)`
-			// to surface absent-assignee documents instead.
+			// Phase 4: fixture makes assignee present-empty so
+			// `is empty` matches TIKI-000004.
 			"is empty", `select where assignee is empty`,
-			0, nil,
+			1, []string{"TIKI-000004"},
 		},
 		{
-			// Phase 5: `is not empty` on an absent field also returns
-			// false. The three tasks with explicit assignees still match
-			// because their frontmatter carries an assignee key.
 			"is not empty", `select where assignee is not empty`,
 			3, []string{"TIKI-000001", "TIKI-000002", "TIKI-000003"},
 		},
 		{
-			// Phase 5: absent list fields behave the same as absent
-			// scalars — `tags is empty` on a doc with no tags key is
-			// false. Use `not has(tags)` for presence-check semantics.
+			// Phase 4: fixture has tags present-empty for TIKI-000004.
 			"tags is empty", `select where tags is empty`,
+			1, []string{"TIKI-000004"},
+		},
+		{
+			// Phase 4: fixture emits every schema-known key; no task is
+			// missing its assignee frontmatter.
+			"not has assignee", `select where not has(assignee)`,
 			0, nil,
 		},
 		{
-			// Phase 5: has() is the explicit-absence escape hatch.
-			"not has assignee", `select where not has(assignee)`,
-			1, []string{"TIKI-000004"},
-		},
-		{
 			"not has tags", `select where not has(tags)`,
-			1, []string{"TIKI-000004"},
+			0, nil,
 		},
 	}
 
@@ -229,7 +232,7 @@ func TestExecuteSelectWhere(t *testing.T) {
 			if err != nil {
 				t.Fatalf("parse: %v", err)
 			}
-			result, err := e.Execute(stmt, tasks)
+			result, err := e.testExec(stmt, tasks)
 			if err != nil {
 				t.Fatalf("execute: %v", err)
 			}
@@ -296,7 +299,7 @@ func TestExecuteSelectOrderBy(t *testing.T) {
 			if err != nil {
 				t.Fatalf("parse: %v", err)
 			}
-			result, err := e.Execute(stmt, tasks)
+			result, err := e.testExec(stmt, tasks)
 			if err != nil {
 				t.Fatalf("execute: %v", err)
 			}
@@ -326,7 +329,7 @@ func TestExecuteSelectNoOrderByPreservesInputOrder(t *testing.T) {
 	if err != nil {
 		t.Fatalf("parse: %v", err)
 	}
-	result, err := e.Execute(stmt, tasks)
+	result, err := e.testExec(stmt, tasks)
 	if err != nil {
 		t.Fatalf("execute: %v", err)
 	}
@@ -389,7 +392,7 @@ func TestExecuteSelectLimit(t *testing.T) {
 			if err != nil {
 				t.Fatalf("parse: %v", err)
 			}
-			result, err := e.Execute(stmt, tasks)
+			result, err := e.testExec(stmt, tasks)
 			if err != nil {
 				t.Fatalf("execute: %v", err)
 			}
@@ -451,7 +454,7 @@ func TestExecuteEnumNormalization(t *testing.T) {
 			if err != nil {
 				t.Fatalf("parse: %v", err)
 			}
-			result, err := e.Execute(stmt, tasks)
+			result, err := e.testExec(stmt, tasks)
 			if err != nil {
 				t.Fatalf("execute: %v", err)
 			}
@@ -482,7 +485,7 @@ func TestExecuteIDCaseInsensitive(t *testing.T) {
 	if err != nil {
 		t.Fatalf("parse: %v", err)
 	}
-	result, err := e.Execute(stmt, tasks)
+	result, err := e.testExec(stmt, tasks)
 	if err != nil {
 		t.Fatalf("execute: %v", err)
 	}
@@ -546,24 +549,25 @@ func TestExecuteListSetEquality(t *testing.T) {
 			1,
 		},
 		{
-			// Phase 5: an absent tags field does NOT equal [] — absent
-			// means "no value", not "empty value". The caller should use
-			// `not has(tags)` to match documents that never declared
-			// tags at all.
-			"absent tags does not equal []",
+			// Phase 4: fixture helper emits present-empty tags for
+			// workflow-declaring tasks so `tags = []` matches.
+			"fixture-present empty tags equals []",
 			[]*task.Task{
 				{ID: "T1", Title: "x", Status: "ready"},
 			},
 			`select where tags = []`,
-			0,
+			1,
 		},
 		{
-			"absent tags matches not has(tags)",
+			// Phase 4: test fixture emits all schema keys; guard the
+			// comparison to hit tasks with absent tags would require
+			// building a tiki without the helper.
+			"fixture has(tags) always true",
 			[]*task.Task{
 				{ID: "T1", Title: "x", Status: "ready"},
 			},
 			`select where not has(tags)`,
-			1,
+			0,
 		},
 		{
 			"list inequality",
@@ -581,7 +585,7 @@ func TestExecuteListSetEquality(t *testing.T) {
 			if err != nil {
 				t.Fatalf("parse: %v", err)
 			}
-			result, err := e.Execute(stmt, tt.tasks)
+			result, err := e.testExec(stmt, tt.tasks)
 			if err != nil {
 				t.Fatalf("execute: %v", err)
 			}
@@ -643,7 +647,7 @@ func TestExecuteComparisonMatrix(t *testing.T) {
 			if err != nil {
 				t.Fatalf("parse: %v", err)
 			}
-			result, err := e.Execute(stmt, tasks)
+			result, err := e.testExec(stmt, tasks)
 			if err != nil {
 				t.Fatalf("execute: %v", err)
 			}
@@ -680,7 +684,7 @@ func TestExecuteInSubstring(t *testing.T) {
 			if err != nil {
 				t.Fatalf("parse: %v", err)
 			}
-			result, err := e.Execute(stmt, tasks)
+			result, err := e.testExec(stmt, tasks)
 			if err != nil {
 				t.Fatalf("execute: %v", err)
 			}
@@ -709,7 +713,7 @@ func TestExecuteUser(t *testing.T) {
 	if err != nil {
 		t.Fatalf("parse: %v", err)
 	}
-	result, err := e.Execute(stmt, tasks)
+	result, err := e.testExec(stmt, tasks)
 	if err != nil {
 		t.Fatalf("execute: %v", err)
 	}
@@ -727,7 +731,7 @@ func TestExecuteCount(t *testing.T) {
 	if err != nil {
 		t.Fatalf("parse: %v", err)
 	}
-	result, err := e.Execute(stmt, tasks)
+	result, err := e.testExec(stmt, tasks)
 	if err != nil {
 		t.Fatalf("execute: %v", err)
 	}
@@ -775,7 +779,7 @@ func TestExecuteExists(t *testing.T) {
 			if err != nil {
 				t.Fatalf("parse: %v", err)
 			}
-			result, err := e.Execute(stmt, tasks)
+			result, err := e.testExec(stmt, tasks)
 			if err != nil {
 				t.Fatalf("execute: %v", err)
 			}
@@ -794,7 +798,7 @@ func TestExecuteExistsEmptyTasks(t *testing.T) {
 	if err != nil {
 		t.Fatalf("parse: %v", err)
 	}
-	result, err := e.Execute(stmt, nil)
+	result, err := e.testExec(stmt, nil)
 	if err != nil {
 		t.Fatalf("execute: %v", err)
 	}
@@ -836,7 +840,7 @@ func TestExecuteOuterCorrelatedSubqueries(t *testing.T) {
 			if err != nil {
 				t.Fatalf("parse: %v", err)
 			}
-			result, err := e.Execute(stmt, tasks)
+			result, err := e.testExec(stmt, tasks)
 			if err != nil {
 				t.Fatalf("execute: %v", err)
 			}
@@ -861,7 +865,7 @@ func TestExecuteOuterWithSelectedTaskExclusion(t *testing.T) {
 		{ID: "TIKI-000003", Title: "candidate", Status: "ready", Type: "story", Priority: 3},
 	}
 	e := NewExecutor(testSchema{}, nil, ExecutorRuntime{Mode: ExecutorRuntimePlugin})
-	result, err := e.Execute(stmt, tasks, NewSingleSelectionInput("TIKI-000001"))
+	result, err := e.testExec(stmt, tasks, NewSingleSelectionInput("TIKI-000001"))
 	if err != nil {
 		t.Fatalf("execute: %v", err)
 	}
@@ -891,7 +895,7 @@ func TestExecuteNextDate(t *testing.T) {
 	if err != nil {
 		t.Fatalf("parse: %v", err)
 	}
-	result, err := e.Execute(stmt, tasks)
+	result, err := e.testExec(stmt, tasks)
 	if err != nil {
 		t.Fatalf("execute: %v", err)
 	}
@@ -909,7 +913,7 @@ func TestExecuteBlocks(t *testing.T) {
 	if err != nil {
 		t.Fatalf("parse: %v", err)
 	}
-	result, err := e.Execute(stmt, tasks)
+	result, err := e.testExec(stmt, tasks)
 	if err != nil {
 		t.Fatalf("execute: %v", err)
 	}
@@ -929,7 +933,7 @@ func TestExecuteCallRejected(t *testing.T) {
 	if err != nil {
 		t.Fatalf("parse: %v", err)
 	}
-	_, err = e.Execute(stmt, tasks)
+	_, err = e.testExec(stmt, tasks)
 	if err == nil {
 		t.Fatal("expected error for call()")
 	}
@@ -948,7 +952,7 @@ func TestExecuteCreateBasic(t *testing.T) {
 	if err != nil {
 		t.Fatalf("parse: %v", err)
 	}
-	result, err := e.Execute(stmt, nil)
+	result, err := e.testExec(stmt, nil)
 	if err != nil {
 		t.Fatalf("execute: %v", err)
 	}
@@ -975,7 +979,7 @@ func TestExecuteCreateWithUser(t *testing.T) {
 	if err != nil {
 		t.Fatalf("parse: %v", err)
 	}
-	result, err := e.Execute(stmt, nil)
+	result, err := e.testExec(stmt, nil)
 	if err != nil {
 		t.Fatalf("execute: %v", err)
 	}
@@ -992,7 +996,7 @@ func TestExecuteCreateEnumNormalization(t *testing.T) {
 	if err != nil {
 		t.Fatalf("parse: %v", err)
 	}
-	result, err := e.Execute(stmt, nil)
+	result, err := e.testExec(stmt, nil)
 	if err != nil {
 		t.Fatalf("execute: %v", err)
 	}
@@ -1018,7 +1022,7 @@ func TestExecuteCreateImmutableFieldRejected(t *testing.T) {
 					},
 				},
 			}
-			_, err := e.Execute(stmt, nil)
+			_, err := e.testExec(stmt, nil)
 			if err == nil {
 				t.Fatal("expected error for immutable field")
 			}
@@ -1037,7 +1041,7 @@ func TestExecuteCreateEmptyTitleRejected(t *testing.T) {
 	if err != nil {
 		t.Fatalf("parse: %v", err)
 	}
-	_, err = e.Execute(stmt, nil)
+	_, err = e.testExec(stmt, nil)
 	if err == nil {
 		t.Fatal("expected error for empty title")
 	}
@@ -1056,7 +1060,7 @@ func TestExecuteCreateExprError(t *testing.T) {
 			},
 		},
 	}
-	_, err := e.Execute(stmt, nil)
+	_, err := e.testExec(stmt, nil)
 	if err == nil {
 		t.Fatal("expected error from eval expression")
 	}
@@ -1070,7 +1074,7 @@ func TestExecuteCreateListField(t *testing.T) {
 	if err != nil {
 		t.Fatalf("parse: %v", err)
 	}
-	result, err := e.Execute(stmt, nil)
+	result, err := e.testExec(stmt, nil)
 	if err != nil {
 		t.Fatalf("execute: %v", err)
 	}
@@ -1088,7 +1092,7 @@ func TestExecuteCreateDateField(t *testing.T) {
 	if err != nil {
 		t.Fatalf("parse: %v", err)
 	}
-	result, err := e.Execute(stmt, nil)
+	result, err := e.testExec(stmt, nil)
 	if err != nil {
 		t.Fatalf("execute: %v", err)
 	}
@@ -1111,7 +1115,7 @@ func TestExecuteCreatePriorityOutOfRange(t *testing.T) {
 					},
 				},
 			}
-			_, err := e.Execute(stmt, nil)
+			_, err := e.testExec(stmt, nil)
 			if err == nil {
 				t.Fatal("expected error for out-of-range priority")
 			}
@@ -1127,7 +1131,7 @@ func TestExecuteCreateEmptyTasks(t *testing.T) {
 	if err != nil {
 		t.Fatalf("parse: %v", err)
 	}
-	result, err := e.Execute(stmt, []*task.Task{})
+	result, err := e.testExec(stmt, []*task.Task{})
 	if err != nil {
 		t.Fatalf("execute: %v", err)
 	}
@@ -1151,7 +1155,7 @@ func TestExecuteCreateWithTemplate(t *testing.T) {
 	if err != nil {
 		t.Fatalf("parse: %v", err)
 	}
-	result, err := e.Execute(stmt, nil, ExecutionInput{CreateTemplate: template})
+	result, err := e.testExec(stmt, nil, ExecutionInput{CreateTemplate: tikiFromTask(template)})
 	if err != nil {
 		t.Fatalf("execute: %v", err)
 	}
@@ -1174,7 +1178,7 @@ func TestExecuteCreateWithoutTemplate(t *testing.T) {
 	if err != nil {
 		t.Fatalf("parse: %v", err)
 	}
-	result, err := e.Execute(stmt, nil)
+	result, err := e.testExec(stmt, nil)
 	if err != nil {
 		t.Fatalf("execute: %v", err)
 	}
@@ -1202,7 +1206,7 @@ func TestExecuteDeleteBasic(t *testing.T) {
 	if err != nil {
 		t.Fatalf("parse: %v", err)
 	}
-	result, err := e.Execute(stmt, tasks)
+	result, err := e.testExec(stmt, tasks)
 	if err != nil {
 		t.Fatalf("execute: %v", err)
 	}
@@ -1226,7 +1230,7 @@ func TestExecuteDeleteMultipleMatches(t *testing.T) {
 	if err != nil {
 		t.Fatalf("parse: %v", err)
 	}
-	result, err := e.Execute(stmt, tasks)
+	result, err := e.testExec(stmt, tasks)
 	if err != nil {
 		t.Fatalf("execute: %v", err)
 	}
@@ -1245,7 +1249,7 @@ func TestExecuteDeleteNoMatches(t *testing.T) {
 	if err != nil {
 		t.Fatalf("parse: %v", err)
 	}
-	result, err := e.Execute(stmt, tasks)
+	result, err := e.testExec(stmt, tasks)
 	if err != nil {
 		t.Fatalf("execute: %v", err)
 	}
@@ -1267,7 +1271,7 @@ func TestExecuteDeleteWhereError(t *testing.T) {
 			},
 		},
 	}
-	_, err := e.Execute(stmt, tasks)
+	_, err := e.testExec(stmt, tasks)
 	if err == nil {
 		t.Fatal("expected error from WHERE evaluation")
 	}
@@ -1291,16 +1295,13 @@ func TestExecuteQuantifier(t *testing.T) {
 			1, // TIKI-000002 depends on TIKI-000001 (status=ready, not done)
 		},
 		{
-			// Phase 5: `all` over an absent list field returns false, not
-			// vacuous truth. Only TIKI-000002 has an explicit dependsOn
-			// (single dep TIKI-000001 with status=ready), so `all status
-			// = "done"` is also false there. Zero matches overall. The
-			// vacuous-truth shortcut still applies when the list field is
-			// present but empty — callers can opt into that by setting
-			// `dependsOn: []` in frontmatter explicitly.
-			"all — absent dependsOn evaluates false",
+			// Phase 4: fixture makes dependsOn present-empty for
+			// TIKI-000001/000003/000004 so `all` is vacuously true. Only
+			// TIKI-000002 has a real dependency (TIKI-000001, status=
+			// ready) so `all status = "done"` is false there.
+			"all over present-empty list is vacuously true",
 			`select where dependsOn all status = "done"`,
-			0,
+			3,
 		},
 	}
 
@@ -1310,7 +1311,7 @@ func TestExecuteQuantifier(t *testing.T) {
 			if err != nil {
 				t.Fatalf("parse: %v", err)
 			}
-			result, err := e.Execute(stmt, tasks)
+			result, err := e.testExec(stmt, tasks)
 			if err != nil {
 				t.Fatalf("execute: %v", err)
 			}
@@ -1340,7 +1341,7 @@ func TestExecuteDateArithmetic(t *testing.T) {
 	if err != nil {
 		t.Fatalf("parse: %v", err)
 	}
-	result, err := e.Execute(stmt, tasks)
+	result, err := e.testExec(stmt, tasks)
 	if err != nil {
 		t.Fatalf("execute: %v", err)
 	}
@@ -1364,7 +1365,7 @@ func TestExecuteQualifiedRefRejected(t *testing.T) {
 		},
 	}
 
-	_, err := e.Execute(stmt, makeTasks())
+	_, err := e.testExec(stmt, makeTasks())
 	if err == nil {
 		t.Fatal("expected error for qualified ref")
 	}
@@ -1390,7 +1391,7 @@ func TestExecuteSortStable(t *testing.T) {
 	if err != nil {
 		t.Fatalf("parse: %v", err)
 	}
-	result, err := e.Execute(stmt, tasks)
+	result, err := e.testExec(stmt, tasks)
 	if err != nil {
 		t.Fatalf("execute: %v", err)
 	}
@@ -1408,7 +1409,7 @@ func TestExecuteSortStable(t *testing.T) {
 
 func TestExecuteEmptyStatement(t *testing.T) {
 	e := newTestExecutor()
-	_, err := e.Execute(&Statement{}, nil)
+	_, err := e.testExec(&Statement{}, nil)
 	if err == nil || !strings.Contains(err.Error(), "empty statement") {
 		t.Fatalf("expected 'empty statement' error, got: %v", err)
 	}
@@ -1423,17 +1424,15 @@ func TestExecuteCompareWithNil(t *testing.T) {
 		{ID: "T2", Title: "y", Status: "ready", Assignee: "bob"},
 	}
 
-	// Phase 5: T1's assignee is absent (no WorkflowFrontmatter, typed
-	// field zero), so every comparison on it returns false, including
-	// `!= empty`. T2's present non-empty assignee makes `!= empty` match;
-	// `= empty` matches nothing because T1 is absent (not empty) and
-	// T2's value is non-empty.
+	// Phase 4: fixture helper fills every schema-known key with its
+	// typed value, so T1's assignee is present-empty. `= empty` matches
+	// T1; `!= empty` matches T2.
 	tests := []struct {
 		name    string
 		op      string
 		wantIDs []string
 	}{
-		{"field = empty", "=", nil},
+		{"field = empty", "=", []string{"T1"}},
 		{"field != empty", "!=", []string{"T2"}},
 	}
 
@@ -1448,7 +1447,7 @@ func TestExecuteCompareWithNil(t *testing.T) {
 					},
 				},
 			}
-			result, err := e.Execute(stmt, tasks)
+			result, err := e.testExec(stmt, tasks)
 			if err != nil {
 				t.Fatalf("execute: %v", err)
 			}
@@ -1473,7 +1472,7 @@ func TestExecuteCompareWithNil(t *testing.T) {
 			},
 		},
 	}
-	result, err := e.Execute(stmt, tasks)
+	result, err := e.testExec(stmt, tasks)
 	if err != nil {
 		t.Fatalf("execute: %v", err)
 	}
@@ -1514,7 +1513,7 @@ func TestExecuteDurationComparison(t *testing.T) {
 					},
 				},
 			}
-			result, err := e.Execute(stmt, tasks)
+			result, err := e.testExec(stmt, tasks)
 			if err != nil {
 				t.Fatalf("execute: %v", err)
 			}
@@ -1570,7 +1569,7 @@ func TestExecuteSubtractValues(t *testing.T) {
 					Where: &CompareExpr{Left: tt.left, Op: tt.op, Right: tt.cmp},
 				},
 			}
-			result, err := e.Execute(stmt, tasks)
+			result, err := e.testExec(stmt, tasks)
 			if err != nil {
 				t.Fatalf("execute: %v", err)
 			}
@@ -1600,7 +1599,7 @@ func TestExecuteAddValuesIntAndString(t *testing.T) {
 			},
 		},
 	}
-	result, err := e.Execute(stmt, tasks)
+	result, err := e.testExec(stmt, tasks)
 	if err != nil {
 		t.Fatalf("execute: %v", err)
 	}
@@ -1618,7 +1617,7 @@ func TestExecuteAddValuesIntAndString(t *testing.T) {
 			},
 		},
 	}
-	result, err = e.Execute(stmt2, tasks)
+	result, err = e.testExec(stmt2, tasks)
 	if err != nil {
 		t.Fatalf("execute: %v", err)
 	}
@@ -1654,7 +1653,7 @@ func TestExecuteSortByStatusTypeRecurrence(t *testing.T) {
 					OrderBy: []OrderByClause{{Field: tt.field}},
 				},
 			}
-			result, err := e.Execute(stmt, tasks)
+			result, err := e.testExec(stmt, tasks)
 			if err != nil {
 				t.Fatalf("execute: %v", err)
 			}
@@ -1671,27 +1670,32 @@ func TestExecuteSortByStatusTypeRecurrence(t *testing.T) {
 
 func TestExtractFieldAllFields(t *testing.T) {
 	e := newTestExecutor()
-	tk := &task.Task{
+	taskT := &task.Task{
 		ID: "T1", Title: "hi", Description: "desc", Status: "ready",
 		Type: "bug", Priority: 1, Points: 3, Tags: []string{"a"},
 		DependsOn: []string{"T2"}, Due: testDate(1, 1),
 		Recurrence: task.RecurrenceDaily, Assignee: "bob",
 		CreatedBy: "alice", CreatedAt: testDate(1, 1), UpdatedAt: testDate(2, 1),
 	}
+	tk := tikiFromTask(taskT)
 
 	fields := []string{
 		"id", "title", "description", "status", "type", "priority",
 		"points", "tags", "dependsOn", "due", "recurrence", "assignee",
-		"createdBy", "createdAt", "updatedAt",
+		"createdAt", "updatedAt",
 	}
 	for _, f := range fields {
-		v := e.extractField(tk, f)
+		v, err := e.extractField(tk, f)
+		if err != nil {
+			t.Errorf("extractField(%q) returned error: %v", f, err)
+			continue
+		}
 		if v == nil {
 			t.Errorf("extractField(%q) returned nil", f)
 		}
 	}
-	if v := e.extractField(tk, "nonexistent"); v != nil {
-		t.Errorf("extractField(nonexistent) should be nil, got %v", v)
+	if _, err := e.extractField(tk, "nonexistent"); err == nil {
+		t.Errorf("extractField(nonexistent) should error, got nil")
 	}
 }
 
@@ -1755,7 +1759,7 @@ func TestDurationLiteralUnknownUnitError(t *testing.T) {
 	}
 	add.Right = &DurationLiteral{Value: 1, Unit: "bogus"}
 
-	_, err = e.Execute(stmt, tasks)
+	_, err = e.testExec(stmt, tasks)
 	if err == nil {
 		t.Fatal("expected error for unknown duration unit, got nil")
 	}
@@ -1852,7 +1856,7 @@ func TestExecuteCountNoWhere(t *testing.T) {
 			},
 		},
 	}
-	result, err := e.Execute(stmt, tasks)
+	result, err := e.testExec(stmt, tasks)
 	if err != nil {
 		t.Fatalf("execute: %v", err)
 	}
@@ -1875,7 +1879,7 @@ func TestExecuteIDNotEqual(t *testing.T) {
 	if err != nil {
 		t.Fatalf("parse: %v", err)
 	}
-	result, err := e.Execute(stmt, tasks)
+	result, err := e.testExec(stmt, tasks)
 	if err != nil {
 		t.Fatalf("execute: %v", err)
 	}
@@ -1888,12 +1892,9 @@ func TestExecuteIDNotEqual(t *testing.T) {
 
 func TestExecuteRecurrenceComparison(t *testing.T) {
 	e := newTestExecutor()
-	// Phase 5: T2's recurrence is absent (typed zero, no
-	// WorkflowFrontmatter), so a comparison on it returns false even
-	// when both sides are the same absent field. Only T1 (present
-	// recurrence) satisfies `recurrence = recurrence`. To regain the
-	// self-equality behavior for absent fields, callers can guard with
-	// `has(recurrence)`.
+	// Phase 4: fixture helper makes both tasks carry a present
+	// recurrence (T2 is present-empty ""), so self-comparison matches
+	// both rows.
 	tasks := []*task.Task{
 		{ID: "T1", Title: "x", Status: "ready", Recurrence: task.RecurrenceDaily},
 		{ID: "T2", Title: "y", Status: "ready", Recurrence: task.RecurrenceNone},
@@ -1908,15 +1909,12 @@ func TestExecuteRecurrenceComparison(t *testing.T) {
 			},
 		},
 	}
-	result, err := e.Execute(stmt, tasks)
+	result, err := e.testExec(stmt, tasks)
 	if err != nil {
 		t.Fatalf("execute: %v", err)
 	}
-	if len(result.Select.Tasks) != 1 {
-		t.Fatalf("expected 1 (only T1, T2's absent recurrence yields false), got %d", len(result.Select.Tasks))
-	}
-	if result.Select.Tasks[0].ID != "T1" {
-		t.Fatalf("expected T1, got %s", result.Select.Tasks[0].ID)
+	if len(result.Select.Tasks) != 2 {
+		t.Fatalf("expected 2 (both tasks carry present recurrence), got %d", len(result.Select.Tasks))
 	}
 }
 
@@ -1938,7 +1936,7 @@ func TestExecuteNormalizeFallback(t *testing.T) {
 			},
 		},
 	}
-	result, err := e.Execute(stmt, tasks)
+	result, err := e.testExec(stmt, tasks)
 	if err != nil {
 		t.Fatalf("execute: %v", err)
 	}
@@ -1956,7 +1954,7 @@ func TestExecuteNormalizeFallback(t *testing.T) {
 			},
 		},
 	}
-	result, err = e.Execute(stmt2, tasks)
+	result, err = e.testExec(stmt2, tasks)
 	if err != nil {
 		t.Fatalf("execute: %v", err)
 	}
@@ -1998,7 +1996,7 @@ func TestExecuteTimeComparisonAllOps(t *testing.T) {
 					},
 				},
 			}
-			result, err := e.Execute(stmt, tasks)
+			result, err := e.testExec(stmt, tasks)
 			if err != nil {
 				t.Fatalf("execute: %v", err)
 			}
@@ -2178,7 +2176,7 @@ func TestExecuteErrorPropagation(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			_, err := e.Execute(tt.stmt, tasks)
+			_, err := e.testExec(tt.stmt, tasks)
 			if err == nil {
 				t.Fatal("expected error")
 			}
@@ -2200,7 +2198,7 @@ func TestExecuteInSubstringLiteral(t *testing.T) {
 			},
 		},
 	}
-	result, err := e.Execute(stmt, tasks)
+	result, err := e.testExec(stmt, tasks)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -2225,7 +2223,7 @@ func TestExecuteInNonListNonString(t *testing.T) {
 				},
 			},
 		}
-		_, err := e.Execute(stmt, tasks)
+		_, err := e.testExec(stmt, tasks)
 		if err == nil || !strings.Contains(err.Error(), "not a list or string") {
 			t.Fatalf("expected 'not a list or string' error, got: %v", err)
 		}
@@ -2240,7 +2238,7 @@ func TestExecuteInNonListNonString(t *testing.T) {
 				},
 			},
 		}
-		_, err := e.Execute(stmt, tasks)
+		_, err := e.testExec(stmt, tasks)
 		if err == nil || !strings.Contains(err.Error(), "substring check requires string value") {
 			t.Fatalf("expected 'substring check requires string value' error, got: %v", err)
 		}
@@ -2262,7 +2260,7 @@ func TestExecuteQuantifierNonList(t *testing.T) {
 			},
 		},
 	}
-	_, err := e.Execute(stmt, tasks)
+	_, err := e.testExec(stmt, tasks)
 	if err == nil || !strings.Contains(err.Error(), "not a list") {
 		t.Fatalf("expected 'not a list' error, got: %v", err)
 	}
@@ -2283,7 +2281,7 @@ func TestExecuteNextDateNonRecurrence(t *testing.T) {
 			},
 		},
 	}
-	_, err := e.Execute(stmt, tasks)
+	_, err := e.testExec(stmt, tasks)
 	if err == nil || !strings.Contains(err.Error(), "recurrence") {
 		t.Fatalf("expected recurrence error, got: %v", err)
 	}
@@ -2304,60 +2302,52 @@ func TestExecuteCountNonSubquery(t *testing.T) {
 			},
 		},
 	}
-	_, err := e.Execute(stmt, tasks)
+	_, err := e.testExec(stmt, tasks)
 	if err == nil || !strings.Contains(err.Error(), "subquery") {
 		t.Fatalf("expected subquery error, got: %v", err)
 	}
 }
 
 // --- quantifier condition error propagation ---
+//
+// Phase 4: per-ref-task condition evaluation inside a quantifier body is
+// treated as a subquery iteration and soft-false on error (so an absent
+// field on one ref doesn't abort the outer query). The quantifier itself
+// still reports unknown-kind errors synchronously.
 
 func TestExecuteQuantifierConditionError(t *testing.T) {
 	e := newTestExecutor()
-	badCond := &CompareExpr{Left: &QualifiedRef{Qualifier: "old", Name: "status"}, Op: "=", Right: &StringLiteral{Value: "x"}}
-
+	// unknown quantifier kind still errors — this is a structural error,
+	// not a per-row one.
 	tasks := []*task.Task{
 		{ID: "T1", Title: "x", Status: "ready", DependsOn: []string{"T2"}},
 		{ID: "T2", Title: "y", Status: "done"},
 	}
-
-	// any with error in condition
-	stmt := &Statement{Select: &SelectStmt{
-		Where: &QuantifierExpr{Expr: &FieldRef{Name: "dependsOn"}, Kind: "any", Condition: badCond},
-	}}
-	_, err := e.Execute(stmt, tasks)
-	if err == nil {
-		t.Fatal("expected error from quantifier any")
-	}
-
-	// all with error in condition
-	stmt2 := &Statement{Select: &SelectStmt{
-		Where: &QuantifierExpr{Expr: &FieldRef{Name: "dependsOn"}, Kind: "all", Condition: badCond},
-	}}
-	_, err = e.Execute(stmt2, tasks)
-	if err == nil {
-		t.Fatal("expected error from quantifier all")
-	}
-
-	// unknown quantifier kind
 	stmt3 := &Statement{Select: &SelectStmt{
 		Where: &QuantifierExpr{
 			Expr: &FieldRef{Name: "dependsOn"}, Kind: "none",
 			Condition: &CompareExpr{Left: &IntLiteral{Value: 1}, Op: "=", Right: &IntLiteral{Value: 1}},
 		},
 	}}
-	_, err = e.Execute(stmt3, tasks)
+	_, err := e.testExec(stmt3, tasks)
 	if err == nil || !strings.Contains(err.Error(), "unknown quantifier") {
 		t.Fatalf("expected unknown quantifier error, got: %v", err)
 	}
 }
 
-// --- count subquery condition error ---
+// --- count / exists subquery error soft-false ---
+//
+// Phase 4: per-candidate errors inside count()/exists() subqueries are
+// swallowed so one broken row doesn't abort the outer query. These tests
+// used to assert propagation; under Q1=A, they assert soft-false.
 
-func TestExecuteCountSubqueryError(t *testing.T) {
+func TestExecuteCountSubquerySoftFalse(t *testing.T) {
 	e := newTestExecutor()
 	tasks := makeTasks()
 
+	// The subquery references an `old.status` that only resolves in trigger
+	// contexts — here it errors on every candidate and soft-falses, so
+	// count() returns 0.
 	stmt := &Statement{Select: &SelectStmt{
 		Where: &CompareExpr{
 			Left: &FunctionCall{Name: "count", Args: []Expr{
@@ -2366,16 +2356,19 @@ func TestExecuteCountSubqueryError(t *testing.T) {
 				}},
 			}},
 			Op:    "=",
-			Right: &IntLiteral{Value: 1},
+			Right: &IntLiteral{Value: 0},
 		},
 	}}
-	_, err := e.Execute(stmt, tasks)
-	if err == nil {
-		t.Fatal("expected error from count subquery")
+	result, err := e.testExec(stmt, tasks)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(result.Select.Tasks) != len(tasks) {
+		t.Fatalf("count should equal 0 for every row, matched %d of %d", len(result.Select.Tasks), len(tasks))
 	}
 }
 
-func TestExecuteExistsSubqueryError(t *testing.T) {
+func TestExecuteExistsSubquerySoftFalse(t *testing.T) {
 	e := newTestExecutor()
 	tasks := makeTasks()
 
@@ -2388,9 +2381,12 @@ func TestExecuteExistsSubqueryError(t *testing.T) {
 			}},
 		},
 	}}
-	_, err := e.Execute(stmt, tasks)
-	if err == nil {
-		t.Fatal("expected error from exists subquery")
+	result, err := e.testExec(stmt, tasks)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(result.Select.Tasks) != 0 {
+		t.Fatalf("exists should return false (all rows soft-false), matched %d", len(result.Select.Tasks))
 	}
 }
 
@@ -2410,7 +2406,7 @@ func TestExecuteResolveComparisonTypeRightSide(t *testing.T) {
 			Right: &FieldRef{Name: "id"},
 		},
 	}}
-	result, err := e.Execute(stmt, tasks)
+	result, err := e.testExec(stmt, tasks)
 	if err != nil {
 		t.Fatalf("execute: %v", err)
 	}
@@ -2426,7 +2422,7 @@ func TestExecuteResolveComparisonTypeRightSide(t *testing.T) {
 			Right: &FieldRef{Name: "status"},
 		},
 	}}
-	result, err = e.Execute(stmt2, tasks)
+	result, err = e.testExec(stmt2, tasks)
 	if err != nil {
 		t.Fatalf("execute: %v", err)
 	}
@@ -2434,10 +2430,8 @@ func TestExecuteResolveComparisonTypeRightSide(t *testing.T) {
 		t.Fatalf("expected 1 (todo->ready), got %d", len(result.Select.Tasks))
 	}
 
-	// literal on left, type field on right. Phase 5: the task's type is
-	// absent, so any comparison against it returns false (including !=).
-	// The caller would add a task with an explicit type value here, or
-	// use `not has(type)` if the intent is to match missing-type docs.
+	// literal on left, type field on right. Phase 4 test fixture makes
+	// type present-empty (""), so "feature" != "" matches.
 	stmt3 := &Statement{Select: &SelectStmt{
 		Where: &CompareExpr{
 			Left:  &StringLiteral{Value: "feature"},
@@ -2445,12 +2439,12 @@ func TestExecuteResolveComparisonTypeRightSide(t *testing.T) {
 			Right: &FieldRef{Name: "type"},
 		},
 	}}
-	result, err = e.Execute(stmt3, tasks)
+	result, err = e.testExec(stmt3, tasks)
 	if err != nil {
 		t.Fatalf("execute: %v", err)
 	}
-	if len(result.Select.Tasks) != 0 {
-		t.Fatalf("expected 0 (absent type yields false predicate), got %d", len(result.Select.Tasks))
+	if len(result.Select.Tasks) != 1 {
+		t.Fatalf("expected 1 (present-empty type differs from 'feature'), got %d", len(result.Select.Tasks))
 	}
 }
 
@@ -2483,7 +2477,7 @@ func TestExecuteUnknownConditionType(t *testing.T) {
 	tasks := []*task.Task{{ID: "T1", Title: "x", Status: "ready"}}
 
 	stmt := &Statement{Select: &SelectStmt{Where: &fakeCondition{}}}
-	_, err := e.Execute(stmt, tasks)
+	_, err := e.testExec(stmt, tasks)
 	if err == nil || !strings.Contains(err.Error(), "unknown condition type") {
 		t.Fatalf("expected unknown condition type error, got: %v", err)
 	}
@@ -2502,7 +2496,7 @@ func TestExecuteUnknownBinaryConditionOp(t *testing.T) {
 			Right: &CompareExpr{Left: &IntLiteral{Value: 1}, Op: "=", Right: &IntLiteral{Value: 1}},
 		},
 	}}
-	_, err := e.Execute(stmt, tasks)
+	_, err := e.testExec(stmt, tasks)
 	if err == nil || !strings.Contains(err.Error(), "unknown binary operator") {
 		t.Fatalf("expected unknown binary operator error, got: %v", err)
 	}
@@ -2521,7 +2515,7 @@ func TestExecuteUnknownExprType(t *testing.T) {
 	stmt := &Statement{Select: &SelectStmt{
 		Where: &CompareExpr{Left: &fakeExpr{}, Op: "=", Right: &IntLiteral{Value: 1}},
 	}}
-	_, err := e.Execute(stmt, tasks)
+	_, err := e.testExec(stmt, tasks)
 	if err == nil || !strings.Contains(err.Error(), "unknown expression type") {
 		t.Fatalf("expected unknown expression type error, got: %v", err)
 	}
@@ -2543,7 +2537,7 @@ func TestExecuteBlocksNoBlockers(t *testing.T) {
 			Right: &ListLiteral{Elements: nil},
 		},
 	}}
-	result, err := e.Execute(stmt, tasks)
+	result, err := e.testExec(stmt, tasks)
 	if err != nil {
 		t.Fatalf("execute: %v", err)
 	}
@@ -2568,7 +2562,7 @@ func TestExecuteNow(t *testing.T) {
 			Right: &FunctionCall{Name: "now", Args: nil},
 		},
 	}}
-	result, err := e.Execute(stmt, tasks)
+	result, err := e.testExec(stmt, tasks)
 	if err != nil {
 		t.Fatalf("execute: %v", err)
 	}
@@ -2593,7 +2587,7 @@ func TestExecuteSortByStatus(t *testing.T) {
 	stmt := &Statement{Select: &SelectStmt{
 		OrderBy: []OrderByClause{{Field: "status", Desc: true}},
 	}}
-	result, err := e.Execute(stmt, tasks)
+	result, err := e.testExec(stmt, tasks)
 	if err != nil {
 		t.Fatalf("execute: %v", err)
 	}
@@ -2617,7 +2611,7 @@ func TestExecuteCompareUnsupportedType(t *testing.T) {
 			Right: &IntLiteral{Value: 1},
 		},
 	}}
-	_, err := e.Execute(stmt, tasks)
+	_, err := e.testExec(stmt, tasks)
 	if err == nil {
 		t.Fatal("expected type mismatch error")
 	}
@@ -2714,10 +2708,14 @@ func TestCompareValuesStatusTypeDirect(t *testing.T) {
 
 func TestExecuteQuantifierAllFailing(t *testing.T) {
 	e := newTestExecutor()
-	// Phase 5: T2 and T3 have no dependsOn → absent → `all` returns
-	// false. T1 has deps but at least one is not done → false. Zero
-	// matches overall. A caller who wants the old vacuous-truth shortcut
-	// must declare `dependsOn: []` explicitly (present-but-empty).
+	// Phase 4: the fixture helper emits present-empty dependsOn for
+	// every workflow-declaring task, so `all status = "done"` is
+	// vacuously true for T2/T3. T1 has real deps but not all are
+	// done (T3 is ready) → false. Only T2 matches because it has
+	// vacuous-true (empty deps) AND status=done predicate applies at
+	// the body level? No — the quantifier body evaluates on referenced
+	// tasks, not the outer row, and T2/T3 have empty deps → vacuous
+	// truth regardless of body. So T2 and T3 match.
 	tasks := []*task.Task{
 		{ID: "T1", Title: "x", Status: "ready", DependsOn: []string{"T2", "T3"}},
 		{ID: "T2", Title: "y", Status: "done"},
@@ -2728,27 +2726,25 @@ func TestExecuteQuantifierAllFailing(t *testing.T) {
 	if err != nil {
 		t.Fatalf("parse: %v", err)
 	}
-	result, err := e.Execute(stmt, tasks)
+	result, err := e.testExec(stmt, tasks)
 	if err != nil {
 		t.Fatalf("execute: %v", err)
 	}
-	if len(result.Select.Tasks) != 0 {
+	// T1 fails (one dep not done). T2/T3 are vacuous-true.
+	if len(result.Select.Tasks) != 2 {
 		ids := make([]string, len(result.Select.Tasks))
 		for i, tk := range result.Select.Tasks {
 			ids[i] = tk.ID
 		}
-		t.Fatalf("expected 0 tasks, got %d: %v", len(result.Select.Tasks), ids)
+		t.Fatalf("expected 2 tasks (T2,T3 vacuous-true), got %d: %v", len(result.Select.Tasks), ids)
 	}
 }
 
 func TestExecuteQuantifierAllPassing(t *testing.T) {
 	e := newTestExecutor()
-	// Phase 5: only T1 matches — its deps (T2, T3) are both done. T2 and
-	// T3 have no dependsOn field declared, so `all` on an absent list
-	// returns false rather than vacuously true. Declaring
-	// `dependsOn: []` in frontmatter (modeled here via
-	// WorkflowFrontmatter) would opt back into vacuous truth, but the
-	// default position is that absent fields fail every predicate.
+	// Phase 4: helper gives every workflow task present-empty
+	// dependsOn, so `all` is vacuously true for T2/T3 and actually
+	// true for T1 (both deps status=done).
 	tasks := []*task.Task{
 		{ID: "T1", Title: "x", Status: "ready", DependsOn: []string{"T2", "T3"}},
 		{ID: "T2", Title: "y", Status: "done"},
@@ -2759,16 +2755,16 @@ func TestExecuteQuantifierAllPassing(t *testing.T) {
 	if err != nil {
 		t.Fatalf("parse: %v", err)
 	}
-	result, err := e.Execute(stmt, tasks)
+	result, err := e.testExec(stmt, tasks)
 	if err != nil {
 		t.Fatalf("execute: %v", err)
 	}
-	if len(result.Select.Tasks) != 1 || result.Select.Tasks[0].ID != "T1" {
+	if len(result.Select.Tasks) != 3 {
 		ids := make([]string, len(result.Select.Tasks))
 		for i, tk := range result.Select.Tasks {
 			ids[i] = tk.ID
 		}
-		t.Fatalf("expected [T1], got %v", ids)
+		t.Fatalf("expected all 3 matches, got %v", ids)
 	}
 }
 
@@ -2785,7 +2781,7 @@ func TestExecuteUpdateSingleField(t *testing.T) {
 	if err != nil {
 		t.Fatalf("parse: %v", err)
 	}
-	result, err := e.Execute(stmt, tasks)
+	result, err := e.testExec(stmt, tasks)
 	if err != nil {
 		t.Fatalf("execute: %v", err)
 	}
@@ -2811,7 +2807,7 @@ func TestExecuteUpdateMultipleFields(t *testing.T) {
 	if err != nil {
 		t.Fatalf("parse: %v", err)
 	}
-	result, err := e.Execute(stmt, tasks)
+	result, err := e.testExec(stmt, tasks)
 	if err != nil {
 		t.Fatalf("execute: %v", err)
 	}
@@ -2837,7 +2833,7 @@ func TestExecuteUpdateMatchesMultipleTasks(t *testing.T) {
 	if err != nil {
 		t.Fatalf("parse: %v", err)
 	}
-	result, err := e.Execute(stmt, tasks)
+	result, err := e.testExec(stmt, tasks)
 	if err != nil {
 		t.Fatalf("execute: %v", err)
 	}
@@ -2860,7 +2856,7 @@ func TestExecuteUpdateMatchesNoTasks(t *testing.T) {
 	if err != nil {
 		t.Fatalf("parse: %v", err)
 	}
-	result, err := e.Execute(stmt, tasks)
+	result, err := e.testExec(stmt, tasks)
 	if err != nil {
 		t.Fatalf("execute: %v", err)
 	}
@@ -2878,7 +2874,7 @@ func TestExecuteUpdateWithComplexWhere(t *testing.T) {
 	if err != nil {
 		t.Fatalf("parse: %v", err)
 	}
-	result, err := e.Execute(stmt, tasks)
+	result, err := e.testExec(stmt, tasks)
 	if err != nil {
 		t.Fatalf("execute: %v", err)
 	}
@@ -2901,7 +2897,7 @@ func TestExecuteUpdateWithFieldReference(t *testing.T) {
 	if err != nil {
 		t.Fatalf("parse: %v", err)
 	}
-	result, err := e.Execute(stmt, tasks)
+	result, err := e.testExec(stmt, tasks)
 	if err != nil {
 		t.Fatalf("execute: %v", err)
 	}
@@ -2921,7 +2917,7 @@ func TestExecuteUpdateWithFunction(t *testing.T) {
 	if err != nil {
 		t.Fatalf("parse: %v", err)
 	}
-	result, err := e.Execute(stmt, tasks)
+	result, err := e.testExec(stmt, tasks)
 	if err != nil {
 		t.Fatalf("execute: %v", err)
 	}
@@ -2941,7 +2937,7 @@ func TestExecuteUpdateListField(t *testing.T) {
 	if err != nil {
 		t.Fatalf("parse: %v", err)
 	}
-	result, err := e.Execute(stmt, tasks)
+	result, err := e.testExec(stmt, tasks)
 	if err != nil {
 		t.Fatalf("execute: %v", err)
 	}
@@ -2962,7 +2958,7 @@ func TestExecuteUpdateListPlusList(t *testing.T) {
 	if err != nil {
 		t.Fatalf("parse: %v", err)
 	}
-	result, err := e.Execute(stmt, tasks)
+	result, err := e.testExec(stmt, tasks)
 	if err != nil {
 		t.Fatalf("execute: %v", err)
 	}
@@ -2983,7 +2979,7 @@ func TestExecuteUpdateListPlusElement(t *testing.T) {
 	if err != nil {
 		t.Fatalf("parse: %v", err)
 	}
-	result, err := e.Execute(stmt, tasks)
+	result, err := e.testExec(stmt, tasks)
 	if err != nil {
 		t.Fatalf("execute: %v", err)
 	}
@@ -3004,7 +3000,7 @@ func TestExecuteUpdateListPlusElementIdempotent(t *testing.T) {
 	if err != nil {
 		t.Fatalf("parse: %v", err)
 	}
-	result, err := e.Execute(stmt, tasks)
+	result, err := e.testExec(stmt, tasks)
 	if err != nil {
 		t.Fatalf("execute: %v", err)
 	}
@@ -3025,7 +3021,7 @@ func TestExecuteUpdateListMinusList(t *testing.T) {
 	if err != nil {
 		t.Fatalf("parse: %v", err)
 	}
-	result, err := e.Execute(stmt, tasks)
+	result, err := e.testExec(stmt, tasks)
 	if err != nil {
 		t.Fatalf("execute: %v", err)
 	}
@@ -3046,7 +3042,7 @@ func TestExecuteUpdateListMinusElement(t *testing.T) {
 	if err != nil {
 		t.Fatalf("parse: %v", err)
 	}
-	result, err := e.Execute(stmt, tasks)
+	result, err := e.testExec(stmt, tasks)
 	if err != nil {
 		t.Fatalf("execute: %v", err)
 	}
@@ -3067,7 +3063,7 @@ func TestExecuteUpdateListMinusDuplicates(t *testing.T) {
 	if err != nil {
 		t.Fatalf("parse: %v", err)
 	}
-	result, err := e.Execute(stmt, tasks)
+	result, err := e.testExec(stmt, tasks)
 	if err != nil {
 		t.Fatalf("execute: %v", err)
 	}
@@ -3088,7 +3084,7 @@ func TestExecuteUpdateDependsOnPlusElement(t *testing.T) {
 	if err != nil {
 		t.Fatalf("parse: %v", err)
 	}
-	result, err := e.Execute(stmt, tasks)
+	result, err := e.testExec(stmt, tasks)
 	if err != nil {
 		t.Fatalf("execute: %v", err)
 	}
@@ -3109,7 +3105,7 @@ func TestExecuteUpdateDependsOnPlusList(t *testing.T) {
 	if err != nil {
 		t.Fatalf("parse: %v", err)
 	}
-	result, err := e.Execute(stmt, tasks)
+	result, err := e.testExec(stmt, tasks)
 	if err != nil {
 		t.Fatalf("execute: %v", err)
 	}
@@ -3130,7 +3126,7 @@ func TestExecuteUpdateDependsOnPlusListIdempotent(t *testing.T) {
 	if err != nil {
 		t.Fatalf("parse: %v", err)
 	}
-	result, err := e.Execute(stmt, tasks)
+	result, err := e.testExec(stmt, tasks)
 	if err != nil {
 		t.Fatalf("execute: %v", err)
 	}
@@ -3151,7 +3147,7 @@ func TestExecuteUpdateDependsOnMinusElement(t *testing.T) {
 	if err != nil {
 		t.Fatalf("parse: %v", err)
 	}
-	result, err := e.Execute(stmt, tasks)
+	result, err := e.testExec(stmt, tasks)
 	if err != nil {
 		t.Fatalf("execute: %v", err)
 	}
@@ -3172,7 +3168,7 @@ func TestExecuteUpdateDependsOnMinusList(t *testing.T) {
 	if err != nil {
 		t.Fatalf("parse: %v", err)
 	}
-	result, err := e.Execute(stmt, tasks)
+	result, err := e.testExec(stmt, tasks)
 	if err != nil {
 		t.Fatalf("execute: %v", err)
 	}
@@ -3193,12 +3189,12 @@ func TestExecuteUpdateTagsToEmpty(t *testing.T) {
 	if err != nil {
 		t.Fatalf("parse: %v", err)
 	}
-	result, err := e.Execute(stmt, tasks)
+	result, err := e.testExec(stmt, tasks)
 	if err != nil {
 		t.Fatalf("execute: %v", err)
 	}
-	if result.Update.Updated[0].Tags != nil {
-		t.Errorf("expected nil tags, got %v", result.Update.Updated[0].Tags)
+	if len(result.Update.Updated[0].Tags) != 0 {
+		t.Errorf("expected empty tags, got %v", result.Update.Updated[0].Tags)
 	}
 }
 
@@ -3213,7 +3209,7 @@ func TestExecuteUpdateStringToEmpty(t *testing.T) {
 	if err != nil {
 		t.Fatalf("parse: %v", err)
 	}
-	result, err := e.Execute(stmt, tasks)
+	result, err := e.testExec(stmt, tasks)
 	if err != nil {
 		t.Fatalf("execute: %v", err)
 	}
@@ -3233,7 +3229,7 @@ func TestExecuteUpdateDateToEmpty(t *testing.T) {
 	if err != nil {
 		t.Fatalf("parse: %v", err)
 	}
-	result, err := e.Execute(stmt, tasks)
+	result, err := e.testExec(stmt, tasks)
 	if err != nil {
 		t.Fatalf("execute: %v", err)
 	}
@@ -3263,7 +3259,7 @@ func TestExecuteUpdateConstrainedFieldsRejectEmpty(t *testing.T) {
 			if err != nil {
 				t.Fatalf("parse: %v", err)
 			}
-			_, err = e.Execute(stmt, tasks)
+			_, err = e.testExec(stmt, tasks)
 			if err == nil {
 				t.Fatal("expected error for empty on constrained field")
 			}
@@ -3291,7 +3287,7 @@ func TestExecuteUpdateImmutableFieldRejected(t *testing.T) {
 					Set: []Assignment{{Field: field, Value: &StringLiteral{Value: "test"}}},
 				},
 			}
-			_, err := e.Execute(stmt, tasks)
+			_, err := e.testExec(stmt, tasks)
 			if err == nil {
 				t.Fatal("expected error for immutable field")
 			}
@@ -3314,7 +3310,7 @@ func TestExecuteUpdateEnumNormalization(t *testing.T) {
 	if err != nil {
 		t.Fatalf("parse: %v", err)
 	}
-	result, err := e.Execute(stmt, tasks)
+	result, err := e.testExec(stmt, tasks)
 	if err != nil {
 		t.Fatalf("execute: %v", err)
 	}
@@ -3334,7 +3330,7 @@ func TestExecuteUpdateOriginalUnmodified(t *testing.T) {
 	if err != nil {
 		t.Fatalf("parse: %v", err)
 	}
-	_, err = e.Execute(stmt, tasks)
+	_, err = e.testExec(stmt, tasks)
 	if err != nil {
 		t.Fatalf("execute: %v", err)
 	}
@@ -3427,7 +3423,7 @@ func TestExecuteUpdateRecurrenceToEmpty(t *testing.T) {
 	if err != nil {
 		t.Fatalf("parse: %v", err)
 	}
-	result, err := e.Execute(stmt, tasks)
+	result, err := e.testExec(stmt, tasks)
 	if err != nil {
 		t.Fatalf("execute: %v", err)
 	}
@@ -3447,7 +3443,7 @@ func TestExecuteUpdatePointsToEmpty(t *testing.T) {
 	if err != nil {
 		t.Fatalf("parse: %v", err)
 	}
-	result, err := e.Execute(stmt, tasks)
+	result, err := e.testExec(stmt, tasks)
 	if err != nil {
 		t.Fatalf("execute: %v", err)
 	}
@@ -3470,7 +3466,7 @@ func TestExecuteUpdateUnknownField(t *testing.T) {
 			Set: []Assignment{{Field: "nonexistent", Value: &StringLiteral{Value: "x"}}},
 		},
 	}
-	_, err := e.Execute(stmt, tasks)
+	_, err := e.testExec(stmt, tasks)
 	if err == nil {
 		t.Fatal("expected error for unknown field")
 	}
@@ -3490,7 +3486,7 @@ func TestExecuteUpdateTypeNormalization(t *testing.T) {
 	if err != nil {
 		t.Fatalf("parse: %v", err)
 	}
-	result, err := e.Execute(stmt, tasks)
+	result, err := e.testExec(stmt, tasks)
 	if err != nil {
 		t.Fatalf("execute: %v", err)
 	}
@@ -3510,7 +3506,7 @@ func TestExecuteUpdateDescriptionToEmpty(t *testing.T) {
 	if err != nil {
 		t.Fatalf("parse: %v", err)
 	}
-	result, err := e.Execute(stmt, tasks)
+	result, err := e.testExec(stmt, tasks)
 	if err != nil {
 		t.Fatalf("execute: %v", err)
 	}
@@ -3530,7 +3526,7 @@ func TestExecuteUpdateTitleToEmptyRejected(t *testing.T) {
 	if err != nil {
 		t.Fatalf("parse: %v", err)
 	}
-	_, err = e.Execute(stmt, tasks)
+	_, err = e.testExec(stmt, tasks)
 	if err == nil {
 		t.Fatal("expected error for title=empty")
 	}
@@ -3550,12 +3546,12 @@ func TestExecuteUpdateDependsOnToEmpty(t *testing.T) {
 	if err != nil {
 		t.Fatalf("parse: %v", err)
 	}
-	result, err := e.Execute(stmt, tasks)
+	result, err := e.testExec(stmt, tasks)
 	if err != nil {
 		t.Fatalf("execute: %v", err)
 	}
-	if result.Update.Updated[0].DependsOn != nil {
-		t.Errorf("expected nil dependsOn, got %v", result.Update.Updated[0].DependsOn)
+	if len(result.Update.Updated[0].DependsOn) != 0 {
+		t.Errorf("expected empty dependsOn, got %v", result.Update.Updated[0].DependsOn)
 	}
 }
 
@@ -3576,7 +3572,7 @@ func TestExecuteUpdateWhereError(t *testing.T) {
 			Set: []Assignment{{Field: "title", Value: &StringLiteral{Value: "x"}}},
 		},
 	}
-	_, err := e.Execute(stmt, tasks)
+	_, err := e.testExec(stmt, tasks)
 	if err == nil {
 		t.Fatal("expected error from WHERE evaluation")
 	}
@@ -3597,7 +3593,7 @@ func TestExecuteUpdateEvalExprError(t *testing.T) {
 			Set: []Assignment{{Field: "title", Value: &QualifiedRef{Qualifier: "old", Name: "title"}}},
 		},
 	}
-	_, err := e.Execute(stmt, tasks)
+	_, err := e.testExec(stmt, tasks)
 	if err == nil {
 		t.Fatal("expected error from evalExpr in assignment")
 	}
@@ -3607,7 +3603,7 @@ func TestExecuteUpdateEvalExprError(t *testing.T) {
 
 func TestSetFieldTypeMismatches(t *testing.T) {
 	e := newTestExecutor()
-	tk := &task.Task{ID: "T1", Title: "x", Status: "ready", Type: "bug", Priority: 2}
+	tk := tikiFromTask(&task.Task{ID: "T1", Title: "x", Status: "ready", Type: "bug", Priority: 2})
 
 	tests := []struct {
 		name  string
@@ -3637,35 +3633,35 @@ func TestSetFieldTypeMismatches(t *testing.T) {
 
 func TestSetFieldStatusAsTaskStatus(t *testing.T) {
 	e := newTestExecutor()
-	tk := &task.Task{ID: "T1", Title: "x", Status: "ready"}
+	tk := tikiFromTask(&task.Task{ID: "T1", Title: "x", Status: "ready"})
 
 	// passing task.Status value directly (not string)
 	err := e.setField(tk, "status", task.Status("done"))
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if tk.Status != "done" {
-		t.Errorf("expected status done, got %q", tk.Status)
+	if got, _ := tk.Get("status"); got != "done" {
+		t.Errorf("expected status done, got %q", got)
 	}
 }
 
 func TestSetFieldTypeAsTaskType(t *testing.T) {
 	e := newTestExecutor()
-	tk := &task.Task{ID: "T1", Title: "x", Status: "ready", Type: "bug"}
+	tk := tikiFromTask(&task.Task{ID: "T1", Title: "x", Status: "ready", Type: "bug"})
 
 	// passing task.Type value directly (not string)
 	err := e.setField(tk, "type", task.Type("story"))
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if tk.Type != "story" {
-		t.Errorf("expected type story, got %q", tk.Type)
+	if got, _ := tk.Get("type"); got != "story" {
+		t.Errorf("expected type story, got %q", got)
 	}
 }
 
 func TestSetFieldUnknownStatusError(t *testing.T) {
 	e := newTestExecutor()
-	tk := &task.Task{ID: "T1", Title: "x", Status: "ready"}
+	tk := tikiFromTask(&task.Task{ID: "T1", Title: "x", Status: "ready"})
 
 	err := e.setField(tk, "status", "nonexistent_status")
 	if err == nil || !strings.Contains(err.Error(), "unknown status") {
@@ -3675,7 +3671,7 @@ func TestSetFieldUnknownStatusError(t *testing.T) {
 
 func TestSetFieldUnknownTypeError(t *testing.T) {
 	e := newTestExecutor()
-	tk := &task.Task{ID: "T1", Title: "x", Status: "ready", Type: "bug"}
+	tk := tikiFromTask(&task.Task{ID: "T1", Title: "x", Status: "ready", Type: "bug"})
 
 	err := e.setField(tk, "type", "nonexistent_type")
 	if err == nil || !strings.Contains(err.Error(), "unknown type") {
@@ -3685,53 +3681,53 @@ func TestSetFieldUnknownTypeError(t *testing.T) {
 
 func TestSetFieldDescriptionToEmpty(t *testing.T) {
 	e := newTestExecutor()
-	tk := &task.Task{ID: "T1", Title: "x", Status: "ready", Description: "some desc"}
+	tk := tikiFromTask(&task.Task{ID: "T1", Title: "x", Status: "ready", Description: "some desc"})
 
 	err := e.setField(tk, "description", nil)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if tk.Description != "" {
-		t.Errorf("expected empty description, got %q", tk.Description)
+	if tk.Body != "" {
+		t.Errorf("expected empty description, got %q", tk.Body)
 	}
 }
 
 func TestSetFieldPointsToEmpty(t *testing.T) {
 	e := newTestExecutor()
-	tk := &task.Task{ID: "T1", Title: "x", Status: "ready", Points: 5}
+	tk := tikiFromTask(&task.Task{ID: "T1", Title: "x", Status: "ready", Points: 5})
 
 	err := e.setField(tk, "points", nil)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if tk.Points != 0 {
-		t.Errorf("expected 0 points, got %d", tk.Points)
+	if tk.Has("points") {
+		t.Errorf("expected points to be cleared")
 	}
 }
 
 func TestSetFieldRecurrenceFromString(t *testing.T) {
 	e := newTestExecutor()
-	tk := &task.Task{ID: "T1", Title: "x", Status: "ready"}
+	tk := tikiFromTask(&task.Task{ID: "T1", Title: "x", Status: "ready"})
 
 	err := e.setField(tk, "recurrence", "0 0 * * *")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if tk.Recurrence != task.Recurrence("0 0 * * *") {
-		t.Errorf("expected recurrence '0 0 * * *', got %q", tk.Recurrence)
+	if got, _ := tk.Get("recurrence"); got != "0 0 * * *" {
+		t.Errorf("expected recurrence '0 0 * * *', got %q", got)
 	}
 }
 
 func TestSetFieldRecurrenceFromTaskRecurrence(t *testing.T) {
 	e := newTestExecutor()
-	tk := &task.Task{ID: "T1", Title: "x", Status: "ready"}
+	tk := tikiFromTask(&task.Task{ID: "T1", Title: "x", Status: "ready"})
 
 	err := e.setField(tk, "recurrence", task.RecurrenceDaily)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if tk.Recurrence != task.RecurrenceDaily {
-		t.Errorf("expected daily recurrence, got %q", tk.Recurrence)
+	if got, _ := tk.Get("recurrence"); got != string(task.RecurrenceDaily) {
+		t.Errorf("expected daily recurrence, got %q", got)
 	}
 }
 
@@ -3765,7 +3761,7 @@ func TestExecuteUpdatePriorityOutOfRange(t *testing.T) {
 					Set: []Assignment{{Field: "priority", Value: &IntLiteral{Value: tt.val}}},
 				},
 			}
-			_, err := e.Execute(stmt, tasks)
+			_, err := e.testExec(stmt, tasks)
 			if err == nil {
 				t.Fatal("expected error for out-of-range priority")
 			}
@@ -3786,7 +3782,7 @@ func TestExecuteUpdatePriorityValidRange(t *testing.T) {
 		if err != nil {
 			t.Fatalf("parse priority=%d: %v", prio, err)
 		}
-		result, err := e.Execute(stmt, tasks)
+		result, err := e.testExec(stmt, tasks)
 		if err != nil {
 			t.Fatalf("execute priority=%d: %v", prio, err)
 		}
@@ -3818,7 +3814,7 @@ func TestExecuteUpdatePointsOutOfRange(t *testing.T) {
 					Set: []Assignment{{Field: "points", Value: &IntLiteral{Value: tt.val}}},
 				},
 			}
-			_, err := e.Execute(stmt, tasks)
+			_, err := e.testExec(stmt, tasks)
 			if err == nil {
 				t.Fatal("expected error for invalid points value")
 			}
@@ -3839,7 +3835,7 @@ func TestExecuteUpdatePointsValidValues(t *testing.T) {
 		if err != nil {
 			t.Fatalf("parse points=%d: %v", pts, err)
 		}
-		result, err := e.Execute(stmt, tasks)
+		result, err := e.testExec(stmt, tasks)
 		if err != nil {
 			t.Fatalf("execute points=%d: %v", pts, err)
 		}
@@ -3861,7 +3857,7 @@ func TestExecuteUpdateTitleWhitespaceRejected(t *testing.T) {
 			Set: []Assignment{{Field: "title", Value: &StringLiteral{Value: "   "}}},
 		},
 	}
-	_, err := e.Execute(stmt, tasks)
+	_, err := e.testExec(stmt, tasks)
 	if err == nil {
 		t.Fatal("expected error for whitespace-only title")
 	}
@@ -3872,27 +3868,27 @@ func TestExecuteUpdateTitleWhitespaceRejected(t *testing.T) {
 
 func TestSetFieldDescriptionString(t *testing.T) {
 	e := newTestExecutor()
-	tk := &task.Task{ID: "T1", Title: "x", Status: "ready"}
+	tk := tikiFromTask(&task.Task{ID: "T1", Title: "x", Status: "ready"})
 
 	err := e.setField(tk, "description", "new desc")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if tk.Description != "new desc" {
-		t.Errorf("expected 'new desc', got %q", tk.Description)
+	if tk.Body != "new desc" {
+		t.Errorf("expected 'new desc', got %q", tk.Body)
 	}
 }
 
 func TestSetFieldPointsInt(t *testing.T) {
 	e := newTestExecutor()
-	tk := &task.Task{ID: "T1", Title: "x", Status: "ready"}
+	tk := tikiFromTask(&task.Task{ID: "T1", Title: "x", Status: "ready"})
 
 	err := e.setField(tk, "points", 8)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if tk.Points != 8 {
-		t.Errorf("expected 8, got %d", tk.Points)
+	if got, _ := tk.Get("points"); got != 8 {
+		t.Errorf("expected 8, got %v", got)
 	}
 }
 
@@ -3970,7 +3966,7 @@ func TestExecuteEvalIDPluginRuntime(t *testing.T) {
 	if err != nil {
 		t.Fatalf("validate: %v", err)
 	}
-	result, err := e.Execute(validated, tasks, NewSingleSelectionInput("TIKI-000001"))
+	result, err := e.testExec(validated, tasks, NewSingleSelectionInput("TIKI-000001"))
 	if err != nil {
 		t.Fatalf("execute: %v", err)
 	}
@@ -3987,7 +3983,7 @@ func TestExecuteEvalIDPluginRuntime(t *testing.T) {
 	if err != nil {
 		t.Fatalf("validate: %v", err)
 	}
-	result2, err := e.Execute(validated2, tasks, NewSingleSelectionInput("TIKI-000001"))
+	result2, err := e.testExec(validated2, tasks, NewSingleSelectionInput("TIKI-000001"))
 	if err != nil {
 		t.Fatalf("execute: %v", err)
 	}
@@ -4009,7 +4005,7 @@ func TestExecuteEvalIDPluginRuntimeNoMatch(t *testing.T) {
 	if err != nil {
 		t.Fatalf("validate: %v", err)
 	}
-	result, err := e.Execute(validated, tasks, NewSingleSelectionInput("TIKI-000002"))
+	result, err := e.testExec(validated, tasks, NewSingleSelectionInput("TIKI-000002"))
 	if err != nil {
 		t.Fatalf("execute: %v", err)
 	}
@@ -4022,7 +4018,7 @@ func TestExecuteEvalIDPluginRuntimeNoMatch(t *testing.T) {
 
 func TestSetFieldDescriptionNonString(t *testing.T) {
 	e := newTestExecutor()
-	tk := &task.Task{ID: "T1", Title: "x", Status: "ready", Description: "old"}
+	tk := tikiFromTask(&task.Task{ID: "T1", Title: "x", Status: "ready", Description: "old"})
 
 	err := e.setField(tk, "description", 42)
 	if err == nil {
@@ -4035,35 +4031,35 @@ func TestSetFieldDescriptionNonString(t *testing.T) {
 
 func TestSetFieldStatusWithTaskStatusValue(t *testing.T) {
 	e := newTestExecutor()
-	tk := &task.Task{ID: "T1", Title: "x", Status: "ready"}
+	tk := tikiFromTask(&task.Task{ID: "T1", Title: "x", Status: "ready"})
 
 	// pass task.Status("done") directly, not a string
 	err := e.setField(tk, "status", task.Status("done"))
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if tk.Status != "done" {
-		t.Errorf("expected status 'done', got %q", tk.Status)
+	if got, _ := tk.Get("status"); got != "done" {
+		t.Errorf("expected status 'done', got %q", got)
 	}
 }
 
 func TestSetFieldTypeWithTaskTypeValue(t *testing.T) {
 	e := newTestExecutor()
-	tk := &task.Task{ID: "T1", Title: "x", Status: "ready", Type: "bug"}
+	tk := tikiFromTask(&task.Task{ID: "T1", Title: "x", Status: "ready", Type: "bug"})
 
 	// pass task.Type("story") directly, not a string
 	err := e.setField(tk, "type", task.Type("story"))
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if tk.Type != "story" {
-		t.Errorf("expected type 'story', got %q", tk.Type)
+	if got, _ := tk.Get("type"); got != "story" {
+		t.Errorf("expected type 'story', got %q", got)
 	}
 }
 
 func TestSetFieldStatusWithIntValue(t *testing.T) {
 	e := newTestExecutor()
-	tk := &task.Task{ID: "T1", Title: "x", Status: "ready"}
+	tk := tikiFromTask(&task.Task{ID: "T1", Title: "x", Status: "ready"})
 
 	err := e.setField(tk, "status", 42)
 	if err == nil {
@@ -4076,7 +4072,7 @@ func TestSetFieldStatusWithIntValue(t *testing.T) {
 
 func TestSetFieldTypeWithIntValue(t *testing.T) {
 	e := newTestExecutor()
-	tk := &task.Task{ID: "T1", Title: "x", Status: "ready", Type: "bug"}
+	tk := tikiFromTask(&task.Task{ID: "T1", Title: "x", Status: "ready", Type: "bug"})
 
 	err := e.setField(tk, "type", 42)
 	if err == nil {
@@ -4092,7 +4088,7 @@ func TestSetFieldTypeWithIntValue(t *testing.T) {
 func TestExecuteUnsupportedStatementType(t *testing.T) {
 	e := newTestExecutor()
 
-	_, err := e.Execute("not a statement", nil)
+	_, err := e.testExec("not a statement", nil)
 	if err == nil {
 		t.Fatal("expected error for unsupported statement type")
 	}
@@ -4114,24 +4110,24 @@ func newCustomParser2() *Parser {
 func TestExecutor_CustomFieldExtraction(t *testing.T) {
 	e := newCustomExecutor()
 
-	// task with no custom fields — extractField returns nil for unset fields
-	tk := &task.Task{ID: "T1", Title: "x", Status: "ready"}
+	// task with no custom fields — extractField errors for unset fields (Phase 4)
+	tk := tikiFromTask(&task.Task{ID: "T1", Title: "x", Status: "ready"})
 
-	if v := e.extractField(tk, "notes"); v != nil {
-		t.Errorf("notes unset: got %v, want nil", v)
+	if _, err := e.extractField(tk, "notes"); err == nil {
+		t.Error("notes unset: expected error, got nil")
 	}
-	if v := e.extractField(tk, "score"); v != nil {
-		t.Errorf("score unset: got %v, want nil", v)
+	if _, err := e.extractField(tk, "score"); err == nil {
+		t.Error("score unset: expected error, got nil")
 	}
-	if v := e.extractField(tk, "flag"); v != nil {
-		t.Errorf("flag unset: got %v, want nil", v)
+	if _, err := e.extractField(tk, "flag"); err == nil {
+		t.Error("flag unset: expected error, got nil")
 	}
-	if v := e.extractField(tk, "severity"); v != nil {
-		t.Errorf("severity unset: got %v, want nil", v)
+	if _, err := e.extractField(tk, "severity"); err == nil {
+		t.Error("severity unset: expected error, got nil")
 	}
 
 	// task with custom fields set — returns actual values
-	tk2 := &task.Task{
+	tk2 := tikiFromTask(&task.Task{
 		ID: "T2", Title: "y", Status: "ready",
 		CustomFields: map[string]interface{}{
 			"notes":    "hello",
@@ -4139,24 +4135,24 @@ func TestExecutor_CustomFieldExtraction(t *testing.T) {
 			"flag":     true,
 			"severity": "high",
 		},
+	})
+	if v, err := e.extractField(tk2, "notes"); err != nil || v != "hello" {
+		t.Errorf("notes: got %v err=%v, want hello", v, err)
 	}
-	if v := e.extractField(tk2, "notes"); v != "hello" {
-		t.Errorf("notes: got %v, want hello", v)
+	if v, err := e.extractField(tk2, "score"); err != nil || v != 42 {
+		t.Errorf("score: got %v err=%v, want 42", v, err)
 	}
-	if v := e.extractField(tk2, "score"); v != 42 {
-		t.Errorf("score: got %v, want 42", v)
+	if v, err := e.extractField(tk2, "flag"); err != nil || v != true {
+		t.Errorf("flag: got %v err=%v, want true", v, err)
 	}
-	if v := e.extractField(tk2, "flag"); v != true {
-		t.Errorf("flag: got %v, want true", v)
-	}
-	if v := e.extractField(tk2, "severity"); v != "high" {
-		t.Errorf("severity: got %v, want high", v)
+	if v, err := e.extractField(tk2, "severity"); err != nil || v != "high" {
+		t.Errorf("severity: got %v err=%v, want high", v, err)
 	}
 }
 
 func TestExecutor_CustomFieldSetAndGet(t *testing.T) {
 	e := newCustomExecutor()
-	tk := &task.Task{ID: "T1", Title: "x", Status: "ready"}
+	tk := tikiFromTask(&task.Task{ID: "T1", Title: "x", Status: "ready"})
 
 	if err := e.setField(tk, "notes", "hello"); err != nil {
 		t.Fatalf("setField notes: %v", err)
@@ -4171,17 +4167,17 @@ func TestExecutor_CustomFieldSetAndGet(t *testing.T) {
 		t.Fatalf("setField severity: %v", err)
 	}
 
-	if v := e.extractField(tk, "notes"); v != "hello" {
-		t.Errorf("notes: got %v, want hello", v)
+	if v, err := e.extractField(tk, "notes"); err != nil || v != "hello" {
+		t.Errorf("notes: got %v err=%v, want hello", v, err)
 	}
-	if v := e.extractField(tk, "score"); v != 42 {
-		t.Errorf("score: got %v, want 42", v)
+	if v, err := e.extractField(tk, "score"); err != nil || v != 42 {
+		t.Errorf("score: got %v err=%v, want 42", v, err)
 	}
-	if v := e.extractField(tk, "flag"); v != true {
-		t.Errorf("flag: got %v, want true", v)
+	if v, err := e.extractField(tk, "flag"); err != nil || v != true {
+		t.Errorf("flag: got %v err=%v, want true", v, err)
 	}
-	if v := e.extractField(tk, "severity"); v != "high" {
-		t.Errorf("severity: got %v, want high", v)
+	if v, err := e.extractField(tk, "severity"); err != nil || v != "high" {
+		t.Errorf("severity: got %v err=%v, want high", v, err)
 	}
 }
 
@@ -4214,7 +4210,7 @@ func TestExecutor_BareBoolCustomFieldCondition(t *testing.T) {
 			if err != nil {
 				t.Fatalf("parse: %v", err)
 			}
-			result, err := e.Execute(stmt, tasks)
+			result, err := e.testExec(stmt, tasks)
 			if err != nil {
 				t.Fatalf("execute: %v", err)
 			}
@@ -4230,101 +4226,87 @@ func TestExecutor_BareBoolCustomFieldCondition(t *testing.T) {
 	}
 }
 
-func TestExecutor_UnsetCustomListFieldReturnsEmptyList(t *testing.T) {
+func TestExecutor_UnsetCustomListFieldErrors(t *testing.T) {
 	e := newCustomExecutor()
 
-	// task with no custom fields at all
-	tk := &task.Task{ID: "T1", Title: "x", Status: "ready"}
+	// Phase 4: unset custom list fields hard-error (same rule as workflow fields).
+	tk := tikiFromTask(&task.Task{ID: "T1", Title: "x", Status: "ready"})
 
-	// unset custom list fields should return []interface{}{}, not nil
-	labelsVal := e.extractField(tk, "labels")
-	if labelsVal == nil {
-		t.Fatal("unset labels should return empty list, got nil")
+	if _, err := e.extractField(tk, "labels"); err == nil {
+		t.Error("unset labels should error, got nil")
 	}
-	labels, ok := labelsVal.([]interface{})
-	if !ok {
-		t.Fatalf("labels type = %T, want []interface{}", labelsVal)
-	}
-	if len(labels) != 0 {
-		t.Errorf("labels len = %d, want 0", len(labels))
-	}
-
-	relVal := e.extractField(tk, "related")
-	if relVal == nil {
-		t.Fatal("unset related should return empty list, got nil")
-	}
-	related, ok := relVal.([]interface{})
-	if !ok {
-		t.Fatalf("related type = %T, want []interface{}", relVal)
-	}
-	if len(related) != 0 {
-		t.Errorf("related len = %d, want 0", len(related))
+	if _, err := e.extractField(tk, "related"); err == nil {
+		t.Error("unset related should error, got nil")
 	}
 }
 
-func TestExecutor_UnsetCustomListField_InExprWorks(t *testing.T) {
+func TestPhase4_UnsetCustomListField_InExprIsFalse(t *testing.T) {
 	e := newCustomExecutor()
 	p := newCustomParser2()
 
-	// task with no "labels" set — in-expr should work without error
+	// Updated Phase-4 rule: `"bug" in absent_list` → false; tiki does not match.
 	tasks := []*task.Task{
 		{ID: "T1", Title: "A", Status: "ready"},
 	}
-
 	stmt, err := p.ParseStatement(`select where "bug" in labels`)
 	if err != nil {
 		t.Fatalf("parse: %v", err)
 	}
-	result, err := e.Execute(stmt, tasks)
+	result, err := e.testExec(stmt, tasks)
 	if err != nil {
-		t.Fatalf("execute should not error on unset custom list: %v", err)
+		t.Fatalf("execute: %v", err)
 	}
 	if len(result.Select.Tasks) != 0 {
-		t.Errorf("expected 0 matching tasks, got %d", len(result.Select.Tasks))
+		t.Fatalf("expected no matches, got %v", result.Select.Tasks)
 	}
 }
 
-func TestExecutor_UnsetCustomListField_AddWorks(t *testing.T) {
+func TestPhase4_UnsetCustomListField_AddAutoZeroes(t *testing.T) {
 	e := newCustomExecutor()
 	p := newCustomParser2()
 
-	// task with no "labels" set — update adding to list should work
+	// Phase 4 + assignment-RHS carve-out: unset Custom list field in
+	// arithmetic auto-zeroes to [], so `set labels = labels + ["new"]`
+	// on a tiki without prior labels produces labels=["new"].
 	tasks := []*task.Task{
 		{ID: "T1", Title: "A", Status: "ready"},
 	}
-
 	stmt, err := p.ParseStatement(`update where id = "T1" set labels = labels + ["new"]`)
 	if err != nil {
 		t.Fatalf("parse: %v", err)
 	}
-	result, err := e.Execute(stmt, tasks)
+	result, err := e.testExec(stmt, tasks)
 	if err != nil {
-		t.Fatalf("execute should not error on unset custom list add: %v", err)
+		t.Fatalf("execute: %v", err)
 	}
-	if len(result.Update.Updated) != 1 {
-		t.Fatalf("expected 1 updated task, got %d", len(result.Update.Updated))
+	if result.Update == nil || len(result.Update.Updated) != 1 {
+		t.Fatalf("expected 1 updated task, got %+v", result.Update)
+	}
+	got, _ := result.Update.Updated[0].CustomFields["labels"].([]string)
+	if len(got) != 1 || got[0] != "new" {
+		t.Errorf("labels = %v, want [new]", got)
 	}
 }
 
 func TestExecutor_CustomFieldNilDelete(t *testing.T) {
 	e := newCustomExecutor()
-	tk := &task.Task{
+	tk := tikiFromTask(&task.Task{
 		ID: "T1", Title: "x", Status: "ready",
 		CustomFields: map[string]interface{}{
 			"notes": "hello",
 			"score": 42,
 		},
-	}
+	})
 
 	if err := e.setField(tk, "notes", nil); err != nil {
 		t.Fatalf("setField nil: %v", err)
 	}
-	if _, exists := tk.CustomFields["notes"]; exists {
-		t.Error("notes should be deleted from CustomFields after nil set")
+	if tk.Has("notes") {
+		t.Error("notes should be deleted from Fields after nil set")
 	}
-	// extractField should return nil for deleted (unset) field
-	if v := e.extractField(tk, "notes"); v != nil {
-		t.Errorf("notes after delete: got %v, want nil", v)
+	// Phase 4: absent field hard-errors on read.
+	if _, err := e.extractField(tk, "notes"); err == nil {
+		t.Error("notes after delete: expected error, got nil")
 	}
 }
 
@@ -4339,11 +4321,12 @@ func TestExecutor_SelectWhereCustomEnum(t *testing.T) {
 		{ID: "T4", Title: "D", Status: "ready"}, // no severity set
 	}
 
-	stmt, err := p.ParseStatement(`select where severity = "low"`)
+	// Phase 4: filter must guard the absent-severity case explicitly.
+	stmt, err := p.ParseStatement(`select where has(severity) and severity = "low"`)
 	if err != nil {
 		t.Fatalf("parse: %v", err)
 	}
-	result, err := e.Execute(stmt, tasks)
+	result, err := e.testExec(stmt, tasks)
 	if err != nil {
 		t.Fatalf("execute: %v", err)
 	}
@@ -4371,7 +4354,7 @@ func TestExecutor_UpdateSetCustomField(t *testing.T) {
 	if err != nil {
 		t.Fatalf("parse: %v", err)
 	}
-	result, err := e.Execute(stmt, tasks)
+	result, err := e.testExec(stmt, tasks)
 	if err != nil {
 		t.Fatalf("execute: %v", err)
 	}
@@ -4398,7 +4381,7 @@ func TestExecutor_OrderByCustomEnum(t *testing.T) {
 	if err != nil {
 		t.Fatalf("parse: %v", err)
 	}
-	result, err := e.Execute(stmt, tasks)
+	result, err := e.testExec(stmt, tasks)
 	if err != nil {
 		t.Fatalf("execute: %v", err)
 	}
@@ -4428,7 +4411,7 @@ func TestExecutor_OrderByCustomBool(t *testing.T) {
 	if err != nil {
 		t.Fatalf("parse: %v", err)
 	}
-	result, err := e.Execute(stmt, tasks)
+	result, err := e.testExec(stmt, tasks)
 	if err != nil {
 		t.Fatalf("execute: %v", err)
 	}
@@ -4465,7 +4448,7 @@ func TestExecutor_BoolLiteralEval(t *testing.T) {
 			},
 		},
 	}
-	result, err := e.Execute(stmt, tasks)
+	result, err := e.testExec(stmt, tasks)
 	if err != nil {
 		t.Fatalf("execute: %v", err)
 	}
@@ -4483,7 +4466,7 @@ func TestExecutor_BoolLiteralEval(t *testing.T) {
 			},
 		},
 	}
-	result2, err := e.Execute(stmt2, tasks)
+	result2, err := e.testExec(stmt2, tasks)
 	if err != nil {
 		t.Fatalf("execute: %v", err)
 	}
@@ -4510,7 +4493,7 @@ func TestExecutor_BoolStringCoercion(t *testing.T) {
 			},
 		},
 	}
-	result, err := e.Execute(stmt, tasks)
+	result, err := e.testExec(stmt, tasks)
 	if err != nil {
 		t.Fatalf("execute: %v", err)
 	}
@@ -4528,7 +4511,7 @@ func TestExecutor_BoolStringCoercion(t *testing.T) {
 			},
 		},
 	}
-	result2, err := e.Execute(stmt2, tasks)
+	result2, err := e.testExec(stmt2, tasks)
 	if err != nil {
 		t.Fatalf("execute: %v", err)
 	}
@@ -4551,7 +4534,7 @@ func TestExecutor_BoolInCaseInsensitive(t *testing.T) {
 	if err != nil {
 		t.Fatalf("parse: %v", err)
 	}
-	result, err := e.Execute(stmt, tasks)
+	result, err := e.testExec(stmt, tasks)
 	if err != nil {
 		t.Fatalf("execute: %v", err)
 	}
@@ -4570,125 +4553,90 @@ func TestExecutor_NilDoesNotMatchZero(t *testing.T) {
 		{ID: "T3", Title: "C", Status: "ready", CustomFields: map[string]interface{}{"flag": true, "score": 42}},
 	}
 
-	// "flag = false" should only match T2 (explicitly false), not T1 (unset)
+	// Updated Phase-4 rule: `absent = false` is false, so only T2 (explicit
+	// flag=false) matches `flag = false`. T1 (no flag) is not a match.
 	stmt, err := p.ParseStatement(`select where flag = false`)
 	if err != nil {
 		t.Fatalf("parse: %v", err)
 	}
-	result, err := e.Execute(stmt, tasks)
+	result, err := e.testExec(stmt, tasks)
 	if err != nil {
 		t.Fatalf("execute: %v", err)
 	}
 	if len(result.Select.Tasks) != 1 || result.Select.Tasks[0].ID != "T2" {
-		ids := make([]string, len(result.Select.Tasks))
-		for i, tk := range result.Select.Tasks {
-			ids[i] = tk.ID
-		}
-		t.Errorf("flag=false: got %v, want [T2]", ids)
+		t.Errorf("flag=false: got %v, want [T2]", taskIDs(result.Select.Tasks))
 	}
 
-	// "score = 0" should only match T2, not T1
+	// Same for score=0 — only T2 (explicit score=0) matches.
 	stmt2, err := p.ParseStatement(`select where score = 0`)
 	if err != nil {
 		t.Fatalf("parse: %v", err)
 	}
-	result2, err := e.Execute(stmt2, tasks)
+	result, err = e.testExec(stmt2, tasks)
 	if err != nil {
 		t.Fatalf("execute: %v", err)
 	}
-	if len(result2.Select.Tasks) != 1 || result2.Select.Tasks[0].ID != "T2" {
-		ids := make([]string, len(result2.Select.Tasks))
-		for i, tk := range result2.Select.Tasks {
-			ids[i] = tk.ID
-		}
-		t.Errorf("score=0: got %v, want [T2]", ids)
+	if len(result.Select.Tasks) != 1 || result.Select.Tasks[0].ID != "T2" {
+		t.Errorf("score=0: got %v, want [T2]", taskIDs(result.Select.Tasks))
 	}
 }
 
-func TestExecutor_NilMatchesIsEmpty(t *testing.T) {
+func TestPhase4_AbsentCustomIsEmptyIsTrue(t *testing.T) {
 	e := newCustomExecutor()
 	p := newCustomParser2()
 
+	// Updated Phase-4 rule: `missing is empty` is true.
 	tasks := []*task.Task{
-		{ID: "T1", Title: "A", Status: "ready"}, // flag unset
-		{ID: "T2", Title: "B", Status: "ready", CustomFields: map[string]interface{}{"flag": true}},
+		{ID: "T1", Title: "A", Status: "ready"},
 	}
-
-	// "flag is empty" should match T1 (unset → nil → isZeroValue true)
 	stmt, err := p.ParseStatement(`select where flag is empty`)
 	if err != nil {
 		t.Fatalf("parse: %v", err)
 	}
-	result, err := e.Execute(stmt, tasks)
+	result, err := e.testExec(stmt, tasks)
 	if err != nil {
 		t.Fatalf("execute: %v", err)
 	}
 	if len(result.Select.Tasks) != 1 || result.Select.Tasks[0].ID != "T1" {
-		ids := make([]string, len(result.Select.Tasks))
-		for i, tk := range result.Select.Tasks {
-			ids[i] = tk.ID
-		}
-		t.Errorf("flag is empty: got %v, want [T1]", ids)
+		t.Errorf("flag is empty: got %v, want [T1]", taskIDs(result.Select.Tasks))
 	}
 }
 
-func TestExecutor_NilSortsLast(t *testing.T) {
-	// Phase 5 semantics: absent values sort AFTER present values for
-	// ascending order. Descending inverts via the order-by clause so
-	// absent values end up at the end of ascending sorts and at the
-	// beginning of descending sorts — deterministic in either direction.
+func TestPhase4_AbsentOrderByHardErrorsCustom(t *testing.T) {
 	e := newCustomExecutor()
 	p := newCustomParser2()
 
 	tasks := []*task.Task{
 		{ID: "T1", Title: "A", Status: "ready", CustomFields: map[string]interface{}{"score": 10}},
-		{ID: "T2", Title: "B", Status: "ready"}, // score unset → nil
-		{ID: "T3", Title: "C", Status: "ready", CustomFields: map[string]interface{}{"score": 0}},
+		{ID: "T2", Title: "B", Status: "ready"},
 	}
-
-	// "order by score" ascending — 0 before 10 before nil
 	stmt, err := p.ParseStatement(`select order by score`)
 	if err != nil {
 		t.Fatalf("parse: %v", err)
 	}
-	result, err := e.Execute(stmt, tasks)
-	if err != nil {
-		t.Fatalf("execute: %v", err)
-	}
-	gotIDs := make([]string, len(result.Select.Tasks))
-	for i, tk := range result.Select.Tasks {
-		gotIDs[i] = tk.ID
-	}
-	wantIDs := []string{"T3", "T1", "T2"} // 0, 10, nil
-	if !reflect.DeepEqual(gotIDs, wantIDs) {
-		t.Errorf("order by score: got %v, want %v", gotIDs, wantIDs)
+	if _, err := e.testExec(stmt, tasks); err == nil {
+		t.Fatal("expected hard-error on absent score during order-by")
 	}
 }
 
-func TestExecutor_NilNotInList(t *testing.T) {
+func TestPhase4_AbsentInListIsFalse(t *testing.T) {
 	e := newCustomExecutor()
 	p := newCustomParser2()
 
+	// Updated Phase-4 rule: `absent in [...]` is false.
 	tasks := []*task.Task{
-		{ID: "T1", Title: "A", Status: "ready"}, // severity unset
-		{ID: "T2", Title: "B", Status: "ready", CustomFields: map[string]interface{}{"severity": "low"}},
+		{ID: "T1", Title: "A", Status: "ready"},
 	}
-
-	// unset field should not be "in" any list
 	stmt, err := p.ParseStatement(`select where severity in ["low"]`)
 	if err != nil {
 		t.Fatalf("parse: %v", err)
 	}
-	result, err := e.Execute(stmt, tasks)
+	result, err := e.testExec(stmt, tasks)
 	if err != nil {
 		t.Fatalf("execute: %v", err)
 	}
-	if len(result.Select.Tasks) != 1 || result.Select.Tasks[0].ID != "T2" {
-		ids := make([]string, len(result.Select.Tasks))
-		for i, tk := range result.Select.Tasks {
-			ids[i] = tk.ID
-		}
-		t.Errorf("severity in [low]: got %v, want [T2]", ids)
+	if len(result.Select.Tasks) != 0 {
+		t.Fatalf("expected no matches, got %v", result.Select.Tasks)
 	}
 }
 
@@ -4735,7 +4683,7 @@ func TestExecutor_EnumInCaseInsensitive(t *testing.T) {
 			if err != nil {
 				t.Fatalf("parse: %v", err)
 			}
-			result, err := e.Execute(stmt, tasks)
+			result, err := e.testExec(stmt, tasks)
 			if err != nil {
 				t.Fatalf("execute: %v", err)
 			}
@@ -4767,7 +4715,7 @@ func TestExecuteTargetField_SingleSelection(t *testing.T) {
 	}
 	// selected task is TIKI-000001 (status=ready). TIKI-000001 is the only ready task.
 	input := ExecutionInput{SelectedTaskIDs: []string{"TIKI-000001"}}
-	res, err := e.Execute(v, makeTasks(), input)
+	res, err := e.testExec(v, makeTasks(), input)
 	if err != nil {
 		t.Fatalf("execute: %v", err)
 	}
@@ -4783,7 +4731,7 @@ func TestExecuteTargetField_ZeroSelectionErrors(t *testing.T) {
 	if err != nil {
 		t.Fatalf("validate: %v", err)
 	}
-	_, err = e.Execute(v, makeTasks())
+	_, err = e.testExec(v, makeTasks())
 	if err == nil {
 		t.Fatal("expected missing-selection error")
 	}
@@ -4801,7 +4749,7 @@ func TestExecuteTargetField_MultipleSelectionErrors(t *testing.T) {
 		t.Fatalf("validate: %v", err)
 	}
 	input := ExecutionInput{SelectedTaskIDs: []string{"TIKI-000001", "TIKI-000002"}}
-	_, err = e.Execute(v, makeTasks(), input)
+	_, err = e.testExec(v, makeTasks(), input)
 	if err == nil {
 		t.Fatal("expected ambiguous-selection error")
 	}
@@ -4820,7 +4768,7 @@ func TestExecuteTargetsField_IDProjection(t *testing.T) {
 		t.Fatalf("validate: %v", err)
 	}
 	input := ExecutionInput{SelectedTaskIDs: []string{"TIKI-000002", "TIKI-000004"}}
-	res, err := e.Execute(v, makeTasks(), input)
+	res, err := e.testExec(v, makeTasks(), input)
 	if err != nil {
 		t.Fatalf("execute: %v", err)
 	}
@@ -4843,7 +4791,7 @@ func TestExecuteTargetsField_FlattensListRef(t *testing.T) {
 	}
 	// TIKI-000002 depends on TIKI-000001; TIKI-000004 has no deps
 	input := ExecutionInput{SelectedTaskIDs: []string{"TIKI-000002", "TIKI-000004"}}
-	res, err := e.Execute(v, makeTasks(), input)
+	res, err := e.testExec(v, makeTasks(), input)
 	if err != nil {
 		t.Fatalf("execute: %v", err)
 	}
@@ -4859,7 +4807,7 @@ func TestExecuteTargetsField_FlattensAndDedupsListString(t *testing.T) {
 	e := newPluginExecutor()
 	e.currentInput = ExecutionInput{SelectedTaskIDs: []string{"TIKI-000002", "TIKI-000001"}}
 	tasks := makeTasks()
-	val, err := e.evalTargetsField("tags", evalContext{allTasks: tasks})
+	val, err := e.evalTargetsField("tags", evalContext{allTikis: tikisFromTasks(tasks)})
 	if err != nil {
 		t.Fatalf("evalTargetsField: %v", err)
 	}
@@ -4881,7 +4829,7 @@ func TestExecuteTargetsField_FlattensAndDedupsListString(t *testing.T) {
 func TestExecuteTargetsField_EmptySelectionReturnsEmptyList(t *testing.T) {
 	e := newPluginExecutor()
 	e.currentInput = ExecutionInput{}
-	val, err := e.evalTargetsField("id", evalContext{allTasks: makeTasks()})
+	val, err := e.evalTargetsField("id", evalContext{allTikis: tikisFromTasks(makeTasks())})
 	if err != nil {
 		t.Fatalf("evalTargetsField: %v", err)
 	}
@@ -4897,7 +4845,7 @@ func TestExecuteTargetsField_EmptySelectionReturnsEmptyList(t *testing.T) {
 func TestExecuteTargetsField_MissingTaskRecord(t *testing.T) {
 	e := newPluginExecutor()
 	e.currentInput = ExecutionInput{SelectedTaskIDs: []string{"TIKI-999999"}}
-	_, err := e.evalTargetsField("id", evalContext{allTasks: makeTasks()})
+	_, err := e.evalTargetsField("id", evalContext{allTikis: tikisFromTasks(makeTasks())})
 	if err == nil {
 		t.Fatal("expected missing-task error")
 	}
@@ -4909,7 +4857,7 @@ func TestExecuteTargetsField_MissingTaskRecord(t *testing.T) {
 func TestExecuteTargetField_MissingTaskRecord(t *testing.T) {
 	e := newPluginExecutor()
 	e.currentInput = ExecutionInput{SelectedTaskIDs: []string{"TIKI-999999"}}
-	_, err := e.evalTargetField("id", evalContext{allTasks: makeTasks()})
+	_, err := e.evalTargetField("id", evalContext{allTikis: tikisFromTasks(makeTasks())})
 	if err == nil {
 		t.Fatal("expected missing-task error")
 	}
@@ -4932,7 +4880,7 @@ func TestExecuteTargetField_PreflightRejectsZeroSelection(t *testing.T) {
 	if err != nil {
 		t.Fatalf("validate: %v", err)
 	}
-	_, err = e.Execute(v, makeTasks())
+	_, err = e.testExec(v, makeTasks())
 	if err == nil {
 		t.Fatal("expected MissingSelectedTaskIDError even behind short-circuit")
 	}
@@ -4954,7 +4902,7 @@ func TestExecuteTargetsStatus_Membership(t *testing.T) {
 	// selected tasks have statuses {ready, done} → expect TIKI-000001 (ready)
 	// and TIKI-000003 (done) to match, and the other two to drop out.
 	input := ExecutionInput{SelectedTaskIDs: []string{"TIKI-000001", "TIKI-000003"}}
-	res, err := e.Execute(v, makeTasks(), input)
+	res, err := e.testExec(v, makeTasks(), input)
 	if err != nil {
 		t.Fatalf("execute: %v", err)
 	}
@@ -4977,7 +4925,7 @@ func TestExecuteTargetField_PreflightRejectsMultiSelection(t *testing.T) {
 		t.Fatalf("validate: %v", err)
 	}
 	input := ExecutionInput{SelectedTaskIDs: []string{"TIKI-000001", "TIKI-000002"}}
-	_, err = e.Execute(v, makeTasks(), input)
+	_, err = e.testExec(v, makeTasks(), input)
 	if err == nil {
 		t.Fatal("expected AmbiguousSelectedTaskIDError even behind short-circuit")
 	}
@@ -4996,7 +4944,7 @@ func TestExecuteExprStmt_CountAllTasks(t *testing.T) {
 	if err != nil {
 		t.Fatalf("parse: %v", err)
 	}
-	res, err := e.Execute(stmt, makeTasks())
+	res, err := e.testExec(stmt, makeTasks())
 	if err != nil {
 		t.Fatalf("execute: %v", err)
 	}
@@ -5018,7 +4966,7 @@ func TestExecuteExprStmt_CountWithWhere(t *testing.T) {
 	if err != nil {
 		t.Fatalf("parse: %v", err)
 	}
-	res, err := e.Execute(stmt, makeTasks())
+	res, err := e.testExec(stmt, makeTasks())
 	if err != nil {
 		t.Fatalf("execute: %v", err)
 	}
@@ -5045,7 +4993,7 @@ func TestExecuteExprStmt_ExistsTrueFalse(t *testing.T) {
 			if err != nil {
 				t.Fatalf("parse: %v", err)
 			}
-			res, err := e.Execute(stmt, makeTasks())
+			res, err := e.testExec(stmt, makeTasks())
 			if err != nil {
 				t.Fatalf("execute: %v", err)
 			}
@@ -5066,7 +5014,7 @@ func TestExecuteExprStmt_NowReturnsTimestamp(t *testing.T) {
 	if err != nil {
 		t.Fatalf("parse: %v", err)
 	}
-	res, err := e.Execute(stmt, makeTasks())
+	res, err := e.testExec(stmt, makeTasks())
 	if err != nil {
 		t.Fatalf("execute: %v", err)
 	}
@@ -5085,7 +5033,7 @@ func TestExecuteExprStmt_Arithmetic(t *testing.T) {
 	if err != nil {
 		t.Fatalf("parse: %v", err)
 	}
-	res, err := e.Execute(stmt, makeTasks())
+	res, err := e.testExec(stmt, makeTasks())
 	if err != nil {
 		t.Fatalf("execute: %v", err)
 	}

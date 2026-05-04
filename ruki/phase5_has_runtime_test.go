@@ -35,7 +35,7 @@ func TestPhase5_Has_OuterQualifierResolvesParentRow(t *testing.T) {
 	if err != nil {
 		t.Fatalf("parse: %v", err)
 	}
-	result, err := e.Execute(stmt, []*task.Task{workflow, plain})
+	result, err := e.testExec(stmt, []*task.Task{workflow, plain})
 	if err != nil {
 		t.Fatalf("execute: %v (should run, not error on outer. qualifier)", err)
 	}
@@ -70,7 +70,7 @@ func TestPhase5_Has_TargetQualifierResolvesSelectedTask(t *testing.T) {
 	}
 	other := &task.Task{ID: "OTH01", Title: "other"}
 
-	result, err := e.Execute(vs, []*task.Task{selected, other}, ExecutionInput{
+	result, err := e.testExec(vs, []*task.Task{selected, other}, ExecutionInput{
 		SelectedTaskIDs: []string{"SEL01"},
 	})
 	if err != nil {
@@ -98,7 +98,7 @@ func TestPhase5_Has_TargetQualifierFalseWhenSelectedLacksField(t *testing.T) {
 		WorkflowFrontmatter: map[string]interface{}{"status": "ready"},
 	}
 
-	result, err := e.Execute(vs, []*task.Task{selected, other}, ExecutionInput{
+	result, err := e.testExec(vs, []*task.Task{selected, other}, ExecutionInput{
 		SelectedTaskIDs: []string{"SEL01"},
 	})
 	if err != nil {
@@ -132,7 +132,7 @@ func TestPhase5_Has_TargetsQualifierTrueWhenAnySelectedHasField(t *testing.T) {
 	withoutStatus := &task.Task{ID: "WITHOUT01", Title: "no status"}
 	bystander := &task.Task{ID: "BYST01", Title: "bystander"}
 
-	result, err := e.Execute(vs, []*task.Task{withStatus, withoutStatus, bystander}, ExecutionInput{
+	result, err := e.testExec(vs, []*task.Task{withStatus, withoutStatus, bystander}, ExecutionInput{
 		SelectedTaskIDs: []string{"WITH01", "WITHOUT01"},
 	})
 	if err != nil {
@@ -162,7 +162,7 @@ func TestPhase5_Has_TargetsQualifierFalseWhenNoneHaveField(t *testing.T) {
 		WorkflowFrontmatter: map[string]interface{}{"status": "ready"},
 	}
 
-	result, err := e.Execute(vs, []*task.Task{plain1, plain2, bystander}, ExecutionInput{
+	result, err := e.testExec(vs, []*task.Task{plain1, plain2, bystander}, ExecutionInput{
 		SelectedTaskIDs: []string{"PLN01", "PLN02"},
 	})
 	if err != nil {
@@ -187,7 +187,7 @@ func TestPhase5_Has_TargetsQualifierFalseWhenNothingSelected(t *testing.T) {
 	e := NewExecutor(testSchema{}, nil, ExecutorRuntime{Mode: ExecutorRuntimePlugin})
 	plain := &task.Task{ID: "PLN01", Title: "p"}
 
-	result, err := e.Execute(vs, []*task.Task{plain}, ExecutionInput{
+	result, err := e.testExec(vs, []*task.Task{plain}, ExecutionInput{
 		// no SelectedTaskIDs
 	})
 	if err != nil {

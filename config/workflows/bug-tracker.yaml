@@ -90,7 +90,7 @@ actions:
     action: update where id = id() set regression=false
   - key: "E"
     label: "Escalate"
-    action: update where id = id() set escalations=escalations + 1
+    action: update where id = id() set escalations = escalations + 1
   - key: "A"
     label: "Assign to..."
     action: update where id = id() set assignee=input()
@@ -120,19 +120,19 @@ views:
     key: "F1"
     lanes:
       - name: Open
-        filter: select where status = "open" order by priority, createdAt
+        filter: select where status = "open" and has(priority) order by priority, createdAt
         action: update where id = id() set status="open"
       - name: Triaged
-        filter: select where status = "triaged" order by priority, createdAt
+        filter: select where status = "triaged" and has(priority) order by priority, createdAt
         action: update where id = id() set status="triaged"
       - name: In Progress
-        filter: select where status = "inProgress" order by priority, createdAt
+        filter: select where status = "inProgress" and has(priority) order by priority, createdAt
         action: update where id = id() set status="inProgress"
       - name: In Review
-        filter: select where status = "inReview" order by priority, createdAt
+        filter: select where status = "inReview" and has(priority) order by priority, createdAt
         action: update where id = id() set status="inReview"
       - name: Verified
-        filter: select where status = "verified" order by priority, createdAt
+        filter: select where status = "verified" and has(priority) order by priority, createdAt
         action: update where id = id() set status="verified"
     actions:
       - key: "w"
@@ -147,16 +147,16 @@ views:
       - name: Critical
         columns: 2
         width: 40
-        filter: select where severity = "critical" and status != "verified" and status != "wontFix" order by priority, createdAt
+        filter: select where severity = "critical" and status != "verified" and status != "wontFix" and has(priority) order by priority, createdAt
         action: update where id = id() set severity="critical"
       - name: High
-        filter: select where severity = "high" and status != "verified" and status != "wontFix" order by priority, createdAt
+        filter: select where severity = "high" and status != "verified" and status != "wontFix" and has(priority) order by priority, createdAt
         action: update where id = id() set severity="high"
       - name: Medium
-        filter: select where severity = "medium" and status != "verified" and status != "wontFix" order by priority, createdAt
+        filter: select where severity = "medium" and status != "verified" and status != "wontFix" and has(priority) order by priority, createdAt
         action: update where id = id() set severity="medium"
       - name: Low
-        filter: select where severity = "low" and status != "verified" and status != "wontFix" order by priority, createdAt
+        filter: select where severity = "low" and status != "verified" and status != "wontFix" and has(priority) order by priority, createdAt
         action: update where id = id() set severity="low"
     actions:
       - key: "c"
@@ -170,19 +170,19 @@ views:
     lanes:
       - name: Prod
         columns: 1
-        filter: select where environment = "prod" and status != "verified" and status != "wontFix" order by priority, createdAt
+        filter: select where environment = "prod" and status != "verified" and status != "wontFix" and has(priority) order by priority, createdAt
         action: update where id = id() set environment="prod"
       - name: Staging
         columns: 1
-        filter: select where environment = "staging" and status != "verified" and status != "wontFix" order by priority, createdAt
+        filter: select where environment = "staging" and status != "verified" and status != "wontFix" and has(priority) order by priority, createdAt
         action: update where id = id() set environment="staging"
       - name: Dev
         columns: 1
-        filter: select where environment = "dev" and status != "verified" and status != "wontFix" order by priority, createdAt
+        filter: select where environment = "dev" and status != "verified" and status != "wontFix" and has(priority) order by priority, createdAt
         action: update where id = id() set environment="dev"
       - name: Unspecified
         columns: 1
-        filter: select where environment is empty and status != "verified" and status != "wontFix" order by priority, createdAt
+        filter: select where environment is empty and status != "verified" and status != "wontFix" and has(priority) order by priority, createdAt
 
   - name: SLA Watch
     kind: board
@@ -191,13 +191,13 @@ views:
     mode: expanded
     lanes:
       - name: Overdue
-        filter: select where dueBy is not empty and dueBy < now() and status != "verified" and status != "wontFix" order by dueBy
+        filter: select where has(dueBy) and dueBy < now() and status != "verified" and status != "wontFix" order by dueBy
       - name: Due Today
-        filter: select where dueBy >= now() and dueBy < now() + 1day order by priority
+        filter: select where has(dueBy) and dueBy >= now() and dueBy < now() + 1day and has(priority) order by priority
       - name: This Week
-        filter: select where dueBy >= now() + 1day and dueBy < now() + 7day order by dueBy
+        filter: select where has(dueBy) and dueBy >= now() + 1day and dueBy < now() + 7day order by dueBy
       - name: No SLA
-        filter: select where dueBy is empty and status != "verified" and status != "wontFix" order by priority
+        filter: select where not has(dueBy) and status != "verified" and status != "wontFix" and has(priority) order by priority
     actions:
       - key: "d"
         label: "Clear deadline"
@@ -226,7 +226,7 @@ triggers:
   - description: per-assignee WIP limit of 3 in-progress bugs
     ruki: >
       before update
-        where new.status = "inProgress"
+        where new.status = "inProgress" and new.assignee is not empty
           and count(select where assignee = new.assignee and status = "inProgress") > 2
         deny "assignee already at WIP limit (3 in-progress bugs)"
   - description: cannot delete an active bug
@@ -242,7 +242,7 @@ triggers:
   - description: tag and bump priority when regression is flagged
     ruki: >
       after update
-        where new.regression = true and old.regression = false
+        where new.regression = true and old.regression != true
         update where id = new.id set tags=tags + ["regression"] priority=1
   - description: clear SLA on closure
     ruki: >
@@ -252,12 +252,12 @@ triggers:
   - description: remove deleted task from dependency lists
     ruki: >
       after delete
-        update where old.id in dependsOn set dependsOn=dependsOn - [old.id]
+        update where old.id in dependsOn set dependsOn = dependsOn - [old.id]
   - description: auto-escalate overdue critical bugs every hour
     ruki: >
       every 1hour
-        update where severity = "critical" and dueBy < now() and status != "verified" and status != "wontFix"
-          set escalations=escalations + 1
+        update where severity = "critical" and has(dueBy) and dueBy < now() and status != "verified" and status != "wontFix"
+          set escalations = escalations + 1
   - description: purge closed bugs older than 30 days
     ruki: >
       every 1day

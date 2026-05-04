@@ -5,11 +5,11 @@ import (
 	"strings"
 
 	"github.com/boolean-maybe/tiki/task"
+	"github.com/boolean-maybe/tiki/tiki"
 )
 
 // TriggerExecutor evaluates trigger guards and actions in a trigger context.
 // It wraps Executor with old/new mutation context for QualifiedRef resolution.
-// A fresh Executor is created per call — no shared mutable state.
 type TriggerExecutor struct {
 	schema   Schema
 	userFunc func() string
@@ -21,11 +21,11 @@ func NewTriggerExecutor(schema Schema, userFunc func() string) *TriggerExecutor 
 	return &TriggerExecutor{schema: schema, userFunc: userFunc}
 }
 
-// TriggerContext holds the old/new task snapshots and allTasks for trigger evaluation.
+// TriggerContext holds the old/new tiki snapshots and allTikis for trigger evaluation.
 type TriggerContext struct {
-	Old      *task.Task // nil for create
-	New      *task.Task // nil for delete
-	AllTasks []*task.Task
+	Old      *tiki.Tiki // nil for create
+	New      *tiki.Tiki // nil for delete
+	AllTikis []*tiki.Tiki
 }
 
 // EvalGuard evaluates a trigger's where condition against the triggering event.
@@ -39,17 +39,13 @@ func (te *TriggerExecutor) EvalGuard(trig any, tc *TriggerContext) (bool, error)
 	if where == nil {
 		return true, nil
 	}
-	// the guard evaluates qualified refs against old/new directly;
-	// there is no "current task" — we use a sentinel that QualifiedRef overrides
 	sentinel := te.guardSentinel(tc)
 	exec := te.newExecWithOverrides(tc)
-	return exec.evalCondition(where, evalContext{current: sentinel, allTasks: tc.AllTasks})
+	return exec.evalCondition(where, evalContext{current: sentinel, allTikis: tc.AllTikis})
 }
 
-// ExecTimeTriggerAction executes a time trigger's action against all tasks.
-// Uses a plain Executor (no old/new overrides) since time triggers have no
-// mutation context — the parser forbids qualified refs in them.
-func (te *TriggerExecutor) ExecTimeTriggerAction(tt any, allTasks []*task.Task, inputs ...ExecutionInput) (*Result, error) {
+// ExecTimeTriggerAction executes a time trigger's action against all tikis.
+func (te *TriggerExecutor) ExecTimeTriggerAction(tt any, allTikis []*tiki.Tiki, inputs ...ExecutionInput) (*Result, error) {
 	var input ExecutionInput
 	if len(inputs) > 0 {
 		input = inputs[0]
@@ -76,20 +72,18 @@ func (te *TriggerExecutor) ExecTimeTriggerAction(tt any, allTasks []*task.Task, 
 			usesIDFunc: t.usesIDFunc,
 			statement:  cloneStatement(t.timeTrigger.Action),
 		}
-		return exec.Execute(action, allTasks, input)
+		return exec.Execute(action, allTikis, input)
 	case *TimeTrigger:
 		if t.Action == nil {
 			return nil, fmt.Errorf("time trigger has no action")
 		}
-		return exec.Execute(t.Action, allTasks, input)
+		return exec.Execute(t.Action, allTikis, input)
 	default:
 		return nil, fmt.Errorf("unsupported time trigger type %T", tt)
 	}
 }
 
 // ExecAction executes a trigger's CRUD action statement and returns the result.
-// QualifiedRefs resolve against tc.Old/tc.New. Bare fields resolve against target tasks.
-// Returns *Result for persistence by service/.
 func (te *TriggerExecutor) ExecAction(trig any, tc *TriggerContext, inputs ...ExecutionInput) (*Result, error) {
 	var input ExecutionInput
 	if len(inputs) > 0 {
@@ -117,19 +111,18 @@ func (te *TriggerExecutor) ExecAction(trig any, tc *TriggerContext, inputs ...Ex
 			usesIDFunc: t.usesIDFunc,
 			statement:  cloneStatement(t.trigger.Action),
 		}
-		return exec.Execute(action, tc.AllTasks, input)
+		return exec.Execute(action, tc.AllTikis, input)
 	case *Trigger:
 		if t.Action == nil {
 			return nil, fmt.Errorf("trigger has no action")
 		}
-		return exec.Execute(t.Action, tc.AllTasks, input)
+		return exec.Execute(t.Action, tc.AllTikis, input)
 	default:
 		return nil, fmt.Errorf("unsupported trigger type %T", trig)
 	}
 }
 
 // ExecRun evaluates the run() command expression to a string against the trigger context.
-// Returns the command string for execution by service/.
 func (te *TriggerExecutor) ExecRun(trig any, tc *TriggerContext) (string, error) {
 	validated, err := validateEventTriggerInput(trig)
 	if err != nil {
@@ -144,7 +137,7 @@ func (te *TriggerExecutor) ExecRun(trig any, tc *TriggerContext) (string, error)
 	}
 	sentinel := te.guardSentinel(tc)
 	exec := te.newExecWithOverrides(tc)
-	val, err := exec.evalExpr(command, evalContext{current: sentinel, allTasks: tc.AllTasks})
+	val, err := exec.evalExpr(command, evalContext{current: sentinel, allTikis: tc.AllTikis})
 	if err != nil {
 		return "", fmt.Errorf("evaluating run command: %w", err)
 	}
@@ -155,17 +148,15 @@ func (te *TriggerExecutor) ExecRun(trig any, tc *TriggerContext) (string, error)
 	return s, nil
 }
 
-// guardSentinel returns the best "current task" for guard evaluation.
-// In guards, all references should be qualified (old./new.), but the executor
-// still needs a task to evaluate against. We prefer new (proposed) over old.
-func (te *TriggerExecutor) guardSentinel(tc *TriggerContext) *task.Task {
+// guardSentinel returns the best "current tiki" for guard evaluation.
+func (te *TriggerExecutor) guardSentinel(tc *TriggerContext) *tiki.Tiki {
 	if tc.New != nil {
 		return tc.New
 	}
 	if tc.Old != nil {
 		return tc.Old
 	}
-	return &task.Task{}
+	return tiki.New()
 }
 
 func validateEventTriggerInput(trig any) (*ValidatedTrigger, error) {
@@ -207,8 +198,6 @@ func (e *triggerExecOverride) evalExpr(expr Expr, ctx evalContext) (interface{},
 	if qr, ok := expr.(*QualifiedRef); ok {
 		return e.resolveQualifiedRef(qr, ctx)
 	}
-	// for non-QualifiedRef expressions, delegate to base but with our overridden evalExpr
-	// for nested expressions
 	return e.evalExprRecursive(expr, ctx)
 }
 
@@ -216,19 +205,20 @@ func (e *triggerExecOverride) resolveQualifiedRef(qr *QualifiedRef, ctx evalCont
 	switch qr.Qualifier {
 	case "old":
 		if e.tc.Old == nil {
-			return nil, nil // old is nil for create events
+			// old is nil for create events — surface as absent.
+			return nil, absentFieldError(nil, "old."+qr.Name)
 		}
-		return e.extractField(e.tc.Old, qr.Name), nil
+		return e.readFieldRefWithCarveOut(e.tc.Old, qr.Name, ctx)
 	case "new":
 		if e.tc.New == nil {
-			return nil, nil // new is nil for delete events
+			return nil, absentFieldError(nil, "new."+qr.Name)
 		}
-		return e.extractField(e.tc.New, qr.Name), nil
+		return e.readFieldRefWithCarveOut(e.tc.New, qr.Name, ctx)
 	case "outer":
 		if ctx.outer == nil {
 			return nil, fmt.Errorf("outer.%s is not available outside a subquery", qr.Name)
 		}
-		return e.extractField(ctx.outer, qr.Name), nil
+		return e.readFieldRefWithCarveOut(ctx.outer, qr.Name, ctx)
 	case "target", "targets":
 		return nil, fmt.Errorf("%s. qualifier is not valid in trigger execution", qr.Qualifier)
 	default:
@@ -236,14 +226,15 @@ func (e *triggerExecOverride) resolveQualifiedRef(qr *QualifiedRef, ctx evalCont
 	}
 }
 
-// evalExprRecursive handles all expression types, dispatching QualifiedRef
-// to resolveQualifiedRef and delegating everything else to the base Executor.
+// evalExprRecursive dispatches QualifiedRef through the override and
+// delegates everything else through the base Executor (which still uses
+// e.evalExpr for its nested calls thanks to method dispatch).
 func (e *triggerExecOverride) evalExprRecursive(expr Expr, ctx evalContext) (interface{}, error) {
 	switch expr := expr.(type) {
 	case *QualifiedRef:
 		return e.resolveQualifiedRef(expr, ctx)
 	case *FieldRef:
-		return e.extractField(ctx.current, expr.Name), nil
+		return e.readFieldRefWithCarveOut(ctx.current, expr.Name, ctx)
 	case *BinaryExpr:
 		leftVal, err := e.evalExpr(expr.Left, ctx)
 		if err != nil {
@@ -253,15 +244,6 @@ func (e *triggerExecOverride) evalExprRecursive(expr Expr, ctx evalContext) (int
 		if err != nil {
 			return nil, err
 		}
-		// Phase 5: absent list workflow fields coerce to an empty
-		// []interface{} for arithmetic contexts so trigger actions like
-		// `set tags = tags + ["auto"]` and
-		// `set dependsOn = dependsOn + old.id` work on plain tasks —
-		// the same promotion idiom the base executor already supports.
-		// Without this, a trigger action targeting a document with no
-		// prior dependsOn/tags fails with "cannot add <nil> + string".
-		leftVal = e.coerceAbsentListForArithmetic(expr.Left, leftVal)
-		rightVal = e.coerceAbsentListForArithmetic(expr.Right, rightVal)
 		switch expr.Op {
 		case "+":
 			return addValues(leftVal, rightVal)
@@ -283,7 +265,6 @@ func (e *triggerExecOverride) evalExprRecursive(expr Expr, ctx evalContext) (int
 	case *FunctionCall:
 		return e.evalFunctionCallOverride(expr, ctx)
 	default:
-		// StringLiteral, IntLiteral, DateLiteral, DurationLiteral, EmptyLiteral, SubQuery
 		return e.Executor.evalExpr(expr, ctx)
 	}
 }
@@ -323,27 +304,24 @@ func (e *triggerExecOverride) evalCondition(c Condition, ctx evalContext) (bool,
 		}
 		return conditionBoolValue(val)
 	case *CompareExpr:
-		leftVal, err := e.evalExpr(c.Left, ctx)
+		leftVal, leftAbsent, err := absorbAbsent(e.evalExpr, c.Left, ctx)
 		if err != nil {
 			return false, err
 		}
-		rightVal, err := e.evalExpr(c.Right, ctx)
+		rightVal, rightAbsent, err := absorbAbsent(e.evalExpr, c.Right, ctx)
 		if err != nil {
 			return false, err
+		}
+		if leftAbsent || rightAbsent {
+			return missingFieldCompareResult(c.Op, leftAbsent, rightAbsent, c.Left, c.Right, leftVal, rightVal)
 		}
 		return e.compareValues(leftVal, rightVal, c.Op, c.Left, c.Right)
 	case *IsEmptyExpr:
-		val, err := e.evalExpr(c.Expr, ctx)
+		val, absent, err := absorbAbsent(e.evalExpr, c.Expr, ctx)
 		if err != nil {
 			return false, err
 		}
-		// Phase 5: an absent workflow field is neither empty nor not-
-		// empty; both variants of the predicate return false. Trigger
-		// contexts follow the same rule as the plain executor.
-		if val == nil && isWorkflowFieldRef(c.Expr) {
-			return false, nil
-		}
-		empty := isZeroValue(val)
+		empty := absent || isZeroValue(val)
 		if c.Negated {
 			return !empty, nil
 		}
@@ -358,29 +336,22 @@ func (e *triggerExecOverride) evalCondition(c Condition, ctx evalContext) (bool,
 }
 
 func (e *triggerExecOverride) evalInOverride(c *InExpr, ctx evalContext) (bool, error) {
-	val, err := e.evalExpr(c.Value, ctx)
+	val, valAbsent, err := absorbAbsent(e.evalExpr, c.Value, ctx)
 	if err != nil {
 		return false, err
 	}
-	collVal, err := e.evalExpr(c.Collection, ctx)
+	collVal, collAbsent, err := absorbAbsent(e.evalExpr, c.Collection, ctx)
 	if err != nil {
 		return false, err
 	}
 
-	// Phase 5: if either side references an absent workflow field, the
-	// whole predicate evaluates false — for both `in` and `not in`. Kept
-	// in sync with the plain-executor evalIn so trigger guards and CLI
-	// selects agree on absent-field semantics.
-	leftAbsent := val == nil && isWorkflowFieldRef(c.Value)
-	rightAbsent := collVal == nil && isWorkflowFieldRef(c.Collection)
-	if leftAbsent || rightAbsent {
-		return false, nil
+	// Missing LHS or collection: `in` → false, `not in` → true (parity
+	// with base executor's updated Phase-4 rule).
+	if valAbsent || collAbsent {
+		return c.Negated, nil
 	}
 
 	if list, ok := collVal.([]interface{}); ok {
-		// unset non-workflow value (custom field or similar) is not a
-		// member of any list — pre-Phase-5 behavior preserved for
-		// custom fields.
 		if val == nil {
 			return c.Negated, nil
 		}
@@ -412,8 +383,6 @@ func (e *triggerExecOverride) evalInOverride(c *InExpr, ctx evalContext) (bool, 
 		return found, nil
 	}
 
-	// Non-workflow nil collection (e.g. absent custom list field) keeps
-	// the old c.Negated fallback so custom-field triggers unchanged.
 	if collVal == nil {
 		return c.Negated, nil
 	}
@@ -422,29 +391,27 @@ func (e *triggerExecOverride) evalInOverride(c *InExpr, ctx evalContext) (bool, 
 }
 
 func (e *triggerExecOverride) evalQuantifierOverride(q *QuantifierExpr, ctx evalContext) (bool, error) {
-	listVal, err := e.evalExpr(q.Expr, ctx)
+	listVal, absent, err := absorbAbsent(e.evalExpr, q.Expr, ctx)
 	if err != nil {
 		return false, err
 	}
-	// Phase 5: absent list workflow fields evaluate to nil in trigger
-	// contexts too. A quantifier over an absent field returns false for
-	// both `any` and `all`, matching the plain-executor behavior.
-	if listVal == nil && isWorkflowFieldRef(q.Expr) {
-		return false, nil
+	if absent {
+		// Missing list acts as empty: all→true, any→false.
+		return q.Kind == "all", nil
 	}
 	refs, ok := listVal.([]interface{})
 	if !ok {
 		return false, fmt.Errorf("quantifier: expression is not a list")
 	}
 
-	refTasks := resolveRefTasks(refs, ctx.allTasks)
+	refTikis := resolveRefTikis(refs, ctx.allTikis)
 
 	switch q.Kind {
 	case "any":
-		for _, rt := range refTasks {
+		for _, rt := range refTikis {
 			match, err := e.evalCondition(q.Condition, ctx.withCurrent(rt))
 			if err != nil {
-				return false, err
+				continue
 			}
 			if match {
 				return true, nil
@@ -452,13 +419,13 @@ func (e *triggerExecOverride) evalQuantifierOverride(q *QuantifierExpr, ctx eval
 		}
 		return false, nil
 	case "all":
-		if len(refTasks) == 0 {
+		if len(refTikis) == 0 {
 			return true, nil
 		}
-		for _, rt := range refTasks {
+		for _, rt := range refTikis {
 			match, err := e.evalCondition(q.Condition, ctx.withCurrent(rt))
 			if err != nil {
-				return false, err
+				return false, nil
 			}
 			if !match {
 				return false, nil
@@ -473,42 +440,21 @@ func (e *triggerExecOverride) evalQuantifierOverride(q *QuantifierExpr, ctx eval
 func (e *triggerExecOverride) evalFunctionCallOverride(fc *FunctionCall, ctx evalContext) (interface{}, error) {
 	switch fc.Name {
 	case "count":
-		return e.evalCountOverride(fc, ctx.current, ctx.allTasks)
+		return e.evalCountOverride(fc, ctx.current, ctx.allTikis)
 	case "exists":
-		return e.evalExistsOverride(fc, ctx.current, ctx.allTasks)
+		return e.evalExistsOverride(fc, ctx.current, ctx.allTikis)
 	case "blocks":
 		return e.evalBlocksOverride(fc, ctx)
 	case "next_date":
 		return e.evalNextDateOverride(fc, ctx)
 	case "has":
-		// In a trigger guard the executor has no real "current row" —
-		// ctx.current is a sentinel (tc.New or tc.Old). Base evalHas
-		// reads ctx.current/ctx.outer, which means has(old.status)
-		// would always be false and has(new.status) would be wrong
-		// inside a subquery. Resolve qualifiers through TriggerContext
-		// directly, mirroring resolveQualifiedRef so every qualified
-		// access in a trigger goes through one source of truth.
 		return e.evalHasOverride(fc, ctx)
 	default:
-		// now, user, call — delegate to base (no expression args needing QualifiedRef resolution)
 		return e.Executor.evalFunctionCall(fc, ctx)
 	}
 }
 
-// evalHasOverride implements has(<field>) for trigger contexts. The
-// qualifier resolution follows the same rules as resolveQualifiedRef:
-//   - bare has(status) reads the current row (used inside subqueries where
-//     ctx.current is the candidate task)
-//   - has(new.status) reads tc.New regardless of ctx, matching
-//     `new.status = "done"` semantics
-//   - has(old.status) reads tc.Old regardless of ctx
-//   - has(outer.status) reads ctx.outer (the parent row of a subquery)
-//
-// target./targets. are not reachable here — triggerQualifiers never
-// grants them — so we surface a clear "trigger runtime" error if a
-// future refactor ever slips through.
-//
-// A nil task in any branch returns false — absent resolves to absent.
+// evalHasOverride implements has(<field>) for trigger contexts.
 func (e *triggerExecOverride) evalHasOverride(fc *FunctionCall, ctx evalContext) (interface{}, error) {
 	if len(fc.Args) != 1 {
 		return nil, fmt.Errorf("has() expects 1 argument, got %d", len(fc.Args))
@@ -523,7 +469,7 @@ func (e *triggerExecOverride) evalHasOverride(fc *FunctionCall, ctx evalContext)
 	default:
 		return nil, fmt.Errorf("has() argument must be a field reference, e.g. has(status) or has(new.status)")
 	}
-	var target *task.Task
+	var target *tiki.Tiki
 	switch qualifier {
 	case "":
 		target = ctx.current
@@ -544,22 +490,22 @@ func (e *triggerExecOverride) evalHasOverride(fc *FunctionCall, ctx evalContext)
 	if target == nil {
 		return false, nil
 	}
-	return hasWorkflowField(target, name), nil
+	return tikiHas(target, name), nil
 }
 
-func (e *triggerExecOverride) evalCountOverride(fc *FunctionCall, parent *task.Task, allTasks []*task.Task) (interface{}, error) {
+func (e *triggerExecOverride) evalCountOverride(fc *FunctionCall, parent *tiki.Tiki, allTikis []*tiki.Tiki) (interface{}, error) {
 	sq, ok := fc.Args[0].(*SubQuery)
 	if !ok {
 		return nil, fmt.Errorf("count() argument must be a select subquery")
 	}
 	if sq.Where == nil {
-		return len(allTasks), nil
+		return len(allTikis), nil
 	}
 	count := 0
-	for _, t := range allTasks {
-		match, err := e.evalCondition(sq.Where, evalContext{current: t, outer: parent, allTasks: allTasks})
+	for _, t := range allTikis {
+		match, err := e.evalCondition(sq.Where, evalContext{current: t, outer: parent, allTikis: allTikis})
 		if err != nil {
-			return nil, err
+			continue
 		}
 		if match {
 			count++
@@ -568,18 +514,18 @@ func (e *triggerExecOverride) evalCountOverride(fc *FunctionCall, parent *task.T
 	return count, nil
 }
 
-func (e *triggerExecOverride) evalExistsOverride(fc *FunctionCall, parent *task.Task, allTasks []*task.Task) (interface{}, error) {
+func (e *triggerExecOverride) evalExistsOverride(fc *FunctionCall, parent *tiki.Tiki, allTikis []*tiki.Tiki) (interface{}, error) {
 	sq, ok := fc.Args[0].(*SubQuery)
 	if !ok {
 		return nil, fmt.Errorf("exists() argument must be a select subquery")
 	}
 	if sq.Where == nil {
-		return len(allTasks) > 0, nil
+		return len(allTikis) > 0, nil
 	}
-	for _, t := range allTasks {
-		match, err := e.evalCondition(sq.Where, evalContext{current: t, outer: parent, allTasks: allTasks})
+	for _, t := range allTikis {
+		match, err := e.evalCondition(sq.Where, evalContext{current: t, outer: parent, allTikis: allTikis})
 		if err != nil {
-			return nil, err
+			continue
 		}
 		if match {
 			return true, nil
@@ -593,30 +539,47 @@ func (e *triggerExecOverride) evalBlocksOverride(fc *FunctionCall, ctx evalConte
 	if err != nil {
 		return nil, err
 	}
-	return blocksLookup(val, ctx.allTasks), nil
+	return blocksLookup(val, ctx.allTikis), nil
 }
 
 func (e *triggerExecOverride) evalNextDateOverride(fc *FunctionCall, ctx evalContext) (interface{}, error) {
+	if _, isField := fc.Args[0].(*FieldRef); !isField {
+		if _, isQual := fc.Args[0].(*QualifiedRef); !isQual {
+			val, err := e.evalExpr(fc.Args[0], ctx)
+			if err != nil {
+				return nil, err
+			}
+			if val == nil {
+				return nil, nil
+			}
+			if rec, ok := val.(task.Recurrence); ok {
+				return task.NextOccurrence(rec), nil
+			}
+			return nil, fmt.Errorf("next_date() argument must be a recurrence value, got %T", val)
+		}
+	}
+
 	val, err := e.evalExpr(fc.Args[0], ctx)
 	if err != nil {
 		return nil, err
 	}
-	// Phase 5: mirror the base executor — an absent recurrence
-	// propagates as nil so `where next_date(new.recurrence) is not
-	// empty` evaluates to false on tasks without a recurrence key
-	// instead of aborting the trigger with a type error.
 	if val == nil {
 		return nil, nil
 	}
-	rec, ok := val.(task.Recurrence)
-	if !ok {
-		return nil, fmt.Errorf("next_date() argument must be a recurrence value")
+	var rec task.Recurrence
+	switch v := val.(type) {
+	case task.Recurrence:
+		rec = v
+	case string:
+		rec = task.Recurrence(v)
+	default:
+		return nil, fmt.Errorf("next_date() argument must be a recurrence value, got %T", val)
 	}
 	return task.NextOccurrence(rec), nil
 }
 
 // Execute overrides the base Executor to use our evalExpr/evalCondition.
-func (e *triggerExecOverride) Execute(stmt any, tasks []*task.Task, inputs ...ExecutionInput) (*Result, error) {
+func (e *triggerExecOverride) Execute(stmt any, tikis []*tiki.Tiki, inputs ...ExecutionInput) (*Result, error) {
 	var input ExecutionInput
 	if len(inputs) > 0 {
 		input = inputs[0]
@@ -668,30 +631,30 @@ func (e *triggerExecOverride) Execute(stmt any, tasks []*task.Task, inputs ...Ex
 
 	switch {
 	case rawStmt.Create != nil:
-		return e.executeCreate(rawStmt.Create, tasks, requiresCreateTemplate)
+		return e.executeCreate(rawStmt.Create, tikis, requiresCreateTemplate)
 	case rawStmt.Update != nil:
-		return e.executeUpdate(rawStmt.Update, tasks)
+		return e.executeUpdate(rawStmt.Update, tikis)
 	case rawStmt.Delete != nil:
-		return e.executeDelete(rawStmt.Delete, tasks)
+		return e.executeDelete(rawStmt.Delete, tikis)
 	default:
 		return nil, fmt.Errorf("unsupported trigger action type")
 	}
 }
 
-func (e *triggerExecOverride) executeUpdate(upd *UpdateStmt, tasks []*task.Task) (*Result, error) {
-	matched, err := e.filterTasks(upd.Where, tasks)
+func (e *triggerExecOverride) executeUpdate(upd *UpdateStmt, tikis []*tiki.Tiki) (*Result, error) {
+	matched, err := e.filterTikis(upd.Where, tikis)
 	if err != nil {
 		return nil, err
 	}
 
-	clones := make([]*task.Task, len(matched))
+	clones := make([]*tiki.Tiki, len(matched))
 	for i, t := range matched {
 		clones[i] = t.Clone()
 	}
 
 	for _, clone := range clones {
 		for _, a := range upd.Set {
-			val, err := e.evalExpr(a.Value, evalContext{current: clone, allTasks: tasks})
+			val, err := e.evalExpr(a.Value, evalContext{current: clone, allTikis: tikis, inAssignmentRHS: true})
 			if err != nil {
 				return nil, fmt.Errorf("field %q: %w", a.Field, err)
 			}
@@ -704,18 +667,18 @@ func (e *triggerExecOverride) executeUpdate(upd *UpdateStmt, tasks []*task.Task)
 	return &Result{Update: &UpdateResult{Updated: clones}}, nil
 }
 
-func (e *triggerExecOverride) executeCreate(cr *CreateStmt, tasks []*task.Task, requireTemplate bool) (*Result, error) {
+func (e *triggerExecOverride) executeCreate(cr *CreateStmt, tikis []*tiki.Tiki, requireTemplate bool) (*Result, error) {
 	if requireTemplate && e.currentInput.CreateTemplate == nil {
 		return nil, &MissingCreateTemplateError{}
 	}
-	var t *task.Task
+	var t *tiki.Tiki
 	if e.currentInput.CreateTemplate != nil {
 		t = e.currentInput.CreateTemplate.Clone()
 	} else {
-		t = &task.Task{}
+		t = tiki.New()
 	}
 	for _, a := range cr.Assignments {
-		val, err := e.evalExpr(a.Value, evalContext{current: t, allTasks: tasks})
+		val, err := e.evalExpr(a.Value, evalContext{current: t, allTikis: tikis, inAssignmentRHS: true})
 		if err != nil {
 			return nil, fmt.Errorf("field %q: %w", a.Field, err)
 		}
@@ -723,26 +686,26 @@ func (e *triggerExecOverride) executeCreate(cr *CreateStmt, tasks []*task.Task, 
 			return nil, fmt.Errorf("field %q: %w", a.Field, err)
 		}
 	}
-	return &Result{Create: &CreateResult{Task: t}}, nil
+	return &Result{Create: &CreateResult{Tiki: t}}, nil
 }
 
-func (e *triggerExecOverride) executeDelete(del *DeleteStmt, tasks []*task.Task) (*Result, error) {
-	matched, err := e.filterTasks(del.Where, tasks)
+func (e *triggerExecOverride) executeDelete(del *DeleteStmt, tikis []*tiki.Tiki) (*Result, error) {
+	matched, err := e.filterTikis(del.Where, tikis)
 	if err != nil {
 		return nil, err
 	}
 	return &Result{Delete: &DeleteResult{Deleted: matched}}, nil
 }
 
-func (e *triggerExecOverride) filterTasks(where Condition, tasks []*task.Task) ([]*task.Task, error) {
+func (e *triggerExecOverride) filterTikis(where Condition, tikis []*tiki.Tiki) ([]*tiki.Tiki, error) {
 	if where == nil {
-		result := make([]*task.Task, len(tasks))
-		copy(result, tasks)
+		result := make([]*tiki.Tiki, len(tikis))
+		copy(result, tikis)
 		return result, nil
 	}
-	var result []*task.Task
-	for _, t := range tasks {
-		match, err := e.evalCondition(where, evalContext{current: t, allTasks: tasks})
+	var result []*tiki.Tiki
+	for _, t := range tikis {
+		match, err := e.evalCondition(where, evalContext{current: t, allTikis: tikis})
 		if err != nil {
 			return nil, err
 		}
@@ -753,12 +716,12 @@ func (e *triggerExecOverride) filterTasks(where Condition, tasks []*task.Task) (
 	return result, nil
 }
 
-// resolveRefTasks finds tasks by ID from a list of ref values.
-func resolveRefTasks(refs []interface{}, allTasks []*task.Task) []*task.Task {
-	result := make([]*task.Task, 0, len(refs))
+// resolveRefTikis finds tikis by ID from a list of ref values.
+func resolveRefTikis(refs []interface{}, allTikis []*tiki.Tiki) []*tiki.Tiki {
+	result := make([]*tiki.Tiki, 0, len(refs))
 	for _, ref := range refs {
 		refID := normalizeToString(ref)
-		for _, at := range allTasks {
+		for _, at := range allTikis {
 			if equalFoldID(at.ID, refID) {
 				result = append(result, at)
 				break
@@ -788,12 +751,16 @@ func equalFoldID(a, b string) bool {
 	return true
 }
 
-// blocksLookup finds all task IDs that have the given ID in their dependsOn.
-func blocksLookup(val interface{}, allTasks []*task.Task) []interface{} {
+// blocksLookup finds all tiki IDs that have the given ID in their dependsOn.
+func blocksLookup(val interface{}, allTikis []*tiki.Tiki) []interface{} {
 	targetID := normalizeToString(val)
 	var blockers []interface{}
-	for _, at := range allTasks {
-		for _, dep := range at.DependsOn {
+	for _, at := range allTikis {
+		deps, ok := tikiStringSlice(at, tiki.FieldDependsOn)
+		if !ok {
+			continue
+		}
+		for _, dep := range deps {
 			if equalFoldID(dep, targetID) {
 				blockers = append(blockers, at.ID)
 				break

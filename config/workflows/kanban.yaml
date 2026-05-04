@@ -92,16 +92,16 @@ views:
     key: "F1"
     lanes:
       - name: Ready
-        filter: select where status = "ready" and type != "epic" order by priority, createdAt
+        filter: select where status = "ready" and type != "epic" and has(priority) order by priority, createdAt
         action: update where id = id() set status="ready"
       - name: In Progress
-        filter: select where status = "inProgress" and type != "epic" order by priority, createdAt
+        filter: select where status = "inProgress" and type != "epic" and has(priority) order by priority, createdAt
         action: update where id = id() set status="inProgress"
       - name: Review
-        filter: select where status = "review" and type != "epic" order by priority, createdAt
+        filter: select where status = "review" and type != "epic" and has(priority) order by priority, createdAt
         action: update where id = id() set status="review"
       - name: Done
-        filter: select where status = "done" and type != "epic" order by priority, createdAt
+        filter: select where status = "done" and type != "epic" and has(priority) order by priority, createdAt
         action: update where id = id() set status="done"
 
   - name: Backlog
@@ -111,14 +111,14 @@ views:
     lanes:
       - name: Backlog
         columns: 4
-        filter: select where status = "backlog" and type != "epic" order by priority, id
+        filter: select where status = "backlog" and type != "epic" and has(priority) order by priority, id
     actions:
       - key: "b"
         label: "Add to board"
         action: update where id = id() set status="ready"
       - key: "e"
         label: "Link to epic"
-        action: update where id = choose(select where type = "epic" and (not has(dependsOn) or outer.id not in dependsOn)) set dependsOn = dependsOn + id()
+        action: update where id = choose(select where type = "epic" and outer.id not in dependsOn) set dependsOn = dependsOn + id()
 
   - name: Recent
     kind: board
@@ -138,22 +138,22 @@ views:
       - name: Now
         columns: 1
         width: 25
-        filter: select where type = "epic" and status = "ready" order by priority, points desc
+        filter: select where type = "epic" and status = "ready" and has(priority) and has(points) order by priority, points desc
         action: update where id = id() set status="ready"
       - name: Next
         columns: 1
         width: 25
-        filter: select where type = "epic" and status = "backlog" and priority = 1 order by priority, points desc
+        filter: select where type = "epic" and status = "backlog" and has(priority) and priority = 1 and has(points) order by priority, points desc
         action: update where id = id() set status="backlog" priority=1
       - name: Later
         columns: 2
         width: 50
-        filter: select where type = "epic" and status = "backlog" and priority > 1 order by priority, points desc
+        filter: select where type = "epic" and status = "backlog" and has(priority) and priority > 1 and has(points) order by priority, points desc
         action: update where id = id() set status="backlog" priority=2
     actions:
       - key: "l"
         label: "Add tiki to epic"
-        action: update where id = id() set dependsOn = dependsOn + choose(select where type != "epic" and (not has(outer.dependsOn) or id not in outer.dependsOn))
+        action: update where id = id() set dependsOn = dependsOn + choose(select where type != "epic" and id not in outer.dependsOn)
 
   - name: Docs
     kind: wiki
@@ -175,7 +175,7 @@ triggers:
   - description: remove deleted task from dependency lists
     ruki: >
       after delete
-        update where old.id in dependsOn set dependsOn=dependsOn - [old.id]
+        update where old.id in dependsOn set dependsOn = dependsOn - [old.id]
   - description: clean up completed tasks after 24 hours
     ruki: >
       every 1day

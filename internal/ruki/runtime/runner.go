@@ -10,7 +10,22 @@ import (
 	"github.com/boolean-maybe/tiki/service"
 	"github.com/boolean-maybe/tiki/store"
 	"github.com/boolean-maybe/tiki/task"
+	"github.com/boolean-maybe/tiki/tiki"
 )
+
+// allDocsAsTikis returns every loaded document projected as a *tiki.Tiki
+// for ruki execution. Mirrors allDocsAsTasks's "see plain docs too" semantics
+// by preferring the DocumentReadStore unfiltered view when available.
+func allDocsAsTikis(rs store.ReadStore) []*tiki.Tiki {
+	tasks := allDocsAsTasks(rs)
+	out := make([]*tiki.Tiki, 0, len(tasks))
+	for _, t := range tasks {
+		if tk := tiki.FromTask(t); tk != nil {
+			out = append(out, tk)
+		}
+	}
+	return out
+}
 
 // allDocsAsTasks returns every loaded document projected as a Task, including
 // plain documents that GetAllTasks filters out.
@@ -109,11 +124,11 @@ func RunQueryWithOptions(gate *service.TaskMutationGate, query string, out io.Wr
 		if template == nil {
 			return fmt.Errorf("create template: store returned nil template")
 		}
-		input.CreateTemplate = template
+		input.CreateTemplate = tiki.FromTask(template)
 	}
 
-	tasks := allDocsAsTasks(readStore)
-	result, err := executor.Execute(stmt, tasks, input)
+	tikis := allDocsAsTikis(readStore)
+	result, err := executor.Execute(stmt, tikis, input)
 	if err != nil {
 		return fmt.Errorf("execute: %w", err)
 	}
@@ -217,8 +232,8 @@ func RunSelectQuery(readStore store.ReadStore, query string, out io.Writer) erro
 	}
 	executor := ruki.NewExecutor(schema, userFunc, ruki.ExecutorRuntime{Mode: ruki.ExecutorRuntimeCLI})
 
-	tasks := allDocsAsTasks(readStore)
-	result, err := executor.Execute(validated, tasks, ruki.ExecutionInput{})
+	tikis := allDocsAsTikis(readStore)
+	result, err := executor.Execute(validated, tikis, ruki.ExecutionInput{})
 	if err != nil {
 		return fmt.Errorf("execute: %w", err)
 	}
@@ -231,7 +246,8 @@ func persistAndSummarize(ctx context.Context, gate *service.TaskMutationGate, ur
 	var succeeded, failed int
 	var firstErr error
 
-	for _, t := range ur.Updated {
+	for _, tk := range ur.Updated {
+		t := tiki.ToTask(tk)
 		if err := gate.UpdateTask(ctx, t); err != nil {
 			failed++
 			if firstErr == nil {
@@ -253,7 +269,7 @@ func persistAndSummarize(ctx context.Context, gate *service.TaskMutationGate, ur
 }
 
 func persistCreate(ctx context.Context, gate *service.TaskMutationGate, cr *ruki.CreateResult, out io.Writer, json bool) error {
-	t := cr.Task
+	t := tiki.ToTask(cr.Tiki)
 
 	if err := gate.CreateTask(ctx, t); err != nil {
 		return fmt.Errorf("create task: %w", err)
@@ -265,7 +281,8 @@ func persistCreate(ctx context.Context, gate *service.TaskMutationGate, cr *ruki
 func persistDelete(ctx context.Context, gate *service.TaskMutationGate, dr *ruki.DeleteResult, out io.Writer, json bool) error {
 	readStore := gate.ReadStore()
 	var succeeded, failed int
-	for _, t := range dr.Deleted {
+	for _, tk := range dr.Deleted {
+		t := tiki.ToTask(tk)
 		if err := gate.DeleteTask(ctx, t); err != nil {
 			failed++
 		} else if readStore.GetTask(t.ID) != nil {

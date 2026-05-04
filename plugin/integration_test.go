@@ -6,12 +6,42 @@ import (
 	rukiRuntime "github.com/boolean-maybe/tiki/internal/ruki/runtime"
 	"github.com/boolean-maybe/tiki/ruki"
 	"github.com/boolean-maybe/tiki/task"
+	"github.com/boolean-maybe/tiki/tiki"
 )
 
 func newTestExecutor() *ruki.Executor {
 	schema := rukiRuntime.NewSchema()
 	return ruki.NewExecutor(schema, func() string { return "testuser" },
 		ruki.ExecutorRuntime{Mode: ruki.ExecutorRuntimePlugin})
+}
+
+// tasksAsTikis converts task fixtures for ruki execution and marks them as
+// workflow-declaring so derived presence emits the schema fields these
+// tests query against.
+func tasksAsTikis(tasks []*task.Task) []*tiki.Tiki {
+	out := make([]*tiki.Tiki, 0, len(tasks))
+	for _, t := range tasks {
+		if !t.IsWorkflow {
+			c := t.Clone()
+			c.IsWorkflow = true
+			t = c
+		}
+		if tk := tiki.FromTask(t); tk != nil {
+			out = append(out, tk)
+		}
+	}
+	return out
+}
+
+// tikisAsTasks unwraps tikis to task.Task for assertions against legacy fields.
+func tikisAsTasks(tks []*tiki.Tiki) []*task.Task {
+	out := make([]*task.Task, 0, len(tks))
+	for _, tk := range tks {
+		if t := tiki.ToTask(tk); t != nil {
+			out = append(out, t)
+		}
+	}
+	return out
 }
 
 func TestPluginWithTagFilter(t *testing.T) {
@@ -52,12 +82,12 @@ lanes:
 	}
 
 	executor := newTestExecutor()
-	result, err := executor.Execute(tp.Lanes[0].Filter, allTasks)
+	result, err := executor.Execute(tp.Lanes[0].Filter, tasksAsTikis(allTasks))
 	if err != nil {
 		t.Fatalf("executor error: %v", err)
 	}
 
-	filtered := result.Select.Tasks
+	filtered := tikisAsTasks(result.Select.Tikis)
 	if len(filtered) != 2 {
 		t.Fatalf("expected 2 matching tasks, got %d", len(filtered))
 	}
@@ -106,12 +136,12 @@ lanes:
 	}
 
 	executor := newTestExecutor()
-	result, err := executor.Execute(tp.Lanes[0].Filter, allTasks)
+	result, err := executor.Execute(tp.Lanes[0].Filter, tasksAsTikis(allTasks))
 	if err != nil {
 		t.Fatalf("executor error: %v", err)
 	}
 
-	filtered := result.Select.Tasks
+	filtered := tikisAsTasks(result.Select.Tikis)
 	if len(filtered) != 1 {
 		t.Fatalf("expected 1 matching task, got %d", len(filtered))
 	}
@@ -159,12 +189,12 @@ lanes:
 				{ID: "TIKI-000001", Status: tc.status},
 			}
 
-			result, err := executor.Execute(tp.Lanes[0].Filter, allTasks)
+			result, err := executor.Execute(tp.Lanes[0].Filter, tasksAsTikis(allTasks))
 			if err != nil {
 				t.Fatalf("executor error: %v", err)
 			}
 
-			got := len(result.Select.Tasks) > 0
+			got := len(tikisAsTasks(result.Select.Tikis)) > 0
 			if got != tc.expect {
 				t.Errorf("expected match=%v for status %s, got %v", tc.expect, tc.status, got)
 			}
