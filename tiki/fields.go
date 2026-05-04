@@ -126,6 +126,15 @@ func (t *Tiki) markStale(name string) {
 	t.stale[name] = struct{}{}
 }
 
+// MarkStaleForPersistence is the exported variant of markStale for use by
+// the persistence adapter (tikistore) when propagating the stale-provenance
+// set from a parsedTiki onto a loaded Tiki. This is the only caller outside
+// the tiki package that needs to set stale provenance; all other callers
+// should use markStale via the task adapter.
+func (t *Tiki) MarkStaleForPersistence(name string) {
+	t.markStale(name)
+}
+
 // isStale reports whether name carries Unknown-provenance. Unexported: only
 // the task adapter consults this on save-path routing.
 func (t *Tiki) isStale(name string) bool {
@@ -134,6 +143,22 @@ func (t *Tiki) isStale(name string) bool {
 	}
 	_, ok := t.stale[name]
 	return ok
+}
+
+// StaleKeys returns a snapshot of the stale-provenance set as a
+// map[string]struct{} for persistence adapters that need to reconstruct
+// the parsedTiki shape. The map is nil when there are no stale keys.
+// This is exported only for the persistence layer's compatibility adapters;
+// it is not part of the general Tiki contract.
+func (t *Tiki) StaleKeys() map[string]struct{} {
+	if t == nil || len(t.stale) == 0 {
+		return nil
+	}
+	out := make(map[string]struct{}, len(t.stale))
+	for k := range t.stale {
+		out[k] = struct{}{}
+	}
+	return out
 }
 
 // identity is a best-effort label for error messages.

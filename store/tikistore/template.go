@@ -7,6 +7,7 @@ import (
 
 	"github.com/boolean-maybe/tiki/config"
 	taskpkg "github.com/boolean-maybe/tiki/task"
+	tikipkg "github.com/boolean-maybe/tiki/tiki"
 	collectionutil "github.com/boolean-maybe/tiki/util/collections"
 	"github.com/boolean-maybe/tiki/workflow"
 )
@@ -33,14 +34,23 @@ func (s *TikiStore) setAuthorFromIdentity(task *taskpkg.Task) {
 	}
 }
 
-// NewTaskTemplate returns a new document populated with creation defaults.
-// When the active workflow has a default status, this returns a workflow task
+// NewTikiTemplate returns a new tiki populated with creation defaults.
+// When the active workflow has a default status, this returns a workflow tiki
 // (built-in defaults: priority=3, points=1, tags=["idea"]; type and status from
 // the registries; custom field defaults from workflow.yaml). When no default
-// status is configured, this returns a plain document with IsWorkflow=false
-// and only id/createdAt populated — callers fill in title/body. The status
-// registry treats a missing `default: true` as an explicit opt-out of
-// workflow capture for this workflow.
+// status is configured, this returns a plain tiki with only id/createdAt
+// populated — callers fill in title/body. The status registry treats a missing
+// `default: true` as an explicit opt-out of workflow capture for this workflow.
+func (s *TikiStore) NewTikiTemplate() (*tikipkg.Tiki, error) {
+	t, err := s.NewTaskTemplate()
+	if err != nil {
+		return nil, err
+	}
+	return tikipkg.FromTask(t), nil
+}
+
+// NewTaskTemplate returns a new document populated with creation defaults.
+// Phase 5 compatibility adapter over NewTikiTemplate.
 func (s *TikiStore) NewTaskTemplate() (*taskpkg.Task, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -49,14 +59,14 @@ func (s *TikiStore) NewTaskTemplate() (*taskpkg.Task, error) {
 		return nil, err
 	}
 
-	// Identity uniqueness is checked against the in-memory index (s.tasks),
-	// not the filesystem — a task loaded from a renamed file occupies an id
+	// Identity uniqueness is checked against the in-memory index (s.tikis),
+	// not the filesystem — a tiki loaded from a renamed file occupies an id
 	// without occupying <taskdir>/<id>.md, so an os.Stat probe would falsely
 	// report the id free.
 	var taskID string
 	for i := 0; ; i++ {
 		candidate := normalizeTaskID(config.GenerateRandomID())
-		if _, taken := s.tasks[candidate]; !taken {
+		if _, taken := s.tikis[candidate]; !taken {
 			taskID = candidate
 			break
 		}

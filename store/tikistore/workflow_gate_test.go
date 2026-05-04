@@ -19,10 +19,11 @@ func createValidTaskForGateTest() *taskpkg.Task {
 	}
 }
 
-// TestGetAllTasks_FiltersPlainDocs verifies the presence-aware contract from
-// the plan: a markdown file with `id` and `title` only must not surface on
-// board/list views that consume GetAllTasks.
-func TestGetAllTasks_FiltersPlainDocs(t *testing.T) {
+// TestGetAllTasks_IncludesPlainDocs verifies the Phase 5 contract: GetAllTasks
+// returns all tikis projected to tasks, including plain docs. Workflow-only
+// filtering belongs in the caller (e.g. ruki `select where has(status)` or
+// hasAnyWorkflowField) not at the store boundary.
+func TestGetAllTasks_IncludesPlainDocs(t *testing.T) {
 	dir := t.TempDir()
 
 	// plain doc: only id + title, no workflow fields.
@@ -43,21 +44,34 @@ func TestGetAllTasks_FiltersPlainDocs(t *testing.T) {
 	}
 
 	all := s.GetAllTasks()
-	if len(all) != 1 {
-		t.Fatalf("GetAllTasks returned %d tasks, want 1 (the workflow doc)", len(all))
-	}
-	if all[0].ID != "WORK01" {
-		t.Errorf("GetAllTasks returned %q, want WORK01 — plain doc leaked through gate", all[0].ID)
+	if len(all) != 2 {
+		t.Fatalf("GetAllTasks returned %d tasks, want 2 (plain + workflow)", len(all))
 	}
 
-	// Both docs are still in the internal map; only GetAllTasks filters.
+	ids := map[string]bool{}
+	for _, tk := range all {
+		ids[tk.ID] = true
+	}
+	if !ids["PLAIN1"] {
+		t.Error("plain doc should appear in GetAllTasks")
+	}
+	if !ids["WORK01"] {
+		t.Error("workflow doc should appear in GetAllTasks")
+	}
+
+	// GetTask still finds both by id.
 	if tk := s.GetTask("PLAIN1"); tk == nil {
-		t.Error("GetTask should still find plain docs by id")
+		t.Error("GetTask should find plain docs by id")
 	} else if tk.IsWorkflow {
 		t.Error("plain doc should have IsWorkflow=false")
 	}
 	if tk := s.GetTask("WORK01"); tk == nil || !tk.IsWorkflow {
 		t.Error("workflow doc should be marked IsWorkflow=true")
+	}
+
+	// GetAllTikis and GetAllTasks agree on count.
+	if len(s.GetAllTikis()) != len(all) {
+		t.Errorf("GetAllTikis count %d != GetAllTasks count %d", len(s.GetAllTikis()), len(all))
 	}
 }
 

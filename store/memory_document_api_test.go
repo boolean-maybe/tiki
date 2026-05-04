@@ -148,12 +148,10 @@ func TestInMemoryStore_DeleteDocument_removesFromBothSurfaces(t *testing.T) {
 	}
 }
 
-// TestInMemoryStore_GetAllTasks_FiltersPlainDocs proves review finding #4
-// is closed: GetAllTasks on the in-memory store applies the IsWorkflow
-// filter just like TikiStore.GetAllTasks, so plain docs created via
-// CreateDocument do not leak into board/list surfaces that
-// consume the task-shaped API.
-func TestInMemoryStore_GetAllTasks_FiltersPlainDocs(t *testing.T) {
+// TestInMemoryStore_GetAllTasks_IncludesPlainDocs verifies the Phase 5 contract:
+// GetAllTasks returns all tikis projected to tasks, including plain docs.
+// Workflow-only filtering belongs in the caller, not at the store boundary.
+func TestInMemoryStore_GetAllTasks_IncludesPlainDocs(t *testing.T) {
 	s := NewInMemoryStore()
 	if err := s.CreateDocument(&document.Document{ID: "PLAIN1", Title: "plain"}); err != nil {
 		t.Fatalf("CreateDocument plain: %v", err)
@@ -166,11 +164,23 @@ func TestInMemoryStore_GetAllTasks_FiltersPlainDocs(t *testing.T) {
 	}
 
 	tasks := s.GetAllTasks()
-	if len(tasks) != 1 {
-		t.Fatalf("GetAllTasks = %v, want exactly 1 workflow task", tasks)
+	if len(tasks) != 2 {
+		t.Fatalf("GetAllTasks = %d tasks, want 2 (plain + workflow)", len(tasks))
 	}
-	if tasks[0].ID != "WKFW01" {
-		t.Errorf("GetAllTasks returned wrong task: %q, want WKFW01", tasks[0].ID)
+	ids := map[string]bool{}
+	for _, tk := range tasks {
+		ids[tk.ID] = true
+	}
+	if !ids["PLAIN1"] {
+		t.Error("plain doc should appear in GetAllTasks")
+	}
+	if !ids["WKFW01"] {
+		t.Error("workflow doc should appear in GetAllTasks")
+	}
+
+	// GetAllTikis and GetAllTasks agree on count.
+	if len(s.GetAllTikis()) != len(tasks) {
+		t.Errorf("GetAllTikis count %d != GetAllTasks count %d", len(s.GetAllTikis()), len(tasks))
 	}
 }
 

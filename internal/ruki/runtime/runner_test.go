@@ -10,6 +10,7 @@ import (
 	"github.com/boolean-maybe/tiki/service"
 	"github.com/boolean-maybe/tiki/store"
 	"github.com/boolean-maybe/tiki/task"
+	tikipkg "github.com/boolean-maybe/tiki/tiki"
 	"github.com/boolean-maybe/tiki/workflow"
 )
 
@@ -285,17 +286,17 @@ func TestRunQueryUpdatePartialFailure(t *testing.T) {
 	}
 }
 
-// failingUpdateStore wraps a Store and fails UpdateTask for a specific task ID.
+// failingUpdateStore wraps a Store and fails UpdateTiki for a specific task ID.
 type failingUpdateStore struct {
 	store.Store
 	failID string
 }
 
-func (f *failingUpdateStore) UpdateTask(t *task.Task) error {
-	if t.ID == f.failID {
-		return fmt.Errorf("simulated update failure for %s", t.ID)
+func (f *failingUpdateStore) UpdateTiki(tk *tikipkg.Tiki) error {
+	if tk.ID == f.failID {
+		return fmt.Errorf("simulated update failure for %s", tk.ID)
 	}
-	return f.Store.UpdateTask(t)
+	return f.Store.UpdateTiki(tk)
 }
 
 // failingUserStore wraps a Store and makes GetCurrentUser fail.

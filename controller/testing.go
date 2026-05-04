@@ -32,10 +32,9 @@ func (m *mockSelectableView) SetSelectedID(_ string)             {}
 
 // Test fixtures
 
-// newTestTask creates a test task with default values. Post-Phase-7 the
-// store's CreateTask honors the caller's IsWorkflow, so workflow test
-// fixtures must declare it explicitly — otherwise the task is persisted as
-// a plain doc and filtered out of GetAllTasks.
+// newTestTask creates a test task with default values. CreateTask honors the
+// caller's IsWorkflow, so workflow test fixtures must declare it explicitly —
+// otherwise the task is persisted as a plain doc.
 func newTestTask() *task.Task {
 	return &task.Task{
 		ID:         "000001",

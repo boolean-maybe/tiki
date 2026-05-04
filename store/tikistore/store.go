@@ -13,6 +13,7 @@ import (
 	"github.com/boolean-maybe/tiki/store"
 	"github.com/boolean-maybe/tiki/store/internal/git"
 	taskpkg "github.com/boolean-maybe/tiki/task"
+	"github.com/boolean-maybe/tiki/tiki"
 )
 
 // ErrConflict indicates a task was modified externally since it was loaded
@@ -29,7 +30,7 @@ func normalizeTaskID(id string) string {
 type TikiStore struct {
 	mu             sync.RWMutex
 	dir            string // directory containing task files
-	tasks          map[string]*taskpkg.Task
+	tikis          map[string]*tiki.Tiki
 	listeners      map[int]store.ChangeListener
 	nextListenerID int
 	gitUtil        git.GitOps        // git utility for auto-staging modified files
@@ -64,7 +65,7 @@ func NewTikiStore(dir string) (*TikiStore, error) {
 	slog.Debug("creating new TikiStore", "dir", dir)
 	s := &TikiStore{
 		dir:            dir,
-		tasks:          make(map[string]*taskpkg.Task),
+		tikis:          make(map[string]*tiki.Tiki),
 		listeners:      make(map[int]store.ChangeListener),
 		nextListenerID: 1, // Start at 1 to avoid conflict with zero-value sentinel
 		upgrader:       &LegacyUpgrader{},
@@ -89,7 +90,7 @@ func NewTikiStore(dir string) (*TikiStore, error) {
 	}
 	s.mu.Unlock()
 
-	slog.Info("tikiStore initialized", "dir", dir, "num_tasks", len(s.tasks))
+	slog.Info("tikiStore initialized", "dir", dir, "num_tasks", len(s.tikis))
 	return s, nil
 }
 

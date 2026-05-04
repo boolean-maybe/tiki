@@ -8,6 +8,7 @@ import (
 	"github.com/boolean-maybe/tiki/document"
 	"github.com/boolean-maybe/tiki/store"
 	taskpkg "github.com/boolean-maybe/tiki/task"
+	tikipkg "github.com/boolean-maybe/tiki/tiki"
 )
 
 // errNilDocument is returned when a document-first mutation method is
@@ -19,26 +20,21 @@ var errNilDocument = errors.New("document is nil")
 // Unlike GetTask, this does not apply the workflow presence filter — any
 // loaded document is returned. Returns nil when the id is unknown.
 func (s *TikiStore) GetDocument(id string) *document.Document {
-	s.mu.RLock()
-	defer s.mu.RUnlock()
-	t, ok := s.tasks[normalizeTaskID(id)]
-	if !ok {
+	tk := s.GetTiki(id)
+	if tk == nil {
 		return nil
 	}
-	return taskpkg.ToDocument(t)
+	return taskpkg.ToDocument(tikipkg.ToTask(tk))
 }
 
 // GetAllDocuments returns every loaded document in deterministic id order,
-// including plain docs that GetAllTasks filters out. Callers that want only
-// workflow documents should continue using GetAllTasks (or filter the
-// returned slice by document.IsWorkflowFrontmatter).
+// including plain docs. To restrict to workflow documents, filter the returned
+// slice by document.IsWorkflowFrontmatter or use GetAllTikis with hasAnyWorkflowField.
 func (s *TikiStore) GetAllDocuments() []*document.Document {
-	s.mu.RLock()
-	defer s.mu.RUnlock()
-
-	docs := make([]*document.Document, 0, len(s.tasks))
-	for _, t := range s.tasks {
-		if d := taskpkg.ToDocument(t); d != nil {
+	tikis := s.GetAllTikis()
+	docs := make([]*document.Document, 0, len(tikis))
+	for _, tk := range tikis {
+		if d := taskpkg.ToDocument(tikipkg.ToTask(tk)); d != nil {
 			docs = append(docs, d)
 		}
 	}
@@ -75,36 +71,41 @@ func (s *TikiStore) CreateDocument(doc *document.Document) error {
 		return errNilDocument
 	}
 	t := taskpkg.FromDocument(doc)
-	if err := s.storeNewDocumentLocked(t); err != nil {
+	tk := tikipkg.FromTask(t)
+	if err := s.storeNewDocumentLocked(tk); err != nil {
 		return err
 	}
-	slog.Info("document created", "task_id", t.ID, "workflow", t.IsWorkflow)
+	slog.Info("document created", "task_id", tk.ID, "workflow", hasAnyWorkflowField(tk))
 	s.notifyListeners()
 	// Write the adapter's normalized id back onto the caller's document so
 	// callers that inspect doc.ID after create see the same value the store
 	// keyed off.
-	doc.ID = t.ID
+	doc.ID = tk.ID
 	return nil
 }
 
 // UpdateDocument updates an existing document. Path/LoadedMtime on the
-// Document are carried through to the underlying Task so optimistic locking
+// Document are carried through to the underlying Tiki so optimistic locking
 // and rename-preservation keep working.
 //
-// Unlike UpdateTask, the document-first path honors the presence-derived
-// IsWorkflow that FromDocument computes: stripping every workflow key from
-// the frontmatter and calling UpdateDocument demotes a workflow document
-// back to a plain doc. UpdateTask keeps its protective carry-forward for
-// task-shaped callers (ruki/UI) that legitimately forget to set IsWorkflow.
+// Unlike UpdateTask, the document-first path honors exact field presence:
+// stripping every workflow key from the frontmatter demotes a workflow
+// document back to a plain doc. UpdateTask keeps its protective carry-forward
+// for task-shaped callers (ruki/UI) that legitimately omit workflow fields
+// when rebuilding a task from a subset of fields.
 func (s *TikiStore) UpdateDocument(doc *document.Document) error {
 	if doc == nil {
 		return errNilDocument
 	}
 	t := taskpkg.FromDocument(doc)
-	if err := s.updateTaskLocked(t, false); err != nil {
+	tk := tikipkg.FromTask(t)
+	// UpdateTiki uses exact presence: absent fields in tk are not carried
+	// forward from the stored tiki, so explicit key removal is honored and
+	// full demotion (stripping all workflow keys) works correctly.
+	if err := s.UpdateTiki(tk); err != nil {
 		return err
 	}
-	slog.Info("document updated", "task_id", t.ID, "workflow", t.IsWorkflow)
+	slog.Info("document updated", "task_id", tk.ID, "workflow", hasAnyWorkflowField(tk))
 	s.notifyListeners()
 	return nil
 }

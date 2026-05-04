@@ -93,7 +93,7 @@ func (pe *PluginExecutor) Execute(pa *plugin.PluginAction, input ruki.ExecutionI
 
 	executor := ruki.NewExecutor(pe.schema, pe.userFunc(),
 		ruki.ExecutorRuntime{Mode: ruki.ExecutorRuntimePlugin})
-	allTikis := tasksToTikis(pe.taskStore.GetAllTasks())
+	allTikis := pe.taskStore.GetAllTikis()
 
 	result, err := executor.Execute(pa.Action, allTikis, input)
 	if err != nil {
@@ -119,14 +119,13 @@ func (pe *PluginExecutor) applyResult(pa *plugin.PluginAction, input ruki.Execut
 		return true
 	case result.Update != nil:
 		for _, tk := range result.Update.Updated {
-			updated := tiki.ToTask(tk)
-			if err := pe.mutationGate.UpdateTask(ctx, updated); err != nil {
-				slog.Error("failed to update task after plugin action", "task_id", updated.ID, "key", pa.KeyStr, "error", err)
+			if err := pe.mutationGate.UpdateTiki(ctx, tk); err != nil {
+				slog.Error("failed to update task after plugin action", "task_id", tk.ID, "key", pa.KeyStr, "error", err)
 				pe.setError(err)
 				return false
 			}
 			if pe.onTaskUpdated != nil {
-				pe.onTaskUpdated(updated)
+				pe.onTaskUpdated(tiki.ToTask(tk))
 			}
 		}
 	case result.Create != nil:

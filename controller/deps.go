@@ -12,7 +12,6 @@ import (
 	"github.com/boolean-maybe/tiki/service"
 	"github.com/boolean-maybe/tiki/store"
 	"github.com/boolean-maybe/tiki/task"
-	"github.com/boolean-maybe/tiki/tiki"
 )
 
 // lane indices for the deps editor
@@ -195,7 +194,7 @@ func (dc *DepsController) handleMoveTask(offset int) bool {
 	}
 
 	executor := dc.newExecutor()
-	result, err := executor.Execute(stmt, tasksToTikis(dc.taskStore.GetAllTasks()))
+	result, err := executor.Execute(stmt, dc.taskStore.GetAllTikis())
 	if err != nil {
 		slog.Error("deps move: failed to execute ruki query", "query", query, "error", err)
 		return false
@@ -206,9 +205,8 @@ func (dc *DepsController) handleMoveTask(offset int) bool {
 	}
 
 	for _, tk := range result.Update.Updated {
-		updated := tiki.ToTask(tk)
-		if err := dc.mutationGate.UpdateTask(context.Background(), updated); err != nil {
-			slog.Error("deps move: failed to update task", "task_id", updated.ID, "error", err)
+		if err := dc.mutationGate.UpdateTiki(context.Background(), tk); err != nil {
+			slog.Error("deps move: failed to update task", "task_id", tk.ID, "error", err)
 			if dc.statusline != nil {
 				dc.statusline.SetMessage(err.Error(), model.MessageLevelError, true)
 			}

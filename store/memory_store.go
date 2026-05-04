@@ -2,6 +2,7 @@ package store
 
 import (
 	"fmt"
+	"sort"
 	"strings"
 	"sync"
 	"time"
@@ -9,6 +10,7 @@ import (
 	"github.com/boolean-maybe/tiki/config"
 	"github.com/boolean-maybe/tiki/store/internal/git"
 	"github.com/boolean-maybe/tiki/task"
+	tikipkg "github.com/boolean-maybe/tiki/tiki"
 	collectionutil "github.com/boolean-maybe/tiki/util/collections"
 	"github.com/boolean-maybe/tiki/workflow"
 )
@@ -19,7 +21,7 @@ import (
 // InMemoryStore is an in-memory task repository
 type InMemoryStore struct {
 	mu             sync.RWMutex
-	tasks          map[string]*task.Task
+	tikis          map[string]*tikipkg.Tiki
 	listeners      map[int]ChangeListener
 	nextListenerID int
 	idGenerator    func() string // injectable for testing; defaults to config.GenerateRandomID
@@ -32,7 +34,7 @@ func normalizeTaskID(id string) string {
 // NewInMemoryStore creates a new in-memory task store
 func NewInMemoryStore() *InMemoryStore {
 	return &InMemoryStore{
-		tasks:          make(map[string]*task.Task),
+		tikis:          make(map[string]*tikipkg.Tiki),
 		listeners:      make(map[int]ChangeListener),
 		nextListenerID: 1, // Start at 1 to avoid conflict with zero-value sentinel
 		idGenerator:    config.GenerateRandomID,
@@ -71,6 +73,114 @@ func (s *InMemoryStore) notifyListeners() {
 	}
 }
 
+// GetTiki retrieves a tiki by ID. Returns nil when not found.
+func (s *InMemoryStore) GetTiki(id string) *tikipkg.Tiki {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	return s.tikis[normalizeTaskID(id)]
+}
+
+// GetAllTikis returns every loaded tiki, including plain docs.
+func (s *InMemoryStore) GetAllTikis() []*tikipkg.Tiki {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	out := make([]*tikipkg.Tiki, 0, len(s.tikis))
+	for _, tk := range s.tikis {
+		out = append(out, tk)
+	}
+	return out
+}
+
+// CreateTiki adds a new tiki to the store.
+func (s *InMemoryStore) CreateTiki(tk *tikipkg.Tiki) error {
+	return s.storeNewTikiLocked(tk)
+}
+
+// UpdateTiki updates an existing tiki. The incoming tiki's field set is
+// authoritative (exact presence): fields absent in tk are not carried forward
+// from the stored tiki, so native callers that delete a field see it removed.
+func (s *InMemoryStore) UpdateTiki(tk *tikipkg.Tiki) error {
+	return s.updateTikiLocked(tk, false)
+}
+
+// DeleteTiki removes a tiki from the store.
+func (s *InMemoryStore) DeleteTiki(id string) {
+	s.mu.Lock()
+	delete(s.tikis, normalizeTaskID(id))
+	s.mu.Unlock()
+	s.notifyListeners()
+}
+
+// NewTikiTemplate returns a new tiki populated with creation defaults.
+func (s *InMemoryStore) NewTikiTemplate() (*tikipkg.Tiki, error) {
+	t, err := s.NewTaskTemplate()
+	if err != nil {
+		return nil, err
+	}
+	return tikipkg.FromTask(t), nil
+}
+
+// storeNewTikiLocked is the shared create path. The caller owns the
+// workflow-presence decision.
+func (s *InMemoryStore) storeNewTikiLocked(tk *tikipkg.Tiki) error {
+	s.mu.Lock()
+	now := time.Now()
+	tk.CreatedAt = now
+	tk.UpdatedAt = now
+	tk.ID = normalizeTaskID(tk.ID)
+	s.tikis[tk.ID] = tk
+	s.mu.Unlock()
+	s.notifyListeners()
+	return nil
+}
+
+// updateTikiLocked is the shared update path. carryWorkflow controls whether
+// a stored tiki with workflow fields should force workflow fields onto an
+// incoming tiki that has none — true for task-shaped callers (protective),
+// false for document-first callers (explicit demotion works).
+func (s *InMemoryStore) updateTikiLocked(tk *tikipkg.Tiki, carryWorkflow bool) error {
+	s.mu.Lock()
+
+	tk.ID = normalizeTaskID(tk.ID)
+	old, exists := s.tikis[tk.ID]
+	if !exists {
+		s.mu.Unlock()
+		return fmt.Errorf("task not found: %s", tk.ID)
+	}
+
+	// protective carry-forward: if the stored tiki has workflow fields and
+	// the incoming tiki has none, carry the stored workflow fields forward
+	// so callers that only update one field don't accidentally demote.
+	if carryWorkflow && !hasAnyWorkflowFieldMem(tk) && hasAnyWorkflowFieldMem(old) {
+		for _, k := range tikipkg.SchemaKnownFields {
+			if !tk.Has(k) {
+				if v, ok := old.Fields[k]; ok {
+					tk.Set(k, v)
+				}
+			}
+		}
+	}
+
+	tk.UpdatedAt = time.Now()
+	s.tikis[tk.ID] = tk
+	s.mu.Unlock()
+	s.notifyListeners()
+	return nil
+}
+
+// hasAnyWorkflowFieldMem is the InMemoryStore equivalent of tikistore.hasAnyWorkflowField.
+func hasAnyWorkflowFieldMem(tk *tikipkg.Tiki) bool {
+	if tk == nil {
+		return false
+	}
+	for _, f := range tikipkg.SchemaKnownFields {
+		if tk.Has(f) {
+			return true
+		}
+	}
+	return false
+}
+
 // CreateTask adds a new task to the store. InMemoryStore is a test fixture
 // and deliberately keeps the pre-Phase-7 "always workflow" semantics so that
 // ~150 existing call sites don't need to set IsWorkflow explicitly. The
@@ -78,91 +188,91 @@ func (s *InMemoryStore) notifyListeners() {
 // IsWorkflow so piped/ruki capture against workflows with no default status
 // produces plain documents. Tests that specifically need plain-doc
 // semantics should call CreateDocument instead.
+//
+// The original task struct is updated in-place with the normalized ID and
+// timestamps so callers that inspect the task after creation see the
+// canonical values (matching the previous map[string]*task.Task behavior).
 func (s *InMemoryStore) CreateTask(newTask *task.Task) error {
 	newTask.IsWorkflow = true
-	return s.storeNewDocumentLocked(newTask)
-}
-
-// storeNewDocumentLocked is the shared create path for CreateTask (workflow
-// only) and CreateDocument (workflow or plain). The caller owns the
-// IsWorkflow decision.
-func (s *InMemoryStore) storeNewDocumentLocked(newTask *task.Task) error {
-	s.mu.Lock()
 	task.NormalizeCollectionFields(newTask)
-	now := time.Now()
-	newTask.CreatedAt = now
-	newTask.UpdatedAt = now
-	newTask.ID = normalizeTaskID(newTask.ID)
-	s.tasks[newTask.ID] = newTask
-	s.mu.Unlock()
-	s.notifyListeners()
+	tk := tikipkg.FromTask(newTask)
+	if err := s.storeNewTikiLocked(tk); err != nil {
+		return err
+	}
+	// carry normalized values back to the caller's task struct
+	newTask.ID = tk.ID
+	newTask.CreatedAt = tk.CreatedAt
+	newTask.UpdatedAt = tk.UpdatedAt
 	return nil
 }
 
-// GetTask retrieves a task by ID
+// storeNewDocumentLocked is kept for document-first callers (CreateDocument).
+// The caller owns the IsWorkflow decision.
+func (s *InMemoryStore) storeNewDocumentLocked(tk *tikipkg.Tiki) error {
+	return s.storeNewTikiLocked(tk)
+}
+
+// GetTask retrieves a task by ID. Phase 5 compatibility adapter over GetTiki.
 func (s *InMemoryStore) GetTask(id string) *task.Task {
-	s.mu.RLock()
-	defer s.mu.RUnlock()
-	return s.tasks[normalizeTaskID(id)]
+	return tikipkg.ToTask(s.GetTiki(id))
 }
 
 // UpdateTask updates an existing task. Protects against silent workflow
 // demotion (see TikiStore.UpdateTask): callers that pass IsWorkflow=false
 // over a workflow-flagged stored task have the flag carried forward.
 // Document-first callers that need explicit demotion use UpdateDocument.
+// The original task struct is updated in-place with the new UpdatedAt
+// timestamp so callers that inspect the task after update see the canonical value.
 func (s *InMemoryStore) UpdateTask(updatedTask *task.Task) error {
-	return s.updateLocked(updatedTask, true)
+	if storedTiki := s.GetTiki(updatedTask.ID); storedTiki != nil && hasAnyWorkflowFieldMem(storedTiki) {
+		oldTask := tikipkg.ToTask(storedTiki)
+		// Grow WorkflowFrontmatter to include every stored workflow field so
+		// FromTask's applyPresenceMap emits all stored fields, not just the
+		// subset the caller happened to set. See TikiStore.UpdateTask for the
+		// full rationale.
+		if updatedTask.WorkflowFrontmatter == nil {
+			updatedTask.WorkflowFrontmatter = make(map[string]interface{}, len(storedTiki.Fields))
+		}
+		for _, k := range tikipkg.SchemaKnownFields {
+			if storedTiki.Has(k) {
+				if _, already := updatedTask.WorkflowFrontmatter[k]; !already {
+					updatedTask.WorkflowFrontmatter[k] = struct{}{}
+				}
+			}
+		}
+		task.CarryZeroTypedFields(updatedTask, oldTask)
+		// promote before merging so a fresh compat caller with IsWorkflow=false
+		// still gets newly non-zero fields merged into WorkflowFrontmatter.
+		updatedTask.IsWorkflow = true
+		task.MergeTypedWorkflowDeltas(updatedTask, oldTask)
+	}
+	tk := tikipkg.FromTask(updatedTask)
+	if err := s.updateTikiLocked(tk, true); err != nil {
+		return err
+	}
+	updatedTask.UpdatedAt = tk.UpdatedAt
+	return nil
 }
 
-// updateLocked is the shared update path. carryWorkflow controls whether a
-// caller passing IsWorkflow=false over a workflow-flagged stored task has
-// their value forced back to true — true for task-shaped callers
-// (protective), false for document-first callers (explicit demotion works).
-func (s *InMemoryStore) updateLocked(updatedTask *task.Task, carryWorkflow bool) error {
-	s.mu.Lock()
-
-	task.NormalizeCollectionFields(updatedTask)
-	updatedTask.ID = normalizeTaskID(updatedTask.ID)
-	oldTask, exists := s.tasks[updatedTask.ID]
-	if !exists {
-		s.mu.Unlock()
-		return fmt.Errorf("task not found: %s", updatedTask.ID)
-	}
-
-	if carryWorkflow && !updatedTask.IsWorkflow && oldTask.IsWorkflow {
-		updatedTask.IsWorkflow = true
-	}
-
-	updatedTask.UpdatedAt = time.Now()
-	s.tasks[updatedTask.ID] = updatedTask
-	s.mu.Unlock()
-	s.notifyListeners()
-	return nil
+// updateLocked is kept as a document-first update path.
+// carryWorkflow=false means no protective carry-forward, so explicit demotion works.
+func (s *InMemoryStore) updateLocked(tk *tikipkg.Tiki, carryWorkflow bool) error {
+	return s.updateTikiLocked(tk, carryWorkflow)
 }
 
 // DeleteTask removes a task from the store
 func (s *InMemoryStore) DeleteTask(id string) {
-	s.mu.Lock()
-	delete(s.tasks, normalizeTaskID(id))
-	s.mu.Unlock()
-	s.notifyListeners()
+	s.DeleteTiki(id)
 }
 
-// GetAllTasks returns workflow-capable tasks. Plain docs (IsWorkflow=false)
-// are filtered out so board/list surfaces and any other consumer of
-// the task-shaped compatibility API see only workflow items — matching
-// TikiStore.GetAllTasks. Document-first callers that want the unfiltered
-// view should use GetAllDocuments.
+// GetAllTasks returns all tikis projected to tasks. Plain docs are included;
+// callers that want only workflow-capable items should filter by
+// hasAnyWorkflowFieldMem or use a ruki query with has(status).
 func (s *InMemoryStore) GetAllTasks() []*task.Task {
-	s.mu.RLock()
-	defer s.mu.RUnlock()
-
-	tasks := make([]*task.Task, 0, len(s.tasks))
-	for _, t := range s.tasks {
-		if !t.IsWorkflow {
-			continue
-		}
-		tasks = append(tasks, t)
+	tikis := s.GetAllTikis()
+	tasks := make([]*task.Task, 0, len(tikis))
+	for _, tk := range tikis {
+		tasks = append(tasks, tikipkg.ToTask(tk))
 	}
 	return tasks
 }
@@ -179,12 +289,13 @@ func (s *InMemoryStore) Search(query string, filterFunc func(*task.Task) bool) [
 	queryLower := strings.ToLower(query)
 	var results []task.SearchResult
 
-	for _, t := range s.tasks {
+	for _, tk := range s.tikis {
+		t := tikipkg.ToTask(tk)
 		if filterFunc != nil {
 			if !filterFunc(t) {
 				continue
 			}
-		} else if !t.IsWorkflow {
+		} else if !hasAnyWorkflowFieldMem(tk) {
 			// nil filter → workflow tasks only, matching GetAllTasks.
 			continue
 		}
@@ -211,20 +322,61 @@ func matchesQueryInMemory(t *task.Task, queryLower string) bool {
 	return false
 }
 
+// SearchTikis searches all tikis (including plain docs) with an optional
+// tiki-native filter. query matches against id, title, and body.
+// filter is applied before the text match; nil means no pre-filter.
+// Results are sorted by title then id.
+func (s *InMemoryStore) SearchTikis(query string, filter func(*tikipkg.Tiki) bool) []*tikipkg.Tiki {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
+	queryLower := strings.ToLower(strings.TrimSpace(query))
+	var results []*tikipkg.Tiki
+	for _, tk := range s.tikis {
+		if filter != nil && !filter(tk) {
+			continue
+		}
+		if queryLower != "" && !matchesTikiQueryMem(tk, queryLower) {
+			continue
+		}
+		results = append(results, tk)
+	}
+	sort.Slice(results, func(i, j int) bool {
+		ti, tj := strings.ToLower(results[i].Title), strings.ToLower(results[j].Title)
+		if ti != tj {
+			return ti < tj
+		}
+		return results[i].ID < results[j].ID
+	})
+	return results
+}
+
+func matchesTikiQueryMem(tk *tikipkg.Tiki, queryLower string) bool {
+	return strings.Contains(strings.ToLower(tk.ID), queryLower) ||
+		strings.Contains(strings.ToLower(tk.Title), queryLower) ||
+		strings.Contains(strings.ToLower(tk.Body), queryLower)
+}
+
 // AddComment adds a comment to a task
 func (s *InMemoryStore) AddComment(taskID string, comment task.Comment) bool {
 	s.mu.Lock()
 
 	taskID = normalizeTaskID(taskID)
-	task, exists := s.tasks[taskID]
+	tk, exists := s.tikis[taskID]
 	if !exists {
 		s.mu.Unlock()
 		return false
 	}
 
+	// project to task, append comment, project back
+	t := tikipkg.ToTask(tk)
 	comment.CreatedAt = time.Now()
-	task.Comments = append(task.Comments, comment)
-	task.UpdatedAt = time.Now()
+	t.Comments = append(t.Comments, comment)
+	t.UpdatedAt = time.Now()
+	updated := tikipkg.FromTask(t)
+	updated.Path = tk.Path
+	updated.LoadedMtime = tk.LoadedMtime
+	s.tikis[taskID] = updated
 	s.mu.Unlock()
 	s.notifyListeners()
 	return true
@@ -243,7 +395,7 @@ func (s *InMemoryStore) ReloadTask(taskID string) error {
 	return nil
 }
 
-// PathForID returns the in-memory task's FilePath if set, or the empty
+// PathForID returns the in-memory tiki's Path if set, or the empty
 // string. InMemoryStore has no filesystem backing, so production callers
 // should not rely on this returning a meaningful value — it exists to
 // satisfy the ReadStore interface. Tests that want the real path resolver
@@ -251,8 +403,8 @@ func (s *InMemoryStore) ReloadTask(taskID string) error {
 func (s *InMemoryStore) PathForID(id string) string {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
-	if t, ok := s.tasks[normalizeTaskID(id)]; ok {
-		return t.FilePath
+	if tk, ok := s.tikis[normalizeTaskID(id)]; ok {
+		return tk.Path
 	}
 	return ""
 }
@@ -292,7 +444,7 @@ func (s *InMemoryStore) NewTaskTemplate() (*task.Task, error) {
 		// Post-Phase-1: bare uppercase IDs; normalize for safety in case a
 		// test injects a generator that returns a non-canonical string.
 		taskID = normalizeTaskID(s.idGenerator())
-		if _, exists := s.tasks[taskID]; !exists {
+		if _, exists := s.tikis[taskID]; !exists {
 			break
 		}
 		taskID = "" // mark as failed so we can detect exhaustion

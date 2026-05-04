@@ -9,6 +9,7 @@ import (
 
 	"github.com/boolean-maybe/tiki/store"
 	"github.com/boolean-maybe/tiki/task"
+	tikipkg "github.com/boolean-maybe/tiki/tiki"
 )
 
 // triggerDepthKey is the context key for tracking trigger cascade depth.
@@ -171,6 +172,33 @@ func (g *TaskMutationGate) UpdateTask(ctx context.Context, t *task.Task) error {
 		return err
 	}
 	g.runAfterHooks(ctx, g.afterUpdateHooks, old, t.Clone())
+	return nil
+}
+
+// UpdateTiki persists a ruki-computed tiki with exact-presence semantics:
+// absent fields are deleted on disk, not carried forward from the stored copy.
+// Use this for ruki/trigger callers that supply a fully-computed post-mutation tiki.
+// For UI/partial callers that only set the fields they care about, use UpdateTask.
+func (g *TaskMutationGate) UpdateTiki(ctx context.Context, tk *tikipkg.Tiki) error {
+	if err := checkTriggerDepth(ctx); err != nil {
+		return err
+	}
+	g.ensureStore()
+	raw := g.store.GetTask(tk.ID)
+	if raw == nil {
+		return fmt.Errorf("task not found: %s", tk.ID)
+	}
+	old := raw.Clone()
+	proposed := tikipkg.ToTask(tk)
+	allTasks := g.candidateAllTasks(proposed)
+	if err := g.runValidators(g.updateValidators, old, proposed, allTasks); err != nil {
+		return err
+	}
+	tk.UpdatedAt = time.Now()
+	if err := g.store.UpdateTiki(tk); err != nil {
+		return err
+	}
+	g.runAfterHooks(ctx, g.afterUpdateHooks, old, tikipkg.ToTask(tk))
 	return nil
 }
 

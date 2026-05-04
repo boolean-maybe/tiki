@@ -8,6 +8,7 @@ import (
 
 	"github.com/boolean-maybe/tiki/config"
 	taskpkg "github.com/boolean-maybe/tiki/task"
+	tikipkg "github.com/boolean-maybe/tiki/tiki"
 	"github.com/boolean-maybe/tiki/workflow"
 )
 
@@ -263,8 +264,17 @@ func TestInMemoryStore_AddComment(t *testing.T) {
 func TestInMemoryStore_Search_NilFilterExcludesPlainDocs(t *testing.T) {
 	s := NewInMemoryStore()
 	// direct map poke since CreateTask would set IsWorkflow=true.
-	s.tasks["WORK01"] = &taskpkg.Task{ID: "WORK01", Title: "workflow", IsWorkflow: true}
-	s.tasks["PLAIN1"] = &taskpkg.Task{ID: "PLAIN1", Title: "plain", IsWorkflow: false}
+	// a workflow tiki must have at least one schema-known field.
+	workTiki := tikipkg.New()
+	workTiki.ID = "WORK01"
+	workTiki.Title = "workflow"
+	workTiki.Set("status", "backlog")
+	s.tikis["WORK01"] = workTiki
+	// a plain tiki has no schema-known fields.
+	plainTiki := tikipkg.New()
+	plainTiki.ID = "PLAIN1"
+	plainTiki.Title = "plain"
+	s.tikis["PLAIN1"] = plainTiki
 
 	results := s.Search("", nil)
 	if len(results) != 1 || results[0].Task.ID != "WORK01" {
@@ -529,7 +539,7 @@ func TestInMemoryStore_GetAllTasks(t *testing.T) {
 		}
 	})
 
-	t.Run("returns same pointers, not copies", func(t *testing.T) {
+	t.Run("returns projected task values (Phase 5: tiki-backed, not raw pointers)", func(t *testing.T) {
 		s := NewInMemoryStore()
 		original := &taskpkg.Task{ID: "PTR001", Title: "Pointer Task", IsWorkflow: true}
 		if err := s.CreateTask(original); err != nil {
@@ -540,11 +550,16 @@ func TestInMemoryStore_GetAllTasks(t *testing.T) {
 		if len(tasks) != 1 {
 			t.Fatalf("got %d tasks, want 1", len(tasks))
 		}
-		// mutate via pointer returned from GetAllTasks
+		// Phase 5: InMemoryStore is tiki-backed; GetAllTasks returns projected
+		// copies, not raw pointers to stored state. Mutations on returned tasks
+		// do not affect the store — use UpdateTask to persist changes.
+		if tasks[0].Title != "Pointer Task" {
+			t.Errorf("title = %q, want 'Pointer Task'", tasks[0].Title)
+		}
 		tasks[0].Title = "Mutated"
 		reloaded := s.GetTask("PTR001")
-		if reloaded.Title != "Mutated" {
-			t.Errorf("title = %q, want %q — GetAllTasks should return pointers to stored tasks", reloaded.Title, "Mutated")
+		if reloaded.Title == "Mutated" {
+			t.Errorf("mutation through GetAllTasks projection affected stored state — use UpdateTask to persist changes")
 		}
 	})
 }

@@ -13,51 +13,11 @@ import (
 	"github.com/boolean-maybe/tiki/tiki"
 )
 
-// allDocsAsTikis returns every loaded document projected as a *tiki.Tiki
-// for ruki execution. Mirrors allDocsAsTasks's "see plain docs too" semantics
-// by preferring the DocumentReadStore unfiltered view when available.
+// allDocsAsTikis returns every loaded tiki for ruki execution, including plain
+// docs. Prefers rs.GetAllTikis() directly to avoid the Document→Task→Tiki
+// roundtrip that drops tiki-native fields (e.g. CreatedBy, Body).
 func allDocsAsTikis(rs store.ReadStore) []*tiki.Tiki {
-	tasks := allDocsAsTasks(rs)
-	out := make([]*tiki.Tiki, 0, len(tasks))
-	for _, t := range tasks {
-		if tk := tiki.FromTask(t); tk != nil {
-			out = append(out, tk)
-		}
-	}
-	return out
-}
-
-// allDocsAsTasks returns every loaded document projected as a Task, including
-// plain documents that GetAllTasks filters out.
-//
-// Phase 5 requires ruki `select`, `update`, and `delete` to operate across the
-// full `.doc/` tree: `select where has(status)` must be able to see plain
-// docs in order to exclude them, and `update set status = …` must be able to
-// promote them. GetAllTasks applies the workflow-only filter at the store
-// boundary, so the CLI would never see plain docs unless we bypass it.
-//
-// Implementation: prefer DocumentReadStore.GetAllDocuments (the unfiltered
-// view) and project each document via task.FromDocument, which preserves
-// FilePath, LoadedMtime, and WorkflowFrontmatter. These fields are what
-// updateTaskLocked uses to carry forward identity-bound state when a fresh
-// Task value lands in the store, so persistence through the gate still picks
-// the right file and enforces optimistic locking.
-//
-// Fallback to GetAllTasks for ReadStore implementations that predate the
-// document-neutral API (tests using bare mocks). Those callers simply retain
-// the old workflow-only behavior.
-func allDocsAsTasks(rs store.ReadStore) []*task.Task {
-	if docStore, ok := rs.(store.DocumentReadStore); ok {
-		docs := docStore.GetAllDocuments()
-		tasks := make([]*task.Task, 0, len(docs))
-		for _, d := range docs {
-			if t := task.FromDocument(d); t != nil {
-				tasks = append(tasks, t)
-			}
-		}
-		return tasks
-	}
-	return rs.GetAllTasks()
+	return rs.GetAllTikis()
 }
 
 // OutputFormat selects the renderer for CLI query output. OutputTable is the
@@ -247,8 +207,7 @@ func persistAndSummarize(ctx context.Context, gate *service.TaskMutationGate, ur
 	var firstErr error
 
 	for _, tk := range ur.Updated {
-		t := tiki.ToTask(tk)
-		if err := gate.UpdateTask(ctx, t); err != nil {
+		if err := gate.UpdateTiki(ctx, tk); err != nil {
 			failed++
 			if firstErr == nil {
 				firstErr = err

@@ -6,6 +6,7 @@ import (
 
 	"github.com/boolean-maybe/tiki/document"
 	"github.com/boolean-maybe/tiki/task"
+	tikipkg "github.com/boolean-maybe/tiki/tiki"
 )
 
 // errNilDocumentMemory is the InMemoryStore counterpart to
@@ -18,24 +19,20 @@ var errNilDocumentMemory = errors.New("document is nil")
 // workflow participation; plain docs are visible through this surface even
 // though GetTask filters them.
 func (s *InMemoryStore) GetDocument(id string) *document.Document {
-	s.mu.RLock()
-	defer s.mu.RUnlock()
-	t, ok := s.tasks[normalizeTaskID(id)]
-	if !ok {
+	tk := s.GetTiki(id)
+	if tk == nil {
 		return nil
 	}
-	return task.ToDocument(t)
+	return task.ToDocument(tikipkg.ToTask(tk))
 }
 
 // GetAllDocuments returns every stored document in id order, including
 // plain docs.
 func (s *InMemoryStore) GetAllDocuments() []*document.Document {
-	s.mu.RLock()
-	defer s.mu.RUnlock()
-
-	docs := make([]*document.Document, 0, len(s.tasks))
-	for _, t := range s.tasks {
-		if d := task.ToDocument(t); d != nil {
+	tikis := s.GetAllTikis()
+	docs := make([]*document.Document, 0, len(tikis))
+	for _, tk := range tikis {
+		if d := task.ToDocument(tikipkg.ToTask(tk)); d != nil {
 			docs = append(docs, d)
 		}
 	}
@@ -68,22 +65,26 @@ func (s *InMemoryStore) CreateDocument(doc *document.Document) error {
 		return errNilDocumentMemory
 	}
 	t := task.FromDocument(doc)
-	if err := s.storeNewDocumentLocked(t); err != nil {
+	tk := tikipkg.FromTask(t)
+	if err := s.storeNewDocumentLocked(tk); err != nil {
 		return err
 	}
-	doc.ID = t.ID
+	doc.ID = tk.ID
 	return nil
 }
 
 // UpdateDocument updates an existing document. Unlike UpdateTask, the
-// document-first path honors the presence-derived IsWorkflow that
-// FromDocument computes: stripping every workflow key from the frontmatter
-// and calling UpdateDocument demotes a workflow document to plain.
+// document-first path honors the presence-derived workflow classification:
+// stripping every workflow key from the frontmatter and calling UpdateDocument
+// demotes a workflow document to plain (carryWorkflow=false skips the
+// protective carry-forward in updateTikiLocked).
 func (s *InMemoryStore) UpdateDocument(doc *document.Document) error {
 	if doc == nil {
 		return errNilDocumentMemory
 	}
-	return s.updateLocked(task.FromDocument(doc), false)
+	t := task.FromDocument(doc)
+	tk := tikipkg.FromTask(t)
+	return s.updateLocked(tk, false)
 }
 
 // DeleteDocument removes a document from the in-memory store.

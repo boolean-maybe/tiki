@@ -10,8 +10,20 @@ import (
 
 	"github.com/boolean-maybe/tiki/config"
 	taskpkg "github.com/boolean-maybe/tiki/task"
+	tikipkg "github.com/boolean-maybe/tiki/tiki"
 	"github.com/boolean-maybe/tiki/workflow"
 )
+
+// makeTikiMap converts a slice or map of *taskpkg.Task into a map[string]*tikipkg.Tiki
+// for direct injection into TikiStore.tikis in tests.
+func makeTikiMap(tasks ...*taskpkg.Task) map[string]*tikipkg.Tiki {
+	out := make(map[string]*tikipkg.Tiki, len(tasks))
+	for _, t := range tasks {
+		tk := tikipkg.FromTask(t)
+		out[t.ID] = tk
+	}
+	return out
+}
 
 func TestSortTasks(t *testing.T) {
 	tests := []struct {
@@ -62,7 +74,7 @@ func TestSortTasks(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			sortTasks(tt.tasks)
+			taskpkg.Sort(tt.tasks)
 
 			if len(tt.tasks) != len(tt.expected) {
 				t.Fatalf("task count = %d, want %d", len(tt.tasks), len(tt.expected))
@@ -79,22 +91,10 @@ func TestSortTasks(t *testing.T) {
 
 func TestSearch_MatchesTaskID(t *testing.T) {
 	store := &TikiStore{
-		tasks: map[string]*taskpkg.Task{
-			"ABC123": {
-				ID:         "ABC123",
-				Title:      "Unrelated Title",
-				Status:     taskpkg.StatusBacklog,
-				Priority:   1,
-				IsWorkflow: true,
-			},
-			"DEF456": {
-				ID:         "DEF456",
-				Title:      "Another Title",
-				Status:     taskpkg.StatusReady,
-				Priority:   2,
-				IsWorkflow: true,
-			},
-		},
+		tikis: makeTikiMap(
+			&taskpkg.Task{ID: "ABC123", Title: "Unrelated Title", Status: taskpkg.StatusBacklog, Priority: 1, IsWorkflow: true},
+			&taskpkg.Task{ID: "DEF456", Title: "Another Title", Status: taskpkg.StatusReady, Priority: 2, IsWorkflow: true},
+		),
 	}
 
 	results := store.Search("abc123", nil)
@@ -108,32 +108,11 @@ func TestSearch_MatchesTaskID(t *testing.T) {
 
 func TestSearch_AllTasksIncludesDescription(t *testing.T) {
 	store := &TikiStore{
-		tasks: map[string]*taskpkg.Task{
-			"AAA111": {
-				ID:          "AAA111",
-				Title:       "Alpha Task",
-				Description: "Contains the keyword needle",
-				Status:      taskpkg.StatusBacklog,
-				Priority:    2,
-				IsWorkflow:  true,
-			},
-			"BBB222": {
-				ID:          "BBB222",
-				Title:       "Beta Task",
-				Description: "No match here",
-				Status:      taskpkg.StatusReady,
-				Priority:    1,
-				IsWorkflow:  true,
-			},
-			"CCC333": {
-				ID:          "CCC333",
-				Title:       "Gamma Task",
-				Description: "Another needle appears",
-				Status:      taskpkg.StatusReview,
-				Priority:    3,
-				IsWorkflow:  true,
-			},
-		},
+		tikis: makeTikiMap(
+			&taskpkg.Task{ID: "AAA111", Title: "Alpha Task", Description: "Contains the keyword needle", Status: taskpkg.StatusBacklog, Priority: 2, IsWorkflow: true},
+			&taskpkg.Task{ID: "BBB222", Title: "Beta Task", Description: "No match here", Status: taskpkg.StatusReady, Priority: 1, IsWorkflow: true},
+			&taskpkg.Task{ID: "CCC333", Title: "Gamma Task", Description: "Another needle appears", Status: taskpkg.StatusReview, Priority: 3, IsWorkflow: true},
+		),
 	}
 
 	results := store.Search("needle", nil)
@@ -154,23 +133,10 @@ func TestSearch_AllTasksIncludesDescription(t *testing.T) {
 
 func TestSearch_MatchesTags(t *testing.T) {
 	store := &TikiStore{
-		tasks: map[string]*taskpkg.Task{
-			"TAG001": {
-				ID:         "TAG001",
-				Title:      "Tagged Task",
-				Status:     taskpkg.StatusBacklog,
-				Priority:   1,
-				Tags:       []string{"frontend", "ui"},
-				IsWorkflow: true,
-			},
-			"TAG002": {
-				ID:         "TAG002",
-				Title:      "Untagged Task",
-				Status:     taskpkg.StatusReady,
-				Priority:   2,
-				IsWorkflow: true,
-			},
-		},
+		tikis: makeTikiMap(
+			&taskpkg.Task{ID: "TAG001", Title: "Tagged Task", Status: taskpkg.StatusBacklog, Priority: 1, Tags: []string{"frontend", "ui"}, IsWorkflow: true},
+			&taskpkg.Task{ID: "TAG002", Title: "Untagged Task", Status: taskpkg.StatusReady, Priority: 2, IsWorkflow: true},
+		),
 	}
 
 	results := store.Search("frontend", nil)
@@ -294,7 +260,7 @@ Task description`,
 				t.Fatalf("Failed to create TikiStore: %v", storeErr)
 			}
 
-			task, err := store.loadTaskFile(testFile, nil, nil)
+			task, err := store.loadTaskFile(testFile)
 
 			if tt.shouldLoad {
 				if err != nil {
@@ -470,7 +436,7 @@ Task description`,
 			}
 
 			// Load the task file directly
-			task, err := store.loadTaskFile(testFile, nil, nil)
+			task, err := store.loadTaskFile(testFile)
 
 			if tt.shouldLoad {
 				if err != nil {
@@ -882,11 +848,11 @@ func TestMatchesQuery(t *testing.T) {
 func TestSearch_WithFilterFunc(t *testing.T) {
 	buildStore := func() *TikiStore {
 		return &TikiStore{
-			tasks: map[string]*taskpkg.Task{
-				"F00001": {ID: "F00001", Title: "Alpha", Priority: 1},
-				"F00002": {ID: "F00002", Title: "Beta", Priority: 2},
-				"F00003": {ID: "F00003", Title: "Gamma", Priority: 3},
-			},
+			tikis: makeTikiMap(
+				&taskpkg.Task{ID: "F00001", Title: "Alpha", Priority: 1},
+				&taskpkg.Task{ID: "F00002", Title: "Beta", Priority: 2},
+				&taskpkg.Task{ID: "F00003", Title: "Gamma", Priority: 3},
+			),
 		}
 	}
 
@@ -925,10 +891,10 @@ func TestSearch_WithFilterFunc(t *testing.T) {
 
 	t.Run("nil filter + empty query returns all workflow tasks", func(t *testing.T) {
 		s := &TikiStore{
-			tasks: map[string]*taskpkg.Task{
-				"G00001": {ID: "G00001", Title: "One", IsWorkflow: true},
-				"G00002": {ID: "G00002", Title: "Two", IsWorkflow: true},
-			},
+			tikis: makeTikiMap(
+				&taskpkg.Task{ID: "G00001", Title: "One", IsWorkflow: true},
+				&taskpkg.Task{ID: "G00002", Title: "Two", IsWorkflow: true},
+			),
 		}
 		results := s.Search("", nil)
 		if len(results) != 2 {
@@ -941,10 +907,11 @@ func TestSearch_WithFilterFunc(t *testing.T) {
 	// filter.
 	t.Run("nil filter excludes plain docs", func(t *testing.T) {
 		s := &TikiStore{
-			tasks: map[string]*taskpkg.Task{
-				"WORK01": {ID: "WORK01", Title: "workflow item", IsWorkflow: true},
-				"PLAIN1": {ID: "PLAIN1", Title: "plain doc", IsWorkflow: false},
-			},
+			tikis: makeTikiMap(
+				&taskpkg.Task{ID: "WORK01", Title: "workflow item", IsWorkflow: true},
+				// plain doc has no schema fields
+				&taskpkg.Task{ID: "PLAIN1", Title: "plain doc", IsWorkflow: false},
+			),
 		}
 		results := s.Search("", nil)
 		if len(results) != 1 {
@@ -1084,7 +1051,7 @@ func TestCustomFieldRoundTrip(t *testing.T) {
 
 	// reload
 	path := store.taskFilePath(original.ID)
-	loaded, err := store.loadTaskFile(path, nil, nil)
+	loaded, err := store.loadTaskFile(path)
 	if err != nil {
 		t.Fatalf("loadTaskFile: %v", err)
 	}
@@ -1215,7 +1182,7 @@ func TestCustomFieldRoundTrip_AmbiguousStrings(t *testing.T) {
 			}
 
 			path := store.taskFilePath(original.ID)
-			loaded, err := store.loadTaskFile(path, nil, nil)
+			loaded, err := store.loadTaskFile(path)
 			if err != nil {
 				t.Fatalf("loadTaskFile: %v", err)
 			}
@@ -1293,7 +1260,7 @@ Description here`
 		t.Fatalf("write file: %v", err)
 	}
 
-	loaded, err := store.loadTaskFile(filePath, nil, nil)
+	loaded, err := store.loadTaskFile(filePath)
 	if err != nil {
 		t.Fatalf("loadTaskFile should succeed with stale field, got: %v", err)
 	}
@@ -1372,7 +1339,7 @@ Description`
 		t.Fatalf("write file: %v", err)
 	}
 
-	loaded, err := store.loadTaskFile(filePath, nil, nil)
+	loaded, err := store.loadTaskFile(filePath)
 	if err != nil {
 		t.Fatalf("loadTaskFile should succeed with stale enum value, got: %v", err)
 	}
@@ -1500,7 +1467,7 @@ func TestSaveTask_PreservesUnknownFields(t *testing.T) {
 	}
 
 	// load, then save without modification
-	loaded, err := store.loadTaskFile(filePath, nil, nil)
+	loaded, err := store.loadTaskFile(filePath)
 	if err != nil {
 		t.Fatalf("loadTaskFile: %v", err)
 	}
@@ -1546,7 +1513,7 @@ func TestSaveTask_DedupesBuiltInCollections(t *testing.T) {
 	}
 
 	path := store.taskFilePath(input.ID)
-	loaded, err := store.loadTaskFile(path, nil, nil)
+	loaded, err := store.loadTaskFile(path)
 	if err != nil {
 		t.Fatalf("loadTaskFile: %v", err)
 	}
@@ -1593,7 +1560,7 @@ func TestSaveTask_DedupesCustomListFields(t *testing.T) {
 	}
 
 	path := store.taskFilePath(input.ID)
-	loaded, err := store.loadTaskFile(path, nil, nil)
+	loaded, err := store.loadTaskFile(path)
 	if err != nil {
 		t.Fatalf("loadTaskFile: %v", err)
 	}
@@ -1649,7 +1616,7 @@ body`
 		t.Fatalf("Chdir: %v", err)
 	}
 
-	tk, err := store.loadTaskFile(rel, nil, nil)
+	tk, err := store.loadTaskFile(rel)
 	if err != nil {
 		t.Fatalf("loadTaskFile: %v", err)
 	}

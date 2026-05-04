@@ -2,6 +2,7 @@ package store
 
 import (
 	"github.com/boolean-maybe/tiki/task"
+	tikipkg "github.com/boolean-maybe/tiki/tiki"
 )
 
 // ReadStore is the read-only subset of Store.
@@ -10,14 +11,31 @@ type ReadStore interface {
 	// GetTask retrieves a task by ID
 	GetTask(id string) *task.Task
 
-	// GetAllTasks returns all tasks
+	// GetAllTasks returns all tikis projected to tasks. Plain docs are included;
+	// callers that want only workflow-capable items should use GetAllTikis and
+	// filter by has(status) / hasAnyWorkflowField as appropriate.
 	GetAllTasks() []*task.Task
 
-	// Search searches tasks with optional filter function.
+	// GetTiki retrieves a tiki by ID. Returns nil when not found.
+	GetTiki(id string) *tikipkg.Tiki
+
+	// GetAllTikis returns every loaded tiki, including plain docs.
+	GetAllTikis() []*tikipkg.Tiki
+
+	// NewTikiTemplate returns a new tiki populated with creation defaults.
+	NewTikiTemplate() (*tikipkg.Tiki, error)
+
+	// Search searches workflow tasks with optional filter function.
 	// query: case-insensitive search term (searches task IDs, titles, descriptions, and tags)
-	// filterFunc: optional filter function to pre-filter tasks (nil = all tasks)
-	// Returns matching tasks sorted by ID with relevance scores.
+	// filterFunc: optional filter function to pre-filter tasks (nil = workflow tasks only)
+	// Returns matching tasks sorted by priority then title with relevance scores.
 	Search(query string, filterFunc func(*task.Task) bool) []task.SearchResult
+
+	// SearchTikis searches all tikis (including plain docs) with an optional
+	// tiki-native filter. query matches against id, title, and body.
+	// filter is applied before the text match; nil means no pre-filter.
+	// Results are sorted by title then id.
+	SearchTikis(query string, filter func(*tikipkg.Tiki) bool) []*tikipkg.Tiki
 
 	// GetCurrentUser returns the current Tiki identity (name and email).
 	// Sourced from configured `identity.*` → git user → OS user.
