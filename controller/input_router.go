@@ -197,6 +197,9 @@ func (ir *InputRouter) HandleInput(event *tcell.EventKey, currentView *ViewEntry
 	if stop, handled := ir.maybeHandleTaskEditFieldFocus(activeView, isTaskEditView, event); stop {
 		return handled
 	}
+	if stop, handled := ir.maybeHandleDetailEditMode(activeView, currentView, event); stop {
+		return handled
+	}
 
 	// check global actions first
 	if action := ir.globalActions.Match(event); action != nil {
@@ -290,6 +293,53 @@ func (ir *InputRouter) maybeHandleTaskEditFieldFocus(activeView View, isTaskEdit
 	}
 	if fieldFocusableView.IsEditFieldFocused() {
 		return true, ir.taskEditCoord.HandleKey(activeView, event)
+	}
+	return false, false
+}
+
+// detailEditModeView is the narrow contract InputRouter uses to detect a
+// configurable detail view that has been flipped into Phase 2 edit mode.
+// Stays in this file (rather than interfaces.go) because it is purely an
+// implementation detail of input dispatch.
+type detailEditModeView interface {
+	IsEditMode() bool
+	IsEditFieldFocused() bool
+}
+
+// maybeHandleDetailEditMode intercepts a small set of keys when the active
+// view is a configurable detail view in in-place edit mode:
+//   - Tab/Shift-Tab traverse editable metadata fields (via the controller).
+//   - Ctrl+S commits the edit session and exits edit mode.
+//   - Esc cancels the edit session and exits edit mode without popping
+//     the view from the nav stack.
+//
+// Up/Down/typing are handed back to the focused EditSelectList by
+// returning stop=false; the registry-based dispatcher then matches them
+// to ActionNextValue/ActionPrevValue or the widget's own InputHandler.
+func (ir *InputRouter) maybeHandleDetailEditMode(activeView View, currentView *ViewEntry, event *tcell.EventKey) (stop bool, handled bool) {
+	if currentView == nil || !model.IsPluginViewID(currentView.ViewID) {
+		return false, false
+	}
+	editView, ok := activeView.(detailEditModeView)
+	if !ok || !editView.IsEditMode() {
+		return false, false
+	}
+
+	pluginName := model.GetPluginName(currentView.ViewID)
+	ctrl, hasCtrl := ir.pluginControllers[pluginName]
+	if !hasCtrl {
+		return false, false
+	}
+
+	switch event.Key() {
+	case tcell.KeyEscape:
+		return true, ctrl.HandleAction(ActionDetailCancel)
+	case tcell.KeyCtrlS:
+		return true, ctrl.HandleAction(ActionDetailSave)
+	case tcell.KeyTab:
+		return true, ctrl.HandleAction(ActionNextField)
+	case tcell.KeyBacktab:
+		return true, ctrl.HandleAction(ActionPrevField)
 	}
 	return false, false
 }

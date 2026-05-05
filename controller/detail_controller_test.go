@@ -26,8 +26,10 @@ func newTestDetailPlugin(metadata []string, actions []plugin.PluginAction) *plug
 }
 
 // TestDetailController_RegistryHasFullscreenAndStubEdit asserts the built-in
-// detail action registry surfaces the actions Phase 1 promises: Fullscreen
-// always available, Edit registered as a stub so the keybinding is reserved.
+// detail action registry surfaces the actions Phase 1 promises (Fullscreen
+// always available; the 'e' binding reserved). Phase 2 replaced the stub
+// with a real ActionDetailEdit; the assertion still anchors on the 'e'
+// binding being present.
 func TestDetailController_RegistryHasFullscreenAndStubEdit(t *testing.T) {
 	pluginDef := newTestDetailPlugin([]string{"status"}, nil)
 	taskStore := store.NewInMemoryStore()
@@ -35,14 +37,18 @@ func TestDetailController_RegistryHasFullscreenAndStubEdit(t *testing.T) {
 	gate.SetStore(taskStore)
 	nav := newMockNavigationController()
 
-	dc := NewDetailController(pluginDef, nav, nil, taskStore, gate, rukiRuntime.NewSchema())
+	dc := NewDetailController(pluginDef, nav, nil, taskStore, gate, rukiRuntime.NewSchema(), nil)
 
 	r := dc.GetActionRegistry()
 	if r.MatchBinding(tcell.KeyRune, 'f', 0) == nil {
 		t.Error("expected Fullscreen action on 'f'")
 	}
-	if r.MatchBinding(tcell.KeyRune, 'e', 0) == nil {
-		t.Error("expected Edit stub action on 'e'")
+	editAct := r.MatchBinding(tcell.KeyRune, 'e', 0)
+	if editAct == nil {
+		t.Fatal("expected Edit action on 'e'")
+	}
+	if editAct.ID != ActionDetailEdit {
+		t.Errorf("expected ActionDetailEdit, got %q", editAct.ID)
 	}
 }
 
@@ -65,7 +71,7 @@ func TestDetailController_SurfacesPerViewActions(t *testing.T) {
 	gate.SetStore(taskStore)
 	nav := newMockNavigationController()
 
-	dc := NewDetailController(pluginDef, nav, nil, taskStore, gate, rukiRuntime.NewSchema())
+	dc := NewDetailController(pluginDef, nav, nil, taskStore, gate, rukiRuntime.NewSchema(), nil)
 
 	if act := dc.GetActionRegistry().MatchBinding(tcell.KeyRune, 'a', 0); act == nil {
 		t.Fatal("expected per-view action to be registered on 'a'")
@@ -83,7 +89,7 @@ func TestDetailController_SetSelectedTaskID(t *testing.T) {
 	gate.SetStore(taskStore)
 	nav := newMockNavigationController()
 
-	dc := NewDetailController(pluginDef, nav, nil, taskStore, gate, rukiRuntime.NewSchema())
+	dc := NewDetailController(pluginDef, nav, nil, taskStore, gate, rukiRuntime.NewSchema(), nil)
 
 	dc.SetSelectedTaskID("TIKI001")
 	if dc.selectedTaskID != "TIKI001" {
@@ -95,7 +101,7 @@ func TestDetailController_SetSelectedTaskID(t *testing.T) {
 // plugin nav arrow keys.
 func TestDetailController_ShowNavigationFalse(t *testing.T) {
 	pluginDef := newTestDetailPlugin(nil, nil)
-	dc := NewDetailController(pluginDef, newMockNavigationController(), nil, nil, nil, nil)
+	dc := NewDetailController(pluginDef, newMockNavigationController(), nil, nil, nil, nil, nil)
 	if dc.ShowNavigation() {
 		t.Error("ShowNavigation() = true, want false for kind: detail")
 	}

@@ -64,7 +64,7 @@ func BuildControllers(
 			}
 			pluginControllers[p.GetName()] = controller.NewDetailController(
 				dp, navController, statuslineConfig,
-				taskStore, mutationGate, schema,
+				taskStore, mutationGate, schema, taskController,
 			)
 		}
 	}

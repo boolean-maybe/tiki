@@ -3,7 +3,9 @@ package taskdetail
 import (
 	"fmt"
 
+	"github.com/boolean-maybe/tiki/component"
 	"github.com/boolean-maybe/tiki/config"
+	"github.com/boolean-maybe/tiki/model"
 	"github.com/boolean-maybe/tiki/plugin"
 	taskpkg "github.com/boolean-maybe/tiki/task"
 	tikipkg "github.com/boolean-maybe/tiki/tiki"
@@ -50,9 +52,21 @@ const (
 // FieldRenderer renders a tiki's value for the field as a read-only primitive.
 type FieldRenderer func(tk *tikipkg.Tiki, ctx FieldRenderContext) tview.Primitive
 
-// FieldEditor builds an in-place editor primitive for the field. Phase 1
-// returns nil for stubs; Phase 2 wires concrete editors in.
-type FieldEditor func(tk *tikipkg.Tiki, ctx FieldRenderContext) tview.Primitive
+// FieldEditorWidget is the focusable primitive returned by an editor factory.
+// It must satisfy tview.Primitive so the view can give it focus, and it
+// exposes its current display value so the detail view can route the value
+// to the per-field save callback.
+type FieldEditorWidget interface {
+	tview.Primitive
+	GetText() string
+}
+
+// FieldEditor builds an in-place editor widget for a tiki's current value.
+// The onChange callback fires whenever the user changes the editor value
+// (typing, arrow-key cycling, ...) and carries the new display value. Phase
+// 2 implements concrete editors for status, type, and priority; other
+// semantic types return nil and remain stubs surfaced via Capability.
+type FieldEditor func(tk *tikipkg.Tiki, ctx FieldRenderContext, onChange func(string)) FieldEditorWidget
 
 // TypeUI bundles the rendering and editing primitives for a semantic type.
 type TypeUI struct {
@@ -70,6 +84,7 @@ type FieldDescriptor struct {
 	Name            string                              // canonical field name (matches tiki.Field*)
 	Label           string                              // user-facing label
 	Semantic        SemanticType                        // routes to TypeUI registry
+	EditField       model.EditField                     // model EditField mapping (for hint/status integration)
 	Get             func(tk *tikipkg.Tiki) any          // current value (typed or nil when absent)
 	Set             func(tk *tikipkg.Tiki, v any) error // future Phase 2 hook; may be nil for read-only fields
 	ReadOnly        bool                                // true for immutable fields (created, updated, author, …)
@@ -123,6 +138,7 @@ func registerBuiltinFields() {
 		Name:            tikipkg.FieldStatus,
 		Label:           "Status",
 		Semantic:        SemanticStatus,
+		EditField:       model.EditFieldStatus,
 		Get:             func(tk *tikipkg.Tiki) any { v, _, _ := tk.StringField(tikipkg.FieldStatus); return v },
 		EditTraversable: true,
 	}
@@ -130,6 +146,7 @@ func registerBuiltinFields() {
 		Name:            tikipkg.FieldType,
 		Label:           "Type",
 		Semantic:        SemanticType_,
+		EditField:       model.EditFieldType,
 		Get:             func(tk *tikipkg.Tiki) any { v, _, _ := tk.StringField(tikipkg.FieldType); return v },
 		EditTraversable: true,
 	}
@@ -137,6 +154,7 @@ func registerBuiltinFields() {
 		Name:            tikipkg.FieldPriority,
 		Label:           "Priority",
 		Semantic:        SemanticPriority,
+		EditField:       model.EditFieldPriority,
 		Get:             func(tk *tikipkg.Tiki) any { v, _, _ := tk.IntField(tikipkg.FieldPriority); return v },
 		EditTraversable: true,
 	}
@@ -144,6 +162,7 @@ func registerBuiltinFields() {
 		Name:            tikipkg.FieldPoints,
 		Label:           "Points",
 		Semantic:        SemanticInteger,
+		EditField:       model.EditFieldPoints,
 		Get:             func(tk *tikipkg.Tiki) any { v, _, _ := tk.IntField(tikipkg.FieldPoints); return v },
 		EditTraversable: true,
 	}
@@ -151,6 +170,7 @@ func registerBuiltinFields() {
 		Name:            tikipkg.FieldAssignee,
 		Label:           "Assignee",
 		Semantic:        SemanticText,
+		EditField:       model.EditFieldAssignee,
 		Get:             func(tk *tikipkg.Tiki) any { v, _, _ := tk.StringField(tikipkg.FieldAssignee); return v },
 		EditTraversable: true,
 	}
@@ -158,6 +178,7 @@ func registerBuiltinFields() {
 		Name:            tikipkg.FieldDue,
 		Label:           "Due",
 		Semantic:        SemanticDate,
+		EditField:       model.EditFieldDue,
 		Get:             func(tk *tikipkg.Tiki) any { v, _, _ := tk.TimeField(tikipkg.FieldDue); return v },
 		EditTraversable: true,
 	}
@@ -165,6 +186,7 @@ func registerBuiltinFields() {
 		Name:            tikipkg.FieldRecurrence,
 		Label:           "Recurrence",
 		Semantic:        SemanticRecurrence,
+		EditField:       model.EditFieldRecurrence,
 		Get:             func(tk *tikipkg.Tiki) any { v, _, _ := tk.StringField(tikipkg.FieldRecurrence); return v },
 		EditTraversable: true,
 	}
@@ -184,22 +206,26 @@ func registerBuiltinFields() {
 	}
 }
 
-// registerBuiltinTypes wires renderers for each semantic type. Editor
-// factories are intentionally nil for everything in Phase 1 — Phase 2 fills
-// them in. The capability flag distinguishes "renderer exists, editor stub"
-// from "renderer + editor implemented".
+// registerBuiltinTypes wires renderers for each semantic type. Phase 2 adds
+// concrete editor factories for the three default fields (status, type,
+// priority); the rest remain stubs surfaced via Capability so callers can
+// distinguish "renderer exists, editor stub" from "renderer + editor
+// implemented" without invoking a nil factory.
 func registerBuiltinTypes() {
 	typeRegistry[SemanticStatus] = TypeUI{
 		Render:     renderStatusValue,
-		Capability: EditorStub,
+		Edit:       editStatusValue,
+		Capability: EditorImplemented,
 	}
 	typeRegistry[SemanticType_] = TypeUI{
 		Render:     renderTypeValue,
-		Capability: EditorStub,
+		Edit:       editTypeValue,
+		Capability: EditorImplemented,
 	}
 	typeRegistry[SemanticPriority] = TypeUI{
 		Render:     renderPriorityValue,
-		Capability: EditorStub,
+		Edit:       editPriorityValue,
+		Capability: EditorImplemented,
 	}
 	typeRegistry[SemanticText] = TypeUI{
 		Render:     renderTextValue,
@@ -371,4 +397,97 @@ func renderTaskIDListValue(tk *tikipkg.Tiki, ctx FieldRenderContext) tview.Primi
 		value += d
 	}
 	return labeledLine("Depends On", value, ctx.Colors)
+}
+
+// --- Phase 2 editor factories ---
+//
+// Each factory builds an EditSelectList configured with the canonical option
+// list for the field, seeded with the tiki's current value, and wires the
+// onChange callback to fire whenever the user types or arrows through the
+// list. The view supplies onChange to forward the change to the
+// per-semantic save callback.
+
+// editStatusValue builds the status editor.
+func editStatusValue(tk *tikipkg.Tiki, ctx FieldRenderContext, onChange func(string)) FieldEditorWidget {
+	allStatuses := taskpkg.AllStatuses()
+	options := make([]string, len(allStatuses))
+	for i, s := range allStatuses {
+		options[i] = taskpkg.StatusDisplay(s)
+	}
+	statusStr, _, _ := tk.StringField(tikipkg.FieldStatus)
+	editor := component.NewEditSelectList(options, false)
+	editor.SetLabel(getFocusMarker(ctx.Colors) + "Status:   ")
+	editor.SetInitialValue(taskpkg.StatusDisplay(taskpkg.Status(statusStr)))
+	editor.SetSubmitHandler(func(text string) {
+		if onChange != nil {
+			onChange(text)
+		}
+	})
+	return editor
+}
+
+// editTypeValue builds the type editor.
+func editTypeValue(tk *tikipkg.Tiki, ctx FieldRenderContext, onChange func(string)) FieldEditorWidget {
+	allTypes := taskpkg.AllTypes()
+	options := make([]string, len(allTypes))
+	for i, t := range allTypes {
+		options[i] = taskpkg.TypeDisplay(t)
+	}
+	typeStr, _, _ := tk.StringField(tikipkg.FieldType)
+	editor := component.NewEditSelectList(options, false)
+	editor.SetLabel(getFocusMarker(ctx.Colors) + "Type:     ")
+	editor.SetInitialValue(taskpkg.TypeDisplay(taskpkg.Type(typeStr)))
+	editor.SetSubmitHandler(func(text string) {
+		if onChange != nil {
+			onChange(text)
+		}
+	})
+	return editor
+}
+
+// editPriorityValue builds the priority editor.
+func editPriorityValue(tk *tikipkg.Tiki, ctx FieldRenderContext, onChange func(string)) FieldEditorWidget {
+	options := taskpkg.AllPriorityDisplayValues()
+	priority, _, _ := tk.IntField(tikipkg.FieldPriority)
+	editor := component.NewEditSelectList(options, false)
+	editor.SetLabel(getFocusMarker(ctx.Colors) + "Priority: ")
+	editor.SetInitialValue(taskpkg.PriorityDisplay(priority))
+	editor.SetSubmitHandler(func(text string) {
+		if onChange != nil {
+			onChange(text)
+		}
+	})
+	return editor
+}
+
+// buildFieldEditor is a convenience that looks up the type registry and
+// returns the editor widget if the type supports editing. Returns nil for
+// stub types or unknown fields, letting callers fall back to read-only
+// rendering. ctx.FocusedField is set to the descriptor's EditField so
+// renderers and editors can paint the focused state consistently.
+func buildFieldEditor(name string, tk *tikipkg.Tiki, ctx FieldRenderContext, onChange func(string)) FieldEditorWidget {
+	fd, ok := LookupField(name)
+	if !ok {
+		return nil
+	}
+	ui, ok := LookupType(fd.Semantic)
+	if !ok || ui.Capability != EditorImplemented || ui.Edit == nil {
+		return nil
+	}
+	return ui.Edit(tk, ctx, onChange)
+}
+
+// FieldHasEditor reports whether the named field has a registered, fully
+// implemented editor. Used by the detail view to skip stub fields during
+// Tab traversal.
+func FieldHasEditor(name string) bool {
+	fd, ok := LookupField(name)
+	if !ok {
+		return false
+	}
+	ui, ok := LookupType(fd.Semantic)
+	if !ok {
+		return false
+	}
+	return ui.Capability == EditorImplemented && ui.Edit != nil
 }
