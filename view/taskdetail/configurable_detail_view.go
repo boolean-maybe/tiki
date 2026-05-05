@@ -24,18 +24,49 @@ import (
 // This view is the Phase 1 replacement for the old "kind: detail = render
 // selected markdown" behavior. It shares the markdown description renderer
 // with the legacy TaskDetailView so wikilink and image handling stay
-// consistent. Edit-mode (Phase 2) will reuse this same view by switching
-// the field-registry RenderMode.
+// consistent.
+//
+// Phase 2 added in-place edit mode: the same view is reused by toggling
+// editMode, which swaps the read-only metadata renderer for editor widgets
+// driven by the field-registry. Tab traversal walks editable metadata
+// fields in `metadata:` order (skipping stubs and read-only fields).
 type ConfigurableDetailView struct {
 	Base
 
-	registry   *controller.ActionRegistry
-	viewID     model.ViewID
-	pluginName string
+	registry     *controller.ActionRegistry
+	viewRegistry *controller.ActionRegistry // saved view-mode registry
+	editRegistry *controller.ActionRegistry // edit-mode registry (built lazily)
+	viewID       model.ViewID
+	pluginName   string
 
 	metadata    []string
 	navMarkdown *markdown.NavigableMarkdown
 	listenerID  int
+
+	// edit-mode state
+	editMode          bool
+	focusedIdx        int                          // position in metadata (-1 = not editing)
+	editors           map[string]FieldEditorWidget // current editor widgets by field name
+	onEditFieldChange map[string]func(string)      // per-field save callbacks set by controller
+	onEditModeChange  func(bool)                   // controller-side notifier (registry derivation)
+
+	// actionChangeHandler is RootLayout's ActionChangeNotifier hook — fired
+	// whenever the view's installed registry mutates (currently: on
+	// EnterEditMode / ExitEditMode). Without this, the header bar and
+	// palette would keep showing read-only actions while edit mode is
+	// active, even though the keyboard dispatch is already correct.
+	actionChangeHandler func()
+}
+
+// Compile-time interface check: the view must satisfy ActionChangeNotifier
+// so RootLayout can subscribe to registry swaps without re-activating.
+var _ controller.ActionChangeNotifier = (*ConfigurableDetailView)(nil)
+
+// SetActionChangeHandler implements controller.ActionChangeNotifier. The
+// handler is invoked after edit-mode toggles so the header/palette
+// re-read the active registry from this view.
+func (cv *ConfigurableDetailView) SetActionChangeHandler(handler func()) {
+	cv.actionChangeHandler = handler
 }
 
 // NewConfigurableDetailView builds a detail view bound to the configured
@@ -58,10 +89,14 @@ func NewConfigurableDetailView(
 			imageManager: imageManager,
 			mermaidOpts:  mermaidOpts,
 		},
-		registry:   registry,
-		viewID:     model.MakePluginViewID(pluginName),
-		pluginName: pluginName,
-		metadata:   metadata,
+		registry:          registry,
+		viewRegistry:      registry,
+		viewID:            model.MakePluginViewID(pluginName),
+		pluginName:        pluginName,
+		metadata:          metadata,
+		focusedIdx:        -1,
+		editors:           make(map[string]FieldEditorWidget),
+		onEditFieldChange: make(map[string]func(string)),
 	}
 
 	cv.build()
@@ -166,8 +201,33 @@ func (cv *ConfigurableDetailView) refresh() {
 	descPrimitive := cv.buildDescription(tk)
 	cv.content.AddItem(descPrimitive, 0, 1, true)
 
+	if cv.editMode {
+		cv.focusActiveEditor()
+		return
+	}
 	if cv.focusSetter != nil {
 		cv.focusSetter(descPrimitive)
+	}
+}
+
+// focusActiveEditor pushes focus to the currently focused editor widget
+// while in edit mode. If the focused field has no editor (e.g. focusedIdx
+// landed on a stub field) the focus falls back to the description so the
+// view remains usable.
+func (cv *ConfigurableDetailView) focusActiveEditor() {
+	if cv.focusSetter == nil {
+		return
+	}
+	if cv.focusedIdx < 0 || cv.focusedIdx >= len(cv.metadata) {
+		return
+	}
+	name := cv.metadata[cv.focusedIdx]
+	if w, ok := cv.editors[name]; ok && w != nil {
+		cv.focusSetter(w)
+		return
+	}
+	if cv.descView != nil {
+		cv.focusSetter(cv.descView)
 	}
 }
 
@@ -175,15 +235,25 @@ func (cv *ConfigurableDetailView) refresh() {
 // into a framed box. Phase 1 stacks fields vertically — a future pass may
 // reuse the responsive multi-column layout once we know which fields the
 // user actually configured.
+//
+// When editMode is true, each metadata row is rendered through the field
+// registry's editor factory if one exists; the focused row receives focus
+// via focusActiveEditor. Stub or read-only fields render the standard
+// read-only row even in edit mode, matching the plan's "render but skip in
+// traversal" requirement.
 func (cv *ConfigurableDetailView) buildMetadataBox(tk *tikipkg.Tiki, colors *config.ColorConfig) *tview.Frame {
-	ctx := FieldRenderContext{Mode: RenderModeView, Colors: colors}
+	mode := RenderModeView
+	if cv.editMode {
+		mode = RenderModeEdit
+	}
+	ctx := FieldRenderContext{Mode: mode, Colors: colors}
 
 	container := tview.NewFlex().SetDirection(tview.FlexRow)
 	container.AddItem(RenderTitleText(tk, ctx), 1, 0, false)
 	container.AddItem(tview.NewBox(), 1, 0, false)
 
-	for _, name := range cv.metadata {
-		row := renderConfiguredField(name, tk, ctx)
+	for i, name := range cv.metadata {
+		row := cv.buildMetadataRow(i, name, tk, ctx)
 		container.AddItem(row, 1, 0, false)
 	}
 
@@ -193,6 +263,35 @@ func (cv *ConfigurableDetailView) buildMetadataBox(tk *tikipkg.Tiki, colors *con
 	).SetBorderColor(colors.TaskBoxUnselectedBorder.TCell())
 	frame.SetBorderPadding(1, 0, 2, 2)
 	return frame
+}
+
+// buildMetadataRow returns the widget for a metadata field. In view mode
+// (or for fields with no editor) this is the field-registry's read-only
+// renderer. In edit mode for fields with implemented editors it returns a
+// cached or freshly-created editor widget. Editor widgets are cached
+// per-field for the lifetime of edit mode so user input isn't lost when
+// other rows trigger a refresh.
+func (cv *ConfigurableDetailView) buildMetadataRow(idx int, name string, tk *tikipkg.Tiki, ctx FieldRenderContext) tview.Primitive {
+	if !cv.editMode {
+		return renderConfiguredField(name, tk, ctx)
+	}
+	if !FieldHasEditor(name) {
+		return renderConfiguredField(name, tk, ctx)
+	}
+	rowCtx := ctx
+	if fd, ok := LookupField(name); ok {
+		rowCtx.FocusedField = fd.EditField
+	}
+	if w, ok := cv.editors[name]; ok && w != nil {
+		return w
+	}
+	w := buildFieldEditor(name, tk, rowCtx, cv.onEditFieldChange[name])
+	if w == nil {
+		return renderConfiguredField(name, tk, ctx)
+	}
+	cv.editors[name] = w
+	_ = idx
+	return w
 }
 
 // buildDescription renders the always-present description section. Mirrors
@@ -253,4 +352,189 @@ func (cv *ConfigurableDetailView) ExitFullscreen() {
 	if cv.onFullscreenChange != nil {
 		cv.onFullscreenChange(false)
 	}
+}
+
+// --- Phase 2: edit-mode API ---
+
+// IsEditMode reports whether the view is currently in in-place edit mode.
+func (cv *ConfigurableDetailView) IsEditMode() bool { return cv.editMode }
+
+// SetEditModeRegistry installs the action registry to surface while in edit
+// mode. Called by the controller during construction so the view can
+// swap registries on mode change without depending on the controller
+// directly. Passing nil keeps the view-mode registry on toggle.
+func (cv *ConfigurableDetailView) SetEditModeRegistry(r *controller.ActionRegistry) {
+	cv.editRegistry = r
+}
+
+// SetEditModeChangeHandler registers a notifier invoked when edit mode
+// toggles. The controller uses this to refresh action surfacing.
+func (cv *ConfigurableDetailView) SetEditModeChangeHandler(h func(bool)) {
+	cv.onEditModeChange = h
+}
+
+// SetEditFieldChangeHandler registers the per-field save callback. The
+// callback receives the editor's display value (e.g. "Bug 💥") whenever
+// the user changes the value while in edit mode. Calling with a nil
+// handler clears the registration.
+func (cv *ConfigurableDetailView) SetEditFieldChangeHandler(fieldName string, h func(string)) {
+	if cv.onEditFieldChange == nil {
+		cv.onEditFieldChange = make(map[string]func(string))
+	}
+	if h == nil {
+		delete(cv.onEditFieldChange, fieldName)
+		return
+	}
+	cv.onEditFieldChange[fieldName] = h
+}
+
+// EnterEditMode flips the view into edit mode and focuses the first
+// editable metadata field. No-op if no field has an implemented editor —
+// the view stays in view mode and the controller can surface a
+// "nothing to edit" hint.
+func (cv *ConfigurableDetailView) EnterEditMode() bool {
+	if cv.editMode {
+		return true
+	}
+	first := cv.firstEditableIndex()
+	if first < 0 {
+		return false
+	}
+	cv.editMode = true
+	cv.focusedIdx = first
+	cv.editors = make(map[string]FieldEditorWidget)
+	if cv.editRegistry != nil {
+		cv.registry = cv.editRegistry
+	}
+	cv.refresh()
+	if cv.onEditModeChange != nil {
+		cv.onEditModeChange(true)
+	}
+	if cv.actionChangeHandler != nil {
+		cv.actionChangeHandler()
+	}
+	return true
+}
+
+// ExitEditMode flips the view back to read-only and discards any cached
+// editor widgets. The controller is responsible for committing or
+// cancelling the underlying edit session before calling this.
+func (cv *ConfigurableDetailView) ExitEditMode() {
+	if !cv.editMode {
+		return
+	}
+	cv.editMode = false
+	cv.focusedIdx = -1
+	cv.editors = make(map[string]FieldEditorWidget)
+	cv.registry = cv.viewRegistry
+	cv.refresh()
+	if cv.onEditModeChange != nil {
+		cv.onEditModeChange(false)
+	}
+	if cv.actionChangeHandler != nil {
+		cv.actionChangeHandler()
+	}
+}
+
+// FocusNextField moves focus to the next editable metadata field,
+// skipping stubs and read-only descriptors. Returns false if the view
+// is not in edit mode or no later editable field exists.
+func (cv *ConfigurableDetailView) FocusNextField() bool {
+	if !cv.editMode {
+		return false
+	}
+	next := cv.nextEditableIndex(cv.focusedIdx)
+	if next < 0 || next == cv.focusedIdx {
+		return false
+	}
+	cv.focusedIdx = next
+	cv.refresh()
+	return true
+}
+
+// FocusPrevField moves focus to the previous editable metadata field,
+// skipping stubs and read-only descriptors. Returns false if the view
+// is not in edit mode or no earlier editable field exists.
+func (cv *ConfigurableDetailView) FocusPrevField() bool {
+	if !cv.editMode {
+		return false
+	}
+	prev := cv.prevEditableIndex(cv.focusedIdx)
+	if prev < 0 || prev == cv.focusedIdx {
+		return false
+	}
+	cv.focusedIdx = prev
+	cv.refresh()
+	return true
+}
+
+// GetFocusedFieldName returns the metadata name of the currently focused
+// editable field, or empty string when not in edit mode.
+func (cv *ConfigurableDetailView) GetFocusedFieldName() string {
+	if !cv.editMode || cv.focusedIdx < 0 || cv.focusedIdx >= len(cv.metadata) {
+		return ""
+	}
+	return cv.metadata[cv.focusedIdx]
+}
+
+// IsEditFieldFocused reports whether any of the current edit-mode editor
+// widgets currently holds tview focus. Used by the input router to route
+// keys to the editor (Tab, arrows) before falling through to the action
+// registry.
+func (cv *ConfigurableDetailView) IsEditFieldFocused() bool {
+	if !cv.editMode {
+		return false
+	}
+	for _, w := range cv.editors {
+		if w != nil && w.HasFocus() {
+			return true
+		}
+	}
+	return false
+}
+
+// firstEditableIndex returns the metadata position of the first field
+// with an implemented editor and a traversable descriptor, or -1.
+func (cv *ConfigurableDetailView) firstEditableIndex() int {
+	for i, name := range cv.metadata {
+		if cv.isEditableMetadataField(name) {
+			return i
+		}
+	}
+	return -1
+}
+
+// nextEditableIndex returns the next metadata position (after current)
+// that is editable, or -1.
+func (cv *ConfigurableDetailView) nextEditableIndex(current int) int {
+	for i := current + 1; i < len(cv.metadata); i++ {
+		if cv.isEditableMetadataField(cv.metadata[i]) {
+			return i
+		}
+	}
+	return -1
+}
+
+// prevEditableIndex returns the previous metadata position (before
+// current) that is editable, or -1.
+func (cv *ConfigurableDetailView) prevEditableIndex(current int) int {
+	for i := current - 1; i >= 0; i-- {
+		if cv.isEditableMetadataField(cv.metadata[i]) {
+			return i
+		}
+	}
+	return -1
+}
+
+// isEditableMetadataField returns true when the named field has an
+// implemented editor and a traversable, non-read-only descriptor.
+func (cv *ConfigurableDetailView) isEditableMetadataField(name string) bool {
+	fd, ok := LookupField(name)
+	if !ok {
+		return false
+	}
+	if fd.ReadOnly || !fd.EditTraversable {
+		return false
+	}
+	return FieldHasEditor(name)
 }

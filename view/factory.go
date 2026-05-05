@@ -202,7 +202,7 @@ func (f *ViewFactory) CreateView(viewID model.ViewID, params map[string]interfac
 				if dc != nil {
 					registry = dc.GetActionRegistry()
 				}
-				v = taskdetail.NewConfigurableDetailView(
+				cv := taskdetail.NewConfigurableDetailView(
 					f.taskStore,
 					pluginParams.TaskID,
 					detailPlugin.Name,
@@ -211,6 +211,10 @@ func (f *ViewFactory) CreateView(viewID model.ViewID, params map[string]interfac
 					f.imageManager,
 					f.mermaidOpts,
 				)
+				if dc != nil {
+					dc.BindEditView(cv)
+				}
+				v = cv
 			default:
 				slog.Error("unknown plugin kind", "plugin", pluginName, "kind", pluginDef.GetKind())
 			}

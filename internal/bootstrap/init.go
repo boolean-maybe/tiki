@@ -199,7 +199,7 @@ func Bootstrap(tikiSkillContent, dokiSkillContent string) (*Result, error) {
 	// Same fresh-per-navigation pattern for kind: detail views — two pushed
 	// Detail views must not share selectedTaskID state.
 	viewFactory.SetDetailControllerFactory(func(def *plugin.DetailPlugin, selectedTaskID string) *controller.DetailController {
-		dc := controller.NewDetailController(def, controllers.Nav, statuslineConfig, taskStore, gate, schema)
+		dc := controller.NewDetailController(def, controllers.Nav, statuslineConfig, taskStore, gate, schema, controllers.Task)
 		dc.SetSelectedTaskID(selectedTaskID)
 		return dc
 	})

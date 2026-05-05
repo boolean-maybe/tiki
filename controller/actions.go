@@ -48,8 +48,20 @@ const (
 
 	// ActionDetailEditStub: registered on configurable detail views so the
 	// Edit keybinding stays reserved during Phase 1. Phase 2 replaces the
-	// no-op handler with the in-place edit-mode toggle.
+	// no-op handler with the in-place edit-mode toggle. The constant is
+	// kept for tests and palette callers that referenced it; new code
+	// should prefer ActionDetailEdit.
 	ActionDetailEditStub ActionID = "detail_edit_stub"
+
+	// ActionDetailEdit: enters in-place edit mode on a configurable detail
+	// view. Phase 2 wiring.
+	ActionDetailEdit ActionID = "detail_edit"
+
+	// ActionDetailSave: commits edits in in-place detail edit mode.
+	ActionDetailSave ActionID = "detail_save"
+
+	// ActionDetailCancel: cancels edits in in-place detail edit mode.
+	ActionDetailCancel ActionID = "detail_cancel"
 )
 
 // ActionID values for task edit view actions.

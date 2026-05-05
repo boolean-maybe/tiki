@@ -445,7 +445,7 @@ func (ta *TestApp) LoadPlugins() error {
 			// through a Detail step.
 			pluginControllers[p.GetName()] = controller.NewDetailController(
 				detailPlugin, ta.NavController, ta.statuslineConfig,
-				ta.TaskStore, ta.MutationGate, ta.Schema,
+				ta.TaskStore, ta.MutationGate, ta.Schema, ta.taskController,
 			)
 		}
 	}
@@ -517,7 +517,7 @@ func (ta *TestApp) LoadPlugins() error {
 	// Mirror production wiring: fresh-per-navigation controllers for kind: detail
 	// (and wiki) so two pushed views don't share selectedTaskID.
 	viewFactory.SetDetailControllerFactory(func(def *plugin.DetailPlugin, selectedTaskID string) *controller.DetailController {
-		dc := controller.NewDetailController(def, ta.NavController, ta.statuslineConfig, ta.TaskStore, ta.MutationGate, ta.Schema)
+		dc := controller.NewDetailController(def, ta.NavController, ta.statuslineConfig, ta.TaskStore, ta.MutationGate, ta.Schema, ta.taskController)
 		dc.SetSelectedTaskID(selectedTaskID)
 		return dc
 	})
