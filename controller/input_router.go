@@ -350,13 +350,27 @@ func (ir *InputRouter) SetPluginRegistrar(fn func(name string, cfg *model.Plugin
 	ir.registerPlugin = fn
 }
 
-// openDepsEditor creates (or reopens) a deps editor plugin for the given task ID.
-func (ir *InputRouter) openDepsEditor(taskID string) bool {
+// openDepsEditor creates (or reopens) a deps editor plugin for the
+// given task ID. sourceDetailViewName is the configurable detail view
+// the user opened the deps editor from (empty when opened from a
+// non-detail context); the resolver attached to the deps controller
+// uses it as the preferred return target so a workflow with multiple
+// kind: detail views or a renamed detail view sends Enter back to the
+// caller, not to a hardcoded "Detail".
+func (ir *InputRouter) openDepsEditor(taskID, sourceDetailViewName string) bool {
 	name := "Dependency:" + taskID
 	viewID := model.MakePluginViewID(name)
 
-	// reopen if already created
-	if _, exists := ir.pluginControllers[name]; exists {
+	// reopen if already created — but refresh the resolver first so a
+	// second open from a different configurable detail view sends Enter
+	// back to the new caller, not the one captured on first open. Map
+	// key is keyed by task id, so the controller instance is reused
+	// across opens; without this swap, the closure over the original
+	// sourceDetailViewName would route Enter to a stale view.
+	if existing, exists := ir.pluginControllers[name]; exists {
+		if dc, ok := existing.(*DepsController); ok {
+			dc.SetDetailViewResolver(ir.makeDetailViewResolver(sourceDetailViewName))
+		}
 		ir.navController.PushView(viewID, nil)
 		return true
 	}
@@ -387,7 +401,8 @@ func (ir *InputRouter) openDepsEditor(taskID string) bool {
 		pluginConfig.SetViewMode("expanded")
 	}
 
-	ctrl := NewDepsController(ir.taskStore, ir.mutationGate, pluginConfig, pluginDef, ir.navController, ir.statusline, ir.schema)
+	resolver := ir.makeDetailViewResolver(sourceDetailViewName)
+	ctrl := NewDepsController(ir.taskStore, ir.mutationGate, pluginConfig, pluginDef, ir.navController, ir.statusline, ir.schema, resolver)
 
 	if ir.registerPlugin != nil {
 		ir.registerPlugin(name, pluginConfig, pluginDef, ctrl)
@@ -396,6 +411,40 @@ func (ir *InputRouter) openDepsEditor(taskID string) bool {
 
 	ir.navController.PushView(viewID, nil)
 	return true
+}
+
+// makeDetailViewResolver returns a closure that picks the configurable
+// detail view name to use when the deps editor's Open action fires.
+// Resolution order at dispatch time:
+//  1. preferred — if non-empty AND still backed by a *DetailController
+//     in the live registry. This is the view the deps editor was
+//     opened from, so Enter returns the user where they came from.
+//  2. any other plugin in pluginControllers whose controller is a
+//     *DetailController. Map iteration order is non-deterministic, but
+//     workflows with one detail view (the common case) always resolve
+//     to it; workflows with several already had to pick *some* default.
+//  3. empty string — no detail plugin loaded; the caller refuses Open.
+//
+// The resolver runs at dispatch time rather than at controller
+// construction so it sees plugin registrations that occur later (e.g.
+// dynamically added plugins) and so a renamed-on-reload detail view
+// stays reachable.
+func (ir *InputRouter) makeDetailViewResolver(preferred string) func() string {
+	return func() string {
+		if preferred != "" {
+			if ctrl, ok := ir.pluginControllers[preferred]; ok {
+				if _, isDetail := ctrl.(*DetailController); isDetail {
+					return preferred
+				}
+			}
+		}
+		for name, ctrl := range ir.pluginControllers {
+			if _, isDetail := ctrl.(*DetailController); isDetail {
+				return name
+			}
+		}
+		return ""
+	}
 }
 
 // handlePluginInput routes input to the appropriate plugin controller
@@ -421,6 +470,9 @@ func (ir *InputRouter) handlePluginInput(event *tcell.EventKey, viewID model.Vie
 		if action.ID == ActionExecute {
 			return ir.startExecuteInput()
 		}
+		if handled, ok := ir.dispatchDetailViewSharedAction(action.ID, currentView); ok {
+			return handled
+		}
 		if targetPluginName := GetPluginNameFromAction(action.ID); targetPluginName != "" {
 			// 6B.18 + 6B.24: selection passthrough + target-scoped
 			// require evaluation in a single shared helper so direct
@@ -436,6 +488,68 @@ func (ir *InputRouter) handlePluginInput(event *tcell.EventKey, viewID model.Vie
 		return ctrl.HandleAction(action.ID)
 	}
 	return false
+}
+
+// dispatchDetailViewSharedAction handles actions that the configurable
+// detail view inherits from the legacy task-detail view: opening the
+// deps editor, invoking the AI chat agent, and opening the underlying
+// markdown file in $EDITOR. The configurable detail view's controller
+// is too narrow to own these paths (deps editor needs the InputRouter,
+// chat needs the suspend/resume runner, edit-source needs the
+// TaskController's reload semantics), so the router dispatches them
+// directly when the carried selection is present.
+//
+// Returns (handled, true) when the action was recognized; (_, false)
+// when the action is not a shared detail-view action and the caller
+// should fall through to the controller dispatch path.
+func (ir *InputRouter) dispatchDetailViewSharedAction(id ActionID, currentView *ViewEntry) (bool, bool) {
+	switch id {
+	case ActionEditDeps, ActionChat, ActionEditSource:
+	default:
+		return false, false
+	}
+	if currentView == nil {
+		return false, true
+	}
+	taskID := model.DecodePluginViewParams(currentView.Params).TaskID
+	if taskID == "" {
+		return false, true
+	}
+	switch id {
+	case ActionEditDeps:
+		// Carry the source plugin name so deps editor's Open returns
+		// here, not to a hardcoded "Detail" plugin (handles renamed
+		// or multiple kind: detail views correctly).
+		sourceName := model.GetPluginName(currentView.ViewID)
+		return ir.openDepsEditor(taskID, sourceName), true
+	case ActionChat:
+		return ir.runChatForTask(taskID), true
+	case ActionEditSource:
+		ir.taskController.SetCurrentTask(taskID)
+		return ir.taskController.HandleAction(ActionEditSource), true
+	}
+	return false, true
+}
+
+// runChatForTask invokes the configured AI agent against the given task
+// file path, then reloads the task to surface any agent-applied edits.
+// Mirrors the legacy task-detail chat path so the configurable detail
+// view's `c` keybinding behaves identically.
+func (ir *InputRouter) runChatForTask(taskID string) bool {
+	agent := config.GetAIAgent()
+	if agent == "" {
+		return false
+	}
+	taskFilePath := ir.taskStore.PathForID(taskID)
+	if taskFilePath == "" {
+		taskFilePath = filepath.Join(config.GetDocDir(), taskID+".md")
+	}
+	name, args := resolveAgentCommand(agent, taskFilePath)
+	ir.navController.SuspendAndRun(name, args...)
+	if err := ir.taskStore.ReloadTask(taskID); err != nil && ir.statusline != nil {
+		ir.statusline.SetMessage("reload failed: "+err.Error(), model.MessageLevelError, true)
+	}
+	return true
 }
 
 // handleGlobalAction processes actions available in all views
@@ -604,7 +718,10 @@ func (ir *InputRouter) dispatchTaskAction(id ActionID, _ map[string]interface{})
 		if taskID == "" {
 			return false
 		}
-		return ir.openDepsEditor(taskID)
+		// Legacy task-detail entry point: no source detail plugin name
+		// to carry, so the resolver falls back to any kind: detail
+		// plugin loaded from workflow.yaml.
+		return ir.openDepsEditor(taskID, "")
 	case ActionChat:
 		agent := config.GetAIAgent()
 		if agent == "" {
@@ -727,6 +844,9 @@ func (ir *InputRouter) dispatchPluginAction(id ActionID, viewID model.ViewID) bo
 	}
 	if id == ActionExecute {
 		return ir.startExecuteInput()
+	}
+	if handled, ok := ir.dispatchDetailViewSharedAction(id, ir.navController.CurrentView()); ok {
+		return handled
 	}
 
 	if _, hasChoose := ctrl.GetActionChooseSpec(id); hasChoose {
@@ -950,7 +1070,10 @@ func (ir *InputRouter) handleTaskInput(event *tcell.EventKey, params map[string]
 			if taskID == "" {
 				return false
 			}
-			return ir.openDepsEditor(taskID)
+			// Legacy task-detail entry point: no source detail plugin
+			// name to carry, so the resolver falls back to any kind:
+			// detail plugin loaded from workflow.yaml.
+			return ir.openDepsEditor(taskID, "")
 		case ActionChat:
 			agent := config.GetAIAgent()
 			if agent == "" {

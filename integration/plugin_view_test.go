@@ -158,10 +158,12 @@ func TestPluginView_OpenTask(t *testing.T) {
 	// Press Enter to open first task
 	ta.SendKey(tcell.KeyEnter, 0, tcell.ModNone)
 
-	// Verify we're on task detail view
+	// Phase 3: configurable detail view (workflow `kind: view` action),
+	// not the legacy TaskDetailViewID.
 	currentView := ta.NavController.CurrentView()
-	if currentView.ViewID != model.TaskDetailViewID {
-		t.Errorf("expected task detail view, got %v", currentView.ViewID)
+	wantDetail := model.DetailPluginViewID()
+	if currentView.ViewID != wantDetail {
+		t.Errorf("expected detail view %s, got %v", wantDetail, currentView.ViewID)
 	}
 
 	// Verify correct task is displayed

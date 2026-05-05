@@ -118,10 +118,12 @@ func TestTaskDetailView_NavigateBack(t *testing.T) {
 	ta.Draw()
 	ta.SendKey(tcell.KeyEnter, 0, tcell.ModNone)
 
-	// Verify we're on task detail
+	// Phase 3: configurable detail view (workflow `kind: view`), not
+	// the legacy TaskDetailViewID.
 	currentView := ta.NavController.CurrentView()
-	if currentView.ViewID != model.TaskDetailViewID {
-		t.Fatalf("expected task detail view, got %v", currentView.ViewID)
+	wantDetail := model.DetailPluginViewID()
+	if currentView.ViewID != wantDetail {
+		t.Fatalf("expected detail view %s, got %v", wantDetail, currentView.ViewID)
 	}
 
 	// Press Esc to go back
@@ -134,93 +136,13 @@ func TestTaskDetailView_NavigateBack(t *testing.T) {
 	}
 }
 
-// TestTaskDetailView_InlineTitleEdit_Save verifies inline title editing with Enter
-func TestTaskDetailView_InlineTitleEdit_Save(t *testing.T) {
-	ta := testutil.NewTestApp(t)
-	defer ta.Cleanup()
-
-	// Create task
-	taskID := "000001"
-	originalTitle := "Original Title"
-	if err := testutil.CreateTestTask(ta.TaskDir, taskID, originalTitle, taskpkg.StatusReady, taskpkg.TypeStory); err != nil {
-		t.Fatalf("failed to create test task: %v", err)
-	}
-	if err := ta.TaskStore.Reload(); err != nil {
-		t.Fatalf("failed to reload tasks: %v", err)
-	}
-
-	// Navigate: Board → Task Detail
-	ta.NavController.PushView(model.MakePluginViewID("Kanban"), nil)
-	ta.Draw()
-	ta.SendKey(tcell.KeyEnter, 0, tcell.ModNone)
-
-	// Press 'e' to start inline title editing
-	ta.SendKey(tcell.KeyRune, 'e', tcell.ModNone)
-
-	// Clear and type new title
-	ta.SendKeyToFocused(tcell.KeyCtrlL, 0, tcell.ModNone) // Select all
-	ta.SendText("New Edited Title")
-
-	// Press Enter to save
-	ta.SendKeyToFocused(tcell.KeyEnter, 0, tcell.ModNone)
-
-	// Reload from disk and verify title changed
-	if err := ta.TaskStore.Reload(); err != nil {
-		t.Fatalf("failed to reload tasks: %v", err)
-	}
-	tk := ta.TaskStore.GetTiki(taskID)
-	if tk == nil {
-		t.Fatalf("task not found")
-		return
-	}
-	if tk.Title != "New Edited Title" {
-		t.Errorf("title = %q, want %q", tk.Title, "New Edited Title")
-	}
-}
-
-// TestTaskDetailView_InlineTitleEdit_Cancel verifies Esc cancels inline editing
-func TestTaskDetailView_InlineTitleEdit_Cancel(t *testing.T) {
-	ta := testutil.NewTestApp(t)
-	defer ta.Cleanup()
-
-	// Create task
-	taskID := "000001"
-	originalTitle := "Original Title"
-	if err := testutil.CreateTestTask(ta.TaskDir, taskID, originalTitle, taskpkg.StatusReady, taskpkg.TypeStory); err != nil {
-		t.Fatalf("failed to create test task: %v", err)
-	}
-	if err := ta.TaskStore.Reload(); err != nil {
-		t.Fatalf("failed to reload tasks: %v", err)
-	}
-
-	// Navigate: Board → Task Detail
-	ta.NavController.PushView(model.MakePluginViewID("Kanban"), nil)
-	ta.Draw()
-	ta.SendKey(tcell.KeyEnter, 0, tcell.ModNone)
-
-	// Press 'e' to start inline title editing
-	ta.SendKey(tcell.KeyRune, 'e', tcell.ModNone)
-
-	// Type new title (don't save)
-	ta.SendKeyToFocused(tcell.KeyCtrlL, 0, tcell.ModNone)
-	ta.SendText("Modified Title")
-
-	// Press Esc to cancel
-	ta.SendKey(tcell.KeyEscape, 0, tcell.ModNone)
-
-	// Reload from disk and verify title NOT changed
-	if err := ta.TaskStore.Reload(); err != nil {
-		t.Fatalf("failed to reload tasks: %v", err)
-	}
-	tk := ta.TaskStore.GetTiki(taskID)
-	if tk == nil {
-		t.Fatalf("task not found")
-		return
-	}
-	if tk.Title != originalTitle {
-		t.Errorf("title = %q, want %q (should not have changed)", tk.Title, originalTitle)
-	}
-}
+// Phase 3 cleanup: TestTaskDetailView_InlineTitleEdit_Save and
+// TestTaskDetailView_InlineTitleEdit_Cancel were removed. Inline title
+// editing was a legacy TaskDetailView affordance ('e' opened the title
+// field for keystroke editing, Enter committed). The configurable
+// detail view does not surface a title editor — title is rendered as
+// part of the always-on detail layout and edited via 'e' → in-place
+// edit mode on the workflow-declared metadata fields.
 
 // TestTaskDetailView_FromBoard verifies opening task from board
 func TestTaskDetailView_FromBoard(t *testing.T) {
@@ -443,50 +365,8 @@ func TestTaskDetailView_AllTypes(t *testing.T) {
 	}
 }
 
-// TestTaskDetailView_InlineEdit_PreservesOtherFields verifies inline edit doesn't corrupt metadata
-func TestTaskDetailView_InlineEdit_PreservesOtherFields(t *testing.T) {
-	ta := testutil.NewTestApp(t)
-	defer ta.Cleanup()
-
-	// Create task with specific values
-	taskID := "000001"
-	if err := testutil.CreateTestTask(ta.TaskDir, taskID, "Original Title", taskpkg.StatusReady, taskpkg.TypeBug); err != nil {
-		t.Fatalf("failed to create test task: %v", err)
-	}
-	if err := ta.TaskStore.Reload(); err != nil {
-		t.Fatalf("failed to reload tasks: %v", err)
-	}
-
-	// Navigate: Board → Task Detail
-	ta.NavController.PushView(model.MakePluginViewID("Kanban"), nil)
-	ta.Draw()
-	ta.SendKey(tcell.KeyEnter, 0, tcell.ModNone)
-
-	// Press 'e' to edit title
-	ta.SendKey(tcell.KeyRune, 'e', tcell.ModNone)
-	ta.SendKeyToFocused(tcell.KeyCtrlL, 0, tcell.ModNone)
-	ta.SendText("New Title")
-	ta.SendKeyToFocused(tcell.KeyEnter, 0, tcell.ModNone)
-
-	// Reload and verify other fields preserved
-	if err := ta.TaskStore.Reload(); err != nil {
-		t.Fatalf("failed to reload tasks: %v", err)
-	}
-	tk := ta.TaskStore.GetTiki(taskID)
-	if tk == nil {
-		t.Fatalf("task not found")
-		return
-	}
-
-	if tk.Title != "New Title" {
-		t.Errorf("title = %q, want %q", tk.Title, "New Title")
-	}
-	status, _, _ := tk.StringField("status")
-	if status != string(taskpkg.StatusReady) {
-		t.Errorf("status = %v, want %v (should be preserved)", status, taskpkg.StatusReady)
-	}
-	typField, _, _ := tk.StringField("type")
-	if typField != string(taskpkg.TypeBug) {
-		t.Errorf("type = %v, want %v (should be preserved)", typField, taskpkg.TypeBug)
-	}
-}
+// Phase 3 cleanup: TestTaskDetailView_InlineEdit_PreservesOtherFields
+// removed for the same reason as the inline-title tests above. The
+// "edit doesn't corrupt sibling fields" invariant is now exercised by
+// configurable_detail_edit_test.go via the field-registry change
+// handlers, which only mutate the field they're bound to.

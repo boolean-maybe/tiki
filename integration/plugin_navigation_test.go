@@ -343,12 +343,15 @@ func TestPluginActions_OpenTask_EnterKey(t *testing.T) {
 	// Press Enter to open first task
 	ta.SendKey(tcell.KeyEnter, 0, tcell.ModNone)
 
-	// Verify: TaskDetail pushed onto stack
+	// Verify: configurable detail view pushed onto stack (Phase 3:
+	// Enter is workflow-declared kind: view → Detail, not built-in
+	// TaskDetailViewID).
 	if ta.NavController.Depth() != 2 {
 		t.Errorf("Expected stack depth 2 after opening task, got %d", ta.NavController.Depth())
 	}
-	if ta.NavController.CurrentViewID() != model.TaskDetailViewID {
-		t.Errorf("Expected view %s, got %s", model.TaskDetailViewID, ta.NavController.CurrentViewID())
+	wantDetail := model.DetailPluginViewID()
+	if ta.NavController.CurrentViewID() != wantDetail {
+		t.Errorf("Expected view %s, got %s", wantDetail, ta.NavController.CurrentViewID())
 	}
 
 	// Verify screen shows task title
@@ -569,55 +572,9 @@ func TestPluginStack_TaskDetailFromPlugin_ReturnsToPlugin(t *testing.T) {
 	}
 }
 
-func TestPluginStack_ComplexDrillDown(t *testing.T) {
-	ta := setupTestAppWithPlugins(t)
-	defer ta.Cleanup()
-
-	// Kanban→Backlog(replace)→Recent(replace)→TaskDetail(push)→Edit(push)
-	ta.NavController.PushView(model.MakePluginViewID("Kanban"), nil)
-	ta.SendKey(tcell.KeyF3, 0, tcell.ModNone)     // Backlog (replace, depth 1)
-	ta.SendKey(tcell.KeyRune, 'R', tcell.ModCtrl) // Recent (replace, depth 1)
-	ta.SendKey(tcell.KeyEnter, 0, tcell.ModNone)  // TaskDetail (push, depth 2)
-	ta.SendKey(tcell.KeyRune, 'e', tcell.ModNone) // TaskEdit (push, depth 3)
-
-	// Stack: Recent, TaskDetail, TaskEdit (depth 3)
-	if ta.NavController.Depth() != 3 {
-		t.Errorf("Expected depth 3, got %d", ta.NavController.Depth())
-	}
-
-	// Esc 1: TaskEdit→TaskDetail
-	ta.SendKey(tcell.KeyEscape, 0, tcell.ModNone)
-	if ta.NavController.Depth() != 2 {
-		t.Errorf("Expected depth 2 after Esc 1, got %d", ta.NavController.Depth())
-	}
-	if ta.NavController.CurrentViewID() != model.TaskDetailViewID {
-		t.Errorf("Expected TaskDetail view, got %s", ta.NavController.CurrentViewID())
-	}
-
-	// Esc 2: TaskDetail→Recent
-	ta.SendKey(tcell.KeyEscape, 0, tcell.ModNone)
-	if ta.NavController.Depth() != 1 {
-		t.Errorf("Expected depth 1 after Esc 2, got %d", ta.NavController.Depth())
-	}
-	if ta.NavController.CurrentViewID() != model.MakePluginViewID("Recent") {
-		t.Errorf("Expected Recent view, got %s", ta.NavController.CurrentViewID())
-	}
-
-	// Esc 3: No-op (at root plugin)
-	ta.SendKey(tcell.KeyEscape, 0, tcell.ModNone)
-	if ta.NavController.Depth() != 1 {
-		t.Errorf("Expected depth 1 after Esc 3 (at root), got %d", ta.NavController.Depth())
-	}
-	if ta.NavController.CurrentViewID() != model.MakePluginViewID("Recent") {
-		t.Errorf("Expected Recent view (stayed at root), got %s", ta.NavController.CurrentViewID())
-	}
-
-	// Esc 4: No-op (still at root)
-	ta.SendKey(tcell.KeyEscape, 0, tcell.ModNone)
-	if ta.NavController.Depth() != 1 {
-		t.Errorf("Expected depth 1 after Esc 4 (no-op), got %d", ta.NavController.Depth())
-	}
-}
+// Phase 3 cleanup: TestPluginStack_ComplexDrillDown removed. It tested
+// the legacy 3-level Enter → TaskDetailViewID → 'e' → TaskEditViewID
+// stack; after Phase 2 'e' flips in-place edit mode without pushing.
 
 // ============================================================================
 // Esc Behavior Tests
@@ -677,37 +634,10 @@ func TestPluginEsc_FromTaskDetailToPlugin(t *testing.T) {
 	}
 }
 
-func TestPluginEsc_ComplexDrillDown(t *testing.T) {
-	ta := setupTestAppWithPlugins(t)
-	defer ta.Cleanup()
-
-	// Stack: Kanban→Roadmap(replace)→TaskDetail(push)→TaskEdit(push)
-	ta.NavController.PushView(model.MakePluginViewID("Kanban"), nil)
-	ta.SendKey(tcell.KeyF4, 0, tcell.ModNone)     // Roadmap (replaces, depth stays 1)
-	ta.SendKey(tcell.KeyEnter, 0, tcell.ModNone)  // TaskDetail (pushes, depth 2)
-	ta.SendKey(tcell.KeyRune, 'e', tcell.ModNone) // TaskEdit (pushes, depth 3)
-
-	if ta.NavController.Depth() != 3 {
-		t.Errorf("Expected depth 3, got %d", ta.NavController.Depth())
-	}
-
-	// Esc twice returns to Roadmap (Edit→Detail→Roadmap)
-	ta.SendKey(tcell.KeyEscape, 0, tcell.ModNone) // Edit→Detail (depth 2)
-	ta.SendKey(tcell.KeyEscape, 0, tcell.ModNone) // Detail→Roadmap (depth 1)
-
-	if ta.NavController.Depth() != 1 {
-		t.Errorf("Expected depth 1 after 2 Esc presses, got %d", ta.NavController.Depth())
-	}
-	if ta.NavController.CurrentViewID() != model.MakePluginViewID("Roadmap") {
-		t.Errorf("Expected Roadmap view, got %s", ta.NavController.CurrentViewID())
-	}
-
-	// One more Esc at root does nothing
-	ta.SendKey(tcell.KeyEscape, 0, tcell.ModNone)
-	if ta.NavController.Depth() != 1 {
-		t.Errorf("Expected depth 1 after Esc at root, got %d", ta.NavController.Depth())
-	}
-}
+// Phase 3 cleanup: TestPluginEsc_ComplexDrillDown removed for the same
+// reason as TestPluginStack_ComplexDrillDown above — the legacy 3-level
+// Enter → TaskDetailViewID → 'e' → TaskEditViewID stack no longer
+// exists, edit mode is in-place on the configurable detail view.
 
 // ============================================================================
 // Edge Case Tests
@@ -832,6 +762,8 @@ func TestPluginActions_DeleteTask_UpdatesSelection(t *testing.T) {
 // ============================================================================
 
 // TestNavigationStack_BoardToTaskDetail verifies 2-level stack
+// Phase 3: Enter pushes the configurable detail view (workflow-declared
+// `kind: view` action), not the legacy TaskDetailViewID.
 func TestNavigationStack_BoardToTaskDetail(t *testing.T) {
 	ta := setupTestAppWithPlugins(t)
 	defer ta.Cleanup()
@@ -840,14 +772,15 @@ func TestNavigationStack_BoardToTaskDetail(t *testing.T) {
 	ta.NavController.PushView(model.MakePluginViewID("Kanban"), nil)
 	ta.Draw()
 
-	// Open task detail (Push, depth 2)
+	// Open detail (Push, depth 2)
 	ta.SendKey(tcell.KeyEnter, 0, tcell.ModNone)
 
 	if ta.NavController.Depth() != 2 {
 		t.Errorf("Expected depth 2, got %d", ta.NavController.Depth())
 	}
-	if ta.NavController.CurrentViewID() != model.TaskDetailViewID {
-		t.Errorf("Expected TaskDetail view, got %s", ta.NavController.CurrentViewID())
+	wantDetail := model.DetailPluginViewID()
+	if ta.NavController.CurrentViewID() != wantDetail {
+		t.Errorf("Expected %s, got %s", wantDetail, ta.NavController.CurrentViewID())
 	}
 
 	// Esc back to board (Pop, depth 1)
@@ -861,75 +794,14 @@ func TestNavigationStack_BoardToTaskDetail(t *testing.T) {
 	}
 }
 
-// TestNavigationStack_BoardToDetailToEdit verifies 3-level stack
-func TestNavigationStack_BoardToDetailToEdit(t *testing.T) {
-	ta := setupTestAppWithPlugins(t)
-	defer ta.Cleanup()
-
-	// Board → Task Detail → Task Edit
-	ta.NavController.PushView(model.MakePluginViewID("Kanban"), nil)
-	ta.Draw()
-	ta.SendKey(tcell.KeyEnter, 0, tcell.ModNone)  // TaskDetail
-	ta.SendKey(tcell.KeyRune, 'e', tcell.ModNone) // TaskEdit
-
-	if ta.NavController.Depth() != 3 {
-		t.Errorf("Expected depth 3, got %d", ta.NavController.Depth())
-	}
-	if ta.NavController.CurrentViewID() != model.TaskEditViewID {
-		t.Errorf("Expected TaskEdit view, got %s", ta.NavController.CurrentViewID())
-	}
-
-	// Esc twice to return to board
-	ta.SendKey(tcell.KeyEscape, 0, tcell.ModNone) // Edit → Detail
-	if ta.NavController.Depth() != 2 {
-		t.Errorf("Expected depth 2 after first Esc, got %d", ta.NavController.Depth())
-	}
-
-	ta.SendKey(tcell.KeyEscape, 0, tcell.ModNone) // Detail → Board
-	if ta.NavController.Depth() != 1 {
-		t.Errorf("Expected depth 1 after second Esc, got %d", ta.NavController.Depth())
-	}
-	if ta.NavController.CurrentViewID() != model.MakePluginViewID("Kanban") {
-		t.Errorf("Expected Board view, got %s", ta.NavController.CurrentViewID())
-	}
-}
-
-// TestNavigationStack_ThreeLevelDeep verifies Plugin → Detail → Edit with new navigation model
-func TestNavigationStack_ThreeLevelDeep(t *testing.T) {
-	ta := setupTestAppWithPlugins(t)
-	defer ta.Cleanup()
-
-	// Build 3-level stack: Kanban(replace)→Backlog → TaskDetail → TaskEdit
-	ta.NavController.PushView(model.MakePluginViewID("Kanban"), nil)
-	ta.Draw()
-	ta.SendKey(tcell.KeyF3, 0, tcell.ModNone)     // Backlog plugin (replace, depth 1)
-	ta.SendKey(tcell.KeyEnter, 0, tcell.ModNone)  // TaskDetail (push, depth 2)
-	ta.SendKey(tcell.KeyRune, 'e', tcell.ModNone) // TaskEdit (push, depth 3)
-
-	if ta.NavController.Depth() != 3 {
-		t.Errorf("Expected depth 3, got %d", ta.NavController.Depth())
-	}
-	if ta.NavController.CurrentViewID() != model.TaskEditViewID {
-		t.Errorf("Expected TaskEdit view, got %s", ta.NavController.CurrentViewID())
-	}
-
-	// Esc through all levels back to root
-	ta.SendKey(tcell.KeyEscape, 0, tcell.ModNone) // Edit → Detail
-	if ta.NavController.Depth() != 2 || ta.NavController.CurrentViewID() != model.TaskDetailViewID {
-		t.Errorf("After Esc 1: depth=%d, view=%s", ta.NavController.Depth(), ta.NavController.CurrentViewID())
-	}
-
-	ta.SendKey(tcell.KeyEscape, 0, tcell.ModNone) // Detail → Backlog
-	if ta.NavController.Depth() != 1 || ta.NavController.CurrentViewID() != model.MakePluginViewID("Backlog") {
-		t.Errorf("After Esc 2: depth=%d, view=%s", ta.NavController.Depth(), ta.NavController.CurrentViewID())
-	}
-
-	// Esc 3: No-op (already at root)
-	ta.SendKey(tcell.KeyEscape, 0, tcell.ModNone)
-	if ta.NavController.Depth() != 1 || ta.NavController.CurrentViewID() != model.MakePluginViewID("Backlog") {
-		t.Errorf("After Esc 3 (no-op): depth=%d, view=%s", ta.NavController.Depth(), ta.NavController.CurrentViewID())
-	}
-}
+// Phase 3 cleanup: TestNavigationStack_BoardToDetailToEdit and
+// TestNavigationStack_ThreeLevelDeep have been removed. They asserted
+// the legacy 3-level Enter → TaskDetailViewID → 'e' → TaskEditViewID
+// stack. After Phase 2, 'e' on the configurable detail view flips the
+// same view into in-place edit mode without pushing a new entry, so the
+// 3-level depth invariant no longer applies. Edit-mode behavior is
+// covered by view/taskdetail/configurable_detail_edit_test.go and the
+// surviving integration tests use the in-place edit flow.
 
 // TestNavigationStack_MultipleTaskDetailOpens verifies stack doesn't corrupt with repeated opens
 func TestNavigationStack_MultipleTaskDetailOpens(t *testing.T) {
