@@ -27,6 +27,7 @@ type pluginFileConfig struct {
 	Path        string               `yaml:"path"`
 	Lanes       []PluginLaneConfig   `yaml:"lanes"`
 	Actions     []PluginActionConfig `yaml:"actions"`
+	Metadata    []string             `yaml:"metadata"`
 	Require     []string             `yaml:"require"`
 	Default     bool                 `yaml:"default"`
 
@@ -175,6 +176,8 @@ func setConfigIndex(p Plugin, i int) {
 		v.ConfigIndex = i
 	case *DokiPlugin:
 		v.ConfigIndex = i
+	case *DetailPlugin:
+		v.ConfigIndex = i
 	}
 }
 
@@ -249,29 +252,57 @@ func LoadPluginsAndGlobals(schema ruki.Schema) ([]Plugin, []PluginAction, error)
 // mergeGlobalActionsIntoPlugins appends global actions to every view that can
 // host them. Per-view actions with the same KeyStr take precedence — the
 // global is skipped for that view.
+//
+// Self-targeting `kind: view` actions are filtered out: if a global action
+// navigates to view X, it is never merged into X's own Actions slice. Without
+// this guard, a workflow declaring `Enter → Detail` globally would put
+// Enter on the Detail view itself, where pressing Enter would push another
+// identical Detail view onto the stack (and potentially race with the
+// markdown viewer's own Enter handler for link navigation). The author's
+// intent for an "open X" action is always "from somewhere else to X."
 func mergeGlobalActionsIntoPlugins(plugins []Plugin, globalActions []PluginAction) {
 	if len(globalActions) == 0 {
 		return
 	}
 	for _, p := range plugins {
-		tp, ok := p.(*TikiPlugin)
+		actions, ok := pluginActionSlice(p)
 		if !ok {
-			// Non-board/list views receive globals through the action
-			// registry at runtime; they have no per-view Actions slice.
+			// Wiki and other non-action-bearing views receive globals
+			// through the action registry at runtime.
 			continue
 		}
-		localKeys := make(map[string]bool, len(tp.Actions))
-		for _, a := range tp.Actions {
+		localKeys := make(map[string]bool, len(*actions))
+		for _, a := range *actions {
 			localKeys[a.KeyStr] = true
 		}
 		for _, ga := range globalActions {
 			if localKeys[ga.KeyStr] {
 				slog.Info("per-view action overrides global action",
-					"view", tp.Name, "key", ga.KeyStr, "global_label", ga.Label)
+					"view", p.GetName(), "key", ga.KeyStr, "global_label", ga.Label)
 				continue
 			}
-			tp.Actions = append(tp.Actions, ga)
+			if ga.Kind == ActionKindView && ga.TargetView == p.GetName() {
+				slog.Debug("dropping self-targeting view action from per-view merge",
+					"view", p.GetName(), "key", ga.KeyStr, "target", ga.TargetView)
+				continue
+			}
+			*actions = append(*actions, ga)
 		}
+	}
+}
+
+// pluginActionSlice returns a pointer to the per-view Actions slice for plugin
+// kinds that carry one (board, list, detail). Wiki and other content-only
+// views return ok=false; the caller should fall back to runtime registry
+// merging.
+func pluginActionSlice(p Plugin) (*[]PluginAction, bool) {
+	switch v := p.(type) {
+	case *TikiPlugin:
+		return &v.Actions, true
+	case *DetailPlugin:
+		return &v.Actions, true
+	default:
+		return nil, false
 	}
 }
 

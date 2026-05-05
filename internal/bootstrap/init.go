@@ -196,6 +196,14 @@ func Bootstrap(tikiSkillContent, dokiSkillContent string) (*Result, error) {
 		return dc
 	})
 
+	// Same fresh-per-navigation pattern for kind: detail views — two pushed
+	// Detail views must not share selectedTaskID state.
+	viewFactory.SetDetailControllerFactory(func(def *plugin.DetailPlugin, selectedTaskID string) *controller.DetailController {
+		dc := controller.NewDetailController(def, controllers.Nav, statuslineConfig, taskStore, gate, schema)
+		dc.SetSelectedTaskID(selectedTaskID)
+		return dc
+	})
+
 	// Wire dynamic plugin registration (deps editor creates plugins at runtime)
 	inputRouter.SetPluginRegistrar(func(name string, cfg *model.PluginConfig, def plugin.Plugin, ctrl controller.PluginControllerInterface) {
 		viewFactory.RegisterPlugin(name, cfg, def, ctrl)

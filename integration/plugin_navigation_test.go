@@ -206,6 +206,11 @@ func TestPluginActions_RegistryMatchesExpectedKeys(t *testing.T) {
 	ta := setupTestAppWithPlugins(t)
 	defer ta.Cleanup()
 
+	// Phase 1 dropped the built-in Enter→ActionOpenFromPlugin binding from
+	// the regular plugin registry. Open is now declared by the workflow as
+	// a `kind: view` action; the bundled kanban registers it on Enter, so
+	// every TikiPlugin's registry should expose Enter as a plugin_action
+	// entry rather than the legacy ActionOpenFromPlugin id.
 	expectedActions := []struct {
 		id   controller.ActionID
 		key  tcell.Key
@@ -215,7 +220,6 @@ func TestPluginActions_RegistryMatchesExpectedKeys(t *testing.T) {
 		{controller.ActionNavDown, tcell.KeyDown, 0},
 		{controller.ActionNavLeft, tcell.KeyLeft, 0},
 		{controller.ActionNavRight, tcell.KeyRight, 0},
-		{controller.ActionOpenFromPlugin, tcell.KeyEnter, 0},
 		{controller.ActionNewTask, tcell.KeyRune, 'n'},
 		{controller.ActionDeleteTask, tcell.KeyRune, 'd'},
 		{controller.ActionSearch, tcell.KeyRune, '/'},
@@ -224,8 +228,11 @@ func TestPluginActions_RegistryMatchesExpectedKeys(t *testing.T) {
 
 	// Test each plugin controller (only TikiPlugin types have task management actions)
 	for pluginName, pluginController := range ta.PluginControllers {
-		// Skip DokiPlugin types (Help, Documentation) - they don't have task management actions
+		// Skip non-board controllers — they don't carry the board-style action set.
 		if _, ok := pluginController.(*controller.DokiController); ok {
+			continue
+		}
+		if _, ok := pluginController.(*controller.DetailController); ok {
 			continue
 		}
 
@@ -239,6 +246,15 @@ func TestPluginActions_RegistryMatchesExpectedKeys(t *testing.T) {
 			} else if action.ID != expected.id {
 				t.Errorf("Plugin %s: expected action %s, got %s", pluginName, expected.id, action.ID)
 			}
+		}
+
+		// Enter should match a workflow-declared kind:view plugin action,
+		// not the retired ActionOpenFromPlugin built-in.
+		enter := registry.Match(tcell.NewEventKey(tcell.KeyEnter, 0, tcell.ModNone))
+		if enter == nil {
+			t.Errorf("Plugin %s: Enter has no binding (expected workflow plugin_action:Enter)", pluginName)
+		} else if enter.ID == controller.ActionOpenFromPlugin {
+			t.Errorf("Plugin %s: Enter still bound to ActionOpenFromPlugin (Phase 1 should retire this)", pluginName)
 		}
 	}
 }

@@ -438,6 +438,15 @@ func (ta *TestApp) LoadPlugins() error {
 				dp, ta.NavController, ta.statuslineConfig, globalActions,
 				ta.TaskStore, ta.MutationGate, ta.Schema,
 			)
+		} else if detailPlugin, ok := p.(*plugin.DetailPlugin); ok {
+			// Phase 1: kind: detail uses its own controller. Without this
+			// branch the InputRouter cannot find a controller for Detail
+			// views, blocking deps/plugin-navigation tests that traverse
+			// through a Detail step.
+			pluginControllers[p.GetName()] = controller.NewDetailController(
+				detailPlugin, ta.NavController, ta.statuslineConfig,
+				ta.TaskStore, ta.MutationGate, ta.Schema,
+			)
 		}
 	}
 
@@ -505,6 +514,13 @@ func (ta *TestApp) LoadPlugins() error {
 
 	viewFactory := view.NewViewFactory(ta.TaskStore)
 	viewFactory.SetPlugins(pluginConfigs, pluginDefs, pluginControllers, globalActions)
+	// Mirror production wiring: fresh-per-navigation controllers for kind: detail
+	// (and wiki) so two pushed views don't share selectedTaskID.
+	viewFactory.SetDetailControllerFactory(func(def *plugin.DetailPlugin, selectedTaskID string) *controller.DetailController {
+		dc := controller.NewDetailController(def, ta.NavController, ta.statuslineConfig, ta.TaskStore, ta.MutationGate, ta.Schema)
+		dc.SetSelectedTaskID(selectedTaskID)
+		return dc
+	})
 	ta.ViewFactory = viewFactory
 
 	// Wire dynamic plugin registration so openDepsEditor can register deps views at runtime.

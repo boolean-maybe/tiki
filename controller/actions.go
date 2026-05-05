@@ -45,6 +45,11 @@ const (
 	ActionEditDeps   ActionID = "edit_deps"
 	ActionEditTags   ActionID = "edit_tags"
 	ActionChat       ActionID = "chat"
+
+	// ActionDetailEditStub: registered on configurable detail views so the
+	// Edit keybinding stays reserved during Phase 1. Phase 2 replaces the
+	// no-op handler with the in-place edit-mode toggle.
+	ActionDetailEditStub ActionID = "detail_edit_stub"
 )
 
 // ActionID values for task edit view actions.
@@ -776,7 +781,10 @@ func PluginViewActions() *ActionRegistry {
 
 	// plugin actions (shown in header)
 	idReq := []Requirement{RequireID}
-	r.Register(Action{ID: ActionOpenFromPlugin, Key: tcell.KeyEnter, Label: "Open", ShowInHeader: true, Require: idReq})
+	// Enter is intentionally not bound here. Phase 1 retired the built-in
+	// "open task in detail" shortcut: the open keybinding is now declared by
+	// the workflow as a `kind: view` action (typically `key: Enter, view: Detail`).
+	// Boards without such an action have no Enter behavior — by design.
 	r.Register(Action{ID: ActionMoveTaskLeft, Key: tcell.KeyLeft, Modifier: tcell.ModShift, Label: "Move ←", ShowInHeader: true, Require: idReq})
 	r.Register(Action{ID: ActionMoveTaskRight, Key: tcell.KeyRight, Modifier: tcell.ModShift, Label: "Move →", ShowInHeader: true, Require: idReq})
 	r.Register(Action{ID: ActionNewTask, Key: tcell.KeyRune, Rune: 'n', Label: "New", ShowInHeader: true})

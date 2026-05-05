@@ -52,9 +52,18 @@ func BuildControllers(
 				statuslineConfig,
 				schema,
 			)
-		case plugin.KindWiki, plugin.KindDetail:
+		case plugin.KindWiki:
 			pluginControllers[p.GetName()] = controller.NewDokiController(
 				p, navController, statuslineConfig, globalActions,
+				taskStore, mutationGate, schema,
+			)
+		case plugin.KindDetail:
+			dp, ok := p.(*plugin.DetailPlugin)
+			if !ok {
+				continue
+			}
+			pluginControllers[p.GetName()] = controller.NewDetailController(
+				dp, navController, statuslineConfig,
 				taskStore, mutationGate, schema,
 			)
 		}

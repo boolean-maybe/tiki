@@ -31,6 +31,12 @@ type ViewFactory struct {
 	// preventing the shared-singleton problem where SetSelectedTaskID on one navigation
 	// would overwrite the selected task ID seen by a previously-pushed view of the same plugin.
 	dokiControllerFactory func(pluginDef plugin.Plugin, selectedTaskID string) *controller.DokiController
+	// detailControllerFactory mirrors dokiControllerFactory for kind: detail
+	// views: each navigation gets its own DetailController so multiple Detail
+	// views on the stack hold independent selectedTaskID values. Without this,
+	// the most recent navigation overwrites the selection of every earlier
+	// detail view of the same plugin.
+	detailControllerFactory func(pluginDef *plugin.DetailPlugin, selectedTaskID string) *controller.DetailController
 }
 
 // NewViewFactory creates a view factory
@@ -75,6 +81,14 @@ func (f *ViewFactory) SetPlugins(
 // the bootstrap context. Must be called before any doki view is created.
 func (f *ViewFactory) SetDokiControllerFactory(fn func(pluginDef plugin.Plugin, selectedTaskID string) *controller.DokiController) {
 	f.dokiControllerFactory = fn
+}
+
+// SetDetailControllerFactory registers a factory for fresh DetailControllers
+// per navigation. Same rationale as SetDokiControllerFactory but for
+// kind: detail views, so two pushed Detail views can each carry their own
+// selected task id without trampling each other.
+func (f *ViewFactory) SetDetailControllerFactory(fn func(pluginDef *plugin.DetailPlugin, selectedTaskID string) *controller.DetailController) {
+	f.detailControllerFactory = fn
 }
 
 // RegisterPlugin registers a dynamically created plugin (e.g., deps editor) with the view factory.
@@ -145,10 +159,10 @@ func (f *ViewFactory) CreateView(viewID model.ViewID, params map[string]interfac
 					tikiCtrl.GetActionRegistry(),
 					tikiCtrl.ShowNavigation(),
 				)
-			case plugin.KindWiki, plugin.KindDetail:
+			case plugin.KindWiki:
 				dokiPlugin, ok := pluginDef.(*plugin.DokiPlugin)
 				if !ok {
-					slog.Error("wiki/detail plugin is not a DokiPlugin", "plugin", pluginName)
+					slog.Error("wiki plugin is not a DokiPlugin", "plugin", pluginName)
 					break
 				}
 				pluginParams := model.DecodePluginViewParams(params)
@@ -163,6 +177,40 @@ func (f *ViewFactory) CreateView(viewID model.ViewID, params map[string]interfac
 					dc.SetSelectedTaskID(pluginParams.TaskID)
 				}
 				v = NewDokiView(dokiPlugin, f.imageManager, f.mermaidOpts, f.globalActions, f.taskStore, pluginParams.TaskID)
+			case plugin.KindDetail:
+				detailPlugin, ok := pluginDef.(*plugin.DetailPlugin)
+				if !ok {
+					slog.Error("detail plugin is not a DetailPlugin", "plugin", pluginName)
+					break
+				}
+				pluginParams := model.DecodePluginViewParams(params)
+				// Build (or refresh) the controller that owns this view's
+				// selectedTaskID. Each navigation gets a fresh controller —
+				// matching the wiki/doki path — so two pushed Detail views
+				// of the same plugin don't overwrite each other's selection.
+				// The shared map is updated to the freshest controller so the
+				// InputRouter dispatches keys against the active view.
+				var dc *controller.DetailController
+				if f.detailControllerFactory != nil {
+					dc = f.detailControllerFactory(detailPlugin, pluginParams.TaskID)
+					f.pluginControllers[pluginName] = dc
+				} else if existing, ok := pluginControllerInterface.(*controller.DetailController); ok {
+					existing.SetSelectedTaskID(pluginParams.TaskID)
+					dc = existing
+				}
+				registry := controller.DetailViewActions()
+				if dc != nil {
+					registry = dc.GetActionRegistry()
+				}
+				v = taskdetail.NewConfigurableDetailView(
+					f.taskStore,
+					pluginParams.TaskID,
+					detailPlugin.Name,
+					detailPlugin.Metadata,
+					registry,
+					f.imageManager,
+					f.mermaidOpts,
+				)
 			default:
 				slog.Error("unknown plugin kind", "plugin", pluginName, "kind", pluginDef.GetKind())
 			}

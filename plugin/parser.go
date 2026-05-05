@@ -120,7 +120,7 @@ func parsePluginConfig(cfg pluginFileConfig, source string, schema ruki.Schema, 
 	case KindWiki:
 		return parseWikiPlugin(cfg, base)
 	case KindDetail:
-		return parseDetailPlugin(cfg, base)
+		return parseDetailPlugin(cfg, base, schema, viewNames)
 	default:
 		// unreachable: IsValidKind already gated this
 		return nil, fmt.Errorf("plugin %q (%s): unhandled kind %q", cfg.Name, source, kind)
@@ -134,6 +134,9 @@ func parseBoardOrListPlugin(cfg pluginFileConfig, base BasePlugin, schema ruki.S
 	}
 	if cfg.Path != "" {
 		return nil, fmt.Errorf("plugin %q: `path:` only valid on kind: wiki", cfg.Name)
+	}
+	if len(cfg.Metadata) > 0 {
+		return nil, fmt.Errorf("plugin %q: `metadata:` only valid on kind: detail", cfg.Name)
 	}
 
 	mode := cfg.Mode
@@ -262,6 +265,9 @@ func parseWikiPlugin(cfg pluginFileConfig, base BasePlugin) (Plugin, error) {
 	if err := rejectBoardOnlyFields(cfg, "wiki"); err != nil {
 		return nil, err
 	}
+	if len(cfg.Metadata) > 0 {
+		return nil, fmt.Errorf("plugin %q: `metadata:` only valid on kind: detail", cfg.Name)
+	}
 	if len(cfg.Actions) > 0 {
 		return nil, fmt.Errorf("plugin %q: kind: wiki cannot have per-view `actions:` — use top-level actions", cfg.Name)
 	}
@@ -280,8 +286,11 @@ func parseWikiPlugin(cfg pluginFileConfig, base BasePlugin) (Plugin, error) {
 	}, nil
 }
 
-// parseDetailPlugin handles kind: detail — a markdown view of the current selection.
-func parseDetailPlugin(cfg pluginFileConfig, base BasePlugin) (Plugin, error) {
+// parseDetailPlugin handles kind: detail — a configurable view of a single
+// selected tiki. Renders title, configured metadata fields, and description.
+// Per-view actions are allowed and will be surfaced alongside the built-in
+// detail actions and global actions.
+func parseDetailPlugin(cfg pluginFileConfig, base BasePlugin, schema ruki.Schema, viewNames map[string]struct{}) (Plugin, error) {
 	if err := rejectBoardOnlyFields(cfg, "detail"); err != nil {
 		return nil, err
 	}
@@ -291,10 +300,81 @@ func parseDetailPlugin(cfg pluginFileConfig, base BasePlugin) (Plugin, error) {
 	if cfg.Path != "" {
 		return nil, fmt.Errorf("plugin %q: `path:` only valid on kind: wiki", cfg.Name)
 	}
-	if len(cfg.Actions) > 0 {
-		return nil, fmt.Errorf("plugin %q: kind: detail cannot have per-view `actions:` — use top-level actions", cfg.Name)
+
+	metadata, err := validateDetailMetadata(cfg.Name, cfg.Metadata, schema)
+	if err != nil {
+		return nil, err
 	}
-	return &DokiPlugin{BasePlugin: base}, nil
+
+	parser := ruki.NewParser(schema)
+	actions, err := parsePluginActions(cfg.Actions, parser, viewNames)
+	if err != nil {
+		return nil, fmt.Errorf("plugin %q (%s): %w", cfg.Name, base.FilePath, err)
+	}
+
+	return &DetailPlugin{
+		BasePlugin: base,
+		Metadata:   metadata,
+		Actions:    actions,
+	}, nil
+}
+
+// validateDetailMetadata validates the metadata field list against both the
+// schema (the field must exist) and the renderable-field set (the view layer
+// must know how to render it). Identity fields are rejected because the
+// detail view always renders title/description from the tiki itself.
+//
+// The renderable-field set is registered at init time by the view layer via
+// RegisterRenderableMetadataField — see view/taskdetail/field_registry.go.
+// We don't import the view package here to avoid a layering inversion; the
+// callback-registration pattern keeps validation and rendering authoritative
+// without a forward dependency.
+func validateDetailMetadata(pluginName string, fields []string, schema ruki.Schema) ([]string, error) {
+	if len(fields) == 0 {
+		return nil, nil
+	}
+	out := make([]string, 0, len(fields))
+	seen := make(map[string]struct{}, len(fields))
+	for _, raw := range fields {
+		name := strings.TrimSpace(raw)
+		if name == "" {
+			return nil, fmt.Errorf("plugin %q: metadata contains empty field name", pluginName)
+		}
+		if _, dup := seen[name]; dup {
+			return nil, fmt.Errorf("plugin %q: metadata field %q is listed more than once", pluginName, name)
+		}
+		if isDetailIdentityField(name) {
+			return nil, fmt.Errorf(
+				"plugin %q: metadata cannot include %q — title and description are always rendered",
+				pluginName, name)
+		}
+		if schema != nil {
+			if _, ok := schema.Field(name); !ok {
+				return nil, fmt.Errorf(
+					"plugin %q: metadata field %q is not a known schema field",
+					pluginName, name)
+			}
+		}
+		if !isRenderableMetadataField(name) {
+			return nil, fmt.Errorf(
+				"plugin %q: metadata field %q is not renderable in detail views yet — supported fields: %s",
+				pluginName, name, strings.Join(renderableMetadataFieldList(), ", "))
+		}
+		seen[name] = struct{}{}
+		out = append(out, name)
+	}
+	return out, nil
+}
+
+// isDetailIdentityField reports whether the field is one of the identity/body
+// fields that are always rendered by a detail view (and therefore disallowed
+// in `metadata:`).
+func isDetailIdentityField(name string) bool {
+	switch name {
+	case "title", "description", "body", "id":
+		return true
+	}
+	return false
 }
 
 // rejectBoardOnlyFields catches lanes/mode set on a non-board/list view.
