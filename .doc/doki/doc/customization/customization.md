@@ -3,7 +3,8 @@
 tiki is highly customizable. `workflow.yaml` lets you define your workflow statuses, types, custom fields, and
 the **views** that shape how documents are displayed and how you interact with them. Statuses define the
 lifecycle stages tasks move through; views decide what you see on each screen (board lanes, list filters,
-wiki pages, or document detail) and which keyboard actions are available. This section covers both.
+wiki pages, or a configured tiki detail view) and which keyboard actions are available. This section covers
+both.
 
 > **Version.** This reference describes the 0.6.0 `workflow.yaml` schema that ships with unified documents.
 > Pre-0.6.0 `type: tiki` / `type: doki` plugins, `views: plugins:` wrappers, `fetcher:`/`url:`/`text:`, and
@@ -141,7 +142,7 @@ Every screen in the tiki TUI is a **view**. Views are defined at the top level o
 | `board` | kanban-style lanes with per-lane filters and move actions | `lanes:` |
 | `list` | single-column list view | `lanes:` (typically one) |
 | `wiki` | markdown viewer bound to a document by relative path | `path:` |
-| `detail` | markdown viewer for the currently-selected document | — |
+| `detail` | configurable single-tiki view: title, declared metadata fields, body | — |
 
 Views are matched to keyboard shortcuts via `key:`, and at most one view may be marked `default: true` so
 the TUI knows which screen to open on startup.
@@ -234,6 +235,99 @@ views:
 ```
 
 This replaces the pre-0.6.0 `view: compact`/`view: expanded` field, which is no longer accepted.
+
+### Detail views
+
+A `kind: detail` view shows a single tiki: its title, a declared list of metadata fields, and its
+description body. Title and description are always rendered — they are never listed in `metadata:`.
+
+```yaml
+views:
+  - name: Detail
+    kind: detail
+    description: "Configured detail view for the selected tiki"
+    require: ["selection:one"]
+    metadata: [status, type, priority]
+```
+
+Open a detail view by declaring a `kind: view` action that targets it. Because the action carries the
+current selection, the target view receives the selected tiki id and renders it. The bundled kanban
+workflow wires `Enter` this way:
+
+```yaml
+actions:
+  - key: Enter
+    label: Open
+    kind: view
+    view: Detail
+    require: ["selection:one"]
+```
+
+#### `metadata:` field list
+
+Each entry in `metadata:` is the canonical name of a schema-known field. Entries render in the listed
+order, between the title block and the description body.
+
+The default detail view ships with three fields:
+
+```yaml
+metadata: [status, type, priority]
+```
+
+The detail view's field registry currently knows how to render: `status`, `type`, `priority`, `points`,
+`assignee`, `due`, `recurrence`, `tags`, `dependsOn`. Of these, `status`, `type`, and `priority` are
+fully editable in place; the rest render as read-only today and will gain editors in a future
+iteration.
+
+Validation rules — workflow load fails when:
+
+- An entry is not a known schema field name.
+- An entry is `title`, `description`, `body`, or `id` (identity/body fields are always rendered).
+- An entry is a schema-known field that the detail view's field registry does not yet render
+  (e.g. arbitrary custom fields). Listing such a field is a load-time error rather than a silent
+  placeholder so misconfiguration is visible.
+- The same field is listed more than once.
+
+#### Detail view actions
+
+Detail views accept their own `actions:` list, just like board and list views. Per-view actions
+appear in the header alongside the built-in detail actions (Edit, Fullscreen, Edit source).
+
+```yaml
+views:
+  - name: Detail
+    kind: detail
+    require: ["selection:one"]
+    metadata: [status, type, priority]
+    actions:
+      - key: "a"
+        label: "Assign to me"
+        action: update where id = id() set assignee=user()
+```
+
+Per-view actions register *after* the built-in detail actions, so picking a key already used by Edit,
+Fullscreen, or Edit source will shadow the built-in. Choose unused keys unless you intend to replace
+the built-in behavior.
+
+#### Edit mode
+
+Pressing `Edit` switches the same detail view into edit mode in place — there is no separate edit
+view. `Tab` and `Shift-Tab` traverse the editable metadata fields in `metadata:` order. Read-only
+fields render but are skipped during traversal. Save and cancel preserve the current edit-session
+behavior.
+
+Fields whose semantic type has only a stub editor (everything other than `status`, `type`, and
+`priority` today) render in edit mode but are skipped during traversal — pressing Tab walks past
+them. This is intentional: a stub editor that swallowed focus would be confusing without a real
+input widget behind it.
+
+#### Custom fields in detail views
+
+Custom fields can be referenced in board/list filters, lane actions, and global/per-view actions
+today. The detail view's field registry does **not** yet render arbitrary custom fields, so listing
+one in `metadata:` is rejected at load time. Rendering and editing of custom fields in detail views
+is a future enhancement; until it lands, expose custom-field values through ruki actions
+(e.g. `update where id = id() set severity = input()`).
 
 ### Lane width
 
