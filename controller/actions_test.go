@@ -852,7 +852,10 @@ func TestPluginViewActions_NavHiddenFromPalette(t *testing.T) {
 	for _, a := range paletteActions {
 		found[a.ID] = true
 	}
-	for _, want := range []ActionID{ActionOpenFromPlugin, ActionNewTask, ActionDeleteTask, ActionSearch} {
+	// Phase 1: ActionOpenFromPlugin is no longer in the regular plugin registry
+	// (open is now a workflow-declared `kind: view` action). The remaining
+	// semantic actions still surface in the palette.
+	for _, want := range []ActionID{ActionNewTask, ActionDeleteTask, ActionSearch} {
 		if !found[want] {
 			t.Errorf("expected palette-visible action %v", want)
 		}

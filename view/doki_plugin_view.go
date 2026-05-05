@@ -61,7 +61,7 @@ func NewDokiView(
 		imageManager:    imageManager,
 		mermaidOpts:     mermaidOpts,
 		taskStore:       taskStore,
-		surfacedGlobals: surfacedGlobalActions(globalActions),
+		surfacedGlobals: surfacedGlobalActions(globalActions, pluginDef.GetName()),
 		selectedTaskID:  selectedTaskID,
 	}
 
@@ -73,7 +73,8 @@ func NewDokiView(
 // in its registry (header + palette). Mirrors the filtering DokiController
 // applies to its own registry so UI and keyboard dispatch agree:
 //
-//   - view-kind actions surface unconditionally
+//   - view-kind actions surface unconditionally, except a global pointing
+//     at the host view itself (would no-op or recurse on activation).
 //   - ruki-kind actions surface ONLY when non-interactive. `input:` and
 //     `choose()` actions need the input/choose pipeline which DokiController
 //     does not implement; showing them would lie about what pressing the
@@ -82,7 +83,7 @@ func NewDokiView(
 // Future work (phase6.md): implement GetActionInputSpec / GetActionChooseSpec
 // on DokiController so interactive ruki globals can fire from non-board views
 // too, at which point this filter can widen.
-func surfacedGlobalActions(globals []plugin.PluginAction) []plugin.PluginAction {
+func surfacedGlobalActions(globals []plugin.PluginAction, hostViewName string) []plugin.PluginAction {
 	if len(globals) == 0 {
 		return nil
 	}
@@ -90,6 +91,9 @@ func surfacedGlobalActions(globals []plugin.PluginAction) []plugin.PluginAction 
 	for _, ga := range globals {
 		switch ga.Kind {
 		case plugin.ActionKindView:
+			if ga.TargetView == hostViewName {
+				continue
+			}
 			out = append(out, ga)
 		case plugin.ActionKindRuki:
 			if ga.HasInput || ga.HasChoose {

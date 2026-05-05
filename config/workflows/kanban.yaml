@@ -40,6 +40,11 @@ types:
     emoji: "🗂️"
 
 actions:
+  - key: Enter
+    label: Open
+    kind: view
+    view: Detail
+    require: ["selection:one"]
   - key: "a"
     label: "Assign to me"
     action: update where id = id() set assignee=user()
@@ -160,6 +165,12 @@ views:
     description: "Project notes and documentation files"
     path: "index.md"
     key: "F2"
+
+  - name: Detail
+    kind: detail
+    description: "Configured detail view for the selected tiki"
+    require: ["selection:one"]
+    metadata: [status, type, priority]
 
 triggers:
   - description: block completion with open dependencies

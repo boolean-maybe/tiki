@@ -122,17 +122,26 @@ type TikiPlugin struct {
 	TaskID  string         // optional tiki associated with this plugin (code-only, not from workflow config)
 }
 
-// DokiPlugin backs wiki and detail view kinds (markdown document rendering).
-// For wiki views DocumentPath is set; for detail views it is empty and the
-// rendered document follows the current selection.
+// DokiPlugin backs the wiki view kind (markdown document rendering bound to a
+// specific document at `path:`).
 //
-// Note: DocumentID (ID-based resolution) is reserved for Phase 6B and is
-// rejected by the parser today. The field is kept on the struct so Phase 6B
-// can wire it in without another schema change.
+// Note: DocumentID (ID-based resolution) is reserved for a later phase and is
+// rejected by the parser today. The field is kept on the struct so the future
+// implementation can wire it in without another schema change.
 type DokiPlugin struct {
 	BasePlugin
-	DocumentID   string // Phase 6B: resolve this ID through the document store
+	DocumentID   string // future: resolve this ID through the document store
 	DocumentPath string // wiki: relative path under .doc/
+}
+
+// DetailPlugin backs the configurable detail view kind. Metadata names
+// the schema field list to render between the always-present title and
+// description sections; ordering matches the YAML list. Per-view Actions
+// are surfaced alongside built-in detail actions and global actions.
+type DetailPlugin struct {
+	BasePlugin
+	Metadata []string       // configured metadata field names, in render order
+	Actions  []PluginAction // per-view shortcut actions (merged with globals at runtime)
 }
 
 // PluginActionConfig represents a shortcut action in YAML or config definitions.

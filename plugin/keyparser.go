@@ -79,12 +79,31 @@ func parseKey(s string) (tcell.Key, rune, tcell.ModMask, error) {
 		return key, 0, 0, nil
 	}
 
+	// Named special keys (Enter, Tab, …). Kept narrow on purpose; broaden as
+	// real workflows need new names so the surface stays explicit.
+	if key, ok := parseNamedKey(upper); ok {
+		return key, 0, 0, nil
+	}
+
 	// Otherwise require exactly one rune.
 	runes := []rune(s)
 	if len(runes) != 1 {
-		return 0, 0, 0, fmt.Errorf("invalid key: %q (expected single character, F1..F12, Ctrl-X, Alt-X, or Shift-X)", s)
+		return 0, 0, 0, fmt.Errorf("invalid key: %q (expected single character, F1..F12, Ctrl-X, Alt-X, Shift-X, or Enter/Tab/…)", s)
 	}
 	return tcell.KeyRune, runes[0], 0, nil
+}
+
+// parseNamedKey resolves a small set of special key names. Inputs are
+// upper-cased by the caller. Currently supports Enter and Tab; extend as
+// new workflow needs surface.
+func parseNamedKey(upper string) (tcell.Key, bool) {
+	switch upper {
+	case "ENTER":
+		return tcell.KeyEnter, true
+	case "TAB":
+		return tcell.KeyTab, true
+	}
+	return 0, false
 }
 
 // parseFunctionKey parses function key notation (F1, F2, ..., F12)

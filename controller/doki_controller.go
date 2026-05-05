@@ -79,7 +79,14 @@ func (dc *DokiController) mergeGlobalActions() {
 	for _, ga := range dc.globalActions {
 		switch ga.Kind {
 		case plugin.ActionKindView:
-			// surfaced unconditionally; navigation has no store deps
+			// Surfaced unconditionally — except a global pointing at this
+			// view itself, which would no-op the keystroke or recurse.
+			// Mirrors the loader-side filter for board/list/detail.
+			if ga.TargetView == dc.pluginDef.GetName() {
+				slog.Debug("dropping self-targeting view global from doki registry",
+					"view", dc.pluginDef.GetName(), "key", ga.KeyStr)
+				continue
+			}
 		case plugin.ActionKindRuki:
 			if dc.executor == nil {
 				// no executor plumbing; don't surface an action we can't fire
@@ -169,6 +176,13 @@ func (dc *DokiController) handleGlobalAction(keyStr string) bool {
 		switch ga.Kind {
 		case plugin.ActionKindView:
 			if ga.TargetView == "" {
+				return false
+			}
+			// Defense-in-depth: refuse to navigate from a view to itself.
+			// surfacedGlobalActions and mergeGlobalActions both filter
+			// these out, but if anything slips through it would push an
+			// identical view onto the stack on every keypress.
+			if ga.TargetView == dc.pluginDef.GetName() {
 				return false
 			}
 			// 6B.15/6B.20/6B.22: honor the target view's own require:
