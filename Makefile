@@ -20,13 +20,13 @@ help:
 # Build the binary
 build:
 	@echo "Building tiki $(VERSION)..."
-	go build $(LDFLAGS) -o tiki .
+	go build $(LDFLAGS) -o bin/tiki .
 
 # Build, sign, and install to ~/.local/bin
 install: build
 	@echo "Installing tiki to ~/.local/bin..."
 	@mkdir -p ~/.local/bin
-	cp tiki ~/.local/bin/tiki
+	cp bin/tiki ~/.local/bin/tiki
 ifeq ($(shell uname),Darwin)
 	codesign -s - ~/.local/bin/tiki
 endif
@@ -34,7 +34,7 @@ endif
 # Clean build artifacts
 clean:
 	@echo "Cleaning..."
-	rm -f tiki
+	rm -rf bin/
 	rm -rf dist/
 
 # Run tests

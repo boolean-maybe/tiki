@@ -16,10 +16,8 @@ out/
 .specstory
 .claude
 
-# Tiki binary (the /tiki pattern also matches the tiki/ source directory,
-# so re-include that directory explicitly; /tiki still excludes the binary file).
-/tiki
-!/tiki/
+# Build output
+/bin/
 
 # Go coverage output
 /coverage.out
