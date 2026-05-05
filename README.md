@@ -121,9 +121,11 @@ grep ERROR server.log | sort -u | while read -r line; do echo "$line" | tiki; do
 
 Read more [quick capture docs](.doc/doki/doc/quick-capture.md).
 
-## The managed document model
+## The tiki model
 
-One format, one workspace: everything `tiki` manages is a Markdown file with YAML frontmatter under `.doc/`.
+One format, one workspace: every item `tiki` manages is a Markdown file with YAML frontmatter under
+`.doc/`. There is one entity — a **tiki** — defined by an `id`, a `title`, a markdown body, and a free-form
+field map.
 
 ```md
 ---
@@ -136,16 +138,18 @@ priority: 2
 Markdown body.
 ```
 
-- **Identity is in the frontmatter.** Every managed document has a bare 6-character uppercase `id` (e.g. `ABC123`).
-  The file path is mutable organization, not identity — move or rename files freely, the `id` follows the document.
-- **`.doc/**/*.md` is managed.** The whole tree is scanned recursively. Workflow config files (`workflow.yaml`,
+- **Identity is in the frontmatter.** Every tiki has a bare 6-character uppercase `id` (e.g. `ABC123`).
+  The file path is mutable organization, not identity — move or rename files freely, the `id` follows the tiki.
+- **`.doc/**/*.md` is scanned.** The whole tree is loaded recursively. Workflow config files (`workflow.yaml`,
   `config.yaml`) and non-Markdown assets are excluded.
-- **Workflow fields are optional.** A document with `status`, `type`, `priority`, or `points` in its frontmatter
-  participates in board/list views. A document without those fields is a plain note — reachable by id
-  or path, rendered in markdown views, invisible to workflow views.
-- **Views decide behavior.** Board and list views filter by workflow fields; wiki and detail views render document
-  bodies. No persistent tiki-vs-doki split.
-- **Git-controlled.** Documents are added, updated, and removed via git as you work. History is preserved.
+- **Fields are open.** Beyond `id` and `title`, frontmatter is a generic field map. Schema-known fields
+  (`status`, `type`, `priority`, `points`, `tags`, `dependsOn`, `due`, `recurrence`, `assignee`) get typed
+  coercion; unknown keys are preserved as-is. Absence is meaningful — a tiki with no `status` is not the
+  same as one whose status is empty.
+- **Views decide behavior via filters.** Board and list views narrow the workspace with ruki `select`
+  statements (e.g. `where has(status)`); wiki and detail views render bodies. There is no hidden
+  classification — what you query is what you see.
+- **Git-controlled.** Tikis are added, updated, and removed via git as you work. History is preserved.
 
 ## The tiki TUI
 

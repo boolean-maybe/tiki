@@ -13,20 +13,19 @@
 
 ## Overview
 
-Custom fields extend managed documents with project-specific data beyond the built-in frontmatter
-fields (`title`, `status`, `priority`, and so on). Define them in `workflow.yaml` and they become
-first-class citizens: usable in ruki queries, persisted in document frontmatter, and available across
-all views. They apply to both workflow documents and plain documents — any managed document can carry
-custom-field values.
+Custom fields extend tikis with project-specific data beyond the schema-known frontmatter fields
+(`title`, `status`, `priority`, and so on). Define them in `workflow.yaml` and they become first-class
+citizens: usable in ruki queries, persisted in tiki frontmatter, and available across all views. Any
+tiki can carry custom-field values, regardless of what other fields it has.
 
 Use cases include:
 
 - tracking a sprint or milestone name
 - adding an effort estimate or story-point alternative
-- flagging a document with a boolean (e.g. `blocked`, `reviewed`)
+- flagging a tiki with a boolean (e.g. `blocked`, `reviewed`)
 - recording a deadline timestamp with time-of-day precision
-- categorizing documents with a constrained set of values (enum)
-- linking related documents beyond `dependsOn`
+- categorizing tikis with a constrained set of values (enum)
+- linking related tikis beyond `dependsOn`
 
 ## Defining custom fields
 
@@ -244,34 +243,42 @@ fields:
     default: 0
 ```
 
-Fields without a `default:` key start empty on new tasks.
+Fields without a `default:` key are absent on new tikis.
 
 ## Missing field behavior
 
-When a custom field is not set on a task, ruki returns the typed zero value for that field's type:
+Custom fields are presence-aware, just like the schema-known fields. A custom field is either
+*present* (its key appears in the tiki's frontmatter) or *absent*. Comparisons against absent custom
+fields follow the same rules as schema-known absent fields — see
+[Absent fields in semantics.md](../ruki/semantics.md#absent-fields) for the complete rule set. The
+practical consequences for custom fields:
 
-| Field type    | Zero value         |
-|---------------|--------------------|
-| `text`        | `""` (empty string)|
-| `integer`     | `0`                |
-| `boolean`     | `false`            |
-| `datetime`    | zero time          |
-| `enum`        | `""` (empty string)|
-| `stringList`  | `[]` (empty list)  |
-| `taskIdList`  | `[]` (empty list)  |
+- `where <field> = <concrete-value>` is **false** on absent fields. `where blocked = false` does
+  **not** match tikis that never had `blocked` set; it only matches tikis whose frontmatter literally
+  wrote `blocked: false`. Use `not has(blocked)` to match "blocked never set" and
+  `where blocked = false or not has(blocked)` to match "not currently blocked".
+- `where <field> != <concrete-value>` is **true** on absent fields. `where blocked != true` matches
+  both "explicitly false" and "never set".
+- `where <field> = empty` and `where <field> is empty` are **true** on absent fields (absent is
+  treated as empty for the empty-literal forms). The flip side is that an explicit `blocked: false`
+  also satisfies `is empty`, since `false` is the zero value for booleans — `is empty` cannot
+  distinguish "absent" from "present-but-zero".
+- `where has(<field>)` is the only predicate that reliably distinguishes "key present" from "key
+  absent", regardless of value. Use it whenever the difference matters.
 
-This means `select where blocked = false` matches both tasks explicitly set to `false` and tasks
-that never had the `blocked` field set. Use `is empty` / `is not empty` to distinguish:
+The zero values produced when projecting an absent custom field are:
 
-```sql
--- tasks that explicitly have blocked set (to any value)
-select where blocked is not empty
+| Field type    | Projected as      |
+|---------------|-------------------|
+| `text`        | `""` (empty cell) |
+| `integer`     | empty cell / `null` |
+| `boolean`     | empty cell / `null` |
+| `datetime`    | empty cell / `null` |
+| `enum`        | `""` (empty cell) |
+| `stringList`  | `[]` (empty list) |
+| `taskIdList`  | `[]` (empty list) |
 
--- tasks where blocked was never set
-select where blocked is empty
-```
-
-Note: for boolean and integer fields, the zero value (`false`, `0`) is also the `empty` value. An
-explicitly stored `false` and a missing boolean field are indistinguishable at query time. If you
-need the distinction, consider using an enum field with explicit values (e.g. `yes` / `no` / not set
-via `empty`).
+For boolean and integer fields the zero value (`false`, `0`) is also the `empty` value, so an
+explicitly stored `false` and an absent boolean field are still indistinguishable through `is empty`.
+Use `has(<field>)` if you need the distinction, or model the field as an enum with explicit values
+(e.g. `yes` / `no` / unset).

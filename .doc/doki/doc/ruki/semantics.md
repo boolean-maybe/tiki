@@ -43,8 +43,8 @@ This page explains how `ruki` statements, triggers, conditions, and expressions 
 
 - `create` is a list of assignments.
 - At least one assignment is required.
-- The resulting task must have a non-empty `title`. This can come from an explicit `title=...` assignment or from
-  the task template.
+- The resulting tiki must have a non-empty `title`. This can come from an explicit `title=...` assignment or from
+  the tiki template.
 - Duplicate assignments to the same field are rejected.
 - Every assigned field must exist in the injected schema.
 - `id`, `createdBy`, `createdAt`, `updatedAt`, and `filepath` are immutable and cannot be assigned.
@@ -232,54 +232,62 @@ Conditions:
 - `any` and `all` require `list<ref>` on the left side
 - list equality (`=` / `!=`) is set-like: order and duplicate count are ignored
 
-### Absent workflow fields
+### Absent fields
 
-Workflow fields — `status`, `type`, `priority`, `points`, `tags`, `dependsOn`, `due`, `recurrence`, `assignee`
-— are present-aware. A value is *present* when the source document's frontmatter declares the key, and *absent*
-otherwise. Plain documents (ordinary Markdown under `.doc/` with only `id` and `title`) have every workflow
-field absent.
+Every field on a tiki is either *present* (the frontmatter declares the key) or *absent* (the key is
+not in the frontmatter at all). Comparisons and quantifiers have well-defined semantics for absent
+fields — the engine does not hard-error on absence, it just resolves to a defined value. Schema-known
+fields (`status`, `type`, `priority`, `points`, `tags`, `dependsOn`, `due`, `recurrence`, `assignee`) and
+custom user-defined fields share the same presence-aware behavior.
 
 Rules that follow from presence:
 
-- `where <field> <op> <value>` evaluates **false** when `<field>` is absent, regardless of operator — this
-  covers `=`, `!=`, `<`, `>`, and every other comparison. `where priority = 0` does **not** match documents
-  that never declared priority; only documents whose frontmatter literally wrote `priority: 0` match.
-- `where <list> is empty` and `where <list> is not empty` both evaluate false on an absent list field. An
-  absent list is neither empty nor non-empty — it has no value at all. Only a *present-but-empty* list
-  (one whose frontmatter wrote `tags: []` or `dependsOn: []` explicitly) matches `is empty`.
-- `where <list> = []` likewise does not match absent list fields. A caller who wants "list is declared as
-  empty" must target documents with explicit `tags: []` in frontmatter.
-- `all` and `any` quantifiers return false over an absent list field. The vacuous-truth shortcut for `all`
-  applies only to a present-but-empty list.
-- `in` and `not in` both return false when either side references an absent workflow field — the rule is
-  symmetric. `where assignee not in ["bob"]` does **not** match documents whose `assignee` is absent,
-  because absence is not "some value that isn't bob"; it is no value. Use `has(assignee)` (or its negation
-  `not has(assignee)`) to express presence intent explicitly.
-- `where has(<field>)` is the only predicate that returns true for "field is present". Use it to filter
-  workflow-carrying documents out of a mixed `.doc/` tree: `select where has(status)`. `has()` also accepts
-  qualified references — `has(new.assignee)` is the canonical "new task declares an assignee" predicate in
-  triggers.
-- `order by <field>` places absent values *after* present values for ascending order and *before* them for
-  descending. This is deterministic in either direction.
+- Equality with a concrete value is asymmetric on absent fields: `where <field> = <value>` is **false**
+  and `where <field> != <value>` is **true**. `where priority = 0` does not match tikis that never
+  declared priority; only tikis whose frontmatter literally wrote `priority: 0` match. `where priority
+  != 0` matches both "declared priority other than 0" *and* "no priority declared".
+- Equality with `empty` treats absent as empty: `where <field> = empty` is **true** for absent fields,
+  and `where <field> != empty` is **false**. This is the only equality form where absent and
+  present-zero behave the same.
+- Ordering comparisons (`<`, `>`, `<=`, `>=`) on an absent field hard-error — there is no defined ordering
+  for "no value". Guard ordering predicates with `has(<field>)` when the input could be sparse.
+- `where <field> is empty` treats absent as empty and evaluates **true**; `where <field> is not empty`
+  evaluates **false**. So `is empty` cannot distinguish "absent" from "present-but-zero" — use
+  `has(<field>)` when you need that distinction.
+- `where <list> = []` is an equality comparison against a concrete value, not against `empty`, so it
+  follows the asymmetric rule: it does **not** match absent lists. Match absent lists with `is empty`,
+  `= empty`, or `not has(<field>)` instead.
+- `any` returns **false** over an absent list (no elements to satisfy the predicate). `all` returns
+  **true** over an absent list (vacuous truth) — the same result as a present-but-empty list.
+- `in` returns **false** when its left-hand side is absent (`where assignee in ["bob"]` does not match
+  tikis without `assignee`). `not in` returns **true** in the same case (`where assignee not in
+  ["bob"]` *does* match tikis without `assignee`). When you want "value-is-set and not in this list",
+  combine `has(<field>)` with `not in`.
+- `where has(<field>)` is the only predicate that distinguishes "present with zero value" from "absent".
+  `has()` also accepts qualified references — `has(new.assignee)` is the canonical "new tiki declares an
+  assignee" predicate in triggers.
+- `order by <field>` requires every row to have a defined value. Absent values raise an error; gate the
+  query with `has(<field>)` or sort on a different field. (Some sparse-friendly views may add documented
+  null-ordering in the future.)
 - Projections (`select id, title, priority`) render absent scalar fields as empty cells in the table
   formatter and as JSON `null` in the JSON formatter. List fields always render as `[]` so downstream
   scripts can iterate without a null check; if the caller needs to distinguish "absent list" from
   "present-empty list", they should gate the select with `has(<field>)` in the where clause.
 - Arithmetic contexts (`set dependsOn = dependsOn + "ABC123"`, `set tags = tags - ["a"]`) treat an absent
   list operand as an empty list because the expression *constructs* a new list. The assignment then
-  promotes the document to workflow — this is the canonical "first-time add" idiom.
+  writes the resulting list to frontmatter — this is the canonical "first-time add" idiom. The list is
+  written even when the result is empty, so `has(<field>)` becomes true after the assignment regardless
+  of length.
 
-Custom user-defined fields keep the older "nil == empty" semantics: `where flag is empty` continues to
-match tasks that never set `flag`. The present-aware rule is scoped to built-in workflow fields so Phase 5
-does not quietly alter custom-field behavior.
+Setting any field on a tiki simply writes that key into its frontmatter:
+`update where id = "ABC123" set status = "ready"` adds `status: ready`. There is no separate "promotion"
+step or hidden classifier — fields are added like ordinary map entries. Sparse serialization is
+preserved: `set points = 0` writes exactly `points: 0`, not a full schema.
 
-Setting **any** workflow field on a plain document is a *promotion*:
-`update where id = "ABC123" set status = "ready"` turns the plain document into a workflow document. The
-same applies to assignments of `type`, `tags`, `dependsOn`, `due`, `recurrence`, `assignee`, `priority`,
-and `points`. Without promotion on every workflow-field `set`, the save path would take the plain-document
-branch and silently drop the assigned value. Documents promoted this way save with the newly set frontmatter
-key written to disk, so the next load sees them as workflow documents. Promotion preserves sparse
-serialization — `set points = 0` writes exactly `points: 0`, not the full workflow schema.
+Removing a field is explicit. The canonical clear is `set <field> = empty`: assigning the empty literal
+deletes the key from frontmatter so subsequent loads see it as absent. List arithmetic does *not* delete
+a list field even when the result is empty — `set tags = tags - ["only-tag"]` writes an empty list
+(`tags: []`) and `has(tags)` remains true. Use `set tags = empty` to actually remove the key.
 
 Examples:
 

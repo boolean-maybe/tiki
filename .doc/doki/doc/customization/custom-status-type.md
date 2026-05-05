@@ -53,7 +53,7 @@ Statuses support additional boolean flags that types do not:
 | Key | Required | Description |
 |---|---|---|
 | `active` | no | Marks a status as active (in-progress work). |
-| `default` | exactly one | The status assigned to newly created tasks. |
+| `default` | at most one | The status assigned to newly created tikis. Optional — when no status is marked default, `tiki exec 'create ...'` and piped capture produce a tiki with only `id` and `title`, no schema-known fields applied. |
 | `done` | exactly one | The terminal status representing completion. |
 
 Valid keys in a status entry: `key`, `label`, `emoji`, `active`, `default`, `done`.
@@ -64,7 +64,7 @@ Types support one optional boolean flag:
 
 | Key | Required | Description |
 |---|---|---|
-| `default` | no | The type assigned to newly created tasks. At most one allowed; first type is fallback. |
+| `default` | no | The type assigned to newly created tikis. At most one allowed; first type is fallback. |
 
 Valid keys in a type entry: `key`, `label`, `emoji`, `default`.
 
@@ -100,7 +100,7 @@ There are no built-in fallbacks for either section.
 | Empty/whitespace label | Error |
 | Duplicate display string | Error |
 | Unknown key in entry | Error |
-| Missing `default: true` (statuses) | Error |
+| Missing `default: true` (statuses) | OK — notes-only project; new captures save with only `id` and `title` |
 | Missing `done: true` (statuses) | Error |
 | Multiple `default: true` (statuses) | Error |
 | Multiple `done: true` (statuses) | Error |

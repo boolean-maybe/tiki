@@ -1,20 +1,19 @@
 # Quick capture
 
-Create documents straight from the command line.
+Create tikis straight from the command line.
 
 First line becomes the title. Everything after becomes the description.
 
-## Workflow task vs plain document
+## What fields the new tiki gets
 
-Whether the new document is a **workflow task** or a **plain document** is decided by the active
-workflow:
+The active workflow decides which fields the captured tiki carries:
 
-- Workflows with a `default: true` status (kanban, todo, bug-tracker) capture input as **workflow
-  tasks** — status, type, priority, and points are filled in from registry defaults, and the new
-  item shows up on board/list views.
-- Workflows with no `default: true` status capture input as **plain documents** — only `id:` and
-  `title:` go in the frontmatter, and the document stays out of workflow views. Useful for
-  notes-only projects where piped input should be a note, not a task.
+- Workflows with a `default: true` status (kanban, todo, bug-tracker) capture input with status,
+  type, priority, and points filled in from registry defaults. The new tiki shows up on every view
+  whose lane filter matches those fields.
+- Workflows with no `default: true` status capture input with only `id:` and `title:` in the
+  frontmatter. The new tiki stays out of views that require schema-known fields. Useful for
+  notes-only projects where piped input should be a note rather than a tracked task.
 
 ## Examples
 

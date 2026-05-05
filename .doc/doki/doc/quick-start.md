@@ -31,10 +31,10 @@ once installed, mention documents by id in your prompts to create, find, or edit
 
 Happy tikking!
 
-# The managed document model
+# The tiki model
 
-`tiki` manages a single Markdown workspace under `.doc/`. Everything `tiki` touches is a Markdown file with
-YAML frontmatter and a required bare `id`:
+`tiki` manages a single Markdown workspace under `.doc/`. Every item `tiki` touches is a Markdown file with
+YAML frontmatter and a required bare `id` — a **tiki**:
 
 ```md
 ---
@@ -47,11 +47,12 @@ priority: 2
 Markdown body.
 ```
 
-- Documents live anywhere under `.doc/` — the folder structure is yours to organize. Identity is in the
+- Tikis live anywhere under `.doc/` — the folder structure is yours to organize. Identity is in the
   `id` frontmatter field, not in the file path.
-- **Workflow documents** carry `status`, `type`, `priority`, or `points` and show up on board/list views.
-- **Plain documents** carry only `id` and `title` (and optional custom fields). They are reachable by id
-  or path, rendered by wiki and detail views, and invisible to workflow views.
+- A tiki carrying schema-known fields (`status`, `type`, `priority`, `points`, etc.) appears on every
+  view whose lane filter matches those fields.
+- A tiki with only `id` and `title` (and optional custom fields) is reachable by id or path, rendered
+  by wiki and detail views, and falls outside views that require schema-known fields.
 - Everything is git-controlled — added, updated, and removed along with your code. History is preserved.
 
 See [Document format](tiki-format.md) for the full frontmatter reference.
