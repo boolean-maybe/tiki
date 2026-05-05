@@ -18,14 +18,19 @@ import (
 	"github.com/rivo/tview"
 )
 
-// DokiView renders a documentation plugin (navigable markdown).
+// DokiView renders a documentation plugin (navigable markdown). It backs
+// `kind: wiki` views; `kind: detail` is rendered by the configurable detail
+// view in view/taskdetail and no longer flows through this type.
 // surfacedGlobals carries the workflow-level global actions (both
 // `kind: view` and `kind: ruki`) so the header and action palette (which
 // read this view's registry) show them alongside the built-in navigation
 // actions. Keyboard dispatch for both kinds is routed by DokiController.
 // taskStore is used to resolve `[[ID]]` wikilinks against the document
-// store and (for `kind: detail`) to render the selected document's
-// markdown body.
+// store. selectedTaskID still carries any selection threaded in via
+// PluginViewParams and is exposed through GetSelectedID() for action
+// enablement (e.g. `require: ["selection:one"]`); only the KindDetail
+// rendering branch in build() is now unreachable, since factory.go routes
+// detail views to DetailController.
 type DokiView struct {
 	root                *tview.Flex
 	titleBar            tview.Primitive
@@ -36,7 +41,7 @@ type DokiView struct {
 	mermaidOpts         *nav.MermaidOptions
 	taskStore           store.ReadStore
 	surfacedGlobals     []plugin.PluginAction
-	selectedTaskID      string // 6B.2: for kind: detail, the document to render
+	selectedTaskID      string // selection carried in via PluginViewParams; surfaced through GetSelectedID() for action `require:` gates
 	actionChangeHandler func()
 }
 
@@ -44,9 +49,10 @@ type DokiView struct {
 // actions list; both `kind: view` and `kind: ruki` entries are surfaced in
 // the view registry (DokiController routes keyboard dispatch for both).
 // taskStore may be nil for unit tests that don't exercise wikilink
-// resolution. selectedTaskID is the document id to render for `kind: detail`
-// views (ignored for wiki); pass empty to get the "no document selected"
-// placeholder.
+// resolution. selectedTaskID is the selection threaded in via
+// PluginViewParams; for `kind: wiki` (the only kind routed here today) it
+// is not used to fetch content (wiki binds via `path:`) but is exposed
+// through GetSelectedID() so action `require:` gates resolve correctly.
 func NewDokiView(
 	pluginDef *plugin.DokiPlugin,
 	imageManager *navtview.ImageManager,
@@ -206,11 +212,11 @@ func (dv *DokiView) rebuildLayout() {
 }
 
 // GetSelectedID implements controller.SelectableView. Returns the task id
-// this view was navigated to with (for kind: detail) or the empty string
-// when the view has no carried selection (kind: wiki on its own, or a
-// detail view opened without a source selection). Load-bearing for the
-// InputRouter enablement gate: actions with `require: ["selection:one"]`
-// read this to decide whether to dispatch from a doki view.
+// this view was navigated to with, or the empty string when the view has
+// no carried selection (kind: wiki on its own, since detail no longer
+// flows through DokiView). Load-bearing for the InputRouter enablement
+// gate: actions with `require: ["selection:one"]` read this to decide
+// whether to dispatch from a doki view.
 func (dv *DokiView) GetSelectedID() string {
 	return dv.selectedTaskID
 }

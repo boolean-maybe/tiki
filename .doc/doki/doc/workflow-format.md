@@ -70,7 +70,7 @@ views:                         # top-level list (no `plugins:` wrapper)
 | `board`   | kanban-style lanes with per-lane filters and move actions                | `lanes`                   | shipped                               |
 | `list`    | single-column list view                                                  | `lanes` (typically one)   | shipped                               |
 | `wiki`    | markdown viewer bound to a document by relative path                     | `path:`                   | shipped (path only; see below)        |
-| `detail`  | markdown viewer of the currently-selected document                       | —                         | shipped                               |
+| `detail`  | configurable single-tiki view: title, declared metadata fields, body     | —                         | shipped                               |
 | `search`  | the global search view                                                   | —                         | **not implemented** — parser rejects  |
 | `timeline`| future phase                                                             | —                         | reserved — parser rejects             |
 
@@ -78,6 +78,62 @@ views:                         # top-level list (no `plugins:` wrapper)
 rather than by relative path) is **not implemented**: the parser rejects any view that sets `document:`. A clean
 ID-binding story needs a richer document-index contract than the current `store.PathForID` exposes, so it is
 deferred as a future enhancement without a scheduled phase.
+
+`detail` views are configurable. Title and description are always rendered; `metadata:` declares which
+additional fields appear and in what order. The previous "render the selected document's raw markdown"
+meaning of `kind: detail` is gone — that behavior now lives only on `kind: wiki`. Pre-detail-rewrite
+configs that set no `metadata:` still parse (an empty list is valid) and render only title and description.
+
+```yaml
+views:
+  - name: Detail
+    kind: detail
+    require: ["selection:one"]
+    metadata: [status, type, priority]
+    actions:
+      - key: "a"
+        label: "Assign to me"
+        action: update where id = id() set assignee=user()
+```
+
+Per-view actions register *after* built-in detail actions, so a per-view entry that reuses a built-in
+key (such as `e` for Edit) shadows the built-in. Avoid the keys the detail view already uses for Edit,
+Fullscreen, and Edit source unless you intentionally want to replace them.
+
+Validation rules for `kind: detail`:
+
+- `metadata:` is a list of schema-known field names. Unknown names fail workflow load.
+- Identity/body fields (`title`, `description`, `body`, `id`) are rejected — they are always rendered.
+- Board/list-only fields (`lanes:`, `mode:`) and wiki-only fields (`path:`, `document:`) are rejected.
+- Per-view `actions:` are allowed and surface alongside the built-in detail actions.
+- `require:` is honored as the navigation gate (typically `["selection:one"]`).
+
+The detail view's field registry recognizes a fixed set of built-in field names:
+`status`, `type`, `priority`, `points`, `assignee`, `due`, `recurrence`, `tags`, and `dependsOn`. Any of
+these may appear in `metadata:` and will render. Of those, `status`, `type`, and `priority` are fully
+editable in place; the rest render read-only today (their semantic types — text, integer, date,
+recurrence, string list, task-id list — are recorded in the type registry as editor stubs and will gain
+real editors in a future iteration).
+
+Field names *not* in the registry — including custom fields declared under top-level `fields:` and
+schema fields the detail view does not yet render (e.g. `createdAt`, `updatedAt`) — are rejected at
+load time rather than rendered as silent placeholders. Widening the registry to cover custom fields is
+a future enhancement.
+
+Opening a detail view goes through normal action dispatch:
+
+```yaml
+actions:
+  - key: Enter
+    label: Open
+    kind: view
+    view: Detail
+    require: ["selection:one"]
+```
+
+`Enter` is no longer a built-in board/list shortcut — it is the workflow `kind: view` action above. The
+selected tiki threads through `PluginViewParams` so the target detail view's `require:` is honored and the
+correct document is rendered.
 
 ### Top-level `actions:` with `kind: ruki | view`
 
@@ -136,6 +192,10 @@ Users upgrading will see one of these messages; each names the legacy field and 
 - `kind: timeline is reserved but not yet implemented`
 - `kind: search is reserved but not yet implemented` (the built-in global search UI is not plugin-instantiable today)
 - `document: (ID-based resolution) is not yet implemented — use path: with a relative filepath`
+- ``metadata: only valid on kind: detail`` — set on a board/list/wiki view
+- `metadata cannot include "title"` (or `description`/`body`/`id`) — identity/body fields are always rendered
+- `metadata field "X" is not a known schema field` — typo or removed field
+- `metadata field "X" is not renderable in detail views yet` — schema-valid but no renderer registered
 
 Loading is fail-closed: any one of these errors (or any lane/action/require parse failure) refuses the whole
 workflow rather than silently loading only the views that parsed. A partial workflow would diverge from what you
