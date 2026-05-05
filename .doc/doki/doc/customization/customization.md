@@ -58,7 +58,9 @@ Each status has:
 - `label` — display name shown in the UI (defaults to key when omitted)
 - `emoji` — emoji shown alongside the label
 - `active` — marks the status as "active work" (used for activity tracking)
-- `default` — the status assigned to new workflow documents (exactly one required)
+- `default` — the status assigned to new tikis on explicit creation (optional, at most one). When
+  no status is marked `default: true`, no creation defaults are applied at all (see "Task Creation
+  Defaults" below) — the resulting tiki carries only `id` and `title`.
 - `done` — marks the status as "completed" (exactly one required)
 
 You can customize these to match your team's workflow. All filters and actions in view definitions
@@ -91,12 +93,14 @@ Each type has:
 - `label` — display name shown in the UI (defaults to key when omitted)
 - `emoji` — emoji shown alongside the label
 
-Mark one type `default: true` to use it as the creation default for new workflow documents.
+Mark one type `default: true` to use it as the creation default for new tikis.
 If no type is marked, the first configured type wins.
 
 ## Task Creation Defaults
 
-When you create a new workflow document, field defaults come from two sources:
+Creation defaults are gated on a `default: true` status. When the active workflow declares one, new
+tikis (from `tiki exec 'create ...'`, piped capture, sample generation, and the TUI's create action)
+get the full default set:
 
 **Built-in defaults** (hardcoded, not configurable):
 - `priority` = 3
@@ -107,6 +111,11 @@ When you create a new workflow document, field defaults come from two sources:
 - `status` — the status marked `default: true`
 - `type` — the type marked `default: true`, or the first type if none is marked
 - custom fields — any field with a `default:` value (see [Custom fields](custom-fields.md))
+
+When no status is marked `default: true`, **none** of these defaults are applied — including
+`priority`, `points`, `tags`, `type`, and custom-field defaults. The new tiki is saved with only
+`id` and `title` populated. This is the supported way to run a notes-only project: piped capture
+and `create` produce field-free tikis that stay out of board and list views.
 
 ```yaml
 types:

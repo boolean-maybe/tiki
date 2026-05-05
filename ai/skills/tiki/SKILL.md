@@ -1,25 +1,27 @@
 ---
 name: tiki
-description: view, create, update, delete workflow documents (tasks) and manage dependencies via ruki
+description: view, create, update, delete tikis (tasks, docs, notes) and manage dependencies via ruki
 allowed-tools: Read, Grep, Glob, Write, Bash(tiki exec:*), Bash(git log:*), Bash(git blame:*)
 ---
 
 # tiki
 
-A `tiki` is a **workflow document** (task) in the unified `.doc/` workspace — a Markdown file with
-frontmatter that declares workflow fields such as `status`, `type`, `priority`, and `points`.
+A `tiki` is a Markdown file in the unified `.doc/` workspace, identified by a bare `id` in its
+frontmatter and carrying an open field map (status, type, priority, points, tags, dependsOn, due,
+recurrence, assignee, plus any custom fields). All fields beyond `id` and `title` are optional.
 
-- Every managed document has a bare 6-character uppercase alphanumeric `id` (e.g. `X7F4K2`) stored in the
+- Every tiki has a bare 6-character uppercase alphanumeric `id` (e.g. `X7F4K2`) stored in the
   `id:` frontmatter field. The filename is not identity — the frontmatter is. Legacy `TIKI-` prefixed ids
   are not recognized: they fail to load and must be edited to the bare form manually.
-- Documents live under `.doc/` at any depth. The default location for new documents is `.doc/<ID>.md`, but
+- Tikis live under `.doc/` at any depth. The default location for new tikis is `.doc/<ID>.md`, but
   they can be moved into subfolders without breaking references (`[[ID]]` wikilinks and `dependsOn` entries
   are id-based).
-- Use this skill for operations on workflow documents (anything with `status:`, `type:`, `priority:`, or
-  `points:` in frontmatter). For plain documents (only `id:` and `title:`), use the `doki` skill.
+- Use this skill for tikis that participate in tracking — those carrying `status:`, `type:`, `priority:`,
+  `points:`, `dependsOn:`, etc. For tikis with only `id:` and `title:` (notes, design pages, prompts),
+  use the `doki` skill.
 
 All CRUD operations go through `tiki exec '<ruki-statement>'`. This handles validation, triggers, file
-persistence, and git staging automatically. Never manually edit document files or run `git add` / `git rm`
+persistence, and git staging automatically. Never manually edit tiki files or run `git add` / `git rm`
 — `tiki exec` does it all.
 
 For full `ruki` syntax, see `.doc/doki/doc/ruki/`.
@@ -37,13 +39,13 @@ For full `ruki` syntax, see `.doc/doki/doc/ruki/`.
 | `points` | `int` | story points 0–10 (0 = unestimated) |
 | `assignee` | `string` | |
 | `tags` | `list<string>` | |
-| `dependsOn` | `list<ref>` | list of document ids (bare form, e.g. `["ABC123", "DEF456"]`) |
+| `dependsOn` | `list<ref>` | list of tiki ids (bare form, e.g. `["ABC123", "DEF456"]`) |
 | `due` | `date` | `YYYY-MM-DD` format |
 | `recurrence` | `recurrence` | cron: `0 0 * * *` (daily), `0 0 * * MON` (weekly), `0 0 1 * *` (monthly) |
 | `createdBy` | `string` | immutable |
 | `createdAt` | `timestamp` | immutable |
 | `updatedAt` | `timestamp` | immutable |
-| `filepath` | `string` | synthetic — the document's absolute path on disk |
+| `filepath` | `string` | synthetic — the tiki's absolute path on disk |
 
 Priority descriptions: 1=high, 2=medium-high, 3=medium, 4=medium-low, 5=low.
 Valid statuses and types come from the project's `workflow.yaml`.
@@ -51,12 +53,8 @@ Valid statuses and types come from the project's `workflow.yaml`.
 ## Query
 
 ```sh
-tiki exec 'select'                                                    # all managed documents (plain + workflow)
-# workflow documents — ANY of the 9 workflow frontmatter keys are present
-tiki exec '
-  select where has(status) or has(type) or has(priority) or has(points) or has(tags)
-            or has(dependsOn) or has(due) or has(recurrence) or has(assignee)
-'
+tiki exec 'select'                                                    # all tikis under .doc/
+tiki exec 'select where has(status)'                                  # tikis carrying a status
 tiki exec 'select title, status'                                      # field projection
 tiki exec 'select id, title where status = "done"'                    # filter
 tiki exec 'select where "bug" in tags order by priority'              # tag filter + sort
@@ -66,26 +64,14 @@ tiki exec 'select where dependsOn any status != "done"'               # blocked 
 tiki exec 'select where assignee = user()'                            # my tasks
 ```
 
-Output is an ASCII table (use `--format json` for scripting). To read a document's full markdown body,
+Output is an ASCII table (use `--format json` for scripting). To read a tiki's full markdown body,
 either project it via `select description where id = "ABC123"` or read the file directly — get the path
 with `select filepath where id = "ABC123"`.
 
-**Scope note.** Bare `select` iterates every managed document — plain docs and workflow docs alike.
-Predicates on absent workflow fields (e.g. `status = "backlog"`) evaluate false for plain docs, so most
-workflow queries are naturally scoped. But for queries that could match plain docs unexpectedly (e.g.
-projecting only `id, title`), scope explicitly.
-
-The document classifier treats any of **nine** frontmatter keys as workflow: `status`, `type`,
-`priority`, `points`, `tags`, `dependsOn`, `due`, `recurrence`, `assignee`. Checking only
-`has(status)` would misclassify a document that uses `priority:` or `dependsOn:` alone, so the
-classifier form chains all nine with `or`:
-
-```
-has(status) or has(type) or has(priority) or has(points) or has(tags)
-or has(dependsOn) or has(due) or has(recurrence) or has(assignee)
-```
-
-Apply that clause when scoping bulk mutations or filters that need to match the classifier exactly.
+**Scope note.** Bare `select` iterates every tiki under `.doc/`, including those with no schema-known
+fields. Predicates on absent fields are well-defined: `where status = "done"` is false for tikis with
+no status, and `where status != "done"` is true. Use `has(<field>)` to scope explicitly when needed —
+for example, `select where has(status)` lists only tikis that carry a status, regardless of value.
 
 ## Create
 
@@ -124,10 +110,10 @@ tiki exec 'update where id = "X7F4K2" set recurrence="0 0 * * MON"'        # set
 tiki exec 'update where id = "X7F4K2" set recurrence=empty'                # clear recurrence
 ```
 
-Output: `updated N documents`.
+Output: `updated N tikis`.
 
-Assigning a workflow field (`status`, `priority`, `points`, `dependsOn`) to a plain document promotes it to
-a workflow document. Use this when a note needs to become a trackable task.
+Assigning a field on a tiki simply writes that key into its frontmatter. There is no separate
+"promotion" — to turn a notes-only tiki into a tracked task, just `set status = "..."`.
 
 ### Implement
 
@@ -143,7 +129,7 @@ tiki exec 'delete where id = "X7F4K2"'                          # by ID
 tiki exec 'delete where status = "cancelled"'                    # bulk
 ```
 
-Output: `deleted N documents`. Delete works on any document regardless of workflow participation.
+Output: `deleted N tikis`. Delete works on any tiki regardless of which fields it carries.
 
 ## Dependencies
 
@@ -169,16 +155,16 @@ tiki exec 'update where id = "X7F4K2" set dependsOn=dependsOn - ["ABC123"]'
 ## Provenance
 
 `ruki` does not access git history. Use git commands for authorship questions — but first resolve the
-document path from its id, since files can live anywhere under `.doc/`:
+tiki's path from its id, since files can live anywhere under `.doc/`:
 
 ```sh
-# get the document's path
+# get the tiki's path
 path=$(tiki exec --format json 'select filepath where id = "X7F4K2"' | jq -r '.[0].filepath')
 
-# who created this document
+# who created this tiki
 git log --follow --diff-filter=A -- "$path"
 
-# who last edited this document
+# who last edited this tiki
 git blame "$path"
 ```
 
@@ -189,7 +175,7 @@ tiki exec 'select createdAt, createdBy where id = "X7F4K2"'
 
 ## Important
 
-- `tiki exec` handles `git add` and `git rm` automatically — never do manual git staging for managed documents
+- `tiki exec` handles `git add` and `git rm` automatically — never do manual git staging for tikis
 - Never commit without user permission
 - Always use bare ids (`X7F4K2`), never the legacy `TIKI-X7F4K2` form
 - Exit codes: 0 = ok, 2 = usage error, 3 = startup failure, 4 = query error

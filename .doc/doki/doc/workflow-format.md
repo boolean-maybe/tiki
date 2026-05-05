@@ -324,8 +324,8 @@ statuses:
 - `emoji` — unicode emoji
 - `active` — marks "in-progress" work (optional, default false)
 - `default` — status for new tasks (optional; at most one). When no status is marked `default: true`,
-  piped input and ruki `create` produce **plain documents** (only `id:` and `title:` in the
-  frontmatter) instead of workflow tasks — use this for notes-only projects that should not
+  piped input and ruki `create` produce a tiki with only `id:` and `title:` in its frontmatter — no
+  status, type, priority, or points fields. Use this for notes-only projects that should not
   auto-capture as board items.
 - `done` — marks completion (exactly one required)
 

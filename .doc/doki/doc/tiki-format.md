@@ -1,39 +1,40 @@
-# Document format
+# Tiki format
 
-`tiki` manages a single Markdown workspace under `.doc/`. Every file under that tree is a **managed document**:
-a Markdown file with YAML frontmatter, a required bare `id`, and arbitrary body content. Workflow fields are
-optional — a document becomes a board/list item only when it explicitly declares workflow metadata.
+`tiki` manages a single Markdown workspace under `.doc/`. Every file under that tree is a **tiki**:
+a Markdown file with YAML frontmatter, a required bare `id`, and arbitrary body content. Beyond `id`
+and `title`, frontmatter is an open field map — a tiki participates in board/list views when its fields
+satisfy that view's `select` filter, typically via `has(...)` checks.
 
 ## Workspace layout
 
-Managed documents live anywhere under `.doc/`. Folder structure is user-controlled organization, not identity.
+Tikis live anywhere under `.doc/`. Folder structure is user-controlled organization, not identity.
 
 ```
 .doc/
 ├── workflow.yaml           # workflow/view configuration (excluded from scan)
 ├── config.yaml             # appearance/display config (excluded from scan)
-├── ABC123.md               # a task (has status/type/priority frontmatter)
-├── DEF456.md               # a plain doc (only id + title)
+├── ABC123.md               # a tiki carrying status/type/priority fields
+├── DEF456.md               # a tiki with only id + title
 ├── architecture/
-│   ├── X7K2QM.md           # a design note
+│   ├── X7K2QM.md           # a design note tiki
 │   └── diagrams/
-│       └── 9LP4ZR.md       # a diagram page
+│       └── 9LP4ZR.md       # a diagram-page tiki
 └── assets/                 # shared images, svgs, binary assets
     └── logo.png
 ```
 
 Rules:
 
-- `.doc/**/*.md` is scanned recursively and loaded as managed documents.
-- `.doc/workflow.yaml` and `.doc/config.yaml` are configuration files, not documents.
-- Non-Markdown files (images, svgs, binary assets) are not loaded as documents; keep them under `.doc/assets/`
-  or alongside the documents that reference them.
-- New documents from `tiki init`, `tiki demo`, piped input, and `ruki create` default to `.doc/<ID>.md`.
+- `.doc/**/*.md` is scanned recursively and loaded as tikis.
+- `.doc/workflow.yaml` and `.doc/config.yaml` are configuration files, not tikis.
+- Non-Markdown files (images, svgs, binary assets) are not loaded as tikis; keep them under `.doc/assets/`
+  or alongside the tikis that reference them.
+- New tikis from `tiki init`, `tiki demo`, piped input, and `ruki create` default to `.doc/<ID>.md`.
   You are free to move them into subdirectories afterward — the `id` is stable.
 
 ## Required frontmatter
 
-Every managed document must declare an `id`. Missing or invalid ids cause the loader to reject the file and
+Every tiki must declare an `id`. Missing or invalid ids cause the loader to reject the file and
 report it in diagnostics.
 
 ```yaml
@@ -48,15 +49,18 @@ Markdown body.
 - **`id`** — required. A bare 6-character uppercase alphanumeric string matching `^[A-Z0-9]{6}$`.
   No `TIKI-` prefix, no slug, globally unique across `.doc/`. Legacy prefixed ids are not recognized;
   edit them to the bare form manually if you are migrating old content.
-- **`title`** — required for workflow documents; optional (but recommended) for plain docs. Non-empty,
-  max 200 characters.
+- **`title`** — optional on disk; the loader accepts a missing or empty title and stores it as `""`.
+  Required and non-empty (max 200 characters) on **create** and **update** paths via `tiki exec` —
+  ruki rejects assignments that would leave the title blank. Recommended on every tiki, since the
+  title is the display label across all views.
 
-## Workflow fields (optional)
+## Schema-known fields (optional)
 
-A managed document participates in workflow views (board, list) when it declares explicit workflow
-fields in frontmatter. Absence is preserved: a document without `status` has no status, not a defaulted one.
-Default values apply only in explicit creation paths — `ruki create`, piped capture into a workflow-capture
-project, sample task generation, and the TUI's create action.
+Beyond `id` and `title`, frontmatter is an open field map. The fields below are **schema-known** —
+the workflow registers their types so they get coercion, validation, and special UI treatment. They
+are all optional. Absence is preserved on disk: a tiki with no `status:` key has no status, not a
+defaulted one. Default values apply only on explicit creation — `ruki create`, piped capture into a
+project that has a default status, sample-tiki generation, and the TUI's create action.
 
 ```yaml
 ---
@@ -80,19 +84,12 @@ recurrence: 0 0 * * MON
 Describe what is broken and how to reproduce it.
 ```
 
-### `title`
-
-String. Required for workflow documents. Non-empty, max 200 characters.
-
-```yaml
-title: Implement user authentication
-```
-
 ### `type`
 
-Optional. Must match a type key defined in `workflow.yaml` under `types:`. When absent, the document is either
-a plain doc (no workflow) or receives the default `type` on explicit creation. Default types ship as `story`,
-`bug`, `spike`, `epic`; each can have its own label and emoji. Aliases are not supported — use the canonical key.
+Optional. Must match a type key defined in `workflow.yaml` under `types:`. When absent, the tiki has
+no type; on explicit creation, the type marked `default: true` (or the first type) is applied.
+Default types ship as `story`, `bug`, `spike`, `epic`; each can have its own label and emoji. Aliases
+are not supported — use the canonical key.
 
 ```yaml
 type: bug
@@ -100,8 +97,9 @@ type: bug
 
 ### `status`
 
-Optional. Must match a status key defined in your project's `workflow.yaml`. When absent, the document does
-not appear on board/list views. On explicit creation, the status marked `default: true` is applied.
+Optional. Must match a status key defined in your project's `workflow.yaml`. When absent, the tiki
+falls outside any view whose lane filter requires `status` (most board and list views). On explicit
+creation, the status marked `default: true` is applied.
 
 ```yaml
 status: inProgress
@@ -214,7 +212,7 @@ recurrence: 0 0 * * MON
 
 ## Custom fields
 
-Custom fields declared under `workflow.yaml` `fields:` appear alongside built-in frontmatter and are
+Custom fields declared under `workflow.yaml` `fields:` appear alongside schema-known frontmatter and are
 round-tripped through save/load. Unknown frontmatter keys that are not registered custom fields are preserved
 as-is, so workflow schema changes do not lose data. See [Custom fields](customization/custom-fields.md).
 
@@ -231,37 +229,21 @@ git is disabled or the file is uncommitted. `created by` is populated from git a
 for uncommitted files or no-git mode it falls back to the current `tiki` identity (configured `identity.name`
 or `identity.email` → git user → OS account name).
 
-## Plain documents
+## Sparse tikis (notes, docs, prompts)
 
-A managed document with only `id` and `title` in its frontmatter is a **plain document**: a note, page, or
-reference. Plain documents:
+A tiki with only `id` and `title` in its frontmatter is just a tiki with no schema-known fields set —
+useful as a note, page, or reference. There is no separate "plain document" class in the model; the
+absence of fields is the whole story. Such a tiki:
 
-- are rendered by markdown, wiki, and detail views
-- do not appear on board/list views
-- can still be queried by `ruki` — predicates on absent workflow fields evaluate false, so most
-  workflow queries skip plain documents naturally. To filter *by presence*, use the `has(...)` builtin.
-  A document is classified as workflow when **any** of nine frontmatter keys is present: `status`,
-  `type`, `priority`, `points`, `tags`, `dependsOn`, `due`, `recurrence`, `assignee`. So the full
-  workflow-vs-plain split is:
-
-  ```
-  -- workflow documents
-  select where has(status) or has(type) or has(priority) or has(points) or has(tags)
-            or has(dependsOn) or has(due) or has(recurrence) or has(assignee)
-
-  -- plain documents
-  select where not has(status) and not has(type) and not has(priority) and not has(points)
-            and not has(tags) and not has(dependsOn) and not has(due) and not has(recurrence)
-            and not has(assignee)
-  ```
-
-  Checking only `has(status)` would misclassify documents that declare only `priority:` or
-  `dependsOn:` — all nine keys promote a document to workflow-capable.
-
-  `is empty` does **not** match absent workflow fields on plain documents — always use `has(...)` for
-  presence tests on built-in workflow fields.
-- can be promoted to workflow documents by assigning a workflow field —
-  `update where id = "ABC123" set status = "backlog"` makes the document workflow-capable
+- is rendered by markdown, wiki, and detail views
+- falls outside any view whose lane filter requires schema-known fields (typical board and list lanes)
+- is queryable by `ruki` like any other tiki. Comparisons against absent fields are well-defined:
+  `where status = "done"` evaluates `false` for tikis with no `status`, and `where status != "done"`
+  evaluates `true`. Use `has(<field>)` when you need to filter explicitly by presence — for example,
+  `select where has(status)` lists every tiki that carries a status, regardless of value.
+- gains a field whenever you assign one. `update where id = "ABC123" set status = "backlog"` simply
+  writes `status: backlog` into the frontmatter. There is no special "promotion" event — fields are
+  added and removed like any other map entry.
 
 ```yaml
 ---
@@ -274,17 +256,17 @@ title: Architecture overview
 Entry points, component boundaries, and deployment diagrams.
 ```
 
-## Cross-document links
+## Cross-tiki links
 
-Reference another document by its bare id inside double brackets:
+Reference another tiki by its bare id inside double brackets:
 
 ```markdown
 See the [[ABC123]] for background.
 ```
 
-Wikilinks resolve through the document index, so they survive file moves and renames. Unknown ids render as
+Wikilinks resolve through the tiki index, so they survive file moves and renames. Unknown ids render as
 a literal `[[ABC123]]` with a `*(not found)*` marker — broken references stay visible instead of silently
 disappearing.
 
 Plain Markdown links to relative paths also work inside bodies; use them for anchored links to specific
-sections within a document.
+sections within a tiki.

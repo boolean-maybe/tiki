@@ -37,7 +37,8 @@ This page explains the value types used in `ruki`. You do not write types explic
 
 ## Field catalog
 
-The workflow field catalog exposes these fields to `ruki`:
+The schema-known field catalog exposes these fields to `ruki`. Custom fields declared under
+`workflow.yaml` `fields:` join the same catalog at load time and behave identically.
 
 | Field | Type |
 |---|---|
@@ -58,8 +59,8 @@ The workflow field catalog exposes these fields to `ruki`:
 | `updatedAt` | `timestamp` |
 | `filepath` | `string` |
 
-`filepath` is a synthetic, read-only field populated by the file-backed store. It holds the absolute path to the task's
-markdown file for persisted tasks, and is an empty string for in-memory or unsaved tasks. It never appears in YAML
+`filepath` is a synthetic, read-only field populated by the file-backed store. It holds the absolute path to the tiki's
+markdown file for persisted tikis, and is an empty string for in-memory or unsaved tikis. It never appears in YAML
 frontmatter and cannot be assigned via `create` or `update`.
 
 ## Literals
@@ -86,18 +87,22 @@ Qualified and unqualified references are not literals, but they participate in t
 
 Implemented behavior:
 
-- `empty` can be assigned to most field types
-- `title`, `status`, `type`, and `priority` reject `empty` assignment — these fields are required
+- `empty` can be assigned to most field types — the assignment deletes the key from frontmatter so
+  subsequent loads see the field as absent
+- `title`, `status`, `type`, and `priority` reject `empty` assignment. The empty literal has no defined
+  coercion to those types, so the runtime rejects `set <field> = empty` as a hard error. These fields
+  can still be **absent** on sparse tikis — what is rejected is the explicit `empty` assignment, not
+  absence itself. To clear them, omit the field at create time or remove it from the file directly.
 - `empty` can be compared against any typed expression
 - `is empty` and `is not empty` are allowed for any expression type
 
 Examples:
 
 ```sql
-create title="x" assignee=empty
-create title="x" priority=empty
-select where assignee = empty
-select where due is empty
+create title="x" assignee=empty               -- sets assignee absent on the new tiki
+update where id = "ABC123" set due=empty      -- clears the due date
+select where assignee = empty                 -- matches absent or zero-valued assignee
+select where due is empty                     -- same, with the is-empty predicate
 ```
 
 ## Enum normalization
