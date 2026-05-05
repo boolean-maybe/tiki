@@ -67,7 +67,13 @@ func newDepsTestEnv(t *testing.T) (*DepsController, store.Store) {
 	gate.SetStore(taskStore)
 
 	nav := newMockNavigationController()
-	dc := NewDepsController(taskStore, gate, pluginConfig, pluginDef, nav, nil, rukiRuntime.NewSchema())
+	// Tests in this file that exercise the Open action assert the
+	// pushed view id, so the resolver returns the bundled default
+	// detail view name. Tests that don't dispatch Open still get a
+	// resolver — passing nil would refuse the open and obscure other
+	// failures.
+	resolver := func() string { return model.DetailPluginName }
+	dc := NewDepsController(taskStore, gate, pluginConfig, pluginDef, nav, nil, rukiRuntime.NewSchema(), resolver)
 	return dc, taskStore
 }
 
@@ -322,7 +328,7 @@ func TestDepsController_HandleAction(t *testing.T) {
 		}
 	})
 
-	t.Run("open task pushes detail view", func(t *testing.T) {
+	t.Run("open task pushes configurable detail view", func(t *testing.T) {
 		dc, _ := newDepsTestEnv(t)
 		dc.pluginConfig.SetSelectedLane(depsLaneAll)
 		dc.pluginConfig.SetSelectedIndexForLane(depsLaneAll, 0)
@@ -331,8 +337,56 @@ func TestDepsController_HandleAction(t *testing.T) {
 			t.Error("open should succeed when a task is selected")
 		}
 		top := dc.navController.navState.currentView()
-		if top == nil || top.ViewID != model.TaskDetailViewID {
-			t.Error("expected TaskDetailViewID to be pushed")
+		if top == nil || top.ViewID != model.DetailPluginViewID() {
+			t.Errorf("expected configurable detail view %q to be pushed, got %v",
+				model.DetailPluginViewID(), top)
+		}
+	})
+
+	t.Run("open task uses resolver-returned name (handles renamed detail view)", func(t *testing.T) {
+		dc, _ := newDepsTestEnv(t)
+		// override the resolver to a custom workflow-renamed view name
+		dc.detailViewResolver = func() string { return "MyCustomDetail" }
+		dc.pluginConfig.SetSelectedLane(depsLaneAll)
+		dc.pluginConfig.SetSelectedIndexForLane(depsLaneAll, 0)
+
+		if !dc.HandleAction(ActionOpenFromPlugin) {
+			t.Fatal("open should succeed when resolver returns a non-empty name")
+		}
+		top := dc.navController.navState.currentView()
+		want := model.MakePluginViewID("MyCustomDetail")
+		if top == nil || top.ViewID != want {
+			t.Errorf("expected resolver-returned view %q to be pushed, got %v", want, top)
+		}
+	})
+
+	t.Run("open task refuses when resolver returns empty (no detail view loaded)", func(t *testing.T) {
+		dc, _ := newDepsTestEnv(t)
+		dc.detailViewResolver = func() string { return "" }
+		dc.pluginConfig.SetSelectedLane(depsLaneAll)
+		dc.pluginConfig.SetSelectedIndexForLane(depsLaneAll, 0)
+		startDepth := dc.navController.navState.depth()
+
+		if dc.HandleAction(ActionOpenFromPlugin) {
+			t.Error("open should refuse when the resolver returns the empty string")
+		}
+		if dc.navController.navState.depth() != startDepth {
+			t.Error("nav stack should not have grown after refused open")
+		}
+	})
+
+	t.Run("open task refuses when resolver is nil", func(t *testing.T) {
+		dc, _ := newDepsTestEnv(t)
+		dc.detailViewResolver = nil
+		dc.pluginConfig.SetSelectedLane(depsLaneAll)
+		dc.pluginConfig.SetSelectedIndexForLane(depsLaneAll, 0)
+		startDepth := dc.navController.navState.depth()
+
+		if dc.HandleAction(ActionOpenFromPlugin) {
+			t.Error("open should refuse when no resolver is configured")
+		}
+		if dc.navController.navState.depth() != startDepth {
+			t.Error("nav stack should not have grown after refused open")
 		}
 	})
 
@@ -485,7 +539,7 @@ func TestDepsController_DeleteTask_GateError(t *testing.T) {
 
 	nav := newMockNavigationController()
 	statusline := model.NewStatuslineConfig()
-	dc := NewDepsController(taskStore, gate, pluginConfig, pluginDef, nav, statusline, rukiRuntime.NewSchema())
+	dc := NewDepsController(taskStore, gate, pluginConfig, pluginDef, nav, statusline, rukiRuntime.NewSchema(), nil)
 
 	// select free task in All lane
 	dc.pluginConfig.SetSelectedLane(depsLaneAll)
@@ -529,7 +583,7 @@ func TestDepsController_MoveTask_UpdateError(t *testing.T) {
 
 	nav := newMockNavigationController()
 	statusline := model.NewStatuslineConfig()
-	dc := NewDepsController(taskStore, gate, pluginConfig, pluginDef, nav, statusline, rukiRuntime.NewSchema())
+	dc := NewDepsController(taskStore, gate, pluginConfig, pluginDef, nav, statusline, rukiRuntime.NewSchema(), nil)
 
 	// select free task in All lane, move left → Blocks
 	dc.pluginConfig.SetSelectedLane(depsLaneAll)
@@ -617,7 +671,7 @@ func newDepsNavEnv(t *testing.T, blockers int, allTasks int, depends int, laneCo
 	gate.SetStore(taskStore)
 
 	nav := newMockNavigationController()
-	return NewDepsController(taskStore, gate, pluginConfig, pluginDef, nav, nil, rukiRuntime.NewSchema())
+	return NewDepsController(taskStore, gate, pluginConfig, pluginDef, nav, nil, rukiRuntime.NewSchema(), nil)
 }
 
 func TestDepsController_NavRightAdjacentNonEmptyPreservesRow(t *testing.T) {

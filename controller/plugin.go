@@ -114,8 +114,6 @@ func (pc *PluginController) HandleAction(actionID ActionID) bool {
 		return pc.handleMoveTask(-1)
 	case ActionMoveTaskRight:
 		return pc.handleMoveTask(1)
-	case ActionOpenFromPlugin:
-		return pc.handleOpenTask(pc.GetFilteredTasksForLane)
 	case ActionNewTask:
 		return pc.handleNewTask()
 	case ActionDeleteTask:

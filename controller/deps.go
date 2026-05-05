@@ -26,9 +26,22 @@ const (
 // the source/target lane pair — sometimes the moved task, sometimes the context task.
 type DepsController struct {
 	pluginBase
+	// detailViewResolver returns the name of the configurable detail
+	// view to open when the user presses Enter on a row in the deps
+	// editor. The resolver runs at dispatch time (not construction
+	// time) so workflows that reload or rename their detail views
+	// don't leave the controller pointing at a stale name. Returns
+	// the empty string when no detail view is available; callers must
+	// then refuse the open.
+	detailViewResolver func() string
 }
 
-// NewDepsController creates a dependency editor controller.
+// NewDepsController creates a dependency editor controller. The
+// detailViewResolver is consulted on each Open action to find the
+// target detail view name; passing nil disables the Open action
+// (returns false). The router supplies a resolver that prefers the
+// view the deps editor was opened from, then falls back to any other
+// kind: detail plugin loaded from workflow.yaml.
 func NewDepsController(
 	taskStore store.Store,
 	mutationGate *service.TaskMutationGate,
@@ -37,6 +50,7 @@ func NewDepsController(
 	navController *NavigationController,
 	statusline *model.StatuslineConfig,
 	schema ruki.Schema,
+	detailViewResolver func() string,
 ) *DepsController {
 	return &DepsController{
 		pluginBase: pluginBase{
@@ -49,7 +63,18 @@ func NewDepsController(
 			registry:      DepsViewActions(),
 			schema:        schema,
 		},
+		detailViewResolver: detailViewResolver,
 	}
+}
+
+// SetDetailViewResolver swaps the resolver used by the Open action.
+// Called by the router when a deps editor is reopened from a different
+// configurable detail view, so Enter routes back to the most recent
+// caller rather than the original one captured when this controller
+// was first constructed. Passing nil disables Open until a resolver is
+// installed again.
+func (dc *DepsController) SetDetailViewResolver(fn func() string) {
+	dc.detailViewResolver = fn
 }
 
 func (dc *DepsController) ShowNavigation() bool { return false }
@@ -79,10 +104,23 @@ func (dc *DepsController) HandleAction(actionID ActionID) bool {
 		if taskID == "" {
 			return false
 		}
-		dc.navController.PushView(model.TaskDetailViewID, model.EncodeTaskDetailParams(model.TaskDetailParams{
-			TaskID:   taskID,
-			ReadOnly: true,
-		}))
+		// Phase 3: route deps-editor "Open" through a configurable
+		// detail view. The resolver hands back either the view this
+		// editor was opened from or a fallback kind: detail plugin;
+		// without it (or when it returns ""), the workflow has no
+		// detail view loaded and we refuse the open instead of
+		// pushing a missing plugin id onto the nav stack.
+		if dc.detailViewResolver == nil {
+			return false
+		}
+		targetName := dc.detailViewResolver()
+		if targetName == "" {
+			return false
+		}
+		dc.navController.PushView(
+			model.MakePluginViewID(targetName),
+			model.EncodePluginViewParams(model.PluginViewParams{TaskID: taskID}),
+		)
 		return true
 	case ActionNewTask:
 		return dc.handleNewTask()

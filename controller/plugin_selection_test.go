@@ -514,55 +514,11 @@ func TestLaneSwitchFromEmptySourceUsesTopViewportContext(t *testing.T) {
 	}
 }
 
-func TestPluginController_HandleOpenTask(t *testing.T) {
-	taskStore := store.NewInMemoryStore()
-	seedTiki(t, taskStore, "0000T1", "Task 1", "ready", 0)
-
-	todoFilter := mustParseStmt(t, `select where status = "ready"`)
-	pluginDef := &plugin.TikiPlugin{
-		BasePlugin: plugin.BasePlugin{Name: "TestPlugin"},
-		Lanes:      []plugin.TikiLane{{Name: "Todo", Columns: 1, Filter: todoFilter}},
-	}
-	pluginConfig := model.NewPluginConfig("TestPlugin")
-	pluginConfig.SetLaneLayout([]int{1}, nil)
-	pluginConfig.SetSelectedLane(0)
-	pluginConfig.SetSelectedIndexForLane(0, 0)
-
-	navController := newMockNavigationController()
-	schema := rukiRuntime.NewSchema()
-	gate := service.NewTaskMutationGate()
-	gate.SetStore(taskStore)
-	pc := NewPluginController(taskStore, gate, pluginConfig, pluginDef, navController, nil, schema)
-
-	if !pc.HandleAction(ActionOpenFromPlugin) {
-		t.Error("expected HandleAction(open) to return true when task is selected")
-	}
-
-	// verify navigation was pushed
-	if navController.navState.depth() == 0 {
-		t.Error("expected navigation push for open task")
-	}
-}
-
-func TestPluginController_HandleOpenTask_Empty(t *testing.T) {
-	taskStore := store.NewInMemoryStore()
-	emptyFilter := mustParseStmt(t, `select where status = "done"`)
-	pluginDef := &plugin.TikiPlugin{
-		BasePlugin: plugin.BasePlugin{Name: "TestPlugin"},
-		Lanes:      []plugin.TikiLane{{Name: "Empty", Columns: 1, Filter: emptyFilter}},
-	}
-	pluginConfig := model.NewPluginConfig("TestPlugin")
-	pluginConfig.SetLaneLayout([]int{1}, nil)
-
-	schema := rukiRuntime.NewSchema()
-	gate := service.NewTaskMutationGate()
-	gate.SetStore(taskStore)
-	pc := NewPluginController(taskStore, gate, pluginConfig, pluginDef, newMockNavigationController(), nil, schema)
-
-	if pc.HandleAction(ActionOpenFromPlugin) {
-		t.Error("expected false when no task is selected")
-	}
-}
+// Phase 3 cleanup: TestPluginController_HandleOpenTask and its empty
+// counterpart were removed. Boards/lists no longer dispatch
+// ActionOpenFromPlugin — Enter is now a workflow-declared `kind: view`
+// action that targets the configurable detail view, exercised by the
+// `kind: view` integration tests instead.
 
 func TestPluginController_HandleDeleteTask(t *testing.T) {
 	taskStore := store.NewInMemoryStore()

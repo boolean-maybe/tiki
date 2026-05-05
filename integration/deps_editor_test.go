@@ -292,12 +292,14 @@ func TestDepsEditor_ReopenIsSameView(t *testing.T) {
 		t.Fatalf("first open: not in deps editor, got %v", ta.NavController.CurrentView().ViewID)
 	}
 
-	// go back to task detail
+	// go back to detail view (Phase 3: configurable detail, not legacy TaskDetailViewID)
 	ta.SendKey(tcell.KeyEscape, 0, tcell.ModNone)
 	ta.Draw()
-	if ta.NavController.CurrentView().ViewID != model.TaskDetailViewID {
+	wantDetailID := model.DetailPluginViewID()
+	if ta.NavController.CurrentView().ViewID != wantDetailID {
 		ta.DumpScreen()
-		t.Fatalf("expected task detail after Esc, got %v", ta.NavController.CurrentView().ViewID)
+		t.Fatalf("expected configurable detail view %q after Esc, got %v",
+			wantDetailID, ta.NavController.CurrentView().ViewID)
 	}
 
 	// second open — should reuse existing plugin, not create a duplicate

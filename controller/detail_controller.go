@@ -365,11 +365,17 @@ func (dc *DetailController) HandleActionChoose(ActionID, string) bool { return f
 
 // DetailViewActions returns the built-in action registry for kind: detail
 // when the view is in read-only mode. Phase 2 replaced the Phase 1 Edit
-// stub with a real edit-mode toggle (ActionDetailEdit).
+// stub with a real edit-mode toggle (ActionDetailEdit). Phase 3 added
+// the dependency-editor opener (Ctrl+D) so the configurable detail view
+// fully replaces the legacy TaskDetailView's deps-open shortcut.
 func DetailViewActions() *ActionRegistry {
 	r := NewActionRegistry()
+	idReq := []Requirement{RequireID}
 	r.Register(Action{ID: ActionFullscreen, Key: tcell.KeyRune, Rune: 'f', Label: "Full screen", ShowInHeader: true})
-	r.Register(Action{ID: ActionDetailEdit, Key: tcell.KeyRune, Rune: 'e', Label: "Edit", ShowInHeader: true, Require: []Requirement{RequireID}})
+	r.Register(Action{ID: ActionDetailEdit, Key: tcell.KeyRune, Rune: 'e', Label: "Edit", ShowInHeader: true, Require: idReq})
+	r.Register(Action{ID: ActionEditSource, Key: tcell.KeyRune, Rune: 's', Label: "Edit source", ShowInHeader: true, Require: idReq})
+	r.Register(Action{ID: ActionEditDeps, Key: tcell.KeyCtrlD, Modifier: tcell.ModCtrl, Label: "Dependencies", ShowInHeader: true, Require: idReq})
+	r.Register(Action{ID: ActionChat, Key: tcell.KeyRune, Rune: 'c', Label: "Chat", ShowInHeader: true, Require: []Requirement{RequireAI, RequireID}})
 	return r
 }
 

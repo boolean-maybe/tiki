@@ -301,10 +301,11 @@ func TestTaskDeletion_CannotDeleteFromTaskDetail(t *testing.T) {
 	ta.Draw()
 	ta.SendKey(tcell.KeyEnter, 0, tcell.ModNone)
 
-	// Verify we're on task detail
+	// Phase 3: configurable detail view, not the legacy TaskDetailViewID.
 	currentView := ta.NavController.CurrentView()
-	if currentView.ViewID != model.TaskDetailViewID {
-		t.Fatalf("expected task detail view, got %v", currentView.ViewID)
+	wantDetail := model.DetailPluginViewID()
+	if currentView.ViewID != wantDetail {
+		t.Fatalf("expected detail view %s, got %v", wantDetail, currentView.ViewID)
 	}
 
 	// Press 'd' (should not delete from task detail view)

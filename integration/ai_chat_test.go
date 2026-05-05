@@ -57,10 +57,13 @@ func TestTaskDetailView_ChatModifiesTask(t *testing.T) {
 		return os.WriteFile(taskPath, []byte(modified), 0644) //nolint:gosec // test file
 	})
 
-	// navigate to task detail
-	ta.NavController.PushView(model.TaskDetailViewID, model.EncodeTaskDetailParams(model.TaskDetailParams{
-		TaskID: taskID,
-	}))
+	// Phase 3: navigate to the configurable detail view (kind: detail)
+	// directly, carrying the task id via PluginViewParams. The legacy
+	// TaskDetailViewID is no longer the chat host.
+	ta.NavController.PushView(
+		model.DetailPluginViewID(),
+		model.EncodePluginViewParams(model.PluginViewParams{TaskID: taskID}),
+	)
 	ta.Draw()
 
 	// press 'c' to invoke chat
@@ -102,10 +105,13 @@ func TestTaskDetailView_ChatNotAvailableWithoutConfig(t *testing.T) {
 		return nil
 	})
 
-	// navigate to task detail
-	ta.NavController.PushView(model.TaskDetailViewID, model.EncodeTaskDetailParams(model.TaskDetailParams{
-		TaskID: taskID,
-	}))
+	// Phase 3: navigate to the configurable detail view (kind: detail)
+	// directly, carrying the task id via PluginViewParams. The legacy
+	// TaskDetailViewID is no longer the chat host.
+	ta.NavController.PushView(
+		model.DetailPluginViewID(),
+		model.EncodePluginViewParams(model.PluginViewParams{TaskID: taskID}),
+	)
 	ta.Draw()
 
 	// press 'c' — should not trigger chat

@@ -359,17 +359,6 @@ func (pb *pluginBase) handleSearch(query string, selectFirst func() bool) {
 	selectFirst()
 }
 
-func (pb *pluginBase) handleOpenTask(filteredTasks func(int) []*tikipkg.Tiki) bool {
-	taskID := pb.getSelectedTaskID(filteredTasks)
-	if taskID == "" {
-		return false
-	}
-	pb.navController.PushView(model.TaskDetailViewID, model.EncodeTaskDetailParams(model.TaskDetailParams{
-		TaskID: taskID,
-	}))
-	return true
-}
-
 func (pb *pluginBase) handleNewTask() bool {
 	t, err := pb.taskStore.NewTikiTemplate()
 	if err != nil {
