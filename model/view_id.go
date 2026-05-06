@@ -9,21 +9,11 @@ type ViewID string
 
 // view identifiers
 const (
-	// TaskDetailViewID identifies the legacy built-in task detail view.
-	// Phase 3 cleanup: this view is no longer the normal detail path —
-	// `kind: detail` declared in workflow.yaml is. The constant is
-	// retained only because the new-task draft creation flow still
-	// pushes the built-in TaskEditView (which sits next to
-	// TaskDetailView in the file tree) and a few `Edit source`/agent-chat
-	// branches still target the built-in view. New code should push the
-	// configurable detail view via DetailPluginViewID instead.
-	TaskDetailViewID ViewID = "task_detail"
-
 	// TaskEditViewID identifies the built-in task edit view. Retained
-	// reason (Phase 3): the `n` (new-task) flow still uses this view to
-	// host a draft tiki being created, since the configurable detail
-	// view does not yet support drafts. Edit-of-existing flows have
-	// migrated to in-place edit mode on the configurable detail view.
+	// reason: the `n` (new-task) flow uses this view to host a draft
+	// tiki being created, since the configurable detail view does not
+	// support drafts. Edit-of-existing flows have migrated to in-place
+	// edit mode on the configurable detail view.
 	TaskEditViewID ViewID = "task_edit"
 
 	PluginViewIDPrefix ViewID = "plugin:" // Prefix for plugin views
@@ -48,9 +38,6 @@ func DetailPluginViewID() ViewID {
 
 // built-in view names and descriptions for the header info section
 const (
-	TaskDetailViewName = "Tiki Detail"
-	TaskDetailViewDesc = "tiki overview. Quick edit, edit dependencies, tags or edit source file"
-
 	TaskEditViewName = "Task Edit"
 	TaskEditViewDesc = "Cycle through fields to edit title, status, priority and other"
 

@@ -1,6 +1,11 @@
 package model
 
-import "testing"
+import (
+	"reflect"
+	"testing"
+
+	tikipkg "github.com/boolean-maybe/tiki/tiki"
+)
 
 func TestNextField(t *testing.T) {
 	tests := []struct {
@@ -15,7 +20,8 @@ func TestNextField(t *testing.T) {
 		{"Points to Assignee", EditFieldPoints, EditFieldAssignee},
 		{"Assignee to Due", EditFieldAssignee, EditFieldDue},
 		{"Due to Recurrence", EditFieldDue, EditFieldRecurrence},
-		{"Recurrence to Description", EditFieldRecurrence, EditFieldDescription},
+		{"Recurrence to Tags", EditFieldRecurrence, EditFieldTags},
+		{"Tags to Description", EditFieldTags, EditFieldDescription},
 		{"Description stays at Description (no wrap)", EditFieldDescription, EditFieldDescription},
 		{"Unknown field defaults to Title", EditField("unknown"), EditFieldTitle},
 	}
@@ -44,7 +50,8 @@ func TestPrevField(t *testing.T) {
 		{"Assignee to Points", EditFieldAssignee, EditFieldPoints},
 		{"Due to Assignee", EditFieldDue, EditFieldAssignee},
 		{"Recurrence to Due", EditFieldRecurrence, EditFieldDue},
-		{"Description to Recurrence", EditFieldDescription, EditFieldRecurrence},
+		{"Tags to Recurrence", EditFieldTags, EditFieldRecurrence},
+		{"Description to Tags", EditFieldDescription, EditFieldTags},
 		{"Unknown field defaults to Title", EditField("unknown"), EditFieldTitle},
 	}
 
@@ -59,7 +66,6 @@ func TestPrevField(t *testing.T) {
 }
 
 func TestFieldCycling(t *testing.T) {
-	// Test complete forward navigation (stops at end, no wrap)
 	field := EditFieldTitle
 	expectedOrder := []EditField{
 		EditFieldStatus,
@@ -69,8 +75,9 @@ func TestFieldCycling(t *testing.T) {
 		EditFieldAssignee,
 		EditFieldDue,
 		EditFieldRecurrence,
+		EditFieldTags,
 		EditFieldDescription,
-		EditFieldDescription, // stays at end
+		EditFieldDescription,
 	}
 
 	for i, expected := range expectedOrder {
@@ -80,9 +87,9 @@ func TestFieldCycling(t *testing.T) {
 		}
 	}
 
-	// Test complete backward navigation (stops at beginning, no wrap)
 	field = EditFieldDescription
 	expectedOrderReverse := []EditField{
+		EditFieldTags,
 		EditFieldRecurrence,
 		EditFieldDue,
 		EditFieldAssignee,
@@ -91,7 +98,7 @@ func TestFieldCycling(t *testing.T) {
 		EditFieldType,
 		EditFieldStatus,
 		EditFieldTitle,
-		EditFieldTitle, // stays at beginning
+		EditFieldTitle,
 	}
 
 	for i, expected := range expectedOrderReverse {
@@ -113,7 +120,8 @@ func TestNextFieldSkipping(t *testing.T) {
 	}{
 		{"assignee skips due to recurrence", EditFieldAssignee, skipDue, EditFieldRecurrence},
 		{"due itself not relevant (would not be focused)", EditFieldDue, skipDue, EditFieldRecurrence},
-		{"recurrence to description (no skip)", EditFieldRecurrence, skipDue, EditFieldDescription},
+		{"recurrence to tags (no skip)", EditFieldRecurrence, skipDue, EditFieldTags},
+		{"tags to description", EditFieldTags, skipDue, EditFieldDescription},
 		{"description stays (end of list)", EditFieldDescription, skipDue, EditFieldDescription},
 		{"title to status (no skip involved)", EditFieldTitle, skipDue, EditFieldStatus},
 	}
@@ -159,13 +167,16 @@ func TestIsEditableField(t *testing.T) {
 		expected bool
 	}{
 		{"Title is editable", EditFieldTitle, true},
-		{"Status is not editable yet", EditFieldStatus, false},
+		{"Status is editable", EditFieldStatus, true},
+		{"Type is editable", EditFieldType, true},
 		{"Priority is editable", EditFieldPriority, true},
 		{"Assignee is editable", EditFieldAssignee, true},
 		{"Points is editable", EditFieldPoints, true},
 		{"Due is editable", EditFieldDue, true},
 		{"Recurrence is editable", EditFieldRecurrence, true},
+		{"Tags is editable", EditFieldTags, true},
 		{"Description is editable", EditFieldDescription, true},
+		{"Unknown field is not editable", EditField("bogus"), false},
 	}
 
 	for _, tt := range tests {
@@ -191,6 +202,7 @@ func TestFieldLabel(t *testing.T) {
 		{"Points label", EditFieldPoints, "Story Points"},
 		{"Due label", EditFieldDue, "Due"},
 		{"Recurrence label", EditFieldRecurrence, "Recurrence"},
+		{"Tags label", EditFieldTags, "Tags"},
 		{"Description label", EditFieldDescription, "Description"},
 	}
 
@@ -199,6 +211,86 @@ func TestFieldLabel(t *testing.T) {
 			result := FieldLabel(tt.field)
 			if result != tt.expected {
 				t.Errorf("FieldLabel(%v) = %v, want %v", tt.field, result, tt.expected)
+			}
+		})
+	}
+}
+
+func TestMetadataToEditFieldOrder(t *testing.T) {
+	tests := []struct {
+		name     string
+		metadata []string
+		expected []EditField
+	}{
+		{
+			name:     "default 8-item metadata",
+			metadata: []string{tikipkg.FieldStatus, tikipkg.FieldType, tikipkg.FieldPriority, tikipkg.FieldPoints, tikipkg.FieldAssignee, tikipkg.FieldDue, tikipkg.FieldRecurrence, tikipkg.FieldTags},
+			expected: []EditField{EditFieldStatus, EditFieldType, EditFieldPriority, EditFieldPoints, EditFieldAssignee, EditFieldDue, EditFieldRecurrence, EditFieldTags},
+		},
+		{
+			name:     "subset preserves order",
+			metadata: []string{tikipkg.FieldStatus, tikipkg.FieldTags},
+			expected: []EditField{EditFieldStatus, EditFieldTags},
+		},
+		{
+			name:     "read-only descriptors are skipped",
+			metadata: []string{tikipkg.FieldStatus, "createdBy", "createdAt", "updatedAt", tikipkg.FieldType},
+			expected: []EditField{EditFieldStatus, EditFieldType},
+		},
+		{
+			name:     "empty input → empty output",
+			metadata: nil,
+			expected: []EditField{},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := MetadataToEditFieldOrder(tt.metadata)
+			if !reflect.DeepEqual(got, tt.expected) {
+				t.Errorf("MetadataToEditFieldOrder(%v) = %v, want %v", tt.metadata, got, tt.expected)
+			}
+		})
+	}
+}
+
+func TestNextFieldInOrder_RespectsCustomOrder(t *testing.T) {
+	custom := []EditField{EditFieldTitle, EditFieldTags, EditFieldDescription}
+	tests := []struct {
+		name     string
+		current  EditField
+		expected EditField
+	}{
+		{"Title to Tags (custom order)", EditFieldTitle, EditFieldTags},
+		{"Tags to Description (custom order)", EditFieldTags, EditFieldDescription},
+		{"Description stays at Description", EditFieldDescription, EditFieldDescription},
+		{"Status not in custom order falls back to first", EditFieldStatus, EditFieldTitle},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := NextFieldInOrder(tt.current, custom, nil)
+			if got != tt.expected {
+				t.Errorf("NextFieldInOrder(%v, custom) = %v, want %v", tt.current, got, tt.expected)
+			}
+		})
+	}
+}
+
+func TestPrevFieldInOrder_RespectsCustomOrder(t *testing.T) {
+	custom := []EditField{EditFieldTitle, EditFieldTags, EditFieldDescription}
+	tests := []struct {
+		name     string
+		current  EditField
+		expected EditField
+	}{
+		{"Description to Tags (custom order)", EditFieldDescription, EditFieldTags},
+		{"Tags to Title (custom order)", EditFieldTags, EditFieldTitle},
+		{"Title stays at Title", EditFieldTitle, EditFieldTitle},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := PrevFieldInOrder(tt.current, custom, nil)
+			if got != tt.expected {
+				t.Errorf("PrevFieldInOrder(%v, custom) = %v, want %v", tt.current, got, tt.expected)
 			}
 		})
 	}

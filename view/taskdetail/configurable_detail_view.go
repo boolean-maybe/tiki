@@ -21,15 +21,19 @@ import (
 // (`metadata:` from workflow.yaml) plus the always-present title and
 // description sections.
 //
-// This view is the Phase 1 replacement for the old "kind: detail = render
-// selected markdown" behavior. It shares the markdown description renderer
-// with the legacy TaskDetailView so wikilink and image handling stay
-// consistent.
+// The metadata box has a fixed shape: empty row + title + empty row +
+// 4-row grid body + empty row, framed by a border. Configured fields are
+// packed into columns of up to 4 rows each, in declaration order. Single-
+// row fields (status/type/priority/...) yield up to 4 fields per column;
+// multi-row fields (tags via WordList wrapping, depends-on via TaskList)
+// consume more rows in their column. Heights are clamped to the 4-row
+// budget by the grid algorithm.
 //
-// Phase 2 added in-place edit mode: the same view is reused by toggling
-// editMode, which swaps the read-only metadata renderer for editor widgets
-// driven by the field-registry. Tab traversal walks editable metadata
-// fields in `metadata:` order (skipping stubs and read-only fields).
+// In-place edit mode toggles a per-field editor for editable metadata
+// fields. Editors come from the field registry (status / type / priority /
+// points / assignee / due / recurrence / tags). Read-only descriptors and
+// fields without an implemented editor render their read-only primitive
+// even in edit mode, matching the "render but skip in traversal" rule.
 type ConfigurableDetailView struct {
 	Base
 
@@ -187,13 +191,9 @@ func (cv *ConfigurableDetailView) refresh() {
 
 	if !cv.fullscreen {
 		metadataBox := cv.buildMetadataBox(tk, colors)
-		// Frame layout: top border + top padding(1) + title(1) + spacer(1)
-		// + N rows + bottom border = N + 5. Must match buildMetadataBox.
-		height := 5 + len(cv.metadata)
-		if height < 6 {
-			height = 6
-		}
-		cv.content.AddItem(metadataBox, height, 0, false)
+		// Fixed shape: 2 borders + 1 top padding + title(1) + spacer(1) +
+		// grid(4) + spacer(1) = 10 outer rows.
+		cv.content.AddItem(metadataBox, metadataBoxHeight, 0, false)
 	}
 
 	descPrimitive := cv.buildDescription(tk)
@@ -229,31 +229,34 @@ func (cv *ConfigurableDetailView) focusActiveEditor() {
 	}
 }
 
+// metadataBoxHeight is the fixed outer height of the framed metadata box.
+// Layout: 1 top border + 1 top padding + title(1) + spacer(1) + grid(4) +
+// spacer(1) + 1 bottom border = 10.
+const metadataBoxHeight = 10
+
 // buildMetadataBox assembles the title row and configured metadata fields
-// into a framed box. Phase 1 stacks fields vertically — a future pass may
-// reuse the responsive multi-column layout once we know which fields the
-// user actually configured.
+// into a framed box of fixed shape. Configured fields flow into the 4-row
+// grid body via the gridContainer primitive. The title row sits above the
+// grid; trailing spacer is absorbed by the frame's bottom padding.
 //
-// When editMode is true, each metadata row is rendered through the field
-// registry's editor factory if one exists; the focused row receives focus
-// via focusActiveEditor. Stub or read-only fields render the standard
-// read-only row even in edit mode, matching the plan's "render but skip in
-// traversal" requirement.
+// In edit mode, fields whose registry advertises EditorImplemented receive
+// a focusable editor primitive (cached on cv.editors so user input
+// survives a refresh); other fields render their read-only primitive even
+// in edit mode.
 func (cv *ConfigurableDetailView) buildMetadataBox(tk *tikipkg.Tiki, colors *config.ColorConfig) *tview.Frame {
 	mode := RenderModeView
 	if cv.editMode {
 		mode = RenderModeEdit
 	}
-	ctx := FieldRenderContext{Mode: mode, Colors: colors}
+	ctx := FieldRenderContext{Mode: mode, Colors: colors, Store: cv.taskStore}
+
+	gridFields, primitives := cv.buildGridFieldsAndPrimitives(tk, ctx)
 
 	container := tview.NewFlex().SetDirection(tview.FlexRow)
 	container.AddItem(RenderTitleText(tk, ctx), 1, 0, false)
 	container.AddItem(tview.NewBox(), 1, 0, false)
-
-	for i, name := range cv.metadata {
-		row := cv.buildMetadataRow(i, name, tk, ctx)
-		container.AddItem(row, 1, 0, false)
-	}
+	container.AddItem(newGridContainer(gridFields, primitives), rowsPerColumn, 0, false)
+	container.AddItem(tview.NewBox(), 1, 0, false)
 
 	frame := tview.NewFrame(container).SetBorders(0, 0, 0, 0, 0, 0)
 	frame.SetBorder(true).SetTitle(
@@ -263,13 +266,34 @@ func (cv *ConfigurableDetailView) buildMetadataBox(tk *tikipkg.Tiki, colors *con
 	return frame
 }
 
-// buildMetadataRow returns the widget for a metadata field. In view mode
+// buildGridFieldsAndPrimitives produces the (fields, primitives) pair the
+// gridContainer consumes. Each field's HeightAt closure resolves through
+// FieldHeight against the registry's per-semantic HeightFn. Each primitive
+// is the renderer (view mode / no editor / non-focused field) or the cached
+// editor (edit mode + focused + editable).
+func (cv *ConfigurableDetailView) buildGridFieldsAndPrimitives(tk *tikipkg.Tiki, ctx FieldRenderContext) ([]GridField, map[string]tview.Primitive) {
+	fields := make([]GridField, 0, len(cv.metadata))
+	primitives := make(map[string]tview.Primitive, len(cv.metadata))
+	for i, name := range cv.metadata {
+		captured := name
+		fields = append(fields, GridField{
+			Name: captured,
+			HeightAt: func(width int) int {
+				return FieldHeight(captured, tk, width)
+			},
+		})
+		primitives[name] = cv.buildFieldPrimitive(i, name, tk, ctx)
+	}
+	return fields, primitives
+}
+
+// buildFieldPrimitive returns the widget for a metadata field. In view mode
 // (or for fields with no editor) this is the field-registry's read-only
-// renderer. In edit mode for fields with implemented editors it returns a
-// cached or freshly-created editor widget. Editor widgets are cached
-// per-field for the lifetime of edit mode so user input isn't lost when
-// other rows trigger a refresh.
-func (cv *ConfigurableDetailView) buildMetadataRow(idx int, name string, tk *tikipkg.Tiki, ctx FieldRenderContext) tview.Primitive {
+// renderer. In edit mode for fields with implemented editors and the
+// matching focused index, it returns a cached or freshly-created editor
+// widget. Editor widgets are cached per-field for the lifetime of edit mode
+// so user input isn't lost when other rows trigger a refresh.
+func (cv *ConfigurableDetailView) buildFieldPrimitive(idx int, name string, tk *tikipkg.Tiki, ctx FieldRenderContext) tview.Primitive {
 	if !cv.editMode {
 		return renderConfiguredField(name, tk, ctx)
 	}
@@ -280,6 +304,11 @@ func (cv *ConfigurableDetailView) buildMetadataRow(idx int, name string, tk *tik
 	if fd, ok := LookupField(name); ok {
 		rowCtx.FocusedField = fd.EditField
 	}
+	if idx != cv.focusedIdx {
+		// edit mode but not the focused field — render read-only with the
+		// edit-mode dim color treatment so the focused field still stands out.
+		return renderConfiguredField(name, tk, rowCtx)
+	}
 	if w, ok := cv.editors[name]; ok && w != nil {
 		return w
 	}
@@ -288,7 +317,6 @@ func (cv *ConfigurableDetailView) buildMetadataRow(idx int, name string, tk *tik
 		return renderConfiguredField(name, tk, ctx)
 	}
 	cv.editors[name] = w
-	_ = idx
 	return w
 }
 
@@ -473,6 +501,14 @@ func (cv *ConfigurableDetailView) GetFocusedFieldName() string {
 		return ""
 	}
 	return cv.metadata[cv.focusedIdx]
+}
+
+// Metadata returns the configured metadata field list. Exposed so the
+// input router can copy it into TaskEditParams when the user opens the
+// edit view from this detail view, preserving the same field set across
+// the view-edit transition.
+func (cv *ConfigurableDetailView) Metadata() []string {
+	return cv.metadata
 }
 
 // IsEditFieldFocused reports whether any of the current edit-mode editor

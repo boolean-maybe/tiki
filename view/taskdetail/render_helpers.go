@@ -10,7 +10,6 @@ import (
 	taskpkg "github.com/boolean-maybe/tiki/task"
 	tikipkg "github.com/boolean-maybe/tiki/tiki"
 
-	"github.com/gdamore/tcell/v2"
 	"github.com/rivo/tview"
 )
 
@@ -25,11 +24,14 @@ const (
 // FieldRenderContext provides context for rendering field primitives.
 // FieldName is set by renderConfiguredField so generic renderers can
 // resolve the descriptor and avoid hardcoding the field they target.
+// Store is set once per refresh by the host view so list renderers can
+// resolve dependency tikis without globals.
 type FieldRenderContext struct {
 	Mode         RenderMode
 	FocusedField model.EditField
 	Colors       *config.ColorConfig
 	FieldName    string
+	Store        store.Store
 }
 
 // getDimOrFullColor returns dim color if in edit mode and not focused, otherwise full color
@@ -189,21 +191,23 @@ func RenderTagsColumn(tk *tikipkg.Tiki) tview.Primitive {
 	return col
 }
 
-// RenderDependsOnColumn renders the "Depends On" column showing upstream dependencies.
-// Returns nil when the task has no dependencies, so the caller can skip adding it.
+// RenderDependsOnColumn renders the "Depends On" column showing upstream
+// dependencies. Returns nil when the task has no dependencies. Unresolved
+// IDs (declared but not in the store) render as placeholder rows carrying
+// the raw ID as a synthetic tiki — keeps the rendered row count in lockstep
+// with the height contract so the grid algorithm doesn't reserve dead rows.
 func RenderDependsOnColumn(tk *tikipkg.Tiki, taskStore store.Store) tview.Primitive {
 	deps, _, _ := tk.StringSliceField(tikipkg.FieldDependsOn)
 	if len(deps) == 0 {
 		return nil
 	}
-	var resolved []*tikipkg.Tiki
+	rendered := make([]*tikipkg.Tiki, 0, len(deps))
 	for _, id := range deps {
 		if dep := taskStore.GetTiki(id); dep != nil {
-			resolved = append(resolved, dep)
+			rendered = append(rendered, dep)
+			continue
 		}
-	}
-	if len(resolved) == 0 {
-		return nil
+		rendered = append(rendered, &tikipkg.Tiki{ID: id, Title: "(unresolved)"})
 	}
 
 	colors := config.GetColors()
@@ -213,7 +217,7 @@ func RenderDependsOnColumn(tk *tikipkg.Tiki, taskStore store.Store) tview.Primit
 	col := tview.NewFlex().SetDirection(tview.FlexRow)
 	col.SetBorderPadding(0, 0, 1, 1)
 	col.AddItem(label, 1, 0, false)
-	col.AddItem(component.NewTaskList(config.TaskListMetadataMaxRows).SetTasks(resolved), 0, 1, false)
+	col.AddItem(component.NewTaskList(config.TaskListMetadataMaxRows).SetTasks(rendered), 0, 1, false)
 	return col
 }
 
@@ -269,83 +273,6 @@ func RenderUpdatedText(tk *tikipkg.Tiki, colors *config.ColorConfig) tview.Primi
 	view := tview.NewTextView().SetDynamicColors(true).SetText(text)
 	view.SetBorderPadding(0, 0, 0, 0)
 	return view
-}
-
-// responsiveMetadataRow is a tview.Flex that recalculates its layout when the
-// terminal width changes, using the pure CalculateMetadataLayout algorithm.
-type responsiveMetadataRow struct {
-	*tview.Flex
-	lastWidth  int
-	inputs     []SectionInput
-	primitives map[SectionID]tview.Primitive
-}
-
-// newResponsiveMetadataRow creates a responsive row from section inputs and their
-// pre-rendered primitives.
-func newResponsiveMetadataRow(inputs []SectionInput, primitives map[SectionID]tview.Primitive) *responsiveMetadataRow {
-	r := &responsiveMetadataRow{
-		Flex:       tview.NewFlex().SetDirection(tview.FlexColumn),
-		inputs:     inputs,
-		primitives: primitives,
-	}
-	return r
-}
-
-// Draw overrides Flex.Draw to detect width changes and rebuild the layout.
-func (r *responsiveMetadataRow) Draw(screen tcell.Screen) {
-	_, _, width, _ := r.GetRect()
-	if width != r.lastWidth {
-		r.rebuild(width)
-	}
-	r.Flex.Draw(screen)
-}
-
-func (r *responsiveMetadataRow) rebuild(width int) {
-	r.lastWidth = width
-	r.Clear()
-
-	plan := CalculateMetadataLayout(width, r.inputs)
-	for i, s := range plan.Sections {
-		p, ok := r.primitives[s.ID]
-		if !ok || p == nil {
-			p = tview.NewBox()
-		}
-		r.AddItem(p, s.Width, 0, false)
-		if i < len(plan.Gaps) {
-			r.AddItem(tview.NewBox(), plan.Gaps[i], 0, false)
-		}
-	}
-}
-
-// tagsMinWidth computes the minimum width for the Tags section based on the
-// longest individual tag. Since WordList wraps tags across multiple rows, the
-// true minimum is the width of the widest tag (or the "Tags" label, whichever
-// is larger), with a floor of 5 to avoid degenerate layouts.
-func tagsMinWidth(tags []string) int {
-	const label = "Tags"
-	const floor = 7
-	longest := len(label)
-	for _, tag := range tags {
-		if len(tag) > longest {
-			longest = len(tag)
-		}
-	}
-	return max(longest, floor)
-}
-
-// BuildSectionInputs creates the standard section input list for a tiki,
-// using the constants from config/dimensions.go.
-func BuildSectionInputs(tk *tikipkg.Tiki, hasBlocks bool) []SectionInput {
-	tags, _, _ := tk.StringSliceField(tikipkg.FieldTags)
-	deps, _, _ := tk.StringSliceField(tikipkg.FieldDependsOn)
-	return []SectionInput{
-		{ID: SectionStatusGroup, Width: config.MetadataSectionMinWidth, HasContent: true},
-		{ID: SectionPeopleGroup, Width: config.MetadataSectionMinWidth, HasContent: true},
-		{ID: SectionDueGroup, Width: config.MetadataSectionMinWidth, HasContent: true},
-		{ID: SectionTags, Width: tagsMinWidth(tags), HasContent: len(tags) > 0},
-		{ID: SectionDependsOn, Width: config.MetadataDepMinWidth, HasContent: len(deps) > 0},
-		{ID: SectionBlocks, Width: config.MetadataBlkMinWidth, HasContent: hasBlocks},
-	}
 }
 
 // RenderDueText renders the due date field

@@ -29,6 +29,7 @@ func LoadPlugins(schema ruki.Schema) ([]plugin.Plugin, []plugin.PluginAction, er
 // from loaded plugin activation keys.
 func InitPluginActionRegistry(plugins []plugin.Plugin) {
 	pluginInfos := make([]controller.PluginInfo, 0, len(plugins))
+	detailViewIDs := make(map[model.ViewID]struct{})
 	for _, p := range plugins {
 		pk, pr, pm := p.GetActivationKey()
 		pluginInfos = append(pluginInfos, controller.PluginInfo{
@@ -40,8 +41,18 @@ func InitPluginActionRegistry(plugins []plugin.Plugin) {
 			// honors it (6B.15).
 			Require: p.GetRequire(),
 		})
+		if p.GetKind() == plugin.KindDetail {
+			detailViewIDs[model.MakePluginViewID(p.GetName())] = struct{}{}
+		}
 	}
 	controller.InitPluginActions(pluginInfos)
+	// Successor to the legacy `viewID == TaskDetailViewID` comparison: the
+	// controller package can't depend on plugin, so bootstrap installs a
+	// predicate that recognizes any `kind: detail` plugin's view id.
+	controller.SetDetailViewIDPredicate(func(id model.ViewID) bool {
+		_, ok := detailViewIDs[id]
+		return ok
+	})
 }
 
 // BuildPluginConfigsAndDefs builds per-plugin configs and a name->definition map

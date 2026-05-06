@@ -62,6 +62,7 @@ func (f *fakeDetailEditView) SetEditFieldChangeHandler(name string, h func(strin
 	}
 	f.fieldHandlers[name] = h
 }
+func (f *fakeDetailEditView) Metadata() []string { return []string{"status", "type", "priority"} }
 
 // newDetailEditTestRig wires a TaskController, mutation gate, store, and a
 // committed test tiki so DetailController edit-mode lifecycles can be

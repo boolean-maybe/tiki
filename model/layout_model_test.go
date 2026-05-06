@@ -31,10 +31,10 @@ func TestLayoutModel_SetContent(t *testing.T) {
 	lm := NewLayoutModel()
 
 	// Set content with nil params
-	lm.SetContent(TaskDetailViewID, nil)
+	lm.SetContent(MakePluginViewID("Detail"), nil)
 
-	if lm.GetContentViewID() != TaskDetailViewID {
-		t.Errorf("GetContentViewID() = %q, want %q", lm.GetContentViewID(), TaskDetailViewID)
+	if lm.GetContentViewID() != MakePluginViewID("Detail") {
+		t.Errorf("GetContentViewID() = %q, want %q", lm.GetContentViewID(), MakePluginViewID("Detail"))
 	}
 
 	if lm.GetContentParams() != nil {
@@ -47,10 +47,10 @@ func TestLayoutModel_SetContent(t *testing.T) {
 
 	// Set content with params
 	params := map[string]any{"taskID": "TIKI-1", "index": 42}
-	lm.SetContent(TaskDetailViewID, params)
+	lm.SetContent(MakePluginViewID("Detail"), params)
 
-	if lm.GetContentViewID() != TaskDetailViewID {
-		t.Errorf("GetContentViewID() = %q, want %q", lm.GetContentViewID(), TaskDetailViewID)
+	if lm.GetContentViewID() != MakePluginViewID("Detail") {
+		t.Errorf("GetContentViewID() = %q, want %q", lm.GetContentViewID(), MakePluginViewID("Detail"))
 	}
 
 	gotParams := lm.GetContentParams()
@@ -75,7 +75,7 @@ func TestLayoutModel_Touch(t *testing.T) {
 	lm := NewLayoutModel()
 
 	// Set initial content
-	lm.SetContent(TaskDetailViewID, map[string]any{"foo": "bar"})
+	lm.SetContent(MakePluginViewID("Detail"), map[string]any{"foo": "bar"})
 	initialRevision := lm.GetRevision()
 
 	// Touch should increment revision without changing content
@@ -86,9 +86,9 @@ func TestLayoutModel_Touch(t *testing.T) {
 	}
 
 	// ViewID and params should be unchanged
-	if lm.GetContentViewID() != TaskDetailViewID {
+	if lm.GetContentViewID() != MakePluginViewID("Detail") {
 		t.Errorf("GetContentViewID() changed after Touch = %q, want %q",
-			lm.GetContentViewID(), TaskDetailViewID)
+			lm.GetContentViewID(), MakePluginViewID("Detail"))
 	}
 
 	gotParams := lm.GetContentParams()
@@ -118,7 +118,7 @@ func TestLayoutModel_ListenerNotification(t *testing.T) {
 	listenerID := lm.AddListener(listener)
 
 	// SetContent should notify
-	lm.SetContent(TaskDetailViewID, nil)
+	lm.SetContent(MakePluginViewID("Detail"), nil)
 
 	// Give listener time to execute
 	time.Sleep(10 * time.Millisecond)
@@ -142,7 +142,7 @@ func TestLayoutModel_ListenerNotification(t *testing.T) {
 
 	// Should not be called anymore
 	called = false
-	lm.SetContent(TaskDetailViewID, nil)
+	lm.SetContent(MakePluginViewID("Detail"), nil)
 
 	time.Sleep(10 * time.Millisecond)
 
@@ -180,7 +180,7 @@ func TestLayoutModel_MultipleListeners(t *testing.T) {
 	id3 := lm.AddListener(listener3)
 
 	// All should be notified
-	lm.SetContent(TaskDetailViewID, nil)
+	lm.SetContent(MakePluginViewID("Detail"), nil)
 
 	time.Sleep(10 * time.Millisecond)
 
@@ -227,7 +227,7 @@ func TestLayoutModel_RevisionMonotonicity(t *testing.T) {
 	revisions := make([]uint64, 0, 100)
 
 	for range 100 {
-		lm.SetContent(TaskDetailViewID, nil)
+		lm.SetContent(MakePluginViewID("Detail"), nil)
 		revisions = append(revisions, lm.GetRevision())
 	}
 
@@ -248,7 +248,7 @@ func TestLayoutModel_ParamsIsolation(t *testing.T) {
 		"key1": "value1",
 		"key2": 42,
 	}
-	lm.SetContent(TaskDetailViewID, originalParams)
+	lm.SetContent(MakePluginViewID("Detail"), originalParams)
 
 	// Get params
 	gotParams := lm.GetContentParams()
@@ -277,7 +277,7 @@ func TestLayoutModel_ConcurrentAccess(t *testing.T) {
 	go func() {
 		for i := range 100 {
 			params := map[string]any{"index": i}
-			lm.SetContent(TaskDetailViewID, params)
+			lm.SetContent(MakePluginViewID("Detail"), params)
 			lm.Touch()
 		}
 		done <- true
@@ -357,7 +357,7 @@ func TestLayoutModel_RemoveNonexistentListener(t *testing.T) {
 	lm.RemoveListener(0)
 
 	// Should still work normally after
-	lm.SetContent(TaskDetailViewID, nil)
+	lm.SetContent(MakePluginViewID("Detail"), nil)
 	if lm.GetRevision() != 1 {
 		t.Error("model not working after removing non-existent listeners")
 	}

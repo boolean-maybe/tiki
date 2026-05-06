@@ -212,8 +212,6 @@ func (ir *InputRouter) HandleInput(event *tcell.EventKey, currentView *ViewEntry
 
 	// route to view-specific controller
 	switch currentView.ViewID {
-	case model.TaskDetailViewID:
-		return ir.handleTaskInput(event, currentView.Params)
 	case model.TaskEditViewID:
 		return ir.handleTaskEditInput(event, currentView.Params)
 	default:
@@ -357,7 +355,7 @@ func (ir *InputRouter) SetPluginRegistrar(fn func(name string, cfg *model.Plugin
 // uses it as the preferred return target so a workflow with multiple
 // kind: detail views or a renamed detail view sends Enter back to the
 // caller, not to a hardcoded "Detail".
-func (ir *InputRouter) openDepsEditor(taskID, sourceDetailViewName string) bool {
+func (ir *InputRouter) openDepsEditor(taskID, sourceDetailViewName string) {
 	name := "Dependency:" + taskID
 	viewID := model.MakePluginViewID(name)
 
@@ -372,7 +370,7 @@ func (ir *InputRouter) openDepsEditor(taskID, sourceDetailViewName string) bool 
 			dc.SetDetailViewResolver(ir.makeDetailViewResolver(sourceDetailViewName))
 		}
 		ir.navController.PushView(viewID, nil)
-		return true
+		return
 	}
 
 	pluginDef := &plugin.TikiPlugin{
@@ -410,7 +408,6 @@ func (ir *InputRouter) openDepsEditor(taskID, sourceDetailViewName string) bool 
 	ir.pluginControllers[name] = ctrl
 
 	ir.navController.PushView(viewID, nil)
-	return true
 }
 
 // makeDetailViewResolver returns a closure that picks the configurable
@@ -521,7 +518,8 @@ func (ir *InputRouter) dispatchDetailViewSharedAction(id ActionID, currentView *
 		// here, not to a hardcoded "Detail" plugin (handles renamed
 		// or multiple kind: detail views correctly).
 		sourceName := model.GetPluginName(currentView.ViewID)
-		return ir.openDepsEditor(taskID, sourceName), true
+		ir.openDepsEditor(taskID, sourceName)
+		return true, true
 	case ActionChat:
 		return ir.runChatForTask(taskID), true
 	case ActionEditSource:
@@ -647,13 +645,6 @@ func (ir *InputRouter) HandleAction(id ActionID, currentView *ViewEntry) bool {
 	}
 
 	switch currentView.ViewID {
-	case model.TaskDetailViewID:
-		taskID := model.DecodeTaskDetailParams(currentView.Params).TaskID
-		if taskID != "" {
-			ir.taskController.SetCurrentTask(taskID)
-		}
-		return ir.dispatchTaskAction(id, currentView.Params)
-
 	case model.TaskEditViewID:
 		if activeView != nil {
 			ir.taskEditCoord.Prepare(activeView, model.DecodeTaskEditParams(currentView.Params))
@@ -665,91 +656,6 @@ func (ir *InputRouter) HandleAction(id ActionID, currentView *ViewEntry) bool {
 			return ir.dispatchPluginAction(id, currentView.ViewID)
 		}
 		return false
-	}
-}
-
-// dispatchTaskAction handles palette-dispatched task detail actions by ActionID.
-func (ir *InputRouter) dispatchTaskAction(id ActionID, _ map[string]interface{}) bool {
-	switch id {
-	case ActionEditTitle:
-		taskID := ir.taskController.GetCurrentTaskID()
-		if taskID == "" {
-			return false
-		}
-		ir.navController.PushView(model.TaskEditViewID, model.EncodeTaskEditParams(model.TaskEditParams{
-			TaskID: taskID,
-			Focus:  model.EditFieldTitle,
-		}))
-		return true
-	case ActionFullscreen:
-		activeView := ir.navController.GetActiveView()
-		if fullscreenView, ok := activeView.(FullscreenView); ok {
-			if fullscreenView.IsFullscreen() {
-				fullscreenView.ExitFullscreen()
-			} else {
-				fullscreenView.EnterFullscreen()
-			}
-			return true
-		}
-		return false
-	case ActionEditDesc:
-		taskID := ir.taskController.GetCurrentTaskID()
-		if taskID == "" {
-			return false
-		}
-		ir.navController.PushView(model.TaskEditViewID, model.EncodeTaskEditParams(model.TaskEditParams{
-			TaskID:   taskID,
-			Focus:    model.EditFieldDescription,
-			DescOnly: true,
-		}))
-		return true
-	case ActionEditTags:
-		taskID := ir.taskController.GetCurrentTaskID()
-		if taskID == "" {
-			return false
-		}
-		ir.navController.PushView(model.TaskEditViewID, model.EncodeTaskEditParams(model.TaskEditParams{
-			TaskID:   taskID,
-			TagsOnly: true,
-		}))
-		return true
-	case ActionEditDeps:
-		taskID := ir.taskController.GetCurrentTaskID()
-		if taskID == "" {
-			return false
-		}
-		// Legacy task-detail entry point: no source detail plugin name
-		// to carry, so the resolver falls back to any kind: detail
-		// plugin loaded from workflow.yaml.
-		return ir.openDepsEditor(taskID, "")
-	case ActionChat:
-		agent := config.GetAIAgent()
-		if agent == "" {
-			return false
-		}
-		taskID := ir.taskController.GetCurrentTaskID()
-		if taskID == "" {
-			return false
-		}
-		taskFilePath := ir.taskStore.PathForID(taskID)
-		if taskFilePath == "" {
-			// Unknown to the store — fall back to the id-derived default so
-			// the chat agent still gets a plausible target path.
-			taskFilePath = filepath.Join(config.GetDocDir(), taskID+".md")
-		}
-		name, args := resolveAgentCommand(agent, taskFilePath)
-		ir.navController.SuspendAndRun(name, args...)
-		// Surface reload errors — the chat agent may have edited the file
-		// into a state the strict loader refuses (id collision, invalid
-		// type, …) and the user needs to know instead of seeing stale data.
-		if err := ir.taskStore.ReloadTask(taskID); err != nil && ir.statusline != nil {
-			ir.statusline.SetMessage("reload failed: "+err.Error(), model.MessageLevelError, true)
-		}
-		return true
-	case ActionCloneTask:
-		return ir.taskController.HandleAction(id)
-	default:
-		return ir.taskController.HandleAction(id)
 	}
 }
 
@@ -1003,101 +909,6 @@ func (ir *InputRouter) handleSearchInput(ctrl interface{ HandleSearch(string) })
 	}
 
 	return true
-}
-
-// handleTaskInput routes input to the task controller
-func (ir *InputRouter) handleTaskInput(event *tcell.EventKey, params map[string]interface{}) bool {
-	// set current task from params
-	taskID := model.DecodeTaskDetailParams(params).TaskID
-	if taskID != "" {
-		ir.taskController.SetCurrentTask(taskID)
-	}
-
-	registry := ir.navController.GetActiveView().GetActionRegistry()
-	if action := registry.Match(event); action != nil {
-		currentView := ir.navController.CurrentView()
-		activeView := ir.navController.GetActiveView()
-		ctx := BuildAppContext(currentView, activeView)
-		if !ActionEnabled(*action, ctx) {
-			return false
-		}
-		switch action.ID {
-		case ActionEditTitle:
-			taskID := ir.taskController.GetCurrentTaskID()
-			if taskID == "" {
-				return false
-			}
-
-			ir.navController.PushView(model.TaskEditViewID, model.EncodeTaskEditParams(model.TaskEditParams{
-				TaskID: taskID,
-				Focus:  model.EditFieldTitle,
-			}))
-			return true
-		case ActionFullscreen:
-			activeView := ir.navController.GetActiveView()
-			if fullscreenView, ok := activeView.(FullscreenView); ok {
-				if fullscreenView.IsFullscreen() {
-					fullscreenView.ExitFullscreen()
-				} else {
-					fullscreenView.EnterFullscreen()
-				}
-				return true
-			}
-			return false
-		case ActionEditDesc:
-			taskID := ir.taskController.GetCurrentTaskID()
-			if taskID == "" {
-				return false
-			}
-			ir.navController.PushView(model.TaskEditViewID, model.EncodeTaskEditParams(model.TaskEditParams{
-				TaskID:   taskID,
-				Focus:    model.EditFieldDescription,
-				DescOnly: true,
-			}))
-			return true
-		case ActionEditTags:
-			taskID := ir.taskController.GetCurrentTaskID()
-			if taskID == "" {
-				return false
-			}
-			ir.navController.PushView(model.TaskEditViewID, model.EncodeTaskEditParams(model.TaskEditParams{
-				TaskID:   taskID,
-				TagsOnly: true,
-			}))
-			return true
-		case ActionEditDeps:
-			taskID := ir.taskController.GetCurrentTaskID()
-			if taskID == "" {
-				return false
-			}
-			// Legacy task-detail entry point: no source detail plugin
-			// name to carry, so the resolver falls back to any kind:
-			// detail plugin loaded from workflow.yaml.
-			return ir.openDepsEditor(taskID, "")
-		case ActionChat:
-			agent := config.GetAIAgent()
-			if agent == "" {
-				return false
-			}
-			taskID := ir.taskController.GetCurrentTaskID()
-			if taskID == "" {
-				return false
-			}
-			taskFilePath := ir.taskStore.PathForID(taskID)
-			if taskFilePath == "" {
-				taskFilePath = filepath.Join(config.GetDocDir(), taskID+".md")
-			}
-			name, args := resolveAgentCommand(agent, taskFilePath)
-			ir.navController.SuspendAndRun(name, args...)
-			if err := ir.taskStore.ReloadTask(taskID); err != nil && ir.statusline != nil {
-				ir.statusline.SetMessage("reload failed: "+err.Error(), model.MessageLevelError, true)
-			}
-			return true
-		default:
-			return ir.taskController.HandleAction(action.ID)
-		}
-	}
-	return false
 }
 
 // handleTaskEditInput routes input while in the task edit view

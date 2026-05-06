@@ -56,7 +56,7 @@ func (c *TaskEditCoordinator) Prepare(activeView View, params model.TaskEditPara
 func (c *TaskEditCoordinator) HandleKey(activeView View, event *tcell.EventKey) bool {
 	switch event.Key() {
 	case tcell.KeyCtrlS:
-		return c.CommitAndClose(activeView)
+		return c.handleSaveKey(activeView)
 	case tcell.KeyTab:
 		if c.descOnly || c.tagsOnly {
 			return false // let textarea handle Tab as literal tab
@@ -126,6 +126,48 @@ func (c *TaskEditCoordinator) CycleFieldValueDown(activeView View) bool {
 		return cyclable.CycleFieldValueDown()
 	}
 	return false
+}
+
+// TagsTextAreaSavable is the optional view-side hook used by handleSaveKey
+// to dispatch Ctrl+S on a focused tags grid editor through the wired
+// onTagsSave handler. The handler in turn drives CommitNoClose (in
+// non-tagsOnly mode) so the metadata-grid tags edit doesn't pop the view.
+type TagsTextAreaSavable interface {
+	SaveTagsFromTextArea()
+}
+
+// DescriptionTextAreaSavable mirrors TagsTextAreaSavable for descriptions.
+// In non-descOnly mode, Ctrl+S on a focused description editor triggers
+// CommitNoClose via the wired handler instead of CommitAndClose.
+type DescriptionTextAreaSavable interface {
+	SaveDescriptionFromTextArea()
+}
+
+// handleSaveKey implements the field-aware Ctrl+S routing. Tags-only and
+// desc-only modes commit-and-close as before; in normal grid mode,
+// Ctrl+S on a focused tags or description editor invokes the matching
+// SaveXFromTextArea hook (which fires the wired CommitNoClose handler);
+// every other focused field falls through to the value-on-change pattern
+// of CommitAndClose committing the whole session.
+func (c *TaskEditCoordinator) handleSaveKey(activeView View) bool {
+	if c.tagsOnly || c.descOnly {
+		return c.CommitAndClose(activeView)
+	}
+	if focused, ok := activeView.(FieldFocusableView); ok {
+		switch focused.GetFocusedField() {
+		case model.EditFieldTags:
+			if tv, ok := activeView.(TagsTextAreaSavable); ok {
+				tv.SaveTagsFromTextArea()
+				return true
+			}
+		case model.EditFieldDescription:
+			if dv, ok := activeView.(DescriptionTextAreaSavable); ok {
+				dv.SaveDescriptionFromTextArea()
+				return true
+			}
+		}
+	}
+	return c.CommitAndClose(activeView)
 }
 
 func (c *TaskEditCoordinator) CommitAndClose(activeView View) bool {
@@ -275,10 +317,18 @@ func (c *TaskEditCoordinator) prepareView(activeView View, focus model.EditField
 		})
 	}
 
-	if tagsEditableView, ok := activeView.(TagsEditableView); ok && c.tagsOnly {
-		tagsEditableView.SetTagsSaveHandler(func(_ string) {
-			c.CommitAndClose(activeView)
-		})
+	if tagsEditableView, ok := activeView.(TagsEditableView); ok {
+		if c.tagsOnly {
+			tagsEditableView.SetTagsSaveHandler(func(_ string) {
+				c.CommitAndClose(activeView)
+			})
+		} else {
+			// metadata-grid tags edit: save into the in-flight session
+			// without popping the view so the user can keep editing.
+			tagsEditableView.SetTagsSaveHandler(func(_ string) {
+				c.CommitNoClose(activeView)
+			})
+		}
 		tagsEditableView.SetTagsCancelHandler(func() {
 			c.CancelAndClose()
 		})

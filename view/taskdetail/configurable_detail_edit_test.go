@@ -90,10 +90,10 @@ func TestConfigurableDetailView_TabTraversesEditableFields(t *testing.T) {
 	}
 }
 
-// TestConfigurableDetailView_StubFieldsAreSkippedInTraversal asserts
-// fields whose semantic type only has a stub editor (e.g. text/integer in
-// Phase 2) render but do not participate in Tab traversal.
-func TestConfigurableDetailView_StubFieldsAreSkippedInTraversal(t *testing.T) {
+// TestConfigurableDetailView_ReadOnlyFieldsAreSkippedInTraversal asserts
+// read-only descriptors (createdBy/createdAt/updatedAt) render but do not
+// participate in Tab traversal.
+func TestConfigurableDetailView_ReadOnlyFieldsAreSkippedInTraversal(t *testing.T) {
 	s := store.NewInMemoryStore()
 	tk := newTestViewTiki("TIKI102")
 	if err := s.CreateTiki(tk); err != nil {
@@ -101,9 +101,7 @@ func TestConfigurableDetailView_StubFieldsAreSkippedInTraversal(t *testing.T) {
 	}
 	cv := NewConfigurableDetailView(
 		s, tk.ID, "Detail",
-		// assignee/points/due are stubs in Phase 2; only status/type/priority
-		// are implemented.
-		[]string{"status", "assignee", "type", "points", "priority", "due"},
+		[]string{"status", "createdBy", "type", "createdAt", "priority", "updatedAt"},
 		controller.DetailViewActions(),
 		nil, nil,
 	)
@@ -139,7 +137,7 @@ func TestConfigurableDetailView_NoEditableFieldsLeavesViewMode(t *testing.T) {
 	}
 	cv := NewConfigurableDetailView(
 		s, tk.ID, "Detail",
-		[]string{"assignee", "points", "due"}, // all stubs
+		[]string{"createdBy", "createdAt", "updatedAt"}, // all read-only
 		controller.DetailViewActions(),
 		nil, nil,
 	)
@@ -153,11 +151,16 @@ func TestConfigurableDetailView_NoEditableFieldsLeavesViewMode(t *testing.T) {
 	}
 }
 
-// TestFieldRegistry_StatusTypePriorityImplemented asserts that exactly the
-// three Phase 2 default fields advertise editor implementations; the rest
-// remain stubs surfaced via Capability.
-func TestFieldRegistry_StatusTypePriorityImplemented(t *testing.T) {
-	implemented := []SemanticType{SemanticStatus, SemanticType_, SemanticPriority}
+// TestFieldRegistry_ImplementedAndStubCapabilities asserts which semantic
+// types advertise editor implementations vs remain stubs after the grid
+// migration. status/type/priority/text/integer/date/recurrence/string_list
+// all have editors; boolean/datetime/enum/task_id_list remain stubs.
+func TestFieldRegistry_ImplementedAndStubCapabilities(t *testing.T) {
+	implemented := []SemanticType{
+		SemanticStatus, SemanticType_, SemanticPriority,
+		SemanticText, SemanticInteger, SemanticDate,
+		SemanticRecurrence, SemanticStringList,
+	}
 	for _, sem := range implemented {
 		t.Run(string(sem), func(t *testing.T) {
 			ui, _ := LookupType(sem)
@@ -170,9 +173,8 @@ func TestFieldRegistry_StatusTypePriorityImplemented(t *testing.T) {
 		})
 	}
 	stubs := []SemanticType{
-		SemanticText, SemanticInteger, SemanticBoolean,
-		SemanticDate, SemanticDateTime, SemanticRecurrence,
-		SemanticEnum, SemanticStringList, SemanticTaskIDList,
+		SemanticBoolean, SemanticDateTime,
+		SemanticEnum, SemanticTaskIDList,
 	}
 	for _, sem := range stubs {
 		t.Run(string(sem)+"_stub", func(t *testing.T) {
@@ -221,14 +223,20 @@ func TestConfigurableDetailView_FiresActionChangeHandlerOnToggle(t *testing.T) {
 // TestFieldHasEditor_OnlyImplementedFieldsReturnTrue verifies the
 // FieldHasEditor predicate the view uses to gate Tab traversal.
 func TestFieldHasEditor_OnlyImplementedFieldsReturnTrue(t *testing.T) {
-	for _, name := range []string{"status", "type", "priority"} {
+	implemented := []string{"status", "type", "priority", "points", "assignee", "due", "recurrence", "tags"}
+	for _, name := range implemented {
 		if !FieldHasEditor(name) {
 			t.Errorf("FieldHasEditor(%q) = false, want true", name)
 		}
 	}
-	for _, name := range []string{"assignee", "points", "due", "recurrence", "tags", "dependsOn"} {
+	// dependsOn renderer exists but no in-place editor yet.
+	if FieldHasEditor("dependsOn") {
+		t.Error("FieldHasEditor(dependsOn) = true, want false (stub editor)")
+	}
+	// read-only descriptors must never report editable.
+	for _, name := range []string{"createdBy", "createdAt", "updatedAt"} {
 		if FieldHasEditor(name) {
-			t.Errorf("FieldHasEditor(%q) = true, want false (stub editor in Phase 2)", name)
+			t.Errorf("FieldHasEditor(%q) = true, want false (read-only)", name)
 		}
 	}
 	if FieldHasEditor("not_a_field") {

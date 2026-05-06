@@ -2,6 +2,7 @@ package view
 
 import (
 	"log/slog"
+	"sort"
 
 	nav "github.com/boolean-maybe/navidown/navidown"
 	navtview "github.com/boolean-maybe/navidown/navidown/tview"
@@ -98,18 +99,48 @@ func (f *ViewFactory) RegisterPlugin(name string, cfg *model.PluginConfig, def p
 	f.pluginControllers[name] = ctrl
 }
 
+// lookupDefaultDetailMetadata returns the metadata field list of the
+// workflow's primary detail plugin, used as the second-tier fallback when
+// TaskEditParams.Metadata is empty. Resolution order:
+//  1. Tier 1: the plugin conventionally named "Detail" (matches the
+//     bundled kanban workflow).
+//  2. Tier 2: the alphabetically-first DetailPlugin in pluginDefs. Sorted
+//     so behavior is reproducible across Go map iteration randomization.
+//  3. nil — the caller falls back to taskdetail.DefaultEditMetadata.
+func (f *ViewFactory) lookupDefaultDetailMetadata() []string {
+	if def, ok := f.pluginDefs[model.DetailPluginName]; ok {
+		if dp, ok := def.(*plugin.DetailPlugin); ok {
+			return dp.Metadata
+		}
+	}
+	names := make([]string, 0, len(f.pluginDefs))
+	for name := range f.pluginDefs {
+		names = append(names, name)
+	}
+	sort.Strings(names)
+	for _, name := range names {
+		if dp, ok := f.pluginDefs[name].(*plugin.DetailPlugin); ok {
+			return dp.Metadata
+		}
+	}
+	return nil
+}
+
 // CreateView instantiates a view by ID with optional parameters
 func (f *ViewFactory) CreateView(viewID model.ViewID, params map[string]interface{}) controller.View {
 	var v controller.View
 
 	switch viewID {
-	case model.TaskDetailViewID:
-		detailParams := model.DecodeTaskDetailParams(params)
-		v = taskdetail.NewTaskDetailView(f.taskStore, detailParams.TaskID, detailParams.ReadOnly, f.imageManager, f.mermaidOpts)
-
 	case model.TaskEditViewID:
 		editParams := model.DecodeTaskEditParams(params)
-		v = taskdetail.NewTaskEditView(f.taskStore, editParams.TaskID, f.imageManager)
+		metadata := editParams.Metadata
+		if len(metadata) == 0 {
+			metadata = f.lookupDefaultDetailMetadata()
+		}
+		if len(metadata) == 0 {
+			metadata = taskdetail.DefaultEditMetadata
+		}
+		v = taskdetail.NewTaskEditView(f.taskStore, editParams.TaskID, f.imageManager, metadata)
 		if tev, ok := v.(*taskdetail.TaskEditView); ok {
 			if editParams.Draft != nil {
 				tev.SetFallbackTiki(editParams.Draft)

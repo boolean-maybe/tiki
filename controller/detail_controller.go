@@ -2,6 +2,8 @@ package controller
 
 import (
 	"log/slog"
+	"strconv"
+	"strings"
 
 	"github.com/boolean-maybe/tiki/model"
 	"github.com/boolean-maybe/tiki/plugin"
@@ -45,7 +47,7 @@ type DetailController struct {
 }
 
 // DetailEditableView is the contract the configurable detail view exposes
-// to its controller for Phase 2 edit-mode plumbing. Kept narrow so the
+// to its controller for in-place edit mode plumbing. Kept narrow so the
 // controller is decoupled from view internals and remains testable
 // without spinning up tview.
 type DetailEditableView interface {
@@ -59,6 +61,7 @@ type DetailEditableView interface {
 	SetEditModeRegistry(*ActionRegistry)
 	SetEditModeChangeHandler(func(bool))
 	SetEditFieldChangeHandler(string, func(string))
+	Metadata() []string
 }
 
 // NewDetailController builds a controller for a kind: detail plugin view.
@@ -159,21 +162,45 @@ func (dc *DetailController) BindEditView(v DetailEditableView) {
 }
 
 // wireEditFieldHandlers installs the per-field save callbacks on the view.
-// Each handler forwards the editor's display value to the corresponding
+// Each handler forwards the editor's emitted value to the corresponding
 // TaskController.SaveX method on the editing copy. The actual disk write
 // happens later in CommitEditSession when the user presses Ctrl+S.
+//
+// The send side (registry editor → onChange string) and receive side here
+// together form the typed-bridging chain: the registry factory owns the
+// typed→string conversion, and this method owns the string→typed parse so
+// each Save* method gets its expected typed argument.
 func (dc *DetailController) wireEditFieldHandlers(v DetailEditableView) {
 	if dc.taskController == nil {
 		return
 	}
-	v.SetEditFieldChangeHandler("status", func(display string) {
+	v.SetEditFieldChangeHandler(tikipkg.FieldStatus, func(display string) {
 		dc.taskController.SaveStatus(display)
 	})
-	v.SetEditFieldChangeHandler("type", func(display string) {
+	v.SetEditFieldChangeHandler(tikipkg.FieldType, func(display string) {
 		dc.taskController.SaveType(display)
 	})
-	v.SetEditFieldChangeHandler("priority", func(display string) {
+	v.SetEditFieldChangeHandler(tikipkg.FieldPriority, func(display string) {
 		dc.taskController.SavePriority(parsePriorityDisplay(display))
+	})
+	v.SetEditFieldChangeHandler(tikipkg.FieldPoints, func(display string) {
+		// IntEditSelect enforces digits-only input; the err branch is a
+		// defensive guard rather than a user-visible error path.
+		if n, err := strconv.Atoi(display); err == nil {
+			dc.taskController.SavePoints(n)
+		}
+	})
+	v.SetEditFieldChangeHandler(tikipkg.FieldAssignee, func(display string) {
+		dc.taskController.SaveAssignee(display)
+	})
+	v.SetEditFieldChangeHandler(tikipkg.FieldDue, func(display string) {
+		dc.taskController.SaveDue(display)
+	})
+	v.SetEditFieldChangeHandler(tikipkg.FieldRecurrence, func(display string) {
+		dc.taskController.SaveRecurrence(display)
+	})
+	v.SetEditFieldChangeHandler(tikipkg.FieldTags, func(display string) {
+		dc.taskController.SaveTags(strings.Fields(display))
 	})
 }
 

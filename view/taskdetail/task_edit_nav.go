@@ -3,13 +3,17 @@ package taskdetail
 import (
 	"github.com/boolean-maybe/tiki/controller"
 	"github.com/boolean-maybe/tiki/model"
-
-	"github.com/gdamore/tcell/v2"
+	tikipkg "github.com/boolean-maybe/tiki/tiki"
 )
 
-// This file contains edit mode navigation and field management methods for TaskEditView.
+// task_edit_nav.go contains edit-mode navigation and field management
+// methods for TaskEditView. After the grid migration these dispatch through
+// ev.editors (a unified FieldEditorWidget map keyed by canonical field
+// name) instead of the per-typed-widget switch tables that used to live
+// here. Title and Description retain dedicated paths because they live
+// outside the metadata grid.
 
-// IsValid returns true if the task passes all validation checks
+// IsValid returns true if the task passes all validation checks.
 func (ev *TaskEditView) IsValid() bool {
 	return len(ev.validationErrors) == 0
 }
@@ -19,240 +23,192 @@ func (ev *TaskEditView) ValidationErrors() []string {
 	return ev.validationErrors
 }
 
-// SetFocusedField changes the focused field and re-renders
+// SetFocusedField changes the focused field, refreshes the layout (so the
+// focused field's read-only render switches to its editor primitive), and
+// hands focus to the matching widget.
 func (ev *TaskEditView) SetFocusedField(field model.EditField) {
 	ev.focusedField = field
 	ev.UpdateHeaderForField(field)
 
-	// Refresh rebuilds the layout, which may temporarily lose focus
 	ev.refresh()
 
-	// Immediately restore focus to the appropriate widget for the focused field
-	// This must happen after refresh() to ensure widget is in the view hierarchy
 	if ev.focusSetter == nil {
 		return
 	}
 
 	switch field {
-	case model.EditFieldStatus:
-		if ev.statusSelectList != nil {
-			// Focus the wrapper which has custom InputHandler
-			ev.focusSetter(ev.statusSelectList)
-		}
-	case model.EditFieldType:
-		if ev.typeSelectList != nil {
-			// Focus the wrapper which has custom InputHandler
-			ev.focusSetter(ev.typeSelectList)
-		}
-	case model.EditFieldPriority:
-		if ev.prioritySelectList != nil {
-			// Focus the wrapper which has custom InputHandler
-			ev.focusSetter(ev.prioritySelectList)
-		}
-	case model.EditFieldAssignee:
-		if ev.assigneeSelectList != nil {
-			// Focus the wrapper which has custom InputHandler
-			ev.focusSetter(ev.assigneeSelectList)
-		}
-	case model.EditFieldPoints:
-		if ev.pointsInput != nil {
-			// Focus the wrapper which has custom InputHandler
-			ev.focusSetter(ev.pointsInput)
-		}
-	case model.EditFieldDue:
-		if ev.dueInput != nil {
-			ev.focusSetter(ev.dueInput)
-		}
-	case model.EditFieldRecurrence:
-		if ev.recurrenceInput != nil {
-			ev.focusSetter(ev.recurrenceInput)
-		}
 	case model.EditFieldTitle:
 		if ev.titleInput != nil {
 			ev.focusSetter(ev.titleInput)
 		}
+		return
 	case model.EditFieldDescription:
 		if ev.descTextArea != nil {
 			ev.focusSetter(ev.descTextArea)
 		}
+		return
+	}
+
+	name := editFieldToFieldName(field)
+	if name == "" {
+		return
+	}
+	if w, ok := ev.editors[name]; ok && w != nil {
+		ev.focusSetter(w)
 	}
 }
 
-// GetFocusedField returns the currently focused field
+// editFieldToFieldName maps an EditField enum to its canonical metadata
+// field name. Title and Description return "" — they're handled by the
+// dedicated branch in SetFocusedField above.
+func editFieldToFieldName(field model.EditField) string {
+	switch field {
+	case model.EditFieldStatus:
+		return tikipkg.FieldStatus
+	case model.EditFieldType:
+		return tikipkg.FieldType
+	case model.EditFieldPriority:
+		return tikipkg.FieldPriority
+	case model.EditFieldPoints:
+		return tikipkg.FieldPoints
+	case model.EditFieldAssignee:
+		return tikipkg.FieldAssignee
+	case model.EditFieldDue:
+		return tikipkg.FieldDue
+	case model.EditFieldRecurrence:
+		return tikipkg.FieldRecurrence
+	case model.EditFieldTags:
+		return tikipkg.FieldTags
+	default:
+		return ""
+	}
+}
+
+// GetFocusedField returns the currently focused field.
 func (ev *TaskEditView) GetFocusedField() model.EditField {
 	return ev.focusedField
 }
 
-// IsEditFieldFocused returns whether any editable field has tview focus
+// IsEditFieldFocused returns whether any editable widget has tview focus.
+// Aggregates title, description, and every cached metadata editor.
 func (ev *TaskEditView) IsEditFieldFocused() bool {
-	if ev.statusSelectList != nil && ev.statusSelectList.HasFocus() {
+	if ev.titleInput != nil && ev.titleInput.HasFocus() {
 		return true
 	}
-	if ev.typeSelectList != nil && ev.typeSelectList.HasFocus() {
+	if ev.descTextArea != nil && ev.descTextArea.HasFocus() {
 		return true
 	}
-	if ev.assigneeSelectList != nil && ev.assigneeSelectList.HasFocus() {
-		return true
-	}
-	if ev.prioritySelectList != nil && ev.prioritySelectList.HasFocus() {
-		return true
-	}
-	if ev.pointsInput != nil && ev.pointsInput.HasFocus() {
-		return true
-	}
-	if ev.dueInput != nil && ev.dueInput.HasFocus() {
-		return true
-	}
-	if ev.recurrenceInput != nil && ev.recurrenceInput.HasFocus() {
-		return true
+	for _, w := range ev.editors {
+		if w != nil && w.HasFocus() {
+			return true
+		}
 	}
 	return false
 }
 
-// FocusNextField advances to the next field in edit order
+// FocusNextField advances to the next field in the per-instance edit order.
 func (ev *TaskEditView) FocusNextField() bool {
 	if ev.descOnly || ev.tagsOnly {
 		return false
 	}
-	nextField := model.NextFieldSkipping(ev.focusedField, ev.shouldSkipField)
+	nextField := model.NextFieldInOrder(ev.focusedField, ev.editFieldOrder, ev.shouldSkipField)
 	ev.SetFocusedField(nextField)
 	return true
 }
 
-// FocusPrevField moves to the previous field in edit order
+// FocusPrevField moves to the previous field in the per-instance edit order.
 func (ev *TaskEditView) FocusPrevField() bool {
 	if ev.descOnly || ev.tagsOnly {
 		return false
 	}
-	prevField := model.PrevFieldSkipping(ev.focusedField, ev.shouldSkipField)
+	prevField := model.PrevFieldInOrder(ev.focusedField, ev.editFieldOrder, ev.shouldSkipField)
 	ev.SetFocusedField(prevField)
 	return true
 }
 
-// shouldSkipField returns true for fields that should be skipped during navigation.
+// shouldSkipField returns true for fields that should be skipped during
+// navigation. Read-only descriptors are already filtered out by
+// MetadataToEditFieldOrder; this skip predicate covers dynamic state like
+// Due being read-only when recurrence is set.
 func (ev *TaskEditView) shouldSkipField(field model.EditField) bool {
 	return field == model.EditFieldDue && ev.isDueReadOnly()
 }
 
-// CycleFieldValueUp cycles the currently focused field's value upward (previous)
+// CycleFieldValueUp cycles the currently focused field's value upward (-1).
 func (ev *TaskEditView) CycleFieldValueUp() bool {
-	switch ev.focusedField {
-	case model.EditFieldStatus:
-		if ev.statusSelectList != nil {
-			ev.statusSelectList.MoveToPrevious()
-			return true
-		}
-	case model.EditFieldType:
-		if ev.typeSelectList != nil {
-			ev.typeSelectList.MoveToPrevious()
-			return true
-		}
-	case model.EditFieldPriority:
-		if ev.prioritySelectList != nil {
-			ev.prioritySelectList.MoveToPrevious()
-			return true
-		}
-	case model.EditFieldAssignee:
-		if ev.assigneeSelectList != nil {
-			ev.assigneeSelectList.MoveToPrevious()
-			return true
-		}
-	case model.EditFieldPoints:
-		if ev.pointsInput != nil {
-			ev.pointsInput.InputHandler()(tcell.NewEventKey(tcell.KeyUp, 0, tcell.ModNone), nil)
-			return true
-		}
-	case model.EditFieldDue:
-		if ev.isDueReadOnly() {
-			return false
-		}
-		if ev.dueInput != nil {
-			ev.dueInput.InputHandler()(tcell.NewEventKey(tcell.KeyUp, 0, tcell.ModNone), nil)
-			return true
-		}
-	case model.EditFieldRecurrence:
-		if ev.recurrenceInput != nil {
-			ev.recurrenceInput.CyclePrev()
-			return true
-		}
-	}
-	return false
+	return ev.cycleFocusedField(-1)
 }
 
-// CycleFieldValueDown cycles the currently focused field's value downward (next)
+// CycleFieldValueDown cycles the currently focused field's value downward (+1).
 func (ev *TaskEditView) CycleFieldValueDown() bool {
-	switch ev.focusedField {
-	case model.EditFieldStatus:
-		if ev.statusSelectList != nil {
-			ev.statusSelectList.MoveToNext()
-			return true
-		}
-	case model.EditFieldType:
-		if ev.typeSelectList != nil {
-			ev.typeSelectList.MoveToNext()
-			return true
-		}
-	case model.EditFieldPriority:
-		if ev.prioritySelectList != nil {
-			ev.prioritySelectList.MoveToNext()
-			return true
-		}
-	case model.EditFieldAssignee:
-		if ev.assigneeSelectList != nil {
-			ev.assigneeSelectList.MoveToNext()
-			return true
-		}
-	case model.EditFieldPoints:
-		if ev.pointsInput != nil {
-			ev.pointsInput.InputHandler()(tcell.NewEventKey(tcell.KeyDown, 0, tcell.ModNone), nil)
-			return true
-		}
-	case model.EditFieldDue:
-		if ev.isDueReadOnly() {
-			return false
-		}
-		if ev.dueInput != nil {
-			ev.dueInput.InputHandler()(tcell.NewEventKey(tcell.KeyDown, 0, tcell.ModNone), nil)
-			return true
-		}
-	case model.EditFieldRecurrence:
-		if ev.recurrenceInput != nil {
-			ev.recurrenceInput.CycleNext()
-			return true
-		}
+	return ev.cycleFocusedField(+1)
+}
+
+// cycleFocusedField dispatches a CycleValue call to the focused metadata
+// editor. Returns false when the focused field has no cyclable widget
+// (e.g. tags, title, description) or when the widget refuses to cycle
+// (e.g. due in recurrence-driven read-only mode).
+func (ev *TaskEditView) cycleFocusedField(direction int) bool {
+	name := editFieldToFieldName(ev.focusedField)
+	if name == "" {
+		return false
 	}
-	return false
+	w, ok := ev.editors[name]
+	if !ok || w == nil {
+		return false
+	}
+	return w.CycleValue(direction)
 }
 
 // MoveRecurrencePartLeft moves the recurrence editor to the frequency part.
-// Returns true if the recurrence field is focused and the navigation was handled.
 func (ev *TaskEditView) MoveRecurrencePartLeft() bool {
-	if ev.focusedField != model.EditFieldRecurrence || ev.recurrenceInput == nil {
+	if ev.focusedField != model.EditFieldRecurrence {
 		return false
 	}
-	ev.recurrenceInput.MovePartLeft()
-	return true
+	w, ok := ev.editors[tikipkg.FieldRecurrence]
+	if !ok || w == nil {
+		return false
+	}
+	if re, ok := w.(*recurrenceEditAdapter); ok {
+		re.MovePartLeft()
+		return true
+	}
+	return false
 }
 
 // MoveRecurrencePartRight moves the recurrence editor to the value part.
-// Returns true if the recurrence field is focused and the navigation was handled.
 func (ev *TaskEditView) MoveRecurrencePartRight() bool {
-	if ev.focusedField != model.EditFieldRecurrence || ev.recurrenceInput == nil {
+	if ev.focusedField != model.EditFieldRecurrence {
 		return false
 	}
-	ev.recurrenceInput.MovePartRight()
-	return true
+	w, ok := ev.editors[tikipkg.FieldRecurrence]
+	if !ok || w == nil {
+		return false
+	}
+	if re, ok := w.(*recurrenceEditAdapter); ok {
+		re.MovePartRight()
+		return true
+	}
+	return false
 }
 
-// IsRecurrenceValueFocused returns true when the recurrence field's value part is active.
+// IsRecurrenceValueFocused returns true when the recurrence field's value
+// part is active.
 func (ev *TaskEditView) IsRecurrenceValueFocused() bool {
-	if ev.focusedField != model.EditFieldRecurrence || ev.recurrenceInput == nil {
+	if ev.focusedField != model.EditFieldRecurrence {
 		return false
 	}
-	return ev.recurrenceInput.IsValueFocused()
+	w, ok := ev.editors[tikipkg.FieldRecurrence]
+	if !ok || w == nil {
+		return false
+	}
+	if re, ok := w.(*recurrenceEditAdapter); ok {
+		return re.IsValueFocused()
+	}
+	return false
 }
 
-// UpdateHeaderForField updates the registry with field-specific actions
+// UpdateHeaderForField updates the registry with field-specific actions.
 func (ev *TaskEditView) UpdateHeaderForField(field model.EditField) {
 	if ev.descOnly {
 		ev.registry = controller.DescOnlyEditActions()
@@ -261,7 +217,6 @@ func (ev *TaskEditView) UpdateHeaderForField(field model.EditField) {
 	} else {
 		ev.registry = controller.GetActionsForField(field)
 	}
-
 	if ev.actionChangeHandler != nil {
 		ev.actionChangeHandler()
 	}

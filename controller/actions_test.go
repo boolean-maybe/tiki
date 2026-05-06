@@ -587,7 +587,7 @@ func TestTaskDetailViewActions_ChatEnabledWithConfig(t *testing.T) {
 	}
 
 	ctx := BuildAppContext(
-		&ViewEntry{ViewID: model.TaskDetailViewID, Params: model.EncodeTaskDetailParams(model.TaskDetailParams{TaskID: "ABC123"})},
+		&ViewEntry{ViewID: model.MakePluginViewID("Detail"), Params: model.EncodePluginViewParams(model.PluginViewParams{TaskID: "ABC123"})},
 		nil,
 	)
 	if !ActionEnabled(action, ctx) {
@@ -1063,8 +1063,8 @@ func TestSelectionSatisfies(t *testing.T) {
 
 func TestBuildAppContext_TaskDetail(t *testing.T) {
 	entry := &ViewEntry{
-		ViewID: model.TaskDetailViewID,
-		Params: model.EncodeTaskDetailParams(model.TaskDetailParams{TaskID: "ABC123"}),
+		ViewID: model.MakePluginViewID("Detail"),
+		Params: model.EncodePluginViewParams(model.PluginViewParams{TaskID: "ABC123"}),
 	}
 	ctx := BuildAppContext(entry, nil)
 	if !ctx.Has("id") {
@@ -1072,8 +1072,8 @@ func TestBuildAppContext_TaskDetail(t *testing.T) {
 	}
 
 	emptyEntry := &ViewEntry{
-		ViewID: model.TaskDetailViewID,
-		Params: model.EncodeTaskDetailParams(model.TaskDetailParams{}),
+		ViewID: model.MakePluginViewID("Detail"),
+		Params: model.EncodePluginViewParams(model.PluginViewParams{}),
 	}
 	ctx = BuildAppContext(emptyEntry, nil)
 	if ctx.Has("id") {
@@ -1197,9 +1197,7 @@ func TestOpenDepsEditor_ReopenRefreshesResolver(t *testing.T) {
 	const taskID = "TASK01"
 
 	// First open from DetailA.
-	if !ir.openDepsEditor(taskID, "DetailA") {
-		t.Fatal("first open should succeed")
-	}
+	ir.openDepsEditor(taskID, "DetailA")
 	depsName := "Dependency:" + taskID
 	dc, ok := ir.pluginControllers[depsName].(*DepsController)
 	if !ok {
@@ -1211,9 +1209,7 @@ func TestOpenDepsEditor_ReopenRefreshesResolver(t *testing.T) {
 
 	// Reopen from DetailB — same task id, so the existing controller
 	// is reused. The resolver must now prefer DetailB.
-	if !ir.openDepsEditor(taskID, "DetailB") {
-		t.Fatal("reopen should succeed")
-	}
+	ir.openDepsEditor(taskID, "DetailB")
 	if got := dc.detailViewResolver(); got != "DetailB" {
 		t.Errorf("after reopen from DetailB: resolver = %q, want %q (stale resolver bug)", got, "DetailB")
 	}
@@ -1222,9 +1218,7 @@ func TestOpenDepsEditor_ReopenRefreshesResolver(t *testing.T) {
 	// fall back through discovery rather than holding onto DetailB.
 	// Map iteration order is non-deterministic, so we only assert
 	// that *some* available detail name is returned, not which one.
-	if !ir.openDepsEditor(taskID, "") {
-		t.Fatal("reopen with empty source should succeed")
-	}
+	ir.openDepsEditor(taskID, "")
 	got := dc.detailViewResolver()
 	if got != "DetailA" && got != "DetailB" {
 		t.Errorf("after reopen with empty source: resolver = %q, want one of DetailA/DetailB", got)

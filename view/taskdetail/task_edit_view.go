@@ -1,52 +1,76 @@
 package taskdetail
 
 import (
+	"fmt"
+	"strconv"
 	"strings"
 
-	"github.com/boolean-maybe/tiki/component"
 	"github.com/boolean-maybe/tiki/config"
 	"github.com/boolean-maybe/tiki/controller"
 	"github.com/boolean-maybe/tiki/model"
 	"github.com/boolean-maybe/tiki/service"
 	"github.com/boolean-maybe/tiki/store"
-	taskpkg "github.com/boolean-maybe/tiki/task"
 	tikipkg "github.com/boolean-maybe/tiki/tiki"
+	"github.com/boolean-maybe/tiki/util/gradient"
 
 	navtview "github.com/boolean-maybe/navidown/navidown/tview"
 	"github.com/gdamore/tcell/v2"
 	"github.com/rivo/tview"
 )
 
-// TaskEditView renders a task in full edit mode with all fields editable.
+// DefaultEditMetadata is the canonical 8-item field list TaskEditView shows
+// when no workflow-specific list is supplied. Single source of truth so
+// the factory's metadata-precedence resolver can fall back to it without
+// hardcoding the slice in two places.
+var DefaultEditMetadata = []string{
+	tikipkg.FieldStatus,
+	tikipkg.FieldType,
+	tikipkg.FieldPriority,
+	tikipkg.FieldPoints,
+	tikipkg.FieldAssignee,
+	tikipkg.FieldDue,
+	tikipkg.FieldRecurrence,
+	tikipkg.FieldTags,
+}
+
+// TaskEditView renders a task in full edit mode using the same fixed-shape
+// metadata grid as ConfigurableDetailView. The metadata field list is
+// supplied at construction time by the factory's precedence resolver
+// (TaskEditParams.Metadata → workflow Detail-plugin lookup →
+// DefaultEditMetadata).
+//
+// Title and Description sit outside the grid — they're first-class Tab stops
+// that bracket the metadata-field navigation order so the user can tab from
+// title into the first metadata field, through the metadata fields in
+// declaration order, and out into the description editor.
 type TaskEditView struct {
-	Base // Embed shared state
+	Base
 
 	registry *controller.ActionRegistry
 	viewID   model.ViewID
 
-	// Edit state
+	metadata         []string
+	editFieldOrder   []model.EditField
 	focusedField     model.EditField
 	validationErrors []string
 	metadataBox      *tview.Frame
 	descOnly         bool
 	tagsOnly         bool
 
-	// All field editors
-	titleInput         *tview.InputField
-	titleEditing       bool
-	descTextArea       *tview.TextArea
-	descEditing        bool
-	statusSelectList   *component.EditSelectList
-	typeSelectList     *component.EditSelectList
-	prioritySelectList *component.EditSelectList
-	assigneeSelectList *component.EditSelectList
-	pointsInput        *component.IntEditSelect
-	dueInput           *component.DateEdit
-	recurrenceInput    *component.RecurrenceEdit
-	tagsTextArea       *tview.TextArea
-	tagsEditing        bool
+	titleInput   *tview.InputField
+	titleEditing bool
+	descTextArea *tview.TextArea
+	descEditing  bool
+	tagsTextArea *tview.TextArea
+	tagsEditing  bool
 
-	// All callbacks
+	// editors caches the per-field FieldEditorWidget so user input survives
+	// across refreshes. Keyed by canonical field name (matches the registry).
+	editors map[string]FieldEditorWidget
+
+	// typed save callbacks wired by the coordinator (one per editable
+	// semantic). The adapter layer in adapterForField translates the
+	// registry's string-shaped onChange into these typed signatures.
 	onTitleSave         func(string)
 	onTitleChange       func(string)
 	onTitleCancel       func()
@@ -75,39 +99,40 @@ func (ev *TaskEditView) SetActionChangeHandler(handler func()) {
 	ev.actionChangeHandler = handler
 }
 
-// NewTaskEditView creates a task edit view
-func NewTaskEditView(taskStore store.Store, taskID string, imageManager *navtview.ImageManager) *TaskEditView {
+// NewTaskEditView creates a task edit view bound to the given metadata list.
+// The factory resolves the metadata source per the precedence rules and
+// passes the result here; an empty slice falls back to DefaultEditMetadata
+// so the view always has a non-empty navigation order.
+func NewTaskEditView(taskStore store.Store, taskID string, imageManager *navtview.ImageManager, metadata []string) *TaskEditView {
+	if len(metadata) == 0 {
+		metadata = DefaultEditMetadata
+	}
+	order := append([]model.EditField{model.EditFieldTitle}, model.MetadataToEditFieldOrder(metadata)...)
+	order = append(order, model.EditFieldDescription)
+
 	ev := &TaskEditView{
 		Base: Base{
 			taskStore:    taskStore,
 			taskID:       taskID,
 			imageManager: imageManager,
 		},
-		registry:     controller.GetActionsForField(model.EditFieldTitle),
-		viewID:       model.TaskEditViewID,
-		focusedField: model.EditFieldTitle,
-		titleEditing: true,
-		descEditing:  true,
+		registry:       controller.GetActionsForField(model.EditFieldTitle),
+		viewID:         model.TaskEditViewID,
+		metadata:       metadata,
+		editFieldOrder: order,
+		focusedField:   model.EditFieldTitle,
+		titleEditing:   true,
+		descEditing:    true,
+		editors:        make(map[string]FieldEditorWidget),
 	}
-
 	ev.build()
 
-	// Eagerly create all edit field widgets to ensure they exist before focus management
 	tk := ev.GetTiki()
 	if tk != nil {
 		ev.ensureTitleInput(tk)
 		ev.ensureDescTextArea(tk)
-		ev.ensureStatusSelectList(tk)
-		ev.ensureTypeSelectList(tk)
-		ev.ensurePrioritySelectList(tk)
-		ev.ensureAssigneeSelectList(tk)
-		ev.ensurePointsInput(tk)
-		ev.ensureDueInput(tk)
-		ev.ensureRecurrenceInput(tk)
 	}
-
 	ev.refresh()
-
 	return ev
 }
 
@@ -144,6 +169,14 @@ func (ev *TaskEditView) GetViewName() string { return model.TaskEditViewName }
 
 // GetViewDescription returns the view description for the header info section
 func (ev *TaskEditView) GetViewDescription() string { return model.TaskEditViewDesc }
+
+// Metadata returns the configured metadata field list. Used by callers that
+// want to forward the same metadata shape into a downstream view (e.g. the
+// configurable detail view exposes this so the input router can copy it
+// into TaskEditParams when opening the edit view from a detail context).
+func (ev *TaskEditView) Metadata() []string {
+	return ev.metadata
+}
 
 // SetDescOnly enables description-only edit mode where metadata is read-only.
 func (ev *TaskEditView) SetDescOnly(descOnly bool) {
@@ -207,7 +240,7 @@ func (ev *TaskEditView) refresh() {
 
 	if !ev.fullscreen {
 		metadataBox := ev.buildMetadataBox(tk, colors)
-		ev.content.AddItem(metadataBox, 10, 0, false)
+		ev.content.AddItem(metadataBox, metadataBoxHeight, 0, false)
 	}
 
 	if ev.tagsOnly {
@@ -221,6 +254,11 @@ func (ev *TaskEditView) refresh() {
 	ev.updateValidationState()
 }
 
+// buildMetadataBox builds the framed metadata box with the title input on
+// top and the configurable grid below. Mirrors ConfigurableDetailView's
+// shape so both views render the same metadata layout — the only
+// difference is title-as-editor and the gridded fields turning into
+// editors when focused.
 func (ev *TaskEditView) buildMetadataBox(tk *tikipkg.Tiki, colors *config.ColorConfig) *tview.Frame {
 	mode := RenderModeEdit
 	if ev.descOnly || ev.tagsOnly {
@@ -230,12 +268,25 @@ func (ev *TaskEditView) buildMetadataBox(tk *tikipkg.Tiki, colors *config.ColorC
 		Mode:         mode,
 		FocusedField: ev.focusedField,
 		Colors:       colors,
+		Store:        ev.taskStore,
 	}
+
 	titlePrimitive := ev.buildTitlePrimitive(tk, colors)
-	col1, col2, col3 := ev.buildMetadataColumns(tk, ctx, colors)
-	metadataBox := ev.assembleMetadataBox(tk, colors, titlePrimitive, col1, col2, col3, 1)
-	ev.metadataBox = metadataBox
-	return metadataBox
+	gridFields, primitives := ev.buildGridFieldsAndPrimitives(tk, ctx)
+
+	container := tview.NewFlex().SetDirection(tview.FlexRow)
+	container.AddItem(titlePrimitive, 1, 0, false)
+	container.AddItem(tview.NewBox(), 1, 0, false)
+	container.AddItem(newGridContainer(gridFields, primitives), rowsPerColumn, 0, false)
+	container.AddItem(tview.NewBox(), 1, 0, false)
+
+	frame := tview.NewFrame(container).SetBorders(0, 0, 0, 0, 0, 0)
+	frame.SetBorder(true).SetTitle(
+		fmt.Sprintf(" %s ", gradient.RenderAdaptiveGradientText(tk.ID, colors.TaskDetailIDColor, colors.FallbackTaskIDColor)),
+	).SetBorderColor(colors.TaskBoxUnselectedBorder.TCell())
+	frame.SetBorderPadding(1, 0, 2, 2)
+	ev.metadataBox = frame
+	return frame
 }
 
 func (ev *TaskEditView) buildTitlePrimitive(tk *tikipkg.Tiki, colors *config.ColorConfig) tview.Primitive {
@@ -244,8 +295,7 @@ func (ev *TaskEditView) buildTitlePrimitive(tk *tikipkg.Tiki, colors *config.Col
 		return RenderTitleText(tk, ctx)
 	}
 	input := ev.ensureTitleInput(tk)
-	focused := ev.focusedField == model.EditFieldTitle
-	if focused {
+	if ev.focusedField == model.EditFieldTitle {
 		input.SetLabel(getFocusMarker(colors))
 	} else {
 		input.SetLabel("")
@@ -253,72 +303,161 @@ func (ev *TaskEditView) buildTitlePrimitive(tk *tikipkg.Tiki, colors *config.Col
 	return input
 }
 
-func (ev *TaskEditView) buildMetadataColumns(tk *tikipkg.Tiki, ctx FieldRenderContext, colors *config.ColorConfig) (*tview.Flex, *tview.Flex, *tview.Flex) {
-	// Column 1: Status, Type, Priority, Points
-	col1 := tview.NewFlex().SetDirection(tview.FlexRow)
-	col1.AddItem(ev.buildStatusField(tk, ctx), 1, 0, false)
-	col1.AddItem(ev.buildTypeField(tk, ctx), 1, 0, false)
-	col1.AddItem(ev.buildPriorityField(tk, ctx), 1, 0, false)
-	col1.AddItem(ev.buildPointsField(tk, ctx), 1, 0, false)
-
-	// Column 2: Assignee, Author, Created, Updated
-	col2 := tview.NewFlex().SetDirection(tview.FlexRow)
-	col2.AddItem(ev.buildAssigneeField(tk, ctx), 1, 0, false)
-	col2.AddItem(RenderAuthorText(tk, colors), 1, 0, false)
-	col2.AddItem(RenderCreatedText(tk, colors), 1, 0, false)
-	col2.AddItem(RenderUpdatedText(tk, colors), 1, 0, false)
-
-	// Column 3: Due, Recurrence
-	col3 := tview.NewFlex().SetDirection(tview.FlexRow)
-	col3.AddItem(ev.buildDueField(tk, ctx), 1, 0, false)
-	col3.AddItem(ev.buildRecurrenceField(tk, ctx), 1, 0, false)
-
-	return col1, col2, col3
+// buildGridFieldsAndPrimitives mirrors the configurable view's helper but
+// returns editor primitives for the focused field (when focus is on a
+// metadata field) instead of the read-only render. Editors are cached on
+// ev.editors so user input survives across refreshes.
+func (ev *TaskEditView) buildGridFieldsAndPrimitives(tk *tikipkg.Tiki, ctx FieldRenderContext) ([]GridField, map[string]tview.Primitive) {
+	fields := make([]GridField, 0, len(ev.metadata))
+	primitives := make(map[string]tview.Primitive, len(ev.metadata))
+	for _, name := range ev.metadata {
+		captured := name
+		fields = append(fields, GridField{
+			Name: captured,
+			HeightAt: func(width int) int {
+				return FieldHeight(captured, tk, width)
+			},
+		})
+		primitives[name] = ev.gridFieldPrimitive(name, tk, ctx)
+	}
+	return fields, primitives
 }
 
-func (ev *TaskEditView) buildStatusField(tk *tikipkg.Tiki, ctx FieldRenderContext) tview.Primitive {
-	if ctx.FocusedField == model.EditFieldStatus {
-		return ev.ensureStatusSelectList(tk)
+// gridFieldPrimitive returns the editor for the focused field when the view
+// is in normal edit mode, else the read-only renderer. Editors come from
+// the field registry; their string-shaped onChange is bridged to the typed
+// save callbacks via adapterForField.
+func (ev *TaskEditView) gridFieldPrimitive(name string, tk *tikipkg.Tiki, ctx FieldRenderContext) tview.Primitive {
+	if ev.descOnly || ev.tagsOnly {
+		return renderConfiguredField(name, tk, ctx)
 	}
-	return RenderStatusText(tk, ctx)
+	if !FieldHasEditor(name) {
+		return renderConfiguredField(name, tk, ctx)
+	}
+	fd, ok := LookupField(name)
+	if !ok {
+		return renderConfiguredField(name, tk, ctx)
+	}
+	if ev.focusedField != fd.EditField {
+		return renderConfiguredField(name, tk, ctx)
+	}
+	if w, ok := ev.editors[name]; ok && w != nil {
+		return w
+	}
+	editorCtx := ctx
+	editorCtx.FocusedField = fd.EditField
+	w := buildFieldEditor(name, tk, editorCtx, ev.adapterForField(name))
+	if w == nil {
+		return renderConfiguredField(name, tk, ctx)
+	}
+	ev.editors[name] = w
+	return w
 }
 
-func (ev *TaskEditView) buildTypeField(tk *tikipkg.Tiki, ctx FieldRenderContext) tview.Primitive {
-	if ctx.FocusedField == model.EditFieldType {
-		return ev.ensureTypeSelectList(tk)
+// adapterForField returns the registry's onChange(string) callback that
+// parses the string back to the typed value and invokes TaskEditView's
+// typed save handler. Lives here (not on the registry) so the registry's
+// editor factories can stay view-agnostic; the adapter encodes the
+// view-specific typed-handler chain.
+func (ev *TaskEditView) adapterForField(name string) func(string) {
+	switch name {
+	case tikipkg.FieldStatus:
+		return func(d string) {
+			if ev.onStatusSave != nil {
+				ev.onStatusSave(d)
+			}
+			ev.updateValidationState()
+		}
+	case tikipkg.FieldType:
+		return func(d string) {
+			if ev.onTypeSave != nil {
+				ev.onTypeSave(d)
+			}
+			ev.updateValidationState()
+		}
+	case tikipkg.FieldPriority:
+		return func(d string) {
+			if ev.onPrioritySave != nil {
+				// PriorityFromDisplay parses "P1"/"P2"/.../"—" back to int.
+				ev.onPrioritySave(parseEditPriorityDisplay(d))
+			}
+			ev.updateValidationState()
+		}
+	case tikipkg.FieldPoints:
+		return func(d string) {
+			n, err := strconv.Atoi(d)
+			if err != nil {
+				return
+			}
+			ev.updateValidationState()
+			if ev.onPointsSave != nil {
+				ev.onPointsSave(n)
+			}
+		}
+	case tikipkg.FieldAssignee:
+		return func(d string) {
+			if ev.onAssigneeSave != nil {
+				ev.onAssigneeSave(d)
+			}
+			ev.updateValidationState()
+		}
+	case tikipkg.FieldDue:
+		return func(d string) {
+			ev.updateValidationState()
+			if ev.onDueSave != nil {
+				ev.onDueSave(d)
+			}
+		}
+	case tikipkg.FieldRecurrence:
+		return func(d string) {
+			if ev.onRecurrenceSave != nil {
+				ev.onRecurrenceSave(d)
+			}
+			// preserve recurrence-affects-due side effect: refresh due editor
+			// and re-validate.
+			ev.syncDueFromTask()
+			ev.refresh()
+			ev.updateValidationState()
+		}
+	case tikipkg.FieldTags:
+		return func(d string) {
+			if ev.onTagsSave != nil {
+				ev.onTagsSave(d)
+			}
+		}
 	}
-	return RenderTypeText(tk, ctx)
+	return nil
 }
 
-func (ev *TaskEditView) buildPriorityField(tk *tikipkg.Tiki, ctx FieldRenderContext) tview.Primitive {
-	if ctx.FocusedField == model.EditFieldPriority {
-		return ev.ensurePrioritySelectList(tk)
+// SaveTagsFromTextArea reads the focused tags grid editor and fires its
+// wired onTagsSave handler. Called by the coordinator's handleSaveKey when
+// Ctrl+S lands on a focused tags field in non-tagsOnly mode — drives the
+// CommitNoClose path the coordinator wired in Prepare.
+func (ev *TaskEditView) SaveTagsFromTextArea() {
+	w, ok := ev.editors[tikipkg.FieldTags]
+	if !ok || w == nil {
+		return
 	}
-	return RenderPriorityText(tk, ctx)
+	if ev.onTagsSave != nil {
+		ev.onTagsSave(w.GetText())
+	}
 }
 
-func (ev *TaskEditView) buildAssigneeField(tk *tikipkg.Tiki, ctx FieldRenderContext) tview.Primitive {
-	if ctx.FocusedField == model.EditFieldAssignee {
-		return ev.ensureAssigneeSelectList(tk)
+// SaveDescriptionFromTextArea reads the description textarea and fires the
+// wired onDescSave. Counterpart to SaveTagsFromTextArea for descriptions.
+func (ev *TaskEditView) SaveDescriptionFromTextArea() {
+	if ev.descTextArea == nil {
+		return
 	}
-	return RenderAssigneeText(tk, ctx)
+	if ev.onDescSave != nil {
+		ev.onDescSave(ev.descTextArea.GetText())
+	}
 }
 
-func (ev *TaskEditView) buildPointsField(tk *tikipkg.Tiki, ctx FieldRenderContext) tview.Primitive {
-	if ctx.FocusedField == model.EditFieldPoints {
-		return ev.ensurePointsInput(tk)
-	}
-	return RenderPointsText(tk, ctx)
-}
-
-func (ev *TaskEditView) buildDueField(tk *tikipkg.Tiki, ctx FieldRenderContext) tview.Primitive {
-	if ev.isDueReadOnly() {
-		return RenderDueText(tk, ctx.Colors)
-	}
-	if ctx.FocusedField == model.EditFieldDue {
-		return ev.ensureDueInput(tk)
-	}
-	return RenderDueText(tk, ctx.Colors)
+// parseEditPriorityDisplay forwards the priority display string to the
+// task-package parser. Local helper keeps the import surface small here.
+func parseEditPriorityDisplay(display string) int {
+	return prioritySaveFromDisplay(display)
 }
 
 // isDueReadOnly returns true when recurrence is set, making Due auto-computed.
@@ -328,32 +467,20 @@ func (ev *TaskEditView) isDueReadOnly() bool {
 		return false
 	}
 	recurrenceStr, _, _ := tk.StringField(tikipkg.FieldRecurrence)
-	return recurrenceStr != "" && taskpkg.Recurrence(recurrenceStr) != taskpkg.RecurrenceNone
+	return recurrenceStr != "" && recurrenceStr != "none"
 }
 
-// syncDueFromTask updates the dueInput widget to reflect the auto-computed Due
-// from the in-memory tiki. Called after recurrence changes.
+// syncDueFromTask updates the cached due editor (if any) to reflect the
+// auto-computed Due from the in-memory tiki. Called after recurrence
+// changes.
 func (ev *TaskEditView) syncDueFromTask() {
-	if ev.dueInput == nil {
+	w, ok := ev.editors[tikipkg.FieldDue]
+	if !ok || w == nil {
 		return
 	}
-	tk := ev.GetTiki()
-	if tk == nil {
-		return
-	}
-	due, _, _ := tk.TimeField(tikipkg.FieldDue)
-	var dateStr string
-	if !due.IsZero() {
-		dateStr = due.Format(taskpkg.DateFormat)
-	}
-	ev.dueInput.SetInitialValue(dateStr)
-}
-
-func (ev *TaskEditView) buildRecurrenceField(tk *tikipkg.Tiki, ctx FieldRenderContext) tview.Primitive {
-	if ctx.FocusedField == model.EditFieldRecurrence {
-		return ev.ensureRecurrenceInput(tk)
-	}
-	return RenderRecurrenceText(tk, ctx.Colors)
+	// the underlying editor is dateEditAdapter; invalidate it so a fresh
+	// initial value is read on next render.
+	delete(ev.editors, tikipkg.FieldDue)
 }
 
 func (ev *TaskEditView) buildDescription(tk *tikipkg.Tiki) tview.Primitive {
@@ -369,21 +496,18 @@ func (ev *TaskEditView) ensureDescTextArea(tk *tikipkg.Tiki) *tview.TextArea {
 
 		ev.descTextArea.SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
 			key := event.Key()
-
 			if key == tcell.KeyCtrlS {
 				if ev.onDescSave != nil {
 					ev.onDescSave(ev.descTextArea.GetText())
 				}
 				return nil
 			}
-
 			if key == tcell.KeyEscape {
 				if ev.onDescCancel != nil {
 					ev.onDescCancel()
 				}
 				return nil
 			}
-
 			return event
 		})
 
@@ -431,20 +555,26 @@ func (ev *TaskEditView) ensureTagsTextArea(tk *tikipkg.Tiki) *tview.TextArea {
 	return ev.tagsTextArea
 }
 
-// GetEditedTags returns the current tags from the tags editor, split by whitespace.
+// GetEditedTags returns the current tags from the active tags editor.
+// In tags-only mode the source is the dedicated tagsTextArea; in grid mode
+// the source is the cached registry editor (whitespace-joined string).
 func (ev *TaskEditView) GetEditedTags() []string {
-	if ev.tagsTextArea == nil {
-		tk := ev.GetTiki()
-		if tk != nil {
-			tags, _, _ := tk.StringSliceField(tikipkg.FieldTags)
-			return tags
-		}
-		return nil
+	if ev.tagsOnly && ev.tagsTextArea != nil {
+		return strings.Fields(ev.tagsTextArea.GetText())
 	}
-	return strings.Fields(ev.tagsTextArea.GetText())
+	if w, ok := ev.editors[tikipkg.FieldTags]; ok && w != nil {
+		return strings.Fields(w.GetText())
+	}
+	tk := ev.GetTiki()
+	if tk != nil {
+		tags, _, _ := tk.StringSliceField(tikipkg.FieldTags)
+		return tags
+	}
+	return nil
 }
 
-// ShowTagsEditor displays the tags text area and returns the primitive to focus
+// ShowTagsEditor displays the tags text area (tags-only mode) and returns
+// the primitive to focus.
 func (ev *TaskEditView) ShowTagsEditor() tview.Primitive {
 	tk := ev.GetTiki()
 	if tk == nil {
@@ -453,9 +583,18 @@ func (ev *TaskEditView) ShowTagsEditor() tview.Primitive {
 	return ev.ensureTagsTextArea(tk)
 }
 
-// IsTagsTextAreaFocused returns whether the tags text area currently has focus
+// IsTagsTextAreaFocused returns whether the tags text area currently has focus.
+// Used by the input router to route Ctrl+S/Esc through the coordinator. In
+// tags-only mode, the source is the dedicated tagsTextArea; in grid mode,
+// the source is the cached registry editor under tikipkg.FieldTags.
 func (ev *TaskEditView) IsTagsTextAreaFocused() bool {
-	return ev.tagsEditing && ev.tagsTextArea != nil && ev.tagsTextArea.HasFocus()
+	if ev.tagsOnly && ev.tagsTextArea != nil && ev.tagsTextArea.HasFocus() {
+		return true
+	}
+	if w, ok := ev.editors[tikipkg.FieldTags]; ok && w != nil && w.HasFocus() {
+		return true
+	}
+	return false
 }
 
 // SetTagsSaveHandler sets the callback for when tags are saved
@@ -530,37 +669,39 @@ func (ev *TaskEditView) updateValidationState() {
 	}
 }
 
-// buildTikiSnapshotFromWidgets creates a tiki snapshot from current widget values
-// for validation purposes — overlaying live widget state onto the stored tiki.
+// buildTikiSnapshotFromWidgets creates a tiki snapshot from current widget
+// values for validation purposes — overlaying live widget state onto the
+// stored tiki. Reads from registry editors (cached on ev.editors) where
+// available, falls back to the persisted values otherwise.
 func (ev *TaskEditView) buildTikiSnapshotFromWidgets() *tikipkg.Tiki {
 	tk := ev.GetTiki()
 	if tk == nil {
 		return nil
 	}
-
 	snapshot := tk.Clone()
 
 	if ev.titleInput != nil {
 		snapshot.Title = ev.titleInput.GetText()
 	}
-	if ev.prioritySelectList != nil {
-		p := taskpkg.PriorityFromDisplay(ev.prioritySelectList.GetText())
+	if w, ok := ev.editors[tikipkg.FieldPriority]; ok && w != nil {
+		p := prioritySaveFromDisplay(w.GetText())
 		if p != 0 {
 			snapshot.Set(tikipkg.FieldPriority, p)
 		} else {
 			snapshot.Delete(tikipkg.FieldPriority)
 		}
 	}
-	if ev.pointsInput != nil {
-		pts := ev.pointsInput.GetValue()
-		if pts != 0 {
-			snapshot.Set(tikipkg.FieldPoints, pts)
-		} else {
-			snapshot.Delete(tikipkg.FieldPoints)
+	if w, ok := ev.editors[tikipkg.FieldPoints]; ok && w != nil {
+		if pts, err := strconv.Atoi(w.GetText()); err == nil {
+			if pts != 0 {
+				snapshot.Set(tikipkg.FieldPoints, pts)
+			} else {
+				snapshot.Delete(tikipkg.FieldPoints)
+			}
 		}
 	}
-	if ev.dueInput != nil {
-		if parsed, ok := taskpkg.ParseDueDate(ev.dueInput.GetCurrentText()); ok {
+	if w, ok := ev.editors[tikipkg.FieldDue]; ok && w != nil {
+		if parsed, ok := parseDueDateText(w.GetText()); ok {
 			if parsed.IsZero() {
 				snapshot.Delete(tikipkg.FieldDue)
 			} else {
@@ -568,15 +709,14 @@ func (ev *TaskEditView) buildTikiSnapshotFromWidgets() *tikipkg.Tiki {
 			}
 		}
 	}
-	if ev.recurrenceInput != nil {
-		r := taskpkg.Recurrence(ev.recurrenceInput.GetValue())
-		if r == taskpkg.RecurrenceNone || r == "" {
+	if w, ok := ev.editors[tikipkg.FieldRecurrence]; ok && w != nil {
+		r := w.GetText()
+		if r == "" || r == "none" {
 			snapshot.Delete(tikipkg.FieldRecurrence)
 		} else {
-			snapshot.Set(tikipkg.FieldRecurrence, string(r))
+			snapshot.Set(tikipkg.FieldRecurrence, r)
 		}
 	}
-
 	return snapshot
 }
 
@@ -620,9 +760,7 @@ func (ev *TaskEditView) ShowTitleEditor() tview.Primitive {
 }
 
 // HideTitleEditor is a no-op in edit mode (title always visible)
-func (ev *TaskEditView) HideTitleEditor() {
-	// No-op in edit mode
-}
+func (ev *TaskEditView) HideTitleEditor() {}
 
 // IsTitleEditing returns whether the title is being edited (always true in edit mode)
 func (ev *TaskEditView) IsTitleEditing() bool {
@@ -659,9 +797,7 @@ func (ev *TaskEditView) ShowDescriptionEditor() tview.Primitive {
 }
 
 // HideDescriptionEditor is a no-op in edit mode
-func (ev *TaskEditView) HideDescriptionEditor() {
-	// No-op in edit mode
-}
+func (ev *TaskEditView) HideDescriptionEditor() {}
 
 // IsDescriptionEditing returns whether the description is being edited
 func (ev *TaskEditView) IsDescriptionEditing() bool {
@@ -688,12 +824,10 @@ func (ev *TaskEditView) GetEditedTitle() string {
 	if ev.titleInput != nil {
 		return ev.titleInput.GetText()
 	}
-
 	tk := ev.GetTiki()
 	if tk == nil {
 		return ""
 	}
-
 	return tk.Title
 }
 
@@ -702,12 +836,10 @@ func (ev *TaskEditView) GetEditedDescription() string {
 	if ev.descTextArea != nil {
 		return ev.descTextArea.GetText()
 	}
-
 	tk := ev.GetTiki()
 	if tk == nil {
 		return ""
 	}
-
 	return tk.Body
 }
 

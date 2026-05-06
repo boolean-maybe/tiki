@@ -26,11 +26,6 @@ func TestIsPluginViewID(t *testing.T) {
 			expected: true,
 		},
 		{
-			name:     "task detail view",
-			viewID:   TaskDetailViewID,
-			expected: false,
-		},
-		{
 			name:     "task edit view",
 			viewID:   TaskEditViewID,
 			expected: false,
@@ -102,11 +97,6 @@ func TestGetPluginName(t *testing.T) {
 			name:         "plugin with colon in name",
 			viewID:       "plugin:name:with:colons",
 			expectedName: "name:with:colons",
-		},
-		{
-			name:         "non-plugin view returns full ID",
-			viewID:       TaskDetailViewID,
-			expectedName: "task_detail",
 		},
 		{
 			name:         "empty string",
@@ -223,24 +213,12 @@ func TestViewID_RoundTrip(t *testing.T) {
 }
 
 func TestViewID_BuiltInViews(t *testing.T) {
-	// Verify built-in views are not plugin views
-	builtInViews := []struct {
-		name   string
-		viewID ViewID
-	}{
-		{"task_detail", TaskDetailViewID},
-		{"task_edit", TaskEditViewID},
+	// Verify the remaining built-in view (TaskEditViewID) is not classified
+	// as a plugin view. The legacy task-detail constant has been retired in
+	// favor of the configurable detail view (which is a plugin view).
+	if IsPluginViewID(TaskEditViewID) {
+		t.Errorf("Built-in view %q incorrectly identified as plugin view", TaskEditViewID)
 	}
-
-	for _, v := range builtInViews {
-		t.Run(v.name, func(t *testing.T) {
-			if IsPluginViewID(v.viewID) {
-				t.Errorf("Built-in view %q identified as plugin view", v.viewID)
-			}
-		})
-	}
-
-	// Verify plugin prefix constant is identified as plugin view
 	if !IsPluginViewID(PluginViewIDPrefix) {
 		t.Error("PluginViewIDPrefix not identified as plugin view")
 	}

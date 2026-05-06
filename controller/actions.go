@@ -318,6 +318,31 @@ func ActionEnabled(a Action, ctx AppContext) bool {
 	return true
 }
 
+// detailViewIDPredicate decides whether a ViewID represents a configurable
+// detail view, set at bootstrap so this package doesn't have to hardcode
+// the plugin name. Defaults to false (no detail view registered) which
+// keeps tests that don't bootstrap plugins working unchanged.
+var detailViewIDPredicate = func(model.ViewID) bool { return false }
+
+// SetDetailViewIDPredicate installs the predicate used by BuildAppContext
+// to detect configurable detail views — a plugin-name lookup that isn't
+// available in the controller package directly. Bootstrap wires this once
+// per session.
+func SetDetailViewIDPredicate(fn func(model.ViewID) bool) {
+	if fn == nil {
+		detailViewIDPredicate = func(model.ViewID) bool { return false }
+		return
+	}
+	detailViewIDPredicate = fn
+}
+
+// IsDetailView reports whether the given ViewID is a configurable detail
+// view. Used as a successor to the legacy `viewID == TaskDetailViewID`
+// comparison after the legacy view's deletion.
+func IsDetailView(viewID model.ViewID) bool {
+	return detailViewIDPredicate(viewID)
+}
+
 // BuildAppContext constructs an AppContext from the current UI state.
 func BuildAppContext(currentView *ViewEntry, activeView View) AppContext {
 	ctx := NewAppContext()
@@ -329,8 +354,8 @@ func BuildAppContext(currentView *ViewEntry, activeView View) AppContext {
 		}
 	}
 
-	if selectedCount == 0 && currentView != nil && currentView.ViewID == model.TaskDetailViewID {
-		if model.DecodeTaskDetailParams(currentView.Params).TaskID != "" {
+	if selectedCount == 0 && currentView != nil && IsDetailView(currentView.ViewID) {
+		if model.DecodePluginViewParams(currentView.Params).TaskID != "" {
 			selectedCount = 1
 		}
 	}
@@ -735,6 +760,18 @@ func TaskEditDescriptionActions() *ActionRegistry {
 	return r
 }
 
+// TaskEditTagsActions returns actions available when editing the tags
+// field as part of the metadata grid (not the whole-view tags-only mode).
+// Modeled on TaskEditDescriptionActions: Save + standard field navigation.
+// Esc is router-handled — never registered here, matching every other
+// per-field registry.
+func TaskEditTagsActions() *ActionRegistry {
+	r := NewActionRegistry()
+	r.Register(Action{ID: ActionSaveTask, Key: tcell.KeyCtrlS, Label: "Save", ShowInHeader: true})
+	r.Merge(CommonFieldNavigationActions())
+	return r
+}
+
 // DescOnlyEditActions returns actions for description-only edit mode (no field navigation).
 func DescOnlyEditActions() *ActionRegistry {
 	r := NewActionRegistry()
@@ -768,6 +805,8 @@ func GetActionsForField(field model.EditField) *ActionRegistry {
 		return TaskEditDueActions()
 	case model.EditFieldRecurrence:
 		return TaskEditRecurrenceActions()
+	case model.EditFieldTags:
+		return TaskEditTagsActions()
 	case model.EditFieldDescription:
 		return TaskEditDescriptionActions()
 	default:

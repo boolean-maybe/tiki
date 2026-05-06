@@ -2,6 +2,8 @@ package taskdetail
 
 import (
 	"fmt"
+	"strconv"
+	"strings"
 	"time"
 
 	"github.com/boolean-maybe/tiki/component"
@@ -11,6 +13,7 @@ import (
 	taskpkg "github.com/boolean-maybe/tiki/task"
 	tikipkg "github.com/boolean-maybe/tiki/tiki"
 
+	"github.com/gdamore/tcell/v2"
 	"github.com/rivo/tview"
 )
 
@@ -36,15 +39,11 @@ const (
 )
 
 // EditorCapability tracks whether the type UI registry supports in-place
-// editing for a semantic type. Phase 1 implements only a small subset; the
-// rest are recorded as stubs so Phase 2 can wire them in without changing
-// callers.
+// editing for a semantic type.
 type EditorCapability int
 
 const (
-	// EditorStub: renderer exists but no in-place editor yet — pressing Edit
-	// for this field type should produce predictable stub behavior (no-op or
-	// surfacing a "not yet supported" message).
+	// EditorStub: renderer exists but no in-place editor yet.
 	EditorStub EditorCapability = iota
 	// EditorImplemented: renderer and editor are both available.
 	EditorImplemented
@@ -54,51 +53,53 @@ const (
 type FieldRenderer func(tk *tikipkg.Tiki, ctx FieldRenderContext) tview.Primitive
 
 // FieldEditorWidget is the focusable primitive returned by an editor factory.
-// It must satisfy tview.Primitive so the view can give it focus, and it
-// exposes its current display value so the detail view can route the value
-// to the per-field save callback.
+//
+// CycleValue advances the widget's value by `direction` steps (typically +1
+// for Down/next, -1 for Up/prev). Returns true when the cycle was applied
+// (e.g. moved to a new option, incremented an integer), false when the
+// widget refuses (e.g. due editor in read-only mode when recurrence is set,
+// or a non-cyclable widget like the tags textarea). Used by both views to
+// route Up/Down keypresses through a single dispatcher rather than typed
+// per-widget switch tables.
 type FieldEditorWidget interface {
 	tview.Primitive
 	GetText() string
+	CycleValue(direction int) bool
 }
 
 // FieldEditor builds an in-place editor widget for a tiki's current value.
-// The onChange callback fires whenever the user changes the editor value
-// (typing, arrow-key cycling, ...) and carries the new display value. Phase
-// 2 implements concrete editors for status, type, and priority; other
-// semantic types return nil and remain stubs surfaced via Capability.
+// onChange fires with the editor's new typed value rendered as a string.
+// Each factory owns the typed→string conversion (e.g. strconv.Itoa for
+// points, RecurrenceEdit.GetValue() for recurrence) so the receiver can
+// parse the string back to the typed value at the receive boundary.
 type FieldEditor func(tk *tikipkg.Tiki, ctx FieldRenderContext, onChange func(string)) FieldEditorWidget
+
+// FieldHeightFn computes the row count a field needs at a given inner
+// column width. Single-row types return 1; list types return 1 + wrapped
+// content rows. The grid clamps the result to [1, rowsPerColumn].
+type FieldHeightFn func(tk *tikipkg.Tiki, width int) int
 
 // TypeUI bundles the rendering and editing primitives for a semantic type.
 type TypeUI struct {
 	Render     FieldRenderer
 	Edit       FieldEditor
+	HeightFn   FieldHeightFn
 	Capability EditorCapability
 }
 
 // FieldDescriptor describes a single configurable detail-view field.
-//
-// Getter/Setter are kept generic (interface{}) so the registry can support
-// fields beyond the current schema-known set — including future custom
-// fields — without re-shaping this struct each time.
 type FieldDescriptor struct {
-	Name            string                              // canonical field name (matches tiki.Field*)
-	Label           string                              // user-facing label
-	Semantic        SemanticType                        // routes to TypeUI registry
-	EditField       model.EditField                     // model EditField mapping (for hint/status integration)
-	Get             func(tk *tikipkg.Tiki) any          // current value (typed or nil when absent)
-	Set             func(tk *tikipkg.Tiki, v any) error // future Phase 2 hook; may be nil for read-only fields
-	ReadOnly        bool                                // true for immutable fields (created, updated, author, …)
-	EditTraversable bool                                // participates in Tab traversal during edit mode
+	Name            string
+	Label           string
+	Semantic        SemanticType
+	EditField       model.EditField
+	Get             func(tk *tikipkg.Tiki) any
+	Set             func(tk *tikipkg.Tiki, v any) error
+	ReadOnly        bool
+	EditTraversable bool
 }
 
-// fieldRegistry maps a field name to its descriptor. Fields not present here
-// can still be requested via metadata; the renderer for the unknown field
-// returns a "(no renderer)" placeholder so misconfiguration is visible
-// without crashing the view.
 var fieldRegistry = map[string]FieldDescriptor{}
-
-// typeRegistry maps a semantic type to its rendering/editing primitives.
 var typeRegistry = map[SemanticType]TypeUI{}
 
 func init() {
@@ -108,9 +109,7 @@ func init() {
 }
 
 // publishRenderableFields tells the plugin loader which metadata field names
-// the detail view can actually render. Without this, the workflow loader
-// would accept fields it knows the schema for (e.g. createdAt, custom enums)
-// but the view would render them as "(no renderer)" placeholders.
+// the detail view can actually render.
 func publishRenderableFields() {
 	for name := range fieldRegistry {
 		plugin.RegisterRenderableMetadataField(name)
@@ -124,16 +123,28 @@ func LookupField(name string) (FieldDescriptor, bool) {
 	return fd, ok
 }
 
-// LookupType returns the TypeUI for a semantic type. Returns ok=false for
-// unregistered types.
+// LookupType returns the TypeUI for a semantic type.
 func LookupType(t SemanticType) (TypeUI, bool) {
 	ui, ok := typeRegistry[t]
 	return ui, ok
 }
 
+// FieldHeight resolves descriptor → type → HeightFn for a field. Single-row
+// types and unknown fields return 1, ensuring an empty list-field still
+// reserves a row for its "(none)" placeholder.
+func FieldHeight(name string, tk *tikipkg.Tiki, width int) int {
+	fd, ok := LookupField(name)
+	if !ok {
+		return 1
+	}
+	ui, ok := LookupType(fd.Semantic)
+	if !ok || ui.HeightFn == nil {
+		return 1
+	}
+	return ui.HeightFn(tk, width)
+}
+
 // registerBuiltinFields wires the schema-known fields into the registry.
-// Phase 1 implements the three default fields (status, type, priority) and
-// the rest are recorded as read-only renderers using existing helpers.
 func registerBuiltinFields() {
 	fieldRegistry[tikipkg.FieldStatus] = FieldDescriptor{
 		Name:            tikipkg.FieldStatus,
@@ -195,6 +206,7 @@ func registerBuiltinFields() {
 		Name:            tikipkg.FieldTags,
 		Label:           "Tags",
 		Semantic:        SemanticStringList,
+		EditField:       model.EditFieldTags,
 		Get:             func(tk *tikipkg.Tiki) any { v, _, _ := tk.StringSliceField(tikipkg.FieldTags); return v },
 		EditTraversable: true,
 	}
@@ -228,68 +240,117 @@ func registerBuiltinFields() {
 	}
 }
 
-// registerBuiltinTypes wires renderers for each semantic type. Phase 2 adds
-// concrete editor factories for the three default fields (status, type,
-// priority); the rest remain stubs surfaced via Capability so callers can
-// distinguish "renderer exists, editor stub" from "renderer + editor
-// implemented" without invoking a nil factory.
 func registerBuiltinTypes() {
 	typeRegistry[SemanticStatus] = TypeUI{
 		Render:     renderStatusValue,
 		Edit:       editStatusValue,
+		HeightFn:   singleRowHeight,
 		Capability: EditorImplemented,
 	}
 	typeRegistry[SemanticType_] = TypeUI{
 		Render:     renderTypeValue,
 		Edit:       editTypeValue,
+		HeightFn:   singleRowHeight,
 		Capability: EditorImplemented,
 	}
 	typeRegistry[SemanticPriority] = TypeUI{
 		Render:     renderPriorityValue,
 		Edit:       editPriorityValue,
+		HeightFn:   singleRowHeight,
 		Capability: EditorImplemented,
 	}
 	typeRegistry[SemanticText] = TypeUI{
 		Render:     renderTextValue,
-		Capability: EditorStub,
+		Edit:       editAssigneeValue,
+		HeightFn:   singleRowHeight,
+		Capability: EditorImplemented,
 	}
 	typeRegistry[SemanticInteger] = TypeUI{
 		Render:     renderIntegerValue,
-		Capability: EditorStub,
+		Edit:       editPointsValue,
+		HeightFn:   singleRowHeight,
+		Capability: EditorImplemented,
 	}
 	typeRegistry[SemanticBoolean] = TypeUI{
 		Render:     renderBooleanValue,
+		HeightFn:   singleRowHeight,
 		Capability: EditorStub,
 	}
 	typeRegistry[SemanticDate] = TypeUI{
 		Render:     renderDateValue,
-		Capability: EditorStub,
+		Edit:       editDueValue,
+		HeightFn:   singleRowHeight,
+		Capability: EditorImplemented,
 	}
 	typeRegistry[SemanticDateTime] = TypeUI{
 		Render:     renderDateTimeValue,
+		HeightFn:   singleRowHeight,
 		Capability: EditorStub,
 	}
 	typeRegistry[SemanticRecurrence] = TypeUI{
 		Render:     renderRecurrenceValue,
-		Capability: EditorStub,
+		Edit:       editRecurrenceValue,
+		HeightFn:   singleRowHeight,
+		Capability: EditorImplemented,
 	}
 	typeRegistry[SemanticEnum] = TypeUI{
 		Render:     renderEnumValue,
+		HeightFn:   singleRowHeight,
 		Capability: EditorStub,
 	}
 	typeRegistry[SemanticStringList] = TypeUI{
 		Render:     renderStringListValue,
-		Capability: EditorStub,
+		Edit:       editTagsValue,
+		HeightFn:   stringListHeight,
+		Capability: EditorImplemented,
 	}
 	typeRegistry[SemanticTaskIDList] = TypeUI{
 		Render:     renderTaskIDListValue,
+		HeightFn:   taskIDListHeight,
 		Capability: EditorStub,
 	}
 }
 
+// singleRowHeight is the HeightFn for fixed one-line fields.
+func singleRowHeight(_ *tikipkg.Tiki, _ int) int { return 1 }
+
+// stringListHeight uses WordList wrap to compute the wrapped row count.
+// The +2 accounts for the BorderPadding(0,0,1,1) on the column container
+// (RenderTagsColumn). Returns 1 for empty tags so the (none) placeholder
+// still gets a row.
+func stringListHeight(tk *tikipkg.Tiki, width int) int {
+	tags, _, _ := tk.StringSliceField(tikipkg.FieldTags)
+	if len(tags) == 0 {
+		return 1
+	}
+	inner := width - 2
+	if inner < 1 {
+		inner = 1
+	}
+	wrapped := component.NewWordList(tags).WrapWords(inner)
+	if len(wrapped) == 0 {
+		return 1
+	}
+	return 1 + len(wrapped)
+}
+
+// taskIDListHeight returns 1 + min(len(deps), TaskListMetadataMaxRows).
+// Counts every declared dependency (resolved or not) because the renderer
+// emits one row per id even when unresolved (placeholder display).
+func taskIDListHeight(tk *tikipkg.Tiki, _ int) int {
+	deps, _, _ := tk.StringSliceField(tikipkg.FieldDependsOn)
+	if len(deps) == 0 {
+		return 1
+	}
+	depRows := len(deps)
+	if depRows > config.TaskListMetadataMaxRows {
+		depRows = config.TaskListMetadataMaxRows
+	}
+	return 1 + depRows
+}
+
 // renderConfiguredField looks up the field descriptor and routes through the
-// type registry to produce a primitive. Unknown fields and unknown semantic
-// types return a placeholder text view so misconfiguration is visible.
+// type registry to produce a primitive.
 func renderConfiguredField(name string, tk *tikipkg.Tiki, ctx FieldRenderContext) tview.Primitive {
 	fd, ok := LookupField(name)
 	if !ok {
@@ -303,8 +364,7 @@ func renderConfiguredField(name string, tk *tikipkg.Tiki, ctx FieldRenderContext
 }
 
 // withFieldDescriptor stamps the descriptor's name onto the context so generic
-// renderers can resolve their target field instead of hardcoding it. Legacy
-// renderers (status/type/priority) ignore FieldName and continue to work.
+// renderers can resolve their target field.
 func withFieldDescriptor(ctx FieldRenderContext, fd FieldDescriptor) FieldRenderContext {
 	ctx.FieldName = fd.Name
 	return ctx
@@ -318,9 +378,7 @@ func placeholderRow(text string) tview.Primitive {
 	return tv
 }
 
-// labeledLine returns a "Label: value" row using the dim label / value colors
-// already used by the legacy renderers, keeping visual continuity with the
-// hardcoded layout.
+// labeledLine returns a "Label: value" row using the dim label / value colors.
 func labeledLine(label, value string, colors *config.ColorConfig) tview.Primitive {
 	labelTag := colors.TaskDetailLabelText.Tag().String()
 	valueTag := colors.TaskDetailValueText.Tag().String()
@@ -401,7 +459,7 @@ func renderDateTimeValue(tk *tikipkg.Tiki, ctx FieldRenderContext) tview.Primiti
 }
 
 // textEmptyPlaceholder returns the historical empty-value placeholder for
-// well-known fields, preserving the prior visual when no value is set.
+// well-known fields.
 func textEmptyPlaceholder(name string) string {
 	switch name {
 	case tikipkg.FieldAssignee:
@@ -423,43 +481,35 @@ func renderEnumValue(_ *tikipkg.Tiki, ctx FieldRenderContext) tview.Primitive {
 	return labeledLine("Enum", "(stub)", ctx.Colors)
 }
 
+// renderStringListValue renders the tags column. Non-empty → multi-row
+// RenderTagsColumn; empty → single labeledLine "(none)" so the grid's
+// height contract (always ≥ 1 row) holds.
 func renderStringListValue(tk *tikipkg.Tiki, ctx FieldRenderContext) tview.Primitive {
 	tags, _, _ := tk.StringSliceField(tikipkg.FieldTags)
 	if len(tags) == 0 {
 		return labeledLine("Tags", "(none)", ctx.Colors)
 	}
-	value := ""
-	for i, t := range tags {
-		if i > 0 {
-			value += ", "
-		}
-		value += t
-	}
-	return labeledLine("Tags", value, ctx.Colors)
+	return RenderTagsColumn(tk)
 }
 
+// renderTaskIDListValue renders the depends-on column. Non-empty → multi-row
+// RenderDependsOnColumn (which now emits placeholder rows for unresolved
+// IDs so its row count matches taskIDListHeight); empty → labeledLine.
 func renderTaskIDListValue(tk *tikipkg.Tiki, ctx FieldRenderContext) tview.Primitive {
 	deps, _, _ := tk.StringSliceField(tikipkg.FieldDependsOn)
 	if len(deps) == 0 {
 		return labeledLine("Depends On", "(none)", ctx.Colors)
 	}
-	value := ""
-	for i, d := range deps {
-		if i > 0 {
-			value += ", "
-		}
-		value += d
+	if ctx.Store == nil {
+		return labeledLine("Depends On", strings.Join(deps, ", "), ctx.Colors)
 	}
-	return labeledLine("Depends On", value, ctx.Colors)
+	if col := RenderDependsOnColumn(tk, ctx.Store); col != nil {
+		return col
+	}
+	return labeledLine("Depends On", strings.Join(deps, ", "), ctx.Colors)
 }
 
-// --- Phase 2 editor factories ---
-//
-// Each factory builds an EditSelectList configured with the canonical option
-// list for the field, seeded with the tiki's current value, and wires the
-// onChange callback to fire whenever the user types or arrows through the
-// list. The view supplies onChange to forward the change to the
-// per-semantic save callback.
+// --- editor factories ---
 
 // editStatusValue builds the status editor.
 func editStatusValue(tk *tikipkg.Tiki, ctx FieldRenderContext, onChange func(string)) FieldEditorWidget {
@@ -477,7 +527,7 @@ func editStatusValue(tk *tikipkg.Tiki, ctx FieldRenderContext, onChange func(str
 			onChange(text)
 		}
 	})
-	return editor
+	return &selectListAdapter{EditSelectList: editor}
 }
 
 // editTypeValue builds the type editor.
@@ -496,7 +546,7 @@ func editTypeValue(tk *tikipkg.Tiki, ctx FieldRenderContext, onChange func(strin
 			onChange(text)
 		}
 	})
-	return editor
+	return &selectListAdapter{EditSelectList: editor}
 }
 
 // editPriorityValue builds the priority editor.
@@ -511,14 +561,119 @@ func editPriorityValue(tk *tikipkg.Tiki, ctx FieldRenderContext, onChange func(s
 			onChange(text)
 		}
 	})
-	return editor
+	return &selectListAdapter{EditSelectList: editor}
+}
+
+// editAssigneeValue builds the assignee editor (free-text + suggestions).
+func editAssigneeValue(tk *tikipkg.Tiki, ctx FieldRenderContext, onChange func(string)) FieldEditorWidget {
+	var options []string
+	if ctx.Store != nil {
+		if users, err := ctx.Store.GetAllUsers(); err == nil {
+			options = append(options, users...)
+		}
+	}
+	if len(options) == 0 {
+		options = []string{"Unassigned"}
+	}
+	assignee, _, _ := tk.StringField(tikipkg.FieldAssignee)
+	if assignee == "" {
+		assignee = "Unassigned"
+	}
+	editor := component.NewEditSelectList(options, true)
+	editor.SetLabel(getFocusMarker(ctx.Colors) + "Assignee: ")
+	editor.SetInitialValue(assignee)
+	editor.SetSubmitHandler(func(text string) {
+		if onChange != nil {
+			onChange(text)
+		}
+	})
+	return &selectListAdapter{EditSelectList: editor}
+}
+
+// editPointsValue builds the points editor with Up/Down arrow cycling.
+// IntEditSelect.GetValue() returns int; the adapter formats it as decimal
+// for the registry's string-shaped onChange contract.
+func editPointsValue(tk *tikipkg.Tiki, ctx FieldRenderContext, onChange func(string)) FieldEditorWidget {
+	points, _, _ := tk.IntField(tikipkg.FieldPoints)
+	editor := component.NewIntEditSelect(1, config.GetMaxPoints(), false)
+	editor.SetLabel(getFocusMarker(ctx.Colors) + "Points:   ")
+	editor.SetChangeHandler(func(v int) {
+		if onChange != nil {
+			onChange(strconv.Itoa(v))
+		}
+	})
+	editor.SetValue(points)
+	return &intEditAdapter{IntEditSelect: editor}
+}
+
+// editDueValue builds the date editor. The widget's onChange fires with
+// the validated formatted string after each accepted change.
+func editDueValue(tk *tikipkg.Tiki, ctx FieldRenderContext, onChange func(string)) FieldEditorWidget {
+	due, _, _ := tk.TimeField(tikipkg.FieldDue)
+	editor := component.NewDateEdit()
+	editor.SetLabel(getFocusMarker(ctx.Colors) + "Due:      ")
+	editor.SetChangeHandler(func(s string) {
+		if onChange != nil {
+			onChange(s)
+		}
+	})
+	var initial string
+	if !due.IsZero() {
+		initial = due.Format(taskpkg.DateFormat)
+	}
+	editor.SetInitialValue(initial)
+	a := &dateEditAdapter{DateEdit: editor}
+	// Read-only when the tiki has a non-empty recurrence: due is auto-computed.
+	recurrenceStr, _, _ := tk.StringField(tikipkg.FieldRecurrence)
+	if recurrenceStr != "" && taskpkg.Recurrence(recurrenceStr) != taskpkg.RecurrenceNone {
+		a.readOnly = true
+	}
+	return a
+}
+
+// editRecurrenceValue builds the recurrence editor. RecurrenceEdit.GetValue()
+// assembles a canonical cron expression from the freq/value parts; the
+// adapter exposes that as GetText() so the registry boundary stays uniform.
+func editRecurrenceValue(tk *tikipkg.Tiki, ctx FieldRenderContext, onChange func(string)) FieldEditorWidget {
+	recurrenceStr, _, _ := tk.StringField(tikipkg.FieldRecurrence)
+	editor := component.NewRecurrenceEdit()
+	editor.SetLabel(getFocusMarker(ctx.Colors) + "Recurrence: ")
+	editor.SetChangeHandler(func(_ string) {
+		if onChange != nil {
+			onChange(editor.GetValue())
+		}
+	})
+	editor.SetInitialValue(recurrenceStr)
+	return &recurrenceEditAdapter{RecurrenceEdit: editor}
+}
+
+// editTagsValue builds the tags textarea editor. Tags are whitespace-joined
+// for transport so a single string round-trips through onChange/GetText.
+func editTagsValue(tk *tikipkg.Tiki, ctx FieldRenderContext, onChange func(string)) FieldEditorWidget {
+	textArea := tview.NewTextArea()
+	textArea.SetBorder(false)
+	textArea.SetBorderPadding(0, 0, 1, 1)
+	textArea.SetPlaceholder("space-separated tags")
+	textArea.SetPlaceholderStyle(tcell.StyleDefault.Foreground(ctx.Colors.TaskDetailPlaceholderColor.TCell()))
+
+	tags, _, _ := tk.StringSliceField(tikipkg.FieldTags)
+	textArea.SetText(strings.Join(tags, " "), false)
+
+	a := &tagsEditAdapter{TextArea: textArea, onChange: onChange}
+	textArea.SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
+		if event.Key() == tcell.KeyCtrlS {
+			if a.onChange != nil {
+				a.onChange(a.GetText())
+			}
+			return nil
+		}
+		return event
+	})
+	return a
 }
 
 // buildFieldEditor is a convenience that looks up the type registry and
-// returns the editor widget if the type supports editing. Returns nil for
-// stub types or unknown fields, letting callers fall back to read-only
-// rendering. ctx.FocusedField is set to the descriptor's EditField so
-// renderers and editors can paint the focused state consistently.
+// returns the editor widget if the type supports editing.
 func buildFieldEditor(name string, tk *tikipkg.Tiki, ctx FieldRenderContext, onChange func(string)) FieldEditorWidget {
 	fd, ok := LookupField(name)
 	if !ok {
@@ -532,11 +687,13 @@ func buildFieldEditor(name string, tk *tikipkg.Tiki, ctx FieldRenderContext, onC
 }
 
 // FieldHasEditor reports whether the named field has a registered, fully
-// implemented editor. Used by the detail view to skip stub fields during
-// Tab traversal.
+// implemented editor.
 func FieldHasEditor(name string) bool {
 	fd, ok := LookupField(name)
 	if !ok {
+		return false
+	}
+	if fd.ReadOnly {
 		return false
 	}
 	ui, ok := LookupType(fd.Semantic)
@@ -544,4 +701,105 @@ func FieldHasEditor(name string) bool {
 		return false
 	}
 	return ui.Capability == EditorImplemented && ui.Edit != nil
+}
+
+// --- adapter widgets ---
+//
+// Each adapter wraps an existing component to satisfy FieldEditorWidget
+// (specifically, to add CycleValue) without modifying the component itself.
+// Components are shared across the codebase; widening their public APIs to
+// support the in-grid editor protocol would force ripple changes elsewhere.
+
+// selectListAdapter delegates CycleValue to MoveToNext/MoveToPrevious.
+type selectListAdapter struct {
+	*component.EditSelectList
+}
+
+func (a *selectListAdapter) CycleValue(direction int) bool {
+	if direction >= 0 {
+		a.MoveToNext()
+	} else {
+		a.MoveToPrevious()
+	}
+	return true
+}
+
+// intEditAdapter delegates CycleValue to the widget's InputHandler with
+// synthesized Up/Down events — exactly how task_edit_nav.go drove it before
+// the migration.
+type intEditAdapter struct {
+	*component.IntEditSelect
+}
+
+func (a *intEditAdapter) CycleValue(direction int) bool {
+	key := tcell.KeyDown
+	if direction < 0 {
+		key = tcell.KeyUp
+	}
+	a.InputHandler()(tcell.NewEventKey(key, 0, tcell.ModNone), nil)
+	return true
+}
+
+// GetText conforms to the FieldEditorWidget contract — IntEditSelect's
+// natural type is int; format it as decimal for the registry boundary.
+func (a *intEditAdapter) GetText() string {
+	return strconv.Itoa(a.GetValue())
+}
+
+// dateEditAdapter handles read-only suppression: when recurrence is set on
+// the underlying tiki, due is auto-computed and CycleValue refuses to
+// advance the date.
+type dateEditAdapter struct {
+	*component.DateEdit
+	readOnly bool
+}
+
+func (a *dateEditAdapter) CycleValue(direction int) bool {
+	if a.readOnly {
+		return false
+	}
+	key := tcell.KeyDown
+	if direction < 0 {
+		key = tcell.KeyUp
+	}
+	a.InputHandler()(tcell.NewEventKey(key, 0, tcell.ModNone), nil)
+	return true
+}
+
+// GetText returns the validated formatted date.
+func (a *dateEditAdapter) GetText() string {
+	return a.GetCurrentText()
+}
+
+// recurrenceEditAdapter delegates CycleValue to CyclePrev/CycleNext.
+type recurrenceEditAdapter struct {
+	*component.RecurrenceEdit
+}
+
+func (a *recurrenceEditAdapter) CycleValue(direction int) bool {
+	if direction >= 0 {
+		a.CycleNext()
+	} else {
+		a.CyclePrev()
+	}
+	return true
+}
+
+// GetText returns the assembled cron expression.
+func (a *recurrenceEditAdapter) GetText() string {
+	return a.GetValue()
+}
+
+// tagsEditAdapter wraps tview.TextArea — non-cyclable, so CycleValue
+// always returns false.
+type tagsEditAdapter struct {
+	*tview.TextArea
+	onChange func(string)
+}
+
+func (a *tagsEditAdapter) CycleValue(int) bool { return false }
+
+// GetText returns the textarea content (whitespace-joined tags).
+func (a *tagsEditAdapter) GetText() string {
+	return a.TextArea.GetText()
 }
