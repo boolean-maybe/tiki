@@ -156,7 +156,7 @@ func TestEvalGuard_CountSubquery(t *testing.T) {
 	te := newTestTriggerExecutor()
 	p := newTestParser()
 
-	trig, err := p.ParseTrigger(`before update where new.status = "in progress" and count(select where assignee = new.assignee and status = "in progress") >= 3 deny "WIP limit"`)
+	trig, err := p.ParseTrigger(`before update where new.status = "inProgress" and count(select where assignee = new.assignee and status = "inProgress") >= 3 deny "WIP limit"`)
 	if err != nil {
 		t.Fatalf("parse: %v", err)
 	}
@@ -185,7 +185,7 @@ func TestEvalGuard_CountSubqueryBelowLimit(t *testing.T) {
 	te := newTestTriggerExecutor()
 	p := newTestParser()
 
-	trig, err := p.ParseTrigger(`before update where new.status = "in progress" and count(select where assignee = new.assignee and status = "in progress") >= 3 deny "WIP limit"`)
+	trig, err := p.ParseTrigger(`before update where new.status = "inProgress" and count(select where assignee = new.assignee and status = "inProgress") >= 3 deny "WIP limit"`)
 	if err != nil {
 		t.Fatalf("parse: %v", err)
 	}
@@ -213,7 +213,7 @@ func TestEvalGuard_ExistsSubquery(t *testing.T) {
 	te := newTestTriggerExecutor()
 	p := newTestParser()
 
-	trig, err := p.ParseTrigger(`before update where new.status = "in progress" and exists(select where assignee = new.assignee and status = "in progress") deny "WIP limit"`)
+	trig, err := p.ParseTrigger(`before update where new.status = "inProgress" and exists(select where assignee = new.assignee and status = "inProgress") deny "WIP limit"`)
 	if err != nil {
 		t.Fatalf("parse: %v", err)
 	}
@@ -241,7 +241,7 @@ func TestEvalGuard_ExistsSubqueryNoMatch(t *testing.T) {
 	te := newTestTriggerExecutor()
 	p := newTestParser()
 
-	trig, err := p.ParseTrigger(`before update where new.status = "in progress" and exists(select where assignee = new.assignee and status = "in progress") deny "WIP limit"`)
+	trig, err := p.ParseTrigger(`before update where new.status = "inProgress" and exists(select where assignee = new.assignee and status = "inProgress") deny "WIP limit"`)
 	if err != nil {
 		t.Fatalf("parse: %v", err)
 	}
@@ -528,7 +528,7 @@ func TestExecRun_SimpleString(t *testing.T) {
 	te := newTestTriggerExecutor()
 	p := newTestParser()
 
-	trig, err := p.ParseTrigger(`after update where new.status = "in progress" and "claude" in new.tags run("claude -p 'implement tiki " + old.id + "'")`)
+	trig, err := p.ParseTrigger(`after update where new.status = "inProgress" and "claude" in new.tags run("claude -p 'implement tiki " + old.id + "'")`)
 	if err != nil {
 		t.Fatalf("parse: %v", err)
 	}

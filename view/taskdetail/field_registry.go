@@ -2,6 +2,7 @@ package taskdetail
 
 import (
 	"fmt"
+	"time"
 
 	"github.com/boolean-maybe/tiki/component"
 	"github.com/boolean-maybe/tiki/config"
@@ -204,6 +205,27 @@ func registerBuiltinFields() {
 		Get:             func(tk *tikipkg.Tiki) any { v, _, _ := tk.StringSliceField(tikipkg.FieldDependsOn); return v },
 		EditTraversable: true,
 	}
+	fieldRegistry["createdBy"] = FieldDescriptor{
+		Name:     "createdBy",
+		Label:    "Author",
+		Semantic: SemanticText,
+		Get:      func(tk *tikipkg.Tiki) any { v, _, _ := tk.StringField("createdBy"); return v },
+		ReadOnly: true,
+	}
+	fieldRegistry["createdAt"] = FieldDescriptor{
+		Name:     "createdAt",
+		Label:    "Created",
+		Semantic: SemanticDateTime,
+		Get:      func(tk *tikipkg.Tiki) any { return tk.CreatedAt },
+		ReadOnly: true,
+	}
+	fieldRegistry["updatedAt"] = FieldDescriptor{
+		Name:     "updatedAt",
+		Label:    "Updated",
+		Semantic: SemanticDateTime,
+		Get:      func(tk *tikipkg.Tiki) any { return tk.UpdatedAt },
+		ReadOnly: true,
+	}
 }
 
 // registerBuiltinTypes wires renderers for each semantic type. Phase 2 adds
@@ -280,11 +302,11 @@ func renderConfiguredField(name string, tk *tikipkg.Tiki, ctx FieldRenderContext
 	return ui.Render(tk, withFieldDescriptor(ctx, fd))
 }
 
-// withFieldDescriptor passes the descriptor's label down through the existing
-// context shape used by the legacy renderers. Existing helpers don't read it
-// today, so this is a no-op for them; the new generic renderers below use it
-// to produce the leading "Label: " text.
-func withFieldDescriptor(ctx FieldRenderContext, _ FieldDescriptor) FieldRenderContext {
+// withFieldDescriptor stamps the descriptor's name onto the context so generic
+// renderers can resolve their target field instead of hardcoding it. Legacy
+// renderers (status/type/priority) ignore FieldName and continue to work.
+func withFieldDescriptor(ctx FieldRenderContext, fd FieldDescriptor) FieldRenderContext {
+	ctx.FieldName = fd.Name
 	return ctx
 }
 
@@ -323,17 +345,22 @@ func renderPriorityValue(tk *tikipkg.Tiki, ctx FieldRenderContext) tview.Primiti
 }
 
 func renderTextValue(tk *tikipkg.Tiki, ctx FieldRenderContext) tview.Primitive {
-	// Phase 1 only routes text-type for assignee; other text fields will
-	// follow once their descriptors land.
-	value, _, _ := tk.StringField(tikipkg.FieldAssignee)
-	if value == "" {
-		value = "Unassigned"
+	fd, ok := LookupField(ctx.FieldName)
+	if !ok {
+		return placeholderRow(fmt.Sprintf("%s: (unknown)", ctx.FieldName))
 	}
-	return labeledLine("Assignee", value, ctx.Colors)
+	value, _, _ := tk.StringField(fd.Name)
+	if value == "" {
+		value = textEmptyPlaceholder(fd.Name)
+	}
+	return labeledLine(fd.Label, value, ctx.Colors)
 }
 
 func renderIntegerValue(tk *tikipkg.Tiki, ctx FieldRenderContext) tview.Primitive {
-	fd, _ := LookupField(tikipkg.FieldPoints)
+	fd, ok := LookupField(ctx.FieldName)
+	if !ok {
+		return placeholderRow(fmt.Sprintf("%s: (unknown)", ctx.FieldName))
+	}
 	v, present, _ := tk.IntField(fd.Name)
 	value := "─"
 	if present {
@@ -347,16 +374,43 @@ func renderBooleanValue(_ *tikipkg.Tiki, ctx FieldRenderContext) tview.Primitive
 }
 
 func renderDateValue(tk *tikipkg.Tiki, ctx FieldRenderContext) tview.Primitive {
-	due, _, _ := tk.TimeField(tikipkg.FieldDue)
-	value := "None"
-	if !due.IsZero() {
-		value = due.Format("2006-01-02")
+	fd, ok := LookupField(ctx.FieldName)
+	if !ok {
+		return placeholderRow(fmt.Sprintf("%s: (unknown)", ctx.FieldName))
 	}
-	return labeledLine("Due", value, ctx.Colors)
+	t, _, _ := tk.TimeField(fd.Name)
+	value := "None"
+	if !t.IsZero() {
+		value = t.Format("2006-01-02")
+	}
+	return labeledLine(fd.Label, value, ctx.Colors)
 }
 
-func renderDateTimeValue(_ *tikipkg.Tiki, ctx FieldRenderContext) tview.Primitive {
-	return labeledLine("DateTime", "(stub)", ctx.Colors)
+func renderDateTimeValue(tk *tikipkg.Tiki, ctx FieldRenderContext) tview.Primitive {
+	fd, ok := LookupField(ctx.FieldName)
+	if !ok {
+		return placeholderRow(fmt.Sprintf("%s: (unknown)", ctx.FieldName))
+	}
+	value := "Unknown"
+	if fd.Get != nil {
+		if t, ok := fd.Get(tk).(time.Time); ok && !t.IsZero() {
+			value = t.Format("2006-01-02 15:04")
+		}
+	}
+	return labeledLine(fd.Label, value, ctx.Colors)
+}
+
+// textEmptyPlaceholder returns the historical empty-value placeholder for
+// well-known fields, preserving the prior visual when no value is set.
+func textEmptyPlaceholder(name string) string {
+	switch name {
+	case tikipkg.FieldAssignee:
+		return "Unassigned"
+	case "createdBy":
+		return "Unknown"
+	default:
+		return "─"
+	}
 }
 
 func renderRecurrenceValue(tk *tikipkg.Tiki, ctx FieldRenderContext) tview.Primitive {

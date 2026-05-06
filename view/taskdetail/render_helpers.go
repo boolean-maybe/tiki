@@ -22,11 +22,14 @@ const (
 	RenderModeEdit
 )
 
-// FieldRenderContext provides context for rendering field primitives
+// FieldRenderContext provides context for rendering field primitives.
+// FieldName is set by renderConfiguredField so generic renderers can
+// resolve the descriptor and avoid hardcoding the field they target.
 type FieldRenderContext struct {
 	Mode         RenderMode
 	FocusedField model.EditField
 	Colors       *config.ColorConfig
+	FieldName    string
 }
 
 // getDimOrFullColor returns dim color if in edit mode and not focused, otherwise full color

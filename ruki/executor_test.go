@@ -431,20 +431,12 @@ func TestExecuteEnumNormalization(t *testing.T) {
 			1, []string{"TIKI-A"},
 		},
 		{
-			"status alias todo->ready", `select where status = "todo"`,
-			1, []string{"TIKI-C"},
-		},
-		{
-			"status alias in progress", `select where status = "in progress"`,
+			"status case-insensitive", `select where status = "INPROGRESS"`,
 			1, []string{"TIKI-B"},
 		},
 		{
-			"type alias feature->story", `select where type = "feature"`,
-			2, []string{"TIKI-A", "TIKI-C"},
-		},
-		{
-			"type alias task->story", `select where type = "task"`,
-			2, []string{"TIKI-A", "TIKI-C"},
+			"type case-insensitive", `select where type = "BUG"`,
+			1, []string{"TIKI-B"},
 		},
 	}
 
@@ -988,11 +980,11 @@ func TestExecuteCreateWithUser(t *testing.T) {
 	}
 }
 
-func TestExecuteCreateEnumNormalization(t *testing.T) {
+func TestExecuteCreateEnumCanonicalization(t *testing.T) {
 	e := newTestExecutor()
 	p := newTestParser()
 
-	stmt, err := p.ParseStatement(`create title="test" status="todo" type="feature"`)
+	stmt, err := p.ParseStatement(`create title="test" status="READY" type="BUG"`)
 	if err != nil {
 		t.Fatalf("parse: %v", err)
 	}
@@ -1002,10 +994,10 @@ func TestExecuteCreateEnumNormalization(t *testing.T) {
 	}
 	tk := result.Create.Task
 	if tk.Status != "ready" {
-		t.Errorf("status = %q, want normalized %q", tk.Status, "ready")
+		t.Errorf("status = %q, want canonical %q", tk.Status, "ready")
 	}
-	if tk.Type != "story" {
-		t.Errorf("type = %q, want normalized %q", tk.Type, "story")
+	if tk.Type != "bug" {
+		t.Errorf("type = %q, want canonical %q", tk.Type, "bug")
 	}
 }
 
@@ -1642,8 +1634,8 @@ func TestExecuteSortByStatusTypeRecurrence(t *testing.T) {
 		field   string
 		wantIDs []string
 	}{
-		{"by status", "status", []string{"T2", "T1", "T3"}},
-		{"by type", "type", []string{"T1", "T3", "T2"}},
+		{"by status", "status", []string{"T2", "T3", "T1"}},
+		{"by type", "type", []string{"T2", "T1", "T3"}},
 	}
 
 	for _, tt := range tests {
@@ -1918,15 +1910,14 @@ func TestExecuteRecurrenceComparison(t *testing.T) {
 	}
 }
 
-// --- type normalization with unknown value fallback ---
+// --- enum comparison rejects stale values ---
 
-func TestExecuteNormalizeFallback(t *testing.T) {
+func TestExecuteEnumComparisonRejectsStaleValues(t *testing.T) {
 	e := newTestExecutor()
 	tasks := []*task.Task{
 		{ID: "T1", Title: "x", Status: "unknown_status_xyz", Type: "unknown_type_xyz"},
 	}
 
-	// status with unknown value passes through unchanged
 	stmt := &Statement{
 		Select: &SelectStmt{
 			Where: &CompareExpr{
@@ -1936,15 +1927,11 @@ func TestExecuteNormalizeFallback(t *testing.T) {
 			},
 		},
 	}
-	result, err := e.testExec(stmt, tasks)
-	if err != nil {
-		t.Fatalf("execute: %v", err)
-	}
-	if len(result.Select.Tasks) != 1 {
-		t.Fatalf("expected 1, got %d", len(result.Select.Tasks))
+	_, err := e.testExec(stmt, tasks)
+	if err == nil || !strings.Contains(err.Error(), `invalid enum value "unknown_status_xyz"`) {
+		t.Fatalf("expected invalid enum value error, got: %v", err)
 	}
 
-	// type with unknown value passes through unchanged
 	stmt2 := &Statement{
 		Select: &SelectStmt{
 			Where: &CompareExpr{
@@ -1954,12 +1941,9 @@ func TestExecuteNormalizeFallback(t *testing.T) {
 			},
 		},
 	}
-	result, err = e.testExec(stmt2, tasks)
-	if err != nil {
-		t.Fatalf("execute: %v", err)
-	}
-	if len(result.Select.Tasks) != 1 {
-		t.Fatalf("expected 1, got %d", len(result.Select.Tasks))
+	_, err = e.testExec(stmt2, tasks)
+	if err == nil || !strings.Contains(err.Error(), `invalid enum value "unknown_type_xyz"`) {
+		t.Fatalf("expected invalid enum value error, got: %v", err)
 	}
 }
 
@@ -2395,7 +2379,7 @@ func TestExecuteExistsSubquerySoftFalse(t *testing.T) {
 func TestExecuteResolveComparisonTypeRightSide(t *testing.T) {
 	e := newTestExecutor()
 	tasks := []*task.Task{
-		{ID: "TIKI-A", Title: "x", Status: "ready"},
+		{ID: "TIKI-A", Title: "x", Status: "ready", Type: "story"},
 	}
 
 	// literal on left, field on right — resolveComparisonType checks right side
@@ -2417,7 +2401,7 @@ func TestExecuteResolveComparisonTypeRightSide(t *testing.T) {
 	// literal on left, status field on right
 	stmt2 := &Statement{Select: &SelectStmt{
 		Where: &CompareExpr{
-			Left:  &StringLiteral{Value: "todo"},
+			Left:  &StringLiteral{Value: "READY"},
 			Op:    "=",
 			Right: &FieldRef{Name: "status"},
 		},
@@ -2427,14 +2411,13 @@ func TestExecuteResolveComparisonTypeRightSide(t *testing.T) {
 		t.Fatalf("execute: %v", err)
 	}
 	if len(result.Select.Tasks) != 1 {
-		t.Fatalf("expected 1 (todo->ready), got %d", len(result.Select.Tasks))
+		t.Fatalf("expected 1 (READY->ready), got %d", len(result.Select.Tasks))
 	}
 
-	// literal on left, type field on right. Phase 4 test fixture makes
-	// type present-empty (""), so "feature" != "" matches.
+	// literal on left, type field on right.
 	stmt3 := &Statement{Select: &SelectStmt{
 		Where: &CompareExpr{
-			Left:  &StringLiteral{Value: "feature"},
+			Left:  &StringLiteral{Value: "BUG"},
 			Op:    "!=",
 			Right: &FieldRef{Name: "type"},
 		},
@@ -2444,7 +2427,7 @@ func TestExecuteResolveComparisonTypeRightSide(t *testing.T) {
 		t.Fatalf("execute: %v", err)
 	}
 	if len(result.Select.Tasks) != 1 {
-		t.Fatalf("expected 1 (present-empty type differs from 'feature'), got %d", len(result.Select.Tasks))
+		t.Fatalf("expected 1 (BUG differs from story), got %d", len(result.Select.Tasks))
 	}
 }
 
@@ -2461,8 +2444,8 @@ func TestExprFieldType(t *testing.T) {
 		t.Errorf("expected -1 for unknown field, got %d", got)
 	}
 	// known field returns its type
-	if got := e.exprFieldType(&FieldRef{Name: "status"}); got != ValueStatus {
-		t.Errorf("expected ValueStatus, got %d", got)
+	if got := e.exprFieldType(&FieldRef{Name: "status"}); got != ValueEnum {
+		t.Errorf("expected ValueEnum, got %d", got)
 	}
 }
 
@@ -2591,9 +2574,59 @@ func TestExecuteSortByStatus(t *testing.T) {
 	if err != nil {
 		t.Fatalf("execute: %v", err)
 	}
-	// desc: ready > done > backlog
-	if result.Select.Tasks[0].ID != "T1" {
-		t.Errorf("expected T1 first (ready), got %s", result.Select.Tasks[0].ID)
+	// desc follows declared status order: done > ready > backlog.
+	if result.Select.Tasks[0].ID != "T2" {
+		t.Errorf("expected T2 first (done), got %s", result.Select.Tasks[0].ID)
+	}
+}
+
+func TestExecuteSortByTypeDeclaredOrder(t *testing.T) {
+	e := newTestExecutor()
+	p := newTestParser()
+
+	tasks := []*task.Task{
+		{ID: "T1", Title: "a", Status: "ready", Type: "epic"},
+		{ID: "T2", Title: "b", Status: "ready", Type: "story"},
+		{ID: "T3", Title: "c", Status: "ready", Type: "bug"},
+	}
+
+	stmt, err := p.ParseStatement(`select order by type`)
+	if err != nil {
+		t.Fatalf("parse: %v", err)
+	}
+	result, err := e.testExec(stmt, tasks)
+	if err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+
+	wantIDs := []string{"T2", "T3", "T1"}
+	if got := taskIDs(result.Select.Tasks); !reflect.DeepEqual(got, wantIDs) {
+		t.Fatalf("sorted IDs = %v, want %v", got, wantIDs)
+	}
+}
+
+func TestExecuteEnumRelationalComparisonUsesDeclaredOrder(t *testing.T) {
+	e := newTestExecutor()
+	p := newTestParser()
+
+	tasks := []*task.Task{
+		{ID: "T1", Title: "a", Status: "backlog"},
+		{ID: "T2", Title: "b", Status: "ready"},
+		{ID: "T3", Title: "c", Status: "done"},
+	}
+
+	stmt, err := p.ParseStatement(`select where status < "done"`)
+	if err != nil {
+		t.Fatalf("parse: %v", err)
+	}
+	result, err := e.testExec(stmt, tasks)
+	if err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+
+	wantIDs := []string{"T1", "T2"}
+	if got := taskIDs(result.Select.Tasks); !reflect.DeepEqual(got, wantIDs) {
+		t.Fatalf("selected IDs = %v, want %v", got, wantIDs)
 	}
 }
 
@@ -3305,8 +3338,7 @@ func TestExecuteUpdateEnumNormalization(t *testing.T) {
 		{ID: "TIKI-000001", Title: "x", Status: "done"},
 	}
 
-	// "todo" is an alias for "ready" in the test schema
-	stmt, err := p.ParseStatement(`update where id = "TIKI-000001" set status="todo"`)
+	stmt, err := p.ParseStatement(`update where id = "TIKI-000001" set status="READY"`)
 	if err != nil {
 		t.Fatalf("parse: %v", err)
 	}
@@ -3475,14 +3507,14 @@ func TestExecuteUpdateUnknownField(t *testing.T) {
 	}
 }
 
-func TestExecuteUpdateTypeNormalization(t *testing.T) {
+func TestExecuteUpdateTypeCanonicalization(t *testing.T) {
 	e := newTestExecutor()
 	p := newTestParser()
 	tasks := []*task.Task{
 		{ID: "TIKI-000001", Title: "x", Status: "ready", Type: "bug"},
 	}
 
-	stmt, err := p.ParseStatement(`update where id = "TIKI-000001" set type="feature"`)
+	stmt, err := p.ParseStatement(`update where id = "TIKI-000001" set type="STORY"`)
 	if err != nil {
 		t.Fatalf("parse: %v", err)
 	}
@@ -3491,7 +3523,7 @@ func TestExecuteUpdateTypeNormalization(t *testing.T) {
 		t.Fatalf("execute: %v", err)
 	}
 	if result.Update.Updated[0].Type != "story" {
-		t.Errorf("expected normalized type 'story', got %q", result.Update.Updated[0].Type)
+		t.Errorf("expected canonical type 'story', got %q", result.Update.Updated[0].Type)
 	}
 }
 
@@ -3664,8 +3696,8 @@ func TestSetFieldUnknownStatusError(t *testing.T) {
 	tk := tikiFromTask(&task.Task{ID: "T1", Title: "x", Status: "ready"})
 
 	err := e.setField(tk, "status", "nonexistent_status")
-	if err == nil || !strings.Contains(err.Error(), "unknown status") {
-		t.Fatalf("expected unknown status error, got: %v", err)
+	if err == nil || !strings.Contains(err.Error(), `invalid enum value "nonexistent_status"`) {
+		t.Fatalf("expected invalid enum value error, got: %v", err)
 	}
 }
 
@@ -3674,8 +3706,8 @@ func TestSetFieldUnknownTypeError(t *testing.T) {
 	tk := tikiFromTask(&task.Task{ID: "T1", Title: "x", Status: "ready", Type: "bug"})
 
 	err := e.setField(tk, "type", "nonexistent_type")
-	if err == nil || !strings.Contains(err.Error(), "unknown type") {
-		t.Fatalf("expected unknown type error, got: %v", err)
+	if err == nil || !strings.Contains(err.Error(), `invalid enum value "nonexistent_type"`) {
+		t.Fatalf("expected invalid enum value error, got: %v", err)
 	}
 }
 
@@ -4065,8 +4097,8 @@ func TestSetFieldStatusWithIntValue(t *testing.T) {
 	if err == nil {
 		t.Fatal("expected error for int status")
 	}
-	if !strings.Contains(err.Error(), "status must be a string") {
-		t.Errorf("expected 'status must be a string' error, got: %v", err)
+	if !strings.Contains(err.Error(), "expected string") {
+		t.Errorf("expected string error, got: %v", err)
 	}
 }
 
@@ -4078,8 +4110,8 @@ func TestSetFieldTypeWithIntValue(t *testing.T) {
 	if err == nil {
 		t.Fatal("expected error for int type")
 	}
-	if !strings.Contains(err.Error(), "type must be a string") {
-		t.Errorf("expected 'type must be a string' error, got: %v", err)
+	if !strings.Contains(err.Error(), "expected string") {
+		t.Errorf("expected string error, got: %v", err)
 	}
 }
 
@@ -4385,8 +4417,8 @@ func TestExecutor_OrderByCustomEnum(t *testing.T) {
 	if err != nil {
 		t.Fatalf("execute: %v", err)
 	}
-	// enum values are compared as strings: "critical" < "high" < "low"
-	wantIDs := []string{"T2", "T1", "T3"}
+	// enum values follow declaration order: low < medium < high < critical.
+	wantIDs := []string{"T3", "T1", "T2"}
 	if len(result.Select.Tasks) != 3 {
 		t.Fatalf("expected 3 tasks, got %d", len(result.Select.Tasks))
 	}

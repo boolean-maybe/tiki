@@ -170,7 +170,7 @@ views:
     kind: detail
     description: "Configured detail view for the selected tiki"
     require: ["selection:one"]
-    metadata: [status, type, priority]
+    metadata: [status, type, priority, points, assignee, createdBy, createdAt, updatedAt, due, recurrence, tags]
 
 triggers:
   - description: block completion with open dependencies

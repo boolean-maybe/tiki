@@ -25,8 +25,8 @@ func (testTriggerSchema) Field(name string) (ruki.FieldSpec, bool) {
 		"id":          {Name: "id", Type: ruki.ValueID},
 		"title":       {Name: "title", Type: ruki.ValueString},
 		"description": {Name: "description", Type: ruki.ValueString},
-		"status":      {Name: "status", Type: ruki.ValueStatus},
-		"type":        {Name: "type", Type: ruki.ValueTaskType},
+		"status":      {Name: "status", Type: ruki.ValueEnum, AllowedValues: []string{"backlog", "ready", "inProgress", "done", "cancelled"}},
+		"type":        {Name: "type", Type: ruki.ValueEnum, AllowedValues: []string{"story", "bug", "spike", "epic"}},
 		"tags":        {Name: "tags", Type: ruki.ValueListString},
 		"dependsOn":   {Name: "dependsOn", Type: ruki.ValueListRef},
 		"due":         {Name: "due", Type: ruki.ValueDate},
@@ -40,30 +40,6 @@ func (testTriggerSchema) Field(name string) (ruki.FieldSpec, bool) {
 	}
 	f, ok := fields[name]
 	return f, ok
-}
-
-func (testTriggerSchema) NormalizeStatus(raw string) (string, bool) {
-	valid := map[string]string{
-		"backlog":     "backlog",
-		"ready":       "ready",
-		"in progress": "inProgress",
-		"inProgress":  "inProgress",
-		"done":        "done",
-		"cancelled":   "cancelled",
-	}
-	canonical, ok := valid[raw]
-	return canonical, ok
-}
-
-func (testTriggerSchema) NormalizeType(raw string) (string, bool) {
-	valid := map[string]string{
-		"story": "story",
-		"bug":   "bug",
-		"spike": "spike",
-		"epic":  "epic",
-	}
-	canonical, ok := valid[raw]
-	return canonical, ok
 }
 
 func parseTriggerEntry(t *testing.T, desc, input string) triggerEntry {
@@ -191,7 +167,7 @@ func TestTriggerEngine_BeforeDenyNoMatch(t *testing.T) {
 func TestTriggerEngine_BeforeDenyWIPLimit(t *testing.T) {
 	// WIP limit: deny when 3+ in-progress tasks for same assignee.
 	entry := parseTriggerEntry(t, "WIP limit",
-		`before update where new.status = "in progress" and count(select where assignee = new.assignee and status = "in progress") >= 3 deny "WIP limit reached"`)
+		`before update where new.status = "inProgress" and count(select where assignee = new.assignee and status = "inProgress") >= 3 deny "WIP limit reached"`)
 
 	existing1 := newTiki("WIP001", "a1", "inProgress", "story", 3)
 	existing1.Set(tikipkg.FieldAssignee, "alice")
@@ -217,7 +193,7 @@ func TestTriggerEngine_BeforeDenyWIPLimit(t *testing.T) {
 
 func TestTriggerEngine_BeforeAllowUnderWIPLimit(t *testing.T) {
 	entry := parseTriggerEntry(t, "WIP limit",
-		`before update where new.status = "in progress" and count(select where assignee = new.assignee and status = "in progress") >= 3 deny "WIP limit reached"`)
+		`before update where new.status = "inProgress" and count(select where assignee = new.assignee and status = "inProgress") >= 3 deny "WIP limit reached"`)
 
 	existing := newTiki("WIP001", "a1", "inProgress", "story", 3)
 	existing.Set(tikipkg.FieldAssignee, "alice")

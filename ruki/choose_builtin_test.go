@@ -294,9 +294,7 @@ func TestCoerceCustomFieldValue_Ref_WrongType(t *testing.T) {
 // --- end-to-end: choose with custom ref field ---
 
 // chooseTestSchema extends testSchema with a custom ref field.
-type chooseTestSchema struct {
-	testSchema
-}
+type chooseTestSchema struct{}
 
 func (chooseTestSchema) Field(name string) (FieldSpec, bool) {
 	if name == "epic" {

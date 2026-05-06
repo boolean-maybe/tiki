@@ -35,12 +35,12 @@ func TestParseTrigger_BeforeDeny(t *testing.T) {
 		},
 		{
 			"prevent skipping review",
-			`before update where old.status = "in progress" and new.status = "done" deny "tasks must go through review before completion"`,
+			`before update where old.status = "inProgress" and new.status = "done" deny "tasks must go through review before completion"`,
 			"update",
 		},
 		{
 			"protect high priority from demotion",
-			`before update where old.priority = 1 and old.status = "in progress" and new.priority > 1 deny "cannot demote priority of active critical tasks"`,
+			`before update where old.priority = 1 and old.status = "inProgress" and new.priority > 1 deny "cannot demote priority of active critical tasks"`,
 			"update",
 		},
 		{
@@ -50,12 +50,12 @@ func TestParseTrigger_BeforeDeny(t *testing.T) {
 		},
 		{
 			"WIP limit",
-			`before update where new.status = "in progress" and count(select where assignee = new.assignee and status = "in progress") >= 3 deny "WIP limit reached for this assignee"`,
+			`before update where new.status = "inProgress" and count(select where assignee = new.assignee and status = "inProgress") >= 3 deny "WIP limit reached for this assignee"`,
 			"update",
 		},
 		{
 			"points required before start",
-			`before update where new.status = "in progress" and new.points = 0 deny "tasks must be estimated before starting work"`,
+			`before update where new.status = "inProgress" and new.points = 0 deny "tasks must be estimated before starting work"`,
 			"update",
 		},
 	}
@@ -121,7 +121,7 @@ func TestParseTrigger_AfterAction(t *testing.T) {
 		},
 		{
 			"reopen epic on regression",
-			`after update where old.status = "done" and new.status != "done" update where id in blocks(old.id) and type = "epic" and status = "done" set status="in progress"`,
+			`after update where old.status = "done" and new.status != "done" update where id in blocks(old.id) and type = "epic" and status = "done" set status="inProgress"`,
 			"update",
 			false, true, false, false,
 		},
@@ -157,7 +157,7 @@ func TestParseTrigger_AfterAction(t *testing.T) {
 		},
 		{
 			"run action",
-			`after update where new.status = "in progress" and "claude" in new.tags run("claude -p 'implement tiki " + old.id + "'")`,
+			`after update where new.status = "inProgress" and "claude" in new.tags run("claude -p 'implement tiki " + old.id + "'")`,
 			"update",
 			false, false, false, true,
 		},
@@ -242,7 +242,7 @@ func TestParseTrigger_StructuralErrors(t *testing.T) {
 func TestParseTrigger_QualifiedRefsInWhere(t *testing.T) {
 	p := newTestParser()
 
-	input := `before update where old.status = "in progress" and new.status = "done" deny "skip"`
+	input := `before update where old.status = "inProgress" and new.status = "done" deny "skip"`
 	trig, err := p.ParseTrigger(input)
 	if err != nil {
 		t.Fatalf("parse error: %v", err)
@@ -361,7 +361,7 @@ func TestParseTrigger_BareFieldInsideSubquery_Allowed(t *testing.T) {
 	p := newTestParser()
 
 	// bare fields inside count(select where ...) are OK (zone 4), qualifiers also OK
-	input := `before update where new.status = "in progress" and count(select where assignee = new.assignee and status = "in progress") >= 3 deny "WIP limit"`
+	input := `before update where new.status = "inProgress" and count(select where assignee = new.assignee and status = "inProgress") >= 3 deny "WIP limit"`
 	_, err := p.ParseTrigger(input)
 	if err != nil {
 		t.Fatalf("expected success for bare field inside subquery: %v", err)

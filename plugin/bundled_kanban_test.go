@@ -43,8 +43,8 @@ func TestBundledKanban_HasDetailViewAndEnterAction(t *testing.T) {
 		t.Fatal("bundled kanban does not contain a Detail (kind: detail) view")
 	}
 
-	// Defaults declared by the plan: status, type, priority — in order.
-	want := []string{"status", "type", "priority"}
+	// Defaults declared by bundled kanban, in render order.
+	want := []string{"status", "type", "priority", "points", "assignee", "createdBy", "createdAt", "updatedAt", "due", "recurrence", "tags"}
 	got := strings.Join(detail.Metadata, ",")
 	if got != strings.Join(want, ",") {
 		t.Errorf("Detail.Metadata = %v, want %v", detail.Metadata, want)

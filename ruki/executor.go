@@ -373,29 +373,13 @@ func (e *Executor) setField(t *tiki.Tiki, name string, val interface{}) error {
 		if val == nil {
 			return fmt.Errorf("cannot set status to empty")
 		}
-		s, ok := coerceSetString(val)
-		if !ok {
-			return fmt.Errorf("status must be a string, got %T", val)
-		}
-		norm, valid := e.schema.NormalizeStatus(s)
-		if !valid {
-			return fmt.Errorf("unknown status %q", s)
-		}
-		t.Set(name, norm)
+		return e.setEnumField(t, name, val)
 
 	case tiki.FieldType:
 		if val == nil {
 			return fmt.Errorf("cannot set type to empty")
 		}
-		s, ok := coerceSetString(val)
-		if !ok {
-			return fmt.Errorf("type must be a string, got %T", val)
-		}
-		norm, valid := e.schema.NormalizeType(s)
-		if !valid {
-			return fmt.Errorf("unknown type %q", s)
-		}
-		t.Set(name, norm)
+		return e.setEnumField(t, name, val)
 
 	case tiki.FieldPriority:
 		if val == nil {
@@ -493,8 +477,21 @@ func (e *Executor) setField(t *tiki.Tiki, name string, val interface{}) error {
 	return nil
 }
 
+func (e *Executor) setEnumField(t *tiki.Tiki, name string, val interface{}) error {
+	fs, ok := e.schema.Field(name)
+	if !ok || fs.Type != ValueEnum {
+		return fmt.Errorf("field %q is not an enum", name)
+	}
+	coerced, err := coerceEnumFieldValue(fs, val)
+	if err != nil {
+		return fmt.Errorf("field %q: %w", name, err)
+	}
+	t.Set(name, coerced)
+	return nil
+}
+
 // coerceSetString converts task-typed string wrappers produced by legacy test
-// fixtures to plain strings before schema normalization.
+// fixtures to plain strings before enum canonicalization.
 func coerceSetString(val interface{}) (string, bool) {
 	switch v := val.(type) {
 	case string:
@@ -558,16 +555,7 @@ func coerceCustomFieldValue(fs FieldSpec, val interface{}) (interface{}, error) 
 		}
 		return tv, nil
 	case ValueEnum:
-		s, ok := val.(string)
-		if !ok {
-			return nil, fmt.Errorf("expected string, got %T", val)
-		}
-		for _, av := range fs.AllowedValues {
-			if strings.EqualFold(av, s) {
-				return av, nil
-			}
-		}
-		return nil, fmt.Errorf("invalid enum value %q", s)
+		return coerceEnumFieldValue(fs, val)
 	case ValueListString:
 		return collectionutil.NormalizeStringSet(toStringSlice(val)), nil
 	case ValueListRef:
@@ -589,6 +577,27 @@ func coerceCustomFieldValue(fs FieldSpec, val interface{}) (interface{}, error) 
 	default:
 		return nil, fmt.Errorf("unsupported custom field type")
 	}
+}
+
+func coerceEnumFieldValue(fs FieldSpec, val interface{}) (string, error) {
+	s, ok := coerceSetString(val)
+	if !ok {
+		return "", fmt.Errorf("expected string, got %T", val)
+	}
+	canonical, ok := canonicalEnumValue(fs, s)
+	if !ok {
+		return "", fmt.Errorf("invalid enum value %q", s)
+	}
+	return canonical, nil
+}
+
+func canonicalEnumValue(fs FieldSpec, raw string) (string, bool) {
+	for _, av := range fs.AllowedValues {
+		if strings.EqualFold(av, raw) {
+			return av, true
+		}
+	}
+	return "", false
 }
 
 // normalizeRefList applies set-like normalization for document ID references.
@@ -1618,6 +1627,14 @@ func subtractValues(left, right interface{}) (interface{}, error) {
 func (e *Executor) sortTikis(tikis []*tiki.Tiki, clauses []OrderByClause) error {
 	// Pre-extract all sort keys so a missing field surfaces as an error
 	// before sort.Slice starts swapping.
+	specs := make([]FieldSpec, len(clauses))
+	for i, c := range clauses {
+		fs, ok := e.schema.Field(c.Field)
+		if !ok {
+			return fmt.Errorf("order by %q: unknown field", c.Field)
+		}
+		specs[i] = fs
+	}
 	keys := make([][]interface{}, len(tikis))
 	for i, t := range tikis {
 		row := make([]interface{}, len(clauses))
@@ -1626,7 +1643,11 @@ func (e *Executor) sortTikis(tikis []*tiki.Tiki, clauses []OrderByClause) error 
 			if err != nil {
 				return fmt.Errorf("order by %q: %w", c.Field, err)
 			}
-			row[j] = v
+			key, err := sortKeyForField(specs[j], v)
+			if err != nil {
+				return fmt.Errorf("order by %q: %w", c.Field, err)
+			}
+			row[j] = key
 		}
 		keys[i] = row
 	}
@@ -1657,6 +1678,22 @@ func (e *Executor) sortTikis(tikis []*tiki.Tiki, clauses []OrderByClause) error 
 	return nil
 }
 
+type enumSortKey struct {
+	rank  int
+	value string
+}
+
+func sortKeyForField(fs FieldSpec, v interface{}) (interface{}, error) {
+	if fs.Type != ValueEnum || v == nil {
+		return v, nil
+	}
+	rank, canonical, ok := enumRank(fs, normalizeToString(v))
+	if !ok {
+		return nil, fmt.Errorf("invalid enum value %q", normalizeToString(v))
+	}
+	return enumSortKey{rank: rank, value: canonical}, nil
+}
+
 func compareForSort(a, b interface{}) int {
 	if a == nil && b == nil {
 		return 0
@@ -1669,6 +1706,12 @@ func compareForSort(a, b interface{}) int {
 	}
 
 	switch av := a.(type) {
+	case enumSortKey:
+		bv, _ := b.(enumSortKey)
+		if av.rank != bv.rank {
+			return compareInts(av.rank, bv.rank)
+		}
+		return strings.Compare(av.value, bv.value)
 	case int:
 		bv, _ := b.(int)
 		return compareInts(av, bv)
@@ -1714,6 +1757,15 @@ func compareForSort(a, b interface{}) int {
 	default:
 		return strings.Compare(fmt.Sprint(a), fmt.Sprint(b))
 	}
+}
+
+func enumRank(fs FieldSpec, raw string) (int, string, bool) {
+	for i, av := range fs.AllowedValues {
+		if strings.EqualFold(av, raw) {
+			return i, av, true
+		}
+	}
+	return 0, "", false
 }
 
 func compareInts(a, b int) int {
@@ -1768,18 +1820,12 @@ func (e *Executor) compareValues(left, right interface{}, op string, leftExpr, r
 	switch compType {
 	case ValueID:
 		return compareStringsCI(normalizeToString(left), normalizeToString(right), op)
-	case ValueStatus:
-		ls := e.normalizeStatusStr(normalizeToString(left))
-		rs := e.normalizeStatusStr(normalizeToString(right))
-		return compareStrings(ls, rs, op)
-	case ValueTaskType:
-		ls := e.normalizeTypeStr(normalizeToString(left))
-		rs := e.normalizeTypeStr(normalizeToString(right))
-		return compareStrings(ls, rs, op)
 	case ValueEnum:
-		ls := strings.ToLower(normalizeToString(left))
-		rs := strings.ToLower(normalizeToString(right))
-		return compareStrings(ls, rs, op)
+		fs, ok := e.enumComparisonField(leftExpr, rightExpr)
+		if !ok {
+			return false, fmt.Errorf("cannot resolve enum comparison domain")
+		}
+		return compareEnumValues(fs, left, right, op)
 	}
 
 	switch lv := left.(type) {
@@ -1827,13 +1873,36 @@ func ensureInterfaceSlice(v interface{}) []interface{} {
 
 // resolveComparisonType returns the dominant field type for a comparison.
 func (e *Executor) resolveComparisonType(left, right Expr) ValueType {
-	if t := e.exprFieldType(left); t == ValueID || t == ValueStatus || t == ValueTaskType || t == ValueEnum {
+	if t := e.exprFieldType(left); t == ValueID || t == ValueEnum {
 		return t
 	}
-	if t := e.exprFieldType(right); t == ValueID || t == ValueStatus || t == ValueTaskType || t == ValueEnum {
+	if t := e.exprFieldType(right); t == ValueID || t == ValueEnum {
 		return t
 	}
 	return -1
+}
+
+func (e *Executor) enumComparisonField(left, right Expr) (FieldSpec, bool) {
+	if fs, ok := e.exprFieldSpec(left); ok && fs.Type == ValueEnum {
+		return fs, true
+	}
+	if fs, ok := e.exprFieldSpec(right); ok && fs.Type == ValueEnum {
+		return fs, true
+	}
+	return FieldSpec{}, false
+}
+
+func (e *Executor) exprFieldSpec(expr Expr) (FieldSpec, bool) {
+	var name string
+	switch e := expr.(type) {
+	case *FieldRef:
+		name = e.Name
+	case *QualifiedRef:
+		name = e.Name
+	default:
+		return FieldSpec{}, false
+	}
+	return e.schema.Field(name)
 }
 
 func (e *Executor) exprFieldType(expr Expr) ValueType {
@@ -1861,21 +1930,7 @@ func (e *Executor) exprFieldType(expr Expr) ValueType {
 // isEnumLikeField returns true for field types that use case-insensitive
 // comparison in equality checks and should also use it for in/not-in.
 func isEnumLikeField(t ValueType) bool {
-	return t == ValueEnum || t == ValueStatus || t == ValueTaskType || t == ValueID || t == ValueBool
-}
-
-func (e *Executor) normalizeStatusStr(s string) string {
-	if norm, ok := e.schema.NormalizeStatus(s); ok {
-		return norm
-	}
-	return s
-}
-
-func (e *Executor) normalizeTypeStr(s string) string {
-	if norm, ok := e.schema.NormalizeType(s); ok {
-		return norm
-	}
-	return s
+	return t == ValueEnum || t == ValueID || t == ValueBool
 }
 
 func compareWithNil(left, right interface{}, op string, leftExpr, rightExpr Expr) (bool, error) {
@@ -1979,6 +2034,33 @@ func compareStringsCI(a, b, op string) (bool, error) {
 		return a != b, nil
 	default:
 		return false, fmt.Errorf("operator %s not supported for id comparison", op)
+	}
+}
+
+func compareEnumValues(fs FieldSpec, left, right interface{}, op string) (bool, error) {
+	leftRank, leftValue, ok := enumRank(fs, normalizeToString(left))
+	if !ok {
+		return false, fmt.Errorf("invalid enum value %q", normalizeToString(left))
+	}
+	rightRank, rightValue, ok := enumRank(fs, normalizeToString(right))
+	if !ok {
+		return false, fmt.Errorf("invalid enum value %q", normalizeToString(right))
+	}
+	switch op {
+	case "=":
+		return leftValue == rightValue, nil
+	case "!=":
+		return leftValue != rightValue, nil
+	case "<":
+		return leftRank < rightRank, nil
+	case ">":
+		return leftRank > rightRank, nil
+	case "<=":
+		return leftRank <= rightRank, nil
+	case ">=":
+		return leftRank >= rightRank, nil
+	default:
+		return false, fmt.Errorf("unknown operator %q", op)
 	}
 }
 

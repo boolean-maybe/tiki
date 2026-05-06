@@ -11,8 +11,6 @@ import (
 // and executor. The field catalog is snapshotted at construction time so an old
 // schema never observes newly loaded custom fields through live global lookups.
 type workflowSchema struct {
-	statusReg    *workflow.StatusRegistry
-	typeReg      *workflow.TypeRegistry
 	fieldsByName map[string]ruki.FieldSpec // snapshotted at construction
 }
 
@@ -29,15 +27,15 @@ func NewSchema() ruki.Schema {
 			Type:   mapValueType(fd.Type),
 			Custom: fd.Custom,
 		}
-		if fd.AllowedValues != nil {
+		if values := enumAllowedValues(fd, config.GetStatusRegistry(), config.GetTypeRegistry()); values != nil {
+			spec.AllowedValues = values
+		} else if fd.AllowedValues != nil {
 			spec.AllowedValues = make([]string, len(fd.AllowedValues))
 			copy(spec.AllowedValues, fd.AllowedValues)
 		}
 		byName[fd.Name] = spec
 	}
 	return &workflowSchema{
-		statusReg:    config.GetStatusRegistry(),
-		typeReg:      config.GetTypeRegistry(),
 		fieldsByName: byName,
 	}
 }
@@ -55,15 +53,15 @@ func NewSchemaFromRegistries(statusReg *workflow.StatusRegistry, typeReg *workfl
 			Type:   mapValueType(fd.Type),
 			Custom: fd.Custom,
 		}
-		if fd.AllowedValues != nil {
+		if values := enumAllowedValues(fd, statusReg, typeReg); values != nil {
+			spec.AllowedValues = values
+		} else if fd.AllowedValues != nil {
 			spec.AllowedValues = make([]string, len(fd.AllowedValues))
 			copy(spec.AllowedValues, fd.AllowedValues)
 		}
 		byName[fd.Name] = spec
 	}
 	return &workflowSchema{
-		statusReg:    statusReg,
-		typeReg:      typeReg,
 		fieldsByName: byName,
 	}
 }
@@ -82,21 +80,8 @@ func (s *workflowSchema) Field(name string) (ruki.FieldSpec, bool) {
 	return out, true
 }
 
-func (s *workflowSchema) NormalizeStatus(raw string) (string, bool) {
-	def, ok := s.statusReg.Lookup(raw)
-	if !ok {
-		return "", false
-	}
-	return def.Key, true
-}
-
-func (s *workflowSchema) NormalizeType(raw string) (string, bool) {
-	canonical, ok := s.typeReg.ParseType(raw)
-	return string(canonical), ok
-}
-
-// mapValueType converts workflow.ValueType to ruki.ValueType.
-// The two enums are defined in lockstep, so this is a 1:1 mapping.
+// mapValueType converts workflow.ValueType to ruki.ValueType. Workflow's
+// status, task type, and custom enum domains all collapse to ruki.ValueEnum.
 func mapValueType(wt workflow.ValueType) ruki.ValueType {
 	switch wt {
 	case workflow.TypeString:
@@ -121,13 +106,34 @@ func mapValueType(wt workflow.ValueType) ruki.ValueType {
 		return ruki.ValueListString
 	case workflow.TypeListRef:
 		return ruki.ValueListRef
-	case workflow.TypeStatus:
-		return ruki.ValueStatus
-	case workflow.TypeTaskType:
-		return ruki.ValueTaskType
-	case workflow.TypeEnum:
+	case workflow.TypeStatus, workflow.TypeTaskType, workflow.TypeEnum:
 		return ruki.ValueEnum
 	default:
 		return ruki.ValueString
+	}
+}
+
+func enumAllowedValues(fd workflow.FieldDef, statusReg *workflow.StatusRegistry, typeReg *workflow.TypeRegistry) []string {
+	switch fd.Type {
+	case workflow.TypeStatus:
+		keys := statusReg.Keys()
+		values := make([]string, len(keys))
+		for i, key := range keys {
+			values[i] = string(key)
+		}
+		return values
+	case workflow.TypeTaskType:
+		keys := typeReg.Keys()
+		values := make([]string, len(keys))
+		for i, key := range keys {
+			values[i] = string(key)
+		}
+		return values
+	case workflow.TypeEnum:
+		values := make([]string, len(fd.AllowedValues))
+		copy(values, fd.AllowedValues)
+		return values
+	default:
+		return nil
 	}
 }

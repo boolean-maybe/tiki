@@ -20,7 +20,7 @@ func TestValidation_TypeMismatch(t *testing.T) {
 		},
 		{
 			"string field ordered compare",
-			`select where status < "done"`,
+			`select where title < "done"`,
 			"operator < not supported",
 		},
 		{
@@ -220,8 +220,8 @@ func TestValidation_UnknownStatus(t *testing.T) {
 	if err == nil {
 		t.Fatal("expected error, got nil")
 	}
-	if !strings.Contains(err.Error(), "unknown status") {
-		t.Fatalf("expected unknown status error, got: %v", err)
+	if !strings.Contains(err.Error(), `unknown value "nonexistent" for field "status"`) {
+		t.Fatalf("expected unknown enum value error, got: %v", err)
 	}
 }
 
@@ -232,8 +232,8 @@ func TestValidation_UnknownType(t *testing.T) {
 	if err == nil {
 		t.Fatal("expected error, got nil")
 	}
-	if !strings.Contains(err.Error(), "unknown type") {
-		t.Fatalf("expected unknown type error, got: %v", err)
+	if !strings.Contains(err.Error(), `unknown value "nonexistent" for field "type"`) {
+		t.Fatalf("expected unknown enum value error, got: %v", err)
 	}
 }
 
@@ -245,9 +245,9 @@ func TestValidation_ValidStatusAndType(t *testing.T) {
 		input string
 	}{
 		{"valid status", `select where status = "done"`},
-		{"valid status alias", `select where status = "in progress"`},
+		{"valid status case-insensitive", `select where status = "INPROGRESS"`},
 		{"valid type", `select where type = "bug"`},
-		{"valid type alias", `select where type = "feature"`},
+		{"valid type case-insensitive", `select where type = "BUG"`},
 		{"valid status in assignment", `create title="x" status="done"`},
 		{"valid type in assignment", `create title="x" type="bug"`},
 	}
@@ -539,22 +539,22 @@ func TestValidation_EnumInList(t *testing.T) {
 		{
 			"invalid status in list",
 			`select where status in ["done", "bogus"]`,
-			"unknown status",
+			`unknown value "bogus" for field "status"`,
 		},
 		{
 			"invalid type in list",
 			`select where type in ["bug", "bogus"]`,
-			"unknown type",
+			`unknown value "bogus" for field "type"`,
 		},
 		{
 			"all invalid statuses in list",
 			`select where status in ["nope", "nada"]`,
-			"unknown status",
+			`unknown value "nope" for field "status"`,
 		},
 		{
 			"invalid status in not-in list",
 			`select where status not in ["done", "bogus"]`,
-			"unknown status",
+			`unknown value "bogus" for field "status"`,
 		},
 	}
 
@@ -646,8 +646,8 @@ func TestValidation_UnknownStatusInAssignment(t *testing.T) {
 	if err == nil {
 		t.Fatal("expected error, got nil")
 	}
-	if !strings.Contains(err.Error(), "unknown status") {
-		t.Fatalf("expected unknown status error, got: %v", err)
+	if !strings.Contains(err.Error(), `unknown value "nonexistent" for field "status"`) {
+		t.Fatalf("expected unknown enum value error, got: %v", err)
 	}
 }
 
@@ -658,8 +658,8 @@ func TestValidation_UnknownTypeInAssignment(t *testing.T) {
 	if err == nil {
 		t.Fatal("expected error, got nil")
 	}
-	if !strings.Contains(err.Error(), "unknown type") {
-		t.Fatalf("expected unknown type error, got: %v", err)
+	if !strings.Contains(err.Error(), `unknown value "nonexistent" for field "type"`) {
+		t.Fatalf("expected unknown enum value error, got: %v", err)
 	}
 }
 
@@ -671,8 +671,8 @@ func TestValidation_StatusOnLeftSide(t *testing.T) {
 	if err == nil {
 		t.Fatal("expected error, got nil")
 	}
-	if !strings.Contains(err.Error(), "unknown status") {
-		t.Fatalf("expected unknown status error, got: %v", err)
+	if !strings.Contains(err.Error(), `unknown value "nonexistent" for field "status"`) {
+		t.Fatalf("expected unknown enum value error, got: %v", err)
 	}
 }
 
@@ -683,8 +683,8 @@ func TestValidation_TypeOnLeftSide(t *testing.T) {
 	if err == nil {
 		t.Fatal("expected error, got nil")
 	}
-	if !strings.Contains(err.Error(), "unknown type") {
-		t.Fatalf("expected unknown type error, got: %v", err)
+	if !strings.Contains(err.Error(), `unknown value "nonexistent" for field "type"`) {
+		t.Fatalf("expected unknown enum value error, got: %v", err)
 	}
 }
 
@@ -985,22 +985,22 @@ func TestValidation_EnumAssignmentStrictness(t *testing.T) {
 		{
 			"string field to status",
 			`create title="x" status=title`,
-			"cannot assign string to status",
+			"cannot assign string to enum",
 		},
 		{
 			"id field to status",
 			`create title="x" status=id`,
-			"cannot assign id to status",
+			"cannot assign id to enum",
 		},
 		{
 			"string field to type",
 			`create title="x" type=title`,
-			"cannot assign string to type",
+			"cannot assign string to enum",
 		},
 		{
 			"status field to string",
 			`update where id="x" set title=status`,
-			"cannot assign status to string",
+			"cannot assign enum to string",
 		},
 	}
 
@@ -1273,7 +1273,7 @@ func TestValidation_CountSubqueryValidated(t *testing.T) {
 	}
 
 	// valid: count subquery can reference new. in trigger context (parameterized query)
-	_, err = p.ParseTrigger(`before update where new.status = "in progress" and count(select where assignee = new.assignee and status = "in progress") >= 3 deny "WIP limit"`)
+	_, err = p.ParseTrigger(`before update where new.status = "inProgress" and count(select where assignee = new.assignee and status = "inProgress") >= 3 deny "WIP limit"`)
 	if err != nil {
 		t.Fatalf("unexpected error for count subquery with new.: %v", err)
 	}
@@ -1295,7 +1295,7 @@ func TestValidation_ExistsSubqueryValidated(t *testing.T) {
 		t.Fatalf("unexpected error for valid exists subquery: %v", err)
 	}
 
-	_, err = p.ParseTrigger(`before update where new.status = "in progress" and exists(select where assignee = new.assignee and status = "in progress") deny "WIP limit"`)
+	_, err = p.ParseTrigger(`before update where new.status = "inProgress" and exists(select where assignee = new.assignee and status = "inProgress") deny "WIP limit"`)
 	if err != nil {
 		t.Fatalf("unexpected error for exists subquery with new.: %v", err)
 	}
@@ -1420,7 +1420,7 @@ func TestValidation_QualifiedRefValidInTrigger(t *testing.T) {
 	}{
 		{
 			"old and new in before update",
-			`before update where old.status = "in progress" and new.status = "done" deny "skip"`,
+			`before update where old.status = "inProgress" and new.status = "done" deny "skip"`,
 		},
 		{
 			"new in after create",
@@ -1861,8 +1861,7 @@ func TestValidation_TypeNameCoverage(t *testing.T) {
 		{ValueRecurrence, "recurrence"},
 		{ValueListString, "list<string>"},
 		{ValueListRef, "list<ref>"},
-		{ValueStatus, "status"},
-		{ValueTaskType, "type"},
+		{ValueEnum, "enum"},
 		{-1, "empty"},
 		{ValueType(999), "unknown"},
 	}
@@ -1896,7 +1895,7 @@ func TestValidation_MembershipCompatibleEdgeCases(t *testing.T) {
 		{"id and ref", ValueID, ValueRef, true},
 		{"ref and id", ValueRef, ValueID, true},
 		{"string and int", ValueString, ValueInt, false},
-		{"status and string", ValueStatus, ValueString, false},
+		{"enum and string", ValueEnum, ValueString, false},
 	}
 
 	for _, tt := range tests {
@@ -1942,7 +1941,7 @@ func TestValidation_CheckCompareOpUnknown(t *testing.T) {
 }
 
 func TestValidation_IsOrderableType(t *testing.T) {
-	orderable := []ValueType{ValueInt, ValueDate, ValueTimestamp, ValueDuration, ValueString, ValueStatus, ValueTaskType, ValueID, ValueRef, ValueEnum, ValueBool}
+	orderable := []ValueType{ValueInt, ValueDate, ValueTimestamp, ValueDuration, ValueString, ValueID, ValueRef, ValueEnum, ValueBool}
 	for _, vt := range orderable {
 		if !isOrderableType(vt) {
 			t.Errorf("expected %s to be orderable", typeName(vt))
@@ -1958,7 +1957,7 @@ func TestValidation_IsOrderableType(t *testing.T) {
 }
 
 func TestValidation_IsStringLike(t *testing.T) {
-	stringLike := []ValueType{ValueString, ValueStatus, ValueTaskType, ValueID, ValueRef}
+	stringLike := []ValueType{ValueString, ValueEnum, ValueID, ValueRef}
 	for _, vt := range stringLike {
 		if !isStringLike(vt) {
 			t.Errorf("expected %s to be string-like", typeName(vt))
@@ -1974,11 +1973,8 @@ func TestValidation_IsStringLike(t *testing.T) {
 }
 
 func TestValidation_IsEnumType(t *testing.T) {
-	if !isEnumType(ValueStatus) {
-		t.Error("expected ValueStatus to be enum")
-	}
-	if !isEnumType(ValueTaskType) {
-		t.Error("expected ValueTaskType to be enum")
+	if !isEnumType(ValueEnum) {
+		t.Error("expected ValueEnum to be enum")
 	}
 	if isEnumType(ValueString) {
 		t.Error("expected ValueString to NOT be enum")
@@ -1995,7 +1991,7 @@ func TestValidation_TypesCompatible(t *testing.T) {
 		{"empty a", -1, ValueString, true},
 		{"empty b", ValueString, -1, true},
 		{"string-like pair", ValueString, ValueID, true},
-		{"status and string", ValueStatus, ValueString, true},
+		{"enum and string", ValueEnum, ValueString, true},
 		{"int and string", ValueInt, ValueString, false},
 		{"date and int", ValueDate, ValueInt, false},
 	}
@@ -2673,7 +2669,7 @@ func TestValidation_CheckAssignmentCompat_UnresolvedEmpty(t *testing.T) {
 func TestValidation_CheckCompareCompat_RightEnumCheck(t *testing.T) {
 	p := newTestParser()
 	// right side is enum, left side is non-enum non-literal
-	err := p.checkCompareCompat(ValueString, ValueStatus, &FieldRef{Name: "title"}, &FieldRef{Name: "status"})
+	err := p.checkCompareCompat(ValueString, ValueEnum, &FieldRef{Name: "title"}, &FieldRef{Name: "status"})
 	if err == nil {
 		t.Fatal("expected error for comparing string field with status field")
 	}
@@ -2723,9 +2719,7 @@ func TestValidation_InExprListElementTypeError(t *testing.T) {
 // --- custom field validation tests ---
 
 // customTestSchema extends testSchema with custom enum, bool, and timestamp fields.
-type customTestSchema struct {
-	testSchema
-}
+type customTestSchema struct{}
 
 func (customTestSchema) Field(name string) (FieldSpec, bool) {
 	customFields := map[string]FieldSpec{
@@ -2757,6 +2751,61 @@ func TestCustomEnumComparison(t *testing.T) {
 	_, err := p.ParseStatement(`select where severity = "low"`)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
+func TestEnumLiteralsAreCaseInsensitiveButNotAliased(t *testing.T) {
+	p := newTestParser()
+
+	valid := []string{
+		`select where status = "INPROGRESS"`,
+		`select where type = "BUG"`,
+	}
+	for _, input := range valid {
+		if _, err := p.ParseStatement(input); err != nil {
+			t.Fatalf("%s: unexpected error: %v", input, err)
+		}
+	}
+
+	invalid := []string{
+		`select where status = "in progress"`,
+		`select where type = "feature"`,
+	}
+	for _, input := range invalid {
+		if _, err := p.ParseStatement(input); err == nil {
+			t.Fatalf("%s: expected error", input)
+		}
+	}
+}
+
+func TestEnumRelationalOperatorsValidateByDomain(t *testing.T) {
+	p := newCustomParser()
+
+	valid := []string{
+		`select where status < "done"`,
+		`select where severity >= "medium"`,
+	}
+	for _, input := range valid {
+		if _, err := p.ParseStatement(input); err != nil {
+			t.Fatalf("%s: unexpected error: %v", input, err)
+		}
+	}
+
+	invalid := []struct {
+		input   string
+		wantErr string
+	}{
+		{`select where status < type`, "different enum domains"},
+		{`select where severity > priority2`, "different enum domains"},
+	}
+	for _, tt := range invalid {
+		_, err := p.ParseStatement(tt.input)
+		if err == nil {
+			t.Fatalf("%s: expected error", tt.input)
+		}
+		if !strings.Contains(err.Error(), tt.wantErr) {
+			t.Fatalf("%s: expected %q, got %v", tt.input, tt.wantErr, err)
+		}
 	}
 }
 

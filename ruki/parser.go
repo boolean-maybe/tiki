@@ -4,18 +4,12 @@ import (
 	"github.com/alecthomas/participle/v2"
 )
 
-// Schema provides the canonical field catalog and normalization functions
-// that the parser uses for validation. Production code adapts this from
-// workflow.Fields(), workflow.StatusRegistry, and workflow.TypeRegistry.
+// Schema provides the canonical field catalog that the parser uses for validation.
+// Production code adapts this from workflow.Fields(), workflow.StatusRegistry,
+// and workflow.TypeRegistry.
 type Schema interface {
 	// Field returns the field spec for a given field name.
 	Field(name string) (FieldSpec, bool)
-	// NormalizeStatus validates and normalizes a raw status string.
-	// returns the canonical key and true, or ("", false) for unknown values.
-	NormalizeStatus(raw string) (string, bool)
-	// NormalizeType validates and normalizes a raw type string.
-	// returns the canonical key and true, or ("", false) for unknown values.
-	NormalizeType(raw string) (string, bool)
 }
 
 // ValueType identifies the semantic type of a field in the DSL.
@@ -33,9 +27,7 @@ const (
 	ValueRecurrence           // recurrence pattern
 	ValueListString           // tags
 	ValueListRef              // dependsOn
-	ValueStatus               // status enum
-	ValueTaskType             // type enum
-	ValueEnum                 // custom enum backed by FieldSpec.AllowedValues
+	ValueEnum                 // enum backed by FieldSpec.AllowedValues
 )
 
 // FieldSpec describes a single task field for the parser.

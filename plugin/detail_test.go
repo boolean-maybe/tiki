@@ -49,11 +49,11 @@ func TestDetailPlugin_RejectsUnknownMetadataField(t *testing.T) {
 // TestDetailPlugin_RejectsFieldsTheRegistryCannotRender asserts that fields
 // the schema accepts but the detail-view registry can't render are rejected
 // at workflow-load time (so users see a clear error instead of silent
-// "(no renderer)" placeholders at runtime). createdAt/createdBy/filepath are
-// schema-known but not in the renderable set today.
+// "(no renderer)" placeholders at runtime). filepath is schema-known but not
+// in the renderable set today.
 func TestDetailPlugin_RejectsFieldsTheRegistryCannotRender(t *testing.T) {
 	schema := testSchema()
-	for _, name := range []string{"createdAt", "updatedAt", "createdBy", "filepath"} {
+	for _, name := range []string{"filepath"} {
 		t.Run(name, func(t *testing.T) {
 			cfg := pluginFileConfig{
 				Name:     "Detail",

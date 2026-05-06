@@ -27,8 +27,8 @@ func TestSchemaFieldMapping(t *testing.T) {
 	}{
 		{"id", ruki.ValueID},
 		{"title", ruki.ValueString},
-		{"status", ruki.ValueStatus},
-		{"type", ruki.ValueTaskType},
+		{"status", ruki.ValueEnum},
+		{"type", ruki.ValueEnum},
 		{"tags", ruki.ValueListString},
 		{"dependsOn", ruki.ValueListRef},
 		{"due", ruki.ValueDate},
@@ -66,80 +66,55 @@ func TestSchemaUnknownField(t *testing.T) {
 	}
 }
 
-func TestSchemaNormalizeStatus(t *testing.T) {
+func TestSchemaEnumAllowedValues(t *testing.T) {
 	initTestRegistries()
 	s := NewSchema()
 
-	tests := []struct {
-		input  string
-		want   string
-		wantOK bool
-	}{
-		{"done", "done", true},
-		{"backlog", "backlog", true},
-		{"inProgress", "inProgress", true},
-		{"unknown_status", "", false},
+	status, ok := s.Field("status")
+	if !ok {
+		t.Fatal("status field not found")
+	}
+	wantStatus := []string{"backlog", "ready", "inProgress", "done"}
+	if !equalStrings(status.AllowedValues, wantStatus) {
+		t.Fatalf("status AllowedValues = %v, want %v", status.AllowedValues, wantStatus)
 	}
 
-	for _, tt := range tests {
-		t.Run(tt.input, func(t *testing.T) {
-			got, ok := s.NormalizeStatus(tt.input)
-			if ok != tt.wantOK {
-				t.Errorf("NormalizeStatus(%q) ok = %v, want %v", tt.input, ok, tt.wantOK)
-			}
-			if got != tt.want {
-				t.Errorf("NormalizeStatus(%q) = %q, want %q", tt.input, got, tt.want)
-			}
-		})
+	typ, ok := s.Field("type")
+	if !ok {
+		t.Fatal("type field not found")
+	}
+	wantType := []string{"story", "bug", "spike", "epic"}
+	if !equalStrings(typ.AllowedValues, wantType) {
+		t.Fatalf("type AllowedValues = %v, want %v", typ.AllowedValues, wantType)
 	}
 }
 
-func TestSchemaNormalizeType(t *testing.T) {
-	initTestRegistries()
-	s := NewSchema()
-
-	tests := []struct {
-		input  string
-		want   string
-		wantOK bool
-	}{
-		{"story", "story", true},
-		{"bug", "bug", true},
-		{"feature", "", false},      // no aliases
-		{"task", "", false},         // no aliases
-		{"unknown_type", "", false}, // unknown returns empty
+func equalStrings(a, b []string) bool {
+	if len(a) != len(b) {
+		return false
 	}
-
-	for _, tt := range tests {
-		t.Run(tt.input, func(t *testing.T) {
-			got, ok := s.NormalizeType(tt.input)
-			if ok != tt.wantOK {
-				t.Errorf("NormalizeType(%q) ok = %v, want %v", tt.input, ok, tt.wantOK)
-			}
-			if got != tt.want {
-				t.Errorf("NormalizeType(%q) = %q, want %q", tt.input, got, tt.want)
-			}
-		})
+	for i := range a {
+		if a[i] != b[i] {
+			return false
+		}
 	}
+	return true
 }
 
 func TestMapValueTypeCompleteness(t *testing.T) {
-	// verify every workflow type maps to a distinct ruki type
-	seen := make(map[ruki.ValueType]workflow.ValueType)
+	// status, task type, and custom enum intentionally share ValueEnum.
 	types := []workflow.ValueType{
 		workflow.TypeString, workflow.TypeInt, workflow.TypeDate,
 		workflow.TypeTimestamp, workflow.TypeDuration, workflow.TypeBool,
 		workflow.TypeID, workflow.TypeRef, workflow.TypeRecurrence,
 		workflow.TypeListString, workflow.TypeListRef,
-		workflow.TypeStatus, workflow.TypeTaskType,
+		workflow.TypeStatus, workflow.TypeTaskType, workflow.TypeEnum,
 	}
 
 	for _, wt := range types {
-		rv := mapValueType(wt)
-		if prev, exists := seen[rv]; exists {
-			t.Errorf("mapValueType(%d) and mapValueType(%d) both map to ruki.ValueType %d", prev, wt, rv)
+		if got := mapValueType(wt); got == ruki.ValueString && wt != workflow.TypeString {
+			t.Errorf("mapValueType(%d) fell back to ValueString", wt)
 		}
-		seen[rv] = wt
 	}
 }
 

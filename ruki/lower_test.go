@@ -404,7 +404,7 @@ func TestLower_SubQueryBare(t *testing.T) {
 func TestLower_QualifiedRef(t *testing.T) {
 	p := newTestParser()
 
-	trig, err := p.ParseTrigger(`before update where old.status = "in progress" deny "no"`)
+	trig, err := p.ParseTrigger(`before update where old.status = "inProgress" deny "no"`)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}

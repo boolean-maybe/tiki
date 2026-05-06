@@ -14,8 +14,8 @@ func (testSchema) Field(name string) (FieldSpec, bool) {
 		"id":          {Name: "id", Type: ValueID},
 		"title":       {Name: "title", Type: ValueString},
 		"description": {Name: "description", Type: ValueString},
-		"status":      {Name: "status", Type: ValueStatus},
-		"type":        {Name: "type", Type: ValueTaskType},
+		"status":      {Name: "status", Type: ValueEnum, AllowedValues: []string{"backlog", "ready", "inProgress", "review", "done", "cancelled"}},
+		"type":        {Name: "type", Type: ValueEnum, AllowedValues: []string{"story", "bug", "spike", "epic"}},
 		"tags":        {Name: "tags", Type: ValueListString},
 		"dependsOn":   {Name: "dependsOn", Type: ValueListRef},
 		"due":         {Name: "due", Type: ValueDate},
@@ -31,36 +31,6 @@ func (testSchema) Field(name string) (FieldSpec, bool) {
 	f, ok := fields[name]
 	return f, ok
 }
-
-func (testSchema) NormalizeStatus(raw string) (string, bool) {
-	valid := map[string]string{
-		"backlog":     "backlog",
-		"ready":       "ready",
-		"todo":        "ready",
-		"in progress": "inProgress",
-		"in_progress": "inProgress",
-		"inProgress":  "inProgress",
-		"review":      "review",
-		"done":        "done",
-		"cancelled":   "cancelled",
-	}
-	canonical, ok := valid[raw]
-	return canonical, ok
-}
-
-func (testSchema) NormalizeType(raw string) (string, bool) {
-	valid := map[string]string{
-		"story":   "story",
-		"feature": "story",
-		"task":    "story",
-		"bug":     "bug",
-		"spike":   "spike",
-		"epic":    "epic",
-	}
-	canonical, ok := valid[raw]
-	return canonical, ok
-}
-
 func newTestParser() *Parser {
 	return NewParser(testSchema{})
 }
@@ -651,7 +621,7 @@ func TestParseQualifiedRefs(t *testing.T) {
 func TestParseSubQuery(t *testing.T) {
 	p := newTestParser()
 
-	input := `select where count(select where status = "in progress" and assignee = "bob") >= 3`
+	input := `select where count(select where status = "inProgress" and assignee = "bob") >= 3`
 	stmt, err := p.ParseStatement(input)
 	if err != nil {
 		t.Fatalf("parse error: %v", err)

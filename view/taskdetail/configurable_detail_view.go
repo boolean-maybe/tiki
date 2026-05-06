@@ -187,11 +187,9 @@ func (cv *ConfigurableDetailView) refresh() {
 
 	if !cv.fullscreen {
 		metadataBox := cv.buildMetadataBox(tk, colors)
-		// Compute a height tall enough to hold title + spacer + each
-		// configured row at minimum 1 line each, plus border padding.
-		// Phase 1 uses a fixed minimum to keep layout predictable; future
-		// passes can compute dynamic heights from descriptors.
-		height := 4 + len(cv.metadata)
+		// Frame layout: top border + top padding(1) + title(1) + spacer(1)
+		// + N rows + bottom border = N + 5. Must match buildMetadataBox.
+		height := 5 + len(cv.metadata)
 		if height < 6 {
 			height = 6
 		}
