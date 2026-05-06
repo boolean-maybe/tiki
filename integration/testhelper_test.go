@@ -1,40 +1,45 @@
 package integration
 
-// testWorkflowPreamble contains the required statuses and types sections
+// testWorkflowPreamble contains the required status and type registry fields
 // for integration test workflow.yaml files. All workflow sections come from
 // the single highest-priority file, so test workflows must be self-contained.
-const testWorkflowPreamble = `statuses:
-  - key: backlog
-    label: Backlog
-    emoji: "📥"
-    default: true
-  - key: ready
-    label: Ready
-    emoji: "📋"
-    active: true
-  - key: inProgress
-    label: "In Progress"
-    emoji: "⚙️"
-    active: true
-  - key: review
-    label: Review
-    emoji: "👀"
-    active: true
-  - key: done
-    label: Done
-    emoji: "✅"
-    done: true
-types:
-  - key: story
-    label: Story
-    emoji: "🌀"
-  - key: bug
-    label: Bug
-    emoji: "💥"
-  - key: spike
-    label: Spike
-    emoji: "🔍"
-  - key: epic
-    label: Epic
-    emoji: "🗂️"
+const testWorkflowPreamble = `fields:
+  - name: status
+    type: enum
+    values:
+      - value: backlog
+        label: Backlog
+        emoji: "📥"
+        default: true
+      - value: ready
+        label: Ready
+        emoji: "📋"
+        active: true
+      - value: inProgress
+        label: "In Progress"
+        emoji: "⚙️"
+        active: true
+      - value: review
+        label: Review
+        emoji: "👀"
+        active: true
+      - value: done
+        label: Done
+        emoji: "✅"
+        done: true
+  - name: type
+    type: enum
+    values:
+      - value: story
+        label: Story
+        emoji: "🌀"
+      - value: bug
+        label: Bug
+        emoji: "💥"
+      - value: spike
+        label: Spike
+        emoji: "🔍"
+      - value: epic
+        label: Epic
+        emoji: "🗂️"
 `

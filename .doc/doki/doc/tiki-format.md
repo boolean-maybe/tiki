@@ -86,8 +86,8 @@ Describe what is broken and how to reproduce it.
 
 ### `type`
 
-Optional. Must match a type key defined in `workflow.yaml` under `types:`. When absent, the tiki has
-no type; on explicit creation, the type marked `default: true` (or the first type) is applied.
+Optional. Must match a `value` from the `workflow.yaml` `fields:` entry named `type`. When absent, the tiki
+has no type; on explicit creation, the type marked `default: true` (or the first type) is applied.
 Default types ship as `story`, `bug`, `spike`, `epic`; each can have its own label and emoji. Aliases
 are not supported — use the canonical key.
 

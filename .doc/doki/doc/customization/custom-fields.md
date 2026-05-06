@@ -54,7 +54,9 @@ fields:
     type: taskIdList
 ```
 
-Field names must not collide with built-in field names or ruki reserved keywords.
+Custom field names must not collide with built-in field names or ruki reserved keywords. The built-in
+`status` and `type` enum fields are declared in the same `fields:` list, but they are registry fields rather
+than custom fields.
 
 Custom fields come from the `workflow.yaml` file (see [Configuration: Precedence](../config.md#precedence))
 
@@ -78,9 +80,9 @@ For list field types, values are normalized with set semantics:
 
 ## Enum fields
 
-Enum fields require a `values:` list. Only those values are accepted when setting the field
-(case-insensitive matching, canonical casing preserved). Attempting to assign a value outside the
-list produces a validation error.
+Enum fields require a `values:` list. Custom enum values use scalar strings. Only those values are accepted
+when setting the field (case-insensitive matching, canonical casing preserved). Attempting to assign a value
+outside the list produces a validation error.
 
 ```yaml
 fields:

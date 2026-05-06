@@ -16,15 +16,82 @@ import (
 
 // customFieldYAML represents a single field entry in the workflow.yaml fields: section.
 type customFieldYAML struct {
-	Name    string      `yaml:"name"`
-	Type    string      `yaml:"type"`
-	Values  []string    `yaml:"values,omitempty"`  // enum only
-	Default interface{} `yaml:"default,omitempty"` // optional creation default
+	Name    string          `yaml:"name"`
+	Type    string          `yaml:"type"`
+	Values  []enumValueYAML `yaml:"values,omitempty"`  // enum only
+	Default interface{}     `yaml:"default,omitempty"` // optional creation default
 }
 
 // customFieldFileData is the minimal YAML structure for reading fields from workflow.yaml.
 type customFieldFileData struct {
-	Fields []customFieldYAML `yaml:"fields"`
+	Fields   []customFieldYAML `yaml:"fields"`
+	Statuses yaml.Node         `yaml:"statuses"`
+	Types    yaml.Node         `yaml:"types"`
+}
+
+type enumValueYAML struct {
+	Value      string
+	Label      string
+	Emoji      string
+	Active     bool
+	Default    bool
+	Done       bool
+	HasActive  bool
+	HasDefault bool
+	HasDone    bool
+	Structured bool
+}
+
+func (v *enumValueYAML) UnmarshalYAML(node *yaml.Node) error {
+	switch node.Kind {
+	case yaml.ScalarNode:
+		v.Value = node.Value
+		return nil
+	case yaml.MappingNode:
+		v.Structured = true
+		return v.unmarshalMapping(node)
+	default:
+		return fmt.Errorf("enum value must be a string or mapping, got YAML kind %d", node.Kind)
+	}
+}
+
+func (v *enumValueYAML) unmarshalMapping(node *yaml.Node) error {
+	for i := 0; i < len(node.Content); i += 2 {
+		key := node.Content[i].Value
+		val := node.Content[i+1]
+		switch key {
+		case "value":
+			if err := val.Decode(&v.Value); err != nil {
+				return fmt.Errorf("value: %w", err)
+			}
+		case "label":
+			if err := val.Decode(&v.Label); err != nil {
+				return fmt.Errorf("label: %w", err)
+			}
+		case "emoji":
+			if err := val.Decode(&v.Emoji); err != nil {
+				return fmt.Errorf("emoji: %w", err)
+			}
+		case "active":
+			if err := val.Decode(&v.Active); err != nil {
+				return fmt.Errorf("active: %w", err)
+			}
+			v.HasActive = true
+		case "default":
+			if err := val.Decode(&v.Default); err != nil {
+				return fmt.Errorf("default: %w", err)
+			}
+			v.HasDefault = true
+		case "done":
+			if err := val.Decode(&v.Done); err != nil {
+				return fmt.Errorf("done: %w", err)
+			}
+			v.HasDone = true
+		default:
+			return fmt.Errorf("unknown enum value key %q (valid keys: value, label, emoji, active, default, done)", key)
+		}
+	}
+	return nil
 }
 
 // registriesLoaded tracks whether LoadWorkflowRegistries has been called.
@@ -54,7 +121,7 @@ func ResetRegistriesLoadedForTest() {
 }
 
 // LoadWorkflowRegistries is the shared startup helper that loads all
-// workflow-registry-based sections (statuses, types, custom fields) from
+// workflow-registry-based fields (status, type, custom fields) from
 // workflow.yaml files. Callers must build a fresh ruki.Schema after this returns.
 func LoadWorkflowRegistries() error {
 	if err := checkWorkflowFileVersion(); err != nil {
@@ -92,6 +159,9 @@ func LoadCustomFields() error {
 
 	defs := make([]workflow.FieldDef, 0, len(rawDefs))
 	for _, raw := range rawDefs {
+		if isRegistryField(raw.Name) {
+			continue
+		}
 		def, err := convertCustomFieldDef(raw)
 		if err != nil {
 			return fmt.Errorf("field %q in %s: %w", raw.Name, files[0], err)
@@ -109,6 +179,10 @@ func LoadCustomFields() error {
 
 	slog.Debug("loaded custom fields", "count", len(defs))
 	return nil
+}
+
+func isRegistryField(name string) bool {
+	return name == "status" || name == "type"
 }
 
 // FindRegistryWorkflowFiles returns a single-element slice with the
@@ -132,8 +206,21 @@ func readCustomFieldsFromFile(path string) ([]customFieldYAML, error) {
 	if err := yaml.Unmarshal(data, &fd); err != nil {
 		return nil, fmt.Errorf("parsing %s: %w", path, err)
 	}
+	if err := rejectLegacyRegistrySections(fd); err != nil {
+		return nil, err
+	}
 
 	return fd.Fields, nil
+}
+
+func rejectLegacyRegistrySections(fd customFieldFileData) error {
+	if fd.Statuses.Kind != 0 {
+		return fmt.Errorf("top-level statuses: is no longer supported; define status as a fields: enum")
+	}
+	if fd.Types.Kind != 0 {
+		return fmt.Errorf("top-level types: is no longer supported; define type as a fields: enum")
+	}
+	return nil
 }
 
 // convertCustomFieldDef converts a YAML field definition to a workflow.FieldDef.
@@ -162,7 +249,12 @@ func convertCustomFieldDef(def customFieldYAML) (workflow.FieldDef, error) {
 			return workflow.FieldDef{}, fmt.Errorf("enum field requires non-empty values list")
 		}
 		fd.AllowedValues = make([]string, len(def.Values))
-		copy(fd.AllowedValues, def.Values)
+		for i, v := range def.Values {
+			if v.Structured {
+				return workflow.FieldDef{}, fmt.Errorf("structured enum values are only supported for status and type fields")
+			}
+			fd.AllowedValues[i] = v.Value
+		}
 	} else if len(def.Values) > 0 {
 		return workflow.FieldDef{}, fmt.Errorf("values list is only valid for enum fields")
 	}

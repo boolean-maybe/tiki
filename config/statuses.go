@@ -4,10 +4,10 @@ import (
 	"fmt"
 	"log/slog"
 	"os"
+	"strings"
 	"sync"
 
 	"github.com/boolean-maybe/tiki/workflow"
-	"gopkg.in/yaml.v3"
 )
 
 // StatusDef is a type alias for workflow.StatusDef.
@@ -28,9 +28,9 @@ var (
 	registryMu           sync.RWMutex
 )
 
-// LoadStatusRegistry reads statuses: and types: from the single highest-priority
-// workflow.yaml. Returns an error if the file is missing, has no statuses, or
-// has no types.
+// LoadStatusRegistry reads status/type field definitions from the single
+// highest-priority workflow.yaml. Returns an error if the file is missing or
+// either registry field is not declared.
 func LoadStatusRegistry() error {
 	files := FindRegistryWorkflowFiles()
 	if len(files) == 0 {
@@ -44,7 +44,7 @@ func LoadStatusRegistry() error {
 		return fmt.Errorf("loading statuses from %s: %w", path, err)
 	}
 	if statusReg == nil {
-		return fmt.Errorf("no statuses defined in %s; add a statuses: section", path)
+		return fmt.Errorf("no status field defined in %s; add fields: entry name: status, type: enum", path)
 	}
 
 	typeReg, present, err := loadTypesFromFile(path)
@@ -52,7 +52,7 @@ func LoadStatusRegistry() error {
 		return fmt.Errorf("loading types from %s: %w", path, err)
 	}
 	if !present {
-		return fmt.Errorf("no types defined in %s; add a types: section", path)
+		return fmt.Errorf("no type field defined in %s; add fields: entry name: type, type: enum", path)
 	}
 
 	registryMu.Lock()
@@ -142,7 +142,7 @@ func LoadRegistriesFromFile(path string) (*workflow.StatusRegistry, *workflow.Ty
 		return nil, nil, nil, fmt.Errorf("loading statuses: %w", err)
 	}
 	if statusReg == nil {
-		return nil, nil, nil, fmt.Errorf("no statuses defined; add a statuses: section")
+		return nil, nil, nil, fmt.Errorf("no status field defined; add fields: entry name: status, type: enum")
 	}
 
 	typeReg, present, err := loadTypesFromFile(path)
@@ -150,7 +150,7 @@ func LoadRegistriesFromFile(path string) (*workflow.StatusRegistry, *workflow.Ty
 		return nil, nil, nil, fmt.Errorf("loading types: %w", err)
 	}
 	if !present {
-		return nil, nil, nil, fmt.Errorf("no types defined; add a types: section")
+		return nil, nil, nil, fmt.Errorf("no type field defined; add fields: entry name: type, type: enum")
 	}
 
 	rawDefs, err := readCustomFieldsFromFile(path)
@@ -160,6 +160,9 @@ func LoadRegistriesFromFile(path string) (*workflow.StatusRegistry, *workflow.Ty
 
 	var fieldDefs []workflow.FieldDef
 	for _, raw := range rawDefs {
+		if isRegistryField(raw.Name) {
+			continue
+		}
 		def, convErr := convertCustomFieldDef(raw)
 		if convErr != nil {
 			return nil, nil, nil, fmt.Errorf("field %q: %w", raw.Name, convErr)
@@ -185,100 +188,136 @@ func ClearStatusRegistry() {
 	registriesLoaded.Store(false)
 }
 
-// --- internal: statuses ---
-
-// workflowStatusData is the YAML shape we unmarshal to extract just the statuses key.
-type workflowStatusData struct {
-	Statuses []workflow.StatusDef `yaml:"statuses"`
-}
-
 func loadStatusesFromFile(path string) (*workflow.StatusRegistry, error) {
-	data, err := os.ReadFile(path)
+	if _, err := os.Stat(path); err != nil {
+		return nil, err
+	}
+	fields, err := readCustomFieldsFromFile(path)
 	if err != nil {
-		return nil, fmt.Errorf("reading %s: %w", path, err)
+		return nil, err
 	}
-
-	var ws workflowStatusData
-	if err := yaml.Unmarshal(data, &ws); err != nil {
-		return nil, fmt.Errorf("parsing %s: %w", path, err)
-	}
-
-	if len(ws.Statuses) == 0 {
-		return nil, nil // no statuses in this file, try next
-	}
-
-	return workflow.NewStatusRegistry(ws.Statuses)
-}
-
-// --- internal: types ---
-
-// validTypeDefKeys is the set of allowed keys inside a types: entry.
-var validTypeDefKeys = map[string]bool{
-	"key": true, "label": true, "emoji": true, "default": true,
-}
-
-// loadTypesFromFile loads types from a single workflow.yaml.
-// Returns (registry, present, error):
-//   - (nil, false, nil)  when the types: key is absent
-//   - (reg, true, nil)   when types: is present and valid
-//   - (nil, true, err)   when types: is present but invalid (empty list, bad entries)
-func loadTypesFromFile(path string) (*workflow.TypeRegistry, bool, error) {
-	data, err := os.ReadFile(path)
+	field, ok, err := findWorkflowField(fields, "status")
 	if err != nil {
-		return nil, false, fmt.Errorf("reading %s: %w", path, err)
+		return nil, err
 	}
-
-	// first pass: check whether the types key exists at all
-	var raw map[string]interface{}
-	if err := yaml.Unmarshal(data, &raw); err != nil {
-		return nil, false, fmt.Errorf("parsing %s: %w", path, err)
-	}
-
-	rawTypes, exists := raw["types"]
-	if !exists {
-		return nil, false, nil // types: key absent
-	}
-
-	// present: validate the raw structure
-	typesSlice, ok := rawTypes.([]interface{})
 	if !ok {
-		return nil, true, fmt.Errorf("types: must be a list, got %T", rawTypes)
+		return nil, nil
 	}
-	if len(typesSlice) == 0 {
-		return nil, true, fmt.Errorf("types section must define at least one type")
+	defs, err := convertStatusField(field)
+	if err != nil {
+		return nil, err
 	}
+	return workflow.NewStatusRegistry(defs)
+}
 
-	// validate each entry for unknown keys and convert to TypeDef
-	defs := make([]workflow.TypeDef, 0, len(typesSlice))
-	for i, entry := range typesSlice {
-		entryMap, ok := entry.(map[string]interface{})
-		if !ok {
-			return nil, true, fmt.Errorf("type at index %d: expected mapping, got %T", i, entry)
-		}
-		for k := range entryMap {
-			if !validTypeDefKeys[k] {
-				return nil, true, fmt.Errorf("type at index %d: unknown key %q (valid keys: key, label, emoji, default)", i, k)
-			}
-		}
-
-		var def workflow.TypeDef
-		keyRaw, _ := entryMap["key"].(string)
-		def.Key = workflow.TaskType(keyRaw)
-		def.Label, _ = entryMap["label"].(string)
-		def.Emoji, _ = entryMap["emoji"].(string)
-		if raw, present := entryMap["default"]; present {
-			b, ok := raw.(bool)
-			if !ok {
-				return nil, true, fmt.Errorf("type %q: default must be a boolean, got %T", keyRaw, raw)
-			}
-			def.Default = b
-		}
-		defs = append(defs, def)
+// loadTypesFromFile loads the type field from a single workflow.yaml.
+// Returns (registry, present, error):
+//   - (nil, false, nil) when the type field is absent
+//   - (reg, true, nil) when type is present and valid
+//   - (nil, true, err) when type is present but invalid
+func loadTypesFromFile(path string) (*workflow.TypeRegistry, bool, error) {
+	if _, err := os.Stat(path); err != nil {
+		return nil, false, err
 	}
-
+	fields, err := readCustomFieldsFromFile(path)
+	if err != nil {
+		return nil, false, err
+	}
+	field, ok, err := findWorkflowField(fields, "type")
+	if err != nil {
+		return nil, false, err
+	}
+	if !ok {
+		return nil, false, nil
+	}
+	defs, err := convertTypeField(field)
+	if err != nil {
+		return nil, true, err
+	}
 	reg, err := workflow.NewTypeRegistry(defs)
 	if err != nil {
 		return nil, true, err
 	}
 	return reg, true, nil
+}
+
+func findWorkflowField(fields []customFieldYAML, name string) (customFieldYAML, bool, error) {
+	var found customFieldYAML
+	matched := false
+	for _, field := range fields {
+		if field.Name == name {
+			if matched {
+				return customFieldYAML{}, false, fmt.Errorf("duplicate field %q", name)
+			}
+			found = field
+			matched = true
+		}
+	}
+	return found, matched, nil
+}
+
+func convertStatusField(field customFieldYAML) ([]workflow.StatusDef, error) {
+	if err := validateRegistryField(field, "status"); err != nil {
+		return nil, err
+	}
+	defs := make([]workflow.StatusDef, 0, len(field.Values))
+	for i, value := range field.Values {
+		if err := validateStructuredEnumValue("status", i, value); err != nil {
+			return nil, err
+		}
+		defs = append(defs, workflow.StatusDef{
+			Key:     value.Value,
+			Label:   value.Label,
+			Emoji:   value.Emoji,
+			Active:  value.Active,
+			Default: value.Default,
+			Done:    value.Done,
+		})
+	}
+	return defs, nil
+}
+
+func convertTypeField(field customFieldYAML) ([]workflow.TypeDef, error) {
+	if err := validateRegistryField(field, "type"); err != nil {
+		return nil, err
+	}
+	defs := make([]workflow.TypeDef, 0, len(field.Values))
+	for i, value := range field.Values {
+		if err := validateStructuredEnumValue("type", i, value); err != nil {
+			return nil, err
+		}
+		if value.HasActive || value.HasDone {
+			return nil, fmt.Errorf("type enum value %q: active and done flags are only valid for status", value.Value)
+		}
+		defs = append(defs, workflow.TypeDef{
+			Key:     workflow.TaskType(value.Value),
+			Label:   value.Label,
+			Emoji:   value.Emoji,
+			Default: value.Default,
+		})
+	}
+	return defs, nil
+}
+
+func validateRegistryField(field customFieldYAML, name string) error {
+	if !strings.EqualFold(field.Type, "enum") {
+		return fmt.Errorf("field %q must declare type: enum", name)
+	}
+	if len(field.Values) == 0 {
+		return fmt.Errorf("field %q requires a non-empty values list", name)
+	}
+	if field.Default != nil {
+		return fmt.Errorf("field %q does not support field-level default; mark one enum value default: true", name)
+	}
+	return nil
+}
+
+func validateStructuredEnumValue(fieldName string, index int, value enumValueYAML) error {
+	if !value.Structured {
+		return fmt.Errorf("field %q enum value at index %d must be a mapping with value:", fieldName, index)
+	}
+	if value.Value == "" {
+		return fmt.Errorf("field %q enum value at index %d has empty value", fieldName, index)
+	}
+	return nil
 }

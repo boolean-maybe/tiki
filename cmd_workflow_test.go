@@ -333,17 +333,22 @@ func TestRunWorkflowInstall_InvalidContent(t *testing.T) {
 func TestRunWorkflowInstall_InvalidTrigger(t *testing.T) {
 	_ = setupWorkflowTest(t)
 
-	content := `version: 0.5.3
-statuses:
-  - key: todo
-    label: Todo
-    default: true
-  - key: done
-    label: Done
-    done: true
-types:
-  - key: task
-    label: Task
+	content := `version: 0.6.0
+fields:
+  - name: status
+    type: enum
+    values:
+      - value: todo
+        label: Todo
+        default: true
+      - value: done
+        label: Done
+        done: true
+  - name: type
+    type: enum
+    values:
+      - value: task
+        label: Task
 triggers:
   - description: broken time trigger
     ruki: 'every 0day delete where status = "done"'
@@ -361,17 +366,22 @@ triggers:
 func TestRunWorkflowInstall_InvalidPluginFilter(t *testing.T) {
 	_ = setupWorkflowTest(t)
 
-	content := `version: 0.5.3
-statuses:
-  - key: todo
-    label: Todo
-    default: true
-  - key: done
-    label: Done
-    done: true
-types:
-  - key: task
-    label: Task
+	content := `version: 0.6.0
+fields:
+  - name: status
+    type: enum
+    values:
+      - value: todo
+        label: Todo
+        default: true
+      - value: done
+        label: Done
+        done: true
+  - name: type
+    type: enum
+    values:
+      - value: task
+        label: Task
 views:
   plugins:
     - name: Bad

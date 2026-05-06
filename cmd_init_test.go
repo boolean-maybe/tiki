@@ -318,18 +318,23 @@ func TestValidateInitOpts_InvalidWorkflowName(t *testing.T) {
 func TestValidateInitOpts_WorkflowFileSource(t *testing.T) {
 	repoDir := setupInitTest(t)
 
-	// must be a valid workflow (statuses + types + views) to pass full validation
-	validWorkflow := `version: 0.5.3
-statuses:
-  - key: todo
-    label: Todo
-    default: true
-  - key: done
-    label: Done
-    done: true
-types:
-  - key: task
-    label: Task
+	// must be a valid workflow (status + type fields + views) to pass full validation
+	validWorkflow := `version: 0.6.0
+fields:
+  - name: status
+    type: enum
+    values:
+      - value: todo
+        label: Todo
+        default: true
+      - value: done
+        label: Done
+        done: true
+  - name: type
+    type: enum
+    values:
+      - value: task
+        label: Task
 views:
   - name: Board
     kind: board
@@ -537,16 +542,21 @@ func TestRunInit_SamplesValidateAgainstLocalNotGlobalWorkflow(t *testing.T) {
 		t.Fatalf("mkdir global config: %v", err)
 	}
 	globalYAML := `version: "0.6.0"
-statuses:
-  - key: open
-    label: Open
-    default: true
-  - key: closed
-    label: Closed
-    done: true
-types:
-  - key: note
-    label: Note
+fields:
+  - name: status
+    type: enum
+    values:
+      - value: open
+        label: Open
+        default: true
+      - value: closed
+        label: Closed
+        done: true
+  - name: type
+    type: enum
+    values:
+      - value: note
+        label: Note
 views:
   - name: All
     kind: list

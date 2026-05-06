@@ -1,6 +1,6 @@
 # Custom Statuses and Types
 
-Statuses and types are user-configurable via `workflow.yaml`.
+Statuses and types are user-configurable enum fields in `workflow.yaml`.
 Both follow the same structural rules with a few differences noted below.
 
 ## Configuration
@@ -8,43 +8,47 @@ Both follow the same structural rules with a few differences noted below.
 ### YAML Shape
 
 ```yaml
-statuses:
-  - key: backlog
-    label: Backlog
-    emoji: "📥"
-    default: true
-  - key: inProgress
-    label: "In Progress"
-    emoji: "⚙️"
-    active: true
-  - key: done
-    label: Done
-    emoji: "✅"
-    done: true
-
-types:
-  - key: story
-    label: Story
-    emoji: "🌀"
-  - key: bug
-    label: Bug
-    emoji: "💥"
+fields:
+  - name: status
+    type: enum
+    values:
+      - value: backlog
+        label: Backlog
+        emoji: "📥"
+        default: true
+      - value: inProgress
+        label: "In Progress"
+        emoji: "⚙️"
+        active: true
+      - value: done
+        label: Done
+        emoji: "✅"
+        done: true
+  - name: type
+    type: enum
+    values:
+      - value: story
+        label: Story
+        emoji: "🌀"
+      - value: bug
+        label: Bug
+        emoji: "💥"
 ```
 
 ### Shared Rules
 
-These rules apply identically to both `statuses:` and `types:`:
+These rules apply identically to both built-in enum fields:
 
 | Rule | Detail |
 |---|---|
-| Canonical keys | Keys must already be in canonical form. Non-canonical keys are rejected with a suggested canonical form. |
-| Label defaults to key | When `label` is omitted, the key is used as the label. |
+| Canonical values | Values must already be in canonical form. Non-canonical values are rejected with a suggestion. |
+| Label defaults to value | When `label` is omitted, the value is used as the label. |
 | Empty labels rejected | Explicitly empty or whitespace-only labels are invalid. |
 | Emoji trimmed | Leading/trailing whitespace is stripped from emoji values. |
 | Unique display strings | Each entry must produce a unique `"Label Emoji"` display. Duplicates are rejected. |
 | At least one entry | An empty list is invalid. |
-| Duplicate keys rejected | Two entries with the same canonical key are invalid. |
-| Unknown keys rejected | Only documented keys are allowed in each entry. |
+| Duplicate values rejected | Two entries with the same canonical value are invalid. |
+| Unknown keys rejected | Only documented metadata keys are allowed in each entry. |
 
 ### Status-Only Keys
 
@@ -53,10 +57,10 @@ Statuses support additional boolean flags that types do not:
 | Key | Required | Description |
 |---|---|---|
 | `active` | no | Marks a status as active (in-progress work). |
-| `default` | at most one | The status assigned to newly created tikis. Optional — when no status is marked default, `tiki exec 'create ...'` and piped capture produce a tiki with only `id` and `title`, no schema-known fields applied. |
+| `default` | at most one | The status assigned to newly created tikis. Optional for notes-only projects. |
 | `done` | exactly one | The terminal status representing completion. |
 
-Valid keys in a status entry: `key`, `label`, `emoji`, `active`, `default`, `done`.
+Valid keys in a status value entry: `value`, `label`, `emoji`, `active`, `default`, `done`.
 
 ### Type-Only Behavior
 
@@ -66,26 +70,29 @@ Types support one optional boolean flag:
 |---|---|---|
 | `default` | no | The type assigned to newly created tikis. At most one allowed; first type is fallback. |
 
-Valid keys in a type entry: `key`, `label`, `emoji`, `default`.
+Valid keys in a type value entry: `value`, `label`, `emoji`, `default`.
 
 ### Key Normalization
 
-Status and type keys use different normalization rules:
+Status and type values use different normalization rules:
 
-- **Status keys** use camelCase. Splits on `_`, `-`, ` `, and camelCase boundaries, then reassembles as camelCase.
+- **Status values** use camelCase. Splits on `_`, `-`, ` `, and camelCase boundaries, then reassembles as
+  camelCase.
   Examples: `"in_progress"` -> `"inProgress"`, `"In Progress"` -> `"inProgress"`.
 
-- **Type keys** are lowercased with all separators stripped.
+- **Type values** are lowercased with all separators stripped.
   Examples: `"My-Type"` -> `"mytype"`, `"some_thing"` -> `"something"`.
 
-Keys in `workflow.yaml` must already be in their canonical form. Input normalization (from user queries, ruki expressions, etc.) still applies at lookup time.
+Values in `workflow.yaml` must already be in their canonical form. Input normalization (from user queries,
+ruki expressions, etc.) still applies at lookup time.
 
 ### Required Sections
 
-All workflow-backed sections come from the single highest-priority `workflow.yaml` (see [Configuration: Precedence](../config.md#precedence)).
+All workflow-backed sections come from the single highest-priority `workflow.yaml`.
+See [Configuration: Precedence](../config.md#precedence).
 
-- Missing `statuses:` in the winning file is an error.
-- Missing `types:` in the winning file is an error.
+- Missing `fields:` entry `name: status` in the winning file is an error.
+- Missing `fields:` entry `name: type` in the winning file is an error.
 
 There are no built-in fallbacks for either section.
 
@@ -96,10 +103,10 @@ There are no built-in fallbacks for either section.
 | Scenario | Behavior |
 |---|---|
 | Empty list | Error |
-| Non-canonical key | Error with suggested canonical form |
+| Non-canonical value | Error with suggested canonical form |
 | Empty/whitespace label | Error |
 | Duplicate display string | Error |
-| Unknown key in entry | Error |
+| Unknown metadata key in entry | Error |
 | Missing `default: true` (statuses) | OK — notes-only project; new captures save with only `id` and `title` |
 | Missing `done: true` (statuses) | Error |
 | Multiple `default: true` (statuses) | Error |
@@ -113,8 +120,10 @@ There are no built-in fallbacks for either section.
 
 ### Cross-Reference Errors
 
-If the active workflow file defines types that don't match the views, actions, or triggers in the same file, startup fails with a configuration error. There is no silent view-skipping or automatic remapping.
+If the active workflow file defines types that don't match the views, actions, or triggers in the same file,
+startup fails with a configuration error. There is no silent view-skipping or automatic remapping.
 
 ## Pre-Init Rules
 
-Calling type or status helpers (`task.ParseType()`, `task.AllTypes()`, `task.DefaultType()`, `task.ParseStatus()`, etc.) before `config.LoadWorkflowRegistries()` is a programmer error and panics.
+Calling type or status helpers (`task.ParseType()`, `task.AllTypes()`, `task.DefaultType()`,
+`task.ParseStatus()`, etc.) before `config.LoadWorkflowRegistries()` is a programmer error and panics.

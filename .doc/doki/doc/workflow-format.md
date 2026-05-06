@@ -18,16 +18,21 @@ No backwards-compatibility shims — old workflows must migrate.
 ```yaml
 version: "0.6.0"
 
-statuses:
-  - key: backlog
-    label: Backlog
-    default: true
-
-types:
-  - key: story
-    label: Story
-
 fields:
+  - name: status
+    type: enum
+    values:
+      - value: backlog
+        label: Backlog
+        default: true
+      - value: done
+        label: Done
+        done: true
+  - name: type
+    type: enum
+    values:
+      - value: story
+        label: Story
   - name: severity
     type: enum
     values: [low, medium, high]
@@ -175,6 +180,8 @@ Old configs are rejected with specific errors that point at the new syntax. The 
 | `views.actions:`                               | top-level `actions:`                                  |
 | `view: compact`/`view: expanded` on a view     | `mode: compact`/`mode: expanded`                      |
 | `sort: <field>` on a view                      | `order by <field>` inside each lane's `filter:`       |
+| top-level `statuses:`                          | `fields:` entry named `status` with `type: enum`      |
+| top-level `types:`                             | `fields:` entry named `type` with `type: enum`        |
 
 ### Rejection-error table
 
@@ -187,6 +194,8 @@ Users upgrading will see one of these messages; each names the legacy field and 
 - `"text" is no longer supported — use document: or path: on a kind: wiki view`
 - `"url" is no longer supported — use document: or path: on a kind: wiki view`
 - `"sort" is no longer supported — use order by inside a lane's filter: ruki statement`
+- `top-level statuses: is no longer supported; define status as a fields: enum`
+- `top-level types: is no longer supported; define type as a fields: enum`
 - `views: must be a top-level list — the views.plugins wrapper is no longer supported`
 - `unknown view kind "X" — expected board, list, wiki, or detail`
 - `kind: timeline is reserved but not yet implemented`

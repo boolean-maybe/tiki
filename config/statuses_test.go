@@ -367,22 +367,27 @@ func TestLoadStatusRegistry_HappyPath(t *testing.T) {
 	cwdDir := setupLoadRegistryTest(t)
 
 	content := `
-statuses:
-  - key: open
-    label: Open
-    emoji: "🔓"
-    default: true
-  - key: closed
-    label: Closed
-    emoji: "🔒"
-    done: true
-types:
-  - key: story
-    label: Story
-    emoji: "🌀"
-  - key: bug
-    label: Bug
-    emoji: "💥"
+fields:
+  - name: status
+    type: enum
+    values:
+      - value: open
+        label: Open
+        emoji: "🔓"
+        default: true
+      - value: closed
+        label: Closed
+        emoji: "🔒"
+        done: true
+  - name: type
+    type: enum
+    values:
+      - value: story
+        label: Story
+        emoji: "🌀"
+      - value: bug
+        label: Bug
+        emoji: "💥"
 views:
   plugins:
     - name: board
@@ -446,13 +451,16 @@ views:
 func TestLoadStatusesFromFile_HappyPath(t *testing.T) {
 	dir := t.TempDir()
 	f := writeTempWorkflow(t, dir, `
-statuses:
-  - key: alpha
-    label: Alpha
-    default: true
-  - key: beta
-    label: Beta
-    done: true
+fields:
+  - name: status
+    type: enum
+    values:
+      - value: alpha
+        label: Alpha
+        default: true
+      - value: beta
+        label: Beta
+        done: true
 `)
 
 	reg, err := loadStatusesFromFile(f)
@@ -467,6 +475,21 @@ statuses:
 	}
 	if len(reg.All()) != 2 {
 		t.Errorf("expected 2 statuses, got %d", len(reg.All()))
+	}
+}
+
+func TestLoadStatusesFromFile_RejectsTopLevelStatuses(t *testing.T) {
+	dir := t.TempDir()
+	f := writeTempWorkflow(t, dir, `
+statuses:
+  - key: alpha
+    label: Alpha
+    done: true
+`)
+
+	_, err := loadStatusesFromFile(f)
+	if err == nil {
+		t.Fatal("expected error for top-level statuses")
 	}
 }
 
@@ -592,15 +615,12 @@ func TestLoadStatusesFromFile_InvalidYAML(t *testing.T) {
 func TestLoadStatusesFromFile_EmptyStatuses(t *testing.T) {
 	dir := t.TempDir()
 	f := filepath.Join(dir, "workflow.yaml")
-	if err := os.WriteFile(f, []byte("statuses: []\n"), 0644); err != nil {
+	if err := os.WriteFile(f, []byte("fields:\n  - name: status\n    type: enum\n    values: []\n"), 0644); err != nil {
 		t.Fatal(err)
 	}
-	reg, err := loadStatusesFromFile(f)
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	if reg != nil {
-		t.Error("expected nil registry for empty statuses list")
+	_, err := loadStatusesFromFile(f)
+	if err == nil {
+		t.Fatal("expected error for empty status values list")
 	}
 }
 
@@ -624,13 +644,16 @@ func TestLoadStatusRegistry_MalformedFile(t *testing.T) {
 func TestLoadTypesFromFile_HappyPath(t *testing.T) {
 	dir := t.TempDir()
 	f := writeTempWorkflow(t, dir, `
-types:
-  - key: story
-    label: Story
-    emoji: "🌀"
-  - key: bug
-    label: Bug
-    emoji: "💥"
+fields:
+  - name: type
+    type: enum
+    values:
+      - value: story
+        label: Story
+        emoji: "🌀"
+      - value: bug
+        label: Bug
+        emoji: "💥"
 `)
 	reg, present, err := loadTypesFromFile(f)
 	if err != nil {
@@ -650,16 +673,33 @@ types:
 	}
 }
 
+func TestLoadTypesFromFile_RejectsTopLevelTypes(t *testing.T) {
+	dir := t.TempDir()
+	f := writeTempWorkflow(t, dir, `
+types:
+  - key: story
+    label: Story
+`)
+
+	_, _, err := loadTypesFromFile(f)
+	if err == nil {
+		t.Fatal("expected error for top-level types")
+	}
+}
+
 func TestLoadTypesFromFile_Absent(t *testing.T) {
 	dir := t.TempDir()
 	f := writeTempWorkflow(t, dir, `
-statuses:
-  - key: open
-    label: Open
-    default: true
-  - key: done
-    label: Done
-    done: true
+fields:
+  - name: status
+    type: enum
+    values:
+      - value: open
+        label: Open
+        default: true
+      - value: done
+        label: Done
+        done: true
 `)
 	reg, present, err := loadTypesFromFile(f)
 	if err != nil {
@@ -675,7 +715,12 @@ statuses:
 
 func TestLoadTypesFromFile_EmptyList(t *testing.T) {
 	dir := t.TempDir()
-	f := writeTempWorkflow(t, dir, `types: []`)
+	f := writeTempWorkflow(t, dir, `
+fields:
+  - name: type
+    type: enum
+    values: []
+`)
 	_, present, err := loadTypesFromFile(f)
 	if err == nil {
 		t.Fatal("expected error for types: []")
@@ -688,9 +733,12 @@ func TestLoadTypesFromFile_EmptyList(t *testing.T) {
 func TestLoadTypesFromFile_NonCanonicalKey(t *testing.T) {
 	dir := t.TempDir()
 	f := writeTempWorkflow(t, dir, `
-types:
-  - key: Story
-    label: Story
+fields:
+  - name: type
+    type: enum
+    values:
+      - value: Story
+        label: Story
 `)
 	_, _, err := loadTypesFromFile(f)
 	if err == nil {
@@ -701,11 +749,14 @@ types:
 func TestLoadTypesFromFile_UnknownKey(t *testing.T) {
 	dir := t.TempDir()
 	f := writeTempWorkflow(t, dir, `
-types:
-  - key: story
-    label: Story
-    aliases:
-      - feature
+fields:
+  - name: type
+    type: enum
+    values:
+      - value: story
+        label: Story
+        aliases:
+          - feature
 `)
 	_, _, err := loadTypesFromFile(f)
 	if err == nil {
@@ -716,9 +767,12 @@ types:
 func TestLoadTypesFromFile_MissingLabelDefaultsToKey(t *testing.T) {
 	dir := t.TempDir()
 	f := writeTempWorkflow(t, dir, `
-types:
-  - key: task
-    emoji: "📋"
+fields:
+  - name: type
+    type: enum
+    values:
+      - value: task
+        emoji: "📋"
 `)
 	reg, _, err := loadTypesFromFile(f)
 	if err != nil {
@@ -742,15 +796,18 @@ func TestLoadStatusRegistry_MissingTypes(t *testing.T) {
 	cwdDir := setupLoadRegistryTest(t)
 
 	content := `
-statuses:
-  - key: open
-    label: Open
-    emoji: "🔓"
-    default: true
-  - key: closed
-    label: Closed
-    emoji: "🔒"
-    done: true
+fields:
+  - name: status
+    type: enum
+    values:
+      - value: open
+        label: Open
+        emoji: "🔓"
+        default: true
+      - value: closed
+        label: Closed
+        emoji: "🔒"
+        done: true
 `
 	if err := os.WriteFile(filepath.Join(cwdDir, "workflow.yaml"), []byte(content), 0644); err != nil {
 		t.Fatal(err)
@@ -765,12 +822,15 @@ statuses:
 func TestLoadTypesFromFile_DefaultTrue(t *testing.T) {
 	dir := t.TempDir()
 	f := writeTempWorkflow(t, dir, `
-types:
-  - key: story
-    label: Story
-  - key: bug
-    label: Bug
-    default: true
+fields:
+  - name: type
+    type: enum
+    values:
+      - value: story
+        label: Story
+      - value: bug
+        label: Bug
+        default: true
 `)
 	reg, present, err := loadTypesFromFile(f)
 	if err != nil {
@@ -787,13 +847,16 @@ types:
 func TestLoadTypesFromFile_MultipleDefaultsRejected(t *testing.T) {
 	dir := t.TempDir()
 	f := writeTempWorkflow(t, dir, `
-types:
-  - key: story
-    label: Story
-    default: true
-  - key: bug
-    label: Bug
-    default: true
+fields:
+  - name: type
+    type: enum
+    values:
+      - value: story
+        label: Story
+        default: true
+      - value: bug
+        label: Bug
+        default: true
 `)
 	_, _, err := loadTypesFromFile(f)
 	if err == nil {
@@ -804,12 +867,15 @@ types:
 func TestLoadTypesFromFile_NonBoolDefaultRejected(t *testing.T) {
 	dir := t.TempDir()
 	f := writeTempWorkflow(t, dir, `
-types:
-  - key: story
-    label: Story
-    default: "true"
-  - key: bug
-    label: Bug
+fields:
+  - name: type
+    type: enum
+    values:
+      - value: story
+        label: Story
+        default: "true"
+      - value: bug
+        label: Bug
 `)
 	_, _, err := loadTypesFromFile(f)
 	if err == nil {

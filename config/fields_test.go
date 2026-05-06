@@ -318,7 +318,7 @@ func TestConvertCustomFieldDef_WithDefault(t *testing.T) {
 	raw := customFieldYAML{
 		Name:    "severity",
 		Type:    "enum",
-		Values:  []string{"low", "medium", "high"},
+		Values:  []enumValueYAML{{Value: "low"}, {Value: "medium"}, {Value: "high"}},
 		Default: "medium",
 	}
 	fd, err := convertCustomFieldDef(raw)
@@ -334,7 +334,7 @@ func TestConvertCustomFieldDef_InvalidDefault(t *testing.T) {
 	raw := customFieldYAML{
 		Name:    "severity",
 		Type:    "enum",
-		Values:  []string{"low", "medium", "high"},
+		Values:  []enumValueYAML{{Value: "low"}, {Value: "medium"}, {Value: "high"}},
 		Default: "invalid",
 	}
 	_, err := convertCustomFieldDef(raw)
@@ -348,13 +348,10 @@ func TestLoadCustomFields_MissingFieldsSection(t *testing.T) {
 
 	// workflow exists but has no fields: section
 	if err := os.WriteFile(filepath.Join(cwdDir, "workflow.yaml"), []byte(`
-statuses:
-  - key: open
-    label: Open
-    default: true
-  - key: done
-    label: Done
-    done: true
+views:
+  - name: docs
+    kind: wiki
+    path: index.md
 `), 0644); err != nil {
 		t.Fatal(err)
 	}

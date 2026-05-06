@@ -128,17 +128,22 @@ func TestDescribeWorkflowContent_Empty(t *testing.T) {
 }
 
 func TestValidateWorkflowContent_Valid(t *testing.T) {
-	content := `version: 0.5.3
-statuses:
-  - key: todo
-    label: Todo
-    default: true
-  - key: done
-    label: Done
-    done: true
-types:
-  - key: task
-    label: Task
+	content := `version: 0.6.0
+fields:
+  - name: status
+    type: enum
+    values:
+      - value: todo
+        label: Todo
+        default: true
+      - value: done
+        label: Done
+        done: true
+  - name: type
+    type: enum
+    values:
+      - value: task
+        label: Task
 `
 	vw, err := ValidateWorkflowContent(content)
 	if err != nil {
@@ -161,10 +166,16 @@ func TestValidateWorkflowContent_MissingStatuses(t *testing.T) {
 }
 
 func TestValidateWorkflowContent_MissingTypes(t *testing.T) {
-	content := `statuses:
-  - key: todo
-    label: Todo
-    default: true
+	content := `fields:
+  - name: status
+    type: enum
+    values:
+      - value: todo
+        label: Todo
+        default: true
+      - value: done
+        label: Done
+        done: true
 `
 	_, err := ValidateWorkflowContent(content)
 	if err == nil {

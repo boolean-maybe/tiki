@@ -73,14 +73,14 @@ Search order: user config dir → `.doc/config.yaml` (project) → cwd. Last mat
 
 ### workflow.yaml
 
-The single highest-priority `workflow.yaml` found is loaded. All workflow-backed sections (statuses, types, views,
-global actions, fields, triggers) come from that one file. Lower-priority files are ignored entirely.
+The single highest-priority `workflow.yaml` found is loaded. All workflow-backed sections (fields, views,
+global actions, triggers) come from that one file. Lower-priority files are ignored entirely.
 See [Workflow format versions](workflow-format.md) for schema evolution.
 
 Search order: user config dir → `.doc/workflow.yaml` (project) → cwd. Last match wins.
 
-- Missing `statuses:` in the winning file is an error.
-- Missing `types:` in the winning file is an error.
+- Missing `fields:` entry `name: status` in the winning file is an error.
+- Missing `fields:` entry `name: type` in the winning file is an error.
 - Missing `views:` or explicit empty `views: []` means no views. The pre-0.6.0 `views: { plugins: [] }`
   wrapper is rejected by the parser.
 - Missing `fields:` means no custom fields.
@@ -182,27 +182,39 @@ For detailed instructions see [Customization](plugin.md)
 Example `workflow.yaml`:
 
 ```yaml
-statuses:
-  - key: backlog
-    label: Backlog
-    emoji: "📥"
-    default: true
-  - key: ready
-    label: Ready
-    emoji: "📋"
-    active: true
-  - key: in_progress
-    label: "In Progress"
-    emoji: "⚙️"
-    active: true
-  - key: review
-    label: Review
-    emoji: "👀"
-    active: true
-  - key: done
-    label: Done
-    emoji: "✅"
-    done: true
+fields:
+  - name: status
+    type: enum
+    values:
+      - value: backlog
+        label: Backlog
+        emoji: "📥"
+        default: true
+      - value: ready
+        label: Ready
+        emoji: "📋"
+        active: true
+      - value: inProgress
+        label: "In Progress"
+        emoji: "⚙️"
+        active: true
+      - value: review
+        label: Review
+        emoji: "👀"
+        active: true
+      - value: done
+        label: Done
+        emoji: "✅"
+        done: true
+  - name: type
+    type: enum
+    values:
+      - value: story
+        label: Story
+      - value: bug
+        label: Bug
+      - value: epic
+        label: Epic
 
 actions:                        # top-level global actions (available from every view)
   - key: "a"

@@ -121,7 +121,7 @@ select where due is empty                     -- same, with the is-empty predica
 
 `type`
 
-- validated through the injected schema against the `types:` section of `workflow.yaml`
+- validated through the injected schema against the `fields:` entry named `type` in `workflow.yaml`
 - production normalization lowercases, trims, and removes separators
 - the bundled kanban workflow ships with `story`, `bug`, `spike`, and `epic`
 - type keys must be canonical (matching normalized form); aliases are not supported

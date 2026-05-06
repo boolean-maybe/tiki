@@ -26,36 +26,39 @@ description: |
 
 ## Statuses
 
-Workflow statuses are defined in `workflow.yaml` under the `statuses:` key. Every project must define
-its statuses here — there is no hardcoded fallback. See
+Workflow statuses are defined in `workflow.yaml` as a `fields:` entry named `status` with `type: enum`.
+Every project must define status values here — there is no hardcoded fallback. See
 [Custom statuses and types](custom-status-type.md). The default `workflow.yaml` ships with:
 
 ```yaml
-statuses:
-  - key: backlog
-    label: Backlog
-    emoji: "📥"
-    default: true
-  - key: ready
-    label: Ready
-    emoji: "📋"
-    active: true
-  - key: inProgress
-    label: "In Progress"
-    emoji: "⚙️"
-    active: true
-  - key: review
-    label: Review
-    emoji: "👀"
-    active: true
-  - key: done
-    label: Done
-    emoji: "✅"
-    done: true
+fields:
+  - name: status
+    type: enum
+    values:
+      - value: backlog
+        label: Backlog
+        emoji: "📥"
+        default: true
+      - value: ready
+        label: Ready
+        emoji: "📋"
+        active: true
+      - value: inProgress
+        label: "In Progress"
+        emoji: "⚙️"
+        active: true
+      - value: review
+        label: Review
+        emoji: "👀"
+        active: true
+      - value: done
+        label: Done
+        emoji: "✅"
+        done: true
 ```
 
 Each status has:
-- `key` — canonical camelCase identifier. Used in filters, actions, and frontmatter.
+- `value` — canonical camelCase identifier. Used in filters, actions, and frontmatter.
 - `label` — display name shown in the UI (defaults to key when omitted)
 - `emoji` — emoji shown alongside the label
 - `active` — marks the status as "active work" (used for activity tracking)
@@ -69,28 +72,31 @@ You can customize these to match your team's workflow. All filters and actions i
 
 ## Types
 
-Task types are defined in `workflow.yaml` under the `types:` key. A missing `types:` section is an
-error. See [Custom statuses and types](custom-status-type.md) for the full validation rules. The
-default `workflow.yaml` ships with:
+Task types are defined in `workflow.yaml` as a `fields:` entry named `type` with `type: enum`. A missing
+`type` field is an error. See [Custom statuses and types](custom-status-type.md) for the full validation
+rules. The default `workflow.yaml` ships with:
 
 ```yaml
-types:
-  - key: story
-    label: Story
-    emoji: "🌀"
-  - key: bug
-    label: Bug
-    emoji: "💥"
-  - key: spike
-    label: Spike
-    emoji: "🔍"
-  - key: epic
-    label: Epic
-    emoji: "🗂️"
+fields:
+  - name: type
+    type: enum
+    values:
+      - value: story
+        label: Story
+        emoji: "🌀"
+      - value: bug
+        label: Bug
+        emoji: "💥"
+      - value: spike
+        label: Spike
+        emoji: "🔍"
+      - value: epic
+        label: Epic
+        emoji: "🗂️"
 ```
 
 Each type has:
-- `key` — canonical lowercase identifier. Used in filters, actions, and frontmatter.
+- `value` — canonical lowercase identifier. Used in filters, actions, and frontmatter.
 - `label` — display name shown in the UI (defaults to key when omitted)
 - `emoji` — emoji shown alongside the label
 
@@ -119,13 +125,14 @@ When no status is marked `default: true`, **none** of these defaults are applied
 and `create` produce field-free tikis that stay out of board and list views.
 
 ```yaml
-types:
-  - key: bug
-    label: Bug
-    emoji: "🐛"
-    default: true
-
 fields:
+  - name: type
+    type: enum
+    values:
+      - value: bug
+        label: Bug
+        emoji: "🐛"
+        default: true
   - name: severity
     type: enum
     values: [critical, high, medium, low]

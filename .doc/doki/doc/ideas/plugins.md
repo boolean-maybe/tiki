@@ -49,11 +49,14 @@ actions:
 Define a custom "rejected" status, then add a plugin action on the Backlog view to reject tasks.
 
 ```yaml
-statuses:
-  - key: rejected
-    label: Rejected
-    emoji: "🚫"
-    done: true
+fields:
+  - name: status
+    type: enum
+    values:
+      - value: rejected
+        label: Rejected
+        emoji: "🚫"
+        done: true
 ```
 
 ```yaml

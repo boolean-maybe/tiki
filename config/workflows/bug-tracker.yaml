@@ -5,6 +5,45 @@ description: |
   three task types (Bug, Regression, Incident), and custom fields for severity,
   environment, reporter, foundIn version, due date, regression flag, and escalation count.
 fields:
+  - name: status
+    type: enum
+    values:
+      - value: open
+        label: Open
+        emoji: "\U0001F195"
+        default: true
+      - value: triaged
+        label: Triaged
+        emoji: "\U0001F4CB"
+        active: true
+      - value: inProgress
+        label: "In Progress"
+        emoji: "⚙️"
+        active: true
+      - value: inReview
+        label: "In Review"
+        emoji: "\U0001F440"
+        active: true
+      - value: verified
+        label: Verified
+        emoji: "✅"
+        done: true
+      - value: wontFix
+        label: "Won't Fix"
+        emoji: "\U0001F6AB"
+  - name: type
+    type: enum
+    values:
+      - value: bug
+        label: Bug
+        emoji: "\U0001F41B"
+        default: true
+      - value: regression
+        label: Regression
+        emoji: "\U0001F501"
+      - value: incident
+        label: Incident
+        emoji: "\U0001F525"
   - name: severity
     type: enum
     values: [critical, high, medium, low]
@@ -24,43 +63,6 @@ fields:
   - name: escalations
     type: integer
     default: 0
-
-statuses:
-  - key: open
-    label: Open
-    emoji: "\U0001F195"
-    default: true
-  - key: triaged
-    label: Triaged
-    emoji: "\U0001F4CB"
-    active: true
-  - key: inProgress
-    label: "In Progress"
-    emoji: "⚙️"
-    active: true
-  - key: inReview
-    label: "In Review"
-    emoji: "\U0001F440"
-    active: true
-  - key: verified
-    label: Verified
-    emoji: "✅"
-    done: true
-  - key: wontFix
-    label: "Won't Fix"
-    emoji: "\U0001F6AB"
-
-types:
-  - key: bug
-    label: Bug
-    emoji: "\U0001F41B"
-    default: true
-  - key: regression
-    label: Regression
-    emoji: "\U0001F501"
-  - key: incident
-    label: Incident
-    emoji: "\U0001F525"
 
 actions:
   - key: "a"

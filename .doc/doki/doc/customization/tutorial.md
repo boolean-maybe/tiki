@@ -75,38 +75,40 @@ we will explore in later sections.
 Let us start with a small change: adding a "Blocked" status for tasks that are
 stuck waiting on something.
 
-Statuses are defined in `workflow.yaml` under the `statuses:` key. There is one
-important thing to know: **when you define statuses, you replace the entire
-list**. That means you need to include all the statuses you want — the originals
-plus your new ones.
+Statuses are defined in `workflow.yaml` as a `fields:` entry named `status` with `type: enum`. There is
+one important thing to know: **when you define statuses, you replace the entire list**. That means you need
+to include all the statuses you want — the originals plus your new ones.
 
 Create `.doc/workflow.yaml` with this content:
 
 ```yaml
-statuses:
-  - key: backlog
-    label: Backlog
-    emoji: "📥"
-    default: true
-  - key: ready
-    label: Ready
-    emoji: "📋"
-    active: true
-  - key: inProgress
-    label: "In Progress"
-    emoji: "⚙️"
-    active: true
-  - key: blocked
-    label: Blocked
-    emoji: "🚧"
-  - key: review
-    label: Review
-    emoji: "👀"
-    active: true
-  - key: done
-    label: Done
-    emoji: "✅"
-    done: true
+fields:
+  - name: status
+    type: enum
+    values:
+      - value: backlog
+        label: Backlog
+        emoji: "📥"
+        default: true
+      - value: ready
+        label: Ready
+        emoji: "📋"
+        active: true
+      - value: inProgress
+        label: "In Progress"
+        emoji: "⚙️"
+        active: true
+      - value: blocked
+        label: Blocked
+        emoji: "🚧"
+      - value: review
+        label: Review
+        emoji: "👀"
+        active: true
+      - value: done
+        label: Done
+        emoji: "✅"
+        done: true
 ```
 
 This is the same as the default, with one new entry: `blocked`.
@@ -120,13 +122,13 @@ Let us look at the flags on each status:
 - **`active: true`** — means work is happening. You can mark as many as you like.
   Blocked is intentionally *not* active — the task is stuck, not being worked on.
 
-Each status also has a **key** and a **label**. The key is the permanent
+Each status also has a **value** and a **label**. The value is the permanent
 identifier — it is what gets stored in your task files and used in filters. The
 label is what you see on screen. They can be different, as we will see in a
 moment.
 
-> **Keep your keys stable.** Once tasks exist with a particular status key,
-> changing or removing that key will cause problems. It is always safe to add
+> **Keep your values stable.** Once tasks exist with a particular status value,
+> changing or removing that value will cause problems. It is always safe to add
 > new statuses or change a label.
 
 ---
@@ -139,25 +141,27 @@ dependencies, cleaning up old branches, or writing documentation.
 Types work the same way as statuses: **when you define types, you replace the
 entire list**.
 
-Add this to your `.doc/workflow.yaml`, right after the statuses section:
+Add this to your `.doc/workflow.yaml`, right after the status field entry:
 
 ```yaml
-types:
-  - key: story
-    label: Story
-    emoji: "🌀"
-  - key: bug
-    label: Bug
-    emoji: "💥"
-  - key: chore
-    label: Chore
-    emoji: "🔧"
-  - key: spike
-    label: Spike
-    emoji: "🔍"
-  - key: epic
-    label: Epic
-    emoji: "🗂️"
+  - name: type
+    type: enum
+    values:
+      - value: story
+        label: Story
+        emoji: "🌀"
+      - value: bug
+        label: Bug
+        emoji: "💥"
+      - value: chore
+        label: Chore
+        emoji: "🔧"
+      - value: spike
+        label: Spike
+        emoji: "🔍"
+      - value: epic
+        label: Epic
+        emoji: "🗂️"
 ```
 
 This keeps all four original types and adds `chore` in the middle.
@@ -181,17 +185,17 @@ In Progress, Review, and Done. We want to:
 2. Rename "Review" to **"Testing"** on screen (while keeping the key `review`
    so existing tasks stay valid)
 
-First, update the `statuses:` section we wrote earlier — change the label on
+First, update the status field values we wrote earlier — change the label on
 `review`:
 
 ```yaml
-  - key: review
-    label: Testing
-    emoji: "🧪"
-    active: true
+      - value: review
+        label: Testing
+        emoji: "🧪"
+        active: true
 ```
 
-Notice the key is still `review`. Your existing tasks that are in review will
+Notice the value is still `review`. Your existing tasks that are in review will
 keep working perfectly — they just show up under the name "Testing" now. We also
 swapped the emoji to a test tube to match.
 
@@ -660,52 +664,56 @@ You can use this as a starting point and adjust it to your needs.
 # --- Customized team workflow ---
 # Place this file at .doc/workflow.yaml in your project
 
-# Statuses: the lifecycle of a task
-statuses:
-  - key: backlog
-    label: Backlog
-    emoji: "📥"
-    default: true
-  - key: ready
-    label: Ready
-    emoji: "📋"
-    active: true
-  - key: inProgress
-    label: "In Progress"
-    emoji: "⚙️"
-    active: true
-  - key: blocked
-    label: Blocked
-    emoji: "🚧"
-  - key: review
-    label: Testing
-    emoji: "🧪"
-    active: true
-  - key: done
-    label: Done
-    emoji: "✅"
-    done: true
-
-# Types: kinds of work
-types:
-  - key: story
-    label: Story
-    emoji: "🌀"
-  - key: bug
-    label: Bug
-    emoji: "💥"
-  - key: chore
-    label: Chore
-    emoji: "🔧"
-  - key: spike
-    label: Spike
-    emoji: "🔍"
-  - key: epic
-    label: Epic
-    emoji: "🗂️"
-
-# Custom fields: project-specific data on every task
 fields:
+  # Statuses: the lifecycle of a task
+  - name: status
+    type: enum
+    values:
+      - value: backlog
+        label: Backlog
+        emoji: "📥"
+        default: true
+      - value: ready
+        label: Ready
+        emoji: "📋"
+        active: true
+      - value: inProgress
+        label: "In Progress"
+        emoji: "⚙️"
+        active: true
+      - value: blocked
+        label: Blocked
+        emoji: "🚧"
+      - value: review
+        label: Testing
+        emoji: "🧪"
+        active: true
+      - value: done
+        label: Done
+        emoji: "✅"
+        done: true
+
+  # Types: kinds of work
+  - name: type
+    type: enum
+    values:
+      - value: story
+        label: Story
+        emoji: "🌀"
+      - value: bug
+        label: Bug
+        emoji: "💥"
+      - value: chore
+        label: Chore
+        emoji: "🔧"
+      - value: spike
+        label: Spike
+        emoji: "🔍"
+      - value: epic
+        label: Epic
+        emoji: "🗂️"
+
+  # Custom fields: project-specific data on every task
   - name: severity
     type: enum
     values: [critical, high, medium, low]
