@@ -8,18 +8,14 @@ import (
 	"time"
 
 	"github.com/boolean-maybe/tiki/config"
+	"github.com/boolean-maybe/tiki/internal/teststatuses"
 	"github.com/boolean-maybe/tiki/store"
 	tikipkg "github.com/boolean-maybe/tiki/tiki"
 	"github.com/boolean-maybe/tiki/workflow"
 )
 
 func init() {
-	config.ResetStatusRegistry([]workflow.StatusDef{
-		{Key: "backlog", Label: "Backlog", Emoji: "📥", Default: true},
-		{Key: "ready", Label: "Ready", Emoji: "📋", Active: true},
-		{Key: "inProgress", Label: "In Progress", Emoji: "⚙️", Active: true},
-		{Key: "done", Label: "Done", Emoji: "✅", Done: true},
-	})
+	teststatuses.Init()
 }
 
 func newGateWithStore() (*TaskMutationGate, store.Store) {
@@ -244,21 +240,26 @@ func TestSingleRejection_ErrorFormat(t *testing.T) {
 	}
 }
 
-func TestFieldValidators_RejectInvalidTask(t *testing.T) {
+// TestFieldValidators_RejectWrongTypeForWorkflowField verifies the
+// catalog-driven validator: a workflow-declared field whose stored value
+// has the wrong Go type is rejected. Range/value-domain checks (e.g.
+// priority must be 1..5) are no longer enforced here — those are
+// kanban-specific invariants and would be expressed via workflow triggers
+// or future per-field constraints in workflow.yaml.
+func TestFieldValidators_RejectWrongTypeForWorkflowField(t *testing.T) {
 	gate, s := newGateWithStore()
 	RegisterFieldValidators(gate)
 
-	// create a valid tiki first so UpdateTiki can find it in the store
 	valid := newWorkflowTiki("ABC123", "test")
 	_ = s.CreateTiki(valid)
 
-	// now try to update with invalid priority — should be rejected
+	// stage a wrong-type value: priority is declared as int, set to a string
 	tk := valid.Clone()
-	tk.Set(tikipkg.FieldPriority, 99)
+	tk.Set(tikipkg.FieldPriority, "high")
 
 	err := gate.UpdateTiki(context.Background(), tk)
 	if err == nil {
-		t.Fatal("expected rejection for invalid priority")
+		t.Fatal("expected rejection for wrong-type priority")
 	}
 
 	re, ok := err.(*RejectionError)
@@ -275,7 +276,7 @@ func TestFieldValidators_RejectInvalidTask(t *testing.T) {
 		}
 	}
 	if !found {
-		t.Errorf("expected priority rejection, got: %v", re.Rejections)
+		t.Errorf("expected priority type rejection, got: %v", re.Rejections)
 	}
 }
 
@@ -326,18 +327,24 @@ func TestFieldValidators_RequireTitleEvenForPlainDocs(t *testing.T) {
 // contract: a tiki that sets only priority but no status or type must pass
 // validation because absent fields are not invalid.
 func TestFieldValidators_AcceptSparseWorkflowCreate(t *testing.T) {
-	config.ResetStatusRegistry([]workflow.StatusDef{
-		{Key: "alpha", Label: "Alpha"},
-		{Key: "done", Label: "Done", Done: true},
+	config.ResetWorkflowFieldsForTest([]workflow.FieldDef{
+		{
+			Name: "status",
+			Type: workflow.TypeEnum,
+			EnumValues: []workflow.EnumValue{
+				{Value: "alpha", Label: "Alpha"},
+				{Value: "done", Label: "Done"},
+			},
+		},
+		{
+			Name: "type",
+			Type: workflow.TypeEnum,
+			EnumValues: []workflow.EnumValue{
+				{Value: "story", Label: "Story", Default: true},
+			},
+		},
 	})
-	t.Cleanup(func() {
-		config.ResetStatusRegistry([]workflow.StatusDef{
-			{Key: "backlog", Label: "Backlog", Emoji: "📥", Default: true},
-			{Key: "ready", Label: "Ready", Emoji: "📋", Active: true},
-			{Key: "inProgress", Label: "In Progress", Emoji: "⚙️", Active: true},
-			{Key: "done", Label: "Done", Emoji: "✅", Done: true},
-		})
-	})
+	t.Cleanup(func() { teststatuses.Init() })
 
 	gate, s := newGateWithStore()
 	RegisterFieldValidators(gate)

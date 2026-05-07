@@ -11,6 +11,7 @@ import (
 	"github.com/boolean-maybe/tiki/internal/ruki/runtime"
 	"github.com/boolean-maybe/tiki/plugin"
 	"github.com/boolean-maybe/tiki/ruki"
+	"github.com/boolean-maybe/tiki/workflow"
 )
 
 // runWorkflow dispatches workflow subcommands. Returns an exit code.
@@ -236,7 +237,8 @@ func parsePositionalOnly(args []string) (string, error) {
 // workflow. Requires the ValidatedWorkflow (from config.ValidateWorkflowContent)
 // and the raw YAML content (written to a temp file for plugin loading).
 func validateWorkflowViews(vw *config.ValidatedWorkflow, content string) error {
-	schema := runtime.NewSchemaFromRegistries(vw.StatusReg, vw.TypeReg, vw.FieldDefs)
+	fields := append(workflow.SystemFields(), vw.FieldDefs...)
+	schema := runtime.NewSchemaFromFields(fields)
 
 	if len(vw.TriggerDefs) > 0 {
 		parser := ruki.NewParser(schema)

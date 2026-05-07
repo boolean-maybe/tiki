@@ -59,7 +59,7 @@ func TestUpdateTiki_SparseDocPreservesExistingKeys(t *testing.T) {
 	}
 	if tk := s.GetTiki("SPARSE"); tk == nil {
 		t.Fatal("GetTiki after reload = nil")
-	} else if !hasAnySchemaField(tk) {
+	} else if !hasAnyWorkflowField(tk) {
 		t.Error("sparse tiki lost its schema-known field across UpdateTiki + reload")
 	}
 }
@@ -176,7 +176,7 @@ func TestUpdateTiki_OmittingAllSchemaFieldsRemovesThem(t *testing.T) {
 	}
 	if tk := s.GetTiki("SHRINK"); tk == nil {
 		t.Fatal("GetTiki after reload = nil")
-	} else if hasAnySchemaField(tk) {
+	} else if hasAnyWorkflowField(tk) {
 		t.Error("schema-known fields survived reload — they must have been written back to disk")
 	}
 }

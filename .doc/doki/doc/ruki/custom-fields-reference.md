@@ -141,7 +141,7 @@ leaves `has(labels)` true. Use `set labels = empty` to actually remove the key.
 
 Custom fields are **presence-aware** — a field is either present (its key appears in the tiki's
 frontmatter) or absent. Comparisons against absent custom fields follow the same rules as
-schema-known absent fields; see [Absent fields in semantics.md](semantics.md#absent-fields) for the
+workflow-declared absent fields; see [Absent fields in semantics.md](semantics.md#absent-fields) for the
 full set. The key facts for custom fields:
 
 - `where <field> = <concrete-value>` is **false** on absent fields. `blocked = false` does **not**

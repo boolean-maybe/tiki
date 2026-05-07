@@ -215,7 +215,7 @@ func TestExecuteSelectWhere(t *testing.T) {
 			1, []string{"TIKI-000004"},
 		},
 		{
-			// Phase 4: fixture emits every schema-known key; no task is
+			// Phase 4: fixture emits every workflow-declared key; no task is
 			// missing its assignee frontmatter.
 			"not has assignee", `select where not has(assignee)`,
 			0, nil,
@@ -1094,27 +1094,6 @@ func TestExecuteCreateDateField(t *testing.T) {
 	}
 }
 
-func TestExecuteCreatePriorityOutOfRange(t *testing.T) {
-	e := newTestExecutor()
-
-	for _, prio := range []int{0, 99, -1} {
-		t.Run(fmt.Sprintf("priority=%d", prio), func(t *testing.T) {
-			stmt := &Statement{
-				Create: &CreateStmt{
-					Assignments: []Assignment{
-						{Field: "title", Value: &StringLiteral{Value: "x"}},
-						{Field: "priority", Value: &IntLiteral{Value: prio}},
-					},
-				},
-			}
-			_, err := e.testExec(stmt, nil)
-			if err == nil {
-				t.Fatal("expected error for out-of-range priority")
-			}
-		})
-	}
-}
-
 func TestExecuteCreateEmptyTasks(t *testing.T) {
 	e := newTestExecutor()
 	p := newTestParser()
@@ -1416,7 +1395,7 @@ func TestExecuteCompareWithNil(t *testing.T) {
 		{ID: "T2", Title: "y", Status: "ready", Assignee: "bob"},
 	}
 
-	// Phase 4: fixture helper fills every schema-known key with its
+	// Phase 4: fixture helper fills every workflow-declared key with its
 	// typed value, so T1's assignee is present-empty. `= empty` matches
 	// T1; `!= empty` matches T2.
 	tests := []struct {
@@ -3245,35 +3224,26 @@ func TestExecuteUpdateDateToEmpty(t *testing.T) {
 	}
 }
 
-func TestExecuteUpdateConstrainedFieldsRejectEmpty(t *testing.T) {
+// TestExecuteUpdateTitleRejectEmpty pins the only system-level required-ness
+// invariant: title may not be assigned to empty. status/type/priority are
+// now ordinary workflow fields and `set status=empty` deletes the field
+// rather than erroring (matching the carve-out semantics for non-required
+// fields).
+func TestExecuteUpdateTitleRejectEmpty(t *testing.T) {
 	e := newTestExecutor()
 	p := newTestParser()
 
-	tests := []struct {
-		name  string
-		input string
-	}{
-		{"title", `update where id = "T1" set title=empty`},
-		{"priority", `update where id = "T1" set priority=empty`},
-		{"status", `update where id = "T1" set status=empty`},
-		{"type", `update where id = "T1" set type=empty`},
+	tasks := []*task.Task{{ID: "T1", Title: "x", Status: "ready", Type: "bug", Priority: 2}}
+	stmt, err := p.ParseStatement(`update where id = "T1" set title=empty`)
+	if err != nil {
+		t.Fatalf("parse: %v", err)
 	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			tasks := []*task.Task{{ID: "T1", Title: "x", Status: "ready", Type: "bug", Priority: 2}}
-			stmt, err := p.ParseStatement(tt.input)
-			if err != nil {
-				t.Fatalf("parse: %v", err)
-			}
-			_, err = e.testExec(stmt, tasks)
-			if err == nil {
-				t.Fatal("expected error for empty on constrained field")
-			}
-			if !strings.Contains(err.Error(), "empty") {
-				t.Errorf("expected error mentioning empty, got: %v", err)
-			}
-		})
+	_, err = e.testExec(stmt, tasks)
+	if err == nil {
+		t.Fatal("expected error for empty title")
+	}
+	if !strings.Contains(err.Error(), "empty") {
+		t.Errorf("expected error mentioning empty, got: %v", err)
 	}
 }
 
@@ -3742,40 +3712,10 @@ func TestToStringSliceNonList(t *testing.T) {
 	}
 }
 
-func TestExecuteUpdatePriorityOutOfRange(t *testing.T) {
-	e := newTestExecutor()
-
-	tests := []struct {
-		name string
-		val  int
-	}{
-		{"too low", 0},
-		{"too high", 99},
-		{"negative", -1},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			tasks := []*task.Task{{ID: "T1", Title: "x", Status: "ready", Priority: 2}}
-			stmt := &Statement{
-				Update: &UpdateStmt{
-					Where: &CompareExpr{
-						Left: &FieldRef{Name: "id"}, Op: "=", Right: &StringLiteral{Value: "T1"},
-					},
-					Set: []Assignment{{Field: "priority", Value: &IntLiteral{Value: tt.val}}},
-				},
-			}
-			_, err := e.testExec(stmt, tasks)
-			if err == nil {
-				t.Fatal("expected error for out-of-range priority")
-			}
-			if !strings.Contains(err.Error(), "priority value out of range") {
-				t.Errorf("expected range error, got: %v", err)
-			}
-		})
-	}
-}
-
+// Range checks for priority/points were kanban-specific. Under the new
+// model, priority and points are ordinary int workflow fields — any int is
+// accepted by the executor. Workflows that need range constraints express
+// them via triggers (e.g. `before update where priority < 1 deny ...`).
 func TestExecuteUpdatePriorityValidRange(t *testing.T) {
 	e := newTestExecutor()
 	p := newTestParser()
@@ -3793,39 +3733,6 @@ func TestExecuteUpdatePriorityValidRange(t *testing.T) {
 		if result.Update.Updated[0].Priority != prio {
 			t.Errorf("expected priority %d, got %d", prio, result.Update.Updated[0].Priority)
 		}
-	}
-}
-
-func TestExecuteUpdatePointsOutOfRange(t *testing.T) {
-	e := newTestExecutor()
-
-	tests := []struct {
-		name string
-		val  int
-	}{
-		{"negative", -1},
-		{"exceeds max", 999},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			tasks := []*task.Task{{ID: "T1", Title: "x", Status: "ready", Points: 3}}
-			stmt := &Statement{
-				Update: &UpdateStmt{
-					Where: &CompareExpr{
-						Left: &FieldRef{Name: "id"}, Op: "=", Right: &StringLiteral{Value: "T1"},
-					},
-					Set: []Assignment{{Field: "points", Value: &IntLiteral{Value: tt.val}}},
-				},
-			}
-			_, err := e.testExec(stmt, tasks)
-			if err == nil {
-				t.Fatal("expected error for invalid points value")
-			}
-			if !strings.Contains(err.Error(), "points value out of range") {
-				t.Errorf("expected points range error, got: %v", err)
-			}
-		})
 	}
 }
 

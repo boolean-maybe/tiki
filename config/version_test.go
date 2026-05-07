@@ -138,33 +138,32 @@ func searchSubstring(s, substr string) bool {
 }
 
 const validWorkflowWithVersion = `version: 99.0.0
-statuses:
-  - key: open
-    label: Open
-    default: true
-  - key: closed
-    label: Closed
-    done: true
-types:
-  - key: story
-    label: Story
-views:
-  plugins:
-    - name: board
-      lanes:
-        - name: Open
-          filter: select where status = "open"
+fields:
+  - name: status
+    type: enum
+    values:
+      - value: open
+        label: Open
+        default: true
+      - value: closed
+        label: Closed
+  - name: type
+    type: enum
+    values:
+      - value: story
+        label: Story
+        default: true
 `
 
-func TestLoadWorkflowRegistries_RejectsNewerVersion(t *testing.T) {
-	cwdDir := setupLoadRegistryTest(t)
+func TestLoadWorkflowFields_RejectsNewerVersion(t *testing.T) {
+	cwdDir := setupLoadWorkflowFieldsTest(t)
 	withAppVersion(t, "0.5.2")
 
 	if err := os.WriteFile(filepath.Join(cwdDir, "workflow.yaml"), []byte(validWorkflowWithVersion), 0644); err != nil {
 		t.Fatal(err)
 	}
 
-	err := LoadWorkflowRegistries()
+	err := LoadWorkflowFields()
 	if err == nil {
 		t.Fatal("expected version error, got nil")
 	}
@@ -173,20 +172,20 @@ func TestLoadWorkflowRegistries_RejectsNewerVersion(t *testing.T) {
 	}
 }
 
-func TestLoadWorkflowRegistries_NoFilesErrorFromStatusRegistry(t *testing.T) {
-	_ = setupLoadRegistryTest(t)
+func TestLoadWorkflowFields_NoFilesError(t *testing.T) {
+	_ = setupLoadWorkflowFieldsTest(t)
 	withAppVersion(t, "0.5.2")
 
-	err := LoadWorkflowRegistries()
+	err := LoadWorkflowFields()
 	if err == nil {
 		t.Fatal("expected error when no workflow files found")
 	}
 	if !contains(err.Error(), "no workflow.yaml found") {
-		t.Errorf("expected missing-file error from LoadStatusRegistry, got: %v", err)
+		t.Errorf("expected missing-file error, got: %v", err)
 	}
 }
 
-func TestLoadRegistriesFromFile_RejectsNewerVersion(t *testing.T) {
+func TestLoadWorkflowFieldsFromFile_RejectsNewerVersion(t *testing.T) {
 	withAppVersion(t, "0.5.2")
 
 	dir := t.TempDir()
@@ -195,7 +194,7 @@ func TestLoadRegistriesFromFile_RejectsNewerVersion(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	_, _, _, err := LoadRegistriesFromFile(path)
+	_, err := LoadWorkflowFieldsFromFile(path)
 	if err == nil {
 		t.Fatal("expected version error, got nil")
 	}

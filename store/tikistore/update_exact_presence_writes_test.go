@@ -38,7 +38,7 @@ func TestUpdateTiki_ZeroValueWritesOnlyTheFieldSet(t *testing.T) {
 	if stored == nil {
 		t.Fatal("expected BARE01 to load")
 	}
-	if hasAnySchemaField(stored) {
+	if hasAnyWorkflowField(stored) {
 		t.Fatalf("precondition: BARE01 must load with no schema fields, got presence=true")
 	}
 
@@ -116,7 +116,7 @@ func TestUpdateTiki_ZeroValueOnExistingFieldsAdds(t *testing.T) {
 	if stored == nil {
 		t.Fatal("expected STAT01 to load")
 	}
-	if !hasAnySchemaField(stored) {
+	if !hasAnyWorkflowField(stored) {
 		t.Fatal("precondition: STAT01 should load with status present")
 	}
 

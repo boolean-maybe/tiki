@@ -3,20 +3,12 @@ package store
 import (
 	"testing"
 
-	"github.com/boolean-maybe/tiki/config"
+	"github.com/boolean-maybe/tiki/internal/teststatuses"
 	taskpkg "github.com/boolean-maybe/tiki/task"
-	"github.com/boolean-maybe/tiki/workflow"
 )
 
 func init() {
-	// set up the default status registry for tests.
-	config.ResetStatusRegistry([]workflow.StatusDef{
-		{Key: "backlog", Label: "Backlog", Emoji: "📥", Default: true},
-		{Key: "ready", Label: "Ready", Emoji: "📋", Active: true},
-		{Key: "inProgress", Label: "In Progress", Emoji: "⚙️", Active: true},
-		{Key: "review", Label: "Review", Emoji: "👀", Active: true},
-		{Key: "done", Label: "Done", Emoji: "✅", Done: true},
-	})
+	teststatuses.Init()
 }
 
 func TestParseFrontmatter(t *testing.T) {

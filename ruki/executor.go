@@ -28,10 +28,9 @@ type evalContext struct {
 	// inAssignmentRHS is true while the executor is evaluating the RHS
 	// of an `update set <field> = <expr>` or `create <field> = <expr>`
 	// assignment. It enables a narrow carve-out to absent-field hard-
-	// error semantics: bare or qualified references to registered
-	// workflow fields (schema-known or Custom) that are absent on the
-	// target tiki auto-zero during `+`/`-` arithmetic and plain
-	// reference reads, so idioms like `set tags = tags + [x]`,
+	// error semantics: bare or qualified references to workflow-declared
+	// fields that are absent on the target tiki auto-zero during `+`/`-`
+	// arithmetic and plain reference reads, so idioms like `set tags = tags + [x]`,
 	// `set priority = priority - 1`, and `create tags = old.tags`
 	// work on docs that lack the field. Unregistered names still
 	// hard-error so typos like `set taggs = taggs + [x]` fail loudly.
@@ -341,6 +340,7 @@ func (e *Executor) executeDelete(del *DeleteStmt, tikis []*tiki.Tiki) (*Result, 
 }
 
 func (e *Executor) setField(t *tiki.Tiki, name string, val interface{}) error {
+	// Identity/audit fields live on the Tiki struct, not the Fields map.
 	switch name {
 	case "id", "createdBy", "createdAt", "updatedAt", "filepath", "path":
 		return fmt.Errorf("field %q is immutable", name)
@@ -357,6 +357,7 @@ func (e *Executor) setField(t *tiki.Tiki, name string, val interface{}) error {
 			return fmt.Errorf("cannot set title to empty")
 		}
 		t.Title = s
+		return nil
 
 	case "description", "body":
 		if val == nil {
@@ -368,121 +369,19 @@ func (e *Executor) setField(t *tiki.Tiki, name string, val interface{}) error {
 			return fmt.Errorf("description must be a string, got %T", val)
 		}
 		t.Body = s
-
-	case tiki.FieldStatus:
-		if val == nil {
-			return fmt.Errorf("cannot set status to empty")
-		}
-		return e.setEnumField(t, name, val)
-
-	case tiki.FieldType:
-		if val == nil {
-			return fmt.Errorf("cannot set type to empty")
-		}
-		return e.setEnumField(t, name, val)
-
-	case tiki.FieldPriority:
-		if val == nil {
-			return fmt.Errorf("cannot set priority to empty")
-		}
-		n, ok := val.(int)
-		if !ok {
-			return fmt.Errorf("priority must be an int, got %T", val)
-		}
-		if !task.IsValidPriority(n) {
-			return fmt.Errorf("priority must be between %d and %d", task.MinPriority, task.MaxPriority)
-		}
-		t.Set(name, n)
-
-	case tiki.FieldPoints:
-		if val == nil {
-			t.Delete(name)
-			return nil
-		}
-		n, ok := val.(int)
-		if !ok {
-			return fmt.Errorf("points must be an int, got %T", val)
-		}
-		if !task.IsValidPoints(n) {
-			return fmt.Errorf("invalid points value: %d", n)
-		}
-		t.Set(name, n)
-
-	case tiki.FieldTags:
-		if val == nil {
-			t.Delete(name)
-			return nil
-		}
-		t.Set(name, collectionutil.NormalizeStringSet(toStringSlice(val)))
-
-	case tiki.FieldDependsOn:
-		if val == nil {
-			t.Delete(name)
-			return nil
-		}
-		refs := normalizeRefList(toStringSlice(val))
-		if err := validateBareRefs(refs, "dependsOn"); err != nil {
-			return err
-		}
-		t.Set(name, refs)
-
-	case tiki.FieldDue:
-		if val == nil {
-			t.Delete(name)
-			return nil
-		}
-		d, ok := val.(time.Time)
-		if !ok {
-			return fmt.Errorf("due must be a date, got %T", val)
-		}
-		t.Set(name, d)
-
-	case tiki.FieldRecurrence:
-		if val == nil {
-			t.Delete(name)
-			return nil
-		}
-		s, ok := coerceSetString(val)
-		if !ok {
-			return fmt.Errorf("recurrence must be a string, got %T", val)
-		}
-		t.Set(name, s)
-
-	case tiki.FieldAssignee:
-		if val == nil {
-			t.Delete(name)
-			return nil
-		}
-		s, ok := val.(string)
-		if !ok {
-			return fmt.Errorf("assignee must be a string, got %T", val)
-		}
-		t.Set(name, s)
-
-	default:
-		fs, ok := e.schema.Field(name)
-		if !ok || !fs.Custom {
-			return fmt.Errorf("unknown field %q", name)
-		}
-		if val == nil {
-			t.Delete(name)
-			return nil
-		}
-		coerced, err := coerceCustomFieldValue(fs, val)
-		if err != nil {
-			return fmt.Errorf("field %q: %w", name, err)
-		}
-		t.Set(name, coerced)
+		return nil
 	}
-	return nil
-}
 
-func (e *Executor) setEnumField(t *tiki.Tiki, name string, val interface{}) error {
+	// Workflow-declared fields: dispatch through the schema by type.
 	fs, ok := e.schema.Field(name)
-	if !ok || fs.Type != ValueEnum {
-		return fmt.Errorf("field %q is not an enum", name)
+	if !ok {
+		return fmt.Errorf("unknown field %q", name)
 	}
-	coerced, err := coerceEnumFieldValue(fs, val)
+	if val == nil {
+		t.Delete(name)
+		return nil
+	}
+	coerced, err := coerceCustomFieldValue(fs, val)
 	if err != nil {
 		return fmt.Errorf("field %q: %w", name, err)
 	}
@@ -544,12 +443,25 @@ func coerceCustomFieldValue(fs FieldSpec, val interface{}) (interface{}, error) 
 			}
 		}
 		return nil, fmt.Errorf("expected bool, got %T", val)
-	case ValueTimestamp:
+	case ValueTimestamp, ValueDate:
 		tv, ok := val.(time.Time)
 		if !ok {
 			return nil, fmt.Errorf("expected time.Time, got %T", val)
 		}
 		return tv, nil
+	case ValueDuration:
+		// duration values are stored as their string form in Fields; ruki
+		// arithmetic re-parses on demand.
+		if s, ok := val.(string); ok {
+			return s, nil
+		}
+		return nil, fmt.Errorf("expected duration string, got %T", val)
+	case ValueRecurrence:
+		s, ok := coerceSetString(val)
+		if !ok {
+			return nil, fmt.Errorf("expected recurrence string, got %T", val)
+		}
+		return s, nil
 	case ValueEnum:
 		return coerceEnumFieldValue(fs, val)
 	case ValueListString:
@@ -560,7 +472,7 @@ func coerceCustomFieldValue(fs FieldSpec, val interface{}) (interface{}, error) 
 			return nil, err
 		}
 		return refs, nil
-	case ValueRef:
+	case ValueRef, ValueID:
 		s, ok := val.(string)
 		if !ok {
 			return nil, fmt.Errorf("expected string, got %T", val)
@@ -1457,9 +1369,9 @@ func (e *Executor) evalBinaryExpr(b *BinaryExpr, ctx evalContext) (interface{}, 
 // readFieldRefWithCarveOut reads a field reference off a tiki, applying the
 // assignment-RHS auto-zero carve-out. When ctx.inAssignmentRHS is true and
 // the field is absent on the target tiki, the function returns the type-
-// appropriate zero for registered workflow fields (schema-known or Custom)
-// instead of hard-erroring. Unregistered field names fall through to the
-// normal hard-error path so typos keep failing loudly.
+// appropriate zero for any workflow-declared field instead of hard-
+// erroring. Unregistered field names fall through to the normal hard-error
+// path so typos keep failing loudly.
 //
 // Outside an assignment RHS, the function behaves identically to
 // extractField — absent reads error uniformly.
@@ -1472,39 +1384,21 @@ func (e *Executor) readFieldRefWithCarveOut(t *tiki.Tiki, name string, ctx evalC
 	return e.extractField(t, name)
 }
 
-// registeredFieldZero returns the type-appropriate zero value for a
-// registered workflow field. The first return is the zero; the second is
-// false for names that are not registered (so the caller falls through to
-// the normal hard-error path).
+// registeredFieldZero returns the type-appropriate zero value for a field
+// known to the schema. Returns (nil, false) for names the schema does not
+// know, so the caller falls through to the normal hard-error path.
 func (e *Executor) registeredFieldZero(name string) (interface{}, bool) {
-	if tiki.IsSchemaKnown(name) {
-		return schemaKnownZero(name), true
-	}
 	fs, ok := e.schema.Field(name)
-	if !ok || !fs.Custom {
+	if !ok {
 		return nil, false
 	}
-	return customFieldZero(fs.Type), true
+	return fieldZeroForType(fs.Type), true
 }
 
-// schemaKnownZero returns the zero value for a schema-known field by name.
-func schemaKnownZero(name string) interface{} {
-	switch name {
-	case tiki.FieldTags, tiki.FieldDependsOn:
-		return []interface{}{}
-	case tiki.FieldPriority, tiki.FieldPoints:
-		return 0
-	case tiki.FieldDue:
-		return time.Time{}
-	case tiki.FieldStatus, tiki.FieldType, tiki.FieldRecurrence, tiki.FieldAssignee:
-		return ""
-	}
-	return ""
-}
-
-// customFieldZero returns the zero value for a registered Custom field by
-// its ValueType.
-func customFieldZero(t ValueType) interface{} {
+// fieldZeroForType returns the zero value for a field by its ruki ValueType.
+// Used to project an absent field as a typed zero so projections stay
+// rectangular — every workflow-declared field is treated uniformly.
+func fieldZeroForType(t ValueType) interface{} {
 	switch t {
 	case ValueListString, ValueListRef:
 		return []interface{}{}
@@ -1512,9 +1406,9 @@ func customFieldZero(t ValueType) interface{} {
 		return 0
 	case ValueBool:
 		return false
-	case ValueTimestamp:
+	case ValueTimestamp, ValueDate:
 		return time.Time{}
-	case ValueString, ValueEnum, ValueRef:
+	case ValueString, ValueEnum, ValueRef, ValueID, ValueRecurrence, ValueDuration:
 		return ""
 	}
 	return ""

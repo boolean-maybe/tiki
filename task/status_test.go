@@ -9,8 +9,41 @@ import (
 
 func setupStatusTestRegistry(t *testing.T) {
 	t.Helper()
-	config.ResetStatusRegistry(defaultTestStatusDefs())
-	t.Cleanup(func() { config.ResetStatusRegistry(defaultTestStatusDefs()) })
+	config.ResetWorkflowFieldsForTest(defaultTestWorkflowFields())
+	t.Cleanup(func() { config.ResetWorkflowFieldsForTest(defaultTestWorkflowFields()) })
+}
+
+func defaultTestWorkflowFields() []workflow.FieldDef {
+	return []workflow.FieldDef{
+		{
+			Name: "status",
+			Type: workflow.TypeEnum,
+			EnumValues: []workflow.EnumValue{
+				{Value: "backlog", Label: "Backlog", Emoji: "📥", Default: true},
+				{Value: "ready", Label: "Ready", Emoji: "📋"},
+				{Value: "inProgress", Label: "In Progress", Emoji: "⚙️"},
+				{Value: "review", Label: "Review", Emoji: "👀"},
+				{Value: "done", Label: "Done", Emoji: "✅"},
+			},
+		},
+		{
+			Name: "type",
+			Type: workflow.TypeEnum,
+			EnumValues: []workflow.EnumValue{
+				{Value: "story", Label: "Story", Emoji: "🌀", Default: true},
+				{Value: "bug", Label: "Bug", Emoji: "💥"},
+				{Value: "spike", Label: "Spike", Emoji: "🔍"},
+				{Value: "epic", Label: "Epic", Emoji: "🗂️"},
+			},
+		},
+		{Name: "priority", Type: workflow.TypeInt, DefaultValue: 3},
+		{Name: "points", Type: workflow.TypeInt, DefaultValue: 1},
+		{Name: "tags", Type: workflow.TypeListString, DefaultValue: []string{"idea"}},
+		{Name: "dependsOn", Type: workflow.TypeListRef},
+		{Name: "due", Type: workflow.TypeDate},
+		{Name: "recurrence", Type: workflow.TypeRecurrence},
+		{Name: "assignee", Type: workflow.TypeString},
+	}
 }
 
 func TestParseStatus(t *testing.T) {
@@ -102,11 +135,15 @@ func TestStatusDisplay(t *testing.T) {
 }
 
 func TestStatusDisplay_NoEmoji(t *testing.T) {
-	config.ResetStatusRegistry([]workflow.StatusDef{
-		{Key: "plain", Label: "Plain", Default: true},
-		{Key: "finished", Label: "Finished", Done: true},
-	})
-	t.Cleanup(func() { config.ResetStatusRegistry(defaultTestStatusDefs()) })
+	config.ResetWorkflowFieldsForTest([]workflow.FieldDef{{
+		Name: "status",
+		Type: workflow.TypeEnum,
+		EnumValues: []workflow.EnumValue{
+			{Value: "plain", Label: "Plain", Default: true},
+			{Value: "finished", Label: "Finished"},
+		},
+	}})
+	t.Cleanup(func() { config.ResetWorkflowFieldsForTest(defaultTestWorkflowFields()) })
 
 	if got := StatusDisplay("plain"); got != "Plain" {
 		t.Errorf("StatusDisplay(%q) = %q, want %q (no emoji)", "plain", got, "Plain")
@@ -118,14 +155,6 @@ func TestDefaultStatus(t *testing.T) {
 
 	if got := DefaultStatus(); got != "backlog" {
 		t.Errorf("DefaultStatus() = %q, want %q", got, "backlog")
-	}
-}
-
-func TestDoneStatus(t *testing.T) {
-	setupStatusTestRegistry(t)
-
-	if got := DoneStatus(); got != "done" {
-		t.Errorf("DoneStatus() = %q, want %q", got, "done")
 	}
 }
 
@@ -144,19 +173,15 @@ func TestAllStatuses(t *testing.T) {
 	}
 }
 
-func TestIsActiveStatus(t *testing.T) {
+func TestIsValidStatus(t *testing.T) {
 	setupStatusTestRegistry(t)
 
-	if IsActiveStatus("backlog") {
-		t.Error("expected backlog to not be active")
+	for _, valid := range []string{"backlog", "ready", "inProgress", "review", "done"} {
+		if !IsValidStatus(valid) {
+			t.Errorf("IsValidStatus(%q) = false, want true", valid)
+		}
 	}
-	if !IsActiveStatus("ready") {
-		t.Error("expected ready to be active")
-	}
-	if !IsActiveStatus("inProgress") {
-		t.Error("expected in_progress to be active")
-	}
-	if IsActiveStatus("done") {
-		t.Error("expected done to not be active")
+	if IsValidStatus("nonexistent") {
+		t.Error("IsValidStatus(nonexistent) should be false")
 	}
 }

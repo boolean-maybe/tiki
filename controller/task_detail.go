@@ -296,7 +296,7 @@ func (tc *TaskController) SaveStatus(statusDisplay string) bool {
 	}
 
 	// Validate status: non-empty values must be registered
-	if newStatus != "" && !config.GetStatusRegistry().IsValid(newStatus) {
+	if newStatus != "" && !taskpkg.IsValidStatus(newStatus) {
 		slog.Warn("invalid status", "display", statusDisplay, "normalized", newStatus)
 		return false
 	}

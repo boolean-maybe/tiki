@@ -33,7 +33,7 @@ func TestLoadTiki_BareFileLoadsWithEmptyFields(t *testing.T) {
 	if tk == nil {
 		t.Fatal("GetTiki returned nil")
 	}
-	if hasAnySchemaField(tk) {
+	if hasAnyWorkflowField(tk) {
 		t.Errorf("bare tiki gained synthetic schema-known fields on load: %+v", tk.Fields)
 	}
 
@@ -60,7 +60,7 @@ func TestLoadTiki_BareFileLoadsWithEmptyFields(t *testing.T) {
 	if err := s.Reload(); err != nil {
 		t.Fatalf("Reload: %v", err)
 	}
-	if reloaded := s.GetTiki("BARE01"); reloaded != nil && hasAnySchemaField(reloaded) {
+	if reloaded := s.GetTiki("BARE01"); reloaded != nil && hasAnyWorkflowField(reloaded) {
 		t.Error("bare doc gained schema-known fields across reload — disk must have leaked keys")
 	}
 }
@@ -115,7 +115,7 @@ func TestNewTikiTemplate_AppliesDefaultsWhenWorkflowConfigured(t *testing.T) {
 		t.Fatalf("NewTikiTemplate: %v", err)
 	}
 	// Template carries schema-known fields when a workflow default is set.
-	if !hasAnySchemaField(tk) {
+	if !hasAnyWorkflowField(tk) {
 		t.Fatal("template tiki has no schema-known fields — workflow defaults should be applied")
 	}
 	if _, has := tk.Fields[tikipkg.FieldStatus]; !has {

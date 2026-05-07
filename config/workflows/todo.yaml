@@ -11,17 +11,21 @@ fields:
         label: Todo
         emoji: "📌"
         default: true
-        active: true
       - value: done
         label: Done
         emoji: "✅"
-        done: true
   - name: type
     type: enum
     values:
       - value: task
         label: Task
         emoji: "📝"
+        default: true
+  - name: priority
+    type: integer
+    default: 3
+  - name: tags
+    type: stringList
 
 actions:
   - key: "y"

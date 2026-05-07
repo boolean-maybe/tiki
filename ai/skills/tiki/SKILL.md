@@ -68,7 +68,7 @@ Output is an ASCII table (use `--format json` for scripting). To read a tiki's f
 either project it via `select description where id = "ABC123"` or read the file directly — get the path
 with `select filepath where id = "ABC123"`.
 
-**Scope note.** Bare `select` iterates every tiki under `.doc/`, including those with no schema-known
+**Scope note.** Bare `select` iterates every tiki under `.doc/`, including those with no workflow-declared
 fields. Predicates on absent fields are well-defined: `where status = "done"` is false for tikis with
 no status, and `where status != "done"` is true. Use `has(<field>)` to scope explicitly when needed —
 for example, `select where has(status)` lists only tikis that carry a status, regardless of value.

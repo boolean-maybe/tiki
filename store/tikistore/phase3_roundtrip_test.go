@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/boolean-maybe/tiki/config"
+	"github.com/boolean-maybe/tiki/internal/teststatuses"
 	tikipkg "github.com/boolean-maybe/tiki/tiki"
 	"github.com/boolean-maybe/tiki/workflow"
 )
@@ -16,11 +17,11 @@ import (
 // a registered Custom field but with an invalid value must fail the save.
 // This test now operates at the tiki level via UpdateTiki.
 func TestPhase3_SaveRejectsUnregisteredCustomField(t *testing.T) {
-	config.MarkRegistriesLoadedForTest()
-	t.Cleanup(func() { workflow.ClearCustomFields() })
+	config.MarkWorkflowFieldsLoadedForTest()
+	t.Cleanup(teststatuses.Init)
 
-	if err := workflow.RegisterCustomFields([]workflow.FieldDef{
-		{Name: "severity", Type: workflow.TypeEnum, AllowedValues: []string{"low", "high"}},
+	if err := workflow.RegisterWorkflowFields([]workflow.FieldDef{
+		{Name: "severity", Type: workflow.TypeEnum, EnumValues: []workflow.EnumValue{{Value: "low"}, {Value: "high"}}},
 	}); err != nil {
 		t.Fatalf("register: %v", err)
 	}
@@ -72,10 +73,10 @@ body
 // Custom list field but whose VALUE has a wrong shape (e.g. a scalar where
 // a list is required) must fail the save.
 func TestPhase3_SaveRejectsInvalidListValueInCustomFields(t *testing.T) {
-	config.MarkRegistriesLoadedForTest()
-	t.Cleanup(func() { workflow.ClearCustomFields() })
+	config.MarkWorkflowFieldsLoadedForTest()
+	t.Cleanup(teststatuses.Init)
 
-	if err := workflow.RegisterCustomFields([]workflow.FieldDef{
+	if err := workflow.RegisterWorkflowFields([]workflow.FieldDef{
 		{Name: "deps", Type: workflow.TypeListString},
 	}); err != nil {
 		t.Fatalf("register: %v", err)
@@ -123,10 +124,10 @@ body
 // save → load cycle. The stale value is demoted to UnknownFields on load
 // and must be preserved as-is through a tiki-native UpdateTiki save.
 func TestPhase3_StaleListFieldRoundTrips(t *testing.T) {
-	config.MarkRegistriesLoadedForTest()
-	t.Cleanup(func() { workflow.ClearCustomFields() })
+	config.MarkWorkflowFieldsLoadedForTest()
+	t.Cleanup(teststatuses.Init)
 
-	if err := workflow.RegisterCustomFields([]workflow.FieldDef{
+	if err := workflow.RegisterWorkflowFields([]workflow.FieldDef{
 		{Name: "deps", Type: workflow.TypeListString},
 	}); err != nil {
 		t.Fatalf("register: %v", err)
@@ -222,7 +223,7 @@ func TestPhase3_CreateTikiPreservesSchemaFieldsAcrossReload(t *testing.T) {
 	if tk == nil {
 		t.Fatal("GetTiki after reload = nil")
 	}
-	if !hasAnySchemaField(tk) {
+	if !hasAnyWorkflowField(tk) {
 		t.Errorf("round-trip dropped the schema-known field set on create — file would no longer match has(status) filters")
 	}
 }

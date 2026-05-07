@@ -6,14 +6,18 @@ First line becomes the title. Everything after becomes the description.
 
 ## What fields the new tiki gets
 
-The active workflow decides which fields the captured tiki carries:
+The active workflow decides which fields the captured tiki carries. Every workflow field declared
+in `workflow.yaml fields:` that carries a default contributes one frontmatter key on capture:
 
-- Workflows with a `default: true` status (kanban, todo, bug-tracker) capture input with status,
-  type, priority, and points filled in from registry defaults. The new tiki shows up on every view
-  whose lane filter matches those fields.
-- Workflows with no `default: true` status capture input with only `id:` and `title:` in the
-  frontmatter. The new tiki stays out of views that require schema-known fields. Useful for
-  notes-only projects where piped input should be a note rather than a tracked task.
+- Enum fields apply the value marked `default: true` (typically `status: backlog`, `type: story`).
+- Non-enum fields apply their declared `default:` value (e.g. `priority: 3`, `points: 1`,
+  `tags: ["idea"]`).
+- Fields with no declared default are absent from the captured frontmatter — the tiki only carries
+  what the workflow asked for.
+
+If the workflow declares no defaults at all, capture produces a tiki with only `id:` and `title:`
+in its frontmatter — useful for notes-only projects where piped input should be a plain document
+rather than a tracked task.
 
 ## Examples
 

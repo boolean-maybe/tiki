@@ -7,6 +7,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/boolean-maybe/tiki/internal/teststatuses"
 	"github.com/boolean-maybe/tiki/ruki"
 	"github.com/boolean-maybe/tiki/task"
 	"github.com/boolean-maybe/tiki/tiki"
@@ -63,12 +64,12 @@ func TestJSONFormatterEmptyResult(t *testing.T) {
 
 func TestJSONFormatterIntAndBool(t *testing.T) {
 	initTestRegistries()
-	if err := workflow.RegisterCustomFields([]workflow.FieldDef{
+	if err := teststatuses.InitWith([]workflow.FieldDef{
 		{Name: "active", Type: workflow.TypeBool},
 	}); err != nil {
 		t.Fatalf("register custom fields: %v", err)
 	}
-	t.Cleanup(func() { workflow.ClearCustomFields() })
+	t.Cleanup(initTestRegistries)
 
 	proj := &ruki.TikiProjection{
 		Fields: []string{"priority", "points", "active"},
@@ -187,13 +188,13 @@ func TestJSONFormatterListFields(t *testing.T) {
 
 func TestJSONFormatterCustomFields(t *testing.T) {
 	initTestRegistries()
-	if err := workflow.RegisterCustomFields([]workflow.FieldDef{
-		{Name: "severity", Type: workflow.TypeEnum, AllowedValues: []string{"low", "high"}},
+	if err := teststatuses.InitWith([]workflow.FieldDef{
+		{Name: "severity", Type: workflow.TypeEnum, EnumValues: []workflow.EnumValue{{Value: "low"}, {Value: "high"}}},
 		{Name: "score", Type: workflow.TypeInt},
 	}); err != nil {
 		t.Fatalf("register custom fields: %v", err)
 	}
-	t.Cleanup(func() { workflow.ClearCustomFields() })
+	t.Cleanup(initTestRegistries)
 
 	proj := &ruki.TikiProjection{
 		Fields: []string{"severity", "score"},

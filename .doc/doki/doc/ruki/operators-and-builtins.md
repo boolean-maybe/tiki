@@ -209,7 +209,7 @@ create title="x" dependsOn=dependsOn + tags
 |---|---|---|---|
 | `count(...)` | `int` | exactly 1 | argument must be a `select` subquery; usable as a top-level expression |
 | `exists(...)` | `bool` | exactly 1 | argument must be a `select` subquery; true when any tiki matches; usable as a top-level expression |
-| `has(...)` | `bool` | exactly 1 | argument must be a bare or qualified field reference (`has(status)`, `has(new.status)`, `has(outer.status)`, `has(target.status)`, `has(targets.status)`); true when the referenced tiki has an explicit value for that field — works on schema-known and custom fields alike, used to distinguish "absent" from "present with zero value". See qualifier rules below. |
+| `has(...)` | `bool` | exactly 1 | argument must be a bare or qualified field reference (`has(status)`, `has(new.status)`, `has(outer.status)`, `has(target.status)`, `has(targets.status)`); true when the referenced tiki has an explicit value for that field — works on workflow-declared and custom fields alike, used to distinguish "absent" from "present with zero value". See qualifier rules below. |
 | `now()` | `timestamp` | 0 | no additional validation |
 | `next_date(...)` | `date` | exactly 1 | argument must be `recurrence` |
 | `blocks(...)` | `list<ref>` | exactly 1 | argument must be `id`, `ref`, or string literal |

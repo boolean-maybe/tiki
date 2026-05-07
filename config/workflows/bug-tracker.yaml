@@ -15,19 +15,15 @@ fields:
       - value: triaged
         label: Triaged
         emoji: "\U0001F4CB"
-        active: true
       - value: inProgress
         label: "In Progress"
         emoji: "⚙️"
-        active: true
       - value: inReview
         label: "In Review"
         emoji: "\U0001F440"
-        active: true
       - value: verified
         label: Verified
         emoji: "✅"
-        done: true
       - value: wontFix
         label: "Won't Fix"
         emoji: "\U0001F6AB"
@@ -46,11 +42,18 @@ fields:
         emoji: "\U0001F525"
   - name: severity
     type: enum
-    values: [critical, high, medium, low]
-    default: medium
+    values:
+      - value: critical
+      - value: high
+      - value: medium
+        default: true
+      - value: low
   - name: environment
     type: enum
-    values: [prod, staging, dev]
+    values:
+      - value: prod
+      - value: staging
+      - value: dev
   - name: reportedBy
     type: text
   - name: foundIn
@@ -63,6 +66,15 @@ fields:
   - name: escalations
     type: integer
     default: 0
+  - name: priority
+    type: integer
+    default: 3
+  - name: tags
+    type: stringList
+  - name: assignee
+    type: text
+  - name: dependsOn
+    type: taskIdList
 
 actions:
   - key: "a"

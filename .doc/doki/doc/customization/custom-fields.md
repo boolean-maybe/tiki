@@ -13,10 +13,16 @@
 
 ## Overview
 
-Custom fields extend tikis with project-specific data beyond the schema-known frontmatter fields
-(`title`, `status`, `priority`, and so on). Define them in `workflow.yaml` and they become first-class
-citizens: usable in ruki queries, persisted in tiki frontmatter, and available across all views. Any
-tiki can carry custom-field values, regardless of what other fields it has.
+Workflow fields — including `status`, `type`, `priority`, `points`, `tags`, and any project-specific
+fields you add — are all defined in `workflow.yaml`'s `fields:` list. The runtime hardcodes only system
+fields: `id`, `title`, `description`/`body`, `createdAt`, `updatedAt`, `createdBy`, `filepath`. Everything
+else is declared by the workflow.
+
+This document describes how to declare and use any non-system field. Historically the codebase
+distinguished "workflow-declared" fields (status, type, priority, etc.) from "custom fields"; that
+distinction no longer exists. All workflow fields are first-class: usable in ruki queries, persisted
+in tiki frontmatter, and available across all views. Any tiki can carry any declared field's value,
+regardless of what other fields it has.
 
 Use cases include:
 
@@ -54,9 +60,10 @@ fields:
     type: taskIdList
 ```
 
-Custom field names must not collide with built-in field names or ruki reserved keywords. The built-in
-`status` and `type` enum fields are declared in the same `fields:` list, but they are registry fields rather
-than custom fields.
+Workflow field names must not collide with reserved system fields (`id`, `title`, `description`,
+`createdBy`, `createdAt`, `updatedAt`, `filepath`) or ruki reserved keywords. `status` and `type`
+are ordinary enum fields — they have no special semantics in the runtime, only the meaning you
+encode via the values you declare.
 
 Custom fields come from the `workflow.yaml` file (see [Configuration: Precedence](../config.md#precedence))
 
@@ -249,11 +256,9 @@ Fields without a `default:` key are absent on new tikis.
 
 ## Missing field behavior
 
-Custom fields are presence-aware, just like the schema-known fields. A custom field is either
-*present* (its key appears in the tiki's frontmatter) or *absent*. Comparisons against absent custom
-fields follow the same rules as schema-known absent fields — see
-[Absent fields in semantics.md](../ruki/semantics.md#absent-fields) for the complete rule set. The
-practical consequences for custom fields:
+All workflow fields are presence-aware. A field is either *present* (its key appears in the tiki's
+frontmatter) or *absent*. Comparisons against absent fields follow the rules in
+[Absent fields in semantics.md](../ruki/semantics.md#absent-fields). The practical consequences:
 
 - `where <field> = <concrete-value>` is **false** on absent fields. `where blocked = false` does
   **not** match tikis that never had `blocked` set; it only matches tikis whose frontmatter literally

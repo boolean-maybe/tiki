@@ -93,7 +93,7 @@ func CreateTaskFromReader(r io.Reader) (string, error) {
 	}
 
 	// load workflow registries (statuses, types, custom fields) before creating tasks
-	if err := config.LoadWorkflowRegistries(); err != nil {
+	if err := config.LoadWorkflowFields(); err != nil {
 		return "", fmt.Errorf("load workflow registries: %w", err)
 	}
 

@@ -1,8 +1,8 @@
 package integration
 
-// testWorkflowPreamble contains the required status and type registry fields
-// for integration test workflow.yaml files. All workflow sections come from
-// the single highest-priority file, so test workflows must be self-contained.
+// testWorkflowPreamble contains the required workflow field declarations for
+// integration test workflow.yaml files. All workflow sections come from the
+// single highest-priority file, so test workflows must be self-contained.
 const testWorkflowPreamble = `fields:
   - name: status
     type: enum
@@ -14,25 +14,22 @@ const testWorkflowPreamble = `fields:
       - value: ready
         label: Ready
         emoji: "📋"
-        active: true
       - value: inProgress
         label: "In Progress"
         emoji: "⚙️"
-        active: true
       - value: review
         label: Review
         emoji: "👀"
-        active: true
       - value: done
         label: Done
         emoji: "✅"
-        done: true
   - name: type
     type: enum
     values:
       - value: story
         label: Story
         emoji: "🌀"
+        default: true
       - value: bug
         label: Bug
         emoji: "💥"
@@ -42,4 +39,20 @@ const testWorkflowPreamble = `fields:
       - value: epic
         label: Epic
         emoji: "🗂️"
+  - name: priority
+    type: integer
+    default: 3
+  - name: points
+    type: integer
+    default: 1
+  - name: tags
+    type: stringList
+  - name: dependsOn
+    type: taskIdList
+  - name: due
+    type: date
+  - name: recurrence
+    type: recurrence
+  - name: assignee
+    type: text
 `

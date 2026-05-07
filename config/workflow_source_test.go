@@ -138,47 +138,39 @@ fields:
         default: true
       - value: done
         label: Done
-        done: true
   - name: type
     type: enum
     values:
       - value: task
         label: Task
+        default: true
 `
 	vw, err := ValidateWorkflowContent(content)
 	if err != nil {
 		t.Fatalf("expected valid workflow, got: %v", err)
 	}
-	if vw.StatusReg == nil {
-		t.Error("expected non-nil status registry")
+	if len(vw.FieldDefs) == 0 {
+		t.Error("expected non-empty field definitions")
 	}
-	if vw.TypeReg == nil {
-		t.Error("expected non-nil type registry")
+	hasStatus := false
+	hasType := false
+	for _, f := range vw.FieldDefs {
+		if f.Name == "status" {
+			hasStatus = true
+		}
+		if f.Name == "type" {
+			hasType = true
+		}
+	}
+	if !hasStatus || !hasType {
+		t.Errorf("expected status and type field defs, got %+v", vw.FieldDefs)
 	}
 }
 
-func TestValidateWorkflowContent_MissingStatuses(t *testing.T) {
-	content := "description: bad workflow\n"
+func TestValidateWorkflowContent_RejectsLegacyTopLevelStatuses(t *testing.T) {
+	content := "version: 0.6.0\nstatuses:\n  - key: todo\n"
 	_, err := ValidateWorkflowContent(content)
 	if err == nil {
-		t.Fatal("expected error for workflow without statuses, got nil")
-	}
-}
-
-func TestValidateWorkflowContent_MissingTypes(t *testing.T) {
-	content := `fields:
-  - name: status
-    type: enum
-    values:
-      - value: todo
-        label: Todo
-        default: true
-      - value: done
-        label: Done
-        done: true
-`
-	_, err := ValidateWorkflowContent(content)
-	if err == nil {
-		t.Fatal("expected error for workflow without types, got nil")
+		t.Fatal("expected error for legacy top-level statuses:")
 	}
 }

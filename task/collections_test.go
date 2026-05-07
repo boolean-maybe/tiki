@@ -24,9 +24,9 @@ func TestNormalizeCollectionFields_BuiltIns(t *testing.T) {
 }
 
 func TestNormalizeCollectionFields_CustomLists(t *testing.T) {
-	workflow.ClearCustomFields()
-	t.Cleanup(func() { workflow.ClearCustomFields() })
-	if err := workflow.RegisterCustomFields([]workflow.FieldDef{
+	workflow.ClearWorkflowFields()
+	t.Cleanup(func() { workflow.ClearWorkflowFields() })
+	if err := workflow.RegisterWorkflowFields([]workflow.FieldDef{
 		{Name: "labels", Type: workflow.TypeListString, Custom: true},
 		{Name: "related", Type: workflow.TypeListRef, Custom: true},
 	}); err != nil {

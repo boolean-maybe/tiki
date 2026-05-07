@@ -46,28 +46,45 @@ func TestDetailPlugin_RejectsUnknownMetadataField(t *testing.T) {
 	}
 }
 
-// TestDetailPlugin_RejectsFieldsTheRegistryCannotRender asserts that fields
-// the schema accepts but the detail-view registry can't render are rejected
-// at workflow-load time (so users see a clear error instead of silent
-// "(no renderer)" placeholders at runtime). filepath is schema-known but not
-// in the renderable set today.
-func TestDetailPlugin_RejectsFieldsTheRegistryCannotRender(t *testing.T) {
+// TestDetailPlugin_AcceptsAnyTypedOrGenericWorkflowField asserts that the
+// detail loader accepts any workflow-declared field that has a renderable
+// value path. Fields with typed editors render via the typed registry;
+// fields without typed editors render via a generic catalog-driven row.
+func TestDetailPlugin_AcceptsAnyTypedOrGenericWorkflowField(t *testing.T) {
 	schema := testSchema()
-	for _, name := range []string{"filepath"} {
+	for _, name := range []string{"status", "type", "priority", "createdBy", "createdAt", "updatedAt"} {
 		t.Run(name, func(t *testing.T) {
 			cfg := pluginFileConfig{
 				Name:     "Detail",
 				Kind:     "detail",
 				Metadata: []string{name},
 			}
-			_, err := parsePluginConfig(cfg, "test", schema, nil)
-			if err == nil {
-				t.Fatalf("expected error for non-renderable field %q, got nil", name)
-			}
-			if !strings.Contains(err.Error(), "not renderable") {
-				t.Errorf("expected error to mention 'not renderable', got %q", err.Error())
+			if _, err := parsePluginConfig(cfg, "test", schema, nil); err != nil {
+				t.Errorf("%q should be accepted in metadata, got: %v", name, err)
 			}
 		})
+	}
+}
+
+// TestDetailPlugin_RejectsFilepathInMetadata pins that filepath — a system
+// field whose value lives on tk.Path rather than in tk.Fields — is rejected
+// at workflow load. Letting it through would render as "filepath: —"
+// because the generic catalog renderer reads from Fields, which is
+// misleading. The remedy is for the renderer to add a typed Get; until
+// then, filepath is rejected.
+func TestDetailPlugin_RejectsFilepathInMetadata(t *testing.T) {
+	schema := testSchema()
+	cfg := pluginFileConfig{
+		Name:     "Detail",
+		Kind:     "detail",
+		Metadata: []string{"filepath"},
+	}
+	_, err := parsePluginConfig(cfg, "test", schema, nil)
+	if err == nil {
+		t.Fatal("expected filepath to be rejected from metadata")
+	}
+	if !strings.Contains(err.Error(), "filepath") {
+		t.Errorf("expected error to mention filepath, got: %v", err)
 	}
 }
 

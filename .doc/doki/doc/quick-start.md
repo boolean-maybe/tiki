@@ -49,10 +49,10 @@ Markdown body.
 
 - Tikis live anywhere under `.doc/` — the folder structure is yours to organize. Identity is in the
   `id` frontmatter field, not in the file path.
-- A tiki carrying schema-known fields (`status`, `type`, `priority`, `points`, etc.) appears on every
-  view whose lane filter matches those fields.
-- A tiki with only `id` and `title` (and optional custom fields) is reachable by id or path, rendered
-  by wiki and detail views, and falls outside views that require schema-known fields.
+- A tiki carrying workflow-declared fields (`status`, `type`, `priority`, `points`, etc.) appears on
+  every view whose lane filter matches those fields.
+- A tiki with only `id` and `title` is reachable by id or path, rendered by wiki and detail views,
+  and falls outside views that require workflow fields.
 - Everything is git-controlled — added, updated, and removed along with your code. History is preserved.
 
 See [Document format](tiki-format.md) for the full frontmatter reference.

@@ -14,25 +14,22 @@ fields:
       - value: ready
         label: Ready
         emoji: "📋"
-        active: true
       - value: inProgress
         label: "In Progress"
         emoji: "⚙️"
-        active: true
       - value: review
         label: Review
         emoji: "👀"
-        active: true
       - value: done
         label: Done
         emoji: "✅"
-        done: true
   - name: type
     type: enum
     values:
       - value: story
         label: Story
         emoji: "🌀"
+        default: true
       - value: bug
         label: Bug
         emoji: "💥"
@@ -42,6 +39,23 @@ fields:
       - value: epic
         label: Epic
         emoji: "🗂️"
+  - name: priority
+    type: integer
+    default: 3
+  - name: points
+    type: integer
+    default: 1
+  - name: tags
+    type: stringList
+    default: ["idea"]
+  - name: dependsOn
+    type: taskIdList
+  - name: due
+    type: date
+  - name: recurrence
+    type: recurrence
+  - name: assignee
+    type: text
 
 actions:
   - key: Enter

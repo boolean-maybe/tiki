@@ -1,15 +1,33 @@
 package taskdetail
 
 import (
+	"testing"
 	"time"
 
 	"github.com/boolean-maybe/tiki/internal/teststatuses"
 	taskpkg "github.com/boolean-maybe/tiki/task"
 	tikipkg "github.com/boolean-maybe/tiki/tiki"
+	"github.com/boolean-maybe/tiki/workflow"
 )
 
 func init() {
 	teststatuses.Init()
+}
+
+// registerExtraWorkflowFieldForTest adds an enum field to the canonical
+// test catalog and returns a cleanup func that restores the canonical set.
+func registerExtraWorkflowFieldForTest(t *testing.T, name string, values []string) func() {
+	t.Helper()
+	enum := make([]workflow.EnumValue, len(values))
+	for i, v := range values {
+		enum[i] = workflow.EnumValue{Value: v}
+	}
+	if err := teststatuses.InitWith([]workflow.FieldDef{
+		{Name: name, Type: workflow.TypeEnum, EnumValues: enum},
+	}); err != nil {
+		t.Fatalf("registerExtraWorkflowFieldForTest: %v", err)
+	}
+	return teststatuses.Init
 }
 
 // newTestViewTiki returns a fully-populated tiki used by view tests. The

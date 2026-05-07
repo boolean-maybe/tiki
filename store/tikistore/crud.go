@@ -106,7 +106,7 @@ func (s *TikiStore) UpdateTiki(tk *tikipkg.Tiki) error {
 // updateTikiCore persists an updated tiki. Path and LoadedMtime are carried
 // forward from the stored tiki when absent on the incoming tiki (same as the
 // pre-Phase-5 FilePath/LoadedMtime carry-forward). The field map is used as-is:
-// no schema-known fields are injected or merged from the stored tiki.
+// no workflow-declared fields are injected or merged from the stored tiki.
 func (s *TikiStore) updateTikiCore(tk *tikipkg.Tiki, _ bool) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()

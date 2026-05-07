@@ -6,9 +6,11 @@ import (
 	"time"
 )
 
-// Schema-known field names. These mirror the YAML frontmatter keys used
-// across the codebase (document.workflowFrontmatterKeys plus tags). Callers
-// should reference these constants instead of hard-coding strings.
+// Convenience field-name constants for the well-known frontmatter keys used
+// by the bundled kanban-style workflow. They are plain strings — not a
+// registry — so callers can reference well-known names without hard-coding
+// the string in many places. Workflows are free to omit any of these keys;
+// none of them is special-cased by the runtime.
 const (
 	FieldStatus     = "status"
 	FieldType       = "type"
@@ -20,35 +22,6 @@ const (
 	FieldRecurrence = "recurrence"
 	FieldAssignee   = "assignee"
 )
-
-// SchemaKnownFields lists the schema-known field names in a stable order.
-// Ordering matters for callers that render fields in a deterministic sequence
-// (for example, YAML frontmatter output). Use IsSchemaKnown for membership.
-var SchemaKnownFields = []string{
-	FieldStatus,
-	FieldType,
-	FieldPriority,
-	FieldPoints,
-	FieldTags,
-	FieldDependsOn,
-	FieldDue,
-	FieldRecurrence,
-	FieldAssignee,
-}
-
-var schemaKnownSet = func() map[string]struct{} {
-	m := make(map[string]struct{}, len(SchemaKnownFields))
-	for _, k := range SchemaKnownFields {
-		m[k] = struct{}{}
-	}
-	return m
-}()
-
-// IsSchemaKnown reports whether name is one of the schema-known field names.
-func IsSchemaKnown(name string) bool {
-	_, ok := schemaKnownSet[name]
-	return ok
-}
 
 // IsIdentityField reports whether name is one of the tiki identity/audit fields
 // that live as struct fields or reserved metadata rather than in the generic
@@ -76,7 +49,7 @@ func (t *Tiki) Has(name string) bool {
 // Get returns the raw field value and a presence flag. The value is whatever
 // was stored — typically a string, int, time.Time, or []string depending on
 // the key. Prefer the typed accessors (StatusField, PriorityField, etc.) for
-// schema-known fields.
+// workflow-declared fields.
 func (t *Tiki) Get(name string) (interface{}, bool) {
 	if t == nil || t.Fields == nil {
 		return nil, false
@@ -177,7 +150,7 @@ func (t *Tiki) identity() string {
 
 // StringField returns a string-typed field value. The second return reports
 // presence; the third reports whether the stored value coerces to a string
-// (which should always be true for schema-known string fields). Callers that
+// (which should always be true for workflow-declared string fields). Callers that
 // treat a non-coercible value as a programming error can use RequireString.
 func (t *Tiki) StringField(name string) (string, bool, bool) {
 	v, ok := t.Get(name)

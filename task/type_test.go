@@ -8,18 +8,8 @@ import (
 )
 
 func TestMain(m *testing.M) {
-	config.ResetStatusRegistry(defaultTestStatusDefs())
+	config.ResetWorkflowFieldsForTest(defaultTestWorkflowFields())
 	os.Exit(m.Run())
-}
-
-func defaultTestStatusDefs() []config.StatusDef {
-	return []config.StatusDef{
-		{Key: "backlog", Label: "Backlog", Emoji: "📥", Default: true},
-		{Key: "ready", Label: "Ready", Emoji: "📋", Active: true},
-		{Key: "inProgress", Label: "In Progress", Emoji: "⚙️", Active: true},
-		{Key: "review", Label: "Review", Emoji: "👀", Active: true},
-		{Key: "done", Label: "Done", Emoji: "✅", Done: true},
-	}
 }
 
 func TestParseType(t *testing.T) {
@@ -170,26 +160,24 @@ func TestDefaultType(t *testing.T) {
 	}
 }
 
-// TestPreInitPanics verifies that type helpers fail before registries are loaded.
-func TestPreInitPanics(t *testing.T) {
-	config.ClearStatusRegistry()
-	t.Cleanup(func() {
-		config.ResetStatusRegistry(defaultTestStatusDefs())
-	})
+// When workflow fields are not loaded, type helpers return zero values rather
+// than panicking. The previous behavior panicked because the registry was
+// required; the field catalog is optional and missing fields just return
+// empty.
+func TestNoFieldsLoaded(t *testing.T) {
+	config.ClearWorkflowFields()
+	t.Cleanup(func() { config.ResetWorkflowFieldsForTest(defaultTestWorkflowFields()) })
 
-	assertPanics := func(name string, fn func()) {
-		t.Helper()
-		defer func() {
-			if r := recover(); r == nil {
-				t.Errorf("%s: expected panic before registry init", name)
-			}
-		}()
-		fn()
+	if got, ok := ParseType("story"); got != "" || ok {
+		t.Errorf("ParseType with no fields = (%q, %v), want (\"\", false)", got, ok)
 	}
-
-	assertPanics("ParseType", func() { ParseType("story") })
-	assertPanics("AllTypes", func() { AllTypes() })
-	assertPanics("DefaultType", func() { DefaultType() })
-	assertPanics("TypeLabel", func() { TypeLabel(TypeStory) })
-	assertPanics("ParseDisplay", func() { ParseDisplay("Story 🌀") })
+	if got := AllTypes(); got != nil {
+		t.Errorf("AllTypes with no fields = %v, want nil", got)
+	}
+	if got := DefaultType(); got != "" {
+		t.Errorf("DefaultType with no fields = %q, want empty", got)
+	}
+	if got := TypeLabel(TypeStory); got != TypeStory {
+		t.Errorf("TypeLabel with no fields = %q, want raw key", got)
+	}
 }

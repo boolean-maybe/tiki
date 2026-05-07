@@ -6,7 +6,7 @@ allowed-tools: Read, Grep, Glob, Edit, Write, Bash(tiki exec:*), Bash(git add:*)
 
 # doki
 
-A `doki` is a tiki that carries no schema-known fields — just `id:` and (typically) `title:`
+A `doki` is a tiki that carries no workflow-declared fields — just `id:` and (typically) `title:`
 in its frontmatter. Use this skill for notes, design pages, prompts, and wiki content that should not
 appear on board or list views. There is no separate "plain document" entity in the model; a doki is
 just a tiki with no `status`, `type`, `priority`, etc.
@@ -15,7 +15,7 @@ just a tiki with no `status`, `type`, `priority`, etc.
   `id:` frontmatter field. Identity is in the frontmatter, not the filename.
 - Tikis live under `.doc/` at any depth — organize freely via subdirectories.
 - A notes-only tiki is reachable by id and by path, rendered in wiki/detail/markdown views, and falls
-  outside any view whose lane filter requires schema-known fields (typical board and list lanes).
+  outside any view whose lane filter requires workflow-declared fields (typical board and list lanes).
 - If a tiki needs tracking metadata (`status`, `priority`, etc.), use the `tiki` skill instead — or just
   assign a field on this one. There is no separate "promotion" event; setting `status` simply adds a
   `status:` key to the frontmatter.
@@ -62,7 +62,7 @@ Find by id:
 tiki exec 'select id, title, filepath where id = "Q9V3LM"'
 ```
 
-List notes-only tikis — those with none of the schema-known fields set. Use the `has()`
+List notes-only tikis — those with none of the workflow-declared fields set. Use the `has()`
 presence builtin: `not has(<field>)` is **true** only when the key is missing from frontmatter. (`is
 empty` treats absent fields as empty too, so `where status is empty` matches both "absent" and
 "present but blank" — `not has(status)` is the precise probe for "key not declared".)
@@ -73,7 +73,7 @@ For a status-filtered board, `not has(status)` alone matches every tiki the boar
 tiki exec 'select id, title, filepath where not has(status)'
 ```
 
-Use the full nine-field negation only when you specifically want "tiki carries no schema-known
+Use the full nine-field negation only when you specifically want "tiki carries no workflow-declared
 fields at all" — for example, when scoping a backup or migration of pure notes:
 
 ```sh

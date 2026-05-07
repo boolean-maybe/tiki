@@ -5,8 +5,8 @@ import (
 )
 
 // Schema provides the canonical field catalog that the parser uses for validation.
-// Production code adapts this from workflow.Fields(), workflow.StatusRegistry,
-// and workflow.TypeRegistry.
+// Production code adapts this from workflow.Fields() — the union of system
+// fields and the workflow-declared fields loaded from workflow.yaml.
 type Schema interface {
 	// Field returns the field spec for a given field name.
 	Field(name string) (FieldSpec, bool)

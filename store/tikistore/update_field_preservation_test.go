@@ -34,7 +34,7 @@ func TestUpdateTiki_FreshValueWithSchemaFieldsPersists(t *testing.T) {
 	if loaded == nil {
 		t.Fatal("WF0001 missing after load")
 	}
-	if !hasAnySchemaField(loaded) {
+	if !hasAnyWorkflowField(loaded) {
 		t.Fatal("precondition: loaded doc should carry schema-known fields (status set)")
 	}
 
@@ -58,7 +58,7 @@ func TestUpdateTiki_FreshValueWithSchemaFieldsPersists(t *testing.T) {
 	if after == nil {
 		t.Fatal("WF0001 missing after update")
 	}
-	if !hasAnySchemaField(after) {
+	if !hasAnyWorkflowField(after) {
 		t.Error("UpdateTiki dropped the caller's schema-known fields — would vanish from has(status) filters")
 	}
 
