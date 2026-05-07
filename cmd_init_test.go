@@ -329,12 +329,14 @@ fields:
         default: true
       - value: done
         label: Done
-        done: true
   - name: type
     type: enum
     values:
       - value: task
         label: Task
+        default: true
+  - name: priority
+    type: integer
 views:
   - name: Board
     kind: board
@@ -551,7 +553,6 @@ fields:
         default: true
       - value: closed
         label: Closed
-        done: true
   - name: type
     type: enum
     values:

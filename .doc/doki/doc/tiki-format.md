@@ -54,13 +54,13 @@ Markdown body.
   ruki rejects assignments that would leave the title blank. Recommended on every tiki, since the
   title is the display label across all views.
 
-## Schema-known fields (optional)
+## Workflow-declared fields (optional)
 
-Beyond `id` and `title`, frontmatter is an open field map. The fields below are **schema-known** —
-the workflow registers their types so they get coercion, validation, and special UI treatment. They
-are all optional. Absence is preserved on disk: a tiki with no `status:` key has no status, not a
-defaulted one. Default values apply only on explicit creation — `ruki create`, piped capture into a
-project that has a default status, sample-tiki generation, and the TUI's create action.
+Beyond `id` and `title`, frontmatter is an open field map. The fields below are **workflow-declared**
+— the active `workflow.yaml fields:` lists them, so they get type coercion, validation, and any
+typed UI treatment. They are all optional. Absence is preserved on disk: a tiki with no `status:`
+key has no status, not a defaulted one. Default values apply only on explicit creation —
+`ruki create`, piped capture, sample-tiki generation, and the TUI's create action.
 
 ```yaml
 ---
@@ -210,11 +210,11 @@ Supported patterns:
 recurrence: 0 0 * * MON
 ```
 
-## Custom fields
+## Project-specific fields
 
-Custom fields declared under `workflow.yaml` `fields:` appear alongside schema-known frontmatter and are
-round-tripped through save/load. Unknown frontmatter keys that are not registered custom fields are preserved
-as-is, so workflow schema changes do not lose data. See [Custom fields](customization/custom-fields.md).
+Any field declared under `workflow.yaml fields:` is round-tripped through save/load with type
+coercion. Unknown frontmatter keys that the workflow does not declare are preserved as-is, so
+workflow schema changes do not lose data. See [Custom fields](customization/custom-fields.md).
 
 ## Derived fields
 
@@ -231,12 +231,13 @@ or `identity.email` → git user → OS account name).
 
 ## Sparse tikis (notes, docs, prompts)
 
-A tiki with only `id` and `title` in its frontmatter is just a tiki with no schema-known fields set —
-useful as a note, page, or reference. There is no separate "plain document" class in the model; the
-absence of fields is the whole story. Such a tiki:
+A tiki with only `id` and `title` in its frontmatter is just a tiki with no workflow-declared
+fields set — useful as a note, page, or reference. There is no separate "plain document" class in
+the model; the absence of fields is the whole story. Such a tiki:
 
 - is rendered by markdown, wiki, and detail views
-- falls outside any view whose lane filter requires schema-known fields (typical board and list lanes)
+- falls outside any view whose lane filter requires workflow-declared fields (typical board and
+  list lanes)
 - is queryable by `ruki` like any other tiki. Comparisons against absent fields are well-defined:
   `where status = "done"` evaluates `false` for tikis with no `status`, and `where status != "done"`
   evaluates `true`. Use `has(<field>)` when you need to filter explicitly by presence — for example,

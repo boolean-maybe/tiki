@@ -134,7 +134,7 @@ func (te *TriggerExecutor) testExecTimeAction(tt any, allTasks []*task.Task, inp
 //
 // Tests use local custom schemas (chooseTestSchema, newCustomExecutor's
 // registered fields) that are NOT mirrored in the global workflow registry.
-// This shim is deliberately more permissive: every non-schema-known field
+// This shim is deliberately more permissive: every non-workflow-declared field
 // lands in CustomFields so assertion ergonomics stay intact.
 func tikisToTasks(tks []*tiki.Tiki) []*task.Task {
 	out := make([]*task.Task, 0, len(tks))
@@ -193,18 +193,23 @@ func tikiToTaskForTest(tk *tiki.Tiki) *task.Task {
 	}
 	t.Description = tk.Body
 
-	// IsWorkflow mirrors the old ToTask behavior: true when any schema-known
-	// field is present in the tiki map.
-	for _, f := range tiki.SchemaKnownFields {
+	// IsWorkflow mirrors the old ToTask behavior: true when any of the
+	// well-known kanban frontmatter keys is present in the tiki map.
+	wellKnown := []string{
+		tiki.FieldStatus, tiki.FieldType, tiki.FieldPriority, tiki.FieldPoints,
+		tiki.FieldTags, tiki.FieldDependsOn, tiki.FieldDue, tiki.FieldRecurrence,
+		tiki.FieldAssignee,
+	}
+	for _, f := range wellKnown {
 		if tk.Has(f) {
 			t.IsWorkflow = true
 			break
 		}
 	}
 
-	// collect all non-schema-known fields into CustomFields for test assertions
-	schemaSet := make(map[string]bool, len(tiki.SchemaKnownFields))
-	for _, f := range tiki.SchemaKnownFields {
+	// collect all non-well-known fields into CustomFields for test assertions
+	schemaSet := make(map[string]bool, len(wellKnown))
+	for _, f := range wellKnown {
 		schemaSet[f] = true
 	}
 	for k, v := range tk.Fields {

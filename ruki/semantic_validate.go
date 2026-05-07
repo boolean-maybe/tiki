@@ -3,8 +3,6 @@ package ruki
 import (
 	"fmt"
 	"sort"
-
-	"github.com/boolean-maybe/tiki/task"
 )
 
 // interactiveBuiltins identifies builtins requiring user interaction (UI prompt).
@@ -486,23 +484,11 @@ func validateStatementAssignmentsSemantics(stmt *Statement) error {
 func validateAssignmentsSemantics(assignments []Assignment) error {
 	for _, a := range assignments {
 		switch a.Field {
-		case "id", "createdBy", "createdAt", "updatedAt":
+		case "id", "createdBy", "createdAt", "updatedAt", "filepath", "path":
 			return fmt.Errorf("field %q is immutable", a.Field)
-		}
-		switch a.Field {
-		case "title", "status", "type", "priority":
+		case "title":
 			if _, ok := a.Value.(*EmptyLiteral); ok {
 				return fmt.Errorf("field %q cannot be empty", a.Field)
-			}
-		}
-		switch a.Field {
-		case "priority":
-			if lit, ok := a.Value.(*IntLiteral); ok && !task.IsValidPriority(lit.Value) {
-				return fmt.Errorf("priority value out of range: %d", lit.Value)
-			}
-		case "points":
-			if lit, ok := a.Value.(*IntLiteral); ok && !task.IsValidPoints(lit.Value) {
-				return fmt.Errorf("points value out of range: %d", lit.Value)
 			}
 		}
 	}

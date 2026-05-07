@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"log/slog"
 	"os"
-	"sort"
 	"strings"
 	"sync/atomic"
 	"time"
@@ -14,31 +13,33 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-// customFieldYAML represents a single field entry in the workflow.yaml fields: section.
+// customFieldYAML represents a single field entry in workflow.yaml fields:.
 type customFieldYAML struct {
 	Name    string          `yaml:"name"`
 	Type    string          `yaml:"type"`
 	Values  []enumValueYAML `yaml:"values,omitempty"`  // enum only
-	Default interface{}     `yaml:"default,omitempty"` // optional creation default
+	Default interface{}     `yaml:"default,omitempty"` // creation default for non-enum
 }
 
-// customFieldFileData is the minimal YAML structure for reading fields from workflow.yaml.
+// customFieldFileData is the minimal YAML structure for reading fields from
+// workflow.yaml. statuses: and types: are accepted only to produce a clear
+// migration error if a legacy file is encountered.
 type customFieldFileData struct {
 	Fields   []customFieldYAML `yaml:"fields"`
 	Statuses yaml.Node         `yaml:"statuses"`
 	Types    yaml.Node         `yaml:"types"`
 }
 
+// enumValueYAML is one entry in fields[].values. Both scalar form ("foo")
+// and structured form (value: foo, label: ..., emoji: ..., default: ...)
+// are supported. The legacy active: and done: keys are explicitly rejected
+// so users get a clear migration error.
 type enumValueYAML struct {
 	Value      string
 	Label      string
 	Emoji      string
-	Active     bool
 	Default    bool
-	Done       bool
-	HasActive  bool
 	HasDefault bool
-	HasDone    bool
 	Structured bool
 }
 
@@ -72,124 +73,128 @@ func (v *enumValueYAML) unmarshalMapping(node *yaml.Node) error {
 			if err := val.Decode(&v.Emoji); err != nil {
 				return fmt.Errorf("emoji: %w", err)
 			}
-		case "active":
-			if err := val.Decode(&v.Active); err != nil {
-				return fmt.Errorf("active: %w", err)
-			}
-			v.HasActive = true
 		case "default":
 			if err := val.Decode(&v.Default); err != nil {
 				return fmt.Errorf("default: %w", err)
 			}
 			v.HasDefault = true
-		case "done":
-			if err := val.Decode(&v.Done); err != nil {
-				return fmt.Errorf("done: %w", err)
-			}
-			v.HasDone = true
+		case "active", "done":
+			return fmt.Errorf("enum value key %q is no longer supported; status semantics are not built into the runtime — remove it (rendering hints can use the emoji: field)", key)
 		default:
-			return fmt.Errorf("unknown enum value key %q (valid keys: value, label, emoji, active, default, done)", key)
+			return fmt.Errorf("unknown enum value key %q (valid keys: value, label, emoji, default)", key)
 		}
 	}
 	return nil
 }
 
-// registriesLoaded tracks whether LoadWorkflowRegistries has been called.
-var registriesLoaded atomic.Bool
+// workflowFieldsLoaded tracks whether LoadWorkflowFields has been called.
+var workflowFieldsLoaded atomic.Bool
 
-// RequireWorkflowRegistriesLoaded returns an error if LoadWorkflowRegistries
-// (or LoadStatusRegistry + LoadCustomFields) has not been called yet.
-// Intended for use by store/template code that needs registries to be ready
-// but should not auto-load them from disk.
-func RequireWorkflowRegistriesLoaded() error {
-	if !registriesLoaded.Load() {
-		return fmt.Errorf("workflow registries not loaded; call config.LoadWorkflowRegistries() first")
+// RequireWorkflowFieldsLoaded returns an error if LoadWorkflowFields has not
+// been called yet. Intended for use by store/template code that needs the
+// workflow field catalog to be ready but should not auto-load it from disk.
+func RequireWorkflowFieldsLoaded() error {
+	if !workflowFieldsLoaded.Load() {
+		return fmt.Errorf("workflow fields not loaded; call config.LoadWorkflowFields() first")
 	}
 	return nil
 }
 
-// MarkRegistriesLoadedForTest sets the registriesLoaded flag without loading
-// from disk. Use in tests that call workflow.RegisterCustomFields directly.
-func MarkRegistriesLoadedForTest() {
-	registriesLoaded.Store(true)
+// MarkWorkflowFieldsLoadedForTest sets the loaded flag without loading from
+// disk. Use in tests that call workflow.RegisterWorkflowFields directly.
+func MarkWorkflowFieldsLoadedForTest() {
+	workflowFieldsLoaded.Store(true)
 }
 
-// ResetRegistriesLoadedForTest clears the registriesLoaded flag.
-// Use in tests that need to verify the unloaded-registry error path.
-func ResetRegistriesLoadedForTest() {
-	registriesLoaded.Store(false)
+// ResetWorkflowFieldsLoadedForTest clears the loaded flag.
+func ResetWorkflowFieldsLoadedForTest() {
+	workflowFieldsLoaded.Store(false)
 }
 
-// LoadWorkflowRegistries is the shared startup helper that loads all
-// workflow-registry-based fields (status, type, custom fields) from
-// workflow.yaml files. Callers must build a fresh ruki.Schema after this returns.
-func LoadWorkflowRegistries() error {
+// LoadWorkflowFields reads the fields: section from the highest-priority
+// workflow.yaml and registers it as the runtime field catalog. Returns an
+// error if no workflow.yaml is found or if the file is malformed.
+func LoadWorkflowFields() error {
 	if err := checkWorkflowFileVersion(); err != nil {
 		return err
 	}
-	if err := LoadStatusRegistry(); err != nil {
-		return err
+
+	files := FindWorkflowFiles()
+	if len(files) == 0 {
+		return fmt.Errorf("no workflow.yaml found; workflow fields must be defined in workflow.yaml")
 	}
-	if err := LoadCustomFields(); err != nil {
-		return err
+
+	defs, err := loadWorkflowFieldsFromFile(files[0])
+	if err != nil {
+		return fmt.Errorf("loading workflow fields from %s: %w", files[0], err)
 	}
-	registriesLoaded.Store(true)
+
+	if err := workflow.RegisterWorkflowFields(defs); err != nil {
+		return fmt.Errorf("registering workflow fields from %s: %w", files[0], err)
+	}
+
+	workflowFieldsLoaded.Store(true)
+	slog.Debug("loaded workflow fields", "count", len(defs), "file", files[0])
 	return nil
 }
 
-// LoadCustomFields reads the fields: section from the single highest-priority
-// workflow.yaml and registers them with workflow.RegisterCustomFields.
-// Missing fields: section means no custom fields.
-func LoadCustomFields() error {
-	files := FindRegistryWorkflowFiles()
-	if len(files) == 0 {
-		workflow.ClearCustomFields()
-		return nil
+// LoadWorkflowFieldsFromFile validates and loads workflow field definitions
+// from a single explicit workflow file path, without touching global state.
+// Used by init to validate a candidate workflow file.
+func LoadWorkflowFieldsFromFile(path string) ([]workflow.FieldDef, error) {
+	if err := CheckFileVersionCompatibility(path); err != nil {
+		return nil, err
 	}
-
-	rawDefs, err := readCustomFieldsFromFile(files[0])
+	defs, err := loadWorkflowFieldsFromFile(path)
 	if err != nil {
-		return fmt.Errorf("reading custom fields from %s: %w", files[0], err)
+		return nil, err
 	}
-
-	if len(rawDefs) == 0 {
-		workflow.ClearCustomFields()
-		return nil
+	if err := workflow.ValidateWorkflowFields(defs); err != nil {
+		return nil, err
 	}
+	return defs, nil
+}
 
+// ClearWorkflowFields clears the loaded workflow field catalog. Intended for
+// test teardown.
+func ClearWorkflowFields() {
+	workflow.ClearWorkflowFields()
+	workflowFieldsLoaded.Store(false)
+}
+
+// ResetWorkflowFieldsForTest replaces the loaded workflow field catalog with
+// the given defs. Intended for tests only.
+func ResetWorkflowFieldsForTest(defs []workflow.FieldDef) {
+	if err := workflow.RegisterWorkflowFields(defs); err != nil {
+		panic(fmt.Sprintf("ResetWorkflowFieldsForTest: %v", err))
+	}
+	workflowFieldsLoaded.Store(true)
+}
+
+// FindRegistryWorkflowFiles is retained as an alias for callers in the test
+// helpers; delegates to FindWorkflowFiles.
+func FindRegistryWorkflowFiles() []string {
+	return FindWorkflowFiles()
+}
+
+func loadWorkflowFieldsFromFile(path string) ([]workflow.FieldDef, error) {
+	rawDefs, err := readCustomFieldsFromFile(path)
+	if err != nil {
+		return nil, err
+	}
 	defs := make([]workflow.FieldDef, 0, len(rawDefs))
 	for _, raw := range rawDefs {
-		if isRegistryField(raw.Name) {
-			continue
+		if workflow.IsSystemField(raw.Name) {
+			return nil, fmt.Errorf("workflow field %q collides with reserved system field; remove it from workflow.yaml", raw.Name)
 		}
-		def, err := convertCustomFieldDef(raw)
+		def, err := convertWorkflowFieldDef(raw)
 		if err != nil {
-			return fmt.Errorf("field %q in %s: %w", raw.Name, files[0], err)
+			return nil, fmt.Errorf("field %q: %w", raw.Name, err)
 		}
 		defs = append(defs, def)
 	}
-
-	sort.Slice(defs, func(i, j int) bool {
-		return defs[i].Name < defs[j].Name
-	})
-
-	if err := workflow.RegisterCustomFields(defs); err != nil {
-		return fmt.Errorf("registering custom fields: %w", err)
-	}
-
-	slog.Debug("loaded custom fields", "count", len(defs))
-	return nil
-}
-
-func isRegistryField(name string) bool {
-	return name == "status" || name == "type"
-}
-
-// FindRegistryWorkflowFiles returns a single-element slice with the
-// highest-priority workflow.yaml, or nil if none found.
-// Delegates to FindWorkflowFiles — both now share the same semantics.
-func FindRegistryWorkflowFiles() []string {
-	return FindWorkflowFiles()
+	// Preserve declaration order from workflow.yaml — no name-based ranking.
+	return defs, nil
 }
 
 // readCustomFieldsFromFile reads the fields: section from a single workflow.yaml.
@@ -201,7 +206,6 @@ func readCustomFieldsFromFile(path string) ([]customFieldYAML, error) {
 		}
 		return nil, err
 	}
-
 	var fd customFieldFileData
 	if err := yaml.Unmarshal(data, &fd); err != nil {
 		return nil, fmt.Errorf("parsing %s: %w", path, err)
@@ -209,7 +213,6 @@ func readCustomFieldsFromFile(path string) ([]customFieldYAML, error) {
 	if err := rejectLegacyRegistrySections(fd); err != nil {
 		return nil, err
 	}
-
 	return fd.Fields, nil
 }
 
@@ -223,21 +226,18 @@ func rejectLegacyRegistrySections(fd customFieldFileData) error {
 	return nil
 }
 
-// convertCustomFieldDef converts a YAML field definition to a workflow.FieldDef.
-func convertCustomFieldDef(def customFieldYAML) (workflow.FieldDef, error) {
+// convertWorkflowFieldDef converts a YAML field definition into a workflow.FieldDef.
+func convertWorkflowFieldDef(def customFieldYAML) (workflow.FieldDef, error) {
 	if def.Name == "" {
 		return workflow.FieldDef{}, fmt.Errorf("field name is required")
 	}
-
 	if err := workflow.ValidateFieldName(def.Name); err != nil {
 		return workflow.FieldDef{}, err
 	}
-
 	vt, err := parseFieldType(def.Type)
 	if err != nil {
 		return workflow.FieldDef{}, err
 	}
-
 	fd := workflow.FieldDef{
 		Name:   def.Name,
 		Type:   vt,
@@ -248,25 +248,34 @@ func convertCustomFieldDef(def customFieldYAML) (workflow.FieldDef, error) {
 		if len(def.Values) == 0 {
 			return workflow.FieldDef{}, fmt.Errorf("enum field requires non-empty values list")
 		}
-		fd.AllowedValues = make([]string, len(def.Values))
-		for i, v := range def.Values {
-			if v.Structured {
-				return workflow.FieldDef{}, fmt.Errorf("structured enum values are only supported for status and type fields")
-			}
-			fd.AllowedValues[i] = v.Value
+		if def.Default != nil {
+			return workflow.FieldDef{}, fmt.Errorf("field-level default is not supported for enum fields; mark one enum value default: true")
 		}
-	} else if len(def.Values) > 0 {
-		return workflow.FieldDef{}, fmt.Errorf("values list is only valid for enum fields")
+		fd.EnumValues = make([]workflow.EnumValue, 0, len(def.Values))
+		for _, v := range def.Values {
+			if v.Value == "" {
+				return workflow.FieldDef{}, fmt.Errorf("enum value has empty value")
+			}
+			fd.EnumValues = append(fd.EnumValues, workflow.EnumValue{
+				Value:   v.Value,
+				Label:   v.Label,
+				Emoji:   strings.TrimSpace(v.Emoji),
+				Default: v.Default,
+			})
+		}
+		return fd, nil
 	}
 
+	if len(def.Values) > 0 {
+		return workflow.FieldDef{}, fmt.Errorf("values list is only valid for enum fields")
+	}
 	if def.Default != nil {
-		coerced, err := coerceFieldDefault(vt, def.Default, fd.AllowedValues)
+		coerced, err := coerceFieldDefault(vt, def.Default, nil)
 		if err != nil {
 			return workflow.FieldDef{}, fmt.Errorf("invalid default: %w", err)
 		}
 		fd.DefaultValue = coerced
 	}
-
 	return fd, nil
 }
 
@@ -281,20 +290,23 @@ func parseFieldType(s string) (workflow.ValueType, error) {
 		return workflow.TypeBool, nil
 	case "datetime":
 		return workflow.TypeTimestamp, nil
+	case "date":
+		return workflow.TypeDate, nil
 	case "enum":
 		return workflow.TypeEnum, nil
 	case "stringlist":
 		return workflow.TypeListString, nil
 	case "taskidlist":
 		return workflow.TypeListRef, nil
+	case "recurrence":
+		return workflow.TypeRecurrence, nil
 	default:
-		return 0, fmt.Errorf("unknown field type %q (valid: text, integer, boolean, datetime, enum, stringList, taskIdList)", s)
+		return 0, fmt.Errorf("unknown field type %q (valid: text, integer, boolean, date, datetime, enum, stringList, taskIdList, recurrence)", s)
 	}
 }
 
 // coerceFieldDefault validates and coerces a raw YAML default value to the
-// expected Go type for the given field type. Returns an error if the value
-// is incompatible.
+// expected Go type for the given field type.
 func coerceFieldDefault(vt workflow.ValueType, raw interface{}, allowed []string) (interface{}, error) {
 	switch vt {
 	case workflow.TypeString:
@@ -324,7 +336,7 @@ func coerceFieldDefault(vt workflow.ValueType, raw interface{}, allowed []string
 		}
 		return b, nil
 
-	case workflow.TypeTimestamp:
+	case workflow.TypeTimestamp, workflow.TypeDate:
 		s, ok := raw.(string)
 		if !ok {
 			return nil, fmt.Errorf("expected datetime string, got %T", raw)
@@ -337,18 +349,6 @@ func coerceFieldDefault(vt workflow.ValueType, raw interface{}, allowed []string
 		}
 		return nil, fmt.Errorf("cannot parse timestamp %q (expected RFC3339 or YYYY-MM-DD)", s)
 
-	case workflow.TypeEnum:
-		s, ok := raw.(string)
-		if !ok {
-			return nil, fmt.Errorf("expected string, got %T", raw)
-		}
-		for _, v := range allowed {
-			if v == s {
-				return s, nil
-			}
-		}
-		return nil, fmt.Errorf("value %q not in allowed values %v", s, allowed)
-
 	case workflow.TypeListString:
 		return coerceStringList(raw)
 
@@ -360,6 +360,7 @@ func coerceFieldDefault(vt workflow.ValueType, raw interface{}, allowed []string
 		return collectionutil.NormalizeRefSet(ss), nil
 
 	default:
+		_ = allowed
 		return nil, fmt.Errorf("default values not supported for field type %d", vt)
 	}
 }

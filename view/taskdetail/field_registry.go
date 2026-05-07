@@ -9,9 +9,9 @@ import (
 	"github.com/boolean-maybe/tiki/component"
 	"github.com/boolean-maybe/tiki/config"
 	"github.com/boolean-maybe/tiki/model"
-	"github.com/boolean-maybe/tiki/plugin"
 	taskpkg "github.com/boolean-maybe/tiki/task"
 	tikipkg "github.com/boolean-maybe/tiki/tiki"
+	"github.com/boolean-maybe/tiki/workflow"
 
 	"github.com/gdamore/tcell/v2"
 	"github.com/rivo/tview"
@@ -105,15 +105,6 @@ var typeRegistry = map[SemanticType]TypeUI{}
 func init() {
 	registerBuiltinTypes()
 	registerBuiltinFields()
-	publishRenderableFields()
-}
-
-// publishRenderableFields tells the plugin loader which metadata field names
-// the detail view can actually render.
-func publishRenderableFields() {
-	for name := range fieldRegistry {
-		plugin.RegisterRenderableMetadataField(name)
-	}
 }
 
 // LookupField returns the descriptor for a field name. Returns ok=false for
@@ -144,7 +135,7 @@ func FieldHeight(name string, tk *tikipkg.Tiki, width int) int {
 	return ui.HeightFn(tk, width)
 }
 
-// registerBuiltinFields wires the schema-known fields into the registry.
+// registerBuiltinFields wires the workflow-declared fields into the registry.
 func registerBuiltinFields() {
 	fieldRegistry[tikipkg.FieldStatus] = FieldDescriptor{
 		Name:            tikipkg.FieldStatus,
@@ -350,17 +341,79 @@ func taskIDListHeight(tk *tikipkg.Tiki, _ int) int {
 }
 
 // renderConfiguredField looks up the field descriptor and routes through the
-// type registry to produce a primitive.
+// type registry to produce a primitive. Fields that exist in the workflow
+// catalog but not in the typed registry fall back to a generic catalog-
+// driven row that reads the value verbatim from the tiki's Fields map.
 func renderConfiguredField(name string, tk *tikipkg.Tiki, ctx FieldRenderContext) tview.Primitive {
-	fd, ok := LookupField(name)
+	if fd, ok := LookupField(name); ok {
+		ui, ok := LookupType(fd.Semantic)
+		if !ok || ui.Render == nil {
+			return placeholderRow(fmt.Sprintf("%s: (no renderer)", fd.Label))
+		}
+		return ui.Render(tk, withFieldDescriptor(ctx, fd))
+	}
+	if wfd, ok := workflow.Field(name); ok {
+		return renderGenericWorkflowField(wfd, tk, ctx)
+	}
+	return placeholderRow(fmt.Sprintf("%s: (unknown field)", name))
+}
+
+// renderGenericWorkflowField produces a labeled row for a workflow-declared
+// field that the typed registry doesn't have a custom renderer for. The
+// label defaults to the field name, and the value is formatted by type.
+func renderGenericWorkflowField(fd workflow.FieldDef, tk *tikipkg.Tiki, ctx FieldRenderContext) tview.Primitive {
+	label := fd.Name
+	value := genericFieldValueString(fd, tk)
+	return labeledLine(label, value, ctx.Colors)
+}
+
+// genericFieldValueString formats a workflow field's value as a single-line
+// string, dispatching on declared type. Empty/absent values render as a dash.
+func genericFieldValueString(fd workflow.FieldDef, tk *tikipkg.Tiki) string {
+	raw, ok := tk.Get(fd.Name)
 	if !ok {
-		return placeholderRow(fmt.Sprintf("%s: (unknown field)", name))
+		return "—"
 	}
-	ui, ok := LookupType(fd.Semantic)
-	if !ok || ui.Render == nil {
-		return placeholderRow(fmt.Sprintf("%s: (no renderer)", fd.Label))
+	switch fd.Type {
+	case workflow.TypeListString, workflow.TypeListRef:
+		ss, _, _ := tk.StringSliceField(fd.Name)
+		if len(ss) == 0 {
+			return "—"
+		}
+		return strings.Join(ss, ", ")
+	case workflow.TypeBool:
+		if b, ok := raw.(bool); ok {
+			if b {
+				return "true"
+			}
+			return "false"
+		}
+	case workflow.TypeEnum:
+		if s, ok := raw.(string); ok && s != "" {
+			return fd.EnumDisplay(s)
+		}
+		return "—"
 	}
-	return ui.Render(tk, withFieldDescriptor(ctx, fd))
+	switch v := raw.(type) {
+	case string:
+		if v == "" {
+			return "—"
+		}
+		return v
+	case int:
+		return strconv.Itoa(v)
+	case int64:
+		return strconv.FormatInt(v, 10)
+	case float64:
+		return strconv.FormatFloat(v, 'g', -1, 64)
+	case time.Time:
+		if v.IsZero() {
+			return "—"
+		}
+		return v.Format("2006-01-02")
+	default:
+		return fmt.Sprintf("%v", v)
+	}
 }
 
 // withFieldDescriptor stamps the descriptor's name onto the context so generic

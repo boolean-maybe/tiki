@@ -246,17 +246,19 @@ func TestBuildRow(t *testing.T) {
 
 	width := 80
 
-	t.Run("pending task shows circle", func(t *testing.T) {
+	// The ✓/○ status indicator was removed when status became an ordinary
+	// enum field — workflows that want a glyph use enum value emoji metadata.
+	t.Run("pending task does not show legacy circle", func(t *testing.T) {
 		row := tl.buildRow(pendingTask, false, width)
-		if !strings.Contains(row, "○") {
-			t.Error("pending task row should contain circle (○)")
+		if strings.Contains(row, "○") {
+			t.Error("legacy circle (○) should no longer appear in row")
 		}
 	})
 
-	t.Run("done task shows checkmark", func(t *testing.T) {
+	t.Run("done task does not show legacy checkmark", func(t *testing.T) {
 		row := tl.buildRow(doneTask, false, width)
-		if !strings.Contains(row, "✓") {
-			t.Error("done task row should contain checkmark (✓)")
+		if strings.Contains(row, "✓") {
+			t.Error("legacy checkmark (✓) should no longer appear in row")
 		}
 	})
 

@@ -31,7 +31,10 @@ func CreateTestTaskWithDeps(dir, id, title, status, taskType string, dependsOn [
 	if len(dependsOn) > 0 {
 		depsYAML += "\n"
 		for _, dep := range dependsOn {
-			depsYAML += fmt.Sprintf("  - %s\n", normalizeBareID(dep))
+			// Quote so yaml.v3 keeps all-numeric ids as strings (leading
+			// zeros preserved). Production saves emit quoted/string lists;
+			// tests must mirror that for the generic loader.
+			depsYAML += fmt.Sprintf("  - %q\n", normalizeBareID(dep))
 		}
 	} else {
 		depsYAML += " []\n"

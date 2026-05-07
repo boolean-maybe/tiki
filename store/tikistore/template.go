@@ -6,7 +6,6 @@ import (
 	"time"
 
 	"github.com/boolean-maybe/tiki/config"
-	taskpkg "github.com/boolean-maybe/tiki/task"
 	tikipkg "github.com/boolean-maybe/tiki/tiki"
 	collectionutil "github.com/boolean-maybe/tiki/util/collections"
 	"github.com/boolean-maybe/tiki/workflow"
@@ -27,13 +26,12 @@ func (s *TikiStore) setAuthorFromIdentityTiki(tk *tikipkg.Tiki) {
 	}
 }
 
-// NewTikiTemplate returns a new tiki populated with creation defaults.
-// When the active workflow has a default status, this returns a workflow tiki
-// (built-in defaults: priority=3, points=1, tags=["idea"]; type and status from
-// the registries; custom field defaults from workflow.yaml). When no default
-// status is configured, this returns a plain tiki with only id/createdAt
-// populated — callers fill in title/body. The status registry treats a missing
-// `default: true` as an explicit opt-out of workflow capture for this workflow.
+// NewTikiTemplate returns a new tiki populated with creation defaults from
+// the loaded workflow field catalog. Every workflow field declaring a
+// default contributes one Fields entry; enum fields contribute the value
+// marked default: true, non-enum fields contribute their declared
+// DefaultValue. Workflows that declare no defaults produce a bare tiki with
+// only id/createdAt set — callers fill in title/body and any field values.
 func (s *TikiStore) NewTikiTemplate() (*tikipkg.Tiki, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -42,7 +40,7 @@ func (s *TikiStore) NewTikiTemplate() (*tikipkg.Tiki, error) {
 
 // newTikiTemplateLocked builds a template tiki. Caller must hold s.mu.
 func (s *TikiStore) newTikiTemplateLocked() (*tikipkg.Tiki, error) {
-	if err := config.RequireWorkflowRegistriesLoaded(); err != nil {
+	if err := config.RequireWorkflowFieldsLoaded(); err != nil {
 		return nil, err
 	}
 
@@ -67,15 +65,8 @@ func (s *TikiStore) newTikiTemplateLocked() (*tikipkg.Tiki, error) {
 	tk.ID = taskID
 	tk.CreatedAt = time.Now()
 
-	if defaultStatus := taskpkg.DefaultStatus(); defaultStatus != "" {
-		tk.Set(tikipkg.FieldStatus, defaultStatus)
-		tk.Set(tikipkg.FieldType, taskpkg.DefaultType())
-		tk.Set(tikipkg.FieldPriority, 3)
-		tk.Set(tikipkg.FieldPoints, 1)
-		tk.Set(tikipkg.FieldTags, []string{"idea"})
-		for k, v := range buildCustomFieldDefaults() {
-			tk.Set(k, v)
-		}
+	for k, v := range buildCustomFieldDefaults() {
+		tk.Set(k, v)
 	}
 
 	s.setAuthorFromIdentityTiki(tk)
@@ -83,30 +74,41 @@ func (s *TikiStore) newTikiTemplateLocked() (*tikipkg.Tiki, error) {
 	return tk, nil
 }
 
-// buildCustomFieldDefaults collects DefaultValue from all custom field
-// definitions into a map suitable for task.CustomFields.
+// buildCustomFieldDefaults collects creation defaults from all loaded
+// workflow field definitions. For enum fields, the default is the value
+// marked default: true. For non-enum fields, it's FieldDef.DefaultValue.
+// Returns nil when no workflow field declares a default.
 func buildCustomFieldDefaults() map[string]interface{} {
 	var defaults map[string]interface{}
-	for _, fd := range workflow.Fields() {
-		if !fd.Custom || fd.DefaultValue == nil {
-			continue
-		}
+	add := func(name string, value interface{}) {
 		if defaults == nil {
 			defaults = make(map[string]interface{})
+		}
+		defaults[name] = value
+	}
+	for _, fd := range workflow.WorkflowFields() {
+		if fd.Type == workflow.TypeEnum {
+			if def := fd.EnumDefault(); def != "" {
+				add(fd.Name, def)
+			}
+			continue
+		}
+		if fd.DefaultValue == nil {
+			continue
 		}
 		if ss, ok := fd.DefaultValue.([]string); ok {
 			switch fd.Type {
 			case workflow.TypeListRef:
-				defaults[fd.Name] = collectionutil.NormalizeRefSet(ss)
+				add(fd.Name, collectionutil.NormalizeRefSet(ss))
 			case workflow.TypeListString:
-				defaults[fd.Name] = collectionutil.NormalizeStringSet(ss)
+				add(fd.Name, collectionutil.NormalizeStringSet(ss))
 			default:
 				cp := make([]string, len(ss))
 				copy(cp, ss)
-				defaults[fd.Name] = cp
+				add(fd.Name, cp)
 			}
 		} else {
-			defaults[fd.Name] = fd.DefaultValue
+			add(fd.Name, fd.DefaultValue)
 		}
 	}
 	return defaults

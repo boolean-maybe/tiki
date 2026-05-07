@@ -6,11 +6,10 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/boolean-maybe/tiki/config"
+	"github.com/boolean-maybe/tiki/internal/teststatuses"
 	"github.com/boolean-maybe/tiki/service"
 	"github.com/boolean-maybe/tiki/store"
 	tikipkg "github.com/boolean-maybe/tiki/tiki"
-	"github.com/boolean-maybe/tiki/workflow"
 )
 
 // newRunnerTiki builds a minimal tiki for runner test fixtures.
@@ -30,12 +29,7 @@ func newRunnerTiki(id, title, status string, priority int, assignee string) *tik
 
 func setupRunnerTest(t *testing.T) store.Store {
 	t.Helper()
-	config.ResetStatusRegistry([]workflow.StatusDef{
-		{Key: "backlog", Label: "Backlog", Emoji: "📥", Default: true},
-		{Key: "ready", Label: "Ready", Emoji: "📋", Active: true},
-		{Key: "inProgress", Label: "In Progress", Emoji: "⚙️", Active: true},
-		{Key: "done", Label: "Done", Emoji: "✅", Done: true},
-	})
+	teststatuses.Init()
 
 	s := store.NewInMemoryStore()
 	// give every fixture an explicit assignee (even if empty)
@@ -368,18 +362,11 @@ func TestRunQueryExecuteError(t *testing.T) {
 	}
 }
 
-func TestRunQueryUpdateInvalidPointsE2E(t *testing.T) {
-	s := setupRunnerTest(t)
-
-	var buf bytes.Buffer
-	err := RunQuery(gateFor(s), `update where id = "TIKI-AAA001" set points=999`, &buf)
-	if err == nil {
-		t.Fatal("expected error for invalid points")
-	}
-	if !strings.Contains(err.Error(), "points value out of range") {
-		t.Errorf("expected points range error, got: %v", err)
-	}
-}
+// Removed: TestRunQueryUpdateInvalidPointsE2E used to pin the
+// kanban-specific 1..maxPoints range. Under the workflow-as-source-of-truth
+// model, points is an ordinary int field and ranges are expressed via
+// workflow triggers. See workflow.yaml triggers: in bundled workflows for
+// how this is now enforced.
 
 // --- CREATE via runner ---
 

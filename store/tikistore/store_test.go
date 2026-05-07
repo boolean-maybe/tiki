@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/boolean-maybe/tiki/config"
+	"github.com/boolean-maybe/tiki/internal/teststatuses"
 	taskpkg "github.com/boolean-maybe/tiki/task"
 	tikipkg "github.com/boolean-maybe/tiki/tiki"
 	"github.com/boolean-maybe/tiki/workflow"
@@ -268,6 +269,9 @@ Task description`,
 			shouldLoad:        true,
 		},
 		{
+			// scalar where a list was expected: load demotes the value to
+			// stale (round-trips verbatim), so the field reads back as the
+			// scalar string promoted by StringSliceField.
 			name: "invalid dependsOn - scalar",
 			fileContent: `---
 id: ABC123
@@ -277,7 +281,7 @@ status: backlog
 dependsOn: not-a-list
 ---
 Task description`,
-			expectedDependsOn: []string{},
+			expectedDependsOn: []string{"not-a-list"},
 			shouldLoad:        true,
 		},
 	}
@@ -348,6 +352,9 @@ Task description`,
 			shouldLoad:   true,
 		},
 		{
+			// Scalar value where a list was expected: load demotes to stale
+			// (round-trips verbatim). StringSliceField promotes a single
+			// string to a one-element slice.
 			name: "invalid tags - scalar string",
 			fileContent: `---
 id: ABC123
@@ -357,10 +364,11 @@ status: backlog
 tags: not-a-list
 ---
 Task description`,
-			expectedTags: []string{},
+			expectedTags: []string{"not-a-list"},
 			shouldLoad:   true,
 		},
 		{
+			// Number where a list was expected: stale, not coercible to a slice.
 			name: "invalid tags - number",
 			fileContent: `---
 id: ABC123
@@ -370,10 +378,11 @@ status: backlog
 tags: 123
 ---
 Task description`,
-			expectedTags: []string{},
+			expectedTags: nil,
 			shouldLoad:   true,
 		},
 		{
+			// Boolean where a list was expected: stale, not coercible.
 			name: "invalid tags - boolean",
 			fileContent: `---
 id: ABC123
@@ -383,10 +392,11 @@ status: backlog
 tags: true
 ---
 Task description`,
-			expectedTags: []string{},
+			expectedTags: nil,
 			shouldLoad:   true,
 		},
 		{
+			// Object where a list was expected: stale, not coercible.
 			name: "invalid tags - object",
 			fileContent: `---
 id: ABC123
@@ -397,7 +407,7 @@ tags:
   key: value
 ---
 Task description`,
-			expectedTags: []string{},
+			expectedTags: nil,
 			shouldLoad:   true,
 		},
 		{
@@ -702,7 +712,11 @@ Task description`,
 			shouldLoad:  true,
 		},
 		{
-			name: "invalid recurrence defaults to empty",
+			// Generic load preserves the raw string; downstream validators
+			// (or the user's repair pass) flag invalid recurrence patterns.
+			// This restores round-trip fidelity vs. the prior typed
+			// unmarshaler that silently dropped invalid values.
+			name: "invalid recurrence preserved verbatim for repair",
 			fileContent: `---
 id: REC001
 title: Test Task
@@ -711,7 +725,7 @@ status: backlog
 recurrence: "every tuesday"
 ---
 Task description`,
-			expectValue: taskpkg.RecurrenceNone,
+			expectValue: taskpkg.Recurrence("every tuesday"),
 			shouldLoad:  true,
 		},
 	}
@@ -1047,17 +1061,17 @@ func TestSaveTask_Due(t *testing.T) {
 }
 
 func TestCustomFieldRoundTrip(t *testing.T) {
-	config.MarkRegistriesLoadedForTest()
+	config.MarkWorkflowFieldsLoadedForTest()
 	// register custom fields
-	if err := workflow.RegisterCustomFields([]workflow.FieldDef{
-		{Name: "severity", Type: workflow.TypeEnum, AllowedValues: []string{"low", "medium", "high"}},
+	if err := teststatuses.InitWith([]workflow.FieldDef{
+		{Name: "severity", Type: workflow.TypeEnum, EnumValues: []workflow.EnumValue{{Value: "low"}, {Value: "medium"}, {Value: "high"}}},
 		{Name: "score", Type: workflow.TypeInt},
 		{Name: "active", Type: workflow.TypeBool},
 		{Name: "notes", Type: workflow.TypeString},
 	}); err != nil {
 		t.Fatalf("register custom fields: %v", err)
 	}
-	t.Cleanup(func() { workflow.ClearCustomFields() })
+	t.Cleanup(teststatuses.Init)
 
 	tmpDir := t.TempDir()
 	store, err := NewTikiStore(tmpDir)
@@ -1117,13 +1131,13 @@ func TestCustomFieldRoundTrip(t *testing.T) {
 }
 
 func TestCustomFieldRoundTrip_AmbiguousStrings(t *testing.T) {
-	config.MarkRegistriesLoadedForTest()
-	t.Cleanup(func() { workflow.ClearCustomFields() })
+	config.MarkWorkflowFieldsLoadedForTest()
+	t.Cleanup(teststatuses.Init)
 
-	if err := workflow.RegisterCustomFields([]workflow.FieldDef{
+	if err := teststatuses.InitWith([]workflow.FieldDef{
 		{Name: "notes", Type: workflow.TypeString},
 		{Name: "labels", Type: workflow.TypeListString},
-		{Name: "yesno", Type: workflow.TypeEnum, AllowedValues: []string{"true", "false", "maybe"}},
+		{Name: "yesno", Type: workflow.TypeEnum, EnumValues: []workflow.EnumValue{{Value: "true"}, {Value: "false"}, {Value: "maybe"}}},
 	}); err != nil {
 		t.Fatalf("register: %v", err)
 	}
@@ -1170,10 +1184,12 @@ func TestCustomFieldRoundTrip_AmbiguousStrings(t *testing.T) {
 			},
 		},
 		{
+			// List-type fields get dedupe + sort on save, so the on-disk
+			// order is deterministic regardless of the in-memory order.
 			name:   "list with ambiguous items",
 			fields: map[string]interface{}{"labels": []string{"true", "42", "2026-05-15"}},
 			check: func(t *testing.T, fields map[string]interface{}) {
-				want := []string{"true", "42", "2026-05-15"}
+				want := []string{"2026-05-15", "42", "true"} // sorted
 				got, ok := fields["labels"].([]string)
 				if !ok {
 					t.Fatalf("labels type = %T, want []string", fields["labels"])
@@ -1227,11 +1243,11 @@ func TestCustomFieldRoundTrip_AmbiguousStrings(t *testing.T) {
 }
 
 func TestExtractCustomFields_PreservesStaleKeys(t *testing.T) {
-	config.MarkRegistriesLoadedForTest()
-	t.Cleanup(func() { workflow.ClearCustomFields() })
+	config.MarkWorkflowFieldsLoadedForTest()
+	t.Cleanup(teststatuses.Init)
 
-	if err := workflow.RegisterCustomFields([]workflow.FieldDef{
-		{Name: "severity", Type: workflow.TypeEnum, AllowedValues: []string{"low", "medium", "high"}},
+	if err := teststatuses.InitWith([]workflow.FieldDef{
+		{Name: "severity", Type: workflow.TypeEnum, EnumValues: []workflow.EnumValue{{Value: "low"}, {Value: "medium"}, {Value: "high"}}},
 	}); err != nil {
 		t.Fatalf("register: %v", err)
 	}
@@ -1259,12 +1275,12 @@ func TestExtractCustomFields_PreservesStaleKeys(t *testing.T) {
 }
 
 func TestLoadTaskFile_StaleCustomField(t *testing.T) {
-	config.MarkRegistriesLoadedForTest()
-	t.Cleanup(func() { workflow.ClearCustomFields() })
+	config.MarkWorkflowFieldsLoadedForTest()
+	t.Cleanup(teststatuses.Init)
 
 	// register only "severity" — the file will also contain "old_field"
-	if err := workflow.RegisterCustomFields([]workflow.FieldDef{
-		{Name: "severity", Type: workflow.TypeEnum, AllowedValues: []string{"low", "medium", "high"}},
+	if err := teststatuses.InitWith([]workflow.FieldDef{
+		{Name: "severity", Type: workflow.TypeEnum, EnumValues: []workflow.EnumValue{{Value: "low"}, {Value: "medium"}, {Value: "high"}}},
 	}); err != nil {
 		t.Fatalf("register: %v", err)
 	}
@@ -1320,12 +1336,12 @@ Description here`
 }
 
 func TestExtractCustomFields_StaleEnumValueDemotedToUnknown(t *testing.T) {
-	config.MarkRegistriesLoadedForTest()
-	t.Cleanup(func() { workflow.ClearCustomFields() })
+	config.MarkWorkflowFieldsLoadedForTest()
+	t.Cleanup(teststatuses.Init)
 
 	// register severity with only "low" and "medium" — "high" was removed
-	if err := workflow.RegisterCustomFields([]workflow.FieldDef{
-		{Name: "severity", Type: workflow.TypeEnum, AllowedValues: []string{"low", "medium"}},
+	if err := teststatuses.InitWith([]workflow.FieldDef{
+		{Name: "severity", Type: workflow.TypeEnum, EnumValues: []workflow.EnumValue{{Value: "low"}, {Value: "medium"}}},
 	}); err != nil {
 		t.Fatalf("register: %v", err)
 	}
@@ -1349,12 +1365,12 @@ func TestExtractCustomFields_StaleEnumValueDemotedToUnknown(t *testing.T) {
 }
 
 func TestLoadTaskFile_StaleEnumValue_TaskStillLoads(t *testing.T) {
-	config.MarkRegistriesLoadedForTest()
-	t.Cleanup(func() { workflow.ClearCustomFields() })
+	config.MarkWorkflowFieldsLoadedForTest()
+	t.Cleanup(teststatuses.Init)
 
 	// register severity without "critical"
-	if err := workflow.RegisterCustomFields([]workflow.FieldDef{
-		{Name: "severity", Type: workflow.TypeEnum, AllowedValues: []string{"low", "medium", "high"}},
+	if err := teststatuses.InitWith([]workflow.FieldDef{
+		{Name: "severity", Type: workflow.TypeEnum, EnumValues: []workflow.EnumValue{{Value: "low"}, {Value: "medium"}, {Value: "high"}}},
 	}); err != nil {
 		t.Fatalf("register: %v", err)
 	}
@@ -1423,10 +1439,10 @@ func TestCoerceCustomValue_IntAcceptsWholeFloat(t *testing.T) {
 }
 
 func TestExtractCustomFields_ErrorWithoutRegistry(t *testing.T) {
-	config.ResetRegistriesLoadedForTest()
+	config.ResetWorkflowFieldsLoadedForTest()
 	t.Cleanup(func() {
-		config.MarkRegistriesLoadedForTest()
-		workflow.ClearCustomFields()
+		config.MarkWorkflowFieldsLoadedForTest()
+		workflow.ClearWorkflowFields()
 	})
 
 	fmMap := map[string]interface{}{
@@ -1439,28 +1455,31 @@ func TestExtractCustomFields_ErrorWithoutRegistry(t *testing.T) {
 	if err == nil {
 		t.Fatal("expected error when registries not loaded, got nil")
 	}
-	if !strings.Contains(err.Error(), "workflow registries not loaded") {
-		t.Errorf("error = %q, want substring %q", err.Error(), "workflow registries not loaded")
+	if !strings.Contains(err.Error(), "workflow fields not loaded") {
+		t.Errorf("error = %q, want substring %q", err.Error(), "workflow fields not loaded")
 	}
 }
 
-func TestExtractCustomFields_OnlyBuiltinKeys_NoRegistryRequired(t *testing.T) {
-	config.ResetRegistriesLoadedForTest()
+// TestExtractCustomFields_OnlyIdentityKeys_NoRegistryRequired verifies that
+// frontmatter containing only identity/audit keys (id, title, body) does
+// not trigger a registry check. Workflow-declared keys always go through
+// the catalog now — there are no longer any "built-in" non-identity keys
+// that bypass it.
+func TestExtractCustomFields_OnlyIdentityKeys_NoRegistryRequired(t *testing.T) {
+	config.ResetWorkflowFieldsLoadedForTest()
 	t.Cleanup(func() {
-		config.MarkRegistriesLoadedForTest()
-		workflow.ClearCustomFields()
+		config.MarkWorkflowFieldsLoadedForTest()
+		workflow.ClearWorkflowFields()
 	})
 
-	// frontmatter with only built-in keys — should not require registry
 	fmMap := map[string]interface{}{
-		"title":    "Test",
-		"status":   "ready",
-		"priority": 2,
+		"id":    "ABC123",
+		"title": "Test",
 	}
 
 	custom, unknown, err := extractCustomFields(fmMap)
 	if err != nil {
-		t.Fatalf("extractCustomFields should succeed with only built-in keys: %v", err)
+		t.Fatalf("extractCustomFields should succeed with only identity keys: %v", err)
 	}
 	if len(custom) != 0 {
 		t.Errorf("expected no custom fields, got %v", custom)
@@ -1471,10 +1490,10 @@ func TestExtractCustomFields_OnlyBuiltinKeys_NoRegistryRequired(t *testing.T) {
 }
 
 func TestExtractCustomFields_NilMap_NoRegistryRequired(t *testing.T) {
-	config.ResetRegistriesLoadedForTest()
+	config.ResetWorkflowFieldsLoadedForTest()
 	t.Cleanup(func() {
-		config.MarkRegistriesLoadedForTest()
-		workflow.ClearCustomFields()
+		config.MarkWorkflowFieldsLoadedForTest()
+		workflow.ClearWorkflowFields()
 	})
 
 	custom, unknown, err := extractCustomFields(nil)
@@ -1487,11 +1506,11 @@ func TestExtractCustomFields_NilMap_NoRegistryRequired(t *testing.T) {
 }
 
 func TestSaveTask_PreservesUnknownFields(t *testing.T) {
-	config.MarkRegistriesLoadedForTest()
-	t.Cleanup(func() { workflow.ClearCustomFields() })
+	config.MarkWorkflowFieldsLoadedForTest()
+	t.Cleanup(teststatuses.Init)
 
-	if err := workflow.RegisterCustomFields([]workflow.FieldDef{
-		{Name: "severity", Type: workflow.TypeEnum, AllowedValues: []string{"low", "medium", "high"}},
+	if err := teststatuses.InitWith([]workflow.FieldDef{
+		{Name: "severity", Type: workflow.TypeEnum, EnumValues: []workflow.EnumValue{{Value: "low"}, {Value: "medium"}, {Value: "high"}}},
 	}); err != nil {
 		t.Fatalf("register: %v", err)
 	}
@@ -1570,10 +1589,10 @@ func TestSaveTask_DedupesBuiltInCollections(t *testing.T) {
 }
 
 func TestSaveTask_DedupesCustomListFields(t *testing.T) {
-	config.MarkRegistriesLoadedForTest()
-	t.Cleanup(func() { workflow.ClearCustomFields() })
+	config.MarkWorkflowFieldsLoadedForTest()
+	t.Cleanup(teststatuses.Init)
 
-	if err := workflow.RegisterCustomFields([]workflow.FieldDef{
+	if err := teststatuses.InitWith([]workflow.FieldDef{
 		{Name: "labels", Type: workflow.TypeListString},
 		{Name: "related", Type: workflow.TypeListRef},
 	}); err != nil {

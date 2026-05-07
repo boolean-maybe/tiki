@@ -37,8 +37,10 @@ This page explains the value types used in `ruki`. You do not write types explic
 
 ## Field catalog
 
-The schema-known field catalog exposes these fields to `ruki`. Custom fields declared under
-`workflow.yaml` `fields:` join the same catalog at load time and behave identically.
+The runtime hardcodes a small set of system fields (`id`, `title`, `description`, `createdBy`,
+`createdAt`, `updatedAt`, `filepath`). Every other field — including `status`, `type`, `priority`,
+`points`, `tags`, and any project-specific fields — is declared in `workflow.yaml fields:` and joins
+the same catalog at load time. From `ruki`'s perspective, all fields behave identically.
 
 | Field | Type |
 |---|---|
@@ -117,7 +119,7 @@ select where due is empty                     -- same, with the is-empty predica
 
 - normalized through the injected schema
 - production normalization lowercases, trims, and converts `-` and space to `_`
-- recognized values depend on the workflow status registry
+- recognized values depend on the `fields:` entry named `status` in `workflow.yaml`
 
 `type`
 
@@ -175,4 +177,4 @@ select where status in ["done", 1]
 - `string`, `status`, `type`, `id`, and `ref` are treated as string-like in some comparison and concatenation paths, but they are not interchangeable everywhere.
 - Membership checks are stricter than general comparison compatibility. For `in` and `not in` with list collections, only exact type matches count, except that `id` and `ref` are treated as compatible with each other. When the right side is a `string` field, `in` performs a substring check — both sides must be `string` type (not `status`, `type`, `id`, or `ref`).
 - Enum fields reject non-literal field references in assignments such as `status=title` or `type=title`.
-- The exact accepted status values depend on runtime workflow configuration, while the accepted type values depend on the type registry supplied to the parser.
+- The exact accepted `status` and `type` values depend on the enum values declared for those fields in `workflow.yaml`.

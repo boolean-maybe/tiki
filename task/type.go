@@ -1,72 +1,128 @@
 package task
 
 import (
-	"github.com/boolean-maybe/tiki/config"
+	"strings"
+
 	"github.com/boolean-maybe/tiki/workflow"
 )
 
-// well-known built-in type constants.
+// convenience constants matching the canonical types bundled in kanban.yaml.
+// As with status, `type` is an ordinary enum field — these constants exist
+// only as a convenience for tests and call sites that compare against
+// well-known keys.
 const (
-	TypeStory = workflow.TypeStory
-	TypeBug   = workflow.TypeBug
-	TypeSpike = workflow.TypeSpike
-	TypeEpic  = workflow.TypeEpic
+	TypeStory = "story"
+	TypeBug   = "bug"
+	TypeSpike = "spike"
+	TypeEpic  = "epic"
 )
 
-// requireTypeRegistry returns the loaded type registry.
-// Panics if workflow registries have not been loaded — this is a programmer
-// error, not a user-facing path.
-func requireTypeRegistry() *workflow.TypeRegistry {
-	return config.GetTypeRegistry()
+// typeField returns the loaded "type" workflow field, or (zero, false) when
+// no type field is configured.
+func typeField() (workflow.FieldDef, bool) {
+	fd, ok := workflow.Field("type")
+	if !ok || fd.Type != workflow.TypeEnum {
+		return workflow.FieldDef{}, false
+	}
+	return fd, true
+}
+
+// NormalizeTypeKey lowercases, trims, and strips all separators. Generic —
+// has no knowledge of the loaded type field's allowed values.
+func NormalizeTypeKey(s string) string {
+	s = strings.ToLower(strings.TrimSpace(s))
+	s = strings.ReplaceAll(s, "_", "")
+	s = strings.ReplaceAll(s, "-", "")
+	s = strings.ReplaceAll(s, " ", "")
+	return s
 }
 
 // ParseType parses a raw string into a canonical type key with validation.
-// Returns the canonical key and true if recognized,
-// or ("", false) for unknown types.
-// Panics if registries are not loaded.
+// Returns the canonical key and true if recognized, or ("", false) otherwise.
 func ParseType(t string) (string, bool) {
-	return requireTypeRegistry().ParseType(t)
+	normalized := NormalizeTypeKey(t)
+	fd, ok := typeField()
+	if !ok {
+		return "", false
+	}
+	if fd.IsValidEnum(normalized) {
+		return normalized, true
+	}
+	return "", false
 }
 
 // TypeLabel returns a human-readable label for a task type.
-// Panics if registries are not loaded.
 func TypeLabel(taskType string) string {
-	return requireTypeRegistry().TypeLabel(taskType)
+	fd, ok := typeField()
+	if !ok {
+		return taskType
+	}
+	v, found := fd.LookupEnum(taskType)
+	if !found {
+		return taskType
+	}
+	if v.Label != "" {
+		return v.Label
+	}
+	return v.Value
 }
 
 // TypeEmoji returns the emoji for a task type.
-// Panics if registries are not loaded.
 func TypeEmoji(taskType string) string {
-	return requireTypeRegistry().TypeEmoji(taskType)
+	fd, ok := typeField()
+	if !ok {
+		return ""
+	}
+	v, found := fd.LookupEnum(taskType)
+	if !found {
+		return ""
+	}
+	return v.Emoji
 }
 
 // TypeDisplay returns a formatted display string with label and emoji.
-// Panics if registries are not loaded.
 func TypeDisplay(taskType string) string {
-	return requireTypeRegistry().TypeDisplay(taskType)
+	fd, ok := typeField()
+	if !ok {
+		return taskType
+	}
+	return fd.EnumDisplay(taskType)
 }
 
 // ParseDisplay reverses a TypeDisplay() string back to a canonical key.
 // Returns (key, true) on match, or ("", false) for unrecognized display strings.
-// Panics if registries are not loaded.
 func ParseDisplay(display string) (string, bool) {
-	return requireTypeRegistry().ParseDisplay(display)
+	fd, ok := typeField()
+	if !ok {
+		return "", false
+	}
+	return fd.EnumParseDisplay(display)
 }
 
 // AllTypes returns the ordered list of all configured type keys.
-// Panics if registries are not loaded.
 func AllTypes() []string {
-	return requireTypeRegistry().Keys()
+	fd, ok := typeField()
+	if !ok {
+		return nil
+	}
+	return fd.AllowedValues()
 }
 
-// DefaultType returns the creation-default type (explicit default or first type).
-// Panics if registries are not loaded.
+// DefaultType returns the creation-default type — the value with default:
+// true, or "" when no default is configured.
 func DefaultType() string {
-	return requireTypeRegistry().DefaultType()
+	fd, ok := typeField()
+	if !ok {
+		return ""
+	}
+	return fd.EnumDefault()
 }
 
 // IsValidType reports whether t is a recognized type key.
-// Panics if registries are not loaded.
 func IsValidType(t string) bool {
-	return requireTypeRegistry().IsValid(t)
+	fd, ok := typeField()
+	if !ok {
+		return false
+	}
+	return fd.IsValidEnum(t)
 }

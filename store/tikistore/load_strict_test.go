@@ -12,7 +12,7 @@ import (
 func init() {
 	// every test in this file assumes workflow registries have been touched;
 	// MarkRegistriesLoadedForTest is the existing helper used elsewhere.
-	config.MarkRegistriesLoadedForTest()
+	config.MarkWorkflowFieldsLoadedForTest()
 }
 
 // TestLoadTaskFile_MissingIDIsHardError verifies the new strict-load contract:

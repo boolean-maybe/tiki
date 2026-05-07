@@ -565,15 +565,15 @@ func TestEscapeScalar(t *testing.T) {
 func TestFormatCustomFields(t *testing.T) {
 	// register custom fields so extractFieldValue and resolveFields find them
 	initTestRegistries()
-	if err := workflow.RegisterCustomFields([]workflow.FieldDef{
-		{Name: "severity", Type: workflow.TypeEnum, AllowedValues: []string{"low", "medium", "high"}},
+	if err := workflow.RegisterWorkflowFields([]workflow.FieldDef{
+		{Name: "severity", Type: workflow.TypeEnum, EnumValues: []workflow.EnumValue{{Value: "low"}, {Value: "medium"}, {Value: "high"}}},
 		{Name: "score", Type: workflow.TypeInt},
 		{Name: "active", Type: workflow.TypeBool},
 		{Name: "notes", Type: workflow.TypeString},
 	}); err != nil {
 		t.Fatalf("register custom fields: %v", err)
 	}
-	t.Cleanup(func() { workflow.ClearCustomFields() })
+	t.Cleanup(func() { workflow.ClearWorkflowFields() })
 
 	proj := &ruki.TikiProjection{
 		Fields: []string{"severity", "score", "active", "notes"},
@@ -612,15 +612,15 @@ func TestFormatCustomFields(t *testing.T) {
 
 func TestFormatMissingCustomFields(t *testing.T) {
 	initTestRegistries()
-	if err := workflow.RegisterCustomFields([]workflow.FieldDef{
-		{Name: "severity", Type: workflow.TypeEnum, AllowedValues: []string{"low", "medium", "high"}},
+	if err := workflow.RegisterWorkflowFields([]workflow.FieldDef{
+		{Name: "severity", Type: workflow.TypeEnum, EnumValues: []workflow.EnumValue{{Value: "low"}, {Value: "medium"}, {Value: "high"}}},
 		{Name: "score", Type: workflow.TypeInt},
 		{Name: "active", Type: workflow.TypeBool},
 		{Name: "notes", Type: workflow.TypeString},
 	}); err != nil {
 		t.Fatalf("register custom fields: %v", err)
 	}
-	t.Cleanup(func() { workflow.ClearCustomFields() })
+	t.Cleanup(func() { workflow.ClearWorkflowFields() })
 
 	// task with no custom fields set — should render as empty (nil → "")
 	proj := &ruki.TikiProjection{
@@ -655,13 +655,13 @@ func TestFormatMissingCustomFields(t *testing.T) {
 
 func TestFormatSetToZeroVsUnset(t *testing.T) {
 	initTestRegistries()
-	if err := workflow.RegisterCustomFields([]workflow.FieldDef{
+	if err := workflow.RegisterWorkflowFields([]workflow.FieldDef{
 		{Name: "score", Type: workflow.TypeInt},
 		{Name: "active", Type: workflow.TypeBool},
 	}); err != nil {
 		t.Fatalf("register custom fields: %v", err)
 	}
-	t.Cleanup(func() { workflow.ClearCustomFields() })
+	t.Cleanup(func() { workflow.ClearWorkflowFields() })
 
 	proj := &ruki.TikiProjection{
 		Fields: []string{"score", "active"},

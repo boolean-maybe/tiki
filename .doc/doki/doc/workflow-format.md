@@ -27,15 +27,19 @@ fields:
         default: true
       - value: done
         label: Done
-        done: true
   - name: type
     type: enum
     values:
       - value: story
         label: Story
+        default: true
   - name: severity
     type: enum
-    values: [low, medium, high]
+    values:
+      - value: low
+      - value: medium
+        default: true
+      - value: high
 
 actions:                       # top-level global actions
   - key: "a"
@@ -107,23 +111,28 @@ Fullscreen, and Edit source unless you intentionally want to replace them.
 
 Validation rules for `kind: detail`:
 
-- `metadata:` is a list of schema-known field names. Unknown names fail workflow load.
+- `metadata:` accepts workflow-declared field names plus the supported audit fields (`createdBy`,
+  `createdAt`, `updatedAt`). Unknown names fail workflow load.
 - Identity/body fields (`title`, `description`, `body`, `id`) are rejected — they are always rendered.
 - Board/list-only fields (`lanes:`, `mode:`) and wiki-only fields (`path:`, `document:`) are rejected.
 - Per-view `actions:` are allowed and surface alongside the built-in detail actions.
 - `require:` is honored as the navigation gate (typically `["selection:one"]`).
 
-The detail view's field registry recognizes a fixed set of built-in field names:
-`status`, `type`, `priority`, `points`, `assignee`, `due`, `recurrence`, `tags`, and `dependsOn`. Any of
-these may appear in `metadata:` and will render. Of those, `status`, `type`, and `priority` are fully
-editable in place; the rest render read-only today (their semantic types — text, integer, date,
-recurrence, string list, task-id list — are recorded in the type registry as editor stubs and will gain
-real editors in a future iteration).
+The detail view recognizes any field declared in `workflow.yaml fields:` plus the kanban-style
+well-known names (`status`, `type`, `priority`, `points`, `assignee`, `due`, `recurrence`, `tags`,
+`dependsOn`). Any of these may appear in `metadata:` and will render. Of those, `status`, `type`, and
+`priority` are fully editable in place; the rest render read-only today and will gain richer editors
+in a future iteration.
 
-Field names *not* in the registry — including custom fields declared under top-level `fields:` and
-schema fields the detail view does not yet render (e.g. `createdAt`, `updatedAt`) — are rejected at
-load time rather than rendered as silent placeholders. Widening the registry to cover custom fields is
-a future enhancement.
+Some names are rejected from `metadata:`:
+
+- Identity/body fields (`id`, `title`, `description`, `body`) — rendered by the detail view chrome,
+  not as metadata rows.
+- Path fields (`filepath`, `path`) — values live on the tiki struct rather than in Fields, and
+  there is no typed renderer for them yet.
+
+Audit fields (`createdBy`, `createdAt`, `updatedAt`) are supported and render as read-only rows.
+The bundled kanban workflow includes them in its `metadata:` list.
 
 Opening a detail view goes through normal action dispatch:
 
@@ -203,8 +212,7 @@ Users upgrading will see one of these messages; each names the legacy field and 
 - `document: (ID-based resolution) is not yet implemented — use path: with a relative filepath`
 - ``metadata: only valid on kind: detail`` — set on a board/list/wiki view
 - `metadata cannot include "title"` (or `description`/`body`/`id`) — identity/body fields are always rendered
-- `metadata field "X" is not a known schema field` — typo or removed field
-- `metadata field "X" is not renderable in detail views yet` — schema-valid but no renderer registered
+- `metadata field "X" is not a workflow-declared field` — typo, or the field is not in `workflow.yaml fields:`
 
 Loading is fail-closed: any one of these errors (or any lane/action/require parse failure) refuses the whole
 workflow rather than silently loading only the views that parsed. A partial workflow would diverge from what you
@@ -376,46 +384,59 @@ triggers: [...]
 
 Single highest-priority file wins — no cross-file merging.
 
-### Statuses
+### Workflow fields
+
+`workflow.yaml fields:` is the single source of truth for every workflow field. The runtime hardcodes only
+system fields — `id`, `title`, `description`/`body`, `createdAt`, `updatedAt`, `createdBy`, `filepath` — and
+loads everything else (status, type, priority, points, tags, dependsOn, due, recurrence, assignee, plus any
+project-specific fields) from the `fields:` list. Reserved system field names cannot be redeclared.
+
+`status` and `type` are ordinary enum fields. They have no special semantics in the runtime; their meaning
+comes entirely from the values you declare. The legacy top-level `statuses:` and `types:` sections are no
+longer accepted and produce a clear migration error.
 
 ```yaml
-statuses:
-  - key: inProgress
-    label: "In Progress"
-    emoji: "⚙️"
-    active: true
-    default: false
-    done: false
+fields:
+  - name: status
+    type: enum
+    values:
+      - value: backlog
+        label: Backlog
+        emoji: "📥"
+        default: true
+      - value: done
+        label: Done
+        emoji: "✅"
+  - name: type
+    type: enum
+    values:
+      - value: story
+        label: Story
+        default: true
+  - name: priority
+    type: integer
+    default: 3
+  - name: tags
+    type: stringList
+    default: ["idea"]
 ```
 
-- `key` — canonical camelCase identifier
-- `label` — display name (defaults to key)
-- `emoji` — unicode emoji
-- `active` — marks "in-progress" work (optional, default false)
-- `default` — status for new tasks (optional; at most one). When no status is marked `default: true`,
-  piped input and ruki `create` produce a tiki with only `id:` and `title:` in its frontmatter — no
-  status, type, priority, or points fields. Use this for notes-only projects that should not
-  auto-capture as board items.
-- `done` — marks completion (exactly one required)
+**Per-field properties:**
 
-Keys must be canonical camelCase. See
-[Custom statuses and types](customization/custom-status-type.md) for normalization and validation rules.
+- `name` — identifier (must be a valid ruki identifier; not a reserved system field name)
+- `type` — one of: `text`, `integer`, `boolean`, `date`, `datetime`, `enum`, `stringList`, `taskIdList`, `recurrence`
+- `default` — creation default for non-enum fields
+- `values` — required for enum fields; lists the allowed values
 
-### Types
+**Enum value properties:**
 
-```yaml
-types:
-  - key: bug
-    label: Bug
-    emoji: "💥"
-```
+- `value` — canonical key
+- `label` — display name (defaults to `value`)
+- `emoji` — unicode emoji shown in UI
+- `default: true` — at most one value per enum may carry this flag; that value is the creation default
 
-- `key` — canonical lowercase identifier (no separators)
-- `label` — display name (defaults to key)
-- `emoji` — unicode emoji
-
-At least one type required. Mark one type `default: true` to make it the creation default;
-if none is marked, the first type wins. See [Custom statuses and types](customization/custom-status-type.md).
+The legacy `active:` and `done:` flags on enum values are rejected. If you want a visual cue for terminal
+states, set the `emoji:` field (e.g., ✅ on the "done" value).
 
 ### Views
 

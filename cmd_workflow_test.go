@@ -343,7 +343,6 @@ fields:
         default: true
       - value: done
         label: Done
-        done: true
   - name: type
     type: enum
     values:
@@ -376,7 +375,6 @@ fields:
         default: true
       - value: done
         label: Done
-        done: true
   - name: type
     type: enum
     values:

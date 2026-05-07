@@ -10,12 +10,12 @@ import (
 	"github.com/boolean-maybe/tiki/workflow"
 )
 
-// setupLoadCustomFieldsTest creates temp dirs and configures the path manager
-// so LoadCustomFields can discover workflow.yaml files.
-func setupLoadCustomFieldsTest(t *testing.T) (cwdDir string) {
+// setupLoadWorkflowFieldsTest creates temp dirs and configures the path manager
+// so LoadWorkflowFields can discover workflow.yaml files.
+func setupLoadWorkflowFieldsTest(t *testing.T) (cwdDir string) {
 	t.Helper()
-	workflow.ClearCustomFields()
-	t.Cleanup(func() { workflow.ClearCustomFields() })
+	workflow.ClearWorkflowFields()
+	t.Cleanup(func() { workflow.ClearWorkflowFields() })
 
 	userDir := t.TempDir()
 	t.Setenv("XDG_CONFIG_HOME", userDir)
@@ -41,8 +41,8 @@ func setupLoadCustomFieldsTest(t *testing.T) (cwdDir string) {
 	return cwdDir
 }
 
-func TestLoadCustomFields_BasicTypes(t *testing.T) {
-	cwdDir := setupLoadCustomFieldsTest(t)
+func TestLoadWorkflowFields_BasicTypes(t *testing.T) {
+	cwdDir := setupLoadWorkflowFieldsTest(t)
 
 	content := `
 fields:
@@ -63,7 +63,7 @@ fields:
 		t.Fatal(err)
 	}
 
-	if err := LoadCustomFields(); err != nil {
+	if err := LoadWorkflowFields(); err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
@@ -93,8 +93,8 @@ fields:
 	}
 }
 
-func TestLoadCustomFields_EnumWithValues(t *testing.T) {
-	cwdDir := setupLoadCustomFieldsTest(t)
+func TestLoadWorkflowFields_EnumWithValues(t *testing.T) {
+	cwdDir := setupLoadWorkflowFieldsTest(t)
 
 	content := `
 fields:
@@ -106,7 +106,7 @@ fields:
 		t.Fatal(err)
 	}
 
-	if err := LoadCustomFields(); err != nil {
+	if err := LoadWorkflowFields(); err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
@@ -118,18 +118,18 @@ fields:
 		t.Errorf("severity.Type = %v, want TypeEnum", f.Type)
 	}
 	wantVals := []string{"low", "medium", "high", "critical"}
-	if len(f.AllowedValues) != len(wantVals) {
-		t.Fatalf("severity.AllowedValues length = %d, want %d", len(f.AllowedValues), len(wantVals))
+	if len(f.AllowedValues()) != len(wantVals) {
+		t.Fatalf("severity.AllowedValues length = %d, want %d", len(f.AllowedValues()), len(wantVals))
 	}
 	for i, v := range wantVals {
-		if f.AllowedValues[i] != v {
-			t.Errorf("AllowedValues[%d] = %q, want %q", i, f.AllowedValues[i], v)
+		if f.AllowedValues()[i] != v {
+			t.Errorf("AllowedValues[%d] = %q, want %q", i, f.AllowedValues()[i], v)
 		}
 	}
 }
 
-func TestLoadCustomFields_BadTypeRejected(t *testing.T) {
-	cwdDir := setupLoadCustomFieldsTest(t)
+func TestLoadWorkflowFields_BadTypeRejected(t *testing.T) {
+	cwdDir := setupLoadWorkflowFieldsTest(t)
 
 	content := `
 fields:
@@ -140,14 +140,14 @@ fields:
 		t.Fatal(err)
 	}
 
-	err := LoadCustomFields()
+	err := LoadWorkflowFields()
 	if err == nil {
 		t.Fatal("expected error for unknown type")
 	}
 }
 
-func TestLoadCustomFields_EnumWithoutValues(t *testing.T) {
-	cwdDir := setupLoadCustomFieldsTest(t)
+func TestLoadWorkflowFields_EnumWithoutValues(t *testing.T) {
+	cwdDir := setupLoadWorkflowFieldsTest(t)
 
 	content := `
 fields:
@@ -158,14 +158,14 @@ fields:
 		t.Fatal(err)
 	}
 
-	err := LoadCustomFields()
+	err := LoadWorkflowFields()
 	if err == nil {
 		t.Fatal("expected error for enum without values")
 	}
 }
 
-func TestLoadCustomFields_HighestPriorityFileWins(t *testing.T) {
-	cwdDir := setupLoadCustomFieldsTest(t)
+func TestLoadWorkflowFields_HighestPriorityFileWins(t *testing.T) {
+	cwdDir := setupLoadWorkflowFieldsTest(t)
 	pm := mustGetPathManager()
 
 	// write fields in project config (lower priority)
@@ -187,7 +187,7 @@ fields:
 		t.Fatal(err)
 	}
 
-	if err := LoadCustomFields(); err != nil {
+	if err := LoadWorkflowFields(); err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
@@ -212,7 +212,6 @@ func TestCoerceFieldDefault_ValidTypes(t *testing.T) {
 		{"int", workflow.TypeInt, 42, nil, 42},
 		{"int from float", workflow.TypeInt, float64(3), nil, 3},
 		{"bool", workflow.TypeBool, false, nil, false},
-		{"enum valid", workflow.TypeEnum, "medium", []string{"low", "medium", "high"}, "medium"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -314,37 +313,40 @@ func TestCoerceFieldDefault_InvalidValues(t *testing.T) {
 	}
 }
 
-func TestConvertCustomFieldDef_WithDefault(t *testing.T) {
+func TestConvertCustomFieldDef_EnumValueDefault(t *testing.T) {
+	raw := customFieldYAML{
+		Name: "severity",
+		Type: "enum",
+		Values: []enumValueYAML{
+			{Value: "low"},
+			{Value: "medium", Default: true, HasDefault: true, Structured: true},
+			{Value: "high"},
+		},
+	}
+	fd, err := convertWorkflowFieldDef(raw)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if got := fd.EnumDefault(); got != "medium" {
+		t.Errorf("EnumDefault = %q, want medium", got)
+	}
+}
+
+func TestConvertCustomFieldDef_EnumRejectsFieldLevelDefault(t *testing.T) {
 	raw := customFieldYAML{
 		Name:    "severity",
 		Type:    "enum",
 		Values:  []enumValueYAML{{Value: "low"}, {Value: "medium"}, {Value: "high"}},
 		Default: "medium",
 	}
-	fd, err := convertCustomFieldDef(raw)
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	if fd.DefaultValue != "medium" {
-		t.Errorf("DefaultValue = %v, want \"medium\"", fd.DefaultValue)
-	}
-}
-
-func TestConvertCustomFieldDef_InvalidDefault(t *testing.T) {
-	raw := customFieldYAML{
-		Name:    "severity",
-		Type:    "enum",
-		Values:  []enumValueYAML{{Value: "low"}, {Value: "medium"}, {Value: "high"}},
-		Default: "invalid",
-	}
-	_, err := convertCustomFieldDef(raw)
+	_, err := convertWorkflowFieldDef(raw)
 	if err == nil {
-		t.Fatal("expected error for invalid default")
+		t.Fatal("expected error: enum field-level default no longer supported")
 	}
 }
 
-func TestLoadCustomFields_MissingFieldsSection(t *testing.T) {
-	cwdDir := setupLoadCustomFieldsTest(t)
+func TestLoadWorkflowFields_MissingFieldsSection(t *testing.T) {
+	cwdDir := setupLoadWorkflowFieldsTest(t)
 
 	// workflow exists but has no fields: section
 	if err := os.WriteFile(filepath.Join(cwdDir, "workflow.yaml"), []byte(`
@@ -356,7 +358,7 @@ views:
 		t.Fatal(err)
 	}
 
-	if err := LoadCustomFields(); err != nil {
+	if err := LoadWorkflowFields(); err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 

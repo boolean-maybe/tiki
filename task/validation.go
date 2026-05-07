@@ -36,7 +36,7 @@ func ValidateStatus(t *Task) string {
 	if t.Status == "" {
 		return ""
 	}
-	if config.GetStatusRegistry().IsValid(t.Status) {
+	if IsValidStatus(t.Status) {
 		return ""
 	}
 	return fmt.Sprintf("invalid status value: %s", t.Status)
@@ -49,7 +49,7 @@ func ValidateType(t *Task) string {
 	if t.Type == "" {
 		return ""
 	}
-	if requireTypeRegistry().IsValid(t.Type) {
+	if IsValidType(t.Type) {
 		return ""
 	}
 	return fmt.Sprintf("invalid type value: %s", t.Type)

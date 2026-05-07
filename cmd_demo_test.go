@@ -96,7 +96,7 @@ func TestRunDemo_DemoLoadsCleanlyUnderStrictIDs(t *testing.T) {
 
 	// runDemo materialized workflow.yaml; the store needs the status / type
 	// / custom-field registries loaded from it before parsing any doc.
-	if err := config.LoadWorkflowRegistries(); err != nil {
+	if err := config.LoadWorkflowFields(); err != nil {
 		t.Fatalf("LoadWorkflowRegistries: %v", err)
 	}
 

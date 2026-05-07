@@ -81,7 +81,12 @@ func TestFieldMapRoundTrip_ExactPresenceAcrossSaveLoad(t *testing.T) {
 			t.Errorf("schema-known field %q missing after reload", k)
 		}
 	}
-	for _, k := range tikipkg.SchemaKnownFields {
+	allWorkflowKeys := []string{
+		tikipkg.FieldStatus, tikipkg.FieldType, tikipkg.FieldPriority, tikipkg.FieldPoints,
+		tikipkg.FieldTags, tikipkg.FieldDependsOn, tikipkg.FieldDue, tikipkg.FieldRecurrence,
+		tikipkg.FieldAssignee,
+	}
+	for _, k := range allWorkflowKeys {
 		shouldBePresent := false
 		for _, want := range wantSchemaPresent {
 			if want == k {
@@ -90,7 +95,7 @@ func TestFieldMapRoundTrip_ExactPresenceAcrossSaveLoad(t *testing.T) {
 			}
 		}
 		if !shouldBePresent && got.Has(k) {
-			t.Errorf("schema-known field %q gained presence on reload (not set by caller); value=%v",
+			t.Errorf("workflow field %q gained presence on reload (not set by caller); value=%v",
 				k, got.Fields[k])
 		}
 	}

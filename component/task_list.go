@@ -39,24 +39,19 @@ func DefaultTaskRowColors() TaskRowColors {
 }
 
 // RenderTaskRow builds a tview-tagged string for a single tiki row.
+// The leading status ✓/○ indicator was dropped when status became an
+// ordinary enum field — workflows that want a glyph can use the enum
+// value's emoji metadata.
 func RenderTaskRow(tk *tikipkg.Tiki, selected bool, width int, idColumnWidth int, colors TaskRowColors) string {
-	status, _, _ := tk.StringField(tikipkg.FieldStatus)
-	var statusIndicator string
-	if config.GetStatusRegistry().IsDone(status) {
-		statusIndicator = colors.StatusDoneColor.Tag().String() + "✓[-]"
-	} else {
-		statusIndicator = colors.StatusPendingColor.Tag().String() + "○[-]"
-	}
-
 	idText := gradient.RenderAdaptiveGradientText(tk.ID, colors.IDGradient, colors.IDFallback)
 	if padding := idColumnWidth - len(tk.ID); padding > 0 {
 		idText += fmt.Sprintf("%*s", padding, "")
 	}
 
-	titleAvailable := max(width-1-1-idColumnWidth-1, 0)
+	titleAvailable := max(width-1-idColumnWidth-1, 0)
 	truncatedTitle := tview.Escape(util.TruncateText(tk.Title, titleAvailable))
 
-	row := fmt.Sprintf("%s %s %s%s", statusIndicator, idText, colors.TitleColor.Tag().String(), truncatedTitle)
+	row := fmt.Sprintf("%s %s%s", idText, colors.TitleColor.Tag().String(), truncatedTitle)
 
 	if selected {
 		row = colors.SelectionFg.Tag().WithBg(colors.SelectionBg).String() + row

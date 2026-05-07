@@ -193,19 +193,15 @@ fields:
       - value: ready
         label: Ready
         emoji: "📋"
-        active: true
       - value: inProgress
         label: "In Progress"
         emoji: "⚙️"
-        active: true
       - value: review
         label: Review
         emoji: "👀"
-        active: true
       - value: done
         label: Done
         emoji: "✅"
-        done: true
   - name: type
     type: enum
     values:

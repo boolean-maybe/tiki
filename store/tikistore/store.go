@@ -12,7 +12,6 @@ import (
 	"github.com/boolean-maybe/tiki/config"
 	"github.com/boolean-maybe/tiki/store"
 	"github.com/boolean-maybe/tiki/store/internal/git"
-	taskpkg "github.com/boolean-maybe/tiki/task"
 	"github.com/boolean-maybe/tiki/tiki"
 )
 
@@ -37,25 +36,6 @@ type TikiStore struct {
 	upgrader       *LegacyUpgrader   // normalizes legacy field values on load
 	identity       *identityResolver // resolves current Tiki identity (config→git→OS)
 	diagnostics    *LoadDiagnostics  // rejections from the most recent load/reload cycle
-}
-
-// taskFrontmatter represents the YAML frontmatter in task files.
-//
-// id is authoritative: loadTikiFile prefers fm.ID when present and valid,
-// falling back to the filename-derived ID for legacy files; save writes id:
-// back so every file has it after one load+save cycle.
-type taskFrontmatter struct {
-	ID         string                  `yaml:"id,omitempty"`
-	Title      string                  `yaml:"title"`
-	Type       string                  `yaml:"type"`
-	Status     string                  `yaml:"status"`
-	Tags       taskpkg.TagsValue       `yaml:"tags,omitempty"`
-	DependsOn  taskpkg.DependsOnValue  `yaml:"dependsOn,omitempty"`
-	Due        taskpkg.DueValue        `yaml:"due,omitempty"`
-	Recurrence taskpkg.RecurrenceValue `yaml:"recurrence,omitempty"`
-	Assignee   string                  `yaml:"assignee,omitempty"`
-	Priority   taskpkg.PriorityValue   `yaml:"priority,omitempty"`
-	Points     int                     `yaml:"points,omitempty"`
 }
 
 // NewTikiStore creates a new TikiStore.

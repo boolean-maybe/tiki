@@ -47,7 +47,7 @@ func TestCreateTiki_BareTikiWritesNoSchemaKeys(t *testing.T) {
 	if loaded == nil {
 		t.Fatal("GetTiki after Reload = nil")
 	}
-	if hasAnySchemaField(loaded) {
+	if hasAnyWorkflowField(loaded) {
 		t.Error("bare doc gained schema-known fields on reload — keys must not have been written to disk")
 	}
 }
@@ -76,7 +76,7 @@ func TestUpdateTiki_OmittingSchemaFieldsRemovesThem(t *testing.T) {
 
 	// Confirm starting state.
 	before := s.GetTiki("SHRINK")
-	if before == nil || !hasAnySchemaField(before) {
+	if before == nil || !hasAnyWorkflowField(before) {
 		t.Fatalf("precondition: expected schema fields present, got %+v", before)
 	}
 
@@ -95,7 +95,7 @@ func TestUpdateTiki_OmittingSchemaFieldsRemovesThem(t *testing.T) {
 	if after == nil {
 		t.Fatal("GetTiki after UpdateTiki = nil")
 	}
-	if hasAnySchemaField(after) {
+	if hasAnyWorkflowField(after) {
 		t.Error("UpdateTiki failed to drop schema-known fields under exact-presence")
 	}
 
@@ -107,7 +107,7 @@ func TestUpdateTiki_OmittingSchemaFieldsRemovesThem(t *testing.T) {
 	if reloaded == nil {
 		t.Fatal("reloaded doc missing")
 	}
-	if hasAnySchemaField(reloaded) {
+	if hasAnyWorkflowField(reloaded) {
 		t.Error("schema-known fields survived reload — they must have been written back to disk")
 	}
 }
@@ -145,7 +145,7 @@ func TestUpdateTiki_ClonedStoredTikiPreservesFields(t *testing.T) {
 		t.Fatalf("UpdateTiki: %v", err)
 	}
 
-	if got := s.GetTiki("CARRY1"); got == nil || !hasAnySchemaField(got) {
+	if got := s.GetTiki("CARRY1"); got == nil || !hasAnyWorkflowField(got) {
 		t.Errorf("UpdateTiki should preserve schema-known fields when the caller cloned the stored tiki; got %+v", got)
 	}
 }

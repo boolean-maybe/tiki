@@ -6,7 +6,7 @@ import (
 	"github.com/boolean-maybe/tiki/ruki/keyword"
 )
 
-func TestField(t *testing.T) {
+func TestSystemField(t *testing.T) {
 	tests := []struct {
 		name   string
 		want   ValueType
@@ -15,21 +15,13 @@ func TestField(t *testing.T) {
 		{"id", TypeID, true},
 		{"title", TypeString, true},
 		{"description", TypeString, true},
-		{"status", TypeEnum, true},
-		{"type", TypeEnum, true},
-		{"tags", TypeListString, true},
-		{"dependsOn", TypeListRef, true},
-		{"due", TypeDate, true},
-		{"recurrence", TypeRecurrence, true},
-		{"assignee", TypeString, true},
-		{"priority", TypeInt, true},
-		{"points", TypeInt, true},
 		{"createdBy", TypeString, true},
 		{"createdAt", TypeTimestamp, true},
 		{"updatedAt", TypeTimestamp, true},
+		{"filepath", TypeString, true},
+		{"status", 0, false}, // workflow field, not system
+		{"type", 0, false},   // workflow field, not system
 		{"nonexistent", 0, false},
-		{"comments", 0, false},    // excluded from DSL catalog
-		{"loadedMtime", 0, false}, // excluded from DSL catalog
 	}
 
 	for _, tt := range tests {
@@ -46,65 +38,37 @@ func TestField(t *testing.T) {
 	}
 }
 
-func TestFields(t *testing.T) {
-	fields := Fields()
-	if len(fields) != 16 {
-		t.Fatalf("expected 16 fields, got %d", len(fields))
+func TestIsSystemField(t *testing.T) {
+	for _, name := range []string{"id", "title", "description", "createdBy", "createdAt", "updatedAt", "filepath", "body"} {
+		if !IsSystemField(name) {
+			t.Errorf("IsSystemField(%q) = false, want true", name)
+		}
 	}
+	for _, name := range []string{"status", "type", "priority", "points", "tags", "anything"} {
+		if IsSystemField(name) {
+			t.Errorf("IsSystemField(%q) = true, want false", name)
+		}
+	}
+}
 
+func TestSystemFields(t *testing.T) {
+	fields := SystemFields()
+	if len(fields) != 7 {
+		t.Fatalf("expected 7 system fields, got %d", len(fields))
+	}
 	// verify it returns a copy
 	fields[0].Name = "modified"
 	original, _ := Field("id")
 	if original.Name == "modified" {
-		t.Error("Fields() should return a copy, not a reference to the internal slice")
-	}
-}
-
-func TestDateVsTimestamp(t *testing.T) {
-	due, _ := Field("due")
-	if due.Type != TypeDate {
-		t.Errorf("due should be TypeDate, got %v", due.Type)
-	}
-
-	createdAt, _ := Field("createdAt")
-	if createdAt.Type != TypeTimestamp {
-		t.Errorf("createdAt should be TypeTimestamp, got %v", createdAt.Type)
-	}
-
-	updatedAt, _ := Field("updatedAt")
-	if updatedAt.Type != TypeTimestamp {
-		t.Errorf("updatedAt should be TypeTimestamp, got %v", updatedAt.Type)
+		t.Error("SystemFields() should return a copy")
 	}
 }
 
 func TestValidateFieldName_RejectsKeywords(t *testing.T) {
 	for _, kw := range keyword.List() {
 		t.Run(kw, func(t *testing.T) {
-			err := ValidateFieldName(kw)
-			if err == nil {
+			if err := ValidateFieldName(kw); err == nil {
 				t.Errorf("expected error for reserved keyword %q", kw)
-			}
-		})
-	}
-}
-
-func TestValidateFieldName_CaseInsensitive(t *testing.T) {
-	for _, name := range []string{"SELECT", "Where", "AND", "Order", "NEW"} {
-		t.Run(name, func(t *testing.T) {
-			err := ValidateFieldName(name)
-			if err == nil {
-				t.Errorf("expected error for %q", name)
-			}
-		})
-	}
-}
-
-func TestValidateFieldName_AcceptsNonKeywords(t *testing.T) {
-	for _, name := range []string{"title", "status", "selectAll", "newsletter", "priority", "dependsOn"} {
-		t.Run(name, func(t *testing.T) {
-			err := ValidateFieldName(name)
-			if err != nil {
-				t.Errorf("unexpected error for %q: %v", name, err)
 			}
 		})
 	}
@@ -113,8 +77,7 @@ func TestValidateFieldName_AcceptsNonKeywords(t *testing.T) {
 func TestValidateFieldName_RejectsInvalidIdentifiers(t *testing.T) {
 	for _, name := range []string{"customer-id", "customer id", "9score", "a.b", ""} {
 		t.Run(name, func(t *testing.T) {
-			err := ValidateFieldName(name)
-			if err == nil {
+			if err := ValidateFieldName(name); err == nil {
 				t.Errorf("expected error for invalid identifier %q", name)
 			}
 		})
@@ -122,184 +85,159 @@ func TestValidateFieldName_RejectsInvalidIdentifiers(t *testing.T) {
 }
 
 func TestValidateFieldName_AcceptsValidIdentifiers(t *testing.T) {
-	for _, name := range []string{"_private", "score2", "myField", "A", "_"} {
+	for _, name := range []string{"_private", "score2", "myField", "A", "_", "status", "type"} {
 		t.Run(name, func(t *testing.T) {
-			err := ValidateFieldName(name)
-			if err != nil {
+			if err := ValidateFieldName(name); err != nil {
 				t.Errorf("unexpected error for %q: %v", name, err)
 			}
 		})
 	}
 }
 
-func TestRegisterCustomFields(t *testing.T) {
-	t.Cleanup(func() { ClearCustomFields() })
+func TestRegisterWorkflowFields_StatusIsOrdinaryEnum(t *testing.T) {
+	t.Cleanup(func() { ClearWorkflowFields() })
 
 	defs := []FieldDef{
-		{Name: "notes", Type: TypeString},
-		{Name: "score", Type: TypeInt},
-		{Name: "active", Type: TypeBool},
-		{Name: "startedAt", Type: TypeTimestamp},
-		{Name: "severity", Type: TypeEnum, AllowedValues: []string{"low", "medium", "high"}},
-		{Name: "labels", Type: TypeListString},
-		{Name: "related", Type: TypeListRef},
+		{
+			Name: "status",
+			Type: TypeEnum,
+			EnumValues: []EnumValue{
+				{Value: "open", Label: "Open", Emoji: "📂", Default: true},
+				{Value: "closed", Label: "Closed", Emoji: "🔒"},
+			},
+		},
+	}
+	if err := RegisterWorkflowFields(defs); err != nil {
+		t.Fatalf("register: %v", err)
 	}
 
-	if err := RegisterCustomFields(defs); err != nil {
-		t.Fatalf("unexpected error: %v", err)
+	f, ok := Field("status")
+	if !ok {
+		t.Fatal("status not found after register")
 	}
-
-	// verify Field() finds each custom field
-	for _, d := range defs {
-		f, ok := Field(d.Name)
-		if !ok {
-			t.Errorf("Field(%q) not found", d.Name)
-			continue
-		}
-		if f.Type != d.Type {
-			t.Errorf("Field(%q).Type = %v, want %v", d.Name, f.Type, d.Type)
-		}
-		if !f.Custom {
-			t.Errorf("Field(%q).Custom = false, want true", d.Name)
-		}
+	if !f.Custom {
+		t.Error("status.Custom should be true")
 	}
-
-	// verify Fields() includes custom fields
-	all := Fields()
-	if len(all) != 16+len(defs) {
-		t.Errorf("Fields() length = %d, want %d", len(all), 16+len(defs))
+	if f.EnumDefault() != "open" {
+		t.Errorf("EnumDefault = %q, want open", f.EnumDefault())
 	}
-
-	// verify enum AllowedValues
-	sev, _ := Field("severity")
-	if len(sev.AllowedValues) != 3 || sev.AllowedValues[0] != "low" {
-		t.Errorf("severity.AllowedValues = %v, want [low medium high]", sev.AllowedValues)
+	if !f.IsValidEnum("open") || !f.IsValidEnum("closed") {
+		t.Error("expected open/closed to be valid enum values")
+	}
+	if f.IsValidEnum("nonexistent") {
+		t.Error("nonexistent should not be valid")
+	}
+	if got := f.EnumDisplay("open"); got != "Open 📂" {
+		t.Errorf("EnumDisplay(open) = %q, want %q", got, "Open 📂")
+	}
+	if got := f.AllowedValues(); len(got) != 2 || got[0] != "open" || got[1] != "closed" {
+		t.Errorf("AllowedValues = %v", got)
 	}
 }
 
-func TestRegisterCustomFields_Collisions(t *testing.T) {
-	t.Cleanup(func() { ClearCustomFields() })
+func TestRegisterWorkflowFields_RejectsSystemFieldCollision(t *testing.T) {
+	t.Cleanup(func() { ClearWorkflowFields() })
 
-	// each built-in field name should be rejected
-	for _, name := range []string{"id", "title", "status", "priority", "tags", "due"} {
+	for _, name := range []string{"id", "title", "description", "createdAt", "createdBy", "updatedAt", "filepath", "body"} {
 		t.Run(name, func(t *testing.T) {
-			err := RegisterCustomFields([]FieldDef{{Name: name, Type: TypeString}})
+			err := RegisterWorkflowFields([]FieldDef{{Name: name, Type: TypeString}})
 			if err == nil {
-				t.Errorf("expected error for collision with built-in %q", name)
+				t.Errorf("expected error for system field collision %q", name)
 			}
 		})
 	}
 }
 
-func TestRegisterCustomFields_CaseInsensitiveBuiltinCollision(t *testing.T) {
-	t.Cleanup(func() { ClearCustomFields() })
+func TestRegisterWorkflowFields_CaseInsensitiveSystemCollision(t *testing.T) {
+	t.Cleanup(func() { ClearWorkflowFields() })
 
-	for _, name := range []string{"Title", "STATUS", "DependsOn", "DEPENDSON", "CreatedAt", "CREATEDAT"} {
+	for _, name := range []string{"Title", "ID", "CreatedAt", "BODY"} {
 		t.Run(name, func(t *testing.T) {
-			err := RegisterCustomFields([]FieldDef{{Name: name, Type: TypeString}})
-			if err == nil {
-				t.Errorf("expected error for case-insensitive collision with built-in for %q", name)
+			if err := RegisterWorkflowFields([]FieldDef{{Name: name, Type: TypeString}}); err == nil {
+				t.Errorf("expected error for case-insensitive collision %q", name)
 			}
 		})
 	}
 }
 
-func TestRegisterCustomFields_CaseInsensitiveBatchCollision(t *testing.T) {
-	t.Cleanup(func() { ClearCustomFields() })
+func TestRegisterWorkflowFields_EnumRejectsEmptyValues(t *testing.T) {
+	t.Cleanup(func() { ClearWorkflowFields() })
 
-	err := RegisterCustomFields([]FieldDef{
-		{Name: "myField", Type: TypeString},
-		{Name: "MyField", Type: TypeInt},
-	})
-	if err == nil {
-		t.Fatal("expected error for case-insensitive collision between custom fields")
-	}
-}
-
-func TestRegisterCustomFields_ReservedKeyword(t *testing.T) {
-	t.Cleanup(func() { ClearCustomFields() })
-
-	for _, name := range []string{"select", "where", "and", "order"} {
-		t.Run(name, func(t *testing.T) {
-			err := RegisterCustomFields([]FieldDef{{Name: name, Type: TypeString}})
-			if err == nil {
-				t.Errorf("expected error for reserved keyword %q", name)
-			}
-		})
-	}
-}
-
-func TestRegisterCustomFields_TrueFalseRejected(t *testing.T) {
-	t.Cleanup(func() { ClearCustomFields() })
-
-	for _, name := range []string{"true", "false", "True", "FALSE"} {
-		t.Run(name, func(t *testing.T) {
-			err := RegisterCustomFields([]FieldDef{{Name: name, Type: TypeString}})
-			if err == nil {
-				t.Errorf("expected error for boolean literal name %q", name)
-			}
-		})
-	}
-}
-
-func TestRegisterCustomFields_EnumRequiresValues(t *testing.T) {
-	t.Cleanup(func() { ClearCustomFields() })
-
-	err := RegisterCustomFields([]FieldDef{{Name: "severity", Type: TypeEnum}})
-	if err == nil {
+	if err := RegisterWorkflowFields([]FieldDef{{Name: "severity", Type: TypeEnum}}); err == nil {
 		t.Fatal("expected error for enum without values")
 	}
 }
 
-func TestClearCustomFields(t *testing.T) {
-	t.Cleanup(func() { ClearCustomFields() })
+func TestRegisterWorkflowFields_EnumRejectsMultipleDefaults(t *testing.T) {
+	t.Cleanup(func() { ClearWorkflowFields() })
 
-	err := RegisterCustomFields([]FieldDef{{Name: "notes", Type: TypeString}})
-	if err != nil {
+	defs := []FieldDef{{
+		Name: "status",
+		Type: TypeEnum,
+		EnumValues: []EnumValue{
+			{Value: "a", Default: true},
+			{Value: "b", Default: true},
+		},
+	}}
+	if err := RegisterWorkflowFields(defs); err == nil {
+		t.Fatal("expected error for multiple defaults")
+	}
+}
+
+func TestRegisterWorkflowFields_DefensiveCopy(t *testing.T) {
+	t.Cleanup(func() { ClearWorkflowFields() })
+
+	defs := []FieldDef{{
+		Name: "severity",
+		Type: TypeEnum,
+		EnumValues: []EnumValue{
+			{Value: "low", Label: "Low"},
+			{Value: "high", Label: "High"},
+		},
+	}}
+	if err := RegisterWorkflowFields(defs); err != nil {
+		t.Fatalf("register: %v", err)
+	}
+
+	// mutate the input — should not affect registry
+	defs[0].EnumValues[0].Value = "MUTATED"
+
+	f, _ := Field("severity")
+	if f.EnumValues[0].Value != "low" {
+		t.Errorf("input mutation leaked: %q", f.EnumValues[0].Value)
+	}
+}
+
+func TestClearWorkflowFields(t *testing.T) {
+	if err := RegisterWorkflowFields([]FieldDef{{Name: "notes", Type: TypeString}}); err != nil {
 		t.Fatalf("register: %v", err)
 	}
 	if _, ok := Field("notes"); !ok {
 		t.Fatal("field not found after register")
 	}
 
-	ClearCustomFields()
-
+	ClearWorkflowFields()
 	if _, ok := Field("notes"); ok {
 		t.Error("field still found after clear")
 	}
-
-	// Fields() should return only built-ins
-	if len(Fields()) != 16 {
-		t.Errorf("Fields() = %d, want 16 after clear", len(Fields()))
-	}
 }
 
-func TestRegisterCustomFields_DefensiveCopy(t *testing.T) {
-	t.Cleanup(func() { ClearCustomFields() })
-
-	inputVals := []string{"low", "high"}
-	defs := []FieldDef{{Name: "severity", Type: TypeEnum, AllowedValues: inputVals}}
-
-	if err := RegisterCustomFields(defs); err != nil {
-		t.Fatalf("register: %v", err)
+func TestEnumParseDisplay(t *testing.T) {
+	fd := FieldDef{
+		Name: "status",
+		Type: TypeEnum,
+		EnumValues: []EnumValue{
+			{Value: "open", Label: "Open", Emoji: "📂"},
+			{Value: "closed", Label: "Closed"},
+		},
 	}
-
-	// mutate the input slice — should not affect registry
-	inputVals[0] = "MUTATED"
-	defs[0].Name = "MUTATED"
-
-	f, ok := Field("severity")
-	if !ok {
-		t.Fatal("field not found")
+	if got, ok := fd.EnumParseDisplay("Open 📂"); !ok || got != "open" {
+		t.Errorf("EnumParseDisplay(Open 📂) = (%q, %v)", got, ok)
 	}
-	if f.AllowedValues[0] != "low" {
-		t.Errorf("input mutation leaked: AllowedValues[0] = %q, want %q", f.AllowedValues[0], "low")
+	if got, ok := fd.EnumParseDisplay("Closed"); !ok || got != "closed" {
+		t.Errorf("EnumParseDisplay(Closed) = (%q, %v)", got, ok)
 	}
-
-	// mutate the returned AllowedValues — should not affect registry
-	f.AllowedValues[0] = "MUTATED"
-	f2, _ := Field("severity")
-	if f2.AllowedValues[0] != "low" {
-		t.Errorf("returned mutation leaked: AllowedValues[0] = %q, want %q", f2.AllowedValues[0], "low")
+	if _, ok := fd.EnumParseDisplay("Bogus"); ok {
+		t.Error("expected EnumParseDisplay to fail on unknown display")
 	}
 }

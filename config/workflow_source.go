@@ -105,7 +105,7 @@ func ValidateWorkflowContent(content string) (*ValidatedWorkflow, error) {
 		return nil, fmt.Errorf("close temp file: %w", err)
 	}
 
-	statusReg, typeReg, fieldDefs, err := LoadRegistriesFromFile(tmp.Name())
+	fieldDefs, err := LoadWorkflowFieldsFromFile(tmp.Name())
 	if err != nil {
 		return nil, err
 	}
@@ -116,8 +116,6 @@ func ValidateWorkflowContent(content string) (*ValidatedWorkflow, error) {
 	}
 
 	return &ValidatedWorkflow{
-		StatusReg:   statusReg,
-		TypeReg:     typeReg,
 		FieldDefs:   fieldDefs,
 		TriggerDefs: triggerDefs,
 	}, nil
@@ -125,8 +123,6 @@ func ValidateWorkflowContent(content string) (*ValidatedWorkflow, error) {
 
 // ValidatedWorkflow holds the parsed components of a validated workflow file.
 type ValidatedWorkflow struct {
-	StatusReg   *workflow.StatusRegistry
-	TypeReg     *workflow.TypeRegistry
 	FieldDefs   []workflow.FieldDef
 	TriggerDefs []TriggerDef
 }

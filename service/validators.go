@@ -5,10 +5,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/boolean-maybe/tiki/config"
 	"github.com/boolean-maybe/tiki/document"
-	"github.com/boolean-maybe/tiki/task"
 	tikipkg "github.com/boolean-maybe/tiki/tiki"
+	"github.com/boolean-maybe/tiki/workflow"
 )
 
 // RegisterFieldValidators registers standard field validators with the gate.
@@ -24,7 +23,6 @@ func RegisterFieldValidators(g *TaskMutationGate) {
 
 func wrapTikiFieldValidator(fn func(*tikipkg.Tiki) string) MutationValidator {
 	return func(old, new *tikipkg.Tiki, _ []*tikipkg.Tiki) *Rejection {
-		// field validators only inspect the proposed tiki
 		t := new
 		if t == nil {
 			t = old // delete case
@@ -36,19 +34,15 @@ func wrapTikiFieldValidator(fn func(*tikipkg.Tiki) string) MutationValidator {
 	}
 }
 
-// AllTikiValidators returns the complete list of tiki field validation functions.
-// The validators are presence-aware: absent fields pass validation so sparse
-// workflow and plain docs are accepted.
+// AllTikiValidators returns the list of mutation-gate validators. Identity
+// invariants (title required, length cap) are system-level. Per-field
+// validation is driven by the loaded workflow catalog: every workflow-
+// declared field is checked against its declared type. Workflows that omit
+// fields naturally skip validation for those names.
 func AllTikiValidators() []func(*tikipkg.Tiki) string {
 	return []func(*tikipkg.Tiki) string{
 		validateTikiTitle,
-		validateTikiStatus,
-		validateTikiType,
-		validateTikiPriority,
-		validateTikiPoints,
-		validateTikiDependsOn,
-		validateTikiDue,
-		validateTikiRecurrence,
+		validateTikiWorkflowFields,
 	}
 }
 
@@ -64,142 +58,124 @@ func validateTikiTitle(tk *tikipkg.Tiki) string {
 	return ""
 }
 
-// validateTikiStatus returns an error message if the tiki status is invalid.
-// An absent status field passes validation. A present field that cannot be
-// coerced to a string (wrong stored type) is rejected.
-func validateTikiStatus(tk *tikipkg.Tiki) string {
-	s, ok, coerced := tk.StringField(tikipkg.FieldStatus)
-	if !ok {
+// validateTikiWorkflowFields walks every workflow-declared field and rejects
+// values that don't match the declared type. Absent fields pass (presence-
+// aware contract); fields not declared in workflow.yaml are not checked here
+// — they round-trip as unknown.
+func validateTikiWorkflowFields(tk *tikipkg.Tiki) string {
+	if tk == nil {
 		return ""
 	}
-	if !coerced {
-		return "status field has wrong type (expected string)"
-	}
-	if s == "" {
-		return ""
-	}
-	if config.GetStatusRegistry().IsValid(s) {
-		return ""
-	}
-	return fmt.Sprintf("invalid status value: %s", s)
-}
-
-// validateTikiType returns an error message if the tiki type is invalid.
-// An absent type field passes validation. A present field that cannot be
-// coerced to a string (wrong stored type) is rejected.
-func validateTikiType(tk *tikipkg.Tiki) string {
-	s, ok, coerced := tk.StringField(tikipkg.FieldType)
-	if !ok {
-		return ""
-	}
-	if !coerced {
-		return "type field has wrong type (expected string)"
-	}
-	if s == "" {
-		return ""
-	}
-	if config.GetTypeRegistry().IsValid(s) {
-		return ""
-	}
-	return fmt.Sprintf("invalid type value: %s", s)
-}
-
-// validateTikiPriority returns an error message if the tiki priority is out of range.
-// An absent or zero priority passes validation. A present field that cannot be
-// coerced to an int (wrong stored type) is rejected.
-func validateTikiPriority(tk *tikipkg.Tiki) string {
-	n, ok, coerced := tk.IntField(tikipkg.FieldPriority)
-	if !ok {
-		return ""
-	}
-	if !coerced {
-		return "priority field has wrong type (expected integer)"
-	}
-	if n == 0 {
-		return ""
-	}
-	if n < task.MinPriority || n > task.MaxPriority {
-		return fmt.Sprintf("priority must be between %d and %d", task.MinPriority, task.MaxPriority)
-	}
-	return ""
-}
-
-// validateTikiPoints returns an error message if tiki story points are out of range.
-// A present field that cannot be coerced to an int (wrong stored type) is rejected.
-func validateTikiPoints(tk *tikipkg.Tiki) string {
-	n, ok, coerced := tk.IntField(tikipkg.FieldPoints)
-	if !ok {
-		return ""
-	}
-	if !coerced {
-		return "points field has wrong type (expected integer)"
-	}
-	if n == 0 {
-		return ""
-	}
-	const minPoints = 1
-	maxPoints := config.GetMaxPoints()
-	if n < minPoints || n > maxPoints {
-		return fmt.Sprintf("story points must be between %d and %d", minPoints, maxPoints)
-	}
-	return ""
-}
-
-// validateTikiDependsOn returns an error message if any dependency ID is malformed.
-func validateTikiDependsOn(tk *tikipkg.Tiki) string {
-	deps, ok, coerced := tk.StringSliceField(tikipkg.FieldDependsOn)
-	if !ok {
-		return ""
-	}
-	if !coerced {
-		return "dependsOn field has wrong type (expected list of strings)"
-	}
-	for _, dep := range deps {
-		if !document.IsValidID(dep) {
-			return fmt.Sprintf("invalid document ID format: %s (expected %d uppercase alphanumeric chars)", dep, document.IDLength)
+	for _, fd := range workflow.WorkflowFields() {
+		raw, present := tk.Get(fd.Name)
+		if !present {
+			continue
+		}
+		if msg := validateWorkflowFieldValue(fd, raw); msg != "" {
+			return msg
 		}
 	}
 	return ""
 }
 
-// validateTikiDue returns an error message if the tiki due date is not normalized to midnight UTC.
-// A present field that cannot be coerced to a time.Time (wrong stored type) is rejected.
-func validateTikiDue(tk *tikipkg.Tiki) string {
-	tv, ok, coerced := tk.TimeField(tikipkg.FieldDue)
-	if !ok {
-		return ""
-	}
-	if !coerced {
-		return "due field has wrong type (expected date)"
-	}
-	if tv.IsZero() {
-		return ""
-	}
-	if tv.Hour() != 0 || tv.Minute() != 0 || tv.Second() != 0 || tv.Nanosecond() != 0 || tv.Location() != time.UTC {
-		return "due date must be normalized to midnight UTC (use date-only format)"
+// validateWorkflowFieldValue returns a human error message if raw doesn't
+// satisfy the declared type for fd, or "" if it does.
+func validateWorkflowFieldValue(fd workflow.FieldDef, raw interface{}) string {
+	switch fd.Type {
+	case workflow.TypeString:
+		if _, ok := raw.(string); !ok {
+			return fmt.Sprintf("%s field has wrong type (expected string)", fd.Name)
+		}
+
+	case workflow.TypeInt:
+		if _, ok := coerceIntValue(raw); !ok {
+			return fmt.Sprintf("%s field has wrong type (expected integer)", fd.Name)
+		}
+
+	case workflow.TypeBool:
+		if _, ok := raw.(bool); !ok {
+			return fmt.Sprintf("%s field has wrong type (expected boolean)", fd.Name)
+		}
+
+	case workflow.TypeEnum:
+		s, ok := raw.(string)
+		if !ok {
+			return fmt.Sprintf("%s field has wrong type (expected string)", fd.Name)
+		}
+		if s == "" {
+			return ""
+		}
+		if !fd.IsValidEnum(s) {
+			return fmt.Sprintf("invalid %s value: %s", fd.Name, s)
+		}
+
+	case workflow.TypeListString:
+		if _, ok := coerceStringListValue(raw); !ok {
+			return fmt.Sprintf("%s field has wrong type (expected list of strings)", fd.Name)
+		}
+
+	case workflow.TypeListRef:
+		ss, ok := coerceStringListValue(raw)
+		if !ok {
+			return fmt.Sprintf("%s field has wrong type (expected list of refs)", fd.Name)
+		}
+		for _, dep := range ss {
+			if !document.IsValidID(dep) {
+				return fmt.Sprintf("invalid document ID format: %s (expected %d uppercase alphanumeric chars)",
+					dep, document.IDLength)
+			}
+		}
+
+	case workflow.TypeDate, workflow.TypeTimestamp:
+		if _, ok := raw.(time.Time); !ok {
+			return fmt.Sprintf("%s field has wrong type (expected date)", fd.Name)
+		}
+
+	case workflow.TypeRef, workflow.TypeID:
+		s, ok := raw.(string)
+		if !ok {
+			return fmt.Sprintf("%s field has wrong type (expected ref string)", fd.Name)
+		}
+		if s != "" && !document.IsValidID(strings.ToUpper(strings.TrimSpace(s))) {
+			return fmt.Sprintf("invalid %s reference %q", fd.Name, s)
+		}
+
+	case workflow.TypeRecurrence, workflow.TypeDuration:
+		if _, ok := raw.(string); !ok {
+			return fmt.Sprintf("%s field has wrong type (expected string)", fd.Name)
+		}
 	}
 	return ""
 }
 
-// validateTikiRecurrence returns an error message if the tiki recurrence pattern is invalid.
-// A present field that cannot be coerced to a string (wrong stored type) is rejected.
-func validateTikiRecurrence(tk *tikipkg.Tiki) string {
-	s, ok, coerced := tk.StringField(tikipkg.FieldRecurrence)
-	if !ok {
-		return ""
+func coerceIntValue(raw interface{}) (int, bool) {
+	switch n := raw.(type) {
+	case int:
+		return n, true
+	case int64:
+		return int(n), true
+	case float64:
+		if n == float64(int64(n)) {
+			return int(n), true
+		}
 	}
-	if !coerced {
-		return "recurrence field has wrong type (expected string)"
+	return 0, false
+}
+
+func coerceStringListValue(raw interface{}) ([]string, bool) {
+	switch v := raw.(type) {
+	case []string:
+		return v, true
+	case []interface{}:
+		out := make([]string, 0, len(v))
+		for _, item := range v {
+			s, ok := item.(string)
+			if !ok {
+				return nil, false
+			}
+			out = append(out, s)
+		}
+		return out, true
 	}
-	if s == "" {
-		return ""
-	}
-	r := task.Recurrence(s)
-	if r == task.RecurrenceNone {
-		return ""
-	}
-	if !task.IsValidRecurrence(r) {
-		return fmt.Sprintf("invalid recurrence pattern: %s", s)
-	}
-	return ""
+	return nil, false
 }

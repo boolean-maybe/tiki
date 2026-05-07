@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/boolean-maybe/tiki/config"
+	"github.com/boolean-maybe/tiki/internal/teststatuses"
 	taskpkg "github.com/boolean-maybe/tiki/task"
 	tikipkg "github.com/boolean-maybe/tiki/tiki"
 	collectionutil "github.com/boolean-maybe/tiki/util/collections"
@@ -176,14 +176,14 @@ func TestInMemoryStore_UpdateTiki(t *testing.T) {
 			t.Fatalf("CreateTiki() error = %v", err)
 		}
 
-		// Update with a tiki that carries no schema-known fields. Exact-
+		// Update with a tiki that carries no workflow-declared fields. Exact-
 		// presence semantics drop the previously-stored status.
 		bare := &tikipkg.Tiki{ID: "WFMEM1", Title: "updated"}
 		if err := s.UpdateTiki(bare); err != nil {
 			t.Fatalf("UpdateTiki() error = %v", err)
 		}
-		if hasAnySchemaFieldMem(s.GetTiki("WFMEM1")) {
-			t.Error("schema-known fields should be removed with exact-presence UpdateTiki")
+		if hasAnyWorkflowFieldMem(s.GetTiki("WFMEM1")) {
+			t.Error("workflow-declared fields should be removed with exact-presence UpdateTiki")
 		}
 	})
 }
@@ -249,26 +249,26 @@ func TestInMemoryStore_TikiComment(t *testing.T) {
 
 // TestInMemoryStore_Search_FilterIsCallerSupplied verifies the search
 // contract: nil filter returns every tiki, while a caller-supplied predicate
-// (here, "has any schema-known field") narrows the result set. The store
+// (here, "has any workflow-declared field") narrows the result set. The store
 // itself does not classify tikis — filtering is purely caller-driven.
 func TestInMemoryStore_Search_FilterIsCallerSupplied(t *testing.T) {
 	s := NewInMemoryStore()
-	// one tiki has a schema-known field set.
+	// one tiki has a workflow-declared field set.
 	withSchema := tikipkg.New()
 	withSchema.ID = "WITH01"
 	withSchema.Title = "has status"
 	withSchema.Set("status", "backlog")
 	s.tikis["WITH01"] = withSchema
-	// the other has only id+title — no schema-known fields.
+	// the other has only id+title — no workflow-declared fields.
 	bare := tikipkg.New()
 	bare.ID = "BARE01"
 	bare.Title = "bare"
 	s.tikis["BARE01"] = bare
 
 	// SearchTikis with a presence-of-schema filter matches only the one
-	// that has a schema-known field set.
+	// that has a workflow-declared field set.
 	results := s.SearchTikis("", func(tk *tikipkg.Tiki) bool {
-		return hasAnySchemaFieldMem(tk)
+		return hasAnyWorkflowFieldMem(tk)
 	})
 	if len(results) != 1 || results[0].ID != "WITH01" {
 		t.Errorf("schema-presence filter: got %v, want [WITH01]", results)
@@ -429,9 +429,8 @@ func TestInMemoryStore_NewTikiTemplate(t *testing.T) {
 }
 
 func TestBuildMemoryFieldDefaults_DedupesCollectionDefaults(t *testing.T) {
-	config.MarkRegistriesLoadedForTest()
-	t.Cleanup(func() { workflow.ClearCustomFields() })
-	if err := workflow.RegisterCustomFields([]workflow.FieldDef{
+	t.Cleanup(teststatuses.Init)
+	if err := teststatuses.InitWith([]workflow.FieldDef{
 		{Name: "labels", Type: workflow.TypeListString, DefaultValue: []string{"backend", " backend ", "backend"}},
 		{Name: "related", Type: workflow.TypeListRef, DefaultValue: []string{"aaa001", "AAA001", "bbb002"}},
 	}); err != nil {

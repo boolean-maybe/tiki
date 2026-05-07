@@ -5,24 +5,16 @@ import (
 	"testing"
 	"time"
 
-	"github.com/boolean-maybe/tiki/config"
+	"github.com/boolean-maybe/tiki/internal/teststatuses"
 	"github.com/boolean-maybe/tiki/model"
 	"github.com/boolean-maybe/tiki/service"
 	"github.com/boolean-maybe/tiki/store"
 	"github.com/boolean-maybe/tiki/task"
 	tikipkg "github.com/boolean-maybe/tiki/tiki"
-	"github.com/boolean-maybe/tiki/workflow"
 )
 
 func init() {
-	// set up the default status registry for tests.
-	config.ResetStatusRegistry([]workflow.StatusDef{
-		{Key: "backlog", Label: "Backlog", Emoji: "📥", Default: true},
-		{Key: "ready", Label: "Ready", Emoji: "📋", Active: true},
-		{Key: "inProgress", Label: "In Progress", Emoji: "⚙️", Active: true},
-		{Key: "review", Label: "Review", Emoji: "👀", Active: true},
-		{Key: "done", Label: "Done", Emoji: "✅", Done: true},
-	})
+	teststatuses.Init()
 }
 
 // Test Draft Task Lifecycle

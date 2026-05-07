@@ -11,6 +11,7 @@ import (
 	"strings"
 
 	"github.com/boolean-maybe/tiki/document"
+	"github.com/boolean-maybe/tiki/workflow"
 )
 
 //go:embed board_sample.md
@@ -110,23 +111,19 @@ func withBundledDokiID(body string) string {
 	return fmt.Sprintf("---\nid: %q\n---\n%s", GenerateRandomID(), body)
 }
 
-// validateSampleTiki checks whether a sample tiki's type and status
-// are valid against the current workflow registries.
+// validateSampleTiki checks whether a sample tiki's frontmatter values are
+// valid against the current workflow field catalog. Any enum field present
+// in the sample is checked; non-enum fields are accepted as-is here.
 func validateSampleTiki(template string) bool {
 	matches := sampleFrontmatterRe.FindAllStringSubmatch(template, -1)
-	statusReg := GetStatusRegistry()
-	typeReg := GetTypeRegistry()
 	for _, m := range matches {
 		key, val := m[1], strings.TrimSpace(m[2])
-		switch key {
-		case "type":
-			if _, ok := typeReg.ParseType(val); !ok {
-				return false
-			}
-		case "status":
-			if !statusReg.IsValid(val) {
-				return false
-			}
+		fd, ok := workflow.Field(key)
+		if !ok || fd.Type != workflow.TypeEnum {
+			continue
+		}
+		if !fd.IsValidEnum(val) {
+			return false
 		}
 	}
 	return true
@@ -157,8 +154,8 @@ func BootstrapSystem(createSamples bool, gitAdd func(...string) error) error {
 		if err := InstallDefaultWorkflow(); err != nil {
 			slog.Warn("failed to install default workflow for sample validation", "error", err)
 		}
-		if err := LoadWorkflowRegistries(); err != nil {
-			slog.Warn("failed to load workflow registries for sample validation; skipping samples", "error", err)
+		if err := LoadWorkflowFields(); err != nil {
+			slog.Warn("failed to load workflow fields for sample validation; skipping samples", "error", err)
 			createSamples = false
 		}
 	}

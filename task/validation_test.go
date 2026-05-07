@@ -10,13 +10,28 @@ import (
 )
 
 func init() {
-	// set up the default status registry for tests.
-	config.ResetStatusRegistry([]workflow.StatusDef{
-		{Key: "backlog", Label: "Backlog", Emoji: "📥", Default: true},
-		{Key: "ready", Label: "Ready", Emoji: "📋", Active: true},
-		{Key: "inProgress", Label: "In Progress", Emoji: "⚙️", Active: true},
-		{Key: "review", Label: "Review", Emoji: "👀", Active: true},
-		{Key: "done", Label: "Done", Emoji: "✅", Done: true},
+	config.ResetWorkflowFieldsForTest([]workflow.FieldDef{
+		{
+			Name: "status",
+			Type: workflow.TypeEnum,
+			EnumValues: []workflow.EnumValue{
+				{Value: "backlog", Label: "Backlog", Emoji: "📥", Default: true},
+				{Value: "ready", Label: "Ready", Emoji: "📋"},
+				{Value: "inProgress", Label: "In Progress", Emoji: "⚙️"},
+				{Value: "review", Label: "Review", Emoji: "👀"},
+				{Value: "done", Label: "Done", Emoji: "✅"},
+			},
+		},
+		{
+			Name: "type",
+			Type: workflow.TypeEnum,
+			EnumValues: []workflow.EnumValue{
+				{Value: "story", Label: "Story", Emoji: "🌀", Default: true},
+				{Value: "bug", Label: "Bug", Emoji: "💥"},
+				{Value: "spike", Label: "Spike", Emoji: "🔍"},
+				{Value: "epic", Label: "Epic", Emoji: "🗂️"},
+			},
+		},
 	})
 }
 

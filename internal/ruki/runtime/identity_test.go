@@ -7,22 +7,17 @@ import (
 	"testing"
 
 	"github.com/boolean-maybe/tiki/config"
+	"github.com/boolean-maybe/tiki/internal/teststatuses"
 	"github.com/boolean-maybe/tiki/service"
 	"github.com/boolean-maybe/tiki/store/tikistore"
 	tikipkg "github.com/boolean-maybe/tiki/tiki"
-	"github.com/boolean-maybe/tiki/workflow"
 )
 
-// ensureStatusesLoaded installs the same status registry used by other runner
-// tests so user()-based SELECTs and UPDATEs can validate against a real schema.
+// ensureStatusesLoaded installs the canonical test field catalog so
+// user()-based SELECTs and UPDATEs can validate against a real schema.
 func ensureStatusesLoaded(t *testing.T) {
 	t.Helper()
-	config.ResetStatusRegistry([]workflow.StatusDef{
-		{Key: "backlog", Label: "Backlog", Emoji: "📥", Default: true},
-		{Key: "ready", Label: "Ready", Emoji: "📋", Active: true},
-		{Key: "inProgress", Label: "In Progress", Emoji: "⚙️", Active: true},
-		{Key: "done", Label: "Done", Emoji: "✅", Done: true},
-	})
+	teststatuses.Init()
 }
 
 // isolateConfigRuntime mirrors the tikistore test helper: it sandboxes cwd

@@ -9,11 +9,26 @@ import (
 )
 
 func initTestRegistries() {
-	config.ResetStatusRegistry([]workflow.StatusDef{
-		{Key: "backlog", Label: "Backlog", Emoji: "📥", Default: true},
-		{Key: "ready", Label: "Ready", Emoji: "📋", Active: true},
-		{Key: "inProgress", Label: "In Progress", Emoji: "⚙️", Active: true},
-		{Key: "done", Label: "Done", Emoji: "✅", Done: true},
+	config.ResetWorkflowFieldsForTest([]workflow.FieldDef{
+		{Name: "status", Type: workflow.TypeEnum, EnumValues: []workflow.EnumValue{
+			{Value: "backlog", Label: "Backlog", Emoji: "📥", Default: true},
+			{Value: "ready", Label: "Ready", Emoji: "📋"},
+			{Value: "inProgress", Label: "In Progress", Emoji: "⚙️"},
+			{Value: "done", Label: "Done", Emoji: "✅"},
+		}},
+		{Name: "type", Type: workflow.TypeEnum, EnumValues: []workflow.EnumValue{
+			{Value: "story", Label: "Story", Default: true},
+			{Value: "bug", Label: "Bug"},
+			{Value: "spike", Label: "Spike"},
+			{Value: "epic", Label: "Epic"},
+		}},
+		{Name: "priority", Type: workflow.TypeInt},
+		{Name: "points", Type: workflow.TypeInt},
+		{Name: "tags", Type: workflow.TypeListString},
+		{Name: "dependsOn", Type: workflow.TypeListRef},
+		{Name: "due", Type: workflow.TypeDate},
+		{Name: "recurrence", Type: workflow.TypeRecurrence},
+		{Name: "assignee", Type: workflow.TypeString},
 	})
 }
 

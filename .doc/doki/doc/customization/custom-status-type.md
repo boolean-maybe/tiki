@@ -1,7 +1,9 @@
 # Custom Statuses and Types
 
-Statuses and types are user-configurable enum fields in `workflow.yaml`.
-Both follow the same structural rules with a few differences noted below.
+`status` and `type` are ordinary enum fields declared in `workflow.yaml fields:`. They have no
+special semantics in the runtime — only the meaning you encode via the enum values you declare.
+This page covers the validation rules that apply to any enum field, with `status` and `type` as
+examples.
 
 ## Configuration
 
@@ -19,17 +21,16 @@ fields:
       - value: inProgress
         label: "In Progress"
         emoji: "⚙️"
-        active: true
       - value: done
         label: Done
         emoji: "✅"
-        done: true
   - name: type
     type: enum
     values:
       - value: story
         label: Story
         emoji: "🌀"
+        default: true
       - value: bug
         label: Bug
         emoji: "💥"
@@ -37,64 +38,33 @@ fields:
 
 ### Shared Rules
 
-These rules apply identically to both built-in enum fields:
+These rules apply to every enum field:
 
 | Rule | Detail |
 |---|---|
-| Canonical values | Values must already be in canonical form. Non-canonical values are rejected with a suggestion. |
 | Label defaults to value | When `label` is omitted, the value is used as the label. |
-| Empty labels rejected | Explicitly empty or whitespace-only labels are invalid. |
 | Emoji trimmed | Leading/trailing whitespace is stripped from emoji values. |
 | Unique display strings | Each entry must produce a unique `"Label Emoji"` display. Duplicates are rejected. |
 | At least one entry | An empty list is invalid. |
-| Duplicate values rejected | Two entries with the same canonical value are invalid. |
+| Duplicate values rejected | Two entries with the same value are invalid. |
 | Unknown keys rejected | Only documented metadata keys are allowed in each entry. |
+| At most one `default: true` | The default value is the creation default for the field. |
 
-### Status-Only Keys
+Valid keys in an enum value entry: `value`, `label`, `emoji`, `default`.
 
-Statuses support additional boolean flags that types do not:
-
-| Key | Required | Description |
-|---|---|---|
-| `active` | no | Marks a status as active (in-progress work). |
-| `default` | at most one | The status assigned to newly created tikis. Optional for notes-only projects. |
-| `done` | exactly one | The terminal status representing completion. |
-
-Valid keys in a status value entry: `value`, `label`, `emoji`, `active`, `default`, `done`.
-
-### Type-Only Behavior
-
-Types support one optional boolean flag:
-
-| Key | Required | Description |
-|---|---|---|
-| `default` | no | The type assigned to newly created tikis. At most one allowed; first type is fallback. |
-
-Valid keys in a type value entry: `value`, `label`, `emoji`, `default`.
-
-### Key Normalization
-
-Status and type values use different normalization rules:
-
-- **Status values** use camelCase. Splits on `_`, `-`, ` `, and camelCase boundaries, then reassembles as
-  camelCase.
-  Examples: `"in_progress"` -> `"inProgress"`, `"In Progress"` -> `"inProgress"`.
-
-- **Type values** are lowercased with all separators stripped.
-  Examples: `"My-Type"` -> `"mytype"`, `"some_thing"` -> `"something"`.
-
-Values in `workflow.yaml` must already be in their canonical form. Input normalization (from user queries,
-ruki expressions, etc.) still applies at lookup time.
+The legacy `active:` and `done:` flags on enum values are no longer accepted — they were
+status-specific concepts that the runtime no longer recognizes. If you want a visual cue for
+"in-progress" or "terminal" states, use the `emoji:` field on each value (e.g. ✅ on the value
+that represents completion).
 
 ### Required Sections
 
+`status` and `type` are not built-in. If a workflow declares them in `fields:`, they behave like
+any other enum field. If your workflow doesn't declare them, no `status` or `type` semantics
+exist for that workflow — frontmatter values for those keys round-trip as unknown.
+
 All workflow-backed sections come from the single highest-priority `workflow.yaml`.
 See [Configuration: Precedence](../config.md#precedence).
-
-- Missing `fields:` entry `name: status` in the winning file is an error.
-- Missing `fields:` entry `name: type` in the winning file is an error.
-
-There are no built-in fallbacks for either section.
 
 ## Failure Behavior
 
@@ -103,27 +73,26 @@ There are no built-in fallbacks for either section.
 | Scenario | Behavior |
 |---|---|
 | Empty list | Error |
-| Non-canonical value | Error with suggested canonical form |
 | Empty/whitespace label | Error |
 | Duplicate display string | Error |
-| Unknown metadata key in entry | Error |
-| Missing `default: true` (statuses) | OK — notes-only project; new captures save with only `id` and `title` |
-| Missing `done: true` (statuses) | Error |
-| Multiple `default: true` (statuses) | Error |
-| Multiple `done: true` (statuses) | Error |
-| Multiple `default: true` (types) | Error |
+| Unknown metadata key in entry (e.g. `active:` / `done:`) | Error with migration message |
+| Multiple `default: true` | Error |
 
 ### Invalid Saved Tasks
 
-- A tiki with a missing or unknown `type` fails to load and is skipped.
-- On single-task reload (`ReloadTask`), an invalid file causes the task to be removed from memory.
+- An enum value not declared in `workflow.yaml` is demoted to "stale" on load and round-trips
+  verbatim, so the user can see the bad value and run `tiki repair` rather than silently lose it.
+- Save-time validation (the mutation gate) rejects writes whose enum values don't match the
+  declared set.
 
 ### Cross-Reference Errors
 
-If the active workflow file defines types that don't match the views, actions, or triggers in the same file,
-startup fails with a configuration error. There is no silent view-skipping or automatic remapping.
+If the active workflow file defines values that don't match the views, actions, or triggers in the
+same file, startup fails with a configuration error. There is no silent view-skipping or automatic
+remapping.
 
 ## Pre-Init Rules
 
-Calling type or status helpers (`task.ParseType()`, `task.AllTypes()`, `task.DefaultType()`,
-`task.ParseStatus()`, etc.) before `config.LoadWorkflowRegistries()` is a programmer error and panics.
+Calling enum helpers (`task.ParseType()`, `task.AllTypes()`, `task.DefaultType()`,
+`task.ParseStatus()`, etc.) before `config.LoadWorkflowFields()` returns empty/zero values without
+panicking. Helpers fall back to "no enum field configured" semantics when the catalog is empty.

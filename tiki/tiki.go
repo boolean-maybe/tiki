@@ -76,7 +76,7 @@ func New() *Tiki {
 
 // Clone returns a deep copy. Slice values inside Fields are copied; maps
 // nested inside Fields are copied one level (sufficient for all current
-// schema-known values and the unknown-field round-trip case).
+// workflow-declared values and the unknown-field round-trip case).
 func (t *Tiki) Clone() *Tiki {
 	if t == nil {
 		return nil

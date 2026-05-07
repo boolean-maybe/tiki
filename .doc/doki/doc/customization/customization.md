@@ -42,33 +42,26 @@ fields:
       - value: ready
         label: Ready
         emoji: "📋"
-        active: true
       - value: inProgress
         label: "In Progress"
         emoji: "⚙️"
-        active: true
       - value: review
         label: Review
         emoji: "👀"
-        active: true
       - value: done
         label: Done
         emoji: "✅"
-        done: true
 ```
 
-Each status has:
-- `value` — canonical camelCase identifier. Used in filters, actions, and frontmatter.
-- `label` — display name shown in the UI (defaults to key when omitted)
-- `emoji` — emoji shown alongside the label
-- `active` — marks the status as "active work" (used for activity tracking)
-- `default` — the status assigned to new tikis on explicit creation (optional, at most one). When
-  no status is marked `default: true`, no creation defaults are applied at all (see "Task Creation
-  Defaults" below) — the resulting tiki carries only `id` and `title`.
-- `done` — marks the status as "completed" (exactly one required)
+Each enum value has:
+- `value` — canonical identifier (camelCase recommended). Used in filters, actions, and frontmatter.
+- `label` — display name shown in the UI (defaults to value when omitted).
+- `emoji` — emoji shown alongside the label. Use this to mark "done"/"in progress" with a glyph
+  (e.g. ✅ on the terminal value) — there is no separate `done:` flag.
+- `default` — at most one value may carry `default: true`; that value is the creation default.
 
-You can customize these to match your team's workflow. All filters and actions in view definitions
-(see below) must reference valid status keys.
+`status` is just an ordinary enum field — no value is special-cased by the runtime. All filters
+and actions in view definitions must reference valid `value` keys.
 
 ## Types
 
@@ -105,24 +98,18 @@ If no type is marked, the first configured type wins.
 
 ## Task Creation Defaults
 
-Creation defaults are gated on a `default: true` status. When the active workflow declares one, new
-tikis (from `tiki exec 'create ...'`, piped capture, sample generation, and the TUI's create action)
-get the full default set:
+Creation defaults are derived from `workflow.yaml fields:`. Every field that declares a default
+contributes one frontmatter key on capture:
 
-**Built-in defaults** (hardcoded, not configurable):
-- `priority` = 3
-- `points` = 1
-- `tags` = `["idea"]`
+- Enum fields apply the value marked `default: true` (typically `status: backlog`, `type: story`).
+- Non-enum fields apply their declared `default:` value (e.g. `priority: 3`, `points: 1`,
+  `tags: ["idea"]`).
+- Fields with no declared default are absent from the captured frontmatter — the tiki only carries
+  what the workflow asked for.
 
-**Workflow defaults** (configurable in `workflow.yaml`):
-- `status` — the status marked `default: true`
-- `type` — the type marked `default: true`, or the first type if none is marked
-- custom fields — any field with a `default:` value (see [Custom fields](custom-fields.md))
-
-When no status is marked `default: true`, **none** of these defaults are applied — including
-`priority`, `points`, `tags`, `type`, and custom-field defaults. The new tiki is saved with only
-`id` and `title` populated. This is the supported way to run a notes-only project: piped capture
-and `create` produce field-free tikis that stay out of board and list views.
+If the workflow declares no defaults at all, capture produces a tiki with only `id` and `title` —
+useful for notes-only projects where piped input should be a plain document rather than a tracked
+task.
 
 ```yaml
 fields:
@@ -135,8 +122,15 @@ fields:
         default: true
   - name: severity
     type: enum
-    values: [critical, high, medium, low]
-    default: medium
+    values:
+      - value: critical
+      - value: high
+      - value: medium
+        default: true
+      - value: low
+  - name: priority
+    type: integer
+    default: 3
 ```
 
 ## Views
@@ -272,8 +266,9 @@ actions:
 
 #### `metadata:` field list
 
-Each entry in `metadata:` is the canonical name of a schema-known field. Entries render in the listed
-order, between the title block and the description body.
+Each entry in `metadata:` is the name of a workflow-declared field, or one of the supported audit
+fields: `createdBy`, `createdAt`, `updatedAt`. Entries render in the listed order, between the
+title block and the description body.
 
 The default detail view ships with three fields:
 
@@ -281,19 +276,26 @@ The default detail view ships with three fields:
 metadata: [status, type, priority]
 ```
 
-The detail view's field registry currently knows how to render: `status`, `type`, `priority`, `points`,
-`assignee`, `due`, `recurrence`, `tags`, `dependsOn`. Of these, `status`, `type`, and `priority` are
-fully editable in place; the rest render as read-only today and will gain editors in a future
-iteration.
+Any field declared in `workflow.yaml fields:` — plus the audit fields above — may appear in
+`metadata:`. Fields with typed editors in the view layer (`status`, `type`, and `priority` today)
+are fully editable in place; all other accepted fields render as a generic read-only
+`Label: value` row. Project-specific fields like `severity`, `sprint`, or `blocked` therefore work
+in `metadata:` without any code change — they simply render as a labeled row with the value
+formatted by their declared type. Richer typed editors for additional types will land in future
+iterations.
 
 Validation rules — workflow load fails when:
 
-- An entry is not a known schema field name.
-- An entry is `title`, `description`, `body`, or `id` (identity/body fields are always rendered).
-- An entry is a schema-known field that the detail view's field registry does not yet render
-  (e.g. arbitrary custom fields). Listing such a field is a load-time error rather than a silent
-  placeholder so misconfiguration is visible.
+- An entry is not a workflow-declared field or a supported audit field
+  (`createdBy`, `createdAt`, `updatedAt`).
+- An entry is `id`, `title`, `description`, or `body` — those are rendered by the detail view
+  chrome, not as metadata rows.
+- An entry is `filepath` or `path` — those values live on the tiki struct rather than in Fields
+  and have no typed renderer yet.
 - The same field is listed more than once.
+
+Audit fields (`createdBy`, `createdAt`, `updatedAt`) are accepted and render as read-only rows;
+the bundled kanban workflow includes them in its `metadata:` list.
 
 #### Detail view actions
 
@@ -328,13 +330,15 @@ Fields whose semantic type has only a stub editor (everything other than `status
 them. This is intentional: a stub editor that swallowed focus would be confusing without a real
 input widget behind it.
 
-#### Custom fields in detail views
+#### Project-specific fields in detail views
 
-Custom fields can be referenced in board/list filters, lane actions, and global/per-view actions
-today. The detail view's field registry does **not** yet render arbitrary custom fields, so listing
-one in `metadata:` is rejected at load time. Rendering and editing of custom fields in detail views
-is a future enhancement; until it lands, expose custom-field values through ruki actions
-(e.g. `update where id = id() set severity = input()`).
+Any field declared in `workflow.yaml fields:` — including project-specific fields like
+`severity`, `sprint`, or `blocked` — can appear in `metadata:`. Fields without a typed editor
+render as a generic read-only `Label: value` row, with the value formatted by the field's declared
+type (lists are joined with commas, dates show as `YYYY-MM-DD`, enums show their `Label Emoji`,
+absent values show as `—`). To set such a field, use a ruki action
+(e.g. `update where id = id() set severity = input()`); typed in-place editors for additional
+types will land in future iterations.
 
 ### Lane width
 

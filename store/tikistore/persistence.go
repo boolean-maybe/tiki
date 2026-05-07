@@ -121,23 +121,12 @@ func (s *TikiStore) loadTikiFile(path string, authorMap map[string]*git.AuthorIn
 	}
 	parsed.t.LoadedMtime = info.ModTime()
 
-	// Type validation: a tiki that carries any schema-known field with an
-	// unknown explicit `type` is a hard load error. Tikis without any
-	// schema-known fields have no `type:` in their frontmatter so this
-	// check is a no-op for them.
-	hasSchemaFields := hasAnySchemaField(parsed.t)
-	if hasSchemaFields {
-		if rawType, ok := parsed.raw["type"].(string); ok && rawType != "" {
-			if _, typeOK := taskpkg.ParseType(rawType); !typeOK {
-				return nil, fmt.Errorf("unknown type %q", rawType)
-			}
-		} else if fmType, ok := parsed.t.Fields["type"].(string); ok && fmType != "" {
-			// belt-and-suspenders — Fields["type"] set from taskFrontmatter.Type
-			if _, typeOK := taskpkg.ParseType(fmType); !typeOK {
-				return nil, fmt.Errorf("unknown type %q", fmType)
-			}
-		}
-	}
+	// Load is permissive: stale enum values, list-shape mismatches, and
+	// other coercion failures are recorded by buildFieldsFromFrontmatter as
+	// stale so the on-disk value round-trips for repair. Save-time
+	// validation (validateTikiCustomFields) is the gate that enforces the
+	// declared schema once a tiki has been intentionally written.
+	hasSchemaFields := hasAnyWorkflowField(parsed.t)
 
 	tk := parsed.t
 
@@ -151,9 +140,9 @@ func (s *TikiStore) loadTikiFile(path string, authorMap map[string]*git.AuthorIn
 		tk.MarkStaleForPersistence(k)
 	}
 
-	// Apply schema validation / clamping on the Tiki's Fields map. Only
-	// runs when at least one schema-known field is present; tikis without
-	// any schema-known fields keep their zero values intact.
+	// Apply post-load clamping on the Tiki's Fields map. Only runs when
+	// at least one workflow-declared field is present; tikis without any
+	// workflow fields keep their zero values intact.
 	//
 	// NOTE: We intentionally do NOT inject a default "type" here even for
 	// files that omit it. The tiki Fields map must faithfully reflect
@@ -345,31 +334,27 @@ func (s *TikiStore) ReloadTask(taskID string) error {
 	return nil
 }
 
-// validateTikiCustomFields enforces the same save-time contract as
-// validateCustomFields but operates on a *tiki.Tiki instead of task.Task.
-// Custom fields are any Fields entries that are (a) not schema-known, (b)
-// not identity/comments keys, (c) not marked stale, and (d) registered as
-// Custom=true in the workflow registry. Non-custom registered fields and
-// unregistered (unknown) fields bypass validation and round-trip verbatim.
+// validateTikiCustomFields enforces the save-time contract: every Fields
+// entry whose key is a workflow-declared field must satisfy that field's
+// type. System-only keys (createdBy, comments) are skipped, stale keys
+// bypass validation (round-trip verbatim), and unregistered keys round-trip
+// as unknown (not a workflow-field error).
 func validateTikiCustomFields(tk *tiki.Tiki) error {
 	if tk == nil || len(tk.Fields) == 0 {
 		return nil
 	}
 	staleKeys := tk.StaleKeys()
 	for k := range tk.Fields {
-		if tiki.IsSchemaKnown(k) || k == "createdBy" || k == "comments" {
+		if k == "createdBy" || k == "comments" {
 			continue
 		}
 		if _, isStale := staleKeys[k]; isStale {
-			// stale = came from UnknownFields; bypass validation like Task.UnknownFields
 			continue
 		}
 		fd, registered := workflow.Field(k)
 		if !registered || !fd.Custom {
-			// unregistered keys round-trip as unknown — not a custom field error
 			continue
 		}
-		// it IS a registered custom field: validate it
 		if err := validateCustomFieldEntry(k, tk.Fields[k], fd); err != nil {
 			return err
 		}
@@ -390,12 +375,10 @@ func validateCustomFieldEntry(k string, v interface{}, fd workflow.FieldDef) err
 		if !ok {
 			return fmt.Errorf("enum field %q must be a string, got %T", k, v)
 		}
-		for _, allowed := range fd.AllowedValues {
-			if s == allowed {
-				return nil
-			}
+		if fd.IsValidEnum(s) {
+			return nil
 		}
-		return fmt.Errorf("invalid enum value %q for field %q (allowed: %v)", s, k, fd.AllowedValues)
+		return fmt.Errorf("invalid enum value %q for field %q (allowed: %v)", s, k, fd.AllowedValues())
 	}
 	return nil
 }
@@ -522,22 +505,12 @@ func (s *TikiStore) pathForTiki(tk *tiki.Tiki) string {
 	return s.taskFilePath(tk.ID)
 }
 
-// builtInFrontmatterKeys lists keys handled by the taskFrontmatter struct.
-var builtInFrontmatterKeys = map[string]bool{
-	"id": true, "title": true, "type": true, "status": true,
-	"tags": true, "dependsOn": true, "due": true, "recurrence": true,
-	"assignee": true, "priority": true, "points": true,
-}
-
-// extractCustomFields reads custom field values from a raw frontmatter map.
-// Built-in keys are skipped. Registered custom fields are coerced and returned
-// in the first map. Unrecognised non-builtin keys are preserved verbatim in
-// the second map so they survive a load→save round-trip.
-//
-// extractCustomFields splits a frontmatter map into known-custom and unknown
-// fields. Production loads go through buildFieldsFromFrontmatter in
-// tiki_bridge.go; this helper exists for unit tests that exercise coercion rules
-// in isolation.
+// extractCustomFields splits a frontmatter map into workflow-declared fields
+// (with values coerced through the catalog) and unrecognised keys preserved
+// verbatim for round-trip. Identity keys (id, title, body) and system fields
+// are skipped. Production loads go through buildFieldsFromFrontmatter in
+// tiki_bridge.go; this helper exists for unit tests that exercise coercion
+// rules in isolation.
 func extractCustomFields(fmMap map[string]interface{}) (customFields, unknownFields map[string]interface{}, err error) {
 	if fmMap == nil {
 		return nil, nil, nil
@@ -545,12 +518,12 @@ func extractCustomFields(fmMap map[string]interface{}) (customFields, unknownFie
 
 	registryChecked := false
 	for key, raw := range fmMap {
-		if builtInFrontmatterKeys[key] {
+		if key == "id" || key == "title" || tiki.IsIdentityField(key) {
 			continue
 		}
 		// defer registry check until we actually encounter a non-builtin key
 		if !registryChecked {
-			if err := config.RequireWorkflowRegistriesLoaded(); err != nil {
+			if err := config.RequireWorkflowFieldsLoaded(); err != nil {
 				return nil, nil, fmt.Errorf("extractCustomFields: %w", err)
 			}
 			registryChecked = true
@@ -606,12 +579,12 @@ func coerceCustomValue(fd workflow.FieldDef, raw interface{}) (interface{}, erro
 		if !ok {
 			return nil, fmt.Errorf("expected string for enum, got %T", raw)
 		}
-		for _, av := range fd.AllowedValues {
+		for _, av := range fd.AllowedValues() {
 			if strings.EqualFold(s, av) {
 				return av, nil // canonical casing
 			}
 		}
-		return nil, fmt.Errorf("value %q not in allowed values %v", s, fd.AllowedValues)
+		return nil, fmt.Errorf("value %q not in allowed values %v", s, fd.AllowedValues())
 
 	case workflow.TypeInt:
 		switch v := raw.(type) {
@@ -633,7 +606,7 @@ func coerceCustomValue(fd workflow.FieldDef, raw interface{}) (interface{}, erro
 		}
 		return b, nil
 
-	case workflow.TypeTimestamp:
+	case workflow.TypeTimestamp, workflow.TypeDate:
 		switch v := raw.(type) {
 		case time.Time:
 			return v, nil
@@ -648,6 +621,20 @@ func coerceCustomValue(fd workflow.FieldDef, raw interface{}) (interface{}, erro
 		default:
 			return nil, fmt.Errorf("expected time or string for timestamp, got %T", raw)
 		}
+
+	case workflow.TypeRecurrence:
+		s, ok := raw.(string)
+		if !ok {
+			return nil, fmt.Errorf("expected string for recurrence, got %T", raw)
+		}
+		return s, nil
+
+	case workflow.TypeRef, workflow.TypeID:
+		s, ok := raw.(string)
+		if !ok {
+			return nil, fmt.Errorf("expected string for ref/id, got %T", raw)
+		}
+		return strings.ToUpper(strings.TrimSpace(s)), nil
 
 	case workflow.TypeListString:
 		return coerceStringList(raw)

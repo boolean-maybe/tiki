@@ -8,7 +8,7 @@ import (
 )
 
 // Phase 4: ruki `create` preserves template defaults alongside caller
-// overrides. The Tiki that ruki produces carries every schema-known field
+// overrides. The Tiki that ruki produces carries every workflow-declared field
 // the template had plus whatever the CREATE assignments wrote.
 //
 // Phase 5's "presence-map seeding" semantics moved to the persistence

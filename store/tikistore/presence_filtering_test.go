@@ -21,7 +21,7 @@ func tikiWithSchemaFields() *tikipkg.Tiki {
 // TestGetAllTikis_ReturnsEverything verifies the store contract: GetAllTikis
 // returns every loaded tiki, regardless of which fields it carries. Filtering
 // by presence of schema-known fields belongs to the caller (e.g.
-// `select where has(status)` in ruki, or a hasAnySchemaField predicate).
+// `select where has(status)` in ruki, or a hasAnyWorkflowField predicate).
 func TestGetAllTikis_ReturnsEverything(t *testing.T) {
 	dir := t.TempDir()
 
@@ -61,10 +61,10 @@ func TestGetAllTikis_ReturnsEverything(t *testing.T) {
 	// GetTiki finds both by id, and presence checks reflect the loaded shape.
 	if tk := s.GetTiki("BARE01"); tk == nil {
 		t.Error("GetTiki should find the bare tiki by id")
-	} else if hasAnySchemaField(tk) {
+	} else if hasAnyWorkflowField(tk) {
 		t.Error("bare tiki should have no schema-known fields after load")
 	}
-	if tk := s.GetTiki("WITH01"); tk == nil || !hasAnySchemaField(tk) {
+	if tk := s.GetTiki("WITH01"); tk == nil || !hasAnyWorkflowField(tk) {
 		t.Error("schema-bearing tiki should retain its schema-known fields after load")
 	}
 }

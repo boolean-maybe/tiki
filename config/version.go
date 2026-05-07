@@ -116,8 +116,8 @@ func readWorkflowVersion(path string) (string, error) {
 }
 
 // checkWorkflowFileVersion is the discovery-based version check called by
-// LoadWorkflowRegistries. Returns nil when no workflow files are found —
-// the missing-file error belongs to LoadStatusRegistry.
+// LoadWorkflowFields. Returns nil when no workflow files are found — the
+// missing-file error belongs to LoadWorkflowFields itself.
 func checkWorkflowFileVersion() error {
 	files := FindRegistryWorkflowFiles()
 	if len(files) == 0 {

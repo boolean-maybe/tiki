@@ -319,16 +319,24 @@ func parseDetailPlugin(cfg pluginFileConfig, base BasePlugin, schema ruki.Schema
 	}, nil
 }
 
-// validateDetailMetadata validates the metadata field list against both the
-// schema (the field must exist) and the renderable-field set (the view layer
-// must know how to render it). Identity fields are rejected because the
-// detail view always renders title/description from the tiki itself.
+// validateDetailMetadata validates the metadata field list against the
+// schema. Two categories of names may appear in metadata:
 //
-// The renderable-field set is registered at init time by the view layer via
-// RegisterRenderableMetadataField — see view/taskdetail/field_registry.go.
-// We don't import the view package here to avoid a layering inversion; the
-// callback-registration pattern keeps validation and rendering authoritative
-// without a forward dependency.
+//   - Workflow-declared fields from `workflow.yaml fields:` (the common case).
+//   - Supported audit fields: `createdBy`, `createdAt`, `updatedAt`. These
+//     are system fields wired into the typed detail-view registry so they
+//     render as read-only rows.
+//
+// Rejected:
+//
+//   - Identity/body fields (`id`, `title`, `description`, `body`) — always
+//     rendered by the detail view chrome, never as metadata rows.
+//   - Path fields (`filepath`, `path`) — values live on the tiki struct
+//     rather than in Fields and have no typed renderer yet.
+//   - Anything not in the schema (catches typos).
+//
+// Workflow-declared fields without a typed editor fall back to a generic
+// read-only `Label: value` row at render time.
 func validateDetailMetadata(pluginName string, fields []string, schema ruki.Schema) ([]string, error) {
 	if len(fields) == 0 {
 		return nil, nil
@@ -348,17 +356,17 @@ func validateDetailMetadata(pluginName string, fields []string, schema ruki.Sche
 				"plugin %q: metadata cannot include %q — title and description are always rendered",
 				pluginName, name)
 		}
+		if isDetailNonRenderableSystemField(name) {
+			return nil, fmt.Errorf(
+				"plugin %q: metadata cannot include %q — it lives on the tiki struct (not in Fields) and has no detail-view renderer",
+				pluginName, name)
+		}
 		if schema != nil {
 			if _, ok := schema.Field(name); !ok {
 				return nil, fmt.Errorf(
-					"plugin %q: metadata field %q is not a known schema field",
+					"plugin %q: metadata field %q is not a workflow-declared field",
 					pluginName, name)
 			}
-		}
-		if !isRenderableMetadataField(name) {
-			return nil, fmt.Errorf(
-				"plugin %q: metadata field %q is not renderable in detail views yet — supported fields: %s",
-				pluginName, name, strings.Join(renderableMetadataFieldList(), ", "))
 		}
 		seen[name] = struct{}{}
 		out = append(out, name)
@@ -375,6 +383,16 @@ func isDetailIdentityField(name string) bool {
 		return true
 	}
 	return false
+}
+
+// isDetailNonRenderableSystemField reports whether the field is a system
+// field whose value lives on the Tiki struct rather than in Fields, and
+// for which the detail view has no typed renderer. Such names would render
+// as the absent placeholder via the generic fall-back, which is misleading.
+// createdBy/createdAt/updatedAt are also struct-bound but are wired into
+// the typed registry, so they're allowed.
+func isDetailNonRenderableSystemField(name string) bool {
+	return name == "filepath" || name == "path"
 }
 
 // rejectBoardOnlyFields catches lanes/mode set on a non-board/list view.

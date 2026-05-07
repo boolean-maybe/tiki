@@ -22,24 +22,9 @@ import (
 // *tiki.Tiki and serializing them back. The store's internal map and all
 // public APIs operate on *tiki.Tiki directly.
 
-// workflowKeys lists the frontmatter keys that carry workflow semantics in
-// canonical emission order. Kept adjacent to the Tiki bridge because every
-// workflow/field seam in this package reads it.
-var workflowKeys = []string{
-	"status",
-	"type",
-	"tags",
-	"dependsOn",
-	"due",
-	"recurrence",
-	"assignee",
-	"priority",
-	"points",
-}
-
 // parsedTiki is the result of parsing a markdown file: the Tiki itself, the
-// verbatim decoded frontmatter map (retained for raw-type checks on load), and
-// the set of custom-field keys whose raw value failed registry coercion. Stale
+// verbatim decoded frontmatter map (retained for raw-type checks on load),
+// and the set of workflow-field keys whose raw value failed coercion. Stale
 // keys land in Fields verbatim so round-trips preserve them.
 type parsedTiki struct {
 	t     *tiki.Tiki
@@ -76,16 +61,7 @@ func loadTikiFromBytes(path string, content []byte) (*parsedTiki, error) {
 
 	title, _ := fmMap["title"].(string)
 
-	// Decode schema-known workflow keys through the existing typed wrappers
-	// so the on-disk values land in canonical Go types (PriorityValue
-	// clamping, tag list normalization, etc.). We do this by re-unmarshaling
-	// into taskFrontmatter alongside the raw-map parse above.
-	var fm taskFrontmatter
-	if err := yaml.Unmarshal([]byte(frontmatter), &fm); err != nil {
-		return nil, newLoadError(LoadReasonParseError, fmt.Errorf("parsing yaml into schema: %w", err))
-	}
-
-	fields, stale, err := buildFieldsFromFrontmatter(fmMap, &fm, path)
+	fields, stale, err := buildFieldsFromFrontmatter(fmMap, path)
 	if err != nil {
 		return nil, err
 	}
@@ -101,15 +77,12 @@ func loadTikiFromBytes(path string, content []byte) (*parsedTiki, error) {
 }
 
 // buildFieldsFromFrontmatter copies every non-identity frontmatter key into
-// the Tiki Fields map. Schema-known workflow keys use values decoded via
-// taskFrontmatter (already clamped/parsed). Registered custom fields run
-// through the workflow coercer. Unknown keys round-trip verbatim.
-//
-// Returns the built Fields map plus the set of keys whose registered custom
-// field failed coercion (stale enum values, type mismatches). The Task
-// adapter routes stale keys to UnknownFields so the pre-Phase-3 split is
-// preserved downstream.
-func buildFieldsFromFrontmatter(fmMap map[string]interface{}, fm *taskFrontmatter, path string) (map[string]interface{}, map[string]struct{}, error) {
+// the Tiki Fields map. Each key is dispatched through workflow.Field() —
+// the workflow catalog is the single source of truth for what is workflow-
+// declared and how to coerce it. Workflow-declared keys whose values fail
+// coercion are demoted to verbatim with a stale marker. Keys not declared
+// in workflow.yaml round-trip verbatim as unknown fields.
+func buildFieldsFromFrontmatter(fmMap map[string]interface{}, path string) (map[string]interface{}, map[string]struct{}, error) {
 	if len(fmMap) == 0 {
 		return nil, nil, nil
 	}
@@ -117,64 +90,27 @@ func buildFieldsFromFrontmatter(fmMap map[string]interface{}, fm *taskFrontmatte
 	out := map[string]interface{}{}
 	var stale map[string]struct{}
 
-	// Workflow-schema keys: copy decoded typed values, gated on presence in
-	// fmMap so we never synthesize keys the file didn't carry.
-	for _, k := range workflowKeys {
-		if _, present := fmMap[k]; !present {
-			continue
-		}
-		switch k {
-		case "status":
-			if fm.Status != "" {
-				out[k] = taskpkg.MapStatus(fm.Status)
-			} else {
-				out[k] = ""
-			}
-		case "type":
-			out[k] = fm.Type
-		case "tags":
-			out[k] = fm.Tags.ToStringSlice()
-		case "dependsOn":
-			out[k] = fm.DependsOn.ToStringSlice()
-		case "due":
-			out[k] = fm.Due.ToTime()
-		case "recurrence":
-			out[k] = string(fm.Recurrence.ToRecurrence())
-		case "assignee":
-			out[k] = fm.Assignee
-		case "priority":
-			out[k] = int(fm.Priority)
-		case "points":
-			out[k] = fm.Points
-		}
-	}
-
-	// Custom and unknown fields: defer registry lookup until we hit a
-	// non-builtin key so the load path stays lightweight for pure workflow
-	// files.
 	registryChecked := false
 	requireRegistry := func() error {
 		if registryChecked {
 			return nil
 		}
 		registryChecked = true
-		return config.RequireWorkflowRegistriesLoaded()
+		return config.RequireWorkflowFieldsLoaded()
 	}
 
 	for key, raw := range fmMap {
-		if key == "id" || key == "title" {
-			continue
-		}
-		if builtInFrontmatterKeys[key] {
+		// identity/audit keys live on the Tiki struct, not in Fields
+		if key == "id" || key == "title" || tiki.IsIdentityField(key) {
 			continue
 		}
 		if err := requireRegistry(); err != nil {
-			return nil, nil, fmt.Errorf("extractCustomFields for %s: %w", path, err)
+			return nil, nil, fmt.Errorf("loading frontmatter for %s: %w", path, err)
 		}
 		fd, registered := workflow.Field(key)
 		if registered && !fd.Custom {
-			// synthetic built-in (e.g. filepath) — drop stale value from disk
-			slog.Debug("dropping synthetic built-in field from frontmatter", "field", key, "file", path)
+			// system field (e.g. filepath) — drop stale value from disk
+			slog.Debug("dropping synthetic system field from frontmatter", "field", key, "file", path)
 			continue
 		}
 		if !registered {
@@ -184,7 +120,7 @@ func buildFieldsFromFrontmatter(fmMap map[string]interface{}, fm *taskFrontmatte
 		}
 		val, err := coerceCustomValue(fd, raw)
 		if err != nil {
-			slog.Warn("demoting stale custom field value to unknown",
+			slog.Warn("demoting stale workflow field value to unknown",
 				"field", key, "file", path, "error", err)
 			out[key] = raw
 			if stale == nil {
@@ -203,17 +139,11 @@ func buildFieldsFromFrontmatter(fmMap map[string]interface{}, fm *taskFrontmatte
 }
 
 // marshalTikiFrontmatter serializes t's id, title, and Fields into YAML
-// frontmatter (without the surrounding --- delimiters). Emission is
-// deterministic: id first, title second, then every Fields key in a
-// canonical order — workflow-schema keys first in their legacy order, then
-// remaining keys alphabetically — so file contents stay stable across
-// runs.
-//
-// Schema-known workflow keys use the typed value wrappers from the task
-// package (PriorityValue, DueValue, TagsValue, DependsOnValue,
-// RecurrenceValue) so the on-disk format matches the pre-Phase-3 writer
-// byte-for-byte. Registered custom fields run through registry-aware list
-// coercion. Unknown keys pass through yaml.Marshal verbatim.
+// frontmatter (without the surrounding --- delimiters). Emission order:
+// id first, title second, then workflow-declared fields in workflow.yaml
+// declaration order, then remaining (unknown) keys alphabetically. Per-key
+// encoding is driven by the workflow field type — no key is special-cased
+// by name.
 func marshalTikiFrontmatter(t *tiki.Tiki) ([]byte, error) {
 	if t == nil {
 		return yaml.Marshal(map[string]interface{}{})
@@ -236,26 +166,25 @@ func marshalTikiFrontmatter(t *tiki.Tiki) ([]byte, error) {
 		buf.Write(out)
 	}
 
-	// Emit workflow-schema keys first, in the canonical order, so sparse
-	// workflow files keep their familiar key ordering.
+	// Workflow-declared fields first, in workflow.yaml declaration order,
+	// dispatched through workflow.Field(name).Type.
 	emitted := map[string]struct{}{}
-	for _, k := range workflowKeys {
-		v, present := t.Fields[k]
+	for _, fd := range workflow.WorkflowFields() {
+		v, present := t.Fields[fd.Name]
 		if !present {
 			continue
 		}
-		encoded, err := encodeWorkflowField(k, v)
+		encoded, err := encodeFieldByType(fd, v)
 		if err != nil {
-			return nil, fmt.Errorf("marshaling field %q: %w", k, err)
+			return nil, fmt.Errorf("marshaling field %q: %w", fd.Name, err)
 		}
 		buf.Write(encoded)
-		emitted[k] = struct{}{}
+		emitted[fd.Name] = struct{}{}
 	}
 
-	// Then emit remaining (custom + unknown) keys in sorted order.
-	// "createdBy" and "comments" are in-memory-only fields that must not
-	// be written to disk: they carry runtime audit metadata and in-memory
-	// comment state respectively.
+	// Remaining (unknown / unregistered) keys in sorted order.
+	// In-memory-only fields never reach disk: createdBy carries runtime audit
+	// metadata, comments carries in-memory comment state.
 	inMemoryOnlyFields := map[string]struct{}{
 		"createdBy": {},
 		"comments":  {},
@@ -274,86 +203,60 @@ func marshalTikiFrontmatter(t *tiki.Tiki) ([]byte, error) {
 
 	for _, k := range remaining {
 		v := t.Fields[k]
-		encoded, err := encodeExtraField(k, v)
+		out, err := yaml.Marshal(map[string]interface{}{k: v})
 		if err != nil {
 			return nil, fmt.Errorf("marshaling field %q: %w", k, err)
 		}
-		buf.Write(encoded)
+		buf.Write(out)
 	}
 
 	return []byte(buf.String()), nil
 }
 
-// encodeWorkflowField emits a single "key: value" YAML line for a
-// schema-known workflow key, routing through the typed value wrappers so
-// the disk format matches the legacy writer.
-func encodeWorkflowField(key string, value interface{}) ([]byte, error) {
-	switch key {
-	case "status":
-		s, _ := value.(string)
-		return yaml.Marshal(map[string]interface{}{key: taskpkg.StatusToString(s)})
-	case "type":
-		s, _ := value.(string)
-		return yaml.Marshal(map[string]interface{}{key: s})
-	case "tags":
-		tags := coerceToStringSlice(value)
-		tags = collectionutil.NormalizeStringSet(tags)
-		sort.Strings(tags)
-		return yaml.Marshal(map[string]interface{}{key: taskpkg.TagsValue(tags)})
-	case "dependsOn":
-		deps := coerceToStringSlice(value)
-		deps = collectionutil.NormalizeRefSet(deps)
-		sort.Strings(deps)
-		return yaml.Marshal(map[string]interface{}{key: taskpkg.DependsOnValue(deps)})
-	case "due":
-		tv, _ := coerceTimeForYAML(value)
-		return yaml.Marshal(map[string]interface{}{key: taskpkg.DueValue{Time: tv}})
-	case "recurrence":
-		s, _ := value.(string)
-		return yaml.Marshal(map[string]interface{}{key: taskpkg.RecurrenceValue{Value: taskpkg.Recurrence(s)}})
-	case "assignee":
-		s, _ := value.(string)
-		return yaml.Marshal(map[string]interface{}{key: s})
-	case "priority":
-		n, _ := coerceIntForYAML(value)
-		return yaml.Marshal(map[string]interface{}{key: taskpkg.PriorityValue(n)})
-	case "points":
-		n, _ := coerceIntForYAML(value)
-		return yaml.Marshal(map[string]interface{}{key: n})
-	}
-	return nil, fmt.Errorf("unknown workflow field %q", key)
-}
-
-// encodeExtraField emits a custom or unknown field. Registered custom
-// fields get list-type normalization; values whose shape does not satisfy
-// the registry (stale entries preserved for repair) pass through verbatim
-// — mirroring the load-path demotion in buildFieldsFromFrontmatter, so a
-// stale value round-trips unchanged. Unregistered keys also pass through
-// verbatim.
-func encodeExtraField(key string, value interface{}) ([]byte, error) {
-	fd, ok := workflow.Field(key)
-	if !ok || !fd.Custom {
-		return yaml.Marshal(map[string]interface{}{key: value})
-	}
-	v := value
+// encodeFieldByType emits one "key: value" YAML line for a workflow-declared
+// field, dispatching on the field's declared type. Registered list fields
+// get dedupe/sort normalization; values whose shape does not satisfy the
+// declared type pass through verbatim (mirroring the load-side demotion to
+// stale unknown).
+func encodeFieldByType(fd workflow.FieldDef, value interface{}) ([]byte, error) {
+	key := fd.Name
 	switch fd.Type {
 	case workflow.TypeListString:
-		ss, err := coerceStringList(v)
+		ss, err := coerceStringList(value)
 		if err != nil {
-			// Stale list value for a registered list field. The load path
-			// demoted this to UnknownFields; emit verbatim so the round-trip
-			// preserves exactly what's on disk for the user to repair.
 			return yaml.Marshal(map[string]interface{}{key: value})
 		}
-		v = collectionutil.NormalizeStringSet(ss)
+		v := collectionutil.NormalizeStringSet(ss)
+		sort.Strings(v)
+		return yaml.Marshal(map[string]interface{}{key: v})
+
 	case workflow.TypeListRef:
-		ss, err := coerceStringList(v)
+		ss, err := coerceStringList(value)
 		if err != nil {
 			return yaml.Marshal(map[string]interface{}{key: value})
 		}
-		v = collectionutil.NormalizeRefSet(ss)
+		v := collectionutil.NormalizeRefSet(ss)
+		sort.Strings(v)
+		return yaml.Marshal(map[string]interface{}{key: v})
+
+	case workflow.TypeDate, workflow.TypeTimestamp:
+		tv, ok := coerceTimeForYAML(value)
+		if !ok {
+			return yaml.Marshal(map[string]interface{}{key: value})
+		}
+		return yaml.Marshal(map[string]interface{}{key: taskpkg.DueValue{Time: tv}})
+
+	case workflow.TypeInt:
+		n, ok := coerceIntForYAML(value)
+		if !ok {
+			return yaml.Marshal(map[string]interface{}{key: value})
+		}
+		return yaml.Marshal(map[string]interface{}{key: n})
 	}
-	return yaml.Marshal(map[string]interface{}{key: v})
+
+	// All other types (string, bool, enum, recurrence, ref, id) pass through
+	// yaml.Marshal verbatim. Validators upstream guarantee shape correctness.
+	return yaml.Marshal(map[string]interface{}{key: value})
 }
 
 // coerceIntForYAML accepts the numeric shapes yaml.v3 emits, plus plain int.
@@ -385,25 +288,5 @@ func coerceTimeForYAML(v interface{}) (time.Time, bool) {
 		return time.Time{}, false
 	default:
 		return time.Time{}, false
-	}
-}
-
-// coerceToStringSlice handles []string, []interface{} of strings, or nil.
-func coerceToStringSlice(v interface{}) []string {
-	switch s := v.(type) {
-	case []string:
-		out := make([]string, len(s))
-		copy(out, s)
-		return out
-	case []interface{}:
-		out := make([]string, 0, len(s))
-		for _, item := range s {
-			if str, ok := item.(string); ok {
-				out = append(out, str)
-			}
-		}
-		return out
-	default:
-		return nil
 	}
 }

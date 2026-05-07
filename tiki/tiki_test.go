@@ -136,20 +136,6 @@ func TestCloneOfNilReturnsNil(t *testing.T) {
 	}
 }
 
-func TestIsSchemaKnown(t *testing.T) {
-	for _, name := range SchemaKnownFields {
-		if !IsSchemaKnown(name) {
-			t.Errorf("IsSchemaKnown(%q) = false, want true", name)
-		}
-	}
-	if IsSchemaKnown("customField") {
-		t.Error("IsSchemaKnown(customField) = true, want false")
-	}
-	if IsSchemaKnown("id") || IsSchemaKnown("title") {
-		t.Error("id and title are not schema-known fields (they live on the Tiki struct)")
-	}
-}
-
 func TestStringFieldCoercion(t *testing.T) {
 	tk := &Tiki{Fields: map[string]interface{}{"status": "ready", "priority": 3}}
 
@@ -271,18 +257,5 @@ func TestTimeFieldCoercion(t *testing.T) {
 	_, _, coerced = tk.TimeField("dueKind")
 	if coerced {
 		t.Error("TimeField(int) must report coerced=false")
-	}
-}
-
-func TestSchemaKnownFieldsOrderIsStable(t *testing.T) {
-	// Downstream YAML serialization relies on this order.
-	want := []string{"status", "type", "priority", "points", "tags", "dependsOn", "due", "recurrence", "assignee"}
-	if len(SchemaKnownFields) != len(want) {
-		t.Fatalf("SchemaKnownFields length = %d, want %d", len(SchemaKnownFields), len(want))
-	}
-	for i, w := range want {
-		if SchemaKnownFields[i] != w {
-			t.Errorf("SchemaKnownFields[%d] = %q, want %q", i, SchemaKnownFields[i], w)
-		}
 	}
 }

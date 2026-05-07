@@ -105,7 +105,7 @@ func Bootstrap(tikiSkillContent, dokiSkillContent string) (*Result, error) {
 	}
 
 	// Phase 2.7: Load workflow registries (statuses, types, custom fields)
-	if err := config.LoadWorkflowRegistries(); err != nil {
+	if err := config.LoadWorkflowFields(); err != nil {
 		return nil, fmt.Errorf("load workflow registries: %w", err)
 	}
 

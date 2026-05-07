@@ -9,7 +9,6 @@ import (
 
 	"github.com/boolean-maybe/tiki/config"
 	"github.com/boolean-maybe/tiki/store/internal/git"
-	"github.com/boolean-maybe/tiki/task"
 	tikipkg "github.com/boolean-maybe/tiki/tiki"
 	collectionutil "github.com/boolean-maybe/tiki/util/collections"
 	"github.com/boolean-maybe/tiki/workflow"
@@ -132,15 +131,8 @@ func (s *InMemoryStore) NewTikiTemplate() (*tikipkg.Tiki, error) {
 	tk.ID = taskID
 	tk.CreatedAt = time.Now()
 
-	if defaultStatus := task.DefaultStatus(); defaultStatus != "" {
-		tk.Set(tikipkg.FieldStatus, defaultStatus)
-		tk.Set(tikipkg.FieldType, task.DefaultType())
-		tk.Set(tikipkg.FieldPriority, 3)
-		tk.Set(tikipkg.FieldPoints, 1)
-		tk.Set(tikipkg.FieldTags, []string{"idea"})
-		for k, v := range buildMemoryFieldDefaults() {
-			tk.Set(k, v)
-		}
+	for k, v := range buildMemoryFieldDefaults() {
+		tk.Set(k, v)
 	}
 
 	if name, email, err := s.GetCurrentUser(); err == nil {
@@ -172,7 +164,7 @@ func (s *InMemoryStore) storeNewTikiLocked(tk *tikipkg.Tiki) error {
 }
 
 // updateTikiLocked is the shared update path. carrySchemaFields controls
-// whether stored schema-known fields should be carried forward onto an
+// whether stored workflow-declared fields should be carried forward onto an
 // incoming tiki that omits them — true for task-shaped callers (protective
 // against accidental field loss), false for tiki-native callers that rely
 // on exact-presence semantics.
@@ -186,12 +178,13 @@ func (s *InMemoryStore) updateTikiLocked(tk *tikipkg.Tiki, carrySchemaFields boo
 		return fmt.Errorf("task not found: %s", tk.ID)
 	}
 
-	// protective carry-forward: if the stored tiki carries schema-known
+	// protective carry-forward: if the stored tiki carries workflow-declared
 	// fields and the incoming tiki has none, carry the stored values
 	// forward so callers that only update one field don't accidentally
 	// drop the rest.
-	if carrySchemaFields && !hasAnySchemaFieldMem(tk) && hasAnySchemaFieldMem(old) {
-		for _, k := range tikipkg.SchemaKnownFields {
+	if carrySchemaFields && !hasAnyWorkflowFieldMem(tk) && hasAnyWorkflowFieldMem(old) {
+		for _, fd := range workflow.WorkflowFields() {
+			k := fd.Name
 			if !tk.Has(k) {
 				if v, ok := old.Fields[k]; ok {
 					tk.Set(k, v)
@@ -207,13 +200,15 @@ func (s *InMemoryStore) updateTikiLocked(tk *tikipkg.Tiki, carrySchemaFields boo
 	return nil
 }
 
-// hasAnySchemaFieldMem is the InMemoryStore equivalent of tikistore.hasAnySchemaField.
-func hasAnySchemaFieldMem(tk *tikipkg.Tiki) bool {
+// hasAnyWorkflowFieldMem reports whether tk carries at least one workflow-
+// declared field in its Fields map. Used by the in-memory store to gate the
+// protective carry-forward path.
+func hasAnyWorkflowFieldMem(tk *tikipkg.Tiki) bool {
 	if tk == nil {
 		return false
 	}
-	for _, f := range tikipkg.SchemaKnownFields {
-		if tk.Has(f) {
+	for _, fd := range workflow.WorkflowFields() {
+		if tk.Has(fd.Name) {
 			return true
 		}
 	}
@@ -316,29 +311,39 @@ func (s *InMemoryStore) GetGitOps() git.GitOps {
 
 const maxIDAttempts = 100
 
-// buildMemoryFieldDefaults collects DefaultValue from custom field defs.
+// buildMemoryFieldDefaults collects creation defaults from all loaded
+// workflow field definitions. Mirrors store/tikistore/template.go.
 func buildMemoryFieldDefaults() map[string]interface{} {
 	var defaults map[string]interface{}
-	for _, fd := range workflow.Fields() {
-		if !fd.Custom || fd.DefaultValue == nil {
-			continue
-		}
+	add := func(name string, value interface{}) {
 		if defaults == nil {
 			defaults = make(map[string]interface{})
+		}
+		defaults[name] = value
+	}
+	for _, fd := range workflow.WorkflowFields() {
+		if fd.Type == workflow.TypeEnum {
+			if def := fd.EnumDefault(); def != "" {
+				add(fd.Name, def)
+			}
+			continue
+		}
+		if fd.DefaultValue == nil {
+			continue
 		}
 		if ss, ok := fd.DefaultValue.([]string); ok {
 			switch fd.Type {
 			case workflow.TypeListRef:
-				defaults[fd.Name] = collectionutil.NormalizeRefSet(ss)
+				add(fd.Name, collectionutil.NormalizeRefSet(ss))
 			case workflow.TypeListString:
-				defaults[fd.Name] = collectionutil.NormalizeStringSet(ss)
+				add(fd.Name, collectionutil.NormalizeStringSet(ss))
 			default:
 				cp := make([]string, len(ss))
 				copy(cp, ss)
-				defaults[fd.Name] = cp
+				add(fd.Name, cp)
 			}
 		} else {
-			defaults[fd.Name] = fd.DefaultValue
+			add(fd.Name, fd.DefaultValue)
 		}
 	}
 	return defaults

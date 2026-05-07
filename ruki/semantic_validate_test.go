@@ -923,57 +923,46 @@ func TestValidateAssignmentsSemantics_ImmutableFields(t *testing.T) {
 	}
 }
 
-func TestValidateAssignmentsSemantics_EmptyRejected(t *testing.T) {
-	for _, field := range []string{"title", "status", "type", "priority"} {
+// TestValidateAssignmentsSemantics_EmptyTitleRejected pins the only
+// system-level required-ness invariant: title cannot be assigned to empty.
+// status/type/priority are now ordinary workflow fields — required-ness
+// (if any) is expressed via workflow-level constraints, not hardcoded.
+func TestValidateAssignmentsSemantics_EmptyTitleRejected(t *testing.T) {
+	err := validateAssignmentsSemantics([]Assignment{
+		{Field: "title", Value: &EmptyLiteral{}},
+	})
+	if err == nil || !strings.Contains(err.Error(), "cannot be empty") {
+		t.Fatalf("expected cannot-be-empty error for title, got: %v", err)
+	}
+}
+
+// TestValidateAssignmentsSemantics_EmptyAllowedForWorkflowFields confirms
+// that status/type/priority no longer have hardcoded required-ness — they
+// are workflow-declared and behave like any other field at this layer.
+func TestValidateAssignmentsSemantics_EmptyAllowedForWorkflowFields(t *testing.T) {
+	for _, field := range []string{"status", "type", "priority", "points"} {
 		t.Run(field, func(t *testing.T) {
 			err := validateAssignmentsSemantics([]Assignment{
 				{Field: field, Value: &EmptyLiteral{}},
 			})
-			if err == nil || !strings.Contains(err.Error(), "cannot be empty") {
-				t.Fatalf("expected cannot-be-empty error for %q, got: %v", field, err)
+			if err != nil {
+				t.Fatalf("unexpected error for %q = empty: %v", field, err)
 			}
 		})
 	}
 }
 
-func TestValidateAssignmentsSemantics_PriorityOutOfRange(t *testing.T) {
-	for _, prio := range []int{0, 6, -1, 99} {
-		err := validateAssignmentsSemantics([]Assignment{
-			{Field: "priority", Value: &IntLiteral{Value: prio}},
-		})
-		if err == nil || !strings.Contains(err.Error(), "priority value out of range") {
-			t.Fatalf("expected priority range error for %d, got: %v", prio, err)
-		}
-	}
-}
-
-func TestValidateAssignmentsSemantics_PriorityValid(t *testing.T) {
-	for _, prio := range []int{1, 3, 5} {
+// TestValidateAssignmentsSemantics_PriorityRangeNotEnforced confirms that
+// the kanban-specific 1..5 range is no longer enforced at this layer.
+// Workflows that need a range check express it via triggers (e.g.
+// `before update where priority < 1 or priority > 5 deny ...`).
+func TestValidateAssignmentsSemantics_PriorityRangeNotEnforced(t *testing.T) {
+	for _, prio := range []int{0, -1, 99, 6} {
 		err := validateAssignmentsSemantics([]Assignment{
 			{Field: "priority", Value: &IntLiteral{Value: prio}},
 		})
 		if err != nil {
-			t.Fatalf("unexpected error for priority %d: %v", prio, err)
-		}
-	}
-}
-
-func TestValidateAssignmentsSemantics_PointsOutOfRange(t *testing.T) {
-	err := validateAssignmentsSemantics([]Assignment{
-		{Field: "points", Value: &IntLiteral{Value: -1}},
-	})
-	if err == nil || !strings.Contains(err.Error(), "points value out of range") {
-		t.Fatalf("expected points range error, got: %v", err)
-	}
-}
-
-func TestValidateAssignmentsSemantics_PointsValid(t *testing.T) {
-	for _, pts := range []int{0, 1, 5} {
-		err := validateAssignmentsSemantics([]Assignment{
-			{Field: "points", Value: &IntLiteral{Value: pts}},
-		})
-		if err != nil {
-			t.Fatalf("unexpected error for points %d: %v", pts, err)
+			t.Errorf("priority %d should pass semantic validation now (kanban range is workflow-specific): %v", prio, err)
 		}
 	}
 }

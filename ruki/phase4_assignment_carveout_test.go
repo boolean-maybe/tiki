@@ -39,12 +39,12 @@ func TestPhase4Carveout_ListArithmeticOnAbsentTags(t *testing.T) {
 	}
 }
 
-// TestPhase4Carveout_IntArithmeticOnAbsentPriority covers the scalar
-// case: `priority - 1` on an absent priority should compute 0 - 1 = -1,
-// which then fails setField's range validation with a clear error.
-// The carve-out handles absent read → zero; value validation handles
-// out-of-range.
-func TestPhase4Carveout_IntArithmeticOnAbsentPriorityFailsValidation(t *testing.T) {
+// TestPhase4Carveout_IntArithmeticOnAbsentPriorityProducesValue covers the
+// scalar case: `priority - 1` on an absent priority computes 0 - 1 = -1.
+// The executor no longer enforces a 1..5 range — that invariant is
+// kanban-specific and lives in the mutation gate validator. The carve-out
+// handles absent read → zero; the assignment itself succeeds generically.
+func TestPhase4Carveout_IntArithmeticOnAbsentPriorityProducesValue(t *testing.T) {
 	e := newTestExecutor()
 	p := newTestParser()
 
@@ -57,9 +57,8 @@ func TestPhase4Carveout_IntArithmeticOnAbsentPriorityFailsValidation(t *testing.
 	if err != nil {
 		t.Fatalf("parse: %v", err)
 	}
-	_, err = e.testExec(stmt, []*task.Task{plain})
-	if err == nil {
-		t.Fatal("expected setField validation error for priority=-1, got nil")
+	if _, err := e.testExec(stmt, []*task.Task{plain}); err != nil {
+		t.Fatalf("expected executor to apply generic assignment, got: %v", err)
 	}
 }
 
@@ -76,7 +75,7 @@ func TestPhase4Carveout_UnregisteredFieldStillErrors(t *testing.T) {
 		WorkflowFrontmatter: map[string]interface{}{"status": "ready"},
 	}
 
-	// `taggs` is not a registered schema-known or Custom field → error
+	// `taggs` is not a registered workflow-declared or Custom field → error
 	// either at parse time or execution time.
 	stmt, err := p.ParseStatement(`update where id = "ABC123" set tags = taggs + ["oops"]`)
 	if err != nil {
