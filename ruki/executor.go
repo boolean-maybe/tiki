@@ -490,16 +490,12 @@ func (e *Executor) setEnumField(t *tiki.Tiki, name string, val interface{}) erro
 	return nil
 }
 
-// coerceSetString converts task-typed string wrappers produced by legacy test
-// fixtures to plain strings before enum canonicalization.
+// coerceSetString converts a task.Recurrence wrapper or plain string to a
+// string before enum canonicalization.
 func coerceSetString(val interface{}) (string, bool) {
 	switch v := val.(type) {
 	case string:
 		return v, true
-	case task.Status:
-		return string(v), true
-	case task.Type:
-		return string(v), true
 	case task.Recurrence:
 		return string(v), true
 	default:
@@ -1727,12 +1723,6 @@ func compareForSort(a, b interface{}) int {
 			return -1
 		}
 		return 1
-	case task.Status:
-		bv, _ := b.(task.Status)
-		return strings.Compare(string(av), string(bv))
-	case task.Type:
-		bv, _ := b.(task.Type)
-		return strings.Compare(string(av), string(bv))
 	case time.Time:
 		bv, _ := b.(time.Time)
 		if av.Before(bv) {
@@ -1849,10 +1839,6 @@ func (e *Executor) compareValues(left, right interface{}, op string, leftExpr, r
 			return false, fmt.Errorf("cannot compare duration with %T", right)
 		}
 		return compareDurations(lv, rv, op)
-	case task.Status:
-		return compareStrings(string(lv), normalizeToString(right), op)
-	case task.Type:
-		return compareStrings(string(lv), normalizeToString(right), op)
 	case task.Recurrence:
 		return compareStrings(string(lv), normalizeToString(right), op)
 	default:
@@ -2240,10 +2226,6 @@ func normalizeToString(v interface{}) string {
 	switch v := v.(type) {
 	case string:
 		return v
-	case task.Status:
-		return string(v)
-	case task.Type:
-		return string(v)
 	case task.Recurrence:
 		return string(v)
 	default:
@@ -2275,10 +2257,6 @@ func isZeroValue(v interface{}) bool {
 		return v == 0
 	case bool:
 		return !v
-	case task.Status:
-		return v == ""
-	case task.Type:
-		return v == ""
 	case task.Recurrence:
 		return v == ""
 	case []interface{}:

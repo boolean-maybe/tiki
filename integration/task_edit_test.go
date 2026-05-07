@@ -148,8 +148,8 @@ func TestEditSource_DuplicateCaseIDs_Repro(t *testing.T) {
 	tk := tikipkg.New()
 	tk.ID = taskID
 	tk.Title = "Edit Source Duplicate"
-	tk.Set("type", string(taskpkg.TypeStory))
-	tk.Set("status", string(taskpkg.StatusBacklog))
+	tk.Set("type", taskpkg.TypeStory)
+	tk.Set("status", taskpkg.StatusBacklog)
 	tk.Set("priority", 3)
 	tk.Set("points", 1)
 	if err := ta.TaskStore.CreateTiki(tk); err != nil {
@@ -405,10 +405,10 @@ func TestNewTask_WithStatusAndType_Saves(t *testing.T) {
 	if tk.Title != "Hey" {
 		t.Errorf("title = %q, want %q", tk.Title, "Hey")
 	}
-	if heyStatus != string(taskpkg.StatusReview) {
+	if heyStatus != taskpkg.StatusReview {
 		t.Errorf("status = %v, want %v", heyStatus, taskpkg.StatusReview)
 	}
-	if heyType != string(taskpkg.TypeBug) {
+	if heyType != taskpkg.TypeBug {
 		t.Errorf("type = %v, want %v", heyType, taskpkg.TypeBug)
 	}
 }

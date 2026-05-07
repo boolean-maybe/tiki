@@ -5,17 +5,15 @@ import (
 	"strings"
 )
 
-// StatusKey is a named type for workflow status keys.
-// All status keys are normalized: lowercase, underscores as separators.
-type StatusKey string
-
-// well-known status constants (defaults from workflow.yaml template)
+// well-known status constants (defaults from workflow.yaml template).
+// status keys are plain strings, normalized to lowercase with camelCase
+// separators.
 const (
-	StatusBacklog    StatusKey = "backlog"
-	StatusReady      StatusKey = "ready"
-	StatusInProgress StatusKey = "inProgress"
-	StatusReview     StatusKey = "review"
-	StatusDone       StatusKey = "done"
+	StatusBacklog    = "backlog"
+	StatusReady      = "ready"
+	StatusInProgress = "inProgress"
+	StatusReview     = "review"
+	StatusDone       = "done"
 )
 
 // StatusDef defines a single workflow status.
@@ -33,16 +31,16 @@ type StatusDef struct {
 // StatusRegistry holds no global state — the populated singleton lives in config/.
 type StatusRegistry struct {
 	statuses   []StatusDef
-	byKey      map[StatusKey]StatusDef
-	defaultKey StatusKey
-	doneKey    StatusKey
+	byKey      map[string]StatusDef
+	defaultKey string
+	doneKey    string
 }
 
 // NormalizeStatusKey trims and converts a status key to camelCase.
 // Splits on "_", "-", " ", and camelCase boundaries, then reassembles.
 // Examples: "in_progress" → "inProgress", "In Progress" → "inProgress",
 // "inProgress" → "inProgress", "IN_PROGRESS" → "inProgress".
-func NormalizeStatusKey(key string) StatusKey {
+func NormalizeStatusKey(key string) string {
 	trimmed := strings.TrimSpace(key)
 	if trimmed == "" {
 		return ""
@@ -61,7 +59,7 @@ func NormalizeStatusKey(key string) StatusKey {
 			b.WriteString(strings.ToUpper(w[:1]) + strings.ToLower(w[1:]))
 		}
 	}
-	return StatusKey(b.String())
+	return b.String()
 }
 
 // splitStatusWords splits a key string into words on separators ("_", "-", " ")
@@ -126,9 +124,9 @@ func NewStatusRegistry(defs []StatusDef) (*StatusRegistry, error) {
 
 	reg := &StatusRegistry{
 		statuses: make([]StatusDef, 0, len(defs)),
-		byKey:    make(map[StatusKey]StatusDef, len(defs)),
+		byKey:    make(map[string]StatusDef, len(defs)),
 	}
-	displaySeen := make(map[string]StatusKey, len(defs))
+	displaySeen := make(map[string]string, len(defs))
 
 	for i, def := range defs {
 		if def.Key == "" {
@@ -137,10 +135,10 @@ func NewStatusRegistry(defs []StatusDef) (*StatusRegistry, error) {
 
 		// require canonical key
 		canonical := NormalizeStatusKey(def.Key)
-		if def.Key != string(canonical) {
+		if def.Key != canonical {
 			return nil, fmt.Errorf("status key %q is not canonical; use %q", def.Key, canonical)
 		}
-		def.Key = string(canonical)
+		def.Key = canonical
 
 		if _, exists := reg.byKey[canonical]; exists {
 			return nil, fmt.Errorf("duplicate status key %q", canonical)
@@ -223,20 +221,20 @@ func (r *StatusRegistry) IsDone(key string) bool {
 // default is configured. An empty default signals that new captures should be
 // created as plain documents (no status/type/priority/points) rather than
 // workflow tasks.
-func (r *StatusRegistry) DefaultKey() StatusKey {
+func (r *StatusRegistry) DefaultKey() string {
 	return r.defaultKey
 }
 
 // DoneKey returns the key of the status with done: true.
-func (r *StatusRegistry) DoneKey() StatusKey {
+func (r *StatusRegistry) DoneKey() string {
 	return r.doneKey
 }
 
 // Keys returns all status keys in definition order.
-func (r *StatusRegistry) Keys() []StatusKey {
-	keys := make([]StatusKey, len(r.statuses))
+func (r *StatusRegistry) Keys() []string {
+	keys := make([]string, len(r.statuses))
 	for i, s := range r.statuses {
-		keys[i] = StatusKey(s.Key)
+		keys[i] = s.Key
 	}
 	return keys
 }

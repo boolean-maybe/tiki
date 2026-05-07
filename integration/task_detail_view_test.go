@@ -280,7 +280,7 @@ func TestTaskDetailView_AllStatuses(t *testing.T) {
 	ta := testutil.NewTestApp(t)
 	defer ta.Cleanup()
 
-	statuses := []taskpkg.Status{
+	statuses := []string{
 		taskpkg.StatusBacklog,
 		taskpkg.StatusReady,
 		taskpkg.StatusInProgress,
@@ -335,7 +335,7 @@ func TestTaskDetailView_AllTypes(t *testing.T) {
 	ta := testutil.NewTestApp(t)
 	defer ta.Cleanup()
 
-	types := []taskpkg.Type{
+	types := []string{
 		taskpkg.TypeStory,
 		taskpkg.TypeBug,
 	}

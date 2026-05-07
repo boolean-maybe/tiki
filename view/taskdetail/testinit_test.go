@@ -20,8 +20,8 @@ func newTestViewTiki(id string) *tikipkg.Tiki {
 	tk := tikipkg.New()
 	tk.ID = id
 	tk.Title = "Test Task"
-	tk.Set(tikipkg.FieldStatus, string(taskpkg.StatusReady))
-	tk.Set(tikipkg.FieldType, string(taskpkg.TypeStory))
+	tk.Set(tikipkg.FieldStatus, taskpkg.StatusReady)
+	tk.Set(tikipkg.FieldType, taskpkg.TypeStory)
 	tk.Set(tikipkg.FieldPriority, 3)
 	tk.Set(tikipkg.FieldPoints, 5)
 	tk.Set(tikipkg.FieldAssignee, "user@example.com")

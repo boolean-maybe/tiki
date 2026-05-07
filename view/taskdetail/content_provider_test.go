@@ -141,8 +141,8 @@ func TestFormatTikiAsMarkdown(t *testing.T) {
 		tk.ID = "ABC123"
 		tk.Title = "My Task"
 		tk.Body = "detailed desc"
-		tk.Set(tikipkg.FieldStatus, string(task.StatusInProgress))
-		tk.Set(tikipkg.FieldType, string(task.TypeBug))
+		tk.Set(tikipkg.FieldStatus, task.StatusInProgress)
+		tk.Set(tikipkg.FieldType, task.TypeBug)
 		tk.Set(tikipkg.FieldPriority, 1)
 
 		md := formatTikiAsMarkdown(tk)
@@ -164,8 +164,8 @@ func TestFormatTikiAsMarkdown(t *testing.T) {
 		tk := tikipkg.New()
 		tk.ID = "ABC123"
 		tk.Title = "No Prio"
-		tk.Set(tikipkg.FieldStatus, string(task.StatusReady))
-		tk.Set(tikipkg.FieldType, string(task.TypeStory))
+		tk.Set(tikipkg.FieldStatus, task.StatusReady)
+		tk.Set(tikipkg.FieldType, task.TypeStory)
 
 		md := formatTikiAsMarkdown(tk)
 		if strings.Contains(md, "P0") {
@@ -177,8 +177,8 @@ func TestFormatTikiAsMarkdown(t *testing.T) {
 		tk := tikipkg.New()
 		tk.ID = "ABC123"
 		tk.Title = "No Desc"
-		tk.Set(tikipkg.FieldStatus, string(task.StatusReady))
-		tk.Set(tikipkg.FieldType, string(task.TypeStory))
+		tk.Set(tikipkg.FieldStatus, task.StatusReady)
+		tk.Set(tikipkg.FieldType, task.TypeStory)
 
 		md := formatTikiAsMarkdown(tk)
 		// should end after the metadata line

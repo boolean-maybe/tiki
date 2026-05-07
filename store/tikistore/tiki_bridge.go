@@ -126,7 +126,7 @@ func buildFieldsFromFrontmatter(fmMap map[string]interface{}, fm *taskFrontmatte
 		switch k {
 		case "status":
 			if fm.Status != "" {
-				out[k] = string(taskpkg.MapStatus(fm.Status))
+				out[k] = taskpkg.MapStatus(fm.Status)
 			} else {
 				out[k] = ""
 			}
@@ -291,7 +291,7 @@ func encodeWorkflowField(key string, value interface{}) ([]byte, error) {
 	switch key {
 	case "status":
 		s, _ := value.(string)
-		return yaml.Marshal(map[string]interface{}{key: taskpkg.StatusToString(taskpkg.Status(s))})
+		return yaml.Marshal(map[string]interface{}{key: taskpkg.StatusToString(s)})
 	case "type":
 		s, _ := value.(string)
 		return yaml.Marshal(map[string]interface{}{key: s})

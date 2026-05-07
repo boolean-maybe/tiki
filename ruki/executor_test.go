@@ -1710,10 +1710,6 @@ func TestIsZeroValue(t *testing.T) {
 		{"non-zero duration", time.Hour, false},
 		{"false bool", false, true},
 		{"true bool", true, false},
-		{"empty status", task.Status(""), true},
-		{"non-empty status", task.Status("done"), false},
-		{"empty type", task.Type(""), true},
-		{"non-empty type", task.Type("bug"), false},
 		{"empty recurrence", task.Recurrence(""), true},
 		{"non-empty recurrence", task.RecurrenceDaily, false},
 		{"empty list", []interface{}{}, true},
@@ -1766,8 +1762,6 @@ func TestNormalizeToString(t *testing.T) {
 		want string
 	}{
 		{"string", "hello", "hello"},
-		{"status", task.Status("done"), "done"},
-		{"type", task.Type("bug"), "bug"},
 		{"recurrence", task.Recurrence("0 0 * * *"), "0 0 * * *"},
 		{"int", 42, "42"},
 	}
@@ -1798,8 +1792,6 @@ func TestCompareForSort(t *testing.T) {
 		{"int eq", 2, 2, 0},
 		{"int gt", 3, 2, 1},
 		{"string", "a", "b", -1},
-		{"status", task.Status("a"), task.Status("b"), -1},
-		{"type", task.Type("a"), task.Type("b"), -1},
 		{"time before", testDate(1, 1), testDate(2, 1), -1},
 		{"time equal", testDate(1, 1), testDate(1, 1), 0},
 		{"time after", testDate(3, 1), testDate(2, 1), 1},
@@ -2695,31 +2687,13 @@ func TestSortedSetEqualIgnoresDuplicates(t *testing.T) {
 	}
 }
 
-// --- compareValues with task.Status/Type falling through (non-field context) ---
+// --- compareValues fallthrough for non-field contexts ---
 
-func TestCompareValuesStatusTypeDirect(t *testing.T) {
+func TestCompareValuesNonFieldContext(t *testing.T) {
 	e := newTestExecutor()
 
-	// status value vs string without FieldRef context — falls through to task.Status case
-	ok, err := e.compareValues(task.Status("done"), "done", "=", &StringLiteral{Value: "done"}, &StringLiteral{Value: "done"})
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	if !ok {
-		t.Error("expected status done = done")
-	}
-
-	// type value vs string
-	ok, err = e.compareValues(task.Type("bug"), "bug", "=", &StringLiteral{Value: "bug"}, &StringLiteral{Value: "bug"})
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	if !ok {
-		t.Error("expected type bug = bug")
-	}
-
 	// int vs non-int
-	_, err = e.compareValues(42, "not int", "=", &IntLiteral{Value: 42}, &StringLiteral{Value: "not int"})
+	_, err := e.compareValues(42, "not int", "=", &IntLiteral{Value: 42}, &StringLiteral{Value: "not int"})
 	if err == nil {
 		t.Error("expected error for int vs string")
 	}
@@ -3663,12 +3637,11 @@ func TestSetFieldTypeMismatches(t *testing.T) {
 	}
 }
 
-func TestSetFieldStatusAsTaskStatus(t *testing.T) {
+func TestSetFieldStatusString(t *testing.T) {
 	e := newTestExecutor()
 	tk := tikiFromTask(&task.Task{ID: "T1", Title: "x", Status: "ready"})
 
-	// passing task.Status value directly (not string)
-	err := e.setField(tk, "status", task.Status("done"))
+	err := e.setField(tk, "status", "done")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -3677,12 +3650,11 @@ func TestSetFieldStatusAsTaskStatus(t *testing.T) {
 	}
 }
 
-func TestSetFieldTypeAsTaskType(t *testing.T) {
+func TestSetFieldTypeString(t *testing.T) {
 	e := newTestExecutor()
 	tk := tikiFromTask(&task.Task{ID: "T1", Title: "x", Status: "ready", Type: "bug"})
 
-	// passing task.Type value directly (not string)
-	err := e.setField(tk, "type", task.Type("story"))
+	err := e.setField(tk, "type", "story")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -4058,34 +4030,6 @@ func TestSetFieldDescriptionNonString(t *testing.T) {
 	}
 	if !strings.Contains(err.Error(), "description must be a string") {
 		t.Errorf("expected 'description must be a string' error, got: %v", err)
-	}
-}
-
-func TestSetFieldStatusWithTaskStatusValue(t *testing.T) {
-	e := newTestExecutor()
-	tk := tikiFromTask(&task.Task{ID: "T1", Title: "x", Status: "ready"})
-
-	// pass task.Status("done") directly, not a string
-	err := e.setField(tk, "status", task.Status("done"))
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	if got, _ := tk.Get("status"); got != "done" {
-		t.Errorf("expected status 'done', got %q", got)
-	}
-}
-
-func TestSetFieldTypeWithTaskTypeValue(t *testing.T) {
-	e := newTestExecutor()
-	tk := tikiFromTask(&task.Task{ID: "T1", Title: "x", Status: "ready", Type: "bug"})
-
-	// pass task.Type("story") directly, not a string
-	err := e.setField(tk, "type", task.Type("story"))
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	if got, _ := tk.Get("type"); got != "story" {
-		t.Errorf("expected type 'story', got %q", got)
 	}
 }
 

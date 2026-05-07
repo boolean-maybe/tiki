@@ -68,8 +68,8 @@ func (s *TikiStore) newTikiTemplateLocked() (*tikipkg.Tiki, error) {
 	tk.CreatedAt = time.Now()
 
 	if defaultStatus := taskpkg.DefaultStatus(); defaultStatus != "" {
-		tk.Set(tikipkg.FieldStatus, string(defaultStatus))
-		tk.Set(tikipkg.FieldType, string(taskpkg.DefaultType()))
+		tk.Set(tikipkg.FieldStatus, defaultStatus)
+		tk.Set(tikipkg.FieldType, taskpkg.DefaultType())
 		tk.Set(tikipkg.FieldPriority, 3)
 		tk.Set(tikipkg.FieldPoints, 1)
 		tk.Set(tikipkg.FieldTags, []string{"idea"})

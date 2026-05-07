@@ -7,8 +7,8 @@ type Task struct {
 	ID            string
 	Title         string
 	Description   string
-	Type          Type
-	Status        Status
+	Type          string
+	Status        string
 	Tags          []string
 	DependsOn     []string
 	Due           time.Time

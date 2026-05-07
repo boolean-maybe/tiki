@@ -139,7 +139,7 @@ func TestTaskController_SaveStatus(t *testing.T) {
 		name          string
 		setupTask     func(*TaskController, store.Store)
 		statusDisplay string
-		wantStatus    task.Status
+		wantStatus    string
 		wantSuccess   bool
 	}{
 		{
@@ -216,10 +216,9 @@ func TestTaskController_SaveStatus(t *testing.T) {
 				} else if tc.editingTiki != nil {
 					activeTiki = tc.editingTiki
 				}
-				statusStr, _, _ := activeTiki.StringField(tikipkg.FieldStatus)
-				actualStatus := task.Status(statusStr)
+				actualStatus, _, _ := activeTiki.StringField(tikipkg.FieldStatus)
 				if actualStatus != tt.wantStatus {
-					t.Errorf("task.Status = %v, want %v", actualStatus, tt.wantStatus)
+					t.Errorf("status = %v, want %v", actualStatus, tt.wantStatus)
 				}
 			}
 		})
@@ -231,7 +230,7 @@ func TestTaskController_SaveType(t *testing.T) {
 		name        string
 		setupTask   func(*TaskController, store.Store)
 		typeDisplay string
-		wantType    task.Type
+		wantType    string
 		wantSuccess bool
 	}{
 		{
@@ -296,10 +295,9 @@ func TestTaskController_SaveType(t *testing.T) {
 				} else if tc.editingTiki != nil {
 					activeTiki = tc.editingTiki
 				}
-				typeStr, _, _ := activeTiki.StringField(tikipkg.FieldType)
-				actualType := task.Type(typeStr)
+				actualType, _, _ := activeTiki.StringField(tikipkg.FieldType)
 				if actualType != tt.wantType {
-					t.Errorf("task.Type = %v, want %v", actualType, tt.wantType)
+					t.Errorf("type = %v, want %v", actualType, tt.wantType)
 				}
 			}
 		})

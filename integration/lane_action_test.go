@@ -77,7 +77,7 @@ func TestPluginView_MoveTaskAppliesLaneAction(t *testing.T) {
 	}
 	status, _, _ := updated.StringField("status")
 	tags, _, _ := updated.StringSliceField(tikipkg.FieldTags)
-	if status != string(task.StatusDone) {
+	if status != task.StatusDone {
 		t.Fatalf("expected status done, got %v", status)
 	}
 	if !containsTag(tags, "moved") {
@@ -96,7 +96,7 @@ func TestPluginView_MoveTaskAppliesLaneAction(t *testing.T) {
 	}
 	status2, _, _ := updated.StringField("status")
 	tags2, _, _ := updated.StringSliceField(tikipkg.FieldTags)
-	if status2 != string(task.StatusBacklog) {
+	if status2 != task.StatusBacklog {
 		t.Fatalf("expected status backlog, got %v", status2)
 	}
 	if containsTag(tags2, "moved") {

@@ -521,7 +521,7 @@ func editStatusValue(tk *tikipkg.Tiki, ctx FieldRenderContext, onChange func(str
 	statusStr, _, _ := tk.StringField(tikipkg.FieldStatus)
 	editor := component.NewEditSelectList(options, false)
 	editor.SetLabel(getFocusMarker(ctx.Colors) + "Status:   ")
-	editor.SetInitialValue(taskpkg.StatusDisplay(taskpkg.Status(statusStr)))
+	editor.SetInitialValue(taskpkg.StatusDisplay(statusStr))
 	editor.SetSubmitHandler(func(text string) {
 		if onChange != nil {
 			onChange(text)
@@ -540,7 +540,7 @@ func editTypeValue(tk *tikipkg.Tiki, ctx FieldRenderContext, onChange func(strin
 	typeStr, _, _ := tk.StringField(tikipkg.FieldType)
 	editor := component.NewEditSelectList(options, false)
 	editor.SetLabel(getFocusMarker(ctx.Colors) + "Type:     ")
-	editor.SetInitialValue(taskpkg.TypeDisplay(taskpkg.Type(typeStr)))
+	editor.SetInitialValue(taskpkg.TypeDisplay(typeStr))
 	editor.SetSubmitHandler(func(text string) {
 		if onChange != nil {
 			onChange(text)

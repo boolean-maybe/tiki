@@ -98,7 +98,7 @@ func validateTikiType(tk *tikipkg.Tiki) string {
 	if s == "" {
 		return ""
 	}
-	if config.GetTypeRegistry().IsValid(task.Type(s)) {
+	if config.GetTypeRegistry().IsValid(s) {
 		return ""
 	}
 	return fmt.Sprintf("invalid type value: %s", s)

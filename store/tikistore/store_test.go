@@ -499,11 +499,11 @@ Task description`,
 					t.Errorf("Title = %q, expected %q", tk.Title, "Test Task")
 				}
 				typeStr, _, _ := tk.StringField(tikipkg.FieldType)
-				if typeStr != string(taskpkg.TypeStory) {
+				if typeStr != taskpkg.TypeStory {
 					t.Errorf("type = %q, expected %q", typeStr, taskpkg.TypeStory)
 				}
 				statusStr, _, _ := tk.StringField(tikipkg.FieldStatus)
-				if statusStr != string(taskpkg.StatusBacklog) {
+				if statusStr != taskpkg.StatusBacklog {
 					t.Errorf("status = %q, expected %q", statusStr, taskpkg.StatusBacklog)
 				}
 			} else {
@@ -779,7 +779,7 @@ func TestSaveTask_Recurrence(t *testing.T) {
 			tk := tikipkg.New()
 			tk.ID = "RECSVR"
 			tk.Title = "Test Save Recurrence"
-			tk.Set("type", string(taskpkg.TypeStory))
+			tk.Set("type", taskpkg.TypeStory)
 			tk.Set("status", "backlog")
 			tk.Set("priority", 3)
 			tk.Body = "Test description"
@@ -1002,7 +1002,7 @@ func TestSaveTask_Due(t *testing.T) {
 			tk := tikipkg.New()
 			tk.ID = "SAVE01"
 			tk.Title = "Test Save"
-			tk.Set("type", string(taskpkg.TypeStory))
+			tk.Set("type", taskpkg.TypeStory)
 			tk.Set("status", "backlog")
 			tk.Set("priority", 3)
 			tk.Body = "Test description"
@@ -1068,7 +1068,7 @@ func TestCustomFieldRoundTrip(t *testing.T) {
 	original := tikipkg.New()
 	original.ID = "CUSTOM"
 	original.Title = "Custom field test"
-	original.Set(tikipkg.FieldStatus, string(taskpkg.StatusReady))
+	original.Set(tikipkg.FieldStatus, taskpkg.StatusReady)
 	original.Set(tikipkg.FieldType, "story")
 	original.Set(tikipkg.FieldPriority, 2)
 	original.Set("severity", "high")
@@ -1205,7 +1205,7 @@ func TestCustomFieldRoundTrip_AmbiguousStrings(t *testing.T) {
 			original := tikipkg.New()
 			original.ID = "AMBIG1"
 			original.Title = "Ambiguous round-trip"
-			original.Set(tikipkg.FieldStatus, string(taskpkg.StatusReady))
+			original.Set(tikipkg.FieldStatus, taskpkg.StatusReady)
 			original.Set(tikipkg.FieldType, "story")
 			original.Set(tikipkg.FieldPriority, 2)
 			for k, v := range tt.fields {
@@ -1542,8 +1542,8 @@ func TestSaveTask_DedupesBuiltInCollections(t *testing.T) {
 	input := tikipkg.New()
 	input.ID = "SET001"
 	input.Title = "dedupe built-ins"
-	input.Set(tikipkg.FieldType, string(taskpkg.TypeStory))
-	input.Set(tikipkg.FieldStatus, string(taskpkg.StatusBacklog))
+	input.Set(tikipkg.FieldType, taskpkg.TypeStory)
+	input.Set(tikipkg.FieldStatus, taskpkg.StatusBacklog)
 	input.Set(tikipkg.FieldPriority, 3)
 	input.Set(tikipkg.FieldTags, []string{"frontend", "backend", "frontend", " backend "})
 	input.Set(tikipkg.FieldDependsOn, []string{"aaa001", "AAA001", " BBB002 "})
@@ -1589,8 +1589,8 @@ func TestSaveTask_DedupesCustomListFields(t *testing.T) {
 	input := tikipkg.New()
 	input.ID = "SET002"
 	input.Title = "dedupe custom"
-	input.Set(tikipkg.FieldType, string(taskpkg.TypeStory))
-	input.Set(tikipkg.FieldStatus, string(taskpkg.StatusBacklog))
+	input.Set(tikipkg.FieldType, taskpkg.TypeStory)
+	input.Set(tikipkg.FieldStatus, taskpkg.StatusBacklog)
 	input.Set(tikipkg.FieldPriority, 3)
 	input.Set("labels", []string{"backend", "backend", " frontend ", ""})
 	input.Set("related", []string{"aaa001", "AAA001", "bbb002"})

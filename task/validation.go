@@ -36,7 +36,7 @@ func ValidateStatus(t *Task) string {
 	if t.Status == "" {
 		return ""
 	}
-	if config.GetStatusRegistry().IsValid(string(t.Status)) {
+	if config.GetStatusRegistry().IsValid(t.Status) {
 		return ""
 	}
 	return fmt.Sprintf("invalid status value: %s", t.Status)

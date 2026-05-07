@@ -48,8 +48,8 @@ func TestInMemoryStore_CreateTiki(t *testing.T) {
 			tk := tikipkg.New()
 			tk.ID = tt.inputID
 			tk.Title = "Test"
-			tk.Set(tikipkg.FieldType, string(taskpkg.TypeStory))
-			tk.Set(tikipkg.FieldStatus, string(taskpkg.DefaultStatus()))
+			tk.Set(tikipkg.FieldType, taskpkg.TypeStory)
+			tk.Set(tikipkg.FieldStatus, taskpkg.DefaultStatus())
 
 			if err := s.CreateTiki(tk); err != nil {
 				t.Fatalf("CreateTiki() error = %v", err)
@@ -420,10 +420,10 @@ func TestInMemoryStore_NewTikiTemplate(t *testing.T) {
 	if tags, _, _ := tmpl.StringSliceField(tikipkg.FieldTags); len(tags) != 1 || tags[0] != "idea" {
 		t.Errorf("Tags = %v, want [idea]", tags)
 	}
-	if s, _, _ := tmpl.StringField(tikipkg.FieldStatus); s != string(taskpkg.DefaultStatus()) {
+	if s, _, _ := tmpl.StringField(tikipkg.FieldStatus); s != taskpkg.DefaultStatus() {
 		t.Errorf("Status = %q, want %q", s, taskpkg.DefaultStatus())
 	}
-	if s, _, _ := tmpl.StringField(tikipkg.FieldType); s != string(taskpkg.DefaultType()) {
+	if s, _, _ := tmpl.StringField(tikipkg.FieldType); s != taskpkg.DefaultType() {
 		t.Errorf("Type = %q, want %q", s, taskpkg.DefaultType())
 	}
 }

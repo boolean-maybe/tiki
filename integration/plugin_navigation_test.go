@@ -27,8 +27,8 @@ func setupPluginTestData(t *testing.T, ta *testutil.TestApp) {
 	tasks := []struct {
 		id       string
 		title    string
-		status   taskpkg.Status
-		taskType taskpkg.Type
+		status   string
+		taskType string
 		recent   bool // needs UpdatedAt within 2 hours
 	}{
 		// Backlog plugin: status = 'backlog'
@@ -395,7 +395,7 @@ func TestPluginActions_NewTask_NKey(t *testing.T) {
 		if tk.Title == "New Plugin Task" {
 			found = true
 			status, _, _ := tk.StringField("status")
-			if status != string(taskpkg.StatusBacklog) {
+			if status != taskpkg.StatusBacklog {
 				t.Errorf("Expected new task to have backlog status, got %s", status)
 			}
 			break
@@ -748,7 +748,7 @@ func TestPluginActions_DeleteTask_UpdatesSelection(t *testing.T) {
 	backlogCount := 0
 	for _, tk := range tikis {
 		status, _, _ := tk.StringField("status")
-		if status == string(taskpkg.StatusBacklog) {
+		if status == taskpkg.StatusBacklog {
 			backlogCount++
 		}
 	}

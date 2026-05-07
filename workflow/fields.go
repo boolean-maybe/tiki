@@ -24,9 +24,7 @@ const (
 	TypeRecurrence           // structured cron-based recurrence pattern
 	TypeListString           // []string (e.g. tags)
 	TypeListRef              // []string of document ID references (e.g. dependsOn)
-	TypeStatus               // workflow status enum backed by StatusRegistry
-	TypeTaskType             // document type enum backed by TypeRegistry
-	TypeEnum                 // custom enum backed by FieldDef.AllowedValues
+	TypeEnum                 // enum backed by registry (status/type) or FieldDef.AllowedValues (custom)
 )
 
 // FieldDef describes a single document field's name and semantic type.
@@ -43,8 +41,8 @@ var fieldCatalog = []FieldDef{
 	{Name: "id", Type: TypeID},
 	{Name: "title", Type: TypeString},
 	{Name: "description", Type: TypeString},
-	{Name: "status", Type: TypeStatus},
-	{Name: "type", Type: TypeTaskType},
+	{Name: "status", Type: TypeEnum},
+	{Name: "type", Type: TypeEnum},
 	{Name: "tags", Type: TypeListString},
 	{Name: "dependsOn", Type: TypeListRef},
 	{Name: "due", Type: TypeDate},

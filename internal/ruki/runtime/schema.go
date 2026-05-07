@@ -29,9 +29,6 @@ func NewSchema() ruki.Schema {
 		}
 		if values := enumAllowedValues(fd, config.GetStatusRegistry(), config.GetTypeRegistry()); values != nil {
 			spec.AllowedValues = values
-		} else if fd.AllowedValues != nil {
-			spec.AllowedValues = make([]string, len(fd.AllowedValues))
-			copy(spec.AllowedValues, fd.AllowedValues)
 		}
 		byName[fd.Name] = spec
 	}
@@ -81,7 +78,7 @@ func (s *workflowSchema) Field(name string) (ruki.FieldSpec, bool) {
 }
 
 // mapValueType converts workflow.ValueType to ruki.ValueType. Workflow's
-// status, task type, and custom enum domains all collapse to ruki.ValueEnum.
+// enum domain (status, task type, and custom enums) collapses to ruki.ValueEnum.
 func mapValueType(wt workflow.ValueType) ruki.ValueType {
 	switch wt {
 	case workflow.TypeString:
@@ -106,34 +103,34 @@ func mapValueType(wt workflow.ValueType) ruki.ValueType {
 		return ruki.ValueListString
 	case workflow.TypeListRef:
 		return ruki.ValueListRef
-	case workflow.TypeStatus, workflow.TypeTaskType, workflow.TypeEnum:
+	case workflow.TypeEnum:
 		return ruki.ValueEnum
 	default:
 		return ruki.ValueString
 	}
 }
 
+// enumAllowedValues returns the allowed values for an enum field. The built-in
+// "status" and "type" fields take their allowed values from the workflow
+// registries; other enum fields use their declared FieldDef.AllowedValues.
 func enumAllowedValues(fd workflow.FieldDef, statusReg *workflow.StatusRegistry, typeReg *workflow.TypeRegistry) []string {
-	switch fd.Type {
-	case workflow.TypeStatus:
+	if fd.Type != workflow.TypeEnum {
+		return nil
+	}
+	switch fd.Name {
+	case "status":
 		keys := statusReg.Keys()
 		values := make([]string, len(keys))
-		for i, key := range keys {
-			values[i] = string(key)
-		}
+		copy(values, keys)
 		return values
-	case workflow.TypeTaskType:
+	case "type":
 		keys := typeReg.Keys()
 		values := make([]string, len(keys))
-		for i, key := range keys {
-			values[i] = string(key)
-		}
+		copy(values, keys)
 		return values
-	case workflow.TypeEnum:
+	default:
 		values := make([]string, len(fd.AllowedValues))
 		copy(values, fd.AllowedValues)
 		return values
-	default:
-		return nil
 	}
 }

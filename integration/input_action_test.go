@@ -173,7 +173,7 @@ func TestInputAction_NonInputActionStillWorks(t *testing.T) {
 		t.Fatal("task not found")
 	}
 	status, _, _ := updated.StringField("status")
-	if status != string(task.StatusReady) {
+	if status != task.StatusReady {
 		t.Fatalf("expected status ready, got %v", status)
 	}
 }
@@ -198,7 +198,7 @@ func TestInputAction_ModalBlocksOtherActions(t *testing.T) {
 	updated := ta.TaskStore.GetTiki("000001")
 	if updated != nil {
 		status, _, _ := updated.StringField("status")
-		if status != string(task.StatusBacklog) {
+		if status != task.StatusBacklog {
 			t.Fatalf("expected status backlog (action should be blocked while modal), got %v", status)
 		}
 	}
@@ -355,7 +355,7 @@ func TestInputAction_SearchEditingBlocksPluginActions(t *testing.T) {
 	updated := ta.TaskStore.GetTiki("000001")
 	if updated != nil {
 		status, _, _ := updated.StringField("status")
-		if status != string(task.StatusBacklog) {
+		if status != task.StatusBacklog {
 			t.Fatalf("expected status backlog (action blocked during search editing), got %v", status)
 		}
 	}
@@ -647,7 +647,7 @@ func TestInputAction_CompositeKeyPluginAction(t *testing.T) {
 	updated := ta.TaskStore.GetTiki("000001")
 	if updated != nil {
 		status, _, _ := updated.StringField("status")
-		if status != string(task.StatusReady) {
+		if status != task.StatusReady {
 			t.Fatalf("expected status 'ready' after Ctrl-U action, got %q", status)
 		}
 	}

@@ -51,7 +51,7 @@ func getFocusMarker(colors *config.ColorConfig) string {
 func RenderStatusText(tk *tikipkg.Tiki, ctx FieldRenderContext) tview.Primitive {
 	focused := ctx.Mode == RenderModeEdit && ctx.FocusedField == model.EditFieldStatus
 	statusStr, _, _ := tk.StringField(tikipkg.FieldStatus)
-	statusDisplay := taskpkg.StatusDisplay(taskpkg.Status(statusStr))
+	statusDisplay := taskpkg.StatusDisplay(statusStr)
 
 	labelTag := getDimOrFullColor(ctx.Mode, focused, ctx.Colors.TaskDetailLabelText, ctx.Colors.TaskDetailEditDimLabelColor).Tag().String()
 	valueTag := getDimOrFullColor(ctx.Mode, focused, ctx.Colors.TaskDetailValueText, ctx.Colors.TaskDetailEditDimValueColor).Tag().String()
@@ -72,7 +72,7 @@ func RenderStatusText(tk *tikipkg.Tiki, ctx FieldRenderContext) tview.Primitive 
 func RenderTypeText(tk *tikipkg.Tiki, ctx FieldRenderContext) tview.Primitive {
 	focused := ctx.Mode == RenderModeEdit && ctx.FocusedField == model.EditFieldType
 	typeStr, _, _ := tk.StringField(tikipkg.FieldType)
-	typeDisplay := taskpkg.TypeDisplay(taskpkg.Type(typeStr))
+	typeDisplay := taskpkg.TypeDisplay(typeStr)
 	if typeStr == "" {
 		typeDisplay = ctx.Colors.TaskDetailPlaceholderColor.Tag().String() + "(none)[-]"
 	}

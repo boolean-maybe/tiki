@@ -135,7 +135,7 @@ func TestMapStatus(t *testing.T) {
 	tests := []struct {
 		name     string
 		input    string
-		expected taskpkg.Status
+		expected string
 	}{
 		// Valid statuses - exact match
 		{name: "backlog", input: "backlog", expected: taskpkg.StatusBacklog},

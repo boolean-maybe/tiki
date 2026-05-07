@@ -19,7 +19,7 @@ func TestParseStatus(t *testing.T) {
 	tests := []struct {
 		name       string
 		input      string
-		wantStatus Status
+		wantStatus string
 		wantOK     bool
 	}{
 		{"valid status", "done", "done", true},
@@ -133,7 +133,7 @@ func TestAllStatuses(t *testing.T) {
 	setupStatusTestRegistry(t)
 
 	all := AllStatuses()
-	expected := []Status{"backlog", "ready", "inProgress", "review", "done"}
+	expected := []string{"backlog", "ready", "inProgress", "review", "done"}
 	if len(all) != len(expected) {
 		t.Fatalf("AllStatuses() returned %d, want %d", len(all), len(expected))
 	}

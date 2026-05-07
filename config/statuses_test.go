@@ -140,7 +140,7 @@ func TestRegistry_Keys(t *testing.T) {
 	reg := GetStatusRegistry()
 
 	keys := reg.Keys()
-	expected := []workflow.StatusKey{"backlog", "ready", "inProgress", "review", "done"}
+	expected := []string{"backlog", "ready", "inProgress", "review", "done"}
 
 	if len(keys) != len(expected) {
 		t.Fatalf("expected %d keys, got %d", len(expected), len(keys))

@@ -5,12 +5,10 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
-
-	"github.com/boolean-maybe/tiki/task"
 )
 
 // CreateTestTask creates a markdown task file with YAML frontmatter
-func CreateTestTask(dir, id, title string, status task.Status, taskType task.Type) error {
+func CreateTestTask(dir, id, title, status, taskType string) error {
 	return CreateTestTaskWithDeps(dir, id, title, status, taskType, nil)
 }
 
@@ -19,7 +17,7 @@ func CreateTestTask(dir, id, title string, status task.Status, taskType task.Typ
 // ("TIKI-ABC123") ids; the legacy prefix is stripped so the written file
 // conforms to the Phase 1 strict-load contract (bare id in frontmatter,
 // filename is <id>.md).
-func CreateTestTaskWithDeps(dir, id, title string, status task.Status, taskType task.Type, dependsOn []string) error {
+func CreateTestTaskWithDeps(dir, id, title, status, taskType string, dependsOn []string) error {
 	bareID := normalizeBareID(id)
 	filename := bareID + ".md"
 	filePath := filepath.Join(dir, filename)

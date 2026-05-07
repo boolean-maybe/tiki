@@ -31,7 +31,7 @@ func applyFrameStyle(frame *tview.Frame, selected bool, colors *config.ColorConf
 // tikiTypeEmoji returns the emoji for the tiki's type field.
 func tikiTypeEmoji(tk *tikipkg.Tiki) string {
 	s, _, _ := tk.StringField(tikipkg.FieldType)
-	return task.TypeEmoji(task.Type(s))
+	return task.TypeEmoji(s)
 }
 
 // tikiPriorityEmoji returns the emoji label for the tiki's priority field,

@@ -14,7 +14,7 @@ func mustBuildTypeRegistry(t *testing.T, defs []TypeDef) *TypeRegistry {
 func TestNormalizeTypeKey(t *testing.T) {
 	tests := []struct {
 		input string
-		want  TaskType
+		want  string
 	}{
 		{"story", "story"},
 		{"Story", "story"},
@@ -41,7 +41,7 @@ func TestTypeRegistry_ParseType(t *testing.T) {
 	tests := []struct {
 		name   string
 		input  string
-		want   TaskType
+		want   string
 		wantOK bool
 	}{
 		{"story", "story", TypeStory, true},
@@ -70,7 +70,7 @@ func TestTypeRegistry_ParseDisplay(t *testing.T) {
 	tests := []struct {
 		name   string
 		input  string
-		want   TaskType
+		want   string
 		wantOK bool
 	}{
 		{"story display", "Story 🌀", TypeStory, true},
@@ -96,18 +96,18 @@ func TestTypeRegistry_TypeLabel(t *testing.T) {
 	reg := mustBuildTypeRegistry(t, DefaultTypeDefs())
 
 	tests := []struct {
-		input TaskType
+		input string
 		want  string
 	}{
 		{TypeStory, "Story"},
 		{TypeBug, "Bug"},
 		{TypeSpike, "Spike"},
 		{TypeEpic, "Epic"},
-		{TaskType("unknown"), "unknown"},
+		{"unknown", "unknown"},
 	}
 
 	for _, tt := range tests {
-		t.Run(string(tt.input), func(t *testing.T) {
+		t.Run(tt.input, func(t *testing.T) {
 			if got := reg.TypeLabel(tt.input); got != tt.want {
 				t.Errorf("TypeLabel(%q) = %q, want %q", tt.input, got, tt.want)
 			}
@@ -119,18 +119,18 @@ func TestTypeRegistry_TypeEmoji(t *testing.T) {
 	reg := mustBuildTypeRegistry(t, DefaultTypeDefs())
 
 	tests := []struct {
-		input TaskType
+		input string
 		want  string
 	}{
 		{TypeStory, "🌀"},
 		{TypeBug, "💥"},
 		{TypeSpike, "🔍"},
 		{TypeEpic, "🗂️"},
-		{TaskType("unknown"), ""},
+		{"unknown", ""},
 	}
 
 	for _, tt := range tests {
-		t.Run(string(tt.input), func(t *testing.T) {
+		t.Run(tt.input, func(t *testing.T) {
 			if got := reg.TypeEmoji(tt.input); got != tt.want {
 				t.Errorf("TypeEmoji(%q) = %q, want %q", tt.input, got, tt.want)
 			}
@@ -142,18 +142,18 @@ func TestTypeRegistry_TypeDisplay(t *testing.T) {
 	reg := mustBuildTypeRegistry(t, DefaultTypeDefs())
 
 	tests := []struct {
-		input TaskType
+		input string
 		want  string
 	}{
 		{TypeStory, "Story 🌀"},
 		{TypeBug, "Bug 💥"},
 		{TypeSpike, "Spike 🔍"},
 		{TypeEpic, "Epic 🗂️"},
-		{TaskType("unknown"), "unknown"},
+		{"unknown", "unknown"},
 	}
 
 	for _, tt := range tests {
-		t.Run(string(tt.input), func(t *testing.T) {
+		t.Run(tt.input, func(t *testing.T) {
 			if got := reg.TypeDisplay(tt.input); got != tt.want {
 				t.Errorf("TypeDisplay(%q) = %q, want %q", tt.input, got, tt.want)
 			}
@@ -181,7 +181,7 @@ func TestTypeRegistry_Keys(t *testing.T) {
 	reg := mustBuildTypeRegistry(t, DefaultTypeDefs())
 
 	keys := reg.Keys()
-	expected := []TaskType{TypeStory, TypeBug, TypeSpike, TypeEpic}
+	expected := []string{TypeStory, TypeBug, TypeSpike, TypeEpic}
 
 	if len(keys) != len(expected) {
 		t.Fatalf("expected %d keys, got %d", len(expected), len(keys))
@@ -209,7 +209,7 @@ func TestTypeRegistry_LookupNormalizesInput(t *testing.T) {
 
 	tests := []struct {
 		name  string
-		input TaskType
+		input string
 		want  bool
 	}{
 		{"lowercase", "story", true},

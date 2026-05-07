@@ -21,7 +21,7 @@ func (u *LegacyUpgrader) UpgradeTiki(tk *tikipkg.Tiki) {
 		return
 	}
 	if s, ok := tk.Fields["status"].(string); ok && s != "" {
-		mapped := string(taskpkg.MapStatus(s))
+		mapped := taskpkg.MapStatus(s)
 		if mapped != s {
 			tk.Set("status", mapped)
 		}

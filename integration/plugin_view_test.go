@@ -23,8 +23,8 @@ func setupPluginViewTest(t *testing.T) *testutil.TestApp {
 	tasks := []struct {
 		id     string
 		title  string
-		status taskpkg.Status
-		typ    taskpkg.Type
+		status string
+		typ    string
 	}{
 		{"000001", "First Backlog Task", taskpkg.StatusBacklog, taskpkg.TypeStory},
 		{"000002", "Second Backlog Task", taskpkg.StatusBacklog, taskpkg.TypeBug},
@@ -209,7 +209,7 @@ func TestPluginView_CreateTask(t *testing.T) {
 			found = true
 			// Task created from backlog plugin should have backlog status
 			status, _, _ := tk.StringField("status")
-			if status != string(taskpkg.StatusBacklog) {
+			if status != taskpkg.StatusBacklog {
 				t.Errorf("new task status = %v, want %v", status, taskpkg.StatusBacklog)
 			}
 			break

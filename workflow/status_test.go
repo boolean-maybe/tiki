@@ -24,7 +24,7 @@ func mustBuildStatusRegistry(t *testing.T, defs []StatusDef) *StatusRegistry {
 func TestNormalizeStatusKey(t *testing.T) {
 	tests := []struct {
 		input string
-		want  StatusKey
+		want  string
 	}{
 		{"backlog", "backlog"},
 		{"BACKLOG", "backlog"},
@@ -165,7 +165,7 @@ func TestStatusRegistry_Keys(t *testing.T) {
 	reg := mustBuildStatusRegistry(t, defaultTestStatuses())
 
 	keys := reg.Keys()
-	expected := []StatusKey{"backlog", "ready", "inProgress", "review", "done"}
+	expected := []string{"backlog", "ready", "inProgress", "review", "done"}
 
 	if len(keys) != len(expected) {
 		t.Fatalf("expected %d keys, got %d", len(expected), len(keys))

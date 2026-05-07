@@ -278,8 +278,8 @@ func (tc *TaskController) updateTikiField(setter func(*tikipkg.Tiki)) bool {
 // SaveStatus saves the new status to the current tiki after validating the display value.
 // Returns true if the status was successfully updated, false otherwise.
 func (tc *TaskController) SaveStatus(statusDisplay string) bool {
-	// parse status display back to Status
-	var newStatus taskpkg.Status
+	// parse status display back to canonical key
+	var newStatus string
 	statusFound := false
 
 	for _, s := range taskpkg.AllStatuses() {
@@ -296,13 +296,13 @@ func (tc *TaskController) SaveStatus(statusDisplay string) bool {
 	}
 
 	// Validate status: non-empty values must be registered
-	if newStatus != "" && !config.GetStatusRegistry().IsValid(string(newStatus)) {
+	if newStatus != "" && !config.GetStatusRegistry().IsValid(newStatus) {
 		slog.Warn("invalid status", "display", statusDisplay, "normalized", newStatus)
 		return false
 	}
 
 	return tc.updateTikiField(func(tk *tikipkg.Tiki) {
-		tk.Set(tikipkg.FieldStatus, string(newStatus))
+		tk.Set(tikipkg.FieldStatus, newStatus)
 	})
 }
 
@@ -317,7 +317,7 @@ func (tc *TaskController) SaveType(typeDisplay string) bool {
 	}
 
 	return tc.updateTikiField(func(tk *tikipkg.Tiki) {
-		tk.Set(tikipkg.FieldType, string(newType))
+		tk.Set(tikipkg.FieldType, newType)
 	})
 }
 

@@ -133,8 +133,8 @@ func (s *InMemoryStore) NewTikiTemplate() (*tikipkg.Tiki, error) {
 	tk.CreatedAt = time.Now()
 
 	if defaultStatus := task.DefaultStatus(); defaultStatus != "" {
-		tk.Set(tikipkg.FieldStatus, string(defaultStatus))
-		tk.Set(tikipkg.FieldType, string(task.DefaultType()))
+		tk.Set(tikipkg.FieldStatus, defaultStatus)
+		tk.Set(tikipkg.FieldType, task.DefaultType())
 		tk.Set(tikipkg.FieldPriority, 3)
 		tk.Set(tikipkg.FieldPoints, 1)
 		tk.Set(tikipkg.FieldTags, []string{"idea"})

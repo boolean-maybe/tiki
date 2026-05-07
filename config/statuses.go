@@ -19,7 +19,7 @@ type StatusRegistry = workflow.StatusRegistry
 
 // NormalizeStatusKey delegates to workflow.NormalizeStatusKey.
 func NormalizeStatusKey(key string) string {
-	return string(workflow.NormalizeStatusKey(key))
+	return workflow.NormalizeStatusKey(key)
 }
 
 var (
@@ -290,7 +290,7 @@ func convertTypeField(field customFieldYAML) ([]workflow.TypeDef, error) {
 			return nil, fmt.Errorf("type enum value %q: active and done flags are only valid for status", value.Value)
 		}
 		defs = append(defs, workflow.TypeDef{
-			Key:     workflow.TaskType(value.Value),
+			Key:     value.Value,
 			Label:   value.Label,
 			Emoji:   value.Emoji,
 			Default: value.Default,

@@ -154,7 +154,7 @@ func TestExecutePluginIDsMatchesMultipleSelection(t *testing.T) {
 	got := map[string]bool{}
 	for _, u := range res.Update.Updated {
 		got[u.ID] = true
-		if string(u.Status) != "done" {
+		if u.Status != "done" {
 			t.Errorf("task %s status = %q, want done", u.ID, u.Status)
 		}
 	}

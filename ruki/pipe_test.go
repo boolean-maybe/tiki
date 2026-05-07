@@ -604,7 +604,6 @@ func TestPipeArgString(t *testing.T) {
 		{"string slice", []interface{}{"a", "b"}, "a b"},
 		{"empty slice", []interface{}{}, ""},
 		{"nil", nil, "<nil>"},
-		{"status", task.Status("done"), "done"},
 	}
 
 	for _, tt := range tests {

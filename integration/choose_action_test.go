@@ -173,7 +173,7 @@ func TestChooseAction_NonChooseActionStillWorks(t *testing.T) {
 		t.Fatal("task not found")
 	}
 	nonChooseStatus, _, _ := updated.StringField("status")
-	if nonChooseStatus != string(task.StatusReady) {
+	if nonChooseStatus != task.StatusReady {
 		t.Fatalf("expected status ready, got %v", nonChooseStatus)
 	}
 }
@@ -197,7 +197,7 @@ func TestChooseAction_ModalBlocksOtherActions(t *testing.T) {
 	}
 	updated := ta.TaskStore.GetTiki("000001")
 	blockedStatus, _, _ := updated.StringField("status")
-	if blockedStatus != string(task.StatusBacklog) {
+	if blockedStatus != task.StatusBacklog {
 		t.Fatalf("expected status backlog (action blocked while modal), got %v", blockedStatus)
 	}
 

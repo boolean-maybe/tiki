@@ -34,10 +34,10 @@ func tikiFromTask(t *task.Task) *tiki.Tiki {
 		// only set fields that are non-zero, mirroring setWorkflowFieldFromTask
 		// behavior: absent zero-values must stay absent so has(field) returns false.
 		if t.Status != "" {
-			tk.Set(tiki.FieldStatus, string(t.Status))
+			tk.Set(tiki.FieldStatus, t.Status)
 		}
 		if t.Type != "" {
-			tk.Set(tiki.FieldType, string(t.Type))
+			tk.Set(tiki.FieldType, t.Type)
 		}
 		if t.Priority != 0 {
 			tk.Set(tiki.FieldPriority, t.Priority)
@@ -165,10 +165,10 @@ func tikiToTaskForTest(tk *tiki.Tiki) *task.Task {
 	}
 
 	if v, ok, _ := tk.StringField(tiki.FieldStatus); ok {
-		t.Status = task.Status(v)
+		t.Status = v
 	}
 	if v, ok, _ := tk.StringField(tiki.FieldType); ok {
-		t.Type = task.Type(v)
+		t.Type = v
 	}
 	if v, ok, _ := tk.IntField(tiki.FieldPriority); ok {
 		t.Priority = v

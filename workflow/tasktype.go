@@ -5,24 +5,22 @@ import (
 	"strings"
 )
 
-// TaskType is a named type for workflow task type keys.
-type TaskType string
-
-// well-known built-in type constants.
+// well-known built-in type constants. Type keys are plain strings, lowercase
+// and stripped of separators.
 const (
-	TypeStory TaskType = "story"
-	TypeBug   TaskType = "bug"
-	TypeSpike TaskType = "spike"
-	TypeEpic  TaskType = "epic"
+	TypeStory = "story"
+	TypeBug   = "bug"
+	TypeSpike = "spike"
+	TypeEpic  = "epic"
 )
 
 // TypeDef defines a single task type with display metadata.
 // Keys must be canonical (matching NormalizeTypeKey output).
 type TypeDef struct {
-	Key     TaskType `yaml:"key"`
-	Label   string   `yaml:"label,omitempty"`
-	Emoji   string   `yaml:"emoji,omitempty"`
-	Default bool     `yaml:"default,omitempty"`
+	Key     string `yaml:"key"`
+	Label   string `yaml:"label,omitempty"`
+	Emoji   string `yaml:"emoji,omitempty"`
+	Default bool   `yaml:"default,omitempty"`
 }
 
 // DefaultTypeDefs returns the built-in type definitions.
@@ -39,19 +37,19 @@ func DefaultTypeDefs() []TypeDef {
 // Unknown input is never silently coerced — ParseType returns ("", false).
 type TypeRegistry struct {
 	types      []TypeDef
-	byKey      map[TaskType]TypeDef
-	byDisplay  map[string]TaskType // display string → canonical key
-	defaultKey TaskType            // explicit default; empty = use first type
+	byKey      map[string]TypeDef
+	byDisplay  map[string]string // display string → canonical key
+	defaultKey string            // explicit default; empty = use first type
 }
 
 // NormalizeTypeKey lowercases, trims, and strips all separators ("-", "_", " ").
 // Used to compute the canonical form of a type key for validation.
-func NormalizeTypeKey(s string) TaskType {
+func NormalizeTypeKey(s string) string {
 	s = strings.ToLower(strings.TrimSpace(s))
 	s = strings.ReplaceAll(s, "_", "")
 	s = strings.ReplaceAll(s, "-", "")
 	s = strings.ReplaceAll(s, " ", "")
-	return TaskType(s)
+	return s
 }
 
 // NewTypeRegistry constructs a TypeRegistry from the given definitions.
@@ -65,18 +63,18 @@ func NewTypeRegistry(defs []TypeDef) (*TypeRegistry, error) {
 
 	reg := &TypeRegistry{
 		types:     make([]TypeDef, 0, len(defs)),
-		byKey:     make(map[TaskType]TypeDef, len(defs)),
-		byDisplay: make(map[string]TaskType, len(defs)),
+		byKey:     make(map[string]TypeDef, len(defs)),
+		byDisplay: make(map[string]string, len(defs)),
 	}
 
-	var explicitDefault TaskType
+	var explicitDefault string
 	for i, def := range defs {
 		if def.Key == "" {
 			return nil, fmt.Errorf("type at index %d has empty key", i)
 		}
 
 		// require canonical key
-		canonical := NormalizeTypeKey(string(def.Key))
+		canonical := NormalizeTypeKey(def.Key)
 		if def.Key != canonical {
 			return nil, fmt.Errorf("type key %q is not canonical; use %q", def.Key, canonical)
 		}
@@ -88,7 +86,7 @@ func NewTypeRegistry(defs []TypeDef) (*TypeRegistry, error) {
 
 		// label: default to key when omitted, reject explicit empty/whitespace
 		if def.Label == "" {
-			def.Label = string(def.Key)
+			def.Label = def.Key
 		} else if strings.TrimSpace(def.Label) == "" {
 			return nil, fmt.Errorf("type %q has empty/whitespace label", def.Key)
 		}
@@ -127,15 +125,15 @@ func typeDisplay(label, emoji string) string {
 }
 
 // Lookup returns the TypeDef for a given key (normalized) and whether it exists.
-func (r *TypeRegistry) Lookup(key TaskType) (TypeDef, bool) {
-	def, ok := r.byKey[NormalizeTypeKey(string(key))]
+func (r *TypeRegistry) Lookup(key string) (TypeDef, bool) {
+	def, ok := r.byKey[NormalizeTypeKey(key)]
 	return def, ok
 }
 
-// ParseType parses a raw string into a TaskType with validation.
+// ParseType parses a raw string into a canonical type key with validation.
 // Returns the canonical key and true if recognized,
 // or ("", false) for unknown types. No fallback, no coercion.
-func (r *TypeRegistry) ParseType(s string) (TaskType, bool) {
+func (r *TypeRegistry) ParseType(s string) (string, bool) {
 	normalized := NormalizeTypeKey(s)
 	if _, ok := r.byKey[normalized]; ok {
 		return normalized, true
@@ -144,15 +142,15 @@ func (r *TypeRegistry) ParseType(s string) (TaskType, bool) {
 }
 
 // TypeLabel returns the human-readable label for a task type.
-func (r *TypeRegistry) TypeLabel(t TaskType) string {
+func (r *TypeRegistry) TypeLabel(t string) string {
 	if def, ok := r.Lookup(t); ok {
 		return def.Label
 	}
-	return string(t)
+	return t
 }
 
 // TypeEmoji returns the emoji for a task type.
-func (r *TypeRegistry) TypeEmoji(t TaskType) string {
+func (r *TypeRegistry) TypeEmoji(t string) string {
 	if def, ok := r.Lookup(t); ok {
 		return def.Emoji
 	}
@@ -160,7 +158,7 @@ func (r *TypeRegistry) TypeEmoji(t TaskType) string {
 }
 
 // TypeDisplay returns "Label Emoji" for a task type.
-func (r *TypeRegistry) TypeDisplay(t TaskType) string {
+func (r *TypeRegistry) TypeDisplay(t string) string {
 	label := r.TypeLabel(t)
 	emoji := r.TypeEmoji(t)
 	return typeDisplay(label, emoji)
@@ -168,7 +166,7 @@ func (r *TypeRegistry) TypeDisplay(t TaskType) string {
 
 // ParseDisplay reverses a TypeDisplay() string (e.g. "Bug 💥") back to
 // its canonical key. Returns (key, true) on match, or ("", false).
-func (r *TypeRegistry) ParseDisplay(display string) (TaskType, bool) {
+func (r *TypeRegistry) ParseDisplay(display string) (string, bool) {
 	if key, ok := r.byDisplay[display]; ok {
 		return key, true
 	}
@@ -177,7 +175,7 @@ func (r *TypeRegistry) ParseDisplay(display string) (TaskType, bool) {
 
 // DefaultType returns the creation-default type key. If a type has
 // Default: true, that type is returned; otherwise the first type wins.
-func (r *TypeRegistry) DefaultType() TaskType {
+func (r *TypeRegistry) DefaultType() string {
 	if r.defaultKey != "" {
 		return r.defaultKey
 	}
@@ -185,8 +183,8 @@ func (r *TypeRegistry) DefaultType() TaskType {
 }
 
 // Keys returns all type keys in definition order.
-func (r *TypeRegistry) Keys() []TaskType {
-	keys := make([]TaskType, len(r.types))
+func (r *TypeRegistry) Keys() []string {
+	keys := make([]string, len(r.types))
 	for i, td := range r.types {
 		keys[i] = td.Key
 	}
@@ -202,7 +200,7 @@ func (r *TypeRegistry) All() []TypeDef {
 }
 
 // IsValid reports whether key is a recognized type.
-func (r *TypeRegistry) IsValid(key TaskType) bool {
-	_, ok := r.byKey[NormalizeTypeKey(string(key))]
+func (r *TypeRegistry) IsValid(key string) bool {
+	_, ok := r.byKey[NormalizeTypeKey(key)]
 	return ok
 }

@@ -26,7 +26,7 @@ func TestParseType(t *testing.T) {
 	tests := []struct {
 		name     string
 		input    string
-		wantType Type
+		wantType string
 		wantOK   bool
 	}{
 		{"valid story", "story", TypeStory, true},
@@ -55,14 +55,14 @@ func TestParseType(t *testing.T) {
 func TestTypeLabel(t *testing.T) {
 	tests := []struct {
 		name     string
-		input    Type
+		input    string
 		expected string
 	}{
 		{name: "story label", input: TypeStory, expected: "Story"},
 		{name: "bug label", input: TypeBug, expected: "Bug"},
 		{name: "spike label", input: TypeSpike, expected: "Spike"},
 		{name: "epic label", input: TypeEpic, expected: "Epic"},
-		{name: "unknown type", input: Type("unknown"), expected: "unknown"},
+		{name: "unknown type", input: "unknown", expected: "unknown"},
 	}
 
 	for _, tt := range tests {
@@ -78,14 +78,14 @@ func TestTypeLabel(t *testing.T) {
 func TestTypeEmoji(t *testing.T) {
 	tests := []struct {
 		name     string
-		input    Type
+		input    string
 		expected string
 	}{
 		{name: "story emoji", input: TypeStory, expected: "🌀"},
 		{name: "bug emoji", input: TypeBug, expected: "💥"},
 		{name: "spike emoji", input: TypeSpike, expected: "🔍"},
 		{name: "epic emoji", input: TypeEpic, expected: "🗂️"},
-		{name: "unknown type", input: Type("unknown"), expected: ""},
+		{name: "unknown type", input: "unknown", expected: ""},
 	}
 
 	for _, tt := range tests {
@@ -101,14 +101,14 @@ func TestTypeEmoji(t *testing.T) {
 func TestTypeDisplay(t *testing.T) {
 	tests := []struct {
 		name     string
-		input    Type
+		input    string
 		expected string
 	}{
 		{name: "story display", input: TypeStory, expected: "Story 🌀"},
 		{name: "bug display", input: TypeBug, expected: "Bug 💥"},
 		{name: "spike display", input: TypeSpike, expected: "Spike 🔍"},
 		{name: "epic display", input: TypeEpic, expected: "Epic 🗂️"},
-		{name: "unknown type", input: Type("unknown"), expected: "unknown"},
+		{name: "unknown type", input: "unknown", expected: "unknown"},
 	}
 
 	for _, tt := range tests {
@@ -125,7 +125,7 @@ func TestParseDisplay(t *testing.T) {
 	tests := []struct {
 		name     string
 		input    string
-		wantType Type
+		wantType string
 		wantOK   bool
 	}{
 		{"story display", "Story 🌀", TypeStory, true},
@@ -153,11 +153,11 @@ func TestAllTypes(t *testing.T) {
 	if len(types) == 0 {
 		t.Fatal("AllTypes() returned empty list")
 	}
-	found := make(map[Type]bool)
+	found := make(map[string]bool)
 	for _, tp := range types {
 		found[tp] = true
 	}
-	for _, want := range []Type{TypeStory, TypeBug, TypeSpike, TypeEpic} {
+	for _, want := range []string{TypeStory, TypeBug, TypeSpike, TypeEpic} {
 		if !found[want] {
 			t.Errorf("AllTypes() missing %q", want)
 		}

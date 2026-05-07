@@ -79,8 +79,8 @@ func newDetailEditTestRig(t *testing.T) (*DetailController, *fakeDetailEditView,
 	tk := tikipkg.New()
 	tk.ID = "TIKI200"
 	tk.Title = "Test"
-	tk.Set(tikipkg.FieldStatus, string(taskpkg.StatusReady))
-	tk.Set(tikipkg.FieldType, string(taskpkg.TypeStory))
+	tk.Set(tikipkg.FieldStatus, taskpkg.StatusReady)
+	tk.Set(tikipkg.FieldType, taskpkg.TypeStory)
 	tk.Set(tikipkg.FieldPriority, 3)
 	if err := taskStore.CreateTiki(tk); err != nil {
 		t.Fatalf("CreateTiki: %v", err)
@@ -165,7 +165,7 @@ func TestDetailController_SaveCommitsAndExits(t *testing.T) {
 	if got == nil {
 		t.Fatal("tiki disappeared from store after save")
 	}
-	if v, _, _ := got.StringField(tikipkg.FieldStatus); v != string(taskpkg.StatusInProgress) {
+	if v, _, _ := got.StringField(tikipkg.FieldStatus); v != taskpkg.StatusInProgress {
 		t.Errorf("status not persisted: got %q, want %q", v, taskpkg.StatusInProgress)
 	}
 }
