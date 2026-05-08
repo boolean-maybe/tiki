@@ -246,12 +246,27 @@ type TypeEditableView interface {
 	SetTypeSaveHandler(handler func(string))
 }
 
-// PriorityEditableView is a view that supports priority editing functionality
+// PriorityEditableView is a view that supports priority editing functionality.
+// The handler receives the canonical enum key emitted by the priority editor;
+// empty string means "delete the priority field" (absence semantic).
 type PriorityEditableView interface {
 	View
 
-	// SetPrioritySaveHandler sets the callback for when priority is saved
-	SetPrioritySaveHandler(handler func(int))
+	// SetPrioritySaveHandler sets the callback for when priority is saved.
+	SetPrioritySaveHandler(handler func(string))
+}
+
+// WorkflowEnumEditableView is a view that supports editing workflow-declared
+// custom enum fields (severity, environment, etc. — anything declared as
+// `type: enum` in workflow.yaml that doesn't have a built-in Save* handler).
+// The handler is dispatched by field name with the canonical enum key;
+// empty key deletes the field.
+type WorkflowEnumEditableView interface {
+	View
+
+	// SetWorkflowEnumSaveHandler sets the callback used for any custom
+	// enum field's save path.
+	SetWorkflowEnumSaveHandler(handler func(name, canonicalKey string))
 }
 
 // AssigneeEditableView is a view that supports assignee editing functionality

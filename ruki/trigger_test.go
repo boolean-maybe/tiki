@@ -20,12 +20,12 @@ func TestParseTrigger_BeforeDeny(t *testing.T) {
 		},
 		{
 			"deny delete high priority",
-			`before delete where old.priority <= 2 deny "cannot delete high priority tasks"`,
+			`before delete where old.priority <= "medium-high" deny "cannot delete high priority tasks"`,
 			"delete",
 		},
 		{
 			"require description for high priority",
-			`before update where new.priority <= 2 and new.description is empty deny "high priority tasks need a description"`,
+			`before update where new.priority <= "medium-high" and new.description is empty deny "high priority tasks need a description"`,
 			"update",
 		},
 		{
@@ -40,7 +40,7 @@ func TestParseTrigger_BeforeDeny(t *testing.T) {
 		},
 		{
 			"protect high priority from demotion",
-			`before update where old.priority = 1 and old.status = "inProgress" and new.priority > 1 deny "cannot demote priority of active critical tasks"`,
+			`before update where old.priority = "high" and old.status = "inProgress" and new.priority > "high" deny "cannot demote priority of active critical tasks"`,
 			"update",
 		},
 		{
@@ -109,7 +109,7 @@ func TestParseTrigger_AfterAction(t *testing.T) {
 		},
 		{
 			"auto assign urgent",
-			`after create where new.priority <= 2 and new.assignee is empty update where id = new.id set assignee="booleanmaybe"`,
+			`after create where new.priority <= "medium-high" and new.assignee is empty update where id = new.id set assignee="booleanmaybe"`,
 			"create",
 			false, true, false, false,
 		},

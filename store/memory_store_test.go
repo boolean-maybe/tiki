@@ -411,8 +411,8 @@ func TestInMemoryStore_NewTikiTemplate(t *testing.T) {
 	if len(tmpl.ID) != 6 {
 		t.Errorf("ID = %q, want 6-character bare ID", tmpl.ID)
 	}
-	if p, _, _ := tmpl.IntField(tikipkg.FieldPriority); p != 3 {
-		t.Errorf("Priority = %d, want 3", p)
+	if p, _, _ := tmpl.StringField(tikipkg.FieldPriority); p != "medium" {
+		t.Errorf("Priority = %q, want %q", p, "medium")
 	}
 	if pts, _, _ := tmpl.IntField(tikipkg.FieldPoints); pts != 1 {
 		t.Errorf("Points = %d, want 1", pts)

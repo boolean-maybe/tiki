@@ -300,14 +300,24 @@ func (cv *ConfigurableDetailView) buildFieldPrimitive(idx int, name string, tk *
 	if !FieldHasEditor(name) {
 		return renderConfiguredField(name, tk, ctx)
 	}
+	// FocusedField must only be set on the row that is actually focused.
+	// Setting it unconditionally on every row's rowCtx made every renderer
+	// see itself as focused (since renderers compare ctx.FocusedField to
+	// their own EditField), which lit up every editable row with the focus
+	// marker simultaneously. Branch on idx == focusedIdx so non-focused
+	// rows render dim.
+	if idx != cv.focusedIdx {
+		return renderConfiguredField(name, tk, ctx)
+	}
 	rowCtx := ctx
 	if fd, ok := LookupField(name); ok {
 		rowCtx.FocusedField = fd.EditField
-	}
-	if idx != cv.focusedIdx {
-		// edit mode but not the focused field — render read-only with the
-		// edit-mode dim color treatment so the focused field still stands out.
-		return renderConfiguredField(name, tk, rowCtx)
+	} else {
+		// Workflow-only enum fields use the field name as the EditField
+		// identity (see model.MetadataToEditFieldOrder); mirror that
+		// here so renderEnumValue's focus-match condition lights up
+		// the marker for the actually-focused workflow enum.
+		rowCtx.FocusedField = model.EditField(name)
 	}
 	if w, ok := cv.editors[name]; ok && w != nil {
 		return w
@@ -560,15 +570,71 @@ func (cv *ConfigurableDetailView) prevEditableIndex(current int) int {
 	return -1
 }
 
+// FlushFocusedEditor invokes the per-field onChange handler for every
+// cached editor, passing each widget's live text. Despite the "Focused"
+// in the name (kept for the original interface), the implementation
+// flushes *all* visited editors — not just the one currently holding
+// focus — because some widgets (notably the tags textarea) buffer their
+// input internally and only push it on Ctrl+S. If the user edits tags,
+// tabs to another field, then presses Ctrl+S, the tags widget is no
+// longer focused but its cached buffer must still flow into the edit
+// session before commit, otherwise the in-flight edit is dropped.
+//
+// Flush order matters: SaveRecurrence writes Due as a side effect (when
+// recurrence is non-empty), so a stale Due flush after SaveRecurrence
+// would overwrite the auto-computed Due with the user's pre-recurrence
+// text. Iterate cv.metadata in declaration order, then flush recurrence
+// last — so any side-effect-producing field always wins over stale
+// per-field cache entries.
+//
+// Each editor's onChange is idempotent — cyclable editors already emit
+// on every step, so re-emitting their current value is a no-op for the
+// edit session. The cost is a per-editor handler call, bounded by the
+// number of fields the user actually visited in this edit session.
+func (cv *ConfigurableDetailView) FlushFocusedEditor() {
+	if !cv.editMode {
+		return
+	}
+	flush := func(name string) {
+		w, ok := cv.editors[name]
+		if !ok || w == nil {
+			return
+		}
+		handler, ok := cv.onEditFieldChange[name]
+		if !ok || handler == nil {
+			return
+		}
+		handler(w.GetText())
+	}
+	// First pass: every cached metadata field except recurrence, in
+	// declaration order. This is deterministic so map-iteration races
+	// can't reorder due/recurrence/etc.
+	for _, name := range cv.metadata {
+		if name == tikipkg.FieldRecurrence {
+			continue
+		}
+		flush(name)
+	}
+	// Second pass: recurrence last, so its Due side-effect overwrites
+	// any stale Due that flushed in the first pass.
+	flush(tikipkg.FieldRecurrence)
+}
+
 // isEditableMetadataField returns true when the named field has an
-// implemented editor and a traversable, non-read-only descriptor.
+// implemented editor and is traversable. Built-in fields are gated by
+// their static descriptor (ReadOnly/EditTraversable); workflow-declared
+// fields without a static descriptor are editable when the field
+// registry's FieldHasEditor reports an editor — currently only TypeEnum
+// fields qualify, since they're the only workflow-only fields that
+// route through a generic editor.
 func (cv *ConfigurableDetailView) isEditableMetadataField(name string) bool {
-	fd, ok := LookupField(name)
-	if !ok {
-		return false
+	if fd, ok := LookupField(name); ok {
+		if fd.ReadOnly || !fd.EditTraversable {
+			return false
+		}
+		return FieldHasEditor(name)
 	}
-	if fd.ReadOnly || !fd.EditTraversable {
-		return false
-	}
+	// Workflow-only fields: defer entirely to FieldHasEditor, which
+	// already excludes non-editable types.
 	return FieldHasEditor(name)
 }

@@ -6,7 +6,7 @@ tags:
     - ideas
     - info
     - setup
-priority: 1
+priority: high
 points: 5
 ---
 # Hello! こんにちは
@@ -62,7 +62,7 @@ use Claude Code with skills to search, create, view, update and delete `tikis`
 
 > hey Claude show me a tiki TIKI-m7n2xk
 > change it from story to a bug
-> and assign priority 1
+> and set priority to high
 
 
 ## Rich Markdown format

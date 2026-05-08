@@ -208,7 +208,7 @@ id: Q7XR2K
 title: Implement search
 type: story
 status: inProgress
-priority: 2
+priority: medium-high
 points: 3
 tags:
     - search

@@ -29,7 +29,7 @@ func newWorkflowTiki(id, title string) *tikipkg.Tiki {
 	tk := &tikipkg.Tiki{ID: id, Title: title}
 	tk.Set(tikipkg.FieldStatus, "backlog")
 	tk.Set(tikipkg.FieldType, "story")
-	tk.Set(tikipkg.FieldPriority, 3)
+	tk.Set(tikipkg.FieldPriority, "medium")
 	return tk
 }
 
@@ -242,10 +242,9 @@ func TestSingleRejection_ErrorFormat(t *testing.T) {
 
 // TestFieldValidators_RejectWrongTypeForWorkflowField verifies the
 // catalog-driven validator: a workflow-declared field whose stored value
-// has the wrong Go type is rejected. Range/value-domain checks (e.g.
-// priority must be 1..5) are no longer enforced here — those are
-// kanban-specific invariants and would be expressed via workflow triggers
-// or future per-field constraints in workflow.yaml.
+// has the wrong Go type is rejected. Range/value-domain checks are no longer
+// enforced here — those are workflow-specific invariants expressed via
+// triggers or future per-field constraints in workflow.yaml.
 func TestFieldValidators_RejectWrongTypeForWorkflowField(t *testing.T) {
 	gate, s := newGateWithStore()
 	RegisterFieldValidators(gate)
@@ -253,13 +252,13 @@ func TestFieldValidators_RejectWrongTypeForWorkflowField(t *testing.T) {
 	valid := newWorkflowTiki("ABC123", "test")
 	_ = s.CreateTiki(valid)
 
-	// stage a wrong-type value: priority is declared as int, set to a string
+	// stage a wrong-type value: points is declared as int, set to a string
 	tk := valid.Clone()
-	tk.Set(tikipkg.FieldPriority, "high")
+	tk.Set(tikipkg.FieldPoints, "ten")
 
 	err := gate.UpdateTiki(context.Background(), tk)
 	if err == nil {
-		t.Fatal("expected rejection for wrong-type priority")
+		t.Fatal("expected rejection for wrong-type points")
 	}
 
 	re, ok := err.(*RejectionError)
@@ -270,13 +269,13 @@ func TestFieldValidators_RejectWrongTypeForWorkflowField(t *testing.T) {
 
 	found := false
 	for _, r := range re.Rejections {
-		if strings.Contains(r.Reason, "priority") {
+		if strings.Contains(r.Reason, "points") {
 			found = true
 			break
 		}
 	}
 	if !found {
-		t.Errorf("expected priority type rejection, got: %v", re.Rejections)
+		t.Errorf("expected points type rejection, got: %v", re.Rejections)
 	}
 }
 
@@ -350,7 +349,7 @@ func TestFieldValidators_AcceptSparseWorkflowCreate(t *testing.T) {
 	RegisterFieldValidators(gate)
 
 	sparse := &tikipkg.Tiki{ID: "SPARS1", Title: "sparse workflow item"}
-	sparse.Set(tikipkg.FieldPriority, 1)
+	sparse.Set(tikipkg.FieldPriority, "high")
 
 	if err := gate.CreateTiki(context.Background(), sparse); err != nil {
 		t.Fatalf("sparse workflow create rejected by gate: %v", err)
@@ -412,7 +411,7 @@ func TestBuildGate(t *testing.T) {
 	tk := &tikipkg.Tiki{ID: "ABC123"} // empty title → invalid
 	tk.Set(tikipkg.FieldStatus, "backlog")
 	tk.Set(tikipkg.FieldType, "story")
-	tk.Set(tikipkg.FieldPriority, 3)
+	tk.Set(tikipkg.FieldPriority, "medium")
 	if err := gate.CreateTiki(context.Background(), tk); err == nil {
 		t.Fatal("expected rejection for empty title")
 	}

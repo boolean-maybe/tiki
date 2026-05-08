@@ -7,7 +7,7 @@ tags:
   - dashboard
   - telemetry
 assignee: "spreet"
-priority: 2
+priority: medium-high
 points: 2
 ---
 

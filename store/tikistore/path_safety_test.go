@@ -17,7 +17,7 @@ func TestSaveTask_UsesLoadedPath(t *testing.T) {
 
 	// write a file at a non-default path shape: filename doesn't match the id.
 	custom := filepath.Join(tmpDir, "renamed-by-user.md")
-	content := "---\nid: PATH01\ntitle: Original\ntype: story\nstatus: ready\npriority: 1\n---\nbody\n"
+	content := "---\nid: PATH01\ntitle: Original\ntype: story\nstatus: ready\npriority: high\n---\nbody\n"
 	if err := os.WriteFile(custom, []byte(content), 0o644); err != nil {
 		t.Fatalf("write: %v", err)
 	}
@@ -58,7 +58,7 @@ func TestSaveTask_UsesLoadedPath(t *testing.T) {
 func TestDeleteTiki_UsesLoadedPath(t *testing.T) {
 	tmpDir := t.TempDir()
 	custom := filepath.Join(tmpDir, "moved.md")
-	content := "---\nid: DEL001\ntitle: go away\ntype: story\nstatus: ready\npriority: 1\n---\nbody\n"
+	content := "---\nid: DEL001\ntitle: go away\ntype: story\nstatus: ready\npriority: high\n---\nbody\n"
 	if err := os.WriteFile(custom, []byte(content), 0o644); err != nil {
 		t.Fatalf("write: %v", err)
 	}
@@ -89,7 +89,7 @@ func TestCreateTiki_NewFileUsesIDDerivedPath(t *testing.T) {
 	wf.Title = "fresh"
 	wf.Set("type", "story")
 	wf.Set("status", "ready")
-	wf.Set("priority", 1)
+	wf.Set("priority", "high")
 	if err := s.CreateTiki(wf); err != nil {
 		t.Fatalf("CreateTiki: %v", err)
 	}

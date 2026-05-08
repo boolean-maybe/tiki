@@ -7,7 +7,7 @@ tags:
   - flight-controller
   - firmware
 assignee: "akowalski"
-priority: 1
+priority: high
 points: 10
 ---
 

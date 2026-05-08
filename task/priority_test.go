@@ -3,414 +3,172 @@ package task
 import (
 	"testing"
 
-	"gopkg.in/yaml.v3"
+	"github.com/boolean-maybe/tiki/internal/teststatuses"
 )
 
-func TestPriorityValue_UnmarshalYAML(t *testing.T) {
-	tests := []struct {
-		name     string
-		yaml     string
-		expected int
-		wantErr  bool
-	}{
-		{
-			name:     "integer value",
-			yaml:     "priority: 3",
-			expected: 3,
-			wantErr:  false,
-		},
-		{
-			name:     "high priority word",
-			yaml:     "priority: high",
-			expected: PriorityHigh, // 1
-			wantErr:  false,
-		},
-		{
-			name:     "medium-high priority word",
-			yaml:     "priority: medium-high",
-			expected: PriorityMediumHigh, // 2
-			wantErr:  false,
-		},
-		{
-			name:     "high-medium priority word (alias)",
-			yaml:     "priority: high-medium",
-			expected: PriorityMediumHigh, // 2
-			wantErr:  false,
-		},
-		{
-			name:     "medium priority word",
-			yaml:     "priority: medium",
-			expected: PriorityMedium, // 3
-			wantErr:  false,
-		},
-		{
-			name:     "medium-low priority word",
-			yaml:     "priority: medium-low",
-			expected: PriorityMediumLow, // 4
-			wantErr:  false,
-		},
-		{
-			name:     "low priority word",
-			yaml:     "priority: low",
-			expected: PriorityLow, // 5
-			wantErr:  false,
-		},
-		{
-			name:     "uppercase word",
-			yaml:     "priority: HIGH",
-			expected: PriorityHigh, // 1
-			wantErr:  false,
-		},
-		{
-			name:     "mixed case word",
-			yaml:     "priority: Medium-High",
-			expected: PriorityMediumHigh, // 2
-			wantErr:  false,
-		},
-		{
-			name:     "underscore separator",
-			yaml:     "priority: medium_high",
-			expected: PriorityMediumHigh, // 2
-			wantErr:  false,
-		},
-		{
-			name:     "space separator",
-			yaml:     "priority: medium high",
-			expected: PriorityMediumHigh, // 2
-			wantErr:  false,
-		},
-		{
-			name:     "numeric string in range",
-			yaml:     "priority: \"4\"",
-			expected: 4,
-			wantErr:  false,
-		},
-		{
-			name:     "invalid word defaults to medium",
-			yaml:     "priority: invalid",
-			expected: PriorityMedium, // 3
-			wantErr:  false,
-		},
-		{
-			name:     "boolean defaults to medium",
-			yaml:     "priority: true",
-			expected: PriorityMedium, // 3
-			wantErr:  false,
-		},
-		{
-			name:     "empty string defaults to medium",
-			yaml:     "priority: \"\"",
-			expected: PriorityMedium, // 3
-			wantErr:  false,
-		},
-		{
-			name:     "whitespace-only defaults to medium",
-			yaml:     "priority: \"  \"",
-			expected: PriorityMedium, // 3
-			wantErr:  false,
-		},
-		// Clamping tests
-		{
-			name:     "zero clamps to 1",
-			yaml:     "priority: 0",
-			expected: 1,
-			wantErr:  false,
-		},
-		{
-			name:     "negative clamps to 1",
-			yaml:     "priority: -5",
-			expected: 1,
-			wantErr:  false,
-		},
-		{
-			name:     "above max clamps to 5",
-			yaml:     "priority: 10",
-			expected: 5,
-			wantErr:  false,
-		},
-		{
-			name:     "numeric string zero clamps to 1",
-			yaml:     "priority: \"0\"",
-			expected: 1,
-			wantErr:  false,
-		},
-		{
-			name:     "numeric string above max clamps to 5",
-			yaml:     "priority: \"99\"",
-			expected: 5,
-			wantErr:  false,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			var data struct {
-				Priority PriorityValue `yaml:"priority"`
-			}
-
-			err := yaml.Unmarshal([]byte(tt.yaml), &data)
-			if (err != nil) != tt.wantErr {
-				t.Errorf("UnmarshalYAML() error = %v, wantErr %v", err, tt.wantErr)
-				return
-			}
-
-			if !tt.wantErr && int(data.Priority) != tt.expected {
-				t.Errorf("UnmarshalYAML() = %d, want %d", data.Priority, tt.expected)
-			}
-		})
-	}
+// withCanonicalFields restores the canonical workflow catalog before each
+// priority test. Sibling tests (notably collections_test) clear the workflow
+// registry mid-suite, and since priority lookups read live workflow state,
+// any test that depends on the priority enum being registered must re-seed
+// the catalog rather than relying on package-init alone.
+func withCanonicalFields(t *testing.T) {
+	t.Helper()
+	teststatuses.Init()
 }
 
-func TestPriorityValue_MarshalYAML(t *testing.T) {
+func TestPriorityDisplay(t *testing.T) {
+	withCanonicalFields(t)
 	tests := []struct {
 		name     string
-		priority PriorityValue
+		key      string
 		expected string
 	}{
-		{
-			name:     "high priority",
-			priority: PriorityValue(PriorityHigh),
-			expected: "priority: 1\n",
-		},
-		{
-			name:     "medium priority",
-			priority: PriorityValue(PriorityMedium),
-			expected: "priority: 3\n",
-		},
-		{
-			name:     "low priority",
-			priority: PriorityValue(PriorityLow),
-			expected: "priority: 5\n",
-		},
-		{
-			name:     "medium-high priority",
-			priority: PriorityValue(PriorityMediumHigh),
-			expected: "priority: 2\n",
-		},
-		{
-			name:     "medium-low priority",
-			priority: PriorityValue(PriorityMediumLow),
-			expected: "priority: 4\n",
-		},
+		{"high", PriorityHigh, "High 🔴"},
+		{"medium-high", PriorityMediumHigh, "Medium High 🟠"},
+		{"medium", PriorityMedium, "Medium 🟡"},
+		{"medium-low", PriorityMediumLow, "Medium Low 🟢"},
+		{"low", PriorityLow, "Low 🔵"},
+		{"unknown returns key verbatim", "bogus", "bogus"},
 	}
-
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			data := struct {
-				Priority PriorityValue `yaml:"priority"`
-			}{
-				Priority: tt.priority,
-			}
-
-			result, err := yaml.Marshal(&data)
-			if err != nil {
-				t.Errorf("MarshalYAML() error = %v", err)
-				return
-			}
-
-			if string(result) != tt.expected {
-				t.Errorf("MarshalYAML() = %q, want %q", string(result), tt.expected)
+			if got := PriorityDisplay(tt.key); got != tt.expected {
+				t.Errorf("PriorityDisplay(%q) = %q, want %q", tt.key, got, tt.expected)
 			}
 		})
 	}
 }
 
 func TestPriorityLabel(t *testing.T) {
+	withCanonicalFields(t)
 	tests := []struct {
-		name     string
-		priority int
-		expected string
+		name string
+		key  string
+		want string
 	}{
-		{
-			name:     "high priority (1)",
-			priority: PriorityHigh, // 1
-			expected: "🔴",
-		},
-		{
-			name:     "medium-high priority (2)",
-			priority: PriorityMediumHigh, // 2
-			expected: "🟠",
-		},
-		{
-			name:     "medium priority (3)",
-			priority: PriorityMedium, // 3
-			expected: "🟡",
-		},
-		{
-			name:     "medium-low priority (4)",
-			priority: PriorityMediumLow, // 4
-			expected: "🔵",
-		},
-		{
-			name:     "low priority (5)",
-			priority: PriorityLow, // 5
-			expected: "🟢",
-		},
-		{
-			name:     "below min shows high",
-			priority: 0,
-			expected: "🔴",
-		},
-		{
-			name:     "above max shows low",
-			priority: 99,
-			expected: "🟢",
-		},
+		{"high", PriorityHigh, "🔴"},
+		{"medium-high", PriorityMediumHigh, "🟠"},
+		{"medium", PriorityMedium, "🟡"},
+		{"medium-low", PriorityMediumLow, "🟢"},
+		{"low", PriorityLow, "🔵"},
+		{"unknown", "nope", ""},
+		{"empty", "", ""},
 	}
-
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result := PriorityLabel(tt.priority)
-			if result != tt.expected {
-				t.Errorf("PriorityLabel(%d) = %q, want %q", tt.priority, result, tt.expected)
-			}
-		})
-	}
-}
-
-func TestPriorityDisplay(t *testing.T) {
-	tests := []struct {
-		name     string
-		priority int
-		expected string
-	}{
-		{"high", PriorityHigh, "High"},
-		{"medium high", PriorityMediumHigh, "Medium High"},
-		{"medium", PriorityMedium, "Medium"},
-		{"medium low", PriorityMediumLow, "Medium Low"},
-		{"low", PriorityLow, "Low"},
-		{"below min clamps to high", 0, "High"},
-		{"above max clamps to low", 99, "Low"},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			result := PriorityDisplay(tt.priority)
-			if result != tt.expected {
-				t.Errorf("PriorityDisplay(%d) = %q, want %q", tt.priority, result, tt.expected)
+			if got := PriorityLabel(tt.key); got != tt.want {
+				t.Errorf("PriorityLabel(%q) = %q, want %q", tt.key, got, tt.want)
 			}
 		})
 	}
 }
 
 func TestPriorityFromDisplay(t *testing.T) {
+	withCanonicalFields(t)
 	tests := []struct {
-		name     string
-		display  string
-		expected int
+		name    string
+		display string
+		want    string
+		ok      bool
 	}{
-		{"High", "High", PriorityHigh},
-		{"Medium High", "Medium High", PriorityMediumHigh},
-		{"Medium", "Medium", PriorityMedium},
-		{"Medium Low", "Medium Low", PriorityMediumLow},
-		{"Low", "Low", PriorityLow},
-		{"case insensitive", "high", PriorityHigh},
-		{"unknown defaults to medium", "unknown", PriorityMedium},
+		{"high", "High 🔴", PriorityHigh, true},
+		{"medium-high", "Medium High 🟠", PriorityMediumHigh, true},
+		{"medium", "Medium 🟡", PriorityMedium, true},
+		{"low", "Low 🔵", PriorityLow, true},
+		{"unknown", "Bogus", "", false},
+		{"empty", "", "", false},
 	}
-
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result := PriorityFromDisplay(tt.display)
-			if result != tt.expected {
-				t.Errorf("PriorityFromDisplay(%q) = %d, want %d", tt.display, result, tt.expected)
+			got, ok := PriorityFromDisplay(tt.display)
+			if ok != tt.ok {
+				t.Errorf("PriorityFromDisplay(%q) ok = %v, want %v", tt.display, ok, tt.ok)
+			}
+			if got != tt.want {
+				t.Errorf("PriorityFromDisplay(%q) = %q, want %q", tt.display, got, tt.want)
 			}
 		})
 	}
 }
 
 func TestAllPriorityDisplayValues(t *testing.T) {
-	values := AllPriorityDisplayValues()
-	expected := []string{"High", "Medium High", "Medium", "Medium Low", "Low"}
-
-	if len(values) != len(expected) {
-		t.Fatalf("AllPriorityDisplayValues() returned %d values, want %d", len(values), len(expected))
+	withCanonicalFields(t)
+	got := AllPriorityDisplayValues()
+	want := []string{"High 🔴", "Medium High 🟠", "Medium 🟡", "Medium Low 🟢", "Low 🔵"}
+	if len(got) != len(want) {
+		t.Fatalf("AllPriorityDisplayValues() len = %d, want %d", len(got), len(want))
 	}
-
-	for i, v := range values {
-		if v != expected[i] {
-			t.Errorf("AllPriorityDisplayValues()[%d] = %q, want %q", i, v, expected[i])
+	for i := range got {
+		if got[i] != want[i] {
+			t.Errorf("AllPriorityDisplayValues()[%d] = %q, want %q", i, got[i], want[i])
 		}
 	}
 }
 
-func TestNormalizePriority(t *testing.T) {
-	tests := []struct {
-		name     string
-		input    string
-		expected int
-	}{
-		{
-			name:     "high word",
-			input:    "high",
-			expected: PriorityHigh, // 1
-		},
-		{
-			name:     "medium-high word",
-			input:    "medium-high",
-			expected: PriorityMediumHigh, // 2
-		},
-		{
-			name:     "medium word",
-			input:    "medium",
-			expected: PriorityMedium, // 3
-		},
-		{
-			name:     "low word",
-			input:    "low",
-			expected: PriorityLow, // 5
-		},
-		{
-			name:     "uppercase",
-			input:    "HIGH",
-			expected: PriorityHigh, // 1
-		},
-		{
-			name:     "mixed case",
-			input:    "Medium-High",
-			expected: PriorityMediumHigh, // 2
-		},
-		{
-			name:     "underscore separator",
-			input:    "medium_high",
-			expected: PriorityMediumHigh, // 2
-		},
-		{
-			name:     "space separator",
-			input:    "medium high",
-			expected: PriorityMediumHigh, // 2
-		},
-		{
-			name:     "numeric string in range",
-			input:    "4",
-			expected: 4,
-		},
-		{
-			name:     "numeric string zero clamps to 1",
-			input:    "0",
-			expected: 1,
-		},
-		{
-			name:     "numeric string above max clamps to 5",
-			input:    "10",
-			expected: 5,
-		},
-		{
-			name:     "invalid word",
-			input:    "invalid",
-			expected: -1,
-		},
-		{
-			name:     "empty string",
-			input:    "",
-			expected: -1,
-		},
+func TestAllPriorities(t *testing.T) {
+	withCanonicalFields(t)
+	got := AllPriorities()
+	want := []string{PriorityHigh, PriorityMediumHigh, PriorityMedium, PriorityMediumLow, PriorityLow}
+	if len(got) != len(want) {
+		t.Fatalf("AllPriorities() len = %d, want %d", len(got), len(want))
 	}
+	for i := range got {
+		if got[i] != want[i] {
+			t.Errorf("AllPriorities()[%d] = %q, want %q", i, got[i], want[i])
+		}
+	}
+}
 
+func TestDefaultPriority(t *testing.T) {
+	withCanonicalFields(t)
+	if got := DefaultPriority(); got != PriorityMedium {
+		t.Errorf("DefaultPriority() = %q, want %q", got, PriorityMedium)
+	}
+}
+
+func TestNormalizePriority(t *testing.T) {
+	withCanonicalFields(t)
+	tests := []struct {
+		name  string
+		input string
+		want  string
+	}{
+		{"already canonical", "high", PriorityHigh},
+		{"uppercase folds", "HIGH", PriorityHigh},
+		{"mixed case", "Medium-High", PriorityMediumHigh},
+		{"underscore separator", "medium_high", PriorityMediumHigh},
+		{"space separator", "medium high", PriorityMediumHigh},
+		{"alias high-medium", "high-medium", PriorityMediumHigh},
+		{"alias low-medium", "low-medium", PriorityMediumLow},
+		{"unknown returns empty", "bogus", ""},
+		{"empty returns empty", "", ""},
+		{"whitespace returns empty", "   ", ""},
+	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result := NormalizePriority(tt.input)
-			if result != tt.expected {
-				t.Errorf("NormalizePriority(%q) = %d, want %d", tt.input, result, tt.expected)
+			if got := NormalizePriority(tt.input); got != tt.want {
+				t.Errorf("NormalizePriority(%q) = %q, want %q", tt.input, got, tt.want)
+			}
+		})
+	}
+}
+
+func TestIsValidPriority(t *testing.T) {
+	withCanonicalFields(t)
+	tests := []struct {
+		key  string
+		want bool
+	}{
+		{PriorityHigh, true},
+		{PriorityMedium, true},
+		{PriorityLow, true},
+		{"bogus", false},
+		{"", false},
+	}
+	for _, tt := range tests {
+		t.Run(tt.key, func(t *testing.T) {
+			if got := IsValidPriority(tt.key); got != tt.want {
+				t.Errorf("IsValidPriority(%q) = %v, want %v", tt.key, got, tt.want)
 			}
 		})
 	}

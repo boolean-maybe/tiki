@@ -7,7 +7,7 @@ tags:
   - compliance
   - safety
 assignee: "lbianchi"
-priority: 2
+priority: medium-high
 points: 10
 ---
 

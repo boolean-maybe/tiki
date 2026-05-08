@@ -12,6 +12,7 @@ import (
 	"github.com/boolean-maybe/tiki/store"
 	taskpkg "github.com/boolean-maybe/tiki/task"
 	tikipkg "github.com/boolean-maybe/tiki/tiki"
+	"github.com/boolean-maybe/tiki/workflow"
 
 	"time"
 )
@@ -275,63 +276,106 @@ func (tc *TaskController) updateTikiField(setter func(*tikipkg.Tiki)) bool {
 	return false
 }
 
-// SaveStatus saves the new status to the current tiki after validating the display value.
-// Returns true if the status was successfully updated, false otherwise.
-func (tc *TaskController) SaveStatus(statusDisplay string) bool {
-	// parse status display back to canonical key
-	var newStatus string
-	statusFound := false
+// SaveStatus saves the new status to the current tiki. Accepts either a
+// canonical enum key (the form emitted by the SemanticEnum editor) or a
+// display string (legacy form from the older typed editor). The lookup
+// order matters: a display-string match takes priority over normalization,
+// because NormalizeStatus("Done ✅") would camelCase the emoji into a
+// nonsense key ("done✅") and silently fall back to the default status.
+// Returns true on a successful update.
+func (tc *TaskController) SaveStatus(statusOrDisplay string) bool {
+	if statusOrDisplay == "" {
+		return tc.updateTikiField(func(tk *tikipkg.Tiki) {
+			tk.Delete(tikipkg.FieldStatus)
+		})
+	}
+	// Canonical key path: editor-emitted values land here directly.
+	if taskpkg.IsValidStatus(statusOrDisplay) {
+		return tc.updateTikiField(func(tk *tikipkg.Tiki) {
+			tk.Set(tikipkg.FieldStatus, statusOrDisplay)
+		})
+	}
+	// Display-string path: legacy callers pass "Ready 📋" etc.
+	if key, ok := taskpkg.ParseStatusDisplay(statusOrDisplay); ok {
+		return tc.updateTikiField(func(tk *tikipkg.Tiki) {
+			tk.Set(tikipkg.FieldStatus, key)
+		})
+	}
+	// Loose normalization: camelCase / underscore / space variants.
+	if newStatus := taskpkg.NormalizeStatus(statusOrDisplay); taskpkg.IsValidStatus(newStatus) {
+		return tc.updateTikiField(func(tk *tikipkg.Tiki) {
+			tk.Set(tikipkg.FieldStatus, newStatus)
+		})
+	}
+	// Catch-all fallback to the configured default — preserves the legacy
+	// behavior where unrecognized input lands on the default status rather
+	// than rejecting the save.
+	return tc.updateTikiField(func(tk *tikipkg.Tiki) {
+		tk.Set(tikipkg.FieldStatus, taskpkg.DefaultStatus())
+	})
+}
 
-	for _, s := range taskpkg.AllStatuses() {
-		if taskpkg.StatusDisplay(s) == statusDisplay {
-			newStatus = s
-			statusFound = true
-			break
+// SaveType saves the new type to the current tiki. Accepts either a canonical
+// enum key or a display string — same dual-form contract as SaveStatus, since
+// the SemanticEnum editor emits keys but legacy callers still pass displays.
+// Returns true on a successful update.
+func (tc *TaskController) SaveType(typeOrDisplay string) bool {
+	if typeOrDisplay == "" {
+		return tc.updateTikiField(func(tk *tikipkg.Tiki) {
+			tk.Delete(tikipkg.FieldType)
+		})
+	}
+	if taskpkg.IsValidType(typeOrDisplay) {
+		return tc.updateTikiField(func(tk *tikipkg.Tiki) {
+			tk.Set(tikipkg.FieldType, typeOrDisplay)
+		})
+	}
+	if newType, ok := taskpkg.ParseDisplay(typeOrDisplay); ok {
+		return tc.updateTikiField(func(tk *tikipkg.Tiki) {
+			tk.Set(tikipkg.FieldType, newType)
+		})
+	}
+	slog.Warn("unrecognized type", "input", typeOrDisplay)
+	return false
+}
+
+// SaveWorkflowEnum saves a value to a workflow-declared enum field. Used by
+// the detail edit handler for custom enum fields (severity, environment,
+// etc.) — fields that have no built-in Save* method but still need an edit
+// path. The value must be a valid key for the configured enum, or empty
+// to delete the field. Returns true on success.
+func (tc *TaskController) SaveWorkflowEnum(fieldName, value string) bool {
+	wfd, ok := workflow.Field(fieldName)
+	if !ok || wfd.Type != workflow.TypeEnum {
+		slog.Warn("SaveWorkflowEnum: not an enum field", "field", fieldName)
+		return false
+	}
+	if value != "" && !wfd.IsValidEnum(value) {
+		slog.Warn("SaveWorkflowEnum: invalid enum key", "field", fieldName, "value", value)
+		return false
+	}
+	return tc.updateTikiField(func(tk *tikipkg.Tiki) {
+		if value == "" {
+			tk.Delete(fieldName)
+		} else {
+			tk.Set(fieldName, value)
 		}
-	}
-
-	if !statusFound {
-		// fallback: try to normalize the input
-		newStatus = taskpkg.NormalizeStatus(statusDisplay)
-	}
-
-	// Validate status: non-empty values must be registered
-	if newStatus != "" && !taskpkg.IsValidStatus(newStatus) {
-		slog.Warn("invalid status", "display", statusDisplay, "normalized", newStatus)
-		return false
-	}
-
-	return tc.updateTikiField(func(tk *tikipkg.Tiki) {
-		tk.Set(tikipkg.FieldStatus, newStatus)
 	})
 }
 
-// SaveType saves the new type to the current tiki after validating the display value.
-// Returns true if the type was successfully updated, false otherwise.
-func (tc *TaskController) SaveType(typeDisplay string) bool {
-	// reverse the display string ("Bug 💥") back to a canonical key ("bug")
-	newType, ok := taskpkg.ParseDisplay(typeDisplay)
-	if !ok {
-		slog.Warn("unrecognized type display", "display", typeDisplay)
-		return false
-	}
-
-	return tc.updateTikiField(func(tk *tikipkg.Tiki) {
-		tk.Set(tikipkg.FieldType, newType)
-	})
-}
-
-// SavePriority saves the new priority to the current tiki.
+// SavePriority saves the new priority to the current tiki. Priority is now
+// a workflow enum: empty string deletes the field, any other value must be
+// a recognized canonical key for the configured priority enum. Display
+// strings are not accepted — the editor emits canonical keys directly.
 // Returns true if the priority was successfully updated, false otherwise.
-func (tc *TaskController) SavePriority(priority int) bool {
-	// Validate priority: zero means absent (valid); non-zero must be in range
-	if priority != 0 && !taskpkg.IsValidPriority(priority) {
+func (tc *TaskController) SavePriority(priority string) bool {
+	if priority != "" && !taskpkg.IsValidPriority(priority) {
 		slog.Warn("invalid priority", "value", priority)
 		return false
 	}
 
 	return tc.updateTikiField(func(tk *tikipkg.Tiki) {
-		if priority == 0 {
+		if priority == "" {
 			tk.Delete(tikipkg.FieldPriority)
 		} else {
 			tk.Set(tikipkg.FieldPriority, priority)

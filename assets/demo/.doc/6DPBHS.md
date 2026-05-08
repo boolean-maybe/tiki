@@ -7,7 +7,7 @@ tags:
   - telemetry
   - performance
 assignee: "akowalski"
-priority: 2
+priority: medium-high
 points: 8
 ---
 

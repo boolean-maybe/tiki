@@ -14,7 +14,6 @@ type Task struct {
 	Due           time.Time
 	Recurrence    Recurrence
 	Assignee      string
-	Priority      int // lower = higher priority
 	Points        int
 	Comments      []Comment
 	CreatedBy     string // User who initially created the task
@@ -55,7 +54,6 @@ func (t *Task) Clone() *Task {
 		Description: t.Description,
 		Type:        t.Type,
 		Status:      t.Status,
-		Priority:    t.Priority,
 		Due:         t.Due,
 		Recurrence:  t.Recurrence,
 		Assignee:    t.Assignee,

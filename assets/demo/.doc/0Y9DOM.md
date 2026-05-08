@@ -9,7 +9,7 @@ tags:
 dependsOn:
   - 3W5UZB
 assignee: "mchen"
-priority: 2
+priority: medium-high
 points: 3
 ---
 

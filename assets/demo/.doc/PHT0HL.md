@@ -7,7 +7,7 @@ tags:
   - flight-controller
   - safety
 assignee: "akowalski"
-priority: 2
+priority: medium-high
 points: 8
 ---
 

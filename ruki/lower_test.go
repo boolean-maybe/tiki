@@ -68,7 +68,7 @@ func TestLower_DateLiteralInCondition(t *testing.T) {
 func TestLower_IntLiteral(t *testing.T) {
 	p := newTestParser()
 
-	stmt, err := p.ParseStatement(`select where priority = 3`)
+	stmt, err := p.ParseStatement(`select where points = 3`)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -196,7 +196,7 @@ func TestLower_ParenCondition(t *testing.T) {
 func TestLower_ParenExpr(t *testing.T) {
 	p := newTestParser()
 
-	stmt, err := p.ParseStatement(`create title="x" priority=(1 + 2)`)
+	stmt, err := p.ParseStatement(`create title="x" points=(1 + 2)`)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -583,7 +583,7 @@ func TestLower_TriggerRunAction(t *testing.T) {
 func TestLower_TriggerUpdateAction(t *testing.T) {
 	p := newTestParser()
 
-	trig, err := p.ParseTrigger(`after update where new.status = "done" update where id = new.id set priority=1`)
+	trig, err := p.ParseTrigger(`after update where new.status = "done" update where id = new.id set priority="high"`)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -655,7 +655,7 @@ func TestLower_DeleteStatement(t *testing.T) {
 func TestLower_UpdateStatement(t *testing.T) {
 	p := newTestParser()
 
-	stmt, err := p.ParseStatement(`update where status = "done" set priority=1`)
+	stmt, err := p.ParseStatement(`update where status = "done" set priority="high"`)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -699,7 +699,7 @@ func TestLower_OrCondChain(t *testing.T) {
 func TestLower_AndCondChain(t *testing.T) {
 	p := newTestParser()
 
-	stmt, err := p.ParseStatement(`select where priority = 1 and status = "done" and assignee = "bob"`)
+	stmt, err := p.ParseStatement(`select where points = 1 and status = "done" and assignee = "bob"`)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}

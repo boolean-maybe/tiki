@@ -66,9 +66,16 @@ fields:
   - name: escalations
     type: integer
     default: 0
+  # See kanban.yaml for the rationale on declaration order: high → low so
+  # ruki's < / > / order-by treat smaller rank as more urgent.
   - name: priority
-    type: integer
-    default: 3
+    type: enum
+    values:
+      - {value: high, label: High, emoji: "🔴"}
+      - {value: medium-high, label: "Medium High", emoji: "🟠"}
+      - {value: medium, label: Medium, emoji: "🟡", default: true}
+      - {value: medium-low, label: "Medium Low", emoji: "🟢"}
+      - {value: low, label: Low, emoji: "🔵"}
   - name: tags
     type: stringList
   - name: assignee
@@ -92,10 +99,10 @@ actions:
     hot: false
   - key: "+"
     label: "Priority up"
-    action: update where id = id() set priority = priority - 1
+    action: update where id = id() set priority = prev_enum(priority)
   - key: "-"
     label: "Priority down"
-    action: update where id = id() set priority = priority + 1
+    action: update where id = id() set priority = next_enum(priority)
   - key: "R"
     label: "Mark regression"
     action: update where id = id() set regression=true
@@ -252,12 +259,12 @@ triggers:
     ruki: >
       after create
         where new.severity = "critical"
-        update where id = new.id set priority=1 dueBy=now() + 1day
+        update where id = new.id set priority="high" dueBy=now() + 1day
   - description: tag and bump priority when regression is flagged
     ruki: >
       after update
         where new.regression = true and old.regression != true
-        update where id = new.id set tags=tags + ["regression"] priority=1
+        update where id = new.id set tags=tags + ["regression"] priority="high"
   - description: clear SLA on closure
     ruki: >
       after update

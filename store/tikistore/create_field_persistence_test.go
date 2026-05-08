@@ -69,7 +69,7 @@ func TestUpdateTiki_OmittingSchemaFieldsRemovesThem(t *testing.T) {
 	tk.ID = "SHRINK"
 	tk.Title = "starts with status"
 	tk.Set(tikipkg.FieldStatus, "backlog")
-	tk.Set(tikipkg.FieldPriority, 2)
+	tk.Set(tikipkg.FieldPriority, "medium-high")
 	if err := s.CreateTiki(tk); err != nil {
 		t.Fatalf("CreateTiki with schema fields: %v", err)
 	}

@@ -41,7 +41,7 @@ YAML frontmatter and a required bare `id` — a **tiki**:
 id: ABC123
 title: Implement search
 status: backlog
-priority: 2
+priority: medium-high
 ---
 
 Markdown body.

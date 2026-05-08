@@ -595,7 +595,7 @@ func TestParseAndValidateRule(t *testing.T) {
 
 	t.Run("event trigger rule", func(t *testing.T) {
 		rule, err := p.ParseAndValidateRule(
-			`after create where new.priority <= 2 and new.assignee is empty update where id = new.id set assignee="booleanmaybe"`,
+			`after create where new.points <= 2 and new.assignee is empty update where id = new.id set assignee="booleanmaybe"`,
 		)
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
@@ -952,17 +952,18 @@ func TestValidateAssignmentsSemantics_EmptyAllowedForWorkflowFields(t *testing.T
 	}
 }
 
-// TestValidateAssignmentsSemantics_PriorityRangeNotEnforced confirms that
-// the kanban-specific 1..5 range is no longer enforced at this layer.
-// Workflows that need a range check express it via triggers (e.g.
-// `before update where priority < 1 or priority > 5 deny ...`).
-func TestValidateAssignmentsSemantics_PriorityRangeNotEnforced(t *testing.T) {
-	for _, prio := range []int{0, -1, 99, 6} {
+// TestValidateAssignmentsSemantics_IntFieldRangeNotEnforced confirms that
+// numeric workflow fields (now `points` after priority became an enum) accept
+// any integer at the semantic-validation layer. Workflows that need range
+// constraints express them via triggers (e.g.
+// `before update where points < 1 or points > 99 deny ...`).
+func TestValidateAssignmentsSemantics_IntFieldRangeNotEnforced(t *testing.T) {
+	for _, n := range []int{0, -1, 99, 6} {
 		err := validateAssignmentsSemantics([]Assignment{
-			{Field: "priority", Value: &IntLiteral{Value: prio}},
+			{Field: "points", Value: &IntLiteral{Value: n}},
 		})
 		if err != nil {
-			t.Errorf("priority %d should pass semantic validation now (kanban range is workflow-specific): %v", prio, err)
+			t.Errorf("points %d should pass semantic validation: %v", n, err)
 		}
 	}
 }

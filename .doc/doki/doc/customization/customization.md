@@ -102,7 +102,7 @@ Creation defaults are derived from `workflow.yaml fields:`. Every field that dec
 contributes one frontmatter key on capture:
 
 - Enum fields apply the value marked `default: true` (typically `status: backlog`, `type: story`).
-- Non-enum fields apply their declared `default:` value (e.g. `priority: 3`, `points: 1`,
+- Non-enum fields apply their declared `default:` value (e.g. `points: 1`,
   `tags: ["idea"]`).
 - Fields with no declared default are absent from the captured frontmatter — the tiki only carries
   what the workflow asked for.
@@ -614,7 +614,7 @@ select where status = "backlog" and type != "epic" order by priority, id
 select where now() - updatedAt < 24hour order by updatedAt desc
 
 -- multiple conditions
-select where type = "epic" and status = "backlog" and priority > 1 order by priority, points desc
+select where type = "epic" and status = "backlog" and priority > "high" order by priority, points desc
 
 -- assigned to me
 select where assignee = user() order by priority
@@ -629,7 +629,7 @@ The `action` field uses a `ruki` `update` statement. In view context, `id()` ref
 update where id = id() set status="ready"
 
 -- set multiple fields
-update where id = id() set status="backlog" priority=2
+update where id = id() set status="backlog" priority="medium-high"
 
 -- assign to current user
 update where id = id() set assignee=user()
@@ -642,7 +642,7 @@ update where id = id() set assignee=user()
 - `type` - task type (must match a key defined in `workflow.yaml` types)
 - `status` - workflow status (must match a key defined in `workflow.yaml` statuses)
 - `assignee` - assigned user
-- `priority` - numeric priority value (1-5)
+- `priority` - workflow enum (e.g. `"high"`, `"medium-high"`, `"medium"`, `"medium-low"`, `"low"` in the bundled kanban; declared in `workflow.yaml`)
 - `points` - story points estimate
 - `tags` - list of tags
 - `dependsOn` - list of document ids this document depends on

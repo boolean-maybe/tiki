@@ -184,6 +184,54 @@ func TestRegisterWorkflowFields_EnumRejectsMultipleDefaults(t *testing.T) {
 	}
 }
 
+// TestRegisterWorkflowFields_EnumRejectsCaseInsensitiveDuplicates pins
+// that the duplicate-key check matches runtime case-insensitivity. Both
+// enumRank (ruki/executor.go) and coerceCustomValue
+// (store/tikistore/persistence.go) use strings.EqualFold to match enum
+// values, so a workflow declaring both "high" and "HIGH" would silently
+// have the second value masked at runtime. Validation must reject this.
+func TestRegisterWorkflowFields_EnumRejectsCaseInsensitiveDuplicates(t *testing.T) {
+	tests := []struct {
+		name   string
+		values []EnumValue
+	}{
+		{
+			name: "exact-case duplicate",
+			values: []EnumValue{
+				{Value: "high"},
+				{Value: "high"},
+			},
+		},
+		{
+			name: "case-only duplicate",
+			values: []EnumValue{
+				{Value: "high"},
+				{Value: "HIGH"},
+			},
+		},
+		{
+			name: "mixed-case-only duplicate",
+			values: []EnumValue{
+				{Value: "Medium"},
+				{Value: "medium"},
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Cleanup(func() { ClearWorkflowFields() })
+			err := RegisterWorkflowFields([]FieldDef{{
+				Name:       "priority",
+				Type:       TypeEnum,
+				EnumValues: tt.values,
+			}})
+			if err == nil {
+				t.Fatal("expected duplicate-value rejection")
+			}
+		})
+	}
+}
+
 func TestRegisterWorkflowFields_DefensiveCopy(t *testing.T) {
 	t.Cleanup(func() { ClearWorkflowFields() })
 

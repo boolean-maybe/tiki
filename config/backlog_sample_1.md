@@ -3,7 +3,7 @@ id: XXXXXX
 title: Create welcome package template
 type: story
 status: backlog
-priority: 2
+priority: medium-high
 tags:
   - documentation
   - onboarding

@@ -2,6 +2,7 @@ package model
 
 import (
 	tikipkg "github.com/boolean-maybe/tiki/tiki"
+	"github.com/boolean-maybe/tiki/workflow"
 )
 
 // EditField identifies an editable field in task edit mode.
@@ -157,6 +158,11 @@ func FieldLabel(field EditField) string {
 // (e.g. createdBy/createdAt/updatedAt — read-only descriptors) are skipped
 // so the returned slice is the metadata-only portion of the navigation
 // sequence (callers bracket it with Title and Description).
+//
+// Workflow-declared TypeEnum fields without a static EditField constant
+// (severity, environment, etc.) participate in the order with their field
+// name as the EditField identity — see view/taskdetail.editFieldFor for
+// the mirroring lookup that consumes this convention.
 func MetadataToEditFieldOrder(metadata []string) []EditField {
 	result := make([]EditField, 0, len(metadata))
 	for _, name := range metadata {
@@ -177,6 +183,15 @@ func MetadataToEditFieldOrder(metadata []string) []EditField {
 			result = append(result, EditFieldRecurrence)
 		case tikipkg.FieldTags:
 			result = append(result, EditFieldTags)
+		default:
+			// Workflow-only enum fields (severity, environment, ...) use
+			// their field name as the EditField identity, mirroring the
+			// view-layer's editFieldFor. The catalog check confirms the
+			// field is enum-typed before adding it to the navigation
+			// order; non-enum custom fields are not yet edit-traversable.
+			if fd, ok := workflow.Field(name); ok && fd.Type == workflow.TypeEnum {
+				result = append(result, EditField(name))
+			}
 		}
 	}
 	return result

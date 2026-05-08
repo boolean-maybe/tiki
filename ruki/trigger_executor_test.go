@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/boolean-maybe/tiki/task"
+	"github.com/boolean-maybe/tiki/tiki"
 )
 
 func newTestTriggerExecutor() *TriggerExecutor {
@@ -298,12 +299,12 @@ func TestExecAction_UpdateWithQualifiedRefs(t *testing.T) {
 	p := newTestParser()
 
 	// after create: auto-assign urgent tasks
-	trig, err := p.ParseTrigger(`after create where new.priority <= 2 and new.assignee is empty update where id = new.id set assignee="booleanmaybe"`)
+	trig, err := p.ParseTrigger(`after create where new.priority <= "medium-high" and new.assignee is empty update where id = new.id set assignee="booleanmaybe"`)
 	if err != nil {
 		t.Fatalf("parse: %v", err)
 	}
 
-	newTask := &task.Task{ID: "TIKI-000001", Title: "Urgent", Status: "ready", Priority: 1}
+	newTask := &task.Task{ID: "TIKI-000001", Title: "Urgent", Status: "ready"}
 	tc := &TriggerContext{
 		Old: nil,
 		New: tikiFromTask(newTask),
@@ -370,13 +371,17 @@ func TestExecAction_CreateWithQualifiedRefs(t *testing.T) {
 		t.Fatalf("parse: %v", err)
 	}
 
-	old := &task.Task{ID: "TIKI-000001", Title: "Daily standup", Status: "inProgress", Priority: 2, Tags: []string{"meeting"}}
-	new := &task.Task{ID: "TIKI-000001", Title: "Daily standup", Status: "done", Priority: 2}
+	old := &task.Task{ID: "TIKI-000001", Title: "Daily standup", Status: "inProgress", Tags: []string{"meeting"}}
+	new := &task.Task{ID: "TIKI-000001", Title: "Daily standup", Status: "done"}
+	oldTk := tikiFromTask(old)
+	oldTk.Set("priority", "medium-high")
+	newTk := tikiFromTask(new)
+	newTk.Set("priority", "medium-high")
 
 	tc := &TriggerContext{
-		Old:      tikiFromTask(old),
-		New:      tikiFromTask(new),
-		AllTikis: tikisFromTasks([]*task.Task{new}),
+		Old:      oldTk,
+		New:      newTk,
+		AllTikis: []*tiki.Tiki{newTk},
 	}
 
 	result, err := te.testExecAction(trig, tc)
@@ -390,11 +395,57 @@ func TestExecAction_CreateWithQualifiedRefs(t *testing.T) {
 	if created.Title != "Daily standup" {
 		t.Fatalf("expected title 'Daily standup', got %q", created.Title)
 	}
-	if created.Priority != 2 {
-		t.Fatalf("expected priority 2, got %d", created.Priority)
+	if got, _, _ := result.raw.Create.Tiki.StringField("priority"); got != "medium-high" {
+		t.Fatalf("expected priority 'medium-high', got %q", got)
 	}
 	if created.Status != "ready" {
 		t.Fatalf("expected status ready, got %q", created.Status)
+	}
+}
+
+// TestExecAction_PrevEnumWithQualifiedRef pins the trigger-aware
+// next_enum/prev_enum contract: when a trigger action passes new.priority
+// or old.priority, the value must resolve through the trigger's old/new
+// context, not via the base executor (which rejects old./new. as "not
+// supported in standalone SELECT" and would otherwise let evalEnumStep
+// silently clamp to a boundary).
+func TestExecAction_PrevEnumWithQualifiedRef(t *testing.T) {
+	te := newTestTriggerExecutor()
+	p := newTestParser()
+
+	// "Bump urgency one level" — prev_enum on new.priority should walk
+	// declaration order toward the first value (high). Starting from
+	// medium-low (rank 3), prev → medium (rank 2). Without the override,
+	// evalEnumStep would error on "new.X is not supported in standalone
+	// SELECT" and the catch-all would clamp to the boundary "high".
+	trig, err := p.ParseTrigger(`after update where new.status = "ready" update where id = new.id set priority = prev_enum(new.priority)`)
+	if err != nil {
+		t.Fatalf("parse: %v", err)
+	}
+
+	old := &task.Task{ID: "TIKI-000001", Title: "x", Status: "ready"}
+	new := &task.Task{ID: "TIKI-000001", Title: "x", Status: "ready"}
+	oldTk := tikiFromTask(old)
+	oldTk.Set("priority", "medium-low")
+	newTk := tikiFromTask(new)
+	newTk.Set("priority", "medium-low")
+
+	tc := &TriggerContext{
+		Old:      oldTk,
+		New:      newTk,
+		AllTikis: []*tiki.Tiki{newTk},
+	}
+
+	result, err := te.testExecAction(trig, tc)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if result.Update == nil || len(result.Update.Updated) != 1 {
+		t.Fatalf("expected 1 updated task, got %+v", result.Update)
+	}
+	got, _, _ := result.raw.Update.Updated[0].StringField("priority")
+	if got != "medium" {
+		t.Errorf("priority = %q, want %q (prev_enum should step medium-low → medium)", got, "medium")
 	}
 }
 
@@ -657,13 +708,17 @@ func TestExecAction_NextDateWithQualifiedRef(t *testing.T) {
 		t.Fatalf("parse: %v", err)
 	}
 
-	old := &task.Task{ID: "TIKI-000001", Title: "Daily standup", Status: "inProgress", Type: "story", Priority: 3, Recurrence: task.RecurrenceDaily}
-	new := &task.Task{ID: "TIKI-000001", Title: "Daily standup", Status: "done", Type: "story", Priority: 3}
+	old := &task.Task{ID: "TIKI-000001", Title: "Daily standup", Status: "inProgress", Type: "story", Recurrence: task.RecurrenceDaily}
+	new := &task.Task{ID: "TIKI-000001", Title: "Daily standup", Status: "done", Type: "story"}
+	oldTk := tikiFromTask(old)
+	oldTk.Set("priority", "medium")
+	newTk := tikiFromTask(new)
+	newTk.Set("priority", "medium")
 
 	tc := &TriggerContext{
-		Old:      tikiFromTask(old),
-		New:      tikiFromTask(new),
-		AllTikis: tikisFromTasks([]*task.Task{new}),
+		Old:      oldTk,
+		New:      newTk,
+		AllTikis: []*tiki.Tiki{newTk},
 	}
 
 	before := time.Now()
@@ -695,8 +750,8 @@ func TestExecAction_NextDateWithNewQualifiedRef(t *testing.T) {
 		t.Fatalf("parse: %v", err)
 	}
 
-	old := &task.Task{ID: "TIKI-000001", Title: "Recurring", Status: "done", Type: "story", Priority: 3}
-	new := &task.Task{ID: "TIKI-000001", Title: "Recurring", Status: "ready", Type: "story", Priority: 3, Recurrence: task.RecurrenceDaily}
+	old := &task.Task{ID: "TIKI-000001", Title: "Recurring", Status: "done", Type: "story"}
+	new := &task.Task{ID: "TIKI-000001", Title: "Recurring", Status: "ready", Type: "story", Recurrence: task.RecurrenceDaily}
 
 	tc := &TriggerContext{
 		Old:      tikiFromTask(old),
@@ -866,8 +921,8 @@ func TestEvalCondition_UnknownBinaryOp(t *testing.T) {
 		Deny: strPtr("blocked"),
 	}
 	tc := &TriggerContext{
-		Old: tikiFromTask(&task.Task{ID: "TIKI-000001", Status: "done", Priority: 1}),
-		New: tikiFromTask(&task.Task{ID: "TIKI-000001", Status: "done", Priority: 1}),
+		Old: tikiFromTask(&task.Task{ID: "TIKI-000001", Status: "done"}),
+		New: tikiFromTask(&task.Task{ID: "TIKI-000001", Status: "done"}),
 	}
 	_, err := te.EvalGuard(trig, tc)
 	if err == nil {
@@ -896,10 +951,10 @@ func TestEvalExprRecursive_UnknownBinaryOp(t *testing.T) {
 		},
 	}
 	tc := &TriggerContext{
-		Old: tikiFromTask(&task.Task{ID: "TIKI-000001", Priority: 1}),
-		New: tikiFromTask(&task.Task{ID: "TIKI-000001", Priority: 1}),
+		Old: tikiFromTask(&task.Task{ID: "TIKI-000001"}),
+		New: tikiFromTask(&task.Task{ID: "TIKI-000001"}),
 		AllTikis: tikisFromTasks([]*task.Task{
-			{ID: "TIKI-000001", Priority: 1},
+			{ID: "TIKI-000001"},
 		}),
 	}
 	_, err := te.testExecAction(trig, tc)
@@ -913,19 +968,19 @@ func TestEvalExprRecursive_UnknownBinaryOp(t *testing.T) {
 
 func TestEvalInOverride_CollectionNotListOrString(t *testing.T) {
 	te := newTestTriggerExecutor()
-	// "value" in priority — priority is an int, not a list or string
+	// "value" in points — points is an int, not a list or string
 	trig := &Trigger{
 		Timing: "before",
 		Event:  "update",
 		Where: &InExpr{
 			Value:      &StringLiteral{Value: "test"},
-			Collection: &FieldRef{Name: "priority"},
+			Collection: &FieldRef{Name: "points"},
 		},
 		Deny: strPtr("blocked"),
 	}
 	tc := &TriggerContext{
-		Old: tikiFromTask(&task.Task{ID: "TIKI-000001", Priority: 3}),
-		New: tikiFromTask(&task.Task{ID: "TIKI-000001", Priority: 3}),
+		Old: tikiFromTask(&task.Task{ID: "TIKI-000001", Points: 3}),
+		New: tikiFromTask(&task.Task{ID: "TIKI-000001", Points: 3}),
 	}
 	_, err := te.EvalGuard(trig, tc)
 	if err == nil {
@@ -1268,14 +1323,14 @@ func TestEvalCondition_OrShortCircuit(t *testing.T) {
 	p := newTestParser()
 
 	// left is true → or short-circuits, right is never evaluated
-	trig, err := p.ParseTrigger(`before update where new.status = "done" or new.priority = 1 deny "blocked"`)
+	trig, err := p.ParseTrigger(`before update where new.status = "done" or new.priority = "high" deny "blocked"`)
 	if err != nil {
 		t.Fatalf("parse: %v", err)
 	}
 
 	tc := &TriggerContext{
-		Old: tikiFromTask(&task.Task{ID: "TIKI-000001", Status: "ready", Priority: 5}),
-		New: tikiFromTask(&task.Task{ID: "TIKI-000001", Status: "done", Priority: 5}),
+		Old: tikiFromTask(&task.Task{ID: "TIKI-000001", Status: "ready"}),
+		New: tikiFromTask(&task.Task{ID: "TIKI-000001", Status: "done"}),
 	}
 	ok, err := te.EvalGuard(trig, tc)
 	if err != nil {
@@ -2204,9 +2259,9 @@ func TestEvalExprRecursive_BinaryExprLeftError(t *testing.T) {
 		},
 	}
 	tc := &TriggerContext{
-		Old:      tikiFromTask(&task.Task{ID: "TIKI-000001", Priority: 1}),
-		New:      tikiFromTask(&task.Task{ID: "TIKI-000001", Priority: 1}),
-		AllTikis: tikisFromTasks([]*task.Task{{ID: "TIKI-000001", Priority: 1}}),
+		Old:      tikiFromTask(&task.Task{ID: "TIKI-000001"}),
+		New:      tikiFromTask(&task.Task{ID: "TIKI-000001"}),
+		AllTikis: tikisFromTasks([]*task.Task{{ID: "TIKI-000001"}}),
 	}
 	_, err := te.testExecAction(trig, tc)
 	if err == nil {
@@ -2235,9 +2290,9 @@ func TestEvalExprRecursive_BinaryExprRightError(t *testing.T) {
 		},
 	}
 	tc := &TriggerContext{
-		Old:      tikiFromTask(&task.Task{ID: "TIKI-000001", Priority: 1}),
-		New:      tikiFromTask(&task.Task{ID: "TIKI-000001", Priority: 1}),
-		AllTikis: tikisFromTasks([]*task.Task{{ID: "TIKI-000001", Priority: 1}}),
+		Old:      tikiFromTask(&task.Task{ID: "TIKI-000001"}),
+		New:      tikiFromTask(&task.Task{ID: "TIKI-000001"}),
+		AllTikis: tikisFromTasks([]*task.Task{{ID: "TIKI-000001"}}),
 	}
 	_, err := te.testExecAction(trig, tc)
 	if err == nil {
@@ -2592,14 +2647,14 @@ func TestEvalCondition_OrBothFalse(t *testing.T) {
 				Left: &QualifiedRef{Qualifier: "new", Name: "status"}, Op: "=", Right: &StringLiteral{Value: "done"},
 			},
 			Right: &CompareExpr{
-				Left: &QualifiedRef{Qualifier: "new", Name: "priority"}, Op: "=", Right: &IntLiteral{Value: 99},
+				Left: &QualifiedRef{Qualifier: "new", Name: "points"}, Op: "=", Right: &IntLiteral{Value: 99},
 			},
 		},
 		Deny: strPtr("blocked"),
 	}
 	tc := &TriggerContext{
-		Old: tikiFromTask(&task.Task{ID: "TIKI-000001", Status: "ready", Priority: 3}),
-		New: tikiFromTask(&task.Task{ID: "TIKI-000001", Status: "ready", Priority: 3}),
+		Old: tikiFromTask(&task.Task{ID: "TIKI-000001", Status: "ready", Points: 3}),
+		New: tikiFromTask(&task.Task{ID: "TIKI-000001", Status: "ready", Points: 3}),
 	}
 	ok, err := te.EvalGuard(trig, tc)
 	if err != nil {
@@ -2672,8 +2727,8 @@ func TestEvalQuantifierOverride_AnyNoMatch(t *testing.T) {
 		Deny: strPtr("blocked"),
 	}
 
-	dep := &task.Task{ID: "TIKI-DEP001", Status: "ready", Type: "story", Priority: 3}
-	main := &task.Task{ID: "TIKI-000001", Status: "ready", Type: "story", Priority: 3, DependsOn: []string{"TIKI-DEP001"}}
+	dep := &task.Task{ID: "TIKI-DEP001", Status: "ready", Type: "story"}
+	main := &task.Task{ID: "TIKI-000001", Status: "ready", Type: "story", DependsOn: []string{"TIKI-DEP001"}}
 
 	tc := &TriggerContext{Old: tikiFromTask(main), New: tikiFromTask(main), AllTikis: tikisFromTasks([]*task.Task{dep, main})}
 	ok, err := te.EvalGuard(trig, tc)
@@ -2737,8 +2792,8 @@ func TestExecTimeTriggerAction_Update(t *testing.T) {
 	}
 
 	tasks := []*task.Task{
-		{ID: "TIKI-000001", Status: "inProgress", Title: "stale", Type: "story", Priority: 3},
-		{ID: "TIKI-000002", Status: "done", Title: "finished", Type: "story", Priority: 3},
+		{ID: "TIKI-000001", Status: "inProgress", Title: "stale", Type: "story"},
+		{ID: "TIKI-000002", Status: "done", Title: "finished", Type: "story"},
 	}
 
 	result, err := te.testExecTimeAction(tt, tasks)
@@ -2760,7 +2815,7 @@ func TestExecTimeTriggerAction_Create(t *testing.T) {
 	te := newTestTriggerExecutor()
 	p := newTestParser()
 
-	tt, err := p.ParseTimeTrigger(`every 1day create title="daily standup" status="ready" type="story" priority=3`)
+	tt, err := p.ParseTimeTrigger(`every 1day create title="daily standup" status="ready" type="story" priority="medium"`)
 	if err != nil {
 		t.Fatalf("parse: %v", err)
 	}
@@ -2791,9 +2846,9 @@ func TestExecTimeTriggerAction_Delete(t *testing.T) {
 	}
 
 	tasks := []*task.Task{
-		{ID: "TIKI-000001", Status: "done", Title: "finished", Type: "story", Priority: 3},
-		{ID: "TIKI-000002", Status: "ready", Title: "active", Type: "story", Priority: 3},
-		{ID: "TIKI-000003", Status: "done", Title: "also done", Type: "story", Priority: 3},
+		{ID: "TIKI-000001", Status: "done", Title: "finished", Type: "story"},
+		{ID: "TIKI-000002", Status: "ready", Title: "active", Type: "story"},
+		{ID: "TIKI-000003", Status: "done", Title: "also done", Type: "story"},
 	}
 
 	result, err := te.testExecTimeAction(tt, tasks)
@@ -2937,7 +2992,7 @@ func TestExecAction_RawTriggerPath(t *testing.T) {
 	if err != nil {
 		t.Fatalf("parse: %v", err)
 	}
-	newTask := &task.Task{ID: "TIKI-000001", Title: "Test", Status: "ready", Type: "story", Priority: 3}
+	newTask := &task.Task{ID: "TIKI-000001", Title: "Test", Status: "ready", Type: "story"}
 	tc := &TriggerContext{
 		Old:      nil,
 		New:      tikiFromTask(newTask),
@@ -2987,7 +3042,7 @@ func TestExecTimeTriggerAction_ValidatedNilAction(t *testing.T) {
 	}
 	// first confirm this works
 	_, err := te.testExecTimeAction(tt, []*task.Task{
-		{ID: "TIKI-000001", Status: "done", Type: "story", Priority: 3},
+		{ID: "TIKI-000001", Status: "done", Type: "story"},
 	})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -3036,8 +3091,8 @@ func TestExecTimeTriggerAction_RawTimeTriggerWithAction(t *testing.T) {
 		},
 	}
 	tasks := []*task.Task{
-		{ID: "TIKI-000001", Status: "inProgress", Title: "stale", Type: "story", Priority: 3},
-		{ID: "TIKI-000002", Status: "done", Title: "done", Type: "story", Priority: 3},
+		{ID: "TIKI-000001", Status: "inProgress", Title: "stale", Type: "story"},
+		{ID: "TIKI-000002", Status: "done", Title: "done", Type: "story"},
 	}
 	result, err := te.testExecTimeAction(tt, tasks)
 	if err != nil {
@@ -3077,7 +3132,7 @@ func TestTriggerExecOverride_Execute_RawStatement(t *testing.T) {
 	tc := &TriggerContext{
 		Old:      tikiFromTask(&task.Task{ID: "TIKI-000001", Status: "ready"}),
 		New:      tikiFromTask(&task.Task{ID: "TIKI-000001", Status: "done"}),
-		AllTikis: tikisFromTasks([]*task.Task{{ID: "TIKI-000001", Status: "done", Type: "story", Priority: 3}}),
+		AllTikis: tikisFromTasks([]*task.Task{{ID: "TIKI-000001", Status: "done", Type: "story"}}),
 	}
 	exec := te.newExecWithOverrides(tc)
 	// pass a raw *Statement that should go through validation inside Execute
@@ -3400,7 +3455,7 @@ func TestExecTimeTriggerAction_ValidatedCreateWithTemplate(t *testing.T) {
 	}
 
 	result, err := te.testExecTimeAction(vtt, nil, ExecutionInput{
-		CreateTemplate: tikiFromTask(&task.Task{Title: "base", Type: "story", Priority: 3}),
+		CreateTemplate: tikiFromTask(&task.Task{Title: "base", Type: "story"}),
 	})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -3431,8 +3486,8 @@ func TestExecTimeTriggerAction_ValidatedUpdate(t *testing.T) {
 	}
 
 	tasks := []*task.Task{
-		{ID: "TIKI-000001", Status: "inProgress", Type: "story", Priority: 3},
-		{ID: "TIKI-000002", Status: "done", Type: "story", Priority: 3},
+		{ID: "TIKI-000001", Status: "inProgress", Type: "story"},
+		{ID: "TIKI-000002", Status: "done", Type: "story"},
 	}
 	result, err := te.testExecTimeAction(vtt, tasks)
 	if err != nil {
@@ -3462,8 +3517,8 @@ func TestExecTimeTriggerAction_ValidatedDelete(t *testing.T) {
 	}
 
 	tasks := []*task.Task{
-		{ID: "TIKI-000001", Status: "done", Type: "story", Priority: 3},
-		{ID: "TIKI-000002", Status: "ready", Type: "story", Priority: 3},
+		{ID: "TIKI-000001", Status: "done", Type: "story"},
+		{ID: "TIKI-000002", Status: "ready", Type: "story"},
 	}
 	result, err := te.testExecTimeAction(vtt, tasks)
 	if err != nil {
@@ -3505,8 +3560,8 @@ func TestTriggerExecOverride_Execute_ValidatedStatement(t *testing.T) {
 		Old: tikiFromTask(&task.Task{ID: "TIKI-000001", Status: "ready"}),
 		New: tikiFromTask(&task.Task{ID: "TIKI-000001", Status: "done"}),
 		AllTikis: tikisFromTasks([]*task.Task{
-			{ID: "TIKI-000001", Status: "done", Type: "story", Priority: 3},
-			{ID: "TIKI-000002", Status: "ready", Type: "story", Priority: 3},
+			{ID: "TIKI-000001", Status: "done", Type: "story"},
+			{ID: "TIKI-000002", Status: "ready", Type: "story"},
 		}),
 	}
 	exec := te.newExecWithOverrides(tc)
@@ -3596,7 +3651,7 @@ func TestTriggerExecOverride_Execute_ValidatedStatementCreateWithTemplate(t *tes
 		},
 	}
 	result, err := exec.Execute(vs, tc.AllTikis, ExecutionInput{
-		CreateTemplate: tikiFromTask(&task.Task{Type: "story", Priority: 3}),
+		CreateTemplate: tikiFromTask(&task.Task{Type: "story"}),
 	})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -3765,7 +3820,7 @@ func TestExecuteUpdate_Override_EvalErrorInAssignment(t *testing.T) {
 	tc := &TriggerContext{
 		Old:      tikiFromTask(&task.Task{ID: "TIKI-000001", Status: "ready"}),
 		New:      tikiFromTask(&task.Task{ID: "TIKI-000001", Status: "done"}),
-		AllTikis: tikisFromTasks([]*task.Task{{ID: "TIKI-000001", Status: "done", Type: "story", Priority: 3}}),
+		AllTikis: tikisFromTasks([]*task.Task{{ID: "TIKI-000001", Status: "done", Type: "story"}}),
 	}
 	exec := te.newExecWithOverrides(tc)
 
@@ -3983,7 +4038,7 @@ func TestExecuteUpdate_Override_SetFieldError(t *testing.T) {
 	tc := &TriggerContext{
 		Old:      tikiFromTask(&task.Task{ID: "TIKI-000001"}),
 		New:      tikiFromTask(&task.Task{ID: "TIKI-000001"}),
-		AllTikis: tikisFromTasks([]*task.Task{{ID: "TIKI-000001", Type: "story", Priority: 3}}),
+		AllTikis: tikisFromTasks([]*task.Task{{ID: "TIKI-000001", Type: "story"}}),
 	}
 	exec := te.newExecWithOverrides(tc)
 

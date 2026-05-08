@@ -150,7 +150,7 @@ func TestEditSource_DuplicateCaseIDs_Repro(t *testing.T) {
 	tk.Title = "Edit Source Duplicate"
 	tk.Set("type", taskpkg.TypeStory)
 	tk.Set("status", taskpkg.StatusBacklog)
-	tk.Set("priority", 3)
+	tk.Set("priority", "medium")
 	tk.Set("points", 1)
 	if err := ta.TaskStore.CreateTiki(tk); err != nil {
 		t.Fatalf("CreateTiki failed: %v", err)
@@ -305,7 +305,8 @@ func TestNewTask_MultipleFields_AllSaved(t *testing.T) {
 	for i := 0; i < 3; i++ {
 		ta.SendKey(tcell.KeyTab, 0, tcell.ModNone)
 	}
-	// set priority to 4 (default is 3, so press down 1 time)
+	// set priority to medium-low (default is medium, so press down 1 time
+	// to step toward less urgent in the declaration-ordered enum)
 	ta.SendKeyToFocused(tcell.KeyDown, 0, tcell.ModNone)
 
 	// Tab to Points field (1 more tab: Priority → Points)
@@ -330,9 +331,9 @@ func TestNewTask_MultipleFields_AllSaved(t *testing.T) {
 	if tk.Title != "New Task With Multiple Fields" {
 		t.Errorf("title = %q, want %q", tk.Title, "New Task With Multiple Fields")
 	}
-	priority, _, _ := tk.IntField("priority")
-	if priority != 4 {
-		t.Errorf("priority = %d, want 4", priority)
+	priority, _, _ := tk.StringField("priority")
+	if priority != "medium-low" {
+		t.Errorf("priority = %q, want %q", priority, "medium-low")
 	}
 	points, _, _ := tk.IntField("points")
 	if points != 9 {

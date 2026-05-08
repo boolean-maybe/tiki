@@ -104,7 +104,7 @@ func TestUpdateTiki_TypedEditOnSparseDocGrowsPresenceSetOnlyForEditedKey(t *test
 		t.Fatal("GetTiki: nil")
 	}
 	updated := loaded.Clone()
-	updated.Set(tikipkg.FieldPriority, 1)
+	updated.Set(tikipkg.FieldPriority, "high")
 	if err := s.UpdateTiki(updated); err != nil {
 		t.Fatalf("UpdateTiki: %v", err)
 	}
@@ -115,7 +115,7 @@ func TestUpdateTiki_TypedEditOnSparseDocGrowsPresenceSetOnlyForEditedKey(t *test
 	if !strings.Contains(contents, "status: ready") {
 		t.Errorf("status dropped; contents:\n%s", contents)
 	}
-	if !strings.Contains(contents, "priority: 1") {
+	if !strings.Contains(contents, "priority: high") {
 		t.Errorf("typed priority edit did not persist; contents:\n%s", contents)
 	}
 	for _, forbidden := range []string{"type:", "points:", "tags:", "dependsOn:", "assignee:", "recurrence:", "due:"} {

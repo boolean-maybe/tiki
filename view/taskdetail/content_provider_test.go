@@ -57,7 +57,7 @@ func TestTaskDescriptionProvider_FetchContent_TikiID(t *testing.T) {
 	tk.Body = "some description"
 	tk.Set("status", "ready")
 	tk.Set("type", "story")
-	tk.Set("priority", 2)
+	tk.Set("priority", "medium-high")
 	_ = s.CreateTiki(tk)
 
 	provider := newTaskDescriptionProvider(s, nil)
@@ -73,7 +73,7 @@ func TestTaskDescriptionProvider_FetchContent_TikiID(t *testing.T) {
 		if !strings.Contains(content, "some description") {
 			t.Errorf("expected description in content, got: %s", content)
 		}
-		if !strings.Contains(content, "P2") {
+		if !strings.Contains(content, "medium-high") {
 			t.Errorf("expected priority in content, got: %s", content)
 		}
 	})
@@ -143,7 +143,7 @@ func TestFormatTikiAsMarkdown(t *testing.T) {
 		tk.Body = "detailed desc"
 		tk.Set(tikipkg.FieldStatus, task.StatusInProgress)
 		tk.Set(tikipkg.FieldType, task.TypeBug)
-		tk.Set(tikipkg.FieldPriority, 1)
+		tk.Set(tikipkg.FieldPriority, "high")
 
 		md := formatTikiAsMarkdown(tk)
 		if !strings.HasPrefix(md, "# My Task\n") {
@@ -152,7 +152,7 @@ func TestFormatTikiAsMarkdown(t *testing.T) {
 		if !strings.Contains(md, "ABC123") {
 			t.Error("expected task ID in output")
 		}
-		if !strings.Contains(md, "P1") {
+		if !strings.Contains(md, "high") {
 			t.Error("expected priority in output")
 		}
 		if !strings.Contains(md, "detailed desc") {

@@ -270,23 +270,38 @@ func ValidateWorkflowFields(defs []FieldDef) error {
 }
 
 // validateEnumValues checks that an enum field has at least one value, all
-// values are non-empty, no duplicate keys exist, at most one value is marked
+// values are non-empty, no duplicate keys exist (case-insensitively, since
+// runtime matching uses strings.EqualFold), at most one value is marked
 // default, and no display string collides with another.
+//
+// The case-insensitive value check matches runtime behavior in two
+// places that compare enum keys: enumRank in ruki/executor.go uses
+// strings.EqualFold for sort/filter, and coerceCustomValue in
+// store/tikistore/persistence.go uses strings.EqualFold for load-time
+// canonicalization. Without case-insensitive validation, a workflow could
+// declare both "high" and "HIGH" as separate values; runtime would
+// silently route both to whichever appeared first in AllowedValues,
+// making the second value unreachable and sort ordering nondeterministic
+// for tikis that wrote either casing.
 func validateEnumValues(fieldName string, values []EnumValue) error {
 	if len(values) == 0 {
 		return fmt.Errorf("enum field %q requires non-empty values", fieldName)
 	}
-	seenKeys := make(map[string]bool, len(values))
+	seenKeys := make(map[string]string, len(values)) // lowercase → original
 	seenDisplay := make(map[string]string, len(values))
 	defaultCount := 0
 	for i, v := range values {
 		if v.Value == "" {
 			return fmt.Errorf("enum field %q value at index %d has empty value", fieldName, i)
 		}
-		if seenKeys[v.Value] {
-			return fmt.Errorf("enum field %q has duplicate value %q", fieldName, v.Value)
+		lower := strings.ToLower(v.Value)
+		if prev, ok := seenKeys[lower]; ok {
+			if prev == v.Value {
+				return fmt.Errorf("enum field %q has duplicate value %q", fieldName, v.Value)
+			}
+			return fmt.Errorf("enum field %q values %q and %q collide case-insensitively (runtime treats them as the same value)", fieldName, prev, v.Value)
 		}
-		seenKeys[v.Value] = true
+		seenKeys[lower] = v.Value
 		display := enumDisplayParts(v)
 		if prev, ok := seenDisplay[display]; ok {
 			return fmt.Errorf("enum field %q has duplicate display %q (values %q and %q)", fieldName, display, prev, v.Value)

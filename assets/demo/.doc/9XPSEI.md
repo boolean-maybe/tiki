@@ -7,7 +7,7 @@ tags:
   - ground-station
   - performance
 assignee: "jnakamura"
-priority: 3
+priority: medium
 points: 3
 ---
 

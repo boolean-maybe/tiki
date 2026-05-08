@@ -10,18 +10,11 @@ import (
 	"github.com/boolean-maybe/tiki/ruki"
 	"github.com/boolean-maybe/tiki/service"
 	"github.com/boolean-maybe/tiki/store"
-	taskpkg "github.com/boolean-maybe/tiki/task"
 	tikipkg "github.com/boolean-maybe/tiki/tiki"
+	"github.com/boolean-maybe/tiki/workflow"
 
 	"github.com/gdamore/tcell/v2"
 )
-
-// parsePriorityDisplay reverses a priority display label (e.g. "P1", "P2",
-// "—") back to its numeric value (1..5; 0 = absent). Mirrors the helper
-// used in TaskEditView so the two paths stay consistent.
-func parsePriorityDisplay(display string) int {
-	return taskpkg.PriorityFromDisplay(display)
-}
 
 // DetailController backs `kind: detail` views. It surfaces both per-view
 // actions (declared on the view itself) and global actions, dispatches
@@ -62,6 +55,13 @@ type DetailEditableView interface {
 	SetEditModeChangeHandler(func(bool))
 	SetEditFieldChangeHandler(string, func(string))
 	Metadata() []string
+	// FlushFocusedEditor pushes the currently focused editor's value
+	// through its onChange handler. Required before commit because some
+	// editors (notably the tags textarea) only emit on Ctrl+S, and the
+	// app-level input router consumes Ctrl+S to dispatch ActionDetailSave
+	// before the focused widget sees it. Without an explicit flush, the
+	// edit-in-progress would be discarded silently.
+	FlushFocusedEditor()
 }
 
 // NewDetailController builds a controller for a kind: detail plugin view.
@@ -180,8 +180,10 @@ func (dc *DetailController) wireEditFieldHandlers(v DetailEditableView) {
 	v.SetEditFieldChangeHandler(tikipkg.FieldType, func(display string) {
 		dc.taskController.SaveType(display)
 	})
-	v.SetEditFieldChangeHandler(tikipkg.FieldPriority, func(display string) {
-		dc.taskController.SavePriority(parsePriorityDisplay(display))
+	v.SetEditFieldChangeHandler(tikipkg.FieldPriority, func(canonicalKey string) {
+		// SemanticEnum editor emits canonical keys directly; no display→key
+		// conversion needed at the controller boundary.
+		dc.taskController.SavePriority(canonicalKey)
 	})
 	v.SetEditFieldChangeHandler(tikipkg.FieldPoints, func(display string) {
 		// IntEditSelect enforces digits-only input; the err branch is a
@@ -202,6 +204,38 @@ func (dc *DetailController) wireEditFieldHandlers(v DetailEditableView) {
 	v.SetEditFieldChangeHandler(tikipkg.FieldTags, func(display string) {
 		dc.taskController.SaveTags(strings.Fields(display))
 	})
+	// Wire a SemanticEnum save handler for any workflow-declared enum
+	// field in this view's metadata that doesn't already have a built-in
+	// handler above. Without this, custom enums (e.g. severity in
+	// bug-tracker.yaml) would render as editable but never persist their
+	// edits, because no save handler would be installed for them.
+	for _, name := range v.Metadata() {
+		if _, hasBuiltin := builtinEditFieldHandlers[name]; hasBuiltin {
+			continue
+		}
+		wfd, ok := workflow.Field(name)
+		if !ok || wfd.Type != workflow.TypeEnum {
+			continue
+		}
+		fieldName := name // capture for closure
+		v.SetEditFieldChangeHandler(fieldName, func(canonicalKey string) {
+			dc.taskController.SaveWorkflowEnum(fieldName, canonicalKey)
+		})
+	}
+}
+
+// builtinEditFieldHandlers names the fields whose save handlers are wired
+// directly above in wireEditFieldHandlers. The custom-enum loop skips
+// these so it doesn't double-register or shadow the typed Save* methods.
+var builtinEditFieldHandlers = map[string]struct{}{
+	tikipkg.FieldStatus:     {},
+	tikipkg.FieldType:       {},
+	tikipkg.FieldPriority:   {},
+	tikipkg.FieldPoints:     {},
+	tikipkg.FieldAssignee:   {},
+	tikipkg.FieldDue:        {},
+	tikipkg.FieldRecurrence: {},
+	tikipkg.FieldTags:       {},
 }
 
 // HandleAction routes plugin actions. Built-in detail actions like
@@ -256,6 +290,11 @@ func (dc *DetailController) commitEdit() bool {
 	if !dc.editView.IsEditMode() {
 		return false
 	}
+	// Flush the focused editor before commit. The Ctrl+S path goes through
+	// the app-level input router (which doesn't re-dispatch the event to
+	// the focused widget), so editors that only emit on Ctrl+S — like the
+	// tags textarea — would otherwise lose their unsaved input.
+	dc.editView.FlushFocusedEditor()
 	if err := dc.taskController.CommitEditSession(); err != nil {
 		if dc.statusline != nil {
 			dc.statusline.SetMessage(rejectionMessage(err), model.MessageLevelError, true)

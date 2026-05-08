@@ -121,7 +121,7 @@ The resulting task from `create` must have a non-empty `title`. If the template 
 `title`, `status`, `type`, and `priority` reject `empty` assignment:
 
 ```sql
-create title="" priority=2
+create title="" priority="medium-high"
 create title="x" status=empty
 update where id = "ABC123" set priority=empty
 ```
@@ -164,7 +164,7 @@ update where id="x" set title=status
 Invalid binary expressions:
 
 ```sql
-create title="x" priority=1 + "a"
+create title="x" points=1 + "a"
 select where due = 2026-03-25 + 2026-03-20
 create title="x" dependsOn=dependsOn + status
 create title="x" dependsOn=dependsOn + tags
@@ -288,7 +288,7 @@ Field references are not allowed in the pipe command expression itself. Use posi
 Pipe on non-select statements:
 
 ```sql
-update where status = "done" set priority=1 | run("echo done")
+update where status = "done" set priority="high" | run("echo done")
 create title="x" | run("echo created")
 delete where id = "ABC123" | run("echo deleted")
 ```

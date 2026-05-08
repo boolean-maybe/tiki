@@ -10,6 +10,7 @@ import (
 	"github.com/boolean-maybe/tiki/ruki"
 	"github.com/boolean-maybe/tiki/service"
 	"github.com/boolean-maybe/tiki/store"
+	taskpkg "github.com/boolean-maybe/tiki/task"
 	tikipkg "github.com/boolean-maybe/tiki/tiki"
 )
 
@@ -406,8 +407,10 @@ func filterTikisBySearch(tikis []*tikipkg.Tiki, searchMap map[string]bool) []*ti
 	return filtered
 }
 
-// sortTikisByPriorityTitle sorts tikis by priority (ascending) then title (ascending).
-// Zero priority (absent field) sorts last, matching task.Sort behavior.
+// sortTikisByPriorityTitle sorts tikis by priority rank (lower rank =
+// declared first = higher urgency), then title (ascending). Absent priority
+// sorts after all declared values so plain documents drop to the bottom of
+// urgency-ordered lists.
 func sortTikisByPriorityTitle(tikis []*tikipkg.Tiki) {
 	n := len(tikis)
 	for i := 1; i < n; i++ {
@@ -424,12 +427,28 @@ func sortTikisByPriorityTitle(tikis []*tikipkg.Tiki) {
 	}
 }
 
+// tikiPriorityForSort returns a sort rank for the tiki's priority value,
+// reading it as a workflow-enum key. Lower rank = earlier in declaration =
+// higher urgency. Absent or unrecognized values return MaxInt so they sort
+// after all declared keys (consistent with the previous int-based "0 sorts
+// last" semantics now that priority is a string enum).
 func tikiPriorityForSort(tk *tikipkg.Tiki) int {
 	if tk == nil {
-		return 0
+		return absentPriorityRank
 	}
-	if n, ok := tk.Fields[tikipkg.FieldPriority].(int); ok {
-		return n
+	key, _, _ := tk.StringField(tikipkg.FieldPriority)
+	if key == "" {
+		return absentPriorityRank
 	}
-	return 0
+	for i, k := range taskpkg.AllPriorities() {
+		if k == key {
+			return i
+		}
+	}
+	return absentPriorityRank
 }
+
+// absentPriorityRank sorts absent / unknown priorities after all declared
+// values. Using a large sentinel rather than math.MaxInt keeps the imports
+// lean; the value just needs to exceed any realistic enum cardinality.
+const absentPriorityRank = 1 << 30

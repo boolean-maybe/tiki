@@ -40,8 +40,13 @@ const testWorkflowPreamble = `fields:
         label: Epic
         emoji: "🗂️"
   - name: priority
-    type: integer
-    default: 3
+    type: enum
+    values:
+      - {value: high, label: High, emoji: "🔴"}
+      - {value: medium-high, label: "Medium High", emoji: "🟠"}
+      - {value: medium, label: Medium, emoji: "🟡", default: true}
+      - {value: medium-low, label: "Medium Low", emoji: "🟢"}
+      - {value: low, label: Low, emoji: "🔵"}
   - name: points
     type: integer
     default: 1

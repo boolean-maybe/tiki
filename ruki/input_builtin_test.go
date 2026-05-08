@@ -39,7 +39,7 @@ func TestInputBuiltin_StringIntoStringField_OK(t *testing.T) {
 func TestInputBuiltin_IntIntoIntField_OK(t *testing.T) {
 	p := newTestParser()
 	_, err := p.ParseAndValidateStatementWithInput(
-		"update where id = id() set priority = input()",
+		"update where id = id() set points = input()",
 		ExecutorRuntimePlugin,
 		ValueInt,
 	)
@@ -97,7 +97,7 @@ func TestInputBuiltin_Executor_ReturnsValue(t *testing.T) {
 
 	e := NewExecutor(testSchema{}, func() string { return "alice" }, ExecutorRuntime{Mode: ExecutorRuntimePlugin})
 
-	testTask := &task.Task{ID: "TIKI-000001", Title: "test", Status: "ready", Type: "task", Priority: 3}
+	testTask := &task.Task{ID: "TIKI-000001", Title: "test", Status: "ready", Type: "task"}
 	result, err := e.testExec(vs, []*task.Task{testTask}, ExecutionInput{
 		SelectedTaskIDs: []string{"TIKI-000001"},
 		InputValue:      "bob",
@@ -131,7 +131,7 @@ func TestInputBuiltin_Executor_MissingInput(t *testing.T) {
 
 	e := NewExecutor(testSchema{}, func() string { return "alice" }, ExecutorRuntime{Mode: ExecutorRuntimePlugin})
 
-	testTask := &task.Task{ID: "TIKI-000001", Title: "test", Status: "ready", Type: "task", Priority: 3}
+	testTask := &task.Task{ID: "TIKI-000001", Title: "test", Status: "ready", Type: "task"}
 	_, err = e.testExec(vs, []*task.Task{testTask}, ExecutionInput{
 		SelectedTaskIDs: []string{"TIKI-000001"},
 	})

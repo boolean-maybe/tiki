@@ -46,7 +46,7 @@ func TestLoadTaskFile_MissingIDIsHardError(t *testing.T) {
 func TestLoadTaskFile_TIKIPrefixedIDIsInvalid(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "tiki-prefixed.md")
-	if err := os.WriteFile(path, []byte("---\nid: TIKI-ABC123\ntitle: legacy\ntype: story\nstatus: ready\npriority: 1\n---\nbody\n"), 0o644); err != nil {
+	if err := os.WriteFile(path, []byte("---\nid: TIKI-ABC123\ntitle: legacy\ntype: story\nstatus: ready\npriority: high\n---\nbody\n"), 0o644); err != nil {
 		t.Fatalf("write: %v", err)
 	}
 
@@ -86,7 +86,7 @@ func TestLoadTaskFile_DuplicateIDSkipped(t *testing.T) {
 	first := filepath.Join(dir, "a.md")
 	second := filepath.Join(dir, "b.md")
 	content := func(title string) string {
-		return "---\nid: DUPLIC\ntitle: " + title + "\ntype: story\nstatus: ready\npriority: 1\n---\nbody\n"
+		return "---\nid: DUPLIC\ntitle: " + title + "\ntype: story\nstatus: ready\npriority: high\n---\nbody\n"
 	}
 	if err := os.WriteFile(first, []byte(content("first")), 0o644); err != nil {
 		t.Fatalf("write a: %v", err)

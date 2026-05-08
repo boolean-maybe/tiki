@@ -48,7 +48,7 @@ id: %q
 title: %s
 type: %s
 status: %s
-priority: 3
+priority: medium
 points: 1
 tags: []
 %s---

@@ -35,14 +35,19 @@ func tikiTypeEmoji(tk *tikipkg.Tiki) string {
 }
 
 // tikiPriorityEmoji returns the emoji label for the tiki's priority field,
-// or "─" when the field is absent (no priority set). This prevents absent
-// priority from rendering as high-priority red (PriorityLabel(0) → 🔴).
+// or "─" when the field is absent or the value is unknown to the configured
+// priority enum. Reading as a string mirrors priority's enum-only contract
+// (Phase 3 conversion); empty key → no priority.
 func tikiPriorityEmoji(tk *tikipkg.Tiki) string {
-	n, present, _ := tk.IntField(tikipkg.FieldPriority)
-	if !present {
+	key, present, _ := tk.StringField(tikipkg.FieldPriority)
+	if !present || key == "" {
 		return "─"
 	}
-	return task.PriorityLabel(n)
+	emoji := task.PriorityLabel(key)
+	if emoji == "" {
+		return "─"
+	}
+	return emoji
 }
 
 // tikiPoints returns the numeric points stored in Fields, or 0 if absent.

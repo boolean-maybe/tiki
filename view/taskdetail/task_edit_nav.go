@@ -4,6 +4,7 @@ import (
 	"github.com/boolean-maybe/tiki/controller"
 	"github.com/boolean-maybe/tiki/model"
 	tikipkg "github.com/boolean-maybe/tiki/tiki"
+	"github.com/boolean-maybe/tiki/workflow"
 )
 
 // task_edit_nav.go contains edit-mode navigation and field management
@@ -61,6 +62,13 @@ func (ev *TaskEditView) SetFocusedField(field model.EditField) {
 // editFieldToFieldName maps an EditField enum to its canonical metadata
 // field name. Title and Description return "" — they're handled by the
 // dedicated branch in SetFocusedField above.
+//
+// Workflow-declared TypeEnum fields use their field name as the EditField
+// identity (see model.MetadataToEditFieldOrder); for those the EditField
+// string IS the field name, so we resolve via the workflow catalog when
+// none of the built-in cases match. Without this fallback, custom enums
+// like severity would be unreachable for keyboard editing — the focus,
+// cycling, and validation paths would all return "" and bail out.
 func editFieldToFieldName(field model.EditField) string {
 	switch field {
 	case model.EditFieldStatus:
@@ -79,9 +87,18 @@ func editFieldToFieldName(field model.EditField) string {
 		return tikipkg.FieldRecurrence
 	case model.EditFieldTags:
 		return tikipkg.FieldTags
-	default:
+	}
+	// Workflow-only enum fields: EditField string equals the field name.
+	// Confirm the catalog has it as TypeEnum to avoid masking unrelated
+	// EditField extensions.
+	name := string(field)
+	if name == "" {
 		return ""
 	}
+	if wfd, ok := workflow.Field(name); ok && wfd.Type == workflow.TypeEnum {
+		return name
+	}
+	return ""
 }
 
 // GetFocusedField returns the currently focused field.

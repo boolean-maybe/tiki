@@ -29,25 +29,25 @@ func makeTasks() []*task.Task {
 	return []*task.Task{
 		{
 			ID: "TIKI-000001", Title: "Setup CI", Status: "ready", Type: "story",
-			Priority: 2, Tags: []string{"infra"}, Assignee: "alice",
+			Tags: []string{"infra"}, Assignee: "alice",
 			Due: testDate(4, 10), CreatedAt: testDate(3, 1),
 			DependsOn: []string{},
 		},
 		{
 			ID: "TIKI-000002", Title: "Fix login bug", Status: "inProgress", Type: "bug",
-			Priority: 1, Tags: []string{"bug", "frontend"}, Assignee: "bob",
+			Tags: []string{"bug", "frontend"}, Assignee: "bob",
 			Due: testDate(4, 5), DependsOn: []string{"TIKI-000001"},
 			CreatedAt: testDate(3, 2),
 		},
 		{
 			ID: "TIKI-000003", Title: "Write docs", Status: "done", Type: "story",
-			Priority: 3, Tags: []string{"docs"}, Assignee: "alice",
+			Tags: []string{"docs"}, Assignee: "alice",
 			Due: testDate(4, 15), Points: 5, CreatedAt: testDate(3, 3),
 			DependsOn: []string{},
 		},
 		{
 			ID: "TIKI-000004", Title: "Plan sprint", Status: "backlog", Type: "spike",
-			Priority: 2, Tags: []string{}, Assignee: "",
+			Tags: []string{}, Assignee: "",
 			CreatedAt: testDate(3, 4),
 			DependsOn: []string{},
 			Due:       testDate(4, 20),
@@ -164,11 +164,11 @@ func TestExecuteSelectWhere(t *testing.T) {
 			1, []string{"TIKI-000003"},
 		},
 		{
-			"priority less than", `select where priority <= 2`,
-			3, []string{"TIKI-000001", "TIKI-000002", "TIKI-000004"},
+			"points greater", `select where points > 0`,
+			1, []string{"TIKI-000003"},
 		},
 		{
-			"and condition", `select where status = "ready" and priority = 2`,
+			"and condition", `select where status = "ready" and type = "story"`,
 			1, []string{"TIKI-000001"},
 		},
 		{
@@ -265,14 +265,14 @@ func TestExecuteSelectOrderBy(t *testing.T) {
 		wantIDs []string
 	}{
 		{
-			"order by priority asc",
-			"select order by priority",
-			[]string{"TIKI-000002", "TIKI-000001", "TIKI-000004", "TIKI-000003"},
+			"order by id asc",
+			"select order by id",
+			[]string{"TIKI-000001", "TIKI-000002", "TIKI-000003", "TIKI-000004"},
 		},
 		{
-			"order by priority desc",
-			"select order by priority desc",
-			[]string{"TIKI-000003", "TIKI-000001", "TIKI-000004", "TIKI-000002"},
+			"order by id desc",
+			"select order by id desc",
+			[]string{"TIKI-000004", "TIKI-000003", "TIKI-000002", "TIKI-000001"},
 		},
 		{
 			"order by title asc",
@@ -288,8 +288,8 @@ func TestExecuteSelectOrderBy(t *testing.T) {
 		},
 		{
 			"multi-field sort",
-			"select order by priority, createdAt",
-			[]string{"TIKI-000002", "TIKI-000001", "TIKI-000004", "TIKI-000003"},
+			"select order by createdAt, id",
+			[]string{"TIKI-000001", "TIKI-000002", "TIKI-000003", "TIKI-000004"},
 		},
 	}
 
@@ -320,9 +320,9 @@ func TestExecuteSelectNoOrderByPreservesInputOrder(t *testing.T) {
 	p := newTestParser()
 
 	tasks := []*task.Task{
-		{ID: "TIKI-CCC", Title: "C", Status: "ready", Priority: 1},
-		{ID: "TIKI-AAA", Title: "A", Status: "ready", Priority: 1},
-		{ID: "TIKI-BBB", Title: "B", Status: "ready", Priority: 1},
+		{ID: "TIKI-CCC", Title: "C", Status: "ready"},
+		{ID: "TIKI-AAA", Title: "A", Status: "ready"},
+		{ID: "TIKI-BBB", Title: "B", Status: "ready"},
 	}
 
 	stmt, err := p.ParseStatement("select")
@@ -356,8 +356,8 @@ func TestExecuteSelectLimit(t *testing.T) {
 	}{
 		{
 			"limit fewer than available",
-			"select order by priority limit 2",
-			[]string{"TIKI-000002", "TIKI-000001"},
+			"select order by id limit 2",
+			[]string{"TIKI-000001", "TIKI-000002"},
 		},
 		{
 			"limit equal to count",
@@ -371,13 +371,13 @@ func TestExecuteSelectLimit(t *testing.T) {
 		},
 		{
 			"limit 1",
-			"select order by priority limit 1",
-			[]string{"TIKI-000002"},
+			"select order by id limit 1",
+			[]string{"TIKI-000001"},
 		},
 		{
 			"limit with where",
-			"select where priority <= 2 order by priority limit 1",
-			[]string{"TIKI-000002"},
+			`select where status = "ready" order by id limit 1`,
+			[]string{"TIKI-000001"},
 		},
 		{
 			"limit without order by",
@@ -597,7 +597,7 @@ func TestExecuteComparisonMatrix(t *testing.T) {
 	tasks := []*task.Task{
 		{
 			ID: "TIKI-A", Title: "Alpha", Status: "done", Type: "bug",
-			Priority: 5, Points: 3, Due: testDate(6, 15),
+			Points: 3, Due: testDate(6, 15),
 			CreatedAt: testDate(1, 1), UpdatedAt: testDate(3, 1),
 		},
 	}
@@ -611,13 +611,13 @@ func TestExecuteComparisonMatrix(t *testing.T) {
 		{"string eq match", `select where title = "Alpha"`, true},
 		{"string eq no match", `select where title = "Beta"`, false},
 		{"string neq", `select where title != "Beta"`, true},
-		// int =, !=, <, >, <=, >=
-		{"int eq", `select where priority = 5`, true},
-		{"int neq", `select where priority != 5`, false},
-		{"int lt", `select where priority < 10`, true},
-		{"int gt", `select where priority > 10`, false},
-		{"int lte", `select where priority <= 5`, true},
-		{"int gte", `select where priority >= 5`, true},
+		// int =, !=, <, >, <=, >= (against the fixture's Points: 3)
+		{"int eq", `select where points = 3`, true},
+		{"int neq", `select where points != 3`, false},
+		{"int lt", `select where points < 5`, true},
+		{"int gt", `select where points > 5`, false},
+		{"int lte", `select where points <= 3`, true},
+		{"int gte", `select where points >= 3`, true},
 		// date ordering
 		{"date lt", `select where due < 2026-07-01`, true},
 		{"date gt", `select where due > 2026-07-01`, false},
@@ -852,9 +852,9 @@ func TestExecuteOuterWithSelectedTaskExclusion(t *testing.T) {
 	}
 
 	tasks := []*task.Task{
-		{ID: "TIKI-000001", Title: "selected", Status: "ready", Type: "story", Priority: 3, DependsOn: []string{"TIKI-000002"}},
-		{ID: "TIKI-000002", Title: "dependency", Status: "ready", Type: "story", Priority: 3},
-		{ID: "TIKI-000003", Title: "candidate", Status: "ready", Type: "story", Priority: 3},
+		{ID: "TIKI-000001", Title: "selected", Status: "ready", Type: "story", DependsOn: []string{"TIKI-000002"}},
+		{ID: "TIKI-000002", Title: "dependency", Status: "ready", Type: "story"},
+		{ID: "TIKI-000003", Title: "candidate", Status: "ready", Type: "story"},
 	}
 	e := NewExecutor(testSchema{}, nil, ExecutorRuntime{Mode: ExecutorRuntimePlugin})
 	result, err := e.testExec(stmt, tasks, NewSingleSelectionInput("TIKI-000001"))
@@ -940,7 +940,7 @@ func TestExecuteCreateBasic(t *testing.T) {
 	e := newTestExecutor()
 	p := newTestParser()
 
-	stmt, err := p.ParseStatement(`create title="Fix login" priority=2 status="ready"`)
+	stmt, err := p.ParseStatement(`create title="Fix login" priority="medium-high" status="ready"`)
 	if err != nil {
 		t.Fatalf("parse: %v", err)
 	}
@@ -955,8 +955,9 @@ func TestExecuteCreateBasic(t *testing.T) {
 	if tk.Title != "Fix login" {
 		t.Errorf("title = %q, want %q", tk.Title, "Fix login")
 	}
-	if tk.Priority != 2 {
-		t.Errorf("priority = %d, want 2", tk.Priority)
+	rawTk := result.raw.Create.Tiki
+	if got, _, _ := rawTk.StringField("priority"); got != "medium-high" {
+		t.Errorf("priority = %q, want medium-high", got)
 	}
 	if tk.Status != "ready" {
 		t.Errorf("status = %q, want %q", tk.Status, "ready")
@@ -1116,17 +1117,18 @@ func TestExecuteCreateWithTemplate(t *testing.T) {
 	p := newTestParser()
 
 	template := &task.Task{
-		Tags:     []string{"idea"},
-		Priority: 7,
-		Status:   "ready",
-		Type:     "story",
+		Tags:   []string{"idea"},
+		Status: "ready",
+		Type:   "story",
 	}
+	tmplTk := tikiFromTask(template)
+	tmplTk.Set("priority", "high") // template-derived default that flows through
 
 	stmt, err := p.ParseStatement(`create title="x" tags=tags+["new"]`)
 	if err != nil {
 		t.Fatalf("parse: %v", err)
 	}
-	result, err := e.testExec(stmt, nil, ExecutionInput{CreateTemplate: tikiFromTask(template)})
+	result, err := e.testExec(stmt, nil, ExecutionInput{CreateTemplate: tmplTk})
 	if err != nil {
 		t.Fatalf("execute: %v", err)
 	}
@@ -1136,8 +1138,8 @@ func TestExecuteCreateWithTemplate(t *testing.T) {
 		t.Errorf("tags = %v, want [idea new]", tk.Tags)
 	}
 	// priority should be preserved from template (not set by assignment)
-	if tk.Priority != 7 {
-		t.Errorf("priority = %d, want 7 (template default)", tk.Priority)
+	if got, _, _ := result.raw.Create.Tiki.StringField("priority"); got != "high" {
+		t.Errorf("priority = %q, want %q (template default)", got, "high")
 	}
 }
 
@@ -1145,7 +1147,7 @@ func TestExecuteCreateWithoutTemplate(t *testing.T) {
 	e := newTestExecutor()
 	p := newTestParser()
 
-	stmt, err := p.ParseStatement(`create title="x" priority=3`)
+	stmt, err := p.ParseStatement(`create title="x" priority="medium"`)
 	if err != nil {
 		t.Fatalf("parse: %v", err)
 	}
@@ -1157,8 +1159,8 @@ func TestExecuteCreateWithoutTemplate(t *testing.T) {
 	if tk.Title != "x" {
 		t.Errorf("title = %q, want %q", tk.Title, "x")
 	}
-	if tk.Priority != 3 {
-		t.Errorf("priority = %d, want 3", tk.Priority)
+	if got, _, _ := result.raw.Create.Tiki.StringField("priority"); got != "medium" {
+		t.Errorf("priority = %q, want medium", got)
 	}
 	// unset fields should be zero-valued
 	if tk.Points != 0 {
@@ -1352,13 +1354,13 @@ func TestExecuteSortStable(t *testing.T) {
 	p := newTestParser()
 
 	tasks := []*task.Task{
-		{ID: "T1", Title: "First", Status: "ready", Priority: 1},
-		{ID: "T2", Title: "Second", Status: "ready", Priority: 1},
-		{ID: "T3", Title: "Third", Status: "ready", Priority: 1},
-		{ID: "T4", Title: "Fourth", Status: "ready", Priority: 2},
+		{ID: "T1", Title: "First", Status: "ready", Points: 1},
+		{ID: "T2", Title: "Second", Status: "ready", Points: 1},
+		{ID: "T3", Title: "Third", Status: "ready", Points: 1},
+		{ID: "T4", Title: "Fourth", Status: "ready", Points: 1},
 	}
 
-	stmt, err := p.ParseStatement("select order by priority")
+	stmt, err := p.ParseStatement("select order by points")
 	if err != nil {
 		t.Fatalf("parse: %v", err)
 	}
@@ -1367,7 +1369,7 @@ func TestExecuteSortStable(t *testing.T) {
 		t.Fatalf("execute: %v", err)
 	}
 
-	// priority=1 tasks should preserve input order: T1, T2, T3
+	// equal-points tasks should preserve input order: T1, T2, T3, T4
 	wantIDs := []string{"T1", "T2", "T3", "T4"}
 	for i, wantID := range wantIDs {
 		if result.Select.Tasks[i].ID != wantID {
@@ -1501,7 +1503,7 @@ func TestExecuteDurationComparison(t *testing.T) {
 func TestExecuteSubtractValues(t *testing.T) {
 	e := newTestExecutor()
 	tasks := []*task.Task{
-		{ID: "T1", Title: "x", Status: "ready", Priority: 10, Due: testDate(6, 15)},
+		{ID: "T1", Title: "x", Status: "ready", Points: 10, Due: testDate(6, 15)},
 	}
 
 	tests := []struct {
@@ -1514,7 +1516,7 @@ func TestExecuteSubtractValues(t *testing.T) {
 	}{
 		{
 			"int - int",
-			&BinaryExpr{Op: "-", Left: &FieldRef{Name: "priority"}, Right: &IntLiteral{Value: 5}},
+			&BinaryExpr{Op: "-", Left: &FieldRef{Name: "points"}, Right: &IntLiteral{Value: 5}},
 			nil, "=", &IntLiteral{Value: 5}, true,
 		},
 		{
@@ -1557,7 +1559,7 @@ func TestExecuteSubtractValues(t *testing.T) {
 func TestExecuteAddValuesIntAndString(t *testing.T) {
 	e := newTestExecutor()
 	tasks := []*task.Task{
-		{ID: "T1", Title: "x", Status: "ready", Priority: 3},
+		{ID: "T1", Title: "x", Status: "ready"},
 	}
 
 	// int + int
@@ -1643,7 +1645,7 @@ func TestExtractFieldAllFields(t *testing.T) {
 	e := newTestExecutor()
 	taskT := &task.Task{
 		ID: "T1", Title: "hi", Description: "desc", Status: "ready",
-		Type: "bug", Priority: 1, Points: 3, Tags: []string{"a"},
+		Type: "bug", Points: 3, Tags: []string{"a"},
 		DependsOn: []string{"T2"}, Due: testDate(1, 1),
 		Recurrence: task.RecurrenceDaily, Assignee: "bob",
 		CreatedBy: "alice", CreatedAt: testDate(1, 1), UpdatedAt: testDate(2, 1),
@@ -2242,6 +2244,158 @@ func TestExecuteNextDateNonRecurrence(t *testing.T) {
 	}
 }
 
+// --- next_enum / prev_enum: rank step with boundary clamp ---
+
+// TestEvalNextEnum_Clamps verifies next_enum advances by one in declaration
+// order and clamps at the last value. testSchema declares status as
+// [backlog, ready, inProgress, review, done, cancelled] — so next_enum on
+// "review" → "done", and next_enum on "cancelled" stays "cancelled".
+func TestEvalNextEnum_Clamps(t *testing.T) {
+	e := newTestExecutor()
+	p := newTestParser()
+
+	tests := []struct {
+		name     string
+		startID  string
+		startSt  string
+		wantNext string
+	}{
+		{"middle advances one rank", "T1", "ready", "inProgress"},
+		{"penultimate advances", "T2", "review", "done"},
+		{"last clamps to last", "T3", "cancelled", "cancelled"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			tasks := []*task.Task{{ID: tt.startID, Title: "x", Status: tt.startSt}}
+			stmt, err := p.ParseStatement(`update where id = "` + tt.startID + `" set status=next_enum(status)`)
+			if err != nil {
+				t.Fatalf("parse: %v", err)
+			}
+			result, err := e.testExec(stmt, tasks)
+			if err != nil {
+				t.Fatalf("execute: %v", err)
+			}
+			if got := result.Update.Updated[0].Status; got != tt.wantNext {
+				t.Errorf("next_enum(%q): got %q, want %q", tt.startSt, got, tt.wantNext)
+			}
+		})
+	}
+}
+
+// TestEvalPrevEnum_Clamps verifies prev_enum walks backward and clamps at
+// index 0. With status declared [backlog, ready, ...], prev_enum on
+// "inProgress" → "ready"; prev_enum on "backlog" stays "backlog".
+func TestEvalPrevEnum_Clamps(t *testing.T) {
+	e := newTestExecutor()
+	p := newTestParser()
+
+	tests := []struct {
+		name     string
+		startID  string
+		startSt  string
+		wantPrev string
+	}{
+		{"middle steps back", "T1", "inProgress", "ready"},
+		{"second steps to first", "T2", "ready", "backlog"},
+		{"first clamps to first", "T3", "backlog", "backlog"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			tasks := []*task.Task{{ID: tt.startID, Title: "x", Status: tt.startSt}}
+			stmt, err := p.ParseStatement(`update where id = "` + tt.startID + `" set status=prev_enum(status)`)
+			if err != nil {
+				t.Fatalf("parse: %v", err)
+			}
+			result, err := e.testExec(stmt, tasks)
+			if err != nil {
+				t.Fatalf("execute: %v", err)
+			}
+			if got := result.Update.Updated[0].Status; got != tt.wantPrev {
+				t.Errorf("prev_enum(%q): got %q, want %q", tt.startSt, got, tt.wantPrev)
+			}
+		})
+	}
+}
+
+// TestEvalNextEnum_RankAwareComparison pins that comparisons against the
+// result of next_enum/prev_enum use enum-rank ordering, not lexicographic
+// string ordering. Without preserving the argument's enum domain through
+// exprFieldSpec/exprFieldType, `next_enum(priority) < "low"` would fall
+// back to string compare ("high" < "low" lexicographically = false in
+// some keys, true in others) instead of using the priority enum's rank.
+func TestEvalNextEnum_RankAwareComparison(t *testing.T) {
+	e := newTestExecutor()
+	p := newTestParser()
+
+	// Three tasks ranked across the priority enum [high, medium-high,
+	// medium, medium-low, low]. With rank-aware comparison:
+	//   next_enum(priority) advances toward "low" (less urgent).
+	//   T1 priority=high   → next_enum=medium-high → ranks as "less urgent than high"
+	//   T2 priority=medium → next_enum=medium-low  → ranks as "less urgent than medium"
+	//   T3 priority=low    → next_enum=low (clamp)
+	// `where next_enum(priority) < "low"` (rank-aware) means "result
+	// ranks higher than 'low'", i.e. T1 and T2 match. With buggy string
+	// compare, the result would be unstable (depends on key spelling).
+	tasks := []*task.Task{
+		{ID: "T1", Title: "x", Status: "ready"},
+		{ID: "T2", Title: "y", Status: "ready"},
+		{ID: "T3", Title: "z", Status: "ready"},
+	}
+	tikis := tikisFromTasks(tasks)
+	tikis[0].Set("priority", "high")
+	tikis[1].Set("priority", "medium")
+	tikis[2].Set("priority", "low")
+
+	stmt, err := p.ParseStatement(`select where next_enum(priority) < "low" order by id`)
+	if err != nil {
+		t.Fatalf("parse: %v", err)
+	}
+	result, err := e.Execute(stmt, tikis)
+	if err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	got := []string{}
+	for _, tk := range result.Select.Tikis {
+		got = append(got, tk.ID)
+	}
+	want := []string{"T1", "T2"}
+	if !reflect.DeepEqual(got, want) {
+		t.Errorf("rank-aware compare matched %v, want %v", got, want)
+	}
+}
+
+// TestEvalNextEnum_NonEnumArgErrors confirms next_enum/prev_enum reject
+// non-enum field arguments and non-field expressions at parse time. The
+// parser's signature check fires before execution. testSchema declares
+// `points` as an int field, which is the canonical non-enum target here.
+func TestEvalNextEnum_NonEnumArgErrors(t *testing.T) {
+	p := newTestParser()
+
+	tests := []struct {
+		name    string
+		input   string
+		wantErr string
+	}{
+		{"int field rejected", `update where id = "T1" set points=next_enum(points)`, "enum"},
+		{"string literal rejected", `update where id = "T1" set status=next_enum("ready")`, "enum field reference"},
+		{"prev_enum on int rejected", `update where id = "T1" set points=prev_enum(points)`, "enum"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			_, err := p.ParseStatement(tt.input)
+			if err == nil {
+				t.Fatalf("expected parse error containing %q, got nil", tt.wantErr)
+			}
+			if !strings.Contains(err.Error(), tt.wantErr) {
+				t.Fatalf("expected error to contain %q, got: %v", tt.wantErr, err)
+			}
+		})
+	}
+}
+
 // --- count non-subquery arg ---
 
 func TestExecuteCountNonSubquery(t *testing.T) {
@@ -2786,10 +2940,10 @@ func TestExecuteUpdateMultipleFields(t *testing.T) {
 	e := newTestExecutor()
 	p := newTestParser()
 	tasks := []*task.Task{
-		{ID: "TIKI-000001", Title: "x", Status: "ready", Priority: 3},
+		{ID: "TIKI-000001", Title: "x", Status: "ready"},
 	}
 
-	stmt, err := p.ParseStatement(`update where id = "TIKI-000001" set status="done" priority=1`)
+	stmt, err := p.ParseStatement(`update where id = "TIKI-000001" set status="done" priority="high"`)
 	if err != nil {
 		t.Fatalf("parse: %v", err)
 	}
@@ -2801,8 +2955,9 @@ func TestExecuteUpdateMultipleFields(t *testing.T) {
 	if u.Status != "done" {
 		t.Errorf("expected status 'done', got %q", u.Status)
 	}
-	if u.Priority != 1 {
-		t.Errorf("expected priority 1, got %d", u.Priority)
+	rawTk := result.raw.Update.Updated[0]
+	if got, _, _ := rawTk.StringField("priority"); got != "high" {
+		t.Errorf("expected priority 'high', got %q", got)
 	}
 }
 
@@ -2810,9 +2965,9 @@ func TestExecuteUpdateMatchesMultipleTasks(t *testing.T) {
 	e := newTestExecutor()
 	p := newTestParser()
 	tasks := []*task.Task{
-		{ID: "T1", Title: "a", Status: "ready", Priority: 1},
-		{ID: "T2", Title: "b", Status: "ready", Priority: 2},
-		{ID: "T3", Title: "c", Status: "done", Priority: 3},
+		{ID: "T1", Title: "a", Status: "ready"},
+		{ID: "T2", Title: "b", Status: "ready"},
+		{ID: "T3", Title: "c", Status: "done"},
 	}
 
 	stmt, err := p.ParseStatement(`update where status = "ready" set status="done"`)
@@ -2856,7 +3011,7 @@ func TestExecuteUpdateWithComplexWhere(t *testing.T) {
 	p := newTestParser()
 	tasks := makeTasks()
 
-	stmt, err := p.ParseStatement(`update where priority < 3 and "bug" in tags set status="done"`)
+	stmt, err := p.ParseStatement(`update where points >= 0 and "bug" in tags set status="done"`)
 	if err != nil {
 		t.Fatalf("parse: %v", err)
 	}
@@ -3233,7 +3388,7 @@ func TestExecuteUpdateTitleRejectEmpty(t *testing.T) {
 	e := newTestExecutor()
 	p := newTestParser()
 
-	tasks := []*task.Task{{ID: "T1", Title: "x", Status: "ready", Type: "bug", Priority: 2}}
+	tasks := []*task.Task{{ID: "T1", Title: "x", Status: "ready", Type: "bug"}}
 	stmt, err := p.ParseStatement(`update where id = "T1" set title=empty`)
 	if err != nil {
 		t.Fatalf("parse: %v", err)
@@ -3579,7 +3734,7 @@ func TestExecuteUpdateEvalExprError(t *testing.T) {
 
 func TestSetFieldTypeMismatches(t *testing.T) {
 	e := newTestExecutor()
-	tk := tikiFromTask(&task.Task{ID: "T1", Title: "x", Status: "ready", Type: "bug", Priority: 2})
+	tk := tikiFromTask(&task.Task{ID: "T1", Title: "x", Status: "ready", Type: "bug"})
 
 	tests := []struct {
 		name  string
@@ -3712,26 +3867,26 @@ func TestToStringSliceNonList(t *testing.T) {
 	}
 }
 
-// Range checks for priority/points were kanban-specific. Under the new
-// model, priority and points are ordinary int workflow fields — any int is
-// accepted by the executor. Workflows that need range constraints express
-// them via triggers (e.g. `before update where priority < 1 deny ...`).
-func TestExecuteUpdatePriorityValidRange(t *testing.T) {
+// Priority is an enum field; the executor accepts any value declared in the
+// schema's AllowedValues. Workflows that need stricter constraints can layer
+// triggers on top (e.g. `before update where priority = "low" deny ...`).
+func TestExecuteUpdatePriorityValidValues(t *testing.T) {
 	e := newTestExecutor()
 	p := newTestParser()
 
-	for _, prio := range []int{1, 3, 5} {
-		tasks := []*task.Task{{ID: "T1", Title: "x", Status: "ready", Priority: 2}}
-		stmt, err := p.ParseStatement(fmt.Sprintf(`update where id = "T1" set priority=%d`, prio))
+	for _, prio := range []string{"high", "medium", "low"} {
+		tasks := []*task.Task{{ID: "T1", Title: "x", Status: "ready"}}
+		stmt, err := p.ParseStatement(fmt.Sprintf(`update where id = "T1" set priority=%q`, prio))
 		if err != nil {
-			t.Fatalf("parse priority=%d: %v", prio, err)
+			t.Fatalf("parse priority=%q: %v", prio, err)
 		}
 		result, err := e.testExec(stmt, tasks)
 		if err != nil {
-			t.Fatalf("execute priority=%d: %v", prio, err)
+			t.Fatalf("execute priority=%q: %v", prio, err)
 		}
-		if result.Update.Updated[0].Priority != prio {
-			t.Errorf("expected priority %d, got %d", prio, result.Update.Updated[0].Priority)
+		got, _, _ := result.raw.Update.Updated[0].StringField("priority")
+		if got != prio {
+			t.Errorf("expected priority %q, got %q", prio, got)
 		}
 	}
 }
@@ -4868,7 +5023,7 @@ func TestExecuteExprStmt_ExistsTrueFalse(t *testing.T) {
 		expect bool
 	}{
 		{"exists done", `exists(select where status = "done")`, true},
-		{"exists impossible", `exists(select where priority = 99)`, false},
+		{"exists impossible", `exists(select where points = 99)`, false},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

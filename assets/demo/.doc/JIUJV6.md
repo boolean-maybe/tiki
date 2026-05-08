@@ -7,7 +7,7 @@ tags:
   - infrastructure
   - telemetry
 assignee: "lbianchi"
-priority: 3
+priority: medium
 points: 3
 ---
 

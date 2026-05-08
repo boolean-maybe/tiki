@@ -82,7 +82,7 @@ Examples:
 
 ```sql
 before update where new.status = "done" and dependsOn any status != "done" deny "open dependencies"
-after create where new.priority <= 2 and new.assignee is empty update where id = new.id set assignee="booleanmaybe"
+after create where new.priority <= "medium-high" and new.assignee is empty update where id = new.id set assignee="booleanmaybe"
 after delete update where old.id in dependsOn set dependsOn=dependsOn - [old.id]
 ```
 
@@ -107,7 +107,7 @@ Examples:
 
 ```sql
 before create where new.type = "story" and new.description is empty deny "stories must have a description"
-before delete where old.priority <= 2 deny "cannot delete high priority tikis"
+before delete where old.priority <= "medium-high" deny "cannot delete high priority tikis"
 before update where old.status = "in progress" and new.status = "done" deny "review required"
 select where not exists(select where outer.id in dependsOn)
 ```
@@ -218,7 +218,7 @@ Examples:
 ```sql
 every 1hour update where status = "in_progress" and updatedAt < now() - 7day set status="backlog"
 every 1day delete where status = "done" and updatedAt < now() - 30day
-every 2week create title="sprint review" status="ready" priority=3
+every 2week create title="sprint review" status="ready" priority="medium"
 ```
 
 ## Condition and expression semantics
@@ -243,9 +243,9 @@ custom user-defined fields share the same presence-aware behavior.
 Rules that follow from presence:
 
 - Equality with a concrete value is asymmetric on absent fields: `where <field> = <value>` is **false**
-  and `where <field> != <value>` is **true**. `where priority = 0` does not match tikis that never
-  declared priority; only tikis whose frontmatter literally wrote `priority: 0` match. `where priority
-  != 0` matches both "declared priority other than 0" *and* "no priority declared".
+  and `where <field> != <value>` is **true**. `where points = 0` does not match tikis that never
+  declared points; only tikis whose frontmatter literally wrote `points: 0` match. `where points
+  != 0` matches both "declared points other than 0" *and* "no points declared".
 - Equality with `empty` treats absent as empty: `where <field> = empty` is **true** for absent fields,
   and `where <field> != empty` is **false**. This is the only equality form where absent and
   present-zero behave the same.
@@ -296,7 +296,7 @@ select where true
 select where blocked
 select where not blocked
 select where title     -- invalid: title is string-typed
-select where priority  -- invalid: priority is int-typed
+select where points    -- invalid: points is int-typed
 ```
 
 Expressions:

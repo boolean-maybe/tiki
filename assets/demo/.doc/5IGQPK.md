@@ -7,7 +7,7 @@ tags:
   - dashboard
   - ux
 assignee: "spreet"
-priority: 3
+priority: medium
 points: 5
 ---
 

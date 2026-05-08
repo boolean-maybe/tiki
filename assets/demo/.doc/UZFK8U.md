@@ -7,7 +7,7 @@ tags:
   - firmware
   - manufacturing
 assignee: "mchen"
-priority: 2
+priority: medium-high
 points: 3
 ---
 

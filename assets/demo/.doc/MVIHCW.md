@@ -7,7 +7,7 @@ tags:
   - infrastructure
   - documentation
 assignee: "rvolkov"
-priority: 3
+priority: medium
 points: 5
 ---
 

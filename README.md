@@ -132,7 +132,7 @@ field map.
 id: ABC123
 title: Implement search
 status: backlog
-priority: 2
+priority: medium-high
 ---
 
 Markdown body.

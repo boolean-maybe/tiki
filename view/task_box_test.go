@@ -9,12 +9,13 @@ import (
 	tikipkg "github.com/boolean-maybe/tiki/tiki"
 )
 
-// makeTiki creates a tiki with the given ID, type string, and priority for tests.
-func makeTiki(id string, taskType string, priority int) *tikipkg.Tiki {
+// makeTiki creates a tiki with the given ID, type string, and priority key
+// for tests. priority is now an enum key — pass "" to omit the field.
+func makeTiki(id string, taskType string, priority string) *tikipkg.Tiki {
 	tk := tikipkg.New()
 	tk.ID = id
 	tk.Set(tikipkg.FieldType, taskType)
-	if priority > 0 {
+	if priority != "" {
 		tk.Set(tikipkg.FieldPriority, priority)
 	}
 	return tk
@@ -32,14 +33,14 @@ func TestBuildCompactTaskContent(t *testing.T) {
 	}{
 		{
 			name:           "contains task ID",
-			task:           makeTiki("ABC123", taskpkg.TypeStory, 3),
+			task:           makeTiki("ABC123", taskpkg.TypeStory, "medium"),
 			availableWidth: 40,
 			contains:       []string{"ABC123"},
 		},
 		{
 			name: "contains title",
 			task: func() *tikipkg.Tiki {
-				tk := makeTiki("TTL001", taskpkg.TypeStory, 3)
+				tk := makeTiki("TTL001", taskpkg.TypeStory, "medium")
 				tk.Title = "My Task"
 				return tk
 			}(),
@@ -49,7 +50,7 @@ func TestBuildCompactTaskContent(t *testing.T) {
 		{
 			name: "title truncated at width",
 			task: func() *tikipkg.Tiki {
-				tk := makeTiki("TRC001", taskpkg.TypeStory, 3)
+				tk := makeTiki("TRC001", taskpkg.TypeStory, "medium")
 				tk.Title = "ABCDEFGHIJ"
 				return tk
 			}(),
@@ -59,30 +60,30 @@ func TestBuildCompactTaskContent(t *testing.T) {
 		},
 		{
 			name:           "emoji for story type",
-			task:           makeTiki("EMO001", taskpkg.TypeStory, 3),
+			task:           makeTiki("EMO001", taskpkg.TypeStory, "medium"),
 			availableWidth: 40,
 			contains:       []string{taskpkg.TypeEmoji(taskpkg.TypeStory)},
 		},
 		{
 			name:           "emoji for bug type",
-			task:           makeTiki("EMO002", taskpkg.TypeBug, 3),
+			task:           makeTiki("EMO002", taskpkg.TypeBug, "medium"),
 			availableWidth: 40,
 			contains:       []string{taskpkg.TypeEmoji(taskpkg.TypeBug)},
 		},
 		{
 			name:           "priority label",
-			task:           makeTiki("PRI001", taskpkg.TypeStory, 1),
+			task:           makeTiki("PRI001", taskpkg.TypeStory, "high"),
 			availableWidth: 40,
-			contains:       []string{taskpkg.PriorityLabel(1)},
+			contains:       []string{taskpkg.PriorityLabel("high")},
 		},
 		{
 			name:           "zero points does not panic",
-			task:           makeTiki("PT0001", taskpkg.TypeStory, 3),
+			task:           makeTiki("PT0001", taskpkg.TypeStory, "medium"),
 			availableWidth: 40,
 		},
 		{
 			name:           "empty title does not panic",
-			task:           makeTiki("NT0001", taskpkg.TypeStory, 3),
+			task:           makeTiki("NT0001", taskpkg.TypeStory, "medium"),
 			availableWidth: 40,
 		},
 	}
@@ -120,13 +121,13 @@ func TestBuildExpandedTaskContent(t *testing.T) {
 	}{
 		{
 			name:           "empty description no panic",
-			task:           makeTiki("EXP001", taskpkg.TypeStory, 3),
+			task:           makeTiki("EXP001", taskpkg.TypeStory, "medium"),
 			availableWidth: 40,
 		},
 		{
 			name: "single desc line included",
 			task: func() *tikipkg.Tiki {
-				tk := makeTiki("EXP002", taskpkg.TypeStory, 3)
+				tk := makeTiki("EXP002", taskpkg.TypeStory, "medium")
 				tk.Body = "Line1"
 				return tk
 			}(),
@@ -136,7 +137,7 @@ func TestBuildExpandedTaskContent(t *testing.T) {
 		{
 			name: "three desc lines all included",
 			task: func() *tikipkg.Tiki {
-				tk := makeTiki("EXP003", taskpkg.TypeStory, 3)
+				tk := makeTiki("EXP003", taskpkg.TypeStory, "medium")
 				tk.Body = "L1\nL2\nL3"
 				return tk
 			}(),
@@ -146,7 +147,7 @@ func TestBuildExpandedTaskContent(t *testing.T) {
 		{
 			name: "fourth desc line not included",
 			task: func() *tikipkg.Tiki {
-				tk := makeTiki("EXP004", taskpkg.TypeStory, 3)
+				tk := makeTiki("EXP004", taskpkg.TypeStory, "medium")
 				tk.Body = "L1\nL2\nL3\nL4"
 				return tk
 			}(),
@@ -157,7 +158,7 @@ func TestBuildExpandedTaskContent(t *testing.T) {
 		{
 			name: "empty tags omits tags label",
 			task: func() *tikipkg.Tiki {
-				tk := makeTiki("EXP005", taskpkg.TypeStory, 3)
+				tk := makeTiki("EXP005", taskpkg.TypeStory, "medium")
 				tk.Set(tikipkg.FieldTags, []string{})
 				return tk
 			}(),
@@ -167,7 +168,7 @@ func TestBuildExpandedTaskContent(t *testing.T) {
 		{
 			name: "non-empty tags included",
 			task: func() *tikipkg.Tiki {
-				tk := makeTiki("EXP006", taskpkg.TypeStory, 3)
+				tk := makeTiki("EXP006", taskpkg.TypeStory, "medium")
 				tk.Set(tikipkg.FieldTags, []string{"ui", "backend"})
 				return tk
 			}(),
@@ -177,7 +178,7 @@ func TestBuildExpandedTaskContent(t *testing.T) {
 		{
 			name: "tag truncated at small width no panic",
 			task: func() *tikipkg.Tiki {
-				tk := makeTiki("EXP007", taskpkg.TypeStory, 3)
+				tk := makeTiki("EXP007", taskpkg.TypeStory, "medium")
 				tk.Set(tikipkg.FieldTags, []string{"abcdefghij"})
 				return tk
 			}(),
@@ -186,7 +187,7 @@ func TestBuildExpandedTaskContent(t *testing.T) {
 		{
 			name: "desc line truncated at small width",
 			task: func() *tikipkg.Tiki {
-				tk := makeTiki("EXP008", taskpkg.TypeStory, 3)
+				tk := makeTiki("EXP008", taskpkg.TypeStory, "medium")
 				tk.Body = "ABCDEFGHIJ"
 				return tk
 			}(),

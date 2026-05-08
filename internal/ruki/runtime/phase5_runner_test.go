@@ -29,7 +29,7 @@ func TestPhase5_CLISelectIncludesPlainDocs(t *testing.T) {
 	wf.ID = "WRKFL1"
 	wf.Title = "workflow item"
 	wf.Set("status", "ready")
-	wf.Set("priority", 1)
+	wf.Set("priority", "high")
 	if err := s.CreateTiki(wf); err != nil {
 		t.Fatalf("seed workflow: %v", err)
 	}
@@ -67,7 +67,7 @@ func TestPhase5_CLIHasStatusFiltersPlainDocs(t *testing.T) {
 	wf2.ID = "WRKFL1"
 	wf2.Title = "workflow"
 	wf2.Set("status", "ready")
-	wf2.Set("priority", 1)
+	wf2.Set("priority", "high")
 	if err := s.CreateTiki(wf2); err != nil {
 		t.Fatalf("seed workflow: %v", err)
 	}

@@ -7,7 +7,7 @@ tags:
   - infrastructure
   - performance
 assignee: "lbianchi"
-priority: 1
+priority: high
 points: 5
 ---
 

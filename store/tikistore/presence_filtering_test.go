@@ -14,7 +14,7 @@ func tikiWithSchemaFields() *tikipkg.Tiki {
 	tk.Title = "created"
 	tk.Set("type", "story")
 	tk.Set("status", "backlog")
-	tk.Set("priority", 1)
+	tk.Set("priority", "high")
 	return tk
 }
 
@@ -33,7 +33,7 @@ func TestGetAllTikis_ReturnsEverything(t *testing.T) {
 
 	// Tiki with schema-known fields explicitly set.
 	withSchema := filepath.Join(dir, "WITH01.md")
-	if err := os.WriteFile(withSchema, []byte("---\nid: WITH01\ntitle: structured\ntype: story\nstatus: backlog\npriority: 1\n---\nbody\n"), 0o644); err != nil {
+	if err := os.WriteFile(withSchema, []byte("---\nid: WITH01\ntitle: structured\ntype: story\nstatus: backlog\npriority: high\n---\nbody\n"), 0o644); err != nil {
 		t.Fatalf("write with-schema: %v", err)
 	}
 

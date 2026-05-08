@@ -72,7 +72,7 @@ func TestUpdateTiki_FullDocPreservesEveryKey(t *testing.T) {
 	tmp := t.TempDir()
 
 	filePath := filepath.Join(tmp, "FULL01.md")
-	src := "---\nid: FULL01\ntitle: v1\nstatus: backlog\ntype: story\npriority: 2\n---\n\nbody\n"
+	src := "---\nid: FULL01\ntitle: v1\nstatus: backlog\ntype: story\npriority: medium-high\n---\n\nbody\n"
 	if err := os.WriteFile(filePath, []byte(src), 0644); err != nil {
 		t.Fatalf("write: %v", err)
 	}
@@ -94,7 +94,7 @@ func TestUpdateTiki_FullDocPreservesEveryKey(t *testing.T) {
 
 	data, _ := os.ReadFile(filePath)
 	contents := string(data)
-	for _, required := range []string{"title: v2", "status: backlog", "type: story", "priority: 2"} {
+	for _, required := range []string{"title: v2", "status: backlog", "type: story", "priority: medium-high"} {
 		if !strings.Contains(contents, required) {
 			t.Errorf("expected %q in file after UpdateTiki; contents:\n%s", required, contents)
 		}
@@ -109,7 +109,7 @@ func TestUpdateTiki_ExplicitDeleteRemovesField(t *testing.T) {
 	tmp := t.TempDir()
 
 	filePath := filepath.Join(tmp, "TRIM01.md")
-	src := "---\nid: TRIM01\ntitle: v1\nstatus: backlog\npriority: 2\n---\n\nbody\n"
+	src := "---\nid: TRIM01\ntitle: v1\nstatus: backlog\npriority: medium-high\n---\n\nbody\n"
 	if err := os.WriteFile(filePath, []byte(src), 0644); err != nil {
 		t.Fatalf("write: %v", err)
 	}

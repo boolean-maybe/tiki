@@ -12,13 +12,14 @@ import (
 	tikipkg "github.com/boolean-maybe/tiki/tiki"
 )
 
-// newRunnerTiki builds a minimal tiki for runner test fixtures.
-func newRunnerTiki(id, title, status string, priority int, assignee string) *tikipkg.Tiki {
+// newRunnerTiki builds a minimal tiki for runner test fixtures. priority
+// is the canonical enum key (e.g. "high"); pass "" to omit the field.
+func newRunnerTiki(id, title, status, priority, assignee string) *tikipkg.Tiki {
 	tk := &tikipkg.Tiki{ID: id, Title: title}
 	if status != "" {
 		tk.Set(tikipkg.FieldStatus, status)
 	}
-	if priority != 0 {
+	if priority != "" {
 		tk.Set(tikipkg.FieldPriority, priority)
 	}
 	if assignee != "" {
@@ -34,8 +35,8 @@ func setupRunnerTest(t *testing.T) store.Store {
 	s := store.NewInMemoryStore()
 	// give every fixture an explicit assignee (even if empty)
 	// so queries that read assignee don't hard-error on the absent case.
-	_ = s.CreateTiki(newRunnerTiki("TIKI-AAA001", "Build API", "ready", 1, "nobody"))
-	_ = s.CreateTiki(newRunnerTiki("TIKI-BBB002", "Write Docs", "done", 2, "nobody"))
+	_ = s.CreateTiki(newRunnerTiki("TIKI-AAA001", "Build API", "ready", "high", "nobody"))
+	_ = s.CreateTiki(newRunnerTiki("TIKI-BBB002", "Write Docs", "done", "medium-high", "nobody"))
 	return s
 }
 
@@ -159,7 +160,7 @@ func TestRunSelectQuerySemicolonOnly(t *testing.T) {
 func TestRunSelectQueryUserFunction(t *testing.T) {
 	s := setupRunnerTest(t)
 	// InMemoryStore returns "memory-user"
-	_ = s.CreateTiki(newRunnerTiki("TIKI-CCC003", "My Task", "ready", 0, "memory-user"))
+	_ = s.CreateTiki(newRunnerTiki("TIKI-CCC003", "My Task", "ready", "", "memory-user"))
 
 	var buf bytes.Buffer
 	err := RunSelectQuery(s, `select id where assignee = user()`, &buf)
@@ -226,7 +227,7 @@ func TestRunQueryUpdateSummarySuccess(t *testing.T) {
 	s := setupRunnerTest(t)
 
 	var buf bytes.Buffer
-	err := RunQuery(gateFor(s), `update where status = "ready" set priority=5`, &buf)
+	err := RunQuery(gateFor(s), `update where status = "ready" set priority="low"`, &buf)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -277,14 +278,14 @@ func TestRunQueryUpdatePartialFailure(t *testing.T) {
 	s := setupRunnerTest(t)
 
 	// create a second ready task so we update multiple
-	_ = s.CreateTiki(newRunnerTiki("TIKI-CCC003", "Third", "ready", 3, ""))
+	_ = s.CreateTiki(newRunnerTiki("TIKI-CCC003", "Third", "ready", "medium", ""))
 
 	// delete the first task's file to cause UpdateTask to fail on it
 	// (InMemoryStore won't fail on UpdateTask, so we test with a wrapper)
 	fs := &failingUpdateStore{Store: s, failID: "TIKI-AAA001"}
 
 	var buf bytes.Buffer
-	err := RunQuery(gateFor(fs), `update where status = "ready" set priority=5`, &buf)
+	err := RunQuery(gateFor(fs), `update where status = "ready" set priority="low"`, &buf)
 
 	out := buf.String()
 	if err == nil {
@@ -374,7 +375,7 @@ func TestRunQueryCreatePersists(t *testing.T) {
 	s := setupRunnerTest(t)
 
 	var buf bytes.Buffer
-	err := RunQuery(gateFor(s), `create title="New Task" status="ready" priority=1`, &buf)
+	err := RunQuery(gateFor(s), `create title="New Task" status="ready" priority="high"`, &buf)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -402,9 +403,9 @@ func TestRunQueryCreatePersists(t *testing.T) {
 	if len(found.ID) != 6 {
 		t.Errorf("ID = %q, want 6-character bare ID", found.ID)
 	}
-	priority, _, _ := found.IntField(tikipkg.FieldPriority)
-	if priority != 1 {
-		t.Errorf("priority = %d, want 1", priority)
+	priority, _, _ := found.StringField(tikipkg.FieldPriority)
+	if priority != "high" {
+		t.Errorf("priority = %q, want %q", priority, "high")
 	}
 }
 
@@ -416,7 +417,7 @@ func TestRunQueryCreateMissingTitle(t *testing.T) {
 	g.SetStore(s)
 
 	var buf bytes.Buffer
-	err := RunQuery(g, `create priority=1 status="ready"`, &buf)
+	err := RunQuery(g, `create priority="high" status="ready"`, &buf)
 	if err == nil {
 		t.Fatal("expected error for missing title")
 	}
@@ -451,10 +452,10 @@ func TestRunQueryCreateTemplateDefaults(t *testing.T) {
 	if len(tags) != 2 || tags[0] != "idea" || tags[1] != "extra" {
 		t.Errorf("tags = %v, want [idea extra]", tags)
 	}
-	// priority should be template default (3 = medium)
-	priority, _, _ := found.IntField(tikipkg.FieldPriority)
-	if priority != 3 {
-		t.Errorf("priority = %d, want 3 (template default)", priority)
+	// priority should be template default ("medium" enum key)
+	priority, _, _ := found.StringField(tikipkg.FieldPriority)
+	if priority != "medium" {
+		t.Errorf("priority = %q, want %q (template default)", priority, "medium")
 	}
 }
 
@@ -565,7 +566,7 @@ func TestRunQueryDeleteZeroMatches(t *testing.T) {
 func TestRunQueryDeletePartialFailure(t *testing.T) {
 	s := setupRunnerTest(t)
 	// add a second ready task so we match multiple
-	_ = s.CreateTiki(newRunnerTiki("TIKI-CCC003", "Third", "ready", 3, ""))
+	_ = s.CreateTiki(newRunnerTiki("TIKI-CCC003", "Third", "ready", "medium", ""))
 
 	fs := &failingDeleteStore{Store: s, failID: "TIKI-AAA001"}
 
@@ -728,7 +729,7 @@ func TestRunQueryUserFunction(t *testing.T) {
 func TestRunQueryUserFunctionViaRunQuery(t *testing.T) {
 	s := setupRunnerTest(t)
 	// InMemoryStore.GetCurrentUser returns "memory-user"
-	_ = s.CreateTiki(newRunnerTiki("TIKI-CCC003", "Owned", "ready", 0, "memory-user"))
+	_ = s.CreateTiki(newRunnerTiki("TIKI-CCC003", "Owned", "ready", "", "memory-user"))
 
 	var buf bytes.Buffer
 	err := RunQuery(gateFor(s), `select id where assignee = user()`, &buf)
@@ -780,7 +781,7 @@ func TestRunQueryScalarExistsFalse(t *testing.T) {
 	s := setupRunnerTest(t)
 
 	var buf bytes.Buffer
-	err := RunQuery(gateFor(s), `exists(select where priority = 99)`, &buf)
+	err := RunQuery(gateFor(s), `exists(select where points = 99)`, &buf)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -850,7 +851,7 @@ func TestRunQueryWithOptionsScalarJSON(t *testing.T) {
 	}{
 		{"count", `count(select where status = "ready")`, "1"},
 		{"exists true", `exists(select where status = "done")`, "true"},
-		{"exists false", `exists(select where priority = 99)`, "false"},
+		{"exists false", `exists(select where points = 99)`, "false"},
 		{"arithmetic", `1 + 2`, "3"},
 	}
 	for _, tt := range tests {
@@ -952,11 +953,11 @@ func TestRunQueryWithOptionsTableIsDefault(t *testing.T) {
 
 func TestRunQueryWithOptionsUpdatePartialFailureJSON(t *testing.T) {
 	s := setupRunnerTest(t)
-	_ = s.CreateTiki(newRunnerTiki("TIKI-CCC003", "Third", "ready", 3, ""))
+	_ = s.CreateTiki(newRunnerTiki("TIKI-CCC003", "Third", "ready", "medium", ""))
 	fs := &failingUpdateStore{Store: s, failID: "TIKI-AAA001"}
 
 	var buf bytes.Buffer
-	err := RunQueryWithOptions(gateFor(fs), `update where status = "ready" set priority=5`, &buf,
+	err := RunQueryWithOptions(gateFor(fs), `update where status = "ready" set priority="low"`, &buf,
 		RunQueryOptions{OutputFormat: OutputJSON})
 	if err == nil {
 		t.Fatal("expected partial failure error")

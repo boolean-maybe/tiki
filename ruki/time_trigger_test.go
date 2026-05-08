@@ -28,7 +28,7 @@ func TestParseTimeTrigger_HappyPath(t *testing.T) {
 		},
 		{
 			"create weekly review",
-			`every 2week create title="weekly review" status="ready" priority=3`,
+			`every 2week create title="weekly review" status="ready" priority="medium"`,
 			2, "week",
 			true, false, false,
 		},
@@ -132,7 +132,7 @@ func TestParseTimeTrigger_Errors(t *testing.T) {
 		},
 		{
 			"type mismatch",
-			`every 1day create title="x" priority="high"`,
+			`every 1day create title="x" points="three"`,
 		},
 		{
 			"zero interval",

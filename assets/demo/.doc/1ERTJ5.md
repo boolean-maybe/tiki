@@ -10,7 +10,7 @@ dependsOn:
   - DW2PCN
 due: 2026-06-15
 assignee: "mchen"
-priority: 2
+priority: medium-high
 points: 8
 ---
 

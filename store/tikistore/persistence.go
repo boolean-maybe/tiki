@@ -12,7 +12,6 @@ import (
 	"github.com/boolean-maybe/tiki/config"
 	"github.com/boolean-maybe/tiki/document"
 	"github.com/boolean-maybe/tiki/store/internal/git"
-	taskpkg "github.com/boolean-maybe/tiki/task"
 	"github.com/boolean-maybe/tiki/tiki"
 	collectionutil "github.com/boolean-maybe/tiki/util/collections"
 	"github.com/boolean-maybe/tiki/workflow"
@@ -152,14 +151,11 @@ func (s *TikiStore) loadTikiFile(path string, authorMap map[string]*git.AuthorIn
 	// tikiToTask) for display and query purposes without polluting the
 	// tiki's field map.
 	if hasSchemaFields {
-		if priority, ok := coerceIntForYAML(tk.Fields["priority"]); ok {
-			if priority < taskpkg.MinPriority || priority > taskpkg.MaxPriority {
-				slog.Debug("invalid priority value, using default",
-					"task_id", tk.ID, "file", path, "invalid_value", priority,
-					"default", taskpkg.DefaultPriority)
-				tk.Set("priority", taskpkg.DefaultPriority)
-			}
-		}
+		// priority is now a workflow enum; out-of-domain values are caught
+		// by the workflow.IsValidEnum check in coercion paths, not by a
+		// numeric clamp here. The legacy 1-5 int clamp was removed when
+		// priority became TypeEnum.
+
 		// points: 0 is a meaningful "unestimated" sentinel that
 		// task.ValidatePoints accepts as valid; preserve it on load so
 		// exact-presence round-trips. Negative or above-max values are

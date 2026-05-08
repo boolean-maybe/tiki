@@ -348,7 +348,7 @@ the assignee to whatever name you type in.
 ```yaml
 - key: "u"
   label: "Flag urgent"
-  action: update where id = id() set priority=1 tags=tags+["urgent"]
+  action: update where id = id() set priority="high" tags=tags+["urgent"]
   hot: false
 ```
 
@@ -550,7 +550,7 @@ automatically raise its priority to 1:
   ruki: >
     after update
       where new.severity = "critical"
-      update where id = new.id set priority=1
+      update where id = new.id set priority="high"
 ```
 
 This fires after any update. If the task's severity is now critical, it sets
@@ -855,7 +855,7 @@ triggers:
     ruki: >
       after update
         where new.severity = "critical"
-        update where id = new.id set priority=1
+        update where id = new.id set priority="high"
 ```
 
 And the companion `.doc/config.yaml`:

@@ -8,7 +8,7 @@ tags:
   - safety
 due: 2026-04-15
 assignee: "mchen"
-priority: 1
+priority: high
 points: 5
 ---
 
