@@ -49,6 +49,8 @@ var builtinFuncs = map[string]struct {
 	"selected_count": {ValueInt, 0, 0},
 	"now":            {ValueTimestamp, 0, 0},
 	"next_date":      {ValueDate, 1, 1},
+	"next_enum":      {ValueEnum, 1, 1},
+	"prev_enum":      {ValueEnum, 1, 1},
 	"blocks":         {ValueListRef, 1, 1},
 	"call":           {ValueString, 1, 1},
 	"user":           {ValueString, 0, 0},
@@ -663,6 +665,22 @@ func (p *Parser) inferFuncCallType(fc *FunctionCall) (ValueType, error) {
 		if t != ValueRecurrence {
 			return 0, fmt.Errorf("next_date() argument must be recurrence, got %s", typeName(t))
 		}
+	case "next_enum", "prev_enum":
+		// Argument must be a bare or qualified field reference to an enum
+		// field — same shape as next_date(recurrence). Stepping a literal
+		// would require an enum schema we don't carry on the literal.
+		switch fc.Args[0].(type) {
+		case *FieldRef, *QualifiedRef:
+		default:
+			return 0, fmt.Errorf("%s() argument must be an enum field reference", fc.Name)
+		}
+		t, err := p.inferExprType(fc.Args[0])
+		if err != nil {
+			return 0, err
+		}
+		if t != ValueEnum {
+			return 0, fmt.Errorf("%s() argument must be an enum field, got %s", fc.Name, typeName(t))
+		}
 	}
 
 	return builtin.returnType, nil
@@ -1217,6 +1235,17 @@ func exprFieldName(expr Expr) (string, bool) {
 		return e.Name, true
 	case *QualifiedRef:
 		return e.Name, true
+	case *FunctionCall:
+		// next_enum(field) / prev_enum(field) return a value from the
+		// same enum domain as their argument. Propagate the field
+		// identity so cross-domain assignment checks (e.g.
+		// `set status = prev_enum(priority)`) reject at parse time
+		// rather than failing at runtime when the priority key fails
+		// to coerce into the status enum.
+		if (e.Name == "next_enum" || e.Name == "prev_enum") && len(e.Args) == 1 {
+			return exprFieldName(e.Args[0])
+		}
+		return "", false
 	default:
 		return "", false
 	}

@@ -9,7 +9,7 @@ tags:
 dependsOn:
   - 8MDD4V
 assignee: "rvolkov"
-priority: 2
+priority: medium-high
 points: 5
 ---
 

@@ -308,7 +308,7 @@ func TestTableFormatterAllFieldsDefault(t *testing.T) {
 	// bare select with nil fields resolves to all canonical fields
 	proj := &ruki.TikiProjection{
 		Fields: nil,
-		Tikis:  []*tiki.Tiki{tikiFromLegacy(legacyFields{ID: "TIKI-A00001", Title: "Test", Status: "ready", Priority: 3})},
+		Tikis:  []*tiki.Tiki{tikiFromLegacy(legacyFields{ID: "TIKI-A00001", Title: "Test", Status: "ready", Priority: "medium"})},
 	}
 
 	var buf bytes.Buffer
@@ -380,9 +380,10 @@ func TestExtractFieldValueUnknown(t *testing.T) {
 }
 
 func TestTableFormatterIntField(t *testing.T) {
+	initTestRegistries()
 	proj := &ruki.TikiProjection{
 		Fields: []string{"priority", "points"},
-		Tikis:  []*tiki.Tiki{tikiFromLegacy(legacyFields{Priority: 3, Points: 8})},
+		Tikis:  []*tiki.Tiki{tikiFromLegacy(legacyFields{Priority: "medium", Points: 8})},
 	}
 
 	var buf bytes.Buffer
@@ -391,7 +392,7 @@ func TestTableFormatterIntField(t *testing.T) {
 	}
 	out := buf.String()
 
-	if !strings.Contains(out, "3") {
+	if !strings.Contains(out, "medium") {
 		t.Errorf("missing priority value:\n%s", out)
 	}
 	if !strings.Contains(out, "8") {

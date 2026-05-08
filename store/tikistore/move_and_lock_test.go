@@ -18,7 +18,7 @@ func TestMoveThenReload_PreservesFieldMapAndPath(t *testing.T) {
 	dir := t.TempDir()
 
 	original := filepath.Join(dir, "MV0001.md")
-	src := "---\nid: MV0001\ntitle: travels\nstatus: backlog\npriority: 2\n---\nbody\n"
+	src := "---\nid: MV0001\ntitle: travels\nstatus: backlog\npriority: medium-high\n---\nbody\n"
 	if err := os.WriteFile(original, []byte(src), 0o644); err != nil {
 		t.Fatalf("write original: %v", err)
 	}

@@ -3,7 +3,7 @@ id: XXXXXX
 title: Inconsistent formatting in monthly reports
 type: bug
 status: backlog
-priority: 3
+priority: medium
 tags:
   - quality
   - reports

@@ -13,11 +13,11 @@ import (
 // TestPhase5_AbsentScalarNotMatched exercises the headline Phase 5 rule:
 // a plain document (no workflow frontmatter, no typed fields) must not
 // match predicates that compare workflow fields to zero values. Without
-// presence tracking, `where priority = 0` used to match plain docs
+// presence tracking, `where points = 0` used to match plain docs
 // because Go's zero-int matched the literal 0.
 // TestPhase4_AbsentScalarEqualsLiteralIsFalse pins the updated Phase-4
 // rule: `missing = value` evaluates to false instead of hard-erroring.
-// Only the tiki that has priority=0 explicitly should match.
+// Only the tiki that has points=0 explicitly should match.
 func TestPhase4_AbsentScalarEqualsLiteralIsFalse(t *testing.T) {
 	e := newTestExecutor()
 	p := newTestParser()
@@ -26,12 +26,12 @@ func TestPhase4_AbsentScalarEqualsLiteralIsFalse(t *testing.T) {
 	workflowZero := &task.Task{
 		ID: "WRKFL1", Title: "explicit zero", Status: "ready",
 		WorkflowFrontmatter: map[string]interface{}{
-			"status":   "ready",
-			"priority": 0,
+			"status": "ready",
+			"points": 0,
 		},
 	}
 
-	stmt, err := p.ParseStatement(`select where priority = 0`)
+	stmt, err := p.ParseStatement(`select where points = 0`)
 	if err != nil {
 		t.Fatalf("parse: %v", err)
 	}
@@ -41,7 +41,7 @@ func TestPhase4_AbsentScalarEqualsLiteralIsFalse(t *testing.T) {
 	}
 	if len(result.Select.Tasks) != 1 || result.Select.Tasks[0].ID != "WRKFL1" {
 		gotIDs := taskIDs(result.Select.Tasks)
-		t.Fatalf("expected only WRKFL1 to match priority=0, got %v", gotIDs)
+		t.Fatalf("expected only WRKFL1 to match points=0, got %v", gotIDs)
 	}
 }
 
@@ -54,12 +54,12 @@ func TestPhase4_AbsentScalarNotEqualsLiteralIsTrue(t *testing.T) {
 
 	plain := &task.Task{ID: "PLAIN1", Title: "readme"}
 	workflow5 := &task.Task{
-		ID: "WRKFL5", Title: "priority 5", Status: "ready",
-		WorkflowFrontmatter: map[string]interface{}{"priority": 5},
-		Priority:            5,
+		ID: "WRKFL5", Title: "points 5", Status: "ready",
+		WorkflowFrontmatter: map[string]interface{}{"points": 5},
+		Points:              5,
 	}
 
-	stmt, err := p.ParseStatement(`select where priority != 5`)
+	stmt, err := p.ParseStatement(`select where points != 5`)
 	if err != nil {
 		t.Fatalf("parse: %v", err)
 	}
@@ -81,7 +81,7 @@ func TestPhase4_AbsentScalarOrderingStillHardErrors(t *testing.T) {
 
 	plain := &task.Task{ID: "PLAIN1", Title: "readme"}
 
-	stmt, err := p.ParseStatement(`select where priority < 3`)
+	stmt, err := p.ParseStatement(`select where points < 3`)
 	if err != nil {
 		t.Fatalf("parse: %v", err)
 	}
@@ -104,8 +104,8 @@ func TestPhase5_HasPredicateDistinguishesAbsentFromZero(t *testing.T) {
 	workflowUnset := &task.Task{
 		ID: "WRKFL2", Title: "no status",
 		// workflow doc but status key absent
-		WorkflowFrontmatter: map[string]interface{}{"priority": 3},
-		Priority:            3,
+		WorkflowFrontmatter: map[string]interface{}{"points": 3},
+		Points:              3,
 	}
 
 	stmt, err := p.ParseStatement(`select where has(status)`)
@@ -171,7 +171,7 @@ func TestPhase5_SetPriorityPromotesPlainToWorkflow(t *testing.T) {
 	p := newTestParser()
 
 	plain := &task.Task{ID: "PLAIN1", Title: "note"}
-	stmt, err := p.ParseStatement(`update where id = "PLAIN1" set priority = 2`)
+	stmt, err := p.ParseStatement(`update where id = "PLAIN1" set priority = "medium-high"`)
 	if err != nil {
 		t.Fatalf("parse: %v", err)
 	}
@@ -519,7 +519,7 @@ func TestPhase4_AbsentOrderByHardErrors(t *testing.T) {
 	p := newTestParser()
 
 	plain := &task.Task{ID: "PLAIN1", Title: "no priority"}
-	p1 := &task.Task{ID: "PRI001", Title: "p1", Status: "ready", Priority: 1,
+	p1 := &task.Task{ID: "PRI001", Title: "p1", Status: "ready",
 		WorkflowFrontmatter: map[string]interface{}{"status": "ready", "priority": 1}}
 
 	stmt, err := p.ParseStatement(`select order by priority`)

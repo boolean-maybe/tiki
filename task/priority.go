@@ -1,218 +1,163 @@
 package task
 
 import (
-	"log/slog"
-	"strconv"
 	"strings"
 
-	"gopkg.in/yaml.v3"
+	"github.com/boolean-maybe/tiki/workflow"
 )
 
-// Priority scale: lower = higher priority
-// 1 = highest, 5 = lowest
+// Convenience constants for the canonical priority keys bundled in
+// kanban.yaml. Like the status constants, these are plain strings — priority
+// is an ordinary enum field. Workflows are free to define their own priority
+// values; runtime validation goes through the field catalog.
 const (
-	PriorityHigh       = 1
-	PriorityMediumHigh = 2
-	PriorityMedium     = 3
-	PriorityMediumLow  = 4
-	PriorityLow        = 5
+	PriorityHigh       = "high"
+	PriorityMediumHigh = "medium-high"
+	PriorityMedium     = "medium"
+	PriorityMediumLow  = "medium-low"
+	PriorityLow        = "low"
 )
 
-type priorityInfo struct {
-	label string
-	value int
+// priorityField returns the loaded "priority" workflow field, or
+// (zero, false) when no priority field is configured or it isn't an enum.
+func priorityField() (workflow.FieldDef, bool) {
+	fd, ok := workflow.Field("priority")
+	if !ok || fd.Type != workflow.TypeEnum {
+		return workflow.FieldDef{}, false
+	}
+	return fd, true
 }
 
-var priorities = map[string]priorityInfo{
-	"high":        {label: "High", value: PriorityHigh},
-	"medium-high": {label: "Medium High", value: PriorityMediumHigh},
-	"high-medium": {label: "Medium High", value: PriorityMediumHigh},
-	"medium":      {label: "Medium", value: PriorityMedium},
-	"medium-low":  {label: "Medium Low", value: PriorityMediumLow},
-	"low-medium":  {label: "Medium Low", value: PriorityMediumLow},
-	"low":         {label: "Low", value: PriorityLow},
-}
-
-// PriorityValue unmarshals priority from int or string (e.g., "high", "medium-high").
-// high=1, low=5. Values outside 1-5 range are clamped to boundaries.
-type PriorityValue int
-
-func (p *PriorityValue) UnmarshalYAML(value *yaml.Node) error {
-	// first try integer
-	var intVal int
-	if err := value.Decode(&intVal); err == nil {
-		// Clamp to valid range 1-5
-		*p = PriorityValue(clampPriority(intVal))
-		return nil
+// NormalizePriority standardizes a raw priority string into a canonical key.
+// Empty/whitespace input returns "". Unknown values also return "" so callers
+// can distinguish "absent" / "invalid" from a valid result. Recognized
+// aliases like "high-medium" → "medium-high" are folded by the underlying
+// enum's case-insensitive match plus the alias map below.
+func NormalizePriority(s string) string {
+	raw := strings.TrimSpace(strings.ToLower(s))
+	if raw == "" {
+		return ""
 	}
-
-	// try string
-	var strVal string
-	if err := value.Decode(&strVal); err != nil {
-		// If it's not an int or string (e.g., boolean, object), default to medium
-		slog.Warn("invalid priority field, defaulting to medium",
-			"received_type", value.Kind,
-			"line", value.Line,
-			"column", value.Column)
-		*p = PriorityValue(PriorityMedium)
-		return nil
+	raw = strings.ReplaceAll(raw, "_", "-")
+	raw = strings.ReplaceAll(raw, " ", "-")
+	if alias, ok := priorityAliases[raw]; ok {
+		raw = alias
 	}
-
-	normalized := normalizePriority(strVal)
-	if normalized == "" {
-		// Empty or whitespace-only string, default to medium
-		slog.Warn("invalid priority field, defaulting to medium",
-			"received_value", strVal,
-			"line", value.Line,
-			"column", value.Column)
-		*p = PriorityValue(PriorityMedium)
-		return nil
-	}
-
-	mapped, ok := priorityWordToInt(normalized)
+	fd, ok := priorityField()
 	if !ok {
-		// attempt parsing numeric string
-		if num, err := strconv.Atoi(strVal); err == nil {
-			// Clamp to valid range 1-5
-			*p = PriorityValue(clampPriority(num))
-			return nil
-		}
-		// Unrecognized priority word or invalid numeric string, default to medium
-		slog.Warn("invalid priority field, defaulting to medium",
-			"received_value", strVal,
-			"line", value.Line,
-			"column", value.Column)
-		*p = PriorityValue(PriorityMedium)
+		return raw
+	}
+	if fd.IsValidEnum(raw) {
+		return raw
+	}
+	return ""
+}
+
+// priorityAliases maps legacy synonyms to canonical keys. The current
+// kanban.yaml uses hyphenated medium-high / medium-low, but historic content
+// or hand-typed input may use the inverted form (high-medium / low-medium).
+// We intentionally keep this list minimal — exotic spellings should be
+// rejected so authoring mistakes surface rather than being silently mapped.
+var priorityAliases = map[string]string{
+	"high-medium": "medium-high",
+	"low-medium":  "medium-low",
+}
+
+// PriorityDisplay returns "Label Emoji" for the given priority key. Falls
+// back to the key itself when the priority field is not configured.
+func PriorityDisplay(key string) string {
+	fd, ok := priorityField()
+	if !ok {
+		return key
+	}
+	return fd.EnumDisplay(key)
+}
+
+// PriorityLabel returns the emoji string for a priority key, or "" when
+// not found. Used by task_box.go for the priority badge in compact lists.
+func PriorityLabel(key string) string {
+	fd, ok := priorityField()
+	if !ok {
+		return ""
+	}
+	v, found := fd.LookupEnum(key)
+	if !found {
+		return ""
+	}
+	return v.Emoji
+}
+
+// PriorityFromDisplay reverses PriorityDisplay() back to a canonical key.
+// Returns ("", false) for an unrecognized display string.
+func PriorityFromDisplay(display string) (string, bool) {
+	fd, ok := priorityField()
+	if !ok {
+		return "", false
+	}
+	return fd.EnumParseDisplay(display)
+}
+
+// AllPriorityDisplayValues returns the configured priority's display strings
+// in declaration order. Returns nil when no priority field is configured.
+func AllPriorityDisplayValues() []string {
+	fd, ok := priorityField()
+	if !ok {
 		return nil
 	}
-
-	*p = PriorityValue(mapped)
-	return nil
+	keys := fd.AllowedValues()
+	out := make([]string, len(keys))
+	for i, k := range keys {
+		out[i] = fd.EnumDisplay(k)
+	}
+	return out
 }
 
-// clampPriority ensures priority is within valid range 1-5
-func clampPriority(val int) int {
-	if val < PriorityHigh {
-		return PriorityHigh
+// AllPriorities returns the ordered list of all configured priority keys.
+func AllPriorities() []string {
+	fd, ok := priorityField()
+	if !ok {
+		return nil
 	}
-	if val > PriorityLow {
-		return PriorityLow
-	}
-	return val
+	return fd.AllowedValues()
 }
 
-func (p PriorityValue) MarshalYAML() (interface{}, error) {
-	return int(p), nil
+// DefaultPriority returns the priority configured as default in workflow.yaml,
+// or "" when no priority field is defined or no value is marked default.
+func DefaultPriority() string {
+	fd, ok := priorityField()
+	if !ok {
+		return ""
+	}
+	return fd.EnumDefault()
 }
 
-// normalizePriority standardizes a raw priority string.
-func normalizePriority(s string) string {
-	s = strings.ToLower(strings.TrimSpace(s))
-	s = strings.ReplaceAll(s, "_", "-")
-	s = strings.ReplaceAll(s, " ", "-")
-	return s
+// LegacyPriorityKeyFromInt maps a pre-Phase-3 numeric priority (1..N) onto
+// the configured priority enum's keys by rank: 1 → first declared value,
+// N → Nth. Returns ("", false) when no priority enum is loaded, when n is
+// out of [1, len(allowed)], or when the field is not an enum.
+//
+// Used by the legacy upgrader to migrate `priority: 1` style frontmatter
+// into the new `priority: <enum-key>` form on load. The mapping is rank-
+// based rather than hardcoded so a workflow that customizes priority levels
+// (e.g. four levels instead of five) still upgrades sensibly: rank 1 maps
+// to the highest-urgency declared value, regardless of its key name.
+func LegacyPriorityKeyFromInt(n int) (string, bool) {
+	fd, ok := priorityField()
+	if !ok {
+		return "", false
+	}
+	allowed := fd.AllowedValues()
+	if n < 1 || n > len(allowed) {
+		return "", false
+	}
+	return allowed[n-1], true
 }
 
-// priorityWordToInt converts priority words to numeric values.
-func priorityWordToInt(s string) (int, bool) {
-	if info, ok := priorities[s]; ok {
-		return info.value, true
+// IsValidPriority reports whether key is a recognized priority value.
+func IsValidPriority(key string) bool {
+	fd, ok := priorityField()
+	if !ok {
+		return false
 	}
-	return 0, false
-}
-
-// canonicalPriorities defines the display labels for each priority level
-// in a deterministic order (highest to lowest).
-var canonicalPriorities = []struct {
-	value int
-	label string
-}{
-	{PriorityHigh, "High"},
-	{PriorityMediumHigh, "Medium High"},
-	{PriorityMedium, "Medium"},
-	{PriorityMediumLow, "Medium Low"},
-	{PriorityLow, "Low"},
-}
-
-// priorityDisplayValues maps int priority values to their display labels.
-var priorityDisplayValues = buildPriorityDisplayValues()
-
-func buildPriorityDisplayValues() map[int]string {
-	result := make(map[int]string, len(canonicalPriorities))
-	for _, entry := range canonicalPriorities {
-		result[entry.value] = entry.label
-	}
-	return result
-}
-
-// PriorityDisplay returns the human-readable label for a priority integer.
-// e.g., 1 → "High", 3 → "Medium", 5 → "Low"
-func PriorityDisplay(priority int) string {
-	if label, ok := priorityDisplayValues[priority]; ok {
-		return label
-	}
-	return priorityDisplayValues[clampPriority(priority)]
-}
-
-// PriorityFromDisplay converts a display label back to a priority integer.
-// e.g., "High" → 1, "Medium Low" → 4. Returns PriorityMedium if not found.
-func PriorityFromDisplay(display string) int {
-	normalized := normalizePriority(display)
-	if val, ok := priorityWordToInt(normalized); ok {
-		return val
-	}
-	return PriorityMedium
-}
-
-// AllPriorityDisplayValues returns priority display labels ordered high→low (1→5).
-func AllPriorityDisplayValues() []string {
-	return []string{
-		priorityDisplayValues[PriorityHigh],
-		priorityDisplayValues[PriorityMediumHigh],
-		priorityDisplayValues[PriorityMedium],
-		priorityDisplayValues[PriorityMediumLow],
-		priorityDisplayValues[PriorityLow],
-	}
-}
-
-// PriorityLabel returns an emoji-based label for a priority value.
-func PriorityLabel(priority int) string {
-	switch priority {
-	case PriorityHigh: // 1
-		return "🔴"
-	case PriorityMediumHigh: // 2
-		return "🟠"
-	case PriorityMedium: // 3
-		return "🟡"
-	case PriorityMediumLow: // 4
-		return "🔵"
-	case PriorityLow: // 5
-		return "🟢"
-	default:
-		// For out-of-range values, map to boundaries
-		if priority < PriorityHigh {
-			return "🔴"
-		}
-		return "🟢"
-	}
-}
-
-// NormalizePriority standardizes a raw priority string or number into an integer.
-// Returns the normalized priority value (clamped to 1-5) or -1 if invalid.
-func NormalizePriority(priority string) int {
-	normalized := normalizePriority(priority)
-	if normalized == "" {
-		return -1
-	}
-
-	if mapped, ok := priorityWordToInt(normalized); ok {
-		return mapped
-	}
-
-	// Try parsing as number
-	if num, err := strconv.Atoi(priority); err == nil {
-		return clampPriority(num)
-	}
-
-	return -1
+	return fd.IsValidEnum(key)
 }

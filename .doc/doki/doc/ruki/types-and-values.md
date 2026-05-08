@@ -22,7 +22,7 @@ This page explains the value types used in `ruki`. You do not write types explic
 | Type | Meaning |
 |---|---|
 | `string` | plain string values |
-| `int` | integer values such as `priority` and `points` |
+| `int` | integer values such as `points` |
 | `date` | day-level date values |
 | `timestamp` | timestamp values such as `createdAt` and `updatedAt` |
 | `duration` | duration literals and date or timestamp differences |
@@ -54,7 +54,7 @@ the same catalog at load time. From `ruki`'s perspective, all fields behave iden
 | `due` | `date` |
 | `recurrence` | `recurrence` |
 | `assignee` | `string` |
-| `priority` | `int` |
+| `priority` | enum (declared in `workflow.yaml`) |
 | `points` | `int` |
 | `createdBy` | `string` |
 | `createdAt` | `timestamp` |

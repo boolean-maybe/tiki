@@ -7,7 +7,7 @@ tags:
   - ground-station
   - telemetry
 assignee: "jnakamura"
-priority: 2
+priority: medium-high
 points: 5
 ---
 

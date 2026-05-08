@@ -47,7 +47,7 @@ Force authors to provide context before something becomes urgent.
 - description: high priority tasks must have a description
   ruki: >
     before update
-      where new.priority <= 2 and new.description is empty
+      where new.priority <= "medium-high" and new.description is empty
       deny "high priority tasks require a description"
 ```
 
@@ -124,8 +124,8 @@ Overdue items that aren't already P1 get automatically escalated.
 - description: escalate overdue tasks by raising priority
   ruki: >
     every 1day
-      update where due < now() and status not in ["done"] and priority > 1
-      set priority=1
+      update where due < now() and status not in ["done"] and priority > "high"
+      set priority="high"
 ```
 
 ## Require points estimate before review
@@ -148,7 +148,7 @@ High-priority bugs should be visually flagged without relying on humans to remem
 - description: auto-tag high priority bugs as urgent
   ruki: >
     after update
-      where new.type = "bug" and new.priority <= 2 and "urgent" not in new.tags
+      where new.type = "bug" and new.priority <= "medium-high" and "urgent" not in new.tags
       update where id = new.id set tags=tags + ["urgent"]
 ```
 
@@ -172,7 +172,7 @@ Paired with "auto-tag bugs as urgent" to keep tags in sync with priority.
 - description: remove urgent tag when priority is lowered
   ruki: >
     after update
-      where old.priority <= 2 and new.priority > 2 and "urgent" in new.tags
+      where old.priority <= "medium-high" and new.priority > "medium-high" and "urgent" in new.tags
       update where id = new.id set tags=tags - ["urgent"]
 ```
 
@@ -184,7 +184,7 @@ P1s deserve immediate attention — shell integration bridges tiki to external a
 - description: fire webhook when a P1 task is created
   ruki: >
     after create
-      where new.priority = 1
+      where new.priority = "high"
       run("curl -s -X POST https://hooks.example.com/tiki -d 'P1 created: " + new.id + " - " + new.title + "'")
 ```
 
@@ -293,6 +293,6 @@ P1 tasks require explicit demotion before they can be removed.
 - description: P1 tasks require explicit demotion before deletion
   ruki: >
     before delete
-      where old.priority = 1
+      where old.priority = "high"
       deny "cannot delete a P1 task — lower priority first"
 ```

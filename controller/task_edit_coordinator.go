@@ -348,7 +348,7 @@ func (c *TaskEditCoordinator) prepareView(activeView View, focus model.EditField
 		}
 
 		if priorityEditableView, ok := activeView.(PriorityEditableView); ok {
-			priorityEditableView.SetPrioritySaveHandler(func(priority int) {
+			priorityEditableView.SetPrioritySaveHandler(func(priority string) {
 				c.taskController.SavePriority(priority)
 			})
 		}
@@ -374,6 +374,12 @@ func (c *TaskEditCoordinator) prepareView(activeView View, focus model.EditField
 		if recurrenceEditableView, ok := activeView.(RecurrenceEditableView); ok {
 			recurrenceEditableView.SetRecurrenceSaveHandler(func(cron string) {
 				c.taskController.SaveRecurrence(cron)
+			})
+		}
+
+		if workflowEnumView, ok := activeView.(WorkflowEnumEditableView); ok {
+			workflowEnumView.SetWorkflowEnumSaveHandler(func(name, canonicalKey string) {
+				c.taskController.SaveWorkflowEnum(name, canonicalKey)
 			})
 		}
 	}

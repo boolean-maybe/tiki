@@ -7,7 +7,7 @@ tags:
   - ground-station
   - ux
 assignee: "jnakamura"
-priority: 3
+priority: medium
 points: 8
 ---
 

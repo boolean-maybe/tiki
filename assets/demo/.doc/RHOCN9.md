@@ -8,7 +8,7 @@ tags:
   - firmware
 due: 2026-06-30
 assignee: "mchen"
-priority: 3
+priority: medium
 points: 8
 ---
 

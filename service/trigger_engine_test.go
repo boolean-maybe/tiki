@@ -32,7 +32,7 @@ func (testTriggerSchema) Field(name string) (ruki.FieldSpec, bool) {
 		"due":         {Name: "due", Type: ruki.ValueDate},
 		"recurrence":  {Name: "recurrence", Type: ruki.ValueRecurrence},
 		"assignee":    {Name: "assignee", Type: ruki.ValueString},
-		"priority":    {Name: "priority", Type: ruki.ValueInt},
+		"priority":    {Name: "priority", Type: ruki.ValueEnum, AllowedValues: []string{"high", "medium-high", "medium", "medium-low", "low"}},
 		"points":      {Name: "points", Type: ruki.ValueInt},
 		"createdBy":   {Name: "createdBy", Type: ruki.ValueString},
 		"createdAt":   {Name: "createdAt", Type: ruki.ValueTimestamp},
@@ -52,8 +52,11 @@ func parseTriggerEntry(t *testing.T, desc, input string) triggerEntry {
 	return triggerEntry{description: desc, trigger: trig}
 }
 
-// newTiki creates a workflow tiki with the given fields for tests.
-func newTiki(id, title, status, typ string, priority int) *tikipkg.Tiki {
+// newTiki creates a workflow tiki with the given fields for tests. priority
+// is now a workflow enum key (e.g. "high"); the legacy int parameter is
+// translated to the canonical key via priorityRankToKey for callsite
+// compatibility, since most existing callers passed ranks (1=high, ..., 5=low).
+func newTiki(id, title, status, typ string, priorityRank int) *tikipkg.Tiki {
 	tk := &tikipkg.Tiki{ID: id, Title: title}
 	if status != "" {
 		tk.Set(tikipkg.FieldStatus, status)
@@ -61,10 +64,27 @@ func newTiki(id, title, status, typ string, priority int) *tikipkg.Tiki {
 	if typ != "" {
 		tk.Set(tikipkg.FieldType, typ)
 	}
-	if priority != 0 {
-		tk.Set(tikipkg.FieldPriority, priority)
+	if key := priorityRankToKey(priorityRank); key != "" {
+		tk.Set(tikipkg.FieldPriority, key)
 	}
 	return tk
+}
+
+// priorityRankToKey maps the legacy 1..5 rank to a canonical enum key.
+func priorityRankToKey(rank int) string {
+	switch rank {
+	case 1:
+		return "high"
+	case 2:
+		return "medium-high"
+	case 3:
+		return "medium"
+	case 4:
+		return "medium-low"
+	case 5:
+		return "low"
+	}
+	return ""
 }
 
 func newGateWithStoreAndTikis(tikis ...*tikipkg.Tiki) (*TaskMutationGate, store.Store) {
@@ -215,7 +235,7 @@ func TestTriggerEngine_BeforeAllowUnderWIPLimit(t *testing.T) {
 
 func TestTriggerEngine_AfterUpdateCascade(t *testing.T) {
 	entry := parseTriggerEntry(t, "auto-assign urgent",
-		`after create where new.priority <= 2 and not has(new.assignee) update where id = new.id set assignee="autobot"`)
+		`after create where new.priority <= "medium-high" and not has(new.assignee) update where id = new.id set assignee="autobot"`)
 
 	gate, s := newGateWithStoreAndTikis()
 	engine := NewTriggerEngine([]triggerEntry{entry}, nil, ruki.NewTriggerExecutor(testTriggerSchema{}, nil))
@@ -239,7 +259,7 @@ func TestTriggerEngine_AfterUpdateCascade(t *testing.T) {
 
 func TestTriggerEngine_AfterTriggerNoMatchSkipped(t *testing.T) {
 	entry := parseTriggerEntry(t, "auto-assign urgent",
-		`after create where new.priority <= 2 and new.assignee is empty update where id = new.id set assignee="autobot"`)
+		`after create where new.priority <= "medium-high" and new.assignee is empty update where id = new.id set assignee="autobot"`)
 
 	gate, s := newGateWithStoreAndTikis()
 	engine := NewTriggerEngine([]triggerEntry{entry}, nil, ruki.NewTriggerExecutor(testTriggerSchema{}, nil))
@@ -287,7 +307,7 @@ func TestTriggerEngine_AfterDeleteCleanupDeps(t *testing.T) {
 
 func TestTriggerEngine_AfterCascadePartialFailureSurfaced(t *testing.T) {
 	entry := parseTriggerEntry(t, "cascade to peers",
-		`after create where new.priority = 1 update where assignee = new.assignee and id != new.id set priority=1`)
+		`after create where new.priority = "high" update where assignee = new.assignee and id != new.id set priority="high"`)
 
 	peer1 := newTiki("PEER01", "peer1", "ready", "story", 5)
 	peer1.Set(tikipkg.FieldAssignee, "alice")
@@ -297,8 +317,8 @@ func TestTriggerEngine_AfterCascadePartialFailureSurfaced(t *testing.T) {
 
 	// register a validator that blocks updates to PEER02 specifically
 	gate.OnUpdate(func(old, new *tikipkg.Tiki, allTikis []*tikipkg.Tiki) *Rejection {
-		p, _, _ := new.IntField(tikipkg.FieldPriority)
-		if new.ID == "PEER02" && p == 1 {
+		p, _, _ := new.StringField(tikipkg.FieldPriority)
+		if new.ID == "PEER02" && p == "high" {
 			return &Rejection{Reason: "peer2 blocked"}
 		}
 		return nil
@@ -314,15 +334,15 @@ func TestTriggerEngine_AfterCascadePartialFailureSurfaced(t *testing.T) {
 	}
 
 	p1 := s.GetTiki("PEER01")
-	p1pri, _, _ := p1.IntField(tikipkg.FieldPriority)
-	if p1pri != 1 {
-		t.Errorf("peer1 priority = %d, want 1 (cascade should succeed)", p1pri)
+	p1pri, _, _ := p1.StringField(tikipkg.FieldPriority)
+	if p1pri != "high" {
+		t.Errorf("peer1 priority = %q, want high (cascade should succeed)", p1pri)
 	}
 
 	p2 := s.GetTiki("PEER02")
-	p2pri, _, _ := p2.IntField(tikipkg.FieldPriority)
-	if p2pri != 5 {
-		t.Errorf("peer2 priority = %d, want 5 (cascade should have been blocked)", p2pri)
+	p2pri, _, _ := p2.StringField(tikipkg.FieldPriority)
+	if p2pri != "low" {
+		t.Errorf("peer2 priority = %q, want low (cascade should have been blocked)", p2pri)
 	}
 }
 
@@ -492,7 +512,7 @@ func TestTriggerEngine_AfterUpdateCreateWithNextDate(t *testing.T) {
 
 func TestTriggerEngine_BeforeDeleteDeny(t *testing.T) {
 	entry := parseTriggerEntry(t, "block delete of high priority",
-		`before delete where old.priority <= 2 deny "cannot delete high priority tasks"`)
+		`before delete where old.priority <= "medium-high" deny "cannot delete high priority tasks"`)
 
 	tk := newTiki("PRIO01", "critical", "inProgress", "story", 1)
 	gate, _ := newGateWithStoreAndTikis(tk)
@@ -511,7 +531,7 @@ func TestTriggerEngine_BeforeDeleteDeny(t *testing.T) {
 
 func TestTriggerEngine_BeforeDeleteAllow(t *testing.T) {
 	entry := parseTriggerEntry(t, "block delete of high priority",
-		`before delete where old.priority <= 2 deny "cannot delete high priority tasks"`)
+		`before delete where old.priority <= "medium-high" deny "cannot delete high priority tasks"`)
 
 	tk := newTiki("LOWP01", "low priority", "ready", "story", 5)
 	gate, _ := newGateWithStoreAndTikis(tk)
@@ -528,7 +548,7 @@ func TestTriggerEngine_BeforeDeleteAllow(t *testing.T) {
 
 func TestTriggerEngine_AfterDeleteCascadeCreate(t *testing.T) {
 	entry := parseTriggerEntry(t, "create archive on delete",
-		`after delete create title="archived: " + old.title status="done" type=old.type priority=5`)
+		`after delete create title="archived: " + old.title status="done" type=old.type priority="low"`)
 
 	tk := newTiki("ADEL01", "delete me", "ready", "bug", 3)
 	gate, s := newGateWithStoreAndTikis(tk)
@@ -569,8 +589,8 @@ func TestTriggerEngine_AddTriggerRouting(t *testing.T) {
 	entries := []triggerEntry{
 		parseTriggerEntry(t, "bc", `before create deny "bc"`),
 		parseTriggerEntry(t, "bu", `before update where old.status = "ready" deny "bu"`),
-		parseTriggerEntry(t, "bd", `before delete where old.priority <= 1 deny "bd"`),
-		parseTriggerEntry(t, "ac", `after create where new.priority = 1 update where id = new.id set title="ac"`),
+		parseTriggerEntry(t, "bd", `before delete where old.priority <= "high" deny "bd"`),
+		parseTriggerEntry(t, "ac", `after create where new.priority = "high" update where id = new.id set title="ac"`),
 		parseTriggerEntry(t, "au", `after update where new.status = "done" update where id = old.id set title="au"`),
 		parseTriggerEntry(t, "ad", `after delete update where old.id in dependsOn set dependsOn=dependsOn - [old.id]`),
 	}
@@ -882,7 +902,7 @@ func TestLoadAndRegisterTriggers_ParseErrorNoDescription(t *testing.T) {
 
 func TestTriggerEngine_PersistCreateTemplateError(t *testing.T) {
 	entry := parseTriggerEntry(t, "create on delete",
-		`after delete create title="replacement" status="ready" type=old.type priority=3`)
+		`after delete create title="replacement" status="ready" type=old.type priority="medium"`)
 
 	s := store.NewInMemoryStore()
 	gate := NewTaskMutationGate()
@@ -915,7 +935,7 @@ func (f *failingTemplateWrapper) NewTikiTemplate() (*tikipkg.Tiki, error) {
 
 func TestTriggerEngine_PersistCreateGateError(t *testing.T) {
 	entry := parseTriggerEntry(t, "create on delete",
-		`after delete create title="valid title" status="ready" type=old.type priority=3`)
+		`after delete create title="valid title" status="ready" type=old.type priority="medium"`)
 
 	tk := newTiki("GCR001", "original", "ready", "story", 3)
 	gate, _ := newGateWithStoreAndTikis(tk)

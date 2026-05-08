@@ -3,7 +3,7 @@ id: XXXXXX
 title: Explore automation opportunities
 type: epic
 status: backlog
-priority: 2
+priority: medium-high
 points: 10
 tags:
   - efficiency

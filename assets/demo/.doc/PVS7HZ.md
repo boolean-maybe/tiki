@@ -7,7 +7,7 @@ tags:
   - ml-vision
   - firmware
 assignee: "mchen"
-priority: 3
+priority: medium
 points: 10
 ---
 

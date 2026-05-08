@@ -14,8 +14,8 @@ func TestValidation_TypeMismatch(t *testing.T) {
 		wantErr string
 	}{
 		{
-			"priority equals string",
-			`select where priority = "high"`,
+			"int field equals string",
+			`select where points = "high"`,
 			"cannot compare",
 		},
 		{
@@ -24,8 +24,8 @@ func TestValidation_TypeMismatch(t *testing.T) {
 			"operator < not supported",
 		},
 		{
-			"int to string assignment",
-			`create title="x" priority="high"`,
+			"string to int assignment",
+			`create title="x" points="three"`,
 			"cannot assign string to int field",
 		},
 		{
@@ -78,7 +78,7 @@ func TestValidation_BareBoolConditions(t *testing.T) {
 		wantErr string
 	}{
 		{"string field", `select where title`, "condition expression must be bool, got string"},
-		{"int field", `select where priority`, "condition expression must be bool, got int"},
+		{"int field", `select where points`, "condition expression must be bool, got int"},
 		{"date field", `select where due`, "condition expression must be bool, got date"},
 		{"list string field", `select where tags`, "condition expression must be bool, got list<string>"},
 		{"list ref field", `select where dependsOn`, "condition expression must be bool, got list<ref>"},
@@ -282,7 +282,7 @@ func TestValidation_BinaryExprTypes(t *testing.T) {
 		},
 		{
 			"int plus string",
-			`create title="x" priority=1 + "a"`,
+			`create title="x" points=1 + "a"`,
 			"cannot add",
 		},
 	}
@@ -582,7 +582,7 @@ func TestValidation_ValidInExpr(t *testing.T) {
 		{"id in dependsOn field", `select where id in dependsOn`},
 		{"status in list", `select where status in ["done", "cancelled"]`},
 		{"status not in list", `select where status not in ["done"]`},
-		{"int in list", `select where priority in [1, 2, 3]`},
+		{"int in list", `select where points in [1, 2, 3]`},
 		{"string in string field — substring", `select where "d" in title`},
 		{"string in assignee — substring", `select where "x" in assignee`},
 	}
@@ -718,10 +718,10 @@ func TestValidation_NestedConditions(t *testing.T) {
 		name  string
 		input string
 	}{
-		{"not with or", `select where not (status = "done" or priority = 1)`},
+		{"not with or", `select where not (status = "done" or points = 1)`},
 		{"double not", `select where not not status = "done"`},
 		{"or chain", `select where status = "done" or status = "ready" or status = "backlog"`},
-		{"and chain", `select where priority = 1 and status = "done" and assignee = "bob"`},
+		{"and chain", `select where points = 1 and status = "done" and assignee = "bob"`},
 	}
 
 	for _, tt := range tests {
@@ -738,7 +738,7 @@ func TestValidation_TriggerCreateAction(t *testing.T) {
 	p := newTestParser()
 
 	// after-trigger with create action
-	_, err := p.ParseTrigger(`after update where new.status = "done" create title="follow-up" priority=3`)
+	_, err := p.ParseTrigger(`after update where new.status = "done" create title="follow-up" points=3`)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -757,7 +757,7 @@ func TestValidation_ParenExpr(t *testing.T) {
 	p := newTestParser()
 
 	// parenthesized expression
-	_, err := p.ParseStatement(`create title="x" priority=(1 + 2)`)
+	_, err := p.ParseStatement(`create title="x" points=(1 + 2)`)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -778,7 +778,7 @@ func TestValidation_MoreBinaryExprErrors(t *testing.T) {
 		},
 		{
 			"int minus string",
-			`create title="x" priority=1 - "a"`,
+			`create title="x" points=1 - "a"`,
 			"cannot subtract",
 		},
 		{
@@ -851,7 +851,7 @@ func TestValidation_IntCompareOps(t *testing.T) {
 	ops := []string{"=", "!=", "<", ">", "<=", ">="}
 	for _, op := range ops {
 		t.Run(op, func(t *testing.T) {
-			input := `select where priority ` + op + ` 3`
+			input := `select where points ` + op + ` 3`
 			_, err := p.ParseStatement(input)
 			if err != nil {
 				t.Fatalf("unexpected error for %s: %v", op, err)
@@ -1424,7 +1424,7 @@ func TestValidation_QualifiedRefValidInTrigger(t *testing.T) {
 		},
 		{
 			"new in after create",
-			`after create where new.priority <= 2 update where id = new.id set assignee="bob"`,
+			`after create where new.points <= 2 update where id = new.id set assignee="bob"`,
 		},
 		{
 			"old in after delete",
@@ -2192,7 +2192,7 @@ func TestValidation_ListRefMinusListRef(t *testing.T) {
 func TestValidation_IntMinusInt(t *testing.T) {
 	p := newTestParser()
 
-	_, err := p.ParseStatement(`create title="x" priority=3 - 1`)
+	_, err := p.ParseStatement(`create title="x" points=3 - 1`)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -2830,6 +2830,52 @@ func TestCustomEnumCrossFieldReject(t *testing.T) {
 	}
 	if !strings.Contains(err.Error(), "different enum domains") {
 		t.Fatalf("expected cross-field enum error, got: %v", err)
+	}
+}
+
+// TestNextEnumCrossDomainAssignmentRejected pins that next_enum/prev_enum
+// preserve their argument's enum domain through assignment validation.
+// The return type ValueEnum alone doesn't carry which enum — without the
+// fix in exprFieldName, `set status = prev_enum(priority)` would parse
+// because the LHS is enum and the RHS is enum, then fail at runtime when
+// the priority key fails to coerce into the status enum.
+func TestNextEnumCrossDomainAssignmentRejected(t *testing.T) {
+	p := newTestParser()
+
+	tests := []struct {
+		name  string
+		input string
+	}{
+		{"prev_enum cross-domain", `update where id = "T1" set status = prev_enum(priority)`},
+		{"next_enum cross-domain", `update where id = "T1" set status = next_enum(priority)`},
+		{"trigger context cross-domain", `update where id = "T1" set status = prev_enum(priority)`},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			_, err := p.ParseStatement(tt.input)
+			if err == nil {
+				t.Fatal("expected cross-enum-domain rejection")
+			}
+			if !strings.Contains(err.Error(), "different enum domains") {
+				t.Fatalf("expected 'different enum domains' error, got: %v", err)
+			}
+		})
+	}
+}
+
+// TestNextEnumSameDomainAssignmentAllowed pins the converse: stepping a
+// field's own enum value (the common case) must still validate.
+func TestNextEnumSameDomainAssignmentAllowed(t *testing.T) {
+	p := newTestParser()
+
+	for _, input := range []string{
+		`update where id = "T1" set priority = prev_enum(priority)`,
+		`update where id = "T1" set priority = next_enum(priority)`,
+		`update where id = "T1" set status = prev_enum(status)`,
+	} {
+		if _, err := p.ParseStatement(input); err != nil {
+			t.Errorf("unexpected error for %q: %v", input, err)
+		}
 	}
 }
 

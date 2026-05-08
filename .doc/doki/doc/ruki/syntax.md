@@ -91,7 +91,7 @@ Notes:
   named fields.
 - `every` wraps a CRUD statement with a periodic interval. Only `create`, `update`, and `delete` are allowed
 - An `exprStmt` is any expression used as a top-level statement. It returns a single scalar (or list) value
-  instead of a table of rows. Typical uses: `count(select where status = "done")`, `exists(select where priority = 1)`,
+  instead of a table of rows. Typical uses: `count(select where status = "done")`, `exists(select where priority = "high")`,
   `now()`, or arithmetic like `count(select where status = "done") + count(select where status = "ready")`.
   Bare field references (e.g. `title`) are rejected at the top level because there is no current task; they
   remain valid inside subqueries like `count(select where status = "done")`.
@@ -137,7 +137,7 @@ select where status = "done"
 select where assignee is empty
 select where status not in ["done", "cancelled"]
 select where dependsOn any status != "done"
-select where not (status = "done" or priority = 1)
+select where not (status = "done" or priority = "high")
 ```
 
 Field list:
@@ -145,7 +145,7 @@ Field list:
 ```sql
 select title, status
 select id, title where status = "done"
-select * where priority <= 2
+select * where priority <= "medium-high"
 select title, status where "bug" in tags order by priority
 ```
 
@@ -170,7 +170,7 @@ Top-level expressions:
 ```sql
 count(select)
 count(select where status != "done")
-exists(select where priority = 1)
+exists(select where priority = "high")
 now()
 count(select where status = "done") + count(select where status = "ready")
 ```
@@ -236,13 +236,13 @@ Expression operators:
 That means:
 
 ```sql
-select where priority = 1 or priority = 2 and status = "done"
+select where priority = "high" or priority = "medium-high" and status = "done"
 ```
 
 parses as:
 
 ```text
-priority = 1 or (priority = 2 and status = "done")
+priority = "high" or (priority = "medium-high" and status = "done")
 ```
 
 ## Syntax notes

@@ -15,7 +15,7 @@ func TestLoadDiagnostics_CategorizesAllRejectionKinds(t *testing.T) {
 	dir := t.TempDir()
 
 	// good file — will load.
-	mustWrite(t, dir, "GOOD01.md", "---\nid: GOOD01\ntitle: ok\ntype: story\nstatus: ready\npriority: 1\n---\nbody\n")
+	mustWrite(t, dir, "GOOD01.md", "---\nid: GOOD01\ntitle: ok\ntype: story\nstatus: ready\npriority: high\n---\nbody\n")
 
 	// missing id.
 	mustWrite(t, dir, "missing.md", "---\ntitle: no id\n---\nbody\n")
@@ -28,7 +28,7 @@ func TestLoadDiagnostics_CategorizesAllRejectionKinds(t *testing.T) {
 	mustWrite(t, dir, "invalid.md", "---\nid: AB\ntitle: invalid\n---\nbody\n")
 
 	// duplicate id (GOOD01 claimed already).
-	mustWrite(t, dir, "dup.md", "---\nid: GOOD01\ntitle: dup\ntype: story\nstatus: ready\npriority: 1\n---\nbody\n")
+	mustWrite(t, dir, "dup.md", "---\nid: GOOD01\ntitle: dup\ntype: story\nstatus: ready\npriority: high\n---\nbody\n")
 
 	// parse error — no closing delimiter.
 	mustWrite(t, dir, "broken.md", "---\nid: ABC123\ntitle: broken\nno close\n")
@@ -171,7 +171,7 @@ func TestLoadDiagnostics_SummaryOffersRegenerateWhenOnlyDuplicates(t *testing.T)
 // is empty.
 func TestLoadDiagnostics_EmptyWhenCleanLoad(t *testing.T) {
 	dir := t.TempDir()
-	mustWrite(t, dir, "CLN001.md", "---\nid: CLN001\ntitle: clean\ntype: story\nstatus: ready\npriority: 1\n---\nbody\n")
+	mustWrite(t, dir, "CLN001.md", "---\nid: CLN001\ntitle: clean\ntype: story\nstatus: ready\npriority: high\n---\nbody\n")
 
 	s, err := NewTikiStore(dir)
 	if err != nil {

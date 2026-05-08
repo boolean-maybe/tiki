@@ -8,7 +8,7 @@ tags:
   - ux
 due: 2026-04-30
 assignee: "spreet"
-priority: 2
+priority: medium-high
 points: 5
 ---
 

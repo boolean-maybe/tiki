@@ -279,13 +279,13 @@ views:                          # top-level list of views (no plugins: wrapper)
       - name: Next
         columns: 1
         width: 25
-        filter: select where type = "epic" and status = "backlog" and priority = 1 order by priority, points desc
-        action: update where id = id() set status="backlog" priority=1
+        filter: select where type = "epic" and status = "backlog" and priority = "high" order by priority, points desc
+        action: update where id = id() set status="backlog" priority="high"
       - name: Later
         columns: 2
         width: 50
-        filter: select where type = "epic" and status = "backlog" and priority > 1 order by priority, points desc
-        action: update where id = id() set status="backlog" priority=2
+        filter: select where type = "epic" and status = "backlog" and priority > "high" order by priority, points desc
+        action: update where id = id() set status="backlog" priority="medium-high"
     actions:
       - key: "l"
         label: "Add to epic"

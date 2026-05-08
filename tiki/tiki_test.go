@@ -59,17 +59,17 @@ func TestHasOnNilTikiAndNilFields(t *testing.T) {
 
 func TestSetAllocatesFieldsMapLazily(t *testing.T) {
 	tk := &Tiki{} // Fields nil
-	tk.Set("priority", 3)
+	tk.Set("priority", "medium")
 	if tk.Fields == nil {
 		t.Fatal("Set must allocate Fields when nil")
 	}
-	if v, ok := tk.Get("priority"); !ok || v != 3 {
-		t.Errorf("after Set(priority,3): got (%v, %v), want (3, true)", v, ok)
+	if v, ok := tk.Get("priority"); !ok || v != "medium" {
+		t.Errorf("after Set(priority,medium): got (%v, %v), want (medium, true)", v, ok)
 	}
 }
 
 func TestDeleteRemovesField(t *testing.T) {
-	tk := &Tiki{Fields: map[string]interface{}{"status": "ready", "priority": 3}}
+	tk := &Tiki{Fields: map[string]interface{}{"status": "ready", "priority": "medium"}}
 	tk.Delete("status")
 	if tk.Has("status") {
 		t.Error("Delete did not remove status")

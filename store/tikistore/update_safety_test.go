@@ -16,7 +16,7 @@ import (
 func TestUpdateTiki_FreshTikiPreservesLoadedPath(t *testing.T) {
 	dir := t.TempDir()
 	renamed := filepath.Join(dir, "user-renamed.md")
-	content := "---\nid: UPD001\ntitle: original\ntype: story\nstatus: ready\npriority: 1\n---\nbody\n"
+	content := "---\nid: UPD001\ntitle: original\ntype: story\nstatus: ready\npriority: high\n---\nbody\n"
 	if err := os.WriteFile(renamed, []byte(content), 0o644); err != nil {
 		t.Fatalf("write: %v", err)
 	}
@@ -34,7 +34,7 @@ func TestUpdateTiki_FreshTikiPreservesLoadedPath(t *testing.T) {
 	fresh.Title = "updated by fresh value"
 	fresh.Set("type", "story")
 	fresh.Set("status", "ready")
-	fresh.Set("priority", 1)
+	fresh.Set("priority", "high")
 	if err := s.UpdateTiki(fresh); err != nil {
 		t.Fatalf("UpdateTiki: %v", err)
 	}
@@ -59,7 +59,7 @@ func TestUpdateTiki_FreshTikiPreservesLoadedPath(t *testing.T) {
 func TestUpdateTiki_FreshTikiPreservesLoadedMtime(t *testing.T) {
 	dir := t.TempDir()
 	filePath := filepath.Join(dir, "LOCK01.md")
-	content := "---\nid: LOCK01\ntitle: original\ntype: story\nstatus: ready\npriority: 1\n---\nbody\n"
+	content := "---\nid: LOCK01\ntitle: original\ntype: story\nstatus: ready\npriority: high\n---\nbody\n"
 	if err := os.WriteFile(filePath, []byte(content), 0o644); err != nil {
 		t.Fatalf("write: %v", err)
 	}
@@ -86,7 +86,7 @@ func TestUpdateTiki_FreshTikiPreservesLoadedMtime(t *testing.T) {
 	fresh.Title = "try to update"
 	fresh.Set("type", "story")
 	fresh.Set("status", "ready")
-	fresh.Set("priority", 1)
+	fresh.Set("priority", "high")
 	// Path + LoadedMtime deliberately left zero.
 	err = s.UpdateTiki(fresh)
 	if err == nil {

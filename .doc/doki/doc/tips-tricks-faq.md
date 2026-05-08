@@ -88,7 +88,7 @@ Defined in the workflow YAML (`config/workflows/kanban.yaml`):
   input: string
 ```
 
-Add fields to pre-fill defaults, e.g. `action: create title=input() type="bug" priority=1`.
+Add fields to pre-fill defaults, e.g. `action: create title=input() type="bug" priority="high"`.
 
 ### I created a new tiki but I can't find it
 

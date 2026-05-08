@@ -1,6 +1,7 @@
 package ruki
 
 import (
+	"errors"
 	"fmt"
 	"sort"
 	"strings"
@@ -942,6 +943,10 @@ func (e *Executor) evalFunctionCall(fc *FunctionCall, ctx evalContext) (interfac
 		return e.evalHas(fc, ctx)
 	case "next_date":
 		return e.evalNextDate(fc, ctx)
+	case "next_enum":
+		return e.evalEnumStep(fc, ctx, +1)
+	case "prev_enum":
+		return e.evalEnumStep(fc, ctx, -1)
 	case "blocks":
 		return e.evalBlocks(fc, ctx)
 	case "input":
@@ -1289,6 +1294,97 @@ func (e *Executor) evalNextDate(fc *FunctionCall, ctx evalContext) (interface{},
 		return nil, fmt.Errorf("next_date() argument must be a recurrence value, got %T", val)
 	}
 	return task.NextOccurrence(rec), nil
+}
+
+// evalEnumStep evaluates next_enum(field) / prev_enum(field) using the base
+// executor's evalExpr to read the field value. See enumStepFromValue for the
+// stepping logic; this function exists so the base dispatch (CLI / select /
+// non-trigger contexts) can call into the shared computation while the
+// trigger executor can use evalEnumStepWithLookup with its qualifier-aware
+// evalExpr.
+func (e *Executor) evalEnumStep(fc *FunctionCall, ctx evalContext, direction int) (interface{}, error) {
+	return evalEnumStepWithLookup(e.schema, fc, direction, func(arg Expr) (interface{}, error) {
+		return e.evalExpr(arg, ctx)
+	})
+}
+
+// evalEnumStepWithLookup is the trigger-aware variant: callers pass a
+// `lookup` closure that knows how to resolve old./new./outer. qualifiers in
+// the calling context. The base Executor's evalExpr rejects old./new./
+// target. as "not supported in standalone SELECT", so triggers MUST go
+// through this entry point with their override's evalExpr.
+func evalEnumStepWithLookup(schema Schema, fc *FunctionCall, direction int, lookup func(Expr) (interface{}, error)) (interface{}, error) {
+	fnName := "next_enum"
+	if direction < 0 {
+		fnName = "prev_enum"
+	}
+	var fieldName string
+	switch ref := fc.Args[0].(type) {
+	case *FieldRef:
+		fieldName = ref.Name
+	case *QualifiedRef:
+		fieldName = ref.Name
+	default:
+		return nil, fmt.Errorf("%s() argument must be an enum field reference", fnName)
+	}
+
+	fs, ok := schema.Field(fieldName)
+	if !ok {
+		return nil, fmt.Errorf("%s(): unknown field %q", fnName, fieldName)
+	}
+	if fs.Type != ValueEnum {
+		return nil, fmt.Errorf("%s() argument must be an enum field, got %s for %q", fnName, typeName(fs.Type), fieldName)
+	}
+	if len(fs.AllowedValues) == 0 {
+		return nil, fmt.Errorf("%s(): enum field %q has no allowed values", fnName, fieldName)
+	}
+
+	val, err := lookup(fc.Args[0])
+	if err != nil {
+		// Only clamp to a boundary when the field is genuinely absent.
+		// Other errors (qualifier rejection, schema mismatch, etc.) must
+		// propagate — silently treating them as "absent" would mask real
+		// configuration mistakes and let trigger rules write the wrong
+		// priority.
+		var absentErr *AbsentFieldError
+		if !errors.As(err, &absentErr) {
+			return nil, err
+		}
+		return enumStepBoundary(fs, direction), nil
+	}
+	if val == nil {
+		return enumStepBoundary(fs, direction), nil
+	}
+	// Treat empty string as "field present-but-blank" — common when a
+	// helper initialises every workflow field to its zero value. Use the
+	// boundary rather than erroring so `prev_enum(priority)` on a freshly
+	// created task still produces a sensible value.
+	if s, ok := val.(string); ok && s == "" {
+		return enumStepBoundary(fs, direction), nil
+	}
+
+	rank, _, ok := enumRank(fs, normalizeToString(val))
+	if !ok {
+		return nil, fmt.Errorf("%s(): invalid enum value %q for field %q", fnName, normalizeToString(val), fieldName)
+	}
+	next := rank + direction
+	if next < 0 {
+		next = 0
+	}
+	if next >= len(fs.AllowedValues) {
+		next = len(fs.AllowedValues) - 1
+	}
+	return fs.AllowedValues[next], nil
+}
+
+// enumStepBoundary returns the boundary value for an absent-field step in
+// the given direction: prev steps land on the first declared value, next
+// steps land on the last. Mirrors next_date's "zero-time on absent" idiom.
+func enumStepBoundary(fs FieldSpec, direction int) string {
+	if direction < 0 {
+		return fs.AllowedValues[0]
+	}
+	return fs.AllowedValues[len(fs.AllowedValues)-1]
 }
 
 func (e *Executor) evalBlocks(fc *FunctionCall, ctx evalContext) (interface{}, error) {
@@ -1774,11 +1870,23 @@ func (e *Executor) enumComparisonField(left, right Expr) (FieldSpec, bool) {
 
 func (e *Executor) exprFieldSpec(expr Expr) (FieldSpec, bool) {
 	var name string
-	switch e := expr.(type) {
+	switch ex := expr.(type) {
 	case *FieldRef:
-		name = e.Name
+		name = ex.Name
 	case *QualifiedRef:
-		name = e.Name
+		name = ex.Name
+	case *FunctionCall:
+		// next_enum(field) / prev_enum(field) preserve the argument's
+		// enum domain — propagate the field identity so enum-aware
+		// comparisons (enumRank, compareEnumValues) treat the result
+		// the same as a direct field reference would. Without this,
+		// `next_enum(priority) < "low"` falls back to plain string
+		// comparison and "high" > "low" (lexicographic) instead of
+		// rank-aware ordering.
+		if (ex.Name == "next_enum" || ex.Name == "prev_enum") && len(ex.Args) == 1 {
+			return e.exprFieldSpec(ex.Args[0])
+		}
+		return FieldSpec{}, false
 	default:
 		return FieldSpec{}, false
 	}
@@ -1787,14 +1895,21 @@ func (e *Executor) exprFieldSpec(expr Expr) (FieldSpec, bool) {
 
 func (e *Executor) exprFieldType(expr Expr) ValueType {
 	var name string
-	switch e := expr.(type) {
+	switch ex := expr.(type) {
 	case *FieldRef:
-		name = e.Name
+		name = ex.Name
 	case *QualifiedRef:
-		name = e.Name
+		name = ex.Name
 	case *FunctionCall:
-		if e.Name == "id" {
+		if ex.Name == "id" {
 			return ValueID
+		}
+		// next_enum(field) / prev_enum(field) carry their argument's
+		// enum domain — recurse so callers that use exprFieldType to
+		// route equality comparisons (e.g. isEnumLikeField) treat the
+		// result as a real enum value, not a plain int/string.
+		if (ex.Name == "next_enum" || ex.Name == "prev_enum") && len(ex.Args) == 1 {
+			return e.exprFieldType(ex.Args[0])
 		}
 		return -1
 	default:

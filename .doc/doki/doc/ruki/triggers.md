@@ -77,7 +77,7 @@ triggers:
   - description: "auto-assign urgent"
     ruki: >-
       after create
-      where new.priority <= 2 and new.assignee is empty
+      where new.priority <= "medium-high" and new.assignee is empty
       update where id = new.id set assignee="booleanmaybe"
 
   - description: "cleanup deps on delete"
@@ -109,7 +109,7 @@ Automatically assign high-priority tikis that arrive without an owner:
 
 ```sql
 after create
-  where new.priority <= 2 and new.assignee is empty
+  where new.priority <= "medium-high" and new.assignee is empty
   update where id = new.id set assignee="booleanmaybe"
 ```
 

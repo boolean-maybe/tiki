@@ -69,7 +69,7 @@ title: Fix login bug
 type: bug
 status: inProgress
 assignee: alex
-priority: 2
+priority: medium-high
 points: 5
 tags:
   - frontend
@@ -123,7 +123,7 @@ Text aliases are accepted on create (case-insensitive, hyphens/underscores/space
 `high` = 1, `medium-high` = 2, `medium` = 3, `medium-low` = 4, `low` = 5.
 
 ```yaml
-priority: 2
+priority: medium-high
 ```
 
 ### `points`

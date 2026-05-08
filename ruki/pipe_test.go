@@ -328,7 +328,7 @@ func TestExecutePipeListFieldSpaceJoined(t *testing.T) {
 	p := newTestParser()
 	tasks := []*task.Task{
 		{ID: "TIKI-000001", Title: "Test", Status: "ready", Type: "story",
-			Priority: 1, Tags: []string{"a", "b", "c"}},
+			Tags: []string{"a", "b", "c"}},
 	}
 
 	stmt, err := p.ParseStatement(`select id, tags where id = id() | run("echo $1 $2")`)
@@ -533,13 +533,29 @@ func TestExecuteClipboardWithLimit(t *testing.T) {
 	e := NewExecutor(testSchema{}, nil, ExecutorRuntime{Mode: ExecutorRuntimeCLI})
 	p := newTestParser()
 	tasks := makeTasks()
+	tikis := tikisFromTasks(tasks)
+	// Reassign priorities now that priority is a workflow enum (`high` =
+	// rank 0 → sorts first when ascending). Each fixture maps to a key in
+	// declaration order so the original "lower number = higher urgency"
+	// expectation carries over without rewriting the assertions.
+	priorities := map[string]string{
+		"TIKI-000001": "medium-high",
+		"TIKI-000002": "high",
+		"TIKI-000003": "medium",
+		"TIKI-000004": "medium-high",
+	}
+	for _, tk := range tikis {
+		if k, ok := priorities[tk.ID]; ok {
+			tk.Set("priority", k)
+		}
+	}
 
 	stmt, err := p.ParseStatement(`select id, priority order by priority limit 2 | clipboard()`)
 	if err != nil {
 		t.Fatalf("parse: %v", err)
 	}
 
-	result, err := e.testExec(stmt, tasks)
+	result, err := e.Execute(stmt, tikis)
 	if err != nil {
 		t.Fatalf("execute: %v", err)
 	}
@@ -549,7 +565,8 @@ func TestExecuteClipboardWithLimit(t *testing.T) {
 	if len(result.Clipboard.Rows) != 2 {
 		t.Fatalf("expected 2 rows, got %d", len(result.Clipboard.Rows))
 	}
-	// sorted by priority asc: TIKI-000002 (pri 1), TIKI-000001 (pri 2)
+	// sorted by priority asc (enum rank): TIKI-000002 (high) first; then a
+	// medium-high task (TIKI-000001 by id-tiebreak).
 	if result.Clipboard.Rows[0][0] != "TIKI-000002" {
 		t.Errorf("row[0][0] = %q, want %q", result.Clipboard.Rows[0][0], "TIKI-000002")
 	}
@@ -565,7 +582,7 @@ func TestExecutePipeFilepath(t *testing.T) {
 	p := newTestParser()
 	tasks := []*task.Task{
 		{ID: "TIKI-000001", Title: "x", Status: "ready", Type: "story",
-			Priority: 1, FilePath: "/abs/path/tiki-000001.md"},
+			FilePath: "/abs/path/tiki-000001.md"},
 	}
 
 	stmt, err := p.ParseAndValidateStatement(`select filepath | run("some-app $1")`, ExecutorRuntimePlugin)

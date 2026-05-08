@@ -113,33 +113,9 @@ func TestValidateType(t *testing.T) {
 	}
 }
 
-func TestValidatePriority(t *testing.T) {
-	tests := []struct {
-		name    string
-		task    *Task
-		wantErr bool
-	}{
-		{"valid priority 1", &Task{Priority: 1}, false},
-		{"valid priority 3", &Task{Priority: 3}, false},
-		{"valid priority 5", &Task{Priority: 5}, false},
-		// Phase 1 presence-aware contract: zero priority means absent,
-		// not invalid. Plain docs and sparse workflow docs can legally
-		// omit priority.
-		{"priority 0 is absent, not invalid", &Task{Priority: 0}, false},
-		{"invalid priority 6", &Task{Priority: 6}, true},
-		{"invalid priority -1", &Task{Priority: -1}, true},
-		{"invalid priority 10", &Task{Priority: 10}, true},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			msg := ValidatePriority(tt.task)
-			if (msg != "") != tt.wantErr {
-				t.Errorf("ValidatePriority() = %q, wantErr %v", msg, tt.wantErr)
-			}
-		})
-	}
-}
+// Priority is no longer part of task.Task — it lives in tiki.Tiki as a
+// workflow enum field. See task/priority_test.go for IsValidPriority and
+// related coverage that exercises the enum API directly.
 
 func TestValidatePoints(t *testing.T) {
 	tests := []struct {
@@ -201,28 +177,26 @@ func TestValidateDue(t *testing.T) {
 	}{
 		{
 			name:    "no due date (zero time)",
-			task:    &Task{Title: "Test", Type: TypeStory, Status: "backlog", Priority: DefaultPriority},
+			task:    &Task{Title: "Test", Type: TypeStory, Status: "backlog"},
 			wantErr: false,
 		},
 		{
 			name: "valid due date (midnight UTC)",
 			task: &Task{
-				Title:    "Test",
-				Type:     TypeStory,
-				Status:   "backlog",
-				Priority: DefaultPriority,
-				Due:      mustParseDate("2026-03-16"),
+				Title:  "Test",
+				Type:   TypeStory,
+				Status: "backlog",
+				Due:    mustParseDate("2026-03-16"),
 			},
 			wantErr: false,
 		},
 		{
 			name: "invalid due date (has time component)",
 			task: &Task{
-				Title:    "Test",
-				Type:     TypeStory,
-				Status:   "backlog",
-				Priority: DefaultPriority,
-				Due:      mustParseDateTime("2026-03-16T15:04:05Z"),
+				Title:  "Test",
+				Type:   TypeStory,
+				Status: "backlog",
+				Due:    mustParseDateTime("2026-03-16T15:04:05Z"),
 			},
 			wantErr: true,
 		},
@@ -264,11 +238,10 @@ func TestValidateRecurrence(t *testing.T) {
 
 func TestAllValidators_MultipleErrors(t *testing.T) {
 	tk := &Task{
-		Title:    "",        // invalid: empty
-		Status:   "invalid", // invalid: not a valid enum
-		Type:     "bad",     // invalid: not a valid enum
-		Priority: 10,        // invalid: out of range
-		Points:   -5,        // invalid: negative
+		Title:  "",        // invalid: empty
+		Status: "invalid", // invalid: not a valid enum
+		Type:   "bad",     // invalid: not a valid enum
+		Points: -5,        // invalid: negative
 	}
 
 	var errors []string
@@ -278,18 +251,20 @@ func TestAllValidators_MultipleErrors(t *testing.T) {
 		}
 	}
 
-	if len(errors) != 5 {
-		t.Errorf("expected 5 errors, got %d: %v", len(errors), errors)
+	// 4 task-level validators trip here; priority validation moved to the
+	// tiki-level enum check (out of scope for task.AllValidators) when
+	// priority became a workflow enum.
+	if len(errors) != 4 {
+		t.Errorf("expected 4 errors, got %d: %v", len(errors), errors)
 	}
 }
 
 func TestAllValidators_ValidTask(t *testing.T) {
 	tk := &Task{
-		Title:    "Valid Task",
-		Status:   StatusReady,
-		Type:     TypeStory,
-		Priority: 3,
-		Points:   5,
+		Title:  "Valid Task",
+		Status: StatusReady,
+		Type:   TypeStory,
+		Points: 5,
 	}
 
 	for _, fn := range AllValidators() {
@@ -314,25 +289,6 @@ func mustParseDateTime(s string) time.Time {
 		panic(err)
 	}
 	return t
-}
-
-func TestIsValidPriority(t *testing.T) {
-	tests := []struct {
-		priority int
-		want     bool
-	}{
-		{0, false},
-		{1, true},
-		{3, true},
-		{5, true},
-		{6, false},
-		{-1, false},
-	}
-	for _, tt := range tests {
-		if got := IsValidPriority(tt.priority); got != tt.want {
-			t.Errorf("IsValidPriority(%d) = %v, want %v", tt.priority, got, tt.want)
-		}
-	}
 }
 
 func TestIsValidPoints(t *testing.T) {

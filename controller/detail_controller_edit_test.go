@@ -14,11 +14,13 @@ import (
 // fakeDetailEditView is a light stand-in for ConfigurableDetailView used to
 // drive DetailController edit-mode tests without spinning up tview.
 type fakeDetailEditView struct {
-	editing       bool
-	enterReturn   bool
-	registry      *ActionRegistry
-	changeHandler func(bool)
-	fieldHandlers map[string]func(string)
+	editing         bool
+	enterReturn     bool
+	registry        *ActionRegistry
+	changeHandler   func(bool)
+	fieldHandlers   map[string]func(string)
+	flushCalls      int  // count of FlushFocusedEditor invocations
+	flushBeforeExit bool // whether the most recent flush happened while still editing
 }
 
 func newFakeDetailEditView() *fakeDetailEditView {
@@ -63,6 +65,10 @@ func (f *fakeDetailEditView) SetEditFieldChangeHandler(name string, h func(strin
 	f.fieldHandlers[name] = h
 }
 func (f *fakeDetailEditView) Metadata() []string { return []string{"status", "type", "priority"} }
+func (f *fakeDetailEditView) FlushFocusedEditor() {
+	f.flushCalls++
+	f.flushBeforeExit = f.editing
+}
 
 // newDetailEditTestRig wires a TaskController, mutation gate, store, and a
 // committed test tiki so DetailController edit-mode lifecycles can be
@@ -81,7 +87,7 @@ func newDetailEditTestRig(t *testing.T) (*DetailController, *fakeDetailEditView,
 	tk.Title = "Test"
 	tk.Set(tikipkg.FieldStatus, taskpkg.StatusReady)
 	tk.Set(tikipkg.FieldType, taskpkg.TypeStory)
-	tk.Set(tikipkg.FieldPriority, 3)
+	tk.Set(tikipkg.FieldPriority, "medium")
 	if err := taskStore.CreateTiki(tk); err != nil {
 		t.Fatalf("CreateTiki: %v", err)
 	}
@@ -167,6 +173,32 @@ func TestDetailController_SaveCommitsAndExits(t *testing.T) {
 	}
 	if v, _, _ := got.StringField(tikipkg.FieldStatus); v != taskpkg.StatusInProgress {
 		t.Errorf("status not persisted: got %q, want %q", v, taskpkg.StatusInProgress)
+	}
+}
+
+// TestDetailController_SaveFlushesFocusedEditorBeforeCommit pins the
+// non-obvious contract that ActionDetailSave must flush the currently
+// focused editor before calling CommitEditSession. Editors like the tags
+// textarea only push their value on Ctrl+S, but the app-level input
+// router consumes Ctrl+S to dispatch ActionDetailSave — without the
+// flush, that pending input would be silently lost.
+func TestDetailController_SaveFlushesFocusedEditorBeforeCommit(t *testing.T) {
+	dc, view, _, _ := newDetailEditTestRig(t)
+
+	if !dc.HandleAction(ActionDetailEdit) {
+		t.Fatal("EnterEditMode")
+	}
+	if view.flushCalls != 0 {
+		t.Fatalf("flush called before save: %d", view.flushCalls)
+	}
+	if !dc.HandleAction(ActionDetailSave) {
+		t.Fatal("ActionDetailSave returned false")
+	}
+	if view.flushCalls != 1 {
+		t.Errorf("FlushFocusedEditor called %d times, want 1", view.flushCalls)
+	}
+	if !view.flushBeforeExit {
+		t.Error("FlushFocusedEditor must run while still in edit mode (before exit)")
 	}
 }
 

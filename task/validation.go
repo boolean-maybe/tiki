@@ -9,13 +9,6 @@ import (
 	"github.com/boolean-maybe/tiki/document"
 )
 
-// Priority validation constants
-const (
-	MinPriority     = 1
-	MaxPriority     = 5
-	DefaultPriority = 3 // Medium
-)
-
 // ValidateTitle returns an error message if the task title is invalid.
 func ValidateTitle(t *Task) string {
 	title := strings.TrimSpace(t.Title)
@@ -53,19 +46,6 @@ func ValidateType(t *Task) string {
 		return ""
 	}
 	return fmt.Sprintf("invalid type value: %s", t.Type)
-}
-
-// ValidatePriority returns an error message if the task priority is out of range.
-// A zero priority is treated as absent (Phase 1 presence-aware contract) and
-// passes validation; only set values are range-checked.
-func ValidatePriority(t *Task) string {
-	if t.Priority == 0 {
-		return ""
-	}
-	if t.Priority < MinPriority || t.Priority > MaxPriority {
-		return fmt.Sprintf("priority must be between %d and %d", MinPriority, MaxPriority)
-	}
-	return ""
 }
 
 // ValidatePoints returns an error message if story points are out of range.
@@ -118,11 +98,6 @@ func ValidateRecurrence(t *Task) string {
 	return ""
 }
 
-// IsValidPriority checks if a priority value is within the valid range.
-func IsValidPriority(priority int) bool {
-	return priority >= MinPriority && priority <= MaxPriority
-}
-
 // IsValidPoints checks if a points value is within the valid range.
 func IsValidPoints(points int) bool {
 	if points == 0 {
@@ -145,7 +120,6 @@ func AllValidators() []func(*Task) string {
 		ValidateTitle,
 		ValidateStatus,
 		ValidateType,
-		ValidatePriority,
 		ValidatePoints,
 		ValidateDependsOn,
 		ValidateDue,

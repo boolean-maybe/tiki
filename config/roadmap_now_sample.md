@@ -3,7 +3,7 @@ id: XXXXXX
 title: Streamline team communication
 type: epic
 status: ready
-priority: 7
+priority: low
 points: 8
 tags:
   - productivity

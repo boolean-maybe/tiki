@@ -21,7 +21,7 @@ func (testSchema) Field(name string) (FieldSpec, bool) {
 		"due":         {Name: "due", Type: ValueDate},
 		"recurrence":  {Name: "recurrence", Type: ValueRecurrence},
 		"assignee":    {Name: "assignee", Type: ValueString},
-		"priority":    {Name: "priority", Type: ValueInt},
+		"priority":    {Name: "priority", Type: ValueEnum, AllowedValues: []string{"high", "medium-high", "medium", "medium-low", "low"}},
 		"points":      {Name: "points", Type: ValueInt},
 		"createdBy":   {Name: "createdBy", Type: ValueString},
 		"createdAt":   {Name: "createdAt", Type: ValueTimestamp},
@@ -45,7 +45,7 @@ func TestParseSelect(t *testing.T) {
 	}{
 		{"select all", "select", false},
 		{"select with where", `select where status = "done"`, true},
-		{"select with and", `select where status = "done" and priority <= 2`, true},
+		{"select with and", `select where status = "done" and priority <= "medium-high"`, true},
 		{"select with in", `select where "bug" in tags`, true},
 		{"select with quantifier", `select where dependsOn any status != "done"`, true},
 	}
@@ -143,7 +143,7 @@ func TestParseCreate(t *testing.T) {
 	}{
 		{
 			"basic create",
-			`create title="Fix login" priority=2 status="ready" tags=["bug"]`,
+			`create title="Fix login" priority="medium-high" status="ready" tags=["bug"]`,
 			4,
 		},
 		{
@@ -258,7 +258,7 @@ func TestParseExpressions(t *testing.T) {
 		},
 		{
 			"int literal in assignment",
-			`create title="x" priority=2`,
+			`create title="x" points=2`,
 			func(t *testing.T, stmt *Statement) {
 				t.Helper()
 				il, ok := stmt.Create.Assignments[1].Value.(*IntLiteral)
@@ -458,7 +458,7 @@ func TestParseConditions(t *testing.T) {
 		},
 		{
 			"and precedence",
-			`select where status = "done" and priority <= 2`,
+			`select where status = "done" and priority <= "medium-high"`,
 			func(t *testing.T, stmt *Statement) {
 				t.Helper()
 				bc, ok := stmt.Select.Where.(*BinaryCondition)
@@ -473,10 +473,10 @@ func TestParseConditions(t *testing.T) {
 		},
 		{
 			"or precedence — and binds tighter",
-			`select where priority = 1 or priority = 2 and status = "done"`,
+			`select where priority = "high" or priority = "medium-high" and status = "done"`,
 			func(t *testing.T, stmt *Statement) {
 				t.Helper()
-				// should parse as: priority=1 or (priority=2 and status="done")
+				// should parse as: priority=1 or (priority="medium-high" and status="done")
 				bc, ok := stmt.Select.Where.(*BinaryCondition)
 				if !ok {
 					t.Fatalf("expected BinaryCondition, got %T", stmt.Select.Where)
@@ -512,7 +512,7 @@ func TestParseConditions(t *testing.T) {
 		},
 		{
 			"parenthesized condition",
-			`select where (status = "done" or status = "cancelled") and priority = 1`,
+			`select where (status = "done" or status = "cancelled") and priority = "high"`,
 			func(t *testing.T, stmt *Statement) {
 				t.Helper()
 				bc, ok := stmt.Select.Where.(*BinaryCondition)
@@ -566,10 +566,10 @@ func TestParseConditions(t *testing.T) {
 		},
 		{
 			"quantifier binds to primary — and separates",
-			`select where dependsOn any status != "done" and priority = 1`,
+			`select where dependsOn any status != "done" and priority = "high"`,
 			func(t *testing.T, stmt *Statement) {
 				t.Helper()
-				// should parse as: (dependsOn any (status != "done")) and (priority = 1)
+				// should parse as: (dependsOn any (status != "done")) and (priority = "high")
 				bc, ok := stmt.Select.Where.(*BinaryCondition)
 				if !ok {
 					t.Fatalf("expected BinaryCondition at top, got %T", stmt.Select.Where)
@@ -827,7 +827,7 @@ func TestParseSelectFields(t *testing.T) {
 		{"single field", "select title", []string{"title"}, false, 0},
 		{"two fields", "select id, title", []string{"id", "title"}, false, 0},
 		{"many fields", "select id, title, status, priority", []string{"id", "title", "status", "priority"}, false, 0},
-		{"fields + where", `select title, status where priority = 1`, []string{"title", "status"}, true, 0},
+		{"fields + where", `select title, status where priority = "high"`, []string{"title", "status"}, true, 0},
 		{"single field + where", `select title where status = "done"`, []string{"title"}, true, 0},
 		{"fields + order by", "select title order by priority", []string{"title"}, false, 1},
 		{"fields + where + order by", `select id, title where status = "done" order by priority desc`, []string{"id", "title"}, true, 1},
@@ -990,7 +990,7 @@ func TestParseTargetsQualifier_UnsupportedScalarProjection(t *testing.T) {
 		name  string
 		input string
 	}{
-		{"targets.priority (int)", `select where priority in targets.priority`},
+		{"targets.points (int)", `select where points in targets.points`},
 		{"targets.due (date)", `select where due in targets.due`},
 		{"targets.createdAt (timestamp)", `select where createdAt in targets.createdAt`},
 		{"targets.recurrence", `select where recurrence in targets.recurrence`},
@@ -1020,7 +1020,7 @@ func TestParseExprStatement(t *testing.T) {
 	}{
 		{"count select", `count(select)`, ValueInt},
 		{"count select where", `count(select where status = "done")`, ValueInt},
-		{"exists select where", `exists(select where priority = 1)`, ValueBool},
+		{"exists select where", `exists(select where priority = "high")`, ValueBool},
 		{"now", `now()`, ValueTimestamp},
 		{"int literal", `42`, ValueInt},
 		{"int arithmetic", `1 + 2`, ValueInt},
@@ -1070,7 +1070,7 @@ func TestParseExprStatement_SubQueryFieldRefOK(t *testing.T) {
 
 	// bare field refs are fine inside the subquery — they resolve against
 	// the candidate task the subquery iterates over.
-	stmt, err := p.ParseStatement(`count(select where status = "done" and priority <= 2)`)
+	stmt, err := p.ParseStatement(`count(select where status = "done" and priority <= "medium-high")`)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}

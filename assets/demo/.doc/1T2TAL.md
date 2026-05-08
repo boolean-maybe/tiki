@@ -8,7 +8,7 @@ tags:
   - safety
 recurrence: "0 8 * * MON"
 assignee: "lbianchi"
-priority: 2
+priority: medium-high
 points: 2
 ---
 

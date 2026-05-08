@@ -35,7 +35,7 @@ For full `ruki` syntax, see `.doc/doki/doc/ruki/`.
 | `description` | `string` | markdown body content |
 | `status` | `status` | from `workflow.yaml`, default from the status with `default: true` |
 | `type` | `type` | bug, feature, task, story, epic — keys from `workflow.yaml` |
-| `priority` | `int` | 1–5 (1=high, 5=low), default 3 |
+| `priority` | enum | string keys from `workflow.yaml`, e.g. `"high"`, `"medium-high"`, `"medium"`, `"medium-low"`, `"low"` in the bundled kanban; default from the value with `default: true` |
 | `points` | `int` | story points 0–10 (0 = unestimated) |
 | `assignee` | `string` | |
 | `tags` | `list<string>` | |
@@ -47,8 +47,10 @@ For full `ruki` syntax, see `.doc/doki/doc/ruki/`.
 | `updatedAt` | `timestamp` | immutable |
 | `filepath` | `string` | synthetic — the tiki's absolute path on disk |
 
-Priority descriptions: 1=high, 2=medium-high, 3=medium, 4=medium-low, 5=low.
-Valid statuses and types come from the project's `workflow.yaml`.
+Priority is a workflow enum: pass canonical keys as strings (e.g.
+`"high"`, `"medium-high"`, `"medium"`, `"medium-low"`, `"low"` in the
+bundled kanban). Project `workflow.yaml` is the authoritative source for
+allowed priority keys, just as it is for statuses and types.
 
 ## Query
 
@@ -77,14 +79,15 @@ for example, `select where has(status)` lists only tikis that carry a status, re
 
 ```sh
 tiki exec 'create title="Fix login"'                                             # minimal
-tiki exec 'create title="Fix login" priority=2 status="ready" tags=["bug"]'      # full
+tiki exec 'create title="Fix login" priority="medium-high" status="ready" tags=["bug"]'      # full
 tiki exec 'create title="Review" due=2026-04-01 + 2day'                          # date arithmetic
 tiki exec 'create title="Sprint review" recurrence="0 0 * * MON"'                # recurrence
 ```
 
 Output: `created <ID>` (bare 6-char id).
 Defaults: `status` from the `default: true` status in `workflow.yaml`, `type` from the `default: true`
-type (or the first type), `priority` 3.
+type (or the first type), `priority` from the `default: true` priority value
+(typically `"medium"` in the bundled kanban).
 
 ### Create from file
 
@@ -101,7 +104,7 @@ Escape double quotes in the content with backslash.
 
 ```sh
 tiki exec 'update where id = "X7F4K2" set status="done"'                   # status change
-tiki exec 'update where id = "X7F4K2" set priority=1'                      # priority
+tiki exec 'update where id = "X7F4K2" set priority="high"'                 # priority
 tiki exec 'update where status = "ready" set status="cancelled"'           # bulk update
 tiki exec 'update where id = "X7F4K2" set tags=tags + ["urgent"]'          # add tag
 tiki exec 'update where id = "X7F4K2" set due=2026-04-01'                  # set due date

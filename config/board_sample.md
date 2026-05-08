@@ -3,7 +3,7 @@ id: XXXXXX
 title: Welcome to tiki-land!
 type: story
 status: ready
-priority: 1
+priority: high
 tags:
   - info
   - ideas
@@ -65,7 +65,7 @@ use Claude Code with skills to search, create, view, update and delete `tikis`
 
 > hey Claude show me tiki M7N2XK
 > change it from story to a bug
-> and assign priority 1
+> and set priority to high
 
 
 ## Rich Markdown format

@@ -599,7 +599,7 @@ func TestViewAction_WikiViewDispatchesRukiGlobal(t *testing.T) {
   - key: "p"
     kind: ruki
     label: "Flag all as priority 1"
-    action: update where status = "backlog" set priority = 1
+    action: update where status = "backlog" set priority = "high"
 views:
   - name: Board
     kind: board
@@ -658,9 +658,9 @@ views:
 		if t2 == nil {
 			t.Fatalf("task %s missing after action", id)
 		}
-		priority, _, _ := t2.IntField("priority")
-		if priority != 1 {
-			t.Errorf("task %s priority = %d, want 1 (ruki global from wiki view)", id, priority)
+		priority, _, _ := t2.StringField("priority")
+		if priority != "high" {
+			t.Errorf("task %s priority = %q, want %q (ruki global from wiki view)", id, priority, "high")
 		}
 	}
 }

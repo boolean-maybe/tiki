@@ -123,7 +123,7 @@ func TestRecursiveLoad_NewTaskLandsAtDocRoot(t *testing.T) {
 	tk.Title = "new doc"
 	tk.Set("type", "story")
 	tk.Set("status", "backlog")
-	tk.Set("priority", 3)
+	tk.Set("priority", "medium")
 	if err := store.CreateTiki(tk); err != nil {
 		t.Fatalf("CreateTiki: %v", err)
 	}

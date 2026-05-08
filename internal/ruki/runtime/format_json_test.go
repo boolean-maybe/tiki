@@ -74,8 +74,9 @@ func TestJSONFormatterIntAndBool(t *testing.T) {
 	proj := &ruki.TikiProjection{
 		Fields: []string{"priority", "points", "active"},
 		Tikis: []*tiki.Tiki{tikiFromLegacy(legacyFields{
-			Priority: 3, Points: 8,
+			Points:       8,
 			CustomFields: map[string]interface{}{"active": true},
+			Priority:     "medium",
 		})},
 	}
 
@@ -87,9 +88,9 @@ func TestJSONFormatterIntAndBool(t *testing.T) {
 	if err := json.Unmarshal(bytes.TrimSpace(buf.Bytes()), &rows); err != nil {
 		t.Fatalf("invalid JSON: %v", err)
 	}
-	// JSON numbers decode to float64 through generic map
-	if n, _ := rows[0]["priority"].(float64); n != 3 {
-		t.Errorf("priority = %v, want 3", rows[0]["priority"])
+	// priority is now an enum-keyed string after Phase 3 conversion
+	if s, _ := rows[0]["priority"].(string); s != "medium" {
+		t.Errorf("priority = %v, want medium", rows[0]["priority"])
 	}
 	if n, _ := rows[0]["points"].(float64); n != 8 {
 		t.Errorf("points = %v, want 8", rows[0]["points"])

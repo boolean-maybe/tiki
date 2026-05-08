@@ -23,14 +23,16 @@ func tikiFromLegacy(f legacyFields) *tiki.Tiki {
 		tk.Set("createdBy", f.CreatedBy)
 	}
 
-	workflow := f.Status != "" || f.Type != "" || f.Priority != 0 || f.Points != 0 ||
+	workflow := f.Status != "" || f.Type != "" || f.Priority != "" || f.Points != 0 ||
 		f.Tags != nil || f.DependsOn != nil || !f.Due.IsZero() ||
 		f.Recurrence != "" || f.Assignee != ""
 
 	if workflow {
 		tk.Set(tiki.FieldStatus, f.Status)
 		tk.Set(tiki.FieldType, f.Type)
-		tk.Set(tiki.FieldPriority, f.Priority)
+		if f.Priority != "" {
+			tk.Set(tiki.FieldPriority, f.Priority)
+		}
 		tk.Set(tiki.FieldPoints, f.Points)
 		tk.Set(tiki.FieldAssignee, f.Assignee)
 		tk.Set(tiki.FieldDue, f.Due)
@@ -59,7 +61,7 @@ type legacyFields struct {
 	Description  string
 	Status       string
 	Type         string
-	Priority     int
+	Priority     string
 	Points       int
 	Tags         []string
 	DependsOn    []string

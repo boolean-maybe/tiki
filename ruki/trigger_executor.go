@@ -447,6 +447,10 @@ func (e *triggerExecOverride) evalFunctionCallOverride(fc *FunctionCall, ctx eva
 		return e.evalBlocksOverride(fc, ctx)
 	case "next_date":
 		return e.evalNextDateOverride(fc, ctx)
+	case "next_enum":
+		return e.evalEnumStepOverride(fc, ctx, +1)
+	case "prev_enum":
+		return e.evalEnumStepOverride(fc, ctx, -1)
 	case "has":
 		return e.evalHasOverride(fc, ctx)
 	default:
@@ -576,6 +580,20 @@ func (e *triggerExecOverride) evalNextDateOverride(fc *FunctionCall, ctx evalCon
 		return nil, fmt.Errorf("next_date() argument must be a recurrence value, got %T", val)
 	}
 	return task.NextOccurrence(rec), nil
+}
+
+// evalEnumStepOverride implements next_enum / prev_enum for trigger
+// contexts. The base executor's evalEnumStep delegates to its own
+// evalExpr, which rejects old./new. qualifiers — so a trigger rule like
+// `set priority = prev_enum(new.priority)` would silently land on a
+// boundary value (because evalEnumStep treated the qualifier-rejection
+// error as "absent field"). The override threads the override's own
+// evalExpr through evalEnumStepWithLookup so qualified refs resolve via
+// resolveQualifiedRef against the trigger's old/new tikis.
+func (e *triggerExecOverride) evalEnumStepOverride(fc *FunctionCall, ctx evalContext, direction int) (interface{}, error) {
+	return evalEnumStepWithLookup(e.schema, fc, direction, func(arg Expr) (interface{}, error) {
+		return e.evalExpr(arg, ctx)
+	})
 }
 
 // Execute overrides the base Executor to use our evalExpr/evalCondition.

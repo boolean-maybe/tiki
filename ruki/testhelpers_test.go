@@ -39,9 +39,6 @@ func tikiFromTask(t *task.Task) *tiki.Tiki {
 		if t.Type != "" {
 			tk.Set(tiki.FieldType, t.Type)
 		}
-		if t.Priority != 0 {
-			tk.Set(tiki.FieldPriority, t.Priority)
-		}
 		if t.Points != 0 {
 			tk.Set(tiki.FieldPoints, t.Points)
 		}
@@ -81,7 +78,7 @@ func tikiFromTask(t *task.Task) *tiki.Tiki {
 			tk.Set(tiki.FieldPoints, t.Points) // zero int
 		}
 		if !tk.Has(tiki.FieldPriority) {
-			tk.Set(tiki.FieldPriority, t.Priority) // zero int
+			tk.Set(tiki.FieldPriority, "") // explicit empty present
 		}
 	}
 	for k, v := range t.CustomFields {
@@ -94,7 +91,7 @@ func hasAnyWorkflowValue(t *task.Task) bool {
 	if t == nil {
 		return false
 	}
-	return t.Status != "" || t.Type != "" || t.Priority != 0 || t.Points != 0 ||
+	return t.Status != "" || t.Type != "" || t.Points != 0 ||
 		t.Tags != nil || t.DependsOn != nil || !t.Due.IsZero() ||
 		t.Recurrence != "" || t.Assignee != ""
 }
@@ -170,9 +167,9 @@ func tikiToTaskForTest(tk *tiki.Tiki) *task.Task {
 	if v, ok, _ := tk.StringField(tiki.FieldType); ok {
 		t.Type = v
 	}
-	if v, ok, _ := tk.IntField(tiki.FieldPriority); ok {
-		t.Priority = v
-	}
+	// priority lives in CustomFields after Phase 3 (it's a workflow enum
+	// rather than a Task struct field). Tests that need to read priority
+	// can pull it from raw.* tikis or CustomFields directly.
 	if v, ok, _ := tk.IntField(tiki.FieldPoints); ok {
 		t.Points = v
 	}

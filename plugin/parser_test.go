@@ -532,7 +532,7 @@ func TestParsePluginActions_RejectsExpressionStatement(t *testing.T) {
 	}{
 		{"count top-level", `count(select)`},
 		{"count with where", `count(select where status = "done")`},
-		{"exists top-level", `exists(select where priority = 1)`},
+		{"exists top-level", `exists(select where priority = "high")`},
 		{"now top-level", `now()`},
 	}
 	for _, tt := range tests {

@@ -19,7 +19,7 @@ func TestCreateTask_IDUniquenessChecksMap(t *testing.T) {
 	// seed a task loaded from a non-default path: id ABC123 occupies the
 	// identity slot, but ABC123.md does NOT exist under taskdir.
 	renamed := filepath.Join(dir, "renamed-file.md")
-	content := "---\nid: ABC123\ntitle: Loaded\ntype: story\nstatus: ready\npriority: 1\n---\nbody\n"
+	content := "---\nid: ABC123\ntitle: Loaded\ntype: story\nstatus: ready\npriority: high\n---\nbody\n"
 	if err := os.WriteFile(renamed, []byte(content), 0o644); err != nil {
 		t.Fatalf("write renamed: %v", err)
 	}

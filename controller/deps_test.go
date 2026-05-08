@@ -27,7 +27,7 @@ func newWorkflowTiki(id, title string, dependsOn []string) *tikipkg.Tiki {
 	tk.Title = title
 	tk.Set("status", "ready")
 	tk.Set("type", "story")
-	tk.Set("priority", 3)
+	tk.Set("priority", "medium")
 	if len(dependsOn) > 0 {
 		tk.Set(tikipkg.FieldDependsOn, dependsOn)
 	}

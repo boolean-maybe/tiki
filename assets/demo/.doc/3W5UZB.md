@@ -10,7 +10,7 @@ dependsOn:
     - 5LXO6Q
     - XAJI0Y
 assignee: mchen
-priority: 1
+priority: high
 points: 3
 ---
 Intermittent voltage spikes appear in logs when the ADC DMA transfer overlaps with the ISR reading the shared buffer. A double-buffer scheme or atomic swap is needed. This has caused two precautionary landings in field tests.

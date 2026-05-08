@@ -11,6 +11,7 @@ import (
 	"github.com/boolean-maybe/tiki/store"
 	"github.com/boolean-maybe/tiki/task"
 	tikipkg "github.com/boolean-maybe/tiki/tiki"
+	"github.com/boolean-maybe/tiki/workflow"
 )
 
 func init() {
@@ -300,8 +301,8 @@ func TestTaskController_SavePriority(t *testing.T) {
 	tests := []struct {
 		name         string
 		setupTask    func(*TaskController, store.Store)
-		priority     int
-		wantPriority int
+		priority     string
+		wantPriority string
 		wantSuccess  bool
 	}{
 		{
@@ -309,8 +310,8 @@ func TestTaskController_SavePriority(t *testing.T) {
 			setupTask: func(tc *TaskController, s store.Store) {
 				tc.SetDraft(newTestTiki())
 			},
-			priority:     1,
-			wantPriority: 1,
+			priority:     "high",
+			wantPriority: "high",
 			wantSuccess:  true,
 		},
 		{
@@ -320,24 +321,24 @@ func TestTaskController_SavePriority(t *testing.T) {
 				_ = s.CreateTiki(t)
 				tc.StartEditSession(t.ID)
 			},
-			priority:     5,
-			wantPriority: 5,
+			priority:     "low",
+			wantPriority: "low",
 			wantSuccess:  true,
 		},
 		{
-			name: "invalid priority - negative",
+			name: "invalid priority - unknown key",
 			setupTask: func(tc *TaskController, s store.Store) {
 				tc.SetDraft(newTestTiki())
 			},
-			priority:    -1,
+			priority:    "ultra-critical",
 			wantSuccess: false,
 		},
 		{
-			name: "invalid priority - too high",
+			name: "invalid priority - numeric leftover",
 			setupTask: func(tc *TaskController, s store.Store) {
 				tc.SetDraft(newTestTiki())
 			},
-			priority:    10,
+			priority:    "10",
 			wantSuccess: false,
 		},
 		{
@@ -345,7 +346,7 @@ func TestTaskController_SavePriority(t *testing.T) {
 			setupTask: func(tc *TaskController, s store.Store) {
 				// Don't set up any task
 			},
-			priority:    3,
+			priority:    "medium",
 			wantSuccess: false,
 		},
 	}
@@ -373,10 +374,78 @@ func TestTaskController_SavePriority(t *testing.T) {
 				} else if tc.editingTiki != nil {
 					activeTiki = tc.editingTiki
 				}
-				actualPriority, _, _ := activeTiki.IntField(tikipkg.FieldPriority)
+				actualPriority, _, _ := activeTiki.StringField(tikipkg.FieldPriority)
 				if actualPriority != tt.wantPriority {
 					t.Errorf("task.Priority = %v, want %v", actualPriority, tt.wantPriority)
 				}
+			}
+		})
+	}
+}
+
+// TestTaskController_SaveWorkflowEnum pins the path that custom workflow
+// enum fields (severity, environment, etc.) take when their SemanticEnum
+// editor commits a value. Without this method, custom enum edits would
+// have no save handler at all and the in-flight values would be dropped.
+func TestTaskController_SaveWorkflowEnum(t *testing.T) {
+	// Register a custom enum field for the duration of this test.
+	teststatuses.Init()
+	if err := teststatuses.InitWith([]workflow.FieldDef{
+		{
+			Name: "severity",
+			Type: workflow.TypeEnum,
+			EnumValues: []workflow.EnumValue{
+				{Value: "low"},
+				{Value: "medium", Default: true},
+				{Value: "high"},
+			},
+		},
+	}); err != nil {
+		t.Fatalf("register severity: %v", err)
+	}
+	t.Cleanup(teststatuses.Init)
+
+	tests := []struct {
+		name        string
+		field       string
+		value       string
+		wantSuccess bool
+		wantStored  string // empty means "should be deleted/absent"
+	}{
+		{"valid key", "severity", "high", true, "high"},
+		{"empty deletes", "severity", "", true, ""},
+		{"unknown key rejected", "severity", "bogus", false, ""},
+		{"non-enum field rejected", "points", "high", false, ""},
+		{"unregistered field rejected", "nonexistent", "any", false, ""},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			taskStore := store.NewInMemoryStore()
+			gate := service.NewTaskMutationGate()
+			gate.SetStore(taskStore)
+			navController := newMockNavigationController()
+			tc := NewTaskController(taskStore, gate, navController, nil)
+			tc.SetDraft(newTestTiki())
+			// Pre-seed the field so we can observe deletion when value=="".
+			tc.draftTiki.Set("severity", "low")
+
+			got := tc.SaveWorkflowEnum(tt.field, tt.value)
+			if got != tt.wantSuccess {
+				t.Errorf("SaveWorkflowEnum(%q,%q) = %v, want %v", tt.field, tt.value, got, tt.wantSuccess)
+			}
+			if !tt.wantSuccess {
+				return
+			}
+			if tt.wantStored == "" {
+				if tc.draftTiki.Has(tt.field) {
+					stored, _, _ := tc.draftTiki.StringField(tt.field)
+					t.Errorf("field %q still present with value %q after empty save", tt.field, stored)
+				}
+				return
+			}
+			stored, _, _ := tc.draftTiki.StringField(tt.field)
+			if stored != tt.wantStored {
+				t.Errorf("draftTiki.%s = %q, want %q", tt.field, stored, tt.wantStored)
 			}
 		})
 	}

@@ -239,12 +239,23 @@ func encodeFieldByType(fd workflow.FieldDef, value interface{}) ([]byte, error) 
 		sort.Strings(v)
 		return yaml.Marshal(map[string]interface{}{key: v})
 
-	case workflow.TypeDate, workflow.TypeTimestamp:
+	case workflow.TypeDate:
 		tv, ok := coerceTimeForYAML(value)
 		if !ok {
 			return yaml.Marshal(map[string]interface{}{key: value})
 		}
+		// DueValue.MarshalYAML emits date-only (YYYY-MM-DD), which is the
+		// correct shape for TypeDate fields.
 		return yaml.Marshal(map[string]interface{}{key: taskpkg.DueValue{Time: tv}})
+
+	case workflow.TypeTimestamp:
+		tv, ok := coerceTimeForYAML(value)
+		if !ok {
+			return yaml.Marshal(map[string]interface{}{key: value})
+		}
+		// Emit a full RFC3339 timestamp so the time component round-trips.
+		// Using DueValue here would silently truncate to YYYY-MM-DD.
+		return yaml.Marshal(map[string]interface{}{key: tv.UTC().Format(time.RFC3339)})
 
 	case workflow.TypeInt:
 		n, ok := coerceIntForYAML(value)

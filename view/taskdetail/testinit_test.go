@@ -16,6 +16,11 @@ func init() {
 
 // registerExtraWorkflowFieldForTest adds an enum field to the canonical
 // test catalog and returns a cleanup func that restores the canonical set.
+// The name parameter is currently always "severity" in callers, but kept
+// as a parameter so future tests with different custom enum names can
+// reuse the helper.
+//
+//nolint:unparam // name is intentionally configurable for future callers
 func registerExtraWorkflowFieldForTest(t *testing.T, name string, values []string) func() {
 	t.Helper()
 	enum := make([]workflow.EnumValue, len(values))
@@ -40,7 +45,7 @@ func newTestViewTiki(id string) *tikipkg.Tiki {
 	tk.Title = "Test Task"
 	tk.Set(tikipkg.FieldStatus, taskpkg.StatusReady)
 	tk.Set(tikipkg.FieldType, taskpkg.TypeStory)
-	tk.Set(tikipkg.FieldPriority, 3)
+	tk.Set(tikipkg.FieldPriority, "medium")
 	tk.Set(tikipkg.FieldPoints, 5)
 	tk.Set(tikipkg.FieldAssignee, "user@example.com")
 	tk.Set("createdBy", "creator@example.com")

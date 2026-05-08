@@ -61,8 +61,8 @@ func formatTikiAsMarkdown(tk *tikipkg.Tiki) string {
 	typeStr, _, _ := tk.StringField(tikipkg.FieldType)
 	fmt.Fprintf(&b, "**%s** · %s · %s", tk.ID, statusStr, typeStr)
 
-	if priority, _, _ := tk.IntField(tikipkg.FieldPriority); priority > 0 {
-		fmt.Fprintf(&b, " · P%d", priority)
+	if priority, _, _ := tk.StringField(tikipkg.FieldPriority); priority != "" {
+		fmt.Fprintf(&b, " · %s", priority)
 	}
 	b.WriteString("\n\n")
 	if tk.Body != "" {

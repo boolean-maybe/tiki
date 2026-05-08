@@ -39,7 +39,7 @@ func newTestTask() *tikipkg.Tiki {
 	tk.Title = "Test Task"
 	tk.Set(tikipkg.FieldStatus, "ready")
 	tk.Set(tikipkg.FieldType, "story")
-	tk.Set(tikipkg.FieldPriority, 3)
+	tk.Set(tikipkg.FieldPriority, "medium")
 	tk.Set(tikipkg.FieldPoints, 5)
 	return tk
 }

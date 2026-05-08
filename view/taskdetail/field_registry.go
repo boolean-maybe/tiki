@@ -24,16 +24,19 @@ import (
 type SemanticType string
 
 const (
-	SemanticStatus     SemanticType = "status"
-	SemanticType_      SemanticType = "type"
-	SemanticPriority   SemanticType = "priority"
+	// SemanticEnum is the unified renderer/editor for any TypeEnum field —
+	// status, type, priority, and any user-declared enums in workflow.yaml
+	// all route through it. The dedicated SemanticStatus/SemanticType_/
+	// SemanticPriority constants were removed once the generic editor proved
+	// equivalent: each had been a copy of the same select-list with a
+	// different hardcoded label.
+	SemanticEnum       SemanticType = "enum"
 	SemanticText       SemanticType = "text"
 	SemanticInteger    SemanticType = "integer"
 	SemanticBoolean    SemanticType = "boolean"
 	SemanticDate       SemanticType = "date"
 	SemanticDateTime   SemanticType = "datetime"
 	SemanticRecurrence SemanticType = "recurrence"
-	SemanticEnum       SemanticType = "enum"
 	SemanticStringList SemanticType = "string_list"
 	SemanticTaskIDList SemanticType = "task_id_list"
 )
@@ -140,7 +143,7 @@ func registerBuiltinFields() {
 	fieldRegistry[tikipkg.FieldStatus] = FieldDescriptor{
 		Name:            tikipkg.FieldStatus,
 		Label:           "Status",
-		Semantic:        SemanticStatus,
+		Semantic:        SemanticEnum,
 		EditField:       model.EditFieldStatus,
 		Get:             func(tk *tikipkg.Tiki) any { v, _, _ := tk.StringField(tikipkg.FieldStatus); return v },
 		EditTraversable: true,
@@ -148,7 +151,7 @@ func registerBuiltinFields() {
 	fieldRegistry[tikipkg.FieldType] = FieldDescriptor{
 		Name:            tikipkg.FieldType,
 		Label:           "Type",
-		Semantic:        SemanticType_,
+		Semantic:        SemanticEnum,
 		EditField:       model.EditFieldType,
 		Get:             func(tk *tikipkg.Tiki) any { v, _, _ := tk.StringField(tikipkg.FieldType); return v },
 		EditTraversable: true,
@@ -156,9 +159,9 @@ func registerBuiltinFields() {
 	fieldRegistry[tikipkg.FieldPriority] = FieldDescriptor{
 		Name:            tikipkg.FieldPriority,
 		Label:           "Priority",
-		Semantic:        SemanticPriority,
+		Semantic:        SemanticEnum,
 		EditField:       model.EditFieldPriority,
-		Get:             func(tk *tikipkg.Tiki) any { v, _, _ := tk.IntField(tikipkg.FieldPriority); return v },
+		Get:             func(tk *tikipkg.Tiki) any { v, _, _ := tk.StringField(tikipkg.FieldPriority); return v },
 		EditTraversable: true,
 	}
 	fieldRegistry[tikipkg.FieldPoints] = FieldDescriptor{
@@ -232,24 +235,6 @@ func registerBuiltinFields() {
 }
 
 func registerBuiltinTypes() {
-	typeRegistry[SemanticStatus] = TypeUI{
-		Render:     renderStatusValue,
-		Edit:       editStatusValue,
-		HeightFn:   singleRowHeight,
-		Capability: EditorImplemented,
-	}
-	typeRegistry[SemanticType_] = TypeUI{
-		Render:     renderTypeValue,
-		Edit:       editTypeValue,
-		HeightFn:   singleRowHeight,
-		Capability: EditorImplemented,
-	}
-	typeRegistry[SemanticPriority] = TypeUI{
-		Render:     renderPriorityValue,
-		Edit:       editPriorityValue,
-		HeightFn:   singleRowHeight,
-		Capability: EditorImplemented,
-	}
 	typeRegistry[SemanticText] = TypeUI{
 		Render:     renderTextValue,
 		Edit:       editAssigneeValue,
@@ -286,8 +271,9 @@ func registerBuiltinTypes() {
 	}
 	typeRegistry[SemanticEnum] = TypeUI{
 		Render:     renderEnumValue,
+		Edit:       editEnumValue,
 		HeightFn:   singleRowHeight,
-		Capability: EditorStub,
+		Capability: EditorImplemented,
 	}
 	typeRegistry[SemanticStringList] = TypeUI{
 		Render:     renderStringListValue,
@@ -344,6 +330,11 @@ func taskIDListHeight(tk *tikipkg.Tiki, _ int) int {
 // type registry to produce a primitive. Fields that exist in the workflow
 // catalog but not in the typed registry fall back to a generic catalog-
 // driven row that reads the value verbatim from the tiki's Fields map.
+//
+// Workflow-declared TypeEnum fields are routed to the SemanticEnum renderer
+// even when they don't have a built-in FieldDescriptor — so user-declared
+// enums (e.g. severity in bug-tracker.yaml) get the same display-with-emoji
+// rendering and focus-aware coloring as the canonical status/type/priority.
 func renderConfiguredField(name string, tk *tikipkg.Tiki, ctx FieldRenderContext) tview.Primitive {
 	if fd, ok := LookupField(name); ok {
 		ui, ok := LookupType(fd.Semantic)
@@ -353,6 +344,10 @@ func renderConfiguredField(name string, tk *tikipkg.Tiki, ctx FieldRenderContext
 		return ui.Render(tk, withFieldDescriptor(ctx, fd))
 	}
 	if wfd, ok := workflow.Field(name); ok {
+		if wfd.Type == workflow.TypeEnum {
+			ctx.FieldName = wfd.Name
+			return renderEnumValue(tk, ctx)
+		}
 		return renderGenericWorkflowField(wfd, tk, ctx)
 	}
 	return placeholderRow(fmt.Sprintf("%s: (unknown field)", name))
@@ -369,6 +364,9 @@ func renderGenericWorkflowField(fd workflow.FieldDef, tk *tikipkg.Tiki, ctx Fiel
 
 // genericFieldValueString formats a workflow field's value as a single-line
 // string, dispatching on declared type. Empty/absent values render as a dash.
+// User-controlled string values are escaped against tview's dynamic-color
+// markup; values that come from a controlled source (enum labels, formatted
+// times, parsed numbers) are passed through verbatim.
 func genericFieldValueString(fd workflow.FieldDef, tk *tikipkg.Tiki) string {
 	raw, ok := tk.Get(fd.Name)
 	if !ok {
@@ -380,7 +378,11 @@ func genericFieldValueString(fd workflow.FieldDef, tk *tikipkg.Tiki) string {
 		if len(ss) == 0 {
 			return "—"
 		}
-		return strings.Join(ss, ", ")
+		escaped := make([]string, len(ss))
+		for i, s := range ss {
+			escaped[i] = tview.Escape(s)
+		}
+		return strings.Join(escaped, ", ")
 	case workflow.TypeBool:
 		if b, ok := raw.(bool); ok {
 			if b {
@@ -393,13 +395,34 @@ func genericFieldValueString(fd workflow.FieldDef, tk *tikipkg.Tiki) string {
 			return fd.EnumDisplay(s)
 		}
 		return "—"
+	case workflow.TypeDate:
+		// Date-typed fields stay date-only (YYYY-MM-DD) regardless of
+		// whether the raw value is a time.Time with non-zero clock —
+		// the type contract is that date fields don't carry a clock.
+		if t, ok := raw.(time.Time); ok {
+			if t.IsZero() {
+				return "—"
+			}
+			return t.Format("2006-01-02")
+		}
+	case workflow.TypeTimestamp:
+		// Timestamp-typed fields preserve the time component — using the
+		// date-only format would silently drop hours/minutes from
+		// dueBy/createdAt/updatedAt-style fields, which are visibly
+		// truncated to "2026-05-08" instead of "2026-05-08 14:30".
+		if t, ok := raw.(time.Time); ok {
+			if t.IsZero() {
+				return "—"
+			}
+			return t.Format("2006-01-02 15:04")
+		}
 	}
 	switch v := raw.(type) {
 	case string:
 		if v == "" {
 			return "—"
 		}
-		return v
+		return tview.Escape(v)
 	case int:
 		return strconv.Itoa(v)
 	case int64:
@@ -407,12 +430,19 @@ func genericFieldValueString(fd workflow.FieldDef, tk *tikipkg.Tiki) string {
 	case float64:
 		return strconv.FormatFloat(v, 'g', -1, 64)
 	case time.Time:
+		// Untyped time.Time falls back to date-only — historical default.
+		// TypeDate / TypeTimestamp are handled by the typed switch above
+		// before reaching this branch.
 		if v.IsZero() {
 			return "—"
 		}
 		return v.Format("2006-01-02")
 	default:
-		return fmt.Sprintf("%v", v)
+		// User-controlled YAML can land arbitrarily-shaped values here
+		// (lists, maps with embedded strings, etc.). Escape against
+		// tview's dynamic-color markup so a value like "[red]hi" can't
+		// hijack the row's coloring once it lands in labeledLine.
+		return tview.Escape(fmt.Sprintf("%v", v))
 	}
 }
 
@@ -443,18 +473,6 @@ func labeledLine(label, value string, colors *config.ColorConfig) tview.Primitiv
 
 // --- semantic-type renderers ---
 
-func renderStatusValue(tk *tikipkg.Tiki, ctx FieldRenderContext) tview.Primitive {
-	return RenderStatusText(tk, ctx)
-}
-
-func renderTypeValue(tk *tikipkg.Tiki, ctx FieldRenderContext) tview.Primitive {
-	return RenderTypeText(tk, ctx)
-}
-
-func renderPriorityValue(tk *tikipkg.Tiki, ctx FieldRenderContext) tview.Primitive {
-	return RenderPriorityText(tk, ctx)
-}
-
 func renderTextValue(tk *tikipkg.Tiki, ctx FieldRenderContext) tview.Primitive {
 	fd, ok := LookupField(ctx.FieldName)
 	if !ok {
@@ -462,9 +480,13 @@ func renderTextValue(tk *tikipkg.Tiki, ctx FieldRenderContext) tview.Primitive {
 	}
 	value, _, _ := tk.StringField(fd.Name)
 	if value == "" {
-		value = textEmptyPlaceholder(fd.Name)
+		return labeledLine(fd.Label, textEmptyPlaceholder(fd.Name), ctx.Colors)
 	}
-	return labeledLine(fd.Label, value, ctx.Colors)
+	// labeledLine emits the value into a SetDynamicColors(true) TextView,
+	// so user-controlled text containing tview color tags (e.g. "[red]")
+	// would be parsed as markup. Escape user content; the empty-placeholder
+	// path above is internal and safe.
+	return labeledLine(fd.Label, tview.Escape(value), ctx.Colors)
 }
 
 func renderIntegerValue(tk *tikipkg.Tiki, ctx FieldRenderContext) tview.Primitive {
@@ -530,8 +552,112 @@ func renderRecurrenceValue(tk *tikipkg.Tiki, ctx FieldRenderContext) tview.Primi
 	return labeledLine("Recurrence", display, ctx.Colors)
 }
 
-func renderEnumValue(_ *tikipkg.Tiki, ctx FieldRenderContext) tview.Primitive {
-	return labeledLine("Enum", "(stub)", ctx.Colors)
+// renderEnumValue is the generic read-only renderer for any TypeEnum field.
+// It replaces the per-field renderStatus/renderType/renderPriority helpers:
+// look up the workflow descriptor, format the current value via EnumDisplay,
+// and apply the same focus-aware dim/full color treatment as the legacy
+// renderers so the visual contract is preserved when the focused field is
+// being shown read-only (i.e. edit mode but not the focused row).
+//
+// Works for both built-in fields (status/type/priority — which have a
+// FieldDescriptor in the static registry) and workflow-declared custom
+// enums (severity, environment, etc. — which only exist in the workflow
+// catalog). Static descriptor wins for label/EditField identity; falls
+// back to the field name and EditFieldNone for catalog-only fields.
+func renderEnumValue(tk *tikipkg.Tiki, ctx FieldRenderContext) tview.Primitive {
+	fd, hasFD := LookupField(ctx.FieldName)
+	wfd, hasWFD := workflow.Field(ctx.FieldName)
+	if !hasFD && !hasWFD {
+		return placeholderRow(fmt.Sprintf("%s: (unknown)", ctx.FieldName))
+	}
+	name := ctx.FieldName
+	label := name
+	var editField model.EditField // zero value = unset, never matches a real field
+	if hasFD {
+		label = fd.Label
+		editField = fd.EditField
+	}
+
+	value, _, _ := tk.StringField(name)
+	display := "─"
+	if value != "" {
+		// Enum labels (and the raw value fallback) are user-controlled
+		// via workflow.yaml. Escape against tview color-tag markup
+		// before interpolating into the SetDynamicColors TextView so a
+		// label like "[red]High[-]" renders literally instead of
+		// hijacking the row's coloring.
+		if hasWFD {
+			display = tview.Escape(wfd.EnumDisplay(value))
+		} else {
+			display = tview.Escape(value)
+		}
+	} else if name == tikipkg.FieldType {
+		// preserve legacy "(none)" placeholder color for missing type
+		display = ctx.Colors.TaskDetailPlaceholderColor.Tag().String() + "(none)[-]"
+	}
+
+	focused := ctx.Mode == RenderModeEdit && editField != "" && ctx.FocusedField == editField
+	labelTag := getDimOrFullColor(ctx.Mode, focused, ctx.Colors.TaskDetailLabelText, ctx.Colors.TaskDetailEditDimLabelColor).Tag().String()
+	valueTag := getDimOrFullColor(ctx.Mode, focused, ctx.Colors.TaskDetailValueText, ctx.Colors.TaskDetailEditDimValueColor).Tag().String()
+	focusMarker := ""
+	if focused && ctx.Mode == RenderModeEdit {
+		focusMarker = getFocusMarker(ctx.Colors)
+	}
+
+	text := fmt.Sprintf("%s%s%-10s%s%s", focusMarker, labelTag, label+":", valueTag, display)
+	textView := tview.NewTextView().SetDynamicColors(true).SetText(text)
+	textView.SetBorderPadding(0, 0, 0, 0)
+	return textView
+}
+
+// editEnumValue is the generic in-place editor for any TypeEnum field. It
+// builds a select-list of display strings (Label + Emoji) from the workflow's
+// AllowedValues, initializes to the current value's display, and emits the
+// canonical key (not the display string) on submit so downstream save handlers
+// don't need to round-trip display↔key conversion.
+//
+// Works for both built-in fields (status/type/priority — registered in the
+// static field registry) and workflow-declared custom enums (severity,
+// environment, etc. — present only in the workflow catalog). The workflow
+// FieldDef is the authoritative source for allowed values and display
+// formatting in either case.
+func editEnumValue(tk *tikipkg.Tiki, ctx FieldRenderContext, onChange func(string)) FieldEditorWidget {
+	wfd, ok := workflow.Field(ctx.FieldName)
+	if !ok || wfd.Type != workflow.TypeEnum {
+		return nil
+	}
+	label := ctx.FieldName
+	if fd, hasFD := LookupField(ctx.FieldName); hasFD {
+		label = fd.Label
+	}
+
+	keys := wfd.AllowedValues()
+	displays := make([]string, len(keys))
+	for i, k := range keys {
+		displays[i] = wfd.EnumDisplay(k)
+	}
+	currentKey, _, _ := tk.StringField(ctx.FieldName)
+	currentDisplay := wfd.EnumDisplay(currentKey)
+
+	editor := component.NewEditSelectList(displays, false)
+	editor.SetLabel(getFocusMarker(ctx.Colors) + fmt.Sprintf("%-10s", label+":"))
+	editor.SetInitialValue(currentDisplay)
+	editor.SetSubmitHandler(func(text string) {
+		if onChange == nil {
+			return
+		}
+		if key, ok := wfd.EnumParseDisplay(text); ok {
+			onChange(key)
+			return
+		}
+		// fallback: emit raw text so unknown values surface at the save
+		// boundary rather than being silently dropped.
+		onChange(text)
+	})
+	return &enumSelectAdapter{
+		selectListAdapter: selectListAdapter{EditSelectList: editor},
+		field:             wfd,
+	}
 }
 
 // renderStringListValue renders the tags column. Non-empty → multi-row
@@ -563,59 +689,6 @@ func renderTaskIDListValue(tk *tikipkg.Tiki, ctx FieldRenderContext) tview.Primi
 }
 
 // --- editor factories ---
-
-// editStatusValue builds the status editor.
-func editStatusValue(tk *tikipkg.Tiki, ctx FieldRenderContext, onChange func(string)) FieldEditorWidget {
-	allStatuses := taskpkg.AllStatuses()
-	options := make([]string, len(allStatuses))
-	for i, s := range allStatuses {
-		options[i] = taskpkg.StatusDisplay(s)
-	}
-	statusStr, _, _ := tk.StringField(tikipkg.FieldStatus)
-	editor := component.NewEditSelectList(options, false)
-	editor.SetLabel(getFocusMarker(ctx.Colors) + "Status:   ")
-	editor.SetInitialValue(taskpkg.StatusDisplay(statusStr))
-	editor.SetSubmitHandler(func(text string) {
-		if onChange != nil {
-			onChange(text)
-		}
-	})
-	return &selectListAdapter{EditSelectList: editor}
-}
-
-// editTypeValue builds the type editor.
-func editTypeValue(tk *tikipkg.Tiki, ctx FieldRenderContext, onChange func(string)) FieldEditorWidget {
-	allTypes := taskpkg.AllTypes()
-	options := make([]string, len(allTypes))
-	for i, t := range allTypes {
-		options[i] = taskpkg.TypeDisplay(t)
-	}
-	typeStr, _, _ := tk.StringField(tikipkg.FieldType)
-	editor := component.NewEditSelectList(options, false)
-	editor.SetLabel(getFocusMarker(ctx.Colors) + "Type:     ")
-	editor.SetInitialValue(taskpkg.TypeDisplay(typeStr))
-	editor.SetSubmitHandler(func(text string) {
-		if onChange != nil {
-			onChange(text)
-		}
-	})
-	return &selectListAdapter{EditSelectList: editor}
-}
-
-// editPriorityValue builds the priority editor.
-func editPriorityValue(tk *tikipkg.Tiki, ctx FieldRenderContext, onChange func(string)) FieldEditorWidget {
-	options := taskpkg.AllPriorityDisplayValues()
-	priority, _, _ := tk.IntField(tikipkg.FieldPriority)
-	editor := component.NewEditSelectList(options, false)
-	editor.SetLabel(getFocusMarker(ctx.Colors) + "Priority: ")
-	editor.SetInitialValue(taskpkg.PriorityDisplay(priority))
-	editor.SetSubmitHandler(func(text string) {
-		if onChange != nil {
-			onChange(text)
-		}
-	})
-	return &selectListAdapter{EditSelectList: editor}
-}
 
 // editAssigneeValue builds the assignee editor (free-text + suggestions).
 func editAssigneeValue(tk *tikipkg.Tiki, ctx FieldRenderContext, onChange func(string)) FieldEditorWidget {
@@ -726,34 +799,47 @@ func editTagsValue(tk *tikipkg.Tiki, ctx FieldRenderContext, onChange func(strin
 }
 
 // buildFieldEditor is a convenience that looks up the type registry and
-// returns the editor widget if the type supports editing.
+// returns the editor widget if the type supports editing. The ctx is
+// stamped with the field descriptor before invoking the editor factory so
+// generic factories (notably the SemanticEnum editor) can resolve their
+// target field via ctx.FieldName.
+//
+// Workflow-declared TypeEnum fields without a static FieldDescriptor go
+// through the SemanticEnum editor directly — same UX as the built-in
+// status/type/priority editors, but driven entirely by workflow.yaml.
 func buildFieldEditor(name string, tk *tikipkg.Tiki, ctx FieldRenderContext, onChange func(string)) FieldEditorWidget {
-	fd, ok := LookupField(name)
-	if !ok {
-		return nil
+	if fd, ok := LookupField(name); ok {
+		ui, ok := LookupType(fd.Semantic)
+		if !ok || ui.Capability != EditorImplemented || ui.Edit == nil {
+			return nil
+		}
+		return ui.Edit(tk, withFieldDescriptor(ctx, fd), onChange)
 	}
-	ui, ok := LookupType(fd.Semantic)
-	if !ok || ui.Capability != EditorImplemented || ui.Edit == nil {
-		return nil
+	if wfd, ok := workflow.Field(name); ok && wfd.Type == workflow.TypeEnum {
+		ctx.FieldName = name
+		return editEnumValue(tk, ctx, onChange)
 	}
-	return ui.Edit(tk, ctx, onChange)
+	return nil
 }
 
 // FieldHasEditor reports whether the named field has a registered, fully
-// implemented editor.
+// implemented editor. Returns true for both built-in editable fields and
+// workflow-declared custom enum fields.
 func FieldHasEditor(name string) bool {
-	fd, ok := LookupField(name)
-	if !ok {
-		return false
+	if fd, ok := LookupField(name); ok {
+		if fd.ReadOnly {
+			return false
+		}
+		ui, ok := LookupType(fd.Semantic)
+		if !ok {
+			return false
+		}
+		return ui.Capability == EditorImplemented && ui.Edit != nil
 	}
-	if fd.ReadOnly {
-		return false
+	if wfd, ok := workflow.Field(name); ok && wfd.Type == workflow.TypeEnum {
+		return true
 	}
-	ui, ok := LookupType(fd.Semantic)
-	if !ok {
-		return false
-	}
-	return ui.Capability == EditorImplemented && ui.Edit != nil
+	return false
 }
 
 // --- adapter widgets ---
@@ -762,6 +848,29 @@ func FieldHasEditor(name string) bool {
 // (specifically, to add CycleValue) without modifying the component itself.
 // Components are shared across the codebase; widening their public APIs to
 // support the in-grid editor protocol would force ripple changes elsewhere.
+
+// enumSelectAdapter wraps the generic select-list adapter for SemanticEnum
+// editors. The crucial difference: GetText() returns the *canonical key*
+// instead of the underlying input field's display string ("High 🔴"). The
+// flush path (FlushFocusedEditor) calls GetText() to produce a value for
+// the save handler — without this typed adapter, the handler would receive
+// the display string and the save would fail enum-key validation. Mirrors
+// how intEditAdapter.GetText() returns an int formatted as decimal rather
+// than whatever the underlying widget shows.
+type enumSelectAdapter struct {
+	selectListAdapter
+	field workflow.FieldDef
+}
+
+func (a *enumSelectAdapter) GetText() string {
+	display := a.selectListAdapter.GetText()
+	if key, ok := a.field.EnumParseDisplay(display); ok {
+		return key
+	}
+	// Unknown display — return as-is so the save handler can surface the
+	// validation error rather than the call silently no-op'ing.
+	return display
+}
 
 // selectListAdapter delegates CycleValue to MoveToNext/MoveToPrevious.
 type selectListAdapter struct {

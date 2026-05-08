@@ -39,9 +39,19 @@ fields:
       - value: epic
         label: Epic
         emoji: "🗂️"
+  # priority is declared in urgency-descending order (high → low). The
+  # high-to-low ordering matters: ruki's `<` / `>` use enumRank, so
+  # `priority < "medium"` finds tasks more urgent than medium. The
+  # `+`/`-` actions step through this list via prev_enum/next_enum
+  # (prev raises urgency, next lowers it).
   - name: priority
-    type: integer
-    default: 3
+    type: enum
+    values:
+      - {value: high, label: High, emoji: "🔴"}
+      - {value: medium-high, label: "Medium High", emoji: "🟠"}
+      - {value: medium, label: Medium, emoji: "🟡", default: true}
+      - {value: medium-low, label: "Medium Low", emoji: "🟢"}
+      - {value: low, label: Low, emoji: "🔵"}
   - name: points
     type: integer
     default: 1
@@ -78,13 +88,13 @@ actions:
     hot: false
   - key: "+"
     label: "Priority up"
-    action: update where id = id() set priority = priority - 1
+    action: update where id = id() set priority = prev_enum(priority)
   - key: "-"
     label: "Priority down"
-    action: update where id = id() set priority = priority + 1
+    action: update where id = id() set priority = next_enum(priority)
   - key: "u"
     label: "Flag urgent"
-    action: update where id = id() set priority=1 tags=tags+["urgent"]
+    action: update where id = id() set priority="high" tags=tags+["urgent"]
     hot: false
   - key: "A"
     label: "Assign to..."
@@ -166,13 +176,13 @@ views:
       - name: Next
         columns: 1
         width: 25
-        filter: select where type = "epic" and status = "backlog" and has(priority) and priority = 1 and has(points) order by priority, points desc
-        action: update where id = id() set status="backlog" priority=1
+        filter: select where type = "epic" and status = "backlog" and has(priority) and priority = "high" and has(points) order by priority, points desc
+        action: update where id = id() set status="backlog" priority="high"
       - name: Later
         columns: 2
         width: 50
-        filter: select where type = "epic" and status = "backlog" and has(priority) and priority > 1 and has(points) order by priority, points desc
-        action: update where id = id() set status="backlog" priority=2
+        filter: select where type = "epic" and status = "backlog" and has(priority) and priority > "high" and has(points) order by priority, points desc
+        action: update where id = id() set status="backlog" priority="medium-high"
     actions:
       - key: "l"
         label: "Add tiki to epic"

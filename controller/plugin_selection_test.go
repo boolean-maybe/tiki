@@ -16,20 +16,39 @@ import (
 )
 
 // seedTiki creates a workflow tiki with the given id/title/status/priority and
-// adds it to the store. Callers that need to seed data inline use this helper.
-func seedTiki(t *testing.T, s store.Store, id, title, status string, priority int) {
+// adds it to the store. priority is now a workflow-enum key — callers that
+// previously passed an int rank should pass the canonical key (e.g. "high").
+// The legacy int values map: 1=high, 2=medium-high, 3=medium, 4=medium-low,
+// 5=low; pass an empty string to omit the priority field entirely.
+func seedTiki(t *testing.T, s store.Store, id, title, status string, priorityRank int) {
 	t.Helper()
 	tk := tikipkg.New()
 	tk.ID = id
 	tk.Title = title
 	tk.Set("status", status)
 	tk.Set("type", "story")
-	if priority > 0 {
-		tk.Set("priority", priority)
+	if key := priorityRankToKey(priorityRank); key != "" {
+		tk.Set("priority", key)
 	}
 	if err := s.CreateTiki(tk); err != nil {
 		t.Fatalf("seedTiki %s: %v", id, err)
 	}
+}
+
+func priorityRankToKey(rank int) string {
+	switch rank {
+	case 1:
+		return "high"
+	case 2:
+		return "medium-high"
+	case 3:
+		return "medium"
+	case 4:
+		return "medium-low"
+	case 5:
+		return "low"
+	}
+	return ""
 }
 
 // mustParseStmt is a test helper that parses and validates a ruki statement,
@@ -752,7 +771,7 @@ func TestPluginController_HandlePluginAction_Create(t *testing.T) {
 	taskStore := store.NewInMemoryStore()
 
 	readyFilter := mustParseStmt(t, `select where status = "ready"`)
-	createAction := mustParseStmt(t, `create title="New Task" status="ready" type="story" priority=3`)
+	createAction := mustParseStmt(t, `create title="New Task" status="ready" type="story" priority="medium"`)
 
 	pluginDef := &plugin.TikiPlugin{
 		BasePlugin: plugin.BasePlugin{Name: "TestPlugin"},

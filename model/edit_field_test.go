@@ -4,7 +4,9 @@ import (
 	"reflect"
 	"testing"
 
+	"github.com/boolean-maybe/tiki/internal/teststatuses"
 	tikipkg "github.com/boolean-maybe/tiki/tiki"
+	"github.com/boolean-maybe/tiki/workflow"
 )
 
 func TestNextField(t *testing.T) {
@@ -250,6 +252,33 @@ func TestMetadataToEditFieldOrder(t *testing.T) {
 				t.Errorf("MetadataToEditFieldOrder(%v) = %v, want %v", tt.metadata, got, tt.expected)
 			}
 		})
+	}
+}
+
+// TestMetadataToEditFieldOrder_WorkflowEnums pins that workflow-declared
+// enum fields without a static EditField constant participate in the
+// navigation order using their field name as the EditField identity.
+// Without this, custom enums like severity or environment never reached
+// the focused-editor path in the full TaskEditView.
+func TestMetadataToEditFieldOrder_WorkflowEnums(t *testing.T) {
+	if err := teststatuses.InitWith([]workflow.FieldDef{
+		{
+			Name:       "severity",
+			Type:       workflow.TypeEnum,
+			EnumValues: []workflow.EnumValue{{Value: "low"}, {Value: "high"}},
+		},
+		{Name: "score", Type: workflow.TypeInt},
+	}); err != nil {
+		t.Fatalf("register: %v", err)
+	}
+	t.Cleanup(teststatuses.Init)
+
+	got := MetadataToEditFieldOrder([]string{
+		tikipkg.FieldStatus, "severity", "score", tikipkg.FieldPriority,
+	})
+	want := []EditField{EditFieldStatus, EditField("severity"), EditFieldPriority}
+	if !reflect.DeepEqual(got, want) {
+		t.Errorf("MetadataToEditFieldOrder = %v, want %v (severity should appear; score is non-enum and should be skipped)", got, want)
 	}
 }
 

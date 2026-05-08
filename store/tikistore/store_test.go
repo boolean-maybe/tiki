@@ -26,35 +26,29 @@ func makeTikiMap(tikis ...*tikipkg.Tiki) map[string]*tikipkg.Tiki {
 }
 
 func TestSortTasks(t *testing.T) {
+	// task.Sort no longer sorts by priority — that ordering moved to ruki
+	// (`order by priority`) once priority became a workflow enum. The
+	// remaining contract is alphabetical title with ID as a stable tiebreak.
 	tests := []struct {
 		name     string
 		tasks    []*taskpkg.Task
 		expected []string // expected order of IDs
 	}{
 		{
-			name: "sort by priority first, then title",
+			name: "alphabetical by title",
 			tasks: []*taskpkg.Task{
-				{ID: "ABC123", Title: "Zebra Task", Priority: 2},
-				{ID: "DEF456", Title: "Alpha Task", Priority: 1},
-				{ID: "GHI789", Title: "Beta Task", Priority: 1},
-			},
-			expected: []string{"DEF456", "GHI789", "ABC123"}, // Alpha, Beta (both P1), then Zebra (P2)
-		},
-		{
-			name: "same priority - alphabetical by title",
-			tasks: []*taskpkg.Task{
-				{ID: "ABC10Z", Title: "Zebra", Priority: 3},
-				{ID: "ABC2ZZ", Title: "Apple", Priority: 3},
-				{ID: "ABC1ZZ", Title: "Mango", Priority: 3},
+				{ID: "ABC10Z", Title: "Zebra"},
+				{ID: "ABC2ZZ", Title: "Apple"},
+				{ID: "ABC1ZZ", Title: "Mango"},
 			},
 			expected: []string{"ABC2ZZ", "ABC1ZZ", "ABC10Z"}, // Apple, Mango, Zebra
 		},
 		{
-			name: "same priority and title - tiebreak by ID",
+			name: "same title - tiebreak by ID",
 			tasks: []*taskpkg.Task{
-				{ID: "CCC333", Title: "Same", Priority: 2},
-				{ID: "AAA111", Title: "Same", Priority: 2},
-				{ID: "BBB222", Title: "Same", Priority: 2},
+				{ID: "CCC333", Title: "Same"},
+				{ID: "AAA111", Title: "Same"},
+				{ID: "BBB222", Title: "Same"},
 			},
 			expected: []string{"AAA111", "BBB222", "CCC333"},
 		},
@@ -66,7 +60,7 @@ func TestSortTasks(t *testing.T) {
 		{
 			name: "single task",
 			tasks: []*taskpkg.Task{
-				{ID: "ABC1ZZ", Title: "Only Task", Priority: 3},
+				{ID: "ABC1ZZ", Title: "Only Task"},
 			},
 			expected: []string{"ABC1ZZ"},
 		},
@@ -90,7 +84,7 @@ func TestSortTasks(t *testing.T) {
 }
 
 func TestSearchTikis_MatchesID(t *testing.T) {
-	mkWF := func(id, title, status string, priority int) *tikipkg.Tiki {
+	mkWF := func(id, title, status, priority string) *tikipkg.Tiki {
 		tk := tikipkg.New()
 		tk.ID = id
 		tk.Title = title
@@ -100,8 +94,8 @@ func TestSearchTikis_MatchesID(t *testing.T) {
 	}
 	store := &TikiStore{
 		tikis: makeTikiMap(
-			mkWF("ABC123", "Unrelated Title", "backlog", 1),
-			mkWF("DEF456", "Another Title", "ready", 2),
+			mkWF("ABC123", "Unrelated Title", "backlog", "high"),
+			mkWF("DEF456", "Another Title", "ready", "medium-high"),
 		),
 	}
 
@@ -115,7 +109,7 @@ func TestSearchTikis_MatchesID(t *testing.T) {
 }
 
 func TestSearchTikis_MatchesBody(t *testing.T) {
-	mkWF := func(id, title, body, status string, priority int) *tikipkg.Tiki {
+	mkWF := func(id, title, body, status, priority string) *tikipkg.Tiki {
 		tk := tikipkg.New()
 		tk.ID = id
 		tk.Title = title
@@ -127,9 +121,9 @@ func TestSearchTikis_MatchesBody(t *testing.T) {
 	// Description maps to Body in tiki model.
 	store := &TikiStore{
 		tikis: makeTikiMap(
-			mkWF("AAA111", "Alpha Task", "Contains the keyword needle", "backlog", 2),
-			mkWF("BBB222", "Beta Task", "No match here", "ready", 1),
-			mkWF("CCC333", "Gamma Task", "Another needle appears", "review", 3),
+			mkWF("AAA111", "Alpha Task", "Contains the keyword needle", "backlog", "medium-high"),
+			mkWF("BBB222", "Beta Task", "No match here", "ready", "high"),
+			mkWF("CCC333", "Gamma Task", "Another needle appears", "review", "medium"),
 		),
 	}
 
@@ -795,7 +789,7 @@ func TestSaveTask_Recurrence(t *testing.T) {
 			tk.Title = "Test Save Recurrence"
 			tk.Set("type", taskpkg.TypeStory)
 			tk.Set("status", "backlog")
-			tk.Set("priority", 3)
+			tk.Set("priority", "medium")
 			tk.Body = "Test description"
 			if tt.recurrence != taskpkg.RecurrenceNone {
 				tk.Set(tikipkg.FieldRecurrence, string(tt.recurrence))
@@ -911,7 +905,7 @@ func TestMatchesTikiQuery(t *testing.T) {
 }
 
 func TestSearchTikis_WithFilterFunc(t *testing.T) {
-	mkTiki := func(id, title string, priority int) *tikipkg.Tiki {
+	mkTiki := func(id, title, priority string) *tikipkg.Tiki {
 		tk := tikipkg.New()
 		tk.ID = id
 		tk.Title = title
@@ -921,9 +915,9 @@ func TestSearchTikis_WithFilterFunc(t *testing.T) {
 	buildStore := func() *TikiStore {
 		return &TikiStore{
 			tikis: makeTikiMap(
-				mkTiki("F00001", "Alpha", 1),
-				mkTiki("F00002", "Beta", 2),
-				mkTiki("F00003", "Gamma", 3),
+				mkTiki("F00001", "Alpha", "high"),
+				mkTiki("F00002", "Beta", "medium-high"),
+				mkTiki("F00003", "Gamma", "medium"),
 			),
 		}
 	}
@@ -1018,7 +1012,7 @@ func TestSaveTask_Due(t *testing.T) {
 			tk.Title = "Test Save"
 			tk.Set("type", taskpkg.TypeStory)
 			tk.Set("status", "backlog")
-			tk.Set("priority", 3)
+			tk.Set("priority", "medium")
 			tk.Body = "Test description"
 			if !dueTime.IsZero() {
 				tk.Set(tikipkg.FieldDue, dueTime)
@@ -1084,7 +1078,7 @@ func TestCustomFieldRoundTrip(t *testing.T) {
 	original.Title = "Custom field test"
 	original.Set(tikipkg.FieldStatus, taskpkg.StatusReady)
 	original.Set(tikipkg.FieldType, "story")
-	original.Set(tikipkg.FieldPriority, 2)
+	original.Set(tikipkg.FieldPriority, "medium-high")
 	original.Set("severity", "high")
 	original.Set("score", 42)
 	original.Set("active", true)
@@ -1124,9 +1118,9 @@ func TestCustomFieldRoundTrip(t *testing.T) {
 	if loaded.Title != "Custom field test" {
 		t.Errorf("title = %q, want %q", loaded.Title, "Custom field test")
 	}
-	priority, _, _ := loaded.IntField(tikipkg.FieldPriority)
-	if priority != 2 {
-		t.Errorf("priority = %d, want 2", priority)
+	priority, _, _ := loaded.StringField(tikipkg.FieldPriority)
+	if priority != "medium-high" {
+		t.Errorf("priority = %q, want %q", priority, "medium-high")
 	}
 }
 
@@ -1223,7 +1217,7 @@ func TestCustomFieldRoundTrip_AmbiguousStrings(t *testing.T) {
 			original.Title = "Ambiguous round-trip"
 			original.Set(tikipkg.FieldStatus, taskpkg.StatusReady)
 			original.Set(tikipkg.FieldType, "story")
-			original.Set(tikipkg.FieldPriority, 2)
+			original.Set(tikipkg.FieldPriority, "medium-high")
 			for k, v := range tt.fields {
 				original.Set(k, v)
 			}
@@ -1239,6 +1233,50 @@ func TestCustomFieldRoundTrip_AmbiguousStrings(t *testing.T) {
 			}
 			tt.check(t, loaded.Fields)
 		})
+	}
+}
+
+// TestSaveTask_TimestampFieldKeepsTimeComponent pins the contract that a
+// workflow field declared as TypeTimestamp (e.g. `dueBy: type: datetime`)
+// preserves its time component on save. The previous code routed both
+// TypeDate and TypeTimestamp through DueValue.MarshalYAML, which formats
+// only YYYY-MM-DD — silently truncating any non-midnight timestamp.
+func TestSaveTask_TimestampFieldKeepsTimeComponent(t *testing.T) {
+	config.MarkWorkflowFieldsLoadedForTest()
+	t.Cleanup(teststatuses.Init)
+
+	if err := teststatuses.InitWith([]workflow.FieldDef{
+		{Name: "dueBy", Type: workflow.TypeTimestamp},
+	}); err != nil {
+		t.Fatalf("register: %v", err)
+	}
+
+	tmpDir := t.TempDir()
+	store, err := NewTikiStore(tmpDir)
+	if err != nil {
+		t.Fatalf("NewTikiStore: %v", err)
+	}
+
+	want := time.Date(2026, 5, 8, 14, 30, 45, 0, time.UTC)
+
+	original := tikipkg.New()
+	original.ID = "TS0001"
+	original.Title = "timestamp roundtrip"
+	original.Set(tikipkg.FieldStatus, taskpkg.StatusReady)
+	original.Set(tikipkg.FieldType, "story")
+	original.Set("dueBy", want)
+
+	if err := store.saveTiki(original); err != nil {
+		t.Fatalf("saveTiki: %v", err)
+	}
+
+	loaded, err := store.loadTikiFile(store.taskFilePath(original.ID), nil, nil)
+	if err != nil {
+		t.Fatalf("loadTikiFile: %v", err)
+	}
+	got, _, _ := loaded.TimeField("dueBy")
+	if !got.Equal(want) {
+		t.Errorf("dueBy round-trip = %v, want %v (time component dropped?)", got, want)
 	}
 }
 
@@ -1297,7 +1335,7 @@ id: STALE1
 title: Stale field test
 type: story
 status: ready
-priority: 2
+priority: medium-high
 severity: high
 old_field: leftover_value
 ---
@@ -1386,7 +1424,7 @@ id: STALE2
 title: Task with stale enum
 type: story
 status: ready
-priority: 2
+priority: medium-high
 severity: critical
 ---
 Description`
@@ -1522,7 +1560,7 @@ func TestSaveTask_PreservesUnknownFields(t *testing.T) {
 	}
 
 	// write a file with a known custom field and an unknown field
-	content := "---\nid: ROUND1\ntitle: Roundtrip test\ntype: story\nstatus: ready\npriority: 2\npoints: 3\nseverity: high\nold_field: leftover\n---\nBody text"
+	content := "---\nid: ROUND1\ntitle: Roundtrip test\ntype: story\nstatus: ready\npriority: medium-high\npoints: 3\nseverity: high\nold_field: leftover\n---\nBody text"
 	filePath := filepath.Join(tmpDir, "ROUND1.md")
 	if err := os.WriteFile(filePath, []byte(content), 0644); err != nil {
 		t.Fatalf("write file: %v", err)
@@ -1563,7 +1601,7 @@ func TestSaveTask_DedupesBuiltInCollections(t *testing.T) {
 	input.Title = "dedupe built-ins"
 	input.Set(tikipkg.FieldType, taskpkg.TypeStory)
 	input.Set(tikipkg.FieldStatus, taskpkg.StatusBacklog)
-	input.Set(tikipkg.FieldPriority, 3)
+	input.Set(tikipkg.FieldPriority, "medium")
 	input.Set(tikipkg.FieldTags, []string{"frontend", "backend", "frontend", " backend "})
 	input.Set(tikipkg.FieldDependsOn, []string{"aaa001", "AAA001", " BBB002 "})
 	input.Body = "body"
@@ -1610,7 +1648,7 @@ func TestSaveTask_DedupesCustomListFields(t *testing.T) {
 	input.Title = "dedupe custom"
 	input.Set(tikipkg.FieldType, taskpkg.TypeStory)
 	input.Set(tikipkg.FieldStatus, taskpkg.StatusBacklog)
-	input.Set(tikipkg.FieldPriority, 3)
+	input.Set(tikipkg.FieldPriority, "medium")
 	input.Set("labels", []string{"backend", "backend", " frontend ", ""})
 	input.Set("related", []string{"aaa001", "AAA001", "bbb002"})
 
@@ -1698,7 +1736,7 @@ id: FP0003
 title: Stale filepath
 type: story
 status: backlog
-priority: 3
+priority: medium
 filepath: /stale/path/FP0003.md
 ---
 body`
@@ -1751,7 +1789,7 @@ func TestSaveTask_FilePathRefreshedAndNotSerialized(t *testing.T) {
 	tk.Title = "Save Filepath Test"
 	tk.Set("type", "story")
 	tk.Set("status", "backlog")
-	tk.Set("priority", 3)
+	tk.Set("priority", "medium")
 	if err := store.CreateTiki(tk); err != nil {
 		t.Fatalf("CreateTiki: %v", err)
 	}

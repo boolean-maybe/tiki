@@ -9,7 +9,7 @@ tags:
 dependsOn:
   - 65KXVF
 assignee: "jnakamura"
-priority: 2
+priority: medium-high
 points: 8
 ---
 

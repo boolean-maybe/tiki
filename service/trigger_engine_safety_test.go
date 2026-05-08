@@ -30,7 +30,7 @@ func TestTriggerEngine_ValidatedOnlyBeforeEntryDenies(t *testing.T) {
 		Fields: map[string]interface{}{
 			tikipkg.FieldStatus:   "ready",
 			tikipkg.FieldType:     "story",
-			tikipkg.FieldPriority: 3,
+			tikipkg.FieldPriority: "medium",
 		},
 	})
 	if err == nil {
@@ -56,7 +56,7 @@ func TestTriggerEngine_EmptyEventEntryIsSkipped(t *testing.T) {
 		Fields: map[string]interface{}{
 			tikipkg.FieldStatus:   "ready",
 			tikipkg.FieldType:     "story",
-			tikipkg.FieldPriority: 3,
+			tikipkg.FieldPriority: "medium",
 		},
 	})
 	if err != nil {
@@ -66,7 +66,7 @@ func TestTriggerEngine_EmptyEventEntryIsSkipped(t *testing.T) {
 
 func TestTriggerEngine_ValidatedOnlyTimeEntryExecutes(t *testing.T) {
 	p := ruki.NewParser(testTriggerSchema{})
-	validated, err := p.ParseAndValidateTimeTrigger(`every 1day create title="from validated time trigger" priority=3 status="ready" type="story"`, ruki.ExecutorRuntimeTimeTrigger)
+	validated, err := p.ParseAndValidateTimeTrigger(`every 1day create title="from validated time trigger" priority="medium" status="ready" type="story"`, ruki.ExecutorRuntimeTimeTrigger)
 	if err != nil {
 		t.Fatalf("validate: %v", err)
 	}

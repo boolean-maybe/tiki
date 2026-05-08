@@ -10,7 +10,7 @@ dependsOn:
   - 8MDD4V
 due: 2026-06-01
 assignee: "rvolkov"
-priority: 1
+priority: high
 points: 5
 ---
 

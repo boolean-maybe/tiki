@@ -24,7 +24,6 @@ func TestClone_FullTask(t *testing.T) {
 		Due:         time.Date(2025, 6, 15, 0, 0, 0, 0, time.UTC),
 		Recurrence:  RecurrenceDaily,
 		Assignee:    "alice",
-		Priority:    2,
 		Points:      5,
 		Comments:    []Comment{{ID: "c1", Author: "bob", Text: "hello"}},
 		CreatedBy:   "alice",
@@ -41,9 +40,6 @@ func TestClone_FullTask(t *testing.T) {
 	}
 	if clone.Title != original.Title {
 		t.Errorf("Title = %q, want %q", clone.Title, original.Title)
-	}
-	if clone.Priority != original.Priority {
-		t.Errorf("Priority = %d, want %d", clone.Priority, original.Priority)
 	}
 	if clone.Points != original.Points {
 		t.Errorf("Points = %d, want %d", clone.Points, original.Points)

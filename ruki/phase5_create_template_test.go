@@ -24,11 +24,11 @@ func TestPhase5_Create_TemplateDefaultsSurvive(t *testing.T) {
 		ID:         "NEWDOC",
 		Status:     "backlog",
 		Type:       "story",
-		Priority:   3,
 		Points:     1,
 		Tags:       []string{"idea"},
 		IsWorkflow: true,
 	})
+	template.Set("priority", "medium")
 
 	stmt, err := p.ParseStatement(`create title="x" status="ready"`)
 	if err != nil {
@@ -49,8 +49,8 @@ func TestPhase5_Create_TemplateDefaultsSurvive(t *testing.T) {
 	if got, _ := created.Get(tiki.FieldType); got != "story" {
 		t.Errorf("type = %v, want story (template default)", got)
 	}
-	if got, _ := created.Get(tiki.FieldPriority); got != 3 {
-		t.Errorf("priority = %v, want 3 (template default)", got)
+	if got, _ := created.Get(tiki.FieldPriority); got != "medium" {
+		t.Errorf("priority = %v, want medium (template default)", got)
 	}
 	if got, _ := created.Get(tiki.FieldPoints); got != 1 {
 		t.Errorf("points = %v, want 1 (template default)", got)

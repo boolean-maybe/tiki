@@ -9,9 +9,9 @@ First line becomes the title. Everything after becomes the description.
 The active workflow decides which fields the captured tiki carries. Every workflow field declared
 in `workflow.yaml fields:` that carries a default contributes one frontmatter key on capture:
 
-- Enum fields apply the value marked `default: true` (typically `status: backlog`, `type: story`).
-- Non-enum fields apply their declared `default:` value (e.g. `priority: 3`, `points: 1`,
-  `tags: ["idea"]`).
+- Enum fields apply the value marked `default: true` (typically `status: backlog`, `type: story`,
+  `priority: medium`).
+- Non-enum fields apply their declared `default:` value (e.g. `points: 1`, `tags: ["idea"]`).
 - Fields with no declared default are absent from the captured frontmatter — the tiki only carries
   what the workflow asked for.
 

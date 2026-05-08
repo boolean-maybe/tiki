@@ -3,7 +3,7 @@ id: XXXXXX
 title: Organize knowledge base
 type: epic
 status: backlog
-priority: 1
+priority: high
 points: 2
 tags:
   - documentation

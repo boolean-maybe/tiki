@@ -25,7 +25,7 @@ select
 Select with a basic filter:
 
 ```sql
-select where status = "done" and priority <= 2
+select where status = "done" and priority <= "medium-high"
 ```
 
 Select specific fields:
@@ -33,7 +33,7 @@ Select specific fields:
 ```sql
 select title, status
 select id, title where status = "done"
-select * where priority <= 2
+select * where priority <= "medium-high"
 select title, status where "bug" in tags order by priority
 ```
 
@@ -56,7 +56,7 @@ select id, title order by priority limit 2 | clipboard()
 Create a tiki:
 
 ```sql
-create title="Fix login" priority=2 status="ready" tags=["bug"]
+create title="Fix login" priority="medium-high" status="ready" tags=["bug"]
 ```
 
 Update matching tikis:
@@ -101,7 +101,7 @@ select where dependsOn all status = "done"
 Boolean grouping:
 
 ```sql
-select where not (status = "done" or priority = 1)
+select where not (status = "done" or priority = "high")
 ```
 
 ## Functions and dates
@@ -188,7 +188,7 @@ deny "cannot complete tiki with open dependencies"
 Require a description for high-priority work:
 
 ```sql
-before update where new.priority <= 2 and new.description is empty deny "high priority tikis need a description"
+before update where new.priority <= "medium-high" and new.description is empty deny "high priority tikis need a description"
 ```
 
 Limit how many in-progress tikis someone can have:
@@ -204,7 +204,7 @@ deny "WIP limit reached for this assignee"
 Auto-assign urgent new work:
 
 ```sql
-after create where new.priority <= 2 and new.assignee is empty update where id = new.id set assignee="booleanmaybe"
+after create where new.priority <= "medium-high" and new.assignee is empty update where id = new.id set assignee="booleanmaybe"
 ```
 
 Create the next recurring tiki:
@@ -250,7 +250,7 @@ every 1day delete where status = "done" and updatedAt < now() - 30day
 Create a weekly review task:
 
 ```sql
-every 1week create title="weekly review" status="ready" priority=3
+every 1week create title="weekly review" status="ready" priority="medium"
 ```
 
 ## Invalid examples

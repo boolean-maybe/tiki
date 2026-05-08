@@ -11,7 +11,7 @@ dependsOn:
     - I64CIY
     - XAJI0Y
 assignee: jnakamura
-priority: 3
+priority: medium
 points: 3
 ---
 We shipped three breaking changes in the last quarter without a deprecation window. This spike documents a versioning scheme using URL path prefixes and a minimum 90-day sunset period for any breaking change.

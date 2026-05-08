@@ -8,7 +8,7 @@ tags:
   - safety
 due: 2026-05-30
 assignee: "akowalski"
-priority: 1
+priority: high
 points: 8
 ---
 

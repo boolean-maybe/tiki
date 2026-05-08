@@ -37,7 +37,7 @@ func TestFieldMapRoundTrip_ExactPresenceAcrossSaveLoad(t *testing.T) {
 	// adds one on write and parsing strips it on load.
 	tk.Body = "body content"
 	tk.Set(tikipkg.FieldStatus, "backlog")
-	tk.Set(tikipkg.FieldPriority, 2)
+	tk.Set(tikipkg.FieldPriority, "medium-high")
 	tk.Set(tikipkg.FieldDependsOn, []string{"DEP001"})
 	tk.Set(tikipkg.FieldTags, []string{"alpha", "beta"})
 
@@ -104,8 +104,8 @@ func TestFieldMapRoundTrip_ExactPresenceAcrossSaveLoad(t *testing.T) {
 	if status, _, _ := got.StringField(tikipkg.FieldStatus); status != "backlog" {
 		t.Errorf("status drift: %q", status)
 	}
-	if pri, _, _ := got.IntField(tikipkg.FieldPriority); pri != 2 {
-		t.Errorf("priority drift: %d", pri)
+	if pri, _, _ := got.StringField(tikipkg.FieldPriority); pri != "medium-high" {
+		t.Errorf("priority drift: %q", pri)
 	}
 	deps, _, _ := got.StringSliceField(tikipkg.FieldDependsOn)
 	sort.Strings(deps)

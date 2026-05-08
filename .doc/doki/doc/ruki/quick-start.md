@@ -42,7 +42,7 @@ The simplest way to read `ruki` is:
 select
 select title, status
 select id, title where status = "done"
-select where "bug" in tags and priority <= 2
+select where "bug" in tags and priority <= "medium-high"
 select where status != "done" order by priority limit 3
 ```
 
@@ -50,7 +50,7 @@ select where status != "done" order by priority limit 3
 
 ```sql
 create title="Fix login"
-create title="Fix login" priority=2 status="ready" tags=["bug"]
+create title="Fix login" priority="medium-high" status="ready" tags=["bug"]
 ```
 
 `update` always has a `where` clause and a `set` clause:
@@ -81,7 +81,7 @@ A bare expression runs as a top-level statement that returns a single scalar (or
 
 ```sh
 tiki exec 'count(select where status != "done")'
-tiki exec 'exists(select where priority = 1)'
+tiki exec 'exists(select where priority = "high")'
 tiki exec 'now()'
 ```
 
@@ -101,7 +101,7 @@ See [Command line options](../command-line.md#exec) for the full list of JSON ou
 
 Conditions support:
 
-- comparisons such as `status = "done"` or `priority <= 2`
+- comparisons such as `status = "done"` or `priority <= "medium-high"`
 - emptiness checks such as `assignee is empty`
 - membership checks such as `"bug" in tags`
 - quantifiers over `list<ref>` values such as `dependsOn any status != "done"`
@@ -110,11 +110,11 @@ Conditions support:
 Examples:
 
 ```sql
-select where status = "done" and priority <= 2
+select where status = "done" and priority <= "medium-high"
 select where assignee is empty
 select where status not in ["done", "cancelled"]
 select where dependsOn all status = "done"
-select where not (status = "done" or priority = 1)
+select where not (status = "done" or priority = "high")
 ```
 
 Expressions include literals, field references, built-in calls, list literals, subqueries for `count(...)`,
@@ -137,13 +137,13 @@ Triggers add timing and event context around the same condition language.
 ```sql
 before update where new.status = "done" and dependsOn any status != "done"
 deny "cannot complete tiki with open dependencies"
-before delete where old.priority <= 2 deny "cannot delete high priority tikis"
+before delete where old.priority <= "medium-high" deny "cannot delete high priority tikis"
 ```
 
 `after` triggers can perform an action:
 
 ```sql
-after create where new.priority <= 2 and new.assignee is empty
+after create where new.priority <= "medium-high" and new.assignee is empty
 update where id = new.id set assignee="booleanmaybe"
 after update where new.status = "done" and old.recurrence is not empty
 create title=old.title priority=old.priority tags=old.tags recurrence=old.recurrence

@@ -9,7 +9,7 @@ tags:
 dependsOn:
   - 6DPBHS
 assignee: "jnakamura"
-priority: 2
+priority: medium-high
 points: 5
 ---
 

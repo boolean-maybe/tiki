@@ -192,20 +192,20 @@ One lane per priority level. Moving a task between lanes reassigns its priority.
   key: "F10"
   lanes:
     - name: Critical
-      filter: select where priority = 1 order by updatedAt desc
-      action: update where id = id() set priority=1
+      filter: select where priority = "high" order by updatedAt desc
+      action: update where id = id() set priority="high"
     - name: High
-      filter: select where priority = 2 order by updatedAt desc
-      action: update where id = id() set priority=2
+      filter: select where priority = "medium-high" order by updatedAt desc
+      action: update where id = id() set priority="medium-high"
     - name: Medium
-      filter: select where priority = 3 order by updatedAt desc
-      action: update where id = id() set priority=3
+      filter: select where priority = "medium" order by updatedAt desc
+      action: update where id = id() set priority="medium"
     - name: Low
-      filter: select where priority = 4 order by updatedAt desc
-      action: update where id = id() set priority=4
+      filter: select where priority = "medium-low" order by updatedAt desc
+      action: update where id = id() set priority="medium-low"
     - name: Minimal
-      filter: select where priority = 5 order by updatedAt desc
-      action: update where id = id() set priority=5
+      filter: select where priority = "low" order by updatedAt desc
+      action: update where id = id() set priority="low"
 ```
 
 ## Sprint board — custom enum lanes

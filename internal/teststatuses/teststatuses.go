@@ -30,7 +30,17 @@ func CanonicalFields() []workflow.FieldDef {
 				{Value: "epic", Label: "Epic", Emoji: "🗂️"},
 			},
 		},
-		{Name: "priority", Type: workflow.TypeInt, DefaultValue: 3},
+		{
+			Name: "priority",
+			Type: workflow.TypeEnum,
+			EnumValues: []workflow.EnumValue{
+				{Value: "high", Label: "High", Emoji: "🔴"},
+				{Value: "medium-high", Label: "Medium High", Emoji: "🟠"},
+				{Value: "medium", Label: "Medium", Emoji: "🟡", Default: true},
+				{Value: "medium-low", Label: "Medium Low", Emoji: "🟢"},
+				{Value: "low", Label: "Low", Emoji: "🔵"},
+			},
+		},
 		{Name: "points", Type: workflow.TypeInt, DefaultValue: 1},
 		{Name: "tags", Type: workflow.TypeListString, DefaultValue: []string{"idea"}},
 		{Name: "dependsOn", Type: workflow.TypeListRef},

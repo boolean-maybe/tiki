@@ -10,8 +10,10 @@ import (
 	"github.com/boolean-maybe/tiki/model"
 	"github.com/boolean-maybe/tiki/service"
 	"github.com/boolean-maybe/tiki/store"
+	taskpkg "github.com/boolean-maybe/tiki/task"
 	tikipkg "github.com/boolean-maybe/tiki/tiki"
 	"github.com/boolean-maybe/tiki/util/gradient"
+	"github.com/boolean-maybe/tiki/workflow"
 
 	navtview "github.com/boolean-maybe/navidown/navidown/tview"
 	"github.com/gdamore/tcell/v2"
@@ -71,20 +73,26 @@ type TaskEditView struct {
 	// typed save callbacks wired by the coordinator (one per editable
 	// semantic). The adapter layer in adapterForField translates the
 	// registry's string-shaped onChange into these typed signatures.
-	onTitleSave         func(string)
-	onTitleChange       func(string)
-	onTitleCancel       func()
-	onDescSave          func(string)
-	onDescCancel        func()
-	onStatusSave        func(string)
-	onTypeSave          func(string)
-	onPrioritySave      func(int)
-	onAssigneeSave      func(string)
-	onPointsSave        func(int)
-	onDueSave           func(string)
-	onRecurrenceSave    func(string)
-	onTagsSave          func(string)
-	onTagsCancel        func()
+	onTitleSave      func(string)
+	onTitleChange    func(string)
+	onTitleCancel    func()
+	onDescSave       func(string)
+	onDescCancel     func()
+	onStatusSave     func(string)
+	onTypeSave       func(string)
+	onPrioritySave   func(string)
+	onAssigneeSave   func(string)
+	onPointsSave     func(int)
+	onDueSave        func(string)
+	onRecurrenceSave func(string)
+	onTagsSave       func(string)
+	onTagsCancel     func()
+	// onWorkflowEnumSave receives (fieldName, canonicalKey) for workflow-
+	// declared enum fields that lack a dedicated typed save handler. The
+	// coordinator installs this once and it dispatches by field name —
+	// this is how custom enums (severity, environment, etc.) flow through
+	// the full TaskEditView edit path.
+	onWorkflowEnumSave  func(name, canonicalKey string)
 	actionChangeHandler func()
 }
 
@@ -334,24 +342,42 @@ func (ev *TaskEditView) gridFieldPrimitive(name string, tk *tikipkg.Tiki, ctx Fi
 	if !FieldHasEditor(name) {
 		return renderConfiguredField(name, tk, ctx)
 	}
-	fd, ok := LookupField(name)
-	if !ok {
+	// Resolve the EditField identity for focus-matching. Built-in fields
+	// pull from the static FieldDescriptor; workflow-only fields use the
+	// field name directly (the EditField type is a string, and the
+	// MetadataToEditFieldOrder helper emits the same shape).
+	editField := editFieldFor(name)
+	if editField == "" {
 		return renderConfiguredField(name, tk, ctx)
 	}
-	if ev.focusedField != fd.EditField {
+	if ev.focusedField != editField {
 		return renderConfiguredField(name, tk, ctx)
 	}
 	if w, ok := ev.editors[name]; ok && w != nil {
 		return w
 	}
 	editorCtx := ctx
-	editorCtx.FocusedField = fd.EditField
+	editorCtx.FocusedField = editField
 	w := buildFieldEditor(name, tk, editorCtx, ev.adapterForField(name))
 	if w == nil {
 		return renderConfiguredField(name, tk, ctx)
 	}
 	ev.editors[name] = w
 	return w
+}
+
+// editFieldFor returns the EditField identity for a metadata field. Built-in
+// fields use their static descriptor; workflow-only TypeEnum fields use
+// their field name directly (the EditField type is a string alias, and
+// MetadataToEditFieldOrder emits the same shape so focus-matching lines up).
+func editFieldFor(name string) model.EditField {
+	if fd, ok := LookupField(name); ok {
+		return fd.EditField
+	}
+	if wfd, ok := workflow.Field(name); ok && wfd.Type == workflow.TypeEnum {
+		return model.EditField(name)
+	}
+	return ""
 }
 
 // adapterForField returns the registry's onChange(string) callback that
@@ -378,8 +404,9 @@ func (ev *TaskEditView) adapterForField(name string) func(string) {
 	case tikipkg.FieldPriority:
 		return func(d string) {
 			if ev.onPrioritySave != nil {
-				// PriorityFromDisplay parses "P1"/"P2"/.../"—" back to int.
-				ev.onPrioritySave(parseEditPriorityDisplay(d))
+				// SemanticEnum editor emits the canonical key directly.
+				// No display→key conversion needed at this boundary.
+				ev.onPrioritySave(d)
 			}
 			ev.updateValidationState()
 		}
@@ -426,6 +453,18 @@ func (ev *TaskEditView) adapterForField(name string) func(string) {
 			}
 		}
 	}
+	// Fallback for workflow-declared enum fields (severity, environment, ...)
+	// that don't have a dedicated typed save handler. The coordinator
+	// wires onWorkflowEnumSave to dispatch by field name.
+	if wfd, ok := workflow.Field(name); ok && wfd.Type == workflow.TypeEnum {
+		field := name // capture for closure
+		return func(canonicalKey string) {
+			if ev.onWorkflowEnumSave != nil {
+				ev.onWorkflowEnumSave(field, canonicalKey)
+			}
+			ev.updateValidationState()
+		}
+	}
 	return nil
 }
 
@@ -452,12 +491,6 @@ func (ev *TaskEditView) SaveDescriptionFromTextArea() {
 	if ev.onDescSave != nil {
 		ev.onDescSave(ev.descTextArea.GetText())
 	}
-}
-
-// parseEditPriorityDisplay forwards the priority display string to the
-// task-package parser. Local helper keeps the import surface small here.
-func parseEditPriorityDisplay(display string) int {
-	return prioritySaveFromDisplay(display)
 }
 
 // isDueReadOnly returns true when recurrence is set, making Due auto-computed.
@@ -684,9 +717,13 @@ func (ev *TaskEditView) buildTikiSnapshotFromWidgets() *tikipkg.Tiki {
 		snapshot.Title = ev.titleInput.GetText()
 	}
 	if w, ok := ev.editors[tikipkg.FieldPriority]; ok && w != nil {
-		p := prioritySaveFromDisplay(w.GetText())
-		if p != 0 {
-			snapshot.Set(tikipkg.FieldPriority, p)
+		// enumSelectAdapter.GetText() returns the canonical key (e.g.
+		// "high"), not the display string. Empty means the editor's
+		// reverse-lookup couldn't match — drop the field rather than
+		// writing junk into the validated snapshot.
+		key := w.GetText()
+		if key != "" && taskpkg.IsValidPriority(key) {
+			snapshot.Set(tikipkg.FieldPriority, key)
 		} else {
 			snapshot.Delete(tikipkg.FieldPriority)
 		}
@@ -853,9 +890,17 @@ func (ev *TaskEditView) SetTypeSaveHandler(handler func(string)) {
 	ev.onTypeSave = handler
 }
 
-// SetPrioritySaveHandler sets the callback for when priority is saved
-func (ev *TaskEditView) SetPrioritySaveHandler(handler func(int)) {
+// SetPrioritySaveHandler sets the callback for when priority is saved.
+// The handler receives the canonical enum key (or empty string for delete).
+func (ev *TaskEditView) SetPrioritySaveHandler(handler func(string)) {
 	ev.onPrioritySave = handler
+}
+
+// SetWorkflowEnumSaveHandler installs the dispatcher for custom workflow
+// enum saves — fields like severity / environment that don't have their
+// own typed save handler. The handler receives (fieldName, canonicalKey).
+func (ev *TaskEditView) SetWorkflowEnumSaveHandler(handler func(name, canonicalKey string)) {
+	ev.onWorkflowEnumSave = handler
 }
 
 // SetAssigneeSaveHandler sets the callback for when assignee is saved

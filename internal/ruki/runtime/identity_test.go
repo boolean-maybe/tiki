@@ -67,7 +67,7 @@ func TestRunSelectQuery_UserFromConfigNoGit(t *testing.T) {
 	mine.ID = "XYZ001"
 	mine.Title = "Mine"
 	mine.Set("status", "ready")
-	mine.Set("priority", 2)
+	mine.Set("priority", "medium-high")
 	mine.Set("assignee", "Configured Alice")
 	if err := s.CreateTiki(mine); err != nil {
 		t.Fatalf("CreateTiki mine: %v", err)
@@ -77,7 +77,7 @@ func TestRunSelectQuery_UserFromConfigNoGit(t *testing.T) {
 	theirs.ID = "XYZ002"
 	theirs.Title = "Theirs"
 	theirs.Set("status", "ready")
-	theirs.Set("priority", 2)
+	theirs.Set("priority", "medium-high")
 	theirs.Set("assignee", "Bob")
 	if err := s.CreateTiki(theirs); err != nil {
 		t.Fatalf("CreateTiki theirs: %v", err)
@@ -104,7 +104,7 @@ func TestRunQuery_UpdateAssigneeUserInNoGit(t *testing.T) {
 	tk.ID = "UPD001"
 	tk.Title = "Assign me"
 	tk.Set("status", "ready")
-	tk.Set("priority", 2)
+	tk.Set("priority", "medium-high")
 	if err := s.CreateTiki(tk); err != nil {
 		t.Fatalf("CreateTiki: %v", err)
 	}
@@ -152,7 +152,7 @@ func TestRunQuery_UserEmailOnlyConfig(t *testing.T) {
 	eml.ID = "EML001"
 	eml.Title = "Mine"
 	eml.Set("status", "ready")
-	eml.Set("priority", 2)
+	eml.Set("priority", "medium-high")
 	eml.Set("assignee", "me@example.com")
 	if err := s.CreateTiki(eml); err != nil {
 		t.Fatalf("CreateTiki: %v", err)
