@@ -3,8 +3,6 @@ package ruki
 import (
 	"strings"
 	"testing"
-
-	"github.com/boolean-maybe/tiki/task"
 )
 
 // These tests lock in that the has() runtime resolves every qualifier
@@ -23,11 +21,11 @@ func TestPhase5_Has_OuterQualifierResolvesParentRow(t *testing.T) {
 	e := newTestExecutor()
 	p := newTestParser()
 
-	workflow := &task.Task{
+	workflow := &taskFixture{
 		ID: "WKF01", Title: "with status", Status: "ready",
 		WorkflowFrontmatter: map[string]interface{}{"status": "ready"},
 	}
-	plain := &task.Task{ID: "PLN01", Title: "plain, no status"}
+	plain := &taskFixture{ID: "PLN01", Title: "plain, no status"}
 
 	// exists() with a trivial body that references the outer row's
 	// status presence. Matches WKF01 only.
@@ -35,7 +33,7 @@ func TestPhase5_Has_OuterQualifierResolvesParentRow(t *testing.T) {
 	if err != nil {
 		t.Fatalf("parse: %v", err)
 	}
-	result, err := e.testExec(stmt, []*task.Task{workflow, plain})
+	result, err := e.testExec(stmt, []*taskFixture{workflow, plain})
 	if err != nil {
 		t.Fatalf("execute: %v (should run, not error on outer. qualifier)", err)
 	}
@@ -64,13 +62,13 @@ func TestPhase5_Has_TargetQualifierResolvesSelectedTask(t *testing.T) {
 	// doesn't. has(target.status) is evaluated once per row and is
 	// constant across rows (it reads the selected task, not the current
 	// row), so if the selected task has status, ALL rows match.
-	selected := &task.Task{
+	selected := &taskFixture{
 		ID: "SEL01", Title: "selected", Status: "ready",
 		WorkflowFrontmatter: map[string]interface{}{"status": "ready"},
 	}
-	other := &task.Task{ID: "OTH01", Title: "other"}
+	other := &taskFixture{ID: "OTH01", Title: "other"}
 
-	result, err := e.testExec(vs, []*task.Task{selected, other}, ExecutionInput{
+	result, err := e.testExec(vs, []*taskFixture{selected, other}, ExecutionInput{
 		SelectedTaskIDs: []string{"SEL01"},
 	})
 	if err != nil {
@@ -92,13 +90,13 @@ func TestPhase5_Has_TargetQualifierFalseWhenSelectedLacksField(t *testing.T) {
 	}
 
 	e := NewExecutor(testSchema{}, nil, ExecutorRuntime{Mode: ExecutorRuntimePlugin})
-	selected := &task.Task{ID: "SEL01", Title: "selected, no status"}
-	other := &task.Task{
+	selected := &taskFixture{ID: "SEL01", Title: "selected, no status"}
+	other := &taskFixture{
 		ID: "OTH01", Title: "other has status", Status: "ready",
 		WorkflowFrontmatter: map[string]interface{}{"status": "ready"},
 	}
 
-	result, err := e.testExec(vs, []*task.Task{selected, other}, ExecutionInput{
+	result, err := e.testExec(vs, []*taskFixture{selected, other}, ExecutionInput{
 		SelectedTaskIDs: []string{"SEL01"},
 	})
 	if err != nil {
@@ -125,14 +123,14 @@ func TestPhase5_Has_TargetsQualifierTrueWhenAnySelectedHasField(t *testing.T) {
 
 	// Two selected tasks: one has status, one doesn't. `has(targets.X)`
 	// is any-present semantics, so this evaluates true.
-	withStatus := &task.Task{
+	withStatus := &taskFixture{
 		ID: "WITH01", Title: "has status", Status: "ready",
 		WorkflowFrontmatter: map[string]interface{}{"status": "ready"},
 	}
-	withoutStatus := &task.Task{ID: "WITHOUT01", Title: "no status"}
-	bystander := &task.Task{ID: "BYST01", Title: "bystander"}
+	withoutStatus := &taskFixture{ID: "WITHOUT01", Title: "no status"}
+	bystander := &taskFixture{ID: "BYST01", Title: "bystander"}
 
-	result, err := e.testExec(vs, []*task.Task{withStatus, withoutStatus, bystander}, ExecutionInput{
+	result, err := e.testExec(vs, []*taskFixture{withStatus, withoutStatus, bystander}, ExecutionInput{
 		SelectedTaskIDs: []string{"WITH01", "WITHOUT01"},
 	})
 	if err != nil {
@@ -155,14 +153,14 @@ func TestPhase5_Has_TargetsQualifierFalseWhenNoneHaveField(t *testing.T) {
 	}
 
 	e := NewExecutor(testSchema{}, nil, ExecutorRuntime{Mode: ExecutorRuntimePlugin})
-	plain1 := &task.Task{ID: "PLN01", Title: "p1"}
-	plain2 := &task.Task{ID: "PLN02", Title: "p2"}
-	bystander := &task.Task{
+	plain1 := &taskFixture{ID: "PLN01", Title: "p1"}
+	plain2 := &taskFixture{ID: "PLN02", Title: "p2"}
+	bystander := &taskFixture{
 		ID: "BYST01", Title: "has status but not selected", Status: "ready",
 		WorkflowFrontmatter: map[string]interface{}{"status": "ready"},
 	}
 
-	result, err := e.testExec(vs, []*task.Task{plain1, plain2, bystander}, ExecutionInput{
+	result, err := e.testExec(vs, []*taskFixture{plain1, plain2, bystander}, ExecutionInput{
 		SelectedTaskIDs: []string{"PLN01", "PLN02"},
 	})
 	if err != nil {
@@ -185,9 +183,9 @@ func TestPhase5_Has_TargetsQualifierFalseWhenNothingSelected(t *testing.T) {
 	}
 
 	e := NewExecutor(testSchema{}, nil, ExecutorRuntime{Mode: ExecutorRuntimePlugin})
-	plain := &task.Task{ID: "PLN01", Title: "p"}
+	plain := &taskFixture{ID: "PLN01", Title: "p"}
 
-	result, err := e.testExec(vs, []*task.Task{plain}, ExecutionInput{
+	result, err := e.testExec(vs, []*taskFixture{plain}, ExecutionInput{
 		// no SelectedTaskIDs
 	})
 	if err != nil {

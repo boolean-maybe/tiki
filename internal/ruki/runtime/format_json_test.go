@@ -9,12 +9,9 @@ import (
 
 	"github.com/boolean-maybe/tiki/internal/teststatuses"
 	"github.com/boolean-maybe/tiki/ruki"
-	"github.com/boolean-maybe/tiki/task"
 	"github.com/boolean-maybe/tiki/tiki"
 	"github.com/boolean-maybe/tiki/workflow"
 )
-
-var _ = task.Task{}
 
 func TestJSONFormatterSelectRows(t *testing.T) {
 	initTestRegistries()

@@ -2,8 +2,6 @@ package ruki
 
 import (
 	"testing"
-
-	"github.com/boolean-maybe/tiki/task"
 )
 
 // These tests pin down the Phase 5 fix for qualified has() in trigger
@@ -26,11 +24,11 @@ func TestPhase5_Trigger_HasNewFieldTrueWhenPresent(t *testing.T) {
 		t.Fatalf("parse: %v", err)
 	}
 
-	withAssignee := &task.Task{
+	withAssignee := &taskFixture{
 		ID: "HAS001", Assignee: "alice",
 		WorkflowFrontmatter: map[string]interface{}{"assignee": ""},
 	}
-	tc := &TriggerContext{Old: nil, New: tikiFromTask(withAssignee)}
+	tc := &TriggerContext{Old: nil, New: tikiFromFixture(withAssignee)}
 
 	ok, err := te.EvalGuard(trig, tc)
 	if err != nil {
@@ -51,8 +49,8 @@ func TestPhase5_Trigger_HasNewFieldFalseWhenAbsent(t *testing.T) {
 	}
 
 	// No WorkflowFrontmatter, typed Assignee zero → absent.
-	plain := &task.Task{ID: "PLAIN1"}
-	tc := &TriggerContext{Old: nil, New: tikiFromTask(plain)}
+	plain := &taskFixture{ID: "PLAIN1"}
+	tc := &TriggerContext{Old: nil, New: tikiFromFixture(plain)}
 
 	ok, err := te.EvalGuard(trig, tc)
 	if err != nil {
@@ -77,12 +75,12 @@ func TestPhase5_Trigger_HasOldFieldTrueWhenPresent(t *testing.T) {
 		t.Fatalf("parse: %v", err)
 	}
 
-	oldTask := &task.Task{
+	oldTask := &taskFixture{
 		ID: "TK01", Status: "ready",
 		WorkflowFrontmatter: map[string]interface{}{"status": "ready"},
 	}
-	newTask := &task.Task{ID: "TK01", Status: "done"}
-	tc := &TriggerContext{Old: tikiFromTask(oldTask), New: tikiFromTask(newTask)}
+	newTask := &taskFixture{ID: "TK01", Status: "done"}
+	tc := &TriggerContext{Old: tikiFromFixture(oldTask), New: tikiFromFixture(newTask)}
 
 	ok, err := te.EvalGuard(trig, tc)
 	if err != nil {
@@ -102,9 +100,9 @@ func TestPhase5_Trigger_HasOldFieldFalseWhenAbsent(t *testing.T) {
 		t.Fatalf("parse: %v", err)
 	}
 
-	oldTask := &task.Task{ID: "TK01"} // no assignee declared
-	newTask := &task.Task{ID: "TK01", Assignee: "alice"}
-	tc := &TriggerContext{Old: tikiFromTask(oldTask), New: tikiFromTask(newTask)}
+	oldTask := &taskFixture{ID: "TK01"} // no assignee declared
+	newTask := &taskFixture{ID: "TK01", Assignee: "alice"}
+	tc := &TriggerContext{Old: tikiFromFixture(oldTask), New: tikiFromFixture(newTask)}
 
 	ok, err := te.EvalGuard(trig, tc)
 	if err != nil {
@@ -134,12 +132,12 @@ func TestPhase5_Trigger_HasOldAndHasNewResolveDistinctTasks(t *testing.T) {
 		t.Fatalf("parse: %v", err)
 	}
 
-	oldTask := &task.Task{ID: "TK01"} // no status key
-	newTask := &task.Task{
+	oldTask := &taskFixture{ID: "TK01"} // no status key
+	newTask := &taskFixture{
 		ID: "TK01", Status: "ready",
 		WorkflowFrontmatter: map[string]interface{}{"status": "ready"},
 	}
-	tc := &TriggerContext{Old: tikiFromTask(oldTask), New: tikiFromTask(newTask)}
+	tc := &TriggerContext{Old: tikiFromFixture(oldTask), New: tikiFromFixture(newTask)}
 
 	ok, err := te.EvalGuard(trig, tc)
 	if err != nil {
@@ -150,15 +148,15 @@ func TestPhase5_Trigger_HasOldAndHasNewResolveDistinctTasks(t *testing.T) {
 	}
 
 	// Flip it — both sides now have status, guard should NOT match.
-	oldTask2 := &task.Task{
+	oldTask2 := &taskFixture{
 		ID: "TK02", Status: "ready",
 		WorkflowFrontmatter: map[string]interface{}{"status": "ready"},
 	}
-	newTask2 := &task.Task{
+	newTask2 := &taskFixture{
 		ID: "TK02", Status: "done",
 		WorkflowFrontmatter: map[string]interface{}{"status": "done"},
 	}
-	tc2 := &TriggerContext{Old: tikiFromTask(oldTask2), New: tikiFromTask(newTask2)}
+	tc2 := &TriggerContext{Old: tikiFromFixture(oldTask2), New: tikiFromFixture(newTask2)}
 	ok, err = te.EvalGuard(trig, tc2)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)

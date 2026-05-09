@@ -157,7 +157,7 @@ func (s *TikiStore) loadTikiFile(path string, authorMap map[string]*git.AuthorIn
 		// priority became TypeEnum.
 
 		// points: 0 is a meaningful "unestimated" sentinel that
-		// task.ValidatePoints accepts as valid; preserve it on load so
+		// task.IsValidPoints accepts as valid; preserve it on load so
 		// exact-presence round-trips. Negative or above-max values are
 		// still clamped to maxPoints/2.
 		maxPoints := config.GetMaxPoints()
