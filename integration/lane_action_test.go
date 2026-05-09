@@ -6,7 +6,6 @@ import (
 	"testing"
 
 	"github.com/boolean-maybe/tiki/model"
-	"github.com/boolean-maybe/tiki/task"
 	"github.com/boolean-maybe/tiki/testutil"
 	tikipkg "github.com/boolean-maybe/tiki/tiki"
 
@@ -52,10 +51,10 @@ func TestPluginView_MoveTaskAppliesLaneAction(t *testing.T) {
 	}
 	defer ta.Cleanup()
 
-	if err := testutil.CreateTestTask(ta.TaskDir, "000001", "Backlog Task", task.StatusBacklog, task.TypeStory); err != nil {
+	if err := testutil.CreateTestTask(ta.TaskDir, "000001", "Backlog Task", "backlog", "story"); err != nil {
 		t.Fatalf("failed to create task: %v", err)
 	}
-	if err := testutil.CreateTestTask(ta.TaskDir, "000002", "Done Task", task.StatusDone, task.TypeStory); err != nil {
+	if err := testutil.CreateTestTask(ta.TaskDir, "000002", "Done Task", "done", "story"); err != nil {
 		t.Fatalf("failed to create task: %v", err)
 	}
 	if err := ta.TaskStore.Reload(); err != nil {
@@ -77,7 +76,7 @@ func TestPluginView_MoveTaskAppliesLaneAction(t *testing.T) {
 	}
 	status, _, _ := updated.StringField("status")
 	tags, _, _ := updated.StringSliceField(tikipkg.FieldTags)
-	if status != task.StatusDone {
+	if status != "done" {
 		t.Fatalf("expected status done, got %v", status)
 	}
 	if !containsTag(tags, "moved") {
@@ -96,7 +95,7 @@ func TestPluginView_MoveTaskAppliesLaneAction(t *testing.T) {
 	}
 	status2, _, _ := updated.StringField("status")
 	tags2, _, _ := updated.StringSliceField(tikipkg.FieldTags)
-	if status2 != task.StatusBacklog {
+	if status2 != "backlog" {
 		t.Fatalf("expected status backlog, got %v", status2)
 	}
 	if containsTag(tags2, "moved") {

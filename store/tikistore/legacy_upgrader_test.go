@@ -168,6 +168,46 @@ func TestLegacyUpgrader_PriorityWholeFloatStillMigrates(t *testing.T) {
 	}
 }
 
+// TestLegacyUpgrader_UpgradeTiki_UnknownStatusFallsBackToDefault pins the
+// regression behavior of the legacy MapStatus contract: a status key that
+// is neither already canonical nor reaches a recognized key after camel-
+// case normalization (e.g. retired aliases like "closed", "todo",
+// "completed", "open") must be migrated to the workflow's declared
+// default, not left in place. Leaving it stale would keep the document
+// loading with an out-of-domain status — silently breaking lane filters
+// and any "where status = X" ruki queries.
+func TestLegacyUpgrader_UpgradeTiki_UnknownStatusFallsBackToDefault(t *testing.T) {
+	upgrader := &LegacyUpgrader{}
+
+	tests := []struct {
+		name       string
+		status     string
+		wantStatus string
+	}{
+		{"retired alias closed", "closed", "backlog"},
+		{"retired alias todo", "todo", "backlog"},
+		{"retired alias completed", "completed", "backlog"},
+		{"retired alias open", "open", "backlog"},
+		{"random text", "foobar", "backlog"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			tk := tikipkg.New()
+			tk.ID = "TEST01"
+			tk.Title = "test"
+			tk.Set("status", tt.status)
+
+			upgrader.UpgradeTiki(tk)
+
+			got, _, _ := tk.StringField("status")
+			if got != tt.wantStatus {
+				t.Errorf("UpgradeTiki status = %q, want %q (default fallback)", got, tt.wantStatus)
+			}
+		})
+	}
+}
+
 // TestLegacyUpgrader_PriorityStringPasses verifies the no-op path: a
 // priority that is already a canonical key passes through unchanged.
 func TestLegacyUpgrader_PriorityStringPasses(t *testing.T) {

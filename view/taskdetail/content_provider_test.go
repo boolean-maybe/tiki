@@ -6,7 +6,6 @@ import (
 
 	nav "github.com/boolean-maybe/navidown/navidown"
 	"github.com/boolean-maybe/tiki/store"
-	"github.com/boolean-maybe/tiki/task"
 	tikipkg "github.com/boolean-maybe/tiki/tiki"
 )
 
@@ -141,8 +140,8 @@ func TestFormatTikiAsMarkdown(t *testing.T) {
 		tk.ID = "ABC123"
 		tk.Title = "My Task"
 		tk.Body = "detailed desc"
-		tk.Set(tikipkg.FieldStatus, task.StatusInProgress)
-		tk.Set(tikipkg.FieldType, task.TypeBug)
+		tk.Set(tikipkg.FieldStatus, "inProgress")
+		tk.Set(tikipkg.FieldType, "bug")
 		tk.Set(tikipkg.FieldPriority, "high")
 
 		md := formatTikiAsMarkdown(tk)
@@ -164,8 +163,8 @@ func TestFormatTikiAsMarkdown(t *testing.T) {
 		tk := tikipkg.New()
 		tk.ID = "ABC123"
 		tk.Title = "No Prio"
-		tk.Set(tikipkg.FieldStatus, task.StatusReady)
-		tk.Set(tikipkg.FieldType, task.TypeStory)
+		tk.Set(tikipkg.FieldStatus, "ready")
+		tk.Set(tikipkg.FieldType, "story")
 
 		md := formatTikiAsMarkdown(tk)
 		if strings.Contains(md, "P0") {
@@ -177,8 +176,8 @@ func TestFormatTikiAsMarkdown(t *testing.T) {
 		tk := tikipkg.New()
 		tk.ID = "ABC123"
 		tk.Title = "No Desc"
-		tk.Set(tikipkg.FieldStatus, task.StatusReady)
-		tk.Set(tikipkg.FieldType, task.TypeStory)
+		tk.Set(tikipkg.FieldStatus, "ready")
+		tk.Set(tikipkg.FieldType, "story")
 
 		md := formatTikiAsMarkdown(tk)
 		// should end after the metadata line

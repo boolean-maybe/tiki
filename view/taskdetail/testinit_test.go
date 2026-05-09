@@ -5,7 +5,6 @@ import (
 	"time"
 
 	"github.com/boolean-maybe/tiki/internal/teststatuses"
-	taskpkg "github.com/boolean-maybe/tiki/task"
 	tikipkg "github.com/boolean-maybe/tiki/tiki"
 	"github.com/boolean-maybe/tiki/workflow"
 )
@@ -43,8 +42,8 @@ func newTestViewTiki(id string) *tikipkg.Tiki {
 	tk := tikipkg.New()
 	tk.ID = id
 	tk.Title = "Test Task"
-	tk.Set(tikipkg.FieldStatus, taskpkg.StatusReady)
-	tk.Set(tikipkg.FieldType, taskpkg.TypeStory)
+	tk.Set(tikipkg.FieldStatus, "ready")
+	tk.Set(tikipkg.FieldType, "story")
 	tk.Set(tikipkg.FieldPriority, "medium")
 	tk.Set(tikipkg.FieldPoints, 5)
 	tk.Set(tikipkg.FieldAssignee, "user@example.com")

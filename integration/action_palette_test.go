@@ -5,7 +5,6 @@ import (
 
 	"github.com/boolean-maybe/tiki/controller"
 	"github.com/boolean-maybe/tiki/model"
-	taskpkg "github.com/boolean-maybe/tiki/task"
 	"github.com/boolean-maybe/tiki/testutil"
 
 	"github.com/gdamore/tcell/v2"
@@ -114,7 +113,7 @@ func TestActionPalette_OpensInTaskEdit(t *testing.T) {
 	ta := testutil.NewTestApp(t)
 	defer ta.Cleanup()
 
-	if err := testutil.CreateTestTask(ta.TaskDir, "000001", "Test", taskpkg.StatusReady, taskpkg.TypeStory); err != nil {
+	if err := testutil.CreateTestTask(ta.TaskDir, "000001", "Test", "ready", "story"); err != nil {
 		t.Fatalf("create task: %v", err)
 	}
 	if err := ta.TaskStore.Reload(); err != nil {

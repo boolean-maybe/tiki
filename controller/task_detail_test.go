@@ -9,9 +9,9 @@ import (
 	"github.com/boolean-maybe/tiki/model"
 	"github.com/boolean-maybe/tiki/service"
 	"github.com/boolean-maybe/tiki/store"
-	"github.com/boolean-maybe/tiki/task"
 	tikipkg "github.com/boolean-maybe/tiki/tiki"
 	"github.com/boolean-maybe/tiki/workflow"
+	"github.com/boolean-maybe/tiki/workflow/value"
 )
 
 func init() {
@@ -140,8 +140,8 @@ func TestTaskController_SaveStatus(t *testing.T) {
 			setupTask: func(tc *TaskController, s store.Store) {
 				tc.SetDraft(newTestTiki())
 			},
-			statusDisplay: task.StatusDisplay(task.StatusReady),
-			wantStatus:    task.StatusReady,
+			statusDisplay: enumDisplay("status", "ready"),
+			wantStatus:    "ready",
 			wantSuccess:   true,
 		},
 		{
@@ -151,8 +151,8 @@ func TestTaskController_SaveStatus(t *testing.T) {
 				_ = s.CreateTiki(t)
 				tc.StartEditSession(t.ID)
 			},
-			statusDisplay: task.StatusDisplay(task.StatusInProgress),
-			wantStatus:    task.StatusInProgress,
+			statusDisplay: enumDisplay("status", "inProgress"),
+			wantStatus:    "inProgress",
 			wantSuccess:   true,
 		},
 		{
@@ -163,8 +163,8 @@ func TestTaskController_SaveStatus(t *testing.T) {
 				tc.StartEditSession(t.ID)
 				tc.SetDraft(newTestTikiWithID())
 			},
-			statusDisplay: task.StatusDisplay(task.StatusDone),
-			wantStatus:    task.StatusDone,
+			statusDisplay: enumDisplay("status", "done"),
+			wantStatus:    "done",
 			wantSuccess:   true,
 		},
 		{
@@ -173,7 +173,7 @@ func TestTaskController_SaveStatus(t *testing.T) {
 				tc.SetDraft(newTestTiki())
 			},
 			statusDisplay: "InvalidStatus",
-			wantStatus:    task.StatusBacklog, // NormalizeStatus defaults to backlog
+			wantStatus:    "backlog", // NormalizeStatus defaults to backlog
 			wantSuccess:   true,
 		},
 		{
@@ -181,7 +181,7 @@ func TestTaskController_SaveStatus(t *testing.T) {
 			setupTask: func(tc *TaskController, s store.Store) {
 				// Don't set up any task
 			},
-			statusDisplay: task.StatusDisplay(task.StatusReady),
+			statusDisplay: enumDisplay("status", "ready"),
 			wantSuccess:   false,
 		},
 	}
@@ -231,8 +231,8 @@ func TestTaskController_SaveType(t *testing.T) {
 			setupTask: func(tc *TaskController, s store.Store) {
 				tc.SetDraft(newTestTiki())
 			},
-			typeDisplay: task.TypeDisplay(task.TypeBug),
-			wantType:    task.TypeBug,
+			typeDisplay: enumDisplay("type", "bug"),
+			wantType:    "bug",
 			wantSuccess: true,
 		},
 		{
@@ -242,8 +242,8 @@ func TestTaskController_SaveType(t *testing.T) {
 				_ = s.CreateTiki(t)
 				tc.StartEditSession(t.ID)
 			},
-			typeDisplay: task.TypeDisplay(task.TypeSpike),
-			wantType:    task.TypeSpike,
+			typeDisplay: enumDisplay("type", "spike"),
+			wantType:    "spike",
 			wantSuccess: true,
 		},
 		{
@@ -252,7 +252,7 @@ func TestTaskController_SaveType(t *testing.T) {
 				tc.SetDraft(newTestTiki())
 			},
 			typeDisplay: "InvalidType",
-			wantType:    task.TypeStory, // task type unchanged from setup
+			wantType:    "story", // task type unchanged from setup
 			wantSuccess: false,
 		},
 		{
@@ -260,7 +260,7 @@ func TestTaskController_SaveType(t *testing.T) {
 			setupTask: func(tc *TaskController, s store.Store) {
 				// Don't set up any task
 			},
-			typeDisplay: task.TypeDisplay(task.TypeStory),
+			typeDisplay: enumDisplay("type", "story"),
 			wantSuccess: false,
 		},
 	}
@@ -1065,7 +1065,7 @@ func TestTaskController_SaveDue(t *testing.T) {
 
 				var actualStr string
 				if !actualDue.IsZero() {
-					actualStr = actualDue.Format(task.DateFormat)
+					actualStr = actualDue.Format(value.DateFormat)
 				}
 				if actualStr != tt.wantDue {
 					t.Errorf("task.Due = %q, want %q", actualStr, tt.wantDue)
@@ -1115,7 +1115,7 @@ func TestTaskController_SaveRecurrence(t *testing.T) {
 		name           string
 		setupTask      func(*TaskController, store.Store)
 		cron           string
-		wantRecurrence task.Recurrence
+		wantRecurrence value.Recurrence
 		wantDueSet     bool
 		wantSuccess    bool
 	}{
@@ -1124,8 +1124,8 @@ func TestTaskController_SaveRecurrence(t *testing.T) {
 			setupTask: func(tc *TaskController, s store.Store) {
 				tc.SetDraft(newTestTiki())
 			},
-			cron:           string(task.RecurrenceDaily),
-			wantRecurrence: task.RecurrenceDaily,
+			cron:           string(value.RecurrenceDaily),
+			wantRecurrence: value.RecurrenceDaily,
 			wantDueSet:     true,
 			wantSuccess:    true,
 		},
@@ -1134,11 +1134,11 @@ func TestTaskController_SaveRecurrence(t *testing.T) {
 			setupTask: func(tc *TaskController, s store.Store) {
 				draft := newTestTask()
 				draft.Set(tikipkg.FieldDue, time.Date(2025, 6, 15, 0, 0, 0, 0, time.UTC))
-				draft.Set(tikipkg.FieldRecurrence, string(task.RecurrenceDaily))
+				draft.Set(tikipkg.FieldRecurrence, string(value.RecurrenceDaily))
 				tc.SetDraft(draft)
 			},
-			cron:           string(task.RecurrenceNone),
-			wantRecurrence: task.RecurrenceNone,
+			cron:           string(value.RecurrenceNone),
+			wantRecurrence: value.RecurrenceNone,
 			wantDueSet:     false,
 			wantSuccess:    true,
 		},
@@ -1155,7 +1155,7 @@ func TestTaskController_SaveRecurrence(t *testing.T) {
 			setupTask: func(tc *TaskController, s store.Store) {
 				// no task
 			},
-			cron:        string(task.RecurrenceDaily),
+			cron:        string(value.RecurrenceDaily),
 			wantSuccess: false,
 		},
 	}
@@ -1177,7 +1177,7 @@ func TestTaskController_SaveRecurrence(t *testing.T) {
 
 			if tt.wantSuccess && tc.draftTiki != nil {
 				recurrenceStr, _, _ := tc.draftTiki.StringField(tikipkg.FieldRecurrence)
-				actualRecurrence := task.Recurrence(recurrenceStr)
+				actualRecurrence := value.Recurrence(recurrenceStr)
 				if actualRecurrence != tt.wantRecurrence {
 					t.Errorf("Recurrence = %q, want %q", actualRecurrence, tt.wantRecurrence)
 				}
@@ -1238,7 +1238,7 @@ func TestTaskController_AddComment(t *testing.T) {
 	}
 
 	persistedTiki := taskStore.GetTiki(original.ID)
-	persistedComments, _ := persistedTiki.Fields["comments"].([]task.Comment)
+	persistedComments, _ := persistedTiki.Fields["comments"].([]tikipkg.Comment)
 	if len(persistedComments) != 1 {
 		t.Fatalf("expected 1 comment, got %d", len(persistedComments))
 	}

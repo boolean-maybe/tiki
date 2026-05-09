@@ -130,7 +130,7 @@ func (s *TikiStore) loadTikiFile(path string, authorMap map[string]*git.AuthorIn
 	tk := parsed.t
 
 	// Propagate the stale-provenance set from parsedTiki onto the Tiki so
-	// downstream consumers (validateTikiCustomFields, StaleKeys, ToTask) can
+	// downstream consumers (validateTikiCustomFields, StaleKeys) can
 	// distinguish registered Custom fields that failed coercion on load
 	// (round-trip as unknown) from ones the caller explicitly wrote (validated
 	// as Custom). parsedTiki.stale is the authoritative source; tiki.stale is
@@ -147,9 +147,9 @@ func (s *TikiStore) loadTikiFile(path string, authorMap map[string]*git.AuthorIn
 	// files that omit it. The tiki Fields map must faithfully reflect
 	// what is on disk (exact-presence); applying a default type would
 	// leak "type" into the frontmatter for files that never had it.
-	// The default type is applied at the task projection layer (ToTask /
-	// tikiToTask) for display and query purposes without polluting the
-	// tiki's field map.
+	// Defaults for display and query are resolved at the read sites that
+	// need them (e.g. workflow.Field("type").EnumDefault()) rather than
+	// being baked into the loaded tiki.
 	if hasSchemaFields {
 		// priority is now a workflow enum; out-of-domain values are caught
 		// by the workflow.IsValidEnum check in coercion paths, not by a
@@ -157,7 +157,7 @@ func (s *TikiStore) loadTikiFile(path string, authorMap map[string]*git.AuthorIn
 		// priority became TypeEnum.
 
 		// points: 0 is a meaningful "unestimated" sentinel that
-		// task.IsValidPoints accepts as valid; preserve it on load so
+		// value.IsValidPoints accepts as valid; preserve it on load so
 		// exact-presence round-trips. Negative or above-max values are
 		// still clamped to maxPoints/2.
 		maxPoints := config.GetMaxPoints()
@@ -387,7 +387,7 @@ func (s *TikiStore) saveTiki(tk *tiki.Tiki) error {
 	slog.Debug("attempting to save task", "task_id", tk.ID, "path", path)
 
 	// Validate custom fields before write: reject unregistered keys that
-	// were staged under task.CustomFields. This preserves the pre-Phase-3
+	// were staged under the in-memory CustomFields map. This preserves the pre-Phase-3
 	// appendCustomFields contract; UnknownFields (stale-marked) bypass
 	// the check by design.
 	if err := validateTikiCustomFields(tk); err != nil {
@@ -475,7 +475,7 @@ func (s *TikiStore) saveTiki(tk *tiki.Tiki) error {
 
 // taskFilePath returns the default on-disk path for a brand-new task whose
 // file has not yet been created. Once a task is loaded from disk, save and
-// delete operations should target task.FilePath — not this — so renames are
+// delete operations should target tiki.Path — not this — so renames are
 // preserved. In Phase 2 this resolves to `.doc/<ID>.md` because the store
 // is rooted at the unified document directory.
 func (s *TikiStore) taskFilePath(id string) string {

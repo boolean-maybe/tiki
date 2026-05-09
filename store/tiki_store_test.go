@@ -4,7 +4,6 @@ import (
 	"testing"
 
 	"github.com/boolean-maybe/tiki/internal/teststatuses"
-	taskpkg "github.com/boolean-maybe/tiki/task"
 )
 
 func init() {
@@ -118,49 +117,6 @@ title: Whitespace Test`,
 
 			if body != tt.expectedBody {
 				t.Errorf("body = %q, want %q", body, tt.expectedBody)
-			}
-		})
-	}
-}
-
-func TestMapStatus(t *testing.T) {
-	tests := []struct {
-		name     string
-		input    string
-		expected string
-	}{
-		// Valid statuses - exact match
-		{name: "backlog", input: "backlog", expected: taskpkg.StatusBacklog},
-		{name: "ready", input: "ready", expected: taskpkg.StatusReady},
-		{name: "inProgress", input: "inProgress", expected: taskpkg.StatusInProgress},
-		{name: "review", input: "review", expected: taskpkg.StatusReview},
-		{name: "done", input: "done", expected: taskpkg.StatusDone},
-
-		// Case variations (normalization still works)
-		{name: "BACKLOG uppercase", input: "BACKLOG", expected: taskpkg.StatusBacklog},
-		{name: "DONE uppercase", input: "DONE", expected: taskpkg.StatusDone},
-
-		// Separator normalization (hyphens/spaces → underscores)
-		{name: "in-progress hyphenated", input: "in-progress", expected: taskpkg.StatusInProgress},
-		{name: "in progress spaces", input: "in progress", expected: taskpkg.StatusInProgress},
-		{name: "In-Progress mixed case", input: "In-Progress", expected: taskpkg.StatusInProgress},
-
-		// Unknown status defaults to configured default (backlog)
-		{name: "unknown status", input: "unknown", expected: taskpkg.StatusBacklog},
-		{name: "empty string", input: "", expected: taskpkg.StatusBacklog},
-		{name: "random text", input: "foobar", expected: taskpkg.StatusBacklog},
-		// Aliases no longer supported — these now map to default
-		{name: "todo (no alias)", input: "todo", expected: taskpkg.StatusBacklog},
-		{name: "closed (no alias)", input: "closed", expected: taskpkg.StatusBacklog},
-		{name: "completed (no alias)", input: "completed", expected: taskpkg.StatusBacklog},
-		{name: "open (no alias)", input: "open", expected: taskpkg.StatusBacklog},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			result := taskpkg.MapStatus(tt.input)
-			if result != tt.expected {
-				t.Errorf("mapStatus(%q) = %q, want %q", tt.input, result, tt.expected)
 			}
 		})
 	}

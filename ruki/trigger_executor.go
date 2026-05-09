@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/boolean-maybe/tiki/task"
 	"github.com/boolean-maybe/tiki/tiki"
+	"github.com/boolean-maybe/tiki/workflow/value"
 )
 
 // TriggerExecutor evaluates trigger guards and actions in a trigger context.
@@ -556,8 +556,8 @@ func (e *triggerExecOverride) evalNextDateOverride(fc *FunctionCall, ctx evalCon
 			if val == nil {
 				return nil, nil
 			}
-			if rec, ok := val.(task.Recurrence); ok {
-				return task.NextOccurrence(rec), nil
+			if rec, ok := val.(value.Recurrence); ok {
+				return value.NextOccurrence(rec), nil
 			}
 			return nil, fmt.Errorf("next_date() argument must be a recurrence value, got %T", val)
 		}
@@ -570,16 +570,16 @@ func (e *triggerExecOverride) evalNextDateOverride(fc *FunctionCall, ctx evalCon
 	if val == nil {
 		return nil, nil
 	}
-	var rec task.Recurrence
+	var rec value.Recurrence
 	switch v := val.(type) {
-	case task.Recurrence:
+	case value.Recurrence:
 		rec = v
 	case string:
-		rec = task.Recurrence(v)
+		rec = value.Recurrence(v)
 	default:
 		return nil, fmt.Errorf("next_date() argument must be a recurrence value, got %T", val)
 	}
-	return task.NextOccurrence(rec), nil
+	return value.NextOccurrence(rec), nil
 }
 
 // evalEnumStepOverride implements next_enum / prev_enum for trigger

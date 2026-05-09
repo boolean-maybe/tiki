@@ -7,7 +7,6 @@ import (
 
 	"github.com/boolean-maybe/tiki/controller"
 	"github.com/boolean-maybe/tiki/model"
-	"github.com/boolean-maybe/tiki/task"
 	"github.com/boolean-maybe/tiki/testutil"
 	tikipkg "github.com/boolean-maybe/tiki/tiki"
 
@@ -60,7 +59,7 @@ func setupInputActionTest(t *testing.T) *testutil.TestApp {
 		t.Fatalf("failed to load plugins: %v", err)
 	}
 
-	if err := testutil.CreateTestTask(ta.TaskDir, "000001", "Test Task", task.StatusBacklog, task.TypeStory); err != nil {
+	if err := testutil.CreateTestTask(ta.TaskDir, "000001", "Test Task", "backlog", "story"); err != nil {
 		t.Fatalf("failed to create task: %v", err)
 	}
 	if err := ta.TaskStore.Reload(); err != nil {
@@ -173,7 +172,7 @@ func TestInputAction_NonInputActionStillWorks(t *testing.T) {
 		t.Fatal("task not found")
 	}
 	status, _, _ := updated.StringField("status")
-	if status != task.StatusReady {
+	if status != "ready" {
 		t.Fatalf("expected status ready, got %v", status)
 	}
 }
@@ -198,7 +197,7 @@ func TestInputAction_ModalBlocksOtherActions(t *testing.T) {
 	updated := ta.TaskStore.GetTiki("000001")
 	if updated != nil {
 		status, _, _ := updated.StringField("status")
-		if status != task.StatusBacklog {
+		if status != "backlog" {
 			t.Fatalf("expected status backlog (action should be blocked while modal), got %v", status)
 		}
 	}
@@ -355,7 +354,7 @@ func TestInputAction_SearchEditingBlocksPluginActions(t *testing.T) {
 	updated := ta.TaskStore.GetTiki("000001")
 	if updated != nil {
 		status, _, _ := updated.StringField("status")
-		if status != task.StatusBacklog {
+		if status != "backlog" {
 			t.Fatalf("expected status backlog (action blocked during search editing), got %v", status)
 		}
 	}
@@ -520,7 +519,7 @@ func TestInputAction_PreflightNoTaskSelected_NoPrompt(t *testing.T) {
 	defer ta.Cleanup()
 
 	// create a task, but it won't match the filter
-	if err := testutil.CreateTestTask(ta.TaskDir, "000001", "Test", task.StatusBacklog, task.TypeStory); err != nil {
+	if err := testutil.CreateTestTask(ta.TaskDir, "000001", "Test", "backlog", "story"); err != nil {
 		t.Fatalf("failed to create task: %v", err)
 	}
 	if err := ta.TaskStore.Reload(); err != nil {
@@ -628,7 +627,7 @@ func TestInputAction_CompositeKeyPluginAction(t *testing.T) {
 		t.Fatalf("failed to load plugins: %v", err)
 	}
 
-	if err := testutil.CreateTestTask(ta.TaskDir, "000001", "Blocked Task", task.StatusBacklog, task.TypeStory); err != nil {
+	if err := testutil.CreateTestTask(ta.TaskDir, "000001", "Blocked Task", "backlog", "story"); err != nil {
 		t.Fatalf("failed to create task: %v", err)
 	}
 	if err := ta.TaskStore.Reload(); err != nil {
@@ -647,7 +646,7 @@ func TestInputAction_CompositeKeyPluginAction(t *testing.T) {
 	updated := ta.TaskStore.GetTiki("000001")
 	if updated != nil {
 		status, _, _ := updated.StringField("status")
-		if status != task.StatusReady {
+		if status != "ready" {
 			t.Fatalf("expected status 'ready' after Ctrl-U action, got %q", status)
 		}
 	}

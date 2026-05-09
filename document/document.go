@@ -2,13 +2,9 @@ package document
 
 import "time"
 
-// Document is the unified representation of any managed markdown file under
-// .doc/. It is intentionally workflow-agnostic: workflow fields live in
-// Frontmatter/CustomFields with explicit presence, so ordinary docs can be
-// loaded without being accidentally promoted to workflow items.
-//
-// Phase 1 introduces this type alongside task.Task; later phases migrate the
-// store, ruki, and view layers to operate on Document directly.
+// Document is a frontmatter+body view of a managed markdown file. The
+// runtime model is `tiki.Tiki`; Document is retained for ruki tests and
+// helpers that build documents directly without going through the store.
 type Document struct {
 	// ID is the bare uppercase document identifier. Always set for loaded
 	// documents; generated on creation if absent.

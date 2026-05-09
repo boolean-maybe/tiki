@@ -10,9 +10,9 @@ import (
 
 	"github.com/boolean-maybe/tiki/config"
 	"github.com/boolean-maybe/tiki/internal/teststatuses"
-	taskpkg "github.com/boolean-maybe/tiki/task"
 	tikipkg "github.com/boolean-maybe/tiki/tiki"
 	"github.com/boolean-maybe/tiki/workflow"
+	"github.com/boolean-maybe/tiki/workflow/value"
 )
 
 // makeTikiMap builds a map[string]*tikipkg.Tiki for direct injection into
@@ -23,64 +23,6 @@ func makeTikiMap(tikis ...*tikipkg.Tiki) map[string]*tikipkg.Tiki {
 		out[tk.ID] = tk
 	}
 	return out
-}
-
-func TestSortTasks(t *testing.T) {
-	// task.Sort no longer sorts by priority — that ordering moved to ruki
-	// (`order by priority`) once priority became a workflow enum. The
-	// remaining contract is alphabetical title with ID as a stable tiebreak.
-	tests := []struct {
-		name     string
-		tasks    []*taskpkg.Task
-		expected []string // expected order of IDs
-	}{
-		{
-			name: "alphabetical by title",
-			tasks: []*taskpkg.Task{
-				{ID: "ABC10Z", Title: "Zebra"},
-				{ID: "ABC2ZZ", Title: "Apple"},
-				{ID: "ABC1ZZ", Title: "Mango"},
-			},
-			expected: []string{"ABC2ZZ", "ABC1ZZ", "ABC10Z"}, // Apple, Mango, Zebra
-		},
-		{
-			name: "same title - tiebreak by ID",
-			tasks: []*taskpkg.Task{
-				{ID: "CCC333", Title: "Same"},
-				{ID: "AAA111", Title: "Same"},
-				{ID: "BBB222", Title: "Same"},
-			},
-			expected: []string{"AAA111", "BBB222", "CCC333"},
-		},
-		{
-			name:     "empty task list",
-			tasks:    []*taskpkg.Task{},
-			expected: []string{},
-		},
-		{
-			name: "single task",
-			tasks: []*taskpkg.Task{
-				{ID: "ABC1ZZ", Title: "Only Task"},
-			},
-			expected: []string{"ABC1ZZ"},
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			taskpkg.Sort(tt.tasks)
-
-			if len(tt.tasks) != len(tt.expected) {
-				t.Fatalf("task count = %d, want %d", len(tt.tasks), len(tt.expected))
-			}
-
-			for i, task := range tt.tasks {
-				if task.ID != tt.expected[i] {
-					t.Errorf("tasks[%d].ID = %q, want %q", i, task.ID, tt.expected[i])
-				}
-			}
-		})
-	}
 }
 
 func TestSearchTikis_MatchesID(t *testing.T) {
@@ -503,12 +445,12 @@ Task description`,
 					t.Errorf("Title = %q, expected %q", tk.Title, "Test Task")
 				}
 				typeStr, _, _ := tk.StringField(tikipkg.FieldType)
-				if typeStr != taskpkg.TypeStory {
-					t.Errorf("type = %q, expected %q", typeStr, taskpkg.TypeStory)
+				if typeStr != "story" {
+					t.Errorf("type = %q, expected %q", typeStr, "story")
 				}
 				statusStr, _, _ := tk.StringField(tikipkg.FieldStatus)
-				if statusStr != taskpkg.StatusBacklog {
-					t.Errorf("status = %q, expected %q", statusStr, taskpkg.StatusBacklog)
+				if statusStr != "backlog" {
+					t.Errorf("status = %q, expected %q", statusStr, "backlog")
 				}
 			} else {
 				if err == nil {
@@ -648,7 +590,7 @@ Task description`,
 				if due.IsZero() {
 					t.Error("expected non-zero due time, got zero")
 				}
-				got := due.Format(taskpkg.DateFormat)
+				got := due.Format(value.DateFormat)
 				if got != tt.expectValue {
 					t.Errorf("due date got = %v, expected %v", got, tt.expectValue)
 				}
@@ -664,7 +606,7 @@ func TestLoadTaskFile_Recurrence(t *testing.T) {
 	tests := []struct {
 		name        string
 		fileContent string
-		expectValue taskpkg.Recurrence
+		expectValue value.Recurrence
 		shouldLoad  bool
 	}{
 		{
@@ -677,7 +619,7 @@ status: backlog
 recurrence: "0 0 * * *"
 ---
 Task description`,
-			expectValue: taskpkg.RecurrenceDaily,
+			expectValue: value.RecurrenceDaily,
 			shouldLoad:  true,
 		},
 		{
@@ -702,7 +644,7 @@ type: story
 status: backlog
 ---
 Task description`,
-			expectValue: taskpkg.RecurrenceNone,
+			expectValue: value.RecurrenceNone,
 			shouldLoad:  true,
 		},
 		{
@@ -719,7 +661,7 @@ status: backlog
 recurrence: "every tuesday"
 ---
 Task description`,
-			expectValue: taskpkg.Recurrence("every tuesday"),
+			expectValue: value.Recurrence("every tuesday"),
 			shouldLoad:  true,
 		},
 	}
@@ -750,7 +692,7 @@ Task description`,
 			}
 
 			recStr, _, _ := tk.StringField(tikipkg.FieldRecurrence)
-			if taskpkg.Recurrence(recStr) != tt.expectValue {
+			if value.Recurrence(recStr) != tt.expectValue {
 				t.Errorf("recurrence got = %q, expected %q", recStr, tt.expectValue)
 			}
 
@@ -767,7 +709,7 @@ func TestSaveTask_Recurrence(t *testing.T) {
 
 	tests := []struct {
 		name       string
-		recurrence taskpkg.Recurrence
+		recurrence value.Recurrence
 		expectInFM bool
 	}{
 		{
@@ -777,7 +719,7 @@ func TestSaveTask_Recurrence(t *testing.T) {
 		},
 		{
 			name:       "without recurrence",
-			recurrence: taskpkg.RecurrenceNone,
+			recurrence: value.RecurrenceNone,
 			expectInFM: false,
 		},
 	}
@@ -787,11 +729,11 @@ func TestSaveTask_Recurrence(t *testing.T) {
 			tk := tikipkg.New()
 			tk.ID = "RECSVR"
 			tk.Title = "Test Save Recurrence"
-			tk.Set("type", taskpkg.TypeStory)
+			tk.Set("type", "story")
 			tk.Set("status", "backlog")
 			tk.Set("priority", "medium")
 			tk.Body = "Test description"
-			if tt.recurrence != taskpkg.RecurrenceNone {
+			if tt.recurrence != value.RecurrenceNone {
 				tk.Set(tikipkg.FieldRecurrence, string(tt.recurrence))
 			}
 
@@ -822,7 +764,7 @@ func TestSaveTask_Recurrence(t *testing.T) {
 				return
 			}
 			recStr, _, _ := loaded.StringField(tikipkg.FieldRecurrence)
-			if taskpkg.Recurrence(recStr) != tt.recurrence {
+			if value.Recurrence(recStr) != tt.recurrence {
 				t.Errorf("round-trip failed: saved %q, loaded %q", tt.recurrence, recStr)
 			}
 
@@ -1004,13 +946,13 @@ func TestSaveTask_Due(t *testing.T) {
 			// Create task
 			var dueTime time.Time
 			if tt.dueValue != "" {
-				dueTime, _ = time.Parse(taskpkg.DateFormat, tt.dueValue)
+				dueTime, _ = time.Parse(value.DateFormat, tt.dueValue)
 			}
 
 			tk := tikipkg.New()
 			tk.ID = "SAVE01"
 			tk.Title = "Test Save"
-			tk.Set("type", taskpkg.TypeStory)
+			tk.Set("type", "story")
 			tk.Set("status", "backlog")
 			tk.Set("priority", "medium")
 			tk.Body = "Test description"
@@ -1076,7 +1018,7 @@ func TestCustomFieldRoundTrip(t *testing.T) {
 	original := tikipkg.New()
 	original.ID = "CUSTOM"
 	original.Title = "Custom field test"
-	original.Set(tikipkg.FieldStatus, taskpkg.StatusReady)
+	original.Set(tikipkg.FieldStatus, "ready")
 	original.Set(tikipkg.FieldType, "story")
 	original.Set(tikipkg.FieldPriority, "medium-high")
 	original.Set("severity", "high")
@@ -1215,7 +1157,7 @@ func TestCustomFieldRoundTrip_AmbiguousStrings(t *testing.T) {
 			original := tikipkg.New()
 			original.ID = "AMBIG1"
 			original.Title = "Ambiguous round-trip"
-			original.Set(tikipkg.FieldStatus, taskpkg.StatusReady)
+			original.Set(tikipkg.FieldStatus, "ready")
 			original.Set(tikipkg.FieldType, "story")
 			original.Set(tikipkg.FieldPriority, "medium-high")
 			for k, v := range tt.fields {
@@ -1262,7 +1204,7 @@ func TestSaveTask_TimestampFieldKeepsTimeComponent(t *testing.T) {
 	original := tikipkg.New()
 	original.ID = "TS0001"
 	original.Title = "timestamp roundtrip"
-	original.Set(tikipkg.FieldStatus, taskpkg.StatusReady)
+	original.Set(tikipkg.FieldStatus, "ready")
 	original.Set(tikipkg.FieldType, "story")
 	original.Set("dueBy", want)
 
@@ -1599,8 +1541,8 @@ func TestSaveTask_DedupesBuiltInCollections(t *testing.T) {
 	input := tikipkg.New()
 	input.ID = "SET001"
 	input.Title = "dedupe built-ins"
-	input.Set(tikipkg.FieldType, taskpkg.TypeStory)
-	input.Set(tikipkg.FieldStatus, taskpkg.StatusBacklog)
+	input.Set(tikipkg.FieldType, "story")
+	input.Set(tikipkg.FieldStatus, "backlog")
 	input.Set(tikipkg.FieldPriority, "medium")
 	input.Set(tikipkg.FieldTags, []string{"frontend", "backend", "frontend", " backend "})
 	input.Set(tikipkg.FieldDependsOn, []string{"aaa001", "AAA001", " BBB002 "})
@@ -1646,8 +1588,8 @@ func TestSaveTask_DedupesCustomListFields(t *testing.T) {
 	input := tikipkg.New()
 	input.ID = "SET002"
 	input.Title = "dedupe custom"
-	input.Set(tikipkg.FieldType, taskpkg.TypeStory)
-	input.Set(tikipkg.FieldStatus, taskpkg.StatusBacklog)
+	input.Set(tikipkg.FieldType, "story")
+	input.Set(tikipkg.FieldStatus, "backlog")
 	input.Set(tikipkg.FieldPriority, "medium")
 	input.Set("labels", []string{"backend", "backend", " frontend ", ""})
 	input.Set("related", []string{"aaa001", "AAA001", "bbb002"})

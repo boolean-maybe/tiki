@@ -6,7 +6,6 @@ import (
 	"testing"
 
 	"github.com/boolean-maybe/tiki/model"
-	taskpkg "github.com/boolean-maybe/tiki/task"
 	"github.com/boolean-maybe/tiki/testutil"
 
 	"github.com/gdamore/tcell/v2"
@@ -26,11 +25,11 @@ func setupPluginViewTest(t *testing.T) *testutil.TestApp {
 		status string
 		typ    string
 	}{
-		{"000001", "First Backlog Task", taskpkg.StatusBacklog, taskpkg.TypeStory},
-		{"000002", "Second Backlog Task", taskpkg.StatusBacklog, taskpkg.TypeBug},
-		{"000003", "Third Backlog Task", taskpkg.StatusBacklog, taskpkg.TypeStory},
-		{"000004", "Fourth Backlog Task", taskpkg.StatusBacklog, taskpkg.TypeBug},
-		{"000005", "Todo Task (not in backlog)", taskpkg.StatusReady, taskpkg.TypeStory},
+		{"000001", "First Backlog Task", "backlog", "story"},
+		{"000002", "Second Backlog Task", "backlog", "bug"},
+		{"000003", "Third Backlog Task", "backlog", "story"},
+		{"000004", "Fourth Backlog Task", "backlog", "bug"},
+		{"000005", "Todo Task (not in backlog)", "ready", "story"},
 	}
 
 	for _, task := range tasks {
@@ -209,8 +208,8 @@ func TestPluginView_CreateTask(t *testing.T) {
 			found = true
 			// Task created from backlog plugin should have backlog status
 			status, _, _ := tk.StringField("status")
-			if status != taskpkg.StatusBacklog {
-				t.Errorf("new task status = %v, want %v", status, taskpkg.StatusBacklog)
+			if status != "backlog" {
+				t.Errorf("new task status = %v, want %v", status, "backlog")
 			}
 			break
 		}
@@ -312,7 +311,7 @@ func TestPluginView_SearchNoResults(t *testing.T) {
 	}
 
 	// Create a single task
-	if err := testutil.CreateTestTask(ta.TaskDir, "000001", "First Task", taskpkg.StatusReady, taskpkg.TypeStory); err != nil {
+	if err := testutil.CreateTestTask(ta.TaskDir, "000001", "First Task", "ready", "story"); err != nil {
 		t.Fatalf("failed to create task: %v", err)
 	}
 	if err := ta.TaskStore.Reload(); err != nil {
@@ -365,7 +364,7 @@ func TestPluginView_EmptyPlugin(t *testing.T) {
 	}
 
 	// Create only todo tasks (no backlog tasks)
-	if err := testutil.CreateTestTask(ta.TaskDir, "000001", "Todo Task", taskpkg.StatusReady, taskpkg.TypeStory); err != nil {
+	if err := testutil.CreateTestTask(ta.TaskDir, "000001", "Todo Task", "ready", "story"); err != nil {
 		t.Fatalf("failed to create task: %v", err)
 	}
 	if err := ta.TaskStore.Reload(); err != nil {
@@ -469,12 +468,12 @@ func TestPluginView_MultiplePlugins(t *testing.T) {
 
 	// Create tasks for multiple plugins
 	// Backlog: status = backlog (also recent since just created)
-	if err := testutil.CreateTestTask(ta.TaskDir, "000001", "Backlog Task", taskpkg.StatusBacklog, taskpkg.TypeStory); err != nil {
+	if err := testutil.CreateTestTask(ta.TaskDir, "000001", "Backlog Task", "backlog", "story"); err != nil {
 		t.Fatalf("failed to create task: %v", err)
 	}
 
 	// Recent: status = todo (also recent since just created)
-	if err := testutil.CreateTestTask(ta.TaskDir, "000002", "Recent Task", taskpkg.StatusReady, taskpkg.TypeStory); err != nil {
+	if err := testutil.CreateTestTask(ta.TaskDir, "000002", "Recent Task", "ready", "story"); err != nil {
 		t.Fatalf("failed to create task: %v", err)
 	}
 

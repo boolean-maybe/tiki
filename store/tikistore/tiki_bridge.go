@@ -10,10 +10,10 @@ import (
 	"github.com/boolean-maybe/tiki/config"
 	"github.com/boolean-maybe/tiki/document"
 	"github.com/boolean-maybe/tiki/store"
-	taskpkg "github.com/boolean-maybe/tiki/task"
 	"github.com/boolean-maybe/tiki/tiki"
 	collectionutil "github.com/boolean-maybe/tiki/util/collections"
 	"github.com/boolean-maybe/tiki/workflow"
+	valuepkg "github.com/boolean-maybe/tiki/workflow/value"
 
 	"gopkg.in/yaml.v3"
 )
@@ -244,9 +244,9 @@ func encodeFieldByType(fd workflow.FieldDef, value interface{}) ([]byte, error) 
 		if !ok {
 			return yaml.Marshal(map[string]interface{}{key: value})
 		}
-		// DueValue.MarshalYAML emits date-only (YYYY-MM-DD), which is the
+		// DateValue.MarshalYAML emits date-only (YYYY-MM-DD), which is the
 		// correct shape for TypeDate fields.
-		return yaml.Marshal(map[string]interface{}{key: taskpkg.DueValue{Time: tv}})
+		return yaml.Marshal(map[string]interface{}{key: valuepkg.DateValue{Time: tv}})
 
 	case workflow.TypeTimestamp:
 		tv, ok := coerceTimeForYAML(value)
@@ -254,7 +254,7 @@ func encodeFieldByType(fd workflow.FieldDef, value interface{}) ([]byte, error) 
 			return yaml.Marshal(map[string]interface{}{key: value})
 		}
 		// Emit a full RFC3339 timestamp so the time component round-trips.
-		// Using DueValue here would silently truncate to YYYY-MM-DD.
+		// Using DateValue here would silently truncate to YYYY-MM-DD.
 		return yaml.Marshal(map[string]interface{}{key: tv.UTC().Format(time.RFC3339)})
 
 	case workflow.TypeInt:

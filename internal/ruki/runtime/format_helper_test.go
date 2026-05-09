@@ -55,8 +55,8 @@ func tikiFromLegacy(f legacyFields) *tiki.Tiki {
 }
 
 // legacyFields mirrors the workflow-field shape format tests care about.
-// Production task.Task no longer carries these typed fields — they live in
-// tiki.Tiki.Fields. Tests build fixtures here for ergonomic literal style.
+// The runtime model (tiki.Tiki) stores these as ordinary entries in a generic
+// Fields map; tests build fixtures here for ergonomic literal style.
 type legacyFields struct {
 	ID           string
 	Title        string

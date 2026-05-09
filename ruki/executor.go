@@ -8,10 +8,10 @@ import (
 	"time"
 
 	"github.com/boolean-maybe/tiki/document"
-	"github.com/boolean-maybe/tiki/task"
 	"github.com/boolean-maybe/tiki/tiki"
 	collectionutil "github.com/boolean-maybe/tiki/util/collections"
 	"github.com/boolean-maybe/tiki/util/duration"
+	"github.com/boolean-maybe/tiki/workflow/value"
 )
 
 // Executor evaluates parsed ruki statements against a set of tikis.
@@ -390,13 +390,13 @@ func (e *Executor) setField(t *tiki.Tiki, name string, val interface{}) error {
 	return nil
 }
 
-// coerceSetString converts a task.Recurrence wrapper or plain string to a
+// coerceSetString converts a value.Recurrence wrapper or plain string to a
 // string before enum canonicalization.
 func coerceSetString(val interface{}) (string, bool) {
 	switch v := val.(type) {
 	case string:
 		return v, true
-	case task.Recurrence:
+	case value.Recurrence:
 		return string(v), true
 	default:
 		return "", false
@@ -1260,7 +1260,7 @@ func (e *Executor) evalNextDate(fc *FunctionCall, ctx evalContext) (interface{},
 	if _, isField := fc.Args[0].(*FieldRef); !isField {
 		if _, isQual := fc.Args[0].(*QualifiedRef); !isQual {
 			// Still evaluate so we can surface a typed error. Only
-			// task.Recurrence is accepted from non-field callers.
+			// value.Recurrence is accepted from non-field callers.
 			val, err := e.evalExpr(fc.Args[0], ctx)
 			if err != nil {
 				return nil, err
@@ -1268,8 +1268,8 @@ func (e *Executor) evalNextDate(fc *FunctionCall, ctx evalContext) (interface{},
 			if val == nil {
 				return nil, nil
 			}
-			if rec, ok := val.(task.Recurrence); ok {
-				return task.NextOccurrence(rec), nil
+			if rec, ok := val.(value.Recurrence); ok {
+				return value.NextOccurrence(rec), nil
 			}
 			return nil, fmt.Errorf("next_date() argument must be a recurrence value, got %T", val)
 		}
@@ -1283,17 +1283,17 @@ func (e *Executor) evalNextDate(fc *FunctionCall, ctx evalContext) (interface{},
 		return nil, nil
 	}
 	// Accept string (from Fields map, which holds recurrence as canonical
-	// string) or task.Recurrence.
-	var rec task.Recurrence
+	// string) or value.Recurrence.
+	var rec value.Recurrence
 	switch v := val.(type) {
-	case task.Recurrence:
+	case value.Recurrence:
 		rec = v
 	case string:
-		rec = task.Recurrence(v)
+		rec = value.Recurrence(v)
 	default:
 		return nil, fmt.Errorf("next_date() argument must be a recurrence value, got %T", val)
 	}
-	return task.NextOccurrence(rec), nil
+	return value.NextOccurrence(rec), nil
 }
 
 // evalEnumStep evaluates next_enum(field) / prev_enum(field) using the base
@@ -1722,8 +1722,8 @@ func compareForSort(a, b interface{}) int {
 			return 1
 		}
 		return 0
-	case task.Recurrence:
-		bv, _ := b.(task.Recurrence)
+	case value.Recurrence:
+		bv, _ := b.(value.Recurrence)
 		return strings.Compare(string(av), string(bv))
 	case time.Duration:
 		bv, _ := b.(time.Duration)
@@ -1829,7 +1829,7 @@ func (e *Executor) compareValues(left, right interface{}, op string, leftExpr, r
 			return false, fmt.Errorf("cannot compare duration with %T", right)
 		}
 		return compareDurations(lv, rv, op)
-	case task.Recurrence:
+	case value.Recurrence:
 		return compareStrings(string(lv), normalizeToString(right), op)
 	default:
 		return false, fmt.Errorf("unsupported comparison type %T", left)
@@ -2235,7 +2235,7 @@ func normalizeToString(v interface{}) string {
 	switch v := v.(type) {
 	case string:
 		return v
-	case task.Recurrence:
+	case value.Recurrence:
 		return string(v)
 	default:
 		return fmt.Sprint(v)
@@ -2266,7 +2266,7 @@ func isZeroValue(v interface{}) bool {
 		return v == 0
 	case bool:
 		return !v
-	case task.Recurrence:
+	case value.Recurrence:
 		return v == ""
 	case []interface{}:
 		return len(v) == 0

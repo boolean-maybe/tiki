@@ -3,15 +3,15 @@ package ruki
 import (
 	"time"
 
-	"github.com/boolean-maybe/tiki/task"
 	"github.com/boolean-maybe/tiki/tiki"
+	"github.com/boolean-maybe/tiki/workflow/value"
 )
 
 // taskFixture is a test-only fixture struct that mirrors the workflow-field
-// shape ruki tests historically used. Production task.Task no longer carries
-// typed workflow fields — they live in tiki.Tiki.Fields. Tests build fixtures
-// against this struct to keep the (ID, Title, Status, Tags, …) literal style
-// readable, then route them through tikiFromFixture at the executor boundary.
+// shape ruki tests historically used. The runtime model (tiki.Tiki) keeps
+// workflow fields in a generic Fields map; tests build fixtures against this
+// struct to keep the (ID, Title, Status, Tags, …) literal style readable,
+// then route them through tikiFromFixture at the executor boundary.
 type taskFixture struct {
 	ID                  string
 	Title               string
@@ -21,7 +21,7 @@ type taskFixture struct {
 	Tags                []string
 	DependsOn           []string
 	Due                 time.Time
-	Recurrence          task.Recurrence
+	Recurrence          value.Recurrence
 	Assignee            string
 	Points              int
 	CreatedBy           string
@@ -200,7 +200,7 @@ func tikiToFixtureForTest(tk *tiki.Tiki) *taskFixture {
 		f.Due = v
 	}
 	if v, ok, _ := tk.StringField(tiki.FieldRecurrence); ok {
-		f.Recurrence = task.Recurrence(v)
+		f.Recurrence = value.Recurrence(v)
 	}
 	if v, ok, _ := tk.StringSliceField(tiki.FieldTags); ok {
 		f.Tags = v
