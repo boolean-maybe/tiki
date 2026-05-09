@@ -2,13 +2,10 @@ package task
 
 import (
 	"fmt"
-	"log/slog"
 	"regexp"
 	"strconv"
 	"strings"
 	"time"
-
-	"gopkg.in/yaml.v3"
 )
 
 // Recurrence represents a task recurrence pattern as a cron expression.
@@ -255,55 +252,6 @@ func init() {
 		displayToCron[strings.ToLower(r.display)] = r.cron
 		validCronSet[r.cron] = true
 	}
-}
-
-// RecurrenceValue is a custom type for recurrence that provides lenient YAML unmarshaling.
-type RecurrenceValue struct {
-	Value Recurrence
-}
-
-// UnmarshalYAML implements custom unmarshaling for recurrence with lenient error handling.
-func (r *RecurrenceValue) UnmarshalYAML(value *yaml.Node) error {
-	var s string
-	if err := value.Decode(&s); err == nil {
-		trimmed := strings.TrimSpace(s)
-		if trimmed == "" {
-			*r = RecurrenceValue{}
-			return nil
-		}
-		if parsed, ok := ParseRecurrence(trimmed); ok {
-			*r = RecurrenceValue{Value: parsed}
-			return nil
-		}
-		slog.Warn("invalid recurrence format, defaulting to empty",
-			"value", s,
-			"line", value.Line,
-			"column", value.Column)
-		*r = RecurrenceValue{}
-		return nil
-	}
-
-	slog.Warn("invalid recurrence field type, defaulting to empty",
-		"received_type", value.Kind,
-		"line", value.Line,
-		"column", value.Column)
-	*r = RecurrenceValue{}
-	return nil
-}
-
-// MarshalYAML implements YAML marshaling for RecurrenceValue.
-func (r RecurrenceValue) MarshalYAML() (any, error) {
-	return string(r.Value), nil
-}
-
-// IsZero reports whether the recurrence is empty (needed for omitempty).
-func (r RecurrenceValue) IsZero() bool {
-	return r.Value == RecurrenceNone
-}
-
-// ToRecurrence converts RecurrenceValue to Recurrence.
-func (r RecurrenceValue) ToRecurrence() Recurrence {
-	return r.Value
 }
 
 // ParseRecurrence validates a cron string against known patterns or monthly pattern.

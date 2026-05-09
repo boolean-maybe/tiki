@@ -3,18 +3,15 @@ package task
 import "time"
 
 // Task represents a work item (user story, bug, etc.)
+//
+// Workflow-driven fields (status, type, priority, points, tags, dependsOn,
+// due, recurrence, assignee) are not modeled as struct members — they live
+// in tiki.Tiki.Fields, which is the single source of truth at runtime. This
+// struct keeps only identity, content, comments, and bookkeeping.
 type Task struct {
 	ID            string
 	Title         string
 	Description   string
-	Type          string
-	Status        string
-	Tags          []string
-	DependsOn     []string
-	Due           time.Time
-	Recurrence    Recurrence
-	Assignee      string
-	Points        int
 	Comments      []Comment
 	CreatedBy     string // User who initially created the task
 	CreatedAt     time.Time
@@ -52,29 +49,12 @@ func (t *Task) Clone() *Task {
 		ID:          t.ID,
 		Title:       t.Title,
 		Description: t.Description,
-		Type:        t.Type,
-		Status:      t.Status,
-		Due:         t.Due,
-		Recurrence:  t.Recurrence,
-		Assignee:    t.Assignee,
-		Points:      t.Points,
 		CreatedBy:   t.CreatedBy,
 		CreatedAt:   t.CreatedAt,
 		UpdatedAt:   t.UpdatedAt,
 		LoadedMtime: t.LoadedMtime,
 		FilePath:    t.FilePath,
 		IsWorkflow:  t.IsWorkflow,
-	}
-
-	// Deep copy slices
-	if t.Tags != nil {
-		clone.Tags = make([]string, len(t.Tags))
-		copy(clone.Tags, t.Tags)
-	}
-
-	if t.DependsOn != nil {
-		clone.DependsOn = make([]string, len(t.DependsOn))
-		copy(clone.DependsOn, t.DependsOn)
 	}
 
 	if t.Comments != nil {

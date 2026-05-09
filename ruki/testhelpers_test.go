@@ -1,61 +1,85 @@
 package ruki
 
 import (
+	"time"
+
 	"github.com/boolean-maybe/tiki/task"
 	"github.com/boolean-maybe/tiki/tiki"
 )
 
-// tikiFromTask is the Phase 4 test helper: most existing fixtures are
-// task.Task{...} slices; wrap them through this helper at the executor
-// boundary so tests keep reading naturally.
-//
-// The convention: any non-zero schema field makes the task workflow-declaring.
-// The helper applies full-schema presence — every schema field is set in the
-// tiki map — so formatters and filters behave as if the tiki was created via
-// NewTikiTemplate (all fields present). Tests that want absent-field semantics
-// should skip this helper and build the tiki with tiki.New() directly.
-func tikiFromTask(t *task.Task) *tiki.Tiki {
-	if t == nil {
+// taskFixture is a test-only fixture struct that mirrors the workflow-field
+// shape ruki tests historically used. Production task.Task no longer carries
+// typed workflow fields — they live in tiki.Tiki.Fields. Tests build fixtures
+// against this struct to keep the (ID, Title, Status, Tags, …) literal style
+// readable, then route them through tikiFromFixture at the executor boundary.
+type taskFixture struct {
+	ID                  string
+	Title               string
+	Description         string
+	Type                string
+	Status              string
+	Tags                []string
+	DependsOn           []string
+	Due                 time.Time
+	Recurrence          task.Recurrence
+	Assignee            string
+	Points              int
+	CreatedBy           string
+	CreatedAt           time.Time
+	UpdatedAt           time.Time
+	FilePath            string
+	IsWorkflow          bool
+	CustomFields        map[string]interface{}
+	WorkflowFrontmatter map[string]interface{}
+}
+
+// tikiFromFixture builds a tiki.Tiki from a fixture, applying the same
+// presence semantics the old tikiFromTask helper used: a fixture with any
+// non-zero workflow value (or IsWorkflow=true) is treated as workflow-
+// declaring, with all schema fields explicitly set so formatters and filters
+// behave the same as a tiki created via NewTikiTemplate.
+func tikiFromFixture(f *taskFixture) *tiki.Tiki {
+	if f == nil {
 		return nil
 	}
 	tk := tiki.New()
-	tk.ID = t.ID
-	tk.Title = t.Title
-	tk.Body = t.Description
-	tk.CreatedAt = t.CreatedAt
-	tk.UpdatedAt = t.UpdatedAt
-	tk.Path = t.FilePath
-	if t.CreatedBy != "" {
-		tk.Set("createdBy", t.CreatedBy)
+	tk.ID = f.ID
+	tk.Title = f.Title
+	tk.Body = f.Description
+	tk.CreatedAt = f.CreatedAt
+	tk.UpdatedAt = f.UpdatedAt
+	tk.Path = f.FilePath
+	if f.CreatedBy != "" {
+		tk.Set("createdBy", f.CreatedBy)
 	}
 
-	workflow := t.IsWorkflow || hasAnyWorkflowValue(t)
+	workflow := f.IsWorkflow || hasAnyWorkflowValue(f)
 	if workflow {
 		// only set fields that are non-zero, mirroring setWorkflowFieldFromTask
 		// behavior: absent zero-values must stay absent so has(field) returns false.
-		if t.Status != "" {
-			tk.Set(tiki.FieldStatus, t.Status)
+		if f.Status != "" {
+			tk.Set(tiki.FieldStatus, f.Status)
 		}
-		if t.Type != "" {
-			tk.Set(tiki.FieldType, t.Type)
+		if f.Type != "" {
+			tk.Set(tiki.FieldType, f.Type)
 		}
-		if t.Points != 0 {
-			tk.Set(tiki.FieldPoints, t.Points)
+		if f.Points != 0 {
+			tk.Set(tiki.FieldPoints, f.Points)
 		}
-		if t.Assignee != "" {
-			tk.Set(tiki.FieldAssignee, t.Assignee)
+		if f.Assignee != "" {
+			tk.Set(tiki.FieldAssignee, f.Assignee)
 		}
-		if !t.Due.IsZero() {
-			tk.Set(tiki.FieldDue, t.Due)
+		if !f.Due.IsZero() {
+			tk.Set(tiki.FieldDue, f.Due)
 		}
-		if t.Recurrence != "" {
-			tk.Set(tiki.FieldRecurrence, string(t.Recurrence))
+		if f.Recurrence != "" {
+			tk.Set(tiki.FieldRecurrence, string(f.Recurrence))
 		}
-		if t.Tags != nil {
-			tk.Set(tiki.FieldTags, append([]string(nil), t.Tags...))
+		if f.Tags != nil {
+			tk.Set(tiki.FieldTags, append([]string(nil), f.Tags...))
 		}
-		if t.DependsOn != nil {
-			tk.Set(tiki.FieldDependsOn, append([]string(nil), t.DependsOn...))
+		if f.DependsOn != nil {
+			tk.Set(tiki.FieldDependsOn, append([]string(nil), f.DependsOn...))
 		}
 		// full-schema presence: initialize list fields to empty slice when explicitly nil
 		// so formatters get "present empty" vs absent for their rendering decisions.
@@ -66,41 +90,41 @@ func tikiFromTask(t *task.Task) *tiki.Tiki {
 			tk.Set(tiki.FieldDependsOn, []string{})
 		}
 		if !tk.Has(tiki.FieldAssignee) {
-			tk.Set(tiki.FieldAssignee, t.Assignee) // explicitly-set empty string
+			tk.Set(tiki.FieldAssignee, f.Assignee) // explicitly-set empty string
 		}
 		if !tk.Has(tiki.FieldDue) {
-			tk.Set(tiki.FieldDue, t.Due) // zero time
+			tk.Set(tiki.FieldDue, f.Due) // zero time
 		}
 		if !tk.Has(tiki.FieldRecurrence) {
-			tk.Set(tiki.FieldRecurrence, string(t.Recurrence)) // empty string
+			tk.Set(tiki.FieldRecurrence, string(f.Recurrence)) // empty string
 		}
 		if !tk.Has(tiki.FieldPoints) {
-			tk.Set(tiki.FieldPoints, t.Points) // zero int
+			tk.Set(tiki.FieldPoints, f.Points) // zero int
 		}
 		if !tk.Has(tiki.FieldPriority) {
 			tk.Set(tiki.FieldPriority, "") // explicit empty present
 		}
 	}
-	for k, v := range t.CustomFields {
+	for k, v := range f.CustomFields {
 		tk.Set(k, v)
 	}
 	return tk
 }
 
-func hasAnyWorkflowValue(t *task.Task) bool {
-	if t == nil {
+func hasAnyWorkflowValue(f *taskFixture) bool {
+	if f == nil {
 		return false
 	}
-	return t.Status != "" || t.Type != "" || t.Points != 0 ||
-		t.Tags != nil || t.DependsOn != nil || !t.Due.IsZero() ||
-		t.Recurrence != "" || t.Assignee != ""
+	return f.Status != "" || f.Type != "" || f.Points != 0 ||
+		f.Tags != nil || f.DependsOn != nil || !f.Due.IsZero() ||
+		f.Recurrence != "" || f.Assignee != ""
 }
 
-// tikisFromTasks converts a task fixture slice to tikis.
-func tikisFromTasks(tasks []*task.Task) []*tiki.Tiki {
-	out := make([]*tiki.Tiki, 0, len(tasks))
-	for _, t := range tasks {
-		if tk := tikiFromTask(t); tk != nil {
+// tikisFromFixtures converts a fixture slice to tikis.
+func tikisFromFixtures(fixtures []*taskFixture) []*tiki.Tiki {
+	out := make([]*tiki.Tiki, 0, len(fixtures))
+	for _, f := range fixtures {
+		if tk := tikiFromFixture(f); tk != nil {
 			out = append(out, tk)
 		}
 	}
@@ -108,7 +132,7 @@ func tikisFromTasks(tasks []*task.Task) []*tiki.Tiki {
 }
 
 // testExecAction wraps TriggerExecutor.ExecAction so existing tests continue
-// to read task-shaped results.
+// to read fixture-shaped results.
 func (te *TriggerExecutor) testExecAction(trig any, tc *TriggerContext, inputs ...ExecutionInput) (*testResult, error) {
 	r, err := te.ExecAction(trig, tc, inputs...)
 	if err != nil {
@@ -118,32 +142,32 @@ func (te *TriggerExecutor) testExecAction(trig any, tc *TriggerContext, inputs .
 }
 
 // testExecTimeAction wraps TriggerExecutor.ExecTimeTriggerAction with
-// task-shaped input/output for legacy fixtures.
-func (te *TriggerExecutor) testExecTimeAction(tt any, allTasks []*task.Task, inputs ...ExecutionInput) (*testResult, error) {
-	r, err := te.ExecTimeTriggerAction(tt, tikisFromTasks(allTasks), inputs...)
+// fixture-shaped input/output for legacy fixtures.
+func (te *TriggerExecutor) testExecTimeAction(tt any, allFixtures []*taskFixture, inputs ...ExecutionInput) (*testResult, error) {
+	r, err := te.ExecTimeTriggerAction(tt, tikisFromFixtures(allFixtures), inputs...)
 	if err != nil {
 		return nil, err
 	}
 	return wrapResult(r), nil
 }
 
-// tikisToTasks unwraps tikis back to task.Task for assertion ergonomics.
+// tikisToFixtures unwraps tikis back to taskFixture for assertion ergonomics.
 //
 // Tests use local custom schemas (chooseTestSchema, newCustomExecutor's
 // registered fields) that are NOT mirrored in the global workflow registry.
-// This shim is deliberately more permissive: every non-workflow-declared field
+// This shim is deliberately permissive: every non-workflow-declared field
 // lands in CustomFields so assertion ergonomics stay intact.
-func tikisToTasks(tks []*tiki.Tiki) []*task.Task {
-	out := make([]*task.Task, 0, len(tks))
+func tikisToFixtures(tks []*tiki.Tiki) []*taskFixture {
+	out := make([]*taskFixture, 0, len(tks))
 	for _, tk := range tks {
-		if t := tikiToTaskForTest(tk); t != nil {
-			out = append(out, t)
+		if f := tikiToFixtureForTest(tk); f != nil {
+			out = append(out, f)
 		}
 	}
 	return out
 }
 
-func tikiToTaskForTest(tk *tiki.Tiki) *task.Task {
+func tikiToFixtureForTest(tk *tiki.Tiki) *taskFixture {
 	if tk == nil {
 		return nil
 	}
@@ -151,44 +175,40 @@ func tikiToTaskForTest(tk *tiki.Tiki) *task.Task {
 	if s, _, _ := tk.StringField("createdBy"); s != "" {
 		createdBy = s
 	}
-	t := &task.Task{
-		ID:         tk.ID,
-		Title:      tk.Title,
-		CreatedBy:  createdBy,
-		CreatedAt:  tk.CreatedAt,
-		UpdatedAt:  tk.UpdatedAt,
-		FilePath:   tk.Path,
-		IsWorkflow: false,
+	f := &taskFixture{
+		ID:        tk.ID,
+		Title:     tk.Title,
+		CreatedBy: createdBy,
+		CreatedAt: tk.CreatedAt,
+		UpdatedAt: tk.UpdatedAt,
+		FilePath:  tk.Path,
 	}
 
 	if v, ok, _ := tk.StringField(tiki.FieldStatus); ok {
-		t.Status = v
+		f.Status = v
 	}
 	if v, ok, _ := tk.StringField(tiki.FieldType); ok {
-		t.Type = v
+		f.Type = v
 	}
-	// priority lives in CustomFields after Phase 3 (it's a workflow enum
-	// rather than a Task struct field). Tests that need to read priority
-	// can pull it from raw.* tikis or CustomFields directly.
 	if v, ok, _ := tk.IntField(tiki.FieldPoints); ok {
-		t.Points = v
+		f.Points = v
 	}
 	if v, ok, _ := tk.StringField(tiki.FieldAssignee); ok {
-		t.Assignee = v
+		f.Assignee = v
 	}
 	if v, ok, _ := tk.TimeField(tiki.FieldDue); ok {
-		t.Due = v
+		f.Due = v
 	}
 	if v, ok, _ := tk.StringField(tiki.FieldRecurrence); ok {
-		t.Recurrence = task.Recurrence(v)
+		f.Recurrence = task.Recurrence(v)
 	}
 	if v, ok, _ := tk.StringSliceField(tiki.FieldTags); ok {
-		t.Tags = v
+		f.Tags = v
 	}
 	if v, ok, _ := tk.StringSliceField(tiki.FieldDependsOn); ok {
-		t.DependsOn = v
+		f.DependsOn = v
 	}
-	t.Description = tk.Body
+	f.Description = tk.Body
 
 	// IsWorkflow mirrors the old ToTask behavior: true when any of the
 	// well-known kanban frontmatter keys is present in the tiki map.
@@ -197,42 +217,42 @@ func tikiToTaskForTest(tk *tiki.Tiki) *task.Task {
 		tiki.FieldTags, tiki.FieldDependsOn, tiki.FieldDue, tiki.FieldRecurrence,
 		tiki.FieldAssignee,
 	}
-	for _, f := range wellKnown {
-		if tk.Has(f) {
-			t.IsWorkflow = true
+	for _, fn := range wellKnown {
+		if tk.Has(fn) {
+			f.IsWorkflow = true
 			break
 		}
 	}
 
 	// collect all non-well-known fields into CustomFields for test assertions
 	schemaSet := make(map[string]bool, len(wellKnown))
-	for _, f := range wellKnown {
-		schemaSet[f] = true
+	for _, fn := range wellKnown {
+		schemaSet[fn] = true
 	}
 	for k, v := range tk.Fields {
 		if !schemaSet[k] {
-			if t.CustomFields == nil {
-				t.CustomFields = map[string]interface{}{}
+			if f.CustomFields == nil {
+				f.CustomFields = map[string]interface{}{}
 			}
-			t.CustomFields[k] = v
+			f.CustomFields[k] = v
 		}
 	}
-	return t
+	return f
 }
 
-// testExec is a thin task-shaped wrapper around Executor.Execute: accepts
-// []*task.Task for fixture compatibility, converts to tikis for the real
+// testExec is a thin fixture-shaped wrapper around Executor.Execute: accepts
+// []*taskFixture for fixture compatibility, converts to tikis for the real
 // call, and converts result-bearing variants back so existing test
 // assertions keep working.
-func (e *Executor) testExec(stmt any, tasks []*task.Task, inputs ...ExecutionInput) (*testResult, error) {
-	result, err := e.Execute(stmt, tikisFromTasks(tasks), inputs...)
+func (e *Executor) testExec(stmt any, fixtures []*taskFixture, inputs ...ExecutionInput) (*testResult, error) {
+	result, err := e.Execute(stmt, tikisFromFixtures(fixtures), inputs...)
 	if err != nil {
 		return nil, err
 	}
 	return wrapResult(result), nil
 }
 
-// testResult mirrors Result but exposes task-shaped fields so existing
+// testResult mirrors Result but exposes fixture-shaped fields so existing
 // assertions that read Select.Tasks / Update.Updated[*].Status /
 // Create.Task continue to compile without per-test rewrites.
 type testResult struct {
@@ -250,20 +270,20 @@ type testResult struct {
 }
 
 type testSelect struct {
-	Tasks  []*task.Task
+	Tasks  []*taskFixture
 	Fields []string
 }
 
 type testUpdate struct {
-	Updated []*task.Task
+	Updated []*taskFixture
 }
 
 type testCreate struct {
-	Task *task.Task
+	Task *taskFixture
 }
 
 type testDelete struct {
-	Deleted []*task.Task
+	Deleted []*taskFixture
 }
 
 func wrapResult(r *Result) *testResult {
@@ -277,16 +297,16 @@ func wrapResult(r *Result) *testResult {
 		raw:       r,
 	}
 	if r.Select != nil {
-		out.Select = &testSelect{Tasks: tikisToTasks(r.Select.Tikis), Fields: r.Select.Fields}
+		out.Select = &testSelect{Tasks: tikisToFixtures(r.Select.Tikis), Fields: r.Select.Fields}
 	}
 	if r.Update != nil {
-		out.Update = &testUpdate{Updated: tikisToTasks(r.Update.Updated)}
+		out.Update = &testUpdate{Updated: tikisToFixtures(r.Update.Updated)}
 	}
 	if r.Create != nil {
-		out.Create = &testCreate{Task: tikiToTaskForTest(r.Create.Tiki)}
+		out.Create = &testCreate{Task: tikiToFixtureForTest(r.Create.Tiki)}
 	}
 	if r.Delete != nil {
-		out.Delete = &testDelete{Deleted: tikisToTasks(r.Delete.Deleted)}
+		out.Delete = &testDelete{Deleted: tikisToFixtures(r.Delete.Deleted)}
 	}
 	return out
 }

@@ -3,8 +3,6 @@ package ruki
 import (
 	"strings"
 	"testing"
-
-	"github.com/boolean-maybe/tiki/task"
 )
 
 // --- lexer ---
@@ -326,7 +324,7 @@ func TestExecuteSelectStillWorksWithoutPipe(t *testing.T) {
 func TestExecutePipeListFieldSpaceJoined(t *testing.T) {
 	e := NewExecutor(testSchema{}, nil, ExecutorRuntime{Mode: ExecutorRuntimePlugin})
 	p := newTestParser()
-	tasks := []*task.Task{
+	tasks := []*taskFixture{
 		{ID: "TIKI-000001", Title: "Test", Status: "ready", Type: "story",
 			Tags: []string{"a", "b", "c"}},
 	}
@@ -533,7 +531,7 @@ func TestExecuteClipboardWithLimit(t *testing.T) {
 	e := NewExecutor(testSchema{}, nil, ExecutorRuntime{Mode: ExecutorRuntimeCLI})
 	p := newTestParser()
 	tasks := makeTasks()
-	tikis := tikisFromTasks(tasks)
+	tikis := tikisFromFixtures(tasks)
 	// Reassign priorities now that priority is a workflow enum (`high` =
 	// rank 0 → sorts first when ascending). Each fixture maps to a key in
 	// declaration order so the original "lower number = higher urgency"
@@ -580,7 +578,7 @@ func TestExecuteClipboardWithLimit(t *testing.T) {
 func TestExecutePipeFilepath(t *testing.T) {
 	e := NewExecutor(testSchema{}, nil, ExecutorRuntime{Mode: ExecutorRuntimePlugin})
 	p := newTestParser()
-	tasks := []*task.Task{
+	tasks := []*taskFixture{
 		{ID: "TIKI-000001", Title: "x", Status: "ready", Type: "story",
 			FilePath: "/abs/path/tiki-000001.md"},
 	}

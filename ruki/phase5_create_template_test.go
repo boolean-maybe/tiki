@@ -3,7 +3,6 @@ package ruki
 import (
 	"testing"
 
-	"github.com/boolean-maybe/tiki/task"
 	"github.com/boolean-maybe/tiki/tiki"
 )
 
@@ -20,7 +19,7 @@ func TestPhase5_Create_TemplateDefaultsSurvive(t *testing.T) {
 	p := newTestParser()
 
 	// Mimic what NewTaskTemplate returns: workflow-capable with typed defaults.
-	template := tikiFromTask(&task.Task{
+	template := tikiFromFixture(&taskFixture{
 		ID:         "NEWDOC",
 		Status:     "backlog",
 		Type:       "story",

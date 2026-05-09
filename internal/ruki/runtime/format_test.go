@@ -8,13 +8,9 @@ import (
 	"time"
 
 	"github.com/boolean-maybe/tiki/ruki"
-	"github.com/boolean-maybe/tiki/task"
 	"github.com/boolean-maybe/tiki/tiki"
 	"github.com/boolean-maybe/tiki/workflow"
 )
-
-// silence "imported and not used" when tests stop referencing task directly.
-var _ = task.Task{}
 
 func TestTableFormatterProjectedFields(t *testing.T) {
 	proj := &ruki.TikiProjection{

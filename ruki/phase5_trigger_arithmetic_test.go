@@ -21,9 +21,9 @@ func TestPhase4_Trigger_SetTagsPlusListOnPlainTaskAutoZeroes(t *testing.T) {
 		t.Fatalf("parse: %v", err)
 	}
 
-	plainTask := &task.Task{ID: "PLAIN1", Title: "fresh task"}
-	plain := tikiFromTask(plainTask)
-	tc := &TriggerContext{Old: nil, New: plain, AllTikis: tikisFromTasks([]*task.Task{plainTask})}
+	plainTask := &taskFixture{ID: "PLAIN1", Title: "fresh task"}
+	plain := tikiFromFixture(plainTask)
+	tc := &TriggerContext{Old: nil, New: plain, AllTikis: tikisFromFixtures([]*taskFixture{plainTask})}
 
 	result, err := te.testExecAction(trig, tc)
 	if err != nil {
@@ -48,9 +48,9 @@ func TestPhase4_Trigger_SetTagsExplicitLiteralWorks(t *testing.T) {
 		t.Fatalf("parse: %v", err)
 	}
 
-	plainTask := &task.Task{ID: "PLAIN1", Title: "fresh task"}
-	plain := tikiFromTask(plainTask)
-	tc := &TriggerContext{Old: nil, New: plain, AllTikis: tikisFromTasks([]*task.Task{plainTask})}
+	plainTask := &taskFixture{ID: "PLAIN1", Title: "fresh task"}
+	plain := tikiFromFixture(plainTask)
+	tc := &TriggerContext{Old: nil, New: plain, AllTikis: tikisFromFixtures([]*taskFixture{plainTask})}
 
 	result, err := te.testExecAction(trig, tc)
 	if err != nil {
@@ -82,7 +82,7 @@ func TestPhase4_Trigger_NextDateAbsentRecurrenceIsEmpty(t *testing.T) {
 		t.Fatalf("parse: %v", err)
 	}
 
-	plain := tikiFromTask(&task.Task{ID: "PLAIN1"})
+	plain := tikiFromFixture(&taskFixture{ID: "PLAIN1"})
 	tc := &TriggerContext{Old: plain, New: plain}
 
 	matched, err := te.EvalGuard(trig, tc)
@@ -103,7 +103,7 @@ func TestPhase4_Trigger_NextDatePresentRecurrenceMatches(t *testing.T) {
 		t.Fatalf("parse: %v", err)
 	}
 
-	recurring := tikiFromTask(&task.Task{
+	recurring := tikiFromFixture(&taskFixture{
 		ID: "REC01", Recurrence: task.RecurrenceDaily,
 	})
 	tc := &TriggerContext{Old: recurring, New: recurring}

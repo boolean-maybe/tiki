@@ -20,13 +20,13 @@ func testDate(m time.Month, d int) time.Time {
 	return time.Date(2026, m, d, 0, 0, 0, 0, time.UTC)
 }
 
-func makeTasks() []*task.Task {
+func makeTasks() []*taskFixture {
 	// Phase 4 note: fixture tasks declare every workflow field explicitly
 	// (Tags: []string{} means "present-empty", not absent) so tests can
 	// compare against the old "absent == empty" semantics without adding
 	// has(...) guards everywhere. Tests that specifically want to exercise
 	// Phase 4 absent-field hard-error semantics build their own fixtures.
-	return []*task.Task{
+	return []*taskFixture{
 		{
 			ID: "TIKI-000001", Title: "Setup CI", Status: "ready", Type: "story",
 			Tags: []string{"infra"}, Assignee: "alice",
@@ -55,7 +55,7 @@ func makeTasks() []*task.Task {
 	}
 }
 
-func taskIDs(tasks []*task.Task) []string {
+func taskIDs(tasks []*taskFixture) []string {
 	ids := make([]string, len(tasks))
 	for i, t := range tasks {
 		ids[i] = t.ID
@@ -75,7 +75,7 @@ func TestExecuteNilStatement(t *testing.T) {
 
 func TestNewExecutorNilUserFunc(t *testing.T) {
 	e := NewExecutor(testSchema{}, nil, ExecutorRuntime{Mode: ExecutorRuntimeCLI})
-	tasks := []*task.Task{
+	tasks := []*taskFixture{
 		{ID: "T1", Title: "x", Status: "ready", Assignee: "present"},
 	}
 	stmt := &Statement{
@@ -319,7 +319,7 @@ func TestExecuteSelectNoOrderByPreservesInputOrder(t *testing.T) {
 	e := newTestExecutor()
 	p := newTestParser()
 
-	tasks := []*task.Task{
+	tasks := []*taskFixture{
 		{ID: "TIKI-CCC", Title: "C", Status: "ready"},
 		{ID: "TIKI-AAA", Title: "A", Status: "ready"},
 		{ID: "TIKI-BBB", Title: "B", Status: "ready"},
@@ -414,7 +414,7 @@ func TestExecuteEnumNormalization(t *testing.T) {
 	e := newTestExecutor()
 	p := newTestParser()
 
-	tasks := []*task.Task{
+	tasks := []*taskFixture{
 		{ID: "TIKI-A", Title: "A", Status: "done", Type: "story"},
 		{ID: "TIKI-B", Title: "B", Status: "inProgress", Type: "bug"},
 		{ID: "TIKI-C", Title: "C", Status: "ready", Type: "story"},
@@ -497,13 +497,13 @@ func TestExecuteListSetEquality(t *testing.T) {
 
 	tests := []struct {
 		name      string
-		tasks     []*task.Task
+		tasks     []*taskFixture
 		input     string
 		wantCount int
 	}{
 		{
 			"order-insensitive match",
-			[]*task.Task{
+			[]*taskFixture{
 				{ID: "T1", Title: "x", Status: "ready", Tags: []string{"a", "b"}},
 			},
 			`select where tags = ["b", "a"]`,
@@ -511,7 +511,7 @@ func TestExecuteListSetEquality(t *testing.T) {
 		},
 		{
 			"different members do not match",
-			[]*task.Task{
+			[]*taskFixture{
 				{ID: "T1", Title: "x", Status: "ready", Tags: []string{"a"}},
 			},
 			`select where tags = ["a", "b"]`,
@@ -519,7 +519,7 @@ func TestExecuteListSetEquality(t *testing.T) {
 		},
 		{
 			"duplicate vs single matches",
-			[]*task.Task{
+			[]*taskFixture{
 				{ID: "T1", Title: "x", Status: "ready", Tags: []string{"a", "a"}},
 			},
 			`select where tags = ["a"]`,
@@ -531,7 +531,7 @@ func TestExecuteListSetEquality(t *testing.T) {
 			// present, matching what the store populates when loading
 			// a document that wrote `tags: []` in its frontmatter.
 			"present empty list equals []",
-			[]*task.Task{
+			[]*taskFixture{
 				{
 					ID: "T1", Title: "x", Status: "ready", Tags: []string{},
 					WorkflowFrontmatter: map[string]interface{}{"status": "ready", "tags": ""},
@@ -544,7 +544,7 @@ func TestExecuteListSetEquality(t *testing.T) {
 			// Phase 4: fixture helper emits present-empty tags for
 			// workflow-declaring tasks so `tags = []` matches.
 			"fixture-present empty tags equals []",
-			[]*task.Task{
+			[]*taskFixture{
 				{ID: "T1", Title: "x", Status: "ready"},
 			},
 			`select where tags = []`,
@@ -555,7 +555,7 @@ func TestExecuteListSetEquality(t *testing.T) {
 			// comparison to hit tasks with absent tags would require
 			// building a tiki without the helper.
 			"fixture has(tags) always true",
-			[]*task.Task{
+			[]*taskFixture{
 				{ID: "T1", Title: "x", Status: "ready"},
 			},
 			`select where not has(tags)`,
@@ -563,7 +563,7 @@ func TestExecuteListSetEquality(t *testing.T) {
 		},
 		{
 			"list inequality",
-			[]*task.Task{
+			[]*taskFixture{
 				{ID: "T1", Title: "x", Status: "ready", Tags: []string{"a"}},
 			},
 			`select where tags != ["a", "b"]`,
@@ -594,7 +594,7 @@ func TestExecuteComparisonMatrix(t *testing.T) {
 	e := newTestExecutor()
 	p := newTestParser()
 
-	tasks := []*task.Task{
+	tasks := []*taskFixture{
 		{
 			ID: "TIKI-A", Title: "Alpha", Status: "done", Type: "bug",
 			Points: 3, Due: testDate(6, 15),
@@ -851,7 +851,7 @@ func TestExecuteOuterWithSelectedTaskExclusion(t *testing.T) {
 		t.Fatalf("parse: %v", err)
 	}
 
-	tasks := []*task.Task{
+	tasks := []*taskFixture{
 		{ID: "TIKI-000001", Title: "selected", Status: "ready", Type: "story", DependsOn: []string{"TIKI-000002"}},
 		{ID: "TIKI-000002", Title: "dependency", Status: "ready", Type: "story"},
 		{ID: "TIKI-000003", Title: "candidate", Status: "ready", Type: "story"},
@@ -872,7 +872,7 @@ func TestExecuteNextDate(t *testing.T) {
 	e := newTestExecutor()
 	p := newTestParser()
 
-	tasks := []*task.Task{
+	tasks := []*taskFixture{
 		{
 			ID: "T1", Title: "Daily", Status: "ready",
 			Recurrence: task.RecurrenceDaily,
@@ -1103,7 +1103,7 @@ func TestExecuteCreateEmptyTasks(t *testing.T) {
 	if err != nil {
 		t.Fatalf("parse: %v", err)
 	}
-	result, err := e.testExec(stmt, []*task.Task{})
+	result, err := e.testExec(stmt, []*taskFixture{})
 	if err != nil {
 		t.Fatalf("execute: %v", err)
 	}
@@ -1116,12 +1116,12 @@ func TestExecuteCreateWithTemplate(t *testing.T) {
 	e := newTestExecutor()
 	p := newTestParser()
 
-	template := &task.Task{
+	template := &taskFixture{
 		Tags:   []string{"idea"},
 		Status: "ready",
 		Type:   "story",
 	}
-	tmplTk := tikiFromTask(template)
+	tmplTk := tikiFromFixture(template)
 	tmplTk.Set("priority", "high") // template-derived default that flows through
 
 	stmt, err := p.ParseStatement(`create title="x" tags=tags+["new"]`)
@@ -1305,7 +1305,7 @@ func TestExecuteDateArithmetic(t *testing.T) {
 	e := newTestExecutor()
 	p := newTestParser()
 
-	tasks := []*task.Task{
+	tasks := []*taskFixture{
 		{ID: "T1", Title: "Soon", Status: "ready", Due: testDate(4, 5)},
 		{ID: "T2", Title: "Later", Status: "ready", Due: testDate(5, 1)},
 	}
@@ -1353,7 +1353,7 @@ func TestExecuteSortStable(t *testing.T) {
 	e := newTestExecutor()
 	p := newTestParser()
 
-	tasks := []*task.Task{
+	tasks := []*taskFixture{
 		{ID: "T1", Title: "First", Status: "ready", Points: 1},
 		{ID: "T2", Title: "Second", Status: "ready", Points: 1},
 		{ID: "T3", Title: "Third", Status: "ready", Points: 1},
@@ -1392,7 +1392,7 @@ func TestExecuteEmptyStatement(t *testing.T) {
 
 func TestExecuteCompareWithNil(t *testing.T) {
 	e := newTestExecutor()
-	tasks := []*task.Task{
+	tasks := []*taskFixture{
 		{ID: "T1", Title: "x", Status: "ready", Assignee: ""},
 		{ID: "T2", Title: "y", Status: "ready", Assignee: "bob"},
 	}
@@ -1458,7 +1458,7 @@ func TestExecuteCompareWithNil(t *testing.T) {
 
 func TestExecuteDurationComparison(t *testing.T) {
 	e := newTestExecutor()
-	tasks := []*task.Task{{ID: "T1", Title: "x", Status: "ready"}}
+	tasks := []*taskFixture{{ID: "T1", Title: "x", Status: "ready"}}
 
 	tests := []struct {
 		name string
@@ -1502,7 +1502,7 @@ func TestExecuteDurationComparison(t *testing.T) {
 
 func TestExecuteSubtractValues(t *testing.T) {
 	e := newTestExecutor()
-	tasks := []*task.Task{
+	tasks := []*taskFixture{
 		{ID: "T1", Title: "x", Status: "ready", Points: 10, Due: testDate(6, 15)},
 	}
 
@@ -1558,7 +1558,7 @@ func TestExecuteSubtractValues(t *testing.T) {
 
 func TestExecuteAddValuesIntAndString(t *testing.T) {
 	e := newTestExecutor()
-	tasks := []*task.Task{
+	tasks := []*taskFixture{
 		{ID: "T1", Title: "x", Status: "ready"},
 	}
 
@@ -1604,7 +1604,7 @@ func TestExecuteAddValuesIntAndString(t *testing.T) {
 func TestExecuteSortByStatusTypeRecurrence(t *testing.T) {
 	e := newTestExecutor()
 
-	tasks := []*task.Task{
+	tasks := []*taskFixture{
 		{ID: "T1", Title: "a", Status: "done", Type: "bug", Recurrence: "0 0 * * *"},
 		{ID: "T2", Title: "b", Status: "backlog", Type: "story", Recurrence: ""},
 		{ID: "T3", Title: "c", Status: "ready", Type: "epic", Recurrence: "0 0 1 * *"},
@@ -1643,14 +1643,14 @@ func TestExecuteSortByStatusTypeRecurrence(t *testing.T) {
 
 func TestExtractFieldAllFields(t *testing.T) {
 	e := newTestExecutor()
-	taskT := &task.Task{
+	taskT := &taskFixture{
 		ID: "T1", Title: "hi", Description: "desc", Status: "ready",
 		Type: "bug", Points: 3, Tags: []string{"a"},
 		DependsOn: []string{"T2"}, Due: testDate(1, 1),
 		Recurrence: task.RecurrenceDaily, Assignee: "bob",
 		CreatedBy: "alice", CreatedAt: testDate(1, 1), UpdatedAt: testDate(2, 1),
 	}
-	tk := tikiFromTask(taskT)
+	tk := tikiFromFixture(taskT)
 
 	fields := []string{
 		"id", "title", "description", "status", "type", "priority",
@@ -1710,7 +1710,7 @@ func TestIsZeroValue(t *testing.T) {
 
 func TestDurationLiteralUnknownUnitError(t *testing.T) {
 	e := &Executor{}
-	tasks := []*task.Task{{ID: "TIKI-AAA001", Title: "test"}}
+	tasks := []*taskFixture{{ID: "TIKI-AAA001", Title: "test"}}
 	// unknown unit should produce an error, not silently default to days
 	stmt, err := newTestParser().ParseStatement(`select where due > 2026-01-01 + 1day`)
 	if err != nil {
@@ -1835,7 +1835,7 @@ func TestExecuteCountNoWhere(t *testing.T) {
 func TestExecuteIDNotEqual(t *testing.T) {
 	e := newTestExecutor()
 	p := newTestParser()
-	tasks := []*task.Task{
+	tasks := []*taskFixture{
 		{ID: "TIKI-A", Title: "a", Status: "ready"},
 		{ID: "TIKI-B", Title: "b", Status: "ready"},
 	}
@@ -1860,7 +1860,7 @@ func TestExecuteRecurrenceComparison(t *testing.T) {
 	// Phase 4: fixture helper makes both tasks carry a present
 	// recurrence (T2 is present-empty ""), so self-comparison matches
 	// both rows.
-	tasks := []*task.Task{
+	tasks := []*taskFixture{
 		{ID: "T1", Title: "x", Status: "ready", Recurrence: task.RecurrenceDaily},
 		{ID: "T2", Title: "y", Status: "ready", Recurrence: task.RecurrenceNone},
 	}
@@ -1887,7 +1887,7 @@ func TestExecuteRecurrenceComparison(t *testing.T) {
 
 func TestExecuteEnumComparisonRejectsStaleValues(t *testing.T) {
 	e := newTestExecutor()
-	tasks := []*task.Task{
+	tasks := []*taskFixture{
 		{ID: "T1", Title: "x", Status: "unknown_status_xyz", Type: "unknown_type_xyz"},
 	}
 
@@ -1926,7 +1926,7 @@ func TestExecuteTimeComparisonAllOps(t *testing.T) {
 	e := newTestExecutor()
 	d1 := testDate(3, 1)
 	d2 := testDate(6, 1)
-	tasks := []*task.Task{{ID: "T1", Title: "x", Status: "ready"}}
+	tasks := []*taskFixture{{ID: "T1", Title: "x", Status: "ready"}}
 
 	tests := []struct {
 		name string
@@ -2145,7 +2145,7 @@ func TestExecuteErrorPropagation(t *testing.T) {
 
 func TestExecuteInSubstringLiteral(t *testing.T) {
 	e := newTestExecutor()
-	tasks := []*task.Task{{ID: "T1", Title: "x", Status: "ready"}}
+	tasks := []*taskFixture{{ID: "T1", Title: "x", Status: "ready"}}
 
 	stmt := &Statement{
 		Select: &SelectStmt{
@@ -2169,7 +2169,7 @@ func TestExecuteInSubstringLiteral(t *testing.T) {
 
 func TestExecuteInNonListNonString(t *testing.T) {
 	e := newTestExecutor()
-	tasks := []*task.Task{{ID: "T1", Title: "x", Status: "ready"}}
+	tasks := []*taskFixture{{ID: "T1", Title: "x", Status: "ready"}}
 
 	t.Run("int collection", func(t *testing.T) {
 		stmt := &Statement{
@@ -2206,7 +2206,7 @@ func TestExecuteInNonListNonString(t *testing.T) {
 
 func TestExecuteQuantifierNonList(t *testing.T) {
 	e := newTestExecutor()
-	tasks := []*task.Task{{ID: "T1", Title: "x", Status: "ready"}}
+	tasks := []*taskFixture{{ID: "T1", Title: "x", Status: "ready"}}
 
 	stmt := &Statement{
 		Select: &SelectStmt{
@@ -2227,7 +2227,7 @@ func TestExecuteQuantifierNonList(t *testing.T) {
 
 func TestExecuteNextDateNonRecurrence(t *testing.T) {
 	e := newTestExecutor()
-	tasks := []*task.Task{{ID: "T1", Title: "x", Status: "ready"}}
+	tasks := []*taskFixture{{ID: "T1", Title: "x", Status: "ready"}}
 
 	stmt := &Statement{
 		Select: &SelectStmt{
@@ -2267,7 +2267,7 @@ func TestEvalNextEnum_Clamps(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			tasks := []*task.Task{{ID: tt.startID, Title: "x", Status: tt.startSt}}
+			tasks := []*taskFixture{{ID: tt.startID, Title: "x", Status: tt.startSt}}
 			stmt, err := p.ParseStatement(`update where id = "` + tt.startID + `" set status=next_enum(status)`)
 			if err != nil {
 				t.Fatalf("parse: %v", err)
@@ -2303,7 +2303,7 @@ func TestEvalPrevEnum_Clamps(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			tasks := []*task.Task{{ID: tt.startID, Title: "x", Status: tt.startSt}}
+			tasks := []*taskFixture{{ID: tt.startID, Title: "x", Status: tt.startSt}}
 			stmt, err := p.ParseStatement(`update where id = "` + tt.startID + `" set status=prev_enum(status)`)
 			if err != nil {
 				t.Fatalf("parse: %v", err)
@@ -2338,12 +2338,12 @@ func TestEvalNextEnum_RankAwareComparison(t *testing.T) {
 	// `where next_enum(priority) < "low"` (rank-aware) means "result
 	// ranks higher than 'low'", i.e. T1 and T2 match. With buggy string
 	// compare, the result would be unstable (depends on key spelling).
-	tasks := []*task.Task{
+	tasks := []*taskFixture{
 		{ID: "T1", Title: "x", Status: "ready"},
 		{ID: "T2", Title: "y", Status: "ready"},
 		{ID: "T3", Title: "z", Status: "ready"},
 	}
-	tikis := tikisFromTasks(tasks)
+	tikis := tikisFromFixtures(tasks)
 	tikis[0].Set("priority", "high")
 	tikis[1].Set("priority", "medium")
 	tikis[2].Set("priority", "low")
@@ -2400,7 +2400,7 @@ func TestEvalNextEnum_NonEnumArgErrors(t *testing.T) {
 
 func TestExecuteCountNonSubquery(t *testing.T) {
 	e := newTestExecutor()
-	tasks := []*task.Task{{ID: "T1", Title: "x", Status: "ready"}}
+	tasks := []*taskFixture{{ID: "T1", Title: "x", Status: "ready"}}
 
 	stmt := &Statement{
 		Select: &SelectStmt{
@@ -2428,7 +2428,7 @@ func TestExecuteQuantifierConditionError(t *testing.T) {
 	e := newTestExecutor()
 	// unknown quantifier kind still errors — this is a structural error,
 	// not a per-row one.
-	tasks := []*task.Task{
+	tasks := []*taskFixture{
 		{ID: "T1", Title: "x", Status: "ready", DependsOn: []string{"T2"}},
 		{ID: "T2", Title: "y", Status: "done"},
 	}
@@ -2503,7 +2503,7 @@ func TestExecuteExistsSubquerySoftFalse(t *testing.T) {
 
 func TestExecuteResolveComparisonTypeRightSide(t *testing.T) {
 	e := newTestExecutor()
-	tasks := []*task.Task{
+	tasks := []*taskFixture{
 		{ID: "TIKI-A", Title: "x", Status: "ready", Type: "story"},
 	}
 
@@ -2582,7 +2582,7 @@ func (*fakeCondition) conditionNode() {}
 
 func TestExecuteUnknownConditionType(t *testing.T) {
 	e := newTestExecutor()
-	tasks := []*task.Task{{ID: "T1", Title: "x", Status: "ready"}}
+	tasks := []*taskFixture{{ID: "T1", Title: "x", Status: "ready"}}
 
 	stmt := &Statement{Select: &SelectStmt{Where: &fakeCondition{}}}
 	_, err := e.testExec(stmt, tasks)
@@ -2595,7 +2595,7 @@ func TestExecuteUnknownConditionType(t *testing.T) {
 
 func TestExecuteUnknownBinaryConditionOp(t *testing.T) {
 	e := newTestExecutor()
-	tasks := []*task.Task{{ID: "T1", Title: "x", Status: "ready"}}
+	tasks := []*taskFixture{{ID: "T1", Title: "x", Status: "ready"}}
 
 	stmt := &Statement{Select: &SelectStmt{
 		Where: &BinaryCondition{
@@ -2618,7 +2618,7 @@ func (*fakeExpr) exprNode() {}
 
 func TestExecuteUnknownExprType(t *testing.T) {
 	e := newTestExecutor()
-	tasks := []*task.Task{{ID: "T1", Title: "x", Status: "ready"}}
+	tasks := []*taskFixture{{ID: "T1", Title: "x", Status: "ready"}}
 
 	stmt := &Statement{Select: &SelectStmt{
 		Where: &CompareExpr{Left: &fakeExpr{}, Op: "=", Right: &IntLiteral{Value: 1}},
@@ -2633,7 +2633,7 @@ func TestExecuteUnknownExprType(t *testing.T) {
 
 func TestExecuteBlocksNoBlockers(t *testing.T) {
 	e := newTestExecutor()
-	tasks := []*task.Task{
+	tasks := []*taskFixture{
 		{ID: "T1", Title: "x", Status: "ready"},
 		{ID: "T2", Title: "y", Status: "ready"},
 	}
@@ -2659,7 +2659,7 @@ func TestExecuteBlocksNoBlockers(t *testing.T) {
 
 func TestExecuteNow(t *testing.T) {
 	e := newTestExecutor()
-	tasks := []*task.Task{
+	tasks := []*taskFixture{
 		{ID: "T1", Title: "x", Status: "ready", Due: testDate(12, 31)},
 	}
 
@@ -2686,7 +2686,7 @@ func TestExecuteNow(t *testing.T) {
 func TestExecuteSortByStatus(t *testing.T) {
 	e := newTestExecutor()
 
-	tasks := []*task.Task{
+	tasks := []*taskFixture{
 		{ID: "T1", Title: "a", Status: "ready"},
 		{ID: "T2", Title: "b", Status: "done"},
 		{ID: "T3", Title: "c", Status: "backlog"},
@@ -2709,7 +2709,7 @@ func TestExecuteSortByTypeDeclaredOrder(t *testing.T) {
 	e := newTestExecutor()
 	p := newTestParser()
 
-	tasks := []*task.Task{
+	tasks := []*taskFixture{
 		{ID: "T1", Title: "a", Status: "ready", Type: "epic"},
 		{ID: "T2", Title: "b", Status: "ready", Type: "story"},
 		{ID: "T3", Title: "c", Status: "ready", Type: "bug"},
@@ -2734,7 +2734,7 @@ func TestExecuteEnumRelationalComparisonUsesDeclaredOrder(t *testing.T) {
 	e := newTestExecutor()
 	p := newTestParser()
 
-	tasks := []*task.Task{
+	tasks := []*taskFixture{
 		{ID: "T1", Title: "a", Status: "backlog"},
 		{ID: "T2", Title: "b", Status: "ready"},
 		{ID: "T3", Title: "c", Status: "done"},
@@ -2759,7 +2759,7 @@ func TestExecuteEnumRelationalComparisonUsesDeclaredOrder(t *testing.T) {
 
 func TestExecuteCompareUnsupportedType(t *testing.T) {
 	e := newTestExecutor()
-	tasks := []*task.Task{{ID: "T1", Title: "x", Status: "ready"}}
+	tasks := []*taskFixture{{ID: "T1", Title: "x", Status: "ready"}}
 
 	// DurationLiteral on left compared with int on right — type mismatch
 	stmt := &Statement{Select: &SelectStmt{
@@ -2856,7 +2856,7 @@ func TestExecuteQuantifierAllFailing(t *testing.T) {
 	// the body level? No — the quantifier body evaluates on referenced
 	// tasks, not the outer row, and T2/T3 have empty deps → vacuous
 	// truth regardless of body. So T2 and T3 match.
-	tasks := []*task.Task{
+	tasks := []*taskFixture{
 		{ID: "T1", Title: "x", Status: "ready", DependsOn: []string{"T2", "T3"}},
 		{ID: "T2", Title: "y", Status: "done"},
 		{ID: "T3", Title: "z", Status: "ready"},
@@ -2885,7 +2885,7 @@ func TestExecuteQuantifierAllPassing(t *testing.T) {
 	// Phase 4: helper gives every workflow task present-empty
 	// dependsOn, so `all` is vacuously true for T2/T3 and actually
 	// true for T1 (both deps status=done).
-	tasks := []*task.Task{
+	tasks := []*taskFixture{
 		{ID: "T1", Title: "x", Status: "ready", DependsOn: []string{"T2", "T3"}},
 		{ID: "T2", Title: "y", Status: "done"},
 		{ID: "T3", Title: "z", Status: "done"},
@@ -2913,7 +2913,7 @@ func TestExecuteQuantifierAllPassing(t *testing.T) {
 func TestExecuteUpdateSingleField(t *testing.T) {
 	e := newTestExecutor()
 	p := newTestParser()
-	tasks := []*task.Task{
+	tasks := []*taskFixture{
 		{ID: "TIKI-000001", Title: "old title", Status: "ready"},
 	}
 
@@ -2939,7 +2939,7 @@ func TestExecuteUpdateSingleField(t *testing.T) {
 func TestExecuteUpdateMultipleFields(t *testing.T) {
 	e := newTestExecutor()
 	p := newTestParser()
-	tasks := []*task.Task{
+	tasks := []*taskFixture{
 		{ID: "TIKI-000001", Title: "x", Status: "ready"},
 	}
 
@@ -2964,7 +2964,7 @@ func TestExecuteUpdateMultipleFields(t *testing.T) {
 func TestExecuteUpdateMatchesMultipleTasks(t *testing.T) {
 	e := newTestExecutor()
 	p := newTestParser()
-	tasks := []*task.Task{
+	tasks := []*taskFixture{
 		{ID: "T1", Title: "a", Status: "ready"},
 		{ID: "T2", Title: "b", Status: "ready"},
 		{ID: "T3", Title: "c", Status: "done"},
@@ -3030,7 +3030,7 @@ func TestExecuteUpdateWithComplexWhere(t *testing.T) {
 func TestExecuteUpdateWithFieldReference(t *testing.T) {
 	e := newTestExecutor()
 	p := newTestParser()
-	tasks := []*task.Task{
+	tasks := []*taskFixture{
 		{ID: "TIKI-000001", Title: "x", Status: "ready", CreatedBy: "alice", Assignee: ""},
 	}
 
@@ -3050,7 +3050,7 @@ func TestExecuteUpdateWithFieldReference(t *testing.T) {
 func TestExecuteUpdateWithFunction(t *testing.T) {
 	e := newTestExecutor()
 	p := newTestParser()
-	tasks := []*task.Task{
+	tasks := []*taskFixture{
 		{ID: "TIKI-000001", Title: "x", Status: "ready", Recurrence: task.RecurrenceDaily},
 	}
 
@@ -3070,7 +3070,7 @@ func TestExecuteUpdateWithFunction(t *testing.T) {
 func TestExecuteUpdateListField(t *testing.T) {
 	e := newTestExecutor()
 	p := newTestParser()
-	tasks := []*task.Task{
+	tasks := []*taskFixture{
 		{ID: "TIKI-000001", Title: "x", Status: "ready", Tags: []string{"old"}},
 	}
 
@@ -3091,7 +3091,7 @@ func TestExecuteUpdateListField(t *testing.T) {
 func TestExecuteUpdateListPlusList(t *testing.T) {
 	e := newTestExecutor()
 	p := newTestParser()
-	tasks := []*task.Task{
+	tasks := []*taskFixture{
 		{ID: "TIKI-000001", Title: "x", Status: "ready", Tags: []string{"old"}},
 	}
 
@@ -3112,7 +3112,7 @@ func TestExecuteUpdateListPlusList(t *testing.T) {
 func TestExecuteUpdateListPlusElement(t *testing.T) {
 	e := newTestExecutor()
 	p := newTestParser()
-	tasks := []*task.Task{
+	tasks := []*taskFixture{
 		{ID: "TIKI-000001", Title: "x", Status: "ready", Tags: []string{"old"}},
 	}
 
@@ -3133,7 +3133,7 @@ func TestExecuteUpdateListPlusElement(t *testing.T) {
 func TestExecuteUpdateListPlusElementIdempotent(t *testing.T) {
 	e := newTestExecutor()
 	p := newTestParser()
-	tasks := []*task.Task{
+	tasks := []*taskFixture{
 		{ID: "TIKI-000001", Title: "x", Status: "ready", Tags: []string{"old", "old"}},
 	}
 
@@ -3154,7 +3154,7 @@ func TestExecuteUpdateListPlusElementIdempotent(t *testing.T) {
 func TestExecuteUpdateListMinusList(t *testing.T) {
 	e := newTestExecutor()
 	p := newTestParser()
-	tasks := []*task.Task{
+	tasks := []*taskFixture{
 		{ID: "TIKI-000001", Title: "x", Status: "ready", Tags: []string{"old", "keep"}},
 	}
 
@@ -3175,7 +3175,7 @@ func TestExecuteUpdateListMinusList(t *testing.T) {
 func TestExecuteUpdateListMinusElement(t *testing.T) {
 	e := newTestExecutor()
 	p := newTestParser()
-	tasks := []*task.Task{
+	tasks := []*taskFixture{
 		{ID: "TIKI-000001", Title: "x", Status: "ready", Tags: []string{"old", "keep"}},
 	}
 
@@ -3196,7 +3196,7 @@ func TestExecuteUpdateListMinusElement(t *testing.T) {
 func TestExecuteUpdateListMinusDuplicates(t *testing.T) {
 	e := newTestExecutor()
 	p := newTestParser()
-	tasks := []*task.Task{
+	tasks := []*taskFixture{
 		{ID: "TIKI-000001", Title: "x", Status: "ready", Tags: []string{"old", "old", "keep"}},
 	}
 
@@ -3217,7 +3217,7 @@ func TestExecuteUpdateListMinusDuplicates(t *testing.T) {
 func TestExecuteUpdateDependsOnPlusElement(t *testing.T) {
 	e := newTestExecutor()
 	p := newTestParser()
-	tasks := []*task.Task{
+	tasks := []*taskFixture{
 		{ID: "TIKI-000001", Title: "x", Status: "ready", DependsOn: []string{}},
 	}
 
@@ -3238,7 +3238,7 @@ func TestExecuteUpdateDependsOnPlusElement(t *testing.T) {
 func TestExecuteUpdateDependsOnPlusList(t *testing.T) {
 	e := newTestExecutor()
 	p := newTestParser()
-	tasks := []*task.Task{
+	tasks := []*taskFixture{
 		{ID: "TIKI-000001", Title: "x", Status: "ready", DependsOn: []string{"ZZZZZZ"}},
 	}
 
@@ -3259,7 +3259,7 @@ func TestExecuteUpdateDependsOnPlusList(t *testing.T) {
 func TestExecuteUpdateDependsOnPlusListIdempotent(t *testing.T) {
 	e := newTestExecutor()
 	p := newTestParser()
-	tasks := []*task.Task{
+	tasks := []*taskFixture{
 		{ID: "TIKI-000001", Title: "x", Status: "ready", DependsOn: []string{"YYYYYY", "yyyyyy"}},
 	}
 
@@ -3280,7 +3280,7 @@ func TestExecuteUpdateDependsOnPlusListIdempotent(t *testing.T) {
 func TestExecuteUpdateDependsOnMinusElement(t *testing.T) {
 	e := newTestExecutor()
 	p := newTestParser()
-	tasks := []*task.Task{
+	tasks := []*taskFixture{
 		{ID: "TIKI-000001", Title: "x", Status: "ready", DependsOn: []string{"YYYYYY", "ZZZZZZ"}},
 	}
 
@@ -3301,7 +3301,7 @@ func TestExecuteUpdateDependsOnMinusElement(t *testing.T) {
 func TestExecuteUpdateDependsOnMinusList(t *testing.T) {
 	e := newTestExecutor()
 	p := newTestParser()
-	tasks := []*task.Task{
+	tasks := []*taskFixture{
 		{ID: "TIKI-000001", Title: "x", Status: "ready", DependsOn: []string{"YYYYYY", "ZZZZZZ"}},
 	}
 
@@ -3322,7 +3322,7 @@ func TestExecuteUpdateDependsOnMinusList(t *testing.T) {
 func TestExecuteUpdateTagsToEmpty(t *testing.T) {
 	e := newTestExecutor()
 	p := newTestParser()
-	tasks := []*task.Task{
+	tasks := []*taskFixture{
 		{ID: "TIKI-000001", Title: "x", Status: "ready", Tags: []string{"a", "b"}},
 	}
 
@@ -3342,7 +3342,7 @@ func TestExecuteUpdateTagsToEmpty(t *testing.T) {
 func TestExecuteUpdateStringToEmpty(t *testing.T) {
 	e := newTestExecutor()
 	p := newTestParser()
-	tasks := []*task.Task{
+	tasks := []*taskFixture{
 		{ID: "TIKI-000001", Title: "x", Status: "ready", Assignee: "alice"},
 	}
 
@@ -3362,7 +3362,7 @@ func TestExecuteUpdateStringToEmpty(t *testing.T) {
 func TestExecuteUpdateDateToEmpty(t *testing.T) {
 	e := newTestExecutor()
 	p := newTestParser()
-	tasks := []*task.Task{
+	tasks := []*taskFixture{
 		{ID: "TIKI-000001", Title: "x", Status: "ready", Due: testDate(6, 1)},
 	}
 
@@ -3388,7 +3388,7 @@ func TestExecuteUpdateTitleRejectEmpty(t *testing.T) {
 	e := newTestExecutor()
 	p := newTestParser()
 
-	tasks := []*task.Task{{ID: "T1", Title: "x", Status: "ready", Type: "bug"}}
+	tasks := []*taskFixture{{ID: "T1", Title: "x", Status: "ready", Type: "bug"}}
 	stmt, err := p.ParseStatement(`update where id = "T1" set title=empty`)
 	if err != nil {
 		t.Fatalf("parse: %v", err)
@@ -3404,7 +3404,7 @@ func TestExecuteUpdateTitleRejectEmpty(t *testing.T) {
 
 func TestExecuteUpdateImmutableFieldRejected(t *testing.T) {
 	e := newTestExecutor()
-	tasks := []*task.Task{
+	tasks := []*taskFixture{
 		{ID: "TIKI-000001", Title: "x", Status: "ready"},
 	}
 
@@ -3433,7 +3433,7 @@ func TestExecuteUpdateImmutableFieldRejected(t *testing.T) {
 func TestExecuteUpdateEnumNormalization(t *testing.T) {
 	e := newTestExecutor()
 	p := newTestParser()
-	tasks := []*task.Task{
+	tasks := []*taskFixture{
 		{ID: "TIKI-000001", Title: "x", Status: "done"},
 	}
 
@@ -3453,7 +3453,7 @@ func TestExecuteUpdateEnumNormalization(t *testing.T) {
 func TestExecuteUpdateOriginalUnmodified(t *testing.T) {
 	e := newTestExecutor()
 	p := newTestParser()
-	tasks := []*task.Task{
+	tasks := []*taskFixture{
 		{ID: "TIKI-000001", Title: "old", Status: "ready"},
 	}
 
@@ -3546,7 +3546,7 @@ func TestSubtractValuesList(t *testing.T) {
 func TestExecuteUpdateRecurrenceToEmpty(t *testing.T) {
 	e := newTestExecutor()
 	p := newTestParser()
-	tasks := []*task.Task{
+	tasks := []*taskFixture{
 		{ID: "TIKI-000001", Title: "x", Status: "ready", Recurrence: task.RecurrenceDaily},
 	}
 
@@ -3566,7 +3566,7 @@ func TestExecuteUpdateRecurrenceToEmpty(t *testing.T) {
 func TestExecuteUpdatePointsToEmpty(t *testing.T) {
 	e := newTestExecutor()
 	p := newTestParser()
-	tasks := []*task.Task{
+	tasks := []*taskFixture{
 		{ID: "TIKI-000001", Title: "x", Status: "ready", Points: 5},
 	}
 
@@ -3585,7 +3585,7 @@ func TestExecuteUpdatePointsToEmpty(t *testing.T) {
 
 func TestExecuteUpdateUnknownField(t *testing.T) {
 	e := newTestExecutor()
-	tasks := []*task.Task{
+	tasks := []*taskFixture{
 		{ID: "T1", Title: "x", Status: "ready"},
 	}
 
@@ -3609,7 +3609,7 @@ func TestExecuteUpdateUnknownField(t *testing.T) {
 func TestExecuteUpdateTypeCanonicalization(t *testing.T) {
 	e := newTestExecutor()
 	p := newTestParser()
-	tasks := []*task.Task{
+	tasks := []*taskFixture{
 		{ID: "TIKI-000001", Title: "x", Status: "ready", Type: "bug"},
 	}
 
@@ -3629,7 +3629,7 @@ func TestExecuteUpdateTypeCanonicalization(t *testing.T) {
 func TestExecuteUpdateDescriptionToEmpty(t *testing.T) {
 	e := newTestExecutor()
 	p := newTestParser()
-	tasks := []*task.Task{
+	tasks := []*taskFixture{
 		{ID: "TIKI-000001", Title: "x", Status: "ready", Description: "some desc"},
 	}
 
@@ -3649,7 +3649,7 @@ func TestExecuteUpdateDescriptionToEmpty(t *testing.T) {
 func TestExecuteUpdateTitleToEmptyRejected(t *testing.T) {
 	e := newTestExecutor()
 	p := newTestParser()
-	tasks := []*task.Task{
+	tasks := []*taskFixture{
 		{ID: "TIKI-000001", Title: "old title", Status: "ready"},
 	}
 
@@ -3669,7 +3669,7 @@ func TestExecuteUpdateTitleToEmptyRejected(t *testing.T) {
 func TestExecuteUpdateDependsOnToEmpty(t *testing.T) {
 	e := newTestExecutor()
 	p := newTestParser()
-	tasks := []*task.Task{
+	tasks := []*taskFixture{
 		{ID: "TIKI-000001", Title: "x", Status: "ready", DependsOn: []string{"T2"}},
 	}
 
@@ -3711,7 +3711,7 @@ func TestExecuteUpdateWhereError(t *testing.T) {
 
 func TestExecuteUpdateEvalExprError(t *testing.T) {
 	e := newTestExecutor()
-	tasks := []*task.Task{
+	tasks := []*taskFixture{
 		{ID: "T1", Title: "x", Status: "ready"},
 	}
 
@@ -3734,7 +3734,7 @@ func TestExecuteUpdateEvalExprError(t *testing.T) {
 
 func TestSetFieldTypeMismatches(t *testing.T) {
 	e := newTestExecutor()
-	tk := tikiFromTask(&task.Task{ID: "T1", Title: "x", Status: "ready", Type: "bug"})
+	tk := tikiFromFixture(&taskFixture{ID: "T1", Title: "x", Status: "ready", Type: "bug"})
 
 	tests := []struct {
 		name  string
@@ -3764,7 +3764,7 @@ func TestSetFieldTypeMismatches(t *testing.T) {
 
 func TestSetFieldStatusString(t *testing.T) {
 	e := newTestExecutor()
-	tk := tikiFromTask(&task.Task{ID: "T1", Title: "x", Status: "ready"})
+	tk := tikiFromFixture(&taskFixture{ID: "T1", Title: "x", Status: "ready"})
 
 	err := e.setField(tk, "status", "done")
 	if err != nil {
@@ -3777,7 +3777,7 @@ func TestSetFieldStatusString(t *testing.T) {
 
 func TestSetFieldTypeString(t *testing.T) {
 	e := newTestExecutor()
-	tk := tikiFromTask(&task.Task{ID: "T1", Title: "x", Status: "ready", Type: "bug"})
+	tk := tikiFromFixture(&taskFixture{ID: "T1", Title: "x", Status: "ready", Type: "bug"})
 
 	err := e.setField(tk, "type", "story")
 	if err != nil {
@@ -3790,7 +3790,7 @@ func TestSetFieldTypeString(t *testing.T) {
 
 func TestSetFieldUnknownStatusError(t *testing.T) {
 	e := newTestExecutor()
-	tk := tikiFromTask(&task.Task{ID: "T1", Title: "x", Status: "ready"})
+	tk := tikiFromFixture(&taskFixture{ID: "T1", Title: "x", Status: "ready"})
 
 	err := e.setField(tk, "status", "nonexistent_status")
 	if err == nil || !strings.Contains(err.Error(), `invalid enum value "nonexistent_status"`) {
@@ -3800,7 +3800,7 @@ func TestSetFieldUnknownStatusError(t *testing.T) {
 
 func TestSetFieldUnknownTypeError(t *testing.T) {
 	e := newTestExecutor()
-	tk := tikiFromTask(&task.Task{ID: "T1", Title: "x", Status: "ready", Type: "bug"})
+	tk := tikiFromFixture(&taskFixture{ID: "T1", Title: "x", Status: "ready", Type: "bug"})
 
 	err := e.setField(tk, "type", "nonexistent_type")
 	if err == nil || !strings.Contains(err.Error(), `invalid enum value "nonexistent_type"`) {
@@ -3810,7 +3810,7 @@ func TestSetFieldUnknownTypeError(t *testing.T) {
 
 func TestSetFieldDescriptionToEmpty(t *testing.T) {
 	e := newTestExecutor()
-	tk := tikiFromTask(&task.Task{ID: "T1", Title: "x", Status: "ready", Description: "some desc"})
+	tk := tikiFromFixture(&taskFixture{ID: "T1", Title: "x", Status: "ready", Description: "some desc"})
 
 	err := e.setField(tk, "description", nil)
 	if err != nil {
@@ -3823,7 +3823,7 @@ func TestSetFieldDescriptionToEmpty(t *testing.T) {
 
 func TestSetFieldPointsToEmpty(t *testing.T) {
 	e := newTestExecutor()
-	tk := tikiFromTask(&task.Task{ID: "T1", Title: "x", Status: "ready", Points: 5})
+	tk := tikiFromFixture(&taskFixture{ID: "T1", Title: "x", Status: "ready", Points: 5})
 
 	err := e.setField(tk, "points", nil)
 	if err != nil {
@@ -3836,7 +3836,7 @@ func TestSetFieldPointsToEmpty(t *testing.T) {
 
 func TestSetFieldRecurrenceFromString(t *testing.T) {
 	e := newTestExecutor()
-	tk := tikiFromTask(&task.Task{ID: "T1", Title: "x", Status: "ready"})
+	tk := tikiFromFixture(&taskFixture{ID: "T1", Title: "x", Status: "ready"})
 
 	err := e.setField(tk, "recurrence", "0 0 * * *")
 	if err != nil {
@@ -3849,7 +3849,7 @@ func TestSetFieldRecurrenceFromString(t *testing.T) {
 
 func TestSetFieldRecurrenceFromTaskRecurrence(t *testing.T) {
 	e := newTestExecutor()
-	tk := tikiFromTask(&task.Task{ID: "T1", Title: "x", Status: "ready"})
+	tk := tikiFromFixture(&taskFixture{ID: "T1", Title: "x", Status: "ready"})
 
 	err := e.setField(tk, "recurrence", task.RecurrenceDaily)
 	if err != nil {
@@ -3875,7 +3875,7 @@ func TestExecuteUpdatePriorityValidValues(t *testing.T) {
 	p := newTestParser()
 
 	for _, prio := range []string{"high", "medium", "low"} {
-		tasks := []*task.Task{{ID: "T1", Title: "x", Status: "ready"}}
+		tasks := []*taskFixture{{ID: "T1", Title: "x", Status: "ready"}}
 		stmt, err := p.ParseStatement(fmt.Sprintf(`update where id = "T1" set priority=%q`, prio))
 		if err != nil {
 			t.Fatalf("parse priority=%q: %v", prio, err)
@@ -3896,7 +3896,7 @@ func TestExecuteUpdatePointsValidValues(t *testing.T) {
 	p := newTestParser()
 
 	for _, pts := range []int{0, 1, 5, 10} {
-		tasks := []*task.Task{{ID: "T1", Title: "x", Status: "ready", Points: 3}}
+		tasks := []*taskFixture{{ID: "T1", Title: "x", Status: "ready", Points: 3}}
 		stmt, err := p.ParseStatement(fmt.Sprintf(`update where id = "T1" set points=%d`, pts))
 		if err != nil {
 			t.Fatalf("parse points=%d: %v", pts, err)
@@ -3913,7 +3913,7 @@ func TestExecuteUpdatePointsValidValues(t *testing.T) {
 
 func TestExecuteUpdateTitleWhitespaceRejected(t *testing.T) {
 	e := newTestExecutor()
-	tasks := []*task.Task{{ID: "T1", Title: "old", Status: "ready"}}
+	tasks := []*taskFixture{{ID: "T1", Title: "old", Status: "ready"}}
 
 	stmt := &Statement{
 		Update: &UpdateStmt{
@@ -3934,7 +3934,7 @@ func TestExecuteUpdateTitleWhitespaceRejected(t *testing.T) {
 
 func TestSetFieldDescriptionString(t *testing.T) {
 	e := newTestExecutor()
-	tk := tikiFromTask(&task.Task{ID: "T1", Title: "x", Status: "ready"})
+	tk := tikiFromFixture(&taskFixture{ID: "T1", Title: "x", Status: "ready"})
 
 	err := e.setField(tk, "description", "new desc")
 	if err != nil {
@@ -3947,7 +3947,7 @@ func TestSetFieldDescriptionString(t *testing.T) {
 
 func TestSetFieldPointsInt(t *testing.T) {
 	e := newTestExecutor()
-	tk := tikiFromTask(&task.Task{ID: "T1", Title: "x", Status: "ready"})
+	tk := tikiFromFixture(&taskFixture{ID: "T1", Title: "x", Status: "ready"})
 
 	err := e.setField(tk, "points", 8)
 	if err != nil {
@@ -4084,7 +4084,7 @@ func TestExecuteEvalIDPluginRuntimeNoMatch(t *testing.T) {
 
 func TestSetFieldDescriptionNonString(t *testing.T) {
 	e := newTestExecutor()
-	tk := tikiFromTask(&task.Task{ID: "T1", Title: "x", Status: "ready", Description: "old"})
+	tk := tikiFromFixture(&taskFixture{ID: "T1", Title: "x", Status: "ready", Description: "old"})
 
 	err := e.setField(tk, "description", 42)
 	if err == nil {
@@ -4097,7 +4097,7 @@ func TestSetFieldDescriptionNonString(t *testing.T) {
 
 func TestSetFieldStatusWithIntValue(t *testing.T) {
 	e := newTestExecutor()
-	tk := tikiFromTask(&task.Task{ID: "T1", Title: "x", Status: "ready"})
+	tk := tikiFromFixture(&taskFixture{ID: "T1", Title: "x", Status: "ready"})
 
 	err := e.setField(tk, "status", 42)
 	if err == nil {
@@ -4110,7 +4110,7 @@ func TestSetFieldStatusWithIntValue(t *testing.T) {
 
 func TestSetFieldTypeWithIntValue(t *testing.T) {
 	e := newTestExecutor()
-	tk := tikiFromTask(&task.Task{ID: "T1", Title: "x", Status: "ready", Type: "bug"})
+	tk := tikiFromFixture(&taskFixture{ID: "T1", Title: "x", Status: "ready", Type: "bug"})
 
 	err := e.setField(tk, "type", 42)
 	if err == nil {
@@ -4149,7 +4149,7 @@ func TestExecutor_CustomFieldExtraction(t *testing.T) {
 	e := newCustomExecutor()
 
 	// task with no custom fields — extractField errors for unset fields (Phase 4)
-	tk := tikiFromTask(&task.Task{ID: "T1", Title: "x", Status: "ready"})
+	tk := tikiFromFixture(&taskFixture{ID: "T1", Title: "x", Status: "ready"})
 
 	if _, err := e.extractField(tk, "notes"); err == nil {
 		t.Error("notes unset: expected error, got nil")
@@ -4165,7 +4165,7 @@ func TestExecutor_CustomFieldExtraction(t *testing.T) {
 	}
 
 	// task with custom fields set — returns actual values
-	tk2 := tikiFromTask(&task.Task{
+	tk2 := tikiFromFixture(&taskFixture{
 		ID: "T2", Title: "y", Status: "ready",
 		CustomFields: map[string]interface{}{
 			"notes":    "hello",
@@ -4190,7 +4190,7 @@ func TestExecutor_CustomFieldExtraction(t *testing.T) {
 
 func TestExecutor_CustomFieldSetAndGet(t *testing.T) {
 	e := newCustomExecutor()
-	tk := tikiFromTask(&task.Task{ID: "T1", Title: "x", Status: "ready"})
+	tk := tikiFromFixture(&taskFixture{ID: "T1", Title: "x", Status: "ready"})
 
 	if err := e.setField(tk, "notes", "hello"); err != nil {
 		t.Fatalf("setField notes: %v", err)
@@ -4222,7 +4222,7 @@ func TestExecutor_CustomFieldSetAndGet(t *testing.T) {
 func TestExecutor_BareBoolCustomFieldCondition(t *testing.T) {
 	e := newCustomExecutor()
 	p := newCustomParser2()
-	tasks := []*task.Task{
+	tasks := []*taskFixture{
 		{
 			ID: "T1", Title: "true flag", Status: "ready",
 			CustomFields: map[string]interface{}{"flag": true},
@@ -4268,7 +4268,7 @@ func TestExecutor_UnsetCustomListFieldErrors(t *testing.T) {
 	e := newCustomExecutor()
 
 	// Phase 4: unset custom list fields hard-error (same rule as workflow fields).
-	tk := tikiFromTask(&task.Task{ID: "T1", Title: "x", Status: "ready"})
+	tk := tikiFromFixture(&taskFixture{ID: "T1", Title: "x", Status: "ready"})
 
 	if _, err := e.extractField(tk, "labels"); err == nil {
 		t.Error("unset labels should error, got nil")
@@ -4283,7 +4283,7 @@ func TestPhase4_UnsetCustomListField_InExprIsFalse(t *testing.T) {
 	p := newCustomParser2()
 
 	// Updated Phase-4 rule: `"bug" in absent_list` → false; tiki does not match.
-	tasks := []*task.Task{
+	tasks := []*taskFixture{
 		{ID: "T1", Title: "A", Status: "ready"},
 	}
 	stmt, err := p.ParseStatement(`select where "bug" in labels`)
@@ -4306,7 +4306,7 @@ func TestPhase4_UnsetCustomListField_AddAutoZeroes(t *testing.T) {
 	// Phase 4 + assignment-RHS carve-out: unset Custom list field in
 	// arithmetic auto-zeroes to [], so `set labels = labels + ["new"]`
 	// on a tiki without prior labels produces labels=["new"].
-	tasks := []*task.Task{
+	tasks := []*taskFixture{
 		{ID: "T1", Title: "A", Status: "ready"},
 	}
 	stmt, err := p.ParseStatement(`update where id = "T1" set labels = labels + ["new"]`)
@@ -4328,7 +4328,7 @@ func TestPhase4_UnsetCustomListField_AddAutoZeroes(t *testing.T) {
 
 func TestExecutor_CustomFieldNilDelete(t *testing.T) {
 	e := newCustomExecutor()
-	tk := tikiFromTask(&task.Task{
+	tk := tikiFromFixture(&taskFixture{
 		ID: "T1", Title: "x", Status: "ready",
 		CustomFields: map[string]interface{}{
 			"notes": "hello",
@@ -4352,7 +4352,7 @@ func TestExecutor_SelectWhereCustomEnum(t *testing.T) {
 	e := newCustomExecutor()
 	p := newCustomParser2()
 
-	tasks := []*task.Task{
+	tasks := []*taskFixture{
 		{ID: "T1", Title: "A", Status: "ready", CustomFields: map[string]interface{}{"severity": "low"}},
 		{ID: "T2", Title: "B", Status: "ready", CustomFields: map[string]interface{}{"severity": "high"}},
 		{ID: "T3", Title: "C", Status: "ready", CustomFields: map[string]interface{}{"severity": "low"}},
@@ -4384,7 +4384,7 @@ func TestExecutor_UpdateSetCustomField(t *testing.T) {
 	e := newCustomExecutor()
 	p := newCustomParser2()
 
-	tasks := []*task.Task{
+	tasks := []*taskFixture{
 		{ID: "T1", Title: "A", Status: "ready", CustomFields: map[string]interface{}{"severity": "low"}},
 	}
 
@@ -4409,7 +4409,7 @@ func TestExecutor_OrderByCustomEnum(t *testing.T) {
 	e := newCustomExecutor()
 	p := newCustomParser2()
 
-	tasks := []*task.Task{
+	tasks := []*taskFixture{
 		{ID: "T1", Title: "A", Status: "ready", CustomFields: map[string]interface{}{"severity": "high"}},
 		{ID: "T2", Title: "B", Status: "ready", CustomFields: map[string]interface{}{"severity": "critical"}},
 		{ID: "T3", Title: "C", Status: "ready", CustomFields: map[string]interface{}{"severity": "low"}},
@@ -4439,7 +4439,7 @@ func TestExecutor_OrderByCustomBool(t *testing.T) {
 	e := newCustomExecutor()
 	p := newCustomParser2()
 
-	tasks := []*task.Task{
+	tasks := []*taskFixture{
 		{ID: "T1", Title: "A", Status: "ready", CustomFields: map[string]interface{}{"flag": true}},
 		{ID: "T2", Title: "B", Status: "ready", CustomFields: map[string]interface{}{"flag": false}},
 		{ID: "T3", Title: "C", Status: "ready", CustomFields: map[string]interface{}{"flag": true}},
@@ -4471,7 +4471,7 @@ func TestExecutor_OrderByCustomBool(t *testing.T) {
 func TestExecutor_BoolLiteralEval(t *testing.T) {
 	e := newCustomExecutor()
 
-	tasks := []*task.Task{
+	tasks := []*taskFixture{
 		{ID: "T1", Title: "A", Status: "ready", CustomFields: map[string]interface{}{"flag": true}},
 		{ID: "T2", Title: "B", Status: "ready", CustomFields: map[string]interface{}{"flag": false}},
 	}
@@ -4516,7 +4516,7 @@ func TestExecutor_BoolLiteralEval(t *testing.T) {
 func TestExecutor_BoolStringCoercion(t *testing.T) {
 	e := newCustomExecutor()
 
-	tasks := []*task.Task{
+	tasks := []*taskFixture{
 		{ID: "T1", Title: "A", Status: "ready", CustomFields: map[string]interface{}{"flag": true}},
 		{ID: "T2", Title: "B", Status: "ready", CustomFields: map[string]interface{}{"flag": false}},
 	}
@@ -4562,7 +4562,7 @@ func TestExecutor_BoolInCaseInsensitive(t *testing.T) {
 	e := newCustomExecutor()
 	p := newCustomParser2()
 
-	tasks := []*task.Task{
+	tasks := []*taskFixture{
 		{ID: "T1", Title: "A", Status: "ready", CustomFields: map[string]interface{}{"flag": true}},
 		{ID: "T2", Title: "B", Status: "ready", CustomFields: map[string]interface{}{"flag": false}},
 	}
@@ -4585,7 +4585,7 @@ func TestExecutor_NilDoesNotMatchZero(t *testing.T) {
 	e := newCustomExecutor()
 	p := newCustomParser2()
 
-	tasks := []*task.Task{
+	tasks := []*taskFixture{
 		{ID: "T1", Title: "A", Status: "ready"}, // flag unset, score unset
 		{ID: "T2", Title: "B", Status: "ready", CustomFields: map[string]interface{}{"flag": false, "score": 0}},
 		{ID: "T3", Title: "C", Status: "ready", CustomFields: map[string]interface{}{"flag": true, "score": 42}},
@@ -4624,7 +4624,7 @@ func TestPhase4_AbsentCustomIsEmptyIsTrue(t *testing.T) {
 	p := newCustomParser2()
 
 	// Updated Phase-4 rule: `missing is empty` is true.
-	tasks := []*task.Task{
+	tasks := []*taskFixture{
 		{ID: "T1", Title: "A", Status: "ready"},
 	}
 	stmt, err := p.ParseStatement(`select where flag is empty`)
@@ -4644,7 +4644,7 @@ func TestPhase4_AbsentOrderByHardErrorsCustom(t *testing.T) {
 	e := newCustomExecutor()
 	p := newCustomParser2()
 
-	tasks := []*task.Task{
+	tasks := []*taskFixture{
 		{ID: "T1", Title: "A", Status: "ready", CustomFields: map[string]interface{}{"score": 10}},
 		{ID: "T2", Title: "B", Status: "ready"},
 	}
@@ -4662,7 +4662,7 @@ func TestPhase4_AbsentInListIsFalse(t *testing.T) {
 	p := newCustomParser2()
 
 	// Updated Phase-4 rule: `absent in [...]` is false.
-	tasks := []*task.Task{
+	tasks := []*taskFixture{
 		{ID: "T1", Title: "A", Status: "ready"},
 	}
 	stmt, err := p.ParseStatement(`select where severity in ["low"]`)
@@ -4682,7 +4682,7 @@ func TestExecutor_EnumInCaseInsensitive(t *testing.T) {
 	e := newCustomExecutor()
 	p := newCustomParser2()
 
-	tasks := []*task.Task{
+	tasks := []*taskFixture{
 		{ID: "T1", Title: "A", Status: "done", Type: "story", CustomFields: map[string]interface{}{"severity": "low"}},
 		{ID: "T2", Title: "B", Status: "ready", Type: "bug", CustomFields: map[string]interface{}{"severity": "high"}},
 		{ID: "T3", Title: "C", Status: "ready", Type: "story", CustomFields: map[string]interface{}{"severity": "critical"}},
@@ -4845,7 +4845,7 @@ func TestExecuteTargetsField_FlattensAndDedupsListString(t *testing.T) {
 	e := newPluginExecutor()
 	e.currentInput = ExecutionInput{SelectedTaskIDs: []string{"TIKI-000002", "TIKI-000001"}}
 	tasks := makeTasks()
-	val, err := e.evalTargetsField("tags", evalContext{allTikis: tikisFromTasks(tasks)})
+	val, err := e.evalTargetsField("tags", evalContext{allTikis: tikisFromFixtures(tasks)})
 	if err != nil {
 		t.Fatalf("evalTargetsField: %v", err)
 	}
@@ -4867,7 +4867,7 @@ func TestExecuteTargetsField_FlattensAndDedupsListString(t *testing.T) {
 func TestExecuteTargetsField_EmptySelectionReturnsEmptyList(t *testing.T) {
 	e := newPluginExecutor()
 	e.currentInput = ExecutionInput{}
-	val, err := e.evalTargetsField("id", evalContext{allTikis: tikisFromTasks(makeTasks())})
+	val, err := e.evalTargetsField("id", evalContext{allTikis: tikisFromFixtures(makeTasks())})
 	if err != nil {
 		t.Fatalf("evalTargetsField: %v", err)
 	}
@@ -4883,7 +4883,7 @@ func TestExecuteTargetsField_EmptySelectionReturnsEmptyList(t *testing.T) {
 func TestExecuteTargetsField_MissingTaskRecord(t *testing.T) {
 	e := newPluginExecutor()
 	e.currentInput = ExecutionInput{SelectedTaskIDs: []string{"TIKI-999999"}}
-	_, err := e.evalTargetsField("id", evalContext{allTikis: tikisFromTasks(makeTasks())})
+	_, err := e.evalTargetsField("id", evalContext{allTikis: tikisFromFixtures(makeTasks())})
 	if err == nil {
 		t.Fatal("expected missing-task error")
 	}
@@ -4895,7 +4895,7 @@ func TestExecuteTargetsField_MissingTaskRecord(t *testing.T) {
 func TestExecuteTargetField_MissingTaskRecord(t *testing.T) {
 	e := newPluginExecutor()
 	e.currentInput = ExecutionInput{SelectedTaskIDs: []string{"TIKI-999999"}}
-	_, err := e.evalTargetField("id", evalContext{allTikis: tikisFromTasks(makeTasks())})
+	_, err := e.evalTargetField("id", evalContext{allTikis: tikisFromFixtures(makeTasks())})
 	if err == nil {
 		t.Fatal("expected missing-task error")
 	}

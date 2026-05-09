@@ -69,7 +69,7 @@ func TestUpdateTiki_ZeroValueWritesOnlyTheFieldSet(t *testing.T) {
 	}
 
 	// And the value survives a reload. `points: 0` is a meaningful
-	// "unestimated" sentinel — task.ValidatePoints accepts it — so the
+	// "unestimated" sentinel — task.IsValidPoints accepts it — so the
 	// load-side clamp must not silently rewrite it to maxPoints/2.
 	if err := s.Reload(); err != nil {
 		t.Fatalf("Reload: %v", err)

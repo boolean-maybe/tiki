@@ -296,7 +296,6 @@ func (dc *DepsController) computeAllLane(allTikis []*tikipkg.Tiki, contextID str
 }
 
 // findBlockedTikis returns all tikis whose dependsOn contains the given ID.
-// This is the tiki-native equivalent of task.FindBlockedTasks.
 func findBlockedTikis(allTikis []*tikipkg.Tiki, contextID string) []*tikipkg.Tiki {
 	var result []*tikipkg.Tiki
 	for _, tk := range allTikis {

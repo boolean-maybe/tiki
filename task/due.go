@@ -10,9 +10,10 @@ import (
 
 const DateFormat = "2006-01-02"
 
-// DueValue is a custom type for due dates that provides lenient YAML unmarshaling.
-// It gracefully handles invalid YAML by defaulting to zero time instead of failing.
-// Embeds time.Time to inherit IsZero() method (required for yaml:",omitempty").
+// DueValue is a YAML date encoder/decoder for date-only (YYYY-MM-DD) values.
+// Embeds time.Time to inherit IsZero() (required for yaml:",omitempty"). Used
+// by the tikistore frontmatter encoder to emit date-only YAML for TypeDate
+// workflow fields.
 type DueValue struct {
 	time.Time
 }
@@ -65,7 +66,7 @@ func (d DueValue) MarshalYAML() (any, error) {
 	return d.Format(DateFormat), nil
 }
 
-// ToTime converts DueValue to time.Time for use with Task entity.
+// ToTime returns the embedded time.Time.
 func (d DueValue) ToTime() time.Time {
 	return d.Time
 }

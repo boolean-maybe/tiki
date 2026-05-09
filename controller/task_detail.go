@@ -12,6 +12,7 @@ import (
 	"github.com/boolean-maybe/tiki/store"
 	taskpkg "github.com/boolean-maybe/tiki/task"
 	tikipkg "github.com/boolean-maybe/tiki/tiki"
+	collectionutil "github.com/boolean-maybe/tiki/util/collections"
 	"github.com/boolean-maybe/tiki/workflow"
 
 	"time"
@@ -236,7 +237,7 @@ func (tc *TaskController) SaveTitle(newTitle string) bool {
 // Returns true if a tiki was updated, false if no tiki is being edited.
 func (tc *TaskController) SaveTags(tags []string) bool {
 	return tc.updateTikiField(func(tk *tikipkg.Tiki) {
-		normalized := taskpkg.NormalizeStringSet(tags)
+		normalized := collectionutil.NormalizeStringSet(tags)
 		if len(normalized) > 0 {
 			tk.Set(tikipkg.FieldTags, normalized)
 		} else {

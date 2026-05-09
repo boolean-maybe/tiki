@@ -4,7 +4,6 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/boolean-maybe/tiki/task"
 	"github.com/boolean-maybe/tiki/tiki"
 )
 
@@ -17,7 +16,7 @@ func TestPhase4Carveout_ListArithmeticOnAbsentTags(t *testing.T) {
 	p := newTestParser()
 
 	// workflow doc, no tags set.
-	plain := &task.Task{
+	plain := &taskFixture{
 		ID: "ABC123", Title: "story", Status: "ready",
 		WorkflowFrontmatter: map[string]interface{}{"status": "ready"},
 	}
@@ -26,7 +25,7 @@ func TestPhase4Carveout_ListArithmeticOnAbsentTags(t *testing.T) {
 	if err != nil {
 		t.Fatalf("parse: %v", err)
 	}
-	result, err := e.testExec(stmt, []*task.Task{plain})
+	result, err := e.testExec(stmt, []*taskFixture{plain})
 	if err != nil {
 		t.Fatalf("execute: %v", err)
 	}
@@ -56,7 +55,7 @@ func TestPhase4Carveout_IntArithmeticOnAbsentIntProducesValue(t *testing.T) {
 	e := newTestExecutor()
 	p := newTestParser()
 
-	plain := &task.Task{
+	plain := &taskFixture{
 		ID: "ABC123", Title: "story", Status: "ready",
 		WorkflowFrontmatter: map[string]interface{}{"status": "ready"},
 	}
@@ -65,7 +64,7 @@ func TestPhase4Carveout_IntArithmeticOnAbsentIntProducesValue(t *testing.T) {
 	if err != nil {
 		t.Fatalf("parse: %v", err)
 	}
-	result, err := e.testExec(stmt, []*task.Task{plain})
+	result, err := e.testExec(stmt, []*taskFixture{plain})
 	if err != nil {
 		t.Fatalf("expected executor to apply generic assignment, got: %v", err)
 	}
@@ -90,7 +89,7 @@ func TestPhase4Carveout_PrevEnumOnAbsentEnumProducesBoundary(t *testing.T) {
 	e := newTestExecutor()
 	p := newTestParser()
 
-	plain := &task.Task{
+	plain := &taskFixture{
 		ID: "ABC123", Title: "story", Status: "ready",
 		WorkflowFrontmatter: map[string]interface{}{"status": "ready"},
 	}
@@ -99,7 +98,7 @@ func TestPhase4Carveout_PrevEnumOnAbsentEnumProducesBoundary(t *testing.T) {
 	if err != nil {
 		t.Fatalf("parse: %v", err)
 	}
-	result, err := e.testExec(stmt, []*task.Task{plain})
+	result, err := e.testExec(stmt, []*taskFixture{plain})
 	if err != nil {
 		t.Fatalf("expected executor to apply generic assignment, got: %v", err)
 	}
@@ -121,7 +120,7 @@ func TestPhase4Carveout_UnregisteredFieldStillErrors(t *testing.T) {
 	e := newTestExecutor()
 	p := newTestParser()
 
-	plain := &task.Task{
+	plain := &taskFixture{
 		ID: "ABC123", Title: "story", Status: "ready",
 		WorkflowFrontmatter: map[string]interface{}{"status": "ready"},
 	}
@@ -132,7 +131,7 @@ func TestPhase4Carveout_UnregisteredFieldStillErrors(t *testing.T) {
 	if err != nil {
 		return // parse-time rejection — acceptable
 	}
-	if _, err := e.testExec(stmt, []*task.Task{plain}); err == nil {
+	if _, err := e.testExec(stmt, []*taskFixture{plain}); err == nil {
 		t.Fatal("expected hard-error on unregistered field 'taggs', got nil")
 	}
 }
