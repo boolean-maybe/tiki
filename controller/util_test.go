@@ -5,7 +5,19 @@ import (
 
 	"github.com/boolean-maybe/tiki/store"
 	tikipkg "github.com/boolean-maybe/tiki/tiki"
+	"github.com/boolean-maybe/tiki/workflow"
 )
+
+// enumDisplay returns the formatted "Label Emoji" display for a workflow
+// enum value, used by tests that previously called task.StatusDisplay /
+// task.TypeDisplay. Returns the key unchanged when the field is missing.
+func enumDisplay(field, key string) string {
+	fd, ok := workflow.Field(field)
+	if !ok {
+		return key
+	}
+	return fd.EnumDisplay(key)
+}
 
 // identityOnlyStore is a minimal store.Store implementation that only
 // answers GetCurrentUser. It exists so we can assert getCurrentUserName's

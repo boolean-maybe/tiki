@@ -9,7 +9,6 @@ import (
 
 	"github.com/boolean-maybe/tiki/controller"
 	"github.com/boolean-maybe/tiki/model"
-	taskpkg "github.com/boolean-maybe/tiki/task"
 	"github.com/boolean-maybe/tiki/testutil"
 
 	"github.com/gdamore/tcell/v2"
@@ -32,19 +31,19 @@ func setupPluginTestData(t *testing.T, ta *testutil.TestApp) {
 		recent   bool // needs UpdatedAt within 2 hours
 	}{
 		// Backlog plugin: status = 'backlog'
-		{"000001", "Backlog Task 1", taskpkg.StatusBacklog, taskpkg.TypeStory, false},
-		{"000002", "Backlog Task 2", taskpkg.StatusBacklog, taskpkg.TypeBug, false},
+		{"000001", "Backlog Task 1", "backlog", "story", false},
+		{"000002", "Backlog Task 2", "backlog", "bug", false},
 
 		// Recent plugin: UpdatedAt within 2 hours
-		{"000003", "Recent Task 1", taskpkg.StatusReady, taskpkg.TypeStory, true},
-		{"000004", "Recent Task 2", taskpkg.StatusInProgress, taskpkg.TypeBug, true},
+		{"000003", "Recent Task 1", "ready", "story", true},
+		{"000004", "Recent Task 2", "inProgress", "bug", true},
 
 		// Roadmap plugin: type = 'epic'
-		{"000005", "Roadmap Epic 1", taskpkg.StatusReady, taskpkg.TypeEpic, false},
-		{"000006", "Roadmap Epic 2", taskpkg.StatusInProgress, taskpkg.TypeEpic, false},
+		{"000005", "Roadmap Epic 1", "ready", "epic", false},
+		{"000006", "Roadmap Epic 2", "inProgress", "epic", false},
 
 		// Multi-plugin match
-		{"000007", "Recent Backlog", taskpkg.StatusBacklog, taskpkg.TypeStory, true},
+		{"000007", "Recent Backlog", "backlog", "story", true},
 	}
 
 	for _, task := range tasks {
@@ -395,7 +394,7 @@ func TestPluginActions_NewTask_NKey(t *testing.T) {
 		if tk.Title == "New Plugin Task" {
 			found = true
 			status, _, _ := tk.StringField("status")
-			if status != taskpkg.StatusBacklog {
+			if status != "backlog" {
 				t.Errorf("Expected new task to have backlog status, got %s", status)
 			}
 			break
@@ -411,7 +410,7 @@ func TestPluginActions_DeleteTask_DKey(t *testing.T) {
 	defer ta.Cleanup()
 
 	// Create a specific task to delete
-	_ = testutil.CreateTestTask(ta.TaskDir, "DELETE", "To Delete", taskpkg.StatusBacklog, taskpkg.TypeStory)
+	_ = testutil.CreateTestTask(ta.TaskDir, "DELETE", "To Delete", "backlog", "story")
 	_ = ta.TaskStore.Reload()
 
 	ta.NavController.PushView(model.MakePluginViewID("Backlog"), nil)
@@ -716,9 +715,9 @@ func TestPluginActions_DeleteTask_UpdatesSelection(t *testing.T) {
 	}
 
 	// Create specific tasks for this test
-	_ = testutil.CreateTestTask(ta.TaskDir, "00DEL1", "Task 1", taskpkg.StatusBacklog, taskpkg.TypeStory)
-	_ = testutil.CreateTestTask(ta.TaskDir, "00DEL2", "Task 2", taskpkg.StatusBacklog, taskpkg.TypeStory)
-	_ = testutil.CreateTestTask(ta.TaskDir, "00DEL3", "Task 3", taskpkg.StatusBacklog, taskpkg.TypeStory)
+	_ = testutil.CreateTestTask(ta.TaskDir, "00DEL1", "Task 1", "backlog", "story")
+	_ = testutil.CreateTestTask(ta.TaskDir, "00DEL2", "Task 2", "backlog", "story")
+	_ = testutil.CreateTestTask(ta.TaskDir, "00DEL3", "Task 3", "backlog", "story")
 	_ = ta.TaskStore.Reload()
 
 	ta.NavController.PushView(model.MakePluginViewID("Backlog"), nil)
@@ -748,7 +747,7 @@ func TestPluginActions_DeleteTask_UpdatesSelection(t *testing.T) {
 	backlogCount := 0
 	for _, tk := range tikis {
 		status, _, _ := tk.StringField("status")
-		if status == taskpkg.StatusBacklog {
+		if status == "backlog" {
 			backlogCount++
 		}
 	}

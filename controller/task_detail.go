@@ -5,15 +5,16 @@ import (
 	"fmt"
 	"log/slog"
 	"path/filepath"
+	"strings"
 
 	"github.com/boolean-maybe/tiki/config"
 	"github.com/boolean-maybe/tiki/model"
 	"github.com/boolean-maybe/tiki/service"
 	"github.com/boolean-maybe/tiki/store"
-	taskpkg "github.com/boolean-maybe/tiki/task"
 	tikipkg "github.com/boolean-maybe/tiki/tiki"
 	collectionutil "github.com/boolean-maybe/tiki/util/collections"
 	"github.com/boolean-maybe/tiki/workflow"
+	"github.com/boolean-maybe/tiki/workflow/value"
 
 	"time"
 )
@@ -290,20 +291,23 @@ func (tc *TaskController) SaveStatus(statusOrDisplay string) bool {
 			tk.Delete(tikipkg.FieldStatus)
 		})
 	}
+	statusFD, hasStatus := workflow.Field(tikipkg.FieldStatus)
 	// Canonical key path: editor-emitted values land here directly.
-	if taskpkg.IsValidStatus(statusOrDisplay) {
+	if hasStatus && statusFD.IsValidEnum(statusOrDisplay) {
 		return tc.updateTikiField(func(tk *tikipkg.Tiki) {
 			tk.Set(tikipkg.FieldStatus, statusOrDisplay)
 		})
 	}
 	// Display-string path: legacy callers pass "Ready 📋" etc.
-	if key, ok := taskpkg.ParseStatusDisplay(statusOrDisplay); ok {
-		return tc.updateTikiField(func(tk *tikipkg.Tiki) {
-			tk.Set(tikipkg.FieldStatus, key)
-		})
+	if hasStatus {
+		if key, ok := statusFD.EnumParseDisplay(statusOrDisplay); ok {
+			return tc.updateTikiField(func(tk *tikipkg.Tiki) {
+				tk.Set(tikipkg.FieldStatus, key)
+			})
+		}
 	}
 	// Loose normalization: camelCase / underscore / space variants.
-	if newStatus := taskpkg.NormalizeStatus(statusOrDisplay); taskpkg.IsValidStatus(newStatus) {
+	if newStatus := normalizeStatusKey(statusOrDisplay); hasStatus && statusFD.IsValidEnum(newStatus) {
 		return tc.updateTikiField(func(tk *tikipkg.Tiki) {
 			tk.Set(tikipkg.FieldStatus, newStatus)
 		})
@@ -312,7 +316,11 @@ func (tc *TaskController) SaveStatus(statusOrDisplay string) bool {
 	// behavior where unrecognized input lands on the default status rather
 	// than rejecting the save.
 	return tc.updateTikiField(func(tk *tikipkg.Tiki) {
-		tk.Set(tikipkg.FieldStatus, taskpkg.DefaultStatus())
+		def := ""
+		if hasStatus {
+			def = statusFD.EnumDefault()
+		}
+		tk.Set(tikipkg.FieldStatus, def)
 	})
 }
 
@@ -326,15 +334,18 @@ func (tc *TaskController) SaveType(typeOrDisplay string) bool {
 			tk.Delete(tikipkg.FieldType)
 		})
 	}
-	if taskpkg.IsValidType(typeOrDisplay) {
+	typeFD, hasType := workflow.Field(tikipkg.FieldType)
+	if hasType && typeFD.IsValidEnum(typeOrDisplay) {
 		return tc.updateTikiField(func(tk *tikipkg.Tiki) {
 			tk.Set(tikipkg.FieldType, typeOrDisplay)
 		})
 	}
-	if newType, ok := taskpkg.ParseDisplay(typeOrDisplay); ok {
-		return tc.updateTikiField(func(tk *tikipkg.Tiki) {
-			tk.Set(tikipkg.FieldType, newType)
-		})
+	if hasType {
+		if newType, ok := typeFD.EnumParseDisplay(typeOrDisplay); ok {
+			return tc.updateTikiField(func(tk *tikipkg.Tiki) {
+				tk.Set(tikipkg.FieldType, newType)
+			})
+		}
 	}
 	slog.Warn("unrecognized type", "input", typeOrDisplay)
 	return false
@@ -370,9 +381,12 @@ func (tc *TaskController) SaveWorkflowEnum(fieldName, value string) bool {
 // strings are not accepted — the editor emits canonical keys directly.
 // Returns true if the priority was successfully updated, false otherwise.
 func (tc *TaskController) SavePriority(priority string) bool {
-	if priority != "" && !taskpkg.IsValidPriority(priority) {
-		slog.Warn("invalid priority", "value", priority)
-		return false
+	if priority != "" {
+		fd, ok := workflow.Field(tikipkg.FieldPriority)
+		if !ok || !fd.IsValidEnum(priority) {
+			slog.Warn("invalid priority", "value", priority)
+			return false
+		}
 	}
 
 	return tc.updateTikiField(func(tk *tikipkg.Tiki) {
@@ -406,7 +420,7 @@ func (tc *TaskController) SaveAssignee(assignee string) bool {
 // Returns true if the points were successfully updated, false otherwise.
 func (tc *TaskController) SavePoints(points int) bool {
 	// Validate points: zero means absent (valid); non-zero must be in range
-	if !taskpkg.IsValidPoints(points) {
+	if !value.IsValidPoints(points) {
 		slog.Warn("invalid points", "value", points)
 		return false
 	}
@@ -424,7 +438,7 @@ func (tc *TaskController) SavePoints(points int) bool {
 // Empty string clears the due date (sets to zero time).
 // Returns true if the due date was successfully updated, false otherwise.
 func (tc *TaskController) SaveDue(dateStr string) bool {
-	parsed, ok := taskpkg.ParseDueDate(dateStr)
+	parsed, ok := value.ParseDate(dateStr)
 	if !ok {
 		return false
 	}
@@ -442,18 +456,18 @@ func (tc *TaskController) SaveDue(dateStr string) bool {
 // When recurrence is cleared, Due is also cleared.
 // Returns true if the recurrence was successfully updated, false otherwise.
 func (tc *TaskController) SaveRecurrence(cron string) bool {
-	r := taskpkg.Recurrence(cron)
-	if !taskpkg.IsValidRecurrence(r) {
+	r := value.Recurrence(cron)
+	if !value.IsValidRecurrence(r) {
 		slog.Warn("invalid recurrence", "cron", cron)
 		return false
 	}
 	return tc.updateTikiField(func(tk *tikipkg.Tiki) {
-		if r == taskpkg.RecurrenceNone {
+		if r == value.RecurrenceNone {
 			tk.Delete(tikipkg.FieldRecurrence)
 			tk.Delete(tikipkg.FieldDue)
 		} else {
 			tk.Set(tikipkg.FieldRecurrence, string(r))
-			tk.Set(tikipkg.FieldDue, taskpkg.NextOccurrence(r))
+			tk.Set(tikipkg.FieldDue, value.NextOccurrence(r))
 		}
 	})
 }
@@ -504,16 +518,16 @@ func (tc *TaskController) AddComment(author, text string) bool {
 		return false
 	}
 
-	comment := taskpkg.Comment{
+	comment := tikipkg.Comment{
 		ID:        generateID(),
 		Author:    author,
 		Text:      text,
 		CreatedAt: time.Now(),
 	}
 
-	var existing []taskpkg.Comment
+	var existing []tikipkg.Comment
 	if v, ok := tk.Fields["comments"]; ok {
-		if cs, ok := v.([]taskpkg.Comment); ok {
+		if cs, ok := v.([]tikipkg.Comment); ok {
 			existing = append(existing, cs...)
 		}
 	}
@@ -523,4 +537,52 @@ func (tc *TaskController) AddComment(author, text string) bool {
 	// trigger an unnecessary file write and fire validators/hooks/triggers.
 	tk.Set("comments", append(existing, comment))
 	return true
+}
+
+// normalizeStatusKey converts a raw status string ("in_progress", "In Progress",
+// "IN_PROGRESS") to canonical camelCase ("inProgress"). Splits on "_", "-",
+// " ", and camelCase boundaries, then reassembles. Generic — no knowledge of
+// any specific status field's allowed values; callers must validate the
+// result against the workflow catalog.
+func normalizeStatusKey(s string) string {
+	trimmed := strings.TrimSpace(s)
+	if trimmed == "" {
+		return ""
+	}
+	parts := strings.FieldsFunc(trimmed, func(r rune) bool {
+		return r == '_' || r == '-' || r == ' '
+	})
+	var words []string
+	for _, p := range parts {
+		words = append(words, splitCamelCase(p)...)
+	}
+	if len(words) == 0 {
+		return ""
+	}
+	var b strings.Builder
+	for i, w := range words {
+		if i == 0 {
+			b.WriteString(strings.ToLower(w))
+			continue
+		}
+		b.WriteString(strings.ToUpper(w[:1]))
+		b.WriteString(strings.ToLower(w[1:]))
+	}
+	return b.String()
+}
+
+func splitCamelCase(s string) []string {
+	if s == "" {
+		return nil
+	}
+	var words []string
+	start := 0
+	for i := 1; i < len(s); i++ {
+		if s[i] >= 'A' && s[i] <= 'Z' && s[i-1] >= 'a' && s[i-1] <= 'z' {
+			words = append(words, s[start:i])
+			start = i
+		}
+	}
+	words = append(words, s[start:])
+	return words
 }

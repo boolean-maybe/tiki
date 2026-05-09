@@ -1,9 +1,5 @@
-// Package tiki defines the unified Tiki model that will eventually replace
-// task.Task and document.Document across the codebase.
-//
-// Phase 2 introduces this package alongside the existing task/document split.
-// Existing APIs continue to work unchanged; later phases migrate persistence,
-// ruki, services, and UI to operate on *Tiki directly.
+// Package tiki defines the unified Tiki document model used across the
+// codebase: persistence, ruki, services, and UI all operate on *Tiki directly.
 //
 // A Tiki carries three special elements — ID, Title, and Body — that drive
 // identity, display, and markdown content. Every other piece of structured
@@ -49,12 +45,12 @@ type Tiki struct {
 	UpdatedAt time.Time
 
 	// stale records the subset of Fields keys that were loaded from disk
-	// as UnknownFields provenance despite matching a registered Custom
+	// with unknown-field provenance despite matching a registered Custom
 	// field (e.g. a value that failed coercion on load and was demoted).
-	// These keys round-trip back to Task.UnknownFields through ToTask so
-	// persistence's validateCustomFields does not reject the save. Any
-	// explicit Set or Delete clears the stale marker — an overwrite is
-	// treated as a legitimate repair, restoring normal Custom routing.
+	// Persistence preserves these as unknown-bucket entries on save so
+	// validateCustomFields does not reject the round-trip. Any explicit
+	// Set or Delete clears the stale marker — an overwrite is treated as
+	// a legitimate repair, restoring normal Custom routing.
 	//
 	// The map is intentionally unexported: it is provenance metadata, not
 	// part of the generic Tiki.Fields contract that ruki and API callers

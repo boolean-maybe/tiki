@@ -6,7 +6,6 @@ import (
 	"testing"
 
 	"github.com/boolean-maybe/tiki/model"
-	"github.com/boolean-maybe/tiki/task"
 	"github.com/boolean-maybe/tiki/testutil"
 
 	"github.com/gdamore/tcell/v2"
@@ -170,7 +169,7 @@ views:
 	}
 	defer ta.Cleanup()
 
-	if err := testutil.CreateTestTask(ta.TaskDir, "000001", "Pick Me", task.StatusBacklog, task.TypeStory); err != nil {
+	if err := testutil.CreateTestTask(ta.TaskDir, "000001", "Pick Me", "backlog", "story"); err != nil {
 		t.Fatalf("create task: %v", err)
 	}
 	if err := ta.TaskStore.Reload(); err != nil {
@@ -285,7 +284,7 @@ func TestViewAction_DirectActivationCarriesSelection(t *testing.T) {
 	defer ta.Cleanup()
 
 	// Seed a task so the board has a selection.
-	if err := testutil.CreateTestTask(ta.TaskDir, "000042", "Carried", task.StatusBacklog, task.TypeStory); err != nil {
+	if err := testutil.CreateTestTask(ta.TaskDir, "000042", "Carried", "backlog", "story"); err != nil {
 		t.Fatalf("create task: %v", err)
 	}
 	if err := ta.TaskStore.Reload(); err != nil {
@@ -414,7 +413,7 @@ views:
 	// condition that used to slip past: a selection-only check would
 	// approve the navigation, and the "ai" requirement on the target
 	// would be silently ignored.
-	if err := testutil.CreateTestTask(ta.TaskDir, "000001", "Anything", task.StatusBacklog, task.TypeStory); err != nil {
+	if err := testutil.CreateTestTask(ta.TaskDir, "000001", "Anything", "backlog", "story"); err != nil {
 		t.Fatalf("create task: %v", err)
 	}
 	if err := ta.TaskStore.Reload(); err != nil {
@@ -634,10 +633,10 @@ views:
 
 	// Seed two backlog tasks at default priority so we can observe the
 	// ruki-driven mutation.
-	if err := testutil.CreateTestTask(ta.TaskDir, "000001", "Task One", task.StatusBacklog, task.TypeStory); err != nil {
+	if err := testutil.CreateTestTask(ta.TaskDir, "000001", "Task One", "backlog", "story"); err != nil {
 		t.Fatalf("create task: %v", err)
 	}
-	if err := testutil.CreateTestTask(ta.TaskDir, "000002", "Task Two", task.StatusBacklog, task.TypeStory); err != nil {
+	if err := testutil.CreateTestTask(ta.TaskDir, "000002", "Task Two", "backlog", "story"); err != nil {
 		t.Fatalf("create task: %v", err)
 	}
 	if err := ta.TaskStore.Reload(); err != nil {

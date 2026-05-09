@@ -6,7 +6,6 @@ import (
 	"testing"
 
 	"github.com/boolean-maybe/tiki/model"
-	taskpkg "github.com/boolean-maybe/tiki/task"
 	"github.com/boolean-maybe/tiki/testutil"
 
 	"github.com/gdamore/tcell/v2"
@@ -23,7 +22,7 @@ func TestRefresh_FromKanban(t *testing.T) {
 	}
 
 	// Create initial task
-	if err := testutil.CreateTestTask(ta.TaskDir, "000001", "First Task", taskpkg.StatusReady, taskpkg.TypeStory); err != nil {
+	if err := testutil.CreateTestTask(ta.TaskDir, "000001", "First Task", "ready", "story"); err != nil {
 		t.Fatalf("failed to create test task: %v", err)
 	}
 	if err := ta.TaskStore.Reload(); err != nil {
@@ -42,7 +41,7 @@ func TestRefresh_FromKanban(t *testing.T) {
 	}
 
 	// Create a new task externally (simulating external modification)
-	if err := testutil.CreateTestTask(ta.TaskDir, "000002", "New External Task", taskpkg.StatusReady, taskpkg.TypeStory); err != nil {
+	if err := testutil.CreateTestTask(ta.TaskDir, "000002", "New External Task", "ready", "story"); err != nil {
 		t.Fatalf("failed to create external task: %v", err)
 	}
 
@@ -69,7 +68,7 @@ func TestRefresh_ExternalModification(t *testing.T) {
 
 	// Create task
 	taskID := "000001"
-	if err := testutil.CreateTestTask(ta.TaskDir, taskID, "Original Title", taskpkg.StatusReady, taskpkg.TypeStory); err != nil {
+	if err := testutil.CreateTestTask(ta.TaskDir, taskID, "Original Title", "ready", "story"); err != nil {
 		t.Fatalf("failed to create test task: %v", err)
 	}
 	if err := ta.TaskStore.Reload(); err != nil {
@@ -94,7 +93,7 @@ func TestRefresh_ExternalModification(t *testing.T) {
 	}
 
 	// Modify the task file externally
-	if err := testutil.CreateTestTask(ta.TaskDir, taskID, "Modified Title", taskpkg.StatusReady, taskpkg.TypeStory); err != nil {
+	if err := testutil.CreateTestTask(ta.TaskDir, taskID, "Modified Title", "ready", "story"); err != nil {
 		t.Fatalf("failed to modify task: %v", err)
 	}
 
@@ -126,10 +125,10 @@ func TestRefresh_ExternalDeletion(t *testing.T) {
 	}
 
 	// Create two tasks
-	if err := testutil.CreateTestTask(ta.TaskDir, "000001", "First Task", taskpkg.StatusReady, taskpkg.TypeStory); err != nil {
+	if err := testutil.CreateTestTask(ta.TaskDir, "000001", "First Task", "ready", "story"); err != nil {
 		t.Fatalf("failed to create test task: %v", err)
 	}
-	if err := testutil.CreateTestTask(ta.TaskDir, "000002", "Second Task", taskpkg.StatusReady, taskpkg.TypeStory); err != nil {
+	if err := testutil.CreateTestTask(ta.TaskDir, "000002", "Second Task", "ready", "story"); err != nil {
 		t.Fatalf("failed to create test task: %v", err)
 	}
 	if err := ta.TaskStore.Reload(); err != nil {
@@ -189,10 +188,10 @@ func TestRefresh_PreservesSelection(t *testing.T) {
 	}
 
 	// Create tasks
-	if err := testutil.CreateTestTask(ta.TaskDir, "000001", "First Task", taskpkg.StatusReady, taskpkg.TypeStory); err != nil {
+	if err := testutil.CreateTestTask(ta.TaskDir, "000001", "First Task", "ready", "story"); err != nil {
 		t.Fatalf("failed to create test task: %v", err)
 	}
-	if err := testutil.CreateTestTask(ta.TaskDir, "000002", "Second Task", taskpkg.StatusReady, taskpkg.TypeStory); err != nil {
+	if err := testutil.CreateTestTask(ta.TaskDir, "000002", "Second Task", "ready", "story"); err != nil {
 		t.Fatalf("failed to create test task: %v", err)
 	}
 	if err := ta.TaskStore.Reload(); err != nil {
@@ -213,7 +212,7 @@ func TestRefresh_PreservesSelection(t *testing.T) {
 	}
 
 	// Create a new task externally (doesn't affect selection)
-	if err := testutil.CreateTestTask(ta.TaskDir, "000003", "Third Task", taskpkg.StatusReady, taskpkg.TypeStory); err != nil {
+	if err := testutil.CreateTestTask(ta.TaskDir, "000003", "Third Task", "ready", "story"); err != nil {
 		t.Fatalf("failed to create test task: %v", err)
 	}
 
@@ -239,10 +238,10 @@ func TestRefresh_ResetsSelectionWhenTaskDeleted(t *testing.T) {
 	}
 
 	// Create tasks
-	if err := testutil.CreateTestTask(ta.TaskDir, "000001", "First Task", taskpkg.StatusReady, taskpkg.TypeStory); err != nil {
+	if err := testutil.CreateTestTask(ta.TaskDir, "000001", "First Task", "ready", "story"); err != nil {
 		t.Fatalf("failed to create test task: %v", err)
 	}
-	if err := testutil.CreateTestTask(ta.TaskDir, "000002", "Second Task", taskpkg.StatusReady, taskpkg.TypeStory); err != nil {
+	if err := testutil.CreateTestTask(ta.TaskDir, "000002", "Second Task", "ready", "story"); err != nil {
 		t.Fatalf("failed to create test task: %v", err)
 	}
 	if err := ta.TaskStore.Reload(); err != nil {
@@ -296,7 +295,7 @@ func TestRefresh_FromTaskDetail(t *testing.T) {
 
 	// Create task
 	taskID := "000001"
-	if err := testutil.CreateTestTask(ta.TaskDir, taskID, "Original Title", taskpkg.StatusReady, taskpkg.TypeStory); err != nil {
+	if err := testutil.CreateTestTask(ta.TaskDir, taskID, "Original Title", "ready", "story"); err != nil {
 		t.Fatalf("failed to create test task: %v", err)
 	}
 	if err := ta.TaskStore.Reload(); err != nil {
@@ -316,7 +315,7 @@ func TestRefresh_FromTaskDetail(t *testing.T) {
 	}
 
 	// Modify the task file externally
-	if err := testutil.CreateTestTask(ta.TaskDir, taskID, "Updated Title", taskpkg.StatusReady, taskpkg.TypeStory); err != nil {
+	if err := testutil.CreateTestTask(ta.TaskDir, taskID, "Updated Title", "ready", "story"); err != nil {
 		t.Fatalf("failed to modify task: %v", err)
 	}
 
@@ -342,10 +341,10 @@ func TestRefresh_WithActiveSearch(t *testing.T) {
 	}
 
 	// Create tasks
-	if err := testutil.CreateTestTask(ta.TaskDir, "000001", "Alpha Task", taskpkg.StatusReady, taskpkg.TypeStory); err != nil {
+	if err := testutil.CreateTestTask(ta.TaskDir, "000001", "Alpha Task", "ready", "story"); err != nil {
 		t.Fatalf("failed to create test task: %v", err)
 	}
-	if err := testutil.CreateTestTask(ta.TaskDir, "000002", "Beta Task", taskpkg.StatusReady, taskpkg.TypeStory); err != nil {
+	if err := testutil.CreateTestTask(ta.TaskDir, "000002", "Beta Task", "ready", "story"); err != nil {
 		t.Fatalf("failed to create test task: %v", err)
 	}
 	if err := ta.TaskStore.Reload(); err != nil {
@@ -395,7 +394,7 @@ func TestRefresh_MultipleRefreshes(t *testing.T) {
 	}
 
 	// Create initial task
-	if err := testutil.CreateTestTask(ta.TaskDir, "000001", "First Task", taskpkg.StatusReady, taskpkg.TypeStory); err != nil {
+	if err := testutil.CreateTestTask(ta.TaskDir, "000001", "First Task", "ready", "story"); err != nil {
 		t.Fatalf("failed to create test task: %v", err)
 	}
 	if err := ta.TaskStore.Reload(); err != nil {
@@ -416,7 +415,7 @@ func TestRefresh_MultipleRefreshes(t *testing.T) {
 	}
 
 	// Add a new task
-	if err := testutil.CreateTestTask(ta.TaskDir, "000002", "Second Task", taskpkg.StatusReady, taskpkg.TypeStory); err != nil {
+	if err := testutil.CreateTestTask(ta.TaskDir, "000002", "Second Task", "ready", "story"); err != nil {
 		t.Fatalf("failed to create test task: %v", err)
 	}
 

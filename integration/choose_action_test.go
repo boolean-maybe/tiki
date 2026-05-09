@@ -8,7 +8,6 @@ import (
 
 	"github.com/boolean-maybe/tiki/controller"
 	"github.com/boolean-maybe/tiki/model"
-	"github.com/boolean-maybe/tiki/task"
 	"github.com/boolean-maybe/tiki/testutil"
 	tikipkg "github.com/boolean-maybe/tiki/tiki"
 
@@ -55,13 +54,13 @@ func setupChooseActionTest(t *testing.T) *testutil.TestApp {
 		t.Fatalf("failed to load plugins: %v", err)
 	}
 
-	if err := testutil.CreateTestTask(ta.TaskDir, "000001", "My Story", task.StatusBacklog, task.TypeStory); err != nil {
+	if err := testutil.CreateTestTask(ta.TaskDir, "000001", "My Story", "backlog", "story"); err != nil {
 		t.Fatalf("failed to create story task: %v", err)
 	}
-	if err := testutil.CreateTestTask(ta.TaskDir, "000002", "My Epic", task.StatusBacklog, task.TypeEpic); err != nil {
+	if err := testutil.CreateTestTask(ta.TaskDir, "000002", "My Epic", "backlog", "epic"); err != nil {
 		t.Fatalf("failed to create epic task: %v", err)
 	}
-	if err := testutil.CreateTestTask(ta.TaskDir, "000003", "Another Epic", task.StatusBacklog, task.TypeEpic); err != nil {
+	if err := testutil.CreateTestTask(ta.TaskDir, "000003", "Another Epic", "backlog", "epic"); err != nil {
 		t.Fatalf("failed to create second epic task: %v", err)
 	}
 	if err := ta.TaskStore.Reload(); err != nil {
@@ -173,7 +172,7 @@ func TestChooseAction_NonChooseActionStillWorks(t *testing.T) {
 		t.Fatal("task not found")
 	}
 	nonChooseStatus, _, _ := updated.StringField("status")
-	if nonChooseStatus != task.StatusReady {
+	if nonChooseStatus != "ready" {
 		t.Fatalf("expected status ready, got %v", nonChooseStatus)
 	}
 }
@@ -197,7 +196,7 @@ func TestChooseAction_ModalBlocksOtherActions(t *testing.T) {
 	}
 	updated := ta.TaskStore.GetTiki("000001")
 	blockedStatus, _, _ := updated.StringField("status")
-	if blockedStatus != task.StatusBacklog {
+	if blockedStatus != "backlog" {
 		t.Fatalf("expected status backlog (action blocked while modal), got %v", blockedStatus)
 	}
 
@@ -275,13 +274,13 @@ func setupFilteredEpicTest(t *testing.T) *testutil.TestApp {
 		t.Fatalf("failed to load plugins: %v", err)
 	}
 
-	if err := testutil.CreateTestTask(ta.TaskDir, "000001", "My Story", task.StatusBacklog, task.TypeStory); err != nil {
+	if err := testutil.CreateTestTask(ta.TaskDir, "000001", "My Story", "backlog", "story"); err != nil {
 		t.Fatalf("failed to create story task: %v", err)
 	}
-	if err := testutil.CreateTestTaskWithDeps(ta.TaskDir, "000002", "Linked Epic", task.StatusBacklog, task.TypeEpic, []string{"000001"}); err != nil {
+	if err := testutil.CreateTestTaskWithDeps(ta.TaskDir, "000002", "Linked Epic", "backlog", "epic", []string{"000001"}); err != nil {
 		t.Fatalf("failed to create linked epic task: %v", err)
 	}
-	if err := testutil.CreateTestTask(ta.TaskDir, "000003", "Available Epic", task.StatusBacklog, task.TypeEpic); err != nil {
+	if err := testutil.CreateTestTask(ta.TaskDir, "000003", "Available Epic", "backlog", "epic"); err != nil {
 		t.Fatalf("failed to create available epic task: %v", err)
 	}
 	if err := ta.TaskStore.Reload(); err != nil {
@@ -375,7 +374,7 @@ func setupScrollTest(t *testing.T) *testutil.TestApp {
 	for i := 0; i < 40; i++ {
 		id := fmt.Sprintf("TIKI-%06d", i)
 		title := fmt.Sprintf("ScrollTask%02d", i)
-		if err := testutil.CreateTestTask(ta.TaskDir, id, title, task.StatusBacklog, task.TypeStory); err != nil {
+		if err := testutil.CreateTestTask(ta.TaskDir, id, title, "backlog", "story"); err != nil {
 			t.Fatalf("create task %s: %v", id, err)
 		}
 	}

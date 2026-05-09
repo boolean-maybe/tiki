@@ -1,8 +1,10 @@
 package tikistore
 
 import (
-	taskpkg "github.com/boolean-maybe/tiki/task"
+	"strings"
+
 	tikipkg "github.com/boolean-maybe/tiki/tiki"
+	"github.com/boolean-maybe/tiki/workflow"
 )
 
 // LegacyUpgrader transforms documents loaded from disk to conform to current
@@ -27,12 +29,90 @@ func (u *LegacyUpgrader) UpgradeTiki(tk *tikipkg.Tiki) {
 		return
 	}
 	if s, ok := tk.Fields["status"].(string); ok && s != "" {
-		mapped := taskpkg.MapStatus(s)
+		mapped := upgradeLegacyStatus(s)
 		if mapped != s {
 			tk.Set("status", mapped)
 		}
 	}
 	upgradeLegacyPriority(tk)
+}
+
+// upgradeLegacyStatus normalizes a raw status key to canonical camelCase
+// against the loaded status field's enum. Splits on "_", "-", " ", and
+// camelCase boundaries, lowercases, then re-camelizes. Resolution order:
+//  1. normalized form is a recognized enum key → use it.
+//  2. status field is configured but the normalized form is not in the
+//     enum (e.g. legacy "closed", "todo") → fall back to the workflow's
+//     declared default so the document loads with a valid status rather
+//     than staying stale-unknown.
+//  3. status field is not configured (plain-document workflow) → return
+//     the normalized form, since there is nothing to validate against.
+//
+// Returning the original on the no-config path mirrors the priority
+// upgrader's "leave it alone if there's no enum to validate against"
+// stance.
+func upgradeLegacyStatus(s string) string {
+	normalized := normalizeCamelKey(s)
+	if normalized == "" {
+		return s
+	}
+	fd, ok := workflow.Field("status")
+	if !ok || fd.Type != workflow.TypeEnum {
+		return normalized
+	}
+	if fd.IsValidEnum(normalized) {
+		return normalized
+	}
+	if def := fd.EnumDefault(); def != "" {
+		return def
+	}
+	return normalized
+}
+
+// normalizeCamelKey lowercases, splits on separator/camel boundaries, then
+// rejoins as camelCase. e.g. "in_progress" → "inProgress",
+// "IN PROGRESS" → "inProgress".
+func normalizeCamelKey(s string) string {
+	trimmed := strings.TrimSpace(s)
+	if trimmed == "" {
+		return ""
+	}
+	parts := strings.FieldsFunc(trimmed, func(r rune) bool {
+		return r == '_' || r == '-' || r == ' '
+	})
+	var words []string
+	for _, p := range parts {
+		words = append(words, splitCamelBoundaries(p)...)
+	}
+	if len(words) == 0 {
+		return ""
+	}
+	var b strings.Builder
+	for i, w := range words {
+		if i == 0 {
+			b.WriteString(strings.ToLower(w))
+			continue
+		}
+		b.WriteString(strings.ToUpper(w[:1]))
+		b.WriteString(strings.ToLower(w[1:]))
+	}
+	return b.String()
+}
+
+func splitCamelBoundaries(s string) []string {
+	if s == "" {
+		return nil
+	}
+	var words []string
+	start := 0
+	for i := 1; i < len(s); i++ {
+		if s[i] >= 'A' && s[i] <= 'Z' && s[i-1] >= 'a' && s[i-1] <= 'z' {
+			words = append(words, s[start:i])
+			start = i
+		}
+	}
+	words = append(words, s[start:])
+	return words
 }
 
 // upgradeLegacyPriority converts a numeric priority rank stored in the
@@ -65,14 +145,19 @@ func upgradeLegacyPriority(tk *tikipkg.Tiki) {
 	default:
 		return // already a string, or some unsupported shape
 	}
-	if key, ok := taskpkg.LegacyPriorityKeyFromInt(rank); ok {
-		tk.Set("priority", key)
+	fd, ok := workflow.Field("priority")
+	if !ok || fd.Type != workflow.TypeEnum {
+		return
+	}
+	allowed := fd.AllowedValues()
+	if rank >= 1 && rank <= len(allowed) {
+		tk.Set("priority", allowed[rank-1])
 		return
 	}
 	// rank is out of range for the configured enum — fall back to the
 	// declared default so the tiki ends up with a valid key rather than
 	// staying stale.
-	if def := taskpkg.DefaultPriority(); def != "" {
+	if def := fd.EnumDefault(); def != "" {
 		tk.Set("priority", def)
 	}
 }

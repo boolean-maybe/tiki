@@ -7,7 +7,6 @@ import (
 	"testing"
 
 	"github.com/boolean-maybe/tiki/model"
-	taskpkg "github.com/boolean-maybe/tiki/task"
 	"github.com/boolean-maybe/tiki/testutil"
 
 	"github.com/gdamore/tcell/v2"
@@ -26,7 +25,7 @@ func TestTaskDetailView_ChatModifiesTask(t *testing.T) {
 
 	// create a task
 	taskID := "CHAT01"
-	if err := testutil.CreateTestTask(ta.TaskDir, taskID, "Original Title", taskpkg.StatusReady, taskpkg.TypeStory); err != nil {
+	if err := testutil.CreateTestTask(ta.TaskDir, taskID, "Original Title", "ready", "story"); err != nil {
 		t.Fatalf("failed to create test task: %v", err)
 	}
 	if err := ta.TaskStore.Reload(); err != nil {
@@ -91,7 +90,7 @@ func TestTaskDetailView_ChatNotAvailableWithoutConfig(t *testing.T) {
 
 	// create a task
 	taskID := "NOCHAT"
-	if err := testutil.CreateTestTask(ta.TaskDir, taskID, "Unchanged Title", taskpkg.StatusReady, taskpkg.TypeStory); err != nil {
+	if err := testutil.CreateTestTask(ta.TaskDir, taskID, "Unchanged Title", "ready", "story"); err != nil {
 		t.Fatalf("failed to create test task: %v", err)
 	}
 	if err := ta.TaskStore.Reload(); err != nil {

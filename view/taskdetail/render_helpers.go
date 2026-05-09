@@ -7,8 +7,8 @@ import (
 	"github.com/boolean-maybe/tiki/config"
 	"github.com/boolean-maybe/tiki/model"
 	"github.com/boolean-maybe/tiki/store"
-	taskpkg "github.com/boolean-maybe/tiki/task"
 	tikipkg "github.com/boolean-maybe/tiki/tiki"
+	"github.com/boolean-maybe/tiki/workflow/value"
 
 	"github.com/rivo/tview"
 )
@@ -223,7 +223,7 @@ func RenderDueText(tk *tikipkg.Tiki, colors *config.ColorConfig) tview.Primitive
 // RenderRecurrenceText renders the recurrence field
 func RenderRecurrenceText(tk *tikipkg.Tiki, colors *config.ColorConfig) tview.Primitive {
 	recurrenceStr, _, _ := tk.StringField(tikipkg.FieldRecurrence)
-	display := taskpkg.RecurrenceDisplay(taskpkg.Recurrence(recurrenceStr))
+	display := value.RecurrenceDisplay(value.Recurrence(recurrenceStr))
 	text := fmt.Sprintf("%s%-12s%s%s",
 		colors.TaskDetailEditDimLabelColor.Tag().String(), "Recurrence:", colors.TaskDetailValueText.Tag().String(), display)
 	view := tview.NewTextView().SetDynamicColors(true).SetText(text)

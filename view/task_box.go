@@ -8,10 +8,10 @@ import (
 	"github.com/rivo/tview"
 
 	"github.com/boolean-maybe/tiki/config"
-	"github.com/boolean-maybe/tiki/task"
 	tikipkg "github.com/boolean-maybe/tiki/tiki"
 	"github.com/boolean-maybe/tiki/util"
 	"github.com/boolean-maybe/tiki/util/gradient"
+	"github.com/boolean-maybe/tiki/workflow"
 )
 
 // TaskBox provides a reusable task card widget used in board and backlog views.
@@ -31,7 +31,7 @@ func applyFrameStyle(frame *tview.Frame, selected bool, colors *config.ColorConf
 // tikiTypeEmoji returns the emoji for the tiki's type field.
 func tikiTypeEmoji(tk *tikipkg.Tiki) string {
 	s, _, _ := tk.StringField(tikipkg.FieldType)
-	return task.TypeEmoji(s)
+	return enumEmoji(tikipkg.FieldType, s)
 }
 
 // tikiPriorityEmoji returns the emoji label for the tiki's priority field,
@@ -43,11 +43,25 @@ func tikiPriorityEmoji(tk *tikipkg.Tiki) string {
 	if !present || key == "" {
 		return "─"
 	}
-	emoji := task.PriorityLabel(key)
+	emoji := enumEmoji(tikipkg.FieldPriority, key)
 	if emoji == "" {
 		return "─"
 	}
 	return emoji
+}
+
+// enumEmoji returns the emoji defined for a workflow enum value, or empty
+// when the field is missing, not an enum, or the key is unknown.
+func enumEmoji(fieldName, key string) string {
+	fd, ok := workflow.Field(fieldName)
+	if !ok {
+		return ""
+	}
+	v, found := fd.LookupEnum(key)
+	if !found {
+		return ""
+	}
+	return v.Emoji
 }
 
 // tikiPoints returns the numeric points stored in Fields, or 0 if absent.

@@ -7,7 +7,6 @@ import (
 	"testing"
 
 	"github.com/boolean-maybe/tiki/model"
-	taskpkg "github.com/boolean-maybe/tiki/task"
 	"github.com/boolean-maybe/tiki/testutil"
 
 	"github.com/gdamore/tcell/v2"
@@ -24,10 +23,10 @@ func TestTaskDeletion_FromKanban(t *testing.T) {
 	}
 
 	// Create tasks
-	if err := testutil.CreateTestTask(ta.TaskDir, "000001", "First Task", taskpkg.StatusReady, taskpkg.TypeStory); err != nil {
+	if err := testutil.CreateTestTask(ta.TaskDir, "000001", "First Task", "ready", "story"); err != nil {
 		t.Fatalf("failed to create task: %v", err)
 	}
-	if err := testutil.CreateTestTask(ta.TaskDir, "000002", "Second Task", taskpkg.StatusReady, taskpkg.TypeStory); err != nil {
+	if err := testutil.CreateTestTask(ta.TaskDir, "000002", "Second Task", "ready", "story"); err != nil {
 		t.Fatalf("failed to create task: %v", err)
 	}
 	if err := ta.TaskStore.Reload(); err != nil {
@@ -83,13 +82,13 @@ func TestTaskDeletion_SelectionMoves(t *testing.T) {
 	}
 
 	// Create three tasks
-	if err := testutil.CreateTestTask(ta.TaskDir, "000001", "First Task", taskpkg.StatusReady, taskpkg.TypeStory); err != nil {
+	if err := testutil.CreateTestTask(ta.TaskDir, "000001", "First Task", "ready", "story"); err != nil {
 		t.Fatalf("failed to create task: %v", err)
 	}
-	if err := testutil.CreateTestTask(ta.TaskDir, "000002", "Second Task", taskpkg.StatusReady, taskpkg.TypeStory); err != nil {
+	if err := testutil.CreateTestTask(ta.TaskDir, "000002", "Second Task", "ready", "story"); err != nil {
 		t.Fatalf("failed to create task: %v", err)
 	}
-	if err := testutil.CreateTestTask(ta.TaskDir, "000003", "Third Task", taskpkg.StatusReady, taskpkg.TypeStory); err != nil {
+	if err := testutil.CreateTestTask(ta.TaskDir, "000003", "Third Task", "ready", "story"); err != nil {
 		t.Fatalf("failed to create task: %v", err)
 	}
 	if err := ta.TaskStore.Reload(); err != nil {
@@ -137,7 +136,7 @@ func TestTaskDeletion_LastTaskInLane(t *testing.T) {
 	}
 
 	// Create only one task in todo lane
-	if err := testutil.CreateTestTask(ta.TaskDir, "000001", "Only Task", taskpkg.StatusReady, taskpkg.TypeStory); err != nil {
+	if err := testutil.CreateTestTask(ta.TaskDir, "000001", "Only Task", "ready", "story"); err != nil {
 		t.Fatalf("failed to create task: %v", err)
 	}
 	if err := ta.TaskStore.Reload(); err != nil {
@@ -193,7 +192,7 @@ func TestTaskDeletion_MultipleSequential(t *testing.T) {
 	taskIDs := []string{"SEQ001", "SEQ002", "SEQ003", "SEQ004", "SEQ005"}
 	for i, taskID := range taskIDs {
 		title := fmt.Sprintf("Task %d", i+1)
-		if err := testutil.CreateTestTask(ta.TaskDir, taskID, title, taskpkg.StatusReady, taskpkg.TypeStory); err != nil {
+		if err := testutil.CreateTestTask(ta.TaskDir, taskID, title, "ready", "story"); err != nil {
 			t.Fatalf("failed to create task: %v", err)
 		}
 	}
@@ -243,7 +242,7 @@ func TestTaskDeletion_FromDifferentLane(t *testing.T) {
 	}
 
 	// Create task in in_progress lane
-	if err := testutil.CreateTestTask(ta.TaskDir, "000001", "In Progress Task", taskpkg.StatusInProgress, taskpkg.TypeStory); err != nil {
+	if err := testutil.CreateTestTask(ta.TaskDir, "000001", "In Progress Task", "inProgress", "story"); err != nil {
 		t.Fatalf("failed to create task: %v", err)
 	}
 	if err := ta.TaskStore.Reload(); err != nil {
@@ -289,7 +288,7 @@ func TestTaskDeletion_CannotDeleteFromTaskDetail(t *testing.T) {
 	}
 
 	// Create task
-	if err := testutil.CreateTestTask(ta.TaskDir, "000001", "Task to Not Delete", taskpkg.StatusReady, taskpkg.TypeStory); err != nil {
+	if err := testutil.CreateTestTask(ta.TaskDir, "000001", "Task to Not Delete", "ready", "story"); err != nil {
 		t.Fatalf("failed to create task: %v", err)
 	}
 	if err := ta.TaskStore.Reload(); err != nil {
@@ -338,13 +337,13 @@ func TestTaskDeletion_WithMultipleLanes(t *testing.T) {
 	}
 
 	// Create tasks in different lanes
-	if err := testutil.CreateTestTask(ta.TaskDir, "000001", "Todo Task", taskpkg.StatusReady, taskpkg.TypeStory); err != nil {
+	if err := testutil.CreateTestTask(ta.TaskDir, "000001", "Todo Task", "ready", "story"); err != nil {
 		t.Fatalf("failed to create task: %v", err)
 	}
-	if err := testutil.CreateTestTask(ta.TaskDir, "000002", "In Progress Task", taskpkg.StatusInProgress, taskpkg.TypeStory); err != nil {
+	if err := testutil.CreateTestTask(ta.TaskDir, "000002", "In Progress Task", "inProgress", "story"); err != nil {
 		t.Fatalf("failed to create task: %v", err)
 	}
-	if err := testutil.CreateTestTask(ta.TaskDir, "000003", "Done Task", taskpkg.StatusDone, taskpkg.TypeStory); err != nil {
+	if err := testutil.CreateTestTask(ta.TaskDir, "000003", "Done Task", "done", "story"); err != nil {
 		t.Fatalf("failed to create task: %v", err)
 	}
 	if err := ta.TaskStore.Reload(); err != nil {

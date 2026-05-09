@@ -5,7 +5,6 @@ import (
 	"testing"
 
 	"github.com/boolean-maybe/tiki/model"
-	taskpkg "github.com/boolean-maybe/tiki/task"
 	"github.com/boolean-maybe/tiki/testutil"
 
 	"github.com/gdamore/tcell/v2"
@@ -23,7 +22,7 @@ func TestTaskDetailView_RenderMetadata(t *testing.T) {
 
 	// Create a task with all fields populated
 	taskID := "000001"
-	if err := testutil.CreateTestTask(ta.TaskDir, taskID, "Test Task Title", taskpkg.StatusInProgress, taskpkg.TypeBug); err != nil {
+	if err := testutil.CreateTestTask(ta.TaskDir, taskID, "Test Task Title", "inProgress", "bug"); err != nil {
 		t.Fatalf("failed to create test task: %v", err)
 	}
 	if err := ta.TaskStore.Reload(); err != nil {
@@ -78,7 +77,7 @@ func TestTaskDetailView_RenderDescription(t *testing.T) {
 
 	// Create task (description is set to the title by CreateTestTask)
 	taskID := "000001"
-	if err := testutil.CreateTestTask(ta.TaskDir, taskID, "Task with description", taskpkg.StatusReady, taskpkg.TypeStory); err != nil {
+	if err := testutil.CreateTestTask(ta.TaskDir, taskID, "Task with description", "ready", "story"); err != nil {
 		t.Fatalf("failed to create test task: %v", err)
 	}
 	if err := ta.TaskStore.Reload(); err != nil {
@@ -106,7 +105,7 @@ func TestTaskDetailView_NavigateBack(t *testing.T) {
 
 	// Create task
 	taskID := "000001"
-	if err := testutil.CreateTestTask(ta.TaskDir, taskID, "Test Task", taskpkg.StatusReady, taskpkg.TypeStory); err != nil {
+	if err := testutil.CreateTestTask(ta.TaskDir, taskID, "Test Task", "ready", "story"); err != nil {
 		t.Fatalf("failed to create test task: %v", err)
 	}
 	if err := ta.TaskStore.Reload(); err != nil {
@@ -150,10 +149,10 @@ func TestTaskDetailView_FromBoard(t *testing.T) {
 	defer ta.Cleanup()
 
 	// Create tasks
-	if err := testutil.CreateTestTask(ta.TaskDir, "000001", "First Task", taskpkg.StatusReady, taskpkg.TypeStory); err != nil {
+	if err := testutil.CreateTestTask(ta.TaskDir, "000001", "First Task", "ready", "story"); err != nil {
 		t.Fatalf("failed to create test task: %v", err)
 	}
-	if err := testutil.CreateTestTask(ta.TaskDir, "000002", "Second Task", taskpkg.StatusReady, taskpkg.TypeStory); err != nil {
+	if err := testutil.CreateTestTask(ta.TaskDir, "000002", "Second Task", "ready", "story"); err != nil {
 		t.Fatalf("failed to create test task: %v", err)
 	}
 	if err := ta.TaskStore.Reload(); err != nil {
@@ -192,7 +191,7 @@ func TestTaskDetailView_EmptyDescription(t *testing.T) {
 
 	// Create task with minimal content
 	taskID := "000001"
-	if err := testutil.CreateTestTask(ta.TaskDir, taskID, "Task Title", taskpkg.StatusReady, taskpkg.TypeStory); err != nil {
+	if err := testutil.CreateTestTask(ta.TaskDir, taskID, "Task Title", "ready", "story"); err != nil {
 		t.Fatalf("failed to create test task: %v", err)
 	}
 	if err := ta.TaskStore.Reload(); err != nil {
@@ -225,13 +224,13 @@ func TestTaskDetailView_MultipleOpen(t *testing.T) {
 	defer ta.Cleanup()
 
 	// Create multiple tasks
-	if err := testutil.CreateTestTask(ta.TaskDir, "000001", "First Task", taskpkg.StatusReady, taskpkg.TypeStory); err != nil {
+	if err := testutil.CreateTestTask(ta.TaskDir, "000001", "First Task", "ready", "story"); err != nil {
 		t.Fatalf("failed to create test task: %v", err)
 	}
-	if err := testutil.CreateTestTask(ta.TaskDir, "000002", "Second Task", taskpkg.StatusReady, taskpkg.TypeStory); err != nil {
+	if err := testutil.CreateTestTask(ta.TaskDir, "000002", "Second Task", "ready", "story"); err != nil {
 		t.Fatalf("failed to create test task: %v", err)
 	}
-	if err := testutil.CreateTestTask(ta.TaskDir, "000003", "Third Task", taskpkg.StatusReady, taskpkg.TypeStory); err != nil {
+	if err := testutil.CreateTestTask(ta.TaskDir, "000003", "Third Task", "ready", "story"); err != nil {
 		t.Fatalf("failed to create test task: %v", err)
 	}
 	if err := ta.TaskStore.Reload(); err != nil {
@@ -281,17 +280,17 @@ func TestTaskDetailView_AllStatuses(t *testing.T) {
 	defer ta.Cleanup()
 
 	statuses := []string{
-		taskpkg.StatusBacklog,
-		taskpkg.StatusReady,
-		taskpkg.StatusInProgress,
-		taskpkg.StatusReview,
-		taskpkg.StatusDone,
+		"backlog",
+		"ready",
+		"inProgress",
+		"review",
+		"done",
 	}
 
 	for i, status := range statuses {
 		taskID := testutil.ID(fmt.Sprintf("TIKI-%d", i+1))
 		title := fmt.Sprintf("Task %s", status)
-		if err := testutil.CreateTestTask(ta.TaskDir, taskID, title, status, taskpkg.TypeStory); err != nil {
+		if err := testutil.CreateTestTask(ta.TaskDir, taskID, title, status, "story"); err != nil {
 			t.Fatalf("failed to create test task: %v", err)
 		}
 	}
@@ -311,7 +310,7 @@ func TestTaskDetailView_AllStatuses(t *testing.T) {
 
 		// Navigate to correct lane based on status
 		// For simplicity, we'll just open first task in todo lane for this test
-		if status == taskpkg.StatusReady {
+		if status == "ready" {
 			ta.SendKey(tcell.KeyEnter, 0, tcell.ModNone)
 
 			// Verify task ID visible (use the normalized canonical id since
@@ -336,14 +335,14 @@ func TestTaskDetailView_AllTypes(t *testing.T) {
 	defer ta.Cleanup()
 
 	types := []string{
-		taskpkg.TypeStory,
-		taskpkg.TypeBug,
+		"story",
+		"bug",
 	}
 
 	for i, taskType := range types {
 		taskID := fmt.Sprintf("TIKI-%d", i+1)
 		title := fmt.Sprintf("Task %s", taskType)
-		if err := testutil.CreateTestTask(ta.TaskDir, taskID, title, taskpkg.StatusReady, taskType); err != nil {
+		if err := testutil.CreateTestTask(ta.TaskDir, taskID, title, "ready", taskType); err != nil {
 			t.Fatalf("failed to create test task: %v", err)
 		}
 	}

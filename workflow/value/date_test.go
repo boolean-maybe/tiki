@@ -1,4 +1,4 @@
-package task
+package value
 
 import (
 	"testing"
@@ -7,7 +7,7 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-func TestDueValue_UnmarshalYAML(t *testing.T) {
+func TestDateValue_UnmarshalYAML(t *testing.T) {
 	tests := []struct {
 		name        string
 		yaml        string
@@ -15,7 +15,6 @@ func TestDueValue_UnmarshalYAML(t *testing.T) {
 		expectValue string // YYYY-MM-DD format if not zero
 		wantErr     bool
 	}{
-		// Valid scenarios
 		{
 			name:       "empty due (omitted)",
 			yaml:       "other: value",
@@ -49,8 +48,6 @@ func TestDueValue_UnmarshalYAML(t *testing.T) {
 			expectValue: "2026-03-16",
 			wantErr:     false,
 		},
-
-		// Invalid scenarios - should default to zero with no error
 		{
 			name:       "invalid date format",
 			yaml:       "due: 03/16/2026",
@@ -92,7 +89,7 @@ func TestDueValue_UnmarshalYAML(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			type testStruct struct {
-				Due DueValue `yaml:"due,omitempty"`
+				Due DateValue `yaml:"due,omitempty"`
 			}
 
 			var result testStruct
@@ -120,25 +117,25 @@ func TestDueValue_UnmarshalYAML(t *testing.T) {
 	}
 }
 
-func TestDueValue_MarshalYAML(t *testing.T) {
+func TestDateValue_MarshalYAML(t *testing.T) {
 	tests := []struct {
 		name     string
-		due      DueValue
+		due      DateValue
 		expected string
 	}{
 		{
 			name:     "zero time",
-			due:      DueValue{},
+			due:      DateValue{},
 			expected: "due: \"\"\n",
 		},
 		{
 			name:     "valid date",
-			due:      DueValue{Time: time.Date(2026, 3, 16, 0, 0, 0, 0, time.UTC)},
+			due:      DateValue{Time: time.Date(2026, 3, 16, 0, 0, 0, 0, time.UTC)},
 			expected: "due: \"2026-03-16\"\n",
 		},
 		{
 			name:     "different valid date",
-			due:      DueValue{Time: time.Date(2026, 12, 31, 0, 0, 0, 0, time.UTC)},
+			due:      DateValue{Time: time.Date(2026, 12, 31, 0, 0, 0, 0, time.UTC)},
 			expected: "due: \"2026-12-31\"\n",
 		},
 	}
@@ -146,7 +143,7 @@ func TestDueValue_MarshalYAML(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			type testStruct struct {
-				Due DueValue `yaml:"due"`
+				Due DateValue `yaml:"due"`
 			}
 
 			input := testStruct{Due: tt.due}
@@ -162,20 +159,20 @@ func TestDueValue_MarshalYAML(t *testing.T) {
 	}
 }
 
-func TestDueValue_ToTime(t *testing.T) {
+func TestDateValue_ToTime(t *testing.T) {
 	tests := []struct {
 		name     string
-		due      DueValue
+		due      DateValue
 		expected time.Time
 	}{
 		{
 			name:     "zero time",
-			due:      DueValue{},
+			due:      DateValue{},
 			expected: time.Time{},
 		},
 		{
 			name:     "valid date",
-			due:      DueValue{Time: time.Date(2026, 3, 16, 0, 0, 0, 0, time.UTC)},
+			due:      DateValue{Time: time.Date(2026, 3, 16, 0, 0, 0, 0, time.UTC)},
 			expected: time.Date(2026, 3, 16, 0, 0, 0, 0, time.UTC),
 		},
 	}
@@ -190,7 +187,7 @@ func TestDueValue_ToTime(t *testing.T) {
 	}
 }
 
-func TestParseDueDate(t *testing.T) {
+func TestParseDate(t *testing.T) {
 	tests := []struct {
 		name      string
 		input     string
@@ -243,69 +240,66 @@ func TestParseDueDate(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, valid := ParseDueDate(tt.input)
+			got, valid := ParseDate(tt.input)
 			if valid != tt.wantValid {
-				t.Errorf("ParseDueDate() valid = %v, wantValid %v", valid, tt.wantValid)
+				t.Errorf("ParseDate() valid = %v, wantValid %v", valid, tt.wantValid)
 				return
 			}
 
 			if tt.wantTime == "" {
 				if !got.IsZero() {
-					t.Errorf("ParseDueDate() expected zero time, got = %v", got)
+					t.Errorf("ParseDate() expected zero time, got = %v", got)
 				}
 			} else {
 				if got.IsZero() {
-					t.Errorf("ParseDueDate() expected non-zero time, got zero")
+					t.Errorf("ParseDate() expected non-zero time, got zero")
 				}
 				gotStr := got.Format(DateFormat)
 				if gotStr != tt.wantTime {
-					t.Errorf("ParseDueDate() got = %v, wantTime %v", gotStr, tt.wantTime)
+					t.Errorf("ParseDate() got = %v, wantTime %v", gotStr, tt.wantTime)
 				}
 			}
 		})
 	}
 }
 
-func TestDueValue_RoundTrip(t *testing.T) {
+func TestDateValue_RoundTrip(t *testing.T) {
 	tests := []struct {
 		name string
-		due  DueValue
+		due  DateValue
 	}{
 		{
 			name: "zero time",
-			due:  DueValue{},
+			due:  DateValue{},
 		},
 		{
 			name: "valid date",
-			due:  DueValue{Time: time.Date(2026, 3, 16, 0, 0, 0, 0, time.UTC)},
+			due:  DateValue{Time: time.Date(2026, 3, 16, 0, 0, 0, 0, time.UTC)},
 		},
 		{
 			name: "different valid date",
-			due:  DueValue{Time: time.Date(2026, 12, 31, 0, 0, 0, 0, time.UTC)},
+			due:  DateValue{Time: time.Date(2026, 12, 31, 0, 0, 0, 0, time.UTC)},
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			type testStruct struct {
-				Due DueValue `yaml:"due"`
+				Due DateValue `yaml:"due"`
 			}
 
-			// Marshal
 			input := testStruct{Due: tt.due}
 			yamlBytes, err := yaml.Marshal(input)
 			if err != nil {
 				t.Fatalf("Marshal() error = %v", err)
 			}
 
-			// Unmarshal
 			var output testStruct
 			err = yaml.Unmarshal(yamlBytes, &output)
 			if err != nil {
 				t.Fatalf("Unmarshal() error = %v", err)
 			}
 
-			// Compare
 			got := output.Due.ToTime()
 			expected := tt.due.ToTime()
 			if !got.Equal(expected) {
@@ -315,32 +309,30 @@ func TestDueValue_RoundTrip(t *testing.T) {
 	}
 }
 
-func TestDueValue_OmitEmpty(t *testing.T) {
+func TestDateValue_OmitEmpty(t *testing.T) {
 	type testStruct struct {
-		Due DueValue `yaml:"due,omitempty"`
+		Due DateValue `yaml:"due,omitempty"`
 	}
 
 	t.Run("zero time omitted", func(t *testing.T) {
-		input := testStruct{Due: DueValue{}}
+		input := testStruct{Due: DateValue{}}
 		yamlBytes, err := yaml.Marshal(input)
 		if err != nil {
 			t.Fatalf("Marshal() error = %v", err)
 		}
 
-		// Should be empty (field omitted)
 		if string(yamlBytes) != "{}\n" {
 			t.Errorf("omitempty failed: got = %q, expected %q", string(yamlBytes), "{}\n")
 		}
 	})
 
 	t.Run("non-zero time included", func(t *testing.T) {
-		input := testStruct{Due: DueValue{Time: time.Date(2026, 3, 16, 0, 0, 0, 0, time.UTC)}}
+		input := testStruct{Due: DateValue{Time: time.Date(2026, 3, 16, 0, 0, 0, 0, time.UTC)}}
 		yamlBytes, err := yaml.Marshal(input)
 		if err != nil {
 			t.Fatalf("Marshal() error = %v", err)
 		}
 
-		// Should contain the due field
 		var output testStruct
 		err = yaml.Unmarshal(yamlBytes, &output)
 		if err != nil {

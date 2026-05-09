@@ -10,8 +10,8 @@ import (
 	"github.com/boolean-maybe/tiki/ruki"
 	"github.com/boolean-maybe/tiki/service"
 	"github.com/boolean-maybe/tiki/store"
-	taskpkg "github.com/boolean-maybe/tiki/task"
 	tikipkg "github.com/boolean-maybe/tiki/tiki"
+	"github.com/boolean-maybe/tiki/workflow"
 )
 
 // pluginBase holds the shared fields and methods common to PluginController and DepsController.
@@ -440,7 +440,11 @@ func tikiPriorityForSort(tk *tikipkg.Tiki) int {
 	if key == "" {
 		return absentPriorityRank
 	}
-	for i, k := range taskpkg.AllPriorities() {
+	fd, ok := workflow.Field(tikipkg.FieldPriority)
+	if !ok {
+		return absentPriorityRank
+	}
+	for i, k := range fd.AllowedValues() {
 		if k == key {
 			return i
 		}

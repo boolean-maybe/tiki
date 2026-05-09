@@ -5,7 +5,6 @@ import (
 
 	"github.com/boolean-maybe/tiki/service"
 	"github.com/boolean-maybe/tiki/store"
-	taskpkg "github.com/boolean-maybe/tiki/task"
 	tikipkg "github.com/boolean-maybe/tiki/tiki"
 
 	rukiRuntime "github.com/boolean-maybe/tiki/internal/ruki/runtime"
@@ -85,8 +84,8 @@ func newDetailEditTestRig(t *testing.T) (*DetailController, *fakeDetailEditView,
 	tk := tikipkg.New()
 	tk.ID = "TIKI200"
 	tk.Title = "Test"
-	tk.Set(tikipkg.FieldStatus, taskpkg.StatusReady)
-	tk.Set(tikipkg.FieldType, taskpkg.TypeStory)
+	tk.Set(tikipkg.FieldStatus, "ready")
+	tk.Set(tikipkg.FieldType, "story")
 	tk.Set(tikipkg.FieldPriority, "medium")
 	if err := taskStore.CreateTiki(tk); err != nil {
 		t.Fatalf("CreateTiki: %v", err)
@@ -128,7 +127,7 @@ func TestDetailController_CancelEditDropsSession(t *testing.T) {
 		t.Fatal("EnterEditMode")
 	}
 	// Mutate the editing copy so we can verify cancel reverts.
-	tc.SaveStatus(taskpkg.StatusDisplay(taskpkg.StatusInProgress))
+	tc.SaveStatus(enumDisplay("status", "inProgress"))
 
 	if !dc.HandleAction(ActionDetailCancel) {
 		t.Fatal("ActionDetailCancel returned false")
@@ -156,7 +155,7 @@ func TestDetailController_SaveCommitsAndExits(t *testing.T) {
 	if !ok || saver == nil {
 		t.Fatal("status save handler not installed by controller")
 	}
-	saver(taskpkg.StatusDisplay(taskpkg.StatusInProgress))
+	saver(enumDisplay("status", "inProgress"))
 
 	if !dc.HandleAction(ActionDetailSave) {
 		t.Fatal("ActionDetailSave returned false")
@@ -171,8 +170,8 @@ func TestDetailController_SaveCommitsAndExits(t *testing.T) {
 	if got == nil {
 		t.Fatal("tiki disappeared from store after save")
 	}
-	if v, _, _ := got.StringField(tikipkg.FieldStatus); v != taskpkg.StatusInProgress {
-		t.Errorf("status not persisted: got %q, want %q", v, taskpkg.StatusInProgress)
+	if v, _, _ := got.StringField(tikipkg.FieldStatus); v != "inProgress" {
+		t.Errorf("status not persisted: got %q, want %q", v, "inProgress")
 	}
 }
 

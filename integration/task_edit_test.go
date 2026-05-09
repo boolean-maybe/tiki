@@ -7,7 +7,6 @@ import (
 	"testing"
 
 	"github.com/boolean-maybe/tiki/model"
-	taskpkg "github.com/boolean-maybe/tiki/task"
 	"github.com/boolean-maybe/tiki/testutil"
 	tikipkg "github.com/boolean-maybe/tiki/tiki"
 
@@ -148,8 +147,8 @@ func TestEditSource_DuplicateCaseIDs_Repro(t *testing.T) {
 	tk := tikipkg.New()
 	tk.ID = taskID
 	tk.Title = "Edit Source Duplicate"
-	tk.Set("type", taskpkg.TypeStory)
-	tk.Set("status", taskpkg.StatusBacklog)
+	tk.Set("type", "story")
+	tk.Set("status", "backlog")
 	tk.Set("priority", "medium")
 	tk.Set("points", 1)
 	if err := ta.TaskStore.CreateTiki(tk); err != nil {
@@ -406,10 +405,10 @@ func TestNewTask_WithStatusAndType_Saves(t *testing.T) {
 	if tk.Title != "Hey" {
 		t.Errorf("title = %q, want %q", tk.Title, "Hey")
 	}
-	if heyStatus != taskpkg.StatusReview {
-		t.Errorf("status = %v, want %v", heyStatus, taskpkg.StatusReview)
+	if heyStatus != "review" {
+		t.Errorf("status = %v, want %v", heyStatus, "review")
 	}
-	if heyType != taskpkg.TypeBug {
-		t.Errorf("type = %v, want %v", heyType, taskpkg.TypeBug)
+	if heyType != "bug" {
+		t.Errorf("type = %v, want %v", heyType, "bug")
 	}
 }

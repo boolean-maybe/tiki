@@ -13,8 +13,8 @@ import (
 	"github.com/boolean-maybe/tiki/config"
 	"github.com/boolean-maybe/tiki/ruki"
 	"github.com/boolean-maybe/tiki/store"
-	"github.com/boolean-maybe/tiki/task"
 	tikipkg "github.com/boolean-maybe/tiki/tiki"
+	"github.com/boolean-maybe/tiki/workflow/value"
 )
 
 // testTriggerSchema implements ruki.Schema for trigger engine tests.
@@ -501,8 +501,8 @@ func TestTriggerEngine_AfterUpdateCreateWithNextDate(t *testing.T) {
 	if !ok || dueVal.IsZero() {
 		t.Fatal("expected non-zero due date from next_date(old.recurrence)")
 	}
-	expBefore := task.NextOccurrenceFrom(task.RecurrenceDaily, before)
-	expAfter := task.NextOccurrenceFrom(task.RecurrenceDaily, after)
+	expBefore := value.NextOccurrenceFrom(value.RecurrenceDaily, before)
+	expAfter := value.NextOccurrenceFrom(value.RecurrenceDaily, after)
 	if !dueVal.Equal(expBefore) && !dueVal.Equal(expAfter) {
 		t.Fatalf("expected due=%v or %v, got %v", expBefore, expAfter, dueVal)
 	}

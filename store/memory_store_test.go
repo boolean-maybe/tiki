@@ -7,7 +7,6 @@ import (
 	"time"
 
 	"github.com/boolean-maybe/tiki/internal/teststatuses"
-	taskpkg "github.com/boolean-maybe/tiki/task"
 	tikipkg "github.com/boolean-maybe/tiki/tiki"
 	collectionutil "github.com/boolean-maybe/tiki/util/collections"
 	"github.com/boolean-maybe/tiki/workflow"
@@ -48,8 +47,8 @@ func TestInMemoryStore_CreateTiki(t *testing.T) {
 			tk := tikipkg.New()
 			tk.ID = tt.inputID
 			tk.Title = "Test"
-			tk.Set(tikipkg.FieldType, taskpkg.TypeStory)
-			tk.Set(tikipkg.FieldStatus, taskpkg.DefaultStatus())
+			tk.Set(tikipkg.FieldType, "story")
+			tk.Set(tikipkg.FieldStatus, workflowEnumDefault("status"))
 
 			if err := s.CreateTiki(tk); err != nil {
 				t.Fatalf("CreateTiki() error = %v", err)
@@ -227,7 +226,7 @@ func TestInMemoryStore_TikiComment(t *testing.T) {
 		}
 
 		tk := s.GetTiki("CMT001").Clone()
-		tk.Set("comments", []taskpkg.Comment{{Text: "first comment"}})
+		tk.Set("comments", []tikipkg.Comment{{Text: "first comment"}})
 		if err := s.UpdateTiki(tk); err != nil {
 			t.Fatalf("UpdateTiki() error = %v", err)
 		}
@@ -240,7 +239,7 @@ func TestInMemoryStore_TikiComment(t *testing.T) {
 		if !ok {
 			t.Fatal("comments field missing")
 		}
-		cs, ok := v.([]taskpkg.Comment)
+		cs, ok := v.([]tikipkg.Comment)
 		if !ok || len(cs) != 1 || cs[0].Text != "first comment" {
 			t.Errorf("comments = %v, want [{first comment}]", v)
 		}
@@ -420,11 +419,11 @@ func TestInMemoryStore_NewTikiTemplate(t *testing.T) {
 	if tags, _, _ := tmpl.StringSliceField(tikipkg.FieldTags); len(tags) != 1 || tags[0] != "idea" {
 		t.Errorf("Tags = %v, want [idea]", tags)
 	}
-	if s, _, _ := tmpl.StringField(tikipkg.FieldStatus); s != taskpkg.DefaultStatus() {
-		t.Errorf("Status = %q, want %q", s, taskpkg.DefaultStatus())
+	if s, _, _ := tmpl.StringField(tikipkg.FieldStatus); s != workflowEnumDefault("status") {
+		t.Errorf("Status = %q, want %q", s, workflowEnumDefault("status"))
 	}
-	if s, _, _ := tmpl.StringField(tikipkg.FieldType); s != taskpkg.DefaultType() {
-		t.Errorf("Type = %q, want %q", s, taskpkg.DefaultType())
+	if s, _, _ := tmpl.StringField(tikipkg.FieldType); s != workflowEnumDefault("type") {
+		t.Errorf("Type = %q, want %q", s, workflowEnumDefault("type"))
 	}
 }
 
@@ -643,4 +642,15 @@ func TestNewTikiTemplate_IDCollision(t *testing.T) {
 	if err == nil {
 		t.Fatal("expected error for ID exhaustion")
 	}
+}
+
+// workflowEnumDefault returns the default key for a workflow enum field, or
+// "" when no default is configured. Replaces task.DefaultStatus / DefaultType
+// helpers that used to wrap workflow.Field("...").EnumDefault().
+func workflowEnumDefault(fieldName string) string {
+	fd, ok := workflow.Field(fieldName)
+	if !ok {
+		return ""
+	}
+	return fd.EnumDefault()
 }

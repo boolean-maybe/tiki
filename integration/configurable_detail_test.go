@@ -6,7 +6,6 @@ import (
 	"github.com/gdamore/tcell/v2"
 
 	"github.com/boolean-maybe/tiki/model"
-	taskpkg "github.com/boolean-maybe/tiki/task"
 	"github.com/boolean-maybe/tiki/testutil"
 )
 
@@ -46,7 +45,7 @@ func TestConfigurableDetail_EnterOnDetailDoesNotRecurse(t *testing.T) {
 	defer ta.Cleanup()
 
 	taskID := "DETL02"
-	if err := testutil.CreateTestTask(ta.TaskDir, taskID, "Detail Recurse", taskpkg.StatusReady, taskpkg.TypeStory); err != nil {
+	if err := testutil.CreateTestTask(ta.TaskDir, taskID, "Detail Recurse", "ready", "story"); err != nil {
 		t.Fatalf("create task: %v", err)
 	}
 	if err := ta.TaskStore.Reload(); err != nil {
@@ -79,10 +78,10 @@ func TestConfigurableDetail_FreshControllerPerNavigation(t *testing.T) {
 	ta := setupTestAppWithPlugins(t)
 	defer ta.Cleanup()
 
-	if err := testutil.CreateTestTask(ta.TaskDir, "FRSH01", "First", taskpkg.StatusReady, taskpkg.TypeStory); err != nil {
+	if err := testutil.CreateTestTask(ta.TaskDir, "FRSH01", "First", "ready", "story"); err != nil {
 		t.Fatalf("create first: %v", err)
 	}
-	if err := testutil.CreateTestTask(ta.TaskDir, "FRSH02", "Second", taskpkg.StatusReady, taskpkg.TypeStory); err != nil {
+	if err := testutil.CreateTestTask(ta.TaskDir, "FRSH02", "Second", "ready", "story"); err != nil {
 		t.Fatalf("create second: %v", err)
 	}
 	if err := ta.TaskStore.Reload(); err != nil {
@@ -125,7 +124,7 @@ func TestConfigurableDetail_RendersConfiguredMetadata(t *testing.T) {
 	defer ta.Cleanup()
 
 	taskID := "DETL01"
-	if err := testutil.CreateTestTask(ta.TaskDir, taskID, "Detail Title", taskpkg.StatusReady, taskpkg.TypeStory); err != nil {
+	if err := testutil.CreateTestTask(ta.TaskDir, taskID, "Detail Title", "ready", "story"); err != nil {
 		t.Fatalf("create task: %v", err)
 	}
 	if err := ta.TaskStore.Reload(); err != nil {

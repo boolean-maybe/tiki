@@ -10,7 +10,6 @@ import (
 	"github.com/boolean-maybe/tiki/model"
 	"github.com/boolean-maybe/tiki/service"
 	"github.com/boolean-maybe/tiki/store"
-	taskpkg "github.com/boolean-maybe/tiki/task"
 	tikipkg "github.com/boolean-maybe/tiki/tiki"
 	"github.com/boolean-maybe/tiki/util/gradient"
 	"github.com/boolean-maybe/tiki/workflow"
@@ -722,8 +721,12 @@ func (ev *TaskEditView) buildTikiSnapshotFromWidgets() *tikipkg.Tiki {
 		// reverse-lookup couldn't match — drop the field rather than
 		// writing junk into the validated snapshot.
 		key := w.GetText()
-		if key != "" && taskpkg.IsValidPriority(key) {
-			snapshot.Set(tikipkg.FieldPriority, key)
+		if key != "" {
+			if fd, ok := workflow.Field(tikipkg.FieldPriority); ok && fd.IsValidEnum(key) {
+				snapshot.Set(tikipkg.FieldPriority, key)
+			} else {
+				snapshot.Delete(tikipkg.FieldPriority)
+			}
 		} else {
 			snapshot.Delete(tikipkg.FieldPriority)
 		}

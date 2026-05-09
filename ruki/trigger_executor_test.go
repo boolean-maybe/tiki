@@ -6,8 +6,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/boolean-maybe/tiki/task"
 	"github.com/boolean-maybe/tiki/tiki"
+	"github.com/boolean-maybe/tiki/workflow/value"
 )
 
 func newTestTriggerExecutor() *TriggerExecutor {
@@ -708,7 +708,7 @@ func TestExecAction_NextDateWithQualifiedRef(t *testing.T) {
 		t.Fatalf("parse: %v", err)
 	}
 
-	old := &taskFixture{ID: "TIKI-000001", Title: "Daily standup", Status: "inProgress", Type: "story", Recurrence: task.RecurrenceDaily}
+	old := &taskFixture{ID: "TIKI-000001", Title: "Daily standup", Status: "inProgress", Type: "story", Recurrence: value.RecurrenceDaily}
 	new := &taskFixture{ID: "TIKI-000001", Title: "Daily standup", Status: "done", Type: "story"}
 	oldTk := tikiFromFixture(old)
 	oldTk.Set("priority", "medium")
@@ -734,8 +734,8 @@ func TestExecAction_NextDateWithQualifiedRef(t *testing.T) {
 	if created.Due.IsZero() {
 		t.Fatal("expected non-zero due date from next_date(old.recurrence)")
 	}
-	expBefore := task.NextOccurrenceFrom(task.RecurrenceDaily, before)
-	expAfter := task.NextOccurrenceFrom(task.RecurrenceDaily, after)
+	expBefore := value.NextOccurrenceFrom(value.RecurrenceDaily, before)
+	expAfter := value.NextOccurrenceFrom(value.RecurrenceDaily, after)
 	if !created.Due.Equal(expBefore) && !created.Due.Equal(expAfter) {
 		t.Fatalf("expected due=%v or %v, got %v", expBefore, expAfter, created.Due)
 	}
@@ -751,7 +751,7 @@ func TestExecAction_NextDateWithNewQualifiedRef(t *testing.T) {
 	}
 
 	old := &taskFixture{ID: "TIKI-000001", Title: "Recurring", Status: "done", Type: "story"}
-	new := &taskFixture{ID: "TIKI-000001", Title: "Recurring", Status: "ready", Type: "story", Recurrence: task.RecurrenceDaily}
+	new := &taskFixture{ID: "TIKI-000001", Title: "Recurring", Status: "ready", Type: "story", Recurrence: value.RecurrenceDaily}
 
 	tc := &TriggerContext{
 		Old:      tikiFromFixture(old),
@@ -775,8 +775,8 @@ func TestExecAction_NextDateWithNewQualifiedRef(t *testing.T) {
 	if updated.Due.IsZero() {
 		t.Fatal("expected non-zero due date from next_date(new.recurrence)")
 	}
-	expBefore := task.NextOccurrenceFrom(task.RecurrenceDaily, before)
-	expAfter := task.NextOccurrenceFrom(task.RecurrenceDaily, after)
+	expBefore := value.NextOccurrenceFrom(value.RecurrenceDaily, before)
+	expAfter := value.NextOccurrenceFrom(value.RecurrenceDaily, after)
 	if !updated.Due.Equal(expBefore) && !updated.Due.Equal(expAfter) {
 		t.Fatalf("expected due=%v or %v, got %v", expBefore, expAfter, updated.Due)
 	}

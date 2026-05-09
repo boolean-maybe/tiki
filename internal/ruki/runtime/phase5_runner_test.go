@@ -18,8 +18,8 @@ import (
 // which applies the workflow-only filter at the store boundary, so plain
 // docs never reached the executor and `select` could never see them.
 //
-// The fix swaps the CLI path to DocumentReadStore.GetAllDocuments (projected
-// through task.FromDocument), which is the unfiltered view.
+// The fix swaps the CLI path to DocumentReadStore.GetAllDocuments, which
+// is the unfiltered view.
 func TestPhase5_CLISelectIncludesPlainDocs(t *testing.T) {
 	setupRunnerTest(t) // ensure status registry is populated
 

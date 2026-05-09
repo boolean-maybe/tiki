@@ -9,7 +9,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/boolean-maybe/tiki/task"
+	"github.com/boolean-maybe/tiki/workflow/value"
 )
 
 func newTestExecutor() *Executor {
@@ -875,11 +875,11 @@ func TestExecuteNextDate(t *testing.T) {
 	tasks := []*taskFixture{
 		{
 			ID: "T1", Title: "Daily", Status: "ready",
-			Recurrence: task.RecurrenceDaily,
+			Recurrence: value.RecurrenceDaily,
 		},
 		{
 			ID: "T2", Title: "No recurrence", Status: "ready",
-			Recurrence: task.RecurrenceNone,
+			Recurrence: value.RecurrenceNone,
 		},
 	}
 
@@ -1647,7 +1647,7 @@ func TestExtractFieldAllFields(t *testing.T) {
 		ID: "T1", Title: "hi", Description: "desc", Status: "ready",
 		Type: "bug", Points: 3, Tags: []string{"a"},
 		DependsOn: []string{"T2"}, Due: testDate(1, 1),
-		Recurrence: task.RecurrenceDaily, Assignee: "bob",
+		Recurrence: value.RecurrenceDaily, Assignee: "bob",
 		CreatedBy: "alice", CreatedAt: testDate(1, 1), UpdatedAt: testDate(2, 1),
 	}
 	tk := tikiFromFixture(taskT)
@@ -1691,8 +1691,8 @@ func TestIsZeroValue(t *testing.T) {
 		{"non-zero duration", time.Hour, false},
 		{"false bool", false, true},
 		{"true bool", true, false},
-		{"empty recurrence", task.Recurrence(""), true},
-		{"non-empty recurrence", task.RecurrenceDaily, false},
+		{"empty recurrence", value.Recurrence(""), true},
+		{"non-empty recurrence", value.RecurrenceDaily, false},
 		{"empty list", []interface{}{}, true},
 		{"non-empty list", []interface{}{"a"}, false},
 		{"unknown type", struct{}{}, false},
@@ -1743,7 +1743,7 @@ func TestNormalizeToString(t *testing.T) {
 		want string
 	}{
 		{"string", "hello", "hello"},
-		{"recurrence", task.Recurrence("0 0 * * *"), "0 0 * * *"},
+		{"recurrence", value.Recurrence("0 0 * * *"), "0 0 * * *"},
 		{"int", 42, "42"},
 	}
 	for _, tt := range tests {
@@ -1776,7 +1776,7 @@ func TestCompareForSort(t *testing.T) {
 		{"time before", testDate(1, 1), testDate(2, 1), -1},
 		{"time equal", testDate(1, 1), testDate(1, 1), 0},
 		{"time after", testDate(3, 1), testDate(2, 1), 1},
-		{"recurrence", task.Recurrence("a"), task.Recurrence("b"), -1},
+		{"recurrence", value.Recurrence("a"), value.Recurrence("b"), -1},
 		{"duration lt", time.Hour, 2 * time.Hour, -1},
 		{"duration eq", time.Hour, time.Hour, 0},
 		{"duration gt", 2 * time.Hour, time.Hour, 1},
@@ -1861,8 +1861,8 @@ func TestExecuteRecurrenceComparison(t *testing.T) {
 	// recurrence (T2 is present-empty ""), so self-comparison matches
 	// both rows.
 	tasks := []*taskFixture{
-		{ID: "T1", Title: "x", Status: "ready", Recurrence: task.RecurrenceDaily},
-		{ID: "T2", Title: "y", Status: "ready", Recurrence: task.RecurrenceNone},
+		{ID: "T1", Title: "x", Status: "ready", Recurrence: value.RecurrenceDaily},
+		{ID: "T2", Title: "y", Status: "ready", Recurrence: value.RecurrenceNone},
 	}
 
 	stmt := &Statement{
@@ -3051,7 +3051,7 @@ func TestExecuteUpdateWithFunction(t *testing.T) {
 	e := newTestExecutor()
 	p := newTestParser()
 	tasks := []*taskFixture{
-		{ID: "TIKI-000001", Title: "x", Status: "ready", Recurrence: task.RecurrenceDaily},
+		{ID: "TIKI-000001", Title: "x", Status: "ready", Recurrence: value.RecurrenceDaily},
 	}
 
 	stmt, err := p.ParseStatement(`update where id = "TIKI-000001" set due=next_date(recurrence)`)
@@ -3547,7 +3547,7 @@ func TestExecuteUpdateRecurrenceToEmpty(t *testing.T) {
 	e := newTestExecutor()
 	p := newTestParser()
 	tasks := []*taskFixture{
-		{ID: "TIKI-000001", Title: "x", Status: "ready", Recurrence: task.RecurrenceDaily},
+		{ID: "TIKI-000001", Title: "x", Status: "ready", Recurrence: value.RecurrenceDaily},
 	}
 
 	stmt, err := p.ParseStatement(`update where id = "TIKI-000001" set recurrence=empty`)
@@ -3851,11 +3851,11 @@ func TestSetFieldRecurrenceFromTaskRecurrence(t *testing.T) {
 	e := newTestExecutor()
 	tk := tikiFromFixture(&taskFixture{ID: "T1", Title: "x", Status: "ready"})
 
-	err := e.setField(tk, "recurrence", task.RecurrenceDaily)
+	err := e.setField(tk, "recurrence", value.RecurrenceDaily)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if got, _ := tk.Get("recurrence"); got != string(task.RecurrenceDaily) {
+	if got, _ := tk.Get("recurrence"); got != string(value.RecurrenceDaily) {
 		t.Errorf("expected daily recurrence, got %q", got)
 	}
 }
