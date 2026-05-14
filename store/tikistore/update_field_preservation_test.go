@@ -19,7 +19,7 @@ import (
 func TestUpdateTiki_FreshValueWithSchemaFieldsPersists(t *testing.T) {
 	root := t.TempDir()
 	path := filepath.Join(root, "WF0001.md")
-	content := "---\nid: WF0001\ntitle: structured doc\ntype: story\nstatus: backlog\npriority: medium\npoints: 1\n---\nbody\n"
+	content := "---\nid: WF0001\ntitle: structured doc\ntype: story\nstatus: backlog\npriority: medium\npoints: \"1\"\n---\nbody\n"
 	//nolint:gosec // G306: matches repo-wide test fixture perms
 	if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
 		t.Fatalf("write: %v", err)
@@ -46,7 +46,7 @@ func TestUpdateTiki_FreshValueWithSchemaFieldsPersists(t *testing.T) {
 	fresh.Set("type", "story")
 	fresh.Set("status", "backlog")
 	fresh.Set("priority", "medium")
-	fresh.Set("points", 1)
+	fresh.Set("points", "1")
 	if err := store.UpdateTiki(fresh); err != nil {
 		t.Fatalf("UpdateTiki: %v", err)
 	}

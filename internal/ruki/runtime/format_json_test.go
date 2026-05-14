@@ -71,7 +71,7 @@ func TestJSONFormatterIntAndBool(t *testing.T) {
 	proj := &ruki.TikiProjection{
 		Fields: []string{"priority", "points", "active"},
 		Tikis: []*tiki.Tiki{tikiFromLegacy(legacyFields{
-			Points:       8,
+			Points:       "7",
 			CustomFields: map[string]interface{}{"active": true},
 			Priority:     "medium",
 		})},
@@ -89,8 +89,8 @@ func TestJSONFormatterIntAndBool(t *testing.T) {
 	if s, _ := rows[0]["priority"].(string); s != "medium" {
 		t.Errorf("priority = %v, want medium", rows[0]["priority"])
 	}
-	if n, _ := rows[0]["points"].(float64); n != 8 {
-		t.Errorf("points = %v, want 8", rows[0]["points"])
+	if s, _ := rows[0]["points"].(string); s != "7" {
+		t.Errorf("points = %v, want \"7\"", rows[0]["points"])
 	}
 	if b, _ := rows[0]["active"].(bool); !b {
 		t.Errorf("active = %v, want true", rows[0]["active"])

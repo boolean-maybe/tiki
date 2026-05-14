@@ -11,10 +11,10 @@ import (
 func initTestRegistries() {
 	config.ResetWorkflowFieldsForTest([]workflow.FieldDef{
 		{Name: "status", Type: workflow.TypeEnum, EnumValues: []workflow.EnumValue{
-			{Value: "backlog", Label: "Backlog", Emoji: "📥", Default: true},
-			{Value: "ready", Label: "Ready", Emoji: "📋"},
-			{Value: "inProgress", Label: "In Progress", Emoji: "⚙️"},
-			{Value: "done", Label: "Done", Emoji: "✅"},
+			{Value: "backlog", Label: "Backlog", Visual: "📥", Default: true},
+			{Value: "ready", Label: "Ready", Visual: "📋"},
+			{Value: "inProgress", Label: "In Progress", Visual: "⚙️"},
+			{Value: "done", Label: "Done", Visual: "✅"},
 		}},
 		{Name: "type", Type: workflow.TypeEnum, EnumValues: []workflow.EnumValue{
 			{Value: "story", Label: "Story", Default: true},
@@ -23,13 +23,16 @@ func initTestRegistries() {
 			{Value: "epic", Label: "Epic"},
 		}},
 		{Name: "priority", Type: workflow.TypeEnum, EnumValues: []workflow.EnumValue{
-			{Value: "high", Label: "High", Emoji: "🔴"},
-			{Value: "medium-high", Label: "Medium High", Emoji: "🟠"},
-			{Value: "medium", Label: "Medium", Emoji: "🟡", Default: true},
-			{Value: "medium-low", Label: "Medium Low", Emoji: "🟢"},
-			{Value: "low", Label: "Low", Emoji: "🔵"},
+			{Value: "high", Label: "High", Visual: "🔴"},
+			{Value: "medium-high", Label: "Medium High", Visual: "🟠"},
+			{Value: "medium", Label: "Medium", Visual: "🟡", Default: true},
+			{Value: "medium-low", Label: "Medium Low", Visual: "🟢"},
+			{Value: "low", Label: "Low", Visual: "🔵"},
 		}},
-		{Name: "points", Type: workflow.TypeInt},
+		{Name: "points", Type: workflow.TypeEnum, EnumValues: []workflow.EnumValue{
+			{Value: "11"}, {Value: "7"}, {Value: "3", Default: true}, {Value: "1"},
+		}},
+		{Name: "escalations", Type: workflow.TypeInt},
 		{Name: "tags", Type: workflow.TypeListString},
 		{Name: "dependsOn", Type: workflow.TypeListRef},
 		{Name: "due", Type: workflow.TypeDate},

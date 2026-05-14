@@ -150,7 +150,7 @@ func TestEditSource_DuplicateCaseIDs_Repro(t *testing.T) {
 	tk.Set("type", "story")
 	tk.Set("status", "backlog")
 	tk.Set("priority", "medium")
-	tk.Set("points", 1)
+	tk.Set("points", "1")
 	if err := ta.TaskStore.CreateTiki(tk); err != nil {
 		t.Fatalf("CreateTiki failed: %v", err)
 	}
@@ -304,16 +304,14 @@ func TestNewTask_MultipleFields_AllSaved(t *testing.T) {
 	for i := 0; i < 3; i++ {
 		ta.SendKey(tcell.KeyTab, 0, tcell.ModNone)
 	}
-	// set priority to medium-low (default is medium, so press down 1 time
-	// to step toward less urgent in the declaration-ordered enum)
-	ta.SendKeyToFocused(tcell.KeyDown, 0, tcell.ModNone)
+	// set priority to medium-low (declaration is high→low, so Down moves
+	// to next/less-urgent value)
+	ta.SendKey(tcell.KeyDown, 0, tcell.ModNone)
 
-	// Tab to Points field (1 more tab: Priority → Points)
+	// Tab to Points field (Priority → Points), then Up to cycle from
+	// the default "3" toward the previous (higher) value "7".
 	ta.SendKey(tcell.KeyTab, 0, tcell.ModNone)
-	// set points to 9 (default is 1, so press up 8 times)
-	for i := 0; i < 8; i++ {
-		ta.SendKeyToFocused(tcell.KeyUp, 0, tcell.ModNone)
-	}
+	ta.SendKey(tcell.KeyUp, 0, tcell.ModNone)
 
 	// Save with Ctrl+S
 	ta.SendKey(tcell.KeyCtrlS, 0, tcell.ModNone)
@@ -334,9 +332,9 @@ func TestNewTask_MultipleFields_AllSaved(t *testing.T) {
 	if priority != "medium-low" {
 		t.Errorf("priority = %q, want %q", priority, "medium-low")
 	}
-	points, _, _ := tk.IntField("points")
-	if points != 9 {
-		t.Errorf("points = %d, want 9", points)
+	points, _, _ := tk.StringField("points")
+	if points != "7" {
+		t.Errorf("points = %q, want %q", points, "7")
 	}
 }
 

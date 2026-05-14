@@ -9,47 +9,54 @@ const testWorkflowPreamble = `fields:
     values:
       - value: backlog
         label: Backlog
-        emoji: "📥"
+        visual: "📥"
         default: true
       - value: ready
         label: Ready
-        emoji: "📋"
+        visual: "📋"
       - value: inProgress
         label: "In Progress"
-        emoji: "⚙️"
+        visual: "⚙️"
       - value: review
         label: Review
-        emoji: "👀"
+        visual: "👀"
       - value: done
         label: Done
-        emoji: "✅"
+        visual: "✅"
   - name: type
     type: enum
     values:
       - value: story
         label: Story
-        emoji: "🌀"
+        visual: "🌀"
         default: true
       - value: bug
         label: Bug
-        emoji: "💥"
+        visual: "💥"
       - value: spike
         label: Spike
-        emoji: "🔍"
+        visual: "🔍"
       - value: epic
         label: Epic
-        emoji: "🗂️"
+        visual: "🗂️"
   - name: priority
     type: enum
     values:
-      - {value: high, label: High, emoji: "🔴"}
-      - {value: medium-high, label: "Medium High", emoji: "🟠"}
-      - {value: medium, label: Medium, emoji: "🟡", default: true}
-      - {value: medium-low, label: "Medium Low", emoji: "🟢"}
-      - {value: low, label: Low, emoji: "🔵"}
+      - {value: high, label: High, visual: "🔴"}
+      - {value: medium-high, label: "Medium High", visual: "🟠"}
+      - {value: medium, label: Medium, visual: "🟡", default: true}
+      - {value: medium-low, label: "Medium Low", visual: "🟢"}
+      - {value: low, label: Low, visual: "🔵"}
   - name: points
+    type: enum
+    values:
+      - {value: "11", label: "11", visual: "{accent}❚❚❚❚❚❚❚❚❚❚❚"}
+      - {value: "7",  label: "7",  visual: "{accent}❚❚❚❚❚❚❚{muted}❘❘❘❘"}
+      - {value: "3",  label: "3",  visual: "{accent}❚❚❚{muted}❘❘❘❘❘❘❘❘", default: true}
+      - {value: "1",  label: "1",  visual: "{accent}❚{muted}❘❘❘❘❘❘❘❘❘❘"}
+  - name: escalations
     type: integer
-    default: 1
+    default: 0
   - name: tags
     type: stringList
   - name: dependsOn

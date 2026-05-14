@@ -2,6 +2,7 @@ package controller
 
 import (
 	"slices"
+	"strconv"
 	"testing"
 	"time"
 
@@ -543,8 +544,8 @@ func TestTaskController_SavePoints(t *testing.T) {
 			setupTask: func(tc *TaskController, s store.Store) {
 				tc.SetDraft(newTestTiki())
 			},
-			points:      8,
-			wantPoints:  8,
+			points:      7,
+			wantPoints:  7,
 			wantSuccess: true,
 		},
 		{
@@ -559,11 +560,11 @@ func TestTaskController_SavePoints(t *testing.T) {
 			wantSuccess: true,
 		},
 		{
-			name: "invalid points - negative",
+			name: "invalid points - not in enum",
 			setupTask: func(tc *TaskController, s store.Store) {
 				tc.SetDraft(newTestTiki())
 			},
-			points:      -1,
+			points:      5, // not a declared enum value (declared: 11, 7, 3, 1)
 			wantSuccess: false,
 		},
 		{
@@ -571,7 +572,7 @@ func TestTaskController_SavePoints(t *testing.T) {
 			setupTask: func(tc *TaskController, s store.Store) {
 				// Don't set up any task
 			},
-			points:      5,
+			points:      7,
 			wantSuccess: false,
 		},
 	}
@@ -599,9 +600,10 @@ func TestTaskController_SavePoints(t *testing.T) {
 				} else if tc.editingTiki != nil {
 					activeTiki = tc.editingTiki
 				}
-				actualPoints, _, _ := activeTiki.IntField(tikipkg.FieldPoints)
-				if actualPoints != tt.wantPoints {
-					t.Errorf("task.Points = %v, want %v", actualPoints, tt.wantPoints)
+				actualPoints, _, _ := activeTiki.StringField(tikipkg.FieldPoints)
+				want := strconv.Itoa(tt.wantPoints)
+				if actualPoints != want {
+					t.Errorf("task.Points = %q, want %q", actualPoints, want)
 				}
 			}
 		})

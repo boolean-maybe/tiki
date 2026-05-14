@@ -31,13 +31,13 @@ type customFieldFileData struct {
 }
 
 // enumValueYAML is one entry in fields[].values. Both scalar form ("foo")
-// and structured form (value: foo, label: ..., emoji: ..., default: ...)
-// are supported. The legacy active: and done: keys are explicitly rejected
-// so users get a clear migration error.
+// and structured form (value: foo, label: ..., visual: ..., default: ...)
+// are supported. Legacy keys (active:, done:, emoji:) are explicitly
+// rejected so users get a clear migration error.
 type enumValueYAML struct {
 	Value      string
 	Label      string
-	Emoji      string
+	Visual     string
 	Default    bool
 	HasDefault bool
 	Structured bool
@@ -69,19 +69,21 @@ func (v *enumValueYAML) unmarshalMapping(node *yaml.Node) error {
 			if err := val.Decode(&v.Label); err != nil {
 				return fmt.Errorf("label: %w", err)
 			}
-		case "emoji":
-			if err := val.Decode(&v.Emoji); err != nil {
-				return fmt.Errorf("emoji: %w", err)
+		case "visual":
+			if err := val.Decode(&v.Visual); err != nil {
+				return fmt.Errorf("visual: %w", err)
 			}
 		case "default":
 			if err := val.Decode(&v.Default); err != nil {
 				return fmt.Errorf("default: %w", err)
 			}
 			v.HasDefault = true
+		case "emoji":
+			return fmt.Errorf("enum value key %q was renamed to %q — move the glyph into visual: (it accepts the same content plus optional {role} color markup)", key, "visual")
 		case "active", "done":
-			return fmt.Errorf("enum value key %q is no longer supported; status semantics are not built into the runtime — remove it (rendering hints can use the emoji: field)", key)
+			return fmt.Errorf("enum value key %q is no longer supported; status semantics are not built into the runtime — remove it (rendering hints can use the visual: field)", key)
 		default:
-			return fmt.Errorf("unknown enum value key %q (valid keys: value, label, emoji, default)", key)
+			return fmt.Errorf("unknown enum value key %q (valid keys: value, label, visual, default)", key)
 		}
 	}
 	return nil
@@ -256,10 +258,14 @@ func convertWorkflowFieldDef(def customFieldYAML) (workflow.FieldDef, error) {
 			if v.Value == "" {
 				return workflow.FieldDef{}, fmt.Errorf("enum value has empty value")
 			}
+			visual := strings.TrimSpace(v.Visual)
+			if err := workflow.ValidateVisualMarkup(visual); err != nil {
+				return workflow.FieldDef{}, fmt.Errorf("enum value %q: %w", v.Value, err)
+			}
 			fd.EnumValues = append(fd.EnumValues, workflow.EnumValue{
 				Value:   v.Value,
 				Label:   v.Label,
-				Emoji:   strings.TrimSpace(v.Emoji),
+				Visual:  visual,
 				Default: v.Default,
 			})
 		}

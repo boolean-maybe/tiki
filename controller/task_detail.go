@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log/slog"
 	"path/filepath"
+	"strconv"
 	"strings"
 
 	"github.com/boolean-maybe/tiki/config"
@@ -416,21 +417,31 @@ func (tc *TaskController) SaveAssignee(assignee string) bool {
 	})
 }
 
-// SavePoints saves the new story points to the current tiki.
-// Returns true if the points were successfully updated, false otherwise.
+// SavePoints saves the new story points to the current tiki. Points is now
+// a workflow enum (declared values like "1"/"3"/"7"/"11" in kanban.yaml);
+// the int argument is the legacy interface from the per-field save plumbing
+// and is normalized to its decimal string form for enum-key validation.
+// Zero (or any value not declared as an enum key) clears the field.
 func (tc *TaskController) SavePoints(points int) bool {
-	// Validate points: zero means absent (valid); non-zero must be in range
-	if !value.IsValidPoints(points) {
-		slog.Warn("invalid points", "value", points)
+	fd, ok := workflow.Field(tikipkg.FieldPoints)
+	clearField := func(tk *tikipkg.Tiki) { tk.Delete(tikipkg.FieldPoints) }
+	if !ok || fd.Type != workflow.TypeEnum {
+		// Points isn't an enum in the current workflow; treat as a no-op
+		// rather than writing an integer that would fail validation.
+		slog.Warn("points field is not a workflow enum; ignoring save", "value", points)
 		return false
 	}
 
+	if points == 0 {
+		return tc.updateTikiField(clearField)
+	}
+	key := strconv.Itoa(points)
+	if !fd.IsValidEnum(key) {
+		slog.Warn("points value not in workflow enum", "value", key)
+		return false
+	}
 	return tc.updateTikiField(func(tk *tikipkg.Tiki) {
-		if points == 0 {
-			tk.Delete(tikipkg.FieldPoints)
-		} else {
-			tk.Set(tikipkg.FieldPoints, points)
-		}
+		tk.Set(tikipkg.FieldPoints, key)
 	})
 }
 

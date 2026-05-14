@@ -379,7 +379,7 @@ func TestTableFormatterIntField(t *testing.T) {
 	initTestRegistries()
 	proj := &ruki.TikiProjection{
 		Fields: []string{"priority", "points"},
-		Tikis:  []*tiki.Tiki{tikiFromLegacy(legacyFields{Priority: "medium", Points: 8})},
+		Tikis:  []*tiki.Tiki{tikiFromLegacy(legacyFields{Priority: "medium", Points: "7"})},
 	}
 
 	var buf bytes.Buffer
@@ -391,7 +391,7 @@ func TestTableFormatterIntField(t *testing.T) {
 	if !strings.Contains(out, "medium") {
 		t.Errorf("missing priority value:\n%s", out)
 	}
-	if !strings.Contains(out, "8") {
+	if !strings.Contains(out, "7") {
 		t.Errorf("missing points value:\n%s", out)
 	}
 }

@@ -413,8 +413,8 @@ func TestInMemoryStore_NewTikiTemplate(t *testing.T) {
 	if p, _, _ := tmpl.StringField(tikipkg.FieldPriority); p != "medium" {
 		t.Errorf("Priority = %q, want %q", p, "medium")
 	}
-	if pts, _, _ := tmpl.IntField(tikipkg.FieldPoints); pts != 1 {
-		t.Errorf("Points = %d, want 1", pts)
+	if pts, _, _ := tmpl.StringField(tikipkg.FieldPoints); pts != "3" {
+		t.Errorf("Points = %q, want %q", pts, "3")
 	}
 	if tags, _, _ := tmpl.StringSliceField(tikipkg.FieldTags); len(tags) != 1 || tags[0] != "idea" {
 		t.Errorf("Tags = %v, want [idea]", tags)

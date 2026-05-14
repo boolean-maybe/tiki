@@ -167,9 +167,9 @@ func registerBuiltinFields() {
 	fieldRegistry[tikipkg.FieldPoints] = FieldDescriptor{
 		Name:            tikipkg.FieldPoints,
 		Label:           "Points",
-		Semantic:        SemanticInteger,
+		Semantic:        SemanticEnum,
 		EditField:       model.EditFieldPoints,
-		Get:             func(tk *tikipkg.Tiki) any { v, _, _ := tk.IntField(tikipkg.FieldPoints); return v },
+		Get:             func(tk *tikipkg.Tiki) any { v, _, _ := tk.StringField(tikipkg.FieldPoints); return v },
 		EditTraversable: true,
 	}
 	fieldRegistry[tikipkg.FieldAssignee] = FieldDescriptor{
@@ -243,9 +243,8 @@ func registerBuiltinTypes() {
 	}
 	typeRegistry[SemanticInteger] = TypeUI{
 		Render:     renderIntegerValue,
-		Edit:       editPointsValue,
 		HeightFn:   singleRowHeight,
-		Capability: EditorImplemented,
+		Capability: EditorStub,
 	}
 	typeRegistry[SemanticBoolean] = TypeUI{
 		Render:     renderBooleanValue,
@@ -716,22 +715,6 @@ func editAssigneeValue(tk *tikipkg.Tiki, ctx FieldRenderContext, onChange func(s
 	return &selectListAdapter{EditSelectList: editor}
 }
 
-// editPointsValue builds the points editor with Up/Down arrow cycling.
-// IntEditSelect.GetValue() returns int; the adapter formats it as decimal
-// for the registry's string-shaped onChange contract.
-func editPointsValue(tk *tikipkg.Tiki, ctx FieldRenderContext, onChange func(string)) FieldEditorWidget {
-	points, _, _ := tk.IntField(tikipkg.FieldPoints)
-	editor := component.NewIntEditSelect(1, config.GetMaxPoints(), false)
-	editor.SetLabel(getFocusMarker(ctx.Colors) + "Points:   ")
-	editor.SetChangeHandler(func(v int) {
-		if onChange != nil {
-			onChange(strconv.Itoa(v))
-		}
-	})
-	editor.SetValue(points)
-	return &intEditAdapter{IntEditSelect: editor}
-}
-
 // editDueValue builds the date editor. The widget's onChange fires with
 // the validated formatted string after each accepted change.
 func editDueValue(tk *tikipkg.Tiki, ctx FieldRenderContext, onChange func(string)) FieldEditorWidget {
@@ -884,28 +867,6 @@ func (a *selectListAdapter) CycleValue(direction int) bool {
 		a.MoveToPrevious()
 	}
 	return true
-}
-
-// intEditAdapter delegates CycleValue to the widget's InputHandler with
-// synthesized Up/Down events — exactly how task_edit_nav.go drove it before
-// the migration.
-type intEditAdapter struct {
-	*component.IntEditSelect
-}
-
-func (a *intEditAdapter) CycleValue(direction int) bool {
-	key := tcell.KeyDown
-	if direction < 0 {
-		key = tcell.KeyUp
-	}
-	a.InputHandler()(tcell.NewEventKey(key, 0, tcell.ModNone), nil)
-	return true
-}
-
-// GetText conforms to the FieldEditorWidget contract — IntEditSelect's
-// natural type is int; format it as decimal for the registry boundary.
-func (a *intEditAdapter) GetText() string {
-	return strconv.Itoa(a.GetValue())
 }
 
 // dateEditAdapter handles read-only suppression: when recurrence is set on

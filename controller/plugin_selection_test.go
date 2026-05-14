@@ -1286,7 +1286,7 @@ func TestPluginController_HandleActionInput_InvalidInput(t *testing.T) {
 	seedTiki(t, taskStore, "0000T1", "Task 1", "ready", 3)
 
 	readyFilter := mustParseStmt(t, `select where status = "ready"`)
-	pointsAction := mustParseStmtWithInput(t, `update where id = id() set points = input()`, ruki.ValueInt)
+	pointsAction := mustParseStmtWithInput(t, `update where id = id() set escalations = input()`, ruki.ValueInt)
 
 	pluginDef := &plugin.TikiPlugin{
 		BasePlugin: plugin.BasePlugin{Name: "TestPlugin"},

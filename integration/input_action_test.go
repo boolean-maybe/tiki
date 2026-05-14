@@ -31,8 +31,8 @@ var inputActionWorkflow = testWorkflowPreamble + `views:
         action: update where id = id() set tags=tags+[input()]
         input: string
       - key: "p"
-        label: "Set points"
-        action: update where id = id() set points=input()
+        label: "Set escalations"
+        action: update where id = id() set escalations=input()
         input: int
       - key: "b"
         label: "Add to board"
@@ -452,7 +452,7 @@ func TestInputAction_InvalidInputKeepsPromptOpen(t *testing.T) {
 	iv := getActiveInputableView(ta)
 
 	originalTiki := ta.TaskStore.GetTiki("000001")
-	originalPoints, _, _ := originalTiki.IntField("points")
+	originalEscalations, _, _ := originalTiki.IntField("escalations")
 
 	// open int input (points)
 	ta.SendKey(tcell.KeyRune, 'p', tcell.ModNone)
@@ -478,9 +478,9 @@ func TestInputAction_InvalidInputKeepsPromptOpen(t *testing.T) {
 	}
 	updated := ta.TaskStore.GetTiki("000001")
 	if updated != nil {
-		points, _, _ := updated.IntField("points")
-		if points != originalPoints {
-			t.Fatalf("expected points=%d (unchanged), got %d", originalPoints, points)
+		escalations, _, _ := updated.IntField("escalations")
+		if escalations != originalEscalations {
+			t.Fatalf("expected escalations=%d (unchanged), got %d", originalEscalations, escalations)
 		}
 	}
 

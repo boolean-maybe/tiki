@@ -102,8 +102,8 @@ func TestRegisterWorkflowFields_StatusIsOrdinaryEnum(t *testing.T) {
 			Name: "status",
 			Type: TypeEnum,
 			EnumValues: []EnumValue{
-				{Value: "open", Label: "Open", Emoji: "📂", Default: true},
-				{Value: "closed", Label: "Closed", Emoji: "🔒"},
+				{Value: "open", Label: "Open", Visual: "📂", Default: true},
+				{Value: "closed", Label: "Closed", Visual: "🔒"},
 			},
 		},
 	}
@@ -127,8 +127,8 @@ func TestRegisterWorkflowFields_StatusIsOrdinaryEnum(t *testing.T) {
 	if f.IsValidEnum("nonexistent") {
 		t.Error("nonexistent should not be valid")
 	}
-	if got := f.EnumDisplay("open"); got != "Open 📂" {
-		t.Errorf("EnumDisplay(open) = %q, want %q", got, "Open 📂")
+	if got := f.EnumDisplay("open"); got != "📂" {
+		t.Errorf("EnumDisplay(open) = %q, want %q", got, "📂")
 	}
 	if got := f.AllowedValues(); len(got) != 2 || got[0] != "open" || got[1] != "closed" {
 		t.Errorf("AllowedValues = %v", got)
@@ -275,12 +275,12 @@ func TestEnumParseDisplay(t *testing.T) {
 		Name: "status",
 		Type: TypeEnum,
 		EnumValues: []EnumValue{
-			{Value: "open", Label: "Open", Emoji: "📂"},
+			{Value: "open", Label: "Open", Visual: "📂"},
 			{Value: "closed", Label: "Closed"},
 		},
 	}
-	if got, ok := fd.EnumParseDisplay("Open 📂"); !ok || got != "open" {
-		t.Errorf("EnumParseDisplay(Open 📂) = (%q, %v)", got, ok)
+	if got, ok := fd.EnumParseDisplay("📂"); !ok || got != "open" {
+		t.Errorf("EnumParseDisplay(📂) = (%q, %v)", got, ok)
 	}
 	if got, ok := fd.EnumParseDisplay("Closed"); !ok || got != "closed" {
 		t.Errorf("EnumParseDisplay(Closed) = (%q, %v)", got, ok)

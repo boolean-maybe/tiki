@@ -10,36 +10,36 @@ fields:
     values:
       - value: open
         label: Open
-        emoji: "\U0001F195"
+        visual: "\U0001F195"
         default: true
       - value: triaged
         label: Triaged
-        emoji: "\U0001F4CB"
+        visual: "\U0001F4CB"
       - value: inProgress
         label: "In Progress"
-        emoji: "⚙️"
+        visual: "⚙️"
       - value: inReview
         label: "In Review"
-        emoji: "\U0001F440"
+        visual: "\U0001F440"
       - value: verified
         label: Verified
-        emoji: "✅"
+        visual: "✅"
       - value: wontFix
         label: "Won't Fix"
-        emoji: "\U0001F6AB"
+        visual: "\U0001F6AB"
   - name: type
     type: enum
     values:
       - value: bug
         label: Bug
-        emoji: "\U0001F41B"
+        visual: "\U0001F41B"
         default: true
       - value: regression
         label: Regression
-        emoji: "\U0001F501"
+        visual: "\U0001F501"
       - value: incident
         label: Incident
-        emoji: "\U0001F525"
+        visual: "\U0001F525"
   - name: severity
     type: enum
     values:
@@ -71,11 +71,11 @@ fields:
   - name: priority
     type: enum
     values:
-      - {value: high, label: High, emoji: "🔴"}
-      - {value: medium-high, label: "Medium High", emoji: "🟠"}
-      - {value: medium, label: Medium, emoji: "🟡", default: true}
-      - {value: medium-low, label: "Medium Low", emoji: "🟢"}
-      - {value: low, label: Low, emoji: "🔵"}
+      - {value: high, label: High, visual: "🔴"}
+      - {value: medium-high, label: "Medium High", visual: "🟠"}
+      - {value: medium, label: Medium, visual: "🟡", default: true}
+      - {value: medium-low, label: "Medium Low", visual: "🟢"}
+      - {value: low, label: Low, visual: "🔵"}
   - name: tags
     type: stringList
   - name: assignee

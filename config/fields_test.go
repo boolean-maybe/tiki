@@ -4,6 +4,7 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"strings"
 	"testing"
 	"time"
 
@@ -365,5 +366,102 @@ views:
 	// no custom fields should be registered
 	if _, ok := workflow.Field("score"); ok {
 		t.Error("expected no custom fields when fields: section is missing")
+	}
+}
+
+// TestLoadWorkflowFields_LegacyEmojiKeyRejected pins the migration error
+// raised when a workflow.yaml still uses the pre-rename `emoji:` key. The
+// error message must mention the new field name so users know what to do.
+func TestLoadWorkflowFields_LegacyEmojiKeyRejected(t *testing.T) {
+	cwdDir := setupLoadWorkflowFieldsTest(t)
+
+	content := `
+fields:
+  - name: status
+    type: enum
+    values:
+      - value: open
+        label: Open
+        emoji: "📂"
+        default: true
+`
+	if err := os.WriteFile(filepath.Join(cwdDir, "workflow.yaml"), []byte(content), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	err := LoadWorkflowFields()
+	if err == nil {
+		t.Fatal("expected error for legacy emoji: key")
+	}
+	if !strings.Contains(err.Error(), "visual") {
+		t.Errorf("error %q does not point to visual: replacement", err.Error())
+	}
+}
+
+// TestLoadWorkflowFields_VisualMarkupValidatedAtLoad pins that unknown role
+// names in visual: markup fail at workflow load, not later at render time.
+func TestLoadWorkflowFields_VisualMarkupValidatedAtLoad(t *testing.T) {
+	cwdDir := setupLoadWorkflowFieldsTest(t)
+
+	content := `
+fields:
+  - name: severity
+    type: enum
+    values:
+      - value: high
+        label: High
+        visual: "{nosuchrole}!"
+        default: true
+`
+	if err := os.WriteFile(filepath.Join(cwdDir, "workflow.yaml"), []byte(content), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	err := LoadWorkflowFields()
+	if err == nil {
+		t.Fatal("expected error for unknown visual role")
+	}
+	if !strings.Contains(err.Error(), "nosuchrole") {
+		t.Errorf("error %q does not mention bad role name", err.Error())
+	}
+}
+
+// TestLoadWorkflowFields_VisualMarkupHappyPath pins that valid visual:
+// markup loads without error and round-trips into the registered EnumValue.
+func TestLoadWorkflowFields_VisualMarkupHappyPath(t *testing.T) {
+	cwdDir := setupLoadWorkflowFieldsTest(t)
+
+	content := `
+fields:
+  - name: severity
+    type: enum
+    values:
+      - value: high
+        label: High
+        visual: "{danger}!!!"
+        default: true
+      - value: low
+        label: Low
+        visual: "."
+`
+	if err := os.WriteFile(filepath.Join(cwdDir, "workflow.yaml"), []byte(content), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := LoadWorkflowFields(); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	f, ok := workflow.Field("severity")
+	if !ok {
+		t.Fatal("severity field not registered")
+	}
+	high, _ := f.LookupEnum("high")
+	if high.Visual != "{danger}!!!" {
+		t.Errorf("high.Visual = %q, want %q", high.Visual, "{danger}!!!")
+	}
+	low, _ := f.LookupEnum("low")
+	if low.Visual != "." {
+		t.Errorf("low.Visual = %q, want %q", low.Visual, ".")
 	}
 }

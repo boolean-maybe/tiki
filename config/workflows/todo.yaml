@@ -9,17 +9,17 @@ fields:
     values:
       - value: todo
         label: Todo
-        emoji: "📌"
+        visual: "📌"
         default: true
       - value: done
         label: Done
-        emoji: "✅"
+        visual: "✅"
   - name: type
     type: enum
     values:
       - value: task
         label: Task
-        emoji: "📝"
+        visual: "📝"
         default: true
   - name: priority
     type: integer
