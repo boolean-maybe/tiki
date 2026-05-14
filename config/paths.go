@@ -158,7 +158,8 @@ func (pm *PathManager) DocDir() string {
 // TaskDir returns the legacy project-local task directory (.doc/tiki).
 //
 // Deprecated: callers should use DocDir instead. The document store now
-// scans .doc/ recursively and places new documents at .doc/<ID>.md.
+// scans .doc/ recursively (filename is opaque — identity comes from the
+// frontmatter `id:` field) and places brand-new documents at .doc/<ID>.md.
 // Kept during the migration so callers that still reference .doc/tiki for
 // legacy content (existing sample files, embedded assets, file-open dialogs)
 // continue to resolve the same path.
@@ -309,8 +310,10 @@ func GetConfigFile() string {
 
 // GetDocDir returns the unified document root (.doc/). Phase 2 of the
 // unified-document migration makes this the single scan root for the
-// document store; new documents are written at .doc/<ID>.md and loaded
-// via recursive walk.
+// document store; brand-new documents are written at .doc/<ID>.md, while
+// loading is filename-agnostic — every `.md` under .doc/ is loaded and the
+// id comes from the frontmatter `id:` field (so the demo, for example,
+// ships with human-readable topical filenames).
 func GetDocDir() string {
 	return mustGetPathManager().DocDir()
 }

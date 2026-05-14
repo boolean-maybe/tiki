@@ -3,7 +3,6 @@ package main
 import (
 	"os"
 	"path/filepath"
-	"regexp"
 	"strings"
 	"testing"
 
@@ -81,10 +80,10 @@ func TestRunDemo_MaterializesAllFiles(t *testing.T) {
 //  1. every demo document (workflow + plain, flat and nested) carries a valid
 //     bare id in frontmatter — no missing/legacy/invalid-id diagnostics
 //     when loaded through the strict store;
-//  2. filename equals `<ID>.md` for workflow documents under the unified
-//     layout, and the store resolves the id to that exact path — so any
-//     regression that reintroduces a slug-derived filename scheme or a
-//     legacy `.doc/tiki/` subdirectory fails here;
+//  2. the store resolves a known id to a real `.md` path under `.doc/`,
+//     regardless of the filename chosen — identity comes from frontmatter,
+//     not from filename. Demo files use human-readable topical names; this
+//     test must keep passing whether filenames are `<ID>.md` or topical.
 //  3. the demo never creates the legacy `.doc/tiki/` or `.doc/doki/` roots.
 func TestRunDemo_DemoLoadsCleanlyUnderStrictIDs(t *testing.T) {
 	setupDemoTest(t)
@@ -120,16 +119,22 @@ func TestRunDemo_DemoLoadsCleanlyUnderStrictIDs(t *testing.T) {
 		t.Errorf("workflow tiki count after demo load = %d, want >= 40", got)
 	}
 
-	// Sanity: a known task id from the demo must resolve to its unified path.
-	// Under Phase 8 the file is `.doc/XVG0FN.md` — flat at the document root,
-	// not under a `tiki/` subdir.
+	// Sanity: a known task id from the demo must resolve to a `.md` file flat
+	// at the document root (not under a `tiki/` subdir). Filename is opaque —
+	// identity comes from frontmatter — so we don't assert a specific name,
+	// only the location shape.
 	demoTiki := store.GetTiki("XVG0FN")
 	if demoTiki == nil {
 		t.Fatal("demo tiki XVG0FN missing after load")
 	}
-	wantSuffix := filepath.Join(".doc", "XVG0FN.md")
-	if !strings.HasSuffix(demoTiki.Path, wantSuffix) {
-		t.Errorf("tiki XVG0FN resolved to %s, want suffix %s", demoTiki.Path, wantSuffix)
+	if demoTiki.Path == "" {
+		t.Error("demo tiki XVG0FN has empty Path")
+	}
+	if !strings.HasSuffix(demoTiki.Path, ".md") {
+		t.Errorf("tiki XVG0FN resolved to %s, want a .md path", demoTiki.Path)
+	}
+	if !strings.Contains(demoTiki.Path, string(filepath.Separator)+".doc"+string(filepath.Separator)) {
+		t.Errorf("tiki XVG0FN resolved to %s, want path under .doc/", demoTiki.Path)
 	}
 
 	// Phase 8 invariant: demo must not create legacy subdirectories.
@@ -230,12 +235,13 @@ func TestRunDemo_HealsMissingWorkflowOnReuse(t *testing.T) {
 	}
 }
 
-// TestRunDemo_UnifiedLayout pins the Phase 8 demo-shape contract end-to-end:
+// TestRunDemo_UnifiedLayout pins the demo-shape contract end-to-end:
 // the extracted demo must have no `.doc/tiki` or `.doc/doki` subtrees, must
-// place workflow documents flat at `.doc/<ID>.md` with uppercase bare names,
-// and must keep shared media under `.doc/assets/`. If a regression brings
-// the old split-tree layout back (via embed changes, bootstrap changes, or a
-// stray copy step) this fails loudly.
+// place workflow documents flat at `.doc/` (with human-readable filenames —
+// identity comes from frontmatter, not the filename), and must keep shared
+// media under `.doc/assets/`. If a regression brings the old split-tree
+// layout back (via embed changes, bootstrap changes, or a stray copy step)
+// this fails loudly.
 func TestRunDemo_UnifiedLayout(t *testing.T) {
 	setupDemoTest(t)
 	t.Setenv("TIKI_STORE_GIT", "false")
@@ -256,14 +262,19 @@ func TestRunDemo_UnifiedLayout(t *testing.T) {
 		t.Errorf(".doc/assets missing: %v", err)
 	}
 
-	// At least one workflow doc must be present as `.doc/<ID>.md` with a bare
-	// uppercase filename. Scan the doc root and count qualifiers.
+	// At least 40 workflow markdown files must be present flat at `.doc/`,
+	// excluding reserved files and the index. Filename is opaque — demo files
+	// use human-readable topical names; this check is filename-shape-agnostic.
 	entries, err := os.ReadDir(".doc")
 	if err != nil {
 		t.Fatalf("read .doc: %v", err)
 	}
-	barePattern := regexp.MustCompile(`^[A-Z0-9]{6}\.md$`)
-	var bareCount int
+	reserved := map[string]struct{}{
+		"workflow.yaml": {},
+		"config.yaml":   {},
+		"index.md":      {},
+	}
+	var workflowFileCount int
 	for _, e := range entries {
 		if e.IsDir() {
 			if e.Name() == "tiki" || e.Name() == "doki" {
@@ -273,23 +284,39 @@ func TestRunDemo_UnifiedLayout(t *testing.T) {
 		}
 		name := e.Name()
 		if strings.HasPrefix(name, "tiki-") {
-			t.Errorf("legacy-named workflow file %s; want bare <ID>.md", name)
+			t.Errorf("legacy-named workflow file %s; demo must not use tiki- prefix", name)
 		}
-		if barePattern.MatchString(name) {
-			bareCount++
+		if _, isReserved := reserved[name]; isReserved {
+			continue
+		}
+		if strings.HasSuffix(name, ".md") {
+			workflowFileCount++
 		}
 	}
-	if bareCount < 40 {
-		t.Errorf("bare-ID workflow file count = %d, want >= 40", bareCount)
+	if workflowFileCount < 40 {
+		t.Errorf("flat .doc/*.md workflow file count = %d, want >= 40", workflowFileCount)
 	}
 
 	// Demo workflow docs carry explicit workflow fields (status, type,
 	// priority, points); demo plain docs carry only id. Spot-check a known
 	// workflow file carrying all four — if its frontmatter loses any of
-	// them, the board / list / type-filter flows regress.
-	body, err := os.ReadFile(".doc/9XPSEI.md")
+	// them, the board / list / type-filter flows regress. Resolve the file
+	// via the store rather than hardcoding a filename, so this test stays
+	// filename-agnostic.
+	if err := config.LoadWorkflowFields(); err != nil {
+		t.Fatalf("LoadWorkflowFields: %v", err)
+	}
+	wfStore, err := tikistore.NewTikiStore(filepath.Join(".", ".doc"))
 	if err != nil {
-		t.Fatalf("read demo workflow doc: %v", err)
+		t.Fatalf("NewTikiStore on demo: %v", err)
+	}
+	spotTiki := wfStore.GetTiki("9XPSEI")
+	if spotTiki == nil {
+		t.Fatal("demo tiki 9XPSEI missing — cannot spot-check workflow fields")
+	}
+	body, err := os.ReadFile(spotTiki.Path)
+	if err != nil {
+		t.Fatalf("read demo workflow doc %s: %v", spotTiki.Path, err)
 	}
 	for _, field := range []string{"status:", "type:", "priority:", "points:"} {
 		if !strings.Contains(string(body), field) {
@@ -351,9 +378,9 @@ func TestRunDemo_ReusesExistingDir(t *testing.T) {
 	// the embedded demo tree (workflow docs, gitignore, assets) must not
 	// have been written, because extraction was skipped. .doc/workflow.yaml
 	// is allowed — it is written by ensureDemoWorkflow, not by the tree
-	// extractor. XVG0FN.md is a representative flat workflow doc from the
-	// unified Phase 8 layout.
-	for _, rel := range []string{".gitignore", ".doc/XVG0FN.md", ".doc/assets"} {
+	// extractor. telemetry-timestamp-drift.md is a representative flat
+	// workflow doc from the demo dataset (frontmatter id: XVG0FN).
+	for _, rel := range []string{".gitignore", ".doc/telemetry-timestamp-drift.md", ".doc/assets"} {
 		if _, err := os.Stat(rel); err == nil {
 			t.Errorf("%s should not exist — reused dir should not be re-extracted", rel)
 		}
