@@ -71,10 +71,6 @@ type ColorConfig struct {
 	HeaderKeyBinding    Color
 	HeaderKeyText       Color
 
-	// Points visual bar colors
-	PointsFilledColor   Color
-	PointsUnfilledColor Color
-
 	// Header context help action colors
 	HeaderActionGlobalKeyColor   Color
 	HeaderActionGlobalLabelColor Color
@@ -85,6 +81,11 @@ type ColorConfig struct {
 
 	// Plugin caption colors (auto-generated per theme)
 	CaptionColors []CaptionColorPair
+
+	// Semantic role colors — bound to workflow visual: markup roles
+	DangerColor Color // red — critical/error/blocker state
+	WarnColor   Color // orange — warning/attention
+	OkColor     Color // green — healthy/success
 
 	// Plugin-specific colors
 	DepsEditorBackground Color // muted slate for dependency editor caption
@@ -149,6 +150,11 @@ type Palette struct {
 	StatuslineText     Color // statusline primary text
 	StatuslineAccent   Color // statusline accent background
 	StatuslineOk       Color // statusline info/success foreground
+
+	// Semantic role colors — bound to workflow visual: markup roles {danger}, {warn}, {ok}
+	DangerColor Color // red — critical/error
+	WarnColor   Color // orange — warning
+	OkColor     Color // green — success (distinct from AccentColor used for labels)
 
 	// Plugin caption colors (6 curated fg/bg pairs per theme)
 	CaptionColors []CaptionColorPair
@@ -222,10 +228,6 @@ func ColorsFromPalette(p Palette) *ColorConfig {
 		// Completion prompt
 		CompletionHintColor: p.MutedColor,
 
-		// Points bar
-		PointsFilledColor:   p.AccentBlue,
-		PointsUnfilledColor: p.SlateColor,
-
 		// Header
 		HeaderInfoLabel:     p.InfoLabelColor,
 		HeaderInfoSeparator: p.MutedColor,
@@ -265,7 +267,37 @@ func ColorsFromPalette(p Palette) *ColorConfig {
 
 		// Plugin caption colors
 		CaptionColors: p.CaptionColors,
+
+		// Semantic role colors
+		DangerColor: p.DangerColor,
+		WarnColor:   p.WarnColor,
+		OkColor:     p.OkColor,
 	}
+}
+
+// ResolveRole returns the ColorConfig color bound to a semantic role name.
+// Roles are the closed vocabulary referenced by workflow visual: markup.
+// Returns false for any name outside the vocabulary.
+func (cc *ColorConfig) ResolveRole(name string) (Color, bool) {
+	switch name {
+	case "muted":
+		return cc.TaskBoxLabelColor, true
+	case "accent":
+		return cc.TaskListStatusDoneColor, true
+	case "highlight":
+		return cc.TaskBoxSelectedBorder, true
+	case "info":
+		return cc.HeaderInfoLabel, true
+	case "text":
+		return cc.ContentTextColor, true
+	case "danger":
+		return cc.DangerColor, true
+	case "warn":
+		return cc.WarnColor, true
+	case "ok":
+		return cc.OkColor, true
+	}
+	return Color{}, false
 }
 
 // CaptionColorForIndex returns the caption color pair for a plugin at the given config index.

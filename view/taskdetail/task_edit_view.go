@@ -732,12 +732,19 @@ func (ev *TaskEditView) buildTikiSnapshotFromWidgets() *tikipkg.Tiki {
 		}
 	}
 	if w, ok := ev.editors[tikipkg.FieldPoints]; ok && w != nil {
-		if pts, err := strconv.Atoi(w.GetText()); err == nil {
-			if pts != 0 {
-				snapshot.Set(tikipkg.FieldPoints, pts)
+		// Points is a workflow enum (declared in kanban.yaml with values
+		// like "11"/"7"/"3"/"1"). enumSelectAdapter.GetText() returns the
+		// canonical key after reverse-lookup; an empty key means the user
+		// cleared the field or the lookup failed.
+		key := w.GetText()
+		if key != "" {
+			if fd, ok := workflow.Field(tikipkg.FieldPoints); ok && fd.IsValidEnum(key) {
+				snapshot.Set(tikipkg.FieldPoints, key)
 			} else {
 				snapshot.Delete(tikipkg.FieldPoints)
 			}
+		} else {
+			snapshot.Delete(tikipkg.FieldPoints)
 		}
 	}
 	if w, ok := ev.editors[tikipkg.FieldDue]; ok && w != nil {

@@ -49,7 +49,7 @@ title: %s
 type: %s
 status: %s
 priority: medium
-points: 1
+points: "3"
 tags: []
 %s---
 %s

@@ -781,7 +781,7 @@ func TestRunQueryScalarExistsFalse(t *testing.T) {
 	s := setupRunnerTest(t)
 
 	var buf bytes.Buffer
-	err := RunQuery(gateFor(s), `exists(select where points = 99)`, &buf)
+	err := RunQuery(gateFor(s), `exists(select where escalations = 99)`, &buf)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -851,7 +851,7 @@ func TestRunQueryWithOptionsScalarJSON(t *testing.T) {
 	}{
 		{"count", `count(select where status = "ready")`, "1"},
 		{"exists true", `exists(select where status = "done")`, "true"},
-		{"exists false", `exists(select where points = 99)`, "false"},
+		{"exists false", `exists(select where escalations = 99)`, "false"},
 		{"arithmetic", `1 + 2`, "3"},
 	}
 	for _, tt := range tests {

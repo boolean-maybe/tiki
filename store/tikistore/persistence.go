@@ -125,8 +125,6 @@ func (s *TikiStore) loadTikiFile(path string, authorMap map[string]*git.AuthorIn
 	// stale so the on-disk value round-trips for repair. Save-time
 	// validation (validateTikiCustomFields) is the gate that enforces the
 	// declared schema once a tiki has been intentionally written.
-	hasSchemaFields := hasAnyWorkflowField(parsed.t)
-
 	tk := parsed.t
 
 	// Propagate the stale-provenance set from parsedTiki onto the Tiki so
@@ -150,26 +148,9 @@ func (s *TikiStore) loadTikiFile(path string, authorMap map[string]*git.AuthorIn
 	// Defaults for display and query are resolved at the read sites that
 	// need them (e.g. workflow.Field("type").EnumDefault()) rather than
 	// being baked into the loaded tiki.
-	if hasSchemaFields {
-		// priority is now a workflow enum; out-of-domain values are caught
-		// by the workflow.IsValidEnum check in coercion paths, not by a
-		// numeric clamp here. The legacy 1-5 int clamp was removed when
-		// priority became TypeEnum.
-
-		// points: 0 is a meaningful "unestimated" sentinel that
-		// value.IsValidPoints accepts as valid; preserve it on load so
-		// exact-presence round-trips. Negative or above-max values are
-		// still clamped to maxPoints/2.
-		maxPoints := config.GetMaxPoints()
-		if points, ok := coerceIntForYAML(tk.Fields["points"]); ok {
-			if points < 0 || points > maxPoints {
-				slog.Debug("invalid points value, using default",
-					"task_id", tk.ID, "file", path, "invalid_value", points,
-					"default", maxPoints/2)
-				tk.Set("points", maxPoints/2)
-			}
-		}
-	}
+	// priority and points are now workflow enums; out-of-domain values are
+	// caught by workflow.IsValidEnum in coercion paths. The legacy numeric
+	// clamps that lived here were removed when these fields became TypeEnum.
 
 	// Compute UpdatedAt as max(file_mtime, last_git_commit_time)
 	tk.UpdatedAt = info.ModTime()

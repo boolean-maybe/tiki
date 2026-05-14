@@ -28,13 +28,13 @@ func applyFrameStyle(frame *tview.Frame, selected bool, colors *config.ColorConf
 	}
 }
 
-// tikiTypeEmoji returns the emoji for the tiki's type field.
+// tikiTypeEmoji returns the visual for the tiki's type field.
 func tikiTypeEmoji(tk *tikipkg.Tiki) string {
 	s, _, _ := tk.StringField(tikipkg.FieldType)
-	return enumEmoji(tikipkg.FieldType, s)
+	return enumVisual(tikipkg.FieldType, s)
 }
 
-// tikiPriorityEmoji returns the emoji label for the tiki's priority field,
+// tikiPriorityEmoji returns the visual for the tiki's priority field,
 // or "─" when the field is absent or the value is unknown to the configured
 // priority enum. Reading as a string mirrors priority's enum-only contract
 // (Phase 3 conversion); empty key → no priority.
@@ -43,16 +43,18 @@ func tikiPriorityEmoji(tk *tikipkg.Tiki) string {
 	if !present || key == "" {
 		return "─"
 	}
-	emoji := enumEmoji(tikipkg.FieldPriority, key)
-	if emoji == "" {
+	visual := enumVisual(tikipkg.FieldPriority, key)
+	if visual == "" {
 		return "─"
 	}
-	return emoji
+	return visual
 }
 
-// enumEmoji returns the emoji defined for a workflow enum value, or empty
-// when the field is missing, not an enum, or the key is unknown.
-func enumEmoji(fieldName, key string) string {
+// enumVisual returns the visual markup string defined for a workflow enum
+// value, or empty when the field is missing, not an enum, or the key is
+// unknown. The returned string may contain `{role}` tokens that callers
+// must pass through workflow.ExpandVisual before rendering.
+func enumVisual(fieldName, key string) string {
 	fd, ok := workflow.Field(fieldName)
 	if !ok {
 		return ""
@@ -61,13 +63,38 @@ func enumEmoji(fieldName, key string) string {
 	if !found {
 		return ""
 	}
-	return v.Emoji
+	return v.Visual
 }
 
-// tikiPoints returns the numeric points stored in Fields, or 0 if absent.
-func tikiPoints(tk *tikipkg.Tiki) int {
-	n, _, _ := tk.IntField(tikipkg.FieldPoints)
-	return n
+// tikiPointsVisual returns the rendered points visual (expanded tview tags)
+// for the tiki's points enum value, or "─" when the field is absent or its
+// value is unknown to the workflow-declared points enum.
+func tikiPointsVisual(tk *tikipkg.Tiki, colors *config.ColorConfig) string {
+	key, present, _ := tk.StringField(tikipkg.FieldPoints)
+	if !present || key == "" {
+		return "─"
+	}
+	markup := enumVisual(tikipkg.FieldPoints, key)
+	if markup == "" {
+		return "─"
+	}
+	expanded, err := workflow.ExpandVisual(markup, roleResolver(colors))
+	if err != nil {
+		return "─"
+	}
+	return expanded
+}
+
+// roleResolver adapts the theme's ResolveRole onto the tag-string resolver
+// signature expected by workflow.ExpandVisual.
+func roleResolver(colors *config.ColorConfig) func(role string) (string, bool) {
+	return func(role string) (string, bool) {
+		c, ok := colors.ResolveRole(role)
+		if !ok {
+			return "", false
+		}
+		return c.Tag().String(), true
+	}
 }
 
 // tikiTags returns the tags slice stored in Fields, or nil if absent.
@@ -82,16 +109,16 @@ func buildCompactTaskContent(tk *tikipkg.Tiki, colors *config.ColorConfig, avail
 	idGradient := gradient.RenderAdaptiveGradientText(tk.ID, colors.TaskBoxIDColor, colors.FallbackTaskIDColor)
 	truncatedTitle := tview.Escape(util.TruncateText(tk.Title, availableWidth))
 	priorityEmoji := tikiPriorityEmoji(tk)
-	pointsVisual := util.GeneratePointsVisual(tikiPoints(tk), config.GetMaxPoints(), colors.PointsFilledColor, colors.PointsUnfilledColor)
+	pointsVisual := tikiPointsVisual(tk, colors)
 
 	titleTag := colors.TaskBoxTitleColor.Tag().String()
 	labelTag := colors.TaskBoxLabelColor.Tag().String()
 
-	return fmt.Sprintf("%s %s\n%s%s[-]\n%spriority[-] %s  %spoints[-] %s%s[-]",
+	return fmt.Sprintf("%s %s\n%s%s[-]\n%spriority[-] %s  %spoints[-] %s[-]",
 		emoji, idGradient,
 		titleTag, truncatedTitle,
 		labelTag, priorityEmoji,
-		labelTag, labelTag, pointsVisual)
+		labelTag, pointsVisual)
 }
 
 // buildExpandedTaskContent builds the content string for expanded task display
@@ -129,10 +156,10 @@ func buildExpandedTaskContent(tk *tikipkg.Tiki, colors *config.ColorConfig, avai
 
 	// Build priority/points line
 	priorityEmoji := tikiPriorityEmoji(tk)
-	pointsVisual := util.GeneratePointsVisual(tikiPoints(tk), config.GetMaxPoints(), colors.PointsFilledColor, colors.PointsUnfilledColor)
-	priorityPointsStr := fmt.Sprintf("%spriority[-] %s  %spoints[-] %s%s[-]",
+	pointsVisual := tikiPointsVisual(tk, colors)
+	priorityPointsStr := fmt.Sprintf("%spriority[-] %s  %spoints[-] %s[-]",
 		labelTag, priorityEmoji,
-		labelTag, labelTag, pointsVisual)
+		labelTag, pointsVisual)
 
 	return fmt.Sprintf("%s %s\n%s%s[-]\n%s%s[-]\n%s%s[-]\n%s%s[-]\n%s\n%s",
 		emoji, idGradient,

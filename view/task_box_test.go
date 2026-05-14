@@ -9,7 +9,8 @@ import (
 	"github.com/boolean-maybe/tiki/workflow"
 )
 
-// fieldEmoji returns the emoji for a workflow enum value, or "" when missing.
+// fieldEmoji returns the visual for a workflow enum value, or "" when missing.
+// (Keeps the legacy helper name to minimize churn in callers below.)
 func fieldEmoji(fieldName, key string) string {
 	fd, ok := workflow.Field(fieldName)
 	if !ok {
@@ -19,7 +20,7 @@ func fieldEmoji(fieldName, key string) string {
 	if !found {
 		return ""
 	}
-	return v.Emoji
+	return v.Visual
 }
 
 // makeTiki creates a tiki with the given ID, type string, and priority key

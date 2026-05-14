@@ -44,6 +44,10 @@ func DarkPalette() Palette {
 		StatuslineAccent:   NewColorHex("#5e81ac"),
 		StatuslineOk:       NewColorHex("#a3be8c"),
 
+		DangerColor: NewColorHex("#ff4444"),
+		WarnColor:   NewColorHex("#ffa500"),
+		OkColor:     NewColorHex("#a3be8c"),
+
 		CaptionColors: []CaptionColorPair{
 			{Foreground: NewColorHex("#87ceeb"), Background: NewColorHex("#25496a")}, // steel-blue (Kanban signature)
 			{Foreground: NewColorHex("#8cd98c"), Background: NewColorHex("#003300")}, // green
@@ -91,6 +95,10 @@ func LightPalette() Palette {
 		StatuslineText:     NewColorHex("#2e3440"),
 		StatuslineAccent:   NewColorHex("#5e81ac"),
 		StatuslineOk:       NewColorHex("#4c7a5a"),
+
+		DangerColor: NewColorHex("#cc0000"),
+		WarnColor:   NewColorHex("#b85c00"),
+		OkColor:     NewColorHex("#4c7a5a"),
 
 		CaptionColors: []CaptionColorPair{
 			{Foreground: NewColorHex("#e0f0ff"), Background: NewColorHex("#3a6a90")}, // steel-blue (Kanban signature)
@@ -141,6 +149,10 @@ func DraculaPalette() Palette {
 		StatuslineAccent:   NewColorHex("#bd93f9"),
 		StatuslineOk:       NewColorHex("#50fa7b"),
 
+		DangerColor: NewColorHex("#ff5555"), // dracula red
+		WarnColor:   NewColorHex("#ffb86c"), // dracula orange
+		OkColor:     NewColorHex("#50fa7b"), // dracula green
+
 		CaptionColors: []CaptionColorPair{
 			{Foreground: NewColorHex("#cbf5fe"), Background: NewColorHex("#2a464c")}, // cyan
 			{Foreground: NewColorHex("#b0fdc4"), Background: NewColorHex("#184b25")}, // green
@@ -189,6 +201,10 @@ func TokyoNightPalette() Palette {
 		StatuslineText:     NewColorHex("#c0caf5"),
 		StatuslineAccent:   NewColorHex("#7aa2f7"),
 		StatuslineOk:       NewColorHex("#9ece6a"),
+
+		DangerColor: NewColorHex("#f7768e"), // tokyo red
+		WarnColor:   NewColorHex("#ff9e64"), // tokyo orange
+		OkColor:     NewColorHex("#9ece6a"), // tokyo green
 
 		CaptionColors: []CaptionColorPair{
 			{Foreground: NewColorHex("#c5e9ff"), Background: NewColorHex("#263e4d")}, // sky-blue
@@ -239,6 +255,10 @@ func GruvboxDarkPalette() Palette {
 		StatuslineAccent:   NewColorHex("#689d6a"), // dark aqua
 		StatuslineOk:       NewColorHex("#b8bb26"),
 
+		DangerColor: NewColorHex("#fb4934"), // gruvbox red
+		WarnColor:   NewColorHex("#fe8019"), // gruvbox orange
+		OkColor:     NewColorHex("#b8bb26"), // gruvbox green
+
 		CaptionColors: []CaptionColorPair{
 			{Foreground: NewColorHex("#c7d7d1"), Background: NewColorHex("#27322e")}, // aqua-blue
 			{Foreground: NewColorHex("#dfe09d"), Background: NewColorHex("#37380b")}, // green
@@ -287,6 +307,10 @@ func CatppuccinMochaPalette() Palette {
 		StatuslineText:     NewColorHex("#cdd6f4"),
 		StatuslineAccent:   NewColorHex("#89b4fa"),
 		StatuslineOk:       NewColorHex("#a6e3a1"),
+
+		DangerColor: NewColorHex("#f38ba8"), // catppuccin red
+		WarnColor:   NewColorHex("#fab387"), // catppuccin peach
+		OkColor:     NewColorHex("#a6e3a1"), // catppuccin green
 
 		CaptionColors: []CaptionColorPair{
 			{Foreground: NewColorHex("#c9dcfd"), Background: NewColorHex("#293648")}, // blue
@@ -337,6 +361,10 @@ func SolarizedDarkPalette() Palette {
 		StatuslineAccent:   NewColorHex("#268bd2"),
 		StatuslineOk:       NewColorHex("#859900"),
 
+		DangerColor: NewColorHex("#dc322f"), // solarized red
+		WarnColor:   NewColorHex("#cb4b16"), // solarized orange
+		OkColor:     NewColorHex("#859900"), // solarized green
+
 		CaptionColors: []CaptionColorPair{
 			{Foreground: NewColorHex("#9dcbeb"), Background: NewColorHex("#0b2a3f")}, // blue
 			{Foreground: NewColorHex("#c8d18c"), Background: NewColorHex("#282e00")}, // green
@@ -385,6 +413,10 @@ func NordPalette() Palette {
 		StatuslineText:     NewColorHex("#d8dee9"), // nord4
 		StatuslineAccent:   NewColorHex("#5e81ac"), // nord10
 		StatuslineOk:       NewColorHex("#a3be8c"),
+
+		DangerColor: NewColorHex("#bf616a"), // nord11 red
+		WarnColor:   NewColorHex("#d08770"), // nord12 orange
+		OkColor:     NewColorHex("#a3be8c"), // nord14 green
 
 		CaptionColors: []CaptionColorPair{
 			{Foreground: NewColorHex("#c9e3ea"), Background: NewColorHex("#293a3e")}, // frost-cyan
@@ -435,6 +467,10 @@ func MonokaiPalette() Palette {
 		StatuslineAccent:   NewColorHex("#66d9ef"),
 		StatuslineOk:       NewColorHex("#a6e22e"),
 
+		DangerColor: NewColorHex("#f92672"), // monokai pink-red
+		WarnColor:   NewColorHex("#fd971f"), // monokai orange
+		OkColor:     NewColorHex("#a6e22e"), // monokai green
+
 		CaptionColors: []CaptionColorPair{
 			{Foreground: NewColorHex("#baeef8"), Background: NewColorHex("#1f4148")}, // cyan
 			{Foreground: NewColorHex("#d7f2a1"), Background: NewColorHex("#32440e")}, // green
@@ -483,6 +519,10 @@ func OneDarkPalette() Palette {
 		StatuslineText:     NewColorHex("#abb2bf"),
 		StatuslineAccent:   NewColorHex("#61afef"),
 		StatuslineOk:       NewColorHex("#98c379"),
+
+		DangerColor: NewColorHex("#e06c75"), // one dark red
+		WarnColor:   NewColorHex("#d19a66"), // one dark orange
+		OkColor:     NewColorHex("#98c379"), // one dark green
 
 		CaptionColors: []CaptionColorPair{
 			{Foreground: NewColorHex("#b8dbf8"), Background: NewColorHex("#1d3548")}, // blue
@@ -535,6 +575,10 @@ func CatppuccinLattePalette() Palette {
 		StatuslineAccent:   NewColorHex("#1e66f5"),
 		StatuslineOk:       NewColorHex("#40a02b"),
 
+		DangerColor: NewColorHex("#d20f39"), // latte red
+		WarnColor:   NewColorHex("#fe640b"), // latte peach
+		OkColor:     NewColorHex("#40a02b"), // latte green
+
 		CaptionColors: []CaptionColorPair{
 			{Foreground: NewColorHex("#c7d9fd"), Background: NewColorHex("#1e66f5")}, // blue (ValueColor)
 			{Foreground: NewColorHex("#f7e3c7"), Background: NewColorHex("#8d5a12")}, // yellow (HighlightColor)
@@ -583,6 +627,10 @@ func SolarizedLightPalette() Palette {
 		StatuslineText:     NewColorHex("#657b83"),
 		StatuslineAccent:   NewColorHex("#268bd2"),
 		StatuslineOk:       NewColorHex("#859900"),
+
+		DangerColor: NewColorHex("#dc322f"), // solarized red
+		WarnColor:   NewColorHex("#cb4b16"), // solarized orange
+		OkColor:     NewColorHex("#859900"), // solarized green
 
 		CaptionColors: []CaptionColorPair{
 			{Foreground: NewColorHex("#c9e2f4"), Background: NewColorHex("#2073ae")}, // blue (ValueColor)
@@ -633,6 +681,10 @@ func GruvboxLightPalette() Palette {
 		StatuslineAccent:   NewColorHex("#427b58"),
 		StatuslineOk:       NewColorHex("#79740e"),
 
+		DangerColor: NewColorHex("#9d0006"), // gruvbox light red
+		WarnColor:   NewColorHex("#af3a03"), // gruvbox light orange
+		OkColor:     NewColorHex("#79740e"), // gruvbox light green
+
 		CaptionColors: []CaptionColorPair{
 			{Foreground: NewColorHex("#e2d6c3"), Background: NewColorHex("#8b5b0f")}, // amber/ochre
 			{Foreground: NewColorHex("#dedcc3"), Background: NewColorHex("#6f6a0d")}, // green
@@ -681,6 +733,10 @@ func GithubLightPalette() Palette {
 		StatuslineText:     NewColorHex("#1f2328"),
 		StatuslineAccent:   NewColorHex("#0969da"),
 		StatuslineOk:       NewColorHex("#116329"),
+
+		DangerColor: NewColorHex("#cf222e"), // github red
+		WarnColor:   NewColorHex("#953800"), // github orange
+		OkColor:     NewColorHex("#116329"), // github green
 
 		CaptionColors: []CaptionColorPair{
 			{Foreground: NewColorHex("#c2daf6"), Background: NewColorHex("#0a72ed")}, // blue

@@ -29,11 +29,13 @@ const (
 
 // EnumValue describes one allowed value of a TypeEnum field with display
 // metadata. Default marks the value as the creation default for the field;
-// at most one value per enum may set Default: true.
+// at most one value per enum may set Default: true. Visual is an optional
+// short rendering of the value (a glyph, emoji, or {role}-tagged markup
+// string consumed by workflow.ExpandVisual at render time).
 type EnumValue struct {
 	Value   string
 	Label   string
-	Emoji   string
+	Visual  string
 	Default bool
 }
 
@@ -82,22 +84,22 @@ func (f FieldDef) LookupEnum(key string) (EnumValue, bool) {
 	return EnumValue{}, false
 }
 
-// EnumDisplay returns "Label Emoji" for the enum value with the given key.
-// Falls back to the key when no label/emoji is defined or the key is unknown.
+// EnumDisplay returns the raw visual markup when Visual is set, otherwise
+// the Label (or Value if Label is empty). Callers that render to a tview
+// surface should pass non-empty visuals through ExpandVisual to resolve
+// {role} markup into color tags. Unknown keys round-trip as themselves.
 func (f FieldDef) EnumDisplay(key string) string {
 	v, ok := f.LookupEnum(key)
 	if !ok {
 		return key
 	}
-	label := v.Label
-	if label == "" {
-		label = v.Value
+	if visual := strings.TrimSpace(v.Visual); visual != "" {
+		return visual
 	}
-	emoji := strings.TrimSpace(v.Emoji)
-	if emoji == "" {
-		return label
+	if v.Label != "" {
+		return v.Label
 	}
-	return label + " " + emoji
+	return v.Value
 }
 
 // EnumParseDisplay reverses EnumDisplay() back to a canonical key.
@@ -318,15 +320,13 @@ func validateEnumValues(fieldName string, values []EnumValue) error {
 }
 
 func enumDisplayParts(v EnumValue) string {
-	label := v.Label
-	if label == "" {
-		label = v.Value
+	if visual := strings.TrimSpace(v.Visual); visual != "" {
+		return visual
 	}
-	emoji := strings.TrimSpace(v.Emoji)
-	if emoji == "" {
-		return label
+	if v.Label != "" {
+		return v.Label
 	}
-	return label + " " + emoji
+	return v.Value
 }
 
 // RegisterWorkflowFields validates and registers workflow field definitions

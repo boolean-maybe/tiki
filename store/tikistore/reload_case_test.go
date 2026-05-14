@@ -19,7 +19,7 @@ func TestReloadTask_CaseDuplicate(t *testing.T) {
 	tk.Set("type", "story")
 	tk.Set("status", "backlog")
 	tk.Set("priority", "medium")
-	tk.Set("points", 1)
+	tk.Set("points", "1")
 	if err := store.CreateTiki(tk); err != nil {
 		t.Fatalf("CreateTiki failed: %v", err)
 	}

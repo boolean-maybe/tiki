@@ -15,8 +15,10 @@ import (
 // full schema-default block.
 //
 // In the tiki model, exact-presence gives this for free: setting only
-// `points` on a cloned tiki means only that key is in Fields, so only
-// that key is written to disk.
+// `escalations` on a cloned tiki means only that key is in Fields, so only
+// that key is written to disk. (Previously this test used `points`; points
+// is now an enum and zero is not a valid value, so escalations — an int
+// field on the test canonical — became the new zero-value vehicle.)
 func TestUpdateTiki_ZeroValueWritesOnlyTheFieldSet(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
 	tmp := t.TempDir()
@@ -42,35 +44,31 @@ func TestUpdateTiki_ZeroValueWritesOnlyTheFieldSet(t *testing.T) {
 		t.Fatalf("precondition: BARE01 must load with no schema fields, got presence=true")
 	}
 
-	// Set only points=0. Exact-presence: only this key lands on disk —
-	// no status, type, priority, tags, etc.
+	// Set only escalations=0. Exact-presence: only this key lands on disk.
 	updated := stored.Clone()
-	updated.Set(tikipkg.FieldPoints, 0)
+	updated.Set("escalations", 0)
 	if err := s.UpdateTiki(updated); err != nil {
 		t.Fatalf("UpdateTiki: %v", err)
 	}
 
-	// Read the file back: id/title plus a single `points: 0` line —
-	// no full-schema leak.
 	got, err := os.ReadFile(barePath)
 	if err != nil {
 		t.Fatalf("readback: %v", err)
 	}
 	content := string(got)
 
-	if !strings.Contains(content, "points: 0") {
-		t.Errorf("expected `points: 0` in file, got:\n%s", content)
+	if !strings.Contains(content, "escalations: 0") {
+		t.Errorf("expected `escalations: 0` in file, got:\n%s", content)
 	}
-	forbidden := []string{"status:", "priority:", "type:", "tags:", "dependsOn:", "due:", "recurrence:", "assignee:"}
+	forbidden := []string{"status:", "priority:", "type:", "tags:", "dependsOn:", "due:", "recurrence:", "assignee:", "points:"}
 	for _, key := range forbidden {
 		if strings.Contains(content, key) {
-			t.Errorf("setting points=0 leaked %q into file:\n%s", key, content)
+			t.Errorf("setting escalations=0 leaked %q into file:\n%s", key, content)
 		}
 	}
 
-	// And the value survives a reload. `points: 0` is a meaningful
-	// "unestimated" sentinel — value.IsValidPoints accepts it — so the
-	// load-side clamp must not silently rewrite it to maxPoints/2.
+	// And the value survives a reload. `escalations: 0` must round-trip as 0,
+	// not be silently dropped.
 	if err := s.Reload(); err != nil {
 		t.Fatalf("Reload: %v", err)
 	}
@@ -78,11 +76,11 @@ func TestUpdateTiki_ZeroValueWritesOnlyTheFieldSet(t *testing.T) {
 	if reloaded == nil {
 		t.Fatal("GetTiki post-reload = nil")
 	}
-	if !reloaded.Has(tikipkg.FieldPoints) {
-		t.Fatal("points key disappeared across reload")
+	if !reloaded.Has("escalations") {
+		t.Fatal("escalations key disappeared across reload")
 	}
-	if pts, _, _ := reloaded.IntField(tikipkg.FieldPoints); pts != 0 {
-		t.Errorf("points round-trip: got %d, want 0 (the unestimated sentinel)", pts)
+	if n, _, _ := reloaded.IntField("escalations"); n != 0 {
+		t.Errorf("escalations round-trip: got %d, want 0", n)
 	}
 }
 
@@ -120,10 +118,10 @@ func TestUpdateTiki_ZeroValueOnExistingFieldsAdds(t *testing.T) {
 		t.Fatal("precondition: STAT01 should load with status present")
 	}
 
-	// Clone, then add points=0 to the existing Fields set. Both status
-	// and points should be present on disk after save.
+	// Clone, then add escalations=0 to the existing Fields set. Both
+	// status and escalations should be present on disk after save.
 	updated := stored.Clone()
-	updated.Set(tikipkg.FieldPoints, 0)
+	updated.Set("escalations", 0)
 	if err := s.UpdateTiki(updated); err != nil {
 		t.Fatalf("UpdateTiki: %v", err)
 	}
@@ -137,10 +135,10 @@ func TestUpdateTiki_ZeroValueOnExistingFieldsAdds(t *testing.T) {
 	if !strings.Contains(content, "status: backlog") {
 		t.Errorf("original status: backlog should survive; got:\n%s", content)
 	}
-	if !strings.Contains(content, "points: 0") {
-		t.Errorf("explicit points: 0 assignment must be written to disk; got:\n%s", content)
+	if !strings.Contains(content, "escalations: 0") {
+		t.Errorf("explicit escalations: 0 assignment must be written to disk; got:\n%s", content)
 	}
-	forbidden := []string{"priority:", "type:", "tags:", "dependsOn:", "due:", "recurrence:", "assignee:"}
+	forbidden := []string{"priority:", "type:", "tags:", "dependsOn:", "due:", "recurrence:", "assignee:", "points:"}
 	for _, key := range forbidden {
 		if strings.Contains(content, key) {
 			t.Errorf("save leaked %q into file:\n%s", key, content)

@@ -67,10 +67,12 @@ func RenderAssigneeText(tk *tikipkg.Tiki, ctx FieldRenderContext) tview.Primitiv
 	return textView
 }
 
-// RenderPointsText renders a points field as read-only text
+// RenderPointsText renders a points field as read-only text. Points is now
+// a workflow enum (e.g. 1/3/7/11); the stored value is a string key, shown
+// here verbatim alongside the field label.
 func RenderPointsText(tk *tikipkg.Tiki, ctx FieldRenderContext) tview.Primitive {
 	focused := ctx.Mode == RenderModeEdit && ctx.FocusedField == model.EditFieldPoints
-	points, _, _ := tk.IntField(tikipkg.FieldPoints)
+	points, _, _ := tk.StringField(tikipkg.FieldPoints)
 
 	labelTag := getDimOrFullColor(ctx.Mode, focused, ctx.Colors.TaskDetailLabelText, ctx.Colors.TaskDetailEditDimLabelColor).Tag().String()
 	valueTag := getDimOrFullColor(ctx.Mode, focused, ctx.Colors.TaskDetailValueText, ctx.Colors.TaskDetailEditDimValueColor).Tag().String()
@@ -80,7 +82,7 @@ func RenderPointsText(tk *tikipkg.Tiki, ctx FieldRenderContext) tview.Primitive 
 		focusMarker = getFocusMarker(ctx.Colors)
 	}
 
-	text := fmt.Sprintf("%s%s%-10s%s%d", focusMarker, labelTag, "Points:", valueTag, points)
+	text := fmt.Sprintf("%s%s%-10s%s%s", focusMarker, labelTag, "Points:", valueTag, tview.Escape(points))
 	textView := tview.NewTextView().SetDynamicColors(true).SetText(text)
 	textView.SetBorderPadding(0, 0, 0, 0)
 

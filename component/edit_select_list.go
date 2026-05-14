@@ -153,8 +153,19 @@ func (esl *EditSelectList) InputHandler() func(event *tcell.EventKey, setFocus f
 			return
 
 		default:
-			// If typing is disabled, silently ignore all other keys
+			// If typing is disabled, swallow text-editing keys (printable
+			// runes, Backspace, Delete) so the value cannot be mutated, but
+			// forward navigation/control keys (Tab, Enter, Escape, any
+			// Ctrl-modified key) to the enclosing form so it can save or
+			// move focus.
 			if !esl.allowTyping {
+				switch key {
+				case tcell.KeyRune, tcell.KeyBackspace, tcell.KeyBackspace2, tcell.KeyDelete:
+					return
+				}
+				if baseHandler != nil {
+					baseHandler(event, setFocus)
+				}
 				return
 			}
 

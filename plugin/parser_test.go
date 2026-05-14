@@ -955,7 +955,7 @@ func TestParsePluginActions_InputValid(t *testing.T) {
 func TestParsePluginActions_InputIntValid(t *testing.T) {
 	parser := testParser()
 	configs := []PluginActionConfig{
-		{Key: "p", Label: "Set points", Action: `update where id = id() set points=input()`, Input: "int"},
+		{Key: "p", Label: "Set escalations", Action: `update where id = id() set escalations=input()`, Input: "int"},
 	}
 	actions, err := parsePluginActions(configs, parser, nil)
 	if err != nil {
