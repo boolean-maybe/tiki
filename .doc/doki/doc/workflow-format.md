@@ -88,22 +88,61 @@ rather than by relative path) is **not implemented**: the parser rejects any vie
 ID-binding story needs a richer document-index contract than the current `store.PathForID` exposes, so it is
 deferred as a future enhancement without a scheduled phase.
 
-`detail` views are configurable. Title and description are always rendered; `metadata:` declares which
-additional fields appear and in what order. The previous "render the selected document's raw markdown"
-meaning of `kind: detail` is gone — that behavior now lives only on `kind: wiki`. Pre-detail-rewrite
-configs that set no `metadata:` still parse (an empty list is valid) and render only title and description.
+`detail` views are configurable. Title and description are always rendered; `metadata:` declares the
+2D layout grid of metadata fields between them. The previous "render the selected document's raw
+markdown" meaning of `kind: detail` is gone — that behavior now lives only on `kind: wiki`.
+
+`metadata:` is a list of rows; each row is a list of cells. The grid visually mirrors the rendered
+metadata box.
 
 ```yaml
 views:
   - name: Detail
     kind: detail
     require: ["selection:one"]
-    metadata: [status, type, priority]
+    metadata:
+      - [title,     "--",       "--",       "--",      "--"          ]
+      - [status,    type,       priority,   points,    tags:24       ]
+      - [assignee,  due,        createdAt,  recurrence, dependsOn:20 ]
+      - [createdBy, updatedAt,  "_",        "_",       "|"           ]
     actions:
       - key: "a"
         label: "Assign to me"
         action: update where id = id() set assignee=user()
 ```
+
+Cell vocabulary:
+
+| Cell      | Meaning                                                         |
+| --------- | --------------------------------------------------------------- |
+| `name`    | field, system-default width                                     |
+| `name:N`  | field, preferred + minimum width of N character cells           |
+| `--`      | column span — continue the anchor immediately to the left       |
+| `\|`      | row span — continue the anchor immediately above                |
+| `_`       | empty cell                                                      |
+| `<->`     | horizontal stretcher — absorbs residual width                   |
+
+Quoting `--`, `|`, `_`, and `<->` (the YAML-special tokens) keeps the parser happy:
+`["_", "|", "<->"]` or unquoted inside flow sequences both work in practice for the
+column/row markers — when in doubt, quote.
+
+Width and shedding semantics:
+
+- A column's resolved width is the **maximum** `:N` declared in that column.
+- Columns without a `:N` use a per-field default (small for single-row fields, wider for tags /
+  dependsOn / dates). Stretcher columns split residual width equally.
+- If the available terminal width can't fit the sum of column minimums plus inter-column gaps,
+  the **rightmost** non-stretcher column is dropped, and the layout retries. Repeats until it
+  fits or only stretcher columns remain. Authors should put the most-droppable content rightmost.
+- Anchors that span multiple columns distribute their `:N` evenly across those columns; the
+  rightmost spanned column absorbs the remainder.
+
+Layout traversal and edit order:
+
+- Anchors are visited top-to-bottom, left-to-right (row-major). This is also the Tab order in
+  in-place edit mode and in TaskEditView. Arrange your grid so the natural Tab order reads top
+  rows first; put the highest-frequency fields on row 1.
+- Every cell is left-aligned in v1 — no syntax for right/center alignment yet.
 
 Per-view actions register *after* built-in detail actions, so a per-view entry that reuses a built-in
 key (such as `e` for Edit) shadows the built-in. Avoid the keys the detail view already uses for Edit,
@@ -113,26 +152,46 @@ Validation rules for `kind: detail`:
 
 - `metadata:` accepts workflow-declared field names plus the supported audit fields (`createdBy`,
   `createdAt`, `updatedAt`). Unknown names fail workflow load.
-- Identity/body fields (`title`, `description`, `body`, `id`) are rejected — they are always rendered.
+- Identity/body fields `description`, `body`, and `id` are rejected — they are always rendered by
+  the detail view chrome. `title` IS allowed as a layout reservation (the title primitive renders
+  outside the grid; the `title` cell occupies space only).
+- Path fields (`filepath`, `path`) — values live on the tiki struct rather than in Fields and have
+  no typed renderer; rejected.
+- Grid-shape errors (ragged rows, orphan `--` or `|`, mixed stretcher columns, duplicate field
+  names) fail workflow load with `row,col` coordinates.
 - Board/list-only fields (`lanes:`, `mode:`) and wiki-only fields (`path:`, `document:`) are rejected.
 - Per-view `actions:` are allowed and surface alongside the built-in detail actions.
 - `require:` is honored as the navigation gate (typically `["selection:one"]`).
 
 The detail view recognizes any field declared in `workflow.yaml fields:` plus the kanban-style
 well-known names (`status`, `type`, `priority`, `points`, `assignee`, `due`, `recurrence`, `tags`,
-`dependsOn`). Any of these may appear in `metadata:` and will render. Of those, `status`, `type`, and
-`priority` are fully editable in place; the rest render read-only today and will gain richer editors
-in a future iteration.
+`dependsOn`). Of those, `status`, `type`, and `priority` are fully editable in place; the rest render
+read-only today and will gain richer editors in a future iteration.
 
-Some names are rejected from `metadata:`:
+Anti-pattern examples (each fails workflow load):
 
-- Identity/body fields (`id`, `title`, `description`, `body`) — rendered by the detail view chrome,
-  not as metadata rows.
-- Path fields (`filepath`, `path`) — values live on the tiki struct rather than in Fields, and
-  there is no typed renderer for them yet.
+```yaml
+# orphan column span — no anchor to the left
+metadata:
+  - ["--", status]
+```
+
+```yaml
+# stretcher column mixed with a field in another row
+metadata:
+  - [status, "<->"]
+  - [type,   tags]
+```
+
+```yaml
+# ragged rows
+metadata:
+  - [status, type, priority]
+  - [points]
+```
 
 Audit fields (`createdBy`, `createdAt`, `updatedAt`) are supported and render as read-only rows.
-The bundled kanban workflow includes them in its `metadata:` list.
+The bundled kanban workflow includes them in its `metadata:` grid.
 
 Opening a detail view goes through normal action dispatch:
 
@@ -211,8 +270,12 @@ Users upgrading will see one of these messages; each names the legacy field and 
 - `kind: search is reserved but not yet implemented` (the built-in global search UI is not plugin-instantiable today)
 - `document: (ID-based resolution) is not yet implemented — use path: with a relative filepath`
 - ``metadata: only valid on kind: detail`` — set on a board/list/wiki view
-- `metadata cannot include "title"` (or `description`/`body`/`id`) — identity/body fields are always rendered
+- ``metadata cannot include "description"`` (or `body`/`id`) — identity/body fields are always rendered by the detail view chrome
 - `metadata field "X" is not a workflow-declared field` — typo, or the field is not in `workflow.yaml fields:`
+- `metadata: row N has M cells, expected K` — the grid has a ragged row
+- ``metadata: row N, col M: orphan '--'`` (or `'|'`) — no anchor to the left of / above the span marker
+- ``metadata: col N: '<->' must not be mixed with anchored or row-spanned cells in the same column`` — stretcher columns can only contain `<->`, `_`, or pass-through `--`
+- `metadata: row N, col M: field "X" appears more than once` — each anchor name must be unique in the grid
 
 Loading is fail-closed: any one of these errors (or any lane/action/require parse failure) refuses the whole
 workflow rather than silently loading only the views that parsed. A partial workflow would diverge from what you

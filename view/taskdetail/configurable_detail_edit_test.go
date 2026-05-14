@@ -24,7 +24,7 @@ func TestConfigurableDetailView_EnterAndExitEditMode(t *testing.T) {
 
 	cv := NewConfigurableDetailView(
 		s, tk.ID, "Detail",
-		[]string{"status", "type", "priority"},
+		singleColumnSpec([]string{"status", "type", "priority"}),
 		controller.DetailViewActions(),
 		nil, nil,
 	)
@@ -74,7 +74,7 @@ func TestConfigurableDetailView_FlushFocusedEditor_FlushesAllEditors(t *testing.
 	}
 	cv := NewConfigurableDetailView(
 		s, tk.ID, "Detail",
-		[]string{"status", "type", "tags"},
+		singleColumnSpec([]string{"status", "type", "tags"}),
 		controller.DetailViewActions(),
 		nil, nil,
 	)
@@ -124,7 +124,7 @@ func TestBuildFieldPrimitive_FocusOnlyOnFocusedRow(t *testing.T) {
 	}
 	cv := NewConfigurableDetailView(
 		s, tk.ID, "Detail",
-		[]string{"status", "type", "priority"},
+		singleColumnSpec([]string{"status", "type", "priority"}),
 		controller.DetailViewActions(),
 		nil, nil,
 	)
@@ -218,7 +218,7 @@ func TestConfigurableDetailView_FlushEmitsCanonicalKeyForEnums(t *testing.T) {
 	}
 	cv := NewConfigurableDetailView(
 		s, tk.ID, "Detail",
-		[]string{"status", "priority"},
+		singleColumnSpec([]string{"status", "priority"}),
 		controller.DetailViewActions(),
 		nil, nil,
 	)
@@ -288,7 +288,7 @@ func TestConfigurableDetailView_FlushOrderRecurrenceLast(t *testing.T) {
 	}
 	cv := NewConfigurableDetailView(
 		s, tk.ID, "Detail",
-		[]string{"due", "recurrence"},
+		singleColumnSpec([]string{"due", "recurrence"}),
 		controller.DetailViewActions(),
 		nil, nil,
 	)
@@ -339,7 +339,7 @@ func TestConfigurableDetailView_TabTraversesCustomEnumField(t *testing.T) {
 	}
 	cv := NewConfigurableDetailView(
 		s, tk.ID, "Detail",
-		[]string{"status", "severity", "priority"},
+		singleColumnSpec([]string{"status", "severity", "priority"}),
 		controller.DetailViewActions(),
 		nil, nil,
 	)
@@ -374,7 +374,7 @@ func TestConfigurableDetailView_TabTraversesEditableFields(t *testing.T) {
 	}
 	cv := NewConfigurableDetailView(
 		s, tk.ID, "Detail",
-		[]string{"status", "type", "priority"},
+		singleColumnSpec([]string{"status", "type", "priority"}),
 		controller.DetailViewActions(),
 		nil, nil,
 	)
@@ -420,7 +420,7 @@ func TestConfigurableDetailView_ReadOnlyFieldsAreSkippedInTraversal(t *testing.T
 	}
 	cv := NewConfigurableDetailView(
 		s, tk.ID, "Detail",
-		[]string{"status", "createdBy", "type", "createdAt", "priority", "updatedAt"},
+		singleColumnSpec([]string{"status", "createdBy", "type", "createdAt", "priority", "updatedAt"}),
 		controller.DetailViewActions(),
 		nil, nil,
 	)
@@ -456,7 +456,7 @@ func TestConfigurableDetailView_NoEditableFieldsLeavesViewMode(t *testing.T) {
 	}
 	cv := NewConfigurableDetailView(
 		s, tk.ID, "Detail",
-		[]string{"createdBy", "createdAt", "updatedAt"}, // all read-only
+		singleColumnSpec([]string{"createdBy", "createdAt", "updatedAt"}), // all read-only
 		controller.DetailViewActions(),
 		nil, nil,
 	)
@@ -519,7 +519,7 @@ func TestConfigurableDetailView_FiresActionChangeHandlerOnToggle(t *testing.T) {
 	}
 	cv := NewConfigurableDetailView(
 		s, tk.ID, "Detail",
-		[]string{"status", "type", "priority"},
+		singleColumnSpec([]string{"status", "type", "priority"}),
 		controller.DetailViewActions(),
 		nil, nil,
 	)

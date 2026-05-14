@@ -110,7 +110,7 @@ func (f *ViewFactory) RegisterPlugin(name string, cfg *model.PluginConfig, def p
 func (f *ViewFactory) lookupDefaultDetailMetadata() []string {
 	if def, ok := f.pluginDefs[model.DetailPluginName]; ok {
 		if dp, ok := def.(*plugin.DetailPlugin); ok {
-			return dp.Metadata
+			return dp.Metadata.AnchorNames()
 		}
 	}
 	names := make([]string, 0, len(f.pluginDefs))
@@ -120,7 +120,7 @@ func (f *ViewFactory) lookupDefaultDetailMetadata() []string {
 	sort.Strings(names)
 	for _, name := range names {
 		if dp, ok := f.pluginDefs[name].(*plugin.DetailPlugin); ok {
-			return dp.Metadata
+			return dp.Metadata.AnchorNames()
 		}
 	}
 	return nil

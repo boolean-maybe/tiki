@@ -79,7 +79,8 @@ type FieldEditor func(tk *tikipkg.Tiki, ctx FieldRenderContext, onChange func(st
 
 // FieldHeightFn computes the row count a field needs at a given inner
 // column width. Single-row types return 1; list types return 1 + wrapped
-// content rows. The grid clamps the result to [1, rowsPerColumn].
+// content rows. The grid solver clamps the result against the anchor's
+// declared row span.
 type FieldHeightFn func(tk *tikipkg.Tiki, width int) int
 
 // TypeUI bundles the rendering and editing primitives for a semantic type.

@@ -1,10 +1,12 @@
 package controller
 
 import (
+	"fmt"
 	"testing"
 
 	"github.com/gdamore/tcell/v2"
 
+	"github.com/boolean-maybe/tiki/gridlayout"
 	rukiRuntime "github.com/boolean-maybe/tiki/internal/ruki/runtime"
 	"github.com/boolean-maybe/tiki/plugin"
 	"github.com/boolean-maybe/tiki/service"
@@ -14,13 +16,21 @@ import (
 // newTestDetailPlugin builds a DetailPlugin fixture with the given metadata
 // and per-view actions.
 func newTestDetailPlugin(metadata []string, actions []plugin.PluginAction) *plugin.DetailPlugin {
+	var spec gridlayout.GridSpec
+	if len(metadata) > 0 {
+		s, err := gridlayout.ParseGrid([][]string{metadata})
+		if err != nil {
+			panic(fmt.Sprintf("newTestDetailPlugin: invalid metadata %v: %v", metadata, err))
+		}
+		spec = s
+	}
 	return &plugin.DetailPlugin{
 		BasePlugin: plugin.BasePlugin{
 			Name:        "Detail",
 			Kind:        plugin.KindDetail,
 			ConfigIndex: -1,
 		},
-		Metadata: metadata,
+		Metadata: spec,
 		Actions:  actions,
 	}
 }

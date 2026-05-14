@@ -6,13 +6,13 @@ import (
 )
 
 // TestDetailPlugin_ParsesMetadata asserts kind: detail accepts metadata: and
-// builds a DetailPlugin (not a DokiPlugin, the Phase-1 split).
+// builds a DetailPlugin with the parsed layout grid.
 func TestDetailPlugin_ParsesMetadata(t *testing.T) {
 	schema := testSchema()
 	cfg := pluginFileConfig{
 		Name:     "Detail",
 		Kind:     "detail",
-		Metadata: []string{"status", "type", "priority"},
+		Metadata: [][]string{{"status", "type", "priority"}},
 	}
 	p, err := parsePluginConfig(cfg, "test", schema, nil)
 	if err != nil {
@@ -22,9 +22,9 @@ func TestDetailPlugin_ParsesMetadata(t *testing.T) {
 	if !ok {
 		t.Fatalf("expected *DetailPlugin, got %T", p)
 	}
-	got := strings.Join(dp.Metadata, ",")
+	got := strings.Join(dp.Metadata.AnchorNames(), ",")
 	if got != "status,type,priority" {
-		t.Errorf("metadata = %q, want %q", got, "status,type,priority")
+		t.Errorf("metadata anchor names = %q, want %q", got, "status,type,priority")
 	}
 }
 
@@ -35,7 +35,7 @@ func TestDetailPlugin_RejectsUnknownMetadataField(t *testing.T) {
 	cfg := pluginFileConfig{
 		Name:     "Detail",
 		Kind:     "detail",
-		Metadata: []string{"status", "no_such_field"},
+		Metadata: [][]string{{"status", "no_such_field"}},
 	}
 	_, err := parsePluginConfig(cfg, "test", schema, nil)
 	if err == nil {
@@ -57,7 +57,7 @@ func TestDetailPlugin_AcceptsAnyTypedOrGenericWorkflowField(t *testing.T) {
 			cfg := pluginFileConfig{
 				Name:     "Detail",
 				Kind:     "detail",
-				Metadata: []string{name},
+				Metadata: [][]string{{name}},
 			}
 			if _, err := parsePluginConfig(cfg, "test", schema, nil); err != nil {
 				t.Errorf("%q should be accepted in metadata, got: %v", name, err)
@@ -77,7 +77,7 @@ func TestDetailPlugin_RejectsFilepathInMetadata(t *testing.T) {
 	cfg := pluginFileConfig{
 		Name:     "Detail",
 		Kind:     "detail",
-		Metadata: []string{"filepath"},
+		Metadata: [][]string{{"filepath"}},
 	}
 	_, err := parsePluginConfig(cfg, "test", schema, nil)
 	if err == nil {
@@ -88,17 +88,32 @@ func TestDetailPlugin_RejectsFilepathInMetadata(t *testing.T) {
 	}
 }
 
-// TestDetailPlugin_RejectsIdentityFieldsInMetadata asserts that title, description,
-// id, and body cannot be configured in metadata since they are always rendered
-// (or never rendered, for id which is in the title row).
+// TestDetailPlugin_AllowsTitleInMetadata asserts title is accepted in the
+// metadata grid as a layout reservation — the title primitive renders
+// outside the grid; the cell occupies space only.
+func TestDetailPlugin_AllowsTitleInMetadata(t *testing.T) {
+	schema := testSchema()
+	cfg := pluginFileConfig{
+		Name:     "Detail",
+		Kind:     "detail",
+		Metadata: [][]string{{"title"}},
+	}
+	if _, err := parsePluginConfig(cfg, "test", schema, nil); err != nil {
+		t.Errorf("title should be accepted as a layout reservation, got: %v", err)
+	}
+}
+
+// TestDetailPlugin_RejectsIdentityFieldsInMetadata asserts that description,
+// id, and body cannot be configured in the metadata grid — they are always
+// rendered by the detail view chrome.
 func TestDetailPlugin_RejectsIdentityFieldsInMetadata(t *testing.T) {
 	schema := testSchema()
-	for _, name := range []string{"title", "description", "id", "body"} {
+	for _, name := range []string{"description", "id", "body"} {
 		t.Run(name, func(t *testing.T) {
 			cfg := pluginFileConfig{
 				Name:     "Detail",
 				Kind:     "detail",
-				Metadata: []string{name},
+				Metadata: [][]string{{name}},
 			}
 			_, err := parsePluginConfig(cfg, "test", schema, nil)
 			if err == nil {
@@ -145,7 +160,7 @@ func TestDetailPlugin_AllowsPerViewActions(t *testing.T) {
 	cfg := pluginFileConfig{
 		Name:     "Detail",
 		Kind:     "detail",
-		Metadata: []string{"status"},
+		Metadata: [][]string{{"status"}},
 		Actions: []PluginActionConfig{
 			{
 				Key:    "a",
@@ -178,7 +193,7 @@ func TestDetailPlugin_AllowsViewKindActions(t *testing.T) {
 	cfg := pluginFileConfig{
 		Name:     "Detail",
 		Kind:     "detail",
-		Metadata: []string{"status"},
+		Metadata: [][]string{{"status"}},
 		Actions: []PluginActionConfig{
 			{Key: "F4", Label: "Backlog", Kind: "view", View: "Backlog"},
 		},
@@ -204,7 +219,7 @@ func TestWikiPlugin_RejectsMetadata(t *testing.T) {
 		Name:     "Docs",
 		Kind:     "wiki",
 		Path:     "index.md",
-		Metadata: []string{"status"},
+		Metadata: [][]string{{"status"}},
 	}
 	_, err := parsePluginConfig(cfg, "test", schema, nil)
 	if err == nil {
@@ -222,7 +237,7 @@ func TestBoardPlugin_RejectsMetadata(t *testing.T) {
 		Name:     "Board",
 		Kind:     "board",
 		Lanes:    []PluginLaneConfig{{Name: "Todo", Filter: "select"}},
-		Metadata: []string{"status"},
+		Metadata: [][]string{{"status"}},
 	}
 	_, err := parsePluginConfig(cfg, "test", schema, nil)
 	if err == nil {

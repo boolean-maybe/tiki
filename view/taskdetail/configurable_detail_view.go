@@ -6,6 +6,7 @@ import (
 
 	"github.com/boolean-maybe/tiki/config"
 	"github.com/boolean-maybe/tiki/controller"
+	"github.com/boolean-maybe/tiki/gridlayout"
 	"github.com/boolean-maybe/tiki/model"
 	"github.com/boolean-maybe/tiki/store"
 	tikipkg "github.com/boolean-maybe/tiki/tiki"
@@ -43,7 +44,8 @@ type ConfigurableDetailView struct {
 	viewID       model.ViewID
 	pluginName   string
 
-	metadata    []string
+	spec        gridlayout.GridSpec // parsed metadata grid (layout)
+	metadata    []string            // flat anchor names in declaration order (edit traversal)
 	navMarkdown *markdown.NavigableMarkdown
 	listenerID  int
 
@@ -81,7 +83,7 @@ func NewConfigurableDetailView(
 	taskStore store.Store,
 	taskID string,
 	pluginName string,
-	metadata []string,
+	spec gridlayout.GridSpec,
 	registry *controller.ActionRegistry,
 	imageManager *navtview.ImageManager,
 	mermaidOpts *nav.MermaidOptions,
@@ -97,7 +99,8 @@ func NewConfigurableDetailView(
 		viewRegistry:      registry,
 		viewID:            model.MakePluginViewID(pluginName),
 		pluginName:        pluginName,
-		metadata:          metadata,
+		spec:              spec,
+		metadata:          spec.AnchorNames(),
 		focusedIdx:        -1,
 		editors:           make(map[string]FieldEditorWidget),
 		onEditFieldChange: make(map[string]func(string)),
@@ -191,8 +194,6 @@ func (cv *ConfigurableDetailView) refresh() {
 
 	if !cv.fullscreen {
 		metadataBox := cv.buildMetadataBox(tk, colors)
-		// Fixed shape: 2 borders + 1 top padding + title(1) + spacer(1) +
-		// grid(4) + spacer(1) = 10 outer rows.
 		cv.content.AddItem(metadataBox, metadataBoxHeight, 0, false)
 	}
 
@@ -229,15 +230,20 @@ func (cv *ConfigurableDetailView) focusActiveEditor() {
 	}
 }
 
-// metadataBoxHeight is the fixed outer height of the framed metadata box.
-// Layout: 1 top border + 1 top padding + title(1) + spacer(1) + grid(4) +
-// spacer(1) + 1 bottom border = 10.
-const metadataBoxHeight = 10
+// metadataBoxHeight is the outer height of the framed metadata box.
+// Layout (matches the legacy renderer): 1 top border + 1 top padding +
+// title(1) + spacer(1) + metadataGridHeight + spacer(1) + 1 bottom
+// border = 10 outer rows. Taller grids have their bottom rows clipped —
+// v1 keeps the visible grid body at 4 rows to preserve UI stability.
+const (
+	metadataBoxHeight  = 10
+	metadataGridHeight = 4
+)
 
 // buildMetadataBox assembles the title row and configured metadata fields
-// into a framed box of fixed shape. Configured fields flow into the 4-row
-// grid body via the gridContainer primitive. The title row sits above the
-// grid; trailing spacer is absorbed by the frame's bottom padding.
+// into a framed box. Configured fields flow into the grid body via the
+// gridContainer primitive, which honors the layout grid declared in
+// workflow.yaml (column/row spans, stretchers, preferred widths).
 //
 // In edit mode, fields whose registry advertises EditorImplemented receive
 // a focusable editor primitive (cached on cv.editors so user input
@@ -250,12 +256,15 @@ func (cv *ConfigurableDetailView) buildMetadataBox(tk *tikipkg.Tiki, colors *con
 	}
 	ctx := FieldRenderContext{Mode: mode, Colors: colors, Store: cv.taskStore}
 
-	gridFields, primitives := cv.buildGridFieldsAndPrimitives(tk, ctx)
+	primitives := cv.buildAnchorPrimitives(tk, ctx)
+	heightOf := func(name string, w int) int { return FieldHeight(name, tk, w) }
+
+	gridHeight := metadataGridHeight
 
 	container := tview.NewFlex().SetDirection(tview.FlexRow)
 	container.AddItem(RenderTitleText(tk, ctx), 1, 0, false)
 	container.AddItem(tview.NewBox(), 1, 0, false)
-	container.AddItem(newGridContainer(gridFields, primitives), rowsPerColumn, 0, false)
+	container.AddItem(newGridContainer(cv.spec, primitives, heightOf), gridHeight, 0, false)
 	container.AddItem(tview.NewBox(), 1, 0, false)
 
 	frame := tview.NewFrame(container).SetBorders(0, 0, 0, 0, 0, 0)
@@ -266,25 +275,21 @@ func (cv *ConfigurableDetailView) buildMetadataBox(tk *tikipkg.Tiki, colors *con
 	return frame
 }
 
-// buildGridFieldsAndPrimitives produces the (fields, primitives) pair the
-// gridContainer consumes. Each field's HeightAt closure resolves through
-// FieldHeight against the registry's per-semantic HeightFn. Each primitive
-// is the renderer (view mode / no editor / non-focused field) or the cached
-// editor (edit mode + focused + editable).
-func (cv *ConfigurableDetailView) buildGridFieldsAndPrimitives(tk *tikipkg.Tiki, ctx FieldRenderContext) ([]GridField, map[string]tview.Primitive) {
-	fields := make([]GridField, 0, len(cv.metadata))
-	primitives := make(map[string]tview.Primitive, len(cv.metadata))
-	for i, name := range cv.metadata {
-		captured := name
-		fields = append(fields, GridField{
-			Name: captured,
-			HeightAt: func(width int) int {
-				return FieldHeight(captured, tk, width)
-			},
-		})
-		primitives[name] = cv.buildFieldPrimitive(i, name, tk, ctx)
+// buildAnchorPrimitives produces one tview.Primitive per anchor in the
+// metadata grid, keyed by anchor name. The title anchor is reserved for
+// layout only (the title primitive renders outside the grid) and so maps
+// to an empty box. Other anchors get either the read-only renderer or
+// (in edit mode + focused + editable) a cached editor widget.
+func (cv *ConfigurableDetailView) buildAnchorPrimitives(tk *tikipkg.Tiki, ctx FieldRenderContext) map[string]tview.Primitive {
+	primitives := make(map[string]tview.Primitive, len(cv.spec.Anchors))
+	for i, a := range cv.spec.Anchors {
+		if a.Name == "title" {
+			primitives[a.Name] = tview.NewBox()
+			continue
+		}
+		primitives[a.Name] = cv.buildFieldPrimitive(i, a.Name, tk, ctx)
 	}
-	return fields, primitives
+	return primitives
 }
 
 // buildFieldPrimitive returns the widget for a metadata field. In view mode
