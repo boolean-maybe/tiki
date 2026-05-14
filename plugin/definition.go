@@ -4,6 +4,7 @@ import (
 	"github.com/gdamore/tcell/v2"
 
 	"github.com/boolean-maybe/tiki/config"
+	"github.com/boolean-maybe/tiki/gridlayout"
 	"github.com/boolean-maybe/tiki/ruki"
 )
 
@@ -134,14 +135,14 @@ type DokiPlugin struct {
 	DocumentPath string // wiki: relative path under .doc/
 }
 
-// DetailPlugin backs the configurable detail view kind. Metadata names
-// the schema field list to render between the always-present title and
-// description sections; ordering matches the YAML list. Per-view Actions
-// are surfaced alongside built-in detail actions and global actions.
+// DetailPlugin backs the configurable detail view kind. Metadata is the
+// parsed 2D layout grid for the metadata box between the title and
+// description sections. Per-view Actions are surfaced alongside built-in
+// detail actions and global actions.
 type DetailPlugin struct {
 	BasePlugin
-	Metadata []string       // configured metadata field names, in render order
-	Actions  []PluginAction // per-view shortcut actions (merged with globals at runtime)
+	Metadata gridlayout.GridSpec // parsed metadata grid (see workflow-format.md)
+	Actions  []PluginAction      // per-view shortcut actions (merged with globals at runtime)
 }
 
 // PluginActionConfig represents a shortcut action in YAML or config definitions.

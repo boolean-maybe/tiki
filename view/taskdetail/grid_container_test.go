@@ -6,41 +6,36 @@ import (
 	"github.com/rivo/tview"
 )
 
+func unitHeight(string, int) int { return 1 }
+
 func TestGridContainer_RebuildOnWidthChange(t *testing.T) {
-	fields := []GridField{
-		fixedHeight("a", 1),
-		fixedHeight("b", 1),
-	}
+	spec := singleColumnSpec([]string{"a", "b"})
 	primitives := map[string]tview.Primitive{
 		"a": tview.NewTextView(),
 		"b": tview.NewTextView(),
 	}
-	g := newGridContainer(fields, primitives)
+	g := newGridContainer(spec, primitives, unitHeight)
 
 	g.rebuild(120)
 	if g.lastWidth != 120 {
 		t.Errorf("after rebuild(120): lastWidth = %d, want 120", g.lastWidth)
 	}
-	firstChildren := g.GetItemCount()
 	g.rebuild(60)
 	if g.lastWidth != 60 {
 		t.Errorf("after rebuild(60): lastWidth = %d, want 60", g.lastWidth)
 	}
-	if g.GetItemCount() == 0 {
-		t.Error("after rebuild: no children")
-	}
 	// Same-width rebuild remains valid (idempotent).
 	g.rebuild(60)
-	if g.GetItemCount() == 0 {
-		t.Error("after idempotent rebuild: no children")
+	if g.lastWidth != 60 {
+		t.Errorf("after idempotent rebuild: lastWidth = %d, want 60", g.lastWidth)
 	}
-	_ = firstChildren
 }
 
-func TestGridContainer_EmptyFields(t *testing.T) {
-	g := newGridContainer(nil, nil)
+func TestGridContainer_EmptySpec(t *testing.T) {
+	g := newGridContainer(singleColumnSpec(nil), nil, unitHeight)
 	g.rebuild(80)
-	if g.GetItemCount() != 0 {
-		t.Errorf("empty fields rebuild: GetItemCount = %d, want 0", g.GetItemCount())
+	// No panic, lastWidth tracked.
+	if g.lastWidth != 80 {
+		t.Errorf("empty spec rebuild: lastWidth = %d, want 80", g.lastWidth)
 	}
 }

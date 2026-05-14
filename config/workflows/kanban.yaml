@@ -205,7 +205,18 @@ views:
     kind: detail
     description: "Configured detail view for the selected tiki"
     require: ["selection:one"]
-    metadata: [status, type, priority, points, assignee, createdBy, createdAt, updatedAt, due, recurrence, tags]
+    # Metadata grid: each row is a row in the rendered metadata box. Cells:
+    #   name      field, system-default width
+    #   name:N    field, preferred + minimum width of N chars
+    #   --        column span (continue from the cell to the left)
+    #   |         row span (continue from the cell above)
+    #   _         empty cell
+    #   <->       horizontal stretcher (absorbs remaining space)
+    metadata:
+      - [title,     "--",       "--",        "--",         "--"          ]
+      - [status,    type,       priority,    points,       tags:24       ]
+      - [assignee,  due,        createdAt,   recurrence,   dependsOn:20  ]
+      - [createdBy, updatedAt,  "_",         "_",          "|"           ]
 
 triggers:
   - description: block completion with open dependencies

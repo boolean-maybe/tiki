@@ -29,7 +29,8 @@ views:
   - name: Detail
     kind: detail
     require: ["selection:one"]
-    metadata: [status, type, priority]
+    metadata:
+      - [status, type, priority]
 `
 	path := filepath.Join(tmpDir, "workflow.yaml")
 	if err := os.WriteFile(path, []byte(content), 0644); err != nil {
@@ -55,8 +56,8 @@ views:
 		t.Fatal("expected a DetailPlugin in loaded plugins")
 	}
 	wantMeta := []string{"status", "type", "priority"}
-	if strings.Join(detail.Metadata, ",") != strings.Join(wantMeta, ",") {
-		t.Errorf("metadata = %v, want %v", detail.Metadata, wantMeta)
+	if strings.Join(detail.Metadata.AnchorNames(), ",") != strings.Join(wantMeta, ",") {
+		t.Errorf("metadata anchors = %v, want %v", detail.Metadata.AnchorNames(), wantMeta)
 	}
 
 	// global Enter action should have parsed as kind: view targeting Detail.
@@ -103,7 +104,8 @@ views:
   - name: Detail
     kind: detail
     require: ["selection:one"]
-    metadata: [status]
+    metadata:
+      - [status]
 `
 	path := filepath.Join(tmpDir, "workflow.yaml")
 	if err := os.WriteFile(path, []byte(content), 0644); err != nil {

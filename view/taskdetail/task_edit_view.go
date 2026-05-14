@@ -7,6 +7,7 @@ import (
 
 	"github.com/boolean-maybe/tiki/config"
 	"github.com/boolean-maybe/tiki/controller"
+	"github.com/boolean-maybe/tiki/gridlayout"
 	"github.com/boolean-maybe/tiki/model"
 	"github.com/boolean-maybe/tiki/service"
 	"github.com/boolean-maybe/tiki/store"
@@ -279,12 +280,13 @@ func (ev *TaskEditView) buildMetadataBox(tk *tikipkg.Tiki, colors *config.ColorC
 	}
 
 	titlePrimitive := ev.buildTitlePrimitive(tk, colors)
-	gridFields, primitives := ev.buildGridFieldsAndPrimitives(tk, ctx)
+	spec, primitives := ev.buildGridSpecAndPrimitives(tk, ctx)
+	heightOf := func(name string, w int) int { return FieldHeight(name, tk, w) }
 
 	container := tview.NewFlex().SetDirection(tview.FlexRow)
 	container.AddItem(titlePrimitive, 1, 0, false)
 	container.AddItem(tview.NewBox(), 1, 0, false)
-	container.AddItem(newGridContainer(gridFields, primitives), rowsPerColumn, 0, false)
+	container.AddItem(newGridContainer(spec, primitives, heightOf), metadataGridHeight, 0, false)
 	container.AddItem(tview.NewBox(), 1, 0, false)
 
 	frame := tview.NewFrame(container).SetBorders(0, 0, 0, 0, 0, 0)
@@ -310,24 +312,22 @@ func (ev *TaskEditView) buildTitlePrimitive(tk *tikipkg.Tiki, colors *config.Col
 	return input
 }
 
-// buildGridFieldsAndPrimitives mirrors the configurable view's helper but
+// buildGridSpecAndPrimitives mirrors the configurable view's helper but
 // returns editor primitives for the focused field (when focus is on a
 // metadata field) instead of the read-only render. Editors are cached on
 // ev.editors so user input survives across refreshes.
-func (ev *TaskEditView) buildGridFieldsAndPrimitives(tk *tikipkg.Tiki, ctx FieldRenderContext) ([]GridField, map[string]tview.Primitive) {
-	fields := make([]GridField, 0, len(ev.metadata))
+//
+// TaskEditView has a flat metadata list rather than a parsed grid; it
+// packs the list into columns of rowsPerPackedColumn rows so the
+// shared grid container can lay them out without overflowing the
+// fixed-height metadata box.
+func (ev *TaskEditView) buildGridSpecAndPrimitives(tk *tikipkg.Tiki, ctx FieldRenderContext) (gridlayout.GridSpec, map[string]tview.Primitive) {
+	spec := greedyPackedSpec(ev.metadata)
 	primitives := make(map[string]tview.Primitive, len(ev.metadata))
 	for _, name := range ev.metadata {
-		captured := name
-		fields = append(fields, GridField{
-			Name: captured,
-			HeightAt: func(width int) int {
-				return FieldHeight(captured, tk, width)
-			},
-		})
 		primitives[name] = ev.gridFieldPrimitive(name, tk, ctx)
 	}
-	return fields, primitives
+	return spec, primitives
 }
 
 // gridFieldPrimitive returns the editor for the focused field when the view

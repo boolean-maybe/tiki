@@ -9,6 +9,7 @@ import (
 	"gopkg.in/yaml.v3"
 
 	"github.com/boolean-maybe/tiki/config"
+	"github.com/boolean-maybe/tiki/gridlayout"
 	"github.com/boolean-maybe/tiki/ruki"
 )
 
@@ -301,7 +302,7 @@ func parseDetailPlugin(cfg pluginFileConfig, base BasePlugin, schema ruki.Schema
 		return nil, fmt.Errorf("plugin %q: `path:` only valid on kind: wiki", cfg.Name)
 	}
 
-	metadata, err := validateDetailMetadata(cfg.Name, cfg.Metadata, schema)
+	spec, err := validateDetailMetadata(cfg.Name, cfg.Metadata, schema)
 	if err != nil {
 		return nil, err
 	}
@@ -314,64 +315,67 @@ func parseDetailPlugin(cfg pluginFileConfig, base BasePlugin, schema ruki.Schema
 
 	return &DetailPlugin{
 		BasePlugin: base,
-		Metadata:   metadata,
+		Metadata:   spec,
 		Actions:    actions,
 	}, nil
 }
 
-// validateDetailMetadata validates the metadata field list against the
-// schema. Two categories of names may appear in metadata:
+// validateDetailMetadata parses the 2D metadata grid and validates each
+// anchor's field name against the schema. Two categories of names may
+// appear:
 //
 //   - Workflow-declared fields from `workflow.yaml fields:` (the common case).
 //   - Supported audit fields: `createdBy`, `createdAt`, `updatedAt`. These
 //     are system fields wired into the typed detail-view registry so they
 //     render as read-only rows.
+//   - `title` is allowed as a layout reservation — the title primitive
+//     renders outside the grid; the cell occupies space only.
 //
 // Rejected:
 //
-//   - Identity/body fields (`id`, `title`, `description`, `body`) — always
-//     rendered by the detail view chrome, never as metadata rows.
+//   - Identity/body fields other than `title` (`id`, `description`, `body`).
 //   - Path fields (`filepath`, `path`) — values live on the tiki struct
 //     rather than in Fields and have no typed renderer yet.
 //   - Anything not in the schema (catches typos).
+//   - Grid shape errors (ragged rows, orphan spans, mixed stretchers)
+//     surface with row/col coordinates.
 //
 // Workflow-declared fields without a typed editor fall back to a generic
 // read-only `Label: value` row at render time.
-func validateDetailMetadata(pluginName string, fields []string, schema ruki.Schema) ([]string, error) {
-	if len(fields) == 0 {
-		return nil, nil
+func validateDetailMetadata(pluginName string, raw [][]string, schema ruki.Schema) (gridlayout.GridSpec, error) {
+	if len(raw) == 0 {
+		return gridlayout.GridSpec{}, nil
 	}
-	out := make([]string, 0, len(fields))
-	seen := make(map[string]struct{}, len(fields))
-	for _, raw := range fields {
-		name := strings.TrimSpace(raw)
-		if name == "" {
-			return nil, fmt.Errorf("plugin %q: metadata contains empty field name", pluginName)
-		}
-		if _, dup := seen[name]; dup {
-			return nil, fmt.Errorf("plugin %q: metadata field %q is listed more than once", pluginName, name)
+	spec, err := gridlayout.ParseGrid(raw)
+	if err != nil {
+		return gridlayout.GridSpec{}, fmt.Errorf("plugin %q: metadata: %w", pluginName, err)
+	}
+	for _, a := range spec.Anchors {
+		name := a.Name
+		if name == "title" {
+			// title is a layout reservation — the title primitive renders
+			// outside the grid. No schema lookup needed.
+			continue
 		}
 		if isDetailIdentityField(name) {
-			return nil, fmt.Errorf(
-				"plugin %q: metadata cannot include %q — title and description are always rendered",
+			return gridlayout.GridSpec{}, fmt.Errorf(
+				"plugin %q: metadata cannot include %q — description and id are always rendered by the detail view chrome",
 				pluginName, name)
 		}
 		if isDetailNonRenderableSystemField(name) {
-			return nil, fmt.Errorf(
+			return gridlayout.GridSpec{}, fmt.Errorf(
 				"plugin %q: metadata cannot include %q — it lives on the tiki struct (not in Fields) and has no detail-view renderer",
 				pluginName, name)
 		}
 		if schema != nil {
 			if _, ok := schema.Field(name); !ok {
-				return nil, fmt.Errorf(
+				return gridlayout.GridSpec{}, fmt.Errorf(
 					"plugin %q: metadata field %q is not a workflow-declared field",
 					pluginName, name)
 			}
 		}
-		seen[name] = struct{}{}
-		out = append(out, name)
 	}
-	return out, nil
+	return spec, nil
 }
 
 // isDetailIdentityField reports whether the field is one of the identity/body

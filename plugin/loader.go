@@ -27,7 +27,7 @@ type pluginFileConfig struct {
 	Path        string               `yaml:"path"`
 	Lanes       []PluginLaneConfig   `yaml:"lanes"`
 	Actions     []PluginActionConfig `yaml:"actions"`
-	Metadata    []string             `yaml:"metadata"`
+	Metadata    [][]string           `yaml:"metadata"`
 	Require     []string             `yaml:"require"`
 	Default     bool                 `yaml:"default"`
 

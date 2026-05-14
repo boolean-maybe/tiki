@@ -43,11 +43,33 @@ func TestBundledKanban_HasDetailViewAndEnterAction(t *testing.T) {
 		t.Fatal("bundled kanban does not contain a Detail (kind: detail) view")
 	}
 
-	// Defaults declared by bundled kanban, in render order.
-	want := []string{"status", "type", "priority", "points", "assignee", "createdBy", "createdAt", "updatedAt", "due", "recurrence", "tags"}
-	got := strings.Join(detail.Metadata, ",")
-	if got != strings.Join(want, ",") {
-		t.Errorf("Detail.Metadata = %v, want %v", detail.Metadata, want)
+	// Defaults declared by bundled kanban — the parsed grid's anchor
+	// declaration order is the equivalent of the pre-grid flat list.
+	wantAnchors := map[string]bool{
+		"status": true, "type": true, "priority": true, "points": true,
+		"assignee": true, "createdBy": true, "createdAt": true, "updatedAt": true,
+		"due": true, "recurrence": true, "tags": true, "dependsOn": true,
+	}
+	gotAnchors := detail.Metadata.AnchorNames()
+	for _, n := range gotAnchors {
+		if n == "title" {
+			continue // layout reservation, not a renderable field
+		}
+		if !wantAnchors[n] {
+			t.Errorf("unexpected anchor in Detail.Metadata: %q (full list: %s)", n, strings.Join(gotAnchors, ","))
+		}
+	}
+	for n := range wantAnchors {
+		found := false
+		for _, g := range gotAnchors {
+			if g == n {
+				found = true
+				break
+			}
+		}
+		if !found {
+			t.Errorf("missing anchor in Detail.Metadata: %q (full list: %s)", n, strings.Join(gotAnchors, ","))
+		}
 	}
 
 	var enter *PluginAction

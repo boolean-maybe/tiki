@@ -318,7 +318,7 @@ func TestConfigurableDetailView_RendersConfiguredMetadata(t *testing.T) {
 		s,
 		tk.ID,
 		"Detail",
-		[]string{"status", "type", "priority"},
+		singleColumnSpec([]string{"status", "type", "priority"}),
 		registry,
 		nil, nil,
 	)
@@ -345,7 +345,7 @@ func TestConfigurableDetailView_HandlesMissingTiki(t *testing.T) {
 		s,
 		"TIKI_GONE",
 		"Detail",
-		[]string{"status"},
+		singleColumnSpec([]string{"status"}),
 		controller.DetailViewActions(),
 		nil, nil,
 	)
