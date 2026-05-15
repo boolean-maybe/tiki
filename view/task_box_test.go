@@ -123,6 +123,109 @@ func TestBuildCompactTaskContent(t *testing.T) {
 	}
 }
 
+// TestBuildCompactTaskContent_TitleRoleMarkupExpands pins that a compact
+// task card whose title carries `{role}` color markup renders with the
+// resolved tview color tag and the literal text. Card titles are
+// user-controlled — same escape-then-expand contract as the detail view's
+// title.
+func TestBuildCompactTaskContent_TitleRoleMarkupExpands(t *testing.T) {
+	colors := config.GetColors()
+	tk := makeTiki("MRK001", "story", "medium")
+	tk.Title = "{highlight}foo"
+
+	got := buildCompactTaskContent(tk, colors, 40)
+	highlightTag := colors.TaskBoxSelectedBorder.Tag().String()
+	if !strings.Contains(got, highlightTag) {
+		t.Errorf("expected highlight color tag %q in compact content, got %q", highlightTag, got)
+	}
+	if !strings.Contains(got, "foo") {
+		t.Errorf("expected literal 'foo' in compact content, got %q", got)
+	}
+}
+
+// TestBuildCompactTaskContent_TitleTviewTagsEscaped pins that literal
+// tview `[red]` tags in a stored title are escaped — they appear as
+// characters, not active color markup. Guards against hostile stored
+// content from hijacking row coloring.
+func TestBuildCompactTaskContent_TitleTviewTagsEscaped(t *testing.T) {
+	colors := config.GetColors()
+	tk := makeTiki("MRK002", "story", "medium")
+	tk.Title = "[red]x[/]"
+
+	got := buildCompactTaskContent(tk, colors, 40)
+	if !strings.Contains(got, "[red") {
+		t.Errorf("expected '[red' fragment to be escaped/present in compact content, got %q", got)
+	}
+}
+
+// TestBuildCompactTaskContent_TitleTruncatedMidRoleToken pins the
+// truncation-safety contract for title markup: when the title is chopped
+// mid-token by the caller's width-based truncator, the rendered card must
+// not leak the broken `{role` fragment as visible text. The fix trims
+// any unclosed `{...` tail before passing to ExpandVisual; the visible
+// title shortens slightly more than the raw rune width allowed, but the
+// alternative (broken token visible on every narrow board) is worse.
+func TestBuildCompactTaskContent_TitleTruncatedMidRoleToken(t *testing.T) {
+	colors := config.GetColors()
+	tk := makeTiki("TRC100", "story", "medium")
+	tk.Title = "{highlight}fix the very long bug"
+
+	// Pick a width that chops mid-token. The raw title is 30 chars;
+	// width 12 means TruncateText returns "{highligh..." or similar.
+	got := buildCompactTaskContent(tk, colors, 12)
+
+	// Must NOT contain a dangling open-brace token. Allow `{{` (literal
+	// brace, escape form) and `{role}foo` (intact token); reject only an
+	// unbalanced `{` near the end of the title slot.
+	if strings.Contains(got, "{highligh") {
+		t.Errorf("broken role-token fragment leaked into rendered card: %q", got)
+	}
+}
+
+// TestTrimUnclosedRoleToken_Cases pins the trim helper's contract across
+// the cases that matter: clean strings pass through, an unterminated tail
+// is chopped, escaped `{{` is preserved, and a closed token earlier in
+// the string survives even when a later `{` is unclosed.
+func TestTrimUnclosedRoleToken_Cases(t *testing.T) {
+	cases := []struct {
+		name string
+		in   string
+		want string
+	}{
+		{"plain text untouched", "hello world", "hello world"},
+		{"closed token survives", "{role}body", "{role}body"},
+		{"unclosed tail trimmed", "foo {role", "foo "},
+		{"escape `{{` preserved", "ab {{ cd", "ab {{ cd"},
+		{"closed then unclosed: trim at unclosed", "{ok}done {bad", "{ok}done "},
+		{"only unclosed at start", "{stuck", ""},
+		{"trailing `{{` not a role open", "tail {{", "tail {{"},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			if got := trimUnclosedRoleToken(c.in); got != c.want {
+				t.Errorf("trimUnclosedRoleToken(%q) = %q, want %q", c.in, got, c.want)
+			}
+		})
+	}
+}
+
+// TestBuildExpandedTaskContent_TitleRoleMarkupExpands mirrors the compact
+// test for the expanded card variant: same title path, same expectations.
+func TestBuildExpandedTaskContent_TitleRoleMarkupExpands(t *testing.T) {
+	colors := config.GetColors()
+	tk := makeTiki("MRK003", "story", "medium")
+	tk.Title = "{highlight}bar"
+
+	got := buildExpandedTaskContent(tk, colors, 40)
+	highlightTag := colors.TaskBoxSelectedBorder.Tag().String()
+	if !strings.Contains(got, highlightTag) {
+		t.Errorf("expected highlight color tag %q in expanded content, got %q", highlightTag, got)
+	}
+	if !strings.Contains(got, "bar") {
+		t.Errorf("expected literal 'bar' in expanded content, got %q", got)
+	}
+}
+
 func TestBuildExpandedTaskContent(t *testing.T) {
 	colors := config.GetColors()
 

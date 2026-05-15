@@ -358,16 +358,19 @@ func renderConfiguredField(name string, tk *tikipkg.Tiki, ctx FieldRenderContext
 // field that the typed registry doesn't have a custom renderer for. The
 // caption (if wanted) is placed by the layout author as a literal cell.
 func renderGenericWorkflowField(fd workflow.FieldDef, tk *tikipkg.Tiki, ctx FieldRenderContext) tview.Primitive {
-	value := genericFieldValueString(fd, tk)
+	value := genericFieldValueString(fd, tk, ctx.Colors)
 	return valueOnlyLine(value, ctx.Colors)
 }
 
 // genericFieldValueString formats a workflow field's value as a single-line
 // string, dispatching on declared type. Empty/absent values render as a dash.
 // User-controlled string values are escaped against tview's dynamic-color
-// markup; values that come from a controlled source (enum labels, formatted
-// times, parsed numbers) are passed through verbatim.
-func genericFieldValueString(fd workflow.FieldDef, tk *tikipkg.Tiki) string {
+// markup and then run through workflow.ExpandVisual so `{role}` color
+// markup expands while literal `[...]` stays inert. Values that come from
+// a controlled source (enum labels, formatted times, parsed numbers) are
+// passed through verbatim. The colors argument may be nil for purely
+// controlled-source values; user-string branches require it.
+func genericFieldValueString(fd workflow.FieldDef, tk *tikipkg.Tiki, colors *config.ColorConfig) string {
 	raw, ok := tk.Get(fd.Name)
 	if !ok {
 		return "—"
@@ -378,11 +381,11 @@ func genericFieldValueString(fd workflow.FieldDef, tk *tikipkg.Tiki) string {
 		if len(ss) == 0 {
 			return "—"
 		}
-		escaped := make([]string, len(ss))
+		rendered := make([]string, len(ss))
 		for i, s := range ss {
-			escaped[i] = tview.Escape(s)
+			rendered[i] = expandFieldText(s, colors)
 		}
-		return strings.Join(escaped, ", ")
+		return strings.Join(rendered, ", ")
 	case workflow.TypeBool:
 		if b, ok := raw.(bool); ok {
 			if b {
@@ -422,7 +425,7 @@ func genericFieldValueString(fd workflow.FieldDef, tk *tikipkg.Tiki) string {
 		if v == "" {
 			return "—"
 		}
-		return tview.Escape(v)
+		return expandFieldText(v, colors)
 	case int:
 		return strconv.Itoa(v)
 	case int64:
@@ -441,10 +444,12 @@ func genericFieldValueString(fd workflow.FieldDef, tk *tikipkg.Tiki) string {
 		// User-controlled YAML can land arbitrarily-shaped values here
 		// (lists, maps with embedded strings, etc.). Escape against
 		// tview's dynamic-color markup so a value like "[red]hi" can't
-		// hijack the row's coloring once it lands in labeledLine.
-		return tview.Escape(fmt.Sprintf("%v", v))
+		// hijack the row's coloring; then expand `{role}` markup so
+		// authors can opt-in to color.
+		return expandFieldText(fmt.Sprintf("%v", v), colors)
 	}
 }
+
 
 // withFieldDescriptor stamps the descriptor's name onto the context so generic
 // renderers can resolve their target field.
@@ -473,6 +478,12 @@ func valueOnlyLine(value string, colors *config.ColorConfig) tview.Primitive {
 
 // --- semantic-type renderers ---
 
+// renderTextValue is the read-only renderer for SemanticText fields.
+// User-controlled values are first tview-escaped (so a stored `[red]` is
+// inert) and then passed through workflow.ExpandVisual so deliberate
+// `{role}` color markup expands. Unknown roles fail closed to the plain
+// escaped text. The empty-placeholder branch above is internal and safe
+// to skip the expand step.
 func renderTextValue(tk *tikipkg.Tiki, ctx FieldRenderContext) tview.Primitive {
 	fd, ok := LookupField(ctx.FieldName)
 	if !ok {
@@ -482,11 +493,7 @@ func renderTextValue(tk *tikipkg.Tiki, ctx FieldRenderContext) tview.Primitive {
 	if value == "" {
 		return valueOnlyLine(textEmptyPlaceholder(fd.Name), ctx.Colors)
 	}
-	// valueOnlyLine emits the value into a SetDynamicColors(true) TextView,
-	// so user-controlled text containing tview color tags (e.g. "[red]")
-	// would be parsed as markup. Escape user content; the empty-placeholder
-	// path above is internal and safe.
-	return valueOnlyLine(tview.Escape(value), ctx.Colors)
+	return valueOnlyLine(expandFieldText(value, ctx.Colors), ctx.Colors)
 }
 
 func renderIntegerValue(tk *tikipkg.Tiki, ctx FieldRenderContext) tview.Primitive {
