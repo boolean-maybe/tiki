@@ -60,6 +60,31 @@ func TestRenderLiteralCaption(t *testing.T) {
 	}
 }
 
+// TestRenderLiteralCaption_ExpandsRoleMarkup pins that `{role}` color
+// markup in a caption resolves to a tview color tag, that the literal
+// text after the token survives, and that the role span closes with the
+// `[-]` reset emitted by workflow.ExpandVisual.
+func TestRenderLiteralCaption_ExpandsRoleMarkup(t *testing.T) {
+	colors := config.GetColors()
+	dangerTag := colors.DangerColor.Tag().String()
+
+	prim := renderLiteralCaption("{danger}!!!", colors)
+	tv, ok := prim.(*tview.TextView)
+	if !ok {
+		t.Fatalf("renderLiteralCaption returned %T, want *tview.TextView", prim)
+	}
+	got := tv.GetText(false) // keep style tags (stripAllTags=false)
+	if !strings.Contains(got, dangerTag) {
+		t.Errorf("expected danger color tag %q in rendered text, got %q", dangerTag, got)
+	}
+	if !strings.Contains(got, "!!!") {
+		t.Errorf("expected literal text after role token in rendered text, got %q", got)
+	}
+	if !strings.Contains(got, "[-]") {
+		t.Errorf("expected reset tag '[-]' after role span, got %q", got)
+	}
+}
+
 // TestGridContainer_LiteralAnchorRendersAsCaption parses a grid that mixes
 // literal captions with field anchors, builds primitives for each, and
 // verifies rebuild lays them out in the expected slot order without

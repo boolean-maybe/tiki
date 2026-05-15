@@ -8,10 +8,32 @@ import (
 	"github.com/boolean-maybe/tiki/model"
 	"github.com/boolean-maybe/tiki/store"
 	tikipkg "github.com/boolean-maybe/tiki/tiki"
+	"github.com/boolean-maybe/tiki/workflow"
 	"github.com/boolean-maybe/tiki/workflow/value"
 
 	"github.com/rivo/tview"
 )
+
+// expandFieldText escapes a user-controlled text value against tview's
+// `[...]` dynamic-color markup, then expands any `{role}` markup against
+// the active theme. Order matters: escape first so a stored `[red]`
+// stays inert; then run ExpandVisual so deliberately-authored
+// `{highlight}foo` resolves to a tview color tag. Fails closed to the
+// plain escaped form on parse error (e.g. unclosed `{` or unknown role
+// name) so bad stored data can never crash a render. Returns just the
+// escaped form when colors is nil, supporting fallback call sites that
+// lack a color config.
+func expandFieldText(raw string, colors *config.ColorConfig) string {
+	escaped := tview.Escape(raw)
+	if colors == nil {
+		return escaped
+	}
+	expanded, err := workflow.ExpandVisual(escaped, colors.RoleResolver())
+	if err != nil {
+		return escaped
+	}
+	return expanded
+}
 
 // RenderMode indicates whether we're rendering for view or edit mode
 type RenderMode int
@@ -47,7 +69,9 @@ func getFocusMarker(colors *config.ColorConfig) string {
 	return colors.TaskDetailEditFocusMarker.Tag().String() + "► " + colors.TaskDetailEditFocusText.Tag().String()
 }
 
-// RenderAssigneeText renders an assignee field as read-only text
+// RenderAssigneeText renders an assignee field as read-only text. The
+// stored value may contain `{role}` color markup; literal `[...]` content
+// renders verbatim (escape-then-expand order).
 func RenderAssigneeText(tk *tikipkg.Tiki, ctx FieldRenderContext) tview.Primitive {
 	focused := ctx.Mode == RenderModeEdit && ctx.FocusedField == model.EditFieldAssignee
 	assignee, _, _ := tk.StringField(tikipkg.FieldAssignee)
@@ -60,7 +84,7 @@ func RenderAssigneeText(tk *tikipkg.Tiki, ctx FieldRenderContext) tview.Primitiv
 		focusMarker = getFocusMarker(ctx.Colors)
 	}
 
-	text := fmt.Sprintf("%s%s%-10s%s%s", focusMarker, labelTag, "Assignee:", valueTag, tview.Escape(defaultString(assignee, "Unassigned")))
+	text := fmt.Sprintf("%s%s%-10s%s%s", focusMarker, labelTag, "Assignee:", valueTag, expandFieldText(defaultString(assignee, "Unassigned"), ctx.Colors))
 	textView := tview.NewTextView().SetDynamicColors(true).SetText(text)
 	textView.SetBorderPadding(0, 0, 0, 0)
 
@@ -89,7 +113,9 @@ func RenderPointsText(tk *tikipkg.Tiki, ctx FieldRenderContext) tview.Primitive 
 	return textView
 }
 
-// RenderTitleText renders a title as read-only text
+// RenderTitleText renders a title as read-only text. The stored title may
+// contain `{role}` color markup (e.g. `{highlight}foo`); literal `[...]`
+// tview-tag content renders verbatim.
 func RenderTitleText(tk *tikipkg.Tiki, ctx FieldRenderContext) tview.Primitive {
 	focused := ctx.Mode == RenderModeEdit && ctx.FocusedField == model.EditFieldTitle
 	var titleTag string
@@ -99,7 +125,7 @@ func RenderTitleText(tk *tikipkg.Tiki, ctx FieldRenderContext) tview.Primitive {
 		titleTag = ctx.Colors.TaskDetailTitleText.Tag().Bold().String()
 	}
 	valueTag := ctx.Colors.TaskDetailValueText.Tag().String()
-	titleText := fmt.Sprintf("%s%s%s", titleTag, tview.Escape(tk.Title), valueTag)
+	titleText := fmt.Sprintf("%s%s%s", titleTag, expandFieldText(tk.Title, ctx.Colors), valueTag)
 	titleBox := tview.NewTextView().
 		SetDynamicColors(true).
 		SetText(titleText)

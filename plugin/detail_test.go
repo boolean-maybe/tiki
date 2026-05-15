@@ -88,6 +88,44 @@ func TestDetailPlugin_RejectsFilepathInMetadata(t *testing.T) {
 	}
 }
 
+// TestDetailPlugin_AcceptsValidCaptionMarkup asserts that a literal caption
+// carrying valid `{role}` color markup loads without error. Roles are
+// drawn from workflow.ValidRoles; the loader parses but does not resolve
+// the role to a concrete color (that happens at render time).
+func TestDetailPlugin_AcceptsValidCaptionMarkup(t *testing.T) {
+	schema := testSchema()
+	cfg := pluginFileConfig{
+		Name:     "Detail",
+		Kind:     "detail",
+		Metadata: [][]string{{"{danger}!!! Status:", "status"}},
+	}
+	if _, err := parsePluginConfig(cfg, "test", schema, nil); err != nil {
+		t.Errorf("valid {role} caption should be accepted, got: %v", err)
+	}
+}
+
+// TestDetailPlugin_RejectsUnknownCaptionRole pins that an unknown role name
+// in a literal caption surfaces as a workflow-load error rather than
+// rendering as broken text at first paint.
+func TestDetailPlugin_RejectsUnknownCaptionRole(t *testing.T) {
+	schema := testSchema()
+	cfg := pluginFileConfig{
+		Name:     "Detail",
+		Kind:     "detail",
+		Metadata: [][]string{{"{nope}Status:", "status"}},
+	}
+	_, err := parsePluginConfig(cfg, "test", schema, nil)
+	if err == nil {
+		t.Fatal("expected error for unknown caption role, got nil")
+	}
+	if !strings.Contains(err.Error(), "metadata caption") {
+		t.Errorf("expected error to mention 'metadata caption', got: %v", err)
+	}
+	if !strings.Contains(err.Error(), "nope") {
+		t.Errorf("expected error to mention the bad role name, got: %v", err)
+	}
+}
+
 // TestDetailPlugin_AllowsTitleInMetadata asserts title is accepted in the
 // metadata grid as a layout reservation — the title primitive renders
 // outside the grid; the cell occupies space only.

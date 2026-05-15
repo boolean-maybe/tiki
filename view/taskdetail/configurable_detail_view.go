@@ -12,6 +12,7 @@ import (
 	tikipkg "github.com/boolean-maybe/tiki/tiki"
 	"github.com/boolean-maybe/tiki/util/gradient"
 	"github.com/boolean-maybe/tiki/view/markdown"
+	"github.com/boolean-maybe/tiki/workflow"
 
 	nav "github.com/boolean-maybe/navidown/navidown"
 	navtview "github.com/boolean-maybe/navidown/navidown/tview"
@@ -303,9 +304,21 @@ func (cv *ConfigurableDetailView) buildAnchorPrimitives(tk *tikipkg.Tiki, ctx Fi
 // renderLiteralCaption produces the read-only text primitive for a literal
 // anchor. Uses the dim-label color so explicit captions visually match the
 // dim "Status:" appearance of the legacy in-renderer labels.
+//
+// Caption text may contain `{role}` markup (e.g. `{danger}!!!`) drawn from
+// workflow.ValidRoles; literal `{` is escaped as `{{`. Markup is parsed by
+// workflow.ExpandVisual and resolved against the active theme. Captions
+// originate in workflow yaml (controlled by the workflow author), so the
+// raw text is not pre-escaped against `[...]` tview tags. Unknown roles
+// fail closed to the plain caption text — the workflow loader's
+// validateDetailMetadata gate already rejects bad role names at startup.
 func renderLiteralCaption(text string, colors *config.ColorConfig) tview.Primitive {
 	tag := colors.TaskDetailLabelText.Tag().String()
-	tv := tview.NewTextView().SetDynamicColors(true).SetText(tag + text)
+	expanded, err := workflow.ExpandVisual(text, colors.RoleResolver())
+	if err != nil {
+		expanded = text
+	}
+	tv := tview.NewTextView().SetDynamicColors(true).SetText(tag + expanded)
 	tv.SetBorderPadding(0, 0, 0, 0)
 	return tv
 }

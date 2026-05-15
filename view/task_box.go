@@ -78,23 +78,63 @@ func tikiPointsVisual(tk *tikipkg.Tiki, colors *config.ColorConfig) string {
 	if markup == "" {
 		return "─"
 	}
-	expanded, err := workflow.ExpandVisual(markup, roleResolver(colors))
+	expanded, err := workflow.ExpandVisual(markup, colors.RoleResolver())
 	if err != nil {
 		return "─"
 	}
 	return expanded
 }
 
-// roleResolver adapts the theme's ResolveRole onto the tag-string resolver
-// signature expected by workflow.ExpandVisual.
-func roleResolver(colors *config.ColorConfig) func(role string) (string, bool) {
-	return func(role string) (string, bool) {
-		c, ok := colors.ResolveRole(role)
-		if !ok {
-			return "", false
-		}
-		return c.Tag().String(), true
+// expandTitleMarkup escapes a stored title (so a literal `[red]` stays
+// inert) and then expands any `{role}` markup against the theme's role
+// vocabulary. Fails closed to the plain escaped form on parse error so
+// bad stored content can never crash the kanban card.
+//
+// Truncation note: the caller truncates the raw title by rune count
+// before passing it here. Truncation is not markup-aware, so a chop
+// that lands mid-token (e.g. "{highligh") would leave an unclosed `{`
+// that ExpandVisual rejects, falling back to plain text and leaking
+// the broken token to the user. trimUnclosedRoleToken drops any
+// dangling `{...` fragment after the last unmatched `{` so the visible
+// title shortens cleanly while keeping color on whatever did survive.
+func expandTitleMarkup(raw string, colors *config.ColorConfig) string {
+	escaped := tview.Escape(raw)
+	cleaned := trimUnclosedRoleToken(escaped)
+	expanded, err := workflow.ExpandVisual(cleaned, colors.RoleResolver())
+	if err != nil {
+		return cleaned
 	}
+	return expanded
+}
+
+// trimUnclosedRoleToken returns s with any unterminated `{...` fragment
+// removed from the tail. The grammar from workflow.ExpandVisual: `{{`
+// is a literal-brace escape (consumed in pairs); a lone `{` opens a
+// role token that must be closed by `}` later in the string. If a chop
+// (e.g. width-based truncation by the caller) lands inside an open
+// role token, the loader's role-name parser fails — the visible result
+// without this guard is the raw broken token leaking onto the card.
+// Trimming at the unmatched `{` yields a clean shorter title.
+func trimUnclosedRoleToken(s string) string {
+	i := 0
+	for i < len(s) {
+		c := s[i]
+		if c != '{' {
+			i++
+			continue
+		}
+		// `{{` → literal brace escape; skip both bytes.
+		if i+1 < len(s) && s[i+1] == '{' {
+			i += 2
+			continue
+		}
+		// Lone `{`: must be closed by a `}` later in the string.
+		if strings.IndexByte(s[i+1:], '}') < 0 {
+			return s[:i]
+		}
+		i++
+	}
+	return s
 }
 
 // tikiTags returns the tags slice stored in Fields, or nil if absent.
@@ -103,11 +143,14 @@ func tikiTags(tk *tikipkg.Tiki) []string {
 	return ss
 }
 
-// buildCompactTaskContent builds the content string for compact task display
+// buildCompactTaskContent builds the content string for compact task display.
+// The stored title may contain `{role}` color markup (e.g. `{highlight}foo`);
+// literal `[...]` tview-tag content stays escaped, while `{role}` tokens
+// expand to the theme's role color and reset.
 func buildCompactTaskContent(tk *tikipkg.Tiki, colors *config.ColorConfig, availableWidth int) string {
 	emoji := tikiTypeEmoji(tk)
 	idGradient := gradient.RenderAdaptiveGradientText(tk.ID, colors.TaskBoxIDColor, colors.FallbackTaskIDColor)
-	truncatedTitle := tview.Escape(util.TruncateText(tk.Title, availableWidth))
+	truncatedTitle := expandTitleMarkup(util.TruncateText(tk.Title, availableWidth), colors)
 	priorityEmoji := tikiPriorityEmoji(tk)
 	pointsVisual := tikiPointsVisual(tk, colors)
 
@@ -121,11 +164,14 @@ func buildCompactTaskContent(tk *tikipkg.Tiki, colors *config.ColorConfig, avail
 		labelTag, pointsVisual)
 }
 
-// buildExpandedTaskContent builds the content string for expanded task display
+// buildExpandedTaskContent builds the content string for expanded task display.
+// Title supports `{role}` color markup like the compact variant; description
+// lines are plain-escaped (description is multi-line markdown, rendered as
+// preview text only).
 func buildExpandedTaskContent(tk *tikipkg.Tiki, colors *config.ColorConfig, availableWidth int) string {
 	emoji := tikiTypeEmoji(tk)
 	idGradient := gradient.RenderAdaptiveGradientText(tk.ID, colors.TaskBoxIDColor, colors.FallbackTaskIDColor)
-	truncatedTitle := tview.Escape(util.TruncateText(tk.Title, availableWidth))
+	truncatedTitle := expandTitleMarkup(util.TruncateText(tk.Title, availableWidth), colors)
 
 	// Extract first 3 lines of body (description)
 	descLines := strings.Split(tk.Body, "\n")

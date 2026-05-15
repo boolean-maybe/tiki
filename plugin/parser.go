@@ -11,6 +11,7 @@ import (
 	"github.com/boolean-maybe/tiki/config"
 	"github.com/boolean-maybe/tiki/gridlayout"
 	"github.com/boolean-maybe/tiki/ruki"
+	"github.com/boolean-maybe/tiki/workflow"
 )
 
 // legacyFieldError returns a canonical rejection message when the user's YAML
@@ -321,8 +322,11 @@ func parseDetailPlugin(cfg pluginFileConfig, base BasePlugin, schema ruki.Schema
 }
 
 // validateDetailMetadata parses the 2D metadata grid and validates each
-// anchor's field name against the schema. Two categories of names may
-// appear:
+// anchor's field name against the schema. Literal cells may carry
+// `{role}` color markup drawn from workflow.ValidRoles (escape literal
+// `{` as `{{`); markup is parsed and role names checked at load time so
+// typos surface at startup rather than at first render. Two categories
+// of names may appear:
 //
 //   - Workflow-declared fields from `workflow.yaml fields:` (the common case).
 //   - Supported audit fields: `createdBy`, `createdAt`, `updatedAt`. These
@@ -354,7 +358,12 @@ func validateDetailMetadata(pluginName string, raw [][]string, schema ruki.Schem
 		if a.Kind == gridlayout.AnchorLiteral {
 			// Literal anchors carry static text declared by the layout
 			// author; they don't reference any field, so schema validation
-			// does not apply.
+			// does not apply. They may, however, contain `{role}` color
+			// markup — validate role names against the closed vocabulary.
+			if err := workflow.ValidateVisualMarkup(a.Text); err != nil {
+				return gridlayout.GridSpec{}, fmt.Errorf(
+					"plugin %q: metadata caption: %w", pluginName, err)
+			}
 			continue
 		}
 		name := a.Name

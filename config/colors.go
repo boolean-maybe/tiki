@@ -300,6 +300,23 @@ func (cc *ColorConfig) ResolveRole(name string) (Color, bool) {
 	return Color{}, false
 }
 
+// RoleResolver adapts ResolveRole onto the tag-string resolver signature
+// expected by workflow.ExpandVisual. Returned closure resolves a role name
+// to its tview color tag (e.g. "[#ff4444]") or reports ok=false for names
+// outside the closed role vocabulary. Lives on ColorConfig so any package
+// that already imports config can expand `{role}` markup without pulling
+// in a higher-level view helper (avoiding import cycles between view and
+// view/taskdetail).
+func (cc *ColorConfig) RoleResolver() func(role string) (string, bool) {
+	return func(role string) (string, bool) {
+		c, ok := cc.ResolveRole(role)
+		if !ok {
+			return "", false
+		}
+		return c.Tag().String(), true
+	}
+}
+
 // CaptionColorForIndex returns the caption color pair for a plugin at the given config index.
 // Wraps modulo slice length. Returns zero-value for negative index or empty slice.
 func (cc *ColorConfig) CaptionColorForIndex(index int) CaptionColorPair {
