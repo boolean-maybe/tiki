@@ -23,12 +23,13 @@ import (
 // description sections.
 //
 // The metadata box has a fixed shape: empty row + title + empty row +
-// 4-row grid body + empty row, framed by a border. Configured fields are
-// packed into columns of up to 4 rows each, in declaration order. Single-
-// row fields (status/type/priority/...) yield up to 4 fields per column;
-// multi-row fields (tags via WordList wrapping, depends-on via TaskList)
-// consume more rows in their column. Heights are clamped to the 4-row
-// budget by the grid algorithm.
+// metadataGridHeight grid body + empty row, framed by a border. The
+// grid body holds the 2D `metadata:` layout — field anchors render as
+// value-only primitives, literal cells render as static text captions.
+// Multi-row fields (tags via WordList wrapping, depends-on via TaskList)
+// extend downward within their own column thanks to per-column natural-
+// height packing in gridContainer.rebuild. Heights are clamped by the
+// solver's maxRowHeight (6) per row.
 //
 // In-place edit mode toggles a per-field editor for editable metadata
 // fields. Editors come from the field registry (status / type / priority /
@@ -231,13 +232,15 @@ func (cv *ConfigurableDetailView) focusActiveEditor() {
 }
 
 // metadataBoxHeight is the outer height of the framed metadata box.
-// Layout (matches the legacy renderer): 1 top border + 1 top padding +
-// title(1) + spacer(1) + metadataGridHeight + spacer(1) + 1 bottom
-// border = 10 outer rows. Taller grids have their bottom rows clipped —
-// v1 keeps the visible grid body at 4 rows to preserve UI stability.
+// Layout: 1 top border + 1 top padding + title(1) + spacer(1) +
+// metadataGridHeight + spacer(1) + 1 bottom border = metadataGridHeight+6.
+// Grid body holds 7 rows for the bundled kanban: 1 title row + 6 data
+// rows. Each data row is (caption, value, caption, value). Increased from
+// 4 when captions became first-class layout cells so the bundled detail
+// view can interleave caption cells with value cells without clipping.
 const (
-	metadataBoxHeight  = 10
-	metadataGridHeight = 4
+	metadataBoxHeight  = 13
+	metadataGridHeight = 7
 )
 
 // buildMetadataBox assembles the title row and configured metadata fields
@@ -276,20 +279,37 @@ func (cv *ConfigurableDetailView) buildMetadataBox(tk *tikipkg.Tiki, colors *con
 }
 
 // buildAnchorPrimitives produces one tview.Primitive per anchor in the
-// metadata grid, keyed by anchor name. The title anchor is reserved for
-// layout only (the title primitive renders outside the grid) and so maps
-// to an empty box. Other anchors get either the read-only renderer or
-// (in edit mode + focused + editable) a cached editor widget.
-func (cv *ConfigurableDetailView) buildAnchorPrimitives(tk *tikipkg.Tiki, ctx FieldRenderContext) map[string]tview.Primitive {
-	primitives := make(map[string]tview.Primitive, len(cv.spec.Anchors))
+// metadata grid, indexed by anchor position. Three cases:
+//
+//  1. Literal anchor: renders as a static text view carrying the caption
+//     text declared by the layout author.
+//  2. Title field anchor: reserved for layout only — the title primitive
+//     renders outside the grid; the anchor cell holds an empty box.
+//  3. Other field anchor: read-only renderer, or (in edit mode + focused +
+//     editable) a cached editor widget.
+func (cv *ConfigurableDetailView) buildAnchorPrimitives(tk *tikipkg.Tiki, ctx FieldRenderContext) []tview.Primitive {
+	primitives := make([]tview.Primitive, len(cv.spec.Anchors))
 	for i, a := range cv.spec.Anchors {
-		if a.Name == "title" {
-			primitives[a.Name] = tview.NewBox()
-			continue
+		switch {
+		case a.Kind == gridlayout.AnchorLiteral:
+			primitives[i] = renderLiteralCaption(a.Text, ctx.Colors)
+		case a.Name == "title":
+			primitives[i] = tview.NewBox()
+		default:
+			primitives[i] = cv.buildFieldPrimitive(i, a.Name, tk, ctx)
 		}
-		primitives[a.Name] = cv.buildFieldPrimitive(i, a.Name, tk, ctx)
 	}
 	return primitives
+}
+
+// renderLiteralCaption produces the read-only text primitive for a literal
+// anchor. Uses the dim-label color so explicit captions visually match the
+// dim "Status:" appearance of the legacy in-renderer labels.
+func renderLiteralCaption(text string, colors *config.ColorConfig) tview.Primitive {
+	tag := colors.TaskDetailLabelText.Tag().String()
+	tv := tview.NewTextView().SetDynamicColors(true).SetText(tag + text)
+	tv.SetBorderPadding(0, 0, 0, 0)
+	return tv
 }
 
 // buildFieldPrimitive returns the widget for a metadata field. In view mode

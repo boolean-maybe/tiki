@@ -101,10 +101,13 @@ views:
     kind: detail
     require: ["selection:one"]
     metadata:
-      - [title,     "--",       "--",       "--",      "--"          ]
-      - [status,    type,       priority,   points,    tags:24       ]
-      - [assignee,  due,        createdAt,  recurrence, dependsOn:20 ]
-      - [createdBy, updatedAt,  "_",        "_",       "|"           ]
+      - [title,         --,         --,            --        ]
+      - ["Status:",     status,     "Type:",       type      ]
+      - ["Priority:",   priority,   "Points:",     points    ]
+      - ["Assignee:",   assignee,   "Due:",        due       ]
+      - ["Recurrence:", recurrence, "Created:",    createdAt ]
+      - ["Updated:",    updatedAt,  "By:",         createdBy ]
+      - ["Tags:",       tags,       "Depends On:", dependsOn ]
     actions:
       - key: "a"
         label: "Assign to me"
@@ -113,18 +116,28 @@ views:
 
 Cell vocabulary:
 
-| Cell      | Meaning                                                         |
-| --------- | --------------------------------------------------------------- |
-| `name`    | field, system-default width                                     |
-| `name:N`  | field, preferred + minimum width of N character cells           |
-| `--`      | column span — continue the anchor immediately to the left       |
-| `\|`      | row span — continue the anchor immediately above                |
-| `_`       | empty cell                                                      |
-| `<->`     | horizontal stretcher — absorbs residual width                   |
+| Cell         | Meaning                                                                  |
+| ------------ | ------------------------------------------------------------------------ |
+| `name`       | field, value-only — no built-in caption                                  |
+| `name:N`     | field, preferred + minimum width of N character cells                    |
+| `"any text"` | literal caption — any quoted YAML string that is not a bare marker or a  |
+|              | valid identifier. Used to label adjacent fields. Width defaults to the   |
+|              | text length + 1.                                                         |
+| `--`         | column span — continue the anchor immediately to the left                |
+| `^`          | row span — continue the anchor immediately above (bare-legal in YAML)    |
+| `\|`         | row span — synonym for `^`; must be quoted because YAML treats bare `\|` |
+|              | as a block-scalar indicator                                              |
+| `_`          | empty cell                                                               |
+| `<->`        | horizontal stretcher — absorbs residual width                            |
 
-Quoting `--`, `|`, `_`, and `<->` (the YAML-special tokens) keeps the parser happy:
-`["_", "|", "<->"]` or unquoted inside flow sequences both work in practice for the
-column/row markers — when in doubt, quote.
+Fields render value-only — there is no automatic `Status:` prefix in the value cell anymore.
+Place captions explicitly in the grid using literal strings (e.g. `"Status:"`) wherever you
+want them. This is the same mechanism a layout author would use to label any custom workflow
+field.
+
+Quoting markers in YAML: `--`, `_`, `^`, and `<->` are all accepted bare in flow-sequence
+context (e.g. `[--, _, ^, <->]`). The legacy `|` row-span marker is the one exception — YAML's
+block-scalar rule rejects bare `|` everywhere, so write `^` instead, or quote it as `"|"`.
 
 Width and shedding semantics:
 
@@ -143,6 +156,11 @@ Layout traversal and edit order:
   in-place edit mode and in TaskEditView. Arrange your grid so the natural Tab order reads top
   rows first; put the highest-frequency fields on row 1.
 - Every cell is left-aligned in v1 — no syntax for right/center alignment yet.
+- Caption literals appear in the read-only detail view exactly as written. The full-screen
+  TaskEditView (the separate "edit" form, not the in-place editors on the detail view) currently
+  re-packs fields into a flat multi-column layout and **does not** surface caption literals.
+  In-place edit mode on the detail view does honor caption literals because it reuses the same
+  parsed grid.
 
 Per-view actions register *after* built-in detail actions, so a per-view entry that reuses a built-in
 key (such as `e` for Edit) shadows the built-in. Avoid the keys the detail view already uses for Edit,
@@ -157,8 +175,8 @@ Validation rules for `kind: detail`:
   outside the grid; the `title` cell occupies space only).
 - Path fields (`filepath`, `path`) — values live on the tiki struct rather than in Fields and have
   no typed renderer; rejected.
-- Grid-shape errors (ragged rows, orphan `--` or `|`, mixed stretcher columns, duplicate field
-  names) fail workflow load with `row,col` coordinates.
+- Grid-shape errors (ragged rows, orphan `--` or `^`/`|`, mixed stretcher columns, duplicate
+  field names) fail workflow load with `row,col` coordinates.
 - Board/list-only fields (`lanes:`, `mode:`) and wiki-only fields (`path:`, `document:`) are rejected.
 - Per-view `actions:` are allowed and surface alongside the built-in detail actions.
 - `require:` is honored as the navigation gate (typically `["selection:one"]`).
@@ -273,7 +291,9 @@ Users upgrading will see one of these messages; each names the legacy field and 
 - ``metadata cannot include "description"`` (or `body`/`id`) — identity/body fields are always rendered by the detail view chrome
 - `metadata field "X" is not a workflow-declared field` — typo, or the field is not in `workflow.yaml fields:`
 - `metadata: row N has M cells, expected K` — the grid has a ragged row
-- ``metadata: row N, col M: orphan '--'`` (or `'|'`) — no anchor to the left of / above the span marker
+- ``metadata: row N, col M: orphan '--'`` — no anchor to the left of the column-span marker
+- ``metadata: row N, col M: orphan row-span '^'`` — no anchor above the row-span marker
+  (`|` produces the same diagnostic)
 - ``metadata: col N: '<->' must not be mixed with anchored or row-spanned cells in the same column`` — stretcher columns can only contain `<->`, `_`, or pass-through `--`
 - `metadata: row N, col M: field "X" appears more than once` — each anchor name must be unique in the grid
 

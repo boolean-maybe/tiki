@@ -107,27 +107,23 @@ func RenderTitleText(tk *tikipkg.Tiki, ctx FieldRenderContext) tview.Primitive {
 	return titleBox
 }
 
-// RenderTagsColumn renders the tags column with a label row on top.
+// RenderTagsColumn renders the tags as a value-only word-wrapped list. The
+// caption (if wanted) is placed by the layout author as a literal cell.
 func RenderTagsColumn(tk *tikipkg.Tiki) tview.Primitive {
 	tags, _, _ := tk.StringSliceField(tikipkg.FieldTags)
 	if len(tags) == 0 {
 		return tview.NewBox()
 	}
-	colors := config.GetColors()
-	label := tview.NewTextView().SetDynamicColors(true).SetText(fmt.Sprintf("%sTags", colors.TaskDetailLabelText.Tag().String()))
-	label.SetBorderPadding(0, 0, 0, 0)
-
 	col := tview.NewFlex().SetDirection(tview.FlexRow)
 	col.SetBorderPadding(0, 0, 1, 1)
-	col.AddItem(label, 1, 0, false)
 	col.AddItem(component.NewWordList(tags), 0, 1, false)
 	return col
 }
 
-// RenderDependsOnColumn renders the "Depends On" column showing upstream
-// dependencies. Returns nil when the task has no dependencies. Unresolved
-// IDs (declared but not in the store) render as placeholder rows carrying
-// the raw ID as a synthetic tiki — keeps the rendered row count in lockstep
+// RenderDependsOnColumn renders the upstream dependencies as a value-only
+// task list. Returns nil when the task has no dependencies. Unresolved IDs
+// (declared but not in the store) render as placeholder rows carrying the
+// raw ID as a synthetic tiki — keeps the rendered row count in lockstep
 // with the height contract so the grid algorithm doesn't reserve dead rows.
 func RenderDependsOnColumn(tk *tikipkg.Tiki, taskStore store.Store) tview.Primitive {
 	deps, _, _ := tk.StringSliceField(tikipkg.FieldDependsOn)
@@ -143,13 +139,8 @@ func RenderDependsOnColumn(tk *tikipkg.Tiki, taskStore store.Store) tview.Primit
 		rendered = append(rendered, &tikipkg.Tiki{ID: id, Title: "(unresolved)"})
 	}
 
-	colors := config.GetColors()
-	label := tview.NewTextView().SetDynamicColors(true).SetText(fmt.Sprintf("%sDepends On", colors.TaskDetailLabelText.Tag().String()))
-	label.SetBorderPadding(0, 0, 0, 0)
-
 	col := tview.NewFlex().SetDirection(tview.FlexRow)
 	col.SetBorderPadding(0, 0, 1, 1)
-	col.AddItem(label, 1, 0, false)
 	col.AddItem(component.NewTaskList(config.TaskListMetadataMaxRows).SetTasks(rendered), 0, 1, false)
 	return col
 }

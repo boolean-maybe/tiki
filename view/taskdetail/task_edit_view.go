@@ -321,11 +321,11 @@ func (ev *TaskEditView) buildTitlePrimitive(tk *tikipkg.Tiki, colors *config.Col
 // packs the list into columns of rowsPerPackedColumn rows so the
 // shared grid container can lay them out without overflowing the
 // fixed-height metadata box.
-func (ev *TaskEditView) buildGridSpecAndPrimitives(tk *tikipkg.Tiki, ctx FieldRenderContext) (gridlayout.GridSpec, map[string]tview.Primitive) {
+func (ev *TaskEditView) buildGridSpecAndPrimitives(tk *tikipkg.Tiki, ctx FieldRenderContext) (gridlayout.GridSpec, []tview.Primitive) {
 	spec := greedyPackedSpec(ev.metadata)
-	primitives := make(map[string]tview.Primitive, len(ev.metadata))
-	for _, name := range ev.metadata {
-		primitives[name] = ev.gridFieldPrimitive(name, tk, ctx)
+	primitives := make([]tview.Primitive, len(spec.Anchors))
+	for i, a := range spec.Anchors {
+		primitives[i] = ev.gridFieldPrimitive(a.Name, tk, ctx)
 	}
 	return spec, primitives
 }
