@@ -199,7 +199,7 @@ func ColorsFromPalette(p Palette) *ColorConfig {
 
 		// Task detail
 		TaskDetailIDColor:           idGradient,
-		TaskDetailTitleText:         p.HighlightColor,
+		TaskDetailTitleText:         p.TextColor,
 		TaskDetailLabelText:         p.AccentColor,
 		TaskDetailValueText:         p.ValueColor,
 		TaskDetailCommentAuthor:     p.HighlightColor,

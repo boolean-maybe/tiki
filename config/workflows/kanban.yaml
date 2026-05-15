@@ -220,13 +220,11 @@ views:
     # 4 columns: each row pairs (caption, value, caption, value). Captions
     # to the left of their fields. Sized to fit an 80-column terminal.
     metadata:
-      - [title,        --,         --,            --        ]
-      - ["Status:",    status,     "Type:",       type      ]
-      - ["Priority:",  priority,   "Points:",     points    ]
-      - ["Assignee:",  assignee,   "Due:",        due       ]
-      - ["Recurrence:", recurrence, "Created:",   createdAt ]
-      - ["Updated:",   updatedAt,  "By:",         createdBy ]
-      - ["Tags:",      tags,       "Depends On:", dependsOn ]
+      - [title,       --,          --,            --,            --,              --,           --,      --         ]
+      - ["Status:",   status,      "Assignee:",   assignee,      "Due:",          due,          "Tags:", tags       ]
+      - ["Type:",     type,        "Author:",     createdBy,     "Recurrence:",   recurrence,   ^,       ^          ]
+      - ["Priority:", priority,    "Created:",    createdAt,     _,               _,            ^,       ^          ]
+      - ["Points:",   points,      "Updated:",    updatedAt,     _,               _,            ^,       ^          ]
 
 triggers:
   - description: block completion with open dependencies

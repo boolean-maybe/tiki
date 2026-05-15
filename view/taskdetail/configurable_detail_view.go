@@ -234,13 +234,11 @@ func (cv *ConfigurableDetailView) focusActiveEditor() {
 // metadataBoxHeight is the outer height of the framed metadata box.
 // Layout: 1 top border + 1 top padding + title(1) + spacer(1) +
 // metadataGridHeight + spacer(1) + 1 bottom border = metadataGridHeight+6.
-// Grid body holds 7 rows for the bundled kanban: 1 title row + 6 data
-// rows. Each data row is (caption, value, caption, value). Increased from
-// 4 when captions became first-class layout cells so the bundled detail
-// view can interleave caption cells with value cells without clipping.
+// Grid body holds 5 rows for the bundled kanban: 1 title row + 4 data
+// rows. 8 columns: 3 caption-value groups + Tags caption + Tags values.
 const (
-	metadataBoxHeight  = 13
-	metadataGridHeight = 7
+	metadataBoxHeight  = 11
+	metadataGridHeight = 5
 )
 
 // buildMetadataBox assembles the title row and configured metadata fields

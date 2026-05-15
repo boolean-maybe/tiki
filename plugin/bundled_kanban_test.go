@@ -48,7 +48,7 @@ func TestBundledKanban_HasDetailViewAndEnterAction(t *testing.T) {
 	wantAnchors := map[string]bool{
 		"status": true, "type": true, "priority": true, "points": true,
 		"assignee": true, "createdBy": true, "createdAt": true, "updatedAt": true,
-		"due": true, "recurrence": true, "tags": true, "dependsOn": true,
+		"due": true, "recurrence": true, "tags": true,
 	}
 	gotAnchors := detail.Metadata.AnchorNames()
 	for _, n := range gotAnchors {

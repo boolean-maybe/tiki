@@ -300,8 +300,8 @@ func TestNewTask_MultipleFields_AllSaved(t *testing.T) {
 	// Type title
 	ta.SendText("New Task With Multiple Fields")
 
-	// Tab to Priority field (3 tabs)
-	for i := 0; i < 3; i++ {
+	// Tab to Priority field (7 tabs: status → assignee → due → tags → type → recurrence → priority)
+	for i := 0; i < 7; i++ {
 		ta.SendKey(tcell.KeyTab, 0, tcell.ModNone)
 	}
 	// set priority to medium-low (declaration is high→low, so Down moves
@@ -375,8 +375,10 @@ func TestNewTask_WithStatusAndType_Saves(t *testing.T) {
 		ta.SendKey(tcell.KeyDown, 0, tcell.ModNone)
 	}
 
-	// Tab to Type field (1 tab)
-	ta.SendKey(tcell.KeyTab, 0, tcell.ModNone)
+	// Tab to Type field (4 tabs: status → assignee → due → tags → type)
+	for i := 0; i < 4; i++ {
+		ta.SendKey(tcell.KeyTab, 0, tcell.ModNone)
+	}
 
 	// Cycle type to Bug (press down arrow once)
 	// Type order: Story -> Bug
