@@ -8,7 +8,7 @@ tags:
     - performance
 assignee: lbianchi
 priority: medium
-points: 5
+points: 7
 ---
 Our Jenkins server is a single point of failure and the Groovy pipeline scripts are difficult to maintain. GitHub Actions will give us matrix builds, better caching, and native integration with our PR workflow.
 

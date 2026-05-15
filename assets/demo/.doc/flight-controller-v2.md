@@ -8,7 +8,7 @@ tags:
   - firmware
 assignee: "akowalski"
 priority: high
-points: 10
+points: 11
 ---
 
 The v2 flight controller replaces the STM32F4 with an STM32H7 dual-core processor, adds redundant IMUs, and integrates an on-board ML accelerator for real-time obstacle avoidance. Target first-flight is Q3 2026.

@@ -128,6 +128,17 @@ func (f FieldDef) EnumParseDisplay(display string) (string, bool) {
 	return "", false
 }
 
+// EnumParseLabel reverses EnumLabel() back to a canonical key.
+// Returns ("", false) for an unrecognized label string.
+func (f FieldDef) EnumParseLabel(label string) (string, bool) {
+	for _, v := range f.EnumValues {
+		if f.EnumLabel(v.Value) == label {
+			return v.Value, true
+		}
+	}
+	return "", false
+}
+
 // IsValidEnum reports whether key is a recognized value for this enum.
 func (f FieldDef) IsValidEnum(key string) bool {
 	if f.Type != TypeEnum {

@@ -8,7 +8,7 @@ tags:
   - performance
 assignee: "lbianchi"
 priority: high
-points: 5
+points: 7
 ---
 
 The telemetry ingest service currently runs on a fixed 3-replica deployment. During fleet-wide missions the lag spikes to 12 seconds. We need HPA based on custom queue-depth metrics from the NATS JetStream consumer.

@@ -8,7 +8,7 @@ tags:
   - telemetry
 assignee: "spreet"
 priority: medium-high
-points: 2
+points: 3
 ---
 
 When the WebSocket connection drops and reconnects, the client does not request a replay of missed messages. A sequence-number based replay handshake has been added to the reconnect logic to fill the gap.

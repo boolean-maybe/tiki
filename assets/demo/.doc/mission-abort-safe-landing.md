@@ -8,7 +8,7 @@ tags:
   - flight-controller
 assignee: "akowalski"
 priority: high
-points: 8
+points: 7
 ---
 
 When a mission abort is triggered (geofence breach, low battery, lost link), the drone must evaluate whether return-to-launch is feasible or if an immediate controlled descent is safer. The decision tree must complete within a single control loop iteration.

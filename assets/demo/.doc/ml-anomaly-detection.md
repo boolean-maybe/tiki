@@ -8,7 +8,7 @@ tags:
   - telemetry
 assignee: "akowalski"
 priority: medium
-points: 5
+points: 7
 ---
 
 Manual review of flight logs misses subtle degradation patterns. An autoencoder trained on nominal flight data could flag anomalous sensor signatures before they become safety events. This spike evaluates feasibility and data requirements.

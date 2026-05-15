@@ -6,6 +6,7 @@ import (
 	"log/slog"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"time"
 
@@ -554,7 +555,11 @@ func coerceCustomValue(fd workflow.FieldDef, raw interface{}) (interface{}, erro
 	case workflow.TypeEnum:
 		s, ok := raw.(string)
 		if !ok {
-			return nil, fmt.Errorf("expected string for enum, got %T", raw)
+			if n, isNum := coerceToInt(raw); isNum {
+				s = strconv.Itoa(n)
+			} else {
+				return nil, fmt.Errorf("expected string for enum, got %T", raw)
+			}
 		}
 		for _, av := range fd.AllowedValues() {
 			if strings.EqualFold(s, av) {
@@ -626,6 +631,19 @@ func coerceCustomValue(fd workflow.FieldDef, raw interface{}) (interface{}, erro
 	default:
 		return raw, nil
 	}
+}
+
+// coerceToInt extracts an int from the numeric types yaml.v3 emits.
+func coerceToInt(raw interface{}) (int, bool) {
+	switch v := raw.(type) {
+	case int:
+		return v, true
+	case float64:
+		if v == float64(int(v)) {
+			return int(v), true
+		}
+	}
+	return 0, false
 }
 
 // coerceStringList converts a raw YAML value ([]interface{}) to []string.

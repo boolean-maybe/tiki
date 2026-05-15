@@ -8,7 +8,7 @@ tags:
   - firmware
 assignee: "mchen"
 priority: medium
-points: 10
+points: 11
 ---
 
 Running ML inference on the companion computer rather than streaming video to the ground station eliminates latency and bandwidth constraints. This epic covers NPU bring-up, model optimization, and integration with the flight controller for reactive maneuvers.

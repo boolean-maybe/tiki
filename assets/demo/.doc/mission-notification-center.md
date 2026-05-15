@@ -8,7 +8,7 @@ tags:
   - ux
 assignee: "spreet"
 priority: medium
-points: 5
+points: 7
 ---
 
 Critical mission events (abort, geofence warning, low battery) currently only appear in the log panel. A notification center with severity-based toasts and a searchable history will improve operator situational awareness.

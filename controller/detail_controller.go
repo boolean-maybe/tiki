@@ -54,6 +54,7 @@ type DetailEditableView interface {
 	SetEditModeRegistry(*ActionRegistry)
 	SetEditModeChangeHandler(func(bool))
 	SetEditFieldChangeHandler(string, func(string))
+	SetEditTikiSource(func() *tikipkg.Tiki)
 	Metadata() []string
 	// FlushFocusedEditor pushes the currently focused editor's value
 	// through its onChange handler. Required before commit because some
@@ -158,6 +159,15 @@ func (dc *DetailController) BindEditView(v DetailEditableView) {
 			dc.registerPluginActions()
 		}
 	})
+	if dc.taskController != nil {
+		tc := dc.taskController
+		v.SetEditTikiSource(func() *tikipkg.Tiki {
+			if tk := tc.GetDraftTiki(); tk != nil {
+				return tk
+			}
+			return tc.GetEditingTiki()
+		})
+	}
 	dc.wireEditFieldHandlers(v)
 }
 

@@ -9,7 +9,7 @@ tags:
 due: 2026-04-15
 assignee: "mchen"
 priority: high
-points: 5
+points: 7
 ---
 
 The RTK correction stream occasionally drops when the base station link is obstructed. We need a hot-standby path that switches to SBAS corrections within 200ms. The failover must be transparent to the navigation filter.

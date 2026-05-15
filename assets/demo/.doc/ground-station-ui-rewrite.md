@@ -8,7 +8,7 @@ tags:
   - ux
 assignee: "jnakamura"
 priority: high
-points: 10
+points: 11
 ---
 
 The current ground station is a single-user Electron app. The rewrite targets a web-based multi-operator interface with CRDT-based real-time collaboration, enabling multiple pilots and observers to share a synchronized mission view.

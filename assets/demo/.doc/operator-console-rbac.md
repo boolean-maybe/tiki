@@ -10,7 +10,7 @@ dependsOn:
   - 8MDD4V
 assignee: "rvolkov"
 priority: medium-high
-points: 5
+points: 7
 ---
 
 The operator console currently has a single admin role. Compliance requires separation of duties: pilots should not be able to modify geofences, and observers should have read-only access. RBAC policies will be stored alongside the mTLS cert metadata.

@@ -11,7 +11,7 @@ dependsOn:
 due: 2026-06-15
 assignee: "mchen"
 priority: medium-high
-points: 8
+points: 7
 ---
 
 Field-deployed drones currently require a physical USB connection for firmware updates. An OTA mechanism using the existing LTE uplink would eliminate costly truck rolls. The update must be A/B partitioned with automatic rollback on boot failure.

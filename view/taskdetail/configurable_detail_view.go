@@ -58,6 +58,7 @@ type ConfigurableDetailView struct {
 	editors           map[string]FieldEditorWidget // current editor widgets by field name
 	onEditFieldChange map[string]func(string)      // per-field save callbacks set by controller
 	onEditModeChange  func(bool)                   // controller-side notifier (registry derivation)
+	editTikiSource    func() *tikipkg.Tiki         // returns editing copy during edit mode
 
 	// actionChangeHandler is RootLayout's ActionChangeNotifier hook — fired
 	// whenever the view's installed registry mutates (currently: on
@@ -177,6 +178,18 @@ func (cv *ConfigurableDetailView) RestoreFocus() bool {
 	return false
 }
 
+// getTiki returns the tiki to render. In edit mode with an editing source
+// installed, the in-memory editing copy is preferred so that in-flight
+// changes (cycled enum, typed assignee) survive Tab-driven refreshes.
+func (cv *ConfigurableDetailView) getTiki() *tikipkg.Tiki {
+	if cv.editMode && cv.editTikiSource != nil {
+		if tk := cv.editTikiSource(); tk != nil {
+			return tk
+		}
+	}
+	return cv.GetTiki()
+}
+
 // refresh re-renders the view contents.
 func (cv *ConfigurableDetailView) refresh() {
 	cv.content.Clear()
@@ -186,7 +199,7 @@ func (cv *ConfigurableDetailView) refresh() {
 		cv.navMarkdown = nil
 	}
 
-	tk := cv.GetTiki()
+	tk := cv.getTiki()
 	if tk == nil {
 		notFound := tview.NewTextView().SetText("(no tiki selected)")
 		cv.content.AddItem(notFound, 0, 1, false)
@@ -277,15 +290,16 @@ func (cv *ConfigurableDetailView) buildMetadataBox(tk *tikipkg.Tiki, colors *con
 //  2. Field anchor: read-only renderer (with optional role color for text
 //     fields), or (in edit mode + focused + editable) a cached editor widget.
 func (cv *ConfigurableDetailView) buildAnchorPrimitives(tk *tikipkg.Tiki, ctx FieldRenderContext) []tview.Primitive {
+	focusedName := cv.GetFocusedFieldName()
 	primitives := make([]tview.Primitive, len(cv.spec.Anchors))
 	for i, a := range cv.spec.Anchors {
 		switch a.Kind {
 		case gridlayout.AnchorLiteral:
 			primitives[i] = renderLiteralCaption(a.Text, ctx.Colors)
 		case gridlayout.AnchorComposite:
-			primitives[i] = renderCompositePrimitive(a, tk, ctx)
+			primitives[i] = cv.buildCompositePrimitive(a, tk, ctx, focusedName)
 		default:
-			primitives[i] = cv.buildFieldPrimitive(i, a, tk, ctx)
+			primitives[i] = cv.buildFieldPrimitive(a, tk, ctx, focusedName)
 		}
 	}
 	return primitives
@@ -347,11 +361,12 @@ func renderLiteralCaption(text string, colors *config.ColorConfig) tview.Primiti
 
 // buildFieldPrimitive returns the widget for a metadata field. In view mode
 // (or for fields with no editor) this is the field-registry's read-only
-// renderer. In edit mode for fields with implemented editors and the
-// matching focused index, it returns a cached or freshly-created editor
-// widget. Editor widgets are cached per-field for the lifetime of edit mode
-// so user input isn't lost when other rows trigger a refresh.
-func (cv *ConfigurableDetailView) buildFieldPrimitive(idx int, a gridlayout.Anchor, tk *tikipkg.Tiki, ctx FieldRenderContext) tview.Primitive {
+// renderer. In edit mode for the focused field, it returns a cached or
+// freshly-created editor widget. Focus is matched by field name (not
+// positional index) so literal and composite anchors don't shift the
+// mapping. Editor widgets are cached per-field for the lifetime of edit
+// mode so user input isn't lost when other rows trigger a refresh.
+func (cv *ConfigurableDetailView) buildFieldPrimitive(a gridlayout.Anchor, tk *tikipkg.Tiki, ctx FieldRenderContext, focusedName string) tview.Primitive {
 	name := a.Name
 	ctx.Display = a.Display
 	renderField := func() tview.Primitive {
@@ -366,8 +381,31 @@ func (cv *ConfigurableDetailView) buildFieldPrimitive(idx int, a gridlayout.Anch
 	if !FieldHasEditor(name) {
 		return renderField()
 	}
-	if idx != cv.focusedIdx {
+	if name != focusedName {
 		return renderField()
+	}
+	return cv.ensureEditor(name, tk, ctx)
+}
+
+// buildCompositePrimitive returns the widget for a composite anchor. In
+// view mode (or when not focused) this is the read-only concatenation. In
+// edit mode, single-field composites delegate to the field's editor so the
+// user can cycle through values. Multi-field composites stay read-only.
+func (cv *ConfigurableDetailView) buildCompositePrimitive(a gridlayout.Anchor, tk *tikipkg.Tiki, ctx FieldRenderContext, focusedName string) tview.Primitive {
+	if !cv.editMode || a.Name == "" || a.Name != focusedName {
+		return renderCompositePrimitive(a, tk, ctx)
+	}
+	if !FieldHasEditor(a.Name) {
+		return renderCompositePrimitive(a, tk, ctx)
+	}
+	return cv.ensureEditor(a.Name, tk, ctx)
+}
+
+// ensureEditor returns a cached or freshly-created editor widget for the
+// named field. Shared by buildFieldPrimitive and buildCompositePrimitive.
+func (cv *ConfigurableDetailView) ensureEditor(name string, tk *tikipkg.Tiki, ctx FieldRenderContext) tview.Primitive {
+	if w, ok := cv.editors[name]; ok && w != nil {
+		return w
 	}
 	rowCtx := ctx
 	if fd, ok := LookupField(name); ok {
@@ -375,12 +413,9 @@ func (cv *ConfigurableDetailView) buildFieldPrimitive(idx int, a gridlayout.Anch
 	} else {
 		rowCtx.FocusedField = model.EditField(name)
 	}
-	if w, ok := cv.editors[name]; ok && w != nil {
-		return w
-	}
 	w := buildFieldEditor(name, tk, rowCtx, cv.onEditFieldChange[name])
 	if w == nil {
-		return renderField()
+		return renderConfiguredField(name, tk, ctx)
 	}
 	cv.editors[name] = w
 	return w
@@ -450,6 +485,14 @@ func (cv *ConfigurableDetailView) ExitFullscreen() {
 
 // IsEditMode reports whether the view is currently in in-place edit mode.
 func (cv *ConfigurableDetailView) IsEditMode() bool { return cv.editMode }
+
+// SetEditTikiSource installs a function that returns the in-memory editing
+// copy of the tiki. When set and edit mode is active, refresh reads from
+// this source instead of the store so in-flight field changes (status
+// cycled, assignee typed) survive a Tab-driven re-render.
+func (cv *ConfigurableDetailView) SetEditTikiSource(fn func() *tikipkg.Tiki) {
+	cv.editTikiSource = fn
+}
 
 // SetEditModeRegistry installs the action registry to surface while in edit
 // mode. Called by the controller during construction so the view can

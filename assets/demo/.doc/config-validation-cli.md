@@ -8,7 +8,7 @@ tags:
   - documentation
 assignee: "rvolkov"
 priority: medium
-points: 5
+points: 7
 ---
 
 Multiple TOML and YAML config files govern drone behavior, comms, and safety limits. A CLI validator that checks schema conformance and cross-references between files would catch misconfigurations before deployment.

@@ -9,7 +9,7 @@ tags:
 due: 2026-05-30
 assignee: "akowalski"
 priority: high
-points: 8
+points: 7
 ---
 
 In urban environments the 2.4 GHz control link suffers interference from WiFi networks. An emergency frequency hopping protocol on the 868 MHz backup radio will maintain command authority when the primary link degrades.

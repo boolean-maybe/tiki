@@ -11,7 +11,7 @@ dependsOn:
 due: 2026-06-01
 assignee: "rvolkov"
 priority: high
-points: 5
+points: 7
 ---
 
 With mTLS deployed, client certificates will need automated rotation before expiry. The rotation service must handle the case where a drone is offline during the rotation window and gracefully falls back to the previous cert until reconnect.

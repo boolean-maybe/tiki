@@ -8,7 +8,7 @@ tags:
   - telemetry
 assignee: "spreet"
 priority: medium
-points: 5
+points: 7
 ---
 
 The EKF already estimates wind speed and direction from airspeed vs ground speed deltas. Surfacing this in the dashboard as a wind rose widget helps operators make go/no-go decisions for sensitive payloads.

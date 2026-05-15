@@ -8,7 +8,7 @@ tags:
   - safety
 assignee: "lbianchi"
 priority: medium-high
-points: 10
+points: 11
 ---
 
 BVLOS operations are the key revenue unlock. This program covers detect-and-avoid system integration, FAA waiver application, a 200-hour test campaign, and final type certification. Expected timeline is 12-18 months.

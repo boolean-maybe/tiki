@@ -11,7 +11,7 @@ dependsOn:
 due: "2026-05-01"
 assignee: rvolkov
 priority: high
-points: 8
+points: 7
 ---
 The command-and-control API currently uses bearer tokens over TLS. Regulatory review requires mutual TLS with per-drone client certificates signed by our internal CA. The rollout must be backwards compatible during the migration window.
 

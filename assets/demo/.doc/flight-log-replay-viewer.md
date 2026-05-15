@@ -8,7 +8,7 @@ tags:
   - ux
 assignee: "jnakamura"
 priority: medium
-points: 8
+points: 7
 ---
 
 Post-flight analysis is done by reading raw CSV logs. A 3D replay viewer with time scrubbing would dramatically improve debugging and allow operators to visually correlate anomalies with flight events.

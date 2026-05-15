@@ -8,7 +8,7 @@ tags:
   - telemetry
 assignee: "jnakamura"
 priority: medium-high
-points: 5
+points: 7
 ---
 
 The ground station currently shows a static map with waypoints. We need to overlay live position tracks streamed via websocket from the telemetry service. Track history should be retained for the duration of the active mission.

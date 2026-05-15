@@ -8,7 +8,7 @@ tags:
   - compliance
 assignee: "akowalski"
 priority: medium-high
-points: 5
+points: 7
 ---
 
 Mission plans are currently mutable after creation, with no audit trail. Versioning each plan change and allowing rollback to a previous version is required for compliance and incident investigation.

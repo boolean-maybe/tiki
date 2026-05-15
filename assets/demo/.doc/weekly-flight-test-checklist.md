@@ -9,7 +9,7 @@ tags:
 recurrence: "0 8 * * MON"
 assignee: "lbianchi"
 priority: medium-high
-points: 2
+points: 3
 ---
 
 Before every Monday flight test session the test fleet must pass a standardized inspection: battery health, propeller torque, firmware version match, and radio link test. Results are logged in the compliance tracker.

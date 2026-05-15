@@ -63,7 +63,8 @@ func (f *fakeDetailEditView) SetEditFieldChangeHandler(name string, h func(strin
 	}
 	f.fieldHandlers[name] = h
 }
-func (f *fakeDetailEditView) Metadata() []string { return []string{"status", "type", "priority"} }
+func (f *fakeDetailEditView) SetEditTikiSource(func() *tikipkg.Tiki) {}
+func (f *fakeDetailEditView) Metadata() []string                     { return []string{"status", "type", "priority"} }
 func (f *fakeDetailEditView) FlushFocusedEditor() {
 	f.flushCalls++
 	f.flushBeforeExit = f.editing

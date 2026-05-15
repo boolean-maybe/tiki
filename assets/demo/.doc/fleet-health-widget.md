@@ -9,7 +9,7 @@ tags:
 due: 2026-04-30
 assignee: "spreet"
 priority: medium-high
-points: 5
+points: 7
 ---
 
 Operations needs a single-pane view showing real-time status of every drone in the fleet. The widget should aggregate heartbeat data and display battery, GPS lock, and mission state per vehicle.

@@ -10,7 +10,7 @@ dependsOn:
   - 65KXVF
 assignee: "jnakamura"
 priority: medium-high
-points: 8
+points: 7
 ---
 
 Swarm survey missions require a coordination layer that assigns survey strips, manages turn synchronization, and deconflicts altitude bands. The API should expose a mission-level abstraction over individual drone commands.

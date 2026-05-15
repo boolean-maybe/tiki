@@ -8,7 +8,7 @@ tags:
   - performance
 assignee: "akowalski"
 priority: medium-high
-points: 8
+points: 7
 ---
 
 Long-range missions over LTE fallback links are limited to 9600 baud. Current telemetry packets are 128 bytes at 10 Hz, exceeding the link budget. A delta-encoding scheme with adaptive decimation should cut bandwidth by 70%.

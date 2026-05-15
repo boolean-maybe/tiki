@@ -10,7 +10,7 @@ dependsOn:
   - 6DPBHS
 assignee: "jnakamura"
 priority: medium-high
-points: 5
+points: 7
 ---
 
 Multiple services produce and consume telemetry protobufs but there is no schema compatibility enforcement. A Buf-based registry with CI checks will prevent breaking changes from reaching production.

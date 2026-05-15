@@ -9,7 +9,7 @@ tags:
 due: 2026-06-30
 assignee: "mchen"
 priority: medium
-points: 8
+points: 7
 ---
 
 ESC calibration is done manually per motor, which takes 20 minutes per drone. An automated HIL test rig that drives each ESC through its full range and records thrust curves will cut manufacturing time and improve consistency.

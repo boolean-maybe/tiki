@@ -8,7 +8,7 @@ tags:
   - performance
 assignee: "lbianchi"
 priority: medium
-points: 8
+points: 7
 ---
 
 As we expand operations to Europe and Asia, telemetry ingest must be co-located with drone fleets to reduce latency. Reusable Terraform modules will standardize the deployment of NATS, ingest, and TimescaleDB across regions.

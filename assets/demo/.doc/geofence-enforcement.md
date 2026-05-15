@@ -11,7 +11,7 @@ dependsOn:
 due: 2026-05-15
 assignee: "akowalski"
 priority: high
-points: 8
+points: 7
 ---
 
 Current geofence checks are advisory only and appear as warnings in the GCS. The mission planner must enforce hard geofence boundaries that trigger an automatic abort sequence when the drone approaches within 50m of a restricted zone.

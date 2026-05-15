@@ -634,26 +634,24 @@ func editEnumValue(tk *tikipkg.Tiki, ctx FieldRenderContext, onChange func(strin
 	}
 
 	keys := wfd.AllowedValues()
-	displays := make([]string, len(keys))
+	labels := make([]string, len(keys))
 	for i, k := range keys {
-		displays[i] = wfd.EnumDisplay(k)
+		labels[i] = wfd.EnumLabel(k)
 	}
 	currentKey, _, _ := tk.StringField(ctx.FieldName)
-	currentDisplay := wfd.EnumDisplay(currentKey)
+	currentLabel := wfd.EnumLabel(currentKey)
 
-	editor := component.NewEditSelectList(displays, false)
+	editor := component.NewEditSelectList(labels, false)
 	editor.SetLabel(getFocusMarker(ctx.Colors))
-	editor.SetInitialValue(currentDisplay)
+	editor.SetInitialValue(currentLabel)
 	editor.SetSubmitHandler(func(text string) {
 		if onChange == nil {
 			return
 		}
-		if key, ok := wfd.EnumParseDisplay(text); ok {
+		if key, ok := wfd.EnumParseLabel(text); ok {
 			onChange(key)
 			return
 		}
-		// fallback: emit raw text so unknown values surface at the save
-		// boundary rather than being silently dropped.
 		onChange(text)
 	})
 	return &enumSelectAdapter{
@@ -691,6 +689,23 @@ func renderTaskIDListValue(tk *tikipkg.Tiki, ctx FieldRenderContext) tview.Primi
 }
 
 // --- editor factories ---
+
+// editTitleValue builds a plain text input for the title field.
+func editTitleValue(tk *tikipkg.Tiki, ctx FieldRenderContext, onChange func(string)) FieldEditorWidget {
+	colors := config.GetColors()
+	input := tview.NewInputField()
+	input.SetFieldBackgroundColor(colors.ContentBackgroundColor.TCell())
+	input.SetFieldTextColor(colors.InputFieldTextColor.TCell())
+	input.SetLabel(getFocusMarker(ctx.Colors))
+	input.SetBorder(false)
+	input.SetText(tk.Title)
+	input.SetChangedFunc(func(text string) {
+		if onChange != nil {
+			onChange(text)
+		}
+	})
+	return &titleEditAdapter{InputField: input}
+}
 
 // editAssigneeValue builds the assignee editor (free-text + suggestions).
 func editAssigneeValue(tk *tikipkg.Tiki, ctx FieldRenderContext, onChange func(string)) FieldEditorWidget {
@@ -794,6 +809,9 @@ func editTagsValue(tk *tikipkg.Tiki, ctx FieldRenderContext, onChange func(strin
 // through the SemanticEnum editor directly — same UX as the built-in
 // status/type/priority editors, but driven entirely by workflow.yaml.
 func buildFieldEditor(name string, tk *tikipkg.Tiki, ctx FieldRenderContext, onChange func(string)) FieldEditorWidget {
+	if name == "title" {
+		return editTitleValue(tk, ctx, onChange)
+	}
 	if fd, ok := LookupField(name); ok {
 		ui, ok := LookupType(fd.Semantic)
 		if !ok || ui.Capability != EditorImplemented || ui.Edit == nil {
@@ -849,13 +867,11 @@ type enumSelectAdapter struct {
 }
 
 func (a *enumSelectAdapter) GetText() string {
-	display := a.selectListAdapter.GetText()
-	if key, ok := a.field.EnumParseDisplay(display); ok {
+	label := a.selectListAdapter.GetText()
+	if key, ok := a.field.EnumParseLabel(label); ok {
 		return key
 	}
-	// Unknown display — return as-is so the save handler can surface the
-	// validation error rather than the call silently no-op'ing.
-	return display
+	return label
 }
 
 // selectListAdapter delegates CycleValue to MoveToNext/MoveToPrevious.
@@ -928,4 +944,16 @@ func (a *tagsEditAdapter) CycleValue(int) bool { return false }
 // GetText returns the textarea content (whitespace-joined tags).
 func (a *tagsEditAdapter) GetText() string {
 	return a.TextArea.GetText()
+}
+
+// titleEditAdapter wraps tview.InputField for title editing — non-cyclable,
+// so CycleValue always returns false.
+type titleEditAdapter struct {
+	*tview.InputField
+}
+
+func (a *titleEditAdapter) CycleValue(int) bool { return false }
+
+func (a *titleEditAdapter) GetText() string {
+	return a.InputField.GetText()
 }

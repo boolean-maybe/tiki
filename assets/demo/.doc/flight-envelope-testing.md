@@ -8,7 +8,7 @@ tags:
   - safety
 assignee: "akowalski"
 priority: medium-high
-points: 8
+points: 7
 ---
 
 Each flight controller release needs validation across the full flight envelope: max speed, max altitude, wind limits, and payload weight. An automated SITL-based test harness will run these scenarios overnight and generate pass/fail reports.

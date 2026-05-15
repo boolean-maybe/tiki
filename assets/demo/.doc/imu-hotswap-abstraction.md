@@ -8,7 +8,7 @@ tags:
   - performance
 assignee: "mchen"
 priority: medium-high
-points: 8
+points: 7
 ---
 
 We are evaluating both the ICM-42688 and BMI088 IMUs for the next revision. A clean HAL abstraction will let us swap IMU drivers at compile time without touching the sensor fusion pipeline.
