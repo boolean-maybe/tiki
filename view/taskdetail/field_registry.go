@@ -292,9 +292,9 @@ func registerBuiltinTypes() {
 func singleRowHeight(_ *tikipkg.Tiki, _ int) int { return 1 }
 
 // stringListHeight uses WordList wrap to compute the wrapped row count.
-// The +2 accounts for the BorderPadding(0,0,1,1) on the column container
-// (RenderTagsColumn). Returns 1 for empty tags so the (none) placeholder
-// still gets a row.
+// Subtracts 2 from width to account for the BorderPadding(0,0,1,1) on the
+// column container (RenderTagsColumn). Returns 1 for empty tags so the
+// "(none)" placeholder still gets a row.
 func stringListHeight(tk *tikipkg.Tiki, width int) int {
 	tags, _, _ := tk.StringSliceField(tikipkg.FieldTags)
 	if len(tags) == 0 {
@@ -308,12 +308,13 @@ func stringListHeight(tk *tikipkg.Tiki, width int) int {
 	if len(wrapped) == 0 {
 		return 1
 	}
-	return 1 + len(wrapped)
+	return len(wrapped)
 }
 
-// taskIDListHeight returns 1 + min(len(deps), TaskListMetadataMaxRows).
-// Counts every declared dependency (resolved or not) because the renderer
-// emits one row per id even when unresolved (placeholder display).
+// taskIDListHeight returns the dependency row count, capped at
+// TaskListMetadataMaxRows. Counts every declared dependency (resolved or
+// not) because the renderer emits one row per id even when unresolved
+// (placeholder display).
 func taskIDListHeight(tk *tikipkg.Tiki, _ int) int {
 	deps, _, _ := tk.StringSliceField(tikipkg.FieldDependsOn)
 	if len(deps) == 0 {
@@ -323,7 +324,7 @@ func taskIDListHeight(tk *tikipkg.Tiki, _ int) int {
 	if depRows > config.TaskListMetadataMaxRows {
 		depRows = config.TaskListMetadataMaxRows
 	}
-	return 1 + depRows
+	return depRows
 }
 
 // renderConfiguredField looks up the field descriptor and routes through the
@@ -353,13 +354,12 @@ func renderConfiguredField(name string, tk *tikipkg.Tiki, ctx FieldRenderContext
 	return placeholderRow(fmt.Sprintf("%s: (unknown field)", name))
 }
 
-// renderGenericWorkflowField produces a labeled row for a workflow-declared
+// renderGenericWorkflowField produces a value-only row for a workflow-declared
 // field that the typed registry doesn't have a custom renderer for. The
-// label defaults to the field name, and the value is formatted by type.
+// caption (if wanted) is placed by the layout author as a literal cell.
 func renderGenericWorkflowField(fd workflow.FieldDef, tk *tikipkg.Tiki, ctx FieldRenderContext) tview.Primitive {
-	label := fd.Name
 	value := genericFieldValueString(fd, tk)
-	return labeledLine(label, value, ctx.Colors)
+	return valueOnlyLine(value, ctx.Colors)
 }
 
 // genericFieldValueString formats a workflow field's value as a single-line
@@ -461,12 +461,12 @@ func placeholderRow(text string) tview.Primitive {
 	return tv
 }
 
-// labeledLine returns a "Label: value" row using the dim label / value colors.
-func labeledLine(label, value string, colors *config.ColorConfig) tview.Primitive {
-	labelTag := colors.TaskDetailLabelText.Tag().String()
-	valueTag := colors.TaskDetailValueText.Tag().String()
-	text := fmt.Sprintf("%s%-12s%s%s", labelTag, label+":", valueTag, value)
-	tv := tview.NewTextView().SetDynamicColors(true).SetText(text)
+// valueOnlyLine returns a single-line value row in the value color, with no
+// caption. Captions are first-class layout cells (LiteralCell) since the
+// caption-from-field coupling was removed; renderers emit only the value.
+func valueOnlyLine(value string, colors *config.ColorConfig) tview.Primitive {
+	tag := colors.TaskDetailValueText.Tag().String()
+	tv := tview.NewTextView().SetDynamicColors(true).SetText(tag + value)
 	tv.SetBorderPadding(0, 0, 0, 0)
 	return tv
 }
@@ -476,53 +476,53 @@ func labeledLine(label, value string, colors *config.ColorConfig) tview.Primitiv
 func renderTextValue(tk *tikipkg.Tiki, ctx FieldRenderContext) tview.Primitive {
 	fd, ok := LookupField(ctx.FieldName)
 	if !ok {
-		return placeholderRow(fmt.Sprintf("%s: (unknown)", ctx.FieldName))
+		return placeholderRow("(unknown)")
 	}
 	value, _, _ := tk.StringField(fd.Name)
 	if value == "" {
-		return labeledLine(fd.Label, textEmptyPlaceholder(fd.Name), ctx.Colors)
+		return valueOnlyLine(textEmptyPlaceholder(fd.Name), ctx.Colors)
 	}
-	// labeledLine emits the value into a SetDynamicColors(true) TextView,
+	// valueOnlyLine emits the value into a SetDynamicColors(true) TextView,
 	// so user-controlled text containing tview color tags (e.g. "[red]")
 	// would be parsed as markup. Escape user content; the empty-placeholder
 	// path above is internal and safe.
-	return labeledLine(fd.Label, tview.Escape(value), ctx.Colors)
+	return valueOnlyLine(tview.Escape(value), ctx.Colors)
 }
 
 func renderIntegerValue(tk *tikipkg.Tiki, ctx FieldRenderContext) tview.Primitive {
 	fd, ok := LookupField(ctx.FieldName)
 	if !ok {
-		return placeholderRow(fmt.Sprintf("%s: (unknown)", ctx.FieldName))
+		return placeholderRow("(unknown)")
 	}
 	v, present, _ := tk.IntField(fd.Name)
 	value := "─"
 	if present {
 		value = fmt.Sprintf("%d", v)
 	}
-	return labeledLine(fd.Label, value, ctx.Colors)
+	return valueOnlyLine(value, ctx.Colors)
 }
 
 func renderBooleanValue(_ *tikipkg.Tiki, ctx FieldRenderContext) tview.Primitive {
-	return labeledLine("Boolean", "(stub)", ctx.Colors)
+	return valueOnlyLine("(stub)", ctx.Colors)
 }
 
 func renderDateValue(tk *tikipkg.Tiki, ctx FieldRenderContext) tview.Primitive {
 	fd, ok := LookupField(ctx.FieldName)
 	if !ok {
-		return placeholderRow(fmt.Sprintf("%s: (unknown)", ctx.FieldName))
+		return placeholderRow("(unknown)")
 	}
 	t, _, _ := tk.TimeField(fd.Name)
 	value := "None"
 	if !t.IsZero() {
 		value = t.Format("2006-01-02")
 	}
-	return labeledLine(fd.Label, value, ctx.Colors)
+	return valueOnlyLine(value, ctx.Colors)
 }
 
 func renderDateTimeValue(tk *tikipkg.Tiki, ctx FieldRenderContext) tview.Primitive {
 	fd, ok := LookupField(ctx.FieldName)
 	if !ok {
-		return placeholderRow(fmt.Sprintf("%s: (unknown)", ctx.FieldName))
+		return placeholderRow("(unknown)")
 	}
 	value := "Unknown"
 	if fd.Get != nil {
@@ -530,7 +530,7 @@ func renderDateTimeValue(tk *tikipkg.Tiki, ctx FieldRenderContext) tview.Primiti
 			value = t.Format("2006-01-02 15:04")
 		}
 	}
-	return labeledLine(fd.Label, value, ctx.Colors)
+	return valueOnlyLine(value, ctx.Colors)
 }
 
 // textEmptyPlaceholder returns the historical empty-value placeholder for
@@ -549,7 +549,7 @@ func textEmptyPlaceholder(name string) string {
 func renderRecurrenceValue(tk *tikipkg.Tiki, ctx FieldRenderContext) tview.Primitive {
 	recurrenceStr, _, _ := tk.StringField(tikipkg.FieldRecurrence)
 	display := value.RecurrenceDisplay(value.Recurrence(recurrenceStr))
-	return labeledLine("Recurrence", display, ctx.Colors)
+	return valueOnlyLine(display, ctx.Colors)
 }
 
 // renderEnumValue is the generic read-only renderer for any TypeEnum field.
@@ -568,13 +568,11 @@ func renderEnumValue(tk *tikipkg.Tiki, ctx FieldRenderContext) tview.Primitive {
 	fd, hasFD := LookupField(ctx.FieldName)
 	wfd, hasWFD := workflow.Field(ctx.FieldName)
 	if !hasFD && !hasWFD {
-		return placeholderRow(fmt.Sprintf("%s: (unknown)", ctx.FieldName))
+		return placeholderRow("(unknown)")
 	}
 	name := ctx.FieldName
-	label := name
 	var editField model.EditField // zero value = unset, never matches a real field
 	if hasFD {
-		label = fd.Label
 		editField = fd.EditField
 	}
 
@@ -597,14 +595,13 @@ func renderEnumValue(tk *tikipkg.Tiki, ctx FieldRenderContext) tview.Primitive {
 	}
 
 	focused := ctx.Mode == RenderModeEdit && editField != "" && ctx.FocusedField == editField
-	labelTag := getDimOrFullColor(ctx.Mode, focused, ctx.Colors.TaskDetailLabelText, ctx.Colors.TaskDetailEditDimLabelColor).Tag().String()
 	valueTag := getDimOrFullColor(ctx.Mode, focused, ctx.Colors.TaskDetailValueText, ctx.Colors.TaskDetailEditDimValueColor).Tag().String()
 	focusMarker := ""
 	if focused && ctx.Mode == RenderModeEdit {
 		focusMarker = getFocusMarker(ctx.Colors)
 	}
 
-	text := fmt.Sprintf("%s%s%-10s%s%s", focusMarker, labelTag, label+":", valueTag, display)
+	text := focusMarker + valueTag + display
 	textView := tview.NewTextView().SetDynamicColors(true).SetText(text)
 	textView.SetBorderPadding(0, 0, 0, 0)
 	return textView
@@ -626,10 +623,6 @@ func editEnumValue(tk *tikipkg.Tiki, ctx FieldRenderContext, onChange func(strin
 	if !ok || wfd.Type != workflow.TypeEnum {
 		return nil
 	}
-	label := ctx.FieldName
-	if fd, hasFD := LookupField(ctx.FieldName); hasFD {
-		label = fd.Label
-	}
 
 	keys := wfd.AllowedValues()
 	displays := make([]string, len(keys))
@@ -640,7 +633,7 @@ func editEnumValue(tk *tikipkg.Tiki, ctx FieldRenderContext, onChange func(strin
 	currentDisplay := wfd.EnumDisplay(currentKey)
 
 	editor := component.NewEditSelectList(displays, false)
-	editor.SetLabel(getFocusMarker(ctx.Colors) + fmt.Sprintf("%-10s", label+":"))
+	editor.SetLabel(getFocusMarker(ctx.Colors))
 	editor.SetInitialValue(currentDisplay)
 	editor.SetSubmitHandler(func(text string) {
 		if onChange == nil {
@@ -660,32 +653,32 @@ func editEnumValue(tk *tikipkg.Tiki, ctx FieldRenderContext, onChange func(strin
 	}
 }
 
-// renderStringListValue renders the tags column. Non-empty → multi-row
-// RenderTagsColumn; empty → single labeledLine "(none)" so the grid's
-// height contract (always ≥ 1 row) holds.
+// renderStringListValue renders the tags as a value-only word-wrapped list.
+// Non-empty → multi-row RenderTagsColumn; empty → "(none)" placeholder so
+// the grid's height contract (always ≥ 1 row) holds.
 func renderStringListValue(tk *tikipkg.Tiki, ctx FieldRenderContext) tview.Primitive {
 	tags, _, _ := tk.StringSliceField(tikipkg.FieldTags)
 	if len(tags) == 0 {
-		return labeledLine("Tags", "(none)", ctx.Colors)
+		return valueOnlyLine("(none)", ctx.Colors)
 	}
 	return RenderTagsColumn(tk)
 }
 
-// renderTaskIDListValue renders the depends-on column. Non-empty → multi-row
-// RenderDependsOnColumn (which now emits placeholder rows for unresolved
-// IDs so its row count matches taskIDListHeight); empty → labeledLine.
+// renderTaskIDListValue renders the depends-on column as value-only. Non-empty
+// → multi-row RenderDependsOnColumn (which emits placeholder rows for
+// unresolved IDs so its row count matches taskIDListHeight); empty → "(none)".
 func renderTaskIDListValue(tk *tikipkg.Tiki, ctx FieldRenderContext) tview.Primitive {
 	deps, _, _ := tk.StringSliceField(tikipkg.FieldDependsOn)
 	if len(deps) == 0 {
-		return labeledLine("Depends On", "(none)", ctx.Colors)
+		return valueOnlyLine("(none)", ctx.Colors)
 	}
 	if ctx.Store == nil {
-		return labeledLine("Depends On", strings.Join(deps, ", "), ctx.Colors)
+		return valueOnlyLine(strings.Join(deps, ", "), ctx.Colors)
 	}
 	if col := RenderDependsOnColumn(tk, ctx.Store); col != nil {
 		return col
 	}
-	return labeledLine("Depends On", strings.Join(deps, ", "), ctx.Colors)
+	return valueOnlyLine(strings.Join(deps, ", "), ctx.Colors)
 }
 
 // --- editor factories ---
@@ -706,7 +699,7 @@ func editAssigneeValue(tk *tikipkg.Tiki, ctx FieldRenderContext, onChange func(s
 		assignee = "Unassigned"
 	}
 	editor := component.NewEditSelectList(options, true)
-	editor.SetLabel(getFocusMarker(ctx.Colors) + "Assignee: ")
+	editor.SetLabel(getFocusMarker(ctx.Colors))
 	editor.SetInitialValue(assignee)
 	editor.SetSubmitHandler(func(text string) {
 		if onChange != nil {
@@ -721,7 +714,7 @@ func editAssigneeValue(tk *tikipkg.Tiki, ctx FieldRenderContext, onChange func(s
 func editDueValue(tk *tikipkg.Tiki, ctx FieldRenderContext, onChange func(string)) FieldEditorWidget {
 	due, _, _ := tk.TimeField(tikipkg.FieldDue)
 	editor := component.NewDateEdit()
-	editor.SetLabel(getFocusMarker(ctx.Colors) + "Due:      ")
+	editor.SetLabel(getFocusMarker(ctx.Colors))
 	editor.SetChangeHandler(func(s string) {
 		if onChange != nil {
 			onChange(s)
@@ -747,7 +740,7 @@ func editDueValue(tk *tikipkg.Tiki, ctx FieldRenderContext, onChange func(string
 func editRecurrenceValue(tk *tikipkg.Tiki, ctx FieldRenderContext, onChange func(string)) FieldEditorWidget {
 	recurrenceStr, _, _ := tk.StringField(tikipkg.FieldRecurrence)
 	editor := component.NewRecurrenceEdit()
-	editor.SetLabel(getFocusMarker(ctx.Colors) + "Recurrence: ")
+	editor.SetLabel(getFocusMarker(ctx.Colors))
 	editor.SetChangeHandler(func(_ string) {
 		if onChange != nil {
 			onChange(editor.GetValue())

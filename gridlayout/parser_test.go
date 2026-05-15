@@ -3,6 +3,8 @@ package gridlayout
 import (
 	"strings"
 	"testing"
+
+	"gopkg.in/yaml.v3"
 )
 
 func TestTokenizeCell(t *testing.T) {
@@ -52,11 +54,43 @@ func TestTokenizeCell(t *testing.T) {
 			}
 		}},
 		{in: "tags:0", wantErr: true},
-		{in: "tags:-5", wantErr: true},
-		{in: "tags:", wantErr: true},
-		{in: "1tag", wantErr: true},
-		{in: "foo bar", wantErr: true},
-		{in: "**", wantErr: true},
+		// `^` and `|` both tokenize to RowSpanCell (`^` is the bare-legal
+		// preferred form; `|` is accepted for backward-compat but requires
+		// YAML quoting).
+		{in: "^", check: func(t *testing.T, c Cell) {
+			if _, ok := c.(RowSpanCell); !ok {
+				t.Errorf("want RowSpanCell, got %T", c)
+			}
+		}},
+		// Strings that are not bare markers and not valid field identifiers
+		// become literal-text cells. This intentionally permits typos like
+		// `tags:-5` to fall through as literal text rather than erroring —
+		// authors will see the literal on screen and fix it; the alternative
+		// would conflict with accepting `"Status:"` and similar captions.
+		{in: "Status:", check: func(t *testing.T, c Cell) {
+			lc, ok := c.(LiteralCell)
+			if !ok || lc.Text != "Status:" {
+				t.Errorf("want LiteralCell{Status:}, got %+v", c)
+			}
+		}},
+		{in: "Done!", check: func(t *testing.T, c Cell) {
+			lc, ok := c.(LiteralCell)
+			if !ok || lc.Text != "Done!" {
+				t.Errorf("want LiteralCell{Done!}, got %+v", c)
+			}
+		}},
+		{in: "foo bar", check: func(t *testing.T, c Cell) {
+			lc, ok := c.(LiteralCell)
+			if !ok || lc.Text != "foo bar" {
+				t.Errorf("want LiteralCell{foo bar}, got %+v", c)
+			}
+		}},
+		{in: "  Tag List  ", check: func(t *testing.T, c Cell) {
+			lc, ok := c.(LiteralCell)
+			if !ok || lc.Text != "Tag List" {
+				t.Errorf("want LiteralCell{Tag List} (outer whitespace trimmed, inner preserved), got %+v", c)
+			}
+		}},
 	}
 	for _, tc := range cases {
 		t.Run(tc.in, func(t *testing.T) {
@@ -107,9 +141,14 @@ func TestParseGrid_OrphanColSpan(t *testing.T) {
 }
 
 func TestParseGrid_OrphanRowSpan(t *testing.T) {
-	_, err := ParseGrid([][]string{{"|"}, {"status"}})
-	if err == nil || !strings.Contains(err.Error(), "orphan '|'") {
-		t.Errorf("want orphan row-span error, got %v", err)
+	_, err := ParseGrid([][]string{{"^"}, {"status"}})
+	if err == nil || !strings.Contains(err.Error(), "orphan row-span") {
+		t.Errorf("want orphan row-span error for '^', got %v", err)
+	}
+	// `|` is a synonym for `^` and produces the same diagnostic.
+	_, err = ParseGrid([][]string{{"|"}, {"status"}})
+	if err == nil || !strings.Contains(err.Error(), "orphan row-span") {
+		t.Errorf("want orphan row-span error for '|', got %v", err)
 	}
 }
 
@@ -182,6 +221,119 @@ func TestParseGrid_CanonicalExample(t *testing.T) {
 		if spec.Stretcher[c] != s {
 			t.Errorf("stretcher[%d]: got %v, want %v", c, spec.Stretcher[c], s)
 		}
+	}
+}
+
+func TestParseGrid_LiteralAnchor(t *testing.T) {
+	spec, err := ParseGrid([][]string{
+		{"Status:", "status", "Tags:", "tags"},
+	})
+	if err != nil {
+		t.Fatalf("parse: %v", err)
+	}
+	if got, want := len(spec.Anchors), 4; got != want {
+		t.Fatalf("anchor count: got %d, want %d", got, want)
+	}
+	cases := []struct {
+		kind AnchorKind
+		name string
+		text string
+	}{
+		{AnchorLiteral, "", "Status:"},
+		{AnchorField, "status", ""},
+		{AnchorLiteral, "", "Tags:"},
+		{AnchorField, "tags", ""},
+	}
+	for i, want := range cases {
+		a := spec.Anchors[i]
+		if a.Kind != want.kind || a.Name != want.name || a.Text != want.text {
+			t.Errorf("anchor[%d]: got kind=%v name=%q text=%q, want kind=%v name=%q text=%q",
+				i, a.Kind, a.Name, a.Text, want.kind, want.name, want.text)
+		}
+	}
+}
+
+func TestParseGrid_LiteralAnchorNamesExcludesLiterals(t *testing.T) {
+	spec, err := ParseGrid([][]string{
+		{"Status:", "status", "Tags:", "tags"},
+	})
+	if err != nil {
+		t.Fatalf("parse: %v", err)
+	}
+	got := spec.AnchorNames()
+	want := []string{"status", "tags"}
+	if len(got) != len(want) {
+		t.Fatalf("AnchorNames: got %v, want %v", got, want)
+	}
+	for i, n := range want {
+		if got[i] != n {
+			t.Errorf("[%d]: got %q, want %q", i, got[i], n)
+		}
+	}
+}
+
+func TestParseGrid_CaretRowSpan(t *testing.T) {
+	spec, err := ParseGrid([][]string{
+		{"tags:30"},
+		{"^"},
+	})
+	if err != nil {
+		t.Fatalf("parse: %v", err)
+	}
+	if len(spec.Anchors) != 1 {
+		t.Fatalf("anchor count: got %d, want 1", len(spec.Anchors))
+	}
+	a := spec.Anchors[0]
+	if a.RowSpan != 2 {
+		t.Errorf("rowspan: got %d, want 2", a.RowSpan)
+	}
+}
+
+// TestYAML_BareMarkers verifies the unquoted-marker contract: --, _, ^, <->
+// are bare-legal in YAML flow context, while bare `|` is rejected (it is
+// YAML's block-scalar indicator). This test pins both halves of the
+// contract end-to-end: YAML → tokenizer.
+func TestYAML_BareMarkers(t *testing.T) {
+	// Round-trip a grid with all four bare markers in valid positions:
+	//   row 0: title spans columns 0-1 via `--`; status is a separate anchor; <-> marks a stretcher column
+	//   row 1: title continues into col 0-1 via `^`; status takes col 2; col 3 is `_` (empty)
+	src := `m:
+  - [title, --, status, <->]
+  - [^,     ^,  _,      <->]
+`
+	var out struct {
+		M [][]string `yaml:"m"`
+	}
+	if err := yaml.Unmarshal([]byte(src), &out); err != nil {
+		t.Fatalf("yaml unmarshal: %v", err)
+	}
+	spec, err := ParseGrid(out.M)
+	if err != nil {
+		t.Fatalf("parse: %v", err)
+	}
+	// Per-cell expected types — the bare YAML tokens have to round-trip
+	// to these struct types, otherwise the contract is broken.
+	wantCells := [][]Cell{
+		{FieldCell{Name: "title"}, ColSpanCell{}, FieldCell{Name: "status"}, StretcherCell{}},
+		{RowSpanCell{}, RowSpanCell{}, EmptyCell{}, StretcherCell{}},
+	}
+	for r, row := range wantCells {
+		for c, want := range row {
+			got := spec.Cells[r][c]
+			if got != want {
+				t.Errorf("cell[%d][%d]: got %T %+v, want %T %+v", r, c, got, got, want, want)
+			}
+		}
+	}
+
+	// Confirm bare `|` rejected by YAML in flow context — pin the contract
+	// that motivated adding `^` as the preferred row-span marker.
+	badSrc := `m: [|]`
+	var bad struct {
+		M []string `yaml:"m"`
+	}
+	if err := yaml.Unmarshal([]byte(badSrc), &bad); err == nil {
+		t.Errorf("expected YAML error for bare '|' in flow context, got nil (parsed as %v)", bad.M)
 	}
 }
 

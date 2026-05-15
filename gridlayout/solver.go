@@ -45,9 +45,9 @@ type Plan struct {
 //     allocated width. If that exceeds the sum of its spanned rows, grow
 //     the last row in its span by the excess.
 //  3. Cap each row at maxRowHeight to bound runaway content.
-func SolveLayout(spec GridSpec, width, gap int, defaultWidth func(name string) int, heightOf func(name string, w int) int) Plan {
+func SolveLayout(spec GridSpec, width, gap int, defaultWidth func(a Anchor) int, heightOf func(name string, w int) int) Plan {
 	if defaultWidth == nil {
-		defaultWidth = func(string) int { return 12 }
+		defaultWidth = func(Anchor) int { return 12 }
 	}
 	if heightOf == nil {
 		heightOf = func(string, int) int { return 1 }
@@ -72,7 +72,7 @@ func SolveLayout(spec GridSpec, width, gap int, defaultWidth func(name string) i
 	for _, a := range spec.Anchors {
 		wanted := a.WantedWidth
 		if wanted == 0 {
-			wanted = defaultWidth(a.Name)
+			wanted = defaultWidth(a)
 		}
 		if wanted < 1 {
 			wanted = 1

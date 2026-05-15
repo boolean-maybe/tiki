@@ -206,17 +206,27 @@ views:
     description: "Configured detail view for the selected tiki"
     require: ["selection:one"]
     # Metadata grid: each row is a row in the rendered metadata box. Cells:
-    #   name      field, system-default width
-    #   name:N    field, preferred + minimum width of N chars
-    #   --        column span (continue from the cell to the left)
-    #   |         row span (continue from the cell above)
-    #   _         empty cell
-    #   <->       horizontal stretcher (absorbs remaining space)
+    #   name        field, value-only (no caption)
+    #   name:N      field, preferred + minimum width of N chars
+    #   "any text"  literal caption (any quoted YAML string that is not a
+    #               bare identifier or marker)
+    #   --          column span (continue from the cell to the left)
+    #   ^           row span (continue from the cell above); `|` also
+    #               accepted but must be YAML-quoted
+    #   _           empty cell
+    #   <->         horizontal stretcher (absorbs remaining space)
+    #
+    # Fields render value-only; captions are placed explicitly by the layout.
+    # 4 columns: each row pairs (caption, value, caption, value). Captions
+    # to the left of their fields. Sized to fit an 80-column terminal.
     metadata:
-      - [title,     "--",       "--",        "--",         "--"          ]
-      - [status,    type,       priority,    points,       tags:24       ]
-      - [assignee,  due,        createdAt,   recurrence,   dependsOn:20  ]
-      - [createdBy, updatedAt,  "_",         "_",          "|"           ]
+      - [title,        --,         --,            --        ]
+      - ["Status:",    status,     "Type:",       type      ]
+      - ["Priority:",  priority,   "Points:",     points    ]
+      - ["Assignee:",  assignee,   "Due:",        due       ]
+      - ["Recurrence:", recurrence, "Created:",   createdAt ]
+      - ["Updated:",   updatedAt,  "By:",         createdBy ]
+      - ["Tags:",      tags,       "Depends On:", dependsOn ]
 
 triggers:
   - description: block completion with open dependencies

@@ -3,20 +3,26 @@
 // cells:
 //
 //	metadata:
-//	  - [title,    --,        --,   --,      --        ]
-//	  - [status,   assignee,  <->,  tags:30, depends:25]
-//	  - [type,     createdBy, <->,  |,       |         ]
-//	  - [priority, createdAt, <->,  _,       _         ]
-//	  - [points,   updatedAt, <->,  _,       _         ]
+//	  - [title,      --,        --,   --,      --        ]
+//	  - ["Status:",  status,    <->,  tags:30, depends:25]
+//	  - ["Type:",    type,      <->,  ^,       ^         ]
+//	  - ["Priority:", priority, <->,  _,       _         ]
 //
 // Cell vocabulary:
 //
-//	name      field, system-default width
-//	name:N    field, preferred + minimum width of N chars
-//	--        column span (continue the anchor to the left)
-//	|         row span (continue the anchor above)
-//	_         empty cell
-//	<->       horizontal stretcher (absorbs remaining space)
+//	name        field, value-only (no caption), system-default width
+//	name:N      field, preferred + minimum width of N chars
+//	"any text"  literal caption (any quoted string that is not a bare
+//	            identifier or marker); used to label adjacent fields
+//	--          column span (continue the anchor to the left)
+//	^           row span (continue the anchor above); `|` also accepted
+//	            but requires YAML quoting since it is a block-scalar
+//	            indicator
+//	_           empty cell
+//	<->         horizontal stretcher (absorbs remaining space)
+//
+// Fields are rendered value-only. Captions are placed by the layout
+// author as literal cells.
 //
 // The package is parser + solver only — it has no tview or config
 // dependencies, so plugin/ and view/ can both import it without cycles.
@@ -33,10 +39,18 @@ type FieldCell struct {
 	WantedWidth int
 }
 
+// LiteralCell is a static-text cell. Text is the literal string as it was
+// written in the workflow (whitespace trimmed). It contributes a width
+// hint based on Text length and renders as a static text primitive.
+type LiteralCell struct {
+	Text string
+}
+
 // ColSpanCell extends the anchor immediately to its left.
 type ColSpanCell struct{}
 
-// RowSpanCell extends the anchor immediately above.
+// RowSpanCell extends the anchor immediately above. Both `^` (bare-legal
+// in YAML) and `|` (requires quoting) tokenize to this cell type.
 type RowSpanCell struct{}
 
 // EmptyCell renders nothing and contributes no width hint.
@@ -47,16 +61,34 @@ type EmptyCell struct{}
 type StretcherCell struct{}
 
 func (FieldCell) isCell()     {}
+func (LiteralCell) isCell()   {}
 func (ColSpanCell) isCell()   {}
 func (RowSpanCell) isCell()   {}
 func (EmptyCell) isCell()     {}
 func (StretcherCell) isCell() {}
 
-// Anchor is one placed field in the grid. Row/Col is the top-left corner;
-// RowSpan/ColSpan describe its extent. WantedWidth carries the user's :N
-// hint (0 when absent), applied across the spanned columns by the solver.
+// AnchorKind distinguishes a field anchor (renders a tiki field's value)
+// from a literal anchor (renders fixed text declared in the layout).
+type AnchorKind int
+
+const (
+	AnchorField AnchorKind = iota
+	AnchorLiteral
+)
+
+// Anchor is one placed cell-with-content in the grid: a field anchor or a
+// literal text anchor. Row/Col is the top-left corner; RowSpan/ColSpan
+// describe its extent. WantedWidth carries the user's :N hint (0 when
+// absent), applied across the spanned columns by the solver.
+//
+// For Kind == AnchorField, Name holds the field name; Text is empty.
+// For Kind == AnchorLiteral, Text holds the literal string; Name is empty
+// (callers must use Kind to distinguish, not Name presence — a future
+// feature could allow naming literals).
 type Anchor struct {
+	Kind        AnchorKind
 	Name        string
+	Text        string
 	Row, Col    int
 	RowSpan     int
 	ColSpan     int
@@ -65,7 +97,7 @@ type Anchor struct {
 
 // GridSpec is the parsed, validated grid. Anchors are emitted in
 // declaration order (top-to-bottom, left-to-right) which is also the
-// edit-mode traversal order.
+// edit-mode traversal order for field anchors.
 type GridSpec struct {
 	Rows, Cols int
 	Anchors    []Anchor
@@ -73,12 +105,15 @@ type GridSpec struct {
 	Cells      [][]Cell
 }
 
-// AnchorNames returns the anchor field names in declaration order. Useful
-// for callers that need a flat field list (e.g. edit-traversal order).
+// AnchorNames returns the field-anchor names in declaration order. Literal
+// anchors are excluded — they are not edit targets and not field references.
+// Useful for callers that need a flat field list (e.g. edit-traversal order).
 func (s GridSpec) AnchorNames() []string {
-	out := make([]string, len(s.Anchors))
-	for i, a := range s.Anchors {
-		out[i] = a.Name
+	out := make([]string, 0, len(s.Anchors))
+	for _, a := range s.Anchors {
+		if a.Kind == AnchorField {
+			out = append(out, a.Name)
+		}
 	}
 	return out
 }

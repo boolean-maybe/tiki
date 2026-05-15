@@ -6,6 +6,12 @@ import "github.com/boolean-maybe/tiki/gridlayout"
 // metadata field list into a multi-column grid. Matches the visible
 // grid-body height (metadataGridHeight) so packed columns fill the box
 // without clipping when each field is single-row.
+//
+// Note: this packing path is used by TaskEditView, which receives a flat
+// field-name list rather than the workflow's parsed grid. The synthesized
+// grid intentionally has no literal caption anchors — TaskEditView relies
+// on each editor widget's tview-level SetLabel for focus markers; full
+// per-field captions are not currently surfaced in edit mode.
 const rowsPerPackedColumn = metadataGridHeight
 
 // singleColumnSpec synthesizes a 1-column metadata grid from a flat
@@ -36,9 +42,12 @@ func singleColumnSpec(names []string) gridlayout.GridSpec {
 
 // greedyPackedSpec packs a flat metadata field name list into a
 // multi-column grid: each column holds up to rowsPerPackedColumn fields
-// in declaration order, then a new column starts. Used by TaskEditView
-// to preserve the legacy 4-rows-per-column visual layout when the
-// caller hasn't supplied a parsed grid.
+// in declaration order, then a new column starts. Used by TaskEditView,
+// which receives a flat field-name list and so cannot reuse the
+// workflow's parsed `metadata:` grid directly. Edit mode therefore
+// always lays its fields out in this packed rectangle, regardless of
+// the workflow author's grid shape or any literal caption anchors they
+// declared.
 func greedyPackedSpec(names []string) gridlayout.GridSpec {
 	if len(names) == 0 {
 		return gridlayout.GridSpec{}

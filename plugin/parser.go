@@ -351,6 +351,12 @@ func validateDetailMetadata(pluginName string, raw [][]string, schema ruki.Schem
 		return gridlayout.GridSpec{}, fmt.Errorf("plugin %q: metadata: %w", pluginName, err)
 	}
 	for _, a := range spec.Anchors {
+		if a.Kind == gridlayout.AnchorLiteral {
+			// Literal anchors carry static text declared by the layout
+			// author; they don't reference any field, so schema validation
+			// does not apply.
+			continue
+		}
 		name := a.Name
 		if name == "title" {
 			// title is a layout reservation — the title primitive renders

@@ -10,7 +10,22 @@ import (
 var cellNameRe = regexp.MustCompile(`^([A-Za-z][A-Za-z0-9_-]*)(?::(\d+))?$`)
 
 // TokenizeCell parses a single grid cell string. Whitespace is trimmed.
-// Returns an error for empty cells, unrecognized tokens, or `:0` widths.
+//
+// The classification is content-based, in this order:
+//  1. Empty → error.
+//  2. Bare marker (--, ^, |, _, <->) → corresponding span/empty/stretcher cell.
+//  3. Identifier shape (letter, then letters/digits/underscores/hyphens, optional :N) → FieldCell.
+//  4. Anything else → LiteralCell.
+//
+// `|` is accepted as a synonym for `^` (row-span) so existing workflows
+// that quote `|` continue to parse.
+//
+// Authoring caveat: identifier-shaped typos (e.g. `staus` instead of `status`)
+// reach FieldCell and trip schema validation at workflow-load time, surfacing
+// a clear error. Non-identifier-shaped typos (e.g. `status:` with stray
+// colon, `stat us` with embedded space, or any quoted form that includes
+// punctuation) bypass schema validation and become on-screen literal text.
+// Reviewing the rendered detail view is the safety net for that class.
 func TokenizeCell(s string) (Cell, error) {
 	t := strings.TrimSpace(s)
 	switch t {
@@ -18,7 +33,7 @@ func TokenizeCell(s string) (Cell, error) {
 		return nil, fmt.Errorf("empty cell")
 	case "--":
 		return ColSpanCell{}, nil
-	case "|":
+	case "^", "|":
 		return RowSpanCell{}, nil
 	case "_":
 		return EmptyCell{}, nil
@@ -27,7 +42,7 @@ func TokenizeCell(s string) (Cell, error) {
 	}
 	m := cellNameRe.FindStringSubmatch(t)
 	if m == nil {
-		return nil, fmt.Errorf("invalid cell %q", t)
+		return LiteralCell{Text: t}, nil
 	}
 	fc := FieldCell{Name: m[1]}
 	if m[2] != "" {
@@ -91,31 +106,10 @@ func ParseGrid(raw [][]string) (GridSpec, error) {
 				}
 				seen[cell.Name] = struct{}{}
 
-				colSpan := 1
-				for cc := c + 1; cc < cols; cc++ {
-					if _, ok := cells[r][cc].(ColSpanCell); !ok {
-						break
-					}
-					colSpan++
-				}
-
-				rowSpan := 1
-				for rr := r + 1; rr < rows; rr++ {
-					canSpan := true
-					for cc := c; cc < c+colSpan; cc++ {
-						if _, ok := cells[rr][cc].(RowSpanCell); !ok {
-							canSpan = false
-							break
-						}
-					}
-					if !canSpan {
-						break
-					}
-					rowSpan++
-				}
-
+				colSpan, rowSpan := computeSpans(cells, r, c, rows, cols)
 				idx := len(anchors)
 				anchors = append(anchors, Anchor{
+					Kind:        AnchorField,
 					Name:        cell.Name,
 					Row:         r,
 					Col:         c,
@@ -123,16 +117,25 @@ func ParseGrid(raw [][]string) (GridSpec, error) {
 					ColSpan:     colSpan,
 					WantedWidth: cell.WantedWidth,
 				})
-				for rr := r; rr < r+rowSpan; rr++ {
-					for cc := c; cc < c+colSpan; cc++ {
-						occupancy[rr][cc] = idx
-					}
-				}
+				markOccupancy(occupancy, idx, r, c, rowSpan, colSpan)
+
+			case LiteralCell:
+				colSpan, rowSpan := computeSpans(cells, r, c, rows, cols)
+				idx := len(anchors)
+				anchors = append(anchors, Anchor{
+					Kind:    AnchorLiteral,
+					Text:    cell.Text,
+					Row:     r,
+					Col:     c,
+					RowSpan: rowSpan,
+					ColSpan: colSpan,
+				})
+				markOccupancy(occupancy, idx, r, c, rowSpan, colSpan)
 
 			case ColSpanCell:
 				return GridSpec{}, fmt.Errorf("row %d, col %d: orphan '--' (no anchor to the left to extend)", r, c)
 			case RowSpanCell:
-				return GridSpec{}, fmt.Errorf("row %d, col %d: orphan '|' (no anchor above to extend)", r, c)
+				return GridSpec{}, fmt.Errorf("row %d, col %d: orphan row-span (no anchor above to extend); written as '^' or '|'", r, c)
 			case EmptyCell, StretcherCell:
 				// occupancy stays -1; stretcher consistency checked below
 			}
@@ -152,7 +155,7 @@ func ParseGrid(raw [][]string) (GridSpec, error) {
 				// anchor in a column to the left, so a column may be
 				// stretcher even if a wider anchor (e.g. a title that
 				// spans the whole row) crosses it.
-			case FieldCell, RowSpanCell:
+			case FieldCell, LiteralCell, RowSpanCell:
 				hasIncompatible = true
 			}
 		}
@@ -169,4 +172,43 @@ func ParseGrid(raw [][]string) (GridSpec, error) {
 		Stretcher: stretcher,
 		Cells:     cells,
 	}, nil
+}
+
+// computeSpans walks right and down from (r, c) and returns the colSpan
+// and rowSpan of the anchor at that position. Spans only extend through
+// `--` (column) and `^`/`|` (row) markers.
+func computeSpans(cells [][]Cell, r, c, rows, cols int) (colSpan, rowSpan int) {
+	colSpan = 1
+	for cc := c + 1; cc < cols; cc++ {
+		if _, ok := cells[r][cc].(ColSpanCell); !ok {
+			break
+		}
+		colSpan++
+	}
+
+	rowSpan = 1
+	for rr := r + 1; rr < rows; rr++ {
+		ok := true
+		for cc := c; cc < c+colSpan; cc++ {
+			if _, isRow := cells[rr][cc].(RowSpanCell); !isRow {
+				ok = false
+				break
+			}
+		}
+		if !ok {
+			break
+		}
+		rowSpan++
+	}
+	return colSpan, rowSpan
+}
+
+// markOccupancy stamps the anchor index into every cell covered by the
+// anchor's span so subsequent iteration skips covered cells.
+func markOccupancy(occupancy [][]int, idx, r, c, rowSpan, colSpan int) {
+	for rr := r; rr < r+rowSpan; rr++ {
+		for cc := c; cc < c+colSpan; cc++ {
+			occupancy[rr][cc] = idx
+		}
+	}
 }
