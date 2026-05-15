@@ -155,9 +155,9 @@ func FieldLabel(field EditField) string {
 
 // MetadataToEditFieldOrder maps each canonical metadata field name to its
 // EditField enum value, preserving order. Names without a matching EditField
-// (e.g. createdBy/createdAt/updatedAt — read-only descriptors) are skipped
-// so the returned slice is the metadata-only portion of the navigation
-// sequence (callers bracket it with Title and Description).
+// (e.g. createdBy/createdAt/updatedAt — read-only descriptors) are skipped.
+// Title emits EditFieldTitle when declared in the grid; callers append
+// Description at the end.
 //
 // Workflow-declared TypeEnum fields without a static EditField constant
 // (severity, environment, etc.) participate in the order with their field
@@ -167,6 +167,8 @@ func MetadataToEditFieldOrder(metadata []string) []EditField {
 	result := make([]EditField, 0, len(metadata))
 	for _, name := range metadata {
 		switch name {
+		case "title":
+			result = append(result, EditFieldTitle)
 		case tikipkg.FieldStatus:
 			result = append(result, EditFieldStatus)
 		case tikipkg.FieldType:

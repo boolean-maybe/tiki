@@ -8,6 +8,7 @@ import (
 
 	"github.com/boolean-maybe/tiki/component"
 	"github.com/boolean-maybe/tiki/config"
+	"github.com/boolean-maybe/tiki/gridlayout"
 	"github.com/boolean-maybe/tiki/model"
 	tikipkg "github.com/boolean-maybe/tiki/tiki"
 	"github.com/boolean-maybe/tiki/workflow"
@@ -233,6 +234,16 @@ func registerBuiltinFields() {
 		Get:      func(tk *tikipkg.Tiki) any { return tk.UpdatedAt },
 		ReadOnly: true,
 	}
+	fieldRegistry["title"] = FieldDescriptor{
+		Name:            "title",
+		Label:           "Title",
+		Semantic:        SemanticText,
+		EditField:       model.EditFieldTitle,
+		Get:             func(tk *tikipkg.Tiki) any { return tk.Title },
+		Set:             func(tk *tikipkg.Tiki, v any) error { tk.Title, _ = v.(string); return nil },
+		ReadOnly:        false,
+		EditTraversable: true,
+	}
 }
 
 func registerBuiltinTypes() {
@@ -358,19 +369,18 @@ func renderConfiguredField(name string, tk *tikipkg.Tiki, ctx FieldRenderContext
 // field that the typed registry doesn't have a custom renderer for. The
 // caption (if wanted) is placed by the layout author as a literal cell.
 func renderGenericWorkflowField(fd workflow.FieldDef, tk *tikipkg.Tiki, ctx FieldRenderContext) tview.Primitive {
-	value := genericFieldValueString(fd, tk, ctx.Colors)
+	value := genericFieldValueString(fd, tk, ctx)
 	return valueOnlyLine(value, ctx.Colors)
 }
 
 // genericFieldValueString formats a workflow field's value as a single-line
 // string, dispatching on declared type. Empty/absent values render as a dash.
 // User-controlled string values are escaped against tview's dynamic-color
-// markup and then run through workflow.ExpandVisual so `{role}` color
+// markup and then run through workflow.ExpandVisual so `<role>` color
 // markup expands while literal `[...]` stays inert. Values that come from
 // a controlled source (enum labels, formatted times, parsed numbers) are
-// passed through verbatim. The colors argument may be nil for purely
-// controlled-source values; user-string branches require it.
-func genericFieldValueString(fd workflow.FieldDef, tk *tikipkg.Tiki, colors *config.ColorConfig) string {
+// passed through verbatim.
+func genericFieldValueString(fd workflow.FieldDef, tk *tikipkg.Tiki, ctx FieldRenderContext) string {
 	raw, ok := tk.Get(fd.Name)
 	if !ok {
 		return "—"
@@ -383,7 +393,7 @@ func genericFieldValueString(fd workflow.FieldDef, tk *tikipkg.Tiki, colors *con
 		}
 		rendered := make([]string, len(ss))
 		for i, s := range ss {
-			rendered[i] = expandFieldText(s, colors)
+			rendered[i] = expandFieldText(s, ctx.Colors)
 		}
 		return strings.Join(rendered, ", ")
 	case workflow.TypeBool:
@@ -395,7 +405,10 @@ func genericFieldValueString(fd workflow.FieldDef, tk *tikipkg.Tiki, colors *con
 		}
 	case workflow.TypeEnum:
 		if s, ok := raw.(string); ok && s != "" {
-			return fd.EnumDisplay(s)
+			if ctx.Display == gridlayout.DisplayVisual {
+				return expandFieldText(fd.EnumDisplay(s), ctx.Colors)
+			}
+			return fd.EnumLabel(s)
 		}
 		return "—"
 	case workflow.TypeDate:
@@ -425,7 +438,7 @@ func genericFieldValueString(fd workflow.FieldDef, tk *tikipkg.Tiki, colors *con
 		if v == "" {
 			return "—"
 		}
-		return expandFieldText(v, colors)
+		return expandFieldText(v, ctx.Colors)
 	case int:
 		return strconv.Itoa(v)
 	case int64:
@@ -433,23 +446,14 @@ func genericFieldValueString(fd workflow.FieldDef, tk *tikipkg.Tiki, colors *con
 	case float64:
 		return strconv.FormatFloat(v, 'g', -1, 64)
 	case time.Time:
-		// Untyped time.Time falls back to date-only — historical default.
-		// TypeDate / TypeTimestamp are handled by the typed switch above
-		// before reaching this branch.
 		if v.IsZero() {
 			return "—"
 		}
 		return v.Format("2006-01-02")
 	default:
-		// User-controlled YAML can land arbitrarily-shaped values here
-		// (lists, maps with embedded strings, etc.). Escape against
-		// tview's dynamic-color markup so a value like "[red]hi" can't
-		// hijack the row's coloring; then expand `{role}` markup so
-		// authors can opt-in to color.
-		return expandFieldText(fmt.Sprintf("%v", v), colors)
+		return expandFieldText(fmt.Sprintf("%v", v), ctx.Colors)
 	}
 }
-
 
 // withFieldDescriptor stamps the descriptor's name onto the context so generic
 // renderers can resolve their target field.
@@ -481,7 +485,7 @@ func valueOnlyLine(value string, colors *config.ColorConfig) tview.Primitive {
 // renderTextValue is the read-only renderer for SemanticText fields.
 // User-controlled values are first tview-escaped (so a stored `[red]` is
 // inert) and then passed through workflow.ExpandVisual so deliberate
-// `{role}` color markup expands. Unknown roles fail closed to the plain
+// `<role>` color markup expands. Unknown roles fail closed to the plain
 // escaped text. The empty-placeholder branch above is internal and safe
 // to skip the expand step.
 func renderTextValue(tk *tikipkg.Tiki, ctx FieldRenderContext) tview.Primitive {
@@ -561,10 +565,9 @@ func renderRecurrenceValue(tk *tikipkg.Tiki, ctx FieldRenderContext) tview.Primi
 
 // renderEnumValue is the generic read-only renderer for any TypeEnum field.
 // It replaces the per-field renderStatus/renderType/renderPriority helpers:
-// look up the workflow descriptor, format the current value via EnumDisplay,
-// and apply the same focus-aware dim/full color treatment as the legacy
-// renderers so the visual contract is preserved when the focused field is
-// being shown read-only (i.e. edit mode but not the focused row).
+// look up the workflow descriptor, format the current value via EnumLabel
+// (preferring the human-readable label over the compact visual), and apply
+// the same focus-aware dim/full color treatment as the legacy renderers.
 //
 // Works for both built-in fields (status/type/priority — which have a
 // FieldDescriptor in the static registry) and workflow-declared custom
@@ -586,13 +589,12 @@ func renderEnumValue(tk *tikipkg.Tiki, ctx FieldRenderContext) tview.Primitive {
 	value, _, _ := tk.StringField(name)
 	display := "─"
 	if value != "" {
-		// Enum labels (and the raw value fallback) are user-controlled
-		// via workflow.yaml. Escape against tview color-tag markup
-		// before interpolating into the SetDynamicColors TextView so a
-		// label like "[red]High[-]" renders literally instead of
-		// hijacking the row's coloring.
 		if hasWFD {
-			display = tview.Escape(wfd.EnumDisplay(value))
+			if ctx.Display == gridlayout.DisplayVisual {
+				display = expandFieldText(wfd.EnumDisplay(value), ctx.Colors)
+			} else {
+				display = tview.Escape(wfd.EnumLabel(value))
+			}
 		} else {
 			display = tview.Escape(value)
 		}

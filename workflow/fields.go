@@ -30,7 +30,7 @@ const (
 // EnumValue describes one allowed value of a TypeEnum field with display
 // metadata. Default marks the value as the creation default for the field;
 // at most one value per enum may set Default: true. Visual is an optional
-// short rendering of the value (a glyph, emoji, or {role}-tagged markup
+// short rendering of the value (a glyph, emoji, or <role>-tagged markup
 // string consumed by workflow.ExpandVisual at render time).
 type EnumValue struct {
 	Value   string
@@ -87,7 +87,7 @@ func (f FieldDef) LookupEnum(key string) (EnumValue, bool) {
 // EnumDisplay returns the raw visual markup when Visual is set, otherwise
 // the Label (or Value if Label is empty). Callers that render to a tview
 // surface should pass non-empty visuals through ExpandVisual to resolve
-// {role} markup into color tags. Unknown keys round-trip as themselves.
+// <role> markup into color tags. Unknown keys round-trip as themselves.
 func (f FieldDef) EnumDisplay(key string) string {
 	v, ok := f.LookupEnum(key)
 	if !ok {
@@ -95,6 +95,21 @@ func (f FieldDef) EnumDisplay(key string) string {
 	}
 	if visual := strings.TrimSpace(v.Visual); visual != "" {
 		return visual
+	}
+	if v.Label != "" {
+		return v.Label
+	}
+	return v.Value
+}
+
+// EnumLabel returns the human-readable label for an enum key, preferring
+// Label over Visual. Falls back to Value if Label is empty. Use this for
+// contexts where a textual name is wanted (detail view fields) rather than
+// a compact visual indicator (board task boxes).
+func (f FieldDef) EnumLabel(key string) string {
+	v, ok := f.LookupEnum(key)
+	if !ok {
+		return key
 	}
 	if v.Label != "" {
 		return v.Label

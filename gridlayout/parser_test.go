@@ -91,6 +91,30 @@ func TestTokenizeCell(t *testing.T) {
 				t.Errorf("want LiteralCell{Tag List} (outer whitespace trimmed, inner preserved), got %+v", c)
 			}
 		}},
+		{in: "<highlight>title", check: func(t *testing.T, c Cell) {
+			fc, ok := c.(FieldCell)
+			if !ok || fc.Name != "title" || fc.Role != "highlight" || fc.WantedWidth != 0 {
+				t.Errorf("want FieldCell{title, highlight, 0}, got %+v", c)
+			}
+		}},
+		{in: "<accent>status:20", check: func(t *testing.T, c Cell) {
+			fc, ok := c.(FieldCell)
+			if !ok || fc.Name != "status" || fc.Role != "accent" || fc.WantedWidth != 20 {
+				t.Errorf("want FieldCell{status, accent, 20}, got %+v", c)
+			}
+		}},
+		{in: "<highlight>Status:", check: func(t *testing.T, c Cell) {
+			lc, ok := c.(LiteralCell)
+			if !ok || lc.Text != "<highlight>Status:" {
+				t.Errorf("want LiteralCell{<highlight>Status:}, got %+v", c)
+			}
+		}},
+		{in: "<highlight>", check: func(t *testing.T, c Cell) {
+			lc, ok := c.(LiteralCell)
+			if !ok || lc.Text != "<highlight>" {
+				t.Errorf("want LiteralCell{<highlight>}, got %+v", c)
+			}
+		}},
 	}
 	for _, tc := range cases {
 		t.Run(tc.in, func(t *testing.T) {
@@ -334,6 +358,156 @@ func TestYAML_BareMarkers(t *testing.T) {
 	}
 	if err := yaml.Unmarshal([]byte(badSrc), &bad); err == nil {
 		t.Errorf("expected YAML error for bare '|' in flow context, got nil (parsed as %v)", bad.M)
+	}
+}
+
+func TestTokenizeCell_Composite(t *testing.T) {
+	cases := []struct {
+		in       string
+		wantErr  bool
+		wantLit  bool // expect LiteralCell fallback (all-literal composite)
+		segments int
+		check    func(t *testing.T, c CompositeCell)
+	}{
+		{
+			in:       `status.visual + " " + status.label`,
+			segments: 3,
+			check: func(t *testing.T, c CompositeCell) {
+				if c.Segments[0].Kind != SegmentField || c.Segments[0].Name != "status" || c.Segments[0].Display != DisplayVisual {
+					t.Errorf("seg[0]: got %+v", c.Segments[0])
+				}
+				if c.Segments[1].Kind != SegmentLiteral || c.Segments[1].Text != " " {
+					t.Errorf("seg[1]: got %+v", c.Segments[1])
+				}
+				if c.Segments[2].Kind != SegmentField || c.Segments[2].Name != "status" || c.Segments[2].Display != DisplayLabel {
+					t.Errorf("seg[2]: got %+v", c.Segments[2])
+				}
+			},
+		},
+		{
+			in:       `<dim>priority.visual + " - " + priority.label`,
+			segments: 3,
+			check: func(t *testing.T, c CompositeCell) {
+				if c.Segments[0].Role != "dim" || c.Segments[0].Name != "priority" || c.Segments[0].Display != DisplayVisual {
+					t.Errorf("seg[0]: got %+v", c.Segments[0])
+				}
+				if c.Segments[1].Text != " - " {
+					t.Errorf("seg[1]: got %+v", c.Segments[1])
+				}
+				if c.Segments[2].Name != "priority" || c.Segments[2].Display != DisplayLabel {
+					t.Errorf("seg[2]: got %+v", c.Segments[2])
+				}
+			},
+		},
+		{
+			in:       `createdBy + " on " + createdAt`,
+			segments: 3,
+			check: func(t *testing.T, c CompositeCell) {
+				if c.Segments[0].Name != "createdBy" {
+					t.Errorf("seg[0]: got %+v", c.Segments[0])
+				}
+				if c.Segments[1].Text != " on " {
+					t.Errorf("seg[1]: got %+v", c.Segments[1])
+				}
+				if c.Segments[2].Name != "createdAt" {
+					t.Errorf("seg[2]: got %+v", c.Segments[2])
+				}
+			},
+		},
+		{
+			in:      `"A" + " " + "B"`,
+			wantLit: true, // all literals → falls through to LiteralCell
+		},
+		{
+			in:       `status:15 + " " + status.visual`,
+			segments: 3,
+			check: func(t *testing.T, c CompositeCell) {
+				if c.Segments[0].WantedWidth != 15 {
+					t.Errorf("seg[0] width: got %d, want 15", c.Segments[0].WantedWidth)
+				}
+			},
+		},
+	}
+	for _, tc := range cases {
+		t.Run(tc.in, func(t *testing.T) {
+			got, err := TokenizeCell(tc.in)
+			if tc.wantErr {
+				if err == nil {
+					t.Fatalf("want error, got %+v", got)
+				}
+				return
+			}
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+			if tc.wantLit {
+				if _, ok := got.(LiteralCell); !ok {
+					t.Fatalf("want LiteralCell for all-literal composite, got %T", got)
+				}
+				return
+			}
+			cc, ok := got.(CompositeCell)
+			if !ok {
+				t.Fatalf("want CompositeCell, got %T %+v", got, got)
+			}
+			if len(cc.Segments) != tc.segments {
+				t.Fatalf("segment count: got %d, want %d", len(cc.Segments), tc.segments)
+			}
+			if tc.check != nil {
+				tc.check(t, cc)
+			}
+		})
+	}
+}
+
+func TestParseGrid_CompositeAnchor(t *testing.T) {
+	spec, err := ParseGrid([][]string{
+		{`status.visual + " " + status.label`, "--", "tags"},
+	})
+	if err != nil {
+		t.Fatalf("parse: %v", err)
+	}
+	if len(spec.Anchors) != 2 {
+		t.Fatalf("anchor count: got %d, want 2", len(spec.Anchors))
+	}
+	a := spec.Anchors[0]
+	if a.Kind != AnchorComposite {
+		t.Errorf("want AnchorComposite, got %v", a.Kind)
+	}
+	if a.Name != "status" {
+		t.Errorf("want Name=status (single-field), got %q", a.Name)
+	}
+	if a.ColSpan != 2 {
+		t.Errorf("want ColSpan=2, got %d", a.ColSpan)
+	}
+	if len(a.Segments) != 3 {
+		t.Errorf("want 3 segments, got %d", len(a.Segments))
+	}
+}
+
+func TestParseGrid_CompositeMultiField(t *testing.T) {
+	spec, err := ParseGrid([][]string{
+		{`createdBy + " on " + createdAt`},
+	})
+	if err != nil {
+		t.Fatalf("parse: %v", err)
+	}
+	a := spec.Anchors[0]
+	if a.Kind != AnchorComposite {
+		t.Errorf("want AnchorComposite, got %v", a.Kind)
+	}
+	if a.Name != "" {
+		t.Errorf("want empty Name for multi-field composite, got %q", a.Name)
+	}
+}
+
+func TestParseGrid_CompositeDuplicateFieldRejected(t *testing.T) {
+	// "status" appears both in the composite AND as a standalone cell
+	_, err := ParseGrid([][]string{
+		{`status.visual + " " + status.label`, "status"},
+	})
+	if err == nil || !strings.Contains(err.Error(), "more than once") {
+		t.Errorf("want duplicate-field error, got %v", err)
 	}
 }
 

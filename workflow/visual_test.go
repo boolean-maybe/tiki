@@ -35,7 +35,7 @@ func TestExpandVisual_Empty(t *testing.T) {
 }
 
 func TestExpandVisual_SingleRole(t *testing.T) {
-	got, err := ExpandVisual("{danger}!!!", tagResolver)
+	got, err := ExpandVisual("<danger>!!!", tagResolver)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -46,7 +46,7 @@ func TestExpandVisual_SingleRole(t *testing.T) {
 }
 
 func TestExpandVisual_MultipleRoles(t *testing.T) {
-	got, err := ExpandVisual("{accent}❚❚❚{muted}❘❘", tagResolver)
+	got, err := ExpandVisual("<accent>❚❚❚<muted>❘❘", tagResolver)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -56,18 +56,18 @@ func TestExpandVisual_MultipleRoles(t *testing.T) {
 	}
 }
 
-func TestExpandVisual_LiteralBraceEscape(t *testing.T) {
-	got, err := ExpandVisual("a{{b", tagResolver)
+func TestExpandVisual_LiteralAngleEscape(t *testing.T) {
+	got, err := ExpandVisual("a<<b", tagResolver)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if got != "a{b" {
-		t.Errorf("got %q, want %q", got, "a{b")
+	if got != "a<b" {
+		t.Errorf("got %q, want %q", got, "a<b")
 	}
 }
 
 func TestExpandVisual_UnknownRoleErrors(t *testing.T) {
-	_, err := ExpandVisual("{nosuchrole}x", tagResolver)
+	_, err := ExpandVisual("<nosuchrole>x", tagResolver)
 	if err == nil {
 		t.Fatal("expected error for unknown role")
 	}
@@ -76,10 +76,10 @@ func TestExpandVisual_UnknownRoleErrors(t *testing.T) {
 	}
 }
 
-func TestExpandVisual_UnclosedBraceErrors(t *testing.T) {
-	_, err := ExpandVisual("a{danger", tagResolver)
+func TestExpandVisual_UnclosedAngleErrors(t *testing.T) {
+	_, err := ExpandVisual("a<danger", tagResolver)
 	if err == nil {
-		t.Fatal("expected error for unclosed brace")
+		t.Fatal("expected error for unclosed angle bracket")
 	}
 	if !strings.Contains(err.Error(), "unclosed") {
 		t.Errorf("error %q does not mention unclosed", err.Error())
@@ -87,7 +87,7 @@ func TestExpandVisual_UnclosedBraceErrors(t *testing.T) {
 }
 
 func TestExpandVisual_EmptyRoleErrors(t *testing.T) {
-	_, err := ExpandVisual("a{}b", tagResolver)
+	_, err := ExpandVisual("a<>b", tagResolver)
 	if err == nil {
 		t.Fatal("expected error for empty role")
 	}
@@ -108,7 +108,7 @@ func TestValidateVisualMarkup_AcceptsEmpty(t *testing.T) {
 func TestValidateVisualMarkup_AcceptsKnownRoles(t *testing.T) {
 	for role := range ValidRoles {
 		t.Run(role, func(t *testing.T) {
-			if err := ValidateVisualMarkup("{" + role + "}x"); err != nil {
+			if err := ValidateVisualMarkup("<" + role + ">x"); err != nil {
 				t.Errorf("role %q rejected: %v", role, err)
 			}
 		})
@@ -116,7 +116,7 @@ func TestValidateVisualMarkup_AcceptsKnownRoles(t *testing.T) {
 }
 
 func TestValidateVisualMarkup_RejectsUnknownRole(t *testing.T) {
-	err := ValidateVisualMarkup("{purple}x")
+	err := ValidateVisualMarkup("<purple>x")
 	if err == nil {
 		t.Fatal("expected error for unknown role")
 	}
@@ -125,8 +125,8 @@ func TestValidateVisualMarkup_RejectsUnknownRole(t *testing.T) {
 	}
 }
 
-func TestValidateVisualMarkup_RejectsUnclosedBrace(t *testing.T) {
-	if err := ValidateVisualMarkup("{danger"); err == nil {
-		t.Error("expected error for unclosed brace")
+func TestValidateVisualMarkup_RejectsUnclosedAngle(t *testing.T) {
+	if err := ValidateVisualMarkup("<danger"); err == nil {
+		t.Error("expected error for unclosed angle bracket")
 	}
 }

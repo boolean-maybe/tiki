@@ -7,7 +7,66 @@ import (
 	"strings"
 )
 
-var cellNameRe = regexp.MustCompile(`^([A-Za-z][A-Za-z0-9_-]*)(?::(\d+))?$`)
+var cellNameRe = regexp.MustCompile(`^([A-Za-z][A-Za-z0-9_-]*)(?:\.(label|visual))?(?::(\d+))?$`)
+var cellRolePrefixRe = regexp.MustCompile(`^<([a-z]+)>(.+)$`)
+var literalSegmentRe = regexp.MustCompile(`^"(.*)"$`)
+
+func parseSegment(raw string) (Segment, error) {
+	s := strings.TrimSpace(raw)
+	if s == "" {
+		return Segment{}, fmt.Errorf("empty segment in composite cell")
+	}
+	if m := literalSegmentRe.FindStringSubmatch(s); m != nil {
+		return Segment{Kind: SegmentLiteral, Text: m[1]}, nil
+	}
+	remainder := s
+	var role string
+	if rm := cellRolePrefixRe.FindStringSubmatch(s); rm != nil {
+		role = rm[1]
+		remainder = rm[2]
+	}
+	m := cellNameRe.FindStringSubmatch(remainder)
+	if m == nil {
+		return Segment{}, fmt.Errorf("invalid segment %q in composite cell (not a field ref or \"quoted\" literal)", raw)
+	}
+	seg := Segment{
+		Kind:    SegmentField,
+		Name:    m[1],
+		Role:    role,
+		Display: parseDisplayMode(m[2]),
+	}
+	if m[3] != "" {
+		w, err := strconv.Atoi(m[3])
+		if err != nil || w <= 0 {
+			return Segment{}, fmt.Errorf("invalid width in composite segment %q", raw)
+		}
+		seg.WantedWidth = w
+	}
+	return seg, nil
+}
+
+func tryParseComposite(s string) (Cell, bool, error) {
+	if !strings.Contains(s, " + ") {
+		return nil, false, nil
+	}
+	parts := strings.Split(s, " + ")
+	segments := make([]Segment, 0, len(parts))
+	hasField := false
+	for _, p := range parts {
+		seg, err := parseSegment(p)
+		if err != nil {
+			return nil, true, err
+		}
+		if seg.Kind == SegmentField {
+			hasField = true
+		}
+		segments = append(segments, seg)
+	}
+	if !hasField {
+		return nil, false, nil
+	}
+	return CompositeCell{Segments: segments}, true, nil
+}
 
 // TokenizeCell parses a single grid cell string. Whitespace is trimmed.
 //
@@ -40,19 +99,51 @@ func TokenizeCell(s string) (Cell, error) {
 	case "<->":
 		return StretcherCell{}, nil
 	}
+
+	// composite detection — must come before single-field parsing since
+	// composites may contain valid field-ref substrings
+	if cell, isComposite, err := tryParseComposite(t); isComposite {
+		if err != nil {
+			return nil, fmt.Errorf("composite cell %q: %w", t, err)
+		}
+		return cell, nil
+	}
+
+	if rm := cellRolePrefixRe.FindStringSubmatch(t); rm != nil {
+		role := rm[1]
+		remainder := rm[2]
+		if m := cellNameRe.FindStringSubmatch(remainder); m != nil {
+			fc := FieldCell{Name: m[1], Role: role, Display: parseDisplayMode(m[2])}
+			if m[3] != "" {
+				w, err := strconv.Atoi(m[3])
+				if err != nil || w <= 0 {
+					return nil, fmt.Errorf("invalid width in cell %q (want positive integer)", t)
+				}
+				fc.WantedWidth = w
+			}
+			return fc, nil
+		}
+	}
 	m := cellNameRe.FindStringSubmatch(t)
 	if m == nil {
 		return LiteralCell{Text: t}, nil
 	}
-	fc := FieldCell{Name: m[1]}
-	if m[2] != "" {
-		w, err := strconv.Atoi(m[2])
+	fc := FieldCell{Name: m[1], Display: parseDisplayMode(m[2])}
+	if m[3] != "" {
+		w, err := strconv.Atoi(m[3])
 		if err != nil || w <= 0 {
 			return nil, fmt.Errorf("invalid width in cell %q (want positive integer)", t)
 		}
 		fc.WantedWidth = w
 	}
 	return fc, nil
+}
+
+func parseDisplayMode(s string) DisplayMode {
+	if s == "visual" {
+		return DisplayVisual
+	}
+	return DisplayLabel
 }
 
 // ParseGrid parses a 2D string array (typically straight from YAML) into a
@@ -111,6 +202,8 @@ func ParseGrid(raw [][]string) (GridSpec, error) {
 				anchors = append(anchors, Anchor{
 					Kind:        AnchorField,
 					Name:        cell.Name,
+					Role:        cell.Role,
+					Display:     cell.Display,
 					Row:         r,
 					Col:         c,
 					RowSpan:     rowSpan,
@@ -129,6 +222,41 @@ func ParseGrid(raw [][]string) (GridSpec, error) {
 					Col:     c,
 					RowSpan: rowSpan,
 					ColSpan: colSpan,
+				})
+				markOccupancy(occupancy, idx, r, c, rowSpan, colSpan)
+
+			case CompositeCell:
+				fieldNames := make(map[string]struct{})
+				var totalWidth int
+				for _, seg := range cell.Segments {
+					if seg.Kind == SegmentField {
+						fieldNames[seg.Name] = struct{}{}
+					}
+					totalWidth += seg.WantedWidth
+				}
+				for name := range fieldNames {
+					if _, dup := seen[name]; dup {
+						return GridSpec{}, fmt.Errorf("row %d, col %d: field %q appears more than once", r, c, name)
+					}
+					seen[name] = struct{}{}
+				}
+				anchorName := ""
+				if len(fieldNames) == 1 {
+					for name := range fieldNames {
+						anchorName = name
+					}
+				}
+				colSpan, rowSpan := computeSpans(cells, r, c, rows, cols)
+				idx := len(anchors)
+				anchors = append(anchors, Anchor{
+					Kind:        AnchorComposite,
+					Name:        anchorName,
+					Segments:    cell.Segments,
+					Row:         r,
+					Col:         c,
+					RowSpan:     rowSpan,
+					ColSpan:     colSpan,
+					WantedWidth: totalWidth,
 				})
 				markOccupancy(occupancy, idx, r, c, rowSpan, colSpan)
 
@@ -155,7 +283,7 @@ func ParseGrid(raw [][]string) (GridSpec, error) {
 				// anchor in a column to the left, so a column may be
 				// stretcher even if a wider anchor (e.g. a title that
 				// spans the whole row) crosses it.
-			case FieldCell, LiteralCell, RowSpanCell:
+			case FieldCell, LiteralCell, RowSpanCell, CompositeCell:
 				hasIncompatible = true
 			}
 		}

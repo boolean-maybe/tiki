@@ -50,10 +50,10 @@ const testWorkflowPreamble = `fields:
   - name: points
     type: enum
     values:
-      - {value: "11", label: "11", visual: "{accent}❚❚❚❚❚❚❚❚❚❚❚"}
-      - {value: "7",  label: "7",  visual: "{accent}❚❚❚❚❚❚❚{muted}❘❘❘❘"}
-      - {value: "3",  label: "3",  visual: "{accent}❚❚❚{muted}❘❘❘❘❘❘❘❘", default: true}
-      - {value: "1",  label: "1",  visual: "{accent}❚{muted}❘❘❘❘❘❘❘❘❘❘"}
+      - {value: "11", label: "11", visual: "<accent>❚❚❚❚❚❚❚❚❚❚❚"}
+      - {value: "7",  label: "7",  visual: "<accent>❚❚❚❚❚❚❚<muted>❘❘❘❘"}
+      - {value: "3",  label: "3",  visual: "<accent>❚❚❚<muted>❘❘❘❘❘❘❘❘", default: true}
+      - {value: "1",  label: "1",  visual: "<accent>❚<muted>❘❘❘❘❘❘❘❘❘❘"}
   - name: escalations
     type: integer
     default: 0

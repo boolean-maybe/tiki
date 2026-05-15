@@ -60,7 +60,7 @@ func TestRenderLiteralCaption(t *testing.T) {
 	}
 }
 
-// TestRenderLiteralCaption_ExpandsRoleMarkup pins that `{role}` color
+// TestRenderLiteralCaption_ExpandsRoleMarkup pins that `<role>` color
 // markup in a caption resolves to a tview color tag, that the literal
 // text after the token survives, and that the role span closes with the
 // `[-]` reset emitted by workflow.ExpandVisual.
@@ -68,7 +68,7 @@ func TestRenderLiteralCaption_ExpandsRoleMarkup(t *testing.T) {
 	colors := config.GetColors()
 	dangerTag := colors.DangerColor.Tag().String()
 
-	prim := renderLiteralCaption("{danger}!!!", colors)
+	prim := renderLiteralCaption("<danger>!!!", colors)
 	tv, ok := prim.(*tview.TextView)
 	if !ok {
 		t.Fatalf("renderLiteralCaption returned %T, want *tview.TextView", prim)

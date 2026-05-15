@@ -20,11 +20,13 @@ import (
 	"github.com/rivo/tview"
 )
 
-// DefaultEditMetadata is the canonical 8-item field list TaskEditView shows
-// when no workflow-specific list is supplied. Single source of truth so
-// the factory's metadata-precedence resolver can fall back to it without
-// hardcoding the slice in two places.
+// DefaultEditMetadata is the canonical field list TaskEditView shows when
+// no workflow-specific list is supplied. Title is first so the edit view
+// always starts focused on it. Single source of truth so the factory's
+// metadata-precedence resolver can fall back to it without hardcoding the
+// slice in two places.
 var DefaultEditMetadata = []string{
+	"title",
 	tikipkg.FieldStatus,
 	tikipkg.FieldType,
 	tikipkg.FieldPriority,
@@ -41,10 +43,9 @@ var DefaultEditMetadata = []string{
 // (TaskEditParams.Metadata → workflow Detail-plugin lookup →
 // DefaultEditMetadata).
 //
-// Title and Description sit outside the grid — they're first-class Tab stops
-// that bracket the metadata-field navigation order so the user can tab from
-// title into the first metadata field, through the metadata fields in
-// declaration order, and out into the description editor.
+// Title is a regular grid field — its position in the Tab order derives
+// from its position in the metadata list. Description is appended as the
+// last Tab stop after all metadata fields.
 type TaskEditView struct {
 	Base
 
@@ -115,7 +116,7 @@ func NewTaskEditView(taskStore store.Store, taskID string, imageManager *navtvie
 	if len(metadata) == 0 {
 		metadata = DefaultEditMetadata
 	}
-	order := append([]model.EditField{model.EditFieldTitle}, model.MetadataToEditFieldOrder(metadata)...)
+	order := model.MetadataToEditFieldOrder(metadata)
 	order = append(order, model.EditFieldDescription)
 
 	ev := &TaskEditView{
@@ -128,7 +129,7 @@ func NewTaskEditView(taskStore store.Store, taskID string, imageManager *navtvie
 		viewID:         model.TaskEditViewID,
 		metadata:       metadata,
 		editFieldOrder: order,
-		focusedField:   model.EditFieldTitle,
+		focusedField:   order[0],
 		titleEditing:   true,
 		descEditing:    true,
 		editors:        make(map[string]FieldEditorWidget),
@@ -247,8 +248,8 @@ func (ev *TaskEditView) refresh() {
 	colors := config.GetColors()
 
 	if !ev.fullscreen {
-		metadataBox := ev.buildMetadataBox(tk, colors)
-		ev.content.AddItem(metadataBox, metadataBoxHeight, 0, false)
+		metadataBox, boxHeight := ev.buildMetadataBox(tk, colors)
+		ev.content.AddItem(metadataBox, boxHeight, 0, false)
 	}
 
 	if ev.tagsOnly {
@@ -262,12 +263,10 @@ func (ev *TaskEditView) refresh() {
 	ev.updateValidationState()
 }
 
-// buildMetadataBox builds the framed metadata box with the title input on
-// top and the configurable grid below. Mirrors ConfigurableDetailView's
-// shape so both views render the same metadata layout — the only
-// difference is title-as-editor and the gridded fields turning into
-// editors when focused.
-func (ev *TaskEditView) buildMetadataBox(tk *tikipkg.Tiki, colors *config.ColorConfig) *tview.Frame {
+// buildMetadataBox builds the framed metadata box with the configurable
+// grid. Mirrors ConfigurableDetailView's shape — gridded fields turn into
+// editors when focused (including title as an InputField).
+func (ev *TaskEditView) buildMetadataBox(tk *tikipkg.Tiki, colors *config.ColorConfig) (*tview.Frame, int) {
 	mode := RenderModeEdit
 	if ev.descOnly || ev.tagsOnly {
 		mode = RenderModeView
@@ -279,14 +278,11 @@ func (ev *TaskEditView) buildMetadataBox(tk *tikipkg.Tiki, colors *config.ColorC
 		Store:        ev.taskStore,
 	}
 
-	titlePrimitive := ev.buildTitlePrimitive(tk, colors)
 	spec, primitives := ev.buildGridSpecAndPrimitives(tk, ctx)
 	heightOf := func(name string, w int) int { return FieldHeight(name, tk, w) }
 
 	container := tview.NewFlex().SetDirection(tview.FlexRow)
-	container.AddItem(titlePrimitive, 1, 0, false)
-	container.AddItem(tview.NewBox(), 1, 0, false)
-	container.AddItem(newGridContainer(spec, primitives, heightOf), metadataGridHeight, 0, false)
+	container.AddItem(newGridContainer(spec, primitives, heightOf), spec.Rows, 0, false)
 	container.AddItem(tview.NewBox(), 1, 0, false)
 
 	frame := tview.NewFrame(container).SetBorders(0, 0, 0, 0, 0, 0)
@@ -295,21 +291,7 @@ func (ev *TaskEditView) buildMetadataBox(tk *tikipkg.Tiki, colors *config.ColorC
 	).SetBorderColor(colors.TaskBoxUnselectedBorder.TCell())
 	frame.SetBorderPadding(1, 0, 2, 2)
 	ev.metadataBox = frame
-	return frame
-}
-
-func (ev *TaskEditView) buildTitlePrimitive(tk *tikipkg.Tiki, colors *config.ColorConfig) tview.Primitive {
-	if ev.descOnly || ev.tagsOnly {
-		ctx := FieldRenderContext{Mode: RenderModeView, Colors: colors}
-		return RenderTitleText(tk, ctx)
-	}
-	input := ev.ensureTitleInput(tk)
-	if ev.focusedField == model.EditFieldTitle {
-		input.SetLabel(getFocusMarker(colors))
-	} else {
-		input.SetLabel("")
-	}
-	return input
+	return frame, spec.Rows + metadataBoxOverhead
 }
 
 // buildGridSpecAndPrimitives mirrors the configurable view's helper but
@@ -335,6 +317,9 @@ func (ev *TaskEditView) buildGridSpecAndPrimitives(tk *tikipkg.Tiki, ctx FieldRe
 // the field registry; their string-shaped onChange is bridged to the typed
 // save callbacks via adapterForField.
 func (ev *TaskEditView) gridFieldPrimitive(name string, tk *tikipkg.Tiki, ctx FieldRenderContext) tview.Primitive {
+	if name == "title" {
+		return ev.titleGridPrimitive(tk, ctx)
+	}
 	if ev.descOnly || ev.tagsOnly {
 		return renderConfiguredField(name, tk, ctx)
 	}
@@ -377,6 +362,19 @@ func editFieldFor(name string) model.EditField {
 		return model.EditField(name)
 	}
 	return ""
+}
+
+func (ev *TaskEditView) titleGridPrimitive(tk *tikipkg.Tiki, ctx FieldRenderContext) tview.Primitive {
+	if ev.descOnly || ev.tagsOnly {
+		return RenderTitleText(tk, ctx, "")
+	}
+	input := ev.ensureTitleInput(tk)
+	if ev.focusedField == model.EditFieldTitle {
+		input.SetLabel(getFocusMarker(ctx.Colors))
+	} else {
+		input.SetLabel("")
+	}
+	return input
 }
 
 // adapterForField returns the registry's onChange(string) callback that

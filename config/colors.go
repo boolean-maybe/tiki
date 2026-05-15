@@ -151,7 +151,7 @@ type Palette struct {
 	StatuslineAccent   Color // statusline accent background
 	StatuslineOk       Color // statusline info/success foreground
 
-	// Semantic role colors — bound to workflow visual: markup roles {danger}, {warn}, {ok}
+	// Semantic role colors — bound to workflow visual: markup roles <danger>, <warn>, <ok>
 	DangerColor Color // red — critical/error
 	WarnColor   Color // orange — warning
 	OkColor     Color // green — success (distinct from AccentColor used for labels)
@@ -304,7 +304,7 @@ func (cc *ColorConfig) ResolveRole(name string) (Color, bool) {
 // expected by workflow.ExpandVisual. Returned closure resolves a role name
 // to its tview color tag (e.g. "[#ff4444]") or reports ok=false for names
 // outside the closed role vocabulary. Lives on ColorConfig so any package
-// that already imports config can expand `{role}` markup without pulling
+// that already imports config can expand `<role>` markup without pulling
 // in a higher-level view helper (avoiding import cycles between view and
 // view/taskdetail).
 func (cc *ColorConfig) RoleResolver() func(role string) (string, bool) {

@@ -3,6 +3,7 @@ package taskdetail
 import (
 	"fmt"
 	"path/filepath"
+	"strings"
 
 	"github.com/boolean-maybe/tiki/config"
 	"github.com/boolean-maybe/tiki/controller"
@@ -20,17 +21,17 @@ import (
 )
 
 // ConfigurableDetailView renders a tiki using a configured field list
-// (`metadata:` from workflow.yaml) plus the always-present title and
-// description sections.
+// (`metadata:` from workflow.yaml) plus the description section.
 //
-// The metadata box has a fixed shape: empty row + title + empty row +
-// metadataGridHeight grid body + empty row, framed by a border. The
-// grid body holds the 2D `metadata:` layout — field anchors render as
-// value-only primitives, literal cells render as static text captions.
-// Multi-row fields (tags via WordList wrapping, depends-on via TaskList)
-// extend downward within their own column thanks to per-column natural-
-// height packing in gridContainer.rebuild. Heights are clamped by the
-// solver's maxRowHeight (6) per row.
+// The metadata box height derives from spec.Rows (the grid's row count)
+// plus metadataBoxOverhead (borders + padding). Title is a regular grid
+// field — it only renders if declared in the metadata layout (e.g.
+// `<highlight>title`). Field anchors render as value-only primitives,
+// literal cells render as static text captions. Multi-row fields (tags
+// via WordList wrapping, depends-on via TaskList) extend downward within
+// their own column thanks to per-column natural-height packing in
+// gridContainer.rebuild. Heights are clamped by the solver's
+// maxRowHeight (6) per row.
 //
 // In-place edit mode toggles a per-field editor for editable metadata
 // fields. Editors come from the field registry (status / type / priority /
@@ -196,7 +197,7 @@ func (cv *ConfigurableDetailView) refresh() {
 
 	if !cv.fullscreen {
 		metadataBox := cv.buildMetadataBox(tk, colors)
-		cv.content.AddItem(metadataBox, metadataBoxHeight, 0, false)
+		cv.content.AddItem(metadataBox, cv.spec.Rows+metadataBoxOverhead, 0, false)
 	}
 
 	descPrimitive := cv.buildDescription(tk)
@@ -232,18 +233,13 @@ func (cv *ConfigurableDetailView) focusActiveEditor() {
 	}
 }
 
-// metadataBoxHeight is the outer height of the framed metadata box.
-// Layout: 1 top border + 1 top padding + title(1) + spacer(1) +
-// metadataGridHeight + spacer(1) + 1 bottom border = metadataGridHeight+6.
-// Grid body holds 5 rows for the bundled kanban: 1 title row + 4 data
-// rows. 8 columns: 3 caption-value groups + Tags caption + Tags values.
-const (
-	metadataBoxHeight  = 11
-	metadataGridHeight = 5
-)
+// metadataBoxOverhead is the fixed vertical cost beyond the grid body:
+// 1 top border + 1 top padding + 1 spacer + 1 bottom border.
+const metadataBoxOverhead = 4
 
-// buildMetadataBox assembles the title row and configured metadata fields
-// into a framed box. Configured fields flow into the grid body via the
+// buildMetadataBox assembles the configured metadata fields into a framed
+// box. Title renders only if declared in the metadata grid (as a regular
+// field cell). Configured fields flow into the grid body via the
 // gridContainer primitive, which honors the layout grid declared in
 // workflow.yaml (column/row spans, stretchers, preferred widths).
 //
@@ -261,12 +257,8 @@ func (cv *ConfigurableDetailView) buildMetadataBox(tk *tikipkg.Tiki, colors *con
 	primitives := cv.buildAnchorPrimitives(tk, ctx)
 	heightOf := func(name string, w int) int { return FieldHeight(name, tk, w) }
 
-	gridHeight := metadataGridHeight
-
 	container := tview.NewFlex().SetDirection(tview.FlexRow)
-	container.AddItem(RenderTitleText(tk, ctx), 1, 0, false)
-	container.AddItem(tview.NewBox(), 1, 0, false)
-	container.AddItem(newGridContainer(cv.spec, primitives, heightOf), gridHeight, 0, false)
+	container.AddItem(newGridContainer(cv.spec, primitives, heightOf), cv.spec.Rows, 0, false)
 	container.AddItem(tview.NewBox(), 1, 0, false)
 
 	frame := tview.NewFrame(container).SetBorders(0, 0, 0, 0, 0, 0)
@@ -278,35 +270,65 @@ func (cv *ConfigurableDetailView) buildMetadataBox(tk *tikipkg.Tiki, colors *con
 }
 
 // buildAnchorPrimitives produces one tview.Primitive per anchor in the
-// metadata grid, indexed by anchor position. Three cases:
+// metadata grid, indexed by anchor position. Two cases:
 //
 //  1. Literal anchor: renders as a static text view carrying the caption
 //     text declared by the layout author.
-//  2. Title field anchor: reserved for layout only — the title primitive
-//     renders outside the grid; the anchor cell holds an empty box.
-//  3. Other field anchor: read-only renderer, or (in edit mode + focused +
-//     editable) a cached editor widget.
+//  2. Field anchor: read-only renderer (with optional role color for text
+//     fields), or (in edit mode + focused + editable) a cached editor widget.
 func (cv *ConfigurableDetailView) buildAnchorPrimitives(tk *tikipkg.Tiki, ctx FieldRenderContext) []tview.Primitive {
 	primitives := make([]tview.Primitive, len(cv.spec.Anchors))
 	for i, a := range cv.spec.Anchors {
-		switch {
-		case a.Kind == gridlayout.AnchorLiteral:
+		switch a.Kind {
+		case gridlayout.AnchorLiteral:
 			primitives[i] = renderLiteralCaption(a.Text, ctx.Colors)
-		case a.Name == "title":
-			primitives[i] = tview.NewBox()
+		case gridlayout.AnchorComposite:
+			primitives[i] = renderCompositePrimitive(a, tk, ctx)
 		default:
-			primitives[i] = cv.buildFieldPrimitive(i, a.Name, tk, ctx)
+			primitives[i] = cv.buildFieldPrimitive(i, a, tk, ctx)
 		}
 	}
 	return primitives
+}
+
+func renderCompositePrimitive(a gridlayout.Anchor, tk *tikipkg.Tiki, ctx FieldRenderContext) tview.Primitive {
+	var buf strings.Builder
+	tag := ctx.Colors.TaskDetailValueText.Tag().String()
+	buf.WriteString(tag)
+	resolver := ctx.Colors.RoleResolver()
+	for _, seg := range a.Segments {
+		if seg.Role != "" {
+			if roleTag, ok := resolver(seg.Role); ok {
+				buf.WriteString(roleTag)
+			}
+		}
+		switch seg.Kind {
+		case gridlayout.SegmentLiteral:
+			buf.WriteString(seg.Text)
+		case gridlayout.SegmentField:
+			segCtx := ctx
+			segCtx.FieldName = seg.Name
+			segCtx.Display = seg.Display
+			if wfd, ok := workflow.Field(seg.Name); ok {
+				buf.WriteString(genericFieldValueString(wfd, tk, segCtx))
+			} else if seg.Name == "title" {
+				buf.WriteString(expandFieldText(tk.Title, ctx.Colors))
+			} else {
+				buf.WriteString("—")
+			}
+		}
+	}
+	tv := tview.NewTextView().SetDynamicColors(true).SetText(buf.String())
+	tv.SetBorderPadding(0, 0, 0, 0)
+	return tv
 }
 
 // renderLiteralCaption produces the read-only text primitive for a literal
 // anchor. Uses the dim-label color so explicit captions visually match the
 // dim "Status:" appearance of the legacy in-renderer labels.
 //
-// Caption text may contain `{role}` markup (e.g. `{danger}!!!`) drawn from
-// workflow.ValidRoles; literal `{` is escaped as `{{`. Markup is parsed by
+// Caption text may contain `<role>` markup (e.g. `<danger>!!!`) drawn from
+// workflow.ValidRoles; literal `<` is escaped as `<<`. Markup is parsed by
 // workflow.ExpandVisual and resolved against the active theme. Captions
 // originate in workflow yaml (controlled by the workflow author), so the
 // raw text is not pre-escaped against `[...]` tview tags. Unknown roles
@@ -329,30 +351,28 @@ func renderLiteralCaption(text string, colors *config.ColorConfig) tview.Primiti
 // matching focused index, it returns a cached or freshly-created editor
 // widget. Editor widgets are cached per-field for the lifetime of edit mode
 // so user input isn't lost when other rows trigger a refresh.
-func (cv *ConfigurableDetailView) buildFieldPrimitive(idx int, name string, tk *tikipkg.Tiki, ctx FieldRenderContext) tview.Primitive {
-	if !cv.editMode {
+func (cv *ConfigurableDetailView) buildFieldPrimitive(idx int, a gridlayout.Anchor, tk *tikipkg.Tiki, ctx FieldRenderContext) tview.Primitive {
+	name := a.Name
+	ctx.Display = a.Display
+	renderField := func() tview.Primitive {
+		if name == "title" {
+			return RenderTitleText(tk, ctx, a.Role)
+		}
 		return renderConfiguredField(name, tk, ctx)
+	}
+	if !cv.editMode {
+		return renderField()
 	}
 	if !FieldHasEditor(name) {
-		return renderConfiguredField(name, tk, ctx)
+		return renderField()
 	}
-	// FocusedField must only be set on the row that is actually focused.
-	// Setting it unconditionally on every row's rowCtx made every renderer
-	// see itself as focused (since renderers compare ctx.FocusedField to
-	// their own EditField), which lit up every editable row with the focus
-	// marker simultaneously. Branch on idx == focusedIdx so non-focused
-	// rows render dim.
 	if idx != cv.focusedIdx {
-		return renderConfiguredField(name, tk, ctx)
+		return renderField()
 	}
 	rowCtx := ctx
 	if fd, ok := LookupField(name); ok {
 		rowCtx.FocusedField = fd.EditField
 	} else {
-		// Workflow-only enum fields use the field name as the EditField
-		// identity (see model.MetadataToEditFieldOrder); mirror that
-		// here so renderEnumValue's focus-match condition lights up
-		// the marker for the actually-focused workflow enum.
 		rowCtx.FocusedField = model.EditField(name)
 	}
 	if w, ok := cv.editors[name]; ok && w != nil {
@@ -360,7 +380,7 @@ func (cv *ConfigurableDetailView) buildFieldPrimitive(idx int, name string, tk *
 	}
 	w := buildFieldEditor(name, tk, rowCtx, cv.onEditFieldChange[name])
 	if w == nil {
-		return renderConfiguredField(name, tk, ctx)
+		return renderField()
 	}
 	cv.editors[name] = w
 	return w

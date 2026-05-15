@@ -3,16 +3,12 @@ package taskdetail
 import "github.com/boolean-maybe/tiki/gridlayout"
 
 // rowsPerPackedColumn is the per-column height used when packing a flat
-// metadata field list into a multi-column grid. Matches the visible
-// grid-body height (metadataGridHeight) so packed columns fill the box
-// without clipping when each field is single-row.
-//
-// Note: this packing path is used by TaskEditView, which receives a flat
-// field-name list rather than the workflow's parsed grid. The synthesized
-// grid intentionally has no literal caption anchors — TaskEditView relies
-// on each editor widget's tview-level SetLabel for focus markers; full
-// per-field captions are not currently surfaced in edit mode.
-const rowsPerPackedColumn = metadataGridHeight
+// metadata field list into a multi-column grid for TaskEditView. The
+// synthesized grid intentionally has no literal caption anchors —
+// TaskEditView relies on each editor widget's tview-level SetLabel for
+// focus markers; full per-field captions are not currently surfaced in
+// edit mode.
+const rowsPerPackedColumn = 5
 
 // singleColumnSpec synthesizes a 1-column metadata grid from a flat
 // field name list — one anchor per row, in declaration order. Useful for

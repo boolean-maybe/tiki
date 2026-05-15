@@ -53,15 +53,15 @@ fields:
       - {value: medium-low, label: "Medium Low", visual: "🟢"}
       - {value: low, label: Low, visual: "🔵"}
   # points: enum declared high → low so enumRank matches priority semantics.
-  # The visual: column draws an 11-segment bar using the {accent}/{muted}
+  # The visual: column draws an 11-segment bar using the <accent>/<muted>
   # role markup; the bar is purely a rendering hint, not stored on disk.
   - name: points
     type: enum
     values:
-      - {value: "11", label: "11", visual: "{accent}❚❚❚❚❚❚❚❚❚❚❚"}
-      - {value: "7",  label: "7",  visual: "{accent}❚❚❚❚❚❚❚{muted}❘❘❘❘"}
-      - {value: "3",  label: "3",  visual: "{accent}❚❚❚{muted}❘❘❘❘❘❘❘❘", default: true}
-      - {value: "1",  label: "1",  visual: "{accent}❚{muted}❘❘❘❘❘❘❘❘❘❘"}
+      - {value: "11", label: "11", visual: "<accent>❚❚❚❚❚❚❚❚❚❚❚"}
+      - {value: "7",  label: "7",  visual: "<accent>❚❚❚❚❚❚❚<muted>❘❘❘❘"}
+      - {value: "3",  label: "3",  visual: "<accent>❚❚❚<muted>❘❘❘❘❘❘❘❘", default: true}
+      - {value: "1",  label: "1",  visual: "<accent>❚<muted>❘❘❘❘❘❘❘❘❘❘"}
   - name: tags
     type: stringList
     default: ["idea"]
@@ -206,25 +206,27 @@ views:
     description: "Configured detail view for the selected tiki"
     require: ["selection:one"]
     # Metadata grid: each row is a row in the rendered metadata box. Cells:
-    #   name        field, value-only (no caption)
-    #   name:N      field, preferred + minimum width of N chars
-    #   "any text"  literal caption (any quoted YAML string that is not a
-    #               bare identifier or marker)
-    #   --          column span (continue from the cell to the left)
-    #   ^           row span (continue from the cell above); `|` also
-    #               accepted but must be YAML-quoted
-    #   _           empty cell
-    #   <->         horizontal stretcher (absorbs remaining space)
+    #   name          field, value-only (no caption)
+    #   name:N        field, preferred + minimum width of N chars
+    #   <role>name    field with a color role (highlight, accent, muted, etc.)
+    #   "any text"    literal caption (any quoted YAML string that is not a
+    #                 bare identifier or marker)
+    #   --            column span (continue from the cell to the left)
+    #   ^             row span (continue from the cell above); `|` also
+    #                 accepted but must be YAML-quoted
+    #   _             empty cell
+    #   <->           horizontal stretcher (absorbs remaining space)
     #
     # Fields render value-only; captions are placed explicitly by the layout.
     # 4 columns: each row pairs (caption, value, caption, value). Captions
     # to the left of their fields. Sized to fit an 80-column terminal.
     metadata:
-      - [title,       --,          --,            --,            --,              --,           --,      --         ]
-      - ["Status:",   status,      "Assignee:",   assignee,      "Due:",          due,          "Tags:", tags       ]
-      - ["Type:",     type,        "Author:",     createdBy,     "Recurrence:",   recurrence,   ^,       ^          ]
-      - ["Priority:", priority,    "Created:",    createdAt,     _,               _,            ^,       ^          ]
-      - ["Points:",   points,      "Updated:",    updatedAt,     _,               _,            ^,       ^          ]
+      - [<highlight>title, --                                , --         , --       , --           , --        , --     , --  ]
+      - [_               , _                                 , _          , _        , _            , _         , _      , _   ]
+      - ["Status:"       , status.label + " " + status.visual, "Assignee:", assignee , "Due:"       , due       , "Tags:", tags]
+      - ["Type:"         , type.label + " " + type.visual    , "Author:"  , createdBy, "Recurrence:", recurrence, ^      , ^   ]
+      - ["Priority:"     , priority                          , "Created:" , createdAt, _            , _         , ^      , ^   ]
+      - ["Points:"       , points                            , "Updated:" , updatedAt, _            , _         , ^      , ^   ]
 
 triggers:
   - description: block completion with open dependencies

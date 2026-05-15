@@ -79,7 +79,7 @@ func (v *enumValueYAML) unmarshalMapping(node *yaml.Node) error {
 			}
 			v.HasDefault = true
 		case "emoji":
-			return fmt.Errorf("enum value key %q was renamed to %q — move the glyph into visual: (it accepts the same content plus optional {role} color markup)", key, "visual")
+			return fmt.Errorf("enum value key %q was renamed to %q — move the glyph into visual: (it accepts the same content plus optional <role> color markup)", key, "visual")
 		case "active", "done":
 			return fmt.Errorf("enum value key %q is no longer supported; status semantics are not built into the runtime — remove it (rendering hints can use the visual: field)", key)
 		default:

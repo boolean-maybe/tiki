@@ -37,18 +37,18 @@ func ValidateVisualMarkup(markup string) error {
 	return err
 }
 
-// ExpandVisual converts `{role}` markup into tview color tags using the
+// ExpandVisual converts `<role>` markup into tview color tags using the
 // caller-supplied resolver. The resolver returns the tview tag prefix for a
 // role (e.g. "[#ff4444]") and reports false for unknown roles. The result
 // ends with "[-]" when any role token was emitted, otherwise the original
 // markup is returned unchanged (fast path for bare glyphs like "📥").
 //
-// Escape rule: literal "{" is written as "{{".
+// Escape rule: literal "<" is written as "<<".
 func ExpandVisual(markup string, resolve func(role string) (tag string, ok bool)) (string, error) {
 	if markup == "" {
 		return "", nil
 	}
-	if !strings.ContainsRune(markup, '{') {
+	if !strings.ContainsRune(markup, '<') {
 		return markup, nil
 	}
 	return scanVisual(markup, resolve)
@@ -65,21 +65,21 @@ func scanVisual(markup string, resolve func(role string) (tag string, ok bool)) 
 	i := 0
 	for i < len(markup) {
 		c := markup[i]
-		if c != '{' {
+		if c != '<' {
 			out.WriteByte(c)
 			i++
 			continue
 		}
-		// '{{' → literal '{'
-		if i+1 < len(markup) && markup[i+1] == '{' {
-			out.WriteByte('{')
+		// '<<' → literal '<'
+		if i+1 < len(markup) && markup[i+1] == '<' {
+			out.WriteByte('<')
 			i += 2
 			continue
 		}
-		// Find matching '}'.
-		close := strings.IndexByte(markup[i+1:], '}')
+		// Find matching '>'.
+		close := strings.IndexByte(markup[i+1:], '>')
 		if close < 0 {
-			return "", fmt.Errorf("unclosed `{` in visual markup %q", markup)
+			return "", fmt.Errorf("unclosed `<` in visual markup %q", markup)
 		}
 		role := markup[i+1 : i+1+close]
 		if role == "" {

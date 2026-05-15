@@ -10,7 +10,7 @@ import (
 )
 
 // TestRenderTitleText_ExpandsRoleMarkup pins that a title stored with
-// `{role}` color markup renders with the resolved tview color tag and the
+// `<role>` color markup renders with the resolved tview color tag and the
 // literal text after the role token. Detail-view titles are user-controlled
 // (free-text in the workflow `title:` field) and the escape-then-expand
 // path is the only safe way to honor color intent without exposing tview's
@@ -19,15 +19,15 @@ func TestRenderTitleText_ExpandsRoleMarkup(t *testing.T) {
 	colors := config.GetColors()
 	tk := tikipkg.New()
 	tk.ID = "TTL001"
-	tk.Title = "{highlight}foo"
+	tk.Title = "<highlight>foo"
 
-	prim := RenderTitleText(tk, FieldRenderContext{Mode: RenderModeView, Colors: colors})
+	prim := RenderTitleText(tk, FieldRenderContext{Mode: RenderModeView, Colors: colors}, "")
 	tv, ok := prim.(*tview.TextView)
 	if !ok {
 		t.Fatalf("RenderTitleText returned %T, want *tview.TextView", prim)
 	}
 	got := tv.GetText(false)
-	highlightTag := colors.TaskBoxSelectedBorder.Tag().String() // {highlight} resolves to this
+	highlightTag := colors.TaskBoxSelectedBorder.Tag().String() // <highlight> resolves to this
 	if !strings.Contains(got, highlightTag) {
 		t.Errorf("expected highlight color tag %q in rendered title, got %q", highlightTag, got)
 	}
@@ -47,7 +47,7 @@ func TestRenderTitleText_TviewTagsRenderLiterally(t *testing.T) {
 	tk.ID = "TTL002"
 	tk.Title = "[red]x[/]"
 
-	prim := RenderTitleText(tk, FieldRenderContext{Mode: RenderModeView, Colors: colors})
+	prim := RenderTitleText(tk, FieldRenderContext{Mode: RenderModeView, Colors: colors}, "")
 	tv, ok := prim.(*tview.TextView)
 	if !ok {
 		t.Fatalf("RenderTitleText returned %T, want *tview.TextView", prim)
@@ -60,9 +60,9 @@ func TestRenderTitleText_TviewTagsRenderLiterally(t *testing.T) {
 	if !strings.Contains(got, "[red") {
 		t.Errorf("expected '[red' fragment to be present (escaped form), got %q", got)
 	}
-	// And no role color tag was emitted (no `{role}` tokens in the input).
+	// And no role color tag was emitted (no `<role>` tokens in the input).
 	if strings.Contains(got, colors.DangerColor.Tag().String()) {
-		t.Errorf("did not expect danger color tag in title without {role} markup, got %q", got)
+		t.Errorf("did not expect danger color tag in title without <role> markup, got %q", got)
 	}
 }
 
@@ -76,7 +76,7 @@ func TestRenderTitleText_BadMarkupFailsClosed(t *testing.T) {
 	tk.ID = "TTL003"
 	tk.Title = "{dangr}x"
 
-	prim := RenderTitleText(tk, FieldRenderContext{Mode: RenderModeView, Colors: colors})
+	prim := RenderTitleText(tk, FieldRenderContext{Mode: RenderModeView, Colors: colors}, "")
 	tv, ok := prim.(*tview.TextView)
 	if !ok {
 		t.Fatalf("RenderTitleText returned %T, want *tview.TextView", prim)
@@ -85,5 +85,31 @@ func TestRenderTitleText_BadMarkupFailsClosed(t *testing.T) {
 	// Fail-closed: the raw token survives, escaped, no color tag for it.
 	if !strings.Contains(got, "x") {
 		t.Errorf("expected literal 'x' in title even on bad markup, got %q", got)
+	}
+}
+
+func TestRenderTitleText_WithRole(t *testing.T) {
+	colors := config.GetColors()
+	tk := tikipkg.New()
+	tk.ID = "TTL004"
+	tk.Title = "My Task"
+
+	prim := RenderTitleText(tk, FieldRenderContext{Mode: RenderModeView, Colors: colors}, "highlight")
+	tv, ok := prim.(*tview.TextView)
+	if !ok {
+		t.Fatalf("RenderTitleText returned %T, want *tview.TextView", prim)
+	}
+	got := tv.GetText(false)
+	resolver := colors.RoleResolver()
+	highlightTag, _ := resolver("highlight")
+	if !strings.Contains(got, highlightTag) {
+		t.Errorf("expected highlight role tag %q in title, got %q", highlightTag, got)
+	}
+	boldTag := colors.TaskDetailTitleText.Tag().Bold().String()
+	if strings.Contains(got, boldTag) {
+		t.Errorf("role should replace default styling, but found bold tag %q in %q", boldTag, got)
+	}
+	if !strings.Contains(got, "My Task") {
+		t.Errorf("expected 'My Task' in rendered title, got %q", got)
 	}
 }

@@ -89,7 +89,7 @@ func TestDetailPlugin_RejectsFilepathInMetadata(t *testing.T) {
 }
 
 // TestDetailPlugin_AcceptsValidCaptionMarkup asserts that a literal caption
-// carrying valid `{role}` color markup loads without error. Roles are
+// carrying valid `<role>` color markup loads without error. Roles are
 // drawn from workflow.ValidRoles; the loader parses but does not resolve
 // the role to a concrete color (that happens at render time).
 func TestDetailPlugin_AcceptsValidCaptionMarkup(t *testing.T) {
@@ -97,10 +97,10 @@ func TestDetailPlugin_AcceptsValidCaptionMarkup(t *testing.T) {
 	cfg := pluginFileConfig{
 		Name:     "Detail",
 		Kind:     "detail",
-		Metadata: [][]string{{"{danger}!!! Status:", "status"}},
+		Metadata: [][]string{{"<danger>!!! Status:", "status"}},
 	}
 	if _, err := parsePluginConfig(cfg, "test", schema, nil); err != nil {
-		t.Errorf("valid {role} caption should be accepted, got: %v", err)
+		t.Errorf("valid <role> caption should be accepted, got: %v", err)
 	}
 }
 
@@ -112,7 +112,7 @@ func TestDetailPlugin_RejectsUnknownCaptionRole(t *testing.T) {
 	cfg := pluginFileConfig{
 		Name:     "Detail",
 		Kind:     "detail",
-		Metadata: [][]string{{"{nope}Status:", "status"}},
+		Metadata: [][]string{{"<nope>Status:", "status"}},
 	}
 	_, err := parsePluginConfig(cfg, "test", schema, nil)
 	if err == nil {
@@ -298,6 +298,33 @@ func TestKeyParser_AcceptsEnter(t *testing.T) {
 	}
 	if key == 0 {
 		t.Error("expected non-zero key for Enter")
+	}
+}
+
+func TestDetailPlugin_RejectsUnknownFieldRole(t *testing.T) {
+	schema := testSchema()
+	raw := [][]string{
+		{"<nosuchrole>title", "--"},
+		{"status", "type"},
+	}
+	_, err := validateDetailMetadata("Test", raw, schema)
+	if err == nil {
+		t.Fatal("expected error for unknown field role")
+	}
+	if !strings.Contains(err.Error(), "nosuchrole") {
+		t.Errorf("error should mention the bad role name, got: %v", err)
+	}
+}
+
+func TestDetailPlugin_AcceptsKnownFieldRole(t *testing.T) {
+	schema := testSchema()
+	raw := [][]string{
+		{"<highlight>title", "--"},
+		{"status", "type"},
+	}
+	_, err := validateDetailMetadata("Test", raw, schema)
+	if err != nil {
+		t.Fatalf("unexpected error for valid field role: %v", err)
 	}
 }
 

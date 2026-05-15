@@ -6,6 +6,7 @@ import (
 
 	"github.com/boolean-maybe/tiki/config"
 	"github.com/boolean-maybe/tiki/controller"
+	"github.com/boolean-maybe/tiki/gridlayout"
 	"github.com/boolean-maybe/tiki/model"
 	"github.com/boolean-maybe/tiki/store"
 
@@ -144,14 +145,14 @@ func TestBuildFieldPrimitive_FocusOnlyOnFocusedRow(t *testing.T) {
 
 	// idx 1 = "type", non-focused. Its read-only render must not paint
 	// the focus marker even though the row IS editable in edit mode.
-	typePrim := cv.buildFieldPrimitive(1, "type", tk, ctx)
+	typePrim := cv.buildFieldPrimitive(1, gridlayout.Anchor{Name: "type"}, tk, ctx)
 	typeText := extractTextView(typePrim, false)
 	if strings.Contains(typeText, marker) {
 		t.Errorf("non-focused 'type' row painted focus marker: %q", typeText)
 	}
 
 	// idx 2 = "priority", non-focused. Same expectation.
-	priorityPrim := cv.buildFieldPrimitive(2, "priority", tk, ctx)
+	priorityPrim := cv.buildFieldPrimitive(2, gridlayout.Anchor{Name: "priority"}, tk, ctx)
 	priorityText := extractTextView(priorityPrim, false)
 	if strings.Contains(priorityText, marker) {
 		t.Errorf("non-focused 'priority' row painted focus marker: %q", priorityText)
@@ -164,7 +165,7 @@ func TestBuildFieldPrimitive_FocusOnlyOnFocusedRow(t *testing.T) {
 	if got := cv.GetFocusedFieldName(); got != "type" {
 		t.Fatalf("after Tab, expected 'type' focused, got %q", got)
 	}
-	statusPrim := cv.buildFieldPrimitive(0, "status", tk, ctx)
+	statusPrim := cv.buildFieldPrimitive(0, gridlayout.Anchor{Name: "status"}, tk, ctx)
 	statusText := extractTextView(statusPrim, false)
 	if strings.Contains(statusText, marker) {
 		t.Errorf("non-focused 'status' row painted focus marker after Tab: %q", statusText)

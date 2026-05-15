@@ -88,9 +88,10 @@ rather than by relative path) is **not implemented**: the parser rejects any vie
 ID-binding story needs a richer document-index contract than the current `store.PathForID` exposes, so it is
 deferred as a future enhancement without a scheduled phase.
 
-`detail` views are configurable. Title and description are always rendered; `metadata:` declares the
-2D layout grid of metadata fields between them. The previous "render the selected document's raw
-markdown" meaning of `kind: detail` is gone — that behavior now lives only on `kind: wiki`.
+`detail` views are configurable. Description is always rendered; title renders only if declared in
+the `metadata:` grid. `metadata:` declares the 2D layout grid of fields. The previous "render the
+selected document's raw markdown" meaning of `kind: detail` is gone — that behavior now lives only
+on `kind: wiki`.
 
 `metadata:` is a list of rows; each row is a list of cells. The grid visually mirrors the rendered
 metadata box.
@@ -101,7 +102,7 @@ views:
     kind: detail
     require: ["selection:one"]
     metadata:
-      - [title,         --,         --,            --        ]
+      - [<highlight>title, --,       --,            --        ]
       - ["Status:",     status,     "Type:",       type      ]
       - ["Priority:",   priority,   "Points:",     points    ]
       - ["Assignee:",   assignee,   "Due:",        due       ]
@@ -116,19 +117,27 @@ views:
 
 Cell vocabulary:
 
-| Cell         | Meaning                                                                  |
-| ------------ | ------------------------------------------------------------------------ |
-| `name`       | field, value-only — no built-in caption                                  |
-| `name:N`     | field, preferred + minimum width of N character cells                    |
-| `"any text"` | literal caption — any quoted YAML string that is not a bare marker or a  |
-|              | valid identifier. Used to label adjacent fields. Width defaults to the   |
-|              | text length + 1.                                                         |
-| `--`         | column span — continue the anchor immediately to the left                |
-| `^`          | row span — continue the anchor immediately above (bare-legal in YAML)    |
-| `\|`         | row span — synonym for `^`; must be quoted because YAML treats bare `\|` |
-|              | as a block-scalar indicator                                              |
-| `_`          | empty cell                                                               |
-| `<->`        | horizontal stretcher — absorbs residual width                            |
+| Cell              | Meaning                                                                  |
+| ----------------- | ------------------------------------------------------------------------ |
+| `name`            | field, value-only — no built-in caption                                  |
+| `name:N`          | field, preferred + minimum width of N character cells                    |
+| `name.visual`     | field, show the visual indicator (emoji/icon) instead of the label       |
+| `<role>name`      | field with semantic color role — replaces default styling for text       |
+|                   | fields (title, custom strings). Structured fields ignore the role.       |
+|                   | Bare-legal in YAML (no quoting needed).                                  |
+| `a + " " + b`    | composite cell — concatenates field refs and/or `"quoted"` literals.     |
+|                   | At least one segment must be a field ref. Segments support `.visual`,    |
+|                   | `:N`, and `<role>` individually. Single-field composites are editable;   |
+|                   | multi-field composites render read-only.                                 |
+| `"any text"`      | literal caption — any quoted YAML string that is not a bare marker or a  |
+|                   | valid identifier. Used to label adjacent fields. Width defaults to the   |
+|                   | text length + 1.                                                         |
+| `--`              | column span — continue the anchor immediately to the left                |
+| `^`               | row span — continue the anchor immediately above (bare-legal in YAML)    |
+| `\|`              | row span — synonym for `^`; must be quoted because YAML treats bare `\|` |
+|                   | as a block-scalar indicator                                              |
+| `_`               | empty cell                                                               |
+| `<->`             | horizontal stretcher — absorbs residual width                            |
 
 Fields render value-only — there is no automatic `Status:` prefix in the value cell anymore.
 Place captions explicitly in the grid using literal strings (e.g. `"Status:"`) wherever you
@@ -171,8 +180,8 @@ Validation rules for `kind: detail`:
 - `metadata:` accepts workflow-declared field names plus the supported audit fields (`createdBy`,
   `createdAt`, `updatedAt`). Unknown names fail workflow load.
 - Identity/body fields `description`, `body`, and `id` are rejected — they are always rendered by
-  the detail view chrome. `title` IS allowed as a layout reservation (the title primitive renders
-  outside the grid; the `title` cell occupies space only).
+  the detail view chrome. `title` IS allowed and renders in-grid like any other text field.
+  If omitted from the grid, no title is displayed. Accepts optional `<role>` annotation.
 - Path fields (`filepath`, `path`) — values live on the tiki struct rather than in Fields and have
   no typed renderer; rejected.
 - Grid-shape errors (ragged rows, orphan `--` or `^`/`|`, mixed stretcher columns, duplicate

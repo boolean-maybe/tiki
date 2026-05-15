@@ -11,12 +11,12 @@ import (
 // algorithm runs against the live terminal width — tview primitives
 // don't see their width at construction time, only on Draw via GetRect().
 //
-// The container is a FlexColumn (one inner Flex per grid column). Each
-// inner Flex is a FlexRow of the anchors that start in that column at
-// their resolved row height. Row-spanning anchors take the summed height
-// of their spanned rows; cells covered by a horizontally-spanning anchor
-// from the left receive an empty placeholder so vertical alignment is
-// preserved.
+// The layout is hybrid row/column-major. Rows containing a horizontal
+// span (ColSpan > 1) render as a FlexColumn where the spanning anchor
+// occupies its combined width. Consecutive rows without horizontal spans
+// render column-major (each column is a FlexRow) so per-column natural-
+// height packing works — short cells don't get padded when a neighbour
+// column's content grew the row (e.g. multi-line tags).
 //
 // Using nested Flexes (rather than tview.Grid) keeps the focus chain
 // identical to the legacy renderer — editor widgets receive Tab/Down
@@ -37,7 +37,7 @@ type gridContainer struct {
 // so both field and literal anchors can be addressed uniformly.
 func newGridContainer(spec gridlayout.GridSpec, primitives []tview.Primitive, heightOf func(name string, width int) int) *gridContainer {
 	g := &gridContainer{
-		Flex:       tview.NewFlex().SetDirection(tview.FlexColumn),
+		Flex:       tview.NewFlex().SetDirection(tview.FlexRow),
 		spec:       spec,
 		primitives: primitives,
 		heightOf:   heightOf,
@@ -58,16 +58,17 @@ func (g *gridContainer) Draw(screen tcell.Screen) {
 
 // rebuild recomputes the grid plan and repopulates the outer Flex.
 //
-// Each grid column becomes an inner FlexRow. An anchored cell allocates
-// only its anchor's natural height (heightOf result), not the grown row
-// height: that prevents short single-line cells in a row from getting
-// padded with blank space whenever a neighbour column grew the row to
-// accommodate wrapped content (e.g. multi-line tags). Leftover slack at
-// the bottom of each column is absorbed by a residual flex-1 box so the
-// column ends flush with its neighbours.
-//
-// Cells covered by a horizontally-spanning anchor receive an empty
-// placeholder so the column's vertical alignment matches its neighbours.
+// The outer Flex is FlexRow (vertical stacking). Rows are partitioned
+// into bands:
+//   - A row containing any anchor with ColSpan > 1 is a "spanning row"
+//     rendered as a standalone FlexColumn. The spanning anchor receives
+//     the combined width of its spanned columns + inter-column gaps.
+//   - Consecutive rows without horizontal spans form a "packed band"
+//     rendered column-major (each column is a FlexRow). This preserves
+//     per-column natural-height packing so short cells in a row don't
+//     get padded when a neighbour column grew the row (e.g. multi-line
+//     tags). A residual flex-1 box at the bottom of each column absorbs
+//     leftover space.
 func (g *gridContainer) rebuild(width int) {
 	g.lastWidth = width
 	g.Flex.Clear()
@@ -76,20 +77,99 @@ func (g *gridContainer) rebuild(width int) {
 		return
 	}
 
-	// Map (row, col) → anchor index in spec.Anchors. Anchors are placed
-	// at their top-left only; spanned cells are not separate entries.
 	anchorAt := make(map[int]int, len(g.spec.Anchors))
 	for i, a := range g.spec.Anchors {
 		anchorAt[a.Row*plan.Cols+a.Col] = i
 	}
 
+	hasHSpan := make([]bool, plan.Rows)
+	for _, a := range g.spec.Anchors {
+		if a.ColSpan > 1 {
+			hasHSpan[a.Row] = true
+		}
+	}
+
+	r := 0
+	for r < plan.Rows {
+		if hasHSpan[r] {
+			g.addSpanningRow(r, plan, anchorAt)
+			r++
+		} else {
+			start := r
+			for r < plan.Rows && !hasHSpan[r] {
+				r++
+			}
+			g.addPackedBand(start, r, plan, anchorAt)
+		}
+	}
+}
+
+// addSpanningRow renders a single row that contains at least one
+// horizontal span as a FlexColumn. Each cell gets the combined width of
+// its spanned columns (plus inter-column gaps between them).
+func (g *gridContainer) addSpanningRow(row int, plan gridlayout.Plan, anchorAt map[int]int) {
+	rowFlex := tview.NewFlex().SetDirection(tview.FlexColumn)
+	c := 0
+	for c < plan.Cols {
+		if plan.Dropped[c] {
+			c++
+			continue
+		}
+		idx, ok := anchorAt[row*plan.Cols+c]
+		if !ok {
+			colWidth := plan.ColumnWidths[c]
+			proportion := 0
+			if g.spec.Stretcher[c] {
+				proportion = 1
+				colWidth = 0
+			}
+			rowFlex.AddItem(tview.NewBox(), colWidth, proportion, false)
+			if c < plan.Cols-1 && !plan.Dropped[c+1] {
+				rowFlex.AddItem(tview.NewBox(), interColumnGap, 0, false)
+			}
+			c++
+			continue
+		}
+		a := g.spec.Anchors[idx]
+		prim := g.primitives[idx]
+		if prim == nil {
+			prim = tview.NewBox()
+		}
+		cellWidth, hasStretcher := g.spanWidth(a, plan)
+		proportion := 0
+		if hasStretcher {
+			proportion = 1
+			cellWidth = 0
+		}
+		rowFlex.AddItem(prim, cellWidth, proportion, false)
+		nextVisibleCol := g.lastVisibleSpannedCol(a, plan)
+		if nextVisibleCol < plan.Cols-1 && !plan.Dropped[nextVisibleCol+1] {
+			rowFlex.AddItem(tview.NewBox(), interColumnGap, 0, false)
+		}
+		c += a.ColSpan
+	}
+	h := plan.RowHeights[row]
+	g.Flex.AddItem(rowFlex, h, 0, false)
+}
+
+// addPackedBand renders consecutive rows [start, end) that have no
+// horizontal spans using column-major layout. Each column is a FlexRow
+// containing only the cells for this band's rows. Per-column natural-
+// height packing ensures short cells aren't padded by taller neighbours.
+func (g *gridContainer) addPackedBand(start, end int, plan gridlayout.Plan, anchorAt map[int]int) {
+	bandHeight := 0
+	for r := start; r < end; r++ {
+		bandHeight += plan.RowHeights[r]
+	}
+
+	bandFlex := tview.NewFlex().SetDirection(tview.FlexColumn)
 	for c := 0; c < plan.Cols; c++ {
 		if plan.Dropped[c] {
 			continue
 		}
 		colFlex := tview.NewFlex().SetDirection(tview.FlexRow)
-		r := 0
-		for r < plan.Rows {
+		r := start
+		for r < end {
 			if idx, ok := anchorAt[r*plan.Cols+c]; ok {
 				a := g.spec.Anchors[idx]
 				prim := g.primitives[idx]
@@ -104,13 +184,6 @@ func (g *gridContainer) rebuild(width int) {
 			colFlex.AddItem(tview.NewBox(), plan.RowHeights[r], 0, false)
 			r++
 		}
-		// Residual flex-1 box absorbs any leftover vertical space in this
-		// column. Without it, a column whose anchors collectively take less
-		// height than the row-band sum would render with a draw artifact
-		// at the bottom (the outer Flex's first AddItem would receive the
-		// slack instead). This also delivers the row-packing fix: shorter
-		// cells stop being padded mid-column when a neighbour column's
-		// content grew a row band.
 		colFlex.AddItem(tview.NewBox(), 0, 1, false)
 
 		colWidth := plan.ColumnWidths[c]
@@ -119,11 +192,47 @@ func (g *gridContainer) rebuild(width int) {
 			proportion = 1
 			colWidth = 0
 		}
-		g.Flex.AddItem(colFlex, colWidth, proportion, false)
+		bandFlex.AddItem(colFlex, colWidth, proportion, false)
 		if c < plan.Cols-1 && !plan.Dropped[c+1] {
-			g.Flex.AddItem(tview.NewBox(), interColumnGap, 0, false)
+			bandFlex.AddItem(tview.NewBox(), interColumnGap, 0, false)
 		}
 	}
+	g.Flex.AddItem(bandFlex, bandHeight, 0, false)
+}
+
+// spanWidth returns the total character width of an anchor's column span
+// (including inter-column gaps between visible spanned columns) and
+// whether any spanned column is a stretcher.
+func (g *gridContainer) spanWidth(a gridlayout.Anchor, plan gridlayout.Plan) (int, bool) {
+	totalWidth := 0
+	visible := 0
+	hasStretcher := false
+	for cc := a.Col; cc < a.Col+a.ColSpan; cc++ {
+		if plan.Dropped[cc] {
+			continue
+		}
+		visible++
+		totalWidth += plan.ColumnWidths[cc]
+		if g.spec.Stretcher[cc] {
+			hasStretcher = true
+		}
+	}
+	if visible > 1 {
+		totalWidth += (visible - 1) * interColumnGap
+	}
+	return totalWidth, hasStretcher
+}
+
+// lastVisibleSpannedCol returns the index of the last non-dropped column
+// within an anchor's horizontal span.
+func (g *gridContainer) lastVisibleSpannedCol(a gridlayout.Anchor, plan gridlayout.Plan) int {
+	last := a.Col
+	for cc := a.Col; cc < a.Col+a.ColSpan; cc++ {
+		if !plan.Dropped[cc] {
+			last = cc
+		}
+	}
+	return last
 }
 
 // anchorPlacementHeight returns the height to allocate for an anchor's

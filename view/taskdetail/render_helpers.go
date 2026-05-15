@@ -5,6 +5,7 @@ import (
 
 	"github.com/boolean-maybe/tiki/component"
 	"github.com/boolean-maybe/tiki/config"
+	"github.com/boolean-maybe/tiki/gridlayout"
 	"github.com/boolean-maybe/tiki/model"
 	"github.com/boolean-maybe/tiki/store"
 	tikipkg "github.com/boolean-maybe/tiki/tiki"
@@ -15,11 +16,11 @@ import (
 )
 
 // expandFieldText escapes a user-controlled text value against tview's
-// `[...]` dynamic-color markup, then expands any `{role}` markup against
+// `[...]` dynamic-color markup, then expands any `<role>` markup against
 // the active theme. Order matters: escape first so a stored `[red]`
 // stays inert; then run ExpandVisual so deliberately-authored
-// `{highlight}foo` resolves to a tview color tag. Fails closed to the
-// plain escaped form on parse error (e.g. unclosed `{` or unknown role
+// `<highlight>foo` resolves to a tview color tag. Fails closed to the
+// plain escaped form on parse error (e.g. unclosed `<` or unknown role
 // name) so bad stored data can never crash a render. Returns just the
 // escaped form when colors is nil, supporting fallback call sites that
 // lack a color config.
@@ -53,6 +54,7 @@ type FieldRenderContext struct {
 	FocusedField model.EditField
 	Colors       *config.ColorConfig
 	FieldName    string
+	Display      gridlayout.DisplayMode
 	Store        store.Store
 }
 
@@ -70,7 +72,7 @@ func getFocusMarker(colors *config.ColorConfig) string {
 }
 
 // RenderAssigneeText renders an assignee field as read-only text. The
-// stored value may contain `{role}` color markup; literal `[...]` content
+// stored value may contain `<role>` color markup; literal `[...]` content
 // renders verbatim (escape-then-expand order).
 func RenderAssigneeText(tk *tikipkg.Tiki, ctx FieldRenderContext) tview.Primitive {
 	focused := ctx.Mode == RenderModeEdit && ctx.FocusedField == model.EditFieldAssignee
@@ -114,12 +116,20 @@ func RenderPointsText(tk *tikipkg.Tiki, ctx FieldRenderContext) tview.Primitive 
 }
 
 // RenderTitleText renders a title as read-only text. The stored title may
-// contain `{role}` color markup (e.g. `{highlight}foo`); literal `[...]`
-// tview-tag content renders verbatim.
-func RenderTitleText(tk *tikipkg.Tiki, ctx FieldRenderContext) tview.Primitive {
+// contain `<role>` color markup (e.g. `<highlight>foo`); literal `[...]`
+// tview-tag content renders verbatim. When role is non-empty, the role's
+// resolved color replaces the default title styling entirely.
+func RenderTitleText(tk *tikipkg.Tiki, ctx FieldRenderContext, role string) tview.Primitive {
 	focused := ctx.Mode == RenderModeEdit && ctx.FocusedField == model.EditFieldTitle
 	var titleTag string
-	if ctx.Mode == RenderModeEdit && !focused {
+	if role != "" && ctx.Colors != nil {
+		resolver := ctx.Colors.RoleResolver()
+		if tag, ok := resolver(role); ok {
+			titleTag = tag
+		} else {
+			titleTag = ctx.Colors.TaskDetailTitleText.Tag().Bold().String()
+		}
+	} else if ctx.Mode == RenderModeEdit && !focused {
 		titleTag = ctx.Colors.TaskDetailEditDimTextColor.Tag().String()
 	} else {
 		titleTag = ctx.Colors.TaskDetailTitleText.Tag().Bold().String()

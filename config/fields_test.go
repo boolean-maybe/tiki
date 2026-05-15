@@ -410,7 +410,7 @@ fields:
     values:
       - value: high
         label: High
-        visual: "{nosuchrole}!"
+        visual: "<nosuchrole>!"
         default: true
 `
 	if err := os.WriteFile(filepath.Join(cwdDir, "workflow.yaml"), []byte(content), 0644); err != nil {
@@ -438,7 +438,7 @@ fields:
     values:
       - value: high
         label: High
-        visual: "{danger}!!!"
+        visual: "<danger>!!!"
         default: true
       - value: low
         label: Low
@@ -457,8 +457,8 @@ fields:
 		t.Fatal("severity field not registered")
 	}
 	high, _ := f.LookupEnum("high")
-	if high.Visual != "{danger}!!!" {
-		t.Errorf("high.Visual = %q, want %q", high.Visual, "{danger}!!!")
+	if high.Visual != "<danger>!!!" {
+		t.Errorf("high.Visual = %q, want %q", high.Visual, "<danger>!!!")
 	}
 	low, _ := f.LookupEnum("low")
 	if low.Visual != "." {

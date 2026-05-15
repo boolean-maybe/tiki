@@ -240,6 +240,11 @@ func TestMetadataToEditFieldOrder(t *testing.T) {
 			expected: []EditField{EditFieldStatus, EditFieldType},
 		},
 		{
+			name:     "title in grid",
+			metadata: []string{"title", tikipkg.FieldStatus, tikipkg.FieldType},
+			expected: []EditField{EditFieldTitle, EditFieldStatus, EditFieldType},
+		},
+		{
 			name:     "empty input → empty output",
 			metadata: nil,
 			expected: []EditField{},

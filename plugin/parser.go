@@ -323,8 +323,8 @@ func parseDetailPlugin(cfg pluginFileConfig, base BasePlugin, schema ruki.Schema
 
 // validateDetailMetadata parses the 2D metadata grid and validates each
 // anchor's field name against the schema. Literal cells may carry
-// `{role}` color markup drawn from workflow.ValidRoles (escape literal
-// `{` as `{{`); markup is parsed and role names checked at load time so
+// `<role>` color markup drawn from workflow.ValidRoles (escape literal
+// `<` as `<<`); markup is parsed and role names checked at load time so
 // typos surface at startup rather than at first render. Two categories
 // of names may appear:
 //
@@ -332,8 +332,8 @@ func parseDetailPlugin(cfg pluginFileConfig, base BasePlugin, schema ruki.Schema
 //   - Supported audit fields: `createdBy`, `createdAt`, `updatedAt`. These
 //     are system fields wired into the typed detail-view registry so they
 //     render as read-only rows.
-//   - `title` is allowed as a layout reservation — the title primitive
-//     renders outside the grid; the cell occupies space only.
+//   - `title` is allowed — it renders in-grid via the field registry as a
+//     regular text field. Accepts optional `<role>` annotation.
 //
 // Rejected:
 //
@@ -358,7 +358,7 @@ func validateDetailMetadata(pluginName string, raw [][]string, schema ruki.Schem
 		if a.Kind == gridlayout.AnchorLiteral {
 			// Literal anchors carry static text declared by the layout
 			// author; they don't reference any field, so schema validation
-			// does not apply. They may, however, contain `{role}` color
+			// does not apply. They may, however, contain `<role>` color
 			// markup — validate role names against the closed vocabulary.
 			if err := workflow.ValidateVisualMarkup(a.Text); err != nil {
 				return gridlayout.GridSpec{}, fmt.Errorf(
@@ -366,39 +366,66 @@ func validateDetailMetadata(pluginName string, raw [][]string, schema ruki.Schem
 			}
 			continue
 		}
-		name := a.Name
-		if name == "title" {
-			// title is a layout reservation — the title primitive renders
-			// outside the grid. No schema lookup needed.
+		if a.Kind == gridlayout.AnchorComposite {
+			for _, seg := range a.Segments {
+				if seg.Kind == gridlayout.SegmentLiteral {
+					continue
+				}
+				if seg.Role != "" {
+					if _, ok := workflow.ValidRoles[seg.Role]; !ok {
+						return gridlayout.GridSpec{}, fmt.Errorf(
+							"plugin %q: metadata composite field %q: unknown color role %q", pluginName, seg.Name, seg.Role)
+					}
+				}
+				if err := validateDetailFieldName(pluginName, seg.Name, schema); err != nil {
+					return gridlayout.GridSpec{}, err
+				}
+			}
 			continue
 		}
-		if isDetailIdentityField(name) {
-			return gridlayout.GridSpec{}, fmt.Errorf(
-				"plugin %q: metadata cannot include %q — description and id are always rendered by the detail view chrome",
-				pluginName, name)
-		}
-		if isDetailNonRenderableSystemField(name) {
-			return gridlayout.GridSpec{}, fmt.Errorf(
-				"plugin %q: metadata cannot include %q — it lives on the tiki struct (not in Fields) and has no detail-view renderer",
-				pluginName, name)
-		}
-		if schema != nil {
-			if _, ok := schema.Field(name); !ok {
+		if a.Role != "" {
+			if _, ok := workflow.ValidRoles[a.Role]; !ok {
 				return gridlayout.GridSpec{}, fmt.Errorf(
-					"plugin %q: metadata field %q is not a workflow-declared field",
-					pluginName, name)
+					"plugin %q: metadata field %q: unknown color role %q", pluginName, a.Name, a.Role)
 			}
+		}
+		if err := validateDetailFieldName(pluginName, a.Name, schema); err != nil {
+			return gridlayout.GridSpec{}, err
 		}
 	}
 	return spec, nil
 }
 
+func validateDetailFieldName(pluginName, name string, schema ruki.Schema) error {
+	if name == "title" {
+		return nil
+	}
+	if isDetailIdentityField(name) {
+		return fmt.Errorf(
+			"plugin %q: metadata cannot include %q — description and id are always rendered by the detail view chrome",
+			pluginName, name)
+	}
+	if isDetailNonRenderableSystemField(name) {
+		return fmt.Errorf(
+			"plugin %q: metadata cannot include %q — it lives on the tiki struct (not in Fields) and has no detail-view renderer",
+			pluginName, name)
+	}
+	if schema != nil {
+		if _, ok := schema.Field(name); !ok {
+			return fmt.Errorf(
+				"plugin %q: metadata field %q is not a workflow-declared field",
+				pluginName, name)
+		}
+	}
+	return nil
+}
+
 // isDetailIdentityField reports whether the field is one of the identity/body
 // fields that are always rendered by a detail view (and therefore disallowed
-// in `metadata:`).
+// in `metadata:`). Title is NOT in this set — it renders in-grid.
 func isDetailIdentityField(name string) bool {
 	switch name {
-	case "title", "description", "body", "id":
+	case "description", "body", "id":
 		return true
 	}
 	return false

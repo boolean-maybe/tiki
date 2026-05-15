@@ -52,7 +52,7 @@ func tikiPriorityEmoji(tk *tikipkg.Tiki) string {
 
 // enumVisual returns the visual markup string defined for a workflow enum
 // value, or empty when the field is missing, not an enum, or the key is
-// unknown. The returned string may contain `{role}` tokens that callers
+// unknown. The returned string may contain `<role>` tokens that callers
 // must pass through workflow.ExpandVisual before rendering.
 func enumVisual(fieldName, key string) string {
 	fd, ok := workflow.Field(fieldName)
@@ -86,16 +86,16 @@ func tikiPointsVisual(tk *tikipkg.Tiki, colors *config.ColorConfig) string {
 }
 
 // expandTitleMarkup escapes a stored title (so a literal `[red]` stays
-// inert) and then expands any `{role}` markup against the theme's role
+// inert) and then expands any `<role>` markup against the theme's role
 // vocabulary. Fails closed to the plain escaped form on parse error so
 // bad stored content can never crash the kanban card.
 //
 // Truncation note: the caller truncates the raw title by rune count
 // before passing it here. Truncation is not markup-aware, so a chop
-// that lands mid-token (e.g. "{highligh") would leave an unclosed `{`
+// that lands mid-token (e.g. "<highligh") would leave an unclosed `<`
 // that ExpandVisual rejects, falling back to plain text and leaking
 // the broken token to the user. trimUnclosedRoleToken drops any
-// dangling `{...` fragment after the last unmatched `{` so the visible
+// dangling `<...` fragment after the last unmatched `<` so the visible
 // title shortens cleanly while keeping color on whatever did survive.
 func expandTitleMarkup(raw string, colors *config.ColorConfig) string {
 	escaped := tview.Escape(raw)
@@ -107,29 +107,29 @@ func expandTitleMarkup(raw string, colors *config.ColorConfig) string {
 	return expanded
 }
 
-// trimUnclosedRoleToken returns s with any unterminated `{...` fragment
-// removed from the tail. The grammar from workflow.ExpandVisual: `{{`
-// is a literal-brace escape (consumed in pairs); a lone `{` opens a
-// role token that must be closed by `}` later in the string. If a chop
+// trimUnclosedRoleToken returns s with any unterminated `<...` fragment
+// removed from the tail. The grammar from workflow.ExpandVisual: `<<`
+// is a literal-angle escape (consumed in pairs); a lone `<` opens a
+// role token that must be closed by `>` later in the string. If a chop
 // (e.g. width-based truncation by the caller) lands inside an open
 // role token, the loader's role-name parser fails — the visible result
 // without this guard is the raw broken token leaking onto the card.
-// Trimming at the unmatched `{` yields a clean shorter title.
+// Trimming at the unmatched `<` yields a clean shorter title.
 func trimUnclosedRoleToken(s string) string {
 	i := 0
 	for i < len(s) {
 		c := s[i]
-		if c != '{' {
+		if c != '<' {
 			i++
 			continue
 		}
-		// `{{` → literal brace escape; skip both bytes.
-		if i+1 < len(s) && s[i+1] == '{' {
+		// `<<` → literal angle escape; skip both bytes.
+		if i+1 < len(s) && s[i+1] == '<' {
 			i += 2
 			continue
 		}
-		// Lone `{`: must be closed by a `}` later in the string.
-		if strings.IndexByte(s[i+1:], '}') < 0 {
+		// Lone `<`: must be closed by a `>` later in the string.
+		if strings.IndexByte(s[i+1:], '>') < 0 {
 			return s[:i]
 		}
 		i++
@@ -144,8 +144,8 @@ func tikiTags(tk *tikipkg.Tiki) []string {
 }
 
 // buildCompactTaskContent builds the content string for compact task display.
-// The stored title may contain `{role}` color markup (e.g. `{highlight}foo`);
-// literal `[...]` tview-tag content stays escaped, while `{role}` tokens
+// The stored title may contain `<role>` color markup (e.g. `<highlight>foo`);
+// literal `[...]` tview-tag content stays escaped, while `<role>` tokens
 // expand to the theme's role color and reset.
 func buildCompactTaskContent(tk *tikipkg.Tiki, colors *config.ColorConfig, availableWidth int) string {
 	emoji := tikiTypeEmoji(tk)
@@ -165,7 +165,7 @@ func buildCompactTaskContent(tk *tikipkg.Tiki, colors *config.ColorConfig, avail
 }
 
 // buildExpandedTaskContent builds the content string for expanded task display.
-// Title supports `{role}` color markup like the compact variant; description
+// Title supports `<role>` color markup like the compact variant; description
 // lines are plain-escaped (description is multi-line markdown, rendered as
 // preview text only).
 func buildExpandedTaskContent(tk *tikipkg.Tiki, colors *config.ColorConfig, availableWidth int) string {

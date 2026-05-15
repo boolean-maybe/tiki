@@ -26,7 +26,22 @@ func defaultAnchorWidth(a gridlayout.Anchor) int {
 	if a.Kind == gridlayout.AnchorLiteral {
 		return len(a.Text) + 1
 	}
-	switch a.Name {
+	if a.Kind == gridlayout.AnchorComposite {
+		total := 0
+		for _, seg := range a.Segments {
+			if seg.Kind == gridlayout.SegmentLiteral {
+				total += len(seg.Text)
+			} else {
+				total += defaultFieldWidth(seg.Name)
+			}
+		}
+		return total
+	}
+	return defaultFieldWidth(a.Name)
+}
+
+func defaultFieldWidth(name string) int {
+	switch name {
 	case "tags", "dependsOn", "depends":
 		return 24
 	case "createdAt", "updatedAt", "due":

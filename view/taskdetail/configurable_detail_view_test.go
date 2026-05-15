@@ -206,13 +206,13 @@ func TestGenericFieldValueString_TimestampPreservesClock(t *testing.T) {
 	tk.Set("scheduledFor", when)
 
 	tsFD, _ := workflow.Field("dueBy")
-	got := genericFieldValueString(tsFD, tk, nil)
+	got := genericFieldValueString(tsFD, tk, FieldRenderContext{})
 	if !strings.Contains(got, "14:30") {
 		t.Errorf("timestamp value = %q, want time component (14:30) preserved", got)
 	}
 
 	dateFD, _ := workflow.Field("scheduledFor")
-	gotDate := genericFieldValueString(dateFD, tk, nil)
+	gotDate := genericFieldValueString(dateFD, tk, FieldRenderContext{})
 	if strings.Contains(gotDate, "14:30") {
 		t.Errorf("date value = %q, must NOT carry time component", gotDate)
 	}
@@ -247,7 +247,7 @@ func TestGenericFieldValueString_DefaultBranchEscapesMarkup(t *testing.T) {
 	tk.Set("blob", map[string]string{"label": "[red]hi"})
 
 	fd, _ := workflow.Field("blob")
-	got := genericFieldValueString(fd, tk, nil)
+	got := genericFieldValueString(fd, tk, FieldRenderContext{})
 	// tview.Escape inserts an opening-bracket marker.
 	if !strings.Contains(got, "[red[]") {
 		t.Errorf("default branch did not escape markup: got %q", got)
