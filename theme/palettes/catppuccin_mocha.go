@@ -25,9 +25,6 @@ type CatppuccinMocha struct {
 
 	CaptionFg [6]string
 	CaptionBg [6]string
-
-	CaptionFallbackStart [3]int
-	CaptionFallbackEnd   [3]int
 }
 
 func NewCatppuccinMocha() CatppuccinMocha {
@@ -68,8 +65,5 @@ func NewCatppuccinMocha() CatppuccinMocha {
 			"#483d3d",
 			"#2c4440",
 		},
-
-		CaptionFallbackStart: [3]int{30, 30, 46},
-		CaptionFallbackEnd:   [3]int{69, 71, 90},
 	}
 }

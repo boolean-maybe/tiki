@@ -25,9 +25,6 @@ type TokyoNight struct {
 
 	CaptionFg [6]string
 	CaptionBg [6]string
-
-	CaptionFallbackStart [3]int
-	CaptionFallbackEnd   [3]int
 }
 
 func NewTokyoNight() TokyoNight {
@@ -67,8 +64,5 @@ func NewTokyoNight() TokyoNight {
 			"#1a1d29",
 			"#4a232a",
 		},
-
-		CaptionFallbackStart: [3]int{26, 27, 38},
-		CaptionFallbackEnd:   [3]int{59, 66, 97},
 	}
 }

@@ -46,6 +46,4 @@ func TestCatppuccinLatteAllFieldsExercised(t *testing.T) {
 	for _, cc := range c.CaptionBg {
 		_ = cc
 	}
-	_ = c.CaptionFallbackStart
-	_ = c.CaptionFallbackEnd
 }

@@ -7,13 +7,9 @@ import (
 	"github.com/boolean-maybe/tiki/theme"
 )
 
-// ValidRoles is the closed vocabulary of semantic color roles accepted by
-// workflow `visual:` markup. Membership is checked at workflow load time;
-// unknown roles produce a load error. The runtime binding from role name to
-// concrete color lives in theme.Theme.ResolveByName.
-//
-// Derived from theme.KnownRoleNames() so the load-time validator and the
-// runtime resolver always agree on which names are accepted.
+// ValidRoles is the closed vocabulary of semantic color role names accepted
+// in `<role>` markup. Derived from theme.KnownRoleNames so the load-time
+// validator and the runtime resolver always agree.
 var ValidRoles = func() map[string]struct{} {
 	m := make(map[string]struct{}, len(theme.KnownRoleNames()))
 	for _, name := range theme.KnownRoleNames() {
@@ -22,31 +18,66 @@ var ValidRoles = func() map[string]struct{} {
 	return m
 }()
 
-// ValidateVisualMarkup checks a `visual:` string for syntactic and role
-// errors without resolving roles to colors. Returns nil for the empty string
-// or strings with no markup tokens. Used by the workflow loader to surface
-// typos in workflow.yaml at startup, long before any render call.
+// ValidateVisualMarkup checks a `visual:` (or any role-markup) string for
+// syntactic and vocabulary errors without resolving colors. Returns nil for
+// the empty string or strings with no markup tokens. Used by the workflow
+// loader to surface typos in workflow.yaml at startup.
+//
+// Grammar: `<role>` or `<role.modifier>`. The modifier (if present) must be
+// a member of theme.KnownModifierNames. The role must be a member of
+// ValidRoles. The literal-`<` escape is `<<`.
 func ValidateVisualMarkup(markup string) error {
 	if markup == "" {
 		return nil
 	}
-	_, err := scanVisual(markup, func(role string) (string, bool) {
-		if _, ok := ValidRoles[role]; !ok {
-			return "", false
+	i := 0
+	for i < len(markup) {
+		c := markup[i]
+		if c != '<' {
+			i++
+			continue
 		}
-		return "", true
-	})
-	return err
+		if i+1 < len(markup) && markup[i+1] == '<' {
+			i += 2
+			continue
+		}
+		closeIdx := strings.IndexByte(markup[i+1:], '>')
+		if closeIdx < 0 {
+			return fmt.Errorf("unclosed `<` in visual markup %q", markup)
+		}
+		token := markup[i+1 : i+1+closeIdx]
+		if token == "" {
+			return fmt.Errorf("empty role name in visual markup %q", markup)
+		}
+		role, modifier := theme.SplitRoleModifier(token)
+		if _, ok := ValidRoles[role]; !ok {
+			return fmt.Errorf("unknown visual role %q in markup %q", role, markup)
+		}
+		if modifier != "" {
+			if !theme.IsKnownModifier(modifier) {
+				return fmt.Errorf("unknown visual modifier %q in markup %q", modifier, markup)
+			}
+		}
+		i += 1 + closeIdx + 1
+	}
+	return nil
 }
 
-// ExpandVisual converts `<role>` markup into tview color tags using the
-// caller-supplied resolver. The resolver returns the tview tag prefix for a
-// role (e.g. "[#ff4444]") and reports false for unknown roles. The result
-// ends with "[-]" when any role token was emitted, otherwise the original
-// markup is returned unchanged (fast path for bare glyphs like "📥").
+// ExpandVisual converts `<role>` and `<role.modifier>` markup into tview
+// color-tagged output using the caller-supplied resolver. The resolver
+// returns a Paint that knows how to render the text span following its
+// token; ExpandVisual writes the resolver's output verbatim. Reports an
+// error for unknown role names, unknown modifiers, unclosed `<`, or empty
+// role names.
 //
-// Escape rule: literal "<" is written as "<<".
-func ExpandVisual(markup string, resolve func(role string) (tag string, ok bool)) (string, error) {
+// Disambiguation: when a token contains dots, the suffix following the
+// last dot is checked against theme.KnownModifierNames; if it is a known
+// modifier, the prefix is the role and the suffix is the modifier.
+// Otherwise the entire token is the role name. This rule keeps existing
+// dotted role names (e.g. "text.muted") working unchanged.
+//
+// Escape: literal `<` is written as `<<`.
+func ExpandVisual(markup string, resolve func(role, modifier string) (theme.Paint, bool)) (string, error) {
 	if markup == "" {
 		return "", nil
 	}
@@ -56,50 +87,77 @@ func ExpandVisual(markup string, resolve func(role string) (tag string, ok bool)
 	return scanVisual(markup, resolve)
 }
 
-// scanVisual is the shared tokenizer used by both ValidateVisualMarkup and
-// ExpandVisual. The resolver's tag return value is appended to the output;
-// validation mode passes an empty tag and only cares about the bool.
-func scanVisual(markup string, resolve func(role string) (tag string, ok bool)) (string, error) {
+// scanVisual tokenizes role markup and, for each token, hands the run of
+// text that follows the token (up to the next token or end of input) to
+// the Paint returned by the resolver. The resolver receives (role,
+// modifier) pairs and returns the Paint to apply.
+func scanVisual(markup string, resolve func(role, modifier string) (theme.Paint, bool)) (string, error) {
 	var out strings.Builder
-	out.Grow(len(markup) + 16)
-	emittedTag := false
+	out.Grow(len(markup) + 32)
 
 	i := 0
+	// pending paint applies to the next plain-text run.
+	var pending theme.Paint
+	pendingRunStart := -1
+
+	flushRun := func(end int) {
+		if pendingRunStart < 0 {
+			return
+		}
+		text := markup[pendingRunStart:end]
+		if pending != nil {
+			out.WriteString(pending.PaintString(text))
+		} else {
+			// text before any token (or after `<<` with no preceding token):
+			// emit verbatim. The validator path no longer reaches scanVisual
+			// at all, so this branch is reached only by ExpandVisual.
+			out.WriteString(text)
+		}
+		pending = nil
+		pendingRunStart = -1
+	}
+
 	for i < len(markup) {
 		c := markup[i]
 		if c != '<' {
-			out.WriteByte(c)
+			if pendingRunStart < 0 {
+				pendingRunStart = i
+			}
 			i++
 			continue
 		}
-		// '<<' → literal '<'
+		// `<<` → literal `<`
 		if i+1 < len(markup) && markup[i+1] == '<' {
+			// End the current run at this `<`, emit a literal `<`, continue.
+			flushRun(i)
 			out.WriteByte('<')
 			i += 2
+			pendingRunStart = -1
 			continue
 		}
-		// Find matching '>'.
-		close := strings.IndexByte(markup[i+1:], '>')
-		if close < 0 {
+		// End the previous run (if any) at this `<`.
+		flushRun(i)
+
+		closeIdx := strings.IndexByte(markup[i+1:], '>')
+		if closeIdx < 0 {
 			return "", fmt.Errorf("unclosed `<` in visual markup %q", markup)
 		}
-		role := markup[i+1 : i+1+close]
-		if role == "" {
+		token := markup[i+1 : i+1+closeIdx]
+		if token == "" {
 			return "", fmt.Errorf("empty role name in visual markup %q", markup)
 		}
-		tag, ok := resolve(role)
+		role, modifier := theme.SplitRoleModifier(token)
+		paint, ok := resolve(role, modifier)
 		if !ok {
+			if modifier != "" {
+				return "", fmt.Errorf("unknown visual role/modifier %q.%q in markup %q", role, modifier, markup)
+			}
 			return "", fmt.Errorf("unknown visual role %q in markup %q", role, markup)
 		}
-		if tag != "" {
-			out.WriteString(tag)
-			emittedTag = true
-		}
-		i += 1 + close + 1
+		pending = paint
+		pendingRunStart = -1
+		i += 1 + closeIdx + 1
 	}
-
-	if emittedTag {
-		out.WriteString("[-]")
-	}
+	flushRun(len(markup))
 	return out.String(), nil
 }

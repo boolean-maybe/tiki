@@ -376,6 +376,10 @@ func validateDetailMetadata(pluginName string, raw [][]string, schema ruki.Schem
 						return gridlayout.GridSpec{}, fmt.Errorf(
 							"plugin %q: metadata composite field %q: unknown color role %q", pluginName, seg.Name, seg.Role)
 					}
+					if seg.Modifier != "" && !theme.IsKnownModifier(seg.Modifier) {
+						return gridlayout.GridSpec{}, fmt.Errorf(
+							"plugin %q: metadata composite field %q: unknown color modifier %q", pluginName, seg.Name, seg.Modifier)
+					}
 				}
 				if err := validateDetailFieldName(pluginName, seg.Name, schema); err != nil {
 					return gridlayout.GridSpec{}, err
@@ -387,6 +391,10 @@ func validateDetailMetadata(pluginName string, raw [][]string, schema ruki.Schem
 			if _, ok := workflow.ValidRoles[a.Role]; !ok {
 				return gridlayout.GridSpec{}, fmt.Errorf(
 					"plugin %q: metadata field %q: unknown color role %q", pluginName, a.Name, a.Role)
+			}
+			if a.Modifier != "" && !theme.IsKnownModifier(a.Modifier) {
+				return gridlayout.GridSpec{}, fmt.Errorf(
+					"plugin %q: metadata field %q: unknown color modifier %q", pluginName, a.Name, a.Modifier)
 			}
 		}
 		if err := validateDetailFieldName(pluginName, a.Name, schema); err != nil {

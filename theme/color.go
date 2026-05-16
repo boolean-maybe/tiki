@@ -5,11 +5,11 @@ package theme
 //
 // Color is exported because a handful of callers legitimately hold concrete
 // color values rather than roles — caption pairs in plugin definitions, palette
-// fields, low-level gradient interpolation in util/gradient, etc. Prefer Role
-// for any new code: roles decouple "what should this look like" from "what
-// hex does the active theme use" and stay correct when the theme is swapped
-// at runtime. Reach for Color only when you genuinely need an inert color
-// value disconnected from the active theme.
+// fields, low-level gradient interpolation in internal/gradient, etc. Prefer
+// Role for any new code: roles decouple "what should this look like" from
+// "what hex does the active theme use" and stay correct when the theme is
+// swapped at runtime. Reach for Color only when you genuinely need an inert
+// color value disconnected from the active theme.
 
 import (
 	"fmt"

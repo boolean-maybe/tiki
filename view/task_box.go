@@ -11,7 +11,7 @@ import (
 	"github.com/boolean-maybe/tiki/theme"
 	tikipkg "github.com/boolean-maybe/tiki/tiki"
 	"github.com/boolean-maybe/tiki/util"
-	"github.com/boolean-maybe/tiki/util/gradient"
+	"github.com/boolean-maybe/tiki/view/render"
 	"github.com/boolean-maybe/tiki/workflow"
 )
 
@@ -79,7 +79,7 @@ func tikiPointsVisual(tk *tikipkg.Tiki, roles *theme.Theme) string {
 	if markup == "" {
 		return "─"
 	}
-	expanded, err := workflow.ExpandVisual(markup, roles.RoleResolver())
+	expanded, err := workflow.ExpandVisual(markup, roles.PaintResolver())
 	if err != nil {
 		return "─"
 	}
@@ -101,7 +101,7 @@ func tikiPointsVisual(tk *tikipkg.Tiki, roles *theme.Theme) string {
 func expandTitleMarkup(raw string, roles *theme.Theme) string {
 	escaped := tview.Escape(raw)
 	cleaned := trimUnclosedRoleToken(escaped)
-	expanded, err := workflow.ExpandVisual(cleaned, roles.RoleResolver())
+	expanded, err := workflow.ExpandVisual(cleaned, roles.PaintResolver())
 	if err != nil {
 		return cleaned
 	}
@@ -144,18 +144,12 @@ func tikiTags(tk *tikipkg.Tiki) []string {
 	return ss
 }
 
-// renderTaskIDGradient renders a tiki ID with the active theme's TikiID
-// gradient (or solid fallback when gradients are disabled). Local bridge
-// to util/gradient.RenderAdaptiveGradientText preserving the existing
-// gradient cache + truecolor detection path.
+// renderTaskIDGradient renders a tiki ID with the active theme's tiki.id
+// role under the .accent modifier — a gentle gradient on capable terminals
+// and a solid fallback otherwise. Thin wrapper over render.RenderTikiIDPaint
+// kept here for call-site readability.
 func renderTaskIDGradient(id string, roles *theme.Theme) string {
-	g := roles.TikiIDGradient()
-	sr, sg, sb := g.Start()
-	er, eg, eb := g.End()
-	cfgG := theme.Gradient{Start: [3]int{sr, sg, sb}, End: [3]int{er, eg, eb}}
-	fr, fg, fb := g.FallbackRole().TCell().RGB()
-	fallback := theme.NewColorRGB(fr, fg, fb)
-	return gradient.RenderAdaptiveGradientText(id, cfgG, fallback)
+	return render.RenderTikiIDPaint(id, roles)
 }
 
 // buildCompactTaskContent builds the content string for compact task display.

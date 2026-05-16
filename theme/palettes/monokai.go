@@ -21,9 +21,6 @@ type Monokai struct {
 
 	CaptionFg [6]string
 	CaptionBg [6]string
-
-	CaptionFallbackStart [3]int
-	CaptionFallbackEnd   [3]int
 }
 
 func NewMonokai() Monokai {
@@ -59,8 +56,5 @@ func NewMonokai() Monokai {
 			"#23221c",
 			"#4b0c22",
 		},
-
-		CaptionFallbackStart: [3]int{39, 40, 34},
-		CaptionFallbackEnd:   [3]int{73, 72, 62},
 	}
 }

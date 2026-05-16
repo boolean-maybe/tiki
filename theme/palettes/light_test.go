@@ -52,6 +52,4 @@ func TestLightAllFieldsExercised(t *testing.T) {
 	for _, c := range l.CaptionBg {
 		_ = c
 	}
-	_ = l.CaptionFallbackStart
-	_ = l.CaptionFallbackEnd
 }

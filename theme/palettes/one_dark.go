@@ -22,9 +22,6 @@ type OneDark struct {
 
 	CaptionFg [6]string
 	CaptionBg [6]string
-
-	CaptionFallbackStart [3]int
-	CaptionFallbackEnd   [3]int
 }
 
 func NewOneDark() OneDark {
@@ -61,8 +58,5 @@ func NewOneDark() OneDark {
 			"#1c1e22",
 			"#432123",
 		},
-
-		CaptionFallbackStart: [3]int{40, 44, 52},
-		CaptionFallbackEnd:   [3]int{62, 68, 82},
 	}
 }

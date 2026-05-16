@@ -25,10 +25,6 @@ type Dracula struct {
 	// Caption color pairs (6 fg/bg per theme)
 	CaptionFg [6]string
 	CaptionBg [6]string
-
-	// Caption fallback gradient
-	CaptionFallbackStart [3]int
-	CaptionFallbackEnd   [3]int
 }
 
 func NewDracula() Dracula {
@@ -67,8 +63,5 @@ func NewDracula() Dracula {
 			"#1d2231",
 			"#4d243b",
 		},
-
-		CaptionFallbackStart: [3]int{40, 42, 54},
-		CaptionFallbackEnd:   [3]int{68, 71, 90},
 	}
 }

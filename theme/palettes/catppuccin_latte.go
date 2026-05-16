@@ -23,9 +23,6 @@ type CatppuccinLatte struct {
 
 	CaptionFg [6]string
 	CaptionBg [6]string
-
-	CaptionFallbackStart [3]int
-	CaptionFallbackEnd   [3]int
 }
 
 func NewCatppuccinLatte() CatppuccinLatte {
@@ -64,8 +61,5 @@ func NewCatppuccinLatte() CatppuccinLatte {
 			"#148187",
 			"#0381b3",
 		},
-
-		CaptionFallbackStart: [3]int{239, 241, 245},
-		CaptionFallbackEnd:   [3]int{204, 208, 218},
 	}
 }
