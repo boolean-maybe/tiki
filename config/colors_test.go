@@ -8,7 +8,7 @@ import "testing"
 // test enforces the binding from the config side.
 func TestResolveRole_AllValidRolesResolve(t *testing.T) {
 	cc := ColorsFromPalette(DarkPalette())
-	for _, role := range []string{"muted", "accent", "highlight", "info", "text", "danger", "warn", "ok"} {
+	for _, role := range []string{"muted", "accent", "highlight", "info", "action", "text", "danger", "warn", "ok"} {
 		t.Run(role, func(t *testing.T) {
 			c, ok := cc.ResolveRole(role)
 			if !ok {

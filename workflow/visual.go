@@ -14,6 +14,7 @@ var ValidRoles = map[string]struct{}{
 	"accent":    {},
 	"highlight": {},
 	"info":      {},
+	"action":    {},
 	"text":      {},
 	"danger":    {},
 	"warn":      {},

@@ -18,7 +18,6 @@ func DarkPalette() Palette {
 		SoftTextColor:    NewColorHex("#b4b4b4"),
 		AccentColor:      NewColor(tcell.ColorGreen),
 		ValueColor:       NewColorHex("#8c92ac"),
-		InfoLabelColor:   NewColorHex("#ffa500"),
 
 		SelectionBgColor: NewColorHex("#3a5f8a"),
 
@@ -42,7 +41,6 @@ func DarkPalette() Palette {
 		StatuslineBorderBg: NewColorHex("#434c5e"),
 		StatuslineText:     NewColorHex("#d8dee9"),
 		StatuslineAccent:   NewColorHex("#5e81ac"),
-		StatuslineOk:       NewColorHex("#a3be8c"),
 
 		DangerColor: NewColorHex("#ff4444"),
 		WarnColor:   NewColorHex("#ffa500"),
@@ -70,7 +68,6 @@ func LightPalette() Palette {
 		SoftTextColor:    NewColorHex("#404040"),
 		AccentColor:      NewColorHex("#006400"),
 		ValueColor:       NewColorHex("#4a4e6a"),
-		InfoLabelColor:   NewColorHex("#b85c00"),
 
 		SelectionBgColor: NewColorHex("#b8d4f0"),
 
@@ -94,7 +91,6 @@ func LightPalette() Palette {
 		StatuslineBorderBg: NewColorHex("#d8dee9"),
 		StatuslineText:     NewColorHex("#2e3440"),
 		StatuslineAccent:   NewColorHex("#5e81ac"),
-		StatuslineOk:       NewColorHex("#4c7a5a"),
 
 		DangerColor: NewColorHex("#cc0000"),
 		WarnColor:   NewColorHex("#b85c00"),
@@ -102,8 +98,8 @@ func LightPalette() Palette {
 
 		CaptionColors: []CaptionColorPair{
 			{Foreground: NewColorHex("#e0f0ff"), Background: NewColorHex("#3a6a90")}, // steel-blue (Kanban signature)
-			{Foreground: NewColorHex("#d2ded6"), Background: NewColorHex("#467153")}, // green (StatuslineOk)
-			{Foreground: NewColorHex("#edd6bf"), Background: NewColorHex("#a45200")}, // orange (InfoLabelColor)
+			{Foreground: NewColorHex("#d2ded6"), Background: NewColorHex("#467153")}, // green (OkColor)
+			{Foreground: NewColorHex("#edd6bf"), Background: NewColorHex("#a45200")}, // orange (WarnColor)
 			{Foreground: NewColorHex("#d2d3da"), Background: NewColorHex("#5a5e80")}, // indigo (ValueColor)
 			{Foreground: NewColorHex("#c7e7e3"), Background: NewColorHex("#1a8174")}, // teal (LogoDotColor)
 			{Foreground: NewColorHex("#dfdfdf"), Background: NewColorHex("#616161")}, // gray (MutedColor)
@@ -123,7 +119,6 @@ func DraculaPalette() Palette {
 		SoftTextColor:    NewColorHex("#bfbfbf"),
 		AccentColor:      NewColorHex("#50fa7b"), // green
 		ValueColor:       NewColorHex("#bd93f9"), // purple
-		InfoLabelColor:   NewColorHex("#ffb86c"), // orange
 
 		SelectionBgColor: NewColorHex("#44475a"),
 
@@ -147,7 +142,6 @@ func DraculaPalette() Palette {
 		StatuslineBorderBg: NewColorHex("#44475a"),
 		StatuslineText:     NewColorHex("#f8f8f2"),
 		StatuslineAccent:   NewColorHex("#bd93f9"),
-		StatuslineOk:       NewColorHex("#50fa7b"),
 
 		DangerColor: NewColorHex("#ff5555"), // dracula red
 		WarnColor:   NewColorHex("#ffb86c"), // dracula orange
@@ -176,7 +170,6 @@ func TokyoNightPalette() Palette {
 		SoftTextColor:    NewColorHex("#a9b1d6"),
 		AccentColor:      NewColorHex("#9ece6a"), // green
 		ValueColor:       NewColorHex("#7aa2f7"), // blue
-		InfoLabelColor:   NewColorHex("#ff9e64"), // orange
 
 		SelectionBgColor: NewColorHex("#283457"),
 
@@ -200,7 +193,6 @@ func TokyoNightPalette() Palette {
 		StatuslineBorderBg: NewColorHex("#24283b"),
 		StatuslineText:     NewColorHex("#c0caf5"),
 		StatuslineAccent:   NewColorHex("#7aa2f7"),
-		StatuslineOk:       NewColorHex("#9ece6a"),
 
 		DangerColor: NewColorHex("#f7768e"), // tokyo red
 		WarnColor:   NewColorHex("#ff9e64"), // tokyo orange
@@ -229,7 +221,6 @@ func GruvboxDarkPalette() Palette {
 		SoftTextColor:    NewColorHex("#bdae93"), // fg3
 		AccentColor:      NewColorHex("#b8bb26"), // green
 		ValueColor:       NewColorHex("#83a598"), // blue
-		InfoLabelColor:   NewColorHex("#fe8019"), // orange
 
 		SelectionBgColor: NewColorHex("#504945"),
 
@@ -253,7 +244,6 @@ func GruvboxDarkPalette() Palette {
 		StatuslineBorderBg: NewColorHex("#3c3836"), // bg1
 		StatuslineText:     NewColorHex("#ebdbb2"),
 		StatuslineAccent:   NewColorHex("#689d6a"), // dark aqua
-		StatuslineOk:       NewColorHex("#b8bb26"),
 
 		DangerColor: NewColorHex("#fb4934"), // gruvbox red
 		WarnColor:   NewColorHex("#fe8019"), // gruvbox orange
@@ -282,7 +272,6 @@ func CatppuccinMochaPalette() Palette {
 		SoftTextColor:    NewColorHex("#bac2de"), // subtext1
 		AccentColor:      NewColorHex("#a6e3a1"), // green
 		ValueColor:       NewColorHex("#89b4fa"), // blue
-		InfoLabelColor:   NewColorHex("#fab387"), // peach
 
 		SelectionBgColor: NewColorHex("#45475a"),
 
@@ -306,7 +295,6 @@ func CatppuccinMochaPalette() Palette {
 		StatuslineBorderBg: NewColorHex("#313244"), // surface0
 		StatuslineText:     NewColorHex("#cdd6f4"),
 		StatuslineAccent:   NewColorHex("#89b4fa"),
-		StatuslineOk:       NewColorHex("#a6e3a1"),
 
 		DangerColor: NewColorHex("#f38ba8"), // catppuccin red
 		WarnColor:   NewColorHex("#fab387"), // catppuccin peach
@@ -335,7 +323,6 @@ func SolarizedDarkPalette() Palette {
 		SoftTextColor:    NewColorHex("#93a1a1"), // base1
 		AccentColor:      NewColorHex("#859900"), // green
 		ValueColor:       NewColorHex("#268bd2"), // blue
-		InfoLabelColor:   NewColorHex("#cb4b16"), // orange
 
 		SelectionBgColor: NewColorHex("#073642"),
 
@@ -359,7 +346,6 @@ func SolarizedDarkPalette() Palette {
 		StatuslineBorderBg: NewColorHex("#073642"),
 		StatuslineText:     NewColorHex("#839496"),
 		StatuslineAccent:   NewColorHex("#268bd2"),
-		StatuslineOk:       NewColorHex("#859900"),
 
 		DangerColor: NewColorHex("#dc322f"), // solarized red
 		WarnColor:   NewColorHex("#cb4b16"), // solarized orange
@@ -388,7 +374,6 @@ func NordPalette() Palette {
 		SoftTextColor:    NewColorHex("#d8dee9"), // nord4
 		AccentColor:      NewColorHex("#a3be8c"), // nord14 — green
 		ValueColor:       NewColorHex("#81a1c1"), // nord9 — blue
-		InfoLabelColor:   NewColorHex("#d08770"), // nord12 — orange
 
 		SelectionBgColor: NewColorHex("#434c5e"),
 
@@ -412,7 +397,6 @@ func NordPalette() Palette {
 		StatuslineBorderBg: NewColorHex("#434c5e"), // nord2
 		StatuslineText:     NewColorHex("#d8dee9"), // nord4
 		StatuslineAccent:   NewColorHex("#5e81ac"), // nord10
-		StatuslineOk:       NewColorHex("#a3be8c"),
 
 		DangerColor: NewColorHex("#bf616a"), // nord11 red
 		WarnColor:   NewColorHex("#d08770"), // nord12 orange
@@ -441,7 +425,6 @@ func MonokaiPalette() Palette {
 		SoftTextColor:    NewColorHex("#cfcfc2"),
 		AccentColor:      NewColorHex("#a6e22e"), // green
 		ValueColor:       NewColorHex("#66d9ef"), // cyan
-		InfoLabelColor:   NewColorHex("#fd971f"), // orange
 
 		SelectionBgColor: NewColorHex("#49483e"),
 
@@ -465,7 +448,6 @@ func MonokaiPalette() Palette {
 		StatuslineBorderBg: NewColorHex("#3e3d32"),
 		StatuslineText:     NewColorHex("#f8f8f2"),
 		StatuslineAccent:   NewColorHex("#66d9ef"),
-		StatuslineOk:       NewColorHex("#a6e22e"),
 
 		DangerColor: NewColorHex("#f92672"), // monokai pink-red
 		WarnColor:   NewColorHex("#fd971f"), // monokai orange
@@ -494,7 +476,6 @@ func OneDarkPalette() Palette {
 		SoftTextColor:    NewColorHex("#9da5b4"),
 		AccentColor:      NewColorHex("#98c379"), // green
 		ValueColor:       NewColorHex("#61afef"), // blue
-		InfoLabelColor:   NewColorHex("#d19a66"), // orange
 
 		SelectionBgColor: NewColorHex("#3e4452"),
 
@@ -518,7 +499,6 @@ func OneDarkPalette() Palette {
 		StatuslineBorderBg: NewColorHex("#3b4048"),
 		StatuslineText:     NewColorHex("#abb2bf"),
 		StatuslineAccent:   NewColorHex("#61afef"),
-		StatuslineOk:       NewColorHex("#98c379"),
 
 		DangerColor: NewColorHex("#e06c75"), // one dark red
 		WarnColor:   NewColorHex("#d19a66"), // one dark orange
@@ -549,7 +529,6 @@ func CatppuccinLattePalette() Palette {
 		SoftTextColor:    NewColorHex("#5c5f77"), // subtext1
 		AccentColor:      NewColorHex("#40a02b"), // green
 		ValueColor:       NewColorHex("#1e66f5"), // blue
-		InfoLabelColor:   NewColorHex("#fe640b"), // peach
 
 		SelectionBgColor: NewColorHex("#ccd0da"),
 
@@ -573,7 +552,6 @@ func CatppuccinLattePalette() Palette {
 		StatuslineBorderBg: NewColorHex("#dce0e8"), // crust
 		StatuslineText:     NewColorHex("#4c4f69"),
 		StatuslineAccent:   NewColorHex("#1e66f5"),
-		StatuslineOk:       NewColorHex("#40a02b"),
 
 		DangerColor: NewColorHex("#d20f39"), // latte red
 		WarnColor:   NewColorHex("#fe640b"), // latte peach
@@ -582,7 +560,7 @@ func CatppuccinLattePalette() Palette {
 		CaptionColors: []CaptionColorPair{
 			{Foreground: NewColorHex("#c7d9fd"), Background: NewColorHex("#1e66f5")}, // blue (ValueColor)
 			{Foreground: NewColorHex("#f7e3c7"), Background: NewColorHex("#8d5a12")}, // yellow (HighlightColor)
-			{Foreground: NewColorHex("#ffd8c2"), Background: NewColorHex("#b54708")}, // peach (InfoLabelColor)
+			{Foreground: NewColorHex("#ffd8c2"), Background: NewColorHex("#b54708")}, // peach (WarnColor)
 			{Foreground: NewColorHex("#dedfe4"), Background: NewColorHex("#5e606f")}, // overlay0 (MutedColor)
 			{Foreground: NewColorHex("#c5e4e6"), Background: NewColorHex("#148187")}, // teal (LogoDotColor)
 			{Foreground: NewColorHex("#c0e9f9"), Background: NewColorHex("#0381b3")}, // sky (DeepSkyBlue)
@@ -602,7 +580,6 @@ func SolarizedLightPalette() Palette {
 		SoftTextColor:    NewColorHex("#586e75"), // base01
 		AccentColor:      NewColorHex("#859900"), // green
 		ValueColor:       NewColorHex("#268bd2"), // blue
-		InfoLabelColor:   NewColorHex("#cb4b16"), // orange
 
 		SelectionBgColor: NewColorHex("#eee8d5"),
 
@@ -626,7 +603,6 @@ func SolarizedLightPalette() Palette {
 		StatuslineBorderBg: NewColorHex("#eee8d5"),
 		StatuslineText:     NewColorHex("#657b83"),
 		StatuslineAccent:   NewColorHex("#268bd2"),
-		StatuslineOk:       NewColorHex("#859900"),
 
 		DangerColor: NewColorHex("#dc322f"), // solarized red
 		WarnColor:   NewColorHex("#cb4b16"), // solarized orange
@@ -635,7 +611,7 @@ func SolarizedLightPalette() Palette {
 		CaptionColors: []CaptionColorPair{
 			{Foreground: NewColorHex("#c9e2f4"), Background: NewColorHex("#2073ae")}, // blue (ValueColor)
 			{Foreground: NewColorHex("#ede2bf"), Background: NewColorHex("#826300")}, // yellow (HighlightColor)
-			{Foreground: NewColorHex("#f2d2c5"), Background: NewColorHex("#b74414")}, // orange (InfoLabelColor)
+			{Foreground: NewColorHex("#f2d2c5"), Background: NewColorHex("#b74414")}, // orange (WarnColor)
 			{Foreground: NewColorHex("#d5dbdd"), Background: NewColorHex("#52666d")}, // base01 (SoftTextColor)
 			{Foreground: NewColorHex("#cae8e5"), Background: NewColorHex("#217d76")}, // cyan (LogoDotColor)
 			{Foreground: NewColorHex("#e1e6bf"), Background: NewColorHex("#637200")}, // green (AccentColor)
@@ -655,7 +631,6 @@ func GruvboxLightPalette() Palette {
 		SoftTextColor:    NewColorHex("#504945"), // fg3 (dark2)
 		AccentColor:      NewColorHex("#79740e"), // dark green
 		ValueColor:       NewColorHex("#076678"), // dark blue
-		InfoLabelColor:   NewColorHex("#af3a03"), // dark orange
 
 		SelectionBgColor: NewColorHex("#d5c4a1"),
 
@@ -679,7 +654,6 @@ func GruvboxLightPalette() Palette {
 		StatuslineBorderBg: NewColorHex("#d5c4a1"), // bg2
 		StatuslineText:     NewColorHex("#3c3836"),
 		StatuslineAccent:   NewColorHex("#427b58"),
-		StatuslineOk:       NewColorHex("#79740e"),
 
 		DangerColor: NewColorHex("#9d0006"), // gruvbox light red
 		WarnColor:   NewColorHex("#af3a03"), // gruvbox light orange
@@ -708,7 +682,6 @@ func GithubLightPalette() Palette {
 		SoftTextColor:    NewColorHex("#424a53"),
 		AccentColor:      NewColorHex("#116329"), // green
 		ValueColor:       NewColorHex("#0969da"), // blue
-		InfoLabelColor:   NewColorHex("#953800"), // orange
 
 		SelectionBgColor: NewColorHex("#ddf4ff"),
 
@@ -732,7 +705,6 @@ func GithubLightPalette() Palette {
 		StatuslineBorderBg: NewColorHex("#eaeef2"),
 		StatuslineText:     NewColorHex("#1f2328"),
 		StatuslineAccent:   NewColorHex("#0969da"),
-		StatuslineOk:       NewColorHex("#116329"),
 
 		DangerColor: NewColorHex("#cf222e"), // github red
 		WarnColor:   NewColorHex("#953800"), // github orange

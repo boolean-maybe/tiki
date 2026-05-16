@@ -53,15 +53,15 @@ fields:
       - {value: medium-low, label: "Medium Low", visual: "🟢"}
       - {value: low, label: Low, visual: "🔵"}
   # points: enum declared high → low so enumRank matches priority semantics.
-  # The visual: column draws an 11-segment bar using the <accent>/<muted>
+  # The visual: column draws an 11-segment bar using the <action>/<muted>
   # role markup; the bar is purely a rendering hint, not stored on disk.
   - name: points
     type: enum
     values:
-      - {value: "11", label: "11", visual: "<accent>❚❚❚❚❚❚❚❚❚❚❚"}
-      - {value: "7",  label: "7",  visual: "<accent>❚❚❚❚❚❚❚<muted>❘❘❘❘"}
-      - {value: "3",  label: "3",  visual: "<accent>❚❚❚<muted>❘❘❘❘❘❘❘❘", default: true}
-      - {value: "1",  label: "1",  visual: "<accent>❚<muted>❘❘❘❘❘❘❘❘❘❘"}
+      - {value: "11", label: "11", visual: "<action>❚❚❚❚❚❚❚❚❚❚❚"}
+      - {value: "7",  label: "7",  visual: "<action>❚❚❚❚❚❚❚<muted>❘❘❘❘"}
+      - {value: "3",  label: "3",  visual: "<action>❚❚❚<muted>❘❘❘❘❘❘❘❘", default: true}
+      - {value: "1",  label: "1",  visual: "<action>❚<muted>❘❘❘❘❘❘❘❘❘❘"}
   - name: tags
     type: stringList
     default: ["idea"]
@@ -191,6 +191,11 @@ views:
         filter: select where type = "epic" and status = "backlog" and has(priority) and priority > "high" and has(points) order by priority, points
         action: update where id = id() set status="backlog" priority="medium-high"
     actions:
+      - key: Enter
+        label: Open
+        kind: view
+        view: EpicDetail
+        require: ["selection:one"]
       - key: "l"
         label: "Add tiki to epic"
         action: update where id = id() set dependsOn = dependsOn + choose(select where type != "epic" and id not in outer.dependsOn)
@@ -227,6 +232,19 @@ views:
       - ["Type:"         , type.label + " " + type.visual    , "Author:"  , createdBy, "Recurrence:", recurrence, ^      , ^   ]
       - ["Priority:"     , priority                          , "Created:" , createdAt, _            , _         , ^      , ^   ]
       - ["Points:"       , points                            , "Updated:" , updatedAt, _            , _         , ^      , ^   ]
+
+  - name: EpicDetail
+    kind: detail
+    description: "Configured detail view for an epic"
+    require: ["selection:one"]
+    # Same 8-column grid as Detail, with type, assignee, and recurrence
+    # fields removed. Tags still spans rows 3-5 in the right column.
+    metadata:
+      - [<highlight>title, --                                , --        , --       , --    , --, --     , --  ]
+      - [_               , _                                 , _         , _        , _     , _ , _      , _   ]
+      - ["Status:"       , status.label + " " + status.visual, "Author:" , createdBy, "Due:", due, "Tags:", tags]
+      - ["Priority:"     , priority                          , "Created:", createdAt, _     , _ , ^      , ^   ]
+      - ["Points:"       , points                            , "Updated:", updatedAt, _     , _ , ^      , ^   ]
 
 triggers:
   - description: block completion with open dependencies

@@ -68,11 +68,33 @@ func cmpInt(a, b int) int {
 	}
 }
 
+// IsReleaseVersion reports whether s is a pure release semver of the form
+// X.Y.Z (optionally with a leading "v"/"V"). Local builds produced by
+// `git describe --tags --always --dirty` include a "-<commits>-g<hash>"
+// suffix, a "-dirty" suffix, build metadata after "+", or fall back to
+// a bare commit hash / "dev" — none of which are release versions.
+func IsReleaseVersion(s string) bool {
+	s = strings.TrimPrefix(s, "v")
+	s = strings.TrimPrefix(s, "V")
+
+	if strings.ContainsAny(s, "-+") {
+		return false
+	}
+
+	_, ok := ParseSemVer(s)
+	return ok
+}
+
 // CheckWorkflowVersionCompatibility checks whether the given workflow version
 // is compatible with the running application version. Returns an error when
 // the workflow version is strictly newer than the app version (major.minor.patch).
-// Skips the check when either version is not valid semver.
+// Skips the check when the app version is not a clean release (local/dev builds),
+// or when the workflow version is empty or not valid semver.
 func CheckWorkflowVersionCompatibility(workflowVersion string) error {
+	if !IsReleaseVersion(Version) {
+		return nil
+	}
+
 	appVer, ok := ParseSemVer(Version)
 	if !ok {
 		return nil

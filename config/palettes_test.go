@@ -11,7 +11,7 @@ func TestAllPalettesHaveNonDefaultCriticalFields(t *testing.T) {
 			"AccentColor":    p.AccentColor,
 			"MutedColor":     p.MutedColor,
 			"AccentBlue":     p.AccentBlue,
-			"InfoLabelColor": p.InfoLabelColor,
+			"WarnColor":      p.WarnColor,
 		}
 		for field, c := range critical {
 			if c.IsDefault() {

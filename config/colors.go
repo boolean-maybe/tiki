@@ -122,13 +122,13 @@ type Palette struct {
 	SoftTextColor    Color // #b4b4b4 — secondary readable text (task box titles, action labels)
 	AccentColor      Color // #008000 — label text (green)
 	ValueColor       Color // #8c92ac — field values (cool gray)
-	InfoLabelColor   Color // #ffa500 — orange, header view name
-
 	// Selection
 	SelectionBgColor Color // #3a5f8a — steel blue selection row background
 
-	// Action key / accent blue
-	AccentBlue Color // #5fafff — cyan-blue (action keys, points bar, chart bars)
+	// Action key / accent blue. Bound to semantic role <action> via HeaderActionViewKeyColor —
+	// colors the single-letter key shortcut next to view-scoped header actions (e.g. n=new, e=edit).
+	// Distinct from <warn> (plugin-switch keys) and <highlight> (global keys like q=quit).
+	AccentBlue Color // #5fafff — cyan-blue (view action keys; <action> role)
 	SlateColor Color // #5f6982 — muted blue-gray (tag values, unfilled bar segments)
 
 	// Logo
@@ -149,11 +149,11 @@ type Palette struct {
 	StatuslineBorderBg Color // statusline main background + deps editor background
 	StatuslineText     Color // statusline primary text
 	StatuslineAccent   Color // statusline accent background
-	StatuslineOk       Color // statusline info/success foreground
 
-	// Semantic role colors — bound to workflow visual: markup roles <danger>, <warn>, <ok>
+	// Semantic role colors — bound to workflow visual: markup roles <danger>, <warn>, <ok>.
+	// WarnColor also drives header info labels and plugin action key colors.
 	DangerColor Color // red — critical/error
-	WarnColor   Color // orange — warning
+	WarnColor   Color // orange — warning, header info labels, plugin action keys
 	OkColor     Color // green — success (distinct from AccentColor used for labels)
 
 	// Plugin caption colors (6 curated fg/bg pairs per theme)
@@ -229,7 +229,7 @@ func ColorsFromPalette(p Palette) *ColorConfig {
 		CompletionHintColor: p.MutedColor,
 
 		// Header
-		HeaderInfoLabel:     p.InfoLabelColor,
+		HeaderInfoLabel:     p.WarnColor,
 		HeaderInfoSeparator: p.MutedColor,
 		HeaderInfoDesc:      p.MutedColor,
 		HeaderKeyBinding:    p.HighlightColor,
@@ -238,7 +238,7 @@ func ColorsFromPalette(p Palette) *ColorConfig {
 		// Header context help actions
 		HeaderActionGlobalKeyColor:   p.HighlightColor,
 		HeaderActionGlobalLabelColor: p.TextColor,
-		HeaderActionPluginKeyColor:   p.InfoLabelColor,
+		HeaderActionPluginKeyColor:   p.WarnColor,
 		HeaderActionPluginLabelColor: p.SoftTextColor,
 		HeaderActionViewKeyColor:     p.AccentBlue,
 		HeaderActionViewLabelColor:   p.MutedColor,
@@ -259,7 +259,7 @@ func ColorsFromPalette(p Palette) *ColorConfig {
 		StatuslineFg:       p.StatuslineText,
 		StatuslineAccentBg: p.StatuslineAccent,
 		StatuslineAccentFg: p.StatuslineDarkBg,
-		StatuslineInfoFg:   p.StatuslineOk,
+		StatuslineInfoFg:   p.OkColor,
 		StatuslineInfoBg:   p.StatuslineMidBg,
 		StatuslineErrorFg:  p.HighlightColor,
 		StatuslineErrorBg:  p.StatuslineMidBg,
@@ -288,6 +288,8 @@ func (cc *ColorConfig) ResolveRole(name string) (Color, bool) {
 		return cc.TaskBoxSelectedBorder, true
 	case "info":
 		return cc.HeaderInfoLabel, true
+	case "action":
+		return cc.HeaderActionViewKeyColor, true
 	case "text":
 		return cc.ContentTextColor, true
 	case "danger":

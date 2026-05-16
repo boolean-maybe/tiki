@@ -144,6 +144,26 @@ Place captions explicitly in the grid using literal strings (e.g. `"Status:"`) w
 want them. This is the same mechanism a layout author would use to label any custom workflow
 field.
 
+Semantic role vocabulary for `<role>`:
+
+| Role          | Intent                                                                       |
+| ------------- | ---------------------------------------------------------------------------- |
+| `<muted>`     | De-emphasized text — labels, placeholders, unfilled bar segments             |
+| `<accent>`    | Primary accent (green) — done-status, filled bar segments, field captions    |
+| `<highlight>` | Bright focus (theme highlight color) — selection, focus marker, title text   |
+| `<info>`      | Informational (orange) — header view name, plugin-switch keys                |
+| `<action>`    | Contextual action shortcut (cyan-blue) — view-scoped action keys             |
+| `<text>`      | Primary readable text — neutral, highest-contrast                            |
+| `<danger>`    | Critical / error / blocker (red)                                             |
+| `<warn>`      | Warning / attention (orange) — same hex as `<info>`                          |
+| `<ok>`        | Healthy / success (green)                                                    |
+
+The set is closed: any other name fails workflow load. The mapping from role name to
+concrete color lives in `config.ColorConfig.ResolveRole` and changes per theme. Two roles
+intentionally share a color in every theme: `<info>` and `<warn>` both resolve to
+`WarnColor`, and the statusline-info foreground shares `OkColor` with `<ok>`. This is by
+design after the InfoLabelColor → WarnColor and StatuslineOk → OkColor merges.
+
 Quoting markers in YAML: `--`, `_`, `^`, and `<->` are all accepted bare in flow-sequence
 context (e.g. `[--, _, ^, <->]`). The legacy `|` row-span marker is the one exception — YAML's
 block-scalar rule rejects bare `|` everywhere, so write `^` instead, or quote it as `"|"`.
