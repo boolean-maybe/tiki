@@ -1,6 +1,11 @@
 package theme
 
-import "testing"
+import (
+	"strings"
+	"testing"
+
+	gradcore "github.com/boolean-maybe/tiki/internal/gradient"
+)
 
 func TestResolveByNameCanonical(t *testing.T) {
 	th := LoadByName("dark")
@@ -100,20 +105,49 @@ func TestResolverEveryThemeAllNames(t *testing.T) {
 	}
 }
 
-func TestRoleResolverClosure(t *testing.T) {
+func TestPaintResolver_SolidRole(t *testing.T) {
 	th := LoadByName("dark")
-	resolver := th.RoleResolver()
-
-	tag, ok := resolver("status.danger")
-	if !ok {
-		t.Fatalf("RoleResolver returned ok=false for status.danger")
+	resolver := th.PaintResolver()
+	p, ok := resolver("status.danger", "")
+	if !ok || p == nil {
+		t.Fatalf("PaintResolver(status.danger, \"\") = (%v, %v); want non-nil + true", p, ok)
 	}
-	// dark theme's DangerColor is #ff4444; tag should be that hex.
-	if want := "[#ff4444]"; tag != want {
-		t.Errorf("RoleResolver(status.danger) = %q, want %q", tag, want)
+	want := th.StatusDanger().Tag() + "x[-]"
+	if got := p.PaintString("x"); got != want {
+		t.Errorf("PaintString(\"x\") = %q, want %q", got, want)
 	}
+}
 
-	if _, ok := resolver("unknown.thing"); ok {
-		t.Errorf("RoleResolver should return ok=false for unknown names")
+func TestPaintResolver_GradientModifier(t *testing.T) {
+	gradcore.UseGradients.Store(true)
+	defer gradcore.UseGradients.Store(false)
+	th := LoadByName("dark")
+	resolver := th.PaintResolver()
+	for _, modifier := range []string{"accent", "lift"} {
+		p, ok := resolver("tiki.id", modifier)
+		if !ok || p == nil {
+			t.Errorf("PaintResolver(tiki.id, %q) = (%v, %v); want non-nil + true", modifier, p, ok)
+			continue
+		}
+		got := p.PaintString("AB")
+		if !strings.Contains(got, "[#") {
+			t.Errorf("modifier %q: expected per-rune color tags in %q", modifier, got)
+		}
+	}
+}
+
+func TestPaintResolver_UnknownRole(t *testing.T) {
+	th := LoadByName("dark")
+	resolver := th.PaintResolver()
+	if _, ok := resolver("nosuchrole", ""); ok {
+		t.Error("PaintResolver returned ok=true for unknown role")
+	}
+}
+
+func TestPaintResolver_UnknownModifier(t *testing.T) {
+	th := LoadByName("dark")
+	resolver := th.PaintResolver()
+	if _, ok := resolver("status.danger", "nosuchmod"); ok {
+		t.Error("PaintResolver returned ok=true for unknown modifier")
 	}
 }

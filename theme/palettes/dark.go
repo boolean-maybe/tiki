@@ -30,9 +30,6 @@ type Dark struct {
 
 	CaptionFg [6]string
 	CaptionBg [6]string
-
-	CaptionFallbackStart [3]int
-	CaptionFallbackEnd   [3]int
 }
 
 func NewDark() Dark {
@@ -78,8 +75,5 @@ func NewDark() Dark {
 			"#1d2027",
 			"#1e2d3a",
 		},
-
-		CaptionFallbackStart: [3]int{25, 25, 112},
-		CaptionFallbackEnd:   [3]int{65, 105, 225},
 	}
 }

@@ -30,9 +30,6 @@ type Nord struct {
 	// Caption pairs
 	CaptionFg [6]string
 	CaptionBg [6]string
-
-	CaptionFallbackStart [3]int
-	CaptionFallbackEnd   [3]int
 }
 
 func NewNord() Nord {
@@ -73,8 +70,5 @@ func NewNord() Nord {
 			"#171a20",
 			"#391d20",
 		},
-
-		CaptionFallbackStart: [3]int{46, 52, 64},
-		CaptionFallbackEnd:   [3]int{59, 66, 82},
 	}
 }

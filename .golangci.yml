@@ -61,8 +61,6 @@ linters:
     rules:
       - path: '^theme/'
         linters: [forbidigo]
-      - path: '^util/gradient/'
-        linters: [forbidigo]
       - path: '^plugin/colorparser(_test)?\.go$'
         linters: [forbidigo]
       # Test files often need raw tcell values to construct test fixtures and

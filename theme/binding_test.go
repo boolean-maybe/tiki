@@ -26,9 +26,6 @@ func TestLoadByNameAllThemes(t *testing.T) {
 		if th.PluginCaptions() == nil || th.PluginCaptions().Len() != 6 {
 			t.Errorf("%s: PluginCaptions missing or wrong length", name)
 		}
-		if th.TikiIDGradient() == nil {
-			t.Errorf("%s: TikiIDGradient is nil", name)
-		}
 	}
 }
 
@@ -74,5 +71,22 @@ func TestDarkAccentNamedColor(t *testing.T) {
 	tag := th.TextLabel().Tag()
 	if tag != "[green]" {
 		t.Errorf("expected named-color tag [green], got %s", tag)
+	}
+}
+
+func TestTikiIDRolePresent(t *testing.T) {
+	for _, name := range []string{"dark", "light", "dracula", "tokyo-night", "gruvbox-dark", "catppuccin-mocha", "solarized-dark", "nord", "monokai", "one-dark", "catppuccin-latte", "solarized-light", "gruvbox-light", "github-light"} {
+		th := LoadByName(name)
+		if th.TikiID() == nil {
+			t.Errorf("%s: TikiID() is nil", name)
+		}
+	}
+}
+
+func TestResolveByName_TikiID(t *testing.T) {
+	th := LoadByName("dark")
+	r, ok := th.ResolveByName("tiki.id")
+	if !ok || r == nil {
+		t.Fatalf("ResolveByName(\"tiki.id\") = (%v, %v), want non-nil + true", r, ok)
 	}
 }

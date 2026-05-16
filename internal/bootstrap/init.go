@@ -11,6 +11,7 @@ import (
 	"github.com/boolean-maybe/tiki/config"
 	"github.com/boolean-maybe/tiki/controller"
 	"github.com/boolean-maybe/tiki/internal/app"
+	gradcore "github.com/boolean-maybe/tiki/internal/gradient"
 	rukiRuntime "github.com/boolean-maybe/tiki/internal/ruki/runtime"
 	"github.com/boolean-maybe/tiki/model"
 	"github.com/boolean-maybe/tiki/plugin"
@@ -481,22 +482,28 @@ func InitColorAndGradientSupport(cfg *config.Config) *sysinfo.SystemInfo {
 	// Initialize gradient support based on terminal color capabilities
 	threshold := config.GetGradientThreshold()
 	if systemInfo.ColorCount < threshold {
-		theme.UseGradients.Store(false)
-		theme.UseWideGradients.Store(false)
+		gradcore.UseGradients.Store(false)
 		slog.Debug("gradients disabled",
 			"colorCount", systemInfo.ColorCount,
 			"threshold", threshold)
 	} else {
-		// Wide gradients (caption rows) require truecolor to avoid visible banding
-		// 256-color terminals show noticeable banding on screen-wide gradients
-		wide := systemInfo.ColorCount >= 16777216
-		theme.UseGradients.Store(true)
-		theme.UseWideGradients.Store(wide)
+		gradcore.UseGradients.Store(true)
 		slog.Debug("gradients enabled",
 			"colorCount", systemInfo.ColorCount,
-			"threshold", threshold,
-			"wideGradients", wide)
+			"threshold", threshold)
 	}
+
+	// Wide (per-column) gradients require truecolor: on 256-color terminals
+	// adjacent columns quantize to the same palette index and produce a
+	// banded appearance, so consumers like GradientCaptionRow flatten to a
+	// single color instead. Truecolor is detected by ColorCount==16777216
+	// (set when $COLORTERM is truecolor/24bit). On 8/16-color terminals
+	// UseGradients is already false, so this flag is moot.
+	wide := systemInfo.ColorCount >= 16777216
+	gradcore.UseWideGradients.Store(wide)
+	slog.Debug("wide gradients",
+		"enabled", wide,
+		"colorCount", systemInfo.ColorCount)
 
 	// set tview global styles so all primitives inherit the theme colors.
 	// PrimaryTextColor must be set for light theme — tview defaults to white,

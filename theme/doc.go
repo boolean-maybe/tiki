@@ -59,16 +59,58 @@
 //
 // # Compound roles (Go API only — not markup-resolvable as single names)
 //
-//	TikiIDGradient()          — GradientRole for tiki ID gradient text
-//	CaptionFallbackGradient() — GradientRole for plugin caption row fallback
 //	PluginCaptions()          — PairListRole indexed by plugin config slot
+//
+// # Paint system
+//
+// Roles answer "what hex backs this slot." The Paint system answers "how should
+// this slot render — solid, or as a derived gradient?" A Paint pairs a base
+// role with an optional modifier; the modifier selects a gradient derivation
+// algorithm applied to the role's solid color at render time. Themes therefore
+// declare only solid colors — there is no gradient palette.
+//
+// Two interfaces, one for each output format:
+//
+//   - Paint.PaintString(s) — returns s wrapped in tview color tags. Used by
+//     workflow.ExpandVisual when expanding `<role>` / `<role.modifier>` markup
+//     into a colorized string.
+//   - PositionPaint.ColorAt(t) — returns a tcell.Color for a normalized
+//     position t in [0,1]. Used by screen-cell painters (e.g.
+//     GradientCaptionRow) that draw per-column colors directly.
+//
+// Entry points:
+//
+//   - (*Theme).PaintResolver() returns a closure mapping (role, modifier) to
+//     a Paint. workflow.ExpandVisual is the primary caller.
+//   - PaintForRolePosition(base, modifier) returns a PositionPaint for screen-
+//     cell consumers that already hold a resolved Role.
+//
+// The solid-vs-gradient branch lives entirely inside solidPaint and
+// gradientPaint in paint.go. View code never inspects whether a role is
+// "supposed to be" a gradient; it just calls PaintString or ColorAt.
+//
+// The vocabulary of valid modifiers is KnownModifierNames in this package —
+// currently `accent` (lighten the base by 20%) and `lift` (boost saturation
+// 1.6x). The set is closed; workflow.ValidateVisualMarkup rejects unknown
+// modifiers at load time.
+//
+// Disambiguation: when a markup token contains dots, the suffix following the
+// last dot is checked against KnownModifierNames. If it is a known modifier,
+// the prefix is the role and the suffix is the modifier (text.muted.accent →
+// role text.muted, modifier accent). Otherwise the whole token is the role
+// name (text.muted → role text.muted, no modifier). An init() invariant in
+// paint.go panics at startup if any role name ends in a known modifier
+// suffix, which would make the split ambiguous.
+//
+// When gradcore.UseGradients is false (8/16-color terminals), gradientPaint
+// degrades to solid output backed by the base role.
 //
 // # Boundary
 //
 // Outside this package, raw tcell color constructors (tcell.GetColor,
 // tcell.NewRGBColor, tcell.Color<Name>) are forbidden by a golangci-lint
-// forbidigo rule, with exceptions for util/gradient and plugin/colorparser
-// (low-level helpers) and *_test.go files. See .golangci.yml.
+// forbidigo rule, with exceptions for plugin/colorparser (low-level helper)
+// and *_test.go files. See .golangci.yml.
 //
 // # Threading
 //

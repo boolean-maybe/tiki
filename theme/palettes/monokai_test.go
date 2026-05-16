@@ -42,6 +42,4 @@ func TestMonokaiAllFieldsExercised(t *testing.T) {
 	for _, c := range m.CaptionBg {
 		_ = c
 	}
-	_ = m.CaptionFallbackStart
-	_ = m.CaptionFallbackEnd
 }

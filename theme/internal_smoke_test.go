@@ -3,6 +3,7 @@ package theme
 import (
 	"testing"
 
+	gradcore "github.com/boolean-maybe/tiki/internal/gradient"
 	"github.com/gdamore/tcell/v2"
 )
 
@@ -47,29 +48,13 @@ func TestInternalSmokeConstructors(t *testing.T) {
 		t.Errorf("emptyList.At(0) returned nil")
 	}
 
-	// gradientRole via newGradientRole; exercise Start/End/InterpolateTag/InterpolateTCell/FallbackRole.
-	grad := newGradientRole(Gradient{Start: [3]int{10, 20, 30}, End: [3]int{200, 210, 220}}, fg)
-	if r, g, b := grad.Start(); r != 10 || g != 20 || b != 30 {
-		t.Errorf("grad.Start() = (%d,%d,%d), want (10,20,30)", r, g, b)
+	// exercise gradientPaint via Paint and PositionPaint interfaces.
+	gradcore.UseGradients.Store(true)
+	defer gradcore.UseGradients.Store(false)
+	gp := gradientPaint{base: fg, algo: algoAccent}
+	if gp.PaintString("ab") == "" {
+		t.Errorf("gradientPaint.PaintString empty")
 	}
-	if r, g, b := grad.End(); r != 200 || g != 210 || b != 220 {
-		t.Errorf("grad.End() = (%d,%d,%d), want (200,210,220)", r, g, b)
-	}
-	if grad.InterpolateTag(0.5) == "" {
-		t.Errorf("grad.InterpolateTag(0.5) empty")
-	}
-	_ = grad.InterpolateTCell(-0.5) // exercise clamp low
-	_ = grad.InterpolateTCell(1.5)  // exercise clamp high
-	if grad.FallbackRole() != fg {
-		t.Errorf("grad.FallbackRole() mismatch")
-	}
-
-	// darkenRGB / gradientFromColor helpers.
-	if got := darkenRGB([3]int{100, 200, 50}, 0.5); got != [3]int{50, 100, 25} {
-		t.Errorf("darkenRGB() = %v, want [50 100 25]", got)
-	}
-	g := gradientFromColor(red, 0.5)
-	if g.End == [3]int{0, 0, 0} {
-		t.Errorf("gradientFromColor: End should equal red's RGB, got zero")
-	}
+	_ = gp.ColorAt(-0.5) // exercise clamp low (gradcore clamps internally)
+	_ = gp.ColorAt(1.5)  // exercise clamp high
 }

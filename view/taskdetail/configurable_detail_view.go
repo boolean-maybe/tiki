@@ -305,34 +305,70 @@ func (cv *ConfigurableDetailView) buildAnchorPrimitives(tk *tikipkg.Tiki, ctx Fi
 	return primitives
 }
 
-func renderCompositePrimitive(a gridlayout.Anchor, tk *tikipkg.Tiki, ctx FieldRenderContext) tview.Primitive {
+// buildCompositeText is the text-building half of renderCompositePrimitive.
+// Split out so tests can pin the exact byte output without invoking tview.
+// The bare-role and modifier branches differ in tag emission shape (see
+// renderCompositePrimitive's contract for the reasoning), so the test that
+// locks this output guards against silent drift between the two paths.
+func buildCompositeText(a gridlayout.Anchor, tk *tikipkg.Tiki, ctx FieldRenderContext) string {
 	var buf strings.Builder
 	tag := ctx.Roles.TextValue().Tag()
 	buf.WriteString(tag)
-	resolver := ctx.Roles.RoleResolver()
 	for _, seg := range a.Segments {
-		if seg.Role != "" {
-			if roleTag, ok := resolver(seg.Role); ok {
-				buf.WriteString(roleTag)
-			}
-		}
+		// build segment content first so the modifier path (which emits a
+		// trailing [-] reset) wraps a complete string. The bare-role path
+		// preserves the legacy "open tag then write text" emission so
+		// existing visual snapshots stay byte-identical.
+		var content string
 		switch seg.Kind {
 		case gridlayout.SegmentLiteral:
-			buf.WriteString(seg.Text)
+			content = seg.Text
 		case gridlayout.SegmentField:
 			segCtx := ctx
 			segCtx.FieldName = seg.Name
 			segCtx.Display = seg.Display
-			if wfd, ok := workflow.Field(seg.Name); ok {
-				buf.WriteString(genericFieldValueString(wfd, tk, segCtx))
-			} else if seg.Name == "title" {
-				buf.WriteString(expandFieldText(tk.Title, ctx.Roles))
-			} else {
-				buf.WriteString("—")
+			switch {
+			case seg.Name == "title":
+				content = expandFieldText(tk.Title, ctx.Roles)
+			default:
+				if wfd, ok := workflow.Field(seg.Name); ok {
+					content = genericFieldValueString(wfd, tk, segCtx)
+				} else {
+					content = "—"
+				}
 			}
 		}
+
+		switch {
+		case seg.Role == "":
+			buf.WriteString(content)
+		case seg.Modifier != "" && ctx.Roles != nil:
+			if paint, ok := ctx.Roles.PaintResolver()(seg.Role, seg.Modifier); ok {
+				buf.WriteString(paint.PaintString(content))
+				// re-establish the composite's default value color after the
+				// Paint's trailing [-] reset so the next bare segment renders
+				// in the value tag, not in tview's default style.
+				buf.WriteString(tag)
+				continue
+			}
+			// resolver miss — degrade to the bare-role path so the segment
+			// still picks up its role color.
+			if r, ok := ctx.Roles.ResolveByName(seg.Role); ok {
+				buf.WriteString(r.Tag())
+			}
+			buf.WriteString(content)
+		default:
+			if r, ok := ctx.Roles.ResolveByName(seg.Role); ok {
+				buf.WriteString(r.Tag())
+			}
+			buf.WriteString(content)
+		}
 	}
-	tv := tview.NewTextView().SetDynamicColors(true).SetText(buf.String())
+	return buf.String()
+}
+
+func renderCompositePrimitive(a gridlayout.Anchor, tk *tikipkg.Tiki, ctx FieldRenderContext) tview.Primitive {
+	tv := tview.NewTextView().SetDynamicColors(true).SetText(buildCompositeText(a, tk, ctx))
 	tv.SetBorderPadding(0, 0, 0, 0)
 	return tv
 }
@@ -350,7 +386,7 @@ func renderCompositePrimitive(a gridlayout.Anchor, tk *tikipkg.Tiki, ctx FieldRe
 // validateDetailMetadata gate already rejects bad role names at startup.
 func renderLiteralCaption(text string, roles *theme.Theme) tview.Primitive {
 	tag := roles.TextLabel().Tag()
-	expanded, err := workflow.ExpandVisual(text, roles.RoleResolver())
+	expanded, err := workflow.ExpandVisual(text, roles.PaintResolver())
 	if err != nil {
 		expanded = text
 	}
@@ -371,7 +407,7 @@ func (cv *ConfigurableDetailView) buildFieldPrimitive(a gridlayout.Anchor, tk *t
 	ctx.Display = a.Display
 	renderField := func() tview.Primitive {
 		if name == "title" {
-			return RenderTitleText(tk, ctx, a.Role)
+			return RenderTitleText(tk, ctx, a.Role, a.Modifier)
 		}
 		return renderConfiguredField(name, tk, ctx)
 	}

@@ -92,14 +92,7 @@ func bindDark() *Theme {
 		logoShade:  roleOf(p.LogoShade),
 		logoBorder: roleOf(p.LogoBorder),
 
-		tikiIDGradient: newGradientRole(
-			gradientFromColor(NewColorHex(p.DeepSkyBlue), 0.2),
-			roleOf(p.DeepSkyBlue),
-		),
-		captionFallbackGradient: newGradientRole(
-			Gradient{Start: p.CaptionFallbackStart, End: p.CaptionFallbackEnd},
-			roleOf(p.SoftBorder),
-		),
+		tikiID: roleOf(p.DeepSkyBlue),
 
 		pluginCaptions: captionPairs(p.CaptionFg, p.CaptionBg),
 	}
@@ -142,14 +135,7 @@ func bindLight() *Theme {
 		logoShade:  roleOf(p.LogoShade),
 		logoBorder: roleOf(p.LogoBorder),
 
-		tikiIDGradient: newGradientRole(
-			gradientFromColor(NewColorHex(p.DeepSkyBlue), 0.2),
-			roleOf(p.DeepSkyBlue),
-		),
-		captionFallbackGradient: newGradientRole(
-			Gradient{Start: p.CaptionFallbackStart, End: p.CaptionFallbackEnd},
-			roleOf(p.SoftBorder),
-		),
+		tikiID: roleOf(p.DeepSkyBlue),
 
 		pluginCaptions: captionPairs(p.CaptionFg, p.CaptionBg),
 	}
@@ -192,14 +178,7 @@ func bindDracula() *Theme {
 		logoShade:  roleOf(p.Purple),
 		logoBorder: roleOf(p.CurrentLine),
 
-		tikiIDGradient: newGradientRole(
-			gradientFromColor(NewColorHex(p.Cyan), 0.2),
-			roleOf(p.Cyan),
-		),
-		captionFallbackGradient: newGradientRole(
-			Gradient{Start: p.CaptionFallbackStart, End: p.CaptionFallbackEnd},
-			roleOf(p.CurrentLine),
-		),
+		tikiID: roleOf(p.Cyan),
 
 		pluginCaptions: captionPairs(p.CaptionFg, p.CaptionBg),
 	}
@@ -242,14 +221,7 @@ func bindNord() *Theme {
 		logoShade:  roleOf(p.Frost2),
 		logoBorder: roleOf(p.PolarNight1),
 
-		tikiIDGradient: newGradientRole(
-			gradientFromColor(NewColorHex(p.Frost1), 0.2),
-			roleOf(p.Frost1),
-		),
-		captionFallbackGradient: newGradientRole(
-			Gradient{Start: p.CaptionFallbackStart, End: p.CaptionFallbackEnd},
-			roleOf(p.PolarNight2),
-		),
+		tikiID: roleOf(p.Frost1),
 
 		pluginCaptions: captionPairs(p.CaptionFg, p.CaptionBg),
 	}
@@ -292,14 +264,7 @@ func bindGruvboxDark() *Theme {
 		logoShade:  roleOf(p.NeutralBlue),
 		logoBorder: roleOf(p.Bg1),
 
-		tikiIDGradient: newGradientRole(
-			gradientFromColor(NewColorHex(p.NeutralBlue), 0.2),
-			roleOf(p.NeutralBlue),
-		),
-		captionFallbackGradient: newGradientRole(
-			Gradient{Start: p.CaptionFallbackStart, End: p.CaptionFallbackEnd},
-			roleOf(p.Bg2),
-		),
+		tikiID: roleOf(p.NeutralBlue),
 
 		pluginCaptions: captionPairs(p.CaptionFg, p.CaptionBg),
 	}
@@ -342,14 +307,7 @@ func bindGruvboxLight() *Theme {
 		logoShade:  roleOf(p.NeutralBlue),
 		logoBorder: roleOf(p.Bg1),
 
-		tikiIDGradient: newGradientRole(
-			gradientFromColor(NewColorHex(p.NeutralBlue), 0.2),
-			roleOf(p.NeutralBlue),
-		),
-		captionFallbackGradient: newGradientRole(
-			Gradient{Start: p.CaptionFallbackStart, End: p.CaptionFallbackEnd},
-			roleOf(p.Bg2),
-		),
+		tikiID: roleOf(p.NeutralBlue),
 
 		pluginCaptions: captionPairs(p.CaptionFg, p.CaptionBg),
 	}
@@ -392,14 +350,7 @@ func bindTokyoNight() *Theme {
 		logoShade:  roleOf(p.Blue),
 		logoBorder: roleOf(p.Border),
 
-		tikiIDGradient: newGradientRole(
-			gradientFromColor(NewColorHex(p.Cyan), 0.2),
-			roleOf(p.Cyan),
-		),
-		captionFallbackGradient: newGradientRole(
-			Gradient{Start: p.CaptionFallbackStart, End: p.CaptionFallbackEnd},
-			roleOf(p.Border),
-		),
+		tikiID: roleOf(p.Cyan),
 
 		pluginCaptions: captionPairs(p.CaptionFg, p.CaptionBg),
 	}
@@ -442,14 +393,7 @@ func bindMonokai() *Theme {
 		logoShade:  roleOf(p.Cyan),
 		logoBorder: roleOf(p.StatuslineBorderBg),
 
-		tikiIDGradient: newGradientRole(
-			gradientFromColor(NewColorHex(p.Cyan), 0.2),
-			roleOf(p.Cyan),
-		),
-		captionFallbackGradient: newGradientRole(
-			Gradient{Start: p.CaptionFallbackStart, End: p.CaptionFallbackEnd},
-			roleOf(p.Selection),
-		),
+		tikiID: roleOf(p.Cyan),
 
 		pluginCaptions: captionPairs(p.CaptionFg, p.CaptionBg),
 	}
@@ -492,14 +436,7 @@ func bindOneDark() *Theme {
 		logoShade:  roleOf(p.Blue),
 		logoBorder: roleOf(p.StatuslineBorderBg),
 
-		tikiIDGradient: newGradientRole(
-			gradientFromColor(NewColorHex(p.Blue), 0.2),
-			roleOf(p.Blue),
-		),
-		captionFallbackGradient: newGradientRole(
-			Gradient{Start: p.CaptionFallbackStart, End: p.CaptionFallbackEnd},
-			roleOf(p.Selection),
-		),
+		tikiID: roleOf(p.Blue),
 
 		pluginCaptions: captionPairs(p.CaptionFg, p.CaptionBg),
 	}
@@ -542,14 +479,7 @@ func bindCatppuccinMocha() *Theme {
 		logoShade:  roleOf(p.Blue),
 		logoBorder: roleOf(p.Surface0),
 
-		tikiIDGradient: newGradientRole(
-			gradientFromColor(NewColorHex(p.Sky), 0.2),
-			roleOf(p.Sky),
-		),
-		captionFallbackGradient: newGradientRole(
-			Gradient{Start: p.CaptionFallbackStart, End: p.CaptionFallbackEnd},
-			roleOf(p.Surface1),
-		),
+		tikiID: roleOf(p.Sky),
 
 		pluginCaptions: captionPairs(p.CaptionFg, p.CaptionBg),
 	}
@@ -592,14 +522,7 @@ func bindCatppuccinLatte() *Theme {
 		logoShade:  roleOf(p.Blue),
 		logoBorder: roleOf(p.Surface1),
 
-		tikiIDGradient: newGradientRole(
-			gradientFromColor(NewColorHex(p.Sky), 0.2),
-			roleOf(p.Sky),
-		),
-		captionFallbackGradient: newGradientRole(
-			Gradient{Start: p.CaptionFallbackStart, End: p.CaptionFallbackEnd},
-			roleOf(p.Surface0),
-		),
+		tikiID: roleOf(p.Sky),
 
 		pluginCaptions: captionPairs(p.CaptionFg, p.CaptionBg),
 	}
@@ -642,14 +565,7 @@ func bindSolarizedDark() *Theme {
 		logoShade:  roleOf(p.Blue),
 		logoBorder: roleOf(p.Base02),
 
-		tikiIDGradient: newGradientRole(
-			gradientFromColor(NewColorHex(p.Blue), 0.2),
-			roleOf(p.Blue),
-		),
-		captionFallbackGradient: newGradientRole(
-			Gradient{Start: p.CaptionFallbackStart, End: p.CaptionFallbackEnd},
-			roleOf(p.Base02),
-		),
+		tikiID: roleOf(p.Blue),
 
 		pluginCaptions: captionPairs(p.CaptionFg, p.CaptionBg),
 	}
@@ -692,14 +608,7 @@ func bindSolarizedLight() *Theme {
 		logoShade:  roleOf(p.Blue),
 		logoBorder: roleOf(p.Base2),
 
-		tikiIDGradient: newGradientRole(
-			gradientFromColor(NewColorHex(p.Blue), 0.2),
-			roleOf(p.Blue),
-		),
-		captionFallbackGradient: newGradientRole(
-			Gradient{Start: p.CaptionFallbackStart, End: p.CaptionFallbackEnd},
-			roleOf(p.Base2),
-		),
+		tikiID: roleOf(p.Blue),
 
 		pluginCaptions: captionPairs(p.CaptionFg, p.CaptionBg),
 	}
@@ -742,14 +651,7 @@ func bindGithubLight() *Theme {
 		logoShade:  roleOf(p.BlueAccentDark),
 		logoBorder: roleOf(p.BorderDefault),
 
-		tikiIDGradient: newGradientRole(
-			gradientFromColor(NewColorHex(p.BlueAccent), 0.2),
-			roleOf(p.BlueAccent),
-		),
-		captionFallbackGradient: newGradientRole(
-			Gradient{Start: p.CaptionFallbackStart, End: p.CaptionFallbackEnd},
-			roleOf(p.BorderDefault),
-		),
+		tikiID: roleOf(p.BlueAccent),
 
 		pluginCaptions: captionPairs(p.CaptionFg, p.CaptionBg),
 	}

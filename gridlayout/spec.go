@@ -49,6 +49,7 @@ const (
 type FieldCell struct {
 	Name        string
 	Role        string
+	Modifier    string // optional; one of theme.KnownModifierNames or ""
 	Display     DisplayMode
 	WantedWidth int
 }
@@ -98,6 +99,7 @@ type Segment struct {
 	Name        string
 	Text        string
 	Role        string
+	Modifier    string // optional; one of theme.KnownModifierNames or ""
 	Display     DisplayMode
 	WantedWidth int
 }
@@ -135,6 +137,7 @@ type Anchor struct {
 	Name        string
 	Text        string
 	Role        string      // semantic color role propagated from FieldCell; empty = default
+	Modifier    string      // optional; one of theme.KnownModifierNames or ""
 	Display     DisplayMode // enum display mode propagated from FieldCell; zero = label
 	Segments    []Segment   // populated only for AnchorComposite
 	Row, Col    int

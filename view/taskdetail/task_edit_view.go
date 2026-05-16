@@ -365,7 +365,7 @@ func editFieldFor(name string) model.EditField {
 
 func (ev *TaskEditView) titleGridPrimitive(tk *tikipkg.Tiki, ctx FieldRenderContext) tview.Primitive {
 	if ev.descOnly || ev.tagsOnly {
-		return RenderTitleText(tk, ctx, "")
+		return RenderTitleText(tk, ctx, "", "")
 	}
 	input := ev.ensureTitleInput(tk)
 	if ev.focusedField == model.EditFieldTitle {

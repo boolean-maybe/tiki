@@ -10,26 +10,18 @@ import (
 	"github.com/boolean-maybe/tiki/store"
 	"github.com/boolean-maybe/tiki/theme"
 	tikipkg "github.com/boolean-maybe/tiki/tiki"
-	"github.com/boolean-maybe/tiki/util/gradient"
+	"github.com/boolean-maybe/tiki/view/render"
 	"github.com/boolean-maybe/tiki/workflow"
 	"github.com/boolean-maybe/tiki/workflow/value"
 
 	"github.com/rivo/tview"
 )
 
-// renderTikiIDGradient renders a tiki ID with the active theme's TikiID
-// gradient (or solid fallback when gradients are disabled). Bridges the
-// theme.GradientRole API to util/gradient.RenderAdaptiveGradientText so the
-// pre-existing gradient cache + truecolor detection logic stays the single
-// source of truth.
+// renderTikiIDGradient renders a tiki ID with the active theme's tiki.id
+// role under the .accent modifier — gradient on capable terminals, solid
+// fallback otherwise. Thin wrapper over render.RenderTikiIDPaint.
 func renderTikiIDGradient(id string, roles *theme.Theme) string {
-	g := roles.TikiIDGradient()
-	sr, sg, sb := g.Start()
-	er, eg, eb := g.End()
-	cfgG := theme.Gradient{Start: [3]int{sr, sg, sb}, End: [3]int{er, eg, eb}}
-	fr, fg, fb := g.FallbackRole().TCell().RGB()
-	fallback := theme.NewColorRGB(fr, fg, fb)
-	return gradient.RenderAdaptiveGradientText(id, cfgG, fallback)
+	return render.RenderTikiIDPaint(id, roles)
 }
 
 // expandFieldText escapes a user-controlled text value against tview's
@@ -46,7 +38,7 @@ func expandFieldText(raw string, roles *theme.Theme) string {
 	if roles == nil {
 		return escaped
 	}
-	expanded, err := workflow.ExpandVisual(escaped, roles.RoleResolver())
+	expanded, err := workflow.ExpandVisual(escaped, roles.PaintResolver())
 	if err != nil {
 		return escaped
 	}
@@ -135,24 +127,45 @@ func RenderPointsText(tk *tikipkg.Tiki, ctx FieldRenderContext) tview.Primitive 
 // RenderTitleText renders a title as read-only text. The stored title may
 // contain `<role>` color markup (e.g. `<highlight>foo`); literal `[...]`
 // tview-tag content renders verbatim. When role is non-empty, the role's
-// resolved color replaces the default title styling entirely.
-func RenderTitleText(tk *tikipkg.Tiki, ctx FieldRenderContext, role string) tview.Primitive {
+// resolved color replaces the default title styling entirely. When modifier
+// is non-empty (one of theme.KnownModifierNames), the title is painted
+// through the role+modifier Paint — yielding a per-rune gradient on capable
+// terminals and degrading to a solid base color when gradients are off.
+// Empty modifier preserves the legacy bare-tag path (no `[-]` reset),
+// which is what every non-modifier call site has always emitted.
+func RenderTitleText(tk *tikipkg.Tiki, ctx FieldRenderContext, role, modifier string) tview.Primitive {
 	focused := ctx.Mode == RenderModeEdit && ctx.FocusedField == model.EditFieldTitle
+	expanded := expandFieldText(tk.Title, ctx.Roles)
+
+	// modifier path: paint the expanded title through the resolver. The Paint
+	// emits its own opening tag and a trailing [-] reset; no value tag is
+	// appended because the reset would discard it on the next character.
+	if role != "" && modifier != "" && ctx.Roles != nil {
+		if paint, ok := ctx.Roles.PaintResolver()(role, modifier); ok {
+			titleBox := tview.NewTextView().
+				SetDynamicColors(true).
+				SetText(paint.PaintString(expanded))
+			titleBox.SetBorderPadding(0, 0, 0, 0)
+			return titleBox
+		}
+		// resolver miss — fall through to the bare-tag default
+	}
+
 	var titleTag string
-	if role != "" && ctx.Roles != nil {
-		resolver := ctx.Roles.RoleResolver()
-		if tag, ok := resolver(role); ok {
-			titleTag = tag
+	switch {
+	case role != "" && ctx.Roles != nil:
+		if r, ok := ctx.Roles.ResolveByName(role); ok {
+			titleTag = r.Tag()
 		} else {
 			titleTag = ctx.Roles.TextPrimary().BoldTag()
 		}
-	} else if ctx.Mode == RenderModeEdit && !focused {
+	case ctx.Mode == RenderModeEdit && !focused:
 		titleTag = ctx.Roles.TextMuted().Tag()
-	} else {
+	default:
 		titleTag = ctx.Roles.TextPrimary().BoldTag()
 	}
 	valueTag := ctx.Roles.TextValue().Tag()
-	titleText := fmt.Sprintf("%s%s%s", titleTag, expandFieldText(tk.Title, ctx.Roles), valueTag)
+	titleText := fmt.Sprintf("%s%s%s", titleTag, expanded, valueTag)
 	titleBox := tview.NewTextView().
 		SetDynamicColors(true).
 		SetText(titleText)

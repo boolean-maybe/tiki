@@ -76,7 +76,7 @@ func (pv *PluginView) build() {
 	for i := range pv.pluginDef.Lanes {
 		laneWidths[i] = pv.pluginConfig.GetWidthForLane(i)
 	}
-	pv.titleBar = NewGradientCaptionRow(laneNames, laneWidths, bgColor, textColor)
+	pv.titleBar = NewGradientCaptionRow(laneNames, laneWidths, theme.NewColorRoleAdapter(bgColor), textColor)
 
 	// lanes container (rows)
 	pv.lanes = tview.NewFlex().SetDirection(tview.FlexColumn)
