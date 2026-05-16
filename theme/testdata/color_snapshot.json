@@ -1,0 +1,8192 @@
+[
+  {
+    "theme": "dark",
+    "key": "CaptionBg[0]",
+    "hex": "#25496a",
+    "tag": "[#25496a]"
+  },
+  {
+    "theme": "dark",
+    "key": "CaptionBg[1]",
+    "hex": "#003300",
+    "tag": "[#003300]"
+  },
+  {
+    "theme": "dark",
+    "key": "CaptionBg[2]",
+    "hex": "#4d3200",
+    "tag": "[#4d3200]"
+  },
+  {
+    "theme": "dark",
+    "key": "CaptionBg[3]",
+    "hex": "#13433e",
+    "tag": "[#13433e]"
+  },
+  {
+    "theme": "dark",
+    "key": "CaptionBg[4]",
+    "hex": "#1d2027",
+    "tag": "[#1d2027]"
+  },
+  {
+    "theme": "dark",
+    "key": "CaptionBg[5]",
+    "hex": "#1e2d3a",
+    "tag": "[#1e2d3a]"
+  },
+  {
+    "theme": "dark",
+    "key": "CaptionFallbackGradient.end",
+    "hex": "#4169e1"
+  },
+  {
+    "theme": "dark",
+    "key": "CaptionFallbackGradient.sample[0.00]",
+    "hex": "#191970"
+  },
+  {
+    "theme": "dark",
+    "key": "CaptionFallbackGradient.sample[0.25]",
+    "hex": "#232d8c"
+  },
+  {
+    "theme": "dark",
+    "key": "CaptionFallbackGradient.sample[0.50]",
+    "hex": "#2d41a9"
+  },
+  {
+    "theme": "dark",
+    "key": "CaptionFallbackGradient.sample[0.75]",
+    "hex": "#3755c5"
+  },
+  {
+    "theme": "dark",
+    "key": "CaptionFallbackGradient.sample[1.00]",
+    "hex": "#4169e1"
+  },
+  {
+    "theme": "dark",
+    "key": "CaptionFallbackGradient.start",
+    "hex": "#191970"
+  },
+  {
+    "theme": "dark",
+    "key": "CaptionFg[0]",
+    "hex": "#87ceeb",
+    "tag": "[skyblue]"
+  },
+  {
+    "theme": "dark",
+    "key": "CaptionFg[1]",
+    "hex": "#8cd98c",
+    "tag": "[#8cd98c]"
+  },
+  {
+    "theme": "dark",
+    "key": "CaptionFg[2]",
+    "hex": "#ffd78c",
+    "tag": "[#ffd78c]"
+  },
+  {
+    "theme": "dark",
+    "key": "CaptionFg[3]",
+    "hex": "#a9f1ea",
+    "tag": "[#a9f1ea]"
+  },
+  {
+    "theme": "dark",
+    "key": "CaptionFg[4]",
+    "hex": "#b7bcc7",
+    "tag": "[#b7bcc7]"
+  },
+  {
+    "theme": "dark",
+    "key": "CaptionFg[5]",
+    "hex": "#b0c4d4",
+    "tag": "[#b0c4d4]"
+  },
+  {
+    "theme": "dark",
+    "key": "CompletionHintColor",
+    "hex": "#686868",
+    "tag": "[#686868]"
+  },
+  {
+    "theme": "dark",
+    "key": "ContentBackgroundColor",
+    "hex": "-",
+    "tag": "[-]"
+  },
+  {
+    "theme": "dark",
+    "key": "ContentTextColor",
+    "hex": "#ffffff",
+    "tag": "[#ffffff]"
+  },
+  {
+    "theme": "dark",
+    "key": "DangerColor",
+    "hex": "#ff4444",
+    "tag": "[#ff4444]"
+  },
+  {
+    "theme": "dark",
+    "key": "DepsEditorBackground",
+    "hex": "#434c5e",
+    "tag": "[#434c5e]"
+  },
+  {
+    "theme": "dark",
+    "key": "FallbackTaskIDColor",
+    "hex": "#00bfff",
+    "tag": "[deepskyblue]"
+  },
+  {
+    "theme": "dark",
+    "key": "HeaderActionGlobalKeyColor",
+    "hex": "#ffff00",
+    "tag": "[#ffff00]"
+  },
+  {
+    "theme": "dark",
+    "key": "HeaderActionGlobalLabelColor",
+    "hex": "#ffffff",
+    "tag": "[#ffffff]"
+  },
+  {
+    "theme": "dark",
+    "key": "HeaderActionPluginKeyColor",
+    "hex": "#ffa500",
+    "tag": "[orange]"
+  },
+  {
+    "theme": "dark",
+    "key": "HeaderActionPluginLabelColor",
+    "hex": "#b4b4b4",
+    "tag": "[#b4b4b4]"
+  },
+  {
+    "theme": "dark",
+    "key": "HeaderActionViewKeyColor",
+    "hex": "#5fafff",
+    "tag": "[#5fafff]"
+  },
+  {
+    "theme": "dark",
+    "key": "HeaderActionViewLabelColor",
+    "hex": "#686868",
+    "tag": "[#686868]"
+  },
+  {
+    "theme": "dark",
+    "key": "HeaderInfoDesc",
+    "hex": "#686868",
+    "tag": "[#686868]"
+  },
+  {
+    "theme": "dark",
+    "key": "HeaderInfoLabel",
+    "hex": "#ffa500",
+    "tag": "[orange]"
+  },
+  {
+    "theme": "dark",
+    "key": "HeaderInfoSeparator",
+    "hex": "#686868",
+    "tag": "[#686868]"
+  },
+  {
+    "theme": "dark",
+    "key": "HeaderKeyBinding",
+    "hex": "#ffff00",
+    "tag": "[#ffff00]"
+  },
+  {
+    "theme": "dark",
+    "key": "HeaderKeyText",
+    "hex": "#ffffff",
+    "tag": "[#ffffff]"
+  },
+  {
+    "theme": "dark",
+    "key": "InputBoxBackgroundColor",
+    "hex": "-",
+    "tag": "[-]"
+  },
+  {
+    "theme": "dark",
+    "key": "InputBoxLabelColor",
+    "hex": "#ffffff",
+    "tag": "[#ffffff]"
+  },
+  {
+    "theme": "dark",
+    "key": "InputBoxTextColor",
+    "hex": "#ffffff",
+    "tag": "[#ffffff]"
+  },
+  {
+    "theme": "dark",
+    "key": "InputFieldBackgroundColor",
+    "hex": "-",
+    "tag": "[-]"
+  },
+  {
+    "theme": "dark",
+    "key": "InputFieldTextColor",
+    "hex": "#ffffff",
+    "tag": "[#ffffff]"
+  },
+  {
+    "theme": "dark",
+    "key": "LogoBorderColor",
+    "hex": "#324664",
+    "tag": "[#324664]"
+  },
+  {
+    "theme": "dark",
+    "key": "LogoDotColor",
+    "hex": "#40e0d0",
+    "tag": "[turquoise]"
+  },
+  {
+    "theme": "dark",
+    "key": "LogoShadeColor",
+    "hex": "#4682b4",
+    "tag": "[steelblue]"
+  },
+  {
+    "theme": "dark",
+    "key": "OkColor",
+    "hex": "#a3be8c",
+    "tag": "[#a3be8c]"
+  },
+  {
+    "theme": "dark",
+    "key": "StatuslineAccentBg",
+    "hex": "#5e81ac",
+    "tag": "[#5e81ac]"
+  },
+  {
+    "theme": "dark",
+    "key": "StatuslineAccentFg",
+    "hex": "#2e3440",
+    "tag": "[#2e3440]"
+  },
+  {
+    "theme": "dark",
+    "key": "StatuslineBg",
+    "hex": "#434c5e",
+    "tag": "[#434c5e]"
+  },
+  {
+    "theme": "dark",
+    "key": "StatuslineErrorBg",
+    "hex": "#3b4252",
+    "tag": "[#3b4252]"
+  },
+  {
+    "theme": "dark",
+    "key": "StatuslineErrorFg",
+    "hex": "#ffff00",
+    "tag": "[#ffff00]"
+  },
+  {
+    "theme": "dark",
+    "key": "StatuslineFg",
+    "hex": "#d8dee9",
+    "tag": "[#d8dee9]"
+  },
+  {
+    "theme": "dark",
+    "key": "StatuslineFillBg",
+    "hex": "#3b4252",
+    "tag": "[#3b4252]"
+  },
+  {
+    "theme": "dark",
+    "key": "StatuslineInfoBg",
+    "hex": "#3b4252",
+    "tag": "[#3b4252]"
+  },
+  {
+    "theme": "dark",
+    "key": "StatuslineInfoFg",
+    "hex": "#a3be8c",
+    "tag": "[#a3be8c]"
+  },
+  {
+    "theme": "dark",
+    "key": "TaskBoxDescriptionColor",
+    "hex": "#686868",
+    "tag": "[#686868]"
+  },
+  {
+    "theme": "dark",
+    "key": "TaskBoxIDColor.end",
+    "hex": "#00bfff"
+  },
+  {
+    "theme": "dark",
+    "key": "TaskBoxIDColor.sample[0.00]",
+    "hex": "#0098cc"
+  },
+  {
+    "theme": "dark",
+    "key": "TaskBoxIDColor.sample[0.25]",
+    "hex": "#00a2d9"
+  },
+  {
+    "theme": "dark",
+    "key": "TaskBoxIDColor.sample[0.50]",
+    "hex": "#00ace6"
+  },
+  {
+    "theme": "dark",
+    "key": "TaskBoxIDColor.sample[0.75]",
+    "hex": "#00b5f2"
+  },
+  {
+    "theme": "dark",
+    "key": "TaskBoxIDColor.sample[1.00]",
+    "hex": "#00bfff"
+  },
+  {
+    "theme": "dark",
+    "key": "TaskBoxIDColor.start",
+    "hex": "#0098cc"
+  },
+  {
+    "theme": "dark",
+    "key": "TaskBoxLabelColor",
+    "hex": "#686868",
+    "tag": "[#686868]"
+  },
+  {
+    "theme": "dark",
+    "key": "TaskBoxSelectedBorder",
+    "hex": "#ffff00",
+    "tag": "[#ffff00]"
+  },
+  {
+    "theme": "dark",
+    "key": "TaskBoxTagValueColor",
+    "hex": "#5f6982",
+    "tag": "[#5f6982]"
+  },
+  {
+    "theme": "dark",
+    "key": "TaskBoxTitleColor",
+    "hex": "#b4b4b4",
+    "tag": "[#b4b4b4]"
+  },
+  {
+    "theme": "dark",
+    "key": "TaskBoxUnselectedBackground",
+    "hex": "-",
+    "tag": "[-]"
+  },
+  {
+    "theme": "dark",
+    "key": "TaskBoxUnselectedBorder",
+    "hex": "#686868",
+    "tag": "[#686868]"
+  },
+  {
+    "theme": "dark",
+    "key": "TaskDetailCommentAuthor",
+    "hex": "#ffff00",
+    "tag": "[#ffff00]"
+  },
+  {
+    "theme": "dark",
+    "key": "TaskDetailEditDimLabelColor",
+    "hex": "#686868",
+    "tag": "[#686868]"
+  },
+  {
+    "theme": "dark",
+    "key": "TaskDetailEditDimTextColor",
+    "hex": "#686868",
+    "tag": "[#686868]"
+  },
+  {
+    "theme": "dark",
+    "key": "TaskDetailEditDimValueColor",
+    "hex": "#b4b4b4",
+    "tag": "[#b4b4b4]"
+  },
+  {
+    "theme": "dark",
+    "key": "TaskDetailEditFocusMarker",
+    "hex": "#ffff00",
+    "tag": "[#ffff00]"
+  },
+  {
+    "theme": "dark",
+    "key": "TaskDetailEditFocusText",
+    "hex": "#ffffff",
+    "tag": "[#ffffff]"
+  },
+  {
+    "theme": "dark",
+    "key": "TaskDetailIDColor.end",
+    "hex": "#00bfff"
+  },
+  {
+    "theme": "dark",
+    "key": "TaskDetailIDColor.sample[0.00]",
+    "hex": "#0098cc"
+  },
+  {
+    "theme": "dark",
+    "key": "TaskDetailIDColor.sample[0.25]",
+    "hex": "#00a2d9"
+  },
+  {
+    "theme": "dark",
+    "key": "TaskDetailIDColor.sample[0.50]",
+    "hex": "#00ace6"
+  },
+  {
+    "theme": "dark",
+    "key": "TaskDetailIDColor.sample[0.75]",
+    "hex": "#00b5f2"
+  },
+  {
+    "theme": "dark",
+    "key": "TaskDetailIDColor.sample[1.00]",
+    "hex": "#00bfff"
+  },
+  {
+    "theme": "dark",
+    "key": "TaskDetailIDColor.start",
+    "hex": "#0098cc"
+  },
+  {
+    "theme": "dark",
+    "key": "TaskDetailLabelText",
+    "hex": "#008000",
+    "tag": "[green]"
+  },
+  {
+    "theme": "dark",
+    "key": "TaskDetailPlaceholderColor",
+    "hex": "#686868",
+    "tag": "[#686868]"
+  },
+  {
+    "theme": "dark",
+    "key": "TaskDetailTagBackground",
+    "hex": "#3a5f8a",
+    "tag": "[#3a5f8a]"
+  },
+  {
+    "theme": "dark",
+    "key": "TaskDetailTagForeground",
+    "hex": "#b4b4b4",
+    "tag": "[#b4b4b4]"
+  },
+  {
+    "theme": "dark",
+    "key": "TaskDetailTitleText",
+    "hex": "#ffffff",
+    "tag": "[#ffffff]"
+  },
+  {
+    "theme": "dark",
+    "key": "TaskDetailValueText",
+    "hex": "#8c92ac",
+    "tag": "[#8c92ac]"
+  },
+  {
+    "theme": "dark",
+    "key": "TaskListSelectionBg",
+    "hex": "#3a5f8a",
+    "tag": "[#3a5f8a]"
+  },
+  {
+    "theme": "dark",
+    "key": "TaskListSelectionFg",
+    "hex": "#ffffff",
+    "tag": "[#ffffff]"
+  },
+  {
+    "theme": "dark",
+    "key": "TaskListStatusDoneColor",
+    "hex": "#008000",
+    "tag": "[green]"
+  },
+  {
+    "theme": "dark",
+    "key": "TaskListStatusPendingColor",
+    "hex": "#ffffff",
+    "tag": "[#ffffff]"
+  },
+  {
+    "theme": "dark",
+    "key": "WarnColor",
+    "hex": "#ffa500",
+    "tag": "[orange]"
+  },
+  {
+    "theme": "dark",
+    "key": "alias:accent",
+    "hex": "#008000",
+    "tag": "[green]"
+  },
+  {
+    "theme": "dark",
+    "key": "alias:action",
+    "hex": "#5fafff",
+    "tag": "[#5fafff]"
+  },
+  {
+    "theme": "dark",
+    "key": "alias:danger",
+    "hex": "#ff4444",
+    "tag": "[#ff4444]"
+  },
+  {
+    "theme": "dark",
+    "key": "alias:highlight",
+    "hex": "#ffff00",
+    "tag": "[#ffff00]"
+  },
+  {
+    "theme": "dark",
+    "key": "alias:info",
+    "hex": "#ffa500",
+    "tag": "[orange]"
+  },
+  {
+    "theme": "dark",
+    "key": "alias:muted",
+    "hex": "#686868",
+    "tag": "[#686868]"
+  },
+  {
+    "theme": "dark",
+    "key": "alias:ok",
+    "hex": "#a3be8c",
+    "tag": "[#a3be8c]"
+  },
+  {
+    "theme": "dark",
+    "key": "alias:text",
+    "hex": "#ffffff",
+    "tag": "[#ffffff]"
+  },
+  {
+    "theme": "dark",
+    "key": "alias:warn",
+    "hex": "#ffa500",
+    "tag": "[orange]"
+  },
+  {
+    "theme": "light",
+    "key": "CaptionBg[0]",
+    "hex": "#3a6a90",
+    "tag": "[#3a6a90]"
+  },
+  {
+    "theme": "light",
+    "key": "CaptionBg[1]",
+    "hex": "#467153",
+    "tag": "[#467153]"
+  },
+  {
+    "theme": "light",
+    "key": "CaptionBg[2]",
+    "hex": "#a45200",
+    "tag": "[#a45200]"
+  },
+  {
+    "theme": "light",
+    "key": "CaptionBg[3]",
+    "hex": "#5a5e80",
+    "tag": "[#5a5e80]"
+  },
+  {
+    "theme": "light",
+    "key": "CaptionBg[4]",
+    "hex": "#1a8174",
+    "tag": "[#1a8174]"
+  },
+  {
+    "theme": "light",
+    "key": "CaptionBg[5]",
+    "hex": "#616161",
+    "tag": "[#616161]"
+  },
+  {
+    "theme": "light",
+    "key": "CaptionFallbackGradient.end",
+    "hex": "#3c64b4"
+  },
+  {
+    "theme": "light",
+    "key": "CaptionFallbackGradient.sample[0.00]",
+    "hex": "#648cc8"
+  },
+  {
+    "theme": "light",
+    "key": "CaptionFallbackGradient.sample[0.25]",
+    "hex": "#5a82c3"
+  },
+  {
+    "theme": "light",
+    "key": "CaptionFallbackGradient.sample[0.50]",
+    "hex": "#5078be"
+  },
+  {
+    "theme": "light",
+    "key": "CaptionFallbackGradient.sample[0.75]",
+    "hex": "#466eb9"
+  },
+  {
+    "theme": "light",
+    "key": "CaptionFallbackGradient.sample[1.00]",
+    "hex": "#3c64b4"
+  },
+  {
+    "theme": "light",
+    "key": "CaptionFallbackGradient.start",
+    "hex": "#648cc8"
+  },
+  {
+    "theme": "light",
+    "key": "CaptionFg[0]",
+    "hex": "#e0f0ff",
+    "tag": "[#e0f0ff]"
+  },
+  {
+    "theme": "light",
+    "key": "CaptionFg[1]",
+    "hex": "#d2ded6",
+    "tag": "[#d2ded6]"
+  },
+  {
+    "theme": "light",
+    "key": "CaptionFg[2]",
+    "hex": "#edd6bf",
+    "tag": "[#edd6bf]"
+  },
+  {
+    "theme": "light",
+    "key": "CaptionFg[3]",
+    "hex": "#d2d3da",
+    "tag": "[#d2d3da]"
+  },
+  {
+    "theme": "light",
+    "key": "CaptionFg[4]",
+    "hex": "#c7e7e3",
+    "tag": "[#c7e7e3]"
+  },
+  {
+    "theme": "light",
+    "key": "CaptionFg[5]",
+    "hex": "#dfdfdf",
+    "tag": "[#dfdfdf]"
+  },
+  {
+    "theme": "light",
+    "key": "CompletionHintColor",
+    "hex": "#808080",
+    "tag": "[#808080]"
+  },
+  {
+    "theme": "light",
+    "key": "ContentBackgroundColor",
+    "hex": "-",
+    "tag": "[-]"
+  },
+  {
+    "theme": "light",
+    "key": "ContentTextColor",
+    "hex": "#000000",
+    "tag": "[black]"
+  },
+  {
+    "theme": "light",
+    "key": "DangerColor",
+    "hex": "#cc0000",
+    "tag": "[#cc0000]"
+  },
+  {
+    "theme": "light",
+    "key": "DepsEditorBackground",
+    "hex": "#d8dee9",
+    "tag": "[#d8dee9]"
+  },
+  {
+    "theme": "light",
+    "key": "FallbackTaskIDColor",
+    "hex": "#0064b4",
+    "tag": "[#0064b4]"
+  },
+  {
+    "theme": "light",
+    "key": "HeaderActionGlobalKeyColor",
+    "hex": "#0055dd",
+    "tag": "[#0055dd]"
+  },
+  {
+    "theme": "light",
+    "key": "HeaderActionGlobalLabelColor",
+    "hex": "#000000",
+    "tag": "[black]"
+  },
+  {
+    "theme": "light",
+    "key": "HeaderActionPluginKeyColor",
+    "hex": "#b85c00",
+    "tag": "[#b85c00]"
+  },
+  {
+    "theme": "light",
+    "key": "HeaderActionPluginLabelColor",
+    "hex": "#404040",
+    "tag": "[#404040]"
+  },
+  {
+    "theme": "light",
+    "key": "HeaderActionViewKeyColor",
+    "hex": "#0060c0",
+    "tag": "[#0060c0]"
+  },
+  {
+    "theme": "light",
+    "key": "HeaderActionViewLabelColor",
+    "hex": "#808080",
+    "tag": "[#808080]"
+  },
+  {
+    "theme": "light",
+    "key": "HeaderInfoDesc",
+    "hex": "#808080",
+    "tag": "[#808080]"
+  },
+  {
+    "theme": "light",
+    "key": "HeaderInfoLabel",
+    "hex": "#b85c00",
+    "tag": "[#b85c00]"
+  },
+  {
+    "theme": "light",
+    "key": "HeaderInfoSeparator",
+    "hex": "#808080",
+    "tag": "[#808080]"
+  },
+  {
+    "theme": "light",
+    "key": "HeaderKeyBinding",
+    "hex": "#0055dd",
+    "tag": "[#0055dd]"
+  },
+  {
+    "theme": "light",
+    "key": "HeaderKeyText",
+    "hex": "#000000",
+    "tag": "[black]"
+  },
+  {
+    "theme": "light",
+    "key": "InputBoxBackgroundColor",
+    "hex": "-",
+    "tag": "[-]"
+  },
+  {
+    "theme": "light",
+    "key": "InputBoxLabelColor",
+    "hex": "#000000",
+    "tag": "[black]"
+  },
+  {
+    "theme": "light",
+    "key": "InputBoxTextColor",
+    "hex": "#000000",
+    "tag": "[black]"
+  },
+  {
+    "theme": "light",
+    "key": "InputFieldBackgroundColor",
+    "hex": "-",
+    "tag": "[-]"
+  },
+  {
+    "theme": "light",
+    "key": "InputFieldTextColor",
+    "hex": "#000000",
+    "tag": "[black]"
+  },
+  {
+    "theme": "light",
+    "key": "LogoBorderColor",
+    "hex": "#6080a0",
+    "tag": "[#6080a0]"
+  },
+  {
+    "theme": "light",
+    "key": "LogoDotColor",
+    "hex": "#20a090",
+    "tag": "[#20a090]"
+  },
+  {
+    "theme": "light",
+    "key": "LogoShadeColor",
+    "hex": "#3060a0",
+    "tag": "[#3060a0]"
+  },
+  {
+    "theme": "light",
+    "key": "OkColor",
+    "hex": "#4c7a5a",
+    "tag": "[#4c7a5a]"
+  },
+  {
+    "theme": "light",
+    "key": "StatuslineAccentBg",
+    "hex": "#5e81ac",
+    "tag": "[#5e81ac]"
+  },
+  {
+    "theme": "light",
+    "key": "StatuslineAccentFg",
+    "hex": "#eceff4",
+    "tag": "[#eceff4]"
+  },
+  {
+    "theme": "light",
+    "key": "StatuslineBg",
+    "hex": "#d8dee9",
+    "tag": "[#d8dee9]"
+  },
+  {
+    "theme": "light",
+    "key": "StatuslineErrorBg",
+    "hex": "#e5e9f0",
+    "tag": "[#e5e9f0]"
+  },
+  {
+    "theme": "light",
+    "key": "StatuslineErrorFg",
+    "hex": "#0055dd",
+    "tag": "[#0055dd]"
+  },
+  {
+    "theme": "light",
+    "key": "StatuslineFg",
+    "hex": "#2e3440",
+    "tag": "[#2e3440]"
+  },
+  {
+    "theme": "light",
+    "key": "StatuslineFillBg",
+    "hex": "#e5e9f0",
+    "tag": "[#e5e9f0]"
+  },
+  {
+    "theme": "light",
+    "key": "StatuslineInfoBg",
+    "hex": "#e5e9f0",
+    "tag": "[#e5e9f0]"
+  },
+  {
+    "theme": "light",
+    "key": "StatuslineInfoFg",
+    "hex": "#4c7a5a",
+    "tag": "[#4c7a5a]"
+  },
+  {
+    "theme": "light",
+    "key": "TaskBoxDescriptionColor",
+    "hex": "#808080",
+    "tag": "[#808080]"
+  },
+  {
+    "theme": "light",
+    "key": "TaskBoxIDColor.end",
+    "hex": "#0064b4"
+  },
+  {
+    "theme": "light",
+    "key": "TaskBoxIDColor.sample[0.00]",
+    "hex": "#005090"
+  },
+  {
+    "theme": "light",
+    "key": "TaskBoxIDColor.sample[0.25]",
+    "hex": "#005599"
+  },
+  {
+    "theme": "light",
+    "key": "TaskBoxIDColor.sample[0.50]",
+    "hex": "#005aa2"
+  },
+  {
+    "theme": "light",
+    "key": "TaskBoxIDColor.sample[0.75]",
+    "hex": "#005fab"
+  },
+  {
+    "theme": "light",
+    "key": "TaskBoxIDColor.sample[1.00]",
+    "hex": "#0064b4"
+  },
+  {
+    "theme": "light",
+    "key": "TaskBoxIDColor.start",
+    "hex": "#005090"
+  },
+  {
+    "theme": "light",
+    "key": "TaskBoxLabelColor",
+    "hex": "#808080",
+    "tag": "[#808080]"
+  },
+  {
+    "theme": "light",
+    "key": "TaskBoxSelectedBorder",
+    "hex": "#0055dd",
+    "tag": "[#0055dd]"
+  },
+  {
+    "theme": "light",
+    "key": "TaskBoxTagValueColor",
+    "hex": "#7080a0",
+    "tag": "[#7080a0]"
+  },
+  {
+    "theme": "light",
+    "key": "TaskBoxTitleColor",
+    "hex": "#404040",
+    "tag": "[#404040]"
+  },
+  {
+    "theme": "light",
+    "key": "TaskBoxUnselectedBackground",
+    "hex": "-",
+    "tag": "[-]"
+  },
+  {
+    "theme": "light",
+    "key": "TaskBoxUnselectedBorder",
+    "hex": "#b0b8c8",
+    "tag": "[#b0b8c8]"
+  },
+  {
+    "theme": "light",
+    "key": "TaskDetailCommentAuthor",
+    "hex": "#0055dd",
+    "tag": "[#0055dd]"
+  },
+  {
+    "theme": "light",
+    "key": "TaskDetailEditDimLabelColor",
+    "hex": "#808080",
+    "tag": "[#808080]"
+  },
+  {
+    "theme": "light",
+    "key": "TaskDetailEditDimTextColor",
+    "hex": "#808080",
+    "tag": "[#808080]"
+  },
+  {
+    "theme": "light",
+    "key": "TaskDetailEditDimValueColor",
+    "hex": "#404040",
+    "tag": "[#404040]"
+  },
+  {
+    "theme": "light",
+    "key": "TaskDetailEditFocusMarker",
+    "hex": "#0055dd",
+    "tag": "[#0055dd]"
+  },
+  {
+    "theme": "light",
+    "key": "TaskDetailEditFocusText",
+    "hex": "#000000",
+    "tag": "[black]"
+  },
+  {
+    "theme": "light",
+    "key": "TaskDetailIDColor.end",
+    "hex": "#0064b4"
+  },
+  {
+    "theme": "light",
+    "key": "TaskDetailIDColor.sample[0.00]",
+    "hex": "#005090"
+  },
+  {
+    "theme": "light",
+    "key": "TaskDetailIDColor.sample[0.25]",
+    "hex": "#005599"
+  },
+  {
+    "theme": "light",
+    "key": "TaskDetailIDColor.sample[0.50]",
+    "hex": "#005aa2"
+  },
+  {
+    "theme": "light",
+    "key": "TaskDetailIDColor.sample[0.75]",
+    "hex": "#005fab"
+  },
+  {
+    "theme": "light",
+    "key": "TaskDetailIDColor.sample[1.00]",
+    "hex": "#0064b4"
+  },
+  {
+    "theme": "light",
+    "key": "TaskDetailIDColor.start",
+    "hex": "#005090"
+  },
+  {
+    "theme": "light",
+    "key": "TaskDetailLabelText",
+    "hex": "#006400",
+    "tag": "[darkgreen]"
+  },
+  {
+    "theme": "light",
+    "key": "TaskDetailPlaceholderColor",
+    "hex": "#808080",
+    "tag": "[#808080]"
+  },
+  {
+    "theme": "light",
+    "key": "TaskDetailTagBackground",
+    "hex": "#b8d4f0",
+    "tag": "[#b8d4f0]"
+  },
+  {
+    "theme": "light",
+    "key": "TaskDetailTagForeground",
+    "hex": "#404040",
+    "tag": "[#404040]"
+  },
+  {
+    "theme": "light",
+    "key": "TaskDetailTitleText",
+    "hex": "#000000",
+    "tag": "[black]"
+  },
+  {
+    "theme": "light",
+    "key": "TaskDetailValueText",
+    "hex": "#4a4e6a",
+    "tag": "[#4a4e6a]"
+  },
+  {
+    "theme": "light",
+    "key": "TaskListSelectionBg",
+    "hex": "#b8d4f0",
+    "tag": "[#b8d4f0]"
+  },
+  {
+    "theme": "light",
+    "key": "TaskListSelectionFg",
+    "hex": "#000000",
+    "tag": "[black]"
+  },
+  {
+    "theme": "light",
+    "key": "TaskListStatusDoneColor",
+    "hex": "#006400",
+    "tag": "[darkgreen]"
+  },
+  {
+    "theme": "light",
+    "key": "TaskListStatusPendingColor",
+    "hex": "#000000",
+    "tag": "[black]"
+  },
+  {
+    "theme": "light",
+    "key": "WarnColor",
+    "hex": "#b85c00",
+    "tag": "[#b85c00]"
+  },
+  {
+    "theme": "light",
+    "key": "alias:accent",
+    "hex": "#006400",
+    "tag": "[darkgreen]"
+  },
+  {
+    "theme": "light",
+    "key": "alias:action",
+    "hex": "#0060c0",
+    "tag": "[#0060c0]"
+  },
+  {
+    "theme": "light",
+    "key": "alias:danger",
+    "hex": "#cc0000",
+    "tag": "[#cc0000]"
+  },
+  {
+    "theme": "light",
+    "key": "alias:highlight",
+    "hex": "#0055dd",
+    "tag": "[#0055dd]"
+  },
+  {
+    "theme": "light",
+    "key": "alias:info",
+    "hex": "#b85c00",
+    "tag": "[#b85c00]"
+  },
+  {
+    "theme": "light",
+    "key": "alias:muted",
+    "hex": "#808080",
+    "tag": "[#808080]"
+  },
+  {
+    "theme": "light",
+    "key": "alias:ok",
+    "hex": "#4c7a5a",
+    "tag": "[#4c7a5a]"
+  },
+  {
+    "theme": "light",
+    "key": "alias:text",
+    "hex": "#000000",
+    "tag": "[black]"
+  },
+  {
+    "theme": "light",
+    "key": "alias:warn",
+    "hex": "#b85c00",
+    "tag": "[#b85c00]"
+  },
+  {
+    "theme": "dracula",
+    "key": "CaptionBg[0]",
+    "hex": "#2a464c",
+    "tag": "[#2a464c]"
+  },
+  {
+    "theme": "dracula",
+    "key": "CaptionBg[1]",
+    "hex": "#184b25",
+    "tag": "[#184b25]"
+  },
+  {
+    "theme": "dracula",
+    "key": "CaptionBg[2]",
+    "hex": "#4d3720",
+    "tag": "[#4d3720]"
+  },
+  {
+    "theme": "dracula",
+    "key": "CaptionBg[3]",
+    "hex": "#484b2a",
+    "tag": "[#484b2a]"
+  },
+  {
+    "theme": "dracula",
+    "key": "CaptionBg[4]",
+    "hex": "#1d2231",
+    "tag": "[#1d2231]"
+  },
+  {
+    "theme": "dracula",
+    "key": "CaptionBg[5]",
+    "hex": "#4d243b",
+    "tag": "[#4d243b]"
+  },
+  {
+    "theme": "dracula",
+    "key": "CaptionFallbackGradient.end",
+    "hex": "#44475a"
+  },
+  {
+    "theme": "dracula",
+    "key": "CaptionFallbackGradient.sample[0.00]",
+    "hex": "#282a36"
+  },
+  {
+    "theme": "dracula",
+    "key": "CaptionFallbackGradient.sample[0.25]",
+    "hex": "#2f313f"
+  },
+  {
+    "theme": "dracula",
+    "key": "CaptionFallbackGradient.sample[0.50]",
+    "hex": "#363948"
+  },
+  {
+    "theme": "dracula",
+    "key": "CaptionFallbackGradient.sample[0.75]",
+    "hex": "#3d4051"
+  },
+  {
+    "theme": "dracula",
+    "key": "CaptionFallbackGradient.sample[1.00]",
+    "hex": "#44475a"
+  },
+  {
+    "theme": "dracula",
+    "key": "CaptionFallbackGradient.start",
+    "hex": "#282a36"
+  },
+  {
+    "theme": "dracula",
+    "key": "CaptionFg[0]",
+    "hex": "#cbf5fe",
+    "tag": "[#cbf5fe]"
+  },
+  {
+    "theme": "dracula",
+    "key": "CaptionFg[1]",
+    "hex": "#b0fdc4",
+    "tag": "[#b0fdc4]"
+  },
+  {
+    "theme": "dracula",
+    "key": "CaptionFg[2]",
+    "hex": "#ffdfbd",
+    "tag": "[#ffdfbd]"
+  },
+  {
+    "theme": "dracula",
+    "key": "CaptionFg[3]",
+    "hex": "#f9fdcb",
+    "tag": "[#f9fdcb]"
+  },
+  {
+    "theme": "dracula",
+    "key": "CaptionFg[4]",
+    "hex": "#b8c0d6",
+    "tag": "[#b8c0d6]"
+  },
+  {
+    "theme": "dracula",
+    "key": "CaptionFg[5]",
+    "hex": "#ffc3e5",
+    "tag": "[#ffc3e5]"
+  },
+  {
+    "theme": "dracula",
+    "key": "CompletionHintColor",
+    "hex": "#6272a4",
+    "tag": "[#6272a4]"
+  },
+  {
+    "theme": "dracula",
+    "key": "ContentBackgroundColor",
+    "hex": "-",
+    "tag": "[-]"
+  },
+  {
+    "theme": "dracula",
+    "key": "ContentTextColor",
+    "hex": "#f8f8f2",
+    "tag": "[#f8f8f2]"
+  },
+  {
+    "theme": "dracula",
+    "key": "DangerColor",
+    "hex": "#ff5555",
+    "tag": "[#ff5555]"
+  },
+  {
+    "theme": "dracula",
+    "key": "DepsEditorBackground",
+    "hex": "#44475a",
+    "tag": "[#44475a]"
+  },
+  {
+    "theme": "dracula",
+    "key": "FallbackTaskIDColor",
+    "hex": "#8be9fd",
+    "tag": "[#8be9fd]"
+  },
+  {
+    "theme": "dracula",
+    "key": "HeaderActionGlobalKeyColor",
+    "hex": "#ff79c6",
+    "tag": "[#ff79c6]"
+  },
+  {
+    "theme": "dracula",
+    "key": "HeaderActionGlobalLabelColor",
+    "hex": "#f8f8f2",
+    "tag": "[#f8f8f2]"
+  },
+  {
+    "theme": "dracula",
+    "key": "HeaderActionPluginKeyColor",
+    "hex": "#ffb86c",
+    "tag": "[#ffb86c]"
+  },
+  {
+    "theme": "dracula",
+    "key": "HeaderActionPluginLabelColor",
+    "hex": "#bfbfbf",
+    "tag": "[#bfbfbf]"
+  },
+  {
+    "theme": "dracula",
+    "key": "HeaderActionViewKeyColor",
+    "hex": "#8be9fd",
+    "tag": "[#8be9fd]"
+  },
+  {
+    "theme": "dracula",
+    "key": "HeaderActionViewLabelColor",
+    "hex": "#6272a4",
+    "tag": "[#6272a4]"
+  },
+  {
+    "theme": "dracula",
+    "key": "HeaderInfoDesc",
+    "hex": "#6272a4",
+    "tag": "[#6272a4]"
+  },
+  {
+    "theme": "dracula",
+    "key": "HeaderInfoLabel",
+    "hex": "#ffb86c",
+    "tag": "[#ffb86c]"
+  },
+  {
+    "theme": "dracula",
+    "key": "HeaderInfoSeparator",
+    "hex": "#6272a4",
+    "tag": "[#6272a4]"
+  },
+  {
+    "theme": "dracula",
+    "key": "HeaderKeyBinding",
+    "hex": "#ff79c6",
+    "tag": "[#ff79c6]"
+  },
+  {
+    "theme": "dracula",
+    "key": "HeaderKeyText",
+    "hex": "#f8f8f2",
+    "tag": "[#f8f8f2]"
+  },
+  {
+    "theme": "dracula",
+    "key": "InputBoxBackgroundColor",
+    "hex": "-",
+    "tag": "[-]"
+  },
+  {
+    "theme": "dracula",
+    "key": "InputBoxLabelColor",
+    "hex": "#f8f8f2",
+    "tag": "[#f8f8f2]"
+  },
+  {
+    "theme": "dracula",
+    "key": "InputBoxTextColor",
+    "hex": "#f8f8f2",
+    "tag": "[#f8f8f2]"
+  },
+  {
+    "theme": "dracula",
+    "key": "InputFieldBackgroundColor",
+    "hex": "-",
+    "tag": "[-]"
+  },
+  {
+    "theme": "dracula",
+    "key": "InputFieldTextColor",
+    "hex": "#f8f8f2",
+    "tag": "[#f8f8f2]"
+  },
+  {
+    "theme": "dracula",
+    "key": "LogoBorderColor",
+    "hex": "#44475a",
+    "tag": "[#44475a]"
+  },
+  {
+    "theme": "dracula",
+    "key": "LogoDotColor",
+    "hex": "#8be9fd",
+    "tag": "[#8be9fd]"
+  },
+  {
+    "theme": "dracula",
+    "key": "LogoShadeColor",
+    "hex": "#bd93f9",
+    "tag": "[#bd93f9]"
+  },
+  {
+    "theme": "dracula",
+    "key": "OkColor",
+    "hex": "#50fa7b",
+    "tag": "[#50fa7b]"
+  },
+  {
+    "theme": "dracula",
+    "key": "StatuslineAccentBg",
+    "hex": "#bd93f9",
+    "tag": "[#bd93f9]"
+  },
+  {
+    "theme": "dracula",
+    "key": "StatuslineAccentFg",
+    "hex": "#21222c",
+    "tag": "[#21222c]"
+  },
+  {
+    "theme": "dracula",
+    "key": "StatuslineBg",
+    "hex": "#44475a",
+    "tag": "[#44475a]"
+  },
+  {
+    "theme": "dracula",
+    "key": "StatuslineErrorBg",
+    "hex": "#282a36",
+    "tag": "[#282a36]"
+  },
+  {
+    "theme": "dracula",
+    "key": "StatuslineErrorFg",
+    "hex": "#ff79c6",
+    "tag": "[#ff79c6]"
+  },
+  {
+    "theme": "dracula",
+    "key": "StatuslineFg",
+    "hex": "#f8f8f2",
+    "tag": "[#f8f8f2]"
+  },
+  {
+    "theme": "dracula",
+    "key": "StatuslineFillBg",
+    "hex": "#282a36",
+    "tag": "[#282a36]"
+  },
+  {
+    "theme": "dracula",
+    "key": "StatuslineInfoBg",
+    "hex": "#282a36",
+    "tag": "[#282a36]"
+  },
+  {
+    "theme": "dracula",
+    "key": "StatuslineInfoFg",
+    "hex": "#50fa7b",
+    "tag": "[#50fa7b]"
+  },
+  {
+    "theme": "dracula",
+    "key": "TaskBoxDescriptionColor",
+    "hex": "#6272a4",
+    "tag": "[#6272a4]"
+  },
+  {
+    "theme": "dracula",
+    "key": "TaskBoxIDColor.end",
+    "hex": "#8be9fd"
+  },
+  {
+    "theme": "dracula",
+    "key": "TaskBoxIDColor.sample[0.00]",
+    "hex": "#6fbaca"
+  },
+  {
+    "theme": "dracula",
+    "key": "TaskBoxIDColor.sample[0.25]",
+    "hex": "#76c6d7"
+  },
+  {
+    "theme": "dracula",
+    "key": "TaskBoxIDColor.sample[0.50]",
+    "hex": "#7dd2e4"
+  },
+  {
+    "theme": "dracula",
+    "key": "TaskBoxIDColor.sample[0.75]",
+    "hex": "#84ddf0"
+  },
+  {
+    "theme": "dracula",
+    "key": "TaskBoxIDColor.sample[1.00]",
+    "hex": "#8be9fd"
+  },
+  {
+    "theme": "dracula",
+    "key": "TaskBoxIDColor.start",
+    "hex": "#6fbaca"
+  },
+  {
+    "theme": "dracula",
+    "key": "TaskBoxLabelColor",
+    "hex": "#6272a4",
+    "tag": "[#6272a4]"
+  },
+  {
+    "theme": "dracula",
+    "key": "TaskBoxSelectedBorder",
+    "hex": "#ff79c6",
+    "tag": "[#ff79c6]"
+  },
+  {
+    "theme": "dracula",
+    "key": "TaskBoxTagValueColor",
+    "hex": "#6272a4",
+    "tag": "[#6272a4]"
+  },
+  {
+    "theme": "dracula",
+    "key": "TaskBoxTitleColor",
+    "hex": "#bfbfbf",
+    "tag": "[#bfbfbf]"
+  },
+  {
+    "theme": "dracula",
+    "key": "TaskBoxUnselectedBackground",
+    "hex": "-",
+    "tag": "[-]"
+  },
+  {
+    "theme": "dracula",
+    "key": "TaskBoxUnselectedBorder",
+    "hex": "#44475a",
+    "tag": "[#44475a]"
+  },
+  {
+    "theme": "dracula",
+    "key": "TaskDetailCommentAuthor",
+    "hex": "#ff79c6",
+    "tag": "[#ff79c6]"
+  },
+  {
+    "theme": "dracula",
+    "key": "TaskDetailEditDimLabelColor",
+    "hex": "#6272a4",
+    "tag": "[#6272a4]"
+  },
+  {
+    "theme": "dracula",
+    "key": "TaskDetailEditDimTextColor",
+    "hex": "#6272a4",
+    "tag": "[#6272a4]"
+  },
+  {
+    "theme": "dracula",
+    "key": "TaskDetailEditDimValueColor",
+    "hex": "#bfbfbf",
+    "tag": "[#bfbfbf]"
+  },
+  {
+    "theme": "dracula",
+    "key": "TaskDetailEditFocusMarker",
+    "hex": "#ff79c6",
+    "tag": "[#ff79c6]"
+  },
+  {
+    "theme": "dracula",
+    "key": "TaskDetailEditFocusText",
+    "hex": "#f8f8f2",
+    "tag": "[#f8f8f2]"
+  },
+  {
+    "theme": "dracula",
+    "key": "TaskDetailIDColor.end",
+    "hex": "#8be9fd"
+  },
+  {
+    "theme": "dracula",
+    "key": "TaskDetailIDColor.sample[0.00]",
+    "hex": "#6fbaca"
+  },
+  {
+    "theme": "dracula",
+    "key": "TaskDetailIDColor.sample[0.25]",
+    "hex": "#76c6d7"
+  },
+  {
+    "theme": "dracula",
+    "key": "TaskDetailIDColor.sample[0.50]",
+    "hex": "#7dd2e4"
+  },
+  {
+    "theme": "dracula",
+    "key": "TaskDetailIDColor.sample[0.75]",
+    "hex": "#84ddf0"
+  },
+  {
+    "theme": "dracula",
+    "key": "TaskDetailIDColor.sample[1.00]",
+    "hex": "#8be9fd"
+  },
+  {
+    "theme": "dracula",
+    "key": "TaskDetailIDColor.start",
+    "hex": "#6fbaca"
+  },
+  {
+    "theme": "dracula",
+    "key": "TaskDetailLabelText",
+    "hex": "#50fa7b",
+    "tag": "[#50fa7b]"
+  },
+  {
+    "theme": "dracula",
+    "key": "TaskDetailPlaceholderColor",
+    "hex": "#6272a4",
+    "tag": "[#6272a4]"
+  },
+  {
+    "theme": "dracula",
+    "key": "TaskDetailTagBackground",
+    "hex": "#44475a",
+    "tag": "[#44475a]"
+  },
+  {
+    "theme": "dracula",
+    "key": "TaskDetailTagForeground",
+    "hex": "#bfbfbf",
+    "tag": "[#bfbfbf]"
+  },
+  {
+    "theme": "dracula",
+    "key": "TaskDetailTitleText",
+    "hex": "#f8f8f2",
+    "tag": "[#f8f8f2]"
+  },
+  {
+    "theme": "dracula",
+    "key": "TaskDetailValueText",
+    "hex": "#bd93f9",
+    "tag": "[#bd93f9]"
+  },
+  {
+    "theme": "dracula",
+    "key": "TaskListSelectionBg",
+    "hex": "#44475a",
+    "tag": "[#44475a]"
+  },
+  {
+    "theme": "dracula",
+    "key": "TaskListSelectionFg",
+    "hex": "#f8f8f2",
+    "tag": "[#f8f8f2]"
+  },
+  {
+    "theme": "dracula",
+    "key": "TaskListStatusDoneColor",
+    "hex": "#50fa7b",
+    "tag": "[#50fa7b]"
+  },
+  {
+    "theme": "dracula",
+    "key": "TaskListStatusPendingColor",
+    "hex": "#f8f8f2",
+    "tag": "[#f8f8f2]"
+  },
+  {
+    "theme": "dracula",
+    "key": "WarnColor",
+    "hex": "#ffb86c",
+    "tag": "[#ffb86c]"
+  },
+  {
+    "theme": "dracula",
+    "key": "alias:accent",
+    "hex": "#50fa7b",
+    "tag": "[#50fa7b]"
+  },
+  {
+    "theme": "dracula",
+    "key": "alias:action",
+    "hex": "#8be9fd",
+    "tag": "[#8be9fd]"
+  },
+  {
+    "theme": "dracula",
+    "key": "alias:danger",
+    "hex": "#ff5555",
+    "tag": "[#ff5555]"
+  },
+  {
+    "theme": "dracula",
+    "key": "alias:highlight",
+    "hex": "#ff79c6",
+    "tag": "[#ff79c6]"
+  },
+  {
+    "theme": "dracula",
+    "key": "alias:info",
+    "hex": "#ffb86c",
+    "tag": "[#ffb86c]"
+  },
+  {
+    "theme": "dracula",
+    "key": "alias:muted",
+    "hex": "#6272a4",
+    "tag": "[#6272a4]"
+  },
+  {
+    "theme": "dracula",
+    "key": "alias:ok",
+    "hex": "#50fa7b",
+    "tag": "[#50fa7b]"
+  },
+  {
+    "theme": "dracula",
+    "key": "alias:text",
+    "hex": "#f8f8f2",
+    "tag": "[#f8f8f2]"
+  },
+  {
+    "theme": "dracula",
+    "key": "alias:warn",
+    "hex": "#ffb86c",
+    "tag": "[#ffb86c]"
+  },
+  {
+    "theme": "tokyo-night",
+    "key": "CaptionBg[0]",
+    "hex": "#263e4d",
+    "tag": "[#263e4d]"
+  },
+  {
+    "theme": "tokyo-night",
+    "key": "CaptionBg[1]",
+    "hex": "#2f3e20",
+    "tag": "[#2f3e20]"
+  },
+  {
+    "theme": "tokyo-night",
+    "key": "CaptionBg[2]",
+    "hex": "#4d2f1e",
+    "tag": "[#4d2f1e]"
+  },
+  {
+    "theme": "tokyo-night",
+    "key": "CaptionBg[3]",
+    "hex": "#44341f",
+    "tag": "[#44341f]"
+  },
+  {
+    "theme": "tokyo-night",
+    "key": "CaptionBg[4]",
+    "hex": "#1a1d29",
+    "tag": "[#1a1d29]"
+  },
+  {
+    "theme": "tokyo-night",
+    "key": "CaptionBg[5]",
+    "hex": "#4a232a",
+    "tag": "[#4a232a]"
+  },
+  {
+    "theme": "tokyo-night",
+    "key": "CaptionFallbackGradient.end",
+    "hex": "#3b4261"
+  },
+  {
+    "theme": "tokyo-night",
+    "key": "CaptionFallbackGradient.sample[0.00]",
+    "hex": "#1a1b26"
+  },
+  {
+    "theme": "tokyo-night",
+    "key": "CaptionFallbackGradient.sample[0.25]",
+    "hex": "#222535"
+  },
+  {
+    "theme": "tokyo-night",
+    "key": "CaptionFallbackGradient.sample[0.50]",
+    "hex": "#2b2f44"
+  },
+  {
+    "theme": "tokyo-night",
+    "key": "CaptionFallbackGradient.sample[0.75]",
+    "hex": "#333852"
+  },
+  {
+    "theme": "tokyo-night",
+    "key": "CaptionFallbackGradient.sample[1.00]",
+    "hex": "#3b4261"
+  },
+  {
+    "theme": "tokyo-night",
+    "key": "CaptionFallbackGradient.start",
+    "hex": "#1a1b26"
+  },
+  {
+    "theme": "tokyo-night",
+    "key": "CaptionFg[0]",
+    "hex": "#c5e9ff",
+    "tag": "[#c5e9ff]"
+  },
+  {
+    "theme": "tokyo-night",
+    "key": "CaptionFg[1]",
+    "hex": "#d3e9bc",
+    "tag": "[#d3e9bc]"
+  },
+  {
+    "theme": "tokyo-night",
+    "key": "CaptionFg[2]",
+    "hex": "#ffd3b9",
+    "tag": "[#ffd3b9]"
+  },
+  {
+    "theme": "tokyo-night",
+    "key": "CaptionFg[3]",
+    "hex": "#efdbba",
+    "tag": "[#efdbba]"
+  },
+  {
+    "theme": "tokyo-night",
+    "key": "CaptionFg[4]",
+    "hex": "#b3b7ca",
+    "tag": "[#b3b7ca]"
+  },
+  {
+    "theme": "tokyo-night",
+    "key": "CaptionFg[5]",
+    "hex": "#fbc2cc",
+    "tag": "[#fbc2cc]"
+  },
+  {
+    "theme": "tokyo-night",
+    "key": "CompletionHintColor",
+    "hex": "#565f89",
+    "tag": "[#565f89]"
+  },
+  {
+    "theme": "tokyo-night",
+    "key": "ContentBackgroundColor",
+    "hex": "-",
+    "tag": "[-]"
+  },
+  {
+    "theme": "tokyo-night",
+    "key": "ContentTextColor",
+    "hex": "#c0caf5",
+    "tag": "[#c0caf5]"
+  },
+  {
+    "theme": "tokyo-night",
+    "key": "DangerColor",
+    "hex": "#f7768e",
+    "tag": "[#f7768e]"
+  },
+  {
+    "theme": "tokyo-night",
+    "key": "DepsEditorBackground",
+    "hex": "#24283b",
+    "tag": "[#24283b]"
+  },
+  {
+    "theme": "tokyo-night",
+    "key": "FallbackTaskIDColor",
+    "hex": "#7dcfff",
+    "tag": "[#7dcfff]"
+  },
+  {
+    "theme": "tokyo-night",
+    "key": "HeaderActionGlobalKeyColor",
+    "hex": "#e0af68",
+    "tag": "[#e0af68]"
+  },
+  {
+    "theme": "tokyo-night",
+    "key": "HeaderActionGlobalLabelColor",
+    "hex": "#c0caf5",
+    "tag": "[#c0caf5]"
+  },
+  {
+    "theme": "tokyo-night",
+    "key": "HeaderActionPluginKeyColor",
+    "hex": "#ff9e64",
+    "tag": "[#ff9e64]"
+  },
+  {
+    "theme": "tokyo-night",
+    "key": "HeaderActionPluginLabelColor",
+    "hex": "#a9b1d6",
+    "tag": "[#a9b1d6]"
+  },
+  {
+    "theme": "tokyo-night",
+    "key": "HeaderActionViewKeyColor",
+    "hex": "#7aa2f7",
+    "tag": "[#7aa2f7]"
+  },
+  {
+    "theme": "tokyo-night",
+    "key": "HeaderActionViewLabelColor",
+    "hex": "#565f89",
+    "tag": "[#565f89]"
+  },
+  {
+    "theme": "tokyo-night",
+    "key": "HeaderInfoDesc",
+    "hex": "#565f89",
+    "tag": "[#565f89]"
+  },
+  {
+    "theme": "tokyo-night",
+    "key": "HeaderInfoLabel",
+    "hex": "#ff9e64",
+    "tag": "[#ff9e64]"
+  },
+  {
+    "theme": "tokyo-night",
+    "key": "HeaderInfoSeparator",
+    "hex": "#565f89",
+    "tag": "[#565f89]"
+  },
+  {
+    "theme": "tokyo-night",
+    "key": "HeaderKeyBinding",
+    "hex": "#e0af68",
+    "tag": "[#e0af68]"
+  },
+  {
+    "theme": "tokyo-night",
+    "key": "HeaderKeyText",
+    "hex": "#c0caf5",
+    "tag": "[#c0caf5]"
+  },
+  {
+    "theme": "tokyo-night",
+    "key": "InputBoxBackgroundColor",
+    "hex": "-",
+    "tag": "[-]"
+  },
+  {
+    "theme": "tokyo-night",
+    "key": "InputBoxLabelColor",
+    "hex": "#c0caf5",
+    "tag": "[#c0caf5]"
+  },
+  {
+    "theme": "tokyo-night",
+    "key": "InputBoxTextColor",
+    "hex": "#c0caf5",
+    "tag": "[#c0caf5]"
+  },
+  {
+    "theme": "tokyo-night",
+    "key": "InputFieldBackgroundColor",
+    "hex": "-",
+    "tag": "[-]"
+  },
+  {
+    "theme": "tokyo-night",
+    "key": "InputFieldTextColor",
+    "hex": "#c0caf5",
+    "tag": "[#c0caf5]"
+  },
+  {
+    "theme": "tokyo-night",
+    "key": "LogoBorderColor",
+    "hex": "#3b4261",
+    "tag": "[#3b4261]"
+  },
+  {
+    "theme": "tokyo-night",
+    "key": "LogoDotColor",
+    "hex": "#7dcfff",
+    "tag": "[#7dcfff]"
+  },
+  {
+    "theme": "tokyo-night",
+    "key": "LogoShadeColor",
+    "hex": "#7aa2f7",
+    "tag": "[#7aa2f7]"
+  },
+  {
+    "theme": "tokyo-night",
+    "key": "OkColor",
+    "hex": "#9ece6a",
+    "tag": "[#9ece6a]"
+  },
+  {
+    "theme": "tokyo-night",
+    "key": "StatuslineAccentBg",
+    "hex": "#7aa2f7",
+    "tag": "[#7aa2f7]"
+  },
+  {
+    "theme": "tokyo-night",
+    "key": "StatuslineAccentFg",
+    "hex": "#16161e",
+    "tag": "[#16161e]"
+  },
+  {
+    "theme": "tokyo-night",
+    "key": "StatuslineBg",
+    "hex": "#24283b",
+    "tag": "[#24283b]"
+  },
+  {
+    "theme": "tokyo-night",
+    "key": "StatuslineErrorBg",
+    "hex": "#1a1b26",
+    "tag": "[#1a1b26]"
+  },
+  {
+    "theme": "tokyo-night",
+    "key": "StatuslineErrorFg",
+    "hex": "#e0af68",
+    "tag": "[#e0af68]"
+  },
+  {
+    "theme": "tokyo-night",
+    "key": "StatuslineFg",
+    "hex": "#c0caf5",
+    "tag": "[#c0caf5]"
+  },
+  {
+    "theme": "tokyo-night",
+    "key": "StatuslineFillBg",
+    "hex": "#1a1b26",
+    "tag": "[#1a1b26]"
+  },
+  {
+    "theme": "tokyo-night",
+    "key": "StatuslineInfoBg",
+    "hex": "#1a1b26",
+    "tag": "[#1a1b26]"
+  },
+  {
+    "theme": "tokyo-night",
+    "key": "StatuslineInfoFg",
+    "hex": "#9ece6a",
+    "tag": "[#9ece6a]"
+  },
+  {
+    "theme": "tokyo-night",
+    "key": "TaskBoxDescriptionColor",
+    "hex": "#565f89",
+    "tag": "[#565f89]"
+  },
+  {
+    "theme": "tokyo-night",
+    "key": "TaskBoxIDColor.end",
+    "hex": "#7dcfff"
+  },
+  {
+    "theme": "tokyo-night",
+    "key": "TaskBoxIDColor.sample[0.00]",
+    "hex": "#64a5cc"
+  },
+  {
+    "theme": "tokyo-night",
+    "key": "TaskBoxIDColor.sample[0.25]",
+    "hex": "#6ab0d9"
+  },
+  {
+    "theme": "tokyo-night",
+    "key": "TaskBoxIDColor.sample[0.50]",
+    "hex": "#71bae6"
+  },
+  {
+    "theme": "tokyo-night",
+    "key": "TaskBoxIDColor.sample[0.75]",
+    "hex": "#77c5f2"
+  },
+  {
+    "theme": "tokyo-night",
+    "key": "TaskBoxIDColor.sample[1.00]",
+    "hex": "#7dcfff"
+  },
+  {
+    "theme": "tokyo-night",
+    "key": "TaskBoxIDColor.start",
+    "hex": "#64a5cc"
+  },
+  {
+    "theme": "tokyo-night",
+    "key": "TaskBoxLabelColor",
+    "hex": "#565f89",
+    "tag": "[#565f89]"
+  },
+  {
+    "theme": "tokyo-night",
+    "key": "TaskBoxSelectedBorder",
+    "hex": "#e0af68",
+    "tag": "[#e0af68]"
+  },
+  {
+    "theme": "tokyo-night",
+    "key": "TaskBoxTagValueColor",
+    "hex": "#565f89",
+    "tag": "[#565f89]"
+  },
+  {
+    "theme": "tokyo-night",
+    "key": "TaskBoxTitleColor",
+    "hex": "#a9b1d6",
+    "tag": "[#a9b1d6]"
+  },
+  {
+    "theme": "tokyo-night",
+    "key": "TaskBoxUnselectedBackground",
+    "hex": "-",
+    "tag": "[-]"
+  },
+  {
+    "theme": "tokyo-night",
+    "key": "TaskBoxUnselectedBorder",
+    "hex": "#3b4261",
+    "tag": "[#3b4261]"
+  },
+  {
+    "theme": "tokyo-night",
+    "key": "TaskDetailCommentAuthor",
+    "hex": "#e0af68",
+    "tag": "[#e0af68]"
+  },
+  {
+    "theme": "tokyo-night",
+    "key": "TaskDetailEditDimLabelColor",
+    "hex": "#565f89",
+    "tag": "[#565f89]"
+  },
+  {
+    "theme": "tokyo-night",
+    "key": "TaskDetailEditDimTextColor",
+    "hex": "#565f89",
+    "tag": "[#565f89]"
+  },
+  {
+    "theme": "tokyo-night",
+    "key": "TaskDetailEditDimValueColor",
+    "hex": "#a9b1d6",
+    "tag": "[#a9b1d6]"
+  },
+  {
+    "theme": "tokyo-night",
+    "key": "TaskDetailEditFocusMarker",
+    "hex": "#e0af68",
+    "tag": "[#e0af68]"
+  },
+  {
+    "theme": "tokyo-night",
+    "key": "TaskDetailEditFocusText",
+    "hex": "#c0caf5",
+    "tag": "[#c0caf5]"
+  },
+  {
+    "theme": "tokyo-night",
+    "key": "TaskDetailIDColor.end",
+    "hex": "#7dcfff"
+  },
+  {
+    "theme": "tokyo-night",
+    "key": "TaskDetailIDColor.sample[0.00]",
+    "hex": "#64a5cc"
+  },
+  {
+    "theme": "tokyo-night",
+    "key": "TaskDetailIDColor.sample[0.25]",
+    "hex": "#6ab0d9"
+  },
+  {
+    "theme": "tokyo-night",
+    "key": "TaskDetailIDColor.sample[0.50]",
+    "hex": "#71bae6"
+  },
+  {
+    "theme": "tokyo-night",
+    "key": "TaskDetailIDColor.sample[0.75]",
+    "hex": "#77c5f2"
+  },
+  {
+    "theme": "tokyo-night",
+    "key": "TaskDetailIDColor.sample[1.00]",
+    "hex": "#7dcfff"
+  },
+  {
+    "theme": "tokyo-night",
+    "key": "TaskDetailIDColor.start",
+    "hex": "#64a5cc"
+  },
+  {
+    "theme": "tokyo-night",
+    "key": "TaskDetailLabelText",
+    "hex": "#9ece6a",
+    "tag": "[#9ece6a]"
+  },
+  {
+    "theme": "tokyo-night",
+    "key": "TaskDetailPlaceholderColor",
+    "hex": "#565f89",
+    "tag": "[#565f89]"
+  },
+  {
+    "theme": "tokyo-night",
+    "key": "TaskDetailTagBackground",
+    "hex": "#283457",
+    "tag": "[#283457]"
+  },
+  {
+    "theme": "tokyo-night",
+    "key": "TaskDetailTagForeground",
+    "hex": "#a9b1d6",
+    "tag": "[#a9b1d6]"
+  },
+  {
+    "theme": "tokyo-night",
+    "key": "TaskDetailTitleText",
+    "hex": "#c0caf5",
+    "tag": "[#c0caf5]"
+  },
+  {
+    "theme": "tokyo-night",
+    "key": "TaskDetailValueText",
+    "hex": "#7aa2f7",
+    "tag": "[#7aa2f7]"
+  },
+  {
+    "theme": "tokyo-night",
+    "key": "TaskListSelectionBg",
+    "hex": "#283457",
+    "tag": "[#283457]"
+  },
+  {
+    "theme": "tokyo-night",
+    "key": "TaskListSelectionFg",
+    "hex": "#c0caf5",
+    "tag": "[#c0caf5]"
+  },
+  {
+    "theme": "tokyo-night",
+    "key": "TaskListStatusDoneColor",
+    "hex": "#9ece6a",
+    "tag": "[#9ece6a]"
+  },
+  {
+    "theme": "tokyo-night",
+    "key": "TaskListStatusPendingColor",
+    "hex": "#c0caf5",
+    "tag": "[#c0caf5]"
+  },
+  {
+    "theme": "tokyo-night",
+    "key": "WarnColor",
+    "hex": "#ff9e64",
+    "tag": "[#ff9e64]"
+  },
+  {
+    "theme": "tokyo-night",
+    "key": "alias:accent",
+    "hex": "#9ece6a",
+    "tag": "[#9ece6a]"
+  },
+  {
+    "theme": "tokyo-night",
+    "key": "alias:action",
+    "hex": "#7aa2f7",
+    "tag": "[#7aa2f7]"
+  },
+  {
+    "theme": "tokyo-night",
+    "key": "alias:danger",
+    "hex": "#f7768e",
+    "tag": "[#f7768e]"
+  },
+  {
+    "theme": "tokyo-night",
+    "key": "alias:highlight",
+    "hex": "#e0af68",
+    "tag": "[#e0af68]"
+  },
+  {
+    "theme": "tokyo-night",
+    "key": "alias:info",
+    "hex": "#ff9e64",
+    "tag": "[#ff9e64]"
+  },
+  {
+    "theme": "tokyo-night",
+    "key": "alias:muted",
+    "hex": "#565f89",
+    "tag": "[#565f89]"
+  },
+  {
+    "theme": "tokyo-night",
+    "key": "alias:ok",
+    "hex": "#9ece6a",
+    "tag": "[#9ece6a]"
+  },
+  {
+    "theme": "tokyo-night",
+    "key": "alias:text",
+    "hex": "#c0caf5",
+    "tag": "[#c0caf5]"
+  },
+  {
+    "theme": "tokyo-night",
+    "key": "alias:warn",
+    "hex": "#ff9e64",
+    "tag": "[#ff9e64]"
+  },
+  {
+    "theme": "gruvbox-dark",
+    "key": "CaptionBg[0]",
+    "hex": "#27322e",
+    "tag": "[#27322e]"
+  },
+  {
+    "theme": "gruvbox-dark",
+    "key": "CaptionBg[1]",
+    "hex": "#37380b",
+    "tag": "[#37380b]"
+  },
+  {
+    "theme": "gruvbox-dark",
+    "key": "CaptionBg[2]",
+    "hex": "#4c2608",
+    "tag": "[#4c2608]"
+  },
+  {
+    "theme": "gruvbox-dark",
+    "key": "CaptionBg[3]",
+    "hex": "#4b390e",
+    "tag": "[#4b390e]"
+  },
+  {
+    "theme": "gruvbox-dark",
+    "key": "CaptionBg[4]",
+    "hex": "#1f1c19",
+    "tag": "[#1f1c19]"
+  },
+  {
+    "theme": "gruvbox-dark",
+    "key": "CaptionBg[5]",
+    "hex": "#4b1610",
+    "tag": "[#4b1610]"
+  },
+  {
+    "theme": "gruvbox-dark",
+    "key": "CaptionFallbackGradient.end",
+    "hex": "#504945"
+  },
+  {
+    "theme": "gruvbox-dark",
+    "key": "CaptionFallbackGradient.sample[0.00]",
+    "hex": "#282828"
+  },
+  {
+    "theme": "gruvbox-dark",
+    "key": "CaptionFallbackGradient.sample[0.25]",
+    "hex": "#32302f"
+  },
+  {
+    "theme": "gruvbox-dark",
+    "key": "CaptionFallbackGradient.sample[0.50]",
+    "hex": "#3c3937"
+  },
+  {
+    "theme": "gruvbox-dark",
+    "key": "CaptionFallbackGradient.sample[0.75]",
+    "hex": "#46413e"
+  },
+  {
+    "theme": "gruvbox-dark",
+    "key": "CaptionFallbackGradient.sample[1.00]",
+    "hex": "#504945"
+  },
+  {
+    "theme": "gruvbox-dark",
+    "key": "CaptionFallbackGradient.start",
+    "hex": "#282828"
+  },
+  {
+    "theme": "gruvbox-dark",
+    "key": "CaptionFg[0]",
+    "hex": "#c7d7d1",
+    "tag": "[#c7d7d1]"
+  },
+  {
+    "theme": "gruvbox-dark",
+    "key": "CaptionFg[1]",
+    "hex": "#dfe09d",
+    "tag": "[#dfe09d]"
+  },
+  {
+    "theme": "gruvbox-dark",
+    "key": "CaptionFg[2]",
+    "hex": "#ffc698",
+    "tag": "[#ffc698]"
+  },
+  {
+    "theme": "gruvbox-dark",
+    "key": "CaptionFg[3]",
+    "hex": "#fcdfaa",
+    "tag": "[#fcdfaa]"
+  },
+  {
+    "theme": "gruvbox-dark",
+    "key": "CaptionFg[4]",
+    "hex": "#bab6b2",
+    "tag": "[#bab6b2]"
+  },
+  {
+    "theme": "gruvbox-dark",
+    "key": "CaptionFg[5]",
+    "hex": "#fd9a90",
+    "tag": "[#fd9a90]"
+  },
+  {
+    "theme": "gruvbox-dark",
+    "key": "CompletionHintColor",
+    "hex": "#928374",
+    "tag": "[#928374]"
+  },
+  {
+    "theme": "gruvbox-dark",
+    "key": "ContentBackgroundColor",
+    "hex": "-",
+    "tag": "[-]"
+  },
+  {
+    "theme": "gruvbox-dark",
+    "key": "ContentTextColor",
+    "hex": "#ebdbb2",
+    "tag": "[#ebdbb2]"
+  },
+  {
+    "theme": "gruvbox-dark",
+    "key": "DangerColor",
+    "hex": "#fb4934",
+    "tag": "[#fb4934]"
+  },
+  {
+    "theme": "gruvbox-dark",
+    "key": "DepsEditorBackground",
+    "hex": "#3c3836",
+    "tag": "[#3c3836]"
+  },
+  {
+    "theme": "gruvbox-dark",
+    "key": "FallbackTaskIDColor",
+    "hex": "#83a598",
+    "tag": "[#83a598]"
+  },
+  {
+    "theme": "gruvbox-dark",
+    "key": "HeaderActionGlobalKeyColor",
+    "hex": "#fabd2f",
+    "tag": "[#fabd2f]"
+  },
+  {
+    "theme": "gruvbox-dark",
+    "key": "HeaderActionGlobalLabelColor",
+    "hex": "#ebdbb2",
+    "tag": "[#ebdbb2]"
+  },
+  {
+    "theme": "gruvbox-dark",
+    "key": "HeaderActionPluginKeyColor",
+    "hex": "#fe8019",
+    "tag": "[#fe8019]"
+  },
+  {
+    "theme": "gruvbox-dark",
+    "key": "HeaderActionPluginLabelColor",
+    "hex": "#bdae93",
+    "tag": "[#bdae93]"
+  },
+  {
+    "theme": "gruvbox-dark",
+    "key": "HeaderActionViewKeyColor",
+    "hex": "#83a598",
+    "tag": "[#83a598]"
+  },
+  {
+    "theme": "gruvbox-dark",
+    "key": "HeaderActionViewLabelColor",
+    "hex": "#928374",
+    "tag": "[#928374]"
+  },
+  {
+    "theme": "gruvbox-dark",
+    "key": "HeaderInfoDesc",
+    "hex": "#928374",
+    "tag": "[#928374]"
+  },
+  {
+    "theme": "gruvbox-dark",
+    "key": "HeaderInfoLabel",
+    "hex": "#fe8019",
+    "tag": "[#fe8019]"
+  },
+  {
+    "theme": "gruvbox-dark",
+    "key": "HeaderInfoSeparator",
+    "hex": "#928374",
+    "tag": "[#928374]"
+  },
+  {
+    "theme": "gruvbox-dark",
+    "key": "HeaderKeyBinding",
+    "hex": "#fabd2f",
+    "tag": "[#fabd2f]"
+  },
+  {
+    "theme": "gruvbox-dark",
+    "key": "HeaderKeyText",
+    "hex": "#ebdbb2",
+    "tag": "[#ebdbb2]"
+  },
+  {
+    "theme": "gruvbox-dark",
+    "key": "InputBoxBackgroundColor",
+    "hex": "-",
+    "tag": "[-]"
+  },
+  {
+    "theme": "gruvbox-dark",
+    "key": "InputBoxLabelColor",
+    "hex": "#ebdbb2",
+    "tag": "[#ebdbb2]"
+  },
+  {
+    "theme": "gruvbox-dark",
+    "key": "InputBoxTextColor",
+    "hex": "#ebdbb2",
+    "tag": "[#ebdbb2]"
+  },
+  {
+    "theme": "gruvbox-dark",
+    "key": "InputFieldBackgroundColor",
+    "hex": "-",
+    "tag": "[-]"
+  },
+  {
+    "theme": "gruvbox-dark",
+    "key": "InputFieldTextColor",
+    "hex": "#ebdbb2",
+    "tag": "[#ebdbb2]"
+  },
+  {
+    "theme": "gruvbox-dark",
+    "key": "LogoBorderColor",
+    "hex": "#3c3836",
+    "tag": "[#3c3836]"
+  },
+  {
+    "theme": "gruvbox-dark",
+    "key": "LogoDotColor",
+    "hex": "#8ec07c",
+    "tag": "[#8ec07c]"
+  },
+  {
+    "theme": "gruvbox-dark",
+    "key": "LogoShadeColor",
+    "hex": "#83a598",
+    "tag": "[#83a598]"
+  },
+  {
+    "theme": "gruvbox-dark",
+    "key": "OkColor",
+    "hex": "#b8bb26",
+    "tag": "[#b8bb26]"
+  },
+  {
+    "theme": "gruvbox-dark",
+    "key": "StatuslineAccentBg",
+    "hex": "#689d6a",
+    "tag": "[#689d6a]"
+  },
+  {
+    "theme": "gruvbox-dark",
+    "key": "StatuslineAccentFg",
+    "hex": "#1d2021",
+    "tag": "[#1d2021]"
+  },
+  {
+    "theme": "gruvbox-dark",
+    "key": "StatuslineBg",
+    "hex": "#3c3836",
+    "tag": "[#3c3836]"
+  },
+  {
+    "theme": "gruvbox-dark",
+    "key": "StatuslineErrorBg",
+    "hex": "#282828",
+    "tag": "[#282828]"
+  },
+  {
+    "theme": "gruvbox-dark",
+    "key": "StatuslineErrorFg",
+    "hex": "#fabd2f",
+    "tag": "[#fabd2f]"
+  },
+  {
+    "theme": "gruvbox-dark",
+    "key": "StatuslineFg",
+    "hex": "#ebdbb2",
+    "tag": "[#ebdbb2]"
+  },
+  {
+    "theme": "gruvbox-dark",
+    "key": "StatuslineFillBg",
+    "hex": "#282828",
+    "tag": "[#282828]"
+  },
+  {
+    "theme": "gruvbox-dark",
+    "key": "StatuslineInfoBg",
+    "hex": "#282828",
+    "tag": "[#282828]"
+  },
+  {
+    "theme": "gruvbox-dark",
+    "key": "StatuslineInfoFg",
+    "hex": "#b8bb26",
+    "tag": "[#b8bb26]"
+  },
+  {
+    "theme": "gruvbox-dark",
+    "key": "TaskBoxDescriptionColor",
+    "hex": "#928374",
+    "tag": "[#928374]"
+  },
+  {
+    "theme": "gruvbox-dark",
+    "key": "TaskBoxIDColor.end",
+    "hex": "#83a598"
+  },
+  {
+    "theme": "gruvbox-dark",
+    "key": "TaskBoxIDColor.sample[0.00]",
+    "hex": "#688479"
+  },
+  {
+    "theme": "gruvbox-dark",
+    "key": "TaskBoxIDColor.sample[0.25]",
+    "hex": "#6f8c81"
+  },
+  {
+    "theme": "gruvbox-dark",
+    "key": "TaskBoxIDColor.sample[0.50]",
+    "hex": "#769589"
+  },
+  {
+    "theme": "gruvbox-dark",
+    "key": "TaskBoxIDColor.sample[0.75]",
+    "hex": "#7c9d90"
+  },
+  {
+    "theme": "gruvbox-dark",
+    "key": "TaskBoxIDColor.sample[1.00]",
+    "hex": "#83a598"
+  },
+  {
+    "theme": "gruvbox-dark",
+    "key": "TaskBoxIDColor.start",
+    "hex": "#688479"
+  },
+  {
+    "theme": "gruvbox-dark",
+    "key": "TaskBoxLabelColor",
+    "hex": "#928374",
+    "tag": "[#928374]"
+  },
+  {
+    "theme": "gruvbox-dark",
+    "key": "TaskBoxSelectedBorder",
+    "hex": "#fabd2f",
+    "tag": "[#fabd2f]"
+  },
+  {
+    "theme": "gruvbox-dark",
+    "key": "TaskBoxTagValueColor",
+    "hex": "#665c54",
+    "tag": "[#665c54]"
+  },
+  {
+    "theme": "gruvbox-dark",
+    "key": "TaskBoxTitleColor",
+    "hex": "#bdae93",
+    "tag": "[#bdae93]"
+  },
+  {
+    "theme": "gruvbox-dark",
+    "key": "TaskBoxUnselectedBackground",
+    "hex": "-",
+    "tag": "[-]"
+  },
+  {
+    "theme": "gruvbox-dark",
+    "key": "TaskBoxUnselectedBorder",
+    "hex": "#504945",
+    "tag": "[#504945]"
+  },
+  {
+    "theme": "gruvbox-dark",
+    "key": "TaskDetailCommentAuthor",
+    "hex": "#fabd2f",
+    "tag": "[#fabd2f]"
+  },
+  {
+    "theme": "gruvbox-dark",
+    "key": "TaskDetailEditDimLabelColor",
+    "hex": "#928374",
+    "tag": "[#928374]"
+  },
+  {
+    "theme": "gruvbox-dark",
+    "key": "TaskDetailEditDimTextColor",
+    "hex": "#928374",
+    "tag": "[#928374]"
+  },
+  {
+    "theme": "gruvbox-dark",
+    "key": "TaskDetailEditDimValueColor",
+    "hex": "#bdae93",
+    "tag": "[#bdae93]"
+  },
+  {
+    "theme": "gruvbox-dark",
+    "key": "TaskDetailEditFocusMarker",
+    "hex": "#fabd2f",
+    "tag": "[#fabd2f]"
+  },
+  {
+    "theme": "gruvbox-dark",
+    "key": "TaskDetailEditFocusText",
+    "hex": "#ebdbb2",
+    "tag": "[#ebdbb2]"
+  },
+  {
+    "theme": "gruvbox-dark",
+    "key": "TaskDetailIDColor.end",
+    "hex": "#83a598"
+  },
+  {
+    "theme": "gruvbox-dark",
+    "key": "TaskDetailIDColor.sample[0.00]",
+    "hex": "#688479"
+  },
+  {
+    "theme": "gruvbox-dark",
+    "key": "TaskDetailIDColor.sample[0.25]",
+    "hex": "#6f8c81"
+  },
+  {
+    "theme": "gruvbox-dark",
+    "key": "TaskDetailIDColor.sample[0.50]",
+    "hex": "#769589"
+  },
+  {
+    "theme": "gruvbox-dark",
+    "key": "TaskDetailIDColor.sample[0.75]",
+    "hex": "#7c9d90"
+  },
+  {
+    "theme": "gruvbox-dark",
+    "key": "TaskDetailIDColor.sample[1.00]",
+    "hex": "#83a598"
+  },
+  {
+    "theme": "gruvbox-dark",
+    "key": "TaskDetailIDColor.start",
+    "hex": "#688479"
+  },
+  {
+    "theme": "gruvbox-dark",
+    "key": "TaskDetailLabelText",
+    "hex": "#b8bb26",
+    "tag": "[#b8bb26]"
+  },
+  {
+    "theme": "gruvbox-dark",
+    "key": "TaskDetailPlaceholderColor",
+    "hex": "#928374",
+    "tag": "[#928374]"
+  },
+  {
+    "theme": "gruvbox-dark",
+    "key": "TaskDetailTagBackground",
+    "hex": "#504945",
+    "tag": "[#504945]"
+  },
+  {
+    "theme": "gruvbox-dark",
+    "key": "TaskDetailTagForeground",
+    "hex": "#bdae93",
+    "tag": "[#bdae93]"
+  },
+  {
+    "theme": "gruvbox-dark",
+    "key": "TaskDetailTitleText",
+    "hex": "#ebdbb2",
+    "tag": "[#ebdbb2]"
+  },
+  {
+    "theme": "gruvbox-dark",
+    "key": "TaskDetailValueText",
+    "hex": "#83a598",
+    "tag": "[#83a598]"
+  },
+  {
+    "theme": "gruvbox-dark",
+    "key": "TaskListSelectionBg",
+    "hex": "#504945",
+    "tag": "[#504945]"
+  },
+  {
+    "theme": "gruvbox-dark",
+    "key": "TaskListSelectionFg",
+    "hex": "#ebdbb2",
+    "tag": "[#ebdbb2]"
+  },
+  {
+    "theme": "gruvbox-dark",
+    "key": "TaskListStatusDoneColor",
+    "hex": "#b8bb26",
+    "tag": "[#b8bb26]"
+  },
+  {
+    "theme": "gruvbox-dark",
+    "key": "TaskListStatusPendingColor",
+    "hex": "#ebdbb2",
+    "tag": "[#ebdbb2]"
+  },
+  {
+    "theme": "gruvbox-dark",
+    "key": "WarnColor",
+    "hex": "#fe8019",
+    "tag": "[#fe8019]"
+  },
+  {
+    "theme": "gruvbox-dark",
+    "key": "alias:accent",
+    "hex": "#b8bb26",
+    "tag": "[#b8bb26]"
+  },
+  {
+    "theme": "gruvbox-dark",
+    "key": "alias:action",
+    "hex": "#83a598",
+    "tag": "[#83a598]"
+  },
+  {
+    "theme": "gruvbox-dark",
+    "key": "alias:danger",
+    "hex": "#fb4934",
+    "tag": "[#fb4934]"
+  },
+  {
+    "theme": "gruvbox-dark",
+    "key": "alias:highlight",
+    "hex": "#fabd2f",
+    "tag": "[#fabd2f]"
+  },
+  {
+    "theme": "gruvbox-dark",
+    "key": "alias:info",
+    "hex": "#fe8019",
+    "tag": "[#fe8019]"
+  },
+  {
+    "theme": "gruvbox-dark",
+    "key": "alias:muted",
+    "hex": "#928374",
+    "tag": "[#928374]"
+  },
+  {
+    "theme": "gruvbox-dark",
+    "key": "alias:ok",
+    "hex": "#b8bb26",
+    "tag": "[#b8bb26]"
+  },
+  {
+    "theme": "gruvbox-dark",
+    "key": "alias:text",
+    "hex": "#ebdbb2",
+    "tag": "[#ebdbb2]"
+  },
+  {
+    "theme": "gruvbox-dark",
+    "key": "alias:warn",
+    "hex": "#fe8019",
+    "tag": "[#fe8019]"
+  },
+  {
+    "theme": "catppuccin-mocha",
+    "key": "CaptionBg[0]",
+    "hex": "#293648",
+    "tag": "[#293648]"
+  },
+  {
+    "theme": "catppuccin-mocha",
+    "key": "CaptionBg[1]",
+    "hex": "#324430",
+    "tag": "[#324430]"
+  },
+  {
+    "theme": "catppuccin-mocha",
+    "key": "CaptionBg[2]",
+    "hex": "#4b3629",
+    "tag": "[#4b3629]"
+  },
+  {
+    "theme": "catppuccin-mocha",
+    "key": "CaptionBg[3]",
+    "hex": "#4b4435",
+    "tag": "[#4b4435]"
+  },
+  {
+    "theme": "catppuccin-mocha",
+    "key": "CaptionBg[4]",
+    "hex": "#483d3d",
+    "tag": "[#483d3d]"
+  },
+  {
+    "theme": "catppuccin-mocha",
+    "key": "CaptionBg[5]",
+    "hex": "#2c4440",
+    "tag": "[#2c4440]"
+  },
+  {
+    "theme": "catppuccin-mocha",
+    "key": "CaptionFallbackGradient.end",
+    "hex": "#45475a"
+  },
+  {
+    "theme": "catppuccin-mocha",
+    "key": "CaptionFallbackGradient.sample[0.00]",
+    "hex": "#1e1e2e"
+  },
+  {
+    "theme": "catppuccin-mocha",
+    "key": "CaptionFallbackGradient.sample[0.25]",
+    "hex": "#282839"
+  },
+  {
+    "theme": "catppuccin-mocha",
+    "key": "CaptionFallbackGradient.sample[0.50]",
+    "hex": "#323344"
+  },
+  {
+    "theme": "catppuccin-mocha",
+    "key": "CaptionFallbackGradient.sample[0.75]",
+    "hex": "#3b3d4f"
+  },
+  {
+    "theme": "catppuccin-mocha",
+    "key": "CaptionFallbackGradient.sample[1.00]",
+    "hex": "#45475a"
+  },
+  {
+    "theme": "catppuccin-mocha",
+    "key": "CaptionFallbackGradient.start",
+    "hex": "#1e1e2e"
+  },
+  {
+    "theme": "catppuccin-mocha",
+    "key": "CaptionFg[0]",
+    "hex": "#c9dcfd",
+    "tag": "[#c9dcfd]"
+  },
+  {
+    "theme": "catppuccin-mocha",
+    "key": "CaptionFg[1]",
+    "hex": "#d7f2d5",
+    "tag": "[#d7f2d5]"
+  },
+  {
+    "theme": "catppuccin-mocha",
+    "key": "CaptionFg[2]",
+    "hex": "#fdddc9",
+    "tag": "[#fdddc9]"
+  },
+  {
+    "theme": "catppuccin-mocha",
+    "key": "CaptionFg[3]",
+    "hex": "#fcf0d9",
+    "tag": "[#fcf0d9]"
+  },
+  {
+    "theme": "catppuccin-mocha",
+    "key": "CaptionFg[4]",
+    "hex": "#f9eaea",
+    "tag": "[#f9eaea]"
+  },
+  {
+    "theme": "catppuccin-mocha",
+    "key": "CaptionFg[5]",
+    "hex": "#cff2ec",
+    "tag": "[#cff2ec]"
+  },
+  {
+    "theme": "catppuccin-mocha",
+    "key": "CompletionHintColor",
+    "hex": "#6c7086",
+    "tag": "[#6c7086]"
+  },
+  {
+    "theme": "catppuccin-mocha",
+    "key": "ContentBackgroundColor",
+    "hex": "-",
+    "tag": "[-]"
+  },
+  {
+    "theme": "catppuccin-mocha",
+    "key": "ContentTextColor",
+    "hex": "#cdd6f4",
+    "tag": "[#cdd6f4]"
+  },
+  {
+    "theme": "catppuccin-mocha",
+    "key": "DangerColor",
+    "hex": "#f38ba8",
+    "tag": "[#f38ba8]"
+  },
+  {
+    "theme": "catppuccin-mocha",
+    "key": "DepsEditorBackground",
+    "hex": "#313244",
+    "tag": "[#313244]"
+  },
+  {
+    "theme": "catppuccin-mocha",
+    "key": "FallbackTaskIDColor",
+    "hex": "#89dceb",
+    "tag": "[#89dceb]"
+  },
+  {
+    "theme": "catppuccin-mocha",
+    "key": "HeaderActionGlobalKeyColor",
+    "hex": "#f9e2af",
+    "tag": "[#f9e2af]"
+  },
+  {
+    "theme": "catppuccin-mocha",
+    "key": "HeaderActionGlobalLabelColor",
+    "hex": "#cdd6f4",
+    "tag": "[#cdd6f4]"
+  },
+  {
+    "theme": "catppuccin-mocha",
+    "key": "HeaderActionPluginKeyColor",
+    "hex": "#fab387",
+    "tag": "[#fab387]"
+  },
+  {
+    "theme": "catppuccin-mocha",
+    "key": "HeaderActionPluginLabelColor",
+    "hex": "#bac2de",
+    "tag": "[#bac2de]"
+  },
+  {
+    "theme": "catppuccin-mocha",
+    "key": "HeaderActionViewKeyColor",
+    "hex": "#89b4fa",
+    "tag": "[#89b4fa]"
+  },
+  {
+    "theme": "catppuccin-mocha",
+    "key": "HeaderActionViewLabelColor",
+    "hex": "#6c7086",
+    "tag": "[#6c7086]"
+  },
+  {
+    "theme": "catppuccin-mocha",
+    "key": "HeaderInfoDesc",
+    "hex": "#6c7086",
+    "tag": "[#6c7086]"
+  },
+  {
+    "theme": "catppuccin-mocha",
+    "key": "HeaderInfoLabel",
+    "hex": "#fab387",
+    "tag": "[#fab387]"
+  },
+  {
+    "theme": "catppuccin-mocha",
+    "key": "HeaderInfoSeparator",
+    "hex": "#6c7086",
+    "tag": "[#6c7086]"
+  },
+  {
+    "theme": "catppuccin-mocha",
+    "key": "HeaderKeyBinding",
+    "hex": "#f9e2af",
+    "tag": "[#f9e2af]"
+  },
+  {
+    "theme": "catppuccin-mocha",
+    "key": "HeaderKeyText",
+    "hex": "#cdd6f4",
+    "tag": "[#cdd6f4]"
+  },
+  {
+    "theme": "catppuccin-mocha",
+    "key": "InputBoxBackgroundColor",
+    "hex": "-",
+    "tag": "[-]"
+  },
+  {
+    "theme": "catppuccin-mocha",
+    "key": "InputBoxLabelColor",
+    "hex": "#cdd6f4",
+    "tag": "[#cdd6f4]"
+  },
+  {
+    "theme": "catppuccin-mocha",
+    "key": "InputBoxTextColor",
+    "hex": "#cdd6f4",
+    "tag": "[#cdd6f4]"
+  },
+  {
+    "theme": "catppuccin-mocha",
+    "key": "InputFieldBackgroundColor",
+    "hex": "-",
+    "tag": "[-]"
+  },
+  {
+    "theme": "catppuccin-mocha",
+    "key": "InputFieldTextColor",
+    "hex": "#cdd6f4",
+    "tag": "[#cdd6f4]"
+  },
+  {
+    "theme": "catppuccin-mocha",
+    "key": "LogoBorderColor",
+    "hex": "#313244",
+    "tag": "[#313244]"
+  },
+  {
+    "theme": "catppuccin-mocha",
+    "key": "LogoDotColor",
+    "hex": "#94e2d5",
+    "tag": "[#94e2d5]"
+  },
+  {
+    "theme": "catppuccin-mocha",
+    "key": "LogoShadeColor",
+    "hex": "#89b4fa",
+    "tag": "[#89b4fa]"
+  },
+  {
+    "theme": "catppuccin-mocha",
+    "key": "OkColor",
+    "hex": "#a6e3a1",
+    "tag": "[#a6e3a1]"
+  },
+  {
+    "theme": "catppuccin-mocha",
+    "key": "StatuslineAccentBg",
+    "hex": "#89b4fa",
+    "tag": "[#89b4fa]"
+  },
+  {
+    "theme": "catppuccin-mocha",
+    "key": "StatuslineAccentFg",
+    "hex": "#11111b",
+    "tag": "[#11111b]"
+  },
+  {
+    "theme": "catppuccin-mocha",
+    "key": "StatuslineBg",
+    "hex": "#313244",
+    "tag": "[#313244]"
+  },
+  {
+    "theme": "catppuccin-mocha",
+    "key": "StatuslineErrorBg",
+    "hex": "#1e1e2e",
+    "tag": "[#1e1e2e]"
+  },
+  {
+    "theme": "catppuccin-mocha",
+    "key": "StatuslineErrorFg",
+    "hex": "#f9e2af",
+    "tag": "[#f9e2af]"
+  },
+  {
+    "theme": "catppuccin-mocha",
+    "key": "StatuslineFg",
+    "hex": "#cdd6f4",
+    "tag": "[#cdd6f4]"
+  },
+  {
+    "theme": "catppuccin-mocha",
+    "key": "StatuslineFillBg",
+    "hex": "#1e1e2e",
+    "tag": "[#1e1e2e]"
+  },
+  {
+    "theme": "catppuccin-mocha",
+    "key": "StatuslineInfoBg",
+    "hex": "#1e1e2e",
+    "tag": "[#1e1e2e]"
+  },
+  {
+    "theme": "catppuccin-mocha",
+    "key": "StatuslineInfoFg",
+    "hex": "#a6e3a1",
+    "tag": "[#a6e3a1]"
+  },
+  {
+    "theme": "catppuccin-mocha",
+    "key": "TaskBoxDescriptionColor",
+    "hex": "#6c7086",
+    "tag": "[#6c7086]"
+  },
+  {
+    "theme": "catppuccin-mocha",
+    "key": "TaskBoxIDColor.end",
+    "hex": "#89dceb"
+  },
+  {
+    "theme": "catppuccin-mocha",
+    "key": "TaskBoxIDColor.sample[0.00]",
+    "hex": "#6db0bc"
+  },
+  {
+    "theme": "catppuccin-mocha",
+    "key": "TaskBoxIDColor.sample[0.25]",
+    "hex": "#74bbc8"
+  },
+  {
+    "theme": "catppuccin-mocha",
+    "key": "TaskBoxIDColor.sample[0.50]",
+    "hex": "#7bc6d4"
+  },
+  {
+    "theme": "catppuccin-mocha",
+    "key": "TaskBoxIDColor.sample[0.75]",
+    "hex": "#82d1df"
+  },
+  {
+    "theme": "catppuccin-mocha",
+    "key": "TaskBoxIDColor.sample[1.00]",
+    "hex": "#89dceb"
+  },
+  {
+    "theme": "catppuccin-mocha",
+    "key": "TaskBoxIDColor.start",
+    "hex": "#6db0bc"
+  },
+  {
+    "theme": "catppuccin-mocha",
+    "key": "TaskBoxLabelColor",
+    "hex": "#6c7086",
+    "tag": "[#6c7086]"
+  },
+  {
+    "theme": "catppuccin-mocha",
+    "key": "TaskBoxSelectedBorder",
+    "hex": "#f9e2af",
+    "tag": "[#f9e2af]"
+  },
+  {
+    "theme": "catppuccin-mocha",
+    "key": "TaskBoxTagValueColor",
+    "hex": "#585b70",
+    "tag": "[#585b70]"
+  },
+  {
+    "theme": "catppuccin-mocha",
+    "key": "TaskBoxTitleColor",
+    "hex": "#bac2de",
+    "tag": "[#bac2de]"
+  },
+  {
+    "theme": "catppuccin-mocha",
+    "key": "TaskBoxUnselectedBackground",
+    "hex": "-",
+    "tag": "[-]"
+  },
+  {
+    "theme": "catppuccin-mocha",
+    "key": "TaskBoxUnselectedBorder",
+    "hex": "#45475a",
+    "tag": "[#45475a]"
+  },
+  {
+    "theme": "catppuccin-mocha",
+    "key": "TaskDetailCommentAuthor",
+    "hex": "#f9e2af",
+    "tag": "[#f9e2af]"
+  },
+  {
+    "theme": "catppuccin-mocha",
+    "key": "TaskDetailEditDimLabelColor",
+    "hex": "#6c7086",
+    "tag": "[#6c7086]"
+  },
+  {
+    "theme": "catppuccin-mocha",
+    "key": "TaskDetailEditDimTextColor",
+    "hex": "#6c7086",
+    "tag": "[#6c7086]"
+  },
+  {
+    "theme": "catppuccin-mocha",
+    "key": "TaskDetailEditDimValueColor",
+    "hex": "#bac2de",
+    "tag": "[#bac2de]"
+  },
+  {
+    "theme": "catppuccin-mocha",
+    "key": "TaskDetailEditFocusMarker",
+    "hex": "#f9e2af",
+    "tag": "[#f9e2af]"
+  },
+  {
+    "theme": "catppuccin-mocha",
+    "key": "TaskDetailEditFocusText",
+    "hex": "#cdd6f4",
+    "tag": "[#cdd6f4]"
+  },
+  {
+    "theme": "catppuccin-mocha",
+    "key": "TaskDetailIDColor.end",
+    "hex": "#89dceb"
+  },
+  {
+    "theme": "catppuccin-mocha",
+    "key": "TaskDetailIDColor.sample[0.00]",
+    "hex": "#6db0bc"
+  },
+  {
+    "theme": "catppuccin-mocha",
+    "key": "TaskDetailIDColor.sample[0.25]",
+    "hex": "#74bbc8"
+  },
+  {
+    "theme": "catppuccin-mocha",
+    "key": "TaskDetailIDColor.sample[0.50]",
+    "hex": "#7bc6d4"
+  },
+  {
+    "theme": "catppuccin-mocha",
+    "key": "TaskDetailIDColor.sample[0.75]",
+    "hex": "#82d1df"
+  },
+  {
+    "theme": "catppuccin-mocha",
+    "key": "TaskDetailIDColor.sample[1.00]",
+    "hex": "#89dceb"
+  },
+  {
+    "theme": "catppuccin-mocha",
+    "key": "TaskDetailIDColor.start",
+    "hex": "#6db0bc"
+  },
+  {
+    "theme": "catppuccin-mocha",
+    "key": "TaskDetailLabelText",
+    "hex": "#a6e3a1",
+    "tag": "[#a6e3a1]"
+  },
+  {
+    "theme": "catppuccin-mocha",
+    "key": "TaskDetailPlaceholderColor",
+    "hex": "#6c7086",
+    "tag": "[#6c7086]"
+  },
+  {
+    "theme": "catppuccin-mocha",
+    "key": "TaskDetailTagBackground",
+    "hex": "#45475a",
+    "tag": "[#45475a]"
+  },
+  {
+    "theme": "catppuccin-mocha",
+    "key": "TaskDetailTagForeground",
+    "hex": "#bac2de",
+    "tag": "[#bac2de]"
+  },
+  {
+    "theme": "catppuccin-mocha",
+    "key": "TaskDetailTitleText",
+    "hex": "#cdd6f4",
+    "tag": "[#cdd6f4]"
+  },
+  {
+    "theme": "catppuccin-mocha",
+    "key": "TaskDetailValueText",
+    "hex": "#89b4fa",
+    "tag": "[#89b4fa]"
+  },
+  {
+    "theme": "catppuccin-mocha",
+    "key": "TaskListSelectionBg",
+    "hex": "#45475a",
+    "tag": "[#45475a]"
+  },
+  {
+    "theme": "catppuccin-mocha",
+    "key": "TaskListSelectionFg",
+    "hex": "#cdd6f4",
+    "tag": "[#cdd6f4]"
+  },
+  {
+    "theme": "catppuccin-mocha",
+    "key": "TaskListStatusDoneColor",
+    "hex": "#a6e3a1",
+    "tag": "[#a6e3a1]"
+  },
+  {
+    "theme": "catppuccin-mocha",
+    "key": "TaskListStatusPendingColor",
+    "hex": "#cdd6f4",
+    "tag": "[#cdd6f4]"
+  },
+  {
+    "theme": "catppuccin-mocha",
+    "key": "WarnColor",
+    "hex": "#fab387",
+    "tag": "[#fab387]"
+  },
+  {
+    "theme": "catppuccin-mocha",
+    "key": "alias:accent",
+    "hex": "#a6e3a1",
+    "tag": "[#a6e3a1]"
+  },
+  {
+    "theme": "catppuccin-mocha",
+    "key": "alias:action",
+    "hex": "#89b4fa",
+    "tag": "[#89b4fa]"
+  },
+  {
+    "theme": "catppuccin-mocha",
+    "key": "alias:danger",
+    "hex": "#f38ba8",
+    "tag": "[#f38ba8]"
+  },
+  {
+    "theme": "catppuccin-mocha",
+    "key": "alias:highlight",
+    "hex": "#f9e2af",
+    "tag": "[#f9e2af]"
+  },
+  {
+    "theme": "catppuccin-mocha",
+    "key": "alias:info",
+    "hex": "#fab387",
+    "tag": "[#fab387]"
+  },
+  {
+    "theme": "catppuccin-mocha",
+    "key": "alias:muted",
+    "hex": "#6c7086",
+    "tag": "[#6c7086]"
+  },
+  {
+    "theme": "catppuccin-mocha",
+    "key": "alias:ok",
+    "hex": "#a6e3a1",
+    "tag": "[#a6e3a1]"
+  },
+  {
+    "theme": "catppuccin-mocha",
+    "key": "alias:text",
+    "hex": "#cdd6f4",
+    "tag": "[#cdd6f4]"
+  },
+  {
+    "theme": "catppuccin-mocha",
+    "key": "alias:warn",
+    "hex": "#fab387",
+    "tag": "[#fab387]"
+  },
+  {
+    "theme": "solarized-dark",
+    "key": "CaptionBg[0]",
+    "hex": "#0b2a3f",
+    "tag": "[#0b2a3f]"
+  },
+  {
+    "theme": "solarized-dark",
+    "key": "CaptionBg[1]",
+    "hex": "#282e00",
+    "tag": "[#282e00]"
+  },
+  {
+    "theme": "solarized-dark",
+    "key": "CaptionBg[2]",
+    "hex": "#3d1707",
+    "tag": "[#3d1707]"
+  },
+  {
+    "theme": "solarized-dark",
+    "key": "CaptionBg[3]",
+    "hex": "#0d302e",
+    "tag": "[#0d302e]"
+  },
+  {
+    "theme": "solarized-dark",
+    "key": "CaptionBg[4]",
+    "hex": "#1a2123",
+    "tag": "[#1a2123]"
+  },
+  {
+    "theme": "solarized-dark",
+    "key": "CaptionBg[5]",
+    "hex": "#420f0e",
+    "tag": "[#420f0e]"
+  },
+  {
+    "theme": "solarized-dark",
+    "key": "CaptionFallbackGradient.end",
+    "hex": "#073642"
+  },
+  {
+    "theme": "solarized-dark",
+    "key": "CaptionFallbackGradient.sample[0.00]",
+    "hex": "#002b36"
+  },
+  {
+    "theme": "solarized-dark",
+    "key": "CaptionFallbackGradient.sample[0.25]",
+    "hex": "#022e39"
+  },
+  {
+    "theme": "solarized-dark",
+    "key": "CaptionFallbackGradient.sample[0.50]",
+    "hex": "#04313c"
+  },
+  {
+    "theme": "solarized-dark",
+    "key": "CaptionFallbackGradient.sample[0.75]",
+    "hex": "#05333f"
+  },
+  {
+    "theme": "solarized-dark",
+    "key": "CaptionFallbackGradient.sample[1.00]",
+    "hex": "#073642"
+  },
+  {
+    "theme": "solarized-dark",
+    "key": "CaptionFallbackGradient.start",
+    "hex": "#002b36"
+  },
+  {
+    "theme": "solarized-dark",
+    "key": "CaptionFg[0]",
+    "hex": "#9dcbeb",
+    "tag": "[#9dcbeb]"
+  },
+  {
+    "theme": "solarized-dark",
+    "key": "CaptionFg[1]",
+    "hex": "#c8d18c",
+    "tag": "[#c8d18c]"
+  },
+  {
+    "theme": "solarized-dark",
+    "key": "CaptionFg[2]",
+    "hex": "#e8ae96",
+    "tag": "[#e8ae96]"
+  },
+  {
+    "theme": "solarized-dark",
+    "key": "CaptionFg[3]",
+    "hex": "#9fd5d1",
+    "tag": "[#9fd5d1]"
+  },
+  {
+    "theme": "solarized-dark",
+    "key": "CaptionFg[4]",
+    "hex": "#b4bec1",
+    "tag": "[#b4bec1]"
+  },
+  {
+    "theme": "solarized-dark",
+    "key": "CaptionFg[5]",
+    "hex": "#ec908f",
+    "tag": "[#ec908f]"
+  },
+  {
+    "theme": "solarized-dark",
+    "key": "CompletionHintColor",
+    "hex": "#586e75",
+    "tag": "[#586e75]"
+  },
+  {
+    "theme": "solarized-dark",
+    "key": "ContentBackgroundColor",
+    "hex": "-",
+    "tag": "[-]"
+  },
+  {
+    "theme": "solarized-dark",
+    "key": "ContentTextColor",
+    "hex": "#839496",
+    "tag": "[#839496]"
+  },
+  {
+    "theme": "solarized-dark",
+    "key": "DangerColor",
+    "hex": "#dc322f",
+    "tag": "[#dc322f]"
+  },
+  {
+    "theme": "solarized-dark",
+    "key": "DepsEditorBackground",
+    "hex": "#073642",
+    "tag": "[#073642]"
+  },
+  {
+    "theme": "solarized-dark",
+    "key": "FallbackTaskIDColor",
+    "hex": "#268bd2",
+    "tag": "[#268bd2]"
+  },
+  {
+    "theme": "solarized-dark",
+    "key": "HeaderActionGlobalKeyColor",
+    "hex": "#b58900",
+    "tag": "[#b58900]"
+  },
+  {
+    "theme": "solarized-dark",
+    "key": "HeaderActionGlobalLabelColor",
+    "hex": "#839496",
+    "tag": "[#839496]"
+  },
+  {
+    "theme": "solarized-dark",
+    "key": "HeaderActionPluginKeyColor",
+    "hex": "#cb4b16",
+    "tag": "[#cb4b16]"
+  },
+  {
+    "theme": "solarized-dark",
+    "key": "HeaderActionPluginLabelColor",
+    "hex": "#93a1a1",
+    "tag": "[#93a1a1]"
+  },
+  {
+    "theme": "solarized-dark",
+    "key": "HeaderActionViewKeyColor",
+    "hex": "#268bd2",
+    "tag": "[#268bd2]"
+  },
+  {
+    "theme": "solarized-dark",
+    "key": "HeaderActionViewLabelColor",
+    "hex": "#586e75",
+    "tag": "[#586e75]"
+  },
+  {
+    "theme": "solarized-dark",
+    "key": "HeaderInfoDesc",
+    "hex": "#586e75",
+    "tag": "[#586e75]"
+  },
+  {
+    "theme": "solarized-dark",
+    "key": "HeaderInfoLabel",
+    "hex": "#cb4b16",
+    "tag": "[#cb4b16]"
+  },
+  {
+    "theme": "solarized-dark",
+    "key": "HeaderInfoSeparator",
+    "hex": "#586e75",
+    "tag": "[#586e75]"
+  },
+  {
+    "theme": "solarized-dark",
+    "key": "HeaderKeyBinding",
+    "hex": "#b58900",
+    "tag": "[#b58900]"
+  },
+  {
+    "theme": "solarized-dark",
+    "key": "HeaderKeyText",
+    "hex": "#839496",
+    "tag": "[#839496]"
+  },
+  {
+    "theme": "solarized-dark",
+    "key": "InputBoxBackgroundColor",
+    "hex": "-",
+    "tag": "[-]"
+  },
+  {
+    "theme": "solarized-dark",
+    "key": "InputBoxLabelColor",
+    "hex": "#839496",
+    "tag": "[#839496]"
+  },
+  {
+    "theme": "solarized-dark",
+    "key": "InputBoxTextColor",
+    "hex": "#839496",
+    "tag": "[#839496]"
+  },
+  {
+    "theme": "solarized-dark",
+    "key": "InputFieldBackgroundColor",
+    "hex": "-",
+    "tag": "[-]"
+  },
+  {
+    "theme": "solarized-dark",
+    "key": "InputFieldTextColor",
+    "hex": "#839496",
+    "tag": "[#839496]"
+  },
+  {
+    "theme": "solarized-dark",
+    "key": "LogoBorderColor",
+    "hex": "#073642",
+    "tag": "[#073642]"
+  },
+  {
+    "theme": "solarized-dark",
+    "key": "LogoDotColor",
+    "hex": "#2aa198",
+    "tag": "[#2aa198]"
+  },
+  {
+    "theme": "solarized-dark",
+    "key": "LogoShadeColor",
+    "hex": "#268bd2",
+    "tag": "[#268bd2]"
+  },
+  {
+    "theme": "solarized-dark",
+    "key": "OkColor",
+    "hex": "#859900",
+    "tag": "[#859900]"
+  },
+  {
+    "theme": "solarized-dark",
+    "key": "StatuslineAccentBg",
+    "hex": "#268bd2",
+    "tag": "[#268bd2]"
+  },
+  {
+    "theme": "solarized-dark",
+    "key": "StatuslineAccentFg",
+    "hex": "#002b36",
+    "tag": "[#002b36]"
+  },
+  {
+    "theme": "solarized-dark",
+    "key": "StatuslineBg",
+    "hex": "#073642",
+    "tag": "[#073642]"
+  },
+  {
+    "theme": "solarized-dark",
+    "key": "StatuslineErrorBg",
+    "hex": "#073642",
+    "tag": "[#073642]"
+  },
+  {
+    "theme": "solarized-dark",
+    "key": "StatuslineErrorFg",
+    "hex": "#b58900",
+    "tag": "[#b58900]"
+  },
+  {
+    "theme": "solarized-dark",
+    "key": "StatuslineFg",
+    "hex": "#839496",
+    "tag": "[#839496]"
+  },
+  {
+    "theme": "solarized-dark",
+    "key": "StatuslineFillBg",
+    "hex": "#073642",
+    "tag": "[#073642]"
+  },
+  {
+    "theme": "solarized-dark",
+    "key": "StatuslineInfoBg",
+    "hex": "#073642",
+    "tag": "[#073642]"
+  },
+  {
+    "theme": "solarized-dark",
+    "key": "StatuslineInfoFg",
+    "hex": "#859900",
+    "tag": "[#859900]"
+  },
+  {
+    "theme": "solarized-dark",
+    "key": "TaskBoxDescriptionColor",
+    "hex": "#586e75",
+    "tag": "[#586e75]"
+  },
+  {
+    "theme": "solarized-dark",
+    "key": "TaskBoxIDColor.end",
+    "hex": "#268bd2"
+  },
+  {
+    "theme": "solarized-dark",
+    "key": "TaskBoxIDColor.sample[0.00]",
+    "hex": "#1e6fa8"
+  },
+  {
+    "theme": "solarized-dark",
+    "key": "TaskBoxIDColor.sample[0.25]",
+    "hex": "#2076b3"
+  },
+  {
+    "theme": "solarized-dark",
+    "key": "TaskBoxIDColor.sample[0.50]",
+    "hex": "#227dbd"
+  },
+  {
+    "theme": "solarized-dark",
+    "key": "TaskBoxIDColor.sample[0.75]",
+    "hex": "#2484c8"
+  },
+  {
+    "theme": "solarized-dark",
+    "key": "TaskBoxIDColor.sample[1.00]",
+    "hex": "#268bd2"
+  },
+  {
+    "theme": "solarized-dark",
+    "key": "TaskBoxIDColor.start",
+    "hex": "#1e6fa8"
+  },
+  {
+    "theme": "solarized-dark",
+    "key": "TaskBoxLabelColor",
+    "hex": "#586e75",
+    "tag": "[#586e75]"
+  },
+  {
+    "theme": "solarized-dark",
+    "key": "TaskBoxSelectedBorder",
+    "hex": "#b58900",
+    "tag": "[#b58900]"
+  },
+  {
+    "theme": "solarized-dark",
+    "key": "TaskBoxTagValueColor",
+    "hex": "#586e75",
+    "tag": "[#586e75]"
+  },
+  {
+    "theme": "solarized-dark",
+    "key": "TaskBoxTitleColor",
+    "hex": "#93a1a1",
+    "tag": "[#93a1a1]"
+  },
+  {
+    "theme": "solarized-dark",
+    "key": "TaskBoxUnselectedBackground",
+    "hex": "-",
+    "tag": "[-]"
+  },
+  {
+    "theme": "solarized-dark",
+    "key": "TaskBoxUnselectedBorder",
+    "hex": "#073642",
+    "tag": "[#073642]"
+  },
+  {
+    "theme": "solarized-dark",
+    "key": "TaskDetailCommentAuthor",
+    "hex": "#b58900",
+    "tag": "[#b58900]"
+  },
+  {
+    "theme": "solarized-dark",
+    "key": "TaskDetailEditDimLabelColor",
+    "hex": "#586e75",
+    "tag": "[#586e75]"
+  },
+  {
+    "theme": "solarized-dark",
+    "key": "TaskDetailEditDimTextColor",
+    "hex": "#586e75",
+    "tag": "[#586e75]"
+  },
+  {
+    "theme": "solarized-dark",
+    "key": "TaskDetailEditDimValueColor",
+    "hex": "#93a1a1",
+    "tag": "[#93a1a1]"
+  },
+  {
+    "theme": "solarized-dark",
+    "key": "TaskDetailEditFocusMarker",
+    "hex": "#b58900",
+    "tag": "[#b58900]"
+  },
+  {
+    "theme": "solarized-dark",
+    "key": "TaskDetailEditFocusText",
+    "hex": "#839496",
+    "tag": "[#839496]"
+  },
+  {
+    "theme": "solarized-dark",
+    "key": "TaskDetailIDColor.end",
+    "hex": "#268bd2"
+  },
+  {
+    "theme": "solarized-dark",
+    "key": "TaskDetailIDColor.sample[0.00]",
+    "hex": "#1e6fa8"
+  },
+  {
+    "theme": "solarized-dark",
+    "key": "TaskDetailIDColor.sample[0.25]",
+    "hex": "#2076b3"
+  },
+  {
+    "theme": "solarized-dark",
+    "key": "TaskDetailIDColor.sample[0.50]",
+    "hex": "#227dbd"
+  },
+  {
+    "theme": "solarized-dark",
+    "key": "TaskDetailIDColor.sample[0.75]",
+    "hex": "#2484c8"
+  },
+  {
+    "theme": "solarized-dark",
+    "key": "TaskDetailIDColor.sample[1.00]",
+    "hex": "#268bd2"
+  },
+  {
+    "theme": "solarized-dark",
+    "key": "TaskDetailIDColor.start",
+    "hex": "#1e6fa8"
+  },
+  {
+    "theme": "solarized-dark",
+    "key": "TaskDetailLabelText",
+    "hex": "#859900",
+    "tag": "[#859900]"
+  },
+  {
+    "theme": "solarized-dark",
+    "key": "TaskDetailPlaceholderColor",
+    "hex": "#586e75",
+    "tag": "[#586e75]"
+  },
+  {
+    "theme": "solarized-dark",
+    "key": "TaskDetailTagBackground",
+    "hex": "#073642",
+    "tag": "[#073642]"
+  },
+  {
+    "theme": "solarized-dark",
+    "key": "TaskDetailTagForeground",
+    "hex": "#93a1a1",
+    "tag": "[#93a1a1]"
+  },
+  {
+    "theme": "solarized-dark",
+    "key": "TaskDetailTitleText",
+    "hex": "#839496",
+    "tag": "[#839496]"
+  },
+  {
+    "theme": "solarized-dark",
+    "key": "TaskDetailValueText",
+    "hex": "#268bd2",
+    "tag": "[#268bd2]"
+  },
+  {
+    "theme": "solarized-dark",
+    "key": "TaskListSelectionBg",
+    "hex": "#073642",
+    "tag": "[#073642]"
+  },
+  {
+    "theme": "solarized-dark",
+    "key": "TaskListSelectionFg",
+    "hex": "#839496",
+    "tag": "[#839496]"
+  },
+  {
+    "theme": "solarized-dark",
+    "key": "TaskListStatusDoneColor",
+    "hex": "#859900",
+    "tag": "[#859900]"
+  },
+  {
+    "theme": "solarized-dark",
+    "key": "TaskListStatusPendingColor",
+    "hex": "#839496",
+    "tag": "[#839496]"
+  },
+  {
+    "theme": "solarized-dark",
+    "key": "WarnColor",
+    "hex": "#cb4b16",
+    "tag": "[#cb4b16]"
+  },
+  {
+    "theme": "solarized-dark",
+    "key": "alias:accent",
+    "hex": "#859900",
+    "tag": "[#859900]"
+  },
+  {
+    "theme": "solarized-dark",
+    "key": "alias:action",
+    "hex": "#268bd2",
+    "tag": "[#268bd2]"
+  },
+  {
+    "theme": "solarized-dark",
+    "key": "alias:danger",
+    "hex": "#dc322f",
+    "tag": "[#dc322f]"
+  },
+  {
+    "theme": "solarized-dark",
+    "key": "alias:highlight",
+    "hex": "#b58900",
+    "tag": "[#b58900]"
+  },
+  {
+    "theme": "solarized-dark",
+    "key": "alias:info",
+    "hex": "#cb4b16",
+    "tag": "[#cb4b16]"
+  },
+  {
+    "theme": "solarized-dark",
+    "key": "alias:muted",
+    "hex": "#586e75",
+    "tag": "[#586e75]"
+  },
+  {
+    "theme": "solarized-dark",
+    "key": "alias:ok",
+    "hex": "#859900",
+    "tag": "[#859900]"
+  },
+  {
+    "theme": "solarized-dark",
+    "key": "alias:text",
+    "hex": "#839496",
+    "tag": "[#839496]"
+  },
+  {
+    "theme": "solarized-dark",
+    "key": "alias:warn",
+    "hex": "#cb4b16",
+    "tag": "[#cb4b16]"
+  },
+  {
+    "theme": "nord",
+    "key": "CaptionBg[0]",
+    "hex": "#293a3e",
+    "tag": "[#293a3e]"
+  },
+  {
+    "theme": "nord",
+    "key": "CaptionBg[1]",
+    "hex": "#31392a",
+    "tag": "[#31392a]"
+  },
+  {
+    "theme": "nord",
+    "key": "CaptionBg[2]",
+    "hex": "#3e2922",
+    "tag": "[#3e2922]"
+  },
+  {
+    "theme": "nord",
+    "key": "CaptionBg[3]",
+    "hex": "#473d2a",
+    "tag": "[#473d2a]"
+  },
+  {
+    "theme": "nord",
+    "key": "CaptionBg[4]",
+    "hex": "#171a20",
+    "tag": "[#171a20]"
+  },
+  {
+    "theme": "nord",
+    "key": "CaptionBg[5]",
+    "hex": "#391d20",
+    "tag": "[#391d20]"
+  },
+  {
+    "theme": "nord",
+    "key": "CaptionFallbackGradient.end",
+    "hex": "#3b4252"
+  },
+  {
+    "theme": "nord",
+    "key": "CaptionFallbackGradient.sample[0.00]",
+    "hex": "#2e3440"
+  },
+  {
+    "theme": "nord",
+    "key": "CaptionFallbackGradient.sample[0.25]",
+    "hex": "#313845"
+  },
+  {
+    "theme": "nord",
+    "key": "CaptionFallbackGradient.sample[0.50]",
+    "hex": "#353b49"
+  },
+  {
+    "theme": "nord",
+    "key": "CaptionFallbackGradient.sample[0.75]",
+    "hex": "#383f4e"
+  },
+  {
+    "theme": "nord",
+    "key": "CaptionFallbackGradient.sample[1.00]",
+    "hex": "#3b4252"
+  },
+  {
+    "theme": "nord",
+    "key": "CaptionFallbackGradient.start",
+    "hex": "#2e3440"
+  },
+  {
+    "theme": "nord",
+    "key": "CaptionFg[0]",
+    "hex": "#c9e3ea",
+    "tag": "[#c9e3ea]"
+  },
+  {
+    "theme": "nord",
+    "key": "CaptionFg[1]",
+    "hex": "#d6e2cb",
+    "tag": "[#d6e2cb]"
+  },
+  {
+    "theme": "nord",
+    "key": "CaptionFg[2]",
+    "hex": "#eac9bf",
+    "tag": "[#eac9bf]"
+  },
+  {
+    "theme": "nord",
+    "key": "CaptionFg[3]",
+    "hex": "#f4e3c3",
+    "tag": "[#f4e3c3]"
+  },
+  {
+    "theme": "nord",
+    "key": "CaptionFg[4]",
+    "hex": "#aeb3bc",
+    "tag": "[#aeb3bc]"
+  },
+  {
+    "theme": "nord",
+    "key": "CaptionFg[5]",
+    "hex": "#dca8ac",
+    "tag": "[#dca8ac]"
+  },
+  {
+    "theme": "nord",
+    "key": "CompletionHintColor",
+    "hex": "#4c566a",
+    "tag": "[#4c566a]"
+  },
+  {
+    "theme": "nord",
+    "key": "ContentBackgroundColor",
+    "hex": "-",
+    "tag": "[-]"
+  },
+  {
+    "theme": "nord",
+    "key": "ContentTextColor",
+    "hex": "#eceff4",
+    "tag": "[#eceff4]"
+  },
+  {
+    "theme": "nord",
+    "key": "DangerColor",
+    "hex": "#bf616a",
+    "tag": "[#bf616a]"
+  },
+  {
+    "theme": "nord",
+    "key": "DepsEditorBackground",
+    "hex": "#434c5e",
+    "tag": "[#434c5e]"
+  },
+  {
+    "theme": "nord",
+    "key": "FallbackTaskIDColor",
+    "hex": "#88c0d0",
+    "tag": "[#88c0d0]"
+  },
+  {
+    "theme": "nord",
+    "key": "HeaderActionGlobalKeyColor",
+    "hex": "#ebcb8b",
+    "tag": "[#ebcb8b]"
+  },
+  {
+    "theme": "nord",
+    "key": "HeaderActionGlobalLabelColor",
+    "hex": "#eceff4",
+    "tag": "[#eceff4]"
+  },
+  {
+    "theme": "nord",
+    "key": "HeaderActionPluginKeyColor",
+    "hex": "#d08770",
+    "tag": "[#d08770]"
+  },
+  {
+    "theme": "nord",
+    "key": "HeaderActionPluginLabelColor",
+    "hex": "#d8dee9",
+    "tag": "[#d8dee9]"
+  },
+  {
+    "theme": "nord",
+    "key": "HeaderActionViewKeyColor",
+    "hex": "#88c0d0",
+    "tag": "[#88c0d0]"
+  },
+  {
+    "theme": "nord",
+    "key": "HeaderActionViewLabelColor",
+    "hex": "#4c566a",
+    "tag": "[#4c566a]"
+  },
+  {
+    "theme": "nord",
+    "key": "HeaderInfoDesc",
+    "hex": "#4c566a",
+    "tag": "[#4c566a]"
+  },
+  {
+    "theme": "nord",
+    "key": "HeaderInfoLabel",
+    "hex": "#d08770",
+    "tag": "[#d08770]"
+  },
+  {
+    "theme": "nord",
+    "key": "HeaderInfoSeparator",
+    "hex": "#4c566a",
+    "tag": "[#4c566a]"
+  },
+  {
+    "theme": "nord",
+    "key": "HeaderKeyBinding",
+    "hex": "#ebcb8b",
+    "tag": "[#ebcb8b]"
+  },
+  {
+    "theme": "nord",
+    "key": "HeaderKeyText",
+    "hex": "#eceff4",
+    "tag": "[#eceff4]"
+  },
+  {
+    "theme": "nord",
+    "key": "InputBoxBackgroundColor",
+    "hex": "-",
+    "tag": "[-]"
+  },
+  {
+    "theme": "nord",
+    "key": "InputBoxLabelColor",
+    "hex": "#eceff4",
+    "tag": "[#eceff4]"
+  },
+  {
+    "theme": "nord",
+    "key": "InputBoxTextColor",
+    "hex": "#eceff4",
+    "tag": "[#eceff4]"
+  },
+  {
+    "theme": "nord",
+    "key": "InputFieldBackgroundColor",
+    "hex": "-",
+    "tag": "[-]"
+  },
+  {
+    "theme": "nord",
+    "key": "InputFieldTextColor",
+    "hex": "#eceff4",
+    "tag": "[#eceff4]"
+  },
+  {
+    "theme": "nord",
+    "key": "LogoBorderColor",
+    "hex": "#3b4252",
+    "tag": "[#3b4252]"
+  },
+  {
+    "theme": "nord",
+    "key": "LogoDotColor",
+    "hex": "#8fbcbb",
+    "tag": "[#8fbcbb]"
+  },
+  {
+    "theme": "nord",
+    "key": "LogoShadeColor",
+    "hex": "#81a1c1",
+    "tag": "[#81a1c1]"
+  },
+  {
+    "theme": "nord",
+    "key": "OkColor",
+    "hex": "#a3be8c",
+    "tag": "[#a3be8c]"
+  },
+  {
+    "theme": "nord",
+    "key": "StatuslineAccentBg",
+    "hex": "#5e81ac",
+    "tag": "[#5e81ac]"
+  },
+  {
+    "theme": "nord",
+    "key": "StatuslineAccentFg",
+    "hex": "#2e3440",
+    "tag": "[#2e3440]"
+  },
+  {
+    "theme": "nord",
+    "key": "StatuslineBg",
+    "hex": "#434c5e",
+    "tag": "[#434c5e]"
+  },
+  {
+    "theme": "nord",
+    "key": "StatuslineErrorBg",
+    "hex": "#3b4252",
+    "tag": "[#3b4252]"
+  },
+  {
+    "theme": "nord",
+    "key": "StatuslineErrorFg",
+    "hex": "#ebcb8b",
+    "tag": "[#ebcb8b]"
+  },
+  {
+    "theme": "nord",
+    "key": "StatuslineFg",
+    "hex": "#d8dee9",
+    "tag": "[#d8dee9]"
+  },
+  {
+    "theme": "nord",
+    "key": "StatuslineFillBg",
+    "hex": "#3b4252",
+    "tag": "[#3b4252]"
+  },
+  {
+    "theme": "nord",
+    "key": "StatuslineInfoBg",
+    "hex": "#3b4252",
+    "tag": "[#3b4252]"
+  },
+  {
+    "theme": "nord",
+    "key": "StatuslineInfoFg",
+    "hex": "#a3be8c",
+    "tag": "[#a3be8c]"
+  },
+  {
+    "theme": "nord",
+    "key": "TaskBoxDescriptionColor",
+    "hex": "#4c566a",
+    "tag": "[#4c566a]"
+  },
+  {
+    "theme": "nord",
+    "key": "TaskBoxIDColor.end",
+    "hex": "#88c0d0"
+  },
+  {
+    "theme": "nord",
+    "key": "TaskBoxIDColor.sample[0.00]",
+    "hex": "#6c99a6"
+  },
+  {
+    "theme": "nord",
+    "key": "TaskBoxIDColor.sample[0.25]",
+    "hex": "#73a3b1"
+  },
+  {
+    "theme": "nord",
+    "key": "TaskBoxIDColor.sample[0.50]",
+    "hex": "#7aadbb"
+  },
+  {
+    "theme": "nord",
+    "key": "TaskBoxIDColor.sample[0.75]",
+    "hex": "#81b6c6"
+  },
+  {
+    "theme": "nord",
+    "key": "TaskBoxIDColor.sample[1.00]",
+    "hex": "#88c0d0"
+  },
+  {
+    "theme": "nord",
+    "key": "TaskBoxIDColor.start",
+    "hex": "#6c99a6"
+  },
+  {
+    "theme": "nord",
+    "key": "TaskBoxLabelColor",
+    "hex": "#4c566a",
+    "tag": "[#4c566a]"
+  },
+  {
+    "theme": "nord",
+    "key": "TaskBoxSelectedBorder",
+    "hex": "#ebcb8b",
+    "tag": "[#ebcb8b]"
+  },
+  {
+    "theme": "nord",
+    "key": "TaskBoxTagValueColor",
+    "hex": "#4c566a",
+    "tag": "[#4c566a]"
+  },
+  {
+    "theme": "nord",
+    "key": "TaskBoxTitleColor",
+    "hex": "#d8dee9",
+    "tag": "[#d8dee9]"
+  },
+  {
+    "theme": "nord",
+    "key": "TaskBoxUnselectedBackground",
+    "hex": "-",
+    "tag": "[-]"
+  },
+  {
+    "theme": "nord",
+    "key": "TaskBoxUnselectedBorder",
+    "hex": "#434c5e",
+    "tag": "[#434c5e]"
+  },
+  {
+    "theme": "nord",
+    "key": "TaskDetailCommentAuthor",
+    "hex": "#ebcb8b",
+    "tag": "[#ebcb8b]"
+  },
+  {
+    "theme": "nord",
+    "key": "TaskDetailEditDimLabelColor",
+    "hex": "#4c566a",
+    "tag": "[#4c566a]"
+  },
+  {
+    "theme": "nord",
+    "key": "TaskDetailEditDimTextColor",
+    "hex": "#4c566a",
+    "tag": "[#4c566a]"
+  },
+  {
+    "theme": "nord",
+    "key": "TaskDetailEditDimValueColor",
+    "hex": "#d8dee9",
+    "tag": "[#d8dee9]"
+  },
+  {
+    "theme": "nord",
+    "key": "TaskDetailEditFocusMarker",
+    "hex": "#ebcb8b",
+    "tag": "[#ebcb8b]"
+  },
+  {
+    "theme": "nord",
+    "key": "TaskDetailEditFocusText",
+    "hex": "#eceff4",
+    "tag": "[#eceff4]"
+  },
+  {
+    "theme": "nord",
+    "key": "TaskDetailIDColor.end",
+    "hex": "#88c0d0"
+  },
+  {
+    "theme": "nord",
+    "key": "TaskDetailIDColor.sample[0.00]",
+    "hex": "#6c99a6"
+  },
+  {
+    "theme": "nord",
+    "key": "TaskDetailIDColor.sample[0.25]",
+    "hex": "#73a3b1"
+  },
+  {
+    "theme": "nord",
+    "key": "TaskDetailIDColor.sample[0.50]",
+    "hex": "#7aadbb"
+  },
+  {
+    "theme": "nord",
+    "key": "TaskDetailIDColor.sample[0.75]",
+    "hex": "#81b6c6"
+  },
+  {
+    "theme": "nord",
+    "key": "TaskDetailIDColor.sample[1.00]",
+    "hex": "#88c0d0"
+  },
+  {
+    "theme": "nord",
+    "key": "TaskDetailIDColor.start",
+    "hex": "#6c99a6"
+  },
+  {
+    "theme": "nord",
+    "key": "TaskDetailLabelText",
+    "hex": "#a3be8c",
+    "tag": "[#a3be8c]"
+  },
+  {
+    "theme": "nord",
+    "key": "TaskDetailPlaceholderColor",
+    "hex": "#4c566a",
+    "tag": "[#4c566a]"
+  },
+  {
+    "theme": "nord",
+    "key": "TaskDetailTagBackground",
+    "hex": "#434c5e",
+    "tag": "[#434c5e]"
+  },
+  {
+    "theme": "nord",
+    "key": "TaskDetailTagForeground",
+    "hex": "#d8dee9",
+    "tag": "[#d8dee9]"
+  },
+  {
+    "theme": "nord",
+    "key": "TaskDetailTitleText",
+    "hex": "#eceff4",
+    "tag": "[#eceff4]"
+  },
+  {
+    "theme": "nord",
+    "key": "TaskDetailValueText",
+    "hex": "#81a1c1",
+    "tag": "[#81a1c1]"
+  },
+  {
+    "theme": "nord",
+    "key": "TaskListSelectionBg",
+    "hex": "#434c5e",
+    "tag": "[#434c5e]"
+  },
+  {
+    "theme": "nord",
+    "key": "TaskListSelectionFg",
+    "hex": "#eceff4",
+    "tag": "[#eceff4]"
+  },
+  {
+    "theme": "nord",
+    "key": "TaskListStatusDoneColor",
+    "hex": "#a3be8c",
+    "tag": "[#a3be8c]"
+  },
+  {
+    "theme": "nord",
+    "key": "TaskListStatusPendingColor",
+    "hex": "#eceff4",
+    "tag": "[#eceff4]"
+  },
+  {
+    "theme": "nord",
+    "key": "WarnColor",
+    "hex": "#d08770",
+    "tag": "[#d08770]"
+  },
+  {
+    "theme": "nord",
+    "key": "alias:accent",
+    "hex": "#a3be8c",
+    "tag": "[#a3be8c]"
+  },
+  {
+    "theme": "nord",
+    "key": "alias:action",
+    "hex": "#88c0d0",
+    "tag": "[#88c0d0]"
+  },
+  {
+    "theme": "nord",
+    "key": "alias:danger",
+    "hex": "#bf616a",
+    "tag": "[#bf616a]"
+  },
+  {
+    "theme": "nord",
+    "key": "alias:highlight",
+    "hex": "#ebcb8b",
+    "tag": "[#ebcb8b]"
+  },
+  {
+    "theme": "nord",
+    "key": "alias:info",
+    "hex": "#d08770",
+    "tag": "[#d08770]"
+  },
+  {
+    "theme": "nord",
+    "key": "alias:muted",
+    "hex": "#4c566a",
+    "tag": "[#4c566a]"
+  },
+  {
+    "theme": "nord",
+    "key": "alias:ok",
+    "hex": "#a3be8c",
+    "tag": "[#a3be8c]"
+  },
+  {
+    "theme": "nord",
+    "key": "alias:text",
+    "hex": "#eceff4",
+    "tag": "[#eceff4]"
+  },
+  {
+    "theme": "nord",
+    "key": "alias:warn",
+    "hex": "#d08770",
+    "tag": "[#d08770]"
+  },
+  {
+    "theme": "monokai",
+    "key": "CaptionBg[0]",
+    "hex": "#1f4148",
+    "tag": "[#1f4148]"
+  },
+  {
+    "theme": "monokai",
+    "key": "CaptionBg[1]",
+    "hex": "#32440e",
+    "tag": "[#32440e]"
+  },
+  {
+    "theme": "monokai",
+    "key": "CaptionBg[2]",
+    "hex": "#4c2d09",
+    "tag": "[#4c2d09]"
+  },
+  {
+    "theme": "monokai",
+    "key": "CaptionBg[3]",
+    "hex": "#454223",
+    "tag": "[#454223]"
+  },
+  {
+    "theme": "monokai",
+    "key": "CaptionBg[4]",
+    "hex": "#23221c",
+    "tag": "[#23221c]"
+  },
+  {
+    "theme": "monokai",
+    "key": "CaptionBg[5]",
+    "hex": "#4b0c22",
+    "tag": "[#4b0c22]"
+  },
+  {
+    "theme": "monokai",
+    "key": "CaptionFallbackGradient.end",
+    "hex": "#49483e"
+  },
+  {
+    "theme": "monokai",
+    "key": "CaptionFallbackGradient.sample[0.00]",
+    "hex": "#272822"
+  },
+  {
+    "theme": "monokai",
+    "key": "CaptionFallbackGradient.sample[0.25]",
+    "hex": "#303029"
+  },
+  {
+    "theme": "monokai",
+    "key": "CaptionFallbackGradient.sample[0.50]",
+    "hex": "#383830"
+  },
+  {
+    "theme": "monokai",
+    "key": "CaptionFallbackGradient.sample[0.75]",
+    "hex": "#414037"
+  },
+  {
+    "theme": "monokai",
+    "key": "CaptionFallbackGradient.sample[1.00]",
+    "hex": "#49483e"
+  },
+  {
+    "theme": "monokai",
+    "key": "CaptionFallbackGradient.start",
+    "hex": "#272822"
+  },
+  {
+    "theme": "monokai",
+    "key": "CaptionFg[0]",
+    "hex": "#baeef8",
+    "tag": "[#baeef8]"
+  },
+  {
+    "theme": "monokai",
+    "key": "CaptionFg[1]",
+    "hex": "#d7f2a1",
+    "tag": "[#d7f2a1]"
+  },
+  {
+    "theme": "monokai",
+    "key": "CaptionFg[2]",
+    "hex": "#fed09a",
+    "tag": "[#fed09a]"
+  },
+  {
+    "theme": "monokai",
+    "key": "CaptionFg[3]",
+    "hex": "#f2eebc",
+    "tag": "[#f2eebc]"
+  },
+  {
+    "theme": "monokai",
+    "key": "CaptionFg[4]",
+    "hex": "#c1bfb7",
+    "tag": "[#c1bfb7]"
+  },
+  {
+    "theme": "monokai",
+    "key": "CaptionFg[5]",
+    "hex": "#e08ea5",
+    "tag": "[#e08ea5]"
+  },
+  {
+    "theme": "monokai",
+    "key": "CompletionHintColor",
+    "hex": "#75715e",
+    "tag": "[#75715e]"
+  },
+  {
+    "theme": "monokai",
+    "key": "ContentBackgroundColor",
+    "hex": "-",
+    "tag": "[-]"
+  },
+  {
+    "theme": "monokai",
+    "key": "ContentTextColor",
+    "hex": "#f8f8f2",
+    "tag": "[#f8f8f2]"
+  },
+  {
+    "theme": "monokai",
+    "key": "DangerColor",
+    "hex": "#f92672",
+    "tag": "[#f92672]"
+  },
+  {
+    "theme": "monokai",
+    "key": "DepsEditorBackground",
+    "hex": "#3e3d32",
+    "tag": "[#3e3d32]"
+  },
+  {
+    "theme": "monokai",
+    "key": "FallbackTaskIDColor",
+    "hex": "#66d9ef",
+    "tag": "[#66d9ef]"
+  },
+  {
+    "theme": "monokai",
+    "key": "HeaderActionGlobalKeyColor",
+    "hex": "#e6db74",
+    "tag": "[#e6db74]"
+  },
+  {
+    "theme": "monokai",
+    "key": "HeaderActionGlobalLabelColor",
+    "hex": "#f8f8f2",
+    "tag": "[#f8f8f2]"
+  },
+  {
+    "theme": "monokai",
+    "key": "HeaderActionPluginKeyColor",
+    "hex": "#fd971f",
+    "tag": "[#fd971f]"
+  },
+  {
+    "theme": "monokai",
+    "key": "HeaderActionPluginLabelColor",
+    "hex": "#cfcfc2",
+    "tag": "[#cfcfc2]"
+  },
+  {
+    "theme": "monokai",
+    "key": "HeaderActionViewKeyColor",
+    "hex": "#66d9ef",
+    "tag": "[#66d9ef]"
+  },
+  {
+    "theme": "monokai",
+    "key": "HeaderActionViewLabelColor",
+    "hex": "#75715e",
+    "tag": "[#75715e]"
+  },
+  {
+    "theme": "monokai",
+    "key": "HeaderInfoDesc",
+    "hex": "#75715e",
+    "tag": "[#75715e]"
+  },
+  {
+    "theme": "monokai",
+    "key": "HeaderInfoLabel",
+    "hex": "#fd971f",
+    "tag": "[#fd971f]"
+  },
+  {
+    "theme": "monokai",
+    "key": "HeaderInfoSeparator",
+    "hex": "#75715e",
+    "tag": "[#75715e]"
+  },
+  {
+    "theme": "monokai",
+    "key": "HeaderKeyBinding",
+    "hex": "#e6db74",
+    "tag": "[#e6db74]"
+  },
+  {
+    "theme": "monokai",
+    "key": "HeaderKeyText",
+    "hex": "#f8f8f2",
+    "tag": "[#f8f8f2]"
+  },
+  {
+    "theme": "monokai",
+    "key": "InputBoxBackgroundColor",
+    "hex": "-",
+    "tag": "[-]"
+  },
+  {
+    "theme": "monokai",
+    "key": "InputBoxLabelColor",
+    "hex": "#f8f8f2",
+    "tag": "[#f8f8f2]"
+  },
+  {
+    "theme": "monokai",
+    "key": "InputBoxTextColor",
+    "hex": "#f8f8f2",
+    "tag": "[#f8f8f2]"
+  },
+  {
+    "theme": "monokai",
+    "key": "InputFieldBackgroundColor",
+    "hex": "-",
+    "tag": "[-]"
+  },
+  {
+    "theme": "monokai",
+    "key": "InputFieldTextColor",
+    "hex": "#f8f8f2",
+    "tag": "[#f8f8f2]"
+  },
+  {
+    "theme": "monokai",
+    "key": "LogoBorderColor",
+    "hex": "#3e3d32",
+    "tag": "[#3e3d32]"
+  },
+  {
+    "theme": "monokai",
+    "key": "LogoDotColor",
+    "hex": "#a6e22e",
+    "tag": "[#a6e22e]"
+  },
+  {
+    "theme": "monokai",
+    "key": "LogoShadeColor",
+    "hex": "#66d9ef",
+    "tag": "[#66d9ef]"
+  },
+  {
+    "theme": "monokai",
+    "key": "OkColor",
+    "hex": "#a6e22e",
+    "tag": "[#a6e22e]"
+  },
+  {
+    "theme": "monokai",
+    "key": "StatuslineAccentBg",
+    "hex": "#66d9ef",
+    "tag": "[#66d9ef]"
+  },
+  {
+    "theme": "monokai",
+    "key": "StatuslineAccentFg",
+    "hex": "#1e1f1c",
+    "tag": "[#1e1f1c]"
+  },
+  {
+    "theme": "monokai",
+    "key": "StatuslineBg",
+    "hex": "#3e3d32",
+    "tag": "[#3e3d32]"
+  },
+  {
+    "theme": "monokai",
+    "key": "StatuslineErrorBg",
+    "hex": "#272822",
+    "tag": "[#272822]"
+  },
+  {
+    "theme": "monokai",
+    "key": "StatuslineErrorFg",
+    "hex": "#e6db74",
+    "tag": "[#e6db74]"
+  },
+  {
+    "theme": "monokai",
+    "key": "StatuslineFg",
+    "hex": "#f8f8f2",
+    "tag": "[#f8f8f2]"
+  },
+  {
+    "theme": "monokai",
+    "key": "StatuslineFillBg",
+    "hex": "#272822",
+    "tag": "[#272822]"
+  },
+  {
+    "theme": "monokai",
+    "key": "StatuslineInfoBg",
+    "hex": "#272822",
+    "tag": "[#272822]"
+  },
+  {
+    "theme": "monokai",
+    "key": "StatuslineInfoFg",
+    "hex": "#a6e22e",
+    "tag": "[#a6e22e]"
+  },
+  {
+    "theme": "monokai",
+    "key": "TaskBoxDescriptionColor",
+    "hex": "#75715e",
+    "tag": "[#75715e]"
+  },
+  {
+    "theme": "monokai",
+    "key": "TaskBoxIDColor.end",
+    "hex": "#66d9ef"
+  },
+  {
+    "theme": "monokai",
+    "key": "TaskBoxIDColor.sample[0.00]",
+    "hex": "#51adbf"
+  },
+  {
+    "theme": "monokai",
+    "key": "TaskBoxIDColor.sample[0.25]",
+    "hex": "#56b8cb"
+  },
+  {
+    "theme": "monokai",
+    "key": "TaskBoxIDColor.sample[0.50]",
+    "hex": "#5cc3d7"
+  },
+  {
+    "theme": "monokai",
+    "key": "TaskBoxIDColor.sample[0.75]",
+    "hex": "#61cee3"
+  },
+  {
+    "theme": "monokai",
+    "key": "TaskBoxIDColor.sample[1.00]",
+    "hex": "#66d9ef"
+  },
+  {
+    "theme": "monokai",
+    "key": "TaskBoxIDColor.start",
+    "hex": "#51adbf"
+  },
+  {
+    "theme": "monokai",
+    "key": "TaskBoxLabelColor",
+    "hex": "#75715e",
+    "tag": "[#75715e]"
+  },
+  {
+    "theme": "monokai",
+    "key": "TaskBoxSelectedBorder",
+    "hex": "#e6db74",
+    "tag": "[#e6db74]"
+  },
+  {
+    "theme": "monokai",
+    "key": "TaskBoxTagValueColor",
+    "hex": "#75715e",
+    "tag": "[#75715e]"
+  },
+  {
+    "theme": "monokai",
+    "key": "TaskBoxTitleColor",
+    "hex": "#cfcfc2",
+    "tag": "[#cfcfc2]"
+  },
+  {
+    "theme": "monokai",
+    "key": "TaskBoxUnselectedBackground",
+    "hex": "-",
+    "tag": "[-]"
+  },
+  {
+    "theme": "monokai",
+    "key": "TaskBoxUnselectedBorder",
+    "hex": "#49483e",
+    "tag": "[#49483e]"
+  },
+  {
+    "theme": "monokai",
+    "key": "TaskDetailCommentAuthor",
+    "hex": "#e6db74",
+    "tag": "[#e6db74]"
+  },
+  {
+    "theme": "monokai",
+    "key": "TaskDetailEditDimLabelColor",
+    "hex": "#75715e",
+    "tag": "[#75715e]"
+  },
+  {
+    "theme": "monokai",
+    "key": "TaskDetailEditDimTextColor",
+    "hex": "#75715e",
+    "tag": "[#75715e]"
+  },
+  {
+    "theme": "monokai",
+    "key": "TaskDetailEditDimValueColor",
+    "hex": "#cfcfc2",
+    "tag": "[#cfcfc2]"
+  },
+  {
+    "theme": "monokai",
+    "key": "TaskDetailEditFocusMarker",
+    "hex": "#e6db74",
+    "tag": "[#e6db74]"
+  },
+  {
+    "theme": "monokai",
+    "key": "TaskDetailEditFocusText",
+    "hex": "#f8f8f2",
+    "tag": "[#f8f8f2]"
+  },
+  {
+    "theme": "monokai",
+    "key": "TaskDetailIDColor.end",
+    "hex": "#66d9ef"
+  },
+  {
+    "theme": "monokai",
+    "key": "TaskDetailIDColor.sample[0.00]",
+    "hex": "#51adbf"
+  },
+  {
+    "theme": "monokai",
+    "key": "TaskDetailIDColor.sample[0.25]",
+    "hex": "#56b8cb"
+  },
+  {
+    "theme": "monokai",
+    "key": "TaskDetailIDColor.sample[0.50]",
+    "hex": "#5cc3d7"
+  },
+  {
+    "theme": "monokai",
+    "key": "TaskDetailIDColor.sample[0.75]",
+    "hex": "#61cee3"
+  },
+  {
+    "theme": "monokai",
+    "key": "TaskDetailIDColor.sample[1.00]",
+    "hex": "#66d9ef"
+  },
+  {
+    "theme": "monokai",
+    "key": "TaskDetailIDColor.start",
+    "hex": "#51adbf"
+  },
+  {
+    "theme": "monokai",
+    "key": "TaskDetailLabelText",
+    "hex": "#a6e22e",
+    "tag": "[#a6e22e]"
+  },
+  {
+    "theme": "monokai",
+    "key": "TaskDetailPlaceholderColor",
+    "hex": "#75715e",
+    "tag": "[#75715e]"
+  },
+  {
+    "theme": "monokai",
+    "key": "TaskDetailTagBackground",
+    "hex": "#49483e",
+    "tag": "[#49483e]"
+  },
+  {
+    "theme": "monokai",
+    "key": "TaskDetailTagForeground",
+    "hex": "#cfcfc2",
+    "tag": "[#cfcfc2]"
+  },
+  {
+    "theme": "monokai",
+    "key": "TaskDetailTitleText",
+    "hex": "#f8f8f2",
+    "tag": "[#f8f8f2]"
+  },
+  {
+    "theme": "monokai",
+    "key": "TaskDetailValueText",
+    "hex": "#66d9ef",
+    "tag": "[#66d9ef]"
+  },
+  {
+    "theme": "monokai",
+    "key": "TaskListSelectionBg",
+    "hex": "#49483e",
+    "tag": "[#49483e]"
+  },
+  {
+    "theme": "monokai",
+    "key": "TaskListSelectionFg",
+    "hex": "#f8f8f2",
+    "tag": "[#f8f8f2]"
+  },
+  {
+    "theme": "monokai",
+    "key": "TaskListStatusDoneColor",
+    "hex": "#a6e22e",
+    "tag": "[#a6e22e]"
+  },
+  {
+    "theme": "monokai",
+    "key": "TaskListStatusPendingColor",
+    "hex": "#f8f8f2",
+    "tag": "[#f8f8f2]"
+  },
+  {
+    "theme": "monokai",
+    "key": "WarnColor",
+    "hex": "#fd971f",
+    "tag": "[#fd971f]"
+  },
+  {
+    "theme": "monokai",
+    "key": "alias:accent",
+    "hex": "#a6e22e",
+    "tag": "[#a6e22e]"
+  },
+  {
+    "theme": "monokai",
+    "key": "alias:action",
+    "hex": "#66d9ef",
+    "tag": "[#66d9ef]"
+  },
+  {
+    "theme": "monokai",
+    "key": "alias:danger",
+    "hex": "#f92672",
+    "tag": "[#f92672]"
+  },
+  {
+    "theme": "monokai",
+    "key": "alias:highlight",
+    "hex": "#e6db74",
+    "tag": "[#e6db74]"
+  },
+  {
+    "theme": "monokai",
+    "key": "alias:info",
+    "hex": "#fd971f",
+    "tag": "[#fd971f]"
+  },
+  {
+    "theme": "monokai",
+    "key": "alias:muted",
+    "hex": "#75715e",
+    "tag": "[#75715e]"
+  },
+  {
+    "theme": "monokai",
+    "key": "alias:ok",
+    "hex": "#a6e22e",
+    "tag": "[#a6e22e]"
+  },
+  {
+    "theme": "monokai",
+    "key": "alias:text",
+    "hex": "#f8f8f2",
+    "tag": "[#f8f8f2]"
+  },
+  {
+    "theme": "monokai",
+    "key": "alias:warn",
+    "hex": "#fd971f",
+    "tag": "[#fd971f]"
+  },
+  {
+    "theme": "one-dark",
+    "key": "CaptionBg[0]",
+    "hex": "#1d3548",
+    "tag": "[#1d3548]"
+  },
+  {
+    "theme": "one-dark",
+    "key": "CaptionBg[1]",
+    "hex": "#2e3b24",
+    "tag": "[#2e3b24]"
+  },
+  {
+    "theme": "one-dark",
+    "key": "CaptionBg[2]",
+    "hex": "#3f2e1f",
+    "tag": "[#3f2e1f]"
+  },
+  {
+    "theme": "one-dark",
+    "key": "CaptionBg[3]",
+    "hex": "#453a25",
+    "tag": "[#453a25]"
+  },
+  {
+    "theme": "one-dark",
+    "key": "CaptionBg[4]",
+    "hex": "#1c1e22",
+    "tag": "[#1c1e22]"
+  },
+  {
+    "theme": "one-dark",
+    "key": "CaptionBg[5]",
+    "hex": "#432123",
+    "tag": "[#432123]"
+  },
+  {
+    "theme": "one-dark",
+    "key": "CaptionFallbackGradient.end",
+    "hex": "#3e4452"
+  },
+  {
+    "theme": "one-dark",
+    "key": "CaptionFallbackGradient.sample[0.00]",
+    "hex": "#282c34"
+  },
+  {
+    "theme": "one-dark",
+    "key": "CaptionFallbackGradient.sample[0.25]",
+    "hex": "#2e323c"
+  },
+  {
+    "theme": "one-dark",
+    "key": "CaptionFallbackGradient.sample[0.50]",
+    "hex": "#333843"
+  },
+  {
+    "theme": "one-dark",
+    "key": "CaptionFallbackGradient.sample[0.75]",
+    "hex": "#393e4b"
+  },
+  {
+    "theme": "one-dark",
+    "key": "CaptionFallbackGradient.sample[1.00]",
+    "hex": "#3e4452"
+  },
+  {
+    "theme": "one-dark",
+    "key": "CaptionFallbackGradient.start",
+    "hex": "#282c34"
+  },
+  {
+    "theme": "one-dark",
+    "key": "CaptionFg[0]",
+    "hex": "#b8dbf8",
+    "tag": "[#b8dbf8]"
+  },
+  {
+    "theme": "one-dark",
+    "key": "CaptionFg[1]",
+    "hex": "#d1e4c3",
+    "tag": "[#d1e4c3]"
+  },
+  {
+    "theme": "one-dark",
+    "key": "CaptionFg[2]",
+    "hex": "#ead2ba",
+    "tag": "[#ead2ba]"
+  },
+  {
+    "theme": "one-dark",
+    "key": "CaptionFg[3]",
+    "hex": "#f1deba",
+    "tag": "[#f1deba]"
+  },
+  {
+    "theme": "one-dark",
+    "key": "CaptionFg[4]",
+    "hex": "#b6b9bf",
+    "tag": "[#b6b9bf]"
+  },
+  {
+    "theme": "one-dark",
+    "key": "CaptionFg[5]",
+    "hex": "#eeb2b6",
+    "tag": "[#eeb2b6]"
+  },
+  {
+    "theme": "one-dark",
+    "key": "CompletionHintColor",
+    "hex": "#5c6370",
+    "tag": "[#5c6370]"
+  },
+  {
+    "theme": "one-dark",
+    "key": "ContentBackgroundColor",
+    "hex": "-",
+    "tag": "[-]"
+  },
+  {
+    "theme": "one-dark",
+    "key": "ContentTextColor",
+    "hex": "#abb2bf",
+    "tag": "[#abb2bf]"
+  },
+  {
+    "theme": "one-dark",
+    "key": "DangerColor",
+    "hex": "#e06c75",
+    "tag": "[#e06c75]"
+  },
+  {
+    "theme": "one-dark",
+    "key": "DepsEditorBackground",
+    "hex": "#3b4048",
+    "tag": "[#3b4048]"
+  },
+  {
+    "theme": "one-dark",
+    "key": "FallbackTaskIDColor",
+    "hex": "#61afef",
+    "tag": "[#61afef]"
+  },
+  {
+    "theme": "one-dark",
+    "key": "HeaderActionGlobalKeyColor",
+    "hex": "#e5c07b",
+    "tag": "[#e5c07b]"
+  },
+  {
+    "theme": "one-dark",
+    "key": "HeaderActionGlobalLabelColor",
+    "hex": "#abb2bf",
+    "tag": "[#abb2bf]"
+  },
+  {
+    "theme": "one-dark",
+    "key": "HeaderActionPluginKeyColor",
+    "hex": "#d19a66",
+    "tag": "[#d19a66]"
+  },
+  {
+    "theme": "one-dark",
+    "key": "HeaderActionPluginLabelColor",
+    "hex": "#9da5b4",
+    "tag": "[#9da5b4]"
+  },
+  {
+    "theme": "one-dark",
+    "key": "HeaderActionViewKeyColor",
+    "hex": "#61afef",
+    "tag": "[#61afef]"
+  },
+  {
+    "theme": "one-dark",
+    "key": "HeaderActionViewLabelColor",
+    "hex": "#5c6370",
+    "tag": "[#5c6370]"
+  },
+  {
+    "theme": "one-dark",
+    "key": "HeaderInfoDesc",
+    "hex": "#5c6370",
+    "tag": "[#5c6370]"
+  },
+  {
+    "theme": "one-dark",
+    "key": "HeaderInfoLabel",
+    "hex": "#d19a66",
+    "tag": "[#d19a66]"
+  },
+  {
+    "theme": "one-dark",
+    "key": "HeaderInfoSeparator",
+    "hex": "#5c6370",
+    "tag": "[#5c6370]"
+  },
+  {
+    "theme": "one-dark",
+    "key": "HeaderKeyBinding",
+    "hex": "#e5c07b",
+    "tag": "[#e5c07b]"
+  },
+  {
+    "theme": "one-dark",
+    "key": "HeaderKeyText",
+    "hex": "#abb2bf",
+    "tag": "[#abb2bf]"
+  },
+  {
+    "theme": "one-dark",
+    "key": "InputBoxBackgroundColor",
+    "hex": "-",
+    "tag": "[-]"
+  },
+  {
+    "theme": "one-dark",
+    "key": "InputBoxLabelColor",
+    "hex": "#abb2bf",
+    "tag": "[#abb2bf]"
+  },
+  {
+    "theme": "one-dark",
+    "key": "InputBoxTextColor",
+    "hex": "#abb2bf",
+    "tag": "[#abb2bf]"
+  },
+  {
+    "theme": "one-dark",
+    "key": "InputFieldBackgroundColor",
+    "hex": "-",
+    "tag": "[-]"
+  },
+  {
+    "theme": "one-dark",
+    "key": "InputFieldTextColor",
+    "hex": "#abb2bf",
+    "tag": "[#abb2bf]"
+  },
+  {
+    "theme": "one-dark",
+    "key": "LogoBorderColor",
+    "hex": "#3b4048",
+    "tag": "[#3b4048]"
+  },
+  {
+    "theme": "one-dark",
+    "key": "LogoDotColor",
+    "hex": "#56b6c2",
+    "tag": "[#56b6c2]"
+  },
+  {
+    "theme": "one-dark",
+    "key": "LogoShadeColor",
+    "hex": "#61afef",
+    "tag": "[#61afef]"
+  },
+  {
+    "theme": "one-dark",
+    "key": "OkColor",
+    "hex": "#98c379",
+    "tag": "[#98c379]"
+  },
+  {
+    "theme": "one-dark",
+    "key": "StatuslineAccentBg",
+    "hex": "#61afef",
+    "tag": "[#61afef]"
+  },
+  {
+    "theme": "one-dark",
+    "key": "StatuslineAccentFg",
+    "hex": "#21252b",
+    "tag": "[#21252b]"
+  },
+  {
+    "theme": "one-dark",
+    "key": "StatuslineBg",
+    "hex": "#3b4048",
+    "tag": "[#3b4048]"
+  },
+  {
+    "theme": "one-dark",
+    "key": "StatuslineErrorBg",
+    "hex": "#282c34",
+    "tag": "[#282c34]"
+  },
+  {
+    "theme": "one-dark",
+    "key": "StatuslineErrorFg",
+    "hex": "#e5c07b",
+    "tag": "[#e5c07b]"
+  },
+  {
+    "theme": "one-dark",
+    "key": "StatuslineFg",
+    "hex": "#abb2bf",
+    "tag": "[#abb2bf]"
+  },
+  {
+    "theme": "one-dark",
+    "key": "StatuslineFillBg",
+    "hex": "#282c34",
+    "tag": "[#282c34]"
+  },
+  {
+    "theme": "one-dark",
+    "key": "StatuslineInfoBg",
+    "hex": "#282c34",
+    "tag": "[#282c34]"
+  },
+  {
+    "theme": "one-dark",
+    "key": "StatuslineInfoFg",
+    "hex": "#98c379",
+    "tag": "[#98c379]"
+  },
+  {
+    "theme": "one-dark",
+    "key": "TaskBoxDescriptionColor",
+    "hex": "#5c6370",
+    "tag": "[#5c6370]"
+  },
+  {
+    "theme": "one-dark",
+    "key": "TaskBoxIDColor.end",
+    "hex": "#61afef"
+  },
+  {
+    "theme": "one-dark",
+    "key": "TaskBoxIDColor.sample[0.00]",
+    "hex": "#4d8cbf"
+  },
+  {
+    "theme": "one-dark",
+    "key": "TaskBoxIDColor.sample[0.25]",
+    "hex": "#5295cb"
+  },
+  {
+    "theme": "one-dark",
+    "key": "TaskBoxIDColor.sample[0.50]",
+    "hex": "#579ed7"
+  },
+  {
+    "theme": "one-dark",
+    "key": "TaskBoxIDColor.sample[0.75]",
+    "hex": "#5ca6e3"
+  },
+  {
+    "theme": "one-dark",
+    "key": "TaskBoxIDColor.sample[1.00]",
+    "hex": "#61afef"
+  },
+  {
+    "theme": "one-dark",
+    "key": "TaskBoxIDColor.start",
+    "hex": "#4d8cbf"
+  },
+  {
+    "theme": "one-dark",
+    "key": "TaskBoxLabelColor",
+    "hex": "#5c6370",
+    "tag": "[#5c6370]"
+  },
+  {
+    "theme": "one-dark",
+    "key": "TaskBoxSelectedBorder",
+    "hex": "#e5c07b",
+    "tag": "[#e5c07b]"
+  },
+  {
+    "theme": "one-dark",
+    "key": "TaskBoxTagValueColor",
+    "hex": "#5c6370",
+    "tag": "[#5c6370]"
+  },
+  {
+    "theme": "one-dark",
+    "key": "TaskBoxTitleColor",
+    "hex": "#9da5b4",
+    "tag": "[#9da5b4]"
+  },
+  {
+    "theme": "one-dark",
+    "key": "TaskBoxUnselectedBackground",
+    "hex": "-",
+    "tag": "[-]"
+  },
+  {
+    "theme": "one-dark",
+    "key": "TaskBoxUnselectedBorder",
+    "hex": "#3e4452",
+    "tag": "[#3e4452]"
+  },
+  {
+    "theme": "one-dark",
+    "key": "TaskDetailCommentAuthor",
+    "hex": "#e5c07b",
+    "tag": "[#e5c07b]"
+  },
+  {
+    "theme": "one-dark",
+    "key": "TaskDetailEditDimLabelColor",
+    "hex": "#5c6370",
+    "tag": "[#5c6370]"
+  },
+  {
+    "theme": "one-dark",
+    "key": "TaskDetailEditDimTextColor",
+    "hex": "#5c6370",
+    "tag": "[#5c6370]"
+  },
+  {
+    "theme": "one-dark",
+    "key": "TaskDetailEditDimValueColor",
+    "hex": "#9da5b4",
+    "tag": "[#9da5b4]"
+  },
+  {
+    "theme": "one-dark",
+    "key": "TaskDetailEditFocusMarker",
+    "hex": "#e5c07b",
+    "tag": "[#e5c07b]"
+  },
+  {
+    "theme": "one-dark",
+    "key": "TaskDetailEditFocusText",
+    "hex": "#abb2bf",
+    "tag": "[#abb2bf]"
+  },
+  {
+    "theme": "one-dark",
+    "key": "TaskDetailIDColor.end",
+    "hex": "#61afef"
+  },
+  {
+    "theme": "one-dark",
+    "key": "TaskDetailIDColor.sample[0.00]",
+    "hex": "#4d8cbf"
+  },
+  {
+    "theme": "one-dark",
+    "key": "TaskDetailIDColor.sample[0.25]",
+    "hex": "#5295cb"
+  },
+  {
+    "theme": "one-dark",
+    "key": "TaskDetailIDColor.sample[0.50]",
+    "hex": "#579ed7"
+  },
+  {
+    "theme": "one-dark",
+    "key": "TaskDetailIDColor.sample[0.75]",
+    "hex": "#5ca6e3"
+  },
+  {
+    "theme": "one-dark",
+    "key": "TaskDetailIDColor.sample[1.00]",
+    "hex": "#61afef"
+  },
+  {
+    "theme": "one-dark",
+    "key": "TaskDetailIDColor.start",
+    "hex": "#4d8cbf"
+  },
+  {
+    "theme": "one-dark",
+    "key": "TaskDetailLabelText",
+    "hex": "#98c379",
+    "tag": "[#98c379]"
+  },
+  {
+    "theme": "one-dark",
+    "key": "TaskDetailPlaceholderColor",
+    "hex": "#5c6370",
+    "tag": "[#5c6370]"
+  },
+  {
+    "theme": "one-dark",
+    "key": "TaskDetailTagBackground",
+    "hex": "#3e4452",
+    "tag": "[#3e4452]"
+  },
+  {
+    "theme": "one-dark",
+    "key": "TaskDetailTagForeground",
+    "hex": "#9da5b4",
+    "tag": "[#9da5b4]"
+  },
+  {
+    "theme": "one-dark",
+    "key": "TaskDetailTitleText",
+    "hex": "#abb2bf",
+    "tag": "[#abb2bf]"
+  },
+  {
+    "theme": "one-dark",
+    "key": "TaskDetailValueText",
+    "hex": "#61afef",
+    "tag": "[#61afef]"
+  },
+  {
+    "theme": "one-dark",
+    "key": "TaskListSelectionBg",
+    "hex": "#3e4452",
+    "tag": "[#3e4452]"
+  },
+  {
+    "theme": "one-dark",
+    "key": "TaskListSelectionFg",
+    "hex": "#abb2bf",
+    "tag": "[#abb2bf]"
+  },
+  {
+    "theme": "one-dark",
+    "key": "TaskListStatusDoneColor",
+    "hex": "#98c379",
+    "tag": "[#98c379]"
+  },
+  {
+    "theme": "one-dark",
+    "key": "TaskListStatusPendingColor",
+    "hex": "#abb2bf",
+    "tag": "[#abb2bf]"
+  },
+  {
+    "theme": "one-dark",
+    "key": "WarnColor",
+    "hex": "#d19a66",
+    "tag": "[#d19a66]"
+  },
+  {
+    "theme": "one-dark",
+    "key": "alias:accent",
+    "hex": "#98c379",
+    "tag": "[#98c379]"
+  },
+  {
+    "theme": "one-dark",
+    "key": "alias:action",
+    "hex": "#61afef",
+    "tag": "[#61afef]"
+  },
+  {
+    "theme": "one-dark",
+    "key": "alias:danger",
+    "hex": "#e06c75",
+    "tag": "[#e06c75]"
+  },
+  {
+    "theme": "one-dark",
+    "key": "alias:highlight",
+    "hex": "#e5c07b",
+    "tag": "[#e5c07b]"
+  },
+  {
+    "theme": "one-dark",
+    "key": "alias:info",
+    "hex": "#d19a66",
+    "tag": "[#d19a66]"
+  },
+  {
+    "theme": "one-dark",
+    "key": "alias:muted",
+    "hex": "#5c6370",
+    "tag": "[#5c6370]"
+  },
+  {
+    "theme": "one-dark",
+    "key": "alias:ok",
+    "hex": "#98c379",
+    "tag": "[#98c379]"
+  },
+  {
+    "theme": "one-dark",
+    "key": "alias:text",
+    "hex": "#abb2bf",
+    "tag": "[#abb2bf]"
+  },
+  {
+    "theme": "one-dark",
+    "key": "alias:warn",
+    "hex": "#d19a66",
+    "tag": "[#d19a66]"
+  },
+  {
+    "theme": "catppuccin-latte",
+    "key": "CaptionBg[0]",
+    "hex": "#1e66f5",
+    "tag": "[#1e66f5]"
+  },
+  {
+    "theme": "catppuccin-latte",
+    "key": "CaptionBg[1]",
+    "hex": "#8d5a12",
+    "tag": "[#8d5a12]"
+  },
+  {
+    "theme": "catppuccin-latte",
+    "key": "CaptionBg[2]",
+    "hex": "#b54708",
+    "tag": "[#b54708]"
+  },
+  {
+    "theme": "catppuccin-latte",
+    "key": "CaptionBg[3]",
+    "hex": "#5e606f",
+    "tag": "[#5e606f]"
+  },
+  {
+    "theme": "catppuccin-latte",
+    "key": "CaptionBg[4]",
+    "hex": "#148187",
+    "tag": "[#148187]"
+  },
+  {
+    "theme": "catppuccin-latte",
+    "key": "CaptionBg[5]",
+    "hex": "#0381b3",
+    "tag": "[#0381b3]"
+  },
+  {
+    "theme": "catppuccin-latte",
+    "key": "CaptionFallbackGradient.end",
+    "hex": "#ccd0da"
+  },
+  {
+    "theme": "catppuccin-latte",
+    "key": "CaptionFallbackGradient.sample[0.00]",
+    "hex": "#eff1f5"
+  },
+  {
+    "theme": "catppuccin-latte",
+    "key": "CaptionFallbackGradient.sample[0.25]",
+    "hex": "#e6e9ee"
+  },
+  {
+    "theme": "catppuccin-latte",
+    "key": "CaptionFallbackGradient.sample[0.50]",
+    "hex": "#dee1e8"
+  },
+  {
+    "theme": "catppuccin-latte",
+    "key": "CaptionFallbackGradient.sample[0.75]",
+    "hex": "#d5d8e1"
+  },
+  {
+    "theme": "catppuccin-latte",
+    "key": "CaptionFallbackGradient.sample[1.00]",
+    "hex": "#ccd0da"
+  },
+  {
+    "theme": "catppuccin-latte",
+    "key": "CaptionFallbackGradient.start",
+    "hex": "#eff1f5"
+  },
+  {
+    "theme": "catppuccin-latte",
+    "key": "CaptionFg[0]",
+    "hex": "#c7d9fd",
+    "tag": "[#c7d9fd]"
+  },
+  {
+    "theme": "catppuccin-latte",
+    "key": "CaptionFg[1]",
+    "hex": "#f7e3c7",
+    "tag": "[#f7e3c7]"
+  },
+  {
+    "theme": "catppuccin-latte",
+    "key": "CaptionFg[2]",
+    "hex": "#ffd8c2",
+    "tag": "[#ffd8c2]"
+  },
+  {
+    "theme": "catppuccin-latte",
+    "key": "CaptionFg[3]",
+    "hex": "#dedfe4",
+    "tag": "[#dedfe4]"
+  },
+  {
+    "theme": "catppuccin-latte",
+    "key": "CaptionFg[4]",
+    "hex": "#c5e4e6",
+    "tag": "[#c5e4e6]"
+  },
+  {
+    "theme": "catppuccin-latte",
+    "key": "CaptionFg[5]",
+    "hex": "#c0e9f9",
+    "tag": "[#c0e9f9]"
+  },
+  {
+    "theme": "catppuccin-latte",
+    "key": "CompletionHintColor",
+    "hex": "#9ca0b0",
+    "tag": "[#9ca0b0]"
+  },
+  {
+    "theme": "catppuccin-latte",
+    "key": "ContentBackgroundColor",
+    "hex": "-",
+    "tag": "[-]"
+  },
+  {
+    "theme": "catppuccin-latte",
+    "key": "ContentTextColor",
+    "hex": "#4c4f69",
+    "tag": "[#4c4f69]"
+  },
+  {
+    "theme": "catppuccin-latte",
+    "key": "DangerColor",
+    "hex": "#d20f39",
+    "tag": "[#d20f39]"
+  },
+  {
+    "theme": "catppuccin-latte",
+    "key": "DepsEditorBackground",
+    "hex": "#dce0e8",
+    "tag": "[#dce0e8]"
+  },
+  {
+    "theme": "catppuccin-latte",
+    "key": "FallbackTaskIDColor",
+    "hex": "#04a5e5",
+    "tag": "[#04a5e5]"
+  },
+  {
+    "theme": "catppuccin-latte",
+    "key": "HeaderActionGlobalKeyColor",
+    "hex": "#df8e1d",
+    "tag": "[#df8e1d]"
+  },
+  {
+    "theme": "catppuccin-latte",
+    "key": "HeaderActionGlobalLabelColor",
+    "hex": "#4c4f69",
+    "tag": "[#4c4f69]"
+  },
+  {
+    "theme": "catppuccin-latte",
+    "key": "HeaderActionPluginKeyColor",
+    "hex": "#fe640b",
+    "tag": "[#fe640b]"
+  },
+  {
+    "theme": "catppuccin-latte",
+    "key": "HeaderActionPluginLabelColor",
+    "hex": "#5c5f77",
+    "tag": "[#5c5f77]"
+  },
+  {
+    "theme": "catppuccin-latte",
+    "key": "HeaderActionViewKeyColor",
+    "hex": "#1e66f5",
+    "tag": "[#1e66f5]"
+  },
+  {
+    "theme": "catppuccin-latte",
+    "key": "HeaderActionViewLabelColor",
+    "hex": "#9ca0b0",
+    "tag": "[#9ca0b0]"
+  },
+  {
+    "theme": "catppuccin-latte",
+    "key": "HeaderInfoDesc",
+    "hex": "#9ca0b0",
+    "tag": "[#9ca0b0]"
+  },
+  {
+    "theme": "catppuccin-latte",
+    "key": "HeaderInfoLabel",
+    "hex": "#fe640b",
+    "tag": "[#fe640b]"
+  },
+  {
+    "theme": "catppuccin-latte",
+    "key": "HeaderInfoSeparator",
+    "hex": "#9ca0b0",
+    "tag": "[#9ca0b0]"
+  },
+  {
+    "theme": "catppuccin-latte",
+    "key": "HeaderKeyBinding",
+    "hex": "#df8e1d",
+    "tag": "[#df8e1d]"
+  },
+  {
+    "theme": "catppuccin-latte",
+    "key": "HeaderKeyText",
+    "hex": "#4c4f69",
+    "tag": "[#4c4f69]"
+  },
+  {
+    "theme": "catppuccin-latte",
+    "key": "InputBoxBackgroundColor",
+    "hex": "-",
+    "tag": "[-]"
+  },
+  {
+    "theme": "catppuccin-latte",
+    "key": "InputBoxLabelColor",
+    "hex": "#4c4f69",
+    "tag": "[#4c4f69]"
+  },
+  {
+    "theme": "catppuccin-latte",
+    "key": "InputBoxTextColor",
+    "hex": "#4c4f69",
+    "tag": "[#4c4f69]"
+  },
+  {
+    "theme": "catppuccin-latte",
+    "key": "InputFieldBackgroundColor",
+    "hex": "-",
+    "tag": "[-]"
+  },
+  {
+    "theme": "catppuccin-latte",
+    "key": "InputFieldTextColor",
+    "hex": "#4c4f69",
+    "tag": "[#4c4f69]"
+  },
+  {
+    "theme": "catppuccin-latte",
+    "key": "LogoBorderColor",
+    "hex": "#bcc0cc",
+    "tag": "[#bcc0cc]"
+  },
+  {
+    "theme": "catppuccin-latte",
+    "key": "LogoDotColor",
+    "hex": "#179299",
+    "tag": "[#179299]"
+  },
+  {
+    "theme": "catppuccin-latte",
+    "key": "LogoShadeColor",
+    "hex": "#1e66f5",
+    "tag": "[#1e66f5]"
+  },
+  {
+    "theme": "catppuccin-latte",
+    "key": "OkColor",
+    "hex": "#40a02b",
+    "tag": "[#40a02b]"
+  },
+  {
+    "theme": "catppuccin-latte",
+    "key": "StatuslineAccentBg",
+    "hex": "#1e66f5",
+    "tag": "[#1e66f5]"
+  },
+  {
+    "theme": "catppuccin-latte",
+    "key": "StatuslineAccentFg",
+    "hex": "#eff1f5",
+    "tag": "[#eff1f5]"
+  },
+  {
+    "theme": "catppuccin-latte",
+    "key": "StatuslineBg",
+    "hex": "#dce0e8",
+    "tag": "[#dce0e8]"
+  },
+  {
+    "theme": "catppuccin-latte",
+    "key": "StatuslineErrorBg",
+    "hex": "#e6e9ef",
+    "tag": "[#e6e9ef]"
+  },
+  {
+    "theme": "catppuccin-latte",
+    "key": "StatuslineErrorFg",
+    "hex": "#df8e1d",
+    "tag": "[#df8e1d]"
+  },
+  {
+    "theme": "catppuccin-latte",
+    "key": "StatuslineFg",
+    "hex": "#4c4f69",
+    "tag": "[#4c4f69]"
+  },
+  {
+    "theme": "catppuccin-latte",
+    "key": "StatuslineFillBg",
+    "hex": "#e6e9ef",
+    "tag": "[#e6e9ef]"
+  },
+  {
+    "theme": "catppuccin-latte",
+    "key": "StatuslineInfoBg",
+    "hex": "#e6e9ef",
+    "tag": "[#e6e9ef]"
+  },
+  {
+    "theme": "catppuccin-latte",
+    "key": "StatuslineInfoFg",
+    "hex": "#40a02b",
+    "tag": "[#40a02b]"
+  },
+  {
+    "theme": "catppuccin-latte",
+    "key": "TaskBoxDescriptionColor",
+    "hex": "#9ca0b0",
+    "tag": "[#9ca0b0]"
+  },
+  {
+    "theme": "catppuccin-latte",
+    "key": "TaskBoxIDColor.end",
+    "hex": "#04a5e5"
+  },
+  {
+    "theme": "catppuccin-latte",
+    "key": "TaskBoxIDColor.sample[0.00]",
+    "hex": "#0384b7"
+  },
+  {
+    "theme": "catppuccin-latte",
+    "key": "TaskBoxIDColor.sample[0.25]",
+    "hex": "#038cc3"
+  },
+  {
+    "theme": "catppuccin-latte",
+    "key": "TaskBoxIDColor.sample[0.50]",
+    "hex": "#0495ce"
+  },
+  {
+    "theme": "catppuccin-latte",
+    "key": "TaskBoxIDColor.sample[0.75]",
+    "hex": "#049dda"
+  },
+  {
+    "theme": "catppuccin-latte",
+    "key": "TaskBoxIDColor.sample[1.00]",
+    "hex": "#04a5e5"
+  },
+  {
+    "theme": "catppuccin-latte",
+    "key": "TaskBoxIDColor.start",
+    "hex": "#0384b7"
+  },
+  {
+    "theme": "catppuccin-latte",
+    "key": "TaskBoxLabelColor",
+    "hex": "#9ca0b0",
+    "tag": "[#9ca0b0]"
+  },
+  {
+    "theme": "catppuccin-latte",
+    "key": "TaskBoxSelectedBorder",
+    "hex": "#df8e1d",
+    "tag": "[#df8e1d]"
+  },
+  {
+    "theme": "catppuccin-latte",
+    "key": "TaskBoxTagValueColor",
+    "hex": "#acb0be",
+    "tag": "[#acb0be]"
+  },
+  {
+    "theme": "catppuccin-latte",
+    "key": "TaskBoxTitleColor",
+    "hex": "#5c5f77",
+    "tag": "[#5c5f77]"
+  },
+  {
+    "theme": "catppuccin-latte",
+    "key": "TaskBoxUnselectedBackground",
+    "hex": "-",
+    "tag": "[-]"
+  },
+  {
+    "theme": "catppuccin-latte",
+    "key": "TaskBoxUnselectedBorder",
+    "hex": "#ccd0da",
+    "tag": "[#ccd0da]"
+  },
+  {
+    "theme": "catppuccin-latte",
+    "key": "TaskDetailCommentAuthor",
+    "hex": "#df8e1d",
+    "tag": "[#df8e1d]"
+  },
+  {
+    "theme": "catppuccin-latte",
+    "key": "TaskDetailEditDimLabelColor",
+    "hex": "#9ca0b0",
+    "tag": "[#9ca0b0]"
+  },
+  {
+    "theme": "catppuccin-latte",
+    "key": "TaskDetailEditDimTextColor",
+    "hex": "#9ca0b0",
+    "tag": "[#9ca0b0]"
+  },
+  {
+    "theme": "catppuccin-latte",
+    "key": "TaskDetailEditDimValueColor",
+    "hex": "#5c5f77",
+    "tag": "[#5c5f77]"
+  },
+  {
+    "theme": "catppuccin-latte",
+    "key": "TaskDetailEditFocusMarker",
+    "hex": "#df8e1d",
+    "tag": "[#df8e1d]"
+  },
+  {
+    "theme": "catppuccin-latte",
+    "key": "TaskDetailEditFocusText",
+    "hex": "#4c4f69",
+    "tag": "[#4c4f69]"
+  },
+  {
+    "theme": "catppuccin-latte",
+    "key": "TaskDetailIDColor.end",
+    "hex": "#04a5e5"
+  },
+  {
+    "theme": "catppuccin-latte",
+    "key": "TaskDetailIDColor.sample[0.00]",
+    "hex": "#0384b7"
+  },
+  {
+    "theme": "catppuccin-latte",
+    "key": "TaskDetailIDColor.sample[0.25]",
+    "hex": "#038cc3"
+  },
+  {
+    "theme": "catppuccin-latte",
+    "key": "TaskDetailIDColor.sample[0.50]",
+    "hex": "#0495ce"
+  },
+  {
+    "theme": "catppuccin-latte",
+    "key": "TaskDetailIDColor.sample[0.75]",
+    "hex": "#049dda"
+  },
+  {
+    "theme": "catppuccin-latte",
+    "key": "TaskDetailIDColor.sample[1.00]",
+    "hex": "#04a5e5"
+  },
+  {
+    "theme": "catppuccin-latte",
+    "key": "TaskDetailIDColor.start",
+    "hex": "#0384b7"
+  },
+  {
+    "theme": "catppuccin-latte",
+    "key": "TaskDetailLabelText",
+    "hex": "#40a02b",
+    "tag": "[#40a02b]"
+  },
+  {
+    "theme": "catppuccin-latte",
+    "key": "TaskDetailPlaceholderColor",
+    "hex": "#9ca0b0",
+    "tag": "[#9ca0b0]"
+  },
+  {
+    "theme": "catppuccin-latte",
+    "key": "TaskDetailTagBackground",
+    "hex": "#ccd0da",
+    "tag": "[#ccd0da]"
+  },
+  {
+    "theme": "catppuccin-latte",
+    "key": "TaskDetailTagForeground",
+    "hex": "#5c5f77",
+    "tag": "[#5c5f77]"
+  },
+  {
+    "theme": "catppuccin-latte",
+    "key": "TaskDetailTitleText",
+    "hex": "#4c4f69",
+    "tag": "[#4c4f69]"
+  },
+  {
+    "theme": "catppuccin-latte",
+    "key": "TaskDetailValueText",
+    "hex": "#1e66f5",
+    "tag": "[#1e66f5]"
+  },
+  {
+    "theme": "catppuccin-latte",
+    "key": "TaskListSelectionBg",
+    "hex": "#ccd0da",
+    "tag": "[#ccd0da]"
+  },
+  {
+    "theme": "catppuccin-latte",
+    "key": "TaskListSelectionFg",
+    "hex": "#4c4f69",
+    "tag": "[#4c4f69]"
+  },
+  {
+    "theme": "catppuccin-latte",
+    "key": "TaskListStatusDoneColor",
+    "hex": "#40a02b",
+    "tag": "[#40a02b]"
+  },
+  {
+    "theme": "catppuccin-latte",
+    "key": "TaskListStatusPendingColor",
+    "hex": "#4c4f69",
+    "tag": "[#4c4f69]"
+  },
+  {
+    "theme": "catppuccin-latte",
+    "key": "WarnColor",
+    "hex": "#fe640b",
+    "tag": "[#fe640b]"
+  },
+  {
+    "theme": "catppuccin-latte",
+    "key": "alias:accent",
+    "hex": "#40a02b",
+    "tag": "[#40a02b]"
+  },
+  {
+    "theme": "catppuccin-latte",
+    "key": "alias:action",
+    "hex": "#1e66f5",
+    "tag": "[#1e66f5]"
+  },
+  {
+    "theme": "catppuccin-latte",
+    "key": "alias:danger",
+    "hex": "#d20f39",
+    "tag": "[#d20f39]"
+  },
+  {
+    "theme": "catppuccin-latte",
+    "key": "alias:highlight",
+    "hex": "#df8e1d",
+    "tag": "[#df8e1d]"
+  },
+  {
+    "theme": "catppuccin-latte",
+    "key": "alias:info",
+    "hex": "#fe640b",
+    "tag": "[#fe640b]"
+  },
+  {
+    "theme": "catppuccin-latte",
+    "key": "alias:muted",
+    "hex": "#9ca0b0",
+    "tag": "[#9ca0b0]"
+  },
+  {
+    "theme": "catppuccin-latte",
+    "key": "alias:ok",
+    "hex": "#40a02b",
+    "tag": "[#40a02b]"
+  },
+  {
+    "theme": "catppuccin-latte",
+    "key": "alias:text",
+    "hex": "#4c4f69",
+    "tag": "[#4c4f69]"
+  },
+  {
+    "theme": "catppuccin-latte",
+    "key": "alias:warn",
+    "hex": "#fe640b",
+    "tag": "[#fe640b]"
+  },
+  {
+    "theme": "solarized-light",
+    "key": "CaptionBg[0]",
+    "hex": "#2073ae",
+    "tag": "[#2073ae]"
+  },
+  {
+    "theme": "solarized-light",
+    "key": "CaptionBg[1]",
+    "hex": "#826300",
+    "tag": "[#826300]"
+  },
+  {
+    "theme": "solarized-light",
+    "key": "CaptionBg[2]",
+    "hex": "#b74414",
+    "tag": "[#b74414]"
+  },
+  {
+    "theme": "solarized-light",
+    "key": "CaptionBg[3]",
+    "hex": "#52666d",
+    "tag": "[#52666d]"
+  },
+  {
+    "theme": "solarized-light",
+    "key": "CaptionBg[4]",
+    "hex": "#217d76",
+    "tag": "[#217d76]"
+  },
+  {
+    "theme": "solarized-light",
+    "key": "CaptionBg[5]",
+    "hex": "#637200",
+    "tag": "[#637200]"
+  },
+  {
+    "theme": "solarized-light",
+    "key": "CaptionFallbackGradient.end",
+    "hex": "#eee8d5"
+  },
+  {
+    "theme": "solarized-light",
+    "key": "CaptionFallbackGradient.sample[0.00]",
+    "hex": "#fdf6e3"
+  },
+  {
+    "theme": "solarized-light",
+    "key": "CaptionFallbackGradient.sample[0.25]",
+    "hex": "#f9f3e0"
+  },
+  {
+    "theme": "solarized-light",
+    "key": "CaptionFallbackGradient.sample[0.50]",
+    "hex": "#f6efdc"
+  },
+  {
+    "theme": "solarized-light",
+    "key": "CaptionFallbackGradient.sample[0.75]",
+    "hex": "#f2ecd9"
+  },
+  {
+    "theme": "solarized-light",
+    "key": "CaptionFallbackGradient.sample[1.00]",
+    "hex": "#eee8d5"
+  },
+  {
+    "theme": "solarized-light",
+    "key": "CaptionFallbackGradient.start",
+    "hex": "#fdf6e3"
+  },
+  {
+    "theme": "solarized-light",
+    "key": "CaptionFg[0]",
+    "hex": "#c9e2f4",
+    "tag": "[#c9e2f4]"
+  },
+  {
+    "theme": "solarized-light",
+    "key": "CaptionFg[1]",
+    "hex": "#ede2bf",
+    "tag": "[#ede2bf]"
+  },
+  {
+    "theme": "solarized-light",
+    "key": "CaptionFg[2]",
+    "hex": "#f2d2c5",
+    "tag": "[#f2d2c5]"
+  },
+  {
+    "theme": "solarized-light",
+    "key": "CaptionFg[3]",
+    "hex": "#d5dbdd",
+    "tag": "[#d5dbdd]"
+  },
+  {
+    "theme": "solarized-light",
+    "key": "CaptionFg[4]",
+    "hex": "#cae8e5",
+    "tag": "[#cae8e5]"
+  },
+  {
+    "theme": "solarized-light",
+    "key": "CaptionFg[5]",
+    "hex": "#e1e6bf",
+    "tag": "[#e1e6bf]"
+  },
+  {
+    "theme": "solarized-light",
+    "key": "CompletionHintColor",
+    "hex": "#93a1a1",
+    "tag": "[#93a1a1]"
+  },
+  {
+    "theme": "solarized-light",
+    "key": "ContentBackgroundColor",
+    "hex": "-",
+    "tag": "[-]"
+  },
+  {
+    "theme": "solarized-light",
+    "key": "ContentTextColor",
+    "hex": "#657b83",
+    "tag": "[#657b83]"
+  },
+  {
+    "theme": "solarized-light",
+    "key": "DangerColor",
+    "hex": "#dc322f",
+    "tag": "[#dc322f]"
+  },
+  {
+    "theme": "solarized-light",
+    "key": "DepsEditorBackground",
+    "hex": "#eee8d5",
+    "tag": "[#eee8d5]"
+  },
+  {
+    "theme": "solarized-light",
+    "key": "FallbackTaskIDColor",
+    "hex": "#268bd2",
+    "tag": "[#268bd2]"
+  },
+  {
+    "theme": "solarized-light",
+    "key": "HeaderActionGlobalKeyColor",
+    "hex": "#b58900",
+    "tag": "[#b58900]"
+  },
+  {
+    "theme": "solarized-light",
+    "key": "HeaderActionGlobalLabelColor",
+    "hex": "#657b83",
+    "tag": "[#657b83]"
+  },
+  {
+    "theme": "solarized-light",
+    "key": "HeaderActionPluginKeyColor",
+    "hex": "#cb4b16",
+    "tag": "[#cb4b16]"
+  },
+  {
+    "theme": "solarized-light",
+    "key": "HeaderActionPluginLabelColor",
+    "hex": "#586e75",
+    "tag": "[#586e75]"
+  },
+  {
+    "theme": "solarized-light",
+    "key": "HeaderActionViewKeyColor",
+    "hex": "#268bd2",
+    "tag": "[#268bd2]"
+  },
+  {
+    "theme": "solarized-light",
+    "key": "HeaderActionViewLabelColor",
+    "hex": "#93a1a1",
+    "tag": "[#93a1a1]"
+  },
+  {
+    "theme": "solarized-light",
+    "key": "HeaderInfoDesc",
+    "hex": "#93a1a1",
+    "tag": "[#93a1a1]"
+  },
+  {
+    "theme": "solarized-light",
+    "key": "HeaderInfoLabel",
+    "hex": "#cb4b16",
+    "tag": "[#cb4b16]"
+  },
+  {
+    "theme": "solarized-light",
+    "key": "HeaderInfoSeparator",
+    "hex": "#93a1a1",
+    "tag": "[#93a1a1]"
+  },
+  {
+    "theme": "solarized-light",
+    "key": "HeaderKeyBinding",
+    "hex": "#b58900",
+    "tag": "[#b58900]"
+  },
+  {
+    "theme": "solarized-light",
+    "key": "HeaderKeyText",
+    "hex": "#657b83",
+    "tag": "[#657b83]"
+  },
+  {
+    "theme": "solarized-light",
+    "key": "InputBoxBackgroundColor",
+    "hex": "-",
+    "tag": "[-]"
+  },
+  {
+    "theme": "solarized-light",
+    "key": "InputBoxLabelColor",
+    "hex": "#657b83",
+    "tag": "[#657b83]"
+  },
+  {
+    "theme": "solarized-light",
+    "key": "InputBoxTextColor",
+    "hex": "#657b83",
+    "tag": "[#657b83]"
+  },
+  {
+    "theme": "solarized-light",
+    "key": "InputFieldBackgroundColor",
+    "hex": "-",
+    "tag": "[-]"
+  },
+  {
+    "theme": "solarized-light",
+    "key": "InputFieldTextColor",
+    "hex": "#657b83",
+    "tag": "[#657b83]"
+  },
+  {
+    "theme": "solarized-light",
+    "key": "LogoBorderColor",
+    "hex": "#eee8d5",
+    "tag": "[#eee8d5]"
+  },
+  {
+    "theme": "solarized-light",
+    "key": "LogoDotColor",
+    "hex": "#2aa198",
+    "tag": "[#2aa198]"
+  },
+  {
+    "theme": "solarized-light",
+    "key": "LogoShadeColor",
+    "hex": "#268bd2",
+    "tag": "[#268bd2]"
+  },
+  {
+    "theme": "solarized-light",
+    "key": "OkColor",
+    "hex": "#859900",
+    "tag": "[#859900]"
+  },
+  {
+    "theme": "solarized-light",
+    "key": "StatuslineAccentBg",
+    "hex": "#268bd2",
+    "tag": "[#268bd2]"
+  },
+  {
+    "theme": "solarized-light",
+    "key": "StatuslineAccentFg",
+    "hex": "#fdf6e3",
+    "tag": "[#fdf6e3]"
+  },
+  {
+    "theme": "solarized-light",
+    "key": "StatuslineBg",
+    "hex": "#eee8d5",
+    "tag": "[#eee8d5]"
+  },
+  {
+    "theme": "solarized-light",
+    "key": "StatuslineErrorBg",
+    "hex": "#eee8d5",
+    "tag": "[#eee8d5]"
+  },
+  {
+    "theme": "solarized-light",
+    "key": "StatuslineErrorFg",
+    "hex": "#b58900",
+    "tag": "[#b58900]"
+  },
+  {
+    "theme": "solarized-light",
+    "key": "StatuslineFg",
+    "hex": "#657b83",
+    "tag": "[#657b83]"
+  },
+  {
+    "theme": "solarized-light",
+    "key": "StatuslineFillBg",
+    "hex": "#eee8d5",
+    "tag": "[#eee8d5]"
+  },
+  {
+    "theme": "solarized-light",
+    "key": "StatuslineInfoBg",
+    "hex": "#eee8d5",
+    "tag": "[#eee8d5]"
+  },
+  {
+    "theme": "solarized-light",
+    "key": "StatuslineInfoFg",
+    "hex": "#859900",
+    "tag": "[#859900]"
+  },
+  {
+    "theme": "solarized-light",
+    "key": "TaskBoxDescriptionColor",
+    "hex": "#93a1a1",
+    "tag": "[#93a1a1]"
+  },
+  {
+    "theme": "solarized-light",
+    "key": "TaskBoxIDColor.end",
+    "hex": "#268bd2"
+  },
+  {
+    "theme": "solarized-light",
+    "key": "TaskBoxIDColor.sample[0.00]",
+    "hex": "#1e6fa8"
+  },
+  {
+    "theme": "solarized-light",
+    "key": "TaskBoxIDColor.sample[0.25]",
+    "hex": "#2076b3"
+  },
+  {
+    "theme": "solarized-light",
+    "key": "TaskBoxIDColor.sample[0.50]",
+    "hex": "#227dbd"
+  },
+  {
+    "theme": "solarized-light",
+    "key": "TaskBoxIDColor.sample[0.75]",
+    "hex": "#2484c8"
+  },
+  {
+    "theme": "solarized-light",
+    "key": "TaskBoxIDColor.sample[1.00]",
+    "hex": "#268bd2"
+  },
+  {
+    "theme": "solarized-light",
+    "key": "TaskBoxIDColor.start",
+    "hex": "#1e6fa8"
+  },
+  {
+    "theme": "solarized-light",
+    "key": "TaskBoxLabelColor",
+    "hex": "#93a1a1",
+    "tag": "[#93a1a1]"
+  },
+  {
+    "theme": "solarized-light",
+    "key": "TaskBoxSelectedBorder",
+    "hex": "#b58900",
+    "tag": "[#b58900]"
+  },
+  {
+    "theme": "solarized-light",
+    "key": "TaskBoxTagValueColor",
+    "hex": "#93a1a1",
+    "tag": "[#93a1a1]"
+  },
+  {
+    "theme": "solarized-light",
+    "key": "TaskBoxTitleColor",
+    "hex": "#586e75",
+    "tag": "[#586e75]"
+  },
+  {
+    "theme": "solarized-light",
+    "key": "TaskBoxUnselectedBackground",
+    "hex": "-",
+    "tag": "[-]"
+  },
+  {
+    "theme": "solarized-light",
+    "key": "TaskBoxUnselectedBorder",
+    "hex": "#eee8d5",
+    "tag": "[#eee8d5]"
+  },
+  {
+    "theme": "solarized-light",
+    "key": "TaskDetailCommentAuthor",
+    "hex": "#b58900",
+    "tag": "[#b58900]"
+  },
+  {
+    "theme": "solarized-light",
+    "key": "TaskDetailEditDimLabelColor",
+    "hex": "#93a1a1",
+    "tag": "[#93a1a1]"
+  },
+  {
+    "theme": "solarized-light",
+    "key": "TaskDetailEditDimTextColor",
+    "hex": "#93a1a1",
+    "tag": "[#93a1a1]"
+  },
+  {
+    "theme": "solarized-light",
+    "key": "TaskDetailEditDimValueColor",
+    "hex": "#586e75",
+    "tag": "[#586e75]"
+  },
+  {
+    "theme": "solarized-light",
+    "key": "TaskDetailEditFocusMarker",
+    "hex": "#b58900",
+    "tag": "[#b58900]"
+  },
+  {
+    "theme": "solarized-light",
+    "key": "TaskDetailEditFocusText",
+    "hex": "#657b83",
+    "tag": "[#657b83]"
+  },
+  {
+    "theme": "solarized-light",
+    "key": "TaskDetailIDColor.end",
+    "hex": "#268bd2"
+  },
+  {
+    "theme": "solarized-light",
+    "key": "TaskDetailIDColor.sample[0.00]",
+    "hex": "#1e6fa8"
+  },
+  {
+    "theme": "solarized-light",
+    "key": "TaskDetailIDColor.sample[0.25]",
+    "hex": "#2076b3"
+  },
+  {
+    "theme": "solarized-light",
+    "key": "TaskDetailIDColor.sample[0.50]",
+    "hex": "#227dbd"
+  },
+  {
+    "theme": "solarized-light",
+    "key": "TaskDetailIDColor.sample[0.75]",
+    "hex": "#2484c8"
+  },
+  {
+    "theme": "solarized-light",
+    "key": "TaskDetailIDColor.sample[1.00]",
+    "hex": "#268bd2"
+  },
+  {
+    "theme": "solarized-light",
+    "key": "TaskDetailIDColor.start",
+    "hex": "#1e6fa8"
+  },
+  {
+    "theme": "solarized-light",
+    "key": "TaskDetailLabelText",
+    "hex": "#859900",
+    "tag": "[#859900]"
+  },
+  {
+    "theme": "solarized-light",
+    "key": "TaskDetailPlaceholderColor",
+    "hex": "#93a1a1",
+    "tag": "[#93a1a1]"
+  },
+  {
+    "theme": "solarized-light",
+    "key": "TaskDetailTagBackground",
+    "hex": "#eee8d5",
+    "tag": "[#eee8d5]"
+  },
+  {
+    "theme": "solarized-light",
+    "key": "TaskDetailTagForeground",
+    "hex": "#586e75",
+    "tag": "[#586e75]"
+  },
+  {
+    "theme": "solarized-light",
+    "key": "TaskDetailTitleText",
+    "hex": "#657b83",
+    "tag": "[#657b83]"
+  },
+  {
+    "theme": "solarized-light",
+    "key": "TaskDetailValueText",
+    "hex": "#268bd2",
+    "tag": "[#268bd2]"
+  },
+  {
+    "theme": "solarized-light",
+    "key": "TaskListSelectionBg",
+    "hex": "#eee8d5",
+    "tag": "[#eee8d5]"
+  },
+  {
+    "theme": "solarized-light",
+    "key": "TaskListSelectionFg",
+    "hex": "#657b83",
+    "tag": "[#657b83]"
+  },
+  {
+    "theme": "solarized-light",
+    "key": "TaskListStatusDoneColor",
+    "hex": "#859900",
+    "tag": "[#859900]"
+  },
+  {
+    "theme": "solarized-light",
+    "key": "TaskListStatusPendingColor",
+    "hex": "#657b83",
+    "tag": "[#657b83]"
+  },
+  {
+    "theme": "solarized-light",
+    "key": "WarnColor",
+    "hex": "#cb4b16",
+    "tag": "[#cb4b16]"
+  },
+  {
+    "theme": "solarized-light",
+    "key": "alias:accent",
+    "hex": "#859900",
+    "tag": "[#859900]"
+  },
+  {
+    "theme": "solarized-light",
+    "key": "alias:action",
+    "hex": "#268bd2",
+    "tag": "[#268bd2]"
+  },
+  {
+    "theme": "solarized-light",
+    "key": "alias:danger",
+    "hex": "#dc322f",
+    "tag": "[#dc322f]"
+  },
+  {
+    "theme": "solarized-light",
+    "key": "alias:highlight",
+    "hex": "#b58900",
+    "tag": "[#b58900]"
+  },
+  {
+    "theme": "solarized-light",
+    "key": "alias:info",
+    "hex": "#cb4b16",
+    "tag": "[#cb4b16]"
+  },
+  {
+    "theme": "solarized-light",
+    "key": "alias:muted",
+    "hex": "#93a1a1",
+    "tag": "[#93a1a1]"
+  },
+  {
+    "theme": "solarized-light",
+    "key": "alias:ok",
+    "hex": "#859900",
+    "tag": "[#859900]"
+  },
+  {
+    "theme": "solarized-light",
+    "key": "alias:text",
+    "hex": "#657b83",
+    "tag": "[#657b83]"
+  },
+  {
+    "theme": "solarized-light",
+    "key": "alias:warn",
+    "hex": "#cb4b16",
+    "tag": "[#cb4b16]"
+  },
+  {
+    "theme": "gruvbox-light",
+    "key": "CaptionBg[0]",
+    "hex": "#8b5b0f",
+    "tag": "[#8b5b0f]"
+  },
+  {
+    "theme": "gruvbox-light",
+    "key": "CaptionBg[1]",
+    "hex": "#6f6a0d",
+    "tag": "[#6f6a0d]"
+  },
+  {
+    "theme": "gruvbox-light",
+    "key": "CaptionBg[2]",
+    "hex": "#c44103",
+    "tag": "[#c44103]"
+  },
+  {
+    "theme": "gruvbox-light",
+    "key": "CaptionBg[3]",
+    "hex": "#3f7554",
+    "tag": "[#3f7554]"
+  },
+  {
+    "theme": "gruvbox-light",
+    "key": "CaptionBg[4]",
+    "hex": "#6a5f55",
+    "tag": "[#6a5f55]"
+  },
+  {
+    "theme": "gruvbox-light",
+    "key": "CaptionBg[5]",
+    "hex": "#8b5e4b",
+    "tag": "[#8b5e4b]"
+  },
+  {
+    "theme": "gruvbox-light",
+    "key": "CaptionFallbackGradient.end",
+    "hex": "#ebdbb2"
+  },
+  {
+    "theme": "gruvbox-light",
+    "key": "CaptionFallbackGradient.sample[0.00]",
+    "hex": "#fbf1c7"
+  },
+  {
+    "theme": "gruvbox-light",
+    "key": "CaptionFallbackGradient.sample[0.25]",
+    "hex": "#f7ecc2"
+  },
+  {
+    "theme": "gruvbox-light",
+    "key": "CaptionFallbackGradient.sample[0.50]",
+    "hex": "#f3e6bd"
+  },
+  {
+    "theme": "gruvbox-light",
+    "key": "CaptionFallbackGradient.sample[0.75]",
+    "hex": "#efe1b7"
+  },
+  {
+    "theme": "gruvbox-light",
+    "key": "CaptionFallbackGradient.sample[1.00]",
+    "hex": "#ebdbb2"
+  },
+  {
+    "theme": "gruvbox-light",
+    "key": "CaptionFallbackGradient.start",
+    "hex": "#fbf1c7"
+  },
+  {
+    "theme": "gruvbox-light",
+    "key": "CaptionFg[0]",
+    "hex": "#e2d6c3",
+    "tag": "[#e2d6c3]"
+  },
+  {
+    "theme": "gruvbox-light",
+    "key": "CaptionFg[1]",
+    "hex": "#dedcc3",
+    "tag": "[#dedcc3]"
+  },
+  {
+    "theme": "gruvbox-light",
+    "key": "CaptionFg[2]",
+    "hex": "#ebcec0",
+    "tag": "[#ebcec0]"
+  },
+  {
+    "theme": "gruvbox-light",
+    "key": "CaptionFg[3]",
+    "hex": "#d0ded5",
+    "tag": "[#d0ded5]"
+  },
+  {
+    "theme": "gruvbox-light",
+    "key": "CaptionFg[4]",
+    "hex": "#dedbd8",
+    "tag": "[#dedbd8]"
+  },
+  {
+    "theme": "gruvbox-light",
+    "key": "CaptionFg[5]",
+    "hex": "#e2d7d2",
+    "tag": "[#e2d7d2]"
+  },
+  {
+    "theme": "gruvbox-light",
+    "key": "CompletionHintColor",
+    "hex": "#928374",
+    "tag": "[#928374]"
+  },
+  {
+    "theme": "gruvbox-light",
+    "key": "ContentBackgroundColor",
+    "hex": "-",
+    "tag": "[-]"
+  },
+  {
+    "theme": "gruvbox-light",
+    "key": "ContentTextColor",
+    "hex": "#3c3836",
+    "tag": "[#3c3836]"
+  },
+  {
+    "theme": "gruvbox-light",
+    "key": "DangerColor",
+    "hex": "#9d0006",
+    "tag": "[#9d0006]"
+  },
+  {
+    "theme": "gruvbox-light",
+    "key": "DepsEditorBackground",
+    "hex": "#d5c4a1",
+    "tag": "[#d5c4a1]"
+  },
+  {
+    "theme": "gruvbox-light",
+    "key": "FallbackTaskIDColor",
+    "hex": "#076678",
+    "tag": "[#076678]"
+  },
+  {
+    "theme": "gruvbox-light",
+    "key": "HeaderActionGlobalKeyColor",
+    "hex": "#9d6104",
+    "tag": "[#9d6104]"
+  },
+  {
+    "theme": "gruvbox-light",
+    "key": "HeaderActionGlobalLabelColor",
+    "hex": "#3c3836",
+    "tag": "[#3c3836]"
+  },
+  {
+    "theme": "gruvbox-light",
+    "key": "HeaderActionPluginKeyColor",
+    "hex": "#af3a03",
+    "tag": "[#af3a03]"
+  },
+  {
+    "theme": "gruvbox-light",
+    "key": "HeaderActionPluginLabelColor",
+    "hex": "#504945",
+    "tag": "[#504945]"
+  },
+  {
+    "theme": "gruvbox-light",
+    "key": "HeaderActionViewKeyColor",
+    "hex": "#076678",
+    "tag": "[#076678]"
+  },
+  {
+    "theme": "gruvbox-light",
+    "key": "HeaderActionViewLabelColor",
+    "hex": "#928374",
+    "tag": "[#928374]"
+  },
+  {
+    "theme": "gruvbox-light",
+    "key": "HeaderInfoDesc",
+    "hex": "#928374",
+    "tag": "[#928374]"
+  },
+  {
+    "theme": "gruvbox-light",
+    "key": "HeaderInfoLabel",
+    "hex": "#af3a03",
+    "tag": "[#af3a03]"
+  },
+  {
+    "theme": "gruvbox-light",
+    "key": "HeaderInfoSeparator",
+    "hex": "#928374",
+    "tag": "[#928374]"
+  },
+  {
+    "theme": "gruvbox-light",
+    "key": "HeaderKeyBinding",
+    "hex": "#9d6104",
+    "tag": "[#9d6104]"
+  },
+  {
+    "theme": "gruvbox-light",
+    "key": "HeaderKeyText",
+    "hex": "#3c3836",
+    "tag": "[#3c3836]"
+  },
+  {
+    "theme": "gruvbox-light",
+    "key": "InputBoxBackgroundColor",
+    "hex": "-",
+    "tag": "[-]"
+  },
+  {
+    "theme": "gruvbox-light",
+    "key": "InputBoxLabelColor",
+    "hex": "#3c3836",
+    "tag": "[#3c3836]"
+  },
+  {
+    "theme": "gruvbox-light",
+    "key": "InputBoxTextColor",
+    "hex": "#3c3836",
+    "tag": "[#3c3836]"
+  },
+  {
+    "theme": "gruvbox-light",
+    "key": "InputFieldBackgroundColor",
+    "hex": "-",
+    "tag": "[-]"
+  },
+  {
+    "theme": "gruvbox-light",
+    "key": "InputFieldTextColor",
+    "hex": "#3c3836",
+    "tag": "[#3c3836]"
+  },
+  {
+    "theme": "gruvbox-light",
+    "key": "LogoBorderColor",
+    "hex": "#ebdbb2",
+    "tag": "[#ebdbb2]"
+  },
+  {
+    "theme": "gruvbox-light",
+    "key": "LogoDotColor",
+    "hex": "#427b58",
+    "tag": "[#427b58]"
+  },
+  {
+    "theme": "gruvbox-light",
+    "key": "LogoShadeColor",
+    "hex": "#076678",
+    "tag": "[#076678]"
+  },
+  {
+    "theme": "gruvbox-light",
+    "key": "OkColor",
+    "hex": "#79740e",
+    "tag": "[#79740e]"
+  },
+  {
+    "theme": "gruvbox-light",
+    "key": "StatuslineAccentBg",
+    "hex": "#427b58",
+    "tag": "[#427b58]"
+  },
+  {
+    "theme": "gruvbox-light",
+    "key": "StatuslineAccentFg",
+    "hex": "#fbf1c7",
+    "tag": "[#fbf1c7]"
+  },
+  {
+    "theme": "gruvbox-light",
+    "key": "StatuslineBg",
+    "hex": "#d5c4a1",
+    "tag": "[#d5c4a1]"
+  },
+  {
+    "theme": "gruvbox-light",
+    "key": "StatuslineErrorBg",
+    "hex": "#ebdbb2",
+    "tag": "[#ebdbb2]"
+  },
+  {
+    "theme": "gruvbox-light",
+    "key": "StatuslineErrorFg",
+    "hex": "#9d6104",
+    "tag": "[#9d6104]"
+  },
+  {
+    "theme": "gruvbox-light",
+    "key": "StatuslineFg",
+    "hex": "#3c3836",
+    "tag": "[#3c3836]"
+  },
+  {
+    "theme": "gruvbox-light",
+    "key": "StatuslineFillBg",
+    "hex": "#ebdbb2",
+    "tag": "[#ebdbb2]"
+  },
+  {
+    "theme": "gruvbox-light",
+    "key": "StatuslineInfoBg",
+    "hex": "#ebdbb2",
+    "tag": "[#ebdbb2]"
+  },
+  {
+    "theme": "gruvbox-light",
+    "key": "StatuslineInfoFg",
+    "hex": "#79740e",
+    "tag": "[#79740e]"
+  },
+  {
+    "theme": "gruvbox-light",
+    "key": "TaskBoxDescriptionColor",
+    "hex": "#928374",
+    "tag": "[#928374]"
+  },
+  {
+    "theme": "gruvbox-light",
+    "key": "TaskBoxIDColor.end",
+    "hex": "#076678"
+  },
+  {
+    "theme": "gruvbox-light",
+    "key": "TaskBoxIDColor.sample[0.00]",
+    "hex": "#055160"
+  },
+  {
+    "theme": "gruvbox-light",
+    "key": "TaskBoxIDColor.sample[0.25]",
+    "hex": "#065666"
+  },
+  {
+    "theme": "gruvbox-light",
+    "key": "TaskBoxIDColor.sample[0.50]",
+    "hex": "#065c6c"
+  },
+  {
+    "theme": "gruvbox-light",
+    "key": "TaskBoxIDColor.sample[0.75]",
+    "hex": "#076172"
+  },
+  {
+    "theme": "gruvbox-light",
+    "key": "TaskBoxIDColor.sample[1.00]",
+    "hex": "#076678"
+  },
+  {
+    "theme": "gruvbox-light",
+    "key": "TaskBoxIDColor.start",
+    "hex": "#055160"
+  },
+  {
+    "theme": "gruvbox-light",
+    "key": "TaskBoxLabelColor",
+    "hex": "#928374",
+    "tag": "[#928374]"
+  },
+  {
+    "theme": "gruvbox-light",
+    "key": "TaskBoxSelectedBorder",
+    "hex": "#9d6104",
+    "tag": "[#9d6104]"
+  },
+  {
+    "theme": "gruvbox-light",
+    "key": "TaskBoxTagValueColor",
+    "hex": "#bdae93",
+    "tag": "[#bdae93]"
+  },
+  {
+    "theme": "gruvbox-light",
+    "key": "TaskBoxTitleColor",
+    "hex": "#504945",
+    "tag": "[#504945]"
+  },
+  {
+    "theme": "gruvbox-light",
+    "key": "TaskBoxUnselectedBackground",
+    "hex": "-",
+    "tag": "[-]"
+  },
+  {
+    "theme": "gruvbox-light",
+    "key": "TaskBoxUnselectedBorder",
+    "hex": "#d5c4a1",
+    "tag": "[#d5c4a1]"
+  },
+  {
+    "theme": "gruvbox-light",
+    "key": "TaskDetailCommentAuthor",
+    "hex": "#9d6104",
+    "tag": "[#9d6104]"
+  },
+  {
+    "theme": "gruvbox-light",
+    "key": "TaskDetailEditDimLabelColor",
+    "hex": "#928374",
+    "tag": "[#928374]"
+  },
+  {
+    "theme": "gruvbox-light",
+    "key": "TaskDetailEditDimTextColor",
+    "hex": "#928374",
+    "tag": "[#928374]"
+  },
+  {
+    "theme": "gruvbox-light",
+    "key": "TaskDetailEditDimValueColor",
+    "hex": "#504945",
+    "tag": "[#504945]"
+  },
+  {
+    "theme": "gruvbox-light",
+    "key": "TaskDetailEditFocusMarker",
+    "hex": "#9d6104",
+    "tag": "[#9d6104]"
+  },
+  {
+    "theme": "gruvbox-light",
+    "key": "TaskDetailEditFocusText",
+    "hex": "#3c3836",
+    "tag": "[#3c3836]"
+  },
+  {
+    "theme": "gruvbox-light",
+    "key": "TaskDetailIDColor.end",
+    "hex": "#076678"
+  },
+  {
+    "theme": "gruvbox-light",
+    "key": "TaskDetailIDColor.sample[0.00]",
+    "hex": "#055160"
+  },
+  {
+    "theme": "gruvbox-light",
+    "key": "TaskDetailIDColor.sample[0.25]",
+    "hex": "#065666"
+  },
+  {
+    "theme": "gruvbox-light",
+    "key": "TaskDetailIDColor.sample[0.50]",
+    "hex": "#065c6c"
+  },
+  {
+    "theme": "gruvbox-light",
+    "key": "TaskDetailIDColor.sample[0.75]",
+    "hex": "#076172"
+  },
+  {
+    "theme": "gruvbox-light",
+    "key": "TaskDetailIDColor.sample[1.00]",
+    "hex": "#076678"
+  },
+  {
+    "theme": "gruvbox-light",
+    "key": "TaskDetailIDColor.start",
+    "hex": "#055160"
+  },
+  {
+    "theme": "gruvbox-light",
+    "key": "TaskDetailLabelText",
+    "hex": "#79740e",
+    "tag": "[#79740e]"
+  },
+  {
+    "theme": "gruvbox-light",
+    "key": "TaskDetailPlaceholderColor",
+    "hex": "#928374",
+    "tag": "[#928374]"
+  },
+  {
+    "theme": "gruvbox-light",
+    "key": "TaskDetailTagBackground",
+    "hex": "#d5c4a1",
+    "tag": "[#d5c4a1]"
+  },
+  {
+    "theme": "gruvbox-light",
+    "key": "TaskDetailTagForeground",
+    "hex": "#504945",
+    "tag": "[#504945]"
+  },
+  {
+    "theme": "gruvbox-light",
+    "key": "TaskDetailTitleText",
+    "hex": "#3c3836",
+    "tag": "[#3c3836]"
+  },
+  {
+    "theme": "gruvbox-light",
+    "key": "TaskDetailValueText",
+    "hex": "#076678",
+    "tag": "[#076678]"
+  },
+  {
+    "theme": "gruvbox-light",
+    "key": "TaskListSelectionBg",
+    "hex": "#d5c4a1",
+    "tag": "[#d5c4a1]"
+  },
+  {
+    "theme": "gruvbox-light",
+    "key": "TaskListSelectionFg",
+    "hex": "#3c3836",
+    "tag": "[#3c3836]"
+  },
+  {
+    "theme": "gruvbox-light",
+    "key": "TaskListStatusDoneColor",
+    "hex": "#79740e",
+    "tag": "[#79740e]"
+  },
+  {
+    "theme": "gruvbox-light",
+    "key": "TaskListStatusPendingColor",
+    "hex": "#3c3836",
+    "tag": "[#3c3836]"
+  },
+  {
+    "theme": "gruvbox-light",
+    "key": "WarnColor",
+    "hex": "#af3a03",
+    "tag": "[#af3a03]"
+  },
+  {
+    "theme": "gruvbox-light",
+    "key": "alias:accent",
+    "hex": "#79740e",
+    "tag": "[#79740e]"
+  },
+  {
+    "theme": "gruvbox-light",
+    "key": "alias:action",
+    "hex": "#076678",
+    "tag": "[#076678]"
+  },
+  {
+    "theme": "gruvbox-light",
+    "key": "alias:danger",
+    "hex": "#9d0006",
+    "tag": "[#9d0006]"
+  },
+  {
+    "theme": "gruvbox-light",
+    "key": "alias:highlight",
+    "hex": "#9d6104",
+    "tag": "[#9d6104]"
+  },
+  {
+    "theme": "gruvbox-light",
+    "key": "alias:info",
+    "hex": "#af3a03",
+    "tag": "[#af3a03]"
+  },
+  {
+    "theme": "gruvbox-light",
+    "key": "alias:muted",
+    "hex": "#928374",
+    "tag": "[#928374]"
+  },
+  {
+    "theme": "gruvbox-light",
+    "key": "alias:ok",
+    "hex": "#79740e",
+    "tag": "[#79740e]"
+  },
+  {
+    "theme": "gruvbox-light",
+    "key": "alias:text",
+    "hex": "#3c3836",
+    "tag": "[#3c3836]"
+  },
+  {
+    "theme": "gruvbox-light",
+    "key": "alias:warn",
+    "hex": "#af3a03",
+    "tag": "[#af3a03]"
+  },
+  {
+    "theme": "github-light",
+    "key": "CaptionBg[0]",
+    "hex": "#0a72ed",
+    "tag": "[#0a72ed]"
+  },
+  {
+    "theme": "github-light",
+    "key": "CaptionBg[1]",
+    "hex": "#188d3b",
+    "tag": "[#188d3b]"
+  },
+  {
+    "theme": "github-light",
+    "key": "CaptionBg[2]",
+    "hex": "#ba4600",
+    "tag": "[#ba4600]"
+  },
+  {
+    "theme": "github-light",
+    "key": "CaptionBg[3]",
+    "hex": "#9a6700",
+    "tag": "[#9a6700]"
+  },
+  {
+    "theme": "github-light",
+    "key": "CaptionBg[4]",
+    "hex": "#5b626a",
+    "tag": "[#5b626a]"
+  },
+  {
+    "theme": "github-light",
+    "key": "CaptionBg[5]",
+    "hex": "#9b4a4a",
+    "tag": "[#9b4a4a]"
+  },
+  {
+    "theme": "github-light",
+    "key": "CaptionFallbackGradient.end",
+    "hex": "#f6f8fa"
+  },
+  {
+    "theme": "github-light",
+    "key": "CaptionFallbackGradient.sample[0.00]",
+    "hex": "#ffffff"
+  },
+  {
+    "theme": "github-light",
+    "key": "CaptionFallbackGradient.sample[0.25]",
+    "hex": "#fdfdfe"
+  },
+  {
+    "theme": "github-light",
+    "key": "CaptionFallbackGradient.sample[0.50]",
+    "hex": "#fbfcfd"
+  },
+  {
+    "theme": "github-light",
+    "key": "CaptionFallbackGradient.sample[0.75]",
+    "hex": "#f8fafb"
+  },
+  {
+    "theme": "github-light",
+    "key": "CaptionFallbackGradient.sample[1.00]",
+    "hex": "#f6f8fa"
+  },
+  {
+    "theme": "github-light",
+    "key": "CaptionFallbackGradient.start",
+    "hex": "#ffffff"
+  },
+  {
+    "theme": "github-light",
+    "key": "CaptionFg[0]",
+    "hex": "#c2daf6",
+    "tag": "[#c2daf6]"
+  },
+  {
+    "theme": "github-light",
+    "key": "CaptionFg[1]",
+    "hex": "#c4d8ca",
+    "tag": "[#c4d8ca]"
+  },
+  {
+    "theme": "github-light",
+    "key": "CaptionFg[2]",
+    "hex": "#e5cdbf",
+    "tag": "[#e5cdbf]"
+  },
+  {
+    "theme": "github-light",
+    "key": "CaptionFg[3]",
+    "hex": "#e6d9bf",
+    "tag": "[#e6d9bf]"
+  },
+  {
+    "theme": "github-light",
+    "key": "CaptionFg[4]",
+    "hex": "#d9dbdd",
+    "tag": "[#d9dbdd]"
+  },
+  {
+    "theme": "github-light",
+    "key": "CaptionFg[5]",
+    "hex": "#e6d2d2",
+    "tag": "[#e6d2d2]"
+  },
+  {
+    "theme": "github-light",
+    "key": "CompletionHintColor",
+    "hex": "#656d76",
+    "tag": "[#656d76]"
+  },
+  {
+    "theme": "github-light",
+    "key": "ContentBackgroundColor",
+    "hex": "-",
+    "tag": "[-]"
+  },
+  {
+    "theme": "github-light",
+    "key": "ContentTextColor",
+    "hex": "#1f2328",
+    "tag": "[#1f2328]"
+  },
+  {
+    "theme": "github-light",
+    "key": "DangerColor",
+    "hex": "#cf222e",
+    "tag": "[#cf222e]"
+  },
+  {
+    "theme": "github-light",
+    "key": "DepsEditorBackground",
+    "hex": "#eaeef2",
+    "tag": "[#eaeef2]"
+  },
+  {
+    "theme": "github-light",
+    "key": "FallbackTaskIDColor",
+    "hex": "#0969da",
+    "tag": "[#0969da]"
+  },
+  {
+    "theme": "github-light",
+    "key": "HeaderActionGlobalKeyColor",
+    "hex": "#0550ae",
+    "tag": "[#0550ae]"
+  },
+  {
+    "theme": "github-light",
+    "key": "HeaderActionGlobalLabelColor",
+    "hex": "#1f2328",
+    "tag": "[#1f2328]"
+  },
+  {
+    "theme": "github-light",
+    "key": "HeaderActionPluginKeyColor",
+    "hex": "#953800",
+    "tag": "[#953800]"
+  },
+  {
+    "theme": "github-light",
+    "key": "HeaderActionPluginLabelColor",
+    "hex": "#424a53",
+    "tag": "[#424a53]"
+  },
+  {
+    "theme": "github-light",
+    "key": "HeaderActionViewKeyColor",
+    "hex": "#0969da",
+    "tag": "[#0969da]"
+  },
+  {
+    "theme": "github-light",
+    "key": "HeaderActionViewLabelColor",
+    "hex": "#656d76",
+    "tag": "[#656d76]"
+  },
+  {
+    "theme": "github-light",
+    "key": "HeaderInfoDesc",
+    "hex": "#656d76",
+    "tag": "[#656d76]"
+  },
+  {
+    "theme": "github-light",
+    "key": "HeaderInfoLabel",
+    "hex": "#953800",
+    "tag": "[#953800]"
+  },
+  {
+    "theme": "github-light",
+    "key": "HeaderInfoSeparator",
+    "hex": "#656d76",
+    "tag": "[#656d76]"
+  },
+  {
+    "theme": "github-light",
+    "key": "HeaderKeyBinding",
+    "hex": "#0550ae",
+    "tag": "[#0550ae]"
+  },
+  {
+    "theme": "github-light",
+    "key": "HeaderKeyText",
+    "hex": "#1f2328",
+    "tag": "[#1f2328]"
+  },
+  {
+    "theme": "github-light",
+    "key": "InputBoxBackgroundColor",
+    "hex": "-",
+    "tag": "[-]"
+  },
+  {
+    "theme": "github-light",
+    "key": "InputBoxLabelColor",
+    "hex": "#1f2328",
+    "tag": "[#1f2328]"
+  },
+  {
+    "theme": "github-light",
+    "key": "InputBoxTextColor",
+    "hex": "#1f2328",
+    "tag": "[#1f2328]"
+  },
+  {
+    "theme": "github-light",
+    "key": "InputFieldBackgroundColor",
+    "hex": "-",
+    "tag": "[-]"
+  },
+  {
+    "theme": "github-light",
+    "key": "InputFieldTextColor",
+    "hex": "#1f2328",
+    "tag": "[#1f2328]"
+  },
+  {
+    "theme": "github-light",
+    "key": "LogoBorderColor",
+    "hex": "#d0d7de",
+    "tag": "[#d0d7de]"
+  },
+  {
+    "theme": "github-light",
+    "key": "LogoDotColor",
+    "hex": "#0969da",
+    "tag": "[#0969da]"
+  },
+  {
+    "theme": "github-light",
+    "key": "LogoShadeColor",
+    "hex": "#0550ae",
+    "tag": "[#0550ae]"
+  },
+  {
+    "theme": "github-light",
+    "key": "OkColor",
+    "hex": "#116329",
+    "tag": "[#116329]"
+  },
+  {
+    "theme": "github-light",
+    "key": "StatuslineAccentBg",
+    "hex": "#0969da",
+    "tag": "[#0969da]"
+  },
+  {
+    "theme": "github-light",
+    "key": "StatuslineAccentFg",
+    "hex": "#ffffff",
+    "tag": "[#ffffff]"
+  },
+  {
+    "theme": "github-light",
+    "key": "StatuslineBg",
+    "hex": "#eaeef2",
+    "tag": "[#eaeef2]"
+  },
+  {
+    "theme": "github-light",
+    "key": "StatuslineErrorBg",
+    "hex": "#f6f8fa",
+    "tag": "[#f6f8fa]"
+  },
+  {
+    "theme": "github-light",
+    "key": "StatuslineErrorFg",
+    "hex": "#0550ae",
+    "tag": "[#0550ae]"
+  },
+  {
+    "theme": "github-light",
+    "key": "StatuslineFg",
+    "hex": "#1f2328",
+    "tag": "[#1f2328]"
+  },
+  {
+    "theme": "github-light",
+    "key": "StatuslineFillBg",
+    "hex": "#f6f8fa",
+    "tag": "[#f6f8fa]"
+  },
+  {
+    "theme": "github-light",
+    "key": "StatuslineInfoBg",
+    "hex": "#f6f8fa",
+    "tag": "[#f6f8fa]"
+  },
+  {
+    "theme": "github-light",
+    "key": "StatuslineInfoFg",
+    "hex": "#116329",
+    "tag": "[#116329]"
+  },
+  {
+    "theme": "github-light",
+    "key": "TaskBoxDescriptionColor",
+    "hex": "#656d76",
+    "tag": "[#656d76]"
+  },
+  {
+    "theme": "github-light",
+    "key": "TaskBoxIDColor.end",
+    "hex": "#0969da"
+  },
+  {
+    "theme": "github-light",
+    "key": "TaskBoxIDColor.sample[0.00]",
+    "hex": "#0754ae"
+  },
+  {
+    "theme": "github-light",
+    "key": "TaskBoxIDColor.sample[0.25]",
+    "hex": "#0859b9"
+  },
+  {
+    "theme": "github-light",
+    "key": "TaskBoxIDColor.sample[0.50]",
+    "hex": "#085fc4"
+  },
+  {
+    "theme": "github-light",
+    "key": "TaskBoxIDColor.sample[0.75]",
+    "hex": "#0964cf"
+  },
+  {
+    "theme": "github-light",
+    "key": "TaskBoxIDColor.sample[1.00]",
+    "hex": "#0969da"
+  },
+  {
+    "theme": "github-light",
+    "key": "TaskBoxIDColor.start",
+    "hex": "#0754ae"
+  },
+  {
+    "theme": "github-light",
+    "key": "TaskBoxLabelColor",
+    "hex": "#656d76",
+    "tag": "[#656d76]"
+  },
+  {
+    "theme": "github-light",
+    "key": "TaskBoxSelectedBorder",
+    "hex": "#0550ae",
+    "tag": "[#0550ae]"
+  },
+  {
+    "theme": "github-light",
+    "key": "TaskBoxTagValueColor",
+    "hex": "#8c959f",
+    "tag": "[#8c959f]"
+  },
+  {
+    "theme": "github-light",
+    "key": "TaskBoxTitleColor",
+    "hex": "#424a53",
+    "tag": "[#424a53]"
+  },
+  {
+    "theme": "github-light",
+    "key": "TaskBoxUnselectedBackground",
+    "hex": "-",
+    "tag": "[-]"
+  },
+  {
+    "theme": "github-light",
+    "key": "TaskBoxUnselectedBorder",
+    "hex": "#d0d7de",
+    "tag": "[#d0d7de]"
+  },
+  {
+    "theme": "github-light",
+    "key": "TaskDetailCommentAuthor",
+    "hex": "#0550ae",
+    "tag": "[#0550ae]"
+  },
+  {
+    "theme": "github-light",
+    "key": "TaskDetailEditDimLabelColor",
+    "hex": "#656d76",
+    "tag": "[#656d76]"
+  },
+  {
+    "theme": "github-light",
+    "key": "TaskDetailEditDimTextColor",
+    "hex": "#656d76",
+    "tag": "[#656d76]"
+  },
+  {
+    "theme": "github-light",
+    "key": "TaskDetailEditDimValueColor",
+    "hex": "#424a53",
+    "tag": "[#424a53]"
+  },
+  {
+    "theme": "github-light",
+    "key": "TaskDetailEditFocusMarker",
+    "hex": "#0550ae",
+    "tag": "[#0550ae]"
+  },
+  {
+    "theme": "github-light",
+    "key": "TaskDetailEditFocusText",
+    "hex": "#1f2328",
+    "tag": "[#1f2328]"
+  },
+  {
+    "theme": "github-light",
+    "key": "TaskDetailIDColor.end",
+    "hex": "#0969da"
+  },
+  {
+    "theme": "github-light",
+    "key": "TaskDetailIDColor.sample[0.00]",
+    "hex": "#0754ae"
+  },
+  {
+    "theme": "github-light",
+    "key": "TaskDetailIDColor.sample[0.25]",
+    "hex": "#0859b9"
+  },
+  {
+    "theme": "github-light",
+    "key": "TaskDetailIDColor.sample[0.50]",
+    "hex": "#085fc4"
+  },
+  {
+    "theme": "github-light",
+    "key": "TaskDetailIDColor.sample[0.75]",
+    "hex": "#0964cf"
+  },
+  {
+    "theme": "github-light",
+    "key": "TaskDetailIDColor.sample[1.00]",
+    "hex": "#0969da"
+  },
+  {
+    "theme": "github-light",
+    "key": "TaskDetailIDColor.start",
+    "hex": "#0754ae"
+  },
+  {
+    "theme": "github-light",
+    "key": "TaskDetailLabelText",
+    "hex": "#116329",
+    "tag": "[#116329]"
+  },
+  {
+    "theme": "github-light",
+    "key": "TaskDetailPlaceholderColor",
+    "hex": "#656d76",
+    "tag": "[#656d76]"
+  },
+  {
+    "theme": "github-light",
+    "key": "TaskDetailTagBackground",
+    "hex": "#ddf4ff",
+    "tag": "[#ddf4ff]"
+  },
+  {
+    "theme": "github-light",
+    "key": "TaskDetailTagForeground",
+    "hex": "#424a53",
+    "tag": "[#424a53]"
+  },
+  {
+    "theme": "github-light",
+    "key": "TaskDetailTitleText",
+    "hex": "#1f2328",
+    "tag": "[#1f2328]"
+  },
+  {
+    "theme": "github-light",
+    "key": "TaskDetailValueText",
+    "hex": "#0969da",
+    "tag": "[#0969da]"
+  },
+  {
+    "theme": "github-light",
+    "key": "TaskListSelectionBg",
+    "hex": "#ddf4ff",
+    "tag": "[#ddf4ff]"
+  },
+  {
+    "theme": "github-light",
+    "key": "TaskListSelectionFg",
+    "hex": "#1f2328",
+    "tag": "[#1f2328]"
+  },
+  {
+    "theme": "github-light",
+    "key": "TaskListStatusDoneColor",
+    "hex": "#116329",
+    "tag": "[#116329]"
+  },
+  {
+    "theme": "github-light",
+    "key": "TaskListStatusPendingColor",
+    "hex": "#1f2328",
+    "tag": "[#1f2328]"
+  },
+  {
+    "theme": "github-light",
+    "key": "WarnColor",
+    "hex": "#953800",
+    "tag": "[#953800]"
+  },
+  {
+    "theme": "github-light",
+    "key": "alias:accent",
+    "hex": "#116329",
+    "tag": "[#116329]"
+  },
+  {
+    "theme": "github-light",
+    "key": "alias:action",
+    "hex": "#0969da",
+    "tag": "[#0969da]"
+  },
+  {
+    "theme": "github-light",
+    "key": "alias:danger",
+    "hex": "#cf222e",
+    "tag": "[#cf222e]"
+  },
+  {
+    "theme": "github-light",
+    "key": "alias:highlight",
+    "hex": "#0550ae",
+    "tag": "[#0550ae]"
+  },
+  {
+    "theme": "github-light",
+    "key": "alias:info",
+    "hex": "#953800",
+    "tag": "[#953800]"
+  },
+  {
+    "theme": "github-light",
+    "key": "alias:muted",
+    "hex": "#656d76",
+    "tag": "[#656d76]"
+  },
+  {
+    "theme": "github-light",
+    "key": "alias:ok",
+    "hex": "#116329",
+    "tag": "[#116329]"
+  },
+  {
+    "theme": "github-light",
+    "key": "alias:text",
+    "hex": "#1f2328",
+    "tag": "[#1f2328]"
+  },
+  {
+    "theme": "github-light",
+    "key": "alias:warn",
+    "hex": "#953800",
+    "tag": "[#953800]"
+  }
+]

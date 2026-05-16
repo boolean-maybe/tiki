@@ -5,11 +5,11 @@ import (
 	"testing"
 	"time"
 
-	"github.com/boolean-maybe/tiki/config"
 	"github.com/boolean-maybe/tiki/controller"
 	"github.com/boolean-maybe/tiki/internal/teststatuses"
 	"github.com/boolean-maybe/tiki/model"
 	"github.com/boolean-maybe/tiki/store"
+	"github.com/boolean-maybe/tiki/theme"
 	tikipkg "github.com/boolean-maybe/tiki/tiki"
 	"github.com/boolean-maybe/tiki/workflow"
 
@@ -60,11 +60,11 @@ func TestBuildFieldEditor_WorkflowEnumProducesEditor(t *testing.T) {
 	if err := s.CreateTiki(tk); err != nil {
 		t.Fatalf("CreateTiki: %v", err)
 	}
-	colors := config.GetColors()
+	colors := theme.Roles()
 
 	var captured string
 	w := buildFieldEditor("severity", tk,
-		FieldRenderContext{Mode: RenderModeEdit, Colors: colors},
+		FieldRenderContext{Mode: RenderModeEdit, Roles: colors},
 		func(v string) { captured = v },
 	)
 	if w == nil {
@@ -106,8 +106,8 @@ func TestRenderTextValue_EscapesTviewMarkup(t *testing.T) {
 	if err := s.CreateTiki(tk); err != nil {
 		t.Fatalf("CreateTiki: %v", err)
 	}
-	colors := config.GetColors()
-	ctx := FieldRenderContext{Mode: RenderModeView, Colors: colors, FieldName: tikipkg.FieldAssignee}
+	colors := theme.Roles()
+	ctx := FieldRenderContext{Mode: RenderModeView, Roles: colors, FieldName: tikipkg.FieldAssignee}
 
 	// Read raw bytes (stripTags=false) so the tview.Escape marker is
 	// visible; with stripTags=true a parsed-and-discarded color tag would
@@ -166,8 +166,8 @@ func TestRenderEnumValue_EscapesUserLabelMarkup(t *testing.T) {
 	if err := s.CreateTiki(tk); err != nil {
 		t.Fatalf("CreateTiki: %v", err)
 	}
-	colors := config.GetColors()
-	ctx := FieldRenderContext{Mode: RenderModeView, Colors: colors, FieldName: "severity"}
+	colors := theme.Roles()
+	ctx := FieldRenderContext{Mode: RenderModeView, Roles: colors, FieldName: "severity"}
 
 	// Raw bytes (stripTags=false) must contain the escape marker so we
 	// know the renderer didn't pass user markup to tview unmodified.
@@ -266,11 +266,11 @@ func TestRenderEnumValue_FocusMarkerOnlyWhenFieldMatches(t *testing.T) {
 	if err := s.CreateTiki(tk); err != nil {
 		t.Fatalf("CreateTiki: %v", err)
 	}
-	colors := config.GetColors()
+	colors := theme.Roles()
 	const marker = "► "
 
 	t.Run("no focus marker in view mode", func(t *testing.T) {
-		ctx := FieldRenderContext{Mode: RenderModeView, Colors: colors, FieldName: tikipkg.FieldStatus}
+		ctx := FieldRenderContext{Mode: RenderModeView, Roles: colors, FieldName: tikipkg.FieldStatus}
 		out := extractTextView(renderEnumValue(tk, ctx), true)
 		if strings.Contains(out, marker) {
 			t.Errorf("view mode painted focus marker: %q", out)
@@ -280,7 +280,7 @@ func TestRenderEnumValue_FocusMarkerOnlyWhenFieldMatches(t *testing.T) {
 	t.Run("no focus marker in edit mode when other field is focused", func(t *testing.T) {
 		// Status row, but type is the focused field — must not paint marker.
 		ctx := FieldRenderContext{
-			Mode: RenderModeEdit, Colors: colors,
+			Mode: RenderModeEdit, Roles: colors,
 			FieldName:    tikipkg.FieldStatus,
 			FocusedField: model.EditFieldType,
 		}
@@ -292,7 +292,7 @@ func TestRenderEnumValue_FocusMarkerOnlyWhenFieldMatches(t *testing.T) {
 
 	t.Run("focus marker present when this field is focused", func(t *testing.T) {
 		ctx := FieldRenderContext{
-			Mode: RenderModeEdit, Colors: colors,
+			Mode: RenderModeEdit, Roles: colors,
 			FieldName:    tikipkg.FieldStatus,
 			FocusedField: model.EditFieldStatus,
 		}
@@ -362,7 +362,7 @@ func TestConfigurableDetailView_HandlesMissingTiki(t *testing.T) {
 // shouldn't depend on that.
 func TestConfigurableDetailView_UnknownFieldRendersPlaceholder(t *testing.T) {
 	tk := newTestViewTiki("TIKI002")
-	ctx := FieldRenderContext{Mode: RenderModeView, Colors: config.GetColors()}
+	ctx := FieldRenderContext{Mode: RenderModeView, Roles: theme.Roles()}
 	row := renderConfiguredField("not_a_field", tk, ctx)
 	if row == nil {
 		t.Fatal("expected a placeholder primitive, got nil")
@@ -383,7 +383,7 @@ func TestConfigurableDetailView_WorkflowFieldFallsBackToGenericRow(t *testing.T)
 	tk := newTestViewTiki("TIKI003")
 	tk.Set("severity", "high")
 
-	ctx := FieldRenderContext{Mode: RenderModeView, Colors: config.GetColors()}
+	ctx := FieldRenderContext{Mode: RenderModeView, Roles: theme.Roles()}
 	row := renderConfiguredField("severity", tk, ctx)
 	if row == nil {
 		t.Fatal("expected a non-nil primitive for workflow-declared field")

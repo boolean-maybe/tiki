@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/boolean-maybe/tiki/config"
+	"github.com/boolean-maybe/tiki/theme"
 	tikipkg "github.com/boolean-maybe/tiki/tiki"
 	"github.com/rivo/tview"
 )
@@ -16,18 +16,18 @@ import (
 // path is the only safe way to honor color intent without exposing tview's
 // `[...]` tag syntax.
 func TestRenderTitleText_ExpandsRoleMarkup(t *testing.T) {
-	colors := config.GetColors()
+	roles := theme.Roles()
 	tk := tikipkg.New()
 	tk.ID = "TTL001"
 	tk.Title = "<highlight>foo"
 
-	prim := RenderTitleText(tk, FieldRenderContext{Mode: RenderModeView, Colors: colors}, "")
+	prim := RenderTitleText(tk, FieldRenderContext{Mode: RenderModeView, Roles: roles}, "")
 	tv, ok := prim.(*tview.TextView)
 	if !ok {
 		t.Fatalf("RenderTitleText returned %T, want *tview.TextView", prim)
 	}
 	got := tv.GetText(false)
-	highlightTag := colors.TaskBoxSelectedBorder.Tag().String() // <highlight> resolves to this
+	highlightTag := roles.Highlight().Tag() // <highlight> resolves to the active theme's highlight role
 	if !strings.Contains(got, highlightTag) {
 		t.Errorf("expected highlight color tag %q in rendered title, got %q", highlightTag, got)
 	}
@@ -42,12 +42,12 @@ func TestRenderTitleText_ExpandsRoleMarkup(t *testing.T) {
 // interpreted by SetDynamicColors(true). This is the defense against
 // hostile stored content masquerading as markup.
 func TestRenderTitleText_TviewTagsRenderLiterally(t *testing.T) {
-	colors := config.GetColors()
+	roles := theme.Roles()
 	tk := tikipkg.New()
 	tk.ID = "TTL002"
 	tk.Title = "[red]x[/]"
 
-	prim := RenderTitleText(tk, FieldRenderContext{Mode: RenderModeView, Colors: colors}, "")
+	prim := RenderTitleText(tk, FieldRenderContext{Mode: RenderModeView, Roles: roles}, "")
 	tv, ok := prim.(*tview.TextView)
 	if !ok {
 		t.Fatalf("RenderTitleText returned %T, want *tview.TextView", prim)
@@ -60,8 +60,8 @@ func TestRenderTitleText_TviewTagsRenderLiterally(t *testing.T) {
 	if !strings.Contains(got, "[red") {
 		t.Errorf("expected '[red' fragment to be present (escaped form), got %q", got)
 	}
-	// And no role color tag was emitted (no `<role>` tokens in the input).
-	if strings.Contains(got, colors.DangerColor.Tag().String()) {
+	// and no role color tag was emitted (no `<role>` tokens in the input).
+	if strings.Contains(got, roles.StatusDanger().Tag()) {
 		t.Errorf("did not expect danger color tag in title without <role> markup, got %q", got)
 	}
 }
@@ -71,41 +71,41 @@ func TestRenderTitleText_TviewTagsRenderLiterally(t *testing.T) {
 // an error. The renderer must fall back to the plain escaped text and
 // never crash or render a half-expanded mess.
 func TestRenderTitleText_BadMarkupFailsClosed(t *testing.T) {
-	colors := config.GetColors()
+	roles := theme.Roles()
 	tk := tikipkg.New()
 	tk.ID = "TTL003"
 	tk.Title = "{dangr}x"
 
-	prim := RenderTitleText(tk, FieldRenderContext{Mode: RenderModeView, Colors: colors}, "")
+	prim := RenderTitleText(tk, FieldRenderContext{Mode: RenderModeView, Roles: roles}, "")
 	tv, ok := prim.(*tview.TextView)
 	if !ok {
 		t.Fatalf("RenderTitleText returned %T, want *tview.TextView", prim)
 	}
 	got := tv.GetText(false)
-	// Fail-closed: the raw token survives, escaped, no color tag for it.
+	// fail-closed: the raw token survives, escaped, no color tag for it.
 	if !strings.Contains(got, "x") {
 		t.Errorf("expected literal 'x' in title even on bad markup, got %q", got)
 	}
 }
 
 func TestRenderTitleText_WithRole(t *testing.T) {
-	colors := config.GetColors()
+	roles := theme.Roles()
 	tk := tikipkg.New()
 	tk.ID = "TTL004"
 	tk.Title = "My Task"
 
-	prim := RenderTitleText(tk, FieldRenderContext{Mode: RenderModeView, Colors: colors}, "highlight")
+	prim := RenderTitleText(tk, FieldRenderContext{Mode: RenderModeView, Roles: roles}, "highlight")
 	tv, ok := prim.(*tview.TextView)
 	if !ok {
 		t.Fatalf("RenderTitleText returned %T, want *tview.TextView", prim)
 	}
 	got := tv.GetText(false)
-	resolver := colors.RoleResolver()
+	resolver := roles.RoleResolver()
 	highlightTag, _ := resolver("highlight")
 	if !strings.Contains(got, highlightTag) {
 		t.Errorf("expected highlight role tag %q in title, got %q", highlightTag, got)
 	}
-	boldTag := colors.TaskDetailTitleText.Tag().Bold().String()
+	boldTag := roles.TextPrimary().BoldTag()
 	if strings.Contains(got, boldTag) {
 		t.Errorf("role should replace default styling, but found bold tag %q in %q", boldTag, got)
 	}

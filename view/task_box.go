@@ -8,6 +8,7 @@ import (
 	"github.com/rivo/tview"
 
 	"github.com/boolean-maybe/tiki/config"
+	"github.com/boolean-maybe/tiki/theme"
 	tikipkg "github.com/boolean-maybe/tiki/tiki"
 	"github.com/boolean-maybe/tiki/util"
 	"github.com/boolean-maybe/tiki/util/gradient"
@@ -17,13 +18,13 @@ import (
 // TaskBox provides a reusable task card widget used in board and backlog views.
 
 // applyFrameStyle applies selected/unselected styling to a frame
-func applyFrameStyle(frame *tview.Frame, selected bool, colors *config.ColorConfig) {
+func applyFrameStyle(frame *tview.Frame, selected bool, roles *theme.Theme) {
 	if selected {
-		frame.SetBorderColor(colors.TaskBoxSelectedBorder.TCell())
+		frame.SetBorderColor(roles.BorderFocus().TCell())
 	} else {
-		frame.SetBorderColor(colors.TaskBoxUnselectedBorder.TCell())
-		if !colors.TaskBoxUnselectedBackground.IsDefault() {
-			frame.SetBackgroundColor(colors.TaskBoxUnselectedBackground.TCell())
+		frame.SetBorderColor(roles.BorderIdle().TCell())
+		if !roles.SurfaceTransparent().IsDefault() {
+			frame.SetBackgroundColor(roles.SurfaceTransparent().TCell())
 		}
 	}
 }
@@ -69,7 +70,7 @@ func enumVisual(fieldName, key string) string {
 // tikiPointsVisual returns the rendered points visual (expanded tview tags)
 // for the tiki's points enum value, or "─" when the field is absent or its
 // value is unknown to the workflow-declared points enum.
-func tikiPointsVisual(tk *tikipkg.Tiki, colors *config.ColorConfig) string {
+func tikiPointsVisual(tk *tikipkg.Tiki, roles *theme.Theme) string {
 	key, present, _ := tk.StringField(tikipkg.FieldPoints)
 	if !present || key == "" {
 		return "─"
@@ -78,7 +79,7 @@ func tikiPointsVisual(tk *tikipkg.Tiki, colors *config.ColorConfig) string {
 	if markup == "" {
 		return "─"
 	}
-	expanded, err := workflow.ExpandVisual(markup, colors.RoleResolver())
+	expanded, err := workflow.ExpandVisual(markup, roles.RoleResolver())
 	if err != nil {
 		return "─"
 	}
@@ -97,10 +98,10 @@ func tikiPointsVisual(tk *tikipkg.Tiki, colors *config.ColorConfig) string {
 // the broken token to the user. trimUnclosedRoleToken drops any
 // dangling `<...` fragment after the last unmatched `<` so the visible
 // title shortens cleanly while keeping color on whatever did survive.
-func expandTitleMarkup(raw string, colors *config.ColorConfig) string {
+func expandTitleMarkup(raw string, roles *theme.Theme) string {
 	escaped := tview.Escape(raw)
 	cleaned := trimUnclosedRoleToken(escaped)
-	expanded, err := workflow.ExpandVisual(cleaned, colors.RoleResolver())
+	expanded, err := workflow.ExpandVisual(cleaned, roles.RoleResolver())
 	if err != nil {
 		return cleaned
 	}
@@ -128,7 +129,7 @@ func trimUnclosedRoleToken(s string) string {
 			i += 2
 			continue
 		}
-		// Lone `<`: must be closed by a `>` later in the string.
+		// lone `<`: must be closed by a `>` later in the string.
 		if strings.IndexByte(s[i+1:], '>') < 0 {
 			return s[:i]
 		}
@@ -143,19 +144,33 @@ func tikiTags(tk *tikipkg.Tiki) []string {
 	return ss
 }
 
+// renderTaskIDGradient renders a tiki ID with the active theme's TikiID
+// gradient (or solid fallback when gradients are disabled). Local bridge
+// to util/gradient.RenderAdaptiveGradientText preserving the existing
+// gradient cache + truecolor detection path.
+func renderTaskIDGradient(id string, roles *theme.Theme) string {
+	g := roles.TikiIDGradient()
+	sr, sg, sb := g.Start()
+	er, eg, eb := g.End()
+	cfgG := theme.Gradient{Start: [3]int{sr, sg, sb}, End: [3]int{er, eg, eb}}
+	fr, fg, fb := g.FallbackRole().TCell().RGB()
+	fallback := theme.NewColorRGB(fr, fg, fb)
+	return gradient.RenderAdaptiveGradientText(id, cfgG, fallback)
+}
+
 // buildCompactTaskContent builds the content string for compact task display.
 // The stored title may contain `<role>` color markup (e.g. `<highlight>foo`);
 // literal `[...]` tview-tag content stays escaped, while `<role>` tokens
 // expand to the theme's role color and reset.
-func buildCompactTaskContent(tk *tikipkg.Tiki, colors *config.ColorConfig, availableWidth int) string {
+func buildCompactTaskContent(tk *tikipkg.Tiki, roles *theme.Theme, availableWidth int) string {
 	emoji := tikiTypeEmoji(tk)
-	idGradient := gradient.RenderAdaptiveGradientText(tk.ID, colors.TaskBoxIDColor, colors.FallbackTaskIDColor)
-	truncatedTitle := expandTitleMarkup(util.TruncateText(tk.Title, availableWidth), colors)
+	idGradient := renderTaskIDGradient(tk.ID, roles)
+	truncatedTitle := expandTitleMarkup(util.TruncateText(tk.Title, availableWidth), roles)
 	priorityEmoji := tikiPriorityEmoji(tk)
-	pointsVisual := tikiPointsVisual(tk, colors)
+	pointsVisual := tikiPointsVisual(tk, roles)
 
-	titleTag := colors.TaskBoxTitleColor.Tag().String()
-	labelTag := colors.TaskBoxLabelColor.Tag().String()
+	titleTag := roles.TextSecondary().Tag()
+	labelTag := roles.TextMuted().Tag()
 
 	return fmt.Sprintf("%s %s\n%s%s[-]\n%spriority[-] %s  %spoints[-] %s[-]",
 		emoji, idGradient,
@@ -168,12 +183,12 @@ func buildCompactTaskContent(tk *tikipkg.Tiki, colors *config.ColorConfig, avail
 // Title supports `<role>` color markup like the compact variant; description
 // lines are plain-escaped (description is multi-line markdown, rendered as
 // preview text only).
-func buildExpandedTaskContent(tk *tikipkg.Tiki, colors *config.ColorConfig, availableWidth int) string {
+func buildExpandedTaskContent(tk *tikipkg.Tiki, roles *theme.Theme, availableWidth int) string {
 	emoji := tikiTypeEmoji(tk)
-	idGradient := gradient.RenderAdaptiveGradientText(tk.ID, colors.TaskBoxIDColor, colors.FallbackTaskIDColor)
-	truncatedTitle := expandTitleMarkup(util.TruncateText(tk.Title, availableWidth), colors)
+	idGradient := renderTaskIDGradient(tk.ID, roles)
+	truncatedTitle := expandTitleMarkup(util.TruncateText(tk.Title, availableWidth), roles)
 
-	// Extract first 3 lines of body (description)
+	// extract first 3 lines of body (description)
 	descLines := strings.Split(tk.Body, "\n")
 	descLine1 := ""
 	descLine2 := ""
@@ -189,20 +204,20 @@ func buildExpandedTaskContent(tk *tikipkg.Tiki, colors *config.ColorConfig, avai
 		descLine3 = tview.Escape(util.TruncateText(descLines[2], availableWidth))
 	}
 
-	titleTag := colors.TaskBoxTitleColor.Tag().String()
-	labelTag := colors.TaskBoxLabelColor.Tag().String()
-	descTag := colors.TaskBoxDescriptionColor.Tag().String()
-	tagValueTag := colors.TaskBoxTagValueColor.Tag().String()
+	titleTag := roles.TextSecondary().Tag()
+	labelTag := roles.TextMuted().Tag()
+	descTag := roles.TextMuted().Tag()
+	tagValueTag := roles.AccentTag().Tag()
 
-	// Build tags string
+	// build tags string
 	tagsStr := ""
 	if tags := tikiTags(tk); len(tags) > 0 {
 		tagsStr = labelTag + "Tags:[-] " + tagValueTag + tview.Escape(util.TruncateText(strings.Join(tags, ", "), availableWidth-6)) + "[-]"
 	}
 
-	// Build priority/points line
+	// build priority/points line
 	priorityEmoji := tikiPriorityEmoji(tk)
-	pointsVisual := tikiPointsVisual(tk, colors)
+	pointsVisual := tikiPointsVisual(tk, roles)
 	priorityPointsStr := fmt.Sprintf("%spriority[-] %s  %spoints[-] %s[-]",
 		labelTag, priorityEmoji,
 		labelTag, pointsVisual)
@@ -217,7 +232,7 @@ func buildExpandedTaskContent(tk *tikipkg.Tiki, colors *config.ColorConfig, avai
 }
 
 // CreateCompactTaskBox creates a compact styled task box widget (3 lines)
-func CreateCompactTaskBox(tk *tikipkg.Tiki, selected bool, colors *config.ColorConfig) *tview.Frame {
+func CreateCompactTaskBox(tk *tikipkg.Tiki, selected bool, roles *theme.Theme) *tview.Frame {
 	textView := tview.NewTextView().
 		SetDynamicColors(true).
 		SetWordWrap(false)
@@ -227,20 +242,20 @@ func CreateCompactTaskBox(tk *tikipkg.Tiki, selected bool, colors *config.ColorC
 		if availableWidth < config.TaskBoxMinWidth {
 			availableWidth = config.TaskBoxMinWidth
 		}
-		content := buildCompactTaskContent(tk, colors, availableWidth)
+		content := buildCompactTaskContent(tk, roles, availableWidth)
 		textView.SetText(content)
 		return x, y, width, height
 	})
 
 	frame := tview.NewFrame(textView).SetBorders(0, 0, 0, 0, 0, 0)
 	frame.SetBorder(true)
-	applyFrameStyle(frame, selected, colors)
+	applyFrameStyle(frame, selected, roles)
 
 	return frame
 }
 
 // CreateExpandedTaskBox creates an expanded styled task box widget (7 lines)
-func CreateExpandedTaskBox(tk *tikipkg.Tiki, selected bool, colors *config.ColorConfig) *tview.Frame {
+func CreateExpandedTaskBox(tk *tikipkg.Tiki, selected bool, roles *theme.Theme) *tview.Frame {
 	textView := tview.NewTextView().
 		SetDynamicColors(true).
 		SetWordWrap(false)
@@ -250,14 +265,14 @@ func CreateExpandedTaskBox(tk *tikipkg.Tiki, selected bool, colors *config.Color
 		if availableWidth < config.TaskBoxMinWidth {
 			availableWidth = config.TaskBoxMinWidth
 		}
-		content := buildExpandedTaskContent(tk, colors, availableWidth)
+		content := buildExpandedTaskContent(tk, roles, availableWidth)
 		textView.SetText(content)
 		return x, y, width, height
 	})
 
 	frame := tview.NewFrame(textView).SetBorders(0, 0, 0, 0, 0, 0)
 	frame.SetBorder(true)
-	applyFrameStyle(frame, selected, colors)
+	applyFrameStyle(frame, selected, roles)
 
 	return frame
 }

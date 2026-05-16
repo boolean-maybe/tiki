@@ -2,6 +2,7 @@ package teststatuses
 
 import (
 	"github.com/boolean-maybe/tiki/config"
+	"github.com/boolean-maybe/tiki/theme"
 	"github.com/boolean-maybe/tiki/workflow"
 )
 
@@ -74,8 +75,10 @@ func InitWith(extra []workflow.FieldDef) error {
 
 // Init registers the canonical test workflow field set: status, type,
 // priority, points, tags, dependsOn, due, recurrence, assignee — matching
-// the bundled kanban.yaml. Call from init() in each package's
-// testinit_test.go.
+// the bundled kanban.yaml. Also installs the default "dark" theme so
+// theme.Roles() doesn't panic in tests that pull role-derived strings.
+// Call from init() in each package's testinit_test.go.
 func Init() {
 	config.ResetWorkflowFieldsForTest(CanonicalFields())
+	theme.SetTheme(theme.LoadByName("dark"))
 }

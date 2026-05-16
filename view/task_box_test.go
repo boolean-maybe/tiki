@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/boolean-maybe/tiki/config"
+	"github.com/boolean-maybe/tiki/theme"
 	tikipkg "github.com/boolean-maybe/tiki/tiki"
 	"github.com/boolean-maybe/tiki/workflow"
 )
@@ -36,7 +36,7 @@ func makeTiki(id string, taskType string, priority string) *tikipkg.Tiki {
 }
 
 func TestBuildCompactTaskContent(t *testing.T) {
-	colors := config.GetColors()
+	colors := theme.Roles()
 
 	tests := []struct {
 		name           string
@@ -129,12 +129,12 @@ func TestBuildCompactTaskContent(t *testing.T) {
 // user-controlled — same escape-then-expand contract as the detail view's
 // title.
 func TestBuildCompactTaskContent_TitleRoleMarkupExpands(t *testing.T) {
-	colors := config.GetColors()
+	colors := theme.Roles()
 	tk := makeTiki("MRK001", "story", "medium")
 	tk.Title = "<highlight>foo"
 
 	got := buildCompactTaskContent(tk, colors, 40)
-	highlightTag := colors.TaskBoxSelectedBorder.Tag().String()
+	highlightTag := colors.Highlight().Tag()
 	if !strings.Contains(got, highlightTag) {
 		t.Errorf("expected highlight color tag %q in compact content, got %q", highlightTag, got)
 	}
@@ -148,7 +148,7 @@ func TestBuildCompactTaskContent_TitleRoleMarkupExpands(t *testing.T) {
 // characters, not active color markup. Guards against hostile stored
 // content from hijacking row coloring.
 func TestBuildCompactTaskContent_TitleTviewTagsEscaped(t *testing.T) {
-	colors := config.GetColors()
+	colors := theme.Roles()
 	tk := makeTiki("MRK002", "story", "medium")
 	tk.Title = "[red]x[/]"
 
@@ -166,7 +166,7 @@ func TestBuildCompactTaskContent_TitleTviewTagsEscaped(t *testing.T) {
 // title shortens slightly more than the raw rune width allowed, but the
 // alternative (broken token visible on every narrow board) is worse.
 func TestBuildCompactTaskContent_TitleTruncatedMidRoleToken(t *testing.T) {
-	colors := config.GetColors()
+	colors := theme.Roles()
 	tk := makeTiki("TRC100", "story", "medium")
 	tk.Title = "<highlight>fix the very long bug"
 
@@ -212,12 +212,12 @@ func TestTrimUnclosedRoleToken_Cases(t *testing.T) {
 // TestBuildExpandedTaskContent_TitleRoleMarkupExpands mirrors the compact
 // test for the expanded card variant: same title path, same expectations.
 func TestBuildExpandedTaskContent_TitleRoleMarkupExpands(t *testing.T) {
-	colors := config.GetColors()
+	colors := theme.Roles()
 	tk := makeTiki("MRK003", "story", "medium")
 	tk.Title = "<highlight>bar"
 
 	got := buildExpandedTaskContent(tk, colors, 40)
-	highlightTag := colors.TaskBoxSelectedBorder.Tag().String()
+	highlightTag := colors.Highlight().Tag()
 	if !strings.Contains(got, highlightTag) {
 		t.Errorf("expected highlight color tag %q in expanded content, got %q", highlightTag, got)
 	}
@@ -227,7 +227,7 @@ func TestBuildExpandedTaskContent_TitleRoleMarkupExpands(t *testing.T) {
 }
 
 func TestBuildExpandedTaskContent(t *testing.T) {
-	colors := config.GetColors()
+	colors := theme.Roles()
 
 	tests := []struct {
 		name           string

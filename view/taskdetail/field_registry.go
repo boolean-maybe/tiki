@@ -10,6 +10,7 @@ import (
 	"github.com/boolean-maybe/tiki/config"
 	"github.com/boolean-maybe/tiki/gridlayout"
 	"github.com/boolean-maybe/tiki/model"
+	"github.com/boolean-maybe/tiki/theme"
 	tikipkg "github.com/boolean-maybe/tiki/tiki"
 	"github.com/boolean-maybe/tiki/workflow"
 	"github.com/boolean-maybe/tiki/workflow/value"
@@ -370,7 +371,7 @@ func renderConfiguredField(name string, tk *tikipkg.Tiki, ctx FieldRenderContext
 // caption (if wanted) is placed by the layout author as a literal cell.
 func renderGenericWorkflowField(fd workflow.FieldDef, tk *tikipkg.Tiki, ctx FieldRenderContext) tview.Primitive {
 	value := genericFieldValueString(fd, tk, ctx)
-	return valueOnlyLine(value, ctx.Colors)
+	return valueOnlyLine(value, ctx.Roles)
 }
 
 // genericFieldValueString formats a workflow field's value as a single-line
@@ -393,7 +394,7 @@ func genericFieldValueString(fd workflow.FieldDef, tk *tikipkg.Tiki, ctx FieldRe
 		}
 		rendered := make([]string, len(ss))
 		for i, s := range ss {
-			rendered[i] = expandFieldText(s, ctx.Colors)
+			rendered[i] = expandFieldText(s, ctx.Roles)
 		}
 		return strings.Join(rendered, ", ")
 	case workflow.TypeBool:
@@ -406,7 +407,7 @@ func genericFieldValueString(fd workflow.FieldDef, tk *tikipkg.Tiki, ctx FieldRe
 	case workflow.TypeEnum:
 		if s, ok := raw.(string); ok && s != "" {
 			if ctx.Display == gridlayout.DisplayVisual {
-				return expandFieldText(fd.EnumDisplay(s), ctx.Colors)
+				return expandFieldText(fd.EnumDisplay(s), ctx.Roles)
 			}
 			return fd.EnumLabel(s)
 		}
@@ -438,7 +439,7 @@ func genericFieldValueString(fd workflow.FieldDef, tk *tikipkg.Tiki, ctx FieldRe
 		if v == "" {
 			return "—"
 		}
-		return expandFieldText(v, ctx.Colors)
+		return expandFieldText(v, ctx.Roles)
 	case int:
 		return strconv.Itoa(v)
 	case int64:
@@ -451,7 +452,7 @@ func genericFieldValueString(fd workflow.FieldDef, tk *tikipkg.Tiki, ctx FieldRe
 		}
 		return v.Format("2006-01-02")
 	default:
-		return expandFieldText(fmt.Sprintf("%v", v), ctx.Colors)
+		return expandFieldText(fmt.Sprintf("%v", v), ctx.Roles)
 	}
 }
 
@@ -473,8 +474,8 @@ func placeholderRow(text string) tview.Primitive {
 // valueOnlyLine returns a single-line value row in the value color, with no
 // caption. Captions are first-class layout cells (LiteralCell) since the
 // caption-from-field coupling was removed; renderers emit only the value.
-func valueOnlyLine(value string, colors *config.ColorConfig) tview.Primitive {
-	tag := colors.TaskDetailValueText.Tag().String()
+func valueOnlyLine(value string, roles *theme.Theme) tview.Primitive {
+	tag := roles.TextValue().Tag()
 	tv := tview.NewTextView().SetDynamicColors(true).SetText(tag + value)
 	tv.SetBorderPadding(0, 0, 0, 0)
 	return tv
@@ -495,9 +496,9 @@ func renderTextValue(tk *tikipkg.Tiki, ctx FieldRenderContext) tview.Primitive {
 	}
 	value, _, _ := tk.StringField(fd.Name)
 	if value == "" {
-		return valueOnlyLine(textEmptyPlaceholder(fd.Name), ctx.Colors)
+		return valueOnlyLine(textEmptyPlaceholder(fd.Name), ctx.Roles)
 	}
-	return valueOnlyLine(expandFieldText(value, ctx.Colors), ctx.Colors)
+	return valueOnlyLine(expandFieldText(value, ctx.Roles), ctx.Roles)
 }
 
 func renderIntegerValue(tk *tikipkg.Tiki, ctx FieldRenderContext) tview.Primitive {
@@ -510,11 +511,11 @@ func renderIntegerValue(tk *tikipkg.Tiki, ctx FieldRenderContext) tview.Primitiv
 	if present {
 		value = fmt.Sprintf("%d", v)
 	}
-	return valueOnlyLine(value, ctx.Colors)
+	return valueOnlyLine(value, ctx.Roles)
 }
 
 func renderBooleanValue(_ *tikipkg.Tiki, ctx FieldRenderContext) tview.Primitive {
-	return valueOnlyLine("(stub)", ctx.Colors)
+	return valueOnlyLine("(stub)", ctx.Roles)
 }
 
 func renderDateValue(tk *tikipkg.Tiki, ctx FieldRenderContext) tview.Primitive {
@@ -527,7 +528,7 @@ func renderDateValue(tk *tikipkg.Tiki, ctx FieldRenderContext) tview.Primitive {
 	if !t.IsZero() {
 		value = t.Format("2006-01-02")
 	}
-	return valueOnlyLine(value, ctx.Colors)
+	return valueOnlyLine(value, ctx.Roles)
 }
 
 func renderDateTimeValue(tk *tikipkg.Tiki, ctx FieldRenderContext) tview.Primitive {
@@ -541,7 +542,7 @@ func renderDateTimeValue(tk *tikipkg.Tiki, ctx FieldRenderContext) tview.Primiti
 			value = t.Format("2006-01-02 15:04")
 		}
 	}
-	return valueOnlyLine(value, ctx.Colors)
+	return valueOnlyLine(value, ctx.Roles)
 }
 
 // textEmptyPlaceholder returns the historical empty-value placeholder for
@@ -560,7 +561,7 @@ func textEmptyPlaceholder(name string) string {
 func renderRecurrenceValue(tk *tikipkg.Tiki, ctx FieldRenderContext) tview.Primitive {
 	recurrenceStr, _, _ := tk.StringField(tikipkg.FieldRecurrence)
 	display := value.RecurrenceDisplay(value.Recurrence(recurrenceStr))
-	return valueOnlyLine(display, ctx.Colors)
+	return valueOnlyLine(display, ctx.Roles)
 }
 
 // renderEnumValue is the generic read-only renderer for any TypeEnum field.
@@ -591,7 +592,7 @@ func renderEnumValue(tk *tikipkg.Tiki, ctx FieldRenderContext) tview.Primitive {
 	if value != "" {
 		if hasWFD {
 			if ctx.Display == gridlayout.DisplayVisual {
-				display = expandFieldText(wfd.EnumDisplay(value), ctx.Colors)
+				display = expandFieldText(wfd.EnumDisplay(value), ctx.Roles)
 			} else {
 				display = tview.Escape(wfd.EnumLabel(value))
 			}
@@ -600,14 +601,14 @@ func renderEnumValue(tk *tikipkg.Tiki, ctx FieldRenderContext) tview.Primitive {
 		}
 	} else if name == tikipkg.FieldType {
 		// preserve legacy "(none)" placeholder color for missing type
-		display = ctx.Colors.TaskDetailPlaceholderColor.Tag().String() + "(none)[-]"
+		display = ctx.Roles.TextMuted().Tag() + "(none)[-]"
 	}
 
 	focused := ctx.Mode == RenderModeEdit && editField != "" && ctx.FocusedField == editField
-	valueTag := getDimOrFullColor(ctx.Mode, focused, ctx.Colors.TaskDetailValueText, ctx.Colors.TaskDetailEditDimValueColor).Tag().String()
+	valueTag := getDimOrFullColorTag(ctx.Mode, focused, ctx.Roles.TextValue(), ctx.Roles.TextSecondary())
 	focusMarker := ""
 	if focused && ctx.Mode == RenderModeEdit {
-		focusMarker = getFocusMarker(ctx.Colors)
+		focusMarker = getFocusMarker(ctx.Roles)
 	}
 
 	text := focusMarker + valueTag + display
@@ -642,7 +643,7 @@ func editEnumValue(tk *tikipkg.Tiki, ctx FieldRenderContext, onChange func(strin
 	currentLabel := wfd.EnumLabel(currentKey)
 
 	editor := component.NewEditSelectList(labels, false)
-	editor.SetLabel(getFocusMarker(ctx.Colors))
+	editor.SetLabel(getFocusMarker(ctx.Roles))
 	editor.SetInitialValue(currentLabel)
 	editor.SetSubmitHandler(func(text string) {
 		if onChange == nil {
@@ -666,7 +667,7 @@ func editEnumValue(tk *tikipkg.Tiki, ctx FieldRenderContext, onChange func(strin
 func renderStringListValue(tk *tikipkg.Tiki, ctx FieldRenderContext) tview.Primitive {
 	tags, _, _ := tk.StringSliceField(tikipkg.FieldTags)
 	if len(tags) == 0 {
-		return valueOnlyLine("(none)", ctx.Colors)
+		return valueOnlyLine("(none)", ctx.Roles)
 	}
 	return RenderTagsColumn(tk)
 }
@@ -677,26 +678,26 @@ func renderStringListValue(tk *tikipkg.Tiki, ctx FieldRenderContext) tview.Primi
 func renderTaskIDListValue(tk *tikipkg.Tiki, ctx FieldRenderContext) tview.Primitive {
 	deps, _, _ := tk.StringSliceField(tikipkg.FieldDependsOn)
 	if len(deps) == 0 {
-		return valueOnlyLine("(none)", ctx.Colors)
+		return valueOnlyLine("(none)", ctx.Roles)
 	}
 	if ctx.Store == nil {
-		return valueOnlyLine(strings.Join(deps, ", "), ctx.Colors)
+		return valueOnlyLine(strings.Join(deps, ", "), ctx.Roles)
 	}
 	if col := RenderDependsOnColumn(tk, ctx.Store); col != nil {
 		return col
 	}
-	return valueOnlyLine(strings.Join(deps, ", "), ctx.Colors)
+	return valueOnlyLine(strings.Join(deps, ", "), ctx.Roles)
 }
 
 // --- editor factories ---
 
 // editTitleValue builds a plain text input for the title field.
 func editTitleValue(tk *tikipkg.Tiki, ctx FieldRenderContext, onChange func(string)) FieldEditorWidget {
-	colors := config.GetColors()
+	roles := theme.Roles()
 	input := tview.NewInputField()
-	input.SetFieldBackgroundColor(colors.ContentBackgroundColor.TCell())
-	input.SetFieldTextColor(colors.InputFieldTextColor.TCell())
-	input.SetLabel(getFocusMarker(ctx.Colors))
+	input.SetFieldBackgroundColor(roles.SurfaceCanvas().TCell())
+	input.SetFieldTextColor(roles.TextPrimary().TCell())
+	input.SetLabel(getFocusMarker(ctx.Roles))
 	input.SetBorder(false)
 	input.SetText(tk.Title)
 	input.SetChangedFunc(func(text string) {
@@ -723,7 +724,7 @@ func editAssigneeValue(tk *tikipkg.Tiki, ctx FieldRenderContext, onChange func(s
 		assignee = "Unassigned"
 	}
 	editor := component.NewEditSelectList(options, true)
-	editor.SetLabel(getFocusMarker(ctx.Colors))
+	editor.SetLabel(getFocusMarker(ctx.Roles))
 	editor.SetInitialValue(assignee)
 	editor.SetSubmitHandler(func(text string) {
 		if onChange != nil {
@@ -738,7 +739,7 @@ func editAssigneeValue(tk *tikipkg.Tiki, ctx FieldRenderContext, onChange func(s
 func editDueValue(tk *tikipkg.Tiki, ctx FieldRenderContext, onChange func(string)) FieldEditorWidget {
 	due, _, _ := tk.TimeField(tikipkg.FieldDue)
 	editor := component.NewDateEdit()
-	editor.SetLabel(getFocusMarker(ctx.Colors))
+	editor.SetLabel(getFocusMarker(ctx.Roles))
 	editor.SetChangeHandler(func(s string) {
 		if onChange != nil {
 			onChange(s)
@@ -764,7 +765,7 @@ func editDueValue(tk *tikipkg.Tiki, ctx FieldRenderContext, onChange func(string
 func editRecurrenceValue(tk *tikipkg.Tiki, ctx FieldRenderContext, onChange func(string)) FieldEditorWidget {
 	recurrenceStr, _, _ := tk.StringField(tikipkg.FieldRecurrence)
 	editor := component.NewRecurrenceEdit()
-	editor.SetLabel(getFocusMarker(ctx.Colors))
+	editor.SetLabel(getFocusMarker(ctx.Roles))
 	editor.SetChangeHandler(func(_ string) {
 		if onChange != nil {
 			onChange(editor.GetValue())
@@ -781,7 +782,7 @@ func editTagsValue(tk *tikipkg.Tiki, ctx FieldRenderContext, onChange func(strin
 	textArea.SetBorder(false)
 	textArea.SetBorderPadding(0, 0, 1, 1)
 	textArea.SetPlaceholder("space-separated tags")
-	textArea.SetPlaceholderStyle(tcell.StyleDefault.Foreground(ctx.Colors.TaskDetailPlaceholderColor.TCell()))
+	textArea.SetPlaceholderStyle(tcell.StyleDefault.Foreground(ctx.Roles.TextMuted().TCell()))
 
 	tags, _, _ := tk.StringSliceField(tikipkg.FieldTags)
 	textArea.SetText(strings.Join(tags, " "), false)

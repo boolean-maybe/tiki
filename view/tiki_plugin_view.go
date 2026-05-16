@@ -8,6 +8,7 @@ import (
 	"github.com/boolean-maybe/tiki/model"
 	"github.com/boolean-maybe/tiki/plugin"
 	"github.com/boolean-maybe/tiki/store"
+	"github.com/boolean-maybe/tiki/theme"
 	tikipkg "github.com/boolean-maybe/tiki/tiki"
 
 	"github.com/rivo/tview"
@@ -59,14 +60,13 @@ func NewPluginView(
 
 func (pv *PluginView) build() {
 	// title bar with gradient background using theme-derived caption colors
-	colors := config.GetColors()
-	pair := colors.CaptionColorForIndex(pv.pluginDef.ConfigIndex)
-	bgColor := pair.Background
-	textColor := pair.Foreground
+	pair := theme.Roles().PluginCaptions().At(pv.pluginDef.ConfigIndex)
+	bgColor := theme.NewColor(pair.Bg().TCell())
+	textColor := theme.NewColor(pair.Fg().TCell())
 	if pv.pluginDef.ConfigIndex < 0 {
 		// code-only plugin (e.g. deps editor) — use explicit Background
 		bgColor = pv.pluginDef.Background
-		textColor = config.DefaultColor()
+		textColor = theme.DefaultColor()
 	}
 	laneNames := make([]string, len(pv.pluginDef.Lanes))
 	for i, lane := range pv.pluginDef.Lanes {
@@ -172,9 +172,9 @@ func (pv *PluginView) refresh() {
 					isSelected := isSelectedLane && idx == selectedIndex
 					var taskBox *tview.Frame
 					if viewMode == model.ViewModeCompact {
-						taskBox = CreateCompactTaskBox(task, isSelected, config.GetColors())
+						taskBox = CreateCompactTaskBox(task, isSelected, theme.Roles())
 					} else {
-						taskBox = CreateExpandedTaskBox(task, isSelected, config.GetColors())
+						taskBox = CreateExpandedTaskBox(task, isSelected, theme.Roles())
 					}
 					rowFlex.AddItem(taskBox, 0, 1, false)
 				} else {

@@ -4,8 +4,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/boolean-maybe/tiki/config"
 	"github.com/boolean-maybe/tiki/gridlayout"
+	"github.com/boolean-maybe/tiki/theme"
 	"github.com/rivo/tview"
 )
 
@@ -48,7 +48,7 @@ func TestGridContainer_EmptySpec(t *testing.T) {
 // dim-label color tag is included in the formatted text but stripped
 // when GetText(false) drops the tags.
 func TestRenderLiteralCaption(t *testing.T) {
-	colors := config.GetColors()
+	colors := theme.Roles()
 	prim := renderLiteralCaption("Status:", colors)
 	tv, ok := prim.(*tview.TextView)
 	if !ok {
@@ -65,8 +65,8 @@ func TestRenderLiteralCaption(t *testing.T) {
 // text after the token survives, and that the role span closes with the
 // `[-]` reset emitted by workflow.ExpandVisual.
 func TestRenderLiteralCaption_ExpandsRoleMarkup(t *testing.T) {
-	colors := config.GetColors()
-	dangerTag := colors.DangerColor.Tag().String()
+	colors := theme.Roles()
+	dangerTag := colors.StatusDanger().Tag()
 
 	prim := renderLiteralCaption("<danger>!!!", colors)
 	tv, ok := prim.(*tview.TextView)
@@ -90,7 +90,7 @@ func TestRenderLiteralCaption_ExpandsRoleMarkup(t *testing.T) {
 // verifies rebuild lays them out in the expected slot order without
 // panicking on either kind.
 func TestGridContainer_LiteralAnchorRendersAsCaption(t *testing.T) {
-	colors := config.GetColors()
+	colors := theme.Roles()
 	spec, err := gridlayout.ParseGrid([][]string{
 		{"Status:", "status", "Tags:", "tags"},
 	})

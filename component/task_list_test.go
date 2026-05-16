@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/boolean-maybe/tiki/config"
+	"github.com/boolean-maybe/tiki/theme"
 	tikipkg "github.com/boolean-maybe/tiki/tiki"
 	"github.com/gdamore/tcell/v2"
 	"github.com/rivo/tview"
@@ -35,15 +35,15 @@ func TestNewTaskList(t *testing.T) {
 		t.Errorf("Expected initial selectionIndex=0, got %d", tl.selectionIndex)
 	}
 
-	colors := config.GetColors()
-	if tl.idGradient != colors.TaskBoxIDColor {
-		t.Error("Expected ID gradient from config")
+	defaults := DefaultTaskRowColors()
+	if tl.idGradient != defaults.IDGradient {
+		t.Error("Expected ID gradient from theme defaults")
 	}
-	if tl.idFallback != config.GetColors().FallbackTaskIDColor {
-		t.Error("Expected ID fallback from config")
+	if tl.idFallback != defaults.IDFallback {
+		t.Error("Expected ID fallback from theme defaults")
 	}
-	if tl.titleColor != colors.TaskBoxTitleColor {
-		t.Error("Expected title color from config")
+	if tl.titleColor != defaults.TitleColor {
+		t.Error("Expected title color from theme defaults")
 	}
 }
 
@@ -179,8 +179,8 @@ func TestFewerItemsThanViewport(t *testing.T) {
 
 func TestSetIDColors(t *testing.T) {
 	tl := NewTaskList(10)
-	g := config.Gradient{Start: [3]int{255, 0, 0}, End: [3]int{0, 255, 0}}
-	fb := config.NewColor(tcell.ColorRed)
+	g := theme.Gradient{Start: [3]int{255, 0, 0}, End: [3]int{0, 255, 0}}
+	fb := theme.NewColor(tcell.ColorRed)
 
 	result := tl.SetIDColors(g, fb)
 	if result != tl {
@@ -196,7 +196,7 @@ func TestSetIDColors(t *testing.T) {
 
 func TestSetTitleColor(t *testing.T) {
 	tl := NewTaskList(10)
-	c := config.NewColor(tcell.ColorRed)
+	c := theme.NewColor(tcell.ColorRed)
 	result := tl.SetTitleColor(c)
 	if result != tl {
 		t.Error("SetTitleColor should return self for chaining")

@@ -1,8 +1,8 @@
 package view
 
 import (
-	"github.com/boolean-maybe/tiki/config"
 	"github.com/boolean-maybe/tiki/controller"
+	"github.com/boolean-maybe/tiki/theme"
 
 	"github.com/gdamore/tcell/v2"
 	"github.com/rivo/tview"
@@ -17,15 +17,15 @@ type InputBox struct {
 
 // NewInputBox creates a new input box widget with the default "> " prompt
 func NewInputBox() *InputBox {
-	colors := config.GetColors()
+	roles := theme.Roles()
 	inputField := tview.NewInputField()
 
 	inputField.SetLabel("> ")
-	inputField.SetLabelColor(colors.InputBoxLabelColor.TCell())
-	inputField.SetFieldBackgroundColor(colors.InputBoxBackgroundColor.TCell())
-	inputField.SetFieldTextColor(colors.InputBoxTextColor.TCell())
+	inputField.SetLabelColor(roles.TextPrimary().TCell())
+	inputField.SetFieldBackgroundColor(roles.SurfaceTransparent().TCell())
+	inputField.SetFieldTextColor(roles.TextPrimary().TCell())
 	inputField.SetBorder(true)
-	inputField.SetBorderColor(colors.TaskBoxUnselectedBorder.TCell())
+	inputField.SetBorderColor(roles.BorderIdle().TCell())
 
 	sb := &InputBox{
 		InputField: inputField,

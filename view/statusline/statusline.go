@@ -5,8 +5,8 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/boolean-maybe/tiki/config"
 	"github.com/boolean-maybe/tiki/model"
+	"github.com/boolean-maybe/tiki/theme"
 
 	"github.com/gdamore/tcell/v2"
 	"github.com/mattn/go-runewidth"
@@ -14,8 +14,8 @@ import (
 )
 
 const (
-	separatorRight = "\u25B6" // ▶ (left-to-right powerline arrow)
-	separatorLeft  = "\u25C0" // ◀ (right-to-left powerline arrow)
+	separatorRight = "▶" // ▶ (left-to-right powerline arrow)
+	separatorLeft  = "◀" // ◀ (right-to-left powerline arrow)
 )
 
 // StatuslineWidget renders a powerline-style status bar at the bottom of the screen.
@@ -80,21 +80,21 @@ func (sw *StatuslineWidget) render(width int) {
 		return
 	}
 
-	colors := config.GetColors()
+	roles := theme.Roles()
 
 	// left stats (base + view left stats)
 	leftSegments := sortedSegments(sw.config.GetLeftStats())
-	left := sw.renderLeftSegments(leftSegments, colors)
+	left := sw.renderLeftSegments(leftSegments, roles)
 	leftLen := segmentsVisibleLen(leftSegments)
 
 	// right stats (view-provided, right-aligned)
 	rightSegments := sortedSegments(sw.config.GetRightViewStats())
-	rightStats := sw.renderRightSegments(rightSegments, colors)
+	rightStats := sw.renderRightSegments(rightSegments, roles)
 	rightStatsLen := segmentsVisibleLen(rightSegments)
 
 	// message (between left and right)
 	msg, level, _ := sw.config.GetMessage()
-	msgRendered := sw.renderMessage(msg, level, colors)
+	msgRendered := sw.renderMessage(msg, level, roles)
 	msgLen := visibleLen(msg)
 
 	// pad to fill the width with the fill background color
@@ -102,7 +102,7 @@ func (sw *StatuslineWidget) render(width int) {
 	if padLen < 1 {
 		padLen = 1
 	}
-	padding := fmt.Sprintf("[-:%s]%s[-:-]", colors.StatuslineFillBg.Hex(), strings.Repeat(" ", padLen))
+	padding := fmt.Sprintf("[-:%s]%s[-:-]", roles.StatuslineFill().Hex(), strings.Repeat(" ", padLen))
 
 	sw.SetText(left + msgRendered + padding + rightStats)
 }
@@ -110,7 +110,7 @@ func (sw *StatuslineWidget) render(width int) {
 // renderLeftSegments builds the powerline left section.
 // Each segment: colored text, then a separator whose fg=this segment's bg
 // and bg=next segment's bg (or default for the last one).
-func (sw *StatuslineWidget) renderLeftSegments(segments []statSegment, colors *config.ColorConfig) string {
+func (sw *StatuslineWidget) renderLeftSegments(segments []statSegment, roles *theme.Theme) string {
 	if len(segments) == 0 {
 		return ""
 	}
@@ -118,15 +118,15 @@ func (sw *StatuslineWidget) renderLeftSegments(segments []statSegment, colors *c
 	var b strings.Builder
 
 	for i, seg := range segments {
-		bg, fg := segmentColors(i, colors)
+		bg, fg := segmentColors(i, roles)
 
 		// segment text: " value "
 		fmt.Fprintf(&b, "[%s:%s] %s ", fg.Hex(), bg.Hex(), seg.value)
 
 		// separator: fg = current bg (creates the arrow), bg = next segment's bg or fill
-		nextBg := colors.StatuslineFillBg
+		nextBg := roles.StatuslineFill()
 		if i < len(segments)-1 {
-			nextBg, _ = segmentColors(i+1, colors)
+			nextBg, _ = segmentColors(i+1, roles)
 		}
 		fmt.Fprintf(&b, "[%s:%s]%s", bg.Hex(), nextBg.Hex(), separatorRight)
 	}
@@ -138,7 +138,7 @@ func (sw *StatuslineWidget) renderLeftSegments(segments []statSegment, colors *c
 
 // renderRightSegments builds the right-aligned powerline section with ◀ separators.
 // Even-index segments use accent colors, odd-index use normal colors, creating visible arrows.
-func (sw *StatuslineWidget) renderRightSegments(segments []statSegment, colors *config.ColorConfig) string {
+func (sw *StatuslineWidget) renderRightSegments(segments []statSegment, roles *theme.Theme) string {
 	if len(segments) == 0 {
 		return ""
 	}
@@ -146,12 +146,12 @@ func (sw *StatuslineWidget) renderRightSegments(segments []statSegment, colors *
 	var b strings.Builder
 
 	for i, seg := range segments {
-		bg, fg := segmentColors(i, colors)
+		bg, fg := segmentColors(i, roles)
 
 		// separator before segment: fg = segment bg, bg = previous segment bg (or fill)
-		prevBg := colors.StatuslineFillBg
+		prevBg := roles.StatuslineFill()
 		if i > 0 {
-			prevBg, _ = segmentColors(i-1, colors)
+			prevBg, _ = segmentColors(i-1, roles)
 		}
 		fmt.Fprintf(&b, "[%s:%s]%s", bg.Hex(), prevBg.Hex(), separatorLeft)
 
@@ -166,29 +166,29 @@ func (sw *StatuslineWidget) renderRightSegments(segments []statSegment, colors *
 
 // segmentColors returns (bg, fg) for a segment at the given index.
 // Even indices use accent colors, odd indices use normal colors.
-func segmentColors(index int, colors *config.ColorConfig) (config.Color, config.Color) {
+func segmentColors(index int, roles *theme.Theme) (theme.Role, theme.Role) {
 	if index%2 == 0 {
-		return colors.StatuslineAccentBg, colors.StatuslineAccentFg
+		return roles.StatuslineAccent().Bg(), roles.StatuslineAccent().Fg()
 	}
-	return colors.StatuslineBg, colors.StatuslineFg
+	return roles.StatuslineMain().Bg(), roles.StatuslineMain().Fg()
 }
 
 // renderMessage builds the message section with level-specific colors
-func (sw *StatuslineWidget) renderMessage(msg string, level model.MessageLevel, colors *config.ColorConfig) string {
+func (sw *StatuslineWidget) renderMessage(msg string, level model.MessageLevel, roles *theme.Theme) string {
 	if msg == "" {
 		return ""
 	}
-	fg, bg := messageColors(level, colors)
+	fg, bg := messageColors(level, roles)
 	return fmt.Sprintf("[%s:%s] %s [-:-]", fg.Hex(), bg.Hex(), msg)
 }
 
 // messageColors returns (fg, bg) for the given message level
-func messageColors(level model.MessageLevel, colors *config.ColorConfig) (config.Color, config.Color) {
+func messageColors(level model.MessageLevel, roles *theme.Theme) (theme.Role, theme.Role) {
 	switch level {
 	case model.MessageLevelError:
-		return colors.StatuslineErrorFg, colors.StatuslineErrorBg
+		return roles.StatuslineError().Fg(), roles.StatuslineError().Bg()
 	default:
-		return colors.StatuslineInfoFg, colors.StatuslineInfoBg
+		return roles.StatuslineInfo().Fg(), roles.StatuslineInfo().Bg()
 	}
 }
 

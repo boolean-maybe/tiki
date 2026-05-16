@@ -13,6 +13,7 @@ import (
 	"github.com/boolean-maybe/tiki/ruki"
 	"github.com/boolean-maybe/tiki/service"
 	"github.com/boolean-maybe/tiki/store"
+	"github.com/boolean-maybe/tiki/theme"
 	tikipkg "github.com/boolean-maybe/tiki/tiki"
 
 	"github.com/gdamore/tcell/v2"
@@ -379,7 +380,7 @@ func (ir *InputRouter) openDepsEditor(taskID, sourceDetailViewName string) {
 			Description: model.DepsEditorViewDesc,
 			ConfigIndex: -1,
 			Kind:        plugin.KindBoard,
-			Background:  config.GetColors().DepsEditorBackground,
+			Background:  theme.NewColor(theme.Roles().DepsEditorSurface().TCell()),
 		},
 		TaskID: taskID,
 		Lanes: []plugin.TikiLane{

@@ -7,7 +7,7 @@ import (
 	"github.com/gdamore/tcell/v2"
 	"github.com/rivo/tview"
 
-	"github.com/boolean-maybe/tiki/config"
+	"github.com/boolean-maybe/tiki/theme"
 	tikipkg "github.com/boolean-maybe/tiki/tiki"
 	"github.com/boolean-maybe/tiki/util"
 	"github.com/boolean-maybe/tiki/util/gradient"
@@ -15,26 +15,30 @@ import (
 
 // TaskRowColors holds the color configuration for rendering a task row.
 type TaskRowColors struct {
-	IDGradient         config.Gradient
-	IDFallback         config.Color
-	TitleColor         config.Color
-	SelectionFg        config.Color
-	SelectionBg        config.Color
-	StatusDoneColor    config.Color
-	StatusPendingColor config.Color
+	IDGradient         theme.Gradient
+	IDFallback         theme.Color
+	TitleColor         theme.Color
+	SelectionFg        theme.Color
+	SelectionBg        theme.Color
+	StatusDoneColor    theme.Color
+	StatusPendingColor theme.Color
 }
 
-// DefaultTaskRowColors returns TaskRowColors from the current theme config.
+// DefaultTaskRowColors returns TaskRowColors derived from the active theme roles.
 func DefaultTaskRowColors() TaskRowColors {
-	colors := config.GetColors()
+	roles := theme.Roles()
+	g := roles.TikiIDGradient()
+	sr, sg, sb := g.Start()
+	er, eg, eb := g.End()
+	fr, fg, fb := g.FallbackRole().TCell().RGB()
 	return TaskRowColors{
-		IDGradient:         colors.TaskBoxIDColor,
-		IDFallback:         colors.FallbackTaskIDColor,
-		TitleColor:         colors.TaskBoxTitleColor,
-		SelectionFg:        colors.TaskListSelectionFg,
-		SelectionBg:        colors.TaskListSelectionBg,
-		StatusDoneColor:    colors.TaskListStatusDoneColor,
-		StatusPendingColor: colors.TaskListStatusPendingColor,
+		IDGradient:         theme.Gradient{Start: [3]int{sr, sg, sb}, End: [3]int{er, eg, eb}},
+		IDFallback:         theme.NewColorRGB(fr, fg, fb),
+		TitleColor:         theme.NewColor(roles.TextSecondary().TCell()),
+		SelectionFg:        theme.NewColor(roles.TextPrimary().TCell()),
+		SelectionBg:        theme.NewColor(roles.SurfaceSelection().TCell()),
+		StatusDoneColor:    theme.NewColor(roles.TextLabel().TCell()),
+		StatusPendingColor: theme.NewColor(roles.TextPrimary().TCell()),
 	}
 }
 
@@ -85,14 +89,14 @@ type TaskList struct {
 	maxVisibleRows     int
 	scrollOffset       int
 	selectionIndex     int
-	idColumnWidth      int             // computed from widest ID
-	idGradient         config.Gradient // gradient for ID text
-	idFallback         config.Color    // fallback solid color for ID
-	titleColor         config.Color    // color for title text
-	selectionColor     config.Color    // foreground color for selected row highlight
-	selectionBgColor   config.Color    // background color for selected row highlight
-	statusDoneColor    config.Color    // color for done status indicator
-	statusPendingColor config.Color    // color for pending status indicator
+	idColumnWidth      int            // computed from widest ID
+	idGradient         theme.Gradient // gradient for ID text
+	idFallback         theme.Color    // fallback solid color for ID
+	titleColor         theme.Color    // color for title text
+	selectionColor     theme.Color    // foreground color for selected row highlight
+	selectionBgColor   theme.Color    // background color for selected row highlight
+	statusDoneColor    theme.Color    // color for done status indicator
+	statusPendingColor theme.Color    // color for pending status indicator
 }
 
 // NewTaskList creates a new TaskList with the given maximum visible row count.
@@ -158,14 +162,14 @@ func (tl *TaskList) ScrollDown() {
 }
 
 // SetIDColors overrides the gradient and fallback color for the ID column.
-func (tl *TaskList) SetIDColors(g config.Gradient, fallback config.Color) *TaskList {
+func (tl *TaskList) SetIDColors(g theme.Gradient, fallback theme.Color) *TaskList {
 	tl.idGradient = g
 	tl.idFallback = fallback
 	return tl
 }
 
 // SetTitleColor overrides the color for the title column.
-func (tl *TaskList) SetTitleColor(color config.Color) *TaskList {
+func (tl *TaskList) SetTitleColor(color theme.Color) *TaskList {
 	tl.titleColor = color
 	return tl
 }
@@ -191,7 +195,7 @@ func (tl *TaskList) Draw(screen tcell.Screen) {
 
 		tk := tl.tikis[itemIndex]
 		row := tl.buildRow(tk, itemIndex == tl.selectionIndex, width)
-		tview.Print(screen, row, x, y+i, width, tview.AlignLeft, tcell.ColorDefault)
+		tview.Print(screen, row, x, y+i, width, tview.AlignLeft, theme.Roles().SurfaceTransparent().TCell())
 	}
 }
 

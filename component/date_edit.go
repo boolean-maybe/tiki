@@ -3,7 +3,7 @@ package component
 import (
 	"time"
 
-	"github.com/boolean-maybe/tiki/config"
+	"github.com/boolean-maybe/tiki/theme"
 	"github.com/boolean-maybe/tiki/workflow/value"
 
 	"github.com/gdamore/tcell/v2"
@@ -27,9 +27,9 @@ type DateEdit struct {
 // NewDateEdit creates a new date input field.
 func NewDateEdit() *DateEdit {
 	inputField := tview.NewInputField()
-	colors := config.GetColors()
-	inputField.SetFieldBackgroundColor(colors.ContentBackgroundColor.TCell())
-	inputField.SetFieldTextColor(colors.ContentTextColor.TCell())
+	roles := theme.Roles()
+	inputField.SetFieldBackgroundColor(roles.SurfaceCanvas().TCell())
+	inputField.SetFieldTextColor(roles.TextPrimary().TCell())
 
 	de := &DateEdit{
 		InputField: inputField,

@@ -4,11 +4,11 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/boolean-maybe/tiki/config"
 	"github.com/boolean-maybe/tiki/controller"
 	"github.com/boolean-maybe/tiki/gridlayout"
 	"github.com/boolean-maybe/tiki/model"
 	"github.com/boolean-maybe/tiki/store"
+	"github.com/boolean-maybe/tiki/theme"
 
 	"github.com/rivo/tview"
 )
@@ -140,8 +140,8 @@ func TestBuildFieldPrimitive_FocusOnlyOnFocusedRow(t *testing.T) {
 	}
 
 	const marker = "► "
-	colors := config.GetColors()
-	ctx := FieldRenderContext{Mode: RenderModeEdit, Colors: colors, Store: s}
+	colors := theme.Roles()
+	ctx := FieldRenderContext{Mode: RenderModeEdit, Roles: colors, Store: s}
 
 	focusedName := cv.GetFocusedFieldName()
 
@@ -239,7 +239,7 @@ func TestConfigurableDetailView_FlushEmitsCanonicalKeyForEnums(t *testing.T) {
 	// Build real enum editors via the registry — this exercises the
 	// enumSelectAdapter that the factory installs. Cycle each editor
 	// to a known value, then flush.
-	ctx := FieldRenderContext{Mode: RenderModeEdit, Colors: config.GetColors(), FieldName: "status"}
+	ctx := FieldRenderContext{Mode: RenderModeEdit, Roles: theme.Roles(), FieldName: "status"}
 	statusEditor := buildFieldEditor("status", tk, ctx, cv.onEditFieldChange["status"])
 	if statusEditor == nil {
 		t.Fatal("status editor nil")

@@ -6,7 +6,7 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/boolean-maybe/tiki/config"
+	"github.com/boolean-maybe/tiki/theme"
 	"github.com/gdamore/tcell/v2"
 )
 
@@ -47,7 +47,7 @@ func InterpolateRGB(from, to [3]int, t float64) [3]int {
 }
 
 // InterpolateColor is a convenience wrapper returning tcell.Color.
-func InterpolateColor(gradient config.Gradient, t float64) tcell.Color {
+func InterpolateColor(gradient theme.Gradient, t float64) tcell.Color {
 	rgb := InterpolateRGB(gradient.Start, gradient.End, t)
 	//nolint:gosec // G115: RGB values are 0-255, safe to convert to int32
 	return tcell.NewRGBColor(int32(rgb[0]), int32(rgb[1]), int32(rgb[2]))
@@ -84,7 +84,7 @@ func DarkenRGB(rgb [3]int, ratio float64) [3]int {
 
 // RenderGradientText renders text with character-by-character gradient coloring.
 // Results are cached by (text, gradient) key to avoid redundant computation on redraws.
-func RenderGradientText(text string, gradient config.Gradient) string {
+func RenderGradientText(text string, gradient theme.Gradient) string {
 	if len(text) == 0 {
 		return ""
 	}
@@ -118,14 +118,14 @@ func RenderGradientText(text string, gradient config.Gradient) string {
 	return result
 }
 
-// RenderAdaptiveGradientText renders text with gradient or solid color based on config.UseGradients.
+// RenderAdaptiveGradientText renders text with gradient or solid color based on theme.UseGradients.
 // When gradients are disabled, uses the gradient's end color as a solid color fallback.
-func RenderAdaptiveGradientText(text string, gradient config.Gradient, fallbackColor config.Color) string {
+func RenderAdaptiveGradientText(text string, gradient theme.Gradient, fallbackColor theme.Color) string {
 	if len(text) == 0 {
 		return ""
 	}
 
-	if !config.UseGradients {
+	if !theme.UseGradients.Load() {
 		// Use solid fallback color
 		r, g, b := fallbackColor.RGB()
 		return fmt.Sprintf("[#%02x%02x%02x]%s", r, g, b, text)
@@ -136,7 +136,7 @@ func RenderAdaptiveGradientText(text string, gradient config.Gradient, fallbackC
 }
 
 // GradientFromColor derives a gradient by lightening the base color.
-func GradientFromColor(primary config.Color, ratio float64, fallback config.Gradient) config.Gradient {
+func GradientFromColor(primary theme.Color, ratio float64, fallback theme.Gradient) theme.Gradient {
 	r, g, b := primary.RGB()
 	if r == 0 && g == 0 && b == 0 {
 		return fallback
@@ -145,14 +145,14 @@ func GradientFromColor(primary config.Color, ratio float64, fallback config.Grad
 	baseRGB := [3]int{int(r), int(g), int(b)}
 	lighterRGB := LightenRGB(baseRGB, ratio)
 
-	return config.Gradient{
+	return theme.Gradient{
 		Start: baseRGB,
 		End:   lighterRGB,
 	}
 }
 
 // GradientFromColorVibrant derives a vibrant gradient by boosting RGB values.
-func GradientFromColorVibrant(primary config.Color, boost float64, fallback config.Gradient) config.Gradient {
+func GradientFromColorVibrant(primary theme.Color, boost float64, fallback theme.Gradient) theme.Gradient {
 	r, g, b := primary.RGB()
 	if r == 0 && g == 0 && b == 0 {
 		return fallback
@@ -165,7 +165,7 @@ func GradientFromColorVibrant(primary config.Color, boost float64, fallback conf
 		ClampRGB(int(math.Round(float64(baseRGB[2]) * boost))),
 	}
 
-	return config.Gradient{
+	return theme.Gradient{
 		Start: baseRGB,
 		End:   boostedRGB,
 	}

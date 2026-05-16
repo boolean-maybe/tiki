@@ -5,17 +5,19 @@ package config
 import (
 	"fmt"
 	"strings"
+
+	"github.com/boolean-maybe/tiki/theme"
 )
 
 const artDots = "▒ ▒ ▒ ▒ ▒ ▒ ▒ ▒ ▒ ▒ ▒ ▒ ▒\n▒ ● ● ● ▓ ● ▓ ● ▓ ● ▓ ● ▒\n▒ ▓ ● ▓ ▓ ● ▓ ● ● ▓ ▓ ● ▒\n▒ ▓ ● ▓ ▓ ● ▓ ● ▓ ● ▓ ● ▒\n▒ ▓ ● ▓ ▓ ● ▓ ● ▓ ● ▓ ● ▒\n▒ ▒ ▒ ▒ ▒ ▒ ▒ ▒ ▒ ▒ ▒ ▒ ▒"
 
 // GetArtTView returns the art logo formatted for tview (with tview color codes).
-// Colors are sourced from the palette via ColorConfig.
+// Colors are sourced from the active theme's logo roles.
 func GetArtTView() string {
-	colors := GetColors()
-	dotColor := colors.LogoDotColor.Hex()
-	shadeColor := colors.LogoShadeColor.Hex()
-	borderColor := colors.LogoBorderColor.Hex()
+	roles := theme.Roles()
+	dotColor := roles.LogoDot().Hex()
+	shadeColor := roles.LogoShade().Hex()
+	borderColor := roles.LogoBorder().Hex()
 
 	lines := strings.Split(artDots, "\n")
 	var result strings.Builder

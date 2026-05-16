@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/boolean-maybe/tiki/config"
+	"github.com/boolean-maybe/tiki/theme"
 
 	"github.com/rivo/tview"
 )
@@ -28,11 +28,11 @@ func NewInfoWidget() *InfoWidget {
 
 // SetViewInfo updates the displayed view name and description
 func (iw *InfoWidget) SetViewInfo(name, description string) {
-	colors := config.GetColors()
+	roles := theme.Roles()
 
-	boldColor := colors.HeaderInfoLabel.Tag().Bold().String()
-	separatorTag := colors.HeaderInfoSeparator.Tag().String()
-	descTag := colors.HeaderInfoDesc.Tag().String()
+	boldColor := roles.StatusWarn().BoldTag()
+	separatorTag := roles.TextMuted().Tag()
+	descTag := roles.TextMuted().Tag()
 
 	separator := strings.Repeat("─", InfoWidth)
 

@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"strconv"
 
-	"github.com/boolean-maybe/tiki/config"
+	"github.com/boolean-maybe/tiki/theme"
 	"github.com/boolean-maybe/tiki/workflow/value"
 
 	"github.com/gdamore/tcell/v2"
@@ -31,9 +31,9 @@ type RecurrenceEdit struct {
 // NewRecurrenceEdit creates a new recurrence editor.
 func NewRecurrenceEdit() *RecurrenceEdit {
 	inputField := tview.NewInputField()
-	colors := config.GetColors()
-	inputField.SetFieldBackgroundColor(colors.ContentBackgroundColor.TCell())
-	inputField.SetFieldTextColor(colors.ContentTextColor.TCell())
+	roles := theme.Roles()
+	inputField.SetFieldBackgroundColor(roles.SurfaceCanvas().TCell())
+	inputField.SetFieldTextColor(roles.TextPrimary().TCell())
 
 	re := &RecurrenceEdit{
 		InputField:  inputField,

@@ -17,6 +17,7 @@ import (
 	"github.com/boolean-maybe/tiki/service"
 	"github.com/boolean-maybe/tiki/store"
 	"github.com/boolean-maybe/tiki/store/tikistore"
+	"github.com/boolean-maybe/tiki/theme"
 	"github.com/boolean-maybe/tiki/util/sysinfo"
 	"github.com/boolean-maybe/tiki/view"
 	"github.com/boolean-maybe/tiki/view/header"
@@ -444,6 +445,12 @@ func restoreFocusAfterPalette(application *tview.Application, previousFocus tvie
 // Returns the collected SystemInfo for use in bootstrap result.
 func InitColorAndGradientSupport(cfg *config.Config) *sysinfo.SystemInfo {
 	_ = cfg
+	// Initialize the role-based theme. Must happen before any view code calls
+	// theme.Roles() — view code is not yet migrated to call theme.Roles(), but
+	// the role system needs to be ready ahead of that migration so subsequent
+	// tasks can switch one caller at a time without bootstrapping order bugs.
+	theme.SetTheme(theme.LoadByName(config.GetEffectiveTheme()))
+
 	// Collect initial system information using terminfo lookup
 	systemInfo := sysinfo.NewSystemInfo()
 	slog.Debug("collected system information",
@@ -474,29 +481,30 @@ func InitColorAndGradientSupport(cfg *config.Config) *sysinfo.SystemInfo {
 	// Initialize gradient support based on terminal color capabilities
 	threshold := config.GetGradientThreshold()
 	if systemInfo.ColorCount < threshold {
-		config.UseGradients = false
-		config.UseWideGradients = false
+		theme.UseGradients.Store(false)
+		theme.UseWideGradients.Store(false)
 		slog.Debug("gradients disabled",
 			"colorCount", systemInfo.ColorCount,
 			"threshold", threshold)
 	} else {
-		config.UseGradients = true
 		// Wide gradients (caption rows) require truecolor to avoid visible banding
 		// 256-color terminals show noticeable banding on screen-wide gradients
-		config.UseWideGradients = systemInfo.ColorCount >= 16777216
+		wide := systemInfo.ColorCount >= 16777216
+		theme.UseGradients.Store(true)
+		theme.UseWideGradients.Store(wide)
 		slog.Debug("gradients enabled",
 			"colorCount", systemInfo.ColorCount,
 			"threshold", threshold,
-			"wideGradients", config.UseWideGradients)
+			"wideGradients", wide)
 	}
 
 	// set tview global styles so all primitives inherit the theme colors.
 	// PrimaryTextColor must be set for light theme — tview defaults to white,
 	// which is invisible on light backgrounds.
-	colors := config.GetColors()
-	tview.Styles.PrimitiveBackgroundColor = colors.ContentBackgroundColor.TCell()
+	roles := theme.Roles()
+	tview.Styles.PrimitiveBackgroundColor = roles.SurfaceCanvas().TCell()
 	if config.IsLightTheme() {
-		tview.Styles.PrimaryTextColor = colors.ContentTextColor.TCell()
+		tview.Styles.PrimaryTextColor = roles.TextPrimary().TCell()
 	}
 
 	return systemInfo

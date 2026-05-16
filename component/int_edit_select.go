@@ -4,7 +4,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/boolean-maybe/tiki/config"
+	"github.com/boolean-maybe/tiki/theme"
 
 	"github.com/gdamore/tcell/v2"
 	"github.com/rivo/tview"
@@ -37,9 +37,9 @@ func NewIntEditSelect(min, max int, allowTyping bool) *IntEditSelect {
 	}
 
 	inputField := tview.NewInputField()
-	colors := config.GetColors()
-	inputField.SetFieldBackgroundColor(colors.ContentBackgroundColor.TCell())
-	inputField.SetFieldTextColor(colors.ContentTextColor.TCell())
+	roles := theme.Roles()
+	inputField.SetFieldBackgroundColor(roles.SurfaceCanvas().TCell())
+	inputField.SetFieldTextColor(roles.TextPrimary().TCell())
 
 	ies := &IntEditSelect{
 		InputField:   inputField,

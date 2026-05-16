@@ -13,6 +13,7 @@ import (
 	"github.com/boolean-maybe/tiki/service"
 	"github.com/boolean-maybe/tiki/store"
 	"github.com/boolean-maybe/tiki/store/tikistore"
+	"github.com/boolean-maybe/tiki/theme"
 	tikipkg "github.com/boolean-maybe/tiki/tiki"
 	"github.com/boolean-maybe/tiki/view"
 	"github.com/boolean-maybe/tiki/view/header"
@@ -65,6 +66,9 @@ func NewTestApp(t *testing.T) *TestApp {
 	if err := config.LoadWorkflowFields(); err != nil {
 		t.Fatalf("failed to load workflow registries for test: %v", err)
 	}
+	// theme.Roles() panics without a registered theme; install the default
+	// "dark" theme so view widgets that read role-derived colors work.
+	theme.SetTheme(theme.LoadByName("dark"))
 	t.Cleanup(func() {
 		config.ClearWorkflowFields()
 		config.ResetPathManager()

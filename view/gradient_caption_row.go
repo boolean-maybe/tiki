@@ -1,7 +1,7 @@
 package view
 
 import (
-	"github.com/boolean-maybe/tiki/config"
+	"github.com/boolean-maybe/tiki/theme"
 	"github.com/boolean-maybe/tiki/util/gradient"
 
 	"github.com/gdamore/tcell/v2"
@@ -13,14 +13,14 @@ import (
 type GradientCaptionRow struct {
 	*tview.Box
 	laneNames  []string
-	laneWidths []int           // proportional widths (same values used in tview.Flex)
-	gradient   config.Gradient // computed gradient (for truecolor/256-color terminals)
-	textColor  config.Color
+	laneWidths []int          // proportional widths (same values used in tview.Flex)
+	gradient   theme.Gradient // computed gradient (for truecolor/256-color terminals)
+	textColor  theme.Color
 }
 
 // NewGradientCaptionRow creates a new gradient caption row widget.
 // laneWidths should match the flex proportions used for lane layout (nil = equal).
-func NewGradientCaptionRow(laneNames []string, laneWidths []int, bgColor config.Color, textColor config.Color) *GradientCaptionRow {
+func NewGradientCaptionRow(laneNames []string, laneWidths []int, bgColor theme.Color, textColor theme.Color) *GradientCaptionRow {
 	return &GradientCaptionRow{
 		Box:        tview.NewBox(),
 		laneNames:  laneNames,
@@ -71,17 +71,17 @@ func (gcr *GradientCaptionRow) Draw(screen tcell.Screen) {
 			}
 		}
 
-		// Use adaptive gradient based on terminal color capabilities
+		// use adaptive gradient based on terminal color capabilities
 		var bgColor tcell.Color
-		if config.UseWideGradients {
-			// Truecolor: full gradient effect (dark center, bright edges)
+		if theme.UseWideGradients.Load() {
+			// truecolor: full gradient effect (dark center, bright edges)
 			bgColor = gradient.InterpolateColor(gcr.gradient, distanceFromCenter)
-		} else if config.UseGradients {
+		} else if theme.UseGradients.Load() {
 			// 256-color: solid color from gradient (use darker start for consistency)
 			bgColor = gradient.InterpolateColor(gcr.gradient, 0.0)
 		} else {
 			// 8/16-color: use brighter fallback from gradient instead of original color
-			// Original plugin colors (like #1e3a5f) map to black on basic terminals
+			// original plugin colors (like #1e3a5f) map to black on basic terminals
 			bgColor = gradient.InterpolateColor(gcr.gradient, 1.0)
 		}
 
@@ -154,8 +154,11 @@ const (
 )
 
 // computeCaptionGradient computes the gradient for caption background from a base color.
-func computeCaptionGradient(primary config.Color) config.Gradient {
-	fallback := config.GetColors().CaptionFallbackGradient
+func computeCaptionGradient(primary theme.Color) theme.Gradient {
+	g := theme.Roles().CaptionFallbackGradient()
+	sr, sg, sb := g.Start()
+	er, eg, eb := g.End()
+	fallback := theme.Gradient{Start: [3]int{sr, sg, sb}, End: [3]int{er, eg, eb}}
 	if useVibrantPluginGradient {
 		return gradient.GradientFromColorVibrant(primary, vibrantBoost, fallback)
 	}

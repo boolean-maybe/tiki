@@ -3,7 +3,7 @@ package component
 import (
 	"strings"
 
-	"github.com/boolean-maybe/tiki/config"
+	"github.com/boolean-maybe/tiki/theme"
 
 	"github.com/gdamore/tcell/v2"
 	"github.com/rivo/tview"
@@ -24,14 +24,14 @@ type CompletionPrompt struct {
 func NewCompletionPrompt(words []string) *CompletionPrompt {
 	inputField := tview.NewInputField()
 
-	// Configure the input field
-	colors := config.GetColors()
-	inputField.SetFieldBackgroundColor(colors.ContentBackgroundColor.TCell())
-	inputField.SetFieldTextColor(colors.ContentTextColor.TCell())
+	// configure the input field
+	roles := theme.Roles()
+	inputField.SetFieldBackgroundColor(roles.SurfaceCanvas().TCell())
+	inputField.SetFieldTextColor(roles.TextPrimary().TCell())
 	cp := &CompletionPrompt{
 		InputField: inputField,
 		words:      words,
-		hintColor:  colors.CompletionHintColor.TCell(),
+		hintColor:  roles.TextHint().TCell(),
 	}
 
 	return cp
