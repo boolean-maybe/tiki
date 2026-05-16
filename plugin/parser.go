@@ -8,9 +8,9 @@ import (
 	"github.com/gdamore/tcell/v2"
 	"gopkg.in/yaml.v3"
 
-	"github.com/boolean-maybe/tiki/config"
 	"github.com/boolean-maybe/tiki/gridlayout"
 	"github.com/boolean-maybe/tiki/ruki"
+	"github.com/boolean-maybe/tiki/theme"
 	"github.com/boolean-maybe/tiki/workflow"
 )
 
@@ -87,8 +87,8 @@ func parsePluginConfig(cfg pluginFileConfig, source string, schema ruki.Schema, 
 	kind := ViewKind(cfg.Kind)
 
 	// caption colors are auto-generated per theme; YAML fg/bg fields are silently ignored
-	fg := config.DefaultColor()
-	bg := config.DefaultColor()
+	fg := theme.DefaultColor()
+	bg := theme.DefaultColor()
 
 	key, r, mod, _, err := parseCanonicalKey(cfg.Key)
 	if err != nil {

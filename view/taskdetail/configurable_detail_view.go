@@ -10,8 +10,8 @@ import (
 	"github.com/boolean-maybe/tiki/gridlayout"
 	"github.com/boolean-maybe/tiki/model"
 	"github.com/boolean-maybe/tiki/store"
+	"github.com/boolean-maybe/tiki/theme"
 	tikipkg "github.com/boolean-maybe/tiki/tiki"
-	"github.com/boolean-maybe/tiki/util/gradient"
 	"github.com/boolean-maybe/tiki/view/markdown"
 	"github.com/boolean-maybe/tiki/workflow"
 
@@ -206,10 +206,10 @@ func (cv *ConfigurableDetailView) refresh() {
 		return
 	}
 
-	colors := config.GetColors()
+	roles := theme.Roles()
 
 	if !cv.fullscreen {
-		metadataBox := cv.buildMetadataBox(tk, colors)
+		metadataBox := cv.buildMetadataBox(tk, roles)
 		cv.content.AddItem(metadataBox, cv.spec.Rows+metadataBoxOverhead, 0, false)
 	}
 
@@ -260,12 +260,12 @@ const metadataBoxOverhead = 4
 // a focusable editor primitive (cached on cv.editors so user input
 // survives a refresh); other fields render their read-only primitive even
 // in edit mode.
-func (cv *ConfigurableDetailView) buildMetadataBox(tk *tikipkg.Tiki, colors *config.ColorConfig) *tview.Frame {
+func (cv *ConfigurableDetailView) buildMetadataBox(tk *tikipkg.Tiki, roles *theme.Theme) *tview.Frame {
 	mode := RenderModeView
 	if cv.editMode {
 		mode = RenderModeEdit
 	}
-	ctx := FieldRenderContext{Mode: mode, Colors: colors, Store: cv.taskStore}
+	ctx := FieldRenderContext{Mode: mode, Roles: roles, Store: cv.taskStore}
 
 	primitives := cv.buildAnchorPrimitives(tk, ctx)
 	heightOf := func(name string, w int) int { return FieldHeight(name, tk, w) }
@@ -276,8 +276,8 @@ func (cv *ConfigurableDetailView) buildMetadataBox(tk *tikipkg.Tiki, colors *con
 
 	frame := tview.NewFrame(container).SetBorders(0, 0, 0, 0, 0, 0)
 	frame.SetBorder(true).SetTitle(
-		fmt.Sprintf(" %s ", gradient.RenderAdaptiveGradientText(tk.ID, colors.TaskDetailIDColor, colors.FallbackTaskIDColor)),
-	).SetBorderColor(colors.TaskBoxUnselectedBorder.TCell())
+		fmt.Sprintf(" %s ", renderTikiIDGradient(tk.ID, roles)),
+	).SetBorderColor(roles.BorderIdle().TCell())
 	frame.SetBorderPadding(1, 0, 2, 2)
 	return frame
 }
@@ -295,7 +295,7 @@ func (cv *ConfigurableDetailView) buildAnchorPrimitives(tk *tikipkg.Tiki, ctx Fi
 	for i, a := range cv.spec.Anchors {
 		switch a.Kind {
 		case gridlayout.AnchorLiteral:
-			primitives[i] = renderLiteralCaption(a.Text, ctx.Colors)
+			primitives[i] = renderLiteralCaption(a.Text, ctx.Roles)
 		case gridlayout.AnchorComposite:
 			primitives[i] = cv.buildCompositePrimitive(a, tk, ctx, focusedName)
 		default:
@@ -307,9 +307,9 @@ func (cv *ConfigurableDetailView) buildAnchorPrimitives(tk *tikipkg.Tiki, ctx Fi
 
 func renderCompositePrimitive(a gridlayout.Anchor, tk *tikipkg.Tiki, ctx FieldRenderContext) tview.Primitive {
 	var buf strings.Builder
-	tag := ctx.Colors.TaskDetailValueText.Tag().String()
+	tag := ctx.Roles.TextValue().Tag()
 	buf.WriteString(tag)
-	resolver := ctx.Colors.RoleResolver()
+	resolver := ctx.Roles.RoleResolver()
 	for _, seg := range a.Segments {
 		if seg.Role != "" {
 			if roleTag, ok := resolver(seg.Role); ok {
@@ -326,7 +326,7 @@ func renderCompositePrimitive(a gridlayout.Anchor, tk *tikipkg.Tiki, ctx FieldRe
 			if wfd, ok := workflow.Field(seg.Name); ok {
 				buf.WriteString(genericFieldValueString(wfd, tk, segCtx))
 			} else if seg.Name == "title" {
-				buf.WriteString(expandFieldText(tk.Title, ctx.Colors))
+				buf.WriteString(expandFieldText(tk.Title, ctx.Roles))
 			} else {
 				buf.WriteString("—")
 			}
@@ -348,9 +348,9 @@ func renderCompositePrimitive(a gridlayout.Anchor, tk *tikipkg.Tiki, ctx FieldRe
 // raw text is not pre-escaped against `[...]` tview tags. Unknown roles
 // fail closed to the plain caption text — the workflow loader's
 // validateDetailMetadata gate already rejects bad role names at startup.
-func renderLiteralCaption(text string, colors *config.ColorConfig) tview.Primitive {
-	tag := colors.TaskDetailLabelText.Tag().String()
-	expanded, err := workflow.ExpandVisual(text, colors.RoleResolver())
+func renderLiteralCaption(text string, roles *theme.Theme) tview.Primitive {
+	tag := roles.TextLabel().Tag()
+	expanded, err := workflow.ExpandVisual(text, roles.RoleResolver())
 	if err != nil {
 		expanded = text
 	}

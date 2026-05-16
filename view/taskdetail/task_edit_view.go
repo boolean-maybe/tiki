@@ -5,14 +5,13 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/boolean-maybe/tiki/config"
 	"github.com/boolean-maybe/tiki/controller"
 	"github.com/boolean-maybe/tiki/gridlayout"
 	"github.com/boolean-maybe/tiki/model"
 	"github.com/boolean-maybe/tiki/service"
 	"github.com/boolean-maybe/tiki/store"
+	"github.com/boolean-maybe/tiki/theme"
 	tikipkg "github.com/boolean-maybe/tiki/tiki"
-	"github.com/boolean-maybe/tiki/util/gradient"
 	"github.com/boolean-maybe/tiki/workflow"
 
 	navtview "github.com/boolean-maybe/navidown/navidown/tview"
@@ -245,10 +244,10 @@ func (ev *TaskEditView) refresh() {
 		return
 	}
 
-	colors := config.GetColors()
+	roles := theme.Roles()
 
 	if !ev.fullscreen {
-		metadataBox, boxHeight := ev.buildMetadataBox(tk, colors)
+		metadataBox, boxHeight := ev.buildMetadataBox(tk, roles)
 		ev.content.AddItem(metadataBox, boxHeight, 0, false)
 	}
 
@@ -266,7 +265,7 @@ func (ev *TaskEditView) refresh() {
 // buildMetadataBox builds the framed metadata box with the configurable
 // grid. Mirrors ConfigurableDetailView's shape — gridded fields turn into
 // editors when focused (including title as an InputField).
-func (ev *TaskEditView) buildMetadataBox(tk *tikipkg.Tiki, colors *config.ColorConfig) (*tview.Frame, int) {
+func (ev *TaskEditView) buildMetadataBox(tk *tikipkg.Tiki, roles *theme.Theme) (*tview.Frame, int) {
 	mode := RenderModeEdit
 	if ev.descOnly || ev.tagsOnly {
 		mode = RenderModeView
@@ -274,7 +273,7 @@ func (ev *TaskEditView) buildMetadataBox(tk *tikipkg.Tiki, colors *config.ColorC
 	ctx := FieldRenderContext{
 		Mode:         mode,
 		FocusedField: ev.focusedField,
-		Colors:       colors,
+		Roles:        roles,
 		Store:        ev.taskStore,
 	}
 
@@ -287,8 +286,8 @@ func (ev *TaskEditView) buildMetadataBox(tk *tikipkg.Tiki, colors *config.ColorC
 
 	frame := tview.NewFrame(container).SetBorders(0, 0, 0, 0, 0, 0)
 	frame.SetBorder(true).SetTitle(
-		fmt.Sprintf(" %s ", gradient.RenderAdaptiveGradientText(tk.ID, colors.TaskDetailIDColor, colors.FallbackTaskIDColor)),
-	).SetBorderColor(colors.TaskBoxUnselectedBorder.TCell())
+		fmt.Sprintf(" %s ", renderTikiIDGradient(tk.ID, roles)),
+	).SetBorderColor(roles.BorderIdle().TCell())
 	frame.SetBorderPadding(1, 0, 2, 2)
 	ev.metadataBox = frame
 	return frame, spec.Rows + metadataBoxOverhead
@@ -370,7 +369,7 @@ func (ev *TaskEditView) titleGridPrimitive(tk *tikipkg.Tiki, ctx FieldRenderCont
 	}
 	input := ev.ensureTitleInput(tk)
 	if ev.focusedField == model.EditFieldTitle {
-		input.SetLabel(getFocusMarker(ctx.Colors))
+		input.SetLabel(getFocusMarker(ctx.Roles))
 	} else {
 		input.SetLabel("")
 	}
@@ -556,7 +555,7 @@ func (ev *TaskEditView) ensureTagsTextArea(tk *tikipkg.Tiki) *tview.TextArea {
 		ev.tagsTextArea.SetBorder(false)
 		ev.tagsTextArea.SetBorderPadding(1, 1, 2, 2)
 		ev.tagsTextArea.SetPlaceholder("Enter tags separated by spaces")
-		ev.tagsTextArea.SetPlaceholderStyle(tcell.StyleDefault.Foreground(config.GetColors().TaskDetailPlaceholderColor.TCell()))
+		ev.tagsTextArea.SetPlaceholderStyle(tcell.StyleDefault.Foreground(theme.Roles().TextMuted().TCell()))
 
 		ev.tagsTextArea.SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
 			if event.Key() == tcell.KeyCtrlS {
@@ -639,10 +638,10 @@ func (ev *TaskEditView) SetTagsCancelHandler(handler func()) {
 
 func (ev *TaskEditView) ensureTitleInput(tk *tikipkg.Tiki) *tview.InputField {
 	if ev.titleInput == nil {
-		colors := config.GetColors()
+		roles := theme.Roles()
 		ev.titleInput = tview.NewInputField()
-		ev.titleInput.SetFieldBackgroundColor(colors.ContentBackgroundColor.TCell())
-		ev.titleInput.SetFieldTextColor(colors.InputFieldTextColor.TCell())
+		ev.titleInput.SetFieldBackgroundColor(roles.SurfaceCanvas().TCell())
+		ev.titleInput.SetFieldTextColor(roles.TextPrimary().TCell())
 		ev.titleInput.SetBorder(false)
 
 		ev.titleInput.SetChangedFunc(func(text string) {
@@ -690,11 +689,11 @@ func (ev *TaskEditView) updateValidationState() {
 	}
 
 	if ev.metadataBox != nil {
-		colors := config.GetColors()
+		roles := theme.Roles()
 		if len(ev.validationErrors) > 0 {
-			ev.metadataBox.SetBorderColor(colors.TaskBoxSelectedBorder.TCell())
+			ev.metadataBox.SetBorderColor(roles.BorderFocus().TCell())
 		} else {
-			ev.metadataBox.SetBorderColor(colors.TaskBoxUnselectedBorder.TCell())
+			ev.metadataBox.SetBorderColor(roles.BorderIdle().TCell())
 		}
 	}
 }

@@ -3,7 +3,7 @@ package gradient
 import (
 	"testing"
 
-	"github.com/boolean-maybe/tiki/config"
+	"github.com/boolean-maybe/tiki/theme"
 )
 
 func TestInterpolateRGB(t *testing.T) {
@@ -181,7 +181,7 @@ func TestDarkenRGB(t *testing.T) {
 }
 
 func TestRenderGradientText(t *testing.T) {
-	gradient := config.Gradient{
+	gradient := theme.Gradient{
 		Start: [3]int{0, 0, 0},
 		End:   [3]int{255, 255, 255},
 	}
@@ -220,13 +220,13 @@ func TestRenderGradientText(t *testing.T) {
 }
 
 func TestGradientFromColor(t *testing.T) {
-	fallback := config.Gradient{
+	fallback := theme.Gradient{
 		Start: [3]int{255, 0, 0},
 		End:   [3]int{0, 255, 0},
 	}
 
 	t.Run("black color uses fallback", func(t *testing.T) {
-		black := config.NewColorRGB(0, 0, 0)
+		black := theme.NewColorRGB(0, 0, 0)
 		got := GradientFromColor(black, 0.5, fallback)
 		if got != fallback {
 			t.Errorf("GradientFromColor(black) should return fallback, got %v", got)
@@ -234,7 +234,7 @@ func TestGradientFromColor(t *testing.T) {
 	})
 
 	t.Run("non-black color creates gradient", func(t *testing.T) {
-		blue := config.NewColorRGB(0, 0, 200)
+		blue := theme.NewColorRGB(0, 0, 200)
 		got := GradientFromColor(blue, 0.5, fallback)
 
 		// Should have base color and lighter version
@@ -250,13 +250,13 @@ func TestGradientFromColor(t *testing.T) {
 }
 
 func TestGradientFromColorVibrant(t *testing.T) {
-	fallback := config.Gradient{
+	fallback := theme.Gradient{
 		Start: [3]int{255, 0, 0},
 		End:   [3]int{0, 255, 0},
 	}
 
 	t.Run("black color uses fallback", func(t *testing.T) {
-		black := config.NewColorRGB(0, 0, 0)
+		black := theme.NewColorRGB(0, 0, 0)
 		got := GradientFromColorVibrant(black, 1.5, fallback)
 		if got != fallback {
 			t.Errorf("GradientFromColorVibrant(black) should return fallback, got %v", got)
@@ -264,7 +264,7 @@ func TestGradientFromColorVibrant(t *testing.T) {
 	})
 
 	t.Run("non-black color creates boosted gradient", func(t *testing.T) {
-		blue := config.NewColorRGB(0, 0, 100)
+		blue := theme.NewColorRGB(0, 0, 100)
 		got := GradientFromColorVibrant(blue, 1.5, fallback)
 
 		// Should have base color and boosted version
@@ -280,7 +280,7 @@ func TestGradientFromColorVibrant(t *testing.T) {
 }
 
 func TestInterpolateColor(t *testing.T) {
-	gradient := config.Gradient{
+	gradient := theme.Gradient{
 		Start: [3]int{0, 0, 0},
 		End:   [3]int{100, 200, 250},
 	}
@@ -296,11 +296,11 @@ func TestInterpolateColor(t *testing.T) {
 }
 
 func TestRenderAdaptiveGradientText(t *testing.T) {
-	gradient := config.Gradient{
+	gradient := theme.Gradient{
 		Start: [3]int{30, 144, 255}, // Dodger Blue
 		End:   [3]int{0, 191, 255},  // Deep Sky Blue
 	}
-	fallback := config.NewColorRGB(0, 191, 255) // Deep Sky Blue
+	fallback := theme.NewColorRGB(0, 191, 255) // Deep Sky Blue
 
 	tests := []struct {
 		name         string
@@ -337,7 +337,7 @@ func TestRenderAdaptiveGradientText(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			// Set gradient flag
-			config.UseGradients = tt.useGradients
+			theme.UseGradients.Store(tt.useGradients)
 
 			got := RenderAdaptiveGradientText(tt.text, gradient, fallback)
 
@@ -371,7 +371,7 @@ func TestRenderAdaptiveGradientText(t *testing.T) {
 func TestGradientCacheHit(t *testing.T) {
 	ResetGradientCache()
 
-	grad := config.Gradient{
+	grad := theme.Gradient{
 		Start: [3]int{0, 100, 200},
 		End:   [3]int{255, 200, 100},
 	}
@@ -398,7 +398,7 @@ func TestGradientCacheHit(t *testing.T) {
 }
 
 func BenchmarkRenderGradientText(b *testing.B) {
-	grad := config.Gradient{
+	grad := theme.Gradient{
 		Start: [3]int{30, 144, 255},
 		End:   [3]int{0, 191, 255},
 	}
@@ -422,18 +422,18 @@ func BenchmarkRenderGradientText(b *testing.B) {
 }
 
 func TestAdaptiveGradientRespectConfig(t *testing.T) {
-	gradient := config.Gradient{
+	gradient := theme.Gradient{
 		Start: [3]int{100, 100, 100},
 		End:   [3]int{200, 200, 200},
 	}
-	fallbackColor := config.NewColorRGB(200, 200, 200)
+	fallbackColor := theme.NewColorRGB(200, 200, 200)
 	text := "Test"
 
 	// Test toggle behavior
-	config.UseGradients = true
+	theme.UseGradients.Store(true)
 	resultWithGradients := RenderAdaptiveGradientText(text, gradient, fallbackColor)
 
-	config.UseGradients = false
+	theme.UseGradients.Store(false)
 	resultWithoutGradients := RenderAdaptiveGradientText(text, gradient, fallbackColor)
 
 	// Results should be different

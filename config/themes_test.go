@@ -22,22 +22,6 @@ func TestThemeNamesAreSorted(t *testing.T) {
 	}
 }
 
-func TestAllPalettesResolve(t *testing.T) {
-	for name, info := range themeRegistry {
-		// calling Palette() must not panic
-		p := info.Palette()
-		if p.TextColor.IsDefault() {
-			t.Errorf("theme %q: TextColor is default/transparent", name)
-		}
-		if p.HighlightColor.IsDefault() {
-			t.Errorf("theme %q: HighlightColor is default/transparent", name)
-		}
-		if p.AccentColor.IsDefault() {
-			t.Errorf("theme %q: AccentColor is default/transparent", name)
-		}
-	}
-}
-
 func TestIsLightThemeClassification(t *testing.T) {
 	expectedLight := map[string]bool{
 		"dark":             false,

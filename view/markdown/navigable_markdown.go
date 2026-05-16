@@ -4,6 +4,7 @@ import (
 	"strings"
 
 	"github.com/boolean-maybe/tiki/config"
+	"github.com/boolean-maybe/tiki/theme"
 
 	nav "github.com/boolean-maybe/navidown/navidown"
 	navtview "github.com/boolean-maybe/navidown/navidown/tview"
@@ -47,7 +48,7 @@ func NewNavigableMarkdown(cfg NavigableMarkdownConfig) *NavigableMarkdown {
 		renderer = renderer.WithCodeBorder(b)
 	}
 	nm.viewer.SetRenderer(renderer)
-	nm.viewer.SetBackgroundColor(config.GetColors().ContentBackgroundColor.TCell())
+	nm.viewer.SetBackgroundColor(theme.Roles().SurfaceCanvas().TCell())
 	if cfg.ImageManager != nil && cfg.ImageManager.Supported() {
 		nm.viewer.SetImageManager(cfg.ImageManager)
 	}

@@ -8,12 +8,29 @@ import (
 	"github.com/boolean-maybe/tiki/gridlayout"
 	"github.com/boolean-maybe/tiki/model"
 	"github.com/boolean-maybe/tiki/store"
+	"github.com/boolean-maybe/tiki/theme"
 	tikipkg "github.com/boolean-maybe/tiki/tiki"
+	"github.com/boolean-maybe/tiki/util/gradient"
 	"github.com/boolean-maybe/tiki/workflow"
 	"github.com/boolean-maybe/tiki/workflow/value"
 
 	"github.com/rivo/tview"
 )
+
+// renderTikiIDGradient renders a tiki ID with the active theme's TikiID
+// gradient (or solid fallback when gradients are disabled). Bridges the
+// theme.GradientRole API to util/gradient.RenderAdaptiveGradientText so the
+// pre-existing gradient cache + truecolor detection logic stays the single
+// source of truth.
+func renderTikiIDGradient(id string, roles *theme.Theme) string {
+	g := roles.TikiIDGradient()
+	sr, sg, sb := g.Start()
+	er, eg, eb := g.End()
+	cfgG := theme.Gradient{Start: [3]int{sr, sg, sb}, End: [3]int{er, eg, eb}}
+	fr, fg, fb := g.FallbackRole().TCell().RGB()
+	fallback := theme.NewColorRGB(fr, fg, fb)
+	return gradient.RenderAdaptiveGradientText(id, cfgG, fallback)
+}
 
 // expandFieldText escapes a user-controlled text value against tview's
 // `[...]` dynamic-color markup, then expands any `<role>` markup against
@@ -22,14 +39,14 @@ import (
 // `<highlight>foo` resolves to a tview color tag. Fails closed to the
 // plain escaped form on parse error (e.g. unclosed `<` or unknown role
 // name) so bad stored data can never crash a render. Returns just the
-// escaped form when colors is nil, supporting fallback call sites that
-// lack a color config.
-func expandFieldText(raw string, colors *config.ColorConfig) string {
+// escaped form when roles is nil, supporting fallback call sites that
+// lack a theme context.
+func expandFieldText(raw string, roles *theme.Theme) string {
 	escaped := tview.Escape(raw)
-	if colors == nil {
+	if roles == nil {
 		return escaped
 	}
-	expanded, err := workflow.ExpandVisual(escaped, colors.RoleResolver())
+	expanded, err := workflow.ExpandVisual(escaped, roles.RoleResolver())
 	if err != nil {
 		return escaped
 	}
@@ -52,23 +69,23 @@ const (
 type FieldRenderContext struct {
 	Mode         RenderMode
 	FocusedField model.EditField
-	Colors       *config.ColorConfig
+	Roles        *theme.Theme
 	FieldName    string
 	Display      gridlayout.DisplayMode
 	Store        store.Store
 }
 
-// getDimOrFullColor returns dim color if in edit mode and not focused, otherwise full color
-func getDimOrFullColor(mode RenderMode, focused bool, fullColor config.Color, dimColor config.Color) config.Color {
+// getDimOrFullColor returns the dim role tag if in edit mode and not focused, otherwise full role tag.
+func getDimOrFullColorTag(mode RenderMode, focused bool, fullRole theme.Role, dimRole theme.Role) string {
 	if mode == RenderModeEdit && !focused {
-		return dimColor
+		return dimRole.Tag()
 	}
-	return fullColor
+	return fullRole.Tag()
 }
 
-// getFocusMarker returns the focus marker string (arrow + text color) from colors config
-func getFocusMarker(colors *config.ColorConfig) string {
-	return colors.TaskDetailEditFocusMarker.Tag().String() + "► " + colors.TaskDetailEditFocusText.Tag().String()
+// getFocusMarker returns the focus marker string (arrow + text color) from the active theme
+func getFocusMarker(roles *theme.Theme) string {
+	return roles.Highlight().Tag() + "► " + roles.TextPrimary().Tag()
 }
 
 // RenderAssigneeText renders an assignee field as read-only text. The
@@ -78,15 +95,15 @@ func RenderAssigneeText(tk *tikipkg.Tiki, ctx FieldRenderContext) tview.Primitiv
 	focused := ctx.Mode == RenderModeEdit && ctx.FocusedField == model.EditFieldAssignee
 	assignee, _, _ := tk.StringField(tikipkg.FieldAssignee)
 
-	labelTag := getDimOrFullColor(ctx.Mode, focused, ctx.Colors.TaskDetailLabelText, ctx.Colors.TaskDetailEditDimLabelColor).Tag().String()
-	valueTag := getDimOrFullColor(ctx.Mode, focused, ctx.Colors.TaskDetailValueText, ctx.Colors.TaskDetailEditDimValueColor).Tag().String()
+	labelTag := getDimOrFullColorTag(ctx.Mode, focused, ctx.Roles.TextLabel(), ctx.Roles.TextMuted())
+	valueTag := getDimOrFullColorTag(ctx.Mode, focused, ctx.Roles.TextValue(), ctx.Roles.TextSecondary())
 
 	focusMarker := ""
 	if focused && ctx.Mode == RenderModeEdit {
-		focusMarker = getFocusMarker(ctx.Colors)
+		focusMarker = getFocusMarker(ctx.Roles)
 	}
 
-	text := fmt.Sprintf("%s%s%-10s%s%s", focusMarker, labelTag, "Assignee:", valueTag, expandFieldText(defaultString(assignee, "Unassigned"), ctx.Colors))
+	text := fmt.Sprintf("%s%s%-10s%s%s", focusMarker, labelTag, "Assignee:", valueTag, expandFieldText(defaultString(assignee, "Unassigned"), ctx.Roles))
 	textView := tview.NewTextView().SetDynamicColors(true).SetText(text)
 	textView.SetBorderPadding(0, 0, 0, 0)
 
@@ -100,12 +117,12 @@ func RenderPointsText(tk *tikipkg.Tiki, ctx FieldRenderContext) tview.Primitive 
 	focused := ctx.Mode == RenderModeEdit && ctx.FocusedField == model.EditFieldPoints
 	points, _, _ := tk.StringField(tikipkg.FieldPoints)
 
-	labelTag := getDimOrFullColor(ctx.Mode, focused, ctx.Colors.TaskDetailLabelText, ctx.Colors.TaskDetailEditDimLabelColor).Tag().String()
-	valueTag := getDimOrFullColor(ctx.Mode, focused, ctx.Colors.TaskDetailValueText, ctx.Colors.TaskDetailEditDimValueColor).Tag().String()
+	labelTag := getDimOrFullColorTag(ctx.Mode, focused, ctx.Roles.TextLabel(), ctx.Roles.TextMuted())
+	valueTag := getDimOrFullColorTag(ctx.Mode, focused, ctx.Roles.TextValue(), ctx.Roles.TextSecondary())
 
 	focusMarker := ""
 	if focused && ctx.Mode == RenderModeEdit {
-		focusMarker = getFocusMarker(ctx.Colors)
+		focusMarker = getFocusMarker(ctx.Roles)
 	}
 
 	text := fmt.Sprintf("%s%s%-10s%s%s", focusMarker, labelTag, "Points:", valueTag, tview.Escape(points))
@@ -122,20 +139,20 @@ func RenderPointsText(tk *tikipkg.Tiki, ctx FieldRenderContext) tview.Primitive 
 func RenderTitleText(tk *tikipkg.Tiki, ctx FieldRenderContext, role string) tview.Primitive {
 	focused := ctx.Mode == RenderModeEdit && ctx.FocusedField == model.EditFieldTitle
 	var titleTag string
-	if role != "" && ctx.Colors != nil {
-		resolver := ctx.Colors.RoleResolver()
+	if role != "" && ctx.Roles != nil {
+		resolver := ctx.Roles.RoleResolver()
 		if tag, ok := resolver(role); ok {
 			titleTag = tag
 		} else {
-			titleTag = ctx.Colors.TaskDetailTitleText.Tag().Bold().String()
+			titleTag = ctx.Roles.TextPrimary().BoldTag()
 		}
 	} else if ctx.Mode == RenderModeEdit && !focused {
-		titleTag = ctx.Colors.TaskDetailEditDimTextColor.Tag().String()
+		titleTag = ctx.Roles.TextMuted().Tag()
 	} else {
-		titleTag = ctx.Colors.TaskDetailTitleText.Tag().Bold().String()
+		titleTag = ctx.Roles.TextPrimary().BoldTag()
 	}
-	valueTag := ctx.Colors.TaskDetailValueText.Tag().String()
-	titleText := fmt.Sprintf("%s%s%s", titleTag, expandFieldText(tk.Title, ctx.Colors), valueTag)
+	valueTag := ctx.Roles.TextValue().Tag()
+	titleText := fmt.Sprintf("%s%s%s", titleTag, expandFieldText(tk.Title, ctx.Roles), valueTag)
 	titleBox := tview.NewTextView().
 		SetDynamicColors(true).
 		SetText(titleText)
@@ -188,8 +205,8 @@ func RenderBlocksColumn(blocked []*tikipkg.Tiki) tview.Primitive {
 		return nil
 	}
 
-	colors := config.GetColors()
-	label := tview.NewTextView().SetDynamicColors(true).SetText(fmt.Sprintf("%sBlocks", colors.TaskDetailLabelText.Tag().String()))
+	roles := theme.Roles()
+	label := tview.NewTextView().SetDynamicColors(true).SetText(fmt.Sprintf("%sBlocks", roles.TextLabel().Tag()))
 	label.SetBorderPadding(0, 0, 0, 0)
 
 	col := tview.NewFlex().SetDirection(tview.FlexRow)
@@ -200,61 +217,61 @@ func RenderBlocksColumn(blocked []*tikipkg.Tiki) tview.Primitive {
 }
 
 // RenderAuthorText renders the author field as read-only text
-func RenderAuthorText(tk *tikipkg.Tiki, colors *config.ColorConfig) tview.Primitive {
+func RenderAuthorText(tk *tikipkg.Tiki, roles *theme.Theme) tview.Primitive {
 	createdBy, _, _ := tk.StringField("createdBy")
 	text := fmt.Sprintf("%s%-10s%s%s",
-		colors.TaskDetailEditDimLabelColor.Tag().String(), "Author:", colors.TaskDetailValueText.Tag().String(), tview.Escape(defaultString(createdBy, "Unknown")))
+		roles.TextMuted().Tag(), "Author:", roles.TextValue().Tag(), tview.Escape(defaultString(createdBy, "Unknown")))
 	view := tview.NewTextView().SetDynamicColors(true).SetText(text)
 	view.SetBorderPadding(0, 0, 0, 0)
 	return view
 }
 
 // RenderCreatedText renders the created-at field as read-only text
-func RenderCreatedText(tk *tikipkg.Tiki, colors *config.ColorConfig) tview.Primitive {
+func RenderCreatedText(tk *tikipkg.Tiki, roles *theme.Theme) tview.Primitive {
 	createdAtStr := "Unknown"
 	if !tk.CreatedAt.IsZero() {
 		createdAtStr = tk.CreatedAt.Format("2006-01-02 15:04")
 	}
 	text := fmt.Sprintf("%s%-10s%s%s",
-		colors.TaskDetailEditDimLabelColor.Tag().String(), "Created:", colors.TaskDetailValueText.Tag().String(), createdAtStr)
+		roles.TextMuted().Tag(), "Created:", roles.TextValue().Tag(), createdAtStr)
 	view := tview.NewTextView().SetDynamicColors(true).SetText(text)
 	view.SetBorderPadding(0, 0, 0, 0)
 	return view
 }
 
 // RenderUpdatedText renders the updated-at field as read-only text
-func RenderUpdatedText(tk *tikipkg.Tiki, colors *config.ColorConfig) tview.Primitive {
+func RenderUpdatedText(tk *tikipkg.Tiki, roles *theme.Theme) tview.Primitive {
 	updatedAtStr := "Unknown"
 	if !tk.UpdatedAt.IsZero() {
 		updatedAtStr = tk.UpdatedAt.Format("2006-01-02 15:04")
 	}
 	text := fmt.Sprintf("%s%-10s%s%s",
-		colors.TaskDetailEditDimLabelColor.Tag().String(), "Updated:", colors.TaskDetailValueText.Tag().String(), updatedAtStr)
+		roles.TextMuted().Tag(), "Updated:", roles.TextValue().Tag(), updatedAtStr)
 	view := tview.NewTextView().SetDynamicColors(true).SetText(text)
 	view.SetBorderPadding(0, 0, 0, 0)
 	return view
 }
 
 // RenderDueText renders the due date field
-func RenderDueText(tk *tikipkg.Tiki, colors *config.ColorConfig) tview.Primitive {
+func RenderDueText(tk *tikipkg.Tiki, roles *theme.Theme) tview.Primitive {
 	due, _, _ := tk.TimeField(tikipkg.FieldDue)
 	dueDisplay := "None"
 	if !due.IsZero() {
 		dueDisplay = due.Format("2006-01-02")
 	}
 	text := fmt.Sprintf("%s%-12s%s%s",
-		colors.TaskDetailEditDimLabelColor.Tag().String(), "Due:", colors.TaskDetailValueText.Tag().String(), dueDisplay)
+		roles.TextMuted().Tag(), "Due:", roles.TextValue().Tag(), dueDisplay)
 	view := tview.NewTextView().SetDynamicColors(true).SetText(text)
 	view.SetBorderPadding(0, 0, 0, 0)
 	return view
 }
 
 // RenderRecurrenceText renders the recurrence field
-func RenderRecurrenceText(tk *tikipkg.Tiki, colors *config.ColorConfig) tview.Primitive {
+func RenderRecurrenceText(tk *tikipkg.Tiki, roles *theme.Theme) tview.Primitive {
 	recurrenceStr, _, _ := tk.StringField(tikipkg.FieldRecurrence)
 	display := value.RecurrenceDisplay(value.Recurrence(recurrenceStr))
 	text := fmt.Sprintf("%s%-12s%s%s",
-		colors.TaskDetailEditDimLabelColor.Tag().String(), "Recurrence:", colors.TaskDetailValueText.Tag().String(), display)
+		roles.TextMuted().Tag(), "Recurrence:", roles.TextValue().Tag(), display)
 	view := tview.NewTextView().SetDynamicColors(true).SetText(text)
 	view.SetBorderPadding(0, 0, 0, 0)
 	return view

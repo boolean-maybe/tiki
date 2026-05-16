@@ -9,6 +9,7 @@ import (
 	"github.com/boolean-maybe/tiki/model"
 	"github.com/boolean-maybe/tiki/plugin"
 	"github.com/boolean-maybe/tiki/store"
+	"github.com/boolean-maybe/tiki/theme"
 	"github.com/boolean-maybe/tiki/view/markdown"
 
 	"github.com/boolean-maybe/navidown/loaders"
@@ -128,13 +129,12 @@ func pluginRequirementsToController(raw []string) []controller.Requirement {
 
 func (dv *DokiView) build() {
 	// title bar with gradient background using theme-derived caption colors
-	colors := config.GetColors()
-	pair := colors.CaptionColorForIndex(dv.pluginDef.ConfigIndex)
-	bgColor := pair.Background
-	textColor := pair.Foreground
+	pair := theme.Roles().PluginCaptions().At(dv.pluginDef.ConfigIndex)
+	bgColor := theme.NewColor(pair.Bg().TCell())
+	textColor := theme.NewColor(pair.Fg().TCell())
 	if dv.pluginDef.ConfigIndex < 0 {
 		bgColor = dv.pluginDef.Background
-		textColor = config.DefaultColor()
+		textColor = theme.DefaultColor()
 	}
 	dv.titleBar = NewGradientCaptionRow([]string{dv.pluginDef.Name}, nil, bgColor, textColor)
 

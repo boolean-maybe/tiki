@@ -4,8 +4,7 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/boolean-maybe/tiki/config"
-	"github.com/gdamore/tcell/v2"
+	"github.com/boolean-maybe/tiki/theme"
 )
 
 func TestNewWordList(t *testing.T) {
@@ -21,14 +20,15 @@ func TestNewWordList(t *testing.T) {
 		t.Errorf("Expected words %v, got %v", words, wl.words)
 	}
 
-	// colors should come from config
-	colors := config.GetColors()
-	if wl.fgColor != colors.TaskDetailTagForeground {
-		t.Errorf("Expected fg color from config, got %v", wl.fgColor)
+	// colors should come from the active theme — compare hex strings because
+	// Role is an interface and direct == comparison is not the contract.
+	roles := theme.Roles()
+	if wl.fgColor.Hex() != roles.TextSecondary().Hex() {
+		t.Errorf("Expected fg color %s, got %s", roles.TextSecondary().Hex(), wl.fgColor.Hex())
 	}
 
-	if wl.bgColor != colors.TaskDetailTagBackground {
-		t.Errorf("Expected bg color from config, got %v", wl.bgColor)
+	if wl.bgColor.Hex() != roles.SurfaceSelection().Hex() {
+		t.Errorf("Expected bg color %s, got %s", roles.SurfaceSelection().Hex(), wl.bgColor.Hex())
 	}
 }
 
@@ -60,8 +60,9 @@ func TestGetWords(t *testing.T) {
 
 func TestSetColors(t *testing.T) {
 	wl := NewWordList([]string{"test"})
-	fg := config.NewColor(tcell.ColorRed)
-	bg := config.NewColor(tcell.ColorGreen)
+	roles := theme.Roles()
+	fg := roles.StatusDanger()
+	bg := roles.StatusOk()
 
 	result := wl.SetColors(fg, bg)
 
@@ -69,12 +70,12 @@ func TestSetColors(t *testing.T) {
 		t.Error("SetColors should return self for chaining")
 	}
 
-	if wl.fgColor != fg {
-		t.Errorf("Expected fg color %v, got %v", fg, wl.fgColor)
+	if wl.fgColor.Hex() != fg.Hex() {
+		t.Errorf("Expected fg color %s, got %s", fg.Hex(), wl.fgColor.Hex())
 	}
 
-	if wl.bgColor != bg {
-		t.Errorf("Expected bg color %v, got %v", bg, wl.bgColor)
+	if wl.bgColor.Hex() != bg.Hex() {
+		t.Errorf("Expected bg color %s, got %s", bg.Hex(), wl.bgColor.Hex())
 	}
 }
 
@@ -131,7 +132,7 @@ func TestWrapWords_MultipleWordsMultipleLines(t *testing.T) {
 
 func TestWrapWords_ExactFit(t *testing.T) {
 	wl := NewWordList([]string{"hello", "world"})
-	lines := wl.WrapWords(11) // Exactly "hello world"
+	lines := wl.WrapWords(11) // exactly "hello world"
 
 	expected := []string{"hello world"}
 	if !reflect.DeepEqual(lines, expected) {
@@ -144,7 +145,7 @@ func TestWrapWords_WordTooLong(t *testing.T) {
 	lines := wl.WrapWords(10)
 
 	// "superlongword" is 13 chars, exceeds width of 10
-	// It should still appear on its own line
+	// it should still appear on its own line
 	expected := []string{
 		"hello",
 		"superlongword",
@@ -204,7 +205,7 @@ func TestWrapWords_VeryNarrowWidth(t *testing.T) {
 	wl := NewWordList([]string{"a", "b", "c"})
 	lines := wl.WrapWords(1)
 
-	// Each word gets its own line
+	// each word gets its own line
 	expected := []string{"a", "b", "c"}
 	if !reflect.DeepEqual(lines, expected) {
 		t.Errorf("Expected %v, got %v", expected, lines)
@@ -215,7 +216,7 @@ func TestWrapWords_EmptyStringsInList(t *testing.T) {
 	wl := NewWordList([]string{"hello", "", "world"})
 	lines := wl.WrapWords(20)
 
-	// Empty strings should be treated as zero-width words
+	// empty strings should be treated as zero-width words
 	expected := []string{"hello  world"}
 	if !reflect.DeepEqual(lines, expected) {
 		t.Errorf("Expected %v, got %v", expected, lines)

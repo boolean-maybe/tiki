@@ -8,8 +8,8 @@ import (
 	"github.com/rivo/tview"
 
 	"github.com/boolean-maybe/tiki/component"
-	"github.com/boolean-maybe/tiki/config"
 	"github.com/boolean-maybe/tiki/model"
+	"github.com/boolean-maybe/tiki/theme"
 	tikipkg "github.com/boolean-maybe/tiki/tiki"
 )
 
@@ -33,7 +33,7 @@ type QuickSelect struct {
 
 // NewQuickSelect creates the quick-select widget.
 func NewQuickSelect(quickSelectCfg *model.QuickSelectConfig) *QuickSelect {
-	colors := config.GetColors()
+	roles := theme.Roles()
 
 	qs := &QuickSelect{
 		quickSelectCfg: quickSelectCfg,
@@ -42,17 +42,17 @@ func NewQuickSelect(quickSelectCfg *model.QuickSelectConfig) *QuickSelect {
 
 	qs.filterInput = tview.NewInputField()
 	qs.filterInput.SetLabel(" ")
-	qs.filterInput.SetFieldBackgroundColor(colors.ContentBackgroundColor.TCell())
-	qs.filterInput.SetFieldTextColor(colors.InputFieldTextColor.TCell())
-	qs.filterInput.SetLabelColor(colors.InputBoxLabelColor.TCell())
+	qs.filterInput.SetFieldBackgroundColor(roles.SurfaceCanvas().TCell())
+	qs.filterInput.SetFieldTextColor(roles.TextPrimary().TCell())
+	qs.filterInput.SetLabelColor(roles.TextPrimary().TCell())
 	qs.filterInput.SetPlaceholder("Type to filter tasks")
 	qs.filterInput.SetPlaceholderStyle(tcell.StyleDefault.
-		Foreground(colors.TaskDetailPlaceholderColor.TCell()).
-		Background(colors.ContentBackgroundColor.TCell()))
-	qs.filterInput.SetBackgroundColor(colors.ContentBackgroundColor.TCell())
+		Foreground(roles.TextMuted().TCell()).
+		Background(roles.SurfaceCanvas().TCell()))
+	qs.filterInput.SetBackgroundColor(roles.SurfaceCanvas().TCell())
 
 	qs.listView = tview.NewTextView().SetDynamicColors(true)
-	qs.listView.SetBackgroundColor(colors.ContentBackgroundColor.TCell())
+	qs.listView.SetBackgroundColor(roles.SurfaceCanvas().TCell())
 	qs.listView.SetDrawFunc(func(screen tcell.Screen, x, y, width, height int) (int, int, int, int) {
 		if (width != qs.lastWidth || height != qs.lastHeight) && width > 0 {
 			qs.renderList()
@@ -61,14 +61,14 @@ func NewQuickSelect(quickSelectCfg *model.QuickSelectConfig) *QuickSelect {
 	})
 
 	qs.hintView = tview.NewTextView().SetDynamicColors(true)
-	qs.hintView.SetBackgroundColor(colors.ContentBackgroundColor.TCell())
-	mutedHex := colors.TaskDetailPlaceholderColor.Hex()
+	qs.hintView.SetBackgroundColor(roles.SurfaceCanvas().TCell())
+	mutedHex := roles.TextMuted().Hex()
 	qs.hintView.SetText(fmt.Sprintf(" [%s]↑↓ Select  ⏎ Pick  Esc Cancel", mutedHex))
 
 	qs.root = tview.NewFlex().SetDirection(tview.FlexRow)
-	qs.root.SetBackgroundColor(colors.ContentBackgroundColor.TCell())
+	qs.root.SetBackgroundColor(roles.SurfaceCanvas().TCell())
 	qs.root.SetBorder(true)
-	qs.root.SetBorderColor(colors.TaskBoxUnselectedBorder.TCell())
+	qs.root.SetBorderColor(roles.BorderIdle().TCell())
 	qs.root.AddItem(qs.filterInput, 1, 0, true)
 	qs.root.AddItem(qs.listView, 0, 1, false)
 	qs.root.AddItem(qs.hintView, 1, 0, false)
@@ -162,8 +162,7 @@ func (qs *QuickSelect) renderList() {
 	qs.lastWidth = width
 	qs.lastHeight = height
 
-	colors := config.GetColors()
-	mutedHex := colors.TaskDetailPlaceholderColor.Hex()
+	mutedHex := theme.Roles().TextMuted().Hex()
 
 	var buf strings.Builder
 

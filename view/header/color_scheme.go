@@ -1,40 +1,40 @@
 package header
 
-import "github.com/boolean-maybe/tiki/config"
+import "github.com/boolean-maybe/tiki/theme"
 
 // ColorScheme defines color pairs for different action categories
 type ColorScheme struct {
-	KeyColor   config.Color
-	LabelColor config.Color
+	KeyColor   theme.Role
+	LabelColor theme.Role
 }
 
 // getColorScheme returns the color scheme for the given action type.
-// Colors are retrieved from the centralized config.GetColors().
+// Colors are retrieved from the centralized theme.Roles().
 // Falls back to global color scheme if the type is not found.
 func getColorScheme(colorType int) ColorScheme {
-	colors := config.GetColors()
+	roles := theme.Roles()
 
 	switch colorType {
 	case colorTypeGlobal:
 		return ColorScheme{
-			KeyColor:   colors.HeaderActionGlobalKeyColor,
-			LabelColor: colors.HeaderActionGlobalLabelColor,
+			KeyColor:   roles.Highlight(),
+			LabelColor: roles.TextPrimary(),
 		}
 	case colorTypePlugin:
 		return ColorScheme{
-			KeyColor:   colors.HeaderActionPluginKeyColor,
-			LabelColor: colors.HeaderActionPluginLabelColor,
+			KeyColor:   roles.StatusWarn(),
+			LabelColor: roles.TextSecondary(),
 		}
 	case colorTypeView:
 		return ColorScheme{
-			KeyColor:   colors.HeaderActionViewKeyColor,
-			LabelColor: colors.HeaderActionViewLabelColor,
+			KeyColor:   roles.AccentAction(),
+			LabelColor: roles.TextMuted(),
 		}
 	default:
-		// Fallback to global colors
+		// fallback to global colors
 		return ColorScheme{
-			KeyColor:   colors.HeaderActionGlobalKeyColor,
-			LabelColor: colors.HeaderActionGlobalLabelColor,
+			KeyColor:   roles.Highlight(),
+			LabelColor: roles.TextPrimary(),
 		}
 	}
 }

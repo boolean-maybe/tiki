@@ -5,9 +5,9 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/boolean-maybe/tiki/config"
 	"github.com/boolean-maybe/tiki/controller"
 	"github.com/boolean-maybe/tiki/model"
+	"github.com/boolean-maybe/tiki/theme"
 	"github.com/boolean-maybe/tiki/util"
 
 	"github.com/gdamore/tcell/v2"
@@ -60,7 +60,7 @@ func NewActionPalette(
 	inputRouter *controller.InputRouter,
 	navController *controller.NavigationController,
 ) *ActionPalette {
-	colors := config.GetColors()
+	roles := theme.Roles()
 
 	ap := &ActionPalette{
 		viewContext:   viewContext,
@@ -72,18 +72,18 @@ func NewActionPalette(
 	// filter input
 	ap.filterInput = tview.NewInputField()
 	ap.filterInput.SetLabel(" ")
-	ap.filterInput.SetFieldBackgroundColor(colors.ContentBackgroundColor.TCell())
-	ap.filterInput.SetFieldTextColor(colors.InputFieldTextColor.TCell())
-	ap.filterInput.SetLabelColor(colors.InputBoxLabelColor.TCell())
+	ap.filterInput.SetFieldBackgroundColor(roles.SurfaceCanvas().TCell())
+	ap.filterInput.SetFieldTextColor(roles.TextPrimary().TCell())
+	ap.filterInput.SetLabelColor(roles.TextPrimary().TCell())
 	ap.filterInput.SetPlaceholder("Type to search")
 	ap.filterInput.SetPlaceholderStyle(tcell.StyleDefault.
-		Foreground(colors.TaskDetailPlaceholderColor.TCell()).
-		Background(colors.ContentBackgroundColor.TCell()))
-	ap.filterInput.SetBackgroundColor(colors.ContentBackgroundColor.TCell())
+		Foreground(roles.TextMuted().TCell()).
+		Background(roles.SurfaceCanvas().TCell()))
+	ap.filterInput.SetBackgroundColor(roles.SurfaceCanvas().TCell())
 
 	// list area
 	ap.listView = tview.NewTextView().SetDynamicColors(true)
-	ap.listView.SetBackgroundColor(colors.ContentBackgroundColor.TCell())
+	ap.listView.SetBackgroundColor(roles.SurfaceCanvas().TCell())
 	ap.listView.SetDrawFunc(func(screen tcell.Screen, x, y, width, height int) (int, int, int, int) {
 		if width != ap.lastWidth && width > 0 {
 			ap.renderList()
@@ -93,14 +93,14 @@ func NewActionPalette(
 
 	// bottom hint
 	ap.hintView = tview.NewTextView().SetDynamicColors(true)
-	ap.hintView.SetBackgroundColor(colors.ContentBackgroundColor.TCell())
-	mutedHex := colors.TaskDetailPlaceholderColor.Hex()
+	ap.hintView.SetBackgroundColor(roles.SurfaceCanvas().TCell())
+	mutedHex := roles.TextMuted().Hex()
 	ap.hintView.SetText(fmt.Sprintf(" [%s]↑↓ Select  ⏎ Run  Esc Close", mutedHex))
 
 	ap.root = tview.NewFlex().SetDirection(tview.FlexRow)
-	ap.root.SetBackgroundColor(colors.ContentBackgroundColor.TCell())
+	ap.root.SetBackgroundColor(roles.SurfaceCanvas().TCell())
 	ap.root.SetBorder(true)
-	ap.root.SetBorderColor(colors.TaskBoxUnselectedBorder.TCell())
+	ap.root.SetBorderColor(roles.BorderIdle().TCell())
 	ap.root.AddItem(ap.filterInput, 1, 0, true)
 	ap.root.AddItem(ap.listView, 0, 1, false)
 	ap.root.AddItem(ap.hintView, 1, 0, false)
@@ -325,7 +325,7 @@ func (ap *ActionPalette) nextSelectableFrom(start, direction int) int {
 }
 
 func (ap *ActionPalette) renderList() {
-	colors := config.GetColors()
+	roles := theme.Roles()
 	_, _, width, _ := ap.listView.GetInnerRect()
 	if width <= 0 {
 		width = PaletteMinWidth
@@ -336,8 +336,8 @@ func (ap *ActionPalette) renderList() {
 	viewsScheme := sectionColors(sectionViews)
 	viewScheme := sectionColors(sectionView)
 
-	mutedHex := colors.TaskDetailPlaceholderColor.Hex()
-	selBgHex := colors.TaskListSelectionBg.Hex()
+	mutedHex := roles.TextMuted().Hex()
+	selBgHex := roles.SurfaceSelection().Hex()
 
 	var buf strings.Builder
 
@@ -416,27 +416,27 @@ type sectionColorPair struct {
 }
 
 func sectionColors(s sectionType) sectionColorPair {
-	colors := config.GetColors()
+	roles := theme.Roles()
 	switch s {
 	case sectionGlobal:
 		return sectionColorPair{
-			keyHex:   colors.HeaderActionGlobalKeyColor.Hex(),
-			labelHex: colors.HeaderActionGlobalLabelColor.Hex(),
+			keyHex:   roles.Highlight().Hex(),
+			labelHex: roles.TextPrimary().Hex(),
 		}
 	case sectionViews:
 		return sectionColorPair{
-			keyHex:   colors.HeaderActionPluginKeyColor.Hex(),
-			labelHex: colors.HeaderActionPluginLabelColor.Hex(),
+			keyHex:   roles.StatusWarn().Hex(),
+			labelHex: roles.TextSecondary().Hex(),
 		}
 	case sectionView:
 		return sectionColorPair{
-			keyHex:   colors.HeaderActionViewKeyColor.Hex(),
-			labelHex: colors.HeaderActionViewLabelColor.Hex(),
+			keyHex:   roles.AccentAction().Hex(),
+			labelHex: roles.TextMuted().Hex(),
 		}
 	default:
 		return sectionColorPair{
-			keyHex:   colors.HeaderActionGlobalKeyColor.Hex(),
-			labelHex: colors.HeaderActionGlobalLabelColor.Hex(),
+			keyHex:   roles.Highlight().Hex(),
+			labelHex: roles.TextPrimary().Hex(),
 		}
 	}
 }

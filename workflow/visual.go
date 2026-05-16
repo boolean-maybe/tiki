@@ -3,23 +3,24 @@ package workflow
 import (
 	"fmt"
 	"strings"
+
+	"github.com/boolean-maybe/tiki/theme"
 )
 
 // ValidRoles is the closed vocabulary of semantic color roles accepted by
 // workflow `visual:` markup. Membership is checked at workflow load time;
 // unknown roles produce a load error. The runtime binding from role name to
-// concrete color lives in config.ColorConfig.ResolveRole.
-var ValidRoles = map[string]struct{}{
-	"muted":     {},
-	"accent":    {},
-	"highlight": {},
-	"info":      {},
-	"action":    {},
-	"text":      {},
-	"danger":    {},
-	"warn":      {},
-	"ok":        {},
-}
+// concrete color lives in theme.Theme.ResolveByName.
+//
+// Derived from theme.KnownRoleNames() so the load-time validator and the
+// runtime resolver always agree on which names are accepted.
+var ValidRoles = func() map[string]struct{} {
+	m := make(map[string]struct{}, len(theme.KnownRoleNames()))
+	for _, name := range theme.KnownRoleNames() {
+		m[name] = struct{}{}
+	}
+	return m
+}()
 
 // ValidateVisualMarkup checks a `visual:` string for syntactic and role
 // errors without resolving roles to colors. Returns nil for the empty string
