@@ -4,6 +4,7 @@ import (
 	"strings"
 	"testing"
 
+	gradcore "github.com/boolean-maybe/tiki/internal/gradient"
 	"github.com/boolean-maybe/tiki/theme"
 	tikipkg "github.com/boolean-maybe/tiki/tiki"
 	"github.com/rivo/tview"
@@ -21,7 +22,7 @@ func TestRenderTitleText_ExpandsRoleMarkup(t *testing.T) {
 	tk.ID = "TTL001"
 	tk.Title = "<highlight>foo"
 
-	prim := RenderTitleText(tk, FieldRenderContext{Mode: RenderModeView, Roles: roles}, "")
+	prim := RenderTitleText(tk, FieldRenderContext{Mode: RenderModeView, Roles: roles}, "", "")
 	tv, ok := prim.(*tview.TextView)
 	if !ok {
 		t.Fatalf("RenderTitleText returned %T, want *tview.TextView", prim)
@@ -47,7 +48,7 @@ func TestRenderTitleText_TviewTagsRenderLiterally(t *testing.T) {
 	tk.ID = "TTL002"
 	tk.Title = "[red]x[/]"
 
-	prim := RenderTitleText(tk, FieldRenderContext{Mode: RenderModeView, Roles: roles}, "")
+	prim := RenderTitleText(tk, FieldRenderContext{Mode: RenderModeView, Roles: roles}, "", "")
 	tv, ok := prim.(*tview.TextView)
 	if !ok {
 		t.Fatalf("RenderTitleText returned %T, want *tview.TextView", prim)
@@ -76,7 +77,7 @@ func TestRenderTitleText_BadMarkupFailsClosed(t *testing.T) {
 	tk.ID = "TTL003"
 	tk.Title = "{dangr}x"
 
-	prim := RenderTitleText(tk, FieldRenderContext{Mode: RenderModeView, Roles: roles}, "")
+	prim := RenderTitleText(tk, FieldRenderContext{Mode: RenderModeView, Roles: roles}, "", "")
 	tv, ok := prim.(*tview.TextView)
 	if !ok {
 		t.Fatalf("RenderTitleText returned %T, want *tview.TextView", prim)
@@ -94,14 +95,14 @@ func TestRenderTitleText_WithRole(t *testing.T) {
 	tk.ID = "TTL004"
 	tk.Title = "My Task"
 
-	prim := RenderTitleText(tk, FieldRenderContext{Mode: RenderModeView, Roles: roles}, "highlight")
+	prim := RenderTitleText(tk, FieldRenderContext{Mode: RenderModeView, Roles: roles}, "highlight", "")
 	tv, ok := prim.(*tview.TextView)
 	if !ok {
 		t.Fatalf("RenderTitleText returned %T, want *tview.TextView", prim)
 	}
 	got := tv.GetText(false)
-	resolver := roles.RoleResolver()
-	highlightTag, _ := resolver("highlight")
+	highlightRole, _ := roles.ResolveByName("highlight")
+	highlightTag := highlightRole.Tag()
 	if !strings.Contains(got, highlightTag) {
 		t.Errorf("expected highlight role tag %q in title, got %q", highlightTag, got)
 	}
@@ -111,5 +112,52 @@ func TestRenderTitleText_WithRole(t *testing.T) {
 	}
 	if !strings.Contains(got, "My Task") {
 		t.Errorf("expected 'My Task' in rendered title, got %q", got)
+	}
+}
+
+// TestRenderTitleText_WithRoleAndModifier pins that passing a non-empty
+// modifier routes through PaintResolver and produces per-rune gradient tags
+// — distinct from the single-tag output of the bare-role path. This is the
+// regression test for the third Critical: the renderer must read Modifier,
+// not just Role.
+func TestRenderTitleText_WithRoleAndModifier(t *testing.T) {
+	roles := theme.Roles()
+	tk := tikipkg.New()
+	tk.ID = "TTL005"
+	tk.Title = "AB"
+
+	gradcore.UseGradients.Store(true)
+	defer gradcore.UseGradients.Store(false)
+
+	prim := RenderTitleText(tk, FieldRenderContext{Mode: RenderModeView, Roles: roles}, "highlight", "accent")
+	tv, ok := prim.(*tview.TextView)
+	if !ok {
+		t.Fatalf("RenderTitleText returned %T, want *tview.TextView", prim)
+	}
+	got := tv.GetText(false)
+	// modifier path emits one [#rrggbb] tag per visible rune; two runes → two tags.
+	tagCount := strings.Count(got, "[#")
+	if tagCount != 2 {
+		t.Errorf("expected 2 per-rune color tags for modifier=accent, got %d in %q", tagCount, got)
+	}
+	if !strings.HasSuffix(got, "[-]") {
+		t.Errorf("expected trailing [-] reset from Paint, got %q", got)
+	}
+
+	// sanity: unmodified call produces no [-] reset (bare-tag path keeps the
+	// legacy behavior — tag-then-text-then-value-tag).
+	primSolid := RenderTitleText(tk, FieldRenderContext{Mode: RenderModeView, Roles: roles}, "highlight", "")
+	tvSolid, ok := primSolid.(*tview.TextView)
+	if !ok {
+		t.Fatalf("RenderTitleText returned %T, want *tview.TextView", primSolid)
+	}
+	solid := tvSolid.GetText(false)
+	if strings.HasSuffix(solid, "[-]") {
+		t.Errorf("bare-role path should not emit [-] reset, got %q", solid)
+	}
+	// and: bare-role and modifier paths produce different text (the modifier
+	// path injects per-rune tags between the runes).
+	if got == solid {
+		t.Errorf("modifier path output equals bare-role path output: %q", got)
 	}
 }

@@ -46,6 +46,4 @@ func TestTokyoNightAllFieldsExercised(t *testing.T) {
 	for _, c := range tn.CaptionBg {
 		_ = c
 	}
-	_ = tn.CaptionFallbackStart
-	_ = tn.CaptionFallbackEnd
 }

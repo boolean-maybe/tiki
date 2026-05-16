@@ -5,10 +5,12 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+
+	"github.com/boolean-maybe/tiki/theme"
 )
 
 var cellNameRe = regexp.MustCompile(`^([A-Za-z][A-Za-z0-9_-]*)(?:\.(label|visual))?(?::(\d+))?$`)
-var cellRolePrefixRe = regexp.MustCompile(`^<([a-z]+)>(.+)$`)
+var cellRolePrefixRe = regexp.MustCompile(`^<([a-z][a-z.]*)>(.+)$`)
 var literalSegmentRe = regexp.MustCompile(`^"(.*)"$`)
 
 func parseSegment(raw string) (Segment, error) {
@@ -20,9 +22,9 @@ func parseSegment(raw string) (Segment, error) {
 		return Segment{Kind: SegmentLiteral, Text: m[1]}, nil
 	}
 	remainder := s
-	var role string
+	var role, modifier string
 	if rm := cellRolePrefixRe.FindStringSubmatch(s); rm != nil {
-		role = rm[1]
+		role, modifier = theme.SplitRoleModifier(rm[1])
 		remainder = rm[2]
 	}
 	m := cellNameRe.FindStringSubmatch(remainder)
@@ -30,10 +32,11 @@ func parseSegment(raw string) (Segment, error) {
 		return Segment{}, fmt.Errorf("invalid segment %q in composite cell (not a field ref or \"quoted\" literal)", raw)
 	}
 	seg := Segment{
-		Kind:    SegmentField,
-		Name:    m[1],
-		Role:    role,
-		Display: parseDisplayMode(m[2]),
+		Kind:     SegmentField,
+		Name:     m[1],
+		Role:     role,
+		Modifier: modifier,
+		Display:  parseDisplayMode(m[2]),
 	}
 	if m[3] != "" {
 		w, err := strconv.Atoi(m[3])
@@ -110,10 +113,10 @@ func TokenizeCell(s string) (Cell, error) {
 	}
 
 	if rm := cellRolePrefixRe.FindStringSubmatch(t); rm != nil {
-		role := rm[1]
+		role, modifier := theme.SplitRoleModifier(rm[1])
 		remainder := rm[2]
 		if m := cellNameRe.FindStringSubmatch(remainder); m != nil {
-			fc := FieldCell{Name: m[1], Role: role, Display: parseDisplayMode(m[2])}
+			fc := FieldCell{Name: m[1], Role: role, Modifier: modifier, Display: parseDisplayMode(m[2])}
 			if m[3] != "" {
 				w, err := strconv.Atoi(m[3])
 				if err != nil || w <= 0 {
@@ -203,6 +206,7 @@ func ParseGrid(raw [][]string) (GridSpec, error) {
 					Kind:        AnchorField,
 					Name:        cell.Name,
 					Role:        cell.Role,
+					Modifier:    cell.Modifier,
 					Display:     cell.Display,
 					Row:         r,
 					Col:         c,

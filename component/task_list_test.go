@@ -36,11 +36,11 @@ func TestNewTaskList(t *testing.T) {
 	}
 
 	defaults := DefaultTaskRowColors()
-	if tl.idGradient != defaults.IDGradient {
-		t.Error("Expected ID gradient from theme defaults")
+	if tl.idPaint == nil {
+		t.Error("Expected non-nil ID paint from theme defaults")
 	}
-	if tl.idFallback != defaults.IDFallback {
-		t.Error("Expected ID fallback from theme defaults")
+	if defaults.IDPaint == nil {
+		t.Error("DefaultTaskRowColors should provide a non-nil ID paint")
 	}
 	if tl.titleColor != defaults.TitleColor {
 		t.Error("Expected title color from theme defaults")
@@ -177,20 +177,22 @@ func TestFewerItemsThanViewport(t *testing.T) {
 	}
 }
 
-func TestSetIDColors(t *testing.T) {
+func TestSetIDPaint(t *testing.T) {
 	tl := NewTaskList(10)
-	g := theme.Gradient{Start: [3]int{255, 0, 0}, End: [3]int{0, 255, 0}}
-	fb := theme.NewColor(tcell.ColorRed)
+	paint, ok := theme.Roles().PaintResolver()("text.value", "")
+	if !ok {
+		t.Fatalf("PaintResolver(text.value) returned ok=false")
+	}
 
-	result := tl.SetIDColors(g, fb)
+	result := tl.SetIDPaint(paint)
 	if result != tl {
-		t.Error("SetIDColors should return self for chaining")
+		t.Error("SetIDPaint should return self for chaining")
 	}
-	if tl.idGradient != g {
-		t.Error("Expected custom gradient")
-	}
-	if tl.idFallback != fb {
-		t.Error("Expected custom fallback")
+	// compare by rendered output rather than struct equality — Paint
+	// implementations are not guaranteed to be comparable (gradient variants
+	// hold function fields).
+	if got, want := tl.idPaint.PaintString("ABC"), paint.PaintString("ABC"); got != want {
+		t.Errorf("idPaint render mismatch: got %q want %q", got, want)
 	}
 }
 

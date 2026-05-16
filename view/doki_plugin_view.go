@@ -136,7 +136,7 @@ func (dv *DokiView) build() {
 		bgColor = dv.pluginDef.Background
 		textColor = theme.DefaultColor()
 	}
-	dv.titleBar = NewGradientCaptionRow([]string{dv.pluginDef.Name}, nil, bgColor, textColor)
+	dv.titleBar = NewGradientCaptionRow([]string{dv.pluginDef.Name}, nil, theme.NewColorRoleAdapter(bgColor), textColor)
 
 	// Fetch initial content and create NavigableMarkdown with appropriate provider.
 	// Wiki views render the file at `path:`; `document: <ID>` binding is

@@ -22,9 +22,6 @@ type GithubLight struct {
 
 	CaptionFg [6]string
 	CaptionBg [6]string
-
-	CaptionFallbackStart [3]int
-	CaptionFallbackEnd   [3]int
 }
 
 func NewGithubLight() GithubLight {
@@ -62,8 +59,5 @@ func NewGithubLight() GithubLight {
 			"#5b626a",
 			"#9b4a4a",
 		},
-
-		CaptionFallbackStart: [3]int{255, 255, 255},
-		CaptionFallbackEnd:   [3]int{246, 248, 250},
 	}
 }

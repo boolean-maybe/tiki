@@ -10,13 +10,11 @@ import (
 	"github.com/boolean-maybe/tiki/theme"
 	tikipkg "github.com/boolean-maybe/tiki/tiki"
 	"github.com/boolean-maybe/tiki/util"
-	"github.com/boolean-maybe/tiki/util/gradient"
 )
 
 // TaskRowColors holds the color configuration for rendering a task row.
 type TaskRowColors struct {
-	IDGradient         theme.Gradient
-	IDFallback         theme.Color
+	IDPaint            theme.Paint
 	TitleColor         theme.Color
 	SelectionFg        theme.Color
 	SelectionBg        theme.Color
@@ -27,13 +25,9 @@ type TaskRowColors struct {
 // DefaultTaskRowColors returns TaskRowColors derived from the active theme roles.
 func DefaultTaskRowColors() TaskRowColors {
 	roles := theme.Roles()
-	g := roles.TikiIDGradient()
-	sr, sg, sb := g.Start()
-	er, eg, eb := g.End()
-	fr, fg, fb := g.FallbackRole().TCell().RGB()
+	idPaint, _ := roles.PaintResolver()("tiki.id", "accent")
 	return TaskRowColors{
-		IDGradient:         theme.Gradient{Start: [3]int{sr, sg, sb}, End: [3]int{er, eg, eb}},
-		IDFallback:         theme.NewColorRGB(fr, fg, fb),
+		IDPaint:            idPaint,
 		TitleColor:         theme.NewColor(roles.TextSecondary().TCell()),
 		SelectionFg:        theme.NewColor(roles.TextPrimary().TCell()),
 		SelectionBg:        theme.NewColor(roles.SurfaceSelection().TCell()),
@@ -47,7 +41,7 @@ func DefaultTaskRowColors() TaskRowColors {
 // ordinary enum field — workflows that want a glyph can use the enum
 // value's emoji metadata.
 func RenderTaskRow(tk *tikipkg.Tiki, selected bool, width int, idColumnWidth int, colors TaskRowColors) string {
-	idText := gradient.RenderAdaptiveGradientText(tk.ID, colors.IDGradient, colors.IDFallback)
+	idText := colors.IDPaint.PaintString(tk.ID)
 	if padding := idColumnWidth - len(tk.ID); padding > 0 {
 		idText += fmt.Sprintf("%*s", padding, "")
 	}
@@ -89,14 +83,13 @@ type TaskList struct {
 	maxVisibleRows     int
 	scrollOffset       int
 	selectionIndex     int
-	idColumnWidth      int            // computed from widest ID
-	idGradient         theme.Gradient // gradient for ID text
-	idFallback         theme.Color    // fallback solid color for ID
-	titleColor         theme.Color    // color for title text
-	selectionColor     theme.Color    // foreground color for selected row highlight
-	selectionBgColor   theme.Color    // background color for selected row highlight
-	statusDoneColor    theme.Color    // color for done status indicator
-	statusPendingColor theme.Color    // color for pending status indicator
+	idColumnWidth      int         // computed from widest ID
+	idPaint            theme.Paint // paint for ID text (gradient on capable terminals, solid otherwise)
+	titleColor         theme.Color // color for title text
+	selectionColor     theme.Color // foreground color for selected row highlight
+	selectionBgColor   theme.Color // background color for selected row highlight
+	statusDoneColor    theme.Color // color for done status indicator
+	statusPendingColor theme.Color // color for pending status indicator
 }
 
 // NewTaskList creates a new TaskList with the given maximum visible row count.
@@ -105,8 +98,7 @@ func NewTaskList(maxVisibleRows int) *TaskList {
 	return &TaskList{
 		Box:                tview.NewBox(),
 		maxVisibleRows:     maxVisibleRows,
-		idGradient:         colors.IDGradient,
-		idFallback:         colors.IDFallback,
+		idPaint:            colors.IDPaint,
 		titleColor:         colors.TitleColor,
 		selectionColor:     colors.SelectionFg,
 		selectionBgColor:   colors.SelectionBg,
@@ -161,10 +153,9 @@ func (tl *TaskList) ScrollDown() {
 	}
 }
 
-// SetIDColors overrides the gradient and fallback color for the ID column.
-func (tl *TaskList) SetIDColors(g theme.Gradient, fallback theme.Color) *TaskList {
-	tl.idGradient = g
-	tl.idFallback = fallback
+// SetIDPaint overrides the Paint used to render the ID column.
+func (tl *TaskList) SetIDPaint(p theme.Paint) *TaskList {
+	tl.idPaint = p
 	return tl
 }
 
@@ -201,8 +192,7 @@ func (tl *TaskList) Draw(screen tcell.Screen) {
 
 func (tl *TaskList) buildRow(tk *tikipkg.Tiki, selected bool, width int) string {
 	return RenderTaskRow(tk, selected, width, tl.idColumnWidth, TaskRowColors{
-		IDGradient:         tl.idGradient,
-		IDFallback:         tl.idFallback,
+		IDPaint:            tl.idPaint,
 		TitleColor:         tl.titleColor,
 		SelectionFg:        tl.selectionColor,
 		SelectionBg:        tl.selectionBgColor,

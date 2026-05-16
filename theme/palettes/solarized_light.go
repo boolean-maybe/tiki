@@ -23,9 +23,6 @@ type SolarizedLight struct {
 
 	CaptionFg [6]string
 	CaptionBg [6]string
-
-	CaptionFallbackStart [3]int
-	CaptionFallbackEnd   [3]int
 }
 
 func NewSolarizedLight() SolarizedLight {
@@ -64,8 +61,5 @@ func NewSolarizedLight() SolarizedLight {
 			"#217d76",
 			"#637200",
 		},
-
-		CaptionFallbackStart: [3]int{253, 246, 227},
-		CaptionFallbackEnd:   [3]int{238, 232, 213},
 	}
 }

@@ -46,6 +46,4 @@ func TestNordAllFieldsExercised(t *testing.T) {
 	for _, c := range n.CaptionBg {
 		_ = c
 	}
-	_ = n.CaptionFallbackStart
-	_ = n.CaptionFallbackEnd
 }

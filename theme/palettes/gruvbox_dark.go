@@ -16,9 +16,6 @@ type GruvboxDark struct {
 
 	CaptionFg [6]string
 	CaptionBg [6]string
-
-	CaptionFallbackStart [3]int
-	CaptionFallbackEnd   [3]int
 }
 
 func NewGruvboxDark() GruvboxDark {
@@ -56,8 +53,5 @@ func NewGruvboxDark() GruvboxDark {
 			"#1f1c19",
 			"#4b1610",
 		},
-
-		CaptionFallbackStart: [3]int{40, 40, 40},
-		CaptionFallbackEnd:   [3]int{80, 73, 69},
 	}
 }

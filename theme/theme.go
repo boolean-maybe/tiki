@@ -2,14 +2,6 @@ package theme
 
 import "sync/atomic"
 
-// UseGradients controls whether gradients are rendered or solid colors used.
-// Set during bootstrap based on terminal color capability.
-var UseGradients atomic.Bool
-
-// UseWideGradients controls whether screen-wide gradients are rendered.
-// Screen-wide gradients show banding on 256-color terminals; require truecolor.
-var UseWideGradients atomic.Bool
-
 // Theme holds the resolved role values for an active theme. All fields are
 // unexported; external code accesses roles via the getter methods on *Theme.
 type Theme struct {
@@ -28,10 +20,10 @@ type Theme struct {
 	statuslineFill                                                    Role
 	// Plugin-specific
 	depsEditorSurface Role
+	// Tiki-specific
+	tikiID Role
 	// Logo
 	logoDot, logoShade, logoBorder Role
-	// Gradients (Go API only)
-	tikiIDGradient, captionFallbackGradient GradientRole
 	// Pair-list (Go API only)
 	pluginCaptions PairListRole
 }
@@ -57,6 +49,7 @@ func (t *Theme) StatusWarn() Role         { return t.statusWarn }
 func (t *Theme) StatusOk() Role           { return t.statusOk }
 func (t *Theme) StatuslineFill() Role     { return t.statuslineFill }
 func (t *Theme) DepsEditorSurface() Role  { return t.depsEditorSurface }
+func (t *Theme) TikiID() Role             { return t.tikiID }
 func (t *Theme) LogoDot() Role            { return t.logoDot }
 func (t *Theme) LogoShade() Role          { return t.logoShade }
 func (t *Theme) LogoBorder() Role         { return t.logoBorder }
@@ -68,11 +61,9 @@ func (t *Theme) StatuslineAccent() PairRole { return t.statuslineAccent }
 func (t *Theme) StatuslineInfo() PairRole   { return t.statuslineInfo }
 func (t *Theme) StatuslineError() PairRole  { return t.statuslineError }
 
-// --- gradient / pair-list getters ---
+// --- pair-list getters ---
 
-func (t *Theme) TikiIDGradient() GradientRole          { return t.tikiIDGradient }
-func (t *Theme) CaptionFallbackGradient() GradientRole { return t.captionFallbackGradient }
-func (t *Theme) PluginCaptions() PairListRole          { return t.pluginCaptions }
+func (t *Theme) PluginCaptions() PairListRole { return t.pluginCaptions }
 
 // --- global accessor / mutator ---
 

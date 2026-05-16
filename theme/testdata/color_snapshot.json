@@ -37,41 +37,6 @@
   },
   {
     "theme": "dark",
-    "key": "CaptionFallbackGradient.end",
-    "hex": "#4169e1"
-  },
-  {
-    "theme": "dark",
-    "key": "CaptionFallbackGradient.sample[0.00]",
-    "hex": "#191970"
-  },
-  {
-    "theme": "dark",
-    "key": "CaptionFallbackGradient.sample[0.25]",
-    "hex": "#232d8c"
-  },
-  {
-    "theme": "dark",
-    "key": "CaptionFallbackGradient.sample[0.50]",
-    "hex": "#2d41a9"
-  },
-  {
-    "theme": "dark",
-    "key": "CaptionFallbackGradient.sample[0.75]",
-    "hex": "#3755c5"
-  },
-  {
-    "theme": "dark",
-    "key": "CaptionFallbackGradient.sample[1.00]",
-    "hex": "#4169e1"
-  },
-  {
-    "theme": "dark",
-    "key": "CaptionFallbackGradient.start",
-    "hex": "#191970"
-  },
-  {
-    "theme": "dark",
     "key": "CaptionFg[0]",
     "hex": "#87ceeb",
     "tag": "[skyblue]"
@@ -135,12 +100,6 @@
     "key": "DepsEditorBackground",
     "hex": "#434c5e",
     "tag": "[#434c5e]"
-  },
-  {
-    "theme": "dark",
-    "key": "FallbackTaskIDColor",
-    "hex": "#00bfff",
-    "tag": "[deepskyblue]"
   },
   {
     "theme": "dark",
@@ -324,41 +283,6 @@
   },
   {
     "theme": "dark",
-    "key": "TaskBoxIDColor.end",
-    "hex": "#00bfff"
-  },
-  {
-    "theme": "dark",
-    "key": "TaskBoxIDColor.sample[0.00]",
-    "hex": "#0098cc"
-  },
-  {
-    "theme": "dark",
-    "key": "TaskBoxIDColor.sample[0.25]",
-    "hex": "#00a2d9"
-  },
-  {
-    "theme": "dark",
-    "key": "TaskBoxIDColor.sample[0.50]",
-    "hex": "#00ace6"
-  },
-  {
-    "theme": "dark",
-    "key": "TaskBoxIDColor.sample[0.75]",
-    "hex": "#00b5f2"
-  },
-  {
-    "theme": "dark",
-    "key": "TaskBoxIDColor.sample[1.00]",
-    "hex": "#00bfff"
-  },
-  {
-    "theme": "dark",
-    "key": "TaskBoxIDColor.start",
-    "hex": "#0098cc"
-  },
-  {
-    "theme": "dark",
     "key": "TaskBoxLabelColor",
     "hex": "#686868",
     "tag": "[#686868]"
@@ -428,41 +352,6 @@
     "key": "TaskDetailEditFocusText",
     "hex": "#ffffff",
     "tag": "[#ffffff]"
-  },
-  {
-    "theme": "dark",
-    "key": "TaskDetailIDColor.end",
-    "hex": "#00bfff"
-  },
-  {
-    "theme": "dark",
-    "key": "TaskDetailIDColor.sample[0.00]",
-    "hex": "#0098cc"
-  },
-  {
-    "theme": "dark",
-    "key": "TaskDetailIDColor.sample[0.25]",
-    "hex": "#00a2d9"
-  },
-  {
-    "theme": "dark",
-    "key": "TaskDetailIDColor.sample[0.50]",
-    "hex": "#00ace6"
-  },
-  {
-    "theme": "dark",
-    "key": "TaskDetailIDColor.sample[0.75]",
-    "hex": "#00b5f2"
-  },
-  {
-    "theme": "dark",
-    "key": "TaskDetailIDColor.sample[1.00]",
-    "hex": "#00bfff"
-  },
-  {
-    "theme": "dark",
-    "key": "TaskDetailIDColor.start",
-    "hex": "#0098cc"
   },
   {
     "theme": "dark",
@@ -622,41 +511,6 @@
   },
   {
     "theme": "light",
-    "key": "CaptionFallbackGradient.end",
-    "hex": "#3c64b4"
-  },
-  {
-    "theme": "light",
-    "key": "CaptionFallbackGradient.sample[0.00]",
-    "hex": "#648cc8"
-  },
-  {
-    "theme": "light",
-    "key": "CaptionFallbackGradient.sample[0.25]",
-    "hex": "#5a82c3"
-  },
-  {
-    "theme": "light",
-    "key": "CaptionFallbackGradient.sample[0.50]",
-    "hex": "#5078be"
-  },
-  {
-    "theme": "light",
-    "key": "CaptionFallbackGradient.sample[0.75]",
-    "hex": "#466eb9"
-  },
-  {
-    "theme": "light",
-    "key": "CaptionFallbackGradient.sample[1.00]",
-    "hex": "#3c64b4"
-  },
-  {
-    "theme": "light",
-    "key": "CaptionFallbackGradient.start",
-    "hex": "#648cc8"
-  },
-  {
-    "theme": "light",
     "key": "CaptionFg[0]",
     "hex": "#e0f0ff",
     "tag": "[#e0f0ff]"
@@ -720,12 +574,6 @@
     "key": "DepsEditorBackground",
     "hex": "#d8dee9",
     "tag": "[#d8dee9]"
-  },
-  {
-    "theme": "light",
-    "key": "FallbackTaskIDColor",
-    "hex": "#0064b4",
-    "tag": "[#0064b4]"
   },
   {
     "theme": "light",
@@ -909,41 +757,6 @@
   },
   {
     "theme": "light",
-    "key": "TaskBoxIDColor.end",
-    "hex": "#0064b4"
-  },
-  {
-    "theme": "light",
-    "key": "TaskBoxIDColor.sample[0.00]",
-    "hex": "#005090"
-  },
-  {
-    "theme": "light",
-    "key": "TaskBoxIDColor.sample[0.25]",
-    "hex": "#005599"
-  },
-  {
-    "theme": "light",
-    "key": "TaskBoxIDColor.sample[0.50]",
-    "hex": "#005aa2"
-  },
-  {
-    "theme": "light",
-    "key": "TaskBoxIDColor.sample[0.75]",
-    "hex": "#005fab"
-  },
-  {
-    "theme": "light",
-    "key": "TaskBoxIDColor.sample[1.00]",
-    "hex": "#0064b4"
-  },
-  {
-    "theme": "light",
-    "key": "TaskBoxIDColor.start",
-    "hex": "#005090"
-  },
-  {
-    "theme": "light",
     "key": "TaskBoxLabelColor",
     "hex": "#808080",
     "tag": "[#808080]"
@@ -1013,41 +826,6 @@
     "key": "TaskDetailEditFocusText",
     "hex": "#000000",
     "tag": "[black]"
-  },
-  {
-    "theme": "light",
-    "key": "TaskDetailIDColor.end",
-    "hex": "#0064b4"
-  },
-  {
-    "theme": "light",
-    "key": "TaskDetailIDColor.sample[0.00]",
-    "hex": "#005090"
-  },
-  {
-    "theme": "light",
-    "key": "TaskDetailIDColor.sample[0.25]",
-    "hex": "#005599"
-  },
-  {
-    "theme": "light",
-    "key": "TaskDetailIDColor.sample[0.50]",
-    "hex": "#005aa2"
-  },
-  {
-    "theme": "light",
-    "key": "TaskDetailIDColor.sample[0.75]",
-    "hex": "#005fab"
-  },
-  {
-    "theme": "light",
-    "key": "TaskDetailIDColor.sample[1.00]",
-    "hex": "#0064b4"
-  },
-  {
-    "theme": "light",
-    "key": "TaskDetailIDColor.start",
-    "hex": "#005090"
   },
   {
     "theme": "light",
@@ -1207,41 +985,6 @@
   },
   {
     "theme": "dracula",
-    "key": "CaptionFallbackGradient.end",
-    "hex": "#44475a"
-  },
-  {
-    "theme": "dracula",
-    "key": "CaptionFallbackGradient.sample[0.00]",
-    "hex": "#282a36"
-  },
-  {
-    "theme": "dracula",
-    "key": "CaptionFallbackGradient.sample[0.25]",
-    "hex": "#2f313f"
-  },
-  {
-    "theme": "dracula",
-    "key": "CaptionFallbackGradient.sample[0.50]",
-    "hex": "#363948"
-  },
-  {
-    "theme": "dracula",
-    "key": "CaptionFallbackGradient.sample[0.75]",
-    "hex": "#3d4051"
-  },
-  {
-    "theme": "dracula",
-    "key": "CaptionFallbackGradient.sample[1.00]",
-    "hex": "#44475a"
-  },
-  {
-    "theme": "dracula",
-    "key": "CaptionFallbackGradient.start",
-    "hex": "#282a36"
-  },
-  {
-    "theme": "dracula",
     "key": "CaptionFg[0]",
     "hex": "#cbf5fe",
     "tag": "[#cbf5fe]"
@@ -1305,12 +1048,6 @@
     "key": "DepsEditorBackground",
     "hex": "#44475a",
     "tag": "[#44475a]"
-  },
-  {
-    "theme": "dracula",
-    "key": "FallbackTaskIDColor",
-    "hex": "#8be9fd",
-    "tag": "[#8be9fd]"
   },
   {
     "theme": "dracula",
@@ -1494,41 +1231,6 @@
   },
   {
     "theme": "dracula",
-    "key": "TaskBoxIDColor.end",
-    "hex": "#8be9fd"
-  },
-  {
-    "theme": "dracula",
-    "key": "TaskBoxIDColor.sample[0.00]",
-    "hex": "#6fbaca"
-  },
-  {
-    "theme": "dracula",
-    "key": "TaskBoxIDColor.sample[0.25]",
-    "hex": "#76c6d7"
-  },
-  {
-    "theme": "dracula",
-    "key": "TaskBoxIDColor.sample[0.50]",
-    "hex": "#7dd2e4"
-  },
-  {
-    "theme": "dracula",
-    "key": "TaskBoxIDColor.sample[0.75]",
-    "hex": "#84ddf0"
-  },
-  {
-    "theme": "dracula",
-    "key": "TaskBoxIDColor.sample[1.00]",
-    "hex": "#8be9fd"
-  },
-  {
-    "theme": "dracula",
-    "key": "TaskBoxIDColor.start",
-    "hex": "#6fbaca"
-  },
-  {
-    "theme": "dracula",
     "key": "TaskBoxLabelColor",
     "hex": "#6272a4",
     "tag": "[#6272a4]"
@@ -1598,41 +1300,6 @@
     "key": "TaskDetailEditFocusText",
     "hex": "#f8f8f2",
     "tag": "[#f8f8f2]"
-  },
-  {
-    "theme": "dracula",
-    "key": "TaskDetailIDColor.end",
-    "hex": "#8be9fd"
-  },
-  {
-    "theme": "dracula",
-    "key": "TaskDetailIDColor.sample[0.00]",
-    "hex": "#6fbaca"
-  },
-  {
-    "theme": "dracula",
-    "key": "TaskDetailIDColor.sample[0.25]",
-    "hex": "#76c6d7"
-  },
-  {
-    "theme": "dracula",
-    "key": "TaskDetailIDColor.sample[0.50]",
-    "hex": "#7dd2e4"
-  },
-  {
-    "theme": "dracula",
-    "key": "TaskDetailIDColor.sample[0.75]",
-    "hex": "#84ddf0"
-  },
-  {
-    "theme": "dracula",
-    "key": "TaskDetailIDColor.sample[1.00]",
-    "hex": "#8be9fd"
-  },
-  {
-    "theme": "dracula",
-    "key": "TaskDetailIDColor.start",
-    "hex": "#6fbaca"
   },
   {
     "theme": "dracula",
@@ -1792,41 +1459,6 @@
   },
   {
     "theme": "tokyo-night",
-    "key": "CaptionFallbackGradient.end",
-    "hex": "#3b4261"
-  },
-  {
-    "theme": "tokyo-night",
-    "key": "CaptionFallbackGradient.sample[0.00]",
-    "hex": "#1a1b26"
-  },
-  {
-    "theme": "tokyo-night",
-    "key": "CaptionFallbackGradient.sample[0.25]",
-    "hex": "#222535"
-  },
-  {
-    "theme": "tokyo-night",
-    "key": "CaptionFallbackGradient.sample[0.50]",
-    "hex": "#2b2f44"
-  },
-  {
-    "theme": "tokyo-night",
-    "key": "CaptionFallbackGradient.sample[0.75]",
-    "hex": "#333852"
-  },
-  {
-    "theme": "tokyo-night",
-    "key": "CaptionFallbackGradient.sample[1.00]",
-    "hex": "#3b4261"
-  },
-  {
-    "theme": "tokyo-night",
-    "key": "CaptionFallbackGradient.start",
-    "hex": "#1a1b26"
-  },
-  {
-    "theme": "tokyo-night",
     "key": "CaptionFg[0]",
     "hex": "#c5e9ff",
     "tag": "[#c5e9ff]"
@@ -1890,12 +1522,6 @@
     "key": "DepsEditorBackground",
     "hex": "#24283b",
     "tag": "[#24283b]"
-  },
-  {
-    "theme": "tokyo-night",
-    "key": "FallbackTaskIDColor",
-    "hex": "#7dcfff",
-    "tag": "[#7dcfff]"
   },
   {
     "theme": "tokyo-night",
@@ -2079,41 +1705,6 @@
   },
   {
     "theme": "tokyo-night",
-    "key": "TaskBoxIDColor.end",
-    "hex": "#7dcfff"
-  },
-  {
-    "theme": "tokyo-night",
-    "key": "TaskBoxIDColor.sample[0.00]",
-    "hex": "#64a5cc"
-  },
-  {
-    "theme": "tokyo-night",
-    "key": "TaskBoxIDColor.sample[0.25]",
-    "hex": "#6ab0d9"
-  },
-  {
-    "theme": "tokyo-night",
-    "key": "TaskBoxIDColor.sample[0.50]",
-    "hex": "#71bae6"
-  },
-  {
-    "theme": "tokyo-night",
-    "key": "TaskBoxIDColor.sample[0.75]",
-    "hex": "#77c5f2"
-  },
-  {
-    "theme": "tokyo-night",
-    "key": "TaskBoxIDColor.sample[1.00]",
-    "hex": "#7dcfff"
-  },
-  {
-    "theme": "tokyo-night",
-    "key": "TaskBoxIDColor.start",
-    "hex": "#64a5cc"
-  },
-  {
-    "theme": "tokyo-night",
     "key": "TaskBoxLabelColor",
     "hex": "#565f89",
     "tag": "[#565f89]"
@@ -2183,41 +1774,6 @@
     "key": "TaskDetailEditFocusText",
     "hex": "#c0caf5",
     "tag": "[#c0caf5]"
-  },
-  {
-    "theme": "tokyo-night",
-    "key": "TaskDetailIDColor.end",
-    "hex": "#7dcfff"
-  },
-  {
-    "theme": "tokyo-night",
-    "key": "TaskDetailIDColor.sample[0.00]",
-    "hex": "#64a5cc"
-  },
-  {
-    "theme": "tokyo-night",
-    "key": "TaskDetailIDColor.sample[0.25]",
-    "hex": "#6ab0d9"
-  },
-  {
-    "theme": "tokyo-night",
-    "key": "TaskDetailIDColor.sample[0.50]",
-    "hex": "#71bae6"
-  },
-  {
-    "theme": "tokyo-night",
-    "key": "TaskDetailIDColor.sample[0.75]",
-    "hex": "#77c5f2"
-  },
-  {
-    "theme": "tokyo-night",
-    "key": "TaskDetailIDColor.sample[1.00]",
-    "hex": "#7dcfff"
-  },
-  {
-    "theme": "tokyo-night",
-    "key": "TaskDetailIDColor.start",
-    "hex": "#64a5cc"
   },
   {
     "theme": "tokyo-night",
@@ -2377,41 +1933,6 @@
   },
   {
     "theme": "gruvbox-dark",
-    "key": "CaptionFallbackGradient.end",
-    "hex": "#504945"
-  },
-  {
-    "theme": "gruvbox-dark",
-    "key": "CaptionFallbackGradient.sample[0.00]",
-    "hex": "#282828"
-  },
-  {
-    "theme": "gruvbox-dark",
-    "key": "CaptionFallbackGradient.sample[0.25]",
-    "hex": "#32302f"
-  },
-  {
-    "theme": "gruvbox-dark",
-    "key": "CaptionFallbackGradient.sample[0.50]",
-    "hex": "#3c3937"
-  },
-  {
-    "theme": "gruvbox-dark",
-    "key": "CaptionFallbackGradient.sample[0.75]",
-    "hex": "#46413e"
-  },
-  {
-    "theme": "gruvbox-dark",
-    "key": "CaptionFallbackGradient.sample[1.00]",
-    "hex": "#504945"
-  },
-  {
-    "theme": "gruvbox-dark",
-    "key": "CaptionFallbackGradient.start",
-    "hex": "#282828"
-  },
-  {
-    "theme": "gruvbox-dark",
     "key": "CaptionFg[0]",
     "hex": "#c7d7d1",
     "tag": "[#c7d7d1]"
@@ -2475,12 +1996,6 @@
     "key": "DepsEditorBackground",
     "hex": "#3c3836",
     "tag": "[#3c3836]"
-  },
-  {
-    "theme": "gruvbox-dark",
-    "key": "FallbackTaskIDColor",
-    "hex": "#83a598",
-    "tag": "[#83a598]"
   },
   {
     "theme": "gruvbox-dark",
@@ -2664,41 +2179,6 @@
   },
   {
     "theme": "gruvbox-dark",
-    "key": "TaskBoxIDColor.end",
-    "hex": "#83a598"
-  },
-  {
-    "theme": "gruvbox-dark",
-    "key": "TaskBoxIDColor.sample[0.00]",
-    "hex": "#688479"
-  },
-  {
-    "theme": "gruvbox-dark",
-    "key": "TaskBoxIDColor.sample[0.25]",
-    "hex": "#6f8c81"
-  },
-  {
-    "theme": "gruvbox-dark",
-    "key": "TaskBoxIDColor.sample[0.50]",
-    "hex": "#769589"
-  },
-  {
-    "theme": "gruvbox-dark",
-    "key": "TaskBoxIDColor.sample[0.75]",
-    "hex": "#7c9d90"
-  },
-  {
-    "theme": "gruvbox-dark",
-    "key": "TaskBoxIDColor.sample[1.00]",
-    "hex": "#83a598"
-  },
-  {
-    "theme": "gruvbox-dark",
-    "key": "TaskBoxIDColor.start",
-    "hex": "#688479"
-  },
-  {
-    "theme": "gruvbox-dark",
     "key": "TaskBoxLabelColor",
     "hex": "#928374",
     "tag": "[#928374]"
@@ -2768,41 +2248,6 @@
     "key": "TaskDetailEditFocusText",
     "hex": "#ebdbb2",
     "tag": "[#ebdbb2]"
-  },
-  {
-    "theme": "gruvbox-dark",
-    "key": "TaskDetailIDColor.end",
-    "hex": "#83a598"
-  },
-  {
-    "theme": "gruvbox-dark",
-    "key": "TaskDetailIDColor.sample[0.00]",
-    "hex": "#688479"
-  },
-  {
-    "theme": "gruvbox-dark",
-    "key": "TaskDetailIDColor.sample[0.25]",
-    "hex": "#6f8c81"
-  },
-  {
-    "theme": "gruvbox-dark",
-    "key": "TaskDetailIDColor.sample[0.50]",
-    "hex": "#769589"
-  },
-  {
-    "theme": "gruvbox-dark",
-    "key": "TaskDetailIDColor.sample[0.75]",
-    "hex": "#7c9d90"
-  },
-  {
-    "theme": "gruvbox-dark",
-    "key": "TaskDetailIDColor.sample[1.00]",
-    "hex": "#83a598"
-  },
-  {
-    "theme": "gruvbox-dark",
-    "key": "TaskDetailIDColor.start",
-    "hex": "#688479"
   },
   {
     "theme": "gruvbox-dark",
@@ -2962,41 +2407,6 @@
   },
   {
     "theme": "catppuccin-mocha",
-    "key": "CaptionFallbackGradient.end",
-    "hex": "#45475a"
-  },
-  {
-    "theme": "catppuccin-mocha",
-    "key": "CaptionFallbackGradient.sample[0.00]",
-    "hex": "#1e1e2e"
-  },
-  {
-    "theme": "catppuccin-mocha",
-    "key": "CaptionFallbackGradient.sample[0.25]",
-    "hex": "#282839"
-  },
-  {
-    "theme": "catppuccin-mocha",
-    "key": "CaptionFallbackGradient.sample[0.50]",
-    "hex": "#323344"
-  },
-  {
-    "theme": "catppuccin-mocha",
-    "key": "CaptionFallbackGradient.sample[0.75]",
-    "hex": "#3b3d4f"
-  },
-  {
-    "theme": "catppuccin-mocha",
-    "key": "CaptionFallbackGradient.sample[1.00]",
-    "hex": "#45475a"
-  },
-  {
-    "theme": "catppuccin-mocha",
-    "key": "CaptionFallbackGradient.start",
-    "hex": "#1e1e2e"
-  },
-  {
-    "theme": "catppuccin-mocha",
     "key": "CaptionFg[0]",
     "hex": "#c9dcfd",
     "tag": "[#c9dcfd]"
@@ -3060,12 +2470,6 @@
     "key": "DepsEditorBackground",
     "hex": "#313244",
     "tag": "[#313244]"
-  },
-  {
-    "theme": "catppuccin-mocha",
-    "key": "FallbackTaskIDColor",
-    "hex": "#89dceb",
-    "tag": "[#89dceb]"
   },
   {
     "theme": "catppuccin-mocha",
@@ -3249,41 +2653,6 @@
   },
   {
     "theme": "catppuccin-mocha",
-    "key": "TaskBoxIDColor.end",
-    "hex": "#89dceb"
-  },
-  {
-    "theme": "catppuccin-mocha",
-    "key": "TaskBoxIDColor.sample[0.00]",
-    "hex": "#6db0bc"
-  },
-  {
-    "theme": "catppuccin-mocha",
-    "key": "TaskBoxIDColor.sample[0.25]",
-    "hex": "#74bbc8"
-  },
-  {
-    "theme": "catppuccin-mocha",
-    "key": "TaskBoxIDColor.sample[0.50]",
-    "hex": "#7bc6d4"
-  },
-  {
-    "theme": "catppuccin-mocha",
-    "key": "TaskBoxIDColor.sample[0.75]",
-    "hex": "#82d1df"
-  },
-  {
-    "theme": "catppuccin-mocha",
-    "key": "TaskBoxIDColor.sample[1.00]",
-    "hex": "#89dceb"
-  },
-  {
-    "theme": "catppuccin-mocha",
-    "key": "TaskBoxIDColor.start",
-    "hex": "#6db0bc"
-  },
-  {
-    "theme": "catppuccin-mocha",
     "key": "TaskBoxLabelColor",
     "hex": "#6c7086",
     "tag": "[#6c7086]"
@@ -3353,41 +2722,6 @@
     "key": "TaskDetailEditFocusText",
     "hex": "#cdd6f4",
     "tag": "[#cdd6f4]"
-  },
-  {
-    "theme": "catppuccin-mocha",
-    "key": "TaskDetailIDColor.end",
-    "hex": "#89dceb"
-  },
-  {
-    "theme": "catppuccin-mocha",
-    "key": "TaskDetailIDColor.sample[0.00]",
-    "hex": "#6db0bc"
-  },
-  {
-    "theme": "catppuccin-mocha",
-    "key": "TaskDetailIDColor.sample[0.25]",
-    "hex": "#74bbc8"
-  },
-  {
-    "theme": "catppuccin-mocha",
-    "key": "TaskDetailIDColor.sample[0.50]",
-    "hex": "#7bc6d4"
-  },
-  {
-    "theme": "catppuccin-mocha",
-    "key": "TaskDetailIDColor.sample[0.75]",
-    "hex": "#82d1df"
-  },
-  {
-    "theme": "catppuccin-mocha",
-    "key": "TaskDetailIDColor.sample[1.00]",
-    "hex": "#89dceb"
-  },
-  {
-    "theme": "catppuccin-mocha",
-    "key": "TaskDetailIDColor.start",
-    "hex": "#6db0bc"
   },
   {
     "theme": "catppuccin-mocha",
@@ -3547,41 +2881,6 @@
   },
   {
     "theme": "solarized-dark",
-    "key": "CaptionFallbackGradient.end",
-    "hex": "#073642"
-  },
-  {
-    "theme": "solarized-dark",
-    "key": "CaptionFallbackGradient.sample[0.00]",
-    "hex": "#002b36"
-  },
-  {
-    "theme": "solarized-dark",
-    "key": "CaptionFallbackGradient.sample[0.25]",
-    "hex": "#022e39"
-  },
-  {
-    "theme": "solarized-dark",
-    "key": "CaptionFallbackGradient.sample[0.50]",
-    "hex": "#04313c"
-  },
-  {
-    "theme": "solarized-dark",
-    "key": "CaptionFallbackGradient.sample[0.75]",
-    "hex": "#05333f"
-  },
-  {
-    "theme": "solarized-dark",
-    "key": "CaptionFallbackGradient.sample[1.00]",
-    "hex": "#073642"
-  },
-  {
-    "theme": "solarized-dark",
-    "key": "CaptionFallbackGradient.start",
-    "hex": "#002b36"
-  },
-  {
-    "theme": "solarized-dark",
     "key": "CaptionFg[0]",
     "hex": "#9dcbeb",
     "tag": "[#9dcbeb]"
@@ -3645,12 +2944,6 @@
     "key": "DepsEditorBackground",
     "hex": "#073642",
     "tag": "[#073642]"
-  },
-  {
-    "theme": "solarized-dark",
-    "key": "FallbackTaskIDColor",
-    "hex": "#268bd2",
-    "tag": "[#268bd2]"
   },
   {
     "theme": "solarized-dark",
@@ -3834,41 +3127,6 @@
   },
   {
     "theme": "solarized-dark",
-    "key": "TaskBoxIDColor.end",
-    "hex": "#268bd2"
-  },
-  {
-    "theme": "solarized-dark",
-    "key": "TaskBoxIDColor.sample[0.00]",
-    "hex": "#1e6fa8"
-  },
-  {
-    "theme": "solarized-dark",
-    "key": "TaskBoxIDColor.sample[0.25]",
-    "hex": "#2076b3"
-  },
-  {
-    "theme": "solarized-dark",
-    "key": "TaskBoxIDColor.sample[0.50]",
-    "hex": "#227dbd"
-  },
-  {
-    "theme": "solarized-dark",
-    "key": "TaskBoxIDColor.sample[0.75]",
-    "hex": "#2484c8"
-  },
-  {
-    "theme": "solarized-dark",
-    "key": "TaskBoxIDColor.sample[1.00]",
-    "hex": "#268bd2"
-  },
-  {
-    "theme": "solarized-dark",
-    "key": "TaskBoxIDColor.start",
-    "hex": "#1e6fa8"
-  },
-  {
-    "theme": "solarized-dark",
     "key": "TaskBoxLabelColor",
     "hex": "#586e75",
     "tag": "[#586e75]"
@@ -3938,41 +3196,6 @@
     "key": "TaskDetailEditFocusText",
     "hex": "#839496",
     "tag": "[#839496]"
-  },
-  {
-    "theme": "solarized-dark",
-    "key": "TaskDetailIDColor.end",
-    "hex": "#268bd2"
-  },
-  {
-    "theme": "solarized-dark",
-    "key": "TaskDetailIDColor.sample[0.00]",
-    "hex": "#1e6fa8"
-  },
-  {
-    "theme": "solarized-dark",
-    "key": "TaskDetailIDColor.sample[0.25]",
-    "hex": "#2076b3"
-  },
-  {
-    "theme": "solarized-dark",
-    "key": "TaskDetailIDColor.sample[0.50]",
-    "hex": "#227dbd"
-  },
-  {
-    "theme": "solarized-dark",
-    "key": "TaskDetailIDColor.sample[0.75]",
-    "hex": "#2484c8"
-  },
-  {
-    "theme": "solarized-dark",
-    "key": "TaskDetailIDColor.sample[1.00]",
-    "hex": "#268bd2"
-  },
-  {
-    "theme": "solarized-dark",
-    "key": "TaskDetailIDColor.start",
-    "hex": "#1e6fa8"
   },
   {
     "theme": "solarized-dark",
@@ -4132,41 +3355,6 @@
   },
   {
     "theme": "nord",
-    "key": "CaptionFallbackGradient.end",
-    "hex": "#3b4252"
-  },
-  {
-    "theme": "nord",
-    "key": "CaptionFallbackGradient.sample[0.00]",
-    "hex": "#2e3440"
-  },
-  {
-    "theme": "nord",
-    "key": "CaptionFallbackGradient.sample[0.25]",
-    "hex": "#313845"
-  },
-  {
-    "theme": "nord",
-    "key": "CaptionFallbackGradient.sample[0.50]",
-    "hex": "#353b49"
-  },
-  {
-    "theme": "nord",
-    "key": "CaptionFallbackGradient.sample[0.75]",
-    "hex": "#383f4e"
-  },
-  {
-    "theme": "nord",
-    "key": "CaptionFallbackGradient.sample[1.00]",
-    "hex": "#3b4252"
-  },
-  {
-    "theme": "nord",
-    "key": "CaptionFallbackGradient.start",
-    "hex": "#2e3440"
-  },
-  {
-    "theme": "nord",
     "key": "CaptionFg[0]",
     "hex": "#c9e3ea",
     "tag": "[#c9e3ea]"
@@ -4230,12 +3418,6 @@
     "key": "DepsEditorBackground",
     "hex": "#434c5e",
     "tag": "[#434c5e]"
-  },
-  {
-    "theme": "nord",
-    "key": "FallbackTaskIDColor",
-    "hex": "#88c0d0",
-    "tag": "[#88c0d0]"
   },
   {
     "theme": "nord",
@@ -4419,41 +3601,6 @@
   },
   {
     "theme": "nord",
-    "key": "TaskBoxIDColor.end",
-    "hex": "#88c0d0"
-  },
-  {
-    "theme": "nord",
-    "key": "TaskBoxIDColor.sample[0.00]",
-    "hex": "#6c99a6"
-  },
-  {
-    "theme": "nord",
-    "key": "TaskBoxIDColor.sample[0.25]",
-    "hex": "#73a3b1"
-  },
-  {
-    "theme": "nord",
-    "key": "TaskBoxIDColor.sample[0.50]",
-    "hex": "#7aadbb"
-  },
-  {
-    "theme": "nord",
-    "key": "TaskBoxIDColor.sample[0.75]",
-    "hex": "#81b6c6"
-  },
-  {
-    "theme": "nord",
-    "key": "TaskBoxIDColor.sample[1.00]",
-    "hex": "#88c0d0"
-  },
-  {
-    "theme": "nord",
-    "key": "TaskBoxIDColor.start",
-    "hex": "#6c99a6"
-  },
-  {
-    "theme": "nord",
     "key": "TaskBoxLabelColor",
     "hex": "#4c566a",
     "tag": "[#4c566a]"
@@ -4523,41 +3670,6 @@
     "key": "TaskDetailEditFocusText",
     "hex": "#eceff4",
     "tag": "[#eceff4]"
-  },
-  {
-    "theme": "nord",
-    "key": "TaskDetailIDColor.end",
-    "hex": "#88c0d0"
-  },
-  {
-    "theme": "nord",
-    "key": "TaskDetailIDColor.sample[0.00]",
-    "hex": "#6c99a6"
-  },
-  {
-    "theme": "nord",
-    "key": "TaskDetailIDColor.sample[0.25]",
-    "hex": "#73a3b1"
-  },
-  {
-    "theme": "nord",
-    "key": "TaskDetailIDColor.sample[0.50]",
-    "hex": "#7aadbb"
-  },
-  {
-    "theme": "nord",
-    "key": "TaskDetailIDColor.sample[0.75]",
-    "hex": "#81b6c6"
-  },
-  {
-    "theme": "nord",
-    "key": "TaskDetailIDColor.sample[1.00]",
-    "hex": "#88c0d0"
-  },
-  {
-    "theme": "nord",
-    "key": "TaskDetailIDColor.start",
-    "hex": "#6c99a6"
   },
   {
     "theme": "nord",
@@ -4717,41 +3829,6 @@
   },
   {
     "theme": "monokai",
-    "key": "CaptionFallbackGradient.end",
-    "hex": "#49483e"
-  },
-  {
-    "theme": "monokai",
-    "key": "CaptionFallbackGradient.sample[0.00]",
-    "hex": "#272822"
-  },
-  {
-    "theme": "monokai",
-    "key": "CaptionFallbackGradient.sample[0.25]",
-    "hex": "#303029"
-  },
-  {
-    "theme": "monokai",
-    "key": "CaptionFallbackGradient.sample[0.50]",
-    "hex": "#383830"
-  },
-  {
-    "theme": "monokai",
-    "key": "CaptionFallbackGradient.sample[0.75]",
-    "hex": "#414037"
-  },
-  {
-    "theme": "monokai",
-    "key": "CaptionFallbackGradient.sample[1.00]",
-    "hex": "#49483e"
-  },
-  {
-    "theme": "monokai",
-    "key": "CaptionFallbackGradient.start",
-    "hex": "#272822"
-  },
-  {
-    "theme": "monokai",
     "key": "CaptionFg[0]",
     "hex": "#baeef8",
     "tag": "[#baeef8]"
@@ -4815,12 +3892,6 @@
     "key": "DepsEditorBackground",
     "hex": "#3e3d32",
     "tag": "[#3e3d32]"
-  },
-  {
-    "theme": "monokai",
-    "key": "FallbackTaskIDColor",
-    "hex": "#66d9ef",
-    "tag": "[#66d9ef]"
   },
   {
     "theme": "monokai",
@@ -5004,41 +4075,6 @@
   },
   {
     "theme": "monokai",
-    "key": "TaskBoxIDColor.end",
-    "hex": "#66d9ef"
-  },
-  {
-    "theme": "monokai",
-    "key": "TaskBoxIDColor.sample[0.00]",
-    "hex": "#51adbf"
-  },
-  {
-    "theme": "monokai",
-    "key": "TaskBoxIDColor.sample[0.25]",
-    "hex": "#56b8cb"
-  },
-  {
-    "theme": "monokai",
-    "key": "TaskBoxIDColor.sample[0.50]",
-    "hex": "#5cc3d7"
-  },
-  {
-    "theme": "monokai",
-    "key": "TaskBoxIDColor.sample[0.75]",
-    "hex": "#61cee3"
-  },
-  {
-    "theme": "monokai",
-    "key": "TaskBoxIDColor.sample[1.00]",
-    "hex": "#66d9ef"
-  },
-  {
-    "theme": "monokai",
-    "key": "TaskBoxIDColor.start",
-    "hex": "#51adbf"
-  },
-  {
-    "theme": "monokai",
     "key": "TaskBoxLabelColor",
     "hex": "#75715e",
     "tag": "[#75715e]"
@@ -5108,41 +4144,6 @@
     "key": "TaskDetailEditFocusText",
     "hex": "#f8f8f2",
     "tag": "[#f8f8f2]"
-  },
-  {
-    "theme": "monokai",
-    "key": "TaskDetailIDColor.end",
-    "hex": "#66d9ef"
-  },
-  {
-    "theme": "monokai",
-    "key": "TaskDetailIDColor.sample[0.00]",
-    "hex": "#51adbf"
-  },
-  {
-    "theme": "monokai",
-    "key": "TaskDetailIDColor.sample[0.25]",
-    "hex": "#56b8cb"
-  },
-  {
-    "theme": "monokai",
-    "key": "TaskDetailIDColor.sample[0.50]",
-    "hex": "#5cc3d7"
-  },
-  {
-    "theme": "monokai",
-    "key": "TaskDetailIDColor.sample[0.75]",
-    "hex": "#61cee3"
-  },
-  {
-    "theme": "monokai",
-    "key": "TaskDetailIDColor.sample[1.00]",
-    "hex": "#66d9ef"
-  },
-  {
-    "theme": "monokai",
-    "key": "TaskDetailIDColor.start",
-    "hex": "#51adbf"
   },
   {
     "theme": "monokai",
@@ -5302,41 +4303,6 @@
   },
   {
     "theme": "one-dark",
-    "key": "CaptionFallbackGradient.end",
-    "hex": "#3e4452"
-  },
-  {
-    "theme": "one-dark",
-    "key": "CaptionFallbackGradient.sample[0.00]",
-    "hex": "#282c34"
-  },
-  {
-    "theme": "one-dark",
-    "key": "CaptionFallbackGradient.sample[0.25]",
-    "hex": "#2e323c"
-  },
-  {
-    "theme": "one-dark",
-    "key": "CaptionFallbackGradient.sample[0.50]",
-    "hex": "#333843"
-  },
-  {
-    "theme": "one-dark",
-    "key": "CaptionFallbackGradient.sample[0.75]",
-    "hex": "#393e4b"
-  },
-  {
-    "theme": "one-dark",
-    "key": "CaptionFallbackGradient.sample[1.00]",
-    "hex": "#3e4452"
-  },
-  {
-    "theme": "one-dark",
-    "key": "CaptionFallbackGradient.start",
-    "hex": "#282c34"
-  },
-  {
-    "theme": "one-dark",
     "key": "CaptionFg[0]",
     "hex": "#b8dbf8",
     "tag": "[#b8dbf8]"
@@ -5400,12 +4366,6 @@
     "key": "DepsEditorBackground",
     "hex": "#3b4048",
     "tag": "[#3b4048]"
-  },
-  {
-    "theme": "one-dark",
-    "key": "FallbackTaskIDColor",
-    "hex": "#61afef",
-    "tag": "[#61afef]"
   },
   {
     "theme": "one-dark",
@@ -5589,41 +4549,6 @@
   },
   {
     "theme": "one-dark",
-    "key": "TaskBoxIDColor.end",
-    "hex": "#61afef"
-  },
-  {
-    "theme": "one-dark",
-    "key": "TaskBoxIDColor.sample[0.00]",
-    "hex": "#4d8cbf"
-  },
-  {
-    "theme": "one-dark",
-    "key": "TaskBoxIDColor.sample[0.25]",
-    "hex": "#5295cb"
-  },
-  {
-    "theme": "one-dark",
-    "key": "TaskBoxIDColor.sample[0.50]",
-    "hex": "#579ed7"
-  },
-  {
-    "theme": "one-dark",
-    "key": "TaskBoxIDColor.sample[0.75]",
-    "hex": "#5ca6e3"
-  },
-  {
-    "theme": "one-dark",
-    "key": "TaskBoxIDColor.sample[1.00]",
-    "hex": "#61afef"
-  },
-  {
-    "theme": "one-dark",
-    "key": "TaskBoxIDColor.start",
-    "hex": "#4d8cbf"
-  },
-  {
-    "theme": "one-dark",
     "key": "TaskBoxLabelColor",
     "hex": "#5c6370",
     "tag": "[#5c6370]"
@@ -5693,41 +4618,6 @@
     "key": "TaskDetailEditFocusText",
     "hex": "#abb2bf",
     "tag": "[#abb2bf]"
-  },
-  {
-    "theme": "one-dark",
-    "key": "TaskDetailIDColor.end",
-    "hex": "#61afef"
-  },
-  {
-    "theme": "one-dark",
-    "key": "TaskDetailIDColor.sample[0.00]",
-    "hex": "#4d8cbf"
-  },
-  {
-    "theme": "one-dark",
-    "key": "TaskDetailIDColor.sample[0.25]",
-    "hex": "#5295cb"
-  },
-  {
-    "theme": "one-dark",
-    "key": "TaskDetailIDColor.sample[0.50]",
-    "hex": "#579ed7"
-  },
-  {
-    "theme": "one-dark",
-    "key": "TaskDetailIDColor.sample[0.75]",
-    "hex": "#5ca6e3"
-  },
-  {
-    "theme": "one-dark",
-    "key": "TaskDetailIDColor.sample[1.00]",
-    "hex": "#61afef"
-  },
-  {
-    "theme": "one-dark",
-    "key": "TaskDetailIDColor.start",
-    "hex": "#4d8cbf"
   },
   {
     "theme": "one-dark",
@@ -5887,41 +4777,6 @@
   },
   {
     "theme": "catppuccin-latte",
-    "key": "CaptionFallbackGradient.end",
-    "hex": "#ccd0da"
-  },
-  {
-    "theme": "catppuccin-latte",
-    "key": "CaptionFallbackGradient.sample[0.00]",
-    "hex": "#eff1f5"
-  },
-  {
-    "theme": "catppuccin-latte",
-    "key": "CaptionFallbackGradient.sample[0.25]",
-    "hex": "#e6e9ee"
-  },
-  {
-    "theme": "catppuccin-latte",
-    "key": "CaptionFallbackGradient.sample[0.50]",
-    "hex": "#dee1e8"
-  },
-  {
-    "theme": "catppuccin-latte",
-    "key": "CaptionFallbackGradient.sample[0.75]",
-    "hex": "#d5d8e1"
-  },
-  {
-    "theme": "catppuccin-latte",
-    "key": "CaptionFallbackGradient.sample[1.00]",
-    "hex": "#ccd0da"
-  },
-  {
-    "theme": "catppuccin-latte",
-    "key": "CaptionFallbackGradient.start",
-    "hex": "#eff1f5"
-  },
-  {
-    "theme": "catppuccin-latte",
     "key": "CaptionFg[0]",
     "hex": "#c7d9fd",
     "tag": "[#c7d9fd]"
@@ -5985,12 +4840,6 @@
     "key": "DepsEditorBackground",
     "hex": "#dce0e8",
     "tag": "[#dce0e8]"
-  },
-  {
-    "theme": "catppuccin-latte",
-    "key": "FallbackTaskIDColor",
-    "hex": "#04a5e5",
-    "tag": "[#04a5e5]"
   },
   {
     "theme": "catppuccin-latte",
@@ -6174,41 +5023,6 @@
   },
   {
     "theme": "catppuccin-latte",
-    "key": "TaskBoxIDColor.end",
-    "hex": "#04a5e5"
-  },
-  {
-    "theme": "catppuccin-latte",
-    "key": "TaskBoxIDColor.sample[0.00]",
-    "hex": "#0384b7"
-  },
-  {
-    "theme": "catppuccin-latte",
-    "key": "TaskBoxIDColor.sample[0.25]",
-    "hex": "#038cc3"
-  },
-  {
-    "theme": "catppuccin-latte",
-    "key": "TaskBoxIDColor.sample[0.50]",
-    "hex": "#0495ce"
-  },
-  {
-    "theme": "catppuccin-latte",
-    "key": "TaskBoxIDColor.sample[0.75]",
-    "hex": "#049dda"
-  },
-  {
-    "theme": "catppuccin-latte",
-    "key": "TaskBoxIDColor.sample[1.00]",
-    "hex": "#04a5e5"
-  },
-  {
-    "theme": "catppuccin-latte",
-    "key": "TaskBoxIDColor.start",
-    "hex": "#0384b7"
-  },
-  {
-    "theme": "catppuccin-latte",
     "key": "TaskBoxLabelColor",
     "hex": "#9ca0b0",
     "tag": "[#9ca0b0]"
@@ -6278,41 +5092,6 @@
     "key": "TaskDetailEditFocusText",
     "hex": "#4c4f69",
     "tag": "[#4c4f69]"
-  },
-  {
-    "theme": "catppuccin-latte",
-    "key": "TaskDetailIDColor.end",
-    "hex": "#04a5e5"
-  },
-  {
-    "theme": "catppuccin-latte",
-    "key": "TaskDetailIDColor.sample[0.00]",
-    "hex": "#0384b7"
-  },
-  {
-    "theme": "catppuccin-latte",
-    "key": "TaskDetailIDColor.sample[0.25]",
-    "hex": "#038cc3"
-  },
-  {
-    "theme": "catppuccin-latte",
-    "key": "TaskDetailIDColor.sample[0.50]",
-    "hex": "#0495ce"
-  },
-  {
-    "theme": "catppuccin-latte",
-    "key": "TaskDetailIDColor.sample[0.75]",
-    "hex": "#049dda"
-  },
-  {
-    "theme": "catppuccin-latte",
-    "key": "TaskDetailIDColor.sample[1.00]",
-    "hex": "#04a5e5"
-  },
-  {
-    "theme": "catppuccin-latte",
-    "key": "TaskDetailIDColor.start",
-    "hex": "#0384b7"
   },
   {
     "theme": "catppuccin-latte",
@@ -6472,41 +5251,6 @@
   },
   {
     "theme": "solarized-light",
-    "key": "CaptionFallbackGradient.end",
-    "hex": "#eee8d5"
-  },
-  {
-    "theme": "solarized-light",
-    "key": "CaptionFallbackGradient.sample[0.00]",
-    "hex": "#fdf6e3"
-  },
-  {
-    "theme": "solarized-light",
-    "key": "CaptionFallbackGradient.sample[0.25]",
-    "hex": "#f9f3e0"
-  },
-  {
-    "theme": "solarized-light",
-    "key": "CaptionFallbackGradient.sample[0.50]",
-    "hex": "#f6efdc"
-  },
-  {
-    "theme": "solarized-light",
-    "key": "CaptionFallbackGradient.sample[0.75]",
-    "hex": "#f2ecd9"
-  },
-  {
-    "theme": "solarized-light",
-    "key": "CaptionFallbackGradient.sample[1.00]",
-    "hex": "#eee8d5"
-  },
-  {
-    "theme": "solarized-light",
-    "key": "CaptionFallbackGradient.start",
-    "hex": "#fdf6e3"
-  },
-  {
-    "theme": "solarized-light",
     "key": "CaptionFg[0]",
     "hex": "#c9e2f4",
     "tag": "[#c9e2f4]"
@@ -6570,12 +5314,6 @@
     "key": "DepsEditorBackground",
     "hex": "#eee8d5",
     "tag": "[#eee8d5]"
-  },
-  {
-    "theme": "solarized-light",
-    "key": "FallbackTaskIDColor",
-    "hex": "#268bd2",
-    "tag": "[#268bd2]"
   },
   {
     "theme": "solarized-light",
@@ -6759,41 +5497,6 @@
   },
   {
     "theme": "solarized-light",
-    "key": "TaskBoxIDColor.end",
-    "hex": "#268bd2"
-  },
-  {
-    "theme": "solarized-light",
-    "key": "TaskBoxIDColor.sample[0.00]",
-    "hex": "#1e6fa8"
-  },
-  {
-    "theme": "solarized-light",
-    "key": "TaskBoxIDColor.sample[0.25]",
-    "hex": "#2076b3"
-  },
-  {
-    "theme": "solarized-light",
-    "key": "TaskBoxIDColor.sample[0.50]",
-    "hex": "#227dbd"
-  },
-  {
-    "theme": "solarized-light",
-    "key": "TaskBoxIDColor.sample[0.75]",
-    "hex": "#2484c8"
-  },
-  {
-    "theme": "solarized-light",
-    "key": "TaskBoxIDColor.sample[1.00]",
-    "hex": "#268bd2"
-  },
-  {
-    "theme": "solarized-light",
-    "key": "TaskBoxIDColor.start",
-    "hex": "#1e6fa8"
-  },
-  {
-    "theme": "solarized-light",
     "key": "TaskBoxLabelColor",
     "hex": "#93a1a1",
     "tag": "[#93a1a1]"
@@ -6863,41 +5566,6 @@
     "key": "TaskDetailEditFocusText",
     "hex": "#657b83",
     "tag": "[#657b83]"
-  },
-  {
-    "theme": "solarized-light",
-    "key": "TaskDetailIDColor.end",
-    "hex": "#268bd2"
-  },
-  {
-    "theme": "solarized-light",
-    "key": "TaskDetailIDColor.sample[0.00]",
-    "hex": "#1e6fa8"
-  },
-  {
-    "theme": "solarized-light",
-    "key": "TaskDetailIDColor.sample[0.25]",
-    "hex": "#2076b3"
-  },
-  {
-    "theme": "solarized-light",
-    "key": "TaskDetailIDColor.sample[0.50]",
-    "hex": "#227dbd"
-  },
-  {
-    "theme": "solarized-light",
-    "key": "TaskDetailIDColor.sample[0.75]",
-    "hex": "#2484c8"
-  },
-  {
-    "theme": "solarized-light",
-    "key": "TaskDetailIDColor.sample[1.00]",
-    "hex": "#268bd2"
-  },
-  {
-    "theme": "solarized-light",
-    "key": "TaskDetailIDColor.start",
-    "hex": "#1e6fa8"
   },
   {
     "theme": "solarized-light",
@@ -7057,41 +5725,6 @@
   },
   {
     "theme": "gruvbox-light",
-    "key": "CaptionFallbackGradient.end",
-    "hex": "#ebdbb2"
-  },
-  {
-    "theme": "gruvbox-light",
-    "key": "CaptionFallbackGradient.sample[0.00]",
-    "hex": "#fbf1c7"
-  },
-  {
-    "theme": "gruvbox-light",
-    "key": "CaptionFallbackGradient.sample[0.25]",
-    "hex": "#f7ecc2"
-  },
-  {
-    "theme": "gruvbox-light",
-    "key": "CaptionFallbackGradient.sample[0.50]",
-    "hex": "#f3e6bd"
-  },
-  {
-    "theme": "gruvbox-light",
-    "key": "CaptionFallbackGradient.sample[0.75]",
-    "hex": "#efe1b7"
-  },
-  {
-    "theme": "gruvbox-light",
-    "key": "CaptionFallbackGradient.sample[1.00]",
-    "hex": "#ebdbb2"
-  },
-  {
-    "theme": "gruvbox-light",
-    "key": "CaptionFallbackGradient.start",
-    "hex": "#fbf1c7"
-  },
-  {
-    "theme": "gruvbox-light",
     "key": "CaptionFg[0]",
     "hex": "#e2d6c3",
     "tag": "[#e2d6c3]"
@@ -7155,12 +5788,6 @@
     "key": "DepsEditorBackground",
     "hex": "#d5c4a1",
     "tag": "[#d5c4a1]"
-  },
-  {
-    "theme": "gruvbox-light",
-    "key": "FallbackTaskIDColor",
-    "hex": "#076678",
-    "tag": "[#076678]"
   },
   {
     "theme": "gruvbox-light",
@@ -7344,41 +5971,6 @@
   },
   {
     "theme": "gruvbox-light",
-    "key": "TaskBoxIDColor.end",
-    "hex": "#076678"
-  },
-  {
-    "theme": "gruvbox-light",
-    "key": "TaskBoxIDColor.sample[0.00]",
-    "hex": "#055160"
-  },
-  {
-    "theme": "gruvbox-light",
-    "key": "TaskBoxIDColor.sample[0.25]",
-    "hex": "#065666"
-  },
-  {
-    "theme": "gruvbox-light",
-    "key": "TaskBoxIDColor.sample[0.50]",
-    "hex": "#065c6c"
-  },
-  {
-    "theme": "gruvbox-light",
-    "key": "TaskBoxIDColor.sample[0.75]",
-    "hex": "#076172"
-  },
-  {
-    "theme": "gruvbox-light",
-    "key": "TaskBoxIDColor.sample[1.00]",
-    "hex": "#076678"
-  },
-  {
-    "theme": "gruvbox-light",
-    "key": "TaskBoxIDColor.start",
-    "hex": "#055160"
-  },
-  {
-    "theme": "gruvbox-light",
     "key": "TaskBoxLabelColor",
     "hex": "#928374",
     "tag": "[#928374]"
@@ -7448,41 +6040,6 @@
     "key": "TaskDetailEditFocusText",
     "hex": "#3c3836",
     "tag": "[#3c3836]"
-  },
-  {
-    "theme": "gruvbox-light",
-    "key": "TaskDetailIDColor.end",
-    "hex": "#076678"
-  },
-  {
-    "theme": "gruvbox-light",
-    "key": "TaskDetailIDColor.sample[0.00]",
-    "hex": "#055160"
-  },
-  {
-    "theme": "gruvbox-light",
-    "key": "TaskDetailIDColor.sample[0.25]",
-    "hex": "#065666"
-  },
-  {
-    "theme": "gruvbox-light",
-    "key": "TaskDetailIDColor.sample[0.50]",
-    "hex": "#065c6c"
-  },
-  {
-    "theme": "gruvbox-light",
-    "key": "TaskDetailIDColor.sample[0.75]",
-    "hex": "#076172"
-  },
-  {
-    "theme": "gruvbox-light",
-    "key": "TaskDetailIDColor.sample[1.00]",
-    "hex": "#076678"
-  },
-  {
-    "theme": "gruvbox-light",
-    "key": "TaskDetailIDColor.start",
-    "hex": "#055160"
   },
   {
     "theme": "gruvbox-light",
@@ -7642,41 +6199,6 @@
   },
   {
     "theme": "github-light",
-    "key": "CaptionFallbackGradient.end",
-    "hex": "#f6f8fa"
-  },
-  {
-    "theme": "github-light",
-    "key": "CaptionFallbackGradient.sample[0.00]",
-    "hex": "#ffffff"
-  },
-  {
-    "theme": "github-light",
-    "key": "CaptionFallbackGradient.sample[0.25]",
-    "hex": "#fdfdfe"
-  },
-  {
-    "theme": "github-light",
-    "key": "CaptionFallbackGradient.sample[0.50]",
-    "hex": "#fbfcfd"
-  },
-  {
-    "theme": "github-light",
-    "key": "CaptionFallbackGradient.sample[0.75]",
-    "hex": "#f8fafb"
-  },
-  {
-    "theme": "github-light",
-    "key": "CaptionFallbackGradient.sample[1.00]",
-    "hex": "#f6f8fa"
-  },
-  {
-    "theme": "github-light",
-    "key": "CaptionFallbackGradient.start",
-    "hex": "#ffffff"
-  },
-  {
-    "theme": "github-light",
     "key": "CaptionFg[0]",
     "hex": "#c2daf6",
     "tag": "[#c2daf6]"
@@ -7740,12 +6262,6 @@
     "key": "DepsEditorBackground",
     "hex": "#eaeef2",
     "tag": "[#eaeef2]"
-  },
-  {
-    "theme": "github-light",
-    "key": "FallbackTaskIDColor",
-    "hex": "#0969da",
-    "tag": "[#0969da]"
   },
   {
     "theme": "github-light",
@@ -7929,41 +6445,6 @@
   },
   {
     "theme": "github-light",
-    "key": "TaskBoxIDColor.end",
-    "hex": "#0969da"
-  },
-  {
-    "theme": "github-light",
-    "key": "TaskBoxIDColor.sample[0.00]",
-    "hex": "#0754ae"
-  },
-  {
-    "theme": "github-light",
-    "key": "TaskBoxIDColor.sample[0.25]",
-    "hex": "#0859b9"
-  },
-  {
-    "theme": "github-light",
-    "key": "TaskBoxIDColor.sample[0.50]",
-    "hex": "#085fc4"
-  },
-  {
-    "theme": "github-light",
-    "key": "TaskBoxIDColor.sample[0.75]",
-    "hex": "#0964cf"
-  },
-  {
-    "theme": "github-light",
-    "key": "TaskBoxIDColor.sample[1.00]",
-    "hex": "#0969da"
-  },
-  {
-    "theme": "github-light",
-    "key": "TaskBoxIDColor.start",
-    "hex": "#0754ae"
-  },
-  {
-    "theme": "github-light",
     "key": "TaskBoxLabelColor",
     "hex": "#656d76",
     "tag": "[#656d76]"
@@ -8033,41 +6514,6 @@
     "key": "TaskDetailEditFocusText",
     "hex": "#1f2328",
     "tag": "[#1f2328]"
-  },
-  {
-    "theme": "github-light",
-    "key": "TaskDetailIDColor.end",
-    "hex": "#0969da"
-  },
-  {
-    "theme": "github-light",
-    "key": "TaskDetailIDColor.sample[0.00]",
-    "hex": "#0754ae"
-  },
-  {
-    "theme": "github-light",
-    "key": "TaskDetailIDColor.sample[0.25]",
-    "hex": "#0859b9"
-  },
-  {
-    "theme": "github-light",
-    "key": "TaskDetailIDColor.sample[0.50]",
-    "hex": "#085fc4"
-  },
-  {
-    "theme": "github-light",
-    "key": "TaskDetailIDColor.sample[0.75]",
-    "hex": "#0964cf"
-  },
-  {
-    "theme": "github-light",
-    "key": "TaskDetailIDColor.sample[1.00]",
-    "hex": "#0969da"
-  },
-  {
-    "theme": "github-light",
-    "key": "TaskDetailIDColor.start",
-    "hex": "#0754ae"
   },
   {
     "theme": "github-light",

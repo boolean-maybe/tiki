@@ -43,6 +43,8 @@ func (t *Theme) ResolveByName(name string) (Role, bool) {
 		return t.accentAction, true
 	case "accent.tag":
 		return t.accentTag, true
+	case "tiki.id":
+		return t.tikiID, true
 
 	// canonical: status
 	case "status.danger":
@@ -105,16 +107,17 @@ func (t *Theme) ResolveByName(name string) (Role, bool) {
 	return nil, false
 }
 
-// RoleResolver adapts ResolveByName onto the tag-string resolver signature
-// expected by workflow.ExpandVisual. Returned closure resolves a role name
-// to its tview color tag (e.g. "[#ff4444]") or reports ok=false for unknown names.
-func (t *Theme) RoleResolver() func(role string) (string, bool) {
-	return func(role string) (string, bool) {
-		r, ok := t.ResolveByName(role)
+// PaintResolver returns a closure that maps (role, modifier) to a Paint.
+// Used by workflow.ExpandVisual at render time. modifier is the optional
+// suffix following the last dot in `<role.modifier>` markup; pass "" for
+// solid (no modifier). Reports ok=false for unknown role or modifier names.
+func (t *Theme) PaintResolver() func(role, modifier string) (Paint, bool) {
+	return func(role, modifier string) (Paint, bool) {
+		base, ok := t.ResolveByName(role)
 		if !ok {
-			return "", false
+			return nil, false
 		}
-		return r.Tag(), true
+		return paintFor(base, modifier)
 	}
 }
 
@@ -126,7 +129,7 @@ var canonicalRoleNames = []string{
 	"text.value", "text.hint",
 	"border.focus", "border.idle",
 	"surface.transparent", "surface.selection", "surface.canvas",
-	"highlight", "accent.action", "accent.tag",
+	"highlight", "accent.action", "accent.tag", "tiki.id",
 	"status.danger", "status.warn", "status.ok",
 	"statusline.main.fg", "statusline.main.bg",
 	"statusline.accent.fg", "statusline.accent.bg",

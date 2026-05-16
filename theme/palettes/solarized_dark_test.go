@@ -46,6 +46,4 @@ func TestSolarizedDarkAllFieldsExercised(t *testing.T) {
 	for _, c := range s.CaptionBg {
 		_ = c
 	}
-	_ = s.CaptionFallbackStart
-	_ = s.CaptionFallbackEnd
 }

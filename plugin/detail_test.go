@@ -328,6 +328,33 @@ func TestDetailPlugin_AcceptsKnownFieldRole(t *testing.T) {
 	}
 }
 
+func TestDetailPlugin_AcceptsFieldRoleWithModifier(t *testing.T) {
+	schema := testSchema()
+	raw := [][]string{
+		{"<text.muted.accent>title", "--"},
+		{"status", "type"},
+	}
+	_, err := validateDetailMetadata("Test", raw, schema)
+	if err != nil {
+		t.Fatalf("unexpected error for role with known modifier: %v", err)
+	}
+}
+
+func TestDetailPlugin_RejectsUnknownFieldModifier(t *testing.T) {
+	schema := testSchema()
+	// Token "<text.muted.bogus>" — "bogus" is not a known modifier, so the
+	// splitter treats the whole thing as the role name, which is then
+	// rejected as an unknown role. Either way the validator must error.
+	raw := [][]string{
+		{"<text.muted.bogus>title", "--"},
+		{"status", "type"},
+	}
+	_, err := validateDetailMetadata("Test", raw, schema)
+	if err == nil {
+		t.Fatal("expected error for unknown modifier")
+	}
+}
+
 // TestWikiPlugin_StillBuildsDokiPlugin asserts the Phase 1 split — wiki
 // continues to use the markdown-view path (DokiPlugin), only detail moves to
 // DetailPlugin.

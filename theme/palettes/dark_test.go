@@ -52,6 +52,4 @@ func TestDarkAllFieldsExercised(t *testing.T) {
 	for _, c := range d.CaptionBg {
 		_ = c
 	}
-	_ = d.CaptionFallbackStart
-	_ = d.CaptionFallbackEnd
 }

@@ -2,10 +2,8 @@ package theme
 
 import (
 	"encoding/json"
-	"fmt"
 	"os"
 	"sort"
-	"strconv"
 	"strings"
 	"testing"
 )
@@ -25,7 +23,7 @@ type snapshotEntry struct {
 // (captured from the OLD code) and walks this mapping in the NEW code to
 // confirm every old slot has an equivalent new role producing identical output.
 //
-// Format: oldSlotKey → "method:Name" | "pair:Name.fg" | "gradient:Name.endpoint" | "fallback:Name"
+// Format: oldSlotKey → "method:Name" | "pair:Name.fg"
 var roleKeyMapping = map[string]string{
 	// Text-primary group
 	"ContentTextColor":           "method:TextPrimary",
@@ -110,15 +108,6 @@ var roleKeyMapping = map[string]string{
 	"LogoDotColor":    "method:LogoDot",
 	"LogoShadeColor":  "method:LogoShade",
 	"LogoBorderColor": "method:LogoBorder",
-
-	// Gradient endpoints
-	"TaskBoxIDColor.start":          "gradient:TikiID.start",
-	"TaskBoxIDColor.end":            "gradient:TikiID.end",
-	"TaskDetailIDColor.start":       "gradient:TikiID.start",
-	"TaskDetailIDColor.end":         "gradient:TikiID.end",
-	"CaptionFallbackGradient.start": "gradient:CaptionFallback.start",
-	"CaptionFallbackGradient.end":   "gradient:CaptionFallback.end",
-	"FallbackTaskIDColor":           "fallback:TikiID",
 }
 
 func TestSnapshotMatchesOld(t *testing.T) {
@@ -174,42 +163,12 @@ func lookupRoleHex(th *Theme, key string) (string, bool) {
 		}
 		return r.Hex(), true
 	}
-	// Gradient sample points stored under "<GradientKey>.sample[<t>]"
-	if t, gradKey, ok := parseGradSample(key); ok {
-		var g GradientRole
-		switch gradKey {
-		case "TaskBoxIDColor", "TaskDetailIDColor":
-			g = th.TikiIDGradient()
-		case "CaptionFallbackGradient":
-			g = th.CaptionFallbackGradient()
-		default:
-			return "", false
-		}
-		tc := g.InterpolateTCell(t)
-		r, gr, b := tc.RGB()
-		return fmt.Sprintf("#%02x%02x%02x", r, gr, b), true
-	}
 
 	mapping, ok := roleKeyMapping[key]
 	if !ok {
 		return "", false
 	}
 	return resolveMapping(th, mapping)
-}
-
-func parseGradSample(key string) (t float64, gradKey string, ok bool) {
-	const tag = ".sample["
-	i := strings.Index(key, tag)
-	if i < 0 || !strings.HasSuffix(key, "]") {
-		return 0, "", false
-	}
-	gradKey = key[:i]
-	tStr := key[i+len(tag) : len(key)-1]
-	f, err := strconv.ParseFloat(tStr, 64)
-	if err != nil {
-		return 0, "", false
-	}
-	return f, gradKey, true
 }
 
 func resolveMapping(th *Theme, mapping string) (string, bool) {
@@ -224,10 +183,6 @@ func resolveMapping(th *Theme, mapping string) (string, bool) {
 		return resolveByGetter(th, rest)
 	case "pair":
 		return resolvePairSide(th, rest)
-	case "gradient":
-		return resolveGradient(th, rest)
-	case "fallback":
-		return resolveFallback(th, rest)
 	}
 	return "", false
 }
@@ -305,38 +260,6 @@ func resolvePairSide(th *Theme, spec string) (string, bool) {
 		return p.Fg().Hex(), true
 	}
 	return p.Bg().Hex(), true
-}
-
-func resolveGradient(th *Theme, spec string) (string, bool) {
-	dot := strings.Index(spec, ".")
-	if dot < 0 {
-		return "", false
-	}
-	gradName, endpoint := spec[:dot], spec[dot+1:]
-	var g GradientRole
-	switch gradName {
-	case "TikiID":
-		g = th.TikiIDGradient()
-	case "CaptionFallback":
-		g = th.CaptionFallbackGradient()
-	default:
-		return "", false
-	}
-	var r, gr, b int
-	if endpoint == "start" {
-		r, gr, b = g.Start()
-	} else {
-		r, gr, b = g.End()
-	}
-	return fmt.Sprintf("#%02x%02x%02x", r, gr, b), true
-}
-
-func resolveFallback(th *Theme, name string) (string, bool) {
-	switch name {
-	case "TikiID":
-		return th.TikiIDGradient().FallbackRole().Hex(), true
-	}
-	return "", false
 }
 
 func parseCaption(key string) (prefix, fgBg string, idx int, ok bool) {

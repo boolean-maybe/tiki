@@ -4,6 +4,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/boolean-maybe/tiki/theme"
 	"gopkg.in/yaml.v3"
 )
 
@@ -525,5 +526,50 @@ func TestParseGrid_AnchorOrderTopLeft(t *testing.T) {
 		if got[i] != n {
 			t.Errorf("[%d]: got %q, want %q", i, got[i], n)
 		}
+	}
+}
+
+func TestSplitRoleModifier_SplitsModifierSuffix(t *testing.T) {
+	role, mod := theme.SplitRoleModifier("text.muted.accent")
+	if role != "text.muted" || mod != "accent" {
+		t.Errorf("got (%q, %q), want (%q, %q)", role, mod, "text.muted", "accent")
+	}
+}
+
+func TestSplitRoleModifier_BareTokenHasNoModifier(t *testing.T) {
+	role, mod := theme.SplitRoleModifier("text.muted")
+	if role != "text.muted" || mod != "" {
+		t.Errorf("got (%q, %q), want (%q, %q)", role, mod, "text.muted", "")
+	}
+}
+
+func TestSplitRoleModifier_NoDotHasNoModifier(t *testing.T) {
+	role, mod := theme.SplitRoleModifier("danger")
+	if role != "danger" || mod != "" {
+		t.Errorf("got (%q, %q), want (%q, %q)", role, mod, "danger", "")
+	}
+}
+
+func TestTokenizeCell_RoleWithModifier(t *testing.T) {
+	cell, err := TokenizeCell("<text.muted.accent>title")
+	if err != nil {
+		t.Fatalf("tokenize: %v", err)
+	}
+	fc, ok := cell.(FieldCell)
+	if !ok {
+		t.Fatalf("want FieldCell, got %T", cell)
+	}
+	if fc.Role != "text.muted" || fc.Modifier != "accent" {
+		t.Errorf("got role=%q modifier=%q, want role=%q modifier=%q", fc.Role, fc.Modifier, "text.muted", "accent")
+	}
+}
+
+func TestParseSegment_RoleWithModifier(t *testing.T) {
+	seg, err := parseSegment("<text.muted.accent>status")
+	if err != nil {
+		t.Fatalf("parseSegment: %v", err)
+	}
+	if seg.Role != "text.muted" || seg.Modifier != "accent" {
+		t.Errorf("got role=%q modifier=%q, want role=%q modifier=%q", seg.Role, seg.Modifier, "text.muted", "accent")
 	}
 }

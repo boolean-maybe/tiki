@@ -30,9 +30,6 @@ type Light struct {
 
 	CaptionFg [6]string
 	CaptionBg [6]string
-
-	CaptionFallbackStart [3]int
-	CaptionFallbackEnd   [3]int
 }
 
 func NewLight() Light {
@@ -78,8 +75,5 @@ func NewLight() Light {
 			"#1a8174",
 			"#616161",
 		},
-
-		CaptionFallbackStart: [3]int{100, 140, 200},
-		CaptionFallbackEnd:   [3]int{60, 100, 180},
 	}
 }
