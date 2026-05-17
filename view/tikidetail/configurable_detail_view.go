@@ -1,4 +1,4 @@
-package taskdetail
+package tikidetail
 
 import (
 	"fmt"
@@ -80,12 +80,12 @@ func (cv *ConfigurableDetailView) SetActionChangeHandler(handler func()) {
 }
 
 // NewConfigurableDetailView builds a detail view bound to the configured
-// metadata field list. taskID may be empty when the view is opened without a
+// metadata field list. tikiID may be empty when the view is opened without a
 // selection (the require:["selection:one"] gate normally prevents this; the
 // view falls back to a placeholder for safety).
 func NewConfigurableDetailView(
-	taskStore store.Store,
-	taskID string,
+	tikiStore store.Store,
+	tikiID string,
 	pluginName string,
 	spec gridlayout.GridSpec,
 	registry *controller.ActionRegistry,
@@ -94,8 +94,8 @@ func NewConfigurableDetailView(
 ) *ConfigurableDetailView {
 	cv := &ConfigurableDetailView{
 		Base: Base{
-			taskStore:    taskStore,
-			taskID:       taskID,
+			tikiStore:    tikiStore,
+			tikiID:       tikiID,
 			imageManager: imageManager,
 			mermaidOpts:  mermaidOpts,
 		},
@@ -137,20 +137,20 @@ func (cv *ConfigurableDetailView) GetViewDescription() string {
 // GetSelectedID implements controller.SelectableView so target-scoped
 // require: gates and outbound `kind: view` actions see the carried selection.
 func (cv *ConfigurableDetailView) GetSelectedID() string {
-	return cv.taskID
+	return cv.tikiID
 }
 
 // SetSelectedID lets callers inject a selection after construction. Detail
 // views do not surface an in-view selection gesture; this is primarily a
 // SelectableView contract fill.
 func (cv *ConfigurableDetailView) SetSelectedID(id string) {
-	cv.taskID = id
+	cv.tikiID = id
 	cv.refresh()
 }
 
 // OnFocus subscribes to store updates so external mutations re-render the view.
 func (cv *ConfigurableDetailView) OnFocus() {
-	cv.listenerID = cv.taskStore.AddListener(func() {
+	cv.listenerID = cv.tikiStore.AddListener(func() {
 		cv.refresh()
 	})
 	cv.refresh()
@@ -159,7 +159,7 @@ func (cv *ConfigurableDetailView) OnFocus() {
 // OnBlur unsubscribes and tears down the markdown viewer.
 func (cv *ConfigurableDetailView) OnBlur() {
 	if cv.listenerID != 0 {
-		cv.taskStore.RemoveListener(cv.listenerID)
+		cv.tikiStore.RemoveListener(cv.listenerID)
 		cv.listenerID = 0
 	}
 	if cv.navMarkdown != nil {
@@ -265,7 +265,7 @@ func (cv *ConfigurableDetailView) buildMetadataBox(tk *tikipkg.Tiki, roles *them
 	if cv.editMode {
 		mode = RenderModeEdit
 	}
-	ctx := FieldRenderContext{Mode: mode, Roles: roles, Store: cv.taskStore}
+	ctx := FieldRenderContext{Mode: mode, Roles: roles, Store: cv.tikiStore}
 
 	primitives := cv.buildAnchorPrimitives(tk, ctx)
 	heightOf := func(name string, w int) int { return FieldHeight(name, tk, w) }
@@ -458,20 +458,20 @@ func (cv *ConfigurableDetailView) ensureEditor(name string, tk *tikipkg.Tiki, ct
 }
 
 // buildDescription renders the always-present description section. Mirrors
-// the legacy TaskDetailView's description path so wikilink rewriting and
+// the legacy TikiDetailView's description path so wikilink rewriting and
 // image resolution stay identical.
 func (cv *ConfigurableDetailView) buildDescription(tk *tikipkg.Tiki) tview.Primitive {
 	desc := defaultString(tk.Body, "(No description)")
-	taskSourcePath := taskSourcePathFor(tk)
+	tikiSourcePath := tikiSourcePathFor(tk)
 
 	searchRoots := []string{config.GetDocDir(), config.GetTaskDir()}
-	if taskSourcePath != "" {
-		searchRoots = append([]string{filepath.Dir(taskSourcePath)}, searchRoots...)
+	if tikiSourcePath != "" {
+		searchRoots = append([]string{filepath.Dir(tikiSourcePath)}, searchRoots...)
 	}
 
-	resolver := &markdown.StoreResolver{Store: cv.taskStore}
+	resolver := &markdown.StoreResolver{Store: cv.tikiStore}
 	wrapped := markdown.NewWikilinkProvider(
-		newTaskDescriptionProvider(cv.taskStore, searchRoots),
+		newTikiDescriptionProvider(cv.tikiStore, searchRoots),
 		resolver,
 	)
 	cv.navMarkdown = markdown.NewNavigableMarkdown(markdown.NavigableMarkdownConfig{
@@ -481,7 +481,7 @@ func (cv *ConfigurableDetailView) buildDescription(tk *tikipkg.Tiki) tview.Primi
 		MermaidOptions: cv.mermaidOpts,
 	})
 	desc = markdown.RewriteWikilinks(desc, resolver)
-	cv.navMarkdown.SetMarkdownWithSource(desc, taskSourcePath, false)
+	cv.navMarkdown.SetMarkdownWithSource(desc, tikiSourcePath, false)
 	cv.navMarkdown.Viewer().SetBorderPadding(1, 1, 2, 2)
 	cv.descView = cv.navMarkdown.Viewer()
 	return cv.navMarkdown.Viewer()
@@ -649,7 +649,7 @@ func (cv *ConfigurableDetailView) GetFocusedFieldName() string {
 }
 
 // Metadata returns the configured metadata field list. Exposed so the
-// input router can copy it into TaskEditParams when the user opens the
+// input router can copy it into TikiEditParams when the user opens the
 // edit view from this detail view, preserving the same field set across
 // the view-edit transition.
 func (cv *ConfigurableDetailView) Metadata() []string {

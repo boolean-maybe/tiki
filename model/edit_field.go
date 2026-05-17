@@ -161,7 +161,7 @@ func FieldLabel(field EditField) string {
 //
 // Workflow-declared TypeEnum fields without a static EditField constant
 // (severity, environment, etc.) participate in the order with their field
-// name as the EditField identity — see view/taskdetail.editFieldFor for
+// name as the EditField identity — see view/tikidetail.editFieldFor for
 // the mirroring lookup that consumes this convention.
 func MetadataToEditFieldOrder(metadata []string) []EditField {
 	result := make([]EditField, 0, len(metadata))

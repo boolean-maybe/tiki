@@ -22,11 +22,11 @@ func init() {
 // Test Draft Task Lifecycle
 
 func TestTikiEditSession_SetDraft(t *testing.T) {
-	taskStore := store.NewInMemoryStore()
+	tikiStore := store.NewInMemoryStore()
 	gate := service.NewTikiMutationGate()
-	gate.SetStore(taskStore)
+	gate.SetStore(tikiStore)
 	navController := newMockNavigationController()
-	tc := NewTikiEditSession(taskStore, gate, navController, nil)
+	tc := NewTikiEditSession(tikiStore, gate, navController, nil)
 
 	draft := newTestTiki()
 	tc.SetDraft(draft)
@@ -35,17 +35,17 @@ func TestTikiEditSession_SetDraft(t *testing.T) {
 		t.Error("SetDraft did not set the draft task")
 	}
 
-	if tc.GetCurrentTaskID() != draft.ID {
-		t.Errorf("SetDraft did not set currentTaskID, got %q, want %q", tc.GetCurrentTaskID(), draft.ID)
+	if tc.GetCurrentTikiID() != draft.ID {
+		t.Errorf("SetDraft did not set currentTikiID, got %q, want %q", tc.GetCurrentTikiID(), draft.ID)
 	}
 }
 
 func TestTikiEditSession_ClearDraft(t *testing.T) {
-	taskStore := store.NewInMemoryStore()
+	tikiStore := store.NewInMemoryStore()
 	gate := service.NewTikiMutationGate()
-	gate.SetStore(taskStore)
+	gate.SetStore(tikiStore)
 	navController := newMockNavigationController()
-	tc := NewTikiEditSession(taskStore, gate, navController, nil)
+	tc := NewTikiEditSession(tikiStore, gate, navController, nil)
 
 	tc.SetDraft(newTestTiki())
 	tc.ClearDraft()
@@ -56,16 +56,16 @@ func TestTikiEditSession_ClearDraft(t *testing.T) {
 }
 
 func TestTikiEditSession_StartEditSession(t *testing.T) {
-	taskStore := store.NewInMemoryStore()
+	tikiStore := store.NewInMemoryStore()
 	gate := service.NewTikiMutationGate()
-	gate.SetStore(taskStore)
+	gate.SetStore(tikiStore)
 	navController := newMockNavigationController()
-	tc := NewTikiEditSession(taskStore, gate, navController, nil)
+	tc := NewTikiEditSession(tikiStore, gate, navController, nil)
 
 	// Create a task in the store
 	original := newTestTask()
 	original.LoadedMtime = time.Now()
-	_ = taskStore.CreateTiki(original)
+	_ = tikiStore.CreateTiki(original)
 
 	// Start edit session
 	editingTask := tc.StartEditSession(original.ID)
@@ -83,17 +83,17 @@ func TestTikiEditSession_StartEditSession(t *testing.T) {
 		t.Error("StartEditSession did not set editingTask")
 	}
 
-	if tc.GetCurrentTaskID() != original.ID {
-		t.Errorf("StartEditSession did not set currentTaskID, got %q, want %q", tc.GetCurrentTaskID(), original.ID)
+	if tc.GetCurrentTikiID() != original.ID {
+		t.Errorf("StartEditSession did not set currentTikiID, got %q, want %q", tc.GetCurrentTikiID(), original.ID)
 	}
 }
 
 func TestTikiEditSession_StartEditSession_NonExistent(t *testing.T) {
-	taskStore := store.NewInMemoryStore()
+	tikiStore := store.NewInMemoryStore()
 	gate := service.NewTikiMutationGate()
-	gate.SetStore(taskStore)
+	gate.SetStore(tikiStore)
 	navController := newMockNavigationController()
-	tc := NewTikiEditSession(taskStore, gate, navController, nil)
+	tc := NewTikiEditSession(tikiStore, gate, navController, nil)
 
 	editingTask := tc.StartEditSession("NONEXISTENT")
 
@@ -103,15 +103,15 @@ func TestTikiEditSession_StartEditSession_NonExistent(t *testing.T) {
 }
 
 func TestTikiEditSession_CancelEditSession(t *testing.T) {
-	taskStore := store.NewInMemoryStore()
+	tikiStore := store.NewInMemoryStore()
 	gate := service.NewTikiMutationGate()
-	gate.SetStore(taskStore)
+	gate.SetStore(tikiStore)
 	navController := newMockNavigationController()
-	tc := NewTikiEditSession(taskStore, gate, navController, nil)
+	tc := NewTikiEditSession(tikiStore, gate, navController, nil)
 
 	// Start an edit session
 	original := newTestTask()
-	_ = taskStore.CreateTiki(original)
+	_ = tikiStore.CreateTiki(original)
 	tc.StartEditSession(original.ID)
 
 	// Cancel it
@@ -121,8 +121,8 @@ func TestTikiEditSession_CancelEditSession(t *testing.T) {
 		t.Error("CancelEditSession did not clear editingTask")
 	}
 
-	if tc.GetCurrentTaskID() != "" {
-		t.Errorf("CancelEditSession did not clear currentTaskID, got %q", tc.GetCurrentTaskID())
+	if tc.GetCurrentTikiID() != "" {
+		t.Errorf("CancelEditSession did not clear currentTikiID, got %q", tc.GetCurrentTikiID())
 	}
 }
 
@@ -189,13 +189,13 @@ func TestTikiEditSession_SaveStatus(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			taskStore := store.NewInMemoryStore()
+			tikiStore := store.NewInMemoryStore()
 			gate := service.NewTikiMutationGate()
-			gate.SetStore(taskStore)
+			gate.SetStore(tikiStore)
 			navController := newMockNavigationController()
-			tc := NewTikiEditSession(taskStore, gate, navController, nil)
+			tc := NewTikiEditSession(tikiStore, gate, navController, nil)
 
-			tt.setupTask(tc, taskStore)
+			tt.setupTask(tc, tikiStore)
 
 			got := tc.SaveStatus(tt.statusDisplay)
 
@@ -268,13 +268,13 @@ func TestTikiEditSession_SaveType(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			taskStore := store.NewInMemoryStore()
+			tikiStore := store.NewInMemoryStore()
 			gate := service.NewTikiMutationGate()
-			gate.SetStore(taskStore)
+			gate.SetStore(tikiStore)
 			navController := newMockNavigationController()
-			tc := NewTikiEditSession(taskStore, gate, navController, nil)
+			tc := NewTikiEditSession(tikiStore, gate, navController, nil)
 
-			tt.setupTask(tc, taskStore)
+			tt.setupTask(tc, tikiStore)
 
 			got := tc.SaveType(tt.typeDisplay)
 
@@ -354,13 +354,13 @@ func TestTikiEditSession_SavePriority(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			taskStore := store.NewInMemoryStore()
+			tikiStore := store.NewInMemoryStore()
 			gate := service.NewTikiMutationGate()
-			gate.SetStore(taskStore)
+			gate.SetStore(tikiStore)
 			navController := newMockNavigationController()
-			tc := NewTikiEditSession(taskStore, gate, navController, nil)
+			tc := NewTikiEditSession(tikiStore, gate, navController, nil)
 
-			tt.setupTask(tc, taskStore)
+			tt.setupTask(tc, tikiStore)
 
 			got := tc.SavePriority(tt.priority)
 
@@ -421,11 +421,11 @@ func TestTikiEditSession_SaveWorkflowEnum(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			taskStore := store.NewInMemoryStore()
+			tikiStore := store.NewInMemoryStore()
 			gate := service.NewTikiMutationGate()
-			gate.SetStore(taskStore)
+			gate.SetStore(tikiStore)
 			navController := newMockNavigationController()
-			tc := NewTikiEditSession(taskStore, gate, navController, nil)
+			tc := NewTikiEditSession(tikiStore, gate, navController, nil)
 			tc.SetDraft(newTestTiki())
 			// Pre-seed the field so we can observe deletion when value=="".
 			tc.draftTiki.Set("severity", "low")
@@ -501,13 +501,13 @@ func TestTikiEditSession_SaveAssignee(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			taskStore := store.NewInMemoryStore()
+			tikiStore := store.NewInMemoryStore()
 			gate := service.NewTikiMutationGate()
-			gate.SetStore(taskStore)
+			gate.SetStore(tikiStore)
 			navController := newMockNavigationController()
-			tc := NewTikiEditSession(taskStore, gate, navController, nil)
+			tc := NewTikiEditSession(tikiStore, gate, navController, nil)
 
-			tt.setupTask(tc, taskStore)
+			tt.setupTask(tc, tikiStore)
 
 			got := tc.SaveAssignee(tt.assignee)
 
@@ -579,13 +579,13 @@ func TestTikiEditSession_SavePoints(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			taskStore := store.NewInMemoryStore()
+			tikiStore := store.NewInMemoryStore()
 			gate := service.NewTikiMutationGate()
-			gate.SetStore(taskStore)
+			gate.SetStore(tikiStore)
 			navController := newMockNavigationController()
-			tc := NewTikiEditSession(taskStore, gate, navController, nil)
+			tc := NewTikiEditSession(tikiStore, gate, navController, nil)
 
-			tt.setupTask(tc, taskStore)
+			tt.setupTask(tc, tikiStore)
 
 			got := tc.SavePoints(tt.points)
 
@@ -662,13 +662,13 @@ func TestTikiEditSession_SaveTitle(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			taskStore := store.NewInMemoryStore()
+			tikiStore := store.NewInMemoryStore()
 			gate := service.NewTikiMutationGate()
-			gate.SetStore(taskStore)
+			gate.SetStore(tikiStore)
 			navController := newMockNavigationController()
-			tc := NewTikiEditSession(taskStore, gate, navController, nil)
+			tc := NewTikiEditSession(tikiStore, gate, navController, nil)
 
-			tt.setupTask(tc, taskStore)
+			tt.setupTask(tc, tikiStore)
 
 			got := tc.SaveTitle(tt.title)
 
@@ -731,13 +731,13 @@ func TestTikiEditSession_SaveDescription(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			taskStore := store.NewInMemoryStore()
+			tikiStore := store.NewInMemoryStore()
 			gate := service.NewTikiMutationGate()
-			gate.SetStore(taskStore)
+			gate.SetStore(tikiStore)
 			navController := newMockNavigationController()
-			tc := NewTikiEditSession(taskStore, gate, navController, nil)
+			tc := NewTikiEditSession(tikiStore, gate, navController, nil)
 
-			tt.setupTask(tc, taskStore)
+			tt.setupTask(tc, tikiStore)
 
 			got := tc.SaveDescription(tt.description)
 
@@ -763,11 +763,11 @@ func TestTikiEditSession_SaveDescription(t *testing.T) {
 // Test Edit Session Management
 
 func TestTikiEditSession_CommitEditSession_Draft(t *testing.T) {
-	taskStore := store.NewInMemoryStore()
+	tikiStore := store.NewInMemoryStore()
 	gate := service.NewTikiMutationGate()
-	gate.SetStore(taskStore)
+	gate.SetStore(tikiStore)
 	navController := newMockNavigationController()
-	tc := NewTikiEditSession(taskStore, gate, navController, nil)
+	tc := NewTikiEditSession(tikiStore, gate, navController, nil)
 
 	draft := newTestTikiWithID()
 	draft.Title = "Draft Title"
@@ -784,7 +784,7 @@ func TestTikiEditSession_CommitEditSession_Draft(t *testing.T) {
 	}
 
 	// Verify task was created in store
-	created := taskStore.GetTiki("DRAFT1")
+	created := tikiStore.GetTiki("DRAFT1")
 	if created == nil {
 		t.Fatal("Task was not created in store")
 		return
@@ -796,11 +796,11 @@ func TestTikiEditSession_CommitEditSession_Draft(t *testing.T) {
 }
 
 func TestTikiEditSession_CommitEditSession_DraftValidationFailure(t *testing.T) {
-	taskStore := store.NewInMemoryStore()
+	tikiStore := store.NewInMemoryStore()
 	gate := service.BuildGate()
-	gate.SetStore(taskStore)
+	gate.SetStore(tikiStore)
 	navController := newMockNavigationController()
-	tc := NewTikiEditSession(taskStore, gate, navController, nil)
+	tc := NewTikiEditSession(tikiStore, gate, navController, nil)
 
 	draft := newTestTikiWithID()
 	draft.Title = "" // Invalid - empty title
@@ -818,15 +818,15 @@ func TestTikiEditSession_CommitEditSession_DraftValidationFailure(t *testing.T) 
 }
 
 func TestTikiEditSession_CommitEditSession_Existing(t *testing.T) {
-	taskStore := store.NewInMemoryStore()
+	tikiStore := store.NewInMemoryStore()
 	gate := service.NewTikiMutationGate()
-	gate.SetStore(taskStore)
+	gate.SetStore(tikiStore)
 	navController := newMockNavigationController()
-	tc := NewTikiEditSession(taskStore, gate, navController, nil)
+	tc := NewTikiEditSession(tikiStore, gate, navController, nil)
 
 	// Create original task
 	original := newTestTask()
-	_ = taskStore.CreateTiki(original)
+	_ = tikiStore.CreateTiki(original)
 
 	// Start edit session and modify
 	tc.StartEditSession(original.ID)
@@ -843,7 +843,7 @@ func TestTikiEditSession_CommitEditSession_Existing(t *testing.T) {
 	}
 
 	// Verify task was updated in store
-	updated := taskStore.GetTiki(original.ID)
+	updated := tikiStore.GetTiki(original.ID)
 	if updated == nil {
 		t.Fatal("Task not found in store")
 		return
@@ -855,11 +855,11 @@ func TestTikiEditSession_CommitEditSession_Existing(t *testing.T) {
 }
 
 func TestTikiEditSession_CommitEditSession_NoActiveSession(t *testing.T) {
-	taskStore := store.NewInMemoryStore()
+	tikiStore := store.NewInMemoryStore()
 	gate := service.NewTikiMutationGate()
-	gate.SetStore(taskStore)
+	gate.SetStore(tikiStore)
 	navController := newMockNavigationController()
-	tc := NewTikiEditSession(taskStore, gate, navController, nil)
+	tc := NewTikiEditSession(tikiStore, gate, navController, nil)
 
 	err := tc.CommitEditSession()
 	if err != nil {
@@ -870,18 +870,18 @@ func TestTikiEditSession_CommitEditSession_NoActiveSession(t *testing.T) {
 // Test Helper Methods
 
 func TestTikiEditSession_GetCurrentTask(t *testing.T) {
-	taskStore := store.NewInMemoryStore()
+	tikiStore := store.NewInMemoryStore()
 	gate := service.NewTikiMutationGate()
-	gate.SetStore(taskStore)
+	gate.SetStore(tikiStore)
 	navController := newMockNavigationController()
-	tc := NewTikiEditSession(taskStore, gate, navController, nil)
+	tc := NewTikiEditSession(tikiStore, gate, navController, nil)
 
 	// Create task
 	original := newTestTask()
-	_ = taskStore.CreateTiki(original)
+	_ = tikiStore.CreateTiki(original)
 
 	// Set as current
-	tc.SetCurrentTask(original.ID)
+	tc.SetCurrentTiki(original.ID)
 
 	current := tc.GetCurrentTiki()
 	if current == nil {
@@ -895,26 +895,26 @@ func TestTikiEditSession_GetCurrentTask(t *testing.T) {
 }
 
 func TestTikiEditSession_GetCurrentTask_Empty(t *testing.T) {
-	taskStore := store.NewInMemoryStore()
+	tikiStore := store.NewInMemoryStore()
 	gate := service.NewTikiMutationGate()
-	gate.SetStore(taskStore)
+	gate.SetStore(tikiStore)
 	navController := newMockNavigationController()
-	tc := NewTikiEditSession(taskStore, gate, navController, nil)
+	tc := NewTikiEditSession(tikiStore, gate, navController, nil)
 
 	current := tc.GetCurrentTiki()
 	if current != nil {
-		t.Error("GetCurrentTask should return nil when currentTaskID is empty")
+		t.Error("GetCurrentTask should return nil when currentTikiID is empty")
 	}
 }
 
 func TestTikiEditSession_GetCurrentTask_NonExistent(t *testing.T) {
-	taskStore := store.NewInMemoryStore()
+	tikiStore := store.NewInMemoryStore()
 	gate := service.NewTikiMutationGate()
-	gate.SetStore(taskStore)
+	gate.SetStore(tikiStore)
 	navController := newMockNavigationController()
-	tc := NewTikiEditSession(taskStore, gate, navController, nil)
+	tc := NewTikiEditSession(tikiStore, gate, navController, nil)
 
-	tc.SetCurrentTask("NONEXISTENT")
+	tc.SetCurrentTiki("NONEXISTENT")
 
 	current := tc.GetCurrentTiki()
 	if current != nil {
@@ -925,11 +925,11 @@ func TestTikiEditSession_GetCurrentTask_NonExistent(t *testing.T) {
 // Test Action Registry
 
 func TestTikiEditSession_GetActionRegistry(t *testing.T) {
-	taskStore := store.NewInMemoryStore()
+	tikiStore := store.NewInMemoryStore()
 	gate := service.NewTikiMutationGate()
-	gate.SetStore(taskStore)
+	gate.SetStore(tikiStore)
 	navController := newMockNavigationController()
-	tc := NewTikiEditSession(taskStore, gate, navController, nil)
+	tc := NewTikiEditSession(tikiStore, gate, navController, nil)
 
 	registry := tc.GetActionRegistry()
 	if registry == nil {
@@ -944,11 +944,11 @@ func TestTikiEditSession_GetActionRegistry(t *testing.T) {
 }
 
 func TestTikiEditSession_GetEditActionRegistry(t *testing.T) {
-	taskStore := store.NewInMemoryStore()
+	tikiStore := store.NewInMemoryStore()
 	gate := service.NewTikiMutationGate()
-	gate.SetStore(taskStore)
+	gate.SetStore(tikiStore)
 	navController := newMockNavigationController()
-	tc := NewTikiEditSession(taskStore, gate, navController, nil)
+	tc := NewTikiEditSession(tikiStore, gate, navController, nil)
 
 	registry := tc.GetEditActionRegistry()
 	if registry == nil {
@@ -965,11 +965,11 @@ func TestTikiEditSession_GetEditActionRegistry(t *testing.T) {
 // Test Focused Field
 
 func TestTikiEditSession_FocusedField(t *testing.T) {
-	taskStore := store.NewInMemoryStore()
+	tikiStore := store.NewInMemoryStore()
 	gate := service.NewTikiMutationGate()
-	gate.SetStore(taskStore)
+	gate.SetStore(tikiStore)
 	navController := newMockNavigationController()
-	tc := NewTikiEditSession(taskStore, gate, navController, nil)
+	tc := NewTikiEditSession(tikiStore, gate, navController, nil)
 
 	// Initially should be empty
 	if tc.GetFocusedField() != "" {
@@ -1042,13 +1042,13 @@ func TestTikiEditSession_SaveDue(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			taskStore := store.NewInMemoryStore()
+			tikiStore := store.NewInMemoryStore()
 			gate := service.NewTikiMutationGate()
-			gate.SetStore(taskStore)
+			gate.SetStore(tikiStore)
 			navController := newMockNavigationController()
-			tc := NewTikiEditSession(taskStore, gate, navController, nil)
+			tc := NewTikiEditSession(tikiStore, gate, navController, nil)
 
-			tt.setupTask(tc, taskStore)
+			tt.setupTask(tc, tikiStore)
 
 			got := tc.SaveDue(tt.dateStr)
 
@@ -1092,16 +1092,16 @@ func TestTikiEditSession_HandleAction(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			taskStore := store.NewInMemoryStore()
+			tikiStore := store.NewInMemoryStore()
 			gate := service.NewTikiMutationGate()
-			gate.SetStore(taskStore)
+			gate.SetStore(tikiStore)
 			navController := newMockNavigationController()
-			tc := NewTikiEditSession(taskStore, gate, navController, nil)
+			tc := NewTikiEditSession(tikiStore, gate, navController, nil)
 
 			if tt.hasTask {
 				original := newTestTask()
-				_ = taskStore.CreateTiki(original)
-				tc.SetCurrentTask(original.ID)
+				_ = tikiStore.CreateTiki(original)
+				tc.SetCurrentTiki(original.ID)
 			}
 
 			got := tc.HandleAction(tt.actionID)
@@ -1164,13 +1164,13 @@ func TestTikiEditSession_SaveRecurrence(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			taskStore := store.NewInMemoryStore()
+			tikiStore := store.NewInMemoryStore()
 			gate := service.NewTikiMutationGate()
-			gate.SetStore(taskStore)
+			gate.SetStore(tikiStore)
 			navController := newMockNavigationController()
-			tc := NewTikiEditSession(taskStore, gate, navController, nil)
+			tc := NewTikiEditSession(tikiStore, gate, navController, nil)
 
-			tt.setupTask(tc, taskStore)
+			tt.setupTask(tc, tikiStore)
 
 			got := tc.SaveRecurrence(tt.cron)
 			if got != tt.wantSuccess {
@@ -1196,14 +1196,14 @@ func TestTikiEditSession_SaveRecurrence(t *testing.T) {
 }
 
 func TestTikiEditSession_UpdateTiki(t *testing.T) {
-	taskStore := store.NewInMemoryStore()
+	tikiStore := store.NewInMemoryStore()
 	gate := service.NewTikiMutationGate()
-	gate.SetStore(taskStore)
+	gate.SetStore(tikiStore)
 	navController := newMockNavigationController()
-	tc := NewTikiEditSession(taskStore, gate, navController, nil)
+	tc := NewTikiEditSession(tikiStore, gate, navController, nil)
 
 	original := newTestTask()
-	_ = taskStore.CreateTiki(original)
+	_ = tikiStore.CreateTiki(original)
 
 	// Start an edit session, modify the title, and commit
 	tiki := tc.StartEditSession(original.ID)
@@ -1212,19 +1212,19 @@ func TestTikiEditSession_UpdateTiki(t *testing.T) {
 		t.Fatalf("CommitEditSession failed: %v", err)
 	}
 
-	persisted := taskStore.GetTiki(original.ID)
+	persisted := tikiStore.GetTiki(original.ID)
 	if persisted.Title != "Updated via UpdateTiki" {
 		t.Errorf("tiki not updated, got title %q", persisted.Title)
 	}
 }
 
 func TestTikiEditSession_AddComment(t *testing.T) {
-	taskStore := store.NewInMemoryStore()
+	tikiStore := store.NewInMemoryStore()
 	gate := service.NewTikiMutationGate()
-	gate.SetStore(taskStore)
+	gate.SetStore(tikiStore)
 	navController := newMockNavigationController()
 	statusline := model.NewStatuslineConfig()
-	tc := NewTikiEditSession(taskStore, gate, navController, statusline)
+	tc := NewTikiEditSession(tikiStore, gate, navController, statusline)
 
 	// no current task — should return false
 	if tc.AddComment("user", "hello") {
@@ -1232,14 +1232,14 @@ func TestTikiEditSession_AddComment(t *testing.T) {
 	}
 
 	original := newTestTask()
-	_ = taskStore.CreateTiki(original)
-	tc.SetCurrentTask(original.ID)
+	_ = tikiStore.CreateTiki(original)
+	tc.SetCurrentTiki(original.ID)
 
 	if !tc.AddComment("user", "hello") {
 		t.Error("expected true for successful comment")
 	}
 
-	persistedTiki := taskStore.GetTiki(original.ID)
+	persistedTiki := tikiStore.GetTiki(original.ID)
 	persistedComments, _ := persistedTiki.Fields["comments"].([]tikipkg.Comment)
 	if len(persistedComments) != 1 {
 		t.Fatalf("expected 1 comment, got %d", len(persistedComments))
@@ -1250,11 +1250,11 @@ func TestTikiEditSession_AddComment(t *testing.T) {
 }
 
 func TestTikiEditSession_HandleAction_EditSource(t *testing.T) {
-	taskStore := store.NewInMemoryStore()
+	tikiStore := store.NewInMemoryStore()
 	gate := service.NewTikiMutationGate()
-	gate.SetStore(taskStore)
+	gate.SetStore(tikiStore)
 	navController := newMockNavigationController()
-	tc := NewTikiEditSession(taskStore, gate, navController, nil)
+	tc := NewTikiEditSession(tikiStore, gate, navController, nil)
 
 	// with no task, should return false
 	got := tc.HandleAction(ActionEditSource)
@@ -1264,14 +1264,14 @@ func TestTikiEditSession_HandleAction_EditSource(t *testing.T) {
 }
 
 func TestTikiEditSession_CommitEditSession_UpdateError(t *testing.T) {
-	taskStore := store.NewInMemoryStore()
+	tikiStore := store.NewInMemoryStore()
 	gate := service.BuildGate()
-	gate.SetStore(taskStore)
+	gate.SetStore(tikiStore)
 	navController := newMockNavigationController()
-	tc := NewTikiEditSession(taskStore, gate, navController, nil)
+	tc := NewTikiEditSession(tikiStore, gate, navController, nil)
 
 	original := newTestTask()
-	_ = taskStore.CreateTiki(original)
+	_ = tikiStore.CreateTiki(original)
 	tc.StartEditSession(original.ID)
 	tc.editingTiki.Title = "" // invalid - empty title will fail validation
 
@@ -1282,14 +1282,14 @@ func TestTikiEditSession_CommitEditSession_UpdateError(t *testing.T) {
 }
 
 func TestTikiEditSession_SaveType_InvalidType(t *testing.T) {
-	taskStore := store.NewInMemoryStore()
+	tikiStore := store.NewInMemoryStore()
 	gate := service.NewTikiMutationGate()
-	gate.SetStore(taskStore)
+	gate.SetStore(tikiStore)
 	navController := newMockNavigationController()
-	tc := NewTikiEditSession(taskStore, gate, navController, nil)
+	tc := NewTikiEditSession(tikiStore, gate, navController, nil)
 
 	original := newTestTask()
-	_ = taskStore.CreateTiki(original)
+	_ = tikiStore.CreateTiki(original)
 	tc.StartEditSession(original.ID)
 
 	// unrecognized display string
@@ -1378,13 +1378,13 @@ func TestTikiEditSession_SaveTags(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			taskStore := store.NewInMemoryStore()
+			tikiStore := store.NewInMemoryStore()
 			gate := service.NewTikiMutationGate()
-			gate.SetStore(taskStore)
+			gate.SetStore(tikiStore)
 			navController := newMockNavigationController()
-			tc := NewTikiEditSession(taskStore, gate, navController, nil)
+			tc := NewTikiEditSession(tikiStore, gate, navController, nil)
 
-			tt.setupTask(tc, taskStore)
+			tt.setupTask(tc, tikiStore)
 
 			got := tc.SaveTags(tt.tags)
 

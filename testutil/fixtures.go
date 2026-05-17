@@ -7,17 +7,17 @@ import (
 	"strings"
 )
 
-// CreateTestTask creates a markdown task file with YAML frontmatter
-func CreateTestTask(dir, id, title, status, taskType string) error {
-	return CreateTestTaskWithDeps(dir, id, title, status, taskType, nil)
+// CreateTestTiki creates a markdown task file with YAML frontmatter
+func CreateTestTiki(dir, id, title, status, tikiType string) error {
+	return CreateTestTikiWithDeps(dir, id, title, status, tikiType, nil)
 }
 
-// CreateTestTaskWithDeps creates a markdown task file with optional dependsOn
+// CreateTestTikiWithDeps creates a markdown task file with optional dependsOn
 // IDs in the frontmatter. Accepts either bare ("ABC123") or legacy-looking
 // ("TIKI-ABC123") ids; the legacy prefix is stripped so the written file
 // conforms to the Phase 1 strict-load contract (bare id in frontmatter,
 // filename is <id>.md).
-func CreateTestTaskWithDeps(dir, id, title, status, taskType string, dependsOn []string) error {
+func CreateTestTikiWithDeps(dir, id, title, status, tikiType string, dependsOn []string) error {
 	bareID := normalizeBareID(id)
 	filename := bareID + ".md"
 	filePath := filepath.Join(dir, filename)
@@ -53,14 +53,14 @@ points: "3"
 tags: []
 %s---
 %s
-`, bareID, title, taskType, status, depsYAML, title)
+`, bareID, title, tikiType, status, depsYAML, title)
 
 	return os.WriteFile(filePath, []byte(content), 0o644)
 }
 
 // ID returns the bare 6-character document id corresponding to a test-friendly
 // shorthand like "TIKI-1" or "ABC". Accepts TIKI- prefix, any case, and any
-// length ≤ 6, padding with leading zeros. Use this in both CreateTestTask
+// length ≤ 6, padding with leading zeros. Use this in both CreateTestTiki
 // calls and in GetTask/test assertions so keys match end-to-end.
 func ID(raw string) string {
 	return normalizeBareID(raw)

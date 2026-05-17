@@ -43,7 +43,7 @@ type DepsController struct {
 // view the deps editor was opened from, then falls back to any other
 // kind: detail plugin loaded from workflow.yaml.
 func NewDepsController(
-	taskStore store.Store,
+	tikiStore store.Store,
 	mutationGate *service.TikiMutationGate,
 	pluginConfig *model.PluginConfig,
 	pluginDef *plugin.TikiPlugin,
@@ -54,7 +54,7 @@ func NewDepsController(
 ) *DepsController {
 	return &DepsController{
 		pluginBase: pluginBase{
-			taskStore:     taskStore,
+			tikiStore:     tikiStore,
 			mutationGate:  mutationGate,
 			pluginConfig:  pluginConfig,
 			pluginDef:     pluginDef,
@@ -100,8 +100,8 @@ func (dc *DepsController) HandleAction(actionID ActionID) bool {
 	case ActionMoveTaskRight:
 		return dc.handleMoveTask(1)
 	case ActionOpenFromPlugin:
-		taskID := dc.getSelectedTaskID(dc.GetFilteredTasksForLane)
-		if taskID == "" {
+		tikiID := dc.getSelectedTikiID(dc.GetFilteredTasksForLane)
+		if tikiID == "" {
 			return false
 		}
 		// Phase 3: route deps-editor "Open" through a configurable
@@ -119,7 +119,7 @@ func (dc *DepsController) HandleAction(actionID ActionID) bool {
 		}
 		dc.navController.PushView(
 			model.MakePluginViewID(targetName),
-			model.EncodePluginViewParams(model.PluginViewParams{TaskID: taskID}),
+			model.EncodePluginViewParams(model.PluginViewParams{TikiID: tikiID}),
 		)
 		return true
 	case ActionNewTask:
@@ -150,12 +150,12 @@ func (dc *DepsController) GetFilteredTasksForLane(lane int) []*tikipkg.Tiki {
 		return nil
 	}
 
-	contextTiki := dc.taskStore.GetTiki(dc.pluginDef.TikiID)
+	contextTiki := dc.tikiStore.GetTiki(dc.pluginDef.TikiID)
 	if contextTiki == nil {
 		return nil
 	}
 
-	allTikis := dc.taskStore.GetAllTikis()
+	allTikis := dc.tikiStore.GetAllTikis()
 	blocksSet := findBlockedTikis(allTikis, contextTiki.ID)
 	dependsSet := dc.resolveDependsTikis(contextTiki, allTikis)
 
@@ -194,7 +194,7 @@ func (dc *DepsController) handleMoveTask(offset int) bool {
 		return false
 	}
 
-	movedTaskID := dc.getSelectedTaskID(dc.GetFilteredTasksForLane)
+	movedTaskID := dc.getSelectedTikiID(dc.GetFilteredTasksForLane)
 	if movedTaskID == "" {
 		return false
 	}
@@ -233,7 +233,7 @@ func (dc *DepsController) handleMoveTask(offset int) bool {
 	}
 
 	executor := dc.newExecutor()
-	result, err := executor.Execute(stmt, dc.taskStore.GetAllTikis())
+	result, err := executor.Execute(stmt, dc.tikiStore.GetAllTikis())
 	if err != nil {
 		slog.Error("deps move: failed to execute ruki query", "query", query, "error", err)
 		return false
@@ -245,7 +245,7 @@ func (dc *DepsController) handleMoveTask(offset int) bool {
 
 	for _, tk := range result.Update.Updated {
 		if err := dc.mutationGate.UpdateTiki(context.Background(), tk); err != nil {
-			slog.Error("deps move: failed to update task", "task_id", tk.ID, "error", err)
+			slog.Error("deps move: failed to update task", "tiki_id", tk.ID, "error", err)
 			if dc.statusline != nil {
 				dc.statusline.SetMessage(err.Error(), model.MessageLevelError, true)
 			}
@@ -253,7 +253,7 @@ func (dc *DepsController) handleMoveTask(offset int) bool {
 		}
 	}
 
-	dc.selectTaskInLane(targetLane, movedTaskID, dc.GetFilteredTasksForLane)
+	dc.selectTikiInLane(targetLane, movedTaskID, dc.GetFilteredTasksForLane)
 	return true
 }
 

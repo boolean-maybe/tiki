@@ -21,12 +21,12 @@ import (
 
 // DokiView renders a documentation plugin (navigable markdown). It backs
 // `kind: wiki` views; `kind: detail` is rendered by the configurable detail
-// view in view/taskdetail and no longer flows through this type.
+// view in view/tikidetail and no longer flows through this type.
 // surfacedGlobals carries the workflow-level global actions (both
 // `kind: view` and `kind: ruki`) so the header and action palette (which
 // read this view's registry) show them alongside the built-in navigation
 // actions. Keyboard dispatch for both kinds is routed by DokiController.
-// taskStore is used to resolve `[[ID]]` wikilinks against the document
+// tikiStore is used to resolve `[[ID]]` wikilinks against the document
 // store. selectedTaskID still carries any selection threaded in via
 // PluginViewParams and is exposed through GetSelectedID() for action
 // enablement (e.g. `require: ["selection:one"]`); only the KindDetail
@@ -40,7 +40,7 @@ type DokiView struct {
 	registry            *controller.ActionRegistry
 	imageManager        *navtview.ImageManager
 	mermaidOpts         *nav.MermaidOptions
-	taskStore           store.ReadStore
+	tikiStore           store.ReadStore
 	surfacedGlobals     []plugin.PluginAction
 	selectedTaskID      string // selection carried in via PluginViewParams; surfaced through GetSelectedID() for action `require:` gates
 	actionChangeHandler func()
@@ -49,7 +49,7 @@ type DokiView struct {
 // NewDokiView creates a doki view. globalActions is the workflow's top-level
 // actions list; both `kind: view` and `kind: ruki` entries are surfaced in
 // the view registry (DokiController routes keyboard dispatch for both).
-// taskStore may be nil for unit tests that don't exercise wikilink
+// tikiStore may be nil for unit tests that don't exercise wikilink
 // resolution. selectedTaskID is the selection threaded in via
 // PluginViewParams; for `kind: wiki` (the only kind routed here today) it
 // is not used to fetch content (wiki binds via `path:`) but is exposed
@@ -59,7 +59,7 @@ func NewDokiView(
 	imageManager *navtview.ImageManager,
 	mermaidOpts *nav.MermaidOptions,
 	globalActions []plugin.PluginAction,
-	taskStore store.ReadStore,
+	tikiStore store.ReadStore,
 	selectedTaskID string,
 ) *DokiView {
 	dv := &DokiView{
@@ -67,7 +67,7 @@ func NewDokiView(
 		registry:        controller.NewActionRegistry(),
 		imageManager:    imageManager,
 		mermaidOpts:     mermaidOpts,
-		taskStore:       taskStore,
+		tikiStore:       tikiStore,
 		surfacedGlobals: surfacedGlobalActions(globalActions, pluginDef.GetName()),
 		selectedTaskID:  selectedTaskID,
 	}
@@ -156,7 +156,7 @@ func (dv *DokiView) build() {
 	// the fetched markdown resolve through the document store. The wrapper
 	// applies to every FetchContent call — initial load and every navigated
 	// click — so all markdown reaching the renderer has been processed.
-	resolver := &markdown.StoreResolver{Store: dv.taskStore}
+	resolver := &markdown.StoreResolver{Store: dv.tikiStore}
 	provider := markdown.NewWikilinkProvider(fileProvider, resolver)
 
 	switch {
@@ -167,12 +167,12 @@ func (dv *DokiView) build() {
 		if sourcePath == "" {
 			sourcePath = target
 		}
-	case dv.pluginDef.GetKind() == plugin.KindDetail && dv.selectedTaskID != "" && dv.taskStore != nil:
+	case dv.pluginDef.GetKind() == plugin.KindDetail && dv.selectedTaskID != "" && dv.tikiStore != nil:
 		// 6B.2: render the selected document. The provider's bare-id
 		// lookup handles formatting the task body into markdown; wikilinks
 		// inside are resolved by the same WikilinkProvider wrapper.
 		content, err = provider.FetchContent(nav.NavElement{URL: dv.selectedTaskID})
-		if path := dv.taskStore.PathForID(dv.selectedTaskID); path != "" {
+		if path := dv.tikiStore.PathForID(dv.selectedTaskID); path != "" {
 			sourcePath = path
 		}
 	default:

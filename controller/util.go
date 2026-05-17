@@ -19,7 +19,7 @@ func generateID() string {
 }
 
 // setAuthorOnTiki best-effort populates createdBy on a tiki using the current git user via store.
-func setAuthorOnTiki(tk *tikipkg.Tiki, taskStore store.Store) {
+func setAuthorOnTiki(tk *tikipkg.Tiki, tikiStore store.Store) {
 	if tk == nil {
 		return
 	}
@@ -27,7 +27,7 @@ func setAuthorOnTiki(tk *tikipkg.Tiki, taskStore store.Store) {
 		return
 	}
 
-	name, email, err := taskStore.GetCurrentUser()
+	name, email, err := tikiStore.GetCurrentUser()
 	if err != nil {
 		return
 	}
@@ -50,8 +50,8 @@ func setAuthorOnTiki(tk *tikipkg.Tiki, taskStore store.Store) {
 // (name, or email when name is empty). Delegates to store.CurrentUserDisplay
 // so plugin-action executors see the same identity rule as the ruki runtime,
 // CLI exec, triggers, and pipe-create setup.
-func getCurrentUserName(taskStore store.Store) string {
-	display, err := store.CurrentUserDisplay(taskStore)
+func getCurrentUserName(tikiStore store.Store) string {
+	display, err := store.CurrentUserDisplay(tikiStore)
 	if err != nil {
 		return ""
 	}

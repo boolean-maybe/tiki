@@ -29,7 +29,7 @@ func (f *fakeUserStore) GetAllUsers() ([]string, error) { return nil, nil }
 func (f *fakeUserStore) AddListener(ChangeListener) int { return 0 }
 func (f *fakeUserStore) RemoveListener(int)             {}
 func (f *fakeUserStore) Reload() error                  { return nil }
-func (f *fakeUserStore) ReloadTask(string) error        { return nil }
+func (f *fakeUserStore) ReloadTiki(string) error        { return nil }
 func (f *fakeUserStore) PathForID(string) string        { return "" }
 
 func TestCurrentUserDisplay_NamePreferred(t *testing.T) {

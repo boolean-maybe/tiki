@@ -1,4 +1,4 @@
-package taskdetail
+package tikidetail
 
 import (
 	"fmt"
@@ -19,7 +19,7 @@ import (
 	"github.com/rivo/tview"
 )
 
-// DefaultEditMetadata is the canonical field list TaskEditView shows when
+// DefaultEditMetadata is the canonical field list TikiEditView shows when
 // no workflow-specific list is supplied. Title is first so the edit view
 // always starts focused on it. Single source of truth so the factory's
 // metadata-precedence resolver can fall back to it without hardcoding the
@@ -36,16 +36,16 @@ var DefaultEditMetadata = []string{
 	tikipkg.FieldTags,
 }
 
-// TaskEditView renders a task in full edit mode using the same fixed-shape
+// TikiEditView renders a task in full edit mode using the same fixed-shape
 // metadata grid as ConfigurableDetailView. The metadata field list is
 // supplied at construction time by the factory's precedence resolver
-// (TaskEditParams.Metadata → workflow Detail-plugin lookup →
+// (TikiEditParams.Metadata → workflow Detail-plugin lookup →
 // DefaultEditMetadata).
 //
 // Title is a regular grid field — its position in the Tab order derives
 // from its position in the metadata list. Description is appended as the
 // last Tab stop after all metadata fields.
-type TaskEditView struct {
+type TikiEditView struct {
 	Base
 
 	registry *controller.ActionRegistry
@@ -91,41 +91,41 @@ type TaskEditView struct {
 	// declared enum fields that lack a dedicated typed save handler. The
 	// coordinator installs this once and it dispatches by field name —
 	// this is how custom enums (severity, environment, etc.) flow through
-	// the full TaskEditView edit path.
+	// the full TikiEditView edit path.
 	onWorkflowEnumSave  func(name, canonicalKey string)
 	actionChangeHandler func()
 }
 
 // Compile-time interface checks
 var (
-	_ controller.View                 = (*TaskEditView)(nil)
-	_ controller.FocusSettable        = (*TaskEditView)(nil)
-	_ controller.ActionChangeNotifier = (*TaskEditView)(nil)
+	_ controller.View                 = (*TikiEditView)(nil)
+	_ controller.FocusSettable        = (*TikiEditView)(nil)
+	_ controller.ActionChangeNotifier = (*TikiEditView)(nil)
 )
 
-func (ev *TaskEditView) SetActionChangeHandler(handler func()) {
+func (ev *TikiEditView) SetActionChangeHandler(handler func()) {
 	ev.actionChangeHandler = handler
 }
 
-// NewTaskEditView creates a task edit view bound to the given metadata list.
+// NewTikiEditView creates a task edit view bound to the given metadata list.
 // The factory resolves the metadata source per the precedence rules and
 // passes the result here; an empty slice falls back to DefaultEditMetadata
 // so the view always has a non-empty navigation order.
-func NewTaskEditView(taskStore store.Store, taskID string, imageManager *navtview.ImageManager, metadata []string) *TaskEditView {
+func NewTikiEditView(tikiStore store.Store, tikiID string, imageManager *navtview.ImageManager, metadata []string) *TikiEditView {
 	if len(metadata) == 0 {
 		metadata = DefaultEditMetadata
 	}
 	order := model.MetadataToEditFieldOrder(metadata)
 	order = append(order, model.EditFieldDescription)
 
-	ev := &TaskEditView{
+	ev := &TikiEditView{
 		Base: Base{
-			taskStore:    taskStore,
-			taskID:       taskID,
+			tikiStore:    tikiStore,
+			tikiID:       tikiID,
 			imageManager: imageManager,
 		},
 		registry:       controller.GetActionsForField(model.EditFieldTitle),
-		viewID:         model.TaskEditViewID,
+		viewID:         model.TikiEditViewID,
 		metadata:       metadata,
 		editFieldOrder: order,
 		focusedField:   order[0],
@@ -145,49 +145,49 @@ func NewTaskEditView(taskStore store.Store, taskID string, imageManager *navtvie
 }
 
 // GetTiki returns the appropriate tiki based on mode (prioritizes editing copy)
-func (ev *TaskEditView) GetTiki() *tikipkg.Tiki {
-	if ev.taskController != nil {
-		if draftTiki := ev.taskController.GetDraftTiki(); draftTiki != nil {
+func (ev *TikiEditView) GetTiki() *tikipkg.Tiki {
+	if ev.tikiEditSession != nil {
+		if draftTiki := ev.tikiEditSession.GetDraftTiki(); draftTiki != nil {
 			return draftTiki
 		}
-		if editingTiki := ev.taskController.GetEditingTiki(); editingTiki != nil {
+		if editingTiki := ev.tikiEditSession.GetEditingTiki(); editingTiki != nil {
 			return editingTiki
 		}
 	}
 
-	tk := ev.taskStore.GetTiki(ev.taskID)
-	if tk == nil && ev.fallbackTiki != nil && ev.fallbackTiki.ID == ev.taskID {
+	tk := ev.tikiStore.GetTiki(ev.tikiID)
+	if tk == nil && ev.fallbackTiki != nil && ev.fallbackTiki.ID == ev.tikiID {
 		tk = ev.fallbackTiki
 	}
 	return tk
 }
 
 // GetActionRegistry returns the view's action registry
-func (ev *TaskEditView) GetActionRegistry() *controller.ActionRegistry {
+func (ev *TikiEditView) GetActionRegistry() *controller.ActionRegistry {
 	return ev.registry
 }
 
 // GetViewID returns the view identifier
-func (ev *TaskEditView) GetViewID() model.ViewID {
+func (ev *TikiEditView) GetViewID() model.ViewID {
 	return ev.viewID
 }
 
 // GetViewName returns the view name for the header info section
-func (ev *TaskEditView) GetViewName() string { return model.TaskEditViewName }
+func (ev *TikiEditView) GetViewName() string { return model.TikiEditViewName }
 
 // GetViewDescription returns the view description for the header info section
-func (ev *TaskEditView) GetViewDescription() string { return model.TaskEditViewDesc }
+func (ev *TikiEditView) GetViewDescription() string { return model.TikiEditViewDesc }
 
 // Metadata returns the configured metadata field list. Used by callers that
 // want to forward the same metadata shape into a downstream view (e.g. the
 // configurable detail view exposes this so the input router can copy it
-// into TaskEditParams when opening the edit view from a detail context).
-func (ev *TaskEditView) Metadata() []string {
+// into TikiEditParams when opening the edit view from a detail context).
+func (ev *TikiEditView) Metadata() []string {
 	return ev.metadata
 }
 
 // SetDescOnly enables description-only edit mode where metadata is read-only.
-func (ev *TaskEditView) SetDescOnly(descOnly bool) {
+func (ev *TikiEditView) SetDescOnly(descOnly bool) {
 	ev.descOnly = descOnly
 	if descOnly {
 		ev.focusedField = model.EditFieldDescription
@@ -200,13 +200,13 @@ func (ev *TaskEditView) SetDescOnly(descOnly bool) {
 }
 
 // IsDescOnly returns whether the view is in description-only edit mode.
-func (ev *TaskEditView) IsDescOnly() bool {
+func (ev *TikiEditView) IsDescOnly() bool {
 	return ev.descOnly
 }
 
 // SetTagsOnly enables tags-only edit mode where metadata is read-only and
 // the description area is replaced with a tags textarea.
-func (ev *TaskEditView) SetTagsOnly(tagsOnly bool) {
+func (ev *TikiEditView) SetTagsOnly(tagsOnly bool) {
 	ev.tagsOnly = tagsOnly
 	if tagsOnly {
 		ev.registry = controller.TagsOnlyEditActions()
@@ -218,22 +218,22 @@ func (ev *TaskEditView) SetTagsOnly(tagsOnly bool) {
 }
 
 // IsTagsOnly returns whether the view is in tags-only edit mode.
-func (ev *TaskEditView) IsTagsOnly() bool {
+func (ev *TikiEditView) IsTagsOnly() bool {
 	return ev.tagsOnly
 }
 
 // OnFocus is called when the view becomes active
-func (ev *TaskEditView) OnFocus() {
+func (ev *TikiEditView) OnFocus() {
 	ev.refresh()
 }
 
 // OnBlur is called when the view becomes inactive
-func (ev *TaskEditView) OnBlur() {
+func (ev *TikiEditView) OnBlur() {
 	// No listener to clean up in edit mode
 }
 
 // refresh re-renders the view
-func (ev *TaskEditView) refresh() {
+func (ev *TikiEditView) refresh() {
 	ev.content.Clear()
 	ev.descView = nil
 
@@ -265,7 +265,7 @@ func (ev *TaskEditView) refresh() {
 // buildMetadataBox builds the framed metadata box with the configurable
 // grid. Mirrors ConfigurableDetailView's shape — gridded fields turn into
 // editors when focused (including title as an InputField).
-func (ev *TaskEditView) buildMetadataBox(tk *tikipkg.Tiki, roles *theme.Theme) (*tview.Frame, int) {
+func (ev *TikiEditView) buildMetadataBox(tk *tikipkg.Tiki, roles *theme.Theme) (*tview.Frame, int) {
 	mode := RenderModeEdit
 	if ev.descOnly || ev.tagsOnly {
 		mode = RenderModeView
@@ -274,7 +274,7 @@ func (ev *TaskEditView) buildMetadataBox(tk *tikipkg.Tiki, roles *theme.Theme) (
 		Mode:         mode,
 		FocusedField: ev.focusedField,
 		Roles:        roles,
-		Store:        ev.taskStore,
+		Store:        ev.tikiStore,
 	}
 
 	spec, primitives := ev.buildGridSpecAndPrimitives(tk, ctx)
@@ -298,11 +298,11 @@ func (ev *TaskEditView) buildMetadataBox(tk *tikipkg.Tiki, roles *theme.Theme) (
 // metadata field) instead of the read-only render. Editors are cached on
 // ev.editors so user input survives across refreshes.
 //
-// TaskEditView has a flat metadata list rather than a parsed grid; it
+// TikiEditView has a flat metadata list rather than a parsed grid; it
 // packs the list into columns of rowsPerPackedColumn rows so the
 // shared grid container can lay them out without overflowing the
 // fixed-height metadata box.
-func (ev *TaskEditView) buildGridSpecAndPrimitives(tk *tikipkg.Tiki, ctx FieldRenderContext) (gridlayout.GridSpec, []tview.Primitive) {
+func (ev *TikiEditView) buildGridSpecAndPrimitives(tk *tikipkg.Tiki, ctx FieldRenderContext) (gridlayout.GridSpec, []tview.Primitive) {
 	spec := greedyPackedSpec(ev.metadata)
 	primitives := make([]tview.Primitive, len(spec.Anchors))
 	for i, a := range spec.Anchors {
@@ -315,7 +315,7 @@ func (ev *TaskEditView) buildGridSpecAndPrimitives(tk *tikipkg.Tiki, ctx FieldRe
 // is in normal edit mode, else the read-only renderer. Editors come from
 // the field registry; their string-shaped onChange is bridged to the typed
 // save callbacks via adapterForField.
-func (ev *TaskEditView) gridFieldPrimitive(name string, tk *tikipkg.Tiki, ctx FieldRenderContext) tview.Primitive {
+func (ev *TikiEditView) gridFieldPrimitive(name string, tk *tikipkg.Tiki, ctx FieldRenderContext) tview.Primitive {
 	if name == "title" {
 		return ev.titleGridPrimitive(tk, ctx)
 	}
@@ -363,7 +363,7 @@ func editFieldFor(name string) model.EditField {
 	return ""
 }
 
-func (ev *TaskEditView) titleGridPrimitive(tk *tikipkg.Tiki, ctx FieldRenderContext) tview.Primitive {
+func (ev *TikiEditView) titleGridPrimitive(tk *tikipkg.Tiki, ctx FieldRenderContext) tview.Primitive {
 	if ev.descOnly || ev.tagsOnly {
 		return RenderTitleText(tk, ctx, "", "")
 	}
@@ -377,11 +377,11 @@ func (ev *TaskEditView) titleGridPrimitive(tk *tikipkg.Tiki, ctx FieldRenderCont
 }
 
 // adapterForField returns the registry's onChange(string) callback that
-// parses the string back to the typed value and invokes TaskEditView's
+// parses the string back to the typed value and invokes TikiEditView's
 // typed save handler. Lives here (not on the registry) so the registry's
 // editor factories can stay view-agnostic; the adapter encodes the
 // view-specific typed-handler chain.
-func (ev *TaskEditView) adapterForField(name string) func(string) {
+func (ev *TikiEditView) adapterForField(name string) func(string) {
 	switch name {
 	case tikipkg.FieldStatus:
 		return func(d string) {
@@ -468,7 +468,7 @@ func (ev *TaskEditView) adapterForField(name string) func(string) {
 // wired onTagsSave handler. Called by the coordinator's handleSaveKey when
 // Ctrl+S lands on a focused tags field in non-tagsOnly mode — drives the
 // CommitNoClose path the coordinator wired in Prepare.
-func (ev *TaskEditView) SaveTagsFromTextArea() {
+func (ev *TikiEditView) SaveTagsFromTextArea() {
 	w, ok := ev.editors[tikipkg.FieldTags]
 	if !ok || w == nil {
 		return
@@ -480,7 +480,7 @@ func (ev *TaskEditView) SaveTagsFromTextArea() {
 
 // SaveDescriptionFromTextArea reads the description textarea and fires the
 // wired onDescSave. Counterpart to SaveTagsFromTextArea for descriptions.
-func (ev *TaskEditView) SaveDescriptionFromTextArea() {
+func (ev *TikiEditView) SaveDescriptionFromTextArea() {
 	if ev.descTextArea == nil {
 		return
 	}
@@ -490,7 +490,7 @@ func (ev *TaskEditView) SaveDescriptionFromTextArea() {
 }
 
 // isDueReadOnly returns true when recurrence is set, making Due auto-computed.
-func (ev *TaskEditView) isDueReadOnly() bool {
+func (ev *TikiEditView) isDueReadOnly() bool {
 	tk := ev.GetTiki()
 	if tk == nil {
 		return false
@@ -502,7 +502,7 @@ func (ev *TaskEditView) isDueReadOnly() bool {
 // syncDueFromTask updates the cached due editor (if any) to reflect the
 // auto-computed Due from the in-memory tiki. Called after recurrence
 // changes.
-func (ev *TaskEditView) syncDueFromTask() {
+func (ev *TikiEditView) syncDueFromTask() {
 	w, ok := ev.editors[tikipkg.FieldDue]
 	if !ok || w == nil {
 		return
@@ -512,12 +512,12 @@ func (ev *TaskEditView) syncDueFromTask() {
 	delete(ev.editors, tikipkg.FieldDue)
 }
 
-func (ev *TaskEditView) buildDescription(tk *tikipkg.Tiki) tview.Primitive {
+func (ev *TikiEditView) buildDescription(tk *tikipkg.Tiki) tview.Primitive {
 	textArea := ev.ensureDescTextArea(tk)
 	return textArea
 }
 
-func (ev *TaskEditView) ensureDescTextArea(tk *tikipkg.Tiki) *tview.TextArea {
+func (ev *TikiEditView) ensureDescTextArea(tk *tikipkg.Tiki) *tview.TextArea {
 	if ev.descTextArea == nil {
 		ev.descTextArea = tview.NewTextArea()
 		ev.descTextArea.SetBorder(false)
@@ -549,7 +549,7 @@ func (ev *TaskEditView) ensureDescTextArea(tk *tikipkg.Tiki) *tview.TextArea {
 	return ev.descTextArea
 }
 
-func (ev *TaskEditView) ensureTagsTextArea(tk *tikipkg.Tiki) *tview.TextArea {
+func (ev *TikiEditView) ensureTagsTextArea(tk *tikipkg.Tiki) *tview.TextArea {
 	if ev.tagsTextArea == nil {
 		ev.tagsTextArea = tview.NewTextArea()
 		ev.tagsTextArea.SetBorder(false)
@@ -587,7 +587,7 @@ func (ev *TaskEditView) ensureTagsTextArea(tk *tikipkg.Tiki) *tview.TextArea {
 // GetEditedTags returns the current tags from the active tags editor.
 // In tags-only mode the source is the dedicated tagsTextArea; in grid mode
 // the source is the cached registry editor (whitespace-joined string).
-func (ev *TaskEditView) GetEditedTags() []string {
+func (ev *TikiEditView) GetEditedTags() []string {
 	if ev.tagsOnly && ev.tagsTextArea != nil {
 		return strings.Fields(ev.tagsTextArea.GetText())
 	}
@@ -604,7 +604,7 @@ func (ev *TaskEditView) GetEditedTags() []string {
 
 // ShowTagsEditor displays the tags text area (tags-only mode) and returns
 // the primitive to focus.
-func (ev *TaskEditView) ShowTagsEditor() tview.Primitive {
+func (ev *TikiEditView) ShowTagsEditor() tview.Primitive {
 	tk := ev.GetTiki()
 	if tk == nil {
 		return nil
@@ -616,7 +616,7 @@ func (ev *TaskEditView) ShowTagsEditor() tview.Primitive {
 // Used by the input router to route Ctrl+S/Esc through the coordinator. In
 // tags-only mode, the source is the dedicated tagsTextArea; in grid mode,
 // the source is the cached registry editor under tikipkg.FieldTags.
-func (ev *TaskEditView) IsTagsTextAreaFocused() bool {
+func (ev *TikiEditView) IsTagsTextAreaFocused() bool {
 	if ev.tagsOnly && ev.tagsTextArea != nil && ev.tagsTextArea.HasFocus() {
 		return true
 	}
@@ -627,16 +627,16 @@ func (ev *TaskEditView) IsTagsTextAreaFocused() bool {
 }
 
 // SetTagsSaveHandler sets the callback for when tags are saved
-func (ev *TaskEditView) SetTagsSaveHandler(handler func(string)) {
+func (ev *TikiEditView) SetTagsSaveHandler(handler func(string)) {
 	ev.onTagsSave = handler
 }
 
 // SetTagsCancelHandler sets the callback for when tags editing is cancelled
-func (ev *TaskEditView) SetTagsCancelHandler(handler func()) {
+func (ev *TikiEditView) SetTagsCancelHandler(handler func()) {
 	ev.onTagsCancel = handler
 }
 
-func (ev *TaskEditView) ensureTitleInput(tk *tikipkg.Tiki) *tview.InputField {
+func (ev *TikiEditView) ensureTitleInput(tk *tikipkg.Tiki) *tview.InputField {
 	if ev.titleInput == nil {
 		roles := theme.Roles()
 		ev.titleInput = tview.NewInputField()
@@ -675,7 +675,7 @@ func (ev *TaskEditView) ensureTitleInput(tk *tikipkg.Tiki) *tview.InputField {
 
 // updateValidationState runs validation checks and updates the border color.
 // Builds a tiki snapshot from current widget values and validates each field.
-func (ev *TaskEditView) updateValidationState() {
+func (ev *TikiEditView) updateValidationState() {
 	snapshot := ev.buildTikiSnapshotFromWidgets()
 	if snapshot == nil {
 		return
@@ -702,7 +702,7 @@ func (ev *TaskEditView) updateValidationState() {
 // values for validation purposes — overlaying live widget state onto the
 // stored tiki. Reads from registry editors (cached on ev.editors) where
 // available, falls back to the persisted values otherwise.
-func (ev *TaskEditView) buildTikiSnapshotFromWidgets() *tikipkg.Tiki {
+func (ev *TikiEditView) buildTikiSnapshotFromWidgets() *tikipkg.Tiki {
 	tk := ev.GetTiki()
 	if tk == nil {
 		return nil
@@ -765,7 +765,7 @@ func (ev *TaskEditView) buildTikiSnapshotFromWidgets() *tikipkg.Tiki {
 }
 
 // EnterFullscreen switches the view to fullscreen mode
-func (ev *TaskEditView) EnterFullscreen() {
+func (ev *TikiEditView) EnterFullscreen() {
 	if ev.fullscreen {
 		return
 	}
@@ -780,7 +780,7 @@ func (ev *TaskEditView) EnterFullscreen() {
 }
 
 // ExitFullscreen restores the regular task detail layout
-func (ev *TaskEditView) ExitFullscreen() {
+func (ev *TikiEditView) ExitFullscreen() {
 	if !ev.fullscreen {
 		return
 	}
@@ -795,7 +795,7 @@ func (ev *TaskEditView) ExitFullscreen() {
 }
 
 // ShowTitleEditor displays the title input field
-func (ev *TaskEditView) ShowTitleEditor() tview.Primitive {
+func (ev *TikiEditView) ShowTitleEditor() tview.Primitive {
 	tk := ev.GetTiki()
 	if tk == nil {
 		return nil
@@ -804,35 +804,35 @@ func (ev *TaskEditView) ShowTitleEditor() tview.Primitive {
 }
 
 // HideTitleEditor is a no-op in edit mode (title always visible)
-func (ev *TaskEditView) HideTitleEditor() {}
+func (ev *TikiEditView) HideTitleEditor() {}
 
 // IsTitleEditing returns whether the title is being edited (always true in edit mode)
-func (ev *TaskEditView) IsTitleEditing() bool {
+func (ev *TikiEditView) IsTitleEditing() bool {
 	return ev.titleEditing
 }
 
 // IsTitleInputFocused returns whether the title input has focus
-func (ev *TaskEditView) IsTitleInputFocused() bool {
+func (ev *TikiEditView) IsTitleInputFocused() bool {
 	return ev.titleEditing && ev.titleInput != nil && ev.titleInput.HasFocus()
 }
 
 // SetTitleSaveHandler sets the callback for when title is saved
-func (ev *TaskEditView) SetTitleSaveHandler(handler func(string)) {
+func (ev *TikiEditView) SetTitleSaveHandler(handler func(string)) {
 	ev.onTitleSave = handler
 }
 
 // SetTitleChangeHandler sets the callback for when title changes
-func (ev *TaskEditView) SetTitleChangeHandler(handler func(string)) {
+func (ev *TikiEditView) SetTitleChangeHandler(handler func(string)) {
 	ev.onTitleChange = handler
 }
 
 // SetTitleCancelHandler sets the callback for when title editing is cancelled
-func (ev *TaskEditView) SetTitleCancelHandler(handler func()) {
+func (ev *TikiEditView) SetTitleCancelHandler(handler func()) {
 	ev.onTitleCancel = handler
 }
 
 // ShowDescriptionEditor displays the description text area
-func (ev *TaskEditView) ShowDescriptionEditor() tview.Primitive {
+func (ev *TikiEditView) ShowDescriptionEditor() tview.Primitive {
 	tk := ev.GetTiki()
 	if tk == nil {
 		return nil
@@ -841,30 +841,30 @@ func (ev *TaskEditView) ShowDescriptionEditor() tview.Primitive {
 }
 
 // HideDescriptionEditor is a no-op in edit mode
-func (ev *TaskEditView) HideDescriptionEditor() {}
+func (ev *TikiEditView) HideDescriptionEditor() {}
 
 // IsDescriptionEditing returns whether the description is being edited
-func (ev *TaskEditView) IsDescriptionEditing() bool {
+func (ev *TikiEditView) IsDescriptionEditing() bool {
 	return ev.descEditing
 }
 
 // IsDescriptionTextAreaFocused returns whether the description text area has focus
-func (ev *TaskEditView) IsDescriptionTextAreaFocused() bool {
+func (ev *TikiEditView) IsDescriptionTextAreaFocused() bool {
 	return ev.descEditing && ev.descTextArea != nil && ev.descTextArea.HasFocus()
 }
 
 // SetDescriptionSaveHandler sets the callback for when description is saved
-func (ev *TaskEditView) SetDescriptionSaveHandler(handler func(string)) {
+func (ev *TikiEditView) SetDescriptionSaveHandler(handler func(string)) {
 	ev.onDescSave = handler
 }
 
 // SetDescriptionCancelHandler sets the callback for when description editing is cancelled
-func (ev *TaskEditView) SetDescriptionCancelHandler(handler func()) {
+func (ev *TikiEditView) SetDescriptionCancelHandler(handler func()) {
 	ev.onDescCancel = handler
 }
 
 // GetEditedTitle returns the current title in the editor
-func (ev *TaskEditView) GetEditedTitle() string {
+func (ev *TikiEditView) GetEditedTitle() string {
 	if ev.titleInput != nil {
 		return ev.titleInput.GetText()
 	}
@@ -876,7 +876,7 @@ func (ev *TaskEditView) GetEditedTitle() string {
 }
 
 // GetEditedDescription returns the current description text in the editor
-func (ev *TaskEditView) GetEditedDescription() string {
+func (ev *TikiEditView) GetEditedDescription() string {
 	if ev.descTextArea != nil {
 		return ev.descTextArea.GetText()
 	}
@@ -888,44 +888,44 @@ func (ev *TaskEditView) GetEditedDescription() string {
 }
 
 // SetStatusSaveHandler sets the callback for when status is saved
-func (ev *TaskEditView) SetStatusSaveHandler(handler func(string)) {
+func (ev *TikiEditView) SetStatusSaveHandler(handler func(string)) {
 	ev.onStatusSave = handler
 }
 
 // SetTypeSaveHandler sets the callback for when type is saved
-func (ev *TaskEditView) SetTypeSaveHandler(handler func(string)) {
+func (ev *TikiEditView) SetTypeSaveHandler(handler func(string)) {
 	ev.onTypeSave = handler
 }
 
 // SetPrioritySaveHandler sets the callback for when priority is saved.
 // The handler receives the canonical enum key (or empty string for delete).
-func (ev *TaskEditView) SetPrioritySaveHandler(handler func(string)) {
+func (ev *TikiEditView) SetPrioritySaveHandler(handler func(string)) {
 	ev.onPrioritySave = handler
 }
 
 // SetWorkflowEnumSaveHandler installs the dispatcher for custom workflow
 // enum saves — fields like severity / environment that don't have their
 // own typed save handler. The handler receives (fieldName, canonicalKey).
-func (ev *TaskEditView) SetWorkflowEnumSaveHandler(handler func(name, canonicalKey string)) {
+func (ev *TikiEditView) SetWorkflowEnumSaveHandler(handler func(name, canonicalKey string)) {
 	ev.onWorkflowEnumSave = handler
 }
 
 // SetAssigneeSaveHandler sets the callback for when assignee is saved
-func (ev *TaskEditView) SetAssigneeSaveHandler(handler func(string)) {
+func (ev *TikiEditView) SetAssigneeSaveHandler(handler func(string)) {
 	ev.onAssigneeSave = handler
 }
 
 // SetPointsSaveHandler sets the callback for when story points is saved
-func (ev *TaskEditView) SetPointsSaveHandler(handler func(int)) {
+func (ev *TikiEditView) SetPointsSaveHandler(handler func(int)) {
 	ev.onPointsSave = handler
 }
 
 // SetDueSaveHandler sets the callback for when due date is saved
-func (ev *TaskEditView) SetDueSaveHandler(handler func(string)) {
+func (ev *TikiEditView) SetDueSaveHandler(handler func(string)) {
 	ev.onDueSave = handler
 }
 
 // SetRecurrenceSaveHandler sets the callback for when recurrence is saved
-func (ev *TaskEditView) SetRecurrenceSaveHandler(handler func(string)) {
+func (ev *TikiEditView) SetRecurrenceSaveHandler(handler func(string)) {
 	ev.onRecurrenceSave = handler
 }

@@ -1032,7 +1032,7 @@ func TestCustomFieldRoundTrip(t *testing.T) {
 	}
 
 	// reload
-	path := store.taskFilePath(original.ID)
+	path := store.tikiFilePath(original.ID)
 	loaded, err := store.loadTikiFile(path, nil, nil)
 	if err != nil {
 		t.Fatalf("loadTikiFile: %v", err)
@@ -1168,7 +1168,7 @@ func TestCustomFieldRoundTrip_AmbiguousStrings(t *testing.T) {
 				t.Fatalf("saveTiki: %v", err)
 			}
 
-			path := store.taskFilePath(original.ID)
+			path := store.tikiFilePath(original.ID)
 			loaded, err := store.loadTikiFile(path, nil, nil)
 			if err != nil {
 				t.Fatalf("loadTikiFile: %v", err)
@@ -1212,7 +1212,7 @@ func TestSaveTask_TimestampFieldKeepsTimeComponent(t *testing.T) {
 		t.Fatalf("saveTiki: %v", err)
 	}
 
-	loaded, err := store.loadTikiFile(store.taskFilePath(original.ID), nil, nil)
+	loaded, err := store.loadTikiFile(store.tikiFilePath(original.ID), nil, nil)
 	if err != nil {
 		t.Fatalf("loadTikiFile: %v", err)
 	}
@@ -1552,7 +1552,7 @@ func TestSaveTask_DedupesBuiltInCollections(t *testing.T) {
 		t.Fatalf("saveTiki: %v", err)
 	}
 
-	path := store.taskFilePath(input.ID)
+	path := store.tikiFilePath(input.ID)
 	loaded, err := store.loadTikiFile(path, nil, nil)
 	if err != nil {
 		t.Fatalf("loadTikiFile: %v", err)
@@ -1598,7 +1598,7 @@ func TestSaveTask_DedupesCustomListFields(t *testing.T) {
 		t.Fatalf("saveTiki: %v", err)
 	}
 
-	path := store.taskFilePath(input.ID)
+	path := store.tikiFilePath(input.ID)
 	loaded, err := store.loadTikiFile(path, nil, nil)
 	if err != nil {
 		t.Fatalf("loadTikiFile: %v", err)

@@ -171,8 +171,8 @@ type TitleEditableView interface {
 	SetFocusSetter(setter func(p tview.Primitive))
 }
 
-// TaskEditView exposes edited task fields for save operations
-type TaskEditView interface {
+// TikiEditView exposes edited task fields for save operations
+type TikiEditView interface {
 	View
 
 	// GetEditedTitle returns the current title text in the editor
@@ -317,7 +317,7 @@ type PaletteActionHandler interface {
 }
 
 // FocusRestorer is implemented by views that can recover focus after the palette closes
-// when the originally saved focused primitive is no longer valid (e.g., TaskDetailView
+// when the originally saved focused primitive is no longer valid (e.g., TikiDetailView
 // rebuilds its description primitive during store-driven refresh).
 type FocusRestorer interface {
 	RestoreFocus() bool

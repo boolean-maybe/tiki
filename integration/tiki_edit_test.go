@@ -60,9 +60,9 @@ func TestNewTask_Enter_SavesAndCreatesFile(t *testing.T) {
 	}
 
 	// Verify file exists on disk (filename uses lowercase ID)
-	taskPath := filepath.Join(ta.TaskDir, strings.ToLower(task.ID)+".md")
-	if _, err := os.Stat(taskPath); os.IsNotExist(err) {
-		t.Errorf("task file was not created at %s", taskPath)
+	tikiPath := filepath.Join(ta.TikiDir, strings.ToLower(task.ID)+".md")
+	if _, err := os.Stat(tikiPath); os.IsNotExist(err) {
+		t.Errorf("task file was not created at %s", tikiPath)
 	}
 }
 
@@ -95,7 +95,7 @@ func TestNewTask_Escape_DiscardsWithoutCreatingFile(t *testing.T) {
 	}
 
 	// Verify no tiki files on disk
-	files, _ := filepath.Glob(filepath.Join(ta.TaskDir, "tiki-*.md"))
+	files, _ := filepath.Glob(filepath.Join(ta.TikiDir, "tiki-*.md"))
 	if len(files) > 0 {
 		t.Errorf("task files should not exist, but found: %v", files)
 	}
@@ -143,9 +143,9 @@ func TestEditSource_DuplicateCaseIDs_Repro(t *testing.T) {
 	defer ta.Cleanup()
 
 	// Create a task with lowercase suffix ID directly in the store.
-	taskID := "6EQDUE"
+	tikiID := "6EQDUE"
 	tk := tikipkg.New()
-	tk.ID = taskID
+	tk.ID = tikiID
 	tk.Title = "Edit Source Duplicate"
 	tk.Set("type", "story")
 	tk.Set("status", "backlog")
@@ -170,11 +170,11 @@ func TestEditSource_DuplicateCaseIDs_Repro(t *testing.T) {
 
 	// Phase 3: open the configurable detail view directly. The Edit
 	// source ('s') keybinding now lives on the configurable detail
-	// view's registry; the legacy TaskDetailViewID is no longer the
+	// view's registry; the legacy TikiDetailViewID is no longer the
 	// host for the edit-source flow.
 	ta.NavController.PushView(
 		model.DetailPluginViewID(),
-		model.EncodePluginViewParams(model.PluginViewParams{TaskID: taskID}),
+		model.EncodePluginViewParams(model.PluginViewParams{TikiID: tikiID}),
 	)
 	ta.Draw()
 
@@ -199,9 +199,9 @@ func TestEditSource_DuplicateCaseIDs_Repro(t *testing.T) {
 	}
 
 	// Ensure file path is the lowercased ID (edit source uses this file).
-	taskFilePath := filepath.Join(ta.TaskDir, strings.ToLower(taskID)+".md")
-	if _, err := os.Stat(taskFilePath); os.IsNotExist(err) {
-		t.Fatalf("expected task file to exist at %s", taskFilePath)
+	tikiFilePath := filepath.Join(ta.TikiDir, strings.ToLower(tikiID)+".md")
+	if _, err := os.Stat(tikiFilePath); os.IsNotExist(err) {
+		t.Fatalf("expected task file to exist at %s", tikiFilePath)
 	}
 }
 
@@ -232,7 +232,7 @@ func TestNewTask_EmptyTitle_DoesNotSave(t *testing.T) {
 	}
 
 	// Verify no tiki files on disk
-	files, _ := filepath.Glob(filepath.Join(ta.TaskDir, "tiki-*.md"))
+	files, _ := filepath.Glob(filepath.Join(ta.TikiDir, "tiki-*.md"))
 	if len(files) > 0 {
 		t.Errorf("task files should not exist, but found: %v", files)
 	}
@@ -247,7 +247,7 @@ func TestNewTask_EmptyTitle_DoesNotSave(t *testing.T) {
 // task edit view via Enter → 'e' and asserted "Enter saves title" /
 // "Enter in Points field is a no-op". After Phase 2 the configurable
 // detail view's in-place edit mode owns those keystrokes; coverage
-// lives in view/taskdetail/configurable_detail_edit_test.go.
+// lives in view/tikidetail/configurable_detail_edit_test.go.
 
 // =============================================================================
 // PHASE 2: EXISTING TASK SAVE/CANCEL Tests
@@ -257,10 +257,10 @@ func TestNewTask_EmptyTitle_DoesNotSave(t *testing.T) {
 // TestTaskEdit_Escape_FromTitleField_Cancels,
 // TestTaskEdit_Escape_ClearsEditSessionState, and
 // TestTaskEdit_Escape_FromPointsField_Cancels were removed. They
-// asserted Ctrl+S/Escape semantics on the legacy 6-field TaskEditView
+// asserted Ctrl+S/Escape semantics on the legacy 6-field TikiEditView
 // reached via Enter → 'e'. Edit mode is now in-place on the
 // configurable detail view; equivalent save/cancel coverage lives in
-// view/taskdetail/configurable_detail_edit_test.go.
+// view/tikidetail/configurable_detail_edit_test.go.
 
 // =============================================================================
 // PHASE 3: FIELD NAVIGATION Tests
@@ -268,11 +268,11 @@ func TestNewTask_EmptyTitle_DoesNotSave(t *testing.T) {
 //
 // Phase 3 cleanup: TestTaskEdit_Tab_NavigatesForward and
 // TestTaskEdit_Navigation_PreservesChanges were removed. Both tested
-// Tab traversal across the legacy TaskEditView's 6 fields (Title,
+// Tab traversal across the legacy TikiEditView's 6 fields (Title,
 // Status, Type, Priority, Points, Assignee). The configurable detail
 // view's edit mode traverses only the workflow-declared metadata
 // (default [status, type, priority]); coverage of the new traversal
-// lives in view/taskdetail/configurable_detail_edit_test.go.
+// lives in view/tikidetail/configurable_detail_edit_test.go.
 
 // =============================================================================
 // PHASE 4: MULTI-FIELD OPERATIONS Tests
@@ -280,10 +280,10 @@ func TestNewTask_EmptyTitle_DoesNotSave(t *testing.T) {
 //
 // Phase 3 cleanup: TestTaskEdit_MultipleFields_AllSaved and
 // TestTaskEdit_MultipleFields_AllDiscarded were removed. They tested
-// the legacy 5-field TaskEditView (title/priority/points). The
+// the legacy 5-field TikiEditView (title/priority/points). The
 // configurable detail view's edit mode operates on the workflow's
 // declared metadata only (default [status, type, priority]); see
-// view/taskdetail/configurable_detail_edit_test.go for save/discard
+// view/tikidetail/configurable_detail_edit_test.go for save/discard
 // coverage of the new path.
 
 func TestNewTask_MultipleFields_AllSaved(t *testing.T) {

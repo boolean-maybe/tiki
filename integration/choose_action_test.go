@@ -54,13 +54,13 @@ func setupChooseActionTest(t *testing.T) *testutil.TestApp {
 		t.Fatalf("failed to load plugins: %v", err)
 	}
 
-	if err := testutil.CreateTestTask(ta.TaskDir, "000001", "My Story", "backlog", "story"); err != nil {
+	if err := testutil.CreateTestTiki(ta.TikiDir, "000001", "My Story", "backlog", "story"); err != nil {
 		t.Fatalf("failed to create story task: %v", err)
 	}
-	if err := testutil.CreateTestTask(ta.TaskDir, "000002", "My Epic", "backlog", "epic"); err != nil {
+	if err := testutil.CreateTestTiki(ta.TikiDir, "000002", "My Epic", "backlog", "epic"); err != nil {
 		t.Fatalf("failed to create epic task: %v", err)
 	}
-	if err := testutil.CreateTestTask(ta.TaskDir, "000003", "Another Epic", "backlog", "epic"); err != nil {
+	if err := testutil.CreateTestTiki(ta.TikiDir, "000003", "Another Epic", "backlog", "epic"); err != nil {
 		t.Fatalf("failed to create second epic task: %v", err)
 	}
 	if err := ta.TikiStore.Reload(); err != nil {
@@ -274,13 +274,13 @@ func setupFilteredEpicTest(t *testing.T) *testutil.TestApp {
 		t.Fatalf("failed to load plugins: %v", err)
 	}
 
-	if err := testutil.CreateTestTask(ta.TaskDir, "000001", "My Story", "backlog", "story"); err != nil {
+	if err := testutil.CreateTestTiki(ta.TikiDir, "000001", "My Story", "backlog", "story"); err != nil {
 		t.Fatalf("failed to create story task: %v", err)
 	}
-	if err := testutil.CreateTestTaskWithDeps(ta.TaskDir, "000002", "Linked Epic", "backlog", "epic", []string{"000001"}); err != nil {
+	if err := testutil.CreateTestTikiWithDeps(ta.TikiDir, "000002", "Linked Epic", "backlog", "epic", []string{"000001"}); err != nil {
 		t.Fatalf("failed to create linked epic task: %v", err)
 	}
-	if err := testutil.CreateTestTask(ta.TaskDir, "000003", "Available Epic", "backlog", "epic"); err != nil {
+	if err := testutil.CreateTestTiki(ta.TikiDir, "000003", "Available Epic", "backlog", "epic"); err != nil {
 		t.Fatalf("failed to create available epic task: %v", err)
 	}
 	if err := ta.TikiStore.Reload(); err != nil {
@@ -374,7 +374,7 @@ func setupScrollTest(t *testing.T) *testutil.TestApp {
 	for i := 0; i < 40; i++ {
 		id := fmt.Sprintf("TIKI-%06d", i)
 		title := fmt.Sprintf("ScrollTask%02d", i)
-		if err := testutil.CreateTestTask(ta.TaskDir, id, title, "backlog", "story"); err != nil {
+		if err := testutil.CreateTestTiki(ta.TikiDir, id, title, "backlog", "story"); err != nil {
 			t.Fatalf("create task %s: %v", id, err)
 		}
 	}

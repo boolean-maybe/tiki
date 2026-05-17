@@ -19,7 +19,7 @@ func TestPhase5_Create_TemplateDefaultsSurvive(t *testing.T) {
 	p := newTestParser()
 
 	// Mimic what NewTaskTemplate returns: workflow-capable with typed defaults.
-	template := tikiFromFixture(&taskFixture{
+	template := tikiFromFixture(&tikiFixture{
 		ID:         "NEWDOC",
 		Status:     "backlog",
 		Type:       "story",

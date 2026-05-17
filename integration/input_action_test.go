@@ -59,7 +59,7 @@ func setupInputActionTest(t *testing.T) *testutil.TestApp {
 		t.Fatalf("failed to load plugins: %v", err)
 	}
 
-	if err := testutil.CreateTestTask(ta.TaskDir, "000001", "Test Task", "backlog", "story"); err != nil {
+	if err := testutil.CreateTestTiki(ta.TikiDir, "000001", "Test Task", "backlog", "story"); err != nil {
 		t.Fatalf("failed to create task: %v", err)
 	}
 	if err := ta.TikiStore.Reload(); err != nil {
@@ -519,7 +519,7 @@ func TestInputAction_PreflightNoTaskSelected_NoPrompt(t *testing.T) {
 	defer ta.Cleanup()
 
 	// create a task, but it won't match the filter
-	if err := testutil.CreateTestTask(ta.TaskDir, "000001", "Test", "backlog", "story"); err != nil {
+	if err := testutil.CreateTestTiki(ta.TikiDir, "000001", "Test", "backlog", "story"); err != nil {
 		t.Fatalf("failed to create task: %v", err)
 	}
 	if err := ta.TikiStore.Reload(); err != nil {
@@ -627,7 +627,7 @@ func TestInputAction_CompositeKeyPluginAction(t *testing.T) {
 		t.Fatalf("failed to load plugins: %v", err)
 	}
 
-	if err := testutil.CreateTestTask(ta.TaskDir, "000001", "Blocked Task", "backlog", "story"); err != nil {
+	if err := testutil.CreateTestTiki(ta.TikiDir, "000001", "Blocked Task", "backlog", "story"); err != nil {
 		t.Fatalf("failed to create task: %v", err)
 	}
 	if err := ta.TikiStore.Reload(); err != nil {

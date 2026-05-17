@@ -51,10 +51,10 @@ func TestPluginView_MoveTaskAppliesLaneAction(t *testing.T) {
 	}
 	defer ta.Cleanup()
 
-	if err := testutil.CreateTestTask(ta.TaskDir, "000001", "Backlog Task", "backlog", "story"); err != nil {
+	if err := testutil.CreateTestTiki(ta.TikiDir, "000001", "Backlog Task", "backlog", "story"); err != nil {
 		t.Fatalf("failed to create task: %v", err)
 	}
-	if err := testutil.CreateTestTask(ta.TaskDir, "000002", "Done Task", "done", "story"); err != nil {
+	if err := testutil.CreateTestTiki(ta.TikiDir, "000002", "Done Task", "done", "story"); err != nil {
 		t.Fatalf("failed to create task: %v", err)
 	}
 	if err := ta.TikiStore.Reload(); err != nil {

@@ -85,11 +85,11 @@ func (s *TikiStore) loadLocked() error {
 			// resolve.
 			s.diagnostics.record(filePath, LoadReasonDuplicateID, err.Error())
 			slog.Error("duplicate document id detected, skipping later occurrence",
-				"task_id", tk.ID, "file", filePath, "error", err)
+				"tiki_id", tk.ID, "file", filePath, "error", err)
 			continue
 		}
 		s.tikis[tk.ID] = tk
-		slog.Debug("loaded task", "task_id", tk.ID, "file", filePath)
+		slog.Debug("loaded task", "tiki_id", tk.ID, "file", filePath)
 	}
 	slog.Info("finished loading tasks", "num_tasks", len(s.tikis), "rejections", len(s.diagnostics.Rejections()))
 	return nil
@@ -231,13 +231,13 @@ func (s *TikiStore) Reload() error {
 	return nil
 }
 
-// ReloadTask reloads a single task from disk by ID.
+// ReloadTiki reloads a single task from disk by ID.
 // Uses the loaded tiki's Path so renamed files still reload from their
 // current location. For IDs unknown to the store, falls back to the
 // id-derived default path.
-func (s *TikiStore) ReloadTask(taskID string) error {
-	normalizedID := normalizeTaskID(taskID)
-	slog.Debug("reloading single task", "task_id", normalizedID)
+func (s *TikiStore) ReloadTiki(tikiID string) error {
+	normalizedID := normalizeTikiID(tikiID)
+	slog.Debug("reloading single task", "tiki_id", normalizedID)
 
 	s.mu.RLock()
 	existing := s.tikis[normalizedID]
@@ -247,7 +247,7 @@ func (s *TikiStore) ReloadTask(taskID string) error {
 	if existing != nil && existing.Path != "" {
 		filePath = existing.Path
 	} else {
-		filePath = s.taskFilePath(normalizedID)
+		filePath = s.tikiFilePath(normalizedID)
 	}
 
 	// Fetch git info for this single file
@@ -270,13 +270,13 @@ func (s *TikiStore) ReloadTask(taskID string) error {
 		delete(s.tikis, normalizedID)
 		s.mu.Unlock()
 		slog.Warn("removed invalid task from memory after reload failure",
-			"task_id", normalizedID, "file", filePath, "error", err)
+			"tiki_id", normalizedID, "file", filePath, "error", err)
 		s.notifyListeners()
 		return fmt.Errorf("loading task file %s: %w", filePath, err)
 	}
 
 	// Enforce the same id invariants the full load path enforces: a
-	// ReloadTask must not leave stale entries behind when the file's
+	// ReloadTiki must not leave stale entries behind when the file's
 	// frontmatter id has changed, and must refuse to overwrite another
 	// task's entry with this one.
 	s.mu.Lock()
@@ -308,7 +308,7 @@ func (s *TikiStore) ReloadTask(taskID string) error {
 	s.mu.Unlock()
 
 	s.notifyListeners()
-	slog.Debug("task reloaded successfully", "task_id", tk.ID)
+	slog.Debug("task reloaded successfully", "tiki_id", tk.ID)
 	return nil
 }
 
@@ -366,14 +366,14 @@ func validateCustomFieldEntry(k string, v interface{}, fd workflow.FieldDef) err
 // id-derived default path.
 func (s *TikiStore) saveTiki(tk *tiki.Tiki) error {
 	path := s.pathForTiki(tk)
-	slog.Debug("attempting to save task", "task_id", tk.ID, "path", path)
+	slog.Debug("attempting to save task", "tiki_id", tk.ID, "path", path)
 
 	// Validate custom fields before write: reject unregistered keys that
 	// were staged under the in-memory CustomFields map. This preserves the pre-Phase-3
 	// appendCustomFields contract; UnknownFields (stale-marked) bypass
 	// the check by design.
 	if err := validateTikiCustomFields(tk); err != nil {
-		slog.Error("custom-field validation failed", "task_id", tk.ID, "error", err)
+		slog.Error("custom-field validation failed", "tiki_id", tk.ID, "error", err)
 		return err
 	}
 
@@ -382,18 +382,18 @@ func (s *TikiStore) saveTiki(tk *tiki.Tiki) error {
 	if !tk.LoadedMtime.IsZero() {
 		if info, err := os.Stat(path); err == nil {
 			if !info.ModTime().Equal(tk.LoadedMtime) {
-				slog.Warn("task modified externally, conflict detected", "task_id", tk.ID, "path", path, "loaded_mtime", tk.LoadedMtime, "file_mtime", info.ModTime())
+				slog.Warn("task modified externally, conflict detected", "tiki_id", tk.ID, "path", path, "loaded_mtime", tk.LoadedMtime, "file_mtime", info.ModTime())
 				return ErrConflict
 			}
 		} else if !os.IsNotExist(err) {
-			slog.Error("failed to stat file for optimistic locking", "task_id", tk.ID, "path", path, "error", err)
+			slog.Error("failed to stat file for optimistic locking", "tiki_id", tk.ID, "path", path, "error", err)
 			return fmt.Errorf("stat file for optimistic locking: %w", err)
 		}
 	}
 
 	yamlBytes, err := marshalTikiFrontmatter(tk)
 	if err != nil {
-		slog.Error("failed to marshal frontmatter for task", "task_id", tk.ID, "error", err)
+		slog.Error("failed to marshal frontmatter for task", "tiki_id", tk.ID, "error", err)
 		return fmt.Errorf("marshaling frontmatter: %w", err)
 	}
 
@@ -412,13 +412,13 @@ func (s *TikiStore) saveTiki(tk *tiki.Tiki) error {
 	// and replayed via git pull).
 	//nolint:gosec // G301: 0755 matches the existing dir permissions
 	if err := os.MkdirAll(filepath.Dir(path), 0755); err != nil {
-		slog.Error("failed to create parent directory for document", "task_id", tk.ID, "path", path, "error", err)
+		slog.Error("failed to create parent directory for document", "tiki_id", tk.ID, "path", path, "error", err)
 		return fmt.Errorf("creating parent directory: %w", err)
 	}
 
 	//nolint:gosec // G306: 0644 is appropriate for document files
 	if err := os.WriteFile(path, []byte(content.String()), 0644); err != nil {
-		slog.Error("failed to write task file", "task_id", tk.ID, "path", path, "error", err)
+		slog.Error("failed to write task file", "tiki_id", tk.ID, "path", path, "error", err)
 		return fmt.Errorf("writing file: %w", err)
 	}
 
@@ -436,31 +436,31 @@ func (s *TikiStore) saveTiki(tk *tiki.Tiki) error {
 		if absPath, absErr := filepath.Abs(path); absErr == nil {
 			tk.Path = absPath
 		} else {
-			slog.Debug("failed to resolve absolute task path after save, using raw path", "task_id", tk.ID, "path", path, "error", absErr)
+			slog.Debug("failed to resolve absolute task path after save, using raw path", "tiki_id", tk.ID, "path", path, "error", absErr)
 			tk.Path = path
 		}
-		slog.Debug("task file saved and timestamps computed", "task_id", tk.ID, "path", path, "new_mtime", tk.LoadedMtime, "updated_at", tk.UpdatedAt)
+		slog.Debug("task file saved and timestamps computed", "tiki_id", tk.ID, "path", path, "new_mtime", tk.LoadedMtime, "updated_at", tk.UpdatedAt)
 	} else {
-		slog.Error("failed to stat file after save for mtime computation", "task_id", tk.ID, "path", path, "error", err)
+		slog.Error("failed to stat file after save for mtime computation", "tiki_id", tk.ID, "path", path, "error", err)
 	}
 
 	// Git add the modified file (best effort)
 	if s.gitUtil != nil {
 		if err := s.gitUtil.Add(path); err != nil {
-			slog.Warn("failed to git add task file", "task_id", tk.ID, "path", path, "error", err)
+			slog.Warn("failed to git add task file", "tiki_id", tk.ID, "path", path, "error", err)
 		}
 	}
 
-	slog.Info("task saved successfully", "task_id", tk.ID, "path", path)
+	slog.Info("task saved successfully", "tiki_id", tk.ID, "path", path)
 	return nil
 }
 
-// taskFilePath returns the default on-disk path for a brand-new task whose
+// tikiFilePath returns the default on-disk path for a brand-new task whose
 // file has not yet been created. Once a task is loaded from disk, save and
 // delete operations should target tiki.Path — not this — so renames are
 // preserved. In Phase 2 this resolves to `.doc/<ID>.md` because the store
 // is rooted at the unified document directory.
-func (s *TikiStore) taskFilePath(id string) string {
+func (s *TikiStore) tikiFilePath(id string) string {
 	return filepath.Join(s.dir, id+".md")
 }
 
@@ -480,7 +480,7 @@ func (s *TikiStore) pathForTiki(tk *tiki.Tiki) string {
 	if tk != nil && tk.Path != "" {
 		return tk.Path
 	}
-	return s.taskFilePath(tk.ID)
+	return s.tikiFilePath(tk.ID)
 }
 
 // extractCustomFields splits a frontmatter map into workflow-declared fields

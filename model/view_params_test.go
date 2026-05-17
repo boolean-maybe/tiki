@@ -19,30 +19,30 @@ func TestPluginViewParams_EncodeDecodeRoundTrip(t *testing.T) {
 		name   string
 		params PluginViewParams
 	}{
-		{name: "simple task ID", params: PluginViewParams{TaskID: "TIKI-1"}},
-		{name: "task ID with hyphen", params: PluginViewParams{TaskID: "TIKI-123"}},
-		{name: "task ID with special format", params: PluginViewParams{TaskID: "PROJECT-999"}},
+		{name: "simple task ID", params: PluginViewParams{TikiID: "TIKI-1"}},
+		{name: "task ID with hyphen", params: PluginViewParams{TikiID: "TIKI-123"}},
+		{name: "task ID with special format", params: PluginViewParams{TikiID: "PROJECT-999"}},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			encoded := EncodePluginViewParams(tt.params)
 			decoded := DecodePluginViewParams(encoded)
-			if decoded.TaskID != tt.params.TaskID {
-				t.Errorf("round-trip failed: TaskID = %q, want %q", decoded.TaskID, tt.params.TaskID)
+			if decoded.TikiID != tt.params.TikiID {
+				t.Errorf("round-trip failed: TikiID = %q, want %q", decoded.TikiID, tt.params.TikiID)
 			}
 		})
 	}
 }
 
 func TestPluginViewParams_EmptyTaskID(t *testing.T) {
-	params := PluginViewParams{TaskID: ""}
+	params := PluginViewParams{TikiID: ""}
 	encoded := EncodePluginViewParams(params)
 	if encoded != nil {
-		t.Errorf("EncodePluginViewParams with empty TaskID = %v, want nil", encoded)
+		t.Errorf("EncodePluginViewParams with empty TikiID = %v, want nil", encoded)
 	}
 	decoded := DecodePluginViewParams(nil)
-	if decoded.TaskID != "" {
-		t.Errorf("DecodePluginViewParams(nil) TaskID = %q, want empty", decoded.TaskID)
+	if decoded.TikiID != "" {
+		t.Errorf("DecodePluginViewParams(nil) TikiID = %q, want empty", decoded.TikiID)
 	}
 }
 
@@ -54,55 +54,55 @@ func TestPluginViewParams_DecodeInvalidParams(t *testing.T) {
 	}{
 		{"nil params", nil, PluginViewParams{}},
 		{"empty params", map[string]interface{}{}, PluginViewParams{}},
-		{"wrong type for taskID", map[string]interface{}{"taskID": 123}, PluginViewParams{}},
-		{"missing taskID", map[string]interface{}{"other": "value"}, PluginViewParams{}},
+		{"wrong type for tikiID", map[string]interface{}{"tikiID": 123}, PluginViewParams{}},
+		{"missing tikiID", map[string]interface{}{"other": "value"}, PluginViewParams{}},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			decoded := DecodePluginViewParams(tt.params)
-			if decoded.TaskID != tt.want.TaskID {
-				t.Errorf("TaskID = %q, want %q", decoded.TaskID, tt.want.TaskID)
+			if decoded.TikiID != tt.want.TikiID {
+				t.Errorf("TikiID = %q, want %q", decoded.TikiID, tt.want.TikiID)
 			}
 		})
 	}
 }
 
 func TestTaskEditParams_EncodeDecodeRoundTrip(t *testing.T) {
-	draftTask := newTestDraftTiki("T1KI42", "Test Task")
+	draftTiki := newTestDraftTiki("T1KI42", "Test Task")
 
 	tests := []struct {
 		name   string
-		params TaskEditParams
+		params TikiEditParams
 	}{
 		{
 			name:   "task ID only",
-			params: TaskEditParams{TaskID: "TIKI-1"},
+			params: TikiEditParams{TikiID: "TIKI-1"},
 		},
 		{
 			name:   "task ID with draft",
-			params: TaskEditParams{TaskID: "T1KI42", Draft: draftTask},
+			params: TikiEditParams{TikiID: "T1KI42", Draft: draftTiki},
 		},
 		{
 			name:   "task ID with focus",
-			params: TaskEditParams{TaskID: "TIKI-1", Focus: EditFieldTitle},
+			params: TikiEditParams{TikiID: "TIKI-1", Focus: EditFieldTitle},
 		},
 		{
 			name:   "all fields",
-			params: TaskEditParams{TaskID: "T1KI42", Draft: draftTask, Focus: EditFieldDescription},
+			params: TikiEditParams{TikiID: "T1KI42", Draft: draftTiki, Focus: EditFieldDescription},
 		},
 		{
 			name:   "with metadata",
-			params: TaskEditParams{TaskID: "TIKI-1", Metadata: []string{"status", "type", "tags"}},
+			params: TikiEditParams{TikiID: "TIKI-1", Metadata: []string{"status", "type", "tags"}},
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			encoded := EncodeTaskEditParams(tt.params)
-			decoded := DecodeTaskEditParams(encoded)
+			encoded := EncodeTikiEditParams(tt.params)
+			decoded := DecodeTikiEditParams(encoded)
 
-			if decoded.TaskID != tt.params.TaskID {
-				t.Errorf("round-trip failed: TaskID = %q, want %q", decoded.TaskID, tt.params.TaskID)
+			if decoded.TikiID != tt.params.TikiID {
+				t.Errorf("round-trip failed: TikiID = %q, want %q", decoded.TikiID, tt.params.TikiID)
 			}
 
 			if tt.params.Draft != nil {
@@ -129,15 +129,15 @@ func TestTaskEditParams_EncodeDecodeRoundTrip(t *testing.T) {
 
 func TestTaskEditParams_MetadataNilEmptyAndCopySemantics(t *testing.T) {
 	// nil metadata round-trips as nil.
-	encoded := EncodeTaskEditParams(TaskEditParams{TaskID: "TIKI-1"})
-	decoded := DecodeTaskEditParams(encoded)
+	encoded := EncodeTikiEditParams(TikiEditParams{TikiID: "TIKI-1"})
+	decoded := DecodeTikiEditParams(encoded)
 	if decoded.Metadata != nil {
 		t.Errorf("nil-input metadata round-trip: got %v, want nil", decoded.Metadata)
 	}
 
 	// empty metadata also round-trips as nil (encoding skips empty slice).
-	encoded = EncodeTaskEditParams(TaskEditParams{TaskID: "TIKI-1", Metadata: []string{}})
-	decoded = DecodeTaskEditParams(encoded)
+	encoded = EncodeTikiEditParams(TikiEditParams{TikiID: "TIKI-1", Metadata: []string{}})
+	decoded = DecodeTikiEditParams(encoded)
 	if len(decoded.Metadata) != 0 {
 		t.Errorf("empty-input metadata round-trip: got %v, want empty", decoded.Metadata)
 	}
@@ -145,22 +145,22 @@ func TestTaskEditParams_MetadataNilEmptyAndCopySemantics(t *testing.T) {
 	// encoded slice is a defensive copy — mutating the source after encode
 	// must not affect what decode returns.
 	src := []string{"status", "type"}
-	encoded = EncodeTaskEditParams(TaskEditParams{TaskID: "TIKI-1", Metadata: src})
+	encoded = EncodeTikiEditParams(TikiEditParams{TikiID: "TIKI-1", Metadata: src})
 	src[0] = "MUTATED"
-	decoded = DecodeTaskEditParams(encoded)
+	decoded = DecodeTikiEditParams(encoded)
 	if decoded.Metadata[0] != "status" {
 		t.Errorf("encoded metadata not defensively copied: got %v", decoded.Metadata)
 	}
 }
 
 func TestTaskEditParams_DescOnlyRoundTrip(t *testing.T) {
-	params := TaskEditParams{
-		TaskID:   "TIKI-1",
+	params := TikiEditParams{
+		TikiID:   "TIKI-1",
 		Focus:    EditFieldDescription,
 		DescOnly: true,
 	}
-	encoded := EncodeTaskEditParams(params)
-	decoded := DecodeTaskEditParams(encoded)
+	encoded := EncodeTikiEditParams(params)
+	decoded := DecodeTikiEditParams(encoded)
 	if !decoded.DescOnly {
 		t.Error("round-trip failed: DescOnly = false, want true")
 	}
@@ -168,44 +168,44 @@ func TestTaskEditParams_DescOnlyRoundTrip(t *testing.T) {
 		t.Errorf("round-trip failed: Focus = %v, want %v", decoded.Focus, EditFieldDescription)
 	}
 
-	paramsNoDesc := TaskEditParams{TaskID: "TIKI-2"}
-	encodedNoDesc := EncodeTaskEditParams(paramsNoDesc)
+	paramsNoDesc := TikiEditParams{TikiID: "TIKI-2"}
+	encodedNoDesc := EncodeTikiEditParams(paramsNoDesc)
 	if _, exists := encodedNoDesc[paramDescOnly]; exists {
 		t.Error("DescOnly=false should not be stored in encoded params")
 	}
-	decodedNoDesc := DecodeTaskEditParams(encodedNoDesc)
+	decodedNoDesc := DecodeTikiEditParams(encodedNoDesc)
 	if decodedNoDesc.DescOnly {
 		t.Error("DescOnly should default to false")
 	}
 }
 
 func TestTaskEditParams_DraftWithoutTaskID(t *testing.T) {
-	draftTask := newTestDraftTiki("T1KI00", "Draft Task")
-	params := TaskEditParams{TaskID: "", Draft: draftTask}
-	encoded := EncodeTaskEditParams(params)
+	draftTiki := newTestDraftTiki("T1KI00", "Draft Task")
+	params := TikiEditParams{TikiID: "", Draft: draftTiki}
+	encoded := EncodeTikiEditParams(params)
 	if encoded == nil {
-		t.Fatal("EncodeTaskEditParams returned nil")
+		t.Fatal("EncodeTikiEditParams returned nil")
 	}
-	if encoded["taskID"] != "T1KI00" {
-		t.Errorf("taskID = %v, want T1KI00", encoded["taskID"])
+	if encoded["tikiID"] != "T1KI00" {
+		t.Errorf("tikiID = %v, want T1KI00", encoded["tikiID"])
 	}
-	decoded := DecodeTaskEditParams(encoded)
-	if decoded.TaskID != "T1KI00" {
-		t.Errorf("decoded TaskID = %q, want T1KI00", decoded.TaskID)
+	decoded := DecodeTikiEditParams(encoded)
+	if decoded.TikiID != "T1KI00" {
+		t.Errorf("decoded TikiID = %q, want T1KI00", decoded.TikiID)
 	}
 }
 
 func TestTaskEditParams_EmptyTaskID(t *testing.T) {
-	params := TaskEditParams{TaskID: "", Draft: nil}
-	encoded := EncodeTaskEditParams(params)
+	params := TikiEditParams{TikiID: "", Draft: nil}
+	encoded := EncodeTikiEditParams(params)
 	if encoded != nil {
-		t.Errorf("EncodeTaskEditParams with empty TaskID and nil Draft = %v, want nil", encoded)
+		t.Errorf("EncodeTikiEditParams with empty TikiID and nil Draft = %v, want nil", encoded)
 	}
 }
 
 func TestTaskEditParams_FocusStringEncoding(t *testing.T) {
-	params := TaskEditParams{TaskID: "TIKI-1", Focus: EditFieldTitle}
-	encoded := EncodeTaskEditParams(params)
+	params := TikiEditParams{TikiID: "TIKI-1", Focus: EditFieldTitle}
+	encoded := EncodeTikiEditParams(params)
 	focusVal, ok := encoded["focus"]
 	if !ok {
 		t.Fatal("focus not in encoded params")
@@ -217,7 +217,7 @@ func TestTaskEditParams_FocusStringEncoding(t *testing.T) {
 	if focusStr != string(EditFieldTitle) {
 		t.Errorf("focus string = %q, want %q", focusStr, string(EditFieldTitle))
 	}
-	decoded := DecodeTaskEditParams(encoded)
+	decoded := DecodeTikiEditParams(encoded)
 	if decoded.Focus != EditFieldTitle {
 		t.Errorf("decoded Focus = %v, want %v", decoded.Focus, EditFieldTitle)
 	}
@@ -225,10 +225,10 @@ func TestTaskEditParams_FocusStringEncoding(t *testing.T) {
 
 func TestTaskEditParams_FocusEditFieldType(t *testing.T) {
 	params := map[string]interface{}{
-		"taskID": "TIKI-1",
+		"tikiID": "TIKI-1",
 		"focus":  EditFieldDescription,
 	}
-	decoded := DecodeTaskEditParams(params)
+	decoded := DecodeTikiEditParams(params)
 	if decoded.Focus != EditFieldDescription {
 		t.Errorf("Focus = %v, want %v", decoded.Focus, EditFieldDescription)
 	}
@@ -238,27 +238,27 @@ func TestTaskEditParams_DecodeInvalidParams(t *testing.T) {
 	tests := []struct {
 		name   string
 		params map[string]interface{}
-		want   TaskEditParams
+		want   TikiEditParams
 	}{
-		{"nil params", nil, TaskEditParams{}},
-		{"empty params", map[string]interface{}{}, TaskEditParams{}},
-		{"wrong type for taskID", map[string]interface{}{"taskID": 123}, TaskEditParams{}},
+		{"nil params", nil, TikiEditParams{}},
+		{"empty params", map[string]interface{}{}, TikiEditParams{}},
+		{"wrong type for tikiID", map[string]interface{}{"tikiID": 123}, TikiEditParams{}},
 		{
 			"wrong type for draft",
-			map[string]interface{}{"taskID": "TIKI-1", "draftTask": "not a tiki"},
-			TaskEditParams{TaskID: "TIKI-1"},
+			map[string]interface{}{"tikiID": "TIKI-1", "draftTiki": "not a tiki"},
+			TikiEditParams{TikiID: "TIKI-1"},
 		},
 		{
 			"wrong type for focus",
-			map[string]interface{}{"taskID": "TIKI-1", "focus": 123},
-			TaskEditParams{TaskID: "TIKI-1"},
+			map[string]interface{}{"tikiID": "TIKI-1", "focus": 123},
+			TikiEditParams{TikiID: "TIKI-1"},
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			decoded := DecodeTaskEditParams(tt.params)
-			if decoded.TaskID != tt.want.TaskID {
-				t.Errorf("TaskID = %q, want %q", decoded.TaskID, tt.want.TaskID)
+			decoded := DecodeTikiEditParams(tt.params)
+			if decoded.TikiID != tt.want.TikiID {
+				t.Errorf("TikiID = %q, want %q", decoded.TikiID, tt.want.TikiID)
 			}
 			if tt.want.Draft == nil && decoded.Draft != nil {
 				t.Error("Draft != nil, want nil")
@@ -271,11 +271,11 @@ func TestTaskEditParams_DecodeInvalidParams(t *testing.T) {
 }
 
 func TestTaskEditParams_DraftTaskIDInference(t *testing.T) {
-	draftTask := newTestDraftTiki("T1KI99", "Draft")
-	params := map[string]interface{}{"taskID": "", "draftTask": draftTask}
-	decoded := DecodeTaskEditParams(params)
-	if decoded.TaskID != "T1KI99" {
-		t.Errorf("TaskID = %q, want T1KI99 (inferred from Draft)", decoded.TaskID)
+	draftTiki := newTestDraftTiki("T1KI99", "Draft")
+	params := map[string]interface{}{"tikiID": "", "draftTiki": draftTiki}
+	decoded := DecodeTikiEditParams(params)
+	if decoded.TikiID != "T1KI99" {
+		t.Errorf("TikiID = %q, want T1KI99 (inferred from Draft)", decoded.TikiID)
 	}
 	if decoded.Draft == nil {
 		t.Error("Draft = nil, want non-nil")
@@ -283,10 +283,10 @@ func TestTaskEditParams_DraftTaskIDInference(t *testing.T) {
 }
 
 func TestTaskEditParams_NilDraftNoInference(t *testing.T) {
-	params := map[string]interface{}{"taskID": "", "draftTask": (*tikipkg.Tiki)(nil)}
-	decoded := DecodeTaskEditParams(params)
-	if decoded.TaskID != "" {
-		t.Errorf("TaskID = %q, want empty (no draft to infer from)", decoded.TaskID)
+	params := map[string]interface{}{"tikiID": "", "draftTiki": (*tikipkg.Tiki)(nil)}
+	decoded := DecodeTikiEditParams(params)
+	if decoded.TikiID != "" {
+		t.Errorf("TikiID = %q, want empty (no draft to infer from)", decoded.TikiID)
 	}
 	if decoded.Draft != nil {
 		t.Error("Draft != nil, want nil")
@@ -294,19 +294,19 @@ func TestTaskEditParams_NilDraftNoInference(t *testing.T) {
 }
 
 func TestViewParams_ParamKeyConstants(t *testing.T) {
-	detailParams := EncodePluginViewParams(PluginViewParams{TaskID: "TIKI-1"})
-	if _, ok := detailParams["taskID"]; !ok {
-		t.Error("PluginViewParams should use 'taskID' key")
+	detailParams := EncodePluginViewParams(PluginViewParams{TikiID: "TIKI-1"})
+	if _, ok := detailParams["tikiID"]; !ok {
+		t.Error("PluginViewParams should use 'tikiID' key")
 	}
 	draft := newTestDraftTiki("TIKI01", "Test")
-	editParams := EncodeTaskEditParams(TaskEditParams{TaskID: "TIKI01", Draft: draft, Focus: EditFieldTitle})
-	if _, ok := editParams["taskID"]; !ok {
-		t.Error("TaskEditParams should use 'taskID' key")
+	editParams := EncodeTikiEditParams(TikiEditParams{TikiID: "TIKI01", Draft: draft, Focus: EditFieldTitle})
+	if _, ok := editParams["tikiID"]; !ok {
+		t.Error("TikiEditParams should use 'tikiID' key")
 	}
-	if _, ok := editParams["draftTask"]; !ok {
-		t.Error("TaskEditParams should use 'draftTask' key for Draft")
+	if _, ok := editParams["draftTiki"]; !ok {
+		t.Error("TikiEditParams should use 'draftTiki' key for Draft")
 	}
 	if _, ok := editParams["focus"]; !ok {
-		t.Error("TaskEditParams should use 'focus' key for Focus")
+		t.Error("TikiEditParams should use 'focus' key for Focus")
 	}
 }

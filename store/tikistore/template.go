@@ -48,11 +48,11 @@ func (s *TikiStore) newTikiTemplateLocked() (*tikipkg.Tiki, error) {
 	// not the filesystem — a tiki loaded from a renamed file occupies an id
 	// without occupying <taskdir>/<id>.md, so an os.Stat probe would falsely
 	// report the id free.
-	var taskID string
+	var tikiID string
 	for i := 0; ; i++ {
-		candidate := normalizeTaskID(config.GenerateRandomID())
+		candidate := normalizeTikiID(config.GenerateRandomID())
 		if _, taken := s.tikis[candidate]; !taken {
-			taskID = candidate
+			tikiID = candidate
 			break
 		}
 		if i > maxGenerateRetries {
@@ -62,7 +62,7 @@ func (s *TikiStore) newTikiTemplateLocked() (*tikipkg.Tiki, error) {
 	}
 
 	tk := tikipkg.New()
-	tk.ID = taskID
+	tk.ID = tikiID
 	tk.CreatedAt = time.Now()
 
 	for k, v := range buildCustomFieldDefaults() {

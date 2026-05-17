@@ -333,7 +333,7 @@ func Bootstrap(tikiSkillContent, dokiSkillContent string) (*Result, error) {
 // wireOnViewActivated wires focus setters into views as they become active.
 func wireOnViewActivated(rootLayout *view.RootLayout, app *tview.Application) {
 	rootLayout.SetOnViewActivated(func(v controller.View) {
-		// generic focus settable check (covers TaskEditView and any other view with focus needs)
+		// generic focus settable check (covers TikiEditView and any other view with focus needs)
 		if focusSettable, ok := v.(controller.FocusSettable); ok {
 			focusSettable.SetFocusSetter(func(p tview.Primitive) {
 				app.SetFocus(p)

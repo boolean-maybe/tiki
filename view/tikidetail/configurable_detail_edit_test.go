@@ -1,4 +1,4 @@
-package taskdetail
+package tikidetail
 
 import (
 	"strings"
@@ -181,7 +181,7 @@ func TestBuildFieldPrimitive_FocusOnlyOnFocusedRow(t *testing.T) {
 // returns the name iff the field is TypeEnum. Without this fallback,
 // SetFocusedField, cycleFocusedField, and shouldSkipField (the three
 // callers) would all return "" and skip custom enum fields entirely —
-// making them unreachable for keyboard editing in the full TaskEditView.
+// making them unreachable for keyboard editing in the full TikiEditView.
 func TestEditFieldToFieldName_WorkflowEnumFallback(t *testing.T) {
 	cleanup := registerExtraWorkflowFieldForTest(t, "severity", []string{"low", "medium", "high"})
 	t.Cleanup(cleanup)

@@ -60,11 +60,11 @@ type TikiViewProvider interface {
 
 type InputRouter struct {
 	navController     *NavigationController
-	taskController    *TikiEditSession
-	taskEditCoord     *TaskEditCoordinator
+	tikiEditSession   *TikiEditSession
+	tikiEditCoord     *TikiEditCoordinator
 	pluginControllers map[string]PluginControllerInterface // keyed by plugin name
 	globalActions     *ActionRegistry
-	taskStore         store.Store
+	tikiStore         store.Store
 	mutationGate      *service.TikiMutationGate
 	statusline        *model.StatuslineConfig
 	schema            ruki.Schema
@@ -80,20 +80,20 @@ type InputRouter struct {
 // NewInputRouter creates an input router
 func NewInputRouter(
 	navController *NavigationController,
-	taskController *TikiEditSession,
+	tikiEditSession *TikiEditSession,
 	pluginControllers map[string]PluginControllerInterface,
-	taskStore store.Store,
+	tikiStore store.Store,
 	mutationGate *service.TikiMutationGate,
 	statusline *model.StatuslineConfig,
 	schema ruki.Schema,
 ) *InputRouter {
 	return &InputRouter{
 		navController:     navController,
-		taskController:    taskController,
-		taskEditCoord:     NewTaskEditCoordinator(navController, taskController),
+		tikiEditSession:   tikiEditSession,
+		tikiEditCoord:     NewTikiEditCoordinator(navController, tikiEditSession),
 		pluginControllers: pluginControllers,
 		globalActions:     DefaultGlobalActions(),
-		taskStore:         taskStore,
+		tikiStore:         tikiStore,
 		mutationGate:      mutationGate,
 		statusline:        statusline,
 		schema:            schema,
@@ -179,11 +179,11 @@ func (ir *InputRouter) HandleInput(event *tcell.EventKey, currentView *ViewEntry
 
 	activeView := ir.navController.GetActiveView()
 
-	isTaskEditView := currentView.ViewID == model.TaskEditViewID
+	isTikiEditView := currentView.ViewID == model.TikiEditViewID
 
 	// ensure task edit view is prepared even when title/description inputs have focus
-	if isTaskEditView {
-		ir.taskEditCoord.Prepare(activeView, model.DecodeTaskEditParams(currentView.Params))
+	if isTikiEditView {
+		ir.tikiEditCoord.Prepare(activeView, model.DecodeTikiEditParams(currentView.Params))
 	}
 
 	if stop, handled := ir.maybeHandleInputBox(activeView, event); stop {
@@ -192,10 +192,10 @@ func (ir *InputRouter) HandleInput(event *tcell.EventKey, currentView *ViewEntry
 	if stop, handled := ir.maybeHandleFullscreenEscape(activeView, event); stop {
 		return handled
 	}
-	if stop, handled := ir.maybeHandleInlineEditors(activeView, isTaskEditView, event); stop {
+	if stop, handled := ir.maybeHandleInlineEditors(activeView, isTikiEditView, event); stop {
 		return handled
 	}
-	if stop, handled := ir.maybeHandleTaskEditFieldFocus(activeView, isTaskEditView, event); stop {
+	if stop, handled := ir.maybeHandleTikiEditFieldFocus(activeView, isTikiEditView, event); stop {
 		return handled
 	}
 	if stop, handled := ir.maybeHandleDetailEditMode(activeView, currentView, event); stop {
@@ -213,8 +213,8 @@ func (ir *InputRouter) HandleInput(event *tcell.EventKey, currentView *ViewEntry
 
 	// route to view-specific controller
 	switch currentView.ViewID {
-	case model.TaskEditViewID:
-		return ir.handleTaskEditInput(event, currentView.Params)
+	case model.TikiEditViewID:
+		return ir.handleTikiEditInput(event, currentView.Params)
 	default:
 		// Check if it's a plugin view
 		if model.IsPluginViewID(currentView.ViewID) {
@@ -257,41 +257,41 @@ func (ir *InputRouter) maybeHandleFullscreenEscape(activeView View, event *tcell
 }
 
 // maybeHandleInlineEditors handles focused title/description editors (and their cancel semantics).
-func (ir *InputRouter) maybeHandleInlineEditors(activeView View, isTaskEditView bool, event *tcell.EventKey) (stop bool, handled bool) {
-	// Only TaskEditView has inline editors now
-	if !isTaskEditView {
+func (ir *InputRouter) maybeHandleInlineEditors(activeView View, isTikiEditView bool, event *tcell.EventKey) (stop bool, handled bool) {
+	// Only TikiEditView has inline editors now
+	if !isTikiEditView {
 		return false, false
 	}
 
 	if titleEditableView, ok := activeView.(TitleEditableView); ok {
 		if titleEditableView.IsTitleInputFocused() {
-			return true, ir.taskEditCoord.HandleKey(activeView, event)
+			return true, ir.tikiEditCoord.HandleKey(activeView, event)
 		}
 	}
 
 	if descEditableView, ok := activeView.(DescriptionEditableView); ok {
 		if descEditableView.IsDescriptionTextAreaFocused() {
-			return true, ir.taskEditCoord.HandleKey(activeView, event)
+			return true, ir.tikiEditCoord.HandleKey(activeView, event)
 		}
 	}
 
 	if tagsView, ok := activeView.(interface{ IsTagsTextAreaFocused() bool }); ok {
 		if tagsView.IsTagsTextAreaFocused() {
-			return true, ir.taskEditCoord.HandleKey(activeView, event)
+			return true, ir.tikiEditCoord.HandleKey(activeView, event)
 		}
 	}
 
 	return false, false
 }
 
-// maybeHandleTaskEditFieldFocus routes keys to task edit coordinator when an edit field has focus.
-func (ir *InputRouter) maybeHandleTaskEditFieldFocus(activeView View, isTaskEditView bool, event *tcell.EventKey) (stop bool, handled bool) {
+// maybeHandleTikiEditFieldFocus routes keys to task edit coordinator when an edit field has focus.
+func (ir *InputRouter) maybeHandleTikiEditFieldFocus(activeView View, isTikiEditView bool, event *tcell.EventKey) (stop bool, handled bool) {
 	fieldFocusableView, ok := activeView.(FieldFocusableView)
-	if !ok || !isTaskEditView {
+	if !ok || !isTikiEditView {
 		return false, false
 	}
 	if fieldFocusableView.IsEditFieldFocused() {
-		return true, ir.taskEditCoord.HandleKey(activeView, event)
+		return true, ir.tikiEditCoord.HandleKey(activeView, event)
 	}
 	return false, false
 }
@@ -356,8 +356,8 @@ func (ir *InputRouter) SetPluginRegistrar(fn func(name string, cfg *model.Plugin
 // uses it as the preferred return target so a workflow with multiple
 // kind: detail views or a renamed detail view sends Enter back to the
 // caller, not to a hardcoded "Detail".
-func (ir *InputRouter) openDepsEditor(taskID, sourceDetailViewName string) {
-	name := "Dependency:" + taskID
+func (ir *InputRouter) openDepsEditor(tikiID, sourceDetailViewName string) {
+	name := "Dependency:" + tikiID
 	viewID := model.MakePluginViewID(name)
 
 	// reopen if already created — but refresh the resolver first so a
@@ -382,7 +382,7 @@ func (ir *InputRouter) openDepsEditor(taskID, sourceDetailViewName string) {
 			Kind:        plugin.KindBoard,
 			Background:  theme.NewColor(theme.Roles().DepsEditorSurface().TCell()),
 		},
-		TikiID: taskID,
+		TikiID: tikiID,
 		Lanes: []plugin.TikiLane{
 			{Name: "Blocks"},
 			{Name: "All"},
@@ -401,7 +401,7 @@ func (ir *InputRouter) openDepsEditor(taskID, sourceDetailViewName string) {
 	}
 
 	resolver := ir.makeDetailViewResolver(sourceDetailViewName)
-	ctrl := NewDepsController(ir.taskStore, ir.mutationGate, pluginConfig, pluginDef, ir.navController, ir.statusline, ir.schema, resolver)
+	ctrl := NewDepsController(ir.tikiStore, ir.mutationGate, pluginConfig, pluginDef, ir.navController, ir.statusline, ir.schema, resolver)
 
 	if ir.registerPlugin != nil {
 		ir.registerPlugin(name, pluginConfig, pluginDef, ctrl)
@@ -509,8 +509,8 @@ func (ir *InputRouter) dispatchDetailViewSharedAction(id ActionID, currentView *
 	if currentView == nil {
 		return false, true
 	}
-	taskID := model.DecodePluginViewParams(currentView.Params).TaskID
-	if taskID == "" {
+	tikiID := model.DecodePluginViewParams(currentView.Params).TikiID
+	if tikiID == "" {
 		return false, true
 	}
 	switch id {
@@ -519,33 +519,33 @@ func (ir *InputRouter) dispatchDetailViewSharedAction(id ActionID, currentView *
 		// here, not to a hardcoded "Detail" plugin (handles renamed
 		// or multiple kind: detail views correctly).
 		sourceName := model.GetPluginName(currentView.ViewID)
-		ir.openDepsEditor(taskID, sourceName)
+		ir.openDepsEditor(tikiID, sourceName)
 		return true, true
 	case ActionChat:
-		return ir.runChatForTask(taskID), true
+		return ir.runChatForTiki(tikiID), true
 	case ActionEditSource:
-		ir.taskController.SetCurrentTask(taskID)
-		return ir.taskController.HandleAction(ActionEditSource), true
+		ir.tikiEditSession.SetCurrentTiki(tikiID)
+		return ir.tikiEditSession.HandleAction(ActionEditSource), true
 	}
 	return false, true
 }
 
-// runChatForTask invokes the configured AI agent against the given task
+// runChatForTiki invokes the configured AI agent against the given task
 // file path, then reloads the task to surface any agent-applied edits.
 // Mirrors the legacy task-detail chat path so the configurable detail
 // view's `c` keybinding behaves identically.
-func (ir *InputRouter) runChatForTask(taskID string) bool {
+func (ir *InputRouter) runChatForTiki(tikiID string) bool {
 	agent := config.GetAIAgent()
 	if agent == "" {
 		return false
 	}
-	taskFilePath := ir.taskStore.PathForID(taskID)
-	if taskFilePath == "" {
-		taskFilePath = filepath.Join(config.GetDocDir(), taskID+".md")
+	tikiFilePath := ir.tikiStore.PathForID(tikiID)
+	if tikiFilePath == "" {
+		tikiFilePath = filepath.Join(config.GetDocDir(), tikiID+".md")
 	}
-	name, args := resolveAgentCommand(agent, taskFilePath)
+	name, args := resolveAgentCommand(agent, tikiFilePath)
 	ir.navController.SuspendAndRun(name, args...)
-	if err := ir.taskStore.ReloadTask(taskID); err != nil && ir.statusline != nil {
+	if err := ir.tikiStore.ReloadTiki(tikiID); err != nil && ir.statusline != nil {
 		ir.statusline.SetMessage("reload failed: "+err.Error(), model.MessageLevelError, true)
 	}
 	return true
@@ -555,15 +555,15 @@ func (ir *InputRouter) runChatForTask(taskID string) bool {
 func (ir *InputRouter) handleGlobalAction(actionID ActionID) bool {
 	switch actionID {
 	case ActionBack:
-		if v := ir.navController.GetActiveView(); v != nil && v.GetViewID() == model.TaskEditViewID {
-			return ir.taskEditCoord.CancelAndClose()
+		if v := ir.navController.GetActiveView(); v != nil && v.GetViewID() == model.TikiEditViewID {
+			return ir.tikiEditCoord.CancelAndClose()
 		}
 		return ir.navController.HandleBack()
 	case ActionQuit:
 		ir.navController.HandleQuit()
 		return true
 	case ActionRefresh:
-		_ = ir.taskStore.Reload()
+		_ = ir.tikiStore.Reload()
 		return true
 	case ActionOpenPalette:
 		if ir.paletteConfig != nil {
@@ -646,11 +646,11 @@ func (ir *InputRouter) HandleAction(id ActionID, currentView *ViewEntry) bool {
 	}
 
 	switch currentView.ViewID {
-	case model.TaskEditViewID:
+	case model.TikiEditViewID:
 		if activeView != nil {
-			ir.taskEditCoord.Prepare(activeView, model.DecodeTaskEditParams(currentView.Params))
+			ir.tikiEditCoord.Prepare(activeView, model.DecodeTikiEditParams(currentView.Params))
 		}
-		return ir.dispatchTaskEditAction(id, activeView)
+		return ir.dispatchTikiEditAction(id, activeView)
 
 	default:
 		if model.IsPluginViewID(currentView.ViewID) {
@@ -660,12 +660,12 @@ func (ir *InputRouter) HandleAction(id ActionID, currentView *ViewEntry) bool {
 	}
 }
 
-// dispatchTaskEditAction handles palette-dispatched task edit actions by ActionID.
-func (ir *InputRouter) dispatchTaskEditAction(id ActionID, activeView View) bool {
+// dispatchTikiEditAction handles palette-dispatched task edit actions by ActionID.
+func (ir *InputRouter) dispatchTikiEditAction(id ActionID, activeView View) bool {
 	switch id {
 	case ActionSaveTask:
 		if activeView != nil {
-			return ir.taskEditCoord.CommitAndClose(activeView)
+			return ir.tikiEditCoord.CommitAndClose(activeView)
 		}
 		return false
 	default:
@@ -698,7 +698,7 @@ func (ir *InputRouter) currentSelectionParams() map[string]interface{} {
 	if id == "" {
 		return nil
 	}
-	return model.EncodePluginViewParams(model.PluginViewParams{TaskID: id})
+	return model.EncodePluginViewParams(model.PluginViewParams{TikiID: id})
 }
 
 // activateTargetView is the shared direct-activation dispatcher. It
@@ -868,8 +868,8 @@ func (ir *InputRouter) startActionChoose(ctrl PluginControllerInterface, actionI
 		return false
 	}
 
-	ir.quickSelectConfig.SetOnSelect(func(taskID string) {
-		ctrl.HandleActionChoose(actionID, taskID)
+	ir.quickSelectConfig.SetOnSelect(func(tikiID string) {
+		ctrl.HandleActionChoose(actionID, tikiID)
 	})
 	ir.quickSelectConfig.SetOnCancel(func() {})
 	ir.quickSelectView.OnShow(tikis)
@@ -912,33 +912,33 @@ func (ir *InputRouter) handleSearchInput(ctrl interface{ HandleSearch(string) })
 	return true
 }
 
-// handleTaskEditInput routes input while in the task edit view
-func (ir *InputRouter) handleTaskEditInput(event *tcell.EventKey, params map[string]interface{}) bool {
+// handleTikiEditInput routes input while in the task edit view
+func (ir *InputRouter) handleTikiEditInput(event *tcell.EventKey, params map[string]interface{}) bool {
 	activeView := ir.navController.GetActiveView()
-	ir.taskEditCoord.Prepare(activeView, model.DecodeTaskEditParams(params))
+	ir.tikiEditCoord.Prepare(activeView, model.DecodeTikiEditParams(params))
 
 	// Handle arrow keys for cycling field values (before checking registry)
 	key := event.Key()
 	if key == tcell.KeyUp {
-		if ir.taskEditCoord.CycleFieldValueUp(activeView) {
+		if ir.tikiEditCoord.CycleFieldValueUp(activeView) {
 			return true
 		}
 	}
 	if key == tcell.KeyDown {
-		if ir.taskEditCoord.CycleFieldValueDown(activeView) {
+		if ir.tikiEditCoord.CycleFieldValueDown(activeView) {
 			return true
 		}
 	}
 
-	registry := ir.taskController.GetEditActionRegistry()
+	registry := ir.tikiEditSession.GetEditActionRegistry()
 	if action := registry.Match(event); action != nil {
 		switch action.ID {
 		case ActionSaveTask:
-			return ir.taskEditCoord.CommitAndClose(activeView)
+			return ir.tikiEditCoord.CommitAndClose(activeView)
 		case ActionNextField:
-			return ir.taskEditCoord.FocusNextField(activeView)
+			return ir.tikiEditCoord.FocusNextField(activeView)
 		case ActionPrevField:
-			return ir.taskEditCoord.FocusPrevField(activeView)
+			return ir.tikiEditCoord.FocusPrevField(activeView)
 		default:
 			return false
 		}

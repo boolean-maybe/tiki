@@ -21,11 +21,11 @@ func TestPhase5_Has_OuterQualifierResolvesParentRow(t *testing.T) {
 	e := newTestExecutor()
 	p := newTestParser()
 
-	workflow := &taskFixture{
+	workflow := &tikiFixture{
 		ID: "WKF01", Title: "with status", Status: "ready",
 		WorkflowFrontmatter: map[string]interface{}{"status": "ready"},
 	}
-	plain := &taskFixture{ID: "PLN01", Title: "plain, no status"}
+	plain := &tikiFixture{ID: "PLN01", Title: "plain, no status"}
 
 	// exists() with a trivial body that references the outer row's
 	// status presence. Matches WKF01 only.
@@ -33,11 +33,11 @@ func TestPhase5_Has_OuterQualifierResolvesParentRow(t *testing.T) {
 	if err != nil {
 		t.Fatalf("parse: %v", err)
 	}
-	result, err := e.testExec(stmt, []*taskFixture{workflow, plain})
+	result, err := e.testExec(stmt, []*tikiFixture{workflow, plain})
 	if err != nil {
 		t.Fatalf("execute: %v (should run, not error on outer. qualifier)", err)
 	}
-	gotIDs := taskIDs(result.Select.Tasks)
+	gotIDs := tikiIDs(result.Select.Tasks)
 	wantIDs := []string{"WKF01"}
 	if len(gotIDs) != len(wantIDs) || gotIDs[0] != wantIDs[0] {
 		t.Fatalf("has(outer.status): got %v, want %v", gotIDs, wantIDs)
@@ -62,13 +62,13 @@ func TestPhase5_Has_TargetQualifierResolvesSelectedTask(t *testing.T) {
 	// doesn't. has(target.status) is evaluated once per row and is
 	// constant across rows (it reads the selected task, not the current
 	// row), so if the selected task has status, ALL rows match.
-	selected := &taskFixture{
+	selected := &tikiFixture{
 		ID: "SEL01", Title: "selected", Status: "ready",
 		WorkflowFrontmatter: map[string]interface{}{"status": "ready"},
 	}
-	other := &taskFixture{ID: "OTH01", Title: "other"}
+	other := &tikiFixture{ID: "OTH01", Title: "other"}
 
-	result, err := e.testExec(vs, []*taskFixture{selected, other}, ExecutionInput{
+	result, err := e.testExec(vs, []*tikiFixture{selected, other}, ExecutionInput{
 		SelectedTaskIDs: []string{"SEL01"},
 	})
 	if err != nil {
@@ -90,13 +90,13 @@ func TestPhase5_Has_TargetQualifierFalseWhenSelectedLacksField(t *testing.T) {
 	}
 
 	e := NewExecutor(testSchema{}, nil, ExecutorRuntime{Mode: ExecutorRuntimePlugin})
-	selected := &taskFixture{ID: "SEL01", Title: "selected, no status"}
-	other := &taskFixture{
+	selected := &tikiFixture{ID: "SEL01", Title: "selected, no status"}
+	other := &tikiFixture{
 		ID: "OTH01", Title: "other has status", Status: "ready",
 		WorkflowFrontmatter: map[string]interface{}{"status": "ready"},
 	}
 
-	result, err := e.testExec(vs, []*taskFixture{selected, other}, ExecutionInput{
+	result, err := e.testExec(vs, []*tikiFixture{selected, other}, ExecutionInput{
 		SelectedTaskIDs: []string{"SEL01"},
 	})
 	if err != nil {
@@ -123,14 +123,14 @@ func TestPhase5_Has_TargetsQualifierTrueWhenAnySelectedHasField(t *testing.T) {
 
 	// Two selected tasks: one has status, one doesn't. `has(targets.X)`
 	// is any-present semantics, so this evaluates true.
-	withStatus := &taskFixture{
+	withStatus := &tikiFixture{
 		ID: "WITH01", Title: "has status", Status: "ready",
 		WorkflowFrontmatter: map[string]interface{}{"status": "ready"},
 	}
-	withoutStatus := &taskFixture{ID: "WITHOUT01", Title: "no status"}
-	bystander := &taskFixture{ID: "BYST01", Title: "bystander"}
+	withoutStatus := &tikiFixture{ID: "WITHOUT01", Title: "no status"}
+	bystander := &tikiFixture{ID: "BYST01", Title: "bystander"}
 
-	result, err := e.testExec(vs, []*taskFixture{withStatus, withoutStatus, bystander}, ExecutionInput{
+	result, err := e.testExec(vs, []*tikiFixture{withStatus, withoutStatus, bystander}, ExecutionInput{
 		SelectedTaskIDs: []string{"WITH01", "WITHOUT01"},
 	})
 	if err != nil {
@@ -153,14 +153,14 @@ func TestPhase5_Has_TargetsQualifierFalseWhenNoneHaveField(t *testing.T) {
 	}
 
 	e := NewExecutor(testSchema{}, nil, ExecutorRuntime{Mode: ExecutorRuntimePlugin})
-	plain1 := &taskFixture{ID: "PLN01", Title: "p1"}
-	plain2 := &taskFixture{ID: "PLN02", Title: "p2"}
-	bystander := &taskFixture{
+	plain1 := &tikiFixture{ID: "PLN01", Title: "p1"}
+	plain2 := &tikiFixture{ID: "PLN02", Title: "p2"}
+	bystander := &tikiFixture{
 		ID: "BYST01", Title: "has status but not selected", Status: "ready",
 		WorkflowFrontmatter: map[string]interface{}{"status": "ready"},
 	}
 
-	result, err := e.testExec(vs, []*taskFixture{plain1, plain2, bystander}, ExecutionInput{
+	result, err := e.testExec(vs, []*tikiFixture{plain1, plain2, bystander}, ExecutionInput{
 		SelectedTaskIDs: []string{"PLN01", "PLN02"},
 	})
 	if err != nil {
@@ -183,9 +183,9 @@ func TestPhase5_Has_TargetsQualifierFalseWhenNothingSelected(t *testing.T) {
 	}
 
 	e := NewExecutor(testSchema{}, nil, ExecutorRuntime{Mode: ExecutorRuntimePlugin})
-	plain := &taskFixture{ID: "PLN01", Title: "p"}
+	plain := &tikiFixture{ID: "PLN01", Title: "p"}
 
-	result, err := e.testExec(vs, []*taskFixture{plain}, ExecutionInput{
+	result, err := e.testExec(vs, []*tikiFixture{plain}, ExecutionInput{
 		// no SelectedTaskIDs
 	})
 	if err != nil {

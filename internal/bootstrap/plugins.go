@@ -46,7 +46,7 @@ func InitPluginActionRegistry(plugins []plugin.Plugin) {
 		}
 	}
 	controller.InitPluginActions(pluginInfos)
-	// Successor to the legacy `viewID == TaskDetailViewID` comparison: the
+	// Successor to the legacy `viewID == TikiDetailViewID` comparison: the
 	// controller package can't depend on plugin, so bootstrap installs a
 	// predicate that recognizes any `kind: detail` plugin's view id.
 	controller.SetDetailViewIDPredicate(func(id model.ViewID) bool {

@@ -4,25 +4,25 @@ import tikipkg "github.com/boolean-maybe/tiki/tiki"
 
 // typed view params live here to avoid stringly-typed param maps being
 // spread across layers. The configurable detail view uses PluginViewParams
-// (see below); only TaskEditParams is unique to a built-in view now that
-// the legacy TaskDetailViewID is gone.
+// (see below); only TikiEditParams is unique to a built-in view now that
+// the legacy TikiDetailViewID is gone.
 
 const (
-	paramTaskID    = "taskID"
-	paramDraftTask = "draftTask"
+	paramTikiID    = "tikiID"
+	paramDraftTiki = "draftTiki"
 	paramFocus     = "focus"
 	paramDescOnly  = "descOnly"
 	paramTagsOnly  = "tagsOnly"
 	paramMetadata  = "metadata"
 )
 
-// TaskEditParams are params for TaskEditViewID. Metadata carries the
+// TikiEditParams are params for TikiEditViewID. Metadata carries the
 // metadata field list the source view (typically a configurable detail
 // view) was using. When non-nil, the factory uses it directly; nil falls
 // through to the workflow-driven Detail-plugin lookup, then to a
 // hardcoded last-resort default.
-type TaskEditParams struct {
-	TaskID   string
+type TikiEditParams struct {
+	TikiID   string
 	Draft    *tikipkg.Tiki
 	Focus    EditField
 	DescOnly bool
@@ -30,20 +30,20 @@ type TaskEditParams struct {
 	Metadata []string
 }
 
-// EncodeTaskEditParams converts typed params into a navigation params map.
-func EncodeTaskEditParams(p TaskEditParams) map[string]interface{} {
-	if p.TaskID == "" && p.Draft != nil {
-		p.TaskID = p.Draft.ID
+// EncodeTikiEditParams converts typed params into a navigation params map.
+func EncodeTikiEditParams(p TikiEditParams) map[string]interface{} {
+	if p.TikiID == "" && p.Draft != nil {
+		p.TikiID = p.Draft.ID
 	}
-	if p.TaskID == "" {
+	if p.TikiID == "" {
 		return nil
 	}
 
 	m := map[string]interface{}{
-		paramTaskID: p.TaskID,
+		paramTikiID: p.TikiID,
 	}
 	if p.Draft != nil {
-		m[paramDraftTask] = p.Draft
+		m[paramDraftTiki] = p.Draft
 	}
 	if p.Focus != "" {
 		// Store focus as a plain string for interop and stable params fingerprinting.
@@ -65,22 +65,22 @@ func EncodeTaskEditParams(p TaskEditParams) map[string]interface{} {
 	return m
 }
 
-// PluginViewParams are params accepted by any plugin view. TaskID carries the
+// PluginViewParams are params accepted by any plugin view. TikiID carries the
 // selected document across `kind: view` navigation (6B.3) and drives
-// `kind: detail` rendering (6B.2). Boards / lists / wikis ignore TaskID —
+// `kind: detail` rendering (6B.2). Boards / lists / wikis ignore TikiID —
 // only the detail kind reads it today.
 type PluginViewParams struct {
-	TaskID string
+	TikiID string
 }
 
 // EncodePluginViewParams serializes PluginViewParams to a navigation map.
 // Returns nil when there is nothing to carry — callers that want "push a
 // view with no selection context" can pass nil directly.
 func EncodePluginViewParams(p PluginViewParams) map[string]interface{} {
-	if p.TaskID == "" {
+	if p.TikiID == "" {
 		return nil
 	}
-	return map[string]interface{}{paramTaskID: p.TaskID}
+	return map[string]interface{}{paramTikiID: p.TikiID}
 }
 
 // DecodePluginViewParams extracts PluginViewParams from a navigation map.
@@ -90,25 +90,25 @@ func DecodePluginViewParams(params map[string]interface{}) PluginViewParams {
 	if params == nil {
 		return p
 	}
-	if id, ok := params[paramTaskID].(string); ok {
-		p.TaskID = id
+	if id, ok := params[paramTikiID].(string); ok {
+		p.TikiID = id
 	}
 	return p
 }
 
-// DecodeTaskEditParams converts a navigation params map into typed params.
-func DecodeTaskEditParams(params map[string]interface{}) TaskEditParams {
-	var p TaskEditParams
+// DecodeTikiEditParams converts a navigation params map into typed params.
+func DecodeTikiEditParams(params map[string]interface{}) TikiEditParams {
+	var p TikiEditParams
 	if params == nil {
 		return p
 	}
-	if id, ok := params[paramTaskID].(string); ok {
-		p.TaskID = id
+	if id, ok := params[paramTikiID].(string); ok {
+		p.TikiID = id
 	}
-	if draft, ok := params[paramDraftTask].(*tikipkg.Tiki); ok {
+	if draft, ok := params[paramDraftTiki].(*tikipkg.Tiki); ok {
 		p.Draft = draft
-		if p.TaskID == "" && draft != nil {
-			p.TaskID = draft.ID
+		if p.TikiID == "" && draft != nil {
+			p.TikiID = draft.ID
 		}
 	}
 	switch f := params[paramFocus].(type) {

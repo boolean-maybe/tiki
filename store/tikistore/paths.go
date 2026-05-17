@@ -6,7 +6,7 @@ import (
 
 // PathForID returns the on-disk file path of a loaded document, or the empty
 // string when id is unknown to the store. This is the Phase 2 replacement
-// for every `filepath.Join(taskDir, lower(id) + ".md")` style reconstruction
+// for every `filepath.Join(tikiDir, lower(id) + ".md")` style reconstruction
 // in the codebase: the document's current path is authoritative, so a file
 // that was renamed or moved into a subdirectory resolves to its real
 // location instead of the id-derived default.
@@ -14,7 +14,7 @@ import (
 // The lookup uses the in-memory tiki map as the authoritative id→path index.
 // Callers should not mutate the returned string (it is already a value, not a reference).
 func (s *TikiStore) PathForID(id string) string {
-	normalized := normalizeTaskID(id)
+	normalized := normalizeTikiID(id)
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 	if tk, ok := s.tikis[normalized]; ok {

@@ -20,8 +20,8 @@ func TestPhase4_AbsentScalarEqualsLiteralIsFalse(t *testing.T) {
 	e := newTestExecutor()
 	p := newTestParser()
 
-	plain := &taskFixture{ID: "PLAIN1", Title: "readme"} // no workflow fields
-	workflowZero := &taskFixture{
+	plain := &tikiFixture{ID: "PLAIN1", Title: "readme"} // no workflow fields
+	workflowZero := &tikiFixture{
 		ID: "WRKFL1", Title: "explicit zero", Status: "ready",
 		WorkflowFrontmatter: map[string]interface{}{
 			"status": "ready",
@@ -33,12 +33,12 @@ func TestPhase4_AbsentScalarEqualsLiteralIsFalse(t *testing.T) {
 	if err != nil {
 		t.Fatalf("parse: %v", err)
 	}
-	result, err := e.testExec(stmt, []*taskFixture{plain, workflowZero})
+	result, err := e.testExec(stmt, []*tikiFixture{plain, workflowZero})
 	if err != nil {
 		t.Fatalf("execute: %v", err)
 	}
 	if len(result.Select.Tasks) != 1 || result.Select.Tasks[0].ID != "WRKFL1" {
-		gotIDs := taskIDs(result.Select.Tasks)
+		gotIDs := tikiIDs(result.Select.Tasks)
 		t.Fatalf("expected only WRKFL1 to match points=0, got %v", gotIDs)
 	}
 }
@@ -50,8 +50,8 @@ func TestPhase4_AbsentScalarNotEqualsLiteralIsTrue(t *testing.T) {
 	e := newTestExecutor()
 	p := newTestParser()
 
-	plain := &taskFixture{ID: "PLAIN1", Title: "readme"}
-	workflow5 := &taskFixture{
+	plain := &tikiFixture{ID: "PLAIN1", Title: "readme"}
+	workflow5 := &tikiFixture{
 		ID: "WRKFL5", Title: "points 5", Status: "ready",
 		WorkflowFrontmatter: map[string]interface{}{"points": 5},
 		Points:              5,
@@ -61,12 +61,12 @@ func TestPhase4_AbsentScalarNotEqualsLiteralIsTrue(t *testing.T) {
 	if err != nil {
 		t.Fatalf("parse: %v", err)
 	}
-	result, err := e.testExec(stmt, []*taskFixture{plain, workflow5})
+	result, err := e.testExec(stmt, []*tikiFixture{plain, workflow5})
 	if err != nil {
 		t.Fatalf("execute: %v", err)
 	}
 	if len(result.Select.Tasks) != 1 || result.Select.Tasks[0].ID != "PLAIN1" {
-		gotIDs := taskIDs(result.Select.Tasks)
+		gotIDs := tikiIDs(result.Select.Tasks)
 		t.Fatalf("expected PLAIN1 (missing priority treated as != 5), got %v", gotIDs)
 	}
 }
@@ -77,13 +77,13 @@ func TestPhase4_AbsentScalarOrderingStillHardErrors(t *testing.T) {
 	e := newTestExecutor()
 	p := newTestParser()
 
-	plain := &taskFixture{ID: "PLAIN1", Title: "readme"}
+	plain := &tikiFixture{ID: "PLAIN1", Title: "readme"}
 
 	stmt, err := p.ParseStatement(`select where points < 3`)
 	if err != nil {
 		t.Fatalf("parse: %v", err)
 	}
-	if _, err := e.testExec(stmt, []*taskFixture{plain}); err == nil {
+	if _, err := e.testExec(stmt, []*tikiFixture{plain}); err == nil {
 		t.Fatal("expected hard-error on ordering comparison of absent priority")
 	}
 }
@@ -94,12 +94,12 @@ func TestPhase5_HasPredicateDistinguishesAbsentFromZero(t *testing.T) {
 	e := newTestExecutor()
 	p := newTestParser()
 
-	plain := &taskFixture{ID: "PLAIN1", Title: "readme"}
-	workflowSet := &taskFixture{
+	plain := &tikiFixture{ID: "PLAIN1", Title: "readme"}
+	workflowSet := &tikiFixture{
 		ID: "WRKFL1", Title: "has status", Status: "ready",
 		WorkflowFrontmatter: map[string]interface{}{"status": "ready"},
 	}
-	workflowUnset := &taskFixture{
+	workflowUnset := &tikiFixture{
 		ID: "WRKFL2", Title: "no status",
 		// workflow doc but status key absent
 		WorkflowFrontmatter: map[string]interface{}{"points": 3},
@@ -110,11 +110,11 @@ func TestPhase5_HasPredicateDistinguishesAbsentFromZero(t *testing.T) {
 	if err != nil {
 		t.Fatalf("parse: %v", err)
 	}
-	result, err := e.testExec(stmt, []*taskFixture{plain, workflowSet, workflowUnset})
+	result, err := e.testExec(stmt, []*tikiFixture{plain, workflowSet, workflowUnset})
 	if err != nil {
 		t.Fatalf("execute: %v", err)
 	}
-	gotIDs := taskIDs(result.Select.Tasks)
+	gotIDs := tikiIDs(result.Select.Tasks)
 	wantIDs := []string{"WRKFL1"}
 	if !reflect.DeepEqual(gotIDs, wantIDs) {
 		t.Fatalf("has(status): got %v, want %v", gotIDs, wantIDs)
@@ -143,12 +143,12 @@ func TestPhase5_SetStatusPromotesPlainToWorkflow(t *testing.T) {
 	e := newTestExecutor()
 	p := newTestParser()
 
-	plain := &taskFixture{ID: "PLAIN1", Title: "note"}
+	plain := &tikiFixture{ID: "PLAIN1", Title: "note"}
 	stmt, err := p.ParseStatement(`update where id = "PLAIN1" set status = "ready"`)
 	if err != nil {
 		t.Fatalf("parse: %v", err)
 	}
-	result, err := e.testExec(stmt, []*taskFixture{plain})
+	result, err := e.testExec(stmt, []*tikiFixture{plain})
 	if err != nil {
 		t.Fatalf("execute: %v", err)
 	}
@@ -168,12 +168,12 @@ func TestPhase5_SetPriorityPromotesPlainToWorkflow(t *testing.T) {
 	e := newTestExecutor()
 	p := newTestParser()
 
-	plain := &taskFixture{ID: "PLAIN1", Title: "note"}
+	plain := &tikiFixture{ID: "PLAIN1", Title: "note"}
 	stmt, err := p.ParseStatement(`update where id = "PLAIN1" set priority = "medium-high"`)
 	if err != nil {
 		t.Fatalf("parse: %v", err)
 	}
-	result, err := e.testExec(stmt, []*taskFixture{plain})
+	result, err := e.testExec(stmt, []*tikiFixture{plain})
 	if err != nil {
 		t.Fatalf("execute: %v", err)
 	}
@@ -186,12 +186,12 @@ func TestPhase5_SetPointsPromotesPlainToWorkflow(t *testing.T) {
 	e := newTestExecutor()
 	p := newTestParser()
 
-	plain := &taskFixture{ID: "PLAIN1", Title: "note"}
+	plain := &tikiFixture{ID: "PLAIN1", Title: "note"}
 	stmt, err := p.ParseStatement(`update where id = "PLAIN1" set points = 3`)
 	if err != nil {
 		t.Fatalf("parse: %v", err)
 	}
-	result, err := e.testExec(stmt, []*taskFixture{plain})
+	result, err := e.testExec(stmt, []*tikiFixture{plain})
 	if err != nil {
 		t.Fatalf("execute: %v", err)
 	}
@@ -204,12 +204,12 @@ func TestPhase5_SetDependsOnPromotesPlainToWorkflow(t *testing.T) {
 	e := newTestExecutor()
 	p := newTestParser()
 
-	plain := &taskFixture{ID: "PLAIN1", Title: "note"}
+	plain := &tikiFixture{ID: "PLAIN1", Title: "note"}
 	stmt, err := p.ParseStatement(`update where id = "PLAIN1" set dependsOn = ["ABC123"]`)
 	if err != nil {
 		t.Fatalf("parse: %v", err)
 	}
-	result, err := e.testExec(stmt, []*taskFixture{plain})
+	result, err := e.testExec(stmt, []*tikiFixture{plain})
 	if err != nil {
 		t.Fatalf("execute: %v", err)
 	}
@@ -224,7 +224,7 @@ func TestPhase5_DependsOnRejectsNonBareID(t *testing.T) {
 	e := newTestExecutor()
 	p := newTestParser()
 
-	tasks := []*taskFixture{
+	tasks := []*tikiFixture{
 		{ID: "TIKI-000001", Title: "x", Status: "ready"},
 	}
 	stmt, err := p.ParseStatement(`update where id = "TIKI-000001" set dependsOn = ["TIKI-ABC"]`)
@@ -242,7 +242,7 @@ func TestPhase5_DependsOnAcceptsBareID(t *testing.T) {
 	e := newTestExecutor()
 	p := newTestParser()
 
-	tasks := []*taskFixture{
+	tasks := []*tikiFixture{
 		{ID: "TIKI-000001", Title: "x", Status: "ready"},
 	}
 	stmt, err := p.ParseStatement(`update where id = "TIKI-000001" set dependsOn = ["ABC123"]`)
@@ -273,12 +273,12 @@ func TestPhase4_AbsentListIsEmptyIsTrue(t *testing.T) {
 	e := newTestExecutor()
 	p := newTestParser()
 
-	plain := &taskFixture{ID: "PLAIN1", Title: "no tags"}
-	presentEmpty := &taskFixture{
+	plain := &tikiFixture{ID: "PLAIN1", Title: "no tags"}
+	presentEmpty := &tikiFixture{
 		ID: "EMPTY1", Title: "explicit empty tags", Status: "ready", Tags: []string{},
 		WorkflowFrontmatter: map[string]interface{}{"status": "ready", "tags": ""},
 	}
-	withTags := &taskFixture{
+	withTags := &tikiFixture{
 		ID: "TAGGED", Title: "tagged", Status: "ready", Tags: []string{"a"},
 		WorkflowFrontmatter: map[string]interface{}{"status": "ready", "tags": ""},
 	}
@@ -287,11 +287,11 @@ func TestPhase4_AbsentListIsEmptyIsTrue(t *testing.T) {
 	if err != nil {
 		t.Fatalf("parse: %v", err)
 	}
-	result, err := e.testExec(stmt, []*taskFixture{plain, presentEmpty, withTags})
+	result, err := e.testExec(stmt, []*tikiFixture{plain, presentEmpty, withTags})
 	if err != nil {
 		t.Fatalf("execute: %v", err)
 	}
-	gotIDs := taskIDs(result.Select.Tasks)
+	gotIDs := tikiIDs(result.Select.Tasks)
 	wantIDs := []string{"PLAIN1", "EMPTY1"}
 	sortStrings(gotIDs)
 	sortStrings(wantIDs)
@@ -308,19 +308,19 @@ func TestPhase4_AbsentListEqualsEmptyKeyword(t *testing.T) {
 	e := newTestExecutor()
 	p := newTestParser()
 
-	plain := &taskFixture{ID: "PLAIN1", Title: "no tags"}
+	plain := &tikiFixture{ID: "PLAIN1", Title: "no tags"}
 
 	// `tags = empty` → true for absent tags (is-empty semantics).
 	emptyKeyword, err := p.ParseStatement(`select where tags = empty`)
 	if err != nil {
 		t.Fatalf("parse empty keyword: %v", err)
 	}
-	result, err := e.testExec(emptyKeyword, []*taskFixture{plain})
+	result, err := e.testExec(emptyKeyword, []*tikiFixture{plain})
 	if err != nil {
 		t.Fatalf("execute empty keyword: %v", err)
 	}
 	if len(result.Select.Tasks) != 1 || result.Select.Tasks[0].ID != "PLAIN1" {
-		t.Fatalf("tags = empty: got %v, want [PLAIN1]", taskIDs(result.Select.Tasks))
+		t.Fatalf("tags = empty: got %v, want [PLAIN1]", tikiIDs(result.Select.Tasks))
 	}
 
 	// `tags = []` → false for absent tags (concrete-value compare).
@@ -328,12 +328,12 @@ func TestPhase4_AbsentListEqualsEmptyKeyword(t *testing.T) {
 	if err != nil {
 		t.Fatalf("parse list literal: %v", err)
 	}
-	result, err = e.testExec(listLiteral, []*taskFixture{plain})
+	result, err = e.testExec(listLiteral, []*tikiFixture{plain})
 	if err != nil {
 		t.Fatalf("execute list literal: %v", err)
 	}
 	if len(result.Select.Tasks) != 0 {
-		t.Fatalf("tags = []: got %v, want []", taskIDs(result.Select.Tasks))
+		t.Fatalf("tags = []: got %v, want []", tikiIDs(result.Select.Tasks))
 	}
 }
 
@@ -343,19 +343,19 @@ func TestPhase4_AbsentListQuantifier(t *testing.T) {
 	e := newTestExecutor()
 	p := newTestParser()
 
-	plain := &taskFixture{ID: "PLAIN1", Title: "no deps"}
+	plain := &tikiFixture{ID: "PLAIN1", Title: "no deps"}
 
 	// `all` over absent dependsOn is vacuously true.
 	allStmt, err := p.ParseStatement(`select where dependsOn all status = "done"`)
 	if err != nil {
 		t.Fatalf("parse all: %v", err)
 	}
-	result, err := e.testExec(allStmt, []*taskFixture{plain})
+	result, err := e.testExec(allStmt, []*tikiFixture{plain})
 	if err != nil {
 		t.Fatalf("execute all: %v", err)
 	}
 	if len(result.Select.Tasks) != 1 || result.Select.Tasks[0].ID != "PLAIN1" {
-		t.Fatalf("all on absent deps: got %v, want [PLAIN1]", taskIDs(result.Select.Tasks))
+		t.Fatalf("all on absent deps: got %v, want [PLAIN1]", tikiIDs(result.Select.Tasks))
 	}
 
 	// `any` over absent dependsOn is false.
@@ -363,12 +363,12 @@ func TestPhase4_AbsentListQuantifier(t *testing.T) {
 	if err != nil {
 		t.Fatalf("parse any: %v", err)
 	}
-	result, err = e.testExec(anyStmt, []*taskFixture{plain})
+	result, err = e.testExec(anyStmt, []*tikiFixture{plain})
 	if err != nil {
 		t.Fatalf("execute any: %v", err)
 	}
 	if len(result.Select.Tasks) != 0 {
-		t.Fatalf("any on absent deps: got %v, want []", taskIDs(result.Select.Tasks))
+		t.Fatalf("any on absent deps: got %v, want []", tikiIDs(result.Select.Tasks))
 	}
 }
 
@@ -385,8 +385,8 @@ func TestPhase5_AbsentListHasPredicateWorks(t *testing.T) {
 	e := newTestExecutor()
 	p := newTestParser()
 
-	plain := &taskFixture{ID: "PLAIN1", Title: "no deps"}
-	presentEmpty := &taskFixture{
+	plain := &tikiFixture{ID: "PLAIN1", Title: "no deps"}
+	presentEmpty := &tikiFixture{
 		ID: "EMPTY1", Title: "explicit empty deps", Status: "ready",
 		WorkflowFrontmatter: map[string]interface{}{"status": "ready", "dependsOn": ""},
 	}
@@ -395,11 +395,11 @@ func TestPhase5_AbsentListHasPredicateWorks(t *testing.T) {
 	if err != nil {
 		t.Fatalf("parse: %v", err)
 	}
-	result, err := e.testExec(stmt, []*taskFixture{plain, presentEmpty})
+	result, err := e.testExec(stmt, []*tikiFixture{plain, presentEmpty})
 	if err != nil {
 		t.Fatalf("execute: %v", err)
 	}
-	gotIDs := taskIDs(result.Select.Tasks)
+	gotIDs := tikiIDs(result.Select.Tasks)
 	wantIDs := []string{"EMPTY1"}
 	if !reflect.DeepEqual(gotIDs, wantIDs) {
 		t.Fatalf("has(dependsOn): got %v, want %v (only the doc with explicit dependsOn key should match)", gotIDs, wantIDs)
@@ -413,12 +413,12 @@ func TestPhase4_AbsentListBinaryAddAutoZeroes(t *testing.T) {
 	e := newTestExecutor()
 	p := newTestParser()
 
-	plain := &taskFixture{ID: "PLAIN1", Title: "no deps"}
+	plain := &tikiFixture{ID: "PLAIN1", Title: "no deps"}
 	stmt, err := p.ParseStatement(`update where id = "PLAIN1" set dependsOn = dependsOn + "ABC123"`)
 	if err != nil {
 		t.Fatalf("parse: %v", err)
 	}
-	result, err := e.testExec(stmt, []*taskFixture{plain})
+	result, err := e.testExec(stmt, []*tikiFixture{plain})
 	if err != nil {
 		t.Fatalf("execute: %v", err)
 	}
@@ -435,7 +435,7 @@ func TestPhase4_AbsentListBinaryAddAutoZeroes(t *testing.T) {
 	if err != nil {
 		t.Fatalf("parse literal: %v", err)
 	}
-	result, err = e.testExec(literal, []*taskFixture{plain})
+	result, err = e.testExec(literal, []*tikiFixture{plain})
 	if err != nil {
 		t.Fatalf("execute literal: %v", err)
 	}
@@ -458,17 +458,17 @@ func TestPhase4_NotInAbsentScalarIsTrue(t *testing.T) {
 	e := newTestExecutor()
 	p := newTestParser()
 
-	plain := &taskFixture{ID: "PLAIN1", Title: "no assignee"}
+	plain := &tikiFixture{ID: "PLAIN1", Title: "no assignee"}
 	stmt, err := p.ParseStatement(`select where assignee not in ["alice"]`)
 	if err != nil {
 		t.Fatalf("parse: %v", err)
 	}
-	result, err := e.testExec(stmt, []*taskFixture{plain})
+	result, err := e.testExec(stmt, []*tikiFixture{plain})
 	if err != nil {
 		t.Fatalf("execute: %v", err)
 	}
 	if len(result.Select.Tasks) != 1 || result.Select.Tasks[0].ID != "PLAIN1" {
-		t.Fatalf("assignee not in [...]: got %v, want [PLAIN1]", taskIDs(result.Select.Tasks))
+		t.Fatalf("assignee not in [...]: got %v, want [PLAIN1]", tikiIDs(result.Select.Tasks))
 	}
 }
 
@@ -476,17 +476,17 @@ func TestPhase4_InAbsentScalarIsFalse(t *testing.T) {
 	e := newTestExecutor()
 	p := newTestParser()
 
-	plain := &taskFixture{ID: "PLAIN1", Title: "no assignee"}
+	plain := &tikiFixture{ID: "PLAIN1", Title: "no assignee"}
 	stmt, err := p.ParseStatement(`select where assignee in ["alice", "bob"]`)
 	if err != nil {
 		t.Fatalf("parse: %v", err)
 	}
-	result, err := e.testExec(stmt, []*taskFixture{plain})
+	result, err := e.testExec(stmt, []*tikiFixture{plain})
 	if err != nil {
 		t.Fatalf("execute: %v", err)
 	}
 	if len(result.Select.Tasks) != 0 {
-		t.Fatalf("assignee in [...]: got %v, want []", taskIDs(result.Select.Tasks))
+		t.Fatalf("assignee in [...]: got %v, want []", tikiIDs(result.Select.Tasks))
 	}
 }
 
@@ -494,17 +494,17 @@ func TestPhase4_NotInAbsentListIsTrue(t *testing.T) {
 	e := newTestExecutor()
 	p := newTestParser()
 
-	plain := &taskFixture{ID: "PLAIN1", Title: "no tags"}
+	plain := &tikiFixture{ID: "PLAIN1", Title: "no tags"}
 	stmt, err := p.ParseStatement(`select where "urgent" not in tags`)
 	if err != nil {
 		t.Fatalf("parse: %v", err)
 	}
-	result, err := e.testExec(stmt, []*taskFixture{plain})
+	result, err := e.testExec(stmt, []*tikiFixture{plain})
 	if err != nil {
 		t.Fatalf("execute: %v", err)
 	}
 	if len(result.Select.Tasks) != 1 || result.Select.Tasks[0].ID != "PLAIN1" {
-		t.Fatalf("\"urgent\" not in tags: got %v, want [PLAIN1]", taskIDs(result.Select.Tasks))
+		t.Fatalf("\"urgent\" not in tags: got %v, want [PLAIN1]", tikiIDs(result.Select.Tasks))
 	}
 }
 
@@ -516,15 +516,15 @@ func TestPhase4_AbsentOrderByHardErrors(t *testing.T) {
 	e := newTestExecutor()
 	p := newTestParser()
 
-	plain := &taskFixture{ID: "PLAIN1", Title: "no priority"}
-	p1 := &taskFixture{ID: "PRI001", Title: "p1", Status: "ready",
+	plain := &tikiFixture{ID: "PLAIN1", Title: "no priority"}
+	p1 := &tikiFixture{ID: "PRI001", Title: "p1", Status: "ready",
 		WorkflowFrontmatter: map[string]interface{}{"status": "ready", "priority": 1}}
 
 	stmt, err := p.ParseStatement(`select order by priority`)
 	if err != nil {
 		t.Fatalf("parse: %v", err)
 	}
-	if _, err := e.testExec(stmt, []*taskFixture{plain, p1}); err == nil {
+	if _, err := e.testExec(stmt, []*tikiFixture{plain, p1}); err == nil {
 		t.Fatal("expected hard-error on absent priority during order-by")
 	}
 }

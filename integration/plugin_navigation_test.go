@@ -27,7 +27,7 @@ func setupPluginTestData(t *testing.T, ta *testutil.TestApp) {
 		id       string
 		title    string
 		status   string
-		taskType string
+		tikiType string
 		recent   bool // needs UpdatedAt within 2 hours
 	}{
 		// Backlog plugin: status = 'backlog'
@@ -47,14 +47,14 @@ func setupPluginTestData(t *testing.T, ta *testutil.TestApp) {
 	}
 
 	for _, task := range tasks {
-		err := testutil.CreateTestTask(ta.TaskDir, task.id, task.title, task.status, task.taskType)
+		err := testutil.CreateTestTiki(ta.TikiDir, task.id, task.title, task.status, task.tikiType)
 		if err != nil {
 			t.Fatalf("Failed to create task %s: %v", task.id, err)
 		}
 
 		// For recent tasks, touch file to set mtime to now
 		if task.recent {
-			filePath := filepath.Join(ta.TaskDir, strings.ToLower(task.id)+".md")
+			filePath := filepath.Join(ta.TikiDir, strings.ToLower(task.id)+".md")
 			now := time.Now()
 			if err := os.Chtimes(filePath, now, now); err != nil {
 				t.Fatalf("Failed to touch file %s: %v", filePath, err)
@@ -344,7 +344,7 @@ func TestPluginActions_OpenTask_EnterKey(t *testing.T) {
 
 	// Verify: configurable detail view pushed onto stack (Phase 3:
 	// Enter is workflow-declared kind: view → Detail, not built-in
-	// TaskDetailViewID).
+	// TikiDetailViewID).
 	if ta.NavController.Depth() != 2 {
 		t.Errorf("Expected stack depth 2 after opening task, got %d", ta.NavController.Depth())
 	}
@@ -373,8 +373,8 @@ func TestPluginActions_NewTask_NKey(t *testing.T) {
 	ta.SendKey(tcell.KeyRune, 'n', tcell.ModNone)
 
 	// Verify: TaskEdit view pushed
-	if ta.NavController.CurrentViewID() != model.TaskEditViewID {
-		t.Errorf("Expected view %s after pressing 'n', got %s", model.TaskEditViewID, ta.NavController.CurrentViewID())
+	if ta.NavController.CurrentViewID() != model.TikiEditViewID {
+		t.Errorf("Expected view %s after pressing 'n', got %s", model.TikiEditViewID, ta.NavController.CurrentViewID())
 	}
 
 	// Type title and save
@@ -410,7 +410,7 @@ func TestPluginActions_DeleteTask_DKey(t *testing.T) {
 	defer ta.Cleanup()
 
 	// Create a specific task to delete
-	_ = testutil.CreateTestTask(ta.TaskDir, "DELETE", "To Delete", "backlog", "story")
+	_ = testutil.CreateTestTiki(ta.TikiDir, "DELETE", "To Delete", "backlog", "story")
 	_ = ta.TikiStore.Reload()
 
 	ta.NavController.PushView(model.MakePluginViewID("Backlog"), nil)
@@ -572,7 +572,7 @@ func TestPluginStack_TaskDetailFromPlugin_ReturnsToPlugin(t *testing.T) {
 }
 
 // Phase 3 cleanup: TestPluginStack_ComplexDrillDown removed. It tested
-// the legacy 3-level Enter → TaskDetailViewID → 'e' → TaskEditViewID
+// the legacy 3-level Enter → TikiDetailViewID → 'e' → TikiEditViewID
 // stack; after Phase 2 'e' flips in-place edit mode without pushing.
 
 // ============================================================================
@@ -635,7 +635,7 @@ func TestPluginEsc_FromTaskDetailToPlugin(t *testing.T) {
 
 // Phase 3 cleanup: TestPluginEsc_ComplexDrillDown removed for the same
 // reason as TestPluginStack_ComplexDrillDown above — the legacy 3-level
-// Enter → TaskDetailViewID → 'e' → TaskEditViewID stack no longer
+// Enter → TikiDetailViewID → 'e' → TikiEditViewID stack no longer
 // exists, edit mode is in-place on the configurable detail view.
 
 // ============================================================================
@@ -715,9 +715,9 @@ func TestPluginActions_DeleteTask_UpdatesSelection(t *testing.T) {
 	}
 
 	// Create specific tasks for this test
-	_ = testutil.CreateTestTask(ta.TaskDir, "00DEL1", "Task 1", "backlog", "story")
-	_ = testutil.CreateTestTask(ta.TaskDir, "00DEL2", "Task 2", "backlog", "story")
-	_ = testutil.CreateTestTask(ta.TaskDir, "00DEL3", "Task 3", "backlog", "story")
+	_ = testutil.CreateTestTiki(ta.TikiDir, "00DEL1", "Task 1", "backlog", "story")
+	_ = testutil.CreateTestTiki(ta.TikiDir, "00DEL2", "Task 2", "backlog", "story")
+	_ = testutil.CreateTestTiki(ta.TikiDir, "00DEL3", "Task 3", "backlog", "story")
 	_ = ta.TikiStore.Reload()
 
 	ta.NavController.PushView(model.MakePluginViewID("Backlog"), nil)
@@ -762,7 +762,7 @@ func TestPluginActions_DeleteTask_UpdatesSelection(t *testing.T) {
 
 // TestNavigationStack_BoardToTaskDetail verifies 2-level stack
 // Phase 3: Enter pushes the configurable detail view (workflow-declared
-// `kind: view` action), not the legacy TaskDetailViewID.
+// `kind: view` action), not the legacy TikiDetailViewID.
 func TestNavigationStack_BoardToTaskDetail(t *testing.T) {
 	ta := setupTestAppWithPlugins(t)
 	defer ta.Cleanup()
@@ -795,11 +795,11 @@ func TestNavigationStack_BoardToTaskDetail(t *testing.T) {
 
 // Phase 3 cleanup: TestNavigationStack_BoardToDetailToEdit and
 // TestNavigationStack_ThreeLevelDeep have been removed. They asserted
-// the legacy 3-level Enter → TaskDetailViewID → 'e' → TaskEditViewID
+// the legacy 3-level Enter → TikiDetailViewID → 'e' → TikiEditViewID
 // stack. After Phase 2, 'e' on the configurable detail view flips the
 // same view into in-place edit mode without pushing a new entry, so the
 // 3-level depth invariant no longer applies. Edit-mode behavior is
-// covered by view/taskdetail/configurable_detail_edit_test.go and the
+// covered by view/tikidetail/configurable_detail_edit_test.go and the
 // surviving integration tests use the in-place edit flow.
 
 // TestNavigationStack_MultipleTaskDetailOpens verifies stack doesn't corrupt with repeated opens

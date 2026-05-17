@@ -44,8 +44,8 @@ type ReadStore interface {
 	// Reload reloads all data from the backing store
 	Reload() error
 
-	// ReloadTask reloads a single task from disk by ID
-	ReloadTask(taskID string) error
+	// ReloadTiki reloads a single task from disk by ID
+	ReloadTiki(tikiID string) error
 
 	// PathForID returns the on-disk path of the document with the given id,
 	// or the empty string when the id is unknown to the store.

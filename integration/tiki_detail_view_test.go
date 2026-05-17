@@ -21,8 +21,8 @@ func TestTaskDetailView_RenderMetadata(t *testing.T) {
 	}
 
 	// Create a task with all fields populated
-	taskID := "000001"
-	if err := testutil.CreateTestTask(ta.TaskDir, taskID, "Test Task Title", "inProgress", "bug"); err != nil {
+	tikiID := "000001"
+	if err := testutil.CreateTestTiki(ta.TikiDir, tikiID, "Test Task Title", "inProgress", "bug"); err != nil {
 		t.Fatalf("failed to create test task: %v", err)
 	}
 	if err := ta.TikiStore.Reload(); err != nil {
@@ -75,9 +75,9 @@ func TestTaskDetailView_RenderDescription(t *testing.T) {
 	ta := testutil.NewTestApp(t)
 	defer ta.Cleanup()
 
-	// Create task (description is set to the title by CreateTestTask)
-	taskID := "000001"
-	if err := testutil.CreateTestTask(ta.TaskDir, taskID, "Task with description", "ready", "story"); err != nil {
+	// Create task (description is set to the title by CreateTestTiki)
+	tikiID := "000001"
+	if err := testutil.CreateTestTiki(ta.TikiDir, tikiID, "Task with description", "ready", "story"); err != nil {
 		t.Fatalf("failed to create test task: %v", err)
 	}
 	if err := ta.TikiStore.Reload(); err != nil {
@@ -104,8 +104,8 @@ func TestTaskDetailView_NavigateBack(t *testing.T) {
 	defer ta.Cleanup()
 
 	// Create task
-	taskID := "000001"
-	if err := testutil.CreateTestTask(ta.TaskDir, taskID, "Test Task", "ready", "story"); err != nil {
+	tikiID := "000001"
+	if err := testutil.CreateTestTiki(ta.TikiDir, tikiID, "Test Task", "ready", "story"); err != nil {
 		t.Fatalf("failed to create test task: %v", err)
 	}
 	if err := ta.TikiStore.Reload(); err != nil {
@@ -118,7 +118,7 @@ func TestTaskDetailView_NavigateBack(t *testing.T) {
 	ta.SendKey(tcell.KeyEnter, 0, tcell.ModNone)
 
 	// Phase 3: configurable detail view (workflow `kind: view`), not
-	// the legacy TaskDetailViewID.
+	// the legacy TikiDetailViewID.
 	currentView := ta.NavController.CurrentView()
 	wantDetail := model.DetailPluginViewID()
 	if currentView.ViewID != wantDetail {
@@ -137,7 +137,7 @@ func TestTaskDetailView_NavigateBack(t *testing.T) {
 
 // Phase 3 cleanup: TestTaskDetailView_InlineTitleEdit_Save and
 // TestTaskDetailView_InlineTitleEdit_Cancel were removed. Inline title
-// editing was a legacy TaskDetailView affordance ('e' opened the title
+// editing was a legacy TikiDetailView affordance ('e' opened the title
 // field for keystroke editing, Enter committed). The configurable
 // detail view does not surface a title editor — title is rendered as
 // part of the always-on detail layout and edited via 'e' → in-place
@@ -149,10 +149,10 @@ func TestTaskDetailView_FromBoard(t *testing.T) {
 	defer ta.Cleanup()
 
 	// Create tasks
-	if err := testutil.CreateTestTask(ta.TaskDir, "000001", "First Task", "ready", "story"); err != nil {
+	if err := testutil.CreateTestTiki(ta.TikiDir, "000001", "First Task", "ready", "story"); err != nil {
 		t.Fatalf("failed to create test task: %v", err)
 	}
-	if err := testutil.CreateTestTask(ta.TaskDir, "000002", "Second Task", "ready", "story"); err != nil {
+	if err := testutil.CreateTestTiki(ta.TikiDir, "000002", "Second Task", "ready", "story"); err != nil {
 		t.Fatalf("failed to create test task: %v", err)
 	}
 	if err := ta.TikiStore.Reload(); err != nil {
@@ -190,8 +190,8 @@ func TestTaskDetailView_EmptyDescription(t *testing.T) {
 	defer ta.Cleanup()
 
 	// Create task with minimal content
-	taskID := "000001"
-	if err := testutil.CreateTestTask(ta.TaskDir, taskID, "Task Title", "ready", "story"); err != nil {
+	tikiID := "000001"
+	if err := testutil.CreateTestTiki(ta.TikiDir, tikiID, "Task Title", "ready", "story"); err != nil {
 		t.Fatalf("failed to create test task: %v", err)
 	}
 	if err := ta.TikiStore.Reload(); err != nil {
@@ -224,13 +224,13 @@ func TestTaskDetailView_MultipleOpen(t *testing.T) {
 	defer ta.Cleanup()
 
 	// Create multiple tasks
-	if err := testutil.CreateTestTask(ta.TaskDir, "000001", "First Task", "ready", "story"); err != nil {
+	if err := testutil.CreateTestTiki(ta.TikiDir, "000001", "First Task", "ready", "story"); err != nil {
 		t.Fatalf("failed to create test task: %v", err)
 	}
-	if err := testutil.CreateTestTask(ta.TaskDir, "000002", "Second Task", "ready", "story"); err != nil {
+	if err := testutil.CreateTestTiki(ta.TikiDir, "000002", "Second Task", "ready", "story"); err != nil {
 		t.Fatalf("failed to create test task: %v", err)
 	}
-	if err := testutil.CreateTestTask(ta.TaskDir, "000003", "Third Task", "ready", "story"); err != nil {
+	if err := testutil.CreateTestTiki(ta.TikiDir, "000003", "Third Task", "ready", "story"); err != nil {
 		t.Fatalf("failed to create test task: %v", err)
 	}
 	if err := ta.TikiStore.Reload(); err != nil {
@@ -288,9 +288,9 @@ func TestTaskDetailView_AllStatuses(t *testing.T) {
 	}
 
 	for i, status := range statuses {
-		taskID := testutil.ID(fmt.Sprintf("TIKI-%d", i+1))
+		tikiID := testutil.ID(fmt.Sprintf("TIKI-%d", i+1))
 		title := fmt.Sprintf("Task %s", status)
-		if err := testutil.CreateTestTask(ta.TaskDir, taskID, title, status, "story"); err != nil {
+		if err := testutil.CreateTestTiki(ta.TikiDir, tikiID, title, status, "story"); err != nil {
 			t.Fatalf("failed to create test task: %v", err)
 		}
 	}
@@ -306,7 +306,7 @@ func TestTaskDetailView_AllStatuses(t *testing.T) {
 	// For each status, navigate to first task with that status and verify detail view
 	for i, status := range statuses {
 		// Find the task on board (may need to navigate between lanes)
-		taskID := fmt.Sprintf("TIKI-%d", i+1)
+		tikiID := fmt.Sprintf("TIKI-%d", i+1)
 
 		// Navigate to correct lane based on status
 		// For simplicity, we'll just open first task in todo lane for this test
@@ -315,7 +315,7 @@ func TestTaskDetailView_AllStatuses(t *testing.T) {
 
 			// Verify task ID visible (use the normalized canonical id since
 			// the UI renders the on-disk id, not the test-shorthand form).
-			canonID := testutil.ID(taskID)
+			canonID := testutil.ID(tikiID)
 			found, _, _ := ta.FindText(canonID)
 			if !found {
 				ta.DumpScreen()
@@ -339,10 +339,10 @@ func TestTaskDetailView_AllTypes(t *testing.T) {
 		"bug",
 	}
 
-	for i, taskType := range types {
-		taskID := fmt.Sprintf("TIKI-%d", i+1)
-		title := fmt.Sprintf("Task %s", taskType)
-		if err := testutil.CreateTestTask(ta.TaskDir, taskID, title, "ready", taskType); err != nil {
+	for i, tikiType := range types {
+		tikiID := fmt.Sprintf("TIKI-%d", i+1)
+		title := fmt.Sprintf("Task %s", tikiType)
+		if err := testutil.CreateTestTiki(ta.TikiDir, tikiID, title, "ready", tikiType); err != nil {
 			t.Fatalf("failed to create test task: %v", err)
 		}
 	}

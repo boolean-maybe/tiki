@@ -1,4 +1,4 @@
-package taskdetail
+package tikidetail
 
 import (
 	"github.com/boolean-maybe/tiki/gridlayout"

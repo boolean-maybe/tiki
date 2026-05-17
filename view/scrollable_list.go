@@ -160,8 +160,8 @@ func (s *ScrollableList) Focus(delegate func(p tview.Primitive)) {
 	// For now, the Board/Backlog handle input at the controller level, and these are just display.
 	// So we might not strictly need to delegate focus, but it's good practice if we want children to draw focused styles.
 
-	// In this specific use case (TaskBox), the "selected" state is passed in during creation/refresh
-	// via border color changes. The TaskBox itself doesn't handle input or focus events in the tview sense.
+	// In this specific use case (TikiBox), the "selected" state is passed in during creation/refresh
+	// via border color changes. The TikiBox itself doesn't handle input or focus events in the tview sense.
 	// So we can just let the Box handle focus for now.
 	s.Box.Focus(delegate)
 }

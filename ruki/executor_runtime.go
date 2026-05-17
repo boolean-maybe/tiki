@@ -51,8 +51,8 @@ type ExecutionInput struct {
 
 // NewSingleSelectionInput returns an ExecutionInput carrying exactly one
 // selected task id. Convenience for the common single-selection case.
-func NewSingleSelectionInput(taskID string) ExecutionInput {
-	trimmed := strings.TrimSpace(taskID)
+func NewSingleSelectionInput(tikiID string) ExecutionInput {
+	trimmed := strings.TrimSpace(tikiID)
 	if trimmed == "" {
 		return ExecutionInput{}
 	}

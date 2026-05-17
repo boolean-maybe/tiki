@@ -199,8 +199,8 @@ func (pc *PluginConfig) notifyListeners() {
 }
 
 // MoveSelection moves selection in a direction within the current lane.
-func (pc *PluginConfig) MoveSelection(direction string, taskCount int) bool {
-	if taskCount == 0 {
+func (pc *PluginConfig) MoveSelection(direction string, tikiCount int) bool {
+	if tikiCount == 0 {
 		return false
 	}
 
@@ -210,7 +210,7 @@ func (pc *PluginConfig) MoveSelection(direction string, taskCount int) bool {
 	oldIndex := pc.indexForLane(lane)
 	row := oldIndex / columns
 	col := oldIndex % columns
-	numRows := (taskCount + columns - 1) / columns
+	numRows := (tikiCount + columns - 1) / columns
 
 	switch direction {
 	case "up":
@@ -219,7 +219,7 @@ func (pc *PluginConfig) MoveSelection(direction string, taskCount int) bool {
 		}
 	case "down":
 		newIdx := oldIndex + columns
-		if row < numRows-1 && newIdx < taskCount {
+		if row < numRows-1 && newIdx < tikiCount {
 			pc.setIndexForLane(lane, newIdx)
 		}
 	case "left":
@@ -227,7 +227,7 @@ func (pc *PluginConfig) MoveSelection(direction string, taskCount int) bool {
 			pc.setIndexForLane(lane, oldIndex-1)
 		}
 	case "right":
-		if col < columns-1 && oldIndex+1 < taskCount {
+		if col < columns-1 && oldIndex+1 < tikiCount {
 			pc.setIndexForLane(lane, oldIndex+1)
 		}
 	}
@@ -242,12 +242,12 @@ func (pc *PluginConfig) MoveSelection(direction string, taskCount int) bool {
 }
 
 // ClampSelection ensures selection is within bounds for the current lane.
-func (pc *PluginConfig) ClampSelection(taskCount int) {
+func (pc *PluginConfig) ClampSelection(tikiCount int) {
 	pc.mu.Lock()
 	lane := pc.selectedLane
 	index := pc.indexForLane(lane)
-	if index >= taskCount {
-		pc.setIndexForLane(lane, taskCount-1)
+	if index >= tikiCount {
+		pc.setIndexForLane(lane, tikiCount-1)
 	}
 	if pc.indexForLane(lane) < 0 {
 		pc.setIndexForLane(lane, 0)

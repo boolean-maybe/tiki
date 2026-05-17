@@ -1,4 +1,4 @@
-package taskdetail
+package tikidetail
 
 import (
 	"github.com/boolean-maybe/tiki/controller"
@@ -7,27 +7,27 @@ import (
 	"github.com/boolean-maybe/tiki/workflow"
 )
 
-// task_edit_nav.go contains edit-mode navigation and field management
-// methods for TaskEditView. After the grid migration these dispatch through
+// tiki_edit_nav.go contains edit-mode navigation and field management
+// methods for TikiEditView. After the grid migration these dispatch through
 // ev.editors (a unified FieldEditorWidget map keyed by canonical field
 // name) instead of the per-typed-widget switch tables that used to live
 // here. Title and Description retain dedicated paths because they live
 // outside the metadata grid.
 
 // IsValid returns true if the task passes all validation checks.
-func (ev *TaskEditView) IsValid() bool {
+func (ev *TikiEditView) IsValid() bool {
 	return len(ev.validationErrors) == 0
 }
 
 // ValidationErrors returns the current list of validation error messages.
-func (ev *TaskEditView) ValidationErrors() []string {
+func (ev *TikiEditView) ValidationErrors() []string {
 	return ev.validationErrors
 }
 
 // SetFocusedField changes the focused field, refreshes the layout (so the
 // focused field's read-only render switches to its editor primitive), and
 // hands focus to the matching widget.
-func (ev *TaskEditView) SetFocusedField(field model.EditField) {
+func (ev *TikiEditView) SetFocusedField(field model.EditField) {
 	ev.focusedField = field
 	ev.UpdateHeaderForField(field)
 
@@ -102,13 +102,13 @@ func editFieldToFieldName(field model.EditField) string {
 }
 
 // GetFocusedField returns the currently focused field.
-func (ev *TaskEditView) GetFocusedField() model.EditField {
+func (ev *TikiEditView) GetFocusedField() model.EditField {
 	return ev.focusedField
 }
 
 // IsEditFieldFocused returns whether any editable widget has tview focus.
 // Aggregates title, description, and every cached metadata editor.
-func (ev *TaskEditView) IsEditFieldFocused() bool {
+func (ev *TikiEditView) IsEditFieldFocused() bool {
 	if ev.titleInput != nil && ev.titleInput.HasFocus() {
 		return true
 	}
@@ -124,7 +124,7 @@ func (ev *TaskEditView) IsEditFieldFocused() bool {
 }
 
 // FocusNextField advances to the next field in the per-instance edit order.
-func (ev *TaskEditView) FocusNextField() bool {
+func (ev *TikiEditView) FocusNextField() bool {
 	if ev.descOnly || ev.tagsOnly {
 		return false
 	}
@@ -134,7 +134,7 @@ func (ev *TaskEditView) FocusNextField() bool {
 }
 
 // FocusPrevField moves to the previous field in the per-instance edit order.
-func (ev *TaskEditView) FocusPrevField() bool {
+func (ev *TikiEditView) FocusPrevField() bool {
 	if ev.descOnly || ev.tagsOnly {
 		return false
 	}
@@ -147,17 +147,17 @@ func (ev *TaskEditView) FocusPrevField() bool {
 // navigation. Read-only descriptors are already filtered out by
 // MetadataToEditFieldOrder; this skip predicate covers dynamic state like
 // Due being read-only when recurrence is set.
-func (ev *TaskEditView) shouldSkipField(field model.EditField) bool {
+func (ev *TikiEditView) shouldSkipField(field model.EditField) bool {
 	return field == model.EditFieldDue && ev.isDueReadOnly()
 }
 
 // CycleFieldValueUp cycles the currently focused field's value upward (-1).
-func (ev *TaskEditView) CycleFieldValueUp() bool {
+func (ev *TikiEditView) CycleFieldValueUp() bool {
 	return ev.cycleFocusedField(-1)
 }
 
 // CycleFieldValueDown cycles the currently focused field's value downward (+1).
-func (ev *TaskEditView) CycleFieldValueDown() bool {
+func (ev *TikiEditView) CycleFieldValueDown() bool {
 	return ev.cycleFocusedField(+1)
 }
 
@@ -165,7 +165,7 @@ func (ev *TaskEditView) CycleFieldValueDown() bool {
 // editor. Returns false when the focused field has no cyclable widget
 // (e.g. tags, title, description) or when the widget refuses to cycle
 // (e.g. due in recurrence-driven read-only mode).
-func (ev *TaskEditView) cycleFocusedField(direction int) bool {
+func (ev *TikiEditView) cycleFocusedField(direction int) bool {
 	name := editFieldToFieldName(ev.focusedField)
 	if name == "" {
 		return false
@@ -178,7 +178,7 @@ func (ev *TaskEditView) cycleFocusedField(direction int) bool {
 }
 
 // MoveRecurrencePartLeft moves the recurrence editor to the frequency part.
-func (ev *TaskEditView) MoveRecurrencePartLeft() bool {
+func (ev *TikiEditView) MoveRecurrencePartLeft() bool {
 	if ev.focusedField != model.EditFieldRecurrence {
 		return false
 	}
@@ -194,7 +194,7 @@ func (ev *TaskEditView) MoveRecurrencePartLeft() bool {
 }
 
 // MoveRecurrencePartRight moves the recurrence editor to the value part.
-func (ev *TaskEditView) MoveRecurrencePartRight() bool {
+func (ev *TikiEditView) MoveRecurrencePartRight() bool {
 	if ev.focusedField != model.EditFieldRecurrence {
 		return false
 	}
@@ -211,7 +211,7 @@ func (ev *TaskEditView) MoveRecurrencePartRight() bool {
 
 // IsRecurrenceValueFocused returns true when the recurrence field's value
 // part is active.
-func (ev *TaskEditView) IsRecurrenceValueFocused() bool {
+func (ev *TikiEditView) IsRecurrenceValueFocused() bool {
 	if ev.focusedField != model.EditFieldRecurrence {
 		return false
 	}
@@ -226,7 +226,7 @@ func (ev *TaskEditView) IsRecurrenceValueFocused() bool {
 }
 
 // UpdateHeaderForField updates the registry with field-specific actions.
-func (ev *TaskEditView) UpdateHeaderForField(field model.EditField) {
+func (ev *TikiEditView) UpdateHeaderForField(field model.EditField) {
 	if ev.descOnly {
 		ev.registry = controller.DescOnlyEditActions()
 	} else if ev.tagsOnly {

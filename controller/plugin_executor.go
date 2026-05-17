@@ -20,7 +20,7 @@ import (
 // Phase 6B.4: extracted from PluginController so non-board views can
 // dispatch `kind: ruki` globals without duplicating the executor pipeline.
 type PluginExecutor struct {
-	taskStore    store.Store
+	tikiStore    store.Store
 	mutationGate *service.TikiMutationGate
 	statusline   *model.StatuslineConfig
 	schema       ruki.Schema
@@ -37,7 +37,7 @@ type PluginExecutor struct {
 
 // NewPluginExecutor constructs an executor. onTaskUpdated may be nil.
 func NewPluginExecutor(
-	taskStore store.Store,
+	tikiStore store.Store,
 	mutationGate *service.TikiMutationGate,
 	statusline *model.StatuslineConfig,
 	schema ruki.Schema,
@@ -45,7 +45,7 @@ func NewPluginExecutor(
 	onTaskUpdated func(*tikipkg.Tiki),
 ) *PluginExecutor {
 	return &PluginExecutor{
-		taskStore:     taskStore,
+		tikiStore:     tikiStore,
 		mutationGate:  mutationGate,
 		statusline:    statusline,
 		schema:        schema,
@@ -72,7 +72,7 @@ func (pe *PluginExecutor) BuildExecutionInput(pa *plugin.PluginAction, selectedI
 	}
 
 	if pa.Action != nil && pa.Action.IsCreate() {
-		template, err := pe.taskStore.NewTikiTemplate()
+		template, err := pe.tikiStore.NewTikiTemplate()
 		if err != nil {
 			slog.Error("failed to create task template for plugin action", "error", err)
 			return input, false
@@ -92,7 +92,7 @@ func (pe *PluginExecutor) Execute(pa *plugin.PluginAction, input ruki.ExecutionI
 
 	executor := ruki.NewExecutor(pe.schema, pe.userFunc(),
 		ruki.ExecutorRuntime{Mode: ruki.ExecutorRuntimePlugin})
-	allTikis := pe.taskStore.GetAllTikis()
+	allTikis := pe.tikiStore.GetAllTikis()
 
 	result, err := executor.Execute(pa.Action, allTikis, input)
 	if err != nil {
@@ -119,7 +119,7 @@ func (pe *PluginExecutor) applyResult(pa *plugin.PluginAction, input ruki.Execut
 	case result.Update != nil:
 		for _, tk := range result.Update.Updated {
 			if err := pe.mutationGate.UpdateTiki(ctx, tk); err != nil {
-				slog.Error("failed to update task after plugin action", "task_id", tk.ID, "key", pa.KeyStr, "error", err)
+				slog.Error("failed to update task after plugin action", "tiki_id", tk.ID, "key", pa.KeyStr, "error", err)
 				pe.setError(err)
 				return false
 			}
@@ -136,7 +136,7 @@ func (pe *PluginExecutor) applyResult(pa *plugin.PluginAction, input ruki.Execut
 	case result.Delete != nil:
 		for _, tk := range result.Delete.Deleted {
 			if err := pe.mutationGate.DeleteTiki(ctx, tk); err != nil {
-				slog.Error("failed to delete task from plugin action", "task_id", tk.ID, "key", pa.KeyStr, "error", err)
+				slog.Error("failed to delete task from plugin action", "tiki_id", tk.ID, "key", pa.KeyStr, "error", err)
 				pe.setError(err)
 				return false
 			}
@@ -167,7 +167,7 @@ func (pe *PluginExecutor) applyResult(pa *plugin.PluginAction, input ruki.Execut
 // userFunc returns a closure that resolves the current user's name for the
 // ruki executor's `user()` builtin, or nil when no identity is available.
 func (pe *PluginExecutor) userFunc() func() string {
-	if name := getCurrentUserName(pe.taskStore); name != "" {
+	if name := getCurrentUserName(pe.tikiStore); name != "" {
 		return func() string { return name }
 	}
 	return nil

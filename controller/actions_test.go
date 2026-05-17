@@ -457,7 +457,7 @@ func TestDefaultGlobalActions(t *testing.T) {
 }
 
 func TestTaskDetailViewActions(t *testing.T) {
-	registry := TaskDetailViewActions()
+	registry := TikiDetailViewActions()
 	actions := registry.GetActions()
 
 	if len(actions) != 7 {
@@ -528,7 +528,7 @@ func TestDescOnlyEditActions(t *testing.T) {
 }
 
 func TestTaskDetailViewActions_HasEditDesc(t *testing.T) {
-	registry := TaskDetailViewActions()
+	registry := TikiDetailViewActions()
 
 	// Shift+D should match ActionEditDesc
 	event := tcell.NewEventKey(tcell.KeyRune, 'D', tcell.ModNone)
@@ -546,7 +546,7 @@ func TestTaskDetailViewActions_ChatAlwaysRegistered(t *testing.T) {
 	viper.Set("ai.agent", "")
 	defer viper.Set("ai.agent", "")
 
-	registry := TaskDetailViewActions()
+	registry := TikiDetailViewActions()
 	action, found := registry.LookupRune('c')
 	if !found {
 		t.Fatal("chat action should always be registered")
@@ -573,7 +573,7 @@ func TestTaskDetailViewActions_ChatEnabledWithConfig(t *testing.T) {
 	viper.Set("ai.agent", "claude")
 	defer viper.Set("ai.agent", "")
 
-	registry := TaskDetailViewActions()
+	registry := TikiDetailViewActions()
 
 	action, found := registry.LookupRune('c')
 	if !found {
@@ -587,7 +587,7 @@ func TestTaskDetailViewActions_ChatEnabledWithConfig(t *testing.T) {
 	}
 
 	ctx := BuildAppContext(
-		&ViewEntry{ViewID: model.MakePluginViewID("Detail"), Params: model.EncodePluginViewParams(model.PluginViewParams{TaskID: "ABC123"})},
+		&ViewEntry{ViewID: model.MakePluginViewID("Detail"), Params: model.EncodePluginViewParams(model.PluginViewParams{TikiID: "ABC123"})},
 		nil,
 	)
 	if !ActionEnabled(action, ctx) {
@@ -863,7 +863,7 @@ func TestPluginViewActions_NavHiddenFromPalette(t *testing.T) {
 }
 
 func TestTaskEditActions_FieldLocalHidden_SaveVisible(t *testing.T) {
-	registry := TaskEditTitleActions()
+	registry := TikiEditTitleActions()
 	paletteActions := registry.GetPaletteActions()
 
 	found := map[ActionID]bool{}
@@ -1064,7 +1064,7 @@ func TestSelectionSatisfies(t *testing.T) {
 func TestBuildAppContext_TaskDetail(t *testing.T) {
 	entry := &ViewEntry{
 		ViewID: model.MakePluginViewID("Detail"),
-		Params: model.EncodePluginViewParams(model.PluginViewParams{TaskID: "ABC123"}),
+		Params: model.EncodePluginViewParams(model.PluginViewParams{TikiID: "ABC123"}),
 	}
 	ctx := BuildAppContext(entry, nil)
 	if !ctx.Has("id") {
@@ -1084,11 +1084,11 @@ func TestBuildAppContext_TaskDetail(t *testing.T) {
 func TestNoCallbackBasedEnablement(t *testing.T) {
 	registries := []*ActionRegistry{
 		DefaultGlobalActions(),
-		TaskDetailViewActions(),
+		TikiDetailViewActions(),
 		PluginViewActions(),
 		DepsViewActions(),
-		TaskEditViewActions(),
-		ReadonlyTaskDetailViewActions(),
+		TikiEditViewActions(),
+		ReadonlyTikiDetailViewActions(),
 	}
 
 	for _, r := range registries {
@@ -1178,7 +1178,7 @@ func TestMakeDetailViewResolver(t *testing.T) {
 }
 
 // TestOpenDepsEditor_ReopenRefreshesResolver guards a subtle bug:
-// the deps editor is keyed by "Dependency:<taskID>", so opening the
+// the deps editor is keyed by "Dependency:<tikiID>", so opening the
 // same task's editor a second time hits the early-return reopen
 // branch. Without refreshing the resolver, the closure captured on
 // first open keeps the original sourceDetailViewName forever and
@@ -1194,11 +1194,11 @@ func TestOpenDepsEditor_ReopenRefreshesResolver(t *testing.T) {
 		},
 	}
 
-	const taskID = "TASK01"
+	const tikiID = "TASK01"
 
 	// First open from DetailA.
-	ir.openDepsEditor(taskID, "DetailA")
-	depsName := "Dependency:" + taskID
+	ir.openDepsEditor(tikiID, "DetailA")
+	depsName := "Dependency:" + tikiID
 	dc, ok := ir.pluginControllers[depsName].(*DepsController)
 	if !ok {
 		t.Fatalf("expected *DepsController under %q, got %T", depsName, ir.pluginControllers[depsName])
@@ -1209,7 +1209,7 @@ func TestOpenDepsEditor_ReopenRefreshesResolver(t *testing.T) {
 
 	// Reopen from DetailB — same task id, so the existing controller
 	// is reused. The resolver must now prefer DetailB.
-	ir.openDepsEditor(taskID, "DetailB")
+	ir.openDepsEditor(tikiID, "DetailB")
 	if got := dc.detailViewResolver(); got != "DetailB" {
 		t.Errorf("after reopen from DetailB: resolver = %q, want %q (stale resolver bug)", got, "DetailB")
 	}
@@ -1218,7 +1218,7 @@ func TestOpenDepsEditor_ReopenRefreshesResolver(t *testing.T) {
 	// fall back through discovery rather than holding onto DetailB.
 	// Map iteration order is non-deterministic, so we only assert
 	// that *some* available detail name is returned, not which one.
-	ir.openDepsEditor(taskID, "")
+	ir.openDepsEditor(tikiID, "")
 	got := dc.detailViewResolver()
 	if got != "DetailA" && got != "DetailB" {
 		t.Errorf("after reopen with empty source: resolver = %q, want one of DetailA/DetailB", got)

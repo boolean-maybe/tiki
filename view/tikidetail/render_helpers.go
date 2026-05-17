@@ -1,4 +1,4 @@
-package taskdetail
+package tikidetail
 
 import (
 	"fmt"
@@ -191,14 +191,14 @@ func RenderTagsColumn(tk *tikipkg.Tiki) tview.Primitive {
 // (declared but not in the store) render as placeholder rows carrying the
 // raw ID as a synthetic tiki — keeps the rendered row count in lockstep
 // with the height contract so the grid algorithm doesn't reserve dead rows.
-func RenderDependsOnColumn(tk *tikipkg.Tiki, taskStore store.Store) tview.Primitive {
+func RenderDependsOnColumn(tk *tikipkg.Tiki, tikiStore store.Store) tview.Primitive {
 	deps, _, _ := tk.StringSliceField(tikipkg.FieldDependsOn)
 	if len(deps) == 0 {
 		return nil
 	}
 	rendered := make([]*tikipkg.Tiki, 0, len(deps))
 	for _, id := range deps {
-		if dep := taskStore.GetTiki(id); dep != nil {
+		if dep := tikiStore.GetTiki(id); dep != nil {
 			rendered = append(rendered, dep)
 			continue
 		}
