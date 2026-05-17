@@ -12,25 +12,25 @@ import (
 	"github.com/rivo/tview"
 )
 
-// mockTaskEditView implements View + TikiEditView for coordinator commit tests.
-type mockTaskEditView struct {
+// mockTikiEditView implements View + TikiEditView for coordinator commit tests.
+type mockTikiEditView struct {
 	title       string
 	description string
 	tags        []string
 }
 
-func (m *mockTaskEditView) GetPrimitive() tview.Primitive      { return nil }
-func (m *mockTaskEditView) GetActionRegistry() *ActionRegistry { return nil }
-func (m *mockTaskEditView) GetViewID() model.ViewID            { return "" }
-func (m *mockTaskEditView) OnFocus()                           {}
-func (m *mockTaskEditView) OnBlur()                            {}
-func (m *mockTaskEditView) GetEditedTitle() string             { return m.title }
-func (m *mockTaskEditView) GetEditedDescription() string       { return m.description }
-func (m *mockTaskEditView) GetEditedTags() []string            { return m.tags }
+func (m *mockTikiEditView) GetPrimitive() tview.Primitive      { return nil }
+func (m *mockTikiEditView) GetActionRegistry() *ActionRegistry { return nil }
+func (m *mockTikiEditView) GetViewID() model.ViewID            { return "" }
+func (m *mockTikiEditView) OnFocus()                           {}
+func (m *mockTikiEditView) OnBlur()                            {}
+func (m *mockTikiEditView) GetEditedTitle() string             { return m.title }
+func (m *mockTikiEditView) GetEditedDescription() string       { return m.description }
+func (m *mockTikiEditView) GetEditedTags() []string            { return m.tags }
 
 // mockFieldFocusableView implements FieldFocusableView + RecurrencePartNavigable for hint tests.
 type mockFieldFocusableView struct {
-	mockTaskEditView
+	mockTikiEditView
 	focusedField model.EditField
 	valueFocused bool
 }
@@ -59,9 +59,9 @@ func (m *mockNonEditView) GetViewID() model.ViewID            { return "" }
 func (m *mockNonEditView) OnFocus()                           {}
 func (m *mockNonEditView) OnBlur()                            {}
 
-// mockValidatableEditView adds IsValid()/ValidationErrors() to mockTaskEditView.
+// mockValidatableEditView adds IsValid()/ValidationErrors() to mockTikiEditView.
 type mockValidatableEditView struct {
-	mockTaskEditView
+	mockTikiEditView
 	valid  bool
 	errors []string
 }
@@ -126,7 +126,7 @@ func TestTikiEditCoordinator_Commit_SavesTags(t *testing.T) {
 	tc.SetDraft(draft)
 
 	coord := NewTikiEditCoordinator(nav, tc)
-	view := &mockTaskEditView{
+	view := &mockTikiEditView{
 		title:       "Tagged Task",
 		description: "some description",
 		tags:        []string{"api", "backend"},
@@ -174,7 +174,7 @@ func TestTikiEditCoordinator_Commit_ValidationFails(t *testing.T) {
 
 	coord := NewTikiEditCoordinator(nav, tc)
 	view := &mockValidatableEditView{
-		mockTaskEditView: mockTaskEditView{
+		mockTikiEditView: mockTikiEditView{
 			title:       "",
 			description: "desc",
 			tags:        []string{"tag"},
@@ -211,7 +211,7 @@ func TestTikiEditCoordinator_Commit_ValidationMultipleErrors(t *testing.T) {
 
 	coord := NewTikiEditCoordinator(nav, tc)
 	view := &mockValidatableEditView{
-		mockTaskEditView: mockTaskEditView{
+		mockTikiEditView: mockTikiEditView{
 			title:       "",
 			description: "desc",
 		},
@@ -244,7 +244,7 @@ func TestTikiEditCoordinator_Commit_ValidationFailsNilStatusline(t *testing.T) {
 
 	coord := NewTikiEditCoordinator(nav, tc)
 	view := &mockValidatableEditView{
-		mockTaskEditView: mockTaskEditView{
+		mockTikiEditView: mockTikiEditView{
 			title:       "",
 			description: "desc",
 		},
@@ -401,7 +401,7 @@ func TestTikiEditCoordinator_Commit_ErrorDisplaysStatusline(t *testing.T) {
 	tc.StartEditSession(original.ID)
 
 	coord := NewTikiEditCoordinator(nav, tc)
-	view := &mockTaskEditView{
+	view := &mockTikiEditView{
 		title:       original.Title,
 		description: "updated desc",
 		tags:        nil,
@@ -440,7 +440,7 @@ func TestTikiEditCoordinator_Commit_ErrorNilStatuslineNoOp(t *testing.T) {
 	tc.StartEditSession(original.ID)
 
 	coord := NewTikiEditCoordinator(nav, tc)
-	view := &mockTaskEditView{
+	view := &mockTikiEditView{
 		title:       original.Title,
 		description: "updated desc",
 		tags:        nil,
@@ -473,7 +473,7 @@ func TestTikiEditCoordinator_Commit_MultipleRejectionsDisplayCleanly(t *testing.
 	tc.StartEditSession(original.ID)
 
 	coord := NewTikiEditCoordinator(nav, tc)
-	view := &mockTaskEditView{
+	view := &mockTikiEditView{
 		title:       original.Title,
 		description: "updated desc",
 		tags:        nil,

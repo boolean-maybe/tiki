@@ -253,34 +253,30 @@ func TestNewTask_EmptyTitle_DoesNotSave(t *testing.T) {
 // PHASE 2: EXISTING TASK SAVE/CANCEL Tests
 // =============================================================================
 //
-// Phase 3 cleanup: TestTaskEdit_CtrlS_FromPointsField_Saves,
-// TestTaskEdit_Escape_FromTitleField_Cancels,
-// TestTaskEdit_Escape_ClearsEditSessionState, and
-// TestTaskEdit_Escape_FromPointsField_Cancels were removed. They
-// asserted Ctrl+S/Escape semantics on the legacy 6-field TikiEditView
-// reached via Enter → 'e'. Edit mode is now in-place on the
-// configurable detail view; equivalent save/cancel coverage lives in
+// Previously held save/cancel tests (Ctrl+S from points,
+// Escape from title/points, edit-session state clearing) that
+// asserted on a deleted rigid 6-field edit view reached via
+// Enter → 'e'. Edit mode is now in-place on the configurable detail
+// view; equivalent save/cancel coverage lives in
 // view/tikidetail/configurable_detail_edit_test.go.
 
 // =============================================================================
 // PHASE 3: FIELD NAVIGATION Tests
 // =============================================================================
 //
-// Phase 3 cleanup: TestTaskEdit_Tab_NavigatesForward and
-// TestTaskEdit_Navigation_PreservesChanges were removed. Both tested
-// Tab traversal across the legacy TikiEditView's 6 fields (Title,
-// Status, Type, Priority, Points, Assignee). The configurable detail
-// view's edit mode traverses only the workflow-declared metadata
-// (default [status, type, priority]); coverage of the new traversal
+// Previously held Tab-traversal tests that asserted on a deleted
+// rigid 6-field edit view (Title, Status, Type, Priority, Points,
+// Assignee). The configurable detail view's edit mode traverses
+// only the workflow-declared metadata (default
+// [status, type, priority]); coverage of the new traversal
 // lives in view/tikidetail/configurable_detail_edit_test.go.
 
 // =============================================================================
 // PHASE 4: MULTI-FIELD OPERATIONS Tests
 // =============================================================================
 //
-// Phase 3 cleanup: TestTaskEdit_MultipleFields_AllSaved and
-// TestTaskEdit_MultipleFields_AllDiscarded were removed. They tested
-// the legacy 5-field TikiEditView (title/priority/points). The
+// Previously held multi-field save/discard tests that asserted on a
+// deleted rigid 5-field edit view (title/priority/points). The
 // configurable detail view's edit mode operates on the workflow's
 // declared metadata only (default [status, type, priority]); see
 // view/tikidetail/configurable_detail_edit_test.go for save/discard

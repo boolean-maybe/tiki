@@ -74,11 +74,9 @@ func DarkenRGB(rgb [3]int, ratio float64) [3]int {
 }
 
 // DeriveDarkened returns (darken(base,ratio), base). The dark end of the
-// gradient is the start; the original color is the end. Matches the
-// historical theme.gradientFromColor(c, ratio) semantics byte-for-byte
-// (deleted in Task 8). When base is (0,0,0) the gradient collapses to
-// (black, black) — callers can interpret that as "no useful gradient
-// available" and degrade.
+// gradient is the start; the original color is the end. When base is (0,0,0)
+// the gradient collapses to (black, black) — callers can interpret that as
+// "no useful gradient available" and degrade.
 func DeriveDarkened(base [3]int, ratio float64) (start, end [3]int) {
 	if base == [3]int{0, 0, 0} {
 		return base, base
