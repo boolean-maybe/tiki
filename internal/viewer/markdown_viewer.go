@@ -27,6 +27,11 @@ func Run(input InputSpec) error {
 		return err
 	}
 
+	// viewer skips bootstrap.Bootstrap, so initialize the role-based theme here.
+	// without this, anything reaching theme.Roles() (e.g. NewNavigableMarkdown)
+	// panics with "Roles() called before SetTheme: bootstrap order bug".
+	theme.SetTheme(theme.LoadByName(config.GetEffectiveTheme()))
+
 	app := tview.NewApplication()
 	provider := &loaders.FileHTTP{SearchRoots: input.SearchRoots}
 
