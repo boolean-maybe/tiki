@@ -5,7 +5,7 @@ import (
 )
 
 // ReadStore is the read-only subset of Store.
-// Consumers that only need to query tasks should depend on this interface.
+// Consumers that only need to query tikis should depend on this interface.
 type ReadStore interface {
 	// GetTiki retrieves a tiki by ID. Returns nil when not found.
 	GetTiki(id string) *tikipkg.Tiki
@@ -44,14 +44,14 @@ type ReadStore interface {
 	// Reload reloads all data from the backing store
 	Reload() error
 
-	// ReloadTiki reloads a single task from disk by ID
+	// ReloadTiki reloads a single tiki from disk by ID
 	ReloadTiki(tikiID string) error
 
 	// PathForID returns the on-disk path of the document with the given id,
 	// or the empty string when the id is unknown to the store.
 	//
 	// This is the authoritative resolver for any caller that needs to open,
-	// edit, delete, or stage the file for a task: it honors moves and
+	// edit, delete, or stage the file for a tiki: it honors moves and
 	// nested layouts, unlike id-derived fallbacks that assume a fixed
 	// `.doc/tiki/<id>.md` location. Phase 2 invariant: path is mutable,
 	// id is identity — callers must not reconstruct paths themselves.

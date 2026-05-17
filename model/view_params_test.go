@@ -19,9 +19,9 @@ func TestPluginViewParams_EncodeDecodeRoundTrip(t *testing.T) {
 		name   string
 		params PluginViewParams
 	}{
-		{name: "simple task ID", params: PluginViewParams{TikiID: "TIKI-1"}},
-		{name: "task ID with hyphen", params: PluginViewParams{TikiID: "TIKI-123"}},
-		{name: "task ID with special format", params: PluginViewParams{TikiID: "PROJECT-999"}},
+		{name: "simple tiki ID", params: PluginViewParams{TikiID: "TIKI-1"}},
+		{name: "tiki ID with hyphen", params: PluginViewParams{TikiID: "TIKI-123"}},
+		{name: "tiki ID with special format", params: PluginViewParams{TikiID: "PROJECT-999"}},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -34,7 +34,7 @@ func TestPluginViewParams_EncodeDecodeRoundTrip(t *testing.T) {
 	}
 }
 
-func TestPluginViewParams_EmptyTaskID(t *testing.T) {
+func TestPluginViewParams_EmptyTikiID(t *testing.T) {
 	params := PluginViewParams{TikiID: ""}
 	encoded := EncodePluginViewParams(params)
 	if encoded != nil {
@@ -67,23 +67,23 @@ func TestPluginViewParams_DecodeInvalidParams(t *testing.T) {
 	}
 }
 
-func TestTaskEditParams_EncodeDecodeRoundTrip(t *testing.T) {
-	draftTiki := newTestDraftTiki("T1KI42", "Test Task")
+func TestTikiEditParams_EncodeDecodeRoundTrip(t *testing.T) {
+	draftTiki := newTestDraftTiki("T1KI42", "Test Tiki")
 
 	tests := []struct {
 		name   string
 		params TikiEditParams
 	}{
 		{
-			name:   "task ID only",
+			name:   "tiki ID only",
 			params: TikiEditParams{TikiID: "TIKI-1"},
 		},
 		{
-			name:   "task ID with draft",
+			name:   "tiki ID with draft",
 			params: TikiEditParams{TikiID: "T1KI42", Draft: draftTiki},
 		},
 		{
-			name:   "task ID with focus",
+			name:   "tiki ID with focus",
 			params: TikiEditParams{TikiID: "TIKI-1", Focus: EditFieldTitle},
 		},
 		{
@@ -127,7 +127,7 @@ func TestTaskEditParams_EncodeDecodeRoundTrip(t *testing.T) {
 	}
 }
 
-func TestTaskEditParams_MetadataNilEmptyAndCopySemantics(t *testing.T) {
+func TestTikiEditParams_MetadataNilEmptyAndCopySemantics(t *testing.T) {
 	// nil metadata round-trips as nil.
 	encoded := EncodeTikiEditParams(TikiEditParams{TikiID: "TIKI-1"})
 	decoded := DecodeTikiEditParams(encoded)
@@ -153,7 +153,7 @@ func TestTaskEditParams_MetadataNilEmptyAndCopySemantics(t *testing.T) {
 	}
 }
 
-func TestTaskEditParams_DescOnlyRoundTrip(t *testing.T) {
+func TestTikiEditParams_DescOnlyRoundTrip(t *testing.T) {
 	params := TikiEditParams{
 		TikiID:   "TIKI-1",
 		Focus:    EditFieldDescription,
@@ -179,8 +179,8 @@ func TestTaskEditParams_DescOnlyRoundTrip(t *testing.T) {
 	}
 }
 
-func TestTaskEditParams_DraftWithoutTaskID(t *testing.T) {
-	draftTiki := newTestDraftTiki("T1KI00", "Draft Task")
+func TestTikiEditParams_DraftWithoutTikiID(t *testing.T) {
+	draftTiki := newTestDraftTiki("T1KI00", "Draft Tiki")
 	params := TikiEditParams{TikiID: "", Draft: draftTiki}
 	encoded := EncodeTikiEditParams(params)
 	if encoded == nil {
@@ -195,7 +195,7 @@ func TestTaskEditParams_DraftWithoutTaskID(t *testing.T) {
 	}
 }
 
-func TestTaskEditParams_EmptyTaskID(t *testing.T) {
+func TestTikiEditParams_EmptyTikiID(t *testing.T) {
 	params := TikiEditParams{TikiID: "", Draft: nil}
 	encoded := EncodeTikiEditParams(params)
 	if encoded != nil {
@@ -203,7 +203,7 @@ func TestTaskEditParams_EmptyTaskID(t *testing.T) {
 	}
 }
 
-func TestTaskEditParams_FocusStringEncoding(t *testing.T) {
+func TestTikiEditParams_FocusStringEncoding(t *testing.T) {
 	params := TikiEditParams{TikiID: "TIKI-1", Focus: EditFieldTitle}
 	encoded := EncodeTikiEditParams(params)
 	focusVal, ok := encoded["focus"]
@@ -223,7 +223,7 @@ func TestTaskEditParams_FocusStringEncoding(t *testing.T) {
 	}
 }
 
-func TestTaskEditParams_FocusEditFieldType(t *testing.T) {
+func TestTikiEditParams_FocusEditFieldType(t *testing.T) {
 	params := map[string]interface{}{
 		"tikiID": "TIKI-1",
 		"focus":  EditFieldDescription,
@@ -234,7 +234,7 @@ func TestTaskEditParams_FocusEditFieldType(t *testing.T) {
 	}
 }
 
-func TestTaskEditParams_DecodeInvalidParams(t *testing.T) {
+func TestTikiEditParams_DecodeInvalidParams(t *testing.T) {
 	tests := []struct {
 		name   string
 		params map[string]interface{}
@@ -270,7 +270,7 @@ func TestTaskEditParams_DecodeInvalidParams(t *testing.T) {
 	}
 }
 
-func TestTaskEditParams_DraftTaskIDInference(t *testing.T) {
+func TestTikiEditParams_DraftTikiIDInference(t *testing.T) {
 	draftTiki := newTestDraftTiki("T1KI99", "Draft")
 	params := map[string]interface{}{"tikiID": "", "draftTiki": draftTiki}
 	decoded := DecodeTikiEditParams(params)
@@ -282,7 +282,7 @@ func TestTaskEditParams_DraftTaskIDInference(t *testing.T) {
 	}
 }
 
-func TestTaskEditParams_NilDraftNoInference(t *testing.T) {
+func TestTikiEditParams_NilDraftNoInference(t *testing.T) {
 	params := map[string]interface{}{"tikiID": "", "draftTiki": (*tikipkg.Tiki)(nil)}
 	decoded := DecodeTikiEditParams(params)
 	if decoded.TikiID != "" {

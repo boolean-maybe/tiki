@@ -105,7 +105,7 @@ func (f FieldDef) EnumDisplay(key string) string {
 // EnumLabel returns the human-readable label for an enum key, preferring
 // Label over Visual. Falls back to Value if Label is empty. Use this for
 // contexts where a textual name is wanted (detail view fields) rather than
-// a compact visual indicator (board task boxes).
+// a compact visual indicator (board tiki boxes).
 func (f FieldDef) EnumLabel(key string) string {
 	v, ok := f.LookupEnum(key)
 	if !ok {

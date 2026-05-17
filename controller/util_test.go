@@ -9,8 +9,8 @@ import (
 )
 
 // enumDisplay returns the formatted "Label Emoji" display for a workflow
-// enum value, used by tests that previously called task.StatusDisplay /
-// task.TypeDisplay. Returns the key unchanged when the field is missing.
+// enum value, used by tests that previously called tiki.StatusDisplay /
+// tiki.TypeDisplay. Returns the key unchanged when the field is missing.
 func enumDisplay(field, key string) string {
 	fd, ok := workflow.Field(field)
 	if !ok {
@@ -69,7 +69,7 @@ func TestGetCurrentUserName_BothEmpty(t *testing.T) {
 // contract at the controller layer: createdBy must not be formatted as
 // `me@example.com <me@example.com>` when only email is configured. This
 // mirrors the tikistore template test and covers the controller path that
-// the UI uses for non-template task creation.
+// the UI uses for non-template tiki creation.
 func TestSetAuthorOnTiki_EmailOnly_NoAngleEchoing(t *testing.T) {
 	s := &identityOnlyStore{email: "me@example.com"}
 	tk := tikipkg.New()

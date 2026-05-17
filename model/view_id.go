@@ -9,8 +9,8 @@ type ViewID string
 
 // view identifiers
 const (
-	// TikiEditViewID identifies the built-in task edit view. Retained
-	// reason: the `n` (new-task) flow uses this view to host a draft
+	// TikiEditViewID identifies the built-in tiki edit view. Retained
+	// reason: the `n` (new-tiki) flow uses this view to host a draft
 	// tiki being created, since the configurable detail view does not
 	// support drafts. Edit-of-existing flows have migrated to in-place
 	// edit mode on the configurable detail view.

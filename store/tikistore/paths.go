@@ -51,7 +51,7 @@ func (s *TikiStore) IDForPath(path string) string {
 
 // AllPaths returns a sorted snapshot of every loaded document's file path.
 // Exposed mostly for tests and diagnostics that need to assert the store's
-// current file-layout view without pulling task-level detail.
+// current file-layout view without pulling tiki-level detail.
 func (s *TikiStore) AllPaths() []string {
 	s.mu.RLock()
 	defer s.mu.RUnlock()

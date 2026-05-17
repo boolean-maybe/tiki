@@ -1012,7 +1012,7 @@ func (e *Executor) evalHas(fc *FunctionCall, ctx evalContext) (interface{}, erro
 		id, _ := e.currentInput.SingleSelectedTikiID()
 		t, ok := findTikiByID(ctx.allTikis, id)
 		if !ok {
-			return nil, fmt.Errorf("has(target.%s): selected task %q not found", name, id)
+			return nil, fmt.Errorf("has(target.%s): selected tiki %q not found", name, id)
 		}
 		return tikiHas(t, name), nil
 	case "targets":
@@ -1023,7 +1023,7 @@ func (e *Executor) evalHas(fc *FunctionCall, ctx evalContext) (interface{}, erro
 		for _, id := range selectedIDs {
 			t, ok := findTikiByID(ctx.allTikis, id)
 			if !ok {
-				return nil, fmt.Errorf("has(targets.%s): selected task %q not found", name, id)
+				return nil, fmt.Errorf("has(targets.%s): selected tiki %q not found", name, id)
 			}
 			if tikiHas(t, name) {
 				return true, nil
@@ -1090,7 +1090,7 @@ func (e *Executor) evalTargetField(name string, ctx evalContext) (interface{}, e
 	id, _ := e.currentInput.SingleSelectedTikiID()
 	t, ok := findTikiByID(ctx.allTikis, id)
 	if !ok {
-		return nil, fmt.Errorf("target.%s: selected task %q not found", name, id)
+		return nil, fmt.Errorf("target.%s: selected tiki %q not found", name, id)
 	}
 	return e.extractField(t, name)
 }
@@ -1111,7 +1111,7 @@ func (e *Executor) evalTargetsField(name string, ctx evalContext) (interface{}, 
 	for _, id := range selectedIDs {
 		t, ok := findTikiByID(ctx.allTikis, id)
 		if !ok {
-			return nil, fmt.Errorf("targets.%s: selected task %q not found", name, id)
+			return nil, fmt.Errorf("targets.%s: selected tiki %q not found", name, id)
 		}
 		// targets. projection is presentation-layer: skip tikis missing
 		// the field rather than propagating the absent-field error.

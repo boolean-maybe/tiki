@@ -131,7 +131,7 @@ Press Esc to cancel project initialization.`
 func EnsureProjectInitialized(tikiSkillMdContent, dokiSkillMdContent string, gitAdd func(...string) error) (bool, error) {
 	if _, err := os.Stat(GetDocDir()); err != nil {
 		if !os.IsNotExist(err) {
-			return false, fmt.Errorf("failed to stat task directory: %w", err)
+			return false, fmt.Errorf("failed to stat tiki directory: %w", err)
 		}
 
 		opts, proceed, err := PromptForProjectInit(false)

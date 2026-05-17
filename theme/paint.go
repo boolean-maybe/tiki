@@ -76,7 +76,7 @@ func (p gradientPaint) ColorAt(t float64) tcell.Color {
 
 // algoAccent derives a gentle gradient: start=darken(base,0.2), end=base.
 // Matches the historical theme.gradientFromColor(c, 0.2) semantics
-// byte-for-byte (deleted in Task 8).
+// byte-for-byte.
 func algoAccent(base [3]int) (start, end [3]int) {
 	return gradcore.DeriveDarkened(base, 0.2)
 }

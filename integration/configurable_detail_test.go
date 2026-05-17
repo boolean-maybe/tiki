@@ -11,8 +11,8 @@ import (
 
 // TestConfigurableDetail_EnterOpensDetailView verifies the Phase 1 contract:
 // pressing Enter on a board navigates to the workflow-declared Detail view
-// (kind: detail) instead of the retired built-in TaskDetail. Sister assertions
-// covering the legacy Enter→TaskDetail path live in tests Phase 3 will retire.
+// (kind: detail) instead of the retired built-in TikiDetail. Sister assertions
+// covering the legacy Enter→TikiDetail path live in tests Phase 3 will retire.
 func TestConfigurableDetail_EnterOpensDetailView(t *testing.T) {
 	ta := setupTestAppWithPlugins(t)
 	defer ta.Cleanup()
@@ -46,7 +46,7 @@ func TestConfigurableDetail_EnterOnDetailDoesNotRecurse(t *testing.T) {
 
 	tikiID := "DETL02"
 	if err := testutil.CreateTestTiki(ta.TikiDir, tikiID, "Detail Recurse", "ready", "story"); err != nil {
-		t.Fatalf("create task: %v", err)
+		t.Fatalf("create tiki: %v", err)
 	}
 	if err := ta.TikiStore.Reload(); err != nil {
 		t.Fatalf("reload: %v", err)
@@ -125,7 +125,7 @@ func TestConfigurableDetail_RendersConfiguredMetadata(t *testing.T) {
 
 	tikiID := "DETL01"
 	if err := testutil.CreateTestTiki(ta.TikiDir, tikiID, "Detail Title", "ready", "story"); err != nil {
-		t.Fatalf("create task: %v", err)
+		t.Fatalf("create tiki: %v", err)
 	}
 	if err := ta.TikiStore.Reload(); err != nil {
 		t.Fatalf("reload: %v", err)

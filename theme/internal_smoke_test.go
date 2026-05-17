@@ -9,7 +9,7 @@ import (
 
 // smokeConstructors compile-checks every internal constructor in the skeleton.
 // These constructors are not yet wired by external callers (palettes land in a
-// later task), but each one is part of the package's intended API surface and
+// later tiki), but each one is part of the package's intended API surface and
 // must compile + return the expected interface.
 func TestInternalSmokeConstructors(t *testing.T) {
 	red := NewColor(tcell.ColorRed)

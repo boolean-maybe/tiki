@@ -171,7 +171,7 @@ type TitleEditableView interface {
 	SetFocusSetter(setter func(p tview.Primitive))
 }
 
-// TikiEditView exposes edited task fields for save operations
+// TikiEditView exposes edited tiki fields for save operations
 type TikiEditView interface {
 	View
 

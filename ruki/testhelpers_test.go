@@ -34,7 +34,7 @@ type tikiFixture struct {
 }
 
 // tikiFromFixture builds a tiki.Tiki from a fixture, applying the same
-// presence semantics the old tikiFromTask helper used: a fixture with any
+// presence semantics the old tikiFromTiki helper used: a fixture with any
 // non-zero workflow value (or IsWorkflow=true) is treated as workflow-
 // declaring, with all schema fields explicitly set so formatters and filters
 // behave the same as a tiki created via NewTikiTemplate.
@@ -55,7 +55,7 @@ func tikiFromFixture(f *tikiFixture) *tiki.Tiki {
 
 	workflow := f.IsWorkflow || hasAnyWorkflowValue(f)
 	if workflow {
-		// only set fields that are non-zero, mirroring setWorkflowFieldFromTask
+		// only set fields that are non-zero, mirroring setWorkflowFieldFromTiki
 		// behavior: absent zero-values must stay absent so has(field) returns false.
 		if f.Status != "" {
 			tk.Set(tiki.FieldStatus, f.Status)
@@ -210,7 +210,7 @@ func tikiToFixtureForTest(tk *tiki.Tiki) *tikiFixture {
 	}
 	f.Description = tk.Body
 
-	// IsWorkflow mirrors the old ToTask behavior: true when any of the
+	// IsWorkflow mirrors the old ToTiki behavior: true when any of the
 	// well-known kanban frontmatter keys is present in the tiki map.
 	wellKnown := []string{
 		tiki.FieldStatus, tiki.FieldType, tiki.FieldPriority, tiki.FieldPoints,
@@ -253,8 +253,8 @@ func (e *Executor) testExec(stmt any, fixtures []*tikiFixture, inputs ...Executi
 }
 
 // testResult mirrors Result but exposes fixture-shaped fields so existing
-// assertions that read Select.Tasks / Update.Updated[*].Status /
-// Create.Task continue to compile without per-test rewrites.
+// assertions that read Select.Tikis / Update.Updated[*].Status /
+// Create.Tiki continue to compile without per-test rewrites.
 type testResult struct {
 	Select    *testSelect
 	Update    *testUpdate
@@ -270,7 +270,7 @@ type testResult struct {
 }
 
 type testSelect struct {
-	Tasks  []*tikiFixture
+	Tikis  []*tikiFixture
 	Fields []string
 }
 
@@ -279,7 +279,7 @@ type testUpdate struct {
 }
 
 type testCreate struct {
-	Task *tikiFixture
+	Tiki *tikiFixture
 }
 
 type testDelete struct {
@@ -297,13 +297,13 @@ func wrapResult(r *Result) *testResult {
 		raw:       r,
 	}
 	if r.Select != nil {
-		out.Select = &testSelect{Tasks: tikisToFixtures(r.Select.Tikis), Fields: r.Select.Fields}
+		out.Select = &testSelect{Tikis: tikisToFixtures(r.Select.Tikis), Fields: r.Select.Fields}
 	}
 	if r.Update != nil {
 		out.Update = &testUpdate{Updated: tikisToFixtures(r.Update.Updated)}
 	}
 	if r.Create != nil {
-		out.Create = &testCreate{Task: tikiToFixtureForTest(r.Create.Tiki)}
+		out.Create = &testCreate{Tiki: tikiToFixtureForTest(r.Create.Tiki)}
 	}
 	if r.Delete != nil {
 		out.Delete = &testDelete{Deleted: tikisToFixtures(r.Delete.Deleted)}

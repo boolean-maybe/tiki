@@ -93,7 +93,7 @@ func TestRuntimeMismatchErrorUnwrap(t *testing.T) {
 
 func TestMissingSelectedTikiIDErrorMessage(t *testing.T) {
 	err := &MissingSelectedTikiIDError{}
-	want := "selected task id is required for plugin runtime when id() is used"
+	want := "selected tiki id is required for plugin runtime when id() is used"
 	if got := err.Error(); got != want {
 		t.Errorf("Error() = %q, want %q", got, want)
 	}
@@ -151,7 +151,7 @@ func TestErrorTypesWithErrorsAs(t *testing.T) {
 
 func TestAmbiguousSelectedTikiIDErrorMessage(t *testing.T) {
 	err := &AmbiguousSelectedTikiIDError{Count: 3}
-	want := "id() requires exactly one selected task, got 3 — use ids() for multi-selection"
+	want := "id() requires exactly one selected tiki, got 3 — use ids() for multi-selection"
 	if got := err.Error(); got != want {
 		t.Errorf("Error() = %q, want %q", got, want)
 	}

@@ -22,15 +22,15 @@ const (
 	ValueTimestamp            // createdAt, updatedAt
 	ValueDuration             // duration literals
 	ValueBool                 // boolean result type
-	ValueID                   // task identifier
-	ValueRef                  // reference to another task
+	ValueID                   // tiki identifier
+	ValueRef                  // reference to another tiki
 	ValueRecurrence           // recurrence pattern
 	ValueListString           // tags
 	ValueListRef              // dependsOn
 	ValueEnum                 // enum backed by FieldSpec.AllowedValues
 )
 
-// FieldSpec describes a single task field for the parser.
+// FieldSpec describes a single tiki field for the parser.
 type FieldSpec struct {
 	Name          string
 	Type          ValueType

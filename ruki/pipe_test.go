@@ -262,14 +262,14 @@ func TestPipeIDDetectedInWhereClause(t *testing.T) {
 func TestExecutePipeReturnsResult(t *testing.T) {
 	e := NewExecutor(testSchema{}, nil, ExecutorRuntime{Mode: ExecutorRuntimePlugin})
 	p := newTestParser()
-	tasks := makeTasks()
+	tikis := makeTikis()
 
 	stmt, err := p.ParseStatement(`select id, title where status = "done" | run("echo $1 $2")`)
 	if err != nil {
 		t.Fatalf("parse: %v", err)
 	}
 
-	result, err := e.testExec(stmt, tasks, NewSingleSelectionInput("TIKI-000003"))
+	result, err := e.testExec(stmt, tikis, NewSingleSelectionInput("TIKI-000003"))
 	if err != nil {
 		t.Fatalf("execute: %v", err)
 	}
@@ -301,14 +301,14 @@ func TestExecutePipeReturnsResult(t *testing.T) {
 func TestExecuteSelectStillWorksWithoutPipe(t *testing.T) {
 	e := newTestExecutor()
 	p := newTestParser()
-	tasks := makeTasks()
+	tikis := makeTikis()
 
 	stmt, err := p.ParseStatement(`select where status = "done"`)
 	if err != nil {
 		t.Fatalf("parse: %v", err)
 	}
 
-	result, err := e.testExec(stmt, tasks)
+	result, err := e.testExec(stmt, tikis)
 	if err != nil {
 		t.Fatalf("execute: %v", err)
 	}
@@ -324,7 +324,7 @@ func TestExecuteSelectStillWorksWithoutPipe(t *testing.T) {
 func TestExecutePipeListFieldSpaceJoined(t *testing.T) {
 	e := NewExecutor(testSchema{}, nil, ExecutorRuntime{Mode: ExecutorRuntimePlugin})
 	p := newTestParser()
-	tasks := []*tikiFixture{
+	tikis := []*tikiFixture{
 		{ID: "TIKI-000001", Title: "Test", Status: "ready", Type: "story",
 			Tags: []string{"a", "b", "c"}},
 	}
@@ -334,7 +334,7 @@ func TestExecutePipeListFieldSpaceJoined(t *testing.T) {
 		t.Fatalf("parse: %v", err)
 	}
 
-	result, err := e.testExec(stmt, tasks, NewSingleSelectionInput("TIKI-000001"))
+	result, err := e.testExec(stmt, tikis, NewSingleSelectionInput("TIKI-000001"))
 	if err != nil {
 		t.Fatalf("execute: %v", err)
 	}
@@ -467,14 +467,14 @@ func TestIsClipboardPipeMethod(t *testing.T) {
 func TestExecuteClipboardPipeReturnsResult(t *testing.T) {
 	e := NewExecutor(testSchema{}, nil, ExecutorRuntime{Mode: ExecutorRuntimePlugin})
 	p := newTestParser()
-	tasks := makeTasks()
+	tikis := makeTikis()
 
 	stmt, err := p.ParseStatement(`select id, title where status = "done" | clipboard()`)
 	if err != nil {
 		t.Fatalf("parse: %v", err)
 	}
 
-	result, err := e.testExec(stmt, tasks, NewSingleSelectionInput("TIKI-000003"))
+	result, err := e.testExec(stmt, tikis, NewSingleSelectionInput("TIKI-000003"))
 	if err != nil {
 		t.Fatalf("execute: %v", err)
 	}
@@ -506,22 +506,22 @@ func TestExecuteClipboardPipeReturnsResult(t *testing.T) {
 func TestExecuteClipboardMultipleRows(t *testing.T) {
 	e := NewExecutor(testSchema{}, nil, ExecutorRuntime{Mode: ExecutorRuntimeCLI})
 	p := newTestParser()
-	tasks := makeTasks()
+	tikis := makeTikis()
 
 	stmt, err := p.ParseStatement(`select id, title | clipboard()`)
 	if err != nil {
 		t.Fatalf("parse: %v", err)
 	}
 
-	result, err := e.testExec(stmt, tasks)
+	result, err := e.testExec(stmt, tikis)
 	if err != nil {
 		t.Fatalf("execute: %v", err)
 	}
 	if result.Clipboard == nil {
 		t.Fatal("expected Clipboard result")
 	}
-	if len(result.Clipboard.Rows) != len(tasks) {
-		t.Fatalf("expected %d rows, got %d", len(tasks), len(result.Clipboard.Rows))
+	if len(result.Clipboard.Rows) != len(tikis) {
+		t.Fatalf("expected %d rows, got %d", len(tikis), len(result.Clipboard.Rows))
 	}
 }
 
@@ -530,8 +530,8 @@ func TestExecuteClipboardMultipleRows(t *testing.T) {
 func TestExecuteClipboardWithLimit(t *testing.T) {
 	e := NewExecutor(testSchema{}, nil, ExecutorRuntime{Mode: ExecutorRuntimeCLI})
 	p := newTestParser()
-	tasks := makeTasks()
-	tikis := tikisFromFixtures(tasks)
+	fixtures := makeTikis()
+	tikis := tikisFromFixtures(fixtures)
 	// Reassign priorities now that priority is a workflow enum (`high` =
 	// rank 0 → sorts first when ascending). Each fixture maps to a key in
 	// declaration order so the original "lower number = higher urgency"
@@ -564,7 +564,7 @@ func TestExecuteClipboardWithLimit(t *testing.T) {
 		t.Fatalf("expected 2 rows, got %d", len(result.Clipboard.Rows))
 	}
 	// sorted by priority asc (enum rank): TIKI-000002 (high) first; then a
-	// medium-high task (TIKI-000001 by id-tiebreak).
+	// medium-high tiki (TIKI-000001 by id-tiebreak).
 	if result.Clipboard.Rows[0][0] != "TIKI-000002" {
 		t.Errorf("row[0][0] = %q, want %q", result.Clipboard.Rows[0][0], "TIKI-000002")
 	}
@@ -578,7 +578,7 @@ func TestExecuteClipboardWithLimit(t *testing.T) {
 func TestExecutePipeFilepath(t *testing.T) {
 	e := NewExecutor(testSchema{}, nil, ExecutorRuntime{Mode: ExecutorRuntimePlugin})
 	p := newTestParser()
-	tasks := []*tikiFixture{
+	tikis := []*tikiFixture{
 		{ID: "TIKI-000001", Title: "x", Status: "ready", Type: "story",
 			FilePath: "/abs/path/tiki-000001.md"},
 	}
@@ -588,7 +588,7 @@ func TestExecutePipeFilepath(t *testing.T) {
 		t.Fatalf("parse: %v", err)
 	}
 
-	result, err := e.testExec(stmt, tasks)
+	result, err := e.testExec(stmt, tikis)
 	if err != nil {
 		t.Fatalf("execute: %v", err)
 	}

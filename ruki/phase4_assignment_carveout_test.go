@@ -30,7 +30,7 @@ func TestPhase4Carveout_ListArithmeticOnAbsentTags(t *testing.T) {
 		t.Fatalf("execute: %v", err)
 	}
 	if result.Update == nil || len(result.Update.Updated) != 1 {
-		t.Fatalf("expected 1 updated task, got %+v", result.Update)
+		t.Fatalf("expected 1 updated tiki, got %+v", result.Update)
 	}
 	got := result.Update.Updated[0].Tags
 	if !reflect.DeepEqual(got, []string{"urgent"}) {

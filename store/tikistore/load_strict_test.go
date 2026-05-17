@@ -15,10 +15,10 @@ func init() {
 	config.MarkWorkflowFieldsLoadedForTest()
 }
 
-// TestLoadTaskFile_MissingIDIsHardError verifies the new strict-load contract:
+// TestLoadTikiFile_MissingIDIsHardError verifies the new strict-load contract:
 // a file without frontmatter id: must refuse to load. The remedy is
 // `tiki repair ids --fix`, which our error message points at.
-func TestLoadTaskFile_MissingIDIsHardError(t *testing.T) {
+func TestLoadTikiFile_MissingIDIsHardError(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "no-id.md")
 	if err := os.WriteFile(path, []byte("---\ntitle: plain\n---\nbody\n"), 0o644); err != nil {
@@ -39,11 +39,11 @@ func TestLoadTaskFile_MissingIDIsHardError(t *testing.T) {
 	}
 }
 
-// TestLoadTaskFile_TIKIPrefixedIDIsInvalid verifies that a pre-unification
+// TestLoadTikiFile_TIKIPrefixedIDIsInvalid verifies that a pre-unification
 // TIKI-XXXXXX value is rejected just like any other malformed id. The
 // unified format recognizes only bare document ids; there is no compatibility
 // layer, no stripping, no dedicated classification.
-func TestLoadTaskFile_TIKIPrefixedIDIsInvalid(t *testing.T) {
+func TestLoadTikiFile_TIKIPrefixedIDIsInvalid(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "tiki-prefixed.md")
 	if err := os.WriteFile(path, []byte("---\nid: TIKI-ABC123\ntitle: legacy\ntype: story\nstatus: ready\npriority: high\n---\nbody\n"), 0o644); err != nil {
@@ -78,10 +78,10 @@ func TestLoadTaskFile_TIKIPrefixedIDIsInvalid(t *testing.T) {
 	}
 }
 
-// TestLoadTaskFile_DuplicateIDSkipped verifies that two files with the same
+// TestLoadTikiFile_DuplicateIDSkipped verifies that two files with the same
 // id don't silently overwrite each other. Exactly one wins (the first
 // encountered in directory iteration order).
-func TestLoadTaskFile_DuplicateIDSkipped(t *testing.T) {
+func TestLoadTikiFile_DuplicateIDSkipped(t *testing.T) {
 	dir := t.TempDir()
 	first := filepath.Join(dir, "a.md")
 	second := filepath.Join(dir, "b.md")

@@ -619,7 +619,7 @@ func TestFormatMissingCustomFields(t *testing.T) {
 	}
 	t.Cleanup(func() { workflow.ClearWorkflowFields() })
 
-	// task with no custom fields set — should render as empty (nil → "")
+	// tiki with no custom fields set — should render as empty (nil → "")
 	proj := &ruki.TikiProjection{
 		Fields: []string{"score", "active"},
 		Tikis: []*tiki.Tiki{

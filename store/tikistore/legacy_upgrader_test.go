@@ -9,7 +9,7 @@ import (
 // TestLegacyUpgrader_UpgradeTiki pins the live load-side normalization:
 // snake_case statuses written by old versions of tiki are rewritten to
 // camelCase in the in-memory Fields map. Already-canonical values pass
-// through unchanged. UpgradeTiki is the only upgrader path — UpgradeTask
+// through unchanged. UpgradeTiki is the only upgrader path — UpgradeTiki
 // was removed in Phase 7 cleanup.
 func TestLegacyUpgrader_UpgradeTiki(t *testing.T) {
 	upgrader := &LegacyUpgrader{}

@@ -36,7 +36,7 @@ func newWorkflowTiki(id, title string) *tikipkg.Tiki {
 func TestCreateTiki_Success(t *testing.T) {
 	gate, s := newGateWithStore()
 
-	tk := newWorkflowTiki("ABC123", "test task")
+	tk := newWorkflowTiki("ABC123", "test tiki")
 
 	if err := gate.CreateTiki(context.Background(), tk); err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -279,11 +279,11 @@ func TestFieldValidators_RejectWrongTypeForWorkflowField(t *testing.T) {
 	}
 }
 
-func TestFieldValidators_AcceptValidTask(t *testing.T) {
+func TestFieldValidators_AcceptValidTiki(t *testing.T) {
 	gate, _ := newGateWithStore()
 	RegisterFieldValidators(gate)
 
-	tk := newWorkflowTiki("ABC123", "valid task")
+	tk := newWorkflowTiki("ABC123", "valid tiki")
 
 	if err := gate.CreateTiki(context.Background(), tk); err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -483,14 +483,14 @@ func TestAfterHook_CreateAndDelete(t *testing.T) {
 		if old != nil {
 			t.Error("create after-hook: old should be nil")
 		}
-		if new == nil || new.Title != "new task" {
+		if new == nil || new.Title != "new tiki" {
 			t.Error("create after-hook: new should have title")
 		}
 		return nil
 	})
 	gate.OnAfterDelete(func(_ context.Context, old, new *tikipkg.Tiki) error {
 		deleteCalled = true
-		if old == nil || old.Title != "new task" {
+		if old == nil || old.Title != "new tiki" {
 			t.Error("delete after-hook: old should have title")
 		}
 		if new != nil {
@@ -499,7 +499,7 @@ func TestAfterHook_CreateAndDelete(t *testing.T) {
 		return nil
 	})
 
-	tk := newWorkflowTiki("ABC123", "new task")
+	tk := newWorkflowTiki("ABC123", "new tiki")
 	if err := gate.CreateTiki(context.Background(), tk); err != nil {
 		t.Fatalf("create error: %v", err)
 	}
@@ -686,7 +686,7 @@ func TestUpdateTiki_TikiNotFound(t *testing.T) {
 	if err == nil {
 		t.Fatal("expected error for missing tiki")
 	}
-	if !strings.Contains(err.Error(), "task not found") {
-		t.Fatalf("expected 'task not found' error, got: %v", err)
+	if !strings.Contains(err.Error(), "tiki not found") {
+		t.Fatalf("expected 'tiki not found' error, got: %v", err)
 	}
 }

@@ -1069,7 +1069,7 @@ func TestParseExprStatement_SubQueryFieldRefOK(t *testing.T) {
 	p := newTestParser()
 
 	// bare field refs are fine inside the subquery — they resolve against
-	// the candidate task the subquery iterates over.
+	// the candidate tiki the subquery iterates over.
 	stmt, err := p.ParseStatement(`count(select where status = "done" and priority <= "medium-high")`)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)

@@ -7,7 +7,7 @@ import (
 	tikipkg "github.com/boolean-maybe/tiki/tiki"
 )
 
-// ViewMode represents the display mode for task boxes
+// ViewMode represents the display mode for tiki boxes
 type ViewMode string
 
 const (
@@ -91,7 +91,7 @@ func (pc *PluginConfig) SetSelectedLane(lane int) {
 	}
 }
 
-// GetSelectedIndex returns the selected task index for the current lane.
+// GetSelectedIndex returns the selected tiki index for the current lane.
 func (pc *PluginConfig) GetSelectedIndex() int {
 	pc.mu.RLock()
 	defer pc.mu.RUnlock()
@@ -105,7 +105,7 @@ func (pc *PluginConfig) GetSelectedIndexForLane(lane int) int {
 	return pc.indexForLane(lane)
 }
 
-// SetSelectedIndex sets the selected task index for the current lane.
+// SetSelectedIndex sets the selected tiki index for the current lane.
 func (pc *PluginConfig) SetSelectedIndex(idx int) {
 	pc.mu.Lock()
 	pc.setIndexForLane(pc.selectedLane, idx)

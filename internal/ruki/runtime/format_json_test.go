@@ -317,7 +317,7 @@ func TestFormatUpdateSummary(t *testing.T) {
 	if err := formatUpdateSummary(&buf, 3, 0, false); err != nil {
 		t.Fatal(err)
 	}
-	if got := strings.TrimSpace(buf.String()); got != "updated 3 tasks" {
+	if got := strings.TrimSpace(buf.String()); got != "updated 3 tikis" {
 		t.Errorf("text success: got %q", got)
 	}
 
@@ -326,7 +326,7 @@ func TestFormatUpdateSummary(t *testing.T) {
 	if err := formatUpdateSummary(&buf, 2, 1, false); err != nil {
 		t.Fatal(err)
 	}
-	if got := strings.TrimSpace(buf.String()); got != "updated 2 tasks (1 failed)" {
+	if got := strings.TrimSpace(buf.String()); got != "updated 2 tikis (1 failed)" {
 		t.Errorf("text partial: got %q", got)
 	}
 }

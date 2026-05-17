@@ -12,8 +12,8 @@ import (
 	"github.com/gdamore/tcell/v2"
 )
 
-// TestTaskDeletion_FromKanban verifies 'd' deletes task from kanban
-func TestTaskDeletion_FromKanban(t *testing.T) {
+// TestTikiDeletion_FromKanban verifies 'd' deletes tiki from kanban
+func TestTikiDeletion_FromKanban(t *testing.T) {
 	ta := testutil.NewTestApp(t)
 	defer ta.Cleanup()
 
@@ -22,12 +22,12 @@ func TestTaskDeletion_FromKanban(t *testing.T) {
 		t.Fatalf("failed to load plugins: %v", err)
 	}
 
-	// Create tasks
-	if err := testutil.CreateTestTiki(ta.TikiDir, "000001", "First Task", "ready", "story"); err != nil {
-		t.Fatalf("failed to create task: %v", err)
+	// Create tikis
+	if err := testutil.CreateTestTiki(ta.TikiDir, "000001", "First Tiki", "ready", "story"); err != nil {
+		t.Fatalf("failed to create tiki: %v", err)
 	}
-	if err := testutil.CreateTestTiki(ta.TikiDir, "000002", "Second Task", "ready", "story"); err != nil {
-		t.Fatalf("failed to create task: %v", err)
+	if err := testutil.CreateTestTiki(ta.TikiDir, "000002", "Second Tiki", "ready", "story"); err != nil {
+		t.Fatalf("failed to create tiki: %v", err)
 	}
 	if err := ta.TikiStore.Reload(); err != nil {
 		t.Fatalf("failed to reload: %v", err)
@@ -44,16 +44,16 @@ func TestTaskDeletion_FromKanban(t *testing.T) {
 		t.Fatalf("TIKI-1 should be visible before delete")
 	}
 
-	// Press 'd' to delete first task
+	// Press 'd' to delete first tiki
 	ta.SendKey(tcell.KeyRune, 'd', tcell.ModNone)
 
-	// Reload and verify task deleted
+	// Reload and verify tiki deleted
 	if err := ta.TikiStore.Reload(); err != nil {
 		t.Fatalf("failed to reload: %v", err)
 	}
 
-	task := ta.TikiStore.GetTiki("000001")
-	if task != nil {
+	tiki := ta.TikiStore.GetTiki("000001")
+	if tiki != nil {
 		t.Errorf("TIKI-1 should be deleted from store")
 	}
 
@@ -71,8 +71,8 @@ func TestTaskDeletion_FromKanban(t *testing.T) {
 	}
 }
 
-// TestTaskDeletion_SelectionMoves verifies selection moves to next task after delete
-func TestTaskDeletion_SelectionMoves(t *testing.T) {
+// TestTikiDeletion_SelectionMoves verifies selection moves to next tiki after delete
+func TestTikiDeletion_SelectionMoves(t *testing.T) {
 	ta := testutil.NewTestApp(t)
 	defer ta.Cleanup()
 
@@ -81,15 +81,15 @@ func TestTaskDeletion_SelectionMoves(t *testing.T) {
 		t.Fatalf("failed to load plugins: %v", err)
 	}
 
-	// Create three tasks
-	if err := testutil.CreateTestTiki(ta.TikiDir, "000001", "First Task", "ready", "story"); err != nil {
-		t.Fatalf("failed to create task: %v", err)
+	// Create three tikis
+	if err := testutil.CreateTestTiki(ta.TikiDir, "000001", "First Tiki", "ready", "story"); err != nil {
+		t.Fatalf("failed to create tiki: %v", err)
 	}
-	if err := testutil.CreateTestTiki(ta.TikiDir, "000002", "Second Task", "ready", "story"); err != nil {
-		t.Fatalf("failed to create task: %v", err)
+	if err := testutil.CreateTestTiki(ta.TikiDir, "000002", "Second Tiki", "ready", "story"); err != nil {
+		t.Fatalf("failed to create tiki: %v", err)
 	}
-	if err := testutil.CreateTestTiki(ta.TikiDir, "000003", "Third Task", "ready", "story"); err != nil {
-		t.Fatalf("failed to create task: %v", err)
+	if err := testutil.CreateTestTiki(ta.TikiDir, "000003", "Third Tiki", "ready", "story"); err != nil {
+		t.Fatalf("failed to create tiki: %v", err)
 	}
 	if err := ta.TikiStore.Reload(); err != nil {
 		t.Fatalf("failed to reload: %v", err)
@@ -99,7 +99,7 @@ func TestTaskDeletion_SelectionMoves(t *testing.T) {
 	ta.NavController.PushView(model.MakePluginViewID("Kanban"), nil)
 	ta.Draw()
 
-	// Move to second task (index 1)
+	// Move to second tiki (index 1)
 	ta.SendKey(tcell.KeyDown, 0, tcell.ModNone)
 
 	kanbanConfig := ta.GetPluginConfig("Kanban")
@@ -111,7 +111,7 @@ func TestTaskDeletion_SelectionMoves(t *testing.T) {
 	// Delete TIKI-2
 	ta.SendKey(tcell.KeyRune, 'd', tcell.ModNone)
 
-	// Selection should move to next task (TIKI-3, which is now at index 1)
+	// Selection should move to next tiki (TIKI-3, which is now at index 1)
 	selectedIndex := kanbanConfig.GetSelectedIndex()
 	if selectedIndex != 1 {
 		t.Errorf("selection after delete = index %d, want index 1", selectedIndex)
@@ -125,8 +125,8 @@ func TestTaskDeletion_SelectionMoves(t *testing.T) {
 	}
 }
 
-// TestTaskDeletion_LastTaskInLane verifies deleting last task resets selection
-func TestTaskDeletion_LastTaskInLane(t *testing.T) {
+// TestTikiDeletion_LastTikiInLane verifies deleting last tiki resets selection
+func TestTikiDeletion_LastTikiInLane(t *testing.T) {
 	ta := testutil.NewTestApp(t)
 	defer ta.Cleanup()
 
@@ -135,9 +135,9 @@ func TestTaskDeletion_LastTaskInLane(t *testing.T) {
 		t.Fatalf("failed to load plugins: %v", err)
 	}
 
-	// Create only one task in todo lane
-	if err := testutil.CreateTestTiki(ta.TikiDir, "000001", "Only Task", "ready", "story"); err != nil {
-		t.Fatalf("failed to create task: %v", err)
+	// Create only one tiki in todo lane
+	if err := testutil.CreateTestTiki(ta.TikiDir, "000001", "Only Tiki", "ready", "story"); err != nil {
+		t.Fatalf("failed to create tiki: %v", err)
 	}
 	if err := ta.TikiStore.Reload(); err != nil {
 		t.Fatalf("failed to reload: %v", err)
@@ -154,7 +154,7 @@ func TestTaskDeletion_LastTaskInLane(t *testing.T) {
 		t.Fatalf("TIKI-1 should be visible")
 	}
 
-	// Delete the only task
+	// Delete the only tiki
 	ta.SendKey(tcell.KeyRune, 'd', tcell.ModNone)
 
 	// Reload
@@ -162,24 +162,24 @@ func TestTaskDeletion_LastTaskInLane(t *testing.T) {
 		t.Fatalf("failed to reload: %v", err)
 	}
 
-	// Verify task deleted
-	task := ta.TikiStore.GetTiki("000001")
-	if task != nil {
+	// Verify tiki deleted
+	tiki := ta.TikiStore.GetTiki("000001")
+	if tiki != nil {
 		t.Errorf("TIKI-1 should be deleted")
 	}
 
 	kanbanConfig := ta.GetPluginConfig("Kanban")
 	// Verify selection reset to 0
 	if kanbanConfig.GetSelectedIndex() != 0 {
-		t.Errorf("selection should reset to 0 after deleting last task, got %d", kanbanConfig.GetSelectedIndex())
+		t.Errorf("selection should reset to 0 after deleting last tiki, got %d", kanbanConfig.GetSelectedIndex())
 	}
 
 	// Verify no crash occurred (lane is empty)
 	// This is implicit - if we got here without panic, test passes
 }
 
-// TestTaskDeletion_MultipleSequential verifies deleting multiple tasks in sequence
-func TestTaskDeletion_MultipleSequential(t *testing.T) {
+// TestTikiDeletion_MultipleSequential verifies deleting multiple tikis in sequence
+func TestTikiDeletion_MultipleSequential(t *testing.T) {
 	ta := testutil.NewTestApp(t)
 	defer ta.Cleanup()
 
@@ -188,12 +188,12 @@ func TestTaskDeletion_MultipleSequential(t *testing.T) {
 		t.Fatalf("failed to load plugins: %v", err)
 	}
 
-	// Create five tasks
+	// Create five tikis
 	tikiIDs := []string{"SEQ001", "SEQ002", "SEQ003", "SEQ004", "SEQ005"}
 	for i, tikiID := range tikiIDs {
-		title := fmt.Sprintf("Task %d", i+1)
+		title := fmt.Sprintf("Tiki %d", i+1)
 		if err := testutil.CreateTestTiki(ta.TikiDir, tikiID, title, "ready", "story"); err != nil {
-			t.Fatalf("failed to create task: %v", err)
+			t.Fatalf("failed to create tiki: %v", err)
 		}
 	}
 	if err := ta.TikiStore.Reload(); err != nil {
@@ -204,35 +204,35 @@ func TestTaskDeletion_MultipleSequential(t *testing.T) {
 	ta.NavController.PushView(model.MakePluginViewID("Kanban"), nil)
 	ta.Draw()
 
-	// Delete first task
+	// Delete first tiki
 	ta.SendKey(tcell.KeyRune, 'd', tcell.ModNone)
 
-	// Delete first task again (was TIKI-2, now at top)
+	// Delete first tiki again (was TIKI-2, now at top)
 	ta.SendKey(tcell.KeyRune, 'd', tcell.ModNone)
 
-	// Delete first task again (was TIKI-3, now at top)
+	// Delete first tiki again (was TIKI-3, now at top)
 	ta.SendKey(tcell.KeyRune, 'd', tcell.ModNone)
 
-	// Reload and verify only 2 tasks remain
+	// Reload and verify only 2 tikis remain
 	if err := ta.TikiStore.Reload(); err != nil {
 		t.Fatalf("failed to reload: %v", err)
 	}
 
-	allTasks := ta.TikiStore.GetAllTikis()
-	if len(allTasks) != 2 {
-		t.Errorf("expected 2 tasks remaining, got %d", len(allTasks))
+	allTikis := ta.TikiStore.GetAllTikis()
+	if len(allTikis) != 2 {
+		t.Errorf("expected 2 tikis remaining, got %d", len(allTikis))
 	}
 
 	// Verify SEQ004 and SEQ005 still exist
-	task4 := ta.TikiStore.GetTiki("SEQ004")
-	task5 := ta.TikiStore.GetTiki("SEQ005")
-	if task4 == nil || task5 == nil {
+	tiki4 := ta.TikiStore.GetTiki("SEQ004")
+	tiki5 := ta.TikiStore.GetTiki("SEQ005")
+	if tiki4 == nil || tiki5 == nil {
 		t.Errorf("SEQ004 and SEQ005 should still exist")
 	}
 }
 
-// TestTaskDeletion_FromDifferentLane verifies deleting from non-todo lane
-func TestTaskDeletion_FromDifferentLane(t *testing.T) {
+// TestTikiDeletion_FromDifferentLane verifies deleting from non-todo lane
+func TestTikiDeletion_FromDifferentLane(t *testing.T) {
 	ta := testutil.NewTestApp(t)
 	defer ta.Cleanup()
 
@@ -241,9 +241,9 @@ func TestTaskDeletion_FromDifferentLane(t *testing.T) {
 		t.Fatalf("failed to load plugins: %v", err)
 	}
 
-	// Create task in in_progress lane
-	if err := testutil.CreateTestTiki(ta.TikiDir, "000001", "In Progress Task", "inProgress", "story"); err != nil {
-		t.Fatalf("failed to create task: %v", err)
+	// Create tiki in in_progress lane
+	if err := testutil.CreateTestTiki(ta.TikiDir, "000001", "In Progress Tiki", "inProgress", "story"); err != nil {
+		t.Fatalf("failed to create tiki: %v", err)
 	}
 	if err := ta.TikiStore.Reload(); err != nil {
 		t.Fatalf("failed to reload: %v", err)
@@ -263,7 +263,7 @@ func TestTaskDeletion_FromDifferentLane(t *testing.T) {
 		t.Fatalf("TIKI-1 should be visible in in_progress lane")
 	}
 
-	// Delete task
+	// Delete tiki
 	ta.SendKey(tcell.KeyRune, 'd', tcell.ModNone)
 
 	// Reload and verify deleted
@@ -271,14 +271,14 @@ func TestTaskDeletion_FromDifferentLane(t *testing.T) {
 		t.Fatalf("failed to reload: %v", err)
 	}
 
-	task := ta.TikiStore.GetTiki("000001")
-	if task != nil {
+	tiki := ta.TikiStore.GetTiki("000001")
+	if tiki != nil {
 		t.Errorf("TIKI-1 should be deleted")
 	}
 }
 
-// TestTaskDeletion_CannotDeleteFromTaskDetail verifies 'd' doesn't work in task detail
-func TestTaskDeletion_CannotDeleteFromTaskDetail(t *testing.T) {
+// TestTikiDeletion_CannotDeleteFromTikiDetail verifies 'd' doesn't work in tiki detail
+func TestTikiDeletion_CannotDeleteFromTikiDetail(t *testing.T) {
 	ta := testutil.NewTestApp(t)
 	defer ta.Cleanup()
 
@@ -287,15 +287,15 @@ func TestTaskDeletion_CannotDeleteFromTaskDetail(t *testing.T) {
 		t.Fatalf("failed to load plugins: %v", err)
 	}
 
-	// Create task
-	if err := testutil.CreateTestTiki(ta.TikiDir, "000001", "Task to Not Delete", "ready", "story"); err != nil {
-		t.Fatalf("failed to create task: %v", err)
+	// Create tiki
+	if err := testutil.CreateTestTiki(ta.TikiDir, "000001", "Tiki to Not Delete", "ready", "story"); err != nil {
+		t.Fatalf("failed to create tiki: %v", err)
 	}
 	if err := ta.TikiStore.Reload(); err != nil {
 		t.Fatalf("failed to reload: %v", err)
 	}
 
-	// Navigate: Kanban → Task Detail
+	// Navigate: Kanban → Tiki Detail
 	ta.NavController.PushView(model.MakePluginViewID("Kanban"), nil)
 	ta.Draw()
 	ta.SendKey(tcell.KeyEnter, 0, tcell.ModNone)
@@ -307,27 +307,27 @@ func TestTaskDeletion_CannotDeleteFromTaskDetail(t *testing.T) {
 		t.Fatalf("expected detail view %s, got %v", wantDetail, currentView.ViewID)
 	}
 
-	// Press 'd' (should not delete from task detail view)
+	// Press 'd' (should not delete from tiki detail view)
 	ta.SendKey(tcell.KeyRune, 'd', tcell.ModNone)
 
-	// Reload and verify task still exists
+	// Reload and verify tiki still exists
 	if err := ta.TikiStore.Reload(); err != nil {
 		t.Fatalf("failed to reload: %v", err)
 	}
 
-	task := ta.TikiStore.GetTiki("000001")
-	if task == nil {
-		t.Errorf("TIKI-1 should NOT be deleted from task detail view")
+	tiki := ta.TikiStore.GetTiki("000001")
+	if tiki == nil {
+		t.Errorf("TIKI-1 should NOT be deleted from tiki detail view")
 	}
 
-	// Verify we're still on task detail (or moved somewhere else, but task exists)
-	if task == nil {
-		t.Errorf("task should still exist after pressing 'd' in task detail")
+	// Verify we're still on tiki detail (or moved somewhere else, but tiki exists)
+	if tiki == nil {
+		t.Errorf("tiki should still exist after pressing 'd' in tiki detail")
 	}
 }
 
-// TestTaskDeletion_WithMultipleLanes verifies deletion doesn't affect other lanes
-func TestTaskDeletion_WithMultipleLanes(t *testing.T) {
+// TestTikiDeletion_WithMultipleLanes verifies deletion doesn't affect other lanes
+func TestTikiDeletion_WithMultipleLanes(t *testing.T) {
 	ta := testutil.NewTestApp(t)
 	defer ta.Cleanup()
 
@@ -336,15 +336,15 @@ func TestTaskDeletion_WithMultipleLanes(t *testing.T) {
 		t.Fatalf("failed to load plugins: %v", err)
 	}
 
-	// Create tasks in different lanes
-	if err := testutil.CreateTestTiki(ta.TikiDir, "000001", "Todo Task", "ready", "story"); err != nil {
-		t.Fatalf("failed to create task: %v", err)
+	// Create tikis in different lanes
+	if err := testutil.CreateTestTiki(ta.TikiDir, "000001", "Todo Tiki", "ready", "story"); err != nil {
+		t.Fatalf("failed to create tiki: %v", err)
 	}
-	if err := testutil.CreateTestTiki(ta.TikiDir, "000002", "In Progress Task", "inProgress", "story"); err != nil {
-		t.Fatalf("failed to create task: %v", err)
+	if err := testutil.CreateTestTiki(ta.TikiDir, "000002", "In Progress Tiki", "inProgress", "story"); err != nil {
+		t.Fatalf("failed to create tiki: %v", err)
 	}
-	if err := testutil.CreateTestTiki(ta.TikiDir, "000003", "Done Task", "done", "story"); err != nil {
-		t.Fatalf("failed to create task: %v", err)
+	if err := testutil.CreateTestTiki(ta.TikiDir, "000003", "Done Tiki", "done", "story"); err != nil {
+		t.Fatalf("failed to create tiki: %v", err)
 	}
 	if err := ta.TikiStore.Reload(); err != nil {
 		t.Fatalf("failed to reload: %v", err)

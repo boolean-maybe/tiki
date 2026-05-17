@@ -83,7 +83,7 @@ func NewTestApp(t *testing.T) *TestApp {
 	// 2. Initialize Model Layer
 	tikiStore, err := tikistore.NewTikiStore(tikiDir)
 	if err != nil {
-		t.Fatalf("failed to create task store: %v", err)
+		t.Fatalf("failed to create tiki store: %v", err)
 	}
 	headerConfig := model.NewHeaderConfig()
 	layoutModel := model.NewLayoutModel()
@@ -639,10 +639,10 @@ func (ta *TestApp) GetPluginConfig(pluginName string) *model.PluginConfig {
 	return ta.PluginConfigs[pluginName]
 }
 
-// NavigateToTask presses Down on the current board view until the tiki with the given ID
+// NavigateToTiki presses Down on the current board view until the tiki with the given ID
 // is the selected item. It opens the tiki detail (Enter) and returns true if found within
 // maxSteps attempts; returns false if the tiki was not found.
-func (ta *TestApp) NavigateToTask(tikiID string, maxSteps int) bool {
+func (ta *TestApp) NavigateToTiki(tikiID string, maxSteps int) bool {
 	for i := 0; i < maxSteps; i++ {
 		ta.SendKey(tcell.KeyEnter, 0, tcell.ModNone)
 		ta.Draw()

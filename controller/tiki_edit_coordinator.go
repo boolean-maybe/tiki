@@ -10,7 +10,7 @@ import (
 	"github.com/gdamore/tcell/v2"
 )
 
-// TikiEditCoordinator owns task edit lifecycle: preparing the view, wiring handlers,
+// TikiEditCoordinator owns tiki edit lifecycle: preparing the view, wiring handlers,
 // and implementing commit/cancel and field navigation policy.
 type TikiEditCoordinator struct {
 	navController *NavigationController
@@ -184,9 +184,9 @@ func (c *TikiEditCoordinator) CommitNoClose(activeView View) bool {
 		return false
 	}
 
-	// Re-start edit session with newly saved task
+	// Re-start edit session with newly saved tiki
 	tikiID := c.editSession.currentTikiID
-	if editingTask := c.editSession.StartEditSession(tikiID); editingTask != nil {
+	if editingTiki := c.editSession.StartEditSession(tikiID); editingTiki != nil {
 		// Refresh view with new editing copy
 		if refreshable, ok := activeView.(interface{ Refresh() }); ok {
 			refreshable.Refresh()
@@ -275,14 +275,14 @@ func (c *TikiEditCoordinator) clearFieldHint() {
 func (c *TikiEditCoordinator) prepareView(activeView View, focus model.EditField) {
 	app := c.navController.GetApp()
 
-	// Start edit session for existing tasks (creates in-memory copy)
-	// Draft tasks already have an in-memory copy via draftTiki
+	// Start edit session for existing tikis (creates in-memory copy)
+	// Draft tikis already have an in-memory copy via draftTiki
 	if _, ok := activeView.(TikiEditView); ok {
 		if tikiView, hasController := activeView.(interface{ SetTikiEditSession(*TikiEditSession) }); hasController {
 			tikiView.SetTikiEditSession(c.editSession)
 		}
 
-		// Only start edit session for non-draft tasks
+		// Only start edit session for non-draft tikis
 		if c.editSession.draftTiki == nil {
 			tikiID := c.editSession.currentTikiID
 			if tikiID != "" {
@@ -440,7 +440,7 @@ func (c *TikiEditCoordinator) prepareView(activeView View, focus model.EditField
 // rejectionMessage extracts a clean user-facing message from an error.
 // For RejectionError: returns just the rejection reasons.
 // For other errors: unwraps to the root cause to strip wrapper prefixes
-// like "failed to update task: failed to save task:".
+// like "failed to update tiki: failed to save tiki:".
 func rejectionMessage(err error) string {
 	var re *service.RejectionError
 	if errors.As(err, &re) {

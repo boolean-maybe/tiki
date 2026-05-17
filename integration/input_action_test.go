@@ -59,8 +59,8 @@ func setupInputActionTest(t *testing.T) *testutil.TestApp {
 		t.Fatalf("failed to load plugins: %v", err)
 	}
 
-	if err := testutil.CreateTestTiki(ta.TikiDir, "000001", "Test Task", "backlog", "story"); err != nil {
-		t.Fatalf("failed to create task: %v", err)
+	if err := testutil.CreateTestTiki(ta.TikiDir, "000001", "Test Tiki", "backlog", "story"); err != nil {
+		t.Fatalf("failed to create tiki: %v", err)
 	}
 	if err := ta.TikiStore.Reload(); err != nil {
 		t.Fatalf("failed to reload: %v", err)
@@ -118,7 +118,7 @@ func TestInputAction_EnterAppliesMutation(t *testing.T) {
 	}
 	updated := ta.TikiStore.GetTiki("000001")
 	if updated == nil {
-		t.Fatal("task not found")
+		t.Fatal("tiki not found")
 	}
 	assignee, _, _ := updated.StringField("assignee")
 	if assignee != "alice" {
@@ -144,7 +144,7 @@ func TestInputAction_EscCancelsWithoutMutation(t *testing.T) {
 	}
 	updated := ta.TikiStore.GetTiki("000001")
 	if updated == nil {
-		t.Fatal("task not found")
+		t.Fatal("tiki not found")
 	}
 	assignee, _, _ := updated.StringField("assignee")
 	if assignee != "" {
@@ -169,7 +169,7 @@ func TestInputAction_NonInputActionStillWorks(t *testing.T) {
 	}
 	updated := ta.TikiStore.GetTiki("000001")
 	if updated == nil {
-		t.Fatal("task not found")
+		t.Fatal("tiki not found")
 	}
 	status, _, _ := updated.StringField("status")
 	if status != "ready" {
@@ -290,7 +290,7 @@ func TestInputAction_PassiveSearchReplacedByActionInput(t *testing.T) {
 	}
 	updated := ta.TikiStore.GetTiki("000001")
 	if updated == nil {
-		t.Fatal("task not found")
+		t.Fatal("tiki not found")
 	}
 	assignee, _, _ := updated.StringField("assignee")
 	if assignee != "carol" {
@@ -437,7 +437,7 @@ func TestInputAction_PaletteDispatchOpensPrompt(t *testing.T) {
 	}
 	updated := ta.TikiStore.GetTiki("000001")
 	if updated == nil {
-		t.Fatal("task not found")
+		t.Fatal("tiki not found")
 	}
 	assignee, _, _ := updated.StringField("assignee")
 	if assignee != "eve" {
@@ -487,10 +487,10 @@ func TestInputAction_InvalidInputKeepsPromptOpen(t *testing.T) {
 	ta.SendKey(tcell.KeyEscape, 0, tcell.ModNone)
 }
 
-func TestInputAction_PreflightNoTaskSelected_NoPrompt(t *testing.T) {
+func TestInputAction_PreflightNoTikiSelected_NoPrompt(t *testing.T) {
 	tmpDir := t.TempDir()
 
-	// workflow with a lane that will match no tasks (review lane, but test task is backlog)
+	// workflow with a lane that will match no tikis (review lane, but test tiki is backlog)
 	workflow := testWorkflowPreamble + `views:
   - name: EmptyTest
     kind: board
@@ -518,9 +518,9 @@ func TestInputAction_PreflightNoTaskSelected_NoPrompt(t *testing.T) {
 	}
 	defer ta.Cleanup()
 
-	// create a task, but it won't match the filter
+	// create a tiki, but it won't match the filter
 	if err := testutil.CreateTestTiki(ta.TikiDir, "000001", "Test", "backlog", "story"); err != nil {
-		t.Fatalf("failed to create task: %v", err)
+		t.Fatalf("failed to create tiki: %v", err)
 	}
 	if err := ta.TikiStore.Reload(); err != nil {
 		t.Fatalf("failed to reload: %v", err)
@@ -531,10 +531,10 @@ func TestInputAction_PreflightNoTaskSelected_NoPrompt(t *testing.T) {
 
 	iv := getActiveInputableView(ta)
 
-	// press 'A' — no task selected, preflight should fail, no prompt
+	// press 'A' — no tiki selected, preflight should fail, no prompt
 	ta.SendKey(tcell.KeyRune, 'A', tcell.ModNone)
 	if iv != nil && iv.IsInputBoxVisible() {
-		t.Fatal("input prompt should not open when no task is selected")
+		t.Fatal("input prompt should not open when no tiki is selected")
 	}
 }
 
@@ -579,7 +579,7 @@ func TestInputAction_AddTagMutation(t *testing.T) {
 	}
 	updated := ta.TikiStore.GetTiki("000001")
 	if updated == nil {
-		t.Fatal("task not found")
+		t.Fatal("tiki not found")
 	}
 	tags, _, _ := updated.StringSliceField(tikipkg.FieldTags)
 	found := false
@@ -627,8 +627,8 @@ func TestInputAction_CompositeKeyPluginAction(t *testing.T) {
 		t.Fatalf("failed to load plugins: %v", err)
 	}
 
-	if err := testutil.CreateTestTiki(ta.TikiDir, "000001", "Blocked Task", "backlog", "story"); err != nil {
-		t.Fatalf("failed to create task: %v", err)
+	if err := testutil.CreateTestTiki(ta.TikiDir, "000001", "Blocked Tiki", "backlog", "story"); err != nil {
+		t.Fatalf("failed to create tiki: %v", err)
 	}
 	if err := ta.TikiStore.Reload(); err != nil {
 		t.Fatalf("failed to reload: %v", err)

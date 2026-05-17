@@ -37,8 +37,8 @@ func TestPhase4_AbsentScalarEqualsLiteralIsFalse(t *testing.T) {
 	if err != nil {
 		t.Fatalf("execute: %v", err)
 	}
-	if len(result.Select.Tasks) != 1 || result.Select.Tasks[0].ID != "WRKFL1" {
-		gotIDs := tikiIDs(result.Select.Tasks)
+	if len(result.Select.Tikis) != 1 || result.Select.Tikis[0].ID != "WRKFL1" {
+		gotIDs := tikiIDs(result.Select.Tikis)
 		t.Fatalf("expected only WRKFL1 to match points=0, got %v", gotIDs)
 	}
 }
@@ -65,8 +65,8 @@ func TestPhase4_AbsentScalarNotEqualsLiteralIsTrue(t *testing.T) {
 	if err != nil {
 		t.Fatalf("execute: %v", err)
 	}
-	if len(result.Select.Tasks) != 1 || result.Select.Tasks[0].ID != "PLAIN1" {
-		gotIDs := tikiIDs(result.Select.Tasks)
+	if len(result.Select.Tikis) != 1 || result.Select.Tikis[0].ID != "PLAIN1" {
+		gotIDs := tikiIDs(result.Select.Tikis)
 		t.Fatalf("expected PLAIN1 (missing priority treated as != 5), got %v", gotIDs)
 	}
 }
@@ -114,7 +114,7 @@ func TestPhase5_HasPredicateDistinguishesAbsentFromZero(t *testing.T) {
 	if err != nil {
 		t.Fatalf("execute: %v", err)
 	}
-	gotIDs := tikiIDs(result.Select.Tasks)
+	gotIDs := tikiIDs(result.Select.Tikis)
 	wantIDs := []string{"WRKFL1"}
 	if !reflect.DeepEqual(gotIDs, wantIDs) {
 		t.Fatalf("has(status): got %v, want %v", gotIDs, wantIDs)
@@ -224,14 +224,14 @@ func TestPhase5_DependsOnRejectsNonBareID(t *testing.T) {
 	e := newTestExecutor()
 	p := newTestParser()
 
-	tasks := []*tikiFixture{
+	tikis := []*tikiFixture{
 		{ID: "TIKI-000001", Title: "x", Status: "ready"},
 	}
 	stmt, err := p.ParseStatement(`update where id = "TIKI-000001" set dependsOn = ["TIKI-ABC"]`)
 	if err != nil {
 		t.Fatalf("parse: %v", err)
 	}
-	if _, err := e.testExec(stmt, tasks); err == nil {
+	if _, err := e.testExec(stmt, tikis); err == nil {
 		t.Fatal("expected error for non-bare dependsOn id")
 	} else if !strings.Contains(err.Error(), "bare document id") {
 		t.Fatalf("expected bare-id error, got: %v", err)
@@ -242,14 +242,14 @@ func TestPhase5_DependsOnAcceptsBareID(t *testing.T) {
 	e := newTestExecutor()
 	p := newTestParser()
 
-	tasks := []*tikiFixture{
+	tikis := []*tikiFixture{
 		{ID: "TIKI-000001", Title: "x", Status: "ready"},
 	}
 	stmt, err := p.ParseStatement(`update where id = "TIKI-000001" set dependsOn = ["ABC123"]`)
 	if err != nil {
 		t.Fatalf("parse: %v", err)
 	}
-	result, err := e.testExec(stmt, tasks)
+	result, err := e.testExec(stmt, tikis)
 	if err != nil {
 		t.Fatalf("execute: %v", err)
 	}
@@ -291,7 +291,7 @@ func TestPhase4_AbsentListIsEmptyIsTrue(t *testing.T) {
 	if err != nil {
 		t.Fatalf("execute: %v", err)
 	}
-	gotIDs := tikiIDs(result.Select.Tasks)
+	gotIDs := tikiIDs(result.Select.Tikis)
 	wantIDs := []string{"PLAIN1", "EMPTY1"}
 	sortStrings(gotIDs)
 	sortStrings(wantIDs)
@@ -319,8 +319,8 @@ func TestPhase4_AbsentListEqualsEmptyKeyword(t *testing.T) {
 	if err != nil {
 		t.Fatalf("execute empty keyword: %v", err)
 	}
-	if len(result.Select.Tasks) != 1 || result.Select.Tasks[0].ID != "PLAIN1" {
-		t.Fatalf("tags = empty: got %v, want [PLAIN1]", tikiIDs(result.Select.Tasks))
+	if len(result.Select.Tikis) != 1 || result.Select.Tikis[0].ID != "PLAIN1" {
+		t.Fatalf("tags = empty: got %v, want [PLAIN1]", tikiIDs(result.Select.Tikis))
 	}
 
 	// `tags = []` → false for absent tags (concrete-value compare).
@@ -332,8 +332,8 @@ func TestPhase4_AbsentListEqualsEmptyKeyword(t *testing.T) {
 	if err != nil {
 		t.Fatalf("execute list literal: %v", err)
 	}
-	if len(result.Select.Tasks) != 0 {
-		t.Fatalf("tags = []: got %v, want []", tikiIDs(result.Select.Tasks))
+	if len(result.Select.Tikis) != 0 {
+		t.Fatalf("tags = []: got %v, want []", tikiIDs(result.Select.Tikis))
 	}
 }
 
@@ -354,8 +354,8 @@ func TestPhase4_AbsentListQuantifier(t *testing.T) {
 	if err != nil {
 		t.Fatalf("execute all: %v", err)
 	}
-	if len(result.Select.Tasks) != 1 || result.Select.Tasks[0].ID != "PLAIN1" {
-		t.Fatalf("all on absent deps: got %v, want [PLAIN1]", tikiIDs(result.Select.Tasks))
+	if len(result.Select.Tikis) != 1 || result.Select.Tikis[0].ID != "PLAIN1" {
+		t.Fatalf("all on absent deps: got %v, want [PLAIN1]", tikiIDs(result.Select.Tikis))
 	}
 
 	// `any` over absent dependsOn is false.
@@ -367,8 +367,8 @@ func TestPhase4_AbsentListQuantifier(t *testing.T) {
 	if err != nil {
 		t.Fatalf("execute any: %v", err)
 	}
-	if len(result.Select.Tasks) != 0 {
-		t.Fatalf("any on absent deps: got %v, want []", tikiIDs(result.Select.Tasks))
+	if len(result.Select.Tikis) != 0 {
+		t.Fatalf("any on absent deps: got %v, want []", tikiIDs(result.Select.Tikis))
 	}
 }
 
@@ -399,7 +399,7 @@ func TestPhase5_AbsentListHasPredicateWorks(t *testing.T) {
 	if err != nil {
 		t.Fatalf("execute: %v", err)
 	}
-	gotIDs := tikiIDs(result.Select.Tasks)
+	gotIDs := tikiIDs(result.Select.Tikis)
 	wantIDs := []string{"EMPTY1"}
 	if !reflect.DeepEqual(gotIDs, wantIDs) {
 		t.Fatalf("has(dependsOn): got %v, want %v (only the doc with explicit dependsOn key should match)", gotIDs, wantIDs)
@@ -408,7 +408,7 @@ func TestPhase5_AbsentListHasPredicateWorks(t *testing.T) {
 
 func TestPhase4_AbsentListBinaryAddAutoZeroes(t *testing.T) {
 	// Phase 4 + assignment-RHS carve-out: `set dependsOn = dependsOn + "X"`
-	// on a task without a prior dependsOn field auto-zeroes the absent read
+	// on a tiki without a prior dependsOn field auto-zeroes the absent read
 	// to [] and produces ["X"]. Typos still hard-error at parse time.
 	e := newTestExecutor()
 	p := newTestParser()
@@ -423,7 +423,7 @@ func TestPhase4_AbsentListBinaryAddAutoZeroes(t *testing.T) {
 		t.Fatalf("execute: %v", err)
 	}
 	if result.Update == nil || len(result.Update.Updated) != 1 {
-		t.Fatalf("expected 1 updated task, got %+v", result.Update)
+		t.Fatalf("expected 1 updated tiki, got %+v", result.Update)
 	}
 	got := result.Update.Updated[0].DependsOn
 	if !reflect.DeepEqual(got, []string{"ABC123"}) {
@@ -467,8 +467,8 @@ func TestPhase4_NotInAbsentScalarIsTrue(t *testing.T) {
 	if err != nil {
 		t.Fatalf("execute: %v", err)
 	}
-	if len(result.Select.Tasks) != 1 || result.Select.Tasks[0].ID != "PLAIN1" {
-		t.Fatalf("assignee not in [...]: got %v, want [PLAIN1]", tikiIDs(result.Select.Tasks))
+	if len(result.Select.Tikis) != 1 || result.Select.Tikis[0].ID != "PLAIN1" {
+		t.Fatalf("assignee not in [...]: got %v, want [PLAIN1]", tikiIDs(result.Select.Tikis))
 	}
 }
 
@@ -485,8 +485,8 @@ func TestPhase4_InAbsentScalarIsFalse(t *testing.T) {
 	if err != nil {
 		t.Fatalf("execute: %v", err)
 	}
-	if len(result.Select.Tasks) != 0 {
-		t.Fatalf("assignee in [...]: got %v, want []", tikiIDs(result.Select.Tasks))
+	if len(result.Select.Tikis) != 0 {
+		t.Fatalf("assignee in [...]: got %v, want []", tikiIDs(result.Select.Tikis))
 	}
 }
 
@@ -503,15 +503,15 @@ func TestPhase4_NotInAbsentListIsTrue(t *testing.T) {
 	if err != nil {
 		t.Fatalf("execute: %v", err)
 	}
-	if len(result.Select.Tasks) != 1 || result.Select.Tasks[0].ID != "PLAIN1" {
-		t.Fatalf("\"urgent\" not in tags: got %v, want [PLAIN1]", tikiIDs(result.Select.Tasks))
+	if len(result.Select.Tikis) != 1 || result.Select.Tikis[0].ID != "PLAIN1" {
+		t.Fatalf("\"urgent\" not in tags: got %v, want [PLAIN1]", tikiIDs(result.Select.Tikis))
 	}
 }
 
 // --- absent-sort ordering ---
 
 func TestPhase4_AbsentOrderByHardErrors(t *testing.T) {
-	// Phase 4: `order by priority` on an input set containing a task
+	// Phase 4: `order by priority` on an input set containing a tiki
 	// without priority hard-errors during sort-key extraction.
 	e := newTestExecutor()
 	p := newTestParser()

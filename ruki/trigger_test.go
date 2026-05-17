@@ -15,17 +15,17 @@ func TestParseTrigger_BeforeDeny(t *testing.T) {
 	}{
 		{
 			"block completion with open deps",
-			`before update where new.status = "done" and new.dependsOn any status != "done" deny "cannot complete task with open dependencies"`,
+			`before update where new.status = "done" and new.dependsOn any status != "done" deny "cannot complete tiki with open dependencies"`,
 			"update",
 		},
 		{
 			"deny delete high priority",
-			`before delete where old.priority <= "medium-high" deny "cannot delete high priority tasks"`,
+			`before delete where old.priority <= "medium-high" deny "cannot delete high priority tikis"`,
 			"delete",
 		},
 		{
 			"require description for high priority",
-			`before update where new.priority <= "medium-high" and new.description is empty deny "high priority tasks need a description"`,
+			`before update where new.priority <= "medium-high" and new.description is empty deny "high priority tikis need a description"`,
 			"update",
 		},
 		{
@@ -35,12 +35,12 @@ func TestParseTrigger_BeforeDeny(t *testing.T) {
 		},
 		{
 			"prevent skipping review",
-			`before update where old.status = "inProgress" and new.status = "done" deny "tasks must go through review before completion"`,
+			`before update where old.status = "inProgress" and new.status = "done" deny "tikis must go through review before completion"`,
 			"update",
 		},
 		{
 			"protect high priority from demotion",
-			`before update where old.priority = "high" and old.status = "inProgress" and new.priority > "high" deny "cannot demote priority of active critical tasks"`,
+			`before update where old.priority = "high" and old.status = "inProgress" and new.priority > "high" deny "cannot demote priority of active critical tikis"`,
 			"update",
 		},
 		{
@@ -55,7 +55,7 @@ func TestParseTrigger_BeforeDeny(t *testing.T) {
 		},
 		{
 			"points required before start",
-			`before update where new.status = "inProgress" and new.points = 0 deny "tasks must be estimated before starting work"`,
+			`before update where new.status = "inProgress" and new.points = 0 deny "tikis must be estimated before starting work"`,
 			"update",
 		},
 	}
@@ -96,13 +96,13 @@ func TestParseTrigger_AfterAction(t *testing.T) {
 		wantRun    bool
 	}{
 		{
-			"recurring task create next",
+			"recurring tiki create next",
 			`after update where new.status = "done" and old.recurrence is not empty create title=old.title priority=old.priority tags=old.tags recurrence=old.recurrence due=next_date(old.recurrence) status="ready"`,
 			"update",
 			true, false, false, false,
 		},
 		{
-			"recurring task clear recurrence",
+			"recurring tiki clear recurrence",
 			`after update where new.status = "done" and old.recurrence is not empty update where id = old.id set recurrence=empty`,
 			"update",
 			false, true, false, false,

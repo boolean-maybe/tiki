@@ -33,8 +33,8 @@ func setupParityRepo(t *testing.T) string {
 
 	base := time.Date(2024, 1, 1, 12, 0, 0, 0, time.UTC)
 
-	// commit 1: alice creates two task files
-	for _, name := range []string{"tasks/tiki-001.md", "tasks/tiki-002.md"} {
+	// commit 1: alice creates two tiki files
+	for _, name := range []string{"tikis/tiki-001.md", "tikis/tiki-002.md"} {
 		abs := filepath.Join(dir, name)
 		if err := os.MkdirAll(filepath.Dir(abs), 0o750); err != nil {
 			t.Fatalf("MkdirAll: %v", err)
@@ -47,7 +47,7 @@ func setupParityRepo(t *testing.T) string {
 			t.Fatalf("Add: %v", err)
 		}
 	}
-	if _, err := wt.Commit("alice creates tasks", &gogitlib.CommitOptions{
+	if _, err := wt.Commit("alice creates tikis", &gogitlib.CommitOptions{
 		Author: &object.Signature{Name: "alice", Email: "alice@test.com", When: base},
 	}); err != nil {
 		t.Fatalf("Commit: %v", err)
@@ -55,14 +55,14 @@ func setupParityRepo(t *testing.T) string {
 
 	// commit 2: bob changes status of tiki-001
 	t2 := base.Add(30 * 24 * time.Hour)
-	abs := filepath.Join(dir, "tasks/tiki-001.md")
-	if err := os.WriteFile(abs, []byte("---\ntitle: tasks/tiki-001.md\nstatus: closed\n---\n"), 0o644); err != nil {
+	abs := filepath.Join(dir, "tikis/tiki-001.md")
+	if err := os.WriteFile(abs, []byte("---\ntitle: tikis/tiki-001.md\nstatus: closed\n---\n"), 0o644); err != nil {
 		t.Fatalf("WriteFile: %v", err)
 	}
-	if _, err := wt.Add("tasks/tiki-001.md"); err != nil {
+	if _, err := wt.Add("tikis/tiki-001.md"); err != nil {
 		t.Fatalf("Add: %v", err)
 	}
-	if _, err := wt.Commit("bob closes task 1", &gogitlib.CommitOptions{
+	if _, err := wt.Commit("bob closes tiki 1", &gogitlib.CommitOptions{
 		Author: &object.Signature{Name: "bob", Email: "bob@test.com", When: t2},
 	}); err != nil {
 		t.Fatalf("Commit: %v", err)
@@ -70,14 +70,14 @@ func setupParityRepo(t *testing.T) string {
 
 	// commit 3: charlie creates tiki-003
 	t3 := base.Add(60 * 24 * time.Hour)
-	abs3 := filepath.Join(dir, "tasks/tiki-003.md")
-	if err := os.WriteFile(abs3, []byte("---\ntitle: task 3\nstatus: open\n---\n"), 0o644); err != nil {
+	abs3 := filepath.Join(dir, "tikis/tiki-003.md")
+	if err := os.WriteFile(abs3, []byte("---\ntitle: tiki 3\nstatus: open\n---\n"), 0o644); err != nil {
 		t.Fatalf("WriteFile: %v", err)
 	}
-	if _, err := wt.Add("tasks/tiki-003.md"); err != nil {
+	if _, err := wt.Add("tikis/tiki-003.md"); err != nil {
 		t.Fatalf("Add: %v", err)
 	}
-	if _, err := wt.Commit("charlie creates task 3", &gogitlib.CommitOptions{
+	if _, err := wt.Commit("charlie creates tiki 3", &gogitlib.CommitOptions{
 		Author: &object.Signature{Name: "charlie", Email: "charlie@test.com", When: t3},
 	}); err != nil {
 		t.Fatalf("Commit: %v", err)
@@ -144,7 +144,7 @@ func TestParity_Author(t *testing.T) {
 		t.Fatalf("gogit.NewUtil: %v", err)
 	}
 
-	for _, file := range []string{"tasks/tiki-001.md", "tasks/tiki-002.md", "tasks/tiki-003.md"} {
+	for _, file := range []string{"tikis/tiki-001.md", "tikis/tiki-002.md", "tikis/tiki-003.md"} {
 		shellAuthor, err := sh.Author(file)
 		if err != nil {
 			t.Fatalf("shell.Author(%s): %v", file, err)
@@ -176,7 +176,7 @@ func TestParity_AllAuthors(t *testing.T) {
 		t.Fatalf("gogit.NewUtil: %v", err)
 	}
 
-	pattern := filepath.Join(dir, "tasks", "*.md")
+	pattern := filepath.Join(dir, "tikis", "*.md")
 	shellAuthors, err := sh.AllAuthors(pattern)
 	if err != nil {
 		t.Fatalf("shell.AllAuthors: %v", err)
@@ -254,7 +254,7 @@ func TestParity_LastCommitTime(t *testing.T) {
 		t.Fatalf("gogit.NewUtil: %v", err)
 	}
 
-	for _, file := range []string{"tasks/tiki-001.md", "tasks/tiki-002.md"} {
+	for _, file := range []string{"tikis/tiki-001.md", "tikis/tiki-002.md"} {
 		shellTime, err := sh.LastCommitTime(file)
 		if err != nil {
 			t.Fatalf("shell.LastCommitTime(%s): %v", file, err)
@@ -283,7 +283,7 @@ func TestParity_AllLastCommitTimes(t *testing.T) {
 		t.Fatalf("gogit.NewUtil: %v", err)
 	}
 
-	pattern := filepath.Join(dir, "tasks", "*.md")
+	pattern := filepath.Join(dir, "tikis", "*.md")
 	shellTimes, err := sh.AllLastCommitTimes(pattern)
 	if err != nil {
 		t.Fatalf("shell.AllLastCommitTimes: %v", err)
@@ -328,11 +328,11 @@ func TestParity_FileVersionsSince(t *testing.T) {
 
 	since := time.Date(2024, 1, 15, 0, 0, 0, 0, time.UTC)
 	for _, includePrior := range []bool{false, true} {
-		shellVersions, err := sh.FileVersionsSince("tasks/tiki-001.md", since, includePrior)
+		shellVersions, err := sh.FileVersionsSince("tikis/tiki-001.md", since, includePrior)
 		if err != nil {
 			t.Fatalf("shell.FileVersionsSince(prior=%v): %v", includePrior, err)
 		}
-		gogitVersions, err := gg.FileVersionsSince("tasks/tiki-001.md", since, includePrior)
+		gogitVersions, err := gg.FileVersionsSince("tikis/tiki-001.md", since, includePrior)
 		if err != nil {
 			t.Fatalf("gogit.FileVersionsSince(prior=%v): %v", includePrior, err)
 		}
@@ -366,7 +366,7 @@ func TestParity_AllFileVersionsSince(t *testing.T) {
 	}
 
 	since := time.Date(2024, 1, 15, 0, 0, 0, 0, time.UTC)
-	pattern := filepath.Join(dir, "tasks", "*.md")
+	pattern := filepath.Join(dir, "tikis", "*.md")
 
 	for _, includePrior := range []bool{false, true} {
 		shellResult, err := sh.AllFileVersionsSince(pattern, since, includePrior)

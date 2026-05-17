@@ -6,7 +6,7 @@ import (
 	tikipkg "github.com/boolean-maybe/tiki/tiki"
 )
 
-func TestReloadTask_CaseDuplicate(t *testing.T) {
+func TestReloadTiki_CaseDuplicate(t *testing.T) {
 	store, err := NewTikiStore(t.TempDir())
 	if err != nil {
 		t.Fatalf("failed to create store: %v", err)

@@ -4,11 +4,11 @@ package config
 // These constants define the sizing and spacing for terminal UI components.
 
 const (
-	// Task box heights
+	// Tiki box heights
 	TikiBoxHeight         = 5 // Compact view mode
 	TikiBoxHeightExpanded = 9 // Expanded view mode
 
-	// Task box width padding
+	// Tiki box width padding
 	TikiBoxPaddingCompact  = 12 // Width padding in compact mode
 	TikiBoxPaddingExpanded = 4  // Width padding in expanded mode
 	TikiBoxMinWidth        = 10 // Minimum width fallback

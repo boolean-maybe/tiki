@@ -13,8 +13,8 @@ import (
 	"github.com/gdamore/tcell/v2"
 )
 
-// findTaskByTitle finds a tiki by its title in a slice of tikis
-func findTaskByTitle(tikis []*tikipkg.Tiki, title string) *tikipkg.Tiki {
+// findTikiByTitle finds a tiki by its title in a slice of tikis
+func findTikiByTitle(tikis []*tikipkg.Tiki, title string) *tikipkg.Tiki {
 	for _, tk := range tikis {
 		if tk.Title == title {
 			return tk
@@ -27,7 +27,7 @@ func findTaskByTitle(tikis []*tikipkg.Tiki, title string) *tikipkg.Tiki {
 // NEW TASK CREATION (Draft Mode) Tests
 // =============================================================================
 
-func TestNewTask_Enter_SavesAndCreatesFile(t *testing.T) {
+func TestNewTiki_Enter_SavesAndCreatesFile(t *testing.T) {
 	ta := testutil.NewTestApp(t)
 	defer ta.Cleanup()
 
@@ -35,38 +35,38 @@ func TestNewTask_Enter_SavesAndCreatesFile(t *testing.T) {
 	ta.NavController.PushView(model.MakePluginViewID("Kanban"), nil)
 	ta.Draw()
 
-	// Press 'n' to create new task (opens edit view with title focused)
+	// Press 'n' to create new tiki (opens edit view with title focused)
 	ta.SendKey(tcell.KeyRune, 'n', tcell.ModNone)
 
 	// Type title
-	ta.SendText("My New Task")
+	ta.SendText("My New Tiki")
 
 	// Press Enter to save
 	ta.SendKey(tcell.KeyEnter, 0, tcell.ModNone)
 
 	// Verify: file should be created
 	if err := ta.TikiStore.Reload(); err != nil {
-		t.Fatalf("failed to reload tasks: %v", err)
+		t.Fatalf("failed to reload tikis: %v", err)
 	}
 
-	// Find the new task by title (IDs are now random)
-	task := findTaskByTitle(ta.TikiStore.GetAllTikis(), "My New Task")
-	if task == nil {
-		t.Fatalf("new task not found in store")
+	// Find the new tiki by title (IDs are now random)
+	tiki := findTikiByTitle(ta.TikiStore.GetAllTikis(), "My New Tiki")
+	if tiki == nil {
+		t.Fatalf("new tiki not found in store")
 		return
 	}
-	if task.Title != "My New Task" {
-		t.Errorf("title = %q, want %q", task.Title, "My New Task")
+	if tiki.Title != "My New Tiki" {
+		t.Errorf("title = %q, want %q", tiki.Title, "My New Tiki")
 	}
 
 	// Verify file exists on disk (filename uses lowercase ID)
-	tikiPath := filepath.Join(ta.TikiDir, strings.ToLower(task.ID)+".md")
+	tikiPath := filepath.Join(ta.TikiDir, strings.ToLower(tiki.ID)+".md")
 	if _, err := os.Stat(tikiPath); os.IsNotExist(err) {
-		t.Errorf("task file was not created at %s", tikiPath)
+		t.Errorf("tiki file was not created at %s", tikiPath)
 	}
 }
 
-func TestNewTask_Escape_DiscardsWithoutCreatingFile(t *testing.T) {
+func TestNewTiki_Escape_DiscardsWithoutCreatingFile(t *testing.T) {
 	ta := testutil.NewTestApp(t)
 	defer ta.Cleanup()
 
@@ -74,34 +74,34 @@ func TestNewTask_Escape_DiscardsWithoutCreatingFile(t *testing.T) {
 	ta.NavController.PushView(model.MakePluginViewID("Kanban"), nil)
 	ta.Draw()
 
-	// Press 'n' to create new task
+	// Press 'n' to create new tiki
 	ta.SendKey(tcell.KeyRune, 'n', tcell.ModNone)
 
 	// Type title
-	ta.SendText("Task To Discard")
+	ta.SendText("Tiki To Discard")
 
 	// Press Escape to cancel
 	ta.SendKey(tcell.KeyEscape, 0, tcell.ModNone)
 
 	// Verify: no file should be created
 	if err := ta.TikiStore.Reload(); err != nil {
-		t.Fatalf("failed to reload tasks: %v", err)
+		t.Fatalf("failed to reload tikis: %v", err)
 	}
 
-	// Should have no tasks (find by title since IDs are random)
-	task := findTaskByTitle(ta.TikiStore.GetAllTikis(), "Task To Discard")
-	if task != nil {
-		t.Errorf("task should not exist after escape, but found: %+v", task)
+	// Should have no tikis (find by title since IDs are random)
+	tiki := findTikiByTitle(ta.TikiStore.GetAllTikis(), "Tiki To Discard")
+	if tiki != nil {
+		t.Errorf("tiki should not exist after escape, but found: %+v", tiki)
 	}
 
 	// Verify no tiki files on disk
 	files, _ := filepath.Glob(filepath.Join(ta.TikiDir, "tiki-*.md"))
 	if len(files) > 0 {
-		t.Errorf("task files should not exist, but found: %v", files)
+		t.Errorf("tiki files should not exist, but found: %v", files)
 	}
 }
 
-func TestNewTask_CtrlS_SavesAndCreatesFile(t *testing.T) {
+func TestNewTiki_CtrlS_SavesAndCreatesFile(t *testing.T) {
 	ta := testutil.NewTestApp(t)
 	defer ta.Cleanup()
 
@@ -109,11 +109,11 @@ func TestNewTask_CtrlS_SavesAndCreatesFile(t *testing.T) {
 	ta.NavController.PushView(model.MakePluginViewID("Kanban"), nil)
 	ta.Draw()
 
-	// Press 'n' to create new task
+	// Press 'n' to create new tiki
 	ta.SendKey(tcell.KeyRune, 'n', tcell.ModNone)
 
 	// Type title
-	ta.SendText("Task Saved With CtrlS")
+	ta.SendText("Tiki Saved With CtrlS")
 
 	// Tab to another field (Points): Title → Status → Type → Priority → Points (4 tabs)
 	for i := 0; i < 4; i++ {
@@ -125,16 +125,16 @@ func TestNewTask_CtrlS_SavesAndCreatesFile(t *testing.T) {
 
 	// Verify: file should be created
 	if err := ta.TikiStore.Reload(); err != nil {
-		t.Fatalf("failed to reload tasks: %v", err)
+		t.Fatalf("failed to reload tikis: %v", err)
 	}
 
-	task := findTaskByTitle(ta.TikiStore.GetAllTikis(), "Task Saved With CtrlS")
-	if task == nil {
-		t.Fatalf("new task not found in store")
+	tiki := findTikiByTitle(ta.TikiStore.GetAllTikis(), "Tiki Saved With CtrlS")
+	if tiki == nil {
+		t.Fatalf("new tiki not found in store")
 		return
 	}
-	if task.Title != "Task Saved With CtrlS" {
-		t.Errorf("title = %q, want %q", task.Title, "Task Saved With CtrlS")
+	if tiki.Title != "Tiki Saved With CtrlS" {
+		t.Errorf("title = %q, want %q", tiki.Title, "Tiki Saved With CtrlS")
 	}
 }
 
@@ -142,7 +142,7 @@ func TestEditSource_DuplicateCaseIDs_Repro(t *testing.T) {
 	ta := testutil.NewTestApp(t)
 	defer ta.Cleanup()
 
-	// Create a task with lowercase suffix ID directly in the store.
+	// Create a tiki with lowercase suffix ID directly in the store.
 	tikiID := "6EQDUE"
 	tk := tikipkg.New()
 	tk.ID = tikiID
@@ -155,10 +155,10 @@ func TestEditSource_DuplicateCaseIDs_Repro(t *testing.T) {
 		t.Fatalf("CreateTiki failed: %v", err)
 	}
 	if tk.ID != "6EQDUE" {
-		t.Fatalf("expected task ID to be normalized, got %q", tk.ID)
+		t.Fatalf("expected tiki ID to be normalized, got %q", tk.ID)
 	}
 
-	// Mock editor to modify the task file and return immediately.
+	// Mock editor to modify the tiki file and return immediately.
 	ta.NavController.SetEditorOpener(func(path string) error {
 		content, err := os.ReadFile(path)
 		if err != nil {
@@ -178,17 +178,17 @@ func TestEditSource_DuplicateCaseIDs_Repro(t *testing.T) {
 	)
 	ta.Draw()
 
-	// Trigger "Edit source" (key 's') which reloads the task after editor returns.
+	// Trigger "Edit source" (key 's') which reloads the tiki after editor returns.
 	ta.SendKey(tcell.KeyRune, 's', tcell.ModNone)
 
-	// Expect a single task in store (no case-duplicate).
-	tasks := ta.TikiStore.GetAllTikis()
-	if len(tasks) != 1 {
-		t.Fatalf("expected 1 task after edit source, got %d", len(tasks))
+	// Expect a single tiki in store (no case-duplicate).
+	tikis := ta.TikiStore.GetAllTikis()
+	if len(tikis) != 1 {
+		t.Fatalf("expected 1 tiki after edit source, got %d", len(tikis))
 	}
 
 	foundUpper := false
-	for _, tsk := range tasks {
+	for _, tsk := range tikis {
 		switch tsk.ID {
 		case "6EQDUE":
 			foundUpper = true
@@ -201,11 +201,11 @@ func TestEditSource_DuplicateCaseIDs_Repro(t *testing.T) {
 	// Ensure file path is the lowercased ID (edit source uses this file).
 	tikiFilePath := filepath.Join(ta.TikiDir, strings.ToLower(tikiID)+".md")
 	if _, err := os.Stat(tikiFilePath); os.IsNotExist(err) {
-		t.Fatalf("expected task file to exist at %s", tikiFilePath)
+		t.Fatalf("expected tiki file to exist at %s", tikiFilePath)
 	}
 }
 
-func TestNewTask_EmptyTitle_DoesNotSave(t *testing.T) {
+func TestNewTiki_EmptyTitle_DoesNotSave(t *testing.T) {
 	ta := testutil.NewTestApp(t)
 	defer ta.Cleanup()
 
@@ -213,7 +213,7 @@ func TestNewTask_EmptyTitle_DoesNotSave(t *testing.T) {
 	ta.NavController.PushView(model.MakePluginViewID("Kanban"), nil)
 	ta.Draw()
 
-	// Press 'n' to create new task
+	// Press 'n' to create new tiki
 	ta.SendKey(tcell.KeyRune, 'n', tcell.ModNone)
 
 	// Don't type anything - leave title empty
@@ -222,19 +222,19 @@ func TestNewTask_EmptyTitle_DoesNotSave(t *testing.T) {
 
 	// Verify: no file should be created (empty title validation)
 	if err := ta.TikiStore.Reload(); err != nil {
-		t.Fatalf("failed to reload tasks: %v", err)
+		t.Fatalf("failed to reload tikis: %v", err)
 	}
 
-	// Should have no tasks
-	tasks := ta.TikiStore.GetAllTikis()
-	if len(tasks) > 0 {
-		t.Errorf("task with empty title should not be saved, but found: %+v", tasks)
+	// Should have no tikis
+	tikis := ta.TikiStore.GetAllTikis()
+	if len(tikis) > 0 {
+		t.Errorf("tiki with empty title should not be saved, but found: %+v", tikis)
 	}
 
 	// Verify no tiki files on disk
 	files, _ := filepath.Glob(filepath.Join(ta.TikiDir, "tiki-*.md"))
 	if len(files) > 0 {
-		t.Errorf("task files should not exist, but found: %v", files)
+		t.Errorf("tiki files should not exist, but found: %v", files)
 	}
 }
 
@@ -242,9 +242,9 @@ func TestNewTask_EmptyTitle_DoesNotSave(t *testing.T) {
 // EXISTING TASK EDITING Tests
 // =============================================================================
 //
-// Phase 3 cleanup: TestTaskEdit_EnterInPointsFieldDoesNotSave and
-// TestTaskEdit_TitleChangesSaved were removed. Both opened the legacy
-// task edit view via Enter → 'e' and asserted "Enter saves title" /
+// Phase 3 cleanup: TestTikiEdit_EnterInPointsFieldDoesNotSave and
+// TestTikiEdit_TitleChangesSaved were removed. Both opened the legacy
+// tiki edit view via Enter → 'e' and asserted "Enter saves title" /
 // "Enter in Points field is a no-op". After Phase 2 the configurable
 // detail view's in-place edit mode owns those keystrokes; coverage
 // lives in view/tikidetail/configurable_detail_edit_test.go.
@@ -282,7 +282,7 @@ func TestNewTask_EmptyTitle_DoesNotSave(t *testing.T) {
 // view/tikidetail/configurable_detail_edit_test.go for save/discard
 // coverage of the new path.
 
-func TestNewTask_MultipleFields_AllSaved(t *testing.T) {
+func TestNewTiki_MultipleFields_AllSaved(t *testing.T) {
 	ta := testutil.NewTestApp(t)
 	defer ta.Cleanup()
 
@@ -290,11 +290,11 @@ func TestNewTask_MultipleFields_AllSaved(t *testing.T) {
 	ta.NavController.PushView(model.MakePluginViewID("Kanban"), nil)
 	ta.Draw()
 
-	// Press 'n' to create new task
+	// Press 'n' to create new tiki
 	ta.SendKey(tcell.KeyRune, 'n', tcell.ModNone)
 
 	// Type title
-	ta.SendText("New Task With Multiple Fields")
+	ta.SendText("New Tiki With Multiple Fields")
 
 	// Tab to Priority field (7 tabs: status → assignee → due → tags → type → recurrence → priority)
 	for i := 0; i < 7; i++ {
@@ -314,15 +314,15 @@ func TestNewTask_MultipleFields_AllSaved(t *testing.T) {
 
 	// Verify: file should be created with all fields
 	if err := ta.TikiStore.Reload(); err != nil {
-		t.Fatalf("failed to reload tasks: %v", err)
+		t.Fatalf("failed to reload tikis: %v", err)
 	}
-	tk := findTaskByTitle(ta.TikiStore.GetAllTikis(), "New Task With Multiple Fields")
+	tk := findTikiByTitle(ta.TikiStore.GetAllTikis(), "New Tiki With Multiple Fields")
 	if tk == nil {
-		t.Fatalf("new task not found in store")
+		t.Fatalf("new tiki not found in store")
 		return
 	}
-	if tk.Title != "New Task With Multiple Fields" {
-		t.Errorf("title = %q, want %q", tk.Title, "New Task With Multiple Fields")
+	if tk.Title != "New Tiki With Multiple Fields" {
+		t.Errorf("title = %q, want %q", tk.Title, "New Tiki With Multiple Fields")
 	}
 	priority, _, _ := tk.StringField("priority")
 	if priority != "medium-low" {
@@ -338,17 +338,17 @@ func TestNewTask_MultipleFields_AllSaved(t *testing.T) {
 // REGRESSION TESTS
 // =============================================================================
 
-// TestNewTask_AfterEditingExistingTask_StatusAndTypeNotCorrupted
+// TestNewTiki_AfterEditingExistingTiki_StatusAndTypeNotCorrupted
 // Phase 3 cleanup: the original test mixed the legacy "Enter → 'e' →
 // Ctrl+S" edit-existing flow (now in-place on the configurable detail
-// view) with the surviving 'n' new-task draft flow. The regression it
+// view) with the surviving 'n' new-tiki draft flow. The regression it
 // guarded against — TikiEditSession state from a prior edit session
 // leaking into the next draft — is now covered at the unit level by
 // the TikiEditSession edit-session tests in controller/tiki_edit_session_test.go,
 // which directly exercise the StartEditSession/CommitEditSession/
 // ClearDraft state machine without relying on TUI keystroke routing.
 
-func TestNewTask_WithStatusAndType_Saves(t *testing.T) {
+func TestNewTiki_WithStatusAndType_Saves(t *testing.T) {
 	ta := testutil.NewTestApp(t)
 	defer ta.Cleanup()
 
@@ -356,7 +356,7 @@ func TestNewTask_WithStatusAndType_Saves(t *testing.T) {
 	ta.NavController.PushView(model.MakePluginViewID("Kanban"), nil)
 	ta.Draw()
 
-	// Press 'n' to create new task
+	// Press 'n' to create new tiki
 	ta.SendKey(tcell.KeyRune, 'n', tcell.ModNone)
 
 	// Set title
@@ -385,18 +385,18 @@ func TestNewTask_WithStatusAndType_Saves(t *testing.T) {
 
 	// Verify: file should be created
 	if err := ta.TikiStore.Reload(); err != nil {
-		t.Fatalf("failed to reload tasks: %v", err)
+		t.Fatalf("failed to reload tikis: %v", err)
 	}
 
-	tk := findTaskByTitle(ta.TikiStore.GetAllTikis(), "Hey")
+	tk := findTikiByTitle(ta.TikiStore.GetAllTikis(), "Hey")
 	if tk == nil {
-		t.Fatalf("new task not found in store")
+		t.Fatalf("new tiki not found in store")
 		return
 	}
 
 	heyStatus, _, _ := tk.StringField("status")
 	heyType, _, _ := tk.StringField("type")
-	t.Logf("Task found: Title=%q, Status=%v, Type=%v", tk.Title, heyStatus, heyType)
+	t.Logf("Tiki found: Title=%q, Status=%v, Type=%v", tk.Title, heyStatus, heyType)
 
 	if tk.Title != "Hey" {
 		t.Errorf("title = %q, want %q", tk.Title, "Hey")

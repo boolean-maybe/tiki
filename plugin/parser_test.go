@@ -410,7 +410,7 @@ func TestParsePluginConfig_LaneFilterMustBeSelect(t *testing.T) {
 // Lane filters run on every render without a selection payload. target. would
 // fail every render against the exactly-one contract; targets. would silently
 // project zero. Reject both at parse time with a clear message. (Lane actions
-// receive the moved task as a single selection, so they remain valid.)
+// receive the moved tiki as a single selection, so they remain valid.)
 func TestParsePluginConfig_LaneFilterRejectsTargetQualifier(t *testing.T) {
 	schema := testSchema()
 	cfg := pluginFileConfig{
@@ -449,7 +449,7 @@ func TestParsePluginConfig_LaneFilterRejectsTargetsQualifier(t *testing.T) {
 	}
 }
 
-// Lane actions fire on a specific moved task and receive it as a single
+// Lane actions fire on a specific moved tiki and receive it as a single
 // selection. target. and targets. must remain usable there.
 func TestParsePluginConfig_LaneActionAllowsTargetQualifier(t *testing.T) {
 	schema := testSchema()
@@ -1068,7 +1068,7 @@ func TestParsePluginActions_RequireNoAutoInferWithoutID(t *testing.T) {
 }
 
 // target.<field> must auto-infer the same "id" requirement as id(), so plugin
-// actions using it stay disabled until exactly one task is selected.
+// actions using it stay disabled until exactly one tiki is selected.
 func TestParsePluginActions_RequireAutoInferIDFromTargetQualifier(t *testing.T) {
 	parser := testParser()
 	configs := []PluginActionConfig{

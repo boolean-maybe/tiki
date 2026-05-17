@@ -108,7 +108,7 @@ func TestTikiEditCoordinator_HandleKey_Escape(t *testing.T) {
 	}
 
 	if tc.GetDraftTiki() != nil {
-		t.Error("Escape should clear draft task")
+		t.Error("Escape should clear draft tiki")
 	}
 }
 
@@ -122,12 +122,12 @@ func TestTikiEditCoordinator_Commit_SavesTags(t *testing.T) {
 	tc := NewTikiEditSession(tikiStore, gate, nav, nil)
 
 	draft := newTestTiki()
-	draft.Title = "Tagged Task"
+	draft.Title = "Tagged Tiki"
 	tc.SetDraft(draft)
 
 	coord := NewTikiEditCoordinator(nav, tc)
 	view := &mockTikiEditView{
-		title:       "Tagged Task",
+		title:       "Tagged Tiki",
 		description: "some description",
 		tags:        []string{"api", "backend"},
 	}
@@ -137,10 +137,10 @@ func TestTikiEditCoordinator_Commit_SavesTags(t *testing.T) {
 		t.Fatal("commit() should return true")
 	}
 
-	// verify task was committed to store with correct tags
+	// verify tiki was committed to store with correct tags
 	saved := tikiStore.GetTiki(draft.ID)
 	if saved == nil {
-		t.Fatal("task not found in store after commit")
+		t.Fatal("tiki not found in store after commit")
 		return
 	}
 	savedTags, _, _ := saved.StringSliceField("tags")
@@ -396,7 +396,7 @@ func TestTikiEditCoordinator_Commit_ErrorDisplaysStatusline(t *testing.T) {
 	nav := newMockNavigationController()
 	tc := NewTikiEditSession(tikiStore, gate, nav, sl)
 
-	original := newTestTask()
+	original := newTestTiki()
 	_ = tikiStore.CreateTiki(original)
 	tc.StartEditSession(original.ID)
 
@@ -435,7 +435,7 @@ func TestTikiEditCoordinator_Commit_ErrorNilStatuslineNoOp(t *testing.T) {
 	nav := newMockNavigationController()
 	tc := NewTikiEditSession(tikiStore, gate, nav, nil) // nil statusline
 
-	original := newTestTask()
+	original := newTestTiki()
 	_ = tikiStore.CreateTiki(original)
 	tc.StartEditSession(original.ID)
 
@@ -468,7 +468,7 @@ func TestTikiEditCoordinator_Commit_MultipleRejectionsDisplayCleanly(t *testing.
 	nav := newMockNavigationController()
 	tc := NewTikiEditSession(tikiStore, gate, nav, sl)
 
-	original := newTestTask()
+	original := newTestTiki()
 	_ = tikiStore.CreateTiki(original)
 	tc.StartEditSession(original.ID)
 

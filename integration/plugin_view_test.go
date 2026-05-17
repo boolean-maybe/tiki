@@ -18,28 +18,28 @@ func setupPluginViewTest(t *testing.T) *testutil.TestApp {
 		t.Fatalf("Failed to load plugins: %v", err)
 	}
 
-	// Create tasks for Backlog plugin (status = backlog)
-	tasks := []struct {
+	// Create tikis for Backlog plugin (status = backlog)
+	tikis := []struct {
 		id     string
 		title  string
 		status string
 		typ    string
 	}{
-		{"000001", "First Backlog Task", "backlog", "story"},
-		{"000002", "Second Backlog Task", "backlog", "bug"},
-		{"000003", "Third Backlog Task", "backlog", "story"},
-		{"000004", "Fourth Backlog Task", "backlog", "bug"},
-		{"000005", "Todo Task (not in backlog)", "ready", "story"},
+		{"000001", "First Backlog Tiki", "backlog", "story"},
+		{"000002", "Second Backlog Tiki", "backlog", "bug"},
+		{"000003", "Third Backlog Tiki", "backlog", "story"},
+		{"000004", "Fourth Backlog Tiki", "backlog", "bug"},
+		{"000005", "Todo Tiki (not in backlog)", "ready", "story"},
 	}
 
-	for _, task := range tasks {
-		if err := testutil.CreateTestTiki(ta.TikiDir, task.id, task.title, task.status, task.typ); err != nil {
-			t.Fatalf("Failed to create task: %v", err)
+	for _, tiki := range tikis {
+		if err := testutil.CreateTestTiki(ta.TikiDir, tiki.id, tiki.title, tiki.status, tiki.typ); err != nil {
+			t.Fatalf("Failed to create tiki: %v", err)
 		}
 	}
 
 	if err := ta.TikiStore.Reload(); err != nil {
-		t.Fatalf("Failed to reload tasks: %v", err)
+		t.Fatalf("Failed to reload tikis: %v", err)
 	}
 
 	return ta
@@ -74,7 +74,7 @@ func TestPluginView_GridNavigation(t *testing.T) {
 		t.Errorf("initial selection = %d, want 0", pluginConfig.GetSelectedIndex())
 	}
 
-	// With 5 tasks in 4-column grid:
+	// With 5 tikis in 4-column grid:
 	// [0, 1, 2, 3]
 	// [4]
 	// Only index 0 can move down to index 4
@@ -87,12 +87,12 @@ func TestPluginView_GridNavigation(t *testing.T) {
 		t.Errorf("after Right, selection = %d, want 1", pluginConfig.GetSelectedIndex())
 	}
 
-	// Press Down arrow - should NOT move (no task in column 1 of row 2)
+	// Press Down arrow - should NOT move (no tiki in column 1 of row 2)
 	ta.SendKey(tcell.KeyDown, 0, tcell.ModNone)
 
 	// Selection should stay at index 1 (can't move down to non-existent index 5)
 	if pluginConfig.GetSelectedIndex() != 1 {
-		t.Errorf("after Down from index 1, selection = %d, want 1 (no task below)", pluginConfig.GetSelectedIndex())
+		t.Errorf("after Down from index 1, selection = %d, want 1 (no tiki below)", pluginConfig.GetSelectedIndex())
 	}
 
 	// Go back to index 0
@@ -118,7 +118,7 @@ func TestPluginView_GridNavigation(t *testing.T) {
 	}
 }
 
-// TestPluginView_FilterByStatus verifies plugin filters tasks by status
+// TestPluginView_FilterByStatus verifies plugin filters tikis by status
 func TestPluginView_FilterByStatus(t *testing.T) {
 	ta := setupPluginViewTest(t)
 	defer ta.Cleanup()
@@ -128,24 +128,24 @@ func TestPluginView_FilterByStatus(t *testing.T) {
 	ta.Draw()
 	ta.SendKey(tcell.KeyF3, 0, tcell.ModNone) // F3 = Backlog plugin
 
-	// Verify backlog tasks are visible
+	// Verify backlog tikis are visible
 	found1, _, _ := ta.FindText("000001")
 	found2, _, _ := ta.FindText("000002")
 	if !found1 || !found2 {
 		ta.DumpScreen()
-		t.Errorf("backlog tasks should be visible in backlog plugin")
+		t.Errorf("backlog tikis should be visible in backlog plugin")
 	}
 
-	// Verify non-backlog task is NOT visible
+	// Verify non-backlog tiki is NOT visible
 	found5, _, _ := ta.FindText("000005")
 	if found5 {
 		ta.DumpScreen()
-		t.Errorf("todo task TIKI-5 should NOT be visible in backlog plugin")
+		t.Errorf("todo tiki TIKI-5 should NOT be visible in backlog plugin")
 	}
 }
 
-// TestPluginView_OpenTask verifies Enter opens task detail from plugin
-func TestPluginView_OpenTask(t *testing.T) {
+// TestPluginView_OpenTiki verifies Enter opens tiki detail from plugin
+func TestPluginView_OpenTiki(t *testing.T) {
 	ta := setupPluginViewTest(t)
 	defer ta.Cleanup()
 
@@ -154,7 +154,7 @@ func TestPluginView_OpenTask(t *testing.T) {
 	ta.Draw()
 	ta.SendKey(tcell.KeyF3, 0, tcell.ModNone) // F3 = Backlog plugin
 
-	// Press Enter to open first task
+	// Press Enter to open first tiki
 	ta.SendKey(tcell.KeyEnter, 0, tcell.ModNone)
 
 	// Phase 3: configurable detail view (workflow `kind: view` action),
@@ -165,16 +165,16 @@ func TestPluginView_OpenTask(t *testing.T) {
 		t.Errorf("expected detail view %s, got %v", wantDetail, currentView.ViewID)
 	}
 
-	// Verify correct task is displayed
+	// Verify correct tiki is displayed
 	found, _, _ := ta.FindText("000001")
 	if !found {
 		ta.DumpScreen()
-		t.Errorf("TIKI-1 should be displayed in task detail")
+		t.Errorf("TIKI-1 should be displayed in tiki detail")
 	}
 }
 
-// TestPluginView_CreateTask verifies 'n' creates new task
-func TestPluginView_CreateTask(t *testing.T) {
+// TestPluginView_CreateTiki verifies 'n' creates new tiki
+func TestPluginView_CreateTiki(t *testing.T) {
 	ta := setupPluginViewTest(t)
 	defer ta.Cleanup()
 
@@ -183,20 +183,20 @@ func TestPluginView_CreateTask(t *testing.T) {
 	ta.Draw()
 	ta.SendKey(tcell.KeyF3, 0, tcell.ModNone)
 
-	// Press 'n' to create new task
+	// Press 'n' to create new tiki
 	ta.SendKey(tcell.KeyRune, 'n', tcell.ModNone)
 
-	// Verify we're on task edit view
+	// Verify we're on tiki edit view
 	currentView := ta.NavController.CurrentView()
 	if currentView.ViewID != model.TikiEditViewID {
-		t.Errorf("expected task edit view, got %v", currentView.ViewID)
+		t.Errorf("expected tiki edit view, got %v", currentView.ViewID)
 	}
 
 	// Type title and save
-	ta.SendText("New Plugin Task")
+	ta.SendText("New Plugin Tiki")
 	ta.SendKey(tcell.KeyCtrlS, 0, tcell.ModNone)
 
-	// Reload and verify task exists
+	// Reload and verify tiki exists
 	if err := ta.TikiStore.Reload(); err != nil {
 		t.Fatalf("failed to reload: %v", err)
 	}
@@ -204,23 +204,23 @@ func TestPluginView_CreateTask(t *testing.T) {
 	allTikis := ta.TikiStore.GetAllTikis()
 	var found bool
 	for _, tk := range allTikis {
-		if tk.Title == "New Plugin Task" {
+		if tk.Title == "New Plugin Tiki" {
 			found = true
-			// Task created from backlog plugin should have backlog status
+			// Tiki created from backlog plugin should have backlog status
 			status, _, _ := tk.StringField("status")
 			if status != "backlog" {
-				t.Errorf("new task status = %v, want %v", status, "backlog")
+				t.Errorf("new tiki status = %v, want %v", status, "backlog")
 			}
 			break
 		}
 	}
 	if !found {
-		t.Errorf("new task not found in store")
+		t.Errorf("new tiki not found in store")
 	}
 }
 
-// TestPluginView_DeleteTask verifies 'd' deletes selected task
-func TestPluginView_DeleteTask(t *testing.T) {
+// TestPluginView_DeleteTiki verifies 'd' deletes selected tiki
+func TestPluginView_DeleteTiki(t *testing.T) {
 	ta := setupPluginViewTest(t)
 	defer ta.Cleanup()
 
@@ -236,10 +236,10 @@ func TestPluginView_DeleteTask(t *testing.T) {
 		t.Fatalf("TIKI-1 should be visible before delete")
 	}
 
-	// Press 'd' to delete first task (TIKI-1)
+	// Press 'd' to delete first tiki (TIKI-1)
 	ta.SendKey(tcell.KeyRune, 'd', tcell.ModNone)
 
-	// Reload and verify task is deleted
+	// Reload and verify tiki is deleted
 	if err := ta.TikiStore.Reload(); err != nil {
 		t.Fatalf("failed to reload: %v", err)
 	}
@@ -266,12 +266,12 @@ func TestPluginView_Search(t *testing.T) {
 	ta.Draw()
 	ta.SendKey(tcell.KeyF3, 0, tcell.ModNone)
 
-	// Verify multiple tasks visible initially
+	// Verify multiple tikis visible initially
 	found1, _, _ := ta.FindText("000001")
 	found2, _, _ := ta.FindText("000002")
 	if !found1 || !found2 {
 		ta.DumpScreen()
-		t.Fatalf("both tasks should be visible initially")
+		t.Fatalf("both tikis should be visible initially")
 	}
 
 	// Press '/' to open search
@@ -310,9 +310,9 @@ func TestPluginView_SearchNoResults(t *testing.T) {
 		t.Fatalf("Failed to load plugins: %v", err)
 	}
 
-	// Create a single task
-	if err := testutil.CreateTestTiki(ta.TikiDir, "000001", "First Task", "ready", "story"); err != nil {
-		t.Fatalf("failed to create task: %v", err)
+	// Create a single tiki
+	if err := testutil.CreateTestTiki(ta.TikiDir, "000001", "First Tiki", "ready", "story"); err != nil {
+		t.Fatalf("failed to create tiki: %v", err)
 	}
 	if err := ta.TikiStore.Reload(); err != nil {
 		t.Fatalf("failed to reload: %v", err)
@@ -322,7 +322,7 @@ func TestPluginView_SearchNoResults(t *testing.T) {
 	ta.NavController.PushView(model.MakePluginViewID("Kanban"), nil)
 	ta.Draw()
 
-	// Verify task is visible before search
+	// Verify tiki is visible before search
 	foundBefore, _, _ := ta.FindText("000001")
 	if !foundBefore {
 		ta.DumpScreen()
@@ -336,7 +336,7 @@ func TestPluginView_SearchNoResults(t *testing.T) {
 	ta.SendText("xyznonexistent")
 	ta.SendKey(tcell.KeyEnter, 0, tcell.ModNone)
 
-	// Verify task is NOT visible after no-match search
+	// Verify tiki is NOT visible after no-match search
 	foundAfter, _, _ := ta.FindText("000001")
 	if foundAfter {
 		ta.DumpScreen()
@@ -346,7 +346,7 @@ func TestPluginView_SearchNoResults(t *testing.T) {
 	// Press Escape to clear search
 	ta.SendKey(tcell.KeyEscape, 0, tcell.ModNone)
 
-	// Verify task reappears
+	// Verify tiki reappears
 	foundCleared, _, _ := ta.FindText("000001")
 	if !foundCleared {
 		ta.DumpScreen()
@@ -354,7 +354,7 @@ func TestPluginView_SearchNoResults(t *testing.T) {
 	}
 }
 
-// TestPluginView_EmptyPlugin verifies plugin view with no matching tasks
+// TestPluginView_EmptyPlugin verifies plugin view with no matching tikis
 func TestPluginView_EmptyPlugin(t *testing.T) {
 	ta := testutil.NewTestApp(t)
 	defer ta.Cleanup()
@@ -363,9 +363,9 @@ func TestPluginView_EmptyPlugin(t *testing.T) {
 		t.Fatalf("Failed to load plugins: %v", err)
 	}
 
-	// Create only todo tasks (no backlog tasks)
-	if err := testutil.CreateTestTiki(ta.TikiDir, "000001", "Todo Task", "ready", "story"); err != nil {
-		t.Fatalf("failed to create task: %v", err)
+	// Create only todo tikis (no backlog tikis)
+	if err := testutil.CreateTestTiki(ta.TikiDir, "000001", "Todo Tiki", "ready", "story"); err != nil {
+		t.Fatalf("failed to create tiki: %v", err)
 	}
 	if err := ta.TikiStore.Reload(); err != nil {
 		t.Fatalf("failed to reload: %v", err)
@@ -376,11 +376,11 @@ func TestPluginView_EmptyPlugin(t *testing.T) {
 	ta.Draw()
 	ta.SendKey(tcell.KeyF3, 0, tcell.ModNone) // F3 = Backlog plugin
 
-	// Verify no tasks are visible (empty plugin)
+	// Verify no tikis are visible (empty plugin)
 	found, _, _ := ta.FindText("000001")
 	if found {
 		ta.DumpScreen()
-		t.Errorf("todo task should NOT be visible in backlog plugin")
+		t.Errorf("todo tiki should NOT be visible in backlog plugin")
 	}
 
 	// Verify we can still navigate (no crash)
@@ -466,15 +466,15 @@ func TestPluginView_MultiplePlugins(t *testing.T) {
 		t.Fatalf("Failed to load plugins: %v", err)
 	}
 
-	// Create tasks for multiple plugins
+	// Create tikis for multiple plugins
 	// Backlog: status = backlog (also recent since just created)
-	if err := testutil.CreateTestTiki(ta.TikiDir, "000001", "Backlog Task", "backlog", "story"); err != nil {
-		t.Fatalf("failed to create task: %v", err)
+	if err := testutil.CreateTestTiki(ta.TikiDir, "000001", "Backlog Tiki", "backlog", "story"); err != nil {
+		t.Fatalf("failed to create tiki: %v", err)
 	}
 
 	// Recent: status = todo (also recent since just created)
-	if err := testutil.CreateTestTiki(ta.TikiDir, "000002", "Recent Task", "ready", "story"); err != nil {
-		t.Fatalf("failed to create task: %v", err)
+	if err := testutil.CreateTestTiki(ta.TikiDir, "000002", "Recent Tiki", "ready", "story"); err != nil {
+		t.Fatalf("failed to create tiki: %v", err)
 	}
 
 	if err := ta.TikiStore.Reload(); err != nil {
@@ -486,34 +486,34 @@ func TestPluginView_MultiplePlugins(t *testing.T) {
 	ta.Draw()
 	ta.SendKey(tcell.KeyF3, 0, tcell.ModNone) // F3 = Backlog
 
-	// Verify only backlog task visible in Backlog plugin
+	// Verify only backlog tiki visible in Backlog plugin
 	found1, _, _ := ta.FindText("000001")
 	if !found1 {
 		ta.DumpScreen()
-		t.Errorf("backlog task should be visible in backlog plugin")
+		t.Errorf("backlog tiki should be visible in backlog plugin")
 	}
 
 	found2InBacklog, _, _ := ta.FindText("000002")
 	if found2InBacklog {
 		ta.DumpScreen()
-		t.Errorf("todo task should NOT be visible in backlog plugin (filtered by status)")
+		t.Errorf("todo tiki should NOT be visible in backlog plugin (filtered by status)")
 	}
 
 	// Switch to Recent plugin (Ctrl-R)
 	ta.SendKey(tcell.KeyRune, 'R', tcell.ModCtrl)
 
-	// Verify BOTH tasks visible in Recent plugin (both were just created)
-	// Recent shows all recently modified/created tasks regardless of status
+	// Verify BOTH tikis visible in Recent plugin (both were just created)
+	// Recent shows all recently modified/created tikis regardless of status
 	found1InRecent, _, _ := ta.FindText("000001")
 	if !found1InRecent {
 		ta.DumpScreen()
-		t.Errorf("backlog task should be visible in recent plugin (recently created)")
+		t.Errorf("backlog tiki should be visible in recent plugin (recently created)")
 	}
 
 	found2InRecent, _, _ := ta.FindText("000002")
 	if !found2InRecent {
 		ta.DumpScreen()
-		t.Errorf("todo task should be visible in recent plugin (recently created)")
+		t.Errorf("todo tiki should be visible in recent plugin (recently created)")
 	}
 }
 
@@ -538,7 +538,7 @@ func TestPluginView_ViKeysNavigation(t *testing.T) {
 		t.Fatalf("initial selection = %d, want 0", pluginConfig.GetSelectedIndex())
 	}
 
-	// With 5 tasks in 4-column grid: [0, 1, 2, 3] / [4]
+	// With 5 tikis in 4-column grid: [0, 1, 2, 3] / [4]
 
 	// Press 'l' (vi Right)
 	ta.SendKey(tcell.KeyRune, 'l', tcell.ModNone)
@@ -548,11 +548,11 @@ func TestPluginView_ViKeysNavigation(t *testing.T) {
 		t.Errorf("after 'l', selection = %d, want 1", pluginConfig.GetSelectedIndex())
 	}
 
-	// Press 'j' (vi Down) - should NOT move (no task at index 5)
+	// Press 'j' (vi Down) - should NOT move (no tiki at index 5)
 	ta.SendKey(tcell.KeyRune, 'j', tcell.ModNone)
 
 	if pluginConfig.GetSelectedIndex() != 1 {
-		t.Errorf("after 'j' from index 1, selection = %d, want 1 (no task below)", pluginConfig.GetSelectedIndex())
+		t.Errorf("after 'j' from index 1, selection = %d, want 1 (no tiki below)", pluginConfig.GetSelectedIndex())
 	}
 
 	// Go back to index 0
@@ -599,7 +599,7 @@ func TestPluginView_SelectionPersistsAcrossViews(t *testing.T) {
 		t.Fatalf("selection = %d, want 2", pluginConfig.GetSelectedIndex())
 	}
 
-	// Open task detail
+	// Open tiki detail
 	ta.SendKey(tcell.KeyEnter, 0, tcell.ModNone)
 
 	// Go back to plugin

@@ -12,7 +12,7 @@ import (
 // TestUpdateTiki_BodyEditPreservesExactFieldPresence pins the exact-
 // presence rule against body edits: a tiki loaded with only `status:`
 // among the schema-known keys must stay shaped that way on disk after a
-// body-only UpdateTiki. Pre-Phase-3 saveTask always ran the full schema
+// body-only UpdateTiki. Pre-Phase-3 saveTiki always ran the full schema
 // and added type/priority/points/...
 func TestUpdateTiki_BodyEditPreservesExactFieldPresence(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())

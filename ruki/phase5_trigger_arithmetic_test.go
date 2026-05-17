@@ -8,11 +8,11 @@ import (
 
 // --- Phase 4 + assignment-RHS carve-out: trigger arithmetic on absent list ---
 //
-// Under Phase 4's carve-out, `tags + ["auto"]` on a task with no prior
+// Under Phase 4's carve-out, `tags + ["auto"]` on a tiki with no prior
 // tags field auto-zeroes the absent read to [] inside an update-set RHS.
 // The trigger succeeds and produces tags=["auto"].
 
-func TestPhase4_Trigger_SetTagsPlusListOnPlainTaskAutoZeroes(t *testing.T) {
+func TestPhase4_Trigger_SetTagsPlusListOnPlainTikiAutoZeroes(t *testing.T) {
 	te := newTestTriggerExecutor()
 	p := newTestParser()
 
@@ -21,9 +21,9 @@ func TestPhase4_Trigger_SetTagsPlusListOnPlainTaskAutoZeroes(t *testing.T) {
 		t.Fatalf("parse: %v", err)
 	}
 
-	plainTask := &tikiFixture{ID: "PLAIN1", Title: "fresh task"}
-	plain := tikiFromFixture(plainTask)
-	tc := &TriggerContext{Old: nil, New: plain, AllTikis: tikisFromFixtures([]*tikiFixture{plainTask})}
+	plainTiki := &tikiFixture{ID: "PLAIN1", Title: "fresh tiki"}
+	plain := tikiFromFixture(plainTiki)
+	tc := &TriggerContext{Old: nil, New: plain, AllTikis: tikisFromFixtures([]*tikiFixture{plainTiki})}
 
 	result, err := te.testExecAction(trig, tc)
 	if err != nil {
@@ -48,9 +48,9 @@ func TestPhase4_Trigger_SetTagsExplicitLiteralWorks(t *testing.T) {
 		t.Fatalf("parse: %v", err)
 	}
 
-	plainTask := &tikiFixture{ID: "PLAIN1", Title: "fresh task"}
-	plain := tikiFromFixture(plainTask)
-	tc := &TriggerContext{Old: nil, New: plain, AllTikis: tikisFromFixtures([]*tikiFixture{plainTask})}
+	plainTiki := &tikiFixture{ID: "PLAIN1", Title: "fresh tiki"}
+	plain := tikiFromFixture(plainTiki)
+	tc := &TriggerContext{Old: nil, New: plain, AllTikis: tikisFromFixtures([]*tikiFixture{plainTiki})}
 
 	result, err := te.testExecAction(trig, tc)
 	if err != nil {

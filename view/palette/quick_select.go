@@ -45,7 +45,7 @@ func NewQuickSelect(quickSelectCfg *model.QuickSelectConfig) *QuickSelect {
 	qs.filterInput.SetFieldBackgroundColor(roles.SurfaceCanvas().TCell())
 	qs.filterInput.SetFieldTextColor(roles.TextPrimary().TCell())
 	qs.filterInput.SetLabelColor(roles.TextPrimary().TCell())
-	qs.filterInput.SetPlaceholder("Type to filter tasks")
+	qs.filterInput.SetPlaceholder("Type to filter")
 	qs.filterInput.SetPlaceholderStyle(tcell.StyleDefault.
 		Foreground(roles.TextMuted().TCell()).
 		Background(roles.SurfaceCanvas().TCell()))
@@ -95,19 +95,19 @@ func (qs *QuickSelect) OnShow(tikis []*tikipkg.Tiki) {
 	qs.selectedIndex = 0
 	qs.scrollOffset = 0
 	qs.idColumnWidth = component.ComputeIDColumnWidth(tikis)
-	qs.filterTasks()
+	qs.filterTikis()
 	qs.renderList()
 }
 
 // SetChangedFunc wires a callback that re-filters when the input text changes.
 func (qs *QuickSelect) SetChangedFunc() {
 	qs.filterInput.SetChangedFunc(func(text string) {
-		qs.filterTasks()
+		qs.filterTikis()
 		qs.renderList()
 	})
 }
 
-func (qs *QuickSelect) filterTasks() {
+func (qs *QuickSelect) filterTikis() {
 	query := qs.filterInput.GetText()
 	if query == "" {
 		qs.filteredTikis = make([]*tikipkg.Tiki, len(qs.candidateTikis))
@@ -218,7 +218,7 @@ func (qs *QuickSelect) handleFilterInput(event *tcell.EventKey) *tcell.EventKey 
 
 	case tcell.KeyCtrlU:
 		qs.filterInput.SetText("")
-		qs.filterTasks()
+		qs.filterTikis()
 		qs.renderList()
 		return nil
 

@@ -133,7 +133,7 @@ func (e *RuntimeMismatchError) Unwrap() error { return ErrRuntimeMismatch }
 type MissingSelectedTikiIDError struct{}
 
 func (e *MissingSelectedTikiIDError) Error() string {
-	return "selected task id is required for plugin runtime when id() is used"
+	return "selected tiki id is required for plugin runtime when id() is used"
 }
 
 // AmbiguousSelectedTikiIDError reports plugin execution that uses scalar id()
@@ -144,7 +144,7 @@ type AmbiguousSelectedTikiIDError struct {
 }
 
 func (e *AmbiguousSelectedTikiIDError) Error() string {
-	return fmt.Sprintf("id() requires exactly one selected task, got %d — use ids() for multi-selection", e.Count)
+	return fmt.Sprintf("id() requires exactly one selected tiki, got %d — use ids() for multi-selection", e.Count)
 }
 
 // MissingCreateTemplateError reports CREATE execution without required template.

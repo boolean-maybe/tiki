@@ -55,7 +55,7 @@ func HasPositionalArgs(args []string) bool {
 
 // CreateTikiFromReader reads piped input, parses it into title/description,
 // and creates a new document. When the active workflow has a default status,
-// the result is a workflow task; otherwise the result is a plain doc with
+// the result is a workflow tiki; otherwise the result is a plain doc with
 // only id and title in the frontmatter. Returns the generated bare document
 // id (e.g. "ABC123").
 func CreateTikiFromReader(r io.Reader) (string, error) {
@@ -92,7 +92,7 @@ func CreateTikiFromReader(r io.Reader) (string, error) {
 		return "", fmt.Errorf("project not initialized: run 'tiki init' first")
 	}
 
-	// load workflow registries (statuses, types, custom fields) before creating tasks
+	// load workflow registries (statuses, types, custom fields) before creating tikis
 	if err := config.LoadWorkflowFields(); err != nil {
 		return "", fmt.Errorf("load workflow registries: %w", err)
 	}
@@ -117,14 +117,14 @@ func CreateTikiFromReader(r io.Reader) (string, error) {
 
 	tmpl, err := tikiStore.NewTikiTemplate()
 	if err != nil {
-		return "", fmt.Errorf("create task template: %w", err)
+		return "", fmt.Errorf("create tiki template: %w", err)
 	}
 
 	tmpl.Title = title
 	tmpl.Body = description
 
 	if err := gate.CreateTiki(context.Background(), tmpl); err != nil {
-		return "", fmt.Errorf("create task: %w", err)
+		return "", fmt.Errorf("create tiki: %w", err)
 	}
 
 	return tmpl.ID, nil

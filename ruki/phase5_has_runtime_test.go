@@ -17,7 +17,7 @@ func TestPhase5_Has_OuterQualifierResolvesParentRow(t *testing.T) {
 	// has() against each row's parent-query candidate. Before the fix,
 	// the validator allowed outer. but evalHas errored with "unknown
 	// qualifier". Verify the query now runs and the exists() subquery
-	// returns true for the row whose parent task has an explicit status.
+	// returns true for the row whose parent tiki has an explicit status.
 	e := newTestExecutor()
 	p := newTestParser()
 
@@ -37,7 +37,7 @@ func TestPhase5_Has_OuterQualifierResolvesParentRow(t *testing.T) {
 	if err != nil {
 		t.Fatalf("execute: %v (should run, not error on outer. qualifier)", err)
 	}
-	gotIDs := tikiIDs(result.Select.Tasks)
+	gotIDs := tikiIDs(result.Select.Tikis)
 	wantIDs := []string{"WKF01"}
 	if len(gotIDs) != len(wantIDs) || gotIDs[0] != wantIDs[0] {
 		t.Fatalf("has(outer.status): got %v, want %v", gotIDs, wantIDs)
@@ -46,7 +46,7 @@ func TestPhase5_Has_OuterQualifierResolvesParentRow(t *testing.T) {
 
 // --- has(target.X) in plugin runtime ---
 
-func TestPhase5_Has_TargetQualifierResolvesSelectedTask(t *testing.T) {
+func TestPhase5_Has_TargetQualifierResolvesSelectedTiki(t *testing.T) {
 	p := newTestParser()
 	vs, err := p.ParseAndValidateStatement(
 		`select where has(target.status)`,
@@ -58,10 +58,10 @@ func TestPhase5_Has_TargetQualifierResolvesSelectedTask(t *testing.T) {
 
 	e := NewExecutor(testSchema{}, nil, ExecutorRuntime{Mode: ExecutorRuntimePlugin})
 
-	// Two tasks: the selected one has an explicit status, the other
+	// Two tikis: the selected one has an explicit status, the other
 	// doesn't. has(target.status) is evaluated once per row and is
-	// constant across rows (it reads the selected task, not the current
-	// row), so if the selected task has status, ALL rows match.
+	// constant across rows (it reads the selected tiki, not the current
+	// row), so if the selected tiki has status, ALL rows match.
 	selected := &tikiFixture{
 		ID: "SEL01", Title: "selected", Status: "ready",
 		WorkflowFrontmatter: map[string]interface{}{"status": "ready"},
@@ -74,8 +74,8 @@ func TestPhase5_Has_TargetQualifierResolvesSelectedTask(t *testing.T) {
 	if err != nil {
 		t.Fatalf("execute: %v (should resolve target. qualifier)", err)
 	}
-	if len(result.Select.Tasks) != 2 {
-		t.Fatalf("has(target.status) with selected=SEL01(status present): expected 2 matches, got %d", len(result.Select.Tasks))
+	if len(result.Select.Tikis) != 2 {
+		t.Fatalf("has(target.status) with selected=SEL01(status present): expected 2 matches, got %d", len(result.Select.Tikis))
 	}
 }
 
@@ -102,8 +102,8 @@ func TestPhase5_Has_TargetQualifierFalseWhenSelectedLacksField(t *testing.T) {
 	if err != nil {
 		t.Fatalf("execute: %v", err)
 	}
-	if len(result.Select.Tasks) != 0 {
-		t.Fatalf("has(target.status) with selected=SEL01(absent status): expected 0 matches, got %d", len(result.Select.Tasks))
+	if len(result.Select.Tikis) != 0 {
+		t.Fatalf("has(target.status) with selected=SEL01(absent status): expected 0 matches, got %d", len(result.Select.Tikis))
 	}
 }
 
@@ -121,7 +121,7 @@ func TestPhase5_Has_TargetsQualifierTrueWhenAnySelectedHasField(t *testing.T) {
 
 	e := NewExecutor(testSchema{}, nil, ExecutorRuntime{Mode: ExecutorRuntimePlugin})
 
-	// Two selected tasks: one has status, one doesn't. `has(targets.X)`
+	// Two selected tikis: one has status, one doesn't. `has(targets.X)`
 	// is any-present semantics, so this evaluates true.
 	withStatus := &tikiFixture{
 		ID: "WITH01", Title: "has status", Status: "ready",
@@ -137,8 +137,8 @@ func TestPhase5_Has_TargetsQualifierTrueWhenAnySelectedHasField(t *testing.T) {
 		t.Fatalf("execute: %v", err)
 	}
 	// any-present → true for every row.
-	if len(result.Select.Tasks) != 3 {
-		t.Fatalf("expected 3 rows to match (any-present), got %d", len(result.Select.Tasks))
+	if len(result.Select.Tikis) != 3 {
+		t.Fatalf("expected 3 rows to match (any-present), got %d", len(result.Select.Tikis))
 	}
 }
 
@@ -166,8 +166,8 @@ func TestPhase5_Has_TargetsQualifierFalseWhenNoneHaveField(t *testing.T) {
 	if err != nil {
 		t.Fatalf("execute: %v", err)
 	}
-	if len(result.Select.Tasks) != 0 {
-		t.Fatalf("expected 0 rows to match (no selected task has status), got %d", len(result.Select.Tasks))
+	if len(result.Select.Tikis) != 0 {
+		t.Fatalf("expected 0 rows to match (no selected tiki has status), got %d", len(result.Select.Tikis))
 	}
 }
 
@@ -191,8 +191,8 @@ func TestPhase5_Has_TargetsQualifierFalseWhenNothingSelected(t *testing.T) {
 	if err != nil {
 		t.Fatalf("execute: %v", err)
 	}
-	if len(result.Select.Tasks) != 0 {
-		t.Fatalf("expected 0 matches for has(targets.X) with zero selection, got %d", len(result.Select.Tasks))
+	if len(result.Select.Tikis) != 0 {
+		t.Fatalf("expected 0 matches for has(targets.X) with zero selection, got %d", len(result.Select.Tikis))
 	}
 }
 

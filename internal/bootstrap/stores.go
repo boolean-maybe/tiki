@@ -8,7 +8,7 @@ import (
 	"github.com/boolean-maybe/tiki/store/tikistore"
 )
 
-// InitStores initializes the task stores.
+// InitStores initializes the tiki stores.
 // Returns the tikiStore, a generic store interface, and any error.
 // Validates store.name here (in addition to Bootstrap) because runExec and
 // pipe paths call InitStores directly without going through Bootstrap.
@@ -22,7 +22,7 @@ func InitStores() (*tikistore.TikiStore, store.Store, error) {
 	// new documents are written at `.doc/<ID>.md` directly under the root.
 	tikiStore, err := tikistore.NewTikiStore(config.GetDocDir())
 	if err != nil {
-		return nil, nil, fmt.Errorf("initialize task store: %w", err)
+		return nil, nil, fmt.Errorf("initialize tiki store: %w", err)
 	}
 	return tikiStore, tikiStore, nil
 }

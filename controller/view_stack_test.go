@@ -26,7 +26,7 @@ func TestNavigationState_PushPop(t *testing.T) {
 		t.Errorf("depth = %d, want 2", nav.depth())
 	}
 
-	// Pop should return task detail view
+	// Pop should return tiki detail view
 	entry := nav.pop()
 	if entry == nil {
 		t.Fatal("pop() returned nil, want ViewEntry")
@@ -79,7 +79,7 @@ func TestNavigationState_CurrentView(t *testing.T) {
 	nav.push(model.MakePluginViewID("Detail"), nil)
 	nav.push(model.TikiEditViewID, nil)
 
-	// CurrentView should return task edit (top) without removing it
+	// CurrentView should return tiki edit (top) without removing it
 	entry = nav.currentView()
 	if entry == nil {
 		t.Fatal("currentView() returned nil")
@@ -330,16 +330,16 @@ func TestNavigationState_ParameterPassing(t *testing.T) {
 func TestNavigationState_ComplexNavigationFlow(t *testing.T) {
 	nav := newViewStack()
 
-	// Simulate: Board -> open task -> back to board -> edit task -> back to board
+	// Simulate: Board -> open tiki -> back to board -> edit tiki -> back to board
 	nav.push(model.MakePluginViewID("Detail"), nil)
 	if nav.currentViewID() != model.MakePluginViewID("Detail") {
 		t.Fatal("should start on board")
 	}
 
-	// Open task from board
+	// Open tiki from board
 	nav.push(model.MakePluginViewID("Detail"), model.EncodePluginViewParams(model.PluginViewParams{TikiID: "000001"}))
 	if nav.depth() != 2 {
-		t.Error("should have 2 views after opening task")
+		t.Error("should have 2 views after opening tiki")
 	}
 	if !nav.canGoBack() {
 		t.Error("should be able to go back")
@@ -348,16 +348,16 @@ func TestNavigationState_ComplexNavigationFlow(t *testing.T) {
 	// Back to board
 	entry := nav.pop()
 	if entry.ViewID != model.MakePluginViewID("Detail") {
-		t.Error("should pop task detail")
+		t.Error("should pop tiki detail")
 	}
 	if nav.currentViewID() != model.MakePluginViewID("Detail") {
 		t.Error("should return to board")
 	}
 
-	// Switch to task edit
+	// Switch to tiki edit
 	nav.push(model.TikiEditViewID, nil)
 	if nav.currentViewID() != model.TikiEditViewID {
-		t.Error("should be on task edit")
+		t.Error("should be on tiki edit")
 	}
 
 	// Back to board again

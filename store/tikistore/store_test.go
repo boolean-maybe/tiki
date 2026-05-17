@@ -63,9 +63,9 @@ func TestSearchTikis_MatchesBody(t *testing.T) {
 	// Description maps to Body in tiki model.
 	store := &TikiStore{
 		tikis: makeTikiMap(
-			mkWF("AAA111", "Alpha Task", "Contains the keyword needle", "backlog", "medium-high"),
-			mkWF("BBB222", "Beta Task", "No match here", "ready", "high"),
-			mkWF("CCC333", "Gamma Task", "Another needle appears", "review", "medium"),
+			mkWF("AAA111", "Alpha Tiki", "Contains the keyword needle", "backlog", "medium-high"),
+			mkWF("BBB222", "Beta Tiki", "No match here", "ready", "high"),
+			mkWF("CCC333", "Gamma Tiki", "Another needle appears", "review", "medium"),
 		),
 	}
 
@@ -125,7 +125,7 @@ func TestSearchTikis_MatchesTags(t *testing.T) {
 	}
 }
 
-func TestLoadTaskFile_DependsOn(t *testing.T) {
+func TestLoadTikiFile_DependsOn(t *testing.T) {
 	tmpDir := t.TempDir()
 
 	tests := []struct {
@@ -138,14 +138,14 @@ func TestLoadTaskFile_DependsOn(t *testing.T) {
 			name: "valid dependsOn list",
 			fileContent: `---
 id: ABC123
-title: Test Task
+title: Test Tiki
 type: story
 status: backlog
 dependsOn:
   - ABC123
   - DEF456
 ---
-Task description`,
+Tiki description`,
 			expectedDependsOn: []string{"ABC123", "DEF456"},
 			shouldLoad:        true,
 		},
@@ -153,13 +153,13 @@ Task description`,
 			name: "lowercase IDs uppercased",
 			fileContent: `---
 id: ABC123
-title: Test Task
+title: Test Tiki
 type: story
 status: backlog
 dependsOn:
   - abc123
 ---
-Task description`,
+Tiki description`,
 			expectedDependsOn: []string{"ABC123"},
 			shouldLoad:        true,
 		},
@@ -167,7 +167,7 @@ Task description`,
 			name: "duplicate dependencies deduped",
 			fileContent: `---
 id: ABC123
-title: Test Task
+title: Test Tiki
 type: story
 status: backlog
 dependsOn:
@@ -175,7 +175,7 @@ dependsOn:
   - abc123
   - DEF456
 ---
-Task description`,
+Tiki description`,
 			expectedDependsOn: []string{"ABC123", "DEF456"},
 			shouldLoad:        true,
 		},
@@ -183,11 +183,11 @@ Task description`,
 			name: "missing dependsOn field",
 			fileContent: `---
 id: ABC123
-title: Test Task
+title: Test Tiki
 type: story
 status: backlog
 ---
-Task description`,
+Tiki description`,
 			expectedDependsOn: []string{},
 			shouldLoad:        true,
 		},
@@ -195,12 +195,12 @@ Task description`,
 			name: "empty dependsOn array",
 			fileContent: `---
 id: ABC123
-title: Test Task
+title: Test Tiki
 type: story
 status: backlog
 dependsOn: []
 ---
-Task description`,
+Tiki description`,
 			expectedDependsOn: []string{},
 			shouldLoad:        true,
 		},
@@ -211,12 +211,12 @@ Task description`,
 			name: "invalid dependsOn - scalar",
 			fileContent: `---
 id: ABC123
-title: Test Task
+title: Test Tiki
 type: story
 status: backlog
 dependsOn: not-a-list
 ---
-Task description`,
+Tiki description`,
 			expectedDependsOn: []string{"not-a-list"},
 			shouldLoad:        true,
 		},
@@ -224,7 +224,7 @@ Task description`,
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			testFile := tmpDir + "/test-task.md"
+			testFile := tmpDir + "/test-tiki.md"
 			err := os.WriteFile(testFile, []byte(tt.fileContent), 0644)
 			if err != nil {
 				t.Fatalf("Failed to create test file: %v", err)
@@ -262,7 +262,7 @@ Task description`,
 	}
 }
 
-func TestLoadTaskFile_InvalidTags(t *testing.T) {
+func TestLoadTikiFile_InvalidTags(t *testing.T) {
 	// Create temporary directory for test files
 	tmpDir := t.TempDir()
 
@@ -276,14 +276,14 @@ func TestLoadTaskFile_InvalidTags(t *testing.T) {
 			name: "valid tags list",
 			fileContent: `---
 id: ABC123
-title: Test Task
+title: Test Tiki
 type: story
 status: backlog
 tags:
   - frontend
   - backend
 ---
-Task description`,
+Tiki description`,
 			expectedTags: []string{"frontend", "backend"},
 			shouldLoad:   true,
 		},
@@ -294,12 +294,12 @@ Task description`,
 			name: "invalid tags - scalar string",
 			fileContent: `---
 id: ABC123
-title: Test Task
+title: Test Tiki
 type: story
 status: backlog
 tags: not-a-list
 ---
-Task description`,
+Tiki description`,
 			expectedTags: []string{"not-a-list"},
 			shouldLoad:   true,
 		},
@@ -308,12 +308,12 @@ Task description`,
 			name: "invalid tags - number",
 			fileContent: `---
 id: ABC123
-title: Test Task
+title: Test Tiki
 type: story
 status: backlog
 tags: 123
 ---
-Task description`,
+Tiki description`,
 			expectedTags: nil,
 			shouldLoad:   true,
 		},
@@ -322,12 +322,12 @@ Task description`,
 			name: "invalid tags - boolean",
 			fileContent: `---
 id: ABC123
-title: Test Task
+title: Test Tiki
 type: story
 status: backlog
 tags: true
 ---
-Task description`,
+Tiki description`,
 			expectedTags: nil,
 			shouldLoad:   true,
 		},
@@ -336,13 +336,13 @@ Task description`,
 			name: "invalid tags - object",
 			fileContent: `---
 id: ABC123
-title: Test Task
+title: Test Tiki
 type: story
 status: backlog
 tags:
   key: value
 ---
-Task description`,
+Tiki description`,
 			expectedTags: nil,
 			shouldLoad:   true,
 		},
@@ -350,11 +350,11 @@ Task description`,
 			name: "missing tags field",
 			fileContent: `---
 id: ABC123
-title: Test Task
+title: Test Tiki
 type: story
 status: backlog
 ---
-Task description`,
+Tiki description`,
 			expectedTags: []string{},
 			shouldLoad:   true,
 		},
@@ -362,12 +362,12 @@ Task description`,
 			name: "empty tags array",
 			fileContent: `---
 id: ABC123
-title: Test Task
+title: Test Tiki
 type: story
 status: backlog
 tags: []
 ---
-Task description`,
+Tiki description`,
 			expectedTags: []string{},
 			shouldLoad:   true,
 		},
@@ -375,7 +375,7 @@ Task description`,
 			name: "tags with empty strings filtered",
 			fileContent: `---
 id: ABC123
-title: Test Task
+title: Test Tiki
 type: story
 status: backlog
 tags:
@@ -383,7 +383,7 @@ tags:
   - ""
   - backend
 ---
-Task description`,
+Tiki description`,
 			expectedTags: []string{"frontend", "backend"},
 			shouldLoad:   true,
 		},
@@ -391,7 +391,7 @@ Task description`,
 			name: "duplicate tags deduped",
 			fileContent: `---
 id: ABC123
-title: Test Task
+title: Test Tiki
 type: story
 status: backlog
 tags:
@@ -399,7 +399,7 @@ tags:
   - backend
   - frontend
 ---
-Task description`,
+Tiki description`,
 			expectedTags: []string{"frontend", "backend"},
 			shouldLoad:   true,
 		},
@@ -408,7 +408,7 @@ Task description`,
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			// Create test file
-			testFile := tmpDir + "/test-task.md"
+			testFile := tmpDir + "/test-tiki.md"
 			err := os.WriteFile(testFile, []byte(tt.fileContent), 0644)
 			if err != nil {
 				t.Fatalf("Failed to create test file: %v", err)
@@ -441,8 +441,8 @@ Task description`,
 				}
 
 				// Verify other fields still work
-				if tk.Title != "Test Task" {
-					t.Errorf("Title = %q, expected %q", tk.Title, "Test Task")
+				if tk.Title != "Test Tiki" {
+					t.Errorf("Title = %q, expected %q", tk.Title, "Test Tiki")
 				}
 				typeStr, _, _ := tk.StringField(tikipkg.FieldType)
 				if typeStr != "story" {
@@ -462,7 +462,7 @@ Task description`,
 	}
 }
 
-func TestLoadTaskFile_Due(t *testing.T) {
+func TestLoadTikiFile_Due(t *testing.T) {
 	tmpDir := t.TempDir()
 
 	tests := []struct {
@@ -476,12 +476,12 @@ func TestLoadTaskFile_Due(t *testing.T) {
 			name: "valid due date",
 			fileContent: `---
 id: TEST01
-title: Test Task
+title: Test Tiki
 type: story
 status: backlog
 due: 2026-03-16
 ---
-Task description`,
+Tiki description`,
 			expectZero:  false,
 			expectValue: "2026-03-16",
 			shouldLoad:  true,
@@ -490,12 +490,12 @@ Task description`,
 			name: "valid due date with quotes",
 			fileContent: `---
 id: TEST01
-title: Test Task
+title: Test Tiki
 type: story
 status: backlog
 due: '2026-03-16'
 ---
-Task description`,
+Tiki description`,
 			expectZero:  false,
 			expectValue: "2026-03-16",
 			shouldLoad:  true,
@@ -504,11 +504,11 @@ Task description`,
 			name: "missing due field",
 			fileContent: `---
 id: TEST01
-title: Test Task
+title: Test Tiki
 type: story
 status: backlog
 ---
-Task description`,
+Tiki description`,
 			expectZero: true,
 			shouldLoad: true,
 		},
@@ -516,12 +516,12 @@ Task description`,
 			name: "empty due field",
 			fileContent: `---
 id: TEST01
-title: Test Task
+title: Test Tiki
 type: story
 status: backlog
 due: ''
 ---
-Task description`,
+Tiki description`,
 			expectZero: true,
 			shouldLoad: true,
 		},
@@ -529,12 +529,12 @@ Task description`,
 			name: "invalid due date format",
 			fileContent: `---
 id: TEST01
-title: Test Task
+title: Test Tiki
 type: story
 status: backlog
 due: 03/16/2026
 ---
-Task description`,
+Tiki description`,
 			expectZero: true, // Should default to zero
 			shouldLoad: true,
 		},
@@ -542,12 +542,12 @@ Task description`,
 			name: "invalid due date - number",
 			fileContent: `---
 id: TEST01
-title: Test Task
+title: Test Tiki
 type: story
 status: backlog
 due: 20260316
 ---
-Task description`,
+Tiki description`,
 			expectZero: true, // Should default to zero
 			shouldLoad: true,
 		},
@@ -555,7 +555,7 @@ Task description`,
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			// Create task file
+			// Create tiki file
 			testFile := filepath.Join(tmpDir, "TEST01.md")
 			if err := os.WriteFile(testFile, []byte(tt.fileContent), 0644); err != nil {
 				t.Fatalf("failed to write test file: %v", err)
@@ -600,7 +600,7 @@ Task description`,
 	}
 }
 
-func TestLoadTaskFile_Recurrence(t *testing.T) {
+func TestLoadTikiFile_Recurrence(t *testing.T) {
 	tmpDir := t.TempDir()
 
 	tests := []struct {
@@ -613,12 +613,12 @@ func TestLoadTaskFile_Recurrence(t *testing.T) {
 			name: "valid recurrence daily",
 			fileContent: `---
 id: REC001
-title: Test Task
+title: Test Tiki
 type: story
 status: backlog
 recurrence: "0 0 * * *"
 ---
-Task description`,
+Tiki description`,
 			expectValue: value.RecurrenceDaily,
 			shouldLoad:  true,
 		},
@@ -626,12 +626,12 @@ Task description`,
 			name: "valid recurrence weekly",
 			fileContent: `---
 id: REC001
-title: Test Task
+title: Test Tiki
 type: story
 status: backlog
 recurrence: "0 0 * * MON"
 ---
-Task description`,
+Tiki description`,
 			expectValue: "0 0 * * MON",
 			shouldLoad:  true,
 		},
@@ -639,11 +639,11 @@ Task description`,
 			name: "missing recurrence field",
 			fileContent: `---
 id: REC001
-title: Test Task
+title: Test Tiki
 type: story
 status: backlog
 ---
-Task description`,
+Tiki description`,
 			expectValue: value.RecurrenceNone,
 			shouldLoad:  true,
 		},
@@ -655,12 +655,12 @@ Task description`,
 			name: "invalid recurrence preserved verbatim for repair",
 			fileContent: `---
 id: REC001
-title: Test Task
+title: Test Tiki
 type: story
 status: backlog
 recurrence: "every tuesday"
 ---
-Task description`,
+Tiki description`,
 			expectValue: value.Recurrence("every tuesday"),
 			shouldLoad:  true,
 		},
@@ -700,7 +700,7 @@ Task description`,
 	}
 }
 
-func TestSaveTask_Recurrence(t *testing.T) {
+func TestSaveTiki_Recurrence(t *testing.T) {
 	tmpDir := t.TempDir()
 	store, err := NewTikiStore(tmpDir)
 	if err != nil {
@@ -917,7 +917,7 @@ func TestSearchTikis_WithFilterFunc(t *testing.T) {
 	})
 }
 
-func TestSaveTask_Due(t *testing.T) {
+func TestSaveTiki_Due(t *testing.T) {
 	tmpDir := t.TempDir()
 	store, err := NewTikiStore(tmpDir)
 	if err != nil {
@@ -943,7 +943,7 @@ func TestSaveTask_Due(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			// Create task
+			// Create tiki
 			var dueTime time.Time
 			if tt.dueValue != "" {
 				dueTime, _ = time.Parse(value.DateFormat, tt.dueValue)
@@ -1178,12 +1178,12 @@ func TestCustomFieldRoundTrip_AmbiguousStrings(t *testing.T) {
 	}
 }
 
-// TestSaveTask_TimestampFieldKeepsTimeComponent pins the contract that a
+// TestSaveTiki_TimestampFieldKeepsTimeComponent pins the contract that a
 // workflow field declared as TypeTimestamp (e.g. `dueBy: type: datetime`)
 // preserves its time component on save. The previous code routed both
 // TypeDate and TypeTimestamp through DueValue.MarshalYAML, which formats
 // only YYYY-MM-DD — silently truncating any non-midnight timestamp.
-func TestSaveTask_TimestampFieldKeepsTimeComponent(t *testing.T) {
+func TestSaveTiki_TimestampFieldKeepsTimeComponent(t *testing.T) {
 	config.MarkWorkflowFieldsLoadedForTest()
 	t.Cleanup(teststatuses.Init)
 
@@ -1254,7 +1254,7 @@ func TestExtractCustomFields_PreservesStaleKeys(t *testing.T) {
 	}
 }
 
-func TestLoadTaskFile_StaleCustomField(t *testing.T) {
+func TestLoadTikiFile_StaleCustomField(t *testing.T) {
 	config.MarkWorkflowFieldsLoadedForTest()
 	t.Cleanup(teststatuses.Init)
 
@@ -1344,7 +1344,7 @@ func TestExtractCustomFields_StaleEnumValueDemotedToUnknown(t *testing.T) {
 	}
 }
 
-func TestLoadTaskFile_StaleEnumValue_TaskStillLoads(t *testing.T) {
+func TestLoadTikiFile_StaleEnumValue_TikiStillLoads(t *testing.T) {
 	config.MarkWorkflowFieldsLoadedForTest()
 	t.Cleanup(teststatuses.Init)
 
@@ -1363,7 +1363,7 @@ func TestLoadTaskFile_StaleEnumValue_TaskStillLoads(t *testing.T) {
 
 	content := `---
 id: STALE2
-title: Task with stale enum
+title: Tiki with stale enum
 type: story
 status: ready
 priority: medium-high
@@ -1485,7 +1485,7 @@ func TestExtractCustomFields_NilMap_NoRegistryRequired(t *testing.T) {
 	}
 }
 
-func TestSaveTask_PreservesUnknownFields(t *testing.T) {
+func TestSaveTiki_PreservesUnknownFields(t *testing.T) {
 	config.MarkWorkflowFieldsLoadedForTest()
 	t.Cleanup(teststatuses.Init)
 
@@ -1531,7 +1531,7 @@ func TestSaveTask_PreservesUnknownFields(t *testing.T) {
 	}
 }
 
-func TestSaveTask_DedupesBuiltInCollections(t *testing.T) {
+func TestSaveTiki_DedupesBuiltInCollections(t *testing.T) {
 	tmpDir := t.TempDir()
 	store, err := NewTikiStore(tmpDir)
 	if err != nil {
@@ -1568,7 +1568,7 @@ func TestSaveTask_DedupesBuiltInCollections(t *testing.T) {
 	}
 }
 
-func TestSaveTask_DedupesCustomListFields(t *testing.T) {
+func TestSaveTiki_DedupesCustomListFields(t *testing.T) {
 	config.MarkWorkflowFieldsLoadedForTest()
 	t.Cleanup(teststatuses.Init)
 
@@ -1621,7 +1621,7 @@ func TestSaveTask_DedupesCustomListFields(t *testing.T) {
 	}
 }
 
-func TestLoadTaskFile_FilePathAbsolute(t *testing.T) {
+func TestLoadTikiFile_FilePathAbsolute(t *testing.T) {
 	tmpDir := t.TempDir()
 	fileName := "FP0001.md"
 	content := `---
@@ -1641,7 +1641,7 @@ body`
 		t.Fatalf("NewTikiStore: %v", err)
 	}
 
-	// load with a relative path to prove loadTaskFile still resolves to absolute
+	// load with a relative path to prove loadTikiFile still resolves to absolute
 	rel, err := filepath.Rel(filepath.Dir(tmpDir), testFile)
 	if err != nil {
 		t.Fatalf("filepath.Rel: %v", err)
@@ -1719,7 +1719,7 @@ body`
 	}
 }
 
-func TestSaveTask_FilePathRefreshedAndNotSerialized(t *testing.T) {
+func TestSaveTiki_FilePathRefreshedAndNotSerialized(t *testing.T) {
 	tmpDir := t.TempDir()
 	store, err := NewTikiStore(tmpDir)
 	if err != nil {

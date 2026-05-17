@@ -10,8 +10,8 @@ import (
 	"github.com/gdamore/tcell/v2"
 )
 
-// openDepsEditor navigates: Kanban → Enter (task detail) → Ctrl+D (deps editor)
-// The task selected on the Kanban board becomes the context task.
+// openDepsEditor navigates: Kanban → Enter (tiki detail) → Ctrl+D (deps editor)
+// The tiki selected on the Kanban board becomes the context tiki.
 func openDepsEditor(ta *testutil.TestApp) {
 	ta.NavController.PushView(model.MakePluginViewID("Kanban"), nil)
 	ta.Draw()
@@ -21,17 +21,17 @@ func openDepsEditor(ta *testutil.TestApp) {
 	ta.Draw()
 }
 
-// TestDepsEditor_OpenFromTaskDetail verifies Ctrl+D on task detail pushes the deps plugin view.
-func TestDepsEditor_OpenFromTaskDetail(t *testing.T) {
+// TestDepsEditor_OpenFromTikiDetail verifies Ctrl+D on tiki detail pushes the deps plugin view.
+func TestDepsEditor_OpenFromTikiDetail(t *testing.T) {
 	ta := testutil.NewTestApp(t)
 	defer ta.Cleanup()
 
 	contextID := "CTXA01"
-	if err := testutil.CreateTestTiki(ta.TikiDir, contextID, "Context Task", "ready", "story"); err != nil {
-		t.Fatalf("create context task: %v", err)
+	if err := testutil.CreateTestTiki(ta.TikiDir, contextID, "Context Tiki", "ready", "story"); err != nil {
+		t.Fatalf("create context tiki: %v", err)
 	}
-	if err := testutil.CreateTestTiki(ta.TikiDir, "FREE01", "Free Task", "ready", "story"); err != nil {
-		t.Fatalf("create free task: %v", err)
+	if err := testutil.CreateTestTiki(ta.TikiDir, "FREE01", "Free Tiki", "ready", "story"); err != nil {
+		t.Fatalf("create free tiki: %v", err)
 	}
 	if err := ta.TikiStore.Reload(); err != nil {
 		t.Fatalf("reload: %v", err)
@@ -54,8 +54,8 @@ func TestDepsEditor_OpenFromTaskDetail(t *testing.T) {
 	}
 }
 
-// TestDepsEditor_LanesShowCorrectTasks verifies each lane contains the expected tasks.
-func TestDepsEditor_LanesShowCorrectTasks(t *testing.T) {
+// TestDepsEditor_LanesShowCorrectTikis verifies each lane contains the expected tikis.
+func TestDepsEditor_LanesShowCorrectTikis(t *testing.T) {
 	ta := testutil.NewTestApp(t)
 	defer ta.Cleanup()
 
@@ -65,74 +65,74 @@ func TestDepsEditor_LanesShowCorrectTasks(t *testing.T) {
 	freeID := "FRE002"
 
 	// context depends on dep; blocker depends on context
-	if err := testutil.CreateTestTikiWithDeps(ta.TikiDir, contextID, "Context Task", "ready", "story", []string{depID}); err != nil {
+	if err := testutil.CreateTestTikiWithDeps(ta.TikiDir, contextID, "Context Tiki", "ready", "story", []string{depID}); err != nil {
 		t.Fatalf("create context: %v", err)
 	}
-	if err := testutil.CreateTestTiki(ta.TikiDir, depID, "Dep Task", "ready", "story"); err != nil {
+	if err := testutil.CreateTestTiki(ta.TikiDir, depID, "Dep Tiki", "ready", "story"); err != nil {
 		t.Fatalf("create dep: %v", err)
 	}
-	if err := testutil.CreateTestTikiWithDeps(ta.TikiDir, blockerID, "Blocker Task", "ready", "story", []string{contextID}); err != nil {
+	if err := testutil.CreateTestTikiWithDeps(ta.TikiDir, blockerID, "Blocker Tiki", "ready", "story", []string{contextID}); err != nil {
 		t.Fatalf("create blocker: %v", err)
 	}
-	if err := testutil.CreateTestTiki(ta.TikiDir, freeID, "Free Task", "ready", "story"); err != nil {
+	if err := testutil.CreateTestTiki(ta.TikiDir, freeID, "Free Tiki", "ready", "story"); err != nil {
 		t.Fatalf("create free: %v", err)
 	}
 	if err := ta.TikiStore.Reload(); err != nil {
 		t.Fatalf("reload: %v", err)
 	}
 
-	// navigate to context task then open deps editor
+	// navigate to context tiki then open deps editor
 	ta.NavController.PushView(model.MakePluginViewID("Kanban"), nil)
 	ta.Draw()
 
-	// navigate to the context task regardless of sort order
-	if !ta.NavigateToTask(contextID, 10) {
+	// navigate to the context tiki regardless of sort order
+	if !ta.NavigateToTiki(contextID, 10) {
 		ta.DumpScreen()
-		t.Fatalf("context task %s not found on board", contextID)
+		t.Fatalf("context tiki %s not found on board", contextID)
 	}
 
 	ta.SendKey(tcell.KeyCtrlD, 0, tcell.ModCtrl)
 	ta.Draw()
 
-	// Blocker task belongs in Blocks lane (it depends on context)
+	// Blocker tiki belongs in Blocks lane (it depends on context)
 	// Search by ID — titles may be truncated in narrow lanes
 	if found, _, _ := ta.FindText(blockerID); !found {
 		ta.DumpScreen()
-		t.Errorf("Blocker task %s not visible (expected in Blocks lane)", blockerID)
+		t.Errorf("Blocker tiki %s not visible (expected in Blocks lane)", blockerID)
 	}
 
-	// Dep task belongs in Depends lane (context depends on it)
+	// Dep tiki belongs in Depends lane (context depends on it)
 	if found, _, _ := ta.FindText(depID); !found {
 		ta.DumpScreen()
-		t.Errorf("Dep task %s not visible (expected in Depends lane)", depID)
+		t.Errorf("Dep tiki %s not visible (expected in Depends lane)", depID)
 	}
 
-	// Free task belongs in All lane
+	// Free tiki belongs in All lane
 	if found, _, _ := ta.FindText(freeID); !found {
 		ta.DumpScreen()
-		t.Errorf("Free task %s not visible (expected in All lane)", freeID)
+		t.Errorf("Free tiki %s not visible (expected in All lane)", freeID)
 	}
 
-	// Context task must not appear anywhere in the deps view
-	if found, _, _ := ta.FindText("Context Task"); found {
+	// Context tiki must not appear anywhere in the deps view
+	if found, _, _ := ta.FindText("Context Tiki"); found {
 		ta.DumpScreen()
-		t.Errorf("Context Task should not be visible in deps editor")
+		t.Errorf("Context Tiki should not be visible in deps editor")
 	}
 }
 
-// TestDepsEditor_MoveTask_AllToDepends_PersistsOnDisk verifies moving a task from All → Depends
+// TestDepsEditor_MoveTiki_AllToDepends_PersistsOnDisk verifies moving a tiki from All → Depends
 // updates DependsOn in memory and persists on disk after reload.
-func TestDepsEditor_MoveTask_AllToDepends_PersistsOnDisk(t *testing.T) {
+func TestDepsEditor_MoveTiki_AllToDepends_PersistsOnDisk(t *testing.T) {
 	ta := testutil.NewTestApp(t)
 	defer ta.Cleanup()
 
 	contextID := "CTXA03"
 	freeID := "FRE003"
 
-	if err := testutil.CreateTestTiki(ta.TikiDir, contextID, "Context Task", "ready", "story"); err != nil {
+	if err := testutil.CreateTestTiki(ta.TikiDir, contextID, "Context Tiki", "ready", "story"); err != nil {
 		t.Fatalf("create context: %v", err)
 	}
-	if err := testutil.CreateTestTiki(ta.TikiDir, freeID, "Free Task", "ready", "story"); err != nil {
+	if err := testutil.CreateTestTiki(ta.TikiDir, freeID, "Free Tiki", "ready", "story"); err != nil {
 		t.Fatalf("create free: %v", err)
 	}
 	if err := ta.TikiStore.Reload(); err != nil {
@@ -149,14 +149,14 @@ func TestDepsEditor_MoveTask_AllToDepends_PersistsOnDisk(t *testing.T) {
 	}
 
 	// Blocks lane is empty, so selection should land on All lane automatically.
-	// Shift+Right moves selected task from All → Depends.
+	// Shift+Right moves selected tiki from All → Depends.
 	ta.SendKey(tcell.KeyRight, 0, tcell.ModShift)
 	ta.Draw()
 
 	// verify in-memory state
 	updated := ta.TikiStore.GetTiki(contextID)
 	if updated == nil {
-		t.Fatalf("context task not found in store")
+		t.Fatalf("context tiki not found in store")
 		return
 	}
 	updatedDeps, _, _ := updated.StringSliceField(tikipkg.FieldDependsOn)
@@ -177,7 +177,7 @@ func TestDepsEditor_MoveTask_AllToDepends_PersistsOnDisk(t *testing.T) {
 	}
 	reloaded := ta.TikiStore.GetTiki(contextID)
 	if reloaded == nil {
-		t.Fatalf("context task not found after reload")
+		t.Fatalf("context tiki not found after reload")
 		return
 	}
 	reloadedDeps, _, _ := reloaded.StringSliceField(tikipkg.FieldDependsOn)
@@ -193,9 +193,9 @@ func TestDepsEditor_MoveTask_AllToDepends_PersistsOnDisk(t *testing.T) {
 	}
 }
 
-// TestDepsEditor_MoveTask_DependsToAll_RemovesDep verifies moving a task from Depends → All
+// TestDepsEditor_MoveTiki_DependsToAll_RemovesDep verifies moving a tiki from Depends → All
 // removes it from DependsOn in memory and on disk.
-func TestDepsEditor_MoveTask_DependsToAll_RemovesDep(t *testing.T) {
+func TestDepsEditor_MoveTiki_DependsToAll_RemovesDep(t *testing.T) {
 	ta := testutil.NewTestApp(t)
 	defer ta.Cleanup()
 
@@ -203,15 +203,15 @@ func TestDepsEditor_MoveTask_DependsToAll_RemovesDep(t *testing.T) {
 	depID := "DEP004"
 	freeID := "FRE004"
 
-	if err := testutil.CreateTestTikiWithDeps(ta.TikiDir, contextID, "Context Task", "ready", "story", []string{depID}); err != nil {
+	if err := testutil.CreateTestTikiWithDeps(ta.TikiDir, contextID, "Context Tiki", "ready", "story", []string{depID}); err != nil {
 		t.Fatalf("create context: %v", err)
 	}
-	if err := testutil.CreateTestTiki(ta.TikiDir, depID, "Dep Task", "ready", "story"); err != nil {
+	if err := testutil.CreateTestTiki(ta.TikiDir, depID, "Dep Tiki", "ready", "story"); err != nil {
 		t.Fatalf("create dep: %v", err)
 	}
-	// a free task is needed so All lane is non-empty — handleLaneSwitch skips empty lanes,
+	// a free tiki is needed so All lane is non-empty — handleLaneSwitch skips empty lanes,
 	// so without it Shift+H from Depends has nowhere to land and becomes a no-op.
-	if err := testutil.CreateTestTiki(ta.TikiDir, freeID, "Free Task", "ready", "story"); err != nil {
+	if err := testutil.CreateTestTiki(ta.TikiDir, freeID, "Free Tiki", "ready", "story"); err != nil {
 		t.Fatalf("create free: %v", err)
 	}
 	if err := ta.TikiStore.Reload(); err != nil {
@@ -227,19 +227,19 @@ func TestDepsEditor_MoveTask_DependsToAll_RemovesDep(t *testing.T) {
 	}
 
 	// EnsureFirstNonEmptyLaneSelection picks the first non-empty lane: Blocks is empty,
-	// All has the free task, so selection starts on All (lane 1).
+	// All has the free tiki, so selection starts on All (lane 1).
 	// Navigate right once to reach Depends lane.
 	ta.SendKey(tcell.KeyRight, 0, tcell.ModNone)
 	ta.Draw()
 
-	// Shift+Left moves selected task from Depends → All
+	// Shift+Left moves selected tiki from Depends → All
 	ta.SendKey(tcell.KeyLeft, 0, tcell.ModShift)
 	ta.Draw()
 
 	// verify in-memory state
 	updated := ta.TikiStore.GetTiki(contextID)
 	if updated == nil {
-		t.Fatalf("context task not found in store")
+		t.Fatalf("context tiki not found in store")
 		return
 	}
 	updatedDeps, _, _ := updated.StringSliceField(tikipkg.FieldDependsOn)
@@ -256,7 +256,7 @@ func TestDepsEditor_MoveTask_DependsToAll_RemovesDep(t *testing.T) {
 	}
 	reloaded := ta.TikiStore.GetTiki(contextID)
 	if reloaded == nil {
-		t.Fatalf("context task not found after reload")
+		t.Fatalf("context tiki not found after reload")
 		return
 	}
 	reloadedDeps, _, _ := reloaded.StringSliceField(tikipkg.FieldDependsOn)
@@ -268,14 +268,14 @@ func TestDepsEditor_MoveTask_DependsToAll_RemovesDep(t *testing.T) {
 	}
 }
 
-// TestDepsEditor_ReopenIsSameView verifies that opening the deps editor for the same task
+// TestDepsEditor_ReopenIsSameView verifies that opening the deps editor for the same tiki
 // a second time reuses the existing plugin entry (idempotency).
 func TestDepsEditor_ReopenIsSameView(t *testing.T) {
 	ta := testutil.NewTestApp(t)
 	defer ta.Cleanup()
 
 	contextID := "CTXA05"
-	if err := testutil.CreateTestTiki(ta.TikiDir, contextID, "Context Task", "ready", "story"); err != nil {
+	if err := testutil.CreateTestTiki(ta.TikiDir, contextID, "Context Tiki", "ready", "story"); err != nil {
 		t.Fatalf("create context: %v", err)
 	}
 	if err := ta.TikiStore.Reload(); err != nil {

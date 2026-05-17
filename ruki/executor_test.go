@@ -20,8 +20,8 @@ func testDate(m time.Month, d int) time.Time {
 	return time.Date(2026, m, d, 0, 0, 0, 0, time.UTC)
 }
 
-func makeTasks() []*tikiFixture {
-	// Phase 4 note: fixture tasks declare every workflow field explicitly
+func makeTikis() []*tikiFixture {
+	// Phase 4 note: fixture tikis declare every workflow field explicitly
 	// (Tags: []string{} means "present-empty", not absent) so tests can
 	// compare against the old "absent == empty" semantics without adding
 	// has(...) guards everywhere. Tests that specifically want to exercise
@@ -55,9 +55,9 @@ func makeTasks() []*tikiFixture {
 	}
 }
 
-func tikiIDs(tasks []*tikiFixture) []string {
-	ids := make([]string, len(tasks))
-	for i, t := range tasks {
+func tikiIDs(tikis []*tikiFixture) []string {
+	ids := make([]string, len(tikis))
+	for i, t := range tikis {
 		ids[i] = t.ID
 	}
 	return ids
@@ -75,7 +75,7 @@ func TestExecuteNilStatement(t *testing.T) {
 
 func TestNewExecutorNilUserFunc(t *testing.T) {
 	e := NewExecutor(testSchema{}, nil, ExecutorRuntime{Mode: ExecutorRuntimeCLI})
-	tasks := []*tikiFixture{
+	tikis := []*tikiFixture{
 		{ID: "T1", Title: "x", Status: "ready", Assignee: "present"},
 	}
 	stmt := &Statement{
@@ -87,7 +87,7 @@ func TestNewExecutorNilUserFunc(t *testing.T) {
 			},
 		},
 	}
-	_, err := e.testExec(stmt, tasks)
+	_, err := e.testExec(stmt, tikis)
 	if err == nil {
 		t.Fatal("expected error when user() called with nil userFunc")
 	}
@@ -101,21 +101,21 @@ func TestNewExecutorNilUserFunc(t *testing.T) {
 func TestExecuteSelectAll(t *testing.T) {
 	e := newTestExecutor()
 	p := newTestParser()
-	tasks := makeTasks()
+	tikis := makeTikis()
 
 	stmt, err := p.ParseStatement("select")
 	if err != nil {
 		t.Fatalf("parse: %v", err)
 	}
-	result, err := e.testExec(stmt, tasks)
+	result, err := e.testExec(stmt, tikis)
 	if err != nil {
 		t.Fatalf("execute: %v", err)
 	}
 	if result.Select == nil {
 		t.Fatal("expected Select result")
 	}
-	if len(result.Select.Tasks) != 4 {
-		t.Fatalf("expected 4 tasks, got %d", len(result.Select.Tasks))
+	if len(result.Select.Tikis) != 4 {
+		t.Fatalf("expected 4 tikis, got %d", len(result.Select.Tikis))
 	}
 	if result.Select.Fields != nil {
 		t.Fatalf("expected nil Fields, got %v", result.Select.Fields)
@@ -125,13 +125,13 @@ func TestExecuteSelectAll(t *testing.T) {
 func TestExecuteSelectWithFields(t *testing.T) {
 	e := newTestExecutor()
 	p := newTestParser()
-	tasks := makeTasks()
+	tikis := makeTikis()
 
 	stmt, err := p.ParseStatement("select title, status")
 	if err != nil {
 		t.Fatalf("parse: %v", err)
 	}
-	result, err := e.testExec(stmt, tasks)
+	result, err := e.testExec(stmt, tikis)
 	if err != nil {
 		t.Fatalf("execute: %v", err)
 	}
@@ -141,8 +141,8 @@ func TestExecuteSelectWithFields(t *testing.T) {
 	if result.Select.Fields[0] != "title" || result.Select.Fields[1] != "status" {
 		t.Fatalf("unexpected fields: %v", result.Select.Fields)
 	}
-	if len(result.Select.Tasks) != 4 {
-		t.Fatalf("expected 4 tasks, got %d", len(result.Select.Tasks))
+	if len(result.Select.Tikis) != 4 {
+		t.Fatalf("expected 4 tikis, got %d", len(result.Select.Tikis))
 	}
 }
 
@@ -151,7 +151,7 @@ func TestExecuteSelectWithFields(t *testing.T) {
 func TestExecuteSelectWhere(t *testing.T) {
 	e := newTestExecutor()
 	p := newTestParser()
-	tasks := makeTasks()
+	tikis := makeTikis()
 
 	tests := []struct {
 		name      string
@@ -232,20 +232,20 @@ func TestExecuteSelectWhere(t *testing.T) {
 			if err != nil {
 				t.Fatalf("parse: %v", err)
 			}
-			result, err := e.testExec(stmt, tasks)
+			result, err := e.testExec(stmt, tikis)
 			if err != nil {
 				t.Fatalf("execute: %v", err)
 			}
-			if len(result.Select.Tasks) != tt.wantCount {
-				ids := make([]string, len(result.Select.Tasks))
-				for i, tk := range result.Select.Tasks {
+			if len(result.Select.Tikis) != tt.wantCount {
+				ids := make([]string, len(result.Select.Tikis))
+				for i, tk := range result.Select.Tikis {
 					ids[i] = tk.ID
 				}
-				t.Fatalf("expected %d tasks, got %d: %v", tt.wantCount, len(result.Select.Tasks), ids)
+				t.Fatalf("expected %d tikis, got %d: %v", tt.wantCount, len(result.Select.Tikis), ids)
 			}
 			for i, wantID := range tt.wantIDs {
-				if result.Select.Tasks[i].ID != wantID {
-					t.Errorf("task[%d].ID = %q, want %q", i, result.Select.Tasks[i].ID, wantID)
+				if result.Select.Tikis[i].ID != wantID {
+					t.Errorf("tiki[%d].ID = %q, want %q", i, result.Select.Tikis[i].ID, wantID)
 				}
 			}
 		})
@@ -257,7 +257,7 @@ func TestExecuteSelectWhere(t *testing.T) {
 func TestExecuteSelectOrderBy(t *testing.T) {
 	e := newTestExecutor()
 	p := newTestParser()
-	tasks := makeTasks()
+	tikis := makeTikis()
 
 	tests := []struct {
 		name    string
@@ -299,16 +299,16 @@ func TestExecuteSelectOrderBy(t *testing.T) {
 			if err != nil {
 				t.Fatalf("parse: %v", err)
 			}
-			result, err := e.testExec(stmt, tasks)
+			result, err := e.testExec(stmt, tikis)
 			if err != nil {
 				t.Fatalf("execute: %v", err)
 			}
-			if len(result.Select.Tasks) != len(tt.wantIDs) {
-				t.Fatalf("expected %d tasks, got %d", len(tt.wantIDs), len(result.Select.Tasks))
+			if len(result.Select.Tikis) != len(tt.wantIDs) {
+				t.Fatalf("expected %d tikis, got %d", len(tt.wantIDs), len(result.Select.Tikis))
 			}
 			for i, wantID := range tt.wantIDs {
-				if result.Select.Tasks[i].ID != wantID {
-					t.Errorf("task[%d].ID = %q, want %q", i, result.Select.Tasks[i].ID, wantID)
+				if result.Select.Tikis[i].ID != wantID {
+					t.Errorf("tiki[%d].ID = %q, want %q", i, result.Select.Tikis[i].ID, wantID)
 				}
 			}
 		})
@@ -319,7 +319,7 @@ func TestExecuteSelectNoOrderByPreservesInputOrder(t *testing.T) {
 	e := newTestExecutor()
 	p := newTestParser()
 
-	tasks := []*tikiFixture{
+	tikis := []*tikiFixture{
 		{ID: "TIKI-CCC", Title: "C", Status: "ready"},
 		{ID: "TIKI-AAA", Title: "A", Status: "ready"},
 		{ID: "TIKI-BBB", Title: "B", Status: "ready"},
@@ -329,15 +329,15 @@ func TestExecuteSelectNoOrderByPreservesInputOrder(t *testing.T) {
 	if err != nil {
 		t.Fatalf("parse: %v", err)
 	}
-	result, err := e.testExec(stmt, tasks)
+	result, err := e.testExec(stmt, tikis)
 	if err != nil {
 		t.Fatalf("execute: %v", err)
 	}
 
 	wantIDs := []string{"TIKI-CCC", "TIKI-AAA", "TIKI-BBB"}
 	for i, wantID := range wantIDs {
-		if result.Select.Tasks[i].ID != wantID {
-			t.Errorf("task[%d].ID = %q, want %q — input order not preserved", i, result.Select.Tasks[i].ID, wantID)
+		if result.Select.Tikis[i].ID != wantID {
+			t.Errorf("tiki[%d].ID = %q, want %q — input order not preserved", i, result.Select.Tikis[i].ID, wantID)
 		}
 	}
 }
@@ -347,7 +347,7 @@ func TestExecuteSelectNoOrderByPreservesInputOrder(t *testing.T) {
 func TestExecuteSelectLimit(t *testing.T) {
 	e := newTestExecutor()
 	p := newTestParser()
-	tasks := makeTasks()
+	tikis := makeTikis()
 
 	tests := []struct {
 		name    string
@@ -392,16 +392,16 @@ func TestExecuteSelectLimit(t *testing.T) {
 			if err != nil {
 				t.Fatalf("parse: %v", err)
 			}
-			result, err := e.testExec(stmt, tasks)
+			result, err := e.testExec(stmt, tikis)
 			if err != nil {
 				t.Fatalf("execute: %v", err)
 			}
-			if len(result.Select.Tasks) != len(tt.wantIDs) {
-				t.Fatalf("expected %d tasks, got %d", len(tt.wantIDs), len(result.Select.Tasks))
+			if len(result.Select.Tikis) != len(tt.wantIDs) {
+				t.Fatalf("expected %d tikis, got %d", len(tt.wantIDs), len(result.Select.Tikis))
 			}
 			for i, wantID := range tt.wantIDs {
-				if result.Select.Tasks[i].ID != wantID {
-					t.Errorf("task[%d].ID = %q, want %q", i, result.Select.Tasks[i].ID, wantID)
+				if result.Select.Tikis[i].ID != wantID {
+					t.Errorf("tiki[%d].ID = %q, want %q", i, result.Select.Tikis[i].ID, wantID)
 				}
 			}
 		})
@@ -414,7 +414,7 @@ func TestExecuteEnumNormalization(t *testing.T) {
 	e := newTestExecutor()
 	p := newTestParser()
 
-	tasks := []*tikiFixture{
+	tikis := []*tikiFixture{
 		{ID: "TIKI-A", Title: "A", Status: "done", Type: "story"},
 		{ID: "TIKI-B", Title: "B", Status: "inProgress", Type: "bug"},
 		{ID: "TIKI-C", Title: "C", Status: "ready", Type: "story"},
@@ -446,20 +446,20 @@ func TestExecuteEnumNormalization(t *testing.T) {
 			if err != nil {
 				t.Fatalf("parse: %v", err)
 			}
-			result, err := e.testExec(stmt, tasks)
+			result, err := e.testExec(stmt, tikis)
 			if err != nil {
 				t.Fatalf("execute: %v", err)
 			}
-			if len(result.Select.Tasks) != tt.wantCount {
-				ids := make([]string, len(result.Select.Tasks))
-				for i, tk := range result.Select.Tasks {
+			if len(result.Select.Tikis) != tt.wantCount {
+				ids := make([]string, len(result.Select.Tikis))
+				for i, tk := range result.Select.Tikis {
 					ids[i] = tk.ID
 				}
-				t.Fatalf("expected %d tasks, got %d: %v", tt.wantCount, len(result.Select.Tasks), ids)
+				t.Fatalf("expected %d tikis, got %d: %v", tt.wantCount, len(result.Select.Tikis), ids)
 			}
 			for i, wantID := range tt.wantIDs {
-				if result.Select.Tasks[i].ID != wantID {
-					t.Errorf("task[%d].ID = %q, want %q", i, result.Select.Tasks[i].ID, wantID)
+				if result.Select.Tikis[i].ID != wantID {
+					t.Errorf("tiki[%d].ID = %q, want %q", i, result.Select.Tikis[i].ID, wantID)
 				}
 			}
 		})
@@ -471,21 +471,21 @@ func TestExecuteEnumNormalization(t *testing.T) {
 func TestExecuteIDCaseInsensitive(t *testing.T) {
 	e := newTestExecutor()
 	p := newTestParser()
-	tasks := makeTasks()
+	tikis := makeTikis()
 
 	stmt, err := p.ParseStatement(`select where id = "tiki-000001"`)
 	if err != nil {
 		t.Fatalf("parse: %v", err)
 	}
-	result, err := e.testExec(stmt, tasks)
+	result, err := e.testExec(stmt, tikis)
 	if err != nil {
 		t.Fatalf("execute: %v", err)
 	}
-	if len(result.Select.Tasks) != 1 {
-		t.Fatalf("expected 1 task, got %d", len(result.Select.Tasks))
+	if len(result.Select.Tikis) != 1 {
+		t.Fatalf("expected 1 tiki, got %d", len(result.Select.Tikis))
 	}
-	if result.Select.Tasks[0].ID != "TIKI-000001" {
-		t.Fatalf("expected TIKI-000001, got %s", result.Select.Tasks[0].ID)
+	if result.Select.Tikis[0].ID != "TIKI-000001" {
+		t.Fatalf("expected TIKI-000001, got %s", result.Select.Tikis[0].ID)
 	}
 }
 
@@ -497,7 +497,7 @@ func TestExecuteListSetEquality(t *testing.T) {
 
 	tests := []struct {
 		name      string
-		tasks     []*tikiFixture
+		tikis     []*tikiFixture
 		input     string
 		wantCount int
 	}{
@@ -542,7 +542,7 @@ func TestExecuteListSetEquality(t *testing.T) {
 		},
 		{
 			// Phase 4: fixture helper emits present-empty tags for
-			// workflow-declaring tasks so `tags = []` matches.
+			// workflow-declaring tikis so `tags = []` matches.
 			"fixture-present empty tags equals []",
 			[]*tikiFixture{
 				{ID: "T1", Title: "x", Status: "ready"},
@@ -552,7 +552,7 @@ func TestExecuteListSetEquality(t *testing.T) {
 		},
 		{
 			// Phase 4: test fixture emits all schema keys; guard the
-			// comparison to hit tasks with absent tags would require
+			// comparison to hit tikis with absent tags would require
 			// building a tiki without the helper.
 			"fixture has(tags) always true",
 			[]*tikiFixture{
@@ -577,12 +577,12 @@ func TestExecuteListSetEquality(t *testing.T) {
 			if err != nil {
 				t.Fatalf("parse: %v", err)
 			}
-			result, err := e.testExec(stmt, tt.tasks)
+			result, err := e.testExec(stmt, tt.tikis)
 			if err != nil {
 				t.Fatalf("execute: %v", err)
 			}
-			if len(result.Select.Tasks) != tt.wantCount {
-				t.Fatalf("expected %d tasks, got %d", tt.wantCount, len(result.Select.Tasks))
+			if len(result.Select.Tikis) != tt.wantCount {
+				t.Fatalf("expected %d tikis, got %d", tt.wantCount, len(result.Select.Tikis))
 			}
 		})
 	}
@@ -594,7 +594,7 @@ func TestExecuteComparisonMatrix(t *testing.T) {
 	e := newTestExecutor()
 	p := newTestParser()
 
-	tasks := []*tikiFixture{
+	tikis := []*tikiFixture{
 		{
 			ID: "TIKI-A", Title: "Alpha", Status: "done", Type: "bug",
 			Points: 3, Due: testDate(6, 15),
@@ -639,11 +639,11 @@ func TestExecuteComparisonMatrix(t *testing.T) {
 			if err != nil {
 				t.Fatalf("parse: %v", err)
 			}
-			result, err := e.testExec(stmt, tasks)
+			result, err := e.testExec(stmt, tikis)
 			if err != nil {
 				t.Fatalf("execute: %v", err)
 			}
-			got := len(result.Select.Tasks) > 0
+			got := len(result.Select.Tikis) > 0
 			if got != tt.want {
 				t.Fatalf("expected match=%v, got %v", tt.want, got)
 			}
@@ -655,7 +655,7 @@ func TestExecuteComparisonMatrix(t *testing.T) {
 
 func TestExecuteInSubstring(t *testing.T) {
 	e := newTestExecutor()
-	tasks := makeTasks()
+	tikis := makeTikis()
 
 	tests := []struct {
 		name    string
@@ -676,12 +676,12 @@ func TestExecuteInSubstring(t *testing.T) {
 			if err != nil {
 				t.Fatalf("parse: %v", err)
 			}
-			result, err := e.testExec(stmt, tasks)
+			result, err := e.testExec(stmt, tikis)
 			if err != nil {
 				t.Fatalf("execute: %v", err)
 			}
-			got := make([]string, len(result.Select.Tasks))
-			for i, tk := range result.Select.Tasks {
+			got := make([]string, len(result.Select.Tikis))
+			for i, tk := range result.Select.Tikis {
 				got[i] = tk.ID
 			}
 			if len(got) != len(tt.wantIDs) {
@@ -699,44 +699,44 @@ func TestExecuteInSubstring(t *testing.T) {
 func TestExecuteUser(t *testing.T) {
 	e := newTestExecutor()
 	p := newTestParser()
-	tasks := makeTasks()
+	tikis := makeTikis()
 
 	stmt, err := p.ParseStatement(`select where assignee = user()`)
 	if err != nil {
 		t.Fatalf("parse: %v", err)
 	}
-	result, err := e.testExec(stmt, tasks)
+	result, err := e.testExec(stmt, tikis)
 	if err != nil {
 		t.Fatalf("execute: %v", err)
 	}
-	if len(result.Select.Tasks) != 2 {
-		t.Fatalf("expected 2 tasks assigned to alice, got %d", len(result.Select.Tasks))
+	if len(result.Select.Tikis) != 2 {
+		t.Fatalf("expected 2 tikis assigned to alice, got %d", len(result.Select.Tikis))
 	}
 }
 
 func TestExecuteCount(t *testing.T) {
 	e := newTestExecutor()
 	p := newTestParser()
-	tasks := makeTasks()
+	tikis := makeTikis()
 
 	stmt, err := p.ParseStatement(`select where count(select where status = "done") >= 1`)
 	if err != nil {
 		t.Fatalf("parse: %v", err)
 	}
-	result, err := e.testExec(stmt, tasks)
+	result, err := e.testExec(stmt, tikis)
 	if err != nil {
 		t.Fatalf("execute: %v", err)
 	}
 	// count(done) = 1 which is >= 1, so the condition is true for every tiki
-	if len(result.Select.Tasks) != 4 {
-		t.Fatalf("expected 4 tasks, got %d", len(result.Select.Tasks))
+	if len(result.Select.Tikis) != 4 {
+		t.Fatalf("expected 4 tikis, got %d", len(result.Select.Tikis))
 	}
 }
 
 func TestExecuteExists(t *testing.T) {
 	e := newTestExecutor()
 	p := newTestParser()
-	tasks := makeTasks()
+	tikis := makeTikis()
 
 	tests := []struct {
 		name      string
@@ -771,18 +771,18 @@ func TestExecuteExists(t *testing.T) {
 			if err != nil {
 				t.Fatalf("parse: %v", err)
 			}
-			result, err := e.testExec(stmt, tasks)
+			result, err := e.testExec(stmt, tikis)
 			if err != nil {
 				t.Fatalf("execute: %v", err)
 			}
-			if len(result.Select.Tasks) != tt.wantCount {
-				t.Fatalf("expected %d tasks, got %d", tt.wantCount, len(result.Select.Tasks))
+			if len(result.Select.Tikis) != tt.wantCount {
+				t.Fatalf("expected %d tikis, got %d", tt.wantCount, len(result.Select.Tikis))
 			}
 		})
 	}
 }
 
-func TestExecuteExistsEmptyTasks(t *testing.T) {
+func TestExecuteExistsEmptyTikis(t *testing.T) {
 	e := newTestExecutor()
 	p := newTestParser()
 
@@ -794,15 +794,15 @@ func TestExecuteExistsEmptyTasks(t *testing.T) {
 	if err != nil {
 		t.Fatalf("execute: %v", err)
 	}
-	if len(result.Select.Tasks) != 0 {
-		t.Fatalf("expected no tasks, got %d", len(result.Select.Tasks))
+	if len(result.Select.Tikis) != 0 {
+		t.Fatalf("expected no tikis, got %d", len(result.Select.Tikis))
 	}
 }
 
 func TestExecuteOuterCorrelatedSubqueries(t *testing.T) {
 	e := newTestExecutor()
 	p := newTestParser()
-	tasks := makeTasks()
+	tikis := makeTikis()
 
 	tests := []struct {
 		name    string
@@ -810,7 +810,7 @@ func TestExecuteOuterCorrelatedSubqueries(t *testing.T) {
 		wantIDs []string
 	}{
 		{
-			name:    "anti-reference query excludes tasks with blockers",
+			name:    "anti-reference query excludes tikis with blockers",
 			input:   `select where not exists(select where outer.id in dependsOn)`,
 			wantIDs: []string{"TIKI-000002", "TIKI-000003", "TIKI-000004"},
 		},
@@ -832,11 +832,11 @@ func TestExecuteOuterCorrelatedSubqueries(t *testing.T) {
 			if err != nil {
 				t.Fatalf("parse: %v", err)
 			}
-			result, err := e.testExec(stmt, tasks)
+			result, err := e.testExec(stmt, tikis)
 			if err != nil {
 				t.Fatalf("execute: %v", err)
 			}
-			got := tikiIDs(result.Select.Tasks)
+			got := tikiIDs(result.Select.Tikis)
 			if !reflect.DeepEqual(got, tt.wantIDs) {
 				t.Fatalf("expected IDs %v, got %v", tt.wantIDs, got)
 			}
@@ -844,24 +844,24 @@ func TestExecuteOuterCorrelatedSubqueries(t *testing.T) {
 	}
 }
 
-func TestExecuteOuterWithSelectedTaskExclusion(t *testing.T) {
+func TestExecuteOuterWithSelectedTikiExclusion(t *testing.T) {
 	p := newTestParser()
 	stmt, err := p.ParseStatement(`select where id != id() and not exists(select where id = id() and outer.id in dependsOn)`)
 	if err != nil {
 		t.Fatalf("parse: %v", err)
 	}
 
-	tasks := []*tikiFixture{
+	tikis := []*tikiFixture{
 		{ID: "TIKI-000001", Title: "selected", Status: "ready", Type: "story", DependsOn: []string{"TIKI-000002"}},
 		{ID: "TIKI-000002", Title: "dependency", Status: "ready", Type: "story"},
 		{ID: "TIKI-000003", Title: "candidate", Status: "ready", Type: "story"},
 	}
 	e := NewExecutor(testSchema{}, nil, ExecutorRuntime{Mode: ExecutorRuntimePlugin})
-	result, err := e.testExec(stmt, tasks, NewSingleSelectionInput("TIKI-000001"))
+	result, err := e.testExec(stmt, tikis, NewSingleSelectionInput("TIKI-000001"))
 	if err != nil {
 		t.Fatalf("execute: %v", err)
 	}
-	got := tikiIDs(result.Select.Tasks)
+	got := tikiIDs(result.Select.Tikis)
 	want := []string{"TIKI-000003"}
 	if !reflect.DeepEqual(got, want) {
 		t.Fatalf("expected IDs %v, got %v", want, got)
@@ -872,7 +872,7 @@ func TestExecuteNextDate(t *testing.T) {
 	e := newTestExecutor()
 	p := newTestParser()
 
-	tasks := []*tikiFixture{
+	tikis := []*tikiFixture{
 		{
 			ID: "T1", Title: "Daily", Status: "ready",
 			Recurrence: value.RecurrenceDaily,
@@ -887,30 +887,30 @@ func TestExecuteNextDate(t *testing.T) {
 	if err != nil {
 		t.Fatalf("parse: %v", err)
 	}
-	result, err := e.testExec(stmt, tasks)
+	result, err := e.testExec(stmt, tikis)
 	if err != nil {
 		t.Fatalf("execute: %v", err)
 	}
-	if len(result.Select.Tasks) != 1 || result.Select.Tasks[0].ID != "T1" {
-		t.Fatalf("expected T1, got %v", result.Select.Tasks)
+	if len(result.Select.Tikis) != 1 || result.Select.Tikis[0].ID != "T1" {
+		t.Fatalf("expected T1, got %v", result.Select.Tikis)
 	}
 }
 
 func TestExecuteBlocks(t *testing.T) {
 	e := newTestExecutor()
 	p := newTestParser()
-	tasks := makeTasks() // TIKI-000002 depends on TIKI-000001
+	tikis := makeTikis() // TIKI-000002 depends on TIKI-000001
 
 	stmt, err := p.ParseStatement(`select where id in blocks("TIKI-000001")`)
 	if err != nil {
 		t.Fatalf("parse: %v", err)
 	}
-	result, err := e.testExec(stmt, tasks)
+	result, err := e.testExec(stmt, tikis)
 	if err != nil {
 		t.Fatalf("execute: %v", err)
 	}
-	if len(result.Select.Tasks) != 1 || result.Select.Tasks[0].ID != "TIKI-000002" {
-		t.Fatalf("expected TIKI-000002, got %v", result.Select.Tasks)
+	if len(result.Select.Tikis) != 1 || result.Select.Tikis[0].ID != "TIKI-000002" {
+		t.Fatalf("expected TIKI-000002, got %v", result.Select.Tikis)
 	}
 }
 
@@ -919,13 +919,13 @@ func TestExecuteBlocks(t *testing.T) {
 func TestExecuteCallRejected(t *testing.T) {
 	e := newTestExecutor()
 	p := newTestParser()
-	tasks := makeTasks()
+	tikis := makeTikis()
 
 	stmt, err := p.ParseStatement(`select where call("echo hello") = "hello"`)
 	if err != nil {
 		t.Fatalf("parse: %v", err)
 	}
-	_, err = e.testExec(stmt, tasks)
+	_, err = e.testExec(stmt, tikis)
 	if err == nil {
 		t.Fatal("expected error for call()")
 	}
@@ -951,7 +951,7 @@ func TestExecuteCreateBasic(t *testing.T) {
 	if result.Create == nil {
 		t.Fatal("expected Create result")
 	}
-	tk := result.Create.Task
+	tk := result.Create.Tiki
 	if tk.Title != "Fix login" {
 		t.Errorf("title = %q, want %q", tk.Title, "Fix login")
 	}
@@ -976,8 +976,8 @@ func TestExecuteCreateWithUser(t *testing.T) {
 	if err != nil {
 		t.Fatalf("execute: %v", err)
 	}
-	if result.Create.Task.Assignee != "alice" {
-		t.Errorf("assignee = %q, want %q", result.Create.Task.Assignee, "alice")
+	if result.Create.Tiki.Assignee != "alice" {
+		t.Errorf("assignee = %q, want %q", result.Create.Tiki.Assignee, "alice")
 	}
 }
 
@@ -993,7 +993,7 @@ func TestExecuteCreateEnumCanonicalization(t *testing.T) {
 	if err != nil {
 		t.Fatalf("execute: %v", err)
 	}
-	tk := result.Create.Task
+	tk := result.Create.Tiki
 	if tk.Status != "ready" {
 		t.Errorf("status = %q, want canonical %q", tk.Status, "ready")
 	}
@@ -1071,7 +1071,7 @@ func TestExecuteCreateListField(t *testing.T) {
 	if err != nil {
 		t.Fatalf("execute: %v", err)
 	}
-	tags := result.Create.Task.Tags
+	tags := result.Create.Tiki.Tags
 	if len(tags) != 2 || tags[0] != "a" || tags[1] != "b" {
 		t.Errorf("tags = %v, want [a b]", tags)
 	}
@@ -1089,13 +1089,13 @@ func TestExecuteCreateDateField(t *testing.T) {
 	if err != nil {
 		t.Fatalf("execute: %v", err)
 	}
-	due := result.Create.Task.Due
+	due := result.Create.Tiki.Due
 	if due.Year() != 2026 || due.Month() != 6 || due.Day() != 1 {
 		t.Errorf("due = %v, want 2026-06-01", due)
 	}
 }
 
-func TestExecuteCreateEmptyTasks(t *testing.T) {
+func TestExecuteCreateEmptyTikis(t *testing.T) {
 	e := newTestExecutor()
 	p := newTestParser()
 
@@ -1107,8 +1107,8 @@ func TestExecuteCreateEmptyTasks(t *testing.T) {
 	if err != nil {
 		t.Fatalf("execute: %v", err)
 	}
-	if result.Create.Task.Title != "test" {
-		t.Errorf("title = %q, want %q", result.Create.Task.Title, "test")
+	if result.Create.Tiki.Title != "test" {
+		t.Errorf("title = %q, want %q", result.Create.Tiki.Title, "test")
 	}
 }
 
@@ -1132,7 +1132,7 @@ func TestExecuteCreateWithTemplate(t *testing.T) {
 	if err != nil {
 		t.Fatalf("execute: %v", err)
 	}
-	tk := result.Create.Task
+	tk := result.Create.Tiki
 	// tags should be template's ["idea"] + ["new"]
 	if len(tk.Tags) != 2 || tk.Tags[0] != "idea" || tk.Tags[1] != "new" {
 		t.Errorf("tags = %v, want [idea new]", tk.Tags)
@@ -1155,7 +1155,7 @@ func TestExecuteCreateWithoutTemplate(t *testing.T) {
 	if err != nil {
 		t.Fatalf("execute: %v", err)
 	}
-	tk := result.Create.Task
+	tk := result.Create.Tiki
 	if tk.Title != "x" {
 		t.Errorf("title = %q, want %q", tk.Title, "x")
 	}
@@ -1173,13 +1173,13 @@ func TestExecuteCreateWithoutTemplate(t *testing.T) {
 func TestExecuteDeleteBasic(t *testing.T) {
 	e := newTestExecutor()
 	p := newTestParser()
-	tasks := makeTasks()
+	tikis := makeTikis()
 
 	stmt, err := p.ParseStatement(`delete where id = "TIKI-000001"`)
 	if err != nil {
 		t.Fatalf("parse: %v", err)
 	}
-	result, err := e.testExec(stmt, tasks)
+	result, err := e.testExec(stmt, tikis)
 	if err != nil {
 		t.Fatalf("execute: %v", err)
 	}
@@ -1197,13 +1197,13 @@ func TestExecuteDeleteBasic(t *testing.T) {
 func TestExecuteDeleteMultipleMatches(t *testing.T) {
 	e := newTestExecutor()
 	p := newTestParser()
-	tasks := makeTasks()
+	tikis := makeTikis()
 
 	stmt, err := p.ParseStatement(`delete where type = "story"`)
 	if err != nil {
 		t.Fatalf("parse: %v", err)
 	}
-	result, err := e.testExec(stmt, tasks)
+	result, err := e.testExec(stmt, tikis)
 	if err != nil {
 		t.Fatalf("execute: %v", err)
 	}
@@ -1216,13 +1216,13 @@ func TestExecuteDeleteMultipleMatches(t *testing.T) {
 func TestExecuteDeleteNoMatches(t *testing.T) {
 	e := newTestExecutor()
 	p := newTestParser()
-	tasks := makeTasks()
+	tikis := makeTikis()
 
 	stmt, err := p.ParseStatement(`delete where id = "NONEXISTENT"`)
 	if err != nil {
 		t.Fatalf("parse: %v", err)
 	}
-	result, err := e.testExec(stmt, tasks)
+	result, err := e.testExec(stmt, tikis)
 	if err != nil {
 		t.Fatalf("execute: %v", err)
 	}
@@ -1233,7 +1233,7 @@ func TestExecuteDeleteNoMatches(t *testing.T) {
 
 func TestExecuteDeleteWhereError(t *testing.T) {
 	e := newTestExecutor()
-	tasks := makeTasks()
+	tikis := makeTikis()
 
 	stmt := &Statement{
 		Delete: &DeleteStmt{
@@ -1244,7 +1244,7 @@ func TestExecuteDeleteWhereError(t *testing.T) {
 			},
 		},
 	}
-	_, err := e.testExec(stmt, tasks)
+	_, err := e.testExec(stmt, tikis)
 	if err == nil {
 		t.Fatal("expected error from WHERE evaluation")
 	}
@@ -1255,7 +1255,7 @@ func TestExecuteDeleteWhereError(t *testing.T) {
 func TestExecuteQuantifier(t *testing.T) {
 	e := newTestExecutor()
 	p := newTestParser()
-	tasks := makeTasks()
+	tikis := makeTikis()
 
 	tests := []struct {
 		name      string
@@ -1284,16 +1284,16 @@ func TestExecuteQuantifier(t *testing.T) {
 			if err != nil {
 				t.Fatalf("parse: %v", err)
 			}
-			result, err := e.testExec(stmt, tasks)
+			result, err := e.testExec(stmt, tikis)
 			if err != nil {
 				t.Fatalf("execute: %v", err)
 			}
-			if len(result.Select.Tasks) != tt.wantCount {
-				ids := make([]string, len(result.Select.Tasks))
-				for i, tk := range result.Select.Tasks {
+			if len(result.Select.Tikis) != tt.wantCount {
+				ids := make([]string, len(result.Select.Tikis))
+				for i, tk := range result.Select.Tikis {
 					ids[i] = tk.ID
 				}
-				t.Fatalf("expected %d tasks, got %d: %v", tt.wantCount, len(result.Select.Tasks), ids)
+				t.Fatalf("expected %d tikis, got %d: %v", tt.wantCount, len(result.Select.Tikis), ids)
 			}
 		})
 	}
@@ -1305,7 +1305,7 @@ func TestExecuteDateArithmetic(t *testing.T) {
 	e := newTestExecutor()
 	p := newTestParser()
 
-	tasks := []*tikiFixture{
+	tikis := []*tikiFixture{
 		{ID: "T1", Title: "Soon", Status: "ready", Due: testDate(4, 5)},
 		{ID: "T2", Title: "Later", Status: "ready", Due: testDate(5, 1)},
 	}
@@ -1314,12 +1314,12 @@ func TestExecuteDateArithmetic(t *testing.T) {
 	if err != nil {
 		t.Fatalf("parse: %v", err)
 	}
-	result, err := e.testExec(stmt, tasks)
+	result, err := e.testExec(stmt, tikis)
 	if err != nil {
 		t.Fatalf("execute: %v", err)
 	}
-	if len(result.Select.Tasks) != 1 || result.Select.Tasks[0].ID != "T1" {
-		t.Fatalf("expected T1, got %v", result.Select.Tasks)
+	if len(result.Select.Tikis) != 1 || result.Select.Tikis[0].ID != "T1" {
+		t.Fatalf("expected T1, got %v", result.Select.Tikis)
 	}
 }
 
@@ -1338,7 +1338,7 @@ func TestExecuteQualifiedRefRejected(t *testing.T) {
 		},
 	}
 
-	_, err := e.testExec(stmt, makeTasks())
+	_, err := e.testExec(stmt, makeTikis())
 	if err == nil {
 		t.Fatal("expected error for qualified ref")
 	}
@@ -1353,7 +1353,7 @@ func TestExecuteSortStable(t *testing.T) {
 	e := newTestExecutor()
 	p := newTestParser()
 
-	tasks := []*tikiFixture{
+	tikis := []*tikiFixture{
 		{ID: "T1", Title: "First", Status: "ready", Points: 1},
 		{ID: "T2", Title: "Second", Status: "ready", Points: 1},
 		{ID: "T3", Title: "Third", Status: "ready", Points: 1},
@@ -1364,16 +1364,16 @@ func TestExecuteSortStable(t *testing.T) {
 	if err != nil {
 		t.Fatalf("parse: %v", err)
 	}
-	result, err := e.testExec(stmt, tasks)
+	result, err := e.testExec(stmt, tikis)
 	if err != nil {
 		t.Fatalf("execute: %v", err)
 	}
 
-	// equal-points tasks should preserve input order: T1, T2, T3, T4
+	// equal-points tikis should preserve input order: T1, T2, T3, T4
 	wantIDs := []string{"T1", "T2", "T3", "T4"}
 	for i, wantID := range wantIDs {
-		if result.Select.Tasks[i].ID != wantID {
-			t.Errorf("task[%d].ID = %q, want %q", i, result.Select.Tasks[i].ID, wantID)
+		if result.Select.Tikis[i].ID != wantID {
+			t.Errorf("tiki[%d].ID = %q, want %q", i, result.Select.Tikis[i].ID, wantID)
 		}
 	}
 }
@@ -1392,7 +1392,7 @@ func TestExecuteEmptyStatement(t *testing.T) {
 
 func TestExecuteCompareWithNil(t *testing.T) {
 	e := newTestExecutor()
-	tasks := []*tikiFixture{
+	tikis := []*tikiFixture{
 		{ID: "T1", Title: "x", Status: "ready", Assignee: ""},
 		{ID: "T2", Title: "y", Status: "ready", Assignee: "bob"},
 	}
@@ -1420,16 +1420,16 @@ func TestExecuteCompareWithNil(t *testing.T) {
 					},
 				},
 			}
-			result, err := e.testExec(stmt, tasks)
+			result, err := e.testExec(stmt, tikis)
 			if err != nil {
 				t.Fatalf("execute: %v", err)
 			}
-			if len(result.Select.Tasks) != len(tt.wantIDs) {
-				t.Fatalf("expected %d tasks, got %d", len(tt.wantIDs), len(result.Select.Tasks))
+			if len(result.Select.Tikis) != len(tt.wantIDs) {
+				t.Fatalf("expected %d tikis, got %d", len(tt.wantIDs), len(result.Select.Tikis))
 			}
 			for i, wantID := range tt.wantIDs {
-				if result.Select.Tasks[i].ID != wantID {
-					t.Errorf("task[%d].ID = %q, want %q", i, result.Select.Tasks[i].ID, wantID)
+				if result.Select.Tikis[i].ID != wantID {
+					t.Errorf("tiki[%d].ID = %q, want %q", i, result.Select.Tikis[i].ID, wantID)
 				}
 			}
 		})
@@ -1445,12 +1445,12 @@ func TestExecuteCompareWithNil(t *testing.T) {
 			},
 		},
 	}
-	result, err := e.testExec(stmt, tasks)
+	result, err := e.testExec(stmt, tikis)
 	if err != nil {
 		t.Fatalf("execute: %v", err)
 	}
-	if len(result.Select.Tasks) != 0 {
-		t.Fatalf("expected 0 tasks for < nil, got %d", len(result.Select.Tasks))
+	if len(result.Select.Tikis) != 0 {
+		t.Fatalf("expected 0 tikis for < nil, got %d", len(result.Select.Tikis))
 	}
 }
 
@@ -1458,7 +1458,7 @@ func TestExecuteCompareWithNil(t *testing.T) {
 
 func TestExecuteDurationComparison(t *testing.T) {
 	e := newTestExecutor()
-	tasks := []*tikiFixture{{ID: "T1", Title: "x", Status: "ready"}}
+	tikis := []*tikiFixture{{ID: "T1", Title: "x", Status: "ready"}}
 
 	tests := []struct {
 		name string
@@ -1486,11 +1486,11 @@ func TestExecuteDurationComparison(t *testing.T) {
 					},
 				},
 			}
-			result, err := e.testExec(stmt, tasks)
+			result, err := e.testExec(stmt, tikis)
 			if err != nil {
 				t.Fatalf("execute: %v", err)
 			}
-			got := len(result.Select.Tasks) > 0
+			got := len(result.Select.Tikis) > 0
 			if got != tt.want {
 				t.Fatalf("expected %v, got %v", tt.want, got)
 			}
@@ -1502,7 +1502,7 @@ func TestExecuteDurationComparison(t *testing.T) {
 
 func TestExecuteSubtractValues(t *testing.T) {
 	e := newTestExecutor()
-	tasks := []*tikiFixture{
+	tikis := []*tikiFixture{
 		{ID: "T1", Title: "x", Status: "ready", Points: 10, Due: testDate(6, 15)},
 	}
 
@@ -1542,11 +1542,11 @@ func TestExecuteSubtractValues(t *testing.T) {
 					Where: &CompareExpr{Left: tt.left, Op: tt.op, Right: tt.cmp},
 				},
 			}
-			result, err := e.testExec(stmt, tasks)
+			result, err := e.testExec(stmt, tikis)
 			if err != nil {
 				t.Fatalf("execute: %v", err)
 			}
-			got := len(result.Select.Tasks) > 0
+			got := len(result.Select.Tikis) > 0
 			if got != tt.want {
 				t.Fatalf("expected %v, got %v", tt.want, got)
 			}
@@ -1558,7 +1558,7 @@ func TestExecuteSubtractValues(t *testing.T) {
 
 func TestExecuteAddValuesIntAndString(t *testing.T) {
 	e := newTestExecutor()
-	tasks := []*tikiFixture{
+	tikis := []*tikiFixture{
 		{ID: "T1", Title: "x", Status: "ready"},
 	}
 
@@ -1572,12 +1572,12 @@ func TestExecuteAddValuesIntAndString(t *testing.T) {
 			},
 		},
 	}
-	result, err := e.testExec(stmt, tasks)
+	result, err := e.testExec(stmt, tikis)
 	if err != nil {
 		t.Fatalf("execute: %v", err)
 	}
-	if len(result.Select.Tasks) != 1 {
-		t.Fatalf("expected 1, got %d", len(result.Select.Tasks))
+	if len(result.Select.Tikis) != 1 {
+		t.Fatalf("expected 1, got %d", len(result.Select.Tikis))
 	}
 
 	// string + string
@@ -1590,12 +1590,12 @@ func TestExecuteAddValuesIntAndString(t *testing.T) {
 			},
 		},
 	}
-	result, err = e.testExec(stmt2, tasks)
+	result, err = e.testExec(stmt2, tikis)
 	if err != nil {
 		t.Fatalf("execute: %v", err)
 	}
-	if len(result.Select.Tasks) != 1 {
-		t.Fatalf("expected 1, got %d", len(result.Select.Tasks))
+	if len(result.Select.Tikis) != 1 {
+		t.Fatalf("expected 1, got %d", len(result.Select.Tikis))
 	}
 }
 
@@ -1604,7 +1604,7 @@ func TestExecuteAddValuesIntAndString(t *testing.T) {
 func TestExecuteSortByStatusTypeRecurrence(t *testing.T) {
 	e := newTestExecutor()
 
-	tasks := []*tikiFixture{
+	tikis := []*tikiFixture{
 		{ID: "T1", Title: "a", Status: "done", Type: "bug", Recurrence: "0 0 * * *"},
 		{ID: "T2", Title: "b", Status: "backlog", Type: "story", Recurrence: ""},
 		{ID: "T3", Title: "c", Status: "ready", Type: "epic", Recurrence: "0 0 1 * *"},
@@ -1626,13 +1626,13 @@ func TestExecuteSortByStatusTypeRecurrence(t *testing.T) {
 					OrderBy: []OrderByClause{{Field: tt.field}},
 				},
 			}
-			result, err := e.testExec(stmt, tasks)
+			result, err := e.testExec(stmt, tikis)
 			if err != nil {
 				t.Fatalf("execute: %v", err)
 			}
 			for i, wantID := range tt.wantIDs {
-				if result.Select.Tasks[i].ID != wantID {
-					t.Errorf("task[%d].ID = %q, want %q", i, result.Select.Tasks[i].ID, wantID)
+				if result.Select.Tikis[i].ID != wantID {
+					t.Errorf("tiki[%d].ID = %q, want %q", i, result.Select.Tikis[i].ID, wantID)
 				}
 			}
 		})
@@ -1710,7 +1710,7 @@ func TestIsZeroValue(t *testing.T) {
 
 func TestDurationLiteralUnknownUnitError(t *testing.T) {
 	e := &Executor{}
-	tasks := []*tikiFixture{{ID: "TIKI-AAA001", Title: "test"}}
+	tikis := []*tikiFixture{{ID: "TIKI-AAA001", Title: "test"}}
 	// unknown unit should produce an error, not silently default to days
 	stmt, err := newTestParser().ParseStatement(`select where due > 2026-01-01 + 1day`)
 	if err != nil {
@@ -1728,7 +1728,7 @@ func TestDurationLiteralUnknownUnitError(t *testing.T) {
 	}
 	add.Right = &DurationLiteral{Value: 1, Unit: "bogus"}
 
-	_, err = e.testExec(stmt, tasks)
+	_, err = e.testExec(stmt, tikis)
 	if err == nil {
 		t.Fatal("expected error for unknown duration unit, got nil")
 	}
@@ -1807,7 +1807,7 @@ func TestToInt(t *testing.T) {
 
 func TestExecuteCountNoWhere(t *testing.T) {
 	e := newTestExecutor()
-	tasks := makeTasks()
+	tikis := makeTikis()
 
 	stmt := &Statement{
 		Select: &SelectStmt{
@@ -1821,12 +1821,12 @@ func TestExecuteCountNoWhere(t *testing.T) {
 			},
 		},
 	}
-	result, err := e.testExec(stmt, tasks)
+	result, err := e.testExec(stmt, tikis)
 	if err != nil {
 		t.Fatalf("execute: %v", err)
 	}
-	if len(result.Select.Tasks) != 4 {
-		t.Fatalf("expected 4, got %d", len(result.Select.Tasks))
+	if len(result.Select.Tikis) != 4 {
+		t.Fatalf("expected 4, got %d", len(result.Select.Tikis))
 	}
 }
 
@@ -1835,7 +1835,7 @@ func TestExecuteCountNoWhere(t *testing.T) {
 func TestExecuteIDNotEqual(t *testing.T) {
 	e := newTestExecutor()
 	p := newTestParser()
-	tasks := []*tikiFixture{
+	tikis := []*tikiFixture{
 		{ID: "TIKI-A", Title: "a", Status: "ready"},
 		{ID: "TIKI-B", Title: "b", Status: "ready"},
 	}
@@ -1844,12 +1844,12 @@ func TestExecuteIDNotEqual(t *testing.T) {
 	if err != nil {
 		t.Fatalf("parse: %v", err)
 	}
-	result, err := e.testExec(stmt, tasks)
+	result, err := e.testExec(stmt, tikis)
 	if err != nil {
 		t.Fatalf("execute: %v", err)
 	}
-	if len(result.Select.Tasks) != 1 || result.Select.Tasks[0].ID != "TIKI-B" {
-		t.Fatalf("expected TIKI-B only, got %v", result.Select.Tasks)
+	if len(result.Select.Tikis) != 1 || result.Select.Tikis[0].ID != "TIKI-B" {
+		t.Fatalf("expected TIKI-B only, got %v", result.Select.Tikis)
 	}
 }
 
@@ -1857,10 +1857,10 @@ func TestExecuteIDNotEqual(t *testing.T) {
 
 func TestExecuteRecurrenceComparison(t *testing.T) {
 	e := newTestExecutor()
-	// Phase 4: fixture helper makes both tasks carry a present
+	// Phase 4: fixture helper makes both tikis carry a present
 	// recurrence (T2 is present-empty ""), so self-comparison matches
 	// both rows.
-	tasks := []*tikiFixture{
+	tikis := []*tikiFixture{
 		{ID: "T1", Title: "x", Status: "ready", Recurrence: value.RecurrenceDaily},
 		{ID: "T2", Title: "y", Status: "ready", Recurrence: value.RecurrenceNone},
 	}
@@ -1874,12 +1874,12 @@ func TestExecuteRecurrenceComparison(t *testing.T) {
 			},
 		},
 	}
-	result, err := e.testExec(stmt, tasks)
+	result, err := e.testExec(stmt, tikis)
 	if err != nil {
 		t.Fatalf("execute: %v", err)
 	}
-	if len(result.Select.Tasks) != 2 {
-		t.Fatalf("expected 2 (both tasks carry present recurrence), got %d", len(result.Select.Tasks))
+	if len(result.Select.Tikis) != 2 {
+		t.Fatalf("expected 2 (both tikis carry present recurrence), got %d", len(result.Select.Tikis))
 	}
 }
 
@@ -1887,7 +1887,7 @@ func TestExecuteRecurrenceComparison(t *testing.T) {
 
 func TestExecuteEnumComparisonRejectsStaleValues(t *testing.T) {
 	e := newTestExecutor()
-	tasks := []*tikiFixture{
+	tikis := []*tikiFixture{
 		{ID: "T1", Title: "x", Status: "unknown_status_xyz", Type: "unknown_type_xyz"},
 	}
 
@@ -1900,7 +1900,7 @@ func TestExecuteEnumComparisonRejectsStaleValues(t *testing.T) {
 			},
 		},
 	}
-	_, err := e.testExec(stmt, tasks)
+	_, err := e.testExec(stmt, tikis)
 	if err == nil || !strings.Contains(err.Error(), `invalid enum value "unknown_status_xyz"`) {
 		t.Fatalf("expected invalid enum value error, got: %v", err)
 	}
@@ -1914,7 +1914,7 @@ func TestExecuteEnumComparisonRejectsStaleValues(t *testing.T) {
 			},
 		},
 	}
-	_, err = e.testExec(stmt2, tasks)
+	_, err = e.testExec(stmt2, tikis)
 	if err == nil || !strings.Contains(err.Error(), `invalid enum value "unknown_type_xyz"`) {
 		t.Fatalf("expected invalid enum value error, got: %v", err)
 	}
@@ -1926,7 +1926,7 @@ func TestExecuteTimeComparisonAllOps(t *testing.T) {
 	e := newTestExecutor()
 	d1 := testDate(3, 1)
 	d2 := testDate(6, 1)
-	tasks := []*tikiFixture{{ID: "T1", Title: "x", Status: "ready"}}
+	tikis := []*tikiFixture{{ID: "T1", Title: "x", Status: "ready"}}
 
 	tests := []struct {
 		name string
@@ -1953,11 +1953,11 @@ func TestExecuteTimeComparisonAllOps(t *testing.T) {
 					},
 				},
 			}
-			result, err := e.testExec(stmt, tasks)
+			result, err := e.testExec(stmt, tikis)
 			if err != nil {
 				t.Fatalf("execute: %v", err)
 			}
-			got := len(result.Select.Tasks) > 0
+			got := len(result.Select.Tikis) > 0
 			if got != tt.want {
 				t.Fatalf("expected %v, got %v", tt.want, got)
 			}
@@ -1969,7 +1969,7 @@ func TestExecuteTimeComparisonAllOps(t *testing.T) {
 
 func TestExecuteErrorPropagation(t *testing.T) {
 	e := newTestExecutor()
-	tasks := makeTasks()
+	tikis := makeTikis()
 
 	badExpr := &QualifiedRef{Qualifier: "old", Name: "status"}
 
@@ -2133,7 +2133,7 @@ func TestExecuteErrorPropagation(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			_, err := e.testExec(tt.stmt, tasks)
+			_, err := e.testExec(tt.stmt, tikis)
 			if err == nil {
 				t.Fatal("expected error")
 			}
@@ -2145,7 +2145,7 @@ func TestExecuteErrorPropagation(t *testing.T) {
 
 func TestExecuteInSubstringLiteral(t *testing.T) {
 	e := newTestExecutor()
-	tasks := []*tikiFixture{{ID: "T1", Title: "x", Status: "ready"}}
+	tikis := []*tikiFixture{{ID: "T1", Title: "x", Status: "ready"}}
 
 	stmt := &Statement{
 		Select: &SelectStmt{
@@ -2155,13 +2155,13 @@ func TestExecuteInSubstringLiteral(t *testing.T) {
 			},
 		},
 	}
-	result, err := e.testExec(stmt, tasks)
+	result, err := e.testExec(stmt, tikis)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 	// "x" is not a substring of "not a list" → no match
-	if len(result.Select.Tasks) != 0 {
-		t.Fatalf("expected 0 tasks, got %d", len(result.Select.Tasks))
+	if len(result.Select.Tikis) != 0 {
+		t.Fatalf("expected 0 tikis, got %d", len(result.Select.Tikis))
 	}
 }
 
@@ -2169,7 +2169,7 @@ func TestExecuteInSubstringLiteral(t *testing.T) {
 
 func TestExecuteInNonListNonString(t *testing.T) {
 	e := newTestExecutor()
-	tasks := []*tikiFixture{{ID: "T1", Title: "x", Status: "ready"}}
+	tikis := []*tikiFixture{{ID: "T1", Title: "x", Status: "ready"}}
 
 	t.Run("int collection", func(t *testing.T) {
 		stmt := &Statement{
@@ -2180,7 +2180,7 @@ func TestExecuteInNonListNonString(t *testing.T) {
 				},
 			},
 		}
-		_, err := e.testExec(stmt, tasks)
+		_, err := e.testExec(stmt, tikis)
 		if err == nil || !strings.Contains(err.Error(), "not a list or string") {
 			t.Fatalf("expected 'not a list or string' error, got: %v", err)
 		}
@@ -2195,7 +2195,7 @@ func TestExecuteInNonListNonString(t *testing.T) {
 				},
 			},
 		}
-		_, err := e.testExec(stmt, tasks)
+		_, err := e.testExec(stmt, tikis)
 		if err == nil || !strings.Contains(err.Error(), "substring check requires string value") {
 			t.Fatalf("expected 'substring check requires string value' error, got: %v", err)
 		}
@@ -2206,7 +2206,7 @@ func TestExecuteInNonListNonString(t *testing.T) {
 
 func TestExecuteQuantifierNonList(t *testing.T) {
 	e := newTestExecutor()
-	tasks := []*tikiFixture{{ID: "T1", Title: "x", Status: "ready"}}
+	tikis := []*tikiFixture{{ID: "T1", Title: "x", Status: "ready"}}
 
 	stmt := &Statement{
 		Select: &SelectStmt{
@@ -2217,7 +2217,7 @@ func TestExecuteQuantifierNonList(t *testing.T) {
 			},
 		},
 	}
-	_, err := e.testExec(stmt, tasks)
+	_, err := e.testExec(stmt, tikis)
 	if err == nil || !strings.Contains(err.Error(), "not a list") {
 		t.Fatalf("expected 'not a list' error, got: %v", err)
 	}
@@ -2227,7 +2227,7 @@ func TestExecuteQuantifierNonList(t *testing.T) {
 
 func TestExecuteNextDateNonRecurrence(t *testing.T) {
 	e := newTestExecutor()
-	tasks := []*tikiFixture{{ID: "T1", Title: "x", Status: "ready"}}
+	tikis := []*tikiFixture{{ID: "T1", Title: "x", Status: "ready"}}
 
 	stmt := &Statement{
 		Select: &SelectStmt{
@@ -2238,7 +2238,7 @@ func TestExecuteNextDateNonRecurrence(t *testing.T) {
 			},
 		},
 	}
-	_, err := e.testExec(stmt, tasks)
+	_, err := e.testExec(stmt, tikis)
 	if err == nil || !strings.Contains(err.Error(), "recurrence") {
 		t.Fatalf("expected recurrence error, got: %v", err)
 	}
@@ -2267,12 +2267,12 @@ func TestEvalNextEnum_Clamps(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			tasks := []*tikiFixture{{ID: tt.startID, Title: "x", Status: tt.startSt}}
+			tikis := []*tikiFixture{{ID: tt.startID, Title: "x", Status: tt.startSt}}
 			stmt, err := p.ParseStatement(`update where id = "` + tt.startID + `" set status=next_enum(status)`)
 			if err != nil {
 				t.Fatalf("parse: %v", err)
 			}
-			result, err := e.testExec(stmt, tasks)
+			result, err := e.testExec(stmt, tikis)
 			if err != nil {
 				t.Fatalf("execute: %v", err)
 			}
@@ -2303,12 +2303,12 @@ func TestEvalPrevEnum_Clamps(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			tasks := []*tikiFixture{{ID: tt.startID, Title: "x", Status: tt.startSt}}
+			tikis := []*tikiFixture{{ID: tt.startID, Title: "x", Status: tt.startSt}}
 			stmt, err := p.ParseStatement(`update where id = "` + tt.startID + `" set status=prev_enum(status)`)
 			if err != nil {
 				t.Fatalf("parse: %v", err)
 			}
-			result, err := e.testExec(stmt, tasks)
+			result, err := e.testExec(stmt, tikis)
 			if err != nil {
 				t.Fatalf("execute: %v", err)
 			}
@@ -2329,7 +2329,7 @@ func TestEvalNextEnum_RankAwareComparison(t *testing.T) {
 	e := newTestExecutor()
 	p := newTestParser()
 
-	// Three tasks ranked across the priority enum [high, medium-high,
+	// Three tikis ranked across the priority enum [high, medium-high,
 	// medium, medium-low, low]. With rank-aware comparison:
 	//   next_enum(priority) advances toward "low" (less urgent).
 	//   T1 priority=high   → next_enum=medium-high → ranks as "less urgent than high"
@@ -2338,12 +2338,12 @@ func TestEvalNextEnum_RankAwareComparison(t *testing.T) {
 	// `where next_enum(priority) < "low"` (rank-aware) means "result
 	// ranks higher than 'low'", i.e. T1 and T2 match. With buggy string
 	// compare, the result would be unstable (depends on key spelling).
-	tasks := []*tikiFixture{
+	fixtures := []*tikiFixture{
 		{ID: "T1", Title: "x", Status: "ready"},
 		{ID: "T2", Title: "y", Status: "ready"},
 		{ID: "T3", Title: "z", Status: "ready"},
 	}
-	tikis := tikisFromFixtures(tasks)
+	tikis := tikisFromFixtures(fixtures)
 	tikis[0].Set("priority", "high")
 	tikis[1].Set("priority", "medium")
 	tikis[2].Set("priority", "low")
@@ -2400,7 +2400,7 @@ func TestEvalNextEnum_NonEnumArgErrors(t *testing.T) {
 
 func TestExecuteCountNonSubquery(t *testing.T) {
 	e := newTestExecutor()
-	tasks := []*tikiFixture{{ID: "T1", Title: "x", Status: "ready"}}
+	tikis := []*tikiFixture{{ID: "T1", Title: "x", Status: "ready"}}
 
 	stmt := &Statement{
 		Select: &SelectStmt{
@@ -2411,7 +2411,7 @@ func TestExecuteCountNonSubquery(t *testing.T) {
 			},
 		},
 	}
-	_, err := e.testExec(stmt, tasks)
+	_, err := e.testExec(stmt, tikis)
 	if err == nil || !strings.Contains(err.Error(), "subquery") {
 		t.Fatalf("expected subquery error, got: %v", err)
 	}
@@ -2419,7 +2419,7 @@ func TestExecuteCountNonSubquery(t *testing.T) {
 
 // --- quantifier condition error propagation ---
 //
-// Phase 4: per-ref-task condition evaluation inside a quantifier body is
+// Phase 4: per-ref-tiki condition evaluation inside a quantifier body is
 // treated as a subquery iteration and soft-false on error (so an absent
 // field on one ref doesn't abort the outer query). The quantifier itself
 // still reports unknown-kind errors synchronously.
@@ -2428,7 +2428,7 @@ func TestExecuteQuantifierConditionError(t *testing.T) {
 	e := newTestExecutor()
 	// unknown quantifier kind still errors — this is a structural error,
 	// not a per-row one.
-	tasks := []*tikiFixture{
+	tikis := []*tikiFixture{
 		{ID: "T1", Title: "x", Status: "ready", DependsOn: []string{"T2"}},
 		{ID: "T2", Title: "y", Status: "done"},
 	}
@@ -2438,7 +2438,7 @@ func TestExecuteQuantifierConditionError(t *testing.T) {
 			Condition: &CompareExpr{Left: &IntLiteral{Value: 1}, Op: "=", Right: &IntLiteral{Value: 1}},
 		},
 	}}
-	_, err := e.testExec(stmt3, tasks)
+	_, err := e.testExec(stmt3, tikis)
 	if err == nil || !strings.Contains(err.Error(), "unknown quantifier") {
 		t.Fatalf("expected unknown quantifier error, got: %v", err)
 	}
@@ -2452,7 +2452,7 @@ func TestExecuteQuantifierConditionError(t *testing.T) {
 
 func TestExecuteCountSubquerySoftFalse(t *testing.T) {
 	e := newTestExecutor()
-	tasks := makeTasks()
+	tikis := makeTikis()
 
 	// The subquery references an `old.status` that only resolves in trigger
 	// contexts — here it errors on every candidate and soft-falses, so
@@ -2468,18 +2468,18 @@ func TestExecuteCountSubquerySoftFalse(t *testing.T) {
 			Right: &IntLiteral{Value: 0},
 		},
 	}}
-	result, err := e.testExec(stmt, tasks)
+	result, err := e.testExec(stmt, tikis)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if len(result.Select.Tasks) != len(tasks) {
-		t.Fatalf("count should equal 0 for every row, matched %d of %d", len(result.Select.Tasks), len(tasks))
+	if len(result.Select.Tikis) != len(tikis) {
+		t.Fatalf("count should equal 0 for every row, matched %d of %d", len(result.Select.Tikis), len(tikis))
 	}
 }
 
 func TestExecuteExistsSubquerySoftFalse(t *testing.T) {
 	e := newTestExecutor()
-	tasks := makeTasks()
+	tikis := makeTikis()
 
 	stmt := &Statement{Select: &SelectStmt{
 		Where: &BoolExprCondition{
@@ -2490,12 +2490,12 @@ func TestExecuteExistsSubquerySoftFalse(t *testing.T) {
 			}},
 		},
 	}}
-	result, err := e.testExec(stmt, tasks)
+	result, err := e.testExec(stmt, tikis)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if len(result.Select.Tasks) != 0 {
-		t.Fatalf("exists should return false (all rows soft-false), matched %d", len(result.Select.Tasks))
+	if len(result.Select.Tikis) != 0 {
+		t.Fatalf("exists should return false (all rows soft-false), matched %d", len(result.Select.Tikis))
 	}
 }
 
@@ -2503,7 +2503,7 @@ func TestExecuteExistsSubquerySoftFalse(t *testing.T) {
 
 func TestExecuteResolveComparisonTypeRightSide(t *testing.T) {
 	e := newTestExecutor()
-	tasks := []*tikiFixture{
+	tikis := []*tikiFixture{
 		{ID: "TIKI-A", Title: "x", Status: "ready", Type: "story"},
 	}
 
@@ -2515,12 +2515,12 @@ func TestExecuteResolveComparisonTypeRightSide(t *testing.T) {
 			Right: &FieldRef{Name: "id"},
 		},
 	}}
-	result, err := e.testExec(stmt, tasks)
+	result, err := e.testExec(stmt, tikis)
 	if err != nil {
 		t.Fatalf("execute: %v", err)
 	}
-	if len(result.Select.Tasks) != 1 {
-		t.Fatalf("expected 1, got %d", len(result.Select.Tasks))
+	if len(result.Select.Tikis) != 1 {
+		t.Fatalf("expected 1, got %d", len(result.Select.Tikis))
 	}
 
 	// literal on left, status field on right
@@ -2531,12 +2531,12 @@ func TestExecuteResolveComparisonTypeRightSide(t *testing.T) {
 			Right: &FieldRef{Name: "status"},
 		},
 	}}
-	result, err = e.testExec(stmt2, tasks)
+	result, err = e.testExec(stmt2, tikis)
 	if err != nil {
 		t.Fatalf("execute: %v", err)
 	}
-	if len(result.Select.Tasks) != 1 {
-		t.Fatalf("expected 1 (READY->ready), got %d", len(result.Select.Tasks))
+	if len(result.Select.Tikis) != 1 {
+		t.Fatalf("expected 1 (READY->ready), got %d", len(result.Select.Tikis))
 	}
 
 	// literal on left, type field on right.
@@ -2547,12 +2547,12 @@ func TestExecuteResolveComparisonTypeRightSide(t *testing.T) {
 			Right: &FieldRef{Name: "type"},
 		},
 	}}
-	result, err = e.testExec(stmt3, tasks)
+	result, err = e.testExec(stmt3, tikis)
 	if err != nil {
 		t.Fatalf("execute: %v", err)
 	}
-	if len(result.Select.Tasks) != 1 {
-		t.Fatalf("expected 1 (BUG differs from story), got %d", len(result.Select.Tasks))
+	if len(result.Select.Tikis) != 1 {
+		t.Fatalf("expected 1 (BUG differs from story), got %d", len(result.Select.Tikis))
 	}
 }
 
@@ -2582,10 +2582,10 @@ func (*fakeCondition) conditionNode() {}
 
 func TestExecuteUnknownConditionType(t *testing.T) {
 	e := newTestExecutor()
-	tasks := []*tikiFixture{{ID: "T1", Title: "x", Status: "ready"}}
+	tikis := []*tikiFixture{{ID: "T1", Title: "x", Status: "ready"}}
 
 	stmt := &Statement{Select: &SelectStmt{Where: &fakeCondition{}}}
-	_, err := e.testExec(stmt, tasks)
+	_, err := e.testExec(stmt, tikis)
 	if err == nil || !strings.Contains(err.Error(), "unknown condition type") {
 		t.Fatalf("expected unknown condition type error, got: %v", err)
 	}
@@ -2595,7 +2595,7 @@ func TestExecuteUnknownConditionType(t *testing.T) {
 
 func TestExecuteUnknownBinaryConditionOp(t *testing.T) {
 	e := newTestExecutor()
-	tasks := []*tikiFixture{{ID: "T1", Title: "x", Status: "ready"}}
+	tikis := []*tikiFixture{{ID: "T1", Title: "x", Status: "ready"}}
 
 	stmt := &Statement{Select: &SelectStmt{
 		Where: &BinaryCondition{
@@ -2604,7 +2604,7 @@ func TestExecuteUnknownBinaryConditionOp(t *testing.T) {
 			Right: &CompareExpr{Left: &IntLiteral{Value: 1}, Op: "=", Right: &IntLiteral{Value: 1}},
 		},
 	}}
-	_, err := e.testExec(stmt, tasks)
+	_, err := e.testExec(stmt, tikis)
 	if err == nil || !strings.Contains(err.Error(), "unknown binary operator") {
 		t.Fatalf("expected unknown binary operator error, got: %v", err)
 	}
@@ -2618,12 +2618,12 @@ func (*fakeExpr) exprNode() {}
 
 func TestExecuteUnknownExprType(t *testing.T) {
 	e := newTestExecutor()
-	tasks := []*tikiFixture{{ID: "T1", Title: "x", Status: "ready"}}
+	tikis := []*tikiFixture{{ID: "T1", Title: "x", Status: "ready"}}
 
 	stmt := &Statement{Select: &SelectStmt{
 		Where: &CompareExpr{Left: &fakeExpr{}, Op: "=", Right: &IntLiteral{Value: 1}},
 	}}
-	_, err := e.testExec(stmt, tasks)
+	_, err := e.testExec(stmt, tikis)
 	if err == nil || !strings.Contains(err.Error(), "unknown expression type") {
 		t.Fatalf("expected unknown expression type error, got: %v", err)
 	}
@@ -2633,7 +2633,7 @@ func TestExecuteUnknownExprType(t *testing.T) {
 
 func TestExecuteBlocksNoBlockers(t *testing.T) {
 	e := newTestExecutor()
-	tasks := []*tikiFixture{
+	tikis := []*tikiFixture{
 		{ID: "T1", Title: "x", Status: "ready"},
 		{ID: "T2", Title: "y", Status: "ready"},
 	}
@@ -2645,13 +2645,13 @@ func TestExecuteBlocksNoBlockers(t *testing.T) {
 			Right: &ListLiteral{Elements: nil},
 		},
 	}}
-	result, err := e.testExec(stmt, tasks)
+	result, err := e.testExec(stmt, tikis)
 	if err != nil {
 		t.Fatalf("execute: %v", err)
 	}
-	// no task depends on any other, so blocks() returns [] for all → all match
-	if len(result.Select.Tasks) != 2 {
-		t.Fatalf("expected 2, got %d", len(result.Select.Tasks))
+	// no tiki depends on any other, so blocks() returns [] for all → all match
+	if len(result.Select.Tikis) != 2 {
+		t.Fatalf("expected 2, got %d", len(result.Select.Tikis))
 	}
 }
 
@@ -2659,7 +2659,7 @@ func TestExecuteBlocksNoBlockers(t *testing.T) {
 
 func TestExecuteNow(t *testing.T) {
 	e := newTestExecutor()
-	tasks := []*tikiFixture{
+	tikis := []*tikiFixture{
 		{ID: "T1", Title: "x", Status: "ready", Due: testDate(12, 31)},
 	}
 
@@ -2670,23 +2670,23 @@ func TestExecuteNow(t *testing.T) {
 			Right: &FunctionCall{Name: "now", Args: nil},
 		},
 	}}
-	result, err := e.testExec(stmt, tasks)
+	result, err := e.testExec(stmt, tikis)
 	if err != nil {
 		t.Fatalf("execute: %v", err)
 	}
 	// 2026-12-31 should be after now
-	if len(result.Select.Tasks) != 1 {
-		t.Fatalf("expected 1, got %d", len(result.Select.Tasks))
+	if len(result.Select.Tikis) != 1 {
+		t.Fatalf("expected 1, got %d", len(result.Select.Tikis))
 	}
 }
 
 // --- sort by status and type (covers compareForSort branches already
-// tested via TestCompareForSort, but exercises them through sortTasks) ---
+// tested via TestCompareForSort, but exercises them through sortTikis) ---
 
 func TestExecuteSortByStatus(t *testing.T) {
 	e := newTestExecutor()
 
-	tasks := []*tikiFixture{
+	tikis := []*tikiFixture{
 		{ID: "T1", Title: "a", Status: "ready"},
 		{ID: "T2", Title: "b", Status: "done"},
 		{ID: "T3", Title: "c", Status: "backlog"},
@@ -2695,13 +2695,13 @@ func TestExecuteSortByStatus(t *testing.T) {
 	stmt := &Statement{Select: &SelectStmt{
 		OrderBy: []OrderByClause{{Field: "status", Desc: true}},
 	}}
-	result, err := e.testExec(stmt, tasks)
+	result, err := e.testExec(stmt, tikis)
 	if err != nil {
 		t.Fatalf("execute: %v", err)
 	}
 	// desc follows declared status order: done > ready > backlog.
-	if result.Select.Tasks[0].ID != "T2" {
-		t.Errorf("expected T2 first (done), got %s", result.Select.Tasks[0].ID)
+	if result.Select.Tikis[0].ID != "T2" {
+		t.Errorf("expected T2 first (done), got %s", result.Select.Tikis[0].ID)
 	}
 }
 
@@ -2709,7 +2709,7 @@ func TestExecuteSortByTypeDeclaredOrder(t *testing.T) {
 	e := newTestExecutor()
 	p := newTestParser()
 
-	tasks := []*tikiFixture{
+	tikis := []*tikiFixture{
 		{ID: "T1", Title: "a", Status: "ready", Type: "epic"},
 		{ID: "T2", Title: "b", Status: "ready", Type: "story"},
 		{ID: "T3", Title: "c", Status: "ready", Type: "bug"},
@@ -2719,13 +2719,13 @@ func TestExecuteSortByTypeDeclaredOrder(t *testing.T) {
 	if err != nil {
 		t.Fatalf("parse: %v", err)
 	}
-	result, err := e.testExec(stmt, tasks)
+	result, err := e.testExec(stmt, tikis)
 	if err != nil {
 		t.Fatalf("execute: %v", err)
 	}
 
 	wantIDs := []string{"T2", "T3", "T1"}
-	if got := tikiIDs(result.Select.Tasks); !reflect.DeepEqual(got, wantIDs) {
+	if got := tikiIDs(result.Select.Tikis); !reflect.DeepEqual(got, wantIDs) {
 		t.Fatalf("sorted IDs = %v, want %v", got, wantIDs)
 	}
 }
@@ -2734,7 +2734,7 @@ func TestExecuteEnumRelationalComparisonUsesDeclaredOrder(t *testing.T) {
 	e := newTestExecutor()
 	p := newTestParser()
 
-	tasks := []*tikiFixture{
+	tikis := []*tikiFixture{
 		{ID: "T1", Title: "a", Status: "backlog"},
 		{ID: "T2", Title: "b", Status: "ready"},
 		{ID: "T3", Title: "c", Status: "done"},
@@ -2744,13 +2744,13 @@ func TestExecuteEnumRelationalComparisonUsesDeclaredOrder(t *testing.T) {
 	if err != nil {
 		t.Fatalf("parse: %v", err)
 	}
-	result, err := e.testExec(stmt, tasks)
+	result, err := e.testExec(stmt, tikis)
 	if err != nil {
 		t.Fatalf("execute: %v", err)
 	}
 
 	wantIDs := []string{"T1", "T2"}
-	if got := tikiIDs(result.Select.Tasks); !reflect.DeepEqual(got, wantIDs) {
+	if got := tikiIDs(result.Select.Tikis); !reflect.DeepEqual(got, wantIDs) {
 		t.Fatalf("selected IDs = %v, want %v", got, wantIDs)
 	}
 }
@@ -2759,7 +2759,7 @@ func TestExecuteEnumRelationalComparisonUsesDeclaredOrder(t *testing.T) {
 
 func TestExecuteCompareUnsupportedType(t *testing.T) {
 	e := newTestExecutor()
-	tasks := []*tikiFixture{{ID: "T1", Title: "x", Status: "ready"}}
+	tikis := []*tikiFixture{{ID: "T1", Title: "x", Status: "ready"}}
 
 	// DurationLiteral on left compared with int on right — type mismatch
 	stmt := &Statement{Select: &SelectStmt{
@@ -2769,7 +2769,7 @@ func TestExecuteCompareUnsupportedType(t *testing.T) {
 			Right: &IntLiteral{Value: 1},
 		},
 	}}
-	_, err := e.testExec(stmt, tasks)
+	_, err := e.testExec(stmt, tikis)
 	if err == nil {
 		t.Fatal("expected type mismatch error")
 	}
@@ -2849,14 +2849,14 @@ func TestCompareValuesNonFieldContext(t *testing.T) {
 func TestExecuteQuantifierAllFailing(t *testing.T) {
 	e := newTestExecutor()
 	// Phase 4: the fixture helper emits present-empty dependsOn for
-	// every workflow-declaring task, so `all status = "done"` is
+	// every workflow-declaring tiki, so `all status = "done"` is
 	// vacuously true for T2/T3. T1 has real deps but not all are
 	// done (T3 is ready) → false. Only T2 matches because it has
 	// vacuous-true (empty deps) AND status=done predicate applies at
 	// the body level? No — the quantifier body evaluates on referenced
-	// tasks, not the outer row, and T2/T3 have empty deps → vacuous
+	// tikis, not the outer row, and T2/T3 have empty deps → vacuous
 	// truth regardless of body. So T2 and T3 match.
-	tasks := []*tikiFixture{
+	tikis := []*tikiFixture{
 		{ID: "T1", Title: "x", Status: "ready", DependsOn: []string{"T2", "T3"}},
 		{ID: "T2", Title: "y", Status: "done"},
 		{ID: "T3", Title: "z", Status: "ready"},
@@ -2866,26 +2866,26 @@ func TestExecuteQuantifierAllFailing(t *testing.T) {
 	if err != nil {
 		t.Fatalf("parse: %v", err)
 	}
-	result, err := e.testExec(stmt, tasks)
+	result, err := e.testExec(stmt, tikis)
 	if err != nil {
 		t.Fatalf("execute: %v", err)
 	}
 	// T1 fails (one dep not done). T2/T3 are vacuous-true.
-	if len(result.Select.Tasks) != 2 {
-		ids := make([]string, len(result.Select.Tasks))
-		for i, tk := range result.Select.Tasks {
+	if len(result.Select.Tikis) != 2 {
+		ids := make([]string, len(result.Select.Tikis))
+		for i, tk := range result.Select.Tikis {
 			ids[i] = tk.ID
 		}
-		t.Fatalf("expected 2 tasks (T2,T3 vacuous-true), got %d: %v", len(result.Select.Tasks), ids)
+		t.Fatalf("expected 2 tikis (T2,T3 vacuous-true), got %d: %v", len(result.Select.Tikis), ids)
 	}
 }
 
 func TestExecuteQuantifierAllPassing(t *testing.T) {
 	e := newTestExecutor()
-	// Phase 4: helper gives every workflow task present-empty
+	// Phase 4: helper gives every workflow tiki present-empty
 	// dependsOn, so `all` is vacuously true for T2/T3 and actually
 	// true for T1 (both deps status=done).
-	tasks := []*tikiFixture{
+	tikis := []*tikiFixture{
 		{ID: "T1", Title: "x", Status: "ready", DependsOn: []string{"T2", "T3"}},
 		{ID: "T2", Title: "y", Status: "done"},
 		{ID: "T3", Title: "z", Status: "done"},
@@ -2895,13 +2895,13 @@ func TestExecuteQuantifierAllPassing(t *testing.T) {
 	if err != nil {
 		t.Fatalf("parse: %v", err)
 	}
-	result, err := e.testExec(stmt, tasks)
+	result, err := e.testExec(stmt, tikis)
 	if err != nil {
 		t.Fatalf("execute: %v", err)
 	}
-	if len(result.Select.Tasks) != 3 {
-		ids := make([]string, len(result.Select.Tasks))
-		for i, tk := range result.Select.Tasks {
+	if len(result.Select.Tikis) != 3 {
+		ids := make([]string, len(result.Select.Tikis))
+		for i, tk := range result.Select.Tikis {
 			ids[i] = tk.ID
 		}
 		t.Fatalf("expected all 3 matches, got %v", ids)
@@ -2913,7 +2913,7 @@ func TestExecuteQuantifierAllPassing(t *testing.T) {
 func TestExecuteUpdateSingleField(t *testing.T) {
 	e := newTestExecutor()
 	p := newTestParser()
-	tasks := []*tikiFixture{
+	tikis := []*tikiFixture{
 		{ID: "TIKI-000001", Title: "old title", Status: "ready"},
 	}
 
@@ -2921,7 +2921,7 @@ func TestExecuteUpdateSingleField(t *testing.T) {
 	if err != nil {
 		t.Fatalf("parse: %v", err)
 	}
-	result, err := e.testExec(stmt, tasks)
+	result, err := e.testExec(stmt, tikis)
 	if err != nil {
 		t.Fatalf("execute: %v", err)
 	}
@@ -2929,7 +2929,7 @@ func TestExecuteUpdateSingleField(t *testing.T) {
 		t.Fatal("expected Update result")
 	}
 	if len(result.Update.Updated) != 1 {
-		t.Fatalf("expected 1 updated task, got %d", len(result.Update.Updated))
+		t.Fatalf("expected 1 updated tiki, got %d", len(result.Update.Updated))
 	}
 	if result.Update.Updated[0].Title != "new title" {
 		t.Errorf("expected title 'new title', got %q", result.Update.Updated[0].Title)
@@ -2939,7 +2939,7 @@ func TestExecuteUpdateSingleField(t *testing.T) {
 func TestExecuteUpdateMultipleFields(t *testing.T) {
 	e := newTestExecutor()
 	p := newTestParser()
-	tasks := []*tikiFixture{
+	tikis := []*tikiFixture{
 		{ID: "TIKI-000001", Title: "x", Status: "ready"},
 	}
 
@@ -2947,7 +2947,7 @@ func TestExecuteUpdateMultipleFields(t *testing.T) {
 	if err != nil {
 		t.Fatalf("parse: %v", err)
 	}
-	result, err := e.testExec(stmt, tasks)
+	result, err := e.testExec(stmt, tikis)
 	if err != nil {
 		t.Fatalf("execute: %v", err)
 	}
@@ -2961,10 +2961,10 @@ func TestExecuteUpdateMultipleFields(t *testing.T) {
 	}
 }
 
-func TestExecuteUpdateMatchesMultipleTasks(t *testing.T) {
+func TestExecuteUpdateMatchesMultipleTikis(t *testing.T) {
 	e := newTestExecutor()
 	p := newTestParser()
-	tasks := []*tikiFixture{
+	tikis := []*tikiFixture{
 		{ID: "T1", Title: "a", Status: "ready"},
 		{ID: "T2", Title: "b", Status: "ready"},
 		{ID: "T3", Title: "c", Status: "done"},
@@ -2974,7 +2974,7 @@ func TestExecuteUpdateMatchesMultipleTasks(t *testing.T) {
 	if err != nil {
 		t.Fatalf("parse: %v", err)
 	}
-	result, err := e.testExec(stmt, tasks)
+	result, err := e.testExec(stmt, tikis)
 	if err != nil {
 		t.Fatalf("execute: %v", err)
 	}
@@ -2983,21 +2983,21 @@ func TestExecuteUpdateMatchesMultipleTasks(t *testing.T) {
 	}
 	for _, u := range result.Update.Updated {
 		if u.Status != "done" {
-			t.Errorf("task %s status = %q, want done", u.ID, u.Status)
+			t.Errorf("tiki %s status = %q, want done", u.ID, u.Status)
 		}
 	}
 }
 
-func TestExecuteUpdateMatchesNoTasks(t *testing.T) {
+func TestExecuteUpdateMatchesNoTikis(t *testing.T) {
 	e := newTestExecutor()
 	p := newTestParser()
-	tasks := makeTasks()
+	tikis := makeTikis()
 
 	stmt, err := p.ParseStatement(`update where id = "NONEXISTENT" set title="x"`)
 	if err != nil {
 		t.Fatalf("parse: %v", err)
 	}
-	result, err := e.testExec(stmt, tasks)
+	result, err := e.testExec(stmt, tikis)
 	if err != nil {
 		t.Fatalf("execute: %v", err)
 	}
@@ -3009,13 +3009,13 @@ func TestExecuteUpdateMatchesNoTasks(t *testing.T) {
 func TestExecuteUpdateWithComplexWhere(t *testing.T) {
 	e := newTestExecutor()
 	p := newTestParser()
-	tasks := makeTasks()
+	tikis := makeTikis()
 
 	stmt, err := p.ParseStatement(`update where points >= 0 and "bug" in tags set status="done"`)
 	if err != nil {
 		t.Fatalf("parse: %v", err)
 	}
-	result, err := e.testExec(stmt, tasks)
+	result, err := e.testExec(stmt, tikis)
 	if err != nil {
 		t.Fatalf("execute: %v", err)
 	}
@@ -3030,7 +3030,7 @@ func TestExecuteUpdateWithComplexWhere(t *testing.T) {
 func TestExecuteUpdateWithFieldReference(t *testing.T) {
 	e := newTestExecutor()
 	p := newTestParser()
-	tasks := []*tikiFixture{
+	tikis := []*tikiFixture{
 		{ID: "TIKI-000001", Title: "x", Status: "ready", CreatedBy: "alice", Assignee: ""},
 	}
 
@@ -3038,7 +3038,7 @@ func TestExecuteUpdateWithFieldReference(t *testing.T) {
 	if err != nil {
 		t.Fatalf("parse: %v", err)
 	}
-	result, err := e.testExec(stmt, tasks)
+	result, err := e.testExec(stmt, tikis)
 	if err != nil {
 		t.Fatalf("execute: %v", err)
 	}
@@ -3050,7 +3050,7 @@ func TestExecuteUpdateWithFieldReference(t *testing.T) {
 func TestExecuteUpdateWithFunction(t *testing.T) {
 	e := newTestExecutor()
 	p := newTestParser()
-	tasks := []*tikiFixture{
+	tikis := []*tikiFixture{
 		{ID: "TIKI-000001", Title: "x", Status: "ready", Recurrence: value.RecurrenceDaily},
 	}
 
@@ -3058,7 +3058,7 @@ func TestExecuteUpdateWithFunction(t *testing.T) {
 	if err != nil {
 		t.Fatalf("parse: %v", err)
 	}
-	result, err := e.testExec(stmt, tasks)
+	result, err := e.testExec(stmt, tikis)
 	if err != nil {
 		t.Fatalf("execute: %v", err)
 	}
@@ -3070,7 +3070,7 @@ func TestExecuteUpdateWithFunction(t *testing.T) {
 func TestExecuteUpdateListField(t *testing.T) {
 	e := newTestExecutor()
 	p := newTestParser()
-	tasks := []*tikiFixture{
+	tikis := []*tikiFixture{
 		{ID: "TIKI-000001", Title: "x", Status: "ready", Tags: []string{"old"}},
 	}
 
@@ -3078,7 +3078,7 @@ func TestExecuteUpdateListField(t *testing.T) {
 	if err != nil {
 		t.Fatalf("parse: %v", err)
 	}
-	result, err := e.testExec(stmt, tasks)
+	result, err := e.testExec(stmt, tikis)
 	if err != nil {
 		t.Fatalf("execute: %v", err)
 	}
@@ -3091,7 +3091,7 @@ func TestExecuteUpdateListField(t *testing.T) {
 func TestExecuteUpdateListPlusList(t *testing.T) {
 	e := newTestExecutor()
 	p := newTestParser()
-	tasks := []*tikiFixture{
+	tikis := []*tikiFixture{
 		{ID: "TIKI-000001", Title: "x", Status: "ready", Tags: []string{"old"}},
 	}
 
@@ -3099,7 +3099,7 @@ func TestExecuteUpdateListPlusList(t *testing.T) {
 	if err != nil {
 		t.Fatalf("parse: %v", err)
 	}
-	result, err := e.testExec(stmt, tasks)
+	result, err := e.testExec(stmt, tikis)
 	if err != nil {
 		t.Fatalf("execute: %v", err)
 	}
@@ -3112,7 +3112,7 @@ func TestExecuteUpdateListPlusList(t *testing.T) {
 func TestExecuteUpdateListPlusElement(t *testing.T) {
 	e := newTestExecutor()
 	p := newTestParser()
-	tasks := []*tikiFixture{
+	tikis := []*tikiFixture{
 		{ID: "TIKI-000001", Title: "x", Status: "ready", Tags: []string{"old"}},
 	}
 
@@ -3120,7 +3120,7 @@ func TestExecuteUpdateListPlusElement(t *testing.T) {
 	if err != nil {
 		t.Fatalf("parse: %v", err)
 	}
-	result, err := e.testExec(stmt, tasks)
+	result, err := e.testExec(stmt, tikis)
 	if err != nil {
 		t.Fatalf("execute: %v", err)
 	}
@@ -3133,7 +3133,7 @@ func TestExecuteUpdateListPlusElement(t *testing.T) {
 func TestExecuteUpdateListPlusElementIdempotent(t *testing.T) {
 	e := newTestExecutor()
 	p := newTestParser()
-	tasks := []*tikiFixture{
+	tikis := []*tikiFixture{
 		{ID: "TIKI-000001", Title: "x", Status: "ready", Tags: []string{"old", "old"}},
 	}
 
@@ -3141,7 +3141,7 @@ func TestExecuteUpdateListPlusElementIdempotent(t *testing.T) {
 	if err != nil {
 		t.Fatalf("parse: %v", err)
 	}
-	result, err := e.testExec(stmt, tasks)
+	result, err := e.testExec(stmt, tikis)
 	if err != nil {
 		t.Fatalf("execute: %v", err)
 	}
@@ -3154,7 +3154,7 @@ func TestExecuteUpdateListPlusElementIdempotent(t *testing.T) {
 func TestExecuteUpdateListMinusList(t *testing.T) {
 	e := newTestExecutor()
 	p := newTestParser()
-	tasks := []*tikiFixture{
+	tikis := []*tikiFixture{
 		{ID: "TIKI-000001", Title: "x", Status: "ready", Tags: []string{"old", "keep"}},
 	}
 
@@ -3162,7 +3162,7 @@ func TestExecuteUpdateListMinusList(t *testing.T) {
 	if err != nil {
 		t.Fatalf("parse: %v", err)
 	}
-	result, err := e.testExec(stmt, tasks)
+	result, err := e.testExec(stmt, tikis)
 	if err != nil {
 		t.Fatalf("execute: %v", err)
 	}
@@ -3175,7 +3175,7 @@ func TestExecuteUpdateListMinusList(t *testing.T) {
 func TestExecuteUpdateListMinusElement(t *testing.T) {
 	e := newTestExecutor()
 	p := newTestParser()
-	tasks := []*tikiFixture{
+	tikis := []*tikiFixture{
 		{ID: "TIKI-000001", Title: "x", Status: "ready", Tags: []string{"old", "keep"}},
 	}
 
@@ -3183,7 +3183,7 @@ func TestExecuteUpdateListMinusElement(t *testing.T) {
 	if err != nil {
 		t.Fatalf("parse: %v", err)
 	}
-	result, err := e.testExec(stmt, tasks)
+	result, err := e.testExec(stmt, tikis)
 	if err != nil {
 		t.Fatalf("execute: %v", err)
 	}
@@ -3196,7 +3196,7 @@ func TestExecuteUpdateListMinusElement(t *testing.T) {
 func TestExecuteUpdateListMinusDuplicates(t *testing.T) {
 	e := newTestExecutor()
 	p := newTestParser()
-	tasks := []*tikiFixture{
+	tikis := []*tikiFixture{
 		{ID: "TIKI-000001", Title: "x", Status: "ready", Tags: []string{"old", "old", "keep"}},
 	}
 
@@ -3204,7 +3204,7 @@ func TestExecuteUpdateListMinusDuplicates(t *testing.T) {
 	if err != nil {
 		t.Fatalf("parse: %v", err)
 	}
-	result, err := e.testExec(stmt, tasks)
+	result, err := e.testExec(stmt, tikis)
 	if err != nil {
 		t.Fatalf("execute: %v", err)
 	}
@@ -3217,7 +3217,7 @@ func TestExecuteUpdateListMinusDuplicates(t *testing.T) {
 func TestExecuteUpdateDependsOnPlusElement(t *testing.T) {
 	e := newTestExecutor()
 	p := newTestParser()
-	tasks := []*tikiFixture{
+	tikis := []*tikiFixture{
 		{ID: "TIKI-000001", Title: "x", Status: "ready", DependsOn: []string{}},
 	}
 
@@ -3225,7 +3225,7 @@ func TestExecuteUpdateDependsOnPlusElement(t *testing.T) {
 	if err != nil {
 		t.Fatalf("parse: %v", err)
 	}
-	result, err := e.testExec(stmt, tasks)
+	result, err := e.testExec(stmt, tikis)
 	if err != nil {
 		t.Fatalf("execute: %v", err)
 	}
@@ -3238,7 +3238,7 @@ func TestExecuteUpdateDependsOnPlusElement(t *testing.T) {
 func TestExecuteUpdateDependsOnPlusList(t *testing.T) {
 	e := newTestExecutor()
 	p := newTestParser()
-	tasks := []*tikiFixture{
+	tikis := []*tikiFixture{
 		{ID: "TIKI-000001", Title: "x", Status: "ready", DependsOn: []string{"ZZZZZZ"}},
 	}
 
@@ -3246,7 +3246,7 @@ func TestExecuteUpdateDependsOnPlusList(t *testing.T) {
 	if err != nil {
 		t.Fatalf("parse: %v", err)
 	}
-	result, err := e.testExec(stmt, tasks)
+	result, err := e.testExec(stmt, tikis)
 	if err != nil {
 		t.Fatalf("execute: %v", err)
 	}
@@ -3259,7 +3259,7 @@ func TestExecuteUpdateDependsOnPlusList(t *testing.T) {
 func TestExecuteUpdateDependsOnPlusListIdempotent(t *testing.T) {
 	e := newTestExecutor()
 	p := newTestParser()
-	tasks := []*tikiFixture{
+	tikis := []*tikiFixture{
 		{ID: "TIKI-000001", Title: "x", Status: "ready", DependsOn: []string{"YYYYYY", "yyyyyy"}},
 	}
 
@@ -3267,7 +3267,7 @@ func TestExecuteUpdateDependsOnPlusListIdempotent(t *testing.T) {
 	if err != nil {
 		t.Fatalf("parse: %v", err)
 	}
-	result, err := e.testExec(stmt, tasks)
+	result, err := e.testExec(stmt, tikis)
 	if err != nil {
 		t.Fatalf("execute: %v", err)
 	}
@@ -3280,7 +3280,7 @@ func TestExecuteUpdateDependsOnPlusListIdempotent(t *testing.T) {
 func TestExecuteUpdateDependsOnMinusElement(t *testing.T) {
 	e := newTestExecutor()
 	p := newTestParser()
-	tasks := []*tikiFixture{
+	tikis := []*tikiFixture{
 		{ID: "TIKI-000001", Title: "x", Status: "ready", DependsOn: []string{"YYYYYY", "ZZZZZZ"}},
 	}
 
@@ -3288,7 +3288,7 @@ func TestExecuteUpdateDependsOnMinusElement(t *testing.T) {
 	if err != nil {
 		t.Fatalf("parse: %v", err)
 	}
-	result, err := e.testExec(stmt, tasks)
+	result, err := e.testExec(stmt, tikis)
 	if err != nil {
 		t.Fatalf("execute: %v", err)
 	}
@@ -3301,7 +3301,7 @@ func TestExecuteUpdateDependsOnMinusElement(t *testing.T) {
 func TestExecuteUpdateDependsOnMinusList(t *testing.T) {
 	e := newTestExecutor()
 	p := newTestParser()
-	tasks := []*tikiFixture{
+	tikis := []*tikiFixture{
 		{ID: "TIKI-000001", Title: "x", Status: "ready", DependsOn: []string{"YYYYYY", "ZZZZZZ"}},
 	}
 
@@ -3309,7 +3309,7 @@ func TestExecuteUpdateDependsOnMinusList(t *testing.T) {
 	if err != nil {
 		t.Fatalf("parse: %v", err)
 	}
-	result, err := e.testExec(stmt, tasks)
+	result, err := e.testExec(stmt, tikis)
 	if err != nil {
 		t.Fatalf("execute: %v", err)
 	}
@@ -3322,7 +3322,7 @@ func TestExecuteUpdateDependsOnMinusList(t *testing.T) {
 func TestExecuteUpdateTagsToEmpty(t *testing.T) {
 	e := newTestExecutor()
 	p := newTestParser()
-	tasks := []*tikiFixture{
+	tikis := []*tikiFixture{
 		{ID: "TIKI-000001", Title: "x", Status: "ready", Tags: []string{"a", "b"}},
 	}
 
@@ -3330,7 +3330,7 @@ func TestExecuteUpdateTagsToEmpty(t *testing.T) {
 	if err != nil {
 		t.Fatalf("parse: %v", err)
 	}
-	result, err := e.testExec(stmt, tasks)
+	result, err := e.testExec(stmt, tikis)
 	if err != nil {
 		t.Fatalf("execute: %v", err)
 	}
@@ -3342,7 +3342,7 @@ func TestExecuteUpdateTagsToEmpty(t *testing.T) {
 func TestExecuteUpdateStringToEmpty(t *testing.T) {
 	e := newTestExecutor()
 	p := newTestParser()
-	tasks := []*tikiFixture{
+	tikis := []*tikiFixture{
 		{ID: "TIKI-000001", Title: "x", Status: "ready", Assignee: "alice"},
 	}
 
@@ -3350,7 +3350,7 @@ func TestExecuteUpdateStringToEmpty(t *testing.T) {
 	if err != nil {
 		t.Fatalf("parse: %v", err)
 	}
-	result, err := e.testExec(stmt, tasks)
+	result, err := e.testExec(stmt, tikis)
 	if err != nil {
 		t.Fatalf("execute: %v", err)
 	}
@@ -3362,7 +3362,7 @@ func TestExecuteUpdateStringToEmpty(t *testing.T) {
 func TestExecuteUpdateDateToEmpty(t *testing.T) {
 	e := newTestExecutor()
 	p := newTestParser()
-	tasks := []*tikiFixture{
+	tikis := []*tikiFixture{
 		{ID: "TIKI-000001", Title: "x", Status: "ready", Due: testDate(6, 1)},
 	}
 
@@ -3370,7 +3370,7 @@ func TestExecuteUpdateDateToEmpty(t *testing.T) {
 	if err != nil {
 		t.Fatalf("parse: %v", err)
 	}
-	result, err := e.testExec(stmt, tasks)
+	result, err := e.testExec(stmt, tikis)
 	if err != nil {
 		t.Fatalf("execute: %v", err)
 	}
@@ -3388,12 +3388,12 @@ func TestExecuteUpdateTitleRejectEmpty(t *testing.T) {
 	e := newTestExecutor()
 	p := newTestParser()
 
-	tasks := []*tikiFixture{{ID: "T1", Title: "x", Status: "ready", Type: "bug"}}
+	tikis := []*tikiFixture{{ID: "T1", Title: "x", Status: "ready", Type: "bug"}}
 	stmt, err := p.ParseStatement(`update where id = "T1" set title=empty`)
 	if err != nil {
 		t.Fatalf("parse: %v", err)
 	}
-	_, err = e.testExec(stmt, tasks)
+	_, err = e.testExec(stmt, tikis)
 	if err == nil {
 		t.Fatal("expected error for empty title")
 	}
@@ -3404,7 +3404,7 @@ func TestExecuteUpdateTitleRejectEmpty(t *testing.T) {
 
 func TestExecuteUpdateImmutableFieldRejected(t *testing.T) {
 	e := newTestExecutor()
-	tasks := []*tikiFixture{
+	tikis := []*tikiFixture{
 		{ID: "TIKI-000001", Title: "x", Status: "ready"},
 	}
 
@@ -3419,7 +3419,7 @@ func TestExecuteUpdateImmutableFieldRejected(t *testing.T) {
 					Set: []Assignment{{Field: field, Value: &StringLiteral{Value: "test"}}},
 				},
 			}
-			_, err := e.testExec(stmt, tasks)
+			_, err := e.testExec(stmt, tikis)
 			if err == nil {
 				t.Fatal("expected error for immutable field")
 			}
@@ -3433,7 +3433,7 @@ func TestExecuteUpdateImmutableFieldRejected(t *testing.T) {
 func TestExecuteUpdateEnumNormalization(t *testing.T) {
 	e := newTestExecutor()
 	p := newTestParser()
-	tasks := []*tikiFixture{
+	tikis := []*tikiFixture{
 		{ID: "TIKI-000001", Title: "x", Status: "done"},
 	}
 
@@ -3441,7 +3441,7 @@ func TestExecuteUpdateEnumNormalization(t *testing.T) {
 	if err != nil {
 		t.Fatalf("parse: %v", err)
 	}
-	result, err := e.testExec(stmt, tasks)
+	result, err := e.testExec(stmt, tikis)
 	if err != nil {
 		t.Fatalf("execute: %v", err)
 	}
@@ -3453,7 +3453,7 @@ func TestExecuteUpdateEnumNormalization(t *testing.T) {
 func TestExecuteUpdateOriginalUnmodified(t *testing.T) {
 	e := newTestExecutor()
 	p := newTestParser()
-	tasks := []*tikiFixture{
+	tikis := []*tikiFixture{
 		{ID: "TIKI-000001", Title: "old", Status: "ready"},
 	}
 
@@ -3461,12 +3461,12 @@ func TestExecuteUpdateOriginalUnmodified(t *testing.T) {
 	if err != nil {
 		t.Fatalf("parse: %v", err)
 	}
-	_, err = e.testExec(stmt, tasks)
+	_, err = e.testExec(stmt, tikis)
 	if err != nil {
 		t.Fatalf("execute: %v", err)
 	}
-	if tasks[0].Title != "old" {
-		t.Errorf("original task was mutated: title = %q, want 'old'", tasks[0].Title)
+	if tikis[0].Title != "old" {
+		t.Errorf("original tiki was mutated: title = %q, want 'old'", tikis[0].Title)
 	}
 }
 
@@ -3546,7 +3546,7 @@ func TestSubtractValuesList(t *testing.T) {
 func TestExecuteUpdateRecurrenceToEmpty(t *testing.T) {
 	e := newTestExecutor()
 	p := newTestParser()
-	tasks := []*tikiFixture{
+	tikis := []*tikiFixture{
 		{ID: "TIKI-000001", Title: "x", Status: "ready", Recurrence: value.RecurrenceDaily},
 	}
 
@@ -3554,7 +3554,7 @@ func TestExecuteUpdateRecurrenceToEmpty(t *testing.T) {
 	if err != nil {
 		t.Fatalf("parse: %v", err)
 	}
-	result, err := e.testExec(stmt, tasks)
+	result, err := e.testExec(stmt, tikis)
 	if err != nil {
 		t.Fatalf("execute: %v", err)
 	}
@@ -3566,7 +3566,7 @@ func TestExecuteUpdateRecurrenceToEmpty(t *testing.T) {
 func TestExecuteUpdatePointsToEmpty(t *testing.T) {
 	e := newTestExecutor()
 	p := newTestParser()
-	tasks := []*tikiFixture{
+	tikis := []*tikiFixture{
 		{ID: "TIKI-000001", Title: "x", Status: "ready", Points: 5},
 	}
 
@@ -3574,7 +3574,7 @@ func TestExecuteUpdatePointsToEmpty(t *testing.T) {
 	if err != nil {
 		t.Fatalf("parse: %v", err)
 	}
-	result, err := e.testExec(stmt, tasks)
+	result, err := e.testExec(stmt, tikis)
 	if err != nil {
 		t.Fatalf("execute: %v", err)
 	}
@@ -3585,7 +3585,7 @@ func TestExecuteUpdatePointsToEmpty(t *testing.T) {
 
 func TestExecuteUpdateUnknownField(t *testing.T) {
 	e := newTestExecutor()
-	tasks := []*tikiFixture{
+	tikis := []*tikiFixture{
 		{ID: "T1", Title: "x", Status: "ready"},
 	}
 
@@ -3597,7 +3597,7 @@ func TestExecuteUpdateUnknownField(t *testing.T) {
 			Set: []Assignment{{Field: "nonexistent", Value: &StringLiteral{Value: "x"}}},
 		},
 	}
-	_, err := e.testExec(stmt, tasks)
+	_, err := e.testExec(stmt, tikis)
 	if err == nil {
 		t.Fatal("expected error for unknown field")
 	}
@@ -3609,7 +3609,7 @@ func TestExecuteUpdateUnknownField(t *testing.T) {
 func TestExecuteUpdateTypeCanonicalization(t *testing.T) {
 	e := newTestExecutor()
 	p := newTestParser()
-	tasks := []*tikiFixture{
+	tikis := []*tikiFixture{
 		{ID: "TIKI-000001", Title: "x", Status: "ready", Type: "bug"},
 	}
 
@@ -3617,7 +3617,7 @@ func TestExecuteUpdateTypeCanonicalization(t *testing.T) {
 	if err != nil {
 		t.Fatalf("parse: %v", err)
 	}
-	result, err := e.testExec(stmt, tasks)
+	result, err := e.testExec(stmt, tikis)
 	if err != nil {
 		t.Fatalf("execute: %v", err)
 	}
@@ -3629,7 +3629,7 @@ func TestExecuteUpdateTypeCanonicalization(t *testing.T) {
 func TestExecuteUpdateDescriptionToEmpty(t *testing.T) {
 	e := newTestExecutor()
 	p := newTestParser()
-	tasks := []*tikiFixture{
+	tikis := []*tikiFixture{
 		{ID: "TIKI-000001", Title: "x", Status: "ready", Description: "some desc"},
 	}
 
@@ -3637,7 +3637,7 @@ func TestExecuteUpdateDescriptionToEmpty(t *testing.T) {
 	if err != nil {
 		t.Fatalf("parse: %v", err)
 	}
-	result, err := e.testExec(stmt, tasks)
+	result, err := e.testExec(stmt, tikis)
 	if err != nil {
 		t.Fatalf("execute: %v", err)
 	}
@@ -3649,7 +3649,7 @@ func TestExecuteUpdateDescriptionToEmpty(t *testing.T) {
 func TestExecuteUpdateTitleToEmptyRejected(t *testing.T) {
 	e := newTestExecutor()
 	p := newTestParser()
-	tasks := []*tikiFixture{
+	tikis := []*tikiFixture{
 		{ID: "TIKI-000001", Title: "old title", Status: "ready"},
 	}
 
@@ -3657,7 +3657,7 @@ func TestExecuteUpdateTitleToEmptyRejected(t *testing.T) {
 	if err != nil {
 		t.Fatalf("parse: %v", err)
 	}
-	_, err = e.testExec(stmt, tasks)
+	_, err = e.testExec(stmt, tikis)
 	if err == nil {
 		t.Fatal("expected error for title=empty")
 	}
@@ -3669,7 +3669,7 @@ func TestExecuteUpdateTitleToEmptyRejected(t *testing.T) {
 func TestExecuteUpdateDependsOnToEmpty(t *testing.T) {
 	e := newTestExecutor()
 	p := newTestParser()
-	tasks := []*tikiFixture{
+	tikis := []*tikiFixture{
 		{ID: "TIKI-000001", Title: "x", Status: "ready", DependsOn: []string{"T2"}},
 	}
 
@@ -3677,7 +3677,7 @@ func TestExecuteUpdateDependsOnToEmpty(t *testing.T) {
 	if err != nil {
 		t.Fatalf("parse: %v", err)
 	}
-	result, err := e.testExec(stmt, tasks)
+	result, err := e.testExec(stmt, tikis)
 	if err != nil {
 		t.Fatalf("execute: %v", err)
 	}
@@ -3690,9 +3690,9 @@ func TestExecuteUpdateDependsOnToEmpty(t *testing.T) {
 
 func TestExecuteUpdateWhereError(t *testing.T) {
 	e := newTestExecutor()
-	tasks := makeTasks()
+	tikis := makeTikis()
 
-	// WHERE clause with a bad expr triggers filterTasks error
+	// WHERE clause with a bad expr triggers filterTikis error
 	stmt := &Statement{
 		Update: &UpdateStmt{
 			Where: &CompareExpr{
@@ -3703,7 +3703,7 @@ func TestExecuteUpdateWhereError(t *testing.T) {
 			Set: []Assignment{{Field: "title", Value: &StringLiteral{Value: "x"}}},
 		},
 	}
-	_, err := e.testExec(stmt, tasks)
+	_, err := e.testExec(stmt, tikis)
 	if err == nil {
 		t.Fatal("expected error from WHERE evaluation")
 	}
@@ -3711,7 +3711,7 @@ func TestExecuteUpdateWhereError(t *testing.T) {
 
 func TestExecuteUpdateEvalExprError(t *testing.T) {
 	e := newTestExecutor()
-	tasks := []*tikiFixture{
+	tikis := []*tikiFixture{
 		{ID: "T1", Title: "x", Status: "ready"},
 	}
 
@@ -3724,7 +3724,7 @@ func TestExecuteUpdateEvalExprError(t *testing.T) {
 			Set: []Assignment{{Field: "title", Value: &QualifiedRef{Qualifier: "old", Name: "title"}}},
 		},
 	}
-	_, err := e.testExec(stmt, tasks)
+	_, err := e.testExec(stmt, tikis)
 	if err == nil {
 		t.Fatal("expected error from evalExpr in assignment")
 	}
@@ -3847,7 +3847,7 @@ func TestSetFieldRecurrenceFromString(t *testing.T) {
 	}
 }
 
-func TestSetFieldRecurrenceFromTaskRecurrence(t *testing.T) {
+func TestSetFieldRecurrenceFromTikiRecurrence(t *testing.T) {
 	e := newTestExecutor()
 	tk := tikiFromFixture(&tikiFixture{ID: "T1", Title: "x", Status: "ready"})
 
@@ -3875,12 +3875,12 @@ func TestExecuteUpdatePriorityValidValues(t *testing.T) {
 	p := newTestParser()
 
 	for _, prio := range []string{"high", "medium", "low"} {
-		tasks := []*tikiFixture{{ID: "T1", Title: "x", Status: "ready"}}
+		tikis := []*tikiFixture{{ID: "T1", Title: "x", Status: "ready"}}
 		stmt, err := p.ParseStatement(fmt.Sprintf(`update where id = "T1" set priority=%q`, prio))
 		if err != nil {
 			t.Fatalf("parse priority=%q: %v", prio, err)
 		}
-		result, err := e.testExec(stmt, tasks)
+		result, err := e.testExec(stmt, tikis)
 		if err != nil {
 			t.Fatalf("execute priority=%q: %v", prio, err)
 		}
@@ -3896,12 +3896,12 @@ func TestExecuteUpdatePointsValidValues(t *testing.T) {
 	p := newTestParser()
 
 	for _, pts := range []int{0, 1, 5, 10} {
-		tasks := []*tikiFixture{{ID: "T1", Title: "x", Status: "ready", Points: 3}}
+		tikis := []*tikiFixture{{ID: "T1", Title: "x", Status: "ready", Points: 3}}
 		stmt, err := p.ParseStatement(fmt.Sprintf(`update where id = "T1" set points=%d`, pts))
 		if err != nil {
 			t.Fatalf("parse points=%d: %v", pts, err)
 		}
-		result, err := e.testExec(stmt, tasks)
+		result, err := e.testExec(stmt, tikis)
 		if err != nil {
 			t.Fatalf("execute points=%d: %v", pts, err)
 		}
@@ -3913,7 +3913,7 @@ func TestExecuteUpdatePointsValidValues(t *testing.T) {
 
 func TestExecuteUpdateTitleWhitespaceRejected(t *testing.T) {
 	e := newTestExecutor()
-	tasks := []*tikiFixture{{ID: "T1", Title: "old", Status: "ready"}}
+	tikis := []*tikiFixture{{ID: "T1", Title: "old", Status: "ready"}}
 
 	stmt := &Statement{
 		Update: &UpdateStmt{
@@ -3923,7 +3923,7 @@ func TestExecuteUpdateTitleWhitespaceRejected(t *testing.T) {
 			Set: []Assignment{{Field: "title", Value: &StringLiteral{Value: "   "}}},
 		},
 	}
-	_, err := e.testExec(stmt, tasks)
+	_, err := e.testExec(stmt, tikis)
 	if err == nil {
 		t.Fatal("expected error for whitespace-only title")
 	}
@@ -4024,59 +4024,59 @@ func TestCompareValues_BoolDispatch(t *testing.T) {
 func TestExecuteEvalIDPluginRuntime(t *testing.T) {
 	p := newTestParser()
 	e := NewExecutor(testSchema{}, func() string { return "alice" }, ExecutorRuntime{Mode: ExecutorRuntimePlugin})
-	tasks := makeTasks()
+	tikis := makeTikis()
 
-	// id() returns the selected task ID as a constant; comparing it to a
-	// matching literal yields true for all tasks (global predicate).
+	// id() returns the selected tiki ID as a constant; comparing it to a
+	// matching literal yields true for all tikis (global predicate).
 	validated, err := p.ParseAndValidateStatement(`select where id() = "TIKI-000001"`, ExecutorRuntimePlugin)
 	if err != nil {
 		t.Fatalf("validate: %v", err)
 	}
-	result, err := e.testExec(validated, tasks, NewSingleSelectionInput("TIKI-000001"))
+	result, err := e.testExec(validated, tikis, NewSingleSelectionInput("TIKI-000001"))
 	if err != nil {
 		t.Fatalf("execute: %v", err)
 	}
 	if result.Select == nil {
 		t.Fatal("expected Select result")
 	}
-	// id() = "TIKI-000001" is always true when selected task is TIKI-000001
-	if len(result.Select.Tasks) != 4 {
-		t.Fatalf("expected 4 tasks (global true predicate), got %d", len(result.Select.Tasks))
+	// id() = "TIKI-000001" is always true when selected tiki is TIKI-000001
+	if len(result.Select.Tikis) != 4 {
+		t.Fatalf("expected 4 tikis (global true predicate), got %d", len(result.Select.Tikis))
 	}
 
-	// compare id() against each task's own id field to select only the matching task
+	// compare id() against each tiki's own id field to select only the matching tiki
 	validated2, err := p.ParseAndValidateStatement(`select where id = id()`, ExecutorRuntimePlugin)
 	if err != nil {
 		t.Fatalf("validate: %v", err)
 	}
-	result2, err := e.testExec(validated2, tasks, NewSingleSelectionInput("TIKI-000001"))
+	result2, err := e.testExec(validated2, tikis, NewSingleSelectionInput("TIKI-000001"))
 	if err != nil {
 		t.Fatalf("execute: %v", err)
 	}
-	if len(result2.Select.Tasks) != 1 {
-		t.Fatalf("expected 1 task, got %d", len(result2.Select.Tasks))
+	if len(result2.Select.Tikis) != 1 {
+		t.Fatalf("expected 1 tiki, got %d", len(result2.Select.Tikis))
 	}
-	if result2.Select.Tasks[0].ID != "TIKI-000001" {
-		t.Errorf("expected TIKI-000001, got %s", result2.Select.Tasks[0].ID)
+	if result2.Select.Tikis[0].ID != "TIKI-000001" {
+		t.Errorf("expected TIKI-000001, got %s", result2.Select.Tikis[0].ID)
 	}
 }
 
 func TestExecuteEvalIDPluginRuntimeNoMatch(t *testing.T) {
 	p := newTestParser()
 	e := NewExecutor(testSchema{}, func() string { return "alice" }, ExecutorRuntime{Mode: ExecutorRuntimePlugin})
-	tasks := makeTasks()
+	tikis := makeTikis()
 
 	// id() returns "TIKI-000002", compare with literal "TIKI-000001" → always false
 	validated, err := p.ParseAndValidateStatement(`select where id() = "TIKI-000001"`, ExecutorRuntimePlugin)
 	if err != nil {
 		t.Fatalf("validate: %v", err)
 	}
-	result, err := e.testExec(validated, tasks, NewSingleSelectionInput("TIKI-000002"))
+	result, err := e.testExec(validated, tikis, NewSingleSelectionInput("TIKI-000002"))
 	if err != nil {
 		t.Fatalf("execute: %v", err)
 	}
-	if len(result.Select.Tasks) != 0 {
-		t.Fatalf("expected 0 tasks, got %d", len(result.Select.Tasks))
+	if len(result.Select.Tikis) != 0 {
+		t.Fatalf("expected 0 tikis, got %d", len(result.Select.Tikis))
 	}
 }
 
@@ -4148,7 +4148,7 @@ func newCustomParser2() *Parser {
 func TestExecutor_CustomFieldExtraction(t *testing.T) {
 	e := newCustomExecutor()
 
-	// task with no custom fields — extractField errors for unset fields (Phase 4)
+	// tiki with no custom fields — extractField errors for unset fields (Phase 4)
 	tk := tikiFromFixture(&tikiFixture{ID: "T1", Title: "x", Status: "ready"})
 
 	if _, err := e.extractField(tk, "notes"); err == nil {
@@ -4164,7 +4164,7 @@ func TestExecutor_CustomFieldExtraction(t *testing.T) {
 		t.Error("severity unset: expected error, got nil")
 	}
 
-	// task with custom fields set — returns actual values
+	// tiki with custom fields set — returns actual values
 	tk2 := tikiFromFixture(&tikiFixture{
 		ID: "T2", Title: "y", Status: "ready",
 		CustomFields: map[string]interface{}{
@@ -4222,7 +4222,7 @@ func TestExecutor_CustomFieldSetAndGet(t *testing.T) {
 func TestExecutor_BareBoolCustomFieldCondition(t *testing.T) {
 	e := newCustomExecutor()
 	p := newCustomParser2()
-	tasks := []*tikiFixture{
+	tikis := []*tikiFixture{
 		{
 			ID: "T1", Title: "true flag", Status: "ready",
 			CustomFields: map[string]interface{}{"flag": true},
@@ -4248,16 +4248,16 @@ func TestExecutor_BareBoolCustomFieldCondition(t *testing.T) {
 			if err != nil {
 				t.Fatalf("parse: %v", err)
 			}
-			result, err := e.testExec(stmt, tasks)
+			result, err := e.testExec(stmt, tikis)
 			if err != nil {
 				t.Fatalf("execute: %v", err)
 			}
-			if len(result.Select.Tasks) != len(tt.wantIDs) {
-				t.Fatalf("expected %d tasks, got %d", len(tt.wantIDs), len(result.Select.Tasks))
+			if len(result.Select.Tikis) != len(tt.wantIDs) {
+				t.Fatalf("expected %d tikis, got %d", len(tt.wantIDs), len(result.Select.Tikis))
 			}
 			for i, wantID := range tt.wantIDs {
-				if result.Select.Tasks[i].ID != wantID {
-					t.Errorf("task[%d].ID = %q, want %q", i, result.Select.Tasks[i].ID, wantID)
+				if result.Select.Tikis[i].ID != wantID {
+					t.Errorf("tiki[%d].ID = %q, want %q", i, result.Select.Tikis[i].ID, wantID)
 				}
 			}
 		})
@@ -4283,19 +4283,19 @@ func TestPhase4_UnsetCustomListField_InExprIsFalse(t *testing.T) {
 	p := newCustomParser2()
 
 	// Updated Phase-4 rule: `"bug" in absent_list` → false; tiki does not match.
-	tasks := []*tikiFixture{
+	tikis := []*tikiFixture{
 		{ID: "T1", Title: "A", Status: "ready"},
 	}
 	stmt, err := p.ParseStatement(`select where "bug" in labels`)
 	if err != nil {
 		t.Fatalf("parse: %v", err)
 	}
-	result, err := e.testExec(stmt, tasks)
+	result, err := e.testExec(stmt, tikis)
 	if err != nil {
 		t.Fatalf("execute: %v", err)
 	}
-	if len(result.Select.Tasks) != 0 {
-		t.Fatalf("expected no matches, got %v", result.Select.Tasks)
+	if len(result.Select.Tikis) != 0 {
+		t.Fatalf("expected no matches, got %v", result.Select.Tikis)
 	}
 }
 
@@ -4306,19 +4306,19 @@ func TestPhase4_UnsetCustomListField_AddAutoZeroes(t *testing.T) {
 	// Phase 4 + assignment-RHS carve-out: unset Custom list field in
 	// arithmetic auto-zeroes to [], so `set labels = labels + ["new"]`
 	// on a tiki without prior labels produces labels=["new"].
-	tasks := []*tikiFixture{
+	tikis := []*tikiFixture{
 		{ID: "T1", Title: "A", Status: "ready"},
 	}
 	stmt, err := p.ParseStatement(`update where id = "T1" set labels = labels + ["new"]`)
 	if err != nil {
 		t.Fatalf("parse: %v", err)
 	}
-	result, err := e.testExec(stmt, tasks)
+	result, err := e.testExec(stmt, tikis)
 	if err != nil {
 		t.Fatalf("execute: %v", err)
 	}
 	if result.Update == nil || len(result.Update.Updated) != 1 {
-		t.Fatalf("expected 1 updated task, got %+v", result.Update)
+		t.Fatalf("expected 1 updated tiki, got %+v", result.Update)
 	}
 	got, _ := result.Update.Updated[0].CustomFields["labels"].([]string)
 	if len(got) != 1 || got[0] != "new" {
@@ -4352,7 +4352,7 @@ func TestExecutor_SelectWhereCustomEnum(t *testing.T) {
 	e := newCustomExecutor()
 	p := newCustomParser2()
 
-	tasks := []*tikiFixture{
+	tikis := []*tikiFixture{
 		{ID: "T1", Title: "A", Status: "ready", CustomFields: map[string]interface{}{"severity": "low"}},
 		{ID: "T2", Title: "B", Status: "ready", CustomFields: map[string]interface{}{"severity": "high"}},
 		{ID: "T3", Title: "C", Status: "ready", CustomFields: map[string]interface{}{"severity": "low"}},
@@ -4364,19 +4364,19 @@ func TestExecutor_SelectWhereCustomEnum(t *testing.T) {
 	if err != nil {
 		t.Fatalf("parse: %v", err)
 	}
-	result, err := e.testExec(stmt, tasks)
+	result, err := e.testExec(stmt, tikis)
 	if err != nil {
 		t.Fatalf("execute: %v", err)
 	}
-	if len(result.Select.Tasks) != 2 {
-		ids := make([]string, len(result.Select.Tasks))
-		for i, tk := range result.Select.Tasks {
+	if len(result.Select.Tikis) != 2 {
+		ids := make([]string, len(result.Select.Tikis))
+		for i, tk := range result.Select.Tikis {
 			ids[i] = tk.ID
 		}
-		t.Fatalf("expected 2 tasks, got %d: %v", len(result.Select.Tasks), ids)
+		t.Fatalf("expected 2 tikis, got %d: %v", len(result.Select.Tikis), ids)
 	}
-	if result.Select.Tasks[0].ID != "T1" || result.Select.Tasks[1].ID != "T3" {
-		t.Errorf("expected T1, T3; got %s, %s", result.Select.Tasks[0].ID, result.Select.Tasks[1].ID)
+	if result.Select.Tikis[0].ID != "T1" || result.Select.Tikis[1].ID != "T3" {
+		t.Errorf("expected T1, T3; got %s, %s", result.Select.Tikis[0].ID, result.Select.Tikis[1].ID)
 	}
 }
 
@@ -4384,7 +4384,7 @@ func TestExecutor_UpdateSetCustomField(t *testing.T) {
 	e := newCustomExecutor()
 	p := newCustomParser2()
 
-	tasks := []*tikiFixture{
+	tikis := []*tikiFixture{
 		{ID: "T1", Title: "A", Status: "ready", CustomFields: map[string]interface{}{"severity": "low"}},
 	}
 
@@ -4392,12 +4392,12 @@ func TestExecutor_UpdateSetCustomField(t *testing.T) {
 	if err != nil {
 		t.Fatalf("parse: %v", err)
 	}
-	result, err := e.testExec(stmt, tasks)
+	result, err := e.testExec(stmt, tikis)
 	if err != nil {
 		t.Fatalf("execute: %v", err)
 	}
 	if result.Update == nil || len(result.Update.Updated) != 1 {
-		t.Fatal("expected 1 updated task")
+		t.Fatal("expected 1 updated tiki")
 	}
 	updated := result.Update.Updated[0]
 	if updated.CustomFields["severity"] != "high" {
@@ -4409,7 +4409,7 @@ func TestExecutor_OrderByCustomEnum(t *testing.T) {
 	e := newCustomExecutor()
 	p := newCustomParser2()
 
-	tasks := []*tikiFixture{
+	tikis := []*tikiFixture{
 		{ID: "T1", Title: "A", Status: "ready", CustomFields: map[string]interface{}{"severity": "high"}},
 		{ID: "T2", Title: "B", Status: "ready", CustomFields: map[string]interface{}{"severity": "critical"}},
 		{ID: "T3", Title: "C", Status: "ready", CustomFields: map[string]interface{}{"severity": "low"}},
@@ -4419,18 +4419,18 @@ func TestExecutor_OrderByCustomEnum(t *testing.T) {
 	if err != nil {
 		t.Fatalf("parse: %v", err)
 	}
-	result, err := e.testExec(stmt, tasks)
+	result, err := e.testExec(stmt, tikis)
 	if err != nil {
 		t.Fatalf("execute: %v", err)
 	}
 	// enum values follow declaration order: low < medium < high < critical.
 	wantIDs := []string{"T3", "T1", "T2"}
-	if len(result.Select.Tasks) != 3 {
-		t.Fatalf("expected 3 tasks, got %d", len(result.Select.Tasks))
+	if len(result.Select.Tikis) != 3 {
+		t.Fatalf("expected 3 tikis, got %d", len(result.Select.Tikis))
 	}
 	for i, wantID := range wantIDs {
-		if result.Select.Tasks[i].ID != wantID {
-			t.Errorf("task[%d].ID = %q, want %q", i, result.Select.Tasks[i].ID, wantID)
+		if result.Select.Tikis[i].ID != wantID {
+			t.Errorf("tiki[%d].ID = %q, want %q", i, result.Select.Tikis[i].ID, wantID)
 		}
 	}
 }
@@ -4439,7 +4439,7 @@ func TestExecutor_OrderByCustomBool(t *testing.T) {
 	e := newCustomExecutor()
 	p := newCustomParser2()
 
-	tasks := []*tikiFixture{
+	tikis := []*tikiFixture{
 		{ID: "T1", Title: "A", Status: "ready", CustomFields: map[string]interface{}{"flag": true}},
 		{ID: "T2", Title: "B", Status: "ready", CustomFields: map[string]interface{}{"flag": false}},
 		{ID: "T3", Title: "C", Status: "ready", CustomFields: map[string]interface{}{"flag": true}},
@@ -4449,29 +4449,29 @@ func TestExecutor_OrderByCustomBool(t *testing.T) {
 	if err != nil {
 		t.Fatalf("parse: %v", err)
 	}
-	result, err := e.testExec(stmt, tasks)
+	result, err := e.testExec(stmt, tikis)
 	if err != nil {
 		t.Fatalf("execute: %v", err)
 	}
 	// false < true: T2 first, then T1 and T3 (stable order)
-	if len(result.Select.Tasks) != 3 {
-		t.Fatalf("expected 3 tasks, got %d", len(result.Select.Tasks))
+	if len(result.Select.Tikis) != 3 {
+		t.Fatalf("expected 3 tikis, got %d", len(result.Select.Tikis))
 	}
-	if result.Select.Tasks[0].ID != "T2" {
-		t.Errorf("task[0].ID = %q, want T2 (false before true)", result.Select.Tasks[0].ID)
+	if result.Select.Tikis[0].ID != "T2" {
+		t.Errorf("tiki[0].ID = %q, want T2 (false before true)", result.Select.Tikis[0].ID)
 	}
-	if result.Select.Tasks[1].ID != "T1" {
-		t.Errorf("task[1].ID = %q, want T1", result.Select.Tasks[1].ID)
+	if result.Select.Tikis[1].ID != "T1" {
+		t.Errorf("tiki[1].ID = %q, want T1", result.Select.Tikis[1].ID)
 	}
-	if result.Select.Tasks[2].ID != "T3" {
-		t.Errorf("task[2].ID = %q, want T3", result.Select.Tasks[2].ID)
+	if result.Select.Tikis[2].ID != "T3" {
+		t.Errorf("tiki[2].ID = %q, want T3", result.Select.Tikis[2].ID)
 	}
 }
 
 func TestExecutor_BoolLiteralEval(t *testing.T) {
 	e := newCustomExecutor()
 
-	tasks := []*tikiFixture{
+	tikis := []*tikiFixture{
 		{ID: "T1", Title: "A", Status: "ready", CustomFields: map[string]interface{}{"flag": true}},
 		{ID: "T2", Title: "B", Status: "ready", CustomFields: map[string]interface{}{"flag": false}},
 	}
@@ -4486,12 +4486,12 @@ func TestExecutor_BoolLiteralEval(t *testing.T) {
 			},
 		},
 	}
-	result, err := e.testExec(stmt, tasks)
+	result, err := e.testExec(stmt, tikis)
 	if err != nil {
 		t.Fatalf("execute: %v", err)
 	}
-	if len(result.Select.Tasks) != 1 || result.Select.Tasks[0].ID != "T1" {
-		t.Fatalf("expected T1, got %v", result.Select.Tasks)
+	if len(result.Select.Tikis) != 1 || result.Select.Tikis[0].ID != "T1" {
+		t.Fatalf("expected T1, got %v", result.Select.Tikis)
 	}
 
 	// test false literal
@@ -4504,19 +4504,19 @@ func TestExecutor_BoolLiteralEval(t *testing.T) {
 			},
 		},
 	}
-	result2, err := e.testExec(stmt2, tasks)
+	result2, err := e.testExec(stmt2, tikis)
 	if err != nil {
 		t.Fatalf("execute: %v", err)
 	}
-	if len(result2.Select.Tasks) != 1 || result2.Select.Tasks[0].ID != "T2" {
-		t.Fatalf("expected T2, got %v", result2.Select.Tasks)
+	if len(result2.Select.Tikis) != 1 || result2.Select.Tikis[0].ID != "T2" {
+		t.Fatalf("expected T2, got %v", result2.Select.Tikis)
 	}
 }
 
 func TestExecutor_BoolStringCoercion(t *testing.T) {
 	e := newCustomExecutor()
 
-	tasks := []*tikiFixture{
+	tikis := []*tikiFixture{
 		{ID: "T1", Title: "A", Status: "ready", CustomFields: map[string]interface{}{"flag": true}},
 		{ID: "T2", Title: "B", Status: "ready", CustomFields: map[string]interface{}{"flag": false}},
 	}
@@ -4531,12 +4531,12 @@ func TestExecutor_BoolStringCoercion(t *testing.T) {
 			},
 		},
 	}
-	result, err := e.testExec(stmt, tasks)
+	result, err := e.testExec(stmt, tikis)
 	if err != nil {
 		t.Fatalf("execute: %v", err)
 	}
-	if len(result.Select.Tasks) != 1 || result.Select.Tasks[0].ID != "T1" {
-		t.Errorf("bool=string 'true': got %v, want [T1]", result.Select.Tasks)
+	if len(result.Select.Tikis) != 1 || result.Select.Tikis[0].ID != "T1" {
+		t.Errorf("bool=string 'true': got %v, want [T1]", result.Select.Tikis)
 	}
 
 	// compare bool field against string "FALSE" — case-insensitive coercion
@@ -4549,12 +4549,12 @@ func TestExecutor_BoolStringCoercion(t *testing.T) {
 			},
 		},
 	}
-	result2, err := e.testExec(stmt2, tasks)
+	result2, err := e.testExec(stmt2, tikis)
 	if err != nil {
 		t.Fatalf("execute: %v", err)
 	}
-	if len(result2.Select.Tasks) != 1 || result2.Select.Tasks[0].ID != "T2" {
-		t.Errorf("bool=string 'FALSE': got %v, want [T2]", result2.Select.Tasks)
+	if len(result2.Select.Tikis) != 1 || result2.Select.Tikis[0].ID != "T2" {
+		t.Errorf("bool=string 'FALSE': got %v, want [T2]", result2.Select.Tikis)
 	}
 }
 
@@ -4562,7 +4562,7 @@ func TestExecutor_BoolInCaseInsensitive(t *testing.T) {
 	e := newCustomExecutor()
 	p := newCustomParser2()
 
-	tasks := []*tikiFixture{
+	tikis := []*tikiFixture{
 		{ID: "T1", Title: "A", Status: "ready", CustomFields: map[string]interface{}{"flag": true}},
 		{ID: "T2", Title: "B", Status: "ready", CustomFields: map[string]interface{}{"flag": false}},
 	}
@@ -4572,12 +4572,12 @@ func TestExecutor_BoolInCaseInsensitive(t *testing.T) {
 	if err != nil {
 		t.Fatalf("parse: %v", err)
 	}
-	result, err := e.testExec(stmt, tasks)
+	result, err := e.testExec(stmt, tikis)
 	if err != nil {
 		t.Fatalf("execute: %v", err)
 	}
-	if len(result.Select.Tasks) != 2 {
-		t.Errorf("bool in [True, FALSE]: got %d tasks, want 2", len(result.Select.Tasks))
+	if len(result.Select.Tikis) != 2 {
+		t.Errorf("bool in [True, FALSE]: got %d tikis, want 2", len(result.Select.Tikis))
 	}
 }
 
@@ -4585,7 +4585,7 @@ func TestExecutor_NilDoesNotMatchZero(t *testing.T) {
 	e := newCustomExecutor()
 	p := newCustomParser2()
 
-	tasks := []*tikiFixture{
+	tikis := []*tikiFixture{
 		{ID: "T1", Title: "A", Status: "ready"}, // flag unset, score unset
 		{ID: "T2", Title: "B", Status: "ready", CustomFields: map[string]interface{}{"flag": false, "score": 0}},
 		{ID: "T3", Title: "C", Status: "ready", CustomFields: map[string]interface{}{"flag": true, "score": 42}},
@@ -4597,12 +4597,12 @@ func TestExecutor_NilDoesNotMatchZero(t *testing.T) {
 	if err != nil {
 		t.Fatalf("parse: %v", err)
 	}
-	result, err := e.testExec(stmt, tasks)
+	result, err := e.testExec(stmt, tikis)
 	if err != nil {
 		t.Fatalf("execute: %v", err)
 	}
-	if len(result.Select.Tasks) != 1 || result.Select.Tasks[0].ID != "T2" {
-		t.Errorf("flag=false: got %v, want [T2]", tikiIDs(result.Select.Tasks))
+	if len(result.Select.Tikis) != 1 || result.Select.Tikis[0].ID != "T2" {
+		t.Errorf("flag=false: got %v, want [T2]", tikiIDs(result.Select.Tikis))
 	}
 
 	// Same for score=0 — only T2 (explicit score=0) matches.
@@ -4610,12 +4610,12 @@ func TestExecutor_NilDoesNotMatchZero(t *testing.T) {
 	if err != nil {
 		t.Fatalf("parse: %v", err)
 	}
-	result, err = e.testExec(stmt2, tasks)
+	result, err = e.testExec(stmt2, tikis)
 	if err != nil {
 		t.Fatalf("execute: %v", err)
 	}
-	if len(result.Select.Tasks) != 1 || result.Select.Tasks[0].ID != "T2" {
-		t.Errorf("score=0: got %v, want [T2]", tikiIDs(result.Select.Tasks))
+	if len(result.Select.Tikis) != 1 || result.Select.Tikis[0].ID != "T2" {
+		t.Errorf("score=0: got %v, want [T2]", tikiIDs(result.Select.Tikis))
 	}
 }
 
@@ -4624,19 +4624,19 @@ func TestPhase4_AbsentCustomIsEmptyIsTrue(t *testing.T) {
 	p := newCustomParser2()
 
 	// Updated Phase-4 rule: `missing is empty` is true.
-	tasks := []*tikiFixture{
+	tikis := []*tikiFixture{
 		{ID: "T1", Title: "A", Status: "ready"},
 	}
 	stmt, err := p.ParseStatement(`select where flag is empty`)
 	if err != nil {
 		t.Fatalf("parse: %v", err)
 	}
-	result, err := e.testExec(stmt, tasks)
+	result, err := e.testExec(stmt, tikis)
 	if err != nil {
 		t.Fatalf("execute: %v", err)
 	}
-	if len(result.Select.Tasks) != 1 || result.Select.Tasks[0].ID != "T1" {
-		t.Errorf("flag is empty: got %v, want [T1]", tikiIDs(result.Select.Tasks))
+	if len(result.Select.Tikis) != 1 || result.Select.Tikis[0].ID != "T1" {
+		t.Errorf("flag is empty: got %v, want [T1]", tikiIDs(result.Select.Tikis))
 	}
 }
 
@@ -4644,7 +4644,7 @@ func TestPhase4_AbsentOrderByHardErrorsCustom(t *testing.T) {
 	e := newCustomExecutor()
 	p := newCustomParser2()
 
-	tasks := []*tikiFixture{
+	tikis := []*tikiFixture{
 		{ID: "T1", Title: "A", Status: "ready", CustomFields: map[string]interface{}{"score": 10}},
 		{ID: "T2", Title: "B", Status: "ready"},
 	}
@@ -4652,7 +4652,7 @@ func TestPhase4_AbsentOrderByHardErrorsCustom(t *testing.T) {
 	if err != nil {
 		t.Fatalf("parse: %v", err)
 	}
-	if _, err := e.testExec(stmt, tasks); err == nil {
+	if _, err := e.testExec(stmt, tikis); err == nil {
 		t.Fatal("expected hard-error on absent score during order-by")
 	}
 }
@@ -4662,19 +4662,19 @@ func TestPhase4_AbsentInListIsFalse(t *testing.T) {
 	p := newCustomParser2()
 
 	// Updated Phase-4 rule: `absent in [...]` is false.
-	tasks := []*tikiFixture{
+	tikis := []*tikiFixture{
 		{ID: "T1", Title: "A", Status: "ready"},
 	}
 	stmt, err := p.ParseStatement(`select where severity in ["low"]`)
 	if err != nil {
 		t.Fatalf("parse: %v", err)
 	}
-	result, err := e.testExec(stmt, tasks)
+	result, err := e.testExec(stmt, tikis)
 	if err != nil {
 		t.Fatalf("execute: %v", err)
 	}
-	if len(result.Select.Tasks) != 0 {
-		t.Fatalf("expected no matches, got %v", result.Select.Tasks)
+	if len(result.Select.Tikis) != 0 {
+		t.Fatalf("expected no matches, got %v", result.Select.Tikis)
 	}
 }
 
@@ -4682,7 +4682,7 @@ func TestExecutor_EnumInCaseInsensitive(t *testing.T) {
 	e := newCustomExecutor()
 	p := newCustomParser2()
 
-	tasks := []*tikiFixture{
+	tikis := []*tikiFixture{
 		{ID: "T1", Title: "A", Status: "done", Type: "story", CustomFields: map[string]interface{}{"severity": "low"}},
 		{ID: "T2", Title: "B", Status: "ready", Type: "bug", CustomFields: map[string]interface{}{"severity": "high"}},
 		{ID: "T3", Title: "C", Status: "ready", Type: "story", CustomFields: map[string]interface{}{"severity": "critical"}},
@@ -4721,12 +4721,12 @@ func TestExecutor_EnumInCaseInsensitive(t *testing.T) {
 			if err != nil {
 				t.Fatalf("parse: %v", err)
 			}
-			result, err := e.testExec(stmt, tasks)
+			result, err := e.testExec(stmt, tikis)
 			if err != nil {
 				t.Fatalf("execute: %v", err)
 			}
-			gotIDs := make([]string, len(result.Select.Tasks))
-			for i, tk := range result.Select.Tasks {
+			gotIDs := make([]string, len(result.Select.Tikis))
+			for i, tk := range result.Select.Tikis {
 				gotIDs[i] = tk.ID
 			}
 			if !reflect.DeepEqual(gotIDs, tt.wantIDs) {
@@ -4746,19 +4746,19 @@ func TestExecuteTargetField_SingleSelection(t *testing.T) {
 	p := newTestParser()
 	e := newPluginExecutor()
 
-	// use target.status to select any task whose status matches the selected task's status
+	// use target.status to select any tiki whose status matches the selected tiki's status
 	v, err := p.ParseAndValidateStatement(`select where status = target.status`, ExecutorRuntimePlugin)
 	if err != nil {
 		t.Fatalf("validate: %v", err)
 	}
-	// selected task is TIKI-000001 (status=ready). TIKI-000001 is the only ready task.
+	// selected tiki is TIKI-000001 (status=ready). TIKI-000001 is the only ready tiki.
 	input := ExecutionInput{SelectedTikiIDs: []string{"TIKI-000001"}}
-	res, err := e.testExec(v, makeTasks(), input)
+	res, err := e.testExec(v, makeTikis(), input)
 	if err != nil {
 		t.Fatalf("execute: %v", err)
 	}
-	if len(res.Select.Tasks) != 1 || res.Select.Tasks[0].ID != "TIKI-000001" {
-		t.Fatalf("unexpected result %v", tikiIDs(res.Select.Tasks))
+	if len(res.Select.Tikis) != 1 || res.Select.Tikis[0].ID != "TIKI-000001" {
+		t.Fatalf("unexpected result %v", tikiIDs(res.Select.Tikis))
 	}
 }
 
@@ -4769,7 +4769,7 @@ func TestExecuteTargetField_ZeroSelectionErrors(t *testing.T) {
 	if err != nil {
 		t.Fatalf("validate: %v", err)
 	}
-	_, err = e.testExec(v, makeTasks())
+	_, err = e.testExec(v, makeTikis())
 	if err == nil {
 		t.Fatal("expected missing-selection error")
 	}
@@ -4787,7 +4787,7 @@ func TestExecuteTargetField_MultipleSelectionErrors(t *testing.T) {
 		t.Fatalf("validate: %v", err)
 	}
 	input := ExecutionInput{SelectedTikiIDs: []string{"TIKI-000001", "TIKI-000002"}}
-	_, err = e.testExec(v, makeTasks(), input)
+	_, err = e.testExec(v, makeTikis(), input)
 	if err == nil {
 		t.Fatal("expected ambiguous-selection error")
 	}
@@ -4806,11 +4806,11 @@ func TestExecuteTargetsField_IDProjection(t *testing.T) {
 		t.Fatalf("validate: %v", err)
 	}
 	input := ExecutionInput{SelectedTikiIDs: []string{"TIKI-000002", "TIKI-000004"}}
-	res, err := e.testExec(v, makeTasks(), input)
+	res, err := e.testExec(v, makeTikis(), input)
 	if err != nil {
 		t.Fatalf("execute: %v", err)
 	}
-	gotIDs := tikiIDs(res.Select.Tasks)
+	gotIDs := tikiIDs(res.Select.Tikis)
 	want := []string{"TIKI-000002", "TIKI-000004"}
 	sort.Strings(gotIDs)
 	sort.Strings(want)
@@ -4822,18 +4822,18 @@ func TestExecuteTargetsField_IDProjection(t *testing.T) {
 func TestExecuteTargetsField_FlattensListRef(t *testing.T) {
 	p := newTestParser()
 	e := newPluginExecutor()
-	// targets.dependsOn flattens list<ref> across selected tasks
+	// targets.dependsOn flattens list<ref> across selected tikis
 	v, err := p.ParseAndValidateStatement(`select where id in targets.dependsOn`, ExecutorRuntimePlugin)
 	if err != nil {
 		t.Fatalf("validate: %v", err)
 	}
 	// TIKI-000002 depends on TIKI-000001; TIKI-000004 has no deps
 	input := ExecutionInput{SelectedTikiIDs: []string{"TIKI-000002", "TIKI-000004"}}
-	res, err := e.testExec(v, makeTasks(), input)
+	res, err := e.testExec(v, makeTikis(), input)
 	if err != nil {
 		t.Fatalf("execute: %v", err)
 	}
-	gotIDs := tikiIDs(res.Select.Tasks)
+	gotIDs := tikiIDs(res.Select.Tikis)
 	if !reflect.DeepEqual(gotIDs, []string{"TIKI-000001"}) {
 		t.Fatalf("expected [TIKI-000001], got %v", gotIDs)
 	}
@@ -4844,8 +4844,8 @@ func TestExecuteTargetsField_FlattensAndDedupsListString(t *testing.T) {
 	// we test via evalTargetsField directly on an executor since tags is list<string>.
 	e := newPluginExecutor()
 	e.currentInput = ExecutionInput{SelectedTikiIDs: []string{"TIKI-000002", "TIKI-000001"}}
-	tasks := makeTasks()
-	val, err := e.evalTargetsField("tags", evalContext{allTikis: tikisFromFixtures(tasks)})
+	tikis := makeTikis()
+	val, err := e.evalTargetsField("tags", evalContext{allTikis: tikisFromFixtures(tikis)})
 	if err != nil {
 		t.Fatalf("evalTargetsField: %v", err)
 	}
@@ -4867,7 +4867,7 @@ func TestExecuteTargetsField_FlattensAndDedupsListString(t *testing.T) {
 func TestExecuteTargetsField_EmptySelectionReturnsEmptyList(t *testing.T) {
 	e := newPluginExecutor()
 	e.currentInput = ExecutionInput{}
-	val, err := e.evalTargetsField("id", evalContext{allTikis: tikisFromFixtures(makeTasks())})
+	val, err := e.evalTargetsField("id", evalContext{allTikis: tikisFromFixtures(makeTikis())})
 	if err != nil {
 		t.Fatalf("evalTargetsField: %v", err)
 	}
@@ -4880,24 +4880,24 @@ func TestExecuteTargetsField_EmptySelectionReturnsEmptyList(t *testing.T) {
 	}
 }
 
-func TestExecuteTargetsField_MissingTaskRecord(t *testing.T) {
+func TestExecuteTargetsField_MissingTikiRecord(t *testing.T) {
 	e := newPluginExecutor()
 	e.currentInput = ExecutionInput{SelectedTikiIDs: []string{"TIKI-999999"}}
-	_, err := e.evalTargetsField("id", evalContext{allTikis: tikisFromFixtures(makeTasks())})
+	_, err := e.evalTargetsField("id", evalContext{allTikis: tikisFromFixtures(makeTikis())})
 	if err == nil {
-		t.Fatal("expected missing-task error")
+		t.Fatal("expected missing-tiki error")
 	}
 	if !strings.Contains(err.Error(), "TIKI-999999") {
 		t.Fatalf("expected error to mention missing id, got: %v", err)
 	}
 }
 
-func TestExecuteTargetField_MissingTaskRecord(t *testing.T) {
+func TestExecuteTargetField_MissingTikiRecord(t *testing.T) {
 	e := newPluginExecutor()
 	e.currentInput = ExecutionInput{SelectedTikiIDs: []string{"TIKI-999999"}}
-	_, err := e.evalTargetField("id", evalContext{allTikis: tikisFromFixtures(makeTasks())})
+	_, err := e.evalTargetField("id", evalContext{allTikis: tikisFromFixtures(makeTikis())})
 	if err == nil {
-		t.Fatal("expected missing-task error")
+		t.Fatal("expected missing-tiki error")
 	}
 	if !strings.Contains(err.Error(), "TIKI-999999") {
 		t.Fatalf("expected error to mention missing id, got: %v", err)
@@ -4918,7 +4918,7 @@ func TestExecuteTargetField_PreflightRejectsZeroSelection(t *testing.T) {
 	if err != nil {
 		t.Fatalf("validate: %v", err)
 	}
-	_, err = e.testExec(v, makeTasks())
+	_, err = e.testExec(v, makeTikis())
 	if err == nil {
 		t.Fatal("expected MissingSelectedTikiIDError even behind short-circuit")
 	}
@@ -4929,7 +4929,7 @@ func TestExecuteTargetField_PreflightRejectsZeroSelection(t *testing.T) {
 }
 
 // End-to-end: `status in targets.status` must parse and return the subset of
-// tasks whose status appears in the selected tasks' statuses.
+// tikis whose status appears in the selected tikis' statuses.
 func TestExecuteTargetsStatus_Membership(t *testing.T) {
 	p := newTestParser()
 	e := newPluginExecutor()
@@ -4937,14 +4937,14 @@ func TestExecuteTargetsStatus_Membership(t *testing.T) {
 	if err != nil {
 		t.Fatalf("validate: %v", err)
 	}
-	// selected tasks have statuses {ready, done} → expect TIKI-000001 (ready)
+	// selected tikis have statuses {ready, done} → expect TIKI-000001 (ready)
 	// and TIKI-000003 (done) to match, and the other two to drop out.
 	input := ExecutionInput{SelectedTikiIDs: []string{"TIKI-000001", "TIKI-000003"}}
-	res, err := e.testExec(v, makeTasks(), input)
+	res, err := e.testExec(v, makeTikis(), input)
 	if err != nil {
 		t.Fatalf("execute: %v", err)
 	}
-	gotIDs := tikiIDs(res.Select.Tasks)
+	gotIDs := tikiIDs(res.Select.Tikis)
 	sort.Strings(gotIDs)
 	want := []string{"TIKI-000001", "TIKI-000003"}
 	if !reflect.DeepEqual(gotIDs, want) {
@@ -4963,7 +4963,7 @@ func TestExecuteTargetField_PreflightRejectsMultiSelection(t *testing.T) {
 		t.Fatalf("validate: %v", err)
 	}
 	input := ExecutionInput{SelectedTikiIDs: []string{"TIKI-000001", "TIKI-000002"}}
-	_, err = e.testExec(v, makeTasks(), input)
+	_, err = e.testExec(v, makeTikis(), input)
 	if err == nil {
 		t.Fatal("expected AmbiguousSelectedTikiIDError even behind short-circuit")
 	}
@@ -4975,14 +4975,14 @@ func TestExecuteTargetField_PreflightRejectsMultiSelection(t *testing.T) {
 
 // --- top-level expression statements ---
 
-func TestExecuteExprStmt_CountAllTasks(t *testing.T) {
+func TestExecuteExprStmt_CountAllTikis(t *testing.T) {
 	p := newTestParser()
 	e := newTestExecutor()
 	stmt, err := p.ParseStatement(`count(select)`)
 	if err != nil {
 		t.Fatalf("parse: %v", err)
 	}
-	res, err := e.testExec(stmt, makeTasks())
+	res, err := e.testExec(stmt, makeTikis())
 	if err != nil {
 		t.Fatalf("execute: %v", err)
 	}
@@ -5004,7 +5004,7 @@ func TestExecuteExprStmt_CountWithWhere(t *testing.T) {
 	if err != nil {
 		t.Fatalf("parse: %v", err)
 	}
-	res, err := e.testExec(stmt, makeTasks())
+	res, err := e.testExec(stmt, makeTikis())
 	if err != nil {
 		t.Fatalf("execute: %v", err)
 	}
@@ -5031,7 +5031,7 @@ func TestExecuteExprStmt_ExistsTrueFalse(t *testing.T) {
 			if err != nil {
 				t.Fatalf("parse: %v", err)
 			}
-			res, err := e.testExec(stmt, makeTasks())
+			res, err := e.testExec(stmt, makeTikis())
 			if err != nil {
 				t.Fatalf("execute: %v", err)
 			}
@@ -5052,7 +5052,7 @@ func TestExecuteExprStmt_NowReturnsTimestamp(t *testing.T) {
 	if err != nil {
 		t.Fatalf("parse: %v", err)
 	}
-	res, err := e.testExec(stmt, makeTasks())
+	res, err := e.testExec(stmt, makeTikis())
 	if err != nil {
 		t.Fatalf("execute: %v", err)
 	}
@@ -5071,7 +5071,7 @@ func TestExecuteExprStmt_Arithmetic(t *testing.T) {
 	if err != nil {
 		t.Fatalf("parse: %v", err)
 	}
-	res, err := e.testExec(stmt, makeTasks())
+	res, err := e.testExec(stmt, makeTikis())
 	if err != nil {
 		t.Fatalf("execute: %v", err)
 	}

@@ -107,11 +107,11 @@ func TestRecursiveLoad_SkipsHiddenDirectories(t *testing.T) {
 	}
 }
 
-// TestRecursiveLoad_NewTaskLandsAtDocRoot verifies the Phase 2 save default:
+// TestRecursiveLoad_NewTikiLandsAtDocRoot verifies the Phase 2 save default:
 // a brand-new document written via CreateTiki ends up directly under the
 // scan root (`<root>/<ID>.md`), not under a `tiki/` subdirectory. The
 // recursive walker must then find it on reload.
-func TestRecursiveLoad_NewTaskLandsAtDocRoot(t *testing.T) {
+func TestRecursiveLoad_NewTikiLandsAtDocRoot(t *testing.T) {
 	root := t.TempDir()
 	store, err := NewTikiStore(root)
 	if err != nil {

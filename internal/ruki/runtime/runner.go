@@ -13,8 +13,8 @@ import (
 )
 
 // allDocsAsTikis returns every loaded tiki for ruki execution, including plain
-// docs. Prefers rs.GetAllTikis() directly to avoid the Document→Task→Tiki
-// roundtrip that drops tiki-native fields (e.g. CreatedBy, Body).
+// docs. Prefers rs.GetAllTikis() directly to avoid roundtrips through
+// intermediate types that drop tiki-native fields (e.g. CreatedBy, Body).
 func allDocsAsTikis(rs store.ReadStore) []*tiki.Tiki {
 	return rs.GetAllTikis()
 }
@@ -220,14 +220,14 @@ func persistAndSummarize(ctx context.Context, gate *service.TikiMutationGate, ur
 	}
 
 	if failed > 0 {
-		return fmt.Errorf("update partially failed: %d of %d tasks failed: %w", failed, succeeded+failed, firstErr)
+		return fmt.Errorf("update partially failed: %d of %d tikis failed: %w", failed, succeeded+failed, firstErr)
 	}
 	return nil
 }
 
 func persistCreate(ctx context.Context, gate *service.TikiMutationGate, cr *ruki.CreateResult, out io.Writer, json bool) error {
 	if err := gate.CreateTiki(ctx, cr.Tiki); err != nil {
-		return fmt.Errorf("create task: %w", err)
+		return fmt.Errorf("create tiki: %w", err)
 	}
 	return formatCreateSummary(out, cr.Tiki.ID, json)
 }
@@ -251,7 +251,7 @@ func persistDelete(ctx context.Context, gate *service.TikiMutationGate, dr *ruki
 	}
 
 	if failed > 0 {
-		return fmt.Errorf("delete partially failed: %d of %d tasks failed", failed, succeeded+failed)
+		return fmt.Errorf("delete partially failed: %d of %d tikis failed", failed, succeeded+failed)
 	}
 	return nil
 }

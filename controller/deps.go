@@ -81,26 +81,26 @@ func (dc *DepsController) ShowNavigation() bool { return false }
 
 // EnsureFirstNonEmptyLaneSelection delegates to pluginBase with this controller's filter.
 func (dc *DepsController) EnsureFirstNonEmptyLaneSelection() bool {
-	return dc.pluginBase.EnsureFirstNonEmptyLaneSelection(dc.GetFilteredTasksForLane)
+	return dc.pluginBase.EnsureFirstNonEmptyLaneSelection(dc.GetFilteredTikisForLane)
 }
 
 // HandleAction routes actions to the appropriate handler.
 func (dc *DepsController) HandleAction(actionID ActionID) bool {
 	switch actionID {
 	case ActionNavUp:
-		return dc.handleNav("up", dc.GetFilteredTasksForLane)
+		return dc.handleNav("up", dc.GetFilteredTikisForLane)
 	case ActionNavDown:
-		return dc.handleNav("down", dc.GetFilteredTasksForLane)
+		return dc.handleNav("down", dc.GetFilteredTikisForLane)
 	case ActionNavLeft:
-		return dc.handleNav("left", dc.GetFilteredTasksForLane)
+		return dc.handleNav("left", dc.GetFilteredTikisForLane)
 	case ActionNavRight:
-		return dc.handleNav("right", dc.GetFilteredTasksForLane)
+		return dc.handleNav("right", dc.GetFilteredTikisForLane)
 	case ActionMoveTikiLeft:
 		return dc.handleMoveTiki(-1)
 	case ActionMoveTikiRight:
 		return dc.handleMoveTiki(1)
 	case ActionOpenFromPlugin:
-		tikiID := dc.getSelectedTikiID(dc.GetFilteredTasksForLane)
+		tikiID := dc.getSelectedTikiID(dc.GetFilteredTikisForLane)
 		if tikiID == "" {
 			return false
 		}
@@ -125,7 +125,7 @@ func (dc *DepsController) HandleAction(actionID ActionID) bool {
 	case ActionNewTiki:
 		return dc.handleNewTiki()
 	case ActionDeleteTiki:
-		return dc.handleDeleteTiki(dc.GetFilteredTasksForLane)
+		return dc.handleDeleteTiki(dc.GetFilteredTikisForLane)
 	case ActionToggleViewMode:
 		dc.pluginConfig.ToggleViewMode()
 		return true
@@ -137,15 +137,15 @@ func (dc *DepsController) HandleAction(actionID ActionID) bool {
 // HandleSearch processes a search query, narrowing visible tikis within each lane.
 func (dc *DepsController) HandleSearch(query string) {
 	dc.handleSearch(query, func() bool {
-		return dc.selectFirstNonEmptyLane(dc.GetFilteredTasksForLane)
+		return dc.selectFirstNonEmptyLane(dc.GetFilteredTikisForLane)
 	})
 }
 
-// GetFilteredTasksForLane returns tikis for a given lane of the deps editor.
+// GetFilteredTikisForLane returns tikis for a given lane of the deps editor.
 // Lane 0 (Blocks): tikis whose dependsOn contains the context tiki.
 // Lane 1 (All): all tikis minus context tiki, blocks set, and depends set.
 // Lane 2 (Depends): tikis listed in the context tiki's dependsOn.
-func (dc *DepsController) GetFilteredTasksForLane(lane int) []*tikipkg.Tiki {
+func (dc *DepsController) GetFilteredTikisForLane(lane int) []*tikipkg.Tiki {
 	if lane < 0 || lane >= len(dc.pluginDef.Lanes) {
 		return nil
 	}
@@ -194,8 +194,8 @@ func (dc *DepsController) handleMoveTiki(offset int) bool {
 		return false
 	}
 
-	movedTaskID := dc.getSelectedTikiID(dc.GetFilteredTasksForLane)
-	if movedTaskID == "" {
+	movedTikiID := dc.getSelectedTikiID(dc.GetFilteredTikisForLane)
+	if movedTikiID == "" {
 		return false
 	}
 
@@ -205,7 +205,7 @@ func (dc *DepsController) handleMoveTiki(offset int) bool {
 		return false
 	}
 
-	contextTaskID := dc.pluginDef.TikiID
+	contextTikiID := dc.pluginDef.TikiID
 
 	// Build a ruki UPDATE query for the dependency change. Phase 4's
 	// assignment-RHS auto-zero carve-out treats absent dependsOn as an
@@ -214,13 +214,13 @@ func (dc *DepsController) handleMoveTiki(offset int) bool {
 	var query string
 	switch {
 	case sourceLane == depsLaneAll && targetLane == depsLaneBlocks:
-		query = fmt.Sprintf(`update where id = "%s" set dependsOn = dependsOn + ["%s"]`, movedTaskID, contextTaskID)
+		query = fmt.Sprintf(`update where id = "%s" set dependsOn = dependsOn + ["%s"]`, movedTikiID, contextTikiID)
 	case sourceLane == depsLaneAll && targetLane == depsLaneDepends:
-		query = fmt.Sprintf(`update where id = "%s" set dependsOn = dependsOn + ["%s"]`, contextTaskID, movedTaskID)
+		query = fmt.Sprintf(`update where id = "%s" set dependsOn = dependsOn + ["%s"]`, contextTikiID, movedTikiID)
 	case sourceLane == depsLaneBlocks && targetLane == depsLaneAll:
-		query = fmt.Sprintf(`update where id = "%s" set dependsOn = dependsOn - ["%s"]`, movedTaskID, contextTaskID)
+		query = fmt.Sprintf(`update where id = "%s" set dependsOn = dependsOn - ["%s"]`, movedTikiID, contextTikiID)
 	case sourceLane == depsLaneDepends && targetLane == depsLaneAll:
-		query = fmt.Sprintf(`update where id = "%s" set dependsOn = dependsOn - ["%s"]`, contextTaskID, movedTaskID)
+		query = fmt.Sprintf(`update where id = "%s" set dependsOn = dependsOn - ["%s"]`, contextTikiID, movedTikiID)
 	default:
 		return false
 	}
@@ -245,7 +245,7 @@ func (dc *DepsController) handleMoveTiki(offset int) bool {
 
 	for _, tk := range result.Update.Updated {
 		if err := dc.mutationGate.UpdateTiki(context.Background(), tk); err != nil {
-			slog.Error("deps move: failed to update task", "tiki_id", tk.ID, "error", err)
+			slog.Error("deps move: failed to update tiki", "tiki_id", tk.ID, "error", err)
 			if dc.statusline != nil {
 				dc.statusline.SetMessage(err.Error(), model.MessageLevelError, true)
 			}
@@ -253,7 +253,7 @@ func (dc *DepsController) handleMoveTiki(offset int) bool {
 		}
 	}
 
-	dc.selectTikiInLane(targetLane, movedTaskID, dc.GetFilteredTasksForLane)
+	dc.selectTikiInLane(targetLane, movedTikiID, dc.GetFilteredTikisForLane)
 	return true
 }
 

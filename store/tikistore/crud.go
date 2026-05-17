@@ -22,7 +22,7 @@ func (s *TikiStore) CreateTiki(tk *tikipkg.Tiki) error {
 	if err := s.createTikiLocked(tk); err != nil {
 		return err
 	}
-	slog.Info("task created", "tiki_id", tk.ID)
+	slog.Info("tiki created", "tiki_id", tk.ID)
 	s.notifyListeners()
 	return nil
 }
@@ -49,7 +49,7 @@ func (s *TikiStore) storeNewDocumentLocked(tk *tikipkg.Tiki) error {
 				break
 			}
 			if i > maxGenerateRetries {
-				return fmt.Errorf("failed to generate unique task id after %d attempts", maxGenerateRetries)
+				return fmt.Errorf("failed to generate unique tiki id after %d attempts", maxGenerateRetries)
 			}
 			slog.Debug("ID collision detected in index, regenerating", "id", candidate)
 		}
@@ -65,7 +65,7 @@ func (s *TikiStore) storeNewDocumentLocked(tk *tikipkg.Tiki) error {
 	if err := s.saveTiki(tk); err != nil {
 		delete(s.tikis, tk.ID)
 		slog.Error("failed to save new document after creation", "tiki_id", tk.ID, "error", err)
-		return fmt.Errorf("failed to save task: %w", err)
+		return fmt.Errorf("failed to save tiki: %w", err)
 	}
 	return nil
 }
@@ -91,14 +91,14 @@ func (s *TikiStore) GetAllTikis() []*tikipkg.Tiki {
 // forward from the stored tiki, so a native or ruki caller that deletes a
 // field (e.g. due, assignee) sees that deletion land on disk.
 //
-// Task-shaped callers that need carry-forward semantics (i.e. a partial Task
-// that only sets a few fields) go through UpdateTask, which performs the
+// Tiki-shaped callers that need carry-forward semantics (i.e. a partial Tiki
+// that only sets a few fields) go through UpdateTiki, which performs the
 // carry-forward merge before projecting to a Tiki and calling UpdateTiki.
 func (s *TikiStore) UpdateTiki(tk *tikipkg.Tiki) error {
 	if err := s.updateTikiCore(tk, false); err != nil {
 		return err
 	}
-	slog.Info("task updated", "tiki_id", tk.ID)
+	slog.Info("tiki updated", "tiki_id", tk.ID)
 	s.notifyListeners()
 	return nil
 }
@@ -114,7 +114,7 @@ func (s *TikiStore) updateTikiCore(tk *tikipkg.Tiki, _ bool) error {
 	tk.ID = normalizeTikiID(tk.ID)
 	old, exists := s.tikis[tk.ID]
 	if !exists {
-		return fmt.Errorf("task not found: %s", tk.ID)
+		return fmt.Errorf("tiki not found: %s", tk.ID)
 	}
 
 	if tk.Path == "" {
@@ -131,8 +131,8 @@ func (s *TikiStore) updateTikiCore(tk *tikipkg.Tiki, _ bool) error {
 	s.tikis[tk.ID] = tk
 	if err := s.saveTiki(tk); err != nil {
 		s.tikis[tk.ID] = old
-		slog.Error("failed to save updated task", "tiki_id", tk.ID, "error", err)
-		return fmt.Errorf("failed to save task: %w", err)
+		slog.Error("failed to save updated tiki", "tiki_id", tk.ID, "error", err)
+		return fmt.Errorf("failed to save tiki: %w", err)
 	}
 	return nil
 }
@@ -143,7 +143,7 @@ func (s *TikiStore) DeleteTiki(id string) {
 	if !s.deleteTikiLocked(normalizedID) {
 		return
 	}
-	slog.Info("task deleted", "tiki_id", normalizedID)
+	slog.Info("tiki deleted", "tiki_id", normalizedID)
 	s.notifyListeners()
 }
 
@@ -167,14 +167,14 @@ func (s *TikiStore) deleteTikiLocked(id string) bool {
 		if err := s.gitUtil.Remove(path); err == nil {
 			removed = true
 		} else {
-			slog.Debug("failed to git remove task file, falling back to os.Remove", "tiki_id", id, "path", path, "error", err)
+			slog.Debug("failed to git remove tiki file, falling back to os.Remove", "tiki_id", id, "path", path, "error", err)
 		}
 	}
 
 	// fall back to os.Remove if git rm failed or unavailable
 	if !removed {
 		if err := os.Remove(path); err != nil {
-			slog.Error("file deletion failed, task preserved in memory", "tiki_id", id, "path", path, "error", err)
+			slog.Error("file deletion failed, tiki preserved in memory", "tiki_id", id, "path", path, "error", err)
 			return false
 		}
 	}

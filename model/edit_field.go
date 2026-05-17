@@ -5,7 +5,7 @@ import (
 	"github.com/boolean-maybe/tiki/workflow"
 )
 
-// EditField identifies an editable field in task edit mode.
+// EditField identifies an editable field in tiki edit mode.
 type EditField string
 
 const (

@@ -183,7 +183,7 @@ func (f *ViewFactory) CreateView(viewID model.ViewID, params map[string]interfac
 					f.tikiStore,
 					pluginConfig,
 					tikiPlugin,
-					tikiCtrl.GetFilteredTasksForLane,
+					tikiCtrl.GetFilteredTikisForLane,
 					tikiCtrl.EnsureFirstNonEmptyLaneSelection,
 					tikiCtrl.GetActionRegistry(),
 					tikiCtrl.ShowNavigation(),

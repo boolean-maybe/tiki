@@ -14,7 +14,7 @@ import (
 // here. Title and Description retain dedicated paths because they live
 // outside the metadata grid.
 
-// IsValid returns true if the task passes all validation checks.
+// IsValid returns true if the tiki passes all validation checks.
 func (ev *TikiEditView) IsValid() bool {
 	return len(ev.validationErrors) == 0
 }

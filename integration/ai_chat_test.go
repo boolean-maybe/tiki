@@ -13,9 +13,9 @@ import (
 	"github.com/spf13/viper"
 )
 
-// TestTaskDetailView_ChatModifiesTask verifies the full chat action flow:
-// key press → suspend → command modifies task file → resume → task reloaded.
-func TestTaskDetailView_ChatModifiesTask(t *testing.T) {
+// TestTikiDetailView_ChatModifiesTiki verifies the full chat action flow:
+// key press → suspend → command modifies tiki file → resume → tiki reloaded.
+func TestTikiDetailView_ChatModifiesTiki(t *testing.T) {
 	ta := testutil.NewTestApp(t)
 	defer ta.Cleanup()
 
@@ -23,23 +23,23 @@ func TestTaskDetailView_ChatModifiesTask(t *testing.T) {
 	viper.Set("ai.agent", "claude")
 	defer viper.Set("ai.agent", "")
 
-	// create a task
+	// create a tiki
 	tikiID := "CHAT01"
 	if err := testutil.CreateTestTiki(ta.TikiDir, tikiID, "Original Title", "ready", "story"); err != nil {
-		t.Fatalf("failed to create test task: %v", err)
+		t.Fatalf("failed to create test tiki: %v", err)
 	}
 	if err := ta.TikiStore.Reload(); err != nil {
-		t.Fatalf("failed to reload tasks: %v", err)
+		t.Fatalf("failed to reload tikis: %v", err)
 	}
 
-	// mock command runner: verifies claude args and modifies the task title on disk
+	// mock command runner: verifies claude args and modifies the tiki title on disk
 	ta.NavController.SetCommandRunner(func(name string, args ...string) error {
 		if name != "claude" {
 			t.Errorf("expected command 'claude', got %q", name)
 		}
-		// verify --append-system-prompt is passed with task file path.
+		// verify --append-system-prompt is passed with tiki file path.
 		// Phase 2: filenames are the bare uppercase id (no lowercase
-		// convention), and the path comes from the task's own FilePath via
+		// convention), and the path comes from the tiki's own FilePath via
 		// store.PathForID — which is an absolute path, not something the
 		// test can reconstruct by joining ta.TikiDir + lower(id).
 		if len(args) < 2 || args[0] != "--append-system-prompt" {
@@ -57,7 +57,7 @@ func TestTaskDetailView_ChatModifiesTask(t *testing.T) {
 	})
 
 	// Phase 3: navigate to the configurable detail view (kind: detail)
-	// directly, carrying the task id via PluginViewParams. The legacy
+	// directly, carrying the tiki id via PluginViewParams. The legacy
 	// TikiDetailViewID is no longer the chat host.
 	ta.NavController.PushView(
 		model.DetailPluginViewID(),
@@ -68,10 +68,10 @@ func TestTaskDetailView_ChatModifiesTask(t *testing.T) {
 	// press 'c' to invoke chat
 	ta.SendKey(tcell.KeyRune, 'c', tcell.ModNone)
 
-	// verify task was reloaded with the modified title
+	// verify tiki was reloaded with the modified title
 	updated := ta.TikiStore.GetTiki(tikiID)
 	if updated == nil {
-		t.Fatal("task not found after chat")
+		t.Fatal("tiki not found after chat")
 		return
 	}
 	if updated.Title != "AI Modified Title" {
@@ -79,22 +79,22 @@ func TestTaskDetailView_ChatModifiesTask(t *testing.T) {
 	}
 }
 
-// TestTaskDetailView_ChatNotAvailableWithoutConfig verifies the chat action
+// TestTikiDetailView_ChatNotAvailableWithoutConfig verifies the chat action
 // is not triggered when ai.agent is not configured.
-func TestTaskDetailView_ChatNotAvailableWithoutConfig(t *testing.T) {
+func TestTikiDetailView_ChatNotAvailableWithoutConfig(t *testing.T) {
 	ta := testutil.NewTestApp(t)
 	defer ta.Cleanup()
 
 	// ensure ai.agent is empty
 	viper.Set("ai.agent", "")
 
-	// create a task
+	// create a tiki
 	tikiID := "NOCHAT"
 	if err := testutil.CreateTestTiki(ta.TikiDir, tikiID, "Unchanged Title", "ready", "story"); err != nil {
-		t.Fatalf("failed to create test task: %v", err)
+		t.Fatalf("failed to create test tiki: %v", err)
 	}
 	if err := ta.TikiStore.Reload(); err != nil {
-		t.Fatalf("failed to reload tasks: %v", err)
+		t.Fatalf("failed to reload tikis: %v", err)
 	}
 
 	// mock command runner: should NOT be called
@@ -105,7 +105,7 @@ func TestTaskDetailView_ChatNotAvailableWithoutConfig(t *testing.T) {
 	})
 
 	// Phase 3: navigate to the configurable detail view (kind: detail)
-	// directly, carrying the task id via PluginViewParams. The legacy
+	// directly, carrying the tiki id via PluginViewParams. The legacy
 	// TikiDetailViewID is no longer the chat host.
 	ta.NavController.PushView(
 		model.DetailPluginViewID(),
@@ -120,10 +120,10 @@ func TestTaskDetailView_ChatNotAvailableWithoutConfig(t *testing.T) {
 		t.Error("command runner should not have been called when ai.agent is not configured")
 	}
 
-	// verify task is unchanged
+	// verify tiki is unchanged
 	unchanged := ta.TikiStore.GetTiki(tikiID)
 	if unchanged == nil {
-		t.Fatal("task not found")
+		t.Fatal("tiki not found")
 		return
 	}
 	if unchanged.Title != "Unchanged Title" {

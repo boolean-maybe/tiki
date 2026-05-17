@@ -96,20 +96,20 @@ func (pc *PluginController) ShowNavigation() bool { return true }
 
 // EnsureFirstNonEmptyLaneSelection delegates to pluginBase with this controller's filter.
 func (pc *PluginController) EnsureFirstNonEmptyLaneSelection() bool {
-	return pc.pluginBase.EnsureFirstNonEmptyLaneSelection(pc.GetFilteredTasksForLane)
+	return pc.pluginBase.EnsureFirstNonEmptyLaneSelection(pc.GetFilteredTikisForLane)
 }
 
 // HandleAction processes a plugin action
 func (pc *PluginController) HandleAction(actionID ActionID) bool {
 	switch actionID {
 	case ActionNavUp:
-		return pc.handleNav("up", pc.GetFilteredTasksForLane)
+		return pc.handleNav("up", pc.GetFilteredTikisForLane)
 	case ActionNavDown:
-		return pc.handleNav("down", pc.GetFilteredTasksForLane)
+		return pc.handleNav("down", pc.GetFilteredTikisForLane)
 	case ActionNavLeft:
-		return pc.handleNav("left", pc.GetFilteredTasksForLane)
+		return pc.handleNav("left", pc.GetFilteredTikisForLane)
 	case ActionNavRight:
-		return pc.handleNav("right", pc.GetFilteredTasksForLane)
+		return pc.handleNav("right", pc.GetFilteredTikisForLane)
 	case ActionMoveTikiLeft:
 		return pc.handleMoveTiki(-1)
 	case ActionMoveTikiRight:
@@ -117,7 +117,7 @@ func (pc *PluginController) HandleAction(actionID ActionID) bool {
 	case ActionNewTiki:
 		return pc.handleNewTiki()
 	case ActionDeleteTiki:
-		return pc.handleDeleteTiki(pc.GetFilteredTasksForLane)
+		return pc.handleDeleteTiki(pc.GetFilteredTikisForLane)
 	case ActionToggleViewMode:
 		pc.pluginConfig.ToggleViewMode()
 		return true
@@ -132,7 +132,7 @@ func (pc *PluginController) HandleAction(actionID ActionID) bool {
 // HandleSearch processes a search query for the plugin view
 func (pc *PluginController) HandleSearch(query string) {
 	pc.handleSearch(query, func() bool {
-		return pc.selectFirstNonEmptyLane(pc.GetFilteredTasksForLane)
+		return pc.selectFirstNonEmptyLane(pc.GetFilteredTikisForLane)
 	})
 }
 
@@ -154,7 +154,7 @@ func (pc *PluginController) getPluginAction(actionID ActionID) (*plugin.PluginAc
 // selection/create-template preflight. Returns ok=false if the action can't run.
 func (pc *PluginController) buildExecutionInput(pa *plugin.PluginAction) (ruki.ExecutionInput, bool) {
 	input := ruki.ExecutionInput{}
-	ids := pc.getSelectedTikiIDs(pc.GetFilteredTasksForLane)
+	ids := pc.getSelectedTikiIDs(pc.GetFilteredTikisForLane)
 
 	if !selectionSatisfies(pa.Require, len(ids)) {
 		return input, false
@@ -166,7 +166,7 @@ func (pc *PluginController) buildExecutionInput(pa *plugin.PluginAction) (ruki.E
 	if pa.Action.IsCreate() {
 		template, err := pc.tikiStore.NewTikiTemplate()
 		if err != nil {
-			slog.Error("failed to create task template for plugin action", "error", err)
+			slog.Error("failed to create tiki template for plugin action", "error", err)
 			return input, false
 		}
 		input.CreateTemplate = template
@@ -248,7 +248,7 @@ func (pc *PluginController) executeAndApply(pa *plugin.PluginAction, input ruki.
 	case result.Update != nil:
 		for _, tk := range result.Update.Updated {
 			if err := pc.mutationGate.UpdateTiki(ctx, tk); err != nil {
-				slog.Error("failed to update task after plugin action", "tiki_id", tk.ID, "key", pa.KeyStr, "error", err)
+				slog.Error("failed to update tiki after plugin action", "tiki_id", tk.ID, "key", pa.KeyStr, "error", err)
 				if pc.statusline != nil {
 					pc.statusline.SetMessage(err.Error(), model.MessageLevelError, true)
 				}
@@ -258,7 +258,7 @@ func (pc *PluginController) executeAndApply(pa *plugin.PluginAction, input ruki.
 		}
 	case result.Create != nil:
 		if err := pc.mutationGate.CreateTiki(ctx, result.Create.Tiki); err != nil {
-			slog.Error("failed to create task from plugin action", "key", pa.KeyStr, "error", err)
+			slog.Error("failed to create tiki from plugin action", "key", pa.KeyStr, "error", err)
 			if pc.statusline != nil {
 				pc.statusline.SetMessage(err.Error(), model.MessageLevelError, true)
 			}
@@ -267,7 +267,7 @@ func (pc *PluginController) executeAndApply(pa *plugin.PluginAction, input ruki.
 	case result.Delete != nil:
 		for _, tk := range result.Delete.Deleted {
 			if err := pc.mutationGate.DeleteTiki(ctx, tk); err != nil {
-				slog.Error("failed to delete task from plugin action", "tiki_id", tk.ID, "key", pa.KeyStr, "error", err)
+				slog.Error("failed to delete tiki from plugin action", "tiki_id", tk.ID, "key", pa.KeyStr, "error", err)
 				if pc.statusline != nil {
 					pc.statusline.SetMessage(err.Error(), model.MessageLevelError, true)
 				}
@@ -333,7 +333,7 @@ func (pc *PluginController) handlePluginAction(actionID ActionID) bool {
 // view's params (6B.3) so `kind: detail` and other selection-aware
 // views see the current selection.
 func (pc *PluginController) handleViewAction(pa *plugin.PluginAction) bool {
-	ids := pc.getSelectedTikiIDs(pc.GetFilteredTasksForLane)
+	ids := pc.getSelectedTikiIDs(pc.GetFilteredTikisForLane)
 	if !selectionSatisfies(pa.Require, len(ids)) {
 		return false
 	}
@@ -438,7 +438,7 @@ func (pc *PluginController) CanStartActionChoose(actionID ActionID) (string, []*
 	}
 	if len(candidateTikis) == 0 {
 		if pc.statusline != nil {
-			pc.statusline.SetMessage("no matching tasks for choose()", model.MessageLevelError, true)
+			pc.statusline.SetMessage("no matching tikis for choose()", model.MessageLevelError, true)
 		}
 		return "", nil, false
 	}
@@ -462,7 +462,7 @@ func (pc *PluginController) HandleActionChoose(actionID ActionID, tikiID string)
 }
 
 func (pc *PluginController) handleMoveTiki(offset int) bool {
-	tikiID := pc.getSelectedTikiID(pc.GetFilteredTasksForLane)
+	tikiID := pc.getSelectedTikiID(pc.GetFilteredTikisForLane)
 	if tikiID == "" {
 		return false
 	}
@@ -496,7 +496,7 @@ func (pc *PluginController) handleMoveTiki(offset int) bool {
 
 	movedTiki := result.Update.Updated[0]
 	if err := pc.mutationGate.UpdateTiki(context.Background(), movedTiki); err != nil {
-		slog.Error("failed to update task after lane move", "tiki_id", tikiID, "error", err)
+		slog.Error("failed to update tiki after lane move", "tiki_id", tikiID, "error", err)
 		if pc.statusline != nil {
 			pc.statusline.SetMessage(err.Error(), model.MessageLevelError, true)
 		}
@@ -504,12 +504,12 @@ func (pc *PluginController) handleMoveTiki(offset int) bool {
 	}
 
 	pc.ensureSearchResultIncludesTiki(movedTiki)
-	pc.selectTikiInLane(targetLane, tikiID, pc.GetFilteredTasksForLane)
+	pc.selectTikiInLane(targetLane, tikiID, pc.GetFilteredTikisForLane)
 	return true
 }
 
-// GetFilteredTasksForLane returns tikis filtered and sorted for a specific lane.
-func (pc *PluginController) GetFilteredTasksForLane(lane int) []*tikipkg.Tiki {
+// GetFilteredTikisForLane returns tikis filtered and sorted for a specific lane.
+func (pc *PluginController) GetFilteredTikisForLane(lane int) []*tikipkg.Tiki {
 	if pc.pluginDef == nil {
 		return nil
 	}
@@ -541,11 +541,11 @@ func (pc *PluginController) GetFilteredTasksForLane(lane int) []*tikipkg.Tiki {
 
 	// narrow by search results if active
 	if searchResults := pc.pluginConfig.GetSearchResults(); searchResults != nil {
-		searchTaskMap := make(map[string]bool, len(searchResults))
+		searchTikiMap := make(map[string]bool, len(searchResults))
 		for _, tk := range searchResults {
-			searchTaskMap[tk.ID] = true
+			searchTikiMap[tk.ID] = true
 		}
-		filtered = filterTikisBySearch(filtered, searchTaskMap)
+		filtered = filterTikisBySearch(filtered, searchTikiMap)
 		// search narrowing disrupts order; re-sort
 		needsSort = true
 	}

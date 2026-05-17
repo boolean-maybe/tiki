@@ -242,7 +242,7 @@ func GetHeaderVisible() bool {
 	return viper.GetBool("header.visible")
 }
 
-// GetMaxPoints returns the maximum points value for tasks
+// GetMaxPoints returns the maximum points value for tikis
 func GetMaxPoints() int {
 	maxPoints := viper.GetInt("tiki.maxPoints")
 	// Ensure minimum of 1

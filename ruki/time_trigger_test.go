@@ -15,7 +15,7 @@ func TestParseTimeTrigger_HappyPath(t *testing.T) {
 		wantDelete bool
 	}{
 		{
-			"update stale tasks",
+			"update stale tikis",
 			`every 1hour update where status = "inProgress" and updatedAt < now() - 7day set status="backlog"`,
 			1, "hour",
 			false, true, false,

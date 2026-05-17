@@ -44,7 +44,7 @@ type QuickSelectView interface {
 // TikiViewProvider is implemented by controllers that back a TikiPlugin view.
 // The view factory uses this to create PluginView without knowing the concrete controller type.
 type TikiViewProvider interface {
-	GetFilteredTasksForLane(lane int) []*tikipkg.Tiki
+	GetFilteredTikisForLane(lane int) []*tikipkg.Tiki
 	EnsureFirstNonEmptyLaneSelection() bool
 	GetActionRegistry() *ActionRegistry
 	ShowNavigation() bool
@@ -136,7 +136,7 @@ func (ir *InputRouter) SetClipboardWriter(fn func([][]string) error) {
 // 1. Search input (if search is active)
 // 2. Fullscreen escape (Esc key in fullscreen views)
 // 3. Inline editors (title/description editing)
-// 4. Task edit field focus (field navigation)
+// 4. Tiki edit field focus (field navigation)
 // 5. Global actions (Esc, Refresh)
 // 6. View-specific actions (based on current view)
 // Returns true if the event was handled, false otherwise.
@@ -161,7 +161,7 @@ func (ir *InputRouter) HandleInput(event *tcell.EventKey, currentView *ViewEntry
 		}
 	}
 
-	// pre-gate: global actions that must fire before task-edit Prepare() and before
+	// pre-gate: global actions that must fire before tiki-edit Prepare() and before
 	// search/fullscreen/editor gates
 	if action := ir.globalActions.Match(event); action != nil {
 		if action.ID == ActionToggleHeader {
@@ -181,7 +181,7 @@ func (ir *InputRouter) HandleInput(event *tcell.EventKey, currentView *ViewEntry
 
 	isTikiEditView := currentView.ViewID == model.TikiEditViewID
 
-	// ensure task edit view is prepared even when title/description inputs have focus
+	// ensure tiki edit view is prepared even when title/description inputs have focus
 	if isTikiEditView {
 		ir.tikiEditCoord.Prepare(activeView, model.DecodeTikiEditParams(currentView.Params))
 	}
@@ -284,7 +284,7 @@ func (ir *InputRouter) maybeHandleInlineEditors(activeView View, isTikiEditView 
 	return false, false
 }
 
-// maybeHandleTikiEditFieldFocus routes keys to task edit coordinator when an edit field has focus.
+// maybeHandleTikiEditFieldFocus routes keys to tiki edit coordinator when an edit field has focus.
 func (ir *InputRouter) maybeHandleTikiEditFieldFocus(activeView View, isTikiEditView bool, event *tcell.EventKey) (stop bool, handled bool) {
 	fieldFocusableView, ok := activeView.(FieldFocusableView)
 	if !ok || !isTikiEditView {
@@ -350,7 +350,7 @@ func (ir *InputRouter) SetPluginRegistrar(fn func(name string, cfg *model.Plugin
 }
 
 // openDepsEditor creates (or reopens) a deps editor plugin for the
-// given task ID. sourceDetailViewName is the configurable detail view
+// given tiki ID. sourceDetailViewName is the configurable detail view
 // the user opened the deps editor from (empty when opened from a
 // non-detail context); the resolver attached to the deps controller
 // uses it as the preferred return target so a workflow with multiple
@@ -363,7 +363,7 @@ func (ir *InputRouter) openDepsEditor(tikiID, sourceDetailViewName string) {
 	// reopen if already created — but refresh the resolver first so a
 	// second open from a different configurable detail view sends Enter
 	// back to the new caller, not the one captured on first open. Map
-	// key is keyed by task id, so the controller instance is reused
+	// key is keyed by tiki id, so the controller instance is reused
 	// across opens; without this swap, the closure over the original
 	// sourceDetailViewName would route Enter to a stale view.
 	if existing, exists := ir.pluginControllers[name]; exists {
@@ -489,7 +489,7 @@ func (ir *InputRouter) handlePluginInput(event *tcell.EventKey, viewID model.Vie
 }
 
 // dispatchDetailViewSharedAction handles actions that the configurable
-// detail view inherits from the legacy task-detail view: opening the
+// detail view inherits from the legacy tiki-detail view: opening the
 // deps editor, invoking the AI chat agent, and opening the underlying
 // markdown file in $EDITOR. The configurable detail view's controller
 // is too narrow to own these paths (deps editor needs the InputRouter,
@@ -530,9 +530,9 @@ func (ir *InputRouter) dispatchDetailViewSharedAction(id ActionID, currentView *
 	return false, true
 }
 
-// runChatForTiki invokes the configured AI agent against the given task
-// file path, then reloads the task to surface any agent-applied edits.
-// Mirrors the legacy task-detail chat path so the configurable detail
+// runChatForTiki invokes the configured AI agent against the given tiki
+// file path, then reloads the tiki to surface any agent-applied edits.
+// Mirrors the legacy tiki-detail chat path so the configurable detail
 // view's `c` keybinding behaves identically.
 func (ir *InputRouter) runChatForTiki(tikiID string) bool {
 	agent := config.GetAIAgent()
@@ -660,10 +660,10 @@ func (ir *InputRouter) HandleAction(id ActionID, currentView *ViewEntry) bool {
 	}
 }
 
-// dispatchTikiEditAction handles palette-dispatched task edit actions by ActionID.
+// dispatchTikiEditAction handles palette-dispatched tiki edit actions by ActionID.
 func (ir *InputRouter) dispatchTikiEditAction(id ActionID, activeView View) bool {
 	switch id {
-	case ActionSaveTask:
+	case ActionSaveTiki:
 		if activeView != nil {
 			return ir.tikiEditCoord.CommitAndClose(activeView)
 		}
@@ -673,7 +673,7 @@ func (ir *InputRouter) dispatchTikiEditAction(id ActionID, activeView View) bool
 	}
 }
 
-// currentSelectionID returns the active view's currently-selected task id,
+// currentSelectionID returns the active view's currently-selected tiki id,
 // or the empty string when no view/selection is available.
 func (ir *InputRouter) currentSelectionID() string {
 	active := ir.navController.GetActiveView()
@@ -912,7 +912,7 @@ func (ir *InputRouter) handleSearchInput(ctrl interface{ HandleSearch(string) })
 	return true
 }
 
-// handleTikiEditInput routes input while in the task edit view
+// handleTikiEditInput routes input while in the tiki edit view
 func (ir *InputRouter) handleTikiEditInput(event *tcell.EventKey, params map[string]interface{}) bool {
 	activeView := ir.navController.GetActiveView()
 	ir.tikiEditCoord.Prepare(activeView, model.DecodeTikiEditParams(params))
@@ -933,7 +933,7 @@ func (ir *InputRouter) handleTikiEditInput(event *tcell.EventKey, params map[str
 	registry := ir.tikiEditSession.GetEditActionRegistry()
 	if action := registry.Match(event); action != nil {
 		switch action.ID {
-		case ActionSaveTask:
+		case ActionSaveTiki:
 			return ir.tikiEditCoord.CommitAndClose(activeView)
 		case ActionNextField:
 			return ir.tikiEditCoord.FocusNextField(activeView)

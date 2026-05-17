@@ -14,7 +14,7 @@ func TestExecuteRawStatementRejectsCallBeforeEvaluation(t *testing.T) {
 	if err != nil {
 		t.Fatalf("parse: %v", err)
 	}
-	_, err = e.testExec(stmt, makeTasks())
+	_, err = e.testExec(stmt, makeTikis())
 	if err == nil {
 		t.Fatal("expected semantic validation error")
 	}
@@ -31,7 +31,7 @@ func TestExecuteRawStatementRejectsIDOutsidePluginRuntime(t *testing.T) {
 	if err != nil {
 		t.Fatalf("parse: %v", err)
 	}
-	_, err = e.testExec(stmt, makeTasks())
+	_, err = e.testExec(stmt, makeTikis())
 	if err == nil {
 		t.Fatal("expected semantic validation error")
 	}
@@ -48,7 +48,7 @@ func TestExecuteValidatedStatementRuntimeMismatch(t *testing.T) {
 	if err != nil {
 		t.Fatalf("validate: %v", err)
 	}
-	_, err = e.testExec(validated, makeTasks())
+	_, err = e.testExec(validated, makeTikis())
 	if err == nil {
 		t.Fatal("expected runtime mismatch error")
 	}
@@ -64,7 +64,7 @@ func TestExecuteUnsealedValidatedStatementRejected(t *testing.T) {
 		statement: &Statement{Select: &SelectStmt{}},
 	}
 
-	_, err := e.testExec(unsealed, makeTasks())
+	_, err := e.testExec(unsealed, makeTikis())
 	if err == nil {
 		t.Fatal("expected unvalidated wrapper error")
 	}
@@ -100,9 +100,9 @@ func TestExecutePluginIDRequiresSelectedTikiID(t *testing.T) {
 	if err != nil {
 		t.Fatalf("validate: %v", err)
 	}
-	_, err = e.testExec(validated, makeTasks())
+	_, err = e.testExec(validated, makeTikis())
 	if err == nil {
-		t.Fatal("expected missing selected task id error")
+		t.Fatal("expected missing selected tiki id error")
 	}
 	var missing *MissingSelectedTikiIDError
 	if !errors.As(err, &missing) {
@@ -119,9 +119,9 @@ func TestExecutePluginIDRejectsMultipleSelection(t *testing.T) {
 		t.Fatalf("validate: %v", err)
 	}
 	input := ExecutionInput{SelectedTikiIDs: []string{"TIKI-000001", "TIKI-000002"}}
-	_, err = e.testExec(validated, makeTasks(), input)
+	_, err = e.testExec(validated, makeTikis(), input)
 	if err == nil {
-		t.Fatal("expected ambiguous selected task id error")
+		t.Fatal("expected ambiguous selected tiki id error")
 	}
 	var amb *AmbiguousSelectedTikiIDError
 	if !errors.As(err, &amb) {
@@ -144,18 +144,18 @@ func TestExecutePluginIDsMatchesMultipleSelection(t *testing.T) {
 		t.Fatalf("validate: %v", err)
 	}
 	input := ExecutionInput{SelectedTikiIDs: []string{"TIKI-000001", "TIKI-000003"}}
-	res, err := e.testExec(validated, makeTasks(), input)
+	res, err := e.testExec(validated, makeTikis(), input)
 	if err != nil {
 		t.Fatalf("execute: %v", err)
 	}
 	if res.Update == nil || len(res.Update.Updated) != 2 {
-		t.Fatalf("expected 2 updated tasks, got %+v", res.Update)
+		t.Fatalf("expected 2 updated tikis, got %+v", res.Update)
 	}
 	got := map[string]bool{}
 	for _, u := range res.Update.Updated {
 		got[u.ID] = true
 		if u.Status != "done" {
-			t.Errorf("task %s status = %q, want done", u.ID, u.Status)
+			t.Errorf("tiki %s status = %q, want done", u.ID, u.Status)
 		}
 	}
 	if !got["TIKI-000001"] || !got["TIKI-000003"] {
@@ -174,7 +174,7 @@ func TestExecutePluginIDsEmptySelectionReturnsEmptyList(t *testing.T) {
 	if err != nil {
 		t.Fatalf("validate: %v", err)
 	}
-	res, err := e.testExec(validated, makeTasks())
+	res, err := e.testExec(validated, makeTikis())
 	if err != nil {
 		t.Fatalf("execute: %v", err)
 	}
@@ -195,20 +195,20 @@ func TestExecutePluginSelectedCountReturnsCount(t *testing.T) {
 		t.Fatalf("validate: %v", err)
 	}
 
-	res, err := e.testExec(validated, makeTasks())
+	res, err := e.testExec(validated, makeTikis())
 	if err != nil {
 		t.Fatalf("execute: %v", err)
 	}
-	if len(res.Select.Tasks) != 0 {
-		t.Errorf("zero selection: matched %d tasks, want 0", len(res.Select.Tasks))
+	if len(res.Select.Tikis) != 0 {
+		t.Errorf("zero selection: matched %d tikis, want 0", len(res.Select.Tikis))
 	}
 
-	res2, err := e.testExec(validated, makeTasks(), ExecutionInput{SelectedTikiIDs: []string{"A", "B"}})
+	res2, err := e.testExec(validated, makeTikis(), ExecutionInput{SelectedTikiIDs: []string{"A", "B"}})
 	if err != nil {
 		t.Fatalf("execute: %v", err)
 	}
-	if len(res2.Select.Tasks) == 0 {
-		t.Errorf("two selection: no tasks matched, want all")
+	if len(res2.Select.Tikis) == 0 {
+		t.Errorf("two selection: no tikis matched, want all")
 	}
 }
 

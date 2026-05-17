@@ -25,24 +25,24 @@ type PluginExecutor struct {
 	statusline   *model.StatuslineConfig
 	schema       ruki.Schema
 
-	// onTaskUpdated is invoked for each updated tiki so the host controller
+	// onTikiUpdated is invoked for each updated tiki so the host controller
 	// can refresh its own derived state (e.g. search result caches). May be
 	// nil when the caller has no such state.
-	onTaskUpdated func(*tikipkg.Tiki)
+	onTikiUpdated func(*tikipkg.Tiki)
 
 	// pluginName is carried on log lines so entries from different view
 	// kinds are disambiguated. It's set per-action via Execute's pa.Label.
 	pluginName string
 }
 
-// NewPluginExecutor constructs an executor. onTaskUpdated may be nil.
+// NewPluginExecutor constructs an executor. onTikiUpdated may be nil.
 func NewPluginExecutor(
 	tikiStore store.Store,
 	mutationGate *service.TikiMutationGate,
 	statusline *model.StatuslineConfig,
 	schema ruki.Schema,
 	pluginName string,
-	onTaskUpdated func(*tikipkg.Tiki),
+	onTikiUpdated func(*tikipkg.Tiki),
 ) *PluginExecutor {
 	return &PluginExecutor{
 		tikiStore:     tikiStore,
@@ -50,7 +50,7 @@ func NewPluginExecutor(
 		statusline:    statusline,
 		schema:        schema,
 		pluginName:    pluginName,
-		onTaskUpdated: onTaskUpdated,
+		onTikiUpdated: onTikiUpdated,
 	}
 }
 
@@ -74,7 +74,7 @@ func (pe *PluginExecutor) BuildExecutionInput(pa *plugin.PluginAction, selectedI
 	if pa.Action != nil && pa.Action.IsCreate() {
 		template, err := pe.tikiStore.NewTikiTemplate()
 		if err != nil {
-			slog.Error("failed to create task template for plugin action", "error", err)
+			slog.Error("failed to create tiki template for plugin action", "error", err)
 			return input, false
 		}
 		input.CreateTemplate = template
@@ -119,24 +119,24 @@ func (pe *PluginExecutor) applyResult(pa *plugin.PluginAction, input ruki.Execut
 	case result.Update != nil:
 		for _, tk := range result.Update.Updated {
 			if err := pe.mutationGate.UpdateTiki(ctx, tk); err != nil {
-				slog.Error("failed to update task after plugin action", "tiki_id", tk.ID, "key", pa.KeyStr, "error", err)
+				slog.Error("failed to update tiki after plugin action", "tiki_id", tk.ID, "key", pa.KeyStr, "error", err)
 				pe.setError(err)
 				return false
 			}
-			if pe.onTaskUpdated != nil {
-				pe.onTaskUpdated(tk)
+			if pe.onTikiUpdated != nil {
+				pe.onTikiUpdated(tk)
 			}
 		}
 	case result.Create != nil:
 		if err := pe.mutationGate.CreateTiki(ctx, result.Create.Tiki); err != nil {
-			slog.Error("failed to create task from plugin action", "key", pa.KeyStr, "error", err)
+			slog.Error("failed to create tiki from plugin action", "key", pa.KeyStr, "error", err)
 			pe.setError(err)
 			return false
 		}
 	case result.Delete != nil:
 		for _, tk := range result.Delete.Deleted {
 			if err := pe.mutationGate.DeleteTiki(ctx, tk); err != nil {
-				slog.Error("failed to delete task from plugin action", "tiki_id", tk.ID, "key", pa.KeyStr, "error", err)
+				slog.Error("failed to delete tiki from plugin action", "tiki_id", tk.ID, "key", pa.KeyStr, "error", err)
 				pe.setError(err)
 				return false
 			}

@@ -15,7 +15,7 @@ import (
 )
 
 //go:embed board_sample.md
-var initialTaskTemplate string
+var initialTikiTemplate string
 
 //go:embed backlog_sample_1.md
 var backlogSample1 string
@@ -166,7 +166,7 @@ func BootstrapSystem(createSamples bool, gitAdd func(...string) error) error {
 			template string
 		}
 		samples := []sampleDef{
-			{"board", initialTaskTemplate},
+			{"board", initialTikiTemplate},
 			{"backlog 1", backlogSample1},
 			{"backlog 2", backlogSample2},
 			{"roadmap now", roadmapNowSample},
@@ -175,8 +175,8 @@ func BootstrapSystem(createSamples bool, gitAdd func(...string) error) error {
 		}
 
 		// Samples land directly under the unified document root (`.doc/<ID>.md`).
-		// This matches the default new-document location used by CreateTask so
-		// bundled samples and user-created tasks share one layout.
+		// This matches the default new-document location used by CreateTiki so
+		// bundled samples and user-created tikis share one layout.
 		sampleDir := GetDocDir()
 		for _, s := range samples {
 			if !validateSampleTiki(s.template) {

@@ -8,7 +8,7 @@ import (
 	"time"
 )
 
-// Recurrence represents a task recurrence pattern as a cron expression.
+// Recurrence represents a tiki recurrence pattern as a cron expression.
 // Empty string means no recurrence.
 type Recurrence string
 

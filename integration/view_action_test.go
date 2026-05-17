@@ -124,13 +124,13 @@ views:
 // test would need to bootstrap the process-wide workflow/status registry,
 // which obscures what's being tested.
 
-// TestViewAction_DetailKindRendersSelectedTask exercises Phase 6B.2 end-to-end.
-// Board view → select a task → F7 (kind: view → Detail) → assert the detail
-// view rendered the selected task by matching the view ID and selection
+// TestViewAction_DetailKindRendersSelectedTiki exercises Phase 6B.2 end-to-end.
+// Board view → select a tiki → F7 (kind: view → Detail) → assert the detail
+// view rendered the selected tiki by matching the view ID and selection
 // passthrough. The actual rendered body is an implementation detail tested
 // at unit level in view/markdown; the integration concern is that selection
 // survives the view switch.
-func TestViewAction_DetailKindRendersSelectedTask(t *testing.T) {
+func TestViewAction_DetailKindRendersSelectedTiki(t *testing.T) {
 	workflowContent := testWorkflowPreamble + `actions:
   - key: F7
     kind: view
@@ -170,18 +170,18 @@ views:
 	defer ta.Cleanup()
 
 	if err := testutil.CreateTestTiki(ta.TikiDir, "000001", "Pick Me", "backlog", "story"); err != nil {
-		t.Fatalf("create task: %v", err)
+		t.Fatalf("create tiki: %v", err)
 	}
 	if err := ta.TikiStore.Reload(); err != nil {
 		t.Fatalf("reload: %v", err)
 	}
 
 	// Land on the Board view. The default PluginConfig selection points at
-	// the first lane / first task, which is the task we just created.
+	// the first lane / first tiki, which is the tiki we just created.
 	ta.NavController.PushView(model.MakePluginViewID("Board"), nil)
 	ta.Draw()
 
-	// F7 invokes `kind: view` with selection:one — requires a task selected.
+	// F7 invokes `kind: view` with selection:one — requires a tiki selected.
 	ta.SendKey(tcell.KeyF7, 0, tcell.ModNone)
 	ta.Draw()
 
@@ -194,7 +194,7 @@ views:
 
 // TestViewAction_ViewKindBlockedWithoutSelection asserts that
 // `require: ["selection:one"]` on a `kind: view` action prevents navigation
-// when no task is selected (empty lane).
+// when no tiki is selected (empty lane).
 func TestViewAction_ViewKindBlockedWithoutSelection(t *testing.T) {
 	workflowContent := testWorkflowPreamble + `actions:
   - key: F7
@@ -233,7 +233,7 @@ views:
 	}
 	defer ta.Cleanup()
 
-	// No tasks seeded — lane is empty, nothing selected.
+	// No tikis seeded — lane is empty, nothing selected.
 	ta.NavController.PushView(model.MakePluginViewID("Board"), nil)
 	ta.Draw()
 
@@ -247,9 +247,9 @@ views:
 
 // TestViewAction_DirectActivationCarriesSelection asserts 6B.18:
 // pressing the target view's direct activation key (not a declared
-// `kind: view` action) from a board with a task selected must navigate
+// `kind: view` action) from a board with a tiki selected must navigate
 // to the target AND carry the selection into the target's params, so a
-// `kind: detail` target sees the selected task.
+// `kind: detail` target sees the selected tiki.
 func TestViewAction_DirectActivationCarriesSelection(t *testing.T) {
 	workflowContent := testWorkflowPreamble + `views:
   - name: Board
@@ -283,9 +283,9 @@ func TestViewAction_DirectActivationCarriesSelection(t *testing.T) {
 	}
 	defer ta.Cleanup()
 
-	// Seed a task so the board has a selection.
+	// Seed a tiki so the board has a selection.
 	if err := testutil.CreateTestTiki(ta.TikiDir, "000042", "Carried", "backlog", "story"); err != nil {
-		t.Fatalf("create task: %v", err)
+		t.Fatalf("create tiki: %v", err)
 	}
 	if err := ta.TikiStore.Reload(); err != nil {
 		t.Fatalf("reload: %v", err)
@@ -297,7 +297,7 @@ func TestViewAction_DirectActivationCarriesSelection(t *testing.T) {
 	ta.SendKey(tcell.KeyF2, 0, tcell.ModNone)
 	ta.Draw()
 
-	// Target view must be active with the carried task id in its params.
+	// Target view must be active with the carried tiki id in its params.
 	currentView := ta.NavController.CurrentView()
 	if currentView == nil || currentView.ViewID != model.MakePluginViewID("Selected") {
 		t.Fatalf("expected current view = Selected, got %v", currentView)
@@ -312,7 +312,7 @@ func TestViewAction_DirectActivationCarriesSelection(t *testing.T) {
 // TestViewAction_TargetViewRequireBlocksNavigation asserts 6B.15: a
 // kind: view action with NO own `require:` still refuses to navigate to a
 // target view that declares its own `require: ["selection:one"]` when no
-// task is selected. The target's declared requirements must be honored
+// tiki is selected. The target's declared requirements must be honored
 // regardless of how navigation is triggered.
 func TestViewAction_TargetViewRequireBlocksNavigation(t *testing.T) {
 	workflowContent := testWorkflowPreamble + `actions:
@@ -352,7 +352,7 @@ views:
 	}
 	defer ta.Cleanup()
 
-	// No tasks seeded — lane is empty, nothing selected. The action
+	// No tikis seeded — lane is empty, nothing selected. The action
 	// itself has no require:, so its own gate passes; only the target
 	// view's require should block.
 	ta.NavController.PushView(model.MakePluginViewID("Board"), nil)
@@ -362,7 +362,7 @@ views:
 	ta.SendKey(tcell.KeyF7, 0, tcell.ModNone)
 	ta.Draw()
 	if got := ta.NavController.CurrentViewID(); got != before {
-		t.Errorf("F7 navigation should be blocked by target view's require:selection:one when no task selected; was %q, now %q", before, got)
+		t.Errorf("F7 navigation should be blocked by target view's require:selection:one when no tiki selected; was %q, now %q", before, got)
 	}
 }
 
@@ -370,7 +370,7 @@ views:
 // the target view's `require:` list is evaluated in full (not just for
 // selection cardinality). A target with `require: ["ai"]` must refuse
 // navigation when the AI agent is not configured, even when the action
-// itself has no require and a task is selected.
+// itself has no require and a tiki is selected.
 func TestViewAction_TargetRequireNonSelectionAttributeBlocks(t *testing.T) {
 	workflowContent := testWorkflowPreamble + `actions:
   - key: F7
@@ -409,12 +409,12 @@ views:
 	}
 	defer ta.Cleanup()
 
-	// Seed a task so the source board has a selection — this is the
+	// Seed a tiki so the source board has a selection — this is the
 	// condition that used to slip past: a selection-only check would
 	// approve the navigation, and the "ai" requirement on the target
 	// would be silently ignored.
 	if err := testutil.CreateTestTiki(ta.TikiDir, "000001", "Anything", "backlog", "story"); err != nil {
-		t.Fatalf("create task: %v", err)
+		t.Fatalf("create tiki: %v", err)
 	}
 	if err := ta.TikiStore.Reload(); err != nil {
 		t.Fatalf("reload: %v", err)
@@ -591,7 +591,7 @@ func TestViewAction_DirectActivationBlockedByTargetRequire(t *testing.T) {
 
 // TestViewAction_WikiViewDispatchesRukiGlobal exercises Phase 6B.4:
 // a `kind: ruki` global action must fire from a wiki view through the
-// shared PluginExecutor. Creates a task, triggers a ruki update from a
+// shared PluginExecutor. Creates a tiki, triggers a ruki update from a
 // wiki view, then reloads the store and asserts the mutation landed.
 func TestViewAction_WikiViewDispatchesRukiGlobal(t *testing.T) {
 	workflowContent := testWorkflowPreamble + `actions:
@@ -631,13 +631,13 @@ views:
 	}
 	defer ta.Cleanup()
 
-	// Seed two backlog tasks at default priority so we can observe the
+	// Seed two backlog tikis at default priority so we can observe the
 	// ruki-driven mutation.
-	if err := testutil.CreateTestTiki(ta.TikiDir, "000001", "Task One", "backlog", "story"); err != nil {
-		t.Fatalf("create task: %v", err)
+	if err := testutil.CreateTestTiki(ta.TikiDir, "000001", "Tiki One", "backlog", "story"); err != nil {
+		t.Fatalf("create tiki: %v", err)
 	}
-	if err := testutil.CreateTestTiki(ta.TikiDir, "000002", "Task Two", "backlog", "story"); err != nil {
-		t.Fatalf("create task: %v", err)
+	if err := testutil.CreateTestTiki(ta.TikiDir, "000002", "Tiki Two", "backlog", "story"); err != nil {
+		t.Fatalf("create tiki: %v", err)
 	}
 	if err := ta.TikiStore.Reload(); err != nil {
 		t.Fatalf("reload: %v", err)
@@ -655,11 +655,11 @@ views:
 	for _, id := range []string{"000001", "000002"} {
 		t2 := ta.TikiStore.GetTiki(id)
 		if t2 == nil {
-			t.Fatalf("task %s missing after action", id)
+			t.Fatalf("tiki %s missing after action", id)
 		}
 		priority, _, _ := t2.StringField("priority")
 		if priority != "high" {
-			t.Errorf("task %s priority = %q, want %q (ruki global from wiki view)", id, priority, "high")
+			t.Errorf("tiki %s priority = %q, want %q (ruki global from wiki view)", id, priority, "high")
 		}
 	}
 }
