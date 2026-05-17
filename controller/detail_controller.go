@@ -32,7 +32,7 @@ type DetailController struct {
 	statusline     *model.StatuslineConfig
 	registry       *ActionRegistry
 	executor       *PluginExecutor
-	selectedTaskID string
+	selectedTikiID string
 
 	// Phase 2 edit-mode plumbing.
 	editSession *TikiEditSession
@@ -127,10 +127,10 @@ func (dc *DetailController) registerPluginActions() {
 	}
 }
 
-// SetSelectedTaskID updates the carried selection. Called by the harness
+// SetSelectedTikiID updates the carried selection. Called by the harness
 // when navigation params arrive after construction.
-func (dc *DetailController) SetSelectedTaskID(id string) {
-	dc.selectedTaskID = id
+func (dc *DetailController) SetSelectedTikiID(id string) {
+	dc.selectedTikiID = id
 }
 
 // GetActionRegistry returns the view's action registry.
@@ -300,13 +300,13 @@ func (dc *DetailController) toggleFullscreen() bool {
 // enterEditMode starts a TikiEditSession edit session and flips the view
 // into edit mode. Returns false if no editable field is configured.
 func (dc *DetailController) enterEditMode() bool {
-	if dc.editView == nil || dc.editSession == nil || dc.selectedTaskID == "" {
+	if dc.editView == nil || dc.editSession == nil || dc.selectedTikiID == "" {
 		return false
 	}
 	if dc.editView.IsEditMode() {
 		return true
 	}
-	if dc.editSession.StartEditSession(dc.selectedTaskID) == nil {
+	if dc.editSession.StartEditSession(dc.selectedTikiID) == nil {
 		return false
 	}
 	if !dc.editView.EnterEditMode() {
@@ -410,15 +410,15 @@ func (dc *DetailController) dispatchViewAction(a *plugin.PluginAction) bool {
 		return false
 	}
 	carried := 0
-	if dc.selectedTaskID != "" {
+	if dc.selectedTikiID != "" {
 		carried = 1
 	}
 	if !TargetViewEnabled(a.TargetView, carried) {
 		return false
 	}
 	var params map[string]interface{}
-	if dc.selectedTaskID != "" {
-		params = model.EncodePluginViewParams(model.PluginViewParams{TikiID: dc.selectedTaskID})
+	if dc.selectedTikiID != "" {
+		params = model.EncodePluginViewParams(model.PluginViewParams{TikiID: dc.selectedTikiID})
 	}
 	dc.navController.PushView(model.MakePluginViewID(a.TargetView), params)
 	return true
@@ -434,8 +434,8 @@ func (dc *DetailController) dispatchRukiAction(a *plugin.PluginAction) bool {
 		return false
 	}
 	var selection []string
-	if dc.selectedTaskID != "" {
-		selection = []string{dc.selectedTaskID}
+	if dc.selectedTikiID != "" {
+		selection = []string{dc.selectedTikiID}
 	}
 	input, ok := dc.executor.BuildExecutionInput(a, selection)
 	if !ok {

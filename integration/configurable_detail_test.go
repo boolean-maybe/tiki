@@ -72,7 +72,7 @@ func TestConfigurableDetail_EnterOnDetailDoesNotRecurse(t *testing.T) {
 
 // TestConfigurableDetail_FreshControllerPerNavigation guards against the
 // shared-singleton bug where a second Detail navigation would overwrite the
-// first view's selectedTaskID. Pushing Detail twice for two different tikis
+// first view's selectedTikiID. Pushing Detail twice for two different tikis
 // must leave both controllers carrying their own selection.
 func TestConfigurableDetail_FreshControllerPerNavigation(t *testing.T) {
 	ta := setupTestAppWithPlugins(t)
@@ -94,7 +94,7 @@ func TestConfigurableDetail_FreshControllerPerNavigation(t *testing.T) {
 	ta.Draw()
 	firstView := ta.NavController.GetActiveView()
 
-	// Second navigation — different task. Without fresh-per-navigation, this
+	// Second navigation — different tiki. Without fresh-per-navigation, this
 	// would mutate the shared controller and the firstView's selection would
 	// silently flip to FRSH02.
 	ta.NavController.PushView(model.MakePluginViewID("Detail"),
@@ -131,7 +131,7 @@ func TestConfigurableDetail_RendersConfiguredMetadata(t *testing.T) {
 		t.Fatalf("reload: %v", err)
 	}
 
-	// Push directly to Detail with the task carried as PluginViewParams,
+	// Push directly to Detail with the tiki carried as PluginViewParams,
 	// matching what Enter dispatch would do via selection passthrough.
 	params := model.EncodePluginViewParams(model.PluginViewParams{TikiID: tikiID})
 	ta.NavController.PushView(model.MakePluginViewID("Detail"), params)

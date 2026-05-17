@@ -92,7 +92,7 @@ func TestExecuteValidatedCreateRequiresTemplate(t *testing.T) {
 	}
 }
 
-func TestExecutePluginIDRequiresSelectedTaskID(t *testing.T) {
+func TestExecutePluginIDRequiresSelectedTikiID(t *testing.T) {
 	p := newTestParser()
 	e := NewExecutor(testSchema{}, func() string { return "alice" }, ExecutorRuntime{Mode: ExecutorRuntimePlugin})
 
@@ -104,9 +104,9 @@ func TestExecutePluginIDRequiresSelectedTaskID(t *testing.T) {
 	if err == nil {
 		t.Fatal("expected missing selected task id error")
 	}
-	var missing *MissingSelectedTaskIDError
+	var missing *MissingSelectedTikiIDError
 	if !errors.As(err, &missing) {
-		t.Fatalf("expected MissingSelectedTaskIDError, got: %v", err)
+		t.Fatalf("expected MissingSelectedTikiIDError, got: %v", err)
 	}
 }
 
@@ -118,14 +118,14 @@ func TestExecutePluginIDRejectsMultipleSelection(t *testing.T) {
 	if err != nil {
 		t.Fatalf("validate: %v", err)
 	}
-	input := ExecutionInput{SelectedTaskIDs: []string{"TIKI-000001", "TIKI-000002"}}
+	input := ExecutionInput{SelectedTikiIDs: []string{"TIKI-000001", "TIKI-000002"}}
 	_, err = e.testExec(validated, makeTasks(), input)
 	if err == nil {
 		t.Fatal("expected ambiguous selected task id error")
 	}
-	var amb *AmbiguousSelectedTaskIDError
+	var amb *AmbiguousSelectedTikiIDError
 	if !errors.As(err, &amb) {
-		t.Fatalf("expected AmbiguousSelectedTaskIDError, got: %v", err)
+		t.Fatalf("expected AmbiguousSelectedTikiIDError, got: %v", err)
 	}
 	if amb.Count != 2 {
 		t.Errorf("Count = %d, want 2", amb.Count)
@@ -143,7 +143,7 @@ func TestExecutePluginIDsMatchesMultipleSelection(t *testing.T) {
 	if err != nil {
 		t.Fatalf("validate: %v", err)
 	}
-	input := ExecutionInput{SelectedTaskIDs: []string{"TIKI-000001", "TIKI-000003"}}
+	input := ExecutionInput{SelectedTikiIDs: []string{"TIKI-000001", "TIKI-000003"}}
 	res, err := e.testExec(validated, makeTasks(), input)
 	if err != nil {
 		t.Fatalf("execute: %v", err)
@@ -203,7 +203,7 @@ func TestExecutePluginSelectedCountReturnsCount(t *testing.T) {
 		t.Errorf("zero selection: matched %d tasks, want 0", len(res.Select.Tasks))
 	}
 
-	res2, err := e.testExec(validated, makeTasks(), ExecutionInput{SelectedTaskIDs: []string{"A", "B"}})
+	res2, err := e.testExec(validated, makeTasks(), ExecutionInput{SelectedTikiIDs: []string{"A", "B"}})
 	if err != nil {
 		t.Fatalf("execute: %v", err)
 	}

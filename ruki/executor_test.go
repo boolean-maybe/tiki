@@ -215,7 +215,7 @@ func TestExecuteSelectWhere(t *testing.T) {
 			1, []string{"TIKI-000004"},
 		},
 		{
-			// Phase 4: fixture emits every workflow-declared key; no task is
+			// Phase 4: fixture emits every workflow-declared key; no tiki is
 			// missing its assignee frontmatter.
 			"not has assignee", `select where not has(assignee)`,
 			0, nil,
@@ -727,7 +727,7 @@ func TestExecuteCount(t *testing.T) {
 	if err != nil {
 		t.Fatalf("execute: %v", err)
 	}
-	// count(done) = 1 which is >= 1, so the condition is true for every task
+	// count(done) = 1 which is >= 1, so the condition is true for every tiki
 	if len(result.Select.Tasks) != 4 {
 		t.Fatalf("expected 4 tasks, got %d", len(result.Select.Tasks))
 	}
@@ -4752,7 +4752,7 @@ func TestExecuteTargetField_SingleSelection(t *testing.T) {
 		t.Fatalf("validate: %v", err)
 	}
 	// selected task is TIKI-000001 (status=ready). TIKI-000001 is the only ready task.
-	input := ExecutionInput{SelectedTaskIDs: []string{"TIKI-000001"}}
+	input := ExecutionInput{SelectedTikiIDs: []string{"TIKI-000001"}}
 	res, err := e.testExec(v, makeTasks(), input)
 	if err != nil {
 		t.Fatalf("execute: %v", err)
@@ -4773,9 +4773,9 @@ func TestExecuteTargetField_ZeroSelectionErrors(t *testing.T) {
 	if err == nil {
 		t.Fatal("expected missing-selection error")
 	}
-	var missing *MissingSelectedTaskIDError
+	var missing *MissingSelectedTikiIDError
 	if !errors.As(err, &missing) {
-		t.Fatalf("expected MissingSelectedTaskIDError, got: %v", err)
+		t.Fatalf("expected MissingSelectedTikiIDError, got: %v", err)
 	}
 }
 
@@ -4786,14 +4786,14 @@ func TestExecuteTargetField_MultipleSelectionErrors(t *testing.T) {
 	if err != nil {
 		t.Fatalf("validate: %v", err)
 	}
-	input := ExecutionInput{SelectedTaskIDs: []string{"TIKI-000001", "TIKI-000002"}}
+	input := ExecutionInput{SelectedTikiIDs: []string{"TIKI-000001", "TIKI-000002"}}
 	_, err = e.testExec(v, makeTasks(), input)
 	if err == nil {
 		t.Fatal("expected ambiguous-selection error")
 	}
-	var amb *AmbiguousSelectedTaskIDError
+	var amb *AmbiguousSelectedTikiIDError
 	if !errors.As(err, &amb) {
-		t.Fatalf("expected AmbiguousSelectedTaskIDError, got: %v", err)
+		t.Fatalf("expected AmbiguousSelectedTikiIDError, got: %v", err)
 	}
 }
 
@@ -4805,7 +4805,7 @@ func TestExecuteTargetsField_IDProjection(t *testing.T) {
 	if err != nil {
 		t.Fatalf("validate: %v", err)
 	}
-	input := ExecutionInput{SelectedTaskIDs: []string{"TIKI-000002", "TIKI-000004"}}
+	input := ExecutionInput{SelectedTikiIDs: []string{"TIKI-000002", "TIKI-000004"}}
 	res, err := e.testExec(v, makeTasks(), input)
 	if err != nil {
 		t.Fatalf("execute: %v", err)
@@ -4828,7 +4828,7 @@ func TestExecuteTargetsField_FlattensListRef(t *testing.T) {
 		t.Fatalf("validate: %v", err)
 	}
 	// TIKI-000002 depends on TIKI-000001; TIKI-000004 has no deps
-	input := ExecutionInput{SelectedTaskIDs: []string{"TIKI-000002", "TIKI-000004"}}
+	input := ExecutionInput{SelectedTikiIDs: []string{"TIKI-000002", "TIKI-000004"}}
 	res, err := e.testExec(v, makeTasks(), input)
 	if err != nil {
 		t.Fatalf("execute: %v", err)
@@ -4843,7 +4843,7 @@ func TestExecuteTargetsField_FlattensAndDedupsListString(t *testing.T) {
 	// targets.tags should flatten and dedupe in first-seen order.
 	// we test via evalTargetsField directly on an executor since tags is list<string>.
 	e := newPluginExecutor()
-	e.currentInput = ExecutionInput{SelectedTaskIDs: []string{"TIKI-000002", "TIKI-000001"}}
+	e.currentInput = ExecutionInput{SelectedTikiIDs: []string{"TIKI-000002", "TIKI-000001"}}
 	tasks := makeTasks()
 	val, err := e.evalTargetsField("tags", evalContext{allTikis: tikisFromFixtures(tasks)})
 	if err != nil {
@@ -4882,7 +4882,7 @@ func TestExecuteTargetsField_EmptySelectionReturnsEmptyList(t *testing.T) {
 
 func TestExecuteTargetsField_MissingTaskRecord(t *testing.T) {
 	e := newPluginExecutor()
-	e.currentInput = ExecutionInput{SelectedTaskIDs: []string{"TIKI-999999"}}
+	e.currentInput = ExecutionInput{SelectedTikiIDs: []string{"TIKI-999999"}}
 	_, err := e.evalTargetsField("id", evalContext{allTikis: tikisFromFixtures(makeTasks())})
 	if err == nil {
 		t.Fatal("expected missing-task error")
@@ -4894,7 +4894,7 @@ func TestExecuteTargetsField_MissingTaskRecord(t *testing.T) {
 
 func TestExecuteTargetField_MissingTaskRecord(t *testing.T) {
 	e := newPluginExecutor()
-	e.currentInput = ExecutionInput{SelectedTaskIDs: []string{"TIKI-999999"}}
+	e.currentInput = ExecutionInput{SelectedTikiIDs: []string{"TIKI-999999"}}
 	_, err := e.evalTargetField("id", evalContext{allTikis: tikisFromFixtures(makeTasks())})
 	if err == nil {
 		t.Fatal("expected missing-task error")
@@ -4920,11 +4920,11 @@ func TestExecuteTargetField_PreflightRejectsZeroSelection(t *testing.T) {
 	}
 	_, err = e.testExec(v, makeTasks())
 	if err == nil {
-		t.Fatal("expected MissingSelectedTaskIDError even behind short-circuit")
+		t.Fatal("expected MissingSelectedTikiIDError even behind short-circuit")
 	}
-	var missing *MissingSelectedTaskIDError
+	var missing *MissingSelectedTikiIDError
 	if !errors.As(err, &missing) {
-		t.Fatalf("expected MissingSelectedTaskIDError, got: %v", err)
+		t.Fatalf("expected MissingSelectedTikiIDError, got: %v", err)
 	}
 }
 
@@ -4939,7 +4939,7 @@ func TestExecuteTargetsStatus_Membership(t *testing.T) {
 	}
 	// selected tasks have statuses {ready, done} → expect TIKI-000001 (ready)
 	// and TIKI-000003 (done) to match, and the other two to drop out.
-	input := ExecutionInput{SelectedTaskIDs: []string{"TIKI-000001", "TIKI-000003"}}
+	input := ExecutionInput{SelectedTikiIDs: []string{"TIKI-000001", "TIKI-000003"}}
 	res, err := e.testExec(v, makeTasks(), input)
 	if err != nil {
 		t.Fatalf("execute: %v", err)
@@ -4962,14 +4962,14 @@ func TestExecuteTargetField_PreflightRejectsMultiSelection(t *testing.T) {
 	if err != nil {
 		t.Fatalf("validate: %v", err)
 	}
-	input := ExecutionInput{SelectedTaskIDs: []string{"TIKI-000001", "TIKI-000002"}}
+	input := ExecutionInput{SelectedTikiIDs: []string{"TIKI-000001", "TIKI-000002"}}
 	_, err = e.testExec(v, makeTasks(), input)
 	if err == nil {
-		t.Fatal("expected AmbiguousSelectedTaskIDError even behind short-circuit")
+		t.Fatal("expected AmbiguousSelectedTikiIDError even behind short-circuit")
 	}
-	var amb *AmbiguousSelectedTaskIDError
+	var amb *AmbiguousSelectedTikiIDError
 	if !errors.As(err, &amb) {
-		t.Fatalf("expected AmbiguousSelectedTaskIDError, got: %v", err)
+		t.Fatalf("expected AmbiguousSelectedTikiIDError, got: %v", err)
 	}
 }
 

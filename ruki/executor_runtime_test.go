@@ -91,8 +91,8 @@ func TestRuntimeMismatchErrorUnwrap(t *testing.T) {
 	}
 }
 
-func TestMissingSelectedTaskIDErrorMessage(t *testing.T) {
-	err := &MissingSelectedTaskIDError{}
+func TestMissingSelectedTikiIDErrorMessage(t *testing.T) {
+	err := &MissingSelectedTikiIDError{}
 	want := "selected task id is required for plugin runtime when id() is used"
 	if got := err.Error(); got != want {
 		t.Errorf("Error() = %q, want %q", got, want)
@@ -123,10 +123,10 @@ func TestErrorTypesWithErrorsAs(t *testing.T) {
 			},
 		},
 		{
-			"MissingSelectedTaskIDError",
-			&MissingSelectedTaskIDError{},
+			"MissingSelectedTikiIDError",
+			&MissingSelectedTikiIDError{},
 			func(err error) bool {
-				var target *MissingSelectedTaskIDError
+				var target *MissingSelectedTikiIDError
 				return errors.As(err, &target)
 			},
 		},
@@ -149,8 +149,8 @@ func TestErrorTypesWithErrorsAs(t *testing.T) {
 	}
 }
 
-func TestAmbiguousSelectedTaskIDErrorMessage(t *testing.T) {
-	err := &AmbiguousSelectedTaskIDError{Count: 3}
+func TestAmbiguousSelectedTikiIDErrorMessage(t *testing.T) {
+	err := &AmbiguousSelectedTikiIDError{Count: 3}
 	want := "id() requires exactly one selected task, got 3 — use ids() for multi-selection"
 	if got := err.Error(); got != want {
 		t.Errorf("Error() = %q, want %q", got, want)
@@ -178,7 +178,7 @@ func TestExecutionInputSelectionHelpers(t *testing.T) {
 		},
 		{
 			name:        "one selection",
-			input:       ExecutionInput{SelectedTaskIDs: []string{"TIKI-000001"}},
+			input:       ExecutionInput{SelectedTikiIDs: []string{"TIKI-000001"}},
 			wantCount:   1,
 			wantHas:     true,
 			wantSingle:  "TIKI-000001",
@@ -187,7 +187,7 @@ func TestExecutionInputSelectionHelpers(t *testing.T) {
 		},
 		{
 			name:        "many selection",
-			input:       ExecutionInput{SelectedTaskIDs: []string{"TIKI-000001", "TIKI-000002", "TIKI-000003"}},
+			input:       ExecutionInput{SelectedTikiIDs: []string{"TIKI-000001", "TIKI-000002", "TIKI-000003"}},
 			wantCount:   3,
 			wantHas:     true,
 			wantSingle:  "",
@@ -196,7 +196,7 @@ func TestExecutionInputSelectionHelpers(t *testing.T) {
 		},
 		{
 			name:        "empty strings ignored",
-			input:       ExecutionInput{SelectedTaskIDs: []string{"", "TIKI-000001", "  "}},
+			input:       ExecutionInput{SelectedTikiIDs: []string{"", "TIKI-000001", "  "}},
 			wantCount:   1,
 			wantHas:     true,
 			wantSingle:  "TIKI-000001",
@@ -212,9 +212,9 @@ func TestExecutionInputSelectionHelpers(t *testing.T) {
 			if got := tt.input.HasSelection(); got != tt.wantHas {
 				t.Errorf("HasSelection() = %v, want %v", got, tt.wantHas)
 			}
-			gotSingle, gotHasOne := tt.input.SingleSelectedTaskID()
+			gotSingle, gotHasOne := tt.input.SingleSelectedTikiID()
 			if gotSingle != tt.wantSingle || gotHasOne != tt.wantHasOne {
-				t.Errorf("SingleSelectedTaskID() = (%q, %v), want (%q, %v)",
+				t.Errorf("SingleSelectedTikiID() = (%q, %v), want (%q, %v)",
 					gotSingle, gotHasOne, tt.wantSingle, tt.wantHasOne)
 			}
 			gotList := tt.input.SelectedTikiIDList()

@@ -92,38 +92,38 @@ func TestDepsController_GetFilteredTasksForLane(t *testing.T) {
 		all := dc.GetFilteredTasksForLane(depsLaneAll)
 		ids := tikiIDs(all)
 		if slices.Contains(ids, testCtxID) {
-			t.Error("all lane should not contain context task")
+			t.Error("all lane should not contain context tiki")
 		}
 		if slices.Contains(ids, testBlkID) {
-			t.Error("all lane should not contain blocker task")
+			t.Error("all lane should not contain blocker tiki")
 		}
 		if slices.Contains(ids, testDepID) {
-			t.Error("all lane should not contain depends task")
+			t.Error("all lane should not contain depends tiki")
 		}
 		if !slices.Contains(ids, testFreeID) {
-			t.Error("all lane should contain free task")
+			t.Error("all lane should contain free tiki")
 		}
 	})
 
-	t.Run("blocks lane contains tasks that depend on context", func(t *testing.T) {
+	t.Run("blocks lane contains tikis that depend on context", func(t *testing.T) {
 		blocks := dc.GetFilteredTasksForLane(depsLaneBlocks)
 		ids := tikiIDs(blocks)
 		if !slices.Contains(ids, testBlkID) {
-			t.Error("blocks lane should contain blocker task")
+			t.Error("blocks lane should contain blocker tiki")
 		}
 		if len(ids) != 1 {
-			t.Errorf("blocks lane should have exactly 1 task, got %d: %v", len(ids), ids)
+			t.Errorf("blocks lane should have exactly 1 tiki, got %d: %v", len(ids), ids)
 		}
 	})
 
-	t.Run("depends lane contains context task dependencies", func(t *testing.T) {
+	t.Run("depends lane contains context tiki dependencies", func(t *testing.T) {
 		depends := dc.GetFilteredTasksForLane(depsLaneDepends)
 		ids := tikiIDs(depends)
 		if !slices.Contains(ids, testDepID) {
-			t.Error("depends lane should contain depends task")
+			t.Error("depends lane should contain depends tiki")
 		}
 		if len(ids) != 1 {
-			t.Errorf("depends lane should have exactly 1 task, got %d: %v", len(ids), ids)
+			t.Errorf("depends lane should have exactly 1 tiki, got %d: %v", len(ids), ids)
 		}
 	})
 
@@ -143,11 +143,11 @@ func TestDepsController_MoveTask_AllToBlocks(t *testing.T) {
 	dc.pluginConfig.SetSelectedLane(depsLaneAll)
 	dc.pluginConfig.SetSelectedIndexForLane(depsLaneAll, 0)
 
-	if !dc.handleMoveTask(-1) {
+	if !dc.handleMoveTiki(-1) {
 		t.Fatal("move should succeed")
 	}
 
-	// free task should now have context task in its dependsOn
+	// free tiki should now have context tiki in its dependsOn
 	free := tikiStore.GetTiki(testFreeID)
 	freeDeps, _, _ := free.StringSliceField(tikipkg.FieldDependsOn)
 	if !slices.Contains(freeDeps, testCtxID) {
@@ -161,11 +161,11 @@ func TestDepsController_MoveTask_AllToDepends(t *testing.T) {
 	dc.pluginConfig.SetSelectedLane(depsLaneAll)
 	dc.pluginConfig.SetSelectedIndexForLane(depsLaneAll, 0)
 
-	if !dc.handleMoveTask(1) {
+	if !dc.handleMoveTiki(1) {
 		t.Fatal("move should succeed")
 	}
 
-	// context task should now have free task in its dependsOn
+	// context tiki should now have free tiki in its dependsOn
 	ctx := tikiStore.GetTiki(testCtxID)
 	ctxDeps, _, _ := ctx.StringSliceField(tikipkg.FieldDependsOn)
 	if !slices.Contains(ctxDeps, testFreeID) {
@@ -179,7 +179,7 @@ func TestDepsController_MoveTask_BlocksToAll(t *testing.T) {
 	dc.pluginConfig.SetSelectedLane(depsLaneBlocks)
 	dc.pluginConfig.SetSelectedIndexForLane(depsLaneBlocks, 0)
 
-	if !dc.handleMoveTask(1) {
+	if !dc.handleMoveTiki(1) {
 		t.Fatal("move should succeed")
 	}
 
@@ -196,7 +196,7 @@ func TestDepsController_MoveTask_DependsToAll(t *testing.T) {
 	dc.pluginConfig.SetSelectedLane(depsLaneDepends)
 	dc.pluginConfig.SetSelectedIndexForLane(depsLaneDepends, 0)
 
-	if !dc.handleMoveTask(-1) {
+	if !dc.handleMoveTiki(-1) {
 		t.Fatal("move should succeed")
 	}
 
@@ -213,14 +213,14 @@ func TestDepsController_MoveTask_OutOfBounds(t *testing.T) {
 	dc.pluginConfig.SetSelectedLane(depsLaneBlocks)
 	dc.pluginConfig.SetSelectedIndexForLane(depsLaneBlocks, 0)
 
-	if dc.handleMoveTask(-1) {
+	if dc.handleMoveTiki(-1) {
 		t.Error("move left from lane 0 should fail")
 	}
 
 	dc.pluginConfig.SetSelectedLane(depsLaneDepends)
 	dc.pluginConfig.SetSelectedIndexForLane(depsLaneDepends, 0)
 
-	if dc.handleMoveTask(1) {
+	if dc.handleMoveTiki(1) {
 		t.Error("move right from lane 2 should fail")
 	}
 }
@@ -231,10 +231,10 @@ func TestDepsController_MoveTask_RejectsMultiLaneJump(t *testing.T) {
 	dc.pluginConfig.SetSelectedLane(depsLaneBlocks)
 	dc.pluginConfig.SetSelectedIndexForLane(depsLaneBlocks, 0)
 
-	if dc.handleMoveTask(2) {
+	if dc.handleMoveTiki(2) {
 		t.Error("offset=2 should be rejected")
 	}
-	if dc.handleMoveTask(-2) {
+	if dc.handleMoveTiki(-2) {
 		t.Error("offset=-2 should be rejected")
 	}
 }
@@ -284,7 +284,7 @@ func TestDepsController_HandleAction(t *testing.T) {
 		dc, _ := newDepsTestEnv(t)
 		dc.pluginConfig.SetSelectedLane(depsLaneAll)
 		dc.pluginConfig.SetSelectedIndexForLane(depsLaneAll, 0)
-		// All lane has only free task, so nav down should return false (can't go past end)
+		// All lane has only free tiki, so nav down should return false (can't go past end)
 		dc.HandleAction(ActionNavDown)
 		// just verify it doesn't panic and returns a bool
 	})
@@ -295,7 +295,7 @@ func TestDepsController_HandleAction(t *testing.T) {
 		dc.pluginConfig.SetSelectedIndexForLane(depsLaneAll, 0)
 		result := dc.HandleAction(ActionNavLeft)
 		if !result {
-			t.Error("nav left from All should succeed (Blocks has tasks)")
+			t.Error("nav left from All should succeed (Blocks has tikis)")
 		}
 		if dc.pluginConfig.GetSelectedLane() != depsLaneBlocks {
 			t.Errorf("expected lane %d, got %d", depsLaneBlocks, dc.pluginConfig.GetSelectedLane())
@@ -308,7 +308,7 @@ func TestDepsController_HandleAction(t *testing.T) {
 		dc.pluginConfig.SetSelectedIndexForLane(depsLaneAll, 0)
 		result := dc.HandleAction(ActionNavRight)
 		if !result {
-			t.Error("nav right from All should succeed (Depends has tasks)")
+			t.Error("nav right from All should succeed (Depends has tikis)")
 		}
 		if dc.pluginConfig.GetSelectedLane() != depsLaneDepends {
 			t.Errorf("expected lane %d, got %d", depsLaneDepends, dc.pluginConfig.GetSelectedLane())
@@ -328,13 +328,13 @@ func TestDepsController_HandleAction(t *testing.T) {
 		}
 	})
 
-	t.Run("open task pushes configurable detail view", func(t *testing.T) {
+	t.Run("open tiki pushes configurable detail view", func(t *testing.T) {
 		dc, _ := newDepsTestEnv(t)
 		dc.pluginConfig.SetSelectedLane(depsLaneAll)
 		dc.pluginConfig.SetSelectedIndexForLane(depsLaneAll, 0)
 		result := dc.HandleAction(ActionOpenFromPlugin)
 		if !result {
-			t.Error("open should succeed when a task is selected")
+			t.Error("open should succeed when a tiki is selected")
 		}
 		top := dc.navController.navState.currentView()
 		if top == nil || top.ViewID != model.DetailPluginViewID() {
@@ -343,7 +343,7 @@ func TestDepsController_HandleAction(t *testing.T) {
 		}
 	})
 
-	t.Run("open task uses resolver-returned name (handles renamed detail view)", func(t *testing.T) {
+	t.Run("open tiki uses resolver-returned name (handles renamed detail view)", func(t *testing.T) {
 		dc, _ := newDepsTestEnv(t)
 		// override the resolver to a custom workflow-renamed view name
 		dc.detailViewResolver = func() string { return "MyCustomDetail" }
@@ -360,7 +360,7 @@ func TestDepsController_HandleAction(t *testing.T) {
 		}
 	})
 
-	t.Run("open task refuses when resolver returns empty (no detail view loaded)", func(t *testing.T) {
+	t.Run("open tiki refuses when resolver returns empty (no detail view loaded)", func(t *testing.T) {
 		dc, _ := newDepsTestEnv(t)
 		dc.detailViewResolver = func() string { return "" }
 		dc.pluginConfig.SetSelectedLane(depsLaneAll)
@@ -375,7 +375,7 @@ func TestDepsController_HandleAction(t *testing.T) {
 		}
 	})
 
-	t.Run("open task refuses when resolver is nil", func(t *testing.T) {
+	t.Run("open tiki refuses when resolver is nil", func(t *testing.T) {
 		dc, _ := newDepsTestEnv(t)
 		dc.detailViewResolver = nil
 		dc.pluginConfig.SetSelectedLane(depsLaneAll)
@@ -390,11 +390,11 @@ func TestDepsController_HandleAction(t *testing.T) {
 		}
 	})
 
-	t.Run("new task pushes edit view", func(t *testing.T) {
+	t.Run("new tiki pushes edit view", func(t *testing.T) {
 		dc, _ := newDepsTestEnv(t)
-		result := dc.HandleAction(ActionNewTask)
+		result := dc.HandleAction(ActionNewTiki)
 		if !result {
-			t.Error("new task should succeed")
+			t.Error("new tiki should succeed")
 		}
 		top := dc.navController.navState.currentView()
 		if top == nil || top.ViewID != model.TikiEditViewID {
@@ -402,24 +402,24 @@ func TestDepsController_HandleAction(t *testing.T) {
 		}
 	})
 
-	t.Run("delete task removes from store", func(t *testing.T) {
+	t.Run("delete tiki removes from store", func(t *testing.T) {
 		dc, tikiStore := newDepsTestEnv(t)
 		dc.pluginConfig.SetSelectedLane(depsLaneAll)
 		dc.pluginConfig.SetSelectedIndexForLane(depsLaneAll, 0)
 
-		// free task should be in the All lane
+		// free tiki should be in the All lane
 		allTasks := dc.GetFilteredTasksForLane(depsLaneAll)
 		if len(allTasks) == 0 {
-			t.Fatal("expected at least one task in All lane")
+			t.Fatal("expected at least one tiki in All lane")
 		}
 		deletedID := allTasks[0].ID
 
-		result := dc.HandleAction(ActionDeleteTask)
+		result := dc.HandleAction(ActionDeleteTiki)
 		if !result {
-			t.Error("delete should succeed when a task is selected")
+			t.Error("delete should succeed when a tiki is selected")
 		}
 		if tikiStore.GetTiki(deletedID) != nil {
-			t.Errorf("task %s should have been deleted", deletedID)
+			t.Errorf("tiki %s should have been deleted", deletedID)
 		}
 	})
 
@@ -437,7 +437,7 @@ func TestDepsController_HandleLaneSwitch(t *testing.T) {
 		dc.pluginConfig.SetSelectedLane(depsLaneBlocks)
 		result := dc.handleLaneSwitch("right", dc.GetFilteredTasksForLane)
 		if !result {
-			t.Error("should succeed — All lane has tasks")
+			t.Error("should succeed — All lane has tikis")
 		}
 		if dc.pluginConfig.GetSelectedLane() != depsLaneAll {
 			t.Errorf("expected lane %d, got %d", depsLaneAll, dc.pluginConfig.GetSelectedLane())
@@ -449,7 +449,7 @@ func TestDepsController_HandleLaneSwitch(t *testing.T) {
 		dc.pluginConfig.SetSelectedLane(depsLaneAll)
 		result := dc.handleLaneSwitch("left", dc.GetFilteredTasksForLane)
 		if !result {
-			t.Error("should succeed — Blocks lane has tasks")
+			t.Error("should succeed — Blocks lane has tikis")
 		}
 		if dc.pluginConfig.GetSelectedLane() != depsLaneBlocks {
 			t.Errorf("expected lane %d, got %d", depsLaneBlocks, dc.pluginConfig.GetSelectedLane())
@@ -474,12 +474,12 @@ func TestDepsController_HandleLaneSwitch(t *testing.T) {
 }
 
 func TestDepsController_EnsureFirstNonEmptyLaneSelection(t *testing.T) {
-	t.Run("current lane has tasks — no change", func(t *testing.T) {
+	t.Run("current lane has tikis — no change", func(t *testing.T) {
 		dc, _ := newDepsTestEnv(t)
 		dc.pluginConfig.SetSelectedLane(depsLaneAll)
 		dc.pluginConfig.SetSelectedIndexForLane(depsLaneAll, 0)
 		if dc.EnsureFirstNonEmptyLaneSelection() {
-			t.Error("should return false when current lane has tasks")
+			t.Error("should return false when current lane has tikis")
 		}
 		if dc.pluginConfig.GetSelectedLane() != depsLaneAll {
 			t.Error("lane should not change")
@@ -488,7 +488,7 @@ func TestDepsController_EnsureFirstNonEmptyLaneSelection(t *testing.T) {
 
 	t.Run("current lane empty — switches to first non-empty", func(t *testing.T) {
 		dc, tikiStore := newDepsTestEnv(t)
-		// move free task into depends so All lane becomes empty
+		// move free tiki into depends so All lane becomes empty
 		free := tikiStore.GetTiki(testFreeID).Clone()
 		free.Set(tikipkg.FieldDependsOn, []string{testCtxID})
 		if err := tikiStore.UpdateTiki(free); err != nil {
@@ -508,7 +508,7 @@ func TestDepsController_EnsureFirstNonEmptyLaneSelection(t *testing.T) {
 }
 
 func TestDepsController_DeleteTask_GateError(t *testing.T) {
-	// when gate rejects delete, handleDeleteTask should return false
+	// when gate rejects delete, handleDeleteTiki should return false
 	tikiStore := store.NewInMemoryStore()
 
 	for _, tk := range []*tikipkg.Tiki{
@@ -541,11 +541,11 @@ func TestDepsController_DeleteTask_GateError(t *testing.T) {
 	statusline := model.NewStatuslineConfig()
 	dc := NewDepsController(tikiStore, gate, pluginConfig, pluginDef, nav, statusline, rukiRuntime.NewSchema(), nil)
 
-	// select free task in All lane
+	// select free tiki in All lane
 	dc.pluginConfig.SetSelectedLane(depsLaneAll)
 	dc.pluginConfig.SetSelectedIndexForLane(depsLaneAll, 0)
 
-	result := dc.HandleAction(ActionDeleteTask)
+	result := dc.HandleAction(ActionDeleteTiki)
 	if result {
 		t.Error("expected delete to fail when gate rejects")
 	}
@@ -585,11 +585,11 @@ func TestDepsController_MoveTask_UpdateError(t *testing.T) {
 	statusline := model.NewStatuslineConfig()
 	dc := NewDepsController(tikiStore, gate, pluginConfig, pluginDef, nav, statusline, rukiRuntime.NewSchema(), nil)
 
-	// select free task in All lane, move left → Blocks
+	// select free tiki in All lane, move left → Blocks
 	dc.pluginConfig.SetSelectedLane(depsLaneAll)
 	dc.pluginConfig.SetSelectedIndexForLane(depsLaneAll, 0)
 
-	result := dc.handleMoveTask(-1)
+	result := dc.handleMoveTiki(-1)
 	if result {
 		t.Error("expected move to fail when gate rejects update")
 	}
@@ -608,11 +608,11 @@ func TestDepsViewActions(t *testing.T) {
 	required := map[ActionID]bool{
 		ActionNavUp:          false,
 		ActionNavDown:        false,
-		ActionMoveTaskLeft:   false,
-		ActionMoveTaskRight:  false,
+		ActionMoveTikiLeft:   false,
+		ActionMoveTikiRight:  false,
 		ActionOpenFromPlugin: false,
-		ActionNewTask:        false,
-		ActionDeleteTask:     false,
+		ActionNewTiki:        false,
+		ActionDeleteTiki:     false,
 		ActionToggleViewMode: false,
 		ActionSearch:         false,
 	}
@@ -643,19 +643,19 @@ func newDepsNavEnv(t *testing.T, blockers int, allTasks int, depends int, laneCo
 
 	for i := 0; i < depends; i++ {
 		if err := tikiStore.CreateTiki(newWorkflowTiki(fmt.Sprintf("DEP%04d", i), "Depends", nil)); err != nil {
-			t.Fatalf("create depends task: %v", err)
+			t.Fatalf("create depends tiki: %v", err)
 		}
 	}
 
 	for i := 0; i < blockers; i++ {
 		if err := tikiStore.CreateTiki(newWorkflowTiki(fmt.Sprintf("BLK%04d", i), "Blocker", []string{contextID})); err != nil {
-			t.Fatalf("create blocker task: %v", err)
+			t.Fatalf("create blocker tiki: %v", err)
 		}
 	}
 
 	for i := 0; i < allTasks; i++ {
 		if err := tikiStore.CreateTiki(newWorkflowTiki(fmt.Sprintf("ALL%04d", i), "All", nil)); err != nil {
-			t.Fatalf("create all lane task: %v", err)
+			t.Fatalf("create all lane tiki: %v", err)
 		}
 	}
 
@@ -705,7 +705,7 @@ func TestDepsController_NavLeftAdjacentNonEmptyLandsRightmostPartial(t *testing.
 	if got := dc.pluginConfig.GetSelectedLane(); got != depsLaneBlocks {
 		t.Fatalf("expected lane %d, got %d", depsLaneBlocks, got)
 	}
-	// lane 0 has 6 tasks with 4 columns; row 1 is partial => index 5
+	// lane 0 has 6 tikis with 4 columns; row 1 is partial => index 5
 	if got := dc.pluginConfig.GetSelectedIndexForLane(depsLaneBlocks); got != 5 {
 		t.Fatalf("expected selected index 5, got %d", got)
 	}
@@ -760,7 +760,7 @@ func TestDepsController_SuccessfulSwitchPersistsClampedTargetScroll(t *testing.T
 	if got := dc.pluginConfig.GetSelectedLane(); got != depsLaneAll {
 		t.Fatalf("expected lane %d, got %d", depsLaneAll, got)
 	}
-	// all lane has 3 tasks with 2 columns => max row 1, row-start index 2
+	// all lane has 3 tikis with 2 columns => max row 1, row-start index 2
 	if got := dc.pluginConfig.GetSelectedIndexForLane(depsLaneAll); got != 2 {
 		t.Fatalf("expected selected index 2, got %d", got)
 	}
@@ -779,14 +779,14 @@ func TestDepsController_ShowNavigation(t *testing.T) {
 func TestDepsController_GetFilteredTasksForLane_WithSearch(t *testing.T) {
 	dc, tikiStore := newDepsTestEnv(t)
 
-	// set search results to only include the free task
+	// set search results to only include the free tiki
 	free := tikiStore.GetTiki(testFreeID)
 	dc.pluginConfig.SetSearchResults([]*tikipkg.Tiki{free}, "Free")
 
-	// All lane should now only show the free task (matching search)
+	// All lane should now only show the free tiki (matching search)
 	allTasks := dc.GetFilteredTasksForLane(depsLaneAll)
 	if len(allTasks) != 1 {
-		t.Fatalf("expected 1 task with search narrowing, got %d", len(allTasks))
+		t.Fatalf("expected 1 tiki with search narrowing, got %d", len(allTasks))
 	}
 	if allTasks[0].ID != testFreeID {
 		t.Errorf("expected %s, got %s", testFreeID, allTasks[0].ID)
@@ -795,38 +795,38 @@ func TestDepsController_GetFilteredTasksForLane_WithSearch(t *testing.T) {
 	// Blocks lane should be empty (no matching search results)
 	blocksTasks := dc.GetFilteredTasksForLane(depsLaneBlocks)
 	if len(blocksTasks) != 0 {
-		t.Errorf("expected 0 blocks tasks with search narrowing, got %d", len(blocksTasks))
+		t.Errorf("expected 0 blocks tikis with search narrowing, got %d", len(blocksTasks))
 	}
 }
 
 func TestDepsController_GetFilteredTasksForLane_MissingContextTask(t *testing.T) {
 	dc, tikiStore := newDepsTestEnv(t)
 
-	// delete the context task
+	// delete the context tiki
 	tikiStore.DeleteTiki(testCtxID)
 
-	// all lanes should return nil when context task is missing
+	// all lanes should return nil when context tiki is missing
 	if dc.GetFilteredTasksForLane(depsLaneAll) != nil {
-		t.Error("expected nil when context task is missing")
+		t.Error("expected nil when context tiki is missing")
 	}
 	if dc.GetFilteredTasksForLane(depsLaneBlocks) != nil {
-		t.Error("expected nil when context task is missing")
+		t.Error("expected nil when context tiki is missing")
 	}
 	if dc.GetFilteredTasksForLane(depsLaneDepends) != nil {
-		t.Error("expected nil when context task is missing")
+		t.Error("expected nil when context tiki is missing")
 	}
 }
 
 func TestDepsController_MoveTask_EmptySelection(t *testing.T) {
 	dc, _ := newDepsTestEnv(t)
 
-	// set selected lane to blocks but with an index beyond the task list
+	// set selected lane to blocks but with an index beyond the tiki list
 	dc.pluginConfig.SetSelectedLane(depsLaneBlocks)
-	dc.pluginConfig.SetSelectedIndexForLane(depsLaneBlocks, 99) // beyond available tasks
+	dc.pluginConfig.SetSelectedIndexForLane(depsLaneBlocks, 99) // beyond available tikis
 
-	// getSelectedTikiID should return "" for an index beyond the task list,
-	// so handleMoveTask should return false
-	if dc.handleMoveTask(1) {
-		t.Error("expected false when no task is selected (index out of range)")
+	// getSelectedTikiID should return "" for an index beyond the tiki list,
+	// so handleMoveTiki should return false
+	if dc.handleMoveTiki(1) {
+		t.Error("expected false when no tiki is selected (index out of range)")
 	}
 }

@@ -77,7 +77,7 @@ func NewTestApp(t *testing.T) *TestApp {
 	// 0.5. Create ruki schema (needed by plugin parser and controllers)
 	schema := rukiRuntime.NewSchema()
 
-	// 1. Create temp dir for task files (auto-cleanup via t.TempDir())
+	// 1. Create temp dir for tiki files (auto-cleanup via t.TempDir())
 	tikiDir := t.TempDir()
 
 	// 2. Initialize Model Layer
@@ -519,10 +519,10 @@ func (ta *TestApp) LoadPlugins() error {
 	viewFactory := view.NewViewFactory(ta.TikiStore)
 	viewFactory.SetPlugins(pluginConfigs, pluginDefs, pluginControllers, globalActions)
 	// Mirror production wiring: fresh-per-navigation controllers for kind: detail
-	// (and wiki) so two pushed views don't share selectedTaskID.
-	viewFactory.SetDetailControllerFactory(func(def *plugin.DetailPlugin, selectedTaskID string) *controller.DetailController {
+	// (and wiki) so two pushed views don't share selectedTikiID.
+	viewFactory.SetDetailControllerFactory(func(def *plugin.DetailPlugin, selectedTikiID string) *controller.DetailController {
 		dc := controller.NewDetailController(def, ta.NavController, ta.statuslineConfig, ta.TikiStore, ta.MutationGate, ta.Schema, ta.tikiEditSession)
-		dc.SetSelectedTaskID(selectedTaskID)
+		dc.SetSelectedTikiID(selectedTikiID)
 		return dc
 	})
 	ta.ViewFactory = viewFactory
@@ -639,9 +639,9 @@ func (ta *TestApp) GetPluginConfig(pluginName string) *model.PluginConfig {
 	return ta.PluginConfigs[pluginName]
 }
 
-// NavigateToTask presses Down on the current board view until the task with the given ID
-// is the selected item. It opens the task detail (Enter) and returns true if found within
-// maxSteps attempts; returns false if the task was not found.
+// NavigateToTask presses Down on the current board view until the tiki with the given ID
+// is the selected item. It opens the tiki detail (Enter) and returns true if found within
+// maxSteps attempts; returns false if the tiki was not found.
 func (ta *TestApp) NavigateToTask(tikiID string, maxSteps int) bool {
 	for i := 0; i < maxSteps; i++ {
 		ta.SendKey(tcell.KeyEnter, 0, tcell.ModNone)

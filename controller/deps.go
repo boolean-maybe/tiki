@@ -22,8 +22,8 @@ const (
 )
 
 // DepsController handles the dependency editor plugin view.
-// Unlike PluginController, move logic here updates different tasks depending on
-// the source/target lane pair — sometimes the moved task, sometimes the context task.
+// Unlike PluginController, move logic here updates different tikis depending on
+// the source/target lane pair — sometimes the moved tiki, sometimes the context tiki.
 type DepsController struct {
 	pluginBase
 	// detailViewResolver returns the name of the configurable detail
@@ -95,10 +95,10 @@ func (dc *DepsController) HandleAction(actionID ActionID) bool {
 		return dc.handleNav("left", dc.GetFilteredTasksForLane)
 	case ActionNavRight:
 		return dc.handleNav("right", dc.GetFilteredTasksForLane)
-	case ActionMoveTaskLeft:
-		return dc.handleMoveTask(-1)
-	case ActionMoveTaskRight:
-		return dc.handleMoveTask(1)
+	case ActionMoveTikiLeft:
+		return dc.handleMoveTiki(-1)
+	case ActionMoveTikiRight:
+		return dc.handleMoveTiki(1)
 	case ActionOpenFromPlugin:
 		tikiID := dc.getSelectedTikiID(dc.GetFilteredTasksForLane)
 		if tikiID == "" {
@@ -122,10 +122,10 @@ func (dc *DepsController) HandleAction(actionID ActionID) bool {
 			model.EncodePluginViewParams(model.PluginViewParams{TikiID: tikiID}),
 		)
 		return true
-	case ActionNewTask:
-		return dc.handleNewTask()
-	case ActionDeleteTask:
-		return dc.handleDeleteTask(dc.GetFilteredTasksForLane)
+	case ActionNewTiki:
+		return dc.handleNewTiki()
+	case ActionDeleteTiki:
+		return dc.handleDeleteTiki(dc.GetFilteredTasksForLane)
 	case ActionToggleViewMode:
 		dc.pluginConfig.ToggleViewMode()
 		return true
@@ -134,7 +134,7 @@ func (dc *DepsController) HandleAction(actionID ActionID) bool {
 	}
 }
 
-// HandleSearch processes a search query, narrowing visible tasks within each lane.
+// HandleSearch processes a search query, narrowing visible tikis within each lane.
 func (dc *DepsController) HandleSearch(query string) {
 	dc.handleSearch(query, func() bool {
 		return dc.selectFirstNonEmptyLane(dc.GetFilteredTasksForLane)
@@ -182,14 +182,14 @@ func (dc *DepsController) GetFilteredTasksForLane(lane int) []*tikipkg.Tiki {
 	return result
 }
 
-// handleMoveTask applies dependency changes based on the source→target lane transition.
+// handleMoveTiki applies dependency changes based on the source→target lane transition.
 //
 //	From → To      | What changes
 //	All → Blocks   | moved tiki: dependsOn += [contextTikiID]
 //	All → Depends  | context tiki: dependsOn += [movedTikiID]
 //	Blocks → All   | moved tiki: dependsOn -= [contextTikiID]
 //	Depends → All  | context tiki: dependsOn -= [movedTikiID]
-func (dc *DepsController) handleMoveTask(offset int) bool {
+func (dc *DepsController) handleMoveTiki(offset int) bool {
 	if offset != -1 && offset != 1 {
 		return false
 	}

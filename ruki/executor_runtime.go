@@ -20,7 +20,7 @@ const (
 )
 
 // ExecutorRuntime configures executor identity/runtime semantics.
-// Per-execution payload (e.g. selected task id, create template) is passed
+// Per-execution payload (e.g. selected tiki id, create template) is passed
 // via ExecutionInput and is intentionally not part of this struct.
 type ExecutorRuntime struct {
 	Mode ExecutorRuntimeMode
@@ -37,32 +37,32 @@ func (r ExecutorRuntime) normalize() ExecutorRuntime {
 // ExecutionInput carries per-execution payload that is not part of executor
 // runtime identity.
 //
-// SelectedTaskIDs is the full set of currently selected task IDs. id()
+// SelectedTikiIDs is the full set of currently selected tiki IDs. id()
 // succeeds only when exactly one id is selected, ids() returns the whole set,
 // and selected_count() returns len().
 type ExecutionInput struct {
-	SelectedTaskIDs []string
+	SelectedTikiIDs []string
 	CreateTemplate  *tiki.Tiki
 	InputValue      interface{} // value returned by input() builtin
 	HasInput        bool        // distinguishes nil from unset
-	ChooseValue     string      // task ID returned by choose() builtin
+	ChooseValue     string      // tiki ID returned by choose() builtin
 	HasChoose       bool        // distinguishes empty from unset
 }
 
 // NewSingleSelectionInput returns an ExecutionInput carrying exactly one
-// selected task id. Convenience for the common single-selection case.
+// selected tiki id. Convenience for the common single-selection case.
 func NewSingleSelectionInput(tikiID string) ExecutionInput {
 	trimmed := strings.TrimSpace(tikiID)
 	if trimmed == "" {
 		return ExecutionInput{}
 	}
-	return ExecutionInput{SelectedTaskIDs: []string{trimmed}}
+	return ExecutionInput{SelectedTikiIDs: []string{trimmed}}
 }
 
-// SelectionCount returns the number of non-empty selected task IDs.
+// SelectionCount returns the number of non-empty selected tiki IDs.
 func (in ExecutionInput) SelectionCount() int {
 	n := 0
-	for _, id := range in.SelectedTaskIDs {
+	for _, id := range in.SelectedTikiIDs {
 		if strings.TrimSpace(id) != "" {
 			n++
 		}
@@ -70,18 +70,18 @@ func (in ExecutionInput) SelectionCount() int {
 	return n
 }
 
-// HasSelection returns true when at least one task id is selected.
+// HasSelection returns true when at least one tiki id is selected.
 func (in ExecutionInput) HasSelection() bool {
 	return in.SelectionCount() > 0
 }
 
-// SingleSelectedTaskID returns the sole selected id (and true) when the
+// SingleSelectedTikiID returns the sole selected id (and true) when the
 // selection cardinality is exactly one. Empty strings in the slice are
 // ignored. Returns ("", false) for zero or many selections.
-func (in ExecutionInput) SingleSelectedTaskID() (string, bool) {
+func (in ExecutionInput) SingleSelectedTikiID() (string, bool) {
 	var only string
 	count := 0
-	for _, id := range in.SelectedTaskIDs {
+	for _, id := range in.SelectedTikiIDs {
 		trimmed := strings.TrimSpace(id)
 		if trimmed == "" {
 			continue
@@ -101,11 +101,11 @@ func (in ExecutionInput) SingleSelectedTaskID() (string, bool) {
 // SelectedTikiIDList returns a copy of the trimmed, non-empty selected tiki
 // IDs suitable for use as a ruki list value returned by ids().
 func (in ExecutionInput) SelectedTikiIDList() []string {
-	if len(in.SelectedTaskIDs) == 0 {
+	if len(in.SelectedTikiIDs) == 0 {
 		return nil
 	}
-	out := make([]string, 0, len(in.SelectedTaskIDs))
-	for _, id := range in.SelectedTaskIDs {
+	out := make([]string, 0, len(in.SelectedTikiIDs))
+	for _, id := range in.SelectedTikiIDs {
 		trimmed := strings.TrimSpace(id)
 		if trimmed == "" {
 			continue
@@ -128,22 +128,22 @@ func (e *RuntimeMismatchError) Error() string {
 
 func (e *RuntimeMismatchError) Unwrap() error { return ErrRuntimeMismatch }
 
-// MissingSelectedTaskIDError reports plugin execution that uses id() but was
-// invoked with no selected task id.
-type MissingSelectedTaskIDError struct{}
+// MissingSelectedTikiIDError reports plugin execution that uses id() but was
+// invoked with no selected tiki id.
+type MissingSelectedTikiIDError struct{}
 
-func (e *MissingSelectedTaskIDError) Error() string {
+func (e *MissingSelectedTikiIDError) Error() string {
 	return "selected task id is required for plugin runtime when id() is used"
 }
 
-// AmbiguousSelectedTaskIDError reports plugin execution that uses scalar id()
-// but was invoked with more than one selected task id. ids() should be used
+// AmbiguousSelectedTikiIDError reports plugin execution that uses scalar id()
+// but was invoked with more than one selected tiki id. ids() should be used
 // instead for multi-selection.
-type AmbiguousSelectedTaskIDError struct {
+type AmbiguousSelectedTikiIDError struct {
 	Count int
 }
 
-func (e *AmbiguousSelectedTaskIDError) Error() string {
+func (e *AmbiguousSelectedTikiIDError) Error() string {
 	return fmt.Sprintf("id() requires exactly one selected task, got %d — use ids() for multi-selection", e.Count)
 }
 

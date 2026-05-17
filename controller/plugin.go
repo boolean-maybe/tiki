@@ -110,14 +110,14 @@ func (pc *PluginController) HandleAction(actionID ActionID) bool {
 		return pc.handleNav("left", pc.GetFilteredTasksForLane)
 	case ActionNavRight:
 		return pc.handleNav("right", pc.GetFilteredTasksForLane)
-	case ActionMoveTaskLeft:
-		return pc.handleMoveTask(-1)
-	case ActionMoveTaskRight:
-		return pc.handleMoveTask(1)
-	case ActionNewTask:
-		return pc.handleNewTask()
-	case ActionDeleteTask:
-		return pc.handleDeleteTask(pc.GetFilteredTasksForLane)
+	case ActionMoveTikiLeft:
+		return pc.handleMoveTiki(-1)
+	case ActionMoveTikiRight:
+		return pc.handleMoveTiki(1)
+	case ActionNewTiki:
+		return pc.handleNewTiki()
+	case ActionDeleteTiki:
+		return pc.handleDeleteTiki(pc.GetFilteredTasksForLane)
 	case ActionToggleViewMode:
 		pc.pluginConfig.ToggleViewMode()
 		return true
@@ -154,13 +154,13 @@ func (pc *PluginController) getPluginAction(actionID ActionID) (*plugin.PluginAc
 // selection/create-template preflight. Returns ok=false if the action can't run.
 func (pc *PluginController) buildExecutionInput(pa *plugin.PluginAction) (ruki.ExecutionInput, bool) {
 	input := ruki.ExecutionInput{}
-	ids := pc.getSelectedTaskIDs(pc.GetFilteredTasksForLane)
+	ids := pc.getSelectedTikiIDs(pc.GetFilteredTasksForLane)
 
 	if !selectionSatisfies(pa.Require, len(ids)) {
 		return input, false
 	}
 	if len(ids) > 0 {
-		input.SelectedTaskIDs = ids
+		input.SelectedTikiIDs = ids
 	}
 
 	if pa.Action.IsCreate() {
@@ -218,7 +218,7 @@ func selectionRequirements(reqs []string) []Requirement {
 // current selection — tiki_id only when exactly one is selected, otherwise
 // just selected_count.
 func logSelectionFields(input ruki.ExecutionInput) []any {
-	if id, ok := input.SingleSelectedTaskID(); ok {
+	if id, ok := input.SingleSelectedTikiID(); ok {
 		return []any{"tiki_id", id, "selected_count", 1}
 	}
 	return []any{"selected_count", input.SelectionCount()}
@@ -329,11 +329,11 @@ func (pc *PluginController) handlePluginAction(actionID ActionID) bool {
 // carries selection through; a separate pair for the target would need
 // its own context, which is not how passthrough works today.
 //
-// When exactly one task is selected, its id is carried into the target
+// When exactly one tiki is selected, its id is carried into the target
 // view's params (6B.3) so `kind: detail` and other selection-aware
 // views see the current selection.
 func (pc *PluginController) handleViewAction(pa *plugin.PluginAction) bool {
-	ids := pc.getSelectedTaskIDs(pc.GetFilteredTasksForLane)
+	ids := pc.getSelectedTikiIDs(pc.GetFilteredTasksForLane)
 	if !selectionSatisfies(pa.Require, len(ids)) {
 		return false
 	}
@@ -341,7 +341,7 @@ func (pc *PluginController) handleViewAction(pa *plugin.PluginAction) bool {
 		return false
 	}
 	// Carried selection is what the target view will see. `kind: view`
-	// passthrough today carries at most one id (when exactly one task is
+	// passthrough today carries at most one id (when exactly one tiki is
 	// selected on the source), matching the encode branch below.
 	carried := 0
 	if len(ids) == 1 {
@@ -446,7 +446,7 @@ func (pc *PluginController) CanStartActionChoose(actionID ActionID) (string, []*
 	return pa.Label, candidateTikis, true
 }
 
-// HandleActionChoose handles the selected task ID from the QuickSelect picker.
+// HandleActionChoose handles the selected tiki ID from the QuickSelect picker.
 func (pc *PluginController) HandleActionChoose(actionID ActionID, tikiID string) bool {
 	pa, ok := pc.getPluginAction(actionID)
 	if !ok || !pa.HasChoose {
@@ -461,7 +461,7 @@ func (pc *PluginController) HandleActionChoose(actionID ActionID, tikiID string)
 	return pc.executeAndApply(pa, input)
 }
 
-func (pc *PluginController) handleMoveTask(offset int) bool {
+func (pc *PluginController) handleMoveTiki(offset int) bool {
 	tikiID := pc.getSelectedTikiID(pc.GetFilteredTasksForLane)
 	if tikiID == "" {
 		return false

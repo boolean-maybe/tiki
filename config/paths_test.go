@@ -180,14 +180,6 @@ func TestPathManagerPaths(t *testing.T) {
 			getter: pm.ConfigFile,
 		},
 		{
-			name:   "TaskDir",
-			getter: pm.TaskDir,
-		},
-		{
-			name:   "DokiDir",
-			getter: pm.DokiDir,
-		},
-		{
 			name:   "ProjectConfigFile",
 			getter: pm.ProjectConfigFile,
 		},
@@ -252,9 +244,7 @@ func TestPathManagerEnsureDirs(t *testing.T) {
 	}
 
 	// Phase 8: EnsureDirs creates the unified .doc/ root but no longer
-	// provisions .doc/tiki or .doc/doki. Verify the unified layout — and
-	// explicitly assert the legacy subdirs are absent so regressions that
-	// reintroduce them fail here.
+	// provisions any legacy subdirectories.
 	dirs := []string{
 		pm.ConfigDir(),
 		pm.CacheDir(),
@@ -277,12 +267,6 @@ func TestPathManagerEnsureDirs(t *testing.T) {
 			}
 		}
 	}
-
-	for _, legacy := range []string{pm.TaskDir(), pm.DokiDir()} {
-		if _, err := os.Stat(legacy); err == nil {
-			t.Errorf("legacy directory %q should not be created by EnsureDirs", legacy)
-		}
-	}
 }
 
 func TestGlobalAccessorFunctions(t *testing.T) {
@@ -294,8 +278,6 @@ func TestGlobalAccessorFunctions(t *testing.T) {
 		{"GetConfigDir", GetConfigDir},
 		{"GetCacheDir", GetCacheDir},
 		{"GetConfigFile", GetConfigFile},
-		{"GetTaskDir", GetTaskDir},
-		{"GetDokiDir", GetDokiDir},
 		{"GetProjectConfigFile", GetProjectConfigFile},
 	}
 
@@ -341,9 +323,6 @@ func TestInitPaths(t *testing.T) {
 	// After InitPaths, all accessors should work
 	if GetConfigDir() == "" {
 		t.Error("GetConfigDir() returned empty after InitPaths()")
-	}
-	if GetTaskDir() == "" {
-		t.Error("GetTaskDir() returned empty after InitPaths()")
 	}
 }
 
