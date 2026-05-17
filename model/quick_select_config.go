@@ -50,7 +50,7 @@ func (qc *QuickSelectConfig) SetOnCancel(fn func()) {
 	qc.onCancel = fn
 }
 
-// Select invokes the select callback with the chosen task ID, then hides.
+// Select invokes the select callback with the chosen tiki ID, then hides.
 func (qc *QuickSelectConfig) Select(tikiID string) {
 	qc.mu.RLock()
 	fn := qc.onSelect

@@ -10,18 +10,18 @@ import (
 	"github.com/rivo/tview"
 )
 
-func makeTasks(ids ...string) []*tikipkg.Tiki {
+func makeTikis(ids ...string) []*tikipkg.Tiki {
 	tikis := make([]*tikipkg.Tiki, len(ids))
 	for i, id := range ids {
 		tk := tikipkg.New()
 		tk.ID = id
-		tk.Title = "Task " + id
+		tk.Title = "Tiki " + id
 		tikis[i] = tk
 	}
 	return tikis
 }
 
-func TestNewTaskList(t *testing.T) {
+func TestNewTikiList(t *testing.T) {
 	tl := NewTikiList(5)
 
 	if tl == nil {
@@ -47,21 +47,21 @@ func TestNewTaskList(t *testing.T) {
 	}
 }
 
-func TestSetTasks_RecomputesIDColumnWidth(t *testing.T) {
+func TestSetTikis_RecomputesIDColumnWidth(t *testing.T) {
 	tl := NewTikiList(10)
 
-	tl.SetTikis(makeTasks("AB", "ABCDE", "XY"))
+	tl.SetTikis(makeTikis("AB", "ABCDE", "XY"))
 	if tl.idColumnWidth != 5 {
 		t.Errorf("Expected idColumnWidth=5, got %d", tl.idColumnWidth)
 	}
 
-	tl.SetTikis(makeTasks("A"))
+	tl.SetTikis(makeTikis("A"))
 	if tl.idColumnWidth != 1 {
 		t.Errorf("Expected idColumnWidth=1, got %d", tl.idColumnWidth)
 	}
 }
 
-func TestSetTasks_EmptyList(t *testing.T) {
+func TestSetTikis_EmptyList(t *testing.T) {
 	tl := NewTikiList(10)
 	tl.SetTikis(nil)
 
@@ -75,7 +75,7 @@ func TestSetTasks_EmptyList(t *testing.T) {
 
 func TestSelection_ClampsBounds(t *testing.T) {
 	tl := NewTikiList(10)
-	tl.SetTikis(makeTasks("A", "B", "C"))
+	tl.SetTikis(makeTikis("A", "B", "C"))
 
 	tl.SetSelection(-5)
 	if tl.selectionIndex != 0 {
@@ -93,28 +93,28 @@ func TestSelection_ClampsBounds(t *testing.T) {
 	}
 }
 
-func TestGetSelectedTask(t *testing.T) {
+func TestGetSelectedTiki(t *testing.T) {
 	tl := NewTikiList(10)
-	tasks := makeTasks("A", "B", "C")
-	tl.SetTikis(tasks)
+	tikis := makeTikis("A", "B", "C")
+	tl.SetTikis(tikis)
 
 	tl.SetSelection(1)
 	selected := tl.GetSelectedTiki()
 	if selected == nil || selected.ID != "B" {
-		t.Errorf("Expected task B, got %v", selected)
+		t.Errorf("Expected tiki B, got %v", selected)
 	}
 }
 
-func TestGetSelectedTask_EmptyList(t *testing.T) {
+func TestGetSelectedTiki_EmptyList(t *testing.T) {
 	tl := NewTikiList(10)
 	if tl.GetSelectedTiki() != nil {
-		t.Error("Expected nil for empty task list")
+		t.Error("Expected nil for empty tiki list")
 	}
 }
 
 func TestScrollDown(t *testing.T) {
 	tl := NewTikiList(10)
-	tl.SetTikis(makeTasks("A", "B", "C"))
+	tl.SetTikis(makeTikis("A", "B", "C"))
 
 	tl.ScrollDown()
 	if tl.selectionIndex != 1 {
@@ -135,7 +135,7 @@ func TestScrollDown(t *testing.T) {
 
 func TestScrollUp(t *testing.T) {
 	tl := NewTikiList(10)
-	tl.SetTikis(makeTasks("A", "B", "C"))
+	tl.SetTikis(makeTikis("A", "B", "C"))
 	tl.SetSelection(2)
 
 	tl.ScrollUp()
@@ -164,7 +164,7 @@ func TestScrollDown_EmptyList(t *testing.T) {
 
 func TestFewerItemsThanViewport(t *testing.T) {
 	tl := NewTikiList(10)
-	tl.SetTikis(makeTasks("A", "B"))
+	tl.SetTikis(makeTikis("A", "B"))
 
 	// scrollOffset should stay at 0 since all items fit
 	if tl.scrollOffset != 0 {
@@ -208,13 +208,13 @@ func TestSetTitleColor(t *testing.T) {
 	}
 }
 
-func TestSetTasks_ClampsSelectionOnShrink(t *testing.T) {
+func TestSetTikis_ClampsSelectionOnShrink(t *testing.T) {
 	tl := NewTikiList(10)
-	tl.SetTikis(makeTasks("A", "B", "C", "D", "E"))
+	tl.SetTikis(makeTikis("A", "B", "C", "D", "E"))
 	tl.SetSelection(4)
 
 	// Shrink list — selection should clamp
-	tl.SetTikis(makeTasks("A", "B"))
+	tl.SetTikis(makeTikis("A", "B"))
 	if tl.selectionIndex != 1 {
 		t.Errorf("Expected selectionIndex clamped to 1, got %d", tl.selectionIndex)
 	}
@@ -222,7 +222,7 @@ func TestSetTasks_ClampsSelectionOnShrink(t *testing.T) {
 
 func TestGetSelectedIndex(t *testing.T) {
 	tl := NewTikiList(10)
-	tl.SetTikis(makeTasks("A", "B", "C"))
+	tl.SetTikis(makeTikis("A", "B", "C"))
 	tl.SetSelection(2)
 
 	if tl.GetSelectedIndex() != 2 {
@@ -233,54 +233,54 @@ func TestGetSelectedIndex(t *testing.T) {
 func TestBuildRow(t *testing.T) {
 	tl := NewTikiList(10)
 
-	pendingTask := tikipkg.New()
-	pendingTask.ID = "ABC001"
-	pendingTask.Title = "My pending task"
+	pendingTiki := tikipkg.New()
+	pendingTiki.ID = "ABC001"
+	pendingTiki.Title = "My pending tiki"
 	// no status field — treated as pending
 
-	doneTask := tikipkg.New()
-	doneTask.ID = "ABC002"
-	doneTask.Title = "My done task"
-	doneTask.Set(tikipkg.FieldStatus, "done")
+	doneTiki := tikipkg.New()
+	doneTiki.ID = "ABC002"
+	doneTiki.Title = "My done tiki"
+	doneTiki.Set(tikipkg.FieldStatus, "done")
 
-	// set tasks so idColumnWidth is computed
-	tl.SetTikis([]*tikipkg.Tiki{pendingTask, doneTask})
+	// set tikis so idColumnWidth is computed
+	tl.SetTikis([]*tikipkg.Tiki{pendingTiki, doneTiki})
 
 	width := 80
 
 	// The ✓/○ status indicator was removed when status became an ordinary
 	// enum field — workflows that want a glyph use enum value emoji metadata.
-	t.Run("pending task does not show legacy circle", func(t *testing.T) {
-		row := tl.buildRow(pendingTask, false, width)
+	t.Run("pending tiki does not show legacy circle", func(t *testing.T) {
+		row := tl.buildRow(pendingTiki, false, width)
 		if strings.Contains(row, "○") {
 			t.Error("legacy circle (○) should no longer appear in row")
 		}
 	})
 
-	t.Run("done task does not show legacy checkmark", func(t *testing.T) {
-		row := tl.buildRow(doneTask, false, width)
+	t.Run("done tiki does not show legacy checkmark", func(t *testing.T) {
+		row := tl.buildRow(doneTiki, false, width)
 		if strings.Contains(row, "✓") {
 			t.Error("legacy checkmark (✓) should no longer appear in row")
 		}
 	})
 
-	t.Run("contains task ID", func(t *testing.T) {
-		row := tl.buildRow(pendingTask, false, width)
-		if !strings.Contains(row, pendingTask.ID) {
-			t.Errorf("row should contain task ID %q", pendingTask.ID)
+	t.Run("contains tiki ID", func(t *testing.T) {
+		row := tl.buildRow(pendingTiki, false, width)
+		if !strings.Contains(row, pendingTiki.ID) {
+			t.Errorf("row should contain tiki ID %q", pendingTiki.ID)
 		}
 	})
 
 	t.Run("contains title", func(t *testing.T) {
-		row := tl.buildRow(pendingTask, false, width)
-		escaped := tview.Escape(pendingTask.Title)
+		row := tl.buildRow(pendingTiki, false, width)
+		escaped := tview.Escape(pendingTiki.Title)
 		if !strings.Contains(row, escaped) {
 			t.Errorf("row should contain escaped title %q", escaped)
 		}
 	})
 
 	t.Run("selected row has selection color prefix", func(t *testing.T) {
-		row := tl.buildRow(pendingTask, true, width)
+		row := tl.buildRow(pendingTiki, true, width)
 		selTag := tl.selectionColor.Tag().WithBg(tl.selectionBgColor).String()
 		if !strings.HasPrefix(row, selTag) {
 			t.Errorf("selected row should start with selection color %q", selTag)
@@ -288,7 +288,7 @@ func TestBuildRow(t *testing.T) {
 	})
 
 	t.Run("unselected row has no selection prefix", func(t *testing.T) {
-		row := tl.buildRow(pendingTask, false, width)
+		row := tl.buildRow(pendingTiki, false, width)
 		selTag := tl.selectionColor.Tag().WithBg(tl.selectionBgColor).String()
 		if strings.HasPrefix(row, selTag) {
 			t.Error("unselected row should not start with selection color")
@@ -296,7 +296,7 @@ func TestBuildRow(t *testing.T) {
 	})
 
 	t.Run("selected row visible width equals requested width", func(t *testing.T) {
-		row := tl.buildRow(pendingTask, true, width)
+		row := tl.buildRow(pendingTiki, true, width)
 		visibleWidth := tview.TaggedStringWidth(row)
 		if visibleWidth != width {
 			t.Errorf("selected row visible width = %d, want %d", visibleWidth, width)
@@ -304,7 +304,7 @@ func TestBuildRow(t *testing.T) {
 	})
 
 	t.Run("unselected row visible width equals requested width", func(t *testing.T) {
-		row := tl.buildRow(pendingTask, false, width)
+		row := tl.buildRow(pendingTiki, false, width)
 		visibleWidth := tview.TaggedStringWidth(row)
 		if visibleWidth != width {
 			t.Errorf("unselected row visible width = %d, want %d", visibleWidth, width)
@@ -313,7 +313,7 @@ func TestBuildRow(t *testing.T) {
 
 	t.Run("every row ends with full style reset", func(t *testing.T) {
 		for _, sel := range []bool{true, false} {
-			row := tl.buildRow(pendingTask, sel, width)
+			row := tl.buildRow(pendingTiki, sel, width)
 			if !strings.HasSuffix(row, "[-:-:-]") {
 				t.Errorf("selected=%v: row should end with [-:-:-], got suffix %q", sel, row[max(0, len(row)-10):])
 			}

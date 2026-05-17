@@ -9,7 +9,7 @@ import (
 )
 
 // fakeResolver is a Resolver backed by an in-memory id→entry table. Lets
-// wikilink rewriting be unit-tested without dragging the full task store in.
+// wikilink rewriting be unit-tested without dragging the full tiki store in.
 type fakeResolver struct {
 	entries map[string]fakeEntry
 }

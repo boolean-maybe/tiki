@@ -19,7 +19,7 @@ func init() {
 	teststatuses.Init()
 }
 
-// Test Draft Task Lifecycle
+// Test Draft Tiki Lifecycle
 
 func TestTikiEditSession_SetDraft(t *testing.T) {
 	tikiStore := store.NewInMemoryStore()
@@ -32,7 +32,7 @@ func TestTikiEditSession_SetDraft(t *testing.T) {
 	tc.SetDraft(draft)
 
 	if tc.GetDraftTiki() == nil {
-		t.Error("SetDraft did not set the draft task")
+		t.Error("SetDraft did not set the draft tiki")
 	}
 
 	if tc.GetCurrentTikiID() != draft.ID {
@@ -51,7 +51,7 @@ func TestTikiEditSession_ClearDraft(t *testing.T) {
 	tc.ClearDraft()
 
 	if tc.GetDraftTiki() != nil {
-		t.Error("ClearDraft did not clear the draft task")
+		t.Error("ClearDraft did not clear the draft tiki")
 	}
 }
 
@@ -62,25 +62,25 @@ func TestTikiEditSession_StartEditSession(t *testing.T) {
 	navController := newMockNavigationController()
 	tc := NewTikiEditSession(tikiStore, gate, navController, nil)
 
-	// Create a task in the store
-	original := newTestTask()
+	// Create a tiki in the store
+	original := newTestTiki()
 	original.LoadedMtime = time.Now()
 	_ = tikiStore.CreateTiki(original)
 
 	// Start edit session
-	editingTask := tc.StartEditSession(original.ID)
+	editingTiki := tc.StartEditSession(original.ID)
 
-	if editingTask == nil {
+	if editingTiki == nil {
 		t.Fatal("StartEditSession returned nil")
 		return
 	}
 
-	if editingTask.ID != original.ID {
-		t.Errorf("StartEditSession returned wrong task, got ID %q, want %q", editingTask.ID, original.ID)
+	if editingTiki.ID != original.ID {
+		t.Errorf("StartEditSession returned wrong tiki, got ID %q, want %q", editingTiki.ID, original.ID)
 	}
 
 	if tc.GetEditingTiki() == nil {
-		t.Error("StartEditSession did not set editingTask")
+		t.Error("StartEditSession did not set editingTiki")
 	}
 
 	if tc.GetCurrentTikiID() != original.ID {
@@ -95,10 +95,10 @@ func TestTikiEditSession_StartEditSession_NonExistent(t *testing.T) {
 	navController := newMockNavigationController()
 	tc := NewTikiEditSession(tikiStore, gate, navController, nil)
 
-	editingTask := tc.StartEditSession("NONEXISTENT")
+	editingTiki := tc.StartEditSession("NONEXISTENT")
 
-	if editingTask != nil {
-		t.Error("StartEditSession should return nil for non-existent task")
+	if editingTiki != nil {
+		t.Error("StartEditSession should return nil for non-existent tiki")
 	}
 }
 
@@ -110,7 +110,7 @@ func TestTikiEditSession_CancelEditSession(t *testing.T) {
 	tc := NewTikiEditSession(tikiStore, gate, navController, nil)
 
 	// Start an edit session
-	original := newTestTask()
+	original := newTestTiki()
 	_ = tikiStore.CreateTiki(original)
 	tc.StartEditSession(original.ID)
 
@@ -118,7 +118,7 @@ func TestTikiEditSession_CancelEditSession(t *testing.T) {
 	tc.CancelEditSession()
 
 	if tc.GetEditingTiki() != nil {
-		t.Error("CancelEditSession did not clear editingTask")
+		t.Error("CancelEditSession did not clear editingTiki")
 	}
 
 	if tc.GetCurrentTikiID() != "" {
@@ -131,14 +131,14 @@ func TestTikiEditSession_CancelEditSession(t *testing.T) {
 func TestTikiEditSession_SaveStatus(t *testing.T) {
 	tests := []struct {
 		name          string
-		setupTask     func(*TikiEditSession, store.Store)
+		setupTiki     func(*TikiEditSession, store.Store)
 		statusDisplay string
 		wantStatus    string
 		wantSuccess   bool
 	}{
 		{
-			name: "valid status on draft task",
-			setupTask: func(tc *TikiEditSession, s store.Store) {
+			name: "valid status on draft tiki",
+			setupTiki: func(tc *TikiEditSession, s store.Store) {
 				tc.SetDraft(newTestTiki())
 			},
 			statusDisplay: enumDisplay("status", "ready"),
@@ -146,9 +146,9 @@ func TestTikiEditSession_SaveStatus(t *testing.T) {
 			wantSuccess:   true,
 		},
 		{
-			name: "valid status on editing task",
-			setupTask: func(tc *TikiEditSession, s store.Store) {
-				t := newTestTask()
+			name: "valid status on editing tiki",
+			setupTiki: func(tc *TikiEditSession, s store.Store) {
+				t := newTestTiki()
 				_ = s.CreateTiki(t)
 				tc.StartEditSession(t.ID)
 			},
@@ -158,8 +158,8 @@ func TestTikiEditSession_SaveStatus(t *testing.T) {
 		},
 		{
 			name: "draft takes priority over editing",
-			setupTask: func(tc *TikiEditSession, s store.Store) {
-				t := newTestTask()
+			setupTiki: func(tc *TikiEditSession, s store.Store) {
+				t := newTestTiki()
 				_ = s.CreateTiki(t)
 				tc.StartEditSession(t.ID)
 				tc.SetDraft(newTestTikiWithID())
@@ -170,7 +170,7 @@ func TestTikiEditSession_SaveStatus(t *testing.T) {
 		},
 		{
 			name: "invalid status normalizes to default",
-			setupTask: func(tc *TikiEditSession, s store.Store) {
+			setupTiki: func(tc *TikiEditSession, s store.Store) {
 				tc.SetDraft(newTestTiki())
 			},
 			statusDisplay: "InvalidStatus",
@@ -178,9 +178,9 @@ func TestTikiEditSession_SaveStatus(t *testing.T) {
 			wantSuccess:   true,
 		},
 		{
-			name: "no active task",
-			setupTask: func(tc *TikiEditSession, s store.Store) {
-				// Don't set up any task
+			name: "no active tiki",
+			setupTiki: func(tc *TikiEditSession, s store.Store) {
+				// Don't set up any tiki
 			},
 			statusDisplay: enumDisplay("status", "ready"),
 			wantSuccess:   false,
@@ -195,7 +195,7 @@ func TestTikiEditSession_SaveStatus(t *testing.T) {
 			navController := newMockNavigationController()
 			tc := NewTikiEditSession(tikiStore, gate, navController, nil)
 
-			tt.setupTask(tc, tikiStore)
+			tt.setupTiki(tc, tikiStore)
 
 			got := tc.SaveStatus(tt.statusDisplay)
 
@@ -222,14 +222,14 @@ func TestTikiEditSession_SaveStatus(t *testing.T) {
 func TestTikiEditSession_SaveType(t *testing.T) {
 	tests := []struct {
 		name        string
-		setupTask   func(*TikiEditSession, store.Store)
+		setupTiki   func(*TikiEditSession, store.Store)
 		typeDisplay string
 		wantType    string
 		wantSuccess bool
 	}{
 		{
-			name: "valid type on draft task",
-			setupTask: func(tc *TikiEditSession, s store.Store) {
+			name: "valid type on draft tiki",
+			setupTiki: func(tc *TikiEditSession, s store.Store) {
 				tc.SetDraft(newTestTiki())
 			},
 			typeDisplay: enumDisplay("type", "bug"),
@@ -237,9 +237,9 @@ func TestTikiEditSession_SaveType(t *testing.T) {
 			wantSuccess: true,
 		},
 		{
-			name: "valid type on editing task",
-			setupTask: func(tc *TikiEditSession, s store.Store) {
-				t := newTestTask()
+			name: "valid type on editing tiki",
+			setupTiki: func(tc *TikiEditSession, s store.Store) {
+				t := newTestTiki()
 				_ = s.CreateTiki(t)
 				tc.StartEditSession(t.ID)
 			},
@@ -249,17 +249,17 @@ func TestTikiEditSession_SaveType(t *testing.T) {
 		},
 		{
 			name: "invalid type is rejected",
-			setupTask: func(tc *TikiEditSession, s store.Store) {
+			setupTiki: func(tc *TikiEditSession, s store.Store) {
 				tc.SetDraft(newTestTiki())
 			},
 			typeDisplay: "InvalidType",
-			wantType:    "story", // task type unchanged from setup
+			wantType:    "story", // tiki type unchanged from setup
 			wantSuccess: false,
 		},
 		{
-			name: "no active task",
-			setupTask: func(tc *TikiEditSession, s store.Store) {
-				// Don't set up any task
+			name: "no active tiki",
+			setupTiki: func(tc *TikiEditSession, s store.Store) {
+				// Don't set up any tiki
 			},
 			typeDisplay: enumDisplay("type", "story"),
 			wantSuccess: false,
@@ -274,7 +274,7 @@ func TestTikiEditSession_SaveType(t *testing.T) {
 			navController := newMockNavigationController()
 			tc := NewTikiEditSession(tikiStore, gate, navController, nil)
 
-			tt.setupTask(tc, tikiStore)
+			tt.setupTiki(tc, tikiStore)
 
 			got := tc.SaveType(tt.typeDisplay)
 
@@ -301,14 +301,14 @@ func TestTikiEditSession_SaveType(t *testing.T) {
 func TestTikiEditSession_SavePriority(t *testing.T) {
 	tests := []struct {
 		name         string
-		setupTask    func(*TikiEditSession, store.Store)
+		setupTiki    func(*TikiEditSession, store.Store)
 		priority     string
 		wantPriority string
 		wantSuccess  bool
 	}{
 		{
-			name: "valid priority on draft task",
-			setupTask: func(tc *TikiEditSession, s store.Store) {
+			name: "valid priority on draft tiki",
+			setupTiki: func(tc *TikiEditSession, s store.Store) {
 				tc.SetDraft(newTestTiki())
 			},
 			priority:     "high",
@@ -316,9 +316,9 @@ func TestTikiEditSession_SavePriority(t *testing.T) {
 			wantSuccess:  true,
 		},
 		{
-			name: "valid priority on editing task",
-			setupTask: func(tc *TikiEditSession, s store.Store) {
-				t := newTestTask()
+			name: "valid priority on editing tiki",
+			setupTiki: func(tc *TikiEditSession, s store.Store) {
+				t := newTestTiki()
 				_ = s.CreateTiki(t)
 				tc.StartEditSession(t.ID)
 			},
@@ -328,7 +328,7 @@ func TestTikiEditSession_SavePriority(t *testing.T) {
 		},
 		{
 			name: "invalid priority - unknown key",
-			setupTask: func(tc *TikiEditSession, s store.Store) {
+			setupTiki: func(tc *TikiEditSession, s store.Store) {
 				tc.SetDraft(newTestTiki())
 			},
 			priority:    "ultra-critical",
@@ -336,16 +336,16 @@ func TestTikiEditSession_SavePriority(t *testing.T) {
 		},
 		{
 			name: "invalid priority - numeric leftover",
-			setupTask: func(tc *TikiEditSession, s store.Store) {
+			setupTiki: func(tc *TikiEditSession, s store.Store) {
 				tc.SetDraft(newTestTiki())
 			},
 			priority:    "10",
 			wantSuccess: false,
 		},
 		{
-			name: "no active task",
-			setupTask: func(tc *TikiEditSession, s store.Store) {
-				// Don't set up any task
+			name: "no active tiki",
+			setupTiki: func(tc *TikiEditSession, s store.Store) {
+				// Don't set up any tiki
 			},
 			priority:    "medium",
 			wantSuccess: false,
@@ -360,7 +360,7 @@ func TestTikiEditSession_SavePriority(t *testing.T) {
 			navController := newMockNavigationController()
 			tc := NewTikiEditSession(tikiStore, gate, navController, nil)
 
-			tt.setupTask(tc, tikiStore)
+			tt.setupTiki(tc, tikiStore)
 
 			got := tc.SavePriority(tt.priority)
 
@@ -377,7 +377,7 @@ func TestTikiEditSession_SavePriority(t *testing.T) {
 				}
 				actualPriority, _, _ := activeTiki.StringField(tikipkg.FieldPriority)
 				if actualPriority != tt.wantPriority {
-					t.Errorf("task.Priority = %v, want %v", actualPriority, tt.wantPriority)
+					t.Errorf("tiki.Priority = %v, want %v", actualPriority, tt.wantPriority)
 				}
 			}
 		})
@@ -455,14 +455,14 @@ func TestTikiEditSession_SaveWorkflowEnum(t *testing.T) {
 func TestTikiEditSession_SaveAssignee(t *testing.T) {
 	tests := []struct {
 		name         string
-		setupTask    func(*TikiEditSession, store.Store)
+		setupTiki    func(*TikiEditSession, store.Store)
 		assignee     string
 		wantAssignee string
 		wantSuccess  bool
 	}{
 		{
-			name: "valid assignee on draft task",
-			setupTask: func(tc *TikiEditSession, s store.Store) {
+			name: "valid assignee on draft tiki",
+			setupTiki: func(tc *TikiEditSession, s store.Store) {
 				tc.SetDraft(newTestTiki())
 			},
 			assignee:     "john.doe",
@@ -471,7 +471,7 @@ func TestTikiEditSession_SaveAssignee(t *testing.T) {
 		},
 		{
 			name: "unassigned becomes empty string",
-			setupTask: func(tc *TikiEditSession, s store.Store) {
+			setupTiki: func(tc *TikiEditSession, s store.Store) {
 				tc.SetDraft(newTestTiki())
 			},
 			assignee:     "Unassigned",
@@ -479,9 +479,9 @@ func TestTikiEditSession_SaveAssignee(t *testing.T) {
 			wantSuccess:  true,
 		},
 		{
-			name: "valid assignee on editing task",
-			setupTask: func(tc *TikiEditSession, s store.Store) {
-				t := newTestTask()
+			name: "valid assignee on editing tiki",
+			setupTiki: func(tc *TikiEditSession, s store.Store) {
+				t := newTestTiki()
 				_ = s.CreateTiki(t)
 				tc.StartEditSession(t.ID)
 			},
@@ -490,9 +490,9 @@ func TestTikiEditSession_SaveAssignee(t *testing.T) {
 			wantSuccess:  true,
 		},
 		{
-			name: "no active task",
-			setupTask: func(tc *TikiEditSession, s store.Store) {
-				// Don't set up any task
+			name: "no active tiki",
+			setupTiki: func(tc *TikiEditSession, s store.Store) {
+				// Don't set up any tiki
 			},
 			assignee:    "john.doe",
 			wantSuccess: false,
@@ -507,7 +507,7 @@ func TestTikiEditSession_SaveAssignee(t *testing.T) {
 			navController := newMockNavigationController()
 			tc := NewTikiEditSession(tikiStore, gate, navController, nil)
 
-			tt.setupTask(tc, tikiStore)
+			tt.setupTiki(tc, tikiStore)
 
 			got := tc.SaveAssignee(tt.assignee)
 
@@ -524,7 +524,7 @@ func TestTikiEditSession_SaveAssignee(t *testing.T) {
 				}
 				actualAssignee, _, _ := activeTiki.StringField(tikipkg.FieldAssignee)
 				if actualAssignee != tt.wantAssignee {
-					t.Errorf("task.Assignee = %q, want %q", actualAssignee, tt.wantAssignee)
+					t.Errorf("tiki.Assignee = %q, want %q", actualAssignee, tt.wantAssignee)
 				}
 			}
 		})
@@ -534,14 +534,14 @@ func TestTikiEditSession_SaveAssignee(t *testing.T) {
 func TestTikiEditSession_SavePoints(t *testing.T) {
 	tests := []struct {
 		name        string
-		setupTask   func(*TikiEditSession, store.Store)
+		setupTiki   func(*TikiEditSession, store.Store)
 		points      int
 		wantPoints  int
 		wantSuccess bool
 	}{
 		{
-			name: "valid points on draft task",
-			setupTask: func(tc *TikiEditSession, s store.Store) {
+			name: "valid points on draft tiki",
+			setupTiki: func(tc *TikiEditSession, s store.Store) {
 				tc.SetDraft(newTestTiki())
 			},
 			points:      7,
@@ -549,9 +549,9 @@ func TestTikiEditSession_SavePoints(t *testing.T) {
 			wantSuccess: true,
 		},
 		{
-			name: "valid points on editing task",
-			setupTask: func(tc *TikiEditSession, s store.Store) {
-				t := newTestTask()
+			name: "valid points on editing tiki",
+			setupTiki: func(tc *TikiEditSession, s store.Store) {
+				t := newTestTiki()
 				_ = s.CreateTiki(t)
 				tc.StartEditSession(t.ID)
 			},
@@ -561,16 +561,16 @@ func TestTikiEditSession_SavePoints(t *testing.T) {
 		},
 		{
 			name: "invalid points - not in enum",
-			setupTask: func(tc *TikiEditSession, s store.Store) {
+			setupTiki: func(tc *TikiEditSession, s store.Store) {
 				tc.SetDraft(newTestTiki())
 			},
 			points:      5, // not a declared enum value (declared: 11, 7, 3, 1)
 			wantSuccess: false,
 		},
 		{
-			name: "no active task",
-			setupTask: func(tc *TikiEditSession, s store.Store) {
-				// Don't set up any task
+			name: "no active tiki",
+			setupTiki: func(tc *TikiEditSession, s store.Store) {
+				// Don't set up any tiki
 			},
 			points:      7,
 			wantSuccess: false,
@@ -585,7 +585,7 @@ func TestTikiEditSession_SavePoints(t *testing.T) {
 			navController := newMockNavigationController()
 			tc := NewTikiEditSession(tikiStore, gate, navController, nil)
 
-			tt.setupTask(tc, tikiStore)
+			tt.setupTiki(tc, tikiStore)
 
 			got := tc.SavePoints(tt.points)
 
@@ -603,7 +603,7 @@ func TestTikiEditSession_SavePoints(t *testing.T) {
 				actualPoints, _, _ := activeTiki.StringField(tikipkg.FieldPoints)
 				want := strconv.Itoa(tt.wantPoints)
 				if actualPoints != want {
-					t.Errorf("task.Points = %q, want %q", actualPoints, want)
+					t.Errorf("tiki.Points = %q, want %q", actualPoints, want)
 				}
 			}
 		})
@@ -613,14 +613,14 @@ func TestTikiEditSession_SavePoints(t *testing.T) {
 func TestTikiEditSession_SaveTitle(t *testing.T) {
 	tests := []struct {
 		name        string
-		setupTask   func(*TikiEditSession, store.Store)
+		setupTiki   func(*TikiEditSession, store.Store)
 		title       string
 		wantTitle   string
 		wantSuccess bool
 	}{
 		{
-			name: "valid title on draft task",
-			setupTask: func(tc *TikiEditSession, s store.Store) {
+			name: "valid title on draft tiki",
+			setupTiki: func(tc *TikiEditSession, s store.Store) {
 				tc.SetDraft(newTestTiki())
 			},
 			title:       "New Title",
@@ -628,9 +628,9 @@ func TestTikiEditSession_SaveTitle(t *testing.T) {
 			wantSuccess: true,
 		},
 		{
-			name: "valid title on editing task",
-			setupTask: func(tc *TikiEditSession, s store.Store) {
-				t := newTestTask()
+			name: "valid title on editing tiki",
+			setupTiki: func(tc *TikiEditSession, s store.Store) {
+				t := newTestTiki()
 				_ = s.CreateTiki(t)
 				tc.StartEditSession(t.ID)
 			},
@@ -640,8 +640,8 @@ func TestTikiEditSession_SaveTitle(t *testing.T) {
 		},
 		{
 			name: "draft takes priority over editing",
-			setupTask: func(tc *TikiEditSession, s store.Store) {
-				t := newTestTask()
+			setupTiki: func(tc *TikiEditSession, s store.Store) {
+				t := newTestTiki()
 				_ = s.CreateTiki(t)
 				tc.StartEditSession(t.ID)
 				tc.SetDraft(newTestTikiWithID())
@@ -651,9 +651,9 @@ func TestTikiEditSession_SaveTitle(t *testing.T) {
 			wantSuccess: true,
 		},
 		{
-			name: "no active task",
-			setupTask: func(tc *TikiEditSession, s store.Store) {
-				// Don't set up any task
+			name: "no active tiki",
+			setupTiki: func(tc *TikiEditSession, s store.Store) {
+				// Don't set up any tiki
 			},
 			title:       "Title",
 			wantSuccess: false,
@@ -668,7 +668,7 @@ func TestTikiEditSession_SaveTitle(t *testing.T) {
 			navController := newMockNavigationController()
 			tc := NewTikiEditSession(tikiStore, gate, navController, nil)
 
-			tt.setupTask(tc, tikiStore)
+			tt.setupTiki(tc, tikiStore)
 
 			got := tc.SaveTitle(tt.title)
 
@@ -684,7 +684,7 @@ func TestTikiEditSession_SaveTitle(t *testing.T) {
 					activeTiki = tc.editingTiki
 				}
 				if activeTiki.Title != tt.wantTitle {
-					t.Errorf("task.Title = %q, want %q", activeTiki.Title, tt.wantTitle)
+					t.Errorf("tiki.Title = %q, want %q", activeTiki.Title, tt.wantTitle)
 				}
 			}
 		})
@@ -694,14 +694,14 @@ func TestTikiEditSession_SaveTitle(t *testing.T) {
 func TestTikiEditSession_SaveDescription(t *testing.T) {
 	tests := []struct {
 		name            string
-		setupTask       func(*TikiEditSession, store.Store)
+		setupTiki       func(*TikiEditSession, store.Store)
 		description     string
 		wantDescription string
 		wantSuccess     bool
 	}{
 		{
-			name: "valid description on draft task",
-			setupTask: func(tc *TikiEditSession, s store.Store) {
+			name: "valid description on draft tiki",
+			setupTiki: func(tc *TikiEditSession, s store.Store) {
 				tc.SetDraft(newTestTiki())
 			},
 			description:     "New description",
@@ -709,9 +709,9 @@ func TestTikiEditSession_SaveDescription(t *testing.T) {
 			wantSuccess:     true,
 		},
 		{
-			name: "valid description on editing task",
-			setupTask: func(tc *TikiEditSession, s store.Store) {
-				t := newTestTask()
+			name: "valid description on editing tiki",
+			setupTiki: func(tc *TikiEditSession, s store.Store) {
+				t := newTestTiki()
 				_ = s.CreateTiki(t)
 				tc.StartEditSession(t.ID)
 			},
@@ -720,9 +720,9 @@ func TestTikiEditSession_SaveDescription(t *testing.T) {
 			wantSuccess:     true,
 		},
 		{
-			name: "no active task",
-			setupTask: func(tc *TikiEditSession, s store.Store) {
-				// Don't set up any task
+			name: "no active tiki",
+			setupTiki: func(tc *TikiEditSession, s store.Store) {
+				// Don't set up any tiki
 			},
 			description: "Description",
 			wantSuccess: false,
@@ -737,7 +737,7 @@ func TestTikiEditSession_SaveDescription(t *testing.T) {
 			navController := newMockNavigationController()
 			tc := NewTikiEditSession(tikiStore, gate, navController, nil)
 
-			tt.setupTask(tc, tikiStore)
+			tt.setupTiki(tc, tikiStore)
 
 			got := tc.SaveDescription(tt.description)
 
@@ -753,7 +753,7 @@ func TestTikiEditSession_SaveDescription(t *testing.T) {
 					activeTiki = tc.editingTiki
 				}
 				if activeTiki.Body != tt.wantDescription {
-					t.Errorf("task.Description = %q, want %q", activeTiki.Body, tt.wantDescription)
+					t.Errorf("tiki.Description = %q, want %q", activeTiki.Body, tt.wantDescription)
 				}
 			}
 		})
@@ -783,15 +783,15 @@ func TestTikiEditSession_CommitEditSession_Draft(t *testing.T) {
 		t.Error("CommitEditSession did not clear draft")
 	}
 
-	// Verify task was created in store
+	// Verify tiki was created in store
 	created := tikiStore.GetTiki("DRAFT1")
 	if created == nil {
-		t.Fatal("Task was not created in store")
+		t.Fatal("Tiki was not created in store")
 		return
 	}
 
 	if created.Title != "Draft Title" {
-		t.Errorf("Created task has wrong title, got %q, want %q", created.Title, "Draft Title")
+		t.Errorf("Created tiki has wrong title, got %q, want %q", created.Title, "Draft Title")
 	}
 }
 
@@ -824,8 +824,8 @@ func TestTikiEditSession_CommitEditSession_Existing(t *testing.T) {
 	navController := newMockNavigationController()
 	tc := NewTikiEditSession(tikiStore, gate, navController, nil)
 
-	// Create original task
-	original := newTestTask()
+	// Create original tiki
+	original := newTestTiki()
 	_ = tikiStore.CreateTiki(original)
 
 	// Start edit session and modify
@@ -837,20 +837,20 @@ func TestTikiEditSession_CommitEditSession_Existing(t *testing.T) {
 		t.Fatalf("CommitEditSession failed: %v", err)
 	}
 
-	// Verify editing task was cleared
+	// Verify editing tiki was cleared
 	if tc.GetEditingTiki() != nil {
-		t.Error("CommitEditSession did not clear editingTask")
+		t.Error("CommitEditSession did not clear editingTiki")
 	}
 
-	// Verify task was updated in store
+	// Verify tiki was updated in store
 	updated := tikiStore.GetTiki(original.ID)
 	if updated == nil {
-		t.Fatal("Task not found in store")
+		t.Fatal("Tiki not found in store")
 		return
 	}
 
 	if updated.Title != "Modified Title" {
-		t.Errorf("Task was not updated, got title %q, want %q", updated.Title, "Modified Title")
+		t.Errorf("Tiki was not updated, got title %q, want %q", updated.Title, "Modified Title")
 	}
 }
 
@@ -869,15 +869,15 @@ func TestTikiEditSession_CommitEditSession_NoActiveSession(t *testing.T) {
 
 // Test Helper Methods
 
-func TestTikiEditSession_GetCurrentTask(t *testing.T) {
+func TestTikiEditSession_GetCurrentTiki(t *testing.T) {
 	tikiStore := store.NewInMemoryStore()
 	gate := service.NewTikiMutationGate()
 	gate.SetStore(tikiStore)
 	navController := newMockNavigationController()
 	tc := NewTikiEditSession(tikiStore, gate, navController, nil)
 
-	// Create task
-	original := newTestTask()
+	// Create tiki
+	original := newTestTiki()
 	_ = tikiStore.CreateTiki(original)
 
 	// Set as current
@@ -885,16 +885,16 @@ func TestTikiEditSession_GetCurrentTask(t *testing.T) {
 
 	current := tc.GetCurrentTiki()
 	if current == nil {
-		t.Fatal("GetCurrentTask returned nil")
+		t.Fatal("GetCurrentTiki returned nil")
 		return
 	}
 
 	if current.ID != original.ID {
-		t.Errorf("GetCurrentTask returned wrong task, got ID %q, want %q", current.ID, original.ID)
+		t.Errorf("GetCurrentTiki returned wrong tiki, got ID %q, want %q", current.ID, original.ID)
 	}
 }
 
-func TestTikiEditSession_GetCurrentTask_Empty(t *testing.T) {
+func TestTikiEditSession_GetCurrentTiki_Empty(t *testing.T) {
 	tikiStore := store.NewInMemoryStore()
 	gate := service.NewTikiMutationGate()
 	gate.SetStore(tikiStore)
@@ -903,11 +903,11 @@ func TestTikiEditSession_GetCurrentTask_Empty(t *testing.T) {
 
 	current := tc.GetCurrentTiki()
 	if current != nil {
-		t.Error("GetCurrentTask should return nil when currentTikiID is empty")
+		t.Error("GetCurrentTiki should return nil when currentTikiID is empty")
 	}
 }
 
-func TestTikiEditSession_GetCurrentTask_NonExistent(t *testing.T) {
+func TestTikiEditSession_GetCurrentTiki_NonExistent(t *testing.T) {
 	tikiStore := store.NewInMemoryStore()
 	gate := service.NewTikiMutationGate()
 	gate.SetStore(tikiStore)
@@ -918,7 +918,7 @@ func TestTikiEditSession_GetCurrentTask_NonExistent(t *testing.T) {
 
 	current := tc.GetCurrentTiki()
 	if current != nil {
-		t.Error("GetCurrentTask should return nil for non-existent task")
+		t.Error("GetCurrentTiki should return nil for non-existent tiki")
 	}
 }
 
@@ -936,10 +936,10 @@ func TestTikiEditSession_GetActionRegistry(t *testing.T) {
 		t.Error("GetActionRegistry returned nil")
 	}
 
-	// Verify it's the task detail registry (should have some actions)
+	// Verify it's the tiki detail registry (should have some actions)
 	actions := registry.GetActions()
 	if len(actions) == 0 {
-		t.Error("Task detail action registry has no actions")
+		t.Error("Tiki detail action registry has no actions")
 	}
 }
 
@@ -958,7 +958,7 @@ func TestTikiEditSession_GetEditActionRegistry(t *testing.T) {
 	// Verify it's the edit registry (should have some actions)
 	actions := registry.GetActions()
 	if len(actions) == 0 {
-		t.Error("Task edit action registry has no actions")
+		t.Error("Tiki edit action registry has no actions")
 	}
 }
 
@@ -986,14 +986,14 @@ func TestTikiEditSession_FocusedField(t *testing.T) {
 func TestTikiEditSession_SaveDue(t *testing.T) {
 	tests := []struct {
 		name        string
-		setupTask   func(*TikiEditSession, store.Store)
+		setupTiki   func(*TikiEditSession, store.Store)
 		dateStr     string
 		wantDue     string // expected Format(DateFormat) or "" for zero
 		wantSuccess bool
 	}{
 		{
-			name: "valid date on draft task",
-			setupTask: func(tc *TikiEditSession, s store.Store) {
+			name: "valid date on draft tiki",
+			setupTiki: func(tc *TikiEditSession, s store.Store) {
 				tc.SetDraft(newTestTiki())
 			},
 			dateStr:     "2025-06-15",
@@ -1001,9 +1001,9 @@ func TestTikiEditSession_SaveDue(t *testing.T) {
 			wantSuccess: true,
 		},
 		{
-			name: "valid date on editing task",
-			setupTask: func(tc *TikiEditSession, s store.Store) {
-				t := newTestTask()
+			name: "valid date on editing tiki",
+			setupTiki: func(tc *TikiEditSession, s store.Store) {
+				t := newTestTiki()
 				_ = s.CreateTiki(t)
 				tc.StartEditSession(t.ID)
 			},
@@ -1013,8 +1013,8 @@ func TestTikiEditSession_SaveDue(t *testing.T) {
 		},
 		{
 			name: "empty string clears due date",
-			setupTask: func(tc *TikiEditSession, s store.Store) {
-				draft := newTestTask()
+			setupTiki: func(tc *TikiEditSession, s store.Store) {
+				draft := newTestTiki()
 				draft.Set(tikipkg.FieldDue, time.Date(2025, 6, 15, 0, 0, 0, 0, time.UTC))
 				tc.SetDraft(draft)
 			},
@@ -1024,16 +1024,16 @@ func TestTikiEditSession_SaveDue(t *testing.T) {
 		},
 		{
 			name: "invalid date returns false",
-			setupTask: func(tc *TikiEditSession, s store.Store) {
+			setupTiki: func(tc *TikiEditSession, s store.Store) {
 				tc.SetDraft(newTestTiki())
 			},
 			dateStr:     "not-a-date",
 			wantSuccess: false,
 		},
 		{
-			name: "no active task returns false",
-			setupTask: func(tc *TikiEditSession, s store.Store) {
-				// no task set up
+			name: "no active tiki returns false",
+			setupTiki: func(tc *TikiEditSession, s store.Store) {
+				// no tiki set up
 			},
 			dateStr:     "2025-06-15",
 			wantSuccess: false,
@@ -1048,7 +1048,7 @@ func TestTikiEditSession_SaveDue(t *testing.T) {
 			navController := newMockNavigationController()
 			tc := NewTikiEditSession(tikiStore, gate, navController, nil)
 
-			tt.setupTask(tc, tikiStore)
+			tt.setupTiki(tc, tikiStore)
 
 			got := tc.SaveDue(tt.dateStr)
 
@@ -1070,7 +1070,7 @@ func TestTikiEditSession_SaveDue(t *testing.T) {
 					actualStr = actualDue.Format(value.DateFormat)
 				}
 				if actualStr != tt.wantDue {
-					t.Errorf("task.Due = %q, want %q", actualStr, tt.wantDue)
+					t.Errorf("tiki.Due = %q, want %q", actualStr, tt.wantDue)
 				}
 			}
 		})
@@ -1081,12 +1081,12 @@ func TestTikiEditSession_HandleAction(t *testing.T) {
 	tests := []struct {
 		name     string
 		actionID ActionID
-		hasTask  bool
+		hasTiki  bool
 		want     bool
 	}{
-		{"edit title with task", ActionEditTitle, true, true},
-		{"edit title without task", ActionEditTitle, false, false},
-		{"clone task", ActionCloneTask, true, true},
+		{"edit title with tiki", ActionEditTitle, true, true},
+		{"edit title without tiki", ActionEditTitle, false, false},
+		{"clone tiki", ActionCloneTiki, true, true},
 		{"unknown action", ActionID("unknown"), true, false},
 	}
 
@@ -1098,8 +1098,8 @@ func TestTikiEditSession_HandleAction(t *testing.T) {
 			navController := newMockNavigationController()
 			tc := NewTikiEditSession(tikiStore, gate, navController, nil)
 
-			if tt.hasTask {
-				original := newTestTask()
+			if tt.hasTiki {
+				original := newTestTiki()
 				_ = tikiStore.CreateTiki(original)
 				tc.SetCurrentTiki(original.ID)
 			}
@@ -1115,7 +1115,7 @@ func TestTikiEditSession_HandleAction(t *testing.T) {
 func TestTikiEditSession_SaveRecurrence(t *testing.T) {
 	tests := []struct {
 		name           string
-		setupTask      func(*TikiEditSession, store.Store)
+		setupTiki      func(*TikiEditSession, store.Store)
 		cron           string
 		wantRecurrence value.Recurrence
 		wantDueSet     bool
@@ -1123,7 +1123,7 @@ func TestTikiEditSession_SaveRecurrence(t *testing.T) {
 	}{
 		{
 			name: "valid daily recurrence on draft",
-			setupTask: func(tc *TikiEditSession, s store.Store) {
+			setupTiki: func(tc *TikiEditSession, s store.Store) {
 				tc.SetDraft(newTestTiki())
 			},
 			cron:           string(value.RecurrenceDaily),
@@ -1133,8 +1133,8 @@ func TestTikiEditSession_SaveRecurrence(t *testing.T) {
 		},
 		{
 			name: "clear recurrence sets none and clears due",
-			setupTask: func(tc *TikiEditSession, s store.Store) {
-				draft := newTestTask()
+			setupTiki: func(tc *TikiEditSession, s store.Store) {
+				draft := newTestTiki()
 				draft.Set(tikipkg.FieldDue, time.Date(2025, 6, 15, 0, 0, 0, 0, time.UTC))
 				draft.Set(tikipkg.FieldRecurrence, string(value.RecurrenceDaily))
 				tc.SetDraft(draft)
@@ -1146,16 +1146,16 @@ func TestTikiEditSession_SaveRecurrence(t *testing.T) {
 		},
 		{
 			name: "invalid recurrence rejected",
-			setupTask: func(tc *TikiEditSession, s store.Store) {
+			setupTiki: func(tc *TikiEditSession, s store.Store) {
 				tc.SetDraft(newTestTiki())
 			},
 			cron:        "invalid-cron",
 			wantSuccess: false,
 		},
 		{
-			name: "no active task",
-			setupTask: func(tc *TikiEditSession, s store.Store) {
-				// no task
+			name: "no active tiki",
+			setupTiki: func(tc *TikiEditSession, s store.Store) {
+				// no tiki
 			},
 			cron:        string(value.RecurrenceDaily),
 			wantSuccess: false,
@@ -1170,7 +1170,7 @@ func TestTikiEditSession_SaveRecurrence(t *testing.T) {
 			navController := newMockNavigationController()
 			tc := NewTikiEditSession(tikiStore, gate, navController, nil)
 
-			tt.setupTask(tc, tikiStore)
+			tt.setupTiki(tc, tikiStore)
 
 			got := tc.SaveRecurrence(tt.cron)
 			if got != tt.wantSuccess {
@@ -1202,7 +1202,7 @@ func TestTikiEditSession_UpdateTiki(t *testing.T) {
 	navController := newMockNavigationController()
 	tc := NewTikiEditSession(tikiStore, gate, navController, nil)
 
-	original := newTestTask()
+	original := newTestTiki()
 	_ = tikiStore.CreateTiki(original)
 
 	// Start an edit session, modify the title, and commit
@@ -1226,12 +1226,12 @@ func TestTikiEditSession_AddComment(t *testing.T) {
 	statusline := model.NewStatuslineConfig()
 	tc := NewTikiEditSession(tikiStore, gate, navController, statusline)
 
-	// no current task — should return false
+	// no current tiki — should return false
 	if tc.AddComment("user", "hello") {
-		t.Error("expected false when no current task")
+		t.Error("expected false when no current tiki")
 	}
 
-	original := newTestTask()
+	original := newTestTiki()
 	_ = tikiStore.CreateTiki(original)
 	tc.SetCurrentTiki(original.ID)
 
@@ -1256,10 +1256,10 @@ func TestTikiEditSession_HandleAction_EditSource(t *testing.T) {
 	navController := newMockNavigationController()
 	tc := NewTikiEditSession(tikiStore, gate, navController, nil)
 
-	// with no task, should return false
+	// with no tiki, should return false
 	got := tc.HandleAction(ActionEditSource)
 	if got {
-		t.Error("HandleAction(EditSource) should return false with no current task")
+		t.Error("HandleAction(EditSource) should return false with no current tiki")
 	}
 }
 
@@ -1270,7 +1270,7 @@ func TestTikiEditSession_CommitEditSession_UpdateError(t *testing.T) {
 	navController := newMockNavigationController()
 	tc := NewTikiEditSession(tikiStore, gate, navController, nil)
 
-	original := newTestTask()
+	original := newTestTiki()
 	_ = tikiStore.CreateTiki(original)
 	tc.StartEditSession(original.ID)
 	tc.editingTiki.Title = "" // invalid - empty title will fail validation
@@ -1288,7 +1288,7 @@ func TestTikiEditSession_SaveType_InvalidType(t *testing.T) {
 	navController := newMockNavigationController()
 	tc := NewTikiEditSession(tikiStore, gate, navController, nil)
 
-	original := newTestTask()
+	original := newTestTiki()
 	_ = tikiStore.CreateTiki(original)
 	tc.StartEditSession(original.ID)
 
@@ -1302,14 +1302,14 @@ func TestTikiEditSession_SaveType_InvalidType(t *testing.T) {
 func TestTikiEditSession_SaveTags(t *testing.T) {
 	tests := []struct {
 		name        string
-		setupTask   func(*TikiEditSession, store.Store)
+		setupTiki   func(*TikiEditSession, store.Store)
 		tags        []string
 		wantTags    []string
 		wantSuccess bool
 	}{
 		{
-			name: "valid tags on draft task",
-			setupTask: func(tc *TikiEditSession, s store.Store) {
+			name: "valid tags on draft tiki",
+			setupTiki: func(tc *TikiEditSession, s store.Store) {
 				tc.SetDraft(newTestTiki())
 			},
 			tags:        []string{"api", "backend"},
@@ -1317,9 +1317,9 @@ func TestTikiEditSession_SaveTags(t *testing.T) {
 			wantSuccess: true,
 		},
 		{
-			name: "valid tags on editing task",
-			setupTask: func(tc *TikiEditSession, s store.Store) {
-				t := newTestTask()
+			name: "valid tags on editing tiki",
+			setupTiki: func(tc *TikiEditSession, s store.Store) {
+				t := newTestTiki()
 				_ = s.CreateTiki(t)
 				tc.StartEditSession(t.ID)
 			},
@@ -1329,7 +1329,7 @@ func TestTikiEditSession_SaveTags(t *testing.T) {
 		},
 		{
 			name: "duplicate tags deduped",
-			setupTask: func(tc *TikiEditSession, s store.Store) {
+			setupTiki: func(tc *TikiEditSession, s store.Store) {
 				tc.SetDraft(newTestTiki())
 			},
 			tags:        []string{"frontend", " frontend ", "frontend", "backend"},
@@ -1338,7 +1338,7 @@ func TestTikiEditSession_SaveTags(t *testing.T) {
 		},
 		{
 			name: "empty tags slice",
-			setupTask: func(tc *TikiEditSession, s store.Store) {
+			setupTiki: func(tc *TikiEditSession, s store.Store) {
 				tc.SetDraft(newTestTiki())
 			},
 			tags:        []string{},
@@ -1347,7 +1347,7 @@ func TestTikiEditSession_SaveTags(t *testing.T) {
 		},
 		{
 			name: "nil tags",
-			setupTask: func(tc *TikiEditSession, s store.Store) {
+			setupTiki: func(tc *TikiEditSession, s store.Store) {
 				tc.SetDraft(newTestTiki())
 			},
 			tags:        nil,
@@ -1356,8 +1356,8 @@ func TestTikiEditSession_SaveTags(t *testing.T) {
 		},
 		{
 			name: "draft takes priority over editing",
-			setupTask: func(tc *TikiEditSession, s store.Store) {
-				t := newTestTask()
+			setupTiki: func(tc *TikiEditSession, s store.Store) {
+				t := newTestTiki()
 				_ = s.CreateTiki(t)
 				tc.StartEditSession(t.ID)
 				tc.SetDraft(newTestTikiWithID())
@@ -1367,9 +1367,9 @@ func TestTikiEditSession_SaveTags(t *testing.T) {
 			wantSuccess: true,
 		},
 		{
-			name: "no active task",
-			setupTask: func(tc *TikiEditSession, s store.Store) {
-				// no task set up
+			name: "no active tiki",
+			setupTiki: func(tc *TikiEditSession, s store.Store) {
+				// no tiki set up
 			},
 			tags:        []string{"orphan"},
 			wantSuccess: false,
@@ -1384,7 +1384,7 @@ func TestTikiEditSession_SaveTags(t *testing.T) {
 			navController := newMockNavigationController()
 			tc := NewTikiEditSession(tikiStore, gate, navController, nil)
 
-			tt.setupTask(tc, tikiStore)
+			tt.setupTiki(tc, tikiStore)
 
 			got := tc.SaveTags(tt.tags)
 
@@ -1404,7 +1404,7 @@ func TestTikiEditSession_SaveTags(t *testing.T) {
 					actualTags = []string{}
 				}
 				if !slices.Equal(actualTags, tt.wantTags) {
-					t.Errorf("task.Tags = %v, want %v", actualTags, tt.wantTags)
+					t.Errorf("tiki.Tags = %v, want %v", actualTags, tt.wantTags)
 				}
 			}
 		})

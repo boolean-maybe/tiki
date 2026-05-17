@@ -36,7 +36,7 @@ var DefaultEditMetadata = []string{
 	tikipkg.FieldTags,
 }
 
-// TikiEditView renders a task in full edit mode using the same fixed-shape
+// TikiEditView renders a tiki in full edit mode using the same fixed-shape
 // metadata grid as ConfigurableDetailView. The metadata field list is
 // supplied at construction time by the factory's precedence resolver
 // (TikiEditParams.Metadata → workflow Detail-plugin lookup →
@@ -107,7 +107,7 @@ func (ev *TikiEditView) SetActionChangeHandler(handler func()) {
 	ev.actionChangeHandler = handler
 }
 
-// NewTikiEditView creates a task edit view bound to the given metadata list.
+// NewTikiEditView creates a tiki edit view bound to the given metadata list.
 // The factory resolves the metadata source per the precedence rules and
 // passes the result here; an empty slice falls back to DefaultEditMetadata
 // so the view always has a non-empty navigation order.
@@ -239,7 +239,7 @@ func (ev *TikiEditView) refresh() {
 
 	tk := ev.GetTiki()
 	if tk == nil {
-		notFound := tview.NewTextView().SetText("Task not found")
+		notFound := tview.NewTextView().SetText("Tiki not found")
 		ev.content.AddItem(notFound, 0, 1, false)
 		return
 	}
@@ -438,7 +438,7 @@ func (ev *TikiEditView) adapterForField(name string) func(string) {
 			}
 			// preserve recurrence-affects-due side effect: refresh due editor
 			// and re-validate.
-			ev.syncDueFromTask()
+			ev.syncDueFromTiki()
 			ev.refresh()
 			ev.updateValidationState()
 		}
@@ -499,10 +499,10 @@ func (ev *TikiEditView) isDueReadOnly() bool {
 	return recurrenceStr != "" && recurrenceStr != "none"
 }
 
-// syncDueFromTask updates the cached due editor (if any) to reflect the
+// syncDueFromTiki updates the cached due editor (if any) to reflect the
 // auto-computed Due from the in-memory tiki. Called after recurrence
 // changes.
-func (ev *TikiEditView) syncDueFromTask() {
+func (ev *TikiEditView) syncDueFromTiki() {
 	w, ok := ev.editors[tikipkg.FieldDue]
 	if !ok || w == nil {
 		return
@@ -779,7 +779,7 @@ func (ev *TikiEditView) EnterFullscreen() {
 	}
 }
 
-// ExitFullscreen restores the regular task detail layout
+// ExitFullscreen restores the regular tiki detail layout
 func (ev *TikiEditView) ExitFullscreen() {
 	if !ev.fullscreen {
 		return

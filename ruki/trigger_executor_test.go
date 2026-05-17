@@ -178,7 +178,7 @@ func TestEvalGuard_CountSubquery(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 	if !ok {
-		t.Fatal("guard should match: 3 in-progress tasks for alice")
+		t.Fatal("guard should match: 3 in-progress tikis for alice")
 	}
 }
 
@@ -206,7 +206,7 @@ func TestEvalGuard_CountSubqueryBelowLimit(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 	if ok {
-		t.Fatal("guard should not match: only 2 in-progress tasks for alice")
+		t.Fatal("guard should not match: only 2 in-progress tikis for alice")
 	}
 }
 
@@ -234,7 +234,7 @@ func TestEvalGuard_ExistsSubquery(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 	if !ok {
-		t.Fatal("guard should match: an in-progress task exists for alice")
+		t.Fatal("guard should match: an in-progress tiki exists for alice")
 	}
 }
 
@@ -261,7 +261,7 @@ func TestEvalGuard_ExistsSubqueryNoMatch(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 	if ok {
-		t.Fatal("guard should not match: no in-progress task exists for alice")
+		t.Fatal("guard should not match: no in-progress tiki exists for alice")
 	}
 }
 
@@ -298,18 +298,18 @@ func TestExecAction_UpdateWithQualifiedRefs(t *testing.T) {
 	te := newTestTriggerExecutor()
 	p := newTestParser()
 
-	// after create: auto-assign urgent tasks
+	// after create: auto-assign urgent tikis
 	trig, err := p.ParseTrigger(`after create where new.priority <= "medium-high" and new.assignee is empty update where id = new.id set assignee="booleanmaybe"`)
 	if err != nil {
 		t.Fatalf("parse: %v", err)
 	}
 
-	newTask := &tikiFixture{ID: "TIKI-000001", Title: "Urgent", Status: "ready"}
+	newTiki := &tikiFixture{ID: "TIKI-000001", Title: "Urgent", Status: "ready"}
 	tc := &TriggerContext{
 		Old: nil,
-		New: tikiFromFixture(newTask),
+		New: tikiFromFixture(newTiki),
 		AllTikis: tikisFromFixtures([]*tikiFixture{
-			newTask,
+			newTiki,
 		}),
 	}
 
@@ -321,7 +321,7 @@ func TestExecAction_UpdateWithQualifiedRefs(t *testing.T) {
 		t.Fatal("expected Update result")
 	}
 	if len(result.Update.Updated) != 1 {
-		t.Fatalf("expected 1 updated task, got %d", len(result.Update.Updated))
+		t.Fatalf("expected 1 updated tiki, got %d", len(result.Update.Updated))
 	}
 	if result.Update.Updated[0].Assignee != "booleanmaybe" {
 		t.Fatalf("expected assignee=booleanmaybe, got %q", result.Update.Updated[0].Assignee)
@@ -337,14 +337,14 @@ func TestExecAction_OuterOldAndNewResolveIndependently(t *testing.T) {
 		t.Fatalf("parse: %v", err)
 	}
 
-	tasks := []*tikiFixture{
+	tikis := []*tikiFixture{
 		{ID: "TIKI-000001", Title: "one", Status: "ready"},
 		{ID: "TIKI-000002", Title: "two", Status: "backlog"},
 	}
 	tc := &TriggerContext{
 		Old:      tikiFromFixture(&tikiFixture{ID: "TIKI-CHANGED", Status: "ready"}),
 		New:      tikiFromFixture(&tikiFixture{ID: "TIKI-CHANGED", Status: "done"}),
-		AllTikis: tikisFromFixtures(tasks),
+		AllTikis: tikisFromFixtures(tikis),
 	}
 
 	result, err := te.testExecAction(trig, tc)
@@ -352,7 +352,7 @@ func TestExecAction_OuterOldAndNewResolveIndependently(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 	if len(result.Update.Updated) != 2 {
-		t.Fatalf("expected 2 updated tasks, got %d", len(result.Update.Updated))
+		t.Fatalf("expected 2 updated tikis, got %d", len(result.Update.Updated))
 	}
 	for _, updated := range result.Update.Updated {
 		if updated.Assignee != "alice" {
@@ -365,7 +365,7 @@ func TestExecAction_CreateWithQualifiedRefs(t *testing.T) {
 	te := newTestTriggerExecutor()
 	p := newTestParser()
 
-	// after update: create recurring task
+	// after update: create recurring tiki
 	trig, err := p.ParseTrigger(`after update where new.status = "done" and old.recurrence is not empty create title=old.title priority=old.priority tags=old.tags status="ready"`)
 	if err != nil {
 		t.Fatalf("parse: %v", err)
@@ -391,7 +391,7 @@ func TestExecAction_CreateWithQualifiedRefs(t *testing.T) {
 	if result.Create == nil {
 		t.Fatal("expected Create result")
 	}
-	created := result.Create.Task
+	created := result.Create.Tiki
 	if created.Title != "Daily standup" {
 		t.Fatalf("expected title 'Daily standup', got %q", created.Title)
 	}
@@ -441,7 +441,7 @@ func TestExecAction_PrevEnumWithQualifiedRef(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 	if result.Update == nil || len(result.Update.Updated) != 1 {
-		t.Fatalf("expected 1 updated task, got %+v", result.Update)
+		t.Fatalf("expected 1 updated tiki, got %+v", result.Update)
 	}
 	got, _, _ := result.raw.Update.Updated[0].StringField("priority")
 	if got != "medium" {
@@ -619,19 +619,19 @@ func TestExecAction_TwoLayerScoping(t *testing.T) {
 	p := newTestParser()
 
 	// "update where id = new.id set tags=new.tags + ["auto"]"
-	// In the action's set clause: new.tags resolves from tc.New (triggering task)
-	// but `tags` in set context resolves from the target task clone
+	// In the action's set clause: new.tags resolves from tc.New (triggering tiki)
+	// but `tags` in set context resolves from the target tiki clone
 	trig, err := p.ParseTrigger(`after create where new.type = "bug" update where id = new.id set tags=new.tags + ["needs-triage"]`)
 	if err != nil {
 		t.Fatalf("parse: %v", err)
 	}
 
-	newTask := &tikiFixture{ID: "TIKI-BUG001", Title: "Bug", Status: "ready", Type: "bug", Tags: []string{"urgent"}}
+	newTiki := &tikiFixture{ID: "TIKI-BUG001", Title: "Bug", Status: "ready", Type: "bug", Tags: []string{"urgent"}}
 	tc := &TriggerContext{
 		Old: nil,
-		New: tikiFromFixture(newTask),
+		New: tikiFromFixture(newTiki),
 		AllTikis: tikisFromFixtures([]*tikiFixture{
-			newTask,
+			newTiki,
 		}),
 	}
 
@@ -670,27 +670,27 @@ func TestEqualFoldID(t *testing.T) {
 }
 
 func TestBlocksLookup(t *testing.T) {
-	tasks := []*tikiFixture{
+	tikis := []*tikiFixture{
 		{ID: "TIKI-AAA001", DependsOn: []string{"TIKI-TARGET"}},
 		{ID: "TIKI-AAA002", DependsOn: []string{"TIKI-OTHER"}},
 		{ID: "TIKI-AAA003", DependsOn: []string{"TIKI-TARGET", "TIKI-OTHER"}},
 	}
-	blockers := blocksLookup("TIKI-TARGET", tikisFromFixtures(tasks))
+	blockers := blocksLookup("TIKI-TARGET", tikisFromFixtures(tikis))
 	if len(blockers) != 2 {
 		t.Fatalf("expected 2 blockers, got %d", len(blockers))
 	}
 }
 
-func TestResolveRefTasks(t *testing.T) {
-	tasks := []*tikiFixture{
+func TestResolveRefTikis(t *testing.T) {
+	tikis := []*tikiFixture{
 		{ID: "TIKI-000001"},
 		{ID: "TIKI-000002"},
 		{ID: "TIKI-000003"},
 	}
 	refs := []interface{}{"TIKI-000001", "TIKI-000003", "TIKI-NOPE00"}
-	resolved := resolveRefTikis(refs, tikisFromFixtures(tasks))
+	resolved := resolveRefTikis(refs, tikisFromFixtures(tikis))
 	if len(resolved) != 2 {
-		t.Fatalf("expected 2 resolved tasks, got %d", len(resolved))
+		t.Fatalf("expected 2 resolved tikis, got %d", len(resolved))
 	}
 	if resolved[0].ID != "TIKI-000001" || resolved[1].ID != "TIKI-000003" {
 		t.Fatalf("expected TIKI-000001 and TIKI-000003, got %s and %s", resolved[0].ID, resolved[1].ID)
@@ -730,7 +730,7 @@ func TestExecAction_NextDateWithQualifiedRef(t *testing.T) {
 	if result.Create == nil {
 		t.Fatal("expected Create result")
 	}
-	created := result.Create.Task
+	created := result.Create.Tiki
 	if created.Due.IsZero() {
 		t.Fatal("expected non-zero due date from next_date(old.recurrence)")
 	}
@@ -769,7 +769,7 @@ func TestExecAction_NextDateWithNewQualifiedRef(t *testing.T) {
 		t.Fatal("expected Update result")
 	}
 	if len(result.Update.Updated) != 1 {
-		t.Fatalf("expected 1 updated task, got %d", len(result.Update.Updated))
+		t.Fatalf("expected 1 updated tiki, got %d", len(result.Update.Updated))
 	}
 	updated := result.Update.Updated[0]
 	if updated.Due.IsZero() {
@@ -1137,9 +1137,9 @@ func TestExecute_UnsupportedType(t *testing.T) {
 	}
 }
 
-func TestFilterTasks_NilWhere(t *testing.T) {
+func TestFilterTikis_NilWhere(t *testing.T) {
 	te := newTestTriggerExecutor()
-	// delete with no where — should match all tasks
+	// delete with no where — should match all tikis
 	trig := &Trigger{
 		Timing: "after",
 		Event:  "update",
@@ -1147,14 +1147,14 @@ func TestFilterTasks_NilWhere(t *testing.T) {
 			Delete: &DeleteStmt{Where: nil},
 		},
 	}
-	tasks := []*tikiFixture{
+	tikis := []*tikiFixture{
 		{ID: "TIKI-000001", Title: "a"},
 		{ID: "TIKI-000002", Title: "b"},
 	}
 	tc := &TriggerContext{
-		Old:      tikiFromFixture(tasks[0]),
-		New:      tikiFromFixture(tasks[0]),
-		AllTikis: tikisFromFixtures(tasks),
+		Old:      tikiFromFixture(tikis[0]),
+		New:      tikiFromFixture(tikis[0]),
+		AllTikis: tikisFromFixtures(tikis),
 	}
 	result, err := te.testExecAction(trig, tc)
 	if err != nil {
@@ -1392,7 +1392,7 @@ func TestEvalCondition_IsEmpty(t *testing.T) {
 
 	// Phase 5: `is empty` on an absent workflow field returns false. For
 	// this trigger to fire on truly-empty assignee (explicitly written as
-	// empty string in frontmatter), the incoming task is marked with
+	// empty string in frontmatter), the incoming tiki is marked with
 	// WorkflowFrontmatter carrying an explicit assignee key. Triggers
 	// that want to match missing-assignee should use `not has(assignee)`.
 	trig, err := p.ParseTrigger(`before create where new.assignee is empty deny "no assignee"`)
@@ -1427,11 +1427,11 @@ func TestEvalExprRecursive_ListLiteral(t *testing.T) {
 		t.Fatalf("parse: %v", err)
 	}
 
-	newTask := &tikiFixture{ID: "TIKI-000001", Title: "Test", Status: "ready"}
+	newTiki := &tikiFixture{ID: "TIKI-000001", Title: "Test", Status: "ready"}
 	tc := &TriggerContext{
 		Old:      nil,
-		New:      tikiFromFixture(newTask),
-		AllTikis: tikisFromFixtures([]*tikiFixture{newTask}),
+		New:      tikiFromFixture(newTiki),
+		AllTikis: tikisFromFixtures([]*tikiFixture{newTiki}),
 	}
 
 	result, err := te.testExecAction(trig, tc)
@@ -1439,7 +1439,7 @@ func TestEvalExprRecursive_ListLiteral(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 	if result.Update == nil || len(result.Update.Updated) != 1 {
-		t.Fatal("expected 1 updated task")
+		t.Fatal("expected 1 updated tiki")
 	}
 	tags := result.Update.Updated[0].Tags
 	if len(tags) != 2 || tags[0] != "auto" || tags[1] != "trigger" {
@@ -1451,8 +1451,8 @@ func TestEvalCountOverride_NoWhere(t *testing.T) {
 	te := newTestTriggerExecutor()
 	p := newTestParser()
 
-	// count(select) with no where — should count all tasks
-	trig, err := p.ParseTrigger(`before create where count(select) >= 3 deny "too many tasks"`)
+	// count(select) with no where — should count all tikis
+	trig, err := p.ParseTrigger(`before create where count(select) >= 3 deny "too many tikis"`)
 	if err != nil {
 		t.Fatalf("parse: %v", err)
 	}
@@ -1481,7 +1481,7 @@ func TestEvalExistsOverride_NoWhere(t *testing.T) {
 	te := newTestTriggerExecutor()
 	p := newTestParser()
 
-	trig, err := p.ParseTrigger(`before create where exists(select) deny "tasks exist"`)
+	trig, err := p.ParseTrigger(`before create where exists(select) deny "tikis exist"`)
 	if err != nil {
 		t.Fatalf("parse: %v", err)
 	}
@@ -1499,7 +1499,7 @@ func TestEvalExistsOverride_NoWhere(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 	if !ok {
-		t.Fatal("exists(select) should be true when tasks exist")
+		t.Fatal("exists(select) should be true when tikis exist")
 	}
 }
 
@@ -1565,7 +1565,7 @@ func TestEvalQuantifierOverride_AllEmptyList(t *testing.T) {
 	te := newTestTriggerExecutor()
 
 	// Phase 5: `all` over a PRESENT empty list is vacuously true. To mark
-	// dependsOn as "present but empty" (rather than absent), the task
+	// dependsOn as "present but empty" (rather than absent), the tiki
 	// carries an explicit WorkflowFrontmatter entry — this matches what
 	// the store populates for a document whose frontmatter wrote
 	// `dependsOn: []`. A truly-absent dependsOn would evaluate to false,
@@ -1705,7 +1705,7 @@ func TestExecuteUpdate_ErrorInEvalExpr(t *testing.T) {
 	}
 }
 
-func TestExecuteDelete_ErrorInFilterTasks(t *testing.T) {
+func TestExecuteDelete_ErrorInFilterTikis(t *testing.T) {
 	te := newTestTriggerExecutor()
 	// delete with a where condition that causes an eval error
 	trig := &Trigger{
@@ -1809,11 +1809,11 @@ func TestEvalNextDateOverride_NonRecurrenceValue(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if result.Create == nil || result.Create.Task == nil {
-		t.Fatal("expected Create result with task")
+	if result.Create == nil || result.Create.Tiki == nil {
+		t.Fatal("expected Create result with tiki")
 	}
-	if !result.Create.Task.Due.IsZero() {
-		t.Errorf("expected zero due, got %v", result.Create.Task.Due)
+	if !result.Create.Tiki.Due.IsZero() {
+		t.Errorf("expected zero due, got %v", result.Create.Tiki.Due)
 	}
 }
 
@@ -1838,11 +1838,11 @@ func TestResolveQualifiedRef_OldNil(t *testing.T) {
 		},
 	}
 
-	newTask := &tikiFixture{ID: "TIKI-000001", Title: "Original", Type: "bug", Assignee: "alice"}
+	newTiki := &tikiFixture{ID: "TIKI-000001", Title: "Original", Type: "bug", Assignee: "alice"}
 	tc := &TriggerContext{
 		Old:      nil,
-		New:      tikiFromFixture(newTask),
-		AllTikis: tikisFromFixtures([]*tikiFixture{newTask}),
+		New:      tikiFromFixture(newTiki),
+		AllTikis: tikisFromFixtures([]*tikiFixture{newTiki}),
 	}
 
 	// Phase 4: old.X on a create event hard-errors — callers must use
@@ -1881,10 +1881,10 @@ func TestResolveQualifiedRef_NewNil(t *testing.T) {
 }
 
 func TestBlocksLookup_NoBlockers(t *testing.T) {
-	tasks := []*tikiFixture{
+	tikis := []*tikiFixture{
 		{ID: "TIKI-AAA001", DependsOn: []string{"TIKI-OTHER1"}},
 	}
-	blockers := blocksLookup("TIKI-NOPE00", tikisFromFixtures(tasks))
+	blockers := blocksLookup("TIKI-NOPE00", tikisFromFixtures(tikis))
 	if len(blockers) != 0 {
 		t.Fatalf("expected 0 blockers, got %d", len(blockers))
 	}
@@ -2196,11 +2196,11 @@ func TestEvalExprRecursive_ListLiteralInAction(t *testing.T) {
 		t.Fatalf("parse: %v", err)
 	}
 
-	newTask := &tikiFixture{ID: "TIKI-000001", Status: "ready"}
+	newTiki := &tikiFixture{ID: "TIKI-000001", Status: "ready"}
 	tc := &TriggerContext{
 		Old:      nil,
-		New:      tikiFromFixture(newTask),
-		AllTikis: tikisFromFixtures([]*tikiFixture{newTask}),
+		New:      tikiFromFixture(newTiki),
+		AllTikis: tikisFromFixtures([]*tikiFixture{newTiki}),
 	}
 
 	result, err := te.testExecAction(trig, tc)
@@ -2515,7 +2515,7 @@ func TestEvalQuantifierOverride_AnyConditionError(t *testing.T) {
 		New:      tikiFromFixture(&tikiFixture{ID: "TIKI-000001", DependsOn: []string{"TIKI-DEP001"}}),
 		AllTikis: tikisFromFixtures([]*tikiFixture{{ID: "TIKI-000001", DependsOn: []string{"TIKI-DEP001"}}, dep}),
 	}
-	// Phase 4: per-ref-task body errors soft-false inside a quantifier,
+	// Phase 4: per-ref-tiki body errors soft-false inside a quantifier,
 	// so unknown qualifier no longer aborts the outer guard — it just
 	// makes the body evaluate to no-match.
 	ok, err := te.EvalGuard(trig, tc)
@@ -2791,12 +2791,12 @@ func TestExecTimeTriggerAction_Update(t *testing.T) {
 		t.Fatalf("parse: %v", err)
 	}
 
-	tasks := []*tikiFixture{
+	tikis := []*tikiFixture{
 		{ID: "TIKI-000001", Status: "inProgress", Title: "stale", Type: "story"},
 		{ID: "TIKI-000002", Status: "done", Title: "finished", Type: "story"},
 	}
 
-	result, err := te.testExecTimeAction(tt, tasks)
+	result, err := te.testExecTimeAction(tt, tikis)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -2804,7 +2804,7 @@ func TestExecTimeTriggerAction_Update(t *testing.T) {
 		t.Fatal("expected Update result")
 	}
 	if len(result.Update.Updated) != 1 {
-		t.Fatalf("expected 1 updated task, got %d", len(result.Update.Updated))
+		t.Fatalf("expected 1 updated tiki, got %d", len(result.Update.Updated))
 	}
 	if result.Update.Updated[0].Status != "backlog" {
 		t.Fatalf("expected status=backlog, got %q", result.Update.Updated[0].Status)
@@ -2828,11 +2828,11 @@ func TestExecTimeTriggerAction_Create(t *testing.T) {
 		t.Fatal("expected Create result")
 		return
 	}
-	if result.Create.Task.Title != "daily standup" {
-		t.Fatalf("expected title='daily standup', got %q", result.Create.Task.Title)
+	if result.Create.Tiki.Title != "daily standup" {
+		t.Fatalf("expected title='daily standup', got %q", result.Create.Tiki.Title)
 	}
-	if result.Create.Task.Status != "ready" {
-		t.Fatalf("expected status=ready, got %q", result.Create.Task.Status)
+	if result.Create.Tiki.Status != "ready" {
+		t.Fatalf("expected status=ready, got %q", result.Create.Tiki.Status)
 	}
 }
 
@@ -2845,13 +2845,13 @@ func TestExecTimeTriggerAction_Delete(t *testing.T) {
 		t.Fatalf("parse: %v", err)
 	}
 
-	tasks := []*tikiFixture{
+	tikis := []*tikiFixture{
 		{ID: "TIKI-000001", Status: "done", Title: "finished", Type: "story"},
 		{ID: "TIKI-000002", Status: "ready", Title: "active", Type: "story"},
 		{ID: "TIKI-000003", Status: "done", Title: "also done", Type: "story"},
 	}
 
-	result, err := te.testExecTimeAction(tt, tasks)
+	result, err := te.testExecTimeAction(tt, tikis)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -2859,7 +2859,7 @@ func TestExecTimeTriggerAction_Delete(t *testing.T) {
 		t.Fatal("expected Delete result")
 	}
 	if len(result.Delete.Deleted) != 2 {
-		t.Fatalf("expected 2 deleted tasks, got %d", len(result.Delete.Deleted))
+		t.Fatalf("expected 2 deleted tikis, got %d", len(result.Delete.Deleted))
 	}
 }
 
@@ -2992,18 +2992,18 @@ func TestExecAction_RawTriggerPath(t *testing.T) {
 	if err != nil {
 		t.Fatalf("parse: %v", err)
 	}
-	newTask := &tikiFixture{ID: "TIKI-000001", Title: "Test", Status: "ready", Type: "story"}
+	newTiki := &tikiFixture{ID: "TIKI-000001", Title: "Test", Status: "ready", Type: "story"}
 	tc := &TriggerContext{
 		Old:      nil,
-		New:      tikiFromFixture(newTask),
-		AllTikis: tikisFromFixtures([]*tikiFixture{newTask}),
+		New:      tikiFromFixture(newTiki),
+		AllTikis: tikisFromFixtures([]*tikiFixture{newTiki}),
 	}
 	result, err := te.testExecAction(trig, tc)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 	if result.Update == nil || len(result.Update.Updated) != 1 {
-		t.Fatal("expected 1 updated task from raw trigger path")
+		t.Fatal("expected 1 updated tiki from raw trigger path")
 		return
 	}
 	if result.Update.Updated[0].Status != "inProgress" {
@@ -3090,16 +3090,16 @@ func TestExecTimeTriggerAction_RawTimeTriggerWithAction(t *testing.T) {
 			},
 		},
 	}
-	tasks := []*tikiFixture{
+	tikis := []*tikiFixture{
 		{ID: "TIKI-000001", Status: "inProgress", Title: "stale", Type: "story"},
 		{ID: "TIKI-000002", Status: "done", Title: "done", Type: "story"},
 	}
-	result, err := te.testExecTimeAction(tt, tasks)
+	result, err := te.testExecTimeAction(tt, tikis)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 	if result.Update == nil || len(result.Update.Updated) != 1 {
-		t.Fatal("expected 1 updated task from raw TimeTrigger path")
+		t.Fatal("expected 1 updated tiki from raw TimeTrigger path")
 		return
 	}
 	if result.Update.Updated[0].Status != "backlog" {
@@ -3151,7 +3151,7 @@ func TestTriggerExecOverride_Execute_RawStatement(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 	if result.Update == nil || len(result.Update.Updated) != 1 {
-		t.Fatal("expected 1 updated task")
+		t.Fatal("expected 1 updated tiki")
 		return
 	}
 	if got, _ := result.Update.Updated[0].Get("status"); got != "backlog" {
@@ -3239,17 +3239,17 @@ func TestEvalExprRecursive_EmptyLiteral(t *testing.T) {
 	}
 }
 
-// --- resolveRefTasks with no matching tasks ---
+// --- resolveRefTikis with no matching tikis ---
 
-func TestResolveRefTasks_NoMatches(t *testing.T) {
-	tasks := []*tikiFixture{
+func TestResolveRefTikis_NoMatches(t *testing.T) {
+	tikis := []*tikiFixture{
 		{ID: "TIKI-000001"},
 		{ID: "TIKI-000002"},
 	}
 	refs := []interface{}{"TIKI-NOPE01", "TIKI-NOPE02"}
-	resolved := resolveRefTikis(refs, tikisFromFixtures(tasks))
+	resolved := resolveRefTikis(refs, tikisFromFixtures(tikis))
 	if len(resolved) != 0 {
-		t.Fatalf("expected 0 resolved tasks, got %d", len(resolved))
+		t.Fatalf("expected 0 resolved tikis, got %d", len(resolved))
 	}
 }
 
@@ -3341,11 +3341,11 @@ func TestExecAction_ValidatedTriggerWithCreateAction(t *testing.T) {
 		t.Fatal("expected Create result")
 		return
 	}
-	if result.Create.Task.Title != "followup" {
-		t.Fatalf("expected title 'followup', got %q", result.Create.Task.Title)
+	if result.Create.Tiki.Title != "followup" {
+		t.Fatalf("expected title 'followup', got %q", result.Create.Tiki.Title)
 	}
-	if result.Create.Task.Status != "ready" {
-		t.Fatalf("expected status 'ready', got %q", result.Create.Task.Status)
+	if result.Create.Tiki.Status != "ready" {
+		t.Fatalf("expected status 'ready', got %q", result.Create.Tiki.Status)
 	}
 }
 
@@ -3377,7 +3377,7 @@ func TestExecAction_ValidatedTriggerWithUpdateAction(t *testing.T) {
 		t.Fatal("expected Update result")
 	}
 	if len(result.Update.Updated) != 1 {
-		t.Fatalf("expected 1 updated task, got %d", len(result.Update.Updated))
+		t.Fatalf("expected 1 updated tiki, got %d", len(result.Update.Updated))
 	}
 	if result.Update.Updated[0].Status != "inProgress" {
 		t.Fatalf("expected status 'in_progress', got %q", result.Update.Updated[0].Status)
@@ -3412,7 +3412,7 @@ func TestExecAction_ValidatedTriggerWithDeleteAction(t *testing.T) {
 		t.Fatal("expected Delete result")
 	}
 	if len(result.Delete.Deleted) != 1 {
-		t.Fatalf("expected 1 deleted task, got %d", len(result.Delete.Deleted))
+		t.Fatalf("expected 1 deleted tiki, got %d", len(result.Delete.Deleted))
 	}
 	if result.Delete.Deleted[0].ID != "TIKI-000001" {
 		t.Fatalf("expected deleted TIKI-000001, got %s", result.Delete.Deleted[0].ID)
@@ -3464,12 +3464,12 @@ func TestExecTimeTriggerAction_ValidatedCreateWithTemplate(t *testing.T) {
 		t.Fatal("expected Create result")
 	}
 	// title should be overridden by the trigger action
-	if result.Create.Task.Title != "daily" {
-		t.Fatalf("expected title 'daily', got %q", result.Create.Task.Title)
+	if result.Create.Tiki.Title != "daily" {
+		t.Fatalf("expected title 'daily', got %q", result.Create.Tiki.Title)
 	}
 	// type should be inherited from template
-	if result.Create.Task.Type != "story" {
-		t.Fatalf("expected type 'story' from template, got %q", result.Create.Task.Type)
+	if result.Create.Tiki.Type != "story" {
+		t.Fatalf("expected type 'story' from template, got %q", result.Create.Tiki.Type)
 	}
 }
 
@@ -3485,11 +3485,11 @@ func TestExecTimeTriggerAction_ValidatedUpdate(t *testing.T) {
 		t.Fatalf("validate: %v", err)
 	}
 
-	tasks := []*tikiFixture{
+	tikis := []*tikiFixture{
 		{ID: "TIKI-000001", Status: "inProgress", Type: "story"},
 		{ID: "TIKI-000002", Status: "done", Type: "story"},
 	}
-	result, err := te.testExecTimeAction(vtt, tasks)
+	result, err := te.testExecTimeAction(vtt, tikis)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -3516,11 +3516,11 @@ func TestExecTimeTriggerAction_ValidatedDelete(t *testing.T) {
 		t.Fatalf("validate: %v", err)
 	}
 
-	tasks := []*tikiFixture{
+	tikis := []*tikiFixture{
 		{ID: "TIKI-000001", Status: "done", Type: "story"},
 		{ID: "TIKI-000002", Status: "ready", Type: "story"},
 	}
-	result, err := te.testExecTimeAction(vtt, tasks)
+	result, err := te.testExecTimeAction(vtt, tikis)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -3586,7 +3586,7 @@ func TestTriggerExecOverride_Execute_ValidatedStatement(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 	if result.Update == nil || len(result.Update.Updated) != 1 {
-		t.Fatal("expected 1 updated task")
+		t.Fatal("expected 1 updated tiki")
 		return
 	}
 	if got, _ := result.Update.Updated[0].Get("status"); got != "inProgress" {
@@ -3805,7 +3805,7 @@ func TestEvalExprRecursive_QualifiedRefInsideFunctionCall(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 	if result.Update == nil || len(result.Update.Updated) != 1 {
-		t.Fatal("expected 1 updated task")
+		t.Fatal("expected 1 updated tiki")
 		return
 	}
 	if result.Update.Updated[0].Status != "review" {

@@ -117,7 +117,7 @@ func (te *TriggerEngine) RegisterWithGate(gate *TikiMutationGate) {
 //
 // AllTikis is built from GetAllTikis() — the complete universe including
 // plain docs — with the candidate substitution applied so aggregate checks
-// (e.g. WIP limits, task caps) see the proposed world state:
+// (e.g. WIP limits, tiki caps) see the proposed world state:
 //   - create: proposed new tiki is appended.
 //   - update: the stored entry for new.ID is replaced by the proposed tiki.
 //   - delete: AllTikis is used as-is (the validator receives old, new=nil).
@@ -380,7 +380,7 @@ func (te *TriggerEngine) runTimeTrigger(ctx context.Context, entry TimeTriggerEn
 	}
 }
 
-// executeTimeTrigger runs a single tick of a time trigger: snapshot tasks, execute, persist.
+// executeTimeTrigger runs a single tick of a time trigger: snapshot tikis, execute, persist.
 func (te *TriggerEngine) executeTimeTrigger(ctx context.Context, entry TimeTriggerEntry) {
 	input := ruki.ExecutionInput{}
 	if timeTriggerRequiresCreateTemplate(timeTriggerForExec(entry)) {

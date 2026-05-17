@@ -58,7 +58,7 @@ func TestPluginConfig_SelectionIndexing(t *testing.T) {
 
 func TestPluginConfig_MoveSelection_RightLeft(t *testing.T) {
 	pc := NewPluginConfig("test")
-	// Grid: 4 columns, 12 tasks (3 rows)
+	// Grid: 4 columns, 12 tikis (3 rows)
 	// [ 0  1  2  3]
 	// [ 4  5  6  7]
 	// [ 8  9 10 11]
@@ -87,7 +87,7 @@ func TestPluginConfig_MoveSelection_RightLeft(t *testing.T) {
 
 func TestPluginConfig_MoveSelection_UpDown(t *testing.T) {
 	pc := NewPluginConfig("test")
-	// Grid: 4 columns, 12 tasks (3 rows)
+	// Grid: 4 columns, 12 tikis (3 rows)
 	// [ 0  1  2  3]
 	// [ 4  5  6  7]
 	// [ 8  9 10 11]
@@ -116,7 +116,7 @@ func TestPluginConfig_MoveSelection_UpDown(t *testing.T) {
 
 func TestPluginConfig_MoveSelection_EdgeCases(t *testing.T) {
 	pc := NewPluginConfig("test")
-	// Grid: 4 columns, 6 tasks
+	// Grid: 4 columns, 6 tikis
 	// [ 0  1  2  3]
 	// [ 4  5]
 
@@ -197,10 +197,10 @@ func TestPluginConfig_MoveSelection_EdgeCases(t *testing.T) {
 func TestPluginConfig_MoveSelection_EmptyGrid(t *testing.T) {
 	pc := NewPluginConfig("test")
 
-	// Moving with 0 tasks should not move
+	// Moving with 0 tikis should not move
 	moved := pc.MoveSelection("right", 0)
 	if moved {
-		t.Error("MoveSelection with 0 tasks should return false")
+		t.Error("MoveSelection with 0 tikis should return false")
 	}
 
 	if pc.GetSelectedIndex() != 0 {
@@ -219,7 +219,7 @@ func TestPluginConfig_MoveSelection_SingleItem(t *testing.T) {
 			pc.SetSelectedIndex(0) // Reset
 			moved := pc.MoveSelection(dir, 1)
 			if moved {
-				t.Errorf("MoveSelection(%q) with 1 task should return false", dir)
+				t.Errorf("MoveSelection(%q) with 1 tiki should return false", dir)
 			}
 			if pc.GetSelectedIndex() != 0 {
 				t.Error("GetSelectedIndex() should remain 0")
@@ -236,7 +236,7 @@ func TestPluginConfig_ClampSelection(t *testing.T) {
 	pc.ClampSelection(5)
 
 	if pc.GetSelectedIndex() != 4 {
-		t.Errorf("GetSelectedIndex() after clamp = %d, want 4 (max index for 5 tasks)", pc.GetSelectedIndex())
+		t.Errorf("GetSelectedIndex() after clamp = %d, want 4 (max index for 5 tikis)", pc.GetSelectedIndex())
 	}
 
 	// Set negative (though SetSelectedIndex wouldn't normally do this)
@@ -582,7 +582,7 @@ func TestPluginConfig_ConcurrentAccess(t *testing.T) {
 func TestPluginConfig_GridNavigation_PartialLastRow(t *testing.T) {
 	pc := NewPluginConfig("test")
 
-	// Grid with 10 tasks:
+	// Grid with 10 tikis:
 	// [ 0  1  2  3]
 	// [ 4  5  6  7]
 	// [ 8  9]
@@ -609,7 +609,7 @@ func TestPluginConfig_GridNavigation_PartialLastRow(t *testing.T) {
 func TestPluginConfig_GridNavigation_AllCorners(t *testing.T) {
 	pc := NewPluginConfig("test")
 
-	// Grid: 4x3 = 12 tasks
+	// Grid: 4x3 = 12 tikis
 	// [ 0  1  2  3]
 	// [ 4  5  6  7]
 	// [ 8  9 10 11]

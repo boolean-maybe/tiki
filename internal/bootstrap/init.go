@@ -447,7 +447,7 @@ func InitColorAndGradientSupport(cfg *config.Config) *sysinfo.SystemInfo {
 	// Initialize the role-based theme. Must happen before any view code calls
 	// theme.Roles() — view code is not yet migrated to call theme.Roles(), but
 	// the role system needs to be ready ahead of that migration so subsequent
-	// tasks can switch one caller at a time without bootstrapping order bugs.
+	// work can switch one caller at a time without bootstrapping order bugs.
 	theme.SetTheme(theme.LoadByName(config.GetEffectiveTheme()))
 
 	// Collect initial system information using terminfo lookup

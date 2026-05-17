@@ -346,8 +346,8 @@ fields:
   - name: type
     type: enum
     values:
-      - value: task
-        label: Task
+      - value: tiki
+        label: Tiki
 triggers:
   - description: broken time trigger
     ruki: 'every 0day delete where status = "done"'
@@ -378,8 +378,8 @@ fields:
   - name: type
     type: enum
     values:
-      - value: task
-        label: Task
+      - value: tiki
+        label: Tiki
 views:
   plugins:
     - name: Bad

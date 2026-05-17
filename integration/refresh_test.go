@@ -11,7 +11,7 @@ import (
 	"github.com/gdamore/tcell/v2"
 )
 
-// TestRefresh_FromBoard verifies 'r' key reloads tasks from disk
+// TestRefresh_FromBoard verifies 'r' key reloads tikis from disk
 func TestRefresh_FromKanban(t *testing.T) {
 	ta := testutil.NewTestApp(t)
 	defer ta.Cleanup()
@@ -21,12 +21,12 @@ func TestRefresh_FromKanban(t *testing.T) {
 		t.Fatalf("failed to load plugins: %v", err)
 	}
 
-	// Create initial task
-	if err := testutil.CreateTestTiki(ta.TikiDir, "000001", "First Task", "ready", "story"); err != nil {
-		t.Fatalf("failed to create test task: %v", err)
+	// Create initial tiki
+	if err := testutil.CreateTestTiki(ta.TikiDir, "000001", "First Tiki", "ready", "story"); err != nil {
+		t.Fatalf("failed to create test tiki: %v", err)
 	}
 	if err := ta.TikiStore.Reload(); err != nil {
-		t.Fatalf("failed to reload tasks: %v", err)
+		t.Fatalf("failed to reload tikis: %v", err)
 	}
 
 	// Open Kanban plugin
@@ -40,9 +40,9 @@ func TestRefresh_FromKanban(t *testing.T) {
 		t.Errorf("TIKI-1 should be visible initially")
 	}
 
-	// Create a new task externally (simulating external modification)
-	if err := testutil.CreateTestTiki(ta.TikiDir, "000002", "New External Task", "ready", "story"); err != nil {
-		t.Fatalf("failed to create external task: %v", err)
+	// Create a new tiki externally (simulating external modification)
+	if err := testutil.CreateTestTiki(ta.TikiDir, "000002", "New External Tiki", "ready", "story"); err != nil {
+		t.Fatalf("failed to create external tiki: %v", err)
 	}
 
 	// Press 'r' to refresh
@@ -56,7 +56,7 @@ func TestRefresh_FromKanban(t *testing.T) {
 	}
 }
 
-// TestRefresh_ExternalModification verifies refresh loads modified task content
+// TestRefresh_ExternalModification verifies refresh loads modified tiki content
 func TestRefresh_ExternalModification(t *testing.T) {
 	ta := testutil.NewTestApp(t)
 	defer ta.Cleanup()
@@ -66,13 +66,13 @@ func TestRefresh_ExternalModification(t *testing.T) {
 		t.Fatalf("failed to load plugins: %v", err)
 	}
 
-	// Create task
+	// Create tiki
 	tikiID := "000001"
 	if err := testutil.CreateTestTiki(ta.TikiDir, tikiID, "Original Title", "ready", "story"); err != nil {
-		t.Fatalf("failed to create test task: %v", err)
+		t.Fatalf("failed to create test tiki: %v", err)
 	}
 	if err := ta.TikiStore.Reload(); err != nil {
-		t.Fatalf("failed to reload tasks: %v", err)
+		t.Fatalf("failed to reload tikis: %v", err)
 	}
 
 	// Open Kanban plugin
@@ -86,35 +86,35 @@ func TestRefresh_ExternalModification(t *testing.T) {
 		t.Errorf("original title should be visible")
 	}
 
-	// Verify task exists in store
+	// Verify tiki exists in store
 	tiki := ta.TikiStore.GetTiki(tikiID)
 	if tiki == nil || tiki.Title != "Original Title" {
-		t.Fatalf("task should exist with original title")
+		t.Fatalf("tiki should exist with original title")
 	}
 
-	// Modify the task file externally
+	// Modify the tiki file externally
 	if err := testutil.CreateTestTiki(ta.TikiDir, tikiID, "Modified Title", "ready", "story"); err != nil {
-		t.Fatalf("failed to modify task: %v", err)
+		t.Fatalf("failed to modify tiki: %v", err)
 	}
 
 	// Press 'r' to refresh
 	ta.SendKey(tcell.KeyRune, 'r', tcell.ModNone)
 
-	// Verify task store has updated title
+	// Verify tiki store has updated title
 	tikiAfter := ta.TikiStore.GetTiki(tikiID)
 	if tikiAfter == nil {
-		t.Fatalf("task should still exist after refresh")
+		t.Fatalf("tiki should still exist after refresh")
 		return
 	}
 	if tikiAfter.Title != "Modified Title" {
-		t.Errorf("task title in store = %q, want %q", tikiAfter.Title, "Modified Title")
+		t.Errorf("tiki title in store = %q, want %q", tikiAfter.Title, "Modified Title")
 	}
 
 	// Note: The UI may not immediately reflect the change due to view caching,
-	// but the important thing is that the task store reloaded the data
+	// but the important thing is that the tiki store reloaded the data
 }
 
-// TestRefresh_ExternalDeletion verifies refresh handles deleted tasks
+// TestRefresh_ExternalDeletion verifies refresh handles deleted tikis
 func TestRefresh_ExternalDeletion(t *testing.T) {
 	ta := testutil.NewTestApp(t)
 	defer ta.Cleanup()
@@ -124,33 +124,33 @@ func TestRefresh_ExternalDeletion(t *testing.T) {
 		t.Fatalf("failed to load plugins: %v", err)
 	}
 
-	// Create two tasks
-	if err := testutil.CreateTestTiki(ta.TikiDir, "000001", "First Task", "ready", "story"); err != nil {
-		t.Fatalf("failed to create test task: %v", err)
+	// Create two tikis
+	if err := testutil.CreateTestTiki(ta.TikiDir, "000001", "First Tiki", "ready", "story"); err != nil {
+		t.Fatalf("failed to create test tiki: %v", err)
 	}
-	if err := testutil.CreateTestTiki(ta.TikiDir, "000002", "Second Task", "ready", "story"); err != nil {
-		t.Fatalf("failed to create test task: %v", err)
+	if err := testutil.CreateTestTiki(ta.TikiDir, "000002", "Second Tiki", "ready", "story"); err != nil {
+		t.Fatalf("failed to create test tiki: %v", err)
 	}
 	if err := ta.TikiStore.Reload(); err != nil {
-		t.Fatalf("failed to reload tasks: %v", err)
+		t.Fatalf("failed to reload tikis: %v", err)
 	}
 
 	// Open Kanban plugin
 	ta.NavController.PushView(model.MakePluginViewID("Kanban"), nil)
 	ta.Draw()
 
-	// Verify both tasks visible
+	// Verify both tikis visible
 	found1, _, _ := ta.FindText("000001")
 	found2, _, _ := ta.FindText("000002")
 	if !found1 || !found2 {
 		ta.DumpScreen()
-		t.Errorf("both tasks should be visible initially")
+		t.Errorf("both tikis should be visible initially")
 	}
 
 	// Delete TIKI-1 externally
 	tikiPath := filepath.Join(ta.TikiDir, "000001.md")
 	if err := os.Remove(tikiPath); err != nil {
-		t.Fatalf("failed to delete task file: %v", err)
+		t.Fatalf("failed to delete tiki file: %v", err)
 	}
 
 	// Press 'r' to refresh
@@ -170,14 +170,14 @@ func TestRefresh_ExternalDeletion(t *testing.T) {
 		t.Errorf("TIKI-2 should still be visible after refresh")
 	}
 
-	// Verify task store count
+	// Verify tiki store count
 	tikis := ta.TikiStore.GetAllTikis()
 	if len(tikis) != 1 {
-		t.Errorf("task store should have 1 task after refresh, got %d", len(tikis))
+		t.Errorf("tiki store should have 1 tiki after refresh, got %d", len(tikis))
 	}
 }
 
-// TestRefresh_PreservesSelection verifies selection is maintained when task still exists
+// TestRefresh_PreservesSelection verifies selection is maintained when tiki still exists
 func TestRefresh_PreservesSelection(t *testing.T) {
 	ta := testutil.NewTestApp(t)
 	defer ta.Cleanup()
@@ -187,22 +187,22 @@ func TestRefresh_PreservesSelection(t *testing.T) {
 		t.Fatalf("failed to load plugins: %v", err)
 	}
 
-	// Create tasks
-	if err := testutil.CreateTestTiki(ta.TikiDir, "000001", "First Task", "ready", "story"); err != nil {
-		t.Fatalf("failed to create test task: %v", err)
+	// Create tikis
+	if err := testutil.CreateTestTiki(ta.TikiDir, "000001", "First Tiki", "ready", "story"); err != nil {
+		t.Fatalf("failed to create test tiki: %v", err)
 	}
-	if err := testutil.CreateTestTiki(ta.TikiDir, "000002", "Second Task", "ready", "story"); err != nil {
-		t.Fatalf("failed to create test task: %v", err)
+	if err := testutil.CreateTestTiki(ta.TikiDir, "000002", "Second Tiki", "ready", "story"); err != nil {
+		t.Fatalf("failed to create test tiki: %v", err)
 	}
 	if err := ta.TikiStore.Reload(); err != nil {
-		t.Fatalf("failed to reload tasks: %v", err)
+		t.Fatalf("failed to reload tikis: %v", err)
 	}
 
 	// Open Kanban plugin
 	ta.NavController.PushView(model.MakePluginViewID("Kanban"), nil)
 	ta.Draw()
 
-	// Move to second task
+	// Move to second tiki
 	ta.SendKey(tcell.KeyDown, 0, tcell.ModNone)
 
 	kanbanConfig := ta.GetPluginConfig("Kanban")
@@ -211,15 +211,15 @@ func TestRefresh_PreservesSelection(t *testing.T) {
 		t.Fatalf("expected index 1, got %d", kanbanConfig.GetSelectedIndex())
 	}
 
-	// Create a new task externally (doesn't affect selection)
-	if err := testutil.CreateTestTiki(ta.TikiDir, "000003", "Third Task", "ready", "story"); err != nil {
-		t.Fatalf("failed to create test task: %v", err)
+	// Create a new tiki externally (doesn't affect selection)
+	if err := testutil.CreateTestTiki(ta.TikiDir, "000003", "Third Tiki", "ready", "story"); err != nil {
+		t.Fatalf("failed to create test tiki: %v", err)
 	}
 
 	// Press 'r' to refresh
 	ta.SendKey(tcell.KeyRune, 'r', tcell.ModNone)
 
-	// Verify selection is still preserved (might shift if new task sorts before)
+	// Verify selection is still preserved (might shift if new tiki sorts before)
 	// For this test, we just verify no crash and index is valid
 	selectedIndex := kanbanConfig.GetSelectedIndex()
 	if selectedIndex < 0 {
@@ -227,8 +227,8 @@ func TestRefresh_PreservesSelection(t *testing.T) {
 	}
 }
 
-// TestRefresh_ResetsSelectionWhenTaskDeleted verifies selection resets when selected task deleted
-func TestRefresh_ResetsSelectionWhenTaskDeleted(t *testing.T) {
+// TestRefresh_ResetsSelectionWhenTikiDeleted verifies selection resets when selected tiki deleted
+func TestRefresh_ResetsSelectionWhenTikiDeleted(t *testing.T) {
 	ta := testutil.NewTestApp(t)
 	defer ta.Cleanup()
 
@@ -237,22 +237,22 @@ func TestRefresh_ResetsSelectionWhenTaskDeleted(t *testing.T) {
 		t.Fatalf("failed to load plugins: %v", err)
 	}
 
-	// Create tasks
-	if err := testutil.CreateTestTiki(ta.TikiDir, "000001", "First Task", "ready", "story"); err != nil {
-		t.Fatalf("failed to create test task: %v", err)
+	// Create tikis
+	if err := testutil.CreateTestTiki(ta.TikiDir, "000001", "First Tiki", "ready", "story"); err != nil {
+		t.Fatalf("failed to create test tiki: %v", err)
 	}
-	if err := testutil.CreateTestTiki(ta.TikiDir, "000002", "Second Task", "ready", "story"); err != nil {
-		t.Fatalf("failed to create test task: %v", err)
+	if err := testutil.CreateTestTiki(ta.TikiDir, "000002", "Second Tiki", "ready", "story"); err != nil {
+		t.Fatalf("failed to create test tiki: %v", err)
 	}
 	if err := ta.TikiStore.Reload(); err != nil {
-		t.Fatalf("failed to reload tasks: %v", err)
+		t.Fatalf("failed to reload tikis: %v", err)
 	}
 
 	// Open Kanban plugin
 	ta.NavController.PushView(model.MakePluginViewID("Kanban"), nil)
 	ta.Draw()
 
-	// Move to second task
+	// Move to second tiki
 	ta.SendKey(tcell.KeyDown, 0, tcell.ModNone)
 
 	kanbanConfig := ta.GetPluginConfig("Kanban")
@@ -261,10 +261,10 @@ func TestRefresh_ResetsSelectionWhenTaskDeleted(t *testing.T) {
 		t.Fatalf("expected index 1, got %d", kanbanConfig.GetSelectedIndex())
 	}
 
-	// Delete TIKI-2 externally (the selected task)
+	// Delete TIKI-2 externally (the selected tiki)
 	tikiPath := filepath.Join(ta.TikiDir, "000002.md")
 	if err := os.Remove(tikiPath); err != nil {
-		t.Fatalf("failed to delete task file: %v", err)
+		t.Fatalf("failed to delete tiki file: %v", err)
 	}
 
 	// Press 'r' to refresh
@@ -272,7 +272,7 @@ func TestRefresh_ResetsSelectionWhenTaskDeleted(t *testing.T) {
 
 	// Verify selection reset to index 0
 	if kanbanConfig.GetSelectedIndex() != 0 {
-		t.Errorf("selection should reset to index 0 when selected task deleted, got %d", kanbanConfig.GetSelectedIndex())
+		t.Errorf("selection should reset to index 0 when selected tiki deleted, got %d", kanbanConfig.GetSelectedIndex())
 	}
 
 	// Verify TIKI-1 is still visible
@@ -283,8 +283,8 @@ func TestRefresh_ResetsSelectionWhenTaskDeleted(t *testing.T) {
 	}
 }
 
-// TestRefresh_FromTaskDetail verifies refresh works from task detail view
-func TestRefresh_FromTaskDetail(t *testing.T) {
+// TestRefresh_FromTikiDetail verifies refresh works from tiki detail view
+func TestRefresh_FromTikiDetail(t *testing.T) {
 	ta := testutil.NewTestApp(t)
 	defer ta.Cleanup()
 
@@ -293,16 +293,16 @@ func TestRefresh_FromTaskDetail(t *testing.T) {
 		t.Fatalf("failed to load plugins: %v", err)
 	}
 
-	// Create task
+	// Create tiki
 	tikiID := "000001"
 	if err := testutil.CreateTestTiki(ta.TikiDir, tikiID, "Original Title", "ready", "story"); err != nil {
-		t.Fatalf("failed to create test task: %v", err)
+		t.Fatalf("failed to create test tiki: %v", err)
 	}
 	if err := ta.TikiStore.Reload(); err != nil {
-		t.Fatalf("failed to reload tasks: %v", err)
+		t.Fatalf("failed to reload tikis: %v", err)
 	}
 
-	// Navigate: Kanban → Task Detail
+	// Navigate: Kanban → Tiki Detail
 	ta.NavController.PushView(model.MakePluginViewID("Kanban"), nil)
 	ta.Draw()
 	ta.SendKey(tcell.KeyEnter, 0, tcell.ModNone)
@@ -311,22 +311,22 @@ func TestRefresh_FromTaskDetail(t *testing.T) {
 	found, _, _ := ta.FindText("Original Title")
 	if !found {
 		ta.DumpScreen()
-		t.Errorf("original title should be visible in task detail")
+		t.Errorf("original title should be visible in tiki detail")
 	}
 
-	// Modify the task file externally
+	// Modify the tiki file externally
 	if err := testutil.CreateTestTiki(ta.TikiDir, tikiID, "Updated Title", "ready", "story"); err != nil {
-		t.Fatalf("failed to modify task: %v", err)
+		t.Fatalf("failed to modify tiki: %v", err)
 	}
 
-	// Press 'r' to refresh from task detail view
+	// Press 'r' to refresh from tiki detail view
 	ta.SendKey(tcell.KeyRune, 'r', tcell.ModNone)
 
 	// Verify updated title is now visible
 	foundNew, _, _ := ta.FindText("Updated Title")
 	if !foundNew {
 		ta.DumpScreen()
-		t.Errorf("updated title should be visible after refresh in task detail")
+		t.Errorf("updated title should be visible after refresh in tiki detail")
 	}
 }
 
@@ -340,15 +340,15 @@ func TestRefresh_WithActiveSearch(t *testing.T) {
 		t.Fatalf("failed to load plugins: %v", err)
 	}
 
-	// Create tasks
-	if err := testutil.CreateTestTiki(ta.TikiDir, "000001", "Alpha Task", "ready", "story"); err != nil {
-		t.Fatalf("failed to create test task: %v", err)
+	// Create tikis
+	if err := testutil.CreateTestTiki(ta.TikiDir, "000001", "Alpha Tiki", "ready", "story"); err != nil {
+		t.Fatalf("failed to create test tiki: %v", err)
 	}
-	if err := testutil.CreateTestTiki(ta.TikiDir, "000002", "Beta Task", "ready", "story"); err != nil {
-		t.Fatalf("failed to create test task: %v", err)
+	if err := testutil.CreateTestTiki(ta.TikiDir, "000002", "Beta Tiki", "ready", "story"); err != nil {
+		t.Fatalf("failed to create test tiki: %v", err)
 	}
 	if err := ta.TikiStore.Reload(); err != nil {
-		t.Fatalf("failed to reload tasks: %v", err)
+		t.Fatalf("failed to reload tikis: %v", err)
 	}
 
 	// Open Kanban plugin
@@ -393,12 +393,12 @@ func TestRefresh_MultipleRefreshes(t *testing.T) {
 		t.Fatalf("failed to load plugins: %v", err)
 	}
 
-	// Create initial task
-	if err := testutil.CreateTestTiki(ta.TikiDir, "000001", "First Task", "ready", "story"); err != nil {
-		t.Fatalf("failed to create test task: %v", err)
+	// Create initial tiki
+	if err := testutil.CreateTestTiki(ta.TikiDir, "000001", "First Tiki", "ready", "story"); err != nil {
+		t.Fatalf("failed to create test tiki: %v", err)
 	}
 	if err := ta.TikiStore.Reload(); err != nil {
-		t.Fatalf("failed to reload tasks: %v", err)
+		t.Fatalf("failed to reload tikis: %v", err)
 	}
 
 	// Open Kanban plugin
@@ -414,30 +414,30 @@ func TestRefresh_MultipleRefreshes(t *testing.T) {
 		t.Errorf("TIKI-1 should be visible after first refresh")
 	}
 
-	// Add a new task
-	if err := testutil.CreateTestTiki(ta.TikiDir, "000002", "Second Task", "ready", "story"); err != nil {
-		t.Fatalf("failed to create test task: %v", err)
+	// Add a new tiki
+	if err := testutil.CreateTestTiki(ta.TikiDir, "000002", "Second Tiki", "ready", "story"); err != nil {
+		t.Fatalf("failed to create test tiki: %v", err)
 	}
 
 	// Second refresh
 	ta.SendKey(tcell.KeyRune, 'r', tcell.ModNone)
 
-	// Verify both tasks visible
+	// Verify both tikis visible
 	found1, _, _ := ta.FindText("000001")
 	found2, _, _ := ta.FindText("000002")
 	if !found1 || !found2 {
 		ta.DumpScreen()
-		t.Errorf("both tasks should be visible after second refresh")
+		t.Errorf("both tikis should be visible after second refresh")
 	}
 
 	// Third refresh (no changes again)
 	ta.SendKey(tcell.KeyRune, 'r', tcell.ModNone)
 
-	// Verify both tasks still visible
+	// Verify both tikis still visible
 	found1Again, _, _ := ta.FindText("000001")
 	found2Again, _, _ := ta.FindText("000002")
 	if !found1Again || !found2Again {
 		ta.DumpScreen()
-		t.Errorf("both tasks should be visible after third refresh")
+		t.Errorf("both tikis should be visible after third refresh")
 	}
 }

@@ -232,10 +232,10 @@ func TestRenderMessage_empty(t *testing.T) {
 func TestRenderMessage_info(t *testing.T) {
 	sw := newTestWidget()
 	roles := testRoles()
-	result := sw.renderMessage("task saved", model.MessageLevelInfo, roles)
+	result := sw.renderMessage("tiki saved", model.MessageLevelInfo, roles)
 
 	infoTag := segHex(roles.StatuslineInfo().Fg(), roles.StatuslineInfo().Bg())
-	if !strings.Contains(result, infoTag+" task saved ") {
+	if !strings.Contains(result, infoTag+" tiki saved ") {
 		t.Errorf("info message should use info colors, got %q", result)
 	}
 	if !strings.HasSuffix(result, "[-:-]") {

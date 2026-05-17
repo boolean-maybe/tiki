@@ -41,7 +41,7 @@ func registerExtraWorkflowFieldForTest(t *testing.T, name string, values []strin
 func newTestViewTiki(id string) *tikipkg.Tiki {
 	tk := tikipkg.New()
 	tk.ID = id
-	tk.Title = "Test Task"
+	tk.Title = "Test Tiki"
 	tk.Set(tikipkg.FieldStatus, "ready")
 	tk.Set(tikipkg.FieldType, "story")
 	tk.Set(tikipkg.FieldPriority, "medium")

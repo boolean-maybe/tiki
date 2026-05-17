@@ -55,13 +55,13 @@ func setupChooseActionTest(t *testing.T) *testutil.TestApp {
 	}
 
 	if err := testutil.CreateTestTiki(ta.TikiDir, "000001", "My Story", "backlog", "story"); err != nil {
-		t.Fatalf("failed to create story task: %v", err)
+		t.Fatalf("failed to create story tiki: %v", err)
 	}
 	if err := testutil.CreateTestTiki(ta.TikiDir, "000002", "My Epic", "backlog", "epic"); err != nil {
-		t.Fatalf("failed to create epic task: %v", err)
+		t.Fatalf("failed to create epic tiki: %v", err)
 	}
 	if err := testutil.CreateTestTiki(ta.TikiDir, "000003", "Another Epic", "backlog", "epic"); err != nil {
-		t.Fatalf("failed to create second epic task: %v", err)
+		t.Fatalf("failed to create second epic tiki: %v", err)
 	}
 	if err := ta.TikiStore.Reload(); err != nil {
 		t.Fatalf("failed to reload: %v", err)
@@ -113,9 +113,9 @@ func TestChooseAction_EnterAppliesMutation(t *testing.T) {
 	}
 	updated := ta.TikiStore.GetTiki("000001")
 	if updated == nil {
-		t.Fatal("task not found")
+		t.Fatal("tiki not found")
 	}
-	// should be one of the epic task IDs
+	// should be one of the epic tiki IDs
 	updatedAssignee, _, _ := updated.StringField("assignee")
 	if updatedAssignee != "000002" && updatedAssignee != "000003" {
 		t.Fatalf("expected assignee to be TIKI-2 or TIKI-3, got %q", updatedAssignee)
@@ -144,7 +144,7 @@ func TestChooseAction_EscCancelsWithoutMutation(t *testing.T) {
 	}
 	updated := ta.TikiStore.GetTiki("000001")
 	if updated == nil {
-		t.Fatal("task not found")
+		t.Fatal("tiki not found")
 	}
 	canceledAssignee, _, _ := updated.StringField("assignee")
 	if canceledAssignee != "" {
@@ -169,7 +169,7 @@ func TestChooseAction_NonChooseActionStillWorks(t *testing.T) {
 	}
 	updated := ta.TikiStore.GetTiki("000001")
 	if updated == nil {
-		t.Fatal("task not found")
+		t.Fatal("tiki not found")
 	}
 	nonChooseStatus, _, _ := updated.StringField("status")
 	if nonChooseStatus != "ready" {
@@ -219,11 +219,11 @@ func TestChooseAction_PaletteDispatchOpensQuickSelect(t *testing.T) {
 	ta.SendKey(tcell.KeyEscape, 0, tcell.ModNone)
 }
 
-func TestChooseAction_BareSelectShowsAllTasks(t *testing.T) {
+func TestChooseAction_BareSelectShowsAllTikis(t *testing.T) {
 	ta := setupChooseActionTest(t)
 	defer ta.Cleanup()
 
-	// 'p' uses choose(select) with no filter — all tasks should be candidates
+	// 'p' uses choose(select) with no filter — all tikis should be candidates
 	ta.SendKey(tcell.KeyRune, 'p', tcell.ModNone)
 
 	qsc := ta.GetQuickSelectConfig()
@@ -275,13 +275,13 @@ func setupFilteredEpicTest(t *testing.T) *testutil.TestApp {
 	}
 
 	if err := testutil.CreateTestTiki(ta.TikiDir, "000001", "My Story", "backlog", "story"); err != nil {
-		t.Fatalf("failed to create story task: %v", err)
+		t.Fatalf("failed to create story tiki: %v", err)
 	}
 	if err := testutil.CreateTestTikiWithDeps(ta.TikiDir, "000002", "Linked Epic", "backlog", "epic", []string{"000001"}); err != nil {
-		t.Fatalf("failed to create linked epic task: %v", err)
+		t.Fatalf("failed to create linked epic tiki: %v", err)
 	}
 	if err := testutil.CreateTestTiki(ta.TikiDir, "000003", "Available Epic", "backlog", "epic"); err != nil {
-		t.Fatalf("failed to create available epic task: %v", err)
+		t.Fatalf("failed to create available epic tiki: %v", err)
 	}
 	if err := ta.TikiStore.Reload(); err != nil {
 		t.Fatalf("failed to reload: %v", err)
@@ -373,9 +373,9 @@ func setupScrollTest(t *testing.T) *testutil.TestApp {
 
 	for i := 0; i < 40; i++ {
 		id := fmt.Sprintf("TIKI-%06d", i)
-		title := fmt.Sprintf("ScrollTask%02d", i)
+		title := fmt.Sprintf("ScrollTiki%02d", i)
 		if err := testutil.CreateTestTiki(ta.TikiDir, id, title, "backlog", "story"); err != nil {
-			t.Fatalf("create task %s: %v", id, err)
+			t.Fatalf("create tiki %s: %v", id, err)
 		}
 	}
 	if err := ta.TikiStore.Reload(); err != nil {
@@ -402,16 +402,16 @@ func TestChooseAction_ScrollKeepsSelectionVisible(t *testing.T) {
 	qsX, qsW := 50, 30
 	_, _, screenH := ta.Screen.GetContents()
 
-	// arrow down 35 times: index 0 → index 35 (36th task, first beyond 35-visible viewport)
+	// arrow down 35 times: index 0 → index 35 (36th tiki, first beyond 35-visible viewport)
 	for i := 0; i < 35; i++ {
 		ta.SendKey(tcell.KeyDown, 0, tcell.ModNone)
 	}
 
-	if !ta.FindTextInRegion("ScrollTask35", qsX, 0, qsW, screenH) {
-		t.Fatal("after scrolling down 35 times, ScrollTask35 should be visible in the picker")
+	if !ta.FindTextInRegion("ScrollTiki35", qsX, 0, qsW, screenH) {
+		t.Fatal("after scrolling down 35 times, ScrollTiki35 should be visible in the picker")
 	}
-	if ta.FindTextInRegion("ScrollTask00", qsX, 0, qsW, screenH) {
-		t.Fatal("after scrolling down 35 times, ScrollTask00 should have scrolled out of the picker")
+	if ta.FindTextInRegion("ScrollTiki00", qsX, 0, qsW, screenH) {
+		t.Fatal("after scrolling down 35 times, ScrollTiki00 should have scrolled out of the picker")
 	}
 
 	// wrap from last to first: press down until we wrap
@@ -419,8 +419,8 @@ func TestChooseAction_ScrollKeepsSelectionVisible(t *testing.T) {
 		ta.SendKey(tcell.KeyDown, 0, tcell.ModNone)
 	}
 	// now at index 0 (wrapped)
-	if !ta.FindTextInRegion("ScrollTask00", qsX, 0, qsW, screenH) {
-		t.Fatal("after wrapping to first, ScrollTask00 should be visible in the picker")
+	if !ta.FindTextInRegion("ScrollTiki00", qsX, 0, qsW, screenH) {
+		t.Fatal("after wrapping to first, ScrollTiki00 should be visible in the picker")
 	}
 
 	ta.SendKey(tcell.KeyEscape, 0, tcell.ModNone)

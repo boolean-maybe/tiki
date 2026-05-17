@@ -117,9 +117,9 @@ func (p *Parser) validateStatement(s *Statement) error {
 }
 
 // validateExprStmt type-checks a top-level expression statement. Bare field
-// references are rejected because there is no "current task" at the top
+// references are rejected because there is no "current tiki" at the top
 // level; references inside subqueries still resolve against their candidate
-// task (validateSubQueryFuncCall resets the reject flag).
+// tiki (validateSubQueryFuncCall resets the reject flag).
 func (p *Parser) validateExprStmt(es *ExprStmt) error {
 	if es == nil || es.Expr == nil {
 		return fmt.Errorf("empty expression statement")
@@ -163,7 +163,7 @@ func (p *Parser) validateTrigger(t *Trigger) error {
 		}
 	}
 
-	// zone 2: action statement — bare fields resolve against target task.
+	// zone 2: action statement — bare fields resolve against target tiki.
 	// allowlist the mutating variants so new Statement variants (e.g. Expr)
 	// fail closed instead of silently slipping through.
 	if t.Action != nil {
@@ -428,7 +428,7 @@ func (p *Parser) validateIn(c *InExpr) error {
 			boolInStringList := isLiteral && valType == ValueBool && allBoolStringLiterals(ll)
 			// allow an enum-typed value (status, type, or custom enum) on the
 			// left-hand side of a `in targets.<enum-field>` projection. The
-			// projection collapses enum-typed tasks to list<string>, but the
+			// projection collapses enum-typed tikis to list<string>, but the
 			// underlying field semantics are still enum, so membership is
 			// well-defined when the two sides refer to the same domain.
 			enumInTargetsProjection := isEnumType(valType) && p.isTargetsEnumProjection(c.Collection, valType, c.Value)
@@ -458,7 +458,7 @@ func (p *Parser) validateQuantifier(q *QuantifierExpr) error {
 	if exprType != ValueListRef {
 		return fmt.Errorf("quantifier %s requires list<ref>, got %s", q.Kind, typeName(exprType))
 	}
-	// zone 3: quantifier bodies — bare fields refer to each related task.
+	// zone 3: quantifier bodies — bare fields refer to each related tiki.
 	// old./new. and requireQualifiers are reset, while outer./target./targets.
 	// remain allowed when the quantifier itself appears inside a context that
 	// already permits them.
@@ -485,7 +485,7 @@ func (p *Parser) inferExprType(e Expr) (ValueType, error) {
 			return 0, fmt.Errorf("bare field %q not allowed in trigger guard — use old.%s or new.%s", e.Name, e.Name, e.Name)
 		}
 		if p.rejectBareFieldRefs {
-			return 0, fmt.Errorf("bare field %q is not valid at the top level (no current task)", e.Name)
+			return 0, fmt.Errorf("bare field %q is not valid at the top level (no current tiki)", e.Name)
 		}
 		fs, ok := p.schema.Field(e.Name)
 		if !ok {
@@ -690,7 +690,7 @@ func (p *Parser) inferFuncCallType(fc *FunctionCall) (ValueType, error) {
 // as the argument to has(). Both bare (`has(status)`) and qualified
 // (`has(new.status)`, `has(old.assignee)`) forms are accepted — the latter
 // are meaningful in trigger contexts where the predicate needs to ask
-// "did the new or old version of the task declare this field?". The
+// "did the new or old version of the tiki declare this field?". The
 // reason for the stricter contract vs. arbitrary expressions is semantic
 // clarity: has() answers "is this field *present*", which is only
 // meaningful with a concrete field name, not a string literal or function
@@ -725,7 +725,7 @@ func (p *Parser) validateSubQueryFuncCall(name string, arg Expr) error {
 	if sq.Where == nil {
 		return nil
 	}
-	// zone 4: subquery bodies use candidate-task fields, so trigger guards stop requiring qualifiers
+	// zone 4: subquery bodies use candidate-tiki fields, so trigger guards stop requiring qualifiers
 	// and top-level expression statements stop rejecting bare field refs.
 	// outer. is valid here and resolves to the immediate parent query row.
 	savedQualifiers := p.qualifiers

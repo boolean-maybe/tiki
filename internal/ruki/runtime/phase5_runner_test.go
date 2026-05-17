@@ -14,7 +14,7 @@ import (
 
 // TestPhase5_CLISelectIncludesPlainDocs proves the first review finding is
 // closed: ruki `select` at the CLI layer must surface plain documents, not
-// just workflow-capable tasks. Pre-fix the runner called readStore.GetAllTasks
+// just workflow-capable tikis. Pre-fix the runner called readStore.GetAllTikis
 // which applies the workflow-only filter at the store boundary, so plain
 // docs never reached the executor and `select` could never see them.
 //

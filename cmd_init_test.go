@@ -332,8 +332,8 @@ fields:
   - name: type
     type: enum
     values:
-      - value: task
-        label: Task
+      - value: tiki
+        label: Tiki
         default: true
   - name: priority
     type: integer

@@ -27,8 +27,8 @@ type TikiEditSession struct {
 	navController *NavigationController
 	statusline    *model.StatuslineConfig
 	currentTikiID string
-	draftTiki     *tikipkg.Tiki // For new task creation only
-	editingTiki   *tikipkg.Tiki // In-memory copy being edited (existing tasks)
+	draftTiki     *tikipkg.Tiki // For new tiki creation only
+	editingTiki   *tikipkg.Tiki // In-memory copy being edited (existing tikis)
 	originalMtime time.Time     // LoadedMtime when edit started
 	registry      *ActionRegistry
 	editRegistry  *ActionRegistry
@@ -53,7 +53,7 @@ func NewTikiEditSession(
 	}
 }
 
-// SetCurrentTiki sets the task ID for the currently viewed or edited task.
+// SetCurrentTiki sets the tiki ID for the currently viewed or edited tiki.
 func (tc *TikiEditSession) SetCurrentTiki(tikiID string) {
 	tc.currentTikiID = tikiID
 }
@@ -98,7 +98,7 @@ func (tc *TikiEditSession) GetDraftTiki() *tikipkg.Tiki {
 }
 
 // CancelEditSession discards the editing copy without saving changes.
-// This clears the in-memory editing tiki and resets the current task ID.
+// This clears the in-memory editing tiki and resets the current tiki ID.
 func (tc *TikiEditSession) CancelEditSession() {
 	tc.editingTiki = nil
 	tc.originalMtime = time.Time{}
@@ -106,7 +106,7 @@ func (tc *TikiEditSession) CancelEditSession() {
 }
 
 // CommitEditSession validates and persists changes from the current edit session.
-// For draft tikis (new task creation), it validates, sets timestamps, and creates the file.
+// For draft tikis (new tiki creation), it validates, sets timestamps, and creates the file.
 // For existing tikis, it checks for external modifications and updates the tiki in the store.
 // Returns an error if validation fails or the tiki cannot be saved.
 func (tc *TikiEditSession) CommitEditSession() error {
@@ -116,7 +116,7 @@ func (tc *TikiEditSession) CommitEditSession() error {
 
 		if err := tc.mutationGate.CreateTiki(context.Background(), tc.draftTiki); err != nil {
 			slog.Error("failed to create draft tiki", "error", err)
-			return fmt.Errorf("failed to create task: %w", err)
+			return fmt.Errorf("failed to create tiki: %w", err)
 		}
 
 		// Clear the draft
@@ -124,7 +124,7 @@ func (tc *TikiEditSession) CommitEditSession() error {
 		return nil
 	}
 
-	// Handle existing task updates
+	// Handle existing tiki updates
 	if tc.editingTiki == nil {
 		return nil // No active edit session, nothing to commit
 	}
@@ -133,13 +133,13 @@ func (tc *TikiEditSession) CommitEditSession() error {
 	currentTiki := tc.tikiStore.GetTiki(tc.currentTikiID)
 	if currentTiki != nil && !currentTiki.LoadedMtime.Equal(tc.originalMtime) {
 		// TODO: Better error handling - show error to user
-		slog.Warn("task was modified externally", "tikiID", tc.currentTikiID)
+		slog.Warn("tiki was modified externally", "tikiID", tc.currentTikiID)
 		// For now, proceed with save (last write wins)
 	}
 
 	if err := tc.mutationGate.UpdateTiki(context.Background(), tc.editingTiki); err != nil {
 		slog.Error("failed to update tiki", "tikiID", tc.currentTikiID, "error", err)
-		return fmt.Errorf("failed to update task: %w", err)
+		return fmt.Errorf("failed to update tiki: %w", err)
 	}
 
 	// Clear the edit session
@@ -149,17 +149,17 @@ func (tc *TikiEditSession) CommitEditSession() error {
 	return nil
 }
 
-// GetActionRegistry returns the actions for the task detail view
+// GetActionRegistry returns the actions for the tiki detail view
 func (tc *TikiEditSession) GetActionRegistry() *ActionRegistry {
 	return tc.registry
 }
 
-// GetEditActionRegistry returns the actions for the task edit view
+// GetEditActionRegistry returns the actions for the tiki edit view
 func (tc *TikiEditSession) GetEditActionRegistry() *ActionRegistry {
 	return tc.editRegistry
 }
 
-// HandleAction processes task detail view actions such as editing title or source.
+// HandleAction processes tiki detail view actions such as editing title or source.
 // Returns true if the action was handled, false otherwise.
 func (tc *TikiEditSession) HandleAction(actionID ActionID) bool {
 	switch actionID {
@@ -167,8 +167,8 @@ func (tc *TikiEditSession) HandleAction(actionID ActionID) bool {
 		return tc.handleEditTitle()
 	case ActionEditSource:
 		return tc.handleEditSource()
-	case ActionCloneTask:
-		return tc.handleCloneTask()
+	case ActionCloneTiki:
+		return tc.handleCloneTiki()
 	default:
 		return false
 	}
@@ -219,7 +219,7 @@ func (tc *TikiEditSession) handleEditSource() bool {
 }
 
 // SaveTitle saves the new title to the current tiki (draft or editing).
-// For draft tikis (new task creation), updates the draft; for editing tikis, updates the editing copy.
+// For draft tikis (new tiki creation), updates the draft; for editing tikis, updates the editing copy.
 // Returns true if a tiki was updated, false if no tiki is being edited.
 func (tc *TikiEditSession) SaveTitle(newTitle string) bool {
 	if tc.draftTiki != nil {
@@ -247,7 +247,7 @@ func (tc *TikiEditSession) SaveTags(tags []string) bool {
 }
 
 // SaveDescription saves the new description to the current tiki (draft or editing).
-// For draft tikis (new task creation), updates the draft; for editing tikis, updates the editing copy.
+// For draft tikis (new tiki creation), updates the draft; for editing tikis, updates the editing copy.
 // Returns true if a tiki was updated, false if no tiki is being edited.
 func (tc *TikiEditSession) SaveDescription(newDescription string) bool {
 	if tc.draftTiki != nil {
@@ -263,7 +263,7 @@ func (tc *TikiEditSession) SaveDescription(newDescription string) bool {
 
 // updateTikiField updates a field in either the draft tiki or editing tiki.
 // It applies the setter function to the appropriate tiki based on priority:
-// draft tiki (new task creation) takes priority over editing tiki (existing task edit).
+// draft tiki (new tiki creation) takes priority over editing tiki (existing tiki edit).
 // Returns true if a tiki was updated, false if no tiki is being edited.
 func (tc *TikiEditSession) updateTikiField(setter func(*tikipkg.Tiki)) bool {
 	if tc.draftTiki != nil {
@@ -481,13 +481,13 @@ func (tc *TikiEditSession) SaveRecurrence(cron string) bool {
 	})
 }
 
-func (tc *TikiEditSession) handleCloneTask() bool {
-	// TODO: trigger task clone flow from detail view
+func (tc *TikiEditSession) handleCloneTiki() bool {
+	// TODO: trigger tiki clone flow from detail view
 	return true
 }
 
 // GetCurrentTiki returns the tiki being viewed or edited.
-// Returns nil if no task is currently active.
+// Returns nil if no tiki is currently active.
 func (tc *TikiEditSession) GetCurrentTiki() *tikipkg.Tiki {
 	if tc.currentTikiID == "" {
 		return nil
@@ -510,8 +510,8 @@ func (tc *TikiEditSession) SetFocusedField(field model.EditField) {
 	tc.focusedField = field
 }
 
-// AddComment adds a new comment to the current task with the specified author and text.
-// Returns false if no task is currently active, true if the comment was added successfully.
+// AddComment adds a new comment to the current tiki with the specified author and text.
+// Returns false if no tiki is currently active, true if the comment was added successfully.
 func (tc *TikiEditSession) AddComment(author, text string) bool {
 	if tc.currentTikiID == "" {
 		return false
@@ -519,7 +519,7 @@ func (tc *TikiEditSession) AddComment(author, text string) bool {
 
 	tk := tc.tikiStore.GetTiki(tc.currentTikiID)
 	if tk == nil {
-		err := fmt.Errorf("task not found: %s", tc.currentTikiID)
+		err := fmt.Errorf("tiki not found: %s", tc.currentTikiID)
 		slog.Error("failed to add comment", "tikiID", tc.currentTikiID, "error", err)
 		if tc.statusline != nil {
 			tc.statusline.SetMessage(err.Error(), model.MessageLevelError, true)

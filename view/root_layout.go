@@ -88,7 +88,7 @@ func NewRootLayout(opts RootLayoutOpts) *RootLayout {
 	// Subscribe to statusline config changes (visibility)
 	rl.statuslineListenerID = opts.StatuslineConfig.AddListener(rl.onStatuslineConfigChange)
 
-	// Subscribe to task store changes (stats updates)
+	// Subscribe to tiki store changes (stats updates)
 	if opts.TikiStore != nil {
 		rl.storeListenerID = opts.TikiStore.AddListener(rl.onStoreChange)
 	}
@@ -334,7 +334,7 @@ func (rl *RootLayout) Cleanup() {
 	}
 }
 
-// onStoreChange is called when the task store changes (task created/updated/deleted)
+// onStoreChange is called when the tiki store changes (tiki created/updated/deleted)
 func (rl *RootLayout) onStoreChange() {
 	if rl.contentView != nil {
 		rl.updateStatuslineViewStats(rl.contentView)

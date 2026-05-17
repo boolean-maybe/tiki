@@ -37,7 +37,7 @@ type Resolver interface {
 
 // BodyResolver extends Resolver with the ability to render a full document
 // body by id. Used by WikilinkProvider's bare-id short-circuit so a click on
-// `[[ABC123]]` (rewritten to `[Title](ABC123)`) renders the target task
+// `[[ABC123]]` (rewritten to `[Title](ABC123)`) renders the target tiki
 // without falling through to filesystem lookup.
 //
 // Implementations may return an empty body with ok=true to mean "known id,
@@ -52,7 +52,7 @@ type StoreResolver struct {
 	Store store.ReadStore
 }
 
-// Resolve implements Resolver against the task store. Only tikis whose ID
+// Resolve implements Resolver against the tiki store. Only tikis whose ID
 // matches the canonical bare form resolve — legacy prefixed IDs do not.
 func (r *StoreResolver) Resolve(id string) (string, string, bool) {
 	if r == nil || r.Store == nil {

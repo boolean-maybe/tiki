@@ -11,7 +11,7 @@ import (
 	tikipkg "github.com/boolean-maybe/tiki/tiki"
 )
 
-// tikiDescriptionProvider is a ContentProvider for task detail descriptions.
+// tikiDescriptionProvider is a ContentProvider for tiki detail descriptions.
 // It resolves bare document ids (`ABC123`) from the store and delegates all
 // other links — including pre-unification `TIKI-*` URLs, which are no longer
 // parsed as document references — to FileHTTP.

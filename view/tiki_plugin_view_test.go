@@ -27,16 +27,16 @@ func TestPluginViewRefreshResetsNonSelectedLaneScrollOffset(t *testing.T) {
 		},
 	}
 
-	tasks := make([]*tikipkg.Tiki, 10)
-	for i := range tasks {
+	tikis := make([]*tikipkg.Tiki, 10)
+	for i := range tikis {
 		tk := tikipkg.New()
 		tk.ID = fmt.Sprintf("T-%d", i)
-		tk.Title = fmt.Sprintf("Task %d", i)
-		tasks[i] = tk
+		tk.Title = fmt.Sprintf("Tiki %d", i)
+		tikis[i] = tk
 	}
 
 	pv := NewPluginView(tikiStore, pluginConfig, pluginDef, func(lane int) []*tikipkg.Tiki {
-		return tasks
+		return tikis
 	}, nil, controller.PluginViewActions(), true)
 
 	itemHeight := config.TikiBoxHeight
@@ -44,9 +44,9 @@ func TestPluginViewRefreshResetsNonSelectedLaneScrollOffset(t *testing.T) {
 		lb.SetRect(0, 0, 80, itemHeight*5)
 	}
 
-	// select last task in lane 0 to force scroll offset
+	// select last tiki in lane 0 to force scroll offset
 	pluginConfig.SetSelectedLane(0)
-	pluginConfig.SetSelectedIndexForLane(0, len(tasks)-1)
+	pluginConfig.SetSelectedIndexForLane(0, len(tikis)-1)
 	pv.refresh()
 
 	if pv.laneBoxes[0].scrollOffset == 0 {
@@ -60,7 +60,7 @@ func TestPluginViewRefreshResetsNonSelectedLaneScrollOffset(t *testing.T) {
 
 	// switch selection to lane 1, scroll it, then verify lane 0 resets
 	pluginConfig.SetSelectedLane(1)
-	pluginConfig.SetSelectedIndexForLane(1, len(tasks)-1)
+	pluginConfig.SetSelectedIndexForLane(1, len(tikis)-1)
 	pv.refresh()
 
 	if pv.laneBoxes[1].scrollOffset == 0 {
@@ -74,14 +74,14 @@ func TestPluginViewRefreshResetsNonSelectedLaneScrollOffset(t *testing.T) {
 func TestPluginViewGridLayout_RowCount(t *testing.T) {
 	tests := []struct {
 		name         string
-		numTasks     int
+		numTikis     int
 		columns      int
 		expectedRows int
 	}{
-		{"zero tasks", 0, 1, 0},
-		{"6 tasks / 2 cols", 6, 2, 3},
-		{"5 tasks / 3 cols", 5, 3, 2},
-		{"1 task / 1 col", 1, 1, 1},
+		{"zero tikis", 0, 1, 0},
+		{"6 tikis / 2 cols", 6, 2, 3},
+		{"5 tikis / 3 cols", 5, 3, 2},
+		{"1 tiki / 1 col", 1, 1, 1},
 	}
 
 	for _, tt := range tests {
@@ -95,16 +95,16 @@ func TestPluginViewGridLayout_RowCount(t *testing.T) {
 				Lanes:      []plugin.TikiLane{{Name: "Lane", Columns: tt.columns}},
 			}
 
-			tasks := make([]*tikipkg.Tiki, tt.numTasks)
-			for i := range tasks {
+			tikis := make([]*tikipkg.Tiki, tt.numTikis)
+			for i := range tikis {
 				tk := tikipkg.New()
 				tk.ID = fmt.Sprintf("T-%d", i)
-				tk.Title = fmt.Sprintf("Task %d", i)
-				tasks[i] = tk
+				tk.Title = fmt.Sprintf("Tiki %d", i)
+				tikis[i] = tk
 			}
 
 			pv := NewPluginView(tikiStore, pluginConfig, pluginDef, func(lane int) []*tikipkg.Tiki {
-				return tasks
+				return tikis
 			}, nil, controller.PluginViewActions(), true)
 
 			pv.refresh()
@@ -120,7 +120,7 @@ func TestPluginViewGridLayout_RowCount(t *testing.T) {
 func TestPluginViewGridLayout_SelectedRow(t *testing.T) {
 	tests := []struct {
 		name                string
-		numTasks            int
+		numTikis            int
 		columns             int
 		selectedIndex       int
 		expectedSelectedRow int
@@ -141,16 +141,16 @@ func TestPluginViewGridLayout_SelectedRow(t *testing.T) {
 				Lanes:      []plugin.TikiLane{{Name: "Lane", Columns: tt.columns}},
 			}
 
-			tasks := make([]*tikipkg.Tiki, tt.numTasks)
-			for i := range tasks {
+			tikis := make([]*tikipkg.Tiki, tt.numTikis)
+			for i := range tikis {
 				tk := tikipkg.New()
 				tk.ID = fmt.Sprintf("T-%d", i)
-				tk.Title = fmt.Sprintf("Task %d", i)
-				tasks[i] = tk
+				tk.Title = fmt.Sprintf("Tiki %d", i)
+				tikis[i] = tk
 			}
 
 			pv := NewPluginView(tikiStore, pluginConfig, pluginDef, func(lane int) []*tikipkg.Tiki {
-				return tasks
+				return tikis
 			}, nil, controller.PluginViewActions(), true)
 
 			pluginConfig.SetSelectedLane(0)
@@ -179,16 +179,16 @@ func TestPluginViewRefreshPreservesScrollOffset(t *testing.T) {
 		},
 	}
 
-	tasks := make([]*tikipkg.Tiki, 10)
-	for i := range tasks {
+	tikis := make([]*tikipkg.Tiki, 10)
+	for i := range tikis {
 		tk := tikipkg.New()
 		tk.ID = fmt.Sprintf("T-%d", i)
-		tk.Title = fmt.Sprintf("Task %d", i)
-		tasks[i] = tk
+		tk.Title = fmt.Sprintf("Tiki %d", i)
+		tikis[i] = tk
 	}
 
 	pv := NewPluginView(tikiStore, pluginConfig, pluginDef, func(lane int) []*tikipkg.Tiki {
-		return tasks
+		return tikis
 	}, nil, controller.PluginViewActions(), true)
 
 	if len(pv.laneBoxes) != 1 {
@@ -199,16 +199,16 @@ func TestPluginViewRefreshPreservesScrollOffset(t *testing.T) {
 	itemHeight := config.TikiBoxHeight
 	lane.SetRect(0, 0, 80, itemHeight*5)
 
-	pluginConfig.SetSelectedIndexForLane(0, len(tasks)-1)
+	pluginConfig.SetSelectedIndexForLane(0, len(tikis)-1)
 	pv.refresh()
 
-	expectedScrollOffset := len(tasks) - 5
+	expectedScrollOffset := len(tikis) - 5
 	if lane.scrollOffset != expectedScrollOffset {
 		t.Fatalf("expected scrollOffset %d, got %d", expectedScrollOffset, lane.scrollOffset)
 	}
 
 	laneBefore := lane
-	pluginConfig.SetSelectedIndexForLane(0, len(tasks)-2)
+	pluginConfig.SetSelectedIndexForLane(0, len(tikis)-2)
 	pv.refresh()
 
 	if pv.laneBoxes[0] != laneBefore {

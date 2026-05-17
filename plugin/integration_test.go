@@ -29,7 +29,7 @@ func newWFTiki(id, status string, tags []string) *tikipkg.Tiki {
 func TestPluginWithTagFilter(t *testing.T) {
 	schema := rukiRuntime.NewSchema()
 	pluginYAML := `
-name: UI Tasks
+name: UI Tikis
 foreground: "#ffffff"
 background: "#0000ff"
 key: U
@@ -44,8 +44,8 @@ lanes:
 		t.Fatalf("failed to parse plugin: %v", err)
 	}
 
-	if def.GetName() != "UI Tasks" {
-		t.Errorf("expected name 'UI Tasks', got '%s'", def.GetName())
+	if def.GetName() != "UI Tikis" {
+		t.Errorf("expected name 'UI Tikis', got '%s'", def.GetName())
 	}
 
 	tp, ok := def.(*TikiPlugin)
@@ -71,10 +71,10 @@ lanes:
 
 	filtered := result.Select.Tikis
 	if len(filtered) != 2 {
-		t.Fatalf("expected 2 matching tasks, got %d", len(filtered))
+		t.Fatalf("expected 2 matching tikis, got %d", len(filtered))
 	}
 
-	// task with "ui"+"design" and task with "ux" should match; "backend"+"api" should not
+	// tiki with "ui"+"design" and tiki with "ux" should match; "backend"+"api" should not
 	ids := map[string]bool{}
 	for _, tk := range filtered {
 		ids[tk.ID] = true
@@ -125,7 +125,7 @@ lanes:
 
 	filtered := result.Select.Tikis
 	if len(filtered) != 1 {
-		t.Fatalf("expected 1 matching task, got %d", len(filtered))
+		t.Fatalf("expected 1 matching tiki, got %d", len(filtered))
 	}
 	if filtered[0].ID != "T00001" {
 		t.Errorf("expected T00001, got %s", filtered[0].ID)

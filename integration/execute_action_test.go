@@ -16,7 +16,7 @@ import (
 
 // initGitRepo initializes a minimal git repo so the runtime can resolve user().
 // rukiRuntime.RunQuery calls readStore.GetCurrentUser(), which returns an error
-// when the task directory isn't a git repo.
+// when the tiki directory isn't a git repo.
 func initGitRepo(t *testing.T, dir string) {
 	t.Helper()
 	cmds := [][]string{
@@ -63,8 +63,8 @@ func setupExecuteActionTest(t *testing.T) *testutil.TestApp {
 		t.Fatalf("failed to load plugins: %v", err)
 	}
 
-	if err := testutil.CreateTestTiki(ta.TikiDir, "000001", "Test Task", "backlog", "story"); err != nil {
-		t.Fatalf("failed to create task: %v", err)
+	if err := testutil.CreateTestTiki(ta.TikiDir, "000001", "Test Tiki", "backlog", "story"); err != nil {
+		t.Fatalf("failed to create tiki: %v", err)
 	}
 	if err := ta.TikiStore.Reload(); err != nil {
 		t.Fatalf("failed to reload: %v", err)
@@ -116,7 +116,7 @@ func TestExecuteAction_EnterRunsRukiAndCloses(t *testing.T) {
 	}
 	updated := ta.TikiStore.GetTiki("000001")
 	if updated == nil {
-		t.Fatal("task not found")
+		t.Fatal("tiki not found")
 	}
 	assignee, _, _ := updated.StringField("assignee")
 	if assignee != "alice" {
@@ -142,7 +142,7 @@ func TestExecuteAction_EscCancelsWithoutMutation(t *testing.T) {
 	}
 	updated := ta.TikiStore.GetTiki("000001")
 	if updated == nil {
-		t.Fatal("task not found")
+		t.Fatal("tiki not found")
 	}
 	assignee, _, _ := updated.StringField("assignee")
 	if assignee != "" {
@@ -213,7 +213,7 @@ func TestExecuteAction_PaletteDispatchOpensPrompt(t *testing.T) {
 	}
 	updated := ta.TikiStore.GetTiki("000001")
 	if updated == nil {
-		t.Fatal("task not found")
+		t.Fatal("tiki not found")
 	}
 	assignee, _, _ := updated.StringField("assignee")
 	if assignee != "eve" {

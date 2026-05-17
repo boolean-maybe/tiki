@@ -84,7 +84,7 @@ func main() {
 		os.Exit(runRepair(os.Args[2:]))
 	}
 
-	// Handle piped stdin: create a task and exit without launching TUI
+	// Handle piped stdin: create a tiki and exit without launching TUI
 	if pipe.IsPipedInput() && !pipe.HasPositionalArgs(os.Args[1:]) {
 		tikiID, err := pipe.CreateTikiFromReader(os.Stdin)
 		if err != nil {

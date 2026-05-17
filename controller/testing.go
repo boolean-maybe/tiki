@@ -32,11 +32,11 @@ func (m *mockSelectableView) SetSelectedID(_ string)             {}
 
 // Test fixtures
 
-// newTestTask creates a workflow tiki with default test values.
-func newTestTask() *tikipkg.Tiki {
+// newTestTiki creates a workflow tiki with default test values.
+func newTestTiki() *tikipkg.Tiki {
 	tk := tikipkg.New()
 	tk.ID = "000001"
-	tk.Title = "Test Task"
+	tk.Title = "Test Tiki"
 	tk.Set(tikipkg.FieldStatus, "ready")
 	tk.Set(tikipkg.FieldType, "story")
 	tk.Set(tikipkg.FieldPriority, "medium")
@@ -44,19 +44,9 @@ func newTestTask() *tikipkg.Tiki {
 	return tk
 }
 
-// newTestTaskWithID creates a workflow tiki with ID "DRAFT1".
-func newTestTaskWithID() *tikipkg.Tiki {
-	tk := newTestTask()
+// newTestTikiWithID creates a workflow tiki with ID "DRAFT1".
+func newTestTikiWithID() *tikipkg.Tiki {
+	tk := newTestTiki()
 	tk.ID = "DRAFT1"
 	return tk
-}
-
-// newTestTiki creates a test tiki with default values (matches newTestTask).
-func newTestTiki() *tikipkg.Tiki {
-	return newTestTask()
-}
-
-// newTestTikiWithID creates a test tiki with ID "DRAFT1".
-func newTestTikiWithID() *tikipkg.Tiki {
-	return newTestTaskWithID()
 }

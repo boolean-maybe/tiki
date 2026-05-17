@@ -126,7 +126,7 @@ func equalStrings(a, b []string) bool {
 }
 
 func TestMapValueTypeCompleteness(t *testing.T) {
-	// status, task type, and custom enum all share TypeEnum, which maps to ValueEnum.
+	// status, tiki type, and custom enum all share TypeEnum, which maps to ValueEnum.
 	types := []workflow.ValueType{
 		workflow.TypeString, workflow.TypeInt, workflow.TypeDate,
 		workflow.TypeTimestamp, workflow.TypeDuration, workflow.TypeBool,

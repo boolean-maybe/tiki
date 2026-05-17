@@ -162,7 +162,7 @@ func (g *TikiMutationGate) UpdateTiki(ctx context.Context, tk *tikipkg.Tiki) err
 	g.ensureStore()
 	raw := g.store.GetTiki(tk.ID)
 	if raw == nil {
-		return fmt.Errorf("task not found: %s", tk.ID)
+		return fmt.Errorf("tiki not found: %s", tk.ID)
 	}
 	old := raw.Clone()
 	allTikis := g.candidateAllTikis(tk)

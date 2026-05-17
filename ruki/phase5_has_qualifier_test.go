@@ -56,7 +56,7 @@ func TestPhase5_Has_RejectsTargetQualifierInCLI(t *testing.T) {
 // --- trigger guard rejects bare refs inside has() ---
 //
 // Bare field refs are rejected in trigger guards (the guard has no
-// "current task"; refs must be qualified with old./new.). has() must
+// "current tiki"; refs must be qualified with old./new.). has() must
 // honor that rule too — otherwise bare has(status) would silently
 // evaluate against an ambiguous sentinel.
 

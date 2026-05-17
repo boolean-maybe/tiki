@@ -101,9 +101,9 @@ func TestNewUtil_invalidPath(t *testing.T) {
 
 func TestNewUtil_fromSubdirectory(t *testing.T) {
 	dir, repo := setupTestRepo(t)
-	commitFile(t, repo, dir, "tasks/tiki-001.md", "task1", "alice", "add task")
+	commitFile(t, repo, dir, "tikis/tiki-001.md", "tiki1", "alice", "add tiki")
 
-	subDir := filepath.Join(dir, "tasks")
+	subDir := filepath.Join(dir, "tikis")
 	u, err := gogit.NewUtil(subDir)
 	if err != nil {
 		t.Fatalf("NewUtil from subdirectory: %v", err)
@@ -111,7 +111,7 @@ func TestNewUtil_fromSubdirectory(t *testing.T) {
 
 	// AllAuthors with an absolute pattern from the subdirectory should still
 	// resolve against the repo root, not the subdirectory
-	absPattern := filepath.Join(dir, "tasks", "*.md")
+	absPattern := filepath.Join(dir, "tikis", "*.md")
 	authors, err := u.AllAuthors(absPattern)
 	if err != nil {
 		t.Fatalf("AllAuthors: %v", err)
@@ -188,15 +188,15 @@ func TestCurrentUser(t *testing.T) {
 
 func TestAuthor(t *testing.T) {
 	dir, repo := setupTestRepo(t)
-	commitFile(t, repo, dir, "tasks/tiki-001.md", "---\ntitle: test\n---\n", "alice", "add task")
-	commitFile(t, repo, dir, "tasks/tiki-001.md", "---\ntitle: updated\n---\n", "bob", "update task")
+	commitFile(t, repo, dir, "tikis/tiki-001.md", "---\ntitle: test\n---\n", "alice", "add tiki")
+	commitFile(t, repo, dir, "tikis/tiki-001.md", "---\ntitle: updated\n---\n", "bob", "update tiki")
 
 	u, err := gogit.NewUtil(dir)
 	if err != nil {
 		t.Fatalf("NewUtil: %v", err)
 	}
 
-	author, err := u.Author("tasks/tiki-001.md")
+	author, err := u.Author("tikis/tiki-001.md")
 	if err != nil {
 		t.Fatalf("Author: %v", err)
 	}
@@ -207,16 +207,16 @@ func TestAuthor(t *testing.T) {
 
 func TestAllAuthors(t *testing.T) {
 	dir, repo := setupTestRepo(t)
-	commitFile(t, repo, dir, "tasks/tiki-001.md", "task1", "alice", "add task 1")
-	commitFile(t, repo, dir, "tasks/tiki-002.md", "task2", "bob", "add task 2")
-	commitFile(t, repo, dir, "tasks/tiki-001.md", "task1-updated", "charlie", "update task 1")
+	commitFile(t, repo, dir, "tikis/tiki-001.md", "tiki1", "alice", "add tiki 1")
+	commitFile(t, repo, dir, "tikis/tiki-002.md", "tiki2", "bob", "add tiki 2")
+	commitFile(t, repo, dir, "tikis/tiki-001.md", "tiki1-updated", "charlie", "update tiki 1")
 
 	u, err := gogit.NewUtil(dir)
 	if err != nil {
 		t.Fatalf("NewUtil: %v", err)
 	}
 
-	authors, err := u.AllAuthors("tasks/*.md")
+	authors, err := u.AllAuthors("tikis/*.md")
 	if err != nil {
 		t.Fatalf("AllAuthors: %v", err)
 	}
@@ -224,11 +224,11 @@ func TestAllAuthors(t *testing.T) {
 	if len(authors) != 2 {
 		t.Fatalf("expected 2 authors, got %d", len(authors))
 	}
-	if authors["tasks/tiki-001.md"].Name != "alice" {
-		t.Errorf("task 1 author = %q, want %q", authors["tasks/tiki-001.md"].Name, "alice")
+	if authors["tikis/tiki-001.md"].Name != "alice" {
+		t.Errorf("tiki 1 author = %q, want %q", authors["tikis/tiki-001.md"].Name, "alice")
 	}
-	if authors["tasks/tiki-002.md"].Name != "bob" {
-		t.Errorf("task 2 author = %q, want %q", authors["tasks/tiki-002.md"].Name, "bob")
+	if authors["tikis/tiki-002.md"].Name != "bob" {
+		t.Errorf("tiki 2 author = %q, want %q", authors["tikis/tiki-002.md"].Name, "bob")
 	}
 }
 
@@ -267,15 +267,15 @@ func TestLastCommitTime(t *testing.T) {
 	t1 := time.Date(2024, 1, 1, 12, 0, 0, 0, time.UTC)
 	t2 := time.Date(2024, 6, 1, 12, 0, 0, 0, time.UTC)
 
-	commitFileAt(t, repo, dir, "tasks/tiki-001.md", "v1", "alice", "c1", t1)
-	commitFileAt(t, repo, dir, "tasks/tiki-001.md", "v2", "bob", "c2", t2)
+	commitFileAt(t, repo, dir, "tikis/tiki-001.md", "v1", "alice", "c1", t1)
+	commitFileAt(t, repo, dir, "tikis/tiki-001.md", "v2", "bob", "c2", t2)
 
 	u, err := gogit.NewUtil(dir)
 	if err != nil {
 		t.Fatalf("NewUtil: %v", err)
 	}
 
-	lastTime, err := u.LastCommitTime("tasks/tiki-001.md")
+	lastTime, err := u.LastCommitTime("tikis/tiki-001.md")
 	if err != nil {
 		t.Fatalf("LastCommitTime: %v", err)
 	}
@@ -292,16 +292,16 @@ func TestAllLastCommitTimes(t *testing.T) {
 	t2 := time.Date(2024, 6, 1, 12, 0, 0, 0, time.UTC)
 	t3 := time.Date(2024, 8, 1, 12, 0, 0, 0, time.UTC)
 
-	commitFileAt(t, repo, dir, "tasks/tiki-001.md", "v1", "alice", "c1", t1)
-	commitFileAt(t, repo, dir, "tasks/tiki-002.md", "v1", "bob", "c2", t2)
-	commitFileAt(t, repo, dir, "tasks/tiki-001.md", "v2", "charlie", "c3", t3)
+	commitFileAt(t, repo, dir, "tikis/tiki-001.md", "v1", "alice", "c1", t1)
+	commitFileAt(t, repo, dir, "tikis/tiki-002.md", "v1", "bob", "c2", t2)
+	commitFileAt(t, repo, dir, "tikis/tiki-001.md", "v2", "charlie", "c3", t3)
 
 	u, err := gogit.NewUtil(dir)
 	if err != nil {
 		t.Fatalf("NewUtil: %v", err)
 	}
 
-	times, err := u.AllLastCommitTimes("tasks/*.md")
+	times, err := u.AllLastCommitTimes("tikis/*.md")
 	if err != nil {
 		t.Fatalf("AllLastCommitTimes: %v", err)
 	}
@@ -309,11 +309,11 @@ func TestAllLastCommitTimes(t *testing.T) {
 	if len(times) != 2 {
 		t.Fatalf("expected 2 entries, got %d", len(times))
 	}
-	if !times["tasks/tiki-001.md"].Equal(t3) {
-		t.Errorf("task 1 time = %v, want %v", times["tasks/tiki-001.md"], t3)
+	if !times["tikis/tiki-001.md"].Equal(t3) {
+		t.Errorf("tiki 1 time = %v, want %v", times["tikis/tiki-001.md"], t3)
 	}
-	if !times["tasks/tiki-002.md"].Equal(t2) {
-		t.Errorf("task 2 time = %v, want %v", times["tasks/tiki-002.md"], t2)
+	if !times["tikis/tiki-002.md"].Equal(t2) {
+		t.Errorf("tiki 2 time = %v, want %v", times["tikis/tiki-002.md"], t2)
 	}
 }
 
@@ -370,9 +370,9 @@ func TestAllFileVersionsSince(t *testing.T) {
 	t2 := time.Date(2024, 6, 1, 12, 0, 0, 0, time.UTC)
 	t3 := time.Date(2024, 8, 1, 12, 0, 0, 0, time.UTC)
 
-	commitFileAt(t, repo, dir, "tasks/a.md", "---\nstatus: open\n---\n", "alice", "c1", t1)
-	commitFileAt(t, repo, dir, "tasks/a.md", "---\nstatus: closed\n---\n", "bob", "c2", t2)
-	commitFileAt(t, repo, dir, "tasks/b.md", "---\nstatus: open\n---\n", "charlie", "c3", t3)
+	commitFileAt(t, repo, dir, "tikis/a.md", "---\nstatus: open\n---\n", "alice", "c1", t1)
+	commitFileAt(t, repo, dir, "tikis/a.md", "---\nstatus: closed\n---\n", "bob", "c2", t2)
+	commitFileAt(t, repo, dir, "tikis/b.md", "---\nstatus: open\n---\n", "charlie", "c3", t3)
 
 	u, err := gogit.NewUtil(dir)
 	if err != nil {
@@ -380,7 +380,7 @@ func TestAllFileVersionsSince(t *testing.T) {
 	}
 
 	since := time.Date(2024, 3, 1, 0, 0, 0, 0, time.UTC)
-	result, err := u.AllFileVersionsSince("tasks/*.md", since, false)
+	result, err := u.AllFileVersionsSince("tikis/*.md", since, false)
 	if err != nil {
 		t.Fatalf("AllFileVersionsSince: %v", err)
 	}

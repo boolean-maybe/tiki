@@ -35,35 +35,35 @@ func makeTiki(id string, tikiType string, priority string) *tikipkg.Tiki {
 	return tk
 }
 
-func TestBuildCompactTaskContent(t *testing.T) {
+func TestBuildCompactTikiContent(t *testing.T) {
 	colors := theme.Roles()
 
 	tests := []struct {
 		name           string
-		task           *tikipkg.Tiki
+		tiki           *tikipkg.Tiki
 		availableWidth int
 		contains       []string
 		notContains    []string
 	}{
 		{
-			name:           "contains task ID",
-			task:           makeTiki("ABC123", "story", "medium"),
+			name:           "contains tiki ID",
+			tiki:           makeTiki("ABC123", "story", "medium"),
 			availableWidth: 40,
 			contains:       []string{"ABC123"},
 		},
 		{
 			name: "contains title",
-			task: func() *tikipkg.Tiki {
+			tiki: func() *tikipkg.Tiki {
 				tk := makeTiki("TTL001", "story", "medium")
-				tk.Title = "My Task"
+				tk.Title = "My Tiki"
 				return tk
 			}(),
 			availableWidth: 40,
-			contains:       []string{"My Task"},
+			contains:       []string{"My Tiki"},
 		},
 		{
 			name: "title truncated at width",
-			task: func() *tikipkg.Tiki {
+			tiki: func() *tikipkg.Tiki {
 				tk := makeTiki("TRC001", "story", "medium")
 				tk.Title = "ABCDEFGHIJ"
 				return tk
@@ -74,37 +74,37 @@ func TestBuildCompactTaskContent(t *testing.T) {
 		},
 		{
 			name:           "emoji for story type",
-			task:           makeTiki("EMO001", "story", "medium"),
+			tiki:           makeTiki("EMO001", "story", "medium"),
 			availableWidth: 40,
 			contains:       []string{fieldEmoji("type", "story")},
 		},
 		{
 			name:           "emoji for bug type",
-			task:           makeTiki("EMO002", "bug", "medium"),
+			tiki:           makeTiki("EMO002", "bug", "medium"),
 			availableWidth: 40,
 			contains:       []string{fieldEmoji("type", "bug")},
 		},
 		{
 			name:           "priority label",
-			task:           makeTiki("PRI001", "story", "high"),
+			tiki:           makeTiki("PRI001", "story", "high"),
 			availableWidth: 40,
 			contains:       []string{fieldEmoji("priority", "high")},
 		},
 		{
 			name:           "zero points does not panic",
-			task:           makeTiki("PT0001", "story", "medium"),
+			tiki:           makeTiki("PT0001", "story", "medium"),
 			availableWidth: 40,
 		},
 		{
 			name:           "empty title does not panic",
-			task:           makeTiki("NT0001", "story", "medium"),
+			tiki:           makeTiki("NT0001", "story", "medium"),
 			availableWidth: 40,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result := buildCompactTaskContent(tt.task, colors, tt.availableWidth)
+			result := buildCompactTikiContent(tt.tiki, colors, tt.availableWidth)
 
 			if result == "" {
 				t.Error("expected non-empty output")
@@ -123,17 +123,17 @@ func TestBuildCompactTaskContent(t *testing.T) {
 	}
 }
 
-// TestBuildCompactTaskContent_TitleRoleMarkupExpands pins that a compact
-// task card whose title carries `<role>` color markup renders with the
+// TestBuildCompactTikiContent_TitleRoleMarkupExpands pins that a compact
+// tiki card whose title carries `<role>` color markup renders with the
 // resolved tview color tag and the literal text. Card titles are
 // user-controlled — same escape-then-expand contract as the detail view's
 // title.
-func TestBuildCompactTaskContent_TitleRoleMarkupExpands(t *testing.T) {
+func TestBuildCompactTikiContent_TitleRoleMarkupExpands(t *testing.T) {
 	colors := theme.Roles()
 	tk := makeTiki("MRK001", "story", "medium")
 	tk.Title = "<highlight>foo"
 
-	got := buildCompactTaskContent(tk, colors, 40)
+	got := buildCompactTikiContent(tk, colors, 40)
 	highlightTag := colors.Highlight().Tag()
 	if !strings.Contains(got, highlightTag) {
 		t.Errorf("expected highlight color tag %q in compact content, got %q", highlightTag, got)
@@ -143,36 +143,36 @@ func TestBuildCompactTaskContent_TitleRoleMarkupExpands(t *testing.T) {
 	}
 }
 
-// TestBuildCompactTaskContent_TitleTviewTagsEscaped pins that literal
+// TestBuildCompactTikiContent_TitleTviewTagsEscaped pins that literal
 // tview `[red]` tags in a stored title are escaped — they appear as
 // characters, not active color markup. Guards against hostile stored
 // content from hijacking row coloring.
-func TestBuildCompactTaskContent_TitleTviewTagsEscaped(t *testing.T) {
+func TestBuildCompactTikiContent_TitleTviewTagsEscaped(t *testing.T) {
 	colors := theme.Roles()
 	tk := makeTiki("MRK002", "story", "medium")
 	tk.Title = "[red]x[/]"
 
-	got := buildCompactTaskContent(tk, colors, 40)
+	got := buildCompactTikiContent(tk, colors, 40)
 	if !strings.Contains(got, "[red") {
 		t.Errorf("expected '[red' fragment to be escaped/present in compact content, got %q", got)
 	}
 }
 
-// TestBuildCompactTaskContent_TitleTruncatedMidRoleToken pins the
+// TestBuildCompactTikiContent_TitleTruncatedMidRoleToken pins the
 // truncation-safety contract for title markup: when the title is chopped
 // mid-token by the caller's width-based truncator, the rendered card must
 // not leak the broken `<role` fragment as visible text. The fix trims
 // any unclosed `<...` tail before passing to ExpandVisual; the visible
 // title shortens slightly more than the raw rune width allowed, but the
 // alternative (broken token visible on every narrow board) is worse.
-func TestBuildCompactTaskContent_TitleTruncatedMidRoleToken(t *testing.T) {
+func TestBuildCompactTikiContent_TitleTruncatedMidRoleToken(t *testing.T) {
 	colors := theme.Roles()
 	tk := makeTiki("TRC100", "story", "medium")
 	tk.Title = "<highlight>fix the very long bug"
 
 	// Pick a width that chops mid-token. The raw title is 30 chars;
 	// width 12 means TruncateText returns "<highligh..." or similar.
-	got := buildCompactTaskContent(tk, colors, 12)
+	got := buildCompactTikiContent(tk, colors, 12)
 
 	// Must NOT contain a dangling open-angle token. Allow `<<` (literal
 	// angle, escape form) and `<role>foo` (intact token); reject only an
@@ -209,14 +209,14 @@ func TestTrimUnclosedRoleToken_Cases(t *testing.T) {
 	}
 }
 
-// TestBuildExpandedTaskContent_TitleRoleMarkupExpands mirrors the compact
+// TestBuildExpandedTikiContent_TitleRoleMarkupExpands mirrors the compact
 // test for the expanded card variant: same title path, same expectations.
-func TestBuildExpandedTaskContent_TitleRoleMarkupExpands(t *testing.T) {
+func TestBuildExpandedTikiContent_TitleRoleMarkupExpands(t *testing.T) {
 	colors := theme.Roles()
 	tk := makeTiki("MRK003", "story", "medium")
 	tk.Title = "<highlight>bar"
 
-	got := buildExpandedTaskContent(tk, colors, 40)
+	got := buildExpandedTikiContent(tk, colors, 40)
 	highlightTag := colors.Highlight().Tag()
 	if !strings.Contains(got, highlightTag) {
 		t.Errorf("expected highlight color tag %q in expanded content, got %q", highlightTag, got)
@@ -226,24 +226,24 @@ func TestBuildExpandedTaskContent_TitleRoleMarkupExpands(t *testing.T) {
 	}
 }
 
-func TestBuildExpandedTaskContent(t *testing.T) {
+func TestBuildExpandedTikiContent(t *testing.T) {
 	colors := theme.Roles()
 
 	tests := []struct {
 		name           string
-		task           *tikipkg.Tiki
+		tiki           *tikipkg.Tiki
 		availableWidth int
 		contains       []string
 		notContains    []string
 	}{
 		{
 			name:           "empty description no panic",
-			task:           makeTiki("EXP001", "story", "medium"),
+			tiki:           makeTiki("EXP001", "story", "medium"),
 			availableWidth: 40,
 		},
 		{
 			name: "single desc line included",
-			task: func() *tikipkg.Tiki {
+			tiki: func() *tikipkg.Tiki {
 				tk := makeTiki("EXP002", "story", "medium")
 				tk.Body = "Line1"
 				return tk
@@ -253,7 +253,7 @@ func TestBuildExpandedTaskContent(t *testing.T) {
 		},
 		{
 			name: "three desc lines all included",
-			task: func() *tikipkg.Tiki {
+			tiki: func() *tikipkg.Tiki {
 				tk := makeTiki("EXP003", "story", "medium")
 				tk.Body = "L1\nL2\nL3"
 				return tk
@@ -263,7 +263,7 @@ func TestBuildExpandedTaskContent(t *testing.T) {
 		},
 		{
 			name: "fourth desc line not included",
-			task: func() *tikipkg.Tiki {
+			tiki: func() *tikipkg.Tiki {
 				tk := makeTiki("EXP004", "story", "medium")
 				tk.Body = "L1\nL2\nL3\nL4"
 				return tk
@@ -274,7 +274,7 @@ func TestBuildExpandedTaskContent(t *testing.T) {
 		},
 		{
 			name: "empty tags omits tags label",
-			task: func() *tikipkg.Tiki {
+			tiki: func() *tikipkg.Tiki {
 				tk := makeTiki("EXP005", "story", "medium")
 				tk.Set(tikipkg.FieldTags, []string{})
 				return tk
@@ -284,7 +284,7 @@ func TestBuildExpandedTaskContent(t *testing.T) {
 		},
 		{
 			name: "non-empty tags included",
-			task: func() *tikipkg.Tiki {
+			tiki: func() *tikipkg.Tiki {
 				tk := makeTiki("EXP006", "story", "medium")
 				tk.Set(tikipkg.FieldTags, []string{"ui", "backend"})
 				return tk
@@ -294,7 +294,7 @@ func TestBuildExpandedTaskContent(t *testing.T) {
 		},
 		{
 			name: "tag truncated at small width no panic",
-			task: func() *tikipkg.Tiki {
+			tiki: func() *tikipkg.Tiki {
 				tk := makeTiki("EXP007", "story", "medium")
 				tk.Set(tikipkg.FieldTags, []string{"abcdefghij"})
 				return tk
@@ -303,7 +303,7 @@ func TestBuildExpandedTaskContent(t *testing.T) {
 		},
 		{
 			name: "desc line truncated at small width",
-			task: func() *tikipkg.Tiki {
+			tiki: func() *tikipkg.Tiki {
 				tk := makeTiki("EXP008", "story", "medium")
 				tk.Body = "ABCDEFGHIJ"
 				return tk
@@ -316,7 +316,7 @@ func TestBuildExpandedTaskContent(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result := buildExpandedTaskContent(tt.task, colors, tt.availableWidth)
+			result := buildExpandedTikiContent(tt.tiki, colors, tt.availableWidth)
 
 			if result == "" {
 				t.Error("expected non-empty output")

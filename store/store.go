@@ -4,7 +4,7 @@ import (
 	tikipkg "github.com/boolean-maybe/tiki/tiki"
 )
 
-// Store is the interface for task storage engines.
+// Store is the interface for tiki storage engines.
 // Implementations must be thread-safe and notify listeners on changes.
 type Store interface {
 	ReadStore

@@ -224,7 +224,7 @@ func replaceFrontmatterID(path, newID string) error {
 	if err != nil {
 		return err
 	}
-	//nolint:gosec // G306: preserve existing 0644 used for task markdown
+	//nolint:gosec // G306: preserve existing 0644 used for tiki markdown
 	if err := os.WriteFile(path, []byte(updated), 0644); err != nil {
 		return fmt.Errorf("write: %w", err)
 	}

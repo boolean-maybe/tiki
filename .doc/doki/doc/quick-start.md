@@ -15,7 +15,7 @@ Or check out a demo project and play around:
 cd /tmp && tiki demo
 ```
 
-Move a task around the board with `Shift ←/Shift →`.
+Move a tiki around the board with `Shift ←/Shift →`.
 Press `?` to open the Action Palette — it lists all available actions with their shortcuts.
 Press `F2` to open the Docs view and follow links with `Tab/Enter`.
 

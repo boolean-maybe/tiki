@@ -123,7 +123,7 @@ type TikiPlugin struct {
 	BasePlugin
 	Lanes   []TikiLane     // lane definitions for this plugin
 	Mode    string         // display mode: "compact" or "expanded" (empty = compact)
-	Actions []PluginAction // shortcut actions applied to the selected task
+	Actions []PluginAction // shortcut actions applied to the selected tiki
 	TikiID  string         // optional tiki associated with this plugin (code-only, not from workflow config)
 }
 

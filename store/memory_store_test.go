@@ -12,7 +12,7 @@ import (
 	"github.com/boolean-maybe/tiki/workflow"
 )
 
-// newWorkflowTiki builds a workflow tiki from basic task-like fields.
+// newWorkflowTiki builds a workflow tiki from basic tiki-like fields.
 // Tags and dependsOn are normalized (deduped, trimmed) before storage.
 func newWorkflowTiki(id, title, status string, tags, dependsOn []string) *tikipkg.Tiki {
 	tk := tikipkg.New()
@@ -207,7 +207,7 @@ func TestInMemoryStore_DeleteTiki(t *testing.T) {
 
 	t.Run("normalizes ID for delete", func(t *testing.T) {
 		s := NewInMemoryStore()
-		if err := s.CreateTiki(&tikipkg.Tiki{ID: "LOWER1", Title: "Task"}); err != nil {
+		if err := s.CreateTiki(&tikipkg.Tiki{ID: "LOWER1", Title: "Tiki"}); err != nil {
 			t.Fatalf("CreateTiki() error = %v", err)
 		}
 
@@ -221,7 +221,7 @@ func TestInMemoryStore_DeleteTiki(t *testing.T) {
 func TestInMemoryStore_TikiComment(t *testing.T) {
 	t.Run("comment append and retrieve via tiki fields", func(t *testing.T) {
 		s := NewInMemoryStore()
-		if err := s.CreateTiki(&tikipkg.Tiki{ID: "CMT001", Title: "Task"}); err != nil {
+		if err := s.CreateTiki(&tikipkg.Tiki{ID: "CMT001", Title: "Tiki"}); err != nil {
 			t.Fatalf("CreateTiki() error = %v", err)
 		}
 
@@ -290,7 +290,7 @@ func TestInMemoryStore_SearchTikis(t *testing.T) {
 		}{
 			{"S00001", "Alpha feature", "desc alpha", []string{"ui", "frontend"}},
 			{"S00002", "Beta Bug", "beta description", []string{"backend"}},
-			{"S00003", "Gamma chore", "third task", nil},
+			{"S00003", "Gamma chore", "third tiki", nil},
 		} {
 			tk := tikipkg.New()
 			tk.ID = spec.id
@@ -493,7 +493,7 @@ func TestInMemoryStore_NewTikiTemplateExhaustion(t *testing.T) {
 	if err == nil {
 		t.Fatal("expected error for ID exhaustion, got nil")
 	}
-	if !strings.Contains(err.Error(), "failed to generate unique task ID") {
+	if !strings.Contains(err.Error(), "failed to generate unique tiki ID") {
 		t.Errorf("unexpected error message: %v", err)
 	}
 }
@@ -527,7 +527,7 @@ func TestInMemoryStore_GetAllTikis(t *testing.T) {
 		s := NewInMemoryStore()
 		orig := tikipkg.New()
 		orig.ID = "PTR001"
-		orig.Title = "Pointer Task"
+		orig.Title = "Pointer Tiki"
 		orig.Set("status", "ready")
 		if err := s.CreateTiki(orig); err != nil {
 			t.Fatalf("CreateTiki() error = %v", err)
@@ -537,8 +537,8 @@ func TestInMemoryStore_GetAllTikis(t *testing.T) {
 		if len(tikis) != 1 {
 			t.Fatalf("got %d tikis, want 1", len(tikis))
 		}
-		if tikis[0].Title != "Pointer Task" {
-			t.Errorf("title = %q, want 'Pointer Task'", tikis[0].Title)
+		if tikis[0].Title != "Pointer Tiki" {
+			t.Errorf("title = %q, want 'Pointer Tiki'", tikis[0].Title)
 		}
 		// Phase 5: GetAllTikis returns pointers to stored state.
 		// Mutations on returned tikis DO affect the store (map semantics).
@@ -582,7 +582,7 @@ func TestSearchTikis_WithQueryAndFilter(t *testing.T) {
 
 func TestSearchTikis_FilterRejectsAll(t *testing.T) {
 	s := NewInMemoryStore()
-	if err := s.CreateTiki(&tikipkg.Tiki{ID: "REJ001", Title: "Task"}); err != nil {
+	if err := s.CreateTiki(&tikipkg.Tiki{ID: "REJ001", Title: "Tiki"}); err != nil {
 		t.Fatalf("failed to create tiki: %v", err)
 	}
 
@@ -645,7 +645,7 @@ func TestNewTikiTemplate_IDCollision(t *testing.T) {
 }
 
 // workflowEnumDefault returns the default key for a workflow enum field, or
-// "" when no default is configured. Replaces task.DefaultStatus / DefaultType
+// "" when no default is configured. Replaces tiki.DefaultStatus / DefaultType
 // helpers that used to wrap workflow.Field("...").EnumDefault().
 func workflowEnumDefault(fieldName string) string {
 	fd, ok := workflow.Field(fieldName)

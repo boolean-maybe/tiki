@@ -109,12 +109,12 @@ func TestActionPalette_AsteriskDoesNotOpenPalette(t *testing.T) {
 	}
 }
 
-func TestActionPalette_OpensInTaskEdit(t *testing.T) {
+func TestActionPalette_OpensInTikiEdit(t *testing.T) {
 	ta := testutil.NewTestApp(t)
 	defer ta.Cleanup()
 
 	if err := testutil.CreateTestTiki(ta.TikiDir, "000001", "Test", "ready", "story"); err != nil {
-		t.Fatalf("create task: %v", err)
+		t.Fatalf("create tiki: %v", err)
 	}
 	if err := ta.TikiStore.Reload(); err != nil {
 		t.Fatalf("reload: %v", err)
@@ -126,11 +126,11 @@ func TestActionPalette_OpensInTaskEdit(t *testing.T) {
 	}))
 	ta.Draw()
 
-	// Ctrl+A should open the palette even in task edit
+	// Ctrl+A should open the palette even in tiki edit
 	ta.SendKey(tcell.KeyCtrlA, 0, tcell.ModCtrl)
 
 	if !ta.GetPaletteConfig().IsVisible() {
-		t.Fatal("palette should open when Ctrl+A is pressed in task edit view")
+		t.Fatal("palette should open when Ctrl+A is pressed in tiki edit view")
 	}
 
 	ta.SendKey(tcell.KeyEscape, 0, tcell.ModNone)

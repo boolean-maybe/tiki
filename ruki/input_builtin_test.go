@@ -95,8 +95,8 @@ func TestInputBuiltin_Executor_ReturnsValue(t *testing.T) {
 
 	e := NewExecutor(testSchema{}, func() string { return "alice" }, ExecutorRuntime{Mode: ExecutorRuntimePlugin})
 
-	testTask := &tikiFixture{ID: "TIKI-000001", Title: "test", Status: "ready", Type: "task"}
-	result, err := e.testExec(vs, []*tikiFixture{testTask}, ExecutionInput{
+	testTiki := &tikiFixture{ID: "TIKI-000001", Title: "test", Status: "ready", Type: "tiki"}
+	result, err := e.testExec(vs, []*tikiFixture{testTiki}, ExecutionInput{
 		SelectedTikiIDs: []string{"TIKI-000001"},
 		InputValue:      "bob",
 		HasInput:        true,
@@ -108,7 +108,7 @@ func TestInputBuiltin_Executor_ReturnsValue(t *testing.T) {
 		t.Fatal("expected update result")
 	}
 	if len(result.Update.Updated) == 0 {
-		t.Fatal("expected at least one updated task")
+		t.Fatal("expected at least one updated tiki")
 	}
 	updated := result.Update.Updated[0]
 	if updated.Assignee != "bob" {
@@ -129,8 +129,8 @@ func TestInputBuiltin_Executor_MissingInput(t *testing.T) {
 
 	e := NewExecutor(testSchema{}, func() string { return "alice" }, ExecutorRuntime{Mode: ExecutorRuntimePlugin})
 
-	testTask := &tikiFixture{ID: "TIKI-000001", Title: "test", Status: "ready", Type: "task"}
-	_, err = e.testExec(vs, []*tikiFixture{testTask}, ExecutionInput{
+	testTiki := &tikiFixture{ID: "TIKI-000001", Title: "test", Status: "ready", Type: "tiki"}
+	_, err = e.testExec(vs, []*tikiFixture{testTiki}, ExecutionInput{
 		SelectedTikiIDs: []string{"TIKI-000001"},
 	})
 	if err == nil {

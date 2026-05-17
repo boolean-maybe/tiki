@@ -22,16 +22,16 @@ func TestParseFrontmatter(t *testing.T) {
 			name: "valid frontmatter with all fields",
 			input: `---
 id: ABC123
-title: Test Task
+title: Test Tiki
 type: story
 status: todo
 ---
-Task description here`,
+Tiki description here`,
 			expectedFrontmatter: `id: ABC123
-title: Test Task
+title: Test Tiki
 type: story
 status: todo`,
-			expectedBody: "Task description here",
+			expectedBody: "Tiki description here",
 			expectError:  false,
 		},
 		{

@@ -35,13 +35,13 @@ const (
 	ActionNavDown       ActionID = "nav_down"
 )
 
-// ActionID values for task detail view actions.
+// ActionID values for tiki detail view actions.
 const (
 	ActionEditTitle  ActionID = "edit_title"
 	ActionEditSource ActionID = "edit_source"
 	ActionEditDesc   ActionID = "edit_desc"
 	ActionFullscreen ActionID = "fullscreen"
-	ActionCloneTask  ActionID = "clone_task"
+	ActionCloneTiki  ActionID = "clone_tiki"
 	ActionEditDeps   ActionID = "edit_deps"
 	ActionEditTags   ActionID = "edit_tags"
 	ActionChat       ActionID = "chat"
@@ -64,9 +64,9 @@ const (
 	ActionDetailCancel ActionID = "detail_cancel"
 )
 
-// ActionID values for task edit view actions.
+// ActionID values for tiki edit view actions.
 const (
-	ActionSaveTask   ActionID = "save_task"
+	ActionSaveTiki   ActionID = "save_tiki"
 	ActionQuickSave  ActionID = "quick_save"
 	ActionNextField  ActionID = "next_field"
 	ActionPrevField  ActionID = "prev_field"
@@ -193,7 +193,7 @@ func PluginViewRequire(viewName string) []string {
 // attribute set — `view:*`, `ai`, custom tokens — against the AppContext
 // the target view will inhabit post-navigation.
 //
-// carriedSelection is the number of task ids the caller intends to pass
+// carriedSelection is the number of tiki ids the caller intends to pass
 // into the target's params (0 or 1 today).
 //
 // 6B.20: initial fix. Required for correctness on kind: view dispatch,
@@ -361,7 +361,7 @@ func BuildAppContext(currentView *ViewEntry, activeView View) AppContext {
 	}
 
 	// Phase 6B.3/6B.7: plugin views (wiki, detail, board, list) may carry a
-	// selected task id via PluginViewParams. If the active view did not
+	// selected tiki id via PluginViewParams. If the active view did not
 	// report a selection — e.g. the view does not implement SelectableView
 	// yet, or its selection is set after this gate runs — consult the nav
 	// params as a second source so actions gated on selection:one still
@@ -641,7 +641,7 @@ func (r *ActionRegistry) ToHeaderActionsForContext(ctx AppContext) []model.Heade
 	return result
 }
 
-// TikiDetailViewActions returns the canonical action registry for the task detail view.
+// TikiDetailViewActions returns the canonical action registry for the tiki detail view.
 // Single source of truth for both input handling and header display.
 func TikiDetailViewActions() *ActionRegistry {
 	r := NewActionRegistry()
@@ -658,7 +658,7 @@ func TikiDetailViewActions() *ActionRegistry {
 	return r
 }
 
-// ReadonlyTikiDetailViewActions returns a reduced registry for readonly task detail views.
+// ReadonlyTikiDetailViewActions returns a reduced registry for readonly tiki detail views.
 // Only fullscreen toggle is available — no editing actions.
 func ReadonlyTikiDetailViewActions() *ActionRegistry {
 	r := NewActionRegistry()
@@ -666,12 +666,12 @@ func ReadonlyTikiDetailViewActions() *ActionRegistry {
 	return r
 }
 
-// TikiEditViewActions returns the canonical action registry for the task edit view.
+// TikiEditViewActions returns the canonical action registry for the tiki edit view.
 // Separate registry so view/edit modes can diverge while sharing rendering helpers.
 func TikiEditViewActions() *ActionRegistry {
 	r := NewActionRegistry()
 
-	r.Register(Action{ID: ActionSaveTask, Key: tcell.KeyCtrlS, Label: "Save", ShowInHeader: true})
+	r.Register(Action{ID: ActionSaveTiki, Key: tcell.KeyCtrlS, Label: "Save", ShowInHeader: true})
 	r.Register(Action{ID: ActionNextField, Key: tcell.KeyTab, Label: "Next", ShowInHeader: true, HideFromPalette: true})
 	r.Register(Action{ID: ActionPrevField, Key: tcell.KeyBacktab, Label: "Prev", ShowInHeader: true, HideFromPalette: true})
 
@@ -690,7 +690,7 @@ func CommonFieldNavigationActions() *ActionRegistry {
 func TikiEditTitleActions() *ActionRegistry {
 	r := NewActionRegistry()
 	r.Register(Action{ID: ActionQuickSave, Key: tcell.KeyEnter, Label: "Quick Save", ShowInHeader: true, HideFromPalette: true})
-	r.Register(Action{ID: ActionSaveTask, Key: tcell.KeyCtrlS, Label: "Save", ShowInHeader: true})
+	r.Register(Action{ID: ActionSaveTiki, Key: tcell.KeyCtrlS, Label: "Save", ShowInHeader: true})
 	r.Merge(CommonFieldNavigationActions())
 	return r
 }
@@ -755,7 +755,7 @@ func TikiEditRecurrenceActions() *ActionRegistry {
 // TikiEditDescriptionActions returns actions available when editing the description field
 func TikiEditDescriptionActions() *ActionRegistry {
 	r := NewActionRegistry()
-	r.Register(Action{ID: ActionSaveTask, Key: tcell.KeyCtrlS, Label: "Save", ShowInHeader: true})
+	r.Register(Action{ID: ActionSaveTiki, Key: tcell.KeyCtrlS, Label: "Save", ShowInHeader: true})
 	r.Merge(CommonFieldNavigationActions())
 	return r
 }
@@ -767,7 +767,7 @@ func TikiEditDescriptionActions() *ActionRegistry {
 // per-field registry.
 func TikiEditTagsActions() *ActionRegistry {
 	r := NewActionRegistry()
-	r.Register(Action{ID: ActionSaveTask, Key: tcell.KeyCtrlS, Label: "Save", ShowInHeader: true})
+	r.Register(Action{ID: ActionSaveTiki, Key: tcell.KeyCtrlS, Label: "Save", ShowInHeader: true})
 	r.Merge(CommonFieldNavigationActions())
 	return r
 }
@@ -775,14 +775,14 @@ func TikiEditTagsActions() *ActionRegistry {
 // DescOnlyEditActions returns actions for description-only edit mode (no field navigation).
 func DescOnlyEditActions() *ActionRegistry {
 	r := NewActionRegistry()
-	r.Register(Action{ID: ActionSaveTask, Key: tcell.KeyCtrlS, Label: "Save", ShowInHeader: true})
+	r.Register(Action{ID: ActionSaveTiki, Key: tcell.KeyCtrlS, Label: "Save", ShowInHeader: true})
 	return r
 }
 
 // TagsOnlyEditActions returns actions for tags-only edit mode (no field navigation).
 func TagsOnlyEditActions() *ActionRegistry {
 	r := NewActionRegistry()
-	r.Register(Action{ID: ActionSaveTask, Key: tcell.KeyCtrlS, Label: "Save", ShowInHeader: true})
+	r.Register(Action{ID: ActionSaveTiki, Key: tcell.KeyCtrlS, Label: "Save", ShowInHeader: true})
 	return r
 }
 
@@ -833,7 +833,7 @@ func PluginViewActions() *ActionRegistry {
 	// plugin actions (shown in header)
 	idReq := []Requirement{RequireID}
 	// Enter is intentionally not bound here. Phase 1 retired the built-in
-	// "open task in detail" shortcut: the open keybinding is now declared by
+	// "open tiki in detail" shortcut: the open keybinding is now declared by
 	// the workflow as a `kind: view` action (typically `key: Enter, view: Detail`).
 	// Boards without such an action have no Enter behavior — by design.
 	r.Register(Action{ID: ActionMoveTikiLeft, Key: tcell.KeyLeft, Modifier: tcell.ModShift, Label: "Move ←", ShowInHeader: true, Require: idReq})
@@ -864,12 +864,12 @@ func DepsViewActions() *ActionRegistry {
 	r.Register(Action{ID: ActionNavLeft, Key: tcell.KeyRune, Rune: 'h', Label: "←", HideFromPalette: true})
 	r.Register(Action{ID: ActionNavRight, Key: tcell.KeyRune, Rune: 'l', Label: "→", HideFromPalette: true})
 
-	// move task between lanes (shown in header)
+	// move tiki between lanes (shown in header)
 	depsIdReq := []Requirement{RequireID}
 	r.Register(Action{ID: ActionMoveTikiLeft, Key: tcell.KeyLeft, Modifier: tcell.ModShift, Label: "Move ←", ShowInHeader: true, Require: depsIdReq})
 	r.Register(Action{ID: ActionMoveTikiRight, Key: tcell.KeyRight, Modifier: tcell.ModShift, Label: "Move →", ShowInHeader: true, Require: depsIdReq})
 
-	// task actions
+	// tiki actions
 	r.Register(Action{ID: ActionOpenFromPlugin, Key: tcell.KeyEnter, Label: "Open", ShowInHeader: true, Require: depsIdReq})
 	r.Register(Action{ID: ActionNewTiki, Key: tcell.KeyRune, Rune: 'n', Label: "New", ShowInHeader: true})
 	r.Register(Action{ID: ActionDeleteTiki, Key: tcell.KeyRune, Rune: 'd', Label: "Delete", ShowInHeader: true, Require: depsIdReq})

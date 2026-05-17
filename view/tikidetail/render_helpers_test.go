@@ -93,7 +93,7 @@ func TestRenderTitleText_WithRole(t *testing.T) {
 	roles := theme.Roles()
 	tk := tikipkg.New()
 	tk.ID = "TTL004"
-	tk.Title = "My Task"
+	tk.Title = "My Tiki"
 
 	prim := RenderTitleText(tk, FieldRenderContext{Mode: RenderModeView, Roles: roles}, "highlight", "")
 	tv, ok := prim.(*tview.TextView)
@@ -110,8 +110,8 @@ func TestRenderTitleText_WithRole(t *testing.T) {
 	if strings.Contains(got, boldTag) {
 		t.Errorf("role should replace default styling, but found bold tag %q in %q", boldTag, got)
 	}
-	if !strings.Contains(got, "My Task") {
-		t.Errorf("expected 'My Task' in rendered title, got %q", got)
+	if !strings.Contains(got, "My Tiki") {
+		t.Errorf("expected 'My Tiki' in rendered title, got %q", got)
 	}
 }
 

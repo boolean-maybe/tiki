@@ -7,12 +7,12 @@ import (
 	"testing"
 )
 
-// TestReloadTask_IDChangeRemovesStaleEntry locks in the invariant that a
+// TestReloadTiki_IDChangeRemovesStaleEntry locks in the invariant that a
 // ReloadTiki whose file's frontmatter id has changed does not leave the
-// old id pointing at the reloaded task. Without the fix, the map ends up
+// old id pointing at the reloaded tiki. Without the fix, the map ends up
 // with two entries — the stale one under the original id and the new one
 // under the updated id — both referencing the same file.
-func TestReloadTask_IDChangeRemovesStaleEntry(t *testing.T) {
+func TestReloadTiki_IDChangeRemovesStaleEntry(t *testing.T) {
 	root := t.TempDir()
 	path := filepath.Join(root, "ORIG01.md")
 	writeWorkflowDoc(t, path, "ORIG01", "original")
@@ -41,9 +41,9 @@ func TestReloadTask_IDChangeRemovesStaleEntry(t *testing.T) {
 	}
 }
 
-// TestReloadTask_IDChangeRefusesCollisionWithPeer guards the memory-map
+// TestReloadTiki_IDChangeRefusesCollisionWithPeer guards the memory-map
 // against a silent overwrite: if a file's frontmatter id is edited to an
-// id already owned by a different task, ReloadTiki must refuse to apply
+// id already owned by a different tiki, ReloadTiki must refuse to apply
 // the change. Post-conditions verified:
 //
 //  1. an error is returned naming the collision (caller can surface it);
@@ -51,7 +51,7 @@ func TestReloadTask_IDChangeRemovesStaleEntry(t *testing.T) {
 //  3. the stale old-id entry (BBBBBB) is gone — the file no longer claims
 //     that id on disk, so keeping it in the map would be a lie. The next
 //     full Reload will surface the underlying duplicate through diagnostics.
-func TestReloadTask_IDChangeRefusesCollisionWithPeer(t *testing.T) {
+func TestReloadTiki_IDChangeRefusesCollisionWithPeer(t *testing.T) {
 	root := t.TempDir()
 	aPath := filepath.Join(root, "AAAAAA.md")
 	bPath := filepath.Join(root, "BBBBBB.md")
@@ -89,10 +89,10 @@ func TestReloadTask_IDChangeRefusesCollisionWithPeer(t *testing.T) {
 	}
 }
 
-// TestReloadTask_SameIDUpdatesInPlace is the happy path: when the file's
+// TestReloadTiki_SameIDUpdatesInPlace is the happy path: when the file's
 // id is unchanged, ReloadTiki updates the existing entry in place. This
 // used to be the only behavior and must keep working.
-func TestReloadTask_SameIDUpdatesInPlace(t *testing.T) {
+func TestReloadTiki_SameIDUpdatesInPlace(t *testing.T) {
 	root := t.TempDir()
 	path := filepath.Join(root, "SAME01.md")
 	writeWorkflowDoc(t, path, "SAME01", "original title")

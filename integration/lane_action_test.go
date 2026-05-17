@@ -12,7 +12,7 @@ import (
 	"github.com/gdamore/tcell/v2"
 )
 
-func TestPluginView_MoveTaskAppliesLaneAction(t *testing.T) {
+func TestPluginView_MoveTikiAppliesLaneAction(t *testing.T) {
 	// create a temp workflow.yaml with the test plugin
 	tmpDir := t.TempDir()
 	workflowContent := testWorkflowPreamble + `views:
@@ -51,14 +51,14 @@ func TestPluginView_MoveTaskAppliesLaneAction(t *testing.T) {
 	}
 	defer ta.Cleanup()
 
-	if err := testutil.CreateTestTiki(ta.TikiDir, "000001", "Backlog Task", "backlog", "story"); err != nil {
-		t.Fatalf("failed to create task: %v", err)
+	if err := testutil.CreateTestTiki(ta.TikiDir, "000001", "Backlog Tiki", "backlog", "story"); err != nil {
+		t.Fatalf("failed to create tiki: %v", err)
 	}
-	if err := testutil.CreateTestTiki(ta.TikiDir, "000002", "Done Task", "done", "story"); err != nil {
-		t.Fatalf("failed to create task: %v", err)
+	if err := testutil.CreateTestTiki(ta.TikiDir, "000002", "Done Tiki", "done", "story"); err != nil {
+		t.Fatalf("failed to create tiki: %v", err)
 	}
 	if err := ta.TikiStore.Reload(); err != nil {
-		t.Fatalf("failed to reload tasks: %v", err)
+		t.Fatalf("failed to reload tikis: %v", err)
 	}
 
 	ta.NavController.PushView(model.MakePluginViewID("ActionTest"), nil)
@@ -67,11 +67,11 @@ func TestPluginView_MoveTaskAppliesLaneAction(t *testing.T) {
 	ta.SendKey(tcell.KeyRight, 0, tcell.ModShift)
 
 	if err := ta.TikiStore.Reload(); err != nil {
-		t.Fatalf("failed to reload tasks: %v", err)
+		t.Fatalf("failed to reload tikis: %v", err)
 	}
 	updated := ta.TikiStore.GetTiki("000001")
 	if updated == nil {
-		t.Fatalf("expected task TIKI-1 to exist")
+		t.Fatalf("expected tiki TIKI-1 to exist")
 		return
 	}
 	status, _, _ := updated.StringField("status")
@@ -86,11 +86,11 @@ func TestPluginView_MoveTaskAppliesLaneAction(t *testing.T) {
 	ta.SendKey(tcell.KeyLeft, 0, tcell.ModShift)
 
 	if err := ta.TikiStore.Reload(); err != nil {
-		t.Fatalf("failed to reload tasks: %v", err)
+		t.Fatalf("failed to reload tikis: %v", err)
 	}
 	updated = ta.TikiStore.GetTiki("000001")
 	if updated == nil {
-		t.Fatalf("expected task TIKI-1 to exist")
+		t.Fatalf("expected tiki TIKI-1 to exist")
 		return
 	}
 	status2, _, _ := updated.StringField("status")

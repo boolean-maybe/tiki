@@ -26,7 +26,7 @@ func TestIsPluginViewID(t *testing.T) {
 			expected: true,
 		},
 		{
-			name:     "task edit view",
+			name:     "tiki edit view",
 			viewID:   TikiEditViewID,
 			expected: false,
 		},
@@ -214,7 +214,7 @@ func TestViewID_RoundTrip(t *testing.T) {
 
 func TestViewID_BuiltInViews(t *testing.T) {
 	// Verify the remaining built-in view (TikiEditViewID) is not classified
-	// as a plugin view. The legacy task-detail constant has been retired in
+	// as a plugin view. The legacy tiki-detail constant has been retired in
 	// favor of the configurable detail view (which is a plugin view).
 	if IsPluginViewID(TikiEditViewID) {
 		t.Errorf("Built-in view %q incorrectly identified as plugin view", TikiEditViewID)

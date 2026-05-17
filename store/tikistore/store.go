@@ -1,6 +1,6 @@
 package tikistore
 
-// TikiStore is a file-based Store implementation that persists tasks as markdown files.
+// TikiStore is a file-based Store implementation that persists tikis as markdown files.
 
 import (
 	"errors"
@@ -15,20 +15,20 @@ import (
 	"github.com/boolean-maybe/tiki/tiki"
 )
 
-// ErrConflict indicates a task was modified externally since it was loaded
-var ErrConflict = errors.New("task was modified externally")
+// ErrConflict indicates a tiki was modified externally since it was loaded
+var ErrConflict = errors.New("tiki was modified externally")
 
 func normalizeTikiID(id string) string {
 	return strings.ToUpper(strings.TrimSpace(id))
 }
 
-// TikiStore stores tasks as markdown files with YAML frontmatter.
-// Each task is a separate .md file in the configured directory.
+// TikiStore stores tikis as markdown files with YAML frontmatter.
+// Each tiki is a separate .md file in the configured directory.
 // Commit dates are retrieved from git (not stored in file); the current
 // Tiki identity comes from configured identity → git → OS user.
 type TikiStore struct {
 	mu             sync.RWMutex
-	dir            string // directory containing task files
+	dir            string // directory containing tiki files
 	tikis          map[string]*tiki.Tiki
 	listeners      map[int]store.ChangeListener
 	nextListenerID int
@@ -39,7 +39,7 @@ type TikiStore struct {
 }
 
 // NewTikiStore creates a new TikiStore.
-// dir: directory containing task markdown files
+// dir: directory containing tiki markdown files
 func NewTikiStore(dir string) (*TikiStore, error) {
 	slog.Debug("creating new TikiStore", "dir", dir)
 	s := &TikiStore{
@@ -64,12 +64,12 @@ func NewTikiStore(dir string) (*TikiStore, error) {
 	s.mu.Lock()
 	if err := s.loadLocked(); err != nil {
 		s.mu.Unlock()
-		slog.Error("failed to load tasks during store initialization", "dir", dir, "error", err)
-		return nil, fmt.Errorf("loading tasks: %w", err)
+		slog.Error("failed to load tikis during store initialization", "dir", dir, "error", err)
+		return nil, fmt.Errorf("loading tikis: %w", err)
 	}
 	s.mu.Unlock()
 
-	slog.Info("tikiStore initialized", "dir", dir, "num_tasks", len(s.tikis))
+	slog.Info("tikiStore initialized", "dir", dir, "num_tikis", len(s.tikis))
 	return s, nil
 }
 

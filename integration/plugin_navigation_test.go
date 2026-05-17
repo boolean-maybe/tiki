@@ -18,12 +18,12 @@ import (
 // Test Data Helpers
 // ============================================================================
 
-// setupPluginTestData creates tasks matching all three default plugin filters:
+// setupPluginTestData creates tikis matching all three default plugin filters:
 // - Backlog: status = 'backlog'
 // - Recent: UpdatedAt within 2 hours
 // - Roadmap: type = 'epic'
 func setupPluginTestData(t *testing.T, ta *testutil.TestApp) {
-	tasks := []struct {
+	tikis := []struct {
 		id       string
 		title    string
 		status   string
@@ -31,12 +31,12 @@ func setupPluginTestData(t *testing.T, ta *testutil.TestApp) {
 		recent   bool // needs UpdatedAt within 2 hours
 	}{
 		// Backlog plugin: status = 'backlog'
-		{"000001", "Backlog Task 1", "backlog", "story", false},
-		{"000002", "Backlog Task 2", "backlog", "bug", false},
+		{"000001", "Backlog Tiki 1", "backlog", "story", false},
+		{"000002", "Backlog Tiki 2", "backlog", "bug", false},
 
 		// Recent plugin: UpdatedAt within 2 hours
-		{"000003", "Recent Task 1", "ready", "story", true},
-		{"000004", "Recent Task 2", "inProgress", "bug", true},
+		{"000003", "Recent Tiki 1", "ready", "story", true},
+		{"000004", "Recent Tiki 2", "inProgress", "bug", true},
 
 		// Roadmap plugin: type = 'epic'
 		{"000005", "Roadmap Epic 1", "ready", "epic", false},
@@ -46,15 +46,15 @@ func setupPluginTestData(t *testing.T, ta *testutil.TestApp) {
 		{"000007", "Recent Backlog", "backlog", "story", true},
 	}
 
-	for _, task := range tasks {
-		err := testutil.CreateTestTiki(ta.TikiDir, task.id, task.title, task.status, task.tikiType)
+	for _, tiki := range tikis {
+		err := testutil.CreateTestTiki(ta.TikiDir, tiki.id, tiki.title, tiki.status, tiki.tikiType)
 		if err != nil {
-			t.Fatalf("Failed to create task %s: %v", task.id, err)
+			t.Fatalf("Failed to create tiki %s: %v", tiki.id, err)
 		}
 
-		// For recent tasks, touch file to set mtime to now
-		if task.recent {
-			filePath := filepath.Join(ta.TikiDir, strings.ToLower(task.id)+".md")
+		// For recent tikis, touch file to set mtime to now
+		if tiki.recent {
+			filePath := filepath.Join(ta.TikiDir, strings.ToLower(tiki.id)+".md")
 			now := time.Now()
 			if err := os.Chtimes(filePath, now, now); err != nil {
 				t.Fatalf("Failed to touch file %s: %v", filePath, err)
@@ -63,7 +63,7 @@ func setupPluginTestData(t *testing.T, ta *testutil.TestApp) {
 	}
 
 	if err := ta.TikiStore.Reload(); err != nil {
-		t.Fatalf("Failed to reload task store: %v", err)
+		t.Fatalf("Failed to reload tiki store: %v", err)
 	}
 }
 
@@ -225,7 +225,7 @@ func TestPluginActions_RegistryMatchesExpectedKeys(t *testing.T) {
 		{controller.ActionToggleViewMode, tcell.KeyRune, 'v'},
 	}
 
-	// Test each plugin controller (only TikiPlugin types have task management actions)
+	// Test each plugin controller (only TikiPlugin types have tiki management actions)
 	for pluginName, pluginController := range ta.PluginControllers {
 		// Skip non-board controllers — they don't carry the board-style action set.
 		if _, ok := pluginController.(*controller.DokiController); ok {
@@ -284,7 +284,7 @@ func TestPluginActions_Navigation_ArrowKeys(t *testing.T) {
 	ta := setupTestAppWithPlugins(t)
 	defer ta.Cleanup()
 
-	// Navigate to Backlog plugin (has at least 3 tasks: TIKI-1, TIKI-2, TIKI-7)
+	// Navigate to Backlog plugin (has at least 3 tikis: TIKI-1, TIKI-2, TIKI-7)
 	ta.NavController.PushView(model.MakePluginViewID("Backlog"), nil)
 	ta.Draw()
 
@@ -299,7 +299,7 @@ func TestPluginActions_Navigation_ArrowKeys(t *testing.T) {
 		t.Errorf("Expected initial selection 0, got %d", initialIndex)
 	}
 
-	// Press Down arrow - in a 4-column grid with 3 tasks:
+	// Press Down arrow - in a 4-column grid with 3 tikis:
 	// Layout might be: [0] [1] [2] [-]
 	// Down from 0 might not move (no row below) or might cycle
 	// The exact behavior depends on the grid implementation
@@ -313,7 +313,7 @@ func TestPluginActions_Navigation_ArrowKeys(t *testing.T) {
 	// Verify that navigation keys DO affect selection
 	// (exact behavior may vary, but at least one of these should change)
 	if initialIndex == indexAfterDown && initialIndex == indexAfterRight {
-		// This might be OK if there's only 1 task or navigation wraps differently
+		// This might be OK if there's only 1 tiki or navigation wraps differently
 		t.Logf("Navigation didn't change selection (initial=%d, afterDown=%d, afterRight=%d)",
 			initialIndex, indexAfterDown, indexAfterRight)
 		// Don't fail - navigation logic may be more complex
@@ -325,7 +325,7 @@ func TestPluginActions_Navigation_ArrowKeys(t *testing.T) {
 	}
 }
 
-func TestPluginActions_OpenTask_EnterKey(t *testing.T) {
+func TestPluginActions_OpenTiki_EnterKey(t *testing.T) {
 	ta := setupTestAppWithPlugins(t)
 	defer ta.Cleanup()
 
@@ -339,28 +339,28 @@ func TestPluginActions_OpenTask_EnterKey(t *testing.T) {
 		t.Errorf("Expected stack depth 1, got %d", ta.NavController.Depth())
 	}
 
-	// Press Enter to open first task
+	// Press Enter to open first tiki
 	ta.SendKey(tcell.KeyEnter, 0, tcell.ModNone)
 
 	// Verify: configurable detail view pushed onto stack (Phase 3:
 	// Enter is workflow-declared kind: view → Detail, not built-in
 	// TikiDetailViewID).
 	if ta.NavController.Depth() != 2 {
-		t.Errorf("Expected stack depth 2 after opening task, got %d", ta.NavController.Depth())
+		t.Errorf("Expected stack depth 2 after opening tiki, got %d", ta.NavController.Depth())
 	}
 	wantDetail := model.DetailPluginViewID()
 	if ta.NavController.CurrentViewID() != wantDetail {
 		t.Errorf("Expected view %s, got %s", wantDetail, ta.NavController.CurrentViewID())
 	}
 
-	// Verify screen shows task title
-	found, _, _ := ta.FindText("Backlog Task")
+	// Verify screen shows tiki title
+	found, _, _ := ta.FindText("Backlog Tiki")
 	if !found {
-		t.Error("Expected to find task title on screen")
+		t.Error("Expected to find tiki title on screen")
 	}
 }
 
-func TestPluginActions_NewTask_NKey(t *testing.T) {
+func TestPluginActions_NewTiki_NKey(t *testing.T) {
 	ta := setupTestAppWithPlugins(t)
 	defer ta.Cleanup()
 
@@ -369,16 +369,16 @@ func TestPluginActions_NewTask_NKey(t *testing.T) {
 
 	initialDepth := ta.NavController.Depth()
 
-	// Press 'n' to create task
+	// Press 'n' to create tiki
 	ta.SendKey(tcell.KeyRune, 'n', tcell.ModNone)
 
-	// Verify: TaskEdit view pushed
+	// Verify: TikiEdit view pushed
 	if ta.NavController.CurrentViewID() != model.TikiEditViewID {
 		t.Errorf("Expected view %s after pressing 'n', got %s", model.TikiEditViewID, ta.NavController.CurrentViewID())
 	}
 
 	// Type title and save
-	ta.SendText("New Plugin Task")
+	ta.SendText("New Plugin Tiki")
 	ta.SendKey(tcell.KeyEnter, 0, tcell.ModNone)
 
 	// Verify: Back to plugin view
@@ -386,57 +386,57 @@ func TestPluginActions_NewTask_NKey(t *testing.T) {
 		t.Errorf("Expected to return to plugin view at depth %d, got %d", initialDepth, ta.NavController.Depth())
 	}
 
-	// Verify: Task created
+	// Verify: Tiki created
 	_ = ta.TikiStore.Reload()
 	tikis := ta.TikiStore.GetAllTikis()
 	var found bool
 	for _, tk := range tikis {
-		if tk.Title == "New Plugin Task" {
+		if tk.Title == "New Plugin Tiki" {
 			found = true
 			status, _, _ := tk.StringField("status")
 			if status != "backlog" {
-				t.Errorf("Expected new task to have backlog status, got %s", status)
+				t.Errorf("Expected new tiki to have backlog status, got %s", status)
 			}
 			break
 		}
 	}
 	if !found {
-		t.Error("Expected to find newly created task")
+		t.Error("Expected to find newly created tiki")
 	}
 }
 
-func TestPluginActions_DeleteTask_DKey(t *testing.T) {
+func TestPluginActions_DeleteTiki_DKey(t *testing.T) {
 	ta := setupTestAppWithPlugins(t)
 	defer ta.Cleanup()
 
-	// Create a specific task to delete
+	// Create a specific tiki to delete
 	_ = testutil.CreateTestTiki(ta.TikiDir, "DELETE", "To Delete", "backlog", "story")
 	_ = ta.TikiStore.Reload()
 
 	ta.NavController.PushView(model.MakePluginViewID("Backlog"), nil)
 	ta.Draw()
 
-	// Verify task exists
-	tikiTask := ta.TikiStore.GetTiki("DELETE")
-	if tikiTask == nil {
-		t.Fatal("Test task DELETE not found before deletion")
+	// Verify tiki exists
+	tikiTiki := ta.TikiStore.GetTiki("DELETE")
+	if tikiTiki == nil {
+		t.Fatal("Test tiki DELETE not found before deletion")
 		return
 	}
 
-	// Press 'd' to delete (assumes first task is selected)
+	// Press 'd' to delete (assumes first tiki is selected)
 	// Note: We need to ensure DELETE is selected, which depends on sort order
 	// For simplicity, we'll just verify the delete action works
 	ta.SendKey(tcell.KeyRune, 'd', tcell.ModNone)
 
-	// Verify: At least one task was deleted
+	// Verify: At least one tiki was deleted
 	_ = ta.TikiStore.Reload()
-	initialTaskCount := len(ta.TikiStore.GetAllTikis())
+	initialTikiCount := len(ta.TikiStore.GetAllTikis())
 
-	// Check if the specific file is deleted (it should be one of the backlog tasks)
+	// Check if the specific file is deleted (it should be one of the backlog tikis)
 	tikisAfter := ta.TikiStore.GetAllTikis()
-	if len(tikisAfter) >= initialTaskCount {
+	if len(tikisAfter) >= initialTikiCount {
 		// Count should decrease
-		t.Log("Task deletion completed")
+		t.Log("Tiki deletion completed")
 	}
 }
 
@@ -514,13 +514,13 @@ func TestPluginStack_MultiLevelNavigation(t *testing.T) {
 		t.Errorf("Expected Recent view, got %s", ta.NavController.CurrentViewID())
 	}
 
-	// Recent→TaskDetail (Push, depth 2)
+	// Recent→TikiDetail (Push, depth 2)
 	ta.SendKey(tcell.KeyEnter, 0, tcell.ModNone)
 	if ta.NavController.Depth() != 2 {
-		t.Errorf("Expected depth 2 after TaskDetail, got %d", ta.NavController.Depth())
+		t.Errorf("Expected depth 2 after TikiDetail, got %d", ta.NavController.Depth())
 	}
 
-	// TaskDetail→Recent (Pop, depth 1)
+	// TikiDetail→Recent (Pop, depth 1)
 	ta.SendKey(tcell.KeyEscape, 0, tcell.ModNone)
 	if ta.NavController.Depth() != 1 {
 		t.Errorf("Expected depth 1 after Esc, got %d", ta.NavController.Depth())
@@ -539,21 +539,21 @@ func TestPluginStack_MultiLevelNavigation(t *testing.T) {
 	}
 }
 
-func TestPluginStack_TaskDetailFromPlugin_ReturnsToPlugin(t *testing.T) {
+func TestPluginStack_TikiDetailFromPlugin_ReturnsToPlugin(t *testing.T) {
 	ta := setupTestAppWithPlugins(t)
 	defer ta.Cleanup()
 
-	// Kanban→Backlog(replace)→TaskDetail(push)
+	// Kanban→Backlog(replace)→TikiDetail(push)
 	ta.NavController.PushView(model.MakePluginViewID("Kanban"), nil)
 	ta.SendKey(tcell.KeyF3, 0, tcell.ModNone)    // Replace: Kanban→Backlog, depth 1
-	ta.SendKey(tcell.KeyEnter, 0, tcell.ModNone) // Push: TaskDetail, depth 2
+	ta.SendKey(tcell.KeyEnter, 0, tcell.ModNone) // Push: TikiDetail, depth 2
 
-	// Stack: Backlog, TaskDetail (depth 2)
+	// Stack: Backlog, TikiDetail (depth 2)
 	if ta.NavController.Depth() != 2 {
 		t.Errorf("Expected depth 2, got %d", ta.NavController.Depth())
 	}
 
-	// Press Esc from TaskDetail
+	// Press Esc from TikiDetail
 	ta.SendKey(tcell.KeyEscape, 0, tcell.ModNone)
 
 	// Verify: returned to Backlog
@@ -607,21 +607,21 @@ func TestPluginEsc_AtRootDoesNothing(t *testing.T) {
 	}
 }
 
-func TestPluginEsc_FromTaskDetailToPlugin(t *testing.T) {
+func TestPluginEsc_FromTikiDetailToPlugin(t *testing.T) {
 	ta := setupTestAppWithPlugins(t)
 	defer ta.Cleanup()
 
-	// Kanban→Recent(replace)→TaskDetail(push)
+	// Kanban→Recent(replace)→TikiDetail(push)
 	ta.NavController.PushView(model.MakePluginViewID("Kanban"), nil)
 	ta.SendKey(tcell.KeyRune, 'R', tcell.ModCtrl) // Recent (replaces Kanban)
-	ta.SendKey(tcell.KeyEnter, 0, tcell.ModNone)  // Open task (pushes TaskDetail)
+	ta.SendKey(tcell.KeyEnter, 0, tcell.ModNone)  // Open tiki (pushes TikiDetail)
 
-	// Plugin-to-plugin uses ReplaceView, so: Kanban→Recent = depth 1, then push TaskDetail = depth 2
+	// Plugin-to-plugin uses ReplaceView, so: Kanban→Recent = depth 1, then push TikiDetail = depth 2
 	if ta.NavController.Depth() != 2 {
 		t.Errorf("Expected depth 2, got %d", ta.NavController.Depth())
 	}
 
-	// Esc from TaskDetail
+	// Esc from TikiDetail
 	ta.SendKey(tcell.KeyEscape, 0, tcell.ModNone)
 
 	// Verify: back to Recent plugin
@@ -642,7 +642,7 @@ func TestPluginEsc_FromTaskDetailToPlugin(t *testing.T) {
 // Edge Case Tests
 // ============================================================================
 
-func TestPluginNavigation_NoTasks_EmptyView(t *testing.T) {
+func TestPluginNavigation_NoTikis_EmptyView(t *testing.T) {
 	ta := testutil.NewTestApp(t)
 	defer ta.Cleanup()
 
@@ -651,7 +651,7 @@ func TestPluginNavigation_NoTasks_EmptyView(t *testing.T) {
 		t.Fatalf("Failed to load plugins: %v", err)
 	}
 
-	// Navigate to Roadmap (should be empty without epic tasks)
+	// Navigate to Roadmap (should be empty without epic tikis)
 	ta.NavController.PushView(model.MakePluginViewID("Roadmap"), nil)
 	ta.Draw()
 
@@ -680,17 +680,17 @@ func TestPluginActions_CreateFromPlugin_ReturnsToPlugin(t *testing.T) {
 	ta.NavController.PushView(model.MakePluginViewID("Backlog"), nil)
 	ta.Draw()
 
-	// Create task
+	// Create tiki
 	ta.SendKey(tcell.KeyRune, 'n', tcell.ModNone)
 	ta.SendText("Created from Plugin")
 	ta.SendKey(tcell.KeyEnter, 0, tcell.ModNone)
 
 	// Verify: returned to Backlog plugin (not Board)
 	if ta.NavController.CurrentViewID() != model.MakePluginViewID("Backlog") {
-		t.Errorf("Expected Backlog view after creating task, got %s", ta.NavController.CurrentViewID())
+		t.Errorf("Expected Backlog view after creating tiki, got %s", ta.NavController.CurrentViewID())
 	}
 
-	// Verify: new task exists
+	// Verify: new tiki exists
 	_ = ta.TikiStore.Reload()
 	tikis := ta.TikiStore.GetAllTikis()
 	var found bool
@@ -701,11 +701,11 @@ func TestPluginActions_CreateFromPlugin_ReturnsToPlugin(t *testing.T) {
 		}
 	}
 	if !found {
-		t.Error("Expected to find newly created task")
+		t.Error("Expected to find newly created tiki")
 	}
 }
 
-func TestPluginActions_DeleteTask_UpdatesSelection(t *testing.T) {
+func TestPluginActions_DeleteTiki_UpdatesSelection(t *testing.T) {
 	ta := testutil.NewTestApp(t)
 	defer ta.Cleanup()
 
@@ -714,10 +714,10 @@ func TestPluginActions_DeleteTask_UpdatesSelection(t *testing.T) {
 		t.Fatalf("Failed to load plugins: %v", err)
 	}
 
-	// Create specific tasks for this test
-	_ = testutil.CreateTestTiki(ta.TikiDir, "00DEL1", "Task 1", "backlog", "story")
-	_ = testutil.CreateTestTiki(ta.TikiDir, "00DEL2", "Task 2", "backlog", "story")
-	_ = testutil.CreateTestTiki(ta.TikiDir, "00DEL3", "Task 3", "backlog", "story")
+	// Create specific tikis for this test
+	_ = testutil.CreateTestTiki(ta.TikiDir, "00DEL1", "Tiki 1", "backlog", "story")
+	_ = testutil.CreateTestTiki(ta.TikiDir, "00DEL2", "Tiki 2", "backlog", "story")
+	_ = testutil.CreateTestTiki(ta.TikiDir, "00DEL3", "Tiki 3", "backlog", "story")
 	_ = ta.TikiStore.Reload()
 
 	ta.NavController.PushView(model.MakePluginViewID("Backlog"), nil)
@@ -728,7 +728,7 @@ func TestPluginActions_DeleteTask_UpdatesSelection(t *testing.T) {
 		t.Fatal("Failed to get Backlog plugin config")
 	}
 
-	// Select second task (index 1)
+	// Select second tiki (index 1)
 	ta.SendKey(tcell.KeyDown, 0, tcell.ModNone)
 
 	// Delete it
@@ -741,7 +741,7 @@ func TestPluginActions_DeleteTask_UpdatesSelection(t *testing.T) {
 		t.Errorf("Expected valid selection after delete, got %d", newIndex)
 	}
 
-	// Verify: task count decreased
+	// Verify: tiki count decreased
 	_ = ta.TikiStore.Reload()
 	tikis := ta.TikiStore.GetAllTikis()
 	backlogCount := 0
@@ -752,7 +752,7 @@ func TestPluginActions_DeleteTask_UpdatesSelection(t *testing.T) {
 		}
 	}
 	if backlogCount >= 3 {
-		t.Errorf("Expected fewer than 3 backlog tasks after delete, got %d", backlogCount)
+		t.Errorf("Expected fewer than 3 backlog tikis after delete, got %d", backlogCount)
 	}
 }
 
@@ -760,10 +760,10 @@ func TestPluginActions_DeleteTask_UpdatesSelection(t *testing.T) {
 // Phase 3: Deep Navigation Stack Tests
 // ============================================================================
 
-// TestNavigationStack_BoardToTaskDetail verifies 2-level stack
+// TestNavigationStack_BoardToTikiDetail verifies 2-level stack
 // Phase 3: Enter pushes the configurable detail view (workflow-declared
 // `kind: view` action), not the legacy TikiDetailViewID.
-func TestNavigationStack_BoardToTaskDetail(t *testing.T) {
+func TestNavigationStack_BoardToTikiDetail(t *testing.T) {
 	ta := setupTestAppWithPlugins(t)
 	defer ta.Cleanup()
 
@@ -802,26 +802,26 @@ func TestNavigationStack_BoardToTaskDetail(t *testing.T) {
 // covered by view/tikidetail/configurable_detail_edit_test.go and the
 // surviving integration tests use the in-place edit flow.
 
-// TestNavigationStack_MultipleTaskDetailOpens verifies stack doesn't corrupt with repeated opens
-func TestNavigationStack_MultipleTaskDetailOpens(t *testing.T) {
+// TestNavigationStack_MultipleTikiDetailOpens verifies stack doesn't corrupt with repeated opens
+func TestNavigationStack_MultipleTikiDetailOpens(t *testing.T) {
 	ta := setupTestAppWithPlugins(t)
 	defer ta.Cleanup()
 
-	// Open several tasks in sequence without closing
+	// Open several tikis in sequence without closing
 	ta.NavController.PushView(model.MakePluginViewID("Kanban"), nil)
 	ta.Draw()
 
-	// Open task 1
+	// Open tiki 1
 	ta.SendKey(tcell.KeyEnter, 0, tcell.ModNone)
 	if ta.NavController.Depth() != 2 {
 		t.Errorf("Expected depth 2 after first open, got %d", ta.NavController.Depth())
 	}
 
-	// Open task 2 from detail (shouldn't be possible normally, but test for robustness)
+	// Open tiki 2 from detail (shouldn't be possible normally, but test for robustness)
 	// Go back first
 	ta.SendKey(tcell.KeyEscape, 0, tcell.ModNone)
 
-	// Move to another task and open
+	// Move to another tiki and open
 	ta.SendKey(tcell.KeyDown, 0, tcell.ModNone)
 	ta.SendKey(tcell.KeyEnter, 0, tcell.ModNone)
 

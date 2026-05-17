@@ -7,12 +7,12 @@ import (
 	"strings"
 )
 
-// CreateTestTiki creates a markdown task file with YAML frontmatter
+// CreateTestTiki creates a markdown tiki file with YAML frontmatter
 func CreateTestTiki(dir, id, title, status, tikiType string) error {
 	return CreateTestTikiWithDeps(dir, id, title, status, tikiType, nil)
 }
 
-// CreateTestTikiWithDeps creates a markdown task file with optional dependsOn
+// CreateTestTikiWithDeps creates a markdown tiki file with optional dependsOn
 // IDs in the frontmatter. Accepts either bare ("ABC123") or legacy-looking
 // ("TIKI-ABC123") ids; the legacy prefix is stripped so the written file
 // conforms to the Phase 1 strict-load contract (bare id in frontmatter,
@@ -61,7 +61,7 @@ tags: []
 // ID returns the bare 6-character document id corresponding to a test-friendly
 // shorthand like "TIKI-1" or "ABC". Accepts TIKI- prefix, any case, and any
 // length ≤ 6, padding with leading zeros. Use this in both CreateTestTiki
-// calls and in GetTask/test assertions so keys match end-to-end.
+// calls and in GetTiki/test assertions so keys match end-to-end.
 func ID(raw string) string {
 	return normalizeBareID(raw)
 }

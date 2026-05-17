@@ -103,9 +103,9 @@ func newGateWithStoreAndTikis(tikis ...*tikipkg.Tiki) (*TikiMutationGate, store.
 // --- before-trigger tests ---
 
 func TestTriggerEngine_BeforeCreateDenyAggregate(t *testing.T) {
-	// task cap: deny when 3+ tasks for same assignee.
-	entry := parseTriggerEntry(t, "task cap",
-		`before create where count(select where assignee = new.assignee) >= 3 deny "task cap reached"`)
+	// tiki cap: deny when 3+ tikis for same assignee.
+	entry := parseTriggerEntry(t, "tiki cap",
+		`before create where count(select where assignee = new.assignee) >= 3 deny "tiki cap reached"`)
 
 	existing1 := newTiki("CAP001", "e1", "ready", "story", 3)
 	existing1.Set(tikipkg.FieldAssignee, "alice")
@@ -116,20 +116,20 @@ func TestTriggerEngine_BeforeCreateDenyAggregate(t *testing.T) {
 	engine := NewTriggerEngine([]triggerEntry{entry}, nil, ruki.NewTriggerExecutor(testTriggerSchema{}, nil))
 	engine.RegisterWithGate(gate)
 
-	newTask := newTiki("CAP003", "e3", "ready", "story", 3)
-	newTask.Set(tikipkg.FieldAssignee, "alice")
-	err := gate.CreateTiki(context.Background(), newTask)
+	newTiki := newTiki("CAP003", "e3", "ready", "story", 3)
+	newTiki.Set(tikipkg.FieldAssignee, "alice")
+	err := gate.CreateTiki(context.Background(), newTiki)
 	if err == nil {
-		t.Fatal("expected task cap denial, got nil")
+		t.Fatal("expected tiki cap denial, got nil")
 	}
-	if !strings.Contains(err.Error(), "task cap reached") {
-		t.Fatalf("expected task cap message, got: %v", err)
+	if !strings.Contains(err.Error(), "tiki cap reached") {
+		t.Fatalf("expected tiki cap message, got: %v", err)
 	}
 }
 
 func TestTriggerEngine_BeforeCreateAllowUnderAggregate(t *testing.T) {
-	entry := parseTriggerEntry(t, "task cap",
-		`before create where count(select where assignee = new.assignee) >= 3 deny "task cap reached"`)
+	entry := parseTriggerEntry(t, "tiki cap",
+		`before create where count(select where assignee = new.assignee) >= 3 deny "tiki cap reached"`)
 
 	existing := newTiki("CAP001", "e1", "ready", "story", 3)
 	existing.Set(tikipkg.FieldAssignee, "alice")
@@ -138,9 +138,9 @@ func TestTriggerEngine_BeforeCreateAllowUnderAggregate(t *testing.T) {
 	engine := NewTriggerEngine([]triggerEntry{entry}, nil, ruki.NewTriggerExecutor(testTriggerSchema{}, nil))
 	engine.RegisterWithGate(gate)
 
-	newTask := newTiki("CAP002", "e2", "ready", "story", 3)
-	newTask.Set(tikipkg.FieldAssignee, "alice")
-	if err := gate.CreateTiki(context.Background(), newTask); err != nil {
+	newTiki := newTiki("CAP002", "e2", "ready", "story", 3)
+	newTiki.Set(tikipkg.FieldAssignee, "alice")
+	if err := gate.CreateTiki(context.Background(), newTiki); err != nil {
 		t.Fatalf("unexpected denial: %v", err)
 	}
 }
@@ -185,7 +185,7 @@ func TestTriggerEngine_BeforeDenyNoMatch(t *testing.T) {
 }
 
 func TestTriggerEngine_BeforeDenyWIPLimit(t *testing.T) {
-	// WIP limit: deny when 3+ in-progress tasks for same assignee.
+	// WIP limit: deny when 3+ in-progress tikis for same assignee.
 	entry := parseTriggerEntry(t, "WIP limit",
 		`before update where new.status = "inProgress" and count(select where assignee = new.assignee and status = "inProgress") >= 3 deny "WIP limit reached"`)
 
@@ -512,7 +512,7 @@ func TestTriggerEngine_AfterUpdateCreateWithNextDate(t *testing.T) {
 
 func TestTriggerEngine_BeforeDeleteDeny(t *testing.T) {
 	entry := parseTriggerEntry(t, "block delete of high priority",
-		`before delete where old.priority <= "medium-high" deny "cannot delete high priority tasks"`)
+		`before delete where old.priority <= "medium-high" deny "cannot delete high priority tikis"`)
 
 	tk := newTiki("PRIO01", "critical", "inProgress", "story", 1)
 	gate, _ := newGateWithStoreAndTikis(tk)
@@ -524,14 +524,14 @@ func TestTriggerEngine_BeforeDeleteDeny(t *testing.T) {
 	if err == nil {
 		t.Fatal("expected delete denial, got nil")
 	}
-	if !strings.Contains(err.Error(), "cannot delete high priority tasks") {
+	if !strings.Contains(err.Error(), "cannot delete high priority tikis") {
 		t.Fatalf("expected denial message, got: %v", err)
 	}
 }
 
 func TestTriggerEngine_BeforeDeleteAllow(t *testing.T) {
 	entry := parseTriggerEntry(t, "block delete of high priority",
-		`before delete where old.priority <= "medium-high" deny "cannot delete high priority tasks"`)
+		`before delete where old.priority <= "medium-high" deny "cannot delete high priority tikis"`)
 
 	tk := newTiki("LOWP01", "low priority", "ready", "story", 5)
 	gate, _ := newGateWithStoreAndTikis(tk)
@@ -621,7 +621,7 @@ func TestTriggerEngine_AddTriggerRouting(t *testing.T) {
 
 func TestTriggerEngine_BeforeCreateUnconditionalDeny(t *testing.T) {
 	entry := parseTriggerEntry(t, "block all creates",
-		`before create deny "no new tasks allowed"`)
+		`before create deny "no new tikis allowed"`)
 
 	gate, _ := newGateWithStoreAndTikis()
 	engine := NewTriggerEngine([]triggerEntry{entry}, nil, ruki.NewTriggerExecutor(testTriggerSchema{}, nil))
@@ -632,7 +632,7 @@ func TestTriggerEngine_BeforeCreateUnconditionalDeny(t *testing.T) {
 	if err == nil {
 		t.Fatal("expected denial")
 	}
-	if !strings.Contains(err.Error(), "no new tasks allowed") {
+	if !strings.Contains(err.Error(), "no new tikis allowed") {
 		t.Fatalf("expected denial message, got: %v", err)
 	}
 }
@@ -1135,7 +1135,7 @@ func TestTriggerEngine_StartScheduler_TickExecutes(t *testing.T) {
 		t.Fatalf("parse: %v", err)
 	}
 
-	doneTk := newTiki("DONE01", "done task", "done", "story", 3)
+	doneTk := newTiki("DONE01", "done tiki", "done", "story", 3)
 	activeTk := newTiki("ACT001", "active", "ready", "story", 3)
 	gate, s := newGateWithStoreAndTikis(doneTk, activeTk)
 
@@ -1237,7 +1237,7 @@ func TestTriggerEngine_StartScheduler_ValidTriggerRuns(t *testing.T) {
 		t.Fatalf("parse: %v", err)
 	}
 
-	doneTk := newTiki("SCH001", "done task", "done", "story", 3)
+	doneTk := newTiki("SCH001", "done tiki", "done", "story", 3)
 	gate, s := newGateWithStoreAndTikis(doneTk)
 
 	engine := NewTriggerEngine(nil, []TimeTriggerEntry{

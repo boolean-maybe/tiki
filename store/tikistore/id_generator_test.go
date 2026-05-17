@@ -8,16 +8,16 @@ import (
 	"github.com/boolean-maybe/tiki/config"
 )
 
-// TestCreateTask_IDUniquenessChecksMap verifies the H1 fix: the
-// id-generation loop consults s.tasks (the authoritative identity index), not
-// the filesystem. A task loaded from a renamed file occupies an id without
-// occupying <taskdir>/<id>.md, so a filesystem-only check would let the
+// TestCreateTiki_IDUniquenessChecksMap verifies the H1 fix: the
+// id-generation loop consults s.tikis (the authoritative identity index), not
+// the filesystem. A tiki loaded from a renamed file occupies an id without
+// occupying <tikidir>/<id>.md, so a filesystem-only check would let the
 // generator collide and overwrite the in-memory entry.
-func TestCreateTask_IDUniquenessChecksMap(t *testing.T) {
+func TestCreateTiki_IDUniquenessChecksMap(t *testing.T) {
 	dir := t.TempDir()
 
-	// seed a task loaded from a non-default path: id ABC123 occupies the
-	// identity slot, but ABC123.md does NOT exist under taskdir.
+	// seed a tiki loaded from a non-default path: id ABC123 occupies the
+	// identity slot, but ABC123.md does NOT exist under tikidir.
 	renamed := filepath.Join(dir, "renamed-file.md")
 	content := "---\nid: ABC123\ntitle: Loaded\ntype: story\nstatus: ready\npriority: high\n---\nbody\n"
 	if err := os.WriteFile(renamed, []byte(content), 0o644); err != nil {
@@ -41,15 +41,15 @@ func TestCreateTask_IDUniquenessChecksMap(t *testing.T) {
 	}
 	t.Cleanup(func() { config.GenerateRandomIDForTest = prev })
 
-	newTask, err := s.NewTikiTemplate()
+	newTiki, err := s.NewTikiTemplate()
 	if err != nil {
 		t.Fatalf("NewTikiTemplate: %v", err)
 	}
-	if newTask.ID == "ABC123" {
-		t.Fatal("generator returned the id of an existing (renamed-file) task — map-based uniqueness check failed")
+	if newTiki.ID == "ABC123" {
+		t.Fatal("generator returned the id of an existing (renamed-file) tiki — map-based uniqueness check failed")
 	}
-	if newTask.ID != "ZZZZZZ" {
-		t.Errorf("expected fallback id ZZZZZZ, got %q", newTask.ID)
+	if newTiki.ID != "ZZZZZZ" {
+		t.Errorf("expected fallback id ZZZZZZ, got %q", newTiki.ID)
 	}
 	if call < 4 {
 		t.Errorf("generator should have been called until a unique id was produced, got %d calls", call)

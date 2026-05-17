@@ -749,7 +749,7 @@ func resolveRefTikis(refs []interface{}, allTikis []*tiki.Tiki) []*tiki.Tiki {
 	return result
 }
 
-// equalFoldID compares two task IDs case-insensitively.
+// equalFoldID compares two tiki IDs case-insensitively.
 func equalFoldID(a, b string) bool {
 	if len(a) != len(b) {
 		return false

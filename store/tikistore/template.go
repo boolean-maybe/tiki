@@ -46,7 +46,7 @@ func (s *TikiStore) newTikiTemplateLocked() (*tikipkg.Tiki, error) {
 
 	// Identity uniqueness is checked against the in-memory index (s.tikis),
 	// not the filesystem — a tiki loaded from a renamed file occupies an id
-	// without occupying <taskdir>/<id>.md, so an os.Stat probe would falsely
+	// without occupying <tikidir>/<id>.md, so an os.Stat probe would falsely
 	// report the id free.
 	var tikiID string
 	for i := 0; ; i++ {
@@ -56,7 +56,7 @@ func (s *TikiStore) newTikiTemplateLocked() (*tikipkg.Tiki, error) {
 			break
 		}
 		if i > maxGenerateRetries {
-			return nil, fmt.Errorf("failed to generate unique task id after %d attempts", maxGenerateRetries)
+			return nil, fmt.Errorf("failed to generate unique tiki id after %d attempts", maxGenerateRetries)
 		}
 		slog.Debug("ID collision detected in index, regenerating", "id", candidate)
 	}

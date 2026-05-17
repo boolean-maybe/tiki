@@ -15,7 +15,7 @@ import (
 )
 
 // pluginBase holds the shared fields and methods common to PluginController and DepsController.
-// Methods that depend on per-controller filtering accept a filteredTasks callback.
+// Methods that depend on per-controller filtering accept a filteredTikis callback.
 type pluginBase struct {
 	tikiStore     store.Store
 	mutationGate  *service.TikiMutationGate
@@ -56,29 +56,29 @@ func (pb *pluginBase) CanStartActionChoose(ActionID) (string, []*tikipkg.Tiki, b
 }
 func (pb *pluginBase) HandleActionChoose(ActionID, string) bool { return false }
 
-func (pb *pluginBase) handleNav(direction string, filteredTasks func(int) []*tikipkg.Tiki) bool {
+func (pb *pluginBase) handleNav(direction string, filteredTikis func(int) []*tikipkg.Tiki) bool {
 	lane := pb.pluginConfig.GetSelectedLane()
-	tasks := filteredTasks(lane)
+	tikis := filteredTikis(lane)
 	switch direction {
 	case "up", "down":
-		return pb.handleVerticalNav(direction, lane, tasks)
+		return pb.handleVerticalNav(direction, lane, tikis)
 	case "left", "right":
-		return pb.handleHorizontalNav(direction, lane, tasks, filteredTasks)
+		return pb.handleHorizontalNav(direction, lane, tikis, filteredTikis)
 	default:
 		return false
 	}
 }
 
-func (pb *pluginBase) handleVerticalNav(direction string, lane int, tasks []*tikipkg.Tiki) bool {
-	if len(tasks) == 0 {
+func (pb *pluginBase) handleVerticalNav(direction string, lane int, tikis []*tikipkg.Tiki) bool {
+	if len(tikis) == 0 {
 		return false
 	}
 
 	storedIndex := pb.pluginConfig.GetSelectedIndexForLane(lane)
-	clampedIndex := clampTikiIndex(storedIndex, len(tasks))
+	clampedIndex := clampTikiIndex(storedIndex, len(tikis))
 	if storedIndex != clampedIndex {
 		columns := normalizeColumns(pb.pluginConfig.GetColumnsForLane(lane))
-		finalIndex := moveVerticalIndex(direction, clampedIndex, columns, len(tasks))
+		finalIndex := moveVerticalIndex(direction, clampedIndex, columns, len(tikis))
 		if storedIndex != finalIndex {
 			pb.pluginConfig.SetSelectedIndexForLane(lane, finalIndex)
 			return true
@@ -86,23 +86,23 @@ func (pb *pluginBase) handleVerticalNav(direction string, lane int, tasks []*tik
 		return false
 	}
 
-	return pb.pluginConfig.MoveSelection(direction, len(tasks))
+	return pb.pluginConfig.MoveSelection(direction, len(tikis))
 }
 
-func (pb *pluginBase) handleHorizontalNav(direction string, lane int, tasks []*tikipkg.Tiki, filteredTasks func(int) []*tikipkg.Tiki) bool {
-	if len(tasks) > 0 {
+func (pb *pluginBase) handleHorizontalNav(direction string, lane int, tikis []*tikipkg.Tiki, filteredTikis func(int) []*tikipkg.Tiki) bool {
+	if len(tikis) > 0 {
 		storedIndex := pb.pluginConfig.GetSelectedIndexForLane(lane)
-		clampedIndex := clampTikiIndex(storedIndex, len(tasks))
+		clampedIndex := clampTikiIndex(storedIndex, len(tikis))
 		columns := normalizeColumns(pb.pluginConfig.GetColumnsForLane(lane))
-		if moved, targetIndex := moveHorizontalIndex(direction, clampedIndex, columns, len(tasks)); moved {
+		if moved, targetIndex := moveHorizontalIndex(direction, clampedIndex, columns, len(tikis)); moved {
 			pb.pluginConfig.SetSelectedIndexForLane(lane, targetIndex)
 			return true
 		}
 	}
-	return pb.handleLaneSwitch(direction, filteredTasks)
+	return pb.handleLaneSwitch(direction, filteredTikis)
 }
 
-func (pb *pluginBase) handleLaneSwitch(direction string, filteredTasks func(int) []*tikipkg.Tiki) bool {
+func (pb *pluginBase) handleLaneSwitch(direction string, filteredTikis func(int) []*tikipkg.Tiki) bool {
 	if pb.pluginDef == nil {
 		return false
 	}
@@ -116,29 +116,29 @@ func (pb *pluginBase) handleLaneSwitch(direction string, filteredTasks func(int)
 		return false
 	}
 
-	sourceTasks := filteredTasks(currentLane)
+	sourceTikis := filteredTikis(currentLane)
 	rowOffsetInViewport := 0
-	if len(sourceTasks) > 0 {
+	if len(sourceTikis) > 0 {
 		sourceColumns := normalizeColumns(pb.pluginConfig.GetColumnsForLane(currentLane))
-		sourceIndex := clampTikiIndex(pb.pluginConfig.GetSelectedIndexForLane(currentLane), len(sourceTasks))
+		sourceIndex := clampTikiIndex(pb.pluginConfig.GetSelectedIndexForLane(currentLane), len(sourceTikis))
 		sourceRow := sourceIndex / sourceColumns
-		maxSourceRow := maxRowIndex(len(sourceTasks), sourceColumns)
+		maxSourceRow := maxRowIndex(len(sourceTikis), sourceColumns)
 		sourceScroll := clampInt(pb.pluginConfig.GetScrollOffsetForLane(currentLane), maxSourceRow)
 		rowOffsetInViewport = sourceRow - sourceScroll
 	}
 
-	adjacentTasks := filteredTasks(nextLane)
-	if len(adjacentTasks) > 0 {
-		return pb.applyLaneSwitch(nextLane, adjacentTasks, direction, rowOffsetInViewport, true)
+	adjacentTikis := filteredTikis(nextLane)
+	if len(adjacentTikis) > 0 {
+		return pb.applyLaneSwitch(nextLane, adjacentTikis, direction, rowOffsetInViewport, true)
 	}
 
 	// preserve existing skip-empty traversal order when adjacent lane is empty
 	scanLane := nextLane + step
 	for scanLane >= 0 && scanLane < len(pb.pluginDef.Lanes) {
-		tasks := filteredTasks(scanLane)
-		if len(tasks) > 0 {
+		tikis := filteredTikis(scanLane)
+		if len(tikis) > 0 {
 			// skip-empty landing uses target viewport row semantics (no source row carry-over)
-			return pb.applyLaneSwitch(scanLane, tasks, direction, 0, false)
+			return pb.applyLaneSwitch(scanLane, tikis, direction, 0, false)
 		}
 		scanLane += step
 	}
@@ -146,20 +146,20 @@ func (pb *pluginBase) handleLaneSwitch(direction string, filteredTasks func(int)
 	return false
 }
 
-func (pb *pluginBase) applyLaneSwitch(targetLane int, targetTasks []*tikipkg.Tiki, direction string, rowOffsetInViewport int, preserveRow bool) bool {
-	if len(targetTasks) == 0 {
+func (pb *pluginBase) applyLaneSwitch(targetLane int, targetTikis []*tikipkg.Tiki, direction string, rowOffsetInViewport int, preserveRow bool) bool {
+	if len(targetTikis) == 0 {
 		return false
 	}
 
 	targetColumns := normalizeColumns(pb.pluginConfig.GetColumnsForLane(targetLane))
-	maxTargetRow := maxRowIndex(len(targetTasks), targetColumns)
+	maxTargetRow := maxRowIndex(len(targetTikis), targetColumns)
 	targetScroll := clampInt(pb.pluginConfig.GetScrollOffsetForLane(targetLane), maxTargetRow)
 	targetRow := targetScroll
 	if preserveRow {
 		targetRow = clampInt(targetScroll+rowOffsetInViewport, maxTargetRow)
 	}
 
-	targetIndex := rowDirectionalIndex(direction, targetRow, targetColumns, len(targetTasks))
+	targetIndex := rowDirectionalIndex(direction, targetRow, targetColumns, len(targetTikis))
 	pb.pluginConfig.SetScrollOffsetForLane(targetLane, targetScroll)
 	pb.pluginConfig.SetSelectedLaneAndIndex(targetLane, targetIndex)
 	return true
@@ -283,35 +283,35 @@ func rowDirectionalIndex(direction string, row int, columns int, tikiCount int) 
 	}
 }
 
-func (pb *pluginBase) getSelectedTikiID(filteredTasks func(int) []*tikipkg.Tiki) string {
+func (pb *pluginBase) getSelectedTikiID(filteredTikis func(int) []*tikipkg.Tiki) string {
 	lane := pb.pluginConfig.GetSelectedLane()
-	tasks := filteredTasks(lane)
+	tikis := filteredTikis(lane)
 	idx := pb.pluginConfig.GetSelectedIndexForLane(lane)
-	if idx < 0 || idx >= len(tasks) {
+	if idx < 0 || idx >= len(tikis) {
 		return ""
 	}
-	return tasks[idx].ID
+	return tikis[idx].ID
 }
 
 // getSelectedTikiIDs returns all currently selected tiki IDs. Today the UI
 // only supports single-selection, so the result is a one-item slice (or nil)
 // — but callers should treat this as the canonical multi-selection accessor
 // so plumbing is ready when true multi-select lands.
-func (pb *pluginBase) getSelectedTikiIDs(filteredTasks func(int) []*tikipkg.Tiki) []string {
-	id := pb.getSelectedTikiID(filteredTasks)
+func (pb *pluginBase) getSelectedTikiIDs(filteredTikis func(int) []*tikipkg.Tiki) []string {
+	id := pb.getSelectedTikiID(filteredTikis)
 	if id == "" {
 		return nil
 	}
 	return []string{id}
 }
 
-func (pb *pluginBase) selectTikiInLane(lane int, tikiID string, filteredTasks func(int) []*tikipkg.Tiki) {
+func (pb *pluginBase) selectTikiInLane(lane int, tikiID string, filteredTikis func(int) []*tikipkg.Tiki) {
 	if lane < 0 || lane >= len(pb.pluginDef.Lanes) {
 		return
 	}
-	tasks := filteredTasks(lane)
+	tikis := filteredTikis(lane)
 	targetIndex := 0
-	for i, t := range tasks {
+	for i, t := range tikis {
 		if t.ID == tikiID {
 			targetIndex = i
 			break
@@ -321,9 +321,9 @@ func (pb *pluginBase) selectTikiInLane(lane int, tikiID string, filteredTasks fu
 	pb.pluginConfig.SetSelectedIndexForLane(lane, targetIndex)
 }
 
-func (pb *pluginBase) selectFirstNonEmptyLane(filteredTasks func(int) []*tikipkg.Tiki) bool {
+func (pb *pluginBase) selectFirstNonEmptyLane(filteredTikis func(int) []*tikipkg.Tiki) bool {
 	for lane := range pb.pluginDef.Lanes {
-		if len(filteredTasks(lane)) > 0 {
+		if len(filteredTikis(lane)) > 0 {
 			pb.pluginConfig.SetSelectedLaneAndIndex(lane, 0)
 			return true
 		}
@@ -332,17 +332,17 @@ func (pb *pluginBase) selectFirstNonEmptyLane(filteredTasks func(int) []*tikipkg
 }
 
 // EnsureFirstNonEmptyLaneSelection selects the first non-empty lane if the current lane is empty.
-func (pb *pluginBase) EnsureFirstNonEmptyLaneSelection(filteredTasks func(int) []*tikipkg.Tiki) bool {
+func (pb *pluginBase) EnsureFirstNonEmptyLaneSelection(filteredTikis func(int) []*tikipkg.Tiki) bool {
 	if pb.pluginDef == nil {
 		return false
 	}
 	currentLane := pb.pluginConfig.GetSelectedLane()
 	if currentLane >= 0 && currentLane < len(pb.pluginDef.Lanes) {
-		if len(filteredTasks(currentLane)) > 0 {
+		if len(filteredTikis(currentLane)) > 0 {
 			return false
 		}
 	}
-	return pb.selectFirstNonEmptyLane(filteredTasks)
+	return pb.selectFirstNonEmptyLane(filteredTikis)
 }
 
 func (pb *pluginBase) handleSearch(query string, selectFirst func() bool) {
@@ -363,7 +363,7 @@ func (pb *pluginBase) handleSearch(query string, selectFirst func() bool) {
 func (pb *pluginBase) handleNewTiki() bool {
 	t, err := pb.tikiStore.NewTikiTemplate()
 	if err != nil {
-		slog.Error("failed to create task template", "error", err)
+		slog.Error("failed to create tiki template", "error", err)
 		return false
 	}
 	pb.navController.PushView(model.TikiEditViewID, model.EncodeTikiEditParams(model.TikiEditParams{
@@ -375,8 +375,8 @@ func (pb *pluginBase) handleNewTiki() bool {
 	return true
 }
 
-func (pb *pluginBase) handleDeleteTiki(filteredTasks func(int) []*tikipkg.Tiki) bool {
-	tikiID := pb.getSelectedTikiID(filteredTasks)
+func (pb *pluginBase) handleDeleteTiki(filteredTikis func(int) []*tikipkg.Tiki) bool {
+	tikiID := pb.getSelectedTikiID(filteredTikis)
 	if tikiID == "" {
 		return false
 	}
@@ -385,7 +385,7 @@ func (pb *pluginBase) handleDeleteTiki(filteredTasks func(int) []*tikipkg.Tiki) 
 		return false
 	}
 	if err := pb.mutationGate.DeleteTiki(context.Background(), tk); err != nil {
-		slog.Error("failed to delete task", "tiki_id", tikiID, "error", err)
+		slog.Error("failed to delete tiki", "tiki_id", tikiID, "error", err)
 		if pb.statusline != nil {
 			pb.statusline.SetMessage(err.Error(), model.MessageLevelError, true)
 		}

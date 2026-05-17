@@ -187,7 +187,7 @@ func RenderTagsColumn(tk *tikipkg.Tiki) tview.Primitive {
 }
 
 // RenderDependsOnColumn renders the upstream dependencies as a value-only
-// task list. Returns nil when the task has no dependencies. Unresolved IDs
+// tiki list. Returns nil when the tiki has no dependencies. Unresolved IDs
 // (declared but not in the store) render as placeholder rows carrying the
 // raw ID as a synthetic tiki — keeps the rendered row count in lockstep
 // with the height contract so the grid algorithm doesn't reserve dead rows.

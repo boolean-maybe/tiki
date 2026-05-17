@@ -14,7 +14,7 @@ type StatuslineConfig struct {
 	leftStats map[string]StatValue
 	viewStats map[string]StatValue
 
-	// right section: view-specific stats (right-aligned, e.g. task count)
+	// right section: view-specific stats (right-aligned, e.g. tiki count)
 	rightViewStats map[string]StatValue
 
 	// right section: transient message
@@ -78,7 +78,7 @@ func (sc *StatuslineConfig) ClearViewStats() {
 	sc.notifyListeners()
 }
 
-// SetRightViewStat sets a right-aligned view-specific stat (e.g. task count)
+// SetRightViewStat sets a right-aligned view-specific stat (e.g. tiki count)
 func (sc *StatuslineConfig) SetRightViewStat(key, value string, priority int) {
 	sc.mu.Lock()
 	sc.rightViewStats[key] = StatValue{Value: value, Priority: priority}

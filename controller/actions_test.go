@@ -168,7 +168,7 @@ func TestActionRegistry_Register(t *testing.T) {
 			actions: []Action{
 				{ID: ActionQuit, Key: tcell.KeyRune, Rune: 'q', Label: "Quit"},
 				{ID: ActionBack, Key: tcell.KeyEscape, Label: "Back"},
-				{ID: ActionSaveTask, Key: tcell.KeyCtrlS, Label: "Save"},
+				{ID: ActionSaveTiki, Key: tcell.KeyCtrlS, Label: "Save"},
 			},
 			wantCount:     3,
 			wantByKeyLen:  2,
@@ -230,11 +230,11 @@ func TestActionRegistry_Match(t *testing.T) {
 			name: "match key with modifier",
 			registry: func() *ActionRegistry {
 				r := NewActionRegistry()
-				r.Register(Action{ID: ActionSaveTask, Key: tcell.KeyCtrlS, Modifier: tcell.ModCtrl, Label: "Save"})
+				r.Register(Action{ID: ActionSaveTiki, Key: tcell.KeyCtrlS, Modifier: tcell.ModCtrl, Label: "Save"})
 				return r
 			},
 			event:      tcell.NewEventKey(tcell.KeyCtrlS, 0, tcell.ModCtrl),
-			wantMatch:  ActionSaveTask,
+			wantMatch:  ActionSaveTiki,
 			shouldFind: true,
 		},
 		{
@@ -262,11 +262,11 @@ func TestActionRegistry_Match(t *testing.T) {
 			name: "ctrl key without explicit ModCtrl still matches via normalization",
 			registry: func() *ActionRegistry {
 				r := NewActionRegistry()
-				r.Register(Action{ID: ActionSaveTask, Key: tcell.KeyCtrlS, Modifier: tcell.ModCtrl, Label: "Save"})
+				r.Register(Action{ID: ActionSaveTiki, Key: tcell.KeyCtrlS, Modifier: tcell.ModCtrl, Label: "Save"})
 				return r
 			},
 			event:      tcell.NewEventKey(tcell.KeyCtrlS, 0, tcell.ModNone),
-			wantMatch:  ActionSaveTask,
+			wantMatch:  ActionSaveTiki,
 			shouldFind: true,
 		},
 		{
@@ -337,7 +337,7 @@ func TestGetActionsForField(t *testing.T) {
 			name:            "title field has quick save and save",
 			field:           model.EditFieldTitle,
 			wantActionCount: 4, // QuickSave, Save, NextField, PrevField
-			mustHaveActions: []ActionID{ActionQuickSave, ActionSaveTask, ActionNextField, ActionPrevField},
+			mustHaveActions: []ActionID{ActionQuickSave, ActionSaveTiki, ActionNextField, ActionPrevField},
 		},
 		{
 			name:            "status field has next/prev value",
@@ -373,7 +373,7 @@ func TestGetActionsForField(t *testing.T) {
 			name:            "description field has save",
 			field:           model.EditFieldDescription,
 			wantActionCount: 3, // Save, NextField, PrevField
-			mustHaveActions: []ActionID{ActionSaveTask, ActionNextField, ActionPrevField},
+			mustHaveActions: []ActionID{ActionSaveTiki, ActionNextField, ActionPrevField},
 		},
 	}
 
@@ -456,12 +456,12 @@ func TestDefaultGlobalActions(t *testing.T) {
 	}
 }
 
-func TestTaskDetailViewActions(t *testing.T) {
+func TestTikiDetailViewActions(t *testing.T) {
 	registry := TikiDetailViewActions()
 	actions := registry.GetActions()
 
 	if len(actions) != 7 {
-		t.Errorf("expected 7 task detail actions (always includes Chat), got %d", len(actions))
+		t.Errorf("expected 7 tiki detail actions (always includes Chat), got %d", len(actions))
 	}
 
 	expectedActions := []ActionID{ActionEditTitle, ActionEditDesc, ActionEditSource, ActionFullscreen, ActionEditDeps, ActionEditTags, ActionChat}
@@ -515,7 +515,7 @@ func TestDescOnlyEditActions(t *testing.T) {
 		t.Errorf("expected 1 desc-only action, got %d", len(actions))
 	}
 
-	if actions[0].ID != ActionSaveTask {
+	if actions[0].ID != ActionSaveTiki {
 		t.Errorf("expected save action, got %v", actions[0].ID)
 	}
 
@@ -527,7 +527,7 @@ func TestDescOnlyEditActions(t *testing.T) {
 	}
 }
 
-func TestTaskDetailViewActions_HasEditDesc(t *testing.T) {
+func TestTikiDetailViewActions_HasEditDesc(t *testing.T) {
 	registry := TikiDetailViewActions()
 
 	// Shift+D should match ActionEditDesc
@@ -542,7 +542,7 @@ func TestTaskDetailViewActions_HasEditDesc(t *testing.T) {
 	}
 }
 
-func TestTaskDetailViewActions_ChatAlwaysRegistered(t *testing.T) {
+func TestTikiDetailViewActions_ChatAlwaysRegistered(t *testing.T) {
 	viper.Set("ai.agent", "")
 	defer viper.Set("ai.agent", "")
 
@@ -569,7 +569,7 @@ func TestTaskDetailViewActions_ChatAlwaysRegistered(t *testing.T) {
 	}
 }
 
-func TestTaskDetailViewActions_ChatEnabledWithConfig(t *testing.T) {
+func TestTikiDetailViewActions_ChatEnabledWithConfig(t *testing.T) {
 	viper.Set("ai.agent", "claude")
 	defer viper.Set("ai.agent", "")
 
@@ -591,7 +591,7 @@ func TestTaskDetailViewActions_ChatEnabledWithConfig(t *testing.T) {
 		nil,
 	)
 	if !ActionEnabled(action, ctx) {
-		t.Error("chat should be enabled when ai.agent is configured and task ID present")
+		t.Error("chat should be enabled when ai.agent is configured and tiki ID present")
 	}
 }
 
@@ -862,7 +862,7 @@ func TestPluginViewActions_NavHiddenFromPalette(t *testing.T) {
 	}
 }
 
-func TestTaskEditActions_FieldLocalHidden_SaveVisible(t *testing.T) {
+func TestTikiEditActions_FieldLocalHidden_SaveVisible(t *testing.T) {
 	registry := TikiEditTitleActions()
 	paletteActions := registry.GetPaletteActions()
 
@@ -871,8 +871,8 @@ func TestTaskEditActions_FieldLocalHidden_SaveVisible(t *testing.T) {
 		found[a.ID] = true
 	}
 
-	if !found[ActionSaveTask] {
-		t.Error("Save should be palette-visible in task edit")
+	if !found[ActionSaveTiki] {
+		t.Error("Save should be palette-visible in tiki edit")
 	}
 	if found[ActionQuickSave] {
 		t.Error("Quick Save should be hidden from palette")
@@ -1061,14 +1061,14 @@ func TestSelectionSatisfies(t *testing.T) {
 	}
 }
 
-func TestBuildAppContext_TaskDetail(t *testing.T) {
+func TestBuildAppContext_TikiDetail(t *testing.T) {
 	entry := &ViewEntry{
 		ViewID: model.MakePluginViewID("Detail"),
 		Params: model.EncodePluginViewParams(model.PluginViewParams{TikiID: "ABC123"}),
 	}
 	ctx := BuildAppContext(entry, nil)
 	if !ctx.Has("id") {
-		t.Error("context should have 'id' from task detail params")
+		t.Error("context should have 'id' from tiki detail params")
 	}
 
 	emptyEntry := &ViewEntry{
@@ -1077,7 +1077,7 @@ func TestBuildAppContext_TaskDetail(t *testing.T) {
 	}
 	ctx = BuildAppContext(emptyEntry, nil)
 	if ctx.Has("id") {
-		t.Error("context should not have 'id' with empty task detail params")
+		t.Error("context should not have 'id' with empty tiki detail params")
 	}
 }
 
@@ -1179,7 +1179,7 @@ func TestMakeDetailViewResolver(t *testing.T) {
 
 // TestOpenDepsEditor_ReopenRefreshesResolver guards a subtle bug:
 // the deps editor is keyed by "Dependency:<tikiID>", so opening the
-// same task's editor a second time hits the early-return reopen
+// same tiki's editor a second time hits the early-return reopen
 // branch. Without refreshing the resolver, the closure captured on
 // first open keeps the original sourceDetailViewName forever and
 // Enter routes back to the wrong view when the user re-opens deps
@@ -1207,7 +1207,7 @@ func TestOpenDepsEditor_ReopenRefreshesResolver(t *testing.T) {
 		t.Fatalf("after first open: resolver = %q, want %q", got, "DetailA")
 	}
 
-	// Reopen from DetailB — same task id, so the existing controller
+	// Reopen from DetailB — same tiki id, so the existing controller
 	// is reused. The resolver must now prefer DetailB.
 	ir.openDepsEditor(tikiID, "DetailB")
 	if got := dc.detailViewResolver(); got != "DetailB" {

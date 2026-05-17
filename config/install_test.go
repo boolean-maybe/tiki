@@ -22,8 +22,8 @@ fields:
   - name: type
     type: enum
     values:
-      - value: task
-        label: Task
+      - value: tiki
+        label: Tiki
 `
 
 func TestInstallWorkflow_URL(t *testing.T) {

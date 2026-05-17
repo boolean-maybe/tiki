@@ -15,7 +15,7 @@ import (
 	"github.com/boolean-maybe/tiki/workflow"
 )
 
-// TikiBox provides a reusable task card widget used in board and backlog views.
+// TikiBox provides a reusable tiki card widget used in board and backlog views.
 
 // applyFrameStyle applies selected/unselected styling to a frame
 func applyFrameStyle(frame *tview.Frame, selected bool, roles *theme.Theme) {
@@ -144,21 +144,21 @@ func tikiTags(tk *tikipkg.Tiki) []string {
 	return ss
 }
 
-// renderTaskIDGradient renders a tiki ID with the active theme's tiki.id
+// renderTikiIDGradient renders a tiki ID with the active theme's tiki.id
 // role under the .accent modifier — a gentle gradient on capable terminals
 // and a solid fallback otherwise. Thin wrapper over render.RenderTikiIDPaint
 // kept here for call-site readability.
-func renderTaskIDGradient(id string, roles *theme.Theme) string {
+func renderTikiIDGradient(id string, roles *theme.Theme) string {
 	return render.RenderTikiIDPaint(id, roles)
 }
 
-// buildCompactTaskContent builds the content string for compact task display.
+// buildCompactTikiContent builds the content string for compact tiki display.
 // The stored title may contain `<role>` color markup (e.g. `<highlight>foo`);
 // literal `[...]` tview-tag content stays escaped, while `<role>` tokens
 // expand to the theme's role color and reset.
-func buildCompactTaskContent(tk *tikipkg.Tiki, roles *theme.Theme, availableWidth int) string {
+func buildCompactTikiContent(tk *tikipkg.Tiki, roles *theme.Theme, availableWidth int) string {
 	emoji := tikiTypeEmoji(tk)
-	idGradient := renderTaskIDGradient(tk.ID, roles)
+	idGradient := renderTikiIDGradient(tk.ID, roles)
 	truncatedTitle := expandTitleMarkup(util.TruncateText(tk.Title, availableWidth), roles)
 	priorityEmoji := tikiPriorityEmoji(tk)
 	pointsVisual := tikiPointsVisual(tk, roles)
@@ -173,13 +173,13 @@ func buildCompactTaskContent(tk *tikipkg.Tiki, roles *theme.Theme, availableWidt
 		labelTag, pointsVisual)
 }
 
-// buildExpandedTaskContent builds the content string for expanded task display.
+// buildExpandedTikiContent builds the content string for expanded tiki display.
 // Title supports `<role>` color markup like the compact variant; description
 // lines are plain-escaped (description is multi-line markdown, rendered as
 // preview text only).
-func buildExpandedTaskContent(tk *tikipkg.Tiki, roles *theme.Theme, availableWidth int) string {
+func buildExpandedTikiContent(tk *tikipkg.Tiki, roles *theme.Theme, availableWidth int) string {
 	emoji := tikiTypeEmoji(tk)
-	idGradient := renderTaskIDGradient(tk.ID, roles)
+	idGradient := renderTikiIDGradient(tk.ID, roles)
 	truncatedTitle := expandTitleMarkup(util.TruncateText(tk.Title, availableWidth), roles)
 
 	// extract first 3 lines of body (description)
@@ -225,7 +225,7 @@ func buildExpandedTaskContent(tk *tikipkg.Tiki, roles *theme.Theme, availableWid
 		tagsStr, priorityPointsStr)
 }
 
-// CreateCompactTikiBox creates a compact styled task box widget (3 lines)
+// CreateCompactTikiBox creates a compact styled tiki box widget (3 lines)
 func CreateCompactTikiBox(tk *tikipkg.Tiki, selected bool, roles *theme.Theme) *tview.Frame {
 	textView := tview.NewTextView().
 		SetDynamicColors(true).
@@ -236,7 +236,7 @@ func CreateCompactTikiBox(tk *tikipkg.Tiki, selected bool, roles *theme.Theme) *
 		if availableWidth < config.TikiBoxMinWidth {
 			availableWidth = config.TikiBoxMinWidth
 		}
-		content := buildCompactTaskContent(tk, roles, availableWidth)
+		content := buildCompactTikiContent(tk, roles, availableWidth)
 		textView.SetText(content)
 		return x, y, width, height
 	})
@@ -248,7 +248,7 @@ func CreateCompactTikiBox(tk *tikipkg.Tiki, selected bool, roles *theme.Theme) *
 	return frame
 }
 
-// CreateExpandedTikiBox creates an expanded styled task box widget (7 lines)
+// CreateExpandedTikiBox creates an expanded styled tiki box widget (7 lines)
 func CreateExpandedTikiBox(tk *tikipkg.Tiki, selected bool, roles *theme.Theme) *tview.Frame {
 	textView := tview.NewTextView().
 		SetDynamicColors(true).
@@ -259,7 +259,7 @@ func CreateExpandedTikiBox(tk *tikipkg.Tiki, selected bool, roles *theme.Theme) 
 		if availableWidth < config.TikiBoxMinWidth {
 			availableWidth = config.TikiBoxMinWidth
 		}
-		content := buildExpandedTaskContent(tk, roles, availableWidth)
+		content := buildExpandedTikiContent(tk, roles, availableWidth)
 		textView.SetText(content)
 		return x, y, width, height
 	})

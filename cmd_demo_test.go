@@ -111,7 +111,7 @@ func TestRunDemo_DemoLoadsCleanlyUnderStrictIDs(t *testing.T) {
 		t.Fatalf("demo load surfaced diagnostics: %s", diag.Summary())
 	}
 
-	// Sanity: at least some workflow tasks must be present. The embedded
+	// Sanity: at least some workflow tikis must be present. The embedded
 	// demo has 41 workflow files with status/priority/points — all should
 	// classify as workflow. If this drops to zero, a regression probably
 	// made IsWorkflow default to false.
@@ -119,7 +119,7 @@ func TestRunDemo_DemoLoadsCleanlyUnderStrictIDs(t *testing.T) {
 		t.Errorf("workflow tiki count after demo load = %d, want >= 40", got)
 	}
 
-	// Sanity: a known task id from the demo must resolve to a `.md` file flat
+	// Sanity: a known tiki id from the demo must resolve to a `.md` file flat
 	// at the document root (not under a `tiki/` subdir). Filename is opaque —
 	// identity comes from frontmatter — so we don't assert a specific name,
 	// only the location shape.

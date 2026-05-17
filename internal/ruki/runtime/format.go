@@ -458,10 +458,10 @@ func formatUpdateSummary(w io.Writer, succeeded, failed int, jsonOut bool) error
 		return writeJSONLine(w, map[string]int{"updated": succeeded, "failed": failed})
 	}
 	if failed > 0 {
-		_, err := fmt.Fprintf(w, "updated %d tasks (%d failed)\n", succeeded, failed)
+		_, err := fmt.Fprintf(w, "updated %d tikis (%d failed)\n", succeeded, failed)
 		return err
 	}
-	_, err := fmt.Fprintf(w, "updated %d tasks\n", succeeded)
+	_, err := fmt.Fprintf(w, "updated %d tikis\n", succeeded)
 	return err
 }
 
@@ -480,10 +480,10 @@ func formatDeleteSummary(w io.Writer, succeeded, failed int, jsonOut bool) error
 		return writeJSONLine(w, map[string]int{"deleted": succeeded, "failed": failed})
 	}
 	if failed > 0 {
-		_, err := fmt.Fprintf(w, "deleted %d tasks (%d failed)\n", succeeded, failed)
+		_, err := fmt.Fprintf(w, "deleted %d tikis (%d failed)\n", succeeded, failed)
 		return err
 	}
-	_, err := fmt.Fprintf(w, "deleted %d tasks\n", succeeded)
+	_, err := fmt.Fprintf(w, "deleted %d tikis\n", succeeded)
 	return err
 }
 

@@ -26,7 +26,7 @@ func (fakePositionPaint) ColorAt(t float64) tcell.Color {
 // TestGradientCaptionRow_BgColorAt_CapabilityBranches verifies the three-way
 // capability switch restored after the role/modifier migration: truecolor
 // passes t through, 256-color flattens to t=0, 8/16-color flattens to t=1.
-// Regression coverage for the bug where Task 7 deleted UseWideGradients and
+// Regression coverage for the bug where Tiki 7 deleted UseWideGradients and
 // caused 256-color banding plus 8/16-color invisible captions.
 func TestGradientCaptionRow_BgColorAt_CapabilityBranches(t *testing.T) {
 	gcr := &GradientCaptionRow{paint: fakePositionPaint{}}

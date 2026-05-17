@@ -17,7 +17,7 @@ import (
 // InMemoryStore is an in-memory implementation of Store.
 // Useful for testing and as a reference implementation.
 
-// InMemoryStore is an in-memory task repository
+// InMemoryStore is an in-memory tiki repository
 type InMemoryStore struct {
 	mu             sync.RWMutex
 	tikis          map[string]*tikipkg.Tiki
@@ -30,7 +30,7 @@ func normalizeTikiID(id string) string {
 	return strings.ToUpper(strings.TrimSpace(id))
 }
 
-// NewInMemoryStore creates a new in-memory task store
+// NewInMemoryStore creates a new in-memory tiki store
 func NewInMemoryStore() *InMemoryStore {
 	return &InMemoryStore{
 		tikis:          make(map[string]*tikipkg.Tiki),
@@ -124,7 +124,7 @@ func (s *InMemoryStore) NewTikiTemplate() (*tikipkg.Tiki, error) {
 		tikiID = "" // mark as failed so we can detect exhaustion
 	}
 	if tikiID == "" {
-		return nil, fmt.Errorf("failed to generate unique task ID after %d attempts", maxIDAttempts)
+		return nil, fmt.Errorf("failed to generate unique tiki ID after %d attempts", maxIDAttempts)
 	}
 
 	tk := tikipkg.New()
@@ -165,7 +165,7 @@ func (s *InMemoryStore) storeNewTikiLocked(tk *tikipkg.Tiki) error {
 
 // updateTikiLocked is the shared update path. carrySchemaFields controls
 // whether stored workflow-declared fields should be carried forward onto an
-// incoming tiki that omits them — true for task-shaped callers (protective
+// incoming tiki that omits them — true for tiki-shaped callers (protective
 // against accidental field loss), false for tiki-native callers that rely
 // on exact-presence semantics.
 func (s *InMemoryStore) updateTikiLocked(tk *tikipkg.Tiki, carrySchemaFields bool) error {
@@ -175,7 +175,7 @@ func (s *InMemoryStore) updateTikiLocked(tk *tikipkg.Tiki, carrySchemaFields boo
 	old, exists := s.tikis[tk.ID]
 	if !exists {
 		s.mu.Unlock()
-		return fmt.Errorf("task not found: %s", tk.ID)
+		return fmt.Errorf("tiki not found: %s", tk.ID)
 	}
 
 	// protective carry-forward: if the stored tiki carries workflow-declared
@@ -265,7 +265,7 @@ func (s *InMemoryStore) Reload() error {
 	return nil
 }
 
-// ReloadTiki reloads a single task (no-op for memory store)
+// ReloadTiki reloads a single tiki (no-op for memory store)
 func (s *InMemoryStore) ReloadTiki(tikiID string) error {
 	// In-memory store doesn't have external storage to reload from
 	s.notifyListeners()

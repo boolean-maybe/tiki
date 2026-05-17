@@ -9,10 +9,10 @@ import (
 	tikipkg "github.com/boolean-maybe/tiki/tiki"
 )
 
-// TestSaveTask_UsesLoadedPath verifies the high-finding fix: after a tiki is
+// TestSaveTiki_UsesLoadedPath verifies the high-finding fix: after a tiki is
 // loaded from a file with any path, subsequent save/delete/reload operations
 // must target the loaded path — not an id-derived default path.
-func TestSaveTask_UsesLoadedPath(t *testing.T) {
+func TestSaveTiki_UsesLoadedPath(t *testing.T) {
 	tmpDir := t.TempDir()
 
 	// write a file at a non-default path shape: filename doesn't match the id.
