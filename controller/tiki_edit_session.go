@@ -20,12 +20,12 @@ import (
 	"time"
 )
 
-// TaskController handles task detail actions: editing, status changes, comments.
+// TikiEditSession handles task detail actions: editing, status changes, comments.
 
-// TaskController handles task detail view actions
-type TaskController struct {
+// TikiEditSession handles task detail view actions
+type TikiEditSession struct {
 	taskStore     store.Store
-	mutationGate  *service.TaskMutationGate
+	mutationGate  *service.TikiMutationGate
 	navController *NavigationController
 	statusline    *model.StatuslineConfig
 	currentTaskID string
@@ -37,15 +37,15 @@ type TaskController struct {
 	focusedField  model.EditField // currently focused field in edit mode
 }
 
-// NewTaskController creates a new TaskController for managing task detail operations.
+// NewTikiEditSession creates a new TikiEditSession for managing task detail operations.
 // It initializes action registries for both detail and edit views.
-func NewTaskController(
+func NewTikiEditSession(
 	taskStore store.Store,
-	mutationGate *service.TaskMutationGate,
+	mutationGate *service.TikiMutationGate,
 	navController *NavigationController,
 	statusline *model.StatuslineConfig,
-) *TaskController {
-	return &TaskController{
+) *TikiEditSession {
+	return &TikiEditSession{
 		taskStore:     taskStore,
 		mutationGate:  mutationGate,
 		navController: navController,
@@ -56,12 +56,12 @@ func NewTaskController(
 }
 
 // SetCurrentTask sets the task ID for the currently viewed or edited task.
-func (tc *TaskController) SetCurrentTask(taskID string) {
+func (tc *TikiEditSession) SetCurrentTask(taskID string) {
 	tc.currentTaskID = taskID
 }
 
 // SetDraft sets a draft tiki for creation flow (not yet persisted).
-func (tc *TaskController) SetDraft(tk *tikipkg.Tiki) {
+func (tc *TikiEditSession) SetDraft(tk *tikipkg.Tiki) {
 	tc.draftTiki = tk
 	if tk != nil {
 		tc.currentTaskID = tk.ID
@@ -69,14 +69,14 @@ func (tc *TaskController) SetDraft(tk *tikipkg.Tiki) {
 }
 
 // ClearDraft removes any in-progress draft.
-func (tc *TaskController) ClearDraft() {
+func (tc *TikiEditSession) ClearDraft() {
 	tc.draftTiki = nil
 }
 
 // StartEditSession creates an in-memory copy of the specified tiki for editing.
 // It loads the tiki from the store and records its modification time for optimistic locking.
 // Returns the editing copy, or nil if the tiki cannot be found.
-func (tc *TaskController) StartEditSession(taskID string) *tikipkg.Tiki {
+func (tc *TikiEditSession) StartEditSession(taskID string) *tikipkg.Tiki {
 	tk := tc.taskStore.GetTiki(taskID)
 	if tk == nil {
 		return nil
@@ -90,18 +90,18 @@ func (tc *TaskController) StartEditSession(taskID string) *tikipkg.Tiki {
 }
 
 // GetEditingTiki returns the tiki being edited (or nil if not editing)
-func (tc *TaskController) GetEditingTiki() *tikipkg.Tiki {
+func (tc *TikiEditSession) GetEditingTiki() *tikipkg.Tiki {
 	return tc.editingTiki
 }
 
 // GetDraftTiki returns the draft tiki being created (or nil if not creating)
-func (tc *TaskController) GetDraftTiki() *tikipkg.Tiki {
+func (tc *TikiEditSession) GetDraftTiki() *tikipkg.Tiki {
 	return tc.draftTiki
 }
 
 // CancelEditSession discards the editing copy without saving changes.
 // This clears the in-memory editing tiki and resets the current task ID.
-func (tc *TaskController) CancelEditSession() {
+func (tc *TikiEditSession) CancelEditSession() {
 	tc.editingTiki = nil
 	tc.originalMtime = time.Time{}
 	tc.currentTaskID = ""
@@ -111,7 +111,7 @@ func (tc *TaskController) CancelEditSession() {
 // For draft tikis (new task creation), it validates, sets timestamps, and creates the file.
 // For existing tikis, it checks for external modifications and updates the tiki in the store.
 // Returns an error if validation fails or the tiki cannot be saved.
-func (tc *TaskController) CommitEditSession() error {
+func (tc *TikiEditSession) CommitEditSession() error {
 	// Handle draft tiki creation
 	if tc.draftTiki != nil {
 		setAuthorOnTiki(tc.draftTiki, tc.taskStore)
@@ -152,18 +152,18 @@ func (tc *TaskController) CommitEditSession() error {
 }
 
 // GetActionRegistry returns the actions for the task detail view
-func (tc *TaskController) GetActionRegistry() *ActionRegistry {
+func (tc *TikiEditSession) GetActionRegistry() *ActionRegistry {
 	return tc.registry
 }
 
 // GetEditActionRegistry returns the actions for the task edit view
-func (tc *TaskController) GetEditActionRegistry() *ActionRegistry {
+func (tc *TikiEditSession) GetEditActionRegistry() *ActionRegistry {
 	return tc.editRegistry
 }
 
 // HandleAction processes task detail view actions such as editing title or source.
 // Returns true if the action was handled, false otherwise.
-func (tc *TaskController) HandleAction(actionID ActionID) bool {
+func (tc *TikiEditSession) HandleAction(actionID ActionID) bool {
 	switch actionID {
 	case ActionEditTitle:
 		return tc.handleEditTitle()
@@ -176,7 +176,7 @@ func (tc *TaskController) HandleAction(actionID ActionID) bool {
 	}
 }
 
-func (tc *TaskController) handleEditTitle() bool {
+func (tc *TikiEditSession) handleEditTitle() bool {
 	tk := tc.GetCurrentTiki()
 	if tk == nil {
 		return false
@@ -187,7 +187,7 @@ func (tc *TaskController) handleEditTitle() bool {
 	return true
 }
 
-func (tc *TaskController) handleEditSource() bool {
+func (tc *TikiEditSession) handleEditSource() bool {
 	tk := tc.GetCurrentTiki()
 	if tk == nil {
 		return false
@@ -223,7 +223,7 @@ func (tc *TaskController) handleEditSource() bool {
 // SaveTitle saves the new title to the current tiki (draft or editing).
 // For draft tikis (new task creation), updates the draft; for editing tikis, updates the editing copy.
 // Returns true if a tiki was updated, false if no tiki is being edited.
-func (tc *TaskController) SaveTitle(newTitle string) bool {
+func (tc *TikiEditSession) SaveTitle(newTitle string) bool {
 	if tc.draftTiki != nil {
 		tc.draftTiki.Title = newTitle
 		return true
@@ -237,7 +237,7 @@ func (tc *TaskController) SaveTitle(newTitle string) bool {
 
 // SaveTags saves the new tags to the current tiki (draft or editing).
 // Returns true if a tiki was updated, false if no tiki is being edited.
-func (tc *TaskController) SaveTags(tags []string) bool {
+func (tc *TikiEditSession) SaveTags(tags []string) bool {
 	return tc.updateTikiField(func(tk *tikipkg.Tiki) {
 		normalized := collectionutil.NormalizeStringSet(tags)
 		if len(normalized) > 0 {
@@ -251,7 +251,7 @@ func (tc *TaskController) SaveTags(tags []string) bool {
 // SaveDescription saves the new description to the current tiki (draft or editing).
 // For draft tikis (new task creation), updates the draft; for editing tikis, updates the editing copy.
 // Returns true if a tiki was updated, false if no tiki is being edited.
-func (tc *TaskController) SaveDescription(newDescription string) bool {
+func (tc *TikiEditSession) SaveDescription(newDescription string) bool {
 	if tc.draftTiki != nil {
 		tc.draftTiki.Body = newDescription
 		return true
@@ -267,7 +267,7 @@ func (tc *TaskController) SaveDescription(newDescription string) bool {
 // It applies the setter function to the appropriate tiki based on priority:
 // draft tiki (new task creation) takes priority over editing tiki (existing task edit).
 // Returns true if a tiki was updated, false if no tiki is being edited.
-func (tc *TaskController) updateTikiField(setter func(*tikipkg.Tiki)) bool {
+func (tc *TikiEditSession) updateTikiField(setter func(*tikipkg.Tiki)) bool {
 	if tc.draftTiki != nil {
 		setter(tc.draftTiki)
 		return true
@@ -286,7 +286,7 @@ func (tc *TaskController) updateTikiField(setter func(*tikipkg.Tiki)) bool {
 // because NormalizeStatus("Done ✅") would camelCase the emoji into a
 // nonsense key ("done✅") and silently fall back to the default status.
 // Returns true on a successful update.
-func (tc *TaskController) SaveStatus(statusOrDisplay string) bool {
+func (tc *TikiEditSession) SaveStatus(statusOrDisplay string) bool {
 	if statusOrDisplay == "" {
 		return tc.updateTikiField(func(tk *tikipkg.Tiki) {
 			tk.Delete(tikipkg.FieldStatus)
@@ -329,7 +329,7 @@ func (tc *TaskController) SaveStatus(statusOrDisplay string) bool {
 // enum key or a display string — same dual-form contract as SaveStatus, since
 // the SemanticEnum editor emits keys but legacy callers still pass displays.
 // Returns true on a successful update.
-func (tc *TaskController) SaveType(typeOrDisplay string) bool {
+func (tc *TikiEditSession) SaveType(typeOrDisplay string) bool {
 	if typeOrDisplay == "" {
 		return tc.updateTikiField(func(tk *tikipkg.Tiki) {
 			tk.Delete(tikipkg.FieldType)
@@ -357,7 +357,7 @@ func (tc *TaskController) SaveType(typeOrDisplay string) bool {
 // etc.) — fields that have no built-in Save* method but still need an edit
 // path. The value must be a valid key for the configured enum, or empty
 // to delete the field. Returns true on success.
-func (tc *TaskController) SaveWorkflowEnum(fieldName, value string) bool {
+func (tc *TikiEditSession) SaveWorkflowEnum(fieldName, value string) bool {
 	wfd, ok := workflow.Field(fieldName)
 	if !ok || wfd.Type != workflow.TypeEnum {
 		slog.Warn("SaveWorkflowEnum: not an enum field", "field", fieldName)
@@ -381,7 +381,7 @@ func (tc *TaskController) SaveWorkflowEnum(fieldName, value string) bool {
 // a recognized canonical key for the configured priority enum. Display
 // strings are not accepted — the editor emits canonical keys directly.
 // Returns true if the priority was successfully updated, false otherwise.
-func (tc *TaskController) SavePriority(priority string) bool {
+func (tc *TikiEditSession) SavePriority(priority string) bool {
 	if priority != "" {
 		fd, ok := workflow.Field(tikipkg.FieldPriority)
 		if !ok || !fd.IsValidEnum(priority) {
@@ -402,7 +402,7 @@ func (tc *TaskController) SavePriority(priority string) bool {
 // SaveAssignee saves the new assignee to the current tiki.
 // The special value "Unassigned" is normalized to an empty string.
 // Returns true if the assignee was successfully updated, false otherwise.
-func (tc *TaskController) SaveAssignee(assignee string) bool {
+func (tc *TikiEditSession) SaveAssignee(assignee string) bool {
 	// Normalize "Unassigned" to empty string
 	if assignee == "Unassigned" {
 		assignee = ""
@@ -422,7 +422,7 @@ func (tc *TaskController) SaveAssignee(assignee string) bool {
 // the int argument is the legacy interface from the per-field save plumbing
 // and is normalized to its decimal string form for enum-key validation.
 // Zero (or any value not declared as an enum key) clears the field.
-func (tc *TaskController) SavePoints(points int) bool {
+func (tc *TikiEditSession) SavePoints(points int) bool {
 	fd, ok := workflow.Field(tikipkg.FieldPoints)
 	clearField := func(tk *tikipkg.Tiki) { tk.Delete(tikipkg.FieldPoints) }
 	if !ok || fd.Type != workflow.TypeEnum {
@@ -448,7 +448,7 @@ func (tc *TaskController) SavePoints(points int) bool {
 // SaveDue saves the new due date to the current tiki.
 // Empty string clears the due date (sets to zero time).
 // Returns true if the due date was successfully updated, false otherwise.
-func (tc *TaskController) SaveDue(dateStr string) bool {
+func (tc *TikiEditSession) SaveDue(dateStr string) bool {
 	parsed, ok := value.ParseDate(dateStr)
 	if !ok {
 		return false
@@ -466,7 +466,7 @@ func (tc *TaskController) SaveDue(dateStr string) bool {
 // When recurrence is set, Due is auto-computed as the next occurrence.
 // When recurrence is cleared, Due is also cleared.
 // Returns true if the recurrence was successfully updated, false otherwise.
-func (tc *TaskController) SaveRecurrence(cron string) bool {
+func (tc *TikiEditSession) SaveRecurrence(cron string) bool {
 	r := value.Recurrence(cron)
 	if !value.IsValidRecurrence(r) {
 		slog.Warn("invalid recurrence", "cron", cron)
@@ -483,14 +483,14 @@ func (tc *TaskController) SaveRecurrence(cron string) bool {
 	})
 }
 
-func (tc *TaskController) handleCloneTask() bool {
+func (tc *TikiEditSession) handleCloneTask() bool {
 	// TODO: trigger task clone flow from detail view
 	return true
 }
 
 // GetCurrentTiki returns the tiki being viewed or edited.
 // Returns nil if no task is currently active.
-func (tc *TaskController) GetCurrentTiki() *tikipkg.Tiki {
+func (tc *TikiEditSession) GetCurrentTiki() *tikipkg.Tiki {
 	if tc.currentTaskID == "" {
 		return nil
 	}
@@ -498,23 +498,23 @@ func (tc *TaskController) GetCurrentTiki() *tikipkg.Tiki {
 }
 
 // GetCurrentTaskID returns the ID of the current task
-func (tc *TaskController) GetCurrentTaskID() string {
+func (tc *TikiEditSession) GetCurrentTaskID() string {
 	return tc.currentTaskID
 }
 
 // GetFocusedField returns the currently focused field in edit mode
-func (tc *TaskController) GetFocusedField() model.EditField {
+func (tc *TikiEditSession) GetFocusedField() model.EditField {
 	return tc.focusedField
 }
 
 // SetFocusedField sets the currently focused field in edit mode
-func (tc *TaskController) SetFocusedField(field model.EditField) {
+func (tc *TikiEditSession) SetFocusedField(field model.EditField) {
 	tc.focusedField = field
 }
 
 // AddComment adds a new comment to the current task with the specified author and text.
 // Returns false if no task is currently active, true if the comment was added successfully.
-func (tc *TaskController) AddComment(author, text string) bool {
+func (tc *TikiEditSession) AddComment(author, text string) bool {
 	if tc.currentTaskID == "" {
 		return false
 	}

@@ -67,11 +67,11 @@ type MutationValidator func(old, new *tikipkg.Tiki, allTikis []*tikipkg.Tiki) *R
 // Errors are logged but do not propagate — the original mutation is not affected.
 type AfterHook func(ctx context.Context, old, new *tikipkg.Tiki) error
 
-// TaskMutationGate is the single gateway for all task mutations.
+// TikiMutationGate is the single gateway for all task mutations.
 // All Create/Update/Delete operations must go through this gate.
 // Validators are registered per operation type and run before persistence.
 // After-hooks run post-persist for side effects; their errors are logged, not propagated.
-type TaskMutationGate struct {
+type TikiMutationGate struct {
 	store            store.Store
 	createValidators []MutationValidator
 	updateValidators []MutationValidator
@@ -81,56 +81,56 @@ type TaskMutationGate struct {
 	afterDeleteHooks []AfterHook
 }
 
-// NewTaskMutationGate creates a gate without a store.
+// NewTikiMutationGate creates a gate without a store.
 // Call SetStore after store initialization. Validator registration
 // is safe before SetStore — mutations are not.
-func NewTaskMutationGate() *TaskMutationGate {
-	return &TaskMutationGate{}
+func NewTikiMutationGate() *TikiMutationGate {
+	return &TikiMutationGate{}
 }
 
 // SetStore wires the persistence layer into the gate.
-func (g *TaskMutationGate) SetStore(s store.Store) {
+func (g *TikiMutationGate) SetStore(s store.Store) {
 	g.store = s
 }
 
 // ReadStore returns the underlying store as a read-only interface.
-func (g *TaskMutationGate) ReadStore() store.ReadStore {
+func (g *TikiMutationGate) ReadStore() store.ReadStore {
 	g.ensureStore()
 	return g.store
 }
 
 // OnCreate registers a validator that runs before CreateTiki.
-func (g *TaskMutationGate) OnCreate(v MutationValidator) {
+func (g *TikiMutationGate) OnCreate(v MutationValidator) {
 	g.createValidators = append(g.createValidators, v)
 }
 
 // OnUpdate registers a validator that runs before UpdateTiki.
-func (g *TaskMutationGate) OnUpdate(v MutationValidator) {
+func (g *TikiMutationGate) OnUpdate(v MutationValidator) {
 	g.updateValidators = append(g.updateValidators, v)
 }
 
 // OnDelete registers a validator that runs before DeleteTiki.
-func (g *TaskMutationGate) OnDelete(v MutationValidator) {
+func (g *TikiMutationGate) OnDelete(v MutationValidator) {
 	g.deleteValidators = append(g.deleteValidators, v)
 }
 
 // OnAfterCreate registers a hook that runs after a successful CreateTiki.
-func (g *TaskMutationGate) OnAfterCreate(h AfterHook) {
+func (g *TikiMutationGate) OnAfterCreate(h AfterHook) {
 	g.afterCreateHooks = append(g.afterCreateHooks, h)
 }
 
 // OnAfterUpdate registers a hook that runs after a successful UpdateTiki.
-func (g *TaskMutationGate) OnAfterUpdate(h AfterHook) {
+func (g *TikiMutationGate) OnAfterUpdate(h AfterHook) {
 	g.afterUpdateHooks = append(g.afterUpdateHooks, h)
 }
 
 // OnAfterDelete registers a hook that runs after a successful DeleteTiki.
-func (g *TaskMutationGate) OnAfterDelete(h AfterHook) {
+func (g *TikiMutationGate) OnAfterDelete(h AfterHook) {
 	g.afterDeleteHooks = append(g.afterDeleteHooks, h)
 }
 
 // CreateTiki validates the tiki, sets timestamps, persists it, and runs after-hooks.
-func (g *TaskMutationGate) CreateTiki(ctx context.Context, tk *tikipkg.Tiki) error {
+func (g *TikiMutationGate) CreateTiki(ctx context.Context, tk *tikipkg.Tiki) error {
 	if err := checkTriggerDepth(ctx); err != nil {
 		return err
 	}
@@ -155,7 +155,7 @@ func (g *TaskMutationGate) CreateTiki(ctx context.Context, tk *tikipkg.Tiki) err
 // The tiki's field map is authoritative (exact-presence semantics): absent fields
 // are deleted on disk. Use this for all callers that supply a fully-computed
 // post-mutation tiki.
-func (g *TaskMutationGate) UpdateTiki(ctx context.Context, tk *tikipkg.Tiki) error {
+func (g *TikiMutationGate) UpdateTiki(ctx context.Context, tk *tikipkg.Tiki) error {
 	if err := checkTriggerDepth(ctx); err != nil {
 		return err
 	}
@@ -178,7 +178,7 @@ func (g *TaskMutationGate) UpdateTiki(ctx context.Context, tk *tikipkg.Tiki) err
 }
 
 // DeleteTiki validates, removes a tiki, and runs after-hooks.
-func (g *TaskMutationGate) DeleteTiki(ctx context.Context, tk *tikipkg.Tiki) error {
+func (g *TikiMutationGate) DeleteTiki(ctx context.Context, tk *tikipkg.Tiki) error {
 	if err := checkTriggerDepth(ctx); err != nil {
 		return err
 	}
@@ -202,7 +202,7 @@ func (g *TaskMutationGate) DeleteTiki(ctx context.Context, tk *tikipkg.Tiki) err
 // applied. This lets before-update validators evaluate aggregate predicates
 // (e.g. WIP limits via count(select ...)) against the candidate world state
 // rather than the stale pre-mutation snapshot.
-func (g *TaskMutationGate) candidateAllTikis(proposed *tikipkg.Tiki) []*tikipkg.Tiki {
+func (g *TikiMutationGate) candidateAllTikis(proposed *tikipkg.Tiki) []*tikipkg.Tiki {
 	stored := g.store.GetAllTikis()
 	result := make([]*tikipkg.Tiki, len(stored))
 	for i, t := range stored {
@@ -215,7 +215,7 @@ func (g *TaskMutationGate) candidateAllTikis(proposed *tikipkg.Tiki) []*tikipkg.
 	return result
 }
 
-func (g *TaskMutationGate) runValidators(validators []MutationValidator, old, new *tikipkg.Tiki, allTikis []*tikipkg.Tiki) error {
+func (g *TikiMutationGate) runValidators(validators []MutationValidator, old, new *tikipkg.Tiki, allTikis []*tikipkg.Tiki) error {
 	var rejections []Rejection
 	for _, v := range validators {
 		if r := v(old, new, allTikis); r != nil {
@@ -228,7 +228,7 @@ func (g *TaskMutationGate) runValidators(validators []MutationValidator, old, ne
 	return nil
 }
 
-func (g *TaskMutationGate) runAfterHooks(ctx context.Context, hooks []AfterHook, old, new *tikipkg.Tiki) {
+func (g *TikiMutationGate) runAfterHooks(ctx context.Context, hooks []AfterHook, old, new *tikipkg.Tiki) {
 	for _, h := range hooks {
 		if err := h(ctx, old, new); err != nil {
 			slog.Error("after-hook failed", "error", err)
@@ -244,8 +244,8 @@ func checkTriggerDepth(ctx context.Context) error {
 	return nil
 }
 
-func (g *TaskMutationGate) ensureStore() {
+func (g *TikiMutationGate) ensureStore() {
 	if g.store == nil {
-		panic("TaskMutationGate: store not set — call SetStore before using mutations or ReadStore")
+		panic("TikiMutationGate: store not set — call SetStore before using mutations or ReadStore")
 	}
 }

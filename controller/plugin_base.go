@@ -18,7 +18,7 @@ import (
 // Methods that depend on per-controller filtering accept a filteredTasks callback.
 type pluginBase struct {
 	taskStore     store.Store
-	mutationGate  *service.TaskMutationGate
+	mutationGate  *service.TikiMutationGate
 	pluginConfig  *model.PluginConfig
 	pluginDef     *plugin.TikiPlugin
 	navController *NavigationController

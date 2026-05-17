@@ -63,7 +63,7 @@ func newDepsTestEnv(t *testing.T) (*DepsController, store.Store) {
 	pluginConfig := model.NewPluginConfig("Dependency")
 	pluginConfig.SetLaneLayout([]int{1, 2, 1}, nil)
 
-	gate := service.NewTaskMutationGate()
+	gate := service.NewTikiMutationGate()
 	gate.SetStore(taskStore)
 
 	nav := newMockNavigationController()
@@ -530,7 +530,7 @@ func TestDepsController_DeleteTask_GateError(t *testing.T) {
 	pluginConfig := model.NewPluginConfig("Dependency")
 	pluginConfig.SetLaneLayout([]int{1, 2, 1}, nil)
 
-	gate := service.NewTaskMutationGate()
+	gate := service.NewTikiMutationGate()
 	gate.SetStore(taskStore)
 	// register a before-delete validator that blocks all deletes
 	gate.OnDelete(func(old, new *tikipkg.Tiki, allTikis []*tikipkg.Tiki) *service.Rejection {
@@ -574,7 +574,7 @@ func TestDepsController_MoveTask_UpdateError(t *testing.T) {
 	pluginConfig := model.NewPluginConfig("Dependency")
 	pluginConfig.SetLaneLayout([]int{1, 2, 1}, nil)
 
-	gate := service.NewTaskMutationGate()
+	gate := service.NewTikiMutationGate()
 	gate.SetStore(taskStore)
 	// register a validator that blocks all updates
 	gate.OnUpdate(func(old, new *tikipkg.Tiki, allTikis []*tikipkg.Tiki) *service.Rejection {
@@ -667,7 +667,7 @@ func newDepsNavEnv(t *testing.T, blockers int, allTasks int, depends int, laneCo
 	pluginConfig := model.NewPluginConfig("Dependency")
 	pluginConfig.SetLaneLayout(laneColumns, nil)
 
-	gate := service.NewTaskMutationGate()
+	gate := service.NewTikiMutationGate()
 	gate.SetStore(taskStore)
 
 	nav := newMockNavigationController()

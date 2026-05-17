@@ -26,7 +26,7 @@ type QuickSelect struct {
 	selectedIndex  int
 	scrollOffset   int
 	idColumnWidth  int
-	rowColors      component.TaskRowColors
+	rowColors      component.TikiRowColors
 	lastWidth      int
 	lastHeight     int
 }
@@ -37,7 +37,7 @@ func NewQuickSelect(quickSelectCfg *model.QuickSelectConfig) *QuickSelect {
 
 	qs := &QuickSelect{
 		quickSelectCfg: quickSelectCfg,
-		rowColors:      component.DefaultTaskRowColors(),
+		rowColors:      component.DefaultTikiRowColors(),
 	}
 
 	qs.filterInput = tview.NewInputField()
@@ -189,7 +189,7 @@ func (qs *QuickSelect) renderList() {
 		if i > qs.scrollOffset {
 			buf.WriteString("\n")
 		}
-		row := component.RenderTaskRow(qs.filteredTikis[i], i == qs.selectedIndex, width, qs.idColumnWidth, qs.rowColors)
+		row := component.RenderTikiRow(qs.filteredTikis[i], i == qs.selectedIndex, width, qs.idColumnWidth, qs.rowColors)
 		buf.WriteString(row)
 	}
 

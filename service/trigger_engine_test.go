@@ -87,8 +87,8 @@ func priorityRankToKey(rank int) string {
 	return ""
 }
 
-func newGateWithStoreAndTikis(tikis ...*tikipkg.Tiki) (*TaskMutationGate, store.Store) {
-	gate := NewTaskMutationGate()
+func newGateWithStoreAndTikis(tikis ...*tikipkg.Tiki) (*TikiMutationGate, store.Store) {
+	gate := NewTikiMutationGate()
 	RegisterFieldValidators(gate)
 	s := store.NewInMemoryStore()
 	gate.SetStore(s)
@@ -665,7 +665,7 @@ func TestLoadAndRegisterTriggers_EmptyDefs(t *testing.T) {
 	_ = os.Chdir(t.TempDir())
 	config.ResetPathManager()
 
-	gate := NewTaskMutationGate()
+	gate := NewTikiMutationGate()
 	schema := testTriggerSchema{}
 	engine, count, err := LoadAndRegisterTriggers(gate, schema, nil)
 	if err != nil {
@@ -825,7 +825,7 @@ func TestLoadAndRegisterTriggers_WithValidTriggers(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	gate := NewTaskMutationGate()
+	gate := NewTikiMutationGate()
 	s := store.NewInMemoryStore()
 	gate.SetStore(s)
 
@@ -861,7 +861,7 @@ func TestLoadAndRegisterTriggers_ParseError(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	gate := NewTaskMutationGate()
+	gate := NewTikiMutationGate()
 	gate.SetStore(store.NewInMemoryStore())
 
 	engine, _, err := LoadAndRegisterTriggers(gate, testTriggerSchema{}, nil)
@@ -886,7 +886,7 @@ func TestLoadAndRegisterTriggers_ParseErrorNoDescription(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	gate := NewTaskMutationGate()
+	gate := NewTikiMutationGate()
 	gate.SetStore(store.NewInMemoryStore())
 
 	_, _, err := LoadAndRegisterTriggers(gate, testTriggerSchema{}, nil)
@@ -905,7 +905,7 @@ func TestTriggerEngine_PersistCreateTemplateError(t *testing.T) {
 		`after delete create title="replacement" status="ready" type=old.type priority="medium"`)
 
 	s := store.NewInMemoryStore()
-	gate := NewTaskMutationGate()
+	gate := NewTikiMutationGate()
 	RegisterFieldValidators(gate)
 	gate.SetStore(s)
 
@@ -990,7 +990,7 @@ func TestLoadAndRegisterTriggers_LoadDefError(t *testing.T) {
 		t.Skip("chmod 0000 did not restrict read access on this platform")
 	}
 
-	gate := NewTaskMutationGate()
+	gate := NewTikiMutationGate()
 	gate.SetStore(store.NewInMemoryStore())
 
 	engine, _, err := LoadAndRegisterTriggers(gate, testTriggerSchema{}, nil)
@@ -1042,7 +1042,7 @@ func TestLoadAndRegisterTriggers_MixedEventAndTimeTriggers(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	gate := NewTaskMutationGate()
+	gate := NewTikiMutationGate()
 	gate.SetStore(store.NewInMemoryStore())
 
 	engine, count, err := LoadAndRegisterTriggers(gate, testTriggerSchema{}, func() string { return "test-user" })
@@ -1091,7 +1091,7 @@ func TestLoadAndRegisterTriggers_InvalidTimeTrigger(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	gate := NewTaskMutationGate()
+	gate := NewTikiMutationGate()
 	gate.SetStore(store.NewInMemoryStore())
 
 	_, _, err := LoadAndRegisterTriggers(gate, testTriggerSchema{}, nil)
@@ -1114,7 +1114,7 @@ func TestLoadAndRegisterTriggers_RunRejectedInTimeTrigger(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	gate := NewTaskMutationGate()
+	gate := NewTikiMutationGate()
 	gate.SetStore(store.NewInMemoryStore())
 
 	_, _, err := LoadAndRegisterTriggers(gate, testTriggerSchema{}, nil)

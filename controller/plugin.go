@@ -21,7 +21,7 @@ type PluginController struct {
 // NewPluginController creates a plugin controller
 func NewPluginController(
 	taskStore store.Store,
-	mutationGate *service.TaskMutationGate,
+	mutationGate *service.TikiMutationGate,
 	pluginConfig *model.PluginConfig,
 	pluginDef *plugin.TikiPlugin,
 	navController *NavigationController,

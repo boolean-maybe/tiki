@@ -13,18 +13,18 @@ import (
 // TaskEditCoordinator owns task edit lifecycle: preparing the view, wiring handlers,
 // and implementing commit/cancel and field navigation policy.
 type TaskEditCoordinator struct {
-	navController  *NavigationController
-	taskController *TaskController
+	navController *NavigationController
+	editSession   *TikiEditSession
 
 	preparedView View
 	descOnly     bool
 	tagsOnly     bool
 }
 
-func NewTaskEditCoordinator(navController *NavigationController, taskController *TaskController) *TaskEditCoordinator {
+func NewTaskEditCoordinator(navController *NavigationController, editSession *TikiEditSession) *TaskEditCoordinator {
 	return &TaskEditCoordinator{
-		navController:  navController,
-		taskController: taskController,
+		navController: navController,
+		editSession:   editSession,
 	}
 }
 
@@ -39,12 +39,12 @@ func (c *TaskEditCoordinator) Prepare(activeView View, params model.TaskEditPara
 	}
 
 	if params.TaskID != "" {
-		c.taskController.SetCurrentTask(params.TaskID)
+		c.editSession.SetCurrentTask(params.TaskID)
 	}
 	if params.Draft != nil {
-		c.taskController.SetDraft(params.Draft)
+		c.editSession.SetDraft(params.Draft)
 	} else {
-		c.taskController.ClearDraft()
+		c.editSession.ClearDraft()
 	}
 
 	c.descOnly = params.DescOnly
@@ -185,8 +185,8 @@ func (c *TaskEditCoordinator) CommitNoClose(activeView View) bool {
 	}
 
 	// Re-start edit session with newly saved task
-	taskID := c.taskController.currentTaskID
-	if editingTask := c.taskController.StartEditSession(taskID); editingTask != nil {
+	taskID := c.editSession.currentTaskID
+	if editingTask := c.editSession.StartEditSession(taskID); editingTask != nil {
 		// Refresh view with new editing copy
 		if refreshable, ok := activeView.(interface{ Refresh() }); ok {
 			refreshable.Refresh()
@@ -197,8 +197,8 @@ func (c *TaskEditCoordinator) CommitNoClose(activeView View) bool {
 
 func (c *TaskEditCoordinator) CancelAndClose() bool {
 	// Cancel edit session (discards changes) and clear any draft.
-	c.taskController.CancelEditSession()
-	c.taskController.ClearDraft()
+	c.editSession.CancelEditSession()
+	c.editSession.ClearDraft()
 	c.clearFieldHint()
 	c.navController.HandleBack()
 	return true
@@ -216,7 +216,7 @@ func (c *TaskEditCoordinator) commit(activeView View) bool {
 		ValidationErrors() []string
 	}); ok {
 		if !validator.IsValid() {
-			if sl := c.taskController.statusline; sl != nil {
+			if sl := c.editSession.statusline; sl != nil {
 				if errs := validator.ValidationErrors(); len(errs) > 0 {
 					sl.SetMessage(strings.Join(errs, "; "), model.MessageLevelError, true)
 				}
@@ -226,13 +226,13 @@ func (c *TaskEditCoordinator) commit(activeView View) bool {
 	}
 
 	// Update in-memory editing copy with latest widget values
-	c.taskController.SaveTitle(editorView.GetEditedTitle())
-	c.taskController.SaveDescription(editorView.GetEditedDescription())
-	c.taskController.SaveTags(editorView.GetEditedTags())
+	c.editSession.SaveTitle(editorView.GetEditedTitle())
+	c.editSession.SaveDescription(editorView.GetEditedDescription())
+	c.editSession.SaveTags(editorView.GetEditedTags())
 
 	// Commit the edit session (writes to disk)
-	if err := c.taskController.CommitEditSession(); err != nil {
-		if sl := c.taskController.statusline; sl != nil {
+	if err := c.editSession.CommitEditSession(); err != nil {
+		if sl := c.editSession.statusline; sl != nil {
 			sl.SetMessage(rejectionMessage(err), model.MessageLevelError, true)
 		}
 		return false
@@ -242,7 +242,7 @@ func (c *TaskEditCoordinator) commit(activeView View) bool {
 
 // updateFieldHint shows or clears a statusline hint based on the focused field.
 func (c *TaskEditCoordinator) updateFieldHint(activeView View) {
-	sl := c.taskController.statusline
+	sl := c.editSession.statusline
 	if sl == nil {
 		return
 	}
@@ -267,7 +267,7 @@ func (c *TaskEditCoordinator) updateFieldHint(activeView View) {
 
 // clearFieldHint removes any statusline hint set by updateFieldHint.
 func (c *TaskEditCoordinator) clearFieldHint() {
-	if sl := c.taskController.statusline; sl != nil {
+	if sl := c.editSession.statusline; sl != nil {
 		sl.ClearMessage()
 	}
 }
@@ -278,15 +278,15 @@ func (c *TaskEditCoordinator) prepareView(activeView View, focus model.EditField
 	// Start edit session for existing tasks (creates in-memory copy)
 	// Draft tasks already have an in-memory copy via draftTask
 	if _, ok := activeView.(TaskEditView); ok {
-		if taskView, hasController := activeView.(interface{ SetTaskController(*TaskController) }); hasController {
-			taskView.SetTaskController(c.taskController)
+		if taskView, hasController := activeView.(interface{ SetTikiEditSession(*TikiEditSession) }); hasController {
+			taskView.SetTikiEditSession(c.editSession)
 		}
 
 		// Only start edit session for non-draft tasks
-		if c.taskController.draftTiki == nil {
-			taskID := c.taskController.currentTaskID
+		if c.editSession.draftTiki == nil {
+			taskID := c.editSession.currentTaskID
 			if taskID != "" {
-				c.taskController.StartEditSession(taskID)
+				c.editSession.StartEditSession(taskID)
 			}
 		}
 	}
@@ -337,49 +337,49 @@ func (c *TaskEditCoordinator) prepareView(activeView View, focus model.EditField
 	if !c.descOnly {
 		if statusEditableView, ok := activeView.(StatusEditableView); ok {
 			statusEditableView.SetStatusSaveHandler(func(statusDisplay string) {
-				c.taskController.SaveStatus(statusDisplay)
+				c.editSession.SaveStatus(statusDisplay)
 			})
 		}
 
 		if typeEditableView, ok := activeView.(TypeEditableView); ok {
 			typeEditableView.SetTypeSaveHandler(func(typeDisplay string) {
-				c.taskController.SaveType(typeDisplay)
+				c.editSession.SaveType(typeDisplay)
 			})
 		}
 
 		if priorityEditableView, ok := activeView.(PriorityEditableView); ok {
 			priorityEditableView.SetPrioritySaveHandler(func(priority string) {
-				c.taskController.SavePriority(priority)
+				c.editSession.SavePriority(priority)
 			})
 		}
 
 		if assigneeEditableView, ok := activeView.(AssigneeEditableView); ok {
 			assigneeEditableView.SetAssigneeSaveHandler(func(assignee string) {
-				c.taskController.SaveAssignee(assignee)
+				c.editSession.SaveAssignee(assignee)
 			})
 		}
 
 		if pointsEditableView, ok := activeView.(PointsEditableView); ok {
 			pointsEditableView.SetPointsSaveHandler(func(points int) {
-				c.taskController.SavePoints(points)
+				c.editSession.SavePoints(points)
 			})
 		}
 
 		if dueEditableView, ok := activeView.(DueEditableView); ok {
 			dueEditableView.SetDueSaveHandler(func(dateStr string) {
-				c.taskController.SaveDue(dateStr)
+				c.editSession.SaveDue(dateStr)
 			})
 		}
 
 		if recurrenceEditableView, ok := activeView.(RecurrenceEditableView); ok {
 			recurrenceEditableView.SetRecurrenceSaveHandler(func(cron string) {
-				c.taskController.SaveRecurrence(cron)
+				c.editSession.SaveRecurrence(cron)
 			})
 		}
 
 		if workflowEnumView, ok := activeView.(WorkflowEnumEditableView); ok {
 			workflowEnumView.SetWorkflowEnumSaveHandler(func(name, canonicalKey string) {
-				c.taskController.SaveWorkflowEnum(name, canonicalKey)
+				c.editSession.SaveWorkflowEnum(name, canonicalKey)
 			})
 		}
 	}

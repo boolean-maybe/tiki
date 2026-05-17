@@ -43,7 +43,7 @@ func NewDokiController(
 	statusline *model.StatuslineConfig,
 	globalActions []plugin.PluginAction,
 	taskStore store.Store,
-	mutationGate *service.TaskMutationGate,
+	mutationGate *service.TikiMutationGate,
 	schema ruki.Schema,
 ) *DokiController {
 	dc := &DokiController{

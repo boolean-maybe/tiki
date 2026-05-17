@@ -109,7 +109,7 @@ func TestRunQuery_UpdateAssigneeUserInNoGit(t *testing.T) {
 		t.Fatalf("CreateTiki: %v", err)
 	}
 
-	gate := service.NewTaskMutationGate()
+	gate := service.NewTikiMutationGate()
 	gate.SetStore(s)
 
 	var buf bytes.Buffer

@@ -28,7 +28,7 @@ type Base struct {
 	descView     tview.Primitive
 
 	fallbackTiki   *tikipkg.Tiki
-	taskController *controller.TaskController
+	taskController *controller.TikiEditSession
 
 	fullscreen         bool
 	focusSetter        func(tview.Primitive)
@@ -61,8 +61,8 @@ func (b *Base) SetFallbackTiki(tk *tikipkg.Tiki) {
 	b.fallbackTiki = tk
 }
 
-// SetTaskController sets the task controller for edit session management.
-func (b *Base) SetTaskController(tc *controller.TaskController) {
+// SetTikiEditSession wires the edit-session controller used to drive in-place edit mode.
+func (b *Base) SetTikiEditSession(tc *controller.TikiEditSession) {
 	b.taskController = tc
 }
 

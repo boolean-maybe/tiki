@@ -28,7 +28,7 @@ import (
 // field — it only renders if declared in the metadata layout (e.g.
 // `<highlight>title`). Field anchors render as value-only primitives,
 // literal cells render as static text captions. Multi-row fields (tags
-// via WordList wrapping, depends-on via TaskList) extend downward within
+// via WordList wrapping, depends-on via TikiList) extend downward within
 // their own column thanks to per-column natural-height packing in
 // gridContainer.rebuild. Heights are clamped by the solver's
 // maxRowHeight (6) per row.

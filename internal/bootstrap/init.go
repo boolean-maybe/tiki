@@ -34,7 +34,7 @@ type Result struct {
 	// Fields include: OS, Architecture, TermType, DetectedTheme, ColorSupport, ColorCount.
 	// Collected early using terminfo lookup (no screen initialization needed).
 	SystemInfo        *sysinfo.SystemInfo
-	MutationGate      *service.TaskMutationGate
+	MutationGate      *service.TikiMutationGate
 	TikiStore         *tikistore.TikiStore
 	TaskStore         store.Store
 	HeaderConfig      *model.HeaderConfig
@@ -122,15 +122,15 @@ func Bootstrap(tikiSkillContent, dokiSkillContent string) (*Result, error) {
 	gate := service.BuildGate()
 
 	// Phase 4: Store initialization
-	tikiStore, taskStore, err := InitStores()
+	tikiStoreConcrete, tikiStore, err := InitStores()
 	if err != nil {
 		return nil, err
 	}
-	gate.SetStore(taskStore)
+	gate.SetStore(tikiStore)
 
 	// Phase 5: Model initialization
 	headerConfig, layoutModel := InitHeaderAndLayoutModels()
-	statuslineConfig := InitStatuslineModel(tikiStore, workflowScope)
+	statuslineConfig := InitStatuslineModel(tikiStoreConcrete, workflowScope)
 
 	// Phase 5.5: Ruki schema (needed by plugin parser and trigger system)
 	schema := rukiRuntime.NewSchema()
@@ -147,7 +147,7 @@ func Bootstrap(tikiSkillContent, dokiSkillContent string) (*Result, error) {
 	// Phase 6.5: Trigger system — share the same identity projection as the
 	// runtime/plugin executors so email-only identity configurations reach
 	// `user()` calls inside triggers
-	userFunc, err := store.CurrentUserDisplayFunc(taskStore)
+	userFunc, err := store.CurrentUserDisplayFunc(tikiStore)
 	if err != nil {
 		return nil, fmt.Errorf("resolve current user: %w", err)
 	}
@@ -165,7 +165,7 @@ func Bootstrap(tikiSkillContent, dokiSkillContent string) (*Result, error) {
 
 	controllers := BuildControllers(
 		application,
-		taskStore,
+		tikiStore,
 		gate,
 		plugins,
 		globalActions,
@@ -177,23 +177,23 @@ func Bootstrap(tikiSkillContent, dokiSkillContent string) (*Result, error) {
 	// Phase 8: Input routing
 	inputRouter := controller.NewInputRouter(
 		controllers.Nav,
-		controllers.Task,
+		controllers.TikiEdit,
 		controllers.Plugins,
-		taskStore,
+		tikiStore,
 		gate,
 		statuslineConfig,
 		schema,
 	)
 
 	// Phase 9: View factory and layout
-	viewFactory := view.NewViewFactory(taskStore)
+	viewFactory := view.NewViewFactory(tikiStore)
 	viewFactory.SetPlugins(pluginConfigs, pluginDefs, controllers.Plugins, globalActions)
 
 	// Wire fresh-per-navigation DokiController creation so each view instance
 	// on the nav stack holds its own selectedTaskID (prevents a second doki
 	// navigation from overwriting the first view's context).
 	viewFactory.SetDokiControllerFactory(func(def plugin.Plugin, selectedTaskID string) *controller.DokiController {
-		dc := controller.NewDokiController(def, controllers.Nav, statuslineConfig, globalActions, taskStore, gate, schema)
+		dc := controller.NewDokiController(def, controllers.Nav, statuslineConfig, globalActions, tikiStore, gate, schema)
 		dc.SetSelectedTaskID(selectedTaskID)
 		return dc
 	})
@@ -201,7 +201,7 @@ func Bootstrap(tikiSkillContent, dokiSkillContent string) (*Result, error) {
 	// Same fresh-per-navigation pattern for kind: detail views — two pushed
 	// Detail views must not share selectedTaskID state.
 	viewFactory.SetDetailControllerFactory(func(def *plugin.DetailPlugin, selectedTaskID string) *controller.DetailController {
-		dc := controller.NewDetailController(def, controllers.Nav, statuslineConfig, taskStore, gate, schema, controllers.Task)
+		dc := controller.NewDetailController(def, controllers.Nav, statuslineConfig, tikiStore, gate, schema, controllers.TikiEdit)
 		dc.SetSelectedTaskID(selectedTaskID)
 		return dc
 	})
@@ -219,7 +219,7 @@ func Bootstrap(tikiSkillContent, dokiSkillContent string) (*Result, error) {
 		ViewContext:      viewContext,
 		LayoutModel:      layoutModel,
 		ViewFactory:      viewFactory,
-		TaskStore:        taskStore,
+		TaskStore:        tikiStore,
 		App:              application,
 		StatuslineWidget: statuslineWidget,
 		StatuslineConfig: statuslineConfig,
@@ -303,8 +303,8 @@ func Bootstrap(tikiSkillContent, dokiSkillContent string) (*Result, error) {
 		LogLevel:          logLevel,
 		SystemInfo:        systemInfo,
 		MutationGate:      gate,
-		TikiStore:         tikiStore,
-		TaskStore:         taskStore,
+		TikiStore:         tikiStoreConcrete,
+		TaskStore:         tikiStore,
 		HeaderConfig:      headerConfig,
 		LayoutModel:       layoutModel,
 		Plugins:           plugins,

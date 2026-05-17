@@ -24,7 +24,7 @@ import (
 // Phase 1 scope: read-only view, fullscreen toggle, action dispatch.
 // Phase 2 added in-place edit mode: the controller owns the edit-session
 // lifecycle (start, commit, cancel) and routes per-field saves through
-// TaskController callbacks. The view itself owns the editor widgets and
+// TikiEditSession callbacks. The view itself owns the editor widgets and
 // traversal state.
 type DetailController struct {
 	pluginDef      *plugin.DetailPlugin
@@ -35,8 +35,8 @@ type DetailController struct {
 	selectedTaskID string
 
 	// Phase 2 edit-mode plumbing.
-	taskController *TaskController
-	editView       DetailEditableView
+	editSession *TikiEditSession
+	editView    DetailEditableView
 }
 
 // DetailEditableView is the contract the configurable detail view exposes
@@ -68,7 +68,7 @@ type DetailEditableView interface {
 // NewDetailController builds a controller for a kind: detail plugin view.
 // taskStore / mutationGate / schema may be nil only in trivial test fixtures
 // that don't exercise ruki actions; in normal use the executor is wired so
-// per-view ruki actions can fire. taskController is required for Phase 2
+// per-view ruki actions can fire. editSession is required for Phase 2
 // in-place edit-mode dispatch; passing nil leaves the controller in
 // Phase-1-compatible read-only behavior (Edit becomes a no-op).
 func NewDetailController(
@@ -76,16 +76,16 @@ func NewDetailController(
 	navController *NavigationController,
 	statusline *model.StatuslineConfig,
 	taskStore store.Store,
-	mutationGate *service.TaskMutationGate,
+	mutationGate *service.TikiMutationGate,
 	schema ruki.Schema,
-	taskController *TaskController,
+	editSession *TikiEditSession,
 ) *DetailController {
 	dc := &DetailController{
-		pluginDef:      pluginDef,
-		navController:  navController,
-		statusline:     statusline,
-		registry:       DetailViewActions(),
-		taskController: taskController,
+		pluginDef:     pluginDef,
+		navController: navController,
+		statusline:    statusline,
+		registry:      DetailViewActions(),
+		editSession:   editSession,
 	}
 	if taskStore != nil && mutationGate != nil && schema != nil {
 		dc.executor = NewPluginExecutor(taskStore, mutationGate, statusline, schema,
@@ -159,8 +159,8 @@ func (dc *DetailController) BindEditView(v DetailEditableView) {
 			dc.registerPluginActions()
 		}
 	})
-	if dc.taskController != nil {
-		tc := dc.taskController
+	if dc.editSession != nil {
+		tc := dc.editSession
 		v.SetEditTikiSource(func() *tikipkg.Tiki {
 			if tk := tc.GetDraftTiki(); tk != nil {
 				return tk
@@ -173,7 +173,7 @@ func (dc *DetailController) BindEditView(v DetailEditableView) {
 
 // wireEditFieldHandlers installs the per-field save callbacks on the view.
 // Each handler forwards the editor's emitted value to the corresponding
-// TaskController.SaveX method on the editing copy. The actual disk write
+// TikiEditSession.SaveX method on the editing copy. The actual disk write
 // happens later in CommitEditSession when the user presses Ctrl+S.
 //
 // The send side (registry editor → onChange string) and receive side here
@@ -181,38 +181,38 @@ func (dc *DetailController) BindEditView(v DetailEditableView) {
 // typed→string conversion, and this method owns the string→typed parse so
 // each Save* method gets its expected typed argument.
 func (dc *DetailController) wireEditFieldHandlers(v DetailEditableView) {
-	if dc.taskController == nil {
+	if dc.editSession == nil {
 		return
 	}
 	v.SetEditFieldChangeHandler(tikipkg.FieldStatus, func(display string) {
-		dc.taskController.SaveStatus(display)
+		dc.editSession.SaveStatus(display)
 	})
 	v.SetEditFieldChangeHandler(tikipkg.FieldType, func(display string) {
-		dc.taskController.SaveType(display)
+		dc.editSession.SaveType(display)
 	})
 	v.SetEditFieldChangeHandler(tikipkg.FieldPriority, func(canonicalKey string) {
 		// SemanticEnum editor emits canonical keys directly; no display→key
 		// conversion needed at the controller boundary.
-		dc.taskController.SavePriority(canonicalKey)
+		dc.editSession.SavePriority(canonicalKey)
 	})
 	v.SetEditFieldChangeHandler(tikipkg.FieldPoints, func(display string) {
 		// IntEditSelect enforces digits-only input; the err branch is a
 		// defensive guard rather than a user-visible error path.
 		if n, err := strconv.Atoi(display); err == nil {
-			dc.taskController.SavePoints(n)
+			dc.editSession.SavePoints(n)
 		}
 	})
 	v.SetEditFieldChangeHandler(tikipkg.FieldAssignee, func(display string) {
-		dc.taskController.SaveAssignee(display)
+		dc.editSession.SaveAssignee(display)
 	})
 	v.SetEditFieldChangeHandler(tikipkg.FieldDue, func(display string) {
-		dc.taskController.SaveDue(display)
+		dc.editSession.SaveDue(display)
 	})
 	v.SetEditFieldChangeHandler(tikipkg.FieldRecurrence, func(display string) {
-		dc.taskController.SaveRecurrence(display)
+		dc.editSession.SaveRecurrence(display)
 	})
 	v.SetEditFieldChangeHandler(tikipkg.FieldTags, func(display string) {
-		dc.taskController.SaveTags(strings.Fields(display))
+		dc.editSession.SaveTags(strings.Fields(display))
 	})
 	// Wire a SemanticEnum save handler for any workflow-declared enum
 	// field in this view's metadata that doesn't already have a built-in
@@ -229,7 +229,7 @@ func (dc *DetailController) wireEditFieldHandlers(v DetailEditableView) {
 		}
 		fieldName := name // capture for closure
 		v.SetEditFieldChangeHandler(fieldName, func(canonicalKey string) {
-			dc.taskController.SaveWorkflowEnum(fieldName, canonicalKey)
+			dc.editSession.SaveWorkflowEnum(fieldName, canonicalKey)
 		})
 	}
 }
@@ -297,30 +297,30 @@ func (dc *DetailController) toggleFullscreen() bool {
 	return true
 }
 
-// enterEditMode starts a TaskController edit session and flips the view
+// enterEditMode starts a TikiEditSession edit session and flips the view
 // into edit mode. Returns false if no editable field is configured.
 func (dc *DetailController) enterEditMode() bool {
-	if dc.editView == nil || dc.taskController == nil || dc.selectedTaskID == "" {
+	if dc.editView == nil || dc.editSession == nil || dc.selectedTaskID == "" {
 		return false
 	}
 	if dc.editView.IsEditMode() {
 		return true
 	}
-	if dc.taskController.StartEditSession(dc.selectedTaskID) == nil {
+	if dc.editSession.StartEditSession(dc.selectedTaskID) == nil {
 		return false
 	}
 	if !dc.editView.EnterEditMode() {
-		dc.taskController.CancelEditSession()
+		dc.editSession.CancelEditSession()
 		return false
 	}
 	return true
 }
 
-// commitEdit persists the edit session via TaskController. On success the
+// commitEdit persists the edit session via TikiEditSession. On success the
 // view leaves edit mode; on failure the session stays open so the user
 // can correct invalid input.
 func (dc *DetailController) commitEdit() bool {
-	if dc.editView == nil || dc.taskController == nil {
+	if dc.editView == nil || dc.editSession == nil {
 		return false
 	}
 	if !dc.editView.IsEditMode() {
@@ -331,7 +331,7 @@ func (dc *DetailController) commitEdit() bool {
 	// the focused widget), so editors that only emit on Ctrl+S — like the
 	// tags textarea — would otherwise lose their unsaved input.
 	dc.editView.FlushFocusedEditor()
-	if err := dc.taskController.CommitEditSession(); err != nil {
+	if err := dc.editSession.CommitEditSession(); err != nil {
 		if dc.statusline != nil {
 			dc.statusline.SetMessage(rejectionMessage(err), model.MessageLevelError, true)
 		}
@@ -349,8 +349,8 @@ func (dc *DetailController) cancelEdit() bool {
 	if !dc.editView.IsEditMode() {
 		return false
 	}
-	if dc.taskController != nil {
-		dc.taskController.CancelEditSession()
+	if dc.editSession != nil {
+		dc.editSession.CancelEditSession()
 	}
 	dc.editView.ExitEditMode()
 	return true

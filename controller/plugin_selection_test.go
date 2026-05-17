@@ -135,7 +135,7 @@ func TestEnsureFirstNonEmptyLaneSelectionSelectsFirstTask(t *testing.T) {
 	pluginConfig.SetSelectedIndexForLane(0, 1)
 
 	schema := rukiRuntime.NewSchema()
-	gate := service.NewTaskMutationGate()
+	gate := service.NewTikiMutationGate()
 	gate.SetStore(taskStore)
 	pc := NewPluginController(taskStore, gate, pluginConfig, pluginDef, nil, nil, schema)
 	pc.EnsureFirstNonEmptyLaneSelection()
@@ -169,7 +169,7 @@ func TestEnsureFirstNonEmptyLaneSelectionKeepsCurrentLane(t *testing.T) {
 	pluginConfig.SetSelectedIndexForLane(1, 0)
 
 	schema := rukiRuntime.NewSchema()
-	gate := service.NewTaskMutationGate()
+	gate := service.NewTikiMutationGate()
 	gate.SetStore(taskStore)
 	pc := NewPluginController(taskStore, gate, pluginConfig, pluginDef, nil, nil, schema)
 	pc.EnsureFirstNonEmptyLaneSelection()
@@ -201,7 +201,7 @@ func TestEnsureFirstNonEmptyLaneSelectionNoTasks(t *testing.T) {
 	pluginConfig.SetSelectedIndexForLane(1, 2)
 
 	schema := rukiRuntime.NewSchema()
-	gate := service.NewTaskMutationGate()
+	gate := service.NewTikiMutationGate()
 	gate.SetStore(taskStore)
 	pc := NewPluginController(taskStore, gate, pluginConfig, pluginDef, nil, nil, schema)
 	pc.EnsureFirstNonEmptyLaneSelection()
@@ -554,7 +554,7 @@ func TestPluginController_HandleDeleteTask(t *testing.T) {
 	pluginConfig.SetSelectedIndexForLane(0, 0)
 
 	schema := rukiRuntime.NewSchema()
-	gate := service.NewTaskMutationGate()
+	gate := service.NewTikiMutationGate()
 	gate.SetStore(taskStore)
 	pc := NewPluginController(taskStore, gate, pluginConfig, pluginDef, newMockNavigationController(), nil, schema)
 
@@ -578,7 +578,7 @@ func TestPluginController_HandleDeleteTask_Empty(t *testing.T) {
 	pluginConfig.SetLaneLayout([]int{1}, nil)
 
 	schema := rukiRuntime.NewSchema()
-	gate := service.NewTaskMutationGate()
+	gate := service.NewTikiMutationGate()
 	gate.SetStore(taskStore)
 	pc := NewPluginController(taskStore, gate, pluginConfig, pluginDef, newMockNavigationController(), nil, schema)
 
@@ -603,7 +603,7 @@ func TestPluginController_HandleDeleteTask_Rejected(t *testing.T) {
 
 	statusline := model.NewStatuslineConfig()
 	schema := rukiRuntime.NewSchema()
-	gate := service.NewTaskMutationGate()
+	gate := service.NewTikiMutationGate()
 	gate.SetStore(taskStore)
 	gate.OnDelete(func(_, _ *tikipkg.Tiki, _ []*tikipkg.Tiki) *service.Rejection {
 		return &service.Rejection{Reason: "cannot delete"}
@@ -631,7 +631,7 @@ func TestPluginController_GetNameAndRegistry(t *testing.T) {
 	pluginConfig.SetLaneLayout([]int{1}, nil)
 
 	schema := rukiRuntime.NewSchema()
-	gate := service.NewTaskMutationGate()
+	gate := service.NewTikiMutationGate()
 	gate.SetStore(taskStore)
 	pc := NewPluginController(taskStore, gate, pluginConfig, pluginDef, nil, nil, schema)
 
@@ -665,7 +665,7 @@ func TestPluginController_HandleMoveTask_Rejected(t *testing.T) {
 
 	statusline := model.NewStatuslineConfig()
 	schema := rukiRuntime.NewSchema()
-	gate := service.NewTaskMutationGate()
+	gate := service.NewTikiMutationGate()
 	gate.SetStore(taskStore)
 	gate.OnUpdate(func(_, _ *tikipkg.Tiki, _ []*tikipkg.Tiki) *service.Rejection {
 		return &service.Rejection{Reason: "updates blocked"}
@@ -708,7 +708,7 @@ func TestPluginController_HandlePluginAction_Success(t *testing.T) {
 	pluginConfig.SetSelectedIndexForLane(0, 0)
 
 	schema := rukiRuntime.NewSchema()
-	gate := service.NewTaskMutationGate()
+	gate := service.NewTikiMutationGate()
 	gate.SetStore(taskStore)
 	pc := NewPluginController(taskStore, gate, pluginConfig, pluginDef, nil, nil, schema)
 
@@ -748,7 +748,7 @@ func TestPluginController_HandlePluginAction_Rejected(t *testing.T) {
 
 	statusline := model.NewStatuslineConfig()
 	schema := rukiRuntime.NewSchema()
-	gate := service.NewTaskMutationGate()
+	gate := service.NewTikiMutationGate()
 	gate.SetStore(taskStore)
 	gate.OnUpdate(func(_, _ *tikipkg.Tiki, _ []*tikipkg.Tiki) *service.Rejection {
 		return &service.Rejection{Reason: "updates blocked"}
@@ -789,7 +789,7 @@ func TestPluginController_HandlePluginAction_Create(t *testing.T) {
 	pluginConfig.SetSelectedLane(0)
 
 	schema := rukiRuntime.NewSchema()
-	gate := service.NewTaskMutationGate()
+	gate := service.NewTikiMutationGate()
 	gate.SetStore(taskStore)
 	pc := NewPluginController(taskStore, gate, pluginConfig, pluginDef, nil, nil, schema)
 
@@ -830,7 +830,7 @@ func TestPluginController_HandlePluginAction_Delete(t *testing.T) {
 	pluginConfig.SetSelectedIndexForLane(0, 0)
 
 	schema := rukiRuntime.NewSchema()
-	gate := service.NewTaskMutationGate()
+	gate := service.NewTikiMutationGate()
 	gate.SetStore(taskStore)
 	pc := NewPluginController(taskStore, gate, pluginConfig, pluginDef, nil, nil, schema)
 
@@ -857,7 +857,7 @@ func TestPluginController_HandlePluginAction_NoMatchingRune(t *testing.T) {
 	pluginConfig.SetLaneLayout([]int{1}, nil)
 
 	schema := rukiRuntime.NewSchema()
-	gate := service.NewTaskMutationGate()
+	gate := service.NewTikiMutationGate()
 	gate.SetStore(taskStore)
 	pc := NewPluginController(taskStore, gate, pluginConfig, pluginDef, nil, nil, schema)
 
@@ -883,7 +883,7 @@ func TestPluginController_HandlePluginAction_NoSelectedTask(t *testing.T) {
 	pluginConfig.SetLaneLayout([]int{1}, nil)
 
 	schema := rukiRuntime.NewSchema()
-	gate := service.NewTaskMutationGate()
+	gate := service.NewTikiMutationGate()
 	gate.SetStore(taskStore)
 	pc := NewPluginController(taskStore, gate, pluginConfig, pluginDef, nil, nil, schema)
 
@@ -912,7 +912,7 @@ func TestPluginController_HandleMoveTask_NoActionOnTargetLane(t *testing.T) {
 	pluginConfig.SetSelectedIndexForLane(0, 0)
 
 	schema := rukiRuntime.NewSchema()
-	gate := service.NewTaskMutationGate()
+	gate := service.NewTikiMutationGate()
 	gate.SetStore(taskStore)
 	pc := NewPluginController(taskStore, gate, pluginConfig, pluginDef, nil, nil, schema)
 
@@ -942,7 +942,7 @@ func TestPluginController_HandleMoveTask_Success(t *testing.T) {
 	pluginConfig.SetSelectedIndexForLane(0, 0)
 
 	schema := rukiRuntime.NewSchema()
-	gate := service.NewTaskMutationGate()
+	gate := service.NewTikiMutationGate()
 	gate.SetStore(taskStore)
 	pc := NewPluginController(taskStore, gate, pluginConfig, pluginDef, nil, nil, schema)
 
@@ -972,7 +972,7 @@ func TestPluginController_HandleMoveTask_OutOfBounds(t *testing.T) {
 	pluginConfig.SetSelectedIndexForLane(0, 0)
 
 	schema := rukiRuntime.NewSchema()
-	gate := service.NewTaskMutationGate()
+	gate := service.NewTikiMutationGate()
 	gate.SetStore(taskStore)
 	pc := NewPluginController(taskStore, gate, pluginConfig, pluginDef, nil, nil, schema)
 
@@ -990,7 +990,7 @@ func TestPluginController_GetFilteredTasksForLane_NilPluginDef(t *testing.T) {
 	pluginConfig.SetLaneLayout([]int{1}, nil)
 
 	schema := rukiRuntime.NewSchema()
-	gate := service.NewTaskMutationGate()
+	gate := service.NewTikiMutationGate()
 	gate.SetStore(taskStore)
 	pc := &PluginController{
 		pluginBase: pluginBase{
@@ -1018,7 +1018,7 @@ func TestPluginController_GetFilteredTasksForLane_OutOfRange(t *testing.T) {
 	pluginConfig.SetLaneLayout([]int{1}, nil)
 
 	schema := rukiRuntime.NewSchema()
-	gate := service.NewTaskMutationGate()
+	gate := service.NewTikiMutationGate()
 	gate.SetStore(taskStore)
 	pc := NewPluginController(taskStore, gate, pluginConfig, pluginDef, nil, nil, schema)
 
@@ -1042,7 +1042,7 @@ func TestPluginController_GetFilteredTasksForLane_NilFilter(t *testing.T) {
 	pluginConfig.SetLaneLayout([]int{1}, nil)
 
 	schema := rukiRuntime.NewSchema()
-	gate := service.NewTaskMutationGate()
+	gate := service.NewTikiMutationGate()
 	gate.SetStore(taskStore)
 	pc := NewPluginController(taskStore, gate, pluginConfig, pluginDef, nil, nil, schema)
 
@@ -1066,7 +1066,7 @@ func TestPluginController_GetFilteredTasksForLane_WithSearchNarrowing(t *testing
 	pluginConfig.SetLaneLayout([]int{1}, nil)
 
 	schema := rukiRuntime.NewSchema()
-	gate := service.NewTaskMutationGate()
+	gate := service.NewTikiMutationGate()
 	gate.SetStore(taskStore)
 	pc := NewPluginController(taskStore, gate, pluginConfig, pluginDef, nil, nil, schema)
 
@@ -1093,7 +1093,7 @@ func TestPluginController_HandleAction_UnknownAction(t *testing.T) {
 	pluginConfig.SetLaneLayout([]int{1}, nil)
 
 	schema := rukiRuntime.NewSchema()
-	gate := service.NewTaskMutationGate()
+	gate := service.NewTikiMutationGate()
 	gate.SetStore(taskStore)
 	pc := NewPluginController(taskStore, gate, pluginConfig, pluginDef, nil, nil, schema)
 
@@ -1115,7 +1115,7 @@ func TestPluginController_HandleSearch(t *testing.T) {
 	pluginConfig.SetLaneLayout([]int{1}, nil)
 
 	schema := rukiRuntime.NewSchema()
-	gate := service.NewTaskMutationGate()
+	gate := service.NewTikiMutationGate()
 	gate.SetStore(taskStore)
 	pc := NewPluginController(taskStore, gate, pluginConfig, pluginDef, nil, nil, schema)
 
@@ -1137,7 +1137,7 @@ func TestPluginController_ShowNavigation(t *testing.T) {
 	pluginConfig.SetLaneLayout([]int{1}, nil)
 
 	schema := rukiRuntime.NewSchema()
-	gate := service.NewTaskMutationGate()
+	gate := service.NewTikiMutationGate()
 	gate.SetStore(taskStore)
 	pc := NewPluginController(taskStore, gate, pluginConfig, pluginDef, nil, nil, schema)
 
@@ -1157,7 +1157,7 @@ func TestPluginController_HandleToggleViewMode(t *testing.T) {
 	pluginConfig.SetLaneLayout([]int{1}, nil)
 
 	schema := rukiRuntime.NewSchema()
-	gate := service.NewTaskMutationGate()
+	gate := service.NewTikiMutationGate()
 	gate.SetStore(taskStore)
 	pc := NewPluginController(taskStore, gate, pluginConfig, pluginDef, nil, nil, schema)
 
@@ -1191,7 +1191,7 @@ func TestPluginController_HandlePluginAction_Select(t *testing.T) {
 	pluginConfig.SetSelectedIndexForLane(0, 0)
 
 	schema := rukiRuntime.NewSchema()
-	gate := service.NewTaskMutationGate()
+	gate := service.NewTikiMutationGate()
 	gate.SetStore(taskStore)
 	pc := NewPluginController(taskStore, gate, pluginConfig, pluginDef, nil, nil, schema)
 
@@ -1224,7 +1224,7 @@ func TestPluginController_HandlePluginAction_SelectNoSelectedTask(t *testing.T) 
 	pluginConfig.SetLaneLayout([]int{1}, nil)
 
 	schema := rukiRuntime.NewSchema()
-	gate := service.NewTaskMutationGate()
+	gate := service.NewTikiMutationGate()
 	gate.SetStore(taskStore)
 	pc := NewPluginController(taskStore, gate, pluginConfig, pluginDef, nil, nil, schema)
 
@@ -1425,7 +1425,7 @@ func TestPluginController_BulkAction_ExecutesWithNoSelection(t *testing.T) {
 	pluginConfig.SetSelectedLane(0)
 
 	schema := rukiRuntime.NewSchema()
-	gate := service.NewTaskMutationGate()
+	gate := service.NewTikiMutationGate()
 	gate.SetStore(taskStore)
 	pc := NewPluginController(taskStore, gate, pluginConfig, pluginDef, nil, nil, schema)
 
@@ -1466,7 +1466,7 @@ func TestPluginController_IDRequiredAction_FailsPreflightWithNoSelection(t *test
 	pluginConfig.SetSelectedLane(0)
 
 	schema := rukiRuntime.NewSchema()
-	gate := service.NewTaskMutationGate()
+	gate := service.NewTikiMutationGate()
 	gate.SetStore(taskStore)
 	pc := NewPluginController(taskStore, gate, pluginConfig, pluginDef, nil, nil, schema)
 

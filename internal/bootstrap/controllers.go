@@ -13,9 +13,9 @@ import (
 
 // Controllers holds all application controllers.
 type Controllers struct {
-	Nav     *controller.NavigationController
-	Task    *controller.TaskController
-	Plugins map[string]controller.PluginControllerInterface
+	Nav      *controller.NavigationController
+	TikiEdit *controller.TikiEditSession
+	Plugins  map[string]controller.PluginControllerInterface
 }
 
 // BuildControllers constructs navigation/domain/plugin controllers for the application.
@@ -24,8 +24,8 @@ type Controllers struct {
 // dispatch from non-board views lands in 6B).
 func BuildControllers(
 	app *tview.Application,
-	taskStore store.Store,
-	mutationGate *service.TaskMutationGate,
+	tikiStore store.Store,
+	mutationGate *service.TikiMutationGate,
 	plugins []plugin.Plugin,
 	globalActions []plugin.PluginAction,
 	pluginConfigs map[string]*model.PluginConfig,
@@ -33,7 +33,7 @@ func BuildControllers(
 	schema ruki.Schema,
 ) *Controllers {
 	navController := controller.NewNavigationController(app)
-	taskController := controller.NewTaskController(taskStore, mutationGate, navController, statuslineConfig)
+	editSession := controller.NewTikiEditSession(tikiStore, mutationGate, navController, statuslineConfig)
 
 	pluginControllers := make(map[string]controller.PluginControllerInterface)
 	for _, p := range plugins {
@@ -44,7 +44,7 @@ func BuildControllers(
 				continue
 			}
 			pluginControllers[p.GetName()] = controller.NewPluginController(
-				taskStore,
+				tikiStore,
 				mutationGate,
 				pluginConfigs[p.GetName()],
 				tp,
@@ -55,7 +55,7 @@ func BuildControllers(
 		case plugin.KindWiki:
 			pluginControllers[p.GetName()] = controller.NewDokiController(
 				p, navController, statuslineConfig, globalActions,
-				taskStore, mutationGate, schema,
+				tikiStore, mutationGate, schema,
 			)
 		case plugin.KindDetail:
 			dp, ok := p.(*plugin.DetailPlugin)
@@ -64,14 +64,14 @@ func BuildControllers(
 			}
 			pluginControllers[p.GetName()] = controller.NewDetailController(
 				dp, navController, statuslineConfig,
-				taskStore, mutationGate, schema, taskController,
+				tikiStore, mutationGate, schema, editSession,
 			)
 		}
 	}
 
 	return &Controllers{
-		Nav:     navController,
-		Task:    taskController,
-		Plugins: pluginControllers,
+		Nav:      navController,
+		TikiEdit: editSession,
+		Plugins:  pluginControllers,
 	}
 }

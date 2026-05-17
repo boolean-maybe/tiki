@@ -13,7 +13,7 @@ import (
 // RegisterFieldValidators registers standard field validators with the gate.
 // Every validator runs on every create and update. Workflow-field validators
 // treat an absent value as success, matching the presence-aware contract.
-func RegisterFieldValidators(g *TaskMutationGate) {
+func RegisterFieldValidators(g *TikiMutationGate) {
 	for _, fn := range AllTikiValidators() {
 		wrapped := wrapTikiFieldValidator(fn)
 		g.OnCreate(wrapped)

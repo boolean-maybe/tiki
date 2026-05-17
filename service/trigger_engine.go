@@ -42,7 +42,7 @@ type TriggerEngine struct {
 	afterDelete  []triggerEntry
 	timeTriggers []TimeTriggerEntry
 	executor     *ruki.TriggerExecutor
-	gate         *TaskMutationGate
+	gate         *TikiMutationGate
 }
 
 // NewTriggerEngine creates a TriggerEngine from parsed event and time triggers.
@@ -86,7 +86,7 @@ func (te *TriggerEngine) TimeTriggers() []TimeTriggerEntry {
 }
 
 // RegisterWithGate wires the triggers into the gate as validators and hooks.
-func (te *TriggerEngine) RegisterWithGate(gate *TaskMutationGate) {
+func (te *TriggerEngine) RegisterWithGate(gate *TikiMutationGate) {
 	te.gate = gate
 
 	// before-triggers become validators
@@ -281,7 +281,7 @@ func (te *TriggerEngine) execRun(ctx context.Context, entry triggerEntry, tc *ru
 // of triggers loaded, and any error. Callers can call StartScheduler on the engine
 // without nil-checking — it early-returns on zero time triggers.
 // Fails fast on parse errors — a bad trigger blocks startup.
-func LoadAndRegisterTriggers(gate *TaskMutationGate, schema ruki.Schema, userFunc func() string) (*TriggerEngine, int, error) {
+func LoadAndRegisterTriggers(gate *TikiMutationGate, schema ruki.Schema, userFunc func() string) (*TriggerEngine, int, error) {
 	executor := ruki.NewTriggerExecutor(schema, userFunc)
 	empty := func() *TriggerEngine { return NewTriggerEngine(nil, nil, executor) }
 
