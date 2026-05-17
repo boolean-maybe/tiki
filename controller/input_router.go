@@ -382,7 +382,7 @@ func (ir *InputRouter) openDepsEditor(taskID, sourceDetailViewName string) {
 			Kind:        plugin.KindBoard,
 			Background:  theme.NewColor(theme.Roles().DepsEditorSurface().TCell()),
 		},
-		TaskID: taskID,
+		TikiID: taskID,
 		Lanes: []plugin.TikiLane{
 			{Name: "Blocks"},
 			{Name: "All"},

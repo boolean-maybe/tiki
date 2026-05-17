@@ -126,9 +126,9 @@ func (pv *PluginView) refresh() {
 	}
 
 	// update item height based on view mode
-	itemHeight := config.TaskBoxHeight
+	itemHeight := config.TikiBoxHeight
 	if viewMode == model.ViewModeExpanded {
-		itemHeight = config.TaskBoxHeightExpanded
+		itemHeight = config.TikiBoxHeightExpanded
 	}
 	selectedLane := pv.pluginConfig.GetSelectedLane()
 

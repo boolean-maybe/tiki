@@ -57,7 +57,7 @@ func TestPluginView_MoveTaskAppliesLaneAction(t *testing.T) {
 	if err := testutil.CreateTestTask(ta.TaskDir, "000002", "Done Task", "done", "story"); err != nil {
 		t.Fatalf("failed to create task: %v", err)
 	}
-	if err := ta.TaskStore.Reload(); err != nil {
+	if err := ta.TikiStore.Reload(); err != nil {
 		t.Fatalf("failed to reload tasks: %v", err)
 	}
 
@@ -66,10 +66,10 @@ func TestPluginView_MoveTaskAppliesLaneAction(t *testing.T) {
 
 	ta.SendKey(tcell.KeyRight, 0, tcell.ModShift)
 
-	if err := ta.TaskStore.Reload(); err != nil {
+	if err := ta.TikiStore.Reload(); err != nil {
 		t.Fatalf("failed to reload tasks: %v", err)
 	}
-	updated := ta.TaskStore.GetTiki("000001")
+	updated := ta.TikiStore.GetTiki("000001")
 	if updated == nil {
 		t.Fatalf("expected task TIKI-1 to exist")
 		return
@@ -85,10 +85,10 @@ func TestPluginView_MoveTaskAppliesLaneAction(t *testing.T) {
 
 	ta.SendKey(tcell.KeyLeft, 0, tcell.ModShift)
 
-	if err := ta.TaskStore.Reload(); err != nil {
+	if err := ta.TikiStore.Reload(); err != nil {
 		t.Fatalf("failed to reload tasks: %v", err)
 	}
-	updated = ta.TaskStore.GetTiki("000001")
+	updated = ta.TikiStore.GetTiki("000001")
 	if updated == nil {
 		t.Fatalf("expected task TIKI-1 to exist")
 		return

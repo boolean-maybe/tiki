@@ -67,7 +67,7 @@ type MutationValidator func(old, new *tikipkg.Tiki, allTikis []*tikipkg.Tiki) *R
 // Errors are logged but do not propagate — the original mutation is not affected.
 type AfterHook func(ctx context.Context, old, new *tikipkg.Tiki) error
 
-// TikiMutationGate is the single gateway for all task mutations.
+// TikiMutationGate is the single gateway for all tiki mutations.
 // All Create/Update/Delete operations must go through this gate.
 // Validators are registered per operation type and run before persistence.
 // After-hooks run post-persist for side effects; their errors are logged, not propagated.

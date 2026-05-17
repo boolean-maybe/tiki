@@ -48,7 +48,7 @@ func TestConfigurableDetail_EnterOnDetailDoesNotRecurse(t *testing.T) {
 	if err := testutil.CreateTestTask(ta.TaskDir, taskID, "Detail Recurse", "ready", "story"); err != nil {
 		t.Fatalf("create task: %v", err)
 	}
-	if err := ta.TaskStore.Reload(); err != nil {
+	if err := ta.TikiStore.Reload(); err != nil {
 		t.Fatalf("reload: %v", err)
 	}
 
@@ -84,7 +84,7 @@ func TestConfigurableDetail_FreshControllerPerNavigation(t *testing.T) {
 	if err := testutil.CreateTestTask(ta.TaskDir, "FRSH02", "Second", "ready", "story"); err != nil {
 		t.Fatalf("create second: %v", err)
 	}
-	if err := ta.TaskStore.Reload(); err != nil {
+	if err := ta.TikiStore.Reload(); err != nil {
 		t.Fatalf("reload: %v", err)
 	}
 
@@ -127,7 +127,7 @@ func TestConfigurableDetail_RendersConfiguredMetadata(t *testing.T) {
 	if err := testutil.CreateTestTask(ta.TaskDir, taskID, "Detail Title", "ready", "story"); err != nil {
 		t.Fatalf("create task: %v", err)
 	}
-	if err := ta.TaskStore.Reload(); err != nil {
+	if err := ta.TikiStore.Reload(); err != nil {
 		t.Fatalf("reload: %v", err)
 	}
 

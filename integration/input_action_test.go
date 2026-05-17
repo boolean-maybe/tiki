@@ -62,7 +62,7 @@ func setupInputActionTest(t *testing.T) *testutil.TestApp {
 	if err := testutil.CreateTestTask(ta.TaskDir, "000001", "Test Task", "backlog", "story"); err != nil {
 		t.Fatalf("failed to create task: %v", err)
 	}
-	if err := ta.TaskStore.Reload(); err != nil {
+	if err := ta.TikiStore.Reload(); err != nil {
 		t.Fatalf("failed to reload: %v", err)
 	}
 
@@ -113,10 +113,10 @@ func TestInputAction_EnterAppliesMutation(t *testing.T) {
 		t.Fatal("input box should be hidden after valid submit")
 	}
 
-	if err := ta.TaskStore.Reload(); err != nil {
+	if err := ta.TikiStore.Reload(); err != nil {
 		t.Fatalf("failed to reload: %v", err)
 	}
-	updated := ta.TaskStore.GetTiki("000001")
+	updated := ta.TikiStore.GetTiki("000001")
 	if updated == nil {
 		t.Fatal("task not found")
 	}
@@ -139,10 +139,10 @@ func TestInputAction_EscCancelsWithoutMutation(t *testing.T) {
 		t.Fatal("input box should be hidden after Esc")
 	}
 
-	if err := ta.TaskStore.Reload(); err != nil {
+	if err := ta.TikiStore.Reload(); err != nil {
 		t.Fatalf("failed to reload: %v", err)
 	}
-	updated := ta.TaskStore.GetTiki("000001")
+	updated := ta.TikiStore.GetTiki("000001")
 	if updated == nil {
 		t.Fatal("task not found")
 	}
@@ -164,10 +164,10 @@ func TestInputAction_NonInputActionStillWorks(t *testing.T) {
 		t.Fatal("non-input action should not open input box")
 	}
 
-	if err := ta.TaskStore.Reload(); err != nil {
+	if err := ta.TikiStore.Reload(); err != nil {
 		t.Fatalf("failed to reload: %v", err)
 	}
-	updated := ta.TaskStore.GetTiki("000001")
+	updated := ta.TikiStore.GetTiki("000001")
 	if updated == nil {
 		t.Fatal("task not found")
 	}
@@ -191,10 +191,10 @@ func TestInputAction_ModalBlocksOtherActions(t *testing.T) {
 	// while modal, 'b' should NOT execute the non-input action
 	ta.SendKey(tcell.KeyRune, 'b', tcell.ModNone)
 
-	if err := ta.TaskStore.Reload(); err != nil {
+	if err := ta.TikiStore.Reload(); err != nil {
 		t.Fatalf("failed to reload: %v", err)
 	}
-	updated := ta.TaskStore.GetTiki("000001")
+	updated := ta.TikiStore.GetTiki("000001")
 	if updated != nil {
 		status, _, _ := updated.StringField("status")
 		if status != "backlog" {
@@ -285,10 +285,10 @@ func TestInputAction_PassiveSearchReplacedByActionInput(t *testing.T) {
 	}
 
 	// verify the mutation happened
-	if err := ta.TaskStore.Reload(); err != nil {
+	if err := ta.TikiStore.Reload(); err != nil {
 		t.Fatalf("failed to reload: %v", err)
 	}
-	updated := ta.TaskStore.GetTiki("000001")
+	updated := ta.TikiStore.GetTiki("000001")
 	if updated == nil {
 		t.Fatal("task not found")
 	}
@@ -321,10 +321,10 @@ func TestInputAction_ActionInputEscRestoresPassiveSearch(t *testing.T) {
 	}
 
 	// verify no mutation
-	if err := ta.TaskStore.Reload(); err != nil {
+	if err := ta.TikiStore.Reload(); err != nil {
 		t.Fatalf("failed to reload: %v", err)
 	}
-	updated := ta.TaskStore.GetTiki("000001")
+	updated := ta.TikiStore.GetTiki("000001")
 	if updated != nil {
 		assignee, _, _ := updated.StringField("assignee")
 		if assignee != "" {
@@ -348,10 +348,10 @@ func TestInputAction_SearchEditingBlocksPluginActions(t *testing.T) {
 	// while search editing is active, 'b' (non-input action) should be blocked
 	ta.SendKey(tcell.KeyRune, 'b', tcell.ModNone)
 
-	if err := ta.TaskStore.Reload(); err != nil {
+	if err := ta.TikiStore.Reload(); err != nil {
 		t.Fatalf("failed to reload: %v", err)
 	}
-	updated := ta.TaskStore.GetTiki("000001")
+	updated := ta.TikiStore.GetTiki("000001")
 	if updated != nil {
 		status, _, _ := updated.StringField("status")
 		if status != "backlog" {
@@ -432,10 +432,10 @@ func TestInputAction_PaletteDispatchOpensPrompt(t *testing.T) {
 		t.Fatal("prompt should close after valid submit")
 	}
 
-	if err := ta.TaskStore.Reload(); err != nil {
+	if err := ta.TikiStore.Reload(); err != nil {
 		t.Fatalf("failed to reload: %v", err)
 	}
-	updated := ta.TaskStore.GetTiki("000001")
+	updated := ta.TikiStore.GetTiki("000001")
 	if updated == nil {
 		t.Fatal("task not found")
 	}
@@ -451,7 +451,7 @@ func TestInputAction_InvalidInputKeepsPromptOpen(t *testing.T) {
 
 	iv := getActiveInputableView(ta)
 
-	originalTiki := ta.TaskStore.GetTiki("000001")
+	originalTiki := ta.TikiStore.GetTiki("000001")
 	originalEscalations, _, _ := originalTiki.IntField("escalations")
 
 	// open int input (points)
@@ -473,10 +473,10 @@ func TestInputAction_InvalidInputKeepsPromptOpen(t *testing.T) {
 	}
 
 	// verify no mutation
-	if err := ta.TaskStore.Reload(); err != nil {
+	if err := ta.TikiStore.Reload(); err != nil {
 		t.Fatalf("failed to reload: %v", err)
 	}
-	updated := ta.TaskStore.GetTiki("000001")
+	updated := ta.TikiStore.GetTiki("000001")
 	if updated != nil {
 		escalations, _, _ := updated.IntField("escalations")
 		if escalations != originalEscalations {
@@ -522,7 +522,7 @@ func TestInputAction_PreflightNoTaskSelected_NoPrompt(t *testing.T) {
 	if err := testutil.CreateTestTask(ta.TaskDir, "000001", "Test", "backlog", "story"); err != nil {
 		t.Fatalf("failed to create task: %v", err)
 	}
-	if err := ta.TaskStore.Reload(); err != nil {
+	if err := ta.TikiStore.Reload(); err != nil {
 		t.Fatalf("failed to reload: %v", err)
 	}
 
@@ -553,7 +553,7 @@ func TestInputAction_DraftSearchSurvivesRefresh(t *testing.T) {
 	}
 
 	// simulate a store refresh (which triggers view rebuild)
-	if err := ta.TaskStore.Reload(); err != nil {
+	if err := ta.TikiStore.Reload(); err != nil {
 		t.Fatalf("failed to reload: %v", err)
 	}
 	ta.Draw()
@@ -574,10 +574,10 @@ func TestInputAction_AddTagMutation(t *testing.T) {
 	ta.SendText("urgent")
 	ta.SendKey(tcell.KeyEnter, 0, tcell.ModNone)
 
-	if err := ta.TaskStore.Reload(); err != nil {
+	if err := ta.TikiStore.Reload(); err != nil {
 		t.Fatalf("failed to reload: %v", err)
 	}
-	updated := ta.TaskStore.GetTiki("000001")
+	updated := ta.TikiStore.GetTiki("000001")
 	if updated == nil {
 		t.Fatal("task not found")
 	}
@@ -630,7 +630,7 @@ func TestInputAction_CompositeKeyPluginAction(t *testing.T) {
 	if err := testutil.CreateTestTask(ta.TaskDir, "000001", "Blocked Task", "backlog", "story"); err != nil {
 		t.Fatalf("failed to create task: %v", err)
 	}
-	if err := ta.TaskStore.Reload(); err != nil {
+	if err := ta.TikiStore.Reload(); err != nil {
 		t.Fatalf("failed to reload: %v", err)
 	}
 
@@ -640,10 +640,10 @@ func TestInputAction_CompositeKeyPluginAction(t *testing.T) {
 	// send Ctrl-U keypress through the real EventKey → Match → HandleAction path
 	ta.SendKey(tcell.KeyCtrlU, 0, tcell.ModCtrl)
 
-	if err := ta.TaskStore.Reload(); err != nil {
+	if err := ta.TikiStore.Reload(); err != nil {
 		t.Fatalf("failed to reload: %v", err)
 	}
-	updated := ta.TaskStore.GetTiki("000001")
+	updated := ta.TikiStore.GetTiki("000001")
 	if updated != nil {
 		status, _, _ := updated.StringField("status")
 		if status != "ready" {

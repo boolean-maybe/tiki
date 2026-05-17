@@ -150,7 +150,7 @@ func (dc *DepsController) GetFilteredTasksForLane(lane int) []*tikipkg.Tiki {
 		return nil
 	}
 
-	contextTiki := dc.taskStore.GetTiki(dc.pluginDef.TaskID)
+	contextTiki := dc.taskStore.GetTiki(dc.pluginDef.TikiID)
 	if contextTiki == nil {
 		return nil
 	}
@@ -205,7 +205,7 @@ func (dc *DepsController) handleMoveTask(offset int) bool {
 		return false
 	}
 
-	contextTaskID := dc.pluginDef.TaskID
+	contextTaskID := dc.pluginDef.TikiID
 
 	// Build a ruki UPDATE query for the dependency change. Phase 4's
 	// assignment-RHS auto-zero carve-out treats absent dependsOn as an

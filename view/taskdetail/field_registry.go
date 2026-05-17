@@ -324,7 +324,7 @@ func stringListHeight(tk *tikipkg.Tiki, width int) int {
 }
 
 // tikiIDListHeight returns the dependency row count, capped at
-// TaskListMetadataMaxRows. Counts every declared dependency (resolved or
+// TikiListMetadataMaxRows. Counts every declared dependency (resolved or
 // not) because the renderer emits one row per id even when unresolved
 // (placeholder display).
 func tikiIDListHeight(tk *tikipkg.Tiki, _ int) int {
@@ -333,8 +333,8 @@ func tikiIDListHeight(tk *tikipkg.Tiki, _ int) int {
 		return 1
 	}
 	depRows := len(deps)
-	if depRows > config.TaskListMetadataMaxRows {
-		depRows = config.TaskListMetadataMaxRows
+	if depRows > config.TikiListMetadataMaxRows {
+		depRows = config.TikiListMetadataMaxRows
 	}
 	return depRows
 }

@@ -232,9 +232,9 @@ func CreateCompactTaskBox(tk *tikipkg.Tiki, selected bool, roles *theme.Theme) *
 		SetWordWrap(false)
 
 	textView.SetDrawFunc(func(screen tcell.Screen, x, y, width, height int) (int, int, int, int) {
-		availableWidth := width - config.TaskBoxPaddingCompact
-		if availableWidth < config.TaskBoxMinWidth {
-			availableWidth = config.TaskBoxMinWidth
+		availableWidth := width - config.TikiBoxPaddingCompact
+		if availableWidth < config.TikiBoxMinWidth {
+			availableWidth = config.TikiBoxMinWidth
 		}
 		content := buildCompactTaskContent(tk, roles, availableWidth)
 		textView.SetText(content)
@@ -255,9 +255,9 @@ func CreateExpandedTaskBox(tk *tikipkg.Tiki, selected bool, roles *theme.Theme) 
 		SetWordWrap(false)
 
 	textView.SetDrawFunc(func(screen tcell.Screen, x, y, width, height int) (int, int, int, int) {
-		availableWidth := width - config.TaskBoxPaddingExpanded // less overhead for multiline
-		if availableWidth < config.TaskBoxMinWidth {
-			availableWidth = config.TaskBoxMinWidth
+		availableWidth := width - config.TikiBoxPaddingExpanded // less overhead for multiline
+		if availableWidth < config.TikiBoxMinWidth {
+			availableWidth = config.TikiBoxMinWidth
 		}
 		content := buildExpandedTaskContent(tk, roles, availableWidth)
 		textView.SetText(content)

@@ -116,7 +116,7 @@ func TestActionPalette_OpensInTaskEdit(t *testing.T) {
 	if err := testutil.CreateTestTask(ta.TaskDir, "000001", "Test", "ready", "story"); err != nil {
 		t.Fatalf("create task: %v", err)
 	}
-	if err := ta.TaskStore.Reload(); err != nil {
+	if err := ta.TikiStore.Reload(); err != nil {
 		t.Fatalf("reload: %v", err)
 	}
 

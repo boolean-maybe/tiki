@@ -20,9 +20,7 @@ import (
 	"time"
 )
 
-// TikiEditSession handles task detail actions: editing, status changes, comments.
-
-// TikiEditSession handles task detail view actions
+// TikiEditSession handles tiki detail view actions: editing, status changes, comments.
 type TikiEditSession struct {
 	taskStore     store.Store
 	mutationGate  *service.TikiMutationGate
@@ -37,7 +35,7 @@ type TikiEditSession struct {
 	focusedField  model.EditField // currently focused field in edit mode
 }
 
-// NewTikiEditSession creates a new TikiEditSession for managing task detail operations.
+// NewTikiEditSession creates a new TikiEditSession for managing tiki detail operations.
 // It initializes action registries for both detail and edit views.
 func NewTikiEditSession(
 	taskStore store.Store,

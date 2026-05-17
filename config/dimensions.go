@@ -5,22 +5,22 @@ package config
 
 const (
 	// Task box heights
-	TaskBoxHeight         = 5 // Compact view mode
-	TaskBoxHeightExpanded = 9 // Expanded view mode
+	TikiBoxHeight         = 5 // Compact view mode
+	TikiBoxHeightExpanded = 9 // Expanded view mode
 
 	// Task box width padding
-	TaskBoxPaddingCompact  = 12 // Width padding in compact mode
-	TaskBoxPaddingExpanded = 4  // Width padding in expanded mode
-	TaskBoxMinWidth        = 10 // Minimum width fallback
+	TikiBoxPaddingCompact  = 12 // Width padding in compact mode
+	TikiBoxPaddingExpanded = 4  // Width padding in expanded mode
+	TikiBoxMinWidth        = 10 // Minimum width fallback
 
 	// Input box dimensions
 	InputBoxHeight = 3
 
 	// TikiList default visible rows
-	TaskListDefaultMaxRows = 10
+	TikiListDefaultMaxRows = 10
 
 	// TikiList max rows when displayed inside the metadata box
-	TaskListMetadataMaxRows = 4
+	TikiListMetadataMaxRows = 4
 	// Note: Header dimensions are already centralized in view/header/header.go:
 	// HeaderHeight, HeaderColumnSpacing, InfoWidth, LogoWidth
 )

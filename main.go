@@ -16,6 +16,7 @@ import (
 	"github.com/boolean-maybe/tiki/internal/viewer"
 	"github.com/boolean-maybe/tiki/service"
 	"github.com/boolean-maybe/tiki/store"
+	"github.com/boolean-maybe/tiki/store/tikistore"
 	"github.com/boolean-maybe/tiki/util/sysinfo"
 )
 
@@ -133,10 +134,12 @@ func main() {
 	// past on launch and then run `tiki repair ids --check|--fix` to address
 	// it — we don't block startup because the TUI itself might be the
 	// fastest way for a user to see which files are affected.
-	if diag := result.TikiStore.LoadDiagnostics(); diag.HasIssues() {
-		_, _ = fmt.Fprintln(os.Stderr, "\n=== tiki: load warnings ===")
-		_, _ = fmt.Fprint(os.Stderr, diag.Summary())
-		_, _ = fmt.Fprintln(os.Stderr, "===========================")
+	if ts, ok := result.TikiStore.(*tikistore.TikiStore); ok {
+		if diag := ts.LoadDiagnostics(); diag.HasIssues() {
+			_, _ = fmt.Fprintln(os.Stderr, "\n=== tiki: load warnings ===")
+			_, _ = fmt.Fprint(os.Stderr, diag.Summary())
+			_, _ = fmt.Fprintln(os.Stderr, "===========================")
+		}
 	}
 
 	// Cleanup on exit

@@ -124,7 +124,7 @@ type TikiPlugin struct {
 	Lanes   []TikiLane     // lane definitions for this plugin
 	Mode    string         // display mode: "compact" or "expanded" (empty = compact)
 	Actions []PluginAction // shortcut actions applied to the selected task
-	TaskID  string         // optional tiki associated with this plugin (code-only, not from workflow config)
+	TikiID  string         // optional tiki associated with this plugin (code-only, not from workflow config)
 }
 
 // DokiPlugin backs the wiki view kind (markdown document rendering bound to a

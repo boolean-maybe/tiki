@@ -45,12 +45,12 @@ func TestNewTask_Enter_SavesAndCreatesFile(t *testing.T) {
 	ta.SendKey(tcell.KeyEnter, 0, tcell.ModNone)
 
 	// Verify: file should be created
-	if err := ta.TaskStore.Reload(); err != nil {
+	if err := ta.TikiStore.Reload(); err != nil {
 		t.Fatalf("failed to reload tasks: %v", err)
 	}
 
 	// Find the new task by title (IDs are now random)
-	task := findTaskByTitle(ta.TaskStore.GetAllTikis(), "My New Task")
+	task := findTaskByTitle(ta.TikiStore.GetAllTikis(), "My New Task")
 	if task == nil {
 		t.Fatalf("new task not found in store")
 		return
@@ -84,12 +84,12 @@ func TestNewTask_Escape_DiscardsWithoutCreatingFile(t *testing.T) {
 	ta.SendKey(tcell.KeyEscape, 0, tcell.ModNone)
 
 	// Verify: no file should be created
-	if err := ta.TaskStore.Reload(); err != nil {
+	if err := ta.TikiStore.Reload(); err != nil {
 		t.Fatalf("failed to reload tasks: %v", err)
 	}
 
 	// Should have no tasks (find by title since IDs are random)
-	task := findTaskByTitle(ta.TaskStore.GetAllTikis(), "Task To Discard")
+	task := findTaskByTitle(ta.TikiStore.GetAllTikis(), "Task To Discard")
 	if task != nil {
 		t.Errorf("task should not exist after escape, but found: %+v", task)
 	}
@@ -124,11 +124,11 @@ func TestNewTask_CtrlS_SavesAndCreatesFile(t *testing.T) {
 	ta.SendKey(tcell.KeyCtrlS, 0, tcell.ModNone)
 
 	// Verify: file should be created
-	if err := ta.TaskStore.Reload(); err != nil {
+	if err := ta.TikiStore.Reload(); err != nil {
 		t.Fatalf("failed to reload tasks: %v", err)
 	}
 
-	task := findTaskByTitle(ta.TaskStore.GetAllTikis(), "Task Saved With CtrlS")
+	task := findTaskByTitle(ta.TikiStore.GetAllTikis(), "Task Saved With CtrlS")
 	if task == nil {
 		t.Fatalf("new task not found in store")
 		return
@@ -151,7 +151,7 @@ func TestEditSource_DuplicateCaseIDs_Repro(t *testing.T) {
 	tk.Set("status", "backlog")
 	tk.Set("priority", "medium")
 	tk.Set("points", "1")
-	if err := ta.TaskStore.CreateTiki(tk); err != nil {
+	if err := ta.TikiStore.CreateTiki(tk); err != nil {
 		t.Fatalf("CreateTiki failed: %v", err)
 	}
 	if tk.ID != "6EQDUE" {
@@ -182,7 +182,7 @@ func TestEditSource_DuplicateCaseIDs_Repro(t *testing.T) {
 	ta.SendKey(tcell.KeyRune, 's', tcell.ModNone)
 
 	// Expect a single task in store (no case-duplicate).
-	tasks := ta.TaskStore.GetAllTikis()
+	tasks := ta.TikiStore.GetAllTikis()
 	if len(tasks) != 1 {
 		t.Fatalf("expected 1 task after edit source, got %d", len(tasks))
 	}
@@ -221,12 +221,12 @@ func TestNewTask_EmptyTitle_DoesNotSave(t *testing.T) {
 	ta.SendKeyToFocused(tcell.KeyEnter, 0, tcell.ModNone)
 
 	// Verify: no file should be created (empty title validation)
-	if err := ta.TaskStore.Reload(); err != nil {
+	if err := ta.TikiStore.Reload(); err != nil {
 		t.Fatalf("failed to reload tasks: %v", err)
 	}
 
 	// Should have no tasks
-	tasks := ta.TaskStore.GetAllTikis()
+	tasks := ta.TikiStore.GetAllTikis()
 	if len(tasks) > 0 {
 		t.Errorf("task with empty title should not be saved, but found: %+v", tasks)
 	}
@@ -317,10 +317,10 @@ func TestNewTask_MultipleFields_AllSaved(t *testing.T) {
 	ta.SendKey(tcell.KeyCtrlS, 0, tcell.ModNone)
 
 	// Verify: file should be created with all fields
-	if err := ta.TaskStore.Reload(); err != nil {
+	if err := ta.TikiStore.Reload(); err != nil {
 		t.Fatalf("failed to reload tasks: %v", err)
 	}
-	tk := findTaskByTitle(ta.TaskStore.GetAllTikis(), "New Task With Multiple Fields")
+	tk := findTaskByTitle(ta.TikiStore.GetAllTikis(), "New Task With Multiple Fields")
 	if tk == nil {
 		t.Fatalf("new task not found in store")
 		return
@@ -388,11 +388,11 @@ func TestNewTask_WithStatusAndType_Saves(t *testing.T) {
 	ta.SendKey(tcell.KeyCtrlS, 0, tcell.ModNone)
 
 	// Verify: file should be created
-	if err := ta.TaskStore.Reload(); err != nil {
+	if err := ta.TikiStore.Reload(); err != nil {
 		t.Fatalf("failed to reload tasks: %v", err)
 	}
 
-	tk := findTaskByTitle(ta.TaskStore.GetAllTikis(), "Hey")
+	tk := findTaskByTitle(ta.TikiStore.GetAllTikis(), "Hey")
 	if tk == nil {
 		t.Fatalf("new task not found in store")
 		return

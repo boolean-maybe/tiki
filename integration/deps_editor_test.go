@@ -33,7 +33,7 @@ func TestDepsEditor_OpenFromTaskDetail(t *testing.T) {
 	if err := testutil.CreateTestTask(ta.TaskDir, "FREE01", "Free Task", "ready", "story"); err != nil {
 		t.Fatalf("create free task: %v", err)
 	}
-	if err := ta.TaskStore.Reload(); err != nil {
+	if err := ta.TikiStore.Reload(); err != nil {
 		t.Fatalf("reload: %v", err)
 	}
 
@@ -77,7 +77,7 @@ func TestDepsEditor_LanesShowCorrectTasks(t *testing.T) {
 	if err := testutil.CreateTestTask(ta.TaskDir, freeID, "Free Task", "ready", "story"); err != nil {
 		t.Fatalf("create free: %v", err)
 	}
-	if err := ta.TaskStore.Reload(); err != nil {
+	if err := ta.TikiStore.Reload(); err != nil {
 		t.Fatalf("reload: %v", err)
 	}
 
@@ -135,7 +135,7 @@ func TestDepsEditor_MoveTask_AllToDepends_PersistsOnDisk(t *testing.T) {
 	if err := testutil.CreateTestTask(ta.TaskDir, freeID, "Free Task", "ready", "story"); err != nil {
 		t.Fatalf("create free: %v", err)
 	}
-	if err := ta.TaskStore.Reload(); err != nil {
+	if err := ta.TikiStore.Reload(); err != nil {
 		t.Fatalf("reload: %v", err)
 	}
 
@@ -154,7 +154,7 @@ func TestDepsEditor_MoveTask_AllToDepends_PersistsOnDisk(t *testing.T) {
 	ta.Draw()
 
 	// verify in-memory state
-	updated := ta.TaskStore.GetTiki(contextID)
+	updated := ta.TikiStore.GetTiki(contextID)
 	if updated == nil {
 		t.Fatalf("context task not found in store")
 		return
@@ -172,10 +172,10 @@ func TestDepsEditor_MoveTask_AllToDepends_PersistsOnDisk(t *testing.T) {
 	}
 
 	// verify persisted to disk
-	if err := ta.TaskStore.Reload(); err != nil {
+	if err := ta.TikiStore.Reload(); err != nil {
 		t.Fatalf("reload after move: %v", err)
 	}
-	reloaded := ta.TaskStore.GetTiki(contextID)
+	reloaded := ta.TikiStore.GetTiki(contextID)
 	if reloaded == nil {
 		t.Fatalf("context task not found after reload")
 		return
@@ -214,7 +214,7 @@ func TestDepsEditor_MoveTask_DependsToAll_RemovesDep(t *testing.T) {
 	if err := testutil.CreateTestTask(ta.TaskDir, freeID, "Free Task", "ready", "story"); err != nil {
 		t.Fatalf("create free: %v", err)
 	}
-	if err := ta.TaskStore.Reload(); err != nil {
+	if err := ta.TikiStore.Reload(); err != nil {
 		t.Fatalf("reload: %v", err)
 	}
 
@@ -237,7 +237,7 @@ func TestDepsEditor_MoveTask_DependsToAll_RemovesDep(t *testing.T) {
 	ta.Draw()
 
 	// verify in-memory state
-	updated := ta.TaskStore.GetTiki(contextID)
+	updated := ta.TikiStore.GetTiki(contextID)
 	if updated == nil {
 		t.Fatalf("context task not found in store")
 		return
@@ -251,10 +251,10 @@ func TestDepsEditor_MoveTask_DependsToAll_RemovesDep(t *testing.T) {
 	}
 
 	// verify persisted to disk
-	if err := ta.TaskStore.Reload(); err != nil {
+	if err := ta.TikiStore.Reload(); err != nil {
 		t.Fatalf("reload after move: %v", err)
 	}
-	reloaded := ta.TaskStore.GetTiki(contextID)
+	reloaded := ta.TikiStore.GetTiki(contextID)
 	if reloaded == nil {
 		t.Fatalf("context task not found after reload")
 		return
@@ -278,7 +278,7 @@ func TestDepsEditor_ReopenIsSameView(t *testing.T) {
 	if err := testutil.CreateTestTask(ta.TaskDir, contextID, "Context Task", "ready", "story"); err != nil {
 		t.Fatalf("create context: %v", err)
 	}
-	if err := ta.TaskStore.Reload(); err != nil {
+	if err := ta.TikiStore.Reload(); err != nil {
 		t.Fatalf("reload: %v", err)
 	}
 

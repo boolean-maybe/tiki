@@ -63,7 +63,7 @@ func setupChooseActionTest(t *testing.T) *testutil.TestApp {
 	if err := testutil.CreateTestTask(ta.TaskDir, "000003", "Another Epic", "backlog", "epic"); err != nil {
 		t.Fatalf("failed to create second epic task: %v", err)
 	}
-	if err := ta.TaskStore.Reload(); err != nil {
+	if err := ta.TikiStore.Reload(); err != nil {
 		t.Fatalf("failed to reload: %v", err)
 	}
 
@@ -108,10 +108,10 @@ func TestChooseAction_EnterAppliesMutation(t *testing.T) {
 		t.Fatal("QuickSelect should be hidden after selection")
 	}
 
-	if err := ta.TaskStore.Reload(); err != nil {
+	if err := ta.TikiStore.Reload(); err != nil {
 		t.Fatalf("failed to reload: %v", err)
 	}
-	updated := ta.TaskStore.GetTiki("000001")
+	updated := ta.TikiStore.GetTiki("000001")
 	if updated == nil {
 		t.Fatal("task not found")
 	}
@@ -139,10 +139,10 @@ func TestChooseAction_EscCancelsWithoutMutation(t *testing.T) {
 		t.Fatal("QuickSelect should be hidden after Esc")
 	}
 
-	if err := ta.TaskStore.Reload(); err != nil {
+	if err := ta.TikiStore.Reload(); err != nil {
 		t.Fatalf("failed to reload: %v", err)
 	}
-	updated := ta.TaskStore.GetTiki("000001")
+	updated := ta.TikiStore.GetTiki("000001")
 	if updated == nil {
 		t.Fatal("task not found")
 	}
@@ -164,10 +164,10 @@ func TestChooseAction_NonChooseActionStillWorks(t *testing.T) {
 		t.Fatal("non-choose action should not open QuickSelect")
 	}
 
-	if err := ta.TaskStore.Reload(); err != nil {
+	if err := ta.TikiStore.Reload(); err != nil {
 		t.Fatalf("failed to reload: %v", err)
 	}
-	updated := ta.TaskStore.GetTiki("000001")
+	updated := ta.TikiStore.GetTiki("000001")
 	if updated == nil {
 		t.Fatal("task not found")
 	}
@@ -191,10 +191,10 @@ func TestChooseAction_ModalBlocksOtherActions(t *testing.T) {
 	// while modal, 'b' should NOT execute
 	ta.SendKey(tcell.KeyRune, 'b', tcell.ModNone)
 
-	if err := ta.TaskStore.Reload(); err != nil {
+	if err := ta.TikiStore.Reload(); err != nil {
 		t.Fatalf("failed to reload: %v", err)
 	}
-	updated := ta.TaskStore.GetTiki("000001")
+	updated := ta.TikiStore.GetTiki("000001")
 	blockedStatus, _, _ := updated.StringField("status")
 	if blockedStatus != "backlog" {
 		t.Fatalf("expected status backlog (action blocked while modal), got %v", blockedStatus)
@@ -283,7 +283,7 @@ func setupFilteredEpicTest(t *testing.T) *testutil.TestApp {
 	if err := testutil.CreateTestTask(ta.TaskDir, "000003", "Available Epic", "backlog", "epic"); err != nil {
 		t.Fatalf("failed to create available epic task: %v", err)
 	}
-	if err := ta.TaskStore.Reload(); err != nil {
+	if err := ta.TikiStore.Reload(); err != nil {
 		t.Fatalf("failed to reload: %v", err)
 	}
 
@@ -317,10 +317,10 @@ func TestChooseAction_FiltersOutAlreadyLinkedEpics(t *testing.T) {
 
 	ta.SendKey(tcell.KeyEnter, 0, tcell.ModNone)
 
-	if err := ta.TaskStore.Reload(); err != nil {
+	if err := ta.TikiStore.Reload(); err != nil {
 		t.Fatalf("failed to reload: %v", err)
 	}
-	updated := ta.TaskStore.GetTiki("000003")
+	updated := ta.TikiStore.GetTiki("000003")
 	if updated == nil {
 		t.Fatal("epic not found")
 	}
@@ -378,7 +378,7 @@ func setupScrollTest(t *testing.T) *testutil.TestApp {
 			t.Fatalf("create task %s: %v", id, err)
 		}
 	}
-	if err := ta.TaskStore.Reload(); err != nil {
+	if err := ta.TikiStore.Reload(); err != nil {
 		t.Fatalf("reload: %v", err)
 	}
 
