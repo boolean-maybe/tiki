@@ -15,12 +15,17 @@ import (
 type fakeDetailEditView struct {
 	editing         bool
 	enterReturn     bool
+	fullscreen      bool
 	registry        *ActionRegistry
 	changeHandler   func(bool)
 	fieldHandlers   map[string]func(string)
 	flushCalls      int  // count of FlushFocusedEditor invocations
 	flushBeforeExit bool // whether the most recent flush happened while still editing
 }
+
+func (f *fakeDetailEditView) IsFullscreen() bool { return f.fullscreen }
+func (f *fakeDetailEditView) EnterFullscreen()   { f.fullscreen = true }
+func (f *fakeDetailEditView) ExitFullscreen()    { f.fullscreen = false }
 
 func newFakeDetailEditView() *fakeDetailEditView {
 	return &fakeDetailEditView{enterReturn: true, fieldHandlers: make(map[string]func(string))}
@@ -241,6 +246,30 @@ func TestDetailController_TraversalActionsRoutedThroughHandleAction(t *testing.T
 	}
 	if !dc.HandleAction(ActionPrevField) {
 		t.Error("Shift+Tab should be handled in edit mode")
+	}
+}
+
+// TestDetailController_FullscreenAction asserts that pressing 'f' in the
+// detail view toggles fullscreen on the bound view via HandleAction. This
+// is the path the input router takes when registry.Match resolves 'f' to
+// ActionFullscreen and falls through to ctrl.HandleAction.
+func TestDetailController_FullscreenAction(t *testing.T) {
+	dc, fv, _, _ := newDetailEditTestRig(t)
+
+	if fv.IsFullscreen() {
+		t.Fatal("view should start non-fullscreen")
+	}
+	if !dc.HandleAction(ActionFullscreen) {
+		t.Fatal("ActionFullscreen should be handled")
+	}
+	if !fv.IsFullscreen() {
+		t.Error("first invocation should enter fullscreen")
+	}
+	if !dc.HandleAction(ActionFullscreen) {
+		t.Fatal("ActionFullscreen should be handled (toggle off)")
+	}
+	if fv.IsFullscreen() {
+		t.Error("second invocation should exit fullscreen")
 	}
 }
 

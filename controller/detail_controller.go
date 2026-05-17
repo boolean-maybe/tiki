@@ -248,12 +248,12 @@ var builtinEditFieldHandlers = map[string]struct{}{
 	tikipkg.FieldTags:       {},
 }
 
-// HandleAction routes plugin actions. Built-in detail actions like
-// Fullscreen are handled by the view itself via the input router; this
-// method dispatches workflow-declared actions and Phase 2 edit-mode
-// commands.
+// HandleAction routes plugin actions: the fullscreen toggle, edit-mode
+// commands, and workflow-declared per-view actions.
 func (dc *DetailController) HandleAction(actionID ActionID) bool {
 	switch actionID {
+	case ActionFullscreen:
+		return dc.toggleFullscreen()
 	case ActionDetailEdit:
 		return dc.enterEditMode()
 	case ActionDetailSave:
@@ -269,6 +269,32 @@ func (dc *DetailController) HandleAction(actionID ActionID) bool {
 		return dc.handlePluginAction(keyStr)
 	}
 	return false
+}
+
+// fullscreenToggler is the narrow fullscreen contract the controller needs
+// from its bound view. Kept separate from FullscreenView (which embeds the
+// tview-rooted View interface) so test fakes don't need to satisfy the
+// whole tview surface.
+type fullscreenToggler interface {
+	IsFullscreen() bool
+	EnterFullscreen()
+	ExitFullscreen()
+}
+
+// toggleFullscreen flips the bound view's fullscreen state. The bound
+// editView is the same instance the view factory wires as the active view,
+// so the assertion always succeeds for *ConfigurableDetailView.
+func (dc *DetailController) toggleFullscreen() bool {
+	fv, ok := dc.editView.(fullscreenToggler)
+	if !ok {
+		return false
+	}
+	if fv.IsFullscreen() {
+		fv.ExitFullscreen()
+	} else {
+		fv.EnterFullscreen()
+	}
+	return true
 }
 
 // enterEditMode starts a TaskController edit session and flips the view
