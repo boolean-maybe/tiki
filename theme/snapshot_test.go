@@ -27,61 +27,61 @@ type snapshotEntry struct {
 var roleKeyMapping = map[string]string{
 	// Text-primary group
 	"ContentTextColor":           "method:TextPrimary",
-	"TaskListSelectionFg":        "method:TextPrimary",
-	"TaskDetailTitleText":        "method:TextPrimary",
+	"TikiListSelectionFg":        "method:TextPrimary",
+	"TikiDetailTitleText":        "method:TextPrimary",
 	"InputBoxLabelColor":         "method:TextPrimary",
 	"InputBoxTextColor":          "method:TextPrimary",
 	"InputFieldTextColor":        "method:TextPrimary",
 	"HeaderKeyText":              "method:TextPrimary",
-	"TaskDetailEditFocusText":    "method:TextPrimary",
-	"TaskListStatusPendingColor": "method:TextPrimary",
+	"TikiDetailEditFocusText":    "method:TextPrimary",
+	"TikiListStatusPendingColor": "method:TextPrimary",
 
 	// Text-secondary
-	"TaskBoxTitleColor":            "method:TextSecondary",
-	"TaskDetailEditDimValueColor":  "method:TextSecondary",
+	"TikiBoxTitleColor":            "method:TextSecondary",
+	"TikiDetailEditDimValueColor":  "method:TextSecondary",
 	"HeaderActionPluginLabelColor": "method:TextSecondary",
-	"TaskDetailTagForeground":      "method:TextSecondary",
+	"TikiDetailTagForeground":      "method:TextSecondary",
 
 	// Text-muted
-	"TaskBoxLabelColor":           "method:TextMuted",
-	"TaskBoxDescriptionColor":     "method:TextMuted",
-	"TaskDetailEditDimTextColor":  "method:TextMuted",
-	"TaskDetailEditDimLabelColor": "method:TextMuted",
-	"TaskDetailPlaceholderColor":  "method:TextMuted",
+	"TikiBoxLabelColor":           "method:TextMuted",
+	"TikiBoxDescriptionColor":     "method:TextMuted",
+	"TikiDetailEditDimTextColor":  "method:TextMuted",
+	"TikiDetailEditDimLabelColor": "method:TextMuted",
+	"TikiDetailPlaceholderColor":  "method:TextMuted",
 	"HeaderInfoSeparator":         "method:TextMuted",
 	"HeaderInfoDesc":              "method:TextMuted",
 	"HeaderActionViewLabelColor":  "method:TextMuted",
 
 	// Text-label
-	"TaskDetailLabelText":     "method:TextLabel",
-	"TaskListStatusDoneColor": "method:TextLabel",
+	"TikiDetailLabelText":     "method:TextLabel",
+	"TikiListStatusDoneColor": "method:TextLabel",
 
 	// Text-value
-	"TaskDetailValueText": "method:TextValue",
+	"TikiDetailValueText": "method:TextValue",
 
 	// Text-hint
 	"CompletionHintColor": "method:TextHint",
 
 	// Border
-	"TaskBoxSelectedBorder":   "method:BorderFocus",
-	"TaskBoxUnselectedBorder": "method:BorderIdle",
+	"TikiBoxSelectedBorder":   "method:BorderFocus",
+	"TikiBoxUnselectedBorder": "method:BorderIdle",
 
 	// Surface
-	"TaskBoxUnselectedBackground": "method:SurfaceTransparent",
+	"TikiBoxUnselectedBackground": "method:SurfaceTransparent",
 	"InputBoxBackgroundColor":     "method:SurfaceTransparent",
 	"InputFieldBackgroundColor":   "method:SurfaceTransparent",
-	"TaskListSelectionBg":         "method:SurfaceSelection",
-	"TaskDetailTagBackground":     "method:SurfaceSelection",
+	"TikiListSelectionBg":         "method:SurfaceSelection",
+	"TikiDetailTagBackground":     "method:SurfaceSelection",
 	"ContentBackgroundColor":      "method:SurfaceCanvas",
 
 	// Accent / focus
-	"TaskDetailEditFocusMarker":    "method:Highlight",
-	"TaskDetailCommentAuthor":      "method:Highlight",
+	"TikiDetailEditFocusMarker":    "method:Highlight",
+	"TikiDetailCommentAuthor":      "method:Highlight",
 	"HeaderKeyBinding":             "method:Highlight",
 	"HeaderActionGlobalKeyColor":   "method:Highlight",
 	"StatuslineErrorFg":            "pair:StatuslineError.fg",
 	"HeaderActionViewKeyColor":     "method:AccentAction",
-	"TaskBoxTagValueColor":         "method:AccentTag",
+	"TikiBoxTagValueColor":         "method:AccentTag",
 	"HeaderActionGlobalLabelColor": "method:TextPrimary",
 
 	// Status

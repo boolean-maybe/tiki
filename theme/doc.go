@@ -18,7 +18,7 @@
 // here is also a Go method on *Theme (e.g. text.primary → TextPrimary()).
 //
 //	text.primary     — primary readable text on the default background
-//	text.secondary   — slightly de-emphasized text (task box titles, etc.)
+//	text.secondary   — slightly de-emphasized text (tiki box titles, etc.)
 //	text.muted       — captions, descriptions, placeholders
 //	text.label       — green label color in detail views
 //	text.value       — cool gray for field values
@@ -33,7 +33,7 @@
 //
 //	highlight        — focus markers, key shortcuts, comment authors
 //	accent.action    — view-scoped action keys (e.g. n=new, e=edit)
-//	accent.tag       — tag-value text in compact task boxes
+//	accent.tag       — tag-value text in compact tiki boxes
 //
 //	status.danger    — critical/error/blocker
 //	status.warn      — warning/header info labels/plugin keys

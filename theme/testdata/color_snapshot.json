@@ -277,139 +277,139 @@
   },
   {
     "theme": "dark",
-    "key": "TaskBoxDescriptionColor",
+    "key": "TikiBoxDescriptionColor",
     "hex": "#686868",
     "tag": "[#686868]"
   },
   {
     "theme": "dark",
-    "key": "TaskBoxLabelColor",
+    "key": "TikiBoxLabelColor",
     "hex": "#686868",
     "tag": "[#686868]"
   },
   {
     "theme": "dark",
-    "key": "TaskBoxSelectedBorder",
+    "key": "TikiBoxSelectedBorder",
     "hex": "#ffff00",
     "tag": "[#ffff00]"
   },
   {
     "theme": "dark",
-    "key": "TaskBoxTagValueColor",
+    "key": "TikiBoxTagValueColor",
     "hex": "#5f6982",
     "tag": "[#5f6982]"
   },
   {
     "theme": "dark",
-    "key": "TaskBoxTitleColor",
+    "key": "TikiBoxTitleColor",
     "hex": "#b4b4b4",
     "tag": "[#b4b4b4]"
   },
   {
     "theme": "dark",
-    "key": "TaskBoxUnselectedBackground",
+    "key": "TikiBoxUnselectedBackground",
     "hex": "-",
     "tag": "[-]"
   },
   {
     "theme": "dark",
-    "key": "TaskBoxUnselectedBorder",
+    "key": "TikiBoxUnselectedBorder",
     "hex": "#686868",
     "tag": "[#686868]"
   },
   {
     "theme": "dark",
-    "key": "TaskDetailCommentAuthor",
+    "key": "TikiDetailCommentAuthor",
     "hex": "#ffff00",
     "tag": "[#ffff00]"
   },
   {
     "theme": "dark",
-    "key": "TaskDetailEditDimLabelColor",
+    "key": "TikiDetailEditDimLabelColor",
     "hex": "#686868",
     "tag": "[#686868]"
   },
   {
     "theme": "dark",
-    "key": "TaskDetailEditDimTextColor",
+    "key": "TikiDetailEditDimTextColor",
     "hex": "#686868",
     "tag": "[#686868]"
   },
   {
     "theme": "dark",
-    "key": "TaskDetailEditDimValueColor",
+    "key": "TikiDetailEditDimValueColor",
     "hex": "#b4b4b4",
     "tag": "[#b4b4b4]"
   },
   {
     "theme": "dark",
-    "key": "TaskDetailEditFocusMarker",
+    "key": "TikiDetailEditFocusMarker",
     "hex": "#ffff00",
     "tag": "[#ffff00]"
   },
   {
     "theme": "dark",
-    "key": "TaskDetailEditFocusText",
+    "key": "TikiDetailEditFocusText",
     "hex": "#ffffff",
     "tag": "[#ffffff]"
   },
   {
     "theme": "dark",
-    "key": "TaskDetailLabelText",
+    "key": "TikiDetailLabelText",
     "hex": "#008000",
     "tag": "[green]"
   },
   {
     "theme": "dark",
-    "key": "TaskDetailPlaceholderColor",
+    "key": "TikiDetailPlaceholderColor",
     "hex": "#686868",
     "tag": "[#686868]"
   },
   {
     "theme": "dark",
-    "key": "TaskDetailTagBackground",
+    "key": "TikiDetailTagBackground",
     "hex": "#3a5f8a",
     "tag": "[#3a5f8a]"
   },
   {
     "theme": "dark",
-    "key": "TaskDetailTagForeground",
+    "key": "TikiDetailTagForeground",
     "hex": "#b4b4b4",
     "tag": "[#b4b4b4]"
   },
   {
     "theme": "dark",
-    "key": "TaskDetailTitleText",
+    "key": "TikiDetailTitleText",
     "hex": "#ffffff",
     "tag": "[#ffffff]"
   },
   {
     "theme": "dark",
-    "key": "TaskDetailValueText",
+    "key": "TikiDetailValueText",
     "hex": "#8c92ac",
     "tag": "[#8c92ac]"
   },
   {
     "theme": "dark",
-    "key": "TaskListSelectionBg",
+    "key": "TikiListSelectionBg",
     "hex": "#3a5f8a",
     "tag": "[#3a5f8a]"
   },
   {
     "theme": "dark",
-    "key": "TaskListSelectionFg",
+    "key": "TikiListSelectionFg",
     "hex": "#ffffff",
     "tag": "[#ffffff]"
   },
   {
     "theme": "dark",
-    "key": "TaskListStatusDoneColor",
+    "key": "TikiListStatusDoneColor",
     "hex": "#008000",
     "tag": "[green]"
   },
   {
     "theme": "dark",
-    "key": "TaskListStatusPendingColor",
+    "key": "TikiListStatusPendingColor",
     "hex": "#ffffff",
     "tag": "[#ffffff]"
   },
@@ -751,139 +751,139 @@
   },
   {
     "theme": "light",
-    "key": "TaskBoxDescriptionColor",
+    "key": "TikiBoxDescriptionColor",
     "hex": "#808080",
     "tag": "[#808080]"
   },
   {
     "theme": "light",
-    "key": "TaskBoxLabelColor",
+    "key": "TikiBoxLabelColor",
     "hex": "#808080",
     "tag": "[#808080]"
   },
   {
     "theme": "light",
-    "key": "TaskBoxSelectedBorder",
+    "key": "TikiBoxSelectedBorder",
     "hex": "#0055dd",
     "tag": "[#0055dd]"
   },
   {
     "theme": "light",
-    "key": "TaskBoxTagValueColor",
+    "key": "TikiBoxTagValueColor",
     "hex": "#7080a0",
     "tag": "[#7080a0]"
   },
   {
     "theme": "light",
-    "key": "TaskBoxTitleColor",
+    "key": "TikiBoxTitleColor",
     "hex": "#404040",
     "tag": "[#404040]"
   },
   {
     "theme": "light",
-    "key": "TaskBoxUnselectedBackground",
+    "key": "TikiBoxUnselectedBackground",
     "hex": "-",
     "tag": "[-]"
   },
   {
     "theme": "light",
-    "key": "TaskBoxUnselectedBorder",
+    "key": "TikiBoxUnselectedBorder",
     "hex": "#b0b8c8",
     "tag": "[#b0b8c8]"
   },
   {
     "theme": "light",
-    "key": "TaskDetailCommentAuthor",
+    "key": "TikiDetailCommentAuthor",
     "hex": "#0055dd",
     "tag": "[#0055dd]"
   },
   {
     "theme": "light",
-    "key": "TaskDetailEditDimLabelColor",
+    "key": "TikiDetailEditDimLabelColor",
     "hex": "#808080",
     "tag": "[#808080]"
   },
   {
     "theme": "light",
-    "key": "TaskDetailEditDimTextColor",
+    "key": "TikiDetailEditDimTextColor",
     "hex": "#808080",
     "tag": "[#808080]"
   },
   {
     "theme": "light",
-    "key": "TaskDetailEditDimValueColor",
+    "key": "TikiDetailEditDimValueColor",
     "hex": "#404040",
     "tag": "[#404040]"
   },
   {
     "theme": "light",
-    "key": "TaskDetailEditFocusMarker",
+    "key": "TikiDetailEditFocusMarker",
     "hex": "#0055dd",
     "tag": "[#0055dd]"
   },
   {
     "theme": "light",
-    "key": "TaskDetailEditFocusText",
+    "key": "TikiDetailEditFocusText",
     "hex": "#000000",
     "tag": "[black]"
   },
   {
     "theme": "light",
-    "key": "TaskDetailLabelText",
+    "key": "TikiDetailLabelText",
     "hex": "#006400",
     "tag": "[darkgreen]"
   },
   {
     "theme": "light",
-    "key": "TaskDetailPlaceholderColor",
+    "key": "TikiDetailPlaceholderColor",
     "hex": "#808080",
     "tag": "[#808080]"
   },
   {
     "theme": "light",
-    "key": "TaskDetailTagBackground",
+    "key": "TikiDetailTagBackground",
     "hex": "#b8d4f0",
     "tag": "[#b8d4f0]"
   },
   {
     "theme": "light",
-    "key": "TaskDetailTagForeground",
+    "key": "TikiDetailTagForeground",
     "hex": "#404040",
     "tag": "[#404040]"
   },
   {
     "theme": "light",
-    "key": "TaskDetailTitleText",
+    "key": "TikiDetailTitleText",
     "hex": "#000000",
     "tag": "[black]"
   },
   {
     "theme": "light",
-    "key": "TaskDetailValueText",
+    "key": "TikiDetailValueText",
     "hex": "#4a4e6a",
     "tag": "[#4a4e6a]"
   },
   {
     "theme": "light",
-    "key": "TaskListSelectionBg",
+    "key": "TikiListSelectionBg",
     "hex": "#b8d4f0",
     "tag": "[#b8d4f0]"
   },
   {
     "theme": "light",
-    "key": "TaskListSelectionFg",
+    "key": "TikiListSelectionFg",
     "hex": "#000000",
     "tag": "[black]"
   },
   {
     "theme": "light",
-    "key": "TaskListStatusDoneColor",
+    "key": "TikiListStatusDoneColor",
     "hex": "#006400",
     "tag": "[darkgreen]"
   },
   {
     "theme": "light",
-    "key": "TaskListStatusPendingColor",
+    "key": "TikiListStatusPendingColor",
     "hex": "#000000",
     "tag": "[black]"
   },
@@ -1225,139 +1225,139 @@
   },
   {
     "theme": "dracula",
-    "key": "TaskBoxDescriptionColor",
+    "key": "TikiBoxDescriptionColor",
     "hex": "#6272a4",
     "tag": "[#6272a4]"
   },
   {
     "theme": "dracula",
-    "key": "TaskBoxLabelColor",
+    "key": "TikiBoxLabelColor",
     "hex": "#6272a4",
     "tag": "[#6272a4]"
   },
   {
     "theme": "dracula",
-    "key": "TaskBoxSelectedBorder",
+    "key": "TikiBoxSelectedBorder",
     "hex": "#ff79c6",
     "tag": "[#ff79c6]"
   },
   {
     "theme": "dracula",
-    "key": "TaskBoxTagValueColor",
+    "key": "TikiBoxTagValueColor",
     "hex": "#6272a4",
     "tag": "[#6272a4]"
   },
   {
     "theme": "dracula",
-    "key": "TaskBoxTitleColor",
+    "key": "TikiBoxTitleColor",
     "hex": "#bfbfbf",
     "tag": "[#bfbfbf]"
   },
   {
     "theme": "dracula",
-    "key": "TaskBoxUnselectedBackground",
+    "key": "TikiBoxUnselectedBackground",
     "hex": "-",
     "tag": "[-]"
   },
   {
     "theme": "dracula",
-    "key": "TaskBoxUnselectedBorder",
+    "key": "TikiBoxUnselectedBorder",
     "hex": "#44475a",
     "tag": "[#44475a]"
   },
   {
     "theme": "dracula",
-    "key": "TaskDetailCommentAuthor",
+    "key": "TikiDetailCommentAuthor",
     "hex": "#ff79c6",
     "tag": "[#ff79c6]"
   },
   {
     "theme": "dracula",
-    "key": "TaskDetailEditDimLabelColor",
+    "key": "TikiDetailEditDimLabelColor",
     "hex": "#6272a4",
     "tag": "[#6272a4]"
   },
   {
     "theme": "dracula",
-    "key": "TaskDetailEditDimTextColor",
+    "key": "TikiDetailEditDimTextColor",
     "hex": "#6272a4",
     "tag": "[#6272a4]"
   },
   {
     "theme": "dracula",
-    "key": "TaskDetailEditDimValueColor",
+    "key": "TikiDetailEditDimValueColor",
     "hex": "#bfbfbf",
     "tag": "[#bfbfbf]"
   },
   {
     "theme": "dracula",
-    "key": "TaskDetailEditFocusMarker",
+    "key": "TikiDetailEditFocusMarker",
     "hex": "#ff79c6",
     "tag": "[#ff79c6]"
   },
   {
     "theme": "dracula",
-    "key": "TaskDetailEditFocusText",
+    "key": "TikiDetailEditFocusText",
     "hex": "#f8f8f2",
     "tag": "[#f8f8f2]"
   },
   {
     "theme": "dracula",
-    "key": "TaskDetailLabelText",
+    "key": "TikiDetailLabelText",
     "hex": "#50fa7b",
     "tag": "[#50fa7b]"
   },
   {
     "theme": "dracula",
-    "key": "TaskDetailPlaceholderColor",
+    "key": "TikiDetailPlaceholderColor",
     "hex": "#6272a4",
     "tag": "[#6272a4]"
   },
   {
     "theme": "dracula",
-    "key": "TaskDetailTagBackground",
+    "key": "TikiDetailTagBackground",
     "hex": "#44475a",
     "tag": "[#44475a]"
   },
   {
     "theme": "dracula",
-    "key": "TaskDetailTagForeground",
+    "key": "TikiDetailTagForeground",
     "hex": "#bfbfbf",
     "tag": "[#bfbfbf]"
   },
   {
     "theme": "dracula",
-    "key": "TaskDetailTitleText",
+    "key": "TikiDetailTitleText",
     "hex": "#f8f8f2",
     "tag": "[#f8f8f2]"
   },
   {
     "theme": "dracula",
-    "key": "TaskDetailValueText",
+    "key": "TikiDetailValueText",
     "hex": "#bd93f9",
     "tag": "[#bd93f9]"
   },
   {
     "theme": "dracula",
-    "key": "TaskListSelectionBg",
+    "key": "TikiListSelectionBg",
     "hex": "#44475a",
     "tag": "[#44475a]"
   },
   {
     "theme": "dracula",
-    "key": "TaskListSelectionFg",
+    "key": "TikiListSelectionFg",
     "hex": "#f8f8f2",
     "tag": "[#f8f8f2]"
   },
   {
     "theme": "dracula",
-    "key": "TaskListStatusDoneColor",
+    "key": "TikiListStatusDoneColor",
     "hex": "#50fa7b",
     "tag": "[#50fa7b]"
   },
   {
     "theme": "dracula",
-    "key": "TaskListStatusPendingColor",
+    "key": "TikiListStatusPendingColor",
     "hex": "#f8f8f2",
     "tag": "[#f8f8f2]"
   },
@@ -1699,139 +1699,139 @@
   },
   {
     "theme": "tokyo-night",
-    "key": "TaskBoxDescriptionColor",
+    "key": "TikiBoxDescriptionColor",
     "hex": "#565f89",
     "tag": "[#565f89]"
   },
   {
     "theme": "tokyo-night",
-    "key": "TaskBoxLabelColor",
+    "key": "TikiBoxLabelColor",
     "hex": "#565f89",
     "tag": "[#565f89]"
   },
   {
     "theme": "tokyo-night",
-    "key": "TaskBoxSelectedBorder",
+    "key": "TikiBoxSelectedBorder",
     "hex": "#e0af68",
     "tag": "[#e0af68]"
   },
   {
     "theme": "tokyo-night",
-    "key": "TaskBoxTagValueColor",
+    "key": "TikiBoxTagValueColor",
     "hex": "#565f89",
     "tag": "[#565f89]"
   },
   {
     "theme": "tokyo-night",
-    "key": "TaskBoxTitleColor",
+    "key": "TikiBoxTitleColor",
     "hex": "#a9b1d6",
     "tag": "[#a9b1d6]"
   },
   {
     "theme": "tokyo-night",
-    "key": "TaskBoxUnselectedBackground",
+    "key": "TikiBoxUnselectedBackground",
     "hex": "-",
     "tag": "[-]"
   },
   {
     "theme": "tokyo-night",
-    "key": "TaskBoxUnselectedBorder",
+    "key": "TikiBoxUnselectedBorder",
     "hex": "#3b4261",
     "tag": "[#3b4261]"
   },
   {
     "theme": "tokyo-night",
-    "key": "TaskDetailCommentAuthor",
+    "key": "TikiDetailCommentAuthor",
     "hex": "#e0af68",
     "tag": "[#e0af68]"
   },
   {
     "theme": "tokyo-night",
-    "key": "TaskDetailEditDimLabelColor",
+    "key": "TikiDetailEditDimLabelColor",
     "hex": "#565f89",
     "tag": "[#565f89]"
   },
   {
     "theme": "tokyo-night",
-    "key": "TaskDetailEditDimTextColor",
+    "key": "TikiDetailEditDimTextColor",
     "hex": "#565f89",
     "tag": "[#565f89]"
   },
   {
     "theme": "tokyo-night",
-    "key": "TaskDetailEditDimValueColor",
+    "key": "TikiDetailEditDimValueColor",
     "hex": "#a9b1d6",
     "tag": "[#a9b1d6]"
   },
   {
     "theme": "tokyo-night",
-    "key": "TaskDetailEditFocusMarker",
+    "key": "TikiDetailEditFocusMarker",
     "hex": "#e0af68",
     "tag": "[#e0af68]"
   },
   {
     "theme": "tokyo-night",
-    "key": "TaskDetailEditFocusText",
+    "key": "TikiDetailEditFocusText",
     "hex": "#c0caf5",
     "tag": "[#c0caf5]"
   },
   {
     "theme": "tokyo-night",
-    "key": "TaskDetailLabelText",
+    "key": "TikiDetailLabelText",
     "hex": "#9ece6a",
     "tag": "[#9ece6a]"
   },
   {
     "theme": "tokyo-night",
-    "key": "TaskDetailPlaceholderColor",
+    "key": "TikiDetailPlaceholderColor",
     "hex": "#565f89",
     "tag": "[#565f89]"
   },
   {
     "theme": "tokyo-night",
-    "key": "TaskDetailTagBackground",
+    "key": "TikiDetailTagBackground",
     "hex": "#283457",
     "tag": "[#283457]"
   },
   {
     "theme": "tokyo-night",
-    "key": "TaskDetailTagForeground",
+    "key": "TikiDetailTagForeground",
     "hex": "#a9b1d6",
     "tag": "[#a9b1d6]"
   },
   {
     "theme": "tokyo-night",
-    "key": "TaskDetailTitleText",
+    "key": "TikiDetailTitleText",
     "hex": "#c0caf5",
     "tag": "[#c0caf5]"
   },
   {
     "theme": "tokyo-night",
-    "key": "TaskDetailValueText",
+    "key": "TikiDetailValueText",
     "hex": "#7aa2f7",
     "tag": "[#7aa2f7]"
   },
   {
     "theme": "tokyo-night",
-    "key": "TaskListSelectionBg",
+    "key": "TikiListSelectionBg",
     "hex": "#283457",
     "tag": "[#283457]"
   },
   {
     "theme": "tokyo-night",
-    "key": "TaskListSelectionFg",
+    "key": "TikiListSelectionFg",
     "hex": "#c0caf5",
     "tag": "[#c0caf5]"
   },
   {
     "theme": "tokyo-night",
-    "key": "TaskListStatusDoneColor",
+    "key": "TikiListStatusDoneColor",
     "hex": "#9ece6a",
     "tag": "[#9ece6a]"
   },
   {
     "theme": "tokyo-night",
-    "key": "TaskListStatusPendingColor",
+    "key": "TikiListStatusPendingColor",
     "hex": "#c0caf5",
     "tag": "[#c0caf5]"
   },
@@ -2173,139 +2173,139 @@
   },
   {
     "theme": "gruvbox-dark",
-    "key": "TaskBoxDescriptionColor",
+    "key": "TikiBoxDescriptionColor",
     "hex": "#928374",
     "tag": "[#928374]"
   },
   {
     "theme": "gruvbox-dark",
-    "key": "TaskBoxLabelColor",
+    "key": "TikiBoxLabelColor",
     "hex": "#928374",
     "tag": "[#928374]"
   },
   {
     "theme": "gruvbox-dark",
-    "key": "TaskBoxSelectedBorder",
+    "key": "TikiBoxSelectedBorder",
     "hex": "#fabd2f",
     "tag": "[#fabd2f]"
   },
   {
     "theme": "gruvbox-dark",
-    "key": "TaskBoxTagValueColor",
+    "key": "TikiBoxTagValueColor",
     "hex": "#665c54",
     "tag": "[#665c54]"
   },
   {
     "theme": "gruvbox-dark",
-    "key": "TaskBoxTitleColor",
+    "key": "TikiBoxTitleColor",
     "hex": "#bdae93",
     "tag": "[#bdae93]"
   },
   {
     "theme": "gruvbox-dark",
-    "key": "TaskBoxUnselectedBackground",
+    "key": "TikiBoxUnselectedBackground",
     "hex": "-",
     "tag": "[-]"
   },
   {
     "theme": "gruvbox-dark",
-    "key": "TaskBoxUnselectedBorder",
+    "key": "TikiBoxUnselectedBorder",
     "hex": "#504945",
     "tag": "[#504945]"
   },
   {
     "theme": "gruvbox-dark",
-    "key": "TaskDetailCommentAuthor",
+    "key": "TikiDetailCommentAuthor",
     "hex": "#fabd2f",
     "tag": "[#fabd2f]"
   },
   {
     "theme": "gruvbox-dark",
-    "key": "TaskDetailEditDimLabelColor",
+    "key": "TikiDetailEditDimLabelColor",
     "hex": "#928374",
     "tag": "[#928374]"
   },
   {
     "theme": "gruvbox-dark",
-    "key": "TaskDetailEditDimTextColor",
+    "key": "TikiDetailEditDimTextColor",
     "hex": "#928374",
     "tag": "[#928374]"
   },
   {
     "theme": "gruvbox-dark",
-    "key": "TaskDetailEditDimValueColor",
+    "key": "TikiDetailEditDimValueColor",
     "hex": "#bdae93",
     "tag": "[#bdae93]"
   },
   {
     "theme": "gruvbox-dark",
-    "key": "TaskDetailEditFocusMarker",
+    "key": "TikiDetailEditFocusMarker",
     "hex": "#fabd2f",
     "tag": "[#fabd2f]"
   },
   {
     "theme": "gruvbox-dark",
-    "key": "TaskDetailEditFocusText",
+    "key": "TikiDetailEditFocusText",
     "hex": "#ebdbb2",
     "tag": "[#ebdbb2]"
   },
   {
     "theme": "gruvbox-dark",
-    "key": "TaskDetailLabelText",
+    "key": "TikiDetailLabelText",
     "hex": "#b8bb26",
     "tag": "[#b8bb26]"
   },
   {
     "theme": "gruvbox-dark",
-    "key": "TaskDetailPlaceholderColor",
+    "key": "TikiDetailPlaceholderColor",
     "hex": "#928374",
     "tag": "[#928374]"
   },
   {
     "theme": "gruvbox-dark",
-    "key": "TaskDetailTagBackground",
+    "key": "TikiDetailTagBackground",
     "hex": "#504945",
     "tag": "[#504945]"
   },
   {
     "theme": "gruvbox-dark",
-    "key": "TaskDetailTagForeground",
+    "key": "TikiDetailTagForeground",
     "hex": "#bdae93",
     "tag": "[#bdae93]"
   },
   {
     "theme": "gruvbox-dark",
-    "key": "TaskDetailTitleText",
+    "key": "TikiDetailTitleText",
     "hex": "#ebdbb2",
     "tag": "[#ebdbb2]"
   },
   {
     "theme": "gruvbox-dark",
-    "key": "TaskDetailValueText",
+    "key": "TikiDetailValueText",
     "hex": "#83a598",
     "tag": "[#83a598]"
   },
   {
     "theme": "gruvbox-dark",
-    "key": "TaskListSelectionBg",
+    "key": "TikiListSelectionBg",
     "hex": "#504945",
     "tag": "[#504945]"
   },
   {
     "theme": "gruvbox-dark",
-    "key": "TaskListSelectionFg",
+    "key": "TikiListSelectionFg",
     "hex": "#ebdbb2",
     "tag": "[#ebdbb2]"
   },
   {
     "theme": "gruvbox-dark",
-    "key": "TaskListStatusDoneColor",
+    "key": "TikiListStatusDoneColor",
     "hex": "#b8bb26",
     "tag": "[#b8bb26]"
   },
   {
     "theme": "gruvbox-dark",
-    "key": "TaskListStatusPendingColor",
+    "key": "TikiListStatusPendingColor",
     "hex": "#ebdbb2",
     "tag": "[#ebdbb2]"
   },
@@ -2647,139 +2647,139 @@
   },
   {
     "theme": "catppuccin-mocha",
-    "key": "TaskBoxDescriptionColor",
+    "key": "TikiBoxDescriptionColor",
     "hex": "#6c7086",
     "tag": "[#6c7086]"
   },
   {
     "theme": "catppuccin-mocha",
-    "key": "TaskBoxLabelColor",
+    "key": "TikiBoxLabelColor",
     "hex": "#6c7086",
     "tag": "[#6c7086]"
   },
   {
     "theme": "catppuccin-mocha",
-    "key": "TaskBoxSelectedBorder",
+    "key": "TikiBoxSelectedBorder",
     "hex": "#f9e2af",
     "tag": "[#f9e2af]"
   },
   {
     "theme": "catppuccin-mocha",
-    "key": "TaskBoxTagValueColor",
+    "key": "TikiBoxTagValueColor",
     "hex": "#585b70",
     "tag": "[#585b70]"
   },
   {
     "theme": "catppuccin-mocha",
-    "key": "TaskBoxTitleColor",
+    "key": "TikiBoxTitleColor",
     "hex": "#bac2de",
     "tag": "[#bac2de]"
   },
   {
     "theme": "catppuccin-mocha",
-    "key": "TaskBoxUnselectedBackground",
+    "key": "TikiBoxUnselectedBackground",
     "hex": "-",
     "tag": "[-]"
   },
   {
     "theme": "catppuccin-mocha",
-    "key": "TaskBoxUnselectedBorder",
+    "key": "TikiBoxUnselectedBorder",
     "hex": "#45475a",
     "tag": "[#45475a]"
   },
   {
     "theme": "catppuccin-mocha",
-    "key": "TaskDetailCommentAuthor",
+    "key": "TikiDetailCommentAuthor",
     "hex": "#f9e2af",
     "tag": "[#f9e2af]"
   },
   {
     "theme": "catppuccin-mocha",
-    "key": "TaskDetailEditDimLabelColor",
+    "key": "TikiDetailEditDimLabelColor",
     "hex": "#6c7086",
     "tag": "[#6c7086]"
   },
   {
     "theme": "catppuccin-mocha",
-    "key": "TaskDetailEditDimTextColor",
+    "key": "TikiDetailEditDimTextColor",
     "hex": "#6c7086",
     "tag": "[#6c7086]"
   },
   {
     "theme": "catppuccin-mocha",
-    "key": "TaskDetailEditDimValueColor",
+    "key": "TikiDetailEditDimValueColor",
     "hex": "#bac2de",
     "tag": "[#bac2de]"
   },
   {
     "theme": "catppuccin-mocha",
-    "key": "TaskDetailEditFocusMarker",
+    "key": "TikiDetailEditFocusMarker",
     "hex": "#f9e2af",
     "tag": "[#f9e2af]"
   },
   {
     "theme": "catppuccin-mocha",
-    "key": "TaskDetailEditFocusText",
+    "key": "TikiDetailEditFocusText",
     "hex": "#cdd6f4",
     "tag": "[#cdd6f4]"
   },
   {
     "theme": "catppuccin-mocha",
-    "key": "TaskDetailLabelText",
+    "key": "TikiDetailLabelText",
     "hex": "#a6e3a1",
     "tag": "[#a6e3a1]"
   },
   {
     "theme": "catppuccin-mocha",
-    "key": "TaskDetailPlaceholderColor",
+    "key": "TikiDetailPlaceholderColor",
     "hex": "#6c7086",
     "tag": "[#6c7086]"
   },
   {
     "theme": "catppuccin-mocha",
-    "key": "TaskDetailTagBackground",
+    "key": "TikiDetailTagBackground",
     "hex": "#45475a",
     "tag": "[#45475a]"
   },
   {
     "theme": "catppuccin-mocha",
-    "key": "TaskDetailTagForeground",
+    "key": "TikiDetailTagForeground",
     "hex": "#bac2de",
     "tag": "[#bac2de]"
   },
   {
     "theme": "catppuccin-mocha",
-    "key": "TaskDetailTitleText",
+    "key": "TikiDetailTitleText",
     "hex": "#cdd6f4",
     "tag": "[#cdd6f4]"
   },
   {
     "theme": "catppuccin-mocha",
-    "key": "TaskDetailValueText",
+    "key": "TikiDetailValueText",
     "hex": "#89b4fa",
     "tag": "[#89b4fa]"
   },
   {
     "theme": "catppuccin-mocha",
-    "key": "TaskListSelectionBg",
+    "key": "TikiListSelectionBg",
     "hex": "#45475a",
     "tag": "[#45475a]"
   },
   {
     "theme": "catppuccin-mocha",
-    "key": "TaskListSelectionFg",
+    "key": "TikiListSelectionFg",
     "hex": "#cdd6f4",
     "tag": "[#cdd6f4]"
   },
   {
     "theme": "catppuccin-mocha",
-    "key": "TaskListStatusDoneColor",
+    "key": "TikiListStatusDoneColor",
     "hex": "#a6e3a1",
     "tag": "[#a6e3a1]"
   },
   {
     "theme": "catppuccin-mocha",
-    "key": "TaskListStatusPendingColor",
+    "key": "TikiListStatusPendingColor",
     "hex": "#cdd6f4",
     "tag": "[#cdd6f4]"
   },
@@ -3121,139 +3121,139 @@
   },
   {
     "theme": "solarized-dark",
-    "key": "TaskBoxDescriptionColor",
+    "key": "TikiBoxDescriptionColor",
     "hex": "#586e75",
     "tag": "[#586e75]"
   },
   {
     "theme": "solarized-dark",
-    "key": "TaskBoxLabelColor",
+    "key": "TikiBoxLabelColor",
     "hex": "#586e75",
     "tag": "[#586e75]"
   },
   {
     "theme": "solarized-dark",
-    "key": "TaskBoxSelectedBorder",
+    "key": "TikiBoxSelectedBorder",
     "hex": "#b58900",
     "tag": "[#b58900]"
   },
   {
     "theme": "solarized-dark",
-    "key": "TaskBoxTagValueColor",
+    "key": "TikiBoxTagValueColor",
     "hex": "#586e75",
     "tag": "[#586e75]"
   },
   {
     "theme": "solarized-dark",
-    "key": "TaskBoxTitleColor",
+    "key": "TikiBoxTitleColor",
     "hex": "#93a1a1",
     "tag": "[#93a1a1]"
   },
   {
     "theme": "solarized-dark",
-    "key": "TaskBoxUnselectedBackground",
+    "key": "TikiBoxUnselectedBackground",
     "hex": "-",
     "tag": "[-]"
   },
   {
     "theme": "solarized-dark",
-    "key": "TaskBoxUnselectedBorder",
+    "key": "TikiBoxUnselectedBorder",
     "hex": "#073642",
     "tag": "[#073642]"
   },
   {
     "theme": "solarized-dark",
-    "key": "TaskDetailCommentAuthor",
+    "key": "TikiDetailCommentAuthor",
     "hex": "#b58900",
     "tag": "[#b58900]"
   },
   {
     "theme": "solarized-dark",
-    "key": "TaskDetailEditDimLabelColor",
+    "key": "TikiDetailEditDimLabelColor",
     "hex": "#586e75",
     "tag": "[#586e75]"
   },
   {
     "theme": "solarized-dark",
-    "key": "TaskDetailEditDimTextColor",
+    "key": "TikiDetailEditDimTextColor",
     "hex": "#586e75",
     "tag": "[#586e75]"
   },
   {
     "theme": "solarized-dark",
-    "key": "TaskDetailEditDimValueColor",
+    "key": "TikiDetailEditDimValueColor",
     "hex": "#93a1a1",
     "tag": "[#93a1a1]"
   },
   {
     "theme": "solarized-dark",
-    "key": "TaskDetailEditFocusMarker",
+    "key": "TikiDetailEditFocusMarker",
     "hex": "#b58900",
     "tag": "[#b58900]"
   },
   {
     "theme": "solarized-dark",
-    "key": "TaskDetailEditFocusText",
+    "key": "TikiDetailEditFocusText",
     "hex": "#839496",
     "tag": "[#839496]"
   },
   {
     "theme": "solarized-dark",
-    "key": "TaskDetailLabelText",
+    "key": "TikiDetailLabelText",
     "hex": "#859900",
     "tag": "[#859900]"
   },
   {
     "theme": "solarized-dark",
-    "key": "TaskDetailPlaceholderColor",
+    "key": "TikiDetailPlaceholderColor",
     "hex": "#586e75",
     "tag": "[#586e75]"
   },
   {
     "theme": "solarized-dark",
-    "key": "TaskDetailTagBackground",
+    "key": "TikiDetailTagBackground",
     "hex": "#073642",
     "tag": "[#073642]"
   },
   {
     "theme": "solarized-dark",
-    "key": "TaskDetailTagForeground",
+    "key": "TikiDetailTagForeground",
     "hex": "#93a1a1",
     "tag": "[#93a1a1]"
   },
   {
     "theme": "solarized-dark",
-    "key": "TaskDetailTitleText",
+    "key": "TikiDetailTitleText",
     "hex": "#839496",
     "tag": "[#839496]"
   },
   {
     "theme": "solarized-dark",
-    "key": "TaskDetailValueText",
+    "key": "TikiDetailValueText",
     "hex": "#268bd2",
     "tag": "[#268bd2]"
   },
   {
     "theme": "solarized-dark",
-    "key": "TaskListSelectionBg",
+    "key": "TikiListSelectionBg",
     "hex": "#073642",
     "tag": "[#073642]"
   },
   {
     "theme": "solarized-dark",
-    "key": "TaskListSelectionFg",
+    "key": "TikiListSelectionFg",
     "hex": "#839496",
     "tag": "[#839496]"
   },
   {
     "theme": "solarized-dark",
-    "key": "TaskListStatusDoneColor",
+    "key": "TikiListStatusDoneColor",
     "hex": "#859900",
     "tag": "[#859900]"
   },
   {
     "theme": "solarized-dark",
-    "key": "TaskListStatusPendingColor",
+    "key": "TikiListStatusPendingColor",
     "hex": "#839496",
     "tag": "[#839496]"
   },
@@ -3595,139 +3595,139 @@
   },
   {
     "theme": "nord",
-    "key": "TaskBoxDescriptionColor",
+    "key": "TikiBoxDescriptionColor",
     "hex": "#4c566a",
     "tag": "[#4c566a]"
   },
   {
     "theme": "nord",
-    "key": "TaskBoxLabelColor",
+    "key": "TikiBoxLabelColor",
     "hex": "#4c566a",
     "tag": "[#4c566a]"
   },
   {
     "theme": "nord",
-    "key": "TaskBoxSelectedBorder",
+    "key": "TikiBoxSelectedBorder",
     "hex": "#ebcb8b",
     "tag": "[#ebcb8b]"
   },
   {
     "theme": "nord",
-    "key": "TaskBoxTagValueColor",
+    "key": "TikiBoxTagValueColor",
     "hex": "#4c566a",
     "tag": "[#4c566a]"
   },
   {
     "theme": "nord",
-    "key": "TaskBoxTitleColor",
+    "key": "TikiBoxTitleColor",
     "hex": "#d8dee9",
     "tag": "[#d8dee9]"
   },
   {
     "theme": "nord",
-    "key": "TaskBoxUnselectedBackground",
+    "key": "TikiBoxUnselectedBackground",
     "hex": "-",
     "tag": "[-]"
   },
   {
     "theme": "nord",
-    "key": "TaskBoxUnselectedBorder",
+    "key": "TikiBoxUnselectedBorder",
     "hex": "#434c5e",
     "tag": "[#434c5e]"
   },
   {
     "theme": "nord",
-    "key": "TaskDetailCommentAuthor",
+    "key": "TikiDetailCommentAuthor",
     "hex": "#ebcb8b",
     "tag": "[#ebcb8b]"
   },
   {
     "theme": "nord",
-    "key": "TaskDetailEditDimLabelColor",
+    "key": "TikiDetailEditDimLabelColor",
     "hex": "#4c566a",
     "tag": "[#4c566a]"
   },
   {
     "theme": "nord",
-    "key": "TaskDetailEditDimTextColor",
+    "key": "TikiDetailEditDimTextColor",
     "hex": "#4c566a",
     "tag": "[#4c566a]"
   },
   {
     "theme": "nord",
-    "key": "TaskDetailEditDimValueColor",
+    "key": "TikiDetailEditDimValueColor",
     "hex": "#d8dee9",
     "tag": "[#d8dee9]"
   },
   {
     "theme": "nord",
-    "key": "TaskDetailEditFocusMarker",
+    "key": "TikiDetailEditFocusMarker",
     "hex": "#ebcb8b",
     "tag": "[#ebcb8b]"
   },
   {
     "theme": "nord",
-    "key": "TaskDetailEditFocusText",
+    "key": "TikiDetailEditFocusText",
     "hex": "#eceff4",
     "tag": "[#eceff4]"
   },
   {
     "theme": "nord",
-    "key": "TaskDetailLabelText",
+    "key": "TikiDetailLabelText",
     "hex": "#a3be8c",
     "tag": "[#a3be8c]"
   },
   {
     "theme": "nord",
-    "key": "TaskDetailPlaceholderColor",
+    "key": "TikiDetailPlaceholderColor",
     "hex": "#4c566a",
     "tag": "[#4c566a]"
   },
   {
     "theme": "nord",
-    "key": "TaskDetailTagBackground",
+    "key": "TikiDetailTagBackground",
     "hex": "#434c5e",
     "tag": "[#434c5e]"
   },
   {
     "theme": "nord",
-    "key": "TaskDetailTagForeground",
+    "key": "TikiDetailTagForeground",
     "hex": "#d8dee9",
     "tag": "[#d8dee9]"
   },
   {
     "theme": "nord",
-    "key": "TaskDetailTitleText",
+    "key": "TikiDetailTitleText",
     "hex": "#eceff4",
     "tag": "[#eceff4]"
   },
   {
     "theme": "nord",
-    "key": "TaskDetailValueText",
+    "key": "TikiDetailValueText",
     "hex": "#81a1c1",
     "tag": "[#81a1c1]"
   },
   {
     "theme": "nord",
-    "key": "TaskListSelectionBg",
+    "key": "TikiListSelectionBg",
     "hex": "#434c5e",
     "tag": "[#434c5e]"
   },
   {
     "theme": "nord",
-    "key": "TaskListSelectionFg",
+    "key": "TikiListSelectionFg",
     "hex": "#eceff4",
     "tag": "[#eceff4]"
   },
   {
     "theme": "nord",
-    "key": "TaskListStatusDoneColor",
+    "key": "TikiListStatusDoneColor",
     "hex": "#a3be8c",
     "tag": "[#a3be8c]"
   },
   {
     "theme": "nord",
-    "key": "TaskListStatusPendingColor",
+    "key": "TikiListStatusPendingColor",
     "hex": "#eceff4",
     "tag": "[#eceff4]"
   },
@@ -4069,139 +4069,139 @@
   },
   {
     "theme": "monokai",
-    "key": "TaskBoxDescriptionColor",
+    "key": "TikiBoxDescriptionColor",
     "hex": "#75715e",
     "tag": "[#75715e]"
   },
   {
     "theme": "monokai",
-    "key": "TaskBoxLabelColor",
+    "key": "TikiBoxLabelColor",
     "hex": "#75715e",
     "tag": "[#75715e]"
   },
   {
     "theme": "monokai",
-    "key": "TaskBoxSelectedBorder",
+    "key": "TikiBoxSelectedBorder",
     "hex": "#e6db74",
     "tag": "[#e6db74]"
   },
   {
     "theme": "monokai",
-    "key": "TaskBoxTagValueColor",
+    "key": "TikiBoxTagValueColor",
     "hex": "#75715e",
     "tag": "[#75715e]"
   },
   {
     "theme": "monokai",
-    "key": "TaskBoxTitleColor",
+    "key": "TikiBoxTitleColor",
     "hex": "#cfcfc2",
     "tag": "[#cfcfc2]"
   },
   {
     "theme": "monokai",
-    "key": "TaskBoxUnselectedBackground",
+    "key": "TikiBoxUnselectedBackground",
     "hex": "-",
     "tag": "[-]"
   },
   {
     "theme": "monokai",
-    "key": "TaskBoxUnselectedBorder",
+    "key": "TikiBoxUnselectedBorder",
     "hex": "#49483e",
     "tag": "[#49483e]"
   },
   {
     "theme": "monokai",
-    "key": "TaskDetailCommentAuthor",
+    "key": "TikiDetailCommentAuthor",
     "hex": "#e6db74",
     "tag": "[#e6db74]"
   },
   {
     "theme": "monokai",
-    "key": "TaskDetailEditDimLabelColor",
+    "key": "TikiDetailEditDimLabelColor",
     "hex": "#75715e",
     "tag": "[#75715e]"
   },
   {
     "theme": "monokai",
-    "key": "TaskDetailEditDimTextColor",
+    "key": "TikiDetailEditDimTextColor",
     "hex": "#75715e",
     "tag": "[#75715e]"
   },
   {
     "theme": "monokai",
-    "key": "TaskDetailEditDimValueColor",
+    "key": "TikiDetailEditDimValueColor",
     "hex": "#cfcfc2",
     "tag": "[#cfcfc2]"
   },
   {
     "theme": "monokai",
-    "key": "TaskDetailEditFocusMarker",
+    "key": "TikiDetailEditFocusMarker",
     "hex": "#e6db74",
     "tag": "[#e6db74]"
   },
   {
     "theme": "monokai",
-    "key": "TaskDetailEditFocusText",
+    "key": "TikiDetailEditFocusText",
     "hex": "#f8f8f2",
     "tag": "[#f8f8f2]"
   },
   {
     "theme": "monokai",
-    "key": "TaskDetailLabelText",
+    "key": "TikiDetailLabelText",
     "hex": "#a6e22e",
     "tag": "[#a6e22e]"
   },
   {
     "theme": "monokai",
-    "key": "TaskDetailPlaceholderColor",
+    "key": "TikiDetailPlaceholderColor",
     "hex": "#75715e",
     "tag": "[#75715e]"
   },
   {
     "theme": "monokai",
-    "key": "TaskDetailTagBackground",
+    "key": "TikiDetailTagBackground",
     "hex": "#49483e",
     "tag": "[#49483e]"
   },
   {
     "theme": "monokai",
-    "key": "TaskDetailTagForeground",
+    "key": "TikiDetailTagForeground",
     "hex": "#cfcfc2",
     "tag": "[#cfcfc2]"
   },
   {
     "theme": "monokai",
-    "key": "TaskDetailTitleText",
+    "key": "TikiDetailTitleText",
     "hex": "#f8f8f2",
     "tag": "[#f8f8f2]"
   },
   {
     "theme": "monokai",
-    "key": "TaskDetailValueText",
+    "key": "TikiDetailValueText",
     "hex": "#66d9ef",
     "tag": "[#66d9ef]"
   },
   {
     "theme": "monokai",
-    "key": "TaskListSelectionBg",
+    "key": "TikiListSelectionBg",
     "hex": "#49483e",
     "tag": "[#49483e]"
   },
   {
     "theme": "monokai",
-    "key": "TaskListSelectionFg",
+    "key": "TikiListSelectionFg",
     "hex": "#f8f8f2",
     "tag": "[#f8f8f2]"
   },
   {
     "theme": "monokai",
-    "key": "TaskListStatusDoneColor",
+    "key": "TikiListStatusDoneColor",
     "hex": "#a6e22e",
     "tag": "[#a6e22e]"
   },
   {
     "theme": "monokai",
-    "key": "TaskListStatusPendingColor",
+    "key": "TikiListStatusPendingColor",
     "hex": "#f8f8f2",
     "tag": "[#f8f8f2]"
   },
@@ -4543,139 +4543,139 @@
   },
   {
     "theme": "one-dark",
-    "key": "TaskBoxDescriptionColor",
+    "key": "TikiBoxDescriptionColor",
     "hex": "#5c6370",
     "tag": "[#5c6370]"
   },
   {
     "theme": "one-dark",
-    "key": "TaskBoxLabelColor",
+    "key": "TikiBoxLabelColor",
     "hex": "#5c6370",
     "tag": "[#5c6370]"
   },
   {
     "theme": "one-dark",
-    "key": "TaskBoxSelectedBorder",
+    "key": "TikiBoxSelectedBorder",
     "hex": "#e5c07b",
     "tag": "[#e5c07b]"
   },
   {
     "theme": "one-dark",
-    "key": "TaskBoxTagValueColor",
+    "key": "TikiBoxTagValueColor",
     "hex": "#5c6370",
     "tag": "[#5c6370]"
   },
   {
     "theme": "one-dark",
-    "key": "TaskBoxTitleColor",
+    "key": "TikiBoxTitleColor",
     "hex": "#9da5b4",
     "tag": "[#9da5b4]"
   },
   {
     "theme": "one-dark",
-    "key": "TaskBoxUnselectedBackground",
+    "key": "TikiBoxUnselectedBackground",
     "hex": "-",
     "tag": "[-]"
   },
   {
     "theme": "one-dark",
-    "key": "TaskBoxUnselectedBorder",
+    "key": "TikiBoxUnselectedBorder",
     "hex": "#3e4452",
     "tag": "[#3e4452]"
   },
   {
     "theme": "one-dark",
-    "key": "TaskDetailCommentAuthor",
+    "key": "TikiDetailCommentAuthor",
     "hex": "#e5c07b",
     "tag": "[#e5c07b]"
   },
   {
     "theme": "one-dark",
-    "key": "TaskDetailEditDimLabelColor",
+    "key": "TikiDetailEditDimLabelColor",
     "hex": "#5c6370",
     "tag": "[#5c6370]"
   },
   {
     "theme": "one-dark",
-    "key": "TaskDetailEditDimTextColor",
+    "key": "TikiDetailEditDimTextColor",
     "hex": "#5c6370",
     "tag": "[#5c6370]"
   },
   {
     "theme": "one-dark",
-    "key": "TaskDetailEditDimValueColor",
+    "key": "TikiDetailEditDimValueColor",
     "hex": "#9da5b4",
     "tag": "[#9da5b4]"
   },
   {
     "theme": "one-dark",
-    "key": "TaskDetailEditFocusMarker",
+    "key": "TikiDetailEditFocusMarker",
     "hex": "#e5c07b",
     "tag": "[#e5c07b]"
   },
   {
     "theme": "one-dark",
-    "key": "TaskDetailEditFocusText",
+    "key": "TikiDetailEditFocusText",
     "hex": "#abb2bf",
     "tag": "[#abb2bf]"
   },
   {
     "theme": "one-dark",
-    "key": "TaskDetailLabelText",
+    "key": "TikiDetailLabelText",
     "hex": "#98c379",
     "tag": "[#98c379]"
   },
   {
     "theme": "one-dark",
-    "key": "TaskDetailPlaceholderColor",
+    "key": "TikiDetailPlaceholderColor",
     "hex": "#5c6370",
     "tag": "[#5c6370]"
   },
   {
     "theme": "one-dark",
-    "key": "TaskDetailTagBackground",
+    "key": "TikiDetailTagBackground",
     "hex": "#3e4452",
     "tag": "[#3e4452]"
   },
   {
     "theme": "one-dark",
-    "key": "TaskDetailTagForeground",
+    "key": "TikiDetailTagForeground",
     "hex": "#9da5b4",
     "tag": "[#9da5b4]"
   },
   {
     "theme": "one-dark",
-    "key": "TaskDetailTitleText",
+    "key": "TikiDetailTitleText",
     "hex": "#abb2bf",
     "tag": "[#abb2bf]"
   },
   {
     "theme": "one-dark",
-    "key": "TaskDetailValueText",
+    "key": "TikiDetailValueText",
     "hex": "#61afef",
     "tag": "[#61afef]"
   },
   {
     "theme": "one-dark",
-    "key": "TaskListSelectionBg",
+    "key": "TikiListSelectionBg",
     "hex": "#3e4452",
     "tag": "[#3e4452]"
   },
   {
     "theme": "one-dark",
-    "key": "TaskListSelectionFg",
+    "key": "TikiListSelectionFg",
     "hex": "#abb2bf",
     "tag": "[#abb2bf]"
   },
   {
     "theme": "one-dark",
-    "key": "TaskListStatusDoneColor",
+    "key": "TikiListStatusDoneColor",
     "hex": "#98c379",
     "tag": "[#98c379]"
   },
   {
     "theme": "one-dark",
-    "key": "TaskListStatusPendingColor",
+    "key": "TikiListStatusPendingColor",
     "hex": "#abb2bf",
     "tag": "[#abb2bf]"
   },
@@ -5017,139 +5017,139 @@
   },
   {
     "theme": "catppuccin-latte",
-    "key": "TaskBoxDescriptionColor",
+    "key": "TikiBoxDescriptionColor",
     "hex": "#9ca0b0",
     "tag": "[#9ca0b0]"
   },
   {
     "theme": "catppuccin-latte",
-    "key": "TaskBoxLabelColor",
+    "key": "TikiBoxLabelColor",
     "hex": "#9ca0b0",
     "tag": "[#9ca0b0]"
   },
   {
     "theme": "catppuccin-latte",
-    "key": "TaskBoxSelectedBorder",
+    "key": "TikiBoxSelectedBorder",
     "hex": "#df8e1d",
     "tag": "[#df8e1d]"
   },
   {
     "theme": "catppuccin-latte",
-    "key": "TaskBoxTagValueColor",
+    "key": "TikiBoxTagValueColor",
     "hex": "#acb0be",
     "tag": "[#acb0be]"
   },
   {
     "theme": "catppuccin-latte",
-    "key": "TaskBoxTitleColor",
+    "key": "TikiBoxTitleColor",
     "hex": "#5c5f77",
     "tag": "[#5c5f77]"
   },
   {
     "theme": "catppuccin-latte",
-    "key": "TaskBoxUnselectedBackground",
+    "key": "TikiBoxUnselectedBackground",
     "hex": "-",
     "tag": "[-]"
   },
   {
     "theme": "catppuccin-latte",
-    "key": "TaskBoxUnselectedBorder",
+    "key": "TikiBoxUnselectedBorder",
     "hex": "#ccd0da",
     "tag": "[#ccd0da]"
   },
   {
     "theme": "catppuccin-latte",
-    "key": "TaskDetailCommentAuthor",
+    "key": "TikiDetailCommentAuthor",
     "hex": "#df8e1d",
     "tag": "[#df8e1d]"
   },
   {
     "theme": "catppuccin-latte",
-    "key": "TaskDetailEditDimLabelColor",
+    "key": "TikiDetailEditDimLabelColor",
     "hex": "#9ca0b0",
     "tag": "[#9ca0b0]"
   },
   {
     "theme": "catppuccin-latte",
-    "key": "TaskDetailEditDimTextColor",
+    "key": "TikiDetailEditDimTextColor",
     "hex": "#9ca0b0",
     "tag": "[#9ca0b0]"
   },
   {
     "theme": "catppuccin-latte",
-    "key": "TaskDetailEditDimValueColor",
+    "key": "TikiDetailEditDimValueColor",
     "hex": "#5c5f77",
     "tag": "[#5c5f77]"
   },
   {
     "theme": "catppuccin-latte",
-    "key": "TaskDetailEditFocusMarker",
+    "key": "TikiDetailEditFocusMarker",
     "hex": "#df8e1d",
     "tag": "[#df8e1d]"
   },
   {
     "theme": "catppuccin-latte",
-    "key": "TaskDetailEditFocusText",
+    "key": "TikiDetailEditFocusText",
     "hex": "#4c4f69",
     "tag": "[#4c4f69]"
   },
   {
     "theme": "catppuccin-latte",
-    "key": "TaskDetailLabelText",
+    "key": "TikiDetailLabelText",
     "hex": "#40a02b",
     "tag": "[#40a02b]"
   },
   {
     "theme": "catppuccin-latte",
-    "key": "TaskDetailPlaceholderColor",
+    "key": "TikiDetailPlaceholderColor",
     "hex": "#9ca0b0",
     "tag": "[#9ca0b0]"
   },
   {
     "theme": "catppuccin-latte",
-    "key": "TaskDetailTagBackground",
+    "key": "TikiDetailTagBackground",
     "hex": "#ccd0da",
     "tag": "[#ccd0da]"
   },
   {
     "theme": "catppuccin-latte",
-    "key": "TaskDetailTagForeground",
+    "key": "TikiDetailTagForeground",
     "hex": "#5c5f77",
     "tag": "[#5c5f77]"
   },
   {
     "theme": "catppuccin-latte",
-    "key": "TaskDetailTitleText",
+    "key": "TikiDetailTitleText",
     "hex": "#4c4f69",
     "tag": "[#4c4f69]"
   },
   {
     "theme": "catppuccin-latte",
-    "key": "TaskDetailValueText",
+    "key": "TikiDetailValueText",
     "hex": "#1e66f5",
     "tag": "[#1e66f5]"
   },
   {
     "theme": "catppuccin-latte",
-    "key": "TaskListSelectionBg",
+    "key": "TikiListSelectionBg",
     "hex": "#ccd0da",
     "tag": "[#ccd0da]"
   },
   {
     "theme": "catppuccin-latte",
-    "key": "TaskListSelectionFg",
+    "key": "TikiListSelectionFg",
     "hex": "#4c4f69",
     "tag": "[#4c4f69]"
   },
   {
     "theme": "catppuccin-latte",
-    "key": "TaskListStatusDoneColor",
+    "key": "TikiListStatusDoneColor",
     "hex": "#40a02b",
     "tag": "[#40a02b]"
   },
   {
     "theme": "catppuccin-latte",
-    "key": "TaskListStatusPendingColor",
+    "key": "TikiListStatusPendingColor",
     "hex": "#4c4f69",
     "tag": "[#4c4f69]"
   },
@@ -5491,139 +5491,139 @@
   },
   {
     "theme": "solarized-light",
-    "key": "TaskBoxDescriptionColor",
+    "key": "TikiBoxDescriptionColor",
     "hex": "#93a1a1",
     "tag": "[#93a1a1]"
   },
   {
     "theme": "solarized-light",
-    "key": "TaskBoxLabelColor",
+    "key": "TikiBoxLabelColor",
     "hex": "#93a1a1",
     "tag": "[#93a1a1]"
   },
   {
     "theme": "solarized-light",
-    "key": "TaskBoxSelectedBorder",
+    "key": "TikiBoxSelectedBorder",
     "hex": "#b58900",
     "tag": "[#b58900]"
   },
   {
     "theme": "solarized-light",
-    "key": "TaskBoxTagValueColor",
+    "key": "TikiBoxTagValueColor",
     "hex": "#93a1a1",
     "tag": "[#93a1a1]"
   },
   {
     "theme": "solarized-light",
-    "key": "TaskBoxTitleColor",
+    "key": "TikiBoxTitleColor",
     "hex": "#586e75",
     "tag": "[#586e75]"
   },
   {
     "theme": "solarized-light",
-    "key": "TaskBoxUnselectedBackground",
+    "key": "TikiBoxUnselectedBackground",
     "hex": "-",
     "tag": "[-]"
   },
   {
     "theme": "solarized-light",
-    "key": "TaskBoxUnselectedBorder",
+    "key": "TikiBoxUnselectedBorder",
     "hex": "#eee8d5",
     "tag": "[#eee8d5]"
   },
   {
     "theme": "solarized-light",
-    "key": "TaskDetailCommentAuthor",
+    "key": "TikiDetailCommentAuthor",
     "hex": "#b58900",
     "tag": "[#b58900]"
   },
   {
     "theme": "solarized-light",
-    "key": "TaskDetailEditDimLabelColor",
+    "key": "TikiDetailEditDimLabelColor",
     "hex": "#93a1a1",
     "tag": "[#93a1a1]"
   },
   {
     "theme": "solarized-light",
-    "key": "TaskDetailEditDimTextColor",
+    "key": "TikiDetailEditDimTextColor",
     "hex": "#93a1a1",
     "tag": "[#93a1a1]"
   },
   {
     "theme": "solarized-light",
-    "key": "TaskDetailEditDimValueColor",
+    "key": "TikiDetailEditDimValueColor",
     "hex": "#586e75",
     "tag": "[#586e75]"
   },
   {
     "theme": "solarized-light",
-    "key": "TaskDetailEditFocusMarker",
+    "key": "TikiDetailEditFocusMarker",
     "hex": "#b58900",
     "tag": "[#b58900]"
   },
   {
     "theme": "solarized-light",
-    "key": "TaskDetailEditFocusText",
+    "key": "TikiDetailEditFocusText",
     "hex": "#657b83",
     "tag": "[#657b83]"
   },
   {
     "theme": "solarized-light",
-    "key": "TaskDetailLabelText",
+    "key": "TikiDetailLabelText",
     "hex": "#859900",
     "tag": "[#859900]"
   },
   {
     "theme": "solarized-light",
-    "key": "TaskDetailPlaceholderColor",
+    "key": "TikiDetailPlaceholderColor",
     "hex": "#93a1a1",
     "tag": "[#93a1a1]"
   },
   {
     "theme": "solarized-light",
-    "key": "TaskDetailTagBackground",
+    "key": "TikiDetailTagBackground",
     "hex": "#eee8d5",
     "tag": "[#eee8d5]"
   },
   {
     "theme": "solarized-light",
-    "key": "TaskDetailTagForeground",
+    "key": "TikiDetailTagForeground",
     "hex": "#586e75",
     "tag": "[#586e75]"
   },
   {
     "theme": "solarized-light",
-    "key": "TaskDetailTitleText",
+    "key": "TikiDetailTitleText",
     "hex": "#657b83",
     "tag": "[#657b83]"
   },
   {
     "theme": "solarized-light",
-    "key": "TaskDetailValueText",
+    "key": "TikiDetailValueText",
     "hex": "#268bd2",
     "tag": "[#268bd2]"
   },
   {
     "theme": "solarized-light",
-    "key": "TaskListSelectionBg",
+    "key": "TikiListSelectionBg",
     "hex": "#eee8d5",
     "tag": "[#eee8d5]"
   },
   {
     "theme": "solarized-light",
-    "key": "TaskListSelectionFg",
+    "key": "TikiListSelectionFg",
     "hex": "#657b83",
     "tag": "[#657b83]"
   },
   {
     "theme": "solarized-light",
-    "key": "TaskListStatusDoneColor",
+    "key": "TikiListStatusDoneColor",
     "hex": "#859900",
     "tag": "[#859900]"
   },
   {
     "theme": "solarized-light",
-    "key": "TaskListStatusPendingColor",
+    "key": "TikiListStatusPendingColor",
     "hex": "#657b83",
     "tag": "[#657b83]"
   },
@@ -5965,139 +5965,139 @@
   },
   {
     "theme": "gruvbox-light",
-    "key": "TaskBoxDescriptionColor",
+    "key": "TikiBoxDescriptionColor",
     "hex": "#928374",
     "tag": "[#928374]"
   },
   {
     "theme": "gruvbox-light",
-    "key": "TaskBoxLabelColor",
+    "key": "TikiBoxLabelColor",
     "hex": "#928374",
     "tag": "[#928374]"
   },
   {
     "theme": "gruvbox-light",
-    "key": "TaskBoxSelectedBorder",
+    "key": "TikiBoxSelectedBorder",
     "hex": "#9d6104",
     "tag": "[#9d6104]"
   },
   {
     "theme": "gruvbox-light",
-    "key": "TaskBoxTagValueColor",
+    "key": "TikiBoxTagValueColor",
     "hex": "#bdae93",
     "tag": "[#bdae93]"
   },
   {
     "theme": "gruvbox-light",
-    "key": "TaskBoxTitleColor",
+    "key": "TikiBoxTitleColor",
     "hex": "#504945",
     "tag": "[#504945]"
   },
   {
     "theme": "gruvbox-light",
-    "key": "TaskBoxUnselectedBackground",
+    "key": "TikiBoxUnselectedBackground",
     "hex": "-",
     "tag": "[-]"
   },
   {
     "theme": "gruvbox-light",
-    "key": "TaskBoxUnselectedBorder",
+    "key": "TikiBoxUnselectedBorder",
     "hex": "#d5c4a1",
     "tag": "[#d5c4a1]"
   },
   {
     "theme": "gruvbox-light",
-    "key": "TaskDetailCommentAuthor",
+    "key": "TikiDetailCommentAuthor",
     "hex": "#9d6104",
     "tag": "[#9d6104]"
   },
   {
     "theme": "gruvbox-light",
-    "key": "TaskDetailEditDimLabelColor",
+    "key": "TikiDetailEditDimLabelColor",
     "hex": "#928374",
     "tag": "[#928374]"
   },
   {
     "theme": "gruvbox-light",
-    "key": "TaskDetailEditDimTextColor",
+    "key": "TikiDetailEditDimTextColor",
     "hex": "#928374",
     "tag": "[#928374]"
   },
   {
     "theme": "gruvbox-light",
-    "key": "TaskDetailEditDimValueColor",
+    "key": "TikiDetailEditDimValueColor",
     "hex": "#504945",
     "tag": "[#504945]"
   },
   {
     "theme": "gruvbox-light",
-    "key": "TaskDetailEditFocusMarker",
+    "key": "TikiDetailEditFocusMarker",
     "hex": "#9d6104",
     "tag": "[#9d6104]"
   },
   {
     "theme": "gruvbox-light",
-    "key": "TaskDetailEditFocusText",
+    "key": "TikiDetailEditFocusText",
     "hex": "#3c3836",
     "tag": "[#3c3836]"
   },
   {
     "theme": "gruvbox-light",
-    "key": "TaskDetailLabelText",
+    "key": "TikiDetailLabelText",
     "hex": "#79740e",
     "tag": "[#79740e]"
   },
   {
     "theme": "gruvbox-light",
-    "key": "TaskDetailPlaceholderColor",
+    "key": "TikiDetailPlaceholderColor",
     "hex": "#928374",
     "tag": "[#928374]"
   },
   {
     "theme": "gruvbox-light",
-    "key": "TaskDetailTagBackground",
+    "key": "TikiDetailTagBackground",
     "hex": "#d5c4a1",
     "tag": "[#d5c4a1]"
   },
   {
     "theme": "gruvbox-light",
-    "key": "TaskDetailTagForeground",
+    "key": "TikiDetailTagForeground",
     "hex": "#504945",
     "tag": "[#504945]"
   },
   {
     "theme": "gruvbox-light",
-    "key": "TaskDetailTitleText",
+    "key": "TikiDetailTitleText",
     "hex": "#3c3836",
     "tag": "[#3c3836]"
   },
   {
     "theme": "gruvbox-light",
-    "key": "TaskDetailValueText",
+    "key": "TikiDetailValueText",
     "hex": "#076678",
     "tag": "[#076678]"
   },
   {
     "theme": "gruvbox-light",
-    "key": "TaskListSelectionBg",
+    "key": "TikiListSelectionBg",
     "hex": "#d5c4a1",
     "tag": "[#d5c4a1]"
   },
   {
     "theme": "gruvbox-light",
-    "key": "TaskListSelectionFg",
+    "key": "TikiListSelectionFg",
     "hex": "#3c3836",
     "tag": "[#3c3836]"
   },
   {
     "theme": "gruvbox-light",
-    "key": "TaskListStatusDoneColor",
+    "key": "TikiListStatusDoneColor",
     "hex": "#79740e",
     "tag": "[#79740e]"
   },
   {
     "theme": "gruvbox-light",
-    "key": "TaskListStatusPendingColor",
+    "key": "TikiListStatusPendingColor",
     "hex": "#3c3836",
     "tag": "[#3c3836]"
   },
@@ -6439,139 +6439,139 @@
   },
   {
     "theme": "github-light",
-    "key": "TaskBoxDescriptionColor",
+    "key": "TikiBoxDescriptionColor",
     "hex": "#656d76",
     "tag": "[#656d76]"
   },
   {
     "theme": "github-light",
-    "key": "TaskBoxLabelColor",
+    "key": "TikiBoxLabelColor",
     "hex": "#656d76",
     "tag": "[#656d76]"
   },
   {
     "theme": "github-light",
-    "key": "TaskBoxSelectedBorder",
+    "key": "TikiBoxSelectedBorder",
     "hex": "#0550ae",
     "tag": "[#0550ae]"
   },
   {
     "theme": "github-light",
-    "key": "TaskBoxTagValueColor",
+    "key": "TikiBoxTagValueColor",
     "hex": "#8c959f",
     "tag": "[#8c959f]"
   },
   {
     "theme": "github-light",
-    "key": "TaskBoxTitleColor",
+    "key": "TikiBoxTitleColor",
     "hex": "#424a53",
     "tag": "[#424a53]"
   },
   {
     "theme": "github-light",
-    "key": "TaskBoxUnselectedBackground",
+    "key": "TikiBoxUnselectedBackground",
     "hex": "-",
     "tag": "[-]"
   },
   {
     "theme": "github-light",
-    "key": "TaskBoxUnselectedBorder",
+    "key": "TikiBoxUnselectedBorder",
     "hex": "#d0d7de",
     "tag": "[#d0d7de]"
   },
   {
     "theme": "github-light",
-    "key": "TaskDetailCommentAuthor",
+    "key": "TikiDetailCommentAuthor",
     "hex": "#0550ae",
     "tag": "[#0550ae]"
   },
   {
     "theme": "github-light",
-    "key": "TaskDetailEditDimLabelColor",
+    "key": "TikiDetailEditDimLabelColor",
     "hex": "#656d76",
     "tag": "[#656d76]"
   },
   {
     "theme": "github-light",
-    "key": "TaskDetailEditDimTextColor",
+    "key": "TikiDetailEditDimTextColor",
     "hex": "#656d76",
     "tag": "[#656d76]"
   },
   {
     "theme": "github-light",
-    "key": "TaskDetailEditDimValueColor",
+    "key": "TikiDetailEditDimValueColor",
     "hex": "#424a53",
     "tag": "[#424a53]"
   },
   {
     "theme": "github-light",
-    "key": "TaskDetailEditFocusMarker",
+    "key": "TikiDetailEditFocusMarker",
     "hex": "#0550ae",
     "tag": "[#0550ae]"
   },
   {
     "theme": "github-light",
-    "key": "TaskDetailEditFocusText",
+    "key": "TikiDetailEditFocusText",
     "hex": "#1f2328",
     "tag": "[#1f2328]"
   },
   {
     "theme": "github-light",
-    "key": "TaskDetailLabelText",
+    "key": "TikiDetailLabelText",
     "hex": "#116329",
     "tag": "[#116329]"
   },
   {
     "theme": "github-light",
-    "key": "TaskDetailPlaceholderColor",
+    "key": "TikiDetailPlaceholderColor",
     "hex": "#656d76",
     "tag": "[#656d76]"
   },
   {
     "theme": "github-light",
-    "key": "TaskDetailTagBackground",
+    "key": "TikiDetailTagBackground",
     "hex": "#ddf4ff",
     "tag": "[#ddf4ff]"
   },
   {
     "theme": "github-light",
-    "key": "TaskDetailTagForeground",
+    "key": "TikiDetailTagForeground",
     "hex": "#424a53",
     "tag": "[#424a53]"
   },
   {
     "theme": "github-light",
-    "key": "TaskDetailTitleText",
+    "key": "TikiDetailTitleText",
     "hex": "#1f2328",
     "tag": "[#1f2328]"
   },
   {
     "theme": "github-light",
-    "key": "TaskDetailValueText",
+    "key": "TikiDetailValueText",
     "hex": "#0969da",
     "tag": "[#0969da]"
   },
   {
     "theme": "github-light",
-    "key": "TaskListSelectionBg",
+    "key": "TikiListSelectionBg",
     "hex": "#ddf4ff",
     "tag": "[#ddf4ff]"
   },
   {
     "theme": "github-light",
-    "key": "TaskListSelectionFg",
+    "key": "TikiListSelectionFg",
     "hex": "#1f2328",
     "tag": "[#1f2328]"
   },
   {
     "theme": "github-light",
-    "key": "TaskListStatusDoneColor",
+    "key": "TikiListStatusDoneColor",
     "hex": "#116329",
     "tag": "[#116329]"
   },
   {
     "theme": "github-light",
-    "key": "TaskListStatusPendingColor",
+    "key": "TikiListStatusPendingColor",
     "hex": "#1f2328",
     "tag": "[#1f2328]"
   },
