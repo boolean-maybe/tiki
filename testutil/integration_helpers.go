@@ -33,14 +33,14 @@ type TestApp struct {
 	NavController     *controller.NavigationController
 	InputRouter       *controller.InputRouter
 	ViewFactory       *view.ViewFactory
-	TaskDir           string
+	TikiDir           string
 	t                 *testing.T
 	PluginConfigs     map[string]*model.PluginConfig
 	PluginControllers map[string]controller.PluginControllerInterface
 	PluginDefs        []plugin.Plugin
 	MutationGate      *service.TikiMutationGate
 	Schema            ruki.Schema
-	taskController    *controller.TikiEditSession
+	tikiEditSession   *controller.TikiEditSession
 	statuslineConfig  *model.StatuslineConfig
 	headerConfig      *model.HeaderConfig
 	viewContext       *model.ViewContext
@@ -78,10 +78,10 @@ func NewTestApp(t *testing.T) *TestApp {
 	schema := rukiRuntime.NewSchema()
 
 	// 1. Create temp dir for task files (auto-cleanup via t.TempDir())
-	taskDir := t.TempDir()
+	tikiDir := t.TempDir()
 
 	// 2. Initialize Model Layer
-	taskStore, err := tikistore.NewTikiStore(taskDir)
+	tikiStore, err := tikistore.NewTikiStore(tikiDir)
 	if err != nil {
 		t.Fatalf("failed to create task store: %v", err)
 	}
@@ -102,25 +102,25 @@ func NewTestApp(t *testing.T) *TestApp {
 
 	// 5. Initialize Controller Layer
 	gate := service.BuildGate()
-	gate.SetStore(taskStore)
+	gate.SetStore(tikiStore)
 
 	statuslineConfig := model.NewStatuslineConfig()
 	navController := controller.NewNavigationController(app)
-	taskController := controller.NewTikiEditSession(taskStore, gate, navController, statuslineConfig)
+	tikiEditSession := controller.NewTikiEditSession(tikiStore, gate, navController, statuslineConfig)
 	// Empty plugin controllers map for tests (no plugins configured by default)
 	pluginControllers := make(map[string]controller.PluginControllerInterface)
 	inputRouter := controller.NewInputRouter(
 		navController,
-		taskController,
+		tikiEditSession,
 		pluginControllers,
-		taskStore,
+		tikiStore,
 		gate,
 		statuslineConfig,
 		schema,
 	)
 
 	// 6. Initialize View Layer
-	viewFactory := view.NewViewFactory(taskStore)
+	viewFactory := view.NewViewFactory(tikiStore)
 
 	// 7. Create header widget, statusline, and RootLayout
 	viewContext := model.NewViewContext()
@@ -132,7 +132,7 @@ func NewTestApp(t *testing.T) *TestApp {
 		ViewContext:      viewContext,
 		LayoutModel:      layoutModel,
 		ViewFactory:      viewFactory,
-		TikiStore:        taskStore,
+		TikiStore:        tikiStore,
 		App:              app,
 		StatuslineConfig: statuslineConfig,
 		StatuslineWidget: statuslineWidget,
@@ -246,14 +246,14 @@ func NewTestApp(t *testing.T) *TestApp {
 		App:               app,
 		Screen:            screen,
 		RootLayout:        rootLayout,
-		TikiStore:         taskStore,
+		TikiStore:         tikiStore,
 		MutationGate:      gate,
 		Schema:            schema,
 		NavController:     navController,
 		InputRouter:       inputRouter,
-		TaskDir:           taskDir,
+		TikiDir:           tikiDir,
 		t:                 t,
-		taskController:    taskController,
+		tikiEditSession:   tikiEditSession,
 		statuslineConfig:  statuslineConfig,
 		headerConfig:      headerConfig,
 		viewContext:       viewContext,
@@ -393,12 +393,12 @@ func (ta *TestApp) SendText(text string) {
 
 // EditingTiki returns the current in-memory editing copy (if any).
 func (ta *TestApp) EditingTiki() *tikipkg.Tiki {
-	return ta.taskController.GetEditingTiki()
+	return ta.tikiEditSession.GetEditingTiki()
 }
 
 // DraftTiki returns the current draft tiki (if any).
 func (ta *TestApp) DraftTiki() *tikipkg.Tiki {
-	return ta.taskController.GetDraftTiki()
+	return ta.tikiEditSession.GetDraftTiki()
 }
 
 // Cleanup tears down the test app and releases resources
@@ -449,7 +449,7 @@ func (ta *TestApp) LoadPlugins() error {
 			// through a Detail step.
 			pluginControllers[p.GetName()] = controller.NewDetailController(
 				detailPlugin, ta.NavController, ta.statuslineConfig,
-				ta.TikiStore, ta.MutationGate, ta.Schema, ta.taskController,
+				ta.TikiStore, ta.MutationGate, ta.Schema, ta.tikiEditSession,
 			)
 		}
 	}
@@ -476,7 +476,7 @@ func (ta *TestApp) LoadPlugins() error {
 	// Recreate InputRouter with plugin controllers
 	ta.InputRouter = controller.NewInputRouter(
 		ta.NavController,
-		ta.taskController,
+		ta.tikiEditSession,
 		pluginControllers,
 		ta.TikiStore,
 		ta.MutationGate,
@@ -521,7 +521,7 @@ func (ta *TestApp) LoadPlugins() error {
 	// Mirror production wiring: fresh-per-navigation controllers for kind: detail
 	// (and wiki) so two pushed views don't share selectedTaskID.
 	viewFactory.SetDetailControllerFactory(func(def *plugin.DetailPlugin, selectedTaskID string) *controller.DetailController {
-		dc := controller.NewDetailController(def, ta.NavController, ta.statuslineConfig, ta.TikiStore, ta.MutationGate, ta.Schema, ta.taskController)
+		dc := controller.NewDetailController(def, ta.NavController, ta.statuslineConfig, ta.TikiStore, ta.MutationGate, ta.Schema, ta.tikiEditSession)
 		dc.SetSelectedTaskID(selectedTaskID)
 		return dc
 	})
@@ -642,11 +642,11 @@ func (ta *TestApp) GetPluginConfig(pluginName string) *model.PluginConfig {
 // NavigateToTask presses Down on the current board view until the task with the given ID
 // is the selected item. It opens the task detail (Enter) and returns true if found within
 // maxSteps attempts; returns false if the task was not found.
-func (ta *TestApp) NavigateToTask(taskID string, maxSteps int) bool {
+func (ta *TestApp) NavigateToTask(tikiID string, maxSteps int) bool {
 	for i := 0; i < maxSteps; i++ {
 		ta.SendKey(tcell.KeyEnter, 0, tcell.ModNone)
 		ta.Draw()
-		if found, _, _ := ta.FindText(taskID); found {
+		if found, _, _ := ta.FindText(tikiID); found {
 			return true
 		}
 		// go back and move to next item

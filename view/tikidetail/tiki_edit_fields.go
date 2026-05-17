@@ -1,4 +1,4 @@
-package taskdetail
+package tikidetail
 
 import (
 	"time"
@@ -6,8 +6,8 @@ import (
 	"github.com/boolean-maybe/tiki/workflow/value"
 )
 
-// task_edit_fields.go contains small typed-conversion helpers used by
-// TaskEditView when it bridges registry editor strings into typed save
+// tiki_edit_fields.go contains small typed-conversion helpers used by
+// TikiEditView when it bridges registry editor strings into typed save
 // callbacks. The previous typed-widget builders (ensureStatusSelectList,
 // ensurePointsInput, ...) were retired when both views switched to the
 // shared field registry — only the plain conversion helpers remain.

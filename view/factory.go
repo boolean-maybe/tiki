@@ -12,7 +12,7 @@ import (
 	"github.com/boolean-maybe/tiki/plugin"
 	"github.com/boolean-maybe/tiki/store"
 	"github.com/boolean-maybe/tiki/util"
-	"github.com/boolean-maybe/tiki/view/taskdetail"
+	"github.com/boolean-maybe/tiki/view/tikidetail"
 )
 
 // ViewFactory instantiates views by ID, injecting required dependencies.
@@ -20,7 +20,7 @@ import (
 
 // ViewFactory creates views on demand
 type ViewFactory struct {
-	taskStore    store.Store
+	tikiStore    store.Store
 	imageManager *navtview.ImageManager
 	mermaidOpts  *nav.MermaidOptions
 	// Plugin support
@@ -41,7 +41,7 @@ type ViewFactory struct {
 }
 
 // NewViewFactory creates a view factory
-func NewViewFactory(taskStore store.Store) *ViewFactory {
+func NewViewFactory(tikiStore store.Store) *ViewFactory {
 	// Configure image resolver with the unified document root as the primary
 	// search root so images referenced from nested or root-level `.md`
 	// documents resolve (e.g. `.doc/projects/foo/diagram.png` or
@@ -56,7 +56,7 @@ func NewViewFactory(taskStore store.Store) *ViewFactory {
 	imgMgr.SetSupported(util.SupportsKittyGraphics())
 
 	return &ViewFactory{
-		taskStore:    taskStore,
+		tikiStore:    tikiStore,
 		imageManager: imgMgr,
 		mermaidOpts:  &nav.MermaidOptions{},
 	}
@@ -101,12 +101,12 @@ func (f *ViewFactory) RegisterPlugin(name string, cfg *model.PluginConfig, def p
 
 // lookupDefaultDetailMetadata returns the metadata field list of the
 // workflow's primary detail plugin, used as the second-tier fallback when
-// TaskEditParams.Metadata is empty. Resolution order:
+// TikiEditParams.Metadata is empty. Resolution order:
 //  1. Tier 1: the plugin conventionally named "Detail" (matches the
 //     bundled kanban workflow).
 //  2. Tier 2: the alphabetically-first DetailPlugin in pluginDefs. Sorted
 //     so behavior is reproducible across Go map iteration randomization.
-//  3. nil — the caller falls back to taskdetail.DefaultEditMetadata.
+//  3. nil — the caller falls back to tikidetail.DefaultEditMetadata.
 func (f *ViewFactory) lookupDefaultDetailMetadata() []string {
 	if def, ok := f.pluginDefs[model.DetailPluginName]; ok {
 		if dp, ok := def.(*plugin.DetailPlugin); ok {
@@ -131,17 +131,17 @@ func (f *ViewFactory) CreateView(viewID model.ViewID, params map[string]interfac
 	var v controller.View
 
 	switch viewID {
-	case model.TaskEditViewID:
-		editParams := model.DecodeTaskEditParams(params)
+	case model.TikiEditViewID:
+		editParams := model.DecodeTikiEditParams(params)
 		metadata := editParams.Metadata
 		if len(metadata) == 0 {
 			metadata = f.lookupDefaultDetailMetadata()
 		}
 		if len(metadata) == 0 {
-			metadata = taskdetail.DefaultEditMetadata
+			metadata = tikidetail.DefaultEditMetadata
 		}
-		v = taskdetail.NewTaskEditView(f.taskStore, editParams.TaskID, f.imageManager, metadata)
-		if tev, ok := v.(*taskdetail.TaskEditView); ok {
+		v = tikidetail.NewTikiEditView(f.tikiStore, editParams.TikiID, f.imageManager, metadata)
+		if tev, ok := v.(*tikidetail.TikiEditView); ok {
 			if editParams.Draft != nil {
 				tev.SetFallbackTiki(editParams.Draft)
 			}
@@ -182,7 +182,7 @@ func (f *ViewFactory) CreateView(viewID model.ViewID, params map[string]interfac
 					break
 				}
 				v = NewPluginView(
-					f.taskStore,
+					f.tikiStore,
 					pluginConfig,
 					tikiPlugin,
 					tikiCtrl.GetFilteredTasksForLane,
@@ -202,12 +202,12 @@ func (f *ViewFactory) CreateView(viewID model.ViewID, params map[string]interfac
 				// shared map entry is updated so InputRouter always dispatches
 				// through the controller that owns the currently-active view.
 				if f.dokiControllerFactory != nil {
-					freshCtrl := f.dokiControllerFactory(pluginDef, pluginParams.TaskID)
+					freshCtrl := f.dokiControllerFactory(pluginDef, pluginParams.TikiID)
 					f.pluginControllers[pluginName] = freshCtrl
 				} else if dc, ok := pluginControllerInterface.(*controller.DokiController); ok {
-					dc.SetSelectedTaskID(pluginParams.TaskID)
+					dc.SetSelectedTaskID(pluginParams.TikiID)
 				}
-				v = NewDokiView(dokiPlugin, f.imageManager, f.mermaidOpts, f.globalActions, f.taskStore, pluginParams.TaskID)
+				v = NewDokiView(dokiPlugin, f.imageManager, f.mermaidOpts, f.globalActions, f.tikiStore, pluginParams.TikiID)
 			case plugin.KindDetail:
 				detailPlugin, ok := pluginDef.(*plugin.DetailPlugin)
 				if !ok {
@@ -223,19 +223,19 @@ func (f *ViewFactory) CreateView(viewID model.ViewID, params map[string]interfac
 				// InputRouter dispatches keys against the active view.
 				var dc *controller.DetailController
 				if f.detailControllerFactory != nil {
-					dc = f.detailControllerFactory(detailPlugin, pluginParams.TaskID)
+					dc = f.detailControllerFactory(detailPlugin, pluginParams.TikiID)
 					f.pluginControllers[pluginName] = dc
 				} else if existing, ok := pluginControllerInterface.(*controller.DetailController); ok {
-					existing.SetSelectedTaskID(pluginParams.TaskID)
+					existing.SetSelectedTaskID(pluginParams.TikiID)
 					dc = existing
 				}
 				registry := controller.DetailViewActions()
 				if dc != nil {
 					registry = dc.GetActionRegistry()
 				}
-				cv := taskdetail.NewConfigurableDetailView(
-					f.taskStore,
-					pluginParams.TaskID,
+				cv := tikidetail.NewConfigurableDetailView(
+					f.tikiStore,
+					pluginParams.TikiID,
 					detailPlugin.Name,
 					detailPlugin.Metadata,
 					registry,

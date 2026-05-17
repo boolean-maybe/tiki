@@ -23,10 +23,10 @@ func TestTaskDeletion_FromKanban(t *testing.T) {
 	}
 
 	// Create tasks
-	if err := testutil.CreateTestTask(ta.TaskDir, "000001", "First Task", "ready", "story"); err != nil {
+	if err := testutil.CreateTestTiki(ta.TikiDir, "000001", "First Task", "ready", "story"); err != nil {
 		t.Fatalf("failed to create task: %v", err)
 	}
-	if err := testutil.CreateTestTask(ta.TaskDir, "000002", "Second Task", "ready", "story"); err != nil {
+	if err := testutil.CreateTestTiki(ta.TikiDir, "000002", "Second Task", "ready", "story"); err != nil {
 		t.Fatalf("failed to create task: %v", err)
 	}
 	if err := ta.TikiStore.Reload(); err != nil {
@@ -58,8 +58,8 @@ func TestTaskDeletion_FromKanban(t *testing.T) {
 	}
 
 	// Verify file removed
-	taskPath := filepath.Join(ta.TaskDir, "000001.md")
-	if _, err := os.Stat(taskPath); !os.IsNotExist(err) {
+	tikiPath := filepath.Join(ta.TikiDir, "000001.md")
+	if _, err := os.Stat(tikiPath); !os.IsNotExist(err) {
 		t.Errorf("TIKI-1 file should be deleted")
 	}
 
@@ -82,13 +82,13 @@ func TestTaskDeletion_SelectionMoves(t *testing.T) {
 	}
 
 	// Create three tasks
-	if err := testutil.CreateTestTask(ta.TaskDir, "000001", "First Task", "ready", "story"); err != nil {
+	if err := testutil.CreateTestTiki(ta.TikiDir, "000001", "First Task", "ready", "story"); err != nil {
 		t.Fatalf("failed to create task: %v", err)
 	}
-	if err := testutil.CreateTestTask(ta.TaskDir, "000002", "Second Task", "ready", "story"); err != nil {
+	if err := testutil.CreateTestTiki(ta.TikiDir, "000002", "Second Task", "ready", "story"); err != nil {
 		t.Fatalf("failed to create task: %v", err)
 	}
-	if err := testutil.CreateTestTask(ta.TaskDir, "000003", "Third Task", "ready", "story"); err != nil {
+	if err := testutil.CreateTestTiki(ta.TikiDir, "000003", "Third Task", "ready", "story"); err != nil {
 		t.Fatalf("failed to create task: %v", err)
 	}
 	if err := ta.TikiStore.Reload(); err != nil {
@@ -136,7 +136,7 @@ func TestTaskDeletion_LastTaskInLane(t *testing.T) {
 	}
 
 	// Create only one task in todo lane
-	if err := testutil.CreateTestTask(ta.TaskDir, "000001", "Only Task", "ready", "story"); err != nil {
+	if err := testutil.CreateTestTiki(ta.TikiDir, "000001", "Only Task", "ready", "story"); err != nil {
 		t.Fatalf("failed to create task: %v", err)
 	}
 	if err := ta.TikiStore.Reload(); err != nil {
@@ -189,10 +189,10 @@ func TestTaskDeletion_MultipleSequential(t *testing.T) {
 	}
 
 	// Create five tasks
-	taskIDs := []string{"SEQ001", "SEQ002", "SEQ003", "SEQ004", "SEQ005"}
-	for i, taskID := range taskIDs {
+	tikiIDs := []string{"SEQ001", "SEQ002", "SEQ003", "SEQ004", "SEQ005"}
+	for i, tikiID := range tikiIDs {
 		title := fmt.Sprintf("Task %d", i+1)
-		if err := testutil.CreateTestTask(ta.TaskDir, taskID, title, "ready", "story"); err != nil {
+		if err := testutil.CreateTestTiki(ta.TikiDir, tikiID, title, "ready", "story"); err != nil {
 			t.Fatalf("failed to create task: %v", err)
 		}
 	}
@@ -242,7 +242,7 @@ func TestTaskDeletion_FromDifferentLane(t *testing.T) {
 	}
 
 	// Create task in in_progress lane
-	if err := testutil.CreateTestTask(ta.TaskDir, "000001", "In Progress Task", "inProgress", "story"); err != nil {
+	if err := testutil.CreateTestTiki(ta.TikiDir, "000001", "In Progress Task", "inProgress", "story"); err != nil {
 		t.Fatalf("failed to create task: %v", err)
 	}
 	if err := ta.TikiStore.Reload(); err != nil {
@@ -288,7 +288,7 @@ func TestTaskDeletion_CannotDeleteFromTaskDetail(t *testing.T) {
 	}
 
 	// Create task
-	if err := testutil.CreateTestTask(ta.TaskDir, "000001", "Task to Not Delete", "ready", "story"); err != nil {
+	if err := testutil.CreateTestTiki(ta.TikiDir, "000001", "Task to Not Delete", "ready", "story"); err != nil {
 		t.Fatalf("failed to create task: %v", err)
 	}
 	if err := ta.TikiStore.Reload(); err != nil {
@@ -300,7 +300,7 @@ func TestTaskDeletion_CannotDeleteFromTaskDetail(t *testing.T) {
 	ta.Draw()
 	ta.SendKey(tcell.KeyEnter, 0, tcell.ModNone)
 
-	// Phase 3: configurable detail view, not the legacy TaskDetailViewID.
+	// Phase 3: configurable detail view, not the legacy TikiDetailViewID.
 	currentView := ta.NavController.CurrentView()
 	wantDetail := model.DetailPluginViewID()
 	if currentView.ViewID != wantDetail {
@@ -337,13 +337,13 @@ func TestTaskDeletion_WithMultipleLanes(t *testing.T) {
 	}
 
 	// Create tasks in different lanes
-	if err := testutil.CreateTestTask(ta.TaskDir, "000001", "Todo Task", "ready", "story"); err != nil {
+	if err := testutil.CreateTestTiki(ta.TikiDir, "000001", "Todo Task", "ready", "story"); err != nil {
 		t.Fatalf("failed to create task: %v", err)
 	}
-	if err := testutil.CreateTestTask(ta.TaskDir, "000002", "In Progress Task", "inProgress", "story"); err != nil {
+	if err := testutil.CreateTestTiki(ta.TikiDir, "000002", "In Progress Task", "inProgress", "story"); err != nil {
 		t.Fatalf("failed to create task: %v", err)
 	}
-	if err := testutil.CreateTestTask(ta.TaskDir, "000003", "Done Task", "done", "story"); err != nil {
+	if err := testutil.CreateTestTiki(ta.TikiDir, "000003", "Done Task", "done", "story"); err != nil {
 		t.Fatalf("failed to create task: %v", err)
 	}
 	if err := ta.TikiStore.Reload(); err != nil {

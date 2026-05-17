@@ -25,8 +25,8 @@ func TestReloadTask_CaseDuplicate(t *testing.T) {
 	}
 
 	// Reload by ID; should not create a duplicate entry.
-	if err := store.ReloadTask("6EQDUE"); err != nil {
-		t.Fatalf("ReloadTask failed: %v", err)
+	if err := store.ReloadTiki("6EQDUE"); err != nil {
+		t.Fatalf("ReloadTiki failed: %v", err)
 	}
 
 	tikis := store.GetAllTikis()

@@ -169,7 +169,7 @@ views:
 	}
 	defer ta.Cleanup()
 
-	if err := testutil.CreateTestTask(ta.TaskDir, "000001", "Pick Me", "backlog", "story"); err != nil {
+	if err := testutil.CreateTestTiki(ta.TikiDir, "000001", "Pick Me", "backlog", "story"); err != nil {
 		t.Fatalf("create task: %v", err)
 	}
 	if err := ta.TikiStore.Reload(); err != nil {
@@ -284,7 +284,7 @@ func TestViewAction_DirectActivationCarriesSelection(t *testing.T) {
 	defer ta.Cleanup()
 
 	// Seed a task so the board has a selection.
-	if err := testutil.CreateTestTask(ta.TaskDir, "000042", "Carried", "backlog", "story"); err != nil {
+	if err := testutil.CreateTestTiki(ta.TikiDir, "000042", "Carried", "backlog", "story"); err != nil {
 		t.Fatalf("create task: %v", err)
 	}
 	if err := ta.TikiStore.Reload(); err != nil {
@@ -303,9 +303,9 @@ func TestViewAction_DirectActivationCarriesSelection(t *testing.T) {
 		t.Fatalf("expected current view = Selected, got %v", currentView)
 	}
 	gotParams := model.DecodePluginViewParams(currentView.Params)
-	if gotParams.TaskID != "000042" {
-		t.Errorf("direct activation must carry selection; got TaskID=%q, want %q",
-			gotParams.TaskID, "000042")
+	if gotParams.TikiID != "000042" {
+		t.Errorf("direct activation must carry selection; got TikiID=%q, want %q",
+			gotParams.TikiID, "000042")
 	}
 }
 
@@ -413,7 +413,7 @@ views:
 	// condition that used to slip past: a selection-only check would
 	// approve the navigation, and the "ai" requirement on the target
 	// would be silently ignored.
-	if err := testutil.CreateTestTask(ta.TaskDir, "000001", "Anything", "backlog", "story"); err != nil {
+	if err := testutil.CreateTestTiki(ta.TikiDir, "000001", "Anything", "backlog", "story"); err != nil {
 		t.Fatalf("create task: %v", err)
 	}
 	if err := ta.TikiStore.Reload(); err != nil {
@@ -633,10 +633,10 @@ views:
 
 	// Seed two backlog tasks at default priority so we can observe the
 	// ruki-driven mutation.
-	if err := testutil.CreateTestTask(ta.TaskDir, "000001", "Task One", "backlog", "story"); err != nil {
+	if err := testutil.CreateTestTiki(ta.TikiDir, "000001", "Task One", "backlog", "story"); err != nil {
 		t.Fatalf("create task: %v", err)
 	}
-	if err := testutil.CreateTestTask(ta.TaskDir, "000002", "Task Two", "backlog", "story"); err != nil {
+	if err := testutil.CreateTestTiki(ta.TikiDir, "000002", "Task Two", "backlog", "story"); err != nil {
 		t.Fatalf("create task: %v", err)
 	}
 	if err := ta.TikiStore.Reload(); err != nil {

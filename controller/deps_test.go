@@ -41,7 +41,7 @@ func newWorkflowTiki(id, title string, dependsOn []string) *tikipkg.Tiki {
 // - freeTask with no dependency relationship
 func newDepsTestEnv(t *testing.T) (*DepsController, store.Store) {
 	t.Helper()
-	taskStore := store.NewInMemoryStore()
+	tikiStore := store.NewInMemoryStore()
 
 	tikis := []*tikipkg.Tiki{
 		newWorkflowTiki(testCtxID, "Context", []string{testDepID}),
@@ -50,7 +50,7 @@ func newDepsTestEnv(t *testing.T) (*DepsController, store.Store) {
 		newWorkflowTiki(testFreeID, "Free", nil),
 	}
 	for _, tk := range tikis {
-		if err := taskStore.CreateTiki(tk); err != nil {
+		if err := tikiStore.CreateTiki(tk); err != nil {
 			t.Fatalf("create tiki %s: %v", tk.ID, err)
 		}
 	}
@@ -64,7 +64,7 @@ func newDepsTestEnv(t *testing.T) (*DepsController, store.Store) {
 	pluginConfig.SetLaneLayout([]int{1, 2, 1}, nil)
 
 	gate := service.NewTikiMutationGate()
-	gate.SetStore(taskStore)
+	gate.SetStore(tikiStore)
 
 	nav := newMockNavigationController()
 	// Tests in this file that exercise the Open action assert the
@@ -73,11 +73,11 @@ func newDepsTestEnv(t *testing.T) (*DepsController, store.Store) {
 	// resolver — passing nil would refuse the open and obscure other
 	// failures.
 	resolver := func() string { return model.DetailPluginName }
-	dc := NewDepsController(taskStore, gate, pluginConfig, pluginDef, nav, nil, rukiRuntime.NewSchema(), resolver)
-	return dc, taskStore
+	dc := NewDepsController(tikiStore, gate, pluginConfig, pluginDef, nav, nil, rukiRuntime.NewSchema(), resolver)
+	return dc, tikiStore
 }
 
-func taskIDs(tikis []*tikipkg.Tiki) []string {
+func tikiIDs(tikis []*tikipkg.Tiki) []string {
 	ids := make([]string, len(tikis))
 	for i, tk := range tikis {
 		ids[i] = tk.ID
@@ -90,7 +90,7 @@ func TestDepsController_GetFilteredTasksForLane(t *testing.T) {
 
 	t.Run("all lane excludes context, blocks, and depends", func(t *testing.T) {
 		all := dc.GetFilteredTasksForLane(depsLaneAll)
-		ids := taskIDs(all)
+		ids := tikiIDs(all)
 		if slices.Contains(ids, testCtxID) {
 			t.Error("all lane should not contain context task")
 		}
@@ -107,7 +107,7 @@ func TestDepsController_GetFilteredTasksForLane(t *testing.T) {
 
 	t.Run("blocks lane contains tasks that depend on context", func(t *testing.T) {
 		blocks := dc.GetFilteredTasksForLane(depsLaneBlocks)
-		ids := taskIDs(blocks)
+		ids := tikiIDs(blocks)
 		if !slices.Contains(ids, testBlkID) {
 			t.Error("blocks lane should contain blocker task")
 		}
@@ -118,7 +118,7 @@ func TestDepsController_GetFilteredTasksForLane(t *testing.T) {
 
 	t.Run("depends lane contains context task dependencies", func(t *testing.T) {
 		depends := dc.GetFilteredTasksForLane(depsLaneDepends)
-		ids := taskIDs(depends)
+		ids := tikiIDs(depends)
 		if !slices.Contains(ids, testDepID) {
 			t.Error("depends lane should contain depends task")
 		}
@@ -138,7 +138,7 @@ func TestDepsController_GetFilteredTasksForLane(t *testing.T) {
 }
 
 func TestDepsController_MoveTask_AllToBlocks(t *testing.T) {
-	dc, taskStore := newDepsTestEnv(t)
+	dc, tikiStore := newDepsTestEnv(t)
 
 	dc.pluginConfig.SetSelectedLane(depsLaneAll)
 	dc.pluginConfig.SetSelectedIndexForLane(depsLaneAll, 0)
@@ -148,7 +148,7 @@ func TestDepsController_MoveTask_AllToBlocks(t *testing.T) {
 	}
 
 	// free task should now have context task in its dependsOn
-	free := taskStore.GetTiki(testFreeID)
+	free := tikiStore.GetTiki(testFreeID)
 	freeDeps, _, _ := free.StringSliceField(tikipkg.FieldDependsOn)
 	if !slices.Contains(freeDeps, testCtxID) {
 		t.Errorf("free.DependsOn should contain %s, got %v", testCtxID, freeDeps)
@@ -156,7 +156,7 @@ func TestDepsController_MoveTask_AllToBlocks(t *testing.T) {
 }
 
 func TestDepsController_MoveTask_AllToDepends(t *testing.T) {
-	dc, taskStore := newDepsTestEnv(t)
+	dc, tikiStore := newDepsTestEnv(t)
 
 	dc.pluginConfig.SetSelectedLane(depsLaneAll)
 	dc.pluginConfig.SetSelectedIndexForLane(depsLaneAll, 0)
@@ -166,7 +166,7 @@ func TestDepsController_MoveTask_AllToDepends(t *testing.T) {
 	}
 
 	// context task should now have free task in its dependsOn
-	ctx := taskStore.GetTiki(testCtxID)
+	ctx := tikiStore.GetTiki(testCtxID)
 	ctxDeps, _, _ := ctx.StringSliceField(tikipkg.FieldDependsOn)
 	if !slices.Contains(ctxDeps, testFreeID) {
 		t.Errorf("ctx.DependsOn should contain %s, got %v", testFreeID, ctxDeps)
@@ -174,7 +174,7 @@ func TestDepsController_MoveTask_AllToDepends(t *testing.T) {
 }
 
 func TestDepsController_MoveTask_BlocksToAll(t *testing.T) {
-	dc, taskStore := newDepsTestEnv(t)
+	dc, tikiStore := newDepsTestEnv(t)
 
 	dc.pluginConfig.SetSelectedLane(depsLaneBlocks)
 	dc.pluginConfig.SetSelectedIndexForLane(depsLaneBlocks, 0)
@@ -183,7 +183,7 @@ func TestDepsController_MoveTask_BlocksToAll(t *testing.T) {
 		t.Fatal("move should succeed")
 	}
 
-	blk := taskStore.GetTiki(testBlkID)
+	blk := tikiStore.GetTiki(testBlkID)
 	blkDeps, _, _ := blk.StringSliceField(tikipkg.FieldDependsOn)
 	if slices.Contains(blkDeps, testCtxID) {
 		t.Errorf("blk.DependsOn should not contain %s after move, got %v", testCtxID, blkDeps)
@@ -191,7 +191,7 @@ func TestDepsController_MoveTask_BlocksToAll(t *testing.T) {
 }
 
 func TestDepsController_MoveTask_DependsToAll(t *testing.T) {
-	dc, taskStore := newDepsTestEnv(t)
+	dc, tikiStore := newDepsTestEnv(t)
 
 	dc.pluginConfig.SetSelectedLane(depsLaneDepends)
 	dc.pluginConfig.SetSelectedIndexForLane(depsLaneDepends, 0)
@@ -200,7 +200,7 @@ func TestDepsController_MoveTask_DependsToAll(t *testing.T) {
 		t.Fatal("move should succeed")
 	}
 
-	ctx := taskStore.GetTiki(testCtxID)
+	ctx := tikiStore.GetTiki(testCtxID)
 	ctxDeps, _, _ := ctx.StringSliceField(tikipkg.FieldDependsOn)
 	if slices.Contains(ctxDeps, testDepID) {
 		t.Errorf("ctx.DependsOn should not contain %s after move, got %v", testDepID, ctxDeps)
@@ -397,13 +397,13 @@ func TestDepsController_HandleAction(t *testing.T) {
 			t.Error("new task should succeed")
 		}
 		top := dc.navController.navState.currentView()
-		if top == nil || top.ViewID != model.TaskEditViewID {
-			t.Error("expected TaskEditViewID to be pushed")
+		if top == nil || top.ViewID != model.TikiEditViewID {
+			t.Error("expected TikiEditViewID to be pushed")
 		}
 	})
 
 	t.Run("delete task removes from store", func(t *testing.T) {
-		dc, taskStore := newDepsTestEnv(t)
+		dc, tikiStore := newDepsTestEnv(t)
 		dc.pluginConfig.SetSelectedLane(depsLaneAll)
 		dc.pluginConfig.SetSelectedIndexForLane(depsLaneAll, 0)
 
@@ -418,7 +418,7 @@ func TestDepsController_HandleAction(t *testing.T) {
 		if !result {
 			t.Error("delete should succeed when a task is selected")
 		}
-		if taskStore.GetTiki(deletedID) != nil {
+		if tikiStore.GetTiki(deletedID) != nil {
 			t.Errorf("task %s should have been deleted", deletedID)
 		}
 	})
@@ -487,11 +487,11 @@ func TestDepsController_EnsureFirstNonEmptyLaneSelection(t *testing.T) {
 	})
 
 	t.Run("current lane empty — switches to first non-empty", func(t *testing.T) {
-		dc, taskStore := newDepsTestEnv(t)
+		dc, tikiStore := newDepsTestEnv(t)
 		// move free task into depends so All lane becomes empty
-		free := taskStore.GetTiki(testFreeID).Clone()
+		free := tikiStore.GetTiki(testFreeID).Clone()
 		free.Set(tikipkg.FieldDependsOn, []string{testCtxID})
-		if err := taskStore.UpdateTiki(free); err != nil {
+		if err := tikiStore.UpdateTiki(free); err != nil {
 			t.Fatal(err)
 		}
 
@@ -509,7 +509,7 @@ func TestDepsController_EnsureFirstNonEmptyLaneSelection(t *testing.T) {
 
 func TestDepsController_DeleteTask_GateError(t *testing.T) {
 	// when gate rejects delete, handleDeleteTask should return false
-	taskStore := store.NewInMemoryStore()
+	tikiStore := store.NewInMemoryStore()
 
 	for _, tk := range []*tikipkg.Tiki{
 		newWorkflowTiki(testCtxID, "Context", []string{testDepID}),
@@ -517,7 +517,7 @@ func TestDepsController_DeleteTask_GateError(t *testing.T) {
 		newWorkflowTiki(testDepID, "Depends", nil),
 		newWorkflowTiki(testFreeID, "Free", nil),
 	} {
-		if err := taskStore.CreateTiki(tk); err != nil {
+		if err := tikiStore.CreateTiki(tk); err != nil {
 			t.Fatalf("create tiki %s: %v", tk.ID, err)
 		}
 	}
@@ -531,7 +531,7 @@ func TestDepsController_DeleteTask_GateError(t *testing.T) {
 	pluginConfig.SetLaneLayout([]int{1, 2, 1}, nil)
 
 	gate := service.NewTikiMutationGate()
-	gate.SetStore(taskStore)
+	gate.SetStore(tikiStore)
 	// register a before-delete validator that blocks all deletes
 	gate.OnDelete(func(old, new *tikipkg.Tiki, allTikis []*tikipkg.Tiki) *service.Rejection {
 		return &service.Rejection{Reason: "deletes blocked for test"}
@@ -539,7 +539,7 @@ func TestDepsController_DeleteTask_GateError(t *testing.T) {
 
 	nav := newMockNavigationController()
 	statusline := model.NewStatuslineConfig()
-	dc := NewDepsController(taskStore, gate, pluginConfig, pluginDef, nav, statusline, rukiRuntime.NewSchema(), nil)
+	dc := NewDepsController(tikiStore, gate, pluginConfig, pluginDef, nav, statusline, rukiRuntime.NewSchema(), nil)
 
 	// select free task in All lane
 	dc.pluginConfig.SetSelectedLane(depsLaneAll)
@@ -553,7 +553,7 @@ func TestDepsController_DeleteTask_GateError(t *testing.T) {
 
 func TestDepsController_MoveTask_UpdateError(t *testing.T) {
 	// when gate rejects the update, statusline should receive the error
-	taskStore := store.NewInMemoryStore()
+	tikiStore := store.NewInMemoryStore()
 
 	for _, tk := range []*tikipkg.Tiki{
 		newWorkflowTiki(testCtxID, "Context", []string{testDepID}),
@@ -561,7 +561,7 @@ func TestDepsController_MoveTask_UpdateError(t *testing.T) {
 		newWorkflowTiki(testDepID, "Depends", nil),
 		newWorkflowTiki(testFreeID, "Free", nil),
 	} {
-		if err := taskStore.CreateTiki(tk); err != nil {
+		if err := tikiStore.CreateTiki(tk); err != nil {
 			t.Fatalf("create tiki %s: %v", tk.ID, err)
 		}
 	}
@@ -575,7 +575,7 @@ func TestDepsController_MoveTask_UpdateError(t *testing.T) {
 	pluginConfig.SetLaneLayout([]int{1, 2, 1}, nil)
 
 	gate := service.NewTikiMutationGate()
-	gate.SetStore(taskStore)
+	gate.SetStore(tikiStore)
 	// register a validator that blocks all updates
 	gate.OnUpdate(func(old, new *tikipkg.Tiki, allTikis []*tikipkg.Tiki) *service.Rejection {
 		return &service.Rejection{Reason: "updates blocked for test"}
@@ -583,7 +583,7 @@ func TestDepsController_MoveTask_UpdateError(t *testing.T) {
 
 	nav := newMockNavigationController()
 	statusline := model.NewStatuslineConfig()
-	dc := NewDepsController(taskStore, gate, pluginConfig, pluginDef, nav, statusline, rukiRuntime.NewSchema(), nil)
+	dc := NewDepsController(tikiStore, gate, pluginConfig, pluginDef, nav, statusline, rukiRuntime.NewSchema(), nil)
 
 	// select free task in All lane, move left → Blocks
 	dc.pluginConfig.SetSelectedLane(depsLaneAll)
@@ -631,30 +631,30 @@ func TestDepsViewActions(t *testing.T) {
 func newDepsNavEnv(t *testing.T, blockers int, allTasks int, depends int, laneColumns []int) *DepsController {
 	t.Helper()
 
-	taskStore := store.NewInMemoryStore()
+	tikiStore := store.NewInMemoryStore()
 	contextID := "CTXNAV0"
 	contextDepends := make([]string, 0, depends)
 	for i := 0; i < depends; i++ {
 		contextDepends = append(contextDepends, fmt.Sprintf("DEP%04d", i))
 	}
-	if err := taskStore.CreateTiki(newWorkflowTiki(contextID, "Context", contextDepends)); err != nil {
+	if err := tikiStore.CreateTiki(newWorkflowTiki(contextID, "Context", contextDepends)); err != nil {
 		t.Fatalf("create context: %v", err)
 	}
 
 	for i := 0; i < depends; i++ {
-		if err := taskStore.CreateTiki(newWorkflowTiki(fmt.Sprintf("DEP%04d", i), "Depends", nil)); err != nil {
+		if err := tikiStore.CreateTiki(newWorkflowTiki(fmt.Sprintf("DEP%04d", i), "Depends", nil)); err != nil {
 			t.Fatalf("create depends task: %v", err)
 		}
 	}
 
 	for i := 0; i < blockers; i++ {
-		if err := taskStore.CreateTiki(newWorkflowTiki(fmt.Sprintf("BLK%04d", i), "Blocker", []string{contextID})); err != nil {
+		if err := tikiStore.CreateTiki(newWorkflowTiki(fmt.Sprintf("BLK%04d", i), "Blocker", []string{contextID})); err != nil {
 			t.Fatalf("create blocker task: %v", err)
 		}
 	}
 
 	for i := 0; i < allTasks; i++ {
-		if err := taskStore.CreateTiki(newWorkflowTiki(fmt.Sprintf("ALL%04d", i), "All", nil)); err != nil {
+		if err := tikiStore.CreateTiki(newWorkflowTiki(fmt.Sprintf("ALL%04d", i), "All", nil)); err != nil {
 			t.Fatalf("create all lane task: %v", err)
 		}
 	}
@@ -668,10 +668,10 @@ func newDepsNavEnv(t *testing.T, blockers int, allTasks int, depends int, laneCo
 	pluginConfig.SetLaneLayout(laneColumns, nil)
 
 	gate := service.NewTikiMutationGate()
-	gate.SetStore(taskStore)
+	gate.SetStore(tikiStore)
 
 	nav := newMockNavigationController()
-	return NewDepsController(taskStore, gate, pluginConfig, pluginDef, nav, nil, rukiRuntime.NewSchema(), nil)
+	return NewDepsController(tikiStore, gate, pluginConfig, pluginDef, nav, nil, rukiRuntime.NewSchema(), nil)
 }
 
 func TestDepsController_NavRightAdjacentNonEmptyPreservesRow(t *testing.T) {
@@ -777,10 +777,10 @@ func TestDepsController_ShowNavigation(t *testing.T) {
 }
 
 func TestDepsController_GetFilteredTasksForLane_WithSearch(t *testing.T) {
-	dc, taskStore := newDepsTestEnv(t)
+	dc, tikiStore := newDepsTestEnv(t)
 
 	// set search results to only include the free task
-	free := taskStore.GetTiki(testFreeID)
+	free := tikiStore.GetTiki(testFreeID)
 	dc.pluginConfig.SetSearchResults([]*tikipkg.Tiki{free}, "Free")
 
 	// All lane should now only show the free task (matching search)
@@ -800,10 +800,10 @@ func TestDepsController_GetFilteredTasksForLane_WithSearch(t *testing.T) {
 }
 
 func TestDepsController_GetFilteredTasksForLane_MissingContextTask(t *testing.T) {
-	dc, taskStore := newDepsTestEnv(t)
+	dc, tikiStore := newDepsTestEnv(t)
 
 	// delete the context task
-	taskStore.DeleteTiki(testCtxID)
+	tikiStore.DeleteTiki(testCtxID)
 
 	// all lanes should return nil when context task is missing
 	if dc.GetFilteredTasksForLane(depsLaneAll) != nil {
@@ -824,7 +824,7 @@ func TestDepsController_MoveTask_EmptySelection(t *testing.T) {
 	dc.pluginConfig.SetSelectedLane(depsLaneBlocks)
 	dc.pluginConfig.SetSelectedIndexForLane(depsLaneBlocks, 99) // beyond available tasks
 
-	// getSelectedTaskID should return "" for an index beyond the task list,
+	// getSelectedTikiID should return "" for an index beyond the task list,
 	// so handleMoveTask should return false
 	if dc.handleMoveTask(1) {
 		t.Error("expected false when no task is selected (index out of range)")

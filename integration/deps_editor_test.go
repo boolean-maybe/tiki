@@ -27,10 +27,10 @@ func TestDepsEditor_OpenFromTaskDetail(t *testing.T) {
 	defer ta.Cleanup()
 
 	contextID := "CTXA01"
-	if err := testutil.CreateTestTask(ta.TaskDir, contextID, "Context Task", "ready", "story"); err != nil {
+	if err := testutil.CreateTestTiki(ta.TikiDir, contextID, "Context Task", "ready", "story"); err != nil {
 		t.Fatalf("create context task: %v", err)
 	}
-	if err := testutil.CreateTestTask(ta.TaskDir, "FREE01", "Free Task", "ready", "story"); err != nil {
+	if err := testutil.CreateTestTiki(ta.TikiDir, "FREE01", "Free Task", "ready", "story"); err != nil {
 		t.Fatalf("create free task: %v", err)
 	}
 	if err := ta.TikiStore.Reload(); err != nil {
@@ -65,16 +65,16 @@ func TestDepsEditor_LanesShowCorrectTasks(t *testing.T) {
 	freeID := "FRE002"
 
 	// context depends on dep; blocker depends on context
-	if err := testutil.CreateTestTaskWithDeps(ta.TaskDir, contextID, "Context Task", "ready", "story", []string{depID}); err != nil {
+	if err := testutil.CreateTestTikiWithDeps(ta.TikiDir, contextID, "Context Task", "ready", "story", []string{depID}); err != nil {
 		t.Fatalf("create context: %v", err)
 	}
-	if err := testutil.CreateTestTask(ta.TaskDir, depID, "Dep Task", "ready", "story"); err != nil {
+	if err := testutil.CreateTestTiki(ta.TikiDir, depID, "Dep Task", "ready", "story"); err != nil {
 		t.Fatalf("create dep: %v", err)
 	}
-	if err := testutil.CreateTestTaskWithDeps(ta.TaskDir, blockerID, "Blocker Task", "ready", "story", []string{contextID}); err != nil {
+	if err := testutil.CreateTestTikiWithDeps(ta.TikiDir, blockerID, "Blocker Task", "ready", "story", []string{contextID}); err != nil {
 		t.Fatalf("create blocker: %v", err)
 	}
-	if err := testutil.CreateTestTask(ta.TaskDir, freeID, "Free Task", "ready", "story"); err != nil {
+	if err := testutil.CreateTestTiki(ta.TikiDir, freeID, "Free Task", "ready", "story"); err != nil {
 		t.Fatalf("create free: %v", err)
 	}
 	if err := ta.TikiStore.Reload(); err != nil {
@@ -129,10 +129,10 @@ func TestDepsEditor_MoveTask_AllToDepends_PersistsOnDisk(t *testing.T) {
 	contextID := "CTXA03"
 	freeID := "FRE003"
 
-	if err := testutil.CreateTestTask(ta.TaskDir, contextID, "Context Task", "ready", "story"); err != nil {
+	if err := testutil.CreateTestTiki(ta.TikiDir, contextID, "Context Task", "ready", "story"); err != nil {
 		t.Fatalf("create context: %v", err)
 	}
-	if err := testutil.CreateTestTask(ta.TaskDir, freeID, "Free Task", "ready", "story"); err != nil {
+	if err := testutil.CreateTestTiki(ta.TikiDir, freeID, "Free Task", "ready", "story"); err != nil {
 		t.Fatalf("create free: %v", err)
 	}
 	if err := ta.TikiStore.Reload(); err != nil {
@@ -203,15 +203,15 @@ func TestDepsEditor_MoveTask_DependsToAll_RemovesDep(t *testing.T) {
 	depID := "DEP004"
 	freeID := "FRE004"
 
-	if err := testutil.CreateTestTaskWithDeps(ta.TaskDir, contextID, "Context Task", "ready", "story", []string{depID}); err != nil {
+	if err := testutil.CreateTestTikiWithDeps(ta.TikiDir, contextID, "Context Task", "ready", "story", []string{depID}); err != nil {
 		t.Fatalf("create context: %v", err)
 	}
-	if err := testutil.CreateTestTask(ta.TaskDir, depID, "Dep Task", "ready", "story"); err != nil {
+	if err := testutil.CreateTestTiki(ta.TikiDir, depID, "Dep Task", "ready", "story"); err != nil {
 		t.Fatalf("create dep: %v", err)
 	}
 	// a free task is needed so All lane is non-empty — handleLaneSwitch skips empty lanes,
 	// so without it Shift+H from Depends has nowhere to land and becomes a no-op.
-	if err := testutil.CreateTestTask(ta.TaskDir, freeID, "Free Task", "ready", "story"); err != nil {
+	if err := testutil.CreateTestTiki(ta.TikiDir, freeID, "Free Task", "ready", "story"); err != nil {
 		t.Fatalf("create free: %v", err)
 	}
 	if err := ta.TikiStore.Reload(); err != nil {
@@ -275,7 +275,7 @@ func TestDepsEditor_ReopenIsSameView(t *testing.T) {
 	defer ta.Cleanup()
 
 	contextID := "CTXA05"
-	if err := testutil.CreateTestTask(ta.TaskDir, contextID, "Context Task", "ready", "story"); err != nil {
+	if err := testutil.CreateTestTiki(ta.TikiDir, contextID, "Context Task", "ready", "story"); err != nil {
 		t.Fatalf("create context: %v", err)
 	}
 	if err := ta.TikiStore.Reload(); err != nil {
@@ -291,7 +291,7 @@ func TestDepsEditor_ReopenIsSameView(t *testing.T) {
 		t.Fatalf("first open: not in deps editor, got %v", ta.NavController.CurrentView().ViewID)
 	}
 
-	// go back to detail view (Phase 3: configurable detail, not legacy TaskDetailViewID)
+	// go back to detail view (Phase 3: configurable detail, not legacy TikiDetailViewID)
 	ta.SendKey(tcell.KeyEscape, 0, tcell.ModNone)
 	ta.Draw()
 	wantDetailID := model.DetailPluginViewID()

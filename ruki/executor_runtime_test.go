@@ -233,7 +233,7 @@ func TestExecutionInputSelectionHelpers(t *testing.T) {
 func TestNewSingleSelectionInput(t *testing.T) {
 	tests := []struct {
 		name      string
-		taskID    string
+		tikiID    string
 		wantCount int
 	}{
 		{"non-empty", "TIKI-000001", 1},
@@ -242,7 +242,7 @@ func TestNewSingleSelectionInput(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			in := NewSingleSelectionInput(tt.taskID)
+			in := NewSingleSelectionInput(tt.tikiID)
 			if got := in.SelectionCount(); got != tt.wantCount {
 				t.Errorf("count = %d, want %d", got, tt.wantCount)
 			}

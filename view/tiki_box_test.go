@@ -25,10 +25,10 @@ func fieldEmoji(fieldName, key string) string {
 
 // makeTiki creates a tiki with the given ID, type string, and priority key
 // for tests. priority is now an enum key — pass "" to omit the field.
-func makeTiki(id string, taskType string, priority string) *tikipkg.Tiki {
+func makeTiki(id string, tikiType string, priority string) *tikipkg.Tiki {
 	tk := tikipkg.New()
 	tk.ID = id
-	tk.Set(tikipkg.FieldType, taskType)
+	tk.Set(tikipkg.FieldType, tikiType)
 	if priority != "" {
 		tk.Set(tikipkg.FieldPriority, priority)
 	}

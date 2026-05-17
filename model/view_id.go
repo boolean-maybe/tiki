@@ -9,12 +9,12 @@ type ViewID string
 
 // view identifiers
 const (
-	// TaskEditViewID identifies the built-in task edit view. Retained
+	// TikiEditViewID identifies the built-in task edit view. Retained
 	// reason: the `n` (new-task) flow uses this view to host a draft
 	// tiki being created, since the configurable detail view does not
 	// support drafts. Edit-of-existing flows have migrated to in-place
 	// edit mode on the configurable detail view.
-	TaskEditViewID ViewID = "task_edit"
+	TikiEditViewID ViewID = "tiki_edit"
 
 	PluginViewIDPrefix ViewID = "plugin:" // Prefix for plugin views
 
@@ -30,7 +30,7 @@ const (
 
 // DetailPluginViewID returns the canonical configurable-detail view id
 // (`plugin:Detail`). Used by internal navigations (deps editor, etc.)
-// that previously pushed the legacy TaskDetailViewID and now route
+// that previously pushed the legacy TikiDetailViewID and now route
 // through the configurable detail view declared in workflow.yaml.
 func DetailPluginViewID() ViewID {
 	return MakePluginViewID(DetailPluginName)
@@ -38,8 +38,8 @@ func DetailPluginViewID() ViewID {
 
 // built-in view names and descriptions for the header info section
 const (
-	TaskEditViewName = "Task Edit"
-	TaskEditViewDesc = "Cycle through fields to edit title, status, priority and other"
+	TikiEditViewName = "Tiki Edit"
+	TikiEditViewDesc = "Cycle through fields to edit title, status, priority and other"
 
 	DepsEditorViewName = "Dependencies"
 	DepsEditorViewDesc = "Move a tiki to Blocks to make it block edited tiki. Move it to Depends to make edited tiki depend on it"

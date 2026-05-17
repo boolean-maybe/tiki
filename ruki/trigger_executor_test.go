@@ -20,8 +20,8 @@ func TestEvalGuard_NoWhere(t *testing.T) {
 	te := newTestTriggerExecutor()
 	trig := &Trigger{Timing: "before", Event: "update"}
 	tc := &TriggerContext{
-		Old: tikiFromFixture(&taskFixture{ID: "TIKI-000001", Status: "inProgress"}),
-		New: tikiFromFixture(&taskFixture{ID: "TIKI-000001", Status: "done"}),
+		Old: tikiFromFixture(&tikiFixture{ID: "TIKI-000001", Status: "inProgress"}),
+		New: tikiFromFixture(&tikiFixture{ID: "TIKI-000001", Status: "done"}),
 	}
 	ok, err := te.EvalGuard(trig, tc)
 	if err != nil {
@@ -42,8 +42,8 @@ func TestEvalGuard_QualifiedRefMatch(t *testing.T) {
 	}
 
 	tc := &TriggerContext{
-		Old: tikiFromFixture(&taskFixture{ID: "TIKI-000001", Status: "inProgress"}),
-		New: tikiFromFixture(&taskFixture{ID: "TIKI-000001", Status: "done"}),
+		Old: tikiFromFixture(&tikiFixture{ID: "TIKI-000001", Status: "inProgress"}),
+		New: tikiFromFixture(&tikiFixture{ID: "TIKI-000001", Status: "done"}),
 	}
 
 	ok, err := te.EvalGuard(trig, tc)
@@ -65,8 +65,8 @@ func TestEvalGuard_QualifiedBareBoolExpr(t *testing.T) {
 	}
 
 	tc := &TriggerContext{
-		Old: tikiFromFixture(&taskFixture{ID: "TIKI-000001", CustomFields: map[string]interface{}{"flag": false}}),
-		New: tikiFromFixture(&taskFixture{ID: "TIKI-000001", CustomFields: map[string]interface{}{"flag": true}}),
+		Old: tikiFromFixture(&tikiFixture{ID: "TIKI-000001", CustomFields: map[string]interface{}{"flag": false}}),
+		New: tikiFromFixture(&tikiFixture{ID: "TIKI-000001", CustomFields: map[string]interface{}{"flag": true}}),
 	}
 
 	ok, err := te.EvalGuard(trig, tc)
@@ -88,8 +88,8 @@ func TestEvalGuard_QualifiedRefNoMatch(t *testing.T) {
 	}
 
 	tc := &TriggerContext{
-		Old: tikiFromFixture(&taskFixture{ID: "TIKI-000001", Status: "ready"}),
-		New: tikiFromFixture(&taskFixture{ID: "TIKI-000001", Status: "inProgress"}),
+		Old: tikiFromFixture(&tikiFixture{ID: "TIKI-000001", Status: "ready"}),
+		New: tikiFromFixture(&tikiFixture{ID: "TIKI-000001", Status: "inProgress"}),
 	}
 
 	ok, err := te.EvalGuard(trig, tc)
@@ -113,7 +113,7 @@ func TestEvalGuard_OldNilForCreate(t *testing.T) {
 
 	tc := &TriggerContext{
 		Old: nil, // create — no old
-		New: tikiFromFixture(&taskFixture{ID: "TIKI-000001", Type: "story", Description: ""}),
+		New: tikiFromFixture(&tikiFixture{ID: "TIKI-000001", Type: "story", Description: ""}),
 	}
 
 	ok, err := te.EvalGuard(trig, tc)
@@ -134,11 +134,11 @@ func TestEvalGuard_QuantifierWithQualifiedCollection(t *testing.T) {
 		t.Fatalf("parse: %v", err)
 	}
 
-	dep := &taskFixture{ID: "TIKI-DEP001", Status: "inProgress"}
+	dep := &tikiFixture{ID: "TIKI-DEP001", Status: "inProgress"}
 	tc := &TriggerContext{
-		Old: tikiFromFixture(&taskFixture{ID: "TIKI-000001", Status: "inProgress", DependsOn: []string{"TIKI-DEP001"}}),
-		New: tikiFromFixture(&taskFixture{ID: "TIKI-000001", Status: "done", DependsOn: []string{"TIKI-DEP001"}}),
-		AllTikis: tikisFromFixtures([]*taskFixture{
+		Old: tikiFromFixture(&tikiFixture{ID: "TIKI-000001", Status: "inProgress", DependsOn: []string{"TIKI-DEP001"}}),
+		New: tikiFromFixture(&tikiFixture{ID: "TIKI-000001", Status: "done", DependsOn: []string{"TIKI-DEP001"}}),
+		AllTikis: tikisFromFixtures([]*tikiFixture{
 			{ID: "TIKI-000001", Status: "done", DependsOn: []string{"TIKI-DEP001"}},
 			dep,
 		}),
@@ -163,9 +163,9 @@ func TestEvalGuard_CountSubquery(t *testing.T) {
 	}
 
 	tc := &TriggerContext{
-		Old: tikiFromFixture(&taskFixture{ID: "TIKI-000001", Status: "ready", Assignee: "alice"}),
-		New: tikiFromFixture(&taskFixture{ID: "TIKI-000001", Status: "inProgress", Assignee: "alice"}),
-		AllTikis: tikisFromFixtures([]*taskFixture{
+		Old: tikiFromFixture(&tikiFixture{ID: "TIKI-000001", Status: "ready", Assignee: "alice"}),
+		New: tikiFromFixture(&tikiFixture{ID: "TIKI-000001", Status: "inProgress", Assignee: "alice"}),
+		AllTikis: tikisFromFixtures([]*tikiFixture{
 			{ID: "TIKI-000001", Status: "inProgress", Assignee: "alice"},
 			{ID: "TIKI-000002", Status: "inProgress", Assignee: "alice"},
 			{ID: "TIKI-000003", Status: "inProgress", Assignee: "alice"},
@@ -192,9 +192,9 @@ func TestEvalGuard_CountSubqueryBelowLimit(t *testing.T) {
 	}
 
 	tc := &TriggerContext{
-		Old: tikiFromFixture(&taskFixture{ID: "TIKI-000001", Status: "ready", Assignee: "alice"}),
-		New: tikiFromFixture(&taskFixture{ID: "TIKI-000001", Status: "inProgress", Assignee: "alice"}),
-		AllTikis: tikisFromFixtures([]*taskFixture{
+		Old: tikiFromFixture(&tikiFixture{ID: "TIKI-000001", Status: "ready", Assignee: "alice"}),
+		New: tikiFromFixture(&tikiFixture{ID: "TIKI-000001", Status: "inProgress", Assignee: "alice"}),
+		AllTikis: tikisFromFixtures([]*tikiFixture{
 			{ID: "TIKI-000001", Status: "inProgress", Assignee: "alice"},
 			{ID: "TIKI-000002", Status: "inProgress", Assignee: "alice"},
 			{ID: "TIKI-000003", Status: "ready", Assignee: "alice"},
@@ -220,9 +220,9 @@ func TestEvalGuard_ExistsSubquery(t *testing.T) {
 	}
 
 	tc := &TriggerContext{
-		Old: tikiFromFixture(&taskFixture{ID: "TIKI-000001", Status: "ready", Assignee: "alice"}),
-		New: tikiFromFixture(&taskFixture{ID: "TIKI-000001", Status: "inProgress", Assignee: "alice"}),
-		AllTikis: tikisFromFixtures([]*taskFixture{
+		Old: tikiFromFixture(&tikiFixture{ID: "TIKI-000001", Status: "ready", Assignee: "alice"}),
+		New: tikiFromFixture(&tikiFixture{ID: "TIKI-000001", Status: "inProgress", Assignee: "alice"}),
+		AllTikis: tikisFromFixtures([]*tikiFixture{
 			{ID: "TIKI-000001", Status: "inProgress", Assignee: "alice"},
 			{ID: "TIKI-000002", Status: "ready", Assignee: "alice"},
 			{ID: "TIKI-000003", Status: "inProgress", Assignee: "bob"},
@@ -248,9 +248,9 @@ func TestEvalGuard_ExistsSubqueryNoMatch(t *testing.T) {
 	}
 
 	tc := &TriggerContext{
-		Old: tikiFromFixture(&taskFixture{ID: "TIKI-000001", Status: "ready", Assignee: "alice"}),
-		New: tikiFromFixture(&taskFixture{ID: "TIKI-000001", Status: "inProgress", Assignee: "alice"}),
-		AllTikis: tikisFromFixtures([]*taskFixture{
+		Old: tikiFromFixture(&tikiFixture{ID: "TIKI-000001", Status: "ready", Assignee: "alice"}),
+		New: tikiFromFixture(&tikiFixture{ID: "TIKI-000001", Status: "inProgress", Assignee: "alice"}),
+		AllTikis: tikisFromFixtures([]*tikiFixture{
 			{ID: "TIKI-000001", Status: "ready", Assignee: "alice"},
 			{ID: "TIKI-000002", Status: "inProgress", Assignee: "bob"},
 		}),
@@ -275,9 +275,9 @@ func TestEvalGuard_OuterOldAndNewResolveIndependently(t *testing.T) {
 	}
 
 	tc := &TriggerContext{
-		Old: tikiFromFixture(&taskFixture{ID: "TIKI-000001", Status: "ready"}),
-		New: tikiFromFixture(&taskFixture{ID: "TIKI-000001", Status: "done"}),
-		AllTikis: tikisFromFixtures([]*taskFixture{
+		Old: tikiFromFixture(&tikiFixture{ID: "TIKI-000001", Status: "ready"}),
+		New: tikiFromFixture(&tikiFixture{ID: "TIKI-000001", Status: "done"}),
+		AllTikis: tikisFromFixtures([]*tikiFixture{
 			{ID: "TIKI-000001", Status: "ready"},
 			{ID: "TIKI-000002", Status: "done"},
 		}),
@@ -304,11 +304,11 @@ func TestExecAction_UpdateWithQualifiedRefs(t *testing.T) {
 		t.Fatalf("parse: %v", err)
 	}
 
-	newTask := &taskFixture{ID: "TIKI-000001", Title: "Urgent", Status: "ready"}
+	newTask := &tikiFixture{ID: "TIKI-000001", Title: "Urgent", Status: "ready"}
 	tc := &TriggerContext{
 		Old: nil,
 		New: tikiFromFixture(newTask),
-		AllTikis: tikisFromFixtures([]*taskFixture{
+		AllTikis: tikisFromFixtures([]*tikiFixture{
 			newTask,
 		}),
 	}
@@ -337,13 +337,13 @@ func TestExecAction_OuterOldAndNewResolveIndependently(t *testing.T) {
 		t.Fatalf("parse: %v", err)
 	}
 
-	tasks := []*taskFixture{
+	tasks := []*tikiFixture{
 		{ID: "TIKI-000001", Title: "one", Status: "ready"},
 		{ID: "TIKI-000002", Title: "two", Status: "backlog"},
 	}
 	tc := &TriggerContext{
-		Old:      tikiFromFixture(&taskFixture{ID: "TIKI-CHANGED", Status: "ready"}),
-		New:      tikiFromFixture(&taskFixture{ID: "TIKI-CHANGED", Status: "done"}),
+		Old:      tikiFromFixture(&tikiFixture{ID: "TIKI-CHANGED", Status: "ready"}),
+		New:      tikiFromFixture(&tikiFixture{ID: "TIKI-CHANGED", Status: "done"}),
 		AllTikis: tikisFromFixtures(tasks),
 	}
 
@@ -371,8 +371,8 @@ func TestExecAction_CreateWithQualifiedRefs(t *testing.T) {
 		t.Fatalf("parse: %v", err)
 	}
 
-	old := &taskFixture{ID: "TIKI-000001", Title: "Daily standup", Status: "inProgress", Tags: []string{"meeting"}}
-	new := &taskFixture{ID: "TIKI-000001", Title: "Daily standup", Status: "done"}
+	old := &tikiFixture{ID: "TIKI-000001", Title: "Daily standup", Status: "inProgress", Tags: []string{"meeting"}}
+	new := &tikiFixture{ID: "TIKI-000001", Title: "Daily standup", Status: "done"}
 	oldTk := tikiFromFixture(old)
 	oldTk.Set("priority", "medium-high")
 	newTk := tikiFromFixture(new)
@@ -423,8 +423,8 @@ func TestExecAction_PrevEnumWithQualifiedRef(t *testing.T) {
 		t.Fatalf("parse: %v", err)
 	}
 
-	old := &taskFixture{ID: "TIKI-000001", Title: "x", Status: "ready"}
-	new := &taskFixture{ID: "TIKI-000001", Title: "x", Status: "ready"}
+	old := &tikiFixture{ID: "TIKI-000001", Title: "x", Status: "ready"}
+	new := &tikiFixture{ID: "TIKI-000001", Title: "x", Status: "ready"}
 	oldTk := tikiFromFixture(old)
 	oldTk.Set("priority", "medium-low")
 	newTk := tikiFromFixture(new)
@@ -458,13 +458,13 @@ func TestExecAction_DeleteWithQualifiedRefs(t *testing.T) {
 		t.Fatalf("parse: %v", err)
 	}
 
-	old := &taskFixture{ID: "TIKI-000001", Title: "Stale", Status: "inProgress"}
-	new := &taskFixture{ID: "TIKI-000001", Title: "Stale", Status: "done"}
+	old := &tikiFixture{ID: "TIKI-000001", Title: "Stale", Status: "inProgress"}
+	new := &tikiFixture{ID: "TIKI-000001", Title: "Stale", Status: "done"}
 
 	tc := &TriggerContext{
 		Old:      tikiFromFixture(old),
 		New:      tikiFromFixture(new),
-		AllTikis: tikisFromFixtures([]*taskFixture{new, {ID: "TIKI-000002", Title: "Other", Status: "ready"}}),
+		AllTikis: tikisFromFixtures([]*tikiFixture{new, {ID: "TIKI-000002", Title: "Other", Status: "ready"}}),
 	}
 
 	result, err := te.testExecAction(trig, tc)
@@ -492,16 +492,16 @@ func TestExecAction_CascadeEpicCompletion(t *testing.T) {
 		t.Fatalf("parse: %v", err)
 	}
 
-	story := &taskFixture{ID: "TIKI-STORY1", Title: "Story", Status: "done", Type: "story"}
-	epic := &taskFixture{
+	story := &tikiFixture{ID: "TIKI-STORY1", Title: "Story", Status: "done", Type: "story"}
+	epic := &tikiFixture{
 		ID: "TIKI-EPIC01", Title: "Epic", Status: "inProgress", Type: "epic",
 		DependsOn: []string{"TIKI-STORY1"},
 	}
 
 	tc := &TriggerContext{
-		Old:      tikiFromFixture(&taskFixture{ID: "TIKI-STORY1", Status: "inProgress"}),
+		Old:      tikiFromFixture(&tikiFixture{ID: "TIKI-STORY1", Status: "inProgress"}),
 		New:      tikiFromFixture(story),
-		AllTikis: tikisFromFixtures([]*taskFixture{story, epic}),
+		AllTikis: tikisFromFixtures([]*tikiFixture{story, epic}),
 	}
 
 	result, err := te.testExecAction(trig, tc)
@@ -528,12 +528,12 @@ func TestExecAction_CleanupDependsOnDelete(t *testing.T) {
 		t.Fatalf("parse: %v", err)
 	}
 
-	deleted := &taskFixture{ID: "DELDEL", Title: "Deleted"}
-	downstream := &taskFixture{
+	deleted := &tikiFixture{ID: "DELDEL", Title: "Deleted"}
+	downstream := &tikiFixture{
 		ID: "DOWN01", Title: "Downstream", Status: "ready",
 		DependsOn: []string{"DELDEL", "OTHER1"},
 	}
-	unrelated := &taskFixture{
+	unrelated := &tikiFixture{
 		ID: "OTHER1", Title: "Unrelated", Status: "done",
 		DependsOn: []string{"OTHER2"},
 	}
@@ -541,7 +541,7 @@ func TestExecAction_CleanupDependsOnDelete(t *testing.T) {
 	tc := &TriggerContext{
 		Old:      tikiFromFixture(deleted),
 		New:      nil, // delete event
-		AllTikis: tikisFromFixtures([]*taskFixture{downstream, unrelated}),
+		AllTikis: tikisFromFixtures([]*tikiFixture{downstream, unrelated}),
 	}
 
 	result, err := te.testExecAction(trig, tc)
@@ -564,8 +564,8 @@ func TestExecAction_NoAction(t *testing.T) {
 	te := newTestTriggerExecutor()
 	trig := &Trigger{Timing: "before", Event: "update"}
 	tc := &TriggerContext{
-		Old: tikiFromFixture(&taskFixture{ID: "TIKI-000001"}),
-		New: tikiFromFixture(&taskFixture{ID: "TIKI-000001"}),
+		Old: tikiFromFixture(&tikiFixture{ID: "TIKI-000001"}),
+		New: tikiFromFixture(&tikiFixture{ID: "TIKI-000001"}),
 	}
 	_, err := te.testExecAction(trig, tc)
 	if err == nil {
@@ -585,8 +585,8 @@ func TestExecRun_SimpleString(t *testing.T) {
 	}
 
 	tc := &TriggerContext{
-		Old: tikiFromFixture(&taskFixture{ID: "TIKI-000001", Status: "ready", Tags: []string{"claude"}}),
-		New: tikiFromFixture(&taskFixture{ID: "TIKI-000001", Status: "inProgress", Tags: []string{"claude"}}),
+		Old: tikiFromFixture(&tikiFixture{ID: "TIKI-000001", Status: "ready", Tags: []string{"claude"}}),
+		New: tikiFromFixture(&tikiFixture{ID: "TIKI-000001", Status: "inProgress", Tags: []string{"claude"}}),
 	}
 
 	cmd, err := te.ExecRun(trig, tc)
@@ -603,8 +603,8 @@ func TestExecRun_NoRunAction(t *testing.T) {
 	te := newTestTriggerExecutor()
 	trig := &Trigger{Timing: "after", Event: "update"}
 	tc := &TriggerContext{
-		Old: tikiFromFixture(&taskFixture{ID: "TIKI-000001"}),
-		New: tikiFromFixture(&taskFixture{ID: "TIKI-000001"}),
+		Old: tikiFromFixture(&tikiFixture{ID: "TIKI-000001"}),
+		New: tikiFromFixture(&tikiFixture{ID: "TIKI-000001"}),
 	}
 	_, err := te.ExecRun(trig, tc)
 	if err == nil {
@@ -626,11 +626,11 @@ func TestExecAction_TwoLayerScoping(t *testing.T) {
 		t.Fatalf("parse: %v", err)
 	}
 
-	newTask := &taskFixture{ID: "TIKI-BUG001", Title: "Bug", Status: "ready", Type: "bug", Tags: []string{"urgent"}}
+	newTask := &tikiFixture{ID: "TIKI-BUG001", Title: "Bug", Status: "ready", Type: "bug", Tags: []string{"urgent"}}
 	tc := &TriggerContext{
 		Old: nil,
 		New: tikiFromFixture(newTask),
-		AllTikis: tikisFromFixtures([]*taskFixture{
+		AllTikis: tikisFromFixtures([]*tikiFixture{
 			newTask,
 		}),
 	}
@@ -670,7 +670,7 @@ func TestEqualFoldID(t *testing.T) {
 }
 
 func TestBlocksLookup(t *testing.T) {
-	tasks := []*taskFixture{
+	tasks := []*tikiFixture{
 		{ID: "TIKI-AAA001", DependsOn: []string{"TIKI-TARGET"}},
 		{ID: "TIKI-AAA002", DependsOn: []string{"TIKI-OTHER"}},
 		{ID: "TIKI-AAA003", DependsOn: []string{"TIKI-TARGET", "TIKI-OTHER"}},
@@ -682,7 +682,7 @@ func TestBlocksLookup(t *testing.T) {
 }
 
 func TestResolveRefTasks(t *testing.T) {
-	tasks := []*taskFixture{
+	tasks := []*tikiFixture{
 		{ID: "TIKI-000001"},
 		{ID: "TIKI-000002"},
 		{ID: "TIKI-000003"},
@@ -708,8 +708,8 @@ func TestExecAction_NextDateWithQualifiedRef(t *testing.T) {
 		t.Fatalf("parse: %v", err)
 	}
 
-	old := &taskFixture{ID: "TIKI-000001", Title: "Daily standup", Status: "inProgress", Type: "story", Recurrence: value.RecurrenceDaily}
-	new := &taskFixture{ID: "TIKI-000001", Title: "Daily standup", Status: "done", Type: "story"}
+	old := &tikiFixture{ID: "TIKI-000001", Title: "Daily standup", Status: "inProgress", Type: "story", Recurrence: value.RecurrenceDaily}
+	new := &tikiFixture{ID: "TIKI-000001", Title: "Daily standup", Status: "done", Type: "story"}
 	oldTk := tikiFromFixture(old)
 	oldTk.Set("priority", "medium")
 	newTk := tikiFromFixture(new)
@@ -750,13 +750,13 @@ func TestExecAction_NextDateWithNewQualifiedRef(t *testing.T) {
 		t.Fatalf("parse: %v", err)
 	}
 
-	old := &taskFixture{ID: "TIKI-000001", Title: "Recurring", Status: "done", Type: "story"}
-	new := &taskFixture{ID: "TIKI-000001", Title: "Recurring", Status: "ready", Type: "story", Recurrence: value.RecurrenceDaily}
+	old := &tikiFixture{ID: "TIKI-000001", Title: "Recurring", Status: "done", Type: "story"}
+	new := &tikiFixture{ID: "TIKI-000001", Title: "Recurring", Status: "ready", Type: "story", Recurrence: value.RecurrenceDaily}
 
 	tc := &TriggerContext{
 		Old:      tikiFromFixture(old),
 		New:      tikiFromFixture(new),
-		AllTikis: tikisFromFixtures([]*taskFixture{new}),
+		AllTikis: tikisFromFixtures([]*tikiFixture{new}),
 	}
 
 	before := time.Now()
@@ -792,8 +792,8 @@ func TestEvalInOverride_SubstringMatch(t *testing.T) {
 	}
 
 	tc := &TriggerContext{
-		Old: tikiFromFixture(&taskFixture{ID: "TIKI-000001", Title: "implement claude feature"}),
-		New: tikiFromFixture(&taskFixture{ID: "TIKI-000001", Title: "implement claude feature"}),
+		Old: tikiFromFixture(&tikiFixture{ID: "TIKI-000001", Title: "implement claude feature"}),
+		New: tikiFromFixture(&tikiFixture{ID: "TIKI-000001", Title: "implement claude feature"}),
 	}
 
 	ok, err := te.EvalGuard(trig, tc)
@@ -816,8 +816,8 @@ func TestEvalInOverride_NegatedList(t *testing.T) {
 
 	// match: "blocked" not in tags → deny fires
 	tc := &TriggerContext{
-		Old: tikiFromFixture(&taskFixture{ID: "TIKI-000001", Tags: []string{"ready"}}),
-		New: tikiFromFixture(&taskFixture{ID: "TIKI-000001", Tags: []string{"ready"}}),
+		Old: tikiFromFixture(&tikiFixture{ID: "TIKI-000001", Tags: []string{"ready"}}),
+		New: tikiFromFixture(&tikiFixture{ID: "TIKI-000001", Tags: []string{"ready"}}),
 	}
 	ok, err := te.EvalGuard(trig, tc)
 	if err != nil {
@@ -828,7 +828,7 @@ func TestEvalInOverride_NegatedList(t *testing.T) {
 	}
 
 	// no match: "blocked" in tags → deny doesn't fire
-	tc.New = tikiFromFixture(&taskFixture{ID: "TIKI-000001", Tags: []string{"blocked"}})
+	tc.New = tikiFromFixture(&tikiFixture{ID: "TIKI-000001", Tags: []string{"blocked"}})
 	ok, err = te.EvalGuard(trig, tc)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -849,8 +849,8 @@ func TestEvalInOverride_ListMembership(t *testing.T) {
 
 	// match
 	tc := &TriggerContext{
-		Old: tikiFromFixture(&taskFixture{ID: "TIKI-000001", Tags: []string{"claude", "ai"}}),
-		New: tikiFromFixture(&taskFixture{ID: "TIKI-000001", Tags: []string{"claude", "ai"}}),
+		Old: tikiFromFixture(&tikiFixture{ID: "TIKI-000001", Tags: []string{"claude", "ai"}}),
+		New: tikiFromFixture(&tikiFixture{ID: "TIKI-000001", Tags: []string{"claude", "ai"}}),
 	}
 	ok, err := te.EvalGuard(trig, tc)
 	if err != nil {
@@ -861,7 +861,7 @@ func TestEvalInOverride_ListMembership(t *testing.T) {
 	}
 
 	// no match
-	tc.New = tikiFromFixture(&taskFixture{ID: "TIKI-000001", Tags: []string{"ai"}})
+	tc.New = tikiFromFixture(&tikiFixture{ID: "TIKI-000001", Tags: []string{"ai"}})
 	ok, err = te.EvalGuard(trig, tc)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -892,8 +892,8 @@ func TestResolveQualifiedRef_UnknownQualifier(t *testing.T) {
 		Deny: strPtr("blocked"),
 	}
 	tc := &TriggerContext{
-		Old: tikiFromFixture(&taskFixture{ID: "TIKI-000001", Status: "ready"}),
-		New: tikiFromFixture(&taskFixture{ID: "TIKI-000001", Status: "done"}),
+		Old: tikiFromFixture(&tikiFixture{ID: "TIKI-000001", Status: "ready"}),
+		New: tikiFromFixture(&tikiFixture{ID: "TIKI-000001", Status: "done"}),
 	}
 	_, err := te.EvalGuard(trig, tc)
 	if err == nil {
@@ -921,8 +921,8 @@ func TestEvalCondition_UnknownBinaryOp(t *testing.T) {
 		Deny: strPtr("blocked"),
 	}
 	tc := &TriggerContext{
-		Old: tikiFromFixture(&taskFixture{ID: "TIKI-000001", Status: "done"}),
-		New: tikiFromFixture(&taskFixture{ID: "TIKI-000001", Status: "done"}),
+		Old: tikiFromFixture(&tikiFixture{ID: "TIKI-000001", Status: "done"}),
+		New: tikiFromFixture(&tikiFixture{ID: "TIKI-000001", Status: "done"}),
 	}
 	_, err := te.EvalGuard(trig, tc)
 	if err == nil {
@@ -951,9 +951,9 @@ func TestEvalExprRecursive_UnknownBinaryOp(t *testing.T) {
 		},
 	}
 	tc := &TriggerContext{
-		Old: tikiFromFixture(&taskFixture{ID: "TIKI-000001"}),
-		New: tikiFromFixture(&taskFixture{ID: "TIKI-000001"}),
-		AllTikis: tikisFromFixtures([]*taskFixture{
+		Old: tikiFromFixture(&tikiFixture{ID: "TIKI-000001"}),
+		New: tikiFromFixture(&tikiFixture{ID: "TIKI-000001"}),
+		AllTikis: tikisFromFixtures([]*tikiFixture{
 			{ID: "TIKI-000001"},
 		}),
 	}
@@ -979,8 +979,8 @@ func TestEvalInOverride_CollectionNotListOrString(t *testing.T) {
 		Deny: strPtr("blocked"),
 	}
 	tc := &TriggerContext{
-		Old: tikiFromFixture(&taskFixture{ID: "TIKI-000001", Points: 3}),
-		New: tikiFromFixture(&taskFixture{ID: "TIKI-000001", Points: 3}),
+		Old: tikiFromFixture(&tikiFixture{ID: "TIKI-000001", Points: 3}),
+		New: tikiFromFixture(&tikiFixture{ID: "TIKI-000001", Points: 3}),
 	}
 	_, err := te.EvalGuard(trig, tc)
 	if err == nil {
@@ -1004,8 +1004,8 @@ func TestEvalInOverride_SubstringNonString(t *testing.T) {
 		Deny: strPtr("blocked"),
 	}
 	tc := &TriggerContext{
-		Old: tikiFromFixture(&taskFixture{ID: "TIKI-000001", Title: "fix bug 42"}),
-		New: tikiFromFixture(&taskFixture{ID: "TIKI-000001", Title: "fix bug 42"}),
+		Old: tikiFromFixture(&tikiFixture{ID: "TIKI-000001", Title: "fix bug 42"}),
+		New: tikiFromFixture(&tikiFixture{ID: "TIKI-000001", Title: "fix bug 42"}),
 	}
 	_, err := te.EvalGuard(trig, tc)
 	if err == nil {
@@ -1032,8 +1032,8 @@ func TestEvalQuantifierOverride_NotAList(t *testing.T) {
 		Deny: strPtr("blocked"),
 	}
 	tc := &TriggerContext{
-		Old: tikiFromFixture(&taskFixture{ID: "TIKI-000001", Title: "test"}),
-		New: tikiFromFixture(&taskFixture{ID: "TIKI-000001", Title: "test"}),
+		Old: tikiFromFixture(&tikiFixture{ID: "TIKI-000001", Title: "test"}),
+		New: tikiFromFixture(&tikiFixture{ID: "TIKI-000001", Title: "test"}),
 	}
 	_, err := te.EvalGuard(trig, tc)
 	if err == nil {
@@ -1059,9 +1059,9 @@ func TestEvalQuantifierOverride_UnknownKind(t *testing.T) {
 		Deny: strPtr("blocked"),
 	}
 	tc := &TriggerContext{
-		Old: tikiFromFixture(&taskFixture{ID: "TIKI-000001", Tags: []string{"a"}}),
-		New: tikiFromFixture(&taskFixture{ID: "TIKI-000001", Tags: []string{"a"}}),
-		AllTikis: tikisFromFixtures([]*taskFixture{
+		Old: tikiFromFixture(&tikiFixture{ID: "TIKI-000001", Tags: []string{"a"}}),
+		New: tikiFromFixture(&tikiFixture{ID: "TIKI-000001", Tags: []string{"a"}}),
+		AllTikis: tikisFromFixtures([]*tikiFixture{
 			{ID: "A", Status: "done"},
 		}),
 	}
@@ -1083,8 +1083,8 @@ func TestEvalCondition_UnknownType(t *testing.T) {
 		Deny:   strPtr("blocked"),
 	}
 	tc := &TriggerContext{
-		Old: tikiFromFixture(&taskFixture{ID: "TIKI-000001"}),
-		New: tikiFromFixture(&taskFixture{ID: "TIKI-000001"}),
+		Old: tikiFromFixture(&tikiFixture{ID: "TIKI-000001"}),
+		New: tikiFromFixture(&tikiFixture{ID: "TIKI-000001"}),
 	}
 	_, err := te.EvalGuard(trig, tc)
 	if err == nil {
@@ -1098,8 +1098,8 @@ func TestEvalCondition_UnknownType(t *testing.T) {
 func TestExecute_NilStatement(t *testing.T) {
 	te := newTestTriggerExecutor()
 	tc := &TriggerContext{
-		Old: tikiFromFixture(&taskFixture{ID: "TIKI-000001"}),
-		New: tikiFromFixture(&taskFixture{ID: "TIKI-000001"}),
+		Old: tikiFromFixture(&tikiFixture{ID: "TIKI-000001"}),
+		New: tikiFromFixture(&tikiFixture{ID: "TIKI-000001"}),
 	}
 	trig := &Trigger{
 		Timing: "after",
@@ -1118,9 +1118,9 @@ func TestExecute_NilStatement(t *testing.T) {
 func TestExecute_UnsupportedType(t *testing.T) {
 	te := newTestTriggerExecutor()
 	tc := &TriggerContext{
-		Old:      tikiFromFixture(&taskFixture{ID: "TIKI-000001"}),
-		New:      tikiFromFixture(&taskFixture{ID: "TIKI-000001"}),
-		AllTikis: tikisFromFixtures([]*taskFixture{{ID: "TIKI-000001"}}),
+		Old:      tikiFromFixture(&tikiFixture{ID: "TIKI-000001"}),
+		New:      tikiFromFixture(&tikiFixture{ID: "TIKI-000001"}),
+		AllTikis: tikisFromFixtures([]*tikiFixture{{ID: "TIKI-000001"}}),
 	}
 	// statement with all nil variants (no select/create/update/delete)
 	trig := &Trigger{
@@ -1147,7 +1147,7 @@ func TestFilterTasks_NilWhere(t *testing.T) {
 			Delete: &DeleteStmt{Where: nil},
 		},
 	}
-	tasks := []*taskFixture{
+	tasks := []*tikiFixture{
 		{ID: "TIKI-000001", Title: "a"},
 		{ID: "TIKI-000002", Title: "b"},
 	}
@@ -1198,8 +1198,8 @@ func TestExecRun_NonStringResult(t *testing.T) {
 		Run:    &RunAction{Command: &IntLiteral{Value: 42}},
 	}
 	tc := &TriggerContext{
-		Old: tikiFromFixture(&taskFixture{ID: "TIKI-000001"}),
-		New: tikiFromFixture(&taskFixture{ID: "TIKI-000001"}),
+		Old: tikiFromFixture(&tikiFixture{ID: "TIKI-000001"}),
+		New: tikiFromFixture(&tikiFixture{ID: "TIKI-000001"}),
 	}
 	_, err := te.ExecRun(trig, tc)
 	if err == nil {
@@ -1220,8 +1220,8 @@ func TestEvalGuardRawTriggerRejectsCallBeforeEvaluation(t *testing.T) {
 	}
 
 	tc := &TriggerContext{
-		Old: tikiFromFixture(&taskFixture{ID: "TIKI-000001", Status: "ready"}),
-		New: tikiFromFixture(&taskFixture{ID: "TIKI-000001", Status: "done"}),
+		Old: tikiFromFixture(&tikiFixture{ID: "TIKI-000001", Status: "ready"}),
+		New: tikiFromFixture(&tikiFixture{ID: "TIKI-000001", Status: "done"}),
 	}
 	_, err = te.EvalGuard(trig, tc)
 	if err == nil {
@@ -1242,8 +1242,8 @@ func TestExecRunRawTriggerRejectsCall(t *testing.T) {
 	}
 
 	tc := &TriggerContext{
-		Old: tikiFromFixture(&taskFixture{ID: "TIKI-000001"}),
-		New: tikiFromFixture(&taskFixture{ID: "TIKI-000001"}),
+		Old: tikiFromFixture(&tikiFixture{ID: "TIKI-000001"}),
+		New: tikiFromFixture(&tikiFixture{ID: "TIKI-000001"}),
 	}
 	_, err = te.ExecRun(trig, tc)
 	if err == nil {
@@ -1264,8 +1264,8 @@ func TestEvalGuardValidatedTriggerRuntimeMismatch(t *testing.T) {
 	}
 
 	tc := &TriggerContext{
-		Old: tikiFromFixture(&taskFixture{ID: "TIKI-000001", Status: "ready"}),
-		New: tikiFromFixture(&taskFixture{ID: "TIKI-000001", Status: "done"}),
+		Old: tikiFromFixture(&tikiFixture{ID: "TIKI-000001", Status: "ready"}),
+		New: tikiFromFixture(&tikiFixture{ID: "TIKI-000001", Status: "done"}),
 	}
 	_, err = te.EvalGuard(validated, tc)
 	if err == nil {
@@ -1309,7 +1309,7 @@ func TestGuardSentinel_OldOnly(t *testing.T) {
 	te := newTestTriggerExecutor()
 	// when new is nil (delete event), sentinel should fall back to old
 	tc := &TriggerContext{
-		Old: tikiFromFixture(&taskFixture{ID: "TIKI-000001", Status: "done"}),
+		Old: tikiFromFixture(&tikiFixture{ID: "TIKI-000001", Status: "done"}),
 		New: nil,
 	}
 	sentinel := te.guardSentinel(tc)
@@ -1329,8 +1329,8 @@ func TestEvalCondition_OrShortCircuit(t *testing.T) {
 	}
 
 	tc := &TriggerContext{
-		Old: tikiFromFixture(&taskFixture{ID: "TIKI-000001", Status: "ready"}),
-		New: tikiFromFixture(&taskFixture{ID: "TIKI-000001", Status: "done"}),
+		Old: tikiFromFixture(&tikiFixture{ID: "TIKI-000001", Status: "ready"}),
+		New: tikiFromFixture(&tikiFixture{ID: "TIKI-000001", Status: "done"}),
 	}
 	ok, err := te.EvalGuard(trig, tc)
 	if err != nil {
@@ -1352,8 +1352,8 @@ func TestEvalCondition_NotCondition(t *testing.T) {
 
 	// new.status is "ready" → not (ready = done) = not false = true
 	tc := &TriggerContext{
-		Old: tikiFromFixture(&taskFixture{ID: "TIKI-000001", Status: "inProgress"}),
-		New: tikiFromFixture(&taskFixture{ID: "TIKI-000001", Status: "ready"}),
+		Old: tikiFromFixture(&tikiFixture{ID: "TIKI-000001", Status: "inProgress"}),
+		New: tikiFromFixture(&tikiFixture{ID: "TIKI-000001", Status: "ready"}),
 	}
 	ok, err := te.EvalGuard(trig, tc)
 	if err != nil {
@@ -1374,8 +1374,8 @@ func TestEvalCondition_IsEmptyNegated(t *testing.T) {
 	}
 
 	tc := &TriggerContext{
-		Old: tikiFromFixture(&taskFixture{ID: "TIKI-000001", Assignee: "alice"}),
-		New: tikiFromFixture(&taskFixture{ID: "TIKI-000001", Assignee: "alice"}),
+		Old: tikiFromFixture(&tikiFixture{ID: "TIKI-000001", Assignee: "alice"}),
+		New: tikiFromFixture(&tikiFixture{ID: "TIKI-000001", Assignee: "alice"}),
 	}
 	ok, err := te.EvalGuard(trig, tc)
 	if err != nil {
@@ -1402,7 +1402,7 @@ func TestEvalCondition_IsEmpty(t *testing.T) {
 
 	tc := &TriggerContext{
 		Old: nil,
-		New: tikiFromFixture(&taskFixture{
+		New: tikiFromFixture(&tikiFixture{
 			ID: "TIKI-000001", Assignee: "",
 			IsWorkflow:          true,
 			WorkflowFrontmatter: map[string]interface{}{"assignee": ""},
@@ -1427,11 +1427,11 @@ func TestEvalExprRecursive_ListLiteral(t *testing.T) {
 		t.Fatalf("parse: %v", err)
 	}
 
-	newTask := &taskFixture{ID: "TIKI-000001", Title: "Test", Status: "ready"}
+	newTask := &tikiFixture{ID: "TIKI-000001", Title: "Test", Status: "ready"}
 	tc := &TriggerContext{
 		Old:      nil,
 		New:      tikiFromFixture(newTask),
-		AllTikis: tikisFromFixtures([]*taskFixture{newTask}),
+		AllTikis: tikisFromFixtures([]*tikiFixture{newTask}),
 	}
 
 	result, err := te.testExecAction(trig, tc)
@@ -1459,8 +1459,8 @@ func TestEvalCountOverride_NoWhere(t *testing.T) {
 
 	tc := &TriggerContext{
 		Old: nil,
-		New: tikiFromFixture(&taskFixture{ID: "TIKI-000004"}),
-		AllTikis: tikisFromFixtures([]*taskFixture{
+		New: tikiFromFixture(&tikiFixture{ID: "TIKI-000004"}),
+		AllTikis: tikisFromFixtures([]*tikiFixture{
 			{ID: "TIKI-000001"},
 			{ID: "TIKI-000002"},
 			{ID: "TIKI-000003"},
@@ -1487,8 +1487,8 @@ func TestEvalExistsOverride_NoWhere(t *testing.T) {
 	}
 
 	tc := &TriggerContext{
-		New: tikiFromFixture(&taskFixture{ID: "TIKI-000004"}),
-		AllTikis: tikisFromFixtures([]*taskFixture{
+		New: tikiFromFixture(&tikiFixture{ID: "TIKI-000004"}),
+		AllTikis: tikisFromFixtures([]*tikiFixture{
 			{ID: "TIKI-000001"},
 			{ID: "TIKI-000002"},
 		}),
@@ -1512,12 +1512,12 @@ func TestEvalQuantifierOverride_AllMatch(t *testing.T) {
 		t.Fatalf("parse: %v", err)
 	}
 
-	dep1 := &taskFixture{ID: "TIKI-DEP001", Status: "done"}
-	dep2 := &taskFixture{ID: "TIKI-DEP002", Status: "done"}
+	dep1 := &tikiFixture{ID: "TIKI-DEP001", Status: "done"}
+	dep2 := &tikiFixture{ID: "TIKI-DEP002", Status: "done"}
 	tc := &TriggerContext{
-		Old: tikiFromFixture(&taskFixture{ID: "TIKI-000001", Status: "ready", DependsOn: []string{"TIKI-DEP001", "TIKI-DEP002"}}),
-		New: tikiFromFixture(&taskFixture{ID: "TIKI-000001", Status: "inProgress", DependsOn: []string{"TIKI-DEP001", "TIKI-DEP002"}}),
-		AllTikis: tikisFromFixtures([]*taskFixture{
+		Old: tikiFromFixture(&tikiFixture{ID: "TIKI-000001", Status: "ready", DependsOn: []string{"TIKI-DEP001", "TIKI-DEP002"}}),
+		New: tikiFromFixture(&tikiFixture{ID: "TIKI-000001", Status: "inProgress", DependsOn: []string{"TIKI-DEP001", "TIKI-DEP002"}}),
+		AllTikis: tikisFromFixtures([]*tikiFixture{
 			{ID: "TIKI-000001", Status: "inProgress", DependsOn: []string{"TIKI-DEP001", "TIKI-DEP002"}},
 			dep1, dep2,
 		}),
@@ -1541,12 +1541,12 @@ func TestEvalQuantifierOverride_AllNoMatch(t *testing.T) {
 		t.Fatalf("parse: %v", err)
 	}
 
-	dep1 := &taskFixture{ID: "TIKI-DEP001", Status: "done"}
-	dep2 := &taskFixture{ID: "TIKI-DEP002", Status: "ready"}
+	dep1 := &tikiFixture{ID: "TIKI-DEP001", Status: "done"}
+	dep2 := &tikiFixture{ID: "TIKI-DEP002", Status: "ready"}
 	tc := &TriggerContext{
-		Old: tikiFromFixture(&taskFixture{ID: "TIKI-000001", Status: "ready", DependsOn: []string{"TIKI-DEP001", "TIKI-DEP002"}}),
-		New: tikiFromFixture(&taskFixture{ID: "TIKI-000001", Status: "inProgress", DependsOn: []string{"TIKI-DEP001", "TIKI-DEP002"}}),
-		AllTikis: tikisFromFixtures([]*taskFixture{
+		Old: tikiFromFixture(&tikiFixture{ID: "TIKI-000001", Status: "ready", DependsOn: []string{"TIKI-DEP001", "TIKI-DEP002"}}),
+		New: tikiFromFixture(&tikiFixture{ID: "TIKI-000001", Status: "inProgress", DependsOn: []string{"TIKI-DEP001", "TIKI-DEP002"}}),
+		AllTikis: tikisFromFixtures([]*tikiFixture{
 			{ID: "TIKI-000001", Status: "inProgress", DependsOn: []string{"TIKI-DEP001", "TIKI-DEP002"}},
 			dep1, dep2,
 		}),
@@ -1585,8 +1585,8 @@ func TestEvalQuantifierOverride_AllEmptyList(t *testing.T) {
 
 	presentEmpty := map[string]interface{}{"dependsOn": ""}
 	tc := &TriggerContext{
-		Old: tikiFromFixture(&taskFixture{ID: "TIKI-000001", DependsOn: []string{}, IsWorkflow: true, WorkflowFrontmatter: presentEmpty}),
-		New: tikiFromFixture(&taskFixture{ID: "TIKI-000001", DependsOn: []string{}, IsWorkflow: true, WorkflowFrontmatter: presentEmpty}),
+		Old: tikiFromFixture(&tikiFixture{ID: "TIKI-000001", DependsOn: []string{}, IsWorkflow: true, WorkflowFrontmatter: presentEmpty}),
+		New: tikiFromFixture(&tikiFixture{ID: "TIKI-000001", DependsOn: []string{}, IsWorkflow: true, WorkflowFrontmatter: presentEmpty}),
 	}
 
 	ok, err := te.EvalGuard(trig, tc)
@@ -1610,8 +1610,8 @@ func TestEvalFunctionCallOverride_DelegateNow(t *testing.T) {
 
 	recent := time.Now()
 	tc := &TriggerContext{
-		Old: tikiFromFixture(&taskFixture{ID: "TIKI-000001", UpdatedAt: recent}),
-		New: tikiFromFixture(&taskFixture{ID: "TIKI-000001", UpdatedAt: recent}),
+		Old: tikiFromFixture(&tikiFixture{ID: "TIKI-000001", UpdatedAt: recent}),
+		New: tikiFromFixture(&tikiFixture{ID: "TIKI-000001", UpdatedAt: recent}),
 	}
 
 	// should not error — now() delegates to base
@@ -1632,8 +1632,8 @@ func TestEvalFunctionCallOverride_User(t *testing.T) {
 	}
 
 	tc := &TriggerContext{
-		Old: tikiFromFixture(&taskFixture{ID: "TIKI-000001", Assignee: "alice"}),
-		New: tikiFromFixture(&taskFixture{ID: "TIKI-000001", Assignee: "alice"}),
+		Old: tikiFromFixture(&tikiFixture{ID: "TIKI-000001", Assignee: "alice"}),
+		New: tikiFromFixture(&tikiFixture{ID: "TIKI-000001", Assignee: "alice"}),
 	}
 
 	ok, err := te.EvalGuard(trig, tc)
@@ -1661,9 +1661,9 @@ func TestExecuteCreate_ErrorInEvalExpr(t *testing.T) {
 		},
 	}
 	tc := &TriggerContext{
-		Old:      tikiFromFixture(&taskFixture{ID: "TIKI-000001"}),
-		New:      tikiFromFixture(&taskFixture{ID: "TIKI-000001"}),
-		AllTikis: tikisFromFixtures([]*taskFixture{{ID: "TIKI-000001"}}),
+		Old:      tikiFromFixture(&tikiFixture{ID: "TIKI-000001"}),
+		New:      tikiFromFixture(&tikiFixture{ID: "TIKI-000001"}),
+		AllTikis: tikisFromFixtures([]*tikiFixture{{ID: "TIKI-000001"}}),
 	}
 	_, err := te.testExecAction(trig, tc)
 	if err == nil {
@@ -1692,9 +1692,9 @@ func TestExecuteUpdate_ErrorInEvalExpr(t *testing.T) {
 		},
 	}
 	tc := &TriggerContext{
-		Old:      tikiFromFixture(&taskFixture{ID: "TIKI-000001"}),
-		New:      tikiFromFixture(&taskFixture{ID: "TIKI-000001"}),
-		AllTikis: tikisFromFixtures([]*taskFixture{{ID: "TIKI-000001"}}),
+		Old:      tikiFromFixture(&tikiFixture{ID: "TIKI-000001"}),
+		New:      tikiFromFixture(&tikiFixture{ID: "TIKI-000001"}),
+		AllTikis: tikisFromFixtures([]*tikiFixture{{ID: "TIKI-000001"}}),
 	}
 	_, err := te.testExecAction(trig, tc)
 	if err == nil {
@@ -1720,9 +1720,9 @@ func TestExecuteDelete_ErrorInFilterTasks(t *testing.T) {
 		},
 	}
 	tc := &TriggerContext{
-		Old:      tikiFromFixture(&taskFixture{ID: "TIKI-000001"}),
-		New:      tikiFromFixture(&taskFixture{ID: "TIKI-000001"}),
-		AllTikis: tikisFromFixtures([]*taskFixture{{ID: "TIKI-000001"}}),
+		Old:      tikiFromFixture(&tikiFixture{ID: "TIKI-000001"}),
+		New:      tikiFromFixture(&tikiFixture{ID: "TIKI-000001"}),
+		AllTikis: tikisFromFixtures([]*tikiFixture{{ID: "TIKI-000001"}}),
 	}
 	_, err := te.testExecAction(trig, tc)
 	if err == nil {
@@ -1747,9 +1747,9 @@ func TestEvalBlocksOverride_ErrorInEvalExpr(t *testing.T) {
 		},
 	}
 	tc := &TriggerContext{
-		Old:      tikiFromFixture(&taskFixture{ID: "TIKI-000001"}),
-		New:      tikiFromFixture(&taskFixture{ID: "TIKI-000001"}),
-		AllTikis: tikisFromFixtures([]*taskFixture{{ID: "TIKI-000001"}}),
+		Old:      tikiFromFixture(&tikiFixture{ID: "TIKI-000001"}),
+		New:      tikiFromFixture(&tikiFixture{ID: "TIKI-000001"}),
+		AllTikis: tikisFromFixtures([]*tikiFixture{{ID: "TIKI-000001"}}),
 	}
 	_, err := te.testExecAction(trig, tc)
 	if err == nil {
@@ -1773,9 +1773,9 @@ func TestEvalNextDateOverride_ErrorInEvalExpr(t *testing.T) {
 		},
 	}
 	tc := &TriggerContext{
-		Old:      tikiFromFixture(&taskFixture{ID: "TIKI-000001"}),
-		New:      tikiFromFixture(&taskFixture{ID: "TIKI-000001"}),
-		AllTikis: tikisFromFixtures([]*taskFixture{{ID: "TIKI-000001"}}),
+		Old:      tikiFromFixture(&tikiFixture{ID: "TIKI-000001"}),
+		New:      tikiFromFixture(&tikiFixture{ID: "TIKI-000001"}),
+		AllTikis: tikisFromFixtures([]*tikiFixture{{ID: "TIKI-000001"}}),
 	}
 	_, err := te.testExecAction(trig, tc)
 	if err == nil {
@@ -1799,9 +1799,9 @@ func TestEvalNextDateOverride_NonRecurrenceValue(t *testing.T) {
 		},
 	}
 	tc := &TriggerContext{
-		Old:      tikiFromFixture(&taskFixture{ID: "TIKI-000001", Title: "hello"}),
-		New:      tikiFromFixture(&taskFixture{ID: "TIKI-000001", Title: "hello"}),
-		AllTikis: tikisFromFixtures([]*taskFixture{{ID: "TIKI-000001", Title: "hello"}}),
+		Old:      tikiFromFixture(&tikiFixture{ID: "TIKI-000001", Title: "hello"}),
+		New:      tikiFromFixture(&tikiFixture{ID: "TIKI-000001", Title: "hello"}),
+		AllTikis: tikisFromFixtures([]*tikiFixture{{ID: "TIKI-000001", Title: "hello"}}),
 	}
 	// Phase 4: strings are treated as Recurrence values; unknown
 	// recurrence patterns produce zero time (no error).
@@ -1838,11 +1838,11 @@ func TestResolveQualifiedRef_OldNil(t *testing.T) {
 		},
 	}
 
-	newTask := &taskFixture{ID: "TIKI-000001", Title: "Original", Type: "bug", Assignee: "alice"}
+	newTask := &tikiFixture{ID: "TIKI-000001", Title: "Original", Type: "bug", Assignee: "alice"}
 	tc := &TriggerContext{
 		Old:      nil,
 		New:      tikiFromFixture(newTask),
-		AllTikis: tikisFromFixtures([]*taskFixture{newTask}),
+		AllTikis: tikisFromFixtures([]*tikiFixture{newTask}),
 	}
 
 	// Phase 4: old.X on a create event hard-errors — callers must use
@@ -1863,12 +1863,12 @@ func TestResolveQualifiedRef_NewNil(t *testing.T) {
 		t.Fatalf("parse: %v", err)
 	}
 
-	deleted := &taskFixture{ID: "TIKI-DEL001"}
-	downstream := &taskFixture{ID: "TIKI-DOWN01", DependsOn: []string{"TIKI-DEL001"}}
+	deleted := &tikiFixture{ID: "TIKI-DEL001"}
+	downstream := &tikiFixture{ID: "TIKI-DOWN01", DependsOn: []string{"TIKI-DEL001"}}
 	tc := &TriggerContext{
 		Old:      tikiFromFixture(deleted),
 		New:      nil,
-		AllTikis: tikisFromFixtures([]*taskFixture{downstream}),
+		AllTikis: tikisFromFixtures([]*tikiFixture{downstream}),
 	}
 
 	result, err := te.testExecAction(trig, tc)
@@ -1881,7 +1881,7 @@ func TestResolveQualifiedRef_NewNil(t *testing.T) {
 }
 
 func TestBlocksLookup_NoBlockers(t *testing.T) {
-	tasks := []*taskFixture{
+	tasks := []*tikiFixture{
 		{ID: "TIKI-AAA001", DependsOn: []string{"TIKI-OTHER1"}},
 	}
 	blockers := blocksLookup("TIKI-NOPE00", tikisFromFixtures(tasks))
@@ -1907,9 +1907,9 @@ func TestEvalCountOverride_ErrorInCondition(t *testing.T) {
 		Deny: strPtr("blocked"),
 	}
 	tc := &TriggerContext{
-		Old:      tikiFromFixture(&taskFixture{ID: "TIKI-000001"}),
-		New:      tikiFromFixture(&taskFixture{ID: "TIKI-000001"}),
-		AllTikis: tikisFromFixtures([]*taskFixture{{ID: "TIKI-000001"}}),
+		Old:      tikiFromFixture(&tikiFixture{ID: "TIKI-000001"}),
+		New:      tikiFromFixture(&tikiFixture{ID: "TIKI-000001"}),
+		AllTikis: tikisFromFixtures([]*tikiFixture{{ID: "TIKI-000001"}}),
 	}
 	_, err := te.EvalGuard(trig, tc)
 	if err == nil {
@@ -1932,8 +1932,8 @@ func TestEvalCondition_AndShortCircuitFalse(t *testing.T) {
 	}
 
 	tc := &TriggerContext{
-		Old: tikiFromFixture(&taskFixture{ID: "TIKI-000001", Status: "ready"}),
-		New: tikiFromFixture(&taskFixture{ID: "TIKI-000001", Status: "done"}),
+		Old: tikiFromFixture(&tikiFixture{ID: "TIKI-000001", Status: "ready"}),
+		New: tikiFromFixture(&tikiFixture{ID: "TIKI-000001", Status: "done"}),
 	}
 
 	ok, err := te.EvalGuard(trig, tc)
@@ -1968,8 +1968,8 @@ func TestEvalCondition_OrShortCircuitTrue(t *testing.T) {
 	}
 
 	tc := &TriggerContext{
-		Old: tikiFromFixture(&taskFixture{ID: "TIKI-000001", Status: "ready"}),
-		New: tikiFromFixture(&taskFixture{ID: "TIKI-000001", Status: "inProgress"}),
+		Old: tikiFromFixture(&tikiFixture{ID: "TIKI-000001", Status: "ready"}),
+		New: tikiFromFixture(&tikiFixture{ID: "TIKI-000001", Status: "inProgress"}),
 	}
 
 	ok, err := te.EvalGuard(trig, tc)
@@ -1994,8 +1994,8 @@ func TestEvalInOverride_StringListFromField(t *testing.T) {
 	}
 
 	tc := &TriggerContext{
-		Old: tikiFromFixture(&taskFixture{ID: "TIKI-000001", Tags: []string{"bug", "api"}}),
-		New: tikiFromFixture(&taskFixture{ID: "TIKI-000001", Tags: []string{"bug", "api"}}),
+		Old: tikiFromFixture(&tikiFixture{ID: "TIKI-000001", Tags: []string{"bug", "api"}}),
+		New: tikiFromFixture(&tikiFixture{ID: "TIKI-000001", Tags: []string{"bug", "api"}}),
 	}
 
 	ok, err := te.EvalGuard(trig, tc)
@@ -2017,8 +2017,8 @@ func TestEvalInOverride_NotIn(t *testing.T) {
 	}
 
 	tc := &TriggerContext{
-		Old: tikiFromFixture(&taskFixture{ID: "TIKI-000001", Tags: []string{"bug"}}),
-		New: tikiFromFixture(&taskFixture{ID: "TIKI-000001", Tags: []string{"bug"}}),
+		Old: tikiFromFixture(&tikiFixture{ID: "TIKI-000001", Tags: []string{"bug"}}),
+		New: tikiFromFixture(&tikiFixture{ID: "TIKI-000001", Tags: []string{"bug"}}),
 	}
 
 	ok, err := te.EvalGuard(trig, tc)
@@ -2047,8 +2047,8 @@ func TestEvalQuantifierOverride_AllWithEmptyList(t *testing.T) {
 
 	presentEmpty := map[string]interface{}{"dependsOn": ""}
 	tc := &TriggerContext{
-		Old: tikiFromFixture(&taskFixture{ID: "TIKI-000001", DependsOn: []string{}, WorkflowFrontmatter: presentEmpty}),
-		New: tikiFromFixture(&taskFixture{ID: "TIKI-000001", DependsOn: []string{}, WorkflowFrontmatter: presentEmpty}),
+		Old: tikiFromFixture(&tikiFixture{ID: "TIKI-000001", DependsOn: []string{}, WorkflowFrontmatter: presentEmpty}),
+		New: tikiFromFixture(&tikiFixture{ID: "TIKI-000001", DependsOn: []string{}, WorkflowFrontmatter: presentEmpty}),
 	}
 
 	ok, err := te.EvalGuard(trig, tc)
@@ -2078,8 +2078,8 @@ func TestEvalCondition_NotOverride(t *testing.T) {
 	}
 
 	tc := &TriggerContext{
-		Old: tikiFromFixture(&taskFixture{ID: "TIKI-000001", Status: "ready"}),
-		New: tikiFromFixture(&taskFixture{ID: "TIKI-000001", Status: "ready"}),
+		Old: tikiFromFixture(&tikiFixture{ID: "TIKI-000001", Status: "ready"}),
+		New: tikiFromFixture(&tikiFixture{ID: "TIKI-000001", Status: "ready"}),
 	}
 
 	ok, err := te.EvalGuard(trig, tc)
@@ -2108,7 +2108,7 @@ func TestEvalCondition_IsEmptyOverride(t *testing.T) {
 	// Phase 5: `is empty` only matches present-but-empty fields. Mark
 	// assignee as present explicitly so the trigger fires.
 	tc := &TriggerContext{
-		New: tikiFromFixture(&taskFixture{
+		New: tikiFromFixture(&tikiFixture{
 			ID: "TIKI-000001", Assignee: "",
 			IsWorkflow:          true,
 			WorkflowFrontmatter: map[string]interface{}{"assignee": ""},
@@ -2137,7 +2137,7 @@ func TestEvalCondition_IsNotEmptyOverride(t *testing.T) {
 	}
 
 	tc := &TriggerContext{
-		New: tikiFromFixture(&taskFixture{ID: "TIKI-000001", Assignee: "alice"}),
+		New: tikiFromFixture(&tikiFixture{ID: "TIKI-000001", Assignee: "alice"}),
 	}
 
 	ok, err := te.EvalGuard(trig, tc)
@@ -2161,15 +2161,15 @@ func TestEvalExprRecursive_BinaryExprSubtract(t *testing.T) {
 		t.Fatalf("parse: %v", err)
 	}
 
-	dep := &taskFixture{ID: "DEP001", Status: "done"}
-	downstream := &taskFixture{
+	dep := &tikiFixture{ID: "DEP001", Status: "done"}
+	downstream := &tikiFixture{
 		ID: "DOWN01", Status: "ready",
 		DependsOn: []string{"DEP001", "OTHER1"},
 	}
 	tc := &TriggerContext{
 		Old:      tikiFromFixture(dep),
 		New:      nil,
-		AllTikis: tikisFromFixtures([]*taskFixture{dep, downstream}),
+		AllTikis: tikisFromFixtures([]*tikiFixture{dep, downstream}),
 	}
 
 	result, err := te.testExecAction(trig, tc)
@@ -2196,11 +2196,11 @@ func TestEvalExprRecursive_ListLiteralInAction(t *testing.T) {
 		t.Fatalf("parse: %v", err)
 	}
 
-	newTask := &taskFixture{ID: "TIKI-000001", Status: "ready"}
+	newTask := &tikiFixture{ID: "TIKI-000001", Status: "ready"}
 	tc := &TriggerContext{
 		Old:      nil,
 		New:      tikiFromFixture(newTask),
-		AllTikis: tikisFromFixtures([]*taskFixture{newTask}),
+		AllTikis: tikisFromFixtures([]*tikiFixture{newTask}),
 	}
 
 	result, err := te.testExecAction(trig, tc)
@@ -2226,8 +2226,8 @@ func TestExecRun_ErrorInEvalExpr(t *testing.T) {
 		Run:    &RunAction{Command: &QualifiedRef{Qualifier: "mid", Name: "title"}},
 	}
 	tc := &TriggerContext{
-		Old: tikiFromFixture(&taskFixture{ID: "TIKI-000001"}),
-		New: tikiFromFixture(&taskFixture{ID: "TIKI-000001"}),
+		Old: tikiFromFixture(&tikiFixture{ID: "TIKI-000001"}),
+		New: tikiFromFixture(&tikiFixture{ID: "TIKI-000001"}),
 	}
 	_, err := te.ExecRun(trig, tc)
 	if err == nil {
@@ -2259,9 +2259,9 @@ func TestEvalExprRecursive_BinaryExprLeftError(t *testing.T) {
 		},
 	}
 	tc := &TriggerContext{
-		Old:      tikiFromFixture(&taskFixture{ID: "TIKI-000001"}),
-		New:      tikiFromFixture(&taskFixture{ID: "TIKI-000001"}),
-		AllTikis: tikisFromFixtures([]*taskFixture{{ID: "TIKI-000001"}}),
+		Old:      tikiFromFixture(&tikiFixture{ID: "TIKI-000001"}),
+		New:      tikiFromFixture(&tikiFixture{ID: "TIKI-000001"}),
+		AllTikis: tikisFromFixtures([]*tikiFixture{{ID: "TIKI-000001"}}),
 	}
 	_, err := te.testExecAction(trig, tc)
 	if err == nil {
@@ -2290,9 +2290,9 @@ func TestEvalExprRecursive_BinaryExprRightError(t *testing.T) {
 		},
 	}
 	tc := &TriggerContext{
-		Old:      tikiFromFixture(&taskFixture{ID: "TIKI-000001"}),
-		New:      tikiFromFixture(&taskFixture{ID: "TIKI-000001"}),
-		AllTikis: tikisFromFixtures([]*taskFixture{{ID: "TIKI-000001"}}),
+		Old:      tikiFromFixture(&tikiFixture{ID: "TIKI-000001"}),
+		New:      tikiFromFixture(&tikiFixture{ID: "TIKI-000001"}),
+		AllTikis: tikisFromFixtures([]*tikiFixture{{ID: "TIKI-000001"}}),
 	}
 	_, err := te.testExecAction(trig, tc)
 	if err == nil {
@@ -2319,9 +2319,9 @@ func TestEvalExprRecursive_ListLiteralError(t *testing.T) {
 		},
 	}
 	tc := &TriggerContext{
-		Old:      tikiFromFixture(&taskFixture{ID: "TIKI-000001"}),
-		New:      tikiFromFixture(&taskFixture{ID: "TIKI-000001"}),
-		AllTikis: tikisFromFixtures([]*taskFixture{{ID: "TIKI-000001"}}),
+		Old:      tikiFromFixture(&tikiFixture{ID: "TIKI-000001"}),
+		New:      tikiFromFixture(&tikiFixture{ID: "TIKI-000001"}),
+		AllTikis: tikisFromFixtures([]*tikiFixture{{ID: "TIKI-000001"}}),
 	}
 	_, err := te.testExecAction(trig, tc)
 	if err == nil {
@@ -2346,8 +2346,8 @@ func TestEvalCondition_BinaryConditionLeftError(t *testing.T) {
 		Deny: strPtr("blocked"),
 	}
 	tc := &TriggerContext{
-		Old: tikiFromFixture(&taskFixture{ID: "TIKI-000001"}),
-		New: tikiFromFixture(&taskFixture{ID: "TIKI-000001"}),
+		Old: tikiFromFixture(&tikiFixture{ID: "TIKI-000001"}),
+		New: tikiFromFixture(&tikiFixture{ID: "TIKI-000001"}),
 	}
 	_, err := te.EvalGuard(trig, tc)
 	if err == nil {
@@ -2368,8 +2368,8 @@ func TestEvalCondition_NotConditionError(t *testing.T) {
 		Deny: strPtr("blocked"),
 	}
 	tc := &TriggerContext{
-		Old: tikiFromFixture(&taskFixture{ID: "TIKI-000001"}),
-		New: tikiFromFixture(&taskFixture{ID: "TIKI-000001"}),
+		Old: tikiFromFixture(&tikiFixture{ID: "TIKI-000001"}),
+		New: tikiFromFixture(&tikiFixture{ID: "TIKI-000001"}),
 	}
 	_, err := te.EvalGuard(trig, tc)
 	if err == nil {
@@ -2388,8 +2388,8 @@ func TestEvalCondition_IsEmptyExprError(t *testing.T) {
 		Deny: strPtr("blocked"),
 	}
 	tc := &TriggerContext{
-		Old: tikiFromFixture(&taskFixture{ID: "TIKI-000001"}),
-		New: tikiFromFixture(&taskFixture{ID: "TIKI-000001"}),
+		Old: tikiFromFixture(&tikiFixture{ID: "TIKI-000001"}),
+		New: tikiFromFixture(&tikiFixture{ID: "TIKI-000001"}),
 	}
 	_, err := te.EvalGuard(trig, tc)
 	if err == nil {
@@ -2409,8 +2409,8 @@ func TestEvalInOverride_ValueEvalError(t *testing.T) {
 		Deny: strPtr("blocked"),
 	}
 	tc := &TriggerContext{
-		Old: tikiFromFixture(&taskFixture{ID: "TIKI-000001", Tags: []string{"a"}}),
-		New: tikiFromFixture(&taskFixture{ID: "TIKI-000001", Tags: []string{"a"}}),
+		Old: tikiFromFixture(&tikiFixture{ID: "TIKI-000001", Tags: []string{"a"}}),
+		New: tikiFromFixture(&tikiFixture{ID: "TIKI-000001", Tags: []string{"a"}}),
 	}
 	_, err := te.EvalGuard(trig, tc)
 	if err == nil {
@@ -2430,8 +2430,8 @@ func TestEvalInOverride_CollectionEvalError(t *testing.T) {
 		Deny: strPtr("blocked"),
 	}
 	tc := &TriggerContext{
-		Old: tikiFromFixture(&taskFixture{ID: "TIKI-000001"}),
-		New: tikiFromFixture(&taskFixture{ID: "TIKI-000001"}),
+		Old: tikiFromFixture(&tikiFixture{ID: "TIKI-000001"}),
+		New: tikiFromFixture(&tikiFixture{ID: "TIKI-000001"}),
 	}
 	_, err := te.EvalGuard(trig, tc)
 	if err == nil {
@@ -2449,8 +2449,8 @@ func TestEvalInOverride_NegatedSubstring(t *testing.T) {
 	}
 
 	tc := &TriggerContext{
-		Old: tikiFromFixture(&taskFixture{ID: "TIKI-000001", Title: "hello world"}),
-		New: tikiFromFixture(&taskFixture{ID: "TIKI-000001", Title: "hello world"}),
+		Old: tikiFromFixture(&tikiFixture{ID: "TIKI-000001", Title: "hello world"}),
+		New: tikiFromFixture(&tikiFixture{ID: "TIKI-000001", Title: "hello world"}),
 	}
 	ok, err := te.EvalGuard(trig, tc)
 	if err != nil {
@@ -2461,7 +2461,7 @@ func TestEvalInOverride_NegatedSubstring(t *testing.T) {
 	}
 
 	// when substring IS found, negated should be false
-	tc.New = tikiFromFixture(&taskFixture{ID: "TIKI-000001", Title: "hello xyz world"})
+	tc.New = tikiFromFixture(&tikiFixture{ID: "TIKI-000001", Title: "hello xyz world"})
 	ok, err = te.EvalGuard(trig, tc)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -2486,8 +2486,8 @@ func TestEvalQuantifierOverride_ExprEvalError(t *testing.T) {
 		Deny: strPtr("blocked"),
 	}
 	tc := &TriggerContext{
-		Old: tikiFromFixture(&taskFixture{ID: "TIKI-000001"}),
-		New: tikiFromFixture(&taskFixture{ID: "TIKI-000001"}),
+		Old: tikiFromFixture(&tikiFixture{ID: "TIKI-000001"}),
+		New: tikiFromFixture(&tikiFixture{ID: "TIKI-000001"}),
 	}
 	_, err := te.EvalGuard(trig, tc)
 	if err == nil {
@@ -2509,11 +2509,11 @@ func TestEvalQuantifierOverride_AnyConditionError(t *testing.T) {
 		},
 		Deny: strPtr("blocked"),
 	}
-	dep := &taskFixture{ID: "TIKI-DEP001", Status: "done"}
+	dep := &tikiFixture{ID: "TIKI-DEP001", Status: "done"}
 	tc := &TriggerContext{
-		Old:      tikiFromFixture(&taskFixture{ID: "TIKI-000001", DependsOn: []string{"TIKI-DEP001"}}),
-		New:      tikiFromFixture(&taskFixture{ID: "TIKI-000001", DependsOn: []string{"TIKI-DEP001"}}),
-		AllTikis: tikisFromFixtures([]*taskFixture{{ID: "TIKI-000001", DependsOn: []string{"TIKI-DEP001"}}, dep}),
+		Old:      tikiFromFixture(&tikiFixture{ID: "TIKI-000001", DependsOn: []string{"TIKI-DEP001"}}),
+		New:      tikiFromFixture(&tikiFixture{ID: "TIKI-000001", DependsOn: []string{"TIKI-DEP001"}}),
+		AllTikis: tikisFromFixtures([]*tikiFixture{{ID: "TIKI-000001", DependsOn: []string{"TIKI-DEP001"}}, dep}),
 	}
 	// Phase 4: per-ref-task body errors soft-false inside a quantifier,
 	// so unknown qualifier no longer aborts the outer guard — it just
@@ -2541,11 +2541,11 @@ func TestEvalQuantifierOverride_AllConditionError(t *testing.T) {
 		},
 		Deny: strPtr("blocked"),
 	}
-	dep := &taskFixture{ID: "TIKI-DEP001", Status: "done"}
+	dep := &tikiFixture{ID: "TIKI-DEP001", Status: "done"}
 	tc := &TriggerContext{
-		Old:      tikiFromFixture(&taskFixture{ID: "TIKI-000001", DependsOn: []string{"TIKI-DEP001"}}),
-		New:      tikiFromFixture(&taskFixture{ID: "TIKI-000001", DependsOn: []string{"TIKI-DEP001"}}),
-		AllTikis: tikisFromFixtures([]*taskFixture{{ID: "TIKI-000001", DependsOn: []string{"TIKI-DEP001"}}, dep}),
+		Old:      tikiFromFixture(&tikiFixture{ID: "TIKI-000001", DependsOn: []string{"TIKI-DEP001"}}),
+		New:      tikiFromFixture(&tikiFixture{ID: "TIKI-000001", DependsOn: []string{"TIKI-DEP001"}}),
+		AllTikis: tikisFromFixtures([]*tikiFixture{{ID: "TIKI-000001", DependsOn: []string{"TIKI-DEP001"}}, dep}),
 	}
 	// Phase 4: body errors fail the `all` quantifier for that ref —
 	// the overall guard does not match but does not error.
@@ -2574,9 +2574,9 @@ func TestExecuteCreate_SetFieldError(t *testing.T) {
 		},
 	}
 	tc := &TriggerContext{
-		Old:      tikiFromFixture(&taskFixture{ID: "TIKI-000001"}),
-		New:      tikiFromFixture(&taskFixture{ID: "TIKI-000001"}),
-		AllTikis: tikisFromFixtures([]*taskFixture{{ID: "TIKI-000001"}}),
+		Old:      tikiFromFixture(&tikiFixture{ID: "TIKI-000001"}),
+		New:      tikiFromFixture(&tikiFixture{ID: "TIKI-000001"}),
+		AllTikis: tikisFromFixtures([]*tikiFixture{{ID: "TIKI-000001"}}),
 	}
 	_, err := te.testExecAction(trig, tc)
 	if err == nil {
@@ -2605,9 +2605,9 @@ func TestExecuteUpdate_SetFieldError(t *testing.T) {
 		},
 	}
 	tc := &TriggerContext{
-		Old:      tikiFromFixture(&taskFixture{ID: "TIKI-000001"}),
-		New:      tikiFromFixture(&taskFixture{ID: "TIKI-000001"}),
-		AllTikis: tikisFromFixtures([]*taskFixture{{ID: "TIKI-000001"}}),
+		Old:      tikiFromFixture(&tikiFixture{ID: "TIKI-000001"}),
+		New:      tikiFromFixture(&tikiFixture{ID: "TIKI-000001"}),
+		AllTikis: tikisFromFixtures([]*tikiFixture{{ID: "TIKI-000001"}}),
 	}
 	_, err := te.testExecAction(trig, tc)
 	if err == nil {
@@ -2621,9 +2621,9 @@ func TestExecuteUpdate_SetFieldError(t *testing.T) {
 func TestExecuteNilStatement_Override(t *testing.T) {
 	te := newTestTriggerExecutor()
 	tc := &TriggerContext{
-		Old:      tikiFromFixture(&taskFixture{ID: "TIKI-000001"}),
-		New:      tikiFromFixture(&taskFixture{ID: "TIKI-000001"}),
-		AllTikis: tikisFromFixtures([]*taskFixture{{ID: "TIKI-000001"}}),
+		Old:      tikiFromFixture(&tikiFixture{ID: "TIKI-000001"}),
+		New:      tikiFromFixture(&tikiFixture{ID: "TIKI-000001"}),
+		AllTikis: tikisFromFixtures([]*tikiFixture{{ID: "TIKI-000001"}}),
 	}
 	exec := te.newExecWithOverrides(tc)
 	_, err := exec.Execute(nil, tc.AllTikis)
@@ -2653,8 +2653,8 @@ func TestEvalCondition_OrBothFalse(t *testing.T) {
 		Deny: strPtr("blocked"),
 	}
 	tc := &TriggerContext{
-		Old: tikiFromFixture(&taskFixture{ID: "TIKI-000001", Status: "ready", Points: 3}),
-		New: tikiFromFixture(&taskFixture{ID: "TIKI-000001", Status: "ready", Points: 3}),
+		Old: tikiFromFixture(&tikiFixture{ID: "TIKI-000001", Status: "ready", Points: 3}),
+		New: tikiFromFixture(&tikiFixture{ID: "TIKI-000001", Status: "ready", Points: 3}),
 	}
 	ok, err := te.EvalGuard(trig, tc)
 	if err != nil {
@@ -2684,7 +2684,7 @@ func TestResolveQualifiedRef_NewNilHardErrors(t *testing.T) {
 	// type explicitly.
 	te := newTestTriggerExecutor()
 	tc := &TriggerContext{
-		Old: tikiFromFixture(&taskFixture{ID: "TIKI-000001", Status: "ready"}),
+		Old: tikiFromFixture(&tikiFixture{ID: "TIKI-000001", Status: "ready"}),
 		New: nil,
 	}
 	exec := te.newExecWithOverrides(tc)
@@ -2697,8 +2697,8 @@ func TestResolveQualifiedRef_NewNilHardErrors(t *testing.T) {
 func TestEvalExprRecursive_FieldRef(t *testing.T) {
 	te := newTestTriggerExecutor()
 	tc := &TriggerContext{
-		Old: tikiFromFixture(&taskFixture{ID: "TIKI-000001"}),
-		New: tikiFromFixture(&taskFixture{ID: "TIKI-000001", Title: "my title"}),
+		Old: tikiFromFixture(&tikiFixture{ID: "TIKI-000001"}),
+		New: tikiFromFixture(&tikiFixture{ID: "TIKI-000001", Title: "my title"}),
 	}
 	exec := te.newExecWithOverrides(tc)
 	val, err := exec.evalExprRecursive(&FieldRef{Name: "title"}, evalContext{current: tc.New})
@@ -2727,10 +2727,10 @@ func TestEvalQuantifierOverride_AnyNoMatch(t *testing.T) {
 		Deny: strPtr("blocked"),
 	}
 
-	dep := &taskFixture{ID: "TIKI-DEP001", Status: "ready", Type: "story"}
-	main := &taskFixture{ID: "TIKI-000001", Status: "ready", Type: "story", DependsOn: []string{"TIKI-DEP001"}}
+	dep := &tikiFixture{ID: "TIKI-DEP001", Status: "ready", Type: "story"}
+	main := &tikiFixture{ID: "TIKI-000001", Status: "ready", Type: "story", DependsOn: []string{"TIKI-DEP001"}}
 
-	tc := &TriggerContext{Old: tikiFromFixture(main), New: tikiFromFixture(main), AllTikis: tikisFromFixtures([]*taskFixture{dep, main})}
+	tc := &TriggerContext{Old: tikiFromFixture(main), New: tikiFromFixture(main), AllTikis: tikisFromFixtures([]*tikiFixture{dep, main})}
 	ok, err := te.EvalGuard(trig, tc)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -2743,9 +2743,9 @@ func TestEvalQuantifierOverride_AnyNoMatch(t *testing.T) {
 func TestEvalCountOverride_NonSubQueryArg(t *testing.T) {
 	te := newTestTriggerExecutor()
 	tc := &TriggerContext{
-		Old:      tikiFromFixture(&taskFixture{ID: "TIKI-000001"}),
-		New:      tikiFromFixture(&taskFixture{ID: "TIKI-000001"}),
-		AllTikis: tikisFromFixtures([]*taskFixture{{ID: "TIKI-000001"}}),
+		Old:      tikiFromFixture(&tikiFixture{ID: "TIKI-000001"}),
+		New:      tikiFromFixture(&tikiFixture{ID: "TIKI-000001"}),
+		AllTikis: tikisFromFixtures([]*tikiFixture{{ID: "TIKI-000001"}}),
 	}
 	exec := te.newExecWithOverrides(tc)
 	_, err := exec.evalCountOverride(&FunctionCall{
@@ -2763,9 +2763,9 @@ func TestEvalCountOverride_NonSubQueryArg(t *testing.T) {
 func TestEvalExistsOverride_NonSubQueryArg(t *testing.T) {
 	te := newTestTriggerExecutor()
 	tc := &TriggerContext{
-		Old:      tikiFromFixture(&taskFixture{ID: "TIKI-000001"}),
-		New:      tikiFromFixture(&taskFixture{ID: "TIKI-000001"}),
-		AllTikis: tikisFromFixtures([]*taskFixture{{ID: "TIKI-000001"}}),
+		Old:      tikiFromFixture(&tikiFixture{ID: "TIKI-000001"}),
+		New:      tikiFromFixture(&tikiFixture{ID: "TIKI-000001"}),
+		AllTikis: tikisFromFixtures([]*tikiFixture{{ID: "TIKI-000001"}}),
 	}
 	exec := te.newExecWithOverrides(tc)
 	_, err := exec.evalExistsOverride(&FunctionCall{
@@ -2791,7 +2791,7 @@ func TestExecTimeTriggerAction_Update(t *testing.T) {
 		t.Fatalf("parse: %v", err)
 	}
 
-	tasks := []*taskFixture{
+	tasks := []*tikiFixture{
 		{ID: "TIKI-000001", Status: "inProgress", Title: "stale", Type: "story"},
 		{ID: "TIKI-000002", Status: "done", Title: "finished", Type: "story"},
 	}
@@ -2845,7 +2845,7 @@ func TestExecTimeTriggerAction_Delete(t *testing.T) {
 		t.Fatalf("parse: %v", err)
 	}
 
-	tasks := []*taskFixture{
+	tasks := []*tikiFixture{
 		{ID: "TIKI-000001", Status: "done", Title: "finished", Type: "story"},
 		{ID: "TIKI-000002", Status: "ready", Title: "active", Type: "story"},
 		{ID: "TIKI-000003", Status: "done", Title: "also done", Type: "story"},
@@ -2934,8 +2934,8 @@ func TestExecAction_UnsealedValidatedTrigger(t *testing.T) {
 	te := newTestTriggerExecutor()
 	vt := &ValidatedTrigger{} // nil seal
 	tc := &TriggerContext{
-		Old: tikiFromFixture(&taskFixture{ID: "TIKI-000001"}),
-		New: tikiFromFixture(&taskFixture{ID: "TIKI-000001"}),
+		Old: tikiFromFixture(&tikiFixture{ID: "TIKI-000001"}),
+		New: tikiFromFixture(&tikiFixture{ID: "TIKI-000001"}),
 	}
 	_, err := te.testExecAction(vt, tc)
 	if err == nil {
@@ -2956,9 +2956,9 @@ func TestExecAction_ValidatedTriggerWrongRuntime(t *testing.T) {
 		t.Fatalf("validate: %v", err)
 	}
 	tc := &TriggerContext{
-		Old:      tikiFromFixture(&taskFixture{ID: "TIKI-000001", Status: "ready"}),
-		New:      tikiFromFixture(&taskFixture{ID: "TIKI-000001", Status: "done"}),
-		AllTikis: tikisFromFixtures([]*taskFixture{{ID: "TIKI-000001", Status: "done"}}),
+		Old:      tikiFromFixture(&tikiFixture{ID: "TIKI-000001", Status: "ready"}),
+		New:      tikiFromFixture(&tikiFixture{ID: "TIKI-000001", Status: "done"}),
+		AllTikis: tikisFromFixtures([]*tikiFixture{{ID: "TIKI-000001", Status: "done"}}),
 	}
 	_, err = te.testExecAction(validated, tc)
 	if err == nil {
@@ -2973,8 +2973,8 @@ func TestExecAction_ValidatedTriggerWrongRuntime(t *testing.T) {
 func TestExecAction_UnsupportedType(t *testing.T) {
 	te := newTestTriggerExecutor()
 	tc := &TriggerContext{
-		Old: tikiFromFixture(&taskFixture{ID: "TIKI-000001"}),
-		New: tikiFromFixture(&taskFixture{ID: "TIKI-000001"}),
+		Old: tikiFromFixture(&tikiFixture{ID: "TIKI-000001"}),
+		New: tikiFromFixture(&tikiFixture{ID: "TIKI-000001"}),
 	}
 	_, err := te.testExecAction("not a trigger", tc)
 	if err == nil {
@@ -2992,11 +2992,11 @@ func TestExecAction_RawTriggerPath(t *testing.T) {
 	if err != nil {
 		t.Fatalf("parse: %v", err)
 	}
-	newTask := &taskFixture{ID: "TIKI-000001", Title: "Test", Status: "ready", Type: "story"}
+	newTask := &tikiFixture{ID: "TIKI-000001", Title: "Test", Status: "ready", Type: "story"}
 	tc := &TriggerContext{
 		Old:      nil,
 		New:      tikiFromFixture(newTask),
-		AllTikis: tikisFromFixtures([]*taskFixture{newTask}),
+		AllTikis: tikisFromFixtures([]*tikiFixture{newTask}),
 	}
 	result, err := te.testExecAction(trig, tc)
 	if err != nil {
@@ -3041,7 +3041,7 @@ func TestExecTimeTriggerAction_ValidatedNilAction(t *testing.T) {
 		},
 	}
 	// first confirm this works
-	_, err := te.testExecTimeAction(tt, []*taskFixture{
+	_, err := te.testExecTimeAction(tt, []*tikiFixture{
 		{ID: "TIKI-000001", Status: "done", Type: "story"},
 	})
 	if err != nil {
@@ -3090,7 +3090,7 @@ func TestExecTimeTriggerAction_RawTimeTriggerWithAction(t *testing.T) {
 			},
 		},
 	}
-	tasks := []*taskFixture{
+	tasks := []*tikiFixture{
 		{ID: "TIKI-000001", Status: "inProgress", Title: "stale", Type: "story"},
 		{ID: "TIKI-000002", Status: "done", Title: "done", Type: "story"},
 	}
@@ -3112,9 +3112,9 @@ func TestExecTimeTriggerAction_RawTimeTriggerWithAction(t *testing.T) {
 func TestTriggerExecOverride_Execute_UnsupportedStatementType(t *testing.T) {
 	te := newTestTriggerExecutor()
 	tc := &TriggerContext{
-		Old:      tikiFromFixture(&taskFixture{ID: "TIKI-000001"}),
-		New:      tikiFromFixture(&taskFixture{ID: "TIKI-000001"}),
-		AllTikis: tikisFromFixtures([]*taskFixture{{ID: "TIKI-000001"}}),
+		Old:      tikiFromFixture(&tikiFixture{ID: "TIKI-000001"}),
+		New:      tikiFromFixture(&tikiFixture{ID: "TIKI-000001"}),
+		AllTikis: tikisFromFixtures([]*tikiFixture{{ID: "TIKI-000001"}}),
 	}
 	exec := te.newExecWithOverrides(tc)
 	// pass a string — unsupported type
@@ -3130,9 +3130,9 @@ func TestTriggerExecOverride_Execute_UnsupportedStatementType(t *testing.T) {
 func TestTriggerExecOverride_Execute_RawStatement(t *testing.T) {
 	te := newTestTriggerExecutor()
 	tc := &TriggerContext{
-		Old:      tikiFromFixture(&taskFixture{ID: "TIKI-000001", Status: "ready"}),
-		New:      tikiFromFixture(&taskFixture{ID: "TIKI-000001", Status: "done"}),
-		AllTikis: tikisFromFixtures([]*taskFixture{{ID: "TIKI-000001", Status: "done", Type: "story"}}),
+		Old:      tikiFromFixture(&tikiFixture{ID: "TIKI-000001", Status: "ready"}),
+		New:      tikiFromFixture(&tikiFixture{ID: "TIKI-000001", Status: "done"}),
+		AllTikis: tikisFromFixtures([]*tikiFixture{{ID: "TIKI-000001", Status: "done", Type: "story"}}),
 	}
 	exec := te.newExecWithOverrides(tc)
 	// pass a raw *Statement that should go through validation inside Execute
@@ -3164,7 +3164,7 @@ func TestTriggerExecOverride_Execute_RawStatement(t *testing.T) {
 func TestEvalExprRecursive_StringLiteral(t *testing.T) {
 	te := newTestTriggerExecutor()
 	tc := &TriggerContext{
-		New: tikiFromFixture(&taskFixture{ID: "TIKI-000001"}),
+		New: tikiFromFixture(&tikiFixture{ID: "TIKI-000001"}),
 	}
 	exec := te.newExecWithOverrides(tc)
 	val, err := exec.evalExprRecursive(&StringLiteral{Value: "hello"}, evalContext{current: tc.New})
@@ -3179,7 +3179,7 @@ func TestEvalExprRecursive_StringLiteral(t *testing.T) {
 func TestEvalExprRecursive_IntLiteral(t *testing.T) {
 	te := newTestTriggerExecutor()
 	tc := &TriggerContext{
-		New: tikiFromFixture(&taskFixture{ID: "TIKI-000001"}),
+		New: tikiFromFixture(&tikiFixture{ID: "TIKI-000001"}),
 	}
 	exec := te.newExecWithOverrides(tc)
 	val, err := exec.evalExprRecursive(&IntLiteral{Value: 42}, evalContext{current: tc.New})
@@ -3194,7 +3194,7 @@ func TestEvalExprRecursive_IntLiteral(t *testing.T) {
 func TestEvalExprRecursive_DateLiteral(t *testing.T) {
 	te := newTestTriggerExecutor()
 	tc := &TriggerContext{
-		New: tikiFromFixture(&taskFixture{ID: "TIKI-000001"}),
+		New: tikiFromFixture(&tikiFixture{ID: "TIKI-000001"}),
 	}
 	exec := te.newExecWithOverrides(tc)
 	date := time.Date(2026, 1, 15, 0, 0, 0, 0, time.UTC)
@@ -3210,7 +3210,7 @@ func TestEvalExprRecursive_DateLiteral(t *testing.T) {
 func TestEvalExprRecursive_DurationLiteral(t *testing.T) {
 	te := newTestTriggerExecutor()
 	tc := &TriggerContext{
-		New: tikiFromFixture(&taskFixture{ID: "TIKI-000001"}),
+		New: tikiFromFixture(&tikiFixture{ID: "TIKI-000001"}),
 	}
 	exec := te.newExecWithOverrides(tc)
 	dur := &DurationLiteral{Value: 2, Unit: "day"}
@@ -3227,7 +3227,7 @@ func TestEvalExprRecursive_DurationLiteral(t *testing.T) {
 func TestEvalExprRecursive_EmptyLiteral(t *testing.T) {
 	te := newTestTriggerExecutor()
 	tc := &TriggerContext{
-		New: tikiFromFixture(&taskFixture{ID: "TIKI-000001"}),
+		New: tikiFromFixture(&tikiFixture{ID: "TIKI-000001"}),
 	}
 	exec := te.newExecWithOverrides(tc)
 	val, err := exec.evalExprRecursive(&EmptyLiteral{}, evalContext{current: tc.New})
@@ -3242,7 +3242,7 @@ func TestEvalExprRecursive_EmptyLiteral(t *testing.T) {
 // --- resolveRefTasks with no matching tasks ---
 
 func TestResolveRefTasks_NoMatches(t *testing.T) {
-	tasks := []*taskFixture{
+	tasks := []*tikiFixture{
 		{ID: "TIKI-000001"},
 		{ID: "TIKI-000002"},
 	}
@@ -3297,9 +3297,9 @@ func TestExecTimeTriggerAction_ValidatedCreateRequiresTemplate(t *testing.T) {
 func TestTriggerExecOverride_Execute_EmptyStatement(t *testing.T) {
 	te := newTestTriggerExecutor()
 	tc := &TriggerContext{
-		Old:      tikiFromFixture(&taskFixture{ID: "TIKI-000001"}),
-		New:      tikiFromFixture(&taskFixture{ID: "TIKI-000001"}),
-		AllTikis: tikisFromFixtures([]*taskFixture{{ID: "TIKI-000001"}}),
+		Old:      tikiFromFixture(&tikiFixture{ID: "TIKI-000001"}),
+		New:      tikiFromFixture(&tikiFixture{ID: "TIKI-000001"}),
+		AllTikis: tikisFromFixtures([]*tikiFixture{{ID: "TIKI-000001"}}),
 	}
 	exec := te.newExecWithOverrides(tc)
 	// pass a raw Statement with all nil fields — should hit "unsupported trigger action type"
@@ -3327,12 +3327,12 @@ func TestExecAction_ValidatedTriggerWithCreateAction(t *testing.T) {
 	}
 
 	tc := &TriggerContext{
-		Old:      tikiFromFixture(&taskFixture{ID: "TIKI-000001", Status: "ready"}),
-		New:      tikiFromFixture(&taskFixture{ID: "TIKI-000001", Status: "done"}),
-		AllTikis: tikisFromFixtures([]*taskFixture{{ID: "TIKI-000001", Status: "done"}}),
+		Old:      tikiFromFixture(&tikiFixture{ID: "TIKI-000001", Status: "ready"}),
+		New:      tikiFromFixture(&tikiFixture{ID: "TIKI-000001", Status: "done"}),
+		AllTikis: tikisFromFixtures([]*tikiFixture{{ID: "TIKI-000001", Status: "done"}}),
 	}
 	result, err := te.testExecAction(vt, tc, ExecutionInput{
-		CreateTemplate: tikiFromFixture(&taskFixture{Title: "template"}),
+		CreateTemplate: tikiFromFixture(&tikiFixture{Title: "template"}),
 	})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -3362,9 +3362,9 @@ func TestExecAction_ValidatedTriggerWithUpdateAction(t *testing.T) {
 	}
 
 	tc := &TriggerContext{
-		Old: tikiFromFixture(&taskFixture{ID: "TIKI-000001", Status: "ready"}),
-		New: tikiFromFixture(&taskFixture{ID: "TIKI-000001", Status: "done"}),
-		AllTikis: tikisFromFixtures([]*taskFixture{
+		Old: tikiFromFixture(&tikiFixture{ID: "TIKI-000001", Status: "ready"}),
+		New: tikiFromFixture(&tikiFixture{ID: "TIKI-000001", Status: "done"}),
+		AllTikis: tikisFromFixtures([]*tikiFixture{
 			{ID: "TIKI-000001", Status: "done"},
 			{ID: "TIKI-000002", Status: "ready"},
 		}),
@@ -3397,9 +3397,9 @@ func TestExecAction_ValidatedTriggerWithDeleteAction(t *testing.T) {
 	}
 
 	tc := &TriggerContext{
-		Old: tikiFromFixture(&taskFixture{ID: "TIKI-000001", Status: "ready"}),
-		New: tikiFromFixture(&taskFixture{ID: "TIKI-000001", Status: "done"}),
-		AllTikis: tikisFromFixtures([]*taskFixture{
+		Old: tikiFromFixture(&tikiFixture{ID: "TIKI-000001", Status: "ready"}),
+		New: tikiFromFixture(&tikiFixture{ID: "TIKI-000001", Status: "done"}),
+		AllTikis: tikisFromFixtures([]*tikiFixture{
 			{ID: "TIKI-000001", Status: "done"},
 			{ID: "TIKI-000002", Status: "ready"},
 		}),
@@ -3428,8 +3428,8 @@ func TestExecAction_ValidatedTriggerNoAction(t *testing.T) {
 		trigger: &Trigger{Timing: "before", Event: "update", Deny: strPtr("blocked")},
 	}
 	tc := &TriggerContext{
-		Old: tikiFromFixture(&taskFixture{ID: "TIKI-000001"}),
-		New: tikiFromFixture(&taskFixture{ID: "TIKI-000001"}),
+		Old: tikiFromFixture(&tikiFixture{ID: "TIKI-000001"}),
+		New: tikiFromFixture(&tikiFixture{ID: "TIKI-000001"}),
 	}
 	_, err := te.testExecAction(vt, tc)
 	if err == nil {
@@ -3455,7 +3455,7 @@ func TestExecTimeTriggerAction_ValidatedCreateWithTemplate(t *testing.T) {
 	}
 
 	result, err := te.testExecTimeAction(vtt, nil, ExecutionInput{
-		CreateTemplate: tikiFromFixture(&taskFixture{Title: "base", Type: "story"}),
+		CreateTemplate: tikiFromFixture(&tikiFixture{Title: "base", Type: "story"}),
 	})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -3485,7 +3485,7 @@ func TestExecTimeTriggerAction_ValidatedUpdate(t *testing.T) {
 		t.Fatalf("validate: %v", err)
 	}
 
-	tasks := []*taskFixture{
+	tasks := []*tikiFixture{
 		{ID: "TIKI-000001", Status: "inProgress", Type: "story"},
 		{ID: "TIKI-000002", Status: "done", Type: "story"},
 	}
@@ -3516,7 +3516,7 @@ func TestExecTimeTriggerAction_ValidatedDelete(t *testing.T) {
 		t.Fatalf("validate: %v", err)
 	}
 
-	tasks := []*taskFixture{
+	tasks := []*tikiFixture{
 		{ID: "TIKI-000001", Status: "done", Type: "story"},
 		{ID: "TIKI-000002", Status: "ready", Type: "story"},
 	}
@@ -3557,9 +3557,9 @@ func TestExecTimeTriggerAction_ValidatedNilActionSealed(t *testing.T) {
 func TestTriggerExecOverride_Execute_ValidatedStatement(t *testing.T) {
 	te := newTestTriggerExecutor()
 	tc := &TriggerContext{
-		Old: tikiFromFixture(&taskFixture{ID: "TIKI-000001", Status: "ready"}),
-		New: tikiFromFixture(&taskFixture{ID: "TIKI-000001", Status: "done"}),
-		AllTikis: tikisFromFixtures([]*taskFixture{
+		Old: tikiFromFixture(&tikiFixture{ID: "TIKI-000001", Status: "ready"}),
+		New: tikiFromFixture(&tikiFixture{ID: "TIKI-000001", Status: "done"}),
+		AllTikis: tikisFromFixtures([]*tikiFixture{
 			{ID: "TIKI-000001", Status: "done", Type: "story"},
 			{ID: "TIKI-000002", Status: "ready", Type: "story"},
 		}),
@@ -3597,9 +3597,9 @@ func TestTriggerExecOverride_Execute_ValidatedStatement(t *testing.T) {
 func TestTriggerExecOverride_Execute_ValidatedStatementRuntimeMismatch(t *testing.T) {
 	te := newTestTriggerExecutor()
 	tc := &TriggerContext{
-		Old:      tikiFromFixture(&taskFixture{ID: "TIKI-000001"}),
-		New:      tikiFromFixture(&taskFixture{ID: "TIKI-000001"}),
-		AllTikis: tikisFromFixtures([]*taskFixture{{ID: "TIKI-000001"}}),
+		Old:      tikiFromFixture(&tikiFixture{ID: "TIKI-000001"}),
+		New:      tikiFromFixture(&tikiFixture{ID: "TIKI-000001"}),
+		AllTikis: tikisFromFixtures([]*tikiFixture{{ID: "TIKI-000001"}}),
 	}
 	exec := te.newExecWithOverrides(tc)
 
@@ -3631,9 +3631,9 @@ func TestTriggerExecOverride_Execute_ValidatedStatementRuntimeMismatch(t *testin
 func TestTriggerExecOverride_Execute_ValidatedStatementCreateWithTemplate(t *testing.T) {
 	te := newTestTriggerExecutor()
 	tc := &TriggerContext{
-		Old:      tikiFromFixture(&taskFixture{ID: "TIKI-000001"}),
-		New:      tikiFromFixture(&taskFixture{ID: "TIKI-000001"}),
-		AllTikis: tikisFromFixtures([]*taskFixture{{ID: "TIKI-000001"}}),
+		Old:      tikiFromFixture(&tikiFixture{ID: "TIKI-000001"}),
+		New:      tikiFromFixture(&tikiFixture{ID: "TIKI-000001"}),
+		AllTikis: tikisFromFixtures([]*tikiFixture{{ID: "TIKI-000001"}}),
 	}
 	exec := te.newExecWithOverrides(tc)
 
@@ -3651,7 +3651,7 @@ func TestTriggerExecOverride_Execute_ValidatedStatementCreateWithTemplate(t *tes
 		},
 	}
 	result, err := exec.Execute(vs, tc.AllTikis, ExecutionInput{
-		CreateTemplate: tikiFromFixture(&taskFixture{Type: "story"}),
+		CreateTemplate: tikiFromFixture(&tikiFixture{Type: "story"}),
 	})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -3672,9 +3672,9 @@ func TestTriggerExecOverride_Execute_ValidatedStatementCreateWithTemplate(t *tes
 func TestTriggerExecOverride_Execute_ValidatedCreateMissingTemplate(t *testing.T) {
 	te := newTestTriggerExecutor()
 	tc := &TriggerContext{
-		Old:      tikiFromFixture(&taskFixture{ID: "TIKI-000001"}),
-		New:      tikiFromFixture(&taskFixture{ID: "TIKI-000001"}),
-		AllTikis: tikisFromFixtures([]*taskFixture{{ID: "TIKI-000001"}}),
+		Old:      tikiFromFixture(&tikiFixture{ID: "TIKI-000001"}),
+		New:      tikiFromFixture(&tikiFixture{ID: "TIKI-000001"}),
+		AllTikis: tikisFromFixtures([]*tikiFixture{{ID: "TIKI-000001"}}),
 	}
 	exec := te.newExecWithOverrides(tc)
 
@@ -3703,9 +3703,9 @@ func TestTriggerExecOverride_Execute_ValidatedCreateMissingTemplate(t *testing.T
 func TestTriggerExecOverride_Execute_RawCreateNoTemplate(t *testing.T) {
 	te := newTestTriggerExecutor()
 	tc := &TriggerContext{
-		Old:      tikiFromFixture(&taskFixture{ID: "TIKI-000001"}),
-		New:      tikiFromFixture(&taskFixture{ID: "TIKI-000001"}),
-		AllTikis: tikisFromFixtures([]*taskFixture{{ID: "TIKI-000001"}}),
+		Old:      tikiFromFixture(&tikiFixture{ID: "TIKI-000001"}),
+		New:      tikiFromFixture(&tikiFixture{ID: "TIKI-000001"}),
+		AllTikis: tikisFromFixtures([]*tikiFixture{{ID: "TIKI-000001"}}),
 	}
 	exec := te.newExecWithOverrides(tc)
 
@@ -3741,8 +3741,8 @@ func TestExecRun_RunSetButCommandNil(t *testing.T) {
 		Run:    &RunAction{Command: nil},
 	}
 	tc := &TriggerContext{
-		Old: tikiFromFixture(&taskFixture{ID: "TIKI-000001"}),
-		New: tikiFromFixture(&taskFixture{ID: "TIKI-000001"}),
+		Old: tikiFromFixture(&tikiFixture{ID: "TIKI-000001"}),
+		New: tikiFromFixture(&tikiFixture{ID: "TIKI-000001"}),
 	}
 	_, err := te.ExecRun(trig, tc)
 	if err == nil {
@@ -3788,16 +3788,16 @@ func TestEvalExprRecursive_QualifiedRefInsideFunctionCall(t *testing.T) {
 		t.Fatalf("parse: %v", err)
 	}
 
-	completed := &taskFixture{ID: "TIKI-000001", Status: "done"}
-	blocker := &taskFixture{
+	completed := &tikiFixture{ID: "TIKI-000001", Status: "done"}
+	blocker := &tikiFixture{
 		ID: "TIKI-000002", Status: "ready",
 		DependsOn: []string{"TIKI-000001"},
 	}
 
 	tc := &TriggerContext{
-		Old:      tikiFromFixture(&taskFixture{ID: "TIKI-000001", Status: "inProgress"}),
+		Old:      tikiFromFixture(&tikiFixture{ID: "TIKI-000001", Status: "inProgress"}),
 		New:      tikiFromFixture(completed),
-		AllTikis: tikisFromFixtures([]*taskFixture{completed, blocker}),
+		AllTikis: tikisFromFixtures([]*tikiFixture{completed, blocker}),
 	}
 
 	result, err := te.testExecAction(trig, tc)
@@ -3818,9 +3818,9 @@ func TestEvalExprRecursive_QualifiedRefInsideFunctionCall(t *testing.T) {
 func TestExecuteUpdate_Override_EvalErrorInAssignment(t *testing.T) {
 	te := newTestTriggerExecutor()
 	tc := &TriggerContext{
-		Old:      tikiFromFixture(&taskFixture{ID: "TIKI-000001", Status: "ready"}),
-		New:      tikiFromFixture(&taskFixture{ID: "TIKI-000001", Status: "done"}),
-		AllTikis: tikisFromFixtures([]*taskFixture{{ID: "TIKI-000001", Status: "done", Type: "story"}}),
+		Old:      tikiFromFixture(&tikiFixture{ID: "TIKI-000001", Status: "ready"}),
+		New:      tikiFromFixture(&tikiFixture{ID: "TIKI-000001", Status: "done"}),
+		AllTikis: tikisFromFixtures([]*tikiFixture{{ID: "TIKI-000001", Status: "done", Type: "story"}}),
 	}
 	exec := te.newExecWithOverrides(tc)
 
@@ -3857,9 +3857,9 @@ func TestExecuteUpdate_Override_EvalErrorInAssignment(t *testing.T) {
 func TestExecuteCreate_Override_EvalErrorInAssignment(t *testing.T) {
 	te := newTestTriggerExecutor()
 	tc := &TriggerContext{
-		Old:      tikiFromFixture(&taskFixture{ID: "TIKI-000001"}),
-		New:      tikiFromFixture(&taskFixture{ID: "TIKI-000001"}),
-		AllTikis: tikisFromFixtures([]*taskFixture{{ID: "TIKI-000001"}}),
+		Old:      tikiFromFixture(&tikiFixture{ID: "TIKI-000001"}),
+		New:      tikiFromFixture(&tikiFixture{ID: "TIKI-000001"}),
+		AllTikis: tikisFromFixtures([]*tikiFixture{{ID: "TIKI-000001"}}),
 	}
 	exec := te.newExecWithOverrides(tc)
 
@@ -3879,7 +3879,7 @@ func TestExecuteCreate_Override_EvalErrorInAssignment(t *testing.T) {
 		},
 	}
 	_, err := exec.Execute(vs, tc.AllTikis, ExecutionInput{
-		CreateTemplate: tikiFromFixture(&taskFixture{}),
+		CreateTemplate: tikiFromFixture(&tikiFixture{}),
 	})
 	if err == nil {
 		t.Fatal("expected error for unknown binary operator in create assignment")
@@ -3894,9 +3894,9 @@ func TestExecuteCreate_Override_EvalErrorInAssignment(t *testing.T) {
 func TestEvalCountOverride_ErrorInConditionOverride(t *testing.T) {
 	te := newTestTriggerExecutor()
 	tc := &TriggerContext{
-		Old:      tikiFromFixture(&taskFixture{ID: "TIKI-000001"}),
-		New:      tikiFromFixture(&taskFixture{ID: "TIKI-000001"}),
-		AllTikis: tikisFromFixtures([]*taskFixture{{ID: "TIKI-000001"}}),
+		Old:      tikiFromFixture(&tikiFixture{ID: "TIKI-000001"}),
+		New:      tikiFromFixture(&tikiFixture{ID: "TIKI-000001"}),
+		AllTikis: tikisFromFixtures([]*tikiFixture{{ID: "TIKI-000001"}}),
 	}
 	exec := te.newExecWithOverrides(tc)
 
@@ -3924,9 +3924,9 @@ func TestEvalCountOverride_ErrorInConditionOverride(t *testing.T) {
 func TestTriggerExecOverride_Execute_ValidatedUnsupportedAction(t *testing.T) {
 	te := newTestTriggerExecutor()
 	tc := &TriggerContext{
-		Old:      tikiFromFixture(&taskFixture{ID: "TIKI-000001"}),
-		New:      tikiFromFixture(&taskFixture{ID: "TIKI-000001"}),
-		AllTikis: tikisFromFixtures([]*taskFixture{{ID: "TIKI-000001"}}),
+		Old:      tikiFromFixture(&tikiFixture{ID: "TIKI-000001"}),
+		New:      tikiFromFixture(&tikiFixture{ID: "TIKI-000001"}),
+		AllTikis: tikisFromFixtures([]*tikiFixture{{ID: "TIKI-000001"}}),
 	}
 	exec := te.newExecWithOverrides(tc)
 
@@ -3963,8 +3963,8 @@ func TestEvalGuard_ValidatedTriggerPassesValidation(t *testing.T) {
 	}
 
 	tc := &TriggerContext{
-		Old: tikiFromFixture(&taskFixture{ID: "TIKI-000001", Status: "ready"}),
-		New: tikiFromFixture(&taskFixture{ID: "TIKI-000001", Status: "done"}),
+		Old: tikiFromFixture(&tikiFixture{ID: "TIKI-000001", Status: "ready"}),
+		New: tikiFromFixture(&tikiFixture{ID: "TIKI-000001", Status: "done"}),
 	}
 	ok, err := te.EvalGuard(vt, tc)
 	if err != nil {
@@ -3988,8 +3988,8 @@ func TestExecRun_ValidatedTriggerPassesValidation(t *testing.T) {
 	}
 
 	tc := &TriggerContext{
-		Old: tikiFromFixture(&taskFixture{ID: "TIKI-000001"}),
-		New: tikiFromFixture(&taskFixture{ID: "TIKI-000001"}),
+		Old: tikiFromFixture(&tikiFixture{ID: "TIKI-000001"}),
+		New: tikiFromFixture(&tikiFixture{ID: "TIKI-000001"}),
 	}
 	cmd, err := te.ExecRun(vt, tc)
 	if err != nil {
@@ -4005,9 +4005,9 @@ func TestExecRun_ValidatedTriggerPassesValidation(t *testing.T) {
 func TestTriggerExecOverride_Execute_UnsealedValidatedStatement(t *testing.T) {
 	te := newTestTriggerExecutor()
 	tc := &TriggerContext{
-		Old:      tikiFromFixture(&taskFixture{ID: "TIKI-000001"}),
-		New:      tikiFromFixture(&taskFixture{ID: "TIKI-000001"}),
-		AllTikis: tikisFromFixtures([]*taskFixture{{ID: "TIKI-000001"}}),
+		Old:      tikiFromFixture(&tikiFixture{ID: "TIKI-000001"}),
+		New:      tikiFromFixture(&tikiFixture{ID: "TIKI-000001"}),
+		AllTikis: tikisFromFixtures([]*tikiFixture{{ID: "TIKI-000001"}}),
 	}
 	exec := te.newExecWithOverrides(tc)
 
@@ -4036,9 +4036,9 @@ func TestTriggerExecOverride_Execute_UnsealedValidatedStatement(t *testing.T) {
 func TestExecuteUpdate_Override_SetFieldError(t *testing.T) {
 	te := newTestTriggerExecutor()
 	tc := &TriggerContext{
-		Old:      tikiFromFixture(&taskFixture{ID: "TIKI-000001"}),
-		New:      tikiFromFixture(&taskFixture{ID: "TIKI-000001"}),
-		AllTikis: tikisFromFixtures([]*taskFixture{{ID: "TIKI-000001", Type: "story"}}),
+		Old:      tikiFromFixture(&tikiFixture{ID: "TIKI-000001"}),
+		New:      tikiFromFixture(&tikiFixture{ID: "TIKI-000001"}),
+		AllTikis: tikisFromFixtures([]*tikiFixture{{ID: "TIKI-000001", Type: "story"}}),
 	}
 	exec := te.newExecWithOverrides(tc)
 
@@ -4071,9 +4071,9 @@ func TestExecuteUpdate_Override_SetFieldError(t *testing.T) {
 func TestExecuteCreate_Override_SetFieldError(t *testing.T) {
 	te := newTestTriggerExecutor()
 	tc := &TriggerContext{
-		Old:      tikiFromFixture(&taskFixture{ID: "TIKI-000001"}),
-		New:      tikiFromFixture(&taskFixture{ID: "TIKI-000001"}),
-		AllTikis: tikisFromFixtures([]*taskFixture{{ID: "TIKI-000001"}}),
+		Old:      tikiFromFixture(&tikiFixture{ID: "TIKI-000001"}),
+		New:      tikiFromFixture(&tikiFixture{ID: "TIKI-000001"}),
+		AllTikis: tikisFromFixtures([]*tikiFixture{{ID: "TIKI-000001"}}),
 	}
 	exec := te.newExecWithOverrides(tc)
 
@@ -4091,7 +4091,7 @@ func TestExecuteCreate_Override_SetFieldError(t *testing.T) {
 		},
 	}
 	_, err := exec.Execute(vs, tc.AllTikis, ExecutionInput{
-		CreateTemplate: tikiFromFixture(&taskFixture{}),
+		CreateTemplate: tikiFromFixture(&tikiFixture{}),
 	})
 	if err == nil {
 		t.Fatal("expected error for immutable field in create assignment")

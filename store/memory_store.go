@@ -26,7 +26,7 @@ type InMemoryStore struct {
 	idGenerator    func() string // injectable for testing; defaults to config.GenerateRandomID
 }
 
-func normalizeTaskID(id string) string {
+func normalizeTikiID(id string) string {
 	return strings.ToUpper(strings.TrimSpace(id))
 }
 
@@ -76,7 +76,7 @@ func (s *InMemoryStore) notifyListeners() {
 func (s *InMemoryStore) GetTiki(id string) *tikipkg.Tiki {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
-	return s.tikis[normalizeTaskID(id)]
+	return s.tikis[normalizeTikiID(id)]
 }
 
 // GetAllTikis returns every loaded tiki, including plain docs.
@@ -105,7 +105,7 @@ func (s *InMemoryStore) UpdateTiki(tk *tikipkg.Tiki) error {
 // DeleteTiki removes a tiki from the store.
 func (s *InMemoryStore) DeleteTiki(id string) {
 	s.mu.Lock()
-	delete(s.tikis, normalizeTaskID(id))
+	delete(s.tikis, normalizeTikiID(id))
 	s.mu.Unlock()
 	s.notifyListeners()
 }
@@ -115,20 +115,20 @@ func (s *InMemoryStore) NewTikiTemplate() (*tikipkg.Tiki, error) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
-	var taskID string
+	var tikiID string
 	for range maxIDAttempts {
-		taskID = normalizeTaskID(s.idGenerator())
-		if _, exists := s.tikis[taskID]; !exists {
+		tikiID = normalizeTikiID(s.idGenerator())
+		if _, exists := s.tikis[tikiID]; !exists {
 			break
 		}
-		taskID = "" // mark as failed so we can detect exhaustion
+		tikiID = "" // mark as failed so we can detect exhaustion
 	}
-	if taskID == "" {
+	if tikiID == "" {
 		return nil, fmt.Errorf("failed to generate unique task ID after %d attempts", maxIDAttempts)
 	}
 
 	tk := tikipkg.New()
-	tk.ID = taskID
+	tk.ID = tikiID
 	tk.CreatedAt = time.Now()
 
 	for k, v := range buildMemoryFieldDefaults() {
@@ -156,7 +156,7 @@ func (s *InMemoryStore) storeNewTikiLocked(tk *tikipkg.Tiki) error {
 	now := time.Now()
 	tk.CreatedAt = now
 	tk.UpdatedAt = now
-	tk.ID = normalizeTaskID(tk.ID)
+	tk.ID = normalizeTikiID(tk.ID)
 	s.tikis[tk.ID] = tk
 	s.mu.Unlock()
 	s.notifyListeners()
@@ -171,7 +171,7 @@ func (s *InMemoryStore) storeNewTikiLocked(tk *tikipkg.Tiki) error {
 func (s *InMemoryStore) updateTikiLocked(tk *tikipkg.Tiki, carrySchemaFields bool) error {
 	s.mu.Lock()
 
-	tk.ID = normalizeTaskID(tk.ID)
+	tk.ID = normalizeTikiID(tk.ID)
 	old, exists := s.tikis[tk.ID]
 	if !exists {
 		s.mu.Unlock()
@@ -265,8 +265,8 @@ func (s *InMemoryStore) Reload() error {
 	return nil
 }
 
-// ReloadTask reloads a single task (no-op for memory store)
-func (s *InMemoryStore) ReloadTask(taskID string) error {
+// ReloadTiki reloads a single task (no-op for memory store)
+func (s *InMemoryStore) ReloadTiki(tikiID string) error {
 	// In-memory store doesn't have external storage to reload from
 	s.notifyListeners()
 	return nil
@@ -280,7 +280,7 @@ func (s *InMemoryStore) ReloadTask(taskID string) error {
 func (s *InMemoryStore) PathForID(id string) string {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
-	if tk, ok := s.tikis[normalizeTaskID(id)]; ok {
+	if tk, ok := s.tikis[normalizeTikiID(id)]; ok {
 		return tk.Path
 	}
 	return ""

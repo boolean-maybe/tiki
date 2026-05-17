@@ -27,7 +27,7 @@ type RootLayout struct {
 	headerConfig *model.HeaderConfig
 	layoutModel  *model.LayoutModel
 	viewFactory  controller.ViewFactory
-	taskStore    store.Store
+	tikiStore    store.Store
 
 	// statusline
 	statuslineWidget *statusline.StatuslineWidget
@@ -71,7 +71,7 @@ func NewRootLayout(opts RootLayoutOpts) *RootLayout {
 		viewContext:           opts.ViewContext,
 		layoutModel:           opts.LayoutModel,
 		viewFactory:           opts.ViewFactory,
-		taskStore:             opts.TikiStore,
+		tikiStore:             opts.TikiStore,
 		statuslineWidget:      opts.StatuslineWidget,
 		statuslineConfig:      opts.StatuslineConfig,
 		lastHeaderVisible:     opts.HeaderConfig.IsVisible(),
@@ -170,7 +170,7 @@ func (rl *RootLayout) onLayoutChange() {
 
 	// Focus the view
 	newView.OnFocus()
-	if newView.GetViewID() == model.TaskEditViewID {
+	if newView.GetViewID() == model.TikiEditViewID {
 		// in desc-only mode, focus the description textarea instead of title
 		if tagsOnlyView, ok := newView.(interface{ IsTagsOnly() bool }); ok && tagsOnlyView.IsTagsOnly() {
 			if tagsView, ok := newView.(controller.TagsEditableView); ok {
@@ -329,8 +329,8 @@ func (rl *RootLayout) Cleanup() {
 	rl.headerConfig.RemoveListener(rl.headerListenerID)
 	rl.statuslineConfig.RemoveListener(rl.statuslineListenerID)
 	rl.statuslineWidget.Cleanup()
-	if rl.taskStore != nil {
-		rl.taskStore.RemoveListener(rl.storeListenerID)
+	if rl.tikiStore != nil {
+		rl.tikiStore.RemoveListener(rl.storeListenerID)
 	}
 }
 

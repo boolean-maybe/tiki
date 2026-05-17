@@ -33,7 +33,7 @@ func setupPluginViewTest(t *testing.T) *testutil.TestApp {
 	}
 
 	for _, task := range tasks {
-		if err := testutil.CreateTestTask(ta.TaskDir, task.id, task.title, task.status, task.typ); err != nil {
+		if err := testutil.CreateTestTiki(ta.TikiDir, task.id, task.title, task.status, task.typ); err != nil {
 			t.Fatalf("Failed to create task: %v", err)
 		}
 	}
@@ -158,7 +158,7 @@ func TestPluginView_OpenTask(t *testing.T) {
 	ta.SendKey(tcell.KeyEnter, 0, tcell.ModNone)
 
 	// Phase 3: configurable detail view (workflow `kind: view` action),
-	// not the legacy TaskDetailViewID.
+	// not the legacy TikiDetailViewID.
 	currentView := ta.NavController.CurrentView()
 	wantDetail := model.DetailPluginViewID()
 	if currentView.ViewID != wantDetail {
@@ -188,7 +188,7 @@ func TestPluginView_CreateTask(t *testing.T) {
 
 	// Verify we're on task edit view
 	currentView := ta.NavController.CurrentView()
-	if currentView.ViewID != model.TaskEditViewID {
+	if currentView.ViewID != model.TikiEditViewID {
 		t.Errorf("expected task edit view, got %v", currentView.ViewID)
 	}
 
@@ -250,8 +250,8 @@ func TestPluginView_DeleteTask(t *testing.T) {
 	}
 
 	// Verify file is removed
-	taskPath := filepath.Join(ta.TaskDir, "000001.md")
-	if _, err := os.Stat(taskPath); !os.IsNotExist(err) {
+	tikiPath := filepath.Join(ta.TikiDir, "000001.md")
+	if _, err := os.Stat(tikiPath); !os.IsNotExist(err) {
 		t.Errorf("TIKI-1 file should be deleted")
 	}
 }
@@ -311,7 +311,7 @@ func TestPluginView_SearchNoResults(t *testing.T) {
 	}
 
 	// Create a single task
-	if err := testutil.CreateTestTask(ta.TaskDir, "000001", "First Task", "ready", "story"); err != nil {
+	if err := testutil.CreateTestTiki(ta.TikiDir, "000001", "First Task", "ready", "story"); err != nil {
 		t.Fatalf("failed to create task: %v", err)
 	}
 	if err := ta.TikiStore.Reload(); err != nil {
@@ -364,7 +364,7 @@ func TestPluginView_EmptyPlugin(t *testing.T) {
 	}
 
 	// Create only todo tasks (no backlog tasks)
-	if err := testutil.CreateTestTask(ta.TaskDir, "000001", "Todo Task", "ready", "story"); err != nil {
+	if err := testutil.CreateTestTiki(ta.TikiDir, "000001", "Todo Task", "ready", "story"); err != nil {
 		t.Fatalf("failed to create task: %v", err)
 	}
 	if err := ta.TikiStore.Reload(); err != nil {
@@ -468,12 +468,12 @@ func TestPluginView_MultiplePlugins(t *testing.T) {
 
 	// Create tasks for multiple plugins
 	// Backlog: status = backlog (also recent since just created)
-	if err := testutil.CreateTestTask(ta.TaskDir, "000001", "Backlog Task", "backlog", "story"); err != nil {
+	if err := testutil.CreateTestTiki(ta.TikiDir, "000001", "Backlog Task", "backlog", "story"); err != nil {
 		t.Fatalf("failed to create task: %v", err)
 	}
 
 	// Recent: status = todo (also recent since just created)
-	if err := testutil.CreateTestTask(ta.TaskDir, "000002", "Recent Task", "ready", "story"); err != nil {
+	if err := testutil.CreateTestTiki(ta.TikiDir, "000002", "Recent Task", "ready", "story"); err != nil {
 		t.Fatalf("failed to create task: %v", err)
 	}
 

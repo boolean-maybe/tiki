@@ -1,4 +1,4 @@
-package taskdetail
+package tikidetail
 
 import (
 	"strings"
@@ -37,12 +37,12 @@ func TestExtractTaskID(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.input, func(t *testing.T) {
-			got, ok := extractTaskID(tt.input)
+			got, ok := extractTikiID(tt.input)
 			if ok != tt.wantOK {
-				t.Fatalf("extractTaskID(%q) ok=%v, want %v", tt.input, ok, tt.wantOK)
+				t.Fatalf("extractTikiID(%q) ok=%v, want %v", tt.input, ok, tt.wantOK)
 			}
 			if got != tt.wantID {
-				t.Errorf("extractTaskID(%q) id=%q, want %q", tt.input, got, tt.wantID)
+				t.Errorf("extractTikiID(%q) id=%q, want %q", tt.input, got, tt.wantID)
 			}
 		})
 	}
@@ -59,7 +59,7 @@ func TestTaskDescriptionProvider_FetchContent_TikiID(t *testing.T) {
 	tk.Set("priority", "medium-high")
 	_ = s.CreateTiki(tk)
 
-	provider := newTaskDescriptionProvider(s, nil)
+	provider := newTikiDescriptionProvider(s, nil)
 
 	t.Run("bare uppercase ID", func(t *testing.T) {
 		content, err := provider.FetchContent(nav.NavElement{URL: "ABC123"})

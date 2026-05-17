@@ -10,9 +10,9 @@ import (
 	"github.com/gdamore/tcell/v2"
 )
 
-// TaskEditCoordinator owns task edit lifecycle: preparing the view, wiring handlers,
+// TikiEditCoordinator owns task edit lifecycle: preparing the view, wiring handlers,
 // and implementing commit/cancel and field navigation policy.
-type TaskEditCoordinator struct {
+type TikiEditCoordinator struct {
 	navController *NavigationController
 	editSession   *TikiEditSession
 
@@ -21,8 +21,8 @@ type TaskEditCoordinator struct {
 	tagsOnly     bool
 }
 
-func NewTaskEditCoordinator(navController *NavigationController, editSession *TikiEditSession) *TaskEditCoordinator {
-	return &TaskEditCoordinator{
+func NewTikiEditCoordinator(navController *NavigationController, editSession *TikiEditSession) *TikiEditCoordinator {
+	return &TikiEditCoordinator{
 		navController: navController,
 		editSession:   editSession,
 	}
@@ -30,7 +30,7 @@ func NewTaskEditCoordinator(navController *NavigationController, editSession *Ti
 
 // Prepare wires handlers and starts an edit session for the provided view instance.
 // It is safe to call repeatedly; preparation is cached per active view instance.
-func (c *TaskEditCoordinator) Prepare(activeView View, params model.TaskEditParams) {
+func (c *TikiEditCoordinator) Prepare(activeView View, params model.TikiEditParams) {
 	if activeView == nil {
 		return
 	}
@@ -38,8 +38,8 @@ func (c *TaskEditCoordinator) Prepare(activeView View, params model.TaskEditPara
 		return
 	}
 
-	if params.TaskID != "" {
-		c.editSession.SetCurrentTask(params.TaskID)
+	if params.TikiID != "" {
+		c.editSession.SetCurrentTiki(params.TikiID)
 	}
 	if params.Draft != nil {
 		c.editSession.SetDraft(params.Draft)
@@ -53,7 +53,7 @@ func (c *TaskEditCoordinator) Prepare(activeView View, params model.TaskEditPara
 	c.preparedView = activeView
 }
 
-func (c *TaskEditCoordinator) HandleKey(activeView View, event *tcell.EventKey) bool {
+func (c *TikiEditCoordinator) HandleKey(activeView View, event *tcell.EventKey) bool {
 	switch event.Key() {
 	case tcell.KeyCtrlS:
 		return c.handleSaveKey(activeView)
@@ -94,7 +94,7 @@ func (c *TaskEditCoordinator) HandleKey(activeView View, event *tcell.EventKey) 
 	}
 }
 
-func (c *TaskEditCoordinator) FocusNextField(activeView View) bool {
+func (c *TikiEditCoordinator) FocusNextField(activeView View) bool {
 	fieldFocusable, ok := activeView.(FieldFocusableView)
 	if !ok {
 		return false
@@ -104,7 +104,7 @@ func (c *TaskEditCoordinator) FocusNextField(activeView View) bool {
 	return result
 }
 
-func (c *TaskEditCoordinator) FocusPrevField(activeView View) bool {
+func (c *TikiEditCoordinator) FocusPrevField(activeView View) bool {
 	fieldFocusable, ok := activeView.(FieldFocusableView)
 	if !ok {
 		return false
@@ -114,14 +114,14 @@ func (c *TaskEditCoordinator) FocusPrevField(activeView View) bool {
 	return result
 }
 
-func (c *TaskEditCoordinator) CycleFieldValueUp(activeView View) bool {
+func (c *TikiEditCoordinator) CycleFieldValueUp(activeView View) bool {
 	if cyclable, ok := activeView.(ValueCyclableView); ok {
 		return cyclable.CycleFieldValueUp()
 	}
 	return false
 }
 
-func (c *TaskEditCoordinator) CycleFieldValueDown(activeView View) bool {
+func (c *TikiEditCoordinator) CycleFieldValueDown(activeView View) bool {
 	if cyclable, ok := activeView.(ValueCyclableView); ok {
 		return cyclable.CycleFieldValueDown()
 	}
@@ -149,7 +149,7 @@ type DescriptionTextAreaSavable interface {
 // SaveXFromTextArea hook (which fires the wired CommitNoClose handler);
 // every other focused field falls through to the value-on-change pattern
 // of CommitAndClose committing the whole session.
-func (c *TaskEditCoordinator) handleSaveKey(activeView View) bool {
+func (c *TikiEditCoordinator) handleSaveKey(activeView View) bool {
 	if c.tagsOnly || c.descOnly {
 		return c.CommitAndClose(activeView)
 	}
@@ -170,7 +170,7 @@ func (c *TaskEditCoordinator) handleSaveKey(activeView View) bool {
 	return c.CommitAndClose(activeView)
 }
 
-func (c *TaskEditCoordinator) CommitAndClose(activeView View) bool {
+func (c *TikiEditCoordinator) CommitAndClose(activeView View) bool {
 	if !c.commit(activeView) {
 		return false
 	}
@@ -179,14 +179,14 @@ func (c *TaskEditCoordinator) CommitAndClose(activeView View) bool {
 	return true
 }
 
-func (c *TaskEditCoordinator) CommitNoClose(activeView View) bool {
+func (c *TikiEditCoordinator) CommitNoClose(activeView View) bool {
 	if !c.commit(activeView) {
 		return false
 	}
 
 	// Re-start edit session with newly saved task
-	taskID := c.editSession.currentTaskID
-	if editingTask := c.editSession.StartEditSession(taskID); editingTask != nil {
+	tikiID := c.editSession.currentTikiID
+	if editingTask := c.editSession.StartEditSession(tikiID); editingTask != nil {
 		// Refresh view with new editing copy
 		if refreshable, ok := activeView.(interface{ Refresh() }); ok {
 			refreshable.Refresh()
@@ -195,7 +195,7 @@ func (c *TaskEditCoordinator) CommitNoClose(activeView View) bool {
 	return true
 }
 
-func (c *TaskEditCoordinator) CancelAndClose() bool {
+func (c *TikiEditCoordinator) CancelAndClose() bool {
 	// Cancel edit session (discards changes) and clear any draft.
 	c.editSession.CancelEditSession()
 	c.editSession.ClearDraft()
@@ -204,8 +204,8 @@ func (c *TaskEditCoordinator) CancelAndClose() bool {
 	return true
 }
 
-func (c *TaskEditCoordinator) commit(activeView View) bool {
-	editorView, ok := activeView.(TaskEditView)
+func (c *TikiEditCoordinator) commit(activeView View) bool {
+	editorView, ok := activeView.(TikiEditView)
 	if !ok {
 		return false
 	}
@@ -241,7 +241,7 @@ func (c *TaskEditCoordinator) commit(activeView View) bool {
 }
 
 // updateFieldHint shows or clears a statusline hint based on the focused field.
-func (c *TaskEditCoordinator) updateFieldHint(activeView View) {
+func (c *TikiEditCoordinator) updateFieldHint(activeView View) {
 	sl := c.editSession.statusline
 	if sl == nil {
 		return
@@ -266,27 +266,27 @@ func (c *TaskEditCoordinator) updateFieldHint(activeView View) {
 }
 
 // clearFieldHint removes any statusline hint set by updateFieldHint.
-func (c *TaskEditCoordinator) clearFieldHint() {
+func (c *TikiEditCoordinator) clearFieldHint() {
 	if sl := c.editSession.statusline; sl != nil {
 		sl.ClearMessage()
 	}
 }
 
-func (c *TaskEditCoordinator) prepareView(activeView View, focus model.EditField) {
+func (c *TikiEditCoordinator) prepareView(activeView View, focus model.EditField) {
 	app := c.navController.GetApp()
 
 	// Start edit session for existing tasks (creates in-memory copy)
-	// Draft tasks already have an in-memory copy via draftTask
-	if _, ok := activeView.(TaskEditView); ok {
-		if taskView, hasController := activeView.(interface{ SetTikiEditSession(*TikiEditSession) }); hasController {
-			taskView.SetTikiEditSession(c.editSession)
+	// Draft tasks already have an in-memory copy via draftTiki
+	if _, ok := activeView.(TikiEditView); ok {
+		if tikiView, hasController := activeView.(interface{ SetTikiEditSession(*TikiEditSession) }); hasController {
+			tikiView.SetTikiEditSession(c.editSession)
 		}
 
 		// Only start edit session for non-draft tasks
 		if c.editSession.draftTiki == nil {
-			taskID := c.editSession.currentTaskID
-			if taskID != "" {
-				c.editSession.StartEditSession(taskID)
+			tikiID := c.editSession.currentTikiID
+			if tikiID != "" {
+				c.editSession.StartEditSession(tikiID)
 			}
 		}
 	}

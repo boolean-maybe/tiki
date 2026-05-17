@@ -18,7 +18,7 @@ func TestNavigationState_PushPop(t *testing.T) {
 	}
 
 	// Push second view with params
-	params := model.EncodePluginViewParams(model.PluginViewParams{TaskID: "000001"})
+	params := model.EncodePluginViewParams(model.PluginViewParams{TikiID: "000001"})
 	nav.push(model.MakePluginViewID("Detail"), params)
 
 	// Verify depth
@@ -35,8 +35,8 @@ func TestNavigationState_PushPop(t *testing.T) {
 	if entry.ViewID != model.MakePluginViewID("Detail") {
 		t.Errorf("ViewID = %v, want %v", entry.ViewID, model.MakePluginViewID("Detail"))
 	}
-	if model.DecodePluginViewParams(entry.Params).TaskID != "000001" {
-		t.Errorf("taskID param = %v, want TIKI-1", model.DecodePluginViewParams(entry.Params).TaskID)
+	if model.DecodePluginViewParams(entry.Params).TikiID != "000001" {
+		t.Errorf("tikiID param = %v, want TIKI-1", model.DecodePluginViewParams(entry.Params).TikiID)
 	}
 
 	// Verify depth decreased
@@ -77,7 +77,7 @@ func TestNavigationState_CurrentView(t *testing.T) {
 
 	// Push views
 	nav.push(model.MakePluginViewID("Detail"), nil)
-	nav.push(model.TaskEditViewID, nil)
+	nav.push(model.TikiEditViewID, nil)
 
 	// CurrentView should return task edit (top) without removing it
 	entry = nav.currentView()
@@ -85,8 +85,8 @@ func TestNavigationState_CurrentView(t *testing.T) {
 		t.Fatal("currentView() returned nil")
 		return
 	}
-	if entry.ViewID != model.TaskEditViewID {
-		t.Errorf("ViewID = %v, want %v", entry.ViewID, model.TaskEditViewID)
+	if entry.ViewID != model.TikiEditViewID {
+		t.Errorf("ViewID = %v, want %v", entry.ViewID, model.TikiEditViewID)
 	}
 
 	// Depth should not change
@@ -96,7 +96,7 @@ func TestNavigationState_CurrentView(t *testing.T) {
 
 	// Calling CurrentView again should return same view
 	entry2 := nav.currentView()
-	if entry2.ViewID != model.TaskEditViewID {
+	if entry2.ViewID != model.TikiEditViewID {
 		t.Error("currentView() should consistently return top view")
 	}
 }
@@ -149,7 +149,7 @@ func TestNavigationState_PreviousView(t *testing.T) {
 	}
 
 	// Three views - should return second
-	nav.push(model.TaskEditViewID, model.EncodeTaskEditParams(model.TaskEditParams{TaskID: "000005"}))
+	nav.push(model.TikiEditViewID, model.EncodeTikiEditParams(model.TikiEditParams{TikiID: "000005"}))
 	entry = nav.previousView()
 	if entry == nil {
 		t.Fatal("previousView() returned nil")
@@ -253,7 +253,7 @@ func TestNavigationState_Clear(t *testing.T) {
 	// Push multiple views
 	nav.push(model.MakePluginViewID("Detail"), nil)
 	nav.push(model.MakePluginViewID("Detail"), nil)
-	nav.push(model.TaskEditViewID, nil)
+	nav.push(model.TikiEditViewID, nil)
 
 	// Verify stack has items
 	if nav.depth() != 3 {
@@ -304,14 +304,14 @@ func TestNavigationState_ParameterPassing(t *testing.T) {
 	}
 
 	// Push view with multiple params
-	params := model.EncodePluginViewParams(model.PluginViewParams{TaskID: "000042"})
+	params := model.EncodePluginViewParams(model.PluginViewParams{TikiID: "000042"})
 	params["readOnly"] = true
 	params["index"] = 123
-	nav.push(model.TaskEditViewID, params)
+	nav.push(model.TikiEditViewID, params)
 	entry = nav.currentView()
 
-	if model.DecodePluginViewParams(entry.Params).TaskID != "000042" {
-		t.Errorf("taskID param = %v, want TIKI-42", model.DecodePluginViewParams(entry.Params).TaskID)
+	if model.DecodePluginViewParams(entry.Params).TikiID != "000042" {
+		t.Errorf("tikiID param = %v, want TIKI-42", model.DecodePluginViewParams(entry.Params).TikiID)
 	}
 	if entry.Params["readOnly"] != true {
 		t.Errorf("readOnly param = %v, want true", entry.Params["readOnly"])
@@ -322,7 +322,7 @@ func TestNavigationState_ParameterPassing(t *testing.T) {
 
 	// Pop and verify params are preserved
 	entry = nav.pop()
-	if model.DecodePluginViewParams(entry.Params).TaskID != "000042" {
+	if model.DecodePluginViewParams(entry.Params).TikiID != "000042" {
 		t.Error("params should be preserved through pop()")
 	}
 }
@@ -337,7 +337,7 @@ func TestNavigationState_ComplexNavigationFlow(t *testing.T) {
 	}
 
 	// Open task from board
-	nav.push(model.MakePluginViewID("Detail"), model.EncodePluginViewParams(model.PluginViewParams{TaskID: "000001"}))
+	nav.push(model.MakePluginViewID("Detail"), model.EncodePluginViewParams(model.PluginViewParams{TikiID: "000001"}))
 	if nav.depth() != 2 {
 		t.Error("should have 2 views after opening task")
 	}
@@ -355,8 +355,8 @@ func TestNavigationState_ComplexNavigationFlow(t *testing.T) {
 	}
 
 	// Switch to task edit
-	nav.push(model.TaskEditViewID, nil)
-	if nav.currentViewID() != model.TaskEditViewID {
+	nav.push(model.TikiEditViewID, nil)
+	if nav.currentViewID() != model.TikiEditViewID {
 		t.Error("should be on task edit")
 	}
 

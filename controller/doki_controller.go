@@ -34,7 +34,7 @@ type DokiController struct {
 
 // NewDokiController creates a controller backing any non-board plugin view.
 // globalActions is the workflow's top-level actions list; both `kind: view`
-// and `kind: ruki` entries are wired through. taskStore / mutationGate /
+// and `kind: ruki` entries are wired through. tikiStore / mutationGate /
 // schema may be nil for minimal test fixtures that don't exercise ruki
 // globals (in which case kind: ruki actions silently fall through).
 func NewDokiController(
@@ -42,7 +42,7 @@ func NewDokiController(
 	navController *NavigationController,
 	statusline *model.StatuslineConfig,
 	globalActions []plugin.PluginAction,
-	taskStore store.Store,
+	tikiStore store.Store,
 	mutationGate *service.TikiMutationGate,
 	schema ruki.Schema,
 ) *DokiController {
@@ -53,8 +53,8 @@ func NewDokiController(
 		registry:      DokiViewActions(),
 		globalActions: globalActions,
 	}
-	if taskStore != nil && mutationGate != nil && schema != nil {
-		dc.executor = NewPluginExecutor(taskStore, mutationGate, statusline, schema,
+	if tikiStore != nil && mutationGate != nil && schema != nil {
+		dc.executor = NewPluginExecutor(tikiStore, mutationGate, statusline, schema,
 			pluginDef.GetName(), nil)
 	}
 	dc.mergeGlobalActions()
@@ -200,7 +200,7 @@ func (dc *DokiController) handleGlobalAction(keyStr string) bool {
 			}
 			var params map[string]interface{}
 			if dc.selectedTaskID != "" {
-				params = model.EncodePluginViewParams(model.PluginViewParams{TaskID: dc.selectedTaskID})
+				params = model.EncodePluginViewParams(model.PluginViewParams{TikiID: dc.selectedTaskID})
 			}
 			dc.navController.PushView(model.MakePluginViewID(ga.TargetView), params)
 			return true

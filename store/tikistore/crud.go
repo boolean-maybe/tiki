@@ -14,7 +14,7 @@ import (
 func (s *TikiStore) GetTiki(id string) *tikipkg.Tiki {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
-	return s.tikis[normalizeTaskID(id)]
+	return s.tikis[normalizeTikiID(id)]
 }
 
 // CreateTiki adds a new tiki and saves it to a file.
@@ -22,7 +22,7 @@ func (s *TikiStore) CreateTiki(tk *tikipkg.Tiki) error {
 	if err := s.createTikiLocked(tk); err != nil {
 		return err
 	}
-	slog.Info("task created", "task_id", tk.ID)
+	slog.Info("task created", "tiki_id", tk.ID)
 	s.notifyListeners()
 	return nil
 }
@@ -43,7 +43,7 @@ func (s *TikiStore) storeNewDocumentLocked(tk *tikipkg.Tiki) error {
 	// os.Stat probe would falsely report the id free.
 	if tk.ID == "" {
 		for i := 0; ; i++ {
-			candidate := normalizeTaskID(config.GenerateRandomID())
+			candidate := normalizeTikiID(config.GenerateRandomID())
 			if _, taken := s.tikis[candidate]; !taken {
 				tk.ID = candidate
 				break
@@ -54,7 +54,7 @@ func (s *TikiStore) storeNewDocumentLocked(tk *tikipkg.Tiki) error {
 			slog.Debug("ID collision detected in index, regenerating", "id", candidate)
 		}
 	} else {
-		tk.ID = normalizeTaskID(tk.ID)
+		tk.ID = normalizeTikiID(tk.ID)
 	}
 
 	if err := s.validateDependsOnLocked(tk); err != nil {
@@ -64,7 +64,7 @@ func (s *TikiStore) storeNewDocumentLocked(tk *tikipkg.Tiki) error {
 	s.tikis[tk.ID] = tk
 	if err := s.saveTiki(tk); err != nil {
 		delete(s.tikis, tk.ID)
-		slog.Error("failed to save new document after creation", "task_id", tk.ID, "error", err)
+		slog.Error("failed to save new document after creation", "tiki_id", tk.ID, "error", err)
 		return fmt.Errorf("failed to save task: %w", err)
 	}
 	return nil
@@ -98,7 +98,7 @@ func (s *TikiStore) UpdateTiki(tk *tikipkg.Tiki) error {
 	if err := s.updateTikiCore(tk, false); err != nil {
 		return err
 	}
-	slog.Info("task updated", "task_id", tk.ID)
+	slog.Info("task updated", "tiki_id", tk.ID)
 	s.notifyListeners()
 	return nil
 }
@@ -111,7 +111,7 @@ func (s *TikiStore) updateTikiCore(tk *tikipkg.Tiki, _ bool) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	tk.ID = normalizeTaskID(tk.ID)
+	tk.ID = normalizeTikiID(tk.ID)
 	old, exists := s.tikis[tk.ID]
 	if !exists {
 		return fmt.Errorf("task not found: %s", tk.ID)
@@ -131,7 +131,7 @@ func (s *TikiStore) updateTikiCore(tk *tikipkg.Tiki, _ bool) error {
 	s.tikis[tk.ID] = tk
 	if err := s.saveTiki(tk); err != nil {
 		s.tikis[tk.ID] = old
-		slog.Error("failed to save updated task", "task_id", tk.ID, "error", err)
+		slog.Error("failed to save updated task", "tiki_id", tk.ID, "error", err)
 		return fmt.Errorf("failed to save task: %w", err)
 	}
 	return nil
@@ -139,11 +139,11 @@ func (s *TikiStore) updateTikiCore(tk *tikipkg.Tiki, _ bool) error {
 
 // DeleteTiki removes a tiki and its file.
 func (s *TikiStore) DeleteTiki(id string) {
-	normalizedID := normalizeTaskID(id)
+	normalizedID := normalizeTikiID(id)
 	if !s.deleteTikiLocked(normalizedID) {
 		return
 	}
-	slog.Info("task deleted", "task_id", normalizedID)
+	slog.Info("task deleted", "tiki_id", normalizedID)
 	s.notifyListeners()
 }
 
@@ -167,14 +167,14 @@ func (s *TikiStore) deleteTikiLocked(id string) bool {
 		if err := s.gitUtil.Remove(path); err == nil {
 			removed = true
 		} else {
-			slog.Debug("failed to git remove task file, falling back to os.Remove", "task_id", id, "path", path, "error", err)
+			slog.Debug("failed to git remove task file, falling back to os.Remove", "tiki_id", id, "path", path, "error", err)
 		}
 	}
 
 	// fall back to os.Remove if git rm failed or unavailable
 	if !removed {
 		if err := os.Remove(path); err != nil {
-			slog.Error("file deletion failed, task preserved in memory", "task_id", id, "path", path, "error", err)
+			slog.Error("file deletion failed, task preserved in memory", "tiki_id", id, "path", path, "error", err)
 			return false
 		}
 	}
@@ -192,7 +192,7 @@ func (s *TikiStore) deleteTikiLocked(id string) bool {
 func (s *TikiStore) validateDependsOnLocked(tk *tikipkg.Tiki) error {
 	deps, _, _ := tk.StringSliceField("dependsOn")
 	for _, depID := range deps {
-		normalized := normalizeTaskID(depID)
+		normalized := normalizeTikiID(depID)
 		if !document.IsValidID(normalized) {
 			return fmt.Errorf("dependsOn reference %q is not a bare document id (expected %d uppercase alphanumeric chars)", normalized, document.IDLength)
 		}

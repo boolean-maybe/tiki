@@ -337,7 +337,7 @@ func SetDetailViewIDPredicate(fn func(model.ViewID) bool) {
 }
 
 // IsDetailView reports whether the given ViewID is a configurable detail
-// view. Used as a successor to the legacy `viewID == TaskDetailViewID`
+// view. Used as a successor to the legacy `viewID == TikiDetailViewID`
 // comparison after the legacy view's deletion.
 func IsDetailView(viewID model.ViewID) bool {
 	return detailViewIDPredicate(viewID)
@@ -355,7 +355,7 @@ func BuildAppContext(currentView *ViewEntry, activeView View) AppContext {
 	}
 
 	if selectedCount == 0 && currentView != nil && IsDetailView(currentView.ViewID) {
-		if model.DecodePluginViewParams(currentView.Params).TaskID != "" {
+		if model.DecodePluginViewParams(currentView.Params).TikiID != "" {
 			selectedCount = 1
 		}
 	}
@@ -367,7 +367,7 @@ func BuildAppContext(currentView *ViewEntry, activeView View) AppContext {
 	// params as a second source so actions gated on selection:one still
 	// dispatch from views that received a selection via nav passthrough.
 	if selectedCount == 0 && currentView != nil && model.IsPluginViewID(currentView.ViewID) {
-		if model.DecodePluginViewParams(currentView.Params).TaskID != "" {
+		if model.DecodePluginViewParams(currentView.Params).TikiID != "" {
 			selectedCount = 1
 		}
 	}
@@ -641,9 +641,9 @@ func (r *ActionRegistry) ToHeaderActionsForContext(ctx AppContext) []model.Heade
 	return result
 }
 
-// TaskDetailViewActions returns the canonical action registry for the task detail view.
+// TikiDetailViewActions returns the canonical action registry for the task detail view.
 // Single source of truth for both input handling and header display.
-func TaskDetailViewActions() *ActionRegistry {
+func TikiDetailViewActions() *ActionRegistry {
 	r := NewActionRegistry()
 
 	idReq := []Requirement{RequireID}
@@ -658,17 +658,17 @@ func TaskDetailViewActions() *ActionRegistry {
 	return r
 }
 
-// ReadonlyTaskDetailViewActions returns a reduced registry for readonly task detail views.
+// ReadonlyTikiDetailViewActions returns a reduced registry for readonly task detail views.
 // Only fullscreen toggle is available — no editing actions.
-func ReadonlyTaskDetailViewActions() *ActionRegistry {
+func ReadonlyTikiDetailViewActions() *ActionRegistry {
 	r := NewActionRegistry()
 	r.Register(Action{ID: ActionFullscreen, Key: tcell.KeyRune, Rune: 'f', Label: "Full screen", ShowInHeader: true})
 	return r
 }
 
-// TaskEditViewActions returns the canonical action registry for the task edit view.
+// TikiEditViewActions returns the canonical action registry for the task edit view.
 // Separate registry so view/edit modes can diverge while sharing rendering helpers.
-func TaskEditViewActions() *ActionRegistry {
+func TikiEditViewActions() *ActionRegistry {
 	r := NewActionRegistry()
 
 	r.Register(Action{ID: ActionSaveTask, Key: tcell.KeyCtrlS, Label: "Save", ShowInHeader: true})
@@ -686,8 +686,8 @@ func CommonFieldNavigationActions() *ActionRegistry {
 	return r
 }
 
-// TaskEditTitleActions returns actions available when editing the title field
-func TaskEditTitleActions() *ActionRegistry {
+// TikiEditTitleActions returns actions available when editing the title field
+func TikiEditTitleActions() *ActionRegistry {
 	r := NewActionRegistry()
 	r.Register(Action{ID: ActionQuickSave, Key: tcell.KeyEnter, Label: "Quick Save", ShowInHeader: true, HideFromPalette: true})
 	r.Register(Action{ID: ActionSaveTask, Key: tcell.KeyCtrlS, Label: "Save", ShowInHeader: true})
@@ -695,46 +695,46 @@ func TaskEditTitleActions() *ActionRegistry {
 	return r
 }
 
-// TaskEditStatusActions returns actions available when editing the status field
-func TaskEditStatusActions() *ActionRegistry {
+// TikiEditStatusActions returns actions available when editing the status field
+func TikiEditStatusActions() *ActionRegistry {
 	r := CommonFieldNavigationActions()
 	r.Register(Action{ID: ActionNextValue, Key: tcell.KeyDown, Label: "Next ↓", ShowInHeader: true, HideFromPalette: true})
 	r.Register(Action{ID: ActionPrevValue, Key: tcell.KeyUp, Label: "Prev ↑", ShowInHeader: true, HideFromPalette: true})
 	return r
 }
 
-// TaskEditTypeActions returns actions available when editing the type field
-func TaskEditTypeActions() *ActionRegistry {
+// TikiEditTypeActions returns actions available when editing the type field
+func TikiEditTypeActions() *ActionRegistry {
 	r := CommonFieldNavigationActions()
 	r.Register(Action{ID: ActionNextValue, Key: tcell.KeyDown, Label: "Next ↓", ShowInHeader: true, HideFromPalette: true})
 	r.Register(Action{ID: ActionPrevValue, Key: tcell.KeyUp, Label: "Prev ↑", ShowInHeader: true, HideFromPalette: true})
 	return r
 }
 
-// TaskEditPriorityActions returns actions available when editing the priority field
-func TaskEditPriorityActions() *ActionRegistry {
+// TikiEditPriorityActions returns actions available when editing the priority field
+func TikiEditPriorityActions() *ActionRegistry {
 	r := CommonFieldNavigationActions()
 	// Future: Add ActionChangePriority when priority editor is implemented
 	return r
 }
 
-// TaskEditAssigneeActions returns actions available when editing the assignee field
-func TaskEditAssigneeActions() *ActionRegistry {
+// TikiEditAssigneeActions returns actions available when editing the assignee field
+func TikiEditAssigneeActions() *ActionRegistry {
 	r := CommonFieldNavigationActions()
 	r.Register(Action{ID: ActionNextValue, Key: tcell.KeyDown, Label: "Next ↓", ShowInHeader: true, HideFromPalette: true})
 	r.Register(Action{ID: ActionPrevValue, Key: tcell.KeyUp, Label: "Prev ↑", ShowInHeader: true, HideFromPalette: true})
 	return r
 }
 
-// TaskEditPointsActions returns actions available when editing the story points field
-func TaskEditPointsActions() *ActionRegistry {
+// TikiEditPointsActions returns actions available when editing the story points field
+func TikiEditPointsActions() *ActionRegistry {
 	r := CommonFieldNavigationActions()
 	// Future: Add ActionChangePoints when points editor is implemented
 	return r
 }
 
-// TaskEditDueActions returns actions available when editing the due date field
-func TaskEditDueActions() *ActionRegistry {
+// TikiEditDueActions returns actions available when editing the due date field
+func TikiEditDueActions() *ActionRegistry {
 	r := CommonFieldNavigationActions()
 	r.Register(Action{ID: ActionNextValue, Key: tcell.KeyDown, Label: "Next ↓", ShowInHeader: true, HideFromPalette: true})
 	r.Register(Action{ID: ActionPrevValue, Key: tcell.KeyUp, Label: "Prev ↑", ShowInHeader: true, HideFromPalette: true})
@@ -742,8 +742,8 @@ func TaskEditDueActions() *ActionRegistry {
 	return r
 }
 
-// TaskEditRecurrenceActions returns actions available when editing the recurrence field
-func TaskEditRecurrenceActions() *ActionRegistry {
+// TikiEditRecurrenceActions returns actions available when editing the recurrence field
+func TikiEditRecurrenceActions() *ActionRegistry {
 	r := CommonFieldNavigationActions()
 	r.Register(Action{ID: ActionNextValue, Key: tcell.KeyDown, Label: "Next ↓", ShowInHeader: true, HideFromPalette: true})
 	r.Register(Action{ID: ActionPrevValue, Key: tcell.KeyUp, Label: "Prev ↑", ShowInHeader: true, HideFromPalette: true})
@@ -752,20 +752,20 @@ func TaskEditRecurrenceActions() *ActionRegistry {
 	return r
 }
 
-// TaskEditDescriptionActions returns actions available when editing the description field
-func TaskEditDescriptionActions() *ActionRegistry {
+// TikiEditDescriptionActions returns actions available when editing the description field
+func TikiEditDescriptionActions() *ActionRegistry {
 	r := NewActionRegistry()
 	r.Register(Action{ID: ActionSaveTask, Key: tcell.KeyCtrlS, Label: "Save", ShowInHeader: true})
 	r.Merge(CommonFieldNavigationActions())
 	return r
 }
 
-// TaskEditTagsActions returns actions available when editing the tags
+// TikiEditTagsActions returns actions available when editing the tags
 // field as part of the metadata grid (not the whole-view tags-only mode).
-// Modeled on TaskEditDescriptionActions: Save + standard field navigation.
+// Modeled on TikiEditDescriptionActions: Save + standard field navigation.
 // Esc is router-handled — never registered here, matching every other
 // per-field registry.
-func TaskEditTagsActions() *ActionRegistry {
+func TikiEditTagsActions() *ActionRegistry {
 	r := NewActionRegistry()
 	r.Register(Action{ID: ActionSaveTask, Key: tcell.KeyCtrlS, Label: "Save", ShowInHeader: true})
 	r.Merge(CommonFieldNavigationActions())
@@ -790,28 +790,28 @@ func TagsOnlyEditActions() *ActionRegistry {
 func GetActionsForField(field model.EditField) *ActionRegistry {
 	switch field {
 	case model.EditFieldTitle:
-		return TaskEditTitleActions()
+		return TikiEditTitleActions()
 	case model.EditFieldStatus:
-		return TaskEditStatusActions()
+		return TikiEditStatusActions()
 	case model.EditFieldType:
-		return TaskEditTypeActions()
+		return TikiEditTypeActions()
 	case model.EditFieldPriority:
-		return TaskEditPriorityActions()
+		return TikiEditPriorityActions()
 	case model.EditFieldAssignee:
-		return TaskEditAssigneeActions()
+		return TikiEditAssigneeActions()
 	case model.EditFieldPoints:
-		return TaskEditPointsActions()
+		return TikiEditPointsActions()
 	case model.EditFieldDue:
-		return TaskEditDueActions()
+		return TikiEditDueActions()
 	case model.EditFieldRecurrence:
-		return TaskEditRecurrenceActions()
+		return TikiEditRecurrenceActions()
 	case model.EditFieldTags:
-		return TaskEditTagsActions()
+		return TikiEditTagsActions()
 	case model.EditFieldDescription:
-		return TaskEditDescriptionActions()
+		return TikiEditDescriptionActions()
 	default:
 		// default to title actions if field is unknown
-		return TaskEditTitleActions()
+		return TikiEditTitleActions()
 	}
 }
 

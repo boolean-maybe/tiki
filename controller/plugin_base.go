@@ -17,7 +17,7 @@ import (
 // pluginBase holds the shared fields and methods common to PluginController and DepsController.
 // Methods that depend on per-controller filtering accept a filteredTasks callback.
 type pluginBase struct {
-	taskStore     store.Store
+	tikiStore     store.Store
 	mutationGate  *service.TikiMutationGate
 	pluginConfig  *model.PluginConfig
 	pluginDef     *plugin.TikiPlugin
@@ -30,7 +30,7 @@ type pluginBase struct {
 // newExecutor creates a ruki executor configured for plugin runtime.
 func (pb *pluginBase) newExecutor() *ruki.Executor {
 	var userFunc func() string
-	if userName := getCurrentUserName(pb.taskStore); userName != "" {
+	if userName := getCurrentUserName(pb.tikiStore); userName != "" {
 		userFunc = func() string { return userName }
 	}
 	return ruki.NewExecutor(pb.schema, userFunc,
@@ -183,25 +183,25 @@ func normalizeColumns(columns int) int {
 	return columns
 }
 
-func clampTaskIndex(index int, taskCount int) int {
-	if taskCount <= 0 {
+func clampTaskIndex(index int, tikiCount int) int {
+	if tikiCount <= 0 {
 		return 0
 	}
 	if index < 0 {
 		return 0
 	}
-	if index >= taskCount {
-		return taskCount - 1
+	if index >= tikiCount {
+		return tikiCount - 1
 	}
 	return index
 }
 
-func maxRowIndex(taskCount int, columns int) int {
-	if taskCount <= 0 {
+func maxRowIndex(tikiCount int, columns int) int {
+	if tikiCount <= 0 {
 		return 0
 	}
 	columns = normalizeColumns(columns)
-	return (taskCount - 1) / columns
+	return (tikiCount - 1) / columns
 }
 
 func clampInt(value int, maxValue int) int {
@@ -214,12 +214,12 @@ func clampInt(value int, maxValue int) int {
 	return value
 }
 
-func moveVerticalIndex(direction string, index int, columns int, taskCount int) int {
-	if taskCount <= 0 {
+func moveVerticalIndex(direction string, index int, columns int, tikiCount int) int {
+	if tikiCount <= 0 {
 		return 0
 	}
 	columns = normalizeColumns(columns)
-	index = clampTaskIndex(index, taskCount)
+	index = clampTaskIndex(index, tikiCount)
 
 	switch direction {
 	case "up":
@@ -229,19 +229,19 @@ func moveVerticalIndex(direction string, index int, columns int, taskCount int) 
 		}
 	case "down":
 		next := index + columns
-		if next < taskCount {
+		if next < tikiCount {
 			return next
 		}
 	}
 	return index
 }
 
-func moveHorizontalIndex(direction string, index int, columns int, taskCount int) (bool, int) {
-	if taskCount <= 0 {
+func moveHorizontalIndex(direction string, index int, columns int, tikiCount int) (bool, int) {
+	if tikiCount <= 0 {
 		return false, 0
 	}
 	columns = normalizeColumns(columns)
-	index = clampTaskIndex(index, taskCount)
+	index = clampTaskIndex(index, tikiCount)
 	col := index % columns
 
 	switch direction {
@@ -250,30 +250,30 @@ func moveHorizontalIndex(direction string, index int, columns int, taskCount int
 			return true, index - 1
 		}
 	case "right":
-		if col < columns-1 && index+1 < taskCount {
+		if col < columns-1 && index+1 < tikiCount {
 			return true, index + 1
 		}
 	}
 	return false, index
 }
 
-func rowDirectionalIndex(direction string, row int, columns int, taskCount int) int {
-	if taskCount <= 0 {
+func rowDirectionalIndex(direction string, row int, columns int, tikiCount int) int {
+	if tikiCount <= 0 {
 		return 0
 	}
 	columns = normalizeColumns(columns)
-	maxRow := maxRowIndex(taskCount, columns)
+	maxRow := maxRowIndex(tikiCount, columns)
 	row = clampInt(row, maxRow)
 	rowStart := row * columns
-	if rowStart >= taskCount {
-		return taskCount - 1
+	if rowStart >= tikiCount {
+		return tikiCount - 1
 	}
 
 	switch direction {
 	case "left":
 		rowEnd := rowStart + columns - 1
-		if rowEnd >= taskCount {
-			rowEnd = taskCount - 1
+		if rowEnd >= tikiCount {
+			rowEnd = tikiCount - 1
 		}
 		return rowEnd
 	case "right":
@@ -283,7 +283,7 @@ func rowDirectionalIndex(direction string, row int, columns int, taskCount int) 
 	}
 }
 
-func (pb *pluginBase) getSelectedTaskID(filteredTasks func(int) []*tikipkg.Tiki) string {
+func (pb *pluginBase) getSelectedTikiID(filteredTasks func(int) []*tikipkg.Tiki) string {
 	lane := pb.pluginConfig.GetSelectedLane()
 	tasks := filteredTasks(lane)
 	idx := pb.pluginConfig.GetSelectedIndexForLane(lane)
@@ -298,21 +298,21 @@ func (pb *pluginBase) getSelectedTaskID(filteredTasks func(int) []*tikipkg.Tiki)
 // — but callers should treat this as the canonical multi-selection accessor
 // so plumbing is ready when true multi-select lands.
 func (pb *pluginBase) getSelectedTaskIDs(filteredTasks func(int) []*tikipkg.Tiki) []string {
-	id := pb.getSelectedTaskID(filteredTasks)
+	id := pb.getSelectedTikiID(filteredTasks)
 	if id == "" {
 		return nil
 	}
 	return []string{id}
 }
 
-func (pb *pluginBase) selectTaskInLane(lane int, taskID string, filteredTasks func(int) []*tikipkg.Tiki) {
+func (pb *pluginBase) selectTikiInLane(lane int, tikiID string, filteredTasks func(int) []*tikipkg.Tiki) {
 	if lane < 0 || lane >= len(pb.pluginDef.Lanes) {
 		return
 	}
 	tasks := filteredTasks(lane)
 	targetIndex := 0
 	for i, t := range tasks {
-		if t.ID == taskID {
+		if t.ID == tikiID {
 			targetIndex = i
 			break
 		}
@@ -351,7 +351,7 @@ func (pb *pluginBase) handleSearch(query string, selectFirst func() bool) {
 		return
 	}
 	pb.pluginConfig.SavePreSearchState()
-	results := pb.taskStore.SearchTikis(query, nil)
+	results := pb.tikiStore.SearchTikis(query, nil)
 	if len(results) == 0 {
 		pb.pluginConfig.SetSearchResults([]*tikipkg.Tiki{}, query)
 		return
@@ -361,31 +361,31 @@ func (pb *pluginBase) handleSearch(query string, selectFirst func() bool) {
 }
 
 func (pb *pluginBase) handleNewTask() bool {
-	t, err := pb.taskStore.NewTikiTemplate()
+	t, err := pb.tikiStore.NewTikiTemplate()
 	if err != nil {
 		slog.Error("failed to create task template", "error", err)
 		return false
 	}
-	pb.navController.PushView(model.TaskEditViewID, model.EncodeTaskEditParams(model.TaskEditParams{
-		TaskID: t.ID,
+	pb.navController.PushView(model.TikiEditViewID, model.EncodeTikiEditParams(model.TikiEditParams{
+		TikiID: t.ID,
 		Draft:  t,
 		Focus:  model.EditFieldTitle,
 	}))
-	slog.Info("new tiki draft started from plugin", "task_id", t.ID, "plugin", pb.pluginDef.Name)
+	slog.Info("new tiki draft started from plugin", "tiki_id", t.ID, "plugin", pb.pluginDef.Name)
 	return true
 }
 
 func (pb *pluginBase) handleDeleteTask(filteredTasks func(int) []*tikipkg.Tiki) bool {
-	taskID := pb.getSelectedTaskID(filteredTasks)
-	if taskID == "" {
+	tikiID := pb.getSelectedTikiID(filteredTasks)
+	if tikiID == "" {
 		return false
 	}
-	tk := pb.taskStore.GetTiki(taskID)
+	tk := pb.tikiStore.GetTiki(tikiID)
 	if tk == nil {
 		return false
 	}
 	if err := pb.mutationGate.DeleteTiki(context.Background(), tk); err != nil {
-		slog.Error("failed to delete task", "task_id", taskID, "error", err)
+		slog.Error("failed to delete task", "tiki_id", tikiID, "error", err)
 		if pb.statusline != nil {
 			pb.statusline.SetMessage(err.Error(), model.MessageLevelError, true)
 		}

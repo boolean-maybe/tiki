@@ -124,7 +124,7 @@ func TestPluginConfig_MoveSelection_EdgeCases(t *testing.T) {
 		name      string
 		start     int
 		direction string
-		taskCount int
+		tikiCount int
 		wantIndex int
 		wantMoved bool
 	}{
@@ -132,7 +132,7 @@ func TestPluginConfig_MoveSelection_EdgeCases(t *testing.T) {
 			name:      "left at left edge",
 			start:     4,
 			direction: "left",
-			taskCount: 6,
+			tikiCount: 6,
 			wantIndex: 4,
 			wantMoved: false,
 		},
@@ -140,7 +140,7 @@ func TestPluginConfig_MoveSelection_EdgeCases(t *testing.T) {
 			name:      "right at right edge",
 			start:     3,
 			direction: "right",
-			taskCount: 6,
+			tikiCount: 6,
 			wantIndex: 3,
 			wantMoved: false,
 		},
@@ -148,7 +148,7 @@ func TestPluginConfig_MoveSelection_EdgeCases(t *testing.T) {
 			name:      "up at top",
 			start:     1,
 			direction: "up",
-			taskCount: 6,
+			tikiCount: 6,
 			wantIndex: 1,
 			wantMoved: false,
 		},
@@ -156,7 +156,7 @@ func TestPluginConfig_MoveSelection_EdgeCases(t *testing.T) {
 			name:      "down at bottom",
 			start:     5,
 			direction: "down",
-			taskCount: 6,
+			tikiCount: 6,
 			wantIndex: 5,
 			wantMoved: false,
 		},
@@ -164,7 +164,7 @@ func TestPluginConfig_MoveSelection_EdgeCases(t *testing.T) {
 			name:      "right at partial row end",
 			start:     5,
 			direction: "right",
-			taskCount: 6,
+			tikiCount: 6,
 			wantIndex: 5, // Can't move right from last item
 			wantMoved: false,
 		},
@@ -172,7 +172,7 @@ func TestPluginConfig_MoveSelection_EdgeCases(t *testing.T) {
 			name:      "down from partial row",
 			start:     1,
 			direction: "down",
-			taskCount: 6,
+			tikiCount: 6,
 			wantIndex: 5, // 1 + 4 = 5
 			wantMoved: true,
 		},
@@ -181,7 +181,7 @@ func TestPluginConfig_MoveSelection_EdgeCases(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			pc.SetSelectedIndex(tt.start)
-			moved := pc.MoveSelection(tt.direction, tt.taskCount)
+			moved := pc.MoveSelection(tt.direction, tt.tikiCount)
 
 			if moved != tt.wantMoved {
 				t.Errorf("MoveSelection() moved = %v, want %v", moved, tt.wantMoved)

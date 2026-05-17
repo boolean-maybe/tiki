@@ -1,18 +1,18 @@
-package taskdetail
+package tikidetail
 
 import "github.com/boolean-maybe/tiki/gridlayout"
 
 // rowsPerPackedColumn is the per-column height used when packing a flat
-// metadata field list into a multi-column grid for TaskEditView. The
+// metadata field list into a multi-column grid for TikiEditView. The
 // synthesized grid intentionally has no literal caption anchors —
-// TaskEditView relies on each editor widget's tview-level SetLabel for
+// TikiEditView relies on each editor widget's tview-level SetLabel for
 // focus markers; full per-field captions are not currently surfaced in
 // edit mode.
 const rowsPerPackedColumn = 5
 
 // singleColumnSpec synthesizes a 1-column metadata grid from a flat
 // field name list — one anchor per row, in declaration order. Useful for
-// tests; production paths that take a flat list (TaskEditView) should
+// tests; production paths that take a flat list (TikiEditView) should
 // use greedyPackedSpec instead so fields don't overflow the visible
 // grid body.
 func singleColumnSpec(names []string) gridlayout.GridSpec {
@@ -38,7 +38,7 @@ func singleColumnSpec(names []string) gridlayout.GridSpec {
 
 // greedyPackedSpec packs a flat metadata field name list into a
 // multi-column grid: each column holds up to rowsPerPackedColumn fields
-// in declaration order, then a new column starts. Used by TaskEditView,
+// in declaration order, then a new column starts. Used by TikiEditView,
 // which receives a flat field-name list and so cannot reuse the
 // workflow's parsed `metadata:` grid directly. Edit mode therefore
 // always lays its fields out in this packed rectangle, regardless of

@@ -24,7 +24,7 @@ func TestPhase5_Trigger_HasNewFieldTrueWhenPresent(t *testing.T) {
 		t.Fatalf("parse: %v", err)
 	}
 
-	withAssignee := &taskFixture{
+	withAssignee := &tikiFixture{
 		ID: "HAS001", Assignee: "alice",
 		WorkflowFrontmatter: map[string]interface{}{"assignee": ""},
 	}
@@ -49,7 +49,7 @@ func TestPhase5_Trigger_HasNewFieldFalseWhenAbsent(t *testing.T) {
 	}
 
 	// No WorkflowFrontmatter, typed Assignee zero → absent.
-	plain := &taskFixture{ID: "PLAIN1"}
+	plain := &tikiFixture{ID: "PLAIN1"}
 	tc := &TriggerContext{Old: nil, New: tikiFromFixture(plain)}
 
 	ok, err := te.EvalGuard(trig, tc)
@@ -75,11 +75,11 @@ func TestPhase5_Trigger_HasOldFieldTrueWhenPresent(t *testing.T) {
 		t.Fatalf("parse: %v", err)
 	}
 
-	oldTask := &taskFixture{
+	oldTask := &tikiFixture{
 		ID: "TK01", Status: "ready",
 		WorkflowFrontmatter: map[string]interface{}{"status": "ready"},
 	}
-	newTask := &taskFixture{ID: "TK01", Status: "done"}
+	newTask := &tikiFixture{ID: "TK01", Status: "done"}
 	tc := &TriggerContext{Old: tikiFromFixture(oldTask), New: tikiFromFixture(newTask)}
 
 	ok, err := te.EvalGuard(trig, tc)
@@ -100,8 +100,8 @@ func TestPhase5_Trigger_HasOldFieldFalseWhenAbsent(t *testing.T) {
 		t.Fatalf("parse: %v", err)
 	}
 
-	oldTask := &taskFixture{ID: "TK01"} // no assignee declared
-	newTask := &taskFixture{ID: "TK01", Assignee: "alice"}
+	oldTask := &tikiFixture{ID: "TK01"} // no assignee declared
+	newTask := &tikiFixture{ID: "TK01", Assignee: "alice"}
 	tc := &TriggerContext{Old: tikiFromFixture(oldTask), New: tikiFromFixture(newTask)}
 
 	ok, err := te.EvalGuard(trig, tc)
@@ -132,8 +132,8 @@ func TestPhase5_Trigger_HasOldAndHasNewResolveDistinctTasks(t *testing.T) {
 		t.Fatalf("parse: %v", err)
 	}
 
-	oldTask := &taskFixture{ID: "TK01"} // no status key
-	newTask := &taskFixture{
+	oldTask := &tikiFixture{ID: "TK01"} // no status key
+	newTask := &tikiFixture{
 		ID: "TK01", Status: "ready",
 		WorkflowFrontmatter: map[string]interface{}{"status": "ready"},
 	}
@@ -148,11 +148,11 @@ func TestPhase5_Trigger_HasOldAndHasNewResolveDistinctTasks(t *testing.T) {
 	}
 
 	// Flip it — both sides now have status, guard should NOT match.
-	oldTask2 := &taskFixture{
+	oldTask2 := &tikiFixture{
 		ID: "TK02", Status: "ready",
 		WorkflowFrontmatter: map[string]interface{}{"status": "ready"},
 	}
-	newTask2 := &taskFixture{
+	newTask2 := &tikiFixture{
 		ID: "TK02", Status: "done",
 		WorkflowFrontmatter: map[string]interface{}{"status": "done"},
 	}

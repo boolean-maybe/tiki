@@ -42,12 +42,12 @@ func newTestDetailPlugin(metadata []string, actions []plugin.PluginAction) *plug
 // binding being present.
 func TestDetailController_RegistryHasFullscreenAndStubEdit(t *testing.T) {
 	pluginDef := newTestDetailPlugin([]string{"status"}, nil)
-	taskStore := store.NewInMemoryStore()
+	tikiStore := store.NewInMemoryStore()
 	gate := service.NewTikiMutationGate()
-	gate.SetStore(taskStore)
+	gate.SetStore(tikiStore)
 	nav := newMockNavigationController()
 
-	dc := NewDetailController(pluginDef, nav, nil, taskStore, gate, rukiRuntime.NewSchema(), nil)
+	dc := NewDetailController(pluginDef, nav, nil, tikiStore, gate, rukiRuntime.NewSchema(), nil)
 
 	r := dc.GetActionRegistry()
 	if r.MatchBinding(tcell.KeyRune, 'f', 0) == nil {
@@ -76,12 +76,12 @@ func TestDetailController_SurfacesPerViewActions(t *testing.T) {
 		},
 	}
 	pluginDef := newTestDetailPlugin([]string{"status"}, actions)
-	taskStore := store.NewInMemoryStore()
+	tikiStore := store.NewInMemoryStore()
 	gate := service.NewTikiMutationGate()
-	gate.SetStore(taskStore)
+	gate.SetStore(tikiStore)
 	nav := newMockNavigationController()
 
-	dc := NewDetailController(pluginDef, nav, nil, taskStore, gate, rukiRuntime.NewSchema(), nil)
+	dc := NewDetailController(pluginDef, nav, nil, tikiStore, gate, rukiRuntime.NewSchema(), nil)
 
 	if act := dc.GetActionRegistry().MatchBinding(tcell.KeyRune, 'a', 0); act == nil {
 		t.Fatal("expected per-view action to be registered on 'a'")
@@ -94,12 +94,12 @@ func TestDetailController_SurfacesPerViewActions(t *testing.T) {
 // — the selection set on the controller must round-trip through GetSelectedID.
 func TestDetailController_SetSelectedTaskID(t *testing.T) {
 	pluginDef := newTestDetailPlugin([]string{"status"}, nil)
-	taskStore := store.NewInMemoryStore()
+	tikiStore := store.NewInMemoryStore()
 	gate := service.NewTikiMutationGate()
-	gate.SetStore(taskStore)
+	gate.SetStore(tikiStore)
 	nav := newMockNavigationController()
 
-	dc := NewDetailController(pluginDef, nav, nil, taskStore, gate, rukiRuntime.NewSchema(), nil)
+	dc := NewDetailController(pluginDef, nav, nil, tikiStore, gate, rukiRuntime.NewSchema(), nil)
 
 	dc.SetSelectedTaskID("TIKI001")
 	if dc.selectedTaskID != "TIKI001" {

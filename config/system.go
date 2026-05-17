@@ -184,10 +184,10 @@ func BootstrapSystem(createSamples bool, gitAdd func(...string) error) error {
 				continue
 			}
 
-			taskID := GenerateRandomID()
+			tikiID := GenerateRandomID()
 			// Phase 1 filename convention: <ID>.md (bare, case-preserving).
-			taskFilename := fmt.Sprintf("%s.md", taskID)
-			taskPath := filepath.Join(sampleDir, taskFilename)
+			tikiFilename := fmt.Sprintf("%s.md", tikiID)
+			tikiPath := filepath.Join(sampleDir, tikiFilename)
 
 			// Samples embed `id: XXXXXX` as a placeholder; replace with the
 			// generated bare id for this instance. The replacement is
@@ -196,12 +196,12 @@ func BootstrapSystem(createSamples bool, gitAdd func(...string) error) error {
 			// loses leading zeros, failing ValidateID.
 			// Also back-compat with any pre-unification references to
 			// "TIKI-XXXXXX" that may linger in sample prose (not frontmatter).
-			taskContent := strings.ReplaceAll(s.template, "id: XXXXXX", fmt.Sprintf("id: %q", taskID))
-			taskContent = strings.ReplaceAll(taskContent, "TIKI-XXXXXX", taskID)
-			if err := os.WriteFile(taskPath, []byte(taskContent), 0644); err != nil {
+			tikiContent := strings.ReplaceAll(s.template, "id: XXXXXX", fmt.Sprintf("id: %q", tikiID))
+			tikiContent = strings.ReplaceAll(tikiContent, "TIKI-XXXXXX", tikiID)
+			if err := os.WriteFile(tikiPath, []byte(tikiContent), 0644); err != nil {
 				return fmt.Errorf("create sample %s: %w", s.name, err)
 			}
-			createdFiles = append(createdFiles, taskPath)
+			createdFiles = append(createdFiles, tikiPath)
 		}
 	}
 

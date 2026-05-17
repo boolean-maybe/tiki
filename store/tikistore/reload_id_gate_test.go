@@ -8,7 +8,7 @@ import (
 )
 
 // TestReloadTask_IDChangeRemovesStaleEntry locks in the invariant that a
-// ReloadTask whose file's frontmatter id has changed does not leave the
+// ReloadTiki whose file's frontmatter id has changed does not leave the
 // old id pointing at the reloaded task. Without the fix, the map ends up
 // with two entries — the stale one under the original id and the new one
 // under the updated id — both referencing the same file.
@@ -29,8 +29,8 @@ func TestReloadTask_IDChangeRemovesStaleEntry(t *testing.T) {
 	// keeps the file at the same path (e.g. user ran a rename tool on
 	// the id string).
 	writeWorkflowDoc(t, path, "NEWID1", "renamed")
-	if err := store.ReloadTask("ORIG01"); err != nil {
-		t.Fatalf("ReloadTask: %v", err)
+	if err := store.ReloadTiki("ORIG01"); err != nil {
+		t.Fatalf("ReloadTiki: %v", err)
 	}
 
 	if got := store.GetTiki("ORIG01"); got != nil {
@@ -43,7 +43,7 @@ func TestReloadTask_IDChangeRemovesStaleEntry(t *testing.T) {
 
 // TestReloadTask_IDChangeRefusesCollisionWithPeer guards the memory-map
 // against a silent overwrite: if a file's frontmatter id is edited to an
-// id already owned by a different task, ReloadTask must refuse to apply
+// id already owned by a different task, ReloadTiki must refuse to apply
 // the change. Post-conditions verified:
 //
 //  1. an error is returned naming the collision (caller can surface it);
@@ -66,7 +66,7 @@ func TestReloadTask_IDChangeRefusesCollisionWithPeer(t *testing.T) {
 	// Rewrite B's id to A's id — a collision.
 	writeWorkflowDoc(t, bPath, "AAAAAA", "b-collides")
 
-	err = store.ReloadTask("BBBBBB")
+	err = store.ReloadTiki("BBBBBB")
 	if err == nil {
 		t.Fatal("expected collision error, got nil")
 	}
@@ -90,7 +90,7 @@ func TestReloadTask_IDChangeRefusesCollisionWithPeer(t *testing.T) {
 }
 
 // TestReloadTask_SameIDUpdatesInPlace is the happy path: when the file's
-// id is unchanged, ReloadTask updates the existing entry in place. This
+// id is unchanged, ReloadTiki updates the existing entry in place. This
 // used to be the only behavior and must keep working.
 func TestReloadTask_SameIDUpdatesInPlace(t *testing.T) {
 	root := t.TempDir()
@@ -104,8 +104,8 @@ func TestReloadTask_SameIDUpdatesInPlace(t *testing.T) {
 
 	// External edit: new title, same id.
 	writeWorkflowDoc(t, path, "SAME01", "new title")
-	if err := store.ReloadTask("SAME01"); err != nil {
-		t.Fatalf("ReloadTask: %v", err)
+	if err := store.ReloadTiki("SAME01"); err != nil {
+		t.Fatalf("ReloadTiki: %v", err)
 	}
 
 	tk := store.GetTiki("SAME01")

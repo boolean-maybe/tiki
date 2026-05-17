@@ -144,8 +144,8 @@ func TestChooseBuiltin_Executor_ReturnsValue(t *testing.T) {
 	}
 
 	e := NewExecutor(testSchema{}, nil, ExecutorRuntime{Mode: ExecutorRuntimePlugin})
-	testTask := &taskFixture{ID: "TIKI-000001", Title: "test", Status: "ready", Type: "task"}
-	result, err := e.testExec(vs, []*taskFixture{testTask}, ExecutionInput{
+	testTask := &tikiFixture{ID: "TIKI-000001", Title: "test", Status: "ready", Type: "task"}
+	result, err := e.testExec(vs, []*tikiFixture{testTask}, ExecutionInput{
 		SelectedTaskIDs: []string{"TIKI-000001"},
 		ChooseValue:     "TIKI-000002",
 		HasChoose:       true,
@@ -172,8 +172,8 @@ func TestChooseBuiltin_Executor_MissingChoose(t *testing.T) {
 	}
 
 	e := NewExecutor(testSchema{}, nil, ExecutorRuntime{Mode: ExecutorRuntimePlugin})
-	testTask := &taskFixture{ID: "TIKI-000001", Title: "test", Status: "ready", Type: "task"}
-	_, err = e.testExec(vs, []*taskFixture{testTask}, ExecutionInput{
+	testTask := &tikiFixture{ID: "TIKI-000001", Title: "test", Status: "ready", Type: "task"}
+	_, err = e.testExec(vs, []*tikiFixture{testTask}, ExecutionInput{
 		SelectedTaskIDs: []string{"TIKI-000001"},
 	})
 	if err == nil {
@@ -200,7 +200,7 @@ func TestEvalSubQueryFilter_WithIDExclusion(t *testing.T) {
 	}
 
 	e := NewExecutor(testSchema{}, nil, ExecutorRuntime{Mode: ExecutorRuntimePlugin})
-	tasks := []*taskFixture{
+	tasks := []*tikiFixture{
 		{ID: "TIKI-000001", Title: "self", Status: "ready", Type: "task"},
 		{ID: "TIKI-000002", Title: "other", Status: "ready", Type: "task"},
 		{ID: "TIKI-000003", Title: "third", Status: "ready", Type: "task"},
@@ -221,7 +221,7 @@ func TestEvalSubQueryFilter_WithIDExclusion(t *testing.T) {
 
 func TestEvalSubQueryFilter_BareSelect_ReturnsAll(t *testing.T) {
 	e := NewExecutor(testSchema{}, nil, ExecutorRuntime{Mode: ExecutorRuntimePlugin})
-	tasks := []*taskFixture{
+	tasks := []*tikiFixture{
 		{ID: "TIKI-000001", Title: "a", Status: "ready", Type: "task"},
 		{ID: "TIKI-000002", Title: "b", Status: "ready", Type: "task"},
 	}
@@ -246,7 +246,7 @@ func TestEvalSubQueryFilter_WithOuterSelectedTask(t *testing.T) {
 	}
 
 	e := NewExecutor(testSchema{}, nil, ExecutorRuntime{Mode: ExecutorRuntimePlugin})
-	tasks := []*taskFixture{
+	tasks := []*tikiFixture{
 		{ID: "TIKI-000001", Title: "self", Status: "ready", Type: "task"},
 		{ID: "TIKI-000002", Title: "other", Status: "ready", Type: "task"},
 	}
@@ -255,7 +255,7 @@ func TestEvalSubQueryFilter_WithOuterSelectedTask(t *testing.T) {
 		t.Fatalf("filter error: %v", err)
 	}
 	if len(candidates) != 1 || candidates[0].ID != "TIKI-000002" {
-		t.Fatalf("expected only TIKI-000002, got %v", taskIDs(tikisToFixtures(candidates)))
+		t.Fatalf("expected only TIKI-000002, got %v", tikiIDs(tikisToFixtures(candidates)))
 	}
 }
 
@@ -312,7 +312,7 @@ func TestChooseBuiltin_EndToEnd_CustomRefField(t *testing.T) {
 	}
 
 	e := NewExecutor(chooseTestSchema{}, nil, ExecutorRuntime{Mode: ExecutorRuntimePlugin})
-	tasks := []*taskFixture{
+	tasks := []*tikiFixture{
 		{ID: "TIKI-000001", Title: "target", Status: "ready", Type: "task"},
 	}
 	result, err := e.testExec(vs, tasks, ExecutionInput{

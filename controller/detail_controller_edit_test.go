@@ -81,11 +81,11 @@ func (f *fakeDetailEditView) FlushFocusedEditor() {
 func newDetailEditTestRig(t *testing.T) (*DetailController, *fakeDetailEditView, *TikiEditSession, store.Store) {
 	t.Helper()
 
-	taskStore := store.NewInMemoryStore()
+	tikiStore := store.NewInMemoryStore()
 	gate := service.NewTikiMutationGate()
-	gate.SetStore(taskStore)
+	gate.SetStore(tikiStore)
 	nav := newMockNavigationController()
-	tc := NewTikiEditSession(taskStore, gate, nav, nil)
+	tc := NewTikiEditSession(tikiStore, gate, nav, nil)
 
 	tk := tikipkg.New()
 	tk.ID = "TIKI200"
@@ -93,17 +93,17 @@ func newDetailEditTestRig(t *testing.T) (*DetailController, *fakeDetailEditView,
 	tk.Set(tikipkg.FieldStatus, "ready")
 	tk.Set(tikipkg.FieldType, "story")
 	tk.Set(tikipkg.FieldPriority, "medium")
-	if err := taskStore.CreateTiki(tk); err != nil {
+	if err := tikiStore.CreateTiki(tk); err != nil {
 		t.Fatalf("CreateTiki: %v", err)
 	}
 
 	pluginDef := newTestDetailPlugin([]string{"status", "type", "priority"}, nil)
-	dc := NewDetailController(pluginDef, nav, nil, taskStore, gate, rukiRuntime.NewSchema(), tc)
+	dc := NewDetailController(pluginDef, nav, nil, tikiStore, gate, rukiRuntime.NewSchema(), tc)
 	dc.SetSelectedTaskID(tk.ID)
 
 	view := newFakeDetailEditView()
 	dc.BindEditView(view)
-	return dc, view, tc, taskStore
+	return dc, view, tc, tikiStore
 }
 
 // TestDetailController_EnterEditModeStartsSession verifies that
@@ -150,7 +150,7 @@ func TestDetailController_CancelEditDropsSession(t *testing.T) {
 // ActionDetailSave writes via TikiEditSession.CommitEditSession and exits
 // edit mode.
 func TestDetailController_SaveCommitsAndExits(t *testing.T) {
-	dc, view, tc, taskStore := newDetailEditTestRig(t)
+	dc, view, tc, tikiStore := newDetailEditTestRig(t)
 
 	if !dc.HandleAction(ActionDetailEdit) {
 		t.Fatal("EnterEditMode")
@@ -172,7 +172,7 @@ func TestDetailController_SaveCommitsAndExits(t *testing.T) {
 	if tc.GetEditingTiki() != nil {
 		t.Error("editing tiki should be cleared after Save")
 	}
-	got := taskStore.GetTiki("TIKI200")
+	got := tikiStore.GetTiki("TIKI200")
 	if got == nil {
 		t.Fatal("tiki disappeared from store after save")
 	}

@@ -324,7 +324,7 @@ func TestExecuteSelectStillWorksWithoutPipe(t *testing.T) {
 func TestExecutePipeListFieldSpaceJoined(t *testing.T) {
 	e := NewExecutor(testSchema{}, nil, ExecutorRuntime{Mode: ExecutorRuntimePlugin})
 	p := newTestParser()
-	tasks := []*taskFixture{
+	tasks := []*tikiFixture{
 		{ID: "TIKI-000001", Title: "Test", Status: "ready", Type: "story",
 			Tags: []string{"a", "b", "c"}},
 	}
@@ -578,7 +578,7 @@ func TestExecuteClipboardWithLimit(t *testing.T) {
 func TestExecutePipeFilepath(t *testing.T) {
 	e := NewExecutor(testSchema{}, nil, ExecutorRuntime{Mode: ExecutorRuntimePlugin})
 	p := newTestParser()
-	tasks := []*taskFixture{
+	tasks := []*tikiFixture{
 		{ID: "TIKI-000001", Title: "x", Status: "ready", Type: "story",
 			FilePath: "/abs/path/tiki-000001.md"},
 	}

@@ -18,7 +18,7 @@ import (
 // ErrConflict indicates a task was modified externally since it was loaded
 var ErrConflict = errors.New("task was modified externally")
 
-func normalizeTaskID(id string) string {
+func normalizeTikiID(id string) string {
 	return strings.ToUpper(strings.TrimSpace(id))
 }
 

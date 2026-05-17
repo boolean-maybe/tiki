@@ -53,12 +53,12 @@ func HasPositionalArgs(args []string) bool {
 	return false
 }
 
-// CreateTaskFromReader reads piped input, parses it into title/description,
+// CreateTikiFromReader reads piped input, parses it into title/description,
 // and creates a new document. When the active workflow has a default status,
 // the result is a workflow task; otherwise the result is a plain doc with
 // only id and title in the frontmatter. Returns the generated bare document
 // id (e.g. "ABC123").
-func CreateTaskFromReader(r io.Reader) (string, error) {
+func CreateTikiFromReader(r io.Reader) (string, error) {
 	// Suppress info/debug logs for the non-interactive pipe path.
 	// The pipe path bypasses bootstrap (which normally configures logging),
 	// so the default slog handler would write INFO+ messages to stderr.
@@ -99,15 +99,15 @@ func CreateTaskFromReader(r io.Reader) (string, error) {
 
 	gate := service.BuildGate()
 
-	_, taskStore, err := bootstrap.InitStores()
+	_, tikiStore, err := bootstrap.InitStores()
 	if err != nil {
 		return "", fmt.Errorf("initialize store: %w", err)
 	}
-	gate.SetStore(taskStore)
+	gate.SetStore(tikiStore)
 
 	// load triggers so piped creates fire them — shared identity projection
 	schema := rukiRuntime.NewSchema()
-	userFunc, userErr := store.CurrentUserDisplayFunc(taskStore)
+	userFunc, userErr := store.CurrentUserDisplayFunc(tikiStore)
 	if userErr != nil {
 		return "", fmt.Errorf("resolve current user: %w", userErr)
 	}
@@ -115,7 +115,7 @@ func CreateTaskFromReader(r io.Reader) (string, error) {
 		return "", fmt.Errorf("load triggers: %w", loadErr)
 	}
 
-	tmpl, err := taskStore.NewTikiTemplate()
+	tmpl, err := tikiStore.NewTikiTemplate()
 	if err != nil {
 		return "", fmt.Errorf("create task template: %w", err)
 	}

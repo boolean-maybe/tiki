@@ -21,7 +21,7 @@ type PluginView struct {
 	inputHelper         *InputHelper
 	lanes               *tview.Flex
 	laneBoxes           []*ScrollableList
-	taskStore           store.Store
+	tikiStore           store.Store
 	pluginConfig        *model.PluginConfig
 	pluginDef           *plugin.TikiPlugin
 	registry            *controller.ActionRegistry
@@ -35,7 +35,7 @@ type PluginView struct {
 
 // NewPluginView creates a plugin view
 func NewPluginView(
-	taskStore store.Store,
+	tikiStore store.Store,
 	pluginConfig *model.PluginConfig,
 	pluginDef *plugin.TikiPlugin,
 	getLaneTasks func(lane int) []*tikipkg.Tiki,
@@ -44,7 +44,7 @@ func NewPluginView(
 	showNavigation bool,
 ) *PluginView {
 	pv := &PluginView{
-		taskStore:       taskStore,
+		tikiStore:       tikiStore,
 		pluginConfig:    pluginConfig,
 		pluginDef:       pluginDef,
 		registry:        registry,
@@ -170,13 +170,13 @@ func (pv *PluginView) refresh() {
 				if idx < len(tasks) {
 					task := tasks[idx]
 					isSelected := isSelectedLane && idx == selectedIndex
-					var taskBox *tview.Frame
+					var tikiBox *tview.Frame
 					if viewMode == model.ViewModeCompact {
-						taskBox = CreateCompactTaskBox(task, isSelected, theme.Roles())
+						tikiBox = CreateCompactTikiBox(task, isSelected, theme.Roles())
 					} else {
-						taskBox = CreateExpandedTaskBox(task, isSelected, theme.Roles())
+						tikiBox = CreateExpandedTikiBox(task, isSelected, theme.Roles())
 					}
-					rowFlex.AddItem(taskBox, 0, 1, false)
+					rowFlex.AddItem(tikiBox, 0, 1, false)
 				} else {
 					spacer := tview.NewBox()
 					rowFlex.AddItem(spacer, 0, 1, false)
@@ -253,14 +253,14 @@ func (pv *PluginView) GetViewID() model.ViewID {
 
 // OnFocus is called when the view becomes active
 func (pv *PluginView) OnFocus() {
-	pv.storeListenerID = pv.taskStore.AddListener(pv.refresh)
+	pv.storeListenerID = pv.tikiStore.AddListener(pv.refresh)
 	pv.selectionListenerID = pv.pluginConfig.AddSelectionListener(pv.refresh)
 	pv.refresh()
 }
 
 // OnBlur is called when the view becomes inactive
 func (pv *PluginView) OnBlur() {
-	pv.taskStore.RemoveListener(pv.storeListenerID)
+	pv.tikiStore.RemoveListener(pv.storeListenerID)
 	pv.pluginConfig.RemoveSelectionListener(pv.selectionListenerID)
 }
 

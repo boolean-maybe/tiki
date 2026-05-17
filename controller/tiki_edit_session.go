@@ -22,11 +22,11 @@ import (
 
 // TikiEditSession handles tiki detail view actions: editing, status changes, comments.
 type TikiEditSession struct {
-	taskStore     store.Store
+	tikiStore     store.Store
 	mutationGate  *service.TikiMutationGate
 	navController *NavigationController
 	statusline    *model.StatuslineConfig
-	currentTaskID string
+	currentTikiID string
 	draftTiki     *tikipkg.Tiki // For new task creation only
 	editingTiki   *tikipkg.Tiki // In-memory copy being edited (existing tasks)
 	originalMtime time.Time     // LoadedMtime when edit started
@@ -38,31 +38,31 @@ type TikiEditSession struct {
 // NewTikiEditSession creates a new TikiEditSession for managing tiki detail operations.
 // It initializes action registries for both detail and edit views.
 func NewTikiEditSession(
-	taskStore store.Store,
+	tikiStore store.Store,
 	mutationGate *service.TikiMutationGate,
 	navController *NavigationController,
 	statusline *model.StatuslineConfig,
 ) *TikiEditSession {
 	return &TikiEditSession{
-		taskStore:     taskStore,
+		tikiStore:     tikiStore,
 		mutationGate:  mutationGate,
 		navController: navController,
 		statusline:    statusline,
-		registry:      TaskDetailViewActions(),
-		editRegistry:  TaskEditViewActions(),
+		registry:      TikiDetailViewActions(),
+		editRegistry:  TikiEditViewActions(),
 	}
 }
 
-// SetCurrentTask sets the task ID for the currently viewed or edited task.
-func (tc *TikiEditSession) SetCurrentTask(taskID string) {
-	tc.currentTaskID = taskID
+// SetCurrentTiki sets the task ID for the currently viewed or edited task.
+func (tc *TikiEditSession) SetCurrentTiki(tikiID string) {
+	tc.currentTikiID = tikiID
 }
 
 // SetDraft sets a draft tiki for creation flow (not yet persisted).
 func (tc *TikiEditSession) SetDraft(tk *tikipkg.Tiki) {
 	tc.draftTiki = tk
 	if tk != nil {
-		tc.currentTaskID = tk.ID
+		tc.currentTikiID = tk.ID
 	}
 }
 
@@ -74,15 +74,15 @@ func (tc *TikiEditSession) ClearDraft() {
 // StartEditSession creates an in-memory copy of the specified tiki for editing.
 // It loads the tiki from the store and records its modification time for optimistic locking.
 // Returns the editing copy, or nil if the tiki cannot be found.
-func (tc *TikiEditSession) StartEditSession(taskID string) *tikipkg.Tiki {
-	tk := tc.taskStore.GetTiki(taskID)
+func (tc *TikiEditSession) StartEditSession(tikiID string) *tikipkg.Tiki {
+	tk := tc.tikiStore.GetTiki(tikiID)
 	if tk == nil {
 		return nil
 	}
 
 	tc.editingTiki = tk.Clone()
 	tc.originalMtime = tk.LoadedMtime
-	tc.currentTaskID = taskID
+	tc.currentTikiID = tikiID
 
 	return tc.editingTiki
 }
@@ -102,7 +102,7 @@ func (tc *TikiEditSession) GetDraftTiki() *tikipkg.Tiki {
 func (tc *TikiEditSession) CancelEditSession() {
 	tc.editingTiki = nil
 	tc.originalMtime = time.Time{}
-	tc.currentTaskID = ""
+	tc.currentTikiID = ""
 }
 
 // CommitEditSession validates and persists changes from the current edit session.
@@ -112,7 +112,7 @@ func (tc *TikiEditSession) CancelEditSession() {
 func (tc *TikiEditSession) CommitEditSession() error {
 	// Handle draft tiki creation
 	if tc.draftTiki != nil {
-		setAuthorOnTiki(tc.draftTiki, tc.taskStore)
+		setAuthorOnTiki(tc.draftTiki, tc.tikiStore)
 
 		if err := tc.mutationGate.CreateTiki(context.Background(), tc.draftTiki); err != nil {
 			slog.Error("failed to create draft tiki", "error", err)
@@ -130,15 +130,15 @@ func (tc *TikiEditSession) CommitEditSession() error {
 	}
 
 	// Check for conflicts (file was modified externally)
-	currentTiki := tc.taskStore.GetTiki(tc.currentTaskID)
+	currentTiki := tc.tikiStore.GetTiki(tc.currentTikiID)
 	if currentTiki != nil && !currentTiki.LoadedMtime.Equal(tc.originalMtime) {
 		// TODO: Better error handling - show error to user
-		slog.Warn("task was modified externally", "taskID", tc.currentTaskID)
+		slog.Warn("task was modified externally", "tikiID", tc.currentTikiID)
 		// For now, proceed with save (last write wins)
 	}
 
 	if err := tc.mutationGate.UpdateTiki(context.Background(), tc.editingTiki); err != nil {
-		slog.Error("failed to update tiki", "taskID", tc.currentTaskID, "error", err)
+		slog.Error("failed to update tiki", "tikiID", tc.currentTikiID, "error", err)
 		return fmt.Errorf("failed to update task: %w", err)
 	}
 
@@ -211,7 +211,7 @@ func (tc *TikiEditSession) handleEditSource() bool {
 	// may have gained a conflict (collision, invalid id, unknown type) the
 	// user needs to resolve. Silently swallowing the error leaves the UI
 	// showing stale data with no hint that anything went wrong.
-	if err := tc.taskStore.ReloadTask(tk.ID); err != nil && tc.statusline != nil {
+	if err := tc.tikiStore.ReloadTiki(tk.ID); err != nil && tc.statusline != nil {
 		tc.statusline.SetMessage("reload failed: "+err.Error(), model.MessageLevelError, true)
 	}
 
@@ -489,15 +489,15 @@ func (tc *TikiEditSession) handleCloneTask() bool {
 // GetCurrentTiki returns the tiki being viewed or edited.
 // Returns nil if no task is currently active.
 func (tc *TikiEditSession) GetCurrentTiki() *tikipkg.Tiki {
-	if tc.currentTaskID == "" {
+	if tc.currentTikiID == "" {
 		return nil
 	}
-	return tc.taskStore.GetTiki(tc.currentTaskID)
+	return tc.tikiStore.GetTiki(tc.currentTikiID)
 }
 
-// GetCurrentTaskID returns the ID of the current task
-func (tc *TikiEditSession) GetCurrentTaskID() string {
-	return tc.currentTaskID
+// GetCurrentTikiID returns the ID of the current tiki
+func (tc *TikiEditSession) GetCurrentTikiID() string {
+	return tc.currentTikiID
 }
 
 // GetFocusedField returns the currently focused field in edit mode
@@ -513,14 +513,14 @@ func (tc *TikiEditSession) SetFocusedField(field model.EditField) {
 // AddComment adds a new comment to the current task with the specified author and text.
 // Returns false if no task is currently active, true if the comment was added successfully.
 func (tc *TikiEditSession) AddComment(author, text string) bool {
-	if tc.currentTaskID == "" {
+	if tc.currentTikiID == "" {
 		return false
 	}
 
-	tk := tc.taskStore.GetTiki(tc.currentTaskID)
+	tk := tc.tikiStore.GetTiki(tc.currentTikiID)
 	if tk == nil {
-		err := fmt.Errorf("task not found: %s", tc.currentTaskID)
-		slog.Error("failed to add comment", "taskID", tc.currentTaskID, "error", err)
+		err := fmt.Errorf("task not found: %s", tc.currentTikiID)
+		slog.Error("failed to add comment", "tikiID", tc.currentTikiID, "error", err)
 		if tc.statusline != nil {
 			tc.statusline.SetMessage(err.Error(), model.MessageLevelError, true)
 		}

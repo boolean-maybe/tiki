@@ -13,7 +13,7 @@ import (
 )
 
 func TestPluginViewRefreshResetsNonSelectedLaneScrollOffset(t *testing.T) {
-	taskStore := store.NewInMemoryStore()
+	tikiStore := store.NewInMemoryStore()
 	pluginConfig := model.NewPluginConfig("TestPlugin")
 	pluginConfig.SetLaneLayout([]int{1, 1}, nil)
 
@@ -35,7 +35,7 @@ func TestPluginViewRefreshResetsNonSelectedLaneScrollOffset(t *testing.T) {
 		tasks[i] = tk
 	}
 
-	pv := NewPluginView(taskStore, pluginConfig, pluginDef, func(lane int) []*tikipkg.Tiki {
+	pv := NewPluginView(tikiStore, pluginConfig, pluginDef, func(lane int) []*tikipkg.Tiki {
 		return tasks
 	}, nil, controller.PluginViewActions(), true)
 
@@ -86,7 +86,7 @@ func TestPluginViewGridLayout_RowCount(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			taskStore := store.NewInMemoryStore()
+			tikiStore := store.NewInMemoryStore()
 			pluginConfig := model.NewPluginConfig("TestPlugin")
 			pluginConfig.SetLaneLayout([]int{tt.columns}, nil)
 
@@ -103,7 +103,7 @@ func TestPluginViewGridLayout_RowCount(t *testing.T) {
 				tasks[i] = tk
 			}
 
-			pv := NewPluginView(taskStore, pluginConfig, pluginDef, func(lane int) []*tikipkg.Tiki {
+			pv := NewPluginView(tikiStore, pluginConfig, pluginDef, func(lane int) []*tikipkg.Tiki {
 				return tasks
 			}, nil, controller.PluginViewActions(), true)
 
@@ -132,7 +132,7 @@ func TestPluginViewGridLayout_SelectedRow(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			taskStore := store.NewInMemoryStore()
+			tikiStore := store.NewInMemoryStore()
 			pluginConfig := model.NewPluginConfig("TestPlugin")
 			pluginConfig.SetLaneLayout([]int{tt.columns}, nil)
 
@@ -149,7 +149,7 @@ func TestPluginViewGridLayout_SelectedRow(t *testing.T) {
 				tasks[i] = tk
 			}
 
-			pv := NewPluginView(taskStore, pluginConfig, pluginDef, func(lane int) []*tikipkg.Tiki {
+			pv := NewPluginView(tikiStore, pluginConfig, pluginDef, func(lane int) []*tikipkg.Tiki {
 				return tasks
 			}, nil, controller.PluginViewActions(), true)
 
@@ -166,7 +166,7 @@ func TestPluginViewGridLayout_SelectedRow(t *testing.T) {
 }
 
 func TestPluginViewRefreshPreservesScrollOffset(t *testing.T) {
-	taskStore := store.NewInMemoryStore()
+	tikiStore := store.NewInMemoryStore()
 	pluginConfig := model.NewPluginConfig("TestPlugin")
 	pluginConfig.SetLaneLayout([]int{1}, nil)
 
@@ -187,7 +187,7 @@ func TestPluginViewRefreshPreservesScrollOffset(t *testing.T) {
 		tasks[i] = tk
 	}
 
-	pv := NewPluginView(taskStore, pluginConfig, pluginDef, func(lane int) []*tikipkg.Tiki {
+	pv := NewPluginView(tikiStore, pluginConfig, pluginDef, func(lane int) []*tikipkg.Tiki {
 		return tasks
 	}, nil, controller.PluginViewActions(), true)
 

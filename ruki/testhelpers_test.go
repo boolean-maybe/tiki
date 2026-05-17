@@ -7,12 +7,12 @@ import (
 	"github.com/boolean-maybe/tiki/workflow/value"
 )
 
-// taskFixture is a test-only fixture struct that mirrors the workflow-field
+// tikiFixture is a test-only fixture struct that mirrors the workflow-field
 // shape ruki tests historically used. The runtime model (tiki.Tiki) keeps
 // workflow fields in a generic Fields map; tests build fixtures against this
 // struct to keep the (ID, Title, Status, Tags, …) literal style readable,
 // then route them through tikiFromFixture at the executor boundary.
-type taskFixture struct {
+type tikiFixture struct {
 	ID                  string
 	Title               string
 	Description         string
@@ -38,7 +38,7 @@ type taskFixture struct {
 // non-zero workflow value (or IsWorkflow=true) is treated as workflow-
 // declaring, with all schema fields explicitly set so formatters and filters
 // behave the same as a tiki created via NewTikiTemplate.
-func tikiFromFixture(f *taskFixture) *tiki.Tiki {
+func tikiFromFixture(f *tikiFixture) *tiki.Tiki {
 	if f == nil {
 		return nil
 	}
@@ -111,7 +111,7 @@ func tikiFromFixture(f *taskFixture) *tiki.Tiki {
 	return tk
 }
 
-func hasAnyWorkflowValue(f *taskFixture) bool {
+func hasAnyWorkflowValue(f *tikiFixture) bool {
 	if f == nil {
 		return false
 	}
@@ -121,7 +121,7 @@ func hasAnyWorkflowValue(f *taskFixture) bool {
 }
 
 // tikisFromFixtures converts a fixture slice to tikis.
-func tikisFromFixtures(fixtures []*taskFixture) []*tiki.Tiki {
+func tikisFromFixtures(fixtures []*tikiFixture) []*tiki.Tiki {
 	out := make([]*tiki.Tiki, 0, len(fixtures))
 	for _, f := range fixtures {
 		if tk := tikiFromFixture(f); tk != nil {
@@ -143,7 +143,7 @@ func (te *TriggerExecutor) testExecAction(trig any, tc *TriggerContext, inputs .
 
 // testExecTimeAction wraps TriggerExecutor.ExecTimeTriggerAction with
 // fixture-shaped input/output for legacy fixtures.
-func (te *TriggerExecutor) testExecTimeAction(tt any, allFixtures []*taskFixture, inputs ...ExecutionInput) (*testResult, error) {
+func (te *TriggerExecutor) testExecTimeAction(tt any, allFixtures []*tikiFixture, inputs ...ExecutionInput) (*testResult, error) {
 	r, err := te.ExecTimeTriggerAction(tt, tikisFromFixtures(allFixtures), inputs...)
 	if err != nil {
 		return nil, err
@@ -151,14 +151,14 @@ func (te *TriggerExecutor) testExecTimeAction(tt any, allFixtures []*taskFixture
 	return wrapResult(r), nil
 }
 
-// tikisToFixtures unwraps tikis back to taskFixture for assertion ergonomics.
+// tikisToFixtures unwraps tikis back to tikiFixture for assertion ergonomics.
 //
 // Tests use local custom schemas (chooseTestSchema, newCustomExecutor's
 // registered fields) that are NOT mirrored in the global workflow registry.
 // This shim is deliberately permissive: every non-workflow-declared field
 // lands in CustomFields so assertion ergonomics stay intact.
-func tikisToFixtures(tks []*tiki.Tiki) []*taskFixture {
-	out := make([]*taskFixture, 0, len(tks))
+func tikisToFixtures(tks []*tiki.Tiki) []*tikiFixture {
+	out := make([]*tikiFixture, 0, len(tks))
 	for _, tk := range tks {
 		if f := tikiToFixtureForTest(tk); f != nil {
 			out = append(out, f)
@@ -167,7 +167,7 @@ func tikisToFixtures(tks []*tiki.Tiki) []*taskFixture {
 	return out
 }
 
-func tikiToFixtureForTest(tk *tiki.Tiki) *taskFixture {
+func tikiToFixtureForTest(tk *tiki.Tiki) *tikiFixture {
 	if tk == nil {
 		return nil
 	}
@@ -175,7 +175,7 @@ func tikiToFixtureForTest(tk *tiki.Tiki) *taskFixture {
 	if s, _, _ := tk.StringField("createdBy"); s != "" {
 		createdBy = s
 	}
-	f := &taskFixture{
+	f := &tikiFixture{
 		ID:        tk.ID,
 		Title:     tk.Title,
 		CreatedBy: createdBy,
@@ -241,10 +241,10 @@ func tikiToFixtureForTest(tk *tiki.Tiki) *taskFixture {
 }
 
 // testExec is a thin fixture-shaped wrapper around Executor.Execute: accepts
-// []*taskFixture for fixture compatibility, converts to tikis for the real
+// []*tikiFixture for fixture compatibility, converts to tikis for the real
 // call, and converts result-bearing variants back so existing test
 // assertions keep working.
-func (e *Executor) testExec(stmt any, fixtures []*taskFixture, inputs ...ExecutionInput) (*testResult, error) {
+func (e *Executor) testExec(stmt any, fixtures []*tikiFixture, inputs ...ExecutionInput) (*testResult, error) {
 	result, err := e.Execute(stmt, tikisFromFixtures(fixtures), inputs...)
 	if err != nil {
 		return nil, err
@@ -270,20 +270,20 @@ type testResult struct {
 }
 
 type testSelect struct {
-	Tasks  []*taskFixture
+	Tasks  []*tikiFixture
 	Fields []string
 }
 
 type testUpdate struct {
-	Updated []*taskFixture
+	Updated []*tikiFixture
 }
 
 type testCreate struct {
-	Task *taskFixture
+	Task *tikiFixture
 }
 
 type testDelete struct {
-	Deleted []*taskFixture
+	Deleted []*tikiFixture
 }
 
 func wrapResult(r *Result) *testResult {

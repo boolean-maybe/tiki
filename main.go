@@ -86,12 +86,12 @@ func main() {
 
 	// Handle piped stdin: create a task and exit without launching TUI
 	if pipe.IsPipedInput() && !pipe.HasPositionalArgs(os.Args[1:]) {
-		taskID, err := pipe.CreateTaskFromReader(os.Stdin)
+		tikiID, err := pipe.CreateTikiFromReader(os.Stdin)
 		if err != nil {
 			_, _ = fmt.Fprintln(os.Stderr, "error:", err)
 			os.Exit(1)
 		}
-		fmt.Println(taskID)
+		fmt.Println(tikiID)
 		return
 	}
 
@@ -334,17 +334,17 @@ func runExec(args []string) int {
 
 	gate := service.BuildGate()
 
-	_, taskStore, err := bootstrap.InitStores()
+	_, tikiStore, err := bootstrap.InitStores()
 	if err != nil {
 		_, _ = fmt.Fprintf(os.Stderr, "error: initialize store: %v\n", err)
 		return exitStartupFailure
 	}
-	gate.SetStore(taskStore)
+	gate.SetStore(tikiStore)
 
 	// load triggers so exec queries fire them — same identity projection as
 	// bootstrap and the runtime executor, so email-only configs resolve user()
 	schema := rukiRuntime.NewSchema()
-	userFunc, err := store.CurrentUserDisplayFunc(taskStore)
+	userFunc, err := store.CurrentUserDisplayFunc(tikiStore)
 	if err != nil {
 		_, _ = fmt.Fprintf(os.Stderr, "error: resolve current user: %v\n", err)
 		return exitStartupFailure

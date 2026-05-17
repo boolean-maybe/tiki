@@ -46,7 +46,7 @@ func TestLayoutModel_SetContent(t *testing.T) {
 	}
 
 	// Set content with params
-	params := map[string]any{"taskID": "TIKI-1", "index": 42}
+	params := map[string]any{"tikiID": "TIKI-1", "index": 42}
 	lm.SetContent(MakePluginViewID("Detail"), params)
 
 	if lm.GetContentViewID() != MakePluginViewID("Detail") {
@@ -58,8 +58,8 @@ func TestLayoutModel_SetContent(t *testing.T) {
 		t.Fatal("GetContentParams() returned nil")
 	}
 
-	if gotParams["taskID"] != "TIKI-1" {
-		t.Errorf("params[taskID] = %v, want TIKI-1", gotParams["taskID"])
+	if gotParams["tikiID"] != "TIKI-1" {
+		t.Errorf("params[tikiID] = %v, want TIKI-1", gotParams["tikiID"])
 	}
 
 	if gotParams["index"] != 42 {
@@ -209,7 +209,7 @@ func TestLayoutModel_MultipleListeners(t *testing.T) {
 	lm.RemoveListener(id3)
 
 	// None should be notified
-	lm.SetContent(TaskEditViewID, nil)
+	lm.SetContent(TikiEditViewID, nil)
 
 	time.Sleep(10 * time.Millisecond)
 

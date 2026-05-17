@@ -1,4 +1,4 @@
-package taskdetail
+package tikidetail
 
 import (
 	"path/filepath"
@@ -14,21 +14,21 @@ import (
 )
 
 // Base contains shared state and methods used by both ConfigurableDetailView
-// and TaskEditView. The fixed-shape grid layout produced by grid_layout.go
+// and TikiEditView. The fixed-shape grid layout produced by grid_layout.go
 // is consumed by both views; this struct holds the layout primitives and
 // the dependencies needed to render the always-present description section.
 type Base struct {
 	root    *tview.Flex
 	content *tview.Flex
 
-	taskStore    store.Store
-	taskID       string
+	tikiStore    store.Store
+	tikiID       string
 	imageManager *navtview.ImageManager
 	mermaidOpts  *nav.MermaidOptions
 	descView     tview.Primitive
 
-	fallbackTiki   *tikipkg.Tiki
-	taskController *controller.TikiEditSession
+	fallbackTiki    *tikipkg.Tiki
+	tikiEditSession *controller.TikiEditSession
 
 	fullscreen         bool
 	focusSetter        func(tview.Primitive)
@@ -44,8 +44,8 @@ func (b *Base) build() {
 
 // GetTiki returns the tiki from the store or the fallback tiki.
 func (b *Base) GetTiki() *tikipkg.Tiki {
-	tk := b.taskStore.GetTiki(b.taskID)
-	if tk == nil && b.fallbackTiki != nil && b.fallbackTiki.ID == b.taskID {
+	tk := b.tikiStore.GetTiki(b.tikiID)
+	if tk == nil && b.fallbackTiki != nil && b.fallbackTiki.ID == b.tikiID {
 		tk = b.fallbackTiki
 	}
 	return tk
@@ -63,7 +63,7 @@ func (b *Base) SetFallbackTiki(tk *tikipkg.Tiki) {
 
 // SetTikiEditSession wires the edit-session controller used to drive in-place edit mode.
 func (b *Base) SetTikiEditSession(tc *controller.TikiEditSession) {
-	b.taskController = tc
+	b.tikiEditSession = tc
 }
 
 // SetFocusSetter sets the callback for requesting focus changes.
@@ -89,10 +89,10 @@ func defaultString(s, def string) string {
 	return s
 }
 
-// taskSourcePathFor returns the on-disk source path of the tiki, falling
+// tikiSourcePathFor returns the on-disk source path of the tiki, falling
 // back to the conventional doc-dir derived path when the tiki has no
 // stored Path (e.g. drafts that haven't been written yet).
-func taskSourcePathFor(tk *tikipkg.Tiki) string {
+func tikiSourcePathFor(tk *tikipkg.Tiki) string {
 	if tk == nil {
 		return ""
 	}

@@ -44,15 +44,15 @@ func TestConfigurableDetail_EnterOnDetailDoesNotRecurse(t *testing.T) {
 	ta := setupTestAppWithPlugins(t)
 	defer ta.Cleanup()
 
-	taskID := "DETL02"
-	if err := testutil.CreateTestTask(ta.TaskDir, taskID, "Detail Recurse", "ready", "story"); err != nil {
+	tikiID := "DETL02"
+	if err := testutil.CreateTestTiki(ta.TikiDir, tikiID, "Detail Recurse", "ready", "story"); err != nil {
 		t.Fatalf("create task: %v", err)
 	}
 	if err := ta.TikiStore.Reload(); err != nil {
 		t.Fatalf("reload: %v", err)
 	}
 
-	params := model.EncodePluginViewParams(model.PluginViewParams{TaskID: taskID})
+	params := model.EncodePluginViewParams(model.PluginViewParams{TikiID: tikiID})
 	ta.NavController.PushView(model.MakePluginViewID("Detail"), params)
 	ta.Draw()
 
@@ -78,10 +78,10 @@ func TestConfigurableDetail_FreshControllerPerNavigation(t *testing.T) {
 	ta := setupTestAppWithPlugins(t)
 	defer ta.Cleanup()
 
-	if err := testutil.CreateTestTask(ta.TaskDir, "FRSH01", "First", "ready", "story"); err != nil {
+	if err := testutil.CreateTestTiki(ta.TikiDir, "FRSH01", "First", "ready", "story"); err != nil {
 		t.Fatalf("create first: %v", err)
 	}
-	if err := testutil.CreateTestTask(ta.TaskDir, "FRSH02", "Second", "ready", "story"); err != nil {
+	if err := testutil.CreateTestTiki(ta.TikiDir, "FRSH02", "Second", "ready", "story"); err != nil {
 		t.Fatalf("create second: %v", err)
 	}
 	if err := ta.TikiStore.Reload(); err != nil {
@@ -90,7 +90,7 @@ func TestConfigurableDetail_FreshControllerPerNavigation(t *testing.T) {
 
 	// First navigation
 	ta.NavController.PushView(model.MakePluginViewID("Detail"),
-		model.EncodePluginViewParams(model.PluginViewParams{TaskID: "FRSH01"}))
+		model.EncodePluginViewParams(model.PluginViewParams{TikiID: "FRSH01"}))
 	ta.Draw()
 	firstView := ta.NavController.GetActiveView()
 
@@ -98,7 +98,7 @@ func TestConfigurableDetail_FreshControllerPerNavigation(t *testing.T) {
 	// would mutate the shared controller and the firstView's selection would
 	// silently flip to FRSH02.
 	ta.NavController.PushView(model.MakePluginViewID("Detail"),
-		model.EncodePluginViewParams(model.PluginViewParams{TaskID: "FRSH02"}))
+		model.EncodePluginViewParams(model.PluginViewParams{TikiID: "FRSH02"}))
 	ta.Draw()
 	secondView := ta.NavController.GetActiveView()
 
@@ -123,8 +123,8 @@ func TestConfigurableDetail_RendersConfiguredMetadata(t *testing.T) {
 	ta := setupTestAppWithPlugins(t)
 	defer ta.Cleanup()
 
-	taskID := "DETL01"
-	if err := testutil.CreateTestTask(ta.TaskDir, taskID, "Detail Title", "ready", "story"); err != nil {
+	tikiID := "DETL01"
+	if err := testutil.CreateTestTiki(ta.TikiDir, tikiID, "Detail Title", "ready", "story"); err != nil {
 		t.Fatalf("create task: %v", err)
 	}
 	if err := ta.TikiStore.Reload(); err != nil {
@@ -133,7 +133,7 @@ func TestConfigurableDetail_RendersConfiguredMetadata(t *testing.T) {
 
 	// Push directly to Detail with the task carried as PluginViewParams,
 	// matching what Enter dispatch would do via selection passthrough.
-	params := model.EncodePluginViewParams(model.PluginViewParams{TaskID: taskID})
+	params := model.EncodePluginViewParams(model.PluginViewParams{TikiID: tikiID})
 	ta.NavController.PushView(model.MakePluginViewID("Detail"), params)
 	ta.Draw()
 

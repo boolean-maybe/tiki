@@ -66,7 +66,7 @@ type DetailEditableView interface {
 }
 
 // NewDetailController builds a controller for a kind: detail plugin view.
-// taskStore / mutationGate / schema may be nil only in trivial test fixtures
+// tikiStore / mutationGate / schema may be nil only in trivial test fixtures
 // that don't exercise ruki actions; in normal use the executor is wired so
 // per-view ruki actions can fire. editSession is required for Phase 2
 // in-place edit-mode dispatch; passing nil leaves the controller in
@@ -75,7 +75,7 @@ func NewDetailController(
 	pluginDef *plugin.DetailPlugin,
 	navController *NavigationController,
 	statusline *model.StatuslineConfig,
-	taskStore store.Store,
+	tikiStore store.Store,
 	mutationGate *service.TikiMutationGate,
 	schema ruki.Schema,
 	editSession *TikiEditSession,
@@ -87,8 +87,8 @@ func NewDetailController(
 		registry:      DetailViewActions(),
 		editSession:   editSession,
 	}
-	if taskStore != nil && mutationGate != nil && schema != nil {
-		dc.executor = NewPluginExecutor(taskStore, mutationGate, statusline, schema,
+	if tikiStore != nil && mutationGate != nil && schema != nil {
+		dc.executor = NewPluginExecutor(tikiStore, mutationGate, statusline, schema,
 			pluginDef.GetName(), nil)
 	}
 	dc.registerPluginActions()
@@ -418,7 +418,7 @@ func (dc *DetailController) dispatchViewAction(a *plugin.PluginAction) bool {
 	}
 	var params map[string]interface{}
 	if dc.selectedTaskID != "" {
-		params = model.EncodePluginViewParams(model.PluginViewParams{TaskID: dc.selectedTaskID})
+		params = model.EncodePluginViewParams(model.PluginViewParams{TikiID: dc.selectedTaskID})
 	}
 	dc.navController.PushView(model.MakePluginViewID(a.TargetView), params)
 	return true
@@ -469,7 +469,7 @@ func (dc *DetailController) HandleActionChoose(ActionID, string) bool { return f
 // when the view is in read-only mode. Phase 2 replaced the Phase 1 Edit
 // stub with a real edit-mode toggle (ActionDetailEdit). Phase 3 added
 // the dependency-editor opener (Ctrl+D) so the configurable detail view
-// fully replaces the legacy TaskDetailView's deps-open shortcut.
+// fully replaces the legacy TikiDetailView's deps-open shortcut.
 func DetailViewActions() *ActionRegistry {
 	r := NewActionRegistry()
 	idReq := []Requirement{RequireID}
@@ -483,7 +483,7 @@ func DetailViewActions() *ActionRegistry {
 
 // DetailEditModeActions returns the action registry surfaced while a
 // configurable detail view is in in-place edit mode. Mirrors the
-// TaskEditView contract: Save commits the in-flight session, Tab/Shift-Tab
+// TikiEditView contract: Save commits the in-flight session, Tab/Shift-Tab
 // traverse editable metadata fields, Esc cancels.
 func DetailEditModeActions() *ActionRegistry {
 	r := NewActionRegistry()

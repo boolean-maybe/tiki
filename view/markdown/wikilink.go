@@ -97,8 +97,8 @@ func (r *StoreResolver) ResolveBody(id string) (string, bool) {
 
 // RewriteWikilinks rewrites every `[[ID]]` span in body to a standard
 // markdown link. Resolved ids become `[title](ID)` so navidown's existing
-// link pipeline can handle them — taskDescriptionProvider already recognizes
-// bare-id URLs via extractTaskID. Unresolved ids keep their literal
+// link pipeline can handle them — tikiDescriptionProvider already recognizes
+// bare-id URLs via extractTikiID. Unresolved ids keep their literal
 // `[[ID]]` form with a trailing `(not found)` hint so the reader sees the
 // broken reference instead of silent omission.
 //

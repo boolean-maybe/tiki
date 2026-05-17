@@ -24,8 +24,8 @@ func TestTaskDetailView_ChatModifiesTask(t *testing.T) {
 	defer viper.Set("ai.agent", "")
 
 	// create a task
-	taskID := "CHAT01"
-	if err := testutil.CreateTestTask(ta.TaskDir, taskID, "Original Title", "ready", "story"); err != nil {
+	tikiID := "CHAT01"
+	if err := testutil.CreateTestTiki(ta.TikiDir, tikiID, "Original Title", "ready", "story"); err != nil {
 		t.Fatalf("failed to create test task: %v", err)
 	}
 	if err := ta.TikiStore.Reload(); err != nil {
@@ -41,27 +41,27 @@ func TestTaskDetailView_ChatModifiesTask(t *testing.T) {
 		// Phase 2: filenames are the bare uppercase id (no lowercase
 		// convention), and the path comes from the task's own FilePath via
 		// store.PathForID — which is an absolute path, not something the
-		// test can reconstruct by joining ta.TaskDir + lower(id).
+		// test can reconstruct by joining ta.TikiDir + lower(id).
 		if len(args) < 2 || args[0] != "--append-system-prompt" {
 			t.Errorf("expected --append-system-prompt arg, got %v", args)
-		} else if !strings.Contains(args[1], taskID+".md") {
-			t.Errorf("expected prompt to reference %s.md, got %q", taskID, args[1])
+		} else if !strings.Contains(args[1], tikiID+".md") {
+			t.Errorf("expected prompt to reference %s.md, got %q", tikiID, args[1])
 		}
-		taskPath := filepath.Join(ta.TaskDir, taskID+".md")
-		content, err := os.ReadFile(taskPath)
+		tikiPath := filepath.Join(ta.TikiDir, tikiID+".md")
+		content, err := os.ReadFile(tikiPath)
 		if err != nil {
 			return err
 		}
 		modified := strings.ReplaceAll(string(content), "Original Title", "AI Modified Title")
-		return os.WriteFile(taskPath, []byte(modified), 0644) //nolint:gosec // test file
+		return os.WriteFile(tikiPath, []byte(modified), 0644) //nolint:gosec // test file
 	})
 
 	// Phase 3: navigate to the configurable detail view (kind: detail)
 	// directly, carrying the task id via PluginViewParams. The legacy
-	// TaskDetailViewID is no longer the chat host.
+	// TikiDetailViewID is no longer the chat host.
 	ta.NavController.PushView(
 		model.DetailPluginViewID(),
-		model.EncodePluginViewParams(model.PluginViewParams{TaskID: taskID}),
+		model.EncodePluginViewParams(model.PluginViewParams{TikiID: tikiID}),
 	)
 	ta.Draw()
 
@@ -69,7 +69,7 @@ func TestTaskDetailView_ChatModifiesTask(t *testing.T) {
 	ta.SendKey(tcell.KeyRune, 'c', tcell.ModNone)
 
 	// verify task was reloaded with the modified title
-	updated := ta.TikiStore.GetTiki(taskID)
+	updated := ta.TikiStore.GetTiki(tikiID)
 	if updated == nil {
 		t.Fatal("task not found after chat")
 		return
@@ -89,8 +89,8 @@ func TestTaskDetailView_ChatNotAvailableWithoutConfig(t *testing.T) {
 	viper.Set("ai.agent", "")
 
 	// create a task
-	taskID := "NOCHAT"
-	if err := testutil.CreateTestTask(ta.TaskDir, taskID, "Unchanged Title", "ready", "story"); err != nil {
+	tikiID := "NOCHAT"
+	if err := testutil.CreateTestTiki(ta.TikiDir, tikiID, "Unchanged Title", "ready", "story"); err != nil {
 		t.Fatalf("failed to create test task: %v", err)
 	}
 	if err := ta.TikiStore.Reload(); err != nil {
@@ -106,10 +106,10 @@ func TestTaskDetailView_ChatNotAvailableWithoutConfig(t *testing.T) {
 
 	// Phase 3: navigate to the configurable detail view (kind: detail)
 	// directly, carrying the task id via PluginViewParams. The legacy
-	// TaskDetailViewID is no longer the chat host.
+	// TikiDetailViewID is no longer the chat host.
 	ta.NavController.PushView(
 		model.DetailPluginViewID(),
-		model.EncodePluginViewParams(model.PluginViewParams{TaskID: taskID}),
+		model.EncodePluginViewParams(model.PluginViewParams{TikiID: tikiID}),
 	)
 	ta.Draw()
 
@@ -121,7 +121,7 @@ func TestTaskDetailView_ChatNotAvailableWithoutConfig(t *testing.T) {
 	}
 
 	// verify task is unchanged
-	unchanged := ta.TikiStore.GetTiki(taskID)
+	unchanged := ta.TikiStore.GetTiki(tikiID)
 	if unchanged == nil {
 		t.Fatal("task not found")
 		return

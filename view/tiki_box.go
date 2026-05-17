@@ -15,7 +15,7 @@ import (
 	"github.com/boolean-maybe/tiki/workflow"
 )
 
-// TaskBox provides a reusable task card widget used in board and backlog views.
+// TikiBox provides a reusable task card widget used in board and backlog views.
 
 // applyFrameStyle applies selected/unselected styling to a frame
 func applyFrameStyle(frame *tview.Frame, selected bool, roles *theme.Theme) {
@@ -225,8 +225,8 @@ func buildExpandedTaskContent(tk *tikipkg.Tiki, roles *theme.Theme, availableWid
 		tagsStr, priorityPointsStr)
 }
 
-// CreateCompactTaskBox creates a compact styled task box widget (3 lines)
-func CreateCompactTaskBox(tk *tikipkg.Tiki, selected bool, roles *theme.Theme) *tview.Frame {
+// CreateCompactTikiBox creates a compact styled task box widget (3 lines)
+func CreateCompactTikiBox(tk *tikipkg.Tiki, selected bool, roles *theme.Theme) *tview.Frame {
 	textView := tview.NewTextView().
 		SetDynamicColors(true).
 		SetWordWrap(false)
@@ -248,8 +248,8 @@ func CreateCompactTaskBox(tk *tikipkg.Tiki, selected bool, roles *theme.Theme) *
 	return frame
 }
 
-// CreateExpandedTaskBox creates an expanded styled task box widget (7 lines)
-func CreateExpandedTaskBox(tk *tikipkg.Tiki, selected bool, roles *theme.Theme) *tview.Frame {
+// CreateExpandedTikiBox creates an expanded styled task box widget (7 lines)
+func CreateExpandedTikiBox(tk *tikipkg.Tiki, selected bool, roles *theme.Theme) *tview.Frame {
 	textView := tview.NewTextView().
 		SetDynamicColors(true).
 		SetWordWrap(false)

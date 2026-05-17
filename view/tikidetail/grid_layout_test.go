@@ -1,4 +1,4 @@
-package taskdetail
+package tikidetail
 
 import (
 	"testing"
