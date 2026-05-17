@@ -75,17 +75,17 @@ func (f *fakeDetailEditView) FlushFocusedEditor() {
 	f.flushBeforeExit = f.editing
 }
 
-// newDetailEditTestRig wires a TaskController, mutation gate, store, and a
+// newDetailEditTestRig wires a TikiEditSession, mutation gate, store, and a
 // committed test tiki so DetailController edit-mode lifecycles can be
 // exercised end-to-end (sans tview).
-func newDetailEditTestRig(t *testing.T) (*DetailController, *fakeDetailEditView, *TaskController, store.Store) {
+func newDetailEditTestRig(t *testing.T) (*DetailController, *fakeDetailEditView, *TikiEditSession, store.Store) {
 	t.Helper()
 
 	taskStore := store.NewInMemoryStore()
-	gate := service.NewTaskMutationGate()
+	gate := service.NewTikiMutationGate()
 	gate.SetStore(taskStore)
 	nav := newMockNavigationController()
-	tc := NewTaskController(taskStore, gate, nav, nil)
+	tc := NewTikiEditSession(taskStore, gate, nav, nil)
 
 	tk := tikipkg.New()
 	tk.ID = "TIKI200"
@@ -108,7 +108,7 @@ func newDetailEditTestRig(t *testing.T) (*DetailController, *fakeDetailEditView,
 
 // TestDetailController_EnterEditModeStartsSession verifies that
 // ActionDetailEdit toggles the view into edit mode and starts a
-// TaskController edit session bound to the selected tiki.
+// TikiEditSession edit session bound to the selected tiki.
 func TestDetailController_EnterEditModeStartsSession(t *testing.T) {
 	dc, view, tc, _ := newDetailEditTestRig(t)
 
@@ -119,7 +119,7 @@ func TestDetailController_EnterEditModeStartsSession(t *testing.T) {
 		t.Error("view should be in edit mode after ActionDetailEdit")
 	}
 	if tc.GetEditingTiki() == nil {
-		t.Error("TaskController should have an editing tiki after edit toggle")
+		t.Error("TikiEditSession should have an editing tiki after edit toggle")
 	}
 }
 
@@ -142,12 +142,12 @@ func TestDetailController_CancelEditDropsSession(t *testing.T) {
 		t.Error("view should not be in edit mode after Cancel")
 	}
 	if tc.GetEditingTiki() != nil {
-		t.Error("TaskController editing tiki should be cleared after Cancel")
+		t.Error("TikiEditSession editing tiki should be cleared after Cancel")
 	}
 }
 
 // TestDetailController_SaveCommitsAndExits verifies a happy-path commit:
-// ActionDetailSave writes via TaskController.CommitEditSession and exits
+// ActionDetailSave writes via TikiEditSession.CommitEditSession and exits
 // edit mode.
 func TestDetailController_SaveCommitsAndExits(t *testing.T) {
 	dc, view, tc, taskStore := newDetailEditTestRig(t)

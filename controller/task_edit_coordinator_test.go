@@ -93,10 +93,10 @@ func TestTaskEditCoordinator_HandleKey_TagsOnly_Backtab(t *testing.T) {
 
 func TestTaskEditCoordinator_HandleKey_Escape(t *testing.T) {
 	taskStore := store.NewInMemoryStore()
-	gate := service.NewTaskMutationGate()
+	gate := service.NewTikiMutationGate()
 	gate.SetStore(taskStore)
 	nav := newMockNavigationController()
-	tc := NewTaskController(taskStore, gate, nav, nil)
+	tc := NewTikiEditSession(taskStore, gate, nav, nil)
 	tc.SetDraft(newTestTiki())
 
 	coord := NewTaskEditCoordinator(nav, tc)
@@ -116,10 +116,10 @@ func TestTaskEditCoordinator_HandleKey_Escape(t *testing.T) {
 
 func TestTaskEditCoordinator_Commit_SavesTags(t *testing.T) {
 	taskStore := store.NewInMemoryStore()
-	gate := service.NewTaskMutationGate()
+	gate := service.NewTikiMutationGate()
 	gate.SetStore(taskStore)
 	nav := newMockNavigationController()
-	tc := NewTaskController(taskStore, gate, nav, nil)
+	tc := NewTikiEditSession(taskStore, gate, nav, nil)
 
 	draft := newTestTiki()
 	draft.Title = "Tagged Task"
@@ -151,10 +151,10 @@ func TestTaskEditCoordinator_Commit_SavesTags(t *testing.T) {
 
 func TestTaskEditCoordinator_Commit_NonEditView(t *testing.T) {
 	s := store.NewInMemoryStore()
-	gate := service.NewTaskMutationGate()
+	gate := service.NewTikiMutationGate()
 	gate.SetStore(s)
 	nav := newMockNavigationController()
-	tc := NewTaskController(s, gate, nav, nil)
+	tc := NewTikiEditSession(s, gate, nav, nil)
 	coord := NewTaskEditCoordinator(nav, tc)
 
 	got := coord.commit(&mockNonEditView{})
@@ -165,11 +165,11 @@ func TestTaskEditCoordinator_Commit_NonEditView(t *testing.T) {
 
 func TestTaskEditCoordinator_Commit_ValidationFails(t *testing.T) {
 	taskStore := store.NewInMemoryStore()
-	gate := service.NewTaskMutationGate()
+	gate := service.NewTikiMutationGate()
 	gate.SetStore(taskStore)
 	sl := model.NewStatuslineConfig()
 	nav := newMockNavigationController()
-	tc := NewTaskController(taskStore, gate, nav, sl)
+	tc := NewTikiEditSession(taskStore, gate, nav, sl)
 	tc.SetDraft(newTestTiki())
 
 	coord := NewTaskEditCoordinator(nav, tc)
@@ -202,11 +202,11 @@ func TestTaskEditCoordinator_Commit_ValidationFails(t *testing.T) {
 
 func TestTaskEditCoordinator_Commit_ValidationMultipleErrors(t *testing.T) {
 	taskStore := store.NewInMemoryStore()
-	gate := service.NewTaskMutationGate()
+	gate := service.NewTikiMutationGate()
 	gate.SetStore(taskStore)
 	sl := model.NewStatuslineConfig()
 	nav := newMockNavigationController()
-	tc := NewTaskController(taskStore, gate, nav, sl)
+	tc := NewTikiEditSession(taskStore, gate, nav, sl)
 	tc.SetDraft(newTestTiki())
 
 	coord := NewTaskEditCoordinator(nav, tc)
@@ -236,10 +236,10 @@ func TestTaskEditCoordinator_Commit_ValidationMultipleErrors(t *testing.T) {
 
 func TestTaskEditCoordinator_Commit_ValidationFailsNilStatusline(t *testing.T) {
 	taskStore := store.NewInMemoryStore()
-	gate := service.NewTaskMutationGate()
+	gate := service.NewTikiMutationGate()
 	gate.SetStore(taskStore)
 	nav := newMockNavigationController()
-	tc := NewTaskController(taskStore, gate, nav, nil)
+	tc := NewTikiEditSession(taskStore, gate, nav, nil)
 	tc.SetDraft(newTestTiki())
 
 	coord := NewTaskEditCoordinator(nav, tc)
@@ -265,9 +265,9 @@ func TestTaskEditCoordinator_FieldHint_RecurrencePatternFocused(t *testing.T) {
 	sl := model.NewStatuslineConfig()
 	nav := newMockNavigationController()
 	s := store.NewInMemoryStore()
-	gate := service.NewTaskMutationGate()
+	gate := service.NewTikiMutationGate()
 	gate.SetStore(s)
-	tc := NewTaskController(s, gate, nav, sl)
+	tc := NewTikiEditSession(s, gate, nav, sl)
 
 	coord := NewTaskEditCoordinator(nav, tc)
 	view := &mockFieldFocusableView{focusedField: model.EditFieldRecurrence, valueFocused: false}
@@ -287,9 +287,9 @@ func TestTaskEditCoordinator_FieldHint_RecurrenceValueFocused(t *testing.T) {
 	sl := model.NewStatuslineConfig()
 	nav := newMockNavigationController()
 	s := store.NewInMemoryStore()
-	gate := service.NewTaskMutationGate()
+	gate := service.NewTikiMutationGate()
 	gate.SetStore(s)
-	tc := NewTaskController(s, gate, nav, sl)
+	tc := NewTikiEditSession(s, gate, nav, sl)
 
 	coord := NewTaskEditCoordinator(nav, tc)
 	view := &mockFieldFocusableView{focusedField: model.EditFieldRecurrence, valueFocused: true}
@@ -309,9 +309,9 @@ func TestTaskEditCoordinator_FieldHint_NonRecurrenceClearsHint(t *testing.T) {
 	sl := model.NewStatuslineConfig()
 	nav := newMockNavigationController()
 	s := store.NewInMemoryStore()
-	gate := service.NewTaskMutationGate()
+	gate := service.NewTikiMutationGate()
 	gate.SetStore(s)
-	tc := NewTaskController(s, gate, nav, sl)
+	tc := NewTikiEditSession(s, gate, nav, sl)
 
 	coord := NewTaskEditCoordinator(nav, tc)
 
@@ -331,9 +331,9 @@ func TestTaskEditCoordinator_FieldHint_FocusNextSetsHint(t *testing.T) {
 	sl := model.NewStatuslineConfig()
 	nav := newMockNavigationController()
 	s := store.NewInMemoryStore()
-	gate := service.NewTaskMutationGate()
+	gate := service.NewTikiMutationGate()
 	gate.SetStore(s)
-	tc := NewTaskController(s, gate, nav, sl)
+	tc := NewTikiEditSession(s, gate, nav, sl)
 
 	coord := NewTaskEditCoordinator(nav, tc)
 	// Due is right before Recurrence in navigation order
@@ -354,9 +354,9 @@ func TestTaskEditCoordinator_FieldHint_CancelClearsHint(t *testing.T) {
 	sl := model.NewStatuslineConfig()
 	nav := newMockNavigationController()
 	s := store.NewInMemoryStore()
-	gate := service.NewTaskMutationGate()
+	gate := service.NewTikiMutationGate()
 	gate.SetStore(s)
-	tc := NewTaskController(s, gate, nav, sl)
+	tc := NewTikiEditSession(s, gate, nav, sl)
 
 	coord := NewTaskEditCoordinator(nav, tc)
 	sl.SetMessage("some hint", model.MessageLevelInfo, false)
@@ -371,10 +371,10 @@ func TestTaskEditCoordinator_FieldHint_CancelClearsHint(t *testing.T) {
 
 func TestTaskEditCoordinator_FieldHint_NilStatuslineNoOp(t *testing.T) {
 	s := store.NewInMemoryStore()
-	gate := service.NewTaskMutationGate()
+	gate := service.NewTikiMutationGate()
 	gate.SetStore(s)
 	nav := newMockNavigationController()
-	tc := NewTaskController(s, gate, nav, nil)
+	tc := NewTikiEditSession(s, gate, nav, nil)
 
 	coord := NewTaskEditCoordinator(nav, tc)
 	view := &mockFieldFocusableView{focusedField: model.EditFieldRecurrence}
@@ -386,7 +386,7 @@ func TestTaskEditCoordinator_FieldHint_NilStatuslineNoOp(t *testing.T) {
 
 func TestTaskEditCoordinator_Commit_ErrorDisplaysStatusline(t *testing.T) {
 	taskStore := store.NewInMemoryStore()
-	gate := service.NewTaskMutationGate()
+	gate := service.NewTikiMutationGate()
 	gate.SetStore(taskStore)
 	gate.OnUpdate(func(_, _ *tikipkg.Tiki, _ []*tikipkg.Tiki) *service.Rejection {
 		return &service.Rejection{Reason: "blocked by trigger"}
@@ -394,7 +394,7 @@ func TestTaskEditCoordinator_Commit_ErrorDisplaysStatusline(t *testing.T) {
 
 	sl := model.NewStatuslineConfig()
 	nav := newMockNavigationController()
-	tc := NewTaskController(taskStore, gate, nav, sl)
+	tc := NewTikiEditSession(taskStore, gate, nav, sl)
 
 	original := newTestTask()
 	_ = taskStore.CreateTiki(original)
@@ -426,14 +426,14 @@ func TestTaskEditCoordinator_Commit_ErrorDisplaysStatusline(t *testing.T) {
 
 func TestTaskEditCoordinator_Commit_ErrorNilStatuslineNoOp(t *testing.T) {
 	taskStore := store.NewInMemoryStore()
-	gate := service.NewTaskMutationGate()
+	gate := service.NewTikiMutationGate()
 	gate.SetStore(taskStore)
 	gate.OnUpdate(func(_, _ *tikipkg.Tiki, _ []*tikipkg.Tiki) *service.Rejection {
 		return &service.Rejection{Reason: "blocked"}
 	})
 
 	nav := newMockNavigationController()
-	tc := NewTaskController(taskStore, gate, nav, nil) // nil statusline
+	tc := NewTikiEditSession(taskStore, gate, nav, nil) // nil statusline
 
 	original := newTestTask()
 	_ = taskStore.CreateTiki(original)
@@ -455,7 +455,7 @@ func TestTaskEditCoordinator_Commit_ErrorNilStatuslineNoOp(t *testing.T) {
 
 func TestTaskEditCoordinator_Commit_MultipleRejectionsDisplayCleanly(t *testing.T) {
 	taskStore := store.NewInMemoryStore()
-	gate := service.NewTaskMutationGate()
+	gate := service.NewTikiMutationGate()
 	gate.SetStore(taskStore)
 	gate.OnUpdate(func(_, _ *tikipkg.Tiki, _ []*tikipkg.Tiki) *service.Rejection {
 		return &service.Rejection{Reason: "WIP limit reached"}
@@ -466,7 +466,7 @@ func TestTaskEditCoordinator_Commit_MultipleRejectionsDisplayCleanly(t *testing.
 
 	sl := model.NewStatuslineConfig()
 	nav := newMockNavigationController()
-	tc := NewTaskController(taskStore, gate, nav, sl)
+	tc := NewTikiEditSession(taskStore, gate, nav, sl)
 
 	original := newTestTask()
 	_ = taskStore.CreateTiki(original)

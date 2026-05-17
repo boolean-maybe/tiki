@@ -22,10 +22,10 @@ func makeTasks(ids ...string) []*tikipkg.Tiki {
 }
 
 func TestNewTaskList(t *testing.T) {
-	tl := NewTaskList(5)
+	tl := NewTikiList(5)
 
 	if tl == nil {
-		t.Fatal("NewTaskList returned nil")
+		t.Fatal("NewTikiList returned nil")
 		return
 	}
 	if tl.maxVisibleRows != 5 {
@@ -35,12 +35,12 @@ func TestNewTaskList(t *testing.T) {
 		t.Errorf("Expected initial selectionIndex=0, got %d", tl.selectionIndex)
 	}
 
-	defaults := DefaultTaskRowColors()
+	defaults := DefaultTikiRowColors()
 	if tl.idPaint == nil {
 		t.Error("Expected non-nil ID paint from theme defaults")
 	}
 	if defaults.IDPaint == nil {
-		t.Error("DefaultTaskRowColors should provide a non-nil ID paint")
+		t.Error("DefaultTikiRowColors should provide a non-nil ID paint")
 	}
 	if tl.titleColor != defaults.TitleColor {
 		t.Error("Expected title color from theme defaults")
@@ -48,22 +48,22 @@ func TestNewTaskList(t *testing.T) {
 }
 
 func TestSetTasks_RecomputesIDColumnWidth(t *testing.T) {
-	tl := NewTaskList(10)
+	tl := NewTikiList(10)
 
-	tl.SetTasks(makeTasks("AB", "ABCDE", "XY"))
+	tl.SetTikis(makeTasks("AB", "ABCDE", "XY"))
 	if tl.idColumnWidth != 5 {
 		t.Errorf("Expected idColumnWidth=5, got %d", tl.idColumnWidth)
 	}
 
-	tl.SetTasks(makeTasks("A"))
+	tl.SetTikis(makeTasks("A"))
 	if tl.idColumnWidth != 1 {
 		t.Errorf("Expected idColumnWidth=1, got %d", tl.idColumnWidth)
 	}
 }
 
 func TestSetTasks_EmptyList(t *testing.T) {
-	tl := NewTaskList(10)
-	tl.SetTasks(nil)
+	tl := NewTikiList(10)
+	tl.SetTikis(nil)
 
 	if tl.idColumnWidth != 0 {
 		t.Errorf("Expected idColumnWidth=0, got %d", tl.idColumnWidth)
@@ -74,8 +74,8 @@ func TestSetTasks_EmptyList(t *testing.T) {
 }
 
 func TestSelection_ClampsBounds(t *testing.T) {
-	tl := NewTaskList(10)
-	tl.SetTasks(makeTasks("A", "B", "C"))
+	tl := NewTikiList(10)
+	tl.SetTikis(makeTasks("A", "B", "C"))
 
 	tl.SetSelection(-5)
 	if tl.selectionIndex != 0 {
@@ -94,27 +94,27 @@ func TestSelection_ClampsBounds(t *testing.T) {
 }
 
 func TestGetSelectedTask(t *testing.T) {
-	tl := NewTaskList(10)
+	tl := NewTikiList(10)
 	tasks := makeTasks("A", "B", "C")
-	tl.SetTasks(tasks)
+	tl.SetTikis(tasks)
 
 	tl.SetSelection(1)
-	selected := tl.GetSelectedTask()
+	selected := tl.GetSelectedTiki()
 	if selected == nil || selected.ID != "B" {
 		t.Errorf("Expected task B, got %v", selected)
 	}
 }
 
 func TestGetSelectedTask_EmptyList(t *testing.T) {
-	tl := NewTaskList(10)
-	if tl.GetSelectedTask() != nil {
+	tl := NewTikiList(10)
+	if tl.GetSelectedTiki() != nil {
 		t.Error("Expected nil for empty task list")
 	}
 }
 
 func TestScrollDown(t *testing.T) {
-	tl := NewTaskList(10)
-	tl.SetTasks(makeTasks("A", "B", "C"))
+	tl := NewTikiList(10)
+	tl.SetTikis(makeTasks("A", "B", "C"))
 
 	tl.ScrollDown()
 	if tl.selectionIndex != 1 {
@@ -134,8 +134,8 @@ func TestScrollDown(t *testing.T) {
 }
 
 func TestScrollUp(t *testing.T) {
-	tl := NewTaskList(10)
-	tl.SetTasks(makeTasks("A", "B", "C"))
+	tl := NewTikiList(10)
+	tl.SetTikis(makeTasks("A", "B", "C"))
 	tl.SetSelection(2)
 
 	tl.ScrollUp()
@@ -156,15 +156,15 @@ func TestScrollUp(t *testing.T) {
 }
 
 func TestScrollDown_EmptyList(t *testing.T) {
-	tl := NewTaskList(10)
+	tl := NewTikiList(10)
 	// Should not panic
 	tl.ScrollDown()
 	tl.ScrollUp()
 }
 
 func TestFewerItemsThanViewport(t *testing.T) {
-	tl := NewTaskList(10)
-	tl.SetTasks(makeTasks("A", "B"))
+	tl := NewTikiList(10)
+	tl.SetTikis(makeTasks("A", "B"))
 
 	// scrollOffset should stay at 0 since all items fit
 	if tl.scrollOffset != 0 {
@@ -178,7 +178,7 @@ func TestFewerItemsThanViewport(t *testing.T) {
 }
 
 func TestSetIDPaint(t *testing.T) {
-	tl := NewTaskList(10)
+	tl := NewTikiList(10)
 	paint, ok := theme.Roles().PaintResolver()("text.value", "")
 	if !ok {
 		t.Fatalf("PaintResolver(text.value) returned ok=false")
@@ -197,7 +197,7 @@ func TestSetIDPaint(t *testing.T) {
 }
 
 func TestSetTitleColor(t *testing.T) {
-	tl := NewTaskList(10)
+	tl := NewTikiList(10)
 	c := theme.NewColor(tcell.ColorRed)
 	result := tl.SetTitleColor(c)
 	if result != tl {
@@ -209,20 +209,20 @@ func TestSetTitleColor(t *testing.T) {
 }
 
 func TestSetTasks_ClampsSelectionOnShrink(t *testing.T) {
-	tl := NewTaskList(10)
-	tl.SetTasks(makeTasks("A", "B", "C", "D", "E"))
+	tl := NewTikiList(10)
+	tl.SetTikis(makeTasks("A", "B", "C", "D", "E"))
 	tl.SetSelection(4)
 
 	// Shrink list — selection should clamp
-	tl.SetTasks(makeTasks("A", "B"))
+	tl.SetTikis(makeTasks("A", "B"))
 	if tl.selectionIndex != 1 {
 		t.Errorf("Expected selectionIndex clamped to 1, got %d", tl.selectionIndex)
 	}
 }
 
 func TestGetSelectedIndex(t *testing.T) {
-	tl := NewTaskList(10)
-	tl.SetTasks(makeTasks("A", "B", "C"))
+	tl := NewTikiList(10)
+	tl.SetTikis(makeTasks("A", "B", "C"))
 	tl.SetSelection(2)
 
 	if tl.GetSelectedIndex() != 2 {
@@ -231,7 +231,7 @@ func TestGetSelectedIndex(t *testing.T) {
 }
 
 func TestBuildRow(t *testing.T) {
-	tl := NewTaskList(10)
+	tl := NewTikiList(10)
 
 	pendingTask := tikipkg.New()
 	pendingTask.ID = "ABC001"
@@ -244,7 +244,7 @@ func TestBuildRow(t *testing.T) {
 	doneTask.Set(tikipkg.FieldStatus, "done")
 
 	// set tasks so idColumnWidth is computed
-	tl.SetTasks([]*tikipkg.Tiki{pendingTask, doneTask})
+	tl.SetTikis([]*tikipkg.Tiki{pendingTask, doneTask})
 
 	width := 80
 

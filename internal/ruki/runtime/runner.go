@@ -43,13 +43,13 @@ type RunQueryOptions struct {
 
 // RunQuery parses and executes a ruki statement against the given gate,
 // writing formatted results to out in the default table/text form.
-func RunQuery(gate *service.TaskMutationGate, query string, out io.Writer) error {
+func RunQuery(gate *service.TikiMutationGate, query string, out io.Writer) error {
 	return RunQueryWithOptions(gate, query, out, RunQueryOptions{OutputFormat: OutputTable})
 }
 
 // RunQueryWithOptions is the options-aware entry point used by `tiki exec`.
 // Callers that want the default text/table output should use RunQuery.
-func RunQueryWithOptions(gate *service.TaskMutationGate, query string, out io.Writer, opts RunQueryOptions) error {
+func RunQueryWithOptions(gate *service.TikiMutationGate, query string, out io.Writer, opts RunQueryOptions) error {
 	query = strings.TrimSuffix(strings.TrimSpace(query), ";")
 	if query == "" {
 		return fmt.Errorf("empty query")
@@ -200,7 +200,7 @@ func RunSelectQuery(readStore store.ReadStore, query string, out io.Writer) erro
 	return formatter.Format(out, result.Select)
 }
 
-func persistAndSummarize(ctx context.Context, gate *service.TaskMutationGate, ur *ruki.UpdateResult, out io.Writer, json bool) error {
+func persistAndSummarize(ctx context.Context, gate *service.TikiMutationGate, ur *ruki.UpdateResult, out io.Writer, json bool) error {
 	var succeeded, failed int
 	var firstErr error
 
@@ -225,14 +225,14 @@ func persistAndSummarize(ctx context.Context, gate *service.TaskMutationGate, ur
 	return nil
 }
 
-func persistCreate(ctx context.Context, gate *service.TaskMutationGate, cr *ruki.CreateResult, out io.Writer, json bool) error {
+func persistCreate(ctx context.Context, gate *service.TikiMutationGate, cr *ruki.CreateResult, out io.Writer, json bool) error {
 	if err := gate.CreateTiki(ctx, cr.Tiki); err != nil {
 		return fmt.Errorf("create task: %w", err)
 	}
 	return formatCreateSummary(out, cr.Tiki.ID, json)
 }
 
-func persistDelete(ctx context.Context, gate *service.TaskMutationGate, dr *ruki.DeleteResult, out io.Writer, json bool) error {
+func persistDelete(ctx context.Context, gate *service.TikiMutationGate, dr *ruki.DeleteResult, out io.Writer, json bool) error {
 	readStore := gate.ReadStore()
 	var succeeded, failed int
 	for _, tk := range dr.Deleted {

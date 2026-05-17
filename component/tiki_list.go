@@ -12,8 +12,8 @@ import (
 	"github.com/boolean-maybe/tiki/util"
 )
 
-// TaskRowColors holds the color configuration for rendering a task row.
-type TaskRowColors struct {
+// TikiRowColors holds the color configuration for rendering a task row.
+type TikiRowColors struct {
 	IDPaint            theme.Paint
 	TitleColor         theme.Color
 	SelectionFg        theme.Color
@@ -22,11 +22,11 @@ type TaskRowColors struct {
 	StatusPendingColor theme.Color
 }
 
-// DefaultTaskRowColors returns TaskRowColors derived from the active theme roles.
-func DefaultTaskRowColors() TaskRowColors {
+// DefaultTikiRowColors returns TikiRowColors derived from the active theme roles.
+func DefaultTikiRowColors() TikiRowColors {
 	roles := theme.Roles()
 	idPaint, _ := roles.PaintResolver()("tiki.id", "accent")
-	return TaskRowColors{
+	return TikiRowColors{
 		IDPaint:            idPaint,
 		TitleColor:         theme.NewColor(roles.TextSecondary().TCell()),
 		SelectionFg:        theme.NewColor(roles.TextPrimary().TCell()),
@@ -36,11 +36,11 @@ func DefaultTaskRowColors() TaskRowColors {
 	}
 }
 
-// RenderTaskRow builds a tview-tagged string for a single tiki row.
+// RenderTikiRow builds a tview-tagged string for a single tiki row.
 // The leading status ✓/○ indicator was dropped when status became an
 // ordinary enum field — workflows that want a glyph can use the enum
 // value's emoji metadata.
-func RenderTaskRow(tk *tikipkg.Tiki, selected bool, width int, idColumnWidth int, colors TaskRowColors) string {
+func RenderTikiRow(tk *tikipkg.Tiki, selected bool, width int, idColumnWidth int, colors TikiRowColors) string {
 	idText := colors.IDPaint.PaintString(tk.ID)
 	if padding := idColumnWidth - len(tk.ID); padding > 0 {
 		idText += fmt.Sprintf("%*s", padding, "")
@@ -74,10 +74,10 @@ func ComputeIDColumnWidth(tikis []*tikipkg.Tiki) int {
 	return w
 }
 
-// TaskList displays tikis in a compact tabular format with three columns:
+// TikiList displays tikis in a compact tabular format with three columns:
 // status indicator, tiki ID (gradient-rendered), and title.
 // It supports configurable visible row count, scrolling, and row selection.
-type TaskList struct {
+type TikiList struct {
 	*tview.Box
 	tikis              []*tikipkg.Tiki
 	maxVisibleRows     int
@@ -92,10 +92,10 @@ type TaskList struct {
 	statusPendingColor theme.Color // color for pending status indicator
 }
 
-// NewTaskList creates a new TaskList with the given maximum visible row count.
-func NewTaskList(maxVisibleRows int) *TaskList {
-	colors := DefaultTaskRowColors()
-	return &TaskList{
+// NewTikiList creates a new TikiList with the given maximum visible row count.
+func NewTikiList(maxVisibleRows int) *TikiList {
+	colors := DefaultTikiRowColors()
+	return &TikiList{
 		Box:                tview.NewBox(),
 		maxVisibleRows:     maxVisibleRows,
 		idPaint:            colors.IDPaint,
@@ -107,8 +107,8 @@ func NewTaskList(maxVisibleRows int) *TaskList {
 	}
 }
 
-// SetTasks replaces the tiki data, recomputes the ID column width, and clamps scroll/selection.
-func (tl *TaskList) SetTasks(tikis []*tikipkg.Tiki) *TaskList {
+// SetTikis replaces the tiki data, recomputes the ID column width, and clamps scroll/selection.
+func (tl *TikiList) SetTikis(tikis []*tikipkg.Tiki) *TikiList {
 	tl.tikis = tikis
 	tl.recomputeIDColumnWidth()
 	tl.clampSelection()
@@ -117,7 +117,7 @@ func (tl *TaskList) SetTasks(tikis []*tikipkg.Tiki) *TaskList {
 }
 
 // SetSelection sets the selected row index, clamped to valid bounds.
-func (tl *TaskList) SetSelection(index int) *TaskList {
+func (tl *TikiList) SetSelection(index int) *TikiList {
 	tl.selectionIndex = index
 	tl.clampSelection()
 	tl.ensureSelectionVisible()
@@ -125,12 +125,12 @@ func (tl *TaskList) SetSelection(index int) *TaskList {
 }
 
 // GetSelectedIndex returns the current selection index.
-func (tl *TaskList) GetSelectedIndex() int {
+func (tl *TikiList) GetSelectedIndex() int {
 	return tl.selectionIndex
 }
 
-// GetSelectedTask returns the currently selected tiki, or nil if none.
-func (tl *TaskList) GetSelectedTask() *tikipkg.Tiki {
+// GetSelectedTiki returns the currently selected tiki, or nil if none.
+func (tl *TikiList) GetSelectedTiki() *tikipkg.Tiki {
 	if tl.selectionIndex < 0 || tl.selectionIndex >= len(tl.tikis) {
 		return nil
 	}
@@ -138,7 +138,7 @@ func (tl *TaskList) GetSelectedTask() *tikipkg.Tiki {
 }
 
 // ScrollUp moves the selection up by one row.
-func (tl *TaskList) ScrollUp() {
+func (tl *TikiList) ScrollUp() {
 	if tl.selectionIndex > 0 {
 		tl.selectionIndex--
 		tl.ensureSelectionVisible()
@@ -146,7 +146,7 @@ func (tl *TaskList) ScrollUp() {
 }
 
 // ScrollDown moves the selection down by one row.
-func (tl *TaskList) ScrollDown() {
+func (tl *TikiList) ScrollDown() {
 	if tl.selectionIndex < len(tl.tikis)-1 {
 		tl.selectionIndex++
 		tl.ensureSelectionVisible()
@@ -154,19 +154,19 @@ func (tl *TaskList) ScrollDown() {
 }
 
 // SetIDPaint overrides the Paint used to render the ID column.
-func (tl *TaskList) SetIDPaint(p theme.Paint) *TaskList {
+func (tl *TikiList) SetIDPaint(p theme.Paint) *TikiList {
 	tl.idPaint = p
 	return tl
 }
 
 // SetTitleColor overrides the color for the title column.
-func (tl *TaskList) SetTitleColor(color theme.Color) *TaskList {
+func (tl *TikiList) SetTitleColor(color theme.Color) *TikiList {
 	tl.titleColor = color
 	return tl
 }
 
-// Draw renders the TaskList onto the screen.
-func (tl *TaskList) Draw(screen tcell.Screen) {
+// Draw renders the TikiList onto the screen.
+func (tl *TikiList) Draw(screen tcell.Screen) {
 	tl.DrawForSubclass(screen, tl)
 
 	x, y, width, height := tl.GetInnerRect()
@@ -190,8 +190,8 @@ func (tl *TaskList) Draw(screen tcell.Screen) {
 	}
 }
 
-func (tl *TaskList) buildRow(tk *tikipkg.Tiki, selected bool, width int) string {
-	return RenderTaskRow(tk, selected, width, tl.idColumnWidth, TaskRowColors{
+func (tl *TikiList) buildRow(tk *tikipkg.Tiki, selected bool, width int) string {
+	return RenderTikiRow(tk, selected, width, tl.idColumnWidth, TikiRowColors{
 		IDPaint:            tl.idPaint,
 		TitleColor:         tl.titleColor,
 		SelectionFg:        tl.selectionColor,
@@ -202,7 +202,7 @@ func (tl *TaskList) buildRow(tk *tikipkg.Tiki, selected bool, width int) string 
 }
 
 // ensureSelectionVisible adjusts scrollOffset so the selected row is within the viewport.
-func (tl *TaskList) ensureSelectionVisible() {
+func (tl *TikiList) ensureSelectionVisible() {
 	if len(tl.tikis) == 0 {
 		return
 	}
@@ -228,7 +228,7 @@ func (tl *TaskList) ensureSelectionVisible() {
 }
 
 // visibleRowCount returns the number of rows that can be displayed.
-func (tl *TaskList) visibleRowCount(height int) int {
+func (tl *TikiList) visibleRowCount(height int) int {
 	maxVisible := height
 	if tl.maxVisibleRows > 0 && maxVisible > tl.maxVisibleRows {
 		maxVisible = tl.maxVisibleRows
@@ -239,12 +239,12 @@ func (tl *TaskList) visibleRowCount(height int) int {
 	return maxVisible
 }
 
-func (tl *TaskList) recomputeIDColumnWidth() {
+func (tl *TikiList) recomputeIDColumnWidth() {
 	tl.idColumnWidth = ComputeIDColumnWidth(tl.tikis)
 }
 
 // clampSelection ensures selectionIndex is within [0, len(tikis)-1].
-func (tl *TaskList) clampSelection() {
+func (tl *TikiList) clampSelection() {
 	if len(tl.tikis) == 0 {
 		tl.selectionIndex = 0
 		return
@@ -258,7 +258,7 @@ func (tl *TaskList) clampSelection() {
 }
 
 // clampScroll ensures scrollOffset stays within valid bounds.
-func (tl *TaskList) clampScroll() {
+func (tl *TikiList) clampScroll() {
 	if tl.scrollOffset < 0 {
 		tl.scrollOffset = 0
 	}

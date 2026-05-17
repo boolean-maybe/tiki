@@ -38,9 +38,9 @@ type TestApp struct {
 	PluginConfigs     map[string]*model.PluginConfig
 	PluginControllers map[string]controller.PluginControllerInterface
 	PluginDefs        []plugin.Plugin
-	MutationGate      *service.TaskMutationGate
+	MutationGate      *service.TikiMutationGate
 	Schema            ruki.Schema
-	taskController    *controller.TaskController
+	taskController    *controller.TikiEditSession
 	statuslineConfig  *model.StatuslineConfig
 	headerConfig      *model.HeaderConfig
 	viewContext       *model.ViewContext
@@ -106,7 +106,7 @@ func NewTestApp(t *testing.T) *TestApp {
 
 	statuslineConfig := model.NewStatuslineConfig()
 	navController := controller.NewNavigationController(app)
-	taskController := controller.NewTaskController(taskStore, gate, navController, statuslineConfig)
+	taskController := controller.NewTikiEditSession(taskStore, gate, navController, statuslineConfig)
 	// Empty plugin controllers map for tests (no plugins configured by default)
 	pluginControllers := make(map[string]controller.PluginControllerInterface)
 	inputRouter := controller.NewInputRouter(

@@ -16,10 +16,10 @@ const (
 	// Input box dimensions
 	InputBoxHeight = 3
 
-	// TaskList default visible rows
+	// TikiList default visible rows
 	TaskListDefaultMaxRows = 10
 
-	// TaskList max rows when displayed inside the metadata box
+	// TikiList max rows when displayed inside the metadata box
 	TaskListMetadataMaxRows = 4
 	// Note: Header dimensions are already centralized in view/header/header.go:
 	// HeaderHeight, HeaderColumnSpacing, InfoWidth, LogoWidth

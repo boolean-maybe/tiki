@@ -44,7 +44,7 @@ type DepsController struct {
 // kind: detail plugin loaded from workflow.yaml.
 func NewDepsController(
 	taskStore store.Store,
-	mutationGate *service.TaskMutationGate,
+	mutationGate *service.TikiMutationGate,
 	pluginConfig *model.PluginConfig,
 	pluginDef *plugin.TikiPlugin,
 	navController *NavigationController,

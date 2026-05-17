@@ -21,7 +21,7 @@ import (
 // dispatch `kind: ruki` globals without duplicating the executor pipeline.
 type PluginExecutor struct {
 	taskStore    store.Store
-	mutationGate *service.TaskMutationGate
+	mutationGate *service.TikiMutationGate
 	statusline   *model.StatuslineConfig
 	schema       ruki.Schema
 
@@ -38,7 +38,7 @@ type PluginExecutor struct {
 // NewPluginExecutor constructs an executor. onTaskUpdated may be nil.
 func NewPluginExecutor(
 	taskStore store.Store,
-	mutationGate *service.TaskMutationGate,
+	mutationGate *service.TikiMutationGate,
 	statusline *model.StatuslineConfig,
 	schema ruki.Schema,
 	pluginName string,

@@ -60,12 +60,12 @@ type TikiViewProvider interface {
 
 type InputRouter struct {
 	navController     *NavigationController
-	taskController    *TaskController
+	taskController    *TikiEditSession
 	taskEditCoord     *TaskEditCoordinator
 	pluginControllers map[string]PluginControllerInterface // keyed by plugin name
 	globalActions     *ActionRegistry
 	taskStore         store.Store
-	mutationGate      *service.TaskMutationGate
+	mutationGate      *service.TikiMutationGate
 	statusline        *model.StatuslineConfig
 	schema            ruki.Schema
 	registerPlugin    func(name string, cfg *model.PluginConfig, def plugin.Plugin, ctrl PluginControllerInterface)
@@ -80,10 +80,10 @@ type InputRouter struct {
 // NewInputRouter creates an input router
 func NewInputRouter(
 	navController *NavigationController,
-	taskController *TaskController,
+	taskController *TikiEditSession,
 	pluginControllers map[string]PluginControllerInterface,
 	taskStore store.Store,
-	mutationGate *service.TaskMutationGate,
+	mutationGate *service.TikiMutationGate,
 	statusline *model.StatuslineConfig,
 	schema ruki.Schema,
 ) *InputRouter {
@@ -494,7 +494,7 @@ func (ir *InputRouter) handlePluginInput(event *tcell.EventKey, viewID model.Vie
 // markdown file in $EDITOR. The configurable detail view's controller
 // is too narrow to own these paths (deps editor needs the InputRouter,
 // chat needs the suspend/resume runner, edit-source needs the
-// TaskController's reload semantics), so the router dispatches them
+// TikiEditSession's reload semantics), so the router dispatches them
 // directly when the carried selection is present.
 //
 // Returns (handled, true) when the action was recognized; (_, false)

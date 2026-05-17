@@ -41,8 +41,8 @@ func setupRunnerTest(t *testing.T) store.Store {
 }
 
 // gateFor wraps a store in a bare gate (no field validators) for tests.
-func gateFor(s store.Store) *service.TaskMutationGate {
-	g := service.NewTaskMutationGate()
+func gateFor(s store.Store) *service.TikiMutationGate {
+	g := service.NewTikiMutationGate()
 	g.SetStore(s)
 	return g
 }
@@ -701,7 +701,7 @@ func TestRunQueryDeleteGateError(t *testing.T) {
 	s := setupRunnerTest(t)
 
 	// use a gate with a validator that rejects the delete
-	g := service.NewTaskMutationGate()
+	g := service.NewTikiMutationGate()
 	fds := &failingDeleteTikiStore{Store: s, failID: "TIKI-AAA001"}
 	g.SetStore(fds)
 
@@ -972,7 +972,7 @@ func TestRunQueryWithOptionsUpdatePartialFailureJSON(t *testing.T) {
 func TestRunQueryDeleteValidatorRejection(t *testing.T) {
 	s := setupRunnerTest(t)
 
-	g := service.NewTaskMutationGate()
+	g := service.NewTikiMutationGate()
 	g.SetStore(s)
 	g.OnDelete(func(_, _ *tikipkg.Tiki, _ []*tikipkg.Tiki) *service.Rejection {
 		return &service.Rejection{Reason: "deletes forbidden"}

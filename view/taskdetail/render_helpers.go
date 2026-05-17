@@ -207,7 +207,7 @@ func RenderDependsOnColumn(tk *tikipkg.Tiki, taskStore store.Store) tview.Primit
 
 	col := tview.NewFlex().SetDirection(tview.FlexRow)
 	col.SetBorderPadding(0, 0, 1, 1)
-	col.AddItem(component.NewTaskList(config.TaskListMetadataMaxRows).SetTasks(rendered), 0, 1, false)
+	col.AddItem(component.NewTikiList(config.TaskListMetadataMaxRows).SetTikis(rendered), 0, 1, false)
 	return col
 }
 
@@ -225,7 +225,7 @@ func RenderBlocksColumn(blocked []*tikipkg.Tiki) tview.Primitive {
 	col := tview.NewFlex().SetDirection(tview.FlexRow)
 	col.SetBorderPadding(0, 0, 1, 1)
 	col.AddItem(label, 1, 0, false)
-	col.AddItem(component.NewTaskList(config.TaskListMetadataMaxRows).SetTasks(blocked), 0, 1, false)
+	col.AddItem(component.NewTikiList(config.TaskListMetadataMaxRows).SetTikis(blocked), 0, 1, false)
 	return col
 }
 

@@ -43,7 +43,7 @@ func newTestDetailPlugin(metadata []string, actions []plugin.PluginAction) *plug
 func TestDetailController_RegistryHasFullscreenAndStubEdit(t *testing.T) {
 	pluginDef := newTestDetailPlugin([]string{"status"}, nil)
 	taskStore := store.NewInMemoryStore()
-	gate := service.NewTaskMutationGate()
+	gate := service.NewTikiMutationGate()
 	gate.SetStore(taskStore)
 	nav := newMockNavigationController()
 
@@ -77,7 +77,7 @@ func TestDetailController_SurfacesPerViewActions(t *testing.T) {
 	}
 	pluginDef := newTestDetailPlugin([]string{"status"}, actions)
 	taskStore := store.NewInMemoryStore()
-	gate := service.NewTaskMutationGate()
+	gate := service.NewTikiMutationGate()
 	gate.SetStore(taskStore)
 	nav := newMockNavigationController()
 
@@ -95,7 +95,7 @@ func TestDetailController_SurfacesPerViewActions(t *testing.T) {
 func TestDetailController_SetSelectedTaskID(t *testing.T) {
 	pluginDef := newTestDetailPlugin([]string{"status"}, nil)
 	taskStore := store.NewInMemoryStore()
-	gate := service.NewTaskMutationGate()
+	gate := service.NewTikiMutationGate()
 	gate.SetStore(taskStore)
 	nav := newMockNavigationController()
 

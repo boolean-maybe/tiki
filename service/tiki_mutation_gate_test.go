@@ -18,8 +18,8 @@ func init() {
 	teststatuses.Init()
 }
 
-func newGateWithStore() (*TaskMutationGate, store.Store) {
-	gate := NewTaskMutationGate()
+func newGateWithStore() (*TikiMutationGate, store.Store) {
+	gate := NewTikiMutationGate()
 	s := store.NewInMemoryStore()
 	gate.SetStore(s)
 	return gate, s
@@ -57,7 +57,7 @@ func TestCreateTiki_Success(t *testing.T) {
 
 func TestCreateTiki_DoesNotOverwriteCreatedAt(t *testing.T) {
 	// verify the gate does not zero an existing CreatedAt before passing to store.
-	gate := NewTaskMutationGate()
+	gate := NewTikiMutationGate()
 
 	var passedCreatedAt time.Time
 	past := time.Date(2025, 1, 1, 0, 0, 0, 0, time.UTC)
@@ -372,7 +372,7 @@ func TestReadStore(t *testing.T) {
 }
 
 func TestEnsureStore_Panics(t *testing.T) {
-	gate := NewTaskMutationGate()
+	gate := NewTikiMutationGate()
 
 	defer func() {
 		r := recover()
@@ -595,7 +595,7 @@ func TestDeleteTiki_DepthExceeded(t *testing.T) {
 }
 
 func TestCreateTiki_StoreError(t *testing.T) {
-	gate := NewTaskMutationGate()
+	gate := NewTikiMutationGate()
 	fs := &failingCreateStore{Store: store.NewInMemoryStore()}
 	gate.SetStore(fs)
 
@@ -607,7 +607,7 @@ func TestCreateTiki_StoreError(t *testing.T) {
 }
 
 func TestUpdateTiki_StoreError(t *testing.T) {
-	gate := NewTaskMutationGate()
+	gate := NewTikiMutationGate()
 	fs := &failingUpdateStore{Store: store.NewInMemoryStore(), failID: "UPERR1"}
 	gate.SetStore(fs)
 
@@ -664,7 +664,7 @@ func TestWithTriggerDepth_NilContext(t *testing.T) {
 }
 
 func TestDeleteTiki_AlreadyDeleted(t *testing.T) {
-	gate := NewTaskMutationGate()
+	gate := NewTikiMutationGate()
 	s := store.NewInMemoryStore()
 	gate.SetStore(s)
 
@@ -677,7 +677,7 @@ func TestDeleteTiki_AlreadyDeleted(t *testing.T) {
 }
 
 func TestUpdateTiki_TikiNotFound(t *testing.T) {
-	gate := NewTaskMutationGate()
+	gate := NewTikiMutationGate()
 	s := store.NewInMemoryStore()
 	gate.SetStore(s)
 

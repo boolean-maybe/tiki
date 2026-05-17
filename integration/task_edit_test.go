@@ -346,9 +346,9 @@ func TestNewTask_MultipleFields_AllSaved(t *testing.T) {
 // Phase 3 cleanup: the original test mixed the legacy "Enter → 'e' →
 // Ctrl+S" edit-existing flow (now in-place on the configurable detail
 // view) with the surviving 'n' new-task draft flow. The regression it
-// guarded against — TaskController state from a prior edit session
+// guarded against — TikiEditSession state from a prior edit session
 // leaking into the next draft — is now covered at the unit level by
-// the TaskController edit-session tests in controller/task_detail_test.go,
+// the TikiEditSession edit-session tests in controller/tiki_edit_session_test.go,
 // which directly exercise the StartEditSession/CommitEditSession/
 // ClearDraft state machine without relying on TUI keystroke routing.
 
