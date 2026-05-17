@@ -62,7 +62,7 @@ func setupPluginTestData(t *testing.T, ta *testutil.TestApp) {
 		}
 	}
 
-	if err := ta.TaskStore.Reload(); err != nil {
+	if err := ta.TikiStore.Reload(); err != nil {
 		t.Fatalf("Failed to reload task store: %v", err)
 	}
 }
@@ -387,8 +387,8 @@ func TestPluginActions_NewTask_NKey(t *testing.T) {
 	}
 
 	// Verify: Task created
-	_ = ta.TaskStore.Reload()
-	tikis := ta.TaskStore.GetAllTikis()
+	_ = ta.TikiStore.Reload()
+	tikis := ta.TikiStore.GetAllTikis()
 	var found bool
 	for _, tk := range tikis {
 		if tk.Title == "New Plugin Task" {
@@ -411,13 +411,13 @@ func TestPluginActions_DeleteTask_DKey(t *testing.T) {
 
 	// Create a specific task to delete
 	_ = testutil.CreateTestTask(ta.TaskDir, "DELETE", "To Delete", "backlog", "story")
-	_ = ta.TaskStore.Reload()
+	_ = ta.TikiStore.Reload()
 
 	ta.NavController.PushView(model.MakePluginViewID("Backlog"), nil)
 	ta.Draw()
 
 	// Verify task exists
-	tikiTask := ta.TaskStore.GetTiki("DELETE")
+	tikiTask := ta.TikiStore.GetTiki("DELETE")
 	if tikiTask == nil {
 		t.Fatal("Test task DELETE not found before deletion")
 		return
@@ -429,11 +429,11 @@ func TestPluginActions_DeleteTask_DKey(t *testing.T) {
 	ta.SendKey(tcell.KeyRune, 'd', tcell.ModNone)
 
 	// Verify: At least one task was deleted
-	_ = ta.TaskStore.Reload()
-	initialTaskCount := len(ta.TaskStore.GetAllTikis())
+	_ = ta.TikiStore.Reload()
+	initialTaskCount := len(ta.TikiStore.GetAllTikis())
 
 	// Check if the specific file is deleted (it should be one of the backlog tasks)
-	tikisAfter := ta.TaskStore.GetAllTikis()
+	tikisAfter := ta.TikiStore.GetAllTikis()
 	if len(tikisAfter) >= initialTaskCount {
 		// Count should decrease
 		t.Log("Task deletion completed")
@@ -691,8 +691,8 @@ func TestPluginActions_CreateFromPlugin_ReturnsToPlugin(t *testing.T) {
 	}
 
 	// Verify: new task exists
-	_ = ta.TaskStore.Reload()
-	tikis := ta.TaskStore.GetAllTikis()
+	_ = ta.TikiStore.Reload()
+	tikis := ta.TikiStore.GetAllTikis()
 	var found bool
 	for _, tk := range tikis {
 		if tk.Title == "Created from Plugin" {
@@ -718,7 +718,7 @@ func TestPluginActions_DeleteTask_UpdatesSelection(t *testing.T) {
 	_ = testutil.CreateTestTask(ta.TaskDir, "00DEL1", "Task 1", "backlog", "story")
 	_ = testutil.CreateTestTask(ta.TaskDir, "00DEL2", "Task 2", "backlog", "story")
 	_ = testutil.CreateTestTask(ta.TaskDir, "00DEL3", "Task 3", "backlog", "story")
-	_ = ta.TaskStore.Reload()
+	_ = ta.TikiStore.Reload()
 
 	ta.NavController.PushView(model.MakePluginViewID("Backlog"), nil)
 	ta.Draw()
@@ -742,8 +742,8 @@ func TestPluginActions_DeleteTask_UpdatesSelection(t *testing.T) {
 	}
 
 	// Verify: task count decreased
-	_ = ta.TaskStore.Reload()
-	tikis := ta.TaskStore.GetAllTikis()
+	_ = ta.TikiStore.Reload()
+	tikis := ta.TikiStore.GetAllTikis()
 	backlogCount := 0
 	for _, tk := range tikis {
 		status, _, _ := tk.StringField("status")

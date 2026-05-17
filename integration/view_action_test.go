@@ -172,7 +172,7 @@ views:
 	if err := testutil.CreateTestTask(ta.TaskDir, "000001", "Pick Me", "backlog", "story"); err != nil {
 		t.Fatalf("create task: %v", err)
 	}
-	if err := ta.TaskStore.Reload(); err != nil {
+	if err := ta.TikiStore.Reload(); err != nil {
 		t.Fatalf("reload: %v", err)
 	}
 
@@ -287,7 +287,7 @@ func TestViewAction_DirectActivationCarriesSelection(t *testing.T) {
 	if err := testutil.CreateTestTask(ta.TaskDir, "000042", "Carried", "backlog", "story"); err != nil {
 		t.Fatalf("create task: %v", err)
 	}
-	if err := ta.TaskStore.Reload(); err != nil {
+	if err := ta.TikiStore.Reload(); err != nil {
 		t.Fatalf("reload: %v", err)
 	}
 	ta.NavController.PushView(model.MakePluginViewID("Board"), nil)
@@ -416,7 +416,7 @@ views:
 	if err := testutil.CreateTestTask(ta.TaskDir, "000001", "Anything", "backlog", "story"); err != nil {
 		t.Fatalf("create task: %v", err)
 	}
-	if err := ta.TaskStore.Reload(); err != nil {
+	if err := ta.TikiStore.Reload(); err != nil {
 		t.Fatalf("reload: %v", err)
 	}
 	ta.NavController.PushView(model.MakePluginViewID("Board"), nil)
@@ -639,7 +639,7 @@ views:
 	if err := testutil.CreateTestTask(ta.TaskDir, "000002", "Task Two", "backlog", "story"); err != nil {
 		t.Fatalf("create task: %v", err)
 	}
-	if err := ta.TaskStore.Reload(); err != nil {
+	if err := ta.TikiStore.Reload(); err != nil {
 		t.Fatalf("reload: %v", err)
 	}
 
@@ -649,11 +649,11 @@ views:
 	ta.SendKey(tcell.KeyRune, 'p', tcell.ModNone)
 	ta.Draw()
 
-	if err := ta.TaskStore.Reload(); err != nil {
+	if err := ta.TikiStore.Reload(); err != nil {
 		t.Fatalf("post-action reload: %v", err)
 	}
 	for _, id := range []string{"000001", "000002"} {
-		t2 := ta.TaskStore.GetTiki(id)
+		t2 := ta.TikiStore.GetTiki(id)
 		if t2 == nil {
 			t.Fatalf("task %s missing after action", id)
 		}

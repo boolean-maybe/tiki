@@ -25,7 +25,7 @@ func TestTaskDetailView_RenderMetadata(t *testing.T) {
 	if err := testutil.CreateTestTask(ta.TaskDir, taskID, "Test Task Title", "inProgress", "bug"); err != nil {
 		t.Fatalf("failed to create test task: %v", err)
 	}
-	if err := ta.TaskStore.Reload(); err != nil {
+	if err := ta.TikiStore.Reload(); err != nil {
 		t.Fatalf("failed to reload tasks: %v", err)
 	}
 
@@ -80,7 +80,7 @@ func TestTaskDetailView_RenderDescription(t *testing.T) {
 	if err := testutil.CreateTestTask(ta.TaskDir, taskID, "Task with description", "ready", "story"); err != nil {
 		t.Fatalf("failed to create test task: %v", err)
 	}
-	if err := ta.TaskStore.Reload(); err != nil {
+	if err := ta.TikiStore.Reload(); err != nil {
 		t.Fatalf("failed to reload tasks: %v", err)
 	}
 
@@ -108,7 +108,7 @@ func TestTaskDetailView_NavigateBack(t *testing.T) {
 	if err := testutil.CreateTestTask(ta.TaskDir, taskID, "Test Task", "ready", "story"); err != nil {
 		t.Fatalf("failed to create test task: %v", err)
 	}
-	if err := ta.TaskStore.Reload(); err != nil {
+	if err := ta.TikiStore.Reload(); err != nil {
 		t.Fatalf("failed to reload tasks: %v", err)
 	}
 
@@ -155,7 +155,7 @@ func TestTaskDetailView_FromBoard(t *testing.T) {
 	if err := testutil.CreateTestTask(ta.TaskDir, "000002", "Second Task", "ready", "story"); err != nil {
 		t.Fatalf("failed to create test task: %v", err)
 	}
-	if err := ta.TaskStore.Reload(); err != nil {
+	if err := ta.TikiStore.Reload(); err != nil {
 		t.Fatalf("failed to reload tasks: %v", err)
 	}
 
@@ -194,7 +194,7 @@ func TestTaskDetailView_EmptyDescription(t *testing.T) {
 	if err := testutil.CreateTestTask(ta.TaskDir, taskID, "Task Title", "ready", "story"); err != nil {
 		t.Fatalf("failed to create test task: %v", err)
 	}
-	if err := ta.TaskStore.Reload(); err != nil {
+	if err := ta.TikiStore.Reload(); err != nil {
 		t.Fatalf("failed to reload tasks: %v", err)
 	}
 
@@ -233,7 +233,7 @@ func TestTaskDetailView_MultipleOpen(t *testing.T) {
 	if err := testutil.CreateTestTask(ta.TaskDir, "000003", "Third Task", "ready", "story"); err != nil {
 		t.Fatalf("failed to create test task: %v", err)
 	}
-	if err := ta.TaskStore.Reload(); err != nil {
+	if err := ta.TikiStore.Reload(); err != nil {
 		t.Fatalf("failed to reload tasks: %v", err)
 	}
 
@@ -295,7 +295,7 @@ func TestTaskDetailView_AllStatuses(t *testing.T) {
 		}
 	}
 
-	if err := ta.TaskStore.Reload(); err != nil {
+	if err := ta.TikiStore.Reload(); err != nil {
 		t.Fatalf("failed to reload tasks: %v", err)
 	}
 
@@ -347,7 +347,7 @@ func TestTaskDetailView_AllTypes(t *testing.T) {
 		}
 	}
 
-	if err := ta.TaskStore.Reload(); err != nil {
+	if err := ta.TikiStore.Reload(); err != nil {
 		t.Fatalf("failed to reload tasks: %v", err)
 	}
 

@@ -38,7 +38,7 @@ func setupPluginViewTest(t *testing.T) *testutil.TestApp {
 		}
 	}
 
-	if err := ta.TaskStore.Reload(); err != nil {
+	if err := ta.TikiStore.Reload(); err != nil {
 		t.Fatalf("Failed to reload tasks: %v", err)
 	}
 
@@ -197,11 +197,11 @@ func TestPluginView_CreateTask(t *testing.T) {
 	ta.SendKey(tcell.KeyCtrlS, 0, tcell.ModNone)
 
 	// Reload and verify task exists
-	if err := ta.TaskStore.Reload(); err != nil {
+	if err := ta.TikiStore.Reload(); err != nil {
 		t.Fatalf("failed to reload: %v", err)
 	}
 
-	allTikis := ta.TaskStore.GetAllTikis()
+	allTikis := ta.TikiStore.GetAllTikis()
 	var found bool
 	for _, tk := range allTikis {
 		if tk.Title == "New Plugin Task" {
@@ -240,11 +240,11 @@ func TestPluginView_DeleteTask(t *testing.T) {
 	ta.SendKey(tcell.KeyRune, 'd', tcell.ModNone)
 
 	// Reload and verify task is deleted
-	if err := ta.TaskStore.Reload(); err != nil {
+	if err := ta.TikiStore.Reload(); err != nil {
 		t.Fatalf("failed to reload: %v", err)
 	}
 
-	deletedTiki := ta.TaskStore.GetTiki("000001")
+	deletedTiki := ta.TikiStore.GetTiki("000001")
 	if deletedTiki != nil {
 		t.Errorf("TIKI-1 should be deleted from store")
 	}
@@ -314,7 +314,7 @@ func TestPluginView_SearchNoResults(t *testing.T) {
 	if err := testutil.CreateTestTask(ta.TaskDir, "000001", "First Task", "ready", "story"); err != nil {
 		t.Fatalf("failed to create task: %v", err)
 	}
-	if err := ta.TaskStore.Reload(); err != nil {
+	if err := ta.TikiStore.Reload(); err != nil {
 		t.Fatalf("failed to reload: %v", err)
 	}
 
@@ -367,7 +367,7 @@ func TestPluginView_EmptyPlugin(t *testing.T) {
 	if err := testutil.CreateTestTask(ta.TaskDir, "000001", "Todo Task", "ready", "story"); err != nil {
 		t.Fatalf("failed to create task: %v", err)
 	}
-	if err := ta.TaskStore.Reload(); err != nil {
+	if err := ta.TikiStore.Reload(); err != nil {
 		t.Fatalf("failed to reload: %v", err)
 	}
 
@@ -477,7 +477,7 @@ func TestPluginView_MultiplePlugins(t *testing.T) {
 		t.Fatalf("failed to create task: %v", err)
 	}
 
-	if err := ta.TaskStore.Reload(); err != nil {
+	if err := ta.TikiStore.Reload(); err != nil {
 		t.Fatalf("failed to reload: %v", err)
 	}
 

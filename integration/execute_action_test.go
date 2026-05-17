@@ -66,7 +66,7 @@ func setupExecuteActionTest(t *testing.T) *testutil.TestApp {
 	if err := testutil.CreateTestTask(ta.TaskDir, "000001", "Test Task", "backlog", "story"); err != nil {
 		t.Fatalf("failed to create task: %v", err)
 	}
-	if err := ta.TaskStore.Reload(); err != nil {
+	if err := ta.TikiStore.Reload(); err != nil {
 		t.Fatalf("failed to reload: %v", err)
 	}
 
@@ -111,10 +111,10 @@ func TestExecuteAction_EnterRunsRukiAndCloses(t *testing.T) {
 		t.Fatal("input box should be hidden after successful execute")
 	}
 
-	if err := ta.TaskStore.Reload(); err != nil {
+	if err := ta.TikiStore.Reload(); err != nil {
 		t.Fatalf("failed to reload: %v", err)
 	}
-	updated := ta.TaskStore.GetTiki("000001")
+	updated := ta.TikiStore.GetTiki("000001")
 	if updated == nil {
 		t.Fatal("task not found")
 	}
@@ -137,10 +137,10 @@ func TestExecuteAction_EscCancelsWithoutMutation(t *testing.T) {
 		t.Fatal("input box should be hidden after Esc")
 	}
 
-	if err := ta.TaskStore.Reload(); err != nil {
+	if err := ta.TikiStore.Reload(); err != nil {
 		t.Fatalf("failed to reload: %v", err)
 	}
-	updated := ta.TaskStore.GetTiki("000001")
+	updated := ta.TikiStore.GetTiki("000001")
 	if updated == nil {
 		t.Fatal("task not found")
 	}
@@ -208,10 +208,10 @@ func TestExecuteAction_PaletteDispatchOpensPrompt(t *testing.T) {
 		t.Fatal("prompt should close after valid execute")
 	}
 
-	if err := ta.TaskStore.Reload(); err != nil {
+	if err := ta.TikiStore.Reload(); err != nil {
 		t.Fatalf("failed to reload: %v", err)
 	}
-	updated := ta.TaskStore.GetTiki("000001")
+	updated := ta.TikiStore.GetTiki("000001")
 	if updated == nil {
 		t.Fatal("task not found")
 	}

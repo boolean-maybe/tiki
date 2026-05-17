@@ -25,7 +25,7 @@ func TestRefresh_FromKanban(t *testing.T) {
 	if err := testutil.CreateTestTask(ta.TaskDir, "000001", "First Task", "ready", "story"); err != nil {
 		t.Fatalf("failed to create test task: %v", err)
 	}
-	if err := ta.TaskStore.Reload(); err != nil {
+	if err := ta.TikiStore.Reload(); err != nil {
 		t.Fatalf("failed to reload tasks: %v", err)
 	}
 
@@ -71,7 +71,7 @@ func TestRefresh_ExternalModification(t *testing.T) {
 	if err := testutil.CreateTestTask(ta.TaskDir, taskID, "Original Title", "ready", "story"); err != nil {
 		t.Fatalf("failed to create test task: %v", err)
 	}
-	if err := ta.TaskStore.Reload(); err != nil {
+	if err := ta.TikiStore.Reload(); err != nil {
 		t.Fatalf("failed to reload tasks: %v", err)
 	}
 
@@ -87,7 +87,7 @@ func TestRefresh_ExternalModification(t *testing.T) {
 	}
 
 	// Verify task exists in store
-	tiki := ta.TaskStore.GetTiki(taskID)
+	tiki := ta.TikiStore.GetTiki(taskID)
 	if tiki == nil || tiki.Title != "Original Title" {
 		t.Fatalf("task should exist with original title")
 	}
@@ -101,7 +101,7 @@ func TestRefresh_ExternalModification(t *testing.T) {
 	ta.SendKey(tcell.KeyRune, 'r', tcell.ModNone)
 
 	// Verify task store has updated title
-	tikiAfter := ta.TaskStore.GetTiki(taskID)
+	tikiAfter := ta.TikiStore.GetTiki(taskID)
 	if tikiAfter == nil {
 		t.Fatalf("task should still exist after refresh")
 		return
@@ -131,7 +131,7 @@ func TestRefresh_ExternalDeletion(t *testing.T) {
 	if err := testutil.CreateTestTask(ta.TaskDir, "000002", "Second Task", "ready", "story"); err != nil {
 		t.Fatalf("failed to create test task: %v", err)
 	}
-	if err := ta.TaskStore.Reload(); err != nil {
+	if err := ta.TikiStore.Reload(); err != nil {
 		t.Fatalf("failed to reload tasks: %v", err)
 	}
 
@@ -171,7 +171,7 @@ func TestRefresh_ExternalDeletion(t *testing.T) {
 	}
 
 	// Verify task store count
-	tikis := ta.TaskStore.GetAllTikis()
+	tikis := ta.TikiStore.GetAllTikis()
 	if len(tikis) != 1 {
 		t.Errorf("task store should have 1 task after refresh, got %d", len(tikis))
 	}
@@ -194,7 +194,7 @@ func TestRefresh_PreservesSelection(t *testing.T) {
 	if err := testutil.CreateTestTask(ta.TaskDir, "000002", "Second Task", "ready", "story"); err != nil {
 		t.Fatalf("failed to create test task: %v", err)
 	}
-	if err := ta.TaskStore.Reload(); err != nil {
+	if err := ta.TikiStore.Reload(); err != nil {
 		t.Fatalf("failed to reload tasks: %v", err)
 	}
 
@@ -244,7 +244,7 @@ func TestRefresh_ResetsSelectionWhenTaskDeleted(t *testing.T) {
 	if err := testutil.CreateTestTask(ta.TaskDir, "000002", "Second Task", "ready", "story"); err != nil {
 		t.Fatalf("failed to create test task: %v", err)
 	}
-	if err := ta.TaskStore.Reload(); err != nil {
+	if err := ta.TikiStore.Reload(); err != nil {
 		t.Fatalf("failed to reload tasks: %v", err)
 	}
 
@@ -298,7 +298,7 @@ func TestRefresh_FromTaskDetail(t *testing.T) {
 	if err := testutil.CreateTestTask(ta.TaskDir, taskID, "Original Title", "ready", "story"); err != nil {
 		t.Fatalf("failed to create test task: %v", err)
 	}
-	if err := ta.TaskStore.Reload(); err != nil {
+	if err := ta.TikiStore.Reload(); err != nil {
 		t.Fatalf("failed to reload tasks: %v", err)
 	}
 
@@ -347,7 +347,7 @@ func TestRefresh_WithActiveSearch(t *testing.T) {
 	if err := testutil.CreateTestTask(ta.TaskDir, "000002", "Beta Task", "ready", "story"); err != nil {
 		t.Fatalf("failed to create test task: %v", err)
 	}
-	if err := ta.TaskStore.Reload(); err != nil {
+	if err := ta.TikiStore.Reload(); err != nil {
 		t.Fatalf("failed to reload tasks: %v", err)
 	}
 
@@ -397,7 +397,7 @@ func TestRefresh_MultipleRefreshes(t *testing.T) {
 	if err := testutil.CreateTestTask(ta.TaskDir, "000001", "First Task", "ready", "story"); err != nil {
 		t.Fatalf("failed to create test task: %v", err)
 	}
-	if err := ta.TaskStore.Reload(); err != nil {
+	if err := ta.TikiStore.Reload(); err != nil {
 		t.Fatalf("failed to reload tasks: %v", err)
 	}
 

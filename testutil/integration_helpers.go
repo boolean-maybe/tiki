@@ -29,7 +29,7 @@ type TestApp struct {
 	App               *tview.Application
 	Screen            tcell.SimulationScreen
 	RootLayout        *view.RootLayout
-	TaskStore         store.Store
+	TikiStore         store.Store
 	NavController     *controller.NavigationController
 	InputRouter       *controller.InputRouter
 	ViewFactory       *view.ViewFactory
@@ -132,7 +132,7 @@ func NewTestApp(t *testing.T) *TestApp {
 		ViewContext:      viewContext,
 		LayoutModel:      layoutModel,
 		ViewFactory:      viewFactory,
-		TaskStore:        taskStore,
+		TikiStore:        taskStore,
 		App:              app,
 		StatuslineConfig: statuslineConfig,
 		StatuslineWidget: statuslineWidget,
@@ -246,7 +246,7 @@ func NewTestApp(t *testing.T) *TestApp {
 		App:               app,
 		Screen:            screen,
 		RootLayout:        rootLayout,
-		TaskStore:         taskStore,
+		TikiStore:         taskStore,
 		MutationGate:      gate,
 		Schema:            schema,
 		NavController:     navController,
@@ -435,12 +435,12 @@ func (ta *TestApp) LoadPlugins() error {
 			}
 			pc.SetLaneLayout(columns, widths)
 			pluginControllers[p.GetName()] = controller.NewPluginController(
-				ta.TaskStore, ta.MutationGate, pc, tp, ta.NavController, ta.statuslineConfig, ta.Schema,
+				ta.TikiStore, ta.MutationGate, pc, tp, ta.NavController, ta.statuslineConfig, ta.Schema,
 			)
 		} else if dp, ok := p.(*plugin.DokiPlugin); ok {
 			pluginControllers[p.GetName()] = controller.NewDokiController(
 				dp, ta.NavController, ta.statuslineConfig, globalActions,
-				ta.TaskStore, ta.MutationGate, ta.Schema,
+				ta.TikiStore, ta.MutationGate, ta.Schema,
 			)
 		} else if detailPlugin, ok := p.(*plugin.DetailPlugin); ok {
 			// Phase 1: kind: detail uses its own controller. Without this
@@ -449,7 +449,7 @@ func (ta *TestApp) LoadPlugins() error {
 			// through a Detail step.
 			pluginControllers[p.GetName()] = controller.NewDetailController(
 				detailPlugin, ta.NavController, ta.statuslineConfig,
-				ta.TaskStore, ta.MutationGate, ta.Schema, ta.taskController,
+				ta.TikiStore, ta.MutationGate, ta.Schema, ta.taskController,
 			)
 		}
 	}
@@ -478,7 +478,7 @@ func (ta *TestApp) LoadPlugins() error {
 		ta.NavController,
 		ta.taskController,
 		pluginControllers,
-		ta.TaskStore,
+		ta.TikiStore,
 		ta.MutationGate,
 		ta.statuslineConfig,
 		ta.Schema,
@@ -516,12 +516,12 @@ func (ta *TestApp) LoadPlugins() error {
 		pluginDefs[p.GetName()] = p
 	}
 
-	viewFactory := view.NewViewFactory(ta.TaskStore)
+	viewFactory := view.NewViewFactory(ta.TikiStore)
 	viewFactory.SetPlugins(pluginConfigs, pluginDefs, pluginControllers, globalActions)
 	// Mirror production wiring: fresh-per-navigation controllers for kind: detail
 	// (and wiki) so two pushed views don't share selectedTaskID.
 	viewFactory.SetDetailControllerFactory(func(def *plugin.DetailPlugin, selectedTaskID string) *controller.DetailController {
-		dc := controller.NewDetailController(def, ta.NavController, ta.statuslineConfig, ta.TaskStore, ta.MutationGate, ta.Schema, ta.taskController)
+		dc := controller.NewDetailController(def, ta.NavController, ta.statuslineConfig, ta.TikiStore, ta.MutationGate, ta.Schema, ta.taskController)
 		dc.SetSelectedTaskID(selectedTaskID)
 		return dc
 	})
@@ -544,7 +544,7 @@ func (ta *TestApp) LoadPlugins() error {
 		ViewContext:      ta.viewContext,
 		LayoutModel:      ta.layoutModel,
 		ViewFactory:      viewFactory,
-		TaskStore:        ta.TaskStore,
+		TikiStore:        ta.TikiStore,
 		App:              ta.App,
 		StatuslineConfig: slConfig,
 		StatuslineWidget: slWidget,

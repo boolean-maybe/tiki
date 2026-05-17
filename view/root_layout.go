@@ -55,7 +55,7 @@ type RootLayoutOpts struct {
 	ViewContext      *model.ViewContext
 	LayoutModel      *model.LayoutModel
 	ViewFactory      controller.ViewFactory
-	TaskStore        store.Store
+	TikiStore        store.Store
 	App              *tview.Application
 	StatuslineWidget *statusline.StatuslineWidget
 	StatuslineConfig *model.StatuslineConfig
@@ -71,7 +71,7 @@ func NewRootLayout(opts RootLayoutOpts) *RootLayout {
 		viewContext:           opts.ViewContext,
 		layoutModel:           opts.LayoutModel,
 		viewFactory:           opts.ViewFactory,
-		taskStore:             opts.TaskStore,
+		taskStore:             opts.TikiStore,
 		statuslineWidget:      opts.StatuslineWidget,
 		statuslineConfig:      opts.StatuslineConfig,
 		lastHeaderVisible:     opts.HeaderConfig.IsVisible(),
@@ -89,8 +89,8 @@ func NewRootLayout(opts RootLayoutOpts) *RootLayout {
 	rl.statuslineListenerID = opts.StatuslineConfig.AddListener(rl.onStatuslineConfigChange)
 
 	// Subscribe to task store changes (stats updates)
-	if opts.TaskStore != nil {
-		rl.storeListenerID = opts.TaskStore.AddListener(rl.onStoreChange)
+	if opts.TikiStore != nil {
+		rl.storeListenerID = opts.TikiStore.AddListener(rl.onStoreChange)
 	}
 
 	// Build initial layout

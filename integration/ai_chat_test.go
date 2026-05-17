@@ -28,7 +28,7 @@ func TestTaskDetailView_ChatModifiesTask(t *testing.T) {
 	if err := testutil.CreateTestTask(ta.TaskDir, taskID, "Original Title", "ready", "story"); err != nil {
 		t.Fatalf("failed to create test task: %v", err)
 	}
-	if err := ta.TaskStore.Reload(); err != nil {
+	if err := ta.TikiStore.Reload(); err != nil {
 		t.Fatalf("failed to reload tasks: %v", err)
 	}
 
@@ -69,7 +69,7 @@ func TestTaskDetailView_ChatModifiesTask(t *testing.T) {
 	ta.SendKey(tcell.KeyRune, 'c', tcell.ModNone)
 
 	// verify task was reloaded with the modified title
-	updated := ta.TaskStore.GetTiki(taskID)
+	updated := ta.TikiStore.GetTiki(taskID)
 	if updated == nil {
 		t.Fatal("task not found after chat")
 		return
@@ -93,7 +93,7 @@ func TestTaskDetailView_ChatNotAvailableWithoutConfig(t *testing.T) {
 	if err := testutil.CreateTestTask(ta.TaskDir, taskID, "Unchanged Title", "ready", "story"); err != nil {
 		t.Fatalf("failed to create test task: %v", err)
 	}
-	if err := ta.TaskStore.Reload(); err != nil {
+	if err := ta.TikiStore.Reload(); err != nil {
 		t.Fatalf("failed to reload tasks: %v", err)
 	}
 
@@ -121,7 +121,7 @@ func TestTaskDetailView_ChatNotAvailableWithoutConfig(t *testing.T) {
 	}
 
 	// verify task is unchanged
-	unchanged := ta.TaskStore.GetTiki(taskID)
+	unchanged := ta.TikiStore.GetTiki(taskID)
 	if unchanged == nil {
 		t.Fatal("task not found")
 		return

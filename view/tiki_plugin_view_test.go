@@ -39,7 +39,7 @@ func TestPluginViewRefreshResetsNonSelectedLaneScrollOffset(t *testing.T) {
 		return tasks
 	}, nil, controller.PluginViewActions(), true)
 
-	itemHeight := config.TaskBoxHeight
+	itemHeight := config.TikiBoxHeight
 	for _, lb := range pv.laneBoxes {
 		lb.SetRect(0, 0, 80, itemHeight*5)
 	}
@@ -196,7 +196,7 @@ func TestPluginViewRefreshPreservesScrollOffset(t *testing.T) {
 	}
 
 	lane := pv.laneBoxes[0]
-	itemHeight := config.TaskBoxHeight
+	itemHeight := config.TikiBoxHeight
 	lane.SetRect(0, 0, 80, itemHeight*5)
 
 	pluginConfig.SetSelectedIndexForLane(0, len(tasks)-1)

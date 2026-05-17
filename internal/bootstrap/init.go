@@ -35,8 +35,7 @@ type Result struct {
 	// Collected early using terminfo lookup (no screen initialization needed).
 	SystemInfo        *sysinfo.SystemInfo
 	MutationGate      *service.TikiMutationGate
-	TikiStore         *tikistore.TikiStore
-	TaskStore         store.Store
+	TikiStore         store.Store
 	HeaderConfig      *model.HeaderConfig
 	LayoutModel       *model.LayoutModel
 	Plugins           []plugin.Plugin
@@ -219,7 +218,7 @@ func Bootstrap(tikiSkillContent, dokiSkillContent string) (*Result, error) {
 		ViewContext:      viewContext,
 		LayoutModel:      layoutModel,
 		ViewFactory:      viewFactory,
-		TaskStore:        tikiStore,
+		TikiStore:        tikiStore,
 		App:              application,
 		StatuslineWidget: statuslineWidget,
 		StatuslineConfig: statuslineConfig,
@@ -303,8 +302,7 @@ func Bootstrap(tikiSkillContent, dokiSkillContent string) (*Result, error) {
 		LogLevel:          logLevel,
 		SystemInfo:        systemInfo,
 		MutationGate:      gate,
-		TikiStore:         tikiStoreConcrete,
-		TaskStore:         tikiStore,
+		TikiStore:         tikiStore,
 		HeaderConfig:      headerConfig,
 		LayoutModel:       layoutModel,
 		Plugins:           plugins,

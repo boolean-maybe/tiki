@@ -12,7 +12,7 @@ import (
 	"github.com/boolean-maybe/tiki/util"
 )
 
-// TikiRowColors holds the color configuration for rendering a task row.
+// TikiRowColors holds the color configuration for rendering a tiki row.
 type TikiRowColors struct {
 	IDPaint            theme.Paint
 	TitleColor         theme.Color

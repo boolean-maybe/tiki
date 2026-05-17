@@ -29,7 +29,7 @@ func TestTaskDeletion_FromKanban(t *testing.T) {
 	if err := testutil.CreateTestTask(ta.TaskDir, "000002", "Second Task", "ready", "story"); err != nil {
 		t.Fatalf("failed to create task: %v", err)
 	}
-	if err := ta.TaskStore.Reload(); err != nil {
+	if err := ta.TikiStore.Reload(); err != nil {
 		t.Fatalf("failed to reload: %v", err)
 	}
 
@@ -48,11 +48,11 @@ func TestTaskDeletion_FromKanban(t *testing.T) {
 	ta.SendKey(tcell.KeyRune, 'd', tcell.ModNone)
 
 	// Reload and verify task deleted
-	if err := ta.TaskStore.Reload(); err != nil {
+	if err := ta.TikiStore.Reload(); err != nil {
 		t.Fatalf("failed to reload: %v", err)
 	}
 
-	task := ta.TaskStore.GetTiki("000001")
+	task := ta.TikiStore.GetTiki("000001")
 	if task != nil {
 		t.Errorf("TIKI-1 should be deleted from store")
 	}
@@ -91,7 +91,7 @@ func TestTaskDeletion_SelectionMoves(t *testing.T) {
 	if err := testutil.CreateTestTask(ta.TaskDir, "000003", "Third Task", "ready", "story"); err != nil {
 		t.Fatalf("failed to create task: %v", err)
 	}
-	if err := ta.TaskStore.Reload(); err != nil {
+	if err := ta.TikiStore.Reload(); err != nil {
 		t.Fatalf("failed to reload: %v", err)
 	}
 
@@ -139,7 +139,7 @@ func TestTaskDeletion_LastTaskInLane(t *testing.T) {
 	if err := testutil.CreateTestTask(ta.TaskDir, "000001", "Only Task", "ready", "story"); err != nil {
 		t.Fatalf("failed to create task: %v", err)
 	}
-	if err := ta.TaskStore.Reload(); err != nil {
+	if err := ta.TikiStore.Reload(); err != nil {
 		t.Fatalf("failed to reload: %v", err)
 	}
 
@@ -158,12 +158,12 @@ func TestTaskDeletion_LastTaskInLane(t *testing.T) {
 	ta.SendKey(tcell.KeyRune, 'd', tcell.ModNone)
 
 	// Reload
-	if err := ta.TaskStore.Reload(); err != nil {
+	if err := ta.TikiStore.Reload(); err != nil {
 		t.Fatalf("failed to reload: %v", err)
 	}
 
 	// Verify task deleted
-	task := ta.TaskStore.GetTiki("000001")
+	task := ta.TikiStore.GetTiki("000001")
 	if task != nil {
 		t.Errorf("TIKI-1 should be deleted")
 	}
@@ -196,7 +196,7 @@ func TestTaskDeletion_MultipleSequential(t *testing.T) {
 			t.Fatalf("failed to create task: %v", err)
 		}
 	}
-	if err := ta.TaskStore.Reload(); err != nil {
+	if err := ta.TikiStore.Reload(); err != nil {
 		t.Fatalf("failed to reload: %v", err)
 	}
 
@@ -214,18 +214,18 @@ func TestTaskDeletion_MultipleSequential(t *testing.T) {
 	ta.SendKey(tcell.KeyRune, 'd', tcell.ModNone)
 
 	// Reload and verify only 2 tasks remain
-	if err := ta.TaskStore.Reload(); err != nil {
+	if err := ta.TikiStore.Reload(); err != nil {
 		t.Fatalf("failed to reload: %v", err)
 	}
 
-	allTasks := ta.TaskStore.GetAllTikis()
+	allTasks := ta.TikiStore.GetAllTikis()
 	if len(allTasks) != 2 {
 		t.Errorf("expected 2 tasks remaining, got %d", len(allTasks))
 	}
 
 	// Verify SEQ004 and SEQ005 still exist
-	task4 := ta.TaskStore.GetTiki("SEQ004")
-	task5 := ta.TaskStore.GetTiki("SEQ005")
+	task4 := ta.TikiStore.GetTiki("SEQ004")
+	task5 := ta.TikiStore.GetTiki("SEQ005")
 	if task4 == nil || task5 == nil {
 		t.Errorf("SEQ004 and SEQ005 should still exist")
 	}
@@ -245,7 +245,7 @@ func TestTaskDeletion_FromDifferentLane(t *testing.T) {
 	if err := testutil.CreateTestTask(ta.TaskDir, "000001", "In Progress Task", "inProgress", "story"); err != nil {
 		t.Fatalf("failed to create task: %v", err)
 	}
-	if err := ta.TaskStore.Reload(); err != nil {
+	if err := ta.TikiStore.Reload(); err != nil {
 		t.Fatalf("failed to reload: %v", err)
 	}
 
@@ -267,11 +267,11 @@ func TestTaskDeletion_FromDifferentLane(t *testing.T) {
 	ta.SendKey(tcell.KeyRune, 'd', tcell.ModNone)
 
 	// Reload and verify deleted
-	if err := ta.TaskStore.Reload(); err != nil {
+	if err := ta.TikiStore.Reload(); err != nil {
 		t.Fatalf("failed to reload: %v", err)
 	}
 
-	task := ta.TaskStore.GetTiki("000001")
+	task := ta.TikiStore.GetTiki("000001")
 	if task != nil {
 		t.Errorf("TIKI-1 should be deleted")
 	}
@@ -291,7 +291,7 @@ func TestTaskDeletion_CannotDeleteFromTaskDetail(t *testing.T) {
 	if err := testutil.CreateTestTask(ta.TaskDir, "000001", "Task to Not Delete", "ready", "story"); err != nil {
 		t.Fatalf("failed to create task: %v", err)
 	}
-	if err := ta.TaskStore.Reload(); err != nil {
+	if err := ta.TikiStore.Reload(); err != nil {
 		t.Fatalf("failed to reload: %v", err)
 	}
 
@@ -311,11 +311,11 @@ func TestTaskDeletion_CannotDeleteFromTaskDetail(t *testing.T) {
 	ta.SendKey(tcell.KeyRune, 'd', tcell.ModNone)
 
 	// Reload and verify task still exists
-	if err := ta.TaskStore.Reload(); err != nil {
+	if err := ta.TikiStore.Reload(); err != nil {
 		t.Fatalf("failed to reload: %v", err)
 	}
 
-	task := ta.TaskStore.GetTiki("000001")
+	task := ta.TikiStore.GetTiki("000001")
 	if task == nil {
 		t.Errorf("TIKI-1 should NOT be deleted from task detail view")
 	}
@@ -346,7 +346,7 @@ func TestTaskDeletion_WithMultipleLanes(t *testing.T) {
 	if err := testutil.CreateTestTask(ta.TaskDir, "000003", "Done Task", "done", "story"); err != nil {
 		t.Fatalf("failed to create task: %v", err)
 	}
-	if err := ta.TaskStore.Reload(); err != nil {
+	if err := ta.TikiStore.Reload(); err != nil {
 		t.Fatalf("failed to reload: %v", err)
 	}
 
@@ -358,20 +358,20 @@ func TestTaskDeletion_WithMultipleLanes(t *testing.T) {
 	ta.SendKey(tcell.KeyRune, 'd', tcell.ModNone)
 
 	// Reload
-	if err := ta.TaskStore.Reload(); err != nil {
+	if err := ta.TikiStore.Reload(); err != nil {
 		t.Fatalf("failed to reload: %v", err)
 	}
 
 	// Verify TIKI-1 deleted
-	if ta.TaskStore.GetTiki("000001") != nil {
+	if ta.TikiStore.GetTiki("000001") != nil {
 		t.Errorf("TIKI-1 should be deleted")
 	}
 
 	// Verify TIKI-2 and TIKI-3 still exist (in other lanes)
-	if ta.TaskStore.GetTiki("000002") == nil {
+	if ta.TikiStore.GetTiki("000002") == nil {
 		t.Errorf("TIKI-2 (in different lane) should still exist")
 	}
-	if ta.TaskStore.GetTiki("000003") == nil {
+	if ta.TikiStore.GetTiki("000003") == nil {
 		t.Errorf("TIKI-3 (in different lane) should still exist")
 	}
 }
