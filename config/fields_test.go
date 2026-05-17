@@ -58,7 +58,7 @@ fields:
   - name: labels
     type: stringList
   - name: related
-    type: taskIdList
+    type: tikiIdList
 `
 	if err := os.WriteFile(filepath.Join(cwdDir, "workflow.yaml"), []byte(content), 0644); err != nil {
 		t.Fatal(err)
@@ -264,7 +264,7 @@ func TestCoerceFieldDefault_TimestampRejectsInvalid(t *testing.T) {
 	}
 }
 
-func TestCoerceFieldDefault_TaskIdListNormalized(t *testing.T) {
+func TestCoerceFieldDefault_TikiIdListNormalized(t *testing.T) {
 	raw := []interface{}{" tiki-abc ", "TIKI-DEF", "  ", "tiki-ghi", "TIKI-DEF"}
 	got, err := coerceFieldDefault(workflow.TypeListRef, raw, nil)
 	if err != nil {

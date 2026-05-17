@@ -430,7 +430,7 @@ func TestTypeRegistry_AllStubsHaveRenderer(t *testing.T) {
 		SemanticDateTime,
 		SemanticRecurrence,
 		SemanticStringList,
-		SemanticTaskIDList,
+		SemanticTikiIDList,
 	} {
 		t.Run(string(sem), func(t *testing.T) {
 			ui, ok := LookupType(sem)

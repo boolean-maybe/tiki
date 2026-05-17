@@ -60,7 +60,7 @@ const testWorkflowPreamble = `fields:
   - name: tags
     type: stringList
   - name: dependsOn
-    type: taskIdList
+    type: tikiIdList
   - name: due
     type: date
   - name: recurrence

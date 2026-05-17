@@ -81,7 +81,7 @@ fields:
   - name: assignee
     type: text
   - name: dependsOn
-    type: taskIdList
+    type: tikiIdList
 
 actions:
   - key: "a"

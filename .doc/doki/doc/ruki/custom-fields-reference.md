@@ -49,7 +49,7 @@ When custom field values are read from frontmatter YAML, they are coerced to the
 | `boolean`     | `true` / `false`                              | pass-through                                     |
 | `datetime`    | timestamp or date string                      | native YAML timestamps pass through; strings parsed as RFC3339, with fallback to `YYYY-MM-DD` |
 | `stringList`  | YAML list of strings                          | strings only; trim, drop empty, dedupe |
-| `taskIdList`  | YAML list of strings                          | uppercase IDs; trim, drop empty, dedupe |
+| `tikiIdList`  | YAML list of strings                          | uppercase IDs; trim, drop empty, dedupe |
 
 ## Enum domain isolation
 
@@ -69,7 +69,7 @@ Custom fields follow the same validation pipeline as built-in fields:
 
 - **type compatibility**: assignments and comparisons are type-checked (e.g. you cannot assign a string to an integer field, or compare an enum field with an integer literal)
 - **enum value validation**: string literals assigned to or compared against an enum field must be in that field's allowed values
-- **ordering**: custom fields of orderable types (`text`, `integer`, `boolean`, `datetime`, `enum`) can appear in `order by` clauses; list types (`stringList`, `taskIdList`) are not orderable
+- **ordering**: custom fields of orderable types (`text`, `integer`, `boolean`, `datetime`, `enum`) can appear in `order by` clauses; list types (`stringList`, `tikiIdList`) are not orderable
 
 ## Persistence and round-trip behavior
 
@@ -119,11 +119,11 @@ Custom fields behave identically to built-in fields in ruki queries:
 - support `is empty` / `is not empty` checks
 - support `in` / `not in` for list membership
 - list-type fields support `+` (set union) and `-` (remove) operations
-- quantifiers (`any ... where`, `all ... where`) work on custom `taskIdList` fields
+- quantifiers (`any ... where`, `all ... where`) work on custom `tikiIdList` fields
 
 ### Unset list fields
 
-Unset custom list fields (`stringList`, `taskIdList`) are absent — `has(labels)` is false until the
+Unset custom list fields (`stringList`, `tikiIdList`) are absent — `has(labels)` is false until the
 key is written. For most operations they behave as if empty:
 
 - `"x" in labels` evaluates to `false` (not an error)

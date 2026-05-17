@@ -536,7 +536,7 @@ fields:
 **Per-field properties:**
 
 - `name` — identifier (must be a valid ruki identifier; not a reserved system field name)
-- `type` — one of: `text`, `integer`, `boolean`, `date`, `datetime`, `enum`, `stringList`, `taskIdList`, `recurrence`
+- `type` — one of: `text`, `integer`, `boolean`, `date`, `datetime`, `enum`, `stringList`, `tikiIdList`, `recurrence`
 - `default` — creation default for non-enum fields
 - `values` — required for enum fields; lists the allowed values
 

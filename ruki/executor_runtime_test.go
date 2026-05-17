@@ -217,13 +217,13 @@ func TestExecutionInputSelectionHelpers(t *testing.T) {
 				t.Errorf("SingleSelectedTaskID() = (%q, %v), want (%q, %v)",
 					gotSingle, gotHasOne, tt.wantSingle, tt.wantHasOne)
 			}
-			gotList := tt.input.SelectedTaskIDList()
+			gotList := tt.input.SelectedTikiIDList()
 			if len(gotList) != len(tt.wantIDsList) {
-				t.Errorf("SelectedTaskIDList() length = %d, want %d", len(gotList), len(tt.wantIDsList))
+				t.Errorf("SelectedTikiIDList() length = %d, want %d", len(gotList), len(tt.wantIDsList))
 			}
 			for i := range gotList {
 				if i >= len(tt.wantIDsList) || gotList[i] != tt.wantIDsList[i] {
-					t.Errorf("SelectedTaskIDList()[%d] = %q, want %q", i, gotList[i], tt.wantIDsList[i])
+					t.Errorf("SelectedTikiIDList()[%d] = %q, want %q", i, gotList[i], tt.wantIDsList[i])
 				}
 			}
 		})

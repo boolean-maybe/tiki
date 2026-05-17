@@ -98,9 +98,9 @@ func (in ExecutionInput) SingleSelectedTaskID() (string, bool) {
 	return only, true
 }
 
-// SelectedTaskIDList returns a copy of the trimmed, non-empty selected task
+// SelectedTikiIDList returns a copy of the trimmed, non-empty selected tiki
 // IDs suitable for use as a ruki list value returned by ids().
-func (in ExecutionInput) SelectedTaskIDList() []string {
+func (in ExecutionInput) SelectedTikiIDList() []string {
 	if len(in.SelectedTaskIDs) == 0 {
 		return nil
 	}

@@ -13,7 +13,7 @@
 - [Priority triage](#priority-triage--five-lane-plugin)
 - [Sprint board](#sprint-board--custom-enum-lanes)
 - [Severity triage](#severity-triage--custom-enum-filter--action)
-- [Subtasks in epic](#subtasks-in-epic--custom-taskidlist--quantifier-trigger)
+- [Subtasks in epic](#subtasks-in-epic--custom-tikiidlist--quantifier-trigger)
 - [By topic](#by-topic--tag-based-lanes)
 - [Bulk cleanup](#bulk-cleanup--delete-without-selection)
 - [AI-gated action](#ai-gated-action--require)
@@ -271,7 +271,7 @@ fields:
       action: update where id = id() set severity="trivial"
 ```
 
-## Subtasks in epic — custom taskIdList + quantifier trigger
+## Subtasks in epic — custom tikiIdList + quantifier trigger
 
 A `subtasks` field on parent tasks tracks their children (inverse of `dependsOn`). A trigger auto-completes the parent when every subtask is done. The plugin shows open vs. completed parents.
 
@@ -280,7 +280,7 @@ Requires:
 ```yaml
 fields:
   - name: subtasks
-    type: taskIdList
+    type: tikiIdList
 ```
 
 ```yaml

@@ -423,7 +423,7 @@ The `type` tells tiki what kind of data the field holds:
 | `datetime` | A date and time | 2026-03-25 |
 | `enum` | One of a fixed set of choices | critical, high, medium, low |
 | `stringList` | A list of text values | ["alice", "bob"] |
-| `taskIdList` | A list of document references | ["A1B2C3"] |
+| `tikiIdList` | A list of document references | ["A1B2C3"] |
 
 For `enum` fields, you provide a `values:` list — only those choices are
 accepted.
