@@ -1,17 +1,15 @@
 package integration
 
-// Phase 3 cleanup: this file previously held integration tests for the
-// legacy built-in task edit view (TikiEditViewID): Tab/Shift-Tab
-// traversal across the 6+ fields the legacy view rendered, status
-// cycling via Up/Down, type toggling, assignee input, points/priority
-// range checks, save/cancel from arbitrary fields, etc.
+// This file previously held integration tests for a deleted built-in
+// edit view that rendered a rigid 6+ field form (Title, Status, Type,
+// Priority, Points, Assignee) with Tab/Shift-Tab traversal, Up/Down
+// status cycling, type toggling, assignee input, and points/priority
+// range checks.
 //
-// After Phase 2 the canonical "edit existing task" path is in-place
-// edit mode on the configurable detail view (kind: detail). The
-// configurable view's metadata is workflow-declared (default
-// [status, type, priority]), so the legacy 6-field assertions no
-// longer match the running app and the tests as written gave false
-// failures rather than coverage.
+// The canonical "edit existing tiki" path is now in-place edit mode on
+// the configurable detail view (kind: detail). Its metadata is
+// workflow-declared (default [status, type, priority]), so the old
+// rigid 6-field assertions no longer match the running app.
 //
 // Equivalent unit-level coverage lives in:
 //   - view/tikidetail/configurable_detail_edit_test.go
@@ -29,4 +27,4 @@ package integration
 //
 // Whoever revives this file should write tests for the configurable
 // detail view's in-place edit flow (e on a kind: detail view → Tab →
-// Down/Up → Ctrl+S), not the deleted TikiEditView path.
+// Down/Up → Ctrl+S).
