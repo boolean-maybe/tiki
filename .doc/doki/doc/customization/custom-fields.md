@@ -57,7 +57,7 @@ fields:
   - name: reviewers
     type: stringList
   - name: relatedTasks
-    type: taskIdList
+    type: tikiIdList
 ```
 
 Workflow field names must not collide with reserved system fields (`id`, `title`, `description`,
@@ -77,13 +77,13 @@ Custom fields come from the `workflow.yaml` file (see [Configuration: Precedence
 | `datetime`    | timestamp (RFC3339 or YYYY-MM-DD)     | `timestamp`      |
 | `enum`        | constrained string from `values` list | `enum`           |
 | `stringList`  | set-like list of strings              | `list<string>`   |
-| `taskIdList`  | set-like list of document id references| `list<ref>`      |
+| `tikiIdList`  | set-like list of document id references| `list<ref>`      |
 
 For list field types, values are normalized with set semantics:
 - strings are trimmed
 - empty entries are dropped
 - duplicate entries are removed
-- `taskIdList` entries are uppercased
+- `tikiIdList` entries are uppercased
 
 ## Enum fields
 
@@ -283,7 +283,7 @@ The zero values produced when projecting an absent custom field are:
 | `datetime`    | empty cell / `null` |
 | `enum`        | `""` (empty cell) |
 | `stringList`  | `[]` (empty list) |
-| `taskIdList`  | `[]` (empty list) |
+| `tikiIdList`  | `[]` (empty list) |
 
 For boolean and integer fields the zero value (`false`, `0`) is also the `empty` value, so an
 explicitly stored `false` and an absent boolean field are still indistinguishable through `is empty`.

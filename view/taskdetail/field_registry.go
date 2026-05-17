@@ -40,7 +40,7 @@ const (
 	SemanticDateTime   SemanticType = "datetime"
 	SemanticRecurrence SemanticType = "recurrence"
 	SemanticStringList SemanticType = "string_list"
-	SemanticTaskIDList SemanticType = "task_id_list"
+	SemanticTikiIDList SemanticType = "tiki_id_list"
 )
 
 // EditorCapability tracks whether the type UI registry supports in-place
@@ -210,7 +210,7 @@ func registerBuiltinFields() {
 	fieldRegistry[tikipkg.FieldDependsOn] = FieldDescriptor{
 		Name:            tikipkg.FieldDependsOn,
 		Label:           "Depends On",
-		Semantic:        SemanticTaskIDList,
+		Semantic:        SemanticTikiIDList,
 		Get:             func(tk *tikipkg.Tiki) any { v, _, _ := tk.StringSliceField(tikipkg.FieldDependsOn); return v },
 		EditTraversable: true,
 	}
@@ -293,9 +293,9 @@ func registerBuiltinTypes() {
 		HeightFn:   stringListHeight,
 		Capability: EditorImplemented,
 	}
-	typeRegistry[SemanticTaskIDList] = TypeUI{
-		Render:     renderTaskIDListValue,
-		HeightFn:   taskIDListHeight,
+	typeRegistry[SemanticTikiIDList] = TypeUI{
+		Render:     renderTikiIDListValue,
+		HeightFn:   tikiIDListHeight,
 		Capability: EditorStub,
 	}
 }
@@ -323,11 +323,11 @@ func stringListHeight(tk *tikipkg.Tiki, width int) int {
 	return len(wrapped)
 }
 
-// taskIDListHeight returns the dependency row count, capped at
+// tikiIDListHeight returns the dependency row count, capped at
 // TaskListMetadataMaxRows. Counts every declared dependency (resolved or
 // not) because the renderer emits one row per id even when unresolved
 // (placeholder display).
-func taskIDListHeight(tk *tikipkg.Tiki, _ int) int {
+func tikiIDListHeight(tk *tikipkg.Tiki, _ int) int {
 	deps, _, _ := tk.StringSliceField(tikipkg.FieldDependsOn)
 	if len(deps) == 0 {
 		return 1
@@ -672,10 +672,10 @@ func renderStringListValue(tk *tikipkg.Tiki, ctx FieldRenderContext) tview.Primi
 	return RenderTagsColumn(tk)
 }
 
-// renderTaskIDListValue renders the depends-on column as value-only. Non-empty
+// renderTikiIDListValue renders the depends-on column as value-only. Non-empty
 // → multi-row RenderDependsOnColumn (which emits placeholder rows for
-// unresolved IDs so its row count matches taskIDListHeight); empty → "(none)".
-func renderTaskIDListValue(tk *tikipkg.Tiki, ctx FieldRenderContext) tview.Primitive {
+// unresolved IDs so its row count matches tikiIDListHeight); empty → "(none)".
+func renderTikiIDListValue(tk *tikipkg.Tiki, ctx FieldRenderContext) tview.Primitive {
 	deps, _, _ := tk.StringSliceField(tikipkg.FieldDependsOn)
 	if len(deps) == 0 {
 		return valueOnlyLine("(none)", ctx.Roles)

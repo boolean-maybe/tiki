@@ -1019,7 +1019,7 @@ func (e *Executor) evalHas(fc *FunctionCall, ctx evalContext) (interface{}, erro
 		if e.runtime.Mode != ExecutorRuntimePlugin {
 			return nil, fmt.Errorf("has(targets.%s): targets. qualifier is only available in plugin runtime", name)
 		}
-		selectedIDs := e.currentInput.SelectedTaskIDList()
+		selectedIDs := e.currentInput.SelectedTikiIDList()
 		for _, id := range selectedIDs {
 			t, ok := findTikiByID(ctx.allTikis, id)
 			if !ok {
@@ -1064,7 +1064,7 @@ func (e *Executor) evalIDs() (interface{}, error) {
 	if e.runtime.Mode != ExecutorRuntimePlugin {
 		return nil, fmt.Errorf("ids() is only available in plugin runtime")
 	}
-	selected := e.currentInput.SelectedTaskIDList()
+	selected := e.currentInput.SelectedTikiIDList()
 	result := make([]interface{}, len(selected))
 	for i, id := range selected {
 		result[i] = id
@@ -1102,7 +1102,7 @@ func (e *Executor) evalTargetsField(name string, ctx evalContext) (interface{}, 
 	if e.runtime.Mode != ExecutorRuntimePlugin {
 		return nil, fmt.Errorf("targets. qualifier is only available in plugin runtime")
 	}
-	selectedIDs := e.currentInput.SelectedTaskIDList()
+	selectedIDs := e.currentInput.SelectedTikiIDList()
 	if len(selectedIDs) == 0 {
 		return []interface{}{}, nil
 	}

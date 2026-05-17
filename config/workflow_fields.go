@@ -302,12 +302,12 @@ func parseFieldType(s string) (workflow.ValueType, error) {
 		return workflow.TypeEnum, nil
 	case "stringlist":
 		return workflow.TypeListString, nil
-	case "taskidlist":
+	case "tikiidlist":
 		return workflow.TypeListRef, nil
 	case "recurrence":
 		return workflow.TypeRecurrence, nil
 	default:
-		return 0, fmt.Errorf("unknown field type %q (valid: text, integer, boolean, date, datetime, enum, stringList, taskIdList, recurrence)", s)
+		return 0, fmt.Errorf("unknown field type %q (valid: text, integer, boolean, date, datetime, enum, stringList, tikiIdList, recurrence)", s)
 	}
 }
 

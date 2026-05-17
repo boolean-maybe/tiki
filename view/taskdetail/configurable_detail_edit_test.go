@@ -498,7 +498,7 @@ func TestFieldRegistry_ImplementedAndStubCapabilities(t *testing.T) {
 	}
 	stubs := []SemanticType{
 		SemanticBoolean, SemanticDateTime, SemanticInteger,
-		SemanticTaskIDList,
+		SemanticTikiIDList,
 	}
 	for _, sem := range stubs {
 		t.Run(string(sem)+"_stub", func(t *testing.T) {
