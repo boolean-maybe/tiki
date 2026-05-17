@@ -1009,7 +1009,7 @@ func (e *Executor) evalHas(fc *FunctionCall, ctx evalContext) (interface{}, erro
 		if err := checkSingleSelectionForID(e.currentInput); err != nil {
 			return nil, err
 		}
-		id, _ := e.currentInput.SingleSelectedTaskID()
+		id, _ := e.currentInput.SingleSelectedTikiID()
 		t, ok := findTikiByID(ctx.allTikis, id)
 		if !ok {
 			return nil, fmt.Errorf("has(target.%s): selected task %q not found", name, id)
@@ -1056,7 +1056,7 @@ func (e *Executor) evalID() (interface{}, error) {
 	if err := checkSingleSelectionForID(e.currentInput); err != nil {
 		return nil, err
 	}
-	id, _ := e.currentInput.SingleSelectedTaskID()
+	id, _ := e.currentInput.SingleSelectedTikiID()
 	return id, nil
 }
 
@@ -1087,7 +1087,7 @@ func (e *Executor) evalTargetField(name string, ctx evalContext) (interface{}, e
 	if err := checkSingleSelectionForID(e.currentInput); err != nil {
 		return nil, err
 	}
-	id, _ := e.currentInput.SingleSelectedTaskID()
+	id, _ := e.currentInput.SingleSelectedTikiID()
 	t, ok := findTikiByID(ctx.allTikis, id)
 	if !ok {
 		return nil, fmt.Errorf("target.%s: selected task %q not found", name, id)
@@ -1159,9 +1159,9 @@ func checkSingleSelectionForID(in ExecutionInput) error {
 	count := in.SelectionCount()
 	switch {
 	case count == 0:
-		return &MissingSelectedTaskIDError{}
+		return &MissingSelectedTikiIDError{}
 	case count > 1:
-		return &AmbiguousSelectedTaskIDError{Count: count}
+		return &AmbiguousSelectedTikiIDError{Count: count}
 	}
 	return nil
 }
@@ -1240,7 +1240,7 @@ func chooseFilterParent(tikis []*tiki.Tiki, input ExecutionInput, parents ...*ti
 	if len(parents) > 0 {
 		return parents[0]
 	}
-	selected, ok := input.SingleSelectedTaskID()
+	selected, ok := input.SingleSelectedTikiID()
 	if !ok {
 		return nil
 	}
@@ -1358,7 +1358,7 @@ func evalEnumStepWithLookup(schema Schema, fc *FunctionCall, direction int, look
 	// Treat empty string as "field present-but-blank" — common when a
 	// helper initialises every workflow field to its zero value. Use the
 	// boundary rather than erroring so `prev_enum(priority)` on a freshly
-	// created task still produces a sensible value.
+	// created tiki still produces a sensible value.
 	if s, ok := val.(string); ok && s == "" {
 		return enumStepBoundary(fs, direction), nil
 	}

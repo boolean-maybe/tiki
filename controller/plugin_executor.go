@@ -58,7 +58,7 @@ func NewPluginExecutor(
 // ruki-kind action. Returns ok=false when the caller should not proceed
 // (selection requirements unmet or template construction failed).
 //
-// selectedIDs are the currently selected task ids as seen by the calling
+// selectedIDs are the currently selected tiki ids as seen by the calling
 // view. Non-board views pass empty or a single id threaded through from a
 // `kind: view` navigation; board views pass their lane selection.
 func (pe *PluginExecutor) BuildExecutionInput(pa *plugin.PluginAction, selectedIDs []string) (ruki.ExecutionInput, bool) {
@@ -68,7 +68,7 @@ func (pe *PluginExecutor) BuildExecutionInput(pa *plugin.PluginAction, selectedI
 		return input, false
 	}
 	if len(selectedIDs) > 0 {
-		input.SelectedTaskIDs = selectedIDs
+		input.SelectedTikiIDs = selectedIDs
 	}
 
 	if pa.Action != nil && pa.Action.IsCreate() {

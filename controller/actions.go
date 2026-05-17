@@ -23,12 +23,12 @@ const (
 	ActionEditWorkflow   ActionID = "edit_workflow"
 )
 
-// ActionID values for task navigation and manipulation (used by plugins).
+// ActionID values for tiki navigation and manipulation (used by plugins).
 const (
-	ActionMoveTaskLeft  ActionID = "move_task_left"
-	ActionMoveTaskRight ActionID = "move_task_right"
-	ActionNewTask       ActionID = "new_task"
-	ActionDeleteTask    ActionID = "delete_task"
+	ActionMoveTikiLeft  ActionID = "move_tiki_left"
+	ActionMoveTikiRight ActionID = "move_tiki_right"
+	ActionNewTiki       ActionID = "new_tiki"
+	ActionDeleteTiki    ActionID = "delete_tiki"
 	ActionNavLeft       ActionID = "nav_left"
 	ActionNavRight      ActionID = "nav_right"
 	ActionNavUp         ActionID = "nav_up"
@@ -836,10 +836,10 @@ func PluginViewActions() *ActionRegistry {
 	// "open task in detail" shortcut: the open keybinding is now declared by
 	// the workflow as a `kind: view` action (typically `key: Enter, view: Detail`).
 	// Boards without such an action have no Enter behavior — by design.
-	r.Register(Action{ID: ActionMoveTaskLeft, Key: tcell.KeyLeft, Modifier: tcell.ModShift, Label: "Move ←", ShowInHeader: true, Require: idReq})
-	r.Register(Action{ID: ActionMoveTaskRight, Key: tcell.KeyRight, Modifier: tcell.ModShift, Label: "Move →", ShowInHeader: true, Require: idReq})
-	r.Register(Action{ID: ActionNewTask, Key: tcell.KeyRune, Rune: 'n', Label: "New", ShowInHeader: true})
-	r.Register(Action{ID: ActionDeleteTask, Key: tcell.KeyRune, Rune: 'd', Label: "Delete", ShowInHeader: true, Require: idReq})
+	r.Register(Action{ID: ActionMoveTikiLeft, Key: tcell.KeyLeft, Modifier: tcell.ModShift, Label: "Move ←", ShowInHeader: true, Require: idReq})
+	r.Register(Action{ID: ActionMoveTikiRight, Key: tcell.KeyRight, Modifier: tcell.ModShift, Label: "Move →", ShowInHeader: true, Require: idReq})
+	r.Register(Action{ID: ActionNewTiki, Key: tcell.KeyRune, Rune: 'n', Label: "New", ShowInHeader: true})
+	r.Register(Action{ID: ActionDeleteTiki, Key: tcell.KeyRune, Rune: 'd', Label: "Delete", ShowInHeader: true, Require: idReq})
 	r.Register(Action{ID: ActionSearch, Key: tcell.KeyRune, Rune: '/', Label: "Search", ShowInHeader: true})
 	r.Register(Action{ID: ActionToggleViewMode, Key: tcell.KeyRune, Rune: 'v', Label: "View mode", ShowInHeader: true})
 	r.Register(Action{ID: ActionExecute, Key: tcell.KeyRune, Rune: '!', Label: "Execute", ShowInHeader: true})
@@ -866,13 +866,13 @@ func DepsViewActions() *ActionRegistry {
 
 	// move task between lanes (shown in header)
 	depsIdReq := []Requirement{RequireID}
-	r.Register(Action{ID: ActionMoveTaskLeft, Key: tcell.KeyLeft, Modifier: tcell.ModShift, Label: "Move ←", ShowInHeader: true, Require: depsIdReq})
-	r.Register(Action{ID: ActionMoveTaskRight, Key: tcell.KeyRight, Modifier: tcell.ModShift, Label: "Move →", ShowInHeader: true, Require: depsIdReq})
+	r.Register(Action{ID: ActionMoveTikiLeft, Key: tcell.KeyLeft, Modifier: tcell.ModShift, Label: "Move ←", ShowInHeader: true, Require: depsIdReq})
+	r.Register(Action{ID: ActionMoveTikiRight, Key: tcell.KeyRight, Modifier: tcell.ModShift, Label: "Move →", ShowInHeader: true, Require: depsIdReq})
 
 	// task actions
 	r.Register(Action{ID: ActionOpenFromPlugin, Key: tcell.KeyEnter, Label: "Open", ShowInHeader: true, Require: depsIdReq})
-	r.Register(Action{ID: ActionNewTask, Key: tcell.KeyRune, Rune: 'n', Label: "New", ShowInHeader: true})
-	r.Register(Action{ID: ActionDeleteTask, Key: tcell.KeyRune, Rune: 'd', Label: "Delete", ShowInHeader: true, Require: depsIdReq})
+	r.Register(Action{ID: ActionNewTiki, Key: tcell.KeyRune, Rune: 'n', Label: "New", ShowInHeader: true})
+	r.Register(Action{ID: ActionDeleteTiki, Key: tcell.KeyRune, Rune: 'd', Label: "Delete", ShowInHeader: true, Require: depsIdReq})
 
 	// view mode and search
 	r.Register(Action{ID: ActionSearch, Key: tcell.KeyRune, Rune: '/', Label: "Search", ShowInHeader: true})

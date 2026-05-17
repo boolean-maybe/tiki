@@ -29,15 +29,15 @@ type ViewFactory struct {
 	pluginControllers map[string]controller.PluginControllerInterface
 	globalActions     []plugin.PluginAction
 	// dokiControllerFactory creates a fresh DokiController for each view navigation,
-	// preventing the shared-singleton problem where SetSelectedTaskID on one navigation
-	// would overwrite the selected task ID seen by a previously-pushed view of the same plugin.
-	dokiControllerFactory func(pluginDef plugin.Plugin, selectedTaskID string) *controller.DokiController
+	// preventing the shared-singleton problem where SetSelectedTikiID on one navigation
+	// would overwrite the selected tiki ID seen by a previously-pushed view of the same plugin.
+	dokiControllerFactory func(pluginDef plugin.Plugin, selectedTikiID string) *controller.DokiController
 	// detailControllerFactory mirrors dokiControllerFactory for kind: detail
 	// views: each navigation gets its own DetailController so multiple Detail
-	// views on the stack hold independent selectedTaskID values. Without this,
+	// views on the stack hold independent selectedTikiID values. Without this,
 	// the most recent navigation overwrites the selection of every earlier
 	// detail view of the same plugin.
-	detailControllerFactory func(pluginDef *plugin.DetailPlugin, selectedTaskID string) *controller.DetailController
+	detailControllerFactory func(pluginDef *plugin.DetailPlugin, selectedTikiID string) *controller.DetailController
 }
 
 // NewViewFactory creates a view factory
@@ -45,10 +45,8 @@ func NewViewFactory(tikiStore store.Store) *ViewFactory {
 	// Configure image resolver with the unified document root as the primary
 	// search root so images referenced from nested or root-level `.md`
 	// documents resolve (e.g. `.doc/projects/foo/diagram.png` or
-	// `.doc/assets/logo.png`). The legacy task directory is kept as a
-	// fallback so existing projects with `.doc/tiki/markdown.png` keep
-	// rendering during the Phase 2 → Phase 8 transition.
-	searchRoots := []string{config.GetDocDir(), config.GetTaskDir()}
+	// `.doc/assets/logo.png`).
+	searchRoots := []string{config.GetDocDir()}
 	resolver := nav.NewImageResolver(searchRoots)
 	resolver.SetDarkMode(!config.IsLightTheme())
 	imgMgr := navtview.NewImageManager(resolver, 8, 16)
@@ -80,15 +78,15 @@ func (f *ViewFactory) SetPlugins(
 // SetDokiControllerFactory registers a factory function that creates a fresh
 // DokiController per view navigation, capturing nav/status/gate/schema from
 // the bootstrap context. Must be called before any doki view is created.
-func (f *ViewFactory) SetDokiControllerFactory(fn func(pluginDef plugin.Plugin, selectedTaskID string) *controller.DokiController) {
+func (f *ViewFactory) SetDokiControllerFactory(fn func(pluginDef plugin.Plugin, selectedTikiID string) *controller.DokiController) {
 	f.dokiControllerFactory = fn
 }
 
 // SetDetailControllerFactory registers a factory for fresh DetailControllers
 // per navigation. Same rationale as SetDokiControllerFactory but for
 // kind: detail views, so two pushed Detail views can each carry their own
-// selected task id without trampling each other.
-func (f *ViewFactory) SetDetailControllerFactory(fn func(pluginDef *plugin.DetailPlugin, selectedTaskID string) *controller.DetailController) {
+// selected tiki id without trampling each other.
+func (f *ViewFactory) SetDetailControllerFactory(fn func(pluginDef *plugin.DetailPlugin, selectedTikiID string) *controller.DetailController) {
 	f.detailControllerFactory = fn
 }
 
@@ -198,14 +196,14 @@ func (f *ViewFactory) CreateView(viewID model.ViewID, params map[string]interfac
 				}
 				pluginParams := model.DecodePluginViewParams(params)
 				// Create a fresh DokiController per navigation so each view
-				// instance on the nav stack holds its own selectedTaskID. The
+				// instance on the nav stack holds its own selectedTikiID. The
 				// shared map entry is updated so InputRouter always dispatches
 				// through the controller that owns the currently-active view.
 				if f.dokiControllerFactory != nil {
 					freshCtrl := f.dokiControllerFactory(pluginDef, pluginParams.TikiID)
 					f.pluginControllers[pluginName] = freshCtrl
 				} else if dc, ok := pluginControllerInterface.(*controller.DokiController); ok {
-					dc.SetSelectedTaskID(pluginParams.TikiID)
+					dc.SetSelectedTikiID(pluginParams.TikiID)
 				}
 				v = NewDokiView(dokiPlugin, f.imageManager, f.mermaidOpts, f.globalActions, f.tikiStore, pluginParams.TikiID)
 			case plugin.KindDetail:
@@ -216,7 +214,7 @@ func (f *ViewFactory) CreateView(viewID model.ViewID, params map[string]interfac
 				}
 				pluginParams := model.DecodePluginViewParams(params)
 				// Build (or refresh) the controller that owns this view's
-				// selectedTaskID. Each navigation gets a fresh controller —
+				// selectedTikiID. Each navigation gets a fresh controller —
 				// matching the wiki/doki path — so two pushed Detail views
 				// of the same plugin don't overwrite each other's selection.
 				// The shared map is updated to the freshest controller so the
@@ -226,7 +224,7 @@ func (f *ViewFactory) CreateView(viewID model.ViewID, params map[string]interfac
 					dc = f.detailControllerFactory(detailPlugin, pluginParams.TikiID)
 					f.pluginControllers[pluginName] = dc
 				} else if existing, ok := pluginControllerInterface.(*controller.DetailController); ok {
-					existing.SetSelectedTaskID(pluginParams.TikiID)
+					existing.SetSelectedTikiID(pluginParams.TikiID)
 					dc = existing
 				}
 				registry := controller.DetailViewActions()

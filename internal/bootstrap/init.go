@@ -189,19 +189,19 @@ func Bootstrap(tikiSkillContent, dokiSkillContent string) (*Result, error) {
 	viewFactory.SetPlugins(pluginConfigs, pluginDefs, controllers.Plugins, globalActions)
 
 	// Wire fresh-per-navigation DokiController creation so each view instance
-	// on the nav stack holds its own selectedTaskID (prevents a second doki
+	// on the nav stack holds its own selectedTikiID (prevents a second doki
 	// navigation from overwriting the first view's context).
-	viewFactory.SetDokiControllerFactory(func(def plugin.Plugin, selectedTaskID string) *controller.DokiController {
+	viewFactory.SetDokiControllerFactory(func(def plugin.Plugin, selectedTikiID string) *controller.DokiController {
 		dc := controller.NewDokiController(def, controllers.Nav, statuslineConfig, globalActions, tikiStore, gate, schema)
-		dc.SetSelectedTaskID(selectedTaskID)
+		dc.SetSelectedTikiID(selectedTikiID)
 		return dc
 	})
 
 	// Same fresh-per-navigation pattern for kind: detail views — two pushed
-	// Detail views must not share selectedTaskID state.
-	viewFactory.SetDetailControllerFactory(func(def *plugin.DetailPlugin, selectedTaskID string) *controller.DetailController {
+	// Detail views must not share selectedTikiID state.
+	viewFactory.SetDetailControllerFactory(func(def *plugin.DetailPlugin, selectedTikiID string) *controller.DetailController {
 		dc := controller.NewDetailController(def, controllers.Nav, statuslineConfig, tikiStore, gate, schema, controllers.TikiEdit)
-		dc.SetSelectedTaskID(selectedTaskID)
+		dc.SetSelectedTikiID(selectedTikiID)
 		return dc
 	})
 

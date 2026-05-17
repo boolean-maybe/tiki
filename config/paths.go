@@ -155,27 +155,6 @@ func (pm *PathManager) DocDir() string {
 	return filepath.Join(pm.projectRoot, ".doc")
 }
 
-// TaskDir returns the legacy project-local task directory (.doc/tiki).
-//
-// Deprecated: callers should use DocDir instead. The document store now
-// scans .doc/ recursively (filename is opaque — identity comes from the
-// frontmatter `id:` field) and places brand-new documents at .doc/<ID>.md.
-// Kept during the migration so callers that still reference .doc/tiki for
-// legacy content (existing sample files, embedded assets, file-open dialogs)
-// continue to resolve the same path.
-func (pm *PathManager) TaskDir() string {
-	return filepath.Join(pm.projectRoot, ".doc", "tiki")
-}
-
-// DokiDir returns the legacy project-local doki directory (.doc/doki).
-//
-// Deprecated: callers should use DocDir instead. Kept so existing projects
-// with content under .doc/doki continue to resolve the same path; Phase 8
-// stopped creating this subdirectory for fresh projects.
-func (pm *PathManager) DokiDir() string {
-	return filepath.Join(pm.projectRoot, ".doc", "doki")
-}
-
 // ProjectConfigDir returns the project-level config directory (.doc/).
 // Identical to DocDir by construction — workflow.yaml and config.yaml live
 // alongside document files at the unified root.
@@ -316,20 +295,6 @@ func GetConfigFile() string {
 // ships with human-readable topical filenames).
 func GetDocDir() string {
 	return mustGetPathManager().DocDir()
-}
-
-// GetTaskDir returns the legacy project-local task directory.
-//
-// Deprecated: prefer GetDocDir. See PathManager.TaskDir for the full rationale.
-func GetTaskDir() string {
-	return mustGetPathManager().TaskDir()
-}
-
-// GetDokiDir returns the legacy project-local doki directory.
-//
-// Deprecated: prefer GetDocDir. See PathManager.DokiDir for the full rationale.
-func GetDokiDir() string {
-	return mustGetPathManager().DokiDir()
 }
 
 // GetProjectConfigDir returns the project-level config directory (.doc/)

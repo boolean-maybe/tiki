@@ -97,7 +97,7 @@ func TestInputBuiltin_Executor_ReturnsValue(t *testing.T) {
 
 	testTask := &tikiFixture{ID: "TIKI-000001", Title: "test", Status: "ready", Type: "task"}
 	result, err := e.testExec(vs, []*tikiFixture{testTask}, ExecutionInput{
-		SelectedTaskIDs: []string{"TIKI-000001"},
+		SelectedTikiIDs: []string{"TIKI-000001"},
 		InputValue:      "bob",
 		HasInput:        true,
 	})
@@ -131,7 +131,7 @@ func TestInputBuiltin_Executor_MissingInput(t *testing.T) {
 
 	testTask := &tikiFixture{ID: "TIKI-000001", Title: "test", Status: "ready", Type: "task"}
 	_, err = e.testExec(vs, []*tikiFixture{testTask}, ExecutionInput{
-		SelectedTaskIDs: []string{"TIKI-000001"},
+		SelectedTikiIDs: []string{"TIKI-000001"},
 	})
 	if err == nil {
 		t.Fatal("expected error for missing input")

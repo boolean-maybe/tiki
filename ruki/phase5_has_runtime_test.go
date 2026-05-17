@@ -69,7 +69,7 @@ func TestPhase5_Has_TargetQualifierResolvesSelectedTask(t *testing.T) {
 	other := &tikiFixture{ID: "OTH01", Title: "other"}
 
 	result, err := e.testExec(vs, []*tikiFixture{selected, other}, ExecutionInput{
-		SelectedTaskIDs: []string{"SEL01"},
+		SelectedTikiIDs: []string{"SEL01"},
 	})
 	if err != nil {
 		t.Fatalf("execute: %v (should resolve target. qualifier)", err)
@@ -97,7 +97,7 @@ func TestPhase5_Has_TargetQualifierFalseWhenSelectedLacksField(t *testing.T) {
 	}
 
 	result, err := e.testExec(vs, []*tikiFixture{selected, other}, ExecutionInput{
-		SelectedTaskIDs: []string{"SEL01"},
+		SelectedTikiIDs: []string{"SEL01"},
 	})
 	if err != nil {
 		t.Fatalf("execute: %v", err)
@@ -131,7 +131,7 @@ func TestPhase5_Has_TargetsQualifierTrueWhenAnySelectedHasField(t *testing.T) {
 	bystander := &tikiFixture{ID: "BYST01", Title: "bystander"}
 
 	result, err := e.testExec(vs, []*tikiFixture{withStatus, withoutStatus, bystander}, ExecutionInput{
-		SelectedTaskIDs: []string{"WITH01", "WITHOUT01"},
+		SelectedTikiIDs: []string{"WITH01", "WITHOUT01"},
 	})
 	if err != nil {
 		t.Fatalf("execute: %v", err)
@@ -161,7 +161,7 @@ func TestPhase5_Has_TargetsQualifierFalseWhenNoneHaveField(t *testing.T) {
 	}
 
 	result, err := e.testExec(vs, []*tikiFixture{plain1, plain2, bystander}, ExecutionInput{
-		SelectedTaskIDs: []string{"PLN01", "PLN02"},
+		SelectedTikiIDs: []string{"PLN01", "PLN02"},
 	})
 	if err != nil {
 		t.Fatalf("execute: %v", err)
@@ -186,7 +186,7 @@ func TestPhase5_Has_TargetsQualifierFalseWhenNothingSelected(t *testing.T) {
 	plain := &tikiFixture{ID: "PLN01", Title: "p"}
 
 	result, err := e.testExec(vs, []*tikiFixture{plain}, ExecutionInput{
-		// no SelectedTaskIDs
+		// no SelectedTikiIDs
 	})
 	if err != nil {
 		t.Fatalf("execute: %v", err)

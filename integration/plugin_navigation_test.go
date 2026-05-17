@@ -219,8 +219,8 @@ func TestPluginActions_RegistryMatchesExpectedKeys(t *testing.T) {
 		{controller.ActionNavDown, tcell.KeyDown, 0},
 		{controller.ActionNavLeft, tcell.KeyLeft, 0},
 		{controller.ActionNavRight, tcell.KeyRight, 0},
-		{controller.ActionNewTask, tcell.KeyRune, 'n'},
-		{controller.ActionDeleteTask, tcell.KeyRune, 'd'},
+		{controller.ActionNewTiki, tcell.KeyRune, 'n'},
+		{controller.ActionDeleteTiki, tcell.KeyRune, 'd'},
 		{controller.ActionSearch, tcell.KeyRune, '/'},
 		{controller.ActionToggleViewMode, tcell.KeyRune, 'v'},
 	}

@@ -90,9 +90,9 @@ func TestDetailController_SurfacesPerViewActions(t *testing.T) {
 	}
 }
 
-// TestDetailController_SetSelectedTaskID exercises the SelectableView contract
+// TestDetailController_SetSelectedTikiID exercises the SelectableView contract
 // — the selection set on the controller must round-trip through GetSelectedID.
-func TestDetailController_SetSelectedTaskID(t *testing.T) {
+func TestDetailController_SetSelectedTikiID(t *testing.T) {
 	pluginDef := newTestDetailPlugin([]string{"status"}, nil)
 	tikiStore := store.NewInMemoryStore()
 	gate := service.NewTikiMutationGate()
@@ -101,9 +101,9 @@ func TestDetailController_SetSelectedTaskID(t *testing.T) {
 
 	dc := NewDetailController(pluginDef, nav, nil, tikiStore, gate, rukiRuntime.NewSchema(), nil)
 
-	dc.SetSelectedTaskID("TIKI001")
-	if dc.selectedTaskID != "TIKI001" {
-		t.Errorf("selectedTaskID = %q, want %q", dc.selectedTaskID, "TIKI001")
+	dc.SetSelectedTikiID("TIKI001")
+	if dc.selectedTikiID != "TIKI001" {
+		t.Errorf("selectedTikiID = %q, want %q", dc.selectedTikiID, "TIKI001")
 	}
 }
 

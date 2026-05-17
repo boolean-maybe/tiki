@@ -241,11 +241,11 @@ func TestActionRegistry_Match(t *testing.T) {
 			name: "match key with shift modifier",
 			registry: func() *ActionRegistry {
 				r := NewActionRegistry()
-				r.Register(Action{ID: ActionMoveTaskRight, Key: tcell.KeyRight, Modifier: tcell.ModShift, Label: "Move →"})
+				r.Register(Action{ID: ActionMoveTikiRight, Key: tcell.KeyRight, Modifier: tcell.ModShift, Label: "Move →"})
 				return r
 			},
 			event:      tcell.NewEventKey(tcell.KeyRight, 0, tcell.ModShift),
-			wantMatch:  ActionMoveTaskRight,
+			wantMatch:  ActionMoveTikiRight,
 			shouldFind: true,
 		},
 		{
@@ -274,7 +274,7 @@ func TestActionRegistry_Match(t *testing.T) {
 			registry: func() *ActionRegistry {
 				r := NewActionRegistry()
 				r.Register(Action{ID: ActionNavLeft, Key: tcell.KeyLeft, Label: "←"})
-				r.Register(Action{ID: ActionMoveTaskLeft, Key: tcell.KeyLeft, Modifier: tcell.ModShift, Label: "Move ←"})
+				r.Register(Action{ID: ActionMoveTikiLeft, Key: tcell.KeyLeft, Modifier: tcell.ModShift, Label: "Move ←"})
 				return r
 			},
 			event:      tcell.NewEventKey(tcell.KeyLeft, 0, tcell.ModNone),
@@ -855,7 +855,7 @@ func TestPluginViewActions_NavHiddenFromPalette(t *testing.T) {
 	// Phase 1: ActionOpenFromPlugin is no longer in the regular plugin registry
 	// (open is now a workflow-declared `kind: view` action). The remaining
 	// semantic actions still surface in the palette.
-	for _, want := range []ActionID{ActionNewTask, ActionDeleteTask, ActionSearch} {
+	for _, want := range []ActionID{ActionNewTiki, ActionDeleteTiki, ActionSearch} {
 		if !found[want] {
 			t.Errorf("expected palette-visible action %v", want)
 		}

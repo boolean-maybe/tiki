@@ -12,7 +12,7 @@ import (
 )
 
 // DokiController handles non-board view actions (wiki, detail, search).
-// These views are read-only and do not own task filtering/sorting state.
+// These views are read-only and do not own tiki filtering/sorting state.
 //
 // Global-action wiring:
 //   - `kind: view` actions dispatch through HandleAction → handleGlobalAction
@@ -20,7 +20,7 @@ import (
 //     the source view's navigation params) propagates into the target.
 //   - `kind: ruki` actions dispatch through the shared PluginExecutor so
 //     the same mutation/pipe/clipboard pipeline used by board views fires
-//     here too. If the view was navigated to with a selected task id, that
+//     here too. If the view was navigated to with a selected tiki id, that
 //     id is carried into the ruki ExecutionInput.
 type DokiController struct {
 	pluginDef      plugin.Plugin
@@ -29,7 +29,7 @@ type DokiController struct {
 	registry       *ActionRegistry
 	globalActions  []plugin.PluginAction
 	executor       *PluginExecutor
-	selectedTaskID string // 6B.3: carried from source view via PluginViewParams
+	selectedTikiID string // 6B.3: carried from source view via PluginViewParams
 }
 
 // NewDokiController creates a controller backing any non-board plugin view.
@@ -128,11 +128,11 @@ func toRequirements(raw []string) []Requirement {
 	return out
 }
 
-// SetSelectedTaskID records the task id this view was navigated to with.
+// SetSelectedTikiID records the tiki id this view was navigated to with.
 // Invoked by the view layer after decoding PluginViewParams so outbound
 // `kind: view` actions and inbound `kind: ruki` globals see the selection.
-func (dc *DokiController) SetSelectedTaskID(id string) {
-	dc.selectedTaskID = id
+func (dc *DokiController) SetSelectedTikiID(id string) {
+	dc.selectedTikiID = id
 }
 
 // GetActionRegistry returns the actions for the view
@@ -187,20 +187,20 @@ func (dc *DokiController) handleGlobalAction(keyStr string) bool {
 			}
 			// 6B.15/6B.20/6B.22: honor the target view's own require:
 			// in full. The doki view's carried selection is 0 or 1
-			// depending on whether a task id was threaded in via
+			// depending on whether a tiki id was threaded in via
 			// PluginViewParams; the target context is built fresh
 			// from the target's own identity so view:* requirements
 			// resolve against the target, not this view.
 			selected := 0
-			if dc.selectedTaskID != "" {
+			if dc.selectedTikiID != "" {
 				selected = 1
 			}
 			if !TargetViewEnabled(ga.TargetView, selected) {
 				return false
 			}
 			var params map[string]interface{}
-			if dc.selectedTaskID != "" {
-				params = model.EncodePluginViewParams(model.PluginViewParams{TikiID: dc.selectedTaskID})
+			if dc.selectedTikiID != "" {
+				params = model.EncodePluginViewParams(model.PluginViewParams{TikiID: dc.selectedTikiID})
 			}
 			dc.navController.PushView(model.MakePluginViewID(ga.TargetView), params)
 			return true
@@ -219,8 +219,8 @@ func (dc *DokiController) handleGlobalAction(keyStr string) bool {
 				return false
 			}
 			var selection []string
-			if dc.selectedTaskID != "" {
-				selection = []string{dc.selectedTaskID}
+			if dc.selectedTikiID != "" {
+				selection = []string{dc.selectedTikiID}
 			}
 			input, ok := dc.executor.BuildExecutionInput(ga, selection)
 			if !ok {

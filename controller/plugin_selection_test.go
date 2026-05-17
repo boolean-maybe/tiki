@@ -558,7 +558,7 @@ func TestPluginController_HandleDeleteTask(t *testing.T) {
 	gate.SetStore(tikiStore)
 	pc := NewPluginController(tikiStore, gate, pluginConfig, pluginDef, newMockNavigationController(), nil, schema)
 
-	if !pc.HandleAction(ActionDeleteTask) {
+	if !pc.HandleAction(ActionDeleteTiki) {
 		t.Error("expected HandleAction(delete) to return true")
 	}
 
@@ -582,7 +582,7 @@ func TestPluginController_HandleDeleteTask_Empty(t *testing.T) {
 	gate.SetStore(tikiStore)
 	pc := NewPluginController(tikiStore, gate, pluginConfig, pluginDef, newMockNavigationController(), nil, schema)
 
-	if pc.HandleAction(ActionDeleteTask) {
+	if pc.HandleAction(ActionDeleteTiki) {
 		t.Error("expected false when no task is selected")
 	}
 }
@@ -610,7 +610,7 @@ func TestPluginController_HandleDeleteTask_Rejected(t *testing.T) {
 	})
 	pc := NewPluginController(tikiStore, gate, pluginConfig, pluginDef, newMockNavigationController(), statusline, schema)
 
-	if pc.HandleAction(ActionDeleteTask) {
+	if pc.HandleAction(ActionDeleteTiki) {
 		t.Error("expected false when delete is rejected")
 	}
 
@@ -672,7 +672,7 @@ func TestPluginController_HandleMoveTask_Rejected(t *testing.T) {
 	})
 	pc := NewPluginController(tikiStore, gate, pluginConfig, pluginDef, nil, statusline, schema)
 
-	if pc.HandleAction(ActionMoveTaskRight) {
+	if pc.HandleAction(ActionMoveTikiRight) {
 		t.Error("expected false when move is rejected by gate")
 	}
 
@@ -916,7 +916,7 @@ func TestPluginController_HandleMoveTask_NoActionOnTargetLane(t *testing.T) {
 	gate.SetStore(tikiStore)
 	pc := NewPluginController(tikiStore, gate, pluginConfig, pluginDef, nil, nil, schema)
 
-	if pc.HandleAction(ActionMoveTaskRight) {
+	if pc.HandleAction(ActionMoveTikiRight) {
 		t.Error("expected false when target lane has no action")
 	}
 }
@@ -946,7 +946,7 @@ func TestPluginController_HandleMoveTask_Success(t *testing.T) {
 	gate.SetStore(tikiStore)
 	pc := NewPluginController(tikiStore, gate, pluginConfig, pluginDef, nil, nil, schema)
 
-	if !pc.HandleAction(ActionMoveTaskRight) {
+	if !pc.HandleAction(ActionMoveTikiRight) {
 		t.Error("expected true for successful move")
 	}
 
@@ -976,10 +976,10 @@ func TestPluginController_HandleMoveTask_OutOfBounds(t *testing.T) {
 	gate.SetStore(tikiStore)
 	pc := NewPluginController(tikiStore, gate, pluginConfig, pluginDef, nil, nil, schema)
 
-	if pc.HandleAction(ActionMoveTaskLeft) {
+	if pc.HandleAction(ActionMoveTikiLeft) {
 		t.Error("expected false for out-of-bounds move left")
 	}
-	if pc.HandleAction(ActionMoveTaskRight) {
+	if pc.HandleAction(ActionMoveTikiRight) {
 		t.Error("expected false for out-of-bounds move right")
 	}
 }

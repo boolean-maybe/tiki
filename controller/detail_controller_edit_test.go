@@ -99,7 +99,7 @@ func newDetailEditTestRig(t *testing.T) (*DetailController, *fakeDetailEditView,
 
 	pluginDef := newTestDetailPlugin([]string{"status", "type", "priority"}, nil)
 	dc := NewDetailController(pluginDef, nav, nil, tikiStore, gate, rukiRuntime.NewSchema(), tc)
-	dc.SetSelectedTaskID(tk.ID)
+	dc.SetSelectedTikiID(tk.ID)
 
 	view := newFakeDetailEditView()
 	dc.BindEditView(view)

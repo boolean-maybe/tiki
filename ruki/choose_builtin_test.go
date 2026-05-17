@@ -146,7 +146,7 @@ func TestChooseBuiltin_Executor_ReturnsValue(t *testing.T) {
 	e := NewExecutor(testSchema{}, nil, ExecutorRuntime{Mode: ExecutorRuntimePlugin})
 	testTask := &tikiFixture{ID: "TIKI-000001", Title: "test", Status: "ready", Type: "task"}
 	result, err := e.testExec(vs, []*tikiFixture{testTask}, ExecutionInput{
-		SelectedTaskIDs: []string{"TIKI-000001"},
+		SelectedTikiIDs: []string{"TIKI-000001"},
 		ChooseValue:     "TIKI-000002",
 		HasChoose:       true,
 	})
@@ -174,7 +174,7 @@ func TestChooseBuiltin_Executor_MissingChoose(t *testing.T) {
 	e := NewExecutor(testSchema{}, nil, ExecutorRuntime{Mode: ExecutorRuntimePlugin})
 	testTask := &tikiFixture{ID: "TIKI-000001", Title: "test", Status: "ready", Type: "task"}
 	_, err = e.testExec(vs, []*tikiFixture{testTask}, ExecutionInput{
-		SelectedTaskIDs: []string{"TIKI-000001"},
+		SelectedTikiIDs: []string{"TIKI-000001"},
 	})
 	if err == nil {
 		t.Fatal("expected error for missing choose value")
@@ -316,7 +316,7 @@ func TestChooseBuiltin_EndToEnd_CustomRefField(t *testing.T) {
 		{ID: "TIKI-000001", Title: "target", Status: "ready", Type: "task"},
 	}
 	result, err := e.testExec(vs, tasks, ExecutionInput{
-		SelectedTaskIDs: []string{"TIKI-000001"},
+		SelectedTikiIDs: []string{"TIKI-000001"},
 		ChooseValue:     "EPIC01",
 		HasChoose:       true,
 	})

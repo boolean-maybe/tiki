@@ -464,7 +464,7 @@ func (cv *ConfigurableDetailView) buildDescription(tk *tikipkg.Tiki) tview.Primi
 	desc := defaultString(tk.Body, "(No description)")
 	tikiSourcePath := tikiSourcePathFor(tk)
 
-	searchRoots := []string{config.GetDocDir(), config.GetTaskDir()}
+	searchRoots := []string{config.GetDocDir()}
 	if tikiSourcePath != "" {
 		searchRoots = append([]string{filepath.Dir(tikiSourcePath)}, searchRoots...)
 	}
@@ -487,7 +487,7 @@ func (cv *ConfigurableDetailView) buildDescription(tk *tikipkg.Tiki) tview.Primi
 	return cv.navMarkdown.Viewer()
 }
 
-// EnterFullscreen and ExitFullscreen mirror the legacy task detail view so
+// EnterFullscreen and ExitFullscreen mirror the legacy tiki detail view so
 // the existing Fullscreen action keeps working through this view.
 func (cv *ConfigurableDetailView) EnterFullscreen() {
 	if cv.fullscreen {

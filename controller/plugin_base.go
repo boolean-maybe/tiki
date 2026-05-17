@@ -75,7 +75,7 @@ func (pb *pluginBase) handleVerticalNav(direction string, lane int, tasks []*tik
 	}
 
 	storedIndex := pb.pluginConfig.GetSelectedIndexForLane(lane)
-	clampedIndex := clampTaskIndex(storedIndex, len(tasks))
+	clampedIndex := clampTikiIndex(storedIndex, len(tasks))
 	if storedIndex != clampedIndex {
 		columns := normalizeColumns(pb.pluginConfig.GetColumnsForLane(lane))
 		finalIndex := moveVerticalIndex(direction, clampedIndex, columns, len(tasks))
@@ -92,7 +92,7 @@ func (pb *pluginBase) handleVerticalNav(direction string, lane int, tasks []*tik
 func (pb *pluginBase) handleHorizontalNav(direction string, lane int, tasks []*tikipkg.Tiki, filteredTasks func(int) []*tikipkg.Tiki) bool {
 	if len(tasks) > 0 {
 		storedIndex := pb.pluginConfig.GetSelectedIndexForLane(lane)
-		clampedIndex := clampTaskIndex(storedIndex, len(tasks))
+		clampedIndex := clampTikiIndex(storedIndex, len(tasks))
 		columns := normalizeColumns(pb.pluginConfig.GetColumnsForLane(lane))
 		if moved, targetIndex := moveHorizontalIndex(direction, clampedIndex, columns, len(tasks)); moved {
 			pb.pluginConfig.SetSelectedIndexForLane(lane, targetIndex)
@@ -120,7 +120,7 @@ func (pb *pluginBase) handleLaneSwitch(direction string, filteredTasks func(int)
 	rowOffsetInViewport := 0
 	if len(sourceTasks) > 0 {
 		sourceColumns := normalizeColumns(pb.pluginConfig.GetColumnsForLane(currentLane))
-		sourceIndex := clampTaskIndex(pb.pluginConfig.GetSelectedIndexForLane(currentLane), len(sourceTasks))
+		sourceIndex := clampTikiIndex(pb.pluginConfig.GetSelectedIndexForLane(currentLane), len(sourceTasks))
 		sourceRow := sourceIndex / sourceColumns
 		maxSourceRow := maxRowIndex(len(sourceTasks), sourceColumns)
 		sourceScroll := clampInt(pb.pluginConfig.GetScrollOffsetForLane(currentLane), maxSourceRow)
@@ -183,7 +183,7 @@ func normalizeColumns(columns int) int {
 	return columns
 }
 
-func clampTaskIndex(index int, tikiCount int) int {
+func clampTikiIndex(index int, tikiCount int) int {
 	if tikiCount <= 0 {
 		return 0
 	}
@@ -219,7 +219,7 @@ func moveVerticalIndex(direction string, index int, columns int, tikiCount int) 
 		return 0
 	}
 	columns = normalizeColumns(columns)
-	index = clampTaskIndex(index, tikiCount)
+	index = clampTikiIndex(index, tikiCount)
 
 	switch direction {
 	case "up":
@@ -241,7 +241,7 @@ func moveHorizontalIndex(direction string, index int, columns int, tikiCount int
 		return false, 0
 	}
 	columns = normalizeColumns(columns)
-	index = clampTaskIndex(index, tikiCount)
+	index = clampTikiIndex(index, tikiCount)
 	col := index % columns
 
 	switch direction {
@@ -293,11 +293,11 @@ func (pb *pluginBase) getSelectedTikiID(filteredTasks func(int) []*tikipkg.Tiki)
 	return tasks[idx].ID
 }
 
-// getSelectedTaskIDs returns all currently selected task IDs. Today the UI
+// getSelectedTikiIDs returns all currently selected tiki IDs. Today the UI
 // only supports single-selection, so the result is a one-item slice (or nil)
 // — but callers should treat this as the canonical multi-selection accessor
 // so plumbing is ready when true multi-select lands.
-func (pb *pluginBase) getSelectedTaskIDs(filteredTasks func(int) []*tikipkg.Tiki) []string {
+func (pb *pluginBase) getSelectedTikiIDs(filteredTasks func(int) []*tikipkg.Tiki) []string {
 	id := pb.getSelectedTikiID(filteredTasks)
 	if id == "" {
 		return nil
@@ -360,7 +360,7 @@ func (pb *pluginBase) handleSearch(query string, selectFirst func() bool) {
 	selectFirst()
 }
 
-func (pb *pluginBase) handleNewTask() bool {
+func (pb *pluginBase) handleNewTiki() bool {
 	t, err := pb.tikiStore.NewTikiTemplate()
 	if err != nil {
 		slog.Error("failed to create task template", "error", err)
@@ -375,7 +375,7 @@ func (pb *pluginBase) handleNewTask() bool {
 	return true
 }
 
-func (pb *pluginBase) handleDeleteTask(filteredTasks func(int) []*tikipkg.Tiki) bool {
+func (pb *pluginBase) handleDeleteTiki(filteredTasks func(int) []*tikipkg.Tiki) bool {
 	tikiID := pb.getSelectedTikiID(filteredTasks)
 	if tikiID == "" {
 		return false

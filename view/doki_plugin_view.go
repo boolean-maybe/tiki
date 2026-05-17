@@ -27,7 +27,7 @@ import (
 // read this view's registry) show them alongside the built-in navigation
 // actions. Keyboard dispatch for both kinds is routed by DokiController.
 // tikiStore is used to resolve `[[ID]]` wikilinks against the document
-// store. selectedTaskID still carries any selection threaded in via
+// store. selectedTikiID still carries any selection threaded in via
 // PluginViewParams and is exposed through GetSelectedID() for action
 // enablement (e.g. `require: ["selection:one"]`); only the KindDetail
 // rendering branch in build() is now unreachable, since factory.go routes
@@ -42,7 +42,7 @@ type DokiView struct {
 	mermaidOpts         *nav.MermaidOptions
 	tikiStore           store.ReadStore
 	surfacedGlobals     []plugin.PluginAction
-	selectedTaskID      string // selection carried in via PluginViewParams; surfaced through GetSelectedID() for action `require:` gates
+	selectedTikiID      string // selection carried in via PluginViewParams; surfaced through GetSelectedID() for action `require:` gates
 	actionChangeHandler func()
 }
 
@@ -50,7 +50,7 @@ type DokiView struct {
 // actions list; both `kind: view` and `kind: ruki` entries are surfaced in
 // the view registry (DokiController routes keyboard dispatch for both).
 // tikiStore may be nil for unit tests that don't exercise wikilink
-// resolution. selectedTaskID is the selection threaded in via
+// resolution. selectedTikiID is the selection threaded in via
 // PluginViewParams; for `kind: wiki` (the only kind routed here today) it
 // is not used to fetch content (wiki binds via `path:`) but is exposed
 // through GetSelectedID() so action `require:` gates resolve correctly.
@@ -60,7 +60,7 @@ func NewDokiView(
 	mermaidOpts *nav.MermaidOptions,
 	globalActions []plugin.PluginAction,
 	tikiStore store.ReadStore,
-	selectedTaskID string,
+	selectedTikiID string,
 ) *DokiView {
 	dv := &DokiView{
 		pluginDef:       pluginDef,
@@ -69,7 +69,7 @@ func NewDokiView(
 		mermaidOpts:     mermaidOpts,
 		tikiStore:       tikiStore,
 		surfacedGlobals: surfacedGlobalActions(globalActions, pluginDef.GetName()),
-		selectedTaskID:  selectedTaskID,
+		selectedTikiID:  selectedTikiID,
 	}
 
 	dv.build()
@@ -140,16 +140,15 @@ func (dv *DokiView) build() {
 
 	// Fetch initial content and create NavigableMarkdown with appropriate provider.
 	// Wiki views render the file at `path:`; `document: <ID>` binding is
-	// rejected at parse time. Detail views render the task whose id was
+	// rejected at parse time. Detail views render the tiki whose id was
 	// carried in via PluginViewParams (6B.3), or a placeholder when no
 	// selection was passed.
 	var content string
 	var sourcePath string
 	var err error
 
-	// legacy doki root stays first so older configs still resolve; the
 	// unified `.doc/` root handles documents anywhere under the new layout.
-	searchRoots := []string{config.GetDokiDir(), config.GetDocDir()}
+	searchRoots := []string{config.GetDocDir()}
 	fileProvider := &loaders.FileHTTP{SearchRoots: searchRoots}
 
 	// Wrap the file provider in a wikilink rewriter so `[[ID]]` spans inside
@@ -167,12 +166,12 @@ func (dv *DokiView) build() {
 		if sourcePath == "" {
 			sourcePath = target
 		}
-	case dv.pluginDef.GetKind() == plugin.KindDetail && dv.selectedTaskID != "" && dv.tikiStore != nil:
+	case dv.pluginDef.GetKind() == plugin.KindDetail && dv.selectedTikiID != "" && dv.tikiStore != nil:
 		// 6B.2: render the selected document. The provider's bare-id
-		// lookup handles formatting the task body into markdown; wikilinks
+		// lookup handles formatting the tiki body into markdown; wikilinks
 		// inside are resolved by the same WikilinkProvider wrapper.
-		content, err = provider.FetchContent(nav.NavElement{URL: dv.selectedTaskID})
-		if path := dv.tikiStore.PathForID(dv.selectedTaskID); path != "" {
+		content, err = provider.FetchContent(nav.NavElement{URL: dv.selectedTikiID})
+		if path := dv.tikiStore.PathForID(dv.selectedTikiID); path != "" {
 			sourcePath = path
 		}
 	default:
@@ -211,14 +210,14 @@ func (dv *DokiView) rebuildLayout() {
 	dv.root.AddItem(dv.md.Viewer(), 0, 1, true)
 }
 
-// GetSelectedID implements controller.SelectableView. Returns the task id
+// GetSelectedID implements controller.SelectableView. Returns the tiki id
 // this view was navigated to with, or the empty string when the view has
 // no carried selection (kind: wiki on its own, since detail no longer
 // flows through DokiView). Load-bearing for the InputRouter enablement
 // gate: actions with `require: ["selection:one"]` read this to decide
 // whether to dispatch from a doki view.
 func (dv *DokiView) GetSelectedID() string {
-	return dv.selectedTaskID
+	return dv.selectedTikiID
 }
 
 // SetSelectedID lets the harness inject a selection after construction.
@@ -226,7 +225,7 @@ func (dv *DokiView) GetSelectedID() string {
 // arrives via PluginViewParams at navigation time — so this is primarily a
 // contract fill for SelectableView.
 func (dv *DokiView) SetSelectedID(id string) {
-	dv.selectedTaskID = id
+	dv.selectedTikiID = id
 }
 
 // ShowNavigation returns true — doki views always show plugin navigation keys.
