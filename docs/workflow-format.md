@@ -56,7 +56,10 @@ views:                         # top-level list (no `plugins:` wrapper)
     label: Kanban              # optional display text — falls back to name
     kind: board
     default: true
-    mode: compact              # renamed from old `view: compact|expanded`
+    layout:                     # required: the tiki-box layout shared by all lanes
+      - ['type.visual + " " + id']
+      - ["<highlight>title"]
+      - ['"priority " + priority.visual']
     lanes:
       - name: Backlog
         filter: select where status = "backlog"
@@ -70,6 +73,9 @@ views:                         # top-level list (no `plugins:` wrapper)
   - name: selected
     kind: detail
     require: ["selection:one"]
+    layout:
+      - ["<highlight>title", --]
+      - ["Status:", status]
 ```
 
 ### View `kind:` replaces `type:`
@@ -88,20 +94,21 @@ rather than by relative path) is **not implemented**: the parser rejects any vie
 ID-binding story needs a richer document-index contract than the current `store.PathForID` exposes, so it is
 deferred as a future enhancement without a scheduled phase.
 
-`detail` views are configurable. Description is always rendered; title renders only if declared in
-the `metadata:` grid. `metadata:` declares the 2D layout grid of fields. The previous "render the
-selected document's raw markdown" meaning of `kind: detail` is gone — that behavior now lives only
-on `kind: wiki`.
+`board`, `list`, and `detail` views all share the same `layout:` field, which declares the 2D
+layout grid of fields that compose the rendered card or detail box. `layout:` is **required** on
+these view kinds. Description is always rendered by detail views; title renders only if declared
+in the `layout:` grid. The previous "render the selected document's raw markdown" meaning of
+`kind: detail` is gone — that behavior now lives only on `kind: wiki`.
 
-`metadata:` is a list of rows; each row is a list of cells. The grid visually mirrors the rendered
-metadata box.
+`layout:` is a list of rows; each row is a list of cells. The grid visually mirrors the rendered
+layout box.
 
 ```yaml
 views:
   - name: Detail
     kind: detail
     require: ["selection:one"]
-    metadata:
+    layout:
       - [<highlight>title, --,       --,            --        ]
       - ["Status:",     status,     "Type:",       type      ]
       - ["Priority:",   priority,   "Points:",     points    ]
@@ -195,9 +202,9 @@ Per-view actions register *after* built-in detail actions, so a per-view entry t
 key (such as `e` for Edit) shadows the built-in. Avoid the keys the detail view already uses for Edit,
 Fullscreen, and Edit source unless you intentionally want to replace them.
 
-Validation rules for `kind: detail`:
+Validation rules for `layout:` on `kind: detail`:
 
-- `metadata:` accepts workflow-declared field names plus the supported audit fields (`createdBy`,
+- `layout:` accepts workflow-declared field names plus the supported audit fields (`createdBy`,
   `createdAt`, `updatedAt`). Unknown names fail workflow load.
 - Identity/body fields `description`, `body`, and `id` are rejected — they are always rendered by
   the detail view chrome. `title` IS allowed and renders in-grid like any other text field.
@@ -206,7 +213,7 @@ Validation rules for `kind: detail`:
   no typed renderer; rejected.
 - Grid-shape errors (ragged rows, orphan `--` or `^`/`|`, mixed stretcher columns, duplicate
   field names) fail workflow load with `row,col` coordinates.
-- Board/list-only fields (`lanes:`, `mode:`) and wiki-only fields (`path:`, `document:`) are rejected.
+- Board/list-only fields (`lanes:`) and wiki-only fields (`path:`, `document:`) are rejected.
 - Per-view `actions:` are allowed and surface alongside the built-in detail actions.
 - `require:` is honored as the navigation gate (typically `["selection:one"]`).
 
@@ -219,26 +226,26 @@ Anti-pattern examples (each fails workflow load):
 
 ```yaml
 # orphan column span — no anchor to the left
-metadata:
+layout:
   - ["--", status]
 ```
 
 ```yaml
 # stretcher column mixed with a field in another row
-metadata:
+layout:
   - [status, "<->"]
   - [type,   tags]
 ```
 
 ```yaml
 # ragged rows
-metadata:
+layout:
   - [status, type, priority]
   - [points]
 ```
 
 Audit fields (`createdBy`, `createdAt`, `updatedAt`) are supported and render as read-only rows.
-The bundled kanban workflow includes them in its `metadata:` grid.
+The bundled kanban workflow includes them in its `layout:` grid.
 
 Opening a detail view goes through normal action dispatch:
 
@@ -293,7 +300,9 @@ Old configs are rejected with specific errors that point at the new syntax. The 
 | `type: doki` + `fetcher: internal` + `text:`   | write a `.md` file under `.doc/` and use `kind: wiki` |
 | `views.plugins:` wrapper                       | top-level `views:` list                               |
 | `views.actions:`                               | top-level `actions:`                                  |
-| `view: compact`/`view: expanded` on a view     | `mode: compact`/`mode: expanded`                      |
+| `view: compact`/`view: expanded` on a view     | declare a `layout:` field on the board/list view      |
+| `mode: compact`/`mode: expanded` on a view     | declare a `layout:` field on the board/list view      |
+| `metadata:` on a detail view                   | rename to `layout:` (same grid syntax)                |
 | `sort: <field>` on a view                      | `order by <field>` inside each lane's `filter:`       |
 | top-level `statuses:`                          | `fields:` entry named `status` with `type: enum`      |
 | top-level `types:`                             | `fields:` entry named `type` with `type: enum`        |
@@ -304,7 +313,9 @@ Users upgrading will see one of these messages; each names the legacy field and 
 
 - `"type" is no longer supported — use kind: board instead`
 - `"type" is no longer supported — use kind: wiki instead`
-- `"view:" as a display mode is no longer supported — use mode: compact or mode: expanded on a board/list view`
+- `"view:" as a display mode is no longer supported — declare a layout: field on the board/list view instead`
+- `"mode" is no longer supported — use layout: to declare the tiki-box layout on a board/list view`
+- `"metadata" is no longer supported — metadata: has been renamed to layout: — update your workflow.yaml`
 - `"fetcher" is no longer supported — use document: or path: on a kind: wiki view`
 - `"text" is no longer supported — use document: or path: on a kind: wiki view`
 - `"url" is no longer supported — use document: or path: on a kind: wiki view`
@@ -316,15 +327,16 @@ Users upgrading will see one of these messages; each names the legacy field and 
 - `kind: timeline is reserved but not yet implemented`
 - `kind: search is reserved but not yet implemented` (the built-in global search UI is not plugin-instantiable today)
 - `document: (ID-based resolution) is not yet implemented — use path: with a relative filepath`
-- ``metadata: only valid on kind: detail`` — set on a board/list/wiki view
-- ``metadata cannot include "description"`` (or `body`/`id`) — identity/body fields are always rendered by the detail view chrome
-- `metadata field "X" is not a workflow-declared field` — typo, or the field is not in `workflow.yaml fields:`
-- `metadata: row N has M cells, expected K` — the grid has a ragged row
-- ``metadata: row N, col M: orphan '--'`` — no anchor to the left of the column-span marker
-- ``metadata: row N, col M: orphan row-span '^'`` — no anchor above the row-span marker
+- `view kind "board" requires a non-empty layout: field` — missing/empty `layout:` on a board, list, or detail view
+- `layout: only valid on kind: board, list, or detail` — set on a wiki view
+- ``layout cannot include "description"`` (or `body`/`id`) — identity/body fields are always rendered by the detail view chrome
+- `layout field "X" is not a workflow-declared field` — typo, or the field is not in `workflow.yaml fields:`
+- `layout: row N has M cells, expected K` — the grid has a ragged row
+- ``layout: row N, col M: orphan '--'`` — no anchor to the left of the column-span marker
+- ``layout: row N, col M: orphan row-span '^'`` — no anchor above the row-span marker
   (`|` produces the same diagnostic)
-- ``metadata: col N: '<->' must not be mixed with anchored or row-spanned cells in the same column`` — stretcher columns can only contain `<->`, `_`, or pass-through `--`
-- `metadata: row N, col M: field "X" appears more than once` — each anchor name must be unique in the grid
+- ``layout: col N: '<->' must not be mixed with anchored or row-spanned cells in the same column`` — stretcher columns can only contain `<->`, `_`, or pass-through `--`
+- `layout: row N, col M: field "X" appears more than once` — each anchor name must be unique in the grid
 
 Loading is fail-closed: any one of these errors (or any lane/action/require parse failure) refuses the whole
 workflow rather than silently loading only the views that parsed. A partial workflow would diverge from what you

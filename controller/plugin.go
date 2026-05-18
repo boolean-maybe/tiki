@@ -118,9 +118,6 @@ func (pc *PluginController) HandleAction(actionID ActionID) bool {
 		return pc.handleNewTiki()
 	case ActionDeleteTiki:
 		return pc.handleDeleteTiki(pc.GetFilteredTikisForLane)
-	case ActionToggleViewMode:
-		pc.pluginConfig.ToggleViewMode()
-		return true
 	default:
 		if keyStr := getPluginActionKeyStr(actionID); keyStr != "" {
 			return pc.handlePluginAction(actionID)

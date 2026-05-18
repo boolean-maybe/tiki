@@ -130,6 +130,10 @@ views:
     description: "Move tiki to change status, search, create or delete\nShift Left/Right to move"
     default: true
     key: "F1"
+    layout:
+      - ['type.visual + " " + id']
+      - ["<highlight>title"]
+      - ['"priority " + priority.visual + "  points " + points.visual']
     lanes:
       - name: Ready
         filter: select where status = "ready" and type != "epic" and has(priority) order by priority, createdAt
@@ -148,6 +152,10 @@ views:
     kind: board
     description: "Tasks waiting to be picked up, sorted by priority"
     key: "F3"
+    layout:
+      - ['type.visual + " " + id']
+      - ["<highlight>title"]
+      - ['"priority " + priority.visual + "  points " + points.visual']
     lanes:
       - name: Backlog
         columns: 4
@@ -164,6 +172,10 @@ views:
     kind: board
     description: "Tasks changed in the last 24 hours, most recent first"
     key: Ctrl-R
+    layout:
+      - ['type.visual + " " + id']
+      - ["<highlight>title"]
+      - ['"priority " + priority.visual + "  points " + points.visual']
     lanes:
       - name: Recent
         columns: 4
@@ -173,7 +185,10 @@ views:
     kind: board
     description: "Epics organized by Now, Next, and Later horizons"
     key: "F4"
-    mode: expanded
+    layout:
+      - ['type.visual + " " + id']
+      - ["<highlight>title"]
+      - ['"priority " + priority.visual + "  points " + points.visual']
     lanes:
       - name: Now
         columns: 1
@@ -210,7 +225,7 @@ views:
     kind: detail
     description: "Configured detail view for the selected tiki"
     require: ["selection:one"]
-    # Metadata grid: each row is a row in the rendered metadata box. Cells:
+    # Layout grid: each row is a row in the rendered layout box. Cells:
     #   name          field, value-only (no caption)
     #   name:N        field, preferred + minimum width of N chars
     #   <role>name    field with a color role (highlight, accent, muted, etc.)
@@ -225,7 +240,7 @@ views:
     # Fields render value-only; captions are placed explicitly by the layout.
     # 4 columns: each row pairs (caption, value, caption, value). Captions
     # to the left of their fields. Sized to fit an 80-column terminal.
-    metadata:
+    layout:
       - [<highlight>title, --                                , --         , --       , --           , --        , --     , --  ]
       - [_               , _                                 , _          , _        , _            , _         , _      , _   ]
       - ["Status:"       , status.label + " " + status.visual, "Assignee:", assignee , "Due:"       , due       , "Tags:", tags]
@@ -239,7 +254,7 @@ views:
     require: ["selection:one"]
     # Same 8-column grid as Detail, with type, assignee, and recurrence
     # fields removed. Tags still spans rows 3-5 in the right column.
-    metadata:
+    layout:
       - [<highlight>title, --                                , --        , --       , --    , --, --     , --  ]
       - [_               , _                                 , _         , _        , _     , _ , _      , _   ]
       - ["Status:"       , status.label + " " + status.visual, "Author:" , createdBy, "Due:", due, "Tags:", tags]

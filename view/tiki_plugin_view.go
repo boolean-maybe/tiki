@@ -120,16 +120,11 @@ func (pv *PluginView) rebuildLayout() {
 }
 
 func (pv *PluginView) refresh() {
-	viewMode := pv.pluginConfig.GetViewMode()
 	if pv.ensureSelection != nil {
 		pv.ensureSelection()
 	}
 
-	// update item height based on view mode
-	itemHeight := config.TikiBoxHeight
-	if viewMode == model.ViewModeExpanded {
-		itemHeight = config.TikiBoxHeightExpanded
-	}
+	itemHeight := tikiBoxItemHeight(pv.pluginDef.Layout)
 	selectedLane := pv.pluginConfig.GetSelectedLane()
 
 	if len(pv.laneBoxes) != len(pv.pluginDef.Lanes) {
@@ -170,12 +165,7 @@ func (pv *PluginView) refresh() {
 				if idx < len(tikis) {
 					tiki := tikis[idx]
 					isSelected := isSelectedLane && idx == selectedIndex
-					var tikiBox *tview.Frame
-					if viewMode == model.ViewModeCompact {
-						tikiBox = CreateCompactTikiBox(tiki, isSelected, theme.Roles())
-					} else {
-						tikiBox = CreateExpandedTikiBox(tiki, isSelected, theme.Roles())
-					}
+					tikiBox := CreateTikiBox(tiki, pv.pluginDef.Layout, isSelected, theme.Roles())
 					rowFlex.AddItem(tikiBox, 0, 1, false)
 				} else {
 					spacer := tview.NewBox()

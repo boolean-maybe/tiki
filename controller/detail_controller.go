@@ -55,7 +55,7 @@ type DetailEditableView interface {
 	SetEditModeChangeHandler(func(bool))
 	SetEditFieldChangeHandler(string, func(string))
 	SetEditTikiSource(func() *tikipkg.Tiki)
-	Metadata() []string
+	Layout() []string
 	// FlushFocusedEditor pushes the currently focused editor's value
 	// through its onChange handler. Required before commit because some
 	// editors (notably the tags textarea) only emit on Ctrl+S, and the
@@ -215,11 +215,11 @@ func (dc *DetailController) wireEditFieldHandlers(v DetailEditableView) {
 		dc.editSession.SaveTags(strings.Fields(display))
 	})
 	// Wire a SemanticEnum save handler for any workflow-declared enum
-	// field in this view's metadata that doesn't already have a built-in
+	// field in this view's layout that doesn't already have a built-in
 	// handler above. Without this, custom enums (e.g. severity in
 	// bug-tracker.yaml) would render as editable but never persist their
 	// edits, because no save handler would be installed for them.
-	for _, name := range v.Metadata() {
+	for _, name := range v.Layout() {
 		if _, hasBuiltin := builtinEditFieldHandlers[name]; hasBuiltin {
 			continue
 		}

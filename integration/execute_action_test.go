@@ -36,6 +36,8 @@ var executeActionWorkflow = testWorkflowPreamble + `views:
   - name: ExecuteTest
     kind: board
     key: "F4"
+    layout:
+      - [id]
     lanes:
       - name: All
         columns: 1

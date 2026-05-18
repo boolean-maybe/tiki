@@ -18,10 +18,10 @@ func TestParsePluginConfig_FullyInline(t *testing.T) {
 		Foreground: "#ffffff",
 		Background: "#000000",
 		Key:        "I",
+		Layout:     minimalBoardLayout(),
 		Lanes: []PluginLaneConfig{
 			{Name: "Todo", Filter: `select where status = "ready"`},
 		},
-		Mode:    "expanded",
 		Default: true,
 	}
 
@@ -44,8 +44,8 @@ func TestParsePluginConfig_FullyInline(t *testing.T) {
 		t.Errorf("Expected rune 'I', got '%c'", tp.Rune)
 	}
 
-	if tp.Mode != "expanded" {
-		t.Errorf("Expected view mode 'expanded', got '%s'", tp.Mode)
+	if tp.Layout.Rows != 1 {
+		t.Errorf("Expected Layout.Rows 1, got %d", tp.Layout.Rows)
 	}
 
 	if len(tp.Lanes) != 1 || tp.Lanes[0].Filter == nil {
@@ -63,8 +63,9 @@ func TestParsePluginConfig_FullyInline(t *testing.T) {
 
 func TestParsePluginConfig_Minimal(t *testing.T) {
 	cfg := pluginFileConfig{
-		Name: "Minimal",
-		Kind: "board",
+		Name:   "Minimal",
+		Kind:   "board",
+		Layout: minimalBoardLayout(),
 		Lanes: []PluginLaneConfig{
 			{Name: "Bugs", Filter: `select where type = "bug"`},
 		},
@@ -132,6 +133,8 @@ func TestLoadPluginsFromFile_WorkflowFile(t *testing.T) {
     kind: board
     default: true
     key: "F5"
+    layout:
+      - [id]
     lanes:
       - name: Ready
         filter: select where status = "ready"
@@ -194,6 +197,8 @@ func TestLoadPluginsFromFile_InvalidPlugin(t *testing.T) {
   - name: Valid
     kind: board
     key: "V"
+    layout:
+      - [id]
     lanes:
       - name: Todo
         filter: select where status = "ready"
@@ -341,10 +346,14 @@ func TestLoadPluginsFromFile_UnnamedPlugin(t *testing.T) {
   - name: Valid
     kind: board
     key: "V"
+    layout:
+      - [id]
     lanes:
       - name: Todo
         filter: select where status = "ready"
   - kind: board
+    layout:
+      - [id]
     lanes:
       - name: Bad
         filter: select where status = "done"
@@ -407,6 +416,8 @@ func TestLoadPluginsFromFile_WikiConfigIndex(t *testing.T) {
   - name: Board
     kind: board
     key: "B"
+    layout:
+      - [id]
     lanes:
       - name: Todo
         filter: select where status = "ready"
@@ -449,6 +460,8 @@ views:
   - name: Board
     kind: board
     key: "B"
+    layout:
+      - [id]
     lanes:
       - name: Todo
         filter: select where status = "ready"

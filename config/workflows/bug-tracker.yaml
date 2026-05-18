@@ -139,6 +139,10 @@ views:
     description: "Bug triage board — move bugs through the resolution pipeline"
     default: true
     key: "F1"
+    layout:
+      - ['type.visual + " " + id']
+      - ["<highlight>title"]
+      - ['"priority " + priority.visual + "  severity " + severity']
     lanes:
       - name: Open
         filter: select where status = "open" and has(priority) order by priority, createdAt
@@ -164,6 +168,10 @@ views:
     kind: board
     description: "Bugs grouped by severity level"
     key: "F2"
+    layout:
+      - ['type.visual + " " + id']
+      - ["<highlight>title"]
+      - ['"priority " + priority.visual + "  severity " + severity']
     lanes:
       - name: Critical
         columns: 2
@@ -188,6 +196,10 @@ views:
     kind: board
     description: "Bugs grouped by environment — prod, staging, dev"
     key: "F3"
+    layout:
+      - ['type.visual + " " + id']
+      - ["<highlight>title"]
+      - ['"priority " + priority.visual + "  severity " + severity']
     lanes:
       - name: Prod
         columns: 1
@@ -209,7 +221,10 @@ views:
     kind: board
     description: "Deadline tracking — overdue, due today, this week, and unscheduled"
     key: "F4"
-    mode: expanded
+    layout:
+      - ['type.visual + " " + id']
+      - ["<highlight>title"]
+      - ['"priority " + priority.visual + "  severity " + severity']
     lanes:
       - name: Overdue
         filter: select where has(dueBy) and dueBy < now() and status != "verified" and status != "wontFix" order by dueBy

@@ -212,31 +212,6 @@ func readWorkflowFile(path string) (*workflowFileData, error) {
 	return &wf, nil
 }
 
-// GetPluginViewMode reads a view's `mode:` field from workflow.yaml by name.
-// Returns empty string when unset or when the view is not found.
-func GetPluginViewMode(pluginName string) string {
-	path := FindWorkflowFile()
-	if path == "" {
-		return ""
-	}
-	wf, err := readWorkflowFile(path)
-	if err != nil {
-		slog.Debug("failed to read workflow.yaml for view mode", "error", err)
-		return ""
-	}
-	for _, v := range wf.Views {
-		name, _ := v["name"].(string)
-		if name != pluginName {
-			continue
-		}
-		if mode, ok := v["mode"].(string); ok && mode != "" {
-			return mode
-		}
-		return ""
-	}
-	return ""
-}
-
 // GetHeaderVisible returns the header visibility setting
 func GetHeaderVisible() bool {
 	return viper.GetBool("header.visible")

@@ -56,6 +56,10 @@ views:
     description: "Simple todo list with two lanes"
     default: true
     key: "F1"
+    layout:
+      - ['type.visual + " " + id']
+      - ["<highlight>title"]
+      - ['"priority " + priority']
     lanes:
       - name: Todo
         columns: 3

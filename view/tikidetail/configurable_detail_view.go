@@ -12,6 +12,7 @@ import (
 	"github.com/boolean-maybe/tiki/store"
 	"github.com/boolean-maybe/tiki/theme"
 	tikipkg "github.com/boolean-maybe/tiki/tiki"
+	"github.com/boolean-maybe/tiki/view/gridbox"
 	"github.com/boolean-maybe/tiki/view/markdown"
 	"github.com/boolean-maybe/tiki/workflow"
 
@@ -21,16 +22,16 @@ import (
 )
 
 // ConfigurableDetailView renders a tiki using a configured field list
-// (`metadata:` from workflow.yaml) plus the description section.
+// (`layout:` from workflow.yaml) plus the description section.
 //
-// The metadata box height derives from spec.Rows (the grid's row count)
-// plus metadataBoxOverhead (borders + padding). Title is a regular grid
-// field — it only renders if declared in the metadata layout (e.g.
+// The layout box height derives from spec.Rows (the grid's row count)
+// plus gridbox.DetailBoxOverhead (borders + padding + spacer). Title is a regular
+// grid field — it only renders if declared in the layout (e.g.
 // `<highlight>title`). Field anchors render as value-only primitives,
 // literal cells render as static text captions. Multi-row fields (tags
 // via WordList wrapping, depends-on via TikiList) extend downward within
 // their own column thanks to per-column natural-height packing in
-// gridContainer.rebuild. Heights are clamped by the solver's
+// gridbox.Container.rebuild. Heights are clamped by the solver's
 // maxRowHeight (6) per row.
 //
 // In-place edit mode toggles a per-field editor for editable metadata
@@ -47,14 +48,14 @@ type ConfigurableDetailView struct {
 	viewID       model.ViewID
 	pluginName   string
 
-	spec        gridlayout.GridSpec // parsed metadata grid (layout)
-	metadata    []string            // flat anchor names in declaration order (edit traversal)
+	spec        gridlayout.GridSpec // parsed layout grid
+	layout      []string            // flat anchor names in declaration order (edit traversal)
 	navMarkdown *markdown.NavigableMarkdown
 	listenerID  int
 
 	// edit-mode state
 	editMode          bool
-	focusedIdx        int                          // position in metadata (-1 = not editing)
+	focusedIdx        int                          // position in layout (-1 = not editing)
 	editors           map[string]FieldEditorWidget // current editor widgets by field name
 	onEditFieldChange map[string]func(string)      // per-field save callbacks set by controller
 	onEditModeChange  func(bool)                   // controller-side notifier (registry derivation)
@@ -104,7 +105,7 @@ func NewConfigurableDetailView(
 		viewID:            model.MakePluginViewID(pluginName),
 		pluginName:        pluginName,
 		spec:              spec,
-		metadata:          spec.AnchorNames(),
+		layout:            spec.AnchorNames(),
 		focusedIdx:        -1,
 		editors:           make(map[string]FieldEditorWidget),
 		onEditFieldChange: make(map[string]func(string)),
@@ -210,7 +211,7 @@ func (cv *ConfigurableDetailView) refresh() {
 
 	if !cv.fullscreen {
 		metadataBox := cv.buildMetadataBox(tk, roles)
-		cv.content.AddItem(metadataBox, cv.spec.Rows+metadataBoxOverhead, 0, false)
+		cv.content.AddItem(metadataBox, cv.spec.Rows+gridbox.DetailBoxOverhead, 0, false)
 	}
 
 	descPrimitive := cv.buildDescription(tk)
@@ -233,10 +234,10 @@ func (cv *ConfigurableDetailView) focusActiveEditor() {
 	if cv.focusSetter == nil {
 		return
 	}
-	if cv.focusedIdx < 0 || cv.focusedIdx >= len(cv.metadata) {
+	if cv.focusedIdx < 0 || cv.focusedIdx >= len(cv.layout) {
 		return
 	}
-	name := cv.metadata[cv.focusedIdx]
+	name := cv.layout[cv.focusedIdx]
 	if w, ok := cv.editors[name]; ok && w != nil {
 		cv.focusSetter(w)
 		return
@@ -246,14 +247,10 @@ func (cv *ConfigurableDetailView) focusActiveEditor() {
 	}
 }
 
-// metadataBoxOverhead is the fixed vertical cost beyond the grid body:
-// 1 top border + 1 top padding + 1 spacer + 1 bottom border.
-const metadataBoxOverhead = 4
-
-// buildMetadataBox assembles the configured metadata fields into a framed
-// box. Title renders only if declared in the metadata grid (as a regular
+// buildMetadataBox assembles the configured layout fields into a framed
+// box. Title renders only if declared in the layout grid (as a regular
 // field cell). Configured fields flow into the grid body via the
-// gridContainer primitive, which honors the layout grid declared in
+// gridbox.Container primitive, which honors the layout grid declared in
 // workflow.yaml (column/row spans, stretchers, preferred widths).
 //
 // In edit mode, fields whose registry advertises EditorImplemented receive
@@ -271,7 +268,7 @@ func (cv *ConfigurableDetailView) buildMetadataBox(tk *tikipkg.Tiki, roles *them
 	heightOf := func(name string, w int) int { return FieldHeight(name, tk, w) }
 
 	container := tview.NewFlex().SetDirection(tview.FlexRow)
-	container.AddItem(newGridContainer(cv.spec, primitives, heightOf), cv.spec.Rows, 0, false)
+	container.AddItem(gridbox.NewContainer(cv.spec, primitives, heightOf), cv.spec.Rows, 0, false)
 	container.AddItem(tview.NewBox(), 1, 0, false)
 
 	frame := tview.NewFrame(container).SetBorders(0, 0, 0, 0, 0, 0)
@@ -283,7 +280,7 @@ func (cv *ConfigurableDetailView) buildMetadataBox(tk *tikipkg.Tiki, roles *them
 }
 
 // buildAnchorPrimitives produces one tview.Primitive per anchor in the
-// metadata grid, indexed by anchor position. Two cases:
+// layout grid, indexed by anchor position. Two cases:
 //
 //  1. Literal anchor: renders as a static text view carrying the caption
 //     text declared by the layout author.
@@ -330,6 +327,8 @@ func buildCompositeText(a gridlayout.Anchor, tk *tikipkg.Tiki, ctx FieldRenderCo
 			switch {
 			case seg.Name == "title":
 				content = expandFieldText(tk.Title, ctx.Roles)
+			case seg.Name == "id":
+				content = renderTikiIDGradient(tk.ID, ctx.Roles)
 			default:
 				if wfd, ok := workflow.Field(seg.Name); ok {
 					content = genericFieldValueString(wfd, tk, segCtx)
@@ -384,6 +383,25 @@ func renderCompositePrimitive(a gridlayout.Anchor, tk *tikipkg.Tiki, ctx FieldRe
 // raw text is not pre-escaped against `[...]` tview tags. Unknown roles
 // fail closed to the plain caption text — the workflow loader's
 // validateDetailMetadata gate already rejects bad role names at startup.
+// RenderViewModeAnchor produces the read-only primitive for a single
+// layout anchor. Used by the tiki box (board/list cards) and by any
+// non-edit-mode caller that doesn't need cv's per-instance editor cache.
+// Edit-mode rendering stays in ConfigurableDetailView.buildAnchorPrimitives,
+// which adds focus and editor wiring on top of the view-mode primitive.
+func RenderViewModeAnchor(a gridlayout.Anchor, tk *tikipkg.Tiki, ctx FieldRenderContext) tview.Primitive {
+	switch a.Kind {
+	case gridlayout.AnchorLiteral:
+		return renderLiteralCaption(a.Text, ctx.Roles)
+	case gridlayout.AnchorComposite:
+		return renderCompositePrimitive(a, tk, ctx)
+	}
+	ctx.Display = a.Display
+	if a.Name == "title" {
+		return RenderTitleText(tk, ctx, a.Role, a.Modifier)
+	}
+	return renderConfiguredField(a.Name, tk, ctx)
+}
+
 func renderLiteralCaption(text string, roles *theme.Theme) tview.Primitive {
 	tag := roles.TextLabel().Tag()
 	expanded, err := workflow.ExpandVisual(text, roles.PaintResolver())
@@ -642,18 +660,18 @@ func (cv *ConfigurableDetailView) FocusPrevField() bool {
 // GetFocusedFieldName returns the metadata name of the currently focused
 // editable field, or empty string when not in edit mode.
 func (cv *ConfigurableDetailView) GetFocusedFieldName() string {
-	if !cv.editMode || cv.focusedIdx < 0 || cv.focusedIdx >= len(cv.metadata) {
+	if !cv.editMode || cv.focusedIdx < 0 || cv.focusedIdx >= len(cv.layout) {
 		return ""
 	}
-	return cv.metadata[cv.focusedIdx]
+	return cv.layout[cv.focusedIdx]
 }
 
-// Metadata returns the configured metadata field list. Exposed so the
+// Layout returns the configured layout anchor list. Exposed so the
 // input router can copy it into TikiEditParams when the user opens the
 // edit view from this detail view, preserving the same field set across
 // the view-edit transition.
-func (cv *ConfigurableDetailView) Metadata() []string {
-	return cv.metadata
+func (cv *ConfigurableDetailView) Layout() []string {
+	return cv.layout
 }
 
 // IsEditFieldFocused reports whether any of the current edit-mode editor
@@ -675,8 +693,8 @@ func (cv *ConfigurableDetailView) IsEditFieldFocused() bool {
 // firstEditableIndex returns the metadata position of the first field
 // with an implemented editor and a traversable descriptor, or -1.
 func (cv *ConfigurableDetailView) firstEditableIndex() int {
-	for i, name := range cv.metadata {
-		if cv.isEditableMetadataField(name) {
+	for i, name := range cv.layout {
+		if cv.isEditableLayoutField(name) {
 			return i
 		}
 	}
@@ -686,8 +704,8 @@ func (cv *ConfigurableDetailView) firstEditableIndex() int {
 // nextEditableIndex returns the next metadata position (after current)
 // that is editable, or -1.
 func (cv *ConfigurableDetailView) nextEditableIndex(current int) int {
-	for i := current + 1; i < len(cv.metadata); i++ {
-		if cv.isEditableMetadataField(cv.metadata[i]) {
+	for i := current + 1; i < len(cv.layout); i++ {
+		if cv.isEditableLayoutField(cv.layout[i]) {
 			return i
 		}
 	}
@@ -698,7 +716,7 @@ func (cv *ConfigurableDetailView) nextEditableIndex(current int) int {
 // current) that is editable, or -1.
 func (cv *ConfigurableDetailView) prevEditableIndex(current int) int {
 	for i := current - 1; i >= 0; i-- {
-		if cv.isEditableMetadataField(cv.metadata[i]) {
+		if cv.isEditableLayoutField(cv.layout[i]) {
 			return i
 		}
 	}
@@ -718,7 +736,7 @@ func (cv *ConfigurableDetailView) prevEditableIndex(current int) int {
 // Flush order matters: SaveRecurrence writes Due as a side effect (when
 // recurrence is non-empty), so a stale Due flush after SaveRecurrence
 // would overwrite the auto-computed Due with the user's pre-recurrence
-// text. Iterate cv.metadata in declaration order, then flush recurrence
+// text. Iterate cv.layout in declaration order, then flush recurrence
 // last — so any side-effect-producing field always wins over stale
 // per-field cache entries.
 //
@@ -744,7 +762,7 @@ func (cv *ConfigurableDetailView) FlushFocusedEditor() {
 	// First pass: every cached metadata field except recurrence, in
 	// declaration order. This is deterministic so map-iteration races
 	// can't reorder due/recurrence/etc.
-	for _, name := range cv.metadata {
+	for _, name := range cv.layout {
 		if name == tikipkg.FieldRecurrence {
 			continue
 		}
@@ -755,14 +773,14 @@ func (cv *ConfigurableDetailView) FlushFocusedEditor() {
 	flush(tikipkg.FieldRecurrence)
 }
 
-// isEditableMetadataField returns true when the named field has an
+// isEditableLayoutField returns true when the named field has an
 // implemented editor and is traversable. Built-in fields are gated by
 // their static descriptor (ReadOnly/EditTraversable); workflow-declared
 // fields without a static descriptor are editable when the field
 // registry's FieldHasEditor reports an editor — currently only TypeEnum
 // fields qualify, since they're the only workflow-only fields that
 // route through a generic editor.
-func (cv *ConfigurableDetailView) isEditableMetadataField(name string) bool {
+func (cv *ConfigurableDetailView) isEditableLayoutField(name string) bool {
 	if fd, ok := LookupField(name); ok {
 		if fd.ReadOnly || !fd.EditTraversable {
 			return false

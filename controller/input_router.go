@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/boolean-maybe/tiki/config"
+	"github.com/boolean-maybe/tiki/gridlayout"
 	rukiRuntime "github.com/boolean-maybe/tiki/internal/ruki/runtime"
 	"github.com/boolean-maybe/tiki/model"
 	"github.com/boolean-maybe/tiki/plugin"
@@ -374,6 +375,12 @@ func (ir *InputRouter) openDepsEditor(tikiID, sourceDetailViewName string) {
 		return
 	}
 
+	depsLayout, _ := gridlayout.ParseGrid([][]string{
+		{`type.visual + " " + id`},
+		{"<highlight>title"},
+		{`"priority " + priority.visual`},
+	})
+
 	pluginDef := &plugin.WorkflowPlugin{
 		BasePlugin: plugin.BasePlugin{
 			Name:        name,
@@ -388,17 +395,11 @@ func (ir *InputRouter) openDepsEditor(tikiID, sourceDetailViewName string) {
 			{Name: "All"},
 			{Name: "Depends"},
 		},
-	}
-
-	if vm := config.GetPluginViewMode("Dependency"); vm != "" {
-		pluginDef.Mode = vm
+		Layout: depsLayout,
 	}
 
 	pluginConfig := model.NewPluginConfig("Dependency")
 	pluginConfig.SetLaneLayout([]int{1, 2, 1}, []int{25, 50, 25})
-	if pluginDef.Mode == "expanded" {
-		pluginConfig.SetViewMode("expanded")
-	}
 
 	resolver := ir.makeDetailViewResolver(sourceDetailViewName)
 	ctrl := NewDepsController(ir.tikiStore, ir.mutationGate, pluginConfig, pluginDef, ir.navController, ir.statusline, ir.schema, resolver)

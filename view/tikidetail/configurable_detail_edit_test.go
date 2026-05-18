@@ -329,7 +329,7 @@ func TestConfigurableDetailView_FlushOrderRecurrenceLast(t *testing.T) {
 // TestConfigurableDetailView_TabTraversesCustomEnumField pins that a
 // workflow-declared enum field with no static FieldDescriptor still
 // participates in Tab traversal and edit mode. The previous fix made
-// FieldHasEditor recognize workflow enums, but isEditableMetadataField
+// FieldHasEditor recognize workflow enums, but isEditableLayoutField
 // short-circuited on the missing static descriptor — so EnterEditMode
 // and Tab skipped severity entirely even though the editor was wired.
 func TestConfigurableDetailView_TabTraversesCustomEnumField(t *testing.T) {

@@ -7,14 +7,6 @@ import (
 	tikipkg "github.com/boolean-maybe/tiki/tiki"
 )
 
-// ViewMode represents the display mode for tiki boxes
-type ViewMode string
-
-const (
-	ViewModeCompact  ViewMode = "compact"  // 3-line display (5 total height with border)
-	ViewModeExpanded ViewMode = "expanded" // 7-line display (9 total height with border)
-)
-
 // PluginSelectionListener is called when plugin selection changes
 type PluginSelectionListener func()
 
@@ -29,7 +21,6 @@ type PluginConfig struct {
 	scrollOffsets    []int // per-lane viewport position (top visible row)
 	preSearchLane    int
 	preSearchIndices []int
-	viewMode         ViewMode // compact or expanded display
 	listeners        map[int]PluginSelectionListener
 	nextListenerID   int
 	searchState      SearchState // search state (embedded)
@@ -39,7 +30,6 @@ type PluginConfig struct {
 func NewPluginConfig(name string) *PluginConfig {
 	pc := &PluginConfig{
 		pluginName:     name,
-		viewMode:       ViewModeCompact,
 		listeners:      make(map[int]PluginSelectionListener),
 		nextListenerID: 1,
 	}
@@ -253,38 +243,6 @@ func (pc *PluginConfig) ClampSelection(tikiCount int) {
 		pc.setIndexForLane(lane, 0)
 	}
 	pc.mu.Unlock()
-}
-
-// GetViewMode returns the current view mode
-func (pc *PluginConfig) GetViewMode() ViewMode {
-	pc.mu.RLock()
-	defer pc.mu.RUnlock()
-	return pc.viewMode
-}
-
-// ToggleViewMode switches between compact and expanded view modes
-func (pc *PluginConfig) ToggleViewMode() {
-	pc.mu.Lock()
-	if pc.viewMode == ViewModeCompact {
-		pc.viewMode = ViewModeExpanded
-	} else {
-		pc.viewMode = ViewModeCompact
-	}
-	pc.mu.Unlock()
-
-	pc.notifyListeners()
-}
-
-// SetViewMode sets the view mode from a string value
-func (pc *PluginConfig) SetViewMode(mode string) {
-	pc.mu.Lock()
-	defer pc.mu.Unlock()
-
-	if mode == "expanded" {
-		pc.viewMode = ViewModeExpanded
-	} else {
-		pc.viewMode = ViewModeCompact
-	}
 }
 
 // SavePreSearchState saves current selection for later restoration

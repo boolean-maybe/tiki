@@ -1,7 +1,6 @@
 package model
 
 import (
-	"os"
 	"sync"
 	"testing"
 	"time"
@@ -27,10 +26,6 @@ func TestNewPluginConfig(t *testing.T) {
 
 	if pc.GetColumnsForLane(0) != 4 {
 		t.Errorf("GetColumnsForLane(0) = %d, want 4", pc.GetColumnsForLane(0))
-	}
-
-	if pc.GetViewMode() != ViewModeCompact {
-		t.Errorf("initial GetViewMode() = %v, want ViewModeCompact", pc.GetViewMode())
 	}
 
 	if pc.IsSearchActive() {
@@ -256,94 +251,6 @@ func TestPluginConfig_ClampSelection(t *testing.T) {
 	}
 }
 
-func TestPluginConfig_ViewMode(t *testing.T) {
-	pc := NewPluginConfig("test")
-
-	// Initial mode should be compact
-	if pc.GetViewMode() != ViewModeCompact {
-		t.Errorf("initial GetViewMode() = %v, want ViewModeCompact", pc.GetViewMode())
-	}
-
-	// Set expanded
-	pc.SetViewMode("expanded")
-	if pc.GetViewMode() != ViewModeExpanded {
-		t.Errorf("GetViewMode() after SetViewMode(expanded) = %v, want ViewModeExpanded", pc.GetViewMode())
-	}
-
-	// Set compact
-	pc.SetViewMode("compact")
-	if pc.GetViewMode() != ViewModeCompact {
-		t.Errorf("GetViewMode() after SetViewMode(compact) = %v, want ViewModeCompact", pc.GetViewMode())
-	}
-
-	// Invalid mode should default to compact
-	pc.SetViewMode("invalid")
-	if pc.GetViewMode() != ViewModeCompact {
-		t.Errorf("GetViewMode() after SetViewMode(invalid) = %v, want ViewModeCompact", pc.GetViewMode())
-	}
-}
-
-func TestPluginConfig_ToggleViewMode(t *testing.T) {
-	pc := NewPluginConfig("test")
-
-	initial := pc.GetViewMode()
-
-	// Toggle
-	pc.ToggleViewMode()
-
-	// Should be opposite
-	after := pc.GetViewMode()
-	if initial == ViewModeCompact && after != ViewModeExpanded {
-		t.Error("ToggleViewMode() from compact should go to expanded")
-	}
-	if initial == ViewModeExpanded && after != ViewModeCompact {
-		t.Error("ToggleViewMode() from expanded should go to compact")
-	}
-
-	// Toggle back
-	pc.ToggleViewMode()
-
-	// Should return to initial
-	if pc.GetViewMode() != initial {
-		t.Error("ToggleViewMode() twice should return to initial state")
-	}
-}
-
-func TestPluginConfig_ToggleViewMode_SessionOnly(t *testing.T) {
-	tmpDir := t.TempDir()
-	workflowContent := `views:
-  plugins:
-    - name: TestPlugin
-      view: compact
-`
-	workflowPath := tmpDir + "/workflow.yaml"
-	if err := os.WriteFile(workflowPath, []byte(workflowContent), 0644); err != nil {
-		t.Fatal(err)
-	}
-
-	info, err := os.Stat(workflowPath)
-	if err != nil {
-		t.Fatal(err)
-	}
-	modBefore := info.ModTime()
-	sizeBefore := info.Size()
-
-	pc := NewPluginConfig("TestPlugin")
-	pc.ToggleViewMode()
-
-	if pc.GetViewMode() != ViewModeExpanded {
-		t.Fatal("expected expanded after toggle")
-	}
-
-	info, err = os.Stat(workflowPath)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if info.ModTime() != modBefore || info.Size() != sizeBefore {
-		t.Error("ToggleViewMode must not write to workflow.yaml")
-	}
-}
-
 func TestPluginConfig_SearchState(t *testing.T) {
 	pc := NewPluginConfig("test")
 
@@ -540,14 +447,6 @@ func TestPluginConfig_ConcurrentAccess(t *testing.T) {
 		done <- true
 	}()
 
-	// View mode writer
-	go func() {
-		for range 50 {
-			pc.ToggleViewMode()
-		}
-		done <- true
-	}()
-
 	// Search writer
 	go func() {
 		for i := range 25 {
@@ -564,7 +463,6 @@ func TestPluginConfig_ConcurrentAccess(t *testing.T) {
 	go func() {
 		for range 100 {
 			_ = pc.GetSelectedIndex()
-			_ = pc.GetViewMode()
 			_ = pc.IsSearchActive()
 			_ = pc.GetSearchResults()
 		}
@@ -572,7 +470,7 @@ func TestPluginConfig_ConcurrentAccess(t *testing.T) {
 	}()
 
 	// Wait for all
-	for range 4 {
+	for range 3 {
 		<-done
 	}
 

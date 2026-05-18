@@ -642,16 +642,24 @@ appearance:
   gradientThreshold: 256
 ```
 
-### Compact vs expanded view
+### Per-view card layout
 
-Board and list views can use either a compact or expanded layout. Set the
-`mode:` field on the view in `workflow.yaml`:
+Every board and list view declares a `layout:` grid that controls the cards it
+renders. The grid uses the same syntax as detail views — each row is a list of
+cells, and cells can be field names, literal captions, or composites. Card
+height is derived from the row count plus borders + padding.
 
 ```yaml
   - name: Roadmap
     kind: board
-    mode: expanded
+    layout:
+      - ['type.visual + " " + id']
+      - ["<highlight>title"]
+      - ['"priority " + priority.visual + "  points " + points.visual']
 ```
+
+The pre-0.6.0 `mode: compact`/`mode: expanded` field is no longer accepted —
+each view declares its layout directly.
 
 ---
 

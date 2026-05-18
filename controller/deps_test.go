@@ -315,19 +315,6 @@ func TestDepsController_HandleAction(t *testing.T) {
 		}
 	})
 
-	t.Run("toggle view mode", func(t *testing.T) {
-		dc, _ := newDepsTestEnv(t)
-		before := dc.pluginConfig.GetViewMode()
-		result := dc.HandleAction(ActionToggleViewMode)
-		if !result {
-			t.Error("toggle view mode should return true")
-		}
-		after := dc.pluginConfig.GetViewMode()
-		if before == after {
-			t.Error("view mode should change after toggle")
-		}
-	})
-
 	t.Run("open tiki pushes configurable detail view", func(t *testing.T) {
 		dc, _ := newDepsTestEnv(t)
 		dc.pluginConfig.SetSelectedLane(depsLaneAll)
@@ -613,7 +600,6 @@ func TestDepsViewActions(t *testing.T) {
 		ActionOpenFromPlugin: false,
 		ActionNewTiki:        false,
 		ActionDeleteTiki:     false,
-		ActionToggleViewMode: false,
 		ActionSearch:         false,
 	}
 	for _, a := range actions {
