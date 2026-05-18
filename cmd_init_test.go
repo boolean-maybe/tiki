@@ -452,8 +452,8 @@ func TestRunInit_NonInteractiveDefaultNoSamples(t *testing.T) {
 		t.Fatalf("exit code = %d, want %d", code, exitOK)
 	}
 
-	// verify .doc/ exists (project initialized). Phase 8 no longer creates
-	// .doc/tiki; the unified layout is a single document root.
+	// verify .doc/ exists (project initialized). Init creates a flat
+	// document root with no subdirectories.
 	docDir := filepath.Join(repoDir, ".doc")
 	if _, err := os.Stat(docDir); err != nil {
 		t.Fatalf("expected .doc to exist: %v", err)
@@ -483,9 +483,9 @@ func TestRunInit_NonInteractiveWithSamples(t *testing.T) {
 		t.Fatalf("exit code = %d, want %d", code, exitOK)
 	}
 
-	// verify sample tikis were created. Phase 8: samples land directly under
-	// `.doc/<ID>.md`; there is no `.doc/tiki/` subdirectory. Counting `.md`
-	// files at the document root is the right assertion.
+	// verify sample tikis were created. Samples land directly under
+	// `.doc/<ID>.md`. Counting `.md` files at the document root is the
+	// right assertion.
 	docDir := filepath.Join(repoDir, ".doc")
 	entries, _ := os.ReadDir(docDir)
 	var tikiFiles int

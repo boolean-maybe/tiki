@@ -9,10 +9,8 @@ import (
 
 // WalkDocuments walks root recursively and returns every file path that
 // should be treated as a managed markdown document. It is the single
-// source of truth for "which files on disk count as documents" and is
-// shared by the runtime store loader and the `tiki repair` CLI so the
-// two cannot drift: a file the store refuses to load must never be a
-// file the repair command silently skips, and vice versa.
+// source of truth for "which files on disk count as documents", shared by
+// the runtime store loader and any future maintenance tooling.
 //
 // Exclusion rules (see per-helper godoc for specifics):
 //

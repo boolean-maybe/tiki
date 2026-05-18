@@ -16,15 +16,19 @@ recurrence, assignee, plus any custom fields). All fields beyond `id` and `title
 - Tikis live under `.doc/` at any depth. The default location for new tikis is `.doc/<ID>.md`, but
   they can be moved into subfolders without breaking references (`[[ID]]` wikilinks and `dependsOn` entries
   are id-based).
-- Use this skill for tikis that participate in tracking — those carrying `status:`, `type:`, `priority:`,
-  `points:`, `dependsOn:`, etc. For tikis with only `id:` and `title:` (notes, design pages, prompts),
-  use the `doki` skill.
+- Use this skill for every tiki, whether it carries workflow fields (`status:`, `type:`,
+  `priority:`, `points:`, `dependsOn:`, …) or is a notes-only document with just `id:` and `title:`.
+  Workflow tikis appear on board / list views; notes-only tikis are reachable by id and path,
+  render in wiki and detail views, and fall outside any view whose lane filter requires
+  workflow-declared fields. There is no separate "promotion" event — assigning `status` simply adds
+  a `status:` key to the frontmatter.
 
 All CRUD operations go through `tiki exec '<ruki-statement>'`. This handles validation, triggers, file
 persistence, and git staging automatically. Never manually edit tiki files or run `git add` / `git rm`
-— `tiki exec` does it all.
+for tracked workflow tikis — `tiki exec` does it all. (Notes-only tikis with no workflow fields can be
+edited directly with Read/Write/Edit; the frontmatter `id:` must be preserved unchanged.)
 
-For full `ruki` syntax, see `.doc/doki/doc/ruki/`.
+For full `ruki` syntax, see `docs/ruki/`.
 
 ## Field reference
 

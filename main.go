@@ -23,9 +23,6 @@ import (
 //go:embed ai/skills/tiki/SKILL.md
 var tikiSkillMdContent string
 
-//go:embed ai/skills/doki/SKILL.md
-var dokiSkillMdContent string
-
 // main runs the application bootstrap and starts the TUI.
 func main() {
 	// Handle version flag
@@ -79,11 +76,6 @@ func main() {
 		os.Exit(runExec(os.Args[2:]))
 	}
 
-	// Handle repair command: inspect/fix document ids and exit
-	if len(os.Args) > 1 && os.Args[1] == "repair" {
-		os.Exit(runRepair(os.Args[2:]))
-	}
-
 	// Handle piped stdin: create a tiki and exit without launching TUI
 	if pipe.IsPipedInput() && !pipe.HasPositionalArgs(os.Args[1:]) {
 		tikiID, err := pipe.CreateTikiFromReader(os.Stdin)
@@ -120,7 +112,7 @@ func main() {
 	}
 
 	// Bootstrap application
-	result, err := bootstrap.Bootstrap(tikiSkillMdContent, dokiSkillMdContent)
+	result, err := bootstrap.Bootstrap(tikiSkillMdContent)
 	if err != nil {
 		_, _ = fmt.Fprintln(os.Stderr, "error:", err)
 		os.Exit(1)
@@ -130,10 +122,9 @@ func main() {
 	}
 
 	// Surface any files the store refused to load as a prominent stderr
-	// warning before the TUI takes over. Users can see the summary scroll
-	// past on launch and then run `tiki repair ids --check|--fix` to address
-	// it — we don't block startup because the TUI itself might be the
-	// fastest way for a user to see which files are affected.
+	// warning before the TUI takes over. The summary scrolls past on launch
+	// so users can spot which files need manual fixing; we don't block
+	// startup because the TUI itself might be the fastest way to locate them.
 	if ts, ok := result.TikiStore.(*tikistore.TikiStore); ok {
 		if diag := ts.LoadDiagnostics(); diag.HasIssues() {
 			_, _ = fmt.Fprintln(os.Stderr, "\n=== tiki: load warnings ===")

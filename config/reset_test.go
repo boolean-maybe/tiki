@@ -103,7 +103,7 @@ func TestResetConfig_GlobalSingleTarget(t *testing.T) {
 func TestResetConfig_LocalDeletesFiles(t *testing.T) {
 	tikiDir := setupResetTest(t)
 
-	// set up project dir with .doc/tiki so IsProjectInitialized() passes
+	// set up project dir with .doc/ so IsProjectInitialized() passes
 	projectDir := t.TempDir()
 	docDir := filepath.Join(projectDir, ".doc")
 	if err := os.MkdirAll(filepath.Join(docDir, "tiki"), 0750); err != nil {
@@ -237,7 +237,7 @@ func TestValidResetTarget(t *testing.T) {
 }
 
 func TestResetConfig_LocalRejectsUninitializedProject(t *testing.T) {
-	// point projectRoot at a temp dir that has no .doc/tiki
+	// point projectRoot at a temp dir that has no .doc/
 	xdgDir := t.TempDir()
 	t.Setenv("XDG_CONFIG_HOME", xdgDir)
 	ResetPathManager()

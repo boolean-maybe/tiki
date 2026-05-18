@@ -120,7 +120,7 @@ func splitCamelBoundaries(s string) []string {
 // Accepts int and float64 (YAML numeric decoding lands on either depending
 // on form). Out-of-range ranks fall back to the configured default; rank
 // resolution that fails (no priority enum loaded) leaves the field alone
-// so the stale-unknown marker preserves the original bytes for repair.
+// so the stale-unknown marker preserves the original bytes for manual fixup.
 func upgradeLegacyPriority(tk *tikipkg.Tiki) {
 	raw, ok := tk.Fields["priority"]
 	if !ok {

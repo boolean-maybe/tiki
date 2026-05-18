@@ -16,10 +16,10 @@ import (
 )
 
 // IsProjectInitialized returns true if the project has been initialized —
-// detected by the presence of the unified document root (`.doc/`). Phase 2
-// makes `.doc/` the marker so a project whose documents live directly
-// under the root (or in arbitrary nested folders) is still recognized as
-// initialized, not just legacy projects with a `.doc/tiki/` subdirectory.
+// detected by the presence of the unified document root (`.doc/`). The
+// marker is the directory itself, so projects whose documents live
+// directly under the root or in arbitrary nested folders are all
+// recognized.
 func IsProjectInitialized() bool {
 	info, err := os.Stat(GetDocDir())
 	if err != nil {
@@ -65,16 +65,15 @@ func PromptForProjectInit(hasCustomWorkflow bool) (InitOptions, bool, error) {
 		description = `
 This will initialize your project with a custom workflow:
 
-- .doc/ directory to hold your Markdown documents (tasks and plain docs)
+- .doc/ directory to hold your Markdown documents
 - custom workflow installed as .doc/workflow.yaml
 
-No sample tasks will be created with a custom workflow.
+No sample documents will be created with a custom workflow.
 
 Additionally, optional AI skills are installed if you choose to.
-AI skills extend your AI assistant with commands to manage tasks and documentation:
+AI skills extend your AI assistant with commands to manage documents:
 
-• 'tiki' skill - Create, view, update, delete task documents
-• 'doki' skill - Create and manage plain markdown documents
+• 'tiki' skill - Create, view, update, delete documents
 
 Select AI assistants to install (optional), then press Enter to continue.
 Press Esc to cancel project initialization.`
@@ -82,14 +81,13 @@ Press Esc to cancel project initialization.`
 		description = `
 This will initialize your project by creating directories and bundled samples:
 
-- .doc/ directory to hold your Markdown documents (tasks and plain docs)
-- bundled sample tasks and a starter document
+- .doc/ directory to hold your Markdown documents
+- bundled sample documents
 
 Additionally, optional AI skills are installed if you choose to.
-AI skills extend your AI assistant with commands to manage tasks and documentation:
+AI skills extend your AI assistant with commands to manage documents:
 
-• 'tiki' skill - Create, view, update, delete task documents
-• 'doki' skill - Create and manage plain markdown documents
+• 'tiki' skill - Create, view, update, delete documents
 
 Select AI assistants to install (optional), then press Enter to continue.
 Press Esc to cancel project initialization.`
@@ -128,7 +126,7 @@ Press Esc to cancel project initialization.`
 // root (`.doc/`) is missing. Returns (proceed, error). If proceed is false,
 // the user canceled initialization. gitAdd, when non-nil, is called to
 // stage created files.
-func EnsureProjectInitialized(tikiSkillMdContent, dokiSkillMdContent string, gitAdd func(...string) error) (bool, error) {
+func EnsureProjectInitialized(tikiSkillMdContent string, gitAdd func(...string) error) (bool, error) {
 	if _, err := os.Stat(GetDocDir()); err != nil {
 		if !os.IsNotExist(err) {
 			return false, fmt.Errorf("failed to stat tiki directory: %w", err)
@@ -148,10 +146,10 @@ func EnsureProjectInitialized(tikiSkillMdContent, dokiSkillMdContent string, git
 
 		// Install selected AI skills
 		if len(opts.AITools) > 0 {
-			if err := InstallAISkills(opts.AITools, tikiSkillMdContent, dokiSkillMdContent); err != nil {
+			if err := InstallAISkills(opts.AITools, tikiSkillMdContent); err != nil {
 				// Non-fatal - log warning but continue
 				slog.Warn("some AI skills failed to install", "error", err)
-				fmt.Println("You can manually copy ai/skills/tiki/SKILL.md and ai/skills/doki/SKILL.md to the appropriate directories.")
+				fmt.Println("You can manually copy ai/skills/tiki/SKILL.md to the appropriate directory.")
 			} else {
 				fmt.Printf("✓ Installed AI skills for: %s\n", strings.Join(opts.AITools, ", "))
 			}
@@ -165,12 +163,9 @@ func EnsureProjectInitialized(tikiSkillMdContent, dokiSkillMdContent string, git
 
 // InstallAISkills writes the embedded SKILL.md content to selected AI tool directories.
 // Returns an aggregated error if any installations fail, but continues attempting all.
-func InstallAISkills(selectedTools []string, tikiSkillMdContent, dokiSkillMdContent string) error {
+func InstallAISkills(selectedTools []string, tikiSkillMdContent string) error {
 	if len(tikiSkillMdContent) == 0 {
 		return fmt.Errorf("embedded tiki SKILL.md content is empty")
-	}
-	if len(dokiSkillMdContent) == 0 {
-		return fmt.Errorf("embedded doki SKILL.md content is empty")
 	}
 
 	type skillDef struct {
@@ -179,7 +174,6 @@ func InstallAISkills(selectedTools []string, tikiSkillMdContent, dokiSkillMdCont
 	}
 	skills := []skillDef{
 		{"tiki", tikiSkillMdContent},
-		{"doki", dokiSkillMdContent},
 	}
 
 	skillNames := make([]string, len(skills))

@@ -12,7 +12,7 @@ const settingsFile = ".claude/settings.local.json"
 func TestEnsureSkillPermissions_CreatesFile(t *testing.T) {
 	t.Chdir(t.TempDir())
 
-	if err := ensureSkillPermissions(settingsFile, []string{"tiki", "doki"}); err != nil {
+	if err := ensureSkillPermissions(settingsFile, []string{"tiki", "other"}); err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
@@ -22,7 +22,7 @@ func TestEnsureSkillPermissions_CreatesFile(t *testing.T) {
 	if len(allow) != 2 {
 		t.Fatalf("expected 2 entries, got %d: %v", len(allow), allow)
 	}
-	if allow[0] != "Skill(tiki)" || allow[1] != "Skill(doki)" {
+	if allow[0] != "Skill(tiki)" || allow[1] != "Skill(other)" {
 		t.Errorf("unexpected entries: %v", allow)
 	}
 }
@@ -59,12 +59,12 @@ func TestEnsureSkillPermissions_AlreadyPresent(t *testing.T) {
 
 	writeSettings(t, map[string]any{
 		"permissions": map[string]any{
-			"allow": []any{"Skill(tiki)", "Skill(doki)"},
+			"allow": []any{"Skill(tiki)", "Skill(other)"},
 		},
 	})
 
 	before, _ := os.ReadFile(settingsFile)
-	if err := ensureSkillPermissions(settingsFile, []string{"tiki", "doki"}); err != nil {
+	if err := ensureSkillPermissions(settingsFile, []string{"tiki", "other"}); err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 	after, _ := os.ReadFile(settingsFile)

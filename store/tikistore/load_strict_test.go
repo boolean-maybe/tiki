@@ -15,9 +15,9 @@ func init() {
 	config.MarkWorkflowFieldsLoadedForTest()
 }
 
-// TestLoadTikiFile_MissingIDIsHardError verifies the new strict-load contract:
-// a file without frontmatter id: must refuse to load. The remedy is
-// `tiki repair ids --fix`, which our error message points at.
+// TestLoadTikiFile_MissingIDIsHardError verifies the strict-load contract:
+// a file without frontmatter id: must refuse to load. The error message
+// points users at the manual remedy (add an `id:` field).
 func TestLoadTikiFile_MissingIDIsHardError(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "no-id.md")
