@@ -30,9 +30,9 @@ func TestParsePluginConfig_FullyInline(t *testing.T) {
 		t.Fatalf("Expected no error, got: %v", err)
 	}
 
-	tp, ok := def.(*TikiPlugin)
+	tp, ok := def.(*WorkflowPlugin)
 	if !ok {
-		t.Fatalf("Expected TikiPlugin, got %T", def)
+		t.Fatalf("Expected WorkflowPlugin, got %T", def)
 		return
 	}
 
@@ -75,9 +75,9 @@ func TestParsePluginConfig_Minimal(t *testing.T) {
 		t.Fatalf("Expected no error, got: %v", err)
 	}
 
-	tp, ok := def.(*TikiPlugin)
+	tp, ok := def.(*WorkflowPlugin)
 	if !ok {
-		t.Fatalf("Expected TikiPlugin, got %T", def)
+		t.Fatalf("Expected WorkflowPlugin, got %T", def)
 		return
 	}
 
@@ -103,7 +103,7 @@ func TestParsePluginConfig_NoName(t *testing.T) {
 	}
 }
 
-// TestWikiKindExplicit asserts a wiki view parses to DokiPlugin with kind wiki.
+// TestWikiKindExplicit asserts a wiki view parses to WikiPlugin with kind wiki.
 func TestWikiKindExplicit(t *testing.T) {
 	cfg := pluginFileConfig{
 		Name: "Wiki Test",
@@ -119,8 +119,8 @@ func TestWikiKindExplicit(t *testing.T) {
 	if def.GetKind() != KindWiki {
 		t.Errorf("Expected kind wiki, got %q", def.GetKind())
 	}
-	if _, ok := def.(*DokiPlugin); !ok {
-		t.Errorf("Expected DokiPlugin type assertion to succeed")
+	if _, ok := def.(*WikiPlugin); !ok {
+		t.Errorf("Expected WikiPlugin type assertion to succeed")
 	}
 }
 
@@ -284,9 +284,9 @@ func TestLoadPluginsFromFile_FailsOnDuplicateViewName(t *testing.T) {
 
 func TestDefaultPlugin_ExplicitDefault(t *testing.T) {
 	plugins := []Plugin{
-		&TikiPlugin{BasePlugin: BasePlugin{Name: "First"}},
-		&TikiPlugin{BasePlugin: BasePlugin{Name: "Second", Default: true}},
-		&TikiPlugin{BasePlugin: BasePlugin{Name: "Third"}},
+		&WorkflowPlugin{BasePlugin: BasePlugin{Name: "First"}},
+		&WorkflowPlugin{BasePlugin: BasePlugin{Name: "Second", Default: true}},
+		&WorkflowPlugin{BasePlugin: BasePlugin{Name: "Third"}},
 	}
 	got := DefaultPlugin(plugins)
 	if got.GetName() != "Second" {
@@ -296,8 +296,8 @@ func TestDefaultPlugin_ExplicitDefault(t *testing.T) {
 
 func TestDefaultPlugin_NoDefault(t *testing.T) {
 	plugins := []Plugin{
-		&TikiPlugin{BasePlugin: BasePlugin{Name: "Alpha"}},
-		&TikiPlugin{BasePlugin: BasePlugin{Name: "Beta"}},
+		&WorkflowPlugin{BasePlugin: BasePlugin{Name: "Alpha"}},
+		&WorkflowPlugin{BasePlugin: BasePlugin{Name: "Beta"}},
 	}
 	got := DefaultPlugin(plugins)
 	if got.GetName() != "Alpha" {
@@ -401,7 +401,7 @@ func TestLoadPluginsFromFile_EmptyViews(t *testing.T) {
 	}
 }
 
-func TestLoadPluginsFromFile_DokiConfigIndex(t *testing.T) {
+func TestLoadPluginsFromFile_WikiConfigIndex(t *testing.T) {
 	tmpDir := t.TempDir()
 	workflowContent := `views:
   - name: Board
@@ -428,14 +428,14 @@ func TestLoadPluginsFromFile_DokiConfigIndex(t *testing.T) {
 		t.Fatalf("expected 2 plugins, got %d", len(plugins))
 	}
 
-	// verify DokiPlugin has correct ConfigIndex
-	dp, ok := plugins[1].(*DokiPlugin)
+	// verify WikiPlugin has correct ConfigIndex
+	dp, ok := plugins[1].(*WikiPlugin)
 	if !ok {
-		t.Fatalf("expected DokiPlugin, got %T", plugins[1])
+		t.Fatalf("expected WikiPlugin, got %T", plugins[1])
 		return
 	}
 	if dp.ConfigIndex != 1 {
-		t.Errorf("expected DokiPlugin ConfigIndex 1, got %d", dp.ConfigIndex)
+		t.Errorf("expected WikiPlugin ConfigIndex 1, got %d", dp.ConfigIndex)
 	}
 }
 
@@ -511,15 +511,15 @@ func TestMergeGlobalActionsIntoPlugins(t *testing.T) {
 	stmt := mustParseAction(t, `update where id = id() set status="ready"`)
 
 	plugins := []Plugin{
-		&TikiPlugin{
+		&WorkflowPlugin{
 			BasePlugin: BasePlugin{Name: "Board"},
 			Actions:    []PluginAction{{Rune: 'b', KeyStr: "b", Label: "Board action", Action: stmt}},
 		},
-		&TikiPlugin{
+		&WorkflowPlugin{
 			BasePlugin: BasePlugin{Name: "Backlog"},
 			Actions:    nil,
 		},
-		&DokiPlugin{
+		&WikiPlugin{
 			BasePlugin: BasePlugin{Name: "Help"},
 		},
 	}
@@ -532,9 +532,9 @@ func TestMergeGlobalActionsIntoPlugins(t *testing.T) {
 	mergeGlobalActionsIntoPlugins(plugins, globals)
 
 	// Board: should have 'b' (local) + 'a' (global) — 'b' global skipped
-	board, ok := plugins[0].(*TikiPlugin)
+	board, ok := plugins[0].(*WorkflowPlugin)
 	if !ok {
-		t.Fatalf("Board: expected *TikiPlugin, got %T", plugins[0])
+		t.Fatalf("Board: expected *WorkflowPlugin, got %T", plugins[0])
 	}
 	if len(board.Actions) != 2 {
 		t.Fatalf("Board: expected 2 actions, got %d", len(board.Actions))
@@ -547,23 +547,23 @@ func TestMergeGlobalActionsIntoPlugins(t *testing.T) {
 	}
 
 	// Backlog: should have both globals ('a' and 'b')
-	backlog, ok := plugins[1].(*TikiPlugin)
+	backlog, ok := plugins[1].(*WorkflowPlugin)
 	if !ok {
-		t.Fatalf("Backlog: expected *TikiPlugin, got %T", plugins[1])
+		t.Fatalf("Backlog: expected *WorkflowPlugin, got %T", plugins[1])
 	}
 	if len(backlog.Actions) != 2 {
 		t.Fatalf("Backlog: expected 2 actions, got %d", len(backlog.Actions))
 	}
 
-	// Help (DokiPlugin): should have no actions (skipped)
-	// DokiPlugin has no Actions field — nothing to check
+	// Help (WikiPlugin): should have no actions (skipped)
+	// WikiPlugin has no Actions field — nothing to check
 }
 
 func TestMergeGlobalActionsIntoPlugins_ShiftedRuneAlias(t *testing.T) {
 	stmt := mustParseAction(t, `update where id = id() set status="ready"`)
 
 	plugins := []Plugin{
-		&TikiPlugin{
+		&WorkflowPlugin{
 			BasePlugin: BasePlugin{Name: "Board"},
 			Actions:    []PluginAction{{Rune: 'X', KeyStr: "X", Label: "Local X", Action: stmt}},
 		},
@@ -576,9 +576,9 @@ func TestMergeGlobalActionsIntoPlugins_ShiftedRuneAlias(t *testing.T) {
 
 	mergeGlobalActionsIntoPlugins(plugins, globals)
 
-	board, ok := plugins[0].(*TikiPlugin)
+	board, ok := plugins[0].(*WorkflowPlugin)
 	if !ok {
-		t.Fatal("expected *TikiPlugin")
+		t.Fatal("expected *WorkflowPlugin")
 	}
 	if len(board.Actions) != 2 {
 		t.Fatalf("expected 2 actions (local X + global x), got %d", len(board.Actions))
@@ -603,9 +603,9 @@ func mustParseAction(t *testing.T, input string) *ruki.ValidatedStatement { //no
 
 func TestDefaultPlugin_MultipleDefaults(t *testing.T) {
 	plugins := []Plugin{
-		&TikiPlugin{BasePlugin: BasePlugin{Name: "A"}},
-		&TikiPlugin{BasePlugin: BasePlugin{Name: "B", Default: true}},
-		&TikiPlugin{BasePlugin: BasePlugin{Name: "C", Default: true}},
+		&WorkflowPlugin{BasePlugin: BasePlugin{Name: "A"}},
+		&WorkflowPlugin{BasePlugin: BasePlugin{Name: "B", Default: true}},
+		&WorkflowPlugin{BasePlugin: BasePlugin{Name: "C", Default: true}},
 	}
 	got := DefaultPlugin(plugins)
 	if got.GetName() != "B" {

@@ -41,7 +41,7 @@ type QuickSelectView interface {
 	GetFilterInput() tview.Primitive
 }
 
-// TikiViewProvider is implemented by controllers that back a TikiPlugin view.
+// TikiViewProvider is implemented by controllers that back a WorkflowPlugin view.
 // The view factory uses this to create PluginView without knowing the concrete controller type.
 type TikiViewProvider interface {
 	GetFilteredTikisForLane(lane int) []*tikipkg.Tiki
@@ -374,7 +374,7 @@ func (ir *InputRouter) openDepsEditor(tikiID, sourceDetailViewName string) {
 		return
 	}
 
-	pluginDef := &plugin.TikiPlugin{
+	pluginDef := &plugin.WorkflowPlugin{
 		BasePlugin: plugin.BasePlugin{
 			Name:        name,
 			Description: model.DepsEditorViewDesc,

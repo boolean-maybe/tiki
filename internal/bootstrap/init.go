@@ -188,11 +188,11 @@ func Bootstrap(tikiSkillContent, dokiSkillContent string) (*Result, error) {
 	viewFactory := view.NewViewFactory(tikiStore)
 	viewFactory.SetPlugins(pluginConfigs, pluginDefs, controllers.Plugins, globalActions)
 
-	// Wire fresh-per-navigation DokiController creation so each view instance
+	// Wire fresh-per-navigation WikiController creation so each view instance
 	// on the nav stack holds its own selectedTikiID (prevents a second doki
 	// navigation from overwriting the first view's context).
-	viewFactory.SetDokiControllerFactory(func(def plugin.Plugin, selectedTikiID string) *controller.DokiController {
-		dc := controller.NewDokiController(def, controllers.Nav, statuslineConfig, globalActions, tikiStore, gate, schema)
+	viewFactory.SetWikiControllerFactory(func(def plugin.Plugin, selectedTikiID string) *controller.WikiController {
+		dc := controller.NewWikiController(def, controllers.Nav, statuslineConfig, globalActions, tikiStore, gate, schema)
 		dc.SetSelectedTikiID(selectedTikiID)
 		return dc
 	})

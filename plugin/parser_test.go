@@ -166,7 +166,7 @@ func TestParsePluginConfig_ActivationKeyNormalization(t *testing.T) {
 	}
 }
 
-// TestParsePluginConfig_BoardKindExplicit asserts kind: board builds a TikiPlugin.
+// TestParsePluginConfig_BoardKindExplicit asserts kind: board builds a WorkflowPlugin.
 func TestParsePluginConfig_BoardKindExplicit(t *testing.T) {
 	cfg := pluginFileConfig{
 		Name: "Test",
@@ -180,8 +180,8 @@ func TestParsePluginConfig_BoardKindExplicit(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Expected no error, got: %v", err)
 	}
-	if _, ok := p.(*TikiPlugin); !ok {
-		t.Errorf("Expected TikiPlugin for kind: board, got %T", p)
+	if _, ok := p.(*WorkflowPlugin); !ok {
+		t.Errorf("Expected WorkflowPlugin for kind: board, got %T", p)
 	}
 }
 
@@ -217,9 +217,9 @@ background: "#0000ff"
 		t.Fatalf("Expected no error, got: %v", err)
 	}
 
-	tikiPlugin, ok := plugin.(*TikiPlugin)
+	tikiPlugin, ok := plugin.(*WorkflowPlugin)
 	if !ok {
-		t.Fatalf("Expected TikiPlugin, got %T", plugin)
+		t.Fatalf("Expected WorkflowPlugin, got %T", plugin)
 		return
 	}
 
@@ -371,9 +371,9 @@ actions:
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	tiki, ok := p.(*TikiPlugin)
+	tiki, ok := p.(*WorkflowPlugin)
 	if !ok {
-		t.Fatalf("expected TikiPlugin, got %T", p)
+		t.Fatalf("expected WorkflowPlugin, got %T", p)
 	}
 
 	if len(tiki.Actions) != 1 {
@@ -837,19 +837,19 @@ foreground: "#00ff00"
 		t.Fatalf("Expected no error, got: %v", err)
 	}
 
-	doki, ok := p.(*DokiPlugin)
+	wiki, ok := p.(*WikiPlugin)
 	if !ok {
-		t.Fatalf("Expected DokiPlugin, got %T", p)
+		t.Fatalf("Expected WikiPlugin, got %T", p)
 	}
 
-	if doki.GetName() != "Doc Plugin" {
-		t.Errorf("Expected name 'Doc Plugin', got %q", doki.GetName())
+	if wiki.GetName() != "Doc Plugin" {
+		t.Errorf("Expected name 'Doc Plugin', got %q", wiki.GetName())
 	}
-	if doki.GetKind() != KindWiki {
-		t.Errorf("Expected kind wiki, got %q", doki.GetKind())
+	if wiki.GetKind() != KindWiki {
+		t.Errorf("Expected kind wiki, got %q", wiki.GetKind())
 	}
-	if doki.DocumentPath != "index.md" {
-		t.Errorf("Expected path 'index.md', got %q", doki.DocumentPath)
+	if wiki.DocumentPath != "index.md" {
+		t.Errorf("Expected path 'index.md', got %q", wiki.DocumentPath)
 	}
 }
 
@@ -919,9 +919,9 @@ actions:
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	tiki, ok := p.(*TikiPlugin)
+	tiki, ok := p.(*WorkflowPlugin)
 	if !ok {
-		t.Fatalf("expected TikiPlugin, got %T", p)
+		t.Fatalf("expected WorkflowPlugin, got %T", p)
 	}
 
 	if tiki.Actions[0].ShowInHeader {
@@ -1333,9 +1333,9 @@ actions:
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	tp, ok := p.(*TikiPlugin)
+	tp, ok := p.(*WorkflowPlugin)
 	if !ok {
-		t.Fatal("expected *TikiPlugin")
+		t.Fatal("expected *WorkflowPlugin")
 	}
 	if len(tp.Actions) != 1 {
 		t.Fatalf("expected 1 action, got %d", len(tp.Actions))

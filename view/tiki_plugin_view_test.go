@@ -17,7 +17,7 @@ func TestPluginViewRefreshResetsNonSelectedLaneScrollOffset(t *testing.T) {
 	pluginConfig := model.NewPluginConfig("TestPlugin")
 	pluginConfig.SetLaneLayout([]int{1, 1}, nil)
 
-	pluginDef := &plugin.TikiPlugin{
+	pluginDef := &plugin.WorkflowPlugin{
 		BasePlugin: plugin.BasePlugin{
 			Name: "TestPlugin",
 		},
@@ -90,7 +90,7 @@ func TestPluginViewGridLayout_RowCount(t *testing.T) {
 			pluginConfig := model.NewPluginConfig("TestPlugin")
 			pluginConfig.SetLaneLayout([]int{tt.columns}, nil)
 
-			pluginDef := &plugin.TikiPlugin{
+			pluginDef := &plugin.WorkflowPlugin{
 				BasePlugin: plugin.BasePlugin{Name: "TestPlugin"},
 				Lanes:      []plugin.TikiLane{{Name: "Lane", Columns: tt.columns}},
 			}
@@ -136,7 +136,7 @@ func TestPluginViewGridLayout_SelectedRow(t *testing.T) {
 			pluginConfig := model.NewPluginConfig("TestPlugin")
 			pluginConfig.SetLaneLayout([]int{tt.columns}, nil)
 
-			pluginDef := &plugin.TikiPlugin{
+			pluginDef := &plugin.WorkflowPlugin{
 				BasePlugin: plugin.BasePlugin{Name: "TestPlugin"},
 				Lanes:      []plugin.TikiLane{{Name: "Lane", Columns: tt.columns}},
 			}
@@ -170,7 +170,7 @@ func TestPluginViewRefreshPreservesScrollOffset(t *testing.T) {
 	pluginConfig := model.NewPluginConfig("TestPlugin")
 	pluginConfig.SetLaneLayout([]int{1}, nil)
 
-	pluginDef := &plugin.TikiPlugin{
+	pluginDef := &plugin.WorkflowPlugin{
 		BasePlugin: plugin.BasePlugin{
 			Name: "TestPlugin",
 		},

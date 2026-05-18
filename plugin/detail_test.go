@@ -355,10 +355,9 @@ func TestDetailPlugin_RejectsUnknownFieldModifier(t *testing.T) {
 	}
 }
 
-// TestWikiPlugin_StillBuildsDokiPlugin asserts the Phase 1 split — wiki
-// continues to use the markdown-view path (DokiPlugin), only detail moves to
-// DetailPlugin.
-func TestWikiPlugin_StillBuildsDokiPlugin(t *testing.T) {
+// TestWikiKind_BuildsWikiPlugin asserts that kind: wiki parses to a WikiPlugin
+// (markdown-view path), distinct from the DetailPlugin used by kind: detail.
+func TestWikiKind_BuildsWikiPlugin(t *testing.T) {
 	schema := testSchema()
 	cfg := pluginFileConfig{
 		Name: "Docs",
@@ -369,7 +368,7 @@ func TestWikiPlugin_StillBuildsDokiPlugin(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if _, ok := p.(*DokiPlugin); !ok {
-		t.Errorf("expected *DokiPlugin for kind: wiki, got %T", p)
+	if _, ok := p.(*WikiPlugin); !ok {
+		t.Errorf("expected *WikiPlugin for kind: wiki, got %T", p)
 	}
 }

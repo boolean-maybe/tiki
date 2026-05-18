@@ -118,17 +118,17 @@ views:
 	}
 
 	var detail *DetailPlugin
-	var board *TikiPlugin
+	var board *WorkflowPlugin
 	for _, p := range plugins {
 		switch v := p.(type) {
 		case *DetailPlugin:
 			detail = v
-		case *TikiPlugin:
+		case *WorkflowPlugin:
 			board = v
 		}
 	}
 	if detail == nil || board == nil {
-		t.Fatalf("expected both DetailPlugin and TikiPlugin; got detail=%v board=%v", detail, board)
+		t.Fatalf("expected both DetailPlugin and WorkflowPlugin; got detail=%v board=%v", detail, board)
 	}
 
 	// Detail must NOT carry a self-target Enter action.

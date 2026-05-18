@@ -48,9 +48,9 @@ lanes:
 		t.Errorf("expected name 'UI Tikis', got '%s'", def.GetName())
 	}
 
-	tp, ok := def.(*TikiPlugin)
+	tp, ok := def.(*WorkflowPlugin)
 	if !ok {
-		t.Fatalf("expected TikiPlugin, got %T", def)
+		t.Fatalf("expected WorkflowPlugin, got %T", def)
 	}
 
 	if len(tp.Lanes) != 1 || tp.Lanes[0].Filter == nil {
@@ -106,9 +106,9 @@ lanes:
 		t.Fatalf("failed to parse plugin: %v", err)
 	}
 
-	tp, ok := def.(*TikiPlugin)
+	tp, ok := def.(*WorkflowPlugin)
 	if !ok {
-		t.Fatalf("expected TikiPlugin, got %T", def)
+		t.Fatalf("expected WorkflowPlugin, got %T", def)
 	}
 
 	allTikis := []*tikipkg.Tiki{
@@ -148,9 +148,9 @@ lanes:
 		t.Fatalf("failed to parse plugin: %v", err)
 	}
 
-	tp, ok := def.(*TikiPlugin)
+	tp, ok := def.(*WorkflowPlugin)
 	if !ok {
-		t.Fatalf("expected TikiPlugin, got %T", def)
+		t.Fatalf("expected WorkflowPlugin, got %T", def)
 	}
 
 	testCases := []struct {

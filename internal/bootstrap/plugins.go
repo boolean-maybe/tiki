@@ -62,7 +62,7 @@ func BuildPluginConfigsAndDefs(plugins []plugin.Plugin) (map[string]*model.Plugi
 	for _, p := range plugins {
 		pc := model.NewPluginConfig(p.GetName())
 
-		if tp, ok := p.(*plugin.TikiPlugin); ok {
+		if tp, ok := p.(*plugin.WorkflowPlugin); ok {
 			if tp.Mode == "expanded" {
 				pc.SetViewMode("expanded")
 			}

@@ -172,7 +172,7 @@ func parseBoardOrListPlugin(cfg pluginFileConfig, base BasePlugin, schema ruki.S
 		return nil, fmt.Errorf("plugin %q (%s): %w", cfg.Name, base.FilePath, err)
 	}
 
-	return &TikiPlugin{
+	return &WorkflowPlugin{
 		BasePlugin: base,
 		Lanes:      lanes,
 		Mode:       mode,
@@ -282,7 +282,7 @@ func parseWikiPlugin(cfg pluginFileConfig, base BasePlugin) (Plugin, error) {
 	if cfg.Path == "" {
 		return nil, fmt.Errorf("plugin %q: kind: wiki requires `path:` (relative path to a markdown document)", cfg.Name)
 	}
-	return &DokiPlugin{
+	return &WikiPlugin{
 		BasePlugin:   base,
 		DocumentPath: cfg.Path,
 	}, nil

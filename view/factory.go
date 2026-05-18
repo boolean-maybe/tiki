@@ -28,11 +28,11 @@ type ViewFactory struct {
 	pluginDefs        map[string]plugin.Plugin
 	pluginControllers map[string]controller.PluginControllerInterface
 	globalActions     []plugin.PluginAction
-	// dokiControllerFactory creates a fresh DokiController for each view navigation,
+	// wikiControllerFactory creates a fresh WikiController for each view navigation,
 	// preventing the shared-singleton problem where SetSelectedTikiID on one navigation
 	// would overwrite the selected tiki ID seen by a previously-pushed view of the same plugin.
-	dokiControllerFactory func(pluginDef plugin.Plugin, selectedTikiID string) *controller.DokiController
-	// detailControllerFactory mirrors dokiControllerFactory for kind: detail
+	wikiControllerFactory func(pluginDef plugin.Plugin, selectedTikiID string) *controller.WikiController
+	// detailControllerFactory mirrors wikiControllerFactory for kind: detail
 	// views: each navigation gets its own DetailController so multiple Detail
 	// views on the stack hold independent selectedTikiID values. Without this,
 	// the most recent navigation overwrites the selection of every earlier
@@ -75,15 +75,15 @@ func (f *ViewFactory) SetPlugins(
 	f.globalActions = globalActions
 }
 
-// SetDokiControllerFactory registers a factory function that creates a fresh
-// DokiController per view navigation, capturing nav/status/gate/schema from
-// the bootstrap context. Must be called before any doki view is created.
-func (f *ViewFactory) SetDokiControllerFactory(fn func(pluginDef plugin.Plugin, selectedTikiID string) *controller.DokiController) {
-	f.dokiControllerFactory = fn
+// SetWikiControllerFactory registers a factory function that creates a fresh
+// WikiController per view navigation, capturing nav/status/gate/schema from
+// the bootstrap context. Must be called before any wiki view is created.
+func (f *ViewFactory) SetWikiControllerFactory(fn func(pluginDef plugin.Plugin, selectedTikiID string) *controller.WikiController) {
+	f.wikiControllerFactory = fn
 }
 
 // SetDetailControllerFactory registers a factory for fresh DetailControllers
-// per navigation. Same rationale as SetDokiControllerFactory but for
+// per navigation. Same rationale as SetWikiControllerFactory but for
 // kind: detail views, so two pushed Detail views can each carry their own
 // selected tiki id without trampling each other.
 func (f *ViewFactory) SetDetailControllerFactory(fn func(pluginDef *plugin.DetailPlugin, selectedTikiID string) *controller.DetailController) {
@@ -165,9 +165,9 @@ func (f *ViewFactory) CreateView(viewID model.ViewID, params map[string]interfac
 			}
 			switch pluginDef.GetKind() {
 			case plugin.KindBoard, plugin.KindList:
-				tikiPlugin, ok := pluginDef.(*plugin.TikiPlugin)
+				tikiPlugin, ok := pluginDef.(*plugin.WorkflowPlugin)
 				if !ok {
-					slog.Error("board/list plugin is not a TikiPlugin", "plugin", pluginName)
+					slog.Error("board/list plugin is not a WorkflowPlugin", "plugin", pluginName)
 					break
 				}
 				if pluginConfig == nil || pluginControllerInterface == nil {
@@ -189,23 +189,23 @@ func (f *ViewFactory) CreateView(viewID model.ViewID, params map[string]interfac
 					tikiCtrl.ShowNavigation(),
 				)
 			case plugin.KindWiki:
-				dokiPlugin, ok := pluginDef.(*plugin.DokiPlugin)
+				wikiPlugin, ok := pluginDef.(*plugin.WikiPlugin)
 				if !ok {
-					slog.Error("wiki plugin is not a DokiPlugin", "plugin", pluginName)
+					slog.Error("wiki plugin is not a WikiPlugin", "plugin", pluginName)
 					break
 				}
 				pluginParams := model.DecodePluginViewParams(params)
-				// Create a fresh DokiController per navigation so each view
+				// Create a fresh WikiController per navigation so each view
 				// instance on the nav stack holds its own selectedTikiID. The
 				// shared map entry is updated so InputRouter always dispatches
 				// through the controller that owns the currently-active view.
-				if f.dokiControllerFactory != nil {
-					freshCtrl := f.dokiControllerFactory(pluginDef, pluginParams.TikiID)
+				if f.wikiControllerFactory != nil {
+					freshCtrl := f.wikiControllerFactory(pluginDef, pluginParams.TikiID)
 					f.pluginControllers[pluginName] = freshCtrl
-				} else if dc, ok := pluginControllerInterface.(*controller.DokiController); ok {
+				} else if dc, ok := pluginControllerInterface.(*controller.WikiController); ok {
 					dc.SetSelectedTikiID(pluginParams.TikiID)
 				}
-				v = NewDokiView(dokiPlugin, f.imageManager, f.mermaidOpts, f.globalActions, f.tikiStore, pluginParams.TikiID)
+				v = NewWikiView(wikiPlugin, f.imageManager, f.mermaidOpts, f.globalActions, f.tikiStore, pluginParams.TikiID)
 			case plugin.KindDetail:
 				detailPlugin, ok := pluginDef.(*plugin.DetailPlugin)
 				if !ok {
@@ -215,7 +215,7 @@ func (f *ViewFactory) CreateView(viewID model.ViewID, params map[string]interfac
 				pluginParams := model.DecodePluginViewParams(params)
 				// Build (or refresh) the controller that owns this view's
 				// selectedTikiID. Each navigation gets a fresh controller —
-				// matching the wiki/doki path — so two pushed Detail views
+				// matching the wiki path — so two pushed Detail views
 				// of the same plugin don't overwrite each other's selection.
 				// The shared map is updated to the freshest controller so the
 				// InputRouter dispatches keys against the active view.

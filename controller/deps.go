@@ -46,7 +46,7 @@ func NewDepsController(
 	tikiStore store.Store,
 	mutationGate *service.TikiMutationGate,
 	pluginConfig *model.PluginConfig,
-	pluginDef *plugin.TikiPlugin,
+	pluginDef *plugin.WorkflowPlugin,
 	navController *NavigationController,
 	statusline *model.StatuslineConfig,
 	schema ruki.Schema,

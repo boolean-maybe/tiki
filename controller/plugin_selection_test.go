@@ -96,7 +96,7 @@ func newNavHarness(columns []int, counts []int) *navHarness {
 
 	pb := &pluginBase{
 		pluginConfig: config,
-		pluginDef: &plugin.TikiPlugin{
+		pluginDef: &plugin.WorkflowPlugin{
 			BasePlugin: plugin.BasePlugin{Name: "TestPlugin"},
 			Lanes:      lanes,
 		},
@@ -120,7 +120,7 @@ func TestEnsureFirstNonEmptyLaneSelectionSelectsFirstTiki(t *testing.T) {
 	emptyFilter := mustParseStmt(t, `select where status = "done"`)
 	todoFilter := mustParseStmt(t, `select where status = "ready"`)
 
-	pluginDef := &plugin.TikiPlugin{
+	pluginDef := &plugin.WorkflowPlugin{
 		BasePlugin: plugin.BasePlugin{
 			Name: "TestPlugin",
 		},
@@ -154,7 +154,7 @@ func TestEnsureFirstNonEmptyLaneSelectionKeepsCurrentLane(t *testing.T) {
 
 	todoFilter := mustParseStmt(t, `select where status = "ready"`)
 
-	pluginDef := &plugin.TikiPlugin{
+	pluginDef := &plugin.WorkflowPlugin{
 		BasePlugin: plugin.BasePlugin{
 			Name: "TestPlugin",
 		},
@@ -186,7 +186,7 @@ func TestEnsureFirstNonEmptyLaneSelectionNoTikis(t *testing.T) {
 	tikiStore := store.NewInMemoryStore()
 	emptyFilter := mustParseStmt(t, `select where status = "done"`)
 
-	pluginDef := &plugin.TikiPlugin{
+	pluginDef := &plugin.WorkflowPlugin{
 		BasePlugin: plugin.BasePlugin{
 			Name: "TestPlugin",
 		},
@@ -544,7 +544,7 @@ func TestPluginController_HandleDeleteTiki(t *testing.T) {
 	seedTiki(t, tikiStore, "0000T1", "Tiki 1", "ready", 3)
 
 	todoFilter := mustParseStmt(t, `select where status = "ready"`)
-	pluginDef := &plugin.TikiPlugin{
+	pluginDef := &plugin.WorkflowPlugin{
 		BasePlugin: plugin.BasePlugin{Name: "TestPlugin"},
 		Lanes:      []plugin.TikiLane{{Name: "Todo", Columns: 1, Filter: todoFilter}},
 	}
@@ -570,7 +570,7 @@ func TestPluginController_HandleDeleteTiki(t *testing.T) {
 func TestPluginController_HandleDeleteTiki_Empty(t *testing.T) {
 	tikiStore := store.NewInMemoryStore()
 	emptyFilter := mustParseStmt(t, `select where status = "done"`)
-	pluginDef := &plugin.TikiPlugin{
+	pluginDef := &plugin.WorkflowPlugin{
 		BasePlugin: plugin.BasePlugin{Name: "TestPlugin"},
 		Lanes:      []plugin.TikiLane{{Name: "Empty", Columns: 1, Filter: emptyFilter}},
 	}
@@ -592,7 +592,7 @@ func TestPluginController_HandleDeleteTiki_Rejected(t *testing.T) {
 	seedTiki(t, tikiStore, "0000T1", "Tiki 1", "ready", 3)
 
 	todoFilter := mustParseStmt(t, `select where status = "ready"`)
-	pluginDef := &plugin.TikiPlugin{
+	pluginDef := &plugin.WorkflowPlugin{
 		BasePlugin: plugin.BasePlugin{Name: "TestPlugin"},
 		Lanes:      []plugin.TikiLane{{Name: "Todo", Columns: 1, Filter: todoFilter}},
 	}
@@ -623,7 +623,7 @@ func TestPluginController_HandleDeleteTiki_Rejected(t *testing.T) {
 func TestPluginController_GetNameAndRegistry(t *testing.T) {
 	tikiStore := store.NewInMemoryStore()
 	todoFilter := mustParseStmt(t, `select where status = "ready"`)
-	pluginDef := &plugin.TikiPlugin{
+	pluginDef := &plugin.WorkflowPlugin{
 		BasePlugin: plugin.BasePlugin{Name: "MyPlugin"},
 		Lanes:      []plugin.TikiLane{{Name: "Todo", Columns: 1, Filter: todoFilter}},
 	}
@@ -651,7 +651,7 @@ func TestPluginController_HandleMoveTiki_Rejected(t *testing.T) {
 	inProgressFilter := mustParseStmt(t, `select where status = "inProgress"`)
 	inProgressAction := mustParseStmt(t, `update where id = id() set status = "inProgress"`)
 
-	pluginDef := &plugin.TikiPlugin{
+	pluginDef := &plugin.WorkflowPlugin{
 		BasePlugin: plugin.BasePlugin{Name: "TestPlugin"},
 		Lanes: []plugin.TikiLane{
 			{Name: "Ready", Columns: 1, Filter: readyFilter},
@@ -691,7 +691,7 @@ func TestPluginController_HandlePluginAction_Success(t *testing.T) {
 	readyFilter := mustParseStmt(t, `select where status = "ready"`)
 	markDoneAction := mustParseStmt(t, `update where id = id() set status = "done"`)
 
-	pluginDef := &plugin.TikiPlugin{
+	pluginDef := &plugin.WorkflowPlugin{
 		BasePlugin: plugin.BasePlugin{Name: "TestPlugin"},
 		Lanes:      []plugin.TikiLane{{Name: "Ready", Columns: 1, Filter: readyFilter}},
 		Actions: []plugin.PluginAction{
@@ -730,7 +730,7 @@ func TestPluginController_HandlePluginAction_Rejected(t *testing.T) {
 	readyFilter := mustParseStmt(t, `select where status = "ready"`)
 	markDoneAction := mustParseStmt(t, `update where id = id() set status = "done"`)
 
-	pluginDef := &plugin.TikiPlugin{
+	pluginDef := &plugin.WorkflowPlugin{
 		BasePlugin: plugin.BasePlugin{Name: "TestPlugin"},
 		Lanes:      []plugin.TikiLane{{Name: "Ready", Columns: 1, Filter: readyFilter}},
 		Actions: []plugin.PluginAction{
@@ -773,7 +773,7 @@ func TestPluginController_HandlePluginAction_Create(t *testing.T) {
 	readyFilter := mustParseStmt(t, `select where status = "ready"`)
 	createAction := mustParseStmt(t, `create title="New Tiki" status="ready" type="story" priority="medium"`)
 
-	pluginDef := &plugin.TikiPlugin{
+	pluginDef := &plugin.WorkflowPlugin{
 		BasePlugin: plugin.BasePlugin{Name: "TestPlugin"},
 		Lanes:      []plugin.TikiLane{{Name: "Ready", Columns: 1, Filter: readyFilter}},
 		Actions: []plugin.PluginAction{
@@ -813,7 +813,7 @@ func TestPluginController_HandlePluginAction_Delete(t *testing.T) {
 	doneFilter := mustParseStmt(t, `select where status = "done"`)
 	deleteAction := mustParseStmt(t, `delete where status = "done"`)
 
-	pluginDef := &plugin.TikiPlugin{
+	pluginDef := &plugin.WorkflowPlugin{
 		BasePlugin: plugin.BasePlugin{Name: "TestPlugin"},
 		Lanes:      []plugin.TikiLane{{Name: "Done", Columns: 1, Filter: doneFilter}},
 		Actions: []plugin.PluginAction{
@@ -848,7 +848,7 @@ func TestPluginController_HandlePluginAction_NoMatchingRune(t *testing.T) {
 	seedTiki(t, tikiStore, "0000T1", "Tiki 1", "ready", 3)
 
 	readyFilter := mustParseStmt(t, `select where status = "ready"`)
-	pluginDef := &plugin.TikiPlugin{
+	pluginDef := &plugin.WorkflowPlugin{
 		BasePlugin: plugin.BasePlugin{Name: "TestPlugin"},
 		Lanes:      []plugin.TikiLane{{Name: "Ready", Columns: 1, Filter: readyFilter}},
 		Actions:    []plugin.PluginAction{},
@@ -872,7 +872,7 @@ func TestPluginController_HandlePluginAction_NoSelectedTiki(t *testing.T) {
 	emptyFilter := mustParseStmt(t, `select where status = "done"`)
 	updateAction := mustParseStmt(t, `update where id = id() set status = "done"`)
 
-	pluginDef := &plugin.TikiPlugin{
+	pluginDef := &plugin.WorkflowPlugin{
 		BasePlugin: plugin.BasePlugin{Name: "TestPlugin"},
 		Lanes:      []plugin.TikiLane{{Name: "Empty", Columns: 1, Filter: emptyFilter}},
 		Actions: []plugin.PluginAction{
@@ -899,7 +899,7 @@ func TestPluginController_HandleMoveTiki_NoActionOnTargetLane(t *testing.T) {
 	readyFilter := mustParseStmt(t, `select where status = "ready"`)
 	doneFilter := mustParseStmt(t, `select where status = "done"`)
 
-	pluginDef := &plugin.TikiPlugin{
+	pluginDef := &plugin.WorkflowPlugin{
 		BasePlugin: plugin.BasePlugin{Name: "TestPlugin"},
 		Lanes: []plugin.TikiLane{
 			{Name: "Ready", Columns: 1, Filter: readyFilter},
@@ -929,7 +929,7 @@ func TestPluginController_HandleMoveTiki_Success(t *testing.T) {
 	doneFilter := mustParseStmt(t, `select where status = "done"`)
 	doneAction := mustParseStmt(t, `update where id = id() set status = "done"`)
 
-	pluginDef := &plugin.TikiPlugin{
+	pluginDef := &plugin.WorkflowPlugin{
 		BasePlugin: plugin.BasePlugin{Name: "TestPlugin"},
 		Lanes: []plugin.TikiLane{
 			{Name: "Ready", Columns: 1, Filter: readyFilter},
@@ -962,7 +962,7 @@ func TestPluginController_HandleMoveTiki_OutOfBounds(t *testing.T) {
 	seedTiki(t, tikiStore, "0000T1", "Tiki 1", "ready", 3)
 
 	readyFilter := mustParseStmt(t, `select where status = "ready"`)
-	pluginDef := &plugin.TikiPlugin{
+	pluginDef := &plugin.WorkflowPlugin{
 		BasePlugin: plugin.BasePlugin{Name: "TestPlugin"},
 		Lanes:      []plugin.TikiLane{{Name: "Ready", Columns: 1, Filter: readyFilter}},
 	}
@@ -1010,7 +1010,7 @@ func TestPluginController_GetFilteredTikisForLane_NilPluginDef(t *testing.T) {
 func TestPluginController_GetFilteredTikisForLane_OutOfRange(t *testing.T) {
 	tikiStore := store.NewInMemoryStore()
 	readyFilter := mustParseStmt(t, `select where status = "ready"`)
-	pluginDef := &plugin.TikiPlugin{
+	pluginDef := &plugin.WorkflowPlugin{
 		BasePlugin: plugin.BasePlugin{Name: "TestPlugin"},
 		Lanes:      []plugin.TikiLane{{Name: "Ready", Columns: 1, Filter: readyFilter}},
 	}
@@ -1034,7 +1034,7 @@ func TestPluginController_GetFilteredTikisForLane_NilFilter(t *testing.T) {
 	tikiStore := store.NewInMemoryStore()
 	seedTiki(t, tikiStore, "0000T1", "Tiki 1", "ready", 3)
 
-	pluginDef := &plugin.TikiPlugin{
+	pluginDef := &plugin.WorkflowPlugin{
 		BasePlugin: plugin.BasePlugin{Name: "TestPlugin"},
 		Lanes:      []plugin.TikiLane{{Name: "All", Columns: 1}},
 	}
@@ -1058,7 +1058,7 @@ func TestPluginController_GetFilteredTikisForLane_WithSearchNarrowing(t *testing
 	seedTiki(t, tikiStore, "0000T2", "Beta", "ready", 3)
 
 	readyFilter := mustParseStmt(t, `select where status = "ready"`)
-	pluginDef := &plugin.TikiPlugin{
+	pluginDef := &plugin.WorkflowPlugin{
 		BasePlugin: plugin.BasePlugin{Name: "TestPlugin"},
 		Lanes:      []plugin.TikiLane{{Name: "Ready", Columns: 1, Filter: readyFilter}},
 	}
@@ -1085,7 +1085,7 @@ func TestPluginController_GetFilteredTikisForLane_WithSearchNarrowing(t *testing
 func TestPluginController_HandleAction_UnknownAction(t *testing.T) {
 	tikiStore := store.NewInMemoryStore()
 	readyFilter := mustParseStmt(t, `select where status = "ready"`)
-	pluginDef := &plugin.TikiPlugin{
+	pluginDef := &plugin.WorkflowPlugin{
 		BasePlugin: plugin.BasePlugin{Name: "TestPlugin"},
 		Lanes:      []plugin.TikiLane{{Name: "Ready", Columns: 1, Filter: readyFilter}},
 	}
@@ -1107,7 +1107,7 @@ func TestPluginController_HandleSearch(t *testing.T) {
 	seedTiki(t, tikiStore, "0000T1", "Alpha", "ready", 3)
 
 	readyFilter := mustParseStmt(t, `select where status = "ready"`)
-	pluginDef := &plugin.TikiPlugin{
+	pluginDef := &plugin.WorkflowPlugin{
 		BasePlugin: plugin.BasePlugin{Name: "TestPlugin"},
 		Lanes:      []plugin.TikiLane{{Name: "Ready", Columns: 1, Filter: readyFilter}},
 	}
@@ -1129,7 +1129,7 @@ func TestPluginController_HandleSearch(t *testing.T) {
 func TestPluginController_ShowNavigation(t *testing.T) {
 	tikiStore := store.NewInMemoryStore()
 	readyFilter := mustParseStmt(t, `select where status = "ready"`)
-	pluginDef := &plugin.TikiPlugin{
+	pluginDef := &plugin.WorkflowPlugin{
 		BasePlugin: plugin.BasePlugin{Name: "TestPlugin"},
 		Lanes:      []plugin.TikiLane{{Name: "Ready", Columns: 1, Filter: readyFilter}},
 	}
@@ -1149,7 +1149,7 @@ func TestPluginController_ShowNavigation(t *testing.T) {
 func TestPluginController_HandleToggleViewMode(t *testing.T) {
 	tikiStore := store.NewInMemoryStore()
 	readyFilter := mustParseStmt(t, `select where status = "ready"`)
-	pluginDef := &plugin.TikiPlugin{
+	pluginDef := &plugin.WorkflowPlugin{
 		BasePlugin: plugin.BasePlugin{Name: "TestPlugin"},
 		Lanes:      []plugin.TikiLane{{Name: "Ready", Columns: 1, Filter: readyFilter}},
 	}
@@ -1178,7 +1178,7 @@ func TestPluginController_HandlePluginAction_Select(t *testing.T) {
 	readyFilter := mustParseStmt(t, `select where status = "ready"`)
 	selectAction := mustParseStmt(t, `select where status = "ready"`)
 
-	pluginDef := &plugin.TikiPlugin{
+	pluginDef := &plugin.WorkflowPlugin{
 		BasePlugin: plugin.BasePlugin{Name: "TestPlugin"},
 		Lanes:      []plugin.TikiLane{{Name: "Ready", Columns: 1, Filter: readyFilter}},
 		Actions: []plugin.PluginAction{
@@ -1213,7 +1213,7 @@ func TestPluginController_HandlePluginAction_SelectNoSelectedTiki(t *testing.T) 
 	emptyFilter := mustParseStmt(t, `select where status = "done"`)
 	selectAction := mustParseStmt(t, `select where status = "ready"`)
 
-	pluginDef := &plugin.TikiPlugin{
+	pluginDef := &plugin.WorkflowPlugin{
 		BasePlugin: plugin.BasePlugin{Name: "TestPlugin"},
 		Lanes:      []plugin.TikiLane{{Name: "Empty", Columns: 1, Filter: emptyFilter}},
 		Actions: []plugin.PluginAction{
@@ -1252,7 +1252,7 @@ func TestPluginController_HandleActionInput_ValidInput(t *testing.T) {
 	readyFilter := mustParseStmt(t, `select where status = "ready"`)
 	assignAction := mustParseStmtWithInput(t, `update where id = id() set assignee = input()`, ruki.ValueString)
 
-	pluginDef := &plugin.TikiPlugin{
+	pluginDef := &plugin.WorkflowPlugin{
 		BasePlugin: plugin.BasePlugin{Name: "TestPlugin"},
 		Lanes:      []plugin.TikiLane{{Name: "Ready", Columns: 1, Filter: readyFilter}},
 		Actions: []plugin.PluginAction{
@@ -1288,7 +1288,7 @@ func TestPluginController_HandleActionInput_InvalidInput(t *testing.T) {
 	readyFilter := mustParseStmt(t, `select where status = "ready"`)
 	pointsAction := mustParseStmtWithInput(t, `update where id = id() set escalations = input()`, ruki.ValueInt)
 
-	pluginDef := &plugin.TikiPlugin{
+	pluginDef := &plugin.WorkflowPlugin{
 		BasePlugin: plugin.BasePlugin{Name: "TestPlugin"},
 		Lanes:      []plugin.TikiLane{{Name: "Ready", Columns: 1, Filter: readyFilter}},
 		Actions: []plugin.PluginAction{
@@ -1327,7 +1327,7 @@ func TestPluginController_HandleActionInput_ExecutionFailure_StillCloses(t *test
 	readyFilter := mustParseStmt(t, `select where status = "ready"`)
 	assignAction := mustParseStmtWithInput(t, `update where id = id() set assignee = input()`, ruki.ValueString)
 
-	pluginDef := &plugin.TikiPlugin{
+	pluginDef := &plugin.WorkflowPlugin{
 		BasePlugin: plugin.BasePlugin{Name: "TestPlugin"},
 		Lanes:      []plugin.TikiLane{{Name: "Ready", Columns: 1, Filter: readyFilter}},
 		Actions: []plugin.PluginAction{
@@ -1356,7 +1356,7 @@ func TestPluginController_GetActionInputSpec(t *testing.T) {
 	assignAction := mustParseStmtWithInput(t, `update where id = id() set assignee = input()`, ruki.ValueString)
 	markDoneAction := mustParseStmt(t, `update where id = id() set status = "done"`)
 
-	pluginDef := &plugin.TikiPlugin{
+	pluginDef := &plugin.WorkflowPlugin{
 		BasePlugin: plugin.BasePlugin{Name: "TestPlugin"},
 		Lanes:      []plugin.TikiLane{{Name: "Ready", Columns: 1, Filter: readyFilter}},
 		Actions: []plugin.PluginAction{
@@ -1409,7 +1409,7 @@ func TestPluginController_BulkAction_ExecutesWithNoSelection(t *testing.T) {
 	doneFilter := mustParseStmt(t, `select where status = "done"`)
 	bulkDelete := mustParseStmt(t, `delete where status = "done"`)
 
-	pluginDef := &plugin.TikiPlugin{
+	pluginDef := &plugin.WorkflowPlugin{
 		BasePlugin: plugin.BasePlugin{Name: "TestPlugin"},
 		Lanes:      []plugin.TikiLane{{Name: "Done", Columns: 1, Filter: doneFilter}},
 		Actions: []plugin.PluginAction{
@@ -1449,7 +1449,7 @@ func TestPluginController_IDRequiredAction_FailsPreflightWithNoSelection(t *test
 	emptyFilter := mustParseStmt(t, `select where status = "done"`)
 	updateAction := mustParseStmt(t, `update where id = id() set status = "done"`)
 
-	pluginDef := &plugin.TikiPlugin{
+	pluginDef := &plugin.WorkflowPlugin{
 		BasePlugin: plugin.BasePlugin{Name: "TestPlugin"},
 		Lanes:      []plugin.TikiLane{{Name: "Empty", Columns: 1, Filter: emptyFilter}},
 		Actions: []plugin.PluginAction{

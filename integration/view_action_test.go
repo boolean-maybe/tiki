@@ -65,7 +65,7 @@ views:
 }
 
 // TestViewAction_WikiViewDispatchesGlobal exercises the same dispatch path
-// from a non-board view. `DokiController.handleGlobalAction` should switch
+// from a non-board view. `WikiController.handleGlobalAction` should switch
 // to the target view.
 func TestViewAction_WikiViewDispatchesGlobal(t *testing.T) {
 	workflowContent := testWorkflowPreamble + `actions:

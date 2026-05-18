@@ -23,7 +23,7 @@ type PluginView struct {
 	laneBoxes           []*ScrollableList
 	tikiStore           store.Store
 	pluginConfig        *model.PluginConfig
-	pluginDef           *plugin.TikiPlugin
+	pluginDef           *plugin.WorkflowPlugin
 	registry            *controller.ActionRegistry
 	showNavigation      bool
 	storeListenerID     int
@@ -37,7 +37,7 @@ type PluginView struct {
 func NewPluginView(
 	tikiStore store.Store,
 	pluginConfig *model.PluginConfig,
-	pluginDef *plugin.TikiPlugin,
+	pluginDef *plugin.WorkflowPlugin,
 	getLaneTikis func(lane int) []*tikipkg.Tiki,
 	ensureSelection func() bool,
 	registry *controller.ActionRegistry,
