@@ -39,7 +39,7 @@ func BuildControllers(
 	for _, p := range plugins {
 		switch p.GetKind() {
 		case plugin.KindBoard, plugin.KindList:
-			tp, ok := p.(*plugin.TikiPlugin)
+			tp, ok := p.(*plugin.WorkflowPlugin)
 			if !ok {
 				continue
 			}
@@ -53,7 +53,7 @@ func BuildControllers(
 				schema,
 			)
 		case plugin.KindWiki:
-			pluginControllers[p.GetName()] = controller.NewDokiController(
+			pluginControllers[p.GetName()] = controller.NewWikiController(
 				p, navController, statuslineConfig, globalActions,
 				tikiStore, mutationGate, schema,
 			)

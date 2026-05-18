@@ -172,9 +172,9 @@ func collectViewNames(views []pluginFileConfig, path string) (map[string]struct{
 // setConfigIndex records the view's position in the workflow file.
 func setConfigIndex(p Plugin, i int) {
 	switch v := p.(type) {
-	case *TikiPlugin:
+	case *WorkflowPlugin:
 		v.ConfigIndex = i
-	case *DokiPlugin:
+	case *WikiPlugin:
 		v.ConfigIndex = i
 	case *DetailPlugin:
 		v.ConfigIndex = i
@@ -297,7 +297,7 @@ func mergeGlobalActionsIntoPlugins(plugins []Plugin, globalActions []PluginActio
 // merging.
 func pluginActionSlice(p Plugin) (*[]PluginAction, bool) {
 	switch v := p.(type) {
-	case *TikiPlugin:
+	case *WorkflowPlugin:
 		return &v.Actions, true
 	case *DetailPlugin:
 		return &v.Actions, true

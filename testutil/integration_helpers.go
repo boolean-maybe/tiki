@@ -426,7 +426,7 @@ func (ta *TestApp) LoadPlugins() error {
 		pluginConfigs[p.GetName()] = pc
 
 		// Create appropriate controller based on plugin type
-		if tp, ok := p.(*plugin.TikiPlugin); ok {
+		if tp, ok := p.(*plugin.WorkflowPlugin); ok {
 			columns := make([]int, len(tp.Lanes))
 			widths := make([]int, len(tp.Lanes))
 			for i, lane := range tp.Lanes {
@@ -437,8 +437,8 @@ func (ta *TestApp) LoadPlugins() error {
 			pluginControllers[p.GetName()] = controller.NewPluginController(
 				ta.TikiStore, ta.MutationGate, pc, tp, ta.NavController, ta.statuslineConfig, ta.Schema,
 			)
-		} else if dp, ok := p.(*plugin.DokiPlugin); ok {
-			pluginControllers[p.GetName()] = controller.NewDokiController(
+		} else if dp, ok := p.(*plugin.WikiPlugin); ok {
+			pluginControllers[p.GetName()] = controller.NewWikiController(
 				dp, ta.NavController, ta.statuslineConfig, globalActions,
 				ta.TikiStore, ta.MutationGate, ta.Schema,
 			)

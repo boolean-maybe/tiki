@@ -19,24 +19,24 @@ import (
 	"github.com/rivo/tview"
 )
 
-// DokiView renders a documentation plugin (navigable markdown). It backs
+// WikiView renders a documentation plugin (navigable markdown). It backs
 // `kind: wiki` views; `kind: detail` is rendered by the configurable detail
 // view in view/tikidetail and no longer flows through this type.
 // surfacedGlobals carries the workflow-level global actions (both
 // `kind: view` and `kind: ruki`) so the header and action palette (which
 // read this view's registry) show them alongside the built-in navigation
-// actions. Keyboard dispatch for both kinds is routed by DokiController.
+// actions. Keyboard dispatch for both kinds is routed by WikiController.
 // tikiStore is used to resolve `[[ID]]` wikilinks against the document
 // store. selectedTikiID still carries any selection threaded in via
 // PluginViewParams and is exposed through GetSelectedID() for action
 // enablement (e.g. `require: ["selection:one"]`); only the KindDetail
 // rendering branch in build() is now unreachable, since factory.go routes
 // detail views to DetailController.
-type DokiView struct {
+type WikiView struct {
 	root                *tview.Flex
 	titleBar            tview.Primitive
 	md                  *markdown.NavigableMarkdown
-	pluginDef           *plugin.DokiPlugin
+	pluginDef           *plugin.WikiPlugin
 	registry            *controller.ActionRegistry
 	imageManager        *navtview.ImageManager
 	mermaidOpts         *nav.MermaidOptions
@@ -46,23 +46,23 @@ type DokiView struct {
 	actionChangeHandler func()
 }
 
-// NewDokiView creates a doki view. globalActions is the workflow's top-level
+// NewWikiView creates a wiki view. globalActions is the workflow's top-level
 // actions list; both `kind: view` and `kind: ruki` entries are surfaced in
-// the view registry (DokiController routes keyboard dispatch for both).
+// the view registry (WikiController routes keyboard dispatch for both).
 // tikiStore may be nil for unit tests that don't exercise wikilink
 // resolution. selectedTikiID is the selection threaded in via
 // PluginViewParams; for `kind: wiki` (the only kind routed here today) it
 // is not used to fetch content (wiki binds via `path:`) but is exposed
 // through GetSelectedID() so action `require:` gates resolve correctly.
-func NewDokiView(
-	pluginDef *plugin.DokiPlugin,
+func NewWikiView(
+	pluginDef *plugin.WikiPlugin,
 	imageManager *navtview.ImageManager,
 	mermaidOpts *nav.MermaidOptions,
 	globalActions []plugin.PluginAction,
 	tikiStore store.ReadStore,
 	selectedTikiID string,
-) *DokiView {
-	dv := &DokiView{
+) *WikiView {
+	dv := &WikiView{
 		pluginDef:       pluginDef,
 		registry:        controller.NewActionRegistry(),
 		imageManager:    imageManager,
@@ -77,18 +77,18 @@ func NewDokiView(
 }
 
 // surfacedGlobalActions returns the global actions the view should surface
-// in its registry (header + palette). Mirrors the filtering DokiController
+// in its registry (header + palette). Mirrors the filtering WikiController
 // applies to its own registry so UI and keyboard dispatch agree:
 //
 //   - view-kind actions surface unconditionally, except a global pointing
 //     at the host view itself (would no-op or recurse on activation).
 //   - ruki-kind actions surface ONLY when non-interactive. `input:` and
-//     `choose()` actions need the input/choose pipeline which DokiController
+//     `choose()` actions need the input/choose pipeline which WikiController
 //     does not implement; showing them would lie about what pressing the
 //     key would do (the controller refuses to fire them).
 //
 // Future work (phase6.md): implement GetActionInputSpec / GetActionChooseSpec
-// on DokiController so interactive ruki globals can fire from non-board views
+// on WikiController so interactive ruki globals can fire from non-board views
 // too, at which point this filter can widen.
 func surfacedGlobalActions(globals []plugin.PluginAction, hostViewName string) []plugin.PluginAction {
 	if len(globals) == 0 {
@@ -127,7 +127,7 @@ func pluginRequirementsToController(raw []string) []controller.Requirement {
 	return out
 }
 
-func (dv *DokiView) build() {
+func (dv *WikiView) build() {
 	// title bar with gradient background using theme-derived caption colors
 	pair := theme.Roles().PluginCaptions().At(dv.pluginDef.ConfigIndex)
 	bgColor := theme.NewColor(pair.Bg().TCell())
@@ -188,7 +188,7 @@ func (dv *DokiView) build() {
 	})
 
 	if err != nil {
-		slog.Error("failed to fetch doki content", "plugin", dv.pluginDef.Name, "error", err)
+		slog.Error("failed to fetch wiki content", "plugin", dv.pluginDef.Name, "error", err)
 		content = fmt.Sprintf("Error loading content: %v", err)
 	}
 
@@ -204,7 +204,7 @@ func (dv *DokiView) build() {
 	dv.rebuildLayout()
 }
 
-func (dv *DokiView) rebuildLayout() {
+func (dv *WikiView) rebuildLayout() {
 	dv.root.Clear()
 	dv.root.AddItem(dv.titleBar, 1, 0, false)
 	dv.root.AddItem(dv.md.Viewer(), 0, 1, true)
@@ -213,58 +213,58 @@ func (dv *DokiView) rebuildLayout() {
 // GetSelectedID implements controller.SelectableView. Returns the tiki id
 // this view was navigated to with, or the empty string when the view has
 // no carried selection (kind: wiki on its own, since detail no longer
-// flows through DokiView). Load-bearing for the InputRouter enablement
+// flows through WikiView). Load-bearing for the InputRouter enablement
 // gate: actions with `require: ["selection:one"]` read this to decide
-// whether to dispatch from a doki view.
-func (dv *DokiView) GetSelectedID() string {
+// whether to dispatch from a wiki view.
+func (dv *WikiView) GetSelectedID() string {
 	return dv.selectedTikiID
 }
 
 // SetSelectedID lets the harness inject a selection after construction.
-// Doki views do not expose an in-view selection gesture today — selection
+// Wiki views do not expose an in-view selection gesture today — selection
 // arrives via PluginViewParams at navigation time — so this is primarily a
 // contract fill for SelectableView.
-func (dv *DokiView) SetSelectedID(id string) {
+func (dv *WikiView) SetSelectedID(id string) {
 	dv.selectedTikiID = id
 }
 
-// ShowNavigation returns true — doki views always show plugin navigation keys.
-func (dv *DokiView) ShowNavigation() bool { return true }
+// ShowNavigation returns true — wiki views always show plugin navigation keys.
+func (dv *WikiView) ShowNavigation() bool { return true }
 
 // GetViewName returns the plugin name for the header info section
-func (dv *DokiView) GetViewName() string { return dv.pluginDef.GetName() }
+func (dv *WikiView) GetViewName() string { return dv.pluginDef.GetName() }
 
 // GetViewDescription returns the plugin description for the header info section
-func (dv *DokiView) GetViewDescription() string { return dv.pluginDef.GetDescription() }
+func (dv *WikiView) GetViewDescription() string { return dv.pluginDef.GetDescription() }
 
-func (dv *DokiView) GetPrimitive() tview.Primitive {
+func (dv *WikiView) GetPrimitive() tview.Primitive {
 	return dv.root
 }
 
-func (dv *DokiView) GetActionRegistry() *controller.ActionRegistry {
+func (dv *WikiView) GetActionRegistry() *controller.ActionRegistry {
 	return dv.registry
 }
 
-func (dv *DokiView) GetViewID() model.ViewID {
+func (dv *WikiView) GetViewID() model.ViewID {
 	return model.MakePluginViewID(dv.pluginDef.Name)
 }
 
-func (dv *DokiView) OnFocus() {
+func (dv *WikiView) OnFocus() {
 	// Focus behavior
 }
 
-func (dv *DokiView) OnBlur() {
+func (dv *WikiView) OnBlur() {
 	if dv.md != nil {
 		dv.md.Close()
 	}
 }
 
-func (dv *DokiView) SetActionChangeHandler(handler func()) {
+func (dv *WikiView) SetActionChangeHandler(handler func()) {
 	dv.actionChangeHandler = handler
 }
 
 // UpdateNavigationActions updates the registry to reflect current navigation state
-func (dv *DokiView) UpdateNavigationActions() {
+func (dv *WikiView) UpdateNavigationActions() {
 	// Clear and rebuild the registry
 	dv.registry = controller.NewActionRegistry()
 
@@ -333,7 +333,7 @@ func (dv *DokiView) UpdateNavigationActions() {
 
 // HandlePaletteAction maps palette-dispatched actions to the markdown viewer's
 // existing key-driven behavior by replaying synthetic key events.
-func (dv *DokiView) HandlePaletteAction(id controller.ActionID) bool {
+func (dv *WikiView) HandlePaletteAction(id controller.ActionID) bool {
 	if dv.md == nil {
 		return false
 	}

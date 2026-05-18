@@ -55,7 +55,7 @@ func newDepsTestEnv(t *testing.T) (*DepsController, store.Store) {
 		}
 	}
 
-	pluginDef := &plugin.TikiPlugin{
+	pluginDef := &plugin.WorkflowPlugin{
 		BasePlugin: plugin.BasePlugin{Name: "Dependency:" + testCtxID, ConfigIndex: -1, Kind: plugin.KindBoard},
 		TikiID:     testCtxID,
 		Lanes:      []plugin.TikiLane{{Name: "Blocks"}, {Name: "All"}, {Name: "Depends"}},
@@ -522,7 +522,7 @@ func TestDepsController_DeleteTiki_GateError(t *testing.T) {
 		}
 	}
 
-	pluginDef := &plugin.TikiPlugin{
+	pluginDef := &plugin.WorkflowPlugin{
 		BasePlugin: plugin.BasePlugin{Name: "Dependency:" + testCtxID, ConfigIndex: -1, Kind: plugin.KindBoard},
 		TikiID:     testCtxID,
 		Lanes:      []plugin.TikiLane{{Name: "Blocks"}, {Name: "All"}, {Name: "Depends"}},
@@ -566,7 +566,7 @@ func TestDepsController_MoveTiki_UpdateError(t *testing.T) {
 		}
 	}
 
-	pluginDef := &plugin.TikiPlugin{
+	pluginDef := &plugin.WorkflowPlugin{
 		BasePlugin: plugin.BasePlugin{Name: "Dependency:" + testCtxID, ConfigIndex: -1, Kind: plugin.KindBoard},
 		TikiID:     testCtxID,
 		Lanes:      []plugin.TikiLane{{Name: "Blocks"}, {Name: "All"}, {Name: "Depends"}},
@@ -659,7 +659,7 @@ func newDepsNavEnv(t *testing.T, blockers int, allTikis int, depends int, laneCo
 		}
 	}
 
-	pluginDef := &plugin.TikiPlugin{
+	pluginDef := &plugin.WorkflowPlugin{
 		BasePlugin: plugin.BasePlugin{Name: "Dependency:" + contextID, ConfigIndex: -1, Kind: plugin.KindBoard},
 		TikiID:     contextID,
 		Lanes:      []plugin.TikiLane{{Name: "Blocks"}, {Name: "All"}, {Name: "Depends"}},

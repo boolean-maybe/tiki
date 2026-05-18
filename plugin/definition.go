@@ -116,10 +116,9 @@ func (p *BasePlugin) GetRequire() []string {
 	return p.Require
 }
 
-// TikiPlugin backs board and list view kinds. The name is retained from the
-// pre-unification codebase; Phase 6 keeps it to limit churn. New kinds share
-// this struct — GetKind() distinguishes board vs list.
-type TikiPlugin struct {
+// WorkflowPlugin backs board and list view kinds. New kinds share this struct —
+// GetKind() distinguishes board vs list.
+type WorkflowPlugin struct {
 	BasePlugin
 	Lanes   []TikiLane     // lane definitions for this plugin
 	Mode    string         // display mode: "compact" or "expanded" (empty = compact)
@@ -127,13 +126,13 @@ type TikiPlugin struct {
 	TikiID  string         // optional tiki associated with this plugin (code-only, not from workflow config)
 }
 
-// DokiPlugin backs the wiki view kind (markdown document rendering bound to a
+// WikiPlugin backs the wiki view kind (markdown document rendering bound to a
 // specific document at `path:`).
 //
 // Note: DocumentID (ID-based resolution) is reserved for a later phase and is
 // rejected by the parser today. The field is kept on the struct so the future
 // implementation can wire it in without another schema change.
-type DokiPlugin struct {
+type WikiPlugin struct {
 	BasePlugin
 	DocumentID   string // future: resolve this ID through the document store
 	DocumentPath string // wiki: relative path under .doc/

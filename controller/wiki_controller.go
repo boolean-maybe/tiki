@@ -11,7 +11,7 @@ import (
 	tikipkg "github.com/boolean-maybe/tiki/tiki"
 )
 
-// DokiController handles non-board view actions (wiki, detail, search).
+// WikiController handles non-board view actions (wiki, detail, search).
 // These views are read-only and do not own tiki filtering/sorting state.
 //
 // Global-action wiring:
@@ -22,7 +22,7 @@ import (
 //     the same mutation/pipe/clipboard pipeline used by board views fires
 //     here too. If the view was navigated to with a selected tiki id, that
 //     id is carried into the ruki ExecutionInput.
-type DokiController struct {
+type WikiController struct {
 	pluginDef      plugin.Plugin
 	navController  *NavigationController
 	statusline     *model.StatuslineConfig
@@ -32,12 +32,12 @@ type DokiController struct {
 	selectedTikiID string // 6B.3: carried from source view via PluginViewParams
 }
 
-// NewDokiController creates a controller backing any non-board plugin view.
+// NewWikiController creates a controller backing any non-board plugin view.
 // globalActions is the workflow's top-level actions list; both `kind: view`
 // and `kind: ruki` entries are wired through. tikiStore / mutationGate /
 // schema may be nil for minimal test fixtures that don't exercise ruki
 // globals (in which case kind: ruki actions silently fall through).
-func NewDokiController(
+func NewWikiController(
 	pluginDef plugin.Plugin,
 	navController *NavigationController,
 	statusline *model.StatuslineConfig,
@@ -45,12 +45,12 @@ func NewDokiController(
 	tikiStore store.Store,
 	mutationGate *service.TikiMutationGate,
 	schema ruki.Schema,
-) *DokiController {
-	dc := &DokiController{
+) *WikiController {
+	dc := &WikiController{
 		pluginDef:     pluginDef,
 		navController: navController,
 		statusline:    statusline,
-		registry:      DokiViewActions(),
+		registry:      WikiViewActions(),
 		globalActions: globalActions,
 	}
 	if tikiStore != nil && mutationGate != nil && schema != nil {
@@ -68,14 +68,14 @@ func NewDokiController(
 // Not everything is surfaced:
 //   - view-kind actions surface unconditionally.
 //   - ruki-kind actions surface only when the executor is wired AND the
-//     action is non-interactive. The doki controller does not implement
+//     action is non-interactive. The wiki controller does not implement
 //     the input/choose pipeline (GetActionInputSpec / GetActionChooseSpec
 //     return empty), so dispatching an `input:` or `choose()` action here
 //     would fire it with an uninitialized prompt. Filter them out at
 //     registration time so the UI reflects what can actually run.
 //     Implementing the interactive pipeline on non-board views is a
 //     future enhancement; see phase6.md.
-func (dc *DokiController) mergeGlobalActions() {
+func (dc *WikiController) mergeGlobalActions() {
 	for _, ga := range dc.globalActions {
 		switch ga.Kind {
 		case plugin.ActionKindView:
@@ -83,7 +83,7 @@ func (dc *DokiController) mergeGlobalActions() {
 			// view itself, which would no-op the keystroke or recurse.
 			// Mirrors the loader-side filter for board/list/detail.
 			if ga.TargetView == dc.pluginDef.GetName() {
-				slog.Debug("dropping self-targeting view global from doki registry",
+				slog.Debug("dropping self-targeting view global from wiki registry",
 					"view", dc.pluginDef.GetName(), "key", ga.KeyStr)
 				continue
 			}
@@ -131,26 +131,26 @@ func toRequirements(raw []string) []Requirement {
 // SetSelectedTikiID records the tiki id this view was navigated to with.
 // Invoked by the view layer after decoding PluginViewParams so outbound
 // `kind: view` actions and inbound `kind: ruki` globals see the selection.
-func (dc *DokiController) SetSelectedTikiID(id string) {
+func (dc *WikiController) SetSelectedTikiID(id string) {
 	dc.selectedTikiID = id
 }
 
 // GetActionRegistry returns the actions for the view
-func (dc *DokiController) GetActionRegistry() *ActionRegistry {
+func (dc *WikiController) GetActionRegistry() *ActionRegistry {
 	return dc.registry
 }
 
 // GetPluginName returns the plugin name
-func (dc *DokiController) GetPluginName() string {
+func (dc *WikiController) GetPluginName() string {
 	return dc.pluginDef.GetName()
 }
 
-// ShowNavigation returns true — doki views show plugin navigation keys.
-func (dc *DokiController) ShowNavigation() bool { return true }
+// ShowNavigation returns true — wiki views show plugin navigation keys.
+func (dc *WikiController) ShowNavigation() bool { return true }
 
 // HandleAction routes navigation actions to the NavigableMarkdown component
 // and dispatches global actions (both `kind: view` and `kind: ruki`).
-func (dc *DokiController) HandleAction(actionID ActionID) bool {
+func (dc *WikiController) HandleAction(actionID ActionID) bool {
 	switch actionID {
 	case ActionNavigateBack, ActionNavigateForward:
 		// handled by the view's NavigableMarkdown component
@@ -164,10 +164,10 @@ func (dc *DokiController) HandleAction(actionID ActionID) bool {
 
 // handleGlobalAction dispatches a global action by its canonical key string.
 // View-kind actions switch the current view. Ruki-kind actions run through
-// the shared PluginExecutor against an empty selection (doki views have no
+// the shared PluginExecutor against an empty selection (wiki views have no
 // intrinsic selection; selection passthrough from a source view lands in
 // 6B.3).
-func (dc *DokiController) handleGlobalAction(keyStr string) bool {
+func (dc *WikiController) handleGlobalAction(keyStr string) bool {
 	for i := range dc.globalActions {
 		ga := &dc.globalActions[i]
 		if ga.KeyStr != keyStr {
@@ -186,7 +186,7 @@ func (dc *DokiController) handleGlobalAction(keyStr string) bool {
 				return false
 			}
 			// 6B.15/6B.20/6B.22: honor the target view's own require:
-			// in full. The doki view's carried selection is 0 or 1
+			// in full. The wiki view's carried selection is 0 or 1
 			// depending on whether a tiki id was threaded in via
 			// PluginViewParams; the target context is built fresh
 			// from the target's own identity so view:* requirements
@@ -232,20 +232,20 @@ func (dc *DokiController) handleGlobalAction(keyStr string) bool {
 	return false
 }
 
-// HandleSearch is not applicable for DokiPlugins (documentation views don't have search)
-func (dc *DokiController) HandleSearch(query string) {}
+// HandleSearch is not applicable for WikiPlugins (documentation views don't have search)
+func (dc *WikiController) HandleSearch(query string) {}
 
-func (dc *DokiController) GetActionInputSpec(ActionID) (string, ruki.ValueType, bool) {
+func (dc *WikiController) GetActionInputSpec(ActionID) (string, ruki.ValueType, bool) {
 	return "", 0, false
 }
-func (dc *DokiController) CanStartActionInput(ActionID) (string, ruki.ValueType, bool) {
+func (dc *WikiController) CanStartActionInput(ActionID) (string, ruki.ValueType, bool) {
 	return "", 0, false
 }
-func (dc *DokiController) HandleActionInput(ActionID, string) InputSubmitResult {
+func (dc *WikiController) HandleActionInput(ActionID, string) InputSubmitResult {
 	return InputKeepEditing
 }
-func (dc *DokiController) GetActionChooseSpec(ActionID) (string, bool) { return "", false }
-func (dc *DokiController) CanStartActionChoose(ActionID) (string, []*tikipkg.Tiki, bool) {
+func (dc *WikiController) GetActionChooseSpec(ActionID) (string, bool) { return "", false }
+func (dc *WikiController) CanStartActionChoose(ActionID) (string, []*tikipkg.Tiki, bool) {
 	return "", nil, false
 }
-func (dc *DokiController) HandleActionChoose(ActionID, string) bool { return false }
+func (dc *WikiController) HandleActionChoose(ActionID, string) bool { return false }

@@ -208,7 +208,7 @@ func TestPluginActions_RegistryMatchesExpectedKeys(t *testing.T) {
 	// Phase 1 dropped the built-in Enter→ActionOpenFromPlugin binding from
 	// the regular plugin registry. Open is now declared by the workflow as
 	// a `kind: view` action; the bundled kanban registers it on Enter, so
-	// every TikiPlugin's registry should expose Enter as a plugin_action
+	// every WorkflowPlugin's registry should expose Enter as a plugin_action
 	// entry rather than the legacy ActionOpenFromPlugin id.
 	expectedActions := []struct {
 		id   controller.ActionID
@@ -225,10 +225,10 @@ func TestPluginActions_RegistryMatchesExpectedKeys(t *testing.T) {
 		{controller.ActionToggleViewMode, tcell.KeyRune, 'v'},
 	}
 
-	// Test each plugin controller (only TikiPlugin types have tiki management actions)
+	// Test each plugin controller (only WorkflowPlugin types have tiki management actions)
 	for pluginName, pluginController := range ta.PluginControllers {
 		// Skip non-board controllers — they don't carry the board-style action set.
-		if _, ok := pluginController.(*controller.DokiController); ok {
+		if _, ok := pluginController.(*controller.WikiController); ok {
 			continue
 		}
 		if _, ok := pluginController.(*controller.DetailController); ok {

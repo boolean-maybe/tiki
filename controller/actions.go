@@ -86,7 +86,7 @@ const (
 	ActionExecute        ActionID = "execute"
 )
 
-// ActionID values for doki plugin (markdown navigation) actions.
+// ActionID values for wiki plugin (markdown navigation) actions.
 const (
 	ActionNavigateBack    ActionID = "navigate_back"
 	ActionNavigateForward ActionID = "navigate_forward"
@@ -881,9 +881,9 @@ func DepsViewActions() *ActionRegistry {
 	return r
 }
 
-// DokiViewActions returns the action registry for doki (documentation) plugin views.
-// Doki views primarily handle navigation through the NavigableMarkdown component.
-func DokiViewActions() *ActionRegistry {
+// WikiViewActions returns the action registry for wiki plugin views.
+// Wiki views primarily handle navigation through the NavigableMarkdown component.
+func WikiViewActions() *ActionRegistry {
 	r := NewActionRegistry()
 
 	// Navigation actions (handled by the NavigableMarkdown component in the view)

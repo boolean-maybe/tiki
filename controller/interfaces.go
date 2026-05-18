@@ -310,7 +310,7 @@ type RecurrencePartNavigable interface {
 }
 
 // PaletteActionHandler is implemented by views that handle palette-dispatched actions
-// directly (e.g., DokiView replays navigation as synthetic key events).
+// directly (e.g., WikiView replays navigation as synthetic key events).
 // The palette tries this before falling back to InputRouter.HandleAction.
 type PaletteActionHandler interface {
 	HandlePaletteAction(id ActionID) bool
