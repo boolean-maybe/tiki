@@ -13,11 +13,11 @@ const (
 	paramFocus     = "focus"
 	paramDescOnly  = "descOnly"
 	paramTagsOnly  = "tagsOnly"
-	paramMetadata  = "metadata"
+	paramLayout    = "layout"
 )
 
-// TikiEditParams are params for TikiEditViewID. Metadata carries the
-// metadata field list the source view (typically a configurable detail
+// TikiEditParams are params for TikiEditViewID. Layout carries the
+// layout field list the source view (typically a configurable detail
 // view) was using. When non-nil, the factory uses it directly; nil falls
 // through to the workflow-driven Detail-plugin lookup, then to a
 // hardcoded last-resort default.
@@ -27,7 +27,7 @@ type TikiEditParams struct {
 	Focus    EditField
 	DescOnly bool
 	TagsOnly bool
-	Metadata []string
+	Layout   []string
 }
 
 // EncodeTikiEditParams converts typed params into a navigation params map.
@@ -55,12 +55,12 @@ func EncodeTikiEditParams(p TikiEditParams) map[string]interface{} {
 	if p.TagsOnly {
 		m[paramTagsOnly] = true
 	}
-	if len(p.Metadata) > 0 {
+	if len(p.Layout) > 0 {
 		// store a defensive copy so later mutations to the source slice
 		// don't leak into the encoded params.
-		cp := make([]string, len(p.Metadata))
-		copy(cp, p.Metadata)
-		m[paramMetadata] = cp
+		cp := make([]string, len(p.Layout))
+		copy(cp, p.Layout)
+		m[paramLayout] = cp
 	}
 	return m
 }
@@ -123,8 +123,8 @@ func DecodeTikiEditParams(params map[string]interface{}) TikiEditParams {
 	if tagsOnly, ok := params[paramTagsOnly].(bool); ok {
 		p.TagsOnly = tagsOnly
 	}
-	if md, ok := params[paramMetadata].([]string); ok {
-		p.Metadata = md
+	if md, ok := params[paramLayout].([]string); ok {
+		p.Layout = md
 	}
 	return p
 }

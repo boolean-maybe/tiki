@@ -63,9 +63,6 @@ func BuildPluginConfigsAndDefs(plugins []plugin.Plugin) (map[string]*model.Plugi
 		pc := model.NewPluginConfig(p.GetName())
 
 		if tp, ok := p.(*plugin.WorkflowPlugin); ok {
-			if tp.Mode == "expanded" {
-				pc.SetViewMode("expanded")
-			}
 			columns := make([]int, len(tp.Lanes))
 			widths := make([]int, len(tp.Lanes))
 			for i, lane := range tp.Lanes {

@@ -5,14 +5,14 @@ import (
 	"testing"
 )
 
-// TestDetailPlugin_ParsesMetadata asserts kind: detail accepts metadata: and
+// TestDetailPlugin_ParsesLayout asserts kind: detail accepts layout: and
 // builds a DetailPlugin with the parsed layout grid.
-func TestDetailPlugin_ParsesMetadata(t *testing.T) {
+func TestDetailPlugin_ParsesLayout(t *testing.T) {
 	schema := testSchema()
 	cfg := pluginFileConfig{
-		Name:     "Detail",
-		Kind:     "detail",
-		Metadata: [][]string{{"status", "type", "priority"}},
+		Name:   "Detail",
+		Kind:   "detail",
+		Layout: [][]string{{"status", "type", "priority"}},
 	}
 	p, err := parsePluginConfig(cfg, "test", schema, nil)
 	if err != nil {
@@ -22,20 +22,20 @@ func TestDetailPlugin_ParsesMetadata(t *testing.T) {
 	if !ok {
 		t.Fatalf("expected *DetailPlugin, got %T", p)
 	}
-	got := strings.Join(dp.Metadata.AnchorNames(), ",")
+	got := strings.Join(dp.Layout.AnchorNames(), ",")
 	if got != "status,type,priority" {
-		t.Errorf("metadata anchor names = %q, want %q", got, "status,type,priority")
+		t.Errorf("layout anchor names = %q, want %q", got, "status,type,priority")
 	}
 }
 
-// TestDetailPlugin_RejectsUnknownMetadataField asserts that referencing a field
+// TestDetailPlugin_RejectsUnknownLayoutField asserts that referencing a field
 // the schema doesn't know fails the workflow load instead of silently skipping.
-func TestDetailPlugin_RejectsUnknownMetadataField(t *testing.T) {
+func TestDetailPlugin_RejectsUnknownLayoutField(t *testing.T) {
 	schema := testSchema()
 	cfg := pluginFileConfig{
-		Name:     "Detail",
-		Kind:     "detail",
-		Metadata: [][]string{{"status", "no_such_field"}},
+		Name:   "Detail",
+		Kind:   "detail",
+		Layout: [][]string{{"status", "no_such_field"}},
 	}
 	_, err := parsePluginConfig(cfg, "test", schema, nil)
 	if err == nil {
@@ -55,33 +55,33 @@ func TestDetailPlugin_AcceptsAnyTypedOrGenericWorkflowField(t *testing.T) {
 	for _, name := range []string{"status", "type", "priority", "createdBy", "createdAt", "updatedAt"} {
 		t.Run(name, func(t *testing.T) {
 			cfg := pluginFileConfig{
-				Name:     "Detail",
-				Kind:     "detail",
-				Metadata: [][]string{{name}},
+				Name:   "Detail",
+				Kind:   "detail",
+				Layout: [][]string{{name}},
 			}
 			if _, err := parsePluginConfig(cfg, "test", schema, nil); err != nil {
-				t.Errorf("%q should be accepted in metadata, got: %v", name, err)
+				t.Errorf("%q should be accepted in layout, got: %v", name, err)
 			}
 		})
 	}
 }
 
-// TestDetailPlugin_RejectsFilepathInMetadata pins that filepath — a system
+// TestDetailPlugin_RejectsFilepathInLayout pins that filepath — a system
 // field whose value lives on tk.Path rather than in tk.Fields — is rejected
 // at workflow load. Letting it through would render as "filepath: —"
 // because the generic catalog renderer reads from Fields, which is
 // misleading. The remedy is for the renderer to add a typed Get; until
 // then, filepath is rejected.
-func TestDetailPlugin_RejectsFilepathInMetadata(t *testing.T) {
+func TestDetailPlugin_RejectsFilepathInLayout(t *testing.T) {
 	schema := testSchema()
 	cfg := pluginFileConfig{
-		Name:     "Detail",
-		Kind:     "detail",
-		Metadata: [][]string{{"filepath"}},
+		Name:   "Detail",
+		Kind:   "detail",
+		Layout: [][]string{{"filepath"}},
 	}
 	_, err := parsePluginConfig(cfg, "test", schema, nil)
 	if err == nil {
-		t.Fatal("expected filepath to be rejected from metadata")
+		t.Fatal("expected filepath to be rejected from layout")
 	}
 	if !strings.Contains(err.Error(), "filepath") {
 		t.Errorf("expected error to mention filepath, got: %v", err)
@@ -95,9 +95,9 @@ func TestDetailPlugin_RejectsFilepathInMetadata(t *testing.T) {
 func TestDetailPlugin_AcceptsValidCaptionMarkup(t *testing.T) {
 	schema := testSchema()
 	cfg := pluginFileConfig{
-		Name:     "Detail",
-		Kind:     "detail",
-		Metadata: [][]string{{"<danger>!!! Status:", "status"}},
+		Name:   "Detail",
+		Kind:   "detail",
+		Layout: [][]string{{"<danger>!!! Status:", "status"}},
 	}
 	if _, err := parsePluginConfig(cfg, "test", schema, nil); err != nil {
 		t.Errorf("valid <role> caption should be accepted, got: %v", err)
@@ -110,48 +110,48 @@ func TestDetailPlugin_AcceptsValidCaptionMarkup(t *testing.T) {
 func TestDetailPlugin_RejectsUnknownCaptionRole(t *testing.T) {
 	schema := testSchema()
 	cfg := pluginFileConfig{
-		Name:     "Detail",
-		Kind:     "detail",
-		Metadata: [][]string{{"<nope>Status:", "status"}},
+		Name:   "Detail",
+		Kind:   "detail",
+		Layout: [][]string{{"<nope>Status:", "status"}},
 	}
 	_, err := parsePluginConfig(cfg, "test", schema, nil)
 	if err == nil {
 		t.Fatal("expected error for unknown caption role, got nil")
 	}
-	if !strings.Contains(err.Error(), "metadata caption") {
-		t.Errorf("expected error to mention 'metadata caption', got: %v", err)
+	if !strings.Contains(err.Error(), "layout caption") {
+		t.Errorf("expected error to mention 'layout caption', got: %v", err)
 	}
 	if !strings.Contains(err.Error(), "nope") {
 		t.Errorf("expected error to mention the bad role name, got: %v", err)
 	}
 }
 
-// TestDetailPlugin_AllowsTitleInMetadata asserts title is accepted in the
-// metadata grid as a layout reservation — the title primitive renders
+// TestDetailPlugin_AllowsTitleInLayout asserts title is accepted in the
+// layout grid as a layout reservation — the title primitive renders
 // outside the grid; the cell occupies space only.
-func TestDetailPlugin_AllowsTitleInMetadata(t *testing.T) {
+func TestDetailPlugin_AllowsTitleInLayout(t *testing.T) {
 	schema := testSchema()
 	cfg := pluginFileConfig{
-		Name:     "Detail",
-		Kind:     "detail",
-		Metadata: [][]string{{"title"}},
+		Name:   "Detail",
+		Kind:   "detail",
+		Layout: [][]string{{"title"}},
 	}
 	if _, err := parsePluginConfig(cfg, "test", schema, nil); err != nil {
 		t.Errorf("title should be accepted as a layout reservation, got: %v", err)
 	}
 }
 
-// TestDetailPlugin_RejectsIdentityFieldsInMetadata asserts that description,
-// id, and body cannot be configured in the metadata grid — they are always
+// TestDetailPlugin_RejectsIdentityFieldsInLayout asserts that description,
+// id, and body cannot be configured in the layout grid — they are always
 // rendered by the detail view chrome.
-func TestDetailPlugin_RejectsIdentityFieldsInMetadata(t *testing.T) {
+func TestDetailPlugin_RejectsIdentityFieldsInLayout(t *testing.T) {
 	schema := testSchema()
 	for _, name := range []string{"description", "id", "body"} {
 		t.Run(name, func(t *testing.T) {
 			cfg := pluginFileConfig{
-				Name:     "Detail",
-				Kind:     "detail",
-				Metadata: [][]string{{name}},
+				Name:   "Detail",
+				Kind:   "detail",
+				Layout: [][]string{{name}},
 			}
 			_, err := parsePluginConfig(cfg, "test", schema, nil)
 			if err == nil {
@@ -165,18 +165,19 @@ func TestDetailPlugin_RejectsIdentityFieldsInMetadata(t *testing.T) {
 }
 
 // TestDetailPlugin_RejectsInvalidConfigKeys asserts that detail-only-invalid
-// fields produce errors. path:/document:/lanes:/mode: belong to other kinds.
+// fields produce errors. path:/document:/lanes: belong to other kinds.
+// mode: is rejected globally by rejectLegacyTopLevel (see TestLegacyFieldRejection).
 func TestDetailPlugin_RejectsInvalidConfigKeys(t *testing.T) {
 	schema := testSchema()
+	validLayout := [][]string{{"status"}}
 	cases := []struct {
 		name      string
 		cfg       pluginFileConfig
 		wantError string
 	}{
-		{"path rejected", pluginFileConfig{Name: "D", Kind: "detail", Path: "x.md"}, "path:"},
-		{"document rejected", pluginFileConfig{Name: "D", Kind: "detail", Document: "ABC"}, "document:"},
-		{"lanes rejected", pluginFileConfig{Name: "D", Kind: "detail", Lanes: []PluginLaneConfig{{Name: "x"}}}, "lanes:"},
-		{"mode rejected", pluginFileConfig{Name: "D", Kind: "detail", Mode: "compact"}, "mode:"},
+		{"path rejected", pluginFileConfig{Name: "D", Kind: "detail", Path: "x.md", Layout: validLayout}, "path:"},
+		{"document rejected", pluginFileConfig{Name: "D", Kind: "detail", Document: "ABC", Layout: validLayout}, "document:"},
+		{"lanes rejected", pluginFileConfig{Name: "D", Kind: "detail", Lanes: []PluginLaneConfig{{Name: "x"}}, Layout: validLayout}, "lanes:"},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
@@ -196,9 +197,9 @@ func TestDetailPlugin_RejectsInvalidConfigKeys(t *testing.T) {
 func TestDetailPlugin_AllowsPerViewActions(t *testing.T) {
 	schema := testSchema()
 	cfg := pluginFileConfig{
-		Name:     "Detail",
-		Kind:     "detail",
-		Metadata: [][]string{{"status"}},
+		Name:   "Detail",
+		Kind:   "detail",
+		Layout: [][]string{{"status"}},
 		Actions: []PluginActionConfig{
 			{
 				Key:    "a",
@@ -229,9 +230,9 @@ func TestDetailPlugin_AllowsPerViewActions(t *testing.T) {
 func TestDetailPlugin_AllowsViewKindActions(t *testing.T) {
 	schema := testSchema()
 	cfg := pluginFileConfig{
-		Name:     "Detail",
-		Kind:     "detail",
-		Metadata: [][]string{{"status"}},
+		Name:   "Detail",
+		Kind:   "detail",
+		Layout: [][]string{{"status"}},
 		Actions: []PluginActionConfig{
 			{Key: "F4", Label: "Backlog", Kind: "view", View: "Backlog"},
 		},
@@ -247,42 +248,6 @@ func TestDetailPlugin_AllowsViewKindActions(t *testing.T) {
 	}
 	if len(dp.Actions) != 1 || dp.Actions[0].Kind != ActionKindView || dp.Actions[0].TargetView != "Backlog" {
 		t.Errorf("expected single kind:view action targeting Backlog, got %+v", dp.Actions)
-	}
-}
-
-// TestWikiPlugin_RejectsMetadata asserts metadata: is detail-only.
-func TestWikiPlugin_RejectsMetadata(t *testing.T) {
-	schema := testSchema()
-	cfg := pluginFileConfig{
-		Name:     "Docs",
-		Kind:     "wiki",
-		Path:     "index.md",
-		Metadata: [][]string{{"status"}},
-	}
-	_, err := parsePluginConfig(cfg, "test", schema, nil)
-	if err == nil {
-		t.Fatalf("expected error, got nil")
-	}
-	if !strings.Contains(err.Error(), "metadata:") {
-		t.Errorf("expected error mentioning metadata, got %q", err.Error())
-	}
-}
-
-// TestBoardPlugin_RejectsMetadata asserts metadata: is detail-only.
-func TestBoardPlugin_RejectsMetadata(t *testing.T) {
-	schema := testSchema()
-	cfg := pluginFileConfig{
-		Name:     "Board",
-		Kind:     "board",
-		Lanes:    []PluginLaneConfig{{Name: "Todo", Filter: "select"}},
-		Metadata: [][]string{{"status"}},
-	}
-	_, err := parsePluginConfig(cfg, "test", schema, nil)
-	if err == nil {
-		t.Fatalf("expected error, got nil")
-	}
-	if !strings.Contains(err.Error(), "metadata:") {
-		t.Errorf("expected error mentioning metadata, got %q", err.Error())
 	}
 }
 
@@ -307,7 +272,7 @@ func TestDetailPlugin_RejectsUnknownFieldRole(t *testing.T) {
 		{"<nosuchrole>title", "--"},
 		{"status", "type"},
 	}
-	_, err := validateDetailMetadata("Test", raw, schema)
+	_, err := validateLayout("Test", "detail", raw, schema)
 	if err == nil {
 		t.Fatal("expected error for unknown field role")
 	}
@@ -322,7 +287,7 @@ func TestDetailPlugin_AcceptsKnownFieldRole(t *testing.T) {
 		{"<highlight>title", "--"},
 		{"status", "type"},
 	}
-	_, err := validateDetailMetadata("Test", raw, schema)
+	_, err := validateLayout("Test", "detail", raw, schema)
 	if err != nil {
 		t.Fatalf("unexpected error for valid field role: %v", err)
 	}
@@ -334,7 +299,7 @@ func TestDetailPlugin_AcceptsFieldRoleWithModifier(t *testing.T) {
 		{"<text.muted.accent>title", "--"},
 		{"status", "type"},
 	}
-	_, err := validateDetailMetadata("Test", raw, schema)
+	_, err := validateLayout("Test", "detail", raw, schema)
 	if err != nil {
 		t.Fatalf("unexpected error for role with known modifier: %v", err)
 	}
@@ -349,7 +314,7 @@ func TestDetailPlugin_RejectsUnknownFieldModifier(t *testing.T) {
 		{"<text.muted.bogus>title", "--"},
 		{"status", "type"},
 	}
-	_, err := validateDetailMetadata("Test", raw, schema)
+	_, err := validateLayout("Test", "detail", raw, schema)
 	if err == nil {
 		t.Fatal("expected error for unknown modifier")
 	}

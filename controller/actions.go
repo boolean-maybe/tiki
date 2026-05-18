@@ -14,13 +14,12 @@ type ActionID string
 
 // ActionID values for global actions (available in all views).
 const (
-	ActionBack           ActionID = "back"
-	ActionQuit           ActionID = "quit"
-	ActionRefresh        ActionID = "refresh"
-	ActionToggleViewMode ActionID = "toggle_view_mode"
-	ActionToggleHeader   ActionID = "toggle_header"
-	ActionOpenPalette    ActionID = "open_palette"
-	ActionEditWorkflow   ActionID = "edit_workflow"
+	ActionBack         ActionID = "back"
+	ActionQuit         ActionID = "quit"
+	ActionRefresh      ActionID = "refresh"
+	ActionToggleHeader ActionID = "toggle_header"
+	ActionOpenPalette  ActionID = "open_palette"
+	ActionEditWorkflow ActionID = "edit_workflow"
 )
 
 // ActionID values for tiki navigation and manipulation (used by plugins).
@@ -841,7 +840,6 @@ func PluginViewActions() *ActionRegistry {
 	r.Register(Action{ID: ActionNewTiki, Key: tcell.KeyRune, Rune: 'n', Label: "New", ShowInHeader: true})
 	r.Register(Action{ID: ActionDeleteTiki, Key: tcell.KeyRune, Rune: 'd', Label: "Delete", ShowInHeader: true, Require: idReq})
 	r.Register(Action{ID: ActionSearch, Key: tcell.KeyRune, Rune: '/', Label: "Search", ShowInHeader: true})
-	r.Register(Action{ID: ActionToggleViewMode, Key: tcell.KeyRune, Rune: 'v', Label: "View mode", ShowInHeader: true})
 	r.Register(Action{ID: ActionExecute, Key: tcell.KeyRune, Rune: '!', Label: "Execute", ShowInHeader: true})
 
 	// plugin activation keys are merged dynamically after plugins load
@@ -874,9 +872,7 @@ func DepsViewActions() *ActionRegistry {
 	r.Register(Action{ID: ActionNewTiki, Key: tcell.KeyRune, Rune: 'n', Label: "New", ShowInHeader: true})
 	r.Register(Action{ID: ActionDeleteTiki, Key: tcell.KeyRune, Rune: 'd', Label: "Delete", ShowInHeader: true, Require: depsIdReq})
 
-	// view mode and search
 	r.Register(Action{ID: ActionSearch, Key: tcell.KeyRune, Rune: '/', Label: "Search", ShowInHeader: true})
-	r.Register(Action{ID: ActionToggleViewMode, Key: tcell.KeyRune, Rune: 'v', Label: "View mode", ShowInHeader: true})
 
 	return r
 }

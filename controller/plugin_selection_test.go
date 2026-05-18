@@ -1146,31 +1146,6 @@ func TestPluginController_ShowNavigation(t *testing.T) {
 	}
 }
 
-func TestPluginController_HandleToggleViewMode(t *testing.T) {
-	tikiStore := store.NewInMemoryStore()
-	readyFilter := mustParseStmt(t, `select where status = "ready"`)
-	pluginDef := &plugin.WorkflowPlugin{
-		BasePlugin: plugin.BasePlugin{Name: "TestPlugin"},
-		Lanes:      []plugin.TikiLane{{Name: "Ready", Columns: 1, Filter: readyFilter}},
-	}
-	pluginConfig := model.NewPluginConfig("TestPlugin")
-	pluginConfig.SetLaneLayout([]int{1}, nil)
-
-	schema := rukiRuntime.NewSchema()
-	gate := service.NewTikiMutationGate()
-	gate.SetStore(tikiStore)
-	pc := NewPluginController(tikiStore, gate, pluginConfig, pluginDef, nil, nil, schema)
-
-	before := pluginConfig.GetViewMode()
-	if !pc.HandleAction(ActionToggleViewMode) {
-		t.Error("expected true for toggle view mode")
-	}
-	after := pluginConfig.GetViewMode()
-	if before == after {
-		t.Error("view mode should change after toggle")
-	}
-}
-
 func TestPluginController_HandlePluginAction_Select(t *testing.T) {
 	tikiStore := store.NewInMemoryStore()
 	seedTiki(t, tikiStore, "0000T1", "Tiki 1", "ready", 3)

@@ -12,7 +12,7 @@ import (
 // ev.editors (a unified FieldEditorWidget map keyed by canonical field
 // name) instead of the per-typed-widget switch tables that used to live
 // here. Title and Description retain dedicated paths because they live
-// outside the metadata grid.
+// outside the layout grid.
 
 // IsValid returns true if the tiki passes all validation checks.
 func (ev *TikiEditView) IsValid() bool {
@@ -64,7 +64,7 @@ func (ev *TikiEditView) SetFocusedField(field model.EditField) {
 // dedicated branch in SetFocusedField above.
 //
 // Workflow-declared TypeEnum fields use their field name as the EditField
-// identity (see model.MetadataToEditFieldOrder); for those the EditField
+// identity (see model.LayoutToEditFieldOrder); for those the EditField
 // string IS the field name, so we resolve via the workflow catalog when
 // none of the built-in cases match. Without this fallback, custom enums
 // like severity would be unreachable for keyboard editing — the focus,
@@ -145,7 +145,7 @@ func (ev *TikiEditView) FocusPrevField() bool {
 
 // shouldSkipField returns true for fields that should be skipped during
 // navigation. Read-only descriptors are already filtered out by
-// MetadataToEditFieldOrder; this skip predicate covers dynamic state like
+// LayoutToEditFieldOrder; this skip predicate covers dynamic state like
 // Due being read-only when recurrence is set.
 func (ev *TikiEditView) shouldSkipField(field model.EditField) bool {
 	return field == model.EditFieldDue && ev.isDueReadOnly()

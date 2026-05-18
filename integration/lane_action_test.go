@@ -19,6 +19,8 @@ func TestPluginView_MoveTikiAppliesLaneAction(t *testing.T) {
   - name: ActionTest
     kind: board
     key: "F4"
+    layout:
+      - [id]
     lanes:
       - name: Backlog
         columns: 1

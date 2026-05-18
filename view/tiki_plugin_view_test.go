@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/boolean-maybe/tiki/config"
 	"github.com/boolean-maybe/tiki/controller"
 	"github.com/boolean-maybe/tiki/model"
 	"github.com/boolean-maybe/tiki/plugin"
@@ -25,6 +24,7 @@ func TestPluginViewRefreshResetsNonSelectedLaneScrollOffset(t *testing.T) {
 			{Name: "Lane0", Columns: 1},
 			{Name: "Lane1", Columns: 1},
 		},
+		Layout: testPluginLayout(t),
 	}
 
 	tikis := make([]*tikipkg.Tiki, 10)
@@ -39,7 +39,7 @@ func TestPluginViewRefreshResetsNonSelectedLaneScrollOffset(t *testing.T) {
 		return tikis
 	}, nil, controller.PluginViewActions(), true)
 
-	itemHeight := config.TikiBoxHeight
+	itemHeight := 5 // 3-row layout + gridbox.TikiBoxOverhead (2)
 	for _, lb := range pv.laneBoxes {
 		lb.SetRect(0, 0, 80, itemHeight*5)
 	}
@@ -93,6 +93,7 @@ func TestPluginViewGridLayout_RowCount(t *testing.T) {
 			pluginDef := &plugin.WorkflowPlugin{
 				BasePlugin: plugin.BasePlugin{Name: "TestPlugin"},
 				Lanes:      []plugin.TikiLane{{Name: "Lane", Columns: tt.columns}},
+				Layout:     testPluginLayout(t),
 			}
 
 			tikis := make([]*tikipkg.Tiki, tt.numTikis)
@@ -139,6 +140,7 @@ func TestPluginViewGridLayout_SelectedRow(t *testing.T) {
 			pluginDef := &plugin.WorkflowPlugin{
 				BasePlugin: plugin.BasePlugin{Name: "TestPlugin"},
 				Lanes:      []plugin.TikiLane{{Name: "Lane", Columns: tt.columns}},
+				Layout:     testPluginLayout(t),
 			}
 
 			tikis := make([]*tikipkg.Tiki, tt.numTikis)
@@ -174,9 +176,8 @@ func TestPluginViewRefreshPreservesScrollOffset(t *testing.T) {
 		BasePlugin: plugin.BasePlugin{
 			Name: "TestPlugin",
 		},
-		Lanes: []plugin.TikiLane{
-			{Name: "Lane", Columns: 1},
-		},
+		Lanes:  []plugin.TikiLane{{Name: "Lane", Columns: 1}},
+		Layout: testPluginLayout(t),
 	}
 
 	tikis := make([]*tikipkg.Tiki, 10)
@@ -196,7 +197,7 @@ func TestPluginViewRefreshPreservesScrollOffset(t *testing.T) {
 	}
 
 	lane := pv.laneBoxes[0]
-	itemHeight := config.TikiBoxHeight
+	itemHeight := 5 // 3-row layout + gridbox.TikiBoxOverhead (2)
 	lane.SetRect(0, 0, 80, itemHeight*5)
 
 	pluginConfig.SetSelectedIndexForLane(0, len(tikis)-1)

@@ -218,7 +218,7 @@ func TestFieldLabel(t *testing.T) {
 	}
 }
 
-func TestMetadataToEditFieldOrder(t *testing.T) {
+func TestLayoutToEditFieldOrder(t *testing.T) {
 	tests := []struct {
 		name     string
 		metadata []string
@@ -252,20 +252,20 @@ func TestMetadataToEditFieldOrder(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := MetadataToEditFieldOrder(tt.metadata)
+			got := LayoutToEditFieldOrder(tt.metadata)
 			if !reflect.DeepEqual(got, tt.expected) {
-				t.Errorf("MetadataToEditFieldOrder(%v) = %v, want %v", tt.metadata, got, tt.expected)
+				t.Errorf("LayoutToEditFieldOrder(%v) = %v, want %v", tt.metadata, got, tt.expected)
 			}
 		})
 	}
 }
 
-// TestMetadataToEditFieldOrder_WorkflowEnums pins that workflow-declared
+// TestLayoutToEditFieldOrder_WorkflowEnums pins that workflow-declared
 // enum fields without a static EditField constant participate in the
 // navigation order using their field name as the EditField identity.
 // Without this, custom enums like severity or environment never reached
 // the focused-editor path in the full TikiEditView.
-func TestMetadataToEditFieldOrder_WorkflowEnums(t *testing.T) {
+func TestLayoutToEditFieldOrder_WorkflowEnums(t *testing.T) {
 	if err := teststatuses.InitWith([]workflow.FieldDef{
 		{
 			Name:       "severity",
@@ -278,12 +278,12 @@ func TestMetadataToEditFieldOrder_WorkflowEnums(t *testing.T) {
 	}
 	t.Cleanup(teststatuses.Init)
 
-	got := MetadataToEditFieldOrder([]string{
+	got := LayoutToEditFieldOrder([]string{
 		tikipkg.FieldStatus, "severity", "score", tikipkg.FieldPriority,
 	})
 	want := []EditField{EditFieldStatus, EditField("severity"), EditFieldPriority}
 	if !reflect.DeepEqual(got, want) {
-		t.Errorf("MetadataToEditFieldOrder = %v, want %v (severity should appear; score is non-enum and should be skipped)", got, want)
+		t.Errorf("LayoutToEditFieldOrder = %v, want %v (severity should appear; score is non-enum and should be skipped)", got, want)
 	}
 }
 

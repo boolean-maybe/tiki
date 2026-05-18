@@ -23,13 +23,15 @@ views:
     kind: board
     default: true
     key: "F1"
+    layout:
+      - [id]
     lanes:
       - name: Ready
         filter: select where status = "ready"
   - name: Detail
     kind: detail
     require: ["selection:one"]
-    metadata:
+    layout:
       - [status, type, priority]
 `
 	path := filepath.Join(tmpDir, "workflow.yaml")
@@ -56,8 +58,8 @@ views:
 		t.Fatal("expected a DetailPlugin in loaded plugins")
 	}
 	wantMeta := []string{"status", "type", "priority"}
-	if strings.Join(detail.Metadata.AnchorNames(), ",") != strings.Join(wantMeta, ",") {
-		t.Errorf("metadata anchors = %v, want %v", detail.Metadata.AnchorNames(), wantMeta)
+	if strings.Join(detail.Layout.AnchorNames(), ",") != strings.Join(wantMeta, ",") {
+		t.Errorf("layout anchors = %v, want %v", detail.Layout.AnchorNames(), wantMeta)
 	}
 
 	// global Enter action should have parsed as kind: view targeting Detail.
@@ -98,13 +100,15 @@ views:
     kind: board
     default: true
     key: "F1"
+    layout:
+      - [id]
     lanes:
       - name: Ready
         filter: select where status = "ready"
   - name: Detail
     kind: detail
     require: ["selection:one"]
-    metadata:
+    layout:
       - [status]
 `
 	path := filepath.Join(tmpDir, "workflow.yaml")

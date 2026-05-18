@@ -50,13 +50,13 @@ func TestBundledKanban_HasDetailViewAndEnterAction(t *testing.T) {
 		"assignee": true, "createdBy": true, "createdAt": true, "updatedAt": true,
 		"due": true, "recurrence": true, "tags": true,
 	}
-	gotAnchors := detail.Metadata.AnchorNames()
+	gotAnchors := detail.Layout.AnchorNames()
 	for _, n := range gotAnchors {
 		if n == "title" {
 			continue // layout reservation, not a renderable field
 		}
 		if !wantAnchors[n] {
-			t.Errorf("unexpected anchor in Detail.Metadata: %q (full list: %s)", n, strings.Join(gotAnchors, ","))
+			t.Errorf("unexpected anchor in Detail.Layout: %q (full list: %s)", n, strings.Join(gotAnchors, ","))
 		}
 	}
 	for n := range wantAnchors {
@@ -68,7 +68,7 @@ func TestBundledKanban_HasDetailViewAndEnterAction(t *testing.T) {
 			}
 		}
 		if !found {
-			t.Errorf("missing anchor in Detail.Metadata: %q (full list: %s)", n, strings.Join(gotAnchors, ","))
+			t.Errorf("missing anchor in Detail.Layout: %q (full list: %s)", n, strings.Join(gotAnchors, ","))
 		}
 	}
 

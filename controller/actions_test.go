@@ -621,7 +621,7 @@ func TestLookupRune_ConflictDetection(t *testing.T) {
 	r := PluginViewActions()
 
 	// built-in plugin view keys should be found
-	conflicting := []rune{'k', 'j', 'h', 'l', 'n', 'd', '/', 'v'}
+	conflicting := []rune{'k', 'j', 'h', 'l', 'n', 'd', '/'}
 	for _, ch := range conflicting {
 		if _, ok := r.LookupRune(ch); !ok {
 			t.Errorf("expected built-in action for rune %q", ch)

@@ -126,9 +126,6 @@ func (dc *DepsController) HandleAction(actionID ActionID) bool {
 		return dc.handleNewTiki()
 	case ActionDeleteTiki:
 		return dc.handleDeleteTiki(dc.GetFilteredTikisForLane)
-	case ActionToggleViewMode:
-		dc.pluginConfig.ToggleViewMode()
-		return true
 	default:
 		return false
 	}

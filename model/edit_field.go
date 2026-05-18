@@ -153,7 +153,7 @@ func FieldLabel(field EditField) string {
 	}
 }
 
-// MetadataToEditFieldOrder maps each canonical metadata field name to its
+// LayoutToEditFieldOrder maps each canonical layout field name to its
 // EditField enum value, preserving order. Names without a matching EditField
 // (e.g. createdBy/createdAt/updatedAt — read-only descriptors) are skipped.
 // Title emits EditFieldTitle when declared in the grid; callers append
@@ -163,9 +163,9 @@ func FieldLabel(field EditField) string {
 // (severity, environment, etc.) participate in the order with their field
 // name as the EditField identity — see view/tikidetail.editFieldFor for
 // the mirroring lookup that consumes this convention.
-func MetadataToEditFieldOrder(metadata []string) []EditField {
-	result := make([]EditField, 0, len(metadata))
-	for _, name := range metadata {
+func LayoutToEditFieldOrder(layout []string) []EditField {
+	result := make([]EditField, 0, len(layout))
+	for _, name := range layout {
 		switch name {
 		case "title":
 			result = append(result, EditFieldTitle)

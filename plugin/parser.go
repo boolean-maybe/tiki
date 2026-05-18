@@ -36,7 +36,7 @@ func rejectLegacyTopLevel(cfg pluginFileConfig) error {
 	}
 	if cfg.View != "" {
 		return legacyFieldError("view",
-			"`view:` as a display mode is no longer supported — use `mode: compact` or `mode: expanded` on a board/list view")
+			"`view:` as a display mode is no longer supported — declare a `layout:` field on the board/list view instead")
 	}
 	if cfg.Fetcher != "" {
 		return legacyFieldError("fetcher", "use `document:` or `path:` on a `kind: wiki` view")
@@ -49,6 +49,14 @@ func rejectLegacyTopLevel(cfg pluginFileConfig) error {
 	}
 	if cfg.Sort != "" {
 		return legacyFieldError("sort", "use `order by` inside a lane's `filter:` ruki statement")
+	}
+	if cfg.Mode != "" {
+		return legacyFieldError("mode",
+			"`mode:` is no longer supported — use `layout:` to declare the tiki-box layout on a board/list view")
+	}
+	if len(cfg.Metadata) > 0 {
+		return legacyFieldError("metadata",
+			"`metadata:` has been renamed to `layout:` — update your workflow.yaml")
 	}
 	return nil
 }
@@ -137,14 +145,6 @@ func parseBoardOrListPlugin(cfg pluginFileConfig, base BasePlugin, schema ruki.S
 	if cfg.Path != "" {
 		return nil, fmt.Errorf("plugin %q: `path:` only valid on kind: wiki", cfg.Name)
 	}
-	if len(cfg.Metadata) > 0 {
-		return nil, fmt.Errorf("plugin %q: `metadata:` only valid on kind: detail", cfg.Name)
-	}
-
-	mode := cfg.Mode
-	if mode != "" && mode != "compact" && mode != "expanded" {
-		return nil, fmt.Errorf("plugin %q: mode must be 'compact' or 'expanded', got %q", cfg.Name, mode)
-	}
 
 	if len(cfg.Lanes) == 0 {
 		return nil, fmt.Errorf("plugin %q: kind %q requires 'lanes'", cfg.Name, cfg.Kind)
@@ -158,6 +158,12 @@ func parseBoardOrListPlugin(cfg pluginFileConfig, base BasePlugin, schema ruki.S
 	if err != nil {
 		return nil, err
 	}
+
+	layout, err := validateLayout(cfg.Name, cfg.Kind, cfg.Layout, schema)
+	if err != nil {
+		return nil, err
+	}
+	warnMultiRowFieldsInTikiBox(cfg.Name, layout)
 
 	widthSum := 0
 	for _, lane := range lanes {
@@ -175,7 +181,7 @@ func parseBoardOrListPlugin(cfg pluginFileConfig, base BasePlugin, schema ruki.S
 	return &WorkflowPlugin{
 		BasePlugin: base,
 		Lanes:      lanes,
-		Mode:       mode,
+		Layout:     layout,
 		Actions:    actions,
 	}, nil
 }
@@ -267,8 +273,8 @@ func parseWikiPlugin(cfg pluginFileConfig, base BasePlugin) (Plugin, error) {
 	if err := rejectBoardOnlyFields(cfg, "wiki"); err != nil {
 		return nil, err
 	}
-	if len(cfg.Metadata) > 0 {
-		return nil, fmt.Errorf("plugin %q: `metadata:` only valid on kind: detail", cfg.Name)
+	if len(cfg.Layout) > 0 {
+		return nil, fmt.Errorf("plugin %q: `layout:` only valid on kind: board, list, or detail", cfg.Name)
 	}
 	if len(cfg.Actions) > 0 {
 		return nil, fmt.Errorf("plugin %q: kind: wiki cannot have per-view `actions:` — use top-level actions", cfg.Name)
@@ -289,7 +295,7 @@ func parseWikiPlugin(cfg pluginFileConfig, base BasePlugin) (Plugin, error) {
 }
 
 // parseDetailPlugin handles kind: detail — a configurable view of a single
-// selected tiki. Renders title, configured metadata fields, and description.
+// selected tiki. Renders title, the configured layout grid, and description.
 // Per-view actions are allowed and will be surfaced alongside the built-in
 // detail actions and global actions.
 func parseDetailPlugin(cfg pluginFileConfig, base BasePlugin, schema ruki.Schema, viewNames map[string]struct{}) (Plugin, error) {
@@ -303,7 +309,7 @@ func parseDetailPlugin(cfg pluginFileConfig, base BasePlugin, schema ruki.Schema
 		return nil, fmt.Errorf("plugin %q: `path:` only valid on kind: wiki", cfg.Name)
 	}
 
-	spec, err := validateDetailMetadata(cfg.Name, cfg.Metadata, schema)
+	spec, err := validateLayout(cfg.Name, "detail", cfg.Layout, schema)
 	if err != nil {
 		return nil, err
 	}
@@ -316,17 +322,17 @@ func parseDetailPlugin(cfg pluginFileConfig, base BasePlugin, schema ruki.Schema
 
 	return &DetailPlugin{
 		BasePlugin: base,
-		Metadata:   spec,
+		Layout:     spec,
 		Actions:    actions,
 	}, nil
 }
 
-// validateDetailMetadata parses the 2D metadata grid and validates each
-// anchor's field name against the schema. Literal cells may carry
-// `<role>` color markup drawn from workflow.ValidRoles (escape literal
-// `<` as `<<`); markup is parsed and role names checked at load time so
-// typos surface at startup rather than at first render. Two categories
-// of names may appear:
+// validateLayout parses the 2D layout grid and validates each anchor's
+// field name against the schema. Literal cells may carry `<role>` color
+// markup drawn from workflow.ValidRoles (escape literal `<` as `<<`);
+// markup is parsed and role names checked at load time so typos surface
+// at startup rather than at first render. Two categories of names may
+// appear:
 //
 //   - Workflow-declared fields from `workflow.yaml fields:` (the common case).
 //   - Supported audit fields: `createdBy`, `createdAt`, `updatedAt`. These
@@ -335,24 +341,29 @@ func parseDetailPlugin(cfg pluginFileConfig, base BasePlugin, schema ruki.Schema
 //   - `title` is allowed — it renders in-grid via the field registry as a
 //     regular text field. Accepts optional `<role>` annotation.
 //
-// Rejected:
+// Detail-view-specific rejections (only applied when viewKind == "detail"):
 //
 //   - Identity/body fields other than `title` (`id`, `description`, `body`).
+//     Detail-view chrome already renders these.
 //   - Path fields (`filepath`, `path`) — values live on the tiki struct
-//     rather than in Fields and have no typed renderer yet.
+//     rather than in Fields and have no typed detail renderer yet.
+//
+// Always rejected:
+//
 //   - Anything not in the schema (catches typos).
 //   - Grid shape errors (ragged rows, orphan spans, mixed stretchers)
 //     surface with row/col coordinates.
 //
 // Workflow-declared fields without a typed editor fall back to a generic
 // read-only `Label: value` row at render time.
-func validateDetailMetadata(pluginName string, raw [][]string, schema ruki.Schema) (gridlayout.GridSpec, error) {
+func validateLayout(pluginName, viewKind string, raw [][]string, schema ruki.Schema) (gridlayout.GridSpec, error) {
 	if len(raw) == 0 {
-		return gridlayout.GridSpec{}, nil
+		return gridlayout.GridSpec{}, fmt.Errorf(
+			"plugin %q: view kind %q requires a non-empty `layout:` field", pluginName, viewKind)
 	}
 	spec, err := gridlayout.ParseGrid(raw)
 	if err != nil {
-		return gridlayout.GridSpec{}, fmt.Errorf("plugin %q: metadata: %w", pluginName, err)
+		return gridlayout.GridSpec{}, fmt.Errorf("plugin %q: layout: %w", pluginName, err)
 	}
 	for _, a := range spec.Anchors {
 		if a.Kind == gridlayout.AnchorLiteral {
@@ -362,7 +373,7 @@ func validateDetailMetadata(pluginName string, raw [][]string, schema ruki.Schem
 			// markup — validate role names against the closed vocabulary.
 			if err := workflow.ValidateVisualMarkup(a.Text); err != nil {
 				return gridlayout.GridSpec{}, fmt.Errorf(
-					"plugin %q: metadata caption: %w", pluginName, err)
+					"plugin %q: layout caption: %w", pluginName, err)
 			}
 			continue
 		}
@@ -374,14 +385,14 @@ func validateDetailMetadata(pluginName string, raw [][]string, schema ruki.Schem
 				if seg.Role != "" {
 					if _, ok := workflow.ValidRoles[seg.Role]; !ok {
 						return gridlayout.GridSpec{}, fmt.Errorf(
-							"plugin %q: metadata composite field %q: unknown color role %q", pluginName, seg.Name, seg.Role)
+							"plugin %q: layout composite field %q: unknown color role %q", pluginName, seg.Name, seg.Role)
 					}
 					if seg.Modifier != "" && !theme.IsKnownModifier(seg.Modifier) {
 						return gridlayout.GridSpec{}, fmt.Errorf(
-							"plugin %q: metadata composite field %q: unknown color modifier %q", pluginName, seg.Name, seg.Modifier)
+							"plugin %q: layout composite field %q: unknown color modifier %q", pluginName, seg.Name, seg.Modifier)
 					}
 				}
-				if err := validateDetailFieldName(pluginName, seg.Name, schema); err != nil {
+				if err := validateLayoutFieldName(pluginName, viewKind, seg.Name, schema); err != nil {
 					return gridlayout.GridSpec{}, err
 				}
 			}
@@ -390,38 +401,75 @@ func validateDetailMetadata(pluginName string, raw [][]string, schema ruki.Schem
 		if a.Role != "" {
 			if _, ok := workflow.ValidRoles[a.Role]; !ok {
 				return gridlayout.GridSpec{}, fmt.Errorf(
-					"plugin %q: metadata field %q: unknown color role %q", pluginName, a.Name, a.Role)
+					"plugin %q: layout field %q: unknown color role %q", pluginName, a.Name, a.Role)
 			}
 			if a.Modifier != "" && !theme.IsKnownModifier(a.Modifier) {
 				return gridlayout.GridSpec{}, fmt.Errorf(
-					"plugin %q: metadata field %q: unknown color modifier %q", pluginName, a.Name, a.Modifier)
+					"plugin %q: layout field %q: unknown color modifier %q", pluginName, a.Name, a.Modifier)
 			}
 		}
-		if err := validateDetailFieldName(pluginName, a.Name, schema); err != nil {
+		if err := validateLayoutFieldName(pluginName, viewKind, a.Name, schema); err != nil {
 			return gridlayout.GridSpec{}, err
 		}
 	}
 	return spec, nil
 }
 
-func validateDetailFieldName(pluginName, name string, schema ruki.Schema) error {
+// warnMultiRowFieldsInTikiBox emits a load-time warning when a board/list
+// layout references a list-typed workflow field (TypeListString or
+// TypeListRef). Tiki cards on board/list views are fixed-height (one
+// cell per layout row), so a multi-row field renders only its first row
+// of content — the rest is clipped silently. The user-facing remedy is
+// either to drop the field from the tiki box layout or to surface it on
+// a kind: detail view, which honors per-field height.
+func warnMultiRowFieldsInTikiBox(pluginName string, spec gridlayout.GridSpec) {
+	check := func(name string) {
+		fd, ok := workflow.Field(name)
+		if !ok {
+			return
+		}
+		if fd.Type == workflow.TypeListString || fd.Type == workflow.TypeListRef {
+			slog.Warn(
+				"layout references multi-row field on a fixed-height tiki box — only the first row will render",
+				"plugin", pluginName, "field", name, "type", fd.Type)
+		}
+	}
+	for _, a := range spec.Anchors {
+		switch a.Kind {
+		case gridlayout.AnchorComposite:
+			for _, seg := range a.Segments {
+				if seg.Kind == gridlayout.SegmentField {
+					check(seg.Name)
+				}
+			}
+		case gridlayout.AnchorLiteral:
+			// literals have no field name to check
+		default:
+			check(a.Name)
+		}
+	}
+}
+
+func validateLayoutFieldName(pluginName, viewKind, name string, schema ruki.Schema) error {
 	if name == "title" {
 		return nil
 	}
-	if isDetailIdentityField(name) {
-		return fmt.Errorf(
-			"plugin %q: metadata cannot include %q — description and id are always rendered by the detail view chrome",
-			pluginName, name)
-	}
-	if isDetailNonRenderableSystemField(name) {
-		return fmt.Errorf(
-			"plugin %q: metadata cannot include %q — it lives on the tiki struct (not in Fields) and has no detail-view renderer",
-			pluginName, name)
+	if viewKind == "detail" {
+		if isDetailIdentityField(name) {
+			return fmt.Errorf(
+				"plugin %q: layout cannot include %q — description and id are always rendered by the detail view chrome",
+				pluginName, name)
+		}
+		if isDetailNonRenderableSystemField(name) {
+			return fmt.Errorf(
+				"plugin %q: layout cannot include %q — it lives on the tiki struct (not in Fields) and has no detail-view renderer",
+				pluginName, name)
+		}
 	}
 	if schema != nil {
 		if _, ok := schema.Field(name); !ok {
 			return fmt.Errorf(
-				"plugin %q: metadata field %q is not a workflow-declared field",
+				"plugin %q: layout field %q is not a workflow-declared field",
 				pluginName, name)
 		}
 	}
@@ -449,13 +497,10 @@ func isDetailNonRenderableSystemField(name string) bool {
 	return name == "filepath" || name == "path"
 }
 
-// rejectBoardOnlyFields catches lanes/mode set on a non-board/list view.
+// rejectBoardOnlyFields catches lanes set on a non-board/list view.
 func rejectBoardOnlyFields(cfg pluginFileConfig, kind string) error {
 	if len(cfg.Lanes) > 0 {
 		return fmt.Errorf("plugin %q: `lanes:` only valid on board or list views (got kind: %s)", cfg.Name, kind)
-	}
-	if cfg.Mode != "" {
-		return fmt.Errorf("plugin %q: `mode:` only valid on board or list views (got kind: %s)", cfg.Name, kind)
 	}
 	return nil
 }

@@ -268,8 +268,11 @@ views:                          # top-level list of views (no plugins: wrapper)
   - name: Roadmap
     kind: board
     description: "Epics organized by Now, Next, and Later horizons"
-    mode: expanded              # "compact" or "expanded"
     key: "F4"
+    layout:                     # required — declares the tiki-box layout
+      - ['type.visual + " " + id']
+      - ["<highlight>title"]
+      - ['"priority " + priority.visual + "  points " + points.visual']
     lanes:
       - name: Now
         columns: 1

@@ -91,8 +91,8 @@ func TestTikiEditParams_EncodeDecodeRoundTrip(t *testing.T) {
 			params: TikiEditParams{TikiID: "T1KI42", Draft: draftTiki, Focus: EditFieldDescription},
 		},
 		{
-			name:   "with metadata",
-			params: TikiEditParams{TikiID: "TIKI-1", Metadata: []string{"status", "type", "tags"}},
+			name:   "with layout",
+			params: TikiEditParams{TikiID: "TIKI-1", Layout: []string{"status", "type", "tags"}},
 		},
 	}
 
@@ -120,36 +120,36 @@ func TestTikiEditParams_EncodeDecodeRoundTrip(t *testing.T) {
 				t.Errorf("round-trip failed: Focus = %v, want %v", decoded.Focus, tt.params.Focus)
 			}
 
-			if !reflect.DeepEqual(decoded.Metadata, tt.params.Metadata) {
-				t.Errorf("round-trip failed: Metadata = %v, want %v", decoded.Metadata, tt.params.Metadata)
+			if !reflect.DeepEqual(decoded.Layout, tt.params.Layout) {
+				t.Errorf("round-trip failed: Layout = %v, want %v", decoded.Layout, tt.params.Layout)
 			}
 		})
 	}
 }
 
-func TestTikiEditParams_MetadataNilEmptyAndCopySemantics(t *testing.T) {
-	// nil metadata round-trips as nil.
+func TestTikiEditParams_LayoutNilEmptyAndCopySemantics(t *testing.T) {
+	// nil layout round-trips as nil.
 	encoded := EncodeTikiEditParams(TikiEditParams{TikiID: "TIKI-1"})
 	decoded := DecodeTikiEditParams(encoded)
-	if decoded.Metadata != nil {
-		t.Errorf("nil-input metadata round-trip: got %v, want nil", decoded.Metadata)
+	if decoded.Layout != nil {
+		t.Errorf("nil-input layout round-trip: got %v, want nil", decoded.Layout)
 	}
 
-	// empty metadata also round-trips as nil (encoding skips empty slice).
-	encoded = EncodeTikiEditParams(TikiEditParams{TikiID: "TIKI-1", Metadata: []string{}})
+	// empty layout also round-trips as nil (encoding skips empty slice).
+	encoded = EncodeTikiEditParams(TikiEditParams{TikiID: "TIKI-1", Layout: []string{}})
 	decoded = DecodeTikiEditParams(encoded)
-	if len(decoded.Metadata) != 0 {
-		t.Errorf("empty-input metadata round-trip: got %v, want empty", decoded.Metadata)
+	if len(decoded.Layout) != 0 {
+		t.Errorf("empty-input layout round-trip: got %v, want empty", decoded.Layout)
 	}
 
 	// encoded slice is a defensive copy — mutating the source after encode
 	// must not affect what decode returns.
 	src := []string{"status", "type"}
-	encoded = EncodeTikiEditParams(TikiEditParams{TikiID: "TIKI-1", Metadata: src})
+	encoded = EncodeTikiEditParams(TikiEditParams{TikiID: "TIKI-1", Layout: src})
 	src[0] = "MUTATED"
 	decoded = DecodeTikiEditParams(encoded)
-	if decoded.Metadata[0] != "status" {
-		t.Errorf("encoded metadata not defensively copied: got %v", decoded.Metadata)
+	if decoded.Layout[0] != "status" {
+		t.Errorf("encoded layout not defensively copied: got %v", decoded.Layout)
 	}
 }
 

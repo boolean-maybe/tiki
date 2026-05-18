@@ -1,4 +1,4 @@
-package tikidetail
+package gridbox
 
 import (
 	"testing"

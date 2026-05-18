@@ -22,22 +22,23 @@ type pluginFileConfig struct {
 	Background  string               `yaml:"background"`
 	Key         string               `yaml:"key"`
 	Kind        string               `yaml:"kind"`
-	Mode        string               `yaml:"mode"`
 	Document    string               `yaml:"document"`
 	Path        string               `yaml:"path"`
 	Lanes       []PluginLaneConfig   `yaml:"lanes"`
 	Actions     []PluginActionConfig `yaml:"actions"`
-	Metadata    [][]string           `yaml:"metadata"`
+	Layout      [][]string           `yaml:"layout"`
 	Require     []string             `yaml:"require"`
 	Default     bool                 `yaml:"default"`
 
 	// Legacy fields retained only for rejection diagnostics.
-	Type    string `yaml:"type"`
-	View    string `yaml:"view"`
-	Fetcher string `yaml:"fetcher"`
-	Text    string `yaml:"text"`
-	URL     string `yaml:"url"`
-	Sort    string `yaml:"sort"`
+	Type     string     `yaml:"type"`
+	View     string     `yaml:"view"`
+	Fetcher  string     `yaml:"fetcher"`
+	Text     string     `yaml:"text"`
+	URL      string     `yaml:"url"`
+	Sort     string     `yaml:"sort"`
+	Mode     string     `yaml:"mode"`
+	Metadata [][]string `yaml:"metadata"`
 }
 
 // WorkflowFile represents the new Phase-6 YAML structure.

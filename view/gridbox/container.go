@@ -1,4 +1,31 @@
-package tikidetail
+// Package gridbox renders a parsed gridlayout spec into a width-adaptive
+// tview primitive. Two surfaces use it: the detail view's layout grid
+// (view-mode only — edit mode owns its own renderer in package tikidetail)
+// and the tiki box on board/list views.
+//
+// What lives here vs. in tikidetail:
+//
+//   - This package owns the layout primitive (Container) and the
+//     layout-solver adapter (SolveGridLayout, DefaultAnchorWidth,
+//     overhead constants). Nothing in this package knows about field
+//     names, render context, themes, or any per-field logic.
+//   - Package view/tikidetail owns the view-mode field renderers
+//     (RenderViewModeAnchor and the underlying renderConfiguredField,
+//     renderCompositePrimitive, renderLiteralCaption, etc.). The tiki
+//     box reuses those renderers via the tikidetail package's exported
+//     API rather than this package owning a parallel copy.
+//
+// The plan that introduced this package envisioned a
+// view/gridbox/field_render.go that would own the view-mode renderers.
+// Implementation discovered the renderers depend on a substantial
+// amount of tikidetail-internal state (FieldRenderContext, the field
+// registry, theme paint resolvers, workflow.ExpandVisual integration);
+// duplicating them in gridbox or moving the entire dependency surface
+// into gridbox would have been a much larger refactor. The chosen
+// alternative — gridbox owns layout primitives only, tikidetail owns
+// field rendering — keeps the package boundary clean and the dependency
+// direction one-way (view/tiki_box.go imports both).
+package gridbox
 
 import (
 	"github.com/boolean-maybe/tiki/gridlayout"
@@ -6,8 +33,8 @@ import (
 	"github.com/rivo/tview"
 )
 
-// gridContainer hosts the metadata grid for a configurable detail view.
-// It rebuilds its inner Flex layout on width change so the layout
+// Container hosts a layout grid for a configurable detail view or a tiki
+// box. It rebuilds its inner Flex layout on width change so the layout
 // algorithm runs against the live terminal width — tview primitives
 // don't see their width at construction time, only on Draw via GetRect().
 //
@@ -21,7 +48,7 @@ import (
 // Using nested Flexes (rather than tview.Grid) keeps the focus chain
 // identical to the legacy renderer — editor widgets receive Tab/Down
 // events without the Grid's internal focus traversal interfering.
-type gridContainer struct {
+type Container struct {
 	*tview.Flex
 	spec       gridlayout.GridSpec
 	primitives []tview.Primitive // indexed by anchor position in spec.Anchors
@@ -29,14 +56,14 @@ type gridContainer struct {
 	lastWidth  int
 }
 
-// newGridContainer wires the parsed grid spec, the per-anchor primitives,
+// NewContainer wires the parsed grid spec, the per-anchor primitives,
 // and a height-resolver into a horizontal Flex wrapper. The first Draw
 // call computes the layout against the live width.
 //
 // primitives is indexed by anchor position (same order as spec.Anchors)
 // so both field and literal anchors can be addressed uniformly.
-func newGridContainer(spec gridlayout.GridSpec, primitives []tview.Primitive, heightOf func(name string, width int) int) *gridContainer {
-	g := &gridContainer{
+func NewContainer(spec gridlayout.GridSpec, primitives []tview.Primitive, heightOf func(name string, width int) int) *Container {
+	g := &Container{
 		Flex:       tview.NewFlex().SetDirection(tview.FlexRow),
 		spec:       spec,
 		primitives: primitives,
@@ -48,7 +75,7 @@ func newGridContainer(spec gridlayout.GridSpec, primitives []tview.Primitive, he
 
 // Draw rebuilds the inner layout when the width has changed, then
 // delegates to Flex.Draw to render the children.
-func (g *gridContainer) Draw(screen tcell.Screen) {
+func (g *Container) Draw(screen tcell.Screen) {
 	_, _, width, _ := g.GetRect()
 	if width != g.lastWidth {
 		g.rebuild(width)
@@ -69,7 +96,7 @@ func (g *gridContainer) Draw(screen tcell.Screen) {
 //     get padded when a neighbour column grew the row (e.g. multi-line
 //     tags). A residual flex-1 box at the bottom of each column absorbs
 //     leftover space.
-func (g *gridContainer) rebuild(width int) {
+func (g *Container) rebuild(width int) {
 	g.lastWidth = width
 	g.Flex.Clear()
 	plan := SolveGridLayout(width, g.spec, g.heightOf)
@@ -107,7 +134,7 @@ func (g *gridContainer) rebuild(width int) {
 // addSpanningRow renders a single row that contains at least one
 // horizontal span as a FlexColumn. Each cell gets the combined width of
 // its spanned columns (plus inter-column gaps between them).
-func (g *gridContainer) addSpanningRow(row int, plan gridlayout.Plan, anchorAt map[int]int) {
+func (g *Container) addSpanningRow(row int, plan gridlayout.Plan, anchorAt map[int]int) {
 	rowFlex := tview.NewFlex().SetDirection(tview.FlexColumn)
 	c := 0
 	for c < plan.Cols {
@@ -125,7 +152,7 @@ func (g *gridContainer) addSpanningRow(row int, plan gridlayout.Plan, anchorAt m
 			}
 			rowFlex.AddItem(tview.NewBox(), colWidth, proportion, false)
 			if c < plan.Cols-1 && !plan.Dropped[c+1] {
-				rowFlex.AddItem(tview.NewBox(), interColumnGap, 0, false)
+				rowFlex.AddItem(tview.NewBox(), InterColumnGap, 0, false)
 			}
 			c++
 			continue
@@ -144,7 +171,7 @@ func (g *gridContainer) addSpanningRow(row int, plan gridlayout.Plan, anchorAt m
 		rowFlex.AddItem(prim, cellWidth, proportion, false)
 		nextVisibleCol := g.lastVisibleSpannedCol(a, plan)
 		if nextVisibleCol < plan.Cols-1 && !plan.Dropped[nextVisibleCol+1] {
-			rowFlex.AddItem(tview.NewBox(), interColumnGap, 0, false)
+			rowFlex.AddItem(tview.NewBox(), InterColumnGap, 0, false)
 		}
 		c += a.ColSpan
 	}
@@ -156,7 +183,7 @@ func (g *gridContainer) addSpanningRow(row int, plan gridlayout.Plan, anchorAt m
 // horizontal spans using column-major layout. Each column is a FlexRow
 // containing only the cells for this band's rows. Per-column natural-
 // height packing ensures short cells aren't padded by taller neighbours.
-func (g *gridContainer) addPackedBand(start, end int, plan gridlayout.Plan, anchorAt map[int]int) {
+func (g *Container) addPackedBand(start, end int, plan gridlayout.Plan, anchorAt map[int]int) {
 	bandHeight := 0
 	for r := start; r < end; r++ {
 		bandHeight += plan.RowHeights[r]
@@ -194,7 +221,7 @@ func (g *gridContainer) addPackedBand(start, end int, plan gridlayout.Plan, anch
 		}
 		bandFlex.AddItem(colFlex, colWidth, proportion, false)
 		if c < plan.Cols-1 && !plan.Dropped[c+1] {
-			bandFlex.AddItem(tview.NewBox(), interColumnGap, 0, false)
+			bandFlex.AddItem(tview.NewBox(), InterColumnGap, 0, false)
 		}
 	}
 	g.Flex.AddItem(bandFlex, bandHeight, 0, false)
@@ -203,7 +230,7 @@ func (g *gridContainer) addPackedBand(start, end int, plan gridlayout.Plan, anch
 // spanWidth returns the total character width of an anchor's column span
 // (including inter-column gaps between visible spanned columns) and
 // whether any spanned column is a stretcher.
-func (g *gridContainer) spanWidth(a gridlayout.Anchor, plan gridlayout.Plan) (int, bool) {
+func (g *Container) spanWidth(a gridlayout.Anchor, plan gridlayout.Plan) (int, bool) {
 	totalWidth := 0
 	visible := 0
 	hasStretcher := false
@@ -218,14 +245,14 @@ func (g *gridContainer) spanWidth(a gridlayout.Anchor, plan gridlayout.Plan) (in
 		}
 	}
 	if visible > 1 {
-		totalWidth += (visible - 1) * interColumnGap
+		totalWidth += (visible - 1) * InterColumnGap
 	}
 	return totalWidth, hasStretcher
 }
 
 // lastVisibleSpannedCol returns the index of the last non-dropped column
 // within an anchor's horizontal span.
-func (g *gridContainer) lastVisibleSpannedCol(a gridlayout.Anchor, plan gridlayout.Plan) int {
+func (g *Container) lastVisibleSpannedCol(a gridlayout.Anchor, plan gridlayout.Plan) int {
 	last := a.Col
 	for cc := a.Col; cc < a.Col+a.ColSpan; cc++ {
 		if !plan.Dropped[cc] {
@@ -239,7 +266,7 @@ func (g *gridContainer) lastVisibleSpannedCol(a gridlayout.Anchor, plan gridlayo
 // primitive within its column. For field anchors, this is the anchor's
 // natural height (from heightOf); for literals it is fixed at 1. Critically
 // it is NOT the solver's row-band sum — see rebuild() for the rationale.
-func (g *gridContainer) anchorPlacementHeight(a gridlayout.Anchor, plan gridlayout.Plan) int {
+func (g *Container) anchorPlacementHeight(a gridlayout.Anchor, plan gridlayout.Plan) int {
 	if a.Kind == gridlayout.AnchorLiteral {
 		return 1
 	}
@@ -253,7 +280,7 @@ func (g *gridContainer) anchorPlacementHeight(a gridlayout.Anchor, plan gridlayo
 		totalWidth += plan.ColumnWidths[cc]
 	}
 	if visible > 1 {
-		totalWidth += (visible - 1) * interColumnGap
+		totalWidth += (visible - 1) * InterColumnGap
 	}
 	h := g.heightOf(a.Name, totalWidth)
 	if h < 1 {

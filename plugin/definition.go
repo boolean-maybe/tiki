@@ -120,10 +120,10 @@ func (p *BasePlugin) GetRequire() []string {
 // GetKind() distinguishes board vs list.
 type WorkflowPlugin struct {
 	BasePlugin
-	Lanes   []TikiLane     // lane definitions for this plugin
-	Mode    string         // display mode: "compact" or "expanded" (empty = compact)
-	Actions []PluginAction // shortcut actions applied to the selected tiki
-	TikiID  string         // optional tiki associated with this plugin (code-only, not from workflow config)
+	Lanes   []TikiLane          // lane definitions for this plugin
+	Layout  gridlayout.GridSpec // parsed layout grid for tiki-box rendering (see workflow-format.md)
+	Actions []PluginAction      // shortcut actions applied to the selected tiki
+	TikiID  string              // optional tiki associated with this plugin (code-only, not from workflow config)
 }
 
 // WikiPlugin backs the wiki view kind (markdown document rendering bound to a
@@ -138,14 +138,14 @@ type WikiPlugin struct {
 	DocumentPath string // wiki: relative path under .doc/
 }
 
-// DetailPlugin backs the configurable detail view kind. Metadata is the
-// parsed 2D layout grid for the metadata box between the title and
-// description sections. Per-view Actions are surfaced alongside built-in
-// detail actions and global actions.
+// DetailPlugin backs the configurable detail view kind. Layout is the
+// parsed 2D layout grid for the box between the title and description
+// sections. Per-view Actions are surfaced alongside built-in detail
+// actions and global actions.
 type DetailPlugin struct {
 	BasePlugin
-	Metadata gridlayout.GridSpec // parsed metadata grid (see workflow-format.md)
-	Actions  []PluginAction      // per-view shortcut actions (merged with globals at runtime)
+	Layout  gridlayout.GridSpec // parsed layout grid (see workflow-format.md)
+	Actions []PluginAction      // per-view shortcut actions (merged with globals at runtime)
 }
 
 // PluginActionConfig represents a shortcut action in YAML or config definitions.

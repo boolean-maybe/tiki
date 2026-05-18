@@ -18,6 +18,13 @@ func testParser() *ruki.Parser {
 	return ruki.NewParser(testSchema())
 }
 
+// minimalBoardLayout returns the smallest valid `layout:` value for a
+// board/list view. Reused by tests that don't otherwise care about the
+// layout shape — they just need the parser to accept the config.
+func minimalBoardLayout() [][]string {
+	return [][]string{{"id"}}
+}
+
 func TestWikiValidation(t *testing.T) {
 	schema := testSchema()
 	cases := []struct {
@@ -66,6 +73,8 @@ func TestLegacyFieldRejection(t *testing.T) {
 		{"text field", pluginFileConfig{Name: "X", Text: "t"}, "use `document:` or `path:`"},
 		{"url field", pluginFileConfig{Name: "X", URL: "u"}, "use `document:` or `path:`"},
 		{"sort field", pluginFileConfig{Name: "X", Sort: "priority"}, "use `order by`"},
+		{"mode field", pluginFileConfig{Name: "X", Mode: "expanded"}, "use `layout:`"},
+		{"metadata field", pluginFileConfig{Name: "X", Metadata: [][]string{{"title"}}}, "renamed to `layout:`"},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
@@ -146,9 +155,10 @@ func TestParsePluginConfig_ActivationKeyNormalization(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			cfg := pluginFileConfig{
-				Name: "Test",
-				Key:  tt.keyStr,
-				Kind: "board",
+				Name:   "Test",
+				Key:    tt.keyStr,
+				Kind:   "board",
+				Layout: minimalBoardLayout(),
 				Lanes: []PluginLaneConfig{
 					{Name: "Todo", Filter: `select where status = "ready"`},
 				},
@@ -172,6 +182,10 @@ func TestParsePluginConfig_BoardKindExplicit(t *testing.T) {
 		Name: "Test",
 		Key:  "T",
 		Kind: "board",
+		Layout: [][]string{
+			{"id"},
+			{"<highlight>title"},
+		},
 		Lanes: []PluginLaneConfig{
 			{Name: "Todo", Filter: `select where status = "ready"`},
 		},
@@ -180,8 +194,47 @@ func TestParsePluginConfig_BoardKindExplicit(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Expected no error, got: %v", err)
 	}
-	if _, ok := p.(*WorkflowPlugin); !ok {
-		t.Errorf("Expected WorkflowPlugin for kind: board, got %T", p)
+	wp, ok := p.(*WorkflowPlugin)
+	if !ok {
+		t.Fatalf("Expected WorkflowPlugin for kind: board, got %T", p)
+	}
+	if wp.Layout.Rows != 2 {
+		t.Errorf("Layout.Rows = %d, want 2", wp.Layout.Rows)
+	}
+}
+
+// TestParsePluginConfig_BoardMissingLayout asserts that a board view without
+// a layout: field is rejected.
+func TestParsePluginConfig_BoardMissingLayout(t *testing.T) {
+	cfg := pluginFileConfig{
+		Name: "Test",
+		Key:  "T",
+		Kind: "board",
+		Lanes: []PluginLaneConfig{
+			{Name: "Todo", Filter: `select where status = "ready"`},
+		},
+	}
+	_, err := parsePluginConfig(cfg, "test.yaml", testSchema(), nil)
+	if err == nil || !strings.Contains(err.Error(), "layout") {
+		t.Fatalf("expected missing-layout error, got %v", err)
+	}
+}
+
+// TestParsePluginConfig_BoardEmptyLayout asserts that an empty layout block
+// is rejected.
+func TestParsePluginConfig_BoardEmptyLayout(t *testing.T) {
+	cfg := pluginFileConfig{
+		Name:   "Test",
+		Key:    "T",
+		Kind:   "board",
+		Layout: [][]string{},
+		Lanes: []PluginLaneConfig{
+			{Name: "Todo", Filter: `select where status = "ready"`},
+		},
+	}
+	_, err := parsePluginConfig(cfg, "test.yaml", testSchema(), nil)
+	if err == nil || !strings.Contains(err.Error(), "layout") {
+		t.Fatalf("expected empty-layout error, got %v", err)
 	}
 }
 
@@ -207,7 +260,9 @@ lanes:
   - name: Todo
     columns: 4
     filter: select where status = "ready"
-mode: expanded
+layout:
+  - [id]
+  - ["<highlight>title"]
 foreground: "#ff0000"
 background: "#0000ff"
 `)
@@ -227,8 +282,8 @@ background: "#0000ff"
 		t.Errorf("Expected name 'Test Plugin', got %q", tikiPlugin.GetName())
 	}
 
-	if tikiPlugin.Mode != "expanded" {
-		t.Errorf("Expected view mode 'expanded', got %q", tikiPlugin.Mode)
+	if tikiPlugin.Layout.Rows != 2 {
+		t.Errorf("Layout.Rows = %d, want 2", tikiPlugin.Layout.Rows)
 	}
 
 	if len(tikiPlugin.Lanes) != 1 {
@@ -357,6 +412,8 @@ func TestParsePluginYAML_TikiWithActions(t *testing.T) {
 name: Test
 key: T
 kind: board
+layout:
+  - [id]
 lanes:
   - name: Backlog
     filter: select where status = "backlog"
@@ -454,9 +511,10 @@ func TestParsePluginConfig_LaneFilterRejectsTargetsQualifier(t *testing.T) {
 func TestParsePluginConfig_LaneActionAllowsTargetQualifier(t *testing.T) {
 	schema := testSchema()
 	cfg := pluginFileConfig{
-		Name: "Test",
-		Key:  "T",
-		Kind: "board",
+		Name:   "Test",
+		Key:    "T",
+		Kind:   "board",
+		Layout: minimalBoardLayout(),
 		Lanes: []PluginLaneConfig{
 			{
 				Name:   "OK",
@@ -902,6 +960,8 @@ func TestParsePluginYAML_HotFlagFromYAML(t *testing.T) {
 name: Test
 key: T
 kind: board
+layout:
+  - [id]
 lanes:
   - name: Backlog
     filter: select where status = "backlog"
@@ -1320,6 +1380,8 @@ func TestParsePluginYAML_RequireQuotedNegation(t *testing.T) {
 name: Test
 key: "1"
 kind: board
+layout:
+  - [id]
 lanes:
   - name: All
     filter: 'select'

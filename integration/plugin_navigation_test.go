@@ -222,7 +222,6 @@ func TestPluginActions_RegistryMatchesExpectedKeys(t *testing.T) {
 		{controller.ActionNewTiki, tcell.KeyRune, 'n'},
 		{controller.ActionDeleteTiki, tcell.KeyRune, 'd'},
 		{controller.ActionSearch, tcell.KeyRune, '/'},
-		{controller.ActionToggleViewMode, tcell.KeyRune, 'v'},
 	}
 
 	// Test each plugin controller (only WorkflowPlugin types have tiki management actions)
@@ -455,29 +454,6 @@ func TestPluginActions_Search_SlashKey(t *testing.T) {
 	// We'll just verify no crash occurs
 	if ta.NavController.CurrentViewID() != model.MakePluginViewID("Backlog") {
 		t.Error("Expected to stay on Backlog view after opening search")
-	}
-}
-
-func TestPluginActions_ToggleViewMode_VKey(t *testing.T) {
-	ta := setupTestAppWithPlugins(t)
-	defer ta.Cleanup()
-
-	ta.NavController.PushView(model.MakePluginViewID("Backlog"), nil)
-	ta.Draw()
-
-	pluginConfig := ta.GetPluginConfig("Backlog")
-	if pluginConfig == nil {
-		t.Fatal("Failed to get Backlog plugin config")
-	}
-
-	initialViewMode := pluginConfig.GetViewMode()
-
-	// Press 'v' to toggle view mode
-	ta.SendKey(tcell.KeyRune, 'v', tcell.ModNone)
-
-	newViewMode := pluginConfig.GetViewMode()
-	if newViewMode == initialViewMode {
-		t.Error("Expected view mode to toggle after pressing 'v'")
 	}
 }
 

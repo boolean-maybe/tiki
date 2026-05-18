@@ -97,18 +97,18 @@ func (f *ViewFactory) RegisterPlugin(name string, cfg *model.PluginConfig, def p
 	f.pluginControllers[name] = ctrl
 }
 
-// lookupDefaultDetailMetadata returns the metadata field list of the
+// lookupDefaultDetailLayout returns the layout anchor list of the
 // workflow's primary detail plugin, used as the second-tier fallback when
-// TikiEditParams.Metadata is empty. Resolution order:
+// TikiEditParams.Layout is empty. Resolution order:
 //  1. Tier 1: the plugin conventionally named "Detail" (matches the
 //     bundled kanban workflow).
 //  2. Tier 2: the alphabetically-first DetailPlugin in pluginDefs. Sorted
 //     so behavior is reproducible across Go map iteration randomization.
-//  3. nil — the caller falls back to tikidetail.DefaultEditMetadata.
-func (f *ViewFactory) lookupDefaultDetailMetadata() []string {
+//  3. nil — the caller falls back to tikidetail.DefaultEditLayout.
+func (f *ViewFactory) lookupDefaultDetailLayout() []string {
 	if def, ok := f.pluginDefs[model.DetailPluginName]; ok {
 		if dp, ok := def.(*plugin.DetailPlugin); ok {
-			return dp.Metadata.AnchorNames()
+			return dp.Layout.AnchorNames()
 		}
 	}
 	names := make([]string, 0, len(f.pluginDefs))
@@ -118,7 +118,7 @@ func (f *ViewFactory) lookupDefaultDetailMetadata() []string {
 	sort.Strings(names)
 	for _, name := range names {
 		if dp, ok := f.pluginDefs[name].(*plugin.DetailPlugin); ok {
-			return dp.Metadata.AnchorNames()
+			return dp.Layout.AnchorNames()
 		}
 	}
 	return nil
@@ -131,14 +131,14 @@ func (f *ViewFactory) CreateView(viewID model.ViewID, params map[string]interfac
 	switch viewID {
 	case model.TikiEditViewID:
 		editParams := model.DecodeTikiEditParams(params)
-		metadata := editParams.Metadata
-		if len(metadata) == 0 {
-			metadata = f.lookupDefaultDetailMetadata()
+		layout := editParams.Layout
+		if len(layout) == 0 {
+			layout = f.lookupDefaultDetailLayout()
 		}
-		if len(metadata) == 0 {
-			metadata = tikidetail.DefaultEditMetadata
+		if len(layout) == 0 {
+			layout = tikidetail.DefaultEditLayout
 		}
-		v = tikidetail.NewTikiEditView(f.tikiStore, editParams.TikiID, f.imageManager, metadata)
+		v = tikidetail.NewTikiEditView(f.tikiStore, editParams.TikiID, f.imageManager, layout)
 		if tev, ok := v.(*tikidetail.TikiEditView); ok {
 			if editParams.Draft != nil {
 				tev.SetFallbackTiki(editParams.Draft)
@@ -235,7 +235,7 @@ func (f *ViewFactory) CreateView(viewID model.ViewID, params map[string]interfac
 					f.tikiStore,
 					pluginParams.TikiID,
 					detailPlugin.Name,
-					detailPlugin.Metadata,
+					detailPlugin.Layout,
 					registry,
 					f.imageManager,
 					f.mermaidOpts,

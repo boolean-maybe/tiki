@@ -10,7 +10,7 @@ import "github.com/boolean-maybe/tiki/gridlayout"
 // edit mode.
 const rowsPerPackedColumn = 5
 
-// singleColumnSpec synthesizes a 1-column metadata grid from a flat
+// singleColumnSpec synthesizes a 1-column layout grid from a flat
 // field name list — one anchor per row, in declaration order. Useful for
 // tests; production paths that take a flat list (TikiEditView) should
 // use greedyPackedSpec instead so fields don't overflow the visible

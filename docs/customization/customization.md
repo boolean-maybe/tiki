@@ -223,24 +223,31 @@ views:
 
 ### Compact vs expanded
 
-Board and list views support a `mode:` field that switches between compact and expanded card layouts:
+Board, list, and detail views all share a `layout:` field that declares the 2D grid of fields
+composing the tiki card (for board/list) or layout box (for detail). `layout:` is **required** on
+these view kinds:
 
 ```yaml
 views:
   - name: Kanban
     kind: board
-    mode: compact          # or: mode: expanded
+    layout:                       # required: the tiki-box layout shared by all lanes
+      - ['type.visual + " " + id']
+      - ["<highlight>title"]
+      - ['"priority " + priority.visual']
     lanes:
       - name: Backlog
         filter: select where status = "backlog"
 ```
 
-This replaces the pre-0.6.0 `view: compact`/`view: expanded` field, which is no longer accepted.
+This replaces the pre-0.6.0 `mode: compact`/`mode: expanded` field, which is no longer accepted.
+Cards render at the height implied by the layout's row count plus borders + padding.
 
 ### Detail views
 
-A `kind: detail` view shows a single tiki: its title, a declared list of metadata fields, and its
-description body. Title and description are always rendered — they are never listed in `metadata:`.
+A `kind: detail` view shows a single tiki: its title, a declared layout grid of fields, and its
+description body. Description is always rendered. Title renders only if declared in the `layout:`
+grid (typically with `<highlight>title`).
 
 ```yaml
 views:
@@ -248,7 +255,11 @@ views:
     kind: detail
     description: "Configured detail view for the selected tiki"
     require: ["selection:one"]
-    metadata: [status, type, priority]
+    layout:
+      - [<highlight>title, --]
+      - ["Status:", status]
+      - ["Type:", type]
+      - ["Priority:", priority]
 ```
 
 Open a detail view by declaring a `kind: view` action that targets it. Because the action carries the
@@ -264,38 +275,32 @@ actions:
     require: ["selection:one"]
 ```
 
-#### `metadata:` field list
+#### `layout:` grid
 
-Each entry in `metadata:` is the name of a workflow-declared field, or one of the supported audit
-fields: `createdBy`, `createdAt`, `updatedAt`. Entries render in the listed order, between the
-title block and the description body.
+`layout:` is a list of rows; each row is a list of cells. Cells can be field names, literal
+captions (quoted strings), role-annotated fields (`<highlight>title`), composites
+(`"priority " + priority.visual`), spans (`--`, `^`/`|`), stretchers (`<->`), or empty placeholders
+(`_`). The same syntax is shared by board/list and detail views.
 
-The default detail view ships with three fields:
-
-```yaml
-metadata: [status, type, priority]
-```
-
-Any field declared in `workflow.yaml fields:` — plus the audit fields above — may appear in
-`metadata:`. Fields with typed editors in the view layer (`status`, `type`, and `priority` today)
-are fully editable in place; all other accepted fields render as a generic read-only
-`Label: value` row. Project-specific fields like `severity`, `sprint`, or `blocked` therefore work
-in `metadata:` without any code change — they simply render as a labeled row with the value
-formatted by their declared type. Richer typed editors for additional types will land in future
-iterations.
+Any field declared in `workflow.yaml fields:` — plus the audit fields `createdBy`, `createdAt`,
+`updatedAt` — may appear in `layout:`. Fields with typed editors (`status`, `type`, and `priority`
+today) are fully editable in place on a detail view; all other accepted fields render as a generic
+read-only `Label: value` row. Project-specific fields like `severity`, `sprint`, or `blocked`
+therefore work in `layout:` without any code change.
 
 Validation rules — workflow load fails when:
 
 - An entry is not a workflow-declared field or a supported audit field
   (`createdBy`, `createdAt`, `updatedAt`).
-- An entry is `id`, `title`, `description`, or `body` — those are rendered by the detail view
-  chrome, not as metadata rows.
-- An entry is `filepath` or `path` — those values live on the tiki struct rather than in Fields
-  and have no typed renderer yet.
-- The same field is listed more than once.
+- For `kind: detail`, an entry is `id`, `description`, or `body` — those are rendered by the detail
+  view chrome, not as layout rows. `title` IS allowed and renders as a regular grid field.
+- For `kind: detail`, an entry is `filepath` or `path` — those values live on the tiki struct
+  rather than in Fields and have no typed renderer yet.
+- The grid has shape errors (ragged rows, orphan span markers, mixed stretcher columns, duplicate
+  anchors).
 
 Audit fields (`createdBy`, `createdAt`, `updatedAt`) are accepted and render as read-only rows;
-the bundled kanban workflow includes them in its `metadata:` list.
+the bundled kanban workflow includes them in its `layout:` grid.
 
 #### Detail view actions
 
@@ -307,7 +312,9 @@ views:
   - name: Detail
     kind: detail
     require: ["selection:one"]
-    metadata: [status, type, priority]
+    layout:
+      - [<highlight>title, --]
+      - ["Status:", status]
     actions:
       - key: "a"
         label: "Assign to me"
@@ -321,7 +328,7 @@ the built-in behavior.
 #### Edit mode
 
 Pressing `Edit` switches the same detail view into edit mode in place — there is no separate edit
-view. `Tab` and `Shift-Tab` traverse the editable metadata fields in `metadata:` order. Read-only
+view. `Tab` and `Shift-Tab` traverse the editable layout fields in declaration order. Read-only
 fields render but are skipped during traversal. Save and cancel preserve the current edit-session
 behavior.
 
@@ -333,7 +340,7 @@ input widget behind it.
 #### Project-specific fields in detail views
 
 Any field declared in `workflow.yaml fields:` — including project-specific fields like
-`severity`, `sprint`, or `blocked` — can appear in `metadata:`. Fields without a typed editor
+`severity`, `sprint`, or `blocked` — can appear in `layout:`. Fields without a typed editor
 render as a generic read-only `Label: value` row, with the value formatted by the field's declared
 type (lists are joined with commas, dates show as `YYYY-MM-DD`, enums show their `Label Emoji`,
 absent values show as `—`). To set such a field, use a ruki action

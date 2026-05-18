@@ -400,45 +400,6 @@ func TestLoadConfigAIAgentDefault(t *testing.T) {
 	}
 }
 
-func TestGetPluginViewMode_ReadsFromWorkflow(t *testing.T) {
-	tmpDir := t.TempDir()
-
-	workflowContent := `views:
-  - name: Kanban
-    kind: board
-    key: "F1"
-    lanes:
-      - name: Ready
-        filter: select where status = "ready"
-  - name: Dependency
-    kind: board
-    mode: expanded
-    lanes:
-      - name: Blocks
-        filter: select where status = "ready"
-`
-	if err := os.WriteFile(filepath.Join(tmpDir, "workflow.yaml"), []byte(workflowContent), 0644); err != nil {
-		t.Fatal(err)
-	}
-
-	originalDir, _ := os.Getwd()
-	defer func() { _ = os.Chdir(originalDir) }()
-	_ = os.Chdir(tmpDir)
-
-	t.Setenv("XDG_CONFIG_HOME", tmpDir)
-	ResetPathManager()
-
-	if got := GetPluginViewMode("Dependency"); got != "expanded" {
-		t.Errorf("GetPluginViewMode(Dependency) = %q, want %q", got, "expanded")
-	}
-	if got := GetPluginViewMode("Kanban"); got != "" {
-		t.Errorf("GetPluginViewMode(Kanban) = %q, want empty (no view field)", got)
-	}
-	if got := GetPluginViewMode("NonExistent"); got != "" {
-		t.Errorf("GetPluginViewMode(NonExistent) = %q, want empty", got)
-	}
-}
-
 func TestGetConfig(t *testing.T) {
 	// Reset appConfig
 	appConfig = nil

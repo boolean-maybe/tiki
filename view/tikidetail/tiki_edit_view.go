@@ -12,6 +12,7 @@ import (
 	"github.com/boolean-maybe/tiki/store"
 	"github.com/boolean-maybe/tiki/theme"
 	tikipkg "github.com/boolean-maybe/tiki/tiki"
+	"github.com/boolean-maybe/tiki/view/gridbox"
 	"github.com/boolean-maybe/tiki/workflow"
 
 	navtview "github.com/boolean-maybe/navidown/navidown/tview"
@@ -19,12 +20,12 @@ import (
 	"github.com/rivo/tview"
 )
 
-// DefaultEditMetadata is the canonical field list TikiEditView shows when
+// DefaultEditLayout is the canonical field list TikiEditView shows when
 // no workflow-specific list is supplied. Title is first so the edit view
 // always starts focused on it. Single source of truth so the factory's
 // metadata-precedence resolver can fall back to it without hardcoding the
 // slice in two places.
-var DefaultEditMetadata = []string{
+var DefaultEditLayout = []string{
 	"title",
 	tikipkg.FieldStatus,
 	tikipkg.FieldType,
@@ -37,25 +38,25 @@ var DefaultEditMetadata = []string{
 }
 
 // TikiEditView renders a tiki in full edit mode using the same fixed-shape
-// metadata grid as ConfigurableDetailView. The metadata field list is
+// layout grid as ConfigurableDetailView. The layout field list is
 // supplied at construction time by the factory's precedence resolver
-// (TikiEditParams.Metadata → workflow Detail-plugin lookup →
-// DefaultEditMetadata).
+// (TikiEditParams.Layout → workflow Detail-plugin lookup →
+// DefaultEditLayout).
 //
 // Title is a regular grid field — its position in the Tab order derives
-// from its position in the metadata list. Description is appended as the
-// last Tab stop after all metadata fields.
+// from its position in the layout list. Description is appended as the
+// last Tab stop after all layout fields.
 type TikiEditView struct {
 	Base
 
 	registry *controller.ActionRegistry
 	viewID   model.ViewID
 
-	metadata         []string
+	layout           []string
 	editFieldOrder   []model.EditField
 	focusedField     model.EditField
 	validationErrors []string
-	metadataBox      *tview.Frame
+	layoutBox        *tview.Frame
 	descOnly         bool
 	tagsOnly         bool
 
@@ -107,15 +108,15 @@ func (ev *TikiEditView) SetActionChangeHandler(handler func()) {
 	ev.actionChangeHandler = handler
 }
 
-// NewTikiEditView creates a tiki edit view bound to the given metadata list.
-// The factory resolves the metadata source per the precedence rules and
-// passes the result here; an empty slice falls back to DefaultEditMetadata
+// NewTikiEditView creates a tiki edit view bound to the given layout list.
+// The factory resolves the layout source per the precedence rules and
+// passes the result here; an empty slice falls back to DefaultEditLayout
 // so the view always has a non-empty navigation order.
-func NewTikiEditView(tikiStore store.Store, tikiID string, imageManager *navtview.ImageManager, metadata []string) *TikiEditView {
-	if len(metadata) == 0 {
-		metadata = DefaultEditMetadata
+func NewTikiEditView(tikiStore store.Store, tikiID string, imageManager *navtview.ImageManager, layout []string) *TikiEditView {
+	if len(layout) == 0 {
+		layout = DefaultEditLayout
 	}
-	order := model.MetadataToEditFieldOrder(metadata)
+	order := model.LayoutToEditFieldOrder(layout)
 	order = append(order, model.EditFieldDescription)
 
 	ev := &TikiEditView{
@@ -126,7 +127,7 @@ func NewTikiEditView(tikiStore store.Store, tikiID string, imageManager *navtvie
 		},
 		registry:       controller.GetActionsForField(model.EditFieldTitle),
 		viewID:         model.TikiEditViewID,
-		metadata:       metadata,
+		layout:         layout,
 		editFieldOrder: order,
 		focusedField:   order[0],
 		titleEditing:   true,
@@ -178,15 +179,15 @@ func (ev *TikiEditView) GetViewName() string { return model.TikiEditViewName }
 // GetViewDescription returns the view description for the header info section
 func (ev *TikiEditView) GetViewDescription() string { return model.TikiEditViewDesc }
 
-// Metadata returns the configured metadata field list. Used by callers that
-// want to forward the same metadata shape into a downstream view (e.g. the
+// Layout returns the configured layout anchor list. Used by callers that
+// want to forward the same layout shape into a downstream view (e.g. the
 // configurable detail view exposes this so the input router can copy it
 // into TikiEditParams when opening the edit view from a detail context).
-func (ev *TikiEditView) Metadata() []string {
-	return ev.metadata
+func (ev *TikiEditView) Layout() []string {
+	return ev.layout
 }
 
-// SetDescOnly enables description-only edit mode where metadata is read-only.
+// SetDescOnly enables description-only edit mode where layout is read-only.
 func (ev *TikiEditView) SetDescOnly(descOnly bool) {
 	ev.descOnly = descOnly
 	if descOnly {
@@ -262,7 +263,7 @@ func (ev *TikiEditView) refresh() {
 	ev.updateValidationState()
 }
 
-// buildMetadataBox builds the framed metadata box with the configurable
+// buildMetadataBox builds the framed layout box with the configurable
 // grid. Mirrors ConfigurableDetailView's shape — gridded fields turn into
 // editors when focused (including title as an InputField).
 func (ev *TikiEditView) buildMetadataBox(tk *tikipkg.Tiki, roles *theme.Theme) (*tview.Frame, int) {
@@ -281,7 +282,7 @@ func (ev *TikiEditView) buildMetadataBox(tk *tikipkg.Tiki, roles *theme.Theme) (
 	heightOf := func(name string, w int) int { return FieldHeight(name, tk, w) }
 
 	container := tview.NewFlex().SetDirection(tview.FlexRow)
-	container.AddItem(newGridContainer(spec, primitives, heightOf), spec.Rows, 0, false)
+	container.AddItem(gridbox.NewContainer(spec, primitives, heightOf), spec.Rows, 0, false)
 	container.AddItem(tview.NewBox(), 1, 0, false)
 
 	frame := tview.NewFrame(container).SetBorders(0, 0, 0, 0, 0, 0)
@@ -289,8 +290,8 @@ func (ev *TikiEditView) buildMetadataBox(tk *tikipkg.Tiki, roles *theme.Theme) (
 		fmt.Sprintf(" %s ", renderTikiIDGradient(tk.ID, roles)),
 	).SetBorderColor(roles.BorderIdle().TCell())
 	frame.SetBorderPadding(1, 0, 2, 2)
-	ev.metadataBox = frame
-	return frame, spec.Rows + metadataBoxOverhead
+	ev.layoutBox = frame
+	return frame, spec.Rows + gridbox.DetailBoxOverhead
 }
 
 // buildGridSpecAndPrimitives mirrors the configurable view's helper but
@@ -301,9 +302,9 @@ func (ev *TikiEditView) buildMetadataBox(tk *tikipkg.Tiki, roles *theme.Theme) (
 // TikiEditView has a flat metadata list rather than a parsed grid; it
 // packs the list into columns of rowsPerPackedColumn rows so the
 // shared grid container can lay them out without overflowing the
-// fixed-height metadata box.
+// fixed-height layout box.
 func (ev *TikiEditView) buildGridSpecAndPrimitives(tk *tikipkg.Tiki, ctx FieldRenderContext) (gridlayout.GridSpec, []tview.Primitive) {
-	spec := greedyPackedSpec(ev.metadata)
+	spec := greedyPackedSpec(ev.layout)
 	primitives := make([]tview.Primitive, len(spec.Anchors))
 	for i, a := range spec.Anchors {
 		primitives[i] = ev.gridFieldPrimitive(a.Name, tk, ctx)
@@ -328,7 +329,7 @@ func (ev *TikiEditView) gridFieldPrimitive(name string, tk *tikipkg.Tiki, ctx Fi
 	// Resolve the EditField identity for focus-matching. Built-in fields
 	// pull from the static FieldDescriptor; workflow-only fields use the
 	// field name directly (the EditField type is a string, and the
-	// MetadataToEditFieldOrder helper emits the same shape).
+	// LayoutToEditFieldOrder helper emits the same shape).
 	editField := editFieldFor(name)
 	if editField == "" {
 		return renderConfiguredField(name, tk, ctx)
@@ -352,7 +353,7 @@ func (ev *TikiEditView) gridFieldPrimitive(name string, tk *tikipkg.Tiki, ctx Fi
 // editFieldFor returns the EditField identity for a metadata field. Built-in
 // fields use their static descriptor; workflow-only TypeEnum fields use
 // their field name directly (the EditField type is a string alias, and
-// MetadataToEditFieldOrder emits the same shape so focus-matching lines up).
+// LayoutToEditFieldOrder emits the same shape so focus-matching lines up).
 func editFieldFor(name string) model.EditField {
 	if fd, ok := LookupField(name); ok {
 		return fd.EditField
@@ -688,12 +689,12 @@ func (ev *TikiEditView) updateValidationState() {
 		}
 	}
 
-	if ev.metadataBox != nil {
+	if ev.layoutBox != nil {
 		roles := theme.Roles()
 		if len(ev.validationErrors) > 0 {
-			ev.metadataBox.SetBorderColor(roles.BorderFocus().TCell())
+			ev.layoutBox.SetBorderColor(roles.BorderFocus().TCell())
 		} else {
-			ev.metadataBox.SetBorderColor(roles.BorderIdle().TCell())
+			ev.layoutBox.SetBorderColor(roles.BorderIdle().TCell())
 		}
 	}
 }
