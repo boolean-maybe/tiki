@@ -424,7 +424,7 @@ Arguments:
 Options:
   -w, --workflow <source>      Install a workflow (embedded name, file path, or URL)
   --ai-skill <list>            AI skills to install (comma-separated: claude,gemini)
-  --samples                    Create bundled sample tasks (non-interactive only)
+  --samples                    Create bundled sample documents (non-interactive only)
   -n, --non-interactive        Skip prompts, use flags/defaults only
   -h, --help                   Show this help message
 
@@ -440,7 +440,7 @@ Examples:
   tiki init -w kanban test1              Initialize test1 with the kanban workflow
   tiki init -w ./custom.yaml             Initialize with a local workflow file
   tiki init -w https://example.com/w.yaml  Initialize with a remote workflow
-  tiki init -n --samples                 Initialize non-interactively with sample tasks
+  tiki init -n --samples                 Initialize non-interactively with sample documents
   tiki init --ai-skill claude            Initialize with Claude Code AI skill
 `)
 }

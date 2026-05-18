@@ -379,7 +379,7 @@ count(select where status != "done")'
 
 // printUsage prints usage information when tiki is run in an uninitialized repo.
 func printUsage() {
-	fmt.Print(`tiki - Terminal-based task and documentation management
+	fmt.Print(`tiki - Terminal-based document management with workflow support
 
 Usage:
   tiki                       Launch TUI in initialized repo
@@ -390,7 +390,7 @@ Usage:
   tiki demo                  Launch demo project (extracts embedded files on first run)
   tiki file.md/URL           View markdown file or image
   echo "Title" | tiki        Create a document from piped input
-                               (workflow task or plain doc, depending on workflow)
+                               (workflow document or plain document, depending on workflow)
   tiki sysinfo               Display system information
   tiki --help                Show this help message
   tiki --version             Show version
