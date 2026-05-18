@@ -393,7 +393,7 @@ func runInit(args []string) int {
 	}
 
 	if len(aiSkills) > 0 {
-		if err := config.InstallAISkills(aiSkills, tikiSkillMdContent, dokiSkillMdContent); err != nil {
+		if err := config.InstallAISkills(aiSkills, tikiSkillMdContent); err != nil {
 			_, _ = fmt.Fprintf(os.Stderr, "warning: some AI skills failed to install: %v\n", err)
 		} else {
 			fmt.Printf("installed AI skills for: %s\n", strings.Join(aiSkills, ", "))

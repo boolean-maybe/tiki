@@ -81,8 +81,7 @@ func (s *TikiStore) loadLocked() error {
 
 		if err := idIndex.Register(tk.ID, filePath); err != nil {
 			// duplicate id: refuse to silently pick a winner. Both files stay
-			// on disk; run `tiki repair ids --fix --regenerate-duplicates` to
-			// resolve.
+			// on disk; assign a fresh bare id to all but one file to resolve.
 			s.diagnostics.record(filePath, LoadReasonDuplicateID, err.Error())
 			slog.Error("duplicate document id detected, skipping later occurrence",
 				"tiki_id", tk.ID, "file", filePath, "error", err)
@@ -123,7 +122,7 @@ func (s *TikiStore) loadTikiFile(path string, authorMap map[string]*git.AuthorIn
 
 	// Load is permissive: stale enum values, list-shape mismatches, and
 	// other coercion failures are recorded by buildFieldsFromFrontmatter as
-	// stale so the on-disk value round-trips for repair. Save-time
+	// stale so the on-disk value round-trips unchanged for manual fixup. Save-time
 	// validation (validateTikiCustomFields) is the gate that enforces the
 	// declared schema once a tiki has been intentionally written.
 	tk := parsed.t
@@ -291,9 +290,9 @@ func (s *TikiStore) ReloadTiki(tikiID string) error {
 		// it — that would silently overwrite the peer in memory while both
 		// files sit on disk. Leave the new id un-indexed too: the file at
 		// tk.Path still exists, but the store refuses to claim it until the
-		// collision is resolved (e.g. via
-		// `tiki repair ids --fix --regenerate-duplicates`). The next full
-		// Reload will surface the duplicate through LoadDiagnostics.
+		// collision is resolved (assign a fresh bare id to one of the two
+		// files). The next full Reload will surface the duplicate through
+		// LoadDiagnostics.
 		if peer, taken := s.tikis[tk.ID]; taken && peer.Path != tk.Path {
 			s.mu.Unlock()
 			slog.Error("refusing to reload: id change would collide with another tiki",
@@ -465,9 +464,8 @@ func (s *TikiStore) tikiFilePath(id string) string {
 }
 
 // collectDocumentPaths delegates to the shared document.WalkDocuments so
-// the store and the `tiki repair` command classify "managed document" files
-// identically. Centralizing the walk prevents drift between what the store
-// refuses to load and what repair silently skips.
+// every caller — runtime store loader, future maintenance tooling — sees
+// the same "managed document" set and cannot drift apart.
 func (s *TikiStore) collectDocumentPaths() ([]string, error) {
 	return document.WalkDocuments(s.dir)
 }
@@ -525,7 +523,7 @@ func extractCustomFields(fmMap map[string]interface{}) (customFields, unknownFie
 		val, err := coerceCustomValue(fd, raw)
 		if err != nil {
 			// stale value (e.g. removed enum option): demote to unknown so
-			// the tiki still loads and the value survives for repair
+			// the tiki still loads and the value survives for manual fixup
 			slog.Warn("demoting stale custom field value to unknown",
 				"field", key, "error", err)
 			if unknownFields == nil {

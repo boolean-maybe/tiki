@@ -1,7 +1,6 @@
-// Package document defines the unified document model shared by tikis and
-// doki docs. Phase 1 introduces the model, a reusable frontmatter parser, and
-// centralized ID validation. Later phases migrate the store, plugin, and view
-// layers onto it.
+// Package document defines the unified document model for tikis. It provides
+// the canonical frontmatter parser and centralized ID validation used by the
+// store, plugin, and view layers.
 package document
 
 import (
@@ -29,8 +28,7 @@ var idPattern = regexp.MustCompile(`^[A-Z0-9]{6}$`)
 
 // NewID returns a new bare document ID using the canonical alphabet and length.
 // Callers MUST NOT add any prefix; identity is the raw ID. There is no
-// TIKI- compatibility layer — legacy identifiers are only recognized by the
-// repair command.
+// TIKI- compatibility layer — legacy `TIKI-XXXXXX` values are rejected.
 func NewID() string {
 	id, err := gonanoid.Generate(idAlphabet, IDLength)
 	if err != nil {
@@ -47,8 +45,7 @@ func NormalizeID(id string) string {
 }
 
 // IsValidID reports whether id matches the canonical bare document ID format.
-// Legacy TIKI-XXXXXX values are NOT valid — the repair command is the only
-// place in the codebase that recognizes them, and it does so privately.
+// Legacy TIKI-XXXXXX values are NOT valid and have no compatibility shim.
 func IsValidID(id string) bool {
 	return idPattern.MatchString(id)
 }

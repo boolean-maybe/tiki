@@ -116,16 +116,8 @@ func (d *LoadDiagnostics) HasIssues() bool {
 // Summary returns a multi-line human-readable summary suitable for a
 // startup warning banner. Empty string when HasIssues() is false.
 //
-// The trailing guidance is reason-aware and each repair path is suggested
-// only for rejections it can actually resolve:
-//   - missing ids -> `--fix` backfills them
-//   - duplicate ids -> `--fix --regenerate-duplicates` reassigns ids on all
-//     but the first (sorted) file in each duplicate set
-//   - invalid / parse / other -> manual edits; repair will not rewrite an
-//     existing id unless explicitly asked to (which only applies to
-//     duplicates, above)
-//
-// See writeSummaryGuidance for the exact branching logic.
+// The trailing guidance lists the manual fixes for each rejection reason.
+// See writeSummaryGuidance for the exact wording.
 func (d *LoadDiagnostics) Summary() string {
 	rejections := d.Rejections()
 	if len(rejections) == 0 {
@@ -151,15 +143,12 @@ func (d *LoadDiagnostics) Summary() string {
 	return b.String()
 }
 
-// writeSummaryGuidance appends the "what to do about this" paragraph. Kept
-// separate so the branching is easy to audit: each repair path is suggested
-// only when the rejections in question can actually be resolved by it.
+// writeSummaryGuidance appends the "what to do about this" paragraph. Each
+// rejection reason gets a manual-fix hint; the store will not rewrite files.
 //
-//   - missing ids    -> `--fix` backfills them
-//   - duplicate ids  -> `--fix --regenerate-duplicates` assigns new ids
-//     to all-but-one file in each duplicate set (opt-in so the
-//     user picks which file keeps the id)
-//   - invalid / parse / other -> no automated repair; manual edit required
+//   - missing ids    -> add `id: XXXXXX` to the frontmatter
+//   - duplicate ids  -> assign a fresh bare id to all but one file
+//   - invalid / parse / other -> manual edit required
 func writeSummaryGuidance(b *strings.Builder, byReason map[LoadReason][]string) {
 	hasMissing := len(byReason[LoadReasonMissingID]) > 0
 	hasDuplicate := len(byReason[LoadReasonDuplicateID]) > 0
@@ -167,14 +156,13 @@ func writeSummaryGuidance(b *strings.Builder, byReason map[LoadReason][]string) 
 		len(byReason[LoadReasonParseError]) > 0 ||
 		len(byReason[LoadReasonOther]) > 0
 
-	b.WriteString("Run `tiki repair ids --check` for details.\n")
 	if hasMissing {
-		b.WriteString("Run `tiki repair ids --fix` to backfill missing ids.\n")
+		b.WriteString("Add an `id:` frontmatter field (bare 6-char uppercase alphanumeric) to each file missing one.\n")
 	}
 	if hasDuplicate {
-		b.WriteString("Run `tiki repair ids --fix --regenerate-duplicates` to assign new ids to all but the first (sorted) file in each duplicate set.\n")
+		b.WriteString("Assign a fresh bare id to all but one file in each duplicate set.\n")
 	}
 	if hasManual {
-		b.WriteString("Invalid and unparseable files require manual edits; repair will not rewrite existing id values.\n")
+		b.WriteString("Invalid and unparseable files require manual edits.\n")
 	}
 }

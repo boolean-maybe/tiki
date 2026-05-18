@@ -77,8 +77,8 @@ func TestAITool_SkillPath(t *testing.T) {
 
 func TestAITool_SkillPath_SingularDir(t *testing.T) {
 	tool := AITool{SkillDir: ".opencode/skill"}
-	path := tool.SkillPath("doki")
-	if path != ".opencode/skill/doki/SKILL.md" {
-		t.Errorf("expected '.opencode/skill/doki/SKILL.md', got %q", path)
+	path := tool.SkillPath("tiki")
+	if path != ".opencode/skill/tiki/SKILL.md" {
+		t.Errorf("expected '.opencode/skill/tiki/SKILL.md', got %q", path)
 	}
 }

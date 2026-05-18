@@ -148,8 +148,7 @@ func (pm *PathManager) ConfigFile() string {
 }
 
 // DocDir returns the unified document root (.doc/). All managed markdown
-// documents live somewhere under this directory regardless of whether they
-// are workflow tikis or plain doki docs; Phase 2 makes this the single scan
+// documents live somewhere under this directory — this is the single scan
 // root for the document store.
 func (pm *PathManager) DocDir() string {
 	return filepath.Join(pm.projectRoot, ".doc")
@@ -182,11 +181,10 @@ func (pm *PathManager) UserConfigWorkflowFile() string {
 }
 
 // EnsureDirs creates all necessary directories with appropriate permissions.
-// Phase 8 of the unified-document migration stops creating the legacy
-// `.doc/tiki` and `.doc/doki` subdirectories on project init; fresh projects
-// only see the unified `.doc/` root. Existing projects that still have those
-// subdirectories are unaffected — nothing removes them — they just no longer
-// get recreated by tiki itself.
+// Fresh projects get a flat `.doc/` root with no subdirectories created by
+// init — users organize content however they want underneath. Existing
+// projects with subdirectories under `.doc/` continue to work; nothing
+// removes them and the loader walks the tree recursively.
 func (pm *PathManager) EnsureDirs() error {
 	// Create user config directory
 	//nolint:gosec // G301: 0755 is appropriate for config directory

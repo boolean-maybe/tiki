@@ -33,10 +33,10 @@ var roadmapNextSample string
 var roadmapLaterSample string
 
 //go:embed index.md
-var dokiEntryPoint string
+var indexEntryPoint string
 
 //go:embed linked.md
-var dokiLinked string
+var linkedEntryPoint string
 
 //go:embed workflows/kanban.yaml
 var embeddedKanbanYAML string
@@ -93,18 +93,18 @@ func GenerateRandomID() string {
 // sampleFrontmatterRe extracts type and status values from sample tiki frontmatter.
 var sampleFrontmatterRe = regexp.MustCompile(`(?m)^(type|status):\s*(.+)$`)
 
-// withBundledDokiID returns body prepended with a minimal frontmatter
+// withBundledID returns body prepended with a minimal frontmatter
 // block carrying a freshly-generated bare id. Used for the two bundled
-// doki templates (`index.md`, `linked.md`) written during project init.
-// Phase 2's strict loader rejects any `.md` under `.doc/` without an id,
-// so these templates cannot ship as plain markdown — but embedding a
+// sample documents (`index.md`, `linked.md`) written during project init.
+// The strict loader rejects any `.md` under `.doc/` without an id, so
+// these templates cannot ship as plain markdown — but embedding a
 // literal id in the template file itself would collide across projects,
 // so we wrap at write time instead.
 //
 // If body already starts with a frontmatter fence, the body is returned
 // unchanged — protection against double-wrapping if a future template
 // gets its own frontmatter.
-func withBundledDokiID(body string) string {
+func withBundledID(body string) string {
 	if strings.HasPrefix(body, "---\n") {
 		return body
 	}
@@ -134,12 +134,10 @@ func validateSampleTiki(template string) bool {
 // against the active workflow registries and only valid ones are written.
 // gitAdd, when non-nil, is called to stage created files (e.g. ops.Add).
 //
-// Phase 8 of the unified-document migration removes all references to the
-// legacy `.doc/tiki` and `.doc/doki` subdirectories here:
-//   - samples land directly under `.doc/<ID>.md`
-//   - bundled doki index/linked land directly under `.doc/`
-//   - `markdown.png` is written once under `.doc/assets/`, not duplicated
-//     into two legacy subdirectories.
+// Samples and bundled wiki entry points land directly under `.doc/` —
+// flat by default. `.doc/<ID>.md` is the canonical path for new files,
+// but projects are free to organize content in subdirectories.
+// `markdown.png` is written once under `.doc/assets/`.
 func BootstrapSystem(createSamples bool, gitAdd func(...string) error) error {
 	// Create all necessary directories
 	if err := EnsureDirs(); err != nil {
@@ -194,10 +192,7 @@ func BootstrapSystem(createSamples bool, gitAdd func(...string) error) error {
 			// YAML-quoted so all-digit ids (e.g. "000001") survive strict
 			// load — without quotes, yaml.v3 decodes them as integers and
 			// loses leading zeros, failing ValidateID.
-			// Also back-compat with any pre-unification references to
-			// "TIKI-XXXXXX" that may linger in sample prose (not frontmatter).
 			tikiContent := strings.ReplaceAll(s.template, "id: XXXXXX", fmt.Sprintf("id: %q", tikiID))
-			tikiContent = strings.ReplaceAll(tikiContent, "TIKI-XXXXXX", tikiID)
 			if err := os.WriteFile(tikiPath, []byte(tikiContent), 0644); err != nil {
 				return fmt.Errorf("create sample %s: %w", s.name, err)
 			}
@@ -205,30 +200,24 @@ func BootstrapSystem(createSamples bool, gitAdd func(...string) error) error {
 		}
 	}
 
-	// Write bundled documentation templates. Phase 2's strict loader requires
-	// a frontmatter id on every managed `.md` file under `.doc/`; since the
+	// Write bundled wiki entry points. The strict loader requires a
+	// frontmatter id on every managed `.md` file under `.doc/`; since the
 	// bundled templates ship as plain markdown, we prepend a generated id at
-	// write time so each freshly-initialized project gets unique ids for its
-	// bundled docs. Phase 8 lands these at the unified document root — no
-	// more `.doc/doki/` subdirectory.
+	// write time so each freshly-initialized project gets unique ids.
 	docDir := GetDocDir()
 	indexPath := filepath.Join(docDir, "index.md")
-	if err := os.WriteFile(indexPath, []byte(withBundledDokiID(dokiEntryPoint)), 0644); err != nil {
+	if err := os.WriteFile(indexPath, []byte(withBundledID(indexEntryPoint)), 0644); err != nil {
 		return fmt.Errorf("write document index: %w", err)
 	}
 	createdFiles = append(createdFiles, indexPath)
 
 	linkedPath := filepath.Join(docDir, "linked.md")
-	if err := os.WriteFile(linkedPath, []byte(withBundledDokiID(dokiLinked)), 0644); err != nil {
+	if err := os.WriteFile(linkedPath, []byte(withBundledID(linkedEntryPoint)), 0644); err != nil {
 		return fmt.Errorf("write document linked: %w", err)
 	}
 	createdFiles = append(createdFiles, linkedPath)
 
-	// Phase 8: markdown.png is a shared asset, written once under
-	// `.doc/assets/`. Prior releases duplicated it into both `.doc/tiki/` and
-	// `.doc/doki/` so each subdirectory could resolve `![](markdown.png)`
-	// locally; under the unified layout there is one root for documents and
-	// one well-known asset directory.
+	// markdown.png is a shared asset, written once under `.doc/assets/`.
 	assetsDir := filepath.Join(docDir, "assets")
 	//nolint:gosec // G301: 0755 is appropriate for project assets directory
 	if err := os.MkdirAll(assetsDir, 0755); err != nil {

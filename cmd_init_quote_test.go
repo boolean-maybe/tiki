@@ -41,7 +41,7 @@ func TestBootstrap_AllDigitIDSurvivesLoad(t *testing.T) {
 		t.Fatalf("runInit exit = %d, want %d", code, exitOK)
 	}
 
-	// Phase 2: samples land directly under .doc/, not .doc/tiki/.
+	// Samples land directly under .doc/ with no subdirectories.
 	docDir := filepath.Join(repoDir, ".doc")
 	target := filepath.Join(docDir, "000001.md")
 	content, err := os.ReadFile(target)
@@ -75,7 +75,7 @@ func TestBootstrap_AllDigitIDSurvivesLoad(t *testing.T) {
 // gate for project initialization: after `tiki init`, opening the freshly
 // populated `.doc/` through the strict store must yield zero load
 // diagnostics. This catches the case where a new bundled file type — like
-// the plain-markdown doki templates that ship as `config/index.md` and
+// the plain-markdown wiki templates that ship as `config/index.md` and
 // `config/linked.md` — gets written without a frontmatter id and then
 // fails the very loader that just initialized the project.
 //

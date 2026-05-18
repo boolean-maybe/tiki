@@ -50,7 +50,7 @@ func loadTikiFromBytes(path string, content []byte) (*parsedTiki, error) {
 	rawID, hasID := document.FrontmatterID(fmMap)
 	if !hasID || rawID == "" {
 		return nil, newLoadError(LoadReasonMissingID,
-			fmt.Errorf("missing frontmatter id in %s: run `tiki repair ids --fix` to backfill", path))
+			fmt.Errorf("missing frontmatter id in %s: add an `id:` field (bare 6-char uppercase alphanumeric)", path))
 	}
 	id := document.NormalizeID(rawID)
 	if !document.IsValidID(id) {

@@ -8,7 +8,7 @@ Follow me on X: [![X Badge](https://img.shields.io/badge/-%23000000.svg?style=fl
 
 ![Intro](assets/intro.png)
 
-[Documentation](.doc/doki/doc/index.md)
+[Documentation](docs/index.md)
 
 What `tiki` does:
 
@@ -18,9 +18,9 @@ What `tiki` does:
 - **Wiki-style** documentation with arbitrary folder hierarchy and multiple entry points
 - Keep a **to-do list** with priorities, status, assignee and size
 - Issue management with **Kanban/Scrum** style board
-- SQL-like command language [ruki](.doc/doki/doc/ruki/index.md) to query and update documents and define
+- SQL-like command language [ruki](docs/ruki/index.md) to query and update documents and define
   custom workflows
-- **Plugin-first** architecture — user-defined views based on [ruki](.doc/doki/doc/ruki/index.md) and
+- **Plugin-first** architecture — user-defined views based on [ruki](docs/ruki/index.md) and
   custom view kinds (`board`, `list`, `wiki`, `detail`)
 - AI **skills** to enable [Claude Code](https://code.claude.com),
   [Gemini CLI](https://github.com/google-gemini/gemini-cli), [Codex](https://openai.com/codex), and
@@ -77,7 +77,7 @@ if you have no Markdown file to try - use this:
 ```
 tiki https://github.com/boolean-maybe/tiki/blob/main/testdata/go-concurrency.md
 ```
-see [requirements](.doc/doki/doc/image-requirements.md) for supported terminals, SVG and diagrams support
+see [requirements](docs/image-requirements.md) for supported terminals, SVG and diagrams support
 
 All vim-like pager commands are supported in addition to:
 - `Tab/Enter` to select and load a link in the document
@@ -85,7 +85,7 @@ All vim-like pager commands are supported in addition to:
 
 ### File and issue management
 
-<img src=".doc/doki/doc/kanban.gif" alt="Kanban demo" width="800">
+<img src="docs/kanban.gif" alt="Kanban demo" width="800">
 
 to try with a demo project just run:
 
@@ -119,7 +119,7 @@ curl -s https://sentry.io/api/issues/latest/ | jq -r '.title' | tiki
 grep ERROR server.log | sort -u | while read -r line; do echo "$line" | tiki; done
 ```
 
-Read more [quick capture docs](.doc/doki/doc/quick-capture.md).
+Read more [quick capture docs](docs/quick-capture.md).
 
 ## The tiki model
 

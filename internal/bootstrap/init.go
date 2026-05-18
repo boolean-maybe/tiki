@@ -57,14 +57,13 @@ type Result struct {
 	Context           context.Context
 	CancelFunc        context.CancelFunc
 	TikiSkillContent  string
-	DokiSkillContent  string
 	WorkflowPath      string
 	WorkflowScope     config.Scope
 }
 
 // Bootstrap orchestrates the complete application initialization sequence.
 // It takes the embedded AI skill content and returns all initialized components.
-func Bootstrap(tikiSkillContent, dokiSkillContent string) (*Result, error) {
+func Bootstrap(tikiSkillContent string) (*Result, error) {
 	// Phase 0: Configuration and logging — loaded first so store.git and store.name
 	// are available before any git checks or side effects.
 	cfg, err := LoadConfig()
@@ -90,7 +89,7 @@ func Bootstrap(tikiSkillContent, dokiSkillContent string) (*Result, error) {
 	if config.GetStoreGit() {
 		gitAdd = tikistore.NewGitAdder("")
 	}
-	proceed, err := EnsureProjectInitialized(tikiSkillContent, dokiSkillContent, gitAdd)
+	proceed, err := EnsureProjectInitialized(tikiSkillContent, gitAdd)
 	if err != nil {
 		return nil, err
 	}
@@ -189,7 +188,7 @@ func Bootstrap(tikiSkillContent, dokiSkillContent string) (*Result, error) {
 	viewFactory.SetPlugins(pluginConfigs, pluginDefs, controllers.Plugins, globalActions)
 
 	// Wire fresh-per-navigation WikiController creation so each view instance
-	// on the nav stack holds its own selectedTikiID (prevents a second doki
+	// on the nav stack holds its own selectedTikiID (prevents a second wiki
 	// navigation from overwriting the first view's context).
 	viewFactory.SetWikiControllerFactory(func(def plugin.Plugin, selectedTikiID string) *controller.WikiController {
 		dc := controller.NewWikiController(def, controllers.Nav, statuslineConfig, globalActions, tikiStore, gate, schema)
@@ -324,7 +323,6 @@ func Bootstrap(tikiSkillContent, dokiSkillContent string) (*Result, error) {
 		Context:           ctx,
 		CancelFunc:        cancel,
 		TikiSkillContent:  tikiSkillContent,
-		DokiSkillContent:  dokiSkillContent,
 		WorkflowPath:      workflowPath,
 		WorkflowScope:     workflowScope,
 	}, nil

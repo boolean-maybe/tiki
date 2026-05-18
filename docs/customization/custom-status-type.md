@@ -81,7 +81,7 @@ See [Configuration: Precedence](../config.md#precedence).
 ### Invalid Saved Tasks
 
 - An enum value not declared in `workflow.yaml` is demoted to "stale" on load and round-trips
-  verbatim, so the user can see the bad value and run `tiki repair` rather than silently lose it.
+  verbatim, so the user can see the bad value and fix it manually rather than silently lose it.
 - Save-time validation (the mutation gate) rejects writes whose enum values don't match the
   declared set.
 

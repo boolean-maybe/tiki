@@ -130,7 +130,7 @@ func TestLegacyUpgrader_PriorityOutOfRangeFallsBackToDefault(t *testing.T) {
 // truncation safety net: a non-integer float (e.g. priority: 2.9) was
 // never a legitimate legacy value, so the upgrader must leave it alone
 // rather than silently truncating to rank 2 and writing a valid enum
-// key. The on-disk value should round-trip as stale-unknown for repair.
+// key. The on-disk value should round-trip as stale-unknown for manual fixup.
 func TestLegacyUpgrader_PriorityFractionalFloatStaysStale(t *testing.T) {
 	upgrader := &LegacyUpgrader{}
 

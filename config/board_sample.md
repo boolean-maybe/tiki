@@ -31,10 +31,11 @@ check it out: https://github.com/boolean-maybe/tiki
 ```
 /projects/my-app
 ├── .doc/
-│   ├── K3X9M2.md
-│   ├── 7WQ4NA.md
-│   ├── P8J1FZ.md
-│   ├── 5R2BVH.md
+│   ├── workflow.yaml
+│   ├── onboarding.md
+│   ├── auth-refactor.md
+│   ├── architecture.md
+│   ├── ideas.md
 │   └── assets/
 │       └── markdown.png
 ├── src/
@@ -47,6 +48,8 @@ check it out: https://github.com/boolean-maybe/tiki
 ├── package.json
 └── LICENSE
 ```
+
+Filenames are free — identity lives in the `id:` frontmatter field.
 
 ## Built-in terminal UI
 
