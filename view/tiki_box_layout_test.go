@@ -73,6 +73,45 @@ func TestTikiBoxItemHeight_DerivedFromLayout(t *testing.T) {
 	}
 }
 
+// TestTikiBoxItemHeight_SingleRowIsBorderless pins the special-case where
+// a layout with exactly one row renders flat — no border, no overhead —
+// so a list of single-row tikis stacks tightly with selection conveyed by
+// background color rather than a frame.
+func TestTikiBoxItemHeight_SingleRowIsBorderless(t *testing.T) {
+	spec := gridlayout.GridSpec{Rows: 1}
+	got := tikiBoxItemHeight(spec)
+	if got != 1 {
+		t.Fatalf("tikiBoxItemHeight(1-row) = %d, want 1", got)
+	}
+}
+
+// TestCreateTikiBox_SingleRowRendersWithoutBorder pins that a one-row
+// layout renders without box-drawing characters on either the top or
+// bottom of the rendered output. The id must still appear on the only
+// content row.
+func TestCreateTikiBox_SingleRowRendersWithoutBorder(t *testing.T) {
+	tk := makeTiki("K3X9M2", "story", "medium")
+	tk.Title = "Fix login retry logic"
+	spec, err := gridlayout.ParseGrid([][]string{
+		{"id + \" \" + title"},
+	})
+	if err != nil {
+		t.Fatalf("parse: %v", err)
+	}
+	rows := renderTikiBoxToString(t, tk, spec, 40)
+	if len(rows) != 1 {
+		t.Fatalf("rendered %d rows, want 1: %q", len(rows), rows)
+	}
+	if !strings.Contains(rows[0], "K3X9M2") {
+		t.Errorf("row missing id: %q", rows[0])
+	}
+	for _, ch := range []string{"─", "│", "┌", "┐", "└", "┘"} {
+		if strings.Contains(rows[0], ch) {
+			t.Errorf("border character %q leaked into single-row tiki: %q", ch, rows[0])
+		}
+	}
+}
+
 // renderTikiBoxToString draws a CreateTikiBox into an offscreen tcell
 // simulation screen and returns the visible characters, one row per
 // line. The role-tag bytes are resolved by the simulation screen so the

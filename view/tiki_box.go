@@ -12,7 +12,7 @@ import (
 
 // TikiBox provides a reusable tiki card widget used in board and list views.
 
-// applyFrameStyle applies selected/unselected styling to a frame.
+// applyFrameStyle applies selected/unselected styling to a bordered frame.
 func applyFrameStyle(frame *tview.Frame, selected bool, roles *theme.Theme) {
 	if selected {
 		frame.SetBorderColor(roles.BorderFocus().TCell())
@@ -24,10 +24,27 @@ func applyFrameStyle(frame *tview.Frame, selected bool, roles *theme.Theme) {
 	}
 }
 
+// applyBorderlessStyle styles a borderless single-row tiki card. Selection
+// is conveyed by painting SurfaceSelection as the row background; unselected
+// rows fall through to the canvas (no background fill), matching the flat
+// row-list look that single-row layouts opt into. Operates on the bare
+// gridbox.Container (a tview.Flex) — no Frame is involved because Frame
+// requires inner height >= 2 to draw and clips a single-row layout.
+func applyBorderlessStyle(container *gridbox.Container, selected bool, roles *theme.Theme) {
+	if selected && !roles.SurfaceSelection().IsDefault() {
+		container.SetBackgroundColor(roles.SurfaceSelection().TCell())
+	}
+}
+
 // tikiBoxItemHeight returns the vertical cell count a tiki-box list item
-// occupies for a given layout spec. Borders are added on top of the
-// spec's row count via gridbox.TikiBoxOverhead.
+// occupies for a given layout spec. Multi-row layouts add the framed-card
+// overhead (top + bottom border via gridbox.TikiBoxOverhead). Single-row
+// layouts render borderless and occupy exactly one cell — selection is
+// conveyed by background color rather than a frame.
 func tikiBoxItemHeight(spec gridlayout.GridSpec) int {
+	if spec.Rows == 1 {
+		return 1
+	}
 	return spec.Rows + gridbox.TikiBoxOverhead
 }
 
@@ -44,10 +61,14 @@ func tikiBoxItemHeight(spec gridlayout.GridSpec) int {
 // they are intentionally clipped by tview's natural cell-width truncation
 // in the same way long titles are. For multi-row rendering, declare the
 // field on a `kind: detail` view instead.
-func CreateTikiBox(tk *tikipkg.Tiki, spec gridlayout.GridSpec, selected bool, roles *theme.Theme) *tview.Frame {
+func CreateTikiBox(tk *tikipkg.Tiki, spec gridlayout.GridSpec, selected bool, roles *theme.Theme) tview.Primitive {
 	primitives := buildTikiBoxPrimitives(spec, tk, roles)
 	heightOf := func(string, int) int { return 1 }
 	container := gridbox.NewContainer(spec, primitives, heightOf)
+	if spec.Rows == 1 {
+		applyBorderlessStyle(container, selected, roles)
+		return container
+	}
 	frame := tview.NewFrame(container).SetBorders(0, 0, 0, 0, 0, 0)
 	frame.SetBorder(true)
 	applyFrameStyle(frame, selected, roles)

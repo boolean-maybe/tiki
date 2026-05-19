@@ -57,9 +57,7 @@ views:
     default: true
     key: "F1"
     layout: |
-      type.visual + " " + id
-      <text.secondary>title
-      "priority " + priority
+      type.visual + " " + id + " " + <text.secondary>title + "  p" + priority
     lanes:
       - name: Todo
         columns: 3
