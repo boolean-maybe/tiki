@@ -1,23 +1,22 @@
-// Package gridlayout implements the metadata-grid layout DSL used by
-// workflow.yaml's `views.detail.metadata`. The DSL describes a 2D grid of
-// cells:
+// Package gridlayout implements the grid layout DSL used by
+// workflow.yaml's `layout:` field on board, list, and detail views. The
+// DSL describes a 2D grid of cells written as a YAML block scalar (`|`)
+// with one row per line and cells separated by `|`:
 //
-//	metadata:
-//	  - [title,      --,        --,   --,      --        ]
-//	  - ["Status:",  status,    <->,  tags:30, depends:25]
-//	  - ["Type:",    type,      <->,  ^,       ^         ]
-//	  - ["Priority:", priority, <->,  _,       _         ]
+//	layout: |
+//	  title       | --       | --  | --      | --
+//	  "Status:"   | status   | <-> | tags:30 | depends:25
+//	  "Type:"     | type     | <-> | ^       | ^
+//	  "Priority:" | priority | <-> | _       | _
 //
 // Cell vocabulary:
 //
 //	name        field, value-only (no caption), system-default width
 //	name:N      field, preferred + minimum width of N chars
-//	"any text"  literal caption (any quoted string that is not a bare
-//	            identifier or marker); used to label adjacent fields
+//	"any text"  literal caption (any double-quoted string that is not a
+//	            bare identifier or marker); used to label adjacent fields
 //	--          column span (continue the anchor to the left)
-//	^           row span (continue the anchor above); `|` also accepted
-//	            but requires YAML quoting since it is a block-scalar
-//	            indicator
+//	^           row span (continue the anchor above)
 //	_           empty cell
 //	<->         horizontal stretcher (absorbs remaining space)
 //

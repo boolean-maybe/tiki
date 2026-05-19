@@ -26,7 +26,7 @@ type pluginFileConfig struct {
 	Path        string               `yaml:"path"`
 	Lanes       []PluginLaneConfig   `yaml:"lanes"`
 	Actions     []PluginActionConfig `yaml:"actions"`
-	Layout      [][]string           `yaml:"layout"`
+	Layout      string               `yaml:"layout"`
 	Require     []string             `yaml:"require"`
 	Default     bool                 `yaml:"default"`
 

@@ -273,7 +273,7 @@ func parseWikiPlugin(cfg pluginFileConfig, base BasePlugin) (Plugin, error) {
 	if err := rejectBoardOnlyFields(cfg, "wiki"); err != nil {
 		return nil, err
 	}
-	if len(cfg.Layout) > 0 {
+	if strings.TrimSpace(cfg.Layout) != "" {
 		return nil, fmt.Errorf("plugin %q: `layout:` only valid on kind: board, list, or detail", cfg.Name)
 	}
 	if len(cfg.Actions) > 0 {
@@ -356,12 +356,12 @@ func parseDetailPlugin(cfg pluginFileConfig, base BasePlugin, schema ruki.Schema
 //
 // Workflow-declared fields without a typed editor fall back to a generic
 // read-only `Label: value` row at render time.
-func validateLayout(pluginName, viewKind string, raw [][]string, schema ruki.Schema) (gridlayout.GridSpec, error) {
-	if len(raw) == 0 {
+func validateLayout(pluginName, viewKind string, raw string, schema ruki.Schema) (gridlayout.GridSpec, error) {
+	if strings.TrimSpace(raw) == "" {
 		return gridlayout.GridSpec{}, fmt.Errorf(
 			"plugin %q: view kind %q requires a non-empty `layout:` field", pluginName, viewKind)
 	}
-	spec, err := gridlayout.ParseGrid(raw)
+	spec, err := gridlayout.ParseLayout(raw)
 	if err != nil {
 		return gridlayout.GridSpec{}, fmt.Errorf("plugin %q: layout: %w", pluginName, err)
 	}

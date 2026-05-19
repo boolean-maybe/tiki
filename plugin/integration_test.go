@@ -34,8 +34,8 @@ foreground: "#ffffff"
 background: "#0000ff"
 key: U
 kind: board
-layout:
-  - [id]
+layout: |
+  id
 lanes:
   - name: UI
     filter: select where "ui" in tags or "ux" in tags or "design" in tags
@@ -98,8 +98,8 @@ func TestPluginWithComplexTagAndStatusFilter(t *testing.T) {
 name: Active Work
 key: A
 kind: board
-layout:
-  - [id]
+layout: |
+  id
 lanes:
   - name: Active
     filter: select where ("ui" in tags or "backend" in tags) and status != "done" and status != "backlog"
@@ -142,8 +142,8 @@ func TestPluginWithStatusFilter(t *testing.T) {
 name: In Progress Work
 key: W
 kind: board
-layout:
-  - [id]
+layout: |
+  id
 lanes:
   - name: Active
     filter: select where status = "ready" or status = "inProgress"

@@ -18,8 +18,8 @@ var chooseActionWorkflow = testWorkflowPreamble + `views:
   - name: ChooseTest
     kind: board
     key: "F4"
-    layout:
-      - [id]
+    layout: |
+      id
     lanes:
       - name: All
         columns: 1
@@ -246,8 +246,8 @@ var filteredEpicWorkflow = testWorkflowPreamble + `views:
   - name: FilteredEpicTest
     kind: board
     key: "F4"
-    layout:
-      - [id]
+    layout: |
+      id
     lanes:
       - name: All
         columns: 1
@@ -345,8 +345,8 @@ var scrollTestWorkflow = testWorkflowPreamble + `views:
   - name: ScrollTest
     kind: board
     key: "F4"
-    layout:
-      - [id]
+    layout: |
+      id
     lanes:
       - name: All
         columns: 1

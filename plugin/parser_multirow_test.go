@@ -11,7 +11,7 @@ func TestWarnMultiRowFieldsInTikiBox(t *testing.T) {
 		Name:   "WithTags",
 		Kind:   "board",
 		Key:    "T",
-		Layout: [][]string{{"id"}, {"tags"}},
+		Layout: "id\ntags",
 		Lanes:  []PluginLaneConfig{{Name: "L", Filter: "select"}},
 	}
 	_, err := parsePluginConfig(cfg, "test", rukiRuntime.NewSchema(), nil)

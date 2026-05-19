@@ -17,8 +17,8 @@ var inputActionWorkflow = testWorkflowPreamble + `views:
   - name: InputTest
     kind: board
     key: "F4"
-    layout:
-      - [id]
+    layout: |
+      id
     lanes:
       - name: All
         columns: 1
@@ -497,8 +497,8 @@ func TestInputAction_PreflightNoTikiSelected_NoPrompt(t *testing.T) {
   - name: EmptyTest
     kind: board
     key: "F4"
-    layout:
-      - [id]
+    layout: |
+      id
     lanes:
       - name: Empty
         columns: 1
@@ -602,8 +602,8 @@ var compositeKeyWorkflow = testWorkflowPreamble + `views:
   - name: CompositeTest
     kind: board
     key: "F4"
-    layout:
-      - [id]
+    layout: |
+      id
     lanes:
       - name: All
         columns: 1

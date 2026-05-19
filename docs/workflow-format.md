@@ -56,10 +56,10 @@ views:                         # top-level list (no `plugins:` wrapper)
     label: Kanban              # optional display text — falls back to name
     kind: board
     default: true
-    layout:                     # required: the tiki-box layout shared by all lanes
-      - ['type.visual + " " + id']
-      - ["<highlight>title"]
-      - ['"priority " + priority.visual']
+    layout: |                   # required: the tiki-box layout shared by all lanes
+      type.visual + " " + id
+      <highlight>title
+      "priority " + priority.visual
     lanes:
       - name: Backlog
         filter: select where status = "backlog"
@@ -73,9 +73,9 @@ views:                         # top-level list (no `plugins:` wrapper)
   - name: selected
     kind: detail
     require: ["selection:one"]
-    layout:
-      - ["<highlight>title", --]
-      - ["Status:", status]
+    layout: |
+      <highlight>title | --
+      "Status:"       | status
 ```
 
 ### View `kind:` replaces `type:`
@@ -100,22 +100,25 @@ these view kinds. Description is always rendered by detail views; title renders 
 in the `layout:` grid. The previous "render the selected document's raw markdown" meaning of
 `kind: detail` is gone — that behavior now lives only on `kind: wiki`.
 
-`layout:` is a list of rows; each row is a list of cells. The grid visually mirrors the rendered
-layout box.
+`layout:` is a YAML block scalar (`|`) whose content describes the grid one row per line.
+Cells within a row are separated by `|`. Inside a double-quoted string, `|` is literal and
+not treated as a cell delimiter. Each cell is trimmed of surrounding whitespace before
+tokenization. Blank lines and lines starting with `#` are ignored. The grid visually mirrors
+the rendered layout box.
 
 ```yaml
 views:
   - name: Detail
     kind: detail
     require: ["selection:one"]
-    layout:
-      - [<highlight>title, --,       --,            --        ]
-      - ["Status:",     status,     "Type:",       type      ]
-      - ["Priority:",   priority,   "Points:",     points    ]
-      - ["Assignee:",   assignee,   "Due:",        due       ]
-      - ["Recurrence:", recurrence, "Created:",    createdAt ]
-      - ["Updated:",    updatedAt,  "By:",         createdBy ]
-      - ["Tags:",       tags,       "Depends On:", dependsOn ]
+    layout: |
+      <highlight>title | --         | --            | --
+      "Status:"       | status     | "Type:"       | type
+      "Priority:"     | priority   | "Points:"     | points
+      "Assignee:"     | assignee   | "Due:"        | due
+      "Recurrence:"   | recurrence | "Created:"    | createdAt
+      "Updated:"      | updatedAt  | "By:"         | createdBy
+      "Tags:"         | tags       | "Depends On:" | dependsOn
     actions:
       - key: "a"
         label: "Assign to me"
@@ -140,9 +143,7 @@ Cell vocabulary:
 |                   | valid identifier. Used to label adjacent fields. Width defaults to the   |
 |                   | text length + 1.                                                         |
 | `--`              | column span — continue the anchor immediately to the left                |
-| `^`               | row span — continue the anchor immediately above (bare-legal in YAML)    |
-| `\|`              | row span — synonym for `^`; must be quoted because YAML treats bare `\|` |
-|                   | as a block-scalar indicator                                              |
+| `^`               | row span — continue the anchor immediately above                         |
 | `_`               | empty cell                                                               |
 | `<->`             | horizontal stretcher — absorbs residual width                            |
 
@@ -171,9 +172,11 @@ intentionally share a color in every theme: `<info>` and `<warn>` both resolve t
 `WarnColor`, and the statusline-info foreground shares `OkColor` with `<ok>`. This is by
 design after the InfoLabelColor → WarnColor and StatuslineOk → OkColor merges.
 
-Quoting markers in YAML: `--`, `_`, `^`, and `<->` are all accepted bare in flow-sequence
-context (e.g. `[--, _, ^, <->]`). The legacy `|` row-span marker is the one exception — YAML's
-block-scalar rule rejects bare `|` everywhere, so write `^` instead, or quote it as `"|"`.
+Cell delimiter and quoting: `|` separates cells within a row. To include a literal `|` in a
+caption, wrap the caption in double quotes (e.g. `"a | b"`). Markers `--`, `_`, `^`, and `<->`
+are written as-is — no YAML quoting is needed because the block scalar is one big string. Lines
+starting with `#` are treated as comments and skipped; to start a caption with `#`, quote it
+(e.g. `"#tag"`).
 
 Width and shedding semantics:
 
@@ -211,7 +214,7 @@ Validation rules for `layout:` on `kind: detail`:
   If omitted from the grid, no title is displayed. Accepts optional `<role>` annotation.
 - Path fields (`filepath`, `path`) — values live on the tiki struct rather than in Fields and have
   no typed renderer; rejected.
-- Grid-shape errors (ragged rows, orphan `--` or `^`/`|`, mixed stretcher columns, duplicate
+- Grid-shape errors (ragged rows, orphan `--` or `^`, mixed stretcher columns, duplicate
   field names) fail workflow load with `row,col` coordinates.
 - Board/list-only fields (`lanes:`) and wiki-only fields (`path:`, `document:`) are rejected.
 - Per-view `actions:` are allowed and surface alongside the built-in detail actions.
@@ -226,22 +229,22 @@ Anti-pattern examples (each fails workflow load):
 
 ```yaml
 # orphan column span — no anchor to the left
-layout:
-  - ["--", status]
+layout: |
+  -- | status
 ```
 
 ```yaml
 # stretcher column mixed with a field in another row
-layout:
-  - [status, "<->"]
-  - [type,   tags]
+layout: |
+  status | <->
+  type   | tags
 ```
 
 ```yaml
 # ragged rows
-layout:
-  - [status, type, priority]
-  - [points]
+layout: |
+  status | type | priority
+  points
 ```
 
 Audit fields (`createdBy`, `createdAt`, `updatedAt`) are supported and render as read-only rows.
@@ -334,7 +337,6 @@ Users upgrading will see one of these messages; each names the legacy field and 
 - `layout: row N has M cells, expected K` — the grid has a ragged row
 - ``layout: row N, col M: orphan '--'`` — no anchor to the left of the column-span marker
 - ``layout: row N, col M: orphan row-span '^'`` — no anchor above the row-span marker
-  (`|` produces the same diagnostic)
 - ``layout: col N: '<->' must not be mixed with anchored or row-spanned cells in the same column`` — stretcher columns can only contain `<->`, `_`, or pass-through `--`
 - `layout: row N, col M: field "X" appears more than once` — each anchor name must be unique in the grid
 
