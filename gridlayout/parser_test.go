@@ -21,11 +21,6 @@ func TestTokenizeCell(t *testing.T) {
 				t.Errorf("want ColSpanCell, got %T", c)
 			}
 		}},
-		{in: "|", check: func(t *testing.T, c Cell) {
-			if _, ok := c.(RowSpanCell); !ok {
-				t.Errorf("want RowSpanCell, got %T", c)
-			}
-		}},
 		{in: "_", check: func(t *testing.T, c Cell) {
 			if _, ok := c.(EmptyCell); !ok {
 				t.Errorf("want EmptyCell, got %T", c)
@@ -55,9 +50,6 @@ func TestTokenizeCell(t *testing.T) {
 			}
 		}},
 		{in: "tags:0", wantErr: true},
-		// `^` and `|` both tokenize to RowSpanCell (`^` is the bare-legal
-		// preferred form; `|` is accepted for backward-compat but requires
-		// YAML quoting).
 		{in: "^", check: func(t *testing.T, c Cell) {
 			if _, ok := c.(RowSpanCell); !ok {
 				t.Errorf("want RowSpanCell, got %T", c)
@@ -170,11 +162,6 @@ func TestParseGrid_OrphanRowSpan(t *testing.T) {
 	if err == nil || !strings.Contains(err.Error(), "orphan row-span") {
 		t.Errorf("want orphan row-span error for '^', got %v", err)
 	}
-	// `|` is a synonym for `^` and produces the same diagnostic.
-	_, err = ParseGrid([][]string{{"|"}, {"status"}})
-	if err == nil || !strings.Contains(err.Error(), "orphan row-span") {
-		t.Errorf("want orphan row-span error for '|', got %v", err)
-	}
 }
 
 func TestParseGrid_StretcherMix(t *testing.T) {
@@ -201,7 +188,7 @@ func TestParseGrid_CanonicalExample(t *testing.T) {
 	spec, err := ParseGrid([][]string{
 		{"title", "--", "--", "--", "--"},
 		{"status", "assignee", "<->", "tags:30", "depends:25"},
-		{"type", "createdBy", "<->", "|", "|"},
+		{"type", "createdBy", "<->", "^", "^"},
 		{"priority", "createdAt", "<->", "_", "_"},
 		{"points", "updatedAt", "<->", "_", "_"},
 	})

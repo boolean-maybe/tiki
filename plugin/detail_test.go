@@ -12,7 +12,7 @@ func TestDetailPlugin_ParsesLayout(t *testing.T) {
 	cfg := pluginFileConfig{
 		Name:   "Detail",
 		Kind:   "detail",
-		Layout: [][]string{{"status", "type", "priority"}},
+		Layout: "status | type | priority",
 	}
 	p, err := parsePluginConfig(cfg, "test", schema, nil)
 	if err != nil {
@@ -35,7 +35,7 @@ func TestDetailPlugin_RejectsUnknownLayoutField(t *testing.T) {
 	cfg := pluginFileConfig{
 		Name:   "Detail",
 		Kind:   "detail",
-		Layout: [][]string{{"status", "no_such_field"}},
+		Layout: "status | no_such_field",
 	}
 	_, err := parsePluginConfig(cfg, "test", schema, nil)
 	if err == nil {
@@ -57,7 +57,7 @@ func TestDetailPlugin_AcceptsAnyTypedOrGenericWorkflowField(t *testing.T) {
 			cfg := pluginFileConfig{
 				Name:   "Detail",
 				Kind:   "detail",
-				Layout: [][]string{{name}},
+				Layout: name,
 			}
 			if _, err := parsePluginConfig(cfg, "test", schema, nil); err != nil {
 				t.Errorf("%q should be accepted in layout, got: %v", name, err)
@@ -77,7 +77,7 @@ func TestDetailPlugin_RejectsFilepathInLayout(t *testing.T) {
 	cfg := pluginFileConfig{
 		Name:   "Detail",
 		Kind:   "detail",
-		Layout: [][]string{{"filepath"}},
+		Layout: "filepath",
 	}
 	_, err := parsePluginConfig(cfg, "test", schema, nil)
 	if err == nil {
@@ -97,7 +97,7 @@ func TestDetailPlugin_AcceptsValidCaptionMarkup(t *testing.T) {
 	cfg := pluginFileConfig{
 		Name:   "Detail",
 		Kind:   "detail",
-		Layout: [][]string{{"<danger>!!! Status:", "status"}},
+		Layout: `<danger>!!! Status: | status`,
 	}
 	if _, err := parsePluginConfig(cfg, "test", schema, nil); err != nil {
 		t.Errorf("valid <role> caption should be accepted, got: %v", err)
@@ -112,7 +112,7 @@ func TestDetailPlugin_RejectsUnknownCaptionRole(t *testing.T) {
 	cfg := pluginFileConfig{
 		Name:   "Detail",
 		Kind:   "detail",
-		Layout: [][]string{{"<nope>Status:", "status"}},
+		Layout: `<nope>Status: | status`,
 	}
 	_, err := parsePluginConfig(cfg, "test", schema, nil)
 	if err == nil {
@@ -134,7 +134,7 @@ func TestDetailPlugin_AllowsTitleInLayout(t *testing.T) {
 	cfg := pluginFileConfig{
 		Name:   "Detail",
 		Kind:   "detail",
-		Layout: [][]string{{"title"}},
+		Layout: "title",
 	}
 	if _, err := parsePluginConfig(cfg, "test", schema, nil); err != nil {
 		t.Errorf("title should be accepted as a layout reservation, got: %v", err)
@@ -151,7 +151,7 @@ func TestDetailPlugin_RejectsIdentityFieldsInLayout(t *testing.T) {
 			cfg := pluginFileConfig{
 				Name:   "Detail",
 				Kind:   "detail",
-				Layout: [][]string{{name}},
+				Layout: name,
 			}
 			_, err := parsePluginConfig(cfg, "test", schema, nil)
 			if err == nil {
@@ -169,7 +169,7 @@ func TestDetailPlugin_RejectsIdentityFieldsInLayout(t *testing.T) {
 // mode: is rejected globally by rejectLegacyTopLevel (see TestLegacyFieldRejection).
 func TestDetailPlugin_RejectsInvalidConfigKeys(t *testing.T) {
 	schema := testSchema()
-	validLayout := [][]string{{"status"}}
+	validLayout := "status"
 	cases := []struct {
 		name      string
 		cfg       pluginFileConfig
@@ -199,7 +199,7 @@ func TestDetailPlugin_AllowsPerViewActions(t *testing.T) {
 	cfg := pluginFileConfig{
 		Name:   "Detail",
 		Kind:   "detail",
-		Layout: [][]string{{"status"}},
+		Layout: "status",
 		Actions: []PluginActionConfig{
 			{
 				Key:    "a",
@@ -232,7 +232,7 @@ func TestDetailPlugin_AllowsViewKindActions(t *testing.T) {
 	cfg := pluginFileConfig{
 		Name:   "Detail",
 		Kind:   "detail",
-		Layout: [][]string{{"status"}},
+		Layout: "status",
 		Actions: []PluginActionConfig{
 			{Key: "F4", Label: "Backlog", Kind: "view", View: "Backlog"},
 		},
@@ -268,10 +268,7 @@ func TestKeyParser_AcceptsEnter(t *testing.T) {
 
 func TestDetailPlugin_RejectsUnknownFieldRole(t *testing.T) {
 	schema := testSchema()
-	raw := [][]string{
-		{"<nosuchrole>title", "--"},
-		{"status", "type"},
-	}
+	raw := "<nosuchrole>title | --\nstatus | type"
 	_, err := validateLayout("Test", "detail", raw, schema)
 	if err == nil {
 		t.Fatal("expected error for unknown field role")
@@ -283,10 +280,7 @@ func TestDetailPlugin_RejectsUnknownFieldRole(t *testing.T) {
 
 func TestDetailPlugin_AcceptsKnownFieldRole(t *testing.T) {
 	schema := testSchema()
-	raw := [][]string{
-		{"<highlight>title", "--"},
-		{"status", "type"},
-	}
+	raw := "<highlight>title | --\nstatus | type"
 	_, err := validateLayout("Test", "detail", raw, schema)
 	if err != nil {
 		t.Fatalf("unexpected error for valid field role: %v", err)
@@ -295,10 +289,7 @@ func TestDetailPlugin_AcceptsKnownFieldRole(t *testing.T) {
 
 func TestDetailPlugin_AcceptsFieldRoleWithModifier(t *testing.T) {
 	schema := testSchema()
-	raw := [][]string{
-		{"<text.muted.accent>title", "--"},
-		{"status", "type"},
-	}
+	raw := "<text.muted.accent>title | --\nstatus | type"
 	_, err := validateLayout("Test", "detail", raw, schema)
 	if err != nil {
 		t.Fatalf("unexpected error for role with known modifier: %v", err)
@@ -310,10 +301,7 @@ func TestDetailPlugin_RejectsUnknownFieldModifier(t *testing.T) {
 	// Token "<text.muted.bogus>" — "bogus" is not a known modifier, so the
 	// splitter treats the whole thing as the role name, which is then
 	// rejected as an unknown role. Either way the validator must error.
-	raw := [][]string{
-		{"<text.muted.bogus>title", "--"},
-		{"status", "type"},
-	}
+	raw := "<text.muted.bogus>title | --\nstatus | type"
 	_, err := validateLayout("Test", "detail", raw, schema)
 	if err == nil {
 		t.Fatal("expected error for unknown modifier")

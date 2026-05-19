@@ -75,12 +75,9 @@ func tryParseComposite(s string) (Cell, bool, error) {
 //
 // The classification is content-based, in this order:
 //  1. Empty → error.
-//  2. Bare marker (--, ^, |, _, <->) → corresponding span/empty/stretcher cell.
+//  2. Bare marker (--, ^, _, <->) → corresponding span/empty/stretcher cell.
 //  3. Identifier shape (letter, then letters/digits/underscores/hyphens, optional :N) → FieldCell.
 //  4. Anything else → LiteralCell.
-//
-// `|` is accepted as a synonym for `^` (row-span) so existing workflows
-// that quote `|` continue to parse.
 //
 // Authoring caveat: identifier-shaped typos (e.g. `staus` instead of `status`)
 // reach FieldCell and trip schema validation at workflow-load time, surfacing
@@ -95,7 +92,7 @@ func TokenizeCell(s string) (Cell, error) {
 		return nil, fmt.Errorf("empty cell")
 	case "--":
 		return ColSpanCell{}, nil
-	case "^", "|":
+	case "^":
 		return RowSpanCell{}, nil
 	case "_":
 		return EmptyCell{}, nil
@@ -267,7 +264,7 @@ func ParseGrid(raw [][]string) (GridSpec, error) {
 			case ColSpanCell:
 				return GridSpec{}, fmt.Errorf("row %d, col %d: orphan '--' (no anchor to the left to extend)", r, c)
 			case RowSpanCell:
-				return GridSpec{}, fmt.Errorf("row %d, col %d: orphan row-span (no anchor above to extend); written as '^' or '|'", r, c)
+				return GridSpec{}, fmt.Errorf("row %d, col %d: orphan row-span (no anchor above to extend); written as '^'", r, c)
 			case EmptyCell, StretcherCell:
 				// occupancy stays -1; stretcher consistency checked below
 			}

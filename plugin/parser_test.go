@@ -21,8 +21,8 @@ func testParser() *ruki.Parser {
 // minimalBoardLayout returns the smallest valid `layout:` value for a
 // board/list view. Reused by tests that don't otherwise care about the
 // layout shape — they just need the parser to accept the config.
-func minimalBoardLayout() [][]string {
-	return [][]string{{"id"}}
+func minimalBoardLayout() string {
+	return "id"
 }
 
 func TestWikiValidation(t *testing.T) {
@@ -179,13 +179,10 @@ func TestParsePluginConfig_ActivationKeyNormalization(t *testing.T) {
 // TestParsePluginConfig_BoardKindExplicit asserts kind: board builds a WorkflowPlugin.
 func TestParsePluginConfig_BoardKindExplicit(t *testing.T) {
 	cfg := pluginFileConfig{
-		Name: "Test",
-		Key:  "T",
-		Kind: "board",
-		Layout: [][]string{
-			{"id"},
-			{"<highlight>title"},
-		},
+		Name:   "Test",
+		Key:    "T",
+		Kind:   "board",
+		Layout: "id\n<highlight>title",
 		Lanes: []PluginLaneConfig{
 			{Name: "Todo", Filter: `select where status = "ready"`},
 		},
@@ -227,7 +224,7 @@ func TestParsePluginConfig_BoardEmptyLayout(t *testing.T) {
 		Name:   "Test",
 		Key:    "T",
 		Kind:   "board",
-		Layout: [][]string{},
+		Layout: "",
 		Lanes: []PluginLaneConfig{
 			{Name: "Todo", Filter: `select where status = "ready"`},
 		},
@@ -260,9 +257,9 @@ lanes:
   - name: Todo
     columns: 4
     filter: select where status = "ready"
-layout:
-  - [id]
-  - ["<highlight>title"]
+layout: |
+  id
+  <highlight>title
 foreground: "#ff0000"
 background: "#0000ff"
 `)
@@ -412,8 +409,8 @@ func TestParsePluginYAML_TikiWithActions(t *testing.T) {
 name: Test
 key: T
 kind: board
-layout:
-  - [id]
+layout: |
+  id
 lanes:
   - name: Backlog
     filter: select where status = "backlog"
@@ -960,8 +957,8 @@ func TestParsePluginYAML_HotFlagFromYAML(t *testing.T) {
 name: Test
 key: T
 kind: board
-layout:
-  - [id]
+layout: |
+  id
 lanes:
   - name: Backlog
     filter: select where status = "backlog"
@@ -1380,8 +1377,8 @@ func TestParsePluginYAML_RequireQuotedNegation(t *testing.T) {
 name: Test
 key: "1"
 kind: board
-layout:
-  - [id]
+layout: |
+  id
 lanes:
   - name: All
     filter: 'select'

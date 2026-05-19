@@ -130,10 +130,10 @@ views:
     description: "Move tiki to change status, search, create or delete\nShift Left/Right to move"
     default: true
     key: "F1"
-    layout:
-      - ['type.visual + " " + id']
-      - ["<highlight>title"]
-      - ['"priority " + priority.visual + "  points " + points.visual']
+    layout: |
+      type.visual + " " + id
+      <highlight>title
+      "priority " + priority.visual + "  points " + points.visual
     lanes:
       - name: Ready
         filter: select where status = "ready" and type != "epic" and has(priority) order by priority, createdAt
@@ -152,10 +152,10 @@ views:
     kind: board
     description: "Tasks waiting to be picked up, sorted by priority"
     key: "F3"
-    layout:
-      - ['type.visual + " " + id']
-      - ["<highlight>title"]
-      - ['"priority " + priority.visual + "  points " + points.visual']
+    layout: |
+      type.visual + " " + id
+      <highlight>title
+      "priority " + priority.visual + "  points " + points.visual
     lanes:
       - name: Backlog
         columns: 4
@@ -172,10 +172,10 @@ views:
     kind: board
     description: "Tasks changed in the last 24 hours, most recent first"
     key: Ctrl-R
-    layout:
-      - ['type.visual + " " + id']
-      - ["<highlight>title"]
-      - ['"priority " + priority.visual + "  points " + points.visual']
+    layout: |
+      type.visual + " " + id
+      <highlight>title
+      "priority " + priority.visual + "  points " + points.visual
     lanes:
       - name: Recent
         columns: 4
@@ -185,10 +185,10 @@ views:
     kind: board
     description: "Epics organized by Now, Next, and Later horizons"
     key: "F4"
-    layout:
-      - ['type.visual + " " + id']
-      - ["<highlight>title"]
-      - ['"priority " + priority.visual + "  points " + points.visual']
+    layout: |
+      type.visual + " " + id
+      <highlight>title
+      "priority " + priority.visual + "  points " + points.visual
     lanes:
       - name: Now
         columns: 1
@@ -232,21 +232,20 @@ views:
     #   "any text"    literal caption (any quoted YAML string that is not a
     #                 bare identifier or marker)
     #   --            column span (continue from the cell to the left)
-    #   ^             row span (continue from the cell above); `|` also
-    #                 accepted but must be YAML-quoted
+    #   ^             row span (continue from the cell above)
     #   _             empty cell
     #   <->           horizontal stretcher (absorbs remaining space)
     #
     # Fields render value-only; captions are placed explicitly by the layout.
     # 4 columns: each row pairs (caption, value, caption, value). Captions
     # to the left of their fields. Sized to fit an 80-column terminal.
-    layout:
-      - [<highlight>title, --                                , --         , --       , --           , --        , --     , --  ]
-      - [_               , _                                 , _          , _        , _            , _         , _      , _   ]
-      - ["Status:"       , status.label + " " + status.visual, "Assignee:", assignee , "Due:"       , due       , "Tags:", tags]
-      - ["Type:"         , type.label + " " + type.visual    , "Author:"  , createdBy, "Recurrence:", recurrence, ^      , ^   ]
-      - ["Priority:"     , priority                          , "Created:" , createdAt, _            , _         , ^      , ^   ]
-      - ["Points:"       , points                            , "Updated:" , updatedAt, _            , _         , ^      , ^   ]
+    layout: |
+      <highlight>title | --                                 | --          | --        | --            | --         | --      | --
+      _                | _                                  | _           | _         | _             | _          | _       | _
+      "Status:"        | status.label + " " + status.visual | "Assignee:" | assignee  | "Due:"        | due        | "Tags:" | tags
+      "Type:"          | type.label + " " + type.visual     | "Author:"   | createdBy | "Recurrence:" | recurrence | ^       | ^
+      "Priority:"      | priority                           | "Created:"  | createdAt | _             | _          | ^       | ^
+      "Points:"        | points                             | "Updated:"  | updatedAt | _             | _          | ^       | ^
 
   - name: EpicDetail
     kind: detail
@@ -254,12 +253,12 @@ views:
     require: ["selection:one"]
     # Same 8-column grid as Detail, with type, assignee, and recurrence
     # fields removed. Tags still spans rows 3-5 in the right column.
-    layout:
-      - [<highlight>title, --                                , --        , --       , --    , --, --     , --  ]
-      - [_               , _                                 , _         , _        , _     , _ , _      , _   ]
-      - ["Status:"       , status.label + " " + status.visual, "Author:" , createdBy, "Due:", due, "Tags:", tags]
-      - ["Priority:"     , priority                          , "Created:", createdAt, _     , _ , ^      , ^   ]
-      - ["Points:"       , points                            , "Updated:", updatedAt, _     , _ , ^      , ^   ]
+    layout: |
+      <highlight>title | --                                 | --         | --        | --     | --  | --      | --
+      _                | _                                  | _          | _         | _      | _   | _       | _
+      "Status:"        | status.label + " " + status.visual | "Author:"  | createdBy | "Due:" | due | "Tags:" | tags
+      "Priority:"      | priority                           | "Created:" | createdAt | _      | _   | ^       | ^
+      "Points:"        | points                             | "Updated:" | updatedAt | _      | _   | ^       | ^
 
 triggers:
   - description: block completion with open dependencies

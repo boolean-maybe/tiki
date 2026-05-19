@@ -25,8 +25,8 @@ views:
     kind: board
     default: true
     key: "F1"
-    layout:
-      - [id]
+    layout: |
+      id
     lanes:
       - name: Todo
         filter: select where status = "backlog"
@@ -80,8 +80,8 @@ views:
     kind: board
     default: true
     key: "F1"
-    layout:
-      - [id]
+    layout: |
+      id
     lanes:
       - name: Todo
         filter: select where status = "backlog"
@@ -146,16 +146,16 @@ views:
     kind: board
     default: true
     key: "F1"
-    layout:
-      - [id]
+    layout: |
+      id
     lanes:
       - name: Todo
         filter: select where status = "backlog"
   - name: Selected
     kind: detail
     key: "F2"
-    layout:
-      - [status]
+    layout: |
+      status
     require: ["selection:one"]
 `
 	tmpDir := t.TempDir()
@@ -215,16 +215,16 @@ views:
     kind: board
     default: true
     key: "F1"
-    layout:
-      - [id]
+    layout: |
+      id
     lanes:
       - name: Todo
         filter: select where status = "backlog"
   - name: Selected
     kind: detail
     key: "F2"
-    layout:
-      - [status]
+    layout: |
+      status
 `
 	tmpDir := t.TempDir()
 	if err := os.WriteFile(filepath.Join(tmpDir, "workflow.yaml"), []byte(workflowContent), 0644); err != nil {
@@ -268,16 +268,16 @@ func TestViewAction_DirectActivationCarriesSelection(t *testing.T) {
     kind: board
     default: true
     key: "F1"
-    layout:
-      - [id]
+    layout: |
+      id
     lanes:
       - name: Todo
         filter: select where status = "backlog"
   - name: Selected
     kind: detail
     key: "F2"
-    layout:
-      - [status]
+    layout: |
+      status
     require: ["selection:one"]
 `
 	tmpDir := t.TempDir()
@@ -341,16 +341,16 @@ views:
     kind: board
     default: true
     key: "F1"
-    layout:
-      - [id]
+    layout: |
+      id
     lanes:
       - name: Todo
         filter: select where status = "backlog"
   - name: Selected
     kind: detail
     key: "F2"
-    layout:
-      - [status]
+    layout: |
+      status
     require: ["selection:one"]
 `
 	tmpDir := t.TempDir()
@@ -402,16 +402,16 @@ views:
     kind: board
     default: true
     key: "F1"
-    layout:
-      - [id]
+    layout: |
+      id
     lanes:
       - name: Todo
         filter: select where status = "backlog"
   - name: AiOnly
     kind: detail
     key: "F2"
-    layout:
-      - [status]
+    layout: |
+      status
     require: ["ai"]
 `
 	tmpDir := t.TempDir()
@@ -472,16 +472,16 @@ views:
     kind: board
     default: true
     key: "F1"
-    layout:
-      - [id]
+    layout: |
+      id
     lanes:
       - name: Todo
         filter: select where status = "backlog"
   - name: SelfNamed
     kind: detail
     key: "F2"
-    layout:
-      - [status]
+    layout: |
+      status
     require: ["view:plugin:SelfNamed"]
 `
 	tmpDir := t.TempDir()
@@ -529,16 +529,16 @@ func TestViewAction_DirectActivationUsesTargetScope(t *testing.T) {
     kind: board
     default: true
     key: "F1"
-    layout:
-      - [id]
+    layout: |
+      id
     lanes:
       - name: Todo
         filter: select where status = "backlog"
   - name: SelfNamed
     kind: detail
     key: "F2"
-    layout:
-      - [status]
+    layout: |
+      status
     require: ["view:plugin:SelfNamed"]
 `
 	tmpDir := t.TempDir()
@@ -583,16 +583,16 @@ func TestViewAction_DirectActivationBlockedByTargetRequire(t *testing.T) {
     kind: board
     default: true
     key: "F1"
-    layout:
-      - [id]
+    layout: |
+      id
     lanes:
       - name: Todo
         filter: select where status = "backlog"
   - name: AiOnly
     kind: detail
     key: "F2"
-    layout:
-      - [status]
+    layout: |
+      status
     require: ["ai"]
 `
 	tmpDir := t.TempDir()
@@ -640,8 +640,8 @@ views:
     kind: board
     default: true
     key: "F1"
-    layout:
-      - [id]
+    layout: |
+      id
     lanes:
       - name: Todo
         filter: select where status = "backlog"

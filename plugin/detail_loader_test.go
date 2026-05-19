@@ -23,16 +23,16 @@ views:
     kind: board
     default: true
     key: "F1"
-    layout:
-      - [id]
+    layout: |
+      id
     lanes:
       - name: Ready
         filter: select where status = "ready"
   - name: Detail
     kind: detail
     require: ["selection:one"]
-    layout:
-      - [status, type, priority]
+    layout: |
+      status | type | priority
 `
 	path := filepath.Join(tmpDir, "workflow.yaml")
 	if err := os.WriteFile(path, []byte(content), 0644); err != nil {
@@ -100,16 +100,16 @@ views:
     kind: board
     default: true
     key: "F1"
-    layout:
-      - [id]
+    layout: |
+      id
     lanes:
       - name: Ready
         filter: select where status = "ready"
   - name: Detail
     kind: detail
     require: ["selection:one"]
-    layout:
-      - [status]
+    layout: |
+      status
 `
 	path := filepath.Join(tmpDir, "workflow.yaml")
 	if err := os.WriteFile(path, []byte(content), 0644); err != nil {

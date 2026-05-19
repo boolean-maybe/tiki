@@ -96,8 +96,8 @@ func TestSolveLayout_TwoStretchersSplit(t *testing.T) {
 func TestSolveLayout_MultiRowAnchorGrowsLastRow(t *testing.T) {
 	spec := mustParse(t, [][]string{
 		{"tags:30"},
-		{"|"},
-		{"|"},
+		{"^"},
+		{"^"},
 	})
 	heightOf := func(name string, w int) int {
 		if name == "tags" {

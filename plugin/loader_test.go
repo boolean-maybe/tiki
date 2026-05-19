@@ -133,8 +133,8 @@ func TestLoadPluginsFromFile_WorkflowFile(t *testing.T) {
     kind: board
     default: true
     key: "F5"
-    layout:
-      - [id]
+    layout: |
+      id
     lanes:
       - name: Ready
         filter: select where status = "ready"
@@ -197,8 +197,8 @@ func TestLoadPluginsFromFile_InvalidPlugin(t *testing.T) {
   - name: Valid
     kind: board
     key: "V"
-    layout:
-      - [id]
+    layout: |
+      id
     lanes:
       - name: Todo
         filter: select where status = "ready"
@@ -346,14 +346,14 @@ func TestLoadPluginsFromFile_UnnamedPlugin(t *testing.T) {
   - name: Valid
     kind: board
     key: "V"
-    layout:
-      - [id]
+    layout: |
+      id
     lanes:
       - name: Todo
         filter: select where status = "ready"
   - kind: board
-    layout:
-      - [id]
+    layout: |
+      id
     lanes:
       - name: Bad
         filter: select where status = "done"
@@ -416,8 +416,8 @@ func TestLoadPluginsFromFile_WikiConfigIndex(t *testing.T) {
   - name: Board
     kind: board
     key: "B"
-    layout:
-      - [id]
+    layout: |
+      id
     lanes:
       - name: Todo
         filter: select where status = "ready"
@@ -460,8 +460,8 @@ views:
   - name: Board
     kind: board
     key: "B"
-    layout:
-      - [id]
+    layout: |
+      id
     lanes:
       - name: Todo
         filter: select where status = "ready"

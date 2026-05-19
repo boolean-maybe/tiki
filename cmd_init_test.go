@@ -342,8 +342,8 @@ views:
     kind: board
     default: true
     key: "F1"
-    layout:
-      - [id]
+    layout: |
+      id
     lanes:
       - name: Todo
         filter: select where status = "todo" order by priority
