@@ -141,7 +141,7 @@ views:
     key: "F1"
     layout: |
       type.visual + " " + id
-      <highlight>title
+      <text.secondary>title
       "priority " + priority.visual + "  severity " + severity
     lanes:
       - name: Open
@@ -170,7 +170,7 @@ views:
     key: "F2"
     layout: |
       type.visual + " " + id
-      <highlight>title
+      <text.secondary>title
       "priority " + priority.visual + "  severity " + severity
     lanes:
       - name: Critical
@@ -198,7 +198,7 @@ views:
     key: "F3"
     layout: |
       type.visual + " " + id
-      <highlight>title
+      <text.secondary>title
       "priority " + priority.visual + "  severity " + severity
     lanes:
       - name: Prod
@@ -223,7 +223,7 @@ views:
     key: "F4"
     layout: |
       type.visual + " " + id
-      <highlight>title
+      <text.secondary>title
       "priority " + priority.visual + "  severity " + severity
     lanes:
       - name: Overdue

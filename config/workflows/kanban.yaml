@@ -132,7 +132,7 @@ views:
     key: "F1"
     layout: |
       type.visual + " " + id
-      <highlight>title
+      <text.secondary>title
       "priority " + priority.visual + "  points " + points.visual
     lanes:
       - name: Ready
@@ -154,7 +154,7 @@ views:
     key: "F3"
     layout: |
       type.visual + " " + id
-      <highlight>title
+      <text.secondary>title
       "priority " + priority.visual + "  points " + points.visual
     lanes:
       - name: Backlog
@@ -174,7 +174,7 @@ views:
     key: Ctrl-R
     layout: |
       type.visual + " " + id
-      <highlight>title
+      <text.secondary>title
       "priority " + priority.visual + "  points " + points.visual
     lanes:
       - name: Recent
@@ -187,7 +187,7 @@ views:
     key: "F4"
     layout: |
       type.visual + " " + id
-      <highlight>title
+      <text.secondary>title
       "priority " + priority.visual + "  points " + points.visual
     lanes:
       - name: Now

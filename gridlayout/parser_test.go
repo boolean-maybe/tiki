@@ -66,6 +66,18 @@ func TestTokenizeCell(t *testing.T) {
 				t.Errorf("want LiteralCell{Status:}, got %+v", c)
 			}
 		}},
+		{in: `"Status:"`, check: func(t *testing.T, c Cell) {
+			lc, ok := c.(LiteralCell)
+			if !ok || lc.Text != "Status:" {
+				t.Errorf("want LiteralCell{Status:} (quotes stripped), got %+v", c)
+			}
+		}},
+		{in: `"Tags:"`, check: func(t *testing.T, c Cell) {
+			lc, ok := c.(LiteralCell)
+			if !ok || lc.Text != "Tags:" {
+				t.Errorf("want LiteralCell{Tags:} (quotes stripped), got %+v", c)
+			}
+		}},
 		{in: "Done!", check: func(t *testing.T, c Cell) {
 			lc, ok := c.(LiteralCell)
 			if !ok || lc.Text != "Done!" {

@@ -58,7 +58,7 @@ views:
     key: "F1"
     layout: |
       type.visual + " " + id
-      <highlight>title
+      <text.secondary>title
       "priority " + priority
     lanes:
       - name: Todo

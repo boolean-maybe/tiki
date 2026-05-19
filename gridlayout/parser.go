@@ -126,6 +126,9 @@ func TokenizeCell(s string) (Cell, error) {
 	}
 	m := cellNameRe.FindStringSubmatch(t)
 	if m == nil {
+		if lm := literalSegmentRe.FindStringSubmatch(t); lm != nil {
+			return LiteralCell{Text: lm[1]}, nil
+		}
 		return LiteralCell{Text: t}, nil
 	}
 	fc := FieldCell{Name: m[1], Display: parseDisplayMode(m[2])}
