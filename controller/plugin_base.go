@@ -361,6 +361,12 @@ func (pb *pluginBase) handleSearch(query string, selectFirst func() bool) {
 }
 
 func (pb *pluginBase) handleNewTiki() bool {
+	spec, ok := detailSpecSource()
+	if !ok {
+		// gate: no detail plugin in workflow, action should already be
+		// disabled. Bail defensively if we get here.
+		return false
+	}
 	t, err := pb.tikiStore.NewTikiTemplate()
 	if err != nil {
 		slog.Error("failed to create tiki template", "error", err)
@@ -370,6 +376,7 @@ func (pb *pluginBase) handleNewTiki() bool {
 		TikiID: t.ID,
 		Draft:  t,
 		Focus:  model.EditFieldTitle,
+		Spec:   spec,
 	}))
 	slog.Info("new tiki draft started from plugin", "tiki_id", t.ID, "plugin", pb.pluginDef.Name)
 	return true

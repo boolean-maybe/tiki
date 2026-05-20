@@ -4,6 +4,7 @@ import (
 	"reflect"
 	"testing"
 
+	"github.com/boolean-maybe/tiki/gridlayout"
 	tikipkg "github.com/boolean-maybe/tiki/tiki"
 )
 
@@ -290,6 +291,21 @@ func TestTikiEditParams_NilDraftNoInference(t *testing.T) {
 	}
 	if decoded.Draft != nil {
 		t.Error("Draft != nil, want nil")
+	}
+}
+
+func TestTikiEditParams_RoundTripCarriesSpec(t *testing.T) {
+	spec := gridlayout.GridSpec{
+		Rows: 1, Cols: 1,
+		Anchors:   []gridlayout.Anchor{{Name: "title", Row: 0, Col: 0, RowSpan: 1, ColSpan: 1}},
+		Stretcher: []bool{false},
+		Cells:     [][]gridlayout.Cell{{gridlayout.FieldCell{Name: "title"}}},
+	}
+	in := TikiEditParams{TikiID: "ABC123", Spec: spec}
+	encoded := EncodeTikiEditParams(in)
+	out := DecodeTikiEditParams(encoded)
+	if !reflect.DeepEqual(out.Spec, spec) {
+		t.Fatalf("spec did not round-trip: in=%v out=%v", spec, out.Spec)
 	}
 }
 

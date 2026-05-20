@@ -2,6 +2,7 @@ package controller
 
 import (
 	"github.com/boolean-maybe/tiki/config"
+	"github.com/boolean-maybe/tiki/gridlayout"
 	"github.com/boolean-maybe/tiki/model"
 
 	"github.com/gdamore/tcell/v2"
@@ -257,6 +258,7 @@ const (
 	RequireSelectionOne  Requirement = "selection:one"
 	RequireSelectionAny  Requirement = "selection:any"
 	RequireSelectionMany Requirement = "selection:many"
+	RequireDetailPlugin  Requirement = "detail-plugin"
 )
 
 // AppContext is a dynamic set of active context attributes built from live UI state.
@@ -342,6 +344,43 @@ func IsDetailView(viewID model.ViewID) bool {
 	return detailViewIDPredicate(viewID)
 }
 
+// detailPluginPredicate decides whether the active workflow declares a
+// kind: detail plugin. Set at bootstrap so this package doesn't have to
+// reach into plugin defs directly. Defaults to false (no detail plugin)
+// which keeps tests that don't bootstrap plugins working unchanged.
+var detailPluginPredicate = func() bool { return false }
+
+// SetDetailPluginPredicate installs the predicate used by BuildAppContext
+// to detect whether the active workflow has a Detail plugin. Bootstrap
+// wires this once per session. Passing nil resets to the default.
+func SetDetailPluginPredicate(fn func() bool) {
+	if fn == nil {
+		detailPluginPredicate = func() bool { return false }
+		return
+	}
+	detailPluginPredicate = fn
+}
+
+// detailSpecSource returns the parsed grid spec of the workflow's primary
+// detail plugin, or false when no detail plugin is registered. Set at
+// bootstrap so the controller package doesn't depend on plugin defs.
+var detailSpecSource = func() (gridlayout.GridSpec, bool) {
+	return gridlayout.GridSpec{}, false
+}
+
+// SetDetailSpecSource installs the source used by handleNewTiki to plumb
+// the parsed Detail-plugin grid into TikiEditParams.Spec. Bootstrap wires
+// this once per session. Passing nil resets to the empty default.
+func SetDetailSpecSource(fn func() (gridlayout.GridSpec, bool)) {
+	if fn == nil {
+		detailSpecSource = func() (gridlayout.GridSpec, bool) {
+			return gridlayout.GridSpec{}, false
+		}
+		return
+	}
+	detailSpecSource = fn
+}
+
 // BuildAppContext constructs an AppContext from the current UI state.
 func BuildAppContext(currentView *ViewEntry, activeView View) AppContext {
 	ctx := NewAppContext()
@@ -375,6 +414,10 @@ func BuildAppContext(currentView *ViewEntry, activeView View) AppContext {
 
 	if config.GetAIAgent() != "" {
 		ctx.Set(string(RequireAI))
+	}
+
+	if detailPluginPredicate() {
+		ctx.Set(string(RequireDetailPlugin))
 	}
 
 	if currentView != nil {
@@ -837,7 +880,7 @@ func PluginViewActions() *ActionRegistry {
 	// Boards without such an action have no Enter behavior — by design.
 	r.Register(Action{ID: ActionMoveTikiLeft, Key: tcell.KeyLeft, Modifier: tcell.ModShift, Label: "Move ←", ShowInHeader: true, Require: idReq})
 	r.Register(Action{ID: ActionMoveTikiRight, Key: tcell.KeyRight, Modifier: tcell.ModShift, Label: "Move →", ShowInHeader: true, Require: idReq})
-	r.Register(Action{ID: ActionNewTiki, Key: tcell.KeyRune, Rune: 'n', Label: "New", ShowInHeader: true})
+	r.Register(Action{ID: ActionNewTiki, Key: tcell.KeyRune, Rune: 'n', Label: "New", ShowInHeader: true, Require: []Requirement{RequireDetailPlugin}})
 	r.Register(Action{ID: ActionDeleteTiki, Key: tcell.KeyRune, Rune: 'd', Label: "Delete", ShowInHeader: true, Require: idReq})
 	r.Register(Action{ID: ActionSearch, Key: tcell.KeyRune, Rune: '/', Label: "Search", ShowInHeader: true})
 	r.Register(Action{ID: ActionExecute, Key: tcell.KeyRune, Rune: '!', Label: "Execute", ShowInHeader: true})
@@ -869,7 +912,7 @@ func DepsViewActions() *ActionRegistry {
 
 	// tiki actions
 	r.Register(Action{ID: ActionOpenFromPlugin, Key: tcell.KeyEnter, Label: "Open", ShowInHeader: true, Require: depsIdReq})
-	r.Register(Action{ID: ActionNewTiki, Key: tcell.KeyRune, Rune: 'n', Label: "New", ShowInHeader: true})
+	r.Register(Action{ID: ActionNewTiki, Key: tcell.KeyRune, Rune: 'n', Label: "New", ShowInHeader: true, Require: []Requirement{RequireDetailPlugin}})
 	r.Register(Action{ID: ActionDeleteTiki, Key: tcell.KeyRune, Rune: 'd', Label: "Delete", ShowInHeader: true, Require: depsIdReq})
 
 	r.Register(Action{ID: ActionSearch, Key: tcell.KeyRune, Rune: '/', Label: "Search", ShowInHeader: true})

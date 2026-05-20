@@ -20,38 +20,21 @@ import (
 	"github.com/rivo/tview"
 )
 
-// DefaultEditLayout is the canonical field list TikiEditView shows when
-// no workflow-specific list is supplied. Title is first so the edit view
-// always starts focused on it. Single source of truth so the factory's
-// metadata-precedence resolver can fall back to it without hardcoding the
-// slice in two places.
-var DefaultEditLayout = []string{
-	"title",
-	tikipkg.FieldStatus,
-	tikipkg.FieldType,
-	tikipkg.FieldPriority,
-	tikipkg.FieldPoints,
-	tikipkg.FieldAssignee,
-	tikipkg.FieldDue,
-	tikipkg.FieldRecurrence,
-	tikipkg.FieldTags,
-}
-
-// TikiEditView renders a tiki in full edit mode using the same fixed-shape
-// layout grid as ConfigurableDetailView. The layout field list is
-// supplied at construction time by the factory's precedence resolver
-// (TikiEditParams.Layout → workflow Detail-plugin lookup →
-// DefaultEditLayout).
+// TikiEditView renders a tiki in full edit mode using the same parsed
+// `gridlayout.GridSpec` as ConfigurableDetailView. The spec is supplied
+// at construction time by the factory; `n` (new tiki) propagates the
+// workflow's primary Detail plugin spec through TikiEditParams.Spec.
 //
 // Title is a regular grid field — its position in the Tab order derives
-// from its position in the layout list. Description is appended as the
-// last Tab stop after all layout fields.
+// from its position in the spec's anchor list. Description is appended
+// as the last Tab stop after all metadata fields.
 type TikiEditView struct {
 	Base
 
 	registry *controller.ActionRegistry
 	viewID   model.ViewID
 
+	spec             gridlayout.GridSpec
 	layout           []string
 	editFieldOrder   []model.EditField
 	focusedField     model.EditField
@@ -108,14 +91,15 @@ func (ev *TikiEditView) SetActionChangeHandler(handler func()) {
 	ev.actionChangeHandler = handler
 }
 
-// NewTikiEditView creates a tiki edit view bound to the given layout list.
-// The factory resolves the layout source per the precedence rules and
-// passes the result here; an empty slice falls back to DefaultEditLayout
-// so the view always has a non-empty navigation order.
-func NewTikiEditView(tikiStore store.Store, tikiID string, imageManager *navtview.ImageManager, layout []string) *TikiEditView {
-	if len(layout) == 0 {
-		layout = DefaultEditLayout
-	}
+// NewTikiEditView creates a tiki edit view bound to the given grid spec —
+// the same parsed spec the configurable detail view uses. The factory
+// supplies the spec from TikiEditParams.Spec, which the controller
+// populated from the workflow's primary Detail plugin. Callers that pass
+// an empty spec get a degenerate view: the view renders, but with no
+// metadata grid (the new-tiki action gate already prevents this path in
+// normal operation).
+func NewTikiEditView(tikiStore store.Store, tikiID string, imageManager *navtview.ImageManager, spec gridlayout.GridSpec) *TikiEditView {
+	layout := spec.AnchorNames()
 	order := model.LayoutToEditFieldOrder(layout)
 	order = append(order, model.EditFieldDescription)
 
@@ -127,9 +111,10 @@ func NewTikiEditView(tikiStore store.Store, tikiID string, imageManager *navtvie
 		},
 		registry:       controller.GetActionsForField(model.EditFieldTitle),
 		viewID:         model.TikiEditViewID,
+		spec:           spec,
 		layout:         layout,
 		editFieldOrder: order,
-		focusedField:   order[0],
+		focusedField:   firstEditField(order),
 		titleEditing:   true,
 		descEditing:    true,
 		editors:        make(map[string]FieldEditorWidget),
@@ -143,6 +128,13 @@ func NewTikiEditView(tikiStore store.Store, tikiID string, imageManager *navtvie
 	}
 	ev.refresh()
 	return ev
+}
+
+func firstEditField(order []model.EditField) model.EditField {
+	if len(order) == 0 {
+		return ""
+	}
+	return order[0]
 }
 
 // GetTiki returns the appropriate tiki based on mode (prioritizes editing copy)
@@ -185,6 +177,14 @@ func (ev *TikiEditView) GetViewDescription() string { return model.TikiEditViewD
 // into TikiEditParams when opening the edit view from a detail context).
 func (ev *TikiEditView) Layout() []string {
 	return ev.layout
+}
+
+// Spec returns the parsed grid spec backing the metadata box. The input
+// router uses this to plumb the same spec back into TikiEditParams when
+// re-pushing the edit view (e.g. after a save round-trip), so the metadata
+// grid stays consistent across navigation.
+func (ev *TikiEditView) Spec() gridlayout.GridSpec {
+	return ev.spec
 }
 
 // SetDescOnly enables description-only edit mode where layout is read-only.
@@ -278,11 +278,11 @@ func (ev *TikiEditView) buildMetadataBox(tk *tikipkg.Tiki, roles *theme.Theme) (
 		Store:        ev.tikiStore,
 	}
 
-	spec, primitives := ev.buildGridSpecAndPrimitives(tk, ctx)
+	primitives := ev.buildAnchorPrimitives(tk, ctx)
 	heightOf := func(name string, w int) int { return FieldHeight(name, tk, w) }
 
 	container := tview.NewFlex().SetDirection(tview.FlexRow)
-	container.AddItem(gridbox.NewContainer(spec, primitives, heightOf), spec.Rows, 0, false)
+	container.AddItem(gridbox.NewContainer(ev.spec, primitives, heightOf), ev.spec.Rows, 0, false)
 	container.AddItem(tview.NewBox(), 1, 0, false)
 
 	frame := tview.NewFrame(container).SetBorders(0, 0, 0, 0, 0, 0)
@@ -291,57 +291,88 @@ func (ev *TikiEditView) buildMetadataBox(tk *tikipkg.Tiki, roles *theme.Theme) (
 	).SetBorderColor(roles.BorderIdle().TCell())
 	frame.SetBorderPadding(1, 0, 2, 2)
 	ev.layoutBox = frame
-	return frame, spec.Rows + gridbox.DetailBoxOverhead
+	return frame, ev.spec.Rows + gridbox.DetailBoxOverhead
 }
 
-// buildGridSpecAndPrimitives mirrors the configurable view's helper but
-// returns editor primitives for the focused field (when focus is on a
-// metadata field) instead of the read-only render. Editors are cached on
-// ev.editors so user input survives across refreshes.
-//
-// TikiEditView has a flat metadata list rather than a parsed grid; it
-// packs the list into columns of rowsPerPackedColumn rows so the
-// shared grid container can lay them out without overflowing the
-// fixed-height layout box.
-func (ev *TikiEditView) buildGridSpecAndPrimitives(tk *tikipkg.Tiki, ctx FieldRenderContext) (gridlayout.GridSpec, []tview.Primitive) {
-	spec := greedyPackedSpec(ev.layout)
-	primitives := make([]tview.Primitive, len(spec.Anchors))
-	for i, a := range spec.Anchors {
-		primitives[i] = ev.gridFieldPrimitive(a.Name, tk, ctx)
+// buildAnchorPrimitives mirrors ConfigurableDetailView.buildAnchorPrimitives
+// so the edit view honors the same parsed grid spec — literal captions, field
+// anchors, and composite anchors — that the read-only detail view renders.
+// The only behavioral difference: the focused field anchor returns its
+// editor widget (cached on ev.editors) instead of the read-only renderer,
+// and "title" returns the dedicated InputField rather than the registry's
+// generic editor (title carries Enter→save / Esc→cancel semantics that the
+// generic title editor doesn't model).
+func (ev *TikiEditView) buildAnchorPrimitives(tk *tikipkg.Tiki, ctx FieldRenderContext) []tview.Primitive {
+	primitives := make([]tview.Primitive, len(ev.spec.Anchors))
+	for i, a := range ev.spec.Anchors {
+		switch a.Kind {
+		case gridlayout.AnchorLiteral:
+			primitives[i] = renderLiteralCaption(a.Text, ctx.Roles)
+		case gridlayout.AnchorComposite:
+			primitives[i] = ev.buildCompositePrimitive(a, tk, ctx)
+		default:
+			primitives[i] = ev.buildFieldPrimitive(a, tk, ctx)
+		}
 	}
-	return spec, primitives
+	return primitives
 }
 
-// gridFieldPrimitive returns the editor for the focused field when the view
-// is in normal edit mode, else the read-only renderer. Editors come from
-// the field registry; their string-shaped onChange is bridged to the typed
-// save callbacks via adapterForField.
-func (ev *TikiEditView) gridFieldPrimitive(name string, tk *tikipkg.Tiki, ctx FieldRenderContext) tview.Primitive {
+// buildFieldPrimitive returns the widget for a field anchor. Title gets the
+// dedicated InputField (Enter→save / Esc→cancel). Other fields return the
+// editor for the focused field when the view is in normal edit mode, else
+// the read-only renderer. Editors come from the field registry; their
+// string-shaped onChange is bridged to the typed save callbacks via
+// adapterForField.
+func (ev *TikiEditView) buildFieldPrimitive(a gridlayout.Anchor, tk *tikipkg.Tiki, ctx FieldRenderContext) tview.Primitive {
+	name := a.Name
+	ctx.Display = a.Display
 	if name == "title" {
-		return ev.titleGridPrimitive(tk, ctx)
+		return ev.titleGridPrimitive(tk, ctx, a.Role, a.Modifier)
+	}
+	renderField := func() tview.Primitive {
+		return renderConfiguredField(name, tk, ctx)
 	}
 	if ev.descOnly || ev.tagsOnly {
-		return renderConfiguredField(name, tk, ctx)
+		return renderField()
 	}
 	if !FieldHasEditor(name) {
-		return renderConfiguredField(name, tk, ctx)
+		return renderField()
 	}
-	// Resolve the EditField identity for focus-matching. Built-in fields
-	// pull from the static FieldDescriptor; workflow-only fields use the
-	// field name directly (the EditField type is a string, and the
-	// LayoutToEditFieldOrder helper emits the same shape).
 	editField := editFieldFor(name)
-	if editField == "" {
-		return renderConfiguredField(name, tk, ctx)
+	if editField == "" || ev.focusedField != editField {
+		return renderField()
 	}
-	if ev.focusedField != editField {
-		return renderConfiguredField(name, tk, ctx)
+	return ev.ensureEditor(name, tk, ctx)
+}
+
+// buildCompositePrimitive returns the widget for a composite anchor. In
+// view-mode contexts (descOnly/tagsOnly) or when the composite isn't
+// focused, this is the read-only concatenation. In edit mode, single-field
+// composites delegate to that field's editor so the user can cycle through
+// values; multi-field composites stay read-only.
+func (ev *TikiEditView) buildCompositePrimitive(a gridlayout.Anchor, tk *tikipkg.Tiki, ctx FieldRenderContext) tview.Primitive {
+	if ev.descOnly || ev.tagsOnly || a.Name == "" {
+		return renderCompositePrimitive(a, tk, ctx)
 	}
+	if !FieldHasEditor(a.Name) {
+		return renderCompositePrimitive(a, tk, ctx)
+	}
+	editField := editFieldFor(a.Name)
+	if editField == "" || ev.focusedField != editField {
+		return renderCompositePrimitive(a, tk, ctx)
+	}
+	return ev.ensureEditor(a.Name, tk, ctx)
+}
+
+// ensureEditor returns a cached or freshly-created editor widget for the
+// named field. Mirrors ConfigurableDetailView.ensureEditor so both views
+// pick up registry editors via the same path.
+func (ev *TikiEditView) ensureEditor(name string, tk *tikipkg.Tiki, ctx FieldRenderContext) tview.Primitive {
 	if w, ok := ev.editors[name]; ok && w != nil {
 		return w
 	}
 	editorCtx := ctx
-	editorCtx.FocusedField = editField
+	editorCtx.FocusedField = editFieldFor(name)
 	w := buildFieldEditor(name, tk, editorCtx, ev.adapterForField(name))
 	if w == nil {
 		return renderConfiguredField(name, tk, ctx)
@@ -364,9 +395,9 @@ func editFieldFor(name string) model.EditField {
 	return ""
 }
 
-func (ev *TikiEditView) titleGridPrimitive(tk *tikipkg.Tiki, ctx FieldRenderContext) tview.Primitive {
+func (ev *TikiEditView) titleGridPrimitive(tk *tikipkg.Tiki, ctx FieldRenderContext, role, modifier string) tview.Primitive {
 	if ev.descOnly || ev.tagsOnly {
-		return RenderTitleText(tk, ctx, "", "")
+		return RenderTitleText(tk, ctx, role, modifier)
 	}
 	input := ev.ensureTitleInput(tk)
 	if ev.focusedField == model.EditFieldTitle {

@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/boolean-maybe/tiki/gridlayout"
+	"github.com/gdamore/tcell/v2"
 	"github.com/rivo/tview"
 )
 
@@ -61,6 +62,56 @@ func TestContainer_EmptySpec(t *testing.T) {
 	// No panic, lastWidth tracked.
 	if g.lastWidth != 80 {
 		t.Errorf("empty spec rebuild: lastWidth = %d, want 80", g.lastWidth)
+	}
+}
+
+// TestContainer_HasFocusBeforeFirstDraw pins a subtle event-routing
+// invariant: when a child primitive holds focus but Container's inner
+// Flex has not yet been populated (rebuild() runs lazily on first Draw),
+// Container must still report HasFocus() == true.
+//
+// Why this matters: tview.Application.Run gates the entire input handler
+// on root.HasFocus(). The dispatch tree walks Pages → outer Flex → ...
+// → Container, asking each level whether any descendant is focused. If
+// Container returns false because g.Flex.items is empty (cold), the
+// keystroke is silently dropped — even though the InputField below
+// Container is the focused primitive. This is the bug behind the
+// "first character swallowed when pressing n" report.
+func TestContainer_HasFocusBeforeFirstDraw(t *testing.T) {
+	spec := singleColumnSpecForTest([]string{"title"})
+	input := tview.NewInputField()
+	g := NewContainer(spec, []tview.Primitive{input}, unitHeight)
+
+	// Simulate Application.SetFocus on the inner primitive without
+	// having drawn the container yet. tview's SetFocus marks the
+	// primitive as focused via Box.focus = true.
+	input.Focus(func(p tview.Primitive) {})
+
+	if !g.HasFocus() {
+		t.Fatal("Container.HasFocus() = false before first Draw, want true (focused child must be reported)")
+	}
+}
+
+// TestContainer_InputHandlerForwardsBeforeFirstDraw pins the matching
+// invariant for InputHandler: the handler must forward keystrokes to
+// whichever primitive in g.primitives currently holds focus, even when
+// g.Flex.items is empty (cold container, before first Draw).
+func TestContainer_InputHandlerForwardsBeforeFirstDraw(t *testing.T) {
+	spec := singleColumnSpecForTest([]string{"title"})
+	input := tview.NewInputField()
+	g := NewContainer(spec, []tview.Primitive{input}, unitHeight)
+
+	input.Focus(func(p tview.Primitive) {})
+
+	handler := g.InputHandler()
+	if handler == nil {
+		t.Fatal("Container.InputHandler() returned nil")
+	}
+	ev := tcell.NewEventKey(tcell.KeyRune, 'x', tcell.ModNone)
+	handler(ev, func(p tview.Primitive) {})
+
+	if got := input.GetText(); got != "x" {
+		t.Errorf("after forwarded 'x' keystroke: InputField text = %q, want %q", got, "x")
 	}
 }
 

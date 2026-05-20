@@ -1247,3 +1247,64 @@ func TestEditWorkflow_EmptyPath(t *testing.T) {
 		t.Errorf("level = %v, want MessageLevelError", level)
 	}
 }
+
+func TestActionEnabled_RequireDetailPluginDefaultsAbsent(t *testing.T) {
+	// default predicate reports no detail plugin -> action with the
+	// requirement is disabled.
+	SetDetailPluginPredicate(nil) // reset to default
+	a := Action{Require: []Requirement{RequireDetailPlugin}}
+	if ActionEnabled(a, BuildAppContext(nil, nil)) {
+		t.Fatal("action with RequireDetailPlugin should be disabled when predicate reports false")
+	}
+}
+
+func TestActionEnabled_RequireDetailPluginPresentEnables(t *testing.T) {
+	SetDetailPluginPredicate(func() bool { return true })
+	defer SetDetailPluginPredicate(nil)
+	a := Action{Require: []Requirement{RequireDetailPlugin}}
+	if !ActionEnabled(a, BuildAppContext(nil, nil)) {
+		t.Fatal("action with RequireDetailPlugin should be enabled when predicate reports true")
+	}
+}
+
+func TestPluginViewActions_NewTikiHasDetailPluginRequirement(t *testing.T) {
+	r := PluginViewActions()
+	for _, a := range r.GetActions() {
+		if a.ID != ActionNewTiki {
+			continue
+		}
+		found := false
+		for _, req := range a.Require {
+			if req == RequireDetailPlugin {
+				found = true
+				break
+			}
+		}
+		if !found {
+			t.Fatalf("ActionNewTiki must require RequireDetailPlugin, got: %v", a.Require)
+		}
+		return
+	}
+	t.Fatal("ActionNewTiki not registered in PluginViewActions")
+}
+
+func TestDepsViewActions_NewTikiHasDetailPluginRequirement(t *testing.T) {
+	r := DepsViewActions()
+	for _, a := range r.GetActions() {
+		if a.ID != ActionNewTiki {
+			continue
+		}
+		found := false
+		for _, req := range a.Require {
+			if req == RequireDetailPlugin {
+				found = true
+				break
+			}
+		}
+		if !found {
+			t.Fatalf("ActionNewTiki in DepsViewActions must require RequireDetailPlugin, got: %v", a.Require)
+		}
+		return
+	}
+	t.Fatal("ActionNewTiki not registered in DepsViewActions")
+}
