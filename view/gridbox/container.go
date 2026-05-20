@@ -50,10 +50,12 @@ import (
 // events without the Grid's internal focus traversal interfering.
 type Container struct {
 	*tview.Flex
-	spec       gridlayout.GridSpec
-	primitives []tview.Primitive // indexed by anchor position in spec.Anchors
-	heightOf   func(name string, width int) int
-	lastWidth  int
+	spec           gridlayout.GridSpec
+	primitives     []tview.Primitive // indexed by anchor position in spec.Anchors
+	heightOf       func(name string, width int) int
+	lastWidth      int
+	selectionBg    tcell.Color
+	selectionBgSet bool
 }
 
 // NewContainer wires the parsed grid spec, the per-anchor primitives,
@@ -81,6 +83,63 @@ func (g *Container) Draw(screen tcell.Screen) {
 		g.rebuild(width)
 	}
 	g.Flex.Draw(screen)
+}
+
+// SetSelectionBackground configures a background color that will be
+// applied to every child primitive (cached anchor primitives and the
+// spacer Boxes added during rebuild). Required for the borderless
+// single-row tiki box: setting only the outer container's background
+// is invisible because each child Box.DrawForSubclass paints its own
+// (default) background, masking the row color. Propagating the color
+// to children makes the selection band visible end-to-end.
+func (g *Container) SetSelectionBackground(color tcell.Color) {
+	g.selectionBg = color
+	g.selectionBgSet = true
+	g.SetBackgroundColor(color)
+	for _, p := range g.primitives {
+		applyBackground(p, color)
+	}
+	g.lastWidth = -1
+}
+
+// applyBackground sets the background color on any tview primitive
+// whose concrete type embeds *tview.Box (the common case for everything
+// gridbox builds: TextView, Flex, Box). The interface assertion keeps
+// the call total — primitives that don't embed Box are silently skipped.
+func applyBackground(p tview.Primitive, color tcell.Color) {
+	if p == nil {
+		return
+	}
+	type bgSetter interface {
+		SetBackgroundColor(tcell.Color) *tview.Box
+	}
+	if s, ok := p.(bgSetter); ok {
+		s.SetBackgroundColor(color)
+	}
+}
+
+// newSpacer creates a filler Box and tints it with the selection bg if
+// one is configured. Used everywhere rebuild() previously called
+// tview.NewBox() so spacer cells participate in the row's selection
+// band instead of punching default-bg holes through it.
+func (g *Container) newSpacer() *tview.Box {
+	b := tview.NewBox()
+	if g.selectionBgSet {
+		b.SetBackgroundColor(g.selectionBg)
+	}
+	return b
+}
+
+// newRowFlex creates an inner Flex used to assemble a row or column band
+// during rebuild. Mirrors newSpacer for the same reason: tview.Flex's
+// embedded Box paints its own bg, so it must be tinted to keep the
+// selection band continuous beneath the children.
+func (g *Container) newRowFlex(direction int) *tview.Flex {
+	f := tview.NewFlex().SetDirection(direction)
+	if g.selectionBgSet {
+		f.SetBackgroundColor(g.selectionBg)
+	}
+	return f
 }
 
 // HasFocus reports whether any cached primitive holds focus.
@@ -179,7 +238,7 @@ func (g *Container) rebuild(width int) {
 // horizontal span as a FlexColumn. Each cell gets the combined width of
 // its spanned columns (plus inter-column gaps between them).
 func (g *Container) addSpanningRow(row int, plan gridlayout.Plan, anchorAt map[int]int) {
-	rowFlex := tview.NewFlex().SetDirection(tview.FlexColumn)
+	rowFlex := g.newRowFlex(tview.FlexColumn)
 	c := 0
 	for c < plan.Cols {
 		if plan.Dropped[c] {
@@ -194,9 +253,9 @@ func (g *Container) addSpanningRow(row int, plan gridlayout.Plan, anchorAt map[i
 				proportion = 1
 				colWidth = 0
 			}
-			rowFlex.AddItem(tview.NewBox(), colWidth, proportion, false)
+			rowFlex.AddItem(g.newSpacer(), colWidth, proportion, false)
 			if c < plan.Cols-1 && !plan.Dropped[c+1] {
-				rowFlex.AddItem(tview.NewBox(), InterColumnGap, 0, false)
+				rowFlex.AddItem(g.newSpacer(), InterColumnGap, 0, false)
 			}
 			c++
 			continue
@@ -204,7 +263,7 @@ func (g *Container) addSpanningRow(row int, plan gridlayout.Plan, anchorAt map[i
 		a := g.spec.Anchors[idx]
 		prim := g.primitives[idx]
 		if prim == nil {
-			prim = tview.NewBox()
+			prim = g.newSpacer()
 		}
 		cellWidth, hasStretcher := g.spanWidth(a, plan)
 		proportion := 0
@@ -215,7 +274,7 @@ func (g *Container) addSpanningRow(row int, plan gridlayout.Plan, anchorAt map[i
 		rowFlex.AddItem(prim, cellWidth, proportion, false)
 		nextVisibleCol := g.lastVisibleSpannedCol(a, plan)
 		if nextVisibleCol < plan.Cols-1 && !plan.Dropped[nextVisibleCol+1] {
-			rowFlex.AddItem(tview.NewBox(), InterColumnGap, 0, false)
+			rowFlex.AddItem(g.newSpacer(), InterColumnGap, 0, false)
 		}
 		c += a.ColSpan
 	}
@@ -233,29 +292,29 @@ func (g *Container) addPackedBand(start, end int, plan gridlayout.Plan, anchorAt
 		bandHeight += plan.RowHeights[r]
 	}
 
-	bandFlex := tview.NewFlex().SetDirection(tview.FlexColumn)
+	bandFlex := g.newRowFlex(tview.FlexColumn)
 	for c := 0; c < plan.Cols; c++ {
 		if plan.Dropped[c] {
 			continue
 		}
-		colFlex := tview.NewFlex().SetDirection(tview.FlexRow)
+		colFlex := g.newRowFlex(tview.FlexRow)
 		r := start
 		for r < end {
 			if idx, ok := anchorAt[r*plan.Cols+c]; ok {
 				a := g.spec.Anchors[idx]
 				prim := g.primitives[idx]
 				if prim == nil {
-					prim = tview.NewBox()
+					prim = g.newSpacer()
 				}
 				h := g.anchorPlacementHeight(a, plan)
 				colFlex.AddItem(prim, h, 0, false)
 				r += a.RowSpan
 				continue
 			}
-			colFlex.AddItem(tview.NewBox(), plan.RowHeights[r], 0, false)
+			colFlex.AddItem(g.newSpacer(), plan.RowHeights[r], 0, false)
 			r++
 		}
-		colFlex.AddItem(tview.NewBox(), 0, 1, false)
+		colFlex.AddItem(g.newSpacer(), 0, 1, false)
 
 		colWidth := plan.ColumnWidths[c]
 		proportion := 0
@@ -265,7 +324,7 @@ func (g *Container) addPackedBand(start, end int, plan gridlayout.Plan, anchorAt
 		}
 		bandFlex.AddItem(colFlex, colWidth, proportion, false)
 		if c < plan.Cols-1 && !plan.Dropped[c+1] {
-			bandFlex.AddItem(tview.NewBox(), InterColumnGap, 0, false)
+			bandFlex.AddItem(g.newSpacer(), InterColumnGap, 0, false)
 		}
 	}
 	g.Flex.AddItem(bandFlex, bandHeight, 0, false)

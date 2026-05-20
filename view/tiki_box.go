@@ -30,9 +30,17 @@ func applyFrameStyle(frame *tview.Frame, selected bool, roles *theme.Theme) {
 // row-list look that single-row layouts opt into. Operates on the bare
 // gridbox.Container (a tview.Flex) — no Frame is involved because Frame
 // requires inner height >= 2 to draw and clips a single-row layout.
+//
+// Why SetSelectionBackground rather than SetBackgroundColor: each child
+// primitive inside the container (TextView, Flex, spacer Box) clears its
+// own area to its own background color in Box.DrawForSubclass, which
+// would mask a row-level bg set only on the outer container. The
+// container's SetSelectionBackground propagates the color to every cached
+// anchor primitive and to spacer/flex primitives created during rebuild,
+// so the selection band is continuous across the whole row.
 func applyBorderlessStyle(container *gridbox.Container, selected bool, roles *theme.Theme) {
 	if selected && !roles.SurfaceSelection().IsDefault() {
-		container.SetBackgroundColor(roles.SurfaceSelection().TCell())
+		container.SetSelectionBackground(roles.SurfaceSelection().TCell())
 	}
 }
 
