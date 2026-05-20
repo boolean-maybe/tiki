@@ -83,6 +83,50 @@ func (g *Container) Draw(screen tcell.Screen) {
 	g.Flex.Draw(screen)
 }
 
+// HasFocus reports whether any cached primitive holds focus.
+//
+// We override Flex's implementation because Container's inner Flex is
+// populated lazily — rebuild() runs only on first Draw. tview.Application
+// dispatches input by walking the primitive tree top-down, asking each
+// container whether any descendant has focus; if Container's embedded
+// Flex has no items yet, Flex.HasFocus iterates an empty slice and
+// returns false, causing the entire dispatch to short-circuit and
+// silently drop the keystroke. By consulting g.primitives directly we
+// report focus correctly even before the first Draw — i.e. between
+// view creation and the first redraw cycle.
+func (g *Container) HasFocus() bool {
+	for _, p := range g.primitives {
+		if p != nil && p.HasFocus() {
+			return true
+		}
+	}
+	return g.Flex.HasFocus()
+}
+
+// InputHandler forwards keystrokes to whichever cached primitive holds
+// focus. Mirrors HasFocus: Flex.InputHandler iterates g.Flex.items, but
+// items are populated lazily so a keystroke arriving before the first
+// Draw would otherwise be dropped. By walking g.primitives we forward
+// correctly in the cold-Container case too.
+func (g *Container) InputHandler() func(event *tcell.EventKey, setFocus func(p tview.Primitive)) {
+	return g.WrapInputHandler(func(event *tcell.EventKey, setFocus func(p tview.Primitive)) {
+		for _, p := range g.primitives {
+			if p == nil || !p.HasFocus() {
+				continue
+			}
+			if handler := p.InputHandler(); handler != nil {
+				handler(event, setFocus)
+				return
+			}
+		}
+		// Fallback: if no cached primitive claims focus, defer to the
+		// embedded Flex (which may have non-primitive filler items).
+		if handler := g.Flex.InputHandler(); handler != nil {
+			handler(event, setFocus)
+		}
+	})
+}
+
 // rebuild recomputes the grid plan and repopulates the outer Flex.
 //
 // The outer Flex is FlexRow (vertical stacking). Rows are partitioned

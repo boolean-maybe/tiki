@@ -5,6 +5,7 @@ import (
 	"slices"
 	"testing"
 
+	"github.com/boolean-maybe/tiki/gridlayout"
 	rukiRuntime "github.com/boolean-maybe/tiki/internal/ruki/runtime"
 	"github.com/boolean-maybe/tiki/model"
 	"github.com/boolean-maybe/tiki/plugin"
@@ -379,6 +380,17 @@ func TestDepsController_HandleAction(t *testing.T) {
 
 	t.Run("new tiki pushes edit view", func(t *testing.T) {
 		dc, _ := newDepsTestEnv(t)
+		// handleNewTiki bails when no detail spec is registered; install a
+		// minimal stub so the success path runs.
+		stubSpec := gridlayout.GridSpec{
+			Rows: 1, Cols: 1,
+			Anchors:   []gridlayout.Anchor{{Name: "title", Row: 0, Col: 0, RowSpan: 1, ColSpan: 1}},
+			Stretcher: []bool{false},
+			Cells:     [][]gridlayout.Cell{{gridlayout.FieldCell{Name: "title"}}},
+		}
+		SetDetailSpecSource(func() (gridlayout.GridSpec, bool) { return stubSpec, true })
+		defer SetDetailSpecSource(nil)
+
 		result := dc.HandleAction(ActionNewTiki)
 		if !result {
 			t.Error("new tiki should succeed")

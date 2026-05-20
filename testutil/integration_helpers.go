@@ -6,6 +6,7 @@ import (
 
 	"github.com/boolean-maybe/tiki/config"
 	"github.com/boolean-maybe/tiki/controller"
+	"github.com/boolean-maybe/tiki/internal/bootstrap"
 	rukiRuntime "github.com/boolean-maybe/tiki/internal/ruki/runtime"
 	"github.com/boolean-maybe/tiki/model"
 	"github.com/boolean-maybe/tiki/plugin"
@@ -459,19 +460,11 @@ func (ta *TestApp) LoadPlugins() error {
 	ta.PluginControllers = pluginControllers
 	ta.PluginDefs = plugins
 
-	// Initialize plugin action registry (must happen after plugins are loaded)
-	pluginInfos := make([]controller.PluginInfo, 0, len(plugins))
-	for _, p := range plugins {
-		pk, pr, pm := p.GetActivationKey()
-		pluginInfos = append(pluginInfos, controller.PluginInfo{
-			Name:     p.GetName(),
-			Key:      pk,
-			Rune:     pr,
-			Modifier: pm,
-			Require:  p.GetRequire(),
-		})
-	}
-	controller.InitPluginActions(pluginInfos)
+	// Initialize plugin action registry (must happen after plugins are loaded).
+	// Delegating to bootstrap keeps the integration harness in sync with the
+	// production wiring — same predicate registrations (detail-plugin gate,
+	// detail-spec source) so tests exercise the same enablement rules.
+	bootstrap.InitPluginActionRegistry(plugins)
 
 	// Recreate InputRouter with plugin controllers
 	ta.InputRouter = controller.NewInputRouter(

@@ -1,6 +1,9 @@
 package model
 
-import tikipkg "github.com/boolean-maybe/tiki/tiki"
+import (
+	"github.com/boolean-maybe/tiki/gridlayout"
+	tikipkg "github.com/boolean-maybe/tiki/tiki"
+)
 
 // typed view params live here to avoid stringly-typed param maps being
 // spread across layers. The configurable detail view uses PluginViewParams
@@ -14,6 +17,7 @@ const (
 	paramDescOnly  = "descOnly"
 	paramTagsOnly  = "tagsOnly"
 	paramLayout    = "layout"
+	paramSpec      = "spec"
 )
 
 // TikiEditParams are params for TikiEditViewID. Layout carries the
@@ -28,6 +32,7 @@ type TikiEditParams struct {
 	DescOnly bool
 	TagsOnly bool
 	Layout   []string
+	Spec     gridlayout.GridSpec
 }
 
 // EncodeTikiEditParams converts typed params into a navigation params map.
@@ -61,6 +66,9 @@ func EncodeTikiEditParams(p TikiEditParams) map[string]interface{} {
 		cp := make([]string, len(p.Layout))
 		copy(cp, p.Layout)
 		m[paramLayout] = cp
+	}
+	if len(p.Spec.Anchors) > 0 {
+		m[paramSpec] = p.Spec
 	}
 	return m
 }
@@ -125,6 +133,9 @@ func DecodeTikiEditParams(params map[string]interface{}) TikiEditParams {
 	}
 	if md, ok := params[paramLayout].([]string); ok {
 		p.Layout = md
+	}
+	if s, ok := params[paramSpec].(gridlayout.GridSpec); ok {
+		p.Spec = s
 	}
 	return p
 }

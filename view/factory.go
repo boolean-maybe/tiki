@@ -2,7 +2,6 @@ package view
 
 import (
 	"log/slog"
-	"sort"
 
 	nav "github.com/boolean-maybe/navidown/navidown"
 	navtview "github.com/boolean-maybe/navidown/navidown/tview"
@@ -97,33 +96,6 @@ func (f *ViewFactory) RegisterPlugin(name string, cfg *model.PluginConfig, def p
 	f.pluginControllers[name] = ctrl
 }
 
-// lookupDefaultDetailLayout returns the layout anchor list of the
-// workflow's primary detail plugin, used as the second-tier fallback when
-// TikiEditParams.Layout is empty. Resolution order:
-//  1. Tier 1: the plugin conventionally named "Detail" (matches the
-//     bundled kanban workflow).
-//  2. Tier 2: the alphabetically-first DetailPlugin in pluginDefs. Sorted
-//     so behavior is reproducible across Go map iteration randomization.
-//  3. nil — the caller falls back to tikidetail.DefaultEditLayout.
-func (f *ViewFactory) lookupDefaultDetailLayout() []string {
-	if def, ok := f.pluginDefs[model.DetailPluginName]; ok {
-		if dp, ok := def.(*plugin.DetailPlugin); ok {
-			return dp.Layout.AnchorNames()
-		}
-	}
-	names := make([]string, 0, len(f.pluginDefs))
-	for name := range f.pluginDefs {
-		names = append(names, name)
-	}
-	sort.Strings(names)
-	for _, name := range names {
-		if dp, ok := f.pluginDefs[name].(*plugin.DetailPlugin); ok {
-			return dp.Layout.AnchorNames()
-		}
-	}
-	return nil
-}
-
 // CreateView instantiates a view by ID with optional parameters
 func (f *ViewFactory) CreateView(viewID model.ViewID, params map[string]interface{}) controller.View {
 	var v controller.View
@@ -131,14 +103,14 @@ func (f *ViewFactory) CreateView(viewID model.ViewID, params map[string]interfac
 	switch viewID {
 	case model.TikiEditViewID:
 		editParams := model.DecodeTikiEditParams(params)
-		layout := editParams.Layout
-		if len(layout) == 0 {
-			layout = f.lookupDefaultDetailLayout()
+		// no layout fallback: the controller-side gate
+		// (controller.RequireDetailPlugin / SetDetailSpecSource) refuses to
+		// open this view when the active workflow has no detail plugin, so
+		// arriving here without a parsed spec is a bug in the caller.
+		if len(editParams.Spec.Anchors) == 0 {
+			return nil
 		}
-		if len(layout) == 0 {
-			layout = tikidetail.DefaultEditLayout
-		}
-		v = tikidetail.NewTikiEditView(f.tikiStore, editParams.TikiID, f.imageManager, layout)
+		v = tikidetail.NewTikiEditView(f.tikiStore, editParams.TikiID, f.imageManager, editParams.Spec)
 		if tev, ok := v.(*tikidetail.TikiEditView); ok {
 			if editParams.Draft != nil {
 				tev.SetFallbackTiki(editParams.Draft)

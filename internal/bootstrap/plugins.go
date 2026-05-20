@@ -2,8 +2,10 @@ package bootstrap
 
 import (
 	"log/slog"
+	"sort"
 
 	"github.com/boolean-maybe/tiki/controller"
+	"github.com/boolean-maybe/tiki/gridlayout"
 	"github.com/boolean-maybe/tiki/model"
 	"github.com/boolean-maybe/tiki/plugin"
 	"github.com/boolean-maybe/tiki/ruki"
@@ -52,6 +54,48 @@ func InitPluginActionRegistry(plugins []plugin.Plugin) {
 		_, ok := detailViewIDs[id]
 		return ok
 	})
+	// gates ActionNewTiki: the new-tiki action is silently absent when the
+	// active workflow declares no Detail plugin.
+	hasDetailPlugin := len(detailViewIDs) > 0
+	controller.SetDetailPluginPredicate(func() bool { return hasDetailPlugin })
+
+	// resolves the parsed grid spec for the workflow's primary detail plugin
+	// so handleNewTiki can plumb it into TikiEditParams.Spec. Resolution
+	// order: the conventional "Detail" name, else the alphabetically-first
+	// detail plugin (deterministic across go map iteration).
+	primaryDetailSpec := lookupPrimaryDetailSpec(plugins)
+	controller.SetDetailSpecSource(func() (gridlayout.GridSpec, bool) {
+		if primaryDetailSpec.IsEmpty() {
+			return gridlayout.GridSpec{}, false
+		}
+		return primaryDetailSpec, true
+	})
+}
+
+// lookupPrimaryDetailSpec finds the parsed grid spec to use as the primary
+// detail layout. Mirrors view.ViewFactory.lookupDefaultDetailLayout's
+// resolution rules so the edit view and the detail view stay in sync.
+func lookupPrimaryDetailSpec(plugins []plugin.Plugin) gridlayout.GridSpec {
+	byName := make(map[string]*plugin.DetailPlugin)
+	for _, p := range plugins {
+		dp, ok := p.(*plugin.DetailPlugin)
+		if !ok {
+			continue
+		}
+		byName[p.GetName()] = dp
+	}
+	if dp, ok := byName[model.DetailPluginName]; ok {
+		return dp.Layout
+	}
+	names := make([]string, 0, len(byName))
+	for name := range byName {
+		names = append(names, name)
+	}
+	sort.Strings(names)
+	if len(names) == 0 {
+		return gridlayout.GridSpec{}
+	}
+	return byName[names[0]].Layout
 }
 
 // BuildPluginConfigsAndDefs builds per-plugin configs and a name->definition map
