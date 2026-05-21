@@ -67,6 +67,12 @@ type ConfigurableDetailView struct {
 	// palette would keep showing read-only actions while edit mode is
 	// active, even though the keyboard dispatch is already correct.
 	actionChangeHandler func()
+
+	// onFieldFocusChange fires whenever the focused edit-mode field
+	// changes (entering edit mode, Tab/Shift-Tab, exiting). Empty value
+	// signals "no editable field is focused" and lets consumers clear
+	// any field-specific state.
+	onFieldFocusChange func(model.EditField)
 }
 
 // Compile-time interface check: the view must satisfy ActionChangeNotifier
@@ -78,6 +84,29 @@ var _ controller.ActionChangeNotifier = (*ConfigurableDetailView)(nil)
 // re-read the active registry from this view.
 func (cv *ConfigurableDetailView) SetActionChangeHandler(handler func()) {
 	cv.actionChangeHandler = handler
+}
+
+// SetFieldFocusChangeHandler installs a callback fired after every
+// edit-mode focus change. Implements controller.FieldFocusChangeNotifier
+// so the controller can refresh per-field statusline hints.
+func (cv *ConfigurableDetailView) SetFieldFocusChangeHandler(handler func(model.EditField)) {
+	cv.onFieldFocusChange = handler
+}
+
+// setFocusedIdx is the single funnel for focused-field assignment. All
+// edit-mode focus transitions route through this so the focus-change
+// notifier sees every move (including the initial focus on
+// EnterEditMode and the -1 reset on ExitEditMode).
+func (cv *ConfigurableDetailView) setFocusedIdx(idx int) {
+	cv.focusedIdx = idx
+	if cv.onFieldFocusChange == nil {
+		return
+	}
+	var name string
+	if idx >= 0 && idx < len(cv.layout) {
+		name = cv.layout[idx]
+	}
+	cv.onFieldFocusChange(model.EditField(name))
 }
 
 // NewConfigurableDetailView builds a detail view bound to the configured
@@ -590,7 +619,7 @@ func (cv *ConfigurableDetailView) EnterEditMode() bool {
 		return false
 	}
 	cv.editMode = true
-	cv.focusedIdx = first
+	cv.setFocusedIdx(first)
 	cv.editors = make(map[string]FieldEditorWidget)
 	if cv.editRegistry != nil {
 		cv.registry = cv.editRegistry
@@ -619,7 +648,7 @@ func (cv *ConfigurableDetailView) EnterEditModeWithFocus(focusField model.EditFi
 	}
 	idx := cv.indexOfEditableField(string(focusField))
 	if idx >= 0 {
-		cv.focusedIdx = idx
+		cv.setFocusedIdx(idx)
 		cv.refresh()
 	}
 	return true
@@ -644,7 +673,7 @@ func (cv *ConfigurableDetailView) ExitEditMode() {
 		return
 	}
 	cv.editMode = false
-	cv.focusedIdx = -1
+	cv.setFocusedIdx(-1)
 	cv.editors = make(map[string]FieldEditorWidget)
 	cv.registry = cv.viewRegistry
 	cv.refresh()
@@ -667,7 +696,7 @@ func (cv *ConfigurableDetailView) FocusNextField() bool {
 	if next < 0 || next == cv.focusedIdx {
 		return false
 	}
-	cv.focusedIdx = next
+	cv.setFocusedIdx(next)
 	cv.refresh()
 	return true
 }
@@ -683,7 +712,7 @@ func (cv *ConfigurableDetailView) FocusPrevField() bool {
 	if prev < 0 || prev == cv.focusedIdx {
 		return false
 	}
-	cv.focusedIdx = prev
+	cv.setFocusedIdx(prev)
 	cv.refresh()
 	return true
 }

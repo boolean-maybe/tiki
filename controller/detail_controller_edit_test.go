@@ -15,17 +15,18 @@ import (
 // fakeDetailEditView is a light stand-in for ConfigurableDetailView used to
 // drive DetailController edit-mode tests without spinning up tview.
 type fakeDetailEditView struct {
-	editing         bool
-	enterReturn     bool
-	fullscreen      bool
-	registry        *ActionRegistry
-	changeHandler   func(bool)
-	fieldHandlers   map[string]func(string)
-	flushCalls      int             // count of FlushFocusedEditor invocations
-	flushBeforeExit bool            // whether the most recent flush happened while still editing
-	focusField      model.EditField // last EnterEditModeWithFocus argument
-	valid           bool            // value returned by IsValid (defaults true via newFakeDetailEditView)
-	validationErrs  []string        // value returned by ValidationErrors
+	editing            bool
+	enterReturn        bool
+	fullscreen         bool
+	registry           *ActionRegistry
+	changeHandler      func(bool)
+	fieldHandlers      map[string]func(string)
+	flushCalls         int             // count of FlushFocusedEditor invocations
+	flushBeforeExit    bool            // whether the most recent flush happened while still editing
+	focusField         model.EditField // last EnterEditModeWithFocus argument
+	valid              bool            // value returned by IsValid (defaults true via newFakeDetailEditView)
+	validationErrs     []string        // value returned by ValidationErrors
+	focusChangeHandler func(model.EditField)
 }
 
 func (f *fakeDetailEditView) IsFullscreen() bool { return f.fullscreen }
@@ -89,6 +90,9 @@ func (f *fakeDetailEditView) Layout() []string                       { return []
 func (f *fakeDetailEditView) FlushFocusedEditor() {
 	f.flushCalls++
 	f.flushBeforeExit = f.editing
+}
+func (f *fakeDetailEditView) SetFieldFocusChangeHandler(h func(model.EditField)) {
+	f.focusChangeHandler = h
 }
 
 // newDetailEditTestRig wires a TikiEditSession, mutation gate, store, and a
@@ -439,4 +443,67 @@ func TestDetailController_EnterEditModeWithFocusNoSelectionReturnsFalse(t *testi
 	if view.IsEditMode() {
 		t.Error("view should not be in edit mode")
 	}
+}
+
+// TestDetailController_FocusChangeUpdatesStatuslineHint pins the
+// per-field hint surface ported from TikiEditCoordinator.updateFieldHint.
+// On focus of a value-cyclable field the hint shows "↑↓ change value";
+// on a free-text field (e.g. title) the statusline is cleared.
+func TestDetailController_FocusChangeUpdatesStatuslineHint(t *testing.T) {
+	dc, view, sl := newDetailEditTestRigWithStatusline(t)
+	dc.BindEditView(view) // re-bind so the focus-change handler is installed
+	if view.focusChangeHandler == nil {
+		t.Fatal("controller did not wire a field focus-change handler")
+	}
+
+	view.focusChangeHandler(model.EditFieldStatus)
+	msg, level, _ := sl.GetMessage()
+	if !strings.Contains(msg, "↑↓ change value") {
+		t.Errorf("status hint = %q, want it to contain %q", msg, "↑↓ change value")
+	}
+	if level != model.MessageLevelInfo {
+		t.Errorf("hint level = %v, want MessageLevelInfo", level)
+	}
+
+	view.focusChangeHandler(model.EditFieldTitle)
+	if msg, _, _ := sl.GetMessage(); msg != "" {
+		t.Errorf("title focus should clear hint, got %q", msg)
+	}
+}
+
+// TestDetailController_FocusChangeRecurrenceHint pins the two-mode
+// recurrence hint: "edit pattern" guidance when the part-nav reports
+// pattern-focused, "edit value" guidance when value-focused.
+func TestDetailController_FocusChangeRecurrenceHint(t *testing.T) {
+	dc, view, sl := newDetailEditTestRigWithStatusline(t)
+	rv := &recurrenceFakeView{fakeDetailEditView: view}
+	dc.BindEditView(rv)
+	if rv.focusChangeHandler == nil {
+		t.Fatal("controller did not wire a field focus-change handler")
+	}
+
+	rv.valueFocused = false
+	rv.focusChangeHandler(model.EditFieldRecurrence)
+	if msg, _, _ := sl.GetMessage(); !strings.Contains(msg, "change pattern") {
+		t.Errorf("pattern-focused hint = %q, want it to mention pattern change", msg)
+	}
+
+	rv.valueFocused = true
+	rv.focusChangeHandler(model.EditFieldRecurrence)
+	if msg, _, _ := sl.GetMessage(); !strings.Contains(msg, "edit pattern") {
+		t.Errorf("value-focused hint = %q, want it to mention pattern editing", msg)
+	}
+}
+
+// recurrenceFakeView extends the fake with the RecurrencePartNavigable
+// duck-type so the recurrence-hint branch is exercised.
+type recurrenceFakeView struct {
+	*fakeDetailEditView
+	valueFocused bool
+}
+
+func (r *recurrenceFakeView) MoveRecurrencePartLeft() bool  { return false }
+func (r *recurrenceFakeView) MoveRecurrencePartRight() bool { return false }
+func (r *recurrenceFakeView) IsRecurrenceValueFocused() bool {
+	return r.valueFocused
 }

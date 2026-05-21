@@ -145,6 +145,14 @@ func (dc *DetailController) GetPluginName() string { return dc.pluginDef.Name }
 // ShowNavigation returns false — detail views don't show plugin nav keys.
 func (dc *DetailController) ShowNavigation() bool { return false }
 
+// FieldFocusChangeNotifier is the optional view-side hook used by the
+// controller to refresh statusline hints when the focused edit field
+// changes. Views that don't implement it lose the per-field hint surface
+// but otherwise function normally.
+type FieldFocusChangeNotifier interface {
+	SetFieldFocusChangeHandler(func(model.EditField))
+}
+
 // BindEditView attaches the detail view so the controller can drive
 // in-place edit mode (toggle, traversal, save/cancel). The view factory
 // wires this immediately after constructing the view.
@@ -172,6 +180,38 @@ func (dc *DetailController) BindEditView(v DetailEditableView) {
 		})
 	}
 	dc.wireEditFieldHandlers(v)
+	if notifier, ok := v.(FieldFocusChangeNotifier); ok {
+		notifier.SetFieldFocusChangeHandler(dc.updateFieldHint)
+	}
+}
+
+// updateFieldHint refreshes the statusline hint to reflect the controls
+// available on the currently focused edit-mode field. Workflow-declared
+// enums fall through to the generic ↑↓ hint via a workflow.Field lookup
+// so custom enums (e.g. severity in bug-tracker.yaml) get the same hint
+// without per-field hard-coding.
+func (dc *DetailController) updateFieldHint(focused model.EditField) {
+	if dc.statusline == nil {
+		return
+	}
+	switch focused {
+	case model.EditFieldStatus, model.EditFieldType, model.EditFieldPriority,
+		model.EditFieldAssignee, model.EditFieldPoints, model.EditFieldDue:
+		dc.statusline.SetMessage("↑↓ change value", model.MessageLevelInfo, false)
+		return
+	case model.EditFieldRecurrence:
+		if nav, ok := dc.editView.(RecurrencePartNavigable); ok && nav.IsRecurrenceValueFocused() {
+			dc.statusline.SetMessage("← edit pattern  ↑↓ change value", model.MessageLevelInfo, false)
+		} else {
+			dc.statusline.SetMessage("↑↓ change pattern  → edit value", model.MessageLevelInfo, false)
+		}
+		return
+	}
+	if wfd, ok := workflow.Field(string(focused)); ok && wfd.Type == workflow.TypeEnum {
+		dc.statusline.SetMessage("↑↓ change value", model.MessageLevelInfo, false)
+		return
+	}
+	dc.statusline.ClearMessage()
 }
 
 // wireEditFieldHandlers installs the per-field save callbacks on the view.
