@@ -203,7 +203,7 @@ func parseGlobalActions(configs []PluginActionConfig, schema ruki.Schema, viewNa
 		return nil, nil
 	}
 	parser := ruki.NewParser(schema)
-	return parsePluginActions(configs, parser, viewNames)
+	return parsePluginActions(configs, parser, viewNames, false)
 }
 
 // LoadPlugins loads plugins from the single highest-priority workflow.yaml file.
