@@ -145,7 +145,8 @@ func InitPluginActions(plugins []PluginInfo) {
 			continue // skip plugins without key binding
 		}
 		pluginViewID := model.MakePluginViewID(p.Name)
-		require := []Requirement{Requirement("!view:" + string(pluginViewID))}
+		notSelf := Requirement("!view:" + string(pluginViewID))
+		require := []Requirement{notSelf}
 		for _, r := range p.Require {
 			if isViewScopedRequirement(r) {
 				continue
@@ -160,6 +161,7 @@ func InitPluginActions(plugins []PluginInfo) {
 			Label:        p.Name,
 			ShowInHeader: true,
 			Require:      require,
+			HideRequire:  []Requirement{notSelf},
 		})
 	}
 }
@@ -259,6 +261,7 @@ const (
 	RequireSelectionAny  Requirement = "selection:any"
 	RequireSelectionMany Requirement = "selection:many"
 	RequireDetailPlugin  Requirement = "detail-plugin"
+	RequireSingleLane    Requirement = "single-lane"
 )
 
 // AppContext is a dynamic set of active context attributes built from live UI state.
@@ -361,6 +364,23 @@ func SetDetailPluginPredicate(fn func() bool) {
 	detailPluginPredicate = fn
 }
 
+// singleLanePredicate decides whether the plugin view identified by id is
+// a board/list view with one lane or fewer. Set at bootstrap so this
+// package doesn't have to reach into plugin defs directly. Defaults to
+// false (no view is single-lane) which keeps tests unchanged.
+var singleLanePredicate = func(model.ViewID) bool { return false }
+
+// SetSingleLanePredicate installs the predicate used by BuildAppContext
+// to gate move-tiki-left/right actions. Bootstrap wires this once per
+// session. Passing nil resets to the default.
+func SetSingleLanePredicate(fn func(model.ViewID) bool) {
+	if fn == nil {
+		singleLanePredicate = func(model.ViewID) bool { return false }
+		return
+	}
+	singleLanePredicate = fn
+}
+
 // detailSpecSource returns the parsed grid spec of the workflow's primary
 // detail plugin, or false when no detail plugin is registered. Set at
 // bootstrap so the controller package doesn't depend on plugin defs.
@@ -422,6 +442,9 @@ func BuildAppContext(currentView *ViewEntry, activeView View) AppContext {
 
 	if currentView != nil {
 		ctx.Set("view:" + string(currentView.ViewID))
+		if singleLanePredicate(currentView.ViewID) {
+			ctx.Set(string(RequireSingleLane))
+		}
 	}
 
 	return ctx
@@ -453,6 +476,12 @@ type Action struct {
 	ShowInHeader    bool // whether to display in header bar
 	HideFromPalette bool // when true, action is excluded from the action palette (zero value = visible)
 	Require         []Requirement
+	// HideRequire is an additional requirement set whose unmet state hides
+	// the action from the header entirely (rather than rendering it greyed).
+	// Use for structural conditions that cannot change within the current
+	// view — e.g. single-lane boards have no left/right neighbor to move to.
+	// HideRequire does NOT affect keypress dispatch; only header rendering.
+	HideRequire []Requirement
 }
 
 // keyWithMod is a composite map key for special-key lookups, disambiguating
@@ -668,9 +697,12 @@ func (r *ActionRegistry) ToHeaderActionsForContext(ctx AppContext) []model.Heade
 		return nil
 	}
 	actions := r.GetHeaderActions()
-	result := make([]model.HeaderAction, len(actions))
-	for i, a := range actions {
-		result[i] = model.HeaderAction{
+	result := make([]model.HeaderAction, 0, len(actions))
+	for _, a := range actions {
+		if !ActionEnabled(Action{Require: a.HideRequire}, ctx) {
+			continue
+		}
+		result = append(result, model.HeaderAction{
 			ID:           string(a.ID),
 			Key:          a.Key,
 			Rune:         a.Rune,
@@ -678,7 +710,7 @@ func (r *ActionRegistry) ToHeaderActionsForContext(ctx AppContext) []model.Heade
 			Modifier:     a.Modifier,
 			ShowInHeader: a.ShowInHeader,
 			Enabled:      ActionEnabled(a, ctx),
-		}
+		})
 	}
 	return result
 }
@@ -878,8 +910,11 @@ func PluginViewActions() *ActionRegistry {
 	// "open tiki in detail" shortcut: the open keybinding is now declared by
 	// the workflow as a `kind: view` action (typically `key: Enter, view: Detail`).
 	// Boards without such an action have no Enter behavior — by design.
-	r.Register(Action{ID: ActionMoveTikiLeft, Key: tcell.KeyLeft, Modifier: tcell.ModShift, Label: "Move ←", ShowInHeader: true, Require: idReq})
-	r.Register(Action{ID: ActionMoveTikiRight, Key: tcell.KeyRight, Modifier: tcell.ModShift, Label: "Move →", ShowInHeader: true, Require: idReq})
+	notSingleLane := "!" + RequireSingleLane
+	moveReq := []Requirement{RequireID, notSingleLane}
+	hideOnSingleLane := []Requirement{notSingleLane}
+	r.Register(Action{ID: ActionMoveTikiLeft, Key: tcell.KeyLeft, Modifier: tcell.ModShift, Label: "Move ←", ShowInHeader: true, Require: moveReq, HideRequire: hideOnSingleLane})
+	r.Register(Action{ID: ActionMoveTikiRight, Key: tcell.KeyRight, Modifier: tcell.ModShift, Label: "Move →", ShowInHeader: true, Require: moveReq, HideRequire: hideOnSingleLane})
 	r.Register(Action{ID: ActionNewTiki, Key: tcell.KeyRune, Rune: 'n', Label: "New", ShowInHeader: true, Require: []Requirement{RequireDetailPlugin}})
 	r.Register(Action{ID: ActionDeleteTiki, Key: tcell.KeyRune, Rune: 'd', Label: "Delete", ShowInHeader: true, Require: idReq})
 	r.Register(Action{ID: ActionSearch, Key: tcell.KeyRune, Rune: '/', Label: "Search", ShowInHeader: true})

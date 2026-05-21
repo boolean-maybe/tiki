@@ -1308,3 +1308,111 @@ func TestDepsViewActions_NewTikiHasDetailPluginRequirement(t *testing.T) {
 	}
 	t.Fatal("ActionNewTiki not registered in DepsViewActions")
 }
+
+func TestPluginViewActions_MoveTikiNegatesSingleLane(t *testing.T) {
+	r := PluginViewActions()
+	for _, id := range []ActionID{ActionMoveTikiLeft, ActionMoveTikiRight} {
+		var found bool
+		for _, a := range r.GetActions() {
+			if a.ID != id {
+				continue
+			}
+			for _, req := range a.Require {
+				if req == "!"+RequireSingleLane {
+					found = true
+				}
+			}
+		}
+		if !found {
+			t.Fatalf("%s must carry !single-lane requirement", id)
+		}
+	}
+}
+
+func TestActionEnabled_MoveTikiHiddenWhenSingleLane(t *testing.T) {
+	viewID := model.MakePluginViewID("Solo")
+	SetSingleLanePredicate(func(id model.ViewID) bool { return id == viewID })
+	defer SetSingleLanePredicate(nil)
+
+	a := Action{Require: []Requirement{RequireID, "!" + RequireSingleLane}}
+	ctx := BuildAppContext(&ViewEntry{ViewID: viewID}, nil)
+	ctx.Set(string(RequireID))
+	if ActionEnabled(a, ctx) {
+		t.Fatal("move-tiki action should be disabled on single-lane plugin view")
+	}
+}
+
+func TestActionEnabled_MoveTikiVisibleWhenMultiLane(t *testing.T) {
+	SetSingleLanePredicate(nil) // default: nothing is single-lane
+	a := Action{Require: []Requirement{RequireID, "!" + RequireSingleLane}}
+	ctx := BuildAppContext(&ViewEntry{ViewID: model.MakePluginViewID("Multi")}, nil)
+	ctx.Set(string(RequireID))
+	if !ActionEnabled(a, ctx) {
+		t.Fatal("move-tiki action should be enabled on multi-lane plugin view")
+	}
+}
+
+func TestToHeaderActions_MoveTikiHiddenOnSingleLaneView(t *testing.T) {
+	viewID := model.MakePluginViewID("Solo")
+	SetSingleLanePredicate(func(id model.ViewID) bool { return id == viewID })
+	defer SetSingleLanePredicate(nil)
+
+	r := PluginViewActions()
+	ctx := BuildAppContext(&ViewEntry{ViewID: viewID}, nil)
+	out := r.ToHeaderActionsForContext(ctx)
+
+	for _, a := range out {
+		if a.ID == string(ActionMoveTikiLeft) || a.ID == string(ActionMoveTikiRight) {
+			t.Fatalf("%s must be omitted from header on single-lane view, got %+v", a.ID, a)
+		}
+	}
+}
+
+func TestToHeaderActions_ActivePluginOmittedFromHeader(t *testing.T) {
+	InitPluginActions([]PluginInfo{
+		{Name: "Kanban", Key: tcell.KeyRune, Rune: '1'},
+		{Name: "Backlog", Key: tcell.KeyRune, Rune: '2'},
+	})
+	defer InitPluginActions(nil)
+
+	r := GetPluginActions()
+	ctx := BuildAppContext(&ViewEntry{ViewID: model.MakePluginViewID("Kanban")}, nil)
+	out := r.ToHeaderActionsForContext(ctx)
+
+	var sawKanban, sawBacklog bool
+	for _, a := range out {
+		switch a.ID {
+		case "plugin:Kanban":
+			sawKanban = true
+		case "plugin:Backlog":
+			sawBacklog = true
+		}
+	}
+	if sawKanban {
+		t.Fatal("plugin:Kanban must be omitted from header when Kanban is the active view")
+	}
+	if !sawBacklog {
+		t.Fatal("plugin:Backlog must remain in header when Kanban is the active view")
+	}
+}
+
+func TestToHeaderActions_MoveTikiVisibleOnMultiLaneView(t *testing.T) {
+	SetSingleLanePredicate(nil)
+
+	r := PluginViewActions()
+	ctx := BuildAppContext(&ViewEntry{ViewID: model.MakePluginViewID("Multi")}, nil)
+	out := r.ToHeaderActionsForContext(ctx)
+
+	var sawLeft, sawRight bool
+	for _, a := range out {
+		switch a.ID {
+		case string(ActionMoveTikiLeft):
+			sawLeft = true
+		case string(ActionMoveTikiRight):
+			sawRight = true
+		}
+	}
+	if !sawLeft || !sawRight {
+		t.Fatalf("move-tiki actions must remain in header on multi-lane view (left=%v right=%v)", sawLeft, sawRight)
+	}
+}

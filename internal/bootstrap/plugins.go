@@ -32,6 +32,7 @@ func LoadPlugins(schema ruki.Schema) ([]plugin.Plugin, []plugin.PluginAction, er
 func InitPluginActionRegistry(plugins []plugin.Plugin) {
 	pluginInfos := make([]controller.PluginInfo, 0, len(plugins))
 	detailViewIDs := make(map[model.ViewID]struct{})
+	singleLaneViewIDs := make(map[model.ViewID]struct{})
 	for _, p := range plugins {
 		pk, pr, pm := p.GetActivationKey()
 		pluginInfos = append(pluginInfos, controller.PluginInfo{
@@ -46,6 +47,9 @@ func InitPluginActionRegistry(plugins []plugin.Plugin) {
 		if p.GetKind() == plugin.KindDetail {
 			detailViewIDs[model.MakePluginViewID(p.GetName())] = struct{}{}
 		}
+		if wp, ok := p.(*plugin.WorkflowPlugin); ok && len(wp.Lanes) <= 1 {
+			singleLaneViewIDs[model.MakePluginViewID(p.GetName())] = struct{}{}
+		}
 	}
 	controller.InitPluginActions(pluginInfos)
 	// the controller package can't depend on plugin, so bootstrap installs a
@@ -58,6 +62,13 @@ func InitPluginActionRegistry(plugins []plugin.Plugin) {
 	// active workflow declares no Detail plugin.
 	hasDetailPlugin := len(detailViewIDs) > 0
 	controller.SetDetailPluginPredicate(func() bool { return hasDetailPlugin })
+
+	// gates Move ←/→ on single-lane board/list views: lane navigation is
+	// meaningless when there is one lane or fewer.
+	controller.SetSingleLanePredicate(func(id model.ViewID) bool {
+		_, ok := singleLaneViewIDs[id]
+		return ok
+	})
 
 	// resolves the parsed grid spec for the workflow's primary detail plugin
 	// so handleNewTiki can plumb it into TikiEditParams.Spec. Resolution
