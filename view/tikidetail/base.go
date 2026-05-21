@@ -13,10 +13,10 @@ import (
 	"github.com/rivo/tview"
 )
 
-// Base contains shared state and methods used by both ConfigurableDetailView
-// and TikiEditView. The fixed-shape grid layout produced by grid_layout.go
-// is consumed by both views; this struct holds the layout primitives and
-// the dependencies needed to render the always-present description section.
+// Base contains shared state and methods used by ConfigurableDetailView.
+// The fixed-shape grid layout produced by grid_layout.go drives both view
+// and edit modes; this struct holds the layout primitives and the
+// dependencies needed to render the always-present description section.
 type Base struct {
 	root    *tview.Flex
 	content *tview.Flex

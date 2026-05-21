@@ -368,28 +368,6 @@ func createDraftTiki(s store.Store) (*tikipkg.Tiki, error) {
 	return s.NewTikiTemplate()
 }
 
-func (pb *pluginBase) handleNewTiki() bool {
-	spec, ok := detailSpecSource()
-	if !ok {
-		// gate: no detail plugin in workflow, action should already be
-		// disabled. Bail defensively if we get here.
-		return false
-	}
-	t, err := createDraftTiki(pb.tikiStore)
-	if err != nil {
-		slog.Error("failed to create tiki template", "error", err)
-		return false
-	}
-	pb.navController.PushView(model.TikiEditViewID, model.EncodeTikiEditParams(model.TikiEditParams{
-		TikiID: t.ID,
-		Draft:  t,
-		Focus:  model.EditFieldTitle,
-		Spec:   spec,
-	}))
-	slog.Info("new tiki draft started from plugin", "tiki_id", t.ID, "plugin", pb.pluginDef.Name)
-	return true
-}
-
 func (pb *pluginBase) handleDeleteTiki(filteredTikis func(int) []*tikipkg.Tiki) bool {
 	tikiID := pb.getSelectedTikiID(filteredTikis)
 	if tikiID == "" {

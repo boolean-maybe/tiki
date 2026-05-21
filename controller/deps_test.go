@@ -5,7 +5,6 @@ import (
 	"slices"
 	"testing"
 
-	"github.com/boolean-maybe/tiki/gridlayout"
 	rukiRuntime "github.com/boolean-maybe/tiki/internal/ruki/runtime"
 	"github.com/boolean-maybe/tiki/model"
 	"github.com/boolean-maybe/tiki/plugin"
@@ -378,26 +377,32 @@ func TestDepsController_HandleAction(t *testing.T) {
 		}
 	})
 
-	t.Run("new tiki pushes edit view", func(t *testing.T) {
+	t.Run("new tiki pushes detail view in new mode with title focused", func(t *testing.T) {
 		dc, _ := newDepsTestEnv(t)
-		// handleNewTiki bails when no detail spec is registered; install a
-		// minimal stub so the success path runs.
-		stubSpec := gridlayout.GridSpec{
-			Rows: 1, Cols: 1,
-			Anchors:   []gridlayout.Anchor{{Name: "title", Row: 0, Col: 0, RowSpan: 1, ColSpan: 1}},
-			Stretcher: []bool{false},
-			Cells:     [][]gridlayout.Cell{{gridlayout.FieldCell{Name: "title"}}},
-		}
-		SetDetailSpecSource(func() (gridlayout.GridSpec, bool) { return stubSpec, true })
-		defer SetDetailSpecSource(nil)
 
-		result := dc.HandleAction(ActionNewTiki)
-		if !result {
-			t.Error("new tiki should succeed")
+		if !dc.HandleAction(ActionNewTiki) {
+			t.Fatal("new tiki should succeed")
 		}
+
 		top := dc.navController.navState.currentView()
-		if top == nil || top.ViewID != model.TikiEditViewID {
-			t.Error("expected TikiEditViewID to be pushed")
+		if top == nil {
+			t.Fatal("expected a view to be pushed")
+		}
+		if top.ViewID != model.DetailPluginViewID() {
+			t.Errorf("expected detail plugin view, got %v", top.ViewID)
+		}
+		pvp := model.DecodePluginViewParams(top.Params)
+		if pvp.Mode != plugin.DetailModeNew {
+			t.Errorf("expected Mode=%q, got %q", plugin.DetailModeNew, pvp.Mode)
+		}
+		if pvp.Focus != model.EditFieldTitle {
+			t.Errorf("expected Focus=%q, got %q", model.EditFieldTitle, pvp.Focus)
+		}
+		if pvp.Draft == nil {
+			t.Error("expected Draft to be non-nil for mode: new")
+		}
+		if pvp.TikiID == "" {
+			t.Error("expected TikiID to be lifted from draft")
 		}
 	})
 

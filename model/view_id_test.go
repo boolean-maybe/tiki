@@ -26,8 +26,8 @@ func TestIsPluginViewID(t *testing.T) {
 			expected: true,
 		},
 		{
-			name:     "tiki edit view",
-			viewID:   TikiEditViewID,
+			name:     "non-plugin literal",
+			viewID:   "tiki_edit",
 			expected: false,
 		},
 		{
@@ -213,11 +213,11 @@ func TestViewID_RoundTrip(t *testing.T) {
 }
 
 func TestViewID_BuiltInViews(t *testing.T) {
-	// Verify the remaining built-in view (TikiEditViewID) is not classified
-	// as a plugin view. The legacy tiki-detail constant has been retired in
-	// favor of the configurable detail view (which is a plugin view).
-	if IsPluginViewID(TikiEditViewID) {
-		t.Errorf("Built-in view %q incorrectly identified as plugin view", TikiEditViewID)
+	// Verify a non-plugin literal is not classified as a plugin view.
+	// All runtime views are now plugin views; this guards the prefix check
+	// against future regressions.
+	if IsPluginViewID("non-plugin") {
+		t.Error("Non-plugin literal incorrectly identified as plugin view")
 	}
 	if !IsPluginViewID(PluginViewIDPrefix) {
 		t.Error("PluginViewIDPrefix not identified as plugin view")

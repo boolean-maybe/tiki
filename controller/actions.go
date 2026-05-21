@@ -2,7 +2,6 @@ package controller
 
 import (
 	"github.com/boolean-maybe/tiki/config"
-	"github.com/boolean-maybe/tiki/gridlayout"
 	"github.com/boolean-maybe/tiki/model"
 
 	"github.com/gdamore/tcell/v2"
@@ -27,8 +26,8 @@ const (
 const (
 	ActionMoveTikiLeft  ActionID = "move_tiki_left"
 	ActionMoveTikiRight ActionID = "move_tiki_right"
-	ActionNewTiki       ActionID = "new_tiki"
 	ActionDeleteTiki    ActionID = "delete_tiki"
+	ActionNewTiki       ActionID = "new_tiki"
 	ActionNavLeft       ActionID = "nav_left"
 	ActionNavRight      ActionID = "nav_right"
 	ActionNavUp         ActionID = "nav_up"
@@ -39,11 +38,9 @@ const (
 const (
 	ActionEditTitle  ActionID = "edit_title"
 	ActionEditSource ActionID = "edit_source"
-	ActionEditDesc   ActionID = "edit_desc"
 	ActionFullscreen ActionID = "fullscreen"
 	ActionCloneTiki  ActionID = "clone_tiki"
 	ActionEditDeps   ActionID = "edit_deps"
-	ActionEditTags   ActionID = "edit_tags"
 	ActionChat       ActionID = "chat"
 
 	// ActionDetailEditStub: registered on configurable detail views so the
@@ -381,26 +378,6 @@ func SetSingleLanePredicate(fn func(model.ViewID) bool) {
 	singleLanePredicate = fn
 }
 
-// detailSpecSource returns the parsed grid spec of the workflow's primary
-// detail plugin, or false when no detail plugin is registered. Set at
-// bootstrap so the controller package doesn't depend on plugin defs.
-var detailSpecSource = func() (gridlayout.GridSpec, bool) {
-	return gridlayout.GridSpec{}, false
-}
-
-// SetDetailSpecSource installs the source used by handleNewTiki to plumb
-// the parsed Detail-plugin grid into TikiEditParams.Spec. Bootstrap wires
-// this once per session. Passing nil resets to the empty default.
-func SetDetailSpecSource(fn func() (gridlayout.GridSpec, bool)) {
-	if fn == nil {
-		detailSpecSource = func() (gridlayout.GridSpec, bool) {
-			return gridlayout.GridSpec{}, false
-		}
-		return
-	}
-	detailSpecSource = fn
-}
-
 // BuildAppContext constructs an AppContext from the current UI state.
 func BuildAppContext(currentView *ViewEntry, activeView View) AppContext {
 	ctx := NewAppContext()
@@ -721,12 +698,9 @@ func TikiDetailViewActions() *ActionRegistry {
 	r := NewActionRegistry()
 
 	idReq := []Requirement{RequireID}
-	r.Register(Action{ID: ActionEditTitle, Key: tcell.KeyRune, Rune: 'e', Label: "Edit", ShowInHeader: true, Require: idReq})
-	r.Register(Action{ID: ActionEditDesc, Key: tcell.KeyRune, Rune: 'D', Label: "Edit desc", ShowInHeader: true, Require: idReq})
 	r.Register(Action{ID: ActionEditSource, Key: tcell.KeyRune, Rune: 's', Label: "Edit source", ShowInHeader: true, Require: idReq})
 	r.Register(Action{ID: ActionFullscreen, Key: tcell.KeyRune, Rune: 'f', Label: "Full screen", ShowInHeader: true})
 	r.Register(Action{ID: ActionEditDeps, Key: tcell.KeyCtrlD, Modifier: tcell.ModCtrl, Label: "Dependencies", ShowInHeader: true, Require: idReq})
-	r.Register(Action{ID: ActionEditTags, Key: tcell.KeyRune, Rune: 'T', Label: "Edit tags", ShowInHeader: true, Require: idReq})
 	r.Register(Action{ID: ActionChat, Key: tcell.KeyRune, Rune: 'c', Label: "Chat", ShowInHeader: true, Require: []Requirement{RequireAI, RequireID}})
 
 	return r
@@ -915,7 +889,6 @@ func PluginViewActions() *ActionRegistry {
 	hideOnSingleLane := []Requirement{notSingleLane}
 	r.Register(Action{ID: ActionMoveTikiLeft, Key: tcell.KeyLeft, Modifier: tcell.ModShift, Label: "Move ←", ShowInHeader: true, Require: moveReq, HideRequire: hideOnSingleLane})
 	r.Register(Action{ID: ActionMoveTikiRight, Key: tcell.KeyRight, Modifier: tcell.ModShift, Label: "Move →", ShowInHeader: true, Require: moveReq, HideRequire: hideOnSingleLane})
-	r.Register(Action{ID: ActionNewTiki, Key: tcell.KeyRune, Rune: 'n', Label: "New", ShowInHeader: true, Require: []Requirement{RequireDetailPlugin}})
 	r.Register(Action{ID: ActionDeleteTiki, Key: tcell.KeyRune, Rune: 'd', Label: "Delete", ShowInHeader: true, Require: idReq})
 	r.Register(Action{ID: ActionSearch, Key: tcell.KeyRune, Rune: '/', Label: "Search", ShowInHeader: true})
 	r.Register(Action{ID: ActionExecute, Key: tcell.KeyRune, Rune: '!', Label: "Execute", ShowInHeader: true})

@@ -3,8 +3,10 @@ package controller
 import (
 	"testing"
 
+	"github.com/gdamore/tcell/v2"
 	"github.com/rivo/tview"
 
+	"github.com/boolean-maybe/tiki/component"
 	"github.com/boolean-maybe/tiki/model"
 )
 
@@ -108,5 +110,138 @@ func TestRouteFieldAwareSave_FallsThroughWhenNoSavableHook(t *testing.T) {
 
 	if routeFieldAwareSave(view) {
 		t.Error("routeFieldAwareSave returned true without Savable hook; want false")
+	}
+}
+
+// routerRecurrenceView is a thin detailEditModeView + RecurrencePartNavigable
+// implementation that wraps a real *component.RecurrenceEdit. The part-nav
+// methods forward to the underlying component's MovePartLeft/MovePartRight,
+// so assertions can read the genuine activePart state via IsValueFocused()
+// instead of a hand-toggled fake bool. When recurrenceFocused is false the
+// methods return false to mirror the production guard, so non-recurrence
+// Left/Right keys fall through.
+type routerRecurrenceView struct {
+	*routerFakeView
+	editing           bool
+	recurrenceFocused bool
+	rec               *component.RecurrenceEdit
+}
+
+func (r *routerRecurrenceView) IsEditMode() bool         { return r.editing }
+func (r *routerRecurrenceView) IsEditFieldFocused() bool { return r.editing }
+
+func (r *routerRecurrenceView) MoveRecurrencePartLeft() bool {
+	if !r.recurrenceFocused {
+		return false
+	}
+	r.rec.MovePartLeft()
+	return true
+}
+
+func (r *routerRecurrenceView) MoveRecurrencePartRight() bool {
+	if !r.recurrenceFocused {
+		return false
+	}
+	r.rec.MovePartRight()
+	return true
+}
+
+func (r *routerRecurrenceView) IsRecurrenceValueFocused() bool {
+	return r.rec.IsValueFocused()
+}
+
+// newRouterWithDetailPlugin builds an InputRouter wired to a single plugin
+// name backed by a zero-value DetailController. maybeHandleDetailEditMode
+// only requires the controller to exist in the lookup map for arrow-key
+// dispatch — the Left/Right path never invokes ctrl.HandleAction.
+func newRouterWithDetailPlugin(pluginName string) *InputRouter {
+	return &InputRouter{
+		pluginControllers: map[string]PluginControllerInterface{
+			pluginName: &DetailController{},
+		},
+	}
+}
+
+// newRouterRecurrenceView builds a routerRecurrenceView wrapping a real
+// *component.RecurrenceEdit seeded to a Weekly cron. Weekly is required so
+// the value part exists — MovePartRight is a no-op without one. The editor
+// starts on the value part (activePart=1) when startOnValue is true, by
+// driving MovePartRight after construction.
+func newRouterRecurrenceView(t *testing.T, recurrenceFocused, startOnValue bool) *routerRecurrenceView {
+	t.Helper()
+	rec := component.NewRecurrenceEdit()
+	rec.SetInitialValue("0 0 * * MON")
+	if startOnValue {
+		rec.MovePartRight()
+		if !rec.IsValueFocused() {
+			t.Fatal("seed: MovePartRight did not produce value-focused state")
+		}
+	}
+	return &routerRecurrenceView{
+		routerFakeView:    &routerFakeView{},
+		editing:           true,
+		recurrenceFocused: recurrenceFocused,
+		rec:               rec,
+	}
+}
+
+// TestMaybeHandleDetailEditMode_LeftMovesRecurrencePart pins that a KeyLeft
+// routed through the input router while the recurrence field is focused
+// flips the underlying *component.RecurrenceEdit out of value-focused state.
+// The assertion reads RecurrenceEdit.IsValueFocused() — the genuine
+// activePart-derived flag — not a hand-rolled fake bool.
+func TestMaybeHandleDetailEditMode_LeftMovesRecurrencePart(t *testing.T) {
+	const pluginName = "Detail"
+	ir := newRouterWithDetailPlugin(pluginName)
+	view := newRouterRecurrenceView(t, true, true)
+	entry := &ViewEntry{ViewID: model.MakePluginViewID(pluginName)}
+	event := tcell.NewEventKey(tcell.KeyLeft, 0, tcell.ModNone)
+
+	stop, handled := ir.maybeHandleDetailEditMode(view, entry, event)
+	if !stop || !handled {
+		t.Fatalf("KeyLeft on recurrence: stop=%v handled=%v, want true/true", stop, handled)
+	}
+	if view.rec.IsValueFocused() {
+		t.Error("RecurrenceEdit.IsValueFocused = true after KeyLeft, want false")
+	}
+}
+
+// TestMaybeHandleDetailEditMode_RightMovesRecurrencePart pins the symmetric
+// KeyRight path: the underlying RecurrenceEdit advances from frequency to
+// value part. Asserts via the real component's IsValueFocused().
+func TestMaybeHandleDetailEditMode_RightMovesRecurrencePart(t *testing.T) {
+	const pluginName = "Detail"
+	ir := newRouterWithDetailPlugin(pluginName)
+	view := newRouterRecurrenceView(t, true, false)
+	entry := &ViewEntry{ViewID: model.MakePluginViewID(pluginName)}
+	event := tcell.NewEventKey(tcell.KeyRight, 0, tcell.ModNone)
+
+	stop, handled := ir.maybeHandleDetailEditMode(view, entry, event)
+	if !stop || !handled {
+		t.Fatalf("KeyRight on recurrence: stop=%v handled=%v, want true/true", stop, handled)
+	}
+	if !view.rec.IsValueFocused() {
+		t.Error("RecurrenceEdit.IsValueFocused = false after KeyRight, want true")
+	}
+}
+
+// TestMaybeHandleDetailEditMode_LeftFallsThroughOnNonRecurrenceField pins
+// that Left/Right do not consume the event when the focused field is not
+// recurrence — the wrapper returns false and the router lets the key fall
+// through (stop=false) to the focused widget's input handler. The
+// underlying RecurrenceEdit must remain untouched.
+func TestMaybeHandleDetailEditMode_LeftFallsThroughOnNonRecurrenceField(t *testing.T) {
+	const pluginName = "Detail"
+	ir := newRouterWithDetailPlugin(pluginName)
+	view := newRouterRecurrenceView(t, false, false)
+	entry := &ViewEntry{ViewID: model.MakePluginViewID(pluginName)}
+	event := tcell.NewEventKey(tcell.KeyLeft, 0, tcell.ModNone)
+
+	stop, handled := ir.maybeHandleDetailEditMode(view, entry, event)
+	if stop || handled {
+		t.Errorf("KeyLeft on non-recurrence: stop=%v handled=%v, want false/false", stop, handled)
+	}
+	if view.rec.IsValueFocused() {
+		t.Error("RecurrenceEdit.IsValueFocused = true after fall-through, want false (untouched)")
 	}
 }

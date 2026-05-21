@@ -726,10 +726,9 @@ func (cv *ConfigurableDetailView) GetFocusedFieldName() string {
 	return cv.layout[cv.focusedIdx]
 }
 
-// Layout returns the configured layout anchor list. Exposed so the
-// input router can copy it into TikiEditParams when the user opens the
-// edit view from this detail view, preserving the same field set across
-// the view-edit transition.
+// Layout returns the configured layout anchor list. Exposed so callers
+// that need to introspect the metadata field set (e.g. edit-mode field
+// traversal) can read it without re-parsing the workflow.
 func (cv *ConfigurableDetailView) Layout() []string {
 	return cv.layout
 }
@@ -831,6 +830,60 @@ func (cv *ConfigurableDetailView) FlushFocusedEditor() {
 	// Second pass: recurrence last, so its Due side-effect overwrites
 	// any stale Due that flushed in the first pass.
 	flush(tikipkg.FieldRecurrence)
+}
+
+// MoveRecurrencePartLeft moves the recurrence editor's part cursor to
+// the frequency part. Returns true when the focused field is recurrence,
+// the editor exists, and is a recurrenceEditAdapter; false otherwise.
+func (cv *ConfigurableDetailView) MoveRecurrencePartLeft() bool {
+	re, ok := cv.focusedRecurrenceEditor()
+	if !ok {
+		return false
+	}
+	re.MovePartLeft()
+	return true
+}
+
+// MoveRecurrencePartRight moves the recurrence editor's part cursor to
+// the value part. Returns true when the focused field is recurrence,
+// the editor exists, and is a recurrenceEditAdapter; false otherwise.
+func (cv *ConfigurableDetailView) MoveRecurrencePartRight() bool {
+	re, ok := cv.focusedRecurrenceEditor()
+	if !ok {
+		return false
+	}
+	re.MovePartRight()
+	return true
+}
+
+// IsRecurrenceValueFocused reports whether the recurrence field's value
+// part is currently active. Returns false when the focused field is not
+// recurrence or the editor isn't a recurrenceEditAdapter.
+func (cv *ConfigurableDetailView) IsRecurrenceValueFocused() bool {
+	re, ok := cv.focusedRecurrenceEditor()
+	if !ok {
+		return false
+	}
+	return re.IsValueFocused()
+}
+
+// focusedRecurrenceEditor returns the recurrence editor adapter when the
+// recurrence field is focused and its editor is cached as the expected
+// adapter type. Centralizes the focus-and-cast guards used by the three
+// RecurrencePartNavigable methods.
+func (cv *ConfigurableDetailView) focusedRecurrenceEditor() (*recurrenceEditAdapter, bool) {
+	if cv.GetFocusedFieldName() != tikipkg.FieldRecurrence {
+		return nil, false
+	}
+	w, ok := cv.editors[tikipkg.FieldRecurrence]
+	if !ok || w == nil {
+		return nil, false
+	}
+	re, ok := w.(*recurrenceEditAdapter)
+	if !ok {
+		return nil, false
+	}
+	return re, true
 }
 
 // isEditableLayoutField returns true when the named field has an

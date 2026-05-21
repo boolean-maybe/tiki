@@ -123,7 +123,20 @@ func (dc *DepsController) HandleAction(actionID ActionID) bool {
 		)
 		return true
 	case ActionNewTiki:
-		return dc.handleNewTiki()
+		draft, err := createDraftTiki(dc.tikiStore)
+		if err != nil {
+			slog.Error("deps: new draft failed", "error", err)
+			return false
+		}
+		dc.navController.PushView(
+			model.DetailPluginViewID(),
+			model.EncodePluginViewParams(model.PluginViewParams{
+				Draft: draft,
+				Mode:  plugin.DetailModeNew,
+				Focus: model.EditFieldTitle,
+			}),
+		)
+		return true
 	case ActionDeleteTiki:
 		return dc.handleDeleteTiki(dc.GetFilteredTikisForLane)
 	default:

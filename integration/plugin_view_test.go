@@ -174,51 +174,6 @@ func TestPluginView_OpenTiki(t *testing.T) {
 }
 
 // TestPluginView_CreateTiki verifies 'n' creates new tiki
-func TestPluginView_CreateTiki(t *testing.T) {
-	ta := setupPluginViewTest(t)
-	defer ta.Cleanup()
-
-	// Navigate: Board → Backlog Plugin
-	ta.NavController.PushView(model.MakePluginViewID("Kanban"), nil)
-	ta.Draw()
-	ta.SendKey(tcell.KeyF3, 0, tcell.ModNone)
-
-	// Press 'n' to create new tiki
-	ta.SendKey(tcell.KeyRune, 'n', tcell.ModNone)
-
-	// Verify we're on tiki edit view
-	currentView := ta.NavController.CurrentView()
-	if currentView.ViewID != model.TikiEditViewID {
-		t.Errorf("expected tiki edit view, got %v", currentView.ViewID)
-	}
-
-	// Type title and save
-	ta.SendText("New Plugin Tiki")
-	ta.SendKey(tcell.KeyCtrlS, 0, tcell.ModNone)
-
-	// Reload and verify tiki exists
-	if err := ta.TikiStore.Reload(); err != nil {
-		t.Fatalf("failed to reload: %v", err)
-	}
-
-	allTikis := ta.TikiStore.GetAllTikis()
-	var found bool
-	for _, tk := range allTikis {
-		if tk.Title == "New Plugin Tiki" {
-			found = true
-			// Tiki created from backlog plugin should have backlog status
-			status, _, _ := tk.StringField("status")
-			if status != "backlog" {
-				t.Errorf("new tiki status = %v, want %v", status, "backlog")
-			}
-			break
-		}
-	}
-	if !found {
-		t.Errorf("new tiki not found in store")
-	}
-}
-
 // TestPluginView_DeleteTiki verifies 'd' deletes selected tiki
 func TestPluginView_DeleteTiki(t *testing.T) {
 	ta := setupPluginViewTest(t)

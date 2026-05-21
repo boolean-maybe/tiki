@@ -665,7 +665,21 @@ func parseRukiAction(cfg PluginActionConfig, idx int, parser *ruki.Parser, key t
 	}, nil
 }
 
-// parseViewAction builds a view-navigation PluginAction.
+// parseViewAction builds a view-navigation PluginAction from a `kind: view`
+// action config. The optional `mode:` field selects a detail-view entry point
+// when the target view is `kind: detail`; accepted values are `view` (read-only,
+// the default when `mode:` is omitted), `edit` (edit mode), `new` (create a new
+// tiki), `edit-desc` (edit description), and `edit-tags` (edit tags). Any other
+// value is rejected.
+//
+// Parse errors:
+//   - "mode must be one of view, edit, new, edit-desc, edit-tags (got %q)" when
+//     the value is not in the closed vocabulary.
+//   - "mode: only valid when targeting a kind: detail view" when `mode:` is set
+//     but the target view is not `kind: detail`.
+//   - "mode: new not valid on a detail view's own actions" when `mode: new` is
+//     declared on a detail view's own `actions:` block (a detail view is already
+//     viewing a tiki, so creating a new one is not a self-action).
 func parseViewAction(cfg PluginActionConfig, idx int, viewNames map[string]ViewKind, sourceIsDetailView bool, key tcell.Key, r rune, mod tcell.ModMask, keyStr string) (PluginAction, error) {
 	if cfg.View == "" {
 		return PluginAction{}, fmt.Errorf("action %d (key %q): kind: view requires `view:` (target view name)", idx, cfg.Key)

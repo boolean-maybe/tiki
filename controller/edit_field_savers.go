@@ -11,9 +11,8 @@ type TagsTextAreaSavable interface {
 }
 
 // DescriptionTextAreaSavable mirrors TagsTextAreaSavable for the
-// description editor. The configurable detail view (and the legacy
-// TikiEditView while it still exists) implements this when description
-// editing uses a textarea that buffers Ctrl-S internally.
+// description editor. The configurable detail view implements this when
+// description editing uses a textarea that buffers Ctrl-S internally.
 type DescriptionTextAreaSavable interface {
 	SaveDescriptionFromTextArea()
 }

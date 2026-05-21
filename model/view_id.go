@@ -9,13 +9,6 @@ type ViewID string
 
 // view identifiers
 const (
-	// TikiEditViewID identifies the built-in tiki edit view. Retained
-	// reason: the `n` (new-tiki) flow uses this view to host a draft
-	// tiki being created, since the configurable detail view does not
-	// support drafts. Edit-of-existing flows have migrated to in-place
-	// edit mode on the configurable detail view.
-	TikiEditViewID ViewID = "tiki_edit"
-
 	PluginViewIDPrefix ViewID = "plugin:" // Prefix for plugin views
 
 	// DetailPluginName is the conventional workflow `views[].name` for
@@ -38,9 +31,6 @@ func DetailPluginViewID() ViewID {
 
 // built-in view names and descriptions for the header info section
 const (
-	TikiEditViewName = "Tiki Edit"
-	TikiEditViewDesc = "Cycle through fields to edit title, status, priority and other"
-
 	DepsEditorViewName = "Dependencies"
 	DepsEditorViewDesc = "Move a tiki to Blocks to make it block edited tiki. Move it to Depends to make edited tiki depend on it"
 )

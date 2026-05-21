@@ -36,7 +36,7 @@ func TestNavigationState_PushPop(t *testing.T) {
 		t.Errorf("ViewID = %v, want %v", entry.ViewID, model.MakePluginViewID("Detail"))
 	}
 	if model.DecodePluginViewParams(entry.Params).TikiID != "000001" {
-		t.Errorf("tikiID param = %v, want TIKI-1", model.DecodePluginViewParams(entry.Params).TikiID)
+		t.Errorf("tikiID param = %v, want 000001", model.DecodePluginViewParams(entry.Params).TikiID)
 	}
 
 	// Verify depth decreased
@@ -77,7 +77,7 @@ func TestNavigationState_CurrentView(t *testing.T) {
 
 	// Push views
 	nav.push(model.MakePluginViewID("Detail"), nil)
-	nav.push(model.TikiEditViewID, nil)
+	nav.push(model.MakePluginViewID("Editor"), nil)
 
 	// CurrentView should return tiki edit (top) without removing it
 	entry = nav.currentView()
@@ -85,8 +85,8 @@ func TestNavigationState_CurrentView(t *testing.T) {
 		t.Fatal("currentView() returned nil")
 		return
 	}
-	if entry.ViewID != model.TikiEditViewID {
-		t.Errorf("ViewID = %v, want %v", entry.ViewID, model.TikiEditViewID)
+	if entry.ViewID != model.MakePluginViewID("Editor") {
+		t.Errorf("ViewID = %v, want %v", entry.ViewID, model.MakePluginViewID("Editor"))
 	}
 
 	// Depth should not change
@@ -96,7 +96,7 @@ func TestNavigationState_CurrentView(t *testing.T) {
 
 	// Calling CurrentView again should return same view
 	entry2 := nav.currentView()
-	if entry2.ViewID != model.TikiEditViewID {
+	if entry2.ViewID != model.MakePluginViewID("Editor") {
 		t.Error("currentView() should consistently return top view")
 	}
 }
@@ -149,7 +149,7 @@ func TestNavigationState_PreviousView(t *testing.T) {
 	}
 
 	// Three views - should return second
-	nav.push(model.TikiEditViewID, model.EncodeTikiEditParams(model.TikiEditParams{TikiID: "000005"}))
+	nav.push(model.MakePluginViewID("Editor"), model.EncodePluginViewParams(model.PluginViewParams{TikiID: "000005"}))
 	entry = nav.previousView()
 	if entry == nil {
 		t.Fatal("previousView() returned nil")
@@ -253,7 +253,7 @@ func TestNavigationState_Clear(t *testing.T) {
 	// Push multiple views
 	nav.push(model.MakePluginViewID("Detail"), nil)
 	nav.push(model.MakePluginViewID("Detail"), nil)
-	nav.push(model.TikiEditViewID, nil)
+	nav.push(model.MakePluginViewID("Editor"), nil)
 
 	// Verify stack has items
 	if nav.depth() != 3 {
@@ -307,11 +307,11 @@ func TestNavigationState_ParameterPassing(t *testing.T) {
 	params := model.EncodePluginViewParams(model.PluginViewParams{TikiID: "000042"})
 	params["readOnly"] = true
 	params["index"] = 123
-	nav.push(model.TikiEditViewID, params)
+	nav.push(model.MakePluginViewID("Editor"), params)
 	entry = nav.currentView()
 
 	if model.DecodePluginViewParams(entry.Params).TikiID != "000042" {
-		t.Errorf("tikiID param = %v, want TIKI-42", model.DecodePluginViewParams(entry.Params).TikiID)
+		t.Errorf("tikiID param = %v, want 000042", model.DecodePluginViewParams(entry.Params).TikiID)
 	}
 	if entry.Params["readOnly"] != true {
 		t.Errorf("readOnly param = %v, want true", entry.Params["readOnly"])
@@ -355,8 +355,8 @@ func TestNavigationState_ComplexNavigationFlow(t *testing.T) {
 	}
 
 	// Switch to tiki edit
-	nav.push(model.TikiEditViewID, nil)
-	if nav.currentViewID() != model.TikiEditViewID {
+	nav.push(model.MakePluginViewID("Editor"), nil)
+	if nav.currentViewID() != model.MakePluginViewID("Editor") {
 		t.Error("should be on tiki edit")
 	}
 

@@ -214,8 +214,7 @@ func (dc *DetailController) BindEditView(v DetailEditableView) {
 // title / description / tags editors when the view exposes them.
 // Title commits-and-closes (Enter on a single-line input ends the edit).
 // Description and tags commit-and-stay so a Ctrl-S inside the textarea
-// persists without popping the view, matching the legacy
-// TikiEditCoordinator's grid-mode semantics.
+// persists without popping the view.
 func (dc *DetailController) wireFieldSaveHandlers(v DetailEditableView) {
 	if t, ok := v.(titleSaveSetter); ok {
 		t.SetTitleSaveHandler(func(string) { _ = dc.commitEdit() })
@@ -673,9 +672,9 @@ func DetailViewActions() *ActionRegistry {
 }
 
 // DetailEditModeActions returns the action registry surfaced while a
-// configurable detail view is in in-place edit mode. Mirrors the
-// TikiEditView contract: Save commits the in-flight session, Tab/Shift-Tab
-// traverse editable metadata fields, Esc cancels.
+// configurable detail view is in in-place edit mode. Save commits the
+// in-flight session, Tab/Shift-Tab traverse editable metadata fields,
+// arrow keys cycle enum values, and Esc cancels.
 func DetailEditModeActions() *ActionRegistry {
 	r := NewActionRegistry()
 	r.Register(Action{ID: ActionDetailSave, Key: tcell.KeyCtrlS, Label: "Save", ShowInHeader: true})

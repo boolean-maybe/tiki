@@ -9,6 +9,7 @@ import (
 	"github.com/boolean-maybe/tiki/model"
 	"github.com/boolean-maybe/tiki/store"
 	"github.com/boolean-maybe/tiki/theme"
+	tikipkg "github.com/boolean-maybe/tiki/tiki"
 
 	"github.com/rivo/tview"
 )
@@ -172,37 +173,6 @@ func TestBuildFieldPrimitive_FocusOnlyOnFocusedRow(t *testing.T) {
 	statusText := extractTextView(statusPrim, false)
 	if strings.Contains(statusText, marker) {
 		t.Errorf("non-focused 'status' row painted focus marker after Tab: %q", statusText)
-	}
-}
-
-// TestEditFieldToFieldName_WorkflowEnumFallback pins the workflow-only
-// fallback in editFieldToFieldName: when an EditField doesn't match any
-// of the built-in cases, the helper consults the workflow catalog and
-// returns the name iff the field is TypeEnum. Without this fallback,
-// SetFocusedField, cycleFocusedField, and shouldSkipField (the three
-// callers) would all return "" and skip custom enum fields entirely —
-// making them unreachable for keyboard editing in the full TikiEditView.
-func TestEditFieldToFieldName_WorkflowEnumFallback(t *testing.T) {
-	cleanup := registerExtraWorkflowFieldForTest(t, "severity", []string{"low", "medium", "high"})
-	t.Cleanup(cleanup)
-
-	tests := []struct {
-		name  string
-		input model.EditField
-		want  string
-	}{
-		{"built-in status", model.EditFieldStatus, "status"},
-		{"built-in priority", model.EditFieldPriority, "priority"},
-		{"workflow-only enum severity", model.EditField("severity"), "severity"},
-		{"unknown EditField returns empty", model.EditField("nonexistent"), ""},
-		{"empty EditField returns empty", model.EditField(""), ""},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			if got := editFieldToFieldName(tt.input); got != tt.want {
-				t.Errorf("editFieldToFieldName(%q) = %q, want %q", tt.input, got, tt.want)
-			}
-		})
 	}
 }
 
@@ -644,5 +614,154 @@ func TestEnterEditModeWithFocus_UnknownFieldFallsBackToDefault(t *testing.T) {
 	}
 	if got := cv.GetFocusedFieldName(); got != "status" {
 		t.Errorf("fallback focus = %q, want %q (first editable in layout)", got, "status")
+	}
+}
+
+// TestConfigurableDetailView_RecurrencePartNavigation pins the
+// RecurrencePartNavigable contract on ConfigurableDetailView: the three
+// methods forward to the underlying RecurrenceEdit only when the focused
+// field is recurrence and the cached editor is a recurrenceEditAdapter.
+// Off-field calls return false without panicking.
+func TestConfigurableDetailView_RecurrencePartNavigation(t *testing.T) {
+	s := store.NewInMemoryStore()
+	tk := newTestViewTiki("TIKI115")
+	// seed a Weekly cron so the recurrence editor has both parts
+	// (frequency + value); MovePartRight is a no-op without a value part.
+	tk.Set(tikipkg.FieldRecurrence, "0 0 * * MON")
+	if err := s.CreateTiki(tk); err != nil {
+		t.Fatalf("CreateTiki: %v", err)
+	}
+	cv := NewConfigurableDetailView(
+		s, tk.ID, "Detail",
+		singleColumnSpec([]string{"status", "recurrence"}),
+		controller.DetailViewActions(),
+		nil, nil,
+	)
+	cv.SetEditModeRegistry(controller.DetailEditModeActions())
+
+	if !cv.EnterEditModeWithFocus(model.EditFieldRecurrence) {
+		t.Fatal("EnterEditModeWithFocus(recurrence) returned false")
+	}
+	if got := cv.GetFocusedFieldName(); got != tikipkg.FieldRecurrence {
+		t.Fatalf("focused field = %q, want %q", got, tikipkg.FieldRecurrence)
+	}
+
+	// build the real recurrence editor through the registry and seed it
+	// with a Weekly cron so the value part exists and cursor moves are
+	// observable.
+	ctx := FieldRenderContext{Mode: RenderModeEdit, Roles: theme.Roles(), FieldName: tikipkg.FieldRecurrence}
+	editor := buildFieldEditor(tikipkg.FieldRecurrence, tk, ctx, cv.onEditFieldChange[tikipkg.FieldRecurrence])
+	if editor == nil {
+		t.Fatal("recurrence editor nil")
+	}
+	re, ok := editor.(*recurrenceEditAdapter)
+	if !ok {
+		t.Fatalf("expected *recurrenceEditAdapter, got %T", editor)
+	}
+	re.RecurrenceEdit.SetInitialValue("0 0 * * MON")
+	cv.editors[tikipkg.FieldRecurrence] = editor
+
+	// initial state: frequency part active, value part not focused.
+	if cv.IsRecurrenceValueFocused() {
+		t.Error("IsRecurrenceValueFocused = true at start, want false (frequency active)")
+	}
+
+	if !cv.MoveRecurrencePartRight() {
+		t.Fatal("MoveRecurrencePartRight returned false on focused recurrence field")
+	}
+	if !cv.IsRecurrenceValueFocused() {
+		t.Error("IsRecurrenceValueFocused = false after MoveRecurrencePartRight, want true")
+	}
+
+	if !cv.MoveRecurrencePartLeft() {
+		t.Fatal("MoveRecurrencePartLeft returned false on focused recurrence field")
+	}
+	if cv.IsRecurrenceValueFocused() {
+		t.Error("IsRecurrenceValueFocused = true after MoveRecurrencePartLeft, want false")
+	}
+
+	// move focus to a non-recurrence field; all three methods must
+	// return false without crashing.
+	if !cv.FocusPrevField() {
+		t.Fatal("FocusPrevField to status returned false")
+	}
+	if got := cv.GetFocusedFieldName(); got != "status" {
+		t.Fatalf("after FocusPrevField, focused = %q, want %q", got, "status")
+	}
+	if cv.MoveRecurrencePartLeft() {
+		t.Error("MoveRecurrencePartLeft returned true on non-recurrence field")
+	}
+	if cv.MoveRecurrencePartRight() {
+		t.Error("MoveRecurrencePartRight returned true on non-recurrence field")
+	}
+	if cv.IsRecurrenceValueFocused() {
+		t.Error("IsRecurrenceValueFocused = true on non-recurrence field, want false")
+	}
+}
+
+// TestConfigurableDetailView_RecurrencePartNavigation_NoEditorCached pins
+// the guard against a missing editor entry: when recurrence is the focused
+// field but no editor has been cached yet (e.g. before first refresh),
+// the methods return false rather than nil-deref.
+func TestConfigurableDetailView_RecurrencePartNavigation_NoEditorCached(t *testing.T) {
+	s := store.NewInMemoryStore()
+	tk := newTestViewTiki("TIKI116")
+	if err := s.CreateTiki(tk); err != nil {
+		t.Fatalf("CreateTiki: %v", err)
+	}
+	cv := NewConfigurableDetailView(
+		s, tk.ID, "Detail",
+		singleColumnSpec([]string{"recurrence", "status"}),
+		controller.DetailViewActions(),
+		nil, nil,
+	)
+	cv.SetEditModeRegistry(controller.DetailEditModeActions())
+
+	if !cv.EnterEditModeWithFocus(model.EditFieldRecurrence) {
+		t.Fatal("EnterEditModeWithFocus(recurrence) returned false")
+	}
+	// editors map exists but has no recurrence entry — refresh hasn't
+	// run in tests because there's no tview Application.
+	delete(cv.editors, tikipkg.FieldRecurrence)
+	if cv.MoveRecurrencePartLeft() {
+		t.Error("MoveRecurrencePartLeft returned true when no editor cached")
+	}
+	if cv.MoveRecurrencePartRight() {
+		t.Error("MoveRecurrencePartRight returned true when no editor cached")
+	}
+	if cv.IsRecurrenceValueFocused() {
+		t.Error("IsRecurrenceValueFocused returned true when no editor cached")
+	}
+}
+
+// TestConfigurableDetailView_RecurrencePartNavigation_WrongAdapterType pins
+// the type-assertion guard: a cached editor that isn't *recurrenceEditAdapter
+// (defensive — shouldn't happen in production) returns false without
+// panicking.
+func TestConfigurableDetailView_RecurrencePartNavigation_WrongAdapterType(t *testing.T) {
+	s := store.NewInMemoryStore()
+	tk := newTestViewTiki("TIKI117")
+	if err := s.CreateTiki(tk); err != nil {
+		t.Fatalf("CreateTiki: %v", err)
+	}
+	cv := NewConfigurableDetailView(
+		s, tk.ID, "Detail",
+		singleColumnSpec([]string{"recurrence"}),
+		controller.DetailViewActions(),
+		nil, nil,
+	)
+	cv.SetEditModeRegistry(controller.DetailEditModeActions())
+	if !cv.EnterEditMode() {
+		t.Fatal("EnterEditMode")
+	}
+	cv.editors[tikipkg.FieldRecurrence] = &fakeFlushWidget{text: ""}
+	if cv.MoveRecurrencePartLeft() {
+		t.Error("MoveRecurrencePartLeft returned true on wrong adapter type")
+	}
+	if cv.MoveRecurrencePartRight() {
+		t.Error("MoveRecurrencePartRight returned true on wrong adapter type")
+	}
+	if cv.IsRecurrenceValueFocused() {
+		t.Error("IsRecurrenceValueFocused returned true on wrong adapter type")
 	}
 }

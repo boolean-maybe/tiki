@@ -209,7 +209,7 @@ func TestLayoutModel_MultipleListeners(t *testing.T) {
 	lm.RemoveListener(id3)
 
 	// None should be notified
-	lm.SetContent(TikiEditViewID, nil)
+	lm.SetContent(DetailPluginViewID(), nil)
 
 	time.Sleep(10 * time.Millisecond)
 
