@@ -673,10 +673,8 @@ func parseViewAction(cfg PluginActionConfig, idx int, viewNames map[string]ViewK
 		return PluginAction{}, fmt.Errorf("action %d (key %q): kind: view does not support `input:`", idx, cfg.Key)
 	}
 	if viewNames != nil {
-		if kind, ok := viewNames[cfg.View]; !ok {
+		if _, ok := viewNames[cfg.View]; !ok {
 			return PluginAction{}, fmt.Errorf("action %d (key %q): references unknown view %q", idx, cfg.Key, cfg.View)
-		} else {
-			_ = kind // Task 3 will use this for mode: validation
 		}
 	}
 
