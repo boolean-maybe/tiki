@@ -347,12 +347,50 @@ func (pc *PluginController) handleViewAction(pa *plugin.PluginAction) bool {
 	if !TargetViewEnabled(pa.TargetView, carried) {
 		return false
 	}
-	var params map[string]interface{}
-	if len(ids) == 1 {
-		params = model.EncodePluginViewParams(model.PluginViewParams{TikiID: ids[0]})
+	pvp, ok := buildDetailViewParams(pa.Mode, ids, pc.tikiStore)
+	if !ok {
+		return false
 	}
-	pc.navController.PushView(model.MakePluginViewID(pa.TargetView), params)
+	pc.navController.PushView(model.MakePluginViewID(pa.TargetView), model.EncodePluginViewParams(pvp))
 	return true
+}
+
+// buildDetailViewParams encodes the per-mode dispatch contract shared by
+// PluginController.handleViewAction and DetailController.dispatchViewAction.
+// For mode: new it synthesizes a fresh draft from the store; for the other
+// four modes it threads the carried selection (if any) and the appropriate
+// focus field. Returns false when a mode requires a single selection and
+// none was provided, or when draft synthesis fails.
+func buildDetailViewParams(mode plugin.DetailMode, ids []string, s store.Store) (model.PluginViewParams, bool) {
+	pvp := model.PluginViewParams{Mode: mode}
+	switch mode {
+	case plugin.DetailModeNew:
+		draft, err := createDraftTiki(s)
+		if err != nil {
+			slog.Error("mode: new failed to create draft", "error", err)
+			return model.PluginViewParams{}, false
+		}
+		pvp.Draft = draft
+		pvp.Focus = model.EditFieldTitle
+	case plugin.DetailModeEditDesc:
+		if len(ids) != 1 {
+			return model.PluginViewParams{}, false
+		}
+		pvp.TikiID = ids[0]
+		pvp.Focus = model.EditFieldDescription
+	case plugin.DetailModeEditTags:
+		if len(ids) != 1 {
+			return model.PluginViewParams{}, false
+		}
+		pvp.TikiID = ids[0]
+		pvp.Focus = model.EditFieldTags
+	default:
+		// "", view, edit
+		if len(ids) == 1 {
+			pvp.TikiID = ids[0]
+		}
+	}
+	return pvp, true
 }
 
 // GetActionInputSpec returns the prompt and input type for an action, if it has input.

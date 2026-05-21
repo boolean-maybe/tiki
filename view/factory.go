@@ -214,6 +214,7 @@ func (f *ViewFactory) CreateView(viewID model.ViewID, params map[string]interfac
 				)
 				if dc != nil {
 					dc.BindEditView(cv)
+					dc.ApplyDetailMode(pluginParams.Mode, pluginParams.Focus, pluginParams.Draft)
 				}
 				v = cv
 			default:

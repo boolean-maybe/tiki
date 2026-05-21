@@ -444,6 +444,48 @@ func (dc *DetailController) enterEditModeWithFocus(focusField model.EditField) b
 	return true
 }
 
+// ApplyDetailMode runs the per-mode setup carried in PluginViewParams.
+// Called by the view factory after BindEditView on a freshly built
+// DetailController that has just been pushed onto the nav stack. For plain
+// view (empty / DetailModeView) it is a no-op; the other four modes either
+// enter edit mode with a specific focus, install a restricted action
+// registry, or thread an already-created draft into the edit session.
+func (dc *DetailController) ApplyDetailMode(mode plugin.DetailMode, focus model.EditField, draft *tikipkg.Tiki) bool {
+	if dc.editView == nil {
+		return false
+	}
+	switch mode {
+	case "", plugin.DetailModeView:
+		return true
+	case plugin.DetailModeEdit:
+		return dc.enterEditModeWithFocus(focus)
+	case plugin.DetailModeNew:
+		if draft == nil || dc.editSession == nil {
+			return false
+		}
+		// drafts are not yet in the store — adopt the in-memory copy directly
+		// instead of going through StartEditSession (which expects an existing
+		// tiki to load).
+		dc.editSession.SetDraft(draft)
+		dc.selectedTikiID = draft.ID
+		if dc.editView.IsEditMode() {
+			return true
+		}
+		if !dc.editView.EnterEditModeWithFocus(model.EditFieldTitle) {
+			dc.editSession.ClearDraft()
+			return false
+		}
+		return true
+	case plugin.DetailModeEditDesc:
+		dc.editView.SetEditModeRegistry(DescOnlyEditActions())
+		return dc.enterEditModeWithFocus(model.EditFieldDescription)
+	case plugin.DetailModeEditTags:
+		dc.editView.SetEditModeRegistry(TagsOnlyEditActions())
+		return dc.enterEditModeWithFocus(model.EditFieldTags)
+	}
+	return false
+}
+
 // commitEdit persists the edit session via TikiEditSession. On success the
 // view leaves edit mode; on failure the session stays open so the user
 // can correct invalid input.
@@ -557,11 +599,19 @@ func (dc *DetailController) dispatchViewAction(a *plugin.PluginAction) bool {
 	if !TargetViewEnabled(a.TargetView, carried) {
 		return false
 	}
-	var params map[string]interface{}
+	var ids []string
 	if dc.selectedTikiID != "" {
-		params = model.EncodePluginViewParams(model.PluginViewParams{TikiID: dc.selectedTikiID})
+		ids = []string{dc.selectedTikiID}
 	}
-	dc.navController.PushView(model.MakePluginViewID(a.TargetView), params)
+	var tikiStore store.Store
+	if dc.executor != nil {
+		tikiStore = dc.executor.tikiStore
+	}
+	pvp, ok := buildDetailViewParams(a.Mode, ids, tikiStore)
+	if !ok {
+		return false
+	}
+	dc.navController.PushView(model.MakePluginViewID(a.TargetView), model.EncodePluginViewParams(pvp))
 	return true
 }
 
