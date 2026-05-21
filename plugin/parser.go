@@ -65,7 +65,7 @@ func rejectLegacyTopLevel(cfg pluginFileConfig) error {
 // viewNames is the set of names declared in the enclosing workflow file, used
 // to validate `kind: view` action targets. Pass nil for one-off parsing (e.g.
 // tests); in that case view-target validation is skipped.
-func parsePluginConfig(cfg pluginFileConfig, source string, schema ruki.Schema, viewNames map[string]struct{}) (Plugin, error) {
+func parsePluginConfig(cfg pluginFileConfig, source string, schema ruki.Schema, viewNames map[string]ViewKind) (Plugin, error) {
 	if cfg.Name == "" {
 		return nil, fmt.Errorf("plugin must have a name (%s)", source)
 	}
@@ -138,7 +138,7 @@ func parsePluginConfig(cfg pluginFileConfig, source string, schema ruki.Schema, 
 }
 
 // parseBoardOrListPlugin handles board and list kinds.
-func parseBoardOrListPlugin(cfg pluginFileConfig, base BasePlugin, schema ruki.Schema, viewNames map[string]struct{}) (Plugin, error) {
+func parseBoardOrListPlugin(cfg pluginFileConfig, base BasePlugin, schema ruki.Schema, viewNames map[string]ViewKind) (Plugin, error) {
 	if cfg.Document != "" {
 		return nil, fmt.Errorf("plugin %q: `document:` only valid on kind: wiki", cfg.Name)
 	}
@@ -298,7 +298,7 @@ func parseWikiPlugin(cfg pluginFileConfig, base BasePlugin) (Plugin, error) {
 // selected tiki. Renders title, the configured layout grid, and description.
 // Per-view actions are allowed and will be surfaced alongside the built-in
 // detail actions and global actions.
-func parseDetailPlugin(cfg pluginFileConfig, base BasePlugin, schema ruki.Schema, viewNames map[string]struct{}) (Plugin, error) {
+func parseDetailPlugin(cfg pluginFileConfig, base BasePlugin, schema ruki.Schema, viewNames map[string]ViewKind) (Plugin, error) {
 	if err := rejectBoardOnlyFields(cfg, "detail"); err != nil {
 		return nil, err
 	}
@@ -507,7 +507,7 @@ func rejectBoardOnlyFields(cfg pluginFileConfig, kind string) error {
 
 // parsePluginActions parses and validates plugin action configs into PluginAction slice.
 // viewNames (if non-nil) is used to validate `kind: view` action targets.
-func parsePluginActions(configs []PluginActionConfig, parser *ruki.Parser, viewNames map[string]struct{}) ([]PluginAction, error) {
+func parsePluginActions(configs []PluginActionConfig, parser *ruki.Parser, viewNames map[string]ViewKind) ([]PluginAction, error) {
 	if len(configs) == 0 {
 		return nil, nil
 	}
@@ -662,7 +662,7 @@ func parseRukiAction(cfg PluginActionConfig, idx int, parser *ruki.Parser, key t
 }
 
 // parseViewAction builds a view-navigation PluginAction.
-func parseViewAction(cfg PluginActionConfig, idx int, viewNames map[string]struct{}, key tcell.Key, r rune, mod tcell.ModMask, keyStr string) (PluginAction, error) {
+func parseViewAction(cfg PluginActionConfig, idx int, viewNames map[string]ViewKind, key tcell.Key, r rune, mod tcell.ModMask, keyStr string) (PluginAction, error) {
 	if cfg.View == "" {
 		return PluginAction{}, fmt.Errorf("action %d (key %q): kind: view requires `view:` (target view name)", idx, cfg.Key)
 	}
@@ -673,8 +673,10 @@ func parseViewAction(cfg PluginActionConfig, idx int, viewNames map[string]struc
 		return PluginAction{}, fmt.Errorf("action %d (key %q): kind: view does not support `input:`", idx, cfg.Key)
 	}
 	if viewNames != nil {
-		if _, ok := viewNames[cfg.View]; !ok {
+		if kind, ok := viewNames[cfg.View]; !ok {
 			return PluginAction{}, fmt.Errorf("action %d (key %q): references unknown view %q", idx, cfg.Key, cfg.View)
+		} else {
+			_ = kind // Task 3 will use this for mode: validation
 		}
 	}
 

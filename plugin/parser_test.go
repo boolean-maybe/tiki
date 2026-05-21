@@ -1417,7 +1417,7 @@ func TestParsePluginActions_ViewKindExplicit(t *testing.T) {
 	configs := []PluginActionConfig{
 		{Key: "F11", Kind: "view", Label: "Open kanban", View: "Kanban"},
 	}
-	viewNames := map[string]struct{}{"Kanban": {}}
+	viewNames := map[string]ViewKind{"Kanban": KindBoard}
 
 	actions, err := parsePluginActions(configs, parser, viewNames)
 	if err != nil {
@@ -1444,7 +1444,7 @@ func TestParsePluginActions_ViewKindInferred(t *testing.T) {
 	configs := []PluginActionConfig{
 		{Key: "F11", Label: "Open kanban", View: "Kanban"},
 	}
-	viewNames := map[string]struct{}{"Kanban": {}}
+	viewNames := map[string]ViewKind{"Kanban": KindBoard}
 
 	actions, err := parsePluginActions(configs, parser, viewNames)
 	if err != nil {
@@ -1460,12 +1460,12 @@ func TestParsePluginActions_ViewKindInferred(t *testing.T) {
 // `view:` referencing an unknown view name.
 func TestParsePluginActions_ViewKindErrors(t *testing.T) {
 	parser := testParser()
-	knownViews := map[string]struct{}{"Kanban": {}}
+	knownViews := map[string]ViewKind{"Kanban": KindBoard}
 
 	cases := []struct {
 		name      string
 		cfg       PluginActionConfig
-		viewNames map[string]struct{}
+		viewNames map[string]ViewKind
 		wantError string
 	}{
 		{
@@ -1532,12 +1532,37 @@ func TestParsePluginActions_BothActionAndViewSet(t *testing.T) {
 	configs := []PluginActionConfig{
 		{Key: "x", Label: "Both", Action: `select where status = "done"`, View: "Kanban"},
 	}
-	viewNames := map[string]struct{}{"Kanban": {}}
+	viewNames := map[string]ViewKind{"Kanban": KindBoard}
 	_, err := parsePluginActions(configs, parser, viewNames)
 	if err == nil {
 		t.Fatal("expected error when both action: and view: are set without an explicit kind:")
 	}
 	if !strings.Contains(err.Error(), "use `kind:` to disambiguate") {
 		t.Errorf("expected disambiguate error, got %q", err.Error())
+	}
+}
+
+// TestParseViewAction_ModeRequiresDetailTarget asserts that `mode:` is rejected
+// when targeting a non-detail view.
+func TestParseViewAction_ModeRequiresDetailTarget(t *testing.T) {
+	schema := testSchema()
+	cfg := pluginFileConfig{
+		Name:   "Detail",
+		Kind:   "detail",
+		Layout: "status",
+		Actions: []PluginActionConfig{
+			{Key: "e", Label: "Edit", Kind: "view", View: "Board", Mode: "edit"},
+		},
+	}
+	// simulate the viewNames map that would be built during workflow parsing
+	viewNames := map[string]ViewKind{"Board": KindBoard, "Detail": KindDetail}
+	_, err := parsePluginConfig(cfg, "test", schema, viewNames)
+	if err == nil {
+		t.Fatal("expected parse error for mode: edit targeting Board (kind: board, not detail)")
+	}
+	// This test will fail until Task 3 adds the validation; it documents the
+	// expected behavior once viewNames carries ViewKind.
+	if !strings.Contains(err.Error(), "mode: only valid when targeting a kind: detail view") {
+		t.Errorf("unexpected error: %v", err)
 	}
 }
