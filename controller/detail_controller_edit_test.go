@@ -3,6 +3,7 @@ package controller
 import (
 	"testing"
 
+	"github.com/boolean-maybe/tiki/model"
 	"github.com/boolean-maybe/tiki/service"
 	"github.com/boolean-maybe/tiki/store"
 	tikipkg "github.com/boolean-maybe/tiki/tiki"
@@ -19,8 +20,9 @@ type fakeDetailEditView struct {
 	registry        *ActionRegistry
 	changeHandler   func(bool)
 	fieldHandlers   map[string]func(string)
-	flushCalls      int  // count of FlushFocusedEditor invocations
-	flushBeforeExit bool // whether the most recent flush happened while still editing
+	flushCalls      int             // count of FlushFocusedEditor invocations
+	flushBeforeExit bool            // whether the most recent flush happened while still editing
+	focusField      model.EditField // last EnterEditModeWithFocus argument
 }
 
 func (f *fakeDetailEditView) IsFullscreen() bool { return f.fullscreen }
@@ -42,6 +44,10 @@ func (f *fakeDetailEditView) EnterEditMode() bool {
 		f.changeHandler(true)
 	}
 	return true
+}
+func (f *fakeDetailEditView) EnterEditModeWithFocus(focusField model.EditField) bool {
+	f.focusField = focusField
+	return f.EnterEditMode()
 }
 func (f *fakeDetailEditView) ExitEditMode() {
 	if !f.editing {

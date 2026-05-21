@@ -605,6 +605,37 @@ func (cv *ConfigurableDetailView) EnterEditMode() bool {
 	return true
 }
 
+// EnterEditModeWithFocus enters edit mode and focuses the named field.
+// When focusField is empty, behaves identically to EnterEditMode (focus
+// lands on the first editable layout field). When the requested field
+// is not present in the layout or has no implemented editor, focus
+// falls back to the EnterEditMode default.
+func (cv *ConfigurableDetailView) EnterEditModeWithFocus(focusField model.EditField) bool {
+	if !cv.EnterEditMode() {
+		return false
+	}
+	if focusField == "" {
+		return true
+	}
+	idx := cv.indexOfEditableField(string(focusField))
+	if idx >= 0 {
+		cv.focusedIdx = idx
+		cv.refresh()
+	}
+	return true
+}
+
+// indexOfEditableField returns the layout position of the named field
+// when it is present and editable, or -1.
+func (cv *ConfigurableDetailView) indexOfEditableField(name string) int {
+	for i, layoutName := range cv.layout {
+		if layoutName == name && cv.isEditableLayoutField(layoutName) {
+			return i
+		}
+	}
+	return -1
+}
+
 // ExitEditMode flips the view back to read-only and discards any cached
 // editor widgets. The controller is responsible for committing or
 // cancelling the underlying edit session before calling this.

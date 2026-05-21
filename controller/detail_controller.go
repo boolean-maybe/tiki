@@ -46,6 +46,9 @@ type DetailController struct {
 type DetailEditableView interface {
 	IsEditMode() bool
 	EnterEditMode() bool
+	// EnterEditModeWithFocus starts in-place edit mode with the given field
+	// focused. When focusField is empty, behaves identically to EnterEditMode().
+	EnterEditModeWithFocus(focusField model.EditField) bool
 	ExitEditMode()
 	FocusNextField() bool
 	FocusPrevField() bool

@@ -567,3 +567,82 @@ func TestFieldHasEditor_OnlyImplementedFieldsReturnTrue(t *testing.T) {
 		t.Error("FieldHasEditor on unknown field should return false")
 	}
 }
+
+// TestEnterEditModeWithFocus_FocusesGivenField verifies that passing a
+// specific field name lands focus on that field rather than the layout's
+// first editable position.
+func TestEnterEditModeWithFocus_FocusesGivenField(t *testing.T) {
+	s := store.NewInMemoryStore()
+	tk := newTestViewTiki("TIKI112")
+	if err := s.CreateTiki(tk); err != nil {
+		t.Fatalf("CreateTiki: %v", err)
+	}
+	cv := NewConfigurableDetailView(
+		s, tk.ID, "Detail",
+		singleColumnSpec([]string{"title", "status", "type", "priority"}),
+		controller.DetailViewActions(),
+		nil, nil,
+	)
+	cv.SetEditModeRegistry(controller.DetailEditModeActions())
+
+	if !cv.EnterEditModeWithFocus(model.EditFieldPriority) {
+		t.Fatal("EnterEditModeWithFocus returned false")
+	}
+	if !cv.IsEditMode() {
+		t.Error("expected IsEditMode true after EnterEditModeWithFocus")
+	}
+	if got := cv.GetFocusedFieldName(); got != "priority" {
+		t.Errorf("focused field = %q, want %q", got, "priority")
+	}
+}
+
+// TestEnterEditModeWithFocus_EmptyEqualsEnterEditMode verifies that an
+// empty focus argument preserves the default first-editable-field behavior.
+func TestEnterEditModeWithFocus_EmptyEqualsEnterEditMode(t *testing.T) {
+	s := store.NewInMemoryStore()
+	tk := newTestViewTiki("TIKI113")
+	if err := s.CreateTiki(tk); err != nil {
+		t.Fatalf("CreateTiki: %v", err)
+	}
+	cv := NewConfigurableDetailView(
+		s, tk.ID, "Detail",
+		singleColumnSpec([]string{"status", "type", "priority"}),
+		controller.DetailViewActions(),
+		nil, nil,
+	)
+	cv.SetEditModeRegistry(controller.DetailEditModeActions())
+
+	if !cv.EnterEditModeWithFocus("") {
+		t.Fatal(`EnterEditModeWithFocus("") returned false`)
+	}
+	if got := cv.GetFocusedFieldName(); got == "" {
+		t.Error("expected a non-empty default focus")
+	} else if got != "status" {
+		t.Errorf("default focus = %q, want %q", got, "status")
+	}
+}
+
+// TestEnterEditModeWithFocus_UnknownFieldFallsBackToDefault verifies that
+// asking for a field that is absent from the layout (or non-editable)
+// quietly falls back to the EnterEditMode default rather than failing.
+func TestEnterEditModeWithFocus_UnknownFieldFallsBackToDefault(t *testing.T) {
+	s := store.NewInMemoryStore()
+	tk := newTestViewTiki("TIKI114")
+	if err := s.CreateTiki(tk); err != nil {
+		t.Fatalf("CreateTiki: %v", err)
+	}
+	cv := NewConfigurableDetailView(
+		s, tk.ID, "Detail",
+		singleColumnSpec([]string{"status", "type"}),
+		controller.DetailViewActions(),
+		nil, nil,
+	)
+	cv.SetEditModeRegistry(controller.DetailEditModeActions())
+
+	if !cv.EnterEditModeWithFocus(model.EditFieldPriority) {
+		t.Fatal("EnterEditModeWithFocus returned false on missing field")
+	}
+	if got := cv.GetFocusedFieldName(); got != "status" {
+		t.Errorf("fallback focus = %q, want %q (first editable in layout)", got, "status")
+	}
+}
