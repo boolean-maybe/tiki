@@ -303,20 +303,7 @@ func (dc *DetailController) toggleFullscreen() bool {
 // enterEditMode starts a TikiEditSession edit session and flips the view
 // into edit mode. Returns false if no editable field is configured.
 func (dc *DetailController) enterEditMode() bool {
-	if dc.editView == nil || dc.editSession == nil || dc.selectedTikiID == "" {
-		return false
-	}
-	if dc.editView.IsEditMode() {
-		return true
-	}
-	if dc.editSession.StartEditSession(dc.selectedTikiID) == nil {
-		return false
-	}
-	if !dc.editView.EnterEditMode() {
-		dc.editSession.CancelEditSession()
-		return false
-	}
-	return true
+	return dc.enterEditModeWithFocus("")
 }
 
 // enterEditModeWithFocus mirrors enterEditMode but threads a focus
