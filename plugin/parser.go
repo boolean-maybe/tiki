@@ -65,7 +65,7 @@ func rejectLegacyTopLevel(cfg pluginFileConfig) error {
 // viewNames is the set of names declared in the enclosing workflow file, used
 // to validate `kind: view` action targets. Pass nil for one-off parsing (e.g.
 // tests); in that case view-target validation is skipped.
-func parsePluginConfig(cfg pluginFileConfig, source string, schema ruki.Schema, viewNames map[string]struct{}) (Plugin, error) {
+func parsePluginConfig(cfg pluginFileConfig, source string, schema ruki.Schema, viewNames map[string]ViewKind) (Plugin, error) {
 	if cfg.Name == "" {
 		return nil, fmt.Errorf("plugin must have a name (%s)", source)
 	}
@@ -138,7 +138,7 @@ func parsePluginConfig(cfg pluginFileConfig, source string, schema ruki.Schema, 
 }
 
 // parseBoardOrListPlugin handles board and list kinds.
-func parseBoardOrListPlugin(cfg pluginFileConfig, base BasePlugin, schema ruki.Schema, viewNames map[string]struct{}) (Plugin, error) {
+func parseBoardOrListPlugin(cfg pluginFileConfig, base BasePlugin, schema ruki.Schema, viewNames map[string]ViewKind) (Plugin, error) {
 	if cfg.Document != "" {
 		return nil, fmt.Errorf("plugin %q: `document:` only valid on kind: wiki", cfg.Name)
 	}
@@ -173,7 +173,7 @@ func parseBoardOrListPlugin(cfg pluginFileConfig, base BasePlugin, schema ruki.S
 		slog.Warn("lane widths sum exceeds 100%", "plugin", cfg.Name, "sum", widthSum)
 	}
 
-	actions, err := parsePluginActions(cfg.Actions, parser, viewNames)
+	actions, err := parsePluginActions(cfg.Actions, parser, viewNames, false)
 	if err != nil {
 		return nil, fmt.Errorf("plugin %q (%s): %w", cfg.Name, base.FilePath, err)
 	}
@@ -298,7 +298,7 @@ func parseWikiPlugin(cfg pluginFileConfig, base BasePlugin) (Plugin, error) {
 // selected tiki. Renders title, the configured layout grid, and description.
 // Per-view actions are allowed and will be surfaced alongside the built-in
 // detail actions and global actions.
-func parseDetailPlugin(cfg pluginFileConfig, base BasePlugin, schema ruki.Schema, viewNames map[string]struct{}) (Plugin, error) {
+func parseDetailPlugin(cfg pluginFileConfig, base BasePlugin, schema ruki.Schema, viewNames map[string]ViewKind) (Plugin, error) {
 	if err := rejectBoardOnlyFields(cfg, "detail"); err != nil {
 		return nil, err
 	}
@@ -315,7 +315,7 @@ func parseDetailPlugin(cfg pluginFileConfig, base BasePlugin, schema ruki.Schema
 	}
 
 	parser := ruki.NewParser(schema)
-	actions, err := parsePluginActions(cfg.Actions, parser, viewNames)
+	actions, err := parsePluginActions(cfg.Actions, parser, viewNames, true)
 	if err != nil {
 		return nil, fmt.Errorf("plugin %q (%s): %w", cfg.Name, base.FilePath, err)
 	}
@@ -507,7 +507,8 @@ func rejectBoardOnlyFields(cfg pluginFileConfig, kind string) error {
 
 // parsePluginActions parses and validates plugin action configs into PluginAction slice.
 // viewNames (if non-nil) is used to validate `kind: view` action targets.
-func parsePluginActions(configs []PluginActionConfig, parser *ruki.Parser, viewNames map[string]struct{}) ([]PluginAction, error) {
+// sourceIsDetailView indicates whether these actions belong to a detail view's own actions: block.
+func parsePluginActions(configs []PluginActionConfig, parser *ruki.Parser, viewNames map[string]ViewKind, sourceIsDetailView bool) ([]PluginAction, error) {
 	if len(configs) == 0 {
 		return nil, nil
 	}
@@ -542,7 +543,7 @@ func parsePluginActions(configs []PluginActionConfig, parser *ruki.Parser, viewN
 		case ActionKindRuki:
 			parsed, err = parseRukiAction(cfg, i, parser, key, r, mod, keyStr)
 		case ActionKindView:
-			parsed, err = parseViewAction(cfg, i, viewNames, key, r, mod, keyStr)
+			parsed, err = parseViewAction(cfg, i, viewNames, sourceIsDetailView, key, r, mod, keyStr)
 		default:
 			err = fmt.Errorf("action %d (key %q): unknown action kind %q", i, cfg.Key, cfg.Kind)
 		}
@@ -591,6 +592,9 @@ func parseRukiAction(cfg PluginActionConfig, idx int, parser *ruki.Parser, key t
 	}
 	if cfg.View != "" {
 		return PluginAction{}, fmt.Errorf("action %d (key %q): kind: ruki must not set `view:`", idx, cfg.Key)
+	}
+	if cfg.Mode != "" {
+		return PluginAction{}, fmt.Errorf("action %d (key %q): mode: only valid on kind: view actions", idx, cfg.Key)
 	}
 
 	var (
@@ -661,8 +665,22 @@ func parseRukiAction(cfg PluginActionConfig, idx int, parser *ruki.Parser, key t
 	}, nil
 }
 
-// parseViewAction builds a view-navigation PluginAction.
-func parseViewAction(cfg PluginActionConfig, idx int, viewNames map[string]struct{}, key tcell.Key, r rune, mod tcell.ModMask, keyStr string) (PluginAction, error) {
+// parseViewAction builds a view-navigation PluginAction from a `kind: view`
+// action config. The optional `mode:` field selects a detail-view entry point
+// when the target view is `kind: detail`; accepted values are `view` (read-only,
+// the default when `mode:` is omitted), `edit` (edit mode), `new` (create a new
+// tiki), `edit-desc` (edit description), and `edit-tags` (edit tags). Any other
+// value is rejected.
+//
+// Parse errors:
+//   - "mode must be one of view, edit, new, edit-desc, edit-tags (got %q)" when
+//     the value is not in the closed vocabulary.
+//   - "mode: only valid when targeting a kind: detail view" when `mode:` is set
+//     but the target view is not `kind: detail`.
+//   - "mode: new not valid on a detail view's own actions" when `mode: new` is
+//     declared on a detail view's own `actions:` block (a detail view is already
+//     viewing a tiki, so creating a new one is not a self-action).
+func parseViewAction(cfg PluginActionConfig, idx int, viewNames map[string]ViewKind, sourceIsDetailView bool, key tcell.Key, r rune, mod tcell.ModMask, keyStr string) (PluginAction, error) {
 	if cfg.View == "" {
 		return PluginAction{}, fmt.Errorf("action %d (key %q): kind: view requires `view:` (target view name)", idx, cfg.Key)
 	}
@@ -672,9 +690,36 @@ func parseViewAction(cfg PluginActionConfig, idx int, viewNames map[string]struc
 	if cfg.Input != "" {
 		return PluginAction{}, fmt.Errorf("action %d (key %q): kind: view does not support `input:`", idx, cfg.Key)
 	}
+
+	var targetKind ViewKind
 	if viewNames != nil {
-		if _, ok := viewNames[cfg.View]; !ok {
+		kind, ok := viewNames[cfg.View]
+		if !ok {
 			return PluginAction{}, fmt.Errorf("action %d (key %q): references unknown view %q", idx, cfg.Key, cfg.View)
+		}
+		targetKind = kind
+	}
+
+	modeStr := strings.TrimSpace(cfg.Mode)
+	var mode DetailMode
+	if modeStr == "" {
+		mode = DetailModeView
+	} else {
+		switch DetailMode(modeStr) {
+		case DetailModeView, DetailModeEdit, DetailModeNew,
+			DetailModeEditDesc, DetailModeEditTags:
+			mode = DetailMode(modeStr)
+		default:
+			return PluginAction{}, fmt.Errorf("action %d (key %q): mode must be one of view, edit, new, edit-desc, edit-tags (got %q)",
+				idx, cfg.Key, modeStr)
+		}
+		if targetKind != KindDetail {
+			return PluginAction{}, fmt.Errorf("action %d (key %q): mode: only valid when targeting a kind: detail view",
+				idx, cfg.Key)
+		}
+		if mode == DetailModeNew && sourceIsDetailView {
+			return PluginAction{}, fmt.Errorf("action %d (key %q): mode: new not valid on a detail view's own actions",
+				idx, cfg.Key)
 		}
 	}
 
@@ -698,6 +743,7 @@ func parseViewAction(cfg PluginActionConfig, idx int, viewNames map[string]struc
 		Label:        cfg.Label,
 		Kind:         ActionKindView,
 		TargetView:   cfg.View,
+		Mode:         mode,
 		ShowInHeader: showInHeader,
 		Require:      dedup(require),
 	}, nil

@@ -35,7 +35,7 @@ func todoSchemaFields() []workflow.FieldDef {
 // bundled todo workflow:
 //   - exactly two fields: status (enum with todo/done) and priority
 //   - exactly one board view named "Todo" with one lane named "Tasks"
-//   - no detail view (the runtime gates `n`/ActionNewTiki on RequireDetailPlugin)
+//   - no detail view (workflow-declared `view: Detail` actions are absent)
 //   - five global actions: Quick create (Ctrl-Q), Mark done (m),
 //     Mark todo (M), Bump priority (+), Lower priority (-)
 //   - lane filter has an explicit order-by clause; raw YAML contains

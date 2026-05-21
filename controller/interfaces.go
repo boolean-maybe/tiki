@@ -171,20 +171,6 @@ type TitleEditableView interface {
 	SetFocusSetter(setter func(p tview.Primitive))
 }
 
-// TikiEditView exposes edited tiki fields for save operations
-type TikiEditView interface {
-	View
-
-	// GetEditedTitle returns the current title text in the editor
-	GetEditedTitle() string
-
-	// GetEditedDescription returns the current description text in the editor
-	GetEditedDescription() string
-
-	// GetEditedTags returns the current tags from the tags editor
-	GetEditedTags() []string
-}
-
 // TagsEditableView is a view that supports tags editing functionality
 type TagsEditableView interface {
 	View

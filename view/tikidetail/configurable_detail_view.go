@@ -67,6 +67,12 @@ type ConfigurableDetailView struct {
 	// palette would keep showing read-only actions while edit mode is
 	// active, even though the keyboard dispatch is already correct.
 	actionChangeHandler func()
+
+	// onFieldFocusChange fires whenever the focused edit-mode field
+	// changes (entering edit mode, Tab/Shift-Tab, exiting). Empty value
+	// signals "no editable field is focused" and lets consumers clear
+	// any field-specific state.
+	onFieldFocusChange func(model.EditField)
 }
 
 // Compile-time interface check: the view must satisfy ActionChangeNotifier
@@ -78,6 +84,29 @@ var _ controller.ActionChangeNotifier = (*ConfigurableDetailView)(nil)
 // re-read the active registry from this view.
 func (cv *ConfigurableDetailView) SetActionChangeHandler(handler func()) {
 	cv.actionChangeHandler = handler
+}
+
+// SetFieldFocusChangeHandler installs a callback fired after every
+// edit-mode focus change. Implements controller.FieldFocusChangeNotifier
+// so the controller can refresh per-field statusline hints.
+func (cv *ConfigurableDetailView) SetFieldFocusChangeHandler(handler func(model.EditField)) {
+	cv.onFieldFocusChange = handler
+}
+
+// setFocusedIdx is the single funnel for focused-field assignment. All
+// edit-mode focus transitions route through this so the focus-change
+// notifier sees every move (including the initial focus on
+// EnterEditMode and the -1 reset on ExitEditMode).
+func (cv *ConfigurableDetailView) setFocusedIdx(idx int) {
+	cv.focusedIdx = idx
+	if cv.onFieldFocusChange == nil {
+		return
+	}
+	var name string
+	if idx >= 0 && idx < len(cv.layout) {
+		name = cv.layout[idx]
+	}
+	cv.onFieldFocusChange(model.EditField(name))
 }
 
 // NewConfigurableDetailView builds a detail view bound to the configured
@@ -590,7 +619,7 @@ func (cv *ConfigurableDetailView) EnterEditMode() bool {
 		return false
 	}
 	cv.editMode = true
-	cv.focusedIdx = first
+	cv.setFocusedIdx(first)
 	cv.editors = make(map[string]FieldEditorWidget)
 	if cv.editRegistry != nil {
 		cv.registry = cv.editRegistry
@@ -605,6 +634,37 @@ func (cv *ConfigurableDetailView) EnterEditMode() bool {
 	return true
 }
 
+// EnterEditModeWithFocus enters edit mode and focuses the named field.
+// When focusField is empty, behaves identically to EnterEditMode (focus
+// lands on the first editable layout field). When the requested field
+// is not present in the layout or has no implemented editor, focus
+// falls back to the EnterEditMode default.
+func (cv *ConfigurableDetailView) EnterEditModeWithFocus(focusField model.EditField) bool {
+	if !cv.EnterEditMode() {
+		return false
+	}
+	if focusField == "" {
+		return true
+	}
+	idx := cv.indexOfEditableField(string(focusField))
+	if idx >= 0 {
+		cv.setFocusedIdx(idx)
+		cv.refresh()
+	}
+	return true
+}
+
+// indexOfEditableField returns the layout position of the named field
+// when it is present and editable, or -1.
+func (cv *ConfigurableDetailView) indexOfEditableField(name string) int {
+	for i, layoutName := range cv.layout {
+		if layoutName == name && cv.isEditableLayoutField(layoutName) {
+			return i
+		}
+	}
+	return -1
+}
+
 // ExitEditMode flips the view back to read-only and discards any cached
 // editor widgets. The controller is responsible for committing or
 // cancelling the underlying edit session before calling this.
@@ -613,7 +673,7 @@ func (cv *ConfigurableDetailView) ExitEditMode() {
 		return
 	}
 	cv.editMode = false
-	cv.focusedIdx = -1
+	cv.setFocusedIdx(-1)
 	cv.editors = make(map[string]FieldEditorWidget)
 	cv.registry = cv.viewRegistry
 	cv.refresh()
@@ -636,7 +696,7 @@ func (cv *ConfigurableDetailView) FocusNextField() bool {
 	if next < 0 || next == cv.focusedIdx {
 		return false
 	}
-	cv.focusedIdx = next
+	cv.setFocusedIdx(next)
 	cv.refresh()
 	return true
 }
@@ -652,7 +712,7 @@ func (cv *ConfigurableDetailView) FocusPrevField() bool {
 	if prev < 0 || prev == cv.focusedIdx {
 		return false
 	}
-	cv.focusedIdx = prev
+	cv.setFocusedIdx(prev)
 	cv.refresh()
 	return true
 }
@@ -666,10 +726,9 @@ func (cv *ConfigurableDetailView) GetFocusedFieldName() string {
 	return cv.layout[cv.focusedIdx]
 }
 
-// Layout returns the configured layout anchor list. Exposed so the
-// input router can copy it into TikiEditParams when the user opens the
-// edit view from this detail view, preserving the same field set across
-// the view-edit transition.
+// Layout returns the configured layout anchor list. Exposed so callers
+// that need to introspect the metadata field set (e.g. edit-mode field
+// traversal) can read it without re-parsing the workflow.
 func (cv *ConfigurableDetailView) Layout() []string {
 	return cv.layout
 }
@@ -771,6 +830,60 @@ func (cv *ConfigurableDetailView) FlushFocusedEditor() {
 	// Second pass: recurrence last, so its Due side-effect overwrites
 	// any stale Due that flushed in the first pass.
 	flush(tikipkg.FieldRecurrence)
+}
+
+// MoveRecurrencePartLeft moves the recurrence editor's part cursor to
+// the frequency part. Returns true when the focused field is recurrence,
+// the editor exists, and is a recurrenceEditAdapter; false otherwise.
+func (cv *ConfigurableDetailView) MoveRecurrencePartLeft() bool {
+	re, ok := cv.focusedRecurrenceEditor()
+	if !ok {
+		return false
+	}
+	re.MovePartLeft()
+	return true
+}
+
+// MoveRecurrencePartRight moves the recurrence editor's part cursor to
+// the value part. Returns true when the focused field is recurrence,
+// the editor exists, and is a recurrenceEditAdapter; false otherwise.
+func (cv *ConfigurableDetailView) MoveRecurrencePartRight() bool {
+	re, ok := cv.focusedRecurrenceEditor()
+	if !ok {
+		return false
+	}
+	re.MovePartRight()
+	return true
+}
+
+// IsRecurrenceValueFocused reports whether the recurrence field's value
+// part is currently active. Returns false when the focused field is not
+// recurrence or the editor isn't a recurrenceEditAdapter.
+func (cv *ConfigurableDetailView) IsRecurrenceValueFocused() bool {
+	re, ok := cv.focusedRecurrenceEditor()
+	if !ok {
+		return false
+	}
+	return re.IsValueFocused()
+}
+
+// focusedRecurrenceEditor returns the recurrence editor adapter when the
+// recurrence field is focused and its editor is cached as the expected
+// adapter type. Centralizes the focus-and-cast guards used by the three
+// RecurrencePartNavigable methods.
+func (cv *ConfigurableDetailView) focusedRecurrenceEditor() (*recurrenceEditAdapter, bool) {
+	if cv.GetFocusedFieldName() != tikipkg.FieldRecurrence {
+		return nil, false
+	}
+	w, ok := cv.editors[tikipkg.FieldRecurrence]
+	if !ok || w == nil {
+		return nil, false
+	}
+	re, ok := w.(*recurrenceEditAdapter)
+	if !ok {
+		return nil, false
+	}
+	return re, true
 }
 
 // isEditableLayoutField returns true when the named field has an

@@ -153,8 +153,8 @@ func detectLegacyTopLevelShape(data []byte) string {
 
 // collectViewNames walks views once to build the set of unique names. Missing
 // or duplicate names are reported as errors so the second pass can skip them.
-func collectViewNames(views []pluginFileConfig, path string) (map[string]struct{}, []string) {
-	names := make(map[string]struct{}, len(views))
+func collectViewNames(views []pluginFileConfig, path string) (map[string]ViewKind, []string) {
+	names := make(map[string]ViewKind, len(views))
 	var errs []string
 	for i, cfg := range views {
 		if cfg.Name == "" {
@@ -165,7 +165,7 @@ func collectViewNames(views []pluginFileConfig, path string) (map[string]struct{
 			errs = append(errs, fmt.Sprintf("%s: duplicate view name %q", path, cfg.Name))
 			continue
 		}
-		names[cfg.Name] = struct{}{}
+		names[cfg.Name] = ViewKind(cfg.Kind)
 	}
 	return names, errs
 }
@@ -198,12 +198,12 @@ func validateSingleDefault(plugins []Plugin) error {
 }
 
 // parseGlobalActions validates and parses the top-level actions list.
-func parseGlobalActions(configs []PluginActionConfig, schema ruki.Schema, viewNames map[string]struct{}) ([]PluginAction, error) {
+func parseGlobalActions(configs []PluginActionConfig, schema ruki.Schema, viewNames map[string]ViewKind) ([]PluginAction, error) {
 	if len(configs) == 0 {
 		return nil, nil
 	}
 	parser := ruki.NewParser(schema)
-	return parsePluginActions(configs, parser, viewNames)
+	return parsePluginActions(configs, parser, viewNames, false)
 }
 
 // LoadPlugins loads plugins from the single highest-priority workflow.yaml file.

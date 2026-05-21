@@ -155,6 +155,7 @@ type PluginActionConfig struct {
 	Key     string   `yaml:"key" mapstructure:"key"`
 	Label   string   `yaml:"label" mapstructure:"label"`
 	Kind    string   `yaml:"kind,omitempty" mapstructure:"kind"`
+	Mode    string   `yaml:"mode,omitempty" mapstructure:"mode"`
 	Action  string   `yaml:"action" mapstructure:"action"`
 	View    string   `yaml:"view,omitempty" mapstructure:"view"`
 	Hot     *bool    `yaml:"hot,omitempty" mapstructure:"hot"`
@@ -170,6 +171,21 @@ const (
 	ActionKindView ActionKind = "view"
 )
 
+// DetailMode is the closed vocabulary for the optional `mode:` field on
+// kind: view actions targeting a kind: detail view. View opens read-only,
+// edit / edit-desc / edit-tags enter in-place edit mode focused on a
+// specific field, and new synthesizes a draft tiki and enters edit mode
+// focused on Title.
+type DetailMode string
+
+const (
+	DetailModeView     DetailMode = "view"
+	DetailModeEdit     DetailMode = "edit"
+	DetailModeNew      DetailMode = "new"
+	DetailModeEditDesc DetailMode = "edit-desc"
+	DetailModeEditTags DetailMode = "edit-tags"
+)
+
 // PluginAction represents a parsed shortcut action bound to a key.
 // Kind selects which of Action (ruki) or TargetView (view navigation) is used.
 type PluginAction struct {
@@ -179,6 +195,7 @@ type PluginAction struct {
 	KeyStr       string // canonical key string for IDs, duplicate detection, and logging
 	Label        string
 	Kind         ActionKind
+	Mode         DetailMode
 	Action       *ruki.ValidatedStatement
 	TargetView   string // for Kind == ActionKindView: name of the view to open
 	ShowInHeader bool

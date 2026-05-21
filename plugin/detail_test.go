@@ -237,7 +237,7 @@ func TestDetailPlugin_AllowsViewKindActions(t *testing.T) {
 			{Key: "F4", Label: "Backlog", Kind: "view", View: "Backlog"},
 		},
 	}
-	viewNames := map[string]struct{}{"Detail": {}, "Backlog": {}}
+	viewNames := map[string]ViewKind{"Detail": KindDetail, "Backlog": KindBoard}
 	p, err := parsePluginConfig(cfg, "test", schema, viewNames)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)

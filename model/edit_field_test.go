@@ -264,7 +264,7 @@ func TestLayoutToEditFieldOrder(t *testing.T) {
 // enum fields without a static EditField constant participate in the
 // navigation order using their field name as the EditField identity.
 // Without this, custom enums like severity or environment never reached
-// the focused-editor path in the full TikiEditView.
+// the focused-editor path in the configurable detail view's edit mode.
 func TestLayoutToEditFieldOrder_WorkflowEnums(t *testing.T) {
 	if err := teststatuses.InitWith([]workflow.FieldDef{
 		{
