@@ -360,6 +360,14 @@ func (pb *pluginBase) handleSearch(query string, selectFirst func() bool) {
 	selectFirst()
 }
 
+// createDraftTiki returns a fresh in-memory draft tiki built from the
+// store's creation template. The draft is not persisted; the caller is
+// responsible for starting a TikiEditSession in draft mode and routing
+// to the destination view. Persistence happens on commit.
+func createDraftTiki(s store.Store) (*tikipkg.Tiki, error) {
+	return s.NewTikiTemplate()
+}
+
 func (pb *pluginBase) handleNewTiki() bool {
 	spec, ok := detailSpecSource()
 	if !ok {
@@ -367,7 +375,7 @@ func (pb *pluginBase) handleNewTiki() bool {
 		// disabled. Bail defensively if we get here.
 		return false
 	}
-	t, err := pb.tikiStore.NewTikiTemplate()
+	t, err := createDraftTiki(pb.tikiStore)
 	if err != nil {
 		slog.Error("failed to create tiki template", "error", err)
 		return false
