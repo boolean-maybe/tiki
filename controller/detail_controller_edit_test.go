@@ -297,3 +297,55 @@ func TestDetailEditModeActions_HasExpectedKeys(t *testing.T) {
 		t.Error("missing ActionPrevField (Shift+Tab)")
 	}
 }
+
+// TestDetailController_EnterEditModeWithFocusStartsSession verifies that
+// enterEditModeWithFocus starts an edit session, flips the view into
+// edit mode, and threads the focus argument through to the view.
+func TestDetailController_EnterEditModeWithFocusStartsSession(t *testing.T) {
+	dc, view, tc, _ := newDetailEditTestRig(t)
+
+	if !dc.enterEditModeWithFocus(model.EditFieldTitle) {
+		t.Fatal("enterEditModeWithFocus returned false")
+	}
+	if !view.IsEditMode() {
+		t.Error("view should be in edit mode")
+	}
+	if tc.GetEditingTiki() == nil {
+		t.Error("TikiEditSession should have an editing tiki")
+	}
+	if view.focusField != model.EditFieldTitle {
+		t.Errorf("view.focusField = %q, want %q", view.focusField, model.EditFieldTitle)
+	}
+}
+
+// TestDetailController_EnterEditModeWithFocusEmptyMatchesEnterEditMode
+// pins that an empty focus argument behaves like enterEditMode (the view
+// receives the empty value and applies its default-focus fallback).
+func TestDetailController_EnterEditModeWithFocusEmptyMatchesEnterEditMode(t *testing.T) {
+	dc, view, _, _ := newDetailEditTestRig(t)
+
+	if !dc.enterEditModeWithFocus("") {
+		t.Fatal(`enterEditModeWithFocus("") returned false`)
+	}
+	if !view.IsEditMode() {
+		t.Error("view should be in edit mode")
+	}
+	if view.focusField != "" {
+		t.Errorf("view.focusField = %q, want empty", view.focusField)
+	}
+}
+
+// TestDetailController_EnterEditModeWithFocusNoSelectionReturnsFalse
+// pins the precondition that enterEditModeWithFocus is a no-op when no
+// tiki is selected.
+func TestDetailController_EnterEditModeWithFocusNoSelectionReturnsFalse(t *testing.T) {
+	dc, view, _, _ := newDetailEditTestRig(t)
+	dc.SetSelectedTikiID("")
+
+	if dc.enterEditModeWithFocus(model.EditFieldTitle) {
+		t.Fatal("expected false when no tiki is selected")
+	}
+	if view.IsEditMode() {
+		t.Error("view should not be in edit mode")
+	}
+}

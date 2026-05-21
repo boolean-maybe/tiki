@@ -319,6 +319,26 @@ func (dc *DetailController) enterEditMode() bool {
 	return true
 }
 
+// enterEditModeWithFocus mirrors enterEditMode but threads a focus
+// field through to the view's EnterEditModeWithFocus. Empty focusField
+// is equivalent to enterEditMode.
+func (dc *DetailController) enterEditModeWithFocus(focusField model.EditField) bool {
+	if dc.editView == nil || dc.editSession == nil || dc.selectedTikiID == "" {
+		return false
+	}
+	if dc.editView.IsEditMode() {
+		return true
+	}
+	if dc.editSession.StartEditSession(dc.selectedTikiID) == nil {
+		return false
+	}
+	if !dc.editView.EnterEditModeWithFocus(focusField) {
+		dc.editSession.CancelEditSession()
+		return false
+	}
+	return true
+}
+
 // commitEdit persists the edit session via TikiEditSession. On success the
 // view leaves edit mode; on failure the session stays open so the user
 // can correct invalid input.
