@@ -335,6 +335,9 @@ func (ir *InputRouter) maybeHandleDetailEditMode(activeView View, currentView *V
 	case tcell.KeyEscape:
 		return true, ctrl.HandleAction(ActionDetailCancel)
 	case tcell.KeyCtrlS:
+		if routeFieldAwareSave(activeView) {
+			return true, true
+		}
 		return true, ctrl.HandleAction(ActionDetailSave)
 	case tcell.KeyTab:
 		return true, ctrl.HandleAction(ActionNextField)
@@ -342,6 +345,30 @@ func (ir *InputRouter) maybeHandleDetailEditMode(activeView View, currentView *V
 		return true, ctrl.HandleAction(ActionPrevField)
 	}
 	return false, false
+}
+
+// routeFieldAwareSave dispatches Ctrl-S through the matching SaveXFromTextArea
+// hook when the focused field is a buffered textarea (tags or description).
+// Returns true when the hook fired; false leaves Ctrl-S to fall through to
+// the standard ActionDetailSave dispatch.
+func routeFieldAwareSave(activeView View) bool {
+	focusable, ok := activeView.(FieldFocusableView)
+	if !ok {
+		return false
+	}
+	switch focusable.GetFocusedField() {
+	case model.EditFieldTags:
+		if tv, ok := activeView.(TagsTextAreaSavable); ok {
+			tv.SaveTagsFromTextArea()
+			return true
+		}
+	case model.EditFieldDescription:
+		if dv, ok := activeView.(DescriptionTextAreaSavable); ok {
+			dv.SaveDescriptionFromTextArea()
+			return true
+		}
+	}
+	return false
 }
 
 // SetPluginRegistrar sets the callback used to register dynamically created plugins

@@ -128,21 +128,6 @@ func (c *TikiEditCoordinator) CycleFieldValueDown(activeView View) bool {
 	return false
 }
 
-// TagsTextAreaSavable is the optional view-side hook used by handleSaveKey
-// to dispatch Ctrl+S on a focused tags grid editor through the wired
-// onTagsSave handler. The handler in turn drives CommitNoClose (in
-// non-tagsOnly mode) so the metadata-grid tags edit doesn't pop the view.
-type TagsTextAreaSavable interface {
-	SaveTagsFromTextArea()
-}
-
-// DescriptionTextAreaSavable mirrors TagsTextAreaSavable for descriptions.
-// In non-descOnly mode, Ctrl+S on a focused description editor triggers
-// CommitNoClose via the wired handler instead of CommitAndClose.
-type DescriptionTextAreaSavable interface {
-	SaveDescriptionFromTextArea()
-}
-
 // handleSaveKey implements the field-aware Ctrl+S routing. Tags-only and
 // desc-only modes commit-and-close as before; in normal grid mode,
 // Ctrl+S on a focused tags or description editor invokes the matching
