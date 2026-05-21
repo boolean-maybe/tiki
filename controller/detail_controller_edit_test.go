@@ -1,6 +1,7 @@
 package controller
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/boolean-maybe/tiki/model"
@@ -23,6 +24,8 @@ type fakeDetailEditView struct {
 	flushCalls      int             // count of FlushFocusedEditor invocations
 	flushBeforeExit bool            // whether the most recent flush happened while still editing
 	focusField      model.EditField // last EnterEditModeWithFocus argument
+	valid           bool            // value returned by IsValid (defaults true via newFakeDetailEditView)
+	validationErrs  []string        // value returned by ValidationErrors
 }
 
 func (f *fakeDetailEditView) IsFullscreen() bool { return f.fullscreen }
@@ -30,8 +33,15 @@ func (f *fakeDetailEditView) EnterFullscreen()   { f.fullscreen = true }
 func (f *fakeDetailEditView) ExitFullscreen()    { f.fullscreen = false }
 
 func newFakeDetailEditView() *fakeDetailEditView {
-	return &fakeDetailEditView{enterReturn: true, fieldHandlers: make(map[string]func(string))}
+	return &fakeDetailEditView{
+		enterReturn:   true,
+		valid:         true,
+		fieldHandlers: make(map[string]func(string)),
+	}
 }
+
+func (f *fakeDetailEditView) IsValid() bool              { return f.valid }
+func (f *fakeDetailEditView) ValidationErrors() []string { return f.validationErrs }
 
 func (f *fakeDetailEditView) IsEditMode() bool         { return f.editing }
 func (f *fakeDetailEditView) IsEditFieldFocused() bool { return f.editing }
@@ -110,6 +120,38 @@ func newDetailEditTestRig(t *testing.T) (*DetailController, *fakeDetailEditView,
 	view := newFakeDetailEditView()
 	dc.BindEditView(view)
 	return dc, view, tc, tikiStore
+}
+
+// newDetailEditTestRigWithStatusline mirrors newDetailEditTestRig but
+// wires a real StatuslineConfig so tests can assert the message the
+// validation gate emits on commit failure.
+func newDetailEditTestRigWithStatusline(t *testing.T) (*DetailController, *fakeDetailEditView, *model.StatuslineConfig) {
+	t.Helper()
+
+	tikiStore := store.NewInMemoryStore()
+	gate := service.NewTikiMutationGate()
+	gate.SetStore(tikiStore)
+	nav := newMockNavigationController()
+	sl := model.NewStatuslineConfig()
+	tc := NewTikiEditSession(tikiStore, gate, nav, sl)
+
+	tk := tikipkg.New()
+	tk.ID = "TIKI201"
+	tk.Title = "Test"
+	tk.Set(tikipkg.FieldStatus, "ready")
+	tk.Set(tikipkg.FieldType, "story")
+	tk.Set(tikipkg.FieldPriority, "medium")
+	if err := tikiStore.CreateTiki(tk); err != nil {
+		t.Fatalf("CreateTiki: %v", err)
+	}
+
+	pluginDef := newTestDetailPlugin([]string{"status", "type", "priority"}, nil)
+	dc := NewDetailController(pluginDef, nav, sl, tikiStore, gate, rukiRuntime.NewSchema(), tc)
+	dc.SetSelectedTikiID(tk.ID)
+
+	view := newFakeDetailEditView()
+	dc.BindEditView(view)
+	return dc, view, sl
 }
 
 // TestDetailController_EnterEditModeStartsSession verifies that
@@ -332,6 +374,55 @@ func TestDetailController_EnterEditModeWithFocusEmptyMatchesEnterEditMode(t *tes
 	}
 	if view.focusField != "" {
 		t.Errorf("view.focusField = %q, want empty", view.focusField)
+	}
+}
+
+// TestDetailController_CommitEditRejectsInvalidWithStatuslineMessage
+// pins the validation gate inside commitEdit: an invalid view aborts
+// the commit and surfaces the joined error list to the statusline.
+// Mirrors the gate that lived in TikiEditCoordinator before the
+// configurable detail view absorbed in-place edit duties.
+func TestDetailController_CommitEditRejectsInvalidWithStatuslineMessage(t *testing.T) {
+	dc, view, sl := newDetailEditTestRigWithStatusline(t)
+
+	view.valid = false
+	view.validationErrs = []string{"title required", "points out of range"}
+
+	if !dc.HandleAction(ActionDetailEdit) {
+		t.Fatal("ActionDetailEdit returned false")
+	}
+	if dc.commitEdit() {
+		t.Fatal("commitEdit returned true but view is invalid")
+	}
+	msg, level, _ := sl.GetMessage()
+	if !strings.Contains(msg, "title required") {
+		t.Errorf("statusline message = %q, want it to contain %q", msg, "title required")
+	}
+	if !strings.Contains(msg, "points out of range") {
+		t.Errorf("statusline message = %q, want it to contain %q", msg, "points out of range")
+	}
+	if level != model.MessageLevelError {
+		t.Errorf("statusline level = %v, want MessageLevelError", level)
+	}
+	if !view.IsEditMode() {
+		t.Error("view should remain in edit mode after rejected commit")
+	}
+}
+
+// TestDetailController_CommitEditAcceptsWhenValid pins the happy path
+// once the validation gate is in place: a valid view commits and exits
+// edit mode just like before.
+func TestDetailController_CommitEditAcceptsWhenValid(t *testing.T) {
+	dc, view, _ := newDetailEditTestRigWithStatusline(t)
+
+	if !dc.HandleAction(ActionDetailEdit) {
+		t.Fatal("ActionDetailEdit returned false")
+	}
+	if !dc.commitEdit() {
+		t.Fatal("commitEdit returned false on a valid view")
+	}
+	if view.IsEditMode() {
+		t.Error("view should exit edit mode after successful commit")
 	}
 }
 

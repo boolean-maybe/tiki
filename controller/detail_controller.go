@@ -336,6 +336,19 @@ func (dc *DetailController) commitEdit() bool {
 	if !dc.editView.IsEditMode() {
 		return false
 	}
+	if validator, ok := dc.editView.(interface {
+		IsValid() bool
+		ValidationErrors() []string
+	}); ok {
+		if !validator.IsValid() {
+			if dc.statusline != nil {
+				if errs := validator.ValidationErrors(); len(errs) > 0 {
+					dc.statusline.SetMessage(strings.Join(errs, "; "), model.MessageLevelError, true)
+				}
+			}
+			return false
+		}
+	}
 	// Flush the focused editor before commit. The Ctrl+S path goes through
 	// the app-level input router (which doesn't re-dispatch the event to
 	// the focused widget), so editors that only emit on Ctrl+S — like the
