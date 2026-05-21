@@ -153,6 +153,30 @@ type FieldFocusChangeNotifier interface {
 	SetFieldFocusChangeHandler(func(model.EditField))
 }
 
+// titleSaveSetter, descriptionSaveSetter, and tagsSaveSetter are narrow
+// view-side hooks invoked by BindEditView to install the field-specific
+// save / cancel callbacks. The configurable detail view (and any future
+// view) implements only the setters its field set actually exposes —
+// fakes need no opt-in for fields they don't exercise.
+//
+// The save semantics differ by field: title commits-and-closes, while
+// description and tags commit-and-stay so the user can keep editing
+// after the textarea-style Ctrl-S without the view popping away.
+type titleSaveSetter interface {
+	SetTitleSaveHandler(func(string))
+	SetTitleCancelHandler(func())
+}
+
+type descriptionSaveSetter interface {
+	SetDescriptionSaveHandler(func(string))
+	SetDescriptionCancelHandler(func())
+}
+
+type tagsSaveSetter interface {
+	SetTagsSaveHandler(func(string))
+	SetTagsCancelHandler(func())
+}
+
 // BindEditView attaches the detail view so the controller can drive
 // in-place edit mode (toggle, traversal, save/cancel). The view factory
 // wires this immediately after constructing the view.
@@ -183,6 +207,60 @@ func (dc *DetailController) BindEditView(v DetailEditableView) {
 	if notifier, ok := v.(FieldFocusChangeNotifier); ok {
 		notifier.SetFieldFocusChangeHandler(dc.updateFieldHint)
 	}
+	dc.wireFieldSaveHandlers(v)
+}
+
+// wireFieldSaveHandlers installs commit callbacks on the view's
+// title / description / tags editors when the view exposes them.
+// Title commits-and-closes (Enter on a single-line input ends the edit).
+// Description and tags commit-and-stay so a Ctrl-S inside the textarea
+// persists without popping the view, matching the legacy
+// TikiEditCoordinator's grid-mode semantics.
+func (dc *DetailController) wireFieldSaveHandlers(v DetailEditableView) {
+	if t, ok := v.(titleSaveSetter); ok {
+		t.SetTitleSaveHandler(func(string) { _ = dc.commitEdit() })
+		t.SetTitleCancelHandler(func() { _ = dc.cancelEdit() })
+	}
+	if d, ok := v.(descriptionSaveSetter); ok {
+		d.SetDescriptionSaveHandler(func(string) { dc.commitEditNoClose() })
+		d.SetDescriptionCancelHandler(func() { _ = dc.cancelEdit() })
+	}
+	if t, ok := v.(tagsSaveSetter); ok {
+		t.SetTagsSaveHandler(func(string) { dc.commitEditNoClose() })
+		t.SetTagsCancelHandler(func() { _ = dc.cancelEdit() })
+	}
+}
+
+// commitEditNoClose persists the in-flight edit session and immediately
+// re-opens a fresh session against the same tiki, leaving the view in
+// edit mode. Used for description / tags saves where the user typically
+// keeps editing after Ctrl-S.
+func (dc *DetailController) commitEditNoClose() {
+	if dc.editView == nil || dc.editSession == nil {
+		return
+	}
+	if !dc.editView.IsEditMode() {
+		return
+	}
+	dc.editView.FlushFocusedEditor()
+	if validator, ok := dc.editView.(interface {
+		IsValid() bool
+		ValidationErrors() []string
+	}); ok && !validator.IsValid() {
+		if dc.statusline != nil {
+			if errs := validator.ValidationErrors(); len(errs) > 0 {
+				dc.statusline.SetMessage(strings.Join(errs, "; "), model.MessageLevelError, true)
+			}
+		}
+		return
+	}
+	if err := dc.editSession.CommitEditSession(); err != nil {
+		if dc.statusline != nil {
+			dc.statusline.SetMessage(rejectionMessage(err), model.MessageLevelError, true)
+		}
+		return
+	}
+	dc.editSession.StartEditSession(dc.selectedTikiID)
 }
 
 // updateFieldHint refreshes the statusline hint to reflect the controls

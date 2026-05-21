@@ -507,3 +507,93 @@ func (r *recurrenceFakeView) MoveRecurrencePartRight() bool { return false }
 func (r *recurrenceFakeView) IsRecurrenceValueFocused() bool {
 	return r.valueFocused
 }
+
+// titleSaveFake satisfies the controller's narrow title-save setter so
+// BindEditView installs the title save / cancel callbacks on the fake.
+type titleSaveFake struct {
+	*fakeDetailEditView
+	titleSave   func(string)
+	titleCancel func()
+}
+
+func (t *titleSaveFake) SetTitleSaveHandler(h func(string)) { t.titleSave = h }
+func (t *titleSaveFake) SetTitleCancelHandler(h func())     { t.titleCancel = h }
+
+// descSaveFake satisfies the controller's narrow description-save setter.
+type descSaveFake struct {
+	*fakeDetailEditView
+	descSave   func(string)
+	descCancel func()
+}
+
+func (d *descSaveFake) SetDescriptionSaveHandler(h func(string)) { d.descSave = h }
+func (d *descSaveFake) SetDescriptionCancelHandler(h func())     { d.descCancel = h }
+
+// tagsSaveFake satisfies the controller's narrow tags-save setter.
+type tagsSaveFake struct {
+	*fakeDetailEditView
+	tagsSave   func(string)
+	tagsCancel func()
+}
+
+func (t *tagsSaveFake) SetTagsSaveHandler(h func(string)) { t.tagsSave = h }
+func (t *tagsSaveFake) SetTagsCancelHandler(h func())     { t.tagsCancel = h }
+
+// TestDetailController_TitleSaveHandlerCommitsAndExits pins the
+// title-save semantics: triggering the wired handler commits the
+// session and exits edit mode (close-on-save).
+func TestDetailController_TitleSaveHandlerCommitsAndExits(t *testing.T) {
+	dc, view, _ := newDetailEditTestRigWithStatusline(t)
+	tv := &titleSaveFake{fakeDetailEditView: view}
+	dc.BindEditView(tv)
+	if tv.titleSave == nil {
+		t.Fatal("BindEditView did not install a title save handler")
+	}
+
+	if !dc.HandleAction(ActionDetailEdit) {
+		t.Fatal("EnterEditMode")
+	}
+	tv.titleSave("New Title")
+	if view.IsEditMode() {
+		t.Error("title save should exit edit mode (close-on-save)")
+	}
+}
+
+// TestDetailController_DescriptionSaveHandlerCommitsAndStays pins the
+// description-save semantics: the wired handler commits and re-opens
+// a fresh session, leaving the view in edit mode (stay-on-save).
+func TestDetailController_DescriptionSaveHandlerCommitsAndStays(t *testing.T) {
+	dc, view, _ := newDetailEditTestRigWithStatusline(t)
+	dv := &descSaveFake{fakeDetailEditView: view}
+	dc.BindEditView(dv)
+	if dv.descSave == nil {
+		t.Fatal("BindEditView did not install a description save handler")
+	}
+
+	if !dc.HandleAction(ActionDetailEdit) {
+		t.Fatal("EnterEditMode")
+	}
+	dv.descSave("New body")
+	if !view.IsEditMode() {
+		t.Error("description save should keep the view in edit mode (stay-on-save)")
+	}
+}
+
+// TestDetailController_TagsSaveHandlerCommitsAndStays pins the
+// tags-save semantics in the metadata-grid flow: stay-on-save.
+func TestDetailController_TagsSaveHandlerCommitsAndStays(t *testing.T) {
+	dc, view, _ := newDetailEditTestRigWithStatusline(t)
+	tv := &tagsSaveFake{fakeDetailEditView: view}
+	dc.BindEditView(tv)
+	if tv.tagsSave == nil {
+		t.Fatal("BindEditView did not install a tags save handler")
+	}
+
+	if !dc.HandleAction(ActionDetailEdit) {
+		t.Fatal("EnterEditMode")
+	}
+	tv.tagsSave("alpha beta")
+	if !view.IsEditMode() {
+		t.Error("tags save should keep the view in edit mode (stay-on-save)")
+	}
+}
