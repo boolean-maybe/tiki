@@ -7,7 +7,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/boolean-maybe/tiki/controller"
 	"github.com/boolean-maybe/tiki/model"
 	"github.com/boolean-maybe/tiki/testutil"
 
@@ -201,62 +200,6 @@ func TestPluginNavigation_SamePluginKey_NoOp(t *testing.T) {
 // Action Registry Tests
 // ============================================================================
 
-func TestPluginActions_RegistryMatchesExpectedKeys(t *testing.T) {
-	ta := setupTestAppWithPlugins(t)
-	defer ta.Cleanup()
-
-	// Phase 1 dropped the built-in Enter→ActionOpenFromPlugin binding from
-	// the regular plugin registry. Open is now declared by the workflow as
-	// a `kind: view` action; the bundled kanban registers it on Enter, so
-	// every WorkflowPlugin's registry should expose Enter as a plugin_action
-	// entry rather than the legacy ActionOpenFromPlugin id.
-	expectedActions := []struct {
-		id   controller.ActionID
-		key  tcell.Key
-		rune rune
-	}{
-		{controller.ActionNavUp, tcell.KeyUp, 0},
-		{controller.ActionNavDown, tcell.KeyDown, 0},
-		{controller.ActionNavLeft, tcell.KeyLeft, 0},
-		{controller.ActionNavRight, tcell.KeyRight, 0},
-		{controller.ActionNewTiki, tcell.KeyRune, 'n'},
-		{controller.ActionDeleteTiki, tcell.KeyRune, 'd'},
-		{controller.ActionSearch, tcell.KeyRune, '/'},
-	}
-
-	// Test each plugin controller (only WorkflowPlugin types have tiki management actions)
-	for pluginName, pluginController := range ta.PluginControllers {
-		// Skip non-board controllers — they don't carry the board-style action set.
-		if _, ok := pluginController.(*controller.WikiController); ok {
-			continue
-		}
-		if _, ok := pluginController.(*controller.DetailController); ok {
-			continue
-		}
-
-		registry := pluginController.GetActionRegistry()
-
-		for _, expected := range expectedActions {
-			event := tcell.NewEventKey(expected.key, expected.rune, tcell.ModNone)
-			action := registry.Match(event)
-			if action == nil {
-				t.Errorf("Plugin %s: action %s not found in registry", pluginName, expected.id)
-			} else if action.ID != expected.id {
-				t.Errorf("Plugin %s: expected action %s, got %s", pluginName, expected.id, action.ID)
-			}
-		}
-
-		// Enter should match a workflow-declared kind:view plugin action,
-		// not the retired ActionOpenFromPlugin built-in.
-		enter := registry.Match(tcell.NewEventKey(tcell.KeyEnter, 0, tcell.ModNone))
-		if enter == nil {
-			t.Errorf("Plugin %s: Enter has no binding (expected workflow plugin_action:Enter)", pluginName)
-		} else if enter.ID == controller.ActionOpenFromPlugin {
-			t.Errorf("Plugin %s: Enter still bound to ActionOpenFromPlugin (Phase 1 should retire this)", pluginName)
-		}
-	}
-}
-
 func TestPluginActions_HeaderDisplaysCorrectActions(t *testing.T) {
 	ta := setupTestAppWithPlugins(t)
 	defer ta.Cleanup()
@@ -356,51 +299,6 @@ func TestPluginActions_OpenTiki_EnterKey(t *testing.T) {
 	found, _, _ := ta.FindText("Backlog Tiki")
 	if !found {
 		t.Error("Expected to find tiki title on screen")
-	}
-}
-
-func TestPluginActions_NewTiki_NKey(t *testing.T) {
-	ta := setupTestAppWithPlugins(t)
-	defer ta.Cleanup()
-
-	ta.NavController.PushView(model.MakePluginViewID("Backlog"), nil)
-	ta.Draw()
-
-	initialDepth := ta.NavController.Depth()
-
-	// Press 'n' to create tiki
-	ta.SendKey(tcell.KeyRune, 'n', tcell.ModNone)
-
-	// Verify: TikiEdit view pushed
-	if ta.NavController.CurrentViewID() != model.TikiEditViewID {
-		t.Errorf("Expected view %s after pressing 'n', got %s", model.TikiEditViewID, ta.NavController.CurrentViewID())
-	}
-
-	// Type title and save
-	ta.SendText("New Plugin Tiki")
-	ta.SendKey(tcell.KeyEnter, 0, tcell.ModNone)
-
-	// Verify: Back to plugin view
-	if ta.NavController.Depth() != initialDepth {
-		t.Errorf("Expected to return to plugin view at depth %d, got %d", initialDepth, ta.NavController.Depth())
-	}
-
-	// Verify: Tiki created
-	_ = ta.TikiStore.Reload()
-	tikis := ta.TikiStore.GetAllTikis()
-	var found bool
-	for _, tk := range tikis {
-		if tk.Title == "New Plugin Tiki" {
-			found = true
-			status, _, _ := tk.StringField("status")
-			if status != "backlog" {
-				t.Errorf("Expected new tiki to have backlog status, got %s", status)
-			}
-			break
-		}
-	}
-	if !found {
-		t.Error("Expected to find newly created tiki")
 	}
 }
 
@@ -548,8 +446,8 @@ func TestPluginStack_TikiDetailFromPlugin_ReturnsToPlugin(t *testing.T) {
 }
 
 // Phase 3 cleanup: TestPluginStack_ComplexDrillDown removed. It tested
-// the legacy 3-level Enter → TikiDetailViewID → 'e' → TikiEditViewID
-// stack; after Phase 2 'e' flips in-place edit mode without pushing.
+// the legacy 3-level Enter → detail → 'e' → edit stack; after Phase 2
+// 'e' flips in-place edit mode without pushing.
 
 // ============================================================================
 // Esc Behavior Tests
@@ -611,8 +509,8 @@ func TestPluginEsc_FromTikiDetailToPlugin(t *testing.T) {
 
 // Phase 3 cleanup: TestPluginEsc_ComplexDrillDown removed for the same
 // reason as TestPluginStack_ComplexDrillDown above — the legacy 3-level
-// Enter → TikiDetailViewID → 'e' → TikiEditViewID stack no longer
-// exists, edit mode is in-place on the configurable detail view.
+// Enter → detail → 'e' → edit stack no longer exists, edit mode is
+// in-place on the configurable detail view.
 
 // ============================================================================
 // Edge Case Tests
@@ -646,38 +544,6 @@ func TestPluginNavigation_NoTikis_EmptyView(t *testing.T) {
 	ta.SendKey(tcell.KeyEnter, 0, tcell.ModNone)
 	if ta.NavController.CurrentViewID() != model.MakePluginViewID("Roadmap") {
 		t.Error("Expected to stay on Roadmap view after Enter in empty view")
-	}
-}
-
-func TestPluginActions_CreateFromPlugin_ReturnsToPlugin(t *testing.T) {
-	ta := setupTestAppWithPlugins(t)
-	defer ta.Cleanup()
-
-	ta.NavController.PushView(model.MakePluginViewID("Backlog"), nil)
-	ta.Draw()
-
-	// Create tiki
-	ta.SendKey(tcell.KeyRune, 'n', tcell.ModNone)
-	ta.SendText("Created from Plugin")
-	ta.SendKey(tcell.KeyEnter, 0, tcell.ModNone)
-
-	// Verify: returned to Backlog plugin (not Board)
-	if ta.NavController.CurrentViewID() != model.MakePluginViewID("Backlog") {
-		t.Errorf("Expected Backlog view after creating tiki, got %s", ta.NavController.CurrentViewID())
-	}
-
-	// Verify: new tiki exists
-	_ = ta.TikiStore.Reload()
-	tikis := ta.TikiStore.GetAllTikis()
-	var found bool
-	for _, tk := range tikis {
-		if tk.Title == "Created from Plugin" {
-			found = true
-			break
-		}
-	}
-	if !found {
-		t.Error("Expected to find newly created tiki")
 	}
 }
 
@@ -771,8 +637,8 @@ func TestNavigationStack_BoardToTikiDetail(t *testing.T) {
 
 // Phase 3 cleanup: TestNavigationStack_BoardToDetailToEdit and
 // TestNavigationStack_ThreeLevelDeep have been removed. They asserted
-// the legacy 3-level Enter → TikiDetailViewID → 'e' → TikiEditViewID
-// stack. After Phase 2, 'e' on the configurable detail view flips the
+// the legacy 3-level Enter → detail → 'e' → edit stack. After Phase 2,
+// 'e' on the configurable detail view flips the
 // same view into in-place edit mode without pushing a new entry, so the
 // 3-level depth invariant no longer applies. Edit-mode behavior is
 // covered by view/tikidetail/configurable_detail_edit_test.go and the

@@ -460,11 +460,11 @@ func TestTikiDetailViewActions(t *testing.T) {
 	registry := TikiDetailViewActions()
 	actions := registry.GetActions()
 
-	if len(actions) != 7 {
-		t.Errorf("expected 7 tiki detail actions (always includes Chat), got %d", len(actions))
+	if len(actions) != 4 {
+		t.Errorf("expected 4 tiki detail actions (always includes Chat), got %d", len(actions))
 	}
 
-	expectedActions := []ActionID{ActionEditTitle, ActionEditDesc, ActionEditSource, ActionFullscreen, ActionEditDeps, ActionEditTags, ActionChat}
+	expectedActions := []ActionID{ActionEditSource, ActionFullscreen, ActionEditDeps, ActionChat}
 	for i, expected := range expectedActions {
 		if i >= len(actions) {
 			t.Errorf("missing action at index %d: want %v", i, expected)
@@ -527,21 +527,6 @@ func TestDescOnlyEditActions(t *testing.T) {
 	}
 }
 
-func TestTikiDetailViewActions_HasEditDesc(t *testing.T) {
-	registry := TikiDetailViewActions()
-
-	// Shift+D should match ActionEditDesc
-	event := tcell.NewEventKey(tcell.KeyRune, 'D', tcell.ModNone)
-	action := registry.Match(event)
-	if action == nil {
-		t.Fatal("expected Shift+D to match an action")
-		return
-	}
-	if action.ID != ActionEditDesc {
-		t.Errorf("expected ActionEditDesc, got %v", action.ID)
-	}
-}
-
 func TestTikiDetailViewActions_ChatAlwaysRegistered(t *testing.T) {
 	viper.Set("ai.agent", "")
 	defer viper.Set("ai.agent", "")
@@ -562,10 +547,10 @@ func TestTikiDetailViewActions_ChatAlwaysRegistered(t *testing.T) {
 		t.Error("chat should be disabled when ai.agent is empty")
 	}
 
-	// total count should always be 7
+	// total count should always be 4
 	actions := registry.GetActions()
-	if len(actions) != 7 {
-		t.Errorf("expected 7 actions, got %d", len(actions))
+	if len(actions) != 4 {
+		t.Errorf("expected 4 actions, got %d", len(actions))
 	}
 }
 
@@ -621,7 +606,7 @@ func TestLookupRune_ConflictDetection(t *testing.T) {
 	r := PluginViewActions()
 
 	// built-in plugin view keys should be found
-	conflicting := []rune{'k', 'j', 'h', 'l', 'n', 'd', '/'}
+	conflicting := []rune{'k', 'j', 'h', 'l', 'd', '/'}
 	for _, ch := range conflicting {
 		if _, ok := r.LookupRune(ch); !ok {
 			t.Errorf("expected built-in action for rune %q", ch)
@@ -852,10 +837,9 @@ func TestPluginViewActions_NavHiddenFromPalette(t *testing.T) {
 	for _, a := range paletteActions {
 		found[a.ID] = true
 	}
-	// Phase 1: ActionOpenFromPlugin is no longer in the regular plugin registry
-	// (open is now a workflow-declared `kind: view` action). The remaining
-	// semantic actions still surface in the palette.
-	for _, want := range []ActionID{ActionNewTiki, ActionDeleteTiki, ActionSearch} {
+	// open and new-tiki are now workflow-declared `kind: view` actions. The
+	// remaining built-in semantic actions still surface in the palette.
+	for _, want := range []ActionID{ActionDeleteTiki, ActionSearch} {
 		if !found[want] {
 			t.Errorf("expected palette-visible action %v", want)
 		}
@@ -1265,48 +1249,6 @@ func TestActionEnabled_RequireDetailPluginPresentEnables(t *testing.T) {
 	if !ActionEnabled(a, BuildAppContext(nil, nil)) {
 		t.Fatal("action with RequireDetailPlugin should be enabled when predicate reports true")
 	}
-}
-
-func TestPluginViewActions_NewTikiHasDetailPluginRequirement(t *testing.T) {
-	r := PluginViewActions()
-	for _, a := range r.GetActions() {
-		if a.ID != ActionNewTiki {
-			continue
-		}
-		found := false
-		for _, req := range a.Require {
-			if req == RequireDetailPlugin {
-				found = true
-				break
-			}
-		}
-		if !found {
-			t.Fatalf("ActionNewTiki must require RequireDetailPlugin, got: %v", a.Require)
-		}
-		return
-	}
-	t.Fatal("ActionNewTiki not registered in PluginViewActions")
-}
-
-func TestDepsViewActions_NewTikiHasDetailPluginRequirement(t *testing.T) {
-	r := DepsViewActions()
-	for _, a := range r.GetActions() {
-		if a.ID != ActionNewTiki {
-			continue
-		}
-		found := false
-		for _, req := range a.Require {
-			if req == RequireDetailPlugin {
-				found = true
-				break
-			}
-		}
-		if !found {
-			t.Fatalf("ActionNewTiki in DepsViewActions must require RequireDetailPlugin, got: %v", a.Require)
-		}
-		return
-	}
-	t.Fatal("ActionNewTiki not registered in DepsViewActions")
 }
 
 func TestPluginViewActions_MoveTikiNegatesSingleLane(t *testing.T) {

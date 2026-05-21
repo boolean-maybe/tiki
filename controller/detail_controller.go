@@ -46,6 +46,9 @@ type DetailController struct {
 type DetailEditableView interface {
 	IsEditMode() bool
 	EnterEditMode() bool
+	// EnterEditModeWithFocus starts in-place edit mode with the given field
+	// focused. When focusField is empty, behaves identically to EnterEditMode().
+	EnterEditModeWithFocus(focusField model.EditField) bool
 	ExitEditMode()
 	FocusNextField() bool
 	FocusPrevField() bool
@@ -142,6 +145,38 @@ func (dc *DetailController) GetPluginName() string { return dc.pluginDef.Name }
 // ShowNavigation returns false — detail views don't show plugin nav keys.
 func (dc *DetailController) ShowNavigation() bool { return false }
 
+// FieldFocusChangeNotifier is the optional view-side hook used by the
+// controller to refresh statusline hints when the focused edit field
+// changes. Views that don't implement it lose the per-field hint surface
+// but otherwise function normally.
+type FieldFocusChangeNotifier interface {
+	SetFieldFocusChangeHandler(func(model.EditField))
+}
+
+// titleSaveSetter, descriptionSaveSetter, and tagsSaveSetter are narrow
+// view-side hooks invoked by BindEditView to install the field-specific
+// save / cancel callbacks. The configurable detail view (and any future
+// view) implements only the setters its field set actually exposes —
+// fakes need no opt-in for fields they don't exercise.
+//
+// The save semantics differ by field: title commits-and-closes, while
+// description and tags commit-and-stay so the user can keep editing
+// after the textarea-style Ctrl-S without the view popping away.
+type titleSaveSetter interface {
+	SetTitleSaveHandler(func(string))
+	SetTitleCancelHandler(func())
+}
+
+type descriptionSaveSetter interface {
+	SetDescriptionSaveHandler(func(string))
+	SetDescriptionCancelHandler(func())
+}
+
+type tagsSaveSetter interface {
+	SetTagsSaveHandler(func(string))
+	SetTagsCancelHandler(func())
+}
+
 // BindEditView attaches the detail view so the controller can drive
 // in-place edit mode (toggle, traversal, save/cancel). The view factory
 // wires this immediately after constructing the view.
@@ -169,6 +204,91 @@ func (dc *DetailController) BindEditView(v DetailEditableView) {
 		})
 	}
 	dc.wireEditFieldHandlers(v)
+	if notifier, ok := v.(FieldFocusChangeNotifier); ok {
+		notifier.SetFieldFocusChangeHandler(dc.updateFieldHint)
+	}
+	dc.wireFieldSaveHandlers(v)
+}
+
+// wireFieldSaveHandlers installs commit callbacks on the view's
+// title / description / tags editors when the view exposes them.
+// Title commits-and-closes (Enter on a single-line input ends the edit).
+// Description and tags commit-and-stay so a Ctrl-S inside the textarea
+// persists without popping the view.
+func (dc *DetailController) wireFieldSaveHandlers(v DetailEditableView) {
+	if t, ok := v.(titleSaveSetter); ok {
+		t.SetTitleSaveHandler(func(string) { _ = dc.commitEdit() })
+		t.SetTitleCancelHandler(func() { _ = dc.cancelEdit() })
+	}
+	if d, ok := v.(descriptionSaveSetter); ok {
+		d.SetDescriptionSaveHandler(func(string) { dc.commitEditNoClose() })
+		d.SetDescriptionCancelHandler(func() { _ = dc.cancelEdit() })
+	}
+	if t, ok := v.(tagsSaveSetter); ok {
+		t.SetTagsSaveHandler(func(string) { dc.commitEditNoClose() })
+		t.SetTagsCancelHandler(func() { _ = dc.cancelEdit() })
+	}
+}
+
+// commitEditNoClose persists the in-flight edit session and immediately
+// re-opens a fresh session against the same tiki, leaving the view in
+// edit mode. Used for description / tags saves where the user typically
+// keeps editing after Ctrl-S.
+func (dc *DetailController) commitEditNoClose() {
+	if dc.editView == nil || dc.editSession == nil {
+		return
+	}
+	if !dc.editView.IsEditMode() {
+		return
+	}
+	dc.editView.FlushFocusedEditor()
+	if validator, ok := dc.editView.(interface {
+		IsValid() bool
+		ValidationErrors() []string
+	}); ok && !validator.IsValid() {
+		if dc.statusline != nil {
+			if errs := validator.ValidationErrors(); len(errs) > 0 {
+				dc.statusline.SetMessage(strings.Join(errs, "; "), model.MessageLevelError, true)
+			}
+		}
+		return
+	}
+	if err := dc.editSession.CommitEditSession(); err != nil {
+		if dc.statusline != nil {
+			dc.statusline.SetMessage(rejectionMessage(err), model.MessageLevelError, true)
+		}
+		return
+	}
+	dc.editSession.StartEditSession(dc.selectedTikiID)
+}
+
+// updateFieldHint refreshes the statusline hint to reflect the controls
+// available on the currently focused edit-mode field. Workflow-declared
+// enums fall through to the generic ↑↓ hint via a workflow.Field lookup
+// so custom enums (e.g. severity in bug-tracker.yaml) get the same hint
+// without per-field hard-coding.
+func (dc *DetailController) updateFieldHint(focused model.EditField) {
+	if dc.statusline == nil {
+		return
+	}
+	switch focused {
+	case model.EditFieldStatus, model.EditFieldType, model.EditFieldPriority,
+		model.EditFieldAssignee, model.EditFieldPoints, model.EditFieldDue:
+		dc.statusline.SetMessage("↑↓ change value", model.MessageLevelInfo, false)
+		return
+	case model.EditFieldRecurrence:
+		if nav, ok := dc.editView.(RecurrencePartNavigable); ok && nav.IsRecurrenceValueFocused() {
+			dc.statusline.SetMessage("← edit pattern  ↑↓ change value", model.MessageLevelInfo, false)
+		} else {
+			dc.statusline.SetMessage("↑↓ change pattern  → edit value", model.MessageLevelInfo, false)
+		}
+		return
+	}
+	if wfd, ok := workflow.Field(string(focused)); ok && wfd.Type == workflow.TypeEnum {
+		dc.statusline.SetMessage("↑↓ change value", model.MessageLevelInfo, false)
+		return
+	}
+	dc.statusline.ClearMessage()
 }
 
 // wireEditFieldHandlers installs the per-field save callbacks on the view.
@@ -300,6 +420,13 @@ func (dc *DetailController) toggleFullscreen() bool {
 // enterEditMode starts a TikiEditSession edit session and flips the view
 // into edit mode. Returns false if no editable field is configured.
 func (dc *DetailController) enterEditMode() bool {
+	return dc.enterEditModeWithFocus("")
+}
+
+// enterEditModeWithFocus mirrors enterEditMode but threads a focus
+// field through to the view's EnterEditModeWithFocus. Empty focusField
+// is equivalent to enterEditMode.
+func (dc *DetailController) enterEditModeWithFocus(focusField model.EditField) bool {
 	if dc.editView == nil || dc.editSession == nil || dc.selectedTikiID == "" {
 		return false
 	}
@@ -309,11 +436,53 @@ func (dc *DetailController) enterEditMode() bool {
 	if dc.editSession.StartEditSession(dc.selectedTikiID) == nil {
 		return false
 	}
-	if !dc.editView.EnterEditMode() {
+	if !dc.editView.EnterEditModeWithFocus(focusField) {
 		dc.editSession.CancelEditSession()
 		return false
 	}
 	return true
+}
+
+// ApplyDetailMode runs the per-mode setup carried in PluginViewParams.
+// Called by the view factory after BindEditView on a freshly built
+// DetailController that has just been pushed onto the nav stack. For plain
+// view (empty / DetailModeView) it is a no-op; the other four modes either
+// enter edit mode with a specific focus, install a restricted action
+// registry, or thread an already-created draft into the edit session.
+func (dc *DetailController) ApplyDetailMode(mode plugin.DetailMode, focus model.EditField, draft *tikipkg.Tiki) bool {
+	if dc.editView == nil {
+		return false
+	}
+	switch mode {
+	case "", plugin.DetailModeView:
+		return true
+	case plugin.DetailModeEdit:
+		return dc.enterEditModeWithFocus(focus)
+	case plugin.DetailModeNew:
+		if draft == nil || dc.editSession == nil {
+			return false
+		}
+		// drafts are not yet in the store — adopt the in-memory copy directly
+		// instead of going through StartEditSession (which expects an existing
+		// tiki to load).
+		dc.editSession.SetDraft(draft)
+		dc.selectedTikiID = draft.ID
+		if dc.editView.IsEditMode() {
+			return true
+		}
+		if !dc.editView.EnterEditModeWithFocus(model.EditFieldTitle) {
+			dc.editSession.ClearDraft()
+			return false
+		}
+		return true
+	case plugin.DetailModeEditDesc:
+		dc.editView.SetEditModeRegistry(DescOnlyEditActions())
+		return dc.enterEditModeWithFocus(model.EditFieldDescription)
+	case plugin.DetailModeEditTags:
+		dc.editView.SetEditModeRegistry(TagsOnlyEditActions())
+		return dc.enterEditModeWithFocus(model.EditFieldTags)
+	}
+	return false
 }
 
 // commitEdit persists the edit session via TikiEditSession. On success the
@@ -325,6 +494,19 @@ func (dc *DetailController) commitEdit() bool {
 	}
 	if !dc.editView.IsEditMode() {
 		return false
+	}
+	if validator, ok := dc.editView.(interface {
+		IsValid() bool
+		ValidationErrors() []string
+	}); ok {
+		if !validator.IsValid() {
+			if dc.statusline != nil {
+				if errs := validator.ValidationErrors(); len(errs) > 0 {
+					dc.statusline.SetMessage(strings.Join(errs, "; "), model.MessageLevelError, true)
+				}
+			}
+			return false
+		}
 	}
 	// Flush the focused editor before commit. The Ctrl+S path goes through
 	// the app-level input router (which doesn't re-dispatch the event to
@@ -416,11 +598,19 @@ func (dc *DetailController) dispatchViewAction(a *plugin.PluginAction) bool {
 	if !TargetViewEnabled(a.TargetView, carried) {
 		return false
 	}
-	var params map[string]interface{}
+	var ids []string
 	if dc.selectedTikiID != "" {
-		params = model.EncodePluginViewParams(model.PluginViewParams{TikiID: dc.selectedTikiID})
+		ids = []string{dc.selectedTikiID}
 	}
-	dc.navController.PushView(model.MakePluginViewID(a.TargetView), params)
+	var tikiStore store.Store
+	if dc.executor != nil {
+		tikiStore = dc.executor.tikiStore
+	}
+	pvp, ok := buildDetailViewParams(a.Mode, ids, tikiStore)
+	if !ok {
+		return false
+	}
+	dc.navController.PushView(model.MakePluginViewID(a.TargetView), model.EncodePluginViewParams(pvp))
 	return true
 }
 
@@ -482,9 +672,9 @@ func DetailViewActions() *ActionRegistry {
 }
 
 // DetailEditModeActions returns the action registry surfaced while a
-// configurable detail view is in in-place edit mode. Mirrors the
-// TikiEditView contract: Save commits the in-flight session, Tab/Shift-Tab
-// traverse editable metadata fields, Esc cancels.
+// configurable detail view is in in-place edit mode. Save commits the
+// in-flight session, Tab/Shift-Tab traverse editable metadata fields,
+// arrow keys cycle enum values, and Esc cancels.
 func DetailEditModeActions() *ActionRegistry {
 	r := NewActionRegistry()
 	r.Register(Action{ID: ActionDetailSave, Key: tcell.KeyCtrlS, Label: "Save", ShowInHeader: true})

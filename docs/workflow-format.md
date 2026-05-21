@@ -285,6 +285,66 @@ overrides globals by key. There are two action kinds:
 When `kind:` is omitted, the parser infers it: `action:` set ⇒ `ruki`; `view:` set ⇒ `view`. Setting both or
 neither is an error.
 
+### `mode:` on `kind: view` actions targeting a detail view
+
+A `kind: view` action that targets a `kind: detail` view may declare a `mode:` field that controls how the
+detail view opens. The vocabulary is closed:
+
+- `view` — open the detail view in read-only display mode. This is the default when `mode:` is omitted.
+- `edit` — open the detail view in edit mode, focused on the first metadata field declared in the
+  workflow's `metadata:` list.
+- `new` — create a fresh draft tiki and open the detail view in edit mode focused on Title.
+- `edit-desc` — open the detail view in edit mode focused on the Description textarea.
+- `edit-tags` — open the detail view in edit mode focused on the Tags textarea.
+
+Validation rules, enforced at workflow-load time:
+
+- `mode:` is only valid on `kind: view` actions. Setting it on a `kind: ruki` action fails with
+  `mode: only valid on kind: view actions`.
+- The action's `view:` target must resolve to a `kind: detail` view. Pointing `mode:` at a board, list, or
+  wiki view fails with `mode: only valid when targeting a kind: detail view`.
+- `mode: new` is rejected on a detail view's own `actions:` list — a detail view is already viewing a tiki,
+  so creating a new one from there is not a self-action. The error is
+  `mode: new not valid on a detail view's own actions`.
+- An unrecognized value fails with `mode must be one of view, edit, new, edit-desc, edit-tags (got "X")`.
+
+The bundled kanban workflow uses all five modes from its top-level `actions:` list:
+
+```yaml
+actions:
+  - key: Enter
+    label: Open
+    kind: view
+    view: Detail
+    require: ["selection:one"]
+  - key: "e"
+    label: Edit
+    kind: view
+    view: Detail
+    mode: edit
+    require: ["selection:one"]
+  - key: "n"
+    label: New
+    kind: view
+    view: Detail
+    mode: new
+  - key: "Ctrl-D"
+    label: "Edit description"
+    kind: view
+    view: Detail
+    mode: edit-desc
+    require: ["selection:one"]
+  - key: "Ctrl-T"
+    label: "Edit tags"
+    kind: view
+    view: Detail
+    mode: edit-tags
+    require: ["selection:one"]
+```
+
+Note that the `New` action has no `require:` clause — `mode: new` synthesizes its own draft tiki rather than
+acting on a selection, so the action is available even when no row is selected on the source view.
+
 ### `[[ID]]` wikilinks
 
 Markdown bodies may reference other documents by their bare ID inside `[[...]]` brackets. Resolution goes

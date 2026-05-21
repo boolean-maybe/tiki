@@ -25,7 +25,7 @@ const TikiBoxOverhead = 2
 // row + 1 spacer row appended after the grid + 1 bottom border = 4.
 // Detail views also call SetBorderPadding(1, 0, 2, 2) on the frame; the
 // top padding inside that call is what the "+1 top padding" reflects.
-// Used by ConfigurableDetailView and TikiEditView.
+// Used by ConfigurableDetailView.
 const DetailBoxOverhead = 4
 
 // DefaultAnchorWidth returns the wanted-width hint for an anchor that did

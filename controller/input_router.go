@@ -62,7 +62,6 @@ type TikiViewProvider interface {
 type InputRouter struct {
 	navController     *NavigationController
 	tikiEditSession   *TikiEditSession
-	tikiEditCoord     *TikiEditCoordinator
 	pluginControllers map[string]PluginControllerInterface // keyed by plugin name
 	globalActions     *ActionRegistry
 	tikiStore         store.Store
@@ -91,7 +90,6 @@ func NewInputRouter(
 	return &InputRouter{
 		navController:     navController,
 		tikiEditSession:   tikiEditSession,
-		tikiEditCoord:     NewTikiEditCoordinator(navController, tikiEditSession),
 		pluginControllers: pluginControllers,
 		globalActions:     DefaultGlobalActions(),
 		tikiStore:         tikiStore,
@@ -136,10 +134,9 @@ func (ir *InputRouter) SetClipboardWriter(fn func([][]string) error) {
 // It processes events through multiple handlers in order:
 // 1. Search input (if search is active)
 // 2. Fullscreen escape (Esc key in fullscreen views)
-// 3. Inline editors (title/description editing)
-// 4. Tiki edit field focus (field navigation)
-// 5. Global actions (Esc, Refresh)
-// 6. View-specific actions (based on current view)
+// 3. Configurable detail view in edit mode (Esc/Ctrl+S/Tab/Shift-Tab/Left/Right)
+// 4. Global actions (Esc, Refresh)
+// 5. View-specific actions (based on current view)
 // Returns true if the event was handled, false otherwise.
 func (ir *InputRouter) HandleInput(event *tcell.EventKey, currentView *ViewEntry) bool {
 	slog.Debug("input received", "name", event.Name(), "key", int(event.Key()), "rune", string(event.Rune()), "modifiers", int(event.Modifiers()))
@@ -180,23 +177,10 @@ func (ir *InputRouter) HandleInput(event *tcell.EventKey, currentView *ViewEntry
 
 	activeView := ir.navController.GetActiveView()
 
-	isTikiEditView := currentView.ViewID == model.TikiEditViewID
-
-	// ensure tiki edit view is prepared even when title/description inputs have focus
-	if isTikiEditView {
-		ir.tikiEditCoord.Prepare(activeView, model.DecodeTikiEditParams(currentView.Params))
-	}
-
 	if stop, handled := ir.maybeHandleInputBox(activeView, event); stop {
 		return handled
 	}
 	if stop, handled := ir.maybeHandleFullscreenEscape(activeView, event); stop {
-		return handled
-	}
-	if stop, handled := ir.maybeHandleInlineEditors(activeView, isTikiEditView, event); stop {
-		return handled
-	}
-	if stop, handled := ir.maybeHandleTikiEditFieldFocus(activeView, isTikiEditView, event); stop {
 		return handled
 	}
 	if stop, handled := ir.maybeHandleDetailEditMode(activeView, currentView, event); stop {
@@ -213,16 +197,10 @@ func (ir *InputRouter) HandleInput(event *tcell.EventKey, currentView *ViewEntry
 	}
 
 	// route to view-specific controller
-	switch currentView.ViewID {
-	case model.TikiEditViewID:
-		return ir.handleTikiEditInput(event, currentView.Params)
-	default:
-		// Check if it's a plugin view
-		if model.IsPluginViewID(currentView.ViewID) {
-			return ir.handlePluginInput(event, currentView.ViewID)
-		}
-		return false
+	if model.IsPluginViewID(currentView.ViewID) {
+		return ir.handlePluginInput(event, currentView.ViewID)
 	}
+	return false
 }
 
 // maybeHandleInputBox handles input box focus/visibility semantics.
@@ -253,46 +231,6 @@ func (ir *InputRouter) maybeHandleFullscreenEscape(activeView View, event *tcell
 	if fullscreenView.IsFullscreen() && event.Key() == tcell.KeyEscape {
 		fullscreenView.ExitFullscreen()
 		return true, true
-	}
-	return false, false
-}
-
-// maybeHandleInlineEditors handles focused title/description editors (and their cancel semantics).
-func (ir *InputRouter) maybeHandleInlineEditors(activeView View, isTikiEditView bool, event *tcell.EventKey) (stop bool, handled bool) {
-	// Only TikiEditView has inline editors now
-	if !isTikiEditView {
-		return false, false
-	}
-
-	if titleEditableView, ok := activeView.(TitleEditableView); ok {
-		if titleEditableView.IsTitleInputFocused() {
-			return true, ir.tikiEditCoord.HandleKey(activeView, event)
-		}
-	}
-
-	if descEditableView, ok := activeView.(DescriptionEditableView); ok {
-		if descEditableView.IsDescriptionTextAreaFocused() {
-			return true, ir.tikiEditCoord.HandleKey(activeView, event)
-		}
-	}
-
-	if tagsView, ok := activeView.(interface{ IsTagsTextAreaFocused() bool }); ok {
-		if tagsView.IsTagsTextAreaFocused() {
-			return true, ir.tikiEditCoord.HandleKey(activeView, event)
-		}
-	}
-
-	return false, false
-}
-
-// maybeHandleTikiEditFieldFocus routes keys to tiki edit coordinator when an edit field has focus.
-func (ir *InputRouter) maybeHandleTikiEditFieldFocus(activeView View, isTikiEditView bool, event *tcell.EventKey) (stop bool, handled bool) {
-	fieldFocusableView, ok := activeView.(FieldFocusableView)
-	if !ok || !isTikiEditView {
-		return false, false
-	}
-	if fieldFocusableView.IsEditFieldFocused() {
-		return true, ir.tikiEditCoord.HandleKey(activeView, event)
 	}
 	return false, false
 }
@@ -335,13 +273,54 @@ func (ir *InputRouter) maybeHandleDetailEditMode(activeView View, currentView *V
 	case tcell.KeyEscape:
 		return true, ctrl.HandleAction(ActionDetailCancel)
 	case tcell.KeyCtrlS:
+		if routeFieldAwareSave(activeView) {
+			return true, true
+		}
 		return true, ctrl.HandleAction(ActionDetailSave)
 	case tcell.KeyTab:
 		return true, ctrl.HandleAction(ActionNextField)
 	case tcell.KeyBacktab:
 		return true, ctrl.HandleAction(ActionPrevField)
+	case tcell.KeyLeft:
+		if nav, ok := activeView.(RecurrencePartNavigable); ok {
+			if nav.MoveRecurrencePartLeft() {
+				return true, true
+			}
+		}
+		return false, false
+	case tcell.KeyRight:
+		if nav, ok := activeView.(RecurrencePartNavigable); ok {
+			if nav.MoveRecurrencePartRight() {
+				return true, true
+			}
+		}
+		return false, false
 	}
 	return false, false
+}
+
+// routeFieldAwareSave dispatches Ctrl-S through the matching SaveXFromTextArea
+// hook when the focused field is a buffered textarea (tags or description).
+// Returns true when the hook fired; false leaves Ctrl-S to fall through to
+// the standard ActionDetailSave dispatch.
+func routeFieldAwareSave(activeView View) bool {
+	focusable, ok := activeView.(FieldFocusableView)
+	if !ok {
+		return false
+	}
+	switch focusable.GetFocusedField() {
+	case model.EditFieldTags:
+		if tv, ok := activeView.(TagsTextAreaSavable); ok {
+			tv.SaveTagsFromTextArea()
+			return true
+		}
+	case model.EditFieldDescription:
+		if dv, ok := activeView.(DescriptionTextAreaSavable); ok {
+			dv.SaveDescriptionFromTextArea()
+			return true
+		}
+	}
+	return false
 }
 
 // SetPluginRegistrar sets the callback used to register dynamically created plugins
@@ -556,9 +535,6 @@ func (ir *InputRouter) runChatForTiki(tikiID string) bool {
 func (ir *InputRouter) handleGlobalAction(actionID ActionID) bool {
 	switch actionID {
 	case ActionBack:
-		if v := ir.navController.GetActiveView(); v != nil && v.GetViewID() == model.TikiEditViewID {
-			return ir.tikiEditCoord.CancelAndClose()
-		}
 		return ir.navController.HandleBack()
 	case ActionQuit:
 		ir.navController.HandleQuit()
@@ -646,32 +622,10 @@ func (ir *InputRouter) HandleAction(id ActionID, currentView *ViewEntry) bool {
 		}
 	}
 
-	switch currentView.ViewID {
-	case model.TikiEditViewID:
-		if activeView != nil {
-			ir.tikiEditCoord.Prepare(activeView, model.DecodeTikiEditParams(currentView.Params))
-		}
-		return ir.dispatchTikiEditAction(id, activeView)
-
-	default:
-		if model.IsPluginViewID(currentView.ViewID) {
-			return ir.dispatchPluginAction(id, currentView.ViewID)
-		}
-		return false
+	if model.IsPluginViewID(currentView.ViewID) {
+		return ir.dispatchPluginAction(id, currentView.ViewID)
 	}
-}
-
-// dispatchTikiEditAction handles palette-dispatched tiki edit actions by ActionID.
-func (ir *InputRouter) dispatchTikiEditAction(id ActionID, activeView View) bool {
-	switch id {
-	case ActionSaveTiki:
-		if activeView != nil {
-			return ir.tikiEditCoord.CommitAndClose(activeView)
-		}
-		return false
-	default:
-		return false
-	}
+	return false
 }
 
 // currentSelectionID returns the active view's currently-selected tiki id,
@@ -911,38 +865,4 @@ func (ir *InputRouter) handleSearchInput(ctrl interface{ HandleSearch(string) })
 	}
 
 	return true
-}
-
-// handleTikiEditInput routes input while in the tiki edit view
-func (ir *InputRouter) handleTikiEditInput(event *tcell.EventKey, params map[string]interface{}) bool {
-	activeView := ir.navController.GetActiveView()
-	ir.tikiEditCoord.Prepare(activeView, model.DecodeTikiEditParams(params))
-
-	// Handle arrow keys for cycling field values (before checking registry)
-	key := event.Key()
-	if key == tcell.KeyUp {
-		if ir.tikiEditCoord.CycleFieldValueUp(activeView) {
-			return true
-		}
-	}
-	if key == tcell.KeyDown {
-		if ir.tikiEditCoord.CycleFieldValueDown(activeView) {
-			return true
-		}
-	}
-
-	registry := ir.tikiEditSession.GetEditActionRegistry()
-	if action := registry.Match(event); action != nil {
-		switch action.ID {
-		case ActionSaveTiki:
-			return ir.tikiEditCoord.CommitAndClose(activeView)
-		case ActionNextField:
-			return ir.tikiEditCoord.FocusNextField(activeView)
-		case ActionPrevField:
-			return ir.tikiEditCoord.FocusPrevField(activeView)
-		default:
-			return false
-		}
-	}
-	return false
 }

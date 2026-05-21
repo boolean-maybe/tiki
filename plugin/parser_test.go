@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/gdamore/tcell/v2"
+	"gopkg.in/yaml.v3"
 
 	rukiRuntime "github.com/boolean-maybe/tiki/internal/ruki/runtime"
 	"github.com/boolean-maybe/tiki/ruki"
@@ -300,7 +301,7 @@ func TestParsePluginActions_Valid(t *testing.T) {
 		{Key: "a", Label: "Assign to me", Action: `update where id = id() set assignee=user()`},
 	}
 
-	actions, err := parsePluginActions(configs, parser, nil)
+	actions, err := parsePluginActions(configs, parser, nil, false)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -339,7 +340,7 @@ func TestParsePluginActions_Valid(t *testing.T) {
 func TestParsePluginActions_Empty(t *testing.T) {
 	parser := testParser()
 
-	actions, err := parsePluginActions(nil, parser, nil)
+	actions, err := parsePluginActions(nil, parser, nil, false)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -393,7 +394,7 @@ func TestParsePluginActions_Errors(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			_, err := parsePluginActions(tc.configs, parser, nil)
+			_, err := parsePluginActions(tc.configs, parser, nil, false)
 			if err == nil {
 				t.Fatalf("expected error containing %q", tc.wantErr)
 			}
@@ -549,7 +550,7 @@ func TestParsePluginActions_SelectAllowedAsAction(t *testing.T) {
 	configs := []PluginActionConfig{
 		{Key: "s", Label: "Search", Action: `select where status = "ready"`},
 	}
-	actions, err := parsePluginActions(configs, parser, nil)
+	actions, err := parsePluginActions(configs, parser, nil, false)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -566,7 +567,7 @@ func TestParsePluginActions_PipeAcceptedAsAction(t *testing.T) {
 	configs := []PluginActionConfig{
 		{Key: "c", Label: "Copy ID", Action: `select id where id = id() | run("echo $1")`},
 	}
-	actions, err := parsePluginActions(configs, parser, nil)
+	actions, err := parsePluginActions(configs, parser, nil, false)
 	if err != nil {
 		t.Fatalf("expected pipe action to be accepted, got error: %v", err)
 	}
@@ -593,7 +594,7 @@ func TestParsePluginActions_RejectsExpressionStatement(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			configs := []PluginActionConfig{{Key: "x", Label: "Scalar", Action: tt.action}}
-			_, err := parsePluginActions(configs, parser, nil)
+			_, err := parsePluginActions(configs, parser, nil, false)
 			if err == nil {
 				t.Fatal("expected error for expression statement as plugin action")
 			}
@@ -762,7 +763,7 @@ func TestParsePluginActions_NonPrintableKey(t *testing.T) {
 	configs := []PluginActionConfig{
 		{Key: "\x01", Label: "Test", Action: `update where id = id() set status="ready"`},
 	}
-	_, err := parsePluginActions(configs, parser, nil)
+	_, err := parsePluginActions(configs, parser, nil, false)
 	if err == nil {
 		t.Fatal("expected error for non-printable key")
 	}
@@ -778,7 +779,7 @@ func TestParsePluginActions_CompositeKeys(t *testing.T) {
 		configs := []PluginActionConfig{
 			{Key: "Ctrl-U", Label: "Undo", Action: `update where id = id() set status="ready"`},
 		}
-		actions, err := parsePluginActions(configs, parser, nil)
+		actions, err := parsePluginActions(configs, parser, nil, false)
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
@@ -797,7 +798,7 @@ func TestParsePluginActions_CompositeKeys(t *testing.T) {
 		configs := []PluginActionConfig{
 			{Key: "Alt-M", Label: "Mark", Action: `update where id = id() set status="ready"`},
 		}
-		actions, err := parsePluginActions(configs, parser, nil)
+		actions, err := parsePluginActions(configs, parser, nil, false)
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
@@ -810,7 +811,7 @@ func TestParsePluginActions_CompositeKeys(t *testing.T) {
 		configs := []PluginActionConfig{
 			{Key: "F5", Label: "Reload", Action: `update where id = id() set status="ready"`},
 		}
-		actions, err := parsePluginActions(configs, parser, nil)
+		actions, err := parsePluginActions(configs, parser, nil, false)
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
@@ -823,7 +824,7 @@ func TestParsePluginActions_CompositeKeys(t *testing.T) {
 		configs := []PluginActionConfig{
 			{Key: "Shift-X", Label: "eXtra", Action: `update where id = id() set status="ready"`},
 		}
-		actions, err := parsePluginActions(configs, parser, nil)
+		actions, err := parsePluginActions(configs, parser, nil, false)
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
@@ -840,7 +841,7 @@ func TestParsePluginActions_CompositeKeys(t *testing.T) {
 			{Key: "Shift-x", Label: "First", Action: `update where id = id() set status="ready"`},
 			{Key: "X", Label: "Second", Action: `update where id = id() set status="done"`},
 		}
-		_, err := parsePluginActions(configs, parser, nil)
+		_, err := parsePluginActions(configs, parser, nil, false)
 		if err == nil {
 			t.Fatal("expected duplicate error for Shift-x vs X")
 		}
@@ -854,7 +855,7 @@ func TestParsePluginActions_CompositeKeys(t *testing.T) {
 			{Key: "x", Label: "lowercase", Action: `update where id = id() set status="ready"`},
 			{Key: "X", Label: "uppercase", Action: `update where id = id() set status="done"`},
 		}
-		actions, err := parsePluginActions(configs, parser, nil)
+		actions, err := parsePluginActions(configs, parser, nil, false)
 		if err != nil {
 			t.Fatalf("expected no error for x vs X, got: %v", err)
 		}
@@ -868,7 +869,7 @@ func TestParsePluginActions_CompositeKeys(t *testing.T) {
 			{Key: "Ctrl-U", Label: "First", Action: `update where id = id() set status="ready"`},
 			{Key: "ctrl-u", Label: "Second", Action: `update where id = id() set status="done"`},
 		}
-		_, err := parsePluginActions(configs, parser, nil)
+		_, err := parsePluginActions(configs, parser, nil, false)
 		if err == nil {
 			t.Fatal("expected duplicate error for differently-cased Ctrl spellings")
 		}
@@ -913,7 +914,7 @@ func TestParsePluginActions_HotDefault(t *testing.T) {
 	configs := []PluginActionConfig{
 		{Key: "b", Label: "Board", Action: `update where id = id() set status="ready"`},
 	}
-	actions, err := parsePluginActions(configs, parser, nil)
+	actions, err := parsePluginActions(configs, parser, nil, false)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -928,7 +929,7 @@ func TestParsePluginActions_HotExplicitFalse(t *testing.T) {
 	configs := []PluginActionConfig{
 		{Key: "b", Label: "Board", Action: `update where id = id() set status="ready"`, Hot: &hotFalse},
 	}
-	actions, err := parsePluginActions(configs, parser, nil)
+	actions, err := parsePluginActions(configs, parser, nil, false)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -943,7 +944,7 @@ func TestParsePluginActions_HotExplicitTrue(t *testing.T) {
 	configs := []PluginActionConfig{
 		{Key: "b", Label: "Board", Action: `update where id = id() set status="ready"`, Hot: &hotTrue},
 	}
-	actions, err := parsePluginActions(configs, parser, nil)
+	actions, err := parsePluginActions(configs, parser, nil, false)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -994,7 +995,7 @@ func TestParsePluginActions_InputValid(t *testing.T) {
 	configs := []PluginActionConfig{
 		{Key: "a", Label: "Assign to", Action: `update where id = id() set assignee=input()`, Input: "string"},
 	}
-	actions, err := parsePluginActions(configs, parser, nil)
+	actions, err := parsePluginActions(configs, parser, nil, false)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -1014,7 +1015,7 @@ func TestParsePluginActions_InputIntValid(t *testing.T) {
 	configs := []PluginActionConfig{
 		{Key: "p", Label: "Set escalations", Action: `update where id = id() set escalations=input()`, Input: "int"},
 	}
-	actions, err := parsePluginActions(configs, parser, nil)
+	actions, err := parsePluginActions(configs, parser, nil, false)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -1031,7 +1032,7 @@ func TestParsePluginActions_InputTypeMismatch(t *testing.T) {
 	configs := []PluginActionConfig{
 		{Key: "a", Label: "Assign to", Action: `update where id = id() set assignee=input()`, Input: "int"},
 	}
-	_, err := parsePluginActions(configs, parser, nil)
+	_, err := parsePluginActions(configs, parser, nil, false)
 	if err == nil {
 		t.Fatal("expected error for input type mismatch (int into string field)")
 	}
@@ -1042,7 +1043,7 @@ func TestParsePluginActions_InputWithoutInputFunc(t *testing.T) {
 	configs := []PluginActionConfig{
 		{Key: "a", Label: "Ready", Action: `update where id = id() set status="ready"`, Input: "string"},
 	}
-	_, err := parsePluginActions(configs, parser, nil)
+	_, err := parsePluginActions(configs, parser, nil, false)
 	if err == nil {
 		t.Fatal("expected error: input: declared but input() not used")
 	}
@@ -1056,7 +1057,7 @@ func TestParsePluginActions_InputUnsupportedType(t *testing.T) {
 	configs := []PluginActionConfig{
 		{Key: "a", Label: "Assign to", Action: `update where id = id() set assignee=input()`, Input: "enum"},
 	}
-	_, err := parsePluginActions(configs, parser, nil)
+	_, err := parsePluginActions(configs, parser, nil, false)
 	if err == nil {
 		t.Fatal("expected error for unsupported input type")
 	}
@@ -1067,7 +1068,7 @@ func TestParsePluginActions_NoInputField_NoHasInput(t *testing.T) {
 	configs := []PluginActionConfig{
 		{Key: "a", Label: "Ready", Action: `update where id = id() set status="ready"`},
 	}
-	actions, err := parsePluginActions(configs, parser, nil)
+	actions, err := parsePluginActions(configs, parser, nil, false)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -1081,7 +1082,7 @@ func TestParsePluginActions_RequirePreserved(t *testing.T) {
 	configs := []PluginActionConfig{
 		{Key: "a", Label: "Ready", Action: `update where id = id() set status="ready"`, Require: []string{"id"}},
 	}
-	actions, err := parsePluginActions(configs, parser, nil)
+	actions, err := parsePluginActions(configs, parser, nil, false)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -1095,7 +1096,7 @@ func TestParsePluginActions_RequireAutoInferID(t *testing.T) {
 	configs := []PluginActionConfig{
 		{Key: "a", Label: "Ready", Action: `update where id = id() set status="ready"`},
 	}
-	actions, err := parsePluginActions(configs, parser, nil)
+	actions, err := parsePluginActions(configs, parser, nil, false)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -1115,7 +1116,7 @@ func TestParsePluginActions_RequireNoAutoInferWithoutID(t *testing.T) {
 	configs := []PluginActionConfig{
 		{Key: "a", Label: "Bulk", Action: `delete where status = "done"`},
 	}
-	actions, err := parsePluginActions(configs, parser, nil)
+	actions, err := parsePluginActions(configs, parser, nil, false)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -1131,7 +1132,7 @@ func TestParsePluginActions_RequireAutoInferIDFromTargetQualifier(t *testing.T) 
 	configs := []PluginActionConfig{
 		{Key: "a", Label: "Copy assignee", Action: `update where type = "bug" set assignee = target.assignee`},
 	}
-	actions, err := parsePluginActions(configs, parser, nil)
+	actions, err := parsePluginActions(configs, parser, nil, false)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -1153,7 +1154,7 @@ func TestParsePluginActions_RequireAutoInferSelectionAnyFromTargetsQualifier(t *
 	configs := []PluginActionConfig{
 		{Key: "b", Label: "Show blockers", Action: `select where id in targets.dependsOn`},
 	}
-	actions, err := parsePluginActions(configs, parser, nil)
+	actions, err := parsePluginActions(configs, parser, nil, false)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -1173,7 +1174,7 @@ func TestParsePluginActions_RequireAutoInferSelectionAnyFromIDs(t *testing.T) {
 	configs := []PluginActionConfig{
 		{Key: "a", Label: "Done all", Action: `update where id in ids() set status = "done"`},
 	}
-	actions, err := parsePluginActions(configs, parser, nil)
+	actions, err := parsePluginActions(configs, parser, nil, false)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -1195,7 +1196,7 @@ func TestParsePluginActions_RequireNoAutoInferFromSelectedCount(t *testing.T) {
 	configs := []PluginActionConfig{
 		{Key: "a", Label: "Cardinality branch", Action: `select where selected_count() >= 0`},
 	}
-	actions, err := parsePluginActions(configs, parser, nil)
+	actions, err := parsePluginActions(configs, parser, nil, false)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -1231,7 +1232,7 @@ func TestParsePluginActions_RequireNegatedSelectionSuppressesAutoInfer(t *testin
 				Action:  `update where id in ids() set status = "done"`,
 				Require: []string{tc.negated},
 			}}
-			actions, err := parsePluginActions(configs, parser, nil)
+			actions, err := parsePluginActions(configs, parser, nil, false)
 			if err != nil {
 				t.Fatalf("unexpected error: %v", err)
 			}
@@ -1259,7 +1260,7 @@ func TestParsePluginActions_RequireAIPlusAutoID(t *testing.T) {
 	configs := []PluginActionConfig{
 		{Key: "a", Label: "AI Ready", Action: `update where id = id() set status="ready"`, Require: []string{"ai"}},
 	}
-	actions, err := parsePluginActions(configs, parser, nil)
+	actions, err := parsePluginActions(configs, parser, nil, false)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -1282,7 +1283,7 @@ func TestParsePluginActions_RequireCustomPreserved(t *testing.T) {
 	configs := []PluginActionConfig{
 		{Key: "a", Label: "Custom", Action: `select where status = "done"`, Require: []string{"foo"}},
 	}
-	actions, err := parsePluginActions(configs, parser, nil)
+	actions, err := parsePluginActions(configs, parser, nil, false)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -1296,7 +1297,7 @@ func TestParsePluginActions_RequireNegatedPreserved(t *testing.T) {
 	configs := []PluginActionConfig{
 		{Key: "a", Label: "Not KB", Action: `select where status = "done"`, Require: []string{"!view:plugin:Kanban"}},
 	}
-	actions, err := parsePluginActions(configs, parser, nil)
+	actions, err := parsePluginActions(configs, parser, nil, false)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -1310,7 +1311,7 @@ func TestParsePluginActions_RequireEmptyRejected(t *testing.T) {
 	configs := []PluginActionConfig{
 		{Key: "a", Label: "Bad", Action: `select where status = "done"`, Require: []string{""}},
 	}
-	_, err := parsePluginActions(configs, parser, nil)
+	_, err := parsePluginActions(configs, parser, nil, false)
 	if err == nil {
 		t.Fatal("expected error for empty requirement")
 	}
@@ -1321,7 +1322,7 @@ func TestParsePluginActions_RequireBareExclamationRejected(t *testing.T) {
 	configs := []PluginActionConfig{
 		{Key: "a", Label: "Bad", Action: `select where status = "done"`, Require: []string{"!"}},
 	}
-	_, err := parsePluginActions(configs, parser, nil)
+	_, err := parsePluginActions(configs, parser, nil, false)
 	if err == nil {
 		t.Fatal("expected error for bare '!' requirement")
 	}
@@ -1332,7 +1333,7 @@ func TestParsePluginActions_RequireDoubleNegationRejected(t *testing.T) {
 	configs := []PluginActionConfig{
 		{Key: "a", Label: "Bad", Action: `select where status = "done"`, Require: []string{"!!view:plugin:Kanban"}},
 	}
-	_, err := parsePluginActions(configs, parser, nil)
+	_, err := parsePluginActions(configs, parser, nil, false)
 	if err == nil {
 		t.Fatal("expected error for double-negation requirement")
 	}
@@ -1343,7 +1344,7 @@ func TestParsePluginActions_RequireDedup(t *testing.T) {
 	configs := []PluginActionConfig{
 		{Key: "a", Label: "Dup", Action: `update where id = id() set status="ready"`, Require: []string{"id"}},
 	}
-	actions, err := parsePluginActions(configs, parser, nil)
+	actions, err := parsePluginActions(configs, parser, nil, false)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -1363,7 +1364,7 @@ func TestParsePluginActions_BulkActionExplicitRequireID(t *testing.T) {
 	configs := []PluginActionConfig{
 		{Key: "a", Label: "Selective Bulk", Action: `delete where status = "done"`, Require: []string{"id"}},
 	}
-	actions, err := parsePluginActions(configs, parser, nil)
+	actions, err := parsePluginActions(configs, parser, nil, false)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -1417,9 +1418,9 @@ func TestParsePluginActions_ViewKindExplicit(t *testing.T) {
 	configs := []PluginActionConfig{
 		{Key: "F11", Kind: "view", Label: "Open kanban", View: "Kanban"},
 	}
-	viewNames := map[string]struct{}{"Kanban": {}}
+	viewNames := map[string]ViewKind{"Kanban": KindBoard}
 
-	actions, err := parsePluginActions(configs, parser, viewNames)
+	actions, err := parsePluginActions(configs, parser, viewNames, false)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -1444,9 +1445,9 @@ func TestParsePluginActions_ViewKindInferred(t *testing.T) {
 	configs := []PluginActionConfig{
 		{Key: "F11", Label: "Open kanban", View: "Kanban"},
 	}
-	viewNames := map[string]struct{}{"Kanban": {}}
+	viewNames := map[string]ViewKind{"Kanban": KindBoard}
 
-	actions, err := parsePluginActions(configs, parser, viewNames)
+	actions, err := parsePluginActions(configs, parser, viewNames, false)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -1460,12 +1461,12 @@ func TestParsePluginActions_ViewKindInferred(t *testing.T) {
 // `view:` referencing an unknown view name.
 func TestParsePluginActions_ViewKindErrors(t *testing.T) {
 	parser := testParser()
-	knownViews := map[string]struct{}{"Kanban": {}}
+	knownViews := map[string]ViewKind{"Kanban": KindBoard}
 
 	cases := []struct {
 		name      string
 		cfg       PluginActionConfig
-		viewNames map[string]struct{}
+		viewNames map[string]ViewKind
 		wantError string
 	}{
 		{
@@ -1496,7 +1497,7 @@ func TestParsePluginActions_ViewKindErrors(t *testing.T) {
 
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			_, err := parsePluginActions([]PluginActionConfig{tc.cfg}, parser, tc.viewNames)
+			_, err := parsePluginActions([]PluginActionConfig{tc.cfg}, parser, tc.viewNames, false)
 			if err == nil {
 				t.Fatalf("expected error containing %q, got nil", tc.wantError)
 			}
@@ -1515,7 +1516,7 @@ func TestParsePluginActions_AmbiguousKindInference(t *testing.T) {
 	configs := []PluginActionConfig{
 		{Key: "x", Label: "Ambiguous"},
 	}
-	_, err := parsePluginActions(configs, parser, nil)
+	_, err := parsePluginActions(configs, parser, nil, false)
 	if err == nil {
 		t.Fatal("expected error when neither action: nor view: is set")
 	}
@@ -1532,12 +1533,243 @@ func TestParsePluginActions_BothActionAndViewSet(t *testing.T) {
 	configs := []PluginActionConfig{
 		{Key: "x", Label: "Both", Action: `select where status = "done"`, View: "Kanban"},
 	}
-	viewNames := map[string]struct{}{"Kanban": {}}
-	_, err := parsePluginActions(configs, parser, viewNames)
+	viewNames := map[string]ViewKind{"Kanban": KindBoard}
+	_, err := parsePluginActions(configs, parser, viewNames, false)
 	if err == nil {
 		t.Fatal("expected error when both action: and view: are set without an explicit kind:")
 	}
 	if !strings.Contains(err.Error(), "use `kind:` to disambiguate") {
 		t.Errorf("expected disambiguate error, got %q", err.Error())
 	}
+}
+
+// TestParseViewAction_ModeRequiresDetailTarget asserts that `mode:` is rejected
+// when targeting a non-detail view.
+func TestParseViewAction_ModeRequiresDetailTarget(t *testing.T) {
+	schema := testSchema()
+	cfg := pluginFileConfig{
+		Name:   "Detail",
+		Kind:   "detail",
+		Layout: "status",
+		Actions: []PluginActionConfig{
+			{Key: "e", Label: "Edit", Kind: "view", View: "Board", Mode: "edit"},
+		},
+	}
+	// simulate the viewNames map that would be built during workflow parsing
+	viewNames := map[string]ViewKind{"Board": KindBoard, "Detail": KindDetail}
+	_, err := parsePluginConfig(cfg, "test", schema, viewNames)
+	if err == nil {
+		t.Fatal("expected parse error for mode: edit targeting Board (kind: board, not detail)")
+	}
+	if !strings.Contains(err.Error(), "mode: only valid when targeting a kind: detail view") {
+		t.Errorf("unexpected error: %v", err)
+	}
+}
+
+func TestParseViewAction_ModeAcceptedOnDetail(t *testing.T) {
+	schema := testSchema()
+	yamlSrc := `
+version: "2"
+views:
+  - name: Detail
+    key: d
+    kind: detail
+    layout: status
+actions:
+  - key: Enter
+    label: Open
+    kind: view
+    view: Detail
+  - key: e
+    label: Edit
+    kind: view
+    view: Detail
+    mode: edit
+  - key: n
+    label: New
+    kind: view
+    view: Detail
+    mode: new
+  - key: Ctrl-D
+    label: Edit description
+    kind: view
+    view: Detail
+    mode: edit-desc
+  - key: Ctrl-T
+    label: Edit tags
+    kind: view
+    view: Detail
+    mode: edit-tags
+`
+	plugins, actions, errs := loadPluginsFromYAML(yamlSrc, schema)
+	if len(errs) > 0 {
+		t.Fatalf("unexpected parse errors: %v", errs)
+	}
+	if len(plugins) != 1 {
+		t.Fatalf("got %d plugins, want 1", len(plugins))
+	}
+	if len(actions) != 5 {
+		t.Fatalf("got %d actions, want 5", len(actions))
+	}
+	wantModes := []DetailMode{
+		DetailModeView, DetailModeEdit, DetailModeNew,
+		DetailModeEditDesc, DetailModeEditTags,
+	}
+	for i, want := range wantModes {
+		if got := actions[i].Mode; got != want {
+			t.Errorf("action %d: mode = %q, want %q", i, got, want)
+		}
+	}
+}
+
+func TestParseViewAction_ModeDefaultsToView(t *testing.T) {
+	schema := testSchema()
+	yamlSrc := `
+version: "2"
+views:
+  - name: Detail
+    key: d
+    kind: detail
+    layout: status
+actions:
+  - key: Enter
+    label: Open
+    kind: view
+    view: Detail
+`
+	_, actions, errs := loadPluginsFromYAML(yamlSrc, schema)
+	if len(errs) > 0 {
+		t.Fatalf("unexpected parse errors: %v", errs)
+	}
+	if len(actions) != 1 {
+		t.Fatalf("got %d actions, want 1", len(actions))
+	}
+	if actions[0].Mode != DetailModeView {
+		t.Errorf("default Mode = %q, want %q", actions[0].Mode, DetailModeView)
+	}
+}
+
+func TestParseViewAction_ModeUnknownValue(t *testing.T) {
+	schema := testSchema()
+	yamlSrc := `
+version: "2"
+views:
+  - name: Detail
+    key: d
+    kind: detail
+    layout: status
+actions:
+  - key: e
+    label: Edit
+    kind: view
+    view: Detail
+    mode: garbage
+`
+	_, _, errs := loadPluginsFromYAML(yamlSrc, schema)
+	if len(errs) == 0 {
+		t.Fatal("expected parse error for unknown mode value")
+	}
+	found := false
+	for _, err := range errs {
+		if strings.Contains(err, "mode must be one of view, edit, new, edit-desc, edit-tags") {
+			found = true
+			break
+		}
+	}
+	if !found {
+		t.Errorf("unexpected errors: %v", errs)
+	}
+}
+
+func TestParseViewAction_ModeRejectedOnRukiKind(t *testing.T) {
+	schema := testSchema()
+	yamlSrc := `
+version: "2"
+views:
+  - name: Detail
+    key: d
+    kind: detail
+    layout: status
+actions:
+  - key: x
+    label: Bad
+    kind: ruki
+    action: update set status = "done"
+    mode: edit
+`
+	_, _, errs := loadPluginsFromYAML(yamlSrc, schema)
+	if len(errs) == 0 {
+		t.Fatal("expected parse error for mode on kind: ruki")
+	}
+	found := false
+	for _, err := range errs {
+		if strings.Contains(err, "mode: only valid on kind: view actions") {
+			found = true
+			break
+		}
+	}
+	if !found {
+		t.Errorf("unexpected errors: %v", errs)
+	}
+}
+
+func TestParseViewAction_ModeNewRejectedOnDetailViewActions(t *testing.T) {
+	schema := testSchema()
+	cfg := pluginFileConfig{
+		Name:   "Detail",
+		Kind:   "detail",
+		Layout: "status",
+		Actions: []PluginActionConfig{
+			{Key: "n", Label: "New", Kind: "view", View: "Detail", Mode: "new"},
+		},
+	}
+	viewNames := map[string]ViewKind{"Detail": KindDetail}
+	_, err := parsePluginConfig(cfg, "test", schema, viewNames)
+	if err == nil {
+		t.Fatal("expected parse error for mode: new on a detail view's own actions")
+	}
+	if !strings.Contains(err.Error(), "mode: new not valid on a detail view's own actions") {
+		t.Errorf("unexpected error: %v", err)
+	}
+}
+
+// loadPluginsFromYAML is a test helper that parses a complete workflow YAML
+// snippet and returns plugins, global actions, and any errors.
+func loadPluginsFromYAML(yamlSrc string, schema ruki.Schema) ([]Plugin, []PluginAction, []string) {
+	var wf WorkflowFile
+	if err := yaml.Unmarshal([]byte(yamlSrc), &wf); err != nil {
+		return nil, nil, []string{err.Error()}
+	}
+
+	viewNames, firstPassErrs := collectViewNames(wf.Views, "test")
+	if len(firstPassErrs) > 0 {
+		return nil, nil, firstPassErrs
+	}
+
+	var plugins []Plugin
+	var errs []string
+	for _, cfg := range wf.Views {
+		if cfg.Name == "" {
+			continue
+		}
+		p, err := parsePluginConfig(cfg, "test", schema, viewNames)
+		if err != nil {
+			errs = append(errs, err.Error())
+			continue
+		}
+		plugins = append(plugins, p)
+	}
+
+	var actions []PluginAction
+	if len(wf.Actions) > 0 {
+		parser := ruki.NewParser(schema)
+		parsedActions, err := parsePluginActions(wf.Actions, parser, viewNames, false)
+		if err != nil {
+			errs = append(errs, err.Error())
+		} else {
+			actions = parsedActions
+		}
+	}
+
+	return plugins, actions, errs
 }

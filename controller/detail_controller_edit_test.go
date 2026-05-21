@@ -1,8 +1,10 @@
 package controller
 
 import (
+	"strings"
 	"testing"
 
+	"github.com/boolean-maybe/tiki/model"
 	"github.com/boolean-maybe/tiki/service"
 	"github.com/boolean-maybe/tiki/store"
 	tikipkg "github.com/boolean-maybe/tiki/tiki"
@@ -13,14 +15,18 @@ import (
 // fakeDetailEditView is a light stand-in for ConfigurableDetailView used to
 // drive DetailController edit-mode tests without spinning up tview.
 type fakeDetailEditView struct {
-	editing         bool
-	enterReturn     bool
-	fullscreen      bool
-	registry        *ActionRegistry
-	changeHandler   func(bool)
-	fieldHandlers   map[string]func(string)
-	flushCalls      int  // count of FlushFocusedEditor invocations
-	flushBeforeExit bool // whether the most recent flush happened while still editing
+	editing            bool
+	enterReturn        bool
+	fullscreen         bool
+	registry           *ActionRegistry
+	changeHandler      func(bool)
+	fieldHandlers      map[string]func(string)
+	flushCalls         int             // count of FlushFocusedEditor invocations
+	flushBeforeExit    bool            // whether the most recent flush happened while still editing
+	focusField         model.EditField // last EnterEditModeWithFocus argument
+	valid              bool            // value returned by IsValid (defaults true via newFakeDetailEditView)
+	validationErrs     []string        // value returned by ValidationErrors
+	focusChangeHandler func(model.EditField)
 }
 
 func (f *fakeDetailEditView) IsFullscreen() bool { return f.fullscreen }
@@ -28,8 +34,15 @@ func (f *fakeDetailEditView) EnterFullscreen()   { f.fullscreen = true }
 func (f *fakeDetailEditView) ExitFullscreen()    { f.fullscreen = false }
 
 func newFakeDetailEditView() *fakeDetailEditView {
-	return &fakeDetailEditView{enterReturn: true, fieldHandlers: make(map[string]func(string))}
+	return &fakeDetailEditView{
+		enterReturn:   true,
+		valid:         true,
+		fieldHandlers: make(map[string]func(string)),
+	}
 }
+
+func (f *fakeDetailEditView) IsValid() bool              { return f.valid }
+func (f *fakeDetailEditView) ValidationErrors() []string { return f.validationErrs }
 
 func (f *fakeDetailEditView) IsEditMode() bool         { return f.editing }
 func (f *fakeDetailEditView) IsEditFieldFocused() bool { return f.editing }
@@ -42,6 +55,10 @@ func (f *fakeDetailEditView) EnterEditMode() bool {
 		f.changeHandler(true)
 	}
 	return true
+}
+func (f *fakeDetailEditView) EnterEditModeWithFocus(focusField model.EditField) bool {
+	f.focusField = focusField
+	return f.EnterEditMode()
 }
 func (f *fakeDetailEditView) ExitEditMode() {
 	if !f.editing {
@@ -74,6 +91,9 @@ func (f *fakeDetailEditView) FlushFocusedEditor() {
 	f.flushCalls++
 	f.flushBeforeExit = f.editing
 }
+func (f *fakeDetailEditView) SetFieldFocusChangeHandler(h func(model.EditField)) {
+	f.focusChangeHandler = h
+}
 
 // newDetailEditTestRig wires a TikiEditSession, mutation gate, store, and a
 // committed test tiki so DetailController edit-mode lifecycles can be
@@ -104,6 +124,38 @@ func newDetailEditTestRig(t *testing.T) (*DetailController, *fakeDetailEditView,
 	view := newFakeDetailEditView()
 	dc.BindEditView(view)
 	return dc, view, tc, tikiStore
+}
+
+// newDetailEditTestRigWithStatusline mirrors newDetailEditTestRig but
+// wires a real StatuslineConfig so tests can assert the message the
+// validation gate emits on commit failure.
+func newDetailEditTestRigWithStatusline(t *testing.T) (*DetailController, *fakeDetailEditView, *model.StatuslineConfig) {
+	t.Helper()
+
+	tikiStore := store.NewInMemoryStore()
+	gate := service.NewTikiMutationGate()
+	gate.SetStore(tikiStore)
+	nav := newMockNavigationController()
+	sl := model.NewStatuslineConfig()
+	tc := NewTikiEditSession(tikiStore, gate, nav, sl)
+
+	tk := tikipkg.New()
+	tk.ID = "TIKI201"
+	tk.Title = "Test"
+	tk.Set(tikipkg.FieldStatus, "ready")
+	tk.Set(tikipkg.FieldType, "story")
+	tk.Set(tikipkg.FieldPriority, "medium")
+	if err := tikiStore.CreateTiki(tk); err != nil {
+		t.Fatalf("CreateTiki: %v", err)
+	}
+
+	pluginDef := newTestDetailPlugin([]string{"status", "type", "priority"}, nil)
+	dc := NewDetailController(pluginDef, nav, sl, tikiStore, gate, rukiRuntime.NewSchema(), tc)
+	dc.SetSelectedTikiID(tk.ID)
+
+	view := newFakeDetailEditView()
+	dc.BindEditView(view)
+	return dc, view, sl
 }
 
 // TestDetailController_EnterEditModeStartsSession verifies that
@@ -289,5 +341,259 @@ func TestDetailEditModeActions_HasExpectedKeys(t *testing.T) {
 	}
 	if r.GetByID(ActionPrevField) == nil {
 		t.Error("missing ActionPrevField (Shift+Tab)")
+	}
+}
+
+// TestDetailController_EnterEditModeWithFocusStartsSession verifies that
+// enterEditModeWithFocus starts an edit session, flips the view into
+// edit mode, and threads the focus argument through to the view.
+func TestDetailController_EnterEditModeWithFocusStartsSession(t *testing.T) {
+	dc, view, tc, _ := newDetailEditTestRig(t)
+
+	if !dc.enterEditModeWithFocus(model.EditFieldTitle) {
+		t.Fatal("enterEditModeWithFocus returned false")
+	}
+	if !view.IsEditMode() {
+		t.Error("view should be in edit mode")
+	}
+	if tc.GetEditingTiki() == nil {
+		t.Error("TikiEditSession should have an editing tiki")
+	}
+	if view.focusField != model.EditFieldTitle {
+		t.Errorf("view.focusField = %q, want %q", view.focusField, model.EditFieldTitle)
+	}
+}
+
+// TestDetailController_EnterEditModeWithFocusEmptyMatchesEnterEditMode
+// pins that an empty focus argument behaves like enterEditMode (the view
+// receives the empty value and applies its default-focus fallback).
+func TestDetailController_EnterEditModeWithFocusEmptyMatchesEnterEditMode(t *testing.T) {
+	dc, view, _, _ := newDetailEditTestRig(t)
+
+	if !dc.enterEditModeWithFocus("") {
+		t.Fatal(`enterEditModeWithFocus("") returned false`)
+	}
+	if !view.IsEditMode() {
+		t.Error("view should be in edit mode")
+	}
+	if view.focusField != "" {
+		t.Errorf("view.focusField = %q, want empty", view.focusField)
+	}
+}
+
+// TestDetailController_CommitEditRejectsInvalidWithStatuslineMessage
+// pins the validation gate inside commitEdit: an invalid view aborts
+// the commit and surfaces the joined error list to the statusline.
+// Mirrors the gate that lived in TikiEditCoordinator before the
+// configurable detail view absorbed in-place edit duties.
+func TestDetailController_CommitEditRejectsInvalidWithStatuslineMessage(t *testing.T) {
+	dc, view, sl := newDetailEditTestRigWithStatusline(t)
+
+	view.valid = false
+	view.validationErrs = []string{"title required", "points out of range"}
+
+	if !dc.HandleAction(ActionDetailEdit) {
+		t.Fatal("ActionDetailEdit returned false")
+	}
+	if dc.commitEdit() {
+		t.Fatal("commitEdit returned true but view is invalid")
+	}
+	msg, level, _ := sl.GetMessage()
+	if !strings.Contains(msg, "title required") {
+		t.Errorf("statusline message = %q, want it to contain %q", msg, "title required")
+	}
+	if !strings.Contains(msg, "points out of range") {
+		t.Errorf("statusline message = %q, want it to contain %q", msg, "points out of range")
+	}
+	if level != model.MessageLevelError {
+		t.Errorf("statusline level = %v, want MessageLevelError", level)
+	}
+	if !view.IsEditMode() {
+		t.Error("view should remain in edit mode after rejected commit")
+	}
+}
+
+// TestDetailController_CommitEditAcceptsWhenValid pins the happy path
+// once the validation gate is in place: a valid view commits and exits
+// edit mode just like before.
+func TestDetailController_CommitEditAcceptsWhenValid(t *testing.T) {
+	dc, view, _ := newDetailEditTestRigWithStatusline(t)
+
+	if !dc.HandleAction(ActionDetailEdit) {
+		t.Fatal("ActionDetailEdit returned false")
+	}
+	if !dc.commitEdit() {
+		t.Fatal("commitEdit returned false on a valid view")
+	}
+	if view.IsEditMode() {
+		t.Error("view should exit edit mode after successful commit")
+	}
+}
+
+// TestDetailController_EnterEditModeWithFocusNoSelectionReturnsFalse
+// pins the precondition that enterEditModeWithFocus is a no-op when no
+// tiki is selected.
+func TestDetailController_EnterEditModeWithFocusNoSelectionReturnsFalse(t *testing.T) {
+	dc, view, _, _ := newDetailEditTestRig(t)
+	dc.SetSelectedTikiID("")
+
+	if dc.enterEditModeWithFocus(model.EditFieldTitle) {
+		t.Fatal("expected false when no tiki is selected")
+	}
+	if view.IsEditMode() {
+		t.Error("view should not be in edit mode")
+	}
+}
+
+// TestDetailController_FocusChangeUpdatesStatuslineHint pins the
+// per-field hint surface ported from TikiEditCoordinator.updateFieldHint.
+// On focus of a value-cyclable field the hint shows "↑↓ change value";
+// on a free-text field (e.g. title) the statusline is cleared.
+func TestDetailController_FocusChangeUpdatesStatuslineHint(t *testing.T) {
+	dc, view, sl := newDetailEditTestRigWithStatusline(t)
+	dc.BindEditView(view) // re-bind so the focus-change handler is installed
+	if view.focusChangeHandler == nil {
+		t.Fatal("controller did not wire a field focus-change handler")
+	}
+
+	view.focusChangeHandler(model.EditFieldStatus)
+	msg, level, _ := sl.GetMessage()
+	if !strings.Contains(msg, "↑↓ change value") {
+		t.Errorf("status hint = %q, want it to contain %q", msg, "↑↓ change value")
+	}
+	if level != model.MessageLevelInfo {
+		t.Errorf("hint level = %v, want MessageLevelInfo", level)
+	}
+
+	view.focusChangeHandler(model.EditFieldTitle)
+	if msg, _, _ := sl.GetMessage(); msg != "" {
+		t.Errorf("title focus should clear hint, got %q", msg)
+	}
+}
+
+// TestDetailController_FocusChangeRecurrenceHint pins the two-mode
+// recurrence hint: "edit pattern" guidance when the part-nav reports
+// pattern-focused, "edit value" guidance when value-focused.
+func TestDetailController_FocusChangeRecurrenceHint(t *testing.T) {
+	dc, view, sl := newDetailEditTestRigWithStatusline(t)
+	rv := &recurrenceFakeView{fakeDetailEditView: view}
+	dc.BindEditView(rv)
+	if rv.focusChangeHandler == nil {
+		t.Fatal("controller did not wire a field focus-change handler")
+	}
+
+	rv.valueFocused = false
+	rv.focusChangeHandler(model.EditFieldRecurrence)
+	if msg, _, _ := sl.GetMessage(); !strings.Contains(msg, "change pattern") {
+		t.Errorf("pattern-focused hint = %q, want it to mention pattern change", msg)
+	}
+
+	rv.valueFocused = true
+	rv.focusChangeHandler(model.EditFieldRecurrence)
+	if msg, _, _ := sl.GetMessage(); !strings.Contains(msg, "edit pattern") {
+		t.Errorf("value-focused hint = %q, want it to mention pattern editing", msg)
+	}
+}
+
+// recurrenceFakeView extends the fake with the RecurrencePartNavigable
+// duck-type so the recurrence-hint branch is exercised.
+type recurrenceFakeView struct {
+	*fakeDetailEditView
+	valueFocused bool
+}
+
+func (r *recurrenceFakeView) MoveRecurrencePartLeft() bool  { return false }
+func (r *recurrenceFakeView) MoveRecurrencePartRight() bool { return false }
+func (r *recurrenceFakeView) IsRecurrenceValueFocused() bool {
+	return r.valueFocused
+}
+
+// titleSaveFake satisfies the controller's narrow title-save setter so
+// BindEditView installs the title save / cancel callbacks on the fake.
+type titleSaveFake struct {
+	*fakeDetailEditView
+	titleSave   func(string)
+	titleCancel func()
+}
+
+func (t *titleSaveFake) SetTitleSaveHandler(h func(string)) { t.titleSave = h }
+func (t *titleSaveFake) SetTitleCancelHandler(h func())     { t.titleCancel = h }
+
+// descSaveFake satisfies the controller's narrow description-save setter.
+type descSaveFake struct {
+	*fakeDetailEditView
+	descSave   func(string)
+	descCancel func()
+}
+
+func (d *descSaveFake) SetDescriptionSaveHandler(h func(string)) { d.descSave = h }
+func (d *descSaveFake) SetDescriptionCancelHandler(h func())     { d.descCancel = h }
+
+// tagsSaveFake satisfies the controller's narrow tags-save setter.
+type tagsSaveFake struct {
+	*fakeDetailEditView
+	tagsSave   func(string)
+	tagsCancel func()
+}
+
+func (t *tagsSaveFake) SetTagsSaveHandler(h func(string)) { t.tagsSave = h }
+func (t *tagsSaveFake) SetTagsCancelHandler(h func())     { t.tagsCancel = h }
+
+// TestDetailController_TitleSaveHandlerCommitsAndExits pins the
+// title-save semantics: triggering the wired handler commits the
+// session and exits edit mode (close-on-save).
+func TestDetailController_TitleSaveHandlerCommitsAndExits(t *testing.T) {
+	dc, view, _ := newDetailEditTestRigWithStatusline(t)
+	tv := &titleSaveFake{fakeDetailEditView: view}
+	dc.BindEditView(tv)
+	if tv.titleSave == nil {
+		t.Fatal("BindEditView did not install a title save handler")
+	}
+
+	if !dc.HandleAction(ActionDetailEdit) {
+		t.Fatal("EnterEditMode")
+	}
+	tv.titleSave("New Title")
+	if view.IsEditMode() {
+		t.Error("title save should exit edit mode (close-on-save)")
+	}
+}
+
+// TestDetailController_DescriptionSaveHandlerCommitsAndStays pins the
+// description-save semantics: the wired handler commits and re-opens
+// a fresh session, leaving the view in edit mode (stay-on-save).
+func TestDetailController_DescriptionSaveHandlerCommitsAndStays(t *testing.T) {
+	dc, view, _ := newDetailEditTestRigWithStatusline(t)
+	dv := &descSaveFake{fakeDetailEditView: view}
+	dc.BindEditView(dv)
+	if dv.descSave == nil {
+		t.Fatal("BindEditView did not install a description save handler")
+	}
+
+	if !dc.HandleAction(ActionDetailEdit) {
+		t.Fatal("EnterEditMode")
+	}
+	dv.descSave("New body")
+	if !view.IsEditMode() {
+		t.Error("description save should keep the view in edit mode (stay-on-save)")
+	}
+}
+
+// TestDetailController_TagsSaveHandlerCommitsAndStays pins the
+// tags-save semantics in the metadata-grid flow: stay-on-save.
+func TestDetailController_TagsSaveHandlerCommitsAndStays(t *testing.T) {
+	dc, view, _ := newDetailEditTestRigWithStatusline(t)
+	tv := &tagsSaveFake{fakeDetailEditView: view}
+	dc.BindEditView(tv)
+	if tv.tagsSave == nil {
+		t.Fatal("BindEditView did not install a tags save handler")
+	}
+
+	if !dc.HandleAction(ActionDetailEdit) {
+		t.Fatal("EnterEditMode")
+	}
+	tv.tagsSave("alpha beta")
+	if !view.IsEditMode() {
+		t.Error("tags save should keep the view in edit mode (stay-on-save)")
 	}
 }
