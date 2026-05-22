@@ -219,11 +219,30 @@ func (g *Container) rebuild(width int) {
 		}
 	}
 
+	// maxRowSpanAt[r] = max RowSpan of any anchor whose Row == r.
+	// Used to grow a spanning-row into a spanning-band that consumes
+	// max(RowSpan) rows, so a row-spanned literal in the same row as a
+	// horizontal-span title has vertical room to render its full text.
+	maxRowSpanAt := make([]int, plan.Rows)
+	for _, a := range g.spec.Anchors {
+		if a.RowSpan > maxRowSpanAt[a.Row] {
+			maxRowSpanAt[a.Row] = a.RowSpan
+		}
+	}
+
 	r := 0
 	for r < plan.Rows {
 		if hasHSpan[r] {
-			g.addSpanningRow(r, plan, anchorAt)
-			r++
+			rs := maxRowSpanAt[r]
+			if rs < 1 {
+				rs = 1
+			}
+			end := r + rs
+			if end > plan.Rows {
+				end = plan.Rows
+			}
+			g.addSpanningBand(r, end, plan, anchorAt)
+			r = end
 		} else {
 			start := r
 			for r < plan.Rows && !hasHSpan[r] {
@@ -234,52 +253,112 @@ func (g *Container) rebuild(width int) {
 	}
 }
 
-// addSpanningRow renders a single row that contains at least one
-// horizontal span as a FlexColumn. Each cell gets the combined width of
-// its spanned columns (plus inter-column gaps between them).
-func (g *Container) addSpanningRow(row int, plan gridlayout.Plan, anchorAt map[int]int) {
-	rowFlex := g.newRowFlex(tview.FlexColumn)
+// addSpanningBand renders rows [start, end) where row `start` contains at
+// least one horizontal-span anchor, AND the band may extend beyond a single
+// row to accommodate row-spanned anchors that originate in row `start`.
+//
+// Layout shape: column-major (FlexColumn outer, FlexRow per column),
+// matching addPackedBand. The wrinkle is horizontal spans: when the column
+// loop reaches a column `c` whose row `start` contains an anchor with
+// ColSpan>1, that anchor is rendered as a single combined-width cell and
+// the column loop skips the spanned columns (they were already accounted
+// for in the combined width). Cells in trailing rows under the spanning
+// anchor's columns are also skipped because the spanning anchor's RowSpan
+// determines its vertical extent.
+//
+// Why this exists: the original addSpanningRow was strictly per-row and
+// could not honor RowSpan>1 — a row-spanned anchor in a row containing a
+// horizontal span got clipped to 1 row of vertical space. This band-based
+// rewrite fixes that by treating the row containing horizontal spans as
+// the start of a band whose height is max(RowSpan) of anchors in row `start`.
+func (g *Container) addSpanningBand(start, end int, plan gridlayout.Plan, anchorAt map[int]int) {
+	bandHeight := 0
+	for r := start; r < end; r++ {
+		bandHeight += plan.RowHeights[r]
+	}
+
+	// Identify columns that are "owned" by a horizontal-span anchor
+	// originating in row `start`. spanOwner[c] is the col index of the
+	// anchor that owns col `c`; if spanOwner[c] != c, col `c` is a
+	// continuation column that the column loop must skip.
+	spanOwner := make([]int, plan.Cols)
+	for c := range spanOwner {
+		spanOwner[c] = c
+	}
+	for _, a := range g.spec.Anchors {
+		if a.Row != start || a.ColSpan <= 1 {
+			continue
+		}
+		for cc := a.Col + 1; cc < a.Col+a.ColSpan && cc < plan.Cols; cc++ {
+			spanOwner[cc] = a.Col
+		}
+	}
+
+	bandFlex := g.newRowFlex(tview.FlexColumn)
 	c := 0
 	for c < plan.Cols {
 		if plan.Dropped[c] {
 			c++
 			continue
 		}
-		idx, ok := anchorAt[row*plan.Cols+c]
-		if !ok {
-			colWidth := plan.ColumnWidths[c]
-			proportion := 0
-			if g.spec.Stretcher[c] {
-				proportion = 1
-				colWidth = 0
+		colFlex := g.newRowFlex(tview.FlexRow)
+		// hSpanCols is the number of columns this colFlex consumes —
+		// usually 1, but bumped when col `c` is an h-span owner.
+		hSpanCols := 1
+		colWidth := plan.ColumnWidths[c]
+		hasStretcher := g.spec.Stretcher[c]
+		if idx, ok := anchorAt[start*plan.Cols+c]; ok {
+			a := g.spec.Anchors[idx]
+			if a.ColSpan > 1 {
+				hSpanCols = a.ColSpan
+				colWidth, hasStretcher = g.spanWidth(a, plan)
 			}
-			rowFlex.AddItem(g.newSpacer(), colWidth, proportion, false)
-			if c < plan.Cols-1 && !plan.Dropped[c+1] {
-				rowFlex.AddItem(g.newSpacer(), InterColumnGap, 0, false)
+		}
+		// Walk rows [start, end) within this column band, anchor by anchor.
+		// For h-span owner columns the spanning anchor's row range is
+		// already covered by RowSpan, but trailing rows in cols that are
+		// NOT covered by the h-span may still have their own anchors.
+		r := start
+		for r < end {
+			if idx, ok := anchorAt[r*plan.Cols+c]; ok {
+				a := g.spec.Anchors[idx]
+				prim := g.primitives[idx]
+				if prim == nil {
+					prim = g.newSpacer()
+				}
+				h := g.anchorPlacementHeight(a, plan)
+				colFlex.AddItem(prim, h, 0, false)
+				r += a.RowSpan
+				continue
 			}
-			c++
-			continue
+			colFlex.AddItem(g.newSpacer(), plan.RowHeights[r], 0, false)
+			r++
 		}
-		a := g.spec.Anchors[idx]
-		prim := g.primitives[idx]
-		if prim == nil {
-			prim = g.newSpacer()
-		}
-		cellWidth, hasStretcher := g.spanWidth(a, plan)
+		colFlex.AddItem(g.newSpacer(), 0, 1, false)
+
 		proportion := 0
 		if hasStretcher {
 			proportion = 1
-			cellWidth = 0
+			colWidth = 0
 		}
-		rowFlex.AddItem(prim, cellWidth, proportion, false)
-		nextVisibleCol := g.lastVisibleSpannedCol(a, plan)
-		if nextVisibleCol < plan.Cols-1 && !plan.Dropped[nextVisibleCol+1] {
-			rowFlex.AddItem(g.newSpacer(), InterColumnGap, 0, false)
+		bandFlex.AddItem(colFlex, colWidth, proportion, false)
+		// Inter-column gap: place after the LAST visible spanned column.
+		lastSpanned := c + hSpanCols - 1
+		if lastSpanned >= plan.Cols {
+			lastSpanned = plan.Cols - 1
 		}
-		c += a.ColSpan
+		if lastSpanned < plan.Cols-1 && !plan.Dropped[lastSpanned+1] {
+			bandFlex.AddItem(g.newSpacer(), InterColumnGap, 0, false)
+		}
+		c += hSpanCols
+		// Skip continuation columns owned by h-span anchors. (Defensive:
+		// hSpanCols already advances past them, but spanOwner is the
+		// authoritative skip set in case future code adds more h-spans.)
+		for c < plan.Cols && spanOwner[c] != c {
+			c++
+		}
 	}
-	h := plan.RowHeights[row]
-	g.Flex.AddItem(rowFlex, h, 0, false)
+	g.Flex.AddItem(bandFlex, bandHeight, 0, false)
 }
 
 // addPackedBand renders consecutive rows [start, end) that have no
@@ -353,24 +432,18 @@ func (g *Container) spanWidth(a gridlayout.Anchor, plan gridlayout.Plan) (int, b
 	return totalWidth, hasStretcher
 }
 
-// lastVisibleSpannedCol returns the index of the last non-dropped column
-// within an anchor's horizontal span.
-func (g *Container) lastVisibleSpannedCol(a gridlayout.Anchor, plan gridlayout.Plan) int {
-	last := a.Col
-	for cc := a.Col; cc < a.Col+a.ColSpan; cc++ {
-		if !plan.Dropped[cc] {
-			last = cc
-		}
-	}
-	return last
-}
-
 // anchorPlacementHeight returns the height to allocate for an anchor's
 // primitive within its column. For field anchors, this is the anchor's
-// natural height (from heightOf); for literals it is fixed at 1. Critically
-// it is NOT the solver's row-band sum — see rebuild() for the rationale.
+// natural height (from heightOf); for single-row literals it is fixed at 1.
+// Row-spanned literals (RowSpan > 1) get their declared row span so the
+// wrapping prose-block renderer (renderLiteralAnchor) has vertical space
+// to draw multiple wrapped lines. Critically it is NOT the solver's
+// row-band sum — see rebuild() for the rationale.
 func (g *Container) anchorPlacementHeight(a gridlayout.Anchor, plan gridlayout.Plan) int {
 	if a.Kind == gridlayout.AnchorLiteral {
+		if a.RowSpan > 1 {
+			return a.RowSpan
+		}
 		return 1
 	}
 	totalWidth := 0

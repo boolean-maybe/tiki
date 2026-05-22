@@ -55,7 +55,9 @@ type FieldCell struct {
 
 // LiteralCell is a static-text cell. Text is the literal string as it was
 // written in the workflow (whitespace trimmed). It contributes a width
-// hint based on Text length and renders as a static text primitive.
+// hint based on Text length and renders as a static text primitive. When
+// the cell is row-spanned (Anchor.RowSpan > 1), the renderer word-wraps
+// the text across the spanned region — see view/tikidetail.renderLiteralAnchor.
 type LiteralCell struct {
 	Text string
 }

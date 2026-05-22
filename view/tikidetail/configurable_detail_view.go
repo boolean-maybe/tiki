@@ -321,7 +321,7 @@ func (cv *ConfigurableDetailView) buildAnchorPrimitives(tk *tikipkg.Tiki, ctx Fi
 	for i, a := range cv.spec.Anchors {
 		switch a.Kind {
 		case gridlayout.AnchorLiteral:
-			primitives[i] = renderLiteralCaption(a.Text, ctx.Roles)
+			primitives[i] = renderLiteralAnchor(a, ctx.Roles)
 		case gridlayout.AnchorComposite:
 			primitives[i] = cv.buildCompositePrimitive(a, tk, ctx, focusedName)
 		default:
@@ -420,7 +420,7 @@ func renderCompositePrimitive(a gridlayout.Anchor, tk *tikipkg.Tiki, ctx FieldRe
 func RenderViewModeAnchor(a gridlayout.Anchor, tk *tikipkg.Tiki, ctx FieldRenderContext) tview.Primitive {
 	switch a.Kind {
 	case gridlayout.AnchorLiteral:
-		return renderLiteralCaption(a.Text, ctx.Roles)
+		return renderLiteralAnchor(a, ctx.Roles)
 	case gridlayout.AnchorComposite:
 		return renderCompositePrimitive(a, tk, ctx)
 	}
@@ -438,6 +438,31 @@ func renderLiteralCaption(text string, roles *theme.Theme) tview.Primitive {
 		expanded = text
 	}
 	tv := tview.NewTextView().SetDynamicColors(true).SetText(tag + expanded)
+	tv.SetBorderPadding(0, 0, 0, 0)
+	return tv
+}
+
+// renderLiteralAnchor dispatches a literal anchor to the appropriate
+// primitive: a single-line caption for row-span <= 1 (the historical
+// "Status:"-style behavior), or a word-wrapping prose block for row-span > 1.
+// The wrap path uses tview's built-in word-wrap on TextView (the same
+// primitive used by header.InfoWidget for wrapping prose). A row-spanned
+// literal whose text is empty falls back to single-line rendering.
+func renderLiteralAnchor(a gridlayout.Anchor, roles *theme.Theme) tview.Primitive {
+	if a.RowSpan <= 1 {
+		return renderLiteralCaption(a.Text, roles)
+	}
+	if strings.TrimSpace(a.Text) == "" {
+		return renderLiteralCaption(a.Text, roles)
+	}
+	tag := roles.TextLabel().Tag()
+	expanded, err := workflow.ExpandVisual(a.Text, roles.PaintResolver())
+	if err != nil {
+		expanded = a.Text
+	}
+	tv := tview.NewTextView().SetDynamicColors(true).SetText(tag + expanded)
+	tv.SetWrap(true)
+	tv.SetWordWrap(true)
 	tv.SetBorderPadding(0, 0, 0, 0)
 	return tv
 }

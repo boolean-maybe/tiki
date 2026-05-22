@@ -275,14 +275,18 @@ views:
     kind: detail
     description: "Configured detail view for an epic"
     require: ["selection:one"]
-    # Same 8-column grid as Detail, with type, assignee, and recurrence
-    # fields removed. Tags still spans rows 3-5 in the right column.
+    # Same 8-column grid. Tags moves to cols 5-6 (rows 3-5). The literal
+    # description text spans cols 7-8 across rows 3-5 and word-wraps via
+    # the prose-block path in view/tikidetail.renderLiteralAnchor. The `--`
+    # in row 3 col 8 makes the literal a 2-column span; this works because
+    # view/gridbox/container.go addSpanningBand honors RowSpan when a row
+    # contains both horizontal and vertical spans. Due is removed.
     layout: |
-      <highlight>title | --                                 | --         | --        | --     | --  | --      | --
-      _                | _                                  | _          | _         | _      | _   | _       | _
-      "Status:"        | status.label + " " + status.visual | "Author:"  | createdBy | "Due:" | due | "Tags:" | tags
-      "Priority:"      | priority                           | "Created:" | createdAt | _      | _   | ^       | ^
-      "Points:"        | points                             | "Updated:" | updatedAt | _      | _   | ^       | ^
+      <highlight>title | --                                 | --         | --        | --      | --   | --                                                                                                                        | --
+      _                | _                                  | _          | _         | _       | _    | _                                                                                                                         | _
+      "Status:"        | status.label + " " + status.visual | "Author:"  | createdBy | "Tags:" | tags | "Epics group related work that spans multiple sprints. They sit at the top of the planning hierarchy and gather smaller stories, bugs, and spikes under one banner. Track each epic across Now, Next, and Later horizons as priorities shift, and close it when every dependency is done." | --
+      "Priority:"      | priority                           | "Created:" | createdAt | ^       | ^    | ^                                                                                                                                                                                                                                                                                          | ^
+      "Points:"        | points                             | "Updated:" | updatedAt | ^       | ^    | ^                                                                                                                                                                                                                                                                                          | ^
 
 triggers:
   - description: block completion with open dependencies

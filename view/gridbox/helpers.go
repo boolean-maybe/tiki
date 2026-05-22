@@ -1,8 +1,23 @@
 package gridbox
 
 import (
+	"strings"
+
 	"github.com/boolean-maybe/tiki/gridlayout"
 )
+
+// longestWordWidth returns the length of the longest whitespace-separated
+// word in s, or 1 if s contains no words. Used as the column-width hint
+// for row-spanned literals so they wrap rather than demand full text width.
+func longestWordWidth(s string) int {
+	max := 1
+	for _, w := range strings.Fields(s) {
+		if len(w) > max {
+			max = len(w)
+		}
+	}
+	return max
+}
 
 // helpers.go is the layout-solver adapter shared by all gridbox callers.
 // Width/height solving lives in gridlayout.SolveLayout; this file owns the
@@ -34,9 +49,16 @@ const DetailBoxOverhead = 4
 //
 // Field anchors get a per-name table lookup; literal anchors get a width
 // based on their text length so short captions like "Status:" don't crowd
-// out adjacent value columns.
+// out adjacent value columns. Row-spanned literals (RowSpan > 1) are
+// rendered as wrapping prose blocks by renderLiteralAnchor, so their
+// minimum useful width is the longest word — not the full text. Otherwise
+// a long row-spanned literal would demand the full text length as a column
+// width and get dropped on narrower terminals.
 func DefaultAnchorWidth(a gridlayout.Anchor) int {
 	if a.Kind == gridlayout.AnchorLiteral {
+		if a.RowSpan > 1 {
+			return longestWordWidth(a.Text)
+		}
 		return len(a.Text) + 1
 	}
 	if a.Kind == gridlayout.AnchorComposite {
@@ -86,11 +108,67 @@ func defaultFieldWidth(name string) int {
 // width would have its column shed by the solver — leaving an empty
 // frame. Single-column layouts can't shed anything anyway, so promoting
 // them to stretcher is always the right call.
+//
+// As a prose-block safety net, columns occupied by a row-spanned literal
+// anchor (RowSpan > 1) are promoted to stretcher when the spec declares
+// no stretcher elsewhere. Row-spanned literals are wrapping prose blocks
+// (rendered by view/tikidetail.renderLiteralAnchor); without slack flowing
+// to their columns, extra terminal width becomes whitespace instead of
+// giving the prose more room to wrap. Promotion is gated on the spec
+// having no other stretcher so explicit author choices win — if a layout
+// already has `<->` somewhere, the author already directed where slack
+// should go and we do not override that.
 func SolveGridLayout(width int, spec gridlayout.GridSpec, heightOf func(name string, width int) int) gridlayout.Plan {
 	if spec.Cols == 1 && len(spec.Stretcher) > 0 && !spec.Stretcher[0] {
 		stretched := spec
 		stretched.Stretcher = []bool{true}
 		spec = stretched
 	}
+	if !hasStretcher(spec) {
+		spec = promoteRowSpannedLiteralColumns(spec)
+	}
 	return gridlayout.SolveLayout(spec, width, InterColumnGap, DefaultAnchorWidth, heightOf)
+}
+
+func hasStretcher(spec gridlayout.GridSpec) bool {
+	for _, s := range spec.Stretcher {
+		if s {
+			return true
+		}
+	}
+	return false
+}
+
+func promoteRowSpannedLiteralColumns(spec gridlayout.GridSpec) gridlayout.GridSpec {
+	promoted := false
+	stretcher := append([]bool(nil), spec.Stretcher...)
+	for _, a := range spec.Anchors {
+		if a.Kind != gridlayout.AnchorLiteral || a.RowSpan <= 1 {
+			continue
+		}
+		// Only promote literals whose text is prose (multiple words),
+		// not short captions like "Tags:" that happen to have RowSpan>1
+		// because a `^` row-continuation appears below them. Captions are
+		// 1-word labels; promoting them stretches a label column to absorb
+		// terminal slack, leaving a wide gap before the value column.
+		if !isMultiWord(a.Text) {
+			continue
+		}
+		for cc := a.Col; cc < a.Col+a.ColSpan && cc < len(stretcher); cc++ {
+			if !stretcher[cc] {
+				stretcher[cc] = true
+				promoted = true
+			}
+		}
+	}
+	if !promoted {
+		return spec
+	}
+	out := spec
+	out.Stretcher = stretcher
+	return out
+}
+
+func isMultiWord(s string) bool {
+	return len(strings.Fields(s)) >= 2
 }
