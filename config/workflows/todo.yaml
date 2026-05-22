@@ -10,27 +10,24 @@ fields:
     values:
       - value: todo
         label: Todo
-        visual: "📌"
+        visual: "○"
         default: true
       - value: done
         label: Done
-        visual: "✅"
+        visual: "✓"
   - name: priority
     type: integer
     default: 3
 
 actions:
-  - key: Ctrl-Q
-    label: "Quick create"
+  - key: "n"
+    label: "New"
     action: create title=input()
     input: string
-    hot: false
-  - key: "m"
+    hot: true
+  - key: "x"
     label: "Mark done"
     action: update where id = id() set status="done"
-  - key: "M"
-    label: "Mark todo"
-    action: update where id = id() set status="todo"
   - key: "+"
     label: "Bump priority"
     action: update where id = id() and priority > 1 set priority = priority - 1
@@ -45,12 +42,11 @@ views:
     default: true
     key: "F1"
     layout: |
-      id + " " + <text.secondary>title + "  p" + priority
+      status.visual + " " + id + " " + <text.secondary>title + "  p" + priority
     lanes:
       - name: Tasks
         columns: 1
-        width: 75
-        filter: select where has(status) order by status desc, priority, updatedAt desc
+        filter: select where has(status) order by status, priority, updatedAt desc
 
 triggers:
   - description: clean up completed tasks after 24 hours

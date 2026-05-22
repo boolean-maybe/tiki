@@ -23,8 +23,8 @@ func todoSchemaFields() []workflow.FieldDef {
 			Name: "status",
 			Type: workflow.TypeEnum,
 			EnumValues: []workflow.EnumValue{
-				{Value: "todo", Label: "Todo", Visual: "📌", Default: true},
-				{Value: "done", Label: "Done", Visual: "✅"},
+				{Value: "todo", Label: "Todo", Visual: "○", Default: true},
+				{Value: "done", Label: "Done", Visual: "✓"},
 			},
 		},
 		{Name: "priority", Type: workflow.TypeInt, DefaultValue: 3},
@@ -36,10 +36,10 @@ func todoSchemaFields() []workflow.FieldDef {
 //   - exactly two fields: status (enum with todo/done) and priority
 //   - exactly one board view named "Todo" with one lane named "Tasks"
 //   - no detail view (workflow-declared `view: Detail` actions are absent)
-//   - five global actions: Quick create (Ctrl-Q), Mark done (m),
-//     Mark todo (M), Bump priority (+), Lower priority (-)
+//   - four global actions: New (n), Mark done (x),
+//     Bump priority (+), Lower priority (-)
 //   - lane filter has an explicit order-by clause; raw YAML contains
-//     "order by status desc, priority, updatedAt desc"
+//     "order by status, priority, updatedAt desc"
 //   - layout: id, title (text.secondary), priority — no type.visual prefix
 //
 // The test combines parsed-structure assertions (for things the loader
@@ -114,13 +114,12 @@ func TestBundledTodo_HasSimplifiedShape(t *testing.T) {
 		t.Error("lane filter must declare an explicit order-by clause")
 	}
 
-	// Globals: assert the five expected keys are present with expected labels.
+	// Globals: assert the four expected keys are present with expected labels.
 	wantKeys := map[string]string{
-		"Ctrl-Q": "Quick create",
-		"m":      "Mark done",
-		"M":      "Mark todo",
-		"+":      "Bump priority",
-		"-":      "Lower priority",
+		"n": "New",
+		"x": "Mark done",
+		"+": "Bump priority",
+		"-": "Lower priority",
 	}
 	gotKeys := map[string]string{}
 	for _, g := range globals {
@@ -138,7 +137,10 @@ func TestBundledTodo_HasSimplifiedShape(t *testing.T) {
 	}
 
 	// Forbidden keys must not appear (these were removed by this change).
-	forbiddenKeys := []string{"y", "Y", "t", "T"}
+	// y/Y/t/T were removed in the original simplification; m/M/Ctrl-Q were
+	// removed when "Mark done" moved m→x, "Mark todo" was dropped, and
+	// "Quick create" (Ctrl-Q) was renamed to "New" (n).
+	forbiddenKeys := []string{"y", "Y", "t", "T", "m", "M", "Ctrl-Q"}
 	for _, k := range forbiddenKeys {
 		if _, ok := gotKeys[k]; ok {
 			t.Errorf("action %q must not exist after simplification", k)
@@ -165,7 +167,7 @@ func TestBundledTodo_HasSimplifiedShape(t *testing.T) {
 	}
 
 	// Lane filter must contain the expected order-by clause.
-	wantOrderBy := "order by status desc, priority, updatedAt desc"
+	wantOrderBy := "order by status, priority, updatedAt desc"
 	if !strings.Contains(raw, wantOrderBy) {
 		t.Errorf("todo.yaml lane filter missing %q", wantOrderBy)
 	}
