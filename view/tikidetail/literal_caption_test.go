@@ -11,12 +11,11 @@ import (
 )
 
 // TestRenderLiteralCaption pins the literal-caption primitive shape:
-// a TextView whose unformatted text equals the literal string. The
-// dim-label color tag is included in the formatted text but stripped
-// when GetText(false) drops the tags.
+// a TextView whose unformatted text equals the literal string. With no
+// role declared, the cell falls back to text.primary.
 func TestRenderLiteralCaption(t *testing.T) {
 	colors := theme.Roles()
-	prim := renderLiteralCaption("Status:", colors)
+	prim := renderLiteralCaption("Status:", "", "", colors)
 	tv, ok := prim.(*tview.TextView)
 	if !ok {
 		t.Fatalf("renderLiteralCaption returned %T, want *tview.TextView", prim)
@@ -27,28 +26,48 @@ func TestRenderLiteralCaption(t *testing.T) {
 	}
 }
 
-// TestRenderLiteralCaption_ExpandsRoleMarkup pins that `<role>` color
-// markup in a caption resolves to a tview color tag, that the literal
-// text after the token survives, and that the role span closes with the
-// `[-]` reset emitted by workflow.ExpandVisual.
-func TestRenderLiteralCaption_ExpandsRoleMarkup(t *testing.T) {
+// TestRenderLiteralCaption_PlainLiteralUsesTextPrimary verifies that an
+// unmarked literal renders with the text.primary color tag (theme
+// foreground), not the previously-hardcoded text.label.
+func TestRenderLiteralCaption_PlainLiteralUsesTextPrimary(t *testing.T) {
 	colors := theme.Roles()
-	dangerTag := colors.StatusDanger().Tag()
-
-	prim := renderLiteralCaption("<danger>!!!", colors)
+	a := gridlayout.Anchor{Kind: gridlayout.AnchorLiteral, Text: "Status:", RowSpan: 1, ColSpan: 1}
+	prim := renderLiteralAnchor(a, colors)
 	tv, ok := prim.(*tview.TextView)
 	if !ok {
-		t.Fatalf("renderLiteralCaption returned %T, want *tview.TextView", prim)
+		t.Fatalf("expected *tview.TextView, got %T", prim)
 	}
-	got := tv.GetText(false) // keep style tags (stripAllTags=false)
-	if !strings.Contains(got, dangerTag) {
-		t.Errorf("expected danger color tag %q in rendered text, got %q", dangerTag, got)
+	got := tv.GetText(false)
+	wantTag := colors.TextPrimary().Tag()
+	if !strings.HasPrefix(got, wantTag) {
+		t.Errorf("rendered text %q does not start with text.primary tag %q", got, wantTag)
 	}
-	if !strings.Contains(got, "!!!") {
-		t.Errorf("expected literal text after role token in rendered text, got %q", got)
+	labelTag := colors.TextLabel().Tag()
+	if labelTag != wantTag && strings.HasPrefix(got, labelTag) {
+		t.Errorf("rendered text %q unexpectedly starts with text.label tag (should be text.primary)", got)
 	}
-	if !strings.Contains(got, "[-]") {
-		t.Errorf("expected reset tag '[-]' after role span, got %q", got)
+}
+
+// TestRenderLiteralCaption_ExplicitRoleUsesThatRole verifies that an
+// anchor with an explicit Role uses that role's tag.
+func TestRenderLiteralCaption_ExplicitRoleUsesThatRole(t *testing.T) {
+	colors := theme.Roles()
+	a := gridlayout.Anchor{
+		Kind:    gridlayout.AnchorLiteral,
+		Text:    "Status:",
+		Role:    "text.label",
+		RowSpan: 1,
+		ColSpan: 1,
+	}
+	prim := renderLiteralAnchor(a, colors)
+	tv, ok := prim.(*tview.TextView)
+	if !ok {
+		t.Fatalf("expected *tview.TextView, got %T", prim)
+	}
+	got := tv.GetText(false)
+	wantTag := colors.TextLabel().Tag()
+	if !strings.HasPrefix(got, wantTag) {
+		t.Errorf("rendered text %q does not start with text.label tag %q", got, wantTag)
 	}
 }
 

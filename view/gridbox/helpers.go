@@ -62,6 +62,22 @@ func DefaultAnchorWidth(a gridlayout.Anchor) int {
 		return len(a.Text) + 1
 	}
 	if a.Kind == gridlayout.AnchorComposite {
+		// Row-spanned composites are prose blocks (multi-segment paragraph
+		// that wraps via renderCompositePrimitive). Their minimum useful
+		// width is the longest word across all literal segments — same rule
+		// as row-spanned literals — so they fit narrow lanes by wrapping.
+		if a.RowSpan > 1 {
+			max := 1
+			for _, seg := range a.Segments {
+				if seg.Kind != gridlayout.SegmentLiteral {
+					continue
+				}
+				if w := longestWordWidth(seg.Text); w > max {
+					max = w
+				}
+			}
+			return max
+		}
 		// Composite default width is a hint, not a hard requirement. We
 		// take the maximum *single segment*'s default width rather than
 		// the sum — composites in tiki cards are expression-like (visual
@@ -143,15 +159,16 @@ func promoteRowSpannedLiteralColumns(spec gridlayout.GridSpec) gridlayout.GridSp
 	promoted := false
 	stretcher := append([]bool(nil), spec.Stretcher...)
 	for _, a := range spec.Anchors {
-		if a.Kind != gridlayout.AnchorLiteral || a.RowSpan <= 1 {
+		if a.RowSpan <= 1 {
 			continue
 		}
-		// Only promote literals whose text is prose (multiple words),
-		// not short captions like "Tags:" that happen to have RowSpan>1
-		// because a `^` row-continuation appears below them. Captions are
-		// 1-word labels; promoting them stretches a label column to absorb
-		// terminal slack, leaving a wide gap before the value column.
-		if !isMultiWord(a.Text) {
+		// Promote both row-spanned literal anchors and row-spanned composite
+		// anchors whose textual content reads as prose (multiple words). Both
+		// kinds render as wrapping prose blocks; both need column slack to
+		// flow into them rather than turning into empty whitespace. Short
+		// row-spanned captions ("Tags:") and field anchors are skipped — they
+		// don't wrap and shouldn't absorb stretch.
+		if !isProseAnchor(a) {
 			continue
 		}
 		for cc := a.Col; cc < a.Col+a.ColSpan && cc < len(stretcher); cc++ {
@@ -171,4 +188,26 @@ func promoteRowSpannedLiteralColumns(spec gridlayout.GridSpec) gridlayout.GridSp
 
 func isMultiWord(s string) bool {
 	return len(strings.Fields(s)) >= 2
+}
+
+// isProseAnchor reports whether a row-spanned anchor renders as a wrapping
+// prose block — i.e. carries multi-word literal text. True for row-spanned
+// literal anchors with multi-word text and for row-spanned composite anchors
+// whose concatenated literal segments contain >=2 words. False for field
+// anchors (no literal text to wrap) and short single-word captions.
+func isProseAnchor(a gridlayout.Anchor) bool {
+	switch a.Kind {
+	case gridlayout.AnchorLiteral:
+		return isMultiWord(a.Text)
+	case gridlayout.AnchorComposite:
+		var combined strings.Builder
+		for _, seg := range a.Segments {
+			if seg.Kind == gridlayout.SegmentLiteral {
+				combined.WriteString(seg.Text)
+				combined.WriteByte(' ')
+			}
+		}
+		return isMultiWord(combined.String())
+	}
+	return false
 }

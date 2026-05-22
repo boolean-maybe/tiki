@@ -4,21 +4,22 @@
 // with one row per line and cells separated by `|`:
 //
 //	layout: |
-//	  title       | --       | --  | --      | --
-//	  "Status:"   | status   | <-> | tags:30 | depends:25
-//	  "Type:"     | type     | <-> | ^       | ^
-//	  "Priority:" | priority | <-> | _       | _
+//	  title                  | --       | --  | --      | --
+//	  <text.label>"Status:"  | status   | <-> | tags:30 | depends:25
+//	  <text.label>"Type:"    | type     | <-> | ^       | ^
+//	  <text.label>"Priority:"| priority | <-> | _       | _
 //
 // Cell vocabulary:
 //
-//	name        field, value-only (no caption), system-default width
-//	name:N      field, preferred + minimum width of N chars
-//	"any text"  literal caption (any double-quoted string that is not a
-//	            bare identifier or marker); used to label adjacent fields
-//	--          column span (continue the anchor to the left)
-//	^           row span (continue the anchor above)
-//	_           empty cell
-//	<->         horizontal stretcher (absorbs remaining space)
+//	name                 field, value-only (no caption), system-default width
+//	name:N               field, preferred + minimum width of N chars
+//	"any text"           literal text, default role text.primary
+//	<role>"any text"     literal text painted with the given role
+//	<role.mod>"any text" literal text with role + modifier (e.g. .accent)
+//	--                   column span (continue the anchor to the left)
+//	^                    row span (continue the anchor above)
+//	_                    empty cell
+//	<->                  horizontal stretcher (absorbs remaining space)
 //
 // Fields are rendered value-only. Captions are placed by the layout
 // author as literal cells.
@@ -54,12 +55,15 @@ type FieldCell struct {
 }
 
 // LiteralCell is a static-text cell. Text is the literal string as it was
-// written in the workflow (whitespace trimmed). It contributes a width
-// hint based on Text length and renders as a static text primitive. When
-// the cell is row-spanned (Anchor.RowSpan > 1), the renderer word-wraps
-// the text across the spanned region — see view/tikidetail.renderLiteralAnchor.
+// written in the workflow (whitespace trimmed, surrounding quotes stripped).
+// Role/Modifier carry the optional `<role>` / `<role.modifier>` prefix; when
+// Role is empty, the renderer falls back to text.primary. When the cell is
+// row-spanned (Anchor.RowSpan > 1), the renderer word-wraps the text across
+// the spanned region — see view/tikidetail.renderLiteralAnchor.
 type LiteralCell struct {
-	Text string
+	Text     string
+	Role     string
+	Modifier string
 }
 
 // ColSpanCell extends the anchor immediately to its left.

@@ -446,6 +446,14 @@ func (g *Container) anchorPlacementHeight(a gridlayout.Anchor, plan gridlayout.P
 		}
 		return 1
 	}
+	// Row-spanned composites are prose blocks (renderCompositePrimitive enables
+	// word-wrap when RowSpan>1). Allocate the declared row span so wrapped
+	// lines have vertical space to draw, mirroring the row-spanned literal
+	// path above. Single-row composites fall through to the field-style
+	// natural-height computation below.
+	if a.Kind == gridlayout.AnchorComposite && a.RowSpan > 1 {
+		return a.RowSpan
+	}
 	totalWidth := 0
 	visible := 0
 	for cc := a.Col; cc < a.Col+a.ColSpan; cc++ {

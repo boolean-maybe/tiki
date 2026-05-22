@@ -367,30 +367,44 @@ func validateLayout(pluginName, viewKind string, raw string, schema ruki.Schema)
 	}
 	for _, a := range spec.Anchors {
 		if a.Kind == gridlayout.AnchorLiteral {
-			// Literal anchors carry static text declared by the layout
-			// author; they don't reference any field, so schema validation
-			// does not apply. They may, however, contain `<role>` color
-			// markup — validate role names against the closed vocabulary.
-			if err := workflow.ValidateVisualMarkup(a.Text); err != nil {
-				return gridlayout.GridSpec{}, fmt.Errorf(
-					"plugin %q: layout caption: %w", pluginName, err)
+			// Literal anchors carry static text and an optional `<role>`
+			// prefix promoted to Anchor.Role/Modifier. Validate the role
+			// name against the closed vocabulary; the text itself is
+			// rendered verbatim (no inline markup parsing).
+			if a.Role != "" {
+				if _, ok := workflow.ValidRoles[a.Role]; !ok {
+					return gridlayout.GridSpec{}, fmt.Errorf(
+						"plugin %q: layout caption: unknown color role %q", pluginName, a.Role)
+				}
+				if a.Modifier != "" && !theme.IsKnownModifier(a.Modifier) {
+					return gridlayout.GridSpec{}, fmt.Errorf(
+						"plugin %q: layout caption: unknown color modifier %q", pluginName, a.Modifier)
+				}
 			}
 			continue
 		}
 		if a.Kind == gridlayout.AnchorComposite {
 			for _, seg := range a.Segments {
-				if seg.Kind == gridlayout.SegmentLiteral {
-					continue
-				}
 				if seg.Role != "" {
 					if _, ok := workflow.ValidRoles[seg.Role]; !ok {
+						label := seg.Name
+						if seg.Kind == gridlayout.SegmentLiteral {
+							label = "(literal)"
+						}
 						return gridlayout.GridSpec{}, fmt.Errorf(
-							"plugin %q: layout composite field %q: unknown color role %q", pluginName, seg.Name, seg.Role)
+							"plugin %q: layout composite segment %q: unknown color role %q", pluginName, label, seg.Role)
 					}
 					if seg.Modifier != "" && !theme.IsKnownModifier(seg.Modifier) {
+						label := seg.Name
+						if seg.Kind == gridlayout.SegmentLiteral {
+							label = "(literal)"
+						}
 						return gridlayout.GridSpec{}, fmt.Errorf(
-							"plugin %q: layout composite field %q: unknown color modifier %q", pluginName, seg.Name, seg.Modifier)
+							"plugin %q: layout composite segment %q: unknown color modifier %q", pluginName, label, seg.Modifier)
 					}
+				}
+				if seg.Kind == gridlayout.SegmentLiteral {
+					continue
 				}
 				if err := validateLayoutFieldName(pluginName, viewKind, seg.Name, schema); err != nil {
 					return gridlayout.GridSpec{}, err

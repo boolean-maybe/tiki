@@ -398,25 +398,27 @@ func buildCompositeText(a gridlayout.Anchor, tk *tikipkg.Tiki, ctx FieldRenderCo
 func renderCompositePrimitive(a gridlayout.Anchor, tk *tikipkg.Tiki, ctx FieldRenderContext) tview.Primitive {
 	tv := tview.NewTextView().SetDynamicColors(true).SetText(buildCompositeText(a, tk, ctx))
 	tv.SetBorderPadding(0, 0, 0, 0)
+	// row-spanned composites become prose blocks: enable word-wrap so a
+	// multi-segment paragraph (e.g. coloured `<Ctrl-Q>` highlight inside
+	// surrounding muted prose) flows across the rows it occupies, mirroring
+	// the renderLiteralAnchor RowSpan>1 path.
+	if a.RowSpan > 1 {
+		tv.SetWrap(true)
+		tv.SetWordWrap(true)
+	}
 	return tv
 }
 
-// renderLiteralCaption produces the read-only text primitive for a literal
-// anchor. Uses the dim-label color so explicit captions visually match the
-// dim "Status:" appearance of the legacy in-renderer labels.
-//
-// Caption text may contain `<role>` markup (e.g. `<danger>!!!`) drawn from
-// workflow.ValidRoles; literal `<` is escaped as `<<`. Markup is parsed by
-// workflow.ExpandVisual and resolved against the active theme. Captions
-// originate in workflow yaml (controlled by the workflow author), so the
-// raw text is not pre-escaped against `[...]` tview tags. Unknown roles
-// fail closed to the plain caption text — the workflow loader's
-// validateDetailMetadata gate already rejects bad role names at startup.
 // RenderViewModeAnchor produces the read-only primitive for a single
 // layout anchor. Used by the tiki box (board/list cards) and by any
 // non-edit-mode caller that doesn't need cv's per-instance editor cache.
 // Edit-mode rendering stays in ConfigurableDetailView.buildAnchorPrimitives,
 // which adds focus and editor wiring on top of the view-mode primitive.
+//
+// Literal anchors are colored via Anchor.Role / Anchor.Modifier (set from the
+// layout-string `<role>` prefix). When Role is empty, literals fall back to
+// text.primary. There is no inline `<role>...` markup parsing — multi-color
+// text is composed via composite ` + ` segments.
 func RenderViewModeAnchor(a gridlayout.Anchor, tk *tikipkg.Tiki, ctx FieldRenderContext) tview.Primitive {
 	switch a.Kind {
 	case gridlayout.AnchorLiteral:
@@ -431,36 +433,54 @@ func RenderViewModeAnchor(a gridlayout.Anchor, tk *tikipkg.Tiki, ctx FieldRender
 	return renderConfiguredField(a.Name, tk, ctx)
 }
 
-func renderLiteralCaption(text string, roles *theme.Theme) tview.Primitive {
-	tag := roles.TextLabel().Tag()
-	expanded, err := workflow.ExpandVisual(text, roles.PaintResolver())
-	if err != nil {
-		expanded = text
+// paintLiteralText returns the literal text wrapped in the tview tags that
+// realize the requested role + modifier. When role is empty, it falls back to
+// text.primary so unmarked literals render in the same color as ordinary body
+// text. Unknown roles also fall back to text.primary — the workflow loader's
+// role validation gate is the place to reject bad names; rendering should
+// never fail closed to a wrong color.
+//
+// Modified roles route through theme.Paint.PaintString to support gradient
+// implementations; bare roles emit a single opening color tag (no trailing
+// reset, since the cell holds the color until end of line).
+func paintLiteralText(text, role, modifier string, roles *theme.Theme) string {
+	if role == "" {
+		return roles.TextPrimary().Tag() + text
 	}
-	tv := tview.NewTextView().SetDynamicColors(true).SetText(tag + expanded)
+	if modifier != "" {
+		if paint, ok := roles.PaintResolver()(role, modifier); ok {
+			return paint.PaintString(text)
+		}
+	}
+	if r, ok := roles.ResolveByName(role); ok {
+		return r.Tag() + text
+	}
+	return roles.TextPrimary().Tag() + text
+}
+
+// renderLiteralCaption produces a single-line read-only text primitive for a
+// literal anchor. Role/modifier come from the layout-string `<role>` prefix;
+// when absent, the caption renders in text.primary. There is no inline role
+// markup parsing — authors compose multi-color text via composite ` + `
+// segments.
+func renderLiteralCaption(text, role, modifier string, roles *theme.Theme) tview.Primitive {
+	tv := tview.NewTextView().SetDynamicColors(true).SetText(paintLiteralText(text, role, modifier, roles))
 	tv.SetBorderPadding(0, 0, 0, 0)
 	return tv
 }
 
 // renderLiteralAnchor dispatches a literal anchor to the appropriate
-// primitive: a single-line caption for row-span <= 1 (the historical
-// "Status:"-style behavior), or a word-wrapping prose block for row-span > 1.
-// The wrap path uses tview's built-in word-wrap on TextView (the same
-// primitive used by header.InfoWidget for wrapping prose). A row-spanned
-// literal whose text is empty falls back to single-line rendering.
+// primitive: a single-line caption for row-span <= 1, or a word-wrapping
+// prose block for row-span > 1. Both paths honor the anchor's Role/Modifier
+// with text.primary fallback.
 func renderLiteralAnchor(a gridlayout.Anchor, roles *theme.Theme) tview.Primitive {
 	if a.RowSpan <= 1 {
-		return renderLiteralCaption(a.Text, roles)
+		return renderLiteralCaption(a.Text, a.Role, a.Modifier, roles)
 	}
 	if strings.TrimSpace(a.Text) == "" {
-		return renderLiteralCaption(a.Text, roles)
+		return renderLiteralCaption(a.Text, a.Role, a.Modifier, roles)
 	}
-	tag := roles.TextLabel().Tag()
-	expanded, err := workflow.ExpandVisual(a.Text, roles.PaintResolver())
-	if err != nil {
-		expanded = a.Text
-	}
-	tv := tview.NewTextView().SetDynamicColors(true).SetText(tag + expanded)
+	tv := tview.NewTextView().SetDynamicColors(true).SetText(paintLiteralText(a.Text, a.Role, a.Modifier, roles))
 	tv.SetWrap(true)
 	tv.SetWordWrap(true)
 	tv.SetBorderPadding(0, 0, 0, 0)

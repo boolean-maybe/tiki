@@ -18,15 +18,26 @@ func parseSegment(raw string) (Segment, error) {
 	if s == "" {
 		return Segment{}, fmt.Errorf("empty segment in composite cell")
 	}
-	if m := literalSegmentRe.FindStringSubmatch(s); m != nil {
-		return Segment{Kind: SegmentLiteral, Text: m[1]}, nil
-	}
-	remainder := s
+
+	// peel off optional <role> / <role.mod> prefix once, up front
 	var role, modifier string
+	remainder := s
 	if rm := cellRolePrefixRe.FindStringSubmatch(s); rm != nil {
 		role, modifier = theme.SplitRoleModifier(rm[1])
 		remainder = rm[2]
 	}
+
+	// quoted literal segment
+	if lm := literalSegmentRe.FindStringSubmatch(remainder); lm != nil {
+		return Segment{
+			Kind:     SegmentLiteral,
+			Text:     lm[1],
+			Role:     role,
+			Modifier: modifier,
+		}, nil
+	}
+
+	// field reference segment
 	m := cellNameRe.FindStringSubmatch(remainder)
 	if m == nil {
 		return Segment{}, fmt.Errorf("invalid segment %q in composite cell (not a field ref or \"quoted\" literal)", raw)
@@ -54,19 +65,12 @@ func tryParseComposite(s string) (Cell, bool, error) {
 	}
 	parts := strings.Split(s, " + ")
 	segments := make([]Segment, 0, len(parts))
-	hasField := false
 	for _, p := range parts {
 		seg, err := parseSegment(p)
 		if err != nil {
 			return nil, true, err
 		}
-		if seg.Kind == SegmentField {
-			hasField = true
-		}
 		segments = append(segments, seg)
-	}
-	if !hasField {
-		return nil, false, nil
 	}
 	return CompositeCell{Segments: segments}, true, nil
 }
@@ -87,21 +91,13 @@ func tryParseComposite(s string) (Cell, bool, error) {
 // Reviewing the rendered detail view is the safety net for that class.
 func TokenizeCell(s string) (Cell, error) {
 	t := strings.TrimSpace(s)
-	switch t {
-	case "":
+	if t == "" {
 		return nil, fmt.Errorf("empty cell")
-	case "--":
-		return ColSpanCell{}, nil
-	case "^":
-		return RowSpanCell{}, nil
-	case "_":
-		return EmptyCell{}, nil
-	case "<->":
-		return StretcherCell{}, nil
 	}
 
-	// composite detection — must come before single-field parsing since
-	// composites may contain valid field-ref substrings
+	// composite detection runs first on the raw string. A composite has its
+	// own per-segment `<role>` grammar, and the cell-level peel below would
+	// strip a leading per-segment role and confuse the segmenter.
 	if cell, isComposite, err := tryParseComposite(t); isComposite {
 		if err != nil {
 			return nil, fmt.Errorf("composite cell %q: %w", t, err)
@@ -109,37 +105,55 @@ func TokenizeCell(s string) (Cell, error) {
 		return cell, nil
 	}
 
+	// peel off optional <role> / <role.mod> prefix once
+	var role, modifier string
+	remainder := t
 	if rm := cellRolePrefixRe.FindStringSubmatch(t); rm != nil {
-		role, modifier := theme.SplitRoleModifier(rm[1])
-		remainder := rm[2]
-		if m := cellNameRe.FindStringSubmatch(remainder); m != nil {
-			fc := FieldCell{Name: m[1], Role: role, Modifier: modifier, Display: parseDisplayMode(m[2])}
-			if m[3] != "" {
-				w, err := strconv.Atoi(m[3])
-				if err != nil || w <= 0 {
-					return nil, fmt.Errorf("invalid width in cell %q (want positive integer)", t)
-				}
-				fc.WantedWidth = w
+		role, modifier = theme.SplitRoleModifier(rm[1])
+		remainder = rm[2]
+	}
+
+	// bare markers may not carry a role prefix
+	switch remainder {
+	case "--", "^", "_", "<->":
+		if role != "" {
+			return nil, fmt.Errorf("role prefix not allowed on bare marker %q", remainder)
+		}
+		switch remainder {
+		case "--":
+			return ColSpanCell{}, nil
+		case "^":
+			return RowSpanCell{}, nil
+		case "_":
+			return EmptyCell{}, nil
+		case "<->":
+			return StretcherCell{}, nil
+		}
+	}
+
+	// quoted literal
+	if lm := literalSegmentRe.FindStringSubmatch(remainder); lm != nil {
+		return LiteralCell{Text: lm[1], Role: role, Modifier: modifier}, nil
+	}
+
+	// field reference
+	if m := cellNameRe.FindStringSubmatch(remainder); m != nil {
+		fc := FieldCell{Name: m[1], Role: role, Modifier: modifier, Display: parseDisplayMode(m[2])}
+		if m[3] != "" {
+			w, err := strconv.Atoi(m[3])
+			if err != nil || w <= 0 {
+				return nil, fmt.Errorf("invalid width in cell %q (want positive integer)", t)
 			}
-			return fc, nil
+			fc.WantedWidth = w
 		}
+		return fc, nil
 	}
-	m := cellNameRe.FindStringSubmatch(t)
-	if m == nil {
-		if lm := literalSegmentRe.FindStringSubmatch(t); lm != nil {
-			return LiteralCell{Text: lm[1]}, nil
-		}
-		return LiteralCell{Text: t}, nil
-	}
-	fc := FieldCell{Name: m[1], Display: parseDisplayMode(m[2])}
-	if m[3] != "" {
-		w, err := strconv.Atoi(m[3])
-		if err != nil || w <= 0 {
-			return nil, fmt.Errorf("invalid width in cell %q (want positive integer)", t)
-		}
-		fc.WantedWidth = w
-	}
-	return fc, nil
+
+	// last-resort fallback: treat the (possibly role-stripped) remainder as
+	// literal text. Preserves the historical "anything that isn't an
+	// identifier or marker becomes a literal" escape hatch for unquoted
+	// captions in legacy workflows.
+	return LiteralCell{Text: remainder, Role: role, Modifier: modifier}, nil
 }
 
 func parseDisplayMode(s string) DisplayMode {
@@ -220,12 +234,14 @@ func ParseGrid(raw [][]string) (GridSpec, error) {
 				colSpan, rowSpan := computeSpans(cells, r, c, rows, cols)
 				idx := len(anchors)
 				anchors = append(anchors, Anchor{
-					Kind:    AnchorLiteral,
-					Text:    cell.Text,
-					Row:     r,
-					Col:     c,
-					RowSpan: rowSpan,
-					ColSpan: colSpan,
+					Kind:     AnchorLiteral,
+					Text:     cell.Text,
+					Role:     cell.Role,
+					Modifier: cell.Modifier,
+					Row:      r,
+					Col:      c,
+					RowSpan:  rowSpan,
+					ColSpan:  colSpan,
 				})
 				markOccupancy(occupancy, idx, r, c, rowSpan, colSpan)
 

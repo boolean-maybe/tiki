@@ -8,6 +8,8 @@ import (
 	gradcore "github.com/boolean-maybe/tiki/internal/gradient"
 	"github.com/boolean-maybe/tiki/theme"
 	tikipkg "github.com/boolean-maybe/tiki/tiki"
+	"github.com/gdamore/tcell/v2"
+	"github.com/rivo/tview"
 )
 
 // TestBuildCompositeText_TagEmissionShape pins the exact byte shape that
@@ -122,5 +124,106 @@ func TestBuildCompositeText_GradientsOffDegradesToSolid(t *testing.T) {
 	if n := strings.Count(got, "[#"); n != 3 {
 		t.Errorf("expected exactly 3 hex tags (value + solid base + value re-emit) when gradients off; got %d in %q",
 			n, got)
+	}
+}
+
+// TestBuildCompositeText_RoleOnLiteralSegment verifies a literal segment with
+// a bare role prefix paints its text with the role's tag. Together with
+// existing modifier-branch tests above, this covers the contract that a
+// `<role>"text"` segment in a composite renders with the requested color.
+func TestBuildCompositeText_RoleOnLiteralSegment(t *testing.T) {
+	roles := theme.Roles()
+	labelTag := roles.TextLabel().Tag()
+
+	a := gridlayout.Anchor{
+		Kind: gridlayout.AnchorComposite,
+		Segments: []gridlayout.Segment{
+			{Kind: gridlayout.SegmentLiteral, Text: "Status: ", Role: "text.label"},
+			{Kind: gridlayout.SegmentField, Name: "status"},
+		},
+	}
+	tk := tikipkg.New()
+	tk.Set(tikipkg.FieldStatus, "ready")
+	ctx := FieldRenderContext{Mode: RenderModeView, Roles: roles}
+
+	got := buildCompositeText(a, tk, ctx)
+	if !strings.Contains(got, labelTag+"Status: ") {
+		t.Errorf("composite text missing %q before 'Status: '\n got: %q", labelTag, got)
+	}
+}
+
+// TestRenderCompositePrimitive_RowSpanWraps pins that a composite anchor with
+// RowSpan > 1 returns a TextView whose word-wrap is enabled, so a multi-segment
+// prose paragraph (e.g. an all-literal composite with mid-text colour change)
+// flows across the rows it occupies. This mirrors the contract of the literal
+// prose-block path (renderLiteralAnchor RowSpan>1) for composites.
+func TestRenderCompositePrimitive_RowSpanWraps(t *testing.T) {
+	roles := theme.Roles()
+	long := "Lorem ipsum dolor sit amet"
+	tail := " consectetur adipiscing elit sed do eiusmod"
+	a := gridlayout.Anchor{
+		Kind:    gridlayout.AnchorComposite,
+		RowSpan: 3,
+		ColSpan: 2,
+		Segments: []gridlayout.Segment{
+			{Kind: gridlayout.SegmentLiteral, Text: long, Role: "text.muted"},
+			{Kind: gridlayout.SegmentLiteral, Text: tail, Role: "text.secondary"},
+		},
+	}
+	tk := tikipkg.New()
+	ctx := FieldRenderContext{Mode: RenderModeView, Roles: roles}
+
+	prim := renderCompositePrimitive(a, tk, ctx)
+	tv, ok := prim.(*tview.TextView)
+	if !ok {
+		t.Fatalf("composite prose: got %T, want *tview.TextView", prim)
+	}
+
+	screen := tcell.NewSimulationScreen("UTF-8")
+	if err := screen.Init(); err != nil {
+		t.Fatalf("init simulation screen: %v", err)
+	}
+	defer screen.Fini()
+	screen.SetSize(15, 10)
+	tv.SetRect(0, 0, 15, 10)
+	tv.Draw(screen)
+	rowsWithContent := 0
+	for y := 0; y < 10; y++ {
+		for x := 0; x < 15; x++ {
+			r, _, _, _ := screen.GetContent(x, y)
+			if r != ' ' && r != 0 {
+				rowsWithContent++
+				break
+			}
+		}
+	}
+	if rowsWithContent < 2 {
+		t.Errorf("expected wrapped composite prose to span >=2 rows at width 15, got %d", rowsWithContent)
+	}
+}
+
+// TestRenderCompositePrimitive_SingleRowReturnsTextView pins that a
+// single-row composite returns a *tview.TextView so callers (board cards,
+// caption-style composites like `status.visual + " " + status.label`) get
+// the same primitive type they relied on before the prose-block branch
+// was added.
+func TestRenderCompositePrimitive_SingleRowReturnsTextView(t *testing.T) {
+	roles := theme.Roles()
+	a := gridlayout.Anchor{
+		Kind:    gridlayout.AnchorComposite,
+		RowSpan: 1,
+		ColSpan: 1,
+		Segments: []gridlayout.Segment{
+			{Kind: gridlayout.SegmentLiteral, Text: "Status: "},
+			{Kind: gridlayout.SegmentField, Name: "status"},
+		},
+	}
+	tk := tikipkg.New()
+	tk.Set(tikipkg.FieldStatus, "ready")
+	ctx := FieldRenderContext{Mode: RenderModeView, Roles: roles}
+
+	prim := renderCompositePrimitive(a, tk, ctx)
+	if _, ok := prim.(*tview.TextView); !ok {
+		t.Fatalf("single-row composite: got %T, want *tview.TextView", prim)
 	}
 }

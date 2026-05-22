@@ -110,8 +110,8 @@ func TestTokenizeCell(t *testing.T) {
 		}},
 		{in: "<highlight>Status:", check: func(t *testing.T, c Cell) {
 			lc, ok := c.(LiteralCell)
-			if !ok || lc.Text != "<highlight>Status:" {
-				t.Errorf("want LiteralCell{<highlight>Status:}, got %+v", c)
+			if !ok || lc.Text != "Status:" || lc.Role != "highlight" {
+				t.Errorf("want LiteralCell{Text:Status: Role:highlight}, got %+v", c)
 			}
 		}},
 		{in: "<highlight>", check: func(t *testing.T, c Cell) {
@@ -365,7 +365,6 @@ func TestTokenizeCell_Composite(t *testing.T) {
 	cases := []struct {
 		in       string
 		wantErr  bool
-		wantLit  bool // expect LiteralCell fallback (all-literal composite)
 		segments int
 		check    func(t *testing.T, c CompositeCell)
 	}{
@@ -415,8 +414,18 @@ func TestTokenizeCell_Composite(t *testing.T) {
 			},
 		},
 		{
-			in:      `"A" + " " + "B"`,
-			wantLit: true, // all literals → falls through to LiteralCell
+			in:       `"A" + " " + "B"`,
+			segments: 3, // all-literal composites are valid; per-segment roles enable multi-color prose
+			check: func(t *testing.T, c CompositeCell) {
+				for i, seg := range c.Segments {
+					if seg.Kind != SegmentLiteral {
+						t.Errorf("seg[%d] Kind = %v, want SegmentLiteral", i, seg.Kind)
+					}
+				}
+				if c.Segments[0].Text != "A" || c.Segments[1].Text != " " || c.Segments[2].Text != "B" {
+					t.Errorf("texts: got %q/%q/%q", c.Segments[0].Text, c.Segments[1].Text, c.Segments[2].Text)
+				}
+			},
 		},
 		{
 			in:       `status:15 + " " + status.visual`,
@@ -439,12 +448,6 @@ func TestTokenizeCell_Composite(t *testing.T) {
 			}
 			if err != nil {
 				t.Fatalf("unexpected error: %v", err)
-			}
-			if tc.wantLit {
-				if _, ok := got.(LiteralCell); !ok {
-					t.Fatalf("want LiteralCell for all-literal composite, got %T", got)
-				}
-				return
 			}
 			cc, ok := got.(CompositeCell)
 			if !ok {
@@ -570,5 +573,124 @@ func TestParseSegment_RoleWithModifier(t *testing.T) {
 	}
 	if seg.Role != "text.muted" || seg.Modifier != "accent" {
 		t.Errorf("got role=%q modifier=%q, want role=%q modifier=%q", seg.Role, seg.Modifier, "text.muted", "accent")
+	}
+}
+
+func TestTokenizeCell_RoleOnLiteral(t *testing.T) {
+	cell, err := TokenizeCell(`<text.label>"Status:"`)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	lit, ok := cell.(LiteralCell)
+	if !ok {
+		t.Fatalf("expected LiteralCell, got %T", cell)
+	}
+	if lit.Text != "Status:" {
+		t.Errorf("Text = %q, want %q", lit.Text, "Status:")
+	}
+	if lit.Role != "text.label" {
+		t.Errorf("Role = %q, want %q", lit.Role, "text.label")
+	}
+	if lit.Modifier != "" {
+		t.Errorf("Modifier = %q, want empty", lit.Modifier)
+	}
+}
+
+func TestTokenizeCell_RoleWithModifierOnLiteral(t *testing.T) {
+	cell, err := TokenizeCell(`<accent.lift>"Tags:"`)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	lit, ok := cell.(LiteralCell)
+	if !ok {
+		t.Fatalf("expected LiteralCell, got %T", cell)
+	}
+	if lit.Role != "accent" || lit.Modifier != "lift" {
+		t.Errorf("Role/Modifier = %q/%q, want accent/lift", lit.Role, lit.Modifier)
+	}
+}
+
+func TestTokenizeCell_PlainLiteralHasEmptyRole(t *testing.T) {
+	cell, err := TokenizeCell(`"Status:"`)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	lit, ok := cell.(LiteralCell)
+	if !ok {
+		t.Fatalf("expected LiteralCell, got %T", cell)
+	}
+	if lit.Role != "" || lit.Modifier != "" {
+		t.Errorf("expected empty Role/Modifier, got %q/%q", lit.Role, lit.Modifier)
+	}
+}
+
+func TestTokenizeCell_RoleOnBareMarkerErrors(t *testing.T) {
+	_, err := TokenizeCell(`<accent>--`)
+	if err == nil {
+		t.Fatalf("expected error for role on bare marker, got none")
+	}
+}
+
+func TestTokenizeCell_AngleBracketInsideQuotedLiteralIsText(t *testing.T) {
+	cell, err := TokenizeCell(`"<not a role>"`)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	lit, ok := cell.(LiteralCell)
+	if !ok {
+		t.Fatalf("expected LiteralCell, got %T", cell)
+	}
+	if lit.Text != "<not a role>" {
+		t.Errorf("Text = %q, want %q", lit.Text, "<not a role>")
+	}
+	if lit.Role != "" {
+		t.Errorf("Role = %q, want empty", lit.Role)
+	}
+}
+
+func TestParseSegment_RoleOnLiteralSegment(t *testing.T) {
+	seg, err := parseSegment(`<text.label>"Status: "`)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if seg.Kind != SegmentLiteral {
+		t.Fatalf("Kind = %v, want SegmentLiteral", seg.Kind)
+	}
+	if seg.Text != "Status: " {
+		t.Errorf("Text = %q, want %q", seg.Text, "Status: ")
+	}
+	if seg.Role != "text.label" {
+		t.Errorf("Role = %q, want %q", seg.Role, "text.label")
+	}
+}
+
+func TestParseSegment_RoleWithModifierOnLiteralSegment(t *testing.T) {
+	seg, err := parseSegment(`<accent.lift>"!!"`)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if seg.Kind != SegmentLiteral || seg.Role != "accent" || seg.Modifier != "lift" {
+		t.Errorf("got Kind=%v Role=%q Modifier=%q, want SegmentLiteral/accent/lift",
+			seg.Kind, seg.Role, seg.Modifier)
+	}
+}
+
+func TestTokenizeCell_CompositeWithRoledLiterals(t *testing.T) {
+	cell, err := TokenizeCell(`<text.label>"Status: " + status`)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	cc, ok := cell.(CompositeCell)
+	if !ok {
+		t.Fatalf("expected CompositeCell, got %T", cell)
+	}
+	if len(cc.Segments) != 2 {
+		t.Fatalf("Segments len = %d, want 2", len(cc.Segments))
+	}
+	if cc.Segments[0].Kind != SegmentLiteral || cc.Segments[0].Role != "text.label" {
+		t.Errorf("seg[0] = %+v, want literal with role text.label", cc.Segments[0])
+	}
+	if cc.Segments[1].Kind != SegmentField || cc.Segments[1].Name != "status" {
+		t.Errorf("seg[1] = %+v, want field status", cc.Segments[1])
 	}
 }
