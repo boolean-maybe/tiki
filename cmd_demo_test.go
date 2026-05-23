@@ -235,6 +235,33 @@ func TestRunDemo_HealsMissingWorkflowOnReuse(t *testing.T) {
 	}
 }
 
+// TestRunDemo_HealsMissingAssetsOnReuse guards reused demo directories from
+// keeping documents that reference embedded media files which were never
+// extracted (or were removed after extraction). The heal is non-clobbering so
+// local edits to existing assets survive, but missing bundled assets reappear.
+func TestRunDemo_HealsMissingAssetsOnReuse(t *testing.T) {
+	setupDemoTest(t)
+	t.Setenv("TIKI_STORE_GIT", "false")
+
+	docDir := filepath.Join(demoDirName, ".doc")
+	if err := os.MkdirAll(docDir, 0o750); err != nil {
+		t.Fatalf("mkdir doc dir: %v", err)
+	}
+	doc := []byte("---\nid: 3GDPPQ\ntitle: diagram doc\nstatus: inbox\n---\n\n![diagram](assets/tiki-3gdppq.svg)\n")
+	if err := os.WriteFile(filepath.Join(docDir, "fleet-certificate-rotation.md"), doc, 0o644); err != nil {
+		t.Fatalf("write demo doc: %v", err)
+	}
+
+	if err := runDemo(); err != nil {
+		t.Fatalf("runDemo: %v", err)
+	}
+
+	assetPath := filepath.Join(".doc", "assets", "tiki-3gdppq.svg")
+	if _, err := os.Stat(assetPath); err != nil {
+		t.Fatalf("expected missing demo asset to be healed at %s: %v", assetPath, err)
+	}
+}
+
 // TestRunDemo_UnifiedLayout pins the demo-shape contract end-to-end:
 // the extracted demo must have no `.doc/tiki` or `.doc/doki` subtrees, must
 // place workflow documents flat at `.doc/` (with human-readable filenames —
@@ -375,12 +402,12 @@ func TestRunDemo_ReusesExistingDir(t *testing.T) {
 	if _, err := os.Stat("sentinel.txt"); err != nil {
 		t.Errorf("sentinel missing after reuse: %v", err)
 	}
-	// the embedded demo tree (workflow docs, gitignore, assets) must not
-	// have been written, because extraction was skipped. .doc/workflow.yaml
-	// is allowed — it is written by ensureDemoWorkflow, not by the tree
-	// extractor. telemetry-timestamp-drift.md is a representative flat
-	// workflow doc from the demo dataset (frontmatter id: XVG0FN).
-	for _, rel := range []string{".gitignore", ".doc/telemetry-timestamp-drift.md", ".doc/assets"} {
+	// the embedded demo tree (workflow docs, gitignore) must not have been
+	// written, because extraction was skipped. .doc/workflow.yaml and
+	// .doc/assets are allowed self-heals, not full tree extraction.
+	// telemetry-timestamp-drift.md is a representative flat workflow doc from
+	// the demo dataset (frontmatter id: XVG0FN).
+	for _, rel := range []string{".gitignore", ".doc/telemetry-timestamp-drift.md"} {
 		if _, err := os.Stat(rel); err == nil {
 			t.Errorf("%s should not exist — reused dir should not be re-extracted", rel)
 		}

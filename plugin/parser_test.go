@@ -414,7 +414,7 @@ layout: |
   id
 lanes:
   - name: Backlog
-    filter: select where status = "backlog"
+    filter: select where status = "inbox"
 actions:
   - key: "b"
     label: "Add to board"
@@ -962,7 +962,7 @@ layout: |
   id
 lanes:
   - name: Backlog
-    filter: select where status = "backlog"
+    filter: select where status = "inbox"
 actions:
   - key: "b"
     label: "Board"

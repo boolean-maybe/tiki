@@ -2,7 +2,7 @@
 id: 65KXVF
 title: "Implement protobuf schema registry for telemetry messages"
 type: story
-status: backlog
+status: inbox
 tags:
   - api
   - infrastructure

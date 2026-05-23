@@ -36,7 +36,7 @@ func TestSearchTikis_MatchesID(t *testing.T) {
 	}
 	store := &TikiStore{
 		tikis: makeTikiMap(
-			mkWF("ABC123", "Unrelated Title", "backlog", "high"),
+			mkWF("ABC123", "Unrelated Title", "inbox", "high"),
 			mkWF("DEF456", "Another Title", "ready", "medium-high"),
 		),
 	}
@@ -63,9 +63,9 @@ func TestSearchTikis_MatchesBody(t *testing.T) {
 	// Description maps to Body in tiki model.
 	store := &TikiStore{
 		tikis: makeTikiMap(
-			mkWF("AAA111", "Alpha Tiki", "Contains the keyword needle", "backlog", "medium-high"),
+			mkWF("AAA111", "Alpha Tiki", "Contains the keyword needle", "inbox", "medium-high"),
 			mkWF("BBB222", "Beta Tiki", "No match here", "ready", "high"),
-			mkWF("CCC333", "Gamma Tiki", "Another needle appears", "review", "medium"),
+			mkWF("CCC333", "Gamma Tiki", "Another needle appears", "done", "medium"),
 		),
 	}
 
@@ -140,7 +140,7 @@ func TestLoadTikiFile_DependsOn(t *testing.T) {
 id: ABC123
 title: Test Tiki
 type: story
-status: backlog
+status: inbox
 dependsOn:
   - ABC123
   - DEF456
@@ -155,7 +155,7 @@ Tiki description`,
 id: ABC123
 title: Test Tiki
 type: story
-status: backlog
+status: inbox
 dependsOn:
   - abc123
 ---
@@ -169,7 +169,7 @@ Tiki description`,
 id: ABC123
 title: Test Tiki
 type: story
-status: backlog
+status: inbox
 dependsOn:
   - ABC123
   - abc123
@@ -185,7 +185,7 @@ Tiki description`,
 id: ABC123
 title: Test Tiki
 type: story
-status: backlog
+status: inbox
 ---
 Tiki description`,
 			expectedDependsOn: []string{},
@@ -197,7 +197,7 @@ Tiki description`,
 id: ABC123
 title: Test Tiki
 type: story
-status: backlog
+status: inbox
 dependsOn: []
 ---
 Tiki description`,
@@ -213,7 +213,7 @@ Tiki description`,
 id: ABC123
 title: Test Tiki
 type: story
-status: backlog
+status: inbox
 dependsOn: not-a-list
 ---
 Tiki description`,
@@ -278,7 +278,7 @@ func TestLoadTikiFile_InvalidTags(t *testing.T) {
 id: ABC123
 title: Test Tiki
 type: story
-status: backlog
+status: inbox
 tags:
   - frontend
   - backend
@@ -296,7 +296,7 @@ Tiki description`,
 id: ABC123
 title: Test Tiki
 type: story
-status: backlog
+status: inbox
 tags: not-a-list
 ---
 Tiki description`,
@@ -310,7 +310,7 @@ Tiki description`,
 id: ABC123
 title: Test Tiki
 type: story
-status: backlog
+status: inbox
 tags: 123
 ---
 Tiki description`,
@@ -324,7 +324,7 @@ Tiki description`,
 id: ABC123
 title: Test Tiki
 type: story
-status: backlog
+status: inbox
 tags: true
 ---
 Tiki description`,
@@ -338,7 +338,7 @@ Tiki description`,
 id: ABC123
 title: Test Tiki
 type: story
-status: backlog
+status: inbox
 tags:
   key: value
 ---
@@ -352,7 +352,7 @@ Tiki description`,
 id: ABC123
 title: Test Tiki
 type: story
-status: backlog
+status: inbox
 ---
 Tiki description`,
 			expectedTags: []string{},
@@ -364,7 +364,7 @@ Tiki description`,
 id: ABC123
 title: Test Tiki
 type: story
-status: backlog
+status: inbox
 tags: []
 ---
 Tiki description`,
@@ -377,7 +377,7 @@ Tiki description`,
 id: ABC123
 title: Test Tiki
 type: story
-status: backlog
+status: inbox
 tags:
   - frontend
   - ""
@@ -393,7 +393,7 @@ Tiki description`,
 id: ABC123
 title: Test Tiki
 type: story
-status: backlog
+status: inbox
 tags:
   - frontend
   - backend
@@ -449,8 +449,8 @@ Tiki description`,
 					t.Errorf("type = %q, expected %q", typeStr, "story")
 				}
 				statusStr, _, _ := tk.StringField(tikipkg.FieldStatus)
-				if statusStr != "backlog" {
-					t.Errorf("status = %q, expected %q", statusStr, "backlog")
+				if statusStr != "inbox" {
+					t.Errorf("status = %q, expected %q", statusStr, "inbox")
 				}
 			} else {
 				if err == nil {
@@ -478,7 +478,7 @@ func TestLoadTikiFile_Due(t *testing.T) {
 id: TEST01
 title: Test Tiki
 type: story
-status: backlog
+status: inbox
 due: 2026-03-16
 ---
 Tiki description`,
@@ -492,7 +492,7 @@ Tiki description`,
 id: TEST01
 title: Test Tiki
 type: story
-status: backlog
+status: inbox
 due: '2026-03-16'
 ---
 Tiki description`,
@@ -506,7 +506,7 @@ Tiki description`,
 id: TEST01
 title: Test Tiki
 type: story
-status: backlog
+status: inbox
 ---
 Tiki description`,
 			expectZero: true,
@@ -518,7 +518,7 @@ Tiki description`,
 id: TEST01
 title: Test Tiki
 type: story
-status: backlog
+status: inbox
 due: ''
 ---
 Tiki description`,
@@ -531,7 +531,7 @@ Tiki description`,
 id: TEST01
 title: Test Tiki
 type: story
-status: backlog
+status: inbox
 due: 03/16/2026
 ---
 Tiki description`,
@@ -544,7 +544,7 @@ Tiki description`,
 id: TEST01
 title: Test Tiki
 type: story
-status: backlog
+status: inbox
 due: 20260316
 ---
 Tiki description`,
@@ -615,7 +615,7 @@ func TestLoadTikiFile_Recurrence(t *testing.T) {
 id: REC001
 title: Test Tiki
 type: story
-status: backlog
+status: inbox
 recurrence: "0 0 * * *"
 ---
 Tiki description`,
@@ -628,7 +628,7 @@ Tiki description`,
 id: REC001
 title: Test Tiki
 type: story
-status: backlog
+status: inbox
 recurrence: "0 0 * * MON"
 ---
 Tiki description`,
@@ -641,7 +641,7 @@ Tiki description`,
 id: REC001
 title: Test Tiki
 type: story
-status: backlog
+status: inbox
 ---
 Tiki description`,
 			expectValue: value.RecurrenceNone,
@@ -657,7 +657,7 @@ Tiki description`,
 id: REC001
 title: Test Tiki
 type: story
-status: backlog
+status: inbox
 recurrence: "every tuesday"
 ---
 Tiki description`,
@@ -730,7 +730,7 @@ func TestSaveTiki_Recurrence(t *testing.T) {
 			tk.ID = "RECSVR"
 			tk.Title = "Test Save Recurrence"
 			tk.Set("type", "story")
-			tk.Set("status", "backlog")
+			tk.Set("status", "inbox")
 			tk.Set("priority", "medium")
 			tk.Body = "Test description"
 			if tt.recurrence != value.RecurrenceNone {
@@ -953,7 +953,7 @@ func TestSaveTiki_Due(t *testing.T) {
 			tk.ID = "SAVE01"
 			tk.Title = "Test Save"
 			tk.Set("type", "story")
-			tk.Set("status", "backlog")
+			tk.Set("status", "inbox")
 			tk.Set("priority", "medium")
 			tk.Body = "Test description"
 			if !dueTime.IsZero() {
@@ -1542,7 +1542,7 @@ func TestSaveTiki_DedupesBuiltInCollections(t *testing.T) {
 	input.ID = "SET001"
 	input.Title = "dedupe built-ins"
 	input.Set(tikipkg.FieldType, "story")
-	input.Set(tikipkg.FieldStatus, "backlog")
+	input.Set(tikipkg.FieldStatus, "inbox")
 	input.Set(tikipkg.FieldPriority, "medium")
 	input.Set(tikipkg.FieldTags, []string{"frontend", "backend", "frontend", " backend "})
 	input.Set(tikipkg.FieldDependsOn, []string{"aaa001", "AAA001", " BBB002 "})
@@ -1589,7 +1589,7 @@ func TestSaveTiki_DedupesCustomListFields(t *testing.T) {
 	input.ID = "SET002"
 	input.Title = "dedupe custom"
 	input.Set(tikipkg.FieldType, "story")
-	input.Set(tikipkg.FieldStatus, "backlog")
+	input.Set(tikipkg.FieldStatus, "inbox")
 	input.Set(tikipkg.FieldPriority, "medium")
 	input.Set("labels", []string{"backend", "backend", " frontend ", ""})
 	input.Set("related", []string{"aaa001", "AAA001", "bbb002"})
@@ -1628,7 +1628,7 @@ func TestLoadTikiFile_FilePathAbsolute(t *testing.T) {
 id: ABC123
 title: Filepath Test
 type: story
-status: backlog
+status: inbox
 ---
 body`
 	testFile := filepath.Join(tmpDir, fileName)
@@ -1677,7 +1677,7 @@ func TestLoadSave_DropsStaleFilepathFrontmatter(t *testing.T) {
 id: FP0003
 title: Stale filepath
 type: story
-status: backlog
+status: inbox
 priority: medium
 filepath: /stale/path/FP0003.md
 ---
@@ -1730,7 +1730,7 @@ func TestSaveTiki_FilePathRefreshedAndNotSerialized(t *testing.T) {
 	tk.ID = "FP0002"
 	tk.Title = "Save Filepath Test"
 	tk.Set("type", "story")
-	tk.Set("status", "backlog")
+	tk.Set("status", "inbox")
 	tk.Set("priority", "medium")
 	if err := store.CreateTiki(tk); err != nil {
 		t.Fatalf("CreateTiki: %v", err)

@@ -17,7 +17,7 @@ func TestReloadTiki_CaseDuplicate(t *testing.T) {
 	tk.ID = "6EQDUE"
 	tk.Title = "Case Duplicate"
 	tk.Set("type", "story")
-	tk.Set("status", "backlog")
+	tk.Set("status", "inbox")
 	tk.Set("priority", "medium")
 	tk.Set("points", "1")
 	if err := store.CreateTiki(tk); err != nil {

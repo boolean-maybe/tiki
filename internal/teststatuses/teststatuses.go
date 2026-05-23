@@ -14,10 +14,9 @@ func CanonicalFields() []workflow.FieldDef {
 			Name: "status",
 			Type: workflow.TypeEnum,
 			EnumValues: []workflow.EnumValue{
-				{Value: "backlog", Label: "Backlog", Visual: "📥", Default: true},
+				{Value: "inbox", Label: "Inbox", Visual: "📥", Default: true},
 				{Value: "ready", Label: "Ready", Visual: "📋"},
 				{Value: "inProgress", Label: "In Progress", Visual: "⚙️"},
-				{Value: "review", Label: "Review", Visual: "👀"},
 				{Value: "done", Label: "Done", Visual: "✅"},
 			},
 		},
@@ -28,7 +27,7 @@ func CanonicalFields() []workflow.FieldDef {
 				{Value: "story", Label: "Story", Visual: "🌀", Default: true},
 				{Value: "bug", Label: "Bug", Visual: "💥"},
 				{Value: "spike", Label: "Spike", Visual: "🔍"},
-				{Value: "epic", Label: "Epic", Visual: "🗂️"},
+				{Value: "project", Label: "Project", Visual: "🗂️"},
 			},
 		},
 		{

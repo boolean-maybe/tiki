@@ -2,7 +2,7 @@
 id: IBLJH7
 title: "Implement role-based access control for operator console"
 type: story
-status: review
+status: inProgress
 tags:
   - security
   - compliance

@@ -2,7 +2,7 @@
 id: MVIHCW
 title: "Build configuration validation CLI tool"
 type: story
-status: backlog
+status: inbox
 tags:
   - infrastructure
   - documentation

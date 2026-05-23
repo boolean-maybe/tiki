@@ -18,7 +18,7 @@ func TestMoveThenReload_PreservesFieldMapAndPath(t *testing.T) {
 	dir := t.TempDir()
 
 	original := filepath.Join(dir, "MV0001.md")
-	src := "---\nid: MV0001\ntitle: travels\nstatus: backlog\npriority: medium-high\n---\nbody\n"
+	src := "---\nid: MV0001\ntitle: travels\nstatus: inbox\npriority: medium-high\n---\nbody\n"
 	if err := os.WriteFile(original, []byte(src), 0o644); err != nil {
 		t.Fatalf("write original: %v", err)
 	}
@@ -92,7 +92,7 @@ func TestMoveThenReload_PreservesFieldMapAndPath(t *testing.T) {
 func TestUpdateTiki_DetectsExternalEditViaOptimisticLock(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "LOK001.md")
-	src := "---\nid: LOK001\ntitle: original\nstatus: backlog\n---\nbody\n"
+	src := "---\nid: LOK001\ntitle: original\nstatus: inbox\n---\nbody\n"
 	if err := os.WriteFile(path, []byte(src), 0o644); err != nil {
 		t.Fatalf("write: %v", err)
 	}
@@ -107,7 +107,7 @@ func TestUpdateTiki_DetectsExternalEditViaOptimisticLock(t *testing.T) {
 	}
 
 	// External edit: rewrite the file and bump mtime.
-	externalSrc := "---\nid: LOK001\ntitle: clobbered externally\nstatus: backlog\n---\noutside body\n"
+	externalSrc := "---\nid: LOK001\ntitle: clobbered externally\nstatus: inbox\n---\noutside body\n"
 	if err := os.WriteFile(path, []byte(externalSrc), 0o644); err != nil {
 		t.Fatalf("external rewrite: %v", err)
 	}

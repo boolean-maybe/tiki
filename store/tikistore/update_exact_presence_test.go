@@ -18,7 +18,7 @@ func TestUpdateTiki_SparseDocPreservesExistingKeys(t *testing.T) {
 	tmp := t.TempDir()
 
 	sparsePath := filepath.Join(tmp, "SPARSE.md")
-	src := "---\nid: SPARSE\ntitle: v1\nstatus: backlog\n---\n\nbody\n"
+	src := "---\nid: SPARSE\ntitle: v1\nstatus: inbox\n---\n\nbody\n"
 	if err := os.WriteFile(sparsePath, []byte(src), 0644); err != nil {
 		t.Fatalf("write: %v", err)
 	}
@@ -46,7 +46,7 @@ func TestUpdateTiki_SparseDocPreservesExistingKeys(t *testing.T) {
 	}
 	contents := string(data)
 
-	if !strings.Contains(contents, "status: backlog") {
+	if !strings.Contains(contents, "status: inbox") {
 		t.Errorf("status key erased by UpdateTiki; contents:\n%s", contents)
 	}
 	if !strings.Contains(contents, "title: v2") {
@@ -72,7 +72,7 @@ func TestUpdateTiki_FullDocPreservesEveryKey(t *testing.T) {
 	tmp := t.TempDir()
 
 	filePath := filepath.Join(tmp, "FULL01.md")
-	src := "---\nid: FULL01\ntitle: v1\nstatus: backlog\ntype: story\npriority: medium-high\n---\n\nbody\n"
+	src := "---\nid: FULL01\ntitle: v1\nstatus: inbox\ntype: story\npriority: medium-high\n---\n\nbody\n"
 	if err := os.WriteFile(filePath, []byte(src), 0644); err != nil {
 		t.Fatalf("write: %v", err)
 	}
@@ -94,7 +94,7 @@ func TestUpdateTiki_FullDocPreservesEveryKey(t *testing.T) {
 
 	data, _ := os.ReadFile(filePath)
 	contents := string(data)
-	for _, required := range []string{"title: v2", "status: backlog", "type: story", "priority: medium-high"} {
+	for _, required := range []string{"title: v2", "status: inbox", "type: story", "priority: medium-high"} {
 		if !strings.Contains(contents, required) {
 			t.Errorf("expected %q in file after UpdateTiki; contents:\n%s", required, contents)
 		}
@@ -109,7 +109,7 @@ func TestUpdateTiki_ExplicitDeleteRemovesField(t *testing.T) {
 	tmp := t.TempDir()
 
 	filePath := filepath.Join(tmp, "TRIM01.md")
-	src := "---\nid: TRIM01\ntitle: v1\nstatus: backlog\npriority: medium-high\n---\n\nbody\n"
+	src := "---\nid: TRIM01\ntitle: v1\nstatus: inbox\npriority: medium-high\n---\n\nbody\n"
 	if err := os.WriteFile(filePath, []byte(src), 0644); err != nil {
 		t.Fatalf("write: %v", err)
 	}
@@ -131,7 +131,7 @@ func TestUpdateTiki_ExplicitDeleteRemovesField(t *testing.T) {
 
 	data, _ := os.ReadFile(filePath)
 	contents := string(data)
-	if !strings.Contains(contents, "status: backlog") {
+	if !strings.Contains(contents, "status: inbox") {
 		t.Errorf("status should be preserved; contents:\n%s", contents)
 	}
 	if strings.Contains(contents, "priority:") {
@@ -148,7 +148,7 @@ func TestUpdateTiki_OmittingAllSchemaFieldsRemovesThem(t *testing.T) {
 	tmp := t.TempDir()
 
 	filePath := filepath.Join(tmp, "SHRINK.md")
-	src := "---\nid: SHRINK\ntitle: starts with status\nstatus: backlog\n---\n\nbody\n"
+	src := "---\nid: SHRINK\ntitle: starts with status\nstatus: inbox\n---\n\nbody\n"
 	if err := os.WriteFile(filePath, []byte(src), 0644); err != nil {
 		t.Fatalf("write: %v", err)
 	}

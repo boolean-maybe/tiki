@@ -2,7 +2,7 @@
 id: YTJXEP
 title: "Build flight log replay viewer with 3D trajectory"
 type: story
-status: backlog
+status: inbox
 tags:
   - ground-station
   - ux

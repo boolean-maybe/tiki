@@ -2,7 +2,7 @@
 id: 1ERTJ5
 title: "Implement over-the-air firmware update mechanism"
 type: story
-status: backlog
+status: inbox
 tags:
   - firmware
   - infrastructure

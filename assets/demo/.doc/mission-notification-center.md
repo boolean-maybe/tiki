@@ -2,7 +2,7 @@
 id: 5IGQPK
 title: "Build dashboard notification center for mission events"
 type: story
-status: backlog
+status: inbox
 tags:
   - dashboard
   - ux

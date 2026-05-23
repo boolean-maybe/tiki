@@ -30,8 +30,8 @@ func setupPluginTestData(t *testing.T, ta *testutil.TestApp) {
 		recent   bool // needs UpdatedAt within 2 hours
 	}{
 		// Backlog plugin: status = 'backlog'
-		{"000001", "Backlog Tiki 1", "backlog", "story", false},
-		{"000002", "Backlog Tiki 2", "backlog", "bug", false},
+		{"000001", "Backlog Tiki 1", "inbox", "story", false},
+		{"000002", "Backlog Tiki 2", "inbox", "bug", false},
 
 		// Recent plugin: UpdatedAt within 2 hours
 		{"000003", "Recent Tiki 1", "ready", "story", true},
@@ -42,7 +42,7 @@ func setupPluginTestData(t *testing.T, ta *testutil.TestApp) {
 		{"000006", "Roadmap Epic 2", "inProgress", "epic", false},
 
 		// Multi-plugin match
-		{"000007", "Recent Backlog", "backlog", "story", true},
+		{"000007", "Recent Backlog", "inbox", "story", true},
 	}
 
 	for _, tiki := range tikis {
@@ -93,19 +93,19 @@ func TestPluginNavigation_PluginSwitch_ReplacesView(t *testing.T) {
 	}
 
 	// Press F3 for Backlog (should replace, not push)
-	ta.SendKey(tcell.KeyF3, 0, tcell.ModNone)
+	ta.SendKey(tcell.KeyCtrlR, 0, tcell.ModNone)
 
 	// Verify: stack depth unchanged (plugin-to-plugin uses ReplaceView), view changed
 	if ta.NavController.Depth() != 1 {
 		t.Errorf("Expected stack depth 1 after switching plugin, got %d", ta.NavController.Depth())
 	}
-	expectedViewID := model.MakePluginViewID("Backlog")
+	expectedViewID := model.MakePluginViewID("Recent")
 	if ta.NavController.CurrentViewID() != expectedViewID {
 		t.Errorf("Expected view %s, got %s", expectedViewID, ta.NavController.CurrentViewID())
 	}
 
 	// Verify screen shows plugin
-	found, _, _ := ta.FindText("Backlog")
+	found, _, _ := ta.FindText("Recent")
 	if !found {
 		t.Error("Expected to find 'Backlog' text on screen")
 	}
@@ -117,7 +117,7 @@ func TestPluginNavigation_PluginToPlugin_ReplacesView(t *testing.T) {
 
 	// Start: Kanban → Backlog
 	ta.NavController.PushView(model.MakePluginViewID("Kanban"), nil)
-	ta.SendKey(tcell.KeyF3, 0, tcell.ModNone)
+	ta.SendKey(tcell.KeyCtrlR, 0, tcell.ModNone)
 	ta.Draw()
 
 	// Verify we're on Backlog with depth 1 (plugin-to-plugin replaces)
@@ -175,17 +175,17 @@ func TestPluginNavigation_SamePluginKey_NoOp(t *testing.T) {
 
 	// Start: Kanban → Backlog
 	ta.NavController.PushView(model.MakePluginViewID("Kanban"), nil)
-	ta.SendKey(tcell.KeyF3, 0, tcell.ModNone)
+	ta.SendKey(tcell.KeyCtrlR, 0, tcell.ModNone)
 	ta.Draw()
 
-	expectedViewID := model.MakePluginViewID("Backlog")
+	expectedViewID := model.MakePluginViewID("Recent")
 	if ta.NavController.CurrentViewID() != expectedViewID {
 		t.Fatalf("Expected view %s, got %s", expectedViewID, ta.NavController.CurrentViewID())
 	}
 	initialDepth := ta.NavController.Depth()
 
 	// Press 'L' again (should be no-op)
-	ta.SendKey(tcell.KeyF3, 0, tcell.ModNone)
+	ta.SendKey(tcell.KeyCtrlR, 0, tcell.ModNone)
 
 	// Verify: no change
 	if ta.NavController.Depth() != initialDepth {
@@ -205,11 +205,11 @@ func TestPluginActions_HeaderDisplaysCorrectActions(t *testing.T) {
 	defer ta.Cleanup()
 
 	// Navigate to a plugin view
-	ta.NavController.PushView(model.MakePluginViewID("Backlog"), nil)
+	ta.NavController.PushView(model.MakePluginViewID("Recent"), nil)
 	ta.Draw()
 
 	// Verify at least the plugin name appears (header may not show all actions in test env)
-	found, _, _ := ta.FindText("Backlog")
+	found, _, _ := ta.FindText("Recent")
 	if !found {
 		t.Error("Expected to find plugin name 'Backlog' on screen")
 	}
@@ -227,10 +227,10 @@ func TestPluginActions_Navigation_ArrowKeys(t *testing.T) {
 	defer ta.Cleanup()
 
 	// Navigate to Backlog plugin (has at least 3 tikis: TIKI-1, TIKI-2, TIKI-7)
-	ta.NavController.PushView(model.MakePluginViewID("Backlog"), nil)
+	ta.NavController.PushView(model.MakePluginViewID("Recent"), nil)
 	ta.Draw()
 
-	pluginConfig := ta.GetPluginConfig("Backlog")
+	pluginConfig := ta.GetPluginConfig("Recent")
 	if pluginConfig == nil {
 		t.Fatal("Failed to get Backlog plugin config")
 	}
@@ -273,7 +273,7 @@ func TestPluginActions_OpenTiki_EnterKey(t *testing.T) {
 
 	// Navigate to Backlog plugin (replaces Kanban, depth stays 1)
 	ta.NavController.PushView(model.MakePluginViewID("Kanban"), nil)
-	ta.SendKey(tcell.KeyF3, 0, tcell.ModNone)
+	ta.SendKey(tcell.KeyCtrlR, 0, tcell.ModNone)
 	ta.Draw()
 
 	// Verify initial depth (plugin-to-plugin uses replace, so depth is 1)
@@ -295,9 +295,11 @@ func TestPluginActions_OpenTiki_EnterKey(t *testing.T) {
 		t.Errorf("Expected view %s, got %s", wantDetail, ta.NavController.CurrentViewID())
 	}
 
-	// Verify screen shows tiki title
-	found, _, _ := ta.FindText("Backlog Tiki")
+	// Verify screen shows the surfaced tiki title (Recent's most-recently-updated
+	// fixture is "Recent Backlog" — the touched-mtime fixture from setupPluginTestData).
+	found, _, _ := ta.FindText("Recent Backlog")
 	if !found {
+		ta.DumpScreen()
 		t.Error("Expected to find tiki title on screen")
 	}
 }
@@ -307,10 +309,10 @@ func TestPluginActions_DeleteTiki_DKey(t *testing.T) {
 	defer ta.Cleanup()
 
 	// Create a specific tiki to delete
-	_ = testutil.CreateTestTiki(ta.TikiDir, "DELETE", "To Delete", "backlog", "story")
+	_ = testutil.CreateTestTiki(ta.TikiDir, "DELETE", "To Delete", "inbox", "story")
 	_ = ta.TikiStore.Reload()
 
-	ta.NavController.PushView(model.MakePluginViewID("Backlog"), nil)
+	ta.NavController.PushView(model.MakePluginViewID("Recent"), nil)
 	ta.Draw()
 
 	// Verify tiki exists
@@ -341,7 +343,7 @@ func TestPluginActions_Search_SlashKey(t *testing.T) {
 	ta := setupTestAppWithPlugins(t)
 	defer ta.Cleanup()
 
-	ta.NavController.PushView(model.MakePluginViewID("Backlog"), nil)
+	ta.NavController.PushView(model.MakePluginViewID("Recent"), nil)
 	ta.Draw()
 
 	// Press '/' to open search
@@ -350,7 +352,7 @@ func TestPluginActions_Search_SlashKey(t *testing.T) {
 	// Verify: Search box visible (implementation may vary)
 	// This is a basic test - in real usage, search box should appear
 	// We'll just verify no crash occurs
-	if ta.NavController.CurrentViewID() != model.MakePluginViewID("Backlog") {
+	if ta.NavController.CurrentViewID() != model.MakePluginViewID("Recent") {
 		t.Error("Expected to stay on Backlog view after opening search")
 	}
 }
@@ -371,11 +373,11 @@ func TestPluginStack_MultiLevelNavigation(t *testing.T) {
 	}
 
 	// Kanban→Backlog (Replace, depth 1)
-	ta.SendKey(tcell.KeyF3, 0, tcell.ModNone)
+	ta.SendKey(tcell.KeyCtrlR, 0, tcell.ModNone)
 	if ta.NavController.Depth() != 1 {
 		t.Errorf("Expected depth 1 after Backlog (replace), got %d", ta.NavController.Depth())
 	}
-	if ta.NavController.CurrentViewID() != model.MakePluginViewID("Backlog") {
+	if ta.NavController.CurrentViewID() != model.MakePluginViewID("Recent") {
 		t.Errorf("Expected Backlog view, got %s", ta.NavController.CurrentViewID())
 	}
 
@@ -419,7 +421,7 @@ func TestPluginStack_TikiDetailFromPlugin_ReturnsToPlugin(t *testing.T) {
 
 	// Kanban→Backlog(replace)→TikiDetail(push)
 	ta.NavController.PushView(model.MakePluginViewID("Kanban"), nil)
-	ta.SendKey(tcell.KeyF3, 0, tcell.ModNone)    // Replace: Kanban→Backlog, depth 1
+	ta.SendKey(tcell.KeyCtrlR, 0, tcell.ModNone) // Replace: Kanban→Backlog, depth 1
 	ta.SendKey(tcell.KeyEnter, 0, tcell.ModNone) // Push: TikiDetail, depth 2
 
 	// Stack: Backlog, TikiDetail (depth 2)
@@ -434,12 +436,12 @@ func TestPluginStack_TikiDetailFromPlugin_ReturnsToPlugin(t *testing.T) {
 	if ta.NavController.Depth() != 1 {
 		t.Errorf("Expected depth 1 after Esc, got %d", ta.NavController.Depth())
 	}
-	if ta.NavController.CurrentViewID() != model.MakePluginViewID("Backlog") {
+	if ta.NavController.CurrentViewID() != model.MakePluginViewID("Recent") {
 		t.Errorf("Expected Backlog view, got %s", ta.NavController.CurrentViewID())
 	}
 
 	// Verify screen shows Backlog
-	found, _, _ := ta.FindText("Backlog")
+	found, _, _ := ta.FindText("Recent")
 	if !found {
 		t.Error("Expected to find 'Backlog' text on screen")
 	}
@@ -459,13 +461,13 @@ func TestPluginEsc_AtRootDoesNothing(t *testing.T) {
 
 	// Start at Kanban, switch to Backlog (ReplaceView keeps depth at 1)
 	ta.NavController.PushView(model.MakePluginViewID("Kanban"), nil)
-	ta.SendKey(tcell.KeyF3, 0, tcell.ModNone)
+	ta.SendKey(tcell.KeyCtrlR, 0, tcell.ModNone)
 
 	// Verify we're on Backlog at depth 1
 	if ta.NavController.Depth() != 1 {
 		t.Errorf("Expected depth 1, got %d", ta.NavController.Depth())
 	}
-	if ta.NavController.CurrentViewID() != model.MakePluginViewID("Backlog") {
+	if ta.NavController.CurrentViewID() != model.MakePluginViewID("Recent") {
 		t.Errorf("Expected Backlog view, got %s", ta.NavController.CurrentViewID())
 	}
 
@@ -476,7 +478,7 @@ func TestPluginEsc_AtRootDoesNothing(t *testing.T) {
 	if ta.NavController.Depth() != 1 {
 		t.Errorf("Expected depth 1 after Esc at root, got %d", ta.NavController.Depth())
 	}
-	if ta.NavController.CurrentViewID() != model.MakePluginViewID("Backlog") {
+	if ta.NavController.CurrentViewID() != model.MakePluginViewID("Recent") {
 		t.Errorf("Expected to stay on Backlog after Esc at root, got %s", ta.NavController.CurrentViewID())
 	}
 }
@@ -557,15 +559,15 @@ func TestPluginActions_DeleteTiki_UpdatesSelection(t *testing.T) {
 	}
 
 	// Create specific tikis for this test
-	_ = testutil.CreateTestTiki(ta.TikiDir, "00DEL1", "Tiki 1", "backlog", "story")
-	_ = testutil.CreateTestTiki(ta.TikiDir, "00DEL2", "Tiki 2", "backlog", "story")
-	_ = testutil.CreateTestTiki(ta.TikiDir, "00DEL3", "Tiki 3", "backlog", "story")
+	_ = testutil.CreateTestTiki(ta.TikiDir, "00DEL1", "Tiki 1", "inbox", "story")
+	_ = testutil.CreateTestTiki(ta.TikiDir, "00DEL2", "Tiki 2", "inbox", "story")
+	_ = testutil.CreateTestTiki(ta.TikiDir, "00DEL3", "Tiki 3", "inbox", "story")
 	_ = ta.TikiStore.Reload()
 
-	ta.NavController.PushView(model.MakePluginViewID("Backlog"), nil)
+	ta.NavController.PushView(model.MakePluginViewID("Recent"), nil)
 	ta.Draw()
 
-	pluginConfig := ta.GetPluginConfig("Backlog")
+	pluginConfig := ta.GetPluginConfig("Recent")
 	if pluginConfig == nil {
 		t.Fatal("Failed to get Backlog plugin config")
 	}
@@ -589,7 +591,7 @@ func TestPluginActions_DeleteTiki_UpdatesSelection(t *testing.T) {
 	backlogCount := 0
 	for _, tk := range tikis {
 		status, _, _ := tk.StringField("status")
-		if status == "backlog" {
+		if status == "inbox" {
 			backlogCount++
 		}
 	}

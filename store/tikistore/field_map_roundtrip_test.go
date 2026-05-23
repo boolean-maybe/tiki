@@ -36,7 +36,7 @@ func TestFieldMapRoundTrip_ExactPresenceAcrossSaveLoad(t *testing.T) {
 	// Body is stored without a trailing newline; the persistence layer
 	// adds one on write and parsing strips it on load.
 	tk.Body = "body content"
-	tk.Set(tikipkg.FieldStatus, "backlog")
+	tk.Set(tikipkg.FieldStatus, "inbox")
 	tk.Set(tikipkg.FieldPriority, "medium-high")
 	tk.Set(tikipkg.FieldDependsOn, []string{"DEP001"})
 	tk.Set(tikipkg.FieldTags, []string{"alpha", "beta"})
@@ -101,7 +101,7 @@ func TestFieldMapRoundTrip_ExactPresenceAcrossSaveLoad(t *testing.T) {
 	}
 
 	// And the values for the keys we set are intact.
-	if status, _, _ := got.StringField(tikipkg.FieldStatus); status != "backlog" {
+	if status, _, _ := got.StringField(tikipkg.FieldStatus); status != "inbox" {
 		t.Errorf("status drift: %q", status)
 	}
 	if pri, _, _ := got.StringField(tikipkg.FieldPriority); pri != "medium-high" {
@@ -129,7 +129,7 @@ func TestFieldMapRoundTrip_UnknownFieldsRoundTripVerbatim(t *testing.T) {
 	dir := t.TempDir()
 
 	path := filepath.Join(dir, "RTUNKN.md")
-	src := "---\nid: RTUNKN\ntitle: with unknowns\nstatus: backlog\nexternalRef: \"link-123\"\nexternalScore: 7\n---\nbody\n"
+	src := "---\nid: RTUNKN\ntitle: with unknowns\nstatus: inbox\nexternalRef: \"link-123\"\nexternalScore: 7\n---\nbody\n"
 	if err := os.WriteFile(path, []byte(src), 0o644); err != nil {
 		t.Fatalf("write: %v", err)
 	}

@@ -2,7 +2,7 @@
 id: 1T2TAL
 title: "Weekly flight test systems checklist"
 type: story
-status: backlog
+status: inbox
 tags:
   - compliance
   - safety

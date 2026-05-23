@@ -2,7 +2,7 @@
 id: 58DRC1
 title: "Daily telemetry pipeline health check"
 type: story
-status: backlog
+status: inbox
 tags:
   - infrastructure
   - telemetry

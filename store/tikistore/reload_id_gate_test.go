@@ -121,7 +121,7 @@ func TestReloadTiki_SameIDUpdatesInPlace(t *testing.T) {
 // carrying the given id and title.
 func writeWorkflowDoc(t *testing.T, path, id, title string) {
 	t.Helper()
-	content := "---\nid: " + id + "\ntitle: " + title + "\ntype: story\nstatus: backlog\n---\nbody\n"
+	content := "---\nid: " + id + "\ntitle: " + title + "\ntype: story\nstatus: inbox\n---\nbody\n"
 	if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
 		t.Fatalf("write %s: %v", path, err)
 	}

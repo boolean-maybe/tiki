@@ -1,7 +1,7 @@
 ---
 id: F8CGVY
 title: "Ground station UI rewrite with real-time collaboration"
-type: epic
+type: project
 status: ready
 tags:
   - ground-station

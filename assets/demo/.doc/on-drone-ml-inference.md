@@ -1,8 +1,8 @@
 ---
 id: PVS7HZ
 title: "Edge computing platform for on-drone ML inference"
-type: epic
-status: backlog
+type: project
+status: inbox
 tags:
   - ml-vision
   - firmware

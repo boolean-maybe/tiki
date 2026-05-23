@@ -2,7 +2,7 @@
 id: PHT0HL
 title: "Create automated flight envelope testing framework"
 type: spike
-status: backlog
+status: inbox
 tags:
   - flight-controller
   - safety

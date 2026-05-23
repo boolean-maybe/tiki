@@ -2,7 +2,7 @@
 id: 9XUY41
 title: "Add waypoint upload validation to ground station"
 type: story
-status: review
+status: inProgress
 tags:
   - ground-station
   - safety

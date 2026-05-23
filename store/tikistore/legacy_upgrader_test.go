@@ -22,9 +22,8 @@ func TestLegacyUpgrader_UpgradeTiki(t *testing.T) {
 		{"snake_case in_progress → inProgress", "in_progress", "inProgress"},
 		{"already camelCase inProgress", "inProgress", "inProgress"},
 		{"single word done", "done", "done"},
-		{"single word backlog", "backlog", "backlog"},
+		{"single word inbox", "inbox", "inbox"},
 		{"single word ready", "ready", "ready"},
-		{"single word review", "review", "review"},
 	}
 
 	for _, tt := range tests {
@@ -184,11 +183,13 @@ func TestLegacyUpgrader_UpgradeTiki_UnknownStatusFallsBackToDefault(t *testing.T
 		status     string
 		wantStatus string
 	}{
-		{"retired alias closed", "closed", "backlog"},
-		{"retired alias todo", "todo", "backlog"},
-		{"retired alias completed", "completed", "backlog"},
-		{"retired alias open", "open", "backlog"},
-		{"random text", "foobar", "backlog"},
+		{"retired alias closed", "closed", "inbox"},
+		{"retired alias todo", "todo", "inbox"},
+		{"retired alias completed", "completed", "inbox"},
+		{"retired alias open", "open", "inbox"},
+		{"retired alias backlog", "backlog", "inbox"},
+		{"retired alias review", "review", "inbox"},
+		{"random text", "foobar", "inbox"},
 	}
 
 	for _, tt := range tests {

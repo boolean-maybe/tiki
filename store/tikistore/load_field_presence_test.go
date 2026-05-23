@@ -72,7 +72,7 @@ func TestLoadTiki_PreservesAbsentSchemaKeys(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
 	tmp := t.TempDir()
 
-	sparse := "---\nid: SPARSE\ntitle: status only\nstatus: backlog\n---\n\nbody\n"
+	sparse := "---\nid: SPARSE\ntitle: status only\nstatus: inbox\n---\n\nbody\n"
 	if err := os.WriteFile(filepath.Join(tmp, "SPARSE.md"), []byte(sparse), 0644); err != nil {
 		t.Fatalf("write: %v", err)
 	}

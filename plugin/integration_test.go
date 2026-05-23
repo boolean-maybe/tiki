@@ -102,7 +102,7 @@ layout: |
   id
 lanes:
   - name: Active
-    filter: select where ("ui" in tags or "backend" in tags) and status != "done" and status != "backlog"
+    filter: select where ("ui" in tags or "backend" in tags) and status != "done" and status != "inbox"
 `
 
 	def, err := parsePluginYAML([]byte(pluginYAML), "test", schema)
@@ -167,7 +167,7 @@ lanes:
 		{"ready status", "ready", true},
 		{"inProgress status", "inProgress", true},
 		{"done status", "done", false},
-		{"review status", "review", false},
+		{"inbox status", "inbox", false},
 	}
 
 	executor := newTestExecutor()

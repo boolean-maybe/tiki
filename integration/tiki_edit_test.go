@@ -72,7 +72,7 @@ func TestEditSource_DuplicateCaseIDs_Repro(t *testing.T) {
 	tk.ID = tikiID
 	tk.Title = "Edit Source Duplicate"
 	tk.Set("type", "story")
-	tk.Set("status", "backlog")
+	tk.Set("status", "inbox")
 	tk.Set("priority", "medium")
 	tk.Set("points", "1")
 	if err := ta.TikiStore.CreateTiki(tk); err != nil {

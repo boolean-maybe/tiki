@@ -27,7 +27,7 @@ func newGateWithStore() (*TikiMutationGate, store.Store) {
 
 func newWorkflowTiki(id, title string) *tikipkg.Tiki {
 	tk := &tikipkg.Tiki{ID: id, Title: title}
-	tk.Set(tikipkg.FieldStatus, "backlog")
+	tk.Set(tikipkg.FieldStatus, "inbox")
 	tk.Set(tikipkg.FieldType, "story")
 	tk.Set(tikipkg.FieldPriority, "medium")
 	return tk
@@ -409,7 +409,7 @@ func TestBuildGate(t *testing.T) {
 
 	// BuildGate registers field validators, so an invalid tiki should be rejected
 	tk := &tikipkg.Tiki{ID: "ABC123"} // empty title → invalid
-	tk.Set(tikipkg.FieldStatus, "backlog")
+	tk.Set(tikipkg.FieldStatus, "inbox")
 	tk.Set(tikipkg.FieldType, "story")
 	tk.Set(tikipkg.FieldPriority, "medium")
 	if err := gate.CreateTiki(context.Background(), tk); err == nil {

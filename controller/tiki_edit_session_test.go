@@ -174,7 +174,7 @@ func TestTikiEditSession_SaveStatus(t *testing.T) {
 				tc.SetDraft(newTestTiki())
 			},
 			statusDisplay: "InvalidStatus",
-			wantStatus:    "backlog", // NormalizeStatus defaults to backlog
+			wantStatus:    "inbox", // NormalizeStatus defaults to inbox
 			wantSuccess:   true,
 		},
 		{

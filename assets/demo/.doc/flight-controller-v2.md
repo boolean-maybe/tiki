@@ -1,7 +1,7 @@
 ---
 id: T0CVS4
 title: "Next-generation flight controller v2 platform"
-type: epic
+type: project
 status: ready
 tags:
   - flight-controller

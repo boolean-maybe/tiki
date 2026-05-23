@@ -2,7 +2,7 @@
 id: A753LC
 title: "Monthly regulatory compliance audit"
 type: story
-status: backlog
+status: inbox
 tags:
   - compliance
   - documentation

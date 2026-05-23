@@ -280,10 +280,9 @@ func TestTikiDetailView_AllStatuses(t *testing.T) {
 	defer ta.Cleanup()
 
 	statuses := []string{
-		"backlog",
+		"inbox",
 		"ready",
 		"inProgress",
-		"review",
 		"done",
 	}
 
@@ -308,9 +307,10 @@ func TestTikiDetailView_AllStatuses(t *testing.T) {
 		// Find the tiki on board (may need to navigate between lanes)
 		tikiID := fmt.Sprintf("TIKI-%d", i+1)
 
-		// Navigate to correct lane based on status
-		// For simplicity, we'll just open first tiki in todo lane for this test
-		if status == "ready" {
+		// Navigate to correct lane based on status.
+		// Kanban's first (leftmost) lane is Inbox, so pressing Enter opens
+		// the first inbox tiki — assert we land on the canonical inbox ID.
+		if status == "inbox" {
 			ta.SendKey(tcell.KeyEnter, 0, tcell.ModNone)
 
 			// Verify tiki ID visible (use the normalized canonical id since

@@ -43,6 +43,9 @@ func runDemo() error {
 	if err := ensureDemoWorkflow(demoDirName); err != nil {
 		return fmt.Errorf("ensure demo workflow: %w", err)
 	}
+	if err := ensureDemoAssets(demoDirName); err != nil {
+		return fmt.Errorf("ensure demo assets: %w", err)
+	}
 
 	if err := os.Chdir(demoDirName); err != nil {
 		return fmt.Errorf("change to demo directory: %w", err)
@@ -114,6 +117,41 @@ func ensureDemoWorkflow(dst string) error {
 		return fmt.Errorf("write %s: %w", path, err)
 	}
 	return nil
+}
+
+// ensureDemoAssets restores bundled demo media that existing demo directories
+// may be missing, without overwriting local edits to files already present.
+func ensureDemoAssets(dst string) error {
+	assetRoot := filepath.Join(demoFSRoot, ".doc", "assets")
+	return fs.WalkDir(demoFS, assetRoot, func(path string, d fs.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		if path == assetRoot {
+			return nil
+		}
+
+		rel := strings.TrimPrefix(path, demoFSRoot+"/")
+		target := filepath.Join(dst, rel)
+		if d.IsDir() {
+			return os.MkdirAll(target, 0o750)
+		}
+		if _, err := os.Stat(target); err == nil {
+			return nil
+		}
+
+		data, err := demoFS.ReadFile(path)
+		if err != nil {
+			return fmt.Errorf("read embedded %s: %w", path, err)
+		}
+		if err := os.MkdirAll(filepath.Dir(target), 0o750); err != nil {
+			return fmt.Errorf("create parent for %s: %w", target, err)
+		}
+		if err := os.WriteFile(target, data, 0o644); err != nil {
+			return fmt.Errorf("write %s: %w", target, err)
+		}
+		return nil
+	})
 }
 
 // materializeDemo walks the embedded demo tree and writes it under dst.

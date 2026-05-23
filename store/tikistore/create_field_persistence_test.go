@@ -68,7 +68,7 @@ func TestUpdateTiki_OmittingSchemaFieldsRemovesThem(t *testing.T) {
 	tk := tikipkg.New()
 	tk.ID = "SHRINK"
 	tk.Title = "starts with status"
-	tk.Set(tikipkg.FieldStatus, "backlog")
+	tk.Set(tikipkg.FieldStatus, "inbox")
 	tk.Set(tikipkg.FieldPriority, "medium-high")
 	if err := s.CreateTiki(tk); err != nil {
 		t.Fatalf("CreateTiki with schema fields: %v", err)
@@ -128,7 +128,7 @@ func TestUpdateTiki_ClonedStoredTikiPreservesFields(t *testing.T) {
 	tk := tikipkg.New()
 	tk.ID = "CARRY1"
 	tk.Title = "carries status"
-	tk.Set(tikipkg.FieldStatus, "backlog")
+	tk.Set(tikipkg.FieldStatus, "inbox")
 	if err := s.CreateTiki(tk); err != nil {
 		t.Fatalf("CreateTiki: %v", err)
 	}

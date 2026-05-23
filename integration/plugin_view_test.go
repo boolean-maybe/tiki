@@ -4,6 +4,7 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+	"time"
 
 	"github.com/boolean-maybe/tiki/model"
 	"github.com/boolean-maybe/tiki/testutil"
@@ -11,30 +12,42 @@ import (
 	"github.com/gdamore/tcell/v2"
 )
 
-// setupPluginViewTest creates a test app with plugins loaded and test data
+// setupPluginViewTest creates a test app with plugins loaded and test data.
+// Recent plugin orders by updatedAt desc, so we backdate file mtimes such
+// that 000001 is newest (appears first), 000002 next, etc. — matching the
+// pre-Backlog-removal ordering these tests were written against.
 func setupPluginViewTest(t *testing.T) *testutil.TestApp {
 	ta := testutil.NewTestApp(t)
 	if err := ta.LoadPlugins(); err != nil {
 		t.Fatalf("Failed to load plugins: %v", err)
 	}
 
-	// Create tikis for Backlog plugin (status = backlog)
 	tikis := []struct {
 		id     string
 		title  string
 		status string
 		typ    string
 	}{
-		{"000001", "First Backlog Tiki", "backlog", "story"},
-		{"000002", "Second Backlog Tiki", "backlog", "bug"},
-		{"000003", "Third Backlog Tiki", "backlog", "story"},
-		{"000004", "Fourth Backlog Tiki", "backlog", "bug"},
+		{"000001", "First Backlog Tiki", "inbox", "story"},
+		{"000002", "Second Backlog Tiki", "inbox", "bug"},
+		{"000003", "Third Backlog Tiki", "inbox", "story"},
+		{"000004", "Fourth Backlog Tiki", "inbox", "bug"},
 		{"000005", "Todo Tiki (not in backlog)", "ready", "story"},
 	}
 
 	for _, tiki := range tikis {
 		if err := testutil.CreateTestTiki(ta.TikiDir, tiki.id, tiki.title, tiki.status, tiki.typ); err != nil {
 			t.Fatalf("Failed to create tiki: %v", err)
+		}
+	}
+
+	// Stagger mtimes so 000001 sorts newest under Recent's `order by updatedAt desc`.
+	now := time.Now()
+	for i, tiki := range tikis {
+		path := filepath.Join(ta.TikiDir, tiki.id+".md")
+		mtime := now.Add(-time.Duration(i) * time.Minute)
+		if err := os.Chtimes(path, mtime, mtime); err != nil {
+			t.Fatalf("Chtimes %s: %v", path, err)
 		}
 	}
 
@@ -54,8 +67,8 @@ func TestPluginView_GridNavigation(t *testing.T) {
 	// Navigate: Board → Backlog Plugin
 	ta.NavController.PushView(model.MakePluginViewID("Kanban"), nil)
 	ta.Draw()
-	ta.SendKey(tcell.KeyF3, 0, tcell.ModNone) // F3 = Backlog plugin
-	ta.Draw()                                 // Redraw after view change
+	ta.SendKey(tcell.KeyCtrlR, 0, tcell.ModNone) // F3 = Backlog plugin
+	ta.Draw()                                    // Redraw after view change
 
 	// Verify we're on plugin view
 	currentView := ta.NavController.CurrentView()
@@ -64,7 +77,7 @@ func TestPluginView_GridNavigation(t *testing.T) {
 	}
 
 	// Get plugin config
-	pluginConfig := ta.GetPluginConfig("Backlog")
+	pluginConfig := ta.GetPluginConfig("Recent")
 	if pluginConfig == nil {
 		t.Fatalf("Backlog plugin config not found")
 	}
@@ -118,29 +131,39 @@ func TestPluginView_GridNavigation(t *testing.T) {
 	}
 }
 
-// TestPluginView_FilterByStatus verifies plugin filters tikis by status
-func TestPluginView_FilterByStatus(t *testing.T) {
+// TestPluginView_FilterByRecency verifies the Recent plugin's filter excludes
+// tikis whose updatedAt falls outside the 24h window.
+func TestPluginView_FilterByRecency(t *testing.T) {
 	ta := setupPluginViewTest(t)
 	defer ta.Cleanup()
 
-	// Navigate: Board → Backlog Plugin
+	// Backdate one tiki past Recent's 24h window so it should be excluded.
+	stalePath := filepath.Join(ta.TikiDir, "000005.md")
+	stale := time.Now().Add(-48 * time.Hour)
+	if err := os.Chtimes(stalePath, stale, stale); err != nil {
+		t.Fatalf("Chtimes: %v", err)
+	}
+	if err := ta.TikiStore.Reload(); err != nil {
+		t.Fatalf("Reload: %v", err)
+	}
+
 	ta.NavController.PushView(model.MakePluginViewID("Kanban"), nil)
 	ta.Draw()
-	ta.SendKey(tcell.KeyF3, 0, tcell.ModNone) // F3 = Backlog plugin
+	ta.SendKey(tcell.KeyCtrlR, 0, tcell.ModNone)
 
-	// Verify backlog tikis are visible
+	// Recent tikis are visible.
 	found1, _, _ := ta.FindText("000001")
 	found2, _, _ := ta.FindText("000002")
 	if !found1 || !found2 {
 		ta.DumpScreen()
-		t.Errorf("backlog tikis should be visible in backlog plugin")
+		t.Errorf("recent tikis should be visible in Recent plugin")
 	}
 
-	// Verify non-backlog tiki is NOT visible
+	// Stale tiki is filtered out.
 	found5, _, _ := ta.FindText("000005")
 	if found5 {
 		ta.DumpScreen()
-		t.Errorf("todo tiki TIKI-5 should NOT be visible in backlog plugin")
+		t.Errorf("stale tiki 000005 should NOT be visible in Recent plugin")
 	}
 }
 
@@ -152,7 +175,7 @@ func TestPluginView_OpenTiki(t *testing.T) {
 	// Navigate: Board → Backlog Plugin
 	ta.NavController.PushView(model.MakePluginViewID("Kanban"), nil)
 	ta.Draw()
-	ta.SendKey(tcell.KeyF3, 0, tcell.ModNone) // F3 = Backlog plugin
+	ta.SendKey(tcell.KeyCtrlR, 0, tcell.ModNone) // F3 = Backlog plugin
 
 	// Press Enter to open first tiki
 	ta.SendKey(tcell.KeyEnter, 0, tcell.ModNone)
@@ -182,7 +205,7 @@ func TestPluginView_DeleteTiki(t *testing.T) {
 	// Navigate: Board → Backlog Plugin
 	ta.NavController.PushView(model.MakePluginViewID("Kanban"), nil)
 	ta.Draw()
-	ta.SendKey(tcell.KeyF3, 0, tcell.ModNone)
+	ta.SendKey(tcell.KeyCtrlR, 0, tcell.ModNone)
 
 	// Verify TIKI-1 is visible
 	found, _, _ := ta.FindText("000001")
@@ -219,7 +242,7 @@ func TestPluginView_Search(t *testing.T) {
 	// Navigate: Board → Backlog Plugin
 	ta.NavController.PushView(model.MakePluginViewID("Kanban"), nil)
 	ta.Draw()
-	ta.SendKey(tcell.KeyF3, 0, tcell.ModNone)
+	ta.SendKey(tcell.KeyCtrlR, 0, tcell.ModNone)
 
 	// Verify multiple tikis visible initially
 	found1, _, _ := ta.FindText("000001")
@@ -309,7 +332,8 @@ func TestPluginView_SearchNoResults(t *testing.T) {
 	}
 }
 
-// TestPluginView_EmptyPlugin verifies plugin view with no matching tikis
+// TestPluginView_EmptyPlugin verifies plugin view with no matching tikis.
+// All fixtures are backdated past Recent's 24h window so the plugin is empty.
 func TestPluginView_EmptyPlugin(t *testing.T) {
 	ta := testutil.NewTestApp(t)
 	defer ta.Cleanup()
@@ -318,30 +342,33 @@ func TestPluginView_EmptyPlugin(t *testing.T) {
 		t.Fatalf("Failed to load plugins: %v", err)
 	}
 
-	// Create only todo tikis (no backlog tikis)
-	if err := testutil.CreateTestTiki(ta.TikiDir, "000001", "Todo Tiki", "ready", "story"); err != nil {
+	if err := testutil.CreateTestTiki(ta.TikiDir, "000001", "Stale Tiki", "ready", "story"); err != nil {
 		t.Fatalf("failed to create tiki: %v", err)
 	}
+
+	stale := time.Now().Add(-48 * time.Hour)
+	stalePath := filepath.Join(ta.TikiDir, "000001.md")
+	if err := os.Chtimes(stalePath, stale, stale); err != nil {
+		t.Fatalf("Chtimes: %v", err)
+	}
+
 	if err := ta.TikiStore.Reload(); err != nil {
 		t.Fatalf("failed to reload: %v", err)
 	}
 
-	// Navigate: Board → Backlog Plugin
 	ta.NavController.PushView(model.MakePluginViewID("Kanban"), nil)
 	ta.Draw()
-	ta.SendKey(tcell.KeyF3, 0, tcell.ModNone) // F3 = Backlog plugin
+	ta.SendKey(tcell.KeyCtrlR, 0, tcell.ModNone)
 
-	// Verify no tikis are visible (empty plugin)
 	found, _, _ := ta.FindText("000001")
 	if found {
 		ta.DumpScreen()
-		t.Errorf("todo tiki should NOT be visible in backlog plugin")
+		t.Errorf("stale tiki should NOT be visible in Recent plugin (filtered by recency)")
 	}
 
 	// Verify we can still navigate (no crash)
 	ta.SendKey(tcell.KeyDown, 0, tcell.ModNone)
 	ta.SendKey(tcell.KeyUp, 0, tcell.ModNone)
-	// Should not crash
 }
 
 // TestPluginView_NavigateBetweenColumns verifies horizontal navigation wraps
@@ -352,9 +379,9 @@ func TestPluginView_NavigateBetweenColumns(t *testing.T) {
 	// Navigate: Board → Backlog Plugin
 	ta.NavController.PushView(model.MakePluginViewID("Kanban"), nil)
 	ta.Draw()
-	ta.SendKey(tcell.KeyF3, 0, tcell.ModNone)
+	ta.SendKey(tcell.KeyCtrlR, 0, tcell.ModNone)
 
-	pluginConfig := ta.GetPluginConfig("Backlog")
+	pluginConfig := ta.GetPluginConfig("Recent")
 	if pluginConfig == nil {
 		t.Fatalf("Backlog plugin config not found")
 	}
@@ -391,11 +418,11 @@ func TestPluginView_EscAtRootDoesNothing(t *testing.T) {
 	// Start at Kanban, switch to Backlog (uses ReplaceView, so still at depth 1)
 	ta.NavController.PushView(model.MakePluginViewID("Kanban"), nil)
 	ta.Draw()
-	ta.SendKey(tcell.KeyF3, 0, tcell.ModNone)
+	ta.SendKey(tcell.KeyCtrlR, 0, tcell.ModNone)
 
 	// Verify we're on Backlog plugin view at depth 1
 	currentView := ta.NavController.CurrentView()
-	if currentView.ViewID != model.MakePluginViewID("Backlog") {
+	if currentView.ViewID != model.MakePluginViewID("Recent") {
 		t.Fatalf("expected Backlog plugin view, got %v", currentView.ViewID)
 	}
 	if ta.NavController.Depth() != 1 {
@@ -407,12 +434,14 @@ func TestPluginView_EscAtRootDoesNothing(t *testing.T) {
 
 	// Verify we're still on Backlog (Esc does nothing at root)
 	currentView = ta.NavController.CurrentView()
-	if currentView.ViewID != model.MakePluginViewID("Backlog") {
+	if currentView.ViewID != model.MakePluginViewID("Recent") {
 		t.Errorf("expected to stay on Backlog after Esc at root, got %v", currentView.ViewID)
 	}
 }
 
-// TestPluginView_MultiplePlugins verifies switching between different plugins
+// TestPluginView_MultiplePlugins verifies switching between different plugins.
+// We use Recent's recency filter to demonstrate that switching plugins applies
+// a different filter to the same tiki set.
 func TestPluginView_MultiplePlugins(t *testing.T) {
 	ta := testutil.NewTestApp(t)
 	defer ta.Cleanup()
@@ -421,54 +450,49 @@ func TestPluginView_MultiplePlugins(t *testing.T) {
 		t.Fatalf("Failed to load plugins: %v", err)
 	}
 
-	// Create tikis for multiple plugins
-	// Backlog: status = backlog (also recent since just created)
-	if err := testutil.CreateTestTiki(ta.TikiDir, "000001", "Backlog Tiki", "backlog", "story"); err != nil {
+	// Recent tiki — visible on both Kanban and Recent.
+	if err := testutil.CreateTestTiki(ta.TikiDir, "000001", "Fresh Tiki", "inbox", "story"); err != nil {
 		t.Fatalf("failed to create tiki: %v", err)
 	}
 
-	// Recent: status = todo (also recent since just created)
-	if err := testutil.CreateTestTiki(ta.TikiDir, "000002", "Recent Tiki", "ready", "story"); err != nil {
+	// Stale tiki — visible on Kanban (no recency filter), hidden on Recent.
+	if err := testutil.CreateTestTiki(ta.TikiDir, "000002", "Stale Tiki", "ready", "story"); err != nil {
 		t.Fatalf("failed to create tiki: %v", err)
+	}
+	stale := time.Now().Add(-48 * time.Hour)
+	stalePath := filepath.Join(ta.TikiDir, "000002.md")
+	if err := os.Chtimes(stalePath, stale, stale); err != nil {
+		t.Fatalf("Chtimes: %v", err)
 	}
 
 	if err := ta.TikiStore.Reload(); err != nil {
 		t.Fatalf("failed to reload: %v", err)
 	}
 
-	// Navigate: Board → Backlog Plugin
+	// Kanban shows both (no recency filter).
 	ta.NavController.PushView(model.MakePluginViewID("Kanban"), nil)
 	ta.Draw()
-	ta.SendKey(tcell.KeyF3, 0, tcell.ModNone) // F3 = Backlog
-
-	// Verify only backlog tiki visible in Backlog plugin
 	found1, _, _ := ta.FindText("000001")
-	if !found1 {
+	found2, _, _ := ta.FindText("000002")
+	if !found1 || !found2 {
 		ta.DumpScreen()
-		t.Errorf("backlog tiki should be visible in backlog plugin")
+		t.Errorf("both tikis should be visible on Kanban (no recency filter)")
 	}
 
-	found2InBacklog, _, _ := ta.FindText("000002")
-	if found2InBacklog {
-		ta.DumpScreen()
-		t.Errorf("todo tiki should NOT be visible in backlog plugin (filtered by status)")
-	}
+	// Switch to Recent plugin (Ctrl-R).
+	ta.SendKey(tcell.KeyCtrlR, 0, tcell.ModNone)
 
-	// Switch to Recent plugin (Ctrl-R)
-	ta.SendKey(tcell.KeyRune, 'R', tcell.ModCtrl)
-
-	// Verify BOTH tikis visible in Recent plugin (both were just created)
-	// Recent shows all recently modified/created tikis regardless of status
+	// Recent excludes the stale tiki.
 	found1InRecent, _, _ := ta.FindText("000001")
 	if !found1InRecent {
 		ta.DumpScreen()
-		t.Errorf("backlog tiki should be visible in recent plugin (recently created)")
+		t.Errorf("fresh tiki should be visible on Recent plugin")
 	}
 
 	found2InRecent, _, _ := ta.FindText("000002")
-	if !found2InRecent {
+	if found2InRecent {
 		ta.DumpScreen()
-		t.Errorf("todo tiki should be visible in recent plugin (recently created)")
+		t.Errorf("stale tiki should NOT be visible on Recent plugin (filtered by recency)")
 	}
 }
 
@@ -481,9 +505,9 @@ func TestPluginView_ViKeysNavigation(t *testing.T) {
 	// Navigate: Board → Backlog Plugin
 	ta.NavController.PushView(model.MakePluginViewID("Kanban"), nil)
 	ta.Draw()
-	ta.SendKey(tcell.KeyF3, 0, tcell.ModNone)
+	ta.SendKey(tcell.KeyCtrlR, 0, tcell.ModNone)
 
-	pluginConfig := ta.GetPluginConfig("Backlog")
+	pluginConfig := ta.GetPluginConfig("Recent")
 	if pluginConfig == nil {
 		t.Fatalf("Backlog plugin config not found")
 	}
@@ -539,9 +563,9 @@ func TestPluginView_SelectionPersistsAcrossViews(t *testing.T) {
 	// Navigate: Board → Backlog Plugin
 	ta.NavController.PushView(model.MakePluginViewID("Kanban"), nil)
 	ta.Draw()
-	ta.SendKey(tcell.KeyF3, 0, tcell.ModNone)
+	ta.SendKey(tcell.KeyCtrlR, 0, tcell.ModNone)
 
-	pluginConfig := ta.GetPluginConfig("Backlog")
+	pluginConfig := ta.GetPluginConfig("Recent")
 	if pluginConfig == nil {
 		t.Fatalf("Backlog plugin config not found")
 	}

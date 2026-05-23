@@ -2,7 +2,7 @@
 id: 9T84AZ
 title: "Implement geofence enforcement engine in mission planner"
 type: story
-status: backlog
+status: inbox
 tags:
   - safety
   - compliance

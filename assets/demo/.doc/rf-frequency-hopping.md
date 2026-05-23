@@ -2,7 +2,7 @@
 id: I64CIY
 title: "Implement emergency frequency hopping for RF interference"
 type: story
-status: backlog
+status: inbox
 tags:
   - flight-controller
   - safety

@@ -2,7 +2,7 @@
 id: 94874F
 title: "Implement mission plan versioning and rollback"
 type: story
-status: backlog
+status: inbox
 tags:
   - safety
   - compliance

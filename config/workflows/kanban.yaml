@@ -1,14 +1,14 @@
 version: "0.6.0"
 description: |
-  Kanban-style workflow for small-team software work. Five statuses
-  (Backlog → Ready → In Progress → Review → Done) and four task types
+  Kanban-style workflow for small-team software work. Four statuses
+  (Inbox → Ready → In Progress → Done) and four task types
   (Story, Bug, Spike, Project). Includes an "assign to me" action.
 fields:
   - name: status
     type: enum
     values:
-      - value: backlog
-        label: Backlog
+      - value: inbox
+        label: Inbox
         visual: "📥"
         default: true
       - value: ready
@@ -17,9 +17,6 @@ fields:
       - value: inProgress
         label: "In Progress"
         visual: "⚙️"
-      - value: review
-        label: Review
-        visual: "👀"
       - value: done
         label: Done
         visual: "✅"
@@ -159,36 +156,20 @@ views:
       <text.secondary>title
       "priority " + priority.visual + "  points " + points.visual
     lanes:
+      - name: Inbox
+        filter: select where status = "inbox" and type != "project" and has(priority) order by priority, createdAt
+        action: update where id = id() set status="inbox"
       - name: Ready
         filter: select where status = "ready" and type != "project" and has(priority) order by priority, createdAt
         action: update where id = id() set status="ready"
       - name: In Progress
         filter: select where status = "inProgress" and type != "project" and has(priority) order by priority, createdAt
         action: update where id = id() set status="inProgress"
-      - name: Review
-        filter: select where status = "review" and type != "project" and has(priority) order by priority, createdAt
-        action: update where id = id() set status="review"
       - name: Done
         filter: select where status = "done" and type != "project" and has(priority) order by priority, createdAt
         action: update where id = id() set status="done"
-
-  - name: Backlog
-    kind: board
-    description: "Tasks waiting to be picked up, sorted by priority"
-    key: "F3"
-    layout: |
-      type.visual + " " + id
-      <text.secondary>title
-      "priority " + priority.visual + "  points " + points.visual
-    lanes:
-      - name: Backlog
-        columns: 4
-        filter: select where status = "backlog" and type != "project" and has(priority) order by priority, id
     actions:
-      - key: "b"
-        label: "Add to board"
-        action: update where id = id() set status="ready"
-      - key: "e"
+      - key: "p"
         label: "Link to project"
         action: update where id = choose(select where type = "project" and outer.id not in dependsOn) set dependsOn = dependsOn + id()
 
@@ -222,13 +203,13 @@ views:
       - name: Next
         columns: 1
         width: 25
-        filter: select where type = "project" and status = "backlog" and has(priority) and priority = "high" and has(points) order by priority, points
-        action: update where id = id() set status="backlog" priority="high"
+        filter: select where type = "project" and status = "inbox" and has(priority) and priority = "high" and has(points) order by priority, points
+        action: update where id = id() set status="inbox" priority="high"
       - name: Later
         columns: 2
         width: 50
-        filter: select where type = "project" and status = "backlog" and has(priority) and priority > "high" and has(points) order by priority, points
-        action: update where id = id() set status="backlog" priority="medium-high"
+        filter: select where type = "project" and status = "inbox" and has(priority) and priority > "high" and has(points) order by priority, points
+        action: update where id = id() set status="inbox" priority="medium-high"
     actions:
       - key: Enter
         label: Open
@@ -300,11 +281,11 @@ triggers:
       before update
         where new.status = "done" and new.dependsOn any status != "done"
         deny "cannot complete: has open dependencies"
-  - description: tasks must pass through review before completion
+  - description: tasks must pass through in-progress before completion
     ruki: >
       before update
-        where new.status = "done" and old.status != "review"
-        deny "tasks must go through review before marking done"
+        where new.status = "done" and old.status != "inProgress"
+        deny "tasks must be in-progress before marking done"
   - description: remove deleted task from dependency lists
     ruki: >
       after delete
@@ -328,10 +309,10 @@ triggers:
     ruki: >
       before delete
         where old.status = "inProgress"
-        deny "cannot delete an in-progress task — move to backlog or done first"
+        deny "cannot delete an in-progress task — move to inbox or done first"
   - description: spawn next occurrence when recurring task completes
     ruki: >
       after update
         where new.status = "done" and old.recurrence is not empty
         create title=old.title priority=old.priority tags=old.tags
-               recurrence=old.recurrence due=next_date(old.recurrence) status="backlog"
+               recurrence=old.recurrence due=next_date(old.recurrence) status="inbox"

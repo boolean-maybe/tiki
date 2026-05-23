@@ -2,7 +2,7 @@
 id: 3GDPPQ
 title: "Implement certificate rotation for drone fleet"
 type: story
-status: backlog
+status: inbox
 tags:
   - security
   - infrastructure

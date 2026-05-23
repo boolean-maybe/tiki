@@ -122,7 +122,7 @@ func TestRecursiveLoad_NewTikiLandsAtDocRoot(t *testing.T) {
 	tk.ID = "EEEEEE"
 	tk.Title = "new doc"
 	tk.Set("type", "story")
-	tk.Set("status", "backlog")
+	tk.Set("status", "inbox")
 	tk.Set("priority", "medium")
 	if err := store.CreateTiki(tk); err != nil {
 		t.Fatalf("CreateTiki: %v", err)
@@ -234,7 +234,7 @@ func writeDoc(t *testing.T, path, id, title string) {
 	if err := os.MkdirAll(filepath.Dir(path), 0755); err != nil {
 		t.Fatalf("mkdir %s: %v", filepath.Dir(path), err)
 	}
-	content := "---\nid: " + id + "\ntitle: " + title + "\ntype: story\nstatus: backlog\n---\nbody\n"
+	content := "---\nid: " + id + "\ntitle: " + title + "\ntype: story\nstatus: inbox\n---\nbody\n"
 	if err := os.WriteFile(path, []byte(content), 0644); err != nil {
 		t.Fatalf("write %s: %v", path, err)
 	}

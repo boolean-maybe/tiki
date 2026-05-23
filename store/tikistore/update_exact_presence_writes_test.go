@@ -96,12 +96,12 @@ func TestUpdateTiki_ZeroValueOnExistingFieldsAdds(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
 	tmp := t.TempDir()
 
-	// Seed a tiki with `status` only. Use backlog so this test is
+	// Seed a tiki with `status` only. Use inbox so this test is
 	// independent of any test that mutates the active status registry —
-	// `backlog` is in the default registry, so StatusToString round-trips
+	// `inbox` is in the default registry, so StatusToString round-trips
 	// it verbatim.
 	statusPath := filepath.Join(tmp, "STAT01.md")
-	src := "---\nid: STAT01\ntitle: status-only doc\nstatus: backlog\n---\n\nbody\n"
+	src := "---\nid: STAT01\ntitle: status-only doc\nstatus: inbox\n---\n\nbody\n"
 	if err := os.WriteFile(statusPath, []byte(src), 0644); err != nil {
 		t.Fatalf("write: %v", err)
 	}
@@ -132,8 +132,8 @@ func TestUpdateTiki_ZeroValueOnExistingFieldsAdds(t *testing.T) {
 	}
 	content := string(got)
 
-	if !strings.Contains(content, "status: backlog") {
-		t.Errorf("original status: backlog should survive; got:\n%s", content)
+	if !strings.Contains(content, "status: inbox") {
+		t.Errorf("original status: inbox should survive; got:\n%s", content)
 	}
 	if !strings.Contains(content, "escalations: 0") {
 		t.Errorf("explicit escalations: 0 assignment must be written to disk; got:\n%s", content)
