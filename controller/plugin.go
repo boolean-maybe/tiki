@@ -158,7 +158,7 @@ func (pc *PluginController) buildExecutionInput(pa *plugin.PluginAction) (ruki.E
 		input.SelectedTikiIDs = ids
 	}
 
-	if pa.Action.IsCreate() {
+	if pa.Action != nil && pa.Action.IsCreate() {
 		template, err := pc.tikiStore.NewTikiTemplate()
 		if err != nil {
 			slog.Error("failed to create tiki template for plugin action", "error", err)
@@ -448,7 +448,11 @@ func (pc *PluginController) GetActionChooseSpec(actionID ActionID) (string, bool
 	return pa.Label, true
 }
 
-// CanStartActionChoose checks preflight and evaluates the subquery to build candidates.
+// CanStartActionChoose checks preflight and evaluates the subquery to build
+// candidates. Empty results flow through and open an empty QuickSelect — the
+// empty list is itself the answer the user wanted to see (e.g. "this epic
+// has no tasks", "no matching candidates"), and is more discoverable than a
+// statusline message.
 func (pc *PluginController) CanStartActionChoose(actionID ActionID) (string, []*tikipkg.Tiki, bool) {
 	pa, ok := pc.getPluginAction(actionID)
 	if !ok || !pa.HasChoose {
@@ -469,21 +473,22 @@ func (pc *PluginController) CanStartActionChoose(actionID ActionID) (string, []*
 		}
 		return "", nil, false
 	}
-	if len(candidateTikis) == 0 {
-		if pc.statusline != nil {
-			pc.statusline.SetMessage("no matching tikis for choose()", model.MessageLevelError, true)
-		}
-		return "", nil, false
-	}
 	sortTikisByPriorityTitle(candidateTikis)
 	return pa.Label, candidateTikis, true
 }
 
 // HandleActionChoose handles the selected tiki ID from the QuickSelect picker.
+// For ruki-kind actions the chosen id is fed back into the validated statement
+// via ExecutionInput.ChooseValue. For view-kind actions the chosen id replaces
+// the source view's cursor selection in the navigation params, so the target
+// detail view opens on the picked tiki rather than the cursor row.
 func (pc *PluginController) HandleActionChoose(actionID ActionID, tikiID string) bool {
 	pa, ok := pc.getPluginAction(actionID)
 	if !ok || !pa.HasChoose {
 		return false
+	}
+	if pa.Kind == plugin.ActionKindView {
+		return pc.handleViewActionWithChosenID(pa, tikiID)
 	}
 	input, ok := pc.buildExecutionInput(pa)
 	if !ok {
@@ -492,6 +497,26 @@ func (pc *PluginController) HandleActionChoose(actionID ActionID, tikiID string)
 	input.ChooseValue = tikiID
 	input.HasChoose = true
 	return pc.executeAndApply(pa, input)
+}
+
+// handleViewActionWithChosenID is handleViewAction's choose-driven sibling:
+// the chosen tiki id (from QuickSelect) drives the target view's navigation
+// params, replacing what handleViewAction would have read from the cursor.
+// The target view's `require:` is still evaluated, but against a carried
+// count of 1 (the chosen id), since QuickSelect always produces exactly one.
+func (pc *PluginController) handleViewActionWithChosenID(pa *plugin.PluginAction, tikiID string) bool {
+	if pa.TargetView == "" || tikiID == "" {
+		return false
+	}
+	if !TargetViewEnabled(pa.TargetView, 1) {
+		return false
+	}
+	pvp, ok := buildDetailViewParams(pa.Mode, []string{tikiID}, pc.tikiStore)
+	if !ok {
+		return false
+	}
+	pc.navController.PushView(model.MakePluginViewID(pa.TargetView), model.EncodePluginViewParams(pvp))
+	return true
 }
 
 func (pc *PluginController) handleMoveTiki(offset int) bool {

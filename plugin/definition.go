@@ -151,6 +151,11 @@ type DetailPlugin struct {
 // PluginActionConfig represents a shortcut action in YAML or config definitions.
 // A PluginActionConfig models either a ruki-executing action (Action is set)
 // or a view-switching action (View is set). Exactly one must be set.
+//
+// Choose is optional on kind: view actions only. When set, it carries a bare
+// ruki "select [where <cond>]" that produces the candidate set for a
+// QuickSelect picker; the chosen tiki id is then carried into the target
+// view's navigation params instead of the source view's cursor selection.
 type PluginActionConfig struct {
 	Key     string   `yaml:"key" mapstructure:"key"`
 	Label   string   `yaml:"label" mapstructure:"label"`
@@ -158,6 +163,7 @@ type PluginActionConfig struct {
 	Mode    string   `yaml:"mode,omitempty" mapstructure:"mode"`
 	Action  string   `yaml:"action" mapstructure:"action"`
 	View    string   `yaml:"view,omitempty" mapstructure:"view"`
+	Choose  string   `yaml:"choose,omitempty" mapstructure:"choose"`
 	Hot     *bool    `yaml:"hot,omitempty" mapstructure:"hot"`
 	Input   string   `yaml:"input,omitempty" mapstructure:"input"`
 	Require []string `yaml:"require,omitempty" mapstructure:"require"`

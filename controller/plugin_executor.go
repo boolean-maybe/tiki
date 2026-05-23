@@ -82,6 +82,36 @@ func (pe *PluginExecutor) BuildExecutionInput(pa *plugin.PluginAction, selectedI
 	return input, true
 }
 
+// EvalChooseFilter evaluates an action's choose subquery against the current
+// store state, returning the candidate tikis sorted by priority/title. Errors
+// surface to the statusline so the caller can simply abort dispatch on
+// ok=false.
+//
+// Empty results are handled by the caller, not here, because the right
+// behavior depends on the action kind: a ruki-kind choose() action with no
+// candidates is a dead end (statusline message, abort), but a view-kind
+// `choose:` action with no candidates should still open an empty QuickSelect
+// so the user sees "this list is empty" directly rather than missing a
+// statusline notification.
+func (pe *PluginExecutor) EvalChooseFilter(pa *plugin.PluginAction, input ruki.ExecutionInput) ([]*tikipkg.Tiki, bool) {
+	if pa.ChooseFilter == nil {
+		return nil, false
+	}
+	allTikis := pe.tikiStore.GetAllTikis()
+	executor := ruki.NewExecutor(pe.schema, pe.userFunc(),
+		ruki.ExecutorRuntime{Mode: ruki.ExecutorRuntimePlugin})
+	candidates, err := executor.EvalSubQueryFilter(pa.ChooseFilter, allTikis, input)
+	if err != nil {
+		slog.Error("failed to evaluate choose filter", "key", pa.KeyStr, "error", err)
+		if pe.statusline != nil {
+			pe.statusline.SetMessage(err.Error(), model.MessageLevelError, true)
+		}
+		return nil, false
+	}
+	sortTikisByPriorityTitle(candidates)
+	return candidates, true
+}
+
 // Execute runs a ruki-kind action and applies its result. Returns true on
 // success (including a benign select-only pipeline).
 func (pe *PluginExecutor) Execute(pa *plugin.PluginAction, input ruki.ExecutionInput) bool {

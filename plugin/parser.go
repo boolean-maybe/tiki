@@ -557,7 +557,7 @@ func parsePluginActions(configs []PluginActionConfig, parser *ruki.Parser, viewN
 		case ActionKindRuki:
 			parsed, err = parseRukiAction(cfg, i, parser, key, r, mod, keyStr)
 		case ActionKindView:
-			parsed, err = parseViewAction(cfg, i, viewNames, sourceIsDetailView, key, r, mod, keyStr)
+			parsed, err = parseViewAction(cfg, i, parser, viewNames, sourceIsDetailView, key, r, mod, keyStr)
 		default:
 			err = fmt.Errorf("action %d (key %q): unknown action kind %q", i, cfg.Key, cfg.Kind)
 		}
@@ -686,6 +686,12 @@ func parseRukiAction(cfg PluginActionConfig, idx int, parser *ruki.Parser, key t
 // tiki), `edit-desc` (edit description), and `edit-tags` (edit tags). Any other
 // value is rejected.
 //
+// The optional `choose:` field carries a bare ruki "select [where <cond>]"
+// that produces the candidate set for a QuickSelect picker; the chosen tiki
+// id is then carried into the target view's navigation params instead of the
+// source view's cursor selection. Pipes, `order by`, `limit`, and explicit
+// field lists are rejected — `choose:` is strictly a candidate filter.
+//
 // Parse errors:
 //   - "mode must be one of view, edit, new, edit-desc, edit-tags (got %q)" when
 //     the value is not in the closed vocabulary.
@@ -694,7 +700,14 @@ func parseRukiAction(cfg PluginActionConfig, idx int, parser *ruki.Parser, key t
 //   - "mode: new not valid on a detail view's own actions" when `mode: new` is
 //     declared on a detail view's own `actions:` block (a detail view is already
 //     viewing a tiki, so creating a new one is not a self-action).
-func parseViewAction(cfg PluginActionConfig, idx int, viewNames map[string]ViewKind, sourceIsDetailView bool, key tcell.Key, r rune, mod tcell.ModMask, keyStr string) (PluginAction, error) {
+//   - "`choose:` does not support pipes; remove the `| …` suffix" when the
+//     parsed select carries a pipe action.
+//   - "`choose:` does not support `order by`" / "`limit`" / "explicit field
+//     list" when the parsed select carries those clauses.
+//   - "`choose:` cannot be combined with `require: [\"selection:one\"]`" — a
+//     choose-bearing action produces its own selection via QuickSelect, so
+//     pre-requiring a cursor selection on the source view is contradictory.
+func parseViewAction(cfg PluginActionConfig, idx int, parser *ruki.Parser, viewNames map[string]ViewKind, sourceIsDetailView bool, key tcell.Key, r rune, mod tcell.ModMask, keyStr string) (PluginAction, error) {
 	if cfg.View == "" {
 		return PluginAction{}, fmt.Errorf("action %d (key %q): kind: view requires `view:` (target view name)", idx, cfg.Key)
 	}
@@ -745,6 +758,26 @@ func parseViewAction(cfg PluginActionConfig, idx int, viewNames map[string]ViewK
 		require = append(require, r)
 	}
 
+	var (
+		hasChoose    bool
+		chooseFilter *ruki.SubQuery
+	)
+	if strings.TrimSpace(cfg.Choose) != "" {
+		filter, err := parseChooseField(cfg.Choose, idx, cfg.Key, parser)
+		if err != nil {
+			return PluginAction{}, err
+		}
+		for _, req := range require {
+			if req == "selection:one" {
+				return PluginAction{}, fmt.Errorf(
+					"action %d (key %q): `choose:` cannot be combined with `require: [\"selection:one\"]`",
+					idx, cfg.Key)
+			}
+		}
+		hasChoose = true
+		chooseFilter = filter
+	}
+
 	showInHeader := true
 	if cfg.Hot != nil {
 		showInHeader = *cfg.Hot
@@ -759,8 +792,48 @@ func parseViewAction(cfg PluginActionConfig, idx int, viewNames map[string]ViewK
 		TargetView:   cfg.View,
 		Mode:         mode,
 		ShowInHeader: showInHeader,
+		HasChoose:    hasChoose,
+		ChooseFilter: chooseFilter,
 		Require:      dedup(require),
 	}, nil
+}
+
+// parseChooseField parses the value of a `choose:` YAML field on a kind: view
+// action. The value must be a bare ruki "select [where <cond>]" — pipes,
+// `order by`, `limit`, and explicit field lists are rejected so the candidate
+// filter stays unambiguous (downstream sorts uniformly via
+// sortTikisByPriorityTitle).
+func parseChooseField(src string, idx int, cfgKey string, parser *ruki.Parser) (*ruki.SubQuery, error) {
+	stmt, err := parser.ParseAndValidateStatement(src, ruki.ExecutorRuntimePlugin)
+	if err != nil {
+		return nil, fmt.Errorf("action %d (key %q) choose: %w", idx, cfgKey, err)
+	}
+	if !stmt.IsSelect() {
+		return nil, fmt.Errorf(
+			"action %d (key %q): `choose:` must be a `select` statement",
+			idx, cfgKey)
+	}
+	if stmt.IsPipe() {
+		return nil, fmt.Errorf(
+			"action %d (key %q): `choose:` does not support pipes; remove the `| …` suffix",
+			idx, cfgKey)
+	}
+	if stmt.HasOrderBy() {
+		return nil, fmt.Errorf(
+			"action %d (key %q): `choose:` does not support `order by`",
+			idx, cfgKey)
+	}
+	if stmt.HasLimit() {
+		return nil, fmt.Errorf(
+			"action %d (key %q): `choose:` does not support `limit`",
+			idx, cfgKey)
+	}
+	if stmt.HasFields() {
+		return nil, fmt.Errorf(
+			"action %d (key %q): `choose:` does not support an explicit field list",
+			idx, cfgKey)
+	}
+	return &ruki.SubQuery{Where: stmt.SelectWhere()}, nil
 }
 
 // validateRequireList validates view-level `require:` tokens.

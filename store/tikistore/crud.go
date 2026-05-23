@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log/slog"
 	"os"
+	"sort"
 
 	"github.com/boolean-maybe/tiki/config"
 	"github.com/boolean-maybe/tiki/document"
@@ -75,7 +76,11 @@ func (s *TikiStore) storeNewDocumentLocked(tk *tikipkg.Tiki) error {
 // instead of looping forever.
 const maxGenerateRetries = 100
 
-// GetAllTikis returns every loaded tiki, including plain docs.
+// GetAllTikis returns every loaded tiki, including plain docs. The result is
+// sorted by ID so callers see a deterministic order regardless of Go's
+// randomized map iteration. Stable downstream sorts (e.g. ruki "order by"
+// with tied keys) rely on this to keep tied tikis from swapping between
+// renders.
 func (s *TikiStore) GetAllTikis() []*tikipkg.Tiki {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
@@ -83,6 +88,7 @@ func (s *TikiStore) GetAllTikis() []*tikipkg.Tiki {
 	for _, tk := range s.tikis {
 		out = append(out, tk)
 	}
+	sort.Slice(out, func(i, j int) bool { return out[i].ID < out[j].ID })
 	return out
 }
 

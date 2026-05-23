@@ -79,7 +79,11 @@ func (s *InMemoryStore) GetTiki(id string) *tikipkg.Tiki {
 	return s.tikis[normalizeTikiID(id)]
 }
 
-// GetAllTikis returns every loaded tiki, including plain docs.
+// GetAllTikis returns every loaded tiki, including plain docs. The result is
+// sorted by ID so callers see a deterministic order regardless of Go's
+// randomized map iteration. Stable downstream sorts (e.g. ruki "order by"
+// with tied keys) rely on this to keep tied tikis from swapping between
+// renders.
 func (s *InMemoryStore) GetAllTikis() []*tikipkg.Tiki {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
@@ -87,6 +91,7 @@ func (s *InMemoryStore) GetAllTikis() []*tikipkg.Tiki {
 	for _, tk := range s.tikis {
 		out = append(out, tk)
 	}
+	sort.Slice(out, func(i, j int) bool { return out[i].ID < out[j].ID })
 	return out
 }
 

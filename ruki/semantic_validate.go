@@ -63,6 +63,34 @@ func (v *ValidatedStatement) HasOrderBy() bool {
 	return len(v.statement.Select.OrderBy) > 0
 }
 
+// HasLimit returns true when the underlying statement is a select with an
+// explicit "limit N" clause.
+func (v *ValidatedStatement) HasLimit() bool {
+	if v.statement == nil || v.statement.Select == nil {
+		return false
+	}
+	return v.statement.Select.Limit != nil
+}
+
+// HasFields returns true when the underlying statement is a select with an
+// explicit field list (e.g. "select id, title …" rather than bare "select"
+// or "select *").
+func (v *ValidatedStatement) HasFields() bool {
+	if v.statement == nil || v.statement.Select == nil {
+		return false
+	}
+	return len(v.statement.Select.Fields) > 0
+}
+
+// SelectWhere returns the WHERE condition of the underlying select statement,
+// or nil when the statement is not a select or carries no WHERE clause.
+func (v *ValidatedStatement) SelectWhere() Condition {
+	if v.statement == nil || v.statement.Select == nil {
+		return nil
+	}
+	return v.statement.Select.Where
+}
+
 // HasAnyInteractive returns true if the statement uses any interactive builtin.
 // Backed by the interactiveCalls map so future builtins added to the
 // interactiveBuiltins set are automatically covered.

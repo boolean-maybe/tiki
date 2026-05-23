@@ -637,9 +637,9 @@ func (dc *DetailController) dispatchRukiAction(a *plugin.PluginAction) bool {
 // HandleSearch is a no-op for detail views.
 func (dc *DetailController) HandleSearch(string) {}
 
-// Phase 1 stubs for input/choose pipelines. Phase 2 may extend these as
-// editor support lands; for now interactive ruki actions are filtered out
-// at registration time so these are not reached for detail views.
+// Phase 1 stubs for input pipelines. Interactive ruki actions are filtered
+// out at registration time, so the input pipeline is not reached for detail
+// views.
 func (dc *DetailController) GetActionInputSpec(ActionID) (string, ruki.ValueType, bool) {
 	return "", 0, false
 }
@@ -649,11 +649,92 @@ func (dc *DetailController) CanStartActionInput(ActionID) (string, ruki.ValueTyp
 func (dc *DetailController) HandleActionInput(ActionID, string) InputSubmitResult {
 	return InputKeepEditing
 }
-func (dc *DetailController) GetActionChooseSpec(ActionID) (string, bool) { return "", false }
-func (dc *DetailController) CanStartActionChoose(ActionID) (string, []*tikipkg.Tiki, bool) {
-	return "", nil, false
+
+// findChooseViewAction looks up the per-view kind: view action carrying a
+// `choose:` field by canonical action id. Returns nil for any other action
+// (ruki-kind, plain kind: view without choose:, unknown ids).
+func (dc *DetailController) findChooseViewAction(actionID ActionID) *plugin.PluginAction {
+	keyStr := getPluginActionKeyStr(actionID)
+	if keyStr == "" {
+		return nil
+	}
+	for i := range dc.pluginDef.Actions {
+		a := &dc.pluginDef.Actions[i]
+		if a.KeyStr != keyStr {
+			continue
+		}
+		if a.Kind != plugin.ActionKindView || !a.HasChoose {
+			return nil
+		}
+		return a
+	}
+	return nil
 }
-func (dc *DetailController) HandleActionChoose(ActionID, string) bool { return false }
+
+// GetActionChooseSpec recognizes kind: view actions with `choose:` so the
+// input router routes them through the QuickSelect pipeline. Ruki-kind
+// choose() on a detail view is filtered out at registration (only the
+// view-kind path is supported here).
+func (dc *DetailController) GetActionChooseSpec(actionID ActionID) (string, bool) {
+	a := dc.findChooseViewAction(actionID)
+	if a == nil {
+		return "", false
+	}
+	return a.Label, true
+}
+
+// CanStartActionChoose evaluates the choose subquery to build candidates,
+// using the detail view's own selected tiki id as the source-context "id()"
+// rather than a board-style cursor selection. Eval errors surface to the
+// statusline via PluginExecutor.EvalChooseFilter; empty results flow
+// through and open an empty QuickSelect so the user sees the list state
+// directly.
+func (dc *DetailController) CanStartActionChoose(actionID ActionID) (string, []*tikipkg.Tiki, bool) {
+	a := dc.findChooseViewAction(actionID)
+	if a == nil || dc.executor == nil {
+		return "", nil, false
+	}
+	var selection []string
+	if dc.selectedTikiID != "" {
+		selection = []string{dc.selectedTikiID}
+	}
+	input, ok := dc.executor.BuildExecutionInput(a, selection)
+	if !ok {
+		return "", nil, false
+	}
+	candidates, ok := dc.executor.EvalChooseFilter(a, input)
+	if !ok {
+		return "", nil, false
+	}
+	return a.Label, candidates, true
+}
+
+// HandleActionChoose receives the chosen tiki id from QuickSelect and pushes
+// the action's target view with that id carried in the navigation params, so
+// the target detail view opens on the picked tiki rather than the source
+// detail view's selection.
+func (dc *DetailController) HandleActionChoose(actionID ActionID, tikiID string) bool {
+	a := dc.findChooseViewAction(actionID)
+	if a == nil || tikiID == "" {
+		return false
+	}
+	if a.TargetView == "" || a.TargetView == dc.pluginDef.Name {
+		return false
+	}
+	if !TargetViewEnabled(a.TargetView, 1) {
+		return false
+	}
+	var tikiStore store.Store
+	if dc.executor != nil {
+		tikiStore = dc.executor.tikiStore
+	}
+	pvp, ok := buildDetailViewParams(a.Mode, []string{tikiID}, tikiStore)
+	if !ok {
+		return false
+	}
+	dc.navController.PushView(model.MakePluginViewID(a.TargetView), model.EncodePluginViewParams(pvp))
+	return true
+}
 
 // DetailViewActions returns the built-in action registry for kind: detail
 // when the view is in read-only mode. Phase 2 replaced the Phase 1 Edit
