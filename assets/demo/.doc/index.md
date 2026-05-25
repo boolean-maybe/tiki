@@ -44,5 +44,4 @@ graph TD
 
 Current high-impact issues tracked on the board:
 
-- [[9XPSEI]] — ground station map tile caching serves stale imagery
 - [[XVG0FN]] — representative workflow item linked by bare ID

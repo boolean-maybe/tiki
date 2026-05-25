@@ -128,5 +128,3 @@ dashboard/
 └── styles/  
     ├── theme.css  
     └── widgets.css
-
-See also [A753LC](A753LC) for related context.

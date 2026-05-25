@@ -6,8 +6,6 @@ status: inbox
 tags:
   - safety
   - compliance
-dependsOn:
-  - 30T9NT
 due: 2026-05-15
 assignee: "akowalski"
 priority: high

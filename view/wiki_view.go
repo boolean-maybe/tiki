@@ -96,6 +96,13 @@ func surfacedGlobalActions(globals []plugin.PluginAction, hostViewName string) [
 	}
 	out := make([]plugin.PluginAction, 0, len(globals))
 	for _, ga := range globals {
+		// Enter is reserved on wiki views for navidown's link-activation
+		// contract (Tab selects, Enter follows). Mirror the controller-side
+		// filter so the header and palette don't advertise an Enter binding
+		// that the controller refuses to fire.
+		if ga.Key == tcell.KeyEnter {
+			continue
+		}
 		switch ga.Kind {
 		case plugin.ActionKindView:
 			if ga.TargetView == hostViewName {

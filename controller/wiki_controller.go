@@ -9,6 +9,7 @@ import (
 	"github.com/boolean-maybe/tiki/service"
 	"github.com/boolean-maybe/tiki/store"
 	tikipkg "github.com/boolean-maybe/tiki/tiki"
+	"github.com/gdamore/tcell/v2"
 )
 
 // WikiController handles non-board view actions (wiki, detail, search).
@@ -77,6 +78,16 @@ func NewWikiController(
 //     future enhancement; see phase6.md.
 func (dc *WikiController) mergeGlobalActions() {
 	for _, ga := range dc.globalActions {
+		// Enter is reserved on wiki views for navidown's link-activation
+		// contract: Tab selects a wikilink, Enter follows it. A workflow
+		// global bound to Enter (e.g. Enter → Detail on board/list views)
+		// would otherwise be matched by the registry first and consume the
+		// keystroke before navidown ever sees it.
+		if ga.Key == tcell.KeyEnter {
+			slog.Debug("dropping Enter-bound global from wiki registry",
+				"view", dc.pluginDef.GetName(), "label", ga.Label)
+			continue
+		}
 		switch ga.Kind {
 		case plugin.ActionKindView:
 			// Surfaced unconditionally — except a global pointing at this

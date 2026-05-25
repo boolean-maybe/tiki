@@ -84,5 +84,3 @@ Multiple services produce and consume telemetry protobufs but there is no schema
 - [x] Implement rate limiting per API key
 - [ ] Build integration test suite for v1 endpoints
 - [ ] Add gRPC gateway for internal service calls
-
-See also [MVIHCW](MVIHCW) for related context.

@@ -7,9 +7,7 @@ tags:
     - api
     - documentation
 dependsOn:
-    - 3GDPPQ
     - I64CIY
-    - XAJI0Y
 assignee: jnakamura
 priority: medium
 points: 3

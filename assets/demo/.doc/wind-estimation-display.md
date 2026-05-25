@@ -114,5 +114,3 @@ dashboard/
 └── styles/  
     ├── theme.css  
     └── widgets.css
-
-See also [9XPSEI](9XPSEI) for related context.

@@ -91,9 +91,12 @@ func TestBundledKanban_HasDetailViewAndEnterAction(t *testing.T) {
 }
 
 // TestBundledKanban_DeclaresAllDetailModeActions asserts the bundled kanban
-// workflow exposes the five detail-view modes as top-level actions, replacing
-// the previously hardcoded e / n / Ctrl-D / Ctrl-T shortcuts. Each action key
-// must target the Detail view with the matching mode.
+// workflow exposes the detail-mode entry points relevant to source views as
+// top-level globals (Enter→view, e→edit, n→new). Edit-desc and edit-tags
+// modes are intentionally NOT bound: from inside Detail you press `e` to
+// enter edit mode and Tab to the desired field; the previously declared
+// Ctrl-D / Ctrl-T shortcuts collided with Detail's hardcoded Ctrl-D
+// (Dependencies) and surfaced uselessly on Docs.
 func TestBundledKanban_DeclaresAllDetailModeActions(t *testing.T) {
 	wd, err := os.Getwd()
 	if err != nil {
@@ -111,15 +114,22 @@ func TestBundledKanban_DeclaresAllDetailModeActions(t *testing.T) {
 	}
 
 	wantByKey := map[string]DetailMode{
-		"Enter":  DetailModeView,
-		"e":      DetailModeEdit,
-		"n":      DetailModeNew,
-		"Ctrl-D": DetailModeEditDesc,
-		"Ctrl-T": DetailModeEditTags,
+		"Enter": DetailModeView,
+		"e":     DetailModeEdit,
+		"n":     DetailModeNew,
+	}
+	forbiddenKeys := map[string]bool{
+		"Ctrl-D": true,
+		"Ctrl-T": true,
 	}
 	for i := range globals {
 		a := &globals[i]
 		if a.Kind != ActionKindView || a.TargetView != "Detail" {
+			continue
+		}
+		if forbiddenKeys[a.KeyStr] {
+			t.Errorf("global Detail-view action for key %q must not exist (mode=%q): "+
+				"collides with Detail's hardcoded Ctrl-D and surfaces on Docs", a.KeyStr, a.Mode)
 			continue
 		}
 		want, ok := wantByKey[a.KeyStr]

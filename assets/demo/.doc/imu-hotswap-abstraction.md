@@ -100,5 +100,3 @@ void imu_data_ready_isr(void) {
 - [x] Update bootloader CRC verification
 - [ ] Profile ISR latency under full sensor load
 - [ ] Document memory map for STM32H7 target
-
-See also [58DRC1](58DRC1) for related context.

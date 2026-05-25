@@ -6,8 +6,6 @@ status: inProgress
 tags:
   - ground-station
   - safety
-dependsOn:
-  - IKCIDK
 assignee: "jnakamura"
 priority: medium-high
 points: 3
@@ -103,5 +101,3 @@ ground-station/
 └── public/  
     ├── tiles/  
     └── icons/
-
-See also [YTJXEP](YTJXEP) for related context.

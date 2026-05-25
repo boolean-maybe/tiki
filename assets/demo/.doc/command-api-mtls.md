@@ -124,5 +124,3 @@ security/
 └── tools/  
     ├── cert-rotate.sh  
     └── audit-scan.sh
-
-See also [IBLJH7](IBLJH7) for related context.

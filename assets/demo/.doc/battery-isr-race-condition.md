@@ -8,7 +8,6 @@ tags:
     - safety
 dependsOn:
     - 5LXO6Q
-    - XAJI0Y
 assignee: mchen
 priority: high
 points: 3
@@ -117,5 +116,3 @@ firmware/
 └── include/  
     ├── hal.h  
     └── config.h
-
-See also [JIUJV6](JIUJV6) for related context.

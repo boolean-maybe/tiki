@@ -89,18 +89,6 @@ actions:
     kind: view
     view: Detail
     mode: new
-  - key: "Ctrl-D"
-    label: "Edit description"
-    kind: view
-    view: Detail
-    mode: edit-desc
-    require: ["selection:one"]
-  - key: "Ctrl-T"
-    label: "Edit tags"
-    kind: view
-    view: Detail
-    mode: edit-tags
-    require: ["selection:one"]
   - key: "a"
     label: "Assign to me"
     action: update where id = id() set assignee=user()
@@ -184,7 +172,7 @@ views:
     lanes:
       - name: Recent
         columns: 4
-        filter: select where now() - updatedAt < 24hour order by updatedAt desc
+        filter: select where now() - updatedAt < 24hour and has(type) and type != "project" order by updatedAt desc
 
   - name: Roadmap
     kind: board
