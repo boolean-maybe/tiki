@@ -168,6 +168,17 @@ select description where id = id() | clipboard()
 select filepath | run("some-app $1")
 ```
 
+Inside a plugin action, the `filepath()` / `filepaths()` builtins resolve to the
+selected tikis' on-disk paths without an extra subquery:
+
+```sql
+-- open the selected tiki in $EDITOR
+select id where id = id() | run("$EDITOR " + filepath())
+
+-- pipe every selected tiki's path into a script
+select id where id in ids() | run("my-bulk-tool " + filepaths())
+```
+
 Pick a task interactively:
 
 ```sql

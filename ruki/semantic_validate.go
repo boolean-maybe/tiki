@@ -33,6 +33,8 @@ type ValidatedStatement struct {
 	usesIDFunc           bool
 	usesIDsFunc          bool
 	usesSelectedCountFn  bool
+	usesFilepathFunc     bool
+	usesFilepathsFunc    bool
 	usesInputFunc        bool
 	usesChooseFunc       bool
 	usesTargetQualifier  bool
@@ -46,6 +48,8 @@ func (v *ValidatedStatement) RuntimeMode() ExecutorRuntimeMode { return v.runtim
 func (v *ValidatedStatement) UsesIDBuiltin() bool              { return v.usesIDFunc }
 func (v *ValidatedStatement) UsesIDsBuiltin() bool             { return v.usesIDsFunc }
 func (v *ValidatedStatement) UsesSelectedCountBuiltin() bool   { return v.usesSelectedCountFn }
+func (v *ValidatedStatement) UsesFilepathBuiltin() bool        { return v.usesFilepathFunc }
+func (v *ValidatedStatement) UsesFilepathsBuiltin() bool       { return v.usesFilepathsFunc }
 func (v *ValidatedStatement) UsesInputBuiltin() bool           { return v.usesInputFunc }
 func (v *ValidatedStatement) UsesChooseBuiltin() bool          { return v.usesChooseFunc }
 func (v *ValidatedStatement) UsesTargetQualifier() bool        { return v.usesTargetQualifier }
@@ -146,14 +150,16 @@ func (v *ValidatedStatement) mustBeSealed() error {
 
 // ValidatedTrigger is an immutable, semantically validated event-trigger wrapper.
 type ValidatedTrigger struct {
-	seal       *validationSeal
-	runtime    ExecutorRuntimeMode
-	usesIDFunc bool
-	trigger    *Trigger
+	seal             *validationSeal
+	runtime          ExecutorRuntimeMode
+	usesIDFunc       bool
+	usesFilepathFunc bool
+	trigger          *Trigger
 }
 
 func (v *ValidatedTrigger) RuntimeMode() ExecutorRuntimeMode { return v.runtime }
 func (v *ValidatedTrigger) UsesIDBuiltin() bool              { return v.usesIDFunc }
+func (v *ValidatedTrigger) UsesFilepathBuiltin() bool        { return v.usesFilepathFunc }
 func (v *ValidatedTrigger) Timing() string {
 	if v == nil || v.trigger == nil {
 		return ""
@@ -194,14 +200,16 @@ func (v *ValidatedTrigger) mustBeSealed() error {
 
 // ValidatedTimeTrigger is an immutable, semantically validated time-trigger wrapper.
 type ValidatedTimeTrigger struct {
-	seal        *validationSeal
-	runtime     ExecutorRuntimeMode
-	usesIDFunc  bool
-	timeTrigger *TimeTrigger
+	seal             *validationSeal
+	runtime          ExecutorRuntimeMode
+	usesIDFunc       bool
+	usesFilepathFunc bool
+	timeTrigger      *TimeTrigger
 }
 
 func (v *ValidatedTimeTrigger) RuntimeMode() ExecutorRuntimeMode { return v.runtime }
 func (v *ValidatedTimeTrigger) UsesIDBuiltin() bool              { return v.usesIDFunc }
+func (v *ValidatedTimeTrigger) UsesFilepathBuiltin() bool        { return v.usesFilepathFunc }
 func (v *ValidatedTimeTrigger) IntervalLiteral() DurationLiteral {
 	if v == nil || v.timeTrigger == nil {
 		return DurationLiteral{}
@@ -364,6 +372,12 @@ func (v *SemanticValidator) ValidateStatement(stmt *Statement) (*ValidatedStatem
 	if flags.usesSelectedCount && v.runtime != ExecutorRuntimePlugin {
 		return nil, fmt.Errorf("selected_count() is only available in plugin runtime")
 	}
+	if flags.usesFilepath && v.runtime != ExecutorRuntimePlugin {
+		return nil, fmt.Errorf("filepath() is only available in plugin runtime")
+	}
+	if flags.usesFilepaths && v.runtime != ExecutorRuntimePlugin {
+		return nil, fmt.Errorf("filepaths() is only available in plugin runtime")
+	}
 	if flags.usesTarget && v.runtime != ExecutorRuntimePlugin {
 		return nil, fmt.Errorf("target. qualifier is only available in plugin runtime")
 	}
@@ -400,6 +414,8 @@ func (v *SemanticValidator) ValidateStatement(stmt *Statement) (*ValidatedStatem
 		usesIDFunc:           flags.usesID,
 		usesIDsFunc:          flags.usesIDs,
 		usesSelectedCountFn:  flags.usesSelectedCount,
+		usesFilepathFunc:     flags.usesFilepath,
+		usesFilepathsFunc:    flags.usesFilepaths,
 		usesInputFunc:        inputCount == 1,
 		usesChooseFunc:       chooseCount == 1,
 		usesTargetQualifier:  flags.usesTarget,
@@ -431,6 +447,12 @@ func (v *SemanticValidator) ValidateTrigger(trig *Trigger) (*ValidatedTrigger, e
 	if flags.usesSelectedCount {
 		return nil, fmt.Errorf("selected_count() is not valid in triggers")
 	}
+	if flags.usesFilepath && v.runtime != ExecutorRuntimePlugin {
+		return nil, fmt.Errorf("filepath() is only available in plugin runtime")
+	}
+	if flags.usesFilepaths {
+		return nil, fmt.Errorf("filepaths() is not valid in triggers")
+	}
 	if flags.usesTarget {
 		return nil, fmt.Errorf("target. qualifier is not valid in triggers")
 	}
@@ -447,10 +469,11 @@ func (v *SemanticValidator) ValidateTrigger(trig *Trigger) (*ValidatedTrigger, e
 		}
 	}
 	return &ValidatedTrigger{
-		seal:       validatedSeal,
-		runtime:    v.runtime,
-		usesIDFunc: flags.usesID,
-		trigger:    cloneTrigger(trig),
+		seal:             validatedSeal,
+		runtime:          v.runtime,
+		usesIDFunc:       flags.usesID,
+		usesFilepathFunc: flags.usesFilepath,
+		trigger:          cloneTrigger(trig),
 	}, nil
 }
 
@@ -475,6 +498,12 @@ func (v *SemanticValidator) ValidateTimeTrigger(tt *TimeTrigger) (*ValidatedTime
 	if flags.usesSelectedCount {
 		return nil, fmt.Errorf("selected_count() is not valid in triggers")
 	}
+	if flags.usesFilepath && v.runtime != ExecutorRuntimePlugin {
+		return nil, fmt.Errorf("filepath() is only available in plugin runtime")
+	}
+	if flags.usesFilepaths {
+		return nil, fmt.Errorf("filepaths() is not valid in triggers")
+	}
 	if flags.usesTarget {
 		return nil, fmt.Errorf("target. qualifier is not valid in triggers")
 	}
@@ -491,10 +520,11 @@ func (v *SemanticValidator) ValidateTimeTrigger(tt *TimeTrigger) (*ValidatedTime
 		}
 	}
 	return &ValidatedTimeTrigger{
-		seal:        validatedSeal,
-		runtime:     v.runtime,
-		usesIDFunc:  flags.usesID,
-		timeTrigger: cloneTimeTrigger(tt),
+		seal:             validatedSeal,
+		runtime:          v.runtime,
+		usesIDFunc:       flags.usesID,
+		usesFilepathFunc: flags.usesFilepath,
+		timeTrigger:      cloneTimeTrigger(tt),
 	}, nil
 }
 
@@ -715,6 +745,8 @@ type semanticFlags struct {
 	usesID            bool
 	usesIDs           bool
 	usesSelectedCount bool
+	usesFilepath      bool
+	usesFilepaths     bool
 	hasCall           bool
 	usesTarget        bool
 	usesTargets       bool
@@ -725,6 +757,8 @@ func (f *semanticFlags) merge(other semanticFlags) {
 	f.usesID = f.usesID || other.usesID
 	f.usesIDs = f.usesIDs || other.usesIDs
 	f.usesSelectedCount = f.usesSelectedCount || other.usesSelectedCount
+	f.usesFilepath = f.usesFilepath || other.usesFilepath
+	f.usesFilepaths = f.usesFilepaths || other.usesFilepaths
 	f.hasCall = f.hasCall || other.hasCall
 	f.usesTarget = f.usesTarget || other.usesTarget
 	f.usesTargets = f.usesTargets || other.usesTargets
@@ -787,6 +821,10 @@ func scanExprSemanticsEx(expr Expr) (semanticFlags, error) {
 			f.usesIDs = true
 		case "selected_count":
 			f.usesSelectedCount = true
+		case "filepath":
+			f.usesFilepath = true
+		case "filepaths":
+			f.usesFilepaths = true
 		case "call":
 			f.hasCall = true
 		}

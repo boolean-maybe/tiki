@@ -67,10 +67,11 @@ func (te *TriggerExecutor) ExecTimeTriggerAction(tt any, allTikis []*tiki.Tiki, 
 			return nil, fmt.Errorf("time trigger has no action")
 		}
 		action := &ValidatedStatement{
-			seal:       validatedSeal,
-			runtime:    ExecutorRuntimeTimeTrigger,
-			usesIDFunc: t.usesIDFunc,
-			statement:  cloneStatement(t.timeTrigger.Action),
+			seal:             validatedSeal,
+			runtime:          ExecutorRuntimeTimeTrigger,
+			usesIDFunc:       t.usesIDFunc,
+			usesFilepathFunc: t.usesFilepathFunc,
+			statement:        cloneStatement(t.timeTrigger.Action),
 		}
 		return exec.Execute(action, allTikis, input)
 	case *TimeTrigger:
@@ -106,10 +107,11 @@ func (te *TriggerExecutor) ExecAction(trig any, tc *TriggerContext, inputs ...Ex
 			return nil, fmt.Errorf("trigger has no action")
 		}
 		action := &ValidatedStatement{
-			seal:       validatedSeal,
-			runtime:    ExecutorRuntimeEventTrigger,
-			usesIDFunc: t.usesIDFunc,
-			statement:  cloneStatement(t.trigger.Action),
+			seal:             validatedSeal,
+			runtime:          ExecutorRuntimeEventTrigger,
+			usesIDFunc:       t.usesIDFunc,
+			usesFilepathFunc: t.usesFilepathFunc,
+			statement:        cloneStatement(t.trigger.Action),
 		}
 		return exec.Execute(action, tc.AllTikis, input)
 	case *Trigger:
@@ -634,7 +636,7 @@ func (e *triggerExecOverride) Execute(stmt any, tikis []*tiki.Tiki, inputs ...Ex
 				Runtime:      e.runtime.Mode,
 			}
 		}
-		if validated.usesIDFunc && e.runtime.Mode == ExecutorRuntimePlugin {
+		if (validated.usesIDFunc || validated.usesFilepathFunc) && e.runtime.Mode == ExecutorRuntimePlugin {
 			if err := checkSingleSelectionForID(input); err != nil {
 				return nil, err
 			}

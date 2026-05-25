@@ -2,7 +2,7 @@
 id: HE7UR2
 title: "Add multi-vehicle mission coordination API"
 type: story
-status: backlog
+status: inbox
 tags:
   - api
   - flight-controller

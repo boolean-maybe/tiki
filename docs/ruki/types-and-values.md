@@ -65,6 +65,11 @@ the same catalog at load time. From `ruki`'s perspective, all fields behave iden
 markdown file for persisted tikis, and is an empty string for in-memory or unsaved tikis. It never appears in YAML
 frontmatter and cannot be assigned via `create` or `update`.
 
+The `filepath()` and `filepaths()` builtins (see
+[operators-and-builtins.md](operators-and-builtins.md)) expose the same value for the currently selected tiki(s)
+inside plugin actions, so authors can write `update where id = id() set ... | run("editor " + filepath())` without
+threading a separate `select filepath` subquery.
+
 ## Literals
 
 Implemented literal forms:

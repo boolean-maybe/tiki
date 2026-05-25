@@ -2,7 +2,7 @@
 id: J2QP89
 title: "Add ML-based anomaly detection for flight telemetry"
 type: spike
-status: backlog
+status: inbox
 tags:
   - ml-vision
   - telemetry

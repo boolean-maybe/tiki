@@ -1207,6 +1207,51 @@ func TestParsePluginActions_RequireNoAutoInferFromSelectedCount(t *testing.T) {
 	}
 }
 
+// filepath() must auto-infer the same "id" requirement as id() — both are
+// scalar selection builtins requiring exactly one selected tiki at execute
+// time, so the action stays disabled until that holds.
+func TestParsePluginActions_RequireAutoInferIDFromFilepath(t *testing.T) {
+	parser := testParser()
+	configs := []PluginActionConfig{
+		{Key: "e", Label: "Edit", Action: `update where filepath = filepath() set status = "done"`},
+	}
+	actions, err := parsePluginActions(configs, parser, nil, false)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	found := false
+	for _, r := range actions[0].Require {
+		if r == "id" {
+			found = true
+		}
+	}
+	if !found {
+		t.Errorf("expected auto-inferred 'id' requirement from filepath(), got %v", actions[0].Require)
+	}
+}
+
+// filepaths() must auto-infer "selection:any" like ids(), so the action stays
+// disabled when nothing is selected.
+func TestParsePluginActions_RequireAutoInferSelectionAnyFromFilepaths(t *testing.T) {
+	parser := testParser()
+	configs := []PluginActionConfig{
+		{Key: "b", Label: "Bulk", Action: `select where filepath in filepaths()`},
+	}
+	actions, err := parsePluginActions(configs, parser, nil, false)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	found := false
+	for _, r := range actions[0].Require {
+		if r == "selection:any" {
+			found = true
+		}
+	}
+	if !found {
+		t.Errorf("expected auto-inferred 'selection:any' from filepaths(), got %v", actions[0].Require)
+	}
+}
+
 // A negated selection requirement is still a cardinality constraint and must
 // suppress auto-inference from ids(); otherwise an explicit "!selection:many"
 // (meaning "0 or 1") would be silently augmented with "selection:any"

@@ -408,3 +408,40 @@ func TestValidateTimeTrigger_RejectsTargetsQualifier(t *testing.T) {
 		t.Fatalf("expected targets rejection, got: %v", err)
 	}
 }
+
+func TestFilepathRejectedOutsidePlugin(t *testing.T) {
+	cases := []struct {
+		name    string
+		runtime ExecutorRuntimeMode
+		stmt    string
+		wantMsg string
+	}{
+		{"cli/filepath", ExecutorRuntimeCLI, `select where filepath = filepath()`, "filepath() is only available in plugin runtime"},
+		{"cli/filepaths", ExecutorRuntimeCLI, `select where filepath in filepaths()`, "filepaths() is only available in plugin runtime"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			p := newTestParser()
+			_, err := p.ParseAndValidateStatement(tc.stmt, tc.runtime)
+			if err == nil {
+				t.Fatalf("expected validation error, got nil")
+			}
+			if got := err.Error(); !strings.Contains(got, tc.wantMsg) {
+				t.Errorf("error = %q, want substring %q", got, tc.wantMsg)
+			}
+		})
+	}
+}
+
+func TestFilepathsRejectedInTriggers(t *testing.T) {
+	p := newTestParser()
+	_, err := p.ParseAndValidateTrigger(
+		`after update where new.status = "done" update where filepath in filepaths() set status = "done"`,
+		ExecutorRuntimeEventTrigger)
+	if err == nil {
+		t.Fatal("expected validation error, got nil")
+	}
+	if !strings.Contains(err.Error(), "filepaths() is not valid in triggers") {
+		t.Errorf("error = %q, want substring %q", err.Error(), "filepaths() is not valid in triggers")
+	}
+}

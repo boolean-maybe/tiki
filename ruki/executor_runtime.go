@@ -128,23 +128,43 @@ func (e *RuntimeMismatchError) Error() string {
 
 func (e *RuntimeMismatchError) Unwrap() error { return ErrRuntimeMismatch }
 
-// MissingSelectedTikiIDError reports plugin execution that uses id() but was
-// invoked with no selected tiki id.
-type MissingSelectedTikiIDError struct{}
-
-func (e *MissingSelectedTikiIDError) Error() string {
-	return "selected tiki id is required for plugin runtime when id() is used"
+// MissingSelectedTikiIDError reports plugin execution that uses a scalar
+// selection builtin (id(), filepath()) but was invoked with no selected
+// tiki id. BuiltinName names the calling builtin and defaults to "id" so
+// existing call sites produce byte-identical messages.
+type MissingSelectedTikiIDError struct {
+	BuiltinName string
 }
 
-// AmbiguousSelectedTikiIDError reports plugin execution that uses scalar id()
-// but was invoked with more than one selected tiki id. ids() should be used
-// instead for multi-selection.
+func (e *MissingSelectedTikiIDError) Error() string {
+	name := e.BuiltinName
+	if name == "" {
+		name = "id"
+	}
+	return fmt.Sprintf("selected tiki id is required for plugin runtime when %s() is used", name)
+}
+
+// AmbiguousSelectedTikiIDError reports plugin execution that uses a scalar
+// selection builtin but was invoked with more than one selected tiki id.
+// BuiltinName names the scalar builtin (defaults to "id"); PluralName names
+// the multi-selection counterpart suggested in the message (defaults to
+// "ids").
 type AmbiguousSelectedTikiIDError struct {
-	Count int
+	BuiltinName string
+	PluralName  string
+	Count       int
 }
 
 func (e *AmbiguousSelectedTikiIDError) Error() string {
-	return fmt.Sprintf("id() requires exactly one selected tiki, got %d — use ids() for multi-selection", e.Count)
+	scalar := e.BuiltinName
+	if scalar == "" {
+		scalar = "id"
+	}
+	plural := e.PluralName
+	if plural == "" {
+		plural = "ids"
+	}
+	return fmt.Sprintf("%s() requires exactly one selected tiki, got %d — use %s() for multi-selection", scalar, e.Count, plural)
 }
 
 // MissingCreateTemplateError reports CREATE execution without required template.
