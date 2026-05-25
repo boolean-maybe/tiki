@@ -20,7 +20,7 @@ import (
 // setupPluginTestData creates tikis matching all three default plugin filters:
 // - Backlog: status = 'backlog'
 // - Recent: UpdatedAt within 2 hours
-// - Roadmap: type = 'epic'
+// - Roadmap: type = 'project'
 func setupPluginTestData(t *testing.T, ta *testutil.TestApp) {
 	tikis := []struct {
 		id       string
@@ -37,9 +37,9 @@ func setupPluginTestData(t *testing.T, ta *testutil.TestApp) {
 		{"000003", "Recent Tiki 1", "ready", "story", true},
 		{"000004", "Recent Tiki 2", "inProgress", "bug", true},
 
-		// Roadmap plugin: type = 'epic'
-		{"000005", "Roadmap Epic 1", "ready", "epic", false},
-		{"000006", "Roadmap Epic 2", "inProgress", "epic", false},
+		// Roadmap plugin: type = 'project'
+		{"000005", "Roadmap Project 1", "ready", "project", false},
+		{"000006", "Roadmap Project 2", "inProgress", "project", false},
 
 		// Multi-plugin match
 		{"000007", "Recent Backlog", "inbox", "story", true},
@@ -527,7 +527,7 @@ func TestPluginNavigation_NoTikis_EmptyView(t *testing.T) {
 		t.Fatalf("Failed to load plugins: %v", err)
 	}
 
-	// Navigate to Roadmap (should be empty without epic tikis)
+	// Navigate to Roadmap (should be empty without project tikis)
 	ta.NavController.PushView(model.MakePluginViewID("Roadmap"), nil)
 	ta.Draw()
 

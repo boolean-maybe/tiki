@@ -3110,3 +3110,29 @@ func TestTargetsProjectionTypes(t *testing.T) {
 		})
 	}
 }
+
+func TestBuiltinFuncs_FilepathRegistered(t *testing.T) {
+	tests := []struct {
+		name    string
+		want    ValueType
+		wantMin int
+		wantMax int
+	}{
+		{"filepath", ValueString, 0, 0},
+		{"filepaths", ValueListString, 0, 0},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			got, ok := builtinFuncs[tc.name]
+			if !ok {
+				t.Fatalf("builtin %q not registered", tc.name)
+			}
+			if got.returnType != tc.want {
+				t.Errorf("return type = %v, want %v", got.returnType, tc.want)
+			}
+			if got.minArgs != tc.wantMin || got.maxArgs != tc.wantMax {
+				t.Errorf("arity = (%d,%d), want (%d,%d)", got.minArgs, got.maxArgs, tc.wantMin, tc.wantMax)
+			}
+		})
+	}
+}

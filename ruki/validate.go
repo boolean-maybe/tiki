@@ -54,6 +54,8 @@ var builtinFuncs = map[string]struct {
 	"blocks":         {ValueListRef, 1, 1},
 	"call":           {ValueString, 1, 1},
 	"user":           {ValueString, 0, 0},
+	"filepath":       {ValueString, 0, 0},
+	"filepaths":      {ValueListString, 0, 0},
 }
 
 // --- structural validation ---

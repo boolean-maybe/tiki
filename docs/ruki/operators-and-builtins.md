@@ -216,6 +216,8 @@ create title="x" dependsOn=dependsOn + tags
 | `id()` | `id` | 0 | plugin runtime only; requires exactly one selected tiki |
 | `ids()` | `list<ref>` | 0 | plugin runtime only; returns the full set of selected tiki IDs |
 | `selected_count()` | `int` | 0 | plugin runtime only; returns the number of selected tikis |
+| `filepath()` | `string` | 0 | plugin runtime only; requires exactly one selected tiki; returns the absolute markdown path |
+| `filepaths()` | `list<string>` | 0 | plugin runtime only; returns the absolute markdown paths of all selected tikis |
 | `input()` | declared type | 0 | valid only in plugin actions with `input:` declaration |
 | `call(...)` | `string` | exactly 1 | argument must be `string` |
 | `user()` | `string` | 0 | resolves to the current Tiki identity (configured → git → OS user); errors if none resolves |
@@ -240,6 +242,7 @@ update where id = id() set tags = tags + [input()]
 update where id in ids() set status = "done"
 update where id = choose(select where type = "epic") set dependsOn = dependsOn + id()
 create title = input()
+update where id = id() set tags = tags + ["edited:" + filepath()]
 ```
 
 Runtime notes:
@@ -263,6 +266,19 @@ Runtime notes:
   `selection:any`, and `selection:many` cardinality tokens.
 - `id()`, `ids()`, and `selected_count()` are all rejected for CLI, event-trigger, and time-trigger semantic
   runtimes.
+- `filepath()` is the scalar selection builtin for absolute markdown paths. It is only valid in plugin runtime
+  and requires exactly one selected tiki — same cardinality contract as `id()`. Zero selections raise
+  `MissingSelectedTikiIDError`; two or more raise `AmbiguousSelectedTikiIDError` (the message suggests switching
+  to `filepaths()`).
+- Actions that reference `filepath()` automatically gain an `id`
+  [requirement](../customization/customization.md#action-requirements) which is equivalent to
+  `selection:one`, mirroring `id()`.
+- `filepaths()` is the multi-selection counterpart. It returns the full `list<string>` of currently selected
+  tikis' absolute markdown paths. Zero selections produce an empty list (no error), so the statement becomes a
+  no-op when nothing is selected. Actions that reference `filepaths()` auto-infer a `selection:any` requirement
+  unless an explicit `selection:*` is supplied.
+- `filepath()` and `filepaths()` are rejected in CLI, event-trigger, and time-trigger semantic runtimes.
+  `filepaths()` is additionally rejected inside trigger guards and actions, mirroring the rule for `ids()`.
 - `user()` returns the current Tiki identity. Resolution order:
   configured `identity.name` or `identity.email` (via `config.yaml` or
   `TIKI_IDENTITY_NAME` / `TIKI_IDENTITY_EMAIL`), then the git user when

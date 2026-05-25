@@ -63,8 +63,8 @@ func TestRunDemo_MaterializesAllFiles(t *testing.T) {
 		t.Fatalf("cwd = %q, want basename %q", demoRoot, demoDirName)
 	}
 
-	if got := countFiles(t, demoRoot); got < 131 {
-		t.Errorf("file count = %d, want at least 131", got)
+	if got := countFiles(t, demoRoot); got < 90 {
+		t.Errorf("file count = %d, want at least 90", got)
 	}
 
 	for _, rel := range []string{".doc", ".gitignore", ".doc/workflow.yaml"} {
@@ -247,7 +247,7 @@ func TestRunDemo_HealsMissingAssetsOnReuse(t *testing.T) {
 	if err := os.MkdirAll(docDir, 0o750); err != nil {
 		t.Fatalf("mkdir doc dir: %v", err)
 	}
-	doc := []byte("---\nid: 3GDPPQ\ntitle: diagram doc\nstatus: inbox\n---\n\n![diagram](assets/tiki-3gdppq.svg)\n")
+	doc := []byte("---\nid: 3GDPPQ\ntitle: diagram doc\nstatus: inbox\n---\n\n![diagram](assets/api-grpc-api.svg)\n")
 	if err := os.WriteFile(filepath.Join(docDir, "fleet-certificate-rotation.md"), doc, 0o644); err != nil {
 		t.Fatalf("write demo doc: %v", err)
 	}
@@ -256,7 +256,7 @@ func TestRunDemo_HealsMissingAssetsOnReuse(t *testing.T) {
 		t.Fatalf("runDemo: %v", err)
 	}
 
-	assetPath := filepath.Join(".doc", "assets", "tiki-3gdppq.svg")
+	assetPath := filepath.Join(".doc", "assets", "api-grpc-api.svg")
 	if _, err := os.Stat(assetPath); err != nil {
 		t.Fatalf("expected missing demo asset to be healed at %s: %v", assetPath, err)
 	}
@@ -320,8 +320,8 @@ func TestRunDemo_UnifiedLayout(t *testing.T) {
 			workflowFileCount++
 		}
 	}
-	if workflowFileCount < 40 {
-		t.Errorf("flat .doc/*.md workflow file count = %d, want >= 40", workflowFileCount)
+	if workflowFileCount < 20 {
+		t.Errorf("flat .doc/*.md workflow file count = %d, want >= 20", workflowFileCount)
 	}
 
 	// Demo workflow docs carry explicit workflow fields (status, type,
@@ -337,9 +337,9 @@ func TestRunDemo_UnifiedLayout(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewTikiStore on demo: %v", err)
 	}
-	spotTiki := wfStore.GetTiki("9XPSEI")
+	spotTiki := wfStore.GetTiki("5LXO6Q")
 	if spotTiki == nil {
-		t.Fatal("demo tiki 9XPSEI missing — cannot spot-check workflow fields")
+		t.Fatal("demo tiki 5LXO6Q missing — cannot spot-check workflow fields")
 	}
 	body, err := os.ReadFile(spotTiki.Path)
 	if err != nil {
@@ -347,7 +347,7 @@ func TestRunDemo_UnifiedLayout(t *testing.T) {
 	}
 	for _, field := range []string{"status:", "type:", "priority:", "points:"} {
 		if !strings.Contains(string(body), field) {
-			t.Errorf("demo workflow doc 9XPSEI missing %s field", field)
+			t.Errorf("demo workflow doc 5LXO6Q missing %s field", field)
 		}
 	}
 

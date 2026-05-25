@@ -152,7 +152,7 @@ func (e *Executor) Execute(stmt any, tikis []*tiki.Tiki, inputs ...ExecutionInpu
 			}
 		}
 		if e.runtime.Mode == ExecutorRuntimePlugin &&
-			(validated.usesIDFunc || validated.usesTargetQualifier) {
+			(validated.usesIDFunc || validated.usesFilepathFunc || validated.usesTargetQualifier) {
 			if err := checkSingleSelectionForID(input); err != nil {
 				return nil, err
 			}
@@ -928,6 +928,10 @@ func (e *Executor) evalFunctionCall(fc *FunctionCall, ctx evalContext) (interfac
 		return e.evalIDs()
 	case "selected_count":
 		return e.evalSelectedCount()
+	case "filepath":
+		return e.evalFilepath(ctx)
+	case "filepaths":
+		return e.evalFilepaths(ctx)
 	case "now":
 		return time.Now(), nil
 	case "user":
@@ -1079,6 +1083,37 @@ func (e *Executor) evalSelectedCount() (interface{}, error) {
 	return e.currentInput.SelectionCount(), nil
 }
 
+func (e *Executor) evalFilepath(ctx evalContext) (interface{}, error) {
+	if e.runtime.Mode != ExecutorRuntimePlugin {
+		return nil, fmt.Errorf("filepath() is only available in plugin runtime")
+	}
+	if err := checkSingleSelectionForBuiltin(e.currentInput, "filepath", "filepaths"); err != nil {
+		return nil, err
+	}
+	id, _ := e.currentInput.SingleSelectedTikiID()
+	t, ok := findTikiByID(ctx.allTikis, id)
+	if !ok {
+		return nil, fmt.Errorf("filepath(): selected tiki %q not found", id)
+	}
+	return t.Path, nil
+}
+
+func (e *Executor) evalFilepaths(ctx evalContext) (interface{}, error) {
+	if e.runtime.Mode != ExecutorRuntimePlugin {
+		return nil, fmt.Errorf("filepaths() is only available in plugin runtime")
+	}
+	selected := e.currentInput.SelectedTikiIDList()
+	result := make([]interface{}, 0, len(selected))
+	for _, id := range selected {
+		t, ok := findTikiByID(ctx.allTikis, id)
+		if !ok {
+			return nil, fmt.Errorf("filepaths(): selected tiki %q not found", id)
+		}
+		result = append(result, t.Path)
+	}
+	return result, nil
+}
+
 // evalTargetField evaluates target.<field>.
 func (e *Executor) evalTargetField(name string, ctx evalContext) (interface{}, error) {
 	if e.runtime.Mode != ExecutorRuntimePlugin {
@@ -1154,16 +1189,26 @@ func appendUniqueElem(out *[]interface{}, seen map[string]struct{}, v interface{
 	*out = append(*out, v)
 }
 
-// checkSingleSelectionForID enforces the scalar id() contract.
-func checkSingleSelectionForID(in ExecutionInput) error {
+// checkSingleSelectionForBuiltin enforces a scalar selection-builtin
+// contract: exactly one selection, or an error naming the offending
+// builtin. scalar names the failing builtin (e.g. "id", "filepath");
+// plural is the multi-selection counterpart suggested when too many
+// items are selected (e.g. "ids", "filepaths").
+func checkSingleSelectionForBuiltin(in ExecutionInput, scalar, plural string) error {
 	count := in.SelectionCount()
 	switch {
 	case count == 0:
-		return &MissingSelectedTikiIDError{}
+		return &MissingSelectedTikiIDError{BuiltinName: scalar}
 	case count > 1:
-		return &AmbiguousSelectedTikiIDError{Count: count}
+		return &AmbiguousSelectedTikiIDError{BuiltinName: scalar, PluralName: plural, Count: count}
 	}
 	return nil
+}
+
+// checkSingleSelectionForID enforces the scalar id() contract. Backwards-
+// compatible wrapper around checkSingleSelectionForBuiltin.
+func checkSingleSelectionForID(in ExecutionInput) error {
+	return checkSingleSelectionForBuiltin(in, "id", "ids")
 }
 
 func (e *Executor) evalCount(fc *FunctionCall, parent *tiki.Tiki, allTikis []*tiki.Tiki) (interface{}, error) {

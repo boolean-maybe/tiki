@@ -851,8 +851,8 @@ func validateRequireList(reqs []string) ([]string, error) {
 
 // inferRequirements validates explicit requirements and auto-infers selection
 // requirements from builtin and qualifier usage:
-//   - id() or target.<field> → "id" (legacy alias for selection:one)
-//   - ids() or targets.<field> → "selection:any" (at least one selection)
+//   - id() / filepath() / target.<field> → "id" (legacy alias for selection:one)
+//   - ids() / filepaths() / targets.<field> → "selection:any" (at least one selection)
 //
 // selected_count() deliberately does NOT auto-infer anything: its whole
 // purpose is to let ruki branch on cardinality, including the zero case
@@ -870,8 +870,8 @@ func inferRequirements(explicit []string, stmt *ruki.ValidatedStatement, idx int
 	reqs := make([]string, len(explicit))
 	copy(reqs, explicit)
 
-	needsSingle := stmt.UsesIDBuiltin() || stmt.UsesTargetQualifier()
-	needsAny := stmt.UsesIDsBuiltin() || stmt.UsesTargetsQualifier()
+	needsSingle := stmt.UsesIDBuiltin() || stmt.UsesFilepathBuiltin() || stmt.UsesTargetQualifier()
+	needsAny := stmt.UsesIDsBuiltin() || stmt.UsesFilepathsBuiltin() || stmt.UsesTargetsQualifier()
 
 	if needsSingle && !containsRequirement(reqs, "id") {
 		reqs = append(reqs, "id")
