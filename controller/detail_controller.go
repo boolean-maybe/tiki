@@ -304,6 +304,12 @@ func (dc *DetailController) wireEditFieldHandlers(v DetailEditableView) {
 	if dc.editSession == nil {
 		return
 	}
+	v.SetEditFieldChangeHandler("title", func(text string) {
+		dc.editSession.SaveTitle(text)
+	})
+	v.SetEditFieldChangeHandler("description", func(text string) {
+		dc.editSession.SaveDescription(text)
+	})
 	v.SetEditFieldChangeHandler(tikipkg.FieldStatus, func(display string) {
 		dc.editSession.SaveStatus(display)
 	})
@@ -358,6 +364,8 @@ func (dc *DetailController) wireEditFieldHandlers(v DetailEditableView) {
 // directly above in wireEditFieldHandlers. The custom-enum loop skips
 // these so it doesn't double-register or shadow the typed Save* methods.
 var builtinEditFieldHandlers = map[string]struct{}{
+	"title":                 {},
+	"description":           {},
 	tikipkg.FieldStatus:     {},
 	tikipkg.FieldType:       {},
 	tikipkg.FieldPriority:   {},
@@ -523,7 +531,11 @@ func (dc *DetailController) commitEdit() bool {
 	return true
 }
 
-// cancelEdit drops in-flight edits and leaves edit mode.
+// cancelEdit drops in-flight edits and leaves edit mode. When the cancel
+// targets an unsaved draft (mode: new), the detail view has nothing to fall
+// back to — the draft was never persisted, so view mode would render
+// "(no tiki selected)". Pop the view stack instead so the user lands back
+// on the originating board.
 func (dc *DetailController) cancelEdit() bool {
 	if dc.editView == nil {
 		return false
@@ -531,17 +543,30 @@ func (dc *DetailController) cancelEdit() bool {
 	if !dc.editView.IsEditMode() {
 		return false
 	}
+	cancellingDraft := dc.editSession != nil && dc.editSession.GetDraftTiki() != nil
 	if dc.editSession != nil {
 		dc.editSession.CancelEditSession()
+		if cancellingDraft {
+			dc.editSession.ClearDraft()
+		}
 	}
 	dc.editView.ExitEditMode()
+	if cancellingDraft && dc.navController != nil {
+		dc.navController.PopView()
+	}
 	return true
 }
 
+// focusNext flushes the currently focused editor before advancing. The
+// title editor (and similar single-line inputs) only commits on Enter, so
+// without this flush a user who types a title then Tabs away loses the
+// typed value — the editing tiki keeps its empty title and the read-only
+// title row renders blank during the post-Tab refresh.
 func (dc *DetailController) focusNext() bool {
 	if dc.editView == nil || !dc.editView.IsEditMode() {
 		return false
 	}
+	dc.editView.FlushFocusedEditor()
 	return dc.editView.FocusNextField()
 }
 
@@ -549,6 +574,7 @@ func (dc *DetailController) focusPrev() bool {
 	if dc.editView == nil || !dc.editView.IsEditMode() {
 		return false
 	}
+	dc.editView.FlushFocusedEditor()
 	return dc.editView.FocusPrevField()
 }
 

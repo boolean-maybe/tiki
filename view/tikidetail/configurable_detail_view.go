@@ -103,8 +103,11 @@ func (cv *ConfigurableDetailView) setFocusedIdx(idx int) {
 		return
 	}
 	var name string
-	if idx >= 0 && idx < len(cv.layout) {
+	switch {
+	case idx >= 0 && idx < len(cv.layout):
 		name = cv.layout[idx]
+	case idx == len(cv.layout):
+		name = descriptionFieldName
 	}
 	cv.onFieldFocusChange(model.EditField(name))
 }
@@ -243,7 +246,7 @@ func (cv *ConfigurableDetailView) refresh() {
 		cv.content.AddItem(metadataBox, cv.spec.Rows+gridbox.DetailBoxOverhead, 0, false)
 	}
 
-	descPrimitive := cv.buildDescription(tk)
+	descPrimitive := cv.buildDescriptionSection(tk)
 	cv.content.AddItem(descPrimitive, 0, 1, true)
 
 	if cv.editMode {
@@ -255,18 +258,83 @@ func (cv *ConfigurableDetailView) refresh() {
 	}
 }
 
+// buildDescriptionSection returns either the read-only markdown viewer or
+// the inline description TextArea editor, depending on whether edit mode
+// is active and description has focus. Caching the editor on cv.editors
+// (keyed by descriptionFieldName) means typed content survives
+// inter-field refreshes — the same contract metadata editors rely on.
+func (cv *ConfigurableDetailView) buildDescriptionSection(tk *tikipkg.Tiki) tview.Primitive {
+	if cv.editMode && cv.GetFocusedFieldName() == descriptionFieldName {
+		return cv.ensureDescriptionEditor(tk)
+	}
+	return cv.buildDescription(tk)
+}
+
+// ensureDescriptionEditor returns the cached description TextArea editor,
+// constructing it on first focus. The widget seeds from tk.Body and
+// pushes every change through cv.onEditFieldChange[descriptionFieldName]
+// (wired by the controller to TikiEditSession.SaveDescription) so the
+// editing tiki stays current and the title-style commit-on-Enter contract
+// doesn't apply (a description body needs newlines).
+func (cv *ConfigurableDetailView) ensureDescriptionEditor(tk *tikipkg.Tiki) tview.Primitive {
+	if w, ok := cv.editors[descriptionFieldName]; ok && w != nil {
+		return w
+	}
+	textArea := tview.NewTextArea()
+	textArea.SetText(tk.Body, false)
+	// Match the read-only markdown viewer's framing: no border, equivalent
+	// padding so the cursor lines up with the rendered prose. The metadata
+	// box above already provides a visual seam between the two sections.
+	textArea.SetBorder(false)
+	textArea.SetBorderPadding(1, 1, 2, 2)
+	handler := cv.onEditFieldChange[descriptionFieldName]
+	if handler != nil {
+		textArea.SetChangedFunc(func() {
+			handler(textArea.GetText())
+		})
+	}
+	adapter := &descriptionEditAdapter{TextArea: textArea}
+	cv.editors[descriptionFieldName] = adapter
+	return adapter
+}
+
+// GetPreferredFocus implements controller.PreferredFocusProvider. When the
+// view is in edit mode, returns the active editor primitive so RootLayout's
+// post-activation focus call lands on the editor instead of the view root.
+// The view factory enters edit mode during construction (via ApplyDetailMode);
+// without this hook, RootLayout's app.SetFocus(root) would override any focus
+// the view tried to set during OnFocus and the user would be unable to type.
+func (cv *ConfigurableDetailView) GetPreferredFocus() tview.Primitive {
+	if !cv.editMode {
+		return nil
+	}
+	name := cv.GetFocusedFieldName()
+	if name == "" {
+		return nil
+	}
+	if w, ok := cv.editors[name]; ok && w != nil {
+		return w
+	}
+	return nil
+}
+
 // focusActiveEditor pushes focus to the currently focused editor widget
-// while in edit mode. If the focused field has no editor (e.g. focusedIdx
-// landed on a stub field) the focus falls back to the description so the
-// view remains usable.
+// while in edit mode. The description pseudo-index (len(layout)) points
+// at the inline description TextArea editor; metadata indices point at
+// per-anchor editors cached on cv.editors. If the focused field has no
+// editor (e.g. focusedIdx landed on a stub field) the focus falls back
+// to the description viewer so the view remains usable.
 func (cv *ConfigurableDetailView) focusActiveEditor() {
 	if cv.focusSetter == nil {
 		return
 	}
-	if cv.focusedIdx < 0 || cv.focusedIdx >= len(cv.layout) {
+	if cv.focusedIdx < 0 {
 		return
 	}
-	name := cv.layout[cv.focusedIdx]
+	name := cv.GetFocusedFieldName()
+	if name == "" {
+		return
+	}
 	if w, ok := cv.editors[name]; ok && w != nil {
 		cv.focusSetter(w)
 		return
@@ -651,6 +719,12 @@ func (cv *ConfigurableDetailView) SetEditFieldChangeHandler(fieldName string, h 
 	cv.onEditFieldChange[fieldName] = h
 }
 
+// descriptionPseudoIdx is the focus index used for the inline description
+// editor. It sits one past the last metadata anchor (cv.layout) so the
+// existing forward/backward traversal arithmetic ("editable indices in
+// 0..len(layout)") extends naturally — len(layout) means "description".
+const descriptionFieldName = "description"
+
 // EnterEditMode flips the view into edit mode and focuses the first
 // editable metadata field. No-op if no field has an implemented editor —
 // the view stays in view mode and the controller can surface a
@@ -700,8 +774,14 @@ func (cv *ConfigurableDetailView) EnterEditModeWithFocus(focusField model.EditFi
 }
 
 // indexOfEditableField returns the layout position of the named field
-// when it is present and editable, or -1.
+// when it is present and editable, or -1. The synthetic "description"
+// field lives at len(layout) so callers can land focus on the inline
+// description editor via the same focus index machinery used for
+// metadata-grid anchors.
 func (cv *ConfigurableDetailView) indexOfEditableField(name string) int {
+	if name == descriptionFieldName {
+		return len(cv.layout)
+	}
 	for i, layoutName := range cv.layout {
 		if layoutName == name && cv.isEditableLayoutField(layoutName) {
 			return i
@@ -763,9 +843,16 @@ func (cv *ConfigurableDetailView) FocusPrevField() bool {
 }
 
 // GetFocusedFieldName returns the metadata name of the currently focused
-// editable field, or empty string when not in edit mode.
+// editable field, the synthetic "description" name when the inline
+// description editor holds focus, or empty string when not in edit mode.
 func (cv *ConfigurableDetailView) GetFocusedFieldName() string {
-	if !cv.editMode || cv.focusedIdx < 0 || cv.focusedIdx >= len(cv.layout) {
+	if !cv.editMode || cv.focusedIdx < 0 {
+		return ""
+	}
+	if cv.focusedIdx == len(cv.layout) {
+		return descriptionFieldName
+	}
+	if cv.focusedIdx >= len(cv.layout) {
 		return ""
 	}
 	return cv.layout[cv.focusedIdx]
@@ -805,22 +892,33 @@ func (cv *ConfigurableDetailView) firstEditableIndex() int {
 	return -1
 }
 
-// nextEditableIndex returns the next metadata position (after current)
-// that is editable, or -1.
+// nextEditableIndex returns the next editable position (after current),
+// or -1. The traversal walks metadata anchors in declaration order and
+// then lands on the synthetic description editor at len(layout) before
+// reporting "no further field" — so Tab from the last metadata field
+// takes the user into the description body, matching the contract in
+// CLAUDE.md ("Tab cycles through all metadata fields → Description").
 func (cv *ConfigurableDetailView) nextEditableIndex(current int) int {
 	for i := current + 1; i < len(cv.layout); i++ {
 		if cv.isEditableLayoutField(cv.layout[i]) {
 			return i
 		}
 	}
+	if current < len(cv.layout) {
+		return len(cv.layout)
+	}
 	return -1
 }
 
-// prevEditableIndex returns the previous metadata position (before
-// current) that is editable, or -1.
+// prevEditableIndex returns the previous editable position (before
+// current), or -1. From the description pseudo-index it returns the last
+// editable metadata field; from a metadata field it walks backwards.
 func (cv *ConfigurableDetailView) prevEditableIndex(current int) int {
+	if current > len(cv.layout) {
+		current = len(cv.layout)
+	}
 	for i := current - 1; i >= 0; i-- {
-		if cv.isEditableLayoutField(cv.layout[i]) {
+		if i < len(cv.layout) && cv.isEditableLayoutField(cv.layout[i]) {
 			return i
 		}
 	}
@@ -875,6 +973,12 @@ func (cv *ConfigurableDetailView) FlushFocusedEditor() {
 	// Second pass: recurrence last, so its Due side-effect overwrites
 	// any stale Due that flushed in the first pass.
 	flush(tikipkg.FieldRecurrence)
+	// Description lives outside the metadata layout (it's the body section
+	// edited inline when Tab lands past the last metadata field), so it's
+	// not covered by the layout walk above. Flush it here so a Tab-away
+	// from the description editor pushes the typed body into the edit
+	// session before any commit or save.
+	flush(descriptionFieldName)
 }
 
 // MoveRecurrencePartLeft moves the recurrence editor's part cursor to

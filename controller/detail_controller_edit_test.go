@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/boolean-maybe/tiki/model"
+	"github.com/boolean-maybe/tiki/plugin"
 	"github.com/boolean-maybe/tiki/service"
 	"github.com/boolean-maybe/tiki/store"
 	tikipkg "github.com/boolean-maybe/tiki/tiki"
@@ -198,6 +199,41 @@ func TestDetailController_CancelEditDropsSession(t *testing.T) {
 	}
 }
 
+// TestDetailController_CancelDraftPopsView pins that cancelling edit mode on
+// an unsaved draft (the mode: new flow) pops the navigation stack instead
+// of leaving the user on a detail view bound to a tiki ID that doesn't
+// exist in the store. Without this, the screen renders "(no tiki selected)"
+// after pressing Esc on a "n" draft.
+func TestDetailController_CancelDraftPopsView(t *testing.T) {
+	dc, view, tc, _ := newDetailEditTestRig(t)
+
+	// Push a previous-view entry so PopView has somewhere to go.
+	dc.navController.PushView(model.ViewID("source"), nil)
+	dc.navController.PushView(model.ViewID("plugin:Detail"), nil)
+	stackDepthBefore := dc.navController.Depth()
+
+	draft := newTestDraftTiki("DRAFT9")
+	if !dc.ApplyDetailMode(plugin.DetailModeNew, "", draft) {
+		t.Fatal("ApplyDetailMode returned false for new mode")
+	}
+	if !view.IsEditMode() {
+		t.Fatal("expected edit mode after ApplyDetailMode(new)")
+	}
+
+	if !dc.HandleAction(ActionDetailCancel) {
+		t.Fatal("ActionDetailCancel returned false")
+	}
+	if view.IsEditMode() {
+		t.Error("view should not be in edit mode after Cancel")
+	}
+	if tc.GetDraftTiki() != nil {
+		t.Error("draft should be cleared after cancelling a new-mode edit")
+	}
+	if got := dc.navController.Depth(); got >= stackDepthBefore {
+		t.Errorf("nav depth = %d, want < %d (cancel should pop the draft view)", got, stackDepthBefore)
+	}
+}
+
 // TestDetailController_SaveCommitsAndExits verifies a happy-path commit:
 // ActionDetailSave writes via TikiEditSession.CommitEditSession and exits
 // edit mode.
@@ -298,6 +334,54 @@ func TestDetailController_TraversalActionsRoutedThroughHandleAction(t *testing.T
 	}
 	if !dc.HandleAction(ActionPrevField) {
 		t.Error("Shift+Tab should be handled in edit mode")
+	}
+}
+
+// TestDetailController_TitleHandlerPersistsTypedText pins that the title
+// edit-field change handler routes typed text through SaveTitle into the
+// editing tiki. Without this, typing a title then leaving the input (Tab,
+// commit, etc.) would silently lose the value because the title editor's
+// onChange callback would have nowhere to land.
+func TestDetailController_TitleHandlerPersistsTypedText(t *testing.T) {
+	dc, view, tc, _ := newDetailEditTestRig(t)
+	if !dc.HandleAction(ActionDetailEdit) {
+		t.Fatal("EnterEditMode")
+	}
+	saver, ok := view.fieldHandlers["title"]
+	if !ok || saver == nil {
+		t.Fatal("title save handler not installed by controller")
+	}
+	saver("My new task title")
+	if got := tc.GetEditingTiki().Title; got != "My new task title" {
+		t.Errorf("editing tiki title = %q, want %q", got, "My new task title")
+	}
+}
+
+// TestDetailController_TabFlushesFocusedEditorBeforeMoving pins that Tab
+// (ActionNextField) and Shift+Tab (ActionPrevField) flush the currently
+// focused editor before moving focus. The title editor only commits its
+// text on Enter — without a flush before Tab, a user who types a title
+// then presses Tab loses the typed value, and the post-Tab refresh
+// renders the title row blank from the still-empty editing tiki.
+func TestDetailController_TabFlushesFocusedEditorBeforeMoving(t *testing.T) {
+	dc, view, _, _ := newDetailEditTestRig(t)
+	if !dc.HandleAction(ActionDetailEdit) {
+		t.Fatal("EnterEditMode")
+	}
+	view.flushCalls = 0
+
+	if !dc.HandleAction(ActionNextField) {
+		t.Fatal("ActionNextField returned false")
+	}
+	if view.flushCalls != 1 {
+		t.Errorf("Tab: FlushFocusedEditor called %d times, want 1", view.flushCalls)
+	}
+
+	if !dc.HandleAction(ActionPrevField) {
+		t.Fatal("ActionPrevField returned false")
+	}
+	if view.flushCalls != 2 {
+		t.Errorf("Shift+Tab: FlushFocusedEditor called %d times total, want 2", view.flushCalls)
 	}
 }
 

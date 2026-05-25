@@ -78,36 +78,16 @@ actions:
     kind: view
     view: Detail
     require: ["selection:one"]
-  - key: "e"
-    label: Edit
-    kind: view
-    view: Detail
-    mode: edit
-    require: ["selection:one"]
-  - key: "n"
-    label: New
-    kind: view
-    view: Detail
-    mode: new
-  - key: "a"
-    label: "Assign to me"
-    action: update where id = id() set assignee=user()
   - key: "y"
     label: "Copy ID"
     action: select id where id = id() | clipboard()
   - key: "Y"
     label: "Copy content"
-    action: select title, description where id = id() | clipboard()
+    action: select title, description where filepath = filepath() | clipboard()
   - key: "o"
     label: "Open in VS Code"
-    action: select filepath where id = id() | run("code \"$1\"")
+    action: select filepath where filepath = filepath() | run("code \"$1\"")
     hot: false
-  - key: "+"
-    label: "Priority up"
-    action: update where id = id() set priority = prev_enum(priority)
-  - key: "-"
-    label: "Priority down"
-    action: update where id = id() set priority = next_enum(priority)
   - key: "u"
     label: "Flag urgent"
     action: update where id = id() set priority="high" tags=tags+["urgent"]
@@ -119,12 +99,12 @@ actions:
     hot: false
   - key: "t"
     label: "Add tag"
-    action: update where id = id() set tags=tags+[input()]
+    action: update where filepath = filepath() set tags=tags+[input()]
     input: string
     hot: false
   - key: "T"
     label: "Remove tag"
-    action: update where id = id() set tags=tags-[input()]
+    action: update where filepath = filepath() set tags=tags-[input()]
     input: string
     hot: false
   - key: Ctrl-Q
@@ -160,6 +140,26 @@ views:
       - key: "p"
         label: "Link to project"
         action: update where id = choose(select where type = "project" and outer.id not in dependsOn) set dependsOn = dependsOn + id()
+      - key: "e"
+        label: Edit
+        kind: view
+        view: Detail
+        mode: edit
+        require: ["selection:one"]
+      - key: "n"
+        label: New
+        kind: view
+        view: Detail
+        mode: new
+      - key: "a"
+        label: "Assign to me"
+        action: update where id = id() set assignee=user()
+      - key: "+"
+        label: "Priority up"
+        action: update where id = id() set priority = prev_enum(priority)
+      - key: "-"
+        label: "Priority down"
+        action: update where id = id() set priority = next_enum(priority)
 
   - name: Recent
     kind: board
@@ -173,6 +173,27 @@ views:
       - name: Recent
         columns: 4
         filter: select where now() - updatedAt < 24hour and has(type) and type != "project" order by updatedAt desc
+    actions:
+      - key: "e"
+        label: Edit
+        kind: view
+        view: Detail
+        mode: edit
+        require: ["selection:one"]
+      - key: "n"
+        label: New
+        kind: view
+        view: Detail
+        mode: new
+      - key: "a"
+        label: "Assign to me"
+        action: update where id = id() set assignee=user()
+      - key: "+"
+        label: "Priority up"
+        action: update where id = id() set priority = prev_enum(priority)
+      - key: "-"
+        label: "Priority down"
+        action: update where id = id() set priority = next_enum(priority)
 
   - name: Roadmap
     kind: board
@@ -207,6 +228,26 @@ views:
       - key: "l"
         label: "Add tiki to project"
         action: update where id = id() set dependsOn = dependsOn + choose(select where type != "project" and id not in outer.dependsOn)
+      - key: "e"
+        label: Edit
+        kind: view
+        view: ProjectDetail
+        mode: edit
+        require: ["selection:one"]
+      - key: "n"
+        label: New
+        kind: view
+        view: Detail
+        mode: new
+      - key: "a"
+        label: "Assign to me"
+        action: update where id = id() set assignee=user()
+      - key: "+"
+        label: "Priority up"
+        action: update where id = id() set priority = prev_enum(priority)
+      - key: "-"
+        label: "Priority down"
+        action: update where id = id() set priority = next_enum(priority)
 
   - name: Docs
     kind: wiki

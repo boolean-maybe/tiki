@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"log/slog"
 	"path/filepath"
+	"reflect"
 	"strings"
 
 	"github.com/boolean-maybe/tiki/config"
@@ -296,7 +297,76 @@ func (ir *InputRouter) maybeHandleDetailEditMode(activeView View, currentView *V
 		}
 		return false, false
 	}
+
+	// When a free-form text editor (title InputField, assignee InputField,
+	// description/tags TextArea, or an adapter wrapping one) holds focus,
+	// typing keys must reach the widget rather than the global action
+	// registry. Without this, single-letter globals like 'r' (Refresh),
+	// 'q' (Quit), 'F1'..'F4' shadow the keystroke and the user cannot type
+	// those characters into the field. Tab/Backtab/Esc/Ctrl-S are already
+	// consumed above so this only covers the runes-and-backspace path.
+	if isTextInputFocused(ir.navController.GetApp()) && isTextInputKey(event) {
+		return true, false
+	}
+
 	return false, false
+}
+
+// isTextInputFocused reports whether the currently focused tview primitive
+// is a free-form text editor — either tview.InputField/TextArea directly,
+// or an adapter struct that embeds one (e.g. titleEditAdapter wraps
+// *tview.InputField for title editing). Detection walks the focused
+// value's struct fields via reflection so adapters don't need to register
+// with a marker interface across packages.
+func isTextInputFocused(app *tview.Application) bool {
+	if app == nil {
+		return false
+	}
+	focus := app.GetFocus()
+	if focus == nil {
+		return false
+	}
+	switch focus.(type) {
+	case *tview.InputField, *tview.TextArea:
+		return true
+	}
+	// adapter case: wrapper struct that embeds *tview.InputField or *tview.TextArea
+	v := reflect.ValueOf(focus)
+	for v.Kind() == reflect.Ptr {
+		if v.IsNil() {
+			return false
+		}
+		v = v.Elem()
+	}
+	if v.Kind() != reflect.Struct {
+		return false
+	}
+	for i := 0; i < v.NumField(); i++ {
+		fv := v.Field(i)
+		if fv.Kind() != reflect.Ptr {
+			continue
+		}
+		switch fv.Interface().(type) {
+		case *tview.InputField, *tview.TextArea:
+			return true
+		}
+	}
+	return false
+}
+
+// isTextInputKey reports whether the event is a key that a free-form text
+// editor needs to consume (printable rune, backspace, delete, navigation
+// inside the field). Tab/Backtab/Esc/Ctrl-S are deliberately excluded —
+// they belong to the edit-mode action registry.
+func isTextInputKey(event *tcell.EventKey) bool {
+	switch event.Key() {
+	case tcell.KeyRune,
+		tcell.KeyBackspace, tcell.KeyBackspace2,
+		tcell.KeyDelete,
+		tcell.KeyHome, tcell.KeyEnd:
+		return true
+	}
+	return false
 }
 
 // routeFieldAwareSave dispatches Ctrl-S through the matching SaveXFromTextArea

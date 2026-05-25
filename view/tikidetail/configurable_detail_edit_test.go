@@ -326,7 +326,10 @@ func TestConfigurableDetailView_TabTraversesCustomEnumField(t *testing.T) {
 	for cv.FocusNextField() {
 		visited = append(visited, cv.GetFocusedFieldName())
 	}
-	want := []string{"status", "severity", "priority"}
+	// Tab traversal walks metadata anchors in declaration order and then
+	// lands on the inline description editor (the synthetic "description"
+	// field) before stopping.
+	want := []string{"status", "severity", "priority", "description"}
 	if len(visited) != len(want) {
 		t.Fatalf("visited %v, want %v", visited, want)
 	}
@@ -372,14 +375,22 @@ func TestConfigurableDetailView_TabTraversesEditableFields(t *testing.T) {
 	if got := cv.GetFocusedFieldName(); got != "priority" {
 		t.Errorf("after Tab = %q, want %q", got, "priority")
 	}
+	// Tab past the last metadata field lands on the inline description
+	// editor (synthetic "description" pseudo-field).
+	if !cv.FocusNextField() {
+		t.Error("FocusNextField at last metadata field should land on description")
+	}
+	if got := cv.GetFocusedFieldName(); got != "description" {
+		t.Errorf("after Tab past last metadata = %q, want %q", got, "description")
+	}
 	if cv.FocusNextField() {
-		t.Error("FocusNextField should return false at last field")
+		t.Error("FocusNextField should return false past description")
 	}
 	if !cv.FocusPrevField() {
-		t.Fatal("FocusPrevField at priority returned false")
+		t.Fatal("FocusPrevField at description returned false")
 	}
-	if got := cv.GetFocusedFieldName(); got != "type" {
-		t.Errorf("after Shift+Tab = %q, want %q", got, "type")
+	if got := cv.GetFocusedFieldName(); got != "priority" {
+		t.Errorf("after Shift+Tab from description = %q, want %q", got, "priority")
 	}
 }
 
@@ -407,7 +418,10 @@ func TestConfigurableDetailView_ReadOnlyFieldsAreSkippedInTraversal(t *testing.T
 	for cv.FocusNextField() {
 		visited = append(visited, cv.GetFocusedFieldName())
 	}
-	want := []string{"status", "type", "priority"}
+	// Tab traversal includes the inline description editor at the end —
+	// read-only descriptors (createdBy/createdAt/updatedAt) are still
+	// skipped, which is the property this test pins.
+	want := []string{"status", "type", "priority", "description"}
 	if len(visited) != len(want) {
 		t.Fatalf("visited %v, want %v", visited, want)
 	}
@@ -415,6 +429,46 @@ func TestConfigurableDetailView_ReadOnlyFieldsAreSkippedInTraversal(t *testing.T
 		if visited[i] != name {
 			t.Errorf("visited[%d] = %q, want %q", i, visited[i], name)
 		}
+	}
+}
+
+// TestConfigurableDetailView_TabReachesDescription pins that Tab lands on
+// the synthetic "description" pseudo-field after the last metadata field,
+// and Shift-Tab from description steps back to the last metadata field.
+// Description body editing happens inline (TextArea), so this contract is
+// what makes "n" → fill metadata → Tab → write description → Ctrl-S a
+// single-flow new-tiki creation experience.
+func TestConfigurableDetailView_TabReachesDescription(t *testing.T) {
+	s := store.NewInMemoryStore()
+	tk := newTestViewTiki("TIKI116")
+	if err := s.CreateTiki(tk); err != nil {
+		t.Fatalf("CreateTiki: %v", err)
+	}
+	cv := NewConfigurableDetailView(
+		s, tk.ID, "Detail",
+		singleColumnSpec([]string{"status", "priority"}),
+		controller.DetailViewActions(),
+		nil, nil,
+	)
+	cv.SetEditModeRegistry(controller.DetailEditModeActions())
+
+	if !cv.EnterEditMode() {
+		t.Fatal("EnterEditMode")
+	}
+	if got := cv.GetFocusedFieldName(); got != "status" {
+		t.Fatalf("initial focus = %q, want %q", got, "status")
+	}
+	if !cv.FocusNextField() || cv.GetFocusedFieldName() != "priority" {
+		t.Fatalf("Tab to priority failed: focus=%q", cv.GetFocusedFieldName())
+	}
+	if !cv.FocusNextField() {
+		t.Fatal("Tab from last metadata field returned false; want description")
+	}
+	if got := cv.GetFocusedFieldName(); got != "description" {
+		t.Errorf("Tab past metadata focused %q, want %q", got, "description")
+	}
+	if !cv.FocusPrevField() || cv.GetFocusedFieldName() != "priority" {
+		t.Errorf("Shift-Tab from description focused %q, want %q", cv.GetFocusedFieldName(), "priority")
 	}
 }
 
@@ -535,6 +589,43 @@ func TestFieldHasEditor_OnlyImplementedFieldsReturnTrue(t *testing.T) {
 	}
 	if FieldHasEditor("not_a_field") {
 		t.Error("FieldHasEditor on unknown field should return false")
+	}
+}
+
+// TestGetPreferredFocus_ReturnsActiveEditor pins that, when the view is in
+// edit mode, GetPreferredFocus returns the focused editor primitive. The
+// view factory enters edit mode during construction (mode: new from "n");
+// RootLayout reads this hook after OnFocus to push keyboard focus to the
+// title input instead of the view root. Without it, the user lands in
+// edit mode but cannot type.
+func TestGetPreferredFocus_ReturnsActiveEditor(t *testing.T) {
+	s := store.NewInMemoryStore()
+	tk := newTestViewTiki("TIKI115")
+	if err := s.CreateTiki(tk); err != nil {
+		t.Fatalf("CreateTiki: %v", err)
+	}
+	cv := NewConfigurableDetailView(
+		s, tk.ID, "Detail",
+		singleColumnSpec([]string{"title", "status", "priority"}),
+		controller.DetailViewActions(),
+		nil, nil,
+	)
+	cv.SetEditModeRegistry(controller.DetailEditModeActions())
+
+	if got := cv.GetPreferredFocus(); got != nil {
+		t.Errorf("GetPreferredFocus() in view mode = %T, want nil", got)
+	}
+
+	if !cv.EnterEditModeWithFocus(model.EditFieldTitle) {
+		t.Fatal("EnterEditModeWithFocus(title) returned false")
+	}
+
+	titleEditor, ok := cv.editors["title"]
+	if !ok || titleEditor == nil {
+		t.Fatal("title editor was not built during EnterEditMode")
+	}
+	if got := cv.GetPreferredFocus(); got != titleEditor {
+		t.Errorf("GetPreferredFocus() = %T, want title editor %T", got, titleEditor)
 	}
 }
 

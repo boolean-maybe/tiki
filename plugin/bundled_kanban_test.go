@@ -90,14 +90,15 @@ func TestBundledKanban_HasDetailViewAndEnterAction(t *testing.T) {
 	}
 }
 
-// TestBundledKanban_DeclaresAllDetailModeActions asserts the bundled kanban
-// workflow exposes the detail-mode entry points relevant to source views as
-// top-level globals (Enter→view, e→edit, n→new). Edit-desc and edit-tags
-// modes are intentionally NOT bound: from inside Detail you press `e` to
-// enter edit mode and Tab to the desired field; the previously declared
-// Ctrl-D / Ctrl-T shortcuts collided with Detail's hardcoded Ctrl-D
-// (Dependencies) and surfaced uselessly on Docs.
-func TestBundledKanban_DeclaresAllDetailModeActions(t *testing.T) {
+// TestBundledKanban_GlobalsAreSelectionFree asserts the bundled kanban's
+// top-level actions: block contains only actions that don't depend on a
+// row-cursor selection. Selection-bound shortcuts (e/n/a/+/-, Ctrl-D, Ctrl-T)
+// must live on individual board views, not as workflow globals — globals
+// merge into every plugin (including wiki/Docs), where a row cursor doesn't
+// exist and the actions surface uselessly. Enter (Open) is the one
+// selection-bound exception, kept global because the wiki controller's
+// reserved-key filter strips it from wiki views explicitly.
+func TestBundledKanban_GlobalsAreSelectionFree(t *testing.T) {
 	wd, err := os.Getwd()
 	if err != nil {
 		t.Fatalf("getwd: %v", err)
@@ -113,40 +114,23 @@ func TestBundledKanban_DeclaresAllDetailModeActions(t *testing.T) {
 		t.Fatalf("bundled kanban did not load cleanly: %v", errs)
 	}
 
-	wantByKey := map[string]DetailMode{
-		"Enter": DetailModeView,
-		"e":     DetailModeEdit,
-		"n":     DetailModeNew,
-	}
-	forbiddenKeys := map[string]bool{
+	// Keys that must NOT appear in the workflow-level actions: block.
+	// Each is selection-bound (operates on the row cursor) and belongs on
+	// individual board views.
+	forbiddenAtGlobal := map[string]bool{
+		"e":      true,
+		"n":      true,
+		"a":      true,
+		"+":      true,
+		"-":      true,
 		"Ctrl-D": true,
 		"Ctrl-T": true,
 	}
 	for i := range globals {
 		a := &globals[i]
-		if a.Kind != ActionKindView || a.TargetView != "Detail" {
-			continue
+		if forbiddenAtGlobal[a.KeyStr] {
+			t.Errorf("global action key=%q (label=%q) must live on a board view, not at workflow top level",
+				a.KeyStr, a.Label)
 		}
-		if forbiddenKeys[a.KeyStr] {
-			t.Errorf("global Detail-view action for key %q must not exist (mode=%q): "+
-				"collides with Detail's hardcoded Ctrl-D and surfaces on Docs", a.KeyStr, a.Mode)
-			continue
-		}
-		want, ok := wantByKey[a.KeyStr]
-		if !ok {
-			continue
-		}
-		// DetailModeView is the default and may be encoded as either "" or "view".
-		got := a.Mode
-		if want == DetailModeView && got == "" {
-			got = DetailModeView
-		}
-		if got != want {
-			t.Errorf("action key=%q: Mode = %q, want %q", a.KeyStr, a.Mode, want)
-		}
-		delete(wantByKey, a.KeyStr)
-	}
-	for key := range wantByKey {
-		t.Errorf("missing detail-mode action for key %q", key)
 	}
 }

@@ -958,3 +958,17 @@ func (a *titleEditAdapter) CycleValue(int) bool { return false }
 func (a *titleEditAdapter) GetText() string {
 	return a.InputField.GetText()
 }
+
+// descriptionEditAdapter wraps tview.TextArea for the inline description
+// editor surfaced when Tab lands on the description pseudo-field. Mirrors
+// tagsEditAdapter — non-cyclable, GetText returns the textarea content.
+type descriptionEditAdapter struct {
+	*tview.TextArea
+}
+
+func (a *descriptionEditAdapter) CycleValue(int) bool { return false }
+
+// GetText returns the textarea content (the full description body).
+func (a *descriptionEditAdapter) GetText() string {
+	return a.TextArea.GetText()
+}

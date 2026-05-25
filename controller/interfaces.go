@@ -16,6 +16,19 @@ type FocusSettable interface {
 	SetFocusSetter(setter func(p tview.Primitive))
 }
 
+// PreferredFocusProvider is implemented by views that want a non-root primitive
+// focused when the view is activated. RootLayout calls this after OnFocus and
+// uses the returned primitive instead of the view's root for app.SetFocus.
+// Returning nil falls back to the root primitive.
+//
+// Motivating case: a detail view pushed in edit-with-title mode needs the title
+// input focused so the user can type immediately. Without this hook, RootLayout's
+// post-activation app.SetFocus(root) clobbers any focus the view set during
+// construction or OnFocus.
+type PreferredFocusProvider interface {
+	GetPreferredFocus() tview.Primitive
+}
+
 // View represents a renderable view with its action registry
 type View interface {
 	// GetPrimitive returns the tview primitive for this view

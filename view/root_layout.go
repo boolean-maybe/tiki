@@ -170,7 +170,13 @@ func (rl *RootLayout) onLayoutChange() {
 
 	// Focus the view
 	newView.OnFocus()
-	rl.app.SetFocus(newView.GetPrimitive())
+	focusTarget := newView.GetPrimitive()
+	if pfp, ok := newView.(controller.PreferredFocusProvider); ok {
+		if pref := pfp.GetPreferredFocus(); pref != nil {
+			focusTarget = pref
+		}
+	}
+	rl.app.SetFocus(focusTarget)
 }
 
 // syncViewContextFromView computes view name/description, view actions, and plugin actions

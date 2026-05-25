@@ -113,6 +113,93 @@ func TestRouteFieldAwareSave_FallsThroughWhenNoSavableHook(t *testing.T) {
 	}
 }
 
+// adapterEmbeddingInputField mirrors view/tikidetail.titleEditAdapter — a
+// struct that embeds *tview.InputField. isTextInputFocused must recognise it.
+type adapterEmbeddingInputField struct {
+	*tview.InputField
+}
+
+// adapterEmbeddingTextArea mirrors view/tikidetail.tagsEditAdapter.
+type adapterEmbeddingTextArea struct {
+	*tview.TextArea
+}
+
+// TestIsTextInputFocused_DirectInputField pins that a bare InputField is
+// recognised as a text-input target.
+func TestIsTextInputFocused_DirectInputField(t *testing.T) {
+	app := tview.NewApplication()
+	app.SetRoot(tview.NewInputField(), true)
+	if !isTextInputFocused(app) {
+		t.Error("expected isTextInputFocused=true for *tview.InputField root")
+	}
+}
+
+// TestIsTextInputFocused_EmbeddedInputFieldAdapter pins the adapter case
+// (titleEditAdapter wraps *tview.InputField via embedding). Without this,
+// typing 'r' / 'q' / etc. into the title input would be intercepted by
+// global hotkeys because the focus-type check would miss the adapter.
+func TestIsTextInputFocused_EmbeddedInputFieldAdapter(t *testing.T) {
+	adapter := &adapterEmbeddingInputField{InputField: tview.NewInputField()}
+	app := tview.NewApplication()
+	app.SetRoot(adapter, true)
+	if !isTextInputFocused(app) {
+		t.Error("expected isTextInputFocused=true for adapter embedding *tview.InputField")
+	}
+}
+
+// TestIsTextInputFocused_EmbeddedTextAreaAdapter mirrors the InputField
+// adapter case for *tview.TextArea (tags/description editors).
+func TestIsTextInputFocused_EmbeddedTextAreaAdapter(t *testing.T) {
+	adapter := &adapterEmbeddingTextArea{TextArea: tview.NewTextArea()}
+	app := tview.NewApplication()
+	app.SetRoot(adapter, true)
+	if !isTextInputFocused(app) {
+		t.Error("expected isTextInputFocused=true for adapter embedding *tview.TextArea")
+	}
+}
+
+// TestIsTextInputFocused_NonTextPrimitive pins that non-text primitives
+// (TextView, Box, custom widgets) are NOT classified as text inputs so the
+// global hotkey registry stays in charge for those views.
+func TestIsTextInputFocused_NonTextPrimitive(t *testing.T) {
+	app := tview.NewApplication()
+	app.SetRoot(tview.NewTextView(), true)
+	if isTextInputFocused(app) {
+		t.Error("expected isTextInputFocused=false for *tview.TextView")
+	}
+}
+
+// TestIsTextInputKey_RuneAndEditingKeys pins which keys the gate forwards
+// to a text editor. Tab/Backtab/Esc/Ctrl-S must NOT be in this set —
+// they belong to the edit-mode action registry.
+func TestIsTextInputKey_RuneAndEditingKeys(t *testing.T) {
+	allow := []*tcell.EventKey{
+		tcell.NewEventKey(tcell.KeyRune, 'r', tcell.ModNone),
+		tcell.NewEventKey(tcell.KeyRune, 'q', tcell.ModNone),
+		tcell.NewEventKey(tcell.KeyBackspace, 0, tcell.ModNone),
+		tcell.NewEventKey(tcell.KeyBackspace2, 0, tcell.ModNone),
+		tcell.NewEventKey(tcell.KeyDelete, 0, tcell.ModNone),
+		tcell.NewEventKey(tcell.KeyHome, 0, tcell.ModNone),
+		tcell.NewEventKey(tcell.KeyEnd, 0, tcell.ModNone),
+	}
+	for _, ev := range allow {
+		if !isTextInputKey(ev) {
+			t.Errorf("isTextInputKey(%s) = false, want true", ev.Name())
+		}
+	}
+	deny := []*tcell.EventKey{
+		tcell.NewEventKey(tcell.KeyTab, 0, tcell.ModNone),
+		tcell.NewEventKey(tcell.KeyBacktab, 0, tcell.ModNone),
+		tcell.NewEventKey(tcell.KeyEscape, 0, tcell.ModNone),
+		tcell.NewEventKey(tcell.KeyCtrlS, 0, tcell.ModNone),
+	}
+	for _, ev := range deny {
+		if isTextInputKey(ev) {
+			t.Errorf("isTextInputKey(%s) = true, want false", ev.Name())
+		}
+	}
+}
+
 // routerRecurrenceView is a thin detailEditModeView + RecurrencePartNavigable
 // implementation that wraps a real *component.RecurrenceEdit. The part-nav
 // methods forward to the underlying component's MovePartLeft/MovePartRight,
