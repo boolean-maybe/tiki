@@ -27,7 +27,7 @@ func TestBundledKanban_HasDetailViewAndEnterAction(t *testing.T) {
 		t.Skipf("bundled kanban not at expected path %s: %v", src, err)
 	}
 
-	plugins, globals, errs := loadPluginsFromFile(src, testSchema())
+	plugins, _, errs := loadPluginsFromFile(src, testSchema())
 	if len(errs) != 0 {
 		t.Fatalf("bundled kanban did not load cleanly: %v", errs)
 	}
@@ -72,15 +72,27 @@ func TestBundledKanban_HasDetailViewAndEnterAction(t *testing.T) {
 		}
 	}
 
+	// Enter (Open) is a view-local action on board views, not a global.
+	// Verify it lives on the Kanban board's action list.
+	var kanban *WorkflowPlugin
+	for _, p := range plugins {
+		if wp, ok := p.(*WorkflowPlugin); ok && wp.Name == "Kanban" {
+			kanban = wp
+			break
+		}
+	}
+	if kanban == nil {
+		t.Fatal("bundled kanban does not contain a Kanban board view")
+	}
 	var enter *PluginAction
-	for i := range globals {
-		if globals[i].KeyStr == "Enter" {
-			enter = &globals[i]
+	for i := range kanban.Actions {
+		if kanban.Actions[i].KeyStr == "Enter" {
+			enter = &kanban.Actions[i]
 			break
 		}
 	}
 	if enter == nil {
-		t.Fatal("bundled kanban has no global Enter action")
+		t.Fatal("Kanban board has no Enter action")
 	}
 	if enter.Kind != ActionKindView {
 		t.Errorf("Enter.Kind = %v, want %v", enter.Kind, ActionKindView)
@@ -92,12 +104,10 @@ func TestBundledKanban_HasDetailViewAndEnterAction(t *testing.T) {
 
 // TestBundledKanban_GlobalsAreSelectionFree asserts the bundled kanban's
 // top-level actions: block contains only actions that don't depend on a
-// row-cursor selection. Selection-bound shortcuts (e/n/a/+/-, Ctrl-D, Ctrl-T)
-// must live on individual board views, not as workflow globals — globals
-// merge into every plugin (including wiki/Docs), where a row cursor doesn't
-// exist and the actions surface uselessly. Enter (Open) is the one
-// selection-bound exception, kept global because the wiki controller's
-// reserved-key filter strips it from wiki views explicitly.
+// row-cursor selection. Selection-bound shortcuts (e/n/a/+/-, Enter, Ctrl-D,
+// Ctrl-T) must live on individual board views, not as workflow globals —
+// globals merge into every plugin (including wiki/Docs and detail views),
+// where they surface uselessly.
 func TestBundledKanban_GlobalsAreSelectionFree(t *testing.T) {
 	wd, err := os.Getwd()
 	if err != nil {
@@ -118,6 +128,7 @@ func TestBundledKanban_GlobalsAreSelectionFree(t *testing.T) {
 	// Each is selection-bound (operates on the row cursor) and belongs on
 	// individual board views.
 	forbiddenAtGlobal := map[string]bool{
+		"Enter":  true,
 		"e":      true,
 		"n":      true,
 		"a":      true,
