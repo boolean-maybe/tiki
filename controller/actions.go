@@ -40,7 +40,6 @@ const (
 	ActionEditSource ActionID = "edit_source"
 	ActionFullscreen ActionID = "fullscreen"
 	ActionCloneTiki  ActionID = "clone_tiki"
-	ActionEditDeps   ActionID = "edit_deps"
 	ActionChat       ActionID = "chat"
 
 	// ActionDetailEditStub: registered on configurable detail views so the
@@ -700,7 +699,6 @@ func TikiDetailViewActions() *ActionRegistry {
 	idReq := []Requirement{RequireID}
 	r.Register(Action{ID: ActionEditSource, Key: tcell.KeyRune, Rune: 's', Label: "Edit source", ShowInHeader: true, Require: idReq})
 	r.Register(Action{ID: ActionFullscreen, Key: tcell.KeyRune, Rune: 'f', Label: "Full screen", ShowInHeader: true})
-	r.Register(Action{ID: ActionEditDeps, Key: tcell.KeyCtrlD, Modifier: tcell.ModCtrl, Label: "Dependencies", ShowInHeader: true, Require: idReq})
 	r.Register(Action{ID: ActionChat, Key: tcell.KeyRune, Rune: 'c', Label: "Chat", ShowInHeader: true, Require: []Requirement{RequireAI, RequireID}})
 
 	return r

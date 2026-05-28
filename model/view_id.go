@@ -22,18 +22,11 @@ const (
 )
 
 // DetailPluginViewID returns the canonical configurable-detail view id
-// (`plugin:Detail`). Used by internal navigations (deps editor, etc.)
-// that previously pushed the legacy TikiDetailViewID and now route
-// through the configurable detail view declared in workflow.yaml.
+// (`plugin:Detail`). Used by internal navigations that route through the
+// configurable detail view declared in workflow.yaml.
 func DetailPluginViewID() ViewID {
 	return MakePluginViewID(DetailPluginName)
 }
-
-// built-in view names and descriptions for the header info section
-const (
-	DepsEditorViewName = "Dependencies"
-	DepsEditorViewDesc = "Move a tiki to Blocks to make it block edited tiki. Move it to Depends to make edited tiki depend on it"
-)
 
 // IsPluginViewID checks if a ViewID is for a plugin view
 func IsPluginViewID(id ViewID) bool {

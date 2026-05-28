@@ -101,9 +101,6 @@ var roleKeyMapping = map[string]string{
 	"StatuslineErrorBg":  "pair:StatuslineError.bg",
 	"StatuslineFillBg":   "method:StatuslineFill",
 
-	// Plugin-specific
-	"DepsEditorBackground": "method:DepsEditorSurface",
-
 	// Logo
 	"LogoDotColor":    "method:LogoDot",
 	"LogoShadeColor":  "method:LogoShade",
@@ -225,8 +222,6 @@ func resolveByGetter(th *Theme, name string) (string, bool) {
 		return th.StatusOk().Hex(), true
 	case "StatuslineFill":
 		return th.StatuslineFill().Hex(), true
-	case "DepsEditorSurface":
-		return th.DepsEditorSurface().Hex(), true
 	case "LogoDot":
 		return th.LogoDot().Hex(), true
 	case "LogoShade":

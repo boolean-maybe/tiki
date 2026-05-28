@@ -45,8 +45,6 @@
 //	statusline.error.fg / .bg
 //	statusline.fill
 //
-//	deps-editor.surface — dependency editor caption bg
-//
 //	logo.dot         — bright dots in header logo art
 //	logo.shade       — mid-tone shade in header logo art
 //	logo.border      — dark border in header logo art

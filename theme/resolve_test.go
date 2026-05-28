@@ -22,7 +22,6 @@ func TestResolveByNameCanonical(t *testing.T) {
 		"statusline.info.fg", "statusline.info.bg",
 		"statusline.error.fg", "statusline.error.bg",
 		"statusline.fill",
-		"deps-editor.surface",
 		"logo.dot", "logo.shade", "logo.border",
 	}
 	for _, name := range names {
@@ -35,8 +34,8 @@ func TestResolveByNameCanonical(t *testing.T) {
 			t.Errorf("ResolveByName(%q) returned (nil, true)", name)
 		}
 	}
-	// 30 canonical names — matches the spec vocabulary.
-	if got, want := len(names), 30; got != want {
+	// 29 canonical names — matches the spec vocabulary.
+	if got, want := len(names), 29; got != want {
 		t.Errorf("canonical name count: got %d, want %d", got, want)
 	}
 }

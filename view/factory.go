@@ -89,13 +89,6 @@ func (f *ViewFactory) SetDetailControllerFactory(fn func(pluginDef *plugin.Detai
 	f.detailControllerFactory = fn
 }
 
-// RegisterPlugin registers a dynamically created plugin (e.g., deps editor) with the view factory.
-func (f *ViewFactory) RegisterPlugin(name string, cfg *model.PluginConfig, def plugin.Plugin, ctrl controller.PluginControllerInterface) {
-	f.pluginConfigs[name] = cfg
-	f.pluginDefs[name] = def
-	f.pluginControllers[name] = ctrl
-}
-
 // CreateView instantiates a view by ID with optional parameters.
 // Plugin views are the only views the factory builds; built-in view IDs no
 // longer route through here.

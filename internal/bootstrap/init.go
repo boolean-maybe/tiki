@@ -204,11 +204,6 @@ func Bootstrap(tikiSkillContent string) (*Result, error) {
 		return dc
 	})
 
-	// Wire dynamic plugin registration (deps editor creates plugins at runtime)
-	inputRouter.SetPluginRegistrar(func(name string, cfg *model.PluginConfig, def plugin.Plugin, ctrl controller.PluginControllerInterface) {
-		viewFactory.RegisterPlugin(name, cfg, def, ctrl)
-	})
-
 	headerWidget := header.NewHeaderWidget(headerConfig, viewContext)
 	statuslineWidget := statusline.NewStatuslineWidget(statuslineConfig)
 	rootLayout := view.NewRootLayout(view.RootLayoutOpts{

@@ -139,10 +139,6 @@ func (dv *WikiView) build() {
 	pair := theme.Roles().PluginCaptions().At(dv.pluginDef.ConfigIndex)
 	bgColor := theme.NewColor(pair.Bg().TCell())
 	textColor := theme.NewColor(pair.Fg().TCell())
-	if dv.pluginDef.ConfigIndex < 0 {
-		bgColor = dv.pluginDef.Background
-		textColor = theme.DefaultColor()
-	}
 	dv.titleBar = NewGradientCaptionRow([]string{dv.pluginDef.Name}, nil, theme.NewColorRoleAdapter(bgColor), textColor)
 
 	// Fetch initial content and create NavigableMarkdown with appropriate provider.

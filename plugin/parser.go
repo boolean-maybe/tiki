@@ -94,10 +94,6 @@ func parsePluginConfig(cfg pluginFileConfig, source string, schema ruki.Schema, 
 
 	kind := ViewKind(cfg.Kind)
 
-	// caption colors are auto-generated per theme; YAML fg/bg fields are silently ignored
-	fg := theme.DefaultColor()
-	bg := theme.DefaultColor()
-
 	key, r, mod, _, err := parseCanonicalKey(cfg.Key)
 	if err != nil {
 		return nil, fmt.Errorf("plugin %q (%s): parsing key: %w", cfg.Name, source, err)
@@ -115,8 +111,6 @@ func parsePluginConfig(cfg pluginFileConfig, source string, schema ruki.Schema, 
 		Key:         key,
 		Rune:        r,
 		Modifier:    mod,
-		Foreground:  fg,
-		Background:  bg,
 		FilePath:    source,
 		Kind:        kind,
 		ConfigIndex: -1, // default, will be set by caller if needed

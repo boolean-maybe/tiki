@@ -74,10 +74,6 @@ func (t *Theme) ResolveByName(name string) (Role, bool) {
 	case "statusline.fill":
 		return t.statuslineFill, true
 
-	// canonical: plugin-specific
-	case "deps-editor.surface":
-		return t.depsEditorSurface, true
-
 	// canonical: logo
 	case "logo.dot":
 		return t.logoDot, true
@@ -136,7 +132,6 @@ var canonicalRoleNames = []string{
 	"statusline.info.fg", "statusline.info.bg",
 	"statusline.error.fg", "statusline.error.bg",
 	"statusline.fill",
-	"deps-editor.surface",
 	"logo.dot", "logo.shade", "logo.border",
 }
 

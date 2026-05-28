@@ -38,7 +38,7 @@ func newTestDetailPlugin(metadata []string, actions []plugin.PluginAction) *plug
 		BasePlugin: plugin.BasePlugin{
 			Name:        "Detail",
 			Kind:        plugin.KindDetail,
-			ConfigIndex: -1,
+			ConfigIndex: 0,
 		},
 		Layout:  spec,
 		Actions: actions,

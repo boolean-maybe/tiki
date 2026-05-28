@@ -14,7 +14,7 @@ import (
 	"github.com/boolean-maybe/tiki/workflow"
 )
 
-// pluginBase holds the shared fields and methods common to PluginController and DepsController.
+// pluginBase holds the shared fields and methods common to plugin controllers.
 // Methods that depend on per-controller filtering accept a filteredTikis callback.
 type pluginBase struct {
 	tikiStore     store.Store

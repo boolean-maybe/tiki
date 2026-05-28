@@ -63,11 +63,6 @@ func (pv *PluginView) build() {
 	pair := theme.Roles().PluginCaptions().At(pv.pluginDef.ConfigIndex)
 	bgColor := theme.NewColor(pair.Bg().TCell())
 	textColor := theme.NewColor(pair.Fg().TCell())
-	if pv.pluginDef.ConfigIndex < 0 {
-		// code-only plugin (e.g. deps editor) — use explicit Background
-		bgColor = pv.pluginDef.Background
-		textColor = theme.DefaultColor()
-	}
 	laneNames := make([]string, len(pv.pluginDef.Lanes))
 	for i, lane := range pv.pluginDef.Lanes {
 		laneNames[i] = lane.Name

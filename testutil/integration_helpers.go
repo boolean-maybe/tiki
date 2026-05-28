@@ -520,12 +520,6 @@ func (ta *TestApp) LoadPlugins() error {
 	})
 	ta.ViewFactory = viewFactory
 
-	// Wire dynamic plugin registration so openDepsEditor can register deps views at runtime.
-	// Mirrors bootstrap/init.go:133-135.
-	ta.InputRouter.SetPluginRegistrar(func(name string, cfg *model.PluginConfig, def plugin.Plugin, ctrl controller.PluginControllerInterface) {
-		viewFactory.RegisterPlugin(name, cfg, def, ctrl)
-	})
-
 	// Recreate RootLayout with new view factory
 	headerWidget := header.NewHeaderWidget(ta.headerConfig, ta.viewContext)
 	ta.RootLayout.Cleanup()

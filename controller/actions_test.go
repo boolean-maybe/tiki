@@ -460,11 +460,11 @@ func TestTikiDetailViewActions(t *testing.T) {
 	registry := TikiDetailViewActions()
 	actions := registry.GetActions()
 
-	if len(actions) != 4 {
-		t.Errorf("expected 4 tiki detail actions (always includes Chat), got %d", len(actions))
+	if len(actions) != 3 {
+		t.Errorf("expected 3 tiki detail actions (always includes Chat), got %d", len(actions))
 	}
 
-	expectedActions := []ActionID{ActionEditSource, ActionFullscreen, ActionEditDeps, ActionChat}
+	expectedActions := []ActionID{ActionEditSource, ActionFullscreen, ActionChat}
 	for i, expected := range expectedActions {
 		if i >= len(actions) {
 			t.Errorf("missing action at index %d: want %v", i, expected)
@@ -547,10 +547,10 @@ func TestTikiDetailViewActions_ChatAlwaysRegistered(t *testing.T) {
 		t.Error("chat should be disabled when ai.agent is empty")
 	}
 
-	// total count should always be 4
+	// total count should always be 3
 	actions := registry.GetActions()
-	if len(actions) != 4 {
-		t.Errorf("expected 4 actions, got %d", len(actions))
+	if len(actions) != 3 {
+		t.Errorf("expected 3 actions, got %d", len(actions))
 	}
 }
 
@@ -1085,127 +1085,6 @@ func TestNoCallbackBasedEnablement(t *testing.T) {
 				}
 			}
 		}
-	}
-}
-
-// TestMakeDetailViewResolver verifies the resolver picks the right
-// detail view across the cases that motivated the Phase 3 fix:
-// preferred-source available, preferred-source missing, no detail
-// plugins at all, and a non-detail controller registered under the
-// preferred name.
-func TestMakeDetailViewResolver(t *testing.T) {
-	t.Run("preferred source returned when present and is a DetailController", func(t *testing.T) {
-		ir := &InputRouter{
-			pluginControllers: map[string]PluginControllerInterface{
-				"MyDetail":    &DetailController{},
-				"OtherDetail": &DetailController{},
-			},
-		}
-		got := ir.makeDetailViewResolver("MyDetail")()
-		if got != "MyDetail" {
-			t.Errorf("preferred name = %q, want %q", got, "MyDetail")
-		}
-	})
-
-	t.Run("preferred missing falls back to any detail controller", func(t *testing.T) {
-		ir := &InputRouter{
-			pluginControllers: map[string]PluginControllerInterface{
-				"OnlyDetail": &DetailController{},
-			},
-		}
-		got := ir.makeDetailViewResolver("RenamedAndGone")()
-		if got != "OnlyDetail" {
-			t.Errorf("fallback = %q, want %q", got, "OnlyDetail")
-		}
-	})
-
-	t.Run("preferred name registered under non-detail controller is ignored", func(t *testing.T) {
-		// A workflow could in principle have a board view named
-		// "Detail" alongside a kind: detail view named "Inspector".
-		// The resolver must skip the board and pick the detail one.
-		ir := &InputRouter{
-			pluginControllers: map[string]PluginControllerInterface{
-				"Detail":    &PluginController{},
-				"Inspector": &DetailController{},
-			},
-		}
-		got := ir.makeDetailViewResolver("Detail")()
-		if got != "Inspector" {
-			t.Errorf("got %q, want %q (board named Detail must not satisfy resolver)", got, "Inspector")
-		}
-	})
-
-	t.Run("no detail controllers returns empty", func(t *testing.T) {
-		ir := &InputRouter{
-			pluginControllers: map[string]PluginControllerInterface{
-				"Kanban":  &PluginController{},
-				"Backlog": &PluginController{},
-			},
-		}
-		got := ir.makeDetailViewResolver("")()
-		if got != "" {
-			t.Errorf("got %q, want empty (no detail plugins loaded)", got)
-		}
-	})
-
-	t.Run("empty preferred falls through to discovery", func(t *testing.T) {
-		ir := &InputRouter{
-			pluginControllers: map[string]PluginControllerInterface{
-				"SomeDetail": &DetailController{},
-			},
-		}
-		got := ir.makeDetailViewResolver("")()
-		if got != "SomeDetail" {
-			t.Errorf("got %q, want %q (empty preferred should still discover)", got, "SomeDetail")
-		}
-	})
-}
-
-// TestOpenDepsEditor_ReopenRefreshesResolver guards a subtle bug:
-// the deps editor is keyed by "Dependency:<tikiID>", so opening the
-// same tiki's editor a second time hits the early-return reopen
-// branch. Without refreshing the resolver, the closure captured on
-// first open keeps the original sourceDetailViewName forever and
-// Enter routes back to the wrong view when the user re-opens deps
-// from a different configurable detail view.
-func TestOpenDepsEditor_ReopenRefreshesResolver(t *testing.T) {
-	ir := &InputRouter{
-		navController: newMockNavigationController(),
-		pluginControllers: map[string]PluginControllerInterface{
-			// Two configurable detail views in the same workflow.
-			"DetailA": &DetailController{},
-			"DetailB": &DetailController{},
-		},
-	}
-
-	const tikiID = "TASK01"
-
-	// First open from DetailA.
-	ir.openDepsEditor(tikiID, "DetailA")
-	depsName := "Dependency:" + tikiID
-	dc, ok := ir.pluginControllers[depsName].(*DepsController)
-	if !ok {
-		t.Fatalf("expected *DepsController under %q, got %T", depsName, ir.pluginControllers[depsName])
-	}
-	if got := dc.detailViewResolver(); got != "DetailA" {
-		t.Fatalf("after first open: resolver = %q, want %q", got, "DetailA")
-	}
-
-	// Reopen from DetailB — same tiki id, so the existing controller
-	// is reused. The resolver must now prefer DetailB.
-	ir.openDepsEditor(tikiID, "DetailB")
-	if got := dc.detailViewResolver(); got != "DetailB" {
-		t.Errorf("after reopen from DetailB: resolver = %q, want %q (stale resolver bug)", got, "DetailB")
-	}
-
-	// And reopening from a non-detail context (empty source) must
-	// fall back through discovery rather than holding onto DetailB.
-	// Map iteration order is non-deterministic, so we only assert
-	// that *some* available detail name is returned, not which one.
-	ir.openDepsEditor(tikiID, "")
-	got := dc.detailViewResolver()
-	if got != "DetailA" && got != "DetailB" {
-		t.Errorf("after reopen with empty source: resolver = %q, want one of DetailA/DetailB", got)
 	}
 }
 

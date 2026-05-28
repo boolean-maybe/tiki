@@ -18,8 +18,6 @@ type Theme struct {
 	// Statusline (pair roles + a single fill)
 	statuslineMain, statuslineAccent, statuslineInfo, statuslineError PairRole
 	statuslineFill                                                    Role
-	// Plugin-specific
-	depsEditorSurface Role
 	// Tiki-specific
 	tikiID Role
 	// Logo
@@ -48,7 +46,6 @@ func (t *Theme) StatusDanger() Role       { return t.statusDanger }
 func (t *Theme) StatusWarn() Role         { return t.statusWarn }
 func (t *Theme) StatusOk() Role           { return t.statusOk }
 func (t *Theme) StatuslineFill() Role     { return t.statuslineFill }
-func (t *Theme) DepsEditorSurface() Role  { return t.depsEditorSurface }
 func (t *Theme) TikiID() Role             { return t.tikiID }
 func (t *Theme) LogoDot() Role            { return t.logoDot }
 func (t *Theme) LogoShade() Role          { return t.logoShade }

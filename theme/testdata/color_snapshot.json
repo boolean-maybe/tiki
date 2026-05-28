@@ -97,12 +97,6 @@
   },
   {
     "theme": "dark",
-    "key": "DepsEditorBackground",
-    "hex": "#434c5e",
-    "tag": "[#434c5e]"
-  },
-  {
-    "theme": "dark",
     "key": "HeaderActionGlobalKeyColor",
     "hex": "#ffff00",
     "tag": "[#ffff00]"
@@ -568,12 +562,6 @@
     "key": "DangerColor",
     "hex": "#cc0000",
     "tag": "[#cc0000]"
-  },
-  {
-    "theme": "light",
-    "key": "DepsEditorBackground",
-    "hex": "#d8dee9",
-    "tag": "[#d8dee9]"
   },
   {
     "theme": "light",
@@ -1045,12 +1033,6 @@
   },
   {
     "theme": "dracula",
-    "key": "DepsEditorBackground",
-    "hex": "#44475a",
-    "tag": "[#44475a]"
-  },
-  {
-    "theme": "dracula",
     "key": "HeaderActionGlobalKeyColor",
     "hex": "#ff79c6",
     "tag": "[#ff79c6]"
@@ -1516,12 +1498,6 @@
     "key": "DangerColor",
     "hex": "#f7768e",
     "tag": "[#f7768e]"
-  },
-  {
-    "theme": "tokyo-night",
-    "key": "DepsEditorBackground",
-    "hex": "#24283b",
-    "tag": "[#24283b]"
   },
   {
     "theme": "tokyo-night",
@@ -1993,12 +1969,6 @@
   },
   {
     "theme": "gruvbox-dark",
-    "key": "DepsEditorBackground",
-    "hex": "#3c3836",
-    "tag": "[#3c3836]"
-  },
-  {
-    "theme": "gruvbox-dark",
     "key": "HeaderActionGlobalKeyColor",
     "hex": "#fabd2f",
     "tag": "[#fabd2f]"
@@ -2464,12 +2434,6 @@
     "key": "DangerColor",
     "hex": "#f38ba8",
     "tag": "[#f38ba8]"
-  },
-  {
-    "theme": "catppuccin-mocha",
-    "key": "DepsEditorBackground",
-    "hex": "#313244",
-    "tag": "[#313244]"
   },
   {
     "theme": "catppuccin-mocha",
@@ -2941,12 +2905,6 @@
   },
   {
     "theme": "solarized-dark",
-    "key": "DepsEditorBackground",
-    "hex": "#073642",
-    "tag": "[#073642]"
-  },
-  {
-    "theme": "solarized-dark",
     "key": "HeaderActionGlobalKeyColor",
     "hex": "#b58900",
     "tag": "[#b58900]"
@@ -3412,12 +3370,6 @@
     "key": "DangerColor",
     "hex": "#bf616a",
     "tag": "[#bf616a]"
-  },
-  {
-    "theme": "nord",
-    "key": "DepsEditorBackground",
-    "hex": "#434c5e",
-    "tag": "[#434c5e]"
   },
   {
     "theme": "nord",
@@ -3889,12 +3841,6 @@
   },
   {
     "theme": "monokai",
-    "key": "DepsEditorBackground",
-    "hex": "#3e3d32",
-    "tag": "[#3e3d32]"
-  },
-  {
-    "theme": "monokai",
     "key": "HeaderActionGlobalKeyColor",
     "hex": "#e6db74",
     "tag": "[#e6db74]"
@@ -4360,12 +4306,6 @@
     "key": "DangerColor",
     "hex": "#e06c75",
     "tag": "[#e06c75]"
-  },
-  {
-    "theme": "one-dark",
-    "key": "DepsEditorBackground",
-    "hex": "#3b4048",
-    "tag": "[#3b4048]"
   },
   {
     "theme": "one-dark",
@@ -4837,12 +4777,6 @@
   },
   {
     "theme": "catppuccin-latte",
-    "key": "DepsEditorBackground",
-    "hex": "#dce0e8",
-    "tag": "[#dce0e8]"
-  },
-  {
-    "theme": "catppuccin-latte",
     "key": "HeaderActionGlobalKeyColor",
     "hex": "#df8e1d",
     "tag": "[#df8e1d]"
@@ -5308,12 +5242,6 @@
     "key": "DangerColor",
     "hex": "#dc322f",
     "tag": "[#dc322f]"
-  },
-  {
-    "theme": "solarized-light",
-    "key": "DepsEditorBackground",
-    "hex": "#eee8d5",
-    "tag": "[#eee8d5]"
   },
   {
     "theme": "solarized-light",
@@ -5785,12 +5713,6 @@
   },
   {
     "theme": "gruvbox-light",
-    "key": "DepsEditorBackground",
-    "hex": "#d5c4a1",
-    "tag": "[#d5c4a1]"
-  },
-  {
-    "theme": "gruvbox-light",
     "key": "HeaderActionGlobalKeyColor",
     "hex": "#9d6104",
     "tag": "[#9d6104]"
@@ -6256,12 +6178,6 @@
     "key": "DangerColor",
     "hex": "#cf222e",
     "tag": "[#cf222e]"
-  },
-  {
-    "theme": "github-light",
-    "key": "DepsEditorBackground",
-    "hex": "#eaeef2",
-    "tag": "[#eaeef2]"
   },
   {
     "theme": "github-light",

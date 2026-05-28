@@ -8,14 +8,11 @@ import (
 	"strings"
 
 	"github.com/boolean-maybe/tiki/config"
-	"github.com/boolean-maybe/tiki/gridlayout"
 	rukiRuntime "github.com/boolean-maybe/tiki/internal/ruki/runtime"
 	"github.com/boolean-maybe/tiki/model"
-	"github.com/boolean-maybe/tiki/plugin"
 	"github.com/boolean-maybe/tiki/ruki"
 	"github.com/boolean-maybe/tiki/service"
 	"github.com/boolean-maybe/tiki/store"
-	"github.com/boolean-maybe/tiki/theme"
 	tikipkg "github.com/boolean-maybe/tiki/tiki"
 
 	"github.com/gdamore/tcell/v2"
@@ -69,7 +66,6 @@ type InputRouter struct {
 	mutationGate      *service.TikiMutationGate
 	statusline        *model.StatuslineConfig
 	schema            ruki.Schema
-	registerPlugin    func(name string, cfg *model.PluginConfig, def plugin.Plugin, ctrl PluginControllerInterface)
 	headerConfig      *model.HeaderConfig
 	paletteConfig     *model.ActionPaletteConfig
 	quickSelectConfig *model.QuickSelectConfig
@@ -393,108 +389,6 @@ func routeFieldAwareSave(activeView View) bool {
 	return false
 }
 
-// SetPluginRegistrar sets the callback used to register dynamically created plugins
-// (e.g., the deps editor) with the view factory.
-func (ir *InputRouter) SetPluginRegistrar(fn func(name string, cfg *model.PluginConfig, def plugin.Plugin, ctrl PluginControllerInterface)) {
-	ir.registerPlugin = fn
-}
-
-// openDepsEditor creates (or reopens) a deps editor plugin for the
-// given tiki ID. sourceDetailViewName is the configurable detail view
-// the user opened the deps editor from (empty when opened from a
-// non-detail context); the resolver attached to the deps controller
-// uses it as the preferred return target so a workflow with multiple
-// kind: detail views or a renamed detail view sends Enter back to the
-// caller, not to a hardcoded "Detail".
-func (ir *InputRouter) openDepsEditor(tikiID, sourceDetailViewName string) {
-	name := "Dependency:" + tikiID
-	viewID := model.MakePluginViewID(name)
-
-	// reopen if already created — but refresh the resolver first so a
-	// second open from a different configurable detail view sends Enter
-	// back to the new caller, not the one captured on first open. Map
-	// key is keyed by tiki id, so the controller instance is reused
-	// across opens; without this swap, the closure over the original
-	// sourceDetailViewName would route Enter to a stale view.
-	if existing, exists := ir.pluginControllers[name]; exists {
-		if dc, ok := existing.(*DepsController); ok {
-			dc.SetDetailViewResolver(ir.makeDetailViewResolver(sourceDetailViewName))
-		}
-		ir.navController.PushView(viewID, nil)
-		return
-	}
-
-	depsLayout, _ := gridlayout.ParseGrid([][]string{
-		{`type.visual + " " + id`},
-		{"<highlight>title"},
-		{`"priority " + priority.visual`},
-	})
-
-	pluginDef := &plugin.WorkflowPlugin{
-		BasePlugin: plugin.BasePlugin{
-			Name:        name,
-			Description: model.DepsEditorViewDesc,
-			ConfigIndex: -1,
-			Kind:        plugin.KindBoard,
-			Background:  theme.NewColor(theme.Roles().DepsEditorSurface().TCell()),
-		},
-		TikiID: tikiID,
-		Lanes: []plugin.TikiLane{
-			{Name: "Blocks"},
-			{Name: "All"},
-			{Name: "Depends"},
-		},
-		Layout: depsLayout,
-	}
-
-	pluginConfig := model.NewPluginConfig("Dependency")
-	pluginConfig.SetLaneLayout([]int{1, 2, 1}, []int{25, 50, 25})
-
-	resolver := ir.makeDetailViewResolver(sourceDetailViewName)
-	ctrl := NewDepsController(ir.tikiStore, ir.mutationGate, pluginConfig, pluginDef, ir.navController, ir.statusline, ir.schema, resolver)
-
-	if ir.registerPlugin != nil {
-		ir.registerPlugin(name, pluginConfig, pluginDef, ctrl)
-	}
-	ir.pluginControllers[name] = ctrl
-
-	ir.navController.PushView(viewID, nil)
-}
-
-// makeDetailViewResolver returns a closure that picks the configurable
-// detail view name to use when the deps editor's Open action fires.
-// Resolution order at dispatch time:
-//  1. preferred — if non-empty AND still backed by a *DetailController
-//     in the live registry. This is the view the deps editor was
-//     opened from, so Enter returns the user where they came from.
-//  2. any other plugin in pluginControllers whose controller is a
-//     *DetailController. Map iteration order is non-deterministic, but
-//     workflows with one detail view (the common case) always resolve
-//     to it; workflows with several already had to pick *some* default.
-//  3. empty string — no detail plugin loaded; the caller refuses Open.
-//
-// The resolver runs at dispatch time rather than at controller
-// construction so it sees plugin registrations that occur later (e.g.
-// dynamically added plugins) and so a renamed-on-reload detail view
-// stays reachable.
-func (ir *InputRouter) makeDetailViewResolver(preferred string) func() string {
-	return func() string {
-		if preferred != "" {
-			if ctrl, ok := ir.pluginControllers[preferred]; ok {
-				if _, isDetail := ctrl.(*DetailController); isDetail {
-					return preferred
-				}
-			}
-		}
-		for name, ctrl := range ir.pluginControllers {
-			if _, isDetail := ctrl.(*DetailController); isDetail {
-				return name
-			}
-		}
-		return ""
-	}
-}
-
 // handlePluginInput routes input to the appropriate plugin controller
 func (ir *InputRouter) handlePluginInput(event *tcell.EventKey, viewID model.ViewID) bool {
 	pluginName := model.GetPluginName(viewID)
@@ -539,11 +433,10 @@ func (ir *InputRouter) handlePluginInput(event *tcell.EventKey, viewID model.Vie
 }
 
 // dispatchDetailViewSharedAction handles actions that the configurable
-// detail view inherits from the legacy tiki-detail view: opening the
-// deps editor, invoking the AI chat agent, and opening the underlying
-// markdown file in $EDITOR. The configurable detail view's controller
-// is too narrow to own these paths (deps editor needs the InputRouter,
-// chat needs the suspend/resume runner, edit-source needs the
+// detail view inherits from the legacy tiki-detail view: invoking the
+// AI chat agent and opening the underlying markdown file in $EDITOR.
+// The configurable detail view's controller is too narrow to own these
+// paths (chat needs the suspend/resume runner, edit-source needs the
 // TikiEditSession's reload semantics), so the router dispatches them
 // directly when the carried selection is present.
 //
@@ -552,7 +445,7 @@ func (ir *InputRouter) handlePluginInput(event *tcell.EventKey, viewID model.Vie
 // should fall through to the controller dispatch path.
 func (ir *InputRouter) dispatchDetailViewSharedAction(id ActionID, currentView *ViewEntry) (bool, bool) {
 	switch id {
-	case ActionEditDeps, ActionChat, ActionEditSource:
+	case ActionChat, ActionEditSource:
 	default:
 		return false, false
 	}
@@ -564,13 +457,6 @@ func (ir *InputRouter) dispatchDetailViewSharedAction(id ActionID, currentView *
 		return false, true
 	}
 	switch id {
-	case ActionEditDeps:
-		// Carry the source plugin name so deps editor's Open returns
-		// here, not to a hardcoded "Detail" plugin (handles renamed
-		// or multiple kind: detail views correctly).
-		sourceName := model.GetPluginName(currentView.ViewID)
-		ir.openDepsEditor(tikiID, sourceName)
-		return true, true
 	case ActionChat:
 		return ir.runChatForTiki(tikiID), true
 	case ActionEditSource:

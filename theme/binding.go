@@ -86,8 +86,6 @@ func bindDark() *Theme {
 		statuslineError:  pairOf(p.Highlight, p.StatuslineMidBg),
 		statuslineFill:   roleOf(p.StatuslineMidBg),
 
-		depsEditorSurface: roleOf(p.StatuslineBorderBg),
-
 		logoDot:    roleOf(p.LogoDot),
 		logoShade:  roleOf(p.LogoShade),
 		logoBorder: roleOf(p.LogoBorder),
@@ -128,8 +126,6 @@ func bindLight() *Theme {
 		statuslineInfo:   pairOf(p.Ok, p.StatuslineMidBg),
 		statuslineError:  pairOf(p.Highlight, p.StatuslineMidBg),
 		statuslineFill:   roleOf(p.StatuslineMidBg),
-
-		depsEditorSurface: roleOf(p.StatuslineBorderBg),
 
 		logoDot:    roleOf(p.LogoDot),
 		logoShade:  roleOf(p.LogoShade),
@@ -172,8 +168,6 @@ func bindDracula() *Theme {
 		statuslineError:  pairOf(p.Pink, p.StatuslineMidBg),
 		statuslineFill:   roleOf(p.StatuslineMidBg),
 
-		depsEditorSurface: roleOf(p.StatuslineBorderBg),
-
 		logoDot:    roleOf(p.Cyan),
 		logoShade:  roleOf(p.Purple),
 		logoBorder: roleOf(p.CurrentLine),
@@ -214,8 +208,6 @@ func bindNord() *Theme {
 		statuslineInfo:   pairOf(p.Aurora3, p.PolarNight1),
 		statuslineError:  pairOf(p.Aurora2, p.PolarNight1),
 		statuslineFill:   roleOf(p.PolarNight1),
-
-		depsEditorSurface: roleOf(p.PolarNight2),
 
 		logoDot:    roleOf(p.Frost0),
 		logoShade:  roleOf(p.Frost2),
@@ -258,8 +250,6 @@ func bindGruvboxDark() *Theme {
 		statuslineError:  pairOf(p.NeutralYellow, p.Bg0),
 		statuslineFill:   roleOf(p.Bg0),
 
-		depsEditorSurface: roleOf(p.Bg1),
-
 		logoDot:    roleOf(p.NeutralAqua),
 		logoShade:  roleOf(p.NeutralBlue),
 		logoBorder: roleOf(p.Bg1),
@@ -300,8 +290,6 @@ func bindGruvboxLight() *Theme {
 		statuslineInfo:   pairOf(p.NeutralGreen, p.Bg1),
 		statuslineError:  pairOf(p.NeutralYellow, p.Bg1),
 		statuslineFill:   roleOf(p.Bg1),
-
-		depsEditorSurface: roleOf(p.Bg2),
 
 		logoDot:    roleOf(p.DarkAqua),
 		logoShade:  roleOf(p.NeutralBlue),
@@ -344,8 +332,6 @@ func bindTokyoNight() *Theme {
 		statuslineError:  pairOf(p.Yellow, p.StatuslineMidBg),
 		statuslineFill:   roleOf(p.StatuslineMidBg),
 
-		depsEditorSurface: roleOf(p.StatuslineBorderBg),
-
 		logoDot:    roleOf(p.Cyan),
 		logoShade:  roleOf(p.Blue),
 		logoBorder: roleOf(p.Border),
@@ -386,8 +372,6 @@ func bindMonokai() *Theme {
 		statuslineInfo:   pairOf(p.Green, p.Background),
 		statuslineError:  pairOf(p.Yellow, p.Background),
 		statuslineFill:   roleOf(p.Background),
-
-		depsEditorSurface: roleOf(p.StatuslineBorderBg),
 
 		logoDot:    roleOf(p.Green),
 		logoShade:  roleOf(p.Cyan),
@@ -430,8 +414,6 @@ func bindOneDark() *Theme {
 		statuslineError:  pairOf(p.Yellow, p.Background),
 		statuslineFill:   roleOf(p.Background),
 
-		depsEditorSurface: roleOf(p.StatuslineBorderBg),
-
 		logoDot:    roleOf(p.Cyan),
 		logoShade:  roleOf(p.Blue),
 		logoBorder: roleOf(p.StatuslineBorderBg),
@@ -472,8 +454,6 @@ func bindCatppuccinMocha() *Theme {
 		statuslineInfo:   pairOf(p.Green, p.Base),
 		statuslineError:  pairOf(p.Yellow, p.Base),
 		statuslineFill:   roleOf(p.Base),
-
-		depsEditorSurface: roleOf(p.Surface0),
 
 		logoDot:    roleOf(p.Teal),
 		logoShade:  roleOf(p.Blue),
@@ -516,8 +496,6 @@ func bindCatppuccinLatte() *Theme {
 		statuslineError:  pairOf(p.Yellow, p.Mantle),
 		statuslineFill:   roleOf(p.Mantle),
 
-		depsEditorSurface: roleOf(p.Crust),
-
 		logoDot:    roleOf(p.Teal),
 		logoShade:  roleOf(p.Blue),
 		logoBorder: roleOf(p.Surface1),
@@ -558,8 +536,6 @@ func bindSolarizedDark() *Theme {
 		statuslineInfo:   pairOf(p.Green, p.Base02),
 		statuslineError:  pairOf(p.Yellow, p.Base02),
 		statuslineFill:   roleOf(p.Base02),
-
-		depsEditorSurface: roleOf(p.Base02),
 
 		logoDot:    roleOf(p.Cyan),
 		logoShade:  roleOf(p.Blue),
@@ -602,8 +578,6 @@ func bindSolarizedLight() *Theme {
 		statuslineError:  pairOf(p.Yellow, p.Base2),
 		statuslineFill:   roleOf(p.Base2),
 
-		depsEditorSurface: roleOf(p.Base2),
-
 		logoDot:    roleOf(p.Cyan),
 		logoShade:  roleOf(p.Blue),
 		logoBorder: roleOf(p.Base2),
@@ -644,8 +618,6 @@ func bindGithubLight() *Theme {
 		statuslineInfo:   pairOf(p.Green, p.CanvasSubtle),
 		statuslineError:  pairOf(p.BlueAccentDark, p.CanvasSubtle),
 		statuslineFill:   roleOf(p.CanvasSubtle),
-
-		depsEditorSurface: roleOf(p.BorderMuted),
 
 		logoDot:    roleOf(p.BlueAccent),
 		logoShade:  roleOf(p.BlueAccentDark),

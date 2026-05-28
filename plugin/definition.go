@@ -5,7 +5,6 @@ import (
 
 	"github.com/boolean-maybe/tiki/gridlayout"
 	"github.com/boolean-maybe/tiki/ruki"
-	"github.com/boolean-maybe/tiki/theme"
 )
 
 // ViewKind identifies the behavior of a view declared in workflow.yaml.
@@ -61,17 +60,11 @@ type BasePlugin struct {
 	Key         tcell.Key     // tcell key constant (e.g. KeyCtrlH)
 	Rune        rune          // printable character (e.g. 'L')
 	Modifier    tcell.ModMask // modifier keys (Alt, Shift, Ctrl, etc.)
-	// Foreground/Background are read ONLY by code-only plugins (ConfigIndex < 0,
-	// e.g. the deps editor) to color their title bar. For YAML-declared plugins
-	// (ConfigIndex >= 0) these are silently hardcoded to theme.DefaultColor() by
-	// plugin.parser; caption colors come from theme.Roles().PluginCaptions().At(ConfigIndex).
-	Foreground  theme.Color
-	Background  theme.Color
-	FilePath    string   // source file path (for error messages)
-	ConfigIndex int      // index in workflow.yaml views array (-1 if not from a config file)
-	Kind        ViewKind // view kind: board, list, wiki, detail, search
-	Default     bool     // true if this view should open on startup
-	Require     []string // view-level requirements (e.g. selection:one for detail)
+	FilePath    string        // source file path (for error messages)
+	ConfigIndex int           // index in workflow.yaml views array (-1 if not from a config file)
+	Kind        ViewKind      // view kind: board, list, wiki, detail, search
+	Default     bool          // true if this view should open on startup
+	Require     []string      // view-level requirements (e.g. selection:one for detail)
 }
 
 func (p *BasePlugin) GetName() string {
@@ -123,7 +116,6 @@ type WorkflowPlugin struct {
 	Lanes   []TikiLane          // lane definitions for this plugin
 	Layout  gridlayout.GridSpec // parsed layout grid for tiki-box rendering (see workflow-format.md)
 	Actions []PluginAction      // shortcut actions applied to the selected tiki
-	TikiID  string              // optional tiki associated with this plugin (code-only, not from workflow config)
 }
 
 // WikiPlugin backs the wiki view kind (markdown document rendering bound to a
