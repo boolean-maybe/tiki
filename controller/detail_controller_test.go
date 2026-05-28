@@ -228,3 +228,97 @@ func TestApplyDetailMode_EditTags_InstallsTagsRegistry(t *testing.T) {
 		t.Errorf("focus = %q, want %q", view.focusField, model.EditFieldTags)
 	}
 }
+
+// TestDetailController_RukiChooseActionRoundTrip exercises the full
+// choose() pipeline for a kind: ruki action declared on a kind: detail
+// view. Such actions used to be silently dropped at registration; this
+// test pins that they (a) register, (b) advertise themselves to the input
+// router as choose-driven, (c) evaluate their choose filter, and (d)
+// commit the executor result through the mutation gate when handed a
+// chosen tiki id.
+func TestDetailController_RukiChooseActionRoundTrip(t *testing.T) {
+	tikiStore := store.NewInMemoryStore()
+	// the project that will receive the dependency
+	project := tikipkg.New()
+	project.ID = "PROJ01"
+	project.Title = "Sample Project"
+	project.Set("type", "project")
+	project.Set("status", "ready")
+	if err := tikiStore.CreateTiki(project); err != nil {
+		t.Fatalf("seed project: %v", err)
+	}
+	// a candidate tiki that the choose filter should surface
+	seedTiki(t, tikiStore, "TASK01", "Candidate Task", "ready", 0)
+
+	stmt := mustParseStmt(t,
+		`update where id = id() set dependsOn = dependsOn + choose(select where has(type) and type != "project" and id not in outer.dependsOn)`)
+	if !stmt.UsesChooseBuiltin() {
+		t.Fatal("test fixture statement does not use choose() — adjust the ruki text")
+	}
+
+	action := plugin.PluginAction{
+		Key:          tcell.KeyRune,
+		Rune:         'a',
+		KeyStr:       "a",
+		Label:        "Add to project",
+		Kind:         plugin.ActionKindRuki,
+		Action:       stmt,
+		HasChoose:    true,
+		ChooseFilter: stmt.ChooseFilter(),
+	}
+	pluginDef := newTestDetailPlugin([]string{"status"}, []plugin.PluginAction{action})
+
+	gate := service.NewTikiMutationGate()
+	gate.SetStore(tikiStore)
+	nav := newMockNavigationController()
+	dc := NewDetailController(pluginDef, nav, nil, tikiStore, gate, rukiRuntime.NewSchema(), nil)
+	dc.SetSelectedTikiID("PROJ01")
+
+	// (a) registered
+	if dc.GetActionRegistry().MatchBinding(tcell.KeyRune, 'a', 0) == nil {
+		t.Fatal("expected HasChoose ruki action to register on 'a'")
+	}
+
+	actionID := pluginActionID("a")
+
+	// (b) recognised as choose-driven by the input router contract
+	label, ok := dc.GetActionChooseSpec(actionID)
+	if !ok {
+		t.Fatal("GetActionChooseSpec returned false for HasChoose ruki action")
+	}
+	if label != "Add to project" {
+		t.Errorf("label = %q, want %q", label, "Add to project")
+	}
+
+	// (c) candidate set comes from the choose filter
+	_, candidates, ok := dc.CanStartActionChoose(actionID)
+	if !ok {
+		t.Fatal("CanStartActionChoose returned false")
+	}
+	foundCandidate := false
+	for _, c := range candidates {
+		if c.ID == "TASK01" {
+			foundCandidate = true
+			break
+		}
+	}
+	if !foundCandidate {
+		t.Errorf("expected TASK01 in choose candidates, got %d candidates", len(candidates))
+	}
+
+	// (d) handing back the chosen id mutates the project's dependsOn
+	if !dc.HandleActionChoose(actionID, "TASK01") {
+		t.Fatal("HandleActionChoose returned false")
+	}
+	updated := tikiStore.GetTiki("PROJ01")
+	if updated == nil {
+		t.Fatal("re-read project: nil")
+	}
+	deps, ok, _ := updated.StringSliceField(tikipkg.FieldDependsOn)
+	if !ok {
+		t.Fatal("project.dependsOn not present after HandleActionChoose")
+	}
+	if len(deps) != 1 || deps[0] != "TASK01" {
+		t.Errorf("project.dependsOn = %v, want [TASK01]", deps)
+	}
+}

@@ -36,11 +36,6 @@ fields:
       - value: project
         label: Project
         visual: "🗂️"
-  # priority is declared in urgency-descending order (high → low). The
-  # high-to-low ordering matters: ruki's `<` / `>` use enumRank, so
-  # `priority < "medium"` finds tasks more urgent than medium. The
-  # `+`/`-` actions step through this list via prev_enum/next_enum
-  # (prev raises urgency, next lowers it).
   - name: priority
     type: enum
     values:
@@ -49,9 +44,6 @@ fields:
       - {value: medium, label: Medium, visual: "🟡", default: true}
       - {value: medium-low, label: "Medium Low", visual: "🟢"}
       - {value: low, label: Low, visual: "🔵"}
-  # points: enum declared high → low so enumRank matches priority semantics.
-  # The visual: column draws an 11-segment bar using the <action>/<muted>
-  # role markup; the bar is purely a rendering hint, not stored on disk.
   - name: points
     type: enum
     values:
@@ -72,7 +64,6 @@ fields:
     type: text
 
 actions:
-  # mode: closed vocabulary view|edit|new|edit-desc|edit-tags — see CLAUDE.md "Detail view layout".
   - key: "y"
     label: "Copy ID"
     action: select id where id = id() | clipboard()
@@ -137,8 +128,8 @@ views:
         kind: view
         view: Detail
         require: ["selection:one"]
-      - key: "p"
-        label: "Link to project"
+      - key: "a"
+        label: "Add to project"
         action: update where id = choose(select where type = "project" and outer.id not in dependsOn) set dependsOn = dependsOn + id()
       - key: "e"
         label: Edit
@@ -151,7 +142,7 @@ views:
         kind: view
         view: Detail
         mode: new
-      - key: "a"
+      - key: "m"
         label: "Assign to me"
         action: update where id = id() set assignee=user()
       - key: "+"
@@ -190,7 +181,7 @@ views:
         kind: view
         view: Detail
         mode: new
-      - key: "a"
+      - key: "m"
         label: "Assign to me"
         action: update where id = id() set assignee=user()
       - key: "+"
@@ -228,15 +219,15 @@ views:
       - key: Enter
         label: Open
         kind: view
-        view: ProjectDetail
+        view: Project
         require: ["selection:one"]
       - key: "l"
         label: "Add tiki to project"
-        action: update where id = id() set dependsOn = dependsOn + choose(select where type != "project" and id not in outer.dependsOn)
+        action: update where id = id() set dependsOn = dependsOn + choose(select where has(type) and type != "project" and id not in outer.dependsOn)
       - key: "e"
         label: Edit
         kind: view
-        view: ProjectDetail
+        view: Project
         mode: edit
         require: ["selection:one"]
       - key: "n"
@@ -244,7 +235,7 @@ views:
         kind: view
         view: Detail
         mode: new
-      - key: "a"
+      - key: "m"
         label: "Assign to me"
         action: update where id = id() set assignee=user()
       - key: "+"
@@ -262,22 +253,8 @@ views:
 
   - name: Detail
     kind: detail
-    description: "Configured detail view for the selected tiki"
+    description: "View and edit selected task"
     require: ["selection:one"]
-    # Layout grid: each row is a row in the rendered layout box. Cells:
-    #   name          field, value-only (no caption)
-    #   name:N        field, preferred + minimum width of N chars
-    #   <role>name    field with a color role (highlight, accent, muted, etc.)
-    #   "any text"    literal caption (any quoted YAML string that is not a
-    #                 bare identifier or marker)
-    #   --            column span (continue from the cell to the left)
-    #   ^             row span (continue from the cell above)
-    #   _             empty cell
-    #   <->           horizontal stretcher (absorbs remaining space)
-    #
-    # Fields render value-only; captions are placed explicitly by the layout.
-    # 4 columns: each row pairs (caption, value, caption, value). Captions
-    # to the left of their fields. Sized to fit an 80-column terminal.
     layout: |
       <highlight>title | --                                 | --          | --        | --            | --         | --      | --
       _                | _                                  | _           | _         | _             | _          | _       | _
@@ -286,20 +263,14 @@ views:
       <text.label>"Priority:"      | priority                           | <text.label>"Created:"  | createdAt | _             | _          | ^       | ^
       <text.label>"Points:"        | points                             | <text.label>"Updated:"  | updatedAt | _             | _          | ^       | ^
 
-  - name: ProjectDetail
+  - name: Project
     kind: detail
-    description: "Configured detail view for a project"
+    description: "View and edit selected project"
     require: ["selection:one"]
-    # Same 8-column grid. Tags moves to cols 5-6 (rows 3-5). The literal
-    # description text spans cols 7-8 across rows 3-5 and word-wraps via
-    # the prose-block path in view/tikidetail.renderLiteralAnchor. The `--`
-    # in row 3 col 8 makes the literal a 2-column span; this works because
-    # view/gridbox/container.go addSpanningBand honors RowSpan when a row
-    # contains both horizontal and vertical spans. Due is removed.
     layout: |
       <highlight>title | --                                 | --         | --        | --      | --   | --                                                                                                                        | --
       _                | _                                  | _          | _         | _       | _    | _                                                                                                                         | _
-      <text.label>"Status:"        | status.label + " " + status.visual | <text.label>"Author:"  | createdBy | <text.label>"Tags:" | tags | <text.muted>"Projects group related work that " + <status.warn>"<L>" + <text.muted>" spans multiple sprints. They sit at the top of the planning hierarchy and gather smaller stories, bugs, and spikes under one banner. Track each project across Now, Next, and Later horizons as priorities shift, and close it when every dependency is done." | --
+      <text.label>"Status:"        | status.label + " " + status.visual | <text.label>"Author:"  | createdBy | <text.label>"Tags:" | tags | <text.muted>"Projects gather related tasks — stories, bugs, and spikes — into a single unit of planning. Press " + <status.warn>"<L>" + <text.muted>" to see every task linked to this project. Move it across Now, Next, and Later as priorities shift; it auto-completes when all its tasks are done." | --
       <text.label>"Priority:"      | priority                           | <text.label>"Created:" | createdAt | ^       | ^    | ^                                                                                                                                                                                                                                                                                          | ^
       <text.label>"Points:"        | points                             | <text.label>"Updated:" | updatedAt | ^       | ^    | ^                                                                                                                                                                                                                                                                                          | ^
     actions:
@@ -308,6 +279,9 @@ views:
         kind: view
         view: Detail
         choose: select where id in target.dependsOn
+      - key: "a"
+        label: "Add to project"
+        action: update where id = id() set dependsOn = dependsOn + choose(select where has(type) and type != "project" and id not in outer.dependsOn)
 
 triggers:
   - description: block completion with open dependencies

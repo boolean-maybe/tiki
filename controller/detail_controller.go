@@ -110,8 +110,8 @@ func (dc *DetailController) registerPluginActions() {
 			if dc.executor == nil {
 				continue
 			}
-			if a.HasInput || a.HasChoose {
-				slog.Debug("interactive ruki action not surfaced on detail view",
+			if a.HasInput {
+				slog.Debug("input() ruki action not surfaced on detail view",
 					"view", dc.pluginDef.Name, "key", a.KeyStr)
 				continue
 			}
@@ -641,11 +641,13 @@ func (dc *DetailController) dispatchViewAction(a *plugin.PluginAction) bool {
 }
 
 // dispatchRukiAction runs a ruki-kind action through the shared executor.
+// HasChoose actions never reach this path — the input router routes them
+// through GetActionChooseSpec → CanStartActionChoose → HandleActionChoose.
 func (dc *DetailController) dispatchRukiAction(a *plugin.PluginAction) bool {
 	if dc.executor == nil {
 		return false
 	}
-	if a.HasInput || a.HasChoose {
+	if a.HasInput {
 		// belt-and-suspenders: filtered out at registration too
 		return false
 	}
@@ -663,9 +665,10 @@ func (dc *DetailController) dispatchRukiAction(a *plugin.PluginAction) bool {
 // HandleSearch is a no-op for detail views.
 func (dc *DetailController) HandleSearch(string) {}
 
-// Phase 1 stubs for input pipelines. Interactive ruki actions are filtered
-// out at registration time, so the input pipeline is not reached for detail
-// views.
+// Phase 1 stubs for the text-input pipeline. Ruki actions using `input(...)`
+// are filtered out at registration time, so this pipeline is not reached for
+// detail views. (Choose-driven ruki actions take a separate path: see
+// GetActionChooseSpec / CanStartActionChoose / HandleActionChoose.)
 func (dc *DetailController) GetActionInputSpec(ActionID) (string, ruki.ValueType, bool) {
 	return "", 0, false
 }
@@ -676,10 +679,11 @@ func (dc *DetailController) HandleActionInput(ActionID, string) InputSubmitResul
 	return InputKeepEditing
 }
 
-// findChooseViewAction looks up the per-view kind: view action carrying a
-// `choose:` field by canonical action id. Returns nil for any other action
-// (ruki-kind, plain kind: view without choose:, unknown ids).
-func (dc *DetailController) findChooseViewAction(actionID ActionID) *plugin.PluginAction {
+// findChooseAction looks up the per-view action carrying a `choose:` field
+// (kind: view) or a `choose(...)` ruki call (kind: ruki) by canonical action id.
+// Returns nil for any other action (plain kind: view without choose:, ruki
+// without choose(), unknown ids).
+func (dc *DetailController) findChooseAction(actionID ActionID) *plugin.PluginAction {
 	keyStr := getPluginActionKeyStr(actionID)
 	if keyStr == "" {
 		return nil
@@ -689,7 +693,10 @@ func (dc *DetailController) findChooseViewAction(actionID ActionID) *plugin.Plug
 		if a.KeyStr != keyStr {
 			continue
 		}
-		if a.Kind != plugin.ActionKindView || !a.HasChoose {
+		if !a.HasChoose {
+			return nil
+		}
+		if a.Kind != plugin.ActionKindView && a.Kind != plugin.ActionKindRuki {
 			return nil
 		}
 		return a
@@ -697,12 +704,11 @@ func (dc *DetailController) findChooseViewAction(actionID ActionID) *plugin.Plug
 	return nil
 }
 
-// GetActionChooseSpec recognizes kind: view actions with `choose:` so the
-// input router routes them through the QuickSelect pipeline. Ruki-kind
-// choose() on a detail view is filtered out at registration (only the
-// view-kind path is supported here).
+// GetActionChooseSpec recognizes choose-driven actions so the input router
+// routes them through the QuickSelect pipeline. Both kind: view actions with
+// `choose:` and kind: ruki actions calling `choose(...)` are supported.
 func (dc *DetailController) GetActionChooseSpec(actionID ActionID) (string, bool) {
-	a := dc.findChooseViewAction(actionID)
+	a := dc.findChooseAction(actionID)
 	if a == nil {
 		return "", false
 	}
@@ -716,7 +722,7 @@ func (dc *DetailController) GetActionChooseSpec(actionID ActionID) (string, bool
 // through and open an empty QuickSelect so the user sees the list state
 // directly.
 func (dc *DetailController) CanStartActionChoose(actionID ActionID) (string, []*tikipkg.Tiki, bool) {
-	a := dc.findChooseViewAction(actionID)
+	a := dc.findChooseAction(actionID)
 	if a == nil || dc.executor == nil {
 		return "", nil, false
 	}
@@ -735,14 +741,18 @@ func (dc *DetailController) CanStartActionChoose(actionID ActionID) (string, []*
 	return a.Label, candidates, true
 }
 
-// HandleActionChoose receives the chosen tiki id from QuickSelect and pushes
-// the action's target view with that id carried in the navigation params, so
-// the target detail view opens on the picked tiki rather than the source
-// detail view's selection.
+// HandleActionChoose receives the chosen tiki id from QuickSelect. For
+// kind: view actions the chosen id replaces the source view's selection in
+// the navigation params, so the target detail view opens on the picked tiki.
+// For kind: ruki actions the chosen id is fed back into the validated
+// statement via ExecutionInput.ChooseValue and the executor runs the update.
 func (dc *DetailController) HandleActionChoose(actionID ActionID, tikiID string) bool {
-	a := dc.findChooseViewAction(actionID)
+	a := dc.findChooseAction(actionID)
 	if a == nil || tikiID == "" {
 		return false
+	}
+	if a.Kind == plugin.ActionKindRuki {
+		return dc.handleRukiActionWithChosenID(a, tikiID)
 	}
 	if a.TargetView == "" || a.TargetView == dc.pluginDef.Name {
 		return false
@@ -760,6 +770,27 @@ func (dc *DetailController) HandleActionChoose(actionID ActionID, tikiID string)
 	}
 	dc.navController.PushView(model.MakePluginViewID(a.TargetView), model.EncodePluginViewParams(pvp))
 	return true
+}
+
+// handleRukiActionWithChosenID runs a ruki action whose `choose(...)` call
+// has been resolved to a concrete tiki id by the QuickSelect overlay. The
+// chosen id flows in via ExecutionInput.ChooseValue; the executor's
+// choose() builtin reads it instead of prompting again.
+func (dc *DetailController) handleRukiActionWithChosenID(a *plugin.PluginAction, tikiID string) bool {
+	if dc.executor == nil {
+		return false
+	}
+	var selection []string
+	if dc.selectedTikiID != "" {
+		selection = []string{dc.selectedTikiID}
+	}
+	input, ok := dc.executor.BuildExecutionInput(a, selection)
+	if !ok {
+		return false
+	}
+	input.ChooseValue = tikiID
+	input.HasChoose = true
+	return dc.executor.Execute(a, input)
 }
 
 // DetailViewActions returns the built-in action registry for kind: detail

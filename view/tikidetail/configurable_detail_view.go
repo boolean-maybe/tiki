@@ -9,6 +9,7 @@ import (
 	"github.com/boolean-maybe/tiki/controller"
 	"github.com/boolean-maybe/tiki/gridlayout"
 	"github.com/boolean-maybe/tiki/model"
+	"github.com/boolean-maybe/tiki/plugin"
 	"github.com/boolean-maybe/tiki/store"
 	"github.com/boolean-maybe/tiki/theme"
 	tikipkg "github.com/boolean-maybe/tiki/tiki"
@@ -45,10 +46,10 @@ type ConfigurableDetailView struct {
 	registry     *controller.ActionRegistry
 	viewRegistry *controller.ActionRegistry // saved view-mode registry
 	editRegistry *controller.ActionRegistry // edit-mode registry (built lazily)
-	viewID       model.ViewID
-	pluginName   string
 
-	spec        gridlayout.GridSpec // parsed layout grid
+	pluginDef *plugin.DetailPlugin // workflow-yaml-derived definition; source of name/description/layout
+
+	spec        gridlayout.GridSpec // parsed layout grid (alias of pluginDef.Layout, kept for hot-path reads)
 	layout      []string            // flat anchor names in declaration order (edit traversal)
 	navMarkdown *markdown.NavigableMarkdown
 	listenerID  int
@@ -112,15 +113,14 @@ func (cv *ConfigurableDetailView) setFocusedIdx(idx int) {
 	cv.onFieldFocusChange(model.EditField(name))
 }
 
-// NewConfigurableDetailView builds a detail view bound to the configured
-// metadata field list. tikiID may be empty when the view is opened without a
+// NewConfigurableDetailView builds a detail view bound to a workflow-declared
+// detail plugin. tikiID may be empty when the view is opened without a
 // selection (the require:["selection:one"] gate normally prevents this; the
 // view falls back to a placeholder for safety).
 func NewConfigurableDetailView(
 	tikiStore store.Store,
 	tikiID string,
-	pluginName string,
-	spec gridlayout.GridSpec,
+	pluginDef *plugin.DetailPlugin,
 	registry *controller.ActionRegistry,
 	imageManager *navtview.ImageManager,
 	mermaidOpts *nav.MermaidOptions,
@@ -134,10 +134,9 @@ func NewConfigurableDetailView(
 		},
 		registry:          registry,
 		viewRegistry:      registry,
-		viewID:            model.MakePluginViewID(pluginName),
-		pluginName:        pluginName,
-		spec:              spec,
-		layout:            spec.AnchorNames(),
+		pluginDef:         pluginDef,
+		spec:              pluginDef.Layout,
+		layout:            pluginDef.Layout.AnchorNames(),
 		focusedIdx:        -1,
 		editors:           make(map[string]FieldEditorWidget),
 		onEditFieldChange: make(map[string]func(string)),
@@ -156,15 +155,15 @@ func (cv *ConfigurableDetailView) GetActionRegistry() *controller.ActionRegistry
 
 // GetViewID returns the plugin-namespaced view id used by the navigation stack.
 func (cv *ConfigurableDetailView) GetViewID() model.ViewID {
-	return cv.viewID
+	return model.MakePluginViewID(cv.pluginDef.GetName())
 }
 
 // GetViewName returns the plugin name for the header info section.
-func (cv *ConfigurableDetailView) GetViewName() string { return cv.pluginName }
+func (cv *ConfigurableDetailView) GetViewName() string { return cv.pluginDef.GetName() }
 
-// GetViewDescription returns a short description for the header info section.
+// GetViewDescription returns the workflow-yaml description for the header info section.
 func (cv *ConfigurableDetailView) GetViewDescription() string {
-	return "configured detail view"
+	return cv.pluginDef.GetDescription()
 }
 
 // GetSelectedID implements controller.SelectableView so target-scoped

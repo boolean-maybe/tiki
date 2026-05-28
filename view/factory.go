@@ -179,8 +179,7 @@ func (f *ViewFactory) CreateView(viewID model.ViewID, params map[string]interfac
 		cv := tikidetail.NewConfigurableDetailView(
 			f.tikiStore,
 			pluginParams.TikiID,
-			detailPlugin.Name,
-			detailPlugin.Layout,
+			detailPlugin,
 			registry,
 			f.imageManager,
 			f.mermaidOpts,

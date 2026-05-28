@@ -1,6 +1,9 @@
 package tikidetail
 
-import "github.com/boolean-maybe/tiki/gridlayout"
+import (
+	"github.com/boolean-maybe/tiki/gridlayout"
+	"github.com/boolean-maybe/tiki/plugin"
+)
 
 // singleColumnSpec synthesizes a 1-column layout grid from a flat
 // field name list — one anchor per row, in declaration order. Used by
@@ -24,5 +27,17 @@ func singleColumnSpec(names []string) gridlayout.GridSpec {
 		Anchors:   anchors,
 		Stretcher: []bool{false},
 		Cells:     cells,
+	}
+}
+
+// detailPluginFromFields builds a minimal *plugin.DetailPlugin suitable for
+// constructor-driven tests. Production code receives a fully-populated
+// DetailPlugin from the workflow parser; tests only need Name + Layout to
+// drive the configurable detail view. The plugin name "Detail" matches the
+// bundled kanban workflow's detail view.
+func detailPluginFromFields(fields []string) *plugin.DetailPlugin {
+	return &plugin.DetailPlugin{
+		BasePlugin: plugin.BasePlugin{Name: "Detail", Kind: plugin.KindDetail},
+		Layout:     singleColumnSpec(fields),
 	}
 }
