@@ -60,7 +60,7 @@ Beyond `id` and `title`, frontmatter is an open field map. The fields below are 
 — the active `workflow.yaml fields:` lists them, so they get type coercion, validation, and any
 typed UI treatment. They are all optional. Absence is preserved on disk: a tiki with no `status:`
 key has no status, not a defaulted one. Default values apply only on explicit creation —
-`ruki create`, piped capture, sample-tiki generation, and the TUI's create action.
+`ruki create`, piped capture, the bundled welcome tiki, and the TUI's create action.
 
 ```yaml
 ---

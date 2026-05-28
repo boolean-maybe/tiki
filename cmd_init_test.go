@@ -120,16 +120,6 @@ func TestParseInitArgs_AISkillEqualsForm(t *testing.T) {
 	}
 }
 
-func TestParseInitArgs_Samples(t *testing.T) {
-	opts, err := parseInitArgs([]string{"--samples"})
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	if !opts.Samples {
-		t.Error("samples should be true")
-	}
-}
-
 func TestParseInitArgs_NonInteractiveShort(t *testing.T) {
 	opts, err := parseInitArgs([]string{"-n"})
 	if err != nil {
@@ -290,14 +280,6 @@ func TestValidateInitOpts_ValidAISkills(t *testing.T) {
 	}
 }
 
-func TestValidateInitOpts_SamplesWithWorkflow(t *testing.T) {
-	repoDir := setupInitTest(t)
-	err := validateInitOpts(&InitOpts{Directory: repoDir, Samples: true, WorkflowName: "todo"})
-	if err == nil || !strings.Contains(err.Error(), "--samples cannot be used with --workflow") {
-		t.Fatalf("expected samples+workflow error, got %v", err)
-	}
-}
-
 func TestValidateInitOpts_ValidWorkflowName(t *testing.T) {
 	repoDir := setupInitTest(t)
 	err := validateInitOpts(&InitOpts{Directory: repoDir, WorkflowName: "todo"})
@@ -446,7 +428,7 @@ func TestRunInit_Help(t *testing.T) {
 	}
 }
 
-func TestRunInit_NonInteractiveDefaultNoSamples(t *testing.T) {
+func TestRunInit_NonInteractiveCreatesWelcomeTiki(t *testing.T) {
 	repoDir := setupInitTest(t)
 
 	code := runInit([]string{repoDir, "-n"})
@@ -461,43 +443,19 @@ func TestRunInit_NonInteractiveDefaultNoSamples(t *testing.T) {
 		t.Fatalf("expected .doc to exist: %v", err)
 	}
 
-	// with -n (no --samples), no sample workflow docs should be created.
-	// Bundled non-sample docs (index.md, linked.md) are still written, so
-	// check specifically for files matching the bare-<ID>.md pattern.
+	// the welcome tiki should be written under .doc/<ID>.md. Bundled wiki
+	// entry points (index.md, linked.md) are not bare-ID, so check
+	// specifically for the bare-<ID>.md pattern.
 	entries, _ := os.ReadDir(docDir)
 	bare := regexp.MustCompile(`^[A-Z0-9]{6}\.md$`)
-	var workflowSamples int
+	var welcomeTikis int
 	for _, e := range entries {
 		if !e.IsDir() && bare.MatchString(e.Name()) {
-			workflowSamples++
+			welcomeTikis++
 		}
 	}
-	if workflowSamples != 0 {
-		t.Errorf("expected 0 sample workflow docs with -n, found %d", workflowSamples)
-	}
-}
-
-func TestRunInit_NonInteractiveWithSamples(t *testing.T) {
-	repoDir := setupInitTest(t)
-
-	code := runInit([]string{repoDir, "-n", "--samples"})
-	if code != exitOK {
-		t.Fatalf("exit code = %d, want %d", code, exitOK)
-	}
-
-	// verify sample tikis were created. Samples land directly under
-	// `.doc/<ID>.md`. Counting `.md` files at the document root is the
-	// right assertion.
-	docDir := filepath.Join(repoDir, ".doc")
-	entries, _ := os.ReadDir(docDir)
-	var tikiFiles int
-	for _, e := range entries {
-		if !e.IsDir() && strings.HasSuffix(e.Name(), ".md") {
-			tikiFiles++
-		}
-	}
-	if tikiFiles == 0 {
-		t.Error("expected sample tikis to be created with --samples")
+	if welcomeTikis != 1 {
+		t.Errorf("expected exactly 1 welcome tiki under .doc/, found %d", welcomeTikis)
 	}
 }
 
@@ -520,22 +478,23 @@ func TestRunInit_DefaultCreatesLocalWorkflow(t *testing.T) {
 	}
 }
 
-// TestRunInit_SamplesValidateAgainstLocalNotGlobalWorkflow reproduces the
-// ordering bug the reviewer flagged: BootstrapSystem validates bundled
-// samples against whichever workflow is currently active, so an
-// incompatible **global** user workflow could cause every sample to be
-// rejected while the init path still reported success. Phase 7 requires
-// samples to be validated against the **project-local** workflow that init
-// is about to install. The fix is to install .doc/workflow.yaml before
-// BootstrapSystem seeds samples, so the registry-precedence chain picks
-// up the project-local file instead of the unrelated global one.
-func TestRunInit_SamplesValidateAgainstLocalNotGlobalWorkflow(t *testing.T) {
+// TestRunInit_WelcomeTikiValidatesAgainstLocalNotGlobalWorkflow reproduces
+// the ordering bug the reviewer flagged: BootstrapSystem validates the
+// bundled welcome tiki against whichever workflow is currently active, so
+// an incompatible **global** user workflow could cause it to be rejected
+// while the init path still reported success. Phase 7 requires the welcome
+// tiki to be validated against the **project-local** workflow that init is
+// about to install. The fix is to install .doc/workflow.yaml before
+// BootstrapSystem writes the welcome tiki, so the registry-precedence
+// chain picks up the project-local file instead of the unrelated global
+// one.
+func TestRunInit_WelcomeTikiValidatesAgainstLocalNotGlobalWorkflow(t *testing.T) {
 	repoDir := setupInitTest(t)
 
 	// seed a user-level workflow with statuses that do NOT overlap with the
-	// bundled sample statuses (samples use backlog/ready/inProgress/review/
-	// done from the kanban workflow). With the old ordering the sample
-	// validator would run against this workflow and reject every sample.
+	// bundled welcome tiki status (the welcome tiki uses kanban statuses).
+	// With the old ordering the validator would run against this workflow
+	// and reject the welcome tiki.
 	xdg := os.Getenv("XDG_CONFIG_HOME")
 	if xdg == "" {
 		t.Fatal("XDG_CONFIG_HOME not set by setupInitTest")
@@ -574,25 +533,28 @@ views:
 		t.Fatalf("write global workflow: %v", err)
 	}
 
-	code := runInit([]string{repoDir, "-n", "--samples"})
+	code := runInit([]string{repoDir, "-n"})
 	if code != exitOK {
 		t.Fatalf("exit code = %d, want %d", code, exitOK)
 	}
 
+	// the welcome tiki lands under .doc/<ID>.md. Bundled wiki entry points
+	// (index.md, linked.md) are not bare-ID, so target the bare-<ID>.md
+	// pattern specifically.
 	docDir := filepath.Join(repoDir, ".doc")
 	entries, err := os.ReadDir(docDir)
 	if err != nil {
 		t.Fatalf("read .doc: %v", err)
 	}
-	var mdCount int
+	bare := regexp.MustCompile(`^[A-Z0-9]{6}\.md$`)
+	var welcomeTikis int
 	for _, e := range entries {
-		if e.IsDir() || !strings.HasSuffix(e.Name(), ".md") {
-			continue
+		if !e.IsDir() && bare.MatchString(e.Name()) {
+			welcomeTikis++
 		}
-		mdCount++
 	}
-	if mdCount == 0 {
-		t.Error("no sample .md files created under .doc/; samples were validated against the global workflow instead of the project-local workflow")
+	if welcomeTikis == 0 {
+		t.Error("welcome tiki not created under .doc/; it was validated against the global workflow instead of the project-local workflow")
 	}
 }
 

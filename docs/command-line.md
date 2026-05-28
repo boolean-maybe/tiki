@@ -12,7 +12,7 @@ Running `tiki` with no arguments launches the TUI in an initialized project.
 
 ### init
 
-Initialize a tiki project. Creates the unified `.doc/` directory and seeds sample tikis as
+Initialize a tiki project. Creates the unified `.doc/` directory and writes a welcome tiki at
 `.doc/<ID>.md`. Every tiki — whether it carries workflow fields or just `id` and `title` — lives in the
 same directory tree; identity lives in the tiki's frontmatter (`id:`), not in the file path.
 
@@ -20,7 +20,7 @@ If the target directory does not exist, it is created. If the directory is not a
 automatically, unless `store.git` is set to `false` (see [Configuration](config.md)).
 
 ```
-tiki init [directory] [-w|--workflow <source>] [--ai-skill <list>] [--samples] [-n|--non-interactive]
+tiki init [directory] [-w|--workflow <source>] [--ai-skill <list>] [-n|--non-interactive]
 ```
 
 | Option | Description |
@@ -28,12 +28,10 @@ tiki init [directory] [-w|--workflow <source>] [--ai-skill <list>] [--samples] [
 | `directory` | Target directory (default: current directory) |
 | `-w`, `--workflow <source>` | Install a workflow (embedded name, file path, or URL) |
 | `--ai-skill <list>` | AI skills to install, comma-separated (e.g. `claude,gemini`) |
-| `--samples` | Create bundled sample tasks (non-interactive mode only) |
 | `-n`, `--non-interactive` | Skip prompts, use only flags and defaults |
 
-**Sample tasks** are created if:
-- Interactive mode with default workflow: samples are created automatically
-- Non-interactive mode: samples are created only with `--samples`
+The welcome tiki is written when its frontmatter is compatible with the active workflow. Under a custom workflow
+whose statuses don't match, it is silently skipped.
 
 ```bash
 # interactive init with AI skill selection
@@ -55,7 +53,7 @@ tiki init -w ./custom-workflow.yaml
 tiki init -w https://example.com/workflow.yaml
 
 # fully non-interactive
-tiki init -n --ai-skill claude,gemini --samples
+tiki init -n --ai-skill claude,gemini
 ```
 
 ### exec

@@ -84,7 +84,7 @@ func Bootstrap(tikiSkillContent string) (*Result, error) {
 		}
 	}
 
-	// Phase 2: Project initialization (creates dirs and seeds sample files)
+	// Phase 2: Project initialization (creates dirs and writes the welcome tiki + wiki entry points)
 	var gitAdd func(...string) error
 	if config.GetStoreGit() {
 		gitAdd = tikistore.NewGitAdder("")

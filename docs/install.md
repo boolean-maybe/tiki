@@ -57,7 +57,7 @@ tiki init -w https://example.com/workflow.yaml
 
 For non-interactive use (CI, scripts):
 ```bash
-tiki init -n --ai-skill claude,gemini --samples
+tiki init -n --ai-skill claude,gemini
 ```
 
 See [command-line options](command-line.md#init) for the full flag reference.

@@ -34,9 +34,8 @@ type InitOptions struct {
 }
 
 // PromptForProjectInit presents a Huh form for project initialization.
-// hasCustomWorkflow adjusts the description text to reflect whether bundled
-// samples will be created. Returns (options, proceed, error).
-func PromptForProjectInit(hasCustomWorkflow bool) (InitOptions, bool, error) {
+// Returns (options, proceed, error).
+func PromptForProjectInit() (InitOptions, bool, error) {
 	var opts InitOptions
 
 	// Create custom theme with brighter description and help text
@@ -60,15 +59,11 @@ func PromptForProjectInit(hasCustomWorkflow bool) (InitOptions, bool, error) {
 		key.WithHelp("esc", "quit"),
 	)
 
-	var description string
-	if hasCustomWorkflow {
-		description = `
-This will initialize your project with a custom workflow:
+	description := `
+This will initialize your project:
 
 - .doc/ directory to hold your Markdown documents
-- custom workflow installed as .doc/workflow.yaml
-
-No sample documents will be created with a custom workflow.
+- workflow installed as .doc/workflow.yaml
 
 Additionally, optional AI skills are installed if you choose to.
 AI skills extend your AI assistant with commands to manage documents:
@@ -77,21 +72,6 @@ AI skills extend your AI assistant with commands to manage documents:
 
 Select AI assistants to install (optional), then press Enter to continue.
 Press Esc to cancel project initialization.`
-	} else {
-		description = `
-This will initialize your project by creating directories and bundled samples:
-
-- .doc/ directory to hold your Markdown documents
-- bundled sample documents
-
-Additionally, optional AI skills are installed if you choose to.
-AI skills extend your AI assistant with commands to manage documents:
-
-• 'tiki' skill - Create, view, update, delete documents
-
-Select AI assistants to install (optional), then press Enter to continue.
-Press Esc to cancel project initialization.`
-	}
 
 	aiOptions := make([]huh.Option[string], 0, len(AITools()))
 	for _, t := range AITools() {
@@ -132,7 +112,7 @@ func EnsureProjectInitialized(tikiSkillMdContent string, gitAdd func(...string) 
 			return false, fmt.Errorf("failed to stat tiki directory: %w", err)
 		}
 
-		opts, proceed, err := PromptForProjectInit(false)
+		opts, proceed, err := PromptForProjectInit()
 		if err != nil {
 			return false, fmt.Errorf("failed to prompt for project initialization: %w", err)
 		}
@@ -140,7 +120,7 @@ func EnsureProjectInitialized(tikiSkillMdContent string, gitAdd func(...string) 
 			return false, nil
 		}
 
-		if err := BootstrapSystem(true, gitAdd); err != nil {
+		if err := BootstrapSystem(gitAdd); err != nil {
 			return false, fmt.Errorf("failed to bootstrap project: %w", err)
 		}
 

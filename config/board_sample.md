@@ -2,8 +2,9 @@
 id: XXXXXX
 title: Welcome to tiki-land!
 type: story
-status: ready
-priority: high
+status: inbox
+priority: medium-high
+points: 7
 tags:
   - info
   - ideas

@@ -18,7 +18,6 @@ type InitOpts struct {
 	WorkflowSource  config.WorkflowSource
 	WorkflowContent string
 	AISkills        []string
-	Samples         bool
 	NonInteractive  bool
 }
 
@@ -54,9 +53,6 @@ func parseInitArgs(args []string) (InitOpts, error) {
 
 		case strings.HasPrefix(arg, "--ai-skill="):
 			opts.AISkills = splitAndTrim(strings.TrimPrefix(arg, "--ai-skill="))
-
-		case arg == "--samples":
-			opts.Samples = true
 
 		case arg == "-n" || arg == "--non-interactive":
 			opts.NonInteractive = true
@@ -181,10 +177,6 @@ func validateInitOpts(opts *InitOpts) error {
 			}
 			return fmt.Errorf("unknown AI skill %q (valid: %s)", skill, strings.Join(validKeys, ", "))
 		}
-	}
-
-	if opts.Samples && opts.WorkflowName != "" {
-		return fmt.Errorf("--samples cannot be used with --workflow (samples are only valid for the bundled default workflow)")
 	}
 
 	if opts.WorkflowName != "" {
@@ -320,7 +312,7 @@ func runInit(args []string) int {
 	if opts.NonInteractive || len(opts.AISkills) > 0 {
 		aiSkills = opts.AISkills
 	} else {
-		initOpts, proceed, promptErr := config.PromptForProjectInit(opts.WorkflowName != "")
+		initOpts, proceed, promptErr := config.PromptForProjectInit()
 		if promptErr != nil {
 			_, _ = fmt.Fprintln(os.Stderr, "error:", promptErr)
 			return exitStartupFailure
@@ -331,30 +323,20 @@ func runInit(args []string) int {
 		aiSkills = initOpts.AITools
 	}
 
-	// determine sample creation
-	createSamples := false
-	if opts.WorkflowName == "" {
-		if opts.NonInteractive {
-			createSamples = opts.Samples
-		} else {
-			createSamples = true
-		}
-	}
-
 	var gitAdd func(...string) error
 	if config.GetStoreGit() {
 		gitAdd = tikistore.NewGitAdder("")
 	}
 
-	// Phase 7 ordering: install the project-local workflow BEFORE
-	// BootstrapSystem seeds bundled samples. BootstrapSystem validates each
-	// sample's frontmatter against the active workflow registry, and the
-	// registry-precedence chain picks the highest-priority workflow.yaml
-	// among {user-global, project-local, cwd}. Without the project-local
-	// file in place first, samples would be validated against whichever
-	// workflow the user has at the global level — a legacy or custom
-	// global workflow whose statuses don't match the bundled kanban
-	// samples would cause every sample to be silently skipped.
+	// install the project-local workflow BEFORE BootstrapSystem writes the
+	// welcome tiki. BootstrapSystem validates the welcome tiki's frontmatter
+	// against the active workflow registry, and the registry-precedence chain
+	// picks the highest-priority workflow.yaml among {user-global,
+	// project-local, cwd}. Without the project-local file in place first, the
+	// welcome tiki would be validated against whichever workflow the user has
+	// at the global level — a legacy or custom global workflow whose statuses
+	// don't match the bundled kanban tiki would cause it to be silently
+	// skipped.
 	//
 	// Directory creation must happen before the install because
 	// InstallWorkflowFromContent(..., ScopeLocal) gates on
@@ -387,7 +369,7 @@ func runInit(args []string) int {
 		}
 	}
 
-	if err := config.BootstrapSystem(createSamples, gitAdd); err != nil {
+	if err := config.BootstrapSystem(gitAdd); err != nil {
 		_, _ = fmt.Fprintf(os.Stderr, "error: bootstrap: %v\n", err)
 		return exitStartupFailure
 	}
@@ -424,7 +406,6 @@ Arguments:
 Options:
   -w, --workflow <source>      Install a workflow (embedded name, file path, or URL)
   --ai-skill <list>            AI skills to install (comma-separated: claude,gemini)
-  --samples                    Create bundled sample documents (non-interactive only)
   -n, --non-interactive        Skip prompts, use flags/defaults only
   -h, --help                   Show this help message
 
@@ -440,7 +421,6 @@ Examples:
   tiki init -w kanban test1              Initialize test1 with the kanban workflow
   tiki init -w ./custom.yaml             Initialize with a local workflow file
   tiki init -w https://example.com/w.yaml  Initialize with a remote workflow
-  tiki init -n --samples                 Initialize non-interactively with sample documents
   tiki init --ai-skill claude            Initialize with Claude Code AI skill
 `)
 }

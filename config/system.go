@@ -17,21 +17,6 @@ import (
 //go:embed board_sample.md
 var initialTikiTemplate string
 
-//go:embed backlog_sample_1.md
-var backlogSample1 string
-
-//go:embed backlog_sample_2.md
-var backlogSample2 string
-
-//go:embed roadmap_now_sample.md
-var roadmapNowSample string
-
-//go:embed roadmap_next_sample.md
-var roadmapNextSample string
-
-//go:embed roadmap_later_sample.md
-var roadmapLaterSample string
-
 //go:embed index.md
 var indexEntryPoint string
 
@@ -93,9 +78,23 @@ func GenerateRandomID() string {
 // sampleFrontmatterRe extracts type and status values from sample tiki frontmatter.
 var sampleFrontmatterRe = regexp.MustCompile(`(?m)^(type|status):\s*(.+)$`)
 
+// allDigitsRe matches an id consisting solely of decimal digits.
+var allDigitsRe = regexp.MustCompile(`^[0-9]+$`)
+
+// formatFrontmatterID returns id ready for emission as a YAML scalar value.
+// All-digit ids are quoted so yaml.v3 does not decode them as integers (which
+// would drop leading zeros and fail strict id validation on the next load);
+// ids containing at least one letter are emitted bare for cleaner frontmatter.
+func formatFrontmatterID(id string) string {
+	if allDigitsRe.MatchString(id) {
+		return fmt.Sprintf("%q", id)
+	}
+	return id
+}
+
 // withBundledID returns body prepended with a minimal frontmatter
 // block carrying a freshly-generated bare id. Used for the two bundled
-// sample documents (`index.md`, `linked.md`) written during project init.
+// wiki entry points (`index.md`, `linked.md`) written during project init.
 // The strict loader rejects any `.md` under `.doc/` without an id, so
 // these templates cannot ship as plain markdown — but embedding a
 // literal id in the template file itself would collide across projects,
@@ -108,7 +107,7 @@ func withBundledID(body string) string {
 	if strings.HasPrefix(body, "---\n") {
 		return body
 	}
-	return fmt.Sprintf("---\nid: %q\n---\n%s", GenerateRandomID(), body)
+	return fmt.Sprintf("---\nid: %s\n---\n%s", formatFrontmatterID(GenerateRandomID()), body)
 }
 
 // validateSampleTiki checks whether a sample tiki's frontmatter values are
@@ -129,72 +128,49 @@ func validateSampleTiki(template string) bool {
 	return true
 }
 
-// BootstrapSystem creates the document storage and seeds the initial sample
-// documents. If createSamples is true, embedded workflow samples are validated
-// against the active workflow registries and only valid ones are written.
-// gitAdd, when non-nil, is called to stage created files (e.g. ops.Add).
+// BootstrapSystem creates the document storage and writes the welcome tiki
+// plus the bundled wiki entry points. The welcome tiki is validated against
+// the active workflow registries and skipped when its frontmatter does not
+// match (e.g. under a custom workflow whose statuses differ from the bundled
+// kanban). gitAdd, when non-nil, is called to stage created files
+// (e.g. ops.Add).
 //
-// Samples and bundled wiki entry points land directly under `.doc/` —
-// flat by default. `.doc/<ID>.md` is the canonical path for new files,
-// but projects are free to organize content in subdirectories.
-// `markdown.png` is written once under `.doc/assets/`.
-func BootstrapSystem(createSamples bool, gitAdd func(...string) error) error {
-	// Create all necessary directories
+// All bootstrap files land directly under `.doc/` — flat by default.
+// `.doc/<ID>.md` is the canonical path for new files, but projects are free
+// to organize content in subdirectories. `markdown.png` is written once
+// under `.doc/assets/`.
+func BootstrapSystem(gitAdd func(...string) error) error {
 	if err := EnsureDirs(); err != nil {
 		return fmt.Errorf("ensure directories: %w", err)
 	}
 
 	var createdFiles []string
 
-	if createSamples {
-		// ensure workflow registries are loaded before validating samples;
-		// on first run this may require installing the default workflow first
-		if err := InstallDefaultWorkflow(); err != nil {
-			slog.Warn("failed to install default workflow for sample validation", "error", err)
-		}
-		if err := LoadWorkflowFields(); err != nil {
-			slog.Warn("failed to load workflow fields for sample validation; skipping samples", "error", err)
-			createSamples = false
-		}
+	// ensure workflow registries are loaded before validating the welcome tiki;
+	// on first run this may require installing the default workflow first
+	writeWelcomeTiki := true
+	if err := InstallDefaultWorkflow(); err != nil {
+		slog.Warn("failed to install default workflow for welcome tiki validation", "error", err)
+	}
+	if err := LoadWorkflowFields(); err != nil {
+		slog.Warn("failed to load workflow fields; skipping welcome tiki", "error", err)
+		writeWelcomeTiki = false
 	}
 
-	if createSamples {
-		type sampleDef struct {
-			name     string
-			template string
-		}
-		samples := []sampleDef{
-			{"board", initialTikiTemplate},
-			{"backlog 1", backlogSample1},
-			{"backlog 2", backlogSample2},
-			{"roadmap now", roadmapNowSample},
-			{"roadmap next", roadmapNextSample},
-			{"roadmap later", roadmapLaterSample},
-		}
-
-		// Samples land directly under the unified document root (`.doc/<ID>.md`).
-		// This matches the default new-document location used by CreateTiki so
-		// bundled samples and user-created tikis share one layout.
-		sampleDir := GetDocDir()
-		for _, s := range samples {
-			if !validateSampleTiki(s.template) {
-				slog.Info("skipping incompatible sample tiki", "name", s.name)
-				continue
-			}
-
+	if writeWelcomeTiki {
+		if !validateSampleTiki(initialTikiTemplate) {
+			slog.Info("skipping welcome tiki: frontmatter incompatible with active workflow")
+		} else {
 			tikiID := GenerateRandomID()
-			// Phase 1 filename convention: <ID>.md (bare, case-preserving).
-			tikiFilename := fmt.Sprintf("%s.md", tikiID)
-			tikiPath := filepath.Join(sampleDir, tikiFilename)
+			tikiPath := filepath.Join(GetDocDir(), fmt.Sprintf("%s.md", tikiID))
 
-			// Samples embed `id: XXXXXX` as a placeholder; replace with the
-			// generated bare id for this instance. The replacement is
-			// YAML-quoted so all-digit ids (e.g. "000001") survive strict
-			// load — without quotes, yaml.v3 decodes them as integers and
-			// loses leading zeros, failing ValidateID.
-			tikiContent := strings.ReplaceAll(s.template, "id: XXXXXX", fmt.Sprintf("id: %q", tikiID))
+			// Template embeds `id: XXXXXX` as a placeholder; replace with the
+			// generated bare id. formatFrontmatterID quotes only when needed
+			// (all-digit ids), so most ids emit bare while edge cases like
+			// "000001" still survive strict load.
+			tikiContent := strings.ReplaceAll(initialTikiTemplate, "id: XXXXXX", "id: "+formatFrontmatterID(tikiID))
 			if err := os.WriteFile(tikiPath, []byte(tikiContent), 0644); err != nil {
-				return fmt.Errorf("create sample %s: %w", s.name, err)
+				return fmt.Errorf("create welcome tiki: %w", err)
 			}
 			createdFiles = append(createdFiles, tikiPath)
 		}
