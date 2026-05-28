@@ -59,11 +59,12 @@ func PromptForProjectInit() (InitOptions, bool, error) {
 		key.WithHelp("esc", "quit"),
 	)
 
-	description := `
+	docDir := GetDocDirName()
+	description := fmt.Sprintf(`
 This will initialize your project:
 
-- .doc/ directory to hold your Markdown documents
-- workflow installed as .doc/workflow.yaml
+- %s/ directory to hold your Markdown documents
+- workflow installed as %s/workflow.yaml
 
 Additionally, optional AI skills are installed if you choose to.
 AI skills extend your AI assistant with commands to manage documents:
@@ -71,7 +72,7 @@ AI skills extend your AI assistant with commands to manage documents:
 • 'tiki' skill - Create, view, update, delete documents
 
 Select AI assistants to install (optional), then press Enter to continue.
-Press Esc to cancel project initialization.`
+Press Esc to cancel project initialization.`, docDir, docDir)
 
 	aiOptions := make([]huh.Option[string], 0, len(AITools()))
 	for _, t := range AITools() {

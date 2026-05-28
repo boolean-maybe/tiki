@@ -52,7 +52,9 @@ func runDemo() error {
 	}
 
 	// Reset any prior path manager state so InitPaths observes the new cwd.
+	// Force ".doc" regardless of user-level store.dir — demo fixtures use that layout.
 	config.ResetPathManager()
+	config.SetDemoDocDirOverride(".doc")
 	if err := config.InitPaths(); err != nil {
 		return fmt.Errorf("initialize paths: %w", err)
 	}

@@ -94,6 +94,7 @@ func LoadConfig() (*Config, error) {
 			return nil, fmt.Errorf("reading config from %s: %w", path, readErr)
 		}
 		slog.Debug("loaded configuration", "file", path)
+		warnIgnoredStoreDir(path)
 	}
 
 	// environment variables and flags override everything
@@ -123,6 +124,39 @@ func findConfigFile() string {
 		filepath.Join(pm.ProjectConfigDir(), "config.yaml"),
 		filepath.Join(".", "config.yaml"),
 	})
+}
+
+// warnIgnoredStoreDir logs a warning when the winning config file is not the
+// user-level config and it contains a store.dir key. Document directory
+// resolution uses only user-level config; project-local and cwd configs
+// cannot change it.
+func warnIgnoredStoreDir(winningPath string) {
+	pm := mustGetPathManager()
+	userConfigPath := pm.ConfigFile()
+
+	winningAbs, _ := filepath.Abs(winningPath)
+	userAbs, _ := filepath.Abs(userConfigPath)
+	if winningAbs == userAbs {
+		return
+	}
+
+	data, err := os.ReadFile(winningPath)
+	if err != nil {
+		return
+	}
+
+	var probe struct {
+		Store struct {
+			Dir string `yaml:"dir"`
+		} `yaml:"store"`
+	}
+	if err := yaml.Unmarshal(data, &probe); err != nil {
+		return
+	}
+	if probe.Store.Dir != "" {
+		slog.Warn("store.dir in non-user config is ignored; document directory is set only via user config",
+			"file", winningPath, "ignored_value", probe.Store.Dir)
+	}
 }
 
 // setDefaults sets default configuration values

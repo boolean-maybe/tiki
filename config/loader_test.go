@@ -577,6 +577,91 @@ func TestLoadConfigIdentityEnvOverride(t *testing.T) {
 	}
 }
 
+func TestLoadConfig_ProjectStoreDirIgnored(t *testing.T) {
+	userDir := t.TempDir()
+	t.Setenv("XDG_CONFIG_HOME", userDir)
+	userTikiDir := filepath.Join(userDir, "tiki")
+	if err := os.MkdirAll(userTikiDir, 0750); err != nil {
+		t.Fatal(err)
+	}
+	// user config sets docs as doc dir
+	if err := os.WriteFile(filepath.Join(userTikiDir, "config.yaml"), []byte("store:\n  dir: docs\n"), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	projectDir := t.TempDir()
+	docDir := filepath.Join(projectDir, "docs")
+	if err := os.MkdirAll(docDir, 0750); err != nil {
+		t.Fatal(err)
+	}
+	// project config tries to override doc dir
+	if err := os.WriteFile(filepath.Join(docDir, "config.yaml"), []byte("store:\n  dir: other\n  git: false\n"), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	cwdDir := t.TempDir()
+	originalDir, _ := os.Getwd()
+	defer func() { _ = os.Chdir(originalDir) }()
+	_ = os.Chdir(cwdDir)
+
+	appConfig = nil
+	ResetPathManager()
+	if err := InitPaths(); err != nil {
+		t.Fatalf("InitPaths: %v", err)
+	}
+	pm := mustGetPathManager()
+	pm.projectRoot = projectDir
+
+	cfg, err := LoadConfig()
+	if err != nil {
+		t.Fatalf("LoadConfig failed: %v", err)
+	}
+
+	// the doc dir must still be "docs" from user config, not "other"
+	if got := GetDocDirName(); got != "docs" {
+		t.Errorf("GetDocDirName() = %q, want 'docs' (project store.dir must not change it)", got)
+	}
+	// the project config's store.git value is still honored for runtime config
+	if cfg.Store.Git != false {
+		t.Errorf("expected store.git false from project config, got %v", cfg.Store.Git)
+	}
+}
+
+func TestLoadConfig_CwdStoreDirIgnored(t *testing.T) {
+	userDir := t.TempDir()
+	t.Setenv("XDG_CONFIG_HOME", userDir)
+	userTikiDir := filepath.Join(userDir, "tiki")
+	if err := os.MkdirAll(userTikiDir, 0750); err != nil {
+		t.Fatal(err)
+	}
+
+	// cwd config tries to set store.dir
+	cwdDir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(cwdDir, "config.yaml"), []byte("store:\n  dir: other\n  git: false\n"), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	originalDir, _ := os.Getwd()
+	defer func() { _ = os.Chdir(originalDir) }()
+	_ = os.Chdir(cwdDir)
+
+	appConfig = nil
+	ResetPathManager()
+	if err := InitPaths(); err != nil {
+		t.Fatalf("InitPaths: %v", err)
+	}
+
+	_, err := LoadConfig()
+	if err != nil {
+		t.Fatalf("LoadConfig failed: %v", err)
+	}
+
+	// doc dir must be default ".doc" since user config has no store.dir
+	if got := GetDocDirName(); got != ".doc" {
+		t.Errorf("GetDocDirName() = %q, want '.doc' (cwd store.dir must not change it)", got)
+	}
+}
+
 func TestLoadConfigStoreEnvOverride(t *testing.T) {
 	tmpDir := t.TempDir()
 

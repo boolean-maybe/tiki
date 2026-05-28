@@ -552,6 +552,220 @@ func TestWorkflowScopeLabel(t *testing.T) {
 	}
 }
 
+func TestValidateDocDir(t *testing.T) {
+	tests := []struct {
+		name    string
+		input   string
+		wantErr bool
+	}{
+		{"valid .doc", ".doc", false},
+		{"valid docs", "docs", false},
+		{"valid .tiki", ".tiki", false},
+		{"valid nested", "my-docs/store", false},
+		{"empty", "", true},
+		{"absolute", "/tmp/docs", true},
+		{"dotdot simple", "..", true},
+		{"dotdot nested", "foo/../bar", true},
+		{"dotdot prefix", "../docs", true},
+		{"resolves to root dot", ".", true},
+		{"resolves to root via trailing slash", "./", true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := ValidateDocDir(tt.input)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("ValidateDocDir(%q) error = %v, wantErr %v", tt.input, err, tt.wantErr)
+			}
+		})
+	}
+}
+
+func TestResolveUserConfiguredDocDir_Missing(t *testing.T) {
+	dir := t.TempDir()
+	got, err := resolveUserConfiguredDocDir(dir)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if got != "" {
+		t.Errorf("expected empty, got %q", got)
+	}
+}
+
+func TestResolveUserConfiguredDocDir_ValidValue(t *testing.T) {
+	dir := t.TempDir()
+	content := []byte("store:\n  dir: docs\n")
+	if err := os.WriteFile(filepath.Join(dir, "config.yaml"), content, 0644); err != nil {
+		t.Fatal(err)
+	}
+	got, err := resolveUserConfiguredDocDir(dir)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if got != "docs" {
+		t.Errorf("expected 'docs', got %q", got)
+	}
+}
+
+func TestResolveUserConfiguredDocDir_Unset(t *testing.T) {
+	dir := t.TempDir()
+	content := []byte("logging:\n  level: debug\n")
+	if err := os.WriteFile(filepath.Join(dir, "config.yaml"), content, 0644); err != nil {
+		t.Fatal(err)
+	}
+	got, err := resolveUserConfiguredDocDir(dir)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if got != "" {
+		t.Errorf("expected empty, got %q", got)
+	}
+}
+
+func TestResolveUserConfiguredDocDir_InvalidValue(t *testing.T) {
+	tests := []struct {
+		name string
+		dir  string
+	}{
+		{"absolute", "/tmp/docs"},
+		{"dotdot", "../docs"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			dir := t.TempDir()
+			content := []byte("store:\n  dir: " + tt.dir + "\n")
+			if err := os.WriteFile(filepath.Join(dir, "config.yaml"), content, 0644); err != nil {
+				t.Fatal(err)
+			}
+			_, err := resolveUserConfiguredDocDir(dir)
+			if err == nil {
+				t.Errorf("expected error for dir=%q, got nil", tt.dir)
+			}
+		})
+	}
+}
+
+func TestResolveUserConfiguredDocDir_EmptyTreatedAsUnset(t *testing.T) {
+	dir := t.TempDir()
+	content := []byte("store:\n  dir:\n")
+	if err := os.WriteFile(filepath.Join(dir, "config.yaml"), content, 0644); err != nil {
+		t.Fatal(err)
+	}
+	got, err := resolveUserConfiguredDocDir(dir)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if got != "" {
+		t.Errorf("expected empty (unset), got %q", got)
+	}
+}
+
+func TestResolveUserConfiguredDocDir_MalformedYAML(t *testing.T) {
+	dir := t.TempDir()
+	content := []byte("store: [\n  invalid yaml\n")
+	if err := os.WriteFile(filepath.Join(dir, "config.yaml"), content, 0644); err != nil {
+		t.Fatal(err)
+	}
+	got, err := resolveUserConfiguredDocDir(dir)
+	if err != nil {
+		t.Fatalf("unexpected error (malformed YAML should be treated as unset): %v", err)
+	}
+	if got != "" {
+		t.Errorf("expected empty for malformed YAML, got %q", got)
+	}
+}
+
+func TestDocDirName_DefaultIsDotDoc(t *testing.T) {
+	userDir := t.TempDir()
+	t.Setenv("XDG_CONFIG_HOME", userDir)
+	if err := os.MkdirAll(filepath.Join(userDir, "tiki"), 0750); err != nil {
+		t.Fatal(err)
+	}
+
+	ResetPathManager()
+	defer ResetPathManager()
+
+	if err := InitPaths(); err != nil {
+		t.Fatalf("InitPaths: %v", err)
+	}
+	if got := GetDocDirName(); got != ".doc" {
+		t.Errorf("GetDocDirName() = %q, want '.doc'", got)
+	}
+}
+
+func TestDocDirName_UserConfigOverride(t *testing.T) {
+	userDir := t.TempDir()
+	t.Setenv("XDG_CONFIG_HOME", userDir)
+	tikiDir := filepath.Join(userDir, "tiki")
+	if err := os.MkdirAll(tikiDir, 0750); err != nil {
+		t.Fatal(err)
+	}
+	content := []byte("store:\n  dir: docs\n")
+	if err := os.WriteFile(filepath.Join(tikiDir, "config.yaml"), content, 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	ResetPathManager()
+	defer ResetPathManager()
+
+	if err := InitPaths(); err != nil {
+		t.Fatalf("InitPaths: %v", err)
+	}
+	if got := GetDocDirName(); got != "docs" {
+		t.Errorf("GetDocDirName() = %q, want 'docs'", got)
+	}
+	pm := mustGetPathManager()
+	wantSuffix := filepath.Join(pm.projectRoot, "docs")
+	if got := GetDocDir(); got != wantSuffix {
+		t.Errorf("GetDocDir() = %q, want %q", got, wantSuffix)
+	}
+}
+
+func TestDocDirName_InvalidUserConfigFails(t *testing.T) {
+	userDir := t.TempDir()
+	t.Setenv("XDG_CONFIG_HOME", userDir)
+	tikiDir := filepath.Join(userDir, "tiki")
+	if err := os.MkdirAll(tikiDir, 0750); err != nil {
+		t.Fatal(err)
+	}
+	content := []byte("store:\n  dir: /absolute/bad\n")
+	if err := os.WriteFile(filepath.Join(tikiDir, "config.yaml"), content, 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	ResetPathManager()
+	defer ResetPathManager()
+
+	err := InitPaths()
+	if err == nil {
+		t.Fatal("expected InitPaths to fail with invalid store.dir")
+	}
+}
+
+func TestDocDirName_DemoOverride(t *testing.T) {
+	userDir := t.TempDir()
+	t.Setenv("XDG_CONFIG_HOME", userDir)
+	tikiDir := filepath.Join(userDir, "tiki")
+	if err := os.MkdirAll(tikiDir, 0750); err != nil {
+		t.Fatal(err)
+	}
+	content := []byte("store:\n  dir: docs\n")
+	if err := os.WriteFile(filepath.Join(tikiDir, "config.yaml"), content, 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	ResetPathManager()
+	defer ResetPathManager()
+
+	SetDemoDocDirOverride(".doc")
+	if err := InitPaths(); err != nil {
+		t.Fatalf("InitPaths: %v", err)
+	}
+	if got := GetDocDirName(); got != ".doc" {
+		t.Errorf("GetDocDirName() = %q, want '.doc' (demo override)", got)
+	}
+}
+
 func TestFindWorkflowFile_DelegatesToWithScope(t *testing.T) {
 	userDir := t.TempDir()
 	t.Setenv("XDG_CONFIG_HOME", userDir)

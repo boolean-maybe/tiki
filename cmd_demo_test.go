@@ -414,6 +414,43 @@ func TestRunDemo_ReusesExistingDir(t *testing.T) {
 	}
 }
 
+func TestRunDemo_IgnoresUserStoreDir(t *testing.T) {
+	t.Chdir(t.TempDir())
+	t.Setenv("TIKI_STORE_GIT", "false")
+	t.Setenv("XDG_CACHE_HOME", t.TempDir())
+
+	// configure user-level store.dir to "docs" — demo must still use .doc
+	userConfigDir := t.TempDir()
+	t.Setenv("XDG_CONFIG_HOME", userConfigDir)
+	tikiDir := filepath.Join(userConfigDir, "tiki")
+	//nolint:gosec // G301: test directory
+	if err := os.MkdirAll(tikiDir, 0750); err != nil {
+		t.Fatal(err)
+	}
+	//nolint:gosec // G306: test config file
+	if err := os.WriteFile(filepath.Join(tikiDir, "config.yaml"), []byte("store:\n  dir: docs\n"), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	config.ResetPathManager()
+	t.Cleanup(config.ResetPathManager)
+
+	if err := runDemo(); err != nil {
+		t.Fatalf("runDemo: %v", err)
+	}
+
+	// demo must use .doc, not "docs"
+	if _, err := os.Stat(".doc"); err != nil {
+		t.Errorf("expected .doc/ to exist in demo: %v", err)
+	}
+	if _, err := os.Stat("docs"); !os.IsNotExist(err) {
+		t.Errorf("'docs' directory should not exist in demo — user store.dir must be ignored")
+	}
+	if got := config.GetDocDirName(); got != ".doc" {
+		t.Errorf("GetDocDirName() = %q in demo, want '.doc'", got)
+	}
+}
+
 func TestRunDemo_GitInitWhenStoreGitTrue(t *testing.T) {
 	setupDemoTest(t)
 	t.Setenv("TIKI_STORE_GIT", "true")
