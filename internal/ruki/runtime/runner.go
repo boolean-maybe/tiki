@@ -229,7 +229,7 @@ func persistCreate(ctx context.Context, gate *service.TikiMutationGate, cr *ruki
 	if err := gate.CreateTiki(ctx, cr.Tiki); err != nil {
 		return fmt.Errorf("create tiki: %w", err)
 	}
-	return formatCreateSummary(out, cr.Tiki.ID, json)
+	return formatCreateSummary(out, cr.Tiki.ID(), json)
 }
 
 func persistDelete(ctx context.Context, gate *service.TikiMutationGate, dr *ruki.DeleteResult, out io.Writer, json bool) error {
@@ -238,7 +238,7 @@ func persistDelete(ctx context.Context, gate *service.TikiMutationGate, dr *ruki
 	for _, tk := range dr.Deleted {
 		if err := gate.DeleteTiki(ctx, tk); err != nil {
 			failed++
-		} else if readStore.GetTiki(tk.ID) != nil {
+		} else if readStore.GetTiki(tk.ID()) != nil {
 			// store silently failed to delete
 			failed++
 		} else {

@@ -28,9 +28,9 @@ func matchesTikiQuery(tk *tikipkg.Tiki, queryLower string) bool {
 	if tk == nil || queryLower == "" {
 		return false
 	}
-	if strings.Contains(strings.ToLower(tk.ID), queryLower) ||
-		strings.Contains(strings.ToLower(tk.Title), queryLower) ||
-		strings.Contains(strings.ToLower(tk.Body), queryLower) {
+	if strings.Contains(strings.ToLower(tk.ID()), queryLower) ||
+		strings.Contains(strings.ToLower(tk.Title()), queryLower) ||
+		strings.Contains(strings.ToLower(tk.Body()), queryLower) {
 		return true
 	}
 	tags, _, _ := tk.StringSliceField(tikipkg.FieldTags)
@@ -62,11 +62,11 @@ func (s *TikiStore) SearchTikis(query string, filter func(*tikipkg.Tiki) bool) [
 		results = append(results, tk)
 	}
 	sort.Slice(results, func(i, j int) bool {
-		ti, tj := strings.ToLower(results[i].Title), strings.ToLower(results[j].Title)
+		ti, tj := strings.ToLower(results[i].Title()), strings.ToLower(results[j].Title())
 		if ti != tj {
 			return ti < tj
 		}
-		return results[i].ID < results[j].ID
+		return results[i].ID() < results[j].ID()
 	})
 	return results
 }

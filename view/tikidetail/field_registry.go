@@ -225,14 +225,14 @@ func registerBuiltinFields() {
 		Name:     "createdAt",
 		Label:    "Created",
 		Semantic: SemanticDateTime,
-		Get:      func(tk *tikipkg.Tiki) any { return tk.CreatedAt },
+		Get:      func(tk *tikipkg.Tiki) any { return tk.CreatedAt() },
 		ReadOnly: true,
 	}
 	fieldRegistry["updatedAt"] = FieldDescriptor{
 		Name:     "updatedAt",
 		Label:    "Updated",
 		Semantic: SemanticDateTime,
-		Get:      func(tk *tikipkg.Tiki) any { return tk.UpdatedAt },
+		Get:      func(tk *tikipkg.Tiki) any { return tk.UpdatedAt() },
 		ReadOnly: true,
 	}
 	fieldRegistry["title"] = FieldDescriptor{
@@ -240,8 +240,8 @@ func registerBuiltinFields() {
 		Label:           "Title",
 		Semantic:        SemanticText,
 		EditField:       model.EditFieldTitle,
-		Get:             func(tk *tikipkg.Tiki) any { return tk.Title },
-		Set:             func(tk *tikipkg.Tiki, v any) error { tk.Title, _ = v.(string); return nil },
+		Get:             func(tk *tikipkg.Tiki) any { return tk.Title() },
+		Set:             func(tk *tikipkg.Tiki, v any) error { s, _ := v.(string); tk.SetTitle(s); return nil },
 		ReadOnly:        false,
 		EditTraversable: true,
 	}
@@ -699,7 +699,7 @@ func editTitleValue(tk *tikipkg.Tiki, ctx FieldRenderContext, onChange func(stri
 	input.SetFieldTextColor(roles.TextPrimary().TCell())
 	input.SetLabel(getFocusMarker(ctx.Roles))
 	input.SetBorder(false)
-	input.SetText(tk.Title)
+	input.SetText(tk.Title())
 	input.SetChangedFunc(func(text string) {
 		if onChange != nil {
 			onChange(text)

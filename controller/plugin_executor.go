@@ -149,7 +149,7 @@ func (pe *PluginExecutor) applyResult(pa *plugin.PluginAction, input ruki.Execut
 	case result.Update != nil:
 		for _, tk := range result.Update.Updated {
 			if err := pe.mutationGate.UpdateTiki(ctx, tk); err != nil {
-				slog.Error("failed to update tiki after plugin action", "tiki_id", tk.ID, "key", pa.KeyStr, "error", err)
+				slog.Error("failed to update tiki after plugin action", "tiki_id", tk.ID(), "key", pa.KeyStr, "error", err)
 				pe.setError(err)
 				return false
 			}
@@ -166,7 +166,7 @@ func (pe *PluginExecutor) applyResult(pa *plugin.PluginAction, input ruki.Execut
 	case result.Delete != nil:
 		for _, tk := range result.Delete.Deleted {
 			if err := pe.mutationGate.DeleteTiki(ctx, tk); err != nil {
-				slog.Error("failed to delete tiki from plugin action", "tiki_id", tk.ID, "key", pa.KeyStr, "error", err)
+				slog.Error("failed to delete tiki from plugin action", "tiki_id", tk.ID(), "key", pa.KeyStr, "error", err)
 				pe.setError(err)
 				return false
 			}

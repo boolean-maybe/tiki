@@ -47,7 +47,7 @@ func AllTikiValidators() []func(*tikipkg.Tiki) string {
 }
 
 func validateTikiTitle(tk *tikipkg.Tiki) string {
-	title := strings.TrimSpace(tk.Title)
+	title := strings.TrimSpace(tk.Title())
 	if title == "" {
 		return "title is required"
 	}

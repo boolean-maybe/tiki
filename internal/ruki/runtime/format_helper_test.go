@@ -13,12 +13,12 @@ import (
 // rather than "<absent>".
 func tikiFromLegacy(f legacyFields) *tiki.Tiki {
 	tk := tiki.New()
-	tk.ID = f.ID
-	tk.Title = f.Title
-	tk.Body = f.Description
-	tk.CreatedAt = f.CreatedAt
-	tk.UpdatedAt = f.UpdatedAt
-	tk.Path = f.FilePath
+	tk.SetID(f.ID)
+	tk.SetTitle(f.Title)
+	tk.SetBody(f.Description)
+	tk.SetCreatedAt(f.CreatedAt)
+	tk.SetUpdatedAt(f.UpdatedAt)
+	tk.SetPath(f.FilePath)
 	if f.CreatedBy != "" {
 		tk.Set("createdBy", f.CreatedBy)
 	}

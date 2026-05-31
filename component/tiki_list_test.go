@@ -14,8 +14,8 @@ func makeTikis(ids ...string) []*tikipkg.Tiki {
 	tikis := make([]*tikipkg.Tiki, len(ids))
 	for i, id := range ids {
 		tk := tikipkg.New()
-		tk.ID = id
-		tk.Title = "Tiki " + id
+		tk.SetID(id)
+		tk.SetTitle("Tiki " + id)
 		tikis[i] = tk
 	}
 	return tikis
@@ -100,7 +100,7 @@ func TestGetSelectedTiki(t *testing.T) {
 
 	tl.SetSelection(1)
 	selected := tl.GetSelectedTiki()
-	if selected == nil || selected.ID != "B" {
+	if selected == nil || selected.ID() != "B" {
 		t.Errorf("Expected tiki B, got %v", selected)
 	}
 }
@@ -234,13 +234,13 @@ func TestBuildRow(t *testing.T) {
 	tl := NewTikiList(10)
 
 	pendingTiki := tikipkg.New()
-	pendingTiki.ID = "ABC001"
-	pendingTiki.Title = "My pending tiki"
+	pendingTiki.SetID("ABC001")
+	pendingTiki.SetTitle("My pending tiki")
 	// no status field — treated as pending
 
 	doneTiki := tikipkg.New()
-	doneTiki.ID = "ABC002"
-	doneTiki.Title = "My done tiki"
+	doneTiki.SetID("ABC002")
+	doneTiki.SetTitle("My done tiki")
 	doneTiki.Set(tikipkg.FieldStatus, "done")
 
 	// set tikis so idColumnWidth is computed
@@ -266,14 +266,14 @@ func TestBuildRow(t *testing.T) {
 
 	t.Run("contains tiki ID", func(t *testing.T) {
 		row := tl.buildRow(pendingTiki, false, width)
-		if !strings.Contains(row, pendingTiki.ID) {
-			t.Errorf("row should contain tiki ID %q", pendingTiki.ID)
+		if !strings.Contains(row, pendingTiki.ID()) {
+			t.Errorf("row should contain tiki ID %q", pendingTiki.ID())
 		}
 	})
 
 	t.Run("contains title", func(t *testing.T) {
 		row := tl.buildRow(pendingTiki, false, width)
-		escaped := tview.Escape(pendingTiki.Title)
+		escaped := tview.Escape(pendingTiki.Title())
 		if !strings.Contains(row, escaped) {
 			t.Errorf("row should contain escaped title %q", escaped)
 		}

@@ -20,7 +20,7 @@ import (
 func makeTikiMap(tikis ...*tikipkg.Tiki) map[string]*tikipkg.Tiki {
 	out := make(map[string]*tikipkg.Tiki, len(tikis))
 	for _, tk := range tikis {
-		out[tk.ID] = tk
+		out[tk.ID()] = tk
 	}
 	return out
 }
@@ -28,8 +28,8 @@ func makeTikiMap(tikis ...*tikipkg.Tiki) map[string]*tikipkg.Tiki {
 func TestSearchTikis_MatchesID(t *testing.T) {
 	mkWF := func(id, title, status, priority string) *tikipkg.Tiki {
 		tk := tikipkg.New()
-		tk.ID = id
-		tk.Title = title
+		tk.SetID(id)
+		tk.SetTitle(title)
 		tk.Set(tikipkg.FieldStatus, status)
 		tk.Set(tikipkg.FieldPriority, priority)
 		return tk
@@ -45,17 +45,17 @@ func TestSearchTikis_MatchesID(t *testing.T) {
 	if len(results) != 1 {
 		t.Fatalf("result count = %d, want 1", len(results))
 	}
-	if results[0].ID != "ABC123" {
-		t.Errorf("results[0].ID = %q, want %q", results[0].ID, "ABC123")
+	if results[0].ID() != "ABC123" {
+		t.Errorf("results[0].ID() = %q, want %q", results[0].ID(), "ABC123")
 	}
 }
 
 func TestSearchTikis_MatchesBody(t *testing.T) {
 	mkWF := func(id, title, body, status, priority string) *tikipkg.Tiki {
 		tk := tikipkg.New()
-		tk.ID = id
-		tk.Title = title
-		tk.Body = body
+		tk.SetID(id)
+		tk.SetTitle(title)
+		tk.SetBody(body)
 		tk.Set(tikipkg.FieldStatus, status)
 		tk.Set(tikipkg.FieldPriority, priority)
 		return tk
@@ -77,8 +77,8 @@ func TestSearchTikis_MatchesBody(t *testing.T) {
 	// SearchTikis sorts by title ascending.
 	expectedIDs := []string{"AAA111", "CCC333"} // Alpha, Gamma
 	for i, result := range results {
-		if result.ID != expectedIDs[i] {
-			t.Errorf("results[%d].ID = %q, want %q", i, result.ID, expectedIDs[i])
+		if result.ID() != expectedIDs[i] {
+			t.Errorf("results[%d].ID = %q, want %q", i, result.ID(), expectedIDs[i])
 		}
 	}
 }
@@ -89,9 +89,9 @@ func TestSearchTikis_MatchesBody(t *testing.T) {
 func TestSearchTikis_MatchesTags(t *testing.T) {
 	mk := func(id, title, body string, tags []string) *tikipkg.Tiki {
 		tk := tikipkg.New()
-		tk.ID = id
-		tk.Title = title
-		tk.Body = body
+		tk.SetID(id)
+		tk.SetTitle(title)
+		tk.SetBody(body)
 		if tags != nil {
 			tk.Set(tikipkg.FieldTags, tags)
 		}
@@ -106,16 +106,16 @@ func TestSearchTikis_MatchesTags(t *testing.T) {
 	}
 
 	results := store.SearchTikis("backend", nil)
-	if len(results) != 1 || results[0].ID != "TAG001" {
+	if len(results) != 1 || results[0].ID() != "TAG001" {
 		ids := make([]string, len(results))
 		for i, r := range results {
-			ids[i] = r.ID
+			ids[i] = r.ID()
 		}
 		t.Fatalf("tag-only query: got %v, want [TAG001]", ids)
 	}
 
 	// Case-insensitive substring match on a tag also surfaces the tiki.
-	if results := store.SearchTikis("FRONT", nil); len(results) != 1 || results[0].ID != "TAG002" {
+	if results := store.SearchTikis("FRONT", nil); len(results) != 1 || results[0].ID() != "TAG002" {
 		t.Errorf("case-insensitive tag substring did not match: got %d results", len(results))
 	}
 
@@ -441,8 +441,8 @@ Tiki description`,
 				}
 
 				// Verify other fields still work
-				if tk.Title != "Test Tiki" {
-					t.Errorf("Title = %q, expected %q", tk.Title, "Test Tiki")
+				if tk.Title() != "Test Tiki" {
+					t.Errorf("Title = %q, expected %q", tk.Title(), "Test Tiki")
 				}
 				typeStr, _, _ := tk.StringField(tikipkg.FieldType)
 				if typeStr != "story" {
@@ -727,12 +727,12 @@ func TestSaveTiki_Recurrence(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			tk := tikipkg.New()
-			tk.ID = "RECSVR"
-			tk.Title = "Test Save Recurrence"
+			tk.SetID("RECSVR")
+			tk.SetTitle("Test Save Recurrence")
 			tk.Set("type", "story")
 			tk.Set("status", "inbox")
 			tk.Set("priority", "medium")
-			tk.Body = "Test description"
+			tk.SetBody("Test description")
 			if tt.recurrence != value.RecurrenceNone {
 				tk.Set(tikipkg.FieldRecurrence, string(tt.recurrence))
 			}
@@ -787,7 +787,7 @@ func TestMatchesTikiQuery(t *testing.T) {
 		},
 		{
 			name:     "empty query returns false",
-			tiki:     &tikipkg.Tiki{ID: "MQ0001", Title: "Hello"},
+			tiki:     func() *tikipkg.Tiki { t := tikipkg.New(); t.SetID("MQ0001"); t.SetTitle("Hello"); return t }(),
 			query:    "",
 			expected: false,
 		},
@@ -795,7 +795,7 @@ func TestMatchesTikiQuery(t *testing.T) {
 			name: "match by ID case-insensitive",
 			tiki: func() *tikipkg.Tiki {
 				tk := tikipkg.New()
-				tk.ID = "ABC123"
+				tk.SetID("ABC123")
 				return tk
 			}(),
 			query:    "abc",
@@ -805,8 +805,8 @@ func TestMatchesTikiQuery(t *testing.T) {
 			name: "match by title",
 			tiki: func() *tikipkg.Tiki {
 				tk := tikipkg.New()
-				tk.ID = "MQ0002"
-				tk.Title = "Hello World"
+				tk.SetID("MQ0002")
+				tk.SetTitle("Hello World")
 				return tk
 			}(),
 			query:    "hello",
@@ -816,8 +816,8 @@ func TestMatchesTikiQuery(t *testing.T) {
 			name: "match by body (description)",
 			tiki: func() *tikipkg.Tiki {
 				tk := tikipkg.New()
-				tk.ID = "MQ0003"
-				tk.Body = "some text here"
+				tk.SetID("MQ0003")
+				tk.SetBody("some text here")
 				return tk
 			}(),
 			query:    "some",
@@ -827,8 +827,8 @@ func TestMatchesTikiQuery(t *testing.T) {
 			name: "no match",
 			tiki: func() *tikipkg.Tiki {
 				tk := tikipkg.New()
-				tk.ID = "NOMTCH"
-				tk.Title = "foo"
+				tk.SetID("NOMTCH")
+				tk.SetTitle("foo")
 				return tk
 			}(),
 			query:    "zzz",
@@ -849,8 +849,8 @@ func TestMatchesTikiQuery(t *testing.T) {
 func TestSearchTikis_WithFilterFunc(t *testing.T) {
 	mkTiki := func(id, title, priority string) *tikipkg.Tiki {
 		tk := tikipkg.New()
-		tk.ID = id
-		tk.Title = title
+		tk.SetID(id)
+		tk.SetTitle(title)
 		tk.Set(tikipkg.FieldPriority, priority)
 		return tk
 	}
@@ -874,12 +874,12 @@ func TestSearchTikis_WithFilterFunc(t *testing.T) {
 
 	t.Run("filter includes subset returns subset", func(t *testing.T) {
 		s := buildStore()
-		results := s.SearchTikis("", func(tk *tikipkg.Tiki) bool { return tk.ID == "F00001" })
+		results := s.SearchTikis("", func(tk *tikipkg.Tiki) bool { return tk.ID() == "F00001" })
 		if len(results) != 1 {
 			t.Errorf("got %d results, want 1", len(results))
 		}
-		if results[0].ID != "F00001" {
-			t.Errorf("got ID %q, want F00001", results[0].ID)
+		if results[0].ID() != "F00001" {
+			t.Errorf("got ID %q, want F00001", results[0].ID())
 		}
 	})
 
@@ -887,21 +887,21 @@ func TestSearchTikis_WithFilterFunc(t *testing.T) {
 		s := buildStore()
 		// filter allows F00001 and F00002, query matches only "Beta"
 		results := s.SearchTikis("beta", func(tk *tikipkg.Tiki) bool {
-			return tk.ID == "F00001" || tk.ID == "F00002"
+			return tk.ID() == "F00001" || tk.ID() == "F00002"
 		})
 		if len(results) != 1 {
 			t.Errorf("got %d results, want 1", len(results))
 		}
-		if results[0].ID != "F00002" {
-			t.Errorf("got ID %q, want F00002", results[0].ID)
+		if results[0].ID() != "F00002" {
+			t.Errorf("got ID %q, want F00002", results[0].ID())
 		}
 	})
 
 	t.Run("nil filter + empty query returns all tikis", func(t *testing.T) {
 		mkTiki2 := func(id, title string) *tikipkg.Tiki {
 			tk := tikipkg.New()
-			tk.ID = id
-			tk.Title = title
+			tk.SetID(id)
+			tk.SetTitle(title)
 			return tk
 		}
 		s := &TikiStore{
@@ -950,12 +950,12 @@ func TestSaveTiki_Due(t *testing.T) {
 			}
 
 			tk := tikipkg.New()
-			tk.ID = "SAVE01"
-			tk.Title = "Test Save"
+			tk.SetID("SAVE01")
+			tk.SetTitle("Test Save")
 			tk.Set("type", "story")
 			tk.Set("status", "inbox")
 			tk.Set("priority", "medium")
-			tk.Body = "Test description"
+			tk.SetBody("Test description")
 			if !dueTime.IsZero() {
 				tk.Set(tikipkg.FieldDue, dueTime)
 			}
@@ -1016,8 +1016,8 @@ func TestCustomFieldRoundTrip(t *testing.T) {
 	}
 
 	original := tikipkg.New()
-	original.ID = "CUSTOM"
-	original.Title = "Custom field test"
+	original.SetID("CUSTOM")
+	original.SetTitle("Custom field test")
 	original.Set(tikipkg.FieldStatus, "ready")
 	original.Set(tikipkg.FieldType, "story")
 	original.Set(tikipkg.FieldPriority, "medium-high")
@@ -1032,7 +1032,7 @@ func TestCustomFieldRoundTrip(t *testing.T) {
 	}
 
 	// reload
-	path := store.tikiFilePath(original.ID)
+	path := store.tikiFilePath(original.ID())
 	loaded, err := store.loadTikiFile(path, nil, nil)
 	if err != nil {
 		t.Fatalf("loadTikiFile: %v", err)
@@ -1057,8 +1057,8 @@ func TestCustomFieldRoundTrip(t *testing.T) {
 	}
 
 	// verify built-in fields are also correct
-	if loaded.Title != "Custom field test" {
-		t.Errorf("title = %q, want %q", loaded.Title, "Custom field test")
+	if loaded.Title() != "Custom field test" {
+		t.Errorf("title = %q, want %q", loaded.Title(), "Custom field test")
 	}
 	priority, _, _ := loaded.StringField(tikipkg.FieldPriority)
 	if priority != "medium-high" {
@@ -1155,8 +1155,8 @@ func TestCustomFieldRoundTrip_AmbiguousStrings(t *testing.T) {
 			}
 
 			original := tikipkg.New()
-			original.ID = "AMBIG1"
-			original.Title = "Ambiguous round-trip"
+			original.SetID("AMBIG1")
+			original.SetTitle("Ambiguous round-trip")
 			original.Set(tikipkg.FieldStatus, "ready")
 			original.Set(tikipkg.FieldType, "story")
 			original.Set(tikipkg.FieldPriority, "medium-high")
@@ -1168,7 +1168,7 @@ func TestCustomFieldRoundTrip_AmbiguousStrings(t *testing.T) {
 				t.Fatalf("saveTiki: %v", err)
 			}
 
-			path := store.tikiFilePath(original.ID)
+			path := store.tikiFilePath(original.ID())
 			loaded, err := store.loadTikiFile(path, nil, nil)
 			if err != nil {
 				t.Fatalf("loadTikiFile: %v", err)
@@ -1202,8 +1202,8 @@ func TestSaveTiki_TimestampFieldKeepsTimeComponent(t *testing.T) {
 	want := time.Date(2026, 5, 8, 14, 30, 45, 0, time.UTC)
 
 	original := tikipkg.New()
-	original.ID = "TS0001"
-	original.Title = "timestamp roundtrip"
+	original.SetID("TS0001")
+	original.SetTitle("timestamp roundtrip")
 	original.Set(tikipkg.FieldStatus, "ready")
 	original.Set(tikipkg.FieldType, "story")
 	original.Set("dueBy", want)
@@ -1212,7 +1212,7 @@ func TestSaveTiki_TimestampFieldKeepsTimeComponent(t *testing.T) {
 		t.Fatalf("saveTiki: %v", err)
 	}
 
-	loaded, err := store.loadTikiFile(store.tikiFilePath(original.ID), nil, nil)
+	loaded, err := store.loadTikiFile(store.tikiFilePath(original.ID()), nil, nil)
 	if err != nil {
 		t.Fatalf("loadTikiFile: %v", err)
 	}
@@ -1292,8 +1292,8 @@ Description here`
 	if err != nil {
 		t.Fatalf("loadTikiFile should succeed with stale field, got: %v", err)
 	}
-	if loaded.ID != "STALE1" {
-		t.Errorf("ID = %q, want STALE1", loaded.ID)
+	if loaded.ID() != "STALE1" {
+		t.Errorf("ID = %q, want STALE1", loaded.ID())
 	}
 	severity, hasSeverity, _ := loaded.StringField("severity")
 	if !hasSeverity || severity != "high" {
@@ -1380,8 +1380,8 @@ Description`
 	if err != nil {
 		t.Fatalf("loadTikiFile should succeed with stale enum value, got: %v", err)
 	}
-	if loaded.ID != "STALE2" {
-		t.Errorf("ID = %q, want STALE2", loaded.ID)
+	if loaded.ID() != "STALE2" {
+		t.Errorf("ID = %q, want STALE2", loaded.ID())
 	}
 	// stale value should be marked stale (demoted from custom) and survive in Fields
 	staleKeys := loaded.StaleKeys()
@@ -1539,20 +1539,20 @@ func TestSaveTiki_DedupesBuiltInCollections(t *testing.T) {
 	}
 
 	input := tikipkg.New()
-	input.ID = "SET001"
-	input.Title = "dedupe built-ins"
+	input.SetID("SET001")
+	input.SetTitle("dedupe built-ins")
 	input.Set(tikipkg.FieldType, "story")
 	input.Set(tikipkg.FieldStatus, "inbox")
 	input.Set(tikipkg.FieldPriority, "medium")
 	input.Set(tikipkg.FieldTags, []string{"frontend", "backend", "frontend", " backend "})
 	input.Set(tikipkg.FieldDependsOn, []string{"aaa001", "AAA001", " BBB002 "})
-	input.Body = "body"
+	input.SetBody("body")
 
 	if err := store.saveTiki(input); err != nil {
 		t.Fatalf("saveTiki: %v", err)
 	}
 
-	path := store.tikiFilePath(input.ID)
+	path := store.tikiFilePath(input.ID())
 	loaded, err := store.loadTikiFile(path, nil, nil)
 	if err != nil {
 		t.Fatalf("loadTikiFile: %v", err)
@@ -1586,8 +1586,8 @@ func TestSaveTiki_DedupesCustomListFields(t *testing.T) {
 	}
 
 	input := tikipkg.New()
-	input.ID = "SET002"
-	input.Title = "dedupe custom"
+	input.SetID("SET002")
+	input.SetTitle("dedupe custom")
 	input.Set(tikipkg.FieldType, "story")
 	input.Set(tikipkg.FieldStatus, "inbox")
 	input.Set(tikipkg.FieldPriority, "medium")
@@ -1598,7 +1598,7 @@ func TestSaveTiki_DedupesCustomListFields(t *testing.T) {
 		t.Fatalf("saveTiki: %v", err)
 	}
 
-	path := store.tikiFilePath(input.ID)
+	path := store.tikiFilePath(input.ID())
 	loaded, err := store.loadTikiFile(path, nil, nil)
 	if err != nil {
 		t.Fatalf("loadTikiFile: %v", err)
@@ -1659,11 +1659,11 @@ body`
 	if err != nil {
 		t.Fatalf("loadTikiFile: %v", err)
 	}
-	if !filepath.IsAbs(tk.Path) {
-		t.Errorf("Path is not absolute: %q", tk.Path)
+	if !filepath.IsAbs(tk.Path()) {
+		t.Errorf("Path is not absolute: %q", tk.Path())
 	}
-	if !strings.HasSuffix(tk.Path, fileName) {
-		t.Errorf("Path does not end with expected filename: %q", tk.Path)
+	if !strings.HasSuffix(tk.Path(), fileName) {
+		t.Errorf("Path does not end with expected filename: %q", tk.Path())
 	}
 }
 
@@ -1697,8 +1697,8 @@ body`
 	}
 	// loaded Path must be the real absolute path, not the stale string
 	expectedAbs, _ := filepath.Abs(testFile)
-	if tk.Path != expectedAbs {
-		t.Errorf("Path = %q, want %q (real path, not stale)", tk.Path, expectedAbs)
+	if tk.Path() != expectedAbs {
+		t.Errorf("Path = %q, want %q (real path, not stale)", tk.Path(), expectedAbs)
 	}
 	// stale key must not leak into Fields or UnknownFields
 	if _, exists := tk.Fields["filepath"]; exists {
@@ -1727,8 +1727,8 @@ func TestSaveTiki_FilePathRefreshedAndNotSerialized(t *testing.T) {
 	}
 
 	tk := tikipkg.New()
-	tk.ID = "FP0002"
-	tk.Title = "Save Filepath Test"
+	tk.SetID("FP0002")
+	tk.SetTitle("Save Filepath Test")
 	tk.Set("type", "story")
 	tk.Set("status", "inbox")
 	tk.Set("priority", "medium")
@@ -1736,16 +1736,16 @@ func TestSaveTiki_FilePathRefreshedAndNotSerialized(t *testing.T) {
 		t.Fatalf("CreateTiki: %v", err)
 	}
 
-	if tk.Path == "" {
+	if tk.Path() == "" {
 		t.Fatal("Path not set after CreateTiki")
 	}
-	if !filepath.IsAbs(tk.Path) {
-		t.Errorf("Path is not absolute: %q", tk.Path)
+	if !filepath.IsAbs(tk.Path()) {
+		t.Errorf("Path is not absolute: %q", tk.Path())
 	}
 	expectedPath := filepath.Join(tmpDir, "FP0002.md")
 	expectedAbs, _ := filepath.Abs(expectedPath)
-	if tk.Path != expectedAbs {
-		t.Errorf("Path = %q, want %q", tk.Path, expectedAbs)
+	if tk.Path() != expectedAbs {
+		t.Errorf("Path = %q, want %q", tk.Path(), expectedAbs)
 	}
 
 	// verify filepath is NOT serialized to YAML frontmatter

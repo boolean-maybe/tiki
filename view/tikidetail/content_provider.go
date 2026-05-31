@@ -55,18 +55,18 @@ func extractTikiID(url string) (string, bool) {
 // formatTikiAsMarkdown renders a tiki as a readable markdown document.
 func formatTikiAsMarkdown(tk *tikipkg.Tiki) string {
 	var b strings.Builder
-	fmt.Fprintf(&b, "# %s\n\n", tk.Title)
+	fmt.Fprintf(&b, "# %s\n\n", tk.Title())
 
 	statusStr, _, _ := tk.StringField(tikipkg.FieldStatus)
 	typeStr, _, _ := tk.StringField(tikipkg.FieldType)
-	fmt.Fprintf(&b, "**%s** · %s · %s", tk.ID, statusStr, typeStr)
+	fmt.Fprintf(&b, "**%s** · %s · %s", tk.ID(), statusStr, typeStr)
 
 	if priority, _, _ := tk.StringField(tikipkg.FieldPriority); priority != "" {
 		fmt.Fprintf(&b, " · %s", priority)
 	}
 	b.WriteString("\n\n")
-	if tk.Body != "" {
-		b.WriteString(tk.Body)
+	if tk.Body() != "" {
+		b.WriteString(tk.Body())
 		b.WriteString("\n")
 	}
 	return b.String()

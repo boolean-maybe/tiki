@@ -22,16 +22,16 @@ func TestPhase5_DependsOnRejectsNonBareID(t *testing.T) {
 	}
 	// Seed a valid target so the only possible failure is the format check.
 	target := tikipkg.New()
-	target.ID = "AAAAAA"
-	target.Title = "target"
+	target.SetID("AAAAAA")
+	target.SetTitle("target")
 	target.Set("status", "ready")
 	if err := s.CreateTiki(target); err != nil {
 		t.Fatalf("seed target: %v", err)
 	}
 
 	dependent := tikipkg.New()
-	dependent.ID = "BBBBBB"
-	dependent.Title = "dependent"
+	dependent.SetID("BBBBBB")
+	dependent.SetTitle("dependent")
 	dependent.Set("status", "ready")
 	dependent.Set("dependsOn", []string{"TIKI-AAA"})
 	err = s.CreateTiki(dependent)
@@ -55,16 +55,16 @@ func TestPhase5_DependsOnAcceptsBareID(t *testing.T) {
 		t.Fatalf("NewTikiStore: %v", err)
 	}
 	target := tikipkg.New()
-	target.ID = "AAAAAA"
-	target.Title = "target"
+	target.SetID("AAAAAA")
+	target.SetTitle("target")
 	target.Set("status", "ready")
 	if err := s.CreateTiki(target); err != nil {
 		t.Fatalf("seed: %v", err)
 	}
 
 	dependent := tikipkg.New()
-	dependent.ID = "BBBBBB"
-	dependent.Title = "dependent"
+	dependent.SetID("BBBBBB")
+	dependent.SetTitle("dependent")
 	dependent.Set("status", "ready")
 	dependent.Set("dependsOn", []string{"AAAAAA"})
 	if err := s.CreateTiki(dependent); err != nil {
@@ -84,8 +84,8 @@ func TestPhase5_DependsOnMissingTargetRejected(t *testing.T) {
 		t.Fatalf("NewTikiStore: %v", err)
 	}
 	orphan := tikipkg.New()
-	orphan.ID = "BBBBBB"
-	orphan.Title = "orphan"
+	orphan.SetID("BBBBBB")
+	orphan.SetTitle("orphan")
 	orphan.Set("status", "ready")
 	orphan.Set("dependsOn", []string{"ZZZZZZ"}) // well-formed but not seeded
 	err = s.CreateTiki(orphan)

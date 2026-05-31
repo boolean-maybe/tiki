@@ -193,13 +193,13 @@ func (pv *PluginView) GetSelectedID() string {
 	if idx < 0 || idx >= len(tikis) {
 		return ""
 	}
-	return tikis[idx].ID
+	return tikis[idx].ID()
 }
 
 func (pv *PluginView) SetSelectedID(id string) {
 	for lane := range pv.pluginDef.Lanes {
 		for i, t := range pv.getLaneTikis(lane) {
-			if t.ID == id {
+			if t.ID() == id {
 				pv.pluginConfig.SetSelectedLane(lane)
 				pv.pluginConfig.SetSelectedIndexForLane(lane, i)
 				return

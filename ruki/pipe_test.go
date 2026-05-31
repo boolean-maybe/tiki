@@ -543,7 +543,7 @@ func TestExecuteClipboardWithLimit(t *testing.T) {
 		"TIKI-000004": "medium-high",
 	}
 	for _, tk := range tikis {
-		if k, ok := priorities[tk.ID]; ok {
+		if k, ok := priorities[tk.ID()]; ok {
 			tk.Set("priority", k)
 		}
 	}

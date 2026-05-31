@@ -64,8 +64,8 @@ func TestRunSelectQuery_UserFromConfigNoGit(t *testing.T) {
 	s := newNoGitStoreWithIdentity(t, "Configured Alice", "alice@example.com")
 
 	mine := tikipkg.New()
-	mine.ID = "XYZ001"
-	mine.Title = "Mine"
+	mine.SetID("XYZ001")
+	mine.SetTitle("Mine")
 	mine.Set("status", "ready")
 	mine.Set("priority", "medium-high")
 	mine.Set("assignee", "Configured Alice")
@@ -74,8 +74,8 @@ func TestRunSelectQuery_UserFromConfigNoGit(t *testing.T) {
 	}
 
 	theirs := tikipkg.New()
-	theirs.ID = "XYZ002"
-	theirs.Title = "Theirs"
+	theirs.SetID("XYZ002")
+	theirs.SetTitle("Theirs")
 	theirs.Set("status", "ready")
 	theirs.Set("priority", "medium-high")
 	theirs.Set("assignee", "Bob")
@@ -101,8 +101,8 @@ func TestRunQuery_UpdateAssigneeUserInNoGit(t *testing.T) {
 	s := newNoGitStoreWithIdentity(t, "Configured Alice", "alice@example.com")
 
 	tk := tikipkg.New()
-	tk.ID = "UPD001"
-	tk.Title = "Assign me"
+	tk.SetID("UPD001")
+	tk.SetTitle("Assign me")
 	tk.Set("status", "ready")
 	tk.Set("priority", "medium-high")
 	if err := s.CreateTiki(tk); err != nil {
@@ -149,8 +149,8 @@ func TestRunQuery_UserEmailOnlyConfig(t *testing.T) {
 		t.Fatalf("NewTikiStore: %v", err)
 	}
 	eml := tikipkg.New()
-	eml.ID = "EML001"
-	eml.Title = "Mine"
+	eml.SetID("EML001")
+	eml.SetTitle("Mine")
 	eml.Set("status", "ready")
 	eml.Set("priority", "medium-high")
 	eml.Set("assignee", "me@example.com")

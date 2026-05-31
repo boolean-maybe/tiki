@@ -51,9 +51,9 @@ func TestExtractTikiID(t *testing.T) {
 func TestTikiDescriptionProvider_FetchContent_TikiID(t *testing.T) {
 	s := store.NewInMemoryStore()
 	tk := tikipkg.New()
-	tk.ID = "ABC123"
-	tk.Title = "Test Tiki"
-	tk.Body = "some description"
+	tk.SetID("ABC123")
+	tk.SetTitle("Test Tiki")
+	tk.SetBody("some description")
 	tk.Set("status", "ready")
 	tk.Set("type", "story")
 	tk.Set("priority", "medium-high")
@@ -137,9 +137,9 @@ func TestTikiDescriptionProvider_FetchContent_TikiID(t *testing.T) {
 func TestFormatTikiAsMarkdown(t *testing.T) {
 	t.Run("with all fields", func(t *testing.T) {
 		tk := tikipkg.New()
-		tk.ID = "ABC123"
-		tk.Title = "My Tiki"
-		tk.Body = "detailed desc"
+		tk.SetID("ABC123")
+		tk.SetTitle("My Tiki")
+		tk.SetBody("detailed desc")
 		tk.Set(tikipkg.FieldStatus, "inProgress")
 		tk.Set(tikipkg.FieldType, "bug")
 		tk.Set(tikipkg.FieldPriority, "high")
@@ -161,8 +161,8 @@ func TestFormatTikiAsMarkdown(t *testing.T) {
 
 	t.Run("no priority", func(t *testing.T) {
 		tk := tikipkg.New()
-		tk.ID = "ABC123"
-		tk.Title = "No Prio"
+		tk.SetID("ABC123")
+		tk.SetTitle("No Prio")
 		tk.Set(tikipkg.FieldStatus, "ready")
 		tk.Set(tikipkg.FieldType, "story")
 
@@ -174,8 +174,8 @@ func TestFormatTikiAsMarkdown(t *testing.T) {
 
 	t.Run("empty description", func(t *testing.T) {
 		tk := tikipkg.New()
-		tk.ID = "ABC123"
-		tk.Title = "No Desc"
+		tk.SetID("ABC123")
+		tk.SetTitle("No Desc")
 		tk.Set(tikipkg.FieldStatus, "ready")
 		tk.Set(tikipkg.FieldType, "story")
 

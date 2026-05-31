@@ -127,14 +127,14 @@ func TestRunDemo_DemoLoadsCleanlyUnderStrictIDs(t *testing.T) {
 	if demoTiki == nil {
 		t.Fatal("demo tiki XVG0FN missing after load")
 	}
-	if demoTiki.Path == "" {
+	if demoTiki.Path() == "" {
 		t.Error("demo tiki XVG0FN has empty Path")
 	}
-	if !strings.HasSuffix(demoTiki.Path, ".md") {
-		t.Errorf("tiki XVG0FN resolved to %s, want a .md path", demoTiki.Path)
+	if !strings.HasSuffix(demoTiki.Path(), ".md") {
+		t.Errorf("tiki XVG0FN resolved to %s, want a .md path", demoTiki.Path())
 	}
-	if !strings.Contains(demoTiki.Path, string(filepath.Separator)+".doc"+string(filepath.Separator)) {
-		t.Errorf("tiki XVG0FN resolved to %s, want path under .doc/", demoTiki.Path)
+	if !strings.Contains(demoTiki.Path(), string(filepath.Separator)+".doc"+string(filepath.Separator)) {
+		t.Errorf("tiki XVG0FN resolved to %s, want path under .doc/", demoTiki.Path())
 	}
 
 	// Phase 8 invariant: demo must not create legacy subdirectories.
@@ -341,9 +341,9 @@ func TestRunDemo_UnifiedLayout(t *testing.T) {
 	if spotTiki == nil {
 		t.Fatal("demo tiki 5LXO6Q missing — cannot spot-check workflow fields")
 	}
-	body, err := os.ReadFile(spotTiki.Path)
+	body, err := os.ReadFile(spotTiki.Path())
 	if err != nil {
-		t.Fatalf("read demo workflow doc %s: %v", spotTiki.Path, err)
+		t.Fatalf("read demo workflow doc %s: %v", spotTiki.Path(), err)
 	}
 	for _, field := range []string{"status:", "type:", "priority:", "points:"} {
 		if !strings.Contains(string(body), field) {

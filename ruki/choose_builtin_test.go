@@ -213,7 +213,7 @@ func TestEvalSubQueryFilter_WithIDExclusion(t *testing.T) {
 		t.Fatalf("expected 2 candidates (excluding self), got %d", len(candidates))
 	}
 	for _, c := range candidates {
-		if c.ID == "TIKI-000001" {
+		if c.ID() == "TIKI-000001" {
 			t.Fatal("context tiki should be excluded by id != id()")
 		}
 	}
@@ -254,7 +254,7 @@ func TestEvalSubQueryFilter_WithOuterSelectedTiki(t *testing.T) {
 	if err != nil {
 		t.Fatalf("filter error: %v", err)
 	}
-	if len(candidates) != 1 || candidates[0].ID != "TIKI-000002" {
+	if len(candidates) != 1 || candidates[0].ID() != "TIKI-000002" {
 		t.Fatalf("expected only TIKI-000002, got %v", tikiIDs(tikisToFixtures(candidates)))
 	}
 }

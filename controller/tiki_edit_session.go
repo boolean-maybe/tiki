@@ -62,7 +62,7 @@ func (tc *TikiEditSession) SetCurrentTiki(tikiID string) {
 func (tc *TikiEditSession) SetDraft(tk *tikipkg.Tiki) {
 	tc.draftTiki = tk
 	if tk != nil {
-		tc.currentTikiID = tk.ID
+		tc.currentTikiID = tk.ID()
 	}
 }
 
@@ -195,9 +195,9 @@ func (tc *TikiEditSession) handleEditSource() bool {
 	// all target the real file. Falling back to the id-derived default
 	// keeps the behavior meaningful for in-memory tikis that haven't
 	// been persisted yet.
-	filePath := tk.Path
+	filePath := tk.Path()
 	if filePath == "" {
-		filePath = filepath.Join(config.GetDocDir(), tk.ID+".md")
+		filePath = filepath.Join(config.GetDocDir(), tk.ID()+".md")
 	}
 
 	if err := tc.navController.SuspendAndEdit(filePath); err != nil {
@@ -211,7 +211,7 @@ func (tc *TikiEditSession) handleEditSource() bool {
 	// may have gained a conflict (collision, invalid id, unknown type) the
 	// user needs to resolve. Silently swallowing the error leaves the UI
 	// showing stale data with no hint that anything went wrong.
-	if err := tc.tikiStore.ReloadTiki(tk.ID); err != nil && tc.statusline != nil {
+	if err := tc.tikiStore.ReloadTiki(tk.ID()); err != nil && tc.statusline != nil {
 		tc.statusline.SetMessage("reload failed: "+err.Error(), model.MessageLevelError, true)
 	}
 
@@ -223,11 +223,11 @@ func (tc *TikiEditSession) handleEditSource() bool {
 // Returns true if a tiki was updated, false if no tiki is being edited.
 func (tc *TikiEditSession) SaveTitle(newTitle string) bool {
 	if tc.draftTiki != nil {
-		tc.draftTiki.Title = newTitle
+		tc.draftTiki.SetTitle(newTitle)
 		return true
 	}
 	if tc.editingTiki != nil {
-		tc.editingTiki.Title = newTitle
+		tc.editingTiki.SetTitle(newTitle)
 		return true
 	}
 	return false
@@ -251,11 +251,11 @@ func (tc *TikiEditSession) SaveTags(tags []string) bool {
 // Returns true if a tiki was updated, false if no tiki is being edited.
 func (tc *TikiEditSession) SaveDescription(newDescription string) bool {
 	if tc.draftTiki != nil {
-		tc.draftTiki.Body = newDescription
+		tc.draftTiki.SetBody(newDescription)
 		return true
 	}
 	if tc.editingTiki != nil {
-		tc.editingTiki.Body = newDescription
+		tc.editingTiki.SetBody(newDescription)
 		return true
 	}
 	return false

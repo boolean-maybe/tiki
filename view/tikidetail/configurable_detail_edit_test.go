@@ -25,7 +25,7 @@ func TestConfigurableDetailView_EnterAndExitEditMode(t *testing.T) {
 	}
 
 	cv := NewConfigurableDetailView(
-		s, tk.ID, detailPluginFromFields([]string{"status", "type", "priority"}),
+		s, tk.ID(), detailPluginFromFields([]string{"status", "type", "priority"}),
 		controller.DetailViewActions(),
 		nil, nil,
 	)
@@ -74,7 +74,7 @@ func TestConfigurableDetailView_FlushFocusedEditor_FlushesAllEditors(t *testing.
 		t.Fatalf("CreateTiki: %v", err)
 	}
 	cv := NewConfigurableDetailView(
-		s, tk.ID, detailPluginFromFields([]string{"status", "type", "tags"}),
+		s, tk.ID(), detailPluginFromFields([]string{"status", "type", "tags"}),
 		controller.DetailViewActions(),
 		nil, nil,
 	)
@@ -123,7 +123,7 @@ func TestBuildFieldPrimitive_FocusOnlyOnFocusedRow(t *testing.T) {
 		t.Fatalf("CreateTiki: %v", err)
 	}
 	cv := NewConfigurableDetailView(
-		s, tk.ID, detailPluginFromFields([]string{"status", "type", "priority"}),
+		s, tk.ID(), detailPluginFromFields([]string{"status", "type", "priority"}),
 		controller.DetailViewActions(),
 		nil, nil,
 	)
@@ -188,7 +188,7 @@ func TestConfigurableDetailView_FlushEmitsCanonicalKeyForEnums(t *testing.T) {
 		t.Fatalf("CreateTiki: %v", err)
 	}
 	cv := NewConfigurableDetailView(
-		s, tk.ID, detailPluginFromFields([]string{"status", "priority"}),
+		s, tk.ID(), detailPluginFromFields([]string{"status", "priority"}),
 		controller.DetailViewActions(),
 		nil, nil,
 	)
@@ -257,7 +257,7 @@ func TestConfigurableDetailView_FlushOrderRecurrenceLast(t *testing.T) {
 		t.Fatalf("CreateTiki: %v", err)
 	}
 	cv := NewConfigurableDetailView(
-		s, tk.ID, detailPluginFromFields([]string{"due", "recurrence"}),
+		s, tk.ID(), detailPluginFromFields([]string{"due", "recurrence"}),
 		controller.DetailViewActions(),
 		nil, nil,
 	)
@@ -307,7 +307,7 @@ func TestConfigurableDetailView_TabTraversesCustomEnumField(t *testing.T) {
 		t.Fatalf("CreateTiki: %v", err)
 	}
 	cv := NewConfigurableDetailView(
-		s, tk.ID, detailPluginFromFields([]string{"status", "severity", "priority"}),
+		s, tk.ID(), detailPluginFromFields([]string{"status", "severity", "priority"}),
 		controller.DetailViewActions(),
 		nil, nil,
 	)
@@ -344,7 +344,7 @@ func TestConfigurableDetailView_TabTraversesEditableFields(t *testing.T) {
 		t.Fatalf("CreateTiki: %v", err)
 	}
 	cv := NewConfigurableDetailView(
-		s, tk.ID, detailPluginFromFields([]string{"status", "type", "priority"}),
+		s, tk.ID(), detailPluginFromFields([]string{"status", "type", "priority"}),
 		controller.DetailViewActions(),
 		nil, nil,
 	)
@@ -397,7 +397,7 @@ func TestConfigurableDetailView_ReadOnlyFieldsAreSkippedInTraversal(t *testing.T
 		t.Fatalf("CreateTiki: %v", err)
 	}
 	cv := NewConfigurableDetailView(
-		s, tk.ID, detailPluginFromFields([]string{"status", "createdBy", "type", "createdAt", "priority", "updatedAt"}),
+		s, tk.ID(), detailPluginFromFields([]string{"status", "createdBy", "type", "createdAt", "priority", "updatedAt"}),
 		controller.DetailViewActions(),
 		nil, nil,
 	)
@@ -437,7 +437,7 @@ func TestConfigurableDetailView_TabReachesDescription(t *testing.T) {
 		t.Fatalf("CreateTiki: %v", err)
 	}
 	cv := NewConfigurableDetailView(
-		s, tk.ID, detailPluginFromFields([]string{"status", "priority"}),
+		s, tk.ID(), detailPluginFromFields([]string{"status", "priority"}),
 		controller.DetailViewActions(),
 		nil, nil,
 	)
@@ -474,7 +474,7 @@ func TestConfigurableDetailView_NoEditableFieldsLeavesViewMode(t *testing.T) {
 		t.Fatalf("CreateTiki: %v", err)
 	}
 	cv := NewConfigurableDetailView(
-		s, tk.ID, detailPluginFromFields([]string{"createdBy", "createdAt", "updatedAt"}), // all read-only
+		s, tk.ID(), detailPluginFromFields([]string{"createdBy", "createdAt", "updatedAt"}), // all read-only
 		controller.DetailViewActions(),
 		nil, nil,
 	)
@@ -536,7 +536,7 @@ func TestConfigurableDetailView_FiresActionChangeHandlerOnToggle(t *testing.T) {
 		t.Fatalf("CreateTiki: %v", err)
 	}
 	cv := NewConfigurableDetailView(
-		s, tk.ID, detailPluginFromFields([]string{"status", "type", "priority"}),
+		s, tk.ID(), detailPluginFromFields([]string{"status", "type", "priority"}),
 		controller.DetailViewActions(),
 		nil, nil,
 	)
@@ -594,7 +594,7 @@ func TestGetPreferredFocus_ReturnsActiveEditor(t *testing.T) {
 		t.Fatalf("CreateTiki: %v", err)
 	}
 	cv := NewConfigurableDetailView(
-		s, tk.ID, detailPluginFromFields([]string{"title", "status", "priority"}),
+		s, tk.ID(), detailPluginFromFields([]string{"title", "status", "priority"}),
 		controller.DetailViewActions(),
 		nil, nil,
 	)
@@ -627,7 +627,7 @@ func TestEnterEditModeWithFocus_FocusesGivenField(t *testing.T) {
 		t.Fatalf("CreateTiki: %v", err)
 	}
 	cv := NewConfigurableDetailView(
-		s, tk.ID, detailPluginFromFields([]string{"title", "status", "type", "priority"}),
+		s, tk.ID(), detailPluginFromFields([]string{"title", "status", "type", "priority"}),
 		controller.DetailViewActions(),
 		nil, nil,
 	)
@@ -653,7 +653,7 @@ func TestEnterEditModeWithFocus_EmptyEqualsEnterEditMode(t *testing.T) {
 		t.Fatalf("CreateTiki: %v", err)
 	}
 	cv := NewConfigurableDetailView(
-		s, tk.ID, detailPluginFromFields([]string{"status", "type", "priority"}),
+		s, tk.ID(), detailPluginFromFields([]string{"status", "type", "priority"}),
 		controller.DetailViewActions(),
 		nil, nil,
 	)
@@ -679,7 +679,7 @@ func TestEnterEditModeWithFocus_UnknownFieldFallsBackToDefault(t *testing.T) {
 		t.Fatalf("CreateTiki: %v", err)
 	}
 	cv := NewConfigurableDetailView(
-		s, tk.ID, detailPluginFromFields([]string{"status", "type"}),
+		s, tk.ID(), detailPluginFromFields([]string{"status", "type"}),
 		controller.DetailViewActions(),
 		nil, nil,
 	)
@@ -708,7 +708,7 @@ func TestConfigurableDetailView_RecurrencePartNavigation(t *testing.T) {
 		t.Fatalf("CreateTiki: %v", err)
 	}
 	cv := NewConfigurableDetailView(
-		s, tk.ID, detailPluginFromFields([]string{"status", "recurrence"}),
+		s, tk.ID(), detailPluginFromFields([]string{"status", "recurrence"}),
 		controller.DetailViewActions(),
 		nil, nil,
 	)
@@ -785,7 +785,7 @@ func TestConfigurableDetailView_RecurrencePartNavigation_NoEditorCached(t *testi
 		t.Fatalf("CreateTiki: %v", err)
 	}
 	cv := NewConfigurableDetailView(
-		s, tk.ID, detailPluginFromFields([]string{"recurrence", "status"}),
+		s, tk.ID(), detailPluginFromFields([]string{"recurrence", "status"}),
 		controller.DetailViewActions(),
 		nil, nil,
 	)
@@ -819,7 +819,7 @@ func TestConfigurableDetailView_RecurrencePartNavigation_WrongAdapterType(t *tes
 		t.Fatalf("CreateTiki: %v", err)
 	}
 	cv := NewConfigurableDetailView(
-		s, tk.ID, detailPluginFromFields([]string{"recurrence"}),
+		s, tk.ID(), detailPluginFromFields([]string{"recurrence"}),
 		controller.DetailViewActions(),
 		nil, nil,
 	)

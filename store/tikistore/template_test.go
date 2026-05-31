@@ -201,7 +201,7 @@ func TestNewTikiTemplate_BareWhenNoDefaultStatusConfigured(t *testing.T) {
 	if tags, ok, _ := tmpl.StringSliceField(tikipkg.FieldTags); ok && len(tags) != 0 {
 		t.Errorf("Tags = %v, want empty (no defaults emitted)", tags)
 	}
-	if tmpl.ID == "" {
+	if tmpl.ID() == "" {
 		t.Error("ID was not populated; capture must still generate an id")
 	}
 }
@@ -232,15 +232,15 @@ func TestCreateTiki_HonorsBareTemplate(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewTikiTemplate: %v", err)
 	}
-	tmpl.Title = "piped note"
+	tmpl.SetTitle("piped note")
 
 	if err := s.CreateTiki(tmpl); err != nil {
 		t.Fatalf("CreateTiki: %v", err)
 	}
 
-	stored := s.GetTiki(tmpl.ID)
+	stored := s.GetTiki(tmpl.ID())
 	if stored == nil {
-		t.Fatalf("GetTiki returned nil after CreateTiki(%s)", tmpl.ID)
+		t.Fatalf("GetTiki returned nil after CreateTiki(%s)", tmpl.ID())
 	}
 	if hasAnyWorkflowField(stored) {
 		t.Error("bare capture gained schema-known fields after CreateTiki — defaults must only be emitted when explicitly configured")

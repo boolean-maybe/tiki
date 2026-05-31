@@ -15,7 +15,7 @@ import (
 func TestGetAllTikis_DeterministicOrder(t *testing.T) {
 	mk := func(id string) *tikipkg.Tiki {
 		tk := tikipkg.New()
-		tk.ID = id
+		tk.SetID(id)
 		return tk
 	}
 	store := &TikiStore{
@@ -39,9 +39,9 @@ func TestGetAllTikis_DeterministicOrder(t *testing.T) {
 			t.Fatalf("iteration %d: len = %d, want %d", i, len(got), len(want))
 		}
 		for j, tk := range got {
-			if tk.ID != want[j] {
+			if tk.ID() != want[j] {
 				t.Fatalf("iteration %d: got[%d].ID = %q, want %q (full order: %v)",
-					i, j, tk.ID, want[j], idsOf(got))
+					i, j, tk.ID(), want[j], idsOf(got))
 			}
 		}
 	}
@@ -50,7 +50,7 @@ func TestGetAllTikis_DeterministicOrder(t *testing.T) {
 func idsOf(tikis []*tikipkg.Tiki) []string {
 	out := make([]string, len(tikis))
 	for i, tk := range tikis {
-		out[i] = tk.ID
+		out[i] = tk.ID()
 	}
 	return out
 }

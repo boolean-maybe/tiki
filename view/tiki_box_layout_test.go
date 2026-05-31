@@ -16,7 +16,7 @@ import (
 // priority is an enum key; pass "" to omit the field.
 func makeTiki(id string, tikiType string, priority string) *tikipkg.Tiki {
 	tk := tikipkg.New()
-	tk.ID = id
+	tk.SetID(id)
 	tk.Set(tikipkg.FieldType, tikiType)
 	if priority != "" {
 		tk.Set(tikipkg.FieldPriority, priority)
@@ -45,7 +45,7 @@ func testPluginLayout(t *testing.T) gridlayout.GridSpec {
 // holds one entry per layout row.
 func TestCreateTikiBox_ReturnsFrame(t *testing.T) {
 	tk := makeTiki("K3X9M2", "story", "medium")
-	tk.Title = "Fix login retry logic"
+	tk.SetTitle("Fix login retry logic")
 	spec, err := gridlayout.ParseGrid([][]string{
 		{"id"},
 		{"<highlight>title"},
@@ -91,7 +91,7 @@ func TestTikiBoxItemHeight_SingleRowIsBorderless(t *testing.T) {
 // content row.
 func TestCreateTikiBox_SingleRowRendersWithoutBorder(t *testing.T) {
 	tk := makeTiki("K3X9M2", "story", "medium")
-	tk.Title = "Fix login retry logic"
+	tk.SetTitle("Fix login retry logic")
 	spec, err := gridlayout.ParseGrid([][]string{
 		{"id + \" \" + title"},
 	})
@@ -155,7 +155,7 @@ func renderTikiBoxToString(t *testing.T, tk *tikipkg.Tiki, spec gridlayout.GridS
 // empty bordered box.
 func TestCreateTikiBox_NarrowLaneStillRenders(t *testing.T) {
 	tk := makeTiki("K3X9M2", "story", "medium")
-	tk.Title = "Fix login retry logic"
+	tk.SetTitle("Fix login retry logic")
 	spec, err := gridlayout.ParseGrid([][]string{
 		{`type.visual + " " + id`},
 		{"<highlight>title"},
@@ -188,7 +188,7 @@ func TestCreateTikiBox_NarrowLaneStillRenders(t *testing.T) {
 // characters, never mid-token.
 func TestBuildTikiBoxPrimitives_TitleAnchorEscapesTviewTags(t *testing.T) {
 	tk := makeTiki("K3X9M2", "story", "medium")
-	tk.Title = strings.Repeat("X", 80)
+	tk.SetTitle(strings.Repeat("X", 80))
 	spec, err := gridlayout.ParseGrid([][]string{
 		{"<highlight>title"},
 	})
@@ -221,7 +221,7 @@ func TestBuildTikiBoxPrimitives_TitleAnchorEscapesTviewTags(t *testing.T) {
 // token "priority.visual".
 func TestBuildTikiBoxPrimitives_MissingPriorityRendersDash(t *testing.T) {
 	tk := makeTiki("ZZZZZZ", "bug", "") // no priority
-	tk.Title = "no priority"
+	tk.SetTitle("no priority")
 	spec, err := gridlayout.ParseGrid([][]string{
 		{`"priority " + priority.visual`},
 	})

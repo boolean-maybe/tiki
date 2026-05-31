@@ -265,8 +265,8 @@ func TestPluginConfig_SearchState(t *testing.T) {
 
 	// Set search results
 	results := []*tikipkg.Tiki{
-		{ID: "ABC001", Title: "Match"},
-		{ID: "ABC002", Title: "Match 2"},
+		func() *tikipkg.Tiki { t := tikipkg.New(); t.SetID("ABC001"); t.SetTitle("Match"); return t }(),
+		func() *tikipkg.Tiki { t := tikipkg.New(); t.SetID("ABC002"); t.SetTitle("Match 2"); return t }(),
 	}
 	pc.SetSearchResults(results, "match")
 
@@ -451,7 +451,7 @@ func TestPluginConfig_ConcurrentAccess(t *testing.T) {
 	go func() {
 		for i := range 25 {
 			pc.SavePreSearchState()
-			pc.SetSearchResults([]*tikipkg.Tiki{{ID: "ABC001"}}, "query")
+			pc.SetSearchResults([]*tikipkg.Tiki{func() *tikipkg.Tiki { t := tikipkg.New(); t.SetID("ABC001"); return t }()}, "query")
 			if i%2 == 0 {
 				pc.ClearSearchResults()
 			}

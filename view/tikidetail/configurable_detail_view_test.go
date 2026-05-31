@@ -201,7 +201,7 @@ func TestGenericFieldValueString_TimestampPreservesClock(t *testing.T) {
 
 	when := time.Date(2026, 5, 8, 14, 30, 0, 0, time.UTC)
 	tk := tikipkg.New()
-	tk.ID = "TS001"
+	tk.SetID("TS001")
 	tk.Set("dueBy", when)
 	tk.Set("scheduledFor", when)
 
@@ -241,7 +241,7 @@ func TestGenericFieldValueString_DefaultBranchEscapesMarkup(t *testing.T) {
 	t.Cleanup(teststatuses.Init)
 
 	tk := tikipkg.New()
-	tk.ID = "ESC001"
+	tk.SetID("ESC001")
 	// Set an unsupported shape: a map. The string switch won't match,
 	// other branches won't match → default branch fires.
 	tk.Set("blob", map[string]string{"label": "[red]hi"})
@@ -316,7 +316,7 @@ func TestConfigurableDetailView_RendersConfiguredMetadata(t *testing.T) {
 	registry := controller.DetailViewActions()
 	cv := NewConfigurableDetailView(
 		s,
-		tk.ID,
+		tk.ID(),
 		detailPluginFromFields([]string{"status", "type", "priority"}),
 		registry,
 		nil, nil,
@@ -325,8 +325,8 @@ func TestConfigurableDetailView_RendersConfiguredMetadata(t *testing.T) {
 	if cv.GetViewName() != "Detail" {
 		t.Errorf("GetViewName() = %q, want %q", cv.GetViewName(), "Detail")
 	}
-	if cv.GetSelectedID() != tk.ID {
-		t.Errorf("GetSelectedID() = %q, want %q", cv.GetSelectedID(), tk.ID)
+	if cv.GetSelectedID() != tk.ID() {
+		t.Errorf("GetSelectedID() = %q, want %q", cv.GetSelectedID(), tk.ID())
 	}
 	if cv.GetActionRegistry() == nil {
 		t.Error("GetActionRegistry returned nil")

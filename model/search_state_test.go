@@ -19,8 +19,8 @@ func TestSearchState_GridBasedFlow(t *testing.T) {
 
 	// Set search results
 	results := []*tikipkg.Tiki{
-		{ID: "ABC001", Title: "Test 1"},
-		{ID: "ABC002", Title: "Test 2"},
+		func() *tikipkg.Tiki { t := tikipkg.New(); t.SetID("ABC001"); t.SetTitle("Test 1"); return t }(),
+		func() *tikipkg.Tiki { t := tikipkg.New(); t.SetID("ABC002"); t.SetTitle("Test 2"); return t }(),
 	}
 	ss.SetSearchResults(results, "test query")
 
@@ -76,7 +76,7 @@ func TestSearchState_PaneBasedFlow(t *testing.T) {
 
 	// Set search results
 	results := []*tikipkg.Tiki{
-		{ID: "ABC010", Title: "Match"},
+		func() *tikipkg.Tiki { t := tikipkg.New(); t.SetID("ABC010"); t.SetTitle("Match"); return t }(),
 	}
 	ss.SetSearchResults(results, "match")
 
@@ -104,7 +104,7 @@ func TestSearchState_MultipleSearchCycles(t *testing.T) {
 	// First search cycle
 	ss.SavePreSearchState(10)
 	ss.SetSearchResults([]*tikipkg.Tiki{
-		{ID: "ABC001"},
+		func() *tikipkg.Tiki { t := tikipkg.New(); t.SetID("ABC001"); return t }(),
 	}, "first")
 
 	if ss.GetSearchQuery() != "first" {
@@ -120,8 +120,8 @@ func TestSearchState_MultipleSearchCycles(t *testing.T) {
 	// Second search cycle with different state
 	ss.SavePreSearchState(20)
 	ss.SetSearchResults([]*tikipkg.Tiki{
-		{ID: "ABC002"},
-		{ID: "ABC003"},
+		func() *tikipkg.Tiki { t := tikipkg.New(); t.SetID("ABC002"); return t }(),
+		func() *tikipkg.Tiki { t := tikipkg.New(); t.SetID("ABC003"); return t }(),
 	}, "second")
 
 	if ss.GetSearchQuery() != "second" {
@@ -217,7 +217,7 @@ func TestSearchState_ConcurrentAccess(t *testing.T) {
 		for i := range 100 {
 			ss.SavePreSearchState(i)
 			ss.SetSearchResults([]*tikipkg.Tiki{
-				{ID: "ABC001"},
+				func() *tikipkg.Tiki { t := tikipkg.New(); t.SetID("ABC001"); return t }(),
 			}, "concurrent")
 			ss.ClearSearchResults()
 		}
@@ -246,7 +246,7 @@ func TestSearchState_QueryPreservation(t *testing.T) {
 
 	// Set results with query
 	ss.SetSearchResults([]*tikipkg.Tiki{
-		{ID: "ABC001"},
+		func() *tikipkg.Tiki { t := tikipkg.New(); t.SetID("ABC001"); return t }(),
 	}, "important query")
 
 	// Query should persist across result retrievals

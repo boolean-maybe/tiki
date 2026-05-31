@@ -145,11 +145,10 @@ func TestPhase4Carveout_WhereClauseStillHardErrors(t *testing.T) {
 	p := newTestParser()
 
 	// Truly-absent priority: Fields map holds only status.
-	sparse := &tiki.Tiki{
-		ID:     "ABC123",
-		Title:  "story",
-		Fields: map[string]interface{}{"status": "ready"},
-	}
+	sparse := tiki.New()
+	sparse.SetID("ABC123")
+	sparse.SetTitle("story")
+	sparse.Fields = map[string]interface{}{"status": "ready"}
 
 	stmt, err := p.ParseStatement(`select where points > 0`)
 	if err != nil {
@@ -169,11 +168,10 @@ func TestPhase4Carveout_PlainReferenceInAssignment(t *testing.T) {
 	e := newTestExecutor()
 	p := newTestParser()
 
-	sparse := &tiki.Tiki{
-		ID:     "ABC123",
-		Title:  "story",
-		Fields: map[string]interface{}{"status": "ready"},
-	}
+	sparse := tiki.New()
+	sparse.SetID("ABC123")
+	sparse.SetTitle("story")
+	sparse.Fields = map[string]interface{}{"status": "ready"}
 
 	// `set points = points` on an absent-points tiki: carve-out auto-
 	// zeroes RHS to 0, setField accepts 0 for points (valid range is

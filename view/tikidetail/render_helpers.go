@@ -135,7 +135,7 @@ func RenderPointsText(tk *tikipkg.Tiki, ctx FieldRenderContext) tview.Primitive 
 // which is what every non-modifier call site has always emitted.
 func RenderTitleText(tk *tikipkg.Tiki, ctx FieldRenderContext, role, modifier string) tview.Primitive {
 	focused := ctx.Mode == RenderModeEdit && ctx.FocusedField == model.EditFieldTitle
-	expanded := expandFieldText(tk.Title, ctx.Roles)
+	expanded := expandFieldText(tk.Title(), ctx.Roles)
 
 	// modifier path: paint the expanded title through the resolver. The Paint
 	// emits its own opening tag and a trailing [-] reset; no value tag is
@@ -202,7 +202,10 @@ func RenderDependsOnColumn(tk *tikipkg.Tiki, tikiStore store.Store) tview.Primit
 			rendered = append(rendered, dep)
 			continue
 		}
-		rendered = append(rendered, &tikipkg.Tiki{ID: id, Title: "(unresolved)"})
+		unresolved := tikipkg.New()
+		unresolved.SetID(id)
+		unresolved.SetTitle("(unresolved)")
+		rendered = append(rendered, unresolved)
 	}
 
 	col := tview.NewFlex().SetDirection(tview.FlexRow)
@@ -242,8 +245,8 @@ func RenderAuthorText(tk *tikipkg.Tiki, roles *theme.Theme) tview.Primitive {
 // RenderCreatedText renders the created-at field as read-only text
 func RenderCreatedText(tk *tikipkg.Tiki, roles *theme.Theme) tview.Primitive {
 	createdAtStr := "Unknown"
-	if !tk.CreatedAt.IsZero() {
-		createdAtStr = tk.CreatedAt.Format("2006-01-02 15:04")
+	if !tk.CreatedAt().IsZero() {
+		createdAtStr = tk.CreatedAt().Format("2006-01-02 15:04")
 	}
 	text := fmt.Sprintf("%s%-10s%s%s",
 		roles.TextMuted().Tag(), "Created:", roles.TextValue().Tag(), createdAtStr)
@@ -255,8 +258,8 @@ func RenderCreatedText(tk *tikipkg.Tiki, roles *theme.Theme) tview.Primitive {
 // RenderUpdatedText renders the updated-at field as read-only text
 func RenderUpdatedText(tk *tikipkg.Tiki, roles *theme.Theme) tview.Primitive {
 	updatedAtStr := "Unknown"
-	if !tk.UpdatedAt.IsZero() {
-		updatedAtStr = tk.UpdatedAt.Format("2006-01-02 15:04")
+	if !tk.UpdatedAt().IsZero() {
+		updatedAtStr = tk.UpdatedAt().Format("2006-01-02 15:04")
 	}
 	text := fmt.Sprintf("%s%-10s%s%s",
 		roles.TextMuted().Tag(), "Updated:", roles.TextValue().Tag(), updatedAtStr)

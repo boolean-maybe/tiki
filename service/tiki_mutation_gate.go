@@ -140,10 +140,10 @@ func (g *TikiMutationGate) CreateTiki(ctx context.Context, tk *tikipkg.Tiki) err
 		return err
 	}
 	now := time.Now()
-	if tk.CreatedAt.IsZero() {
-		tk.CreatedAt = now
+	if tk.CreatedAt().IsZero() {
+		tk.SetCreatedAt(now)
 	}
-	tk.UpdatedAt = now
+	tk.SetUpdatedAt(now)
 	if err := g.store.CreateTiki(tk); err != nil {
 		return err
 	}
@@ -160,16 +160,16 @@ func (g *TikiMutationGate) UpdateTiki(ctx context.Context, tk *tikipkg.Tiki) err
 		return err
 	}
 	g.ensureStore()
-	raw := g.store.GetTiki(tk.ID)
+	raw := g.store.GetTiki(tk.ID())
 	if raw == nil {
-		return fmt.Errorf("tiki not found: %s", tk.ID)
+		return fmt.Errorf("tiki not found: %s", tk.ID())
 	}
 	old := raw.Clone()
 	allTikis := g.candidateAllTikis(tk)
 	if err := g.runValidators(g.updateValidators, old, tk, allTikis); err != nil {
 		return err
 	}
-	tk.UpdatedAt = time.Now()
+	tk.SetUpdatedAt(time.Now())
 	if err := g.store.UpdateTiki(tk); err != nil {
 		return err
 	}
@@ -183,7 +183,7 @@ func (g *TikiMutationGate) DeleteTiki(ctx context.Context, tk *tikipkg.Tiki) err
 		return err
 	}
 	g.ensureStore()
-	raw := g.store.GetTiki(tk.ID)
+	raw := g.store.GetTiki(tk.ID())
 	if raw == nil {
 		// already gone — skip
 		return nil
@@ -193,7 +193,7 @@ func (g *TikiMutationGate) DeleteTiki(ctx context.Context, tk *tikipkg.Tiki) err
 	if err := g.runValidators(g.deleteValidators, old, nil, allTikis); err != nil {
 		return err
 	}
-	g.store.DeleteTiki(tk.ID)
+	g.store.DeleteTiki(tk.ID())
 	g.runAfterHooks(ctx, g.afterDeleteHooks, old, nil)
 	return nil
 }
@@ -206,7 +206,7 @@ func (g *TikiMutationGate) candidateAllTikis(proposed *tikipkg.Tiki) []*tikipkg.
 	stored := g.store.GetAllTikis()
 	result := make([]*tikipkg.Tiki, len(stored))
 	for i, t := range stored {
-		if t.ID == proposed.ID {
+		if t.ID() == proposed.ID() {
 			result[i] = proposed
 		} else {
 			result[i] = t

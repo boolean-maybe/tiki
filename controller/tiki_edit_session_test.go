@@ -35,8 +35,8 @@ func TestTikiEditSession_SetDraft(t *testing.T) {
 		t.Error("SetDraft did not set the draft tiki")
 	}
 
-	if tc.GetCurrentTikiID() != draft.ID {
-		t.Errorf("SetDraft did not set currentTikiID, got %q, want %q", tc.GetCurrentTikiID(), draft.ID)
+	if tc.GetCurrentTikiID() != draft.ID() {
+		t.Errorf("SetDraft did not set currentTikiID, got %q, want %q", tc.GetCurrentTikiID(), draft.ID())
 	}
 }
 
@@ -68,23 +68,23 @@ func TestTikiEditSession_StartEditSession(t *testing.T) {
 	_ = tikiStore.CreateTiki(original)
 
 	// Start edit session
-	editingTiki := tc.StartEditSession(original.ID)
+	editingTiki := tc.StartEditSession(original.ID())
 
 	if editingTiki == nil {
 		t.Fatal("StartEditSession returned nil")
 		return
 	}
 
-	if editingTiki.ID != original.ID {
-		t.Errorf("StartEditSession returned wrong tiki, got ID %q, want %q", editingTiki.ID, original.ID)
+	if editingTiki.ID() != original.ID() {
+		t.Errorf("StartEditSession returned wrong tiki, got ID %q, want %q", editingTiki.ID(), original.ID())
 	}
 
 	if tc.GetEditingTiki() == nil {
 		t.Error("StartEditSession did not set editingTiki")
 	}
 
-	if tc.GetCurrentTikiID() != original.ID {
-		t.Errorf("StartEditSession did not set currentTikiID, got %q, want %q", tc.GetCurrentTikiID(), original.ID)
+	if tc.GetCurrentTikiID() != original.ID() {
+		t.Errorf("StartEditSession did not set currentTikiID, got %q, want %q", tc.GetCurrentTikiID(), original.ID())
 	}
 }
 
@@ -112,7 +112,7 @@ func TestTikiEditSession_CancelEditSession(t *testing.T) {
 	// Start an edit session
 	original := newTestTiki()
 	_ = tikiStore.CreateTiki(original)
-	tc.StartEditSession(original.ID)
+	tc.StartEditSession(original.ID())
 
 	// Cancel it
 	tc.CancelEditSession()
@@ -150,7 +150,7 @@ func TestTikiEditSession_SaveStatus(t *testing.T) {
 			setupTiki: func(tc *TikiEditSession, s store.Store) {
 				t := newTestTiki()
 				_ = s.CreateTiki(t)
-				tc.StartEditSession(t.ID)
+				tc.StartEditSession(t.ID())
 			},
 			statusDisplay: enumDisplay("status", "inProgress"),
 			wantStatus:    "inProgress",
@@ -161,7 +161,7 @@ func TestTikiEditSession_SaveStatus(t *testing.T) {
 			setupTiki: func(tc *TikiEditSession, s store.Store) {
 				t := newTestTiki()
 				_ = s.CreateTiki(t)
-				tc.StartEditSession(t.ID)
+				tc.StartEditSession(t.ID())
 				tc.SetDraft(newTestTikiWithID())
 			},
 			statusDisplay: enumDisplay("status", "done"),
@@ -241,7 +241,7 @@ func TestTikiEditSession_SaveType(t *testing.T) {
 			setupTiki: func(tc *TikiEditSession, s store.Store) {
 				t := newTestTiki()
 				_ = s.CreateTiki(t)
-				tc.StartEditSession(t.ID)
+				tc.StartEditSession(t.ID())
 			},
 			typeDisplay: enumDisplay("type", "spike"),
 			wantType:    "spike",
@@ -320,7 +320,7 @@ func TestTikiEditSession_SavePriority(t *testing.T) {
 			setupTiki: func(tc *TikiEditSession, s store.Store) {
 				t := newTestTiki()
 				_ = s.CreateTiki(t)
-				tc.StartEditSession(t.ID)
+				tc.StartEditSession(t.ID())
 			},
 			priority:     "low",
 			wantPriority: "low",
@@ -483,7 +483,7 @@ func TestTikiEditSession_SaveAssignee(t *testing.T) {
 			setupTiki: func(tc *TikiEditSession, s store.Store) {
 				t := newTestTiki()
 				_ = s.CreateTiki(t)
-				tc.StartEditSession(t.ID)
+				tc.StartEditSession(t.ID())
 			},
 			assignee:     "jane.smith",
 			wantAssignee: "jane.smith",
@@ -553,7 +553,7 @@ func TestTikiEditSession_SavePoints(t *testing.T) {
 			setupTiki: func(tc *TikiEditSession, s store.Store) {
 				t := newTestTiki()
 				_ = s.CreateTiki(t)
-				tc.StartEditSession(t.ID)
+				tc.StartEditSession(t.ID())
 			},
 			points:      3,
 			wantPoints:  3,
@@ -632,7 +632,7 @@ func TestTikiEditSession_SaveTitle(t *testing.T) {
 			setupTiki: func(tc *TikiEditSession, s store.Store) {
 				t := newTestTiki()
 				_ = s.CreateTiki(t)
-				tc.StartEditSession(t.ID)
+				tc.StartEditSession(t.ID())
 			},
 			title:       "Updated Title",
 			wantTitle:   "Updated Title",
@@ -643,7 +643,7 @@ func TestTikiEditSession_SaveTitle(t *testing.T) {
 			setupTiki: func(tc *TikiEditSession, s store.Store) {
 				t := newTestTiki()
 				_ = s.CreateTiki(t)
-				tc.StartEditSession(t.ID)
+				tc.StartEditSession(t.ID())
 				tc.SetDraft(newTestTikiWithID())
 			},
 			title:       "Draft Title",
@@ -683,8 +683,8 @@ func TestTikiEditSession_SaveTitle(t *testing.T) {
 				} else if tc.editingTiki != nil {
 					activeTiki = tc.editingTiki
 				}
-				if activeTiki.Title != tt.wantTitle {
-					t.Errorf("tiki.Title = %q, want %q", activeTiki.Title, tt.wantTitle)
+				if activeTiki.Title() != tt.wantTitle {
+					t.Errorf("tiki.Title = %q, want %q", activeTiki.Title(), tt.wantTitle)
 				}
 			}
 		})
@@ -713,7 +713,7 @@ func TestTikiEditSession_SaveDescription(t *testing.T) {
 			setupTiki: func(tc *TikiEditSession, s store.Store) {
 				t := newTestTiki()
 				_ = s.CreateTiki(t)
-				tc.StartEditSession(t.ID)
+				tc.StartEditSession(t.ID())
 			},
 			description:     "Updated description",
 			wantDescription: "Updated description",
@@ -752,8 +752,8 @@ func TestTikiEditSession_SaveDescription(t *testing.T) {
 				} else if tc.editingTiki != nil {
 					activeTiki = tc.editingTiki
 				}
-				if activeTiki.Body != tt.wantDescription {
-					t.Errorf("tiki.Description = %q, want %q", activeTiki.Body, tt.wantDescription)
+				if activeTiki.Body() != tt.wantDescription {
+					t.Errorf("tiki.Description = %q, want %q", activeTiki.Body(), tt.wantDescription)
 				}
 			}
 		})
@@ -770,7 +770,7 @@ func TestTikiEditSession_CommitEditSession_Draft(t *testing.T) {
 	tc := NewTikiEditSession(tikiStore, gate, navController, nil)
 
 	draft := newTestTikiWithID()
-	draft.Title = "Draft Title"
+	draft.SetTitle("Draft Title")
 	tc.SetDraft(draft)
 
 	err := tc.CommitEditSession()
@@ -790,8 +790,8 @@ func TestTikiEditSession_CommitEditSession_Draft(t *testing.T) {
 		return
 	}
 
-	if created.Title != "Draft Title" {
-		t.Errorf("Created tiki has wrong title, got %q, want %q", created.Title, "Draft Title")
+	if created.Title() != "Draft Title" {
+		t.Errorf("Created tiki has wrong title, got %q, want %q", created.Title(), "Draft Title")
 	}
 }
 
@@ -803,7 +803,7 @@ func TestTikiEditSession_CommitEditSession_DraftValidationFailure(t *testing.T) 
 	tc := NewTikiEditSession(tikiStore, gate, navController, nil)
 
 	draft := newTestTikiWithID()
-	draft.Title = "" // Invalid - empty title
+	draft.SetTitle("") // Invalid - empty title
 	tc.SetDraft(draft)
 
 	err := tc.CommitEditSession()
@@ -829,8 +829,8 @@ func TestTikiEditSession_CommitEditSession_Existing(t *testing.T) {
 	_ = tikiStore.CreateTiki(original)
 
 	// Start edit session and modify
-	tc.StartEditSession(original.ID)
-	tc.editingTiki.Title = "Modified Title"
+	tc.StartEditSession(original.ID())
+	tc.editingTiki.SetTitle("Modified Title")
 
 	err := tc.CommitEditSession()
 	if err != nil {
@@ -843,14 +843,14 @@ func TestTikiEditSession_CommitEditSession_Existing(t *testing.T) {
 	}
 
 	// Verify tiki was updated in store
-	updated := tikiStore.GetTiki(original.ID)
+	updated := tikiStore.GetTiki(original.ID())
 	if updated == nil {
 		t.Fatal("Tiki not found in store")
 		return
 	}
 
-	if updated.Title != "Modified Title" {
-		t.Errorf("Tiki was not updated, got title %q, want %q", updated.Title, "Modified Title")
+	if updated.Title() != "Modified Title" {
+		t.Errorf("Tiki was not updated, got title %q, want %q", updated.Title(), "Modified Title")
 	}
 }
 
@@ -881,7 +881,7 @@ func TestTikiEditSession_GetCurrentTiki(t *testing.T) {
 	_ = tikiStore.CreateTiki(original)
 
 	// Set as current
-	tc.SetCurrentTiki(original.ID)
+	tc.SetCurrentTiki(original.ID())
 
 	current := tc.GetCurrentTiki()
 	if current == nil {
@@ -889,8 +889,8 @@ func TestTikiEditSession_GetCurrentTiki(t *testing.T) {
 		return
 	}
 
-	if current.ID != original.ID {
-		t.Errorf("GetCurrentTiki returned wrong tiki, got ID %q, want %q", current.ID, original.ID)
+	if current.ID() != original.ID() {
+		t.Errorf("GetCurrentTiki returned wrong tiki, got ID %q, want %q", current.ID(), original.ID())
 	}
 }
 
@@ -1005,7 +1005,7 @@ func TestTikiEditSession_SaveDue(t *testing.T) {
 			setupTiki: func(tc *TikiEditSession, s store.Store) {
 				t := newTestTiki()
 				_ = s.CreateTiki(t)
-				tc.StartEditSession(t.ID)
+				tc.StartEditSession(t.ID())
 			},
 			dateStr:     "2025-12-31",
 			wantDue:     "2025-12-31",
@@ -1101,7 +1101,7 @@ func TestTikiEditSession_HandleAction(t *testing.T) {
 			if tt.hasTiki {
 				original := newTestTiki()
 				_ = tikiStore.CreateTiki(original)
-				tc.SetCurrentTiki(original.ID)
+				tc.SetCurrentTiki(original.ID())
 			}
 
 			got := tc.HandleAction(tt.actionID)
@@ -1206,15 +1206,15 @@ func TestTikiEditSession_UpdateTiki(t *testing.T) {
 	_ = tikiStore.CreateTiki(original)
 
 	// Start an edit session, modify the title, and commit
-	tiki := tc.StartEditSession(original.ID)
-	tiki.Title = "Updated via UpdateTiki"
+	tiki := tc.StartEditSession(original.ID())
+	tiki.SetTitle("Updated via UpdateTiki")
 	if err := tc.CommitEditSession(); err != nil {
 		t.Fatalf("CommitEditSession failed: %v", err)
 	}
 
-	persisted := tikiStore.GetTiki(original.ID)
-	if persisted.Title != "Updated via UpdateTiki" {
-		t.Errorf("tiki not updated, got title %q", persisted.Title)
+	persisted := tikiStore.GetTiki(original.ID())
+	if persisted.Title() != "Updated via UpdateTiki" {
+		t.Errorf("tiki not updated, got title %q", persisted.Title())
 	}
 }
 
@@ -1233,13 +1233,13 @@ func TestTikiEditSession_AddComment(t *testing.T) {
 
 	original := newTestTiki()
 	_ = tikiStore.CreateTiki(original)
-	tc.SetCurrentTiki(original.ID)
+	tc.SetCurrentTiki(original.ID())
 
 	if !tc.AddComment("user", "hello") {
 		t.Error("expected true for successful comment")
 	}
 
-	persistedTiki := tikiStore.GetTiki(original.ID)
+	persistedTiki := tikiStore.GetTiki(original.ID())
 	persistedComments, _ := persistedTiki.Fields["comments"].([]tikipkg.Comment)
 	if len(persistedComments) != 1 {
 		t.Fatalf("expected 1 comment, got %d", len(persistedComments))
@@ -1272,8 +1272,8 @@ func TestTikiEditSession_CommitEditSession_UpdateError(t *testing.T) {
 
 	original := newTestTiki()
 	_ = tikiStore.CreateTiki(original)
-	tc.StartEditSession(original.ID)
-	tc.editingTiki.Title = "" // invalid - empty title will fail validation
+	tc.StartEditSession(original.ID())
+	tc.editingTiki.SetTitle("") // invalid - empty title will fail validation
 
 	err := tc.CommitEditSession()
 	if err == nil {
@@ -1290,7 +1290,7 @@ func TestTikiEditSession_SaveType_InvalidType(t *testing.T) {
 
 	original := newTestTiki()
 	_ = tikiStore.CreateTiki(original)
-	tc.StartEditSession(original.ID)
+	tc.StartEditSession(original.ID())
 
 	// unrecognized display string
 	got := tc.SaveType("Nonexistent Type 🤷")
@@ -1321,7 +1321,7 @@ func TestTikiEditSession_SaveTags(t *testing.T) {
 			setupTiki: func(tc *TikiEditSession, s store.Store) {
 				t := newTestTiki()
 				_ = s.CreateTiki(t)
-				tc.StartEditSession(t.ID)
+				tc.StartEditSession(t.ID())
 			},
 			tags:        []string{"frontend", "ui"},
 			wantTags:    []string{"frontend", "ui"},
@@ -1359,7 +1359,7 @@ func TestTikiEditSession_SaveTags(t *testing.T) {
 			setupTiki: func(tc *TikiEditSession, s store.Store) {
 				t := newTestTiki()
 				_ = s.CreateTiki(t)
-				tc.StartEditSession(t.ID)
+				tc.StartEditSession(t.ID())
 				tc.SetDraft(newTestTikiWithID())
 			},
 			tags:        []string{"draft-tag"},

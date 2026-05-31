@@ -23,8 +23,8 @@ import (
 func seedTiki(t *testing.T, s store.Store, id, title, status string, priorityRank int) {
 	t.Helper()
 	tk := tikipkg.New()
-	tk.ID = id
-	tk.Title = title
+	tk.SetID(id)
+	tk.SetTitle(title)
 	tk.Set("status", status)
 	tk.Set("type", "story")
 	if key := priorityRankToKey(priorityRank); key != "" {
@@ -85,8 +85,8 @@ func newNavHarness(columns []int, counts []int) *navHarness {
 		tikis := make([]*tikipkg.Tiki, count)
 		for i := 0; i < count; i++ {
 			tk := tikipkg.New()
-			tk.ID = fmt.Sprintf("T-%d-%d", lane, i)
-			tk.Title = "Tiki"
+			tk.SetID(fmt.Sprintf("T-%d-%d", lane, i))
+			tk.SetTitle("Tiki")
 			tk.Set(tikipkg.FieldStatus, "ready")
 			tk.Set(tikipkg.FieldType, "story")
 			tikis[i] = tk
@@ -801,8 +801,8 @@ func TestPluginController_HandlePluginAction_Create(t *testing.T) {
 	if len(allTikis) != 1 {
 		t.Fatalf("expected 1 tiki after create, got %d", len(allTikis))
 	}
-	if allTikis[0].Title != "New Tiki" {
-		t.Errorf("expected title 'New Tiki', got %q", allTikis[0].Title)
+	if allTikis[0].Title() != "New Tiki" {
+		t.Errorf("expected title 'New Tiki', got %q", allTikis[0].Title())
 	}
 }
 
@@ -1077,8 +1077,8 @@ func TestPluginController_GetFilteredTikisForLane_WithSearchNarrowing(t *testing
 	if len(tikis) != 1 {
 		t.Fatalf("expected 1 tiki with search narrowing, got %d", len(tikis))
 	}
-	if tikis[0].ID != "0000T1" {
-		t.Errorf("expected T-1, got %s", tikis[0].ID)
+	if tikis[0].ID() != "0000T1" {
+		t.Errorf("expected T-1, got %s", tikis[0].ID())
 	}
 }
 

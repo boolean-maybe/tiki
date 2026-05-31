@@ -77,8 +77,8 @@ func TestReloadTiki_IDChangeRefusesCollisionWithPeer(t *testing.T) {
 	// Peer preserved: AAAAAA still maps to AAAAAA.md, not to BBBBBB.md.
 	if got := store.GetTiki("AAAAAA"); got == nil {
 		t.Fatal("peer AAAAAA must not be evicted by the rejected reload")
-	} else if !strings.HasSuffix(got.Path, "AAAAAA.md") {
-		t.Errorf("peer AAAAAA now points at wrong file: %s", got.Path)
+	} else if !strings.HasSuffix(got.Path(), "AAAAAA.md") {
+		t.Errorf("peer AAAAAA now points at wrong file: %s", got.Path())
 	}
 
 	// Stale old id gone: BBBBBB.md no longer has id BBBBBB on disk, so the
@@ -112,8 +112,8 @@ func TestReloadTiki_SameIDUpdatesInPlace(t *testing.T) {
 	if tk == nil {
 		t.Fatal("SAME01 missing after reload")
 	}
-	if tk.Title != "new title" {
-		t.Errorf("title not updated: got %q", tk.Title)
+	if tk.Title() != "new title" {
+		t.Errorf("title not updated: got %q", tk.Title())
 	}
 }
 

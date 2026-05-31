@@ -40,15 +40,15 @@ func registerExtraWorkflowFieldForTest(t *testing.T, name string, values []strin
 // compiling without duplicating the construction.
 func newTestViewTiki(id string) *tikipkg.Tiki {
 	tk := tikipkg.New()
-	tk.ID = id
-	tk.Title = "Test Tiki"
+	tk.SetID(id)
+	tk.SetTitle("Test Tiki")
 	tk.Set(tikipkg.FieldStatus, "ready")
 	tk.Set(tikipkg.FieldType, "story")
 	tk.Set(tikipkg.FieldPriority, "medium")
 	tk.Set(tikipkg.FieldPoints, 5)
 	tk.Set(tikipkg.FieldAssignee, "user@example.com")
 	tk.Set("createdBy", "creator@example.com")
-	tk.CreatedAt = time.Date(2024, 1, 1, 12, 0, 0, 0, time.UTC)
-	tk.UpdatedAt = time.Date(2024, 1, 2, 14, 30, 0, 0, time.UTC)
+	tk.SetCreatedAt(time.Date(2024, 1, 1, 12, 0, 0, 0, time.UTC))
+	tk.SetUpdatedAt(time.Date(2024, 1, 2, 14, 30, 0, 0, time.UTC))
 	return tk
 }

@@ -79,16 +79,16 @@ func (s *TikiStore) loadLocked() error {
 			continue
 		}
 
-		if err := idIndex.Register(tk.ID, filePath); err != nil {
+		if err := idIndex.Register(tk.ID(), filePath); err != nil {
 			// duplicate id: refuse to silently pick a winner. Both files stay
 			// on disk; assign a fresh bare id to all but one file to resolve.
 			s.diagnostics.record(filePath, LoadReasonDuplicateID, err.Error())
 			slog.Error("duplicate document id detected, skipping later occurrence",
-				"tiki_id", tk.ID, "file", filePath, "error", err)
+				"tiki_id", tk.ID(), "file", filePath, "error", err)
 			continue
 		}
-		s.tikis[tk.ID] = tk
-		slog.Debug("loaded tiki", "tiki_id", tk.ID, "file", filePath)
+		s.tikis[tk.ID()] = tk
+		slog.Debug("loaded tiki", "tiki_id", tk.ID(), "file", filePath)
 	}
 	slog.Info("finished loading tikis", "num_tikis", len(s.tikis), "rejections", len(s.diagnostics.Rejections()))
 	return nil
@@ -153,12 +153,12 @@ func (s *TikiStore) loadTikiFile(path string, authorMap map[string]*git.AuthorIn
 	// clamps that lived here were removed when these fields became TypeEnum.
 
 	// Compute UpdatedAt as max(file_mtime, last_git_commit_time)
-	tk.UpdatedAt = info.ModTime()
+	tk.SetUpdatedAt(info.ModTime())
 	if lastCommitMap != nil {
 		relPath := relPathForLookup(s.dir, path)
 		if lastCommit, exists := lastCommitMap[relPath]; exists {
-			if lastCommit.After(tk.UpdatedAt) {
-				tk.UpdatedAt = lastCommit
+			if lastCommit.After(tk.UpdatedAt()) {
+				tk.SetUpdatedAt(lastCommit)
 			}
 		}
 	}
@@ -174,13 +174,13 @@ func (s *TikiStore) loadTikiFile(path string, authorMap map[string]*git.AuthorIn
 			case author.Email != "":
 				tk.Set("createdBy", author.Email)
 			}
-			tk.CreatedAt = author.Date
+			tk.SetCreatedAt(author.Date)
 		}
 	}
 
 	// Fallback to file metadata when git history is not available.
-	if tk.CreatedAt.IsZero() {
-		tk.CreatedAt = info.ModTime()
+	if tk.CreatedAt().IsZero() {
+		tk.SetCreatedAt(info.ModTime())
 		if name, email, err := s.GetCurrentUser(); err == nil {
 			switch {
 			case name != "":
@@ -243,8 +243,8 @@ func (s *TikiStore) ReloadTiki(tikiID string) error {
 	s.mu.RUnlock()
 
 	var filePath string
-	if existing != nil && existing.Path != "" {
-		filePath = existing.Path
+	if existing != nil && existing.Path() != "" {
+		filePath = existing.Path()
 	} else {
 		filePath = s.tikiFilePath(normalizedID)
 	}
@@ -279,7 +279,7 @@ func (s *TikiStore) ReloadTiki(tikiID string) error {
 	// frontmatter id has changed, and must refuse to overwrite another
 	// tiki's entry with this one.
 	s.mu.Lock()
-	if tk.ID != normalizedID {
+	if tk.ID() != normalizedID {
 		// id changed in the frontmatter (e.g. user edited it externally).
 		// Drop the old map entry first — whatever the next branch does,
 		// the old id is no longer backed by any file on disk and must not
@@ -289,25 +289,26 @@ func (s *TikiStore) ReloadTiki(tikiID string) error {
 		// Refuse to promote the new id if another loaded tiki already owns
 		// it — that would silently overwrite the peer in memory while both
 		// files sit on disk. Leave the new id un-indexed too: the file at
-		// tk.Path still exists, but the store refuses to claim it until the
+		// tk.Path() still exists, but the store refuses to claim it until the
 		// collision is resolved (assign a fresh bare id to one of the two
 		// files). The next full Reload will surface the duplicate through
 		// LoadDiagnostics.
-		if peer, taken := s.tikis[tk.ID]; taken && peer.Path != tk.Path {
+		if peer, taken := s.tikis[tk.ID()]; taken && peer.Path() != tk.Path() {
 			s.mu.Unlock()
 			slog.Error("refusing to reload: id change would collide with another tiki",
-				"old_id", normalizedID, "new_id", tk.ID,
-				"new_file", tk.Path, "existing_file", peer.Path)
+				"old_id", normalizedID, "new_id", tk.ID(),
+				"new_file", tk.Path(), "existing_file", peer.Path())
 			s.notifyListeners()
+			newID := tk.ID()
 			return fmt.Errorf("reload: id change %s → %s collides with %s at %s",
-				normalizedID, tk.ID, tk.ID, peer.Path)
+				normalizedID, newID, newID, peer.Path())
 		}
 	}
-	s.tikis[tk.ID] = tk
+	s.tikis[tk.ID()] = tk
 	s.mu.Unlock()
 
 	s.notifyListeners()
-	slog.Debug("tiki reloaded successfully", "tiki_id", tk.ID)
+	slog.Debug("tiki reloaded successfully", "tiki_id", tk.ID())
 	return nil
 }
 
@@ -361,18 +362,18 @@ func validateCustomFieldEntry(k string, v interface{}, fd workflow.FieldDef) err
 }
 
 // saveTiki writes a tiki to its markdown file. For loaded tikis the path
-// follows tk.Path so renames are preserved; new tikis land at the
+// follows tk.Path() so renames are preserved; new tikis land at the
 // id-derived default path.
 func (s *TikiStore) saveTiki(tk *tiki.Tiki) error {
 	path := s.pathForTiki(tk)
-	slog.Debug("attempting to save tiki", "tiki_id", tk.ID, "path", path)
+	slog.Debug("attempting to save tiki", "tiki_id", tk.ID(), "path", path)
 
 	// Validate custom fields before write: reject unregistered keys that
 	// were staged under the in-memory CustomFields map. This preserves the pre-Phase-3
 	// appendCustomFields contract; UnknownFields (stale-marked) bypass
 	// the check by design.
 	if err := validateTikiCustomFields(tk); err != nil {
-		slog.Error("custom-field validation failed", "tiki_id", tk.ID, "error", err)
+		slog.Error("custom-field validation failed", "tiki_id", tk.ID(), "error", err)
 		return err
 	}
 
@@ -381,18 +382,18 @@ func (s *TikiStore) saveTiki(tk *tiki.Tiki) error {
 	if !tk.LoadedMtime.IsZero() {
 		if info, err := os.Stat(path); err == nil {
 			if !info.ModTime().Equal(tk.LoadedMtime) {
-				slog.Warn("tiki modified externally, conflict detected", "tiki_id", tk.ID, "path", path, "loaded_mtime", tk.LoadedMtime, "file_mtime", info.ModTime())
+				slog.Warn("tiki modified externally, conflict detected", "tiki_id", tk.ID(), "path", path, "loaded_mtime", tk.LoadedMtime, "file_mtime", info.ModTime())
 				return ErrConflict
 			}
 		} else if !os.IsNotExist(err) {
-			slog.Error("failed to stat file for optimistic locking", "tiki_id", tk.ID, "path", path, "error", err)
+			slog.Error("failed to stat file for optimistic locking", "tiki_id", tk.ID(), "path", path, "error", err)
 			return fmt.Errorf("stat file for optimistic locking: %w", err)
 		}
 	}
 
 	yamlBytes, err := marshalTikiFrontmatter(tk)
 	if err != nil {
-		slog.Error("failed to marshal frontmatter for tiki", "tiki_id", tk.ID, "error", err)
+		slog.Error("failed to marshal frontmatter for tiki", "tiki_id", tk.ID(), "error", err)
 		return fmt.Errorf("marshaling frontmatter: %w", err)
 	}
 
@@ -400,8 +401,8 @@ func (s *TikiStore) saveTiki(tk *tiki.Tiki) error {
 	content.WriteString("---\n")
 	content.Write(yamlBytes)
 	content.WriteString("---\n")
-	if tk.Body != "" {
-		content.WriteString(tk.Body)
+	if tk.Body() != "" {
+		content.WriteString(tk.Body())
 		content.WriteString("\n")
 	}
 
@@ -411,46 +412,46 @@ func (s *TikiStore) saveTiki(tk *tiki.Tiki) error {
 	// and replayed via git pull).
 	//nolint:gosec // G301: 0755 matches the existing dir permissions
 	if err := os.MkdirAll(filepath.Dir(path), 0755); err != nil {
-		slog.Error("failed to create parent directory for document", "tiki_id", tk.ID, "path", path, "error", err)
+		slog.Error("failed to create parent directory for document", "tiki_id", tk.ID(), "path", path, "error", err)
 		return fmt.Errorf("creating parent directory: %w", err)
 	}
 
 	//nolint:gosec // G306: 0644 is appropriate for document files
 	if err := os.WriteFile(path, []byte(content.String()), 0644); err != nil {
-		slog.Error("failed to write tiki file", "tiki_id", tk.ID, "path", path, "error", err)
+		slog.Error("failed to write tiki file", "tiki_id", tk.ID(), "path", path, "error", err)
 		return fmt.Errorf("writing file: %w", err)
 	}
 
 	// Update LoadedMtime and Path after successful save
 	if info, err := os.Stat(path); err == nil {
 		tk.LoadedMtime = info.ModTime()
-		tk.UpdatedAt = info.ModTime()
+		tk.SetUpdatedAt(info.ModTime())
 		if s.gitUtil != nil {
 			if lastCommit, err := s.gitUtil.LastCommitTime(path); err == nil {
-				if lastCommit.After(tk.UpdatedAt) {
-					tk.UpdatedAt = lastCommit
+				if lastCommit.After(tk.UpdatedAt()) {
+					tk.SetUpdatedAt(lastCommit)
 				}
 			}
 		}
 		if absPath, absErr := filepath.Abs(path); absErr == nil {
-			tk.Path = absPath
+			tk.SetPath(absPath)
 		} else {
-			slog.Debug("failed to resolve absolute tiki path after save, using raw path", "tiki_id", tk.ID, "path", path, "error", absErr)
-			tk.Path = path
+			slog.Debug("failed to resolve absolute tiki path after save, using raw path", "tiki_id", tk.ID(), "path", path, "error", absErr)
+			tk.SetPath(path)
 		}
-		slog.Debug("tiki file saved and timestamps computed", "tiki_id", tk.ID, "path", path, "new_mtime", tk.LoadedMtime, "updated_at", tk.UpdatedAt)
+		slog.Debug("tiki file saved and timestamps computed", "tiki_id", tk.ID(), "path", path, "new_mtime", tk.LoadedMtime, "updated_at", tk.UpdatedAt())
 	} else {
-		slog.Error("failed to stat file after save for mtime computation", "tiki_id", tk.ID, "path", path, "error", err)
+		slog.Error("failed to stat file after save for mtime computation", "tiki_id", tk.ID(), "path", path, "error", err)
 	}
 
 	// Git add the modified file (best effort)
 	if s.gitUtil != nil {
 		if err := s.gitUtil.Add(path); err != nil {
-			slog.Warn("failed to git add tiki file", "tiki_id", tk.ID, "path", path, "error", err)
+			slog.Warn("failed to git add tiki file", "tiki_id", tk.ID(), "path", path, "error", err)
 		}
 	}
 
-	slog.Info("tiki saved successfully", "tiki_id", tk.ID, "path", path)
+	slog.Info("tiki saved successfully", "tiki_id", tk.ID(), "path", path)
 	return nil
 }
 
@@ -475,10 +476,10 @@ func (s *TikiStore) collectDocumentPaths() ([]string, error) {
 // rename/move are preserved. Only when Path is empty (brand-new tiki
 // being created) do we fall back to the id-derived path.
 func (s *TikiStore) pathForTiki(tk *tiki.Tiki) string {
-	if tk != nil && tk.Path != "" {
-		return tk.Path
+	if tk != nil && tk.Path() != "" {
+		return tk.Path()
 	}
-	return s.tikiFilePath(tk.ID)
+	return s.tikiFilePath(tk.ID())
 }
 
 // extractCustomFields splits a frontmatter map into workflow-declared fields

@@ -2358,7 +2358,7 @@ func TestEvalNextEnum_RankAwareComparison(t *testing.T) {
 	}
 	got := []string{}
 	for _, tk := range result.Select.Tikis {
-		got = append(got, tk.ID)
+		got = append(got, tk.ID())
 	}
 	want := []string{"T1", "T2"}
 	if !reflect.DeepEqual(got, want) {
@@ -3816,8 +3816,8 @@ func TestSetFieldDescriptionToEmpty(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if tk.Body != "" {
-		t.Errorf("expected empty description, got %q", tk.Body)
+	if tk.Body() != "" {
+		t.Errorf("expected empty description, got %q", tk.Body())
 	}
 }
 
@@ -3940,8 +3940,8 @@ func TestSetFieldDescriptionString(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if tk.Body != "new desc" {
-		t.Errorf("expected 'new desc', got %q", tk.Body)
+	if tk.Body() != "new desc" {
+		t.Errorf("expected 'new desc', got %q", tk.Body())
 	}
 }
 

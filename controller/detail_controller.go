@@ -474,7 +474,7 @@ func (dc *DetailController) ApplyDetailMode(mode plugin.DetailMode, focus model.
 		// instead of going through StartEditSession (which expects an existing
 		// tiki to load).
 		dc.editSession.SetDraft(draft)
-		dc.selectedTikiID = draft.ID
+		dc.selectedTikiID = draft.ID()
 		if dc.editView.IsEditMode() {
 			return true
 		}

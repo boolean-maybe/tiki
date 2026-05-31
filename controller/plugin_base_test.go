@@ -20,10 +20,10 @@ func TestCreateDraftTiki_ReturnsInMemoryDraft(t *testing.T) {
 	if got == nil {
 		t.Fatal("draft is nil")
 	}
-	if got.ID == "" {
+	if got.ID() == "" {
 		t.Error("draft has empty ID")
 	}
-	if persisted := s.GetTiki(got.ID); persisted != nil {
+	if persisted := s.GetTiki(got.ID()); persisted != nil {
 		t.Error("draft was unexpectedly persisted to store")
 	}
 }

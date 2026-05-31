@@ -357,19 +357,19 @@ func (e *Executor) setField(t *tiki.Tiki, name string, val interface{}) error {
 		if strings.TrimSpace(s) == "" {
 			return fmt.Errorf("cannot set title to empty")
 		}
-		t.Title = s
+		t.SetTitle(s)
 		return nil
 
 	case "description", "body":
 		if val == nil {
-			t.Body = ""
+			t.SetBody("")
 			return nil
 		}
 		s, ok := val.(string)
 		if !ok {
 			return fmt.Errorf("description must be a string, got %T", val)
 		}
-		t.Body = s
+		t.SetBody(s)
 		return nil
 	}
 
@@ -812,7 +812,7 @@ func (e *Executor) evalQuantifier(q *QuantifierExpr, ctx evalContext) (bool, err
 	for _, ref := range refs {
 		refID := normalizeToString(ref)
 		for _, at := range ctx.allTikis {
-			if strings.EqualFold(at.ID, refID) {
+			if strings.EqualFold(at.ID(), refID) {
 				refTikis = append(refTikis, at)
 				break
 			}
@@ -1095,7 +1095,7 @@ func (e *Executor) evalFilepath(ctx evalContext) (interface{}, error) {
 	if !ok {
 		return nil, fmt.Errorf("filepath(): selected tiki %q not found", id)
 	}
-	return t.Path, nil
+	return t.Path(), nil
 }
 
 func (e *Executor) evalFilepaths(ctx evalContext) (interface{}, error) {
@@ -1109,7 +1109,7 @@ func (e *Executor) evalFilepaths(ctx evalContext) (interface{}, error) {
 		if !ok {
 			return nil, fmt.Errorf("filepaths(): selected tiki %q not found", id)
 		}
-		result = append(result, t.Path)
+		result = append(result, t.Path())
 	}
 	return result, nil
 }
@@ -1171,7 +1171,7 @@ func (e *Executor) evalTargetsField(name string, ctx evalContext) (interface{}, 
 // findTikiByID returns the tiki with the given id from the list (case-insensitive).
 func findTikiByID(tikis []*tiki.Tiki, id string) (*tiki.Tiki, bool) {
 	for _, t := range tikis {
-		if strings.EqualFold(t.ID, id) {
+		if strings.EqualFold(t.ID(), id) {
 			return t, true
 		}
 	}
@@ -1290,7 +1290,7 @@ func chooseFilterParent(tikis []*tiki.Tiki, input ExecutionInput, parents ...*ti
 		return nil
 	}
 	for _, t := range tikis {
-		if strings.EqualFold(t.ID, selected) {
+		if strings.EqualFold(t.ID(), selected) {
 			return t
 		}
 	}
@@ -1449,7 +1449,7 @@ func (e *Executor) evalBlocks(fc *FunctionCall, ctx evalContext) (interface{}, e
 		}
 		for _, dep := range deps {
 			if strings.EqualFold(dep, targetID) {
-				blockers = append(blockers, at.ID)
+				blockers = append(blockers, at.ID())
 				break
 			}
 		}
@@ -2173,11 +2173,11 @@ func (e *Executor) extractField(t *tiki.Tiki, name string) (interface{}, error) 
 	}
 	switch name {
 	case "id":
-		return t.ID, nil
+		return t.ID(), nil
 	case "title":
-		return t.Title, nil
+		return t.Title(), nil
 	case "description", "body":
-		return t.Body, nil
+		return t.Body(), nil
 	case "createdBy":
 		// CreatedBy doesn't round-trip through the Tiki model (Phase 4
 		// does not carry author metadata). Return empty string so identity
@@ -2188,11 +2188,11 @@ func (e *Executor) extractField(t *tiki.Tiki, name string) (interface{}, error) 
 		}
 		return "", nil
 	case "createdAt":
-		return t.CreatedAt, nil
+		return t.CreatedAt(), nil
 	case "updatedAt":
-		return t.UpdatedAt, nil
+		return t.UpdatedAt(), nil
 	case "filepath", "path":
-		return t.Path, nil
+		return t.Path(), nil
 	}
 
 	v, ok := t.Get(name)
@@ -2246,7 +2246,7 @@ func (e *AbsentFieldError) Error() string {
 func absentFieldError(t *tiki.Tiki, name string) error {
 	id := ""
 	if t != nil {
-		id = t.ID
+		id = t.ID()
 	}
 	return &AbsentFieldError{TikiID: id, Field: name}
 }

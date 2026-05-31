@@ -62,8 +62,8 @@ func (s *TikiStore) newTikiTemplateLocked() (*tikipkg.Tiki, error) {
 	}
 
 	tk := tikipkg.New()
-	tk.ID = tikiID
-	tk.CreatedAt = time.Now()
+	tk.SetID(tikiID)
+	tk.SetCreatedAt(time.Now())
 
 	for k, v := range buildCustomFieldDefaults() {
 		tk.Set(k, v)

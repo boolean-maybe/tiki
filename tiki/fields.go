@@ -139,11 +139,11 @@ func (t *Tiki) identity() string {
 	if t == nil {
 		return "<nil>"
 	}
-	if t.ID != "" {
-		return t.ID
+	if t.id != "" {
+		return t.id
 	}
-	if t.Path != "" {
-		return t.Path
+	if t.path != "" {
+		return t.path
 	}
 	return "<unidentified>"
 }

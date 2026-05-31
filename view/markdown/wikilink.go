@@ -65,7 +65,7 @@ func (r *StoreResolver) Resolve(id string) (string, string, bool) {
 	if tk == nil {
 		return "", "", false
 	}
-	title := tk.Title
+	title := tk.Title()
 	if title == "" {
 		title = id
 	}
@@ -86,10 +86,10 @@ func (r *StoreResolver) ResolveBody(id string) (string, bool) {
 		return "", false
 	}
 	var b strings.Builder
-	b.WriteString("# " + tk.Title + "\n\n")
-	b.WriteString("**" + tk.ID + "**\n\n")
-	if tk.Body != "" {
-		b.WriteString(tk.Body)
+	b.WriteString("# " + tk.Title() + "\n\n")
+	b.WriteString("**" + tk.ID() + "**\n\n")
+	if tk.Body() != "" {
+		b.WriteString(tk.Body())
 		b.WriteString("\n")
 	}
 	return b.String(), true

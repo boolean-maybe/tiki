@@ -123,7 +123,7 @@ func (qs *QuickSelect) filterTikis() {
 	}
 	var matches []scored
 	for _, tk := range qs.candidateTikis {
-		text := tk.ID + " " + tk.Title
+		text := tk.ID() + " " + tk.Title()
 		matched, score := fuzzyMatch(query, text)
 		if matched {
 			matches = append(matches, scored{tk, score})
@@ -286,5 +286,5 @@ func (qs *QuickSelect) dispatchSelected() {
 		return
 	}
 	tk := qs.filteredTikis[qs.selectedIndex]
-	qs.quickSelectCfg.Select(tk.ID)
+	qs.quickSelectCfg.Select(tk.ID())
 }

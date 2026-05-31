@@ -30,8 +30,8 @@ func TestPluginViewRefreshResetsNonSelectedLaneScrollOffset(t *testing.T) {
 	tikis := make([]*tikipkg.Tiki, 10)
 	for i := range tikis {
 		tk := tikipkg.New()
-		tk.ID = fmt.Sprintf("T-%d", i)
-		tk.Title = fmt.Sprintf("Tiki %d", i)
+		tk.SetID(fmt.Sprintf("T-%d", i))
+		tk.SetTitle(fmt.Sprintf("Tiki %d", i))
 		tikis[i] = tk
 	}
 
@@ -99,8 +99,8 @@ func TestPluginViewGridLayout_RowCount(t *testing.T) {
 			tikis := make([]*tikipkg.Tiki, tt.numTikis)
 			for i := range tikis {
 				tk := tikipkg.New()
-				tk.ID = fmt.Sprintf("T-%d", i)
-				tk.Title = fmt.Sprintf("Tiki %d", i)
+				tk.SetID(fmt.Sprintf("T-%d", i))
+				tk.SetTitle(fmt.Sprintf("Tiki %d", i))
 				tikis[i] = tk
 			}
 
@@ -146,8 +146,8 @@ func TestPluginViewGridLayout_SelectedRow(t *testing.T) {
 			tikis := make([]*tikipkg.Tiki, tt.numTikis)
 			for i := range tikis {
 				tk := tikipkg.New()
-				tk.ID = fmt.Sprintf("T-%d", i)
-				tk.Title = fmt.Sprintf("Tiki %d", i)
+				tk.SetID(fmt.Sprintf("T-%d", i))
+				tk.SetTitle(fmt.Sprintf("Tiki %d", i))
 				tikis[i] = tk
 			}
 
@@ -183,8 +183,8 @@ func TestPluginViewRefreshPreservesScrollOffset(t *testing.T) {
 	tikis := make([]*tikipkg.Tiki, 10)
 	for i := range tikis {
 		tk := tikipkg.New()
-		tk.ID = fmt.Sprintf("T-%d", i)
-		tk.Title = fmt.Sprintf("Tiki %d", i)
+		tk.SetID(fmt.Sprintf("T-%d", i))
+		tk.SetTitle(fmt.Sprintf("Tiki %d", i))
 		tikis[i] = tk
 	}
 

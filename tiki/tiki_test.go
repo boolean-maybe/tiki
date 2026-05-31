@@ -18,7 +18,7 @@ func TestNewAllocatesFieldsMap(t *testing.T) {
 }
 
 func TestHasGetRequire(t *testing.T) {
-	tk := &Tiki{ID: "ABC123", Fields: map[string]interface{}{"status": "ready"}}
+	tk := &Tiki{id: "ABC123", Fields: map[string]interface{}{"status": "ready"}}
 
 	if !tk.Has("status") {
 		t.Error("Has(status) = false, want true")
@@ -48,7 +48,7 @@ func TestHasOnNilTikiAndNilFields(t *testing.T) {
 		t.Error("Has on nil *Tiki must return false")
 	}
 
-	tk2 := &Tiki{ID: "XYZ789"} // Fields is nil
+	tk2 := &Tiki{id: "XYZ789"} // Fields is nil
 	if tk2.Has("status") {
 		t.Error("Has on nil Fields must return false")
 	}
@@ -86,9 +86,9 @@ func TestDeleteRemovesField(t *testing.T) {
 
 func TestCloneDeepCopiesSliceFields(t *testing.T) {
 	original := &Tiki{
-		ID:    "ABC123",
-		Title: "root",
-		Body:  "body text",
+		id:    "ABC123",
+		title: "root",
+		body:  "body text",
 		Fields: map[string]interface{}{
 			"tags":      []string{"alpha", "beta"},
 			"dependsOn": []string{"DEF456"},
@@ -100,7 +100,7 @@ func TestCloneDeepCopiesSliceFields(t *testing.T) {
 	if clone == original {
 		t.Fatal("Clone returned same pointer")
 	}
-	if clone.ID != "ABC123" || clone.Title != "root" || clone.Body != "body text" {
+	if clone.ID() != "ABC123" || clone.Title() != "root" || clone.Body() != "body text" {
 		t.Errorf("Clone scalar fields drift: %+v", clone)
 	}
 
@@ -122,7 +122,7 @@ func TestCloneDeepCopiesSliceFields(t *testing.T) {
 func TestClonePreservesAbsentFieldsMap(t *testing.T) {
 	// A Tiki with nil Fields should clone to another Tiki with nil Fields,
 	// preserving the presence distinction between "no fields" and "empty map".
-	tk := &Tiki{ID: "XYZ789"}
+	tk := &Tiki{id: "XYZ789"}
 	clone := tk.Clone()
 	if clone.Fields != nil {
 		t.Errorf("Clone turned nil Fields into %v", clone.Fields)
@@ -161,7 +161,7 @@ func TestStringFieldCoercion(t *testing.T) {
 }
 
 func TestRequireStringErrors(t *testing.T) {
-	tk := &Tiki{ID: "ABC123", Fields: map[string]interface{}{"priority": 3}}
+	tk := &Tiki{id: "ABC123", Fields: map[string]interface{}{"priority": 3}}
 	if _, err := tk.RequireString("missing"); err == nil {
 		t.Error("RequireString(missing) must error")
 	}

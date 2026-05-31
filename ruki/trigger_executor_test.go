@@ -692,8 +692,8 @@ func TestResolveRefTikis(t *testing.T) {
 	if len(resolved) != 2 {
 		t.Fatalf("expected 2 resolved tikis, got %d", len(resolved))
 	}
-	if resolved[0].ID != "TIKI-000001" || resolved[1].ID != "TIKI-000003" {
-		t.Fatalf("expected TIKI-000001 and TIKI-000003, got %s and %s", resolved[0].ID, resolved[1].ID)
+	if resolved[0].ID() != "TIKI-000001" || resolved[1].ID() != "TIKI-000003" {
+		t.Fatalf("expected TIKI-000001 and TIKI-000003, got %s and %s", resolved[0].ID(), resolved[1].ID())
 	}
 }
 
@@ -1313,8 +1313,8 @@ func TestGuardSentinel_OldOnly(t *testing.T) {
 		New: nil,
 	}
 	sentinel := te.guardSentinel(tc)
-	if sentinel.ID != "TIKI-000001" {
-		t.Fatalf("expected sentinel from old, got ID %q", sentinel.ID)
+	if sentinel.ID() != "TIKI-000001" {
+		t.Fatalf("expected sentinel from old, got ID %q", sentinel.ID())
 	}
 }
 
@@ -2673,8 +2673,8 @@ func TestGuardSentinel_BothNilFallback(t *testing.T) {
 		t.Fatal("expected non-nil sentinel even when both old and new are nil")
 		return
 	}
-	if sentinel.ID != "" {
-		t.Errorf("expected empty ID on fallback sentinel, got %q", sentinel.ID)
+	if sentinel.ID() != "" {
+		t.Errorf("expected empty ID on fallback sentinel, got %q", sentinel.ID())
 	}
 }
 
@@ -3660,8 +3660,8 @@ func TestTriggerExecOverride_Execute_ValidatedStatementCreateWithTemplate(t *tes
 		t.Fatal("expected Create result")
 		return
 	}
-	if result.Create.Tiki.Title != "created" {
-		t.Fatalf("expected title 'created', got %q", result.Create.Tiki.Title)
+	if result.Create.Tiki.Title() != "created" {
+		t.Fatalf("expected title 'created', got %q", result.Create.Tiki.Title())
 	}
 	// type should be inherited from template
 	if got, _ := result.Create.Tiki.Get("type"); got != "story" {
@@ -3726,8 +3726,8 @@ func TestTriggerExecOverride_Execute_RawCreateNoTemplate(t *testing.T) {
 		t.Fatal("expected Create result")
 		return
 	}
-	if result.Create.Tiki.Title != "raw create" {
-		t.Fatalf("expected title 'raw create', got %q", result.Create.Tiki.Title)
+	if result.Create.Tiki.Title() != "raw create" {
+		t.Fatalf("expected title 'raw create', got %q", result.Create.Tiki.Title())
 	}
 }
 

@@ -43,12 +43,12 @@ func tikiFromFixture(f *tikiFixture) *tiki.Tiki {
 		return nil
 	}
 	tk := tiki.New()
-	tk.ID = f.ID
-	tk.Title = f.Title
-	tk.Body = f.Description
-	tk.CreatedAt = f.CreatedAt
-	tk.UpdatedAt = f.UpdatedAt
-	tk.Path = f.FilePath
+	tk.SetID(f.ID)
+	tk.SetTitle(f.Title)
+	tk.SetBody(f.Description)
+	tk.SetCreatedAt(f.CreatedAt)
+	tk.SetUpdatedAt(f.UpdatedAt)
+	tk.SetPath(f.FilePath)
 	if f.CreatedBy != "" {
 		tk.Set("createdBy", f.CreatedBy)
 	}
@@ -176,12 +176,12 @@ func tikiToFixtureForTest(tk *tiki.Tiki) *tikiFixture {
 		createdBy = s
 	}
 	f := &tikiFixture{
-		ID:        tk.ID,
-		Title:     tk.Title,
+		ID:        tk.ID(),
+		Title:     tk.Title(),
 		CreatedBy: createdBy,
-		CreatedAt: tk.CreatedAt,
-		UpdatedAt: tk.UpdatedAt,
-		FilePath:  tk.Path,
+		CreatedAt: tk.CreatedAt(),
+		UpdatedAt: tk.UpdatedAt(),
+		FilePath:  tk.Path(),
 	}
 
 	if v, ok, _ := tk.StringField(tiki.FieldStatus); ok {
@@ -208,7 +208,7 @@ func tikiToFixtureForTest(tk *tiki.Tiki) *tikiFixture {
 	if v, ok, _ := tk.StringSliceField(tiki.FieldDependsOn); ok {
 		f.DependsOn = v
 	}
-	f.Description = tk.Body
+	f.Description = tk.Body()
 
 	// IsWorkflow mirrors the old ToTiki behavior: true when any of the
 	// well-known kanban frontmatter keys is present in the tiki map.

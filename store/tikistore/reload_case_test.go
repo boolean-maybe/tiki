@@ -14,8 +14,8 @@ func TestReloadTiki_CaseDuplicate(t *testing.T) {
 
 	// Create a tiki with ID 6EQDUE.
 	tk := tikipkg.New()
-	tk.ID = "6EQDUE"
-	tk.Title = "Case Duplicate"
+	tk.SetID("6EQDUE")
+	tk.SetTitle("Case Duplicate")
 	tk.Set("type", "story")
 	tk.Set("status", "inbox")
 	tk.Set("priority", "medium")
@@ -36,7 +36,7 @@ func TestReloadTiki_CaseDuplicate(t *testing.T) {
 
 	foundUpper := false
 	for _, tik := range tikis {
-		if tik.ID == "6EQDUE" {
+		if tik.ID() == "6EQDUE" {
 			foundUpper = true
 		}
 	}

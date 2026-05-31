@@ -120,14 +120,14 @@ func CreateTikiFromReader(r io.Reader) (string, error) {
 		return "", fmt.Errorf("create tiki template: %w", err)
 	}
 
-	tmpl.Title = title
-	tmpl.Body = description
+	tmpl.SetTitle(title)
+	tmpl.SetBody(description)
 
 	if err := gate.CreateTiki(context.Background(), tmpl); err != nil {
 		return "", fmt.Errorf("create tiki: %w", err)
 	}
 
-	return tmpl.ID, nil
+	return tmpl.ID(), nil
 }
 
 // parseInput splits piped text into title and description.

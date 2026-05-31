@@ -41,7 +41,7 @@ type PluginViewParams struct {
 // stay consistent.
 func EncodePluginViewParams(p PluginViewParams) map[string]interface{} {
 	if p.TikiID == "" && p.Draft != nil {
-		p.TikiID = p.Draft.ID
+		p.TikiID = p.Draft.ID()
 	}
 	if p.TikiID == "" && p.Draft == nil && p.Mode == "" {
 		return nil
@@ -75,7 +75,7 @@ func DecodePluginViewParams(params map[string]interface{}) PluginViewParams {
 	if draft, ok := params[paramDraftTiki].(*tikipkg.Tiki); ok {
 		p.Draft = draft
 		if p.TikiID == "" && draft != nil {
-			p.TikiID = draft.ID
+			p.TikiID = draft.ID()
 		}
 	}
 	switch f := params[paramFocus].(type) {

@@ -110,17 +110,17 @@ func extractFieldValue(t *tiki.Tiki, name string) interface{} {
 	}
 	switch name {
 	case "id":
-		return t.ID
+		return t.ID()
 	case "title":
-		return t.Title
+		return t.Title()
 	case "description", "body":
-		return t.Body
+		return t.Body()
 	case "createdAt":
-		return t.CreatedAt
+		return t.CreatedAt()
 	case "updatedAt":
-		return t.UpdatedAt
+		return t.UpdatedAt()
 	case "filepath", "path":
-		return t.Path
+		return t.Path()
 	}
 
 	v, ok := t.Get(name)

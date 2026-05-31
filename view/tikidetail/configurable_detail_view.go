@@ -280,7 +280,7 @@ func (cv *ConfigurableDetailView) ensureDescriptionEditor(tk *tikipkg.Tiki) tvie
 		return w
 	}
 	textArea := tview.NewTextArea()
-	textArea.SetText(tk.Body, false)
+	textArea.SetText(tk.Body(), false)
 	// Match the read-only markdown viewer's framing: no border, equivalent
 	// padding so the cursor lines up with the rendered prose. The metadata
 	// box above already provides a visual seam between the two sections.
@@ -369,7 +369,7 @@ func (cv *ConfigurableDetailView) buildMetadataBox(tk *tikipkg.Tiki, roles *them
 
 	frame := tview.NewFrame(container).SetBorders(0, 0, 0, 0, 0, 0)
 	frame.SetBorder(true).SetTitle(
-		fmt.Sprintf(" %s ", renderTikiIDGradient(tk.ID, roles)),
+		fmt.Sprintf(" %s ", renderTikiIDGradient(tk.ID(), roles)),
 	).SetBorderColor(roles.BorderIdle().TCell())
 	frame.SetBorderPadding(1, 0, 2, 2)
 	return frame
@@ -422,9 +422,9 @@ func buildCompositeText(a gridlayout.Anchor, tk *tikipkg.Tiki, ctx FieldRenderCo
 			segCtx.Display = seg.Display
 			switch {
 			case seg.Name == "title":
-				content = expandFieldText(tk.Title, ctx.Roles)
+				content = expandFieldText(tk.Title(), ctx.Roles)
 			case seg.Name == "id":
-				content = renderTikiIDGradient(tk.ID, ctx.Roles)
+				content = renderTikiIDGradient(tk.ID(), ctx.Roles)
 			default:
 				if wfd, ok := workflow.Field(seg.Name); ok {
 					content = genericFieldValueString(wfd, tk, segCtx)
@@ -620,7 +620,7 @@ func (cv *ConfigurableDetailView) ensureEditor(name string, tk *tikipkg.Tiki, ct
 // the legacy TikiDetailView's description path so wikilink rewriting and
 // image resolution stay identical.
 func (cv *ConfigurableDetailView) buildDescription(tk *tikipkg.Tiki) tview.Primitive {
-	desc := defaultString(tk.Body, "(No description)")
+	desc := defaultString(tk.Body(), "(No description)")
 	tikiSourcePath := tikiSourcePathFor(tk)
 
 	searchRoots := []string{config.GetDocDir()}

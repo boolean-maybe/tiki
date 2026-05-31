@@ -88,7 +88,7 @@ func TestRefresh_ExternalModification(t *testing.T) {
 
 	// Verify tiki exists in store
 	tiki := ta.TikiStore.GetTiki(tikiID)
-	if tiki == nil || tiki.Title != "Original Title" {
+	if tiki == nil || tiki.Title() != "Original Title" {
 		t.Fatalf("tiki should exist with original title")
 	}
 
@@ -106,8 +106,8 @@ func TestRefresh_ExternalModification(t *testing.T) {
 		t.Fatalf("tiki should still exist after refresh")
 		return
 	}
-	if tikiAfter.Title != "Modified Title" {
-		t.Errorf("tiki title in store = %q, want %q", tikiAfter.Title, "Modified Title")
+	if tikiAfter.Title() != "Modified Title" {
+		t.Errorf("tiki title in store = %q, want %q", tikiAfter.Title(), "Modified Title")
 	}
 
 	// Note: The UI may not immediately reflect the change due to view caching,

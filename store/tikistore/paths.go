@@ -18,7 +18,7 @@ func (s *TikiStore) PathForID(id string) string {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 	if tk, ok := s.tikis[normalized]; ok {
-		return tk.Path
+		return tk.Path()
 	}
 	return ""
 }
@@ -42,7 +42,7 @@ func (s *TikiStore) IDForPath(path string) string {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 	for id, tk := range s.tikis {
-		if tk.Path == path {
+		if tk.Path() == path {
 			return id
 		}
 	}
@@ -57,8 +57,8 @@ func (s *TikiStore) AllPaths() []string {
 	defer s.mu.RUnlock()
 	out := make([]string, 0, len(s.tikis))
 	for _, tk := range s.tikis {
-		if tk.Path != "" {
-			out = append(out, tk.Path)
+		if tk.Path() != "" {
+			out = append(out, tk.Path())
 		}
 	}
 	sort.Strings(out)

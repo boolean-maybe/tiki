@@ -16,7 +16,7 @@ func newTestExecutor() *ruki.Executor {
 
 func newWFTiki(id, status string, tags []string) *tikipkg.Tiki {
 	tk := tikipkg.New()
-	tk.ID = id
+	tk.SetID(id)
 	if status != "" {
 		tk.Set(tikipkg.FieldStatus, status)
 	}
@@ -79,7 +79,7 @@ lanes:
 	// tiki with "ui"+"design" and tiki with "ux" should match; "backend"+"api" should not
 	ids := map[string]bool{}
 	for _, tk := range filtered {
-		ids[tk.ID] = true
+		ids[tk.ID()] = true
 	}
 	if !ids["T00001"] {
 		t.Error("expected T00001 (ui, design tags) to match")
@@ -131,8 +131,8 @@ lanes:
 	if len(filtered) != 1 {
 		t.Fatalf("expected 1 matching tiki, got %d", len(filtered))
 	}
-	if filtered[0].ID != "T00001" {
-		t.Errorf("expected T00001, got %s", filtered[0].ID)
+	if filtered[0].ID() != "T00001" {
+		t.Errorf("expected T00001, got %s", filtered[0].ID())
 	}
 }
 

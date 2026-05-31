@@ -15,7 +15,7 @@ import (
 // newRunnerTiki builds a minimal tiki for runner test fixtures. priority
 // is the canonical enum key (e.g. "high"); pass "" to omit the field.
 func newRunnerTiki(id, title, status, priority, assignee string) *tikipkg.Tiki {
-	tk := &tikipkg.Tiki{ID: id, Title: title}
+	tk := func() *tikipkg.Tiki { t := tikipkg.New(); t.SetID(id); t.SetTitle(title); return t }()
 	if status != "" {
 		tk.Set(tikipkg.FieldStatus, status)
 	}
@@ -218,8 +218,8 @@ func TestRunQueryUpdatePersists(t *testing.T) {
 		t.Fatal("tiki not found after update")
 		return
 	}
-	if updated.Title != "Updated API" {
-		t.Errorf("expected title 'Updated API', got %q", updated.Title)
+	if updated.Title() != "Updated API" {
+		t.Errorf("expected title 'Updated API', got %q", updated.Title())
 	}
 }
 
@@ -256,7 +256,7 @@ func TestRunQueryUpdateZeroMatches(t *testing.T) {
 func TestRunQueryUpdateListArithmeticE2E(t *testing.T) {
 	s := setupRunnerTest(t)
 	// set up a tiki with tags
-	tk := &tikipkg.Tiki{ID: "TIKI-TAG001", Title: "Tagged"}
+	tk := func() *tikipkg.Tiki { t := tikipkg.New(); t.SetID("TIKI-TAG001"); t.SetTitle("Tagged"); return t }()
 	tk.Set(tikipkg.FieldStatus, "ready")
 	tk.Set(tikipkg.FieldTags, []string{"old"})
 	_ = s.CreateTiki(tk)
@@ -306,8 +306,8 @@ type failingUpdateStore struct {
 }
 
 func (f *failingUpdateStore) UpdateTiki(tk *tikipkg.Tiki) error {
-	if tk.ID == f.failID {
-		return fmt.Errorf("simulated update failure for %s", tk.ID)
+	if tk.ID() == f.failID {
+		return fmt.Errorf("simulated update failure for %s", tk.ID())
 	}
 	return f.Store.UpdateTiki(tk)
 }
@@ -390,7 +390,7 @@ func TestRunQueryCreatePersists(t *testing.T) {
 	allTikis := s.GetAllTikis()
 	var found *tikipkg.Tiki
 	for _, tk := range allTikis {
-		if tk.Title == "New Tiki" {
+		if tk.Title() == "New Tiki" {
 			found = tk
 			break
 		}
@@ -400,8 +400,8 @@ func TestRunQueryCreatePersists(t *testing.T) {
 		return
 	}
 	// Post-Phase-1: IDs are bare uppercase, 6 chars.
-	if len(found.ID) != 6 {
-		t.Errorf("ID = %q, want 6-character bare ID", found.ID)
+	if len(found.ID()) != 6 {
+		t.Errorf("ID = %q, want 6-character bare ID", found.ID())
 	}
 	priority, _, _ := found.StringField(tikipkg.FieldPriority)
 	if priority != "high" {
@@ -438,7 +438,7 @@ func TestRunQueryCreateTemplateDefaults(t *testing.T) {
 	allTikis := s.GetAllTikis()
 	var found *tikipkg.Tiki
 	for _, tk := range allTikis {
-		if tk.Title == "Templated" {
+		if tk.Title() == "Templated" {
 			found = tk
 			break
 		}

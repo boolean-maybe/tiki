@@ -26,7 +26,7 @@ func newGateWithStore() (*TikiMutationGate, store.Store) {
 }
 
 func newWorkflowTiki(id, title string) *tikipkg.Tiki {
-	tk := &tikipkg.Tiki{ID: id, Title: title}
+	tk := func() *tikipkg.Tiki { t := tikipkg.New(); t.SetID(id); t.SetTitle(title); return t }()
 	tk.Set(tikipkg.FieldStatus, "inbox")
 	tk.Set(tikipkg.FieldType, "story")
 	tk.Set(tikipkg.FieldPriority, "medium")
@@ -47,10 +47,10 @@ func TestCreateTiki_Success(t *testing.T) {
 		return
 	}
 
-	if tk.CreatedAt.IsZero() {
+	if tk.CreatedAt().IsZero() {
 		t.Error("CreatedAt not set")
 	}
-	if tk.UpdatedAt.IsZero() {
+	if tk.UpdatedAt().IsZero() {
 		t.Error("UpdatedAt not set")
 	}
 }
@@ -64,12 +64,12 @@ func TestCreateTiki_DoesNotOverwriteCreatedAt(t *testing.T) {
 
 	spy := &spyStore{
 		Store:    store.NewInMemoryStore(),
-		onCreate: func(tk *tikipkg.Tiki) { passedCreatedAt = tk.CreatedAt },
+		onCreate: func(tk *tikipkg.Tiki) { passedCreatedAt = tk.CreatedAt() },
 	}
 	gate.SetStore(spy)
 
 	tk := newWorkflowTiki("ABC123", "test")
-	tk.CreatedAt = past
+	tk.SetCreatedAt(past)
 
 	if err := gate.CreateTiki(context.Background(), tk); err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -125,16 +125,16 @@ func TestUpdateTiki_Success(t *testing.T) {
 	tk := newWorkflowTiki("ABC123", "original")
 	_ = s.CreateTiki(tk)
 
-	tk.Title = "updated"
+	tk.SetTitle("updated")
 	if err := gate.UpdateTiki(context.Background(), tk); err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
 	stored := s.GetTiki("ABC123")
-	if stored.Title != "updated" {
-		t.Errorf("title not updated: got %q", stored.Title)
+	if stored.Title() != "updated" {
+		t.Errorf("title not updated: got %q", stored.Title())
 	}
-	if tk.UpdatedAt.IsZero() {
+	if tk.UpdatedAt().IsZero() {
 		t.Error("UpdatedAt not set")
 	}
 }
@@ -142,7 +142,7 @@ func TestUpdateTiki_Success(t *testing.T) {
 func TestUpdateTiki_RejectedByValidator(t *testing.T) {
 	gate, s := newGateWithStore()
 	gate.OnUpdate(func(_, new *tikipkg.Tiki, _ []*tikipkg.Tiki) *Rejection {
-		if new.Title == "bad" {
+		if new.Title() == "bad" {
 			return &Rejection{Reason: "title cannot be 'bad'"}
 		}
 		return nil
@@ -152,15 +152,15 @@ func TestUpdateTiki_RejectedByValidator(t *testing.T) {
 	_ = s.CreateTiki(original)
 
 	modified := original.Clone()
-	modified.Title = "bad"
+	modified.SetTitle("bad")
 	err := gate.UpdateTiki(context.Background(), modified)
 	if err == nil {
 		t.Fatal("expected rejection")
 	}
 
 	stored := s.GetTiki("ABC123")
-	if stored.Title != "good" {
-		t.Errorf("tiki should not have been updated: got %q", stored.Title)
+	if stored.Title() != "good" {
+		t.Errorf("tiki should not have been updated: got %q", stored.Title())
 	}
 }
 
@@ -297,7 +297,7 @@ func TestFieldValidators_AcceptPlainDocument(t *testing.T) {
 	gate, s := newGateWithStore()
 	RegisterFieldValidators(gate)
 
-	plain := &tikipkg.Tiki{ID: "PLAIN1", Title: "a note"}
+	plain := func() *tikipkg.Tiki { t := tikipkg.New(); t.SetID("PLAIN1"); t.SetTitle("a note"); return t }()
 
 	if err := gate.CreateTiki(context.Background(), plain); err != nil {
 		t.Fatalf("plain-doc create rejected by gate: %v", err)
@@ -315,7 +315,7 @@ func TestFieldValidators_RequireTitleEvenForPlainDocs(t *testing.T) {
 	gate, _ := newGateWithStore()
 	RegisterFieldValidators(gate)
 
-	missingTitle := &tikipkg.Tiki{ID: "PLAIN2"}
+	missingTitle := func() *tikipkg.Tiki { t := tikipkg.New(); t.SetID("PLAIN2"); return t }()
 
 	if err := gate.CreateTiki(context.Background(), missingTitle); err == nil {
 		t.Fatal("gate accepted plain doc with empty title; document-level validators should still run")
@@ -348,7 +348,12 @@ func TestFieldValidators_AcceptSparseWorkflowCreate(t *testing.T) {
 	gate, s := newGateWithStore()
 	RegisterFieldValidators(gate)
 
-	sparse := &tikipkg.Tiki{ID: "SPARS1", Title: "sparse workflow item"}
+	sparse := func() *tikipkg.Tiki {
+		t := tikipkg.New()
+		t.SetID("SPARS1")
+		t.SetTitle("sparse workflow item")
+		return t
+	}()
 	sparse.Set(tikipkg.FieldPriority, "high")
 
 	if err := gate.CreateTiki(context.Background(), sparse); err != nil {
@@ -396,7 +401,7 @@ func TestCreateValidatorDoesNotAffectUpdate(t *testing.T) {
 	tk := newWorkflowTiki("ABC123", "test")
 	_ = s.CreateTiki(tk)
 
-	tk.Title = "updated"
+	tk.SetTitle("updated")
 	if err := gate.UpdateTiki(context.Background(), tk); err != nil {
 		t.Fatalf("update should not be affected by create validator: %v", err)
 	}
@@ -408,7 +413,7 @@ func TestBuildGate(t *testing.T) {
 	gate.SetStore(s)
 
 	// BuildGate registers field validators, so an invalid tiki should be rejected
-	tk := &tikipkg.Tiki{ID: "ABC123"} // empty title → invalid
+	tk := func() *tikipkg.Tiki { t := tikipkg.New(); t.SetID("ABC123"); return t }() // empty title → invalid
 	tk.Set(tikipkg.FieldStatus, "inbox")
 	tk.Set(tikipkg.FieldType, "story")
 	tk.Set(tikipkg.FieldPriority, "medium")
@@ -417,7 +422,7 @@ func TestBuildGate(t *testing.T) {
 	}
 
 	// a valid tiki should succeed
-	tk.Title = "valid"
+	tk.SetTitle("valid")
 	if err := gate.CreateTiki(context.Background(), tk); err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -437,15 +442,15 @@ func TestAfterHook_CalledWithCorrectOldNew(t *testing.T) {
 	})
 
 	updated := tk.Clone()
-	updated.Title = "changed"
+	updated.SetTitle("changed")
 	if err := gate.UpdateTiki(context.Background(), updated); err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	if hookOld == nil || hookOld.Title != "original" {
+	if hookOld == nil || hookOld.Title() != "original" {
 		t.Errorf("after-hook old should have original title, got %v", hookOld)
 	}
-	if hookNew == nil || hookNew.Title != "changed" {
+	if hookNew == nil || hookNew.Title() != "changed" {
 		t.Errorf("after-hook new should have changed title, got %v", hookNew)
 	}
 }
@@ -461,7 +466,7 @@ func TestAfterHook_ErrorSwallowed(t *testing.T) {
 	})
 
 	updated := tk.Clone()
-	updated.Title = "new title"
+	updated.SetTitle("new title")
 	// error from after-hook should not propagate
 	if err := gate.UpdateTiki(context.Background(), updated); err != nil {
 		t.Fatalf("after-hook error should not propagate: %v", err)
@@ -469,8 +474,8 @@ func TestAfterHook_ErrorSwallowed(t *testing.T) {
 
 	// tiki should still be persisted
 	stored := s.GetTiki("ABC123")
-	if stored.Title != "new title" {
-		t.Errorf("tiki should have been updated despite hook error, got %q", stored.Title)
+	if stored.Title() != "new title" {
+		t.Errorf("tiki should have been updated despite hook error, got %q", stored.Title())
 	}
 }
 
@@ -483,14 +488,14 @@ func TestAfterHook_CreateAndDelete(t *testing.T) {
 		if old != nil {
 			t.Error("create after-hook: old should be nil")
 		}
-		if new == nil || new.Title != "new tiki" {
+		if new == nil || new.Title() != "new tiki" {
 			t.Error("create after-hook: new should have title")
 		}
 		return nil
 	})
 	gate.OnAfterDelete(func(_ context.Context, old, new *tikipkg.Tiki) error {
 		deleteCalled = true
-		if old == nil || old.Title != "new tiki" {
+		if old == nil || old.Title() != "new tiki" {
 			t.Error("delete after-hook: old should have title")
 		}
 		if new != nil {
@@ -531,7 +536,7 @@ func TestAfterHook_Ordering(t *testing.T) {
 
 	gate.OnAfterUpdate(func(ctx context.Context, _, new *tikipkg.Tiki) error {
 		// only fire for the original trigger, not for the cascaded mutation
-		if new.ID != "ABC123" {
+		if new.ID() != "ABC123" {
 			return nil
 		}
 		sec := s.GetTiki("BBB222")
@@ -539,7 +544,7 @@ func TestAfterHook_Ordering(t *testing.T) {
 			return nil
 		}
 		upd := sec.Clone()
-		upd.Title = "modified by hook A"
+		upd.SetTitle("modified by hook A")
 		return gate.UpdateTiki(ctx, upd)
 	})
 
@@ -547,14 +552,14 @@ func TestAfterHook_Ordering(t *testing.T) {
 	var hookBSawMutation bool
 	gate.OnAfterUpdate(func(_ context.Context, _, _ *tikipkg.Tiki) error {
 		sec := s.GetTiki("BBB222")
-		if sec != nil && sec.Title == "modified by hook A" {
+		if sec != nil && sec.Title() == "modified by hook A" {
 			hookBSawMutation = true
 		}
 		return nil
 	})
 
 	updated := tk.Clone()
-	updated.Title = "trigger"
+	updated.SetTitle("trigger")
 	if err := gate.UpdateTiki(context.Background(), updated); err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -615,7 +620,7 @@ func TestUpdateTiki_StoreError(t *testing.T) {
 	_ = fs.CreateTiki(tk)
 
 	updated := tk.Clone()
-	updated.Title = "updated"
+	updated.SetTitle("updated")
 	err := gate.UpdateTiki(context.Background(), updated)
 	if err == nil {
 		t.Fatal("expected store error")
@@ -638,7 +643,7 @@ type failingUpdateStore struct {
 }
 
 func (f *failingUpdateStore) UpdateTiki(tk *tikipkg.Tiki) error {
-	if tk.ID == f.failID {
+	if tk.ID() == f.failID {
 		return fmt.Errorf("simulated update failure")
 	}
 	return f.Store.UpdateTiki(tk)
@@ -669,7 +674,7 @@ func TestDeleteTiki_AlreadyDeleted(t *testing.T) {
 	gate.SetStore(s)
 
 	// delete a tiki that doesn't exist in store — should return nil gracefully
-	phantom := &tikipkg.Tiki{ID: "GONE01", Title: "gone"}
+	phantom := func() *tikipkg.Tiki { t := tikipkg.New(); t.SetID("GONE01"); t.SetTitle("gone"); return t }()
 	err := gate.DeleteTiki(context.Background(), phantom)
 	if err != nil {
 		t.Fatalf("expected nil for already-deleted tiki, got: %v", err)
@@ -681,7 +686,7 @@ func TestUpdateTiki_TikiNotFound(t *testing.T) {
 	s := store.NewInMemoryStore()
 	gate.SetStore(s)
 
-	missing := &tikipkg.Tiki{ID: "MISS01", Title: "missing"}
+	missing := func() *tikipkg.Tiki { t := tikipkg.New(); t.SetID("MISS01"); t.SetTitle("missing"); return t }()
 	err := gate.UpdateTiki(context.Background(), missing)
 	if err == nil {
 		t.Fatal("expected error for missing tiki")

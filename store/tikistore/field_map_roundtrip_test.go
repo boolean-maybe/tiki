@@ -24,18 +24,18 @@ func TestFieldMapRoundTrip_ExactPresenceAcrossSaveLoad(t *testing.T) {
 
 	// Seed the dependency target first so dependsOn validation succeeds.
 	dep := tikipkg.New()
-	dep.ID = "DEP001"
-	dep.Title = "dependency target"
+	dep.SetID("DEP001")
+	dep.SetTitle("dependency target")
 	if err := s.CreateTiki(dep); err != nil {
 		t.Fatalf("CreateTiki dep: %v", err)
 	}
 
 	tk := tikipkg.New()
-	tk.ID = "RT0001"
-	tk.Title = "round trip"
+	tk.SetID("RT0001")
+	tk.SetTitle("round trip")
 	// Body is stored without a trailing newline; the persistence layer
 	// adds one on write and parsing strips it on load.
-	tk.Body = "body content"
+	tk.SetBody("body content")
 	tk.Set(tikipkg.FieldStatus, "inbox")
 	tk.Set(tikipkg.FieldPriority, "medium-high")
 	tk.Set(tikipkg.FieldDependsOn, []string{"DEP001"})
@@ -56,14 +56,14 @@ func TestFieldMapRoundTrip_ExactPresenceAcrossSaveLoad(t *testing.T) {
 	}
 
 	// Identity fields preserved.
-	if got.ID != "RT0001" {
-		t.Errorf("ID drift: %q", got.ID)
+	if got.ID() != "RT0001" {
+		t.Errorf("ID drift: %q", got.ID())
 	}
-	if got.Title != "round trip" {
-		t.Errorf("Title drift: %q", got.Title)
+	if got.Title() != "round trip" {
+		t.Errorf("Title drift: %q", got.Title())
 	}
-	if got.Body != "body content" {
-		t.Errorf("Body drift: %q", got.Body)
+	if got.Body() != "body content" {
+		t.Errorf("Body drift: %q", got.Body())
 	}
 
 	// Field presence set is byte-identical to what the caller wrote — plus
@@ -148,7 +148,7 @@ func TestFieldMapRoundTrip_UnknownFieldsRoundTripVerbatim(t *testing.T) {
 
 	// Save and reload — unknowns survive.
 	updated := loaded.Clone()
-	updated.Title = "edited"
+	updated.SetTitle("edited")
 	if err := s.UpdateTiki(updated); err != nil {
 		t.Fatalf("UpdateTiki: %v", err)
 	}

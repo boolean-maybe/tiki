@@ -9,13 +9,13 @@ import (
 func TestWrapTikiFieldValidator_DeleteCase(t *testing.T) {
 	// when new is nil (delete), the validator should inspect old
 	validator := wrapTikiFieldValidator(func(tk *tikipkg.Tiki) string {
-		if tk.Title == "" {
+		if tk.Title() == "" {
 			return "title required"
 		}
 		return ""
 	})
 
-	old := &tikipkg.Tiki{ID: "DEL001", Title: "has title"}
+	old := func() *tikipkg.Tiki { t := tikipkg.New(); t.SetID("DEL001"); t.SetTitle("has title"); return t }()
 	// new is nil → delete case, validator should use old
 	rejection := validator(old, nil, nil)
 	if rejection != nil {
@@ -23,7 +23,7 @@ func TestWrapTikiFieldValidator_DeleteCase(t *testing.T) {
 	}
 
 	// old with empty title → validator should reject
-	badOld := &tikipkg.Tiki{ID: "DEL002"}
+	badOld := func() *tikipkg.Tiki { t := tikipkg.New(); t.SetID("DEL002"); return t }()
 	rejection = validator(badOld, nil, nil)
 	if rejection == nil {
 		t.Fatal("expected rejection for old tiki with empty title")

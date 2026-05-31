@@ -74,8 +74,8 @@ func TestTikiDetailView_ChatModifiesTiki(t *testing.T) {
 		t.Fatal("tiki not found after chat")
 		return
 	}
-	if updated.Title != "AI Modified Title" {
-		t.Errorf("title = %q, want %q", updated.Title, "AI Modified Title")
+	if updated.Title() != "AI Modified Title" {
+		t.Errorf("title = %q, want %q", updated.Title(), "AI Modified Title")
 	}
 }
 
@@ -126,7 +126,7 @@ func TestTikiDetailView_ChatNotAvailableWithoutConfig(t *testing.T) {
 		t.Fatal("tiki not found")
 		return
 	}
-	if unchanged.Title != "Unchanged Title" {
-		t.Errorf("title = %q, want %q", unchanged.Title, "Unchanged Title")
+	if unchanged.Title() != "Unchanged Title" {
+		t.Errorf("title = %q, want %q", unchanged.Title(), "Unchanged Title")
 	}
 }

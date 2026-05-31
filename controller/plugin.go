@@ -243,7 +243,7 @@ func (pc *PluginController) executeAndApply(pa *plugin.PluginAction, input ruki.
 	case result.Update != nil:
 		for _, tk := range result.Update.Updated {
 			if err := pc.mutationGate.UpdateTiki(ctx, tk); err != nil {
-				slog.Error("failed to update tiki after plugin action", "tiki_id", tk.ID, "key", pa.KeyStr, "error", err)
+				slog.Error("failed to update tiki after plugin action", "tiki_id", tk.ID(), "key", pa.KeyStr, "error", err)
 				if pc.statusline != nil {
 					pc.statusline.SetMessage(err.Error(), model.MessageLevelError, true)
 				}
@@ -262,7 +262,7 @@ func (pc *PluginController) executeAndApply(pa *plugin.PluginAction, input ruki.
 	case result.Delete != nil:
 		for _, tk := range result.Delete.Deleted {
 			if err := pc.mutationGate.DeleteTiki(ctx, tk); err != nil {
-				slog.Error("failed to delete tiki from plugin action", "tiki_id", tk.ID, "key", pa.KeyStr, "error", err)
+				slog.Error("failed to delete tiki from plugin action", "tiki_id", tk.ID(), "key", pa.KeyStr, "error", err)
 				if pc.statusline != nil {
 					pc.statusline.SetMessage(err.Error(), model.MessageLevelError, true)
 				}
@@ -601,7 +601,7 @@ func (pc *PluginController) GetFilteredTikisForLane(lane int) []*tikipkg.Tiki {
 	if searchResults := pc.pluginConfig.GetSearchResults(); searchResults != nil {
 		searchTikiMap := make(map[string]bool, len(searchResults))
 		for _, tk := range searchResults {
-			searchTikiMap[tk.ID] = true
+			searchTikiMap[tk.ID()] = true
 		}
 		filtered = filterTikisBySearch(filtered, searchTikiMap)
 		// search narrowing disrupts order; re-sort
@@ -623,7 +623,7 @@ func (pc *PluginController) ensureSearchResultIncludesTiki(updated *tikipkg.Tiki
 		return
 	}
 	for _, tk := range searchResults {
-		if tk != nil && tk.ID == updated.ID {
+		if tk != nil && tk.ID() == updated.ID() {
 			return
 		}
 	}

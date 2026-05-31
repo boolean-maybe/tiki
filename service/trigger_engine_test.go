@@ -57,7 +57,7 @@ func parseTriggerEntry(t *testing.T, desc, input string) triggerEntry {
 // translated to the canonical key via priorityRankToKey for callsite
 // compatibility, since most existing callers passed ranks (1=high, ..., 5=low).
 func newTiki(id, title, status, typ string, priorityRank int) *tikipkg.Tiki {
-	tk := &tikipkg.Tiki{ID: id, Title: title}
+	tk := func() *tikipkg.Tiki { t := tikipkg.New(); t.SetID(id); t.SetTitle(title); return t }()
 	if status != "" {
 		tk.Set(tikipkg.FieldStatus, status)
 	}
@@ -318,7 +318,7 @@ func TestTriggerEngine_AfterCascadePartialFailureSurfaced(t *testing.T) {
 	// register a validator that blocks updates to PEER02 specifically
 	gate.OnUpdate(func(old, new *tikipkg.Tiki, allTikis []*tikipkg.Tiki) *Rejection {
 		p, _, _ := new.StringField(tikipkg.FieldPriority)
-		if new.ID == "PEER02" && p == "high" {
+		if new.ID() == "PEER02" && p == "high" {
 			return &Rejection{Reason: "peer2 blocked"}
 		}
 		return nil
@@ -485,7 +485,7 @@ func TestTriggerEngine_AfterUpdateCreateWithNextDate(t *testing.T) {
 
 	var created *tikipkg.Tiki
 	for _, at := range allTikis {
-		if at.ID != "REC001" {
+		if at.ID() != "REC001" {
 			created = at
 			break
 		}
@@ -494,8 +494,8 @@ func TestTriggerEngine_AfterUpdateCreateWithNextDate(t *testing.T) {
 		t.Fatal("trigger-created tiki not found")
 		return
 	}
-	if created.Title != "Daily standup" {
-		t.Fatalf("expected title 'Daily standup', got %q", created.Title)
+	if created.Title() != "Daily standup" {
+		t.Fatalf("expected title 'Daily standup', got %q", created.Title())
 	}
 	dueVal, ok, _ := created.TimeField(tikipkg.FieldDue)
 	if !ok || dueVal.IsZero() {
@@ -570,7 +570,7 @@ func TestTriggerEngine_AfterDeleteCascadeCreate(t *testing.T) {
 	}
 	found := false
 	for _, at := range allTikis {
-		if strings.Contains(at.Title, "archived: delete me") {
+		if strings.Contains(at.Title(), "archived: delete me") {
 			found = true
 			status, _, _ := at.StringField(tikipkg.FieldStatus)
 			if status != "done" {
@@ -729,8 +729,8 @@ func TestTriggerEngine_AfterGuardEvalError(t *testing.T) {
 	}
 
 	persisted := s.GetTiki("ERR001")
-	if persisted.Title != "test" {
-		t.Errorf("title should remain unchanged, got %q", persisted.Title)
+	if persisted.Title() != "test" {
+		t.Errorf("title should remain unchanged, got %q", persisted.Title())
 	}
 }
 
@@ -756,8 +756,8 @@ func TestTriggerEngine_ExecActionError(t *testing.T) {
 	if status != "inProgress" {
 		t.Errorf("expected status inProgress, got %q", status)
 	}
-	if persisted.Title != "test" {
-		t.Errorf("title should remain unchanged since action failed, got %q", persisted.Title)
+	if persisted.Title() != "test" {
+		t.Errorf("title should remain unchanged since action failed, got %q", persisted.Title())
 	}
 }
 
@@ -941,7 +941,7 @@ func TestTriggerEngine_PersistCreateGateError(t *testing.T) {
 	gate, _ := newGateWithStoreAndTikis(tk)
 
 	gate.OnCreate(func(old, new *tikipkg.Tiki, allTikis []*tikipkg.Tiki) *Rejection {
-		if new.Title == "valid title" {
+		if new.Title() == "valid title" {
 			return &Rejection{Reason: "no trigger creates allowed"}
 		}
 		return nil

@@ -290,7 +290,7 @@ func (pb *pluginBase) getSelectedTikiID(filteredTikis func(int) []*tikipkg.Tiki)
 	if idx < 0 || idx >= len(tikis) {
 		return ""
 	}
-	return tikis[idx].ID
+	return tikis[idx].ID()
 }
 
 // getSelectedTikiIDs returns all currently selected tiki IDs. Today the UI
@@ -312,7 +312,7 @@ func (pb *pluginBase) selectTikiInLane(lane int, tikiID string, filteredTikis fu
 	tikis := filteredTikis(lane)
 	targetIndex := 0
 	for i, t := range tikis {
-		if t.ID == tikiID {
+		if t.ID() == tikiID {
 			targetIndex = i
 			break
 		}
@@ -393,7 +393,7 @@ func filterTikisBySearch(tikis []*tikipkg.Tiki, searchMap map[string]bool) []*ti
 	}
 	filtered := make([]*tikipkg.Tiki, 0, len(tikis))
 	for _, tk := range tikis {
-		if searchMap[tk.ID] {
+		if searchMap[tk.ID()] {
 			filtered = append(filtered, tk)
 		}
 	}
@@ -410,8 +410,8 @@ func sortTikisByPriorityTitle(tikis []*tikipkg.Tiki) {
 		for j := i; j > 0; j-- {
 			pi := tikiPriorityForSort(tikis[j])
 			pj := tikiPriorityForSort(tikis[j-1])
-			ti, tj := strings.ToLower(tikis[j].Title), strings.ToLower(tikis[j-1].Title)
-			if pi < pj || (pi == pj && ti < tj) || (pi == pj && ti == tj && tikis[j].ID < tikis[j-1].ID) {
+			ti, tj := strings.ToLower(tikis[j].Title()), strings.ToLower(tikis[j-1].Title())
+			if pi < pj || (pi == pj && ti < tj) || (pi == pj && ti == tj && tikis[j].ID() < tikis[j-1].ID()) {
 				tikis[j], tikis[j-1] = tikis[j-1], tikis[j]
 			} else {
 				break

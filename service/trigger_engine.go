@@ -163,7 +163,7 @@ func candidateTikis(base []*tikipkg.Tiki, old, newTiki *tikipkg.Tiki) []*tikipkg
 		out := make([]*tikipkg.Tiki, len(base))
 		copy(out, base)
 		for i, tk := range out {
-			if tk.ID == newTiki.ID {
+			if tk.ID() == newTiki.ID() {
 				out[i] = newTiki
 				return out
 			}
@@ -237,7 +237,7 @@ func (te *TriggerEngine) persistResult(ctx context.Context, result *ruki.Result)
 	case result.Update != nil:
 		for _, tk := range result.Update.Updated {
 			if err := te.gate.UpdateTiki(ctx, tk); err != nil {
-				errs = append(errs, fmt.Errorf("update %s: %w", tk.ID, err))
+				errs = append(errs, fmt.Errorf("update %s: %w", tk.ID(), err))
 			}
 		}
 	case result.Create != nil:
@@ -247,7 +247,7 @@ func (te *TriggerEngine) persistResult(ctx context.Context, result *ruki.Result)
 	case result.Delete != nil:
 		for _, tk := range result.Delete.Deleted {
 			if err := te.gate.DeleteTiki(ctx, tk); err != nil {
-				errs = append(errs, fmt.Errorf("delete %s: %w", tk.ID, err))
+				errs = append(errs, fmt.Errorf("delete %s: %w", tk.ID(), err))
 			}
 		}
 	}

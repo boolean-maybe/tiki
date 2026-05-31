@@ -67,11 +67,11 @@ func loadTikiFromBytes(path string, content []byte) (*parsedTiki, error) {
 	}
 
 	t := tiki.New()
-	t.ID = id
-	t.Title = title
-	t.Body = strings.TrimSpace(body)
+	t.SetID(id)
+	t.SetTitle(title)
+	t.SetBody(strings.TrimSpace(body))
 	t.Fields = fields
-	t.Path = path
+	t.SetPath(path)
 
 	return &parsedTiki{t: t, raw: fmMap, stale: stale}, nil
 }
@@ -151,15 +151,15 @@ func marshalTikiFrontmatter(t *tiki.Tiki) ([]byte, error) {
 
 	var buf strings.Builder
 
-	if t.ID != "" {
-		out, err := yaml.Marshal(map[string]interface{}{"id": t.ID})
+	if t.ID() != "" {
+		out, err := yaml.Marshal(map[string]interface{}{"id": t.ID()})
 		if err != nil {
 			return nil, err
 		}
 		buf.Write(out)
 	}
-	if t.Title != "" {
-		out, err := yaml.Marshal(map[string]interface{}{"title": t.Title})
+	if t.Title() != "" {
+		out, err := yaml.Marshal(map[string]interface{}{"title": t.Title()})
 		if err != nil {
 			return nil, err
 		}

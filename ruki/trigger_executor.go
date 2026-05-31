@@ -742,7 +742,7 @@ func resolveRefTikis(refs []interface{}, allTikis []*tiki.Tiki) []*tiki.Tiki {
 	for _, ref := range refs {
 		refID := normalizeToString(ref)
 		for _, at := range allTikis {
-			if equalFoldID(at.ID, refID) {
+			if equalFoldID(at.ID(), refID) {
 				result = append(result, at)
 				break
 			}
@@ -782,7 +782,7 @@ func blocksLookup(val interface{}, allTikis []*tiki.Tiki) []interface{} {
 		}
 		for _, dep := range deps {
 			if equalFoldID(dep, targetID) {
-				blockers = append(blockers, at.ID)
+				blockers = append(blockers, at.ID())
 				break
 			}
 		}

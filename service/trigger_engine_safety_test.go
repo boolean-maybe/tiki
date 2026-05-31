@@ -24,15 +24,15 @@ func TestTriggerEngine_ValidatedOnlyBeforeEntryDenies(t *testing.T) {
 	engine := NewTriggerEngine([]triggerEntry{entry}, nil, ruki.NewTriggerExecutor(testTriggerSchema{}, nil))
 	engine.RegisterWithGate(gate)
 
-	err = gate.CreateTiki(context.Background(), &tikipkg.Tiki{
-		ID:    "VAL001",
-		Title: "should be blocked",
-		Fields: map[string]interface{}{
-			tikipkg.FieldStatus:   "ready",
-			tikipkg.FieldType:     "story",
-			tikipkg.FieldPriority: "medium",
-		},
-	})
+	blocked := tikipkg.New()
+	blocked.SetID("VAL001")
+	blocked.SetTitle("should be blocked")
+	blocked.Fields = map[string]interface{}{
+		tikipkg.FieldStatus:   "ready",
+		tikipkg.FieldType:     "story",
+		tikipkg.FieldPriority: "medium",
+	}
+	err = gate.CreateTiki(context.Background(), blocked)
 	if err == nil {
 		t.Fatal("expected create denial")
 	}
@@ -50,15 +50,15 @@ func TestTriggerEngine_EmptyEventEntryIsSkipped(t *testing.T) {
 		t.Fatal("expected empty event entry to be skipped")
 	}
 
-	err := gate.CreateTiki(context.Background(), &tikipkg.Tiki{
-		ID:    "EMP001",
-		Title: "allowed",
-		Fields: map[string]interface{}{
-			tikipkg.FieldStatus:   "ready",
-			tikipkg.FieldType:     "story",
-			tikipkg.FieldPriority: "medium",
-		},
-	})
+	allowed := tikipkg.New()
+	allowed.SetID("EMP001")
+	allowed.SetTitle("allowed")
+	allowed.Fields = map[string]interface{}{
+		tikipkg.FieldStatus:   "ready",
+		tikipkg.FieldType:     "story",
+		tikipkg.FieldPriority: "medium",
+	}
+	err := gate.CreateTiki(context.Background(), allowed)
 	if err != nil {
 		t.Fatalf("unexpected create error: %v", err)
 	}
@@ -86,8 +86,8 @@ func TestTriggerEngine_ValidatedOnlyTimeEntryExecutes(t *testing.T) {
 	if len(all) != 1 {
 		t.Fatalf("expected one created tiki, got %d", len(all))
 	}
-	if all[0].Title != "from validated time trigger" {
-		t.Fatalf("expected created title to match, got %q", all[0].Title)
+	if all[0].Title() != "from validated time trigger" {
+		t.Fatalf("expected created title to match, got %q", all[0].Title())
 	}
 }
 
