@@ -6,7 +6,7 @@ import (
 
 	"github.com/boolean-maybe/navidown/loaders"
 	nav "github.com/boolean-maybe/navidown/navidown"
-	"github.com/boolean-maybe/tiki/ruki/idfmt"
+	"github.com/boolean-maybe/ruki/idfmt"
 	"github.com/boolean-maybe/tiki/store"
 	tikipkg "github.com/boolean-maybe/tiki/tiki"
 )

@@ -4,7 +4,6 @@ go 1.25.0
 
 require (
 	github.com/alecthomas/chroma/v2 v2.14.0
-	github.com/alecthomas/participle/v2 v2.1.4
 	github.com/atotto/clipboard v0.1.4
 	github.com/boolean-maybe/navidown v0.4.19
 	github.com/charmbracelet/bubbles v0.21.1-0.20250623103423-23b8fd6302d7
@@ -22,12 +21,15 @@ require (
 	gopkg.in/yaml.v3 v3.0.1
 )
 
+require github.com/alecthomas/participle/v2 v2.1.4 // indirect
+
 require (
 	dario.cat/mergo v1.0.0 // indirect
 	github.com/Microsoft/go-winio v0.6.2 // indirect
 	github.com/ProtonMail/go-crypto v1.1.6 // indirect
 	github.com/aymanbagabas/go-osc52/v2 v2.0.1 // indirect
 	github.com/aymerick/douceur v0.2.0 // indirect
+	github.com/boolean-maybe/ruki v0.1.0
 	github.com/catppuccin/go v0.3.0 // indirect
 	github.com/charmbracelet/colorprofile v0.2.3-0.20250311203215-f60798e515dc // indirect
 	github.com/charmbracelet/x/ansi v0.10.1 // indirect

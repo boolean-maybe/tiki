@@ -3,7 +3,7 @@ package tiki
 import (
 	"testing"
 
-	"github.com/boolean-maybe/tiki/ruki"
+	"github.com/boolean-maybe/ruki"
 )
 
 func TestDoc_SatisfiesRukiDocument(t *testing.T) {

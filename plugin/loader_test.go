@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/boolean-maybe/tiki/ruki"
+	"github.com/boolean-maybe/ruki"
 )
 
 func TestParsePluginConfig_FullyInline(t *testing.T) {

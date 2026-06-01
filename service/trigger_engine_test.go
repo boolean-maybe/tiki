@@ -10,9 +10,9 @@ import (
 	"testing"
 	"time"
 
+	"github.com/boolean-maybe/ruki"
+	"github.com/boolean-maybe/ruki/recurrence"
 	"github.com/boolean-maybe/tiki/config"
-	"github.com/boolean-maybe/tiki/ruki"
-	"github.com/boolean-maybe/tiki/ruki/recurrence"
 	"github.com/boolean-maybe/tiki/store"
 	tikipkg "github.com/boolean-maybe/tiki/tiki"
 )

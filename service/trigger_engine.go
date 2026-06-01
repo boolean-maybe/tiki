@@ -7,9 +7,9 @@ import (
 	"log/slog"
 	"time"
 
+	"github.com/boolean-maybe/ruki"
+	"github.com/boolean-maybe/ruki/duration"
 	"github.com/boolean-maybe/tiki/config"
-	"github.com/boolean-maybe/tiki/ruki"
-	"github.com/boolean-maybe/tiki/ruki/duration"
 	tikipkg "github.com/boolean-maybe/tiki/tiki"
 )
 

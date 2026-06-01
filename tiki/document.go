@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/boolean-maybe/tiki/ruki"
+	"github.com/boolean-maybe/ruki"
 )
 
 // Doc adapts *Tiki to ruki.Document. The glue wraps tikis on the way into ruki

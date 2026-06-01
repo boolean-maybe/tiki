@@ -8,10 +8,10 @@ import (
 	"strconv"
 	"strings"
 
+	collectionutil "github.com/boolean-maybe/ruki/collections"
+	"github.com/boolean-maybe/ruki/recurrence"
 	"github.com/boolean-maybe/tiki/config"
 	"github.com/boolean-maybe/tiki/model"
-	collectionutil "github.com/boolean-maybe/tiki/ruki/collections"
-	"github.com/boolean-maybe/tiki/ruki/recurrence"
 	"github.com/boolean-maybe/tiki/service"
 	"github.com/boolean-maybe/tiki/store"
 	tikipkg "github.com/boolean-maybe/tiki/tiki"

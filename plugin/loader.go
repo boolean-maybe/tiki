@@ -6,8 +6,8 @@ import (
 	"os"
 	"strings"
 
+	"github.com/boolean-maybe/ruki"
 	"github.com/boolean-maybe/tiki/config"
-	"github.com/boolean-maybe/tiki/ruki"
 	"gopkg.in/yaml.v3"
 )
 

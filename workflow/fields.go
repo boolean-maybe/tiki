@@ -6,7 +6,7 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/boolean-maybe/tiki/ruki/keyword"
+	"github.com/boolean-maybe/ruki/keyword"
 )
 
 // ValueType identifies the semantic type of a document field.

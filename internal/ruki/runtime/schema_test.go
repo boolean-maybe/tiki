@@ -3,8 +3,8 @@ package runtime
 import (
 	"testing"
 
+	"github.com/boolean-maybe/ruki"
 	"github.com/boolean-maybe/tiki/config"
-	"github.com/boolean-maybe/tiki/ruki"
 	"github.com/boolean-maybe/tiki/workflow"
 )
 

@@ -7,7 +7,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/boolean-maybe/tiki/ruki/idfmt"
+	"github.com/boolean-maybe/ruki/idfmt"
 	gonanoid "github.com/matoous/go-nanoid/v2"
 )
 

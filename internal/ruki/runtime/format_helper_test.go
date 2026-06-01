@@ -3,7 +3,7 @@ package runtime
 import (
 	"time"
 
-	"github.com/boolean-maybe/tiki/ruki"
+	"github.com/boolean-maybe/ruki"
 	"github.com/boolean-maybe/tiki/tiki"
 )
 

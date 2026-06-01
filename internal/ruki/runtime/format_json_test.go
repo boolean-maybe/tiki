@@ -7,8 +7,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/boolean-maybe/ruki"
 	"github.com/boolean-maybe/tiki/internal/teststatuses"
-	"github.com/boolean-maybe/tiki/ruki"
 	"github.com/boolean-maybe/tiki/workflow"
 )
 

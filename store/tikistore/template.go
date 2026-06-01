@@ -5,8 +5,8 @@ import (
 	"log/slog"
 	"time"
 
+	collectionutil "github.com/boolean-maybe/ruki/collections"
 	"github.com/boolean-maybe/tiki/config"
-	collectionutil "github.com/boolean-maybe/tiki/ruki/collections"
 	tikipkg "github.com/boolean-maybe/tiki/tiki"
 	"github.com/boolean-maybe/tiki/workflow"
 )

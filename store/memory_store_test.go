@@ -6,8 +6,8 @@ import (
 	"testing"
 	"time"
 
+	collectionutil "github.com/boolean-maybe/ruki/collections"
 	"github.com/boolean-maybe/tiki/internal/teststatuses"
-	collectionutil "github.com/boolean-maybe/tiki/ruki/collections"
 	tikipkg "github.com/boolean-maybe/tiki/tiki"
 	"github.com/boolean-maybe/tiki/workflow"
 )

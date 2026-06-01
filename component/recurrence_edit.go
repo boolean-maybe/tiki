@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"strconv"
 
-	"github.com/boolean-maybe/tiki/ruki/recurrence"
+	"github.com/boolean-maybe/ruki/recurrence"
 	"github.com/boolean-maybe/tiki/theme"
 
 	"github.com/gdamore/tcell/v2"

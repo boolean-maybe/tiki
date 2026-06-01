@@ -7,8 +7,8 @@ import (
 	"sync"
 	"time"
 
+	collectionutil "github.com/boolean-maybe/ruki/collections"
 	"github.com/boolean-maybe/tiki/config"
-	collectionutil "github.com/boolean-maybe/tiki/ruki/collections"
 	"github.com/boolean-maybe/tiki/store/internal/git"
 	tikipkg "github.com/boolean-maybe/tiki/tiki"
 	"github.com/boolean-maybe/tiki/workflow"

@@ -8,9 +8,9 @@ import (
 	"testing"
 	"time"
 
+	"github.com/boolean-maybe/ruki/recurrence"
 	"github.com/boolean-maybe/tiki/config"
 	"github.com/boolean-maybe/tiki/internal/teststatuses"
-	"github.com/boolean-maybe/tiki/ruki/recurrence"
 	tikipkg "github.com/boolean-maybe/tiki/tiki"
 	"github.com/boolean-maybe/tiki/workflow"
 	"github.com/boolean-maybe/tiki/workflow/value"

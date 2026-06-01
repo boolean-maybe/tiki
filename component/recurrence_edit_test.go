@@ -3,7 +3,7 @@ package component
 import (
 	"testing"
 
-	"github.com/boolean-maybe/tiki/ruki/recurrence"
+	"github.com/boolean-maybe/ruki/recurrence"
 )
 
 func TestRecurrenceEdit_DefaultIsNone(t *testing.T) {

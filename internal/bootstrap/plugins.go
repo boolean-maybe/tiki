@@ -3,10 +3,10 @@ package bootstrap
 import (
 	"log/slog"
 
+	"github.com/boolean-maybe/ruki"
 	"github.com/boolean-maybe/tiki/controller"
 	"github.com/boolean-maybe/tiki/model"
 	"github.com/boolean-maybe/tiki/plugin"
-	"github.com/boolean-maybe/tiki/ruki"
 )
 
 // LoadPlugins loads plugins and the workflow's top-level global actions from

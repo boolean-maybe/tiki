@@ -3,7 +3,7 @@ package document
 import (
 	"testing"
 
-	"github.com/boolean-maybe/tiki/ruki/idfmt"
+	"github.com/boolean-maybe/ruki/idfmt"
 )
 
 func TestNewID(t *testing.T) {

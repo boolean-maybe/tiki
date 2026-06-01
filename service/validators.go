@@ -5,7 +5,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/boolean-maybe/tiki/ruki/idfmt"
+	"github.com/boolean-maybe/ruki/idfmt"
 	tikipkg "github.com/boolean-maybe/tiki/tiki"
 	"github.com/boolean-maybe/tiki/workflow"
 )

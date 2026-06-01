@@ -6,8 +6,8 @@ import (
 	"os"
 	"sort"
 
+	"github.com/boolean-maybe/ruki/idfmt"
 	"github.com/boolean-maybe/tiki/config"
-	"github.com/boolean-maybe/tiki/ruki/idfmt"
 	tikipkg "github.com/boolean-maybe/tiki/tiki"
 )
 

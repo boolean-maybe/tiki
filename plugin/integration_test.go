@@ -3,8 +3,8 @@ package plugin
 import (
 	"testing"
 
+	"github.com/boolean-maybe/ruki"
 	rukiRuntime "github.com/boolean-maybe/tiki/internal/ruki/runtime"
-	"github.com/boolean-maybe/tiki/ruki"
 	tikipkg "github.com/boolean-maybe/tiki/tiki"
 )
 

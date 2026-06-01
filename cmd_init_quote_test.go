@@ -6,9 +6,9 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/boolean-maybe/ruki/idfmt"
 	"github.com/boolean-maybe/tiki/config"
 	"github.com/boolean-maybe/tiki/document"
-	"github.com/boolean-maybe/tiki/ruki/idfmt"
 	"github.com/boolean-maybe/tiki/store/tikistore"
 )
 
