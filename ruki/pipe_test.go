@@ -260,7 +260,7 @@ func TestPipeIDDetectedInWhereClause(t *testing.T) {
 // --- executor ---
 
 func TestExecutePipeReturnsResult(t *testing.T) {
-	e := NewExecutor(testSchema{}, nil, ExecutorRuntime{Mode: ExecutorRuntimePlugin})
+	e := NewExecutor(testSchema{}, testDocFactory(), nil, ExecutorRuntime{Mode: ExecutorRuntimePlugin})
 	p := newTestParser()
 	tikis := makeTikis()
 
@@ -322,7 +322,7 @@ func TestExecuteSelectStillWorksWithoutPipe(t *testing.T) {
 }
 
 func TestExecutePipeListFieldSpaceJoined(t *testing.T) {
-	e := NewExecutor(testSchema{}, nil, ExecutorRuntime{Mode: ExecutorRuntimePlugin})
+	e := NewExecutor(testSchema{}, testDocFactory(), nil, ExecutorRuntime{Mode: ExecutorRuntimePlugin})
 	p := newTestParser()
 	tikis := []*tikiFixture{
 		{ID: "TIKI-000001", Title: "Test", Status: "ready", Type: "story",
@@ -465,7 +465,7 @@ func TestIsClipboardPipeMethod(t *testing.T) {
 // --- clipboard pipe: executor ---
 
 func TestExecuteClipboardPipeReturnsResult(t *testing.T) {
-	e := NewExecutor(testSchema{}, nil, ExecutorRuntime{Mode: ExecutorRuntimePlugin})
+	e := NewExecutor(testSchema{}, testDocFactory(), nil, ExecutorRuntime{Mode: ExecutorRuntimePlugin})
 	p := newTestParser()
 	tikis := makeTikis()
 
@@ -504,7 +504,7 @@ func TestExecuteClipboardPipeReturnsResult(t *testing.T) {
 }
 
 func TestExecuteClipboardMultipleRows(t *testing.T) {
-	e := NewExecutor(testSchema{}, nil, ExecutorRuntime{Mode: ExecutorRuntimeCLI})
+	e := NewExecutor(testSchema{}, testDocFactory(), nil, ExecutorRuntime{Mode: ExecutorRuntimeCLI})
 	p := newTestParser()
 	tikis := makeTikis()
 
@@ -528,7 +528,7 @@ func TestExecuteClipboardMultipleRows(t *testing.T) {
 // --- limit + pipe ---
 
 func TestExecuteClipboardWithLimit(t *testing.T) {
-	e := NewExecutor(testSchema{}, nil, ExecutorRuntime{Mode: ExecutorRuntimeCLI})
+	e := NewExecutor(testSchema{}, testDocFactory(), nil, ExecutorRuntime{Mode: ExecutorRuntimeCLI})
 	p := newTestParser()
 	fixtures := makeTikis()
 	tikis := tikisFromFixtures(fixtures)
@@ -576,7 +576,7 @@ func TestExecuteClipboardWithLimit(t *testing.T) {
 // --- filepath pipe ---
 
 func TestExecutePipeFilepath(t *testing.T) {
-	e := NewExecutor(testSchema{}, nil, ExecutorRuntime{Mode: ExecutorRuntimePlugin})
+	e := NewExecutor(testSchema{}, testDocFactory(), nil, ExecutorRuntime{Mode: ExecutorRuntimePlugin})
 	p := newTestParser()
 	tikis := []*tikiFixture{
 		{ID: "TIKI-000001", Title: "x", Status: "ready", Type: "story",

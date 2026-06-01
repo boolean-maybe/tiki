@@ -6,12 +6,11 @@ import (
 	"testing"
 	"time"
 
-	"github.com/boolean-maybe/tiki/tiki"
 	"github.com/boolean-maybe/tiki/workflow/value"
 )
 
 func newTestTriggerExecutor() *TriggerExecutor {
-	return NewTriggerExecutor(testSchema{}, func() string { return "alice" })
+	return NewTriggerExecutor(testSchema{}, testDocFactory(), func() string { return "alice" })
 }
 
 // --- EvalGuard ---
@@ -56,7 +55,7 @@ func TestEvalGuard_QualifiedRefMatch(t *testing.T) {
 }
 
 func TestEvalGuard_QualifiedBareBoolExpr(t *testing.T) {
-	te := NewTriggerExecutor(customTestSchema{}, func() string { return "alice" })
+	te := NewTriggerExecutor(customTestSchema{}, testDocFactory(), func() string { return "alice" })
 	p := newCustomParser()
 
 	trig, err := p.ParseTrigger(`before update where new.flag deny "blocked"`)
@@ -381,7 +380,7 @@ func TestExecAction_CreateWithQualifiedRefs(t *testing.T) {
 	tc := &TriggerContext{
 		Old:      oldTk,
 		New:      newTk,
-		AllTikis: []*tiki.Tiki{newTk},
+		AllTikis: []Document{newTk},
 	}
 
 	result, err := te.testExecAction(trig, tc)
@@ -395,7 +394,7 @@ func TestExecAction_CreateWithQualifiedRefs(t *testing.T) {
 	if created.Title != "Daily standup" {
 		t.Fatalf("expected title 'Daily standup', got %q", created.Title)
 	}
-	if got, _, _ := result.raw.Create.Tiki.StringField("priority"); got != "medium-high" {
+	if got := docPriority(result.raw.Create.Tiki); got != "medium-high" {
 		t.Fatalf("expected priority 'medium-high', got %q", got)
 	}
 	if created.Status != "ready" {
@@ -433,7 +432,7 @@ func TestExecAction_PrevEnumWithQualifiedRef(t *testing.T) {
 	tc := &TriggerContext{
 		Old:      oldTk,
 		New:      newTk,
-		AllTikis: []*tiki.Tiki{newTk},
+		AllTikis: []Document{newTk},
 	}
 
 	result, err := te.testExecAction(trig, tc)
@@ -443,7 +442,7 @@ func TestExecAction_PrevEnumWithQualifiedRef(t *testing.T) {
 	if result.Update == nil || len(result.Update.Updated) != 1 {
 		t.Fatalf("expected 1 updated tiki, got %+v", result.Update)
 	}
-	got, _, _ := result.raw.Update.Updated[0].StringField("priority")
+	got := docPriority(result.raw.Update.Updated[0])
 	if got != "medium" {
 		t.Errorf("priority = %q, want %q (prev_enum should step medium-low → medium)", got, "medium")
 	}
@@ -718,7 +717,7 @@ func TestExecAction_NextDateWithQualifiedRef(t *testing.T) {
 	tc := &TriggerContext{
 		Old:      oldTk,
 		New:      newTk,
-		AllTikis: []*tiki.Tiki{newTk},
+		AllTikis: []Document{newTk},
 	}
 
 	before := time.Now()
@@ -1299,7 +1298,7 @@ func TestExecTimeTriggerActionValidatedRuntimeMismatch(t *testing.T) {
 // --- coverage gap tests ---
 
 func TestNewTriggerExecutor_NilUserFunc(t *testing.T) {
-	te := NewTriggerExecutor(testSchema{}, nil)
+	te := NewTriggerExecutor(testSchema{}, testDocFactory(), nil)
 	if te.userFunc != nil {
 		t.Fatal("expected nil userFunc to be preserved (user() should error at runtime)")
 	}

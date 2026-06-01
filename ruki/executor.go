@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"github.com/boolean-maybe/tiki/document"
-	"github.com/boolean-maybe/tiki/tiki"
 	collectionutil "github.com/boolean-maybe/tiki/util/collections"
 	"github.com/boolean-maybe/tiki/util/duration"
 	"github.com/boolean-maybe/tiki/workflow/value"
@@ -17,15 +16,16 @@ import (
 // Executor evaluates parsed ruki statements against a set of tikis.
 type Executor struct {
 	schema       Schema
+	factory      DocumentFactory
 	userFunc     func() string
 	runtime      ExecutorRuntime
 	currentInput ExecutionInput
 }
 
 type evalContext struct {
-	current  *tiki.Tiki
-	outer    *tiki.Tiki
-	allTikis []*tiki.Tiki
+	current  Document
+	outer    Document
+	allTikis []Document
 	// inAssignmentRHS is true while the executor is evaluating the RHS
 	// of an `update set <field> = <expr>` or `create <field> = <expr>`
 	// assignment. It enables a narrow carve-out to absent-field hard-
@@ -40,16 +40,19 @@ type evalContext struct {
 	inAssignmentRHS bool
 }
 
-func (ctx evalContext) withCurrent(current *tiki.Tiki) evalContext {
+func (ctx evalContext) withCurrent(current Document) evalContext {
 	ctx.current = current
 	return ctx
 }
 
-// NewExecutor constructs an Executor with the given schema and user function.
+// NewExecutor constructs an Executor with the given schema, document factory,
+// and user function. The factory builds the blank Document a create statement
+// fills in; it may be nil for executors that never run a template-less create.
 // If userFunc is nil, calling user() at runtime will return an error.
-func NewExecutor(schema Schema, userFunc func() string, runtime ExecutorRuntime) *Executor {
+func NewExecutor(schema Schema, factory DocumentFactory, userFunc func() string, runtime ExecutorRuntime) *Executor {
 	return &Executor{
 		schema:   schema,
+		factory:  factory,
 		userFunc: userFunc,
 		runtime:  runtime.normalize(),
 	}
@@ -90,29 +93,29 @@ type PipeResult struct {
 
 // UpdateResult holds the cloned, mutated tikis produced by an UPDATE statement.
 type UpdateResult struct {
-	Updated []*tiki.Tiki
+	Updated []Document
 }
 
 // CreateResult holds the new tiki produced by a CREATE statement.
 type CreateResult struct {
-	Tiki *tiki.Tiki
+	Tiki Document
 }
 
 // DeleteResult holds the tikis matched by a DELETE statement's WHERE clause.
 type DeleteResult struct {
-	Deleted []*tiki.Tiki
+	Deleted []Document
 }
 
 // TikiProjection holds the filtered, sorted tikis and the requested field list.
 type TikiProjection struct {
-	Tikis  []*tiki.Tiki
+	Tikis  []Document
 	Fields []string // user-requested fields; nil/empty = all fields
 }
 
 // Execute dispatches on the statement type and returns results.
 // Preferred input is *ValidatedStatement; raw *Statement is accepted as a
 // low-level path and will be semantically validated for executor runtime mode.
-func (e *Executor) Execute(stmt any, tikis []*tiki.Tiki, inputs ...ExecutionInput) (*Result, error) {
+func (e *Executor) Execute(stmt any, tikis []Document, inputs ...ExecutionInput) (*Result, error) {
 	var input ExecutionInput
 	if len(inputs) > 0 {
 		input = inputs[0]
@@ -181,7 +184,7 @@ func (e *Executor) Execute(stmt any, tikis []*tiki.Tiki, inputs ...ExecutionInpu
 	}
 }
 
-func (e *Executor) executeExpr(es *ExprStmt, tikis []*tiki.Tiki) (*Result, error) {
+func (e *Executor) executeExpr(es *ExprStmt, tikis []Document) (*Result, error) {
 	val, err := e.evalExpr(es.Expr, evalContext{allTikis: tikis})
 	if err != nil {
 		return nil, err
@@ -189,7 +192,7 @@ func (e *Executor) executeExpr(es *ExprStmt, tikis []*tiki.Tiki) (*Result, error
 	return &Result{Scalar: &ScalarResult{Value: val, Type: es.Type}}, nil
 }
 
-func (e *Executor) executeSelect(sel *SelectStmt, tikis []*tiki.Tiki) (*Result, error) {
+func (e *Executor) executeSelect(sel *SelectStmt, tikis []Document) (*Result, error) {
 	filtered, err := e.filterTikis(sel.Where, tikis)
 	if err != nil {
 		return nil, err
@@ -222,7 +225,7 @@ func (e *Executor) executeSelect(sel *SelectStmt, tikis []*tiki.Tiki) (*Result, 
 	}, nil
 }
 
-func (e *Executor) buildPipeResult(pipe *RunAction, fields []string, matched []*tiki.Tiki, allTikis []*tiki.Tiki) (*Result, error) {
+func (e *Executor) buildPipeResult(pipe *RunAction, fields []string, matched []Document, allTikis []Document) (*Result, error) {
 	// evaluate command once with a nil-sentinel tiki — validation ensures no field refs
 	cmdVal, err := e.evalExpr(pipe.Command, evalContext{allTikis: allTikis})
 	if err != nil {
@@ -240,7 +243,7 @@ func (e *Executor) buildPipeResult(pipe *RunAction, fields []string, matched []*
 	return &Result{Pipe: &PipeResult{Command: cmdStr, Rows: rows}}, nil
 }
 
-func (e *Executor) buildClipboardResult(fields []string, matched []*tiki.Tiki) (*Result, error) {
+func (e *Executor) buildClipboardResult(fields []string, matched []Document) (*Result, error) {
 	rows, err := e.buildFieldRows(fields, matched)
 	if err != nil {
 		return nil, err
@@ -252,7 +255,7 @@ func (e *Executor) buildClipboardResult(fields []string, matched []*tiki.Tiki) (
 // Absent-field reads produce empty cells rather than propagating the hard
 // error: pipe and clipboard sinks are presentation-layer consumers and a
 // missing field should render blank, not abort the whole operation.
-func (e *Executor) buildFieldRows(fields []string, matched []*tiki.Tiki) ([][]string, error) {
+func (e *Executor) buildFieldRows(fields []string, matched []Document) ([][]string, error) {
 	rows := make([][]string, len(matched))
 	for i, t := range matched {
 		row := make([]string, len(fields))
@@ -281,13 +284,13 @@ func pipeArgString(val interface{}) string {
 	return normalizeToString(val)
 }
 
-func (e *Executor) executeUpdate(upd *UpdateStmt, tikis []*tiki.Tiki) (*Result, error) {
+func (e *Executor) executeUpdate(upd *UpdateStmt, tikis []Document) (*Result, error) {
 	matched, err := e.filterTikis(upd.Where, tikis)
 	if err != nil {
 		return nil, err
 	}
 
-	clones := make([]*tiki.Tiki, len(matched))
+	clones := make([]Document, len(matched))
 	for i, t := range matched {
 		clones[i] = t.Clone()
 	}
@@ -307,15 +310,18 @@ func (e *Executor) executeUpdate(upd *UpdateStmt, tikis []*tiki.Tiki) (*Result, 
 	return &Result{Update: &UpdateResult{Updated: clones}}, nil
 }
 
-func (e *Executor) executeCreate(cr *CreateStmt, tikis []*tiki.Tiki, requireTemplate bool) (*Result, error) {
+func (e *Executor) executeCreate(cr *CreateStmt, tikis []Document, requireTemplate bool) (*Result, error) {
 	if requireTemplate && e.currentInput.CreateTemplate == nil {
 		return nil, &MissingCreateTemplateError{}
 	}
-	var t *tiki.Tiki
+	var t Document
 	if e.currentInput.CreateTemplate != nil {
 		t = e.currentInput.CreateTemplate.Clone()
 	} else {
-		t = tiki.New()
+		if e.factory == nil {
+			return nil, fmt.Errorf("create requires a document factory")
+		}
+		t = e.factory()
 	}
 
 	for _, a := range cr.Assignments {
@@ -331,7 +337,7 @@ func (e *Executor) executeCreate(cr *CreateStmt, tikis []*tiki.Tiki, requireTemp
 	return &Result{Create: &CreateResult{Tiki: t}}, nil
 }
 
-func (e *Executor) executeDelete(del *DeleteStmt, tikis []*tiki.Tiki) (*Result, error) {
+func (e *Executor) executeDelete(del *DeleteStmt, tikis []Document) (*Result, error) {
 	matched, err := e.filterTikis(del.Where, tikis)
 	if err != nil {
 		return nil, err
@@ -340,7 +346,7 @@ func (e *Executor) executeDelete(del *DeleteStmt, tikis []*tiki.Tiki) (*Result, 
 	return &Result{Delete: &DeleteResult{Deleted: matched}}, nil
 }
 
-func (e *Executor) setField(t *tiki.Tiki, name string, val interface{}) error {
+func (e *Executor) setField(t Document, name string, val interface{}) error {
 	// Identity/audit fields live on the Tiki struct, not the Fields map.
 	switch name {
 	case "id", "createdBy", "createdAt", "updatedAt", "filepath", "path":
@@ -526,13 +532,13 @@ func validateBareRefs(refs []string, fieldName string) error {
 
 // --- filtering ---
 
-func (e *Executor) filterTikis(where Condition, tikis []*tiki.Tiki) ([]*tiki.Tiki, error) {
+func (e *Executor) filterTikis(where Condition, tikis []Document) ([]Document, error) {
 	if where == nil {
-		result := make([]*tiki.Tiki, len(tikis))
+		result := make([]Document, len(tikis))
 		copy(result, tikis)
 		return result, nil
 	}
-	var result []*tiki.Tiki
+	var result []Document
 	for _, t := range tikis {
 		match, err := e.evalCondition(where, evalContext{current: t, allTikis: tikis})
 		if err != nil {
@@ -808,7 +814,7 @@ func (e *Executor) evalQuantifier(q *QuantifierExpr, ctx evalContext) (bool, err
 	}
 
 	// find referenced tikis
-	refTikis := make([]*tiki.Tiki, 0, len(refs))
+	refTikis := make([]Document, 0, len(refs))
 	for _, ref := range refs {
 		refID := normalizeToString(ref)
 		for _, at := range ctx.allTikis {
@@ -1043,11 +1049,11 @@ func (e *Executor) evalHas(fc *FunctionCall, ctx evalContext) (interface{}, erro
 
 // tikiHas reports whether the tiki carries an explicit value for name.
 // Identity fields are always present.
-func tikiHas(t *tiki.Tiki, name string) bool {
+func tikiHas(t Document, name string) bool {
 	if t == nil {
 		return false
 	}
-	if tiki.IsIdentityField(name) {
+	if IsIdentityField(name) {
 		return true
 	}
 	return t.Has(name)
@@ -1169,7 +1175,7 @@ func (e *Executor) evalTargetsField(name string, ctx evalContext) (interface{}, 
 }
 
 // findTikiByID returns the tiki with the given id from the list (case-insensitive).
-func findTikiByID(tikis []*tiki.Tiki, id string) (*tiki.Tiki, bool) {
+func findTikiByID(tikis []Document, id string) (Document, bool) {
 	for _, t := range tikis {
 		if strings.EqualFold(t.ID(), id) {
 			return t, true
@@ -1211,7 +1217,7 @@ func checkSingleSelectionForID(in ExecutionInput) error {
 	return checkSingleSelectionForBuiltin(in, "id", "ids")
 }
 
-func (e *Executor) evalCount(fc *FunctionCall, parent *tiki.Tiki, allTikis []*tiki.Tiki) (interface{}, error) {
+func (e *Executor) evalCount(fc *FunctionCall, parent Document, allTikis []Document) (interface{}, error) {
 	sq, ok := fc.Args[0].(*SubQuery)
 	if !ok {
 		return nil, fmt.Errorf("count() argument must be a select subquery")
@@ -1233,7 +1239,7 @@ func (e *Executor) evalCount(fc *FunctionCall, parent *tiki.Tiki, allTikis []*ti
 	return count, nil
 }
 
-func (e *Executor) evalExists(fc *FunctionCall, parent *tiki.Tiki, allTikis []*tiki.Tiki) (interface{}, error) {
+func (e *Executor) evalExists(fc *FunctionCall, parent Document, allTikis []Document) (interface{}, error) {
 	sq, ok := fc.Args[0].(*SubQuery)
 	if !ok {
 		return nil, fmt.Errorf("exists() argument must be a select subquery")
@@ -1256,17 +1262,17 @@ func (e *Executor) evalExists(fc *FunctionCall, parent *tiki.Tiki, allTikis []*t
 // EvalSubQueryFilter evaluates a subquery WHERE clause against a set of tikis,
 // returning the matching tikis. Used by the controller to build candidate
 // lists for choose() before showing the picker.
-func (e *Executor) EvalSubQueryFilter(sq *SubQuery, tikis []*tiki.Tiki, input ExecutionInput, parents ...*tiki.Tiki) ([]*tiki.Tiki, error) {
+func (e *Executor) EvalSubQueryFilter(sq *SubQuery, tikis []Document, input ExecutionInput, parents ...Document) ([]Document, error) {
 	e.currentInput = input
 	defer func() { e.currentInput = ExecutionInput{} }()
 
 	if sq == nil || sq.Where == nil {
-		result := make([]*tiki.Tiki, len(tikis))
+		result := make([]Document, len(tikis))
 		copy(result, tikis)
 		return result, nil
 	}
 	parent := chooseFilterParent(tikis, input, parents...)
-	var result []*tiki.Tiki
+	var result []Document
 	for _, t := range tikis {
 		// Soft-false per subquery-iteration rule: choose() candidates that
 		// hit an absent-field error are simply not offered.
@@ -1281,7 +1287,7 @@ func (e *Executor) EvalSubQueryFilter(sq *SubQuery, tikis []*tiki.Tiki, input Ex
 	return result, nil
 }
 
-func chooseFilterParent(tikis []*tiki.Tiki, input ExecutionInput, parents ...*tiki.Tiki) *tiki.Tiki {
+func chooseFilterParent(tikis []Document, input ExecutionInput, parents ...Document) Document {
 	if len(parents) > 0 {
 		return parents[0]
 	}
@@ -1443,7 +1449,7 @@ func (e *Executor) evalBlocks(fc *FunctionCall, ctx evalContext) (interface{}, e
 	for _, at := range ctx.allTikis {
 		// Skip tikis without a dependsOn field per the blocks-scan
 		// soft-false rule: absent lists don't block anything.
-		deps, ok := tikiStringSlice(at, tiki.FieldDependsOn)
+		deps, ok := tikiStringSlice(at, fieldDependsOn)
 		if !ok {
 			continue
 		}
@@ -1463,7 +1469,7 @@ func (e *Executor) evalBlocks(fc *FunctionCall, ctx evalContext) (interface{}, e
 // tikiStringSlice reads a string-slice-typed field without propagating an
 // absent-field error. Returns (slice, true) when the field is present (even
 // if empty); (nil, false) when absent.
-func tikiStringSlice(t *tiki.Tiki, name string) ([]string, bool) {
+func tikiStringSlice(t Document, name string) ([]string, bool) {
 	if t == nil {
 		return nil, false
 	}
@@ -1516,8 +1522,8 @@ func (e *Executor) evalBinaryExpr(b *BinaryExpr, ctx evalContext) (interface{}, 
 //
 // Outside an assignment RHS, the function behaves identically to
 // extractField — absent reads error uniformly.
-func (e *Executor) readFieldRefWithCarveOut(t *tiki.Tiki, name string, ctx evalContext) (interface{}, error) {
-	if ctx.inAssignmentRHS && t != nil && !tiki.IsIdentityField(name) && !t.Has(name) {
+func (e *Executor) readFieldRefWithCarveOut(t Document, name string, ctx evalContext) (interface{}, error) {
+	if ctx.inAssignmentRHS && t != nil && !IsIdentityField(name) && !t.Has(name) {
 		if zero, ok := e.registeredFieldZero(name); ok {
 			return zero, nil
 		}
@@ -1655,7 +1661,7 @@ func subtractValues(left, right interface{}) (interface{}, error) {
 
 // --- sorting ---
 
-func (e *Executor) sortTikis(tikis []*tiki.Tiki, clauses []OrderByClause) error {
+func (e *Executor) sortTikis(tikis []Document, clauses []OrderByClause) error {
 	// Pre-extract all sort keys so a missing field surfaces as an error
 	// before sort.Slice starts swapping.
 	specs := make([]FieldSpec, len(clauses))
@@ -1701,7 +1707,7 @@ func (e *Executor) sortTikis(tikis []*tiki.Tiki, clauses []OrderByClause) error 
 		return false
 	})
 	// reorder tikis in place
-	tmp := make([]*tiki.Tiki, len(tikis))
+	tmp := make([]Document, len(tikis))
 	for i, idx := range indices {
 		tmp[i] = tikis[idx]
 	}
@@ -2167,7 +2173,7 @@ func compareDurations(a, b time.Duration, op string) (bool, error) {
 // For any other name, an absent field hard-errors — callers that need
 // presence-safety must go through has(<field>) or use extractFieldForDisplay
 // for presentation-layer consumers that should render blank.
-func (e *Executor) extractField(t *tiki.Tiki, name string) (interface{}, error) {
+func (e *Executor) extractField(t Document, name string) (interface{}, error) {
 	if t == nil {
 		return nil, fmt.Errorf("no current row to read %q from", name)
 	}
@@ -2205,7 +2211,7 @@ func (e *Executor) extractField(t *tiki.Tiki, name string) (interface{}, error) 
 // extractFieldForDisplay is the presentation-layer variant used by pipe/
 // clipboard rendering and formatters. Absent fields return nil rather than
 // erroring — a missing field renders as a blank cell, not an aborted query.
-func (e *Executor) extractFieldForDisplay(t *tiki.Tiki, name string) (interface{}, error) {
+func (e *Executor) extractFieldForDisplay(t Document, name string) (interface{}, error) {
 	v, err := e.extractField(t, name)
 	if err != nil {
 		// Only swallow absent-field errors; surface any other error
@@ -2243,7 +2249,7 @@ func (e *AbsentFieldError) Error() string {
 	return fmt.Sprintf("tiki %s: field %q is not set", id, e.Field)
 }
 
-func absentFieldError(t *tiki.Tiki, name string) error {
+func absentFieldError(t Document, name string) error {
 	id := ""
 	if t != nil {
 		id = t.ID()

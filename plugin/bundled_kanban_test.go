@@ -215,13 +215,15 @@ func TestBundledKanban_AddToProjectExcludesPlainDocs(t *testing.T) {
 				t.Fatalf("action %q has no ChooseFilter", c.label)
 			}
 
-			executor := ruki.NewExecutor(testSchema(), nil,
+			factory := ruki.DocumentFactory(func() ruki.Document { return tikipkg.WrapDoc(tikipkg.New()) })
+			executor := ruki.NewExecutor(testSchema(), factory, nil,
 				ruki.ExecutorRuntime{Mode: ruki.ExecutorRuntimePlugin})
 			input := ruki.NewSingleSelectionInput(project.ID())
-			candidates, err := executor.EvalSubQueryFilter(action.ChooseFilter, all, input)
+			candidateDocs, err := executor.EvalSubQueryFilter(action.ChooseFilter, tikipkg.WrapDocs(all), input)
 			if err != nil {
 				t.Fatalf("EvalSubQueryFilter: %v", err)
 			}
+			candidates := tikipkg.UnwrapDocs(candidateDocs)
 
 			ids := map[string]bool{}
 			for _, ct := range candidates {

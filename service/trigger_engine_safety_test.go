@@ -21,7 +21,7 @@ func TestTriggerEngine_ValidatedOnlyBeforeEntryDenies(t *testing.T) {
 		validated:   validated,
 	}
 	gate, _ := newGateWithStoreAndTikis()
-	engine := NewTriggerEngine([]triggerEntry{entry}, nil, ruki.NewTriggerExecutor(testTriggerSchema{}, nil))
+	engine := NewTriggerEngine([]triggerEntry{entry}, nil, ruki.NewTriggerExecutor(testTriggerSchema{}, testTriggerDocFactory(), nil))
 	engine.RegisterWithGate(gate)
 
 	blocked := tikipkg.New()
@@ -43,7 +43,7 @@ func TestTriggerEngine_ValidatedOnlyBeforeEntryDenies(t *testing.T) {
 
 func TestTriggerEngine_EmptyEventEntryIsSkipped(t *testing.T) {
 	gate, _ := newGateWithStoreAndTikis()
-	engine := NewTriggerEngine([]triggerEntry{{description: "empty"}}, nil, ruki.NewTriggerExecutor(testTriggerSchema{}, nil))
+	engine := NewTriggerEngine([]triggerEntry{{description: "empty"}}, nil, ruki.NewTriggerExecutor(testTriggerSchema{}, testTriggerDocFactory(), nil))
 	engine.RegisterWithGate(gate)
 
 	if len(engine.beforeCreate)+len(engine.beforeUpdate)+len(engine.beforeDelete)+len(engine.afterCreate)+len(engine.afterUpdate)+len(engine.afterDelete) != 0 {
@@ -77,7 +77,7 @@ func TestTriggerEngine_ValidatedOnlyTimeEntryExecutes(t *testing.T) {
 			Description: "validated-time",
 			Validated:   validated,
 		},
-	}, ruki.NewTriggerExecutor(testTriggerSchema{}, nil))
+	}, ruki.NewTriggerExecutor(testTriggerSchema{}, testTriggerDocFactory(), nil))
 	engine.RegisterWithGate(gate)
 
 	engine.executeTimeTrigger(context.Background(), engine.timeTriggers[0])
@@ -95,7 +95,7 @@ func TestTriggerEngine_StartSchedulerEmptyTimeEntryNoPanic(t *testing.T) {
 	gate, _ := newGateWithStoreAndTikis()
 	engine := NewTriggerEngine(nil, []TimeTriggerEntry{
 		{Description: "empty-time-entry"},
-	}, ruki.NewTriggerExecutor(testTriggerSchema{}, nil))
+	}, ruki.NewTriggerExecutor(testTriggerSchema{}, testTriggerDocFactory(), nil))
 	engine.RegisterWithGate(gate)
 
 	ctx, cancel := context.WithCancel(context.Background())

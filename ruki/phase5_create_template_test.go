@@ -2,8 +2,6 @@ package ruki
 
 import (
 	"testing"
-
-	"github.com/boolean-maybe/tiki/tiki"
 )
 
 // Phase 4: ruki `create` preserves template defaults alongside caller
@@ -42,19 +40,19 @@ func TestPhase5_Create_TemplateDefaultsSurvive(t *testing.T) {
 	}
 	created := result.Create.Tiki
 
-	if got, _ := created.Get(tiki.FieldStatus); got != "ready" {
+	if got, _ := created.Get(fixtureFieldStatus); got != "ready" {
 		t.Errorf("status = %v, want ready (caller override)", got)
 	}
-	if got, _ := created.Get(tiki.FieldType); got != "story" {
+	if got, _ := created.Get(fixtureFieldType); got != "story" {
 		t.Errorf("type = %v, want story (template default)", got)
 	}
-	if got, _ := created.Get(tiki.FieldPriority); got != "medium" {
+	if got, _ := created.Get(fixtureFieldPriority); got != "medium" {
 		t.Errorf("priority = %v, want medium (template default)", got)
 	}
-	if got, _ := created.Get(tiki.FieldPoints); got != 1 {
+	if got, _ := created.Get(fixtureFieldPoints); got != 1 {
 		t.Errorf("points = %v, want 1 (template default)", got)
 	}
-	tags, _ := created.Get(tiki.FieldTags)
+	tags, _ := created.Get(fixtureFieldTags)
 	ss, _ := tags.([]string)
 	if len(ss) != 1 || ss[0] != "idea" {
 		t.Errorf("tags = %v, want [idea] (template default)", tags)

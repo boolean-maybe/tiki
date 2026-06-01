@@ -64,7 +64,8 @@ func RunQueryWithOptions(gate *service.TikiMutationGate, query string, out io.Wr
 	if err != nil {
 		return fmt.Errorf("resolve current user: %w", err)
 	}
-	executor := ruki.NewExecutor(schema, userFunc, ruki.ExecutorRuntime{Mode: ruki.ExecutorRuntimeCLI})
+	factory := ruki.DocumentFactory(tiki.NewDoc)
+	executor := ruki.NewExecutor(schema, factory, userFunc, ruki.ExecutorRuntime{Mode: ruki.ExecutorRuntimeCLI})
 
 	stmt, err := parser.ParseAndValidateStatement(query, ruki.ExecutorRuntimeCLI)
 	if err != nil {
@@ -82,11 +83,11 @@ func RunQueryWithOptions(gate *service.TikiMutationGate, query string, out io.Wr
 		if tmpl == nil {
 			return fmt.Errorf("create template: store returned nil template")
 		}
-		input.CreateTemplate = tmpl
+		input.CreateTemplate = tiki.WrapDoc(tmpl)
 	}
 
 	tikis := allDocsAsTikis(readStore)
-	result, err := executor.Execute(stmt, tikis, input)
+	result, err := executor.Execute(stmt, tiki.WrapDocs(tikis), input)
 	if err != nil {
 		return fmt.Errorf("execute: %w", err)
 	}
@@ -188,10 +189,11 @@ func RunSelectQuery(readStore store.ReadStore, query string, out io.Writer) erro
 	if err != nil {
 		return fmt.Errorf("resolve current user: %w", err)
 	}
-	executor := ruki.NewExecutor(schema, userFunc, ruki.ExecutorRuntime{Mode: ruki.ExecutorRuntimeCLI})
+	factory := ruki.DocumentFactory(tiki.NewDoc)
+	executor := ruki.NewExecutor(schema, factory, userFunc, ruki.ExecutorRuntime{Mode: ruki.ExecutorRuntimeCLI})
 
 	tikis := allDocsAsTikis(readStore)
-	result, err := executor.Execute(validated, tikis, ruki.ExecutionInput{})
+	result, err := executor.Execute(validated, tiki.WrapDocs(tikis), ruki.ExecutionInput{})
 	if err != nil {
 		return fmt.Errorf("execute: %w", err)
 	}
@@ -204,8 +206,8 @@ func persistAndSummarize(ctx context.Context, gate *service.TikiMutationGate, ur
 	var succeeded, failed int
 	var firstErr error
 
-	for _, tk := range ur.Updated {
-		if err := gate.UpdateTiki(ctx, tk); err != nil {
+	for _, doc := range ur.Updated {
+		if err := gate.UpdateTiki(ctx, tiki.UnwrapDoc(doc)); err != nil {
 			failed++
 			if firstErr == nil {
 				firstErr = err
@@ -226,16 +228,18 @@ func persistAndSummarize(ctx context.Context, gate *service.TikiMutationGate, ur
 }
 
 func persistCreate(ctx context.Context, gate *service.TikiMutationGate, cr *ruki.CreateResult, out io.Writer, json bool) error {
-	if err := gate.CreateTiki(ctx, cr.Tiki); err != nil {
+	created := tiki.UnwrapDoc(cr.Tiki)
+	if err := gate.CreateTiki(ctx, created); err != nil {
 		return fmt.Errorf("create tiki: %w", err)
 	}
-	return formatCreateSummary(out, cr.Tiki.ID(), json)
+	return formatCreateSummary(out, created.ID(), json)
 }
 
 func persistDelete(ctx context.Context, gate *service.TikiMutationGate, dr *ruki.DeleteResult, out io.Writer, json bool) error {
 	readStore := gate.ReadStore()
 	var succeeded, failed int
-	for _, tk := range dr.Deleted {
+	for _, doc := range dr.Deleted {
+		tk := tiki.UnwrapDoc(doc)
 		if err := gate.DeleteTiki(ctx, tk); err != nil {
 			failed++
 		} else if readStore.GetTiki(tk.ID()) != nil {

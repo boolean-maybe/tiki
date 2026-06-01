@@ -143,7 +143,7 @@ func TestChooseBuiltin_Executor_ReturnsValue(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	e := NewExecutor(testSchema{}, nil, ExecutorRuntime{Mode: ExecutorRuntimePlugin})
+	e := NewExecutor(testSchema{}, testDocFactory(), nil, ExecutorRuntime{Mode: ExecutorRuntimePlugin})
 	testTiki := &tikiFixture{ID: "TIKI-000001", Title: "test", Status: "ready", Type: "tiki"}
 	result, err := e.testExec(vs, []*tikiFixture{testTiki}, ExecutionInput{
 		SelectedTikiIDs: []string{"TIKI-000001"},
@@ -171,7 +171,7 @@ func TestChooseBuiltin_Executor_MissingChoose(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	e := NewExecutor(testSchema{}, nil, ExecutorRuntime{Mode: ExecutorRuntimePlugin})
+	e := NewExecutor(testSchema{}, testDocFactory(), nil, ExecutorRuntime{Mode: ExecutorRuntimePlugin})
 	testTiki := &tikiFixture{ID: "TIKI-000001", Title: "test", Status: "ready", Type: "tiki"}
 	_, err = e.testExec(vs, []*tikiFixture{testTiki}, ExecutionInput{
 		SelectedTikiIDs: []string{"TIKI-000001"},
@@ -199,7 +199,7 @@ func TestEvalSubQueryFilter_WithIDExclusion(t *testing.T) {
 		t.Fatal("failed to extract choose subquery")
 	}
 
-	e := NewExecutor(testSchema{}, nil, ExecutorRuntime{Mode: ExecutorRuntimePlugin})
+	e := NewExecutor(testSchema{}, testDocFactory(), nil, ExecutorRuntime{Mode: ExecutorRuntimePlugin})
 	tikis := []*tikiFixture{
 		{ID: "TIKI-000001", Title: "self", Status: "ready", Type: "tiki"},
 		{ID: "TIKI-000002", Title: "other", Status: "ready", Type: "tiki"},
@@ -220,7 +220,7 @@ func TestEvalSubQueryFilter_WithIDExclusion(t *testing.T) {
 }
 
 func TestEvalSubQueryFilter_BareSelect_ReturnsAll(t *testing.T) {
-	e := NewExecutor(testSchema{}, nil, ExecutorRuntime{Mode: ExecutorRuntimePlugin})
+	e := NewExecutor(testSchema{}, testDocFactory(), nil, ExecutorRuntime{Mode: ExecutorRuntimePlugin})
 	tikis := []*tikiFixture{
 		{ID: "TIKI-000001", Title: "a", Status: "ready", Type: "tiki"},
 		{ID: "TIKI-000002", Title: "b", Status: "ready", Type: "tiki"},
@@ -245,7 +245,7 @@ func TestEvalSubQueryFilter_WithOuterSelectedTiki(t *testing.T) {
 		t.Fatal("failed to extract choose subquery")
 	}
 
-	e := NewExecutor(testSchema{}, nil, ExecutorRuntime{Mode: ExecutorRuntimePlugin})
+	e := NewExecutor(testSchema{}, testDocFactory(), nil, ExecutorRuntime{Mode: ExecutorRuntimePlugin})
 	tikis := []*tikiFixture{
 		{ID: "TIKI-000001", Title: "self", Status: "ready", Type: "tiki"},
 		{ID: "TIKI-000002", Title: "other", Status: "ready", Type: "tiki"},
@@ -311,7 +311,7 @@ func TestChooseBuiltin_EndToEnd_CustomRefField(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	e := NewExecutor(chooseTestSchema{}, nil, ExecutorRuntime{Mode: ExecutorRuntimePlugin})
+	e := NewExecutor(chooseTestSchema{}, testDocFactory(), nil, ExecutorRuntime{Mode: ExecutorRuntimePlugin})
 	tikis := []*tikiFixture{
 		{ID: "TIKI-000001", Title: "target", Status: "ready", Type: "tiki"},
 	}

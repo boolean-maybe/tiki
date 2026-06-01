@@ -28,7 +28,7 @@ func TestFilepath_SingleSelection_MatchesByPath(t *testing.T) {
 		t.Fatal("expected UsesFilepathBuiltin() = true")
 	}
 
-	e := NewExecutor(testSchema{}, nil, ExecutorRuntime{Mode: ExecutorRuntimePlugin})
+	e := NewExecutor(testSchema{}, testDocFactory(), nil, ExecutorRuntime{Mode: ExecutorRuntimePlugin})
 	result, err := e.testExec(vs, twoFilepathFixtures(), ExecutionInput{
 		SelectedTikiIDs: []string{"TIKI-000001"},
 	})
@@ -53,7 +53,7 @@ func TestFilepath_ZeroSelection_Errors(t *testing.T) {
 		t.Fatalf("validate: %v", err)
 	}
 
-	e := NewExecutor(testSchema{}, nil, ExecutorRuntime{Mode: ExecutorRuntimePlugin})
+	e := NewExecutor(testSchema{}, testDocFactory(), nil, ExecutorRuntime{Mode: ExecutorRuntimePlugin})
 	_, err = e.testExec(vs, twoFilepathFixtures(), ExecutionInput{})
 	if err == nil {
 		t.Fatal("want error, got nil")
@@ -80,7 +80,7 @@ func TestFilepath_MultiSelection_Ambiguous(t *testing.T) {
 		t.Fatalf("validate: %v", err)
 	}
 
-	e := NewExecutor(testSchema{}, nil, ExecutorRuntime{Mode: ExecutorRuntimePlugin})
+	e := NewExecutor(testSchema{}, testDocFactory(), nil, ExecutorRuntime{Mode: ExecutorRuntimePlugin})
 	_, err = e.testExec(vs, twoFilepathFixtures(), ExecutionInput{
 		SelectedTikiIDs: []string{"TIKI-000001", "TIKI-000002"},
 	})
@@ -101,7 +101,7 @@ func TestFilepath_MultiSelection_Ambiguous(t *testing.T) {
 // generic "id()" message, but evalFilepath itself constructs an error tagged
 // with BuiltinName == "filepath".
 func TestFilepath_DirectEval_NamesBuiltin(t *testing.T) {
-	e := NewExecutor(testSchema{}, nil, ExecutorRuntime{Mode: ExecutorRuntimePlugin})
+	e := NewExecutor(testSchema{}, testDocFactory(), nil, ExecutorRuntime{Mode: ExecutorRuntimePlugin})
 	e.currentInput = ExecutionInput{} // zero selection
 	_, err := e.evalFilepath(evalContext{allTikis: tikisFromFixtures(twoFilepathFixtures())})
 	if err == nil {
@@ -148,7 +148,7 @@ func TestFilepaths_ZeroSelection_ReturnsEmpty(t *testing.T) {
 		t.Fatal("expected UsesFilepathsBuiltin() = true")
 	}
 
-	e := NewExecutor(testSchema{}, nil, ExecutorRuntime{Mode: ExecutorRuntimePlugin})
+	e := NewExecutor(testSchema{}, testDocFactory(), nil, ExecutorRuntime{Mode: ExecutorRuntimePlugin})
 	result, err := e.testExec(vs, twoFilepathFixtures(), ExecutionInput{})
 	if err != nil {
 		t.Fatalf("execute: %v", err)
@@ -171,7 +171,7 @@ func TestFilepaths_MultiSelection_ReturnsAll(t *testing.T) {
 		t.Fatalf("validate: %v", err)
 	}
 
-	e := NewExecutor(testSchema{}, nil, ExecutorRuntime{Mode: ExecutorRuntimePlugin})
+	e := NewExecutor(testSchema{}, testDocFactory(), nil, ExecutorRuntime{Mode: ExecutorRuntimePlugin})
 	result, err := e.testExec(vs, twoFilepathFixtures(), ExecutionInput{
 		SelectedTikiIDs: []string{"TIKI-000001", "TIKI-000002"},
 	})

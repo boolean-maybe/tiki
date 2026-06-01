@@ -33,7 +33,8 @@ func (pb *pluginBase) newExecutor() *ruki.Executor {
 	if userName := getCurrentUserName(pb.tikiStore); userName != "" {
 		userFunc = func() string { return userName }
 	}
-	return ruki.NewExecutor(pb.schema, userFunc,
+	factory := ruki.DocumentFactory(tikipkg.NewDoc)
+	return ruki.NewExecutor(pb.schema, factory, userFunc,
 		ruki.ExecutorRuntime{Mode: ruki.ExecutorRuntimePlugin})
 }
 

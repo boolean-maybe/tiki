@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/boolean-maybe/tiki/tiki"
 	"github.com/boolean-maybe/tiki/workflow/value"
 )
 
@@ -12,20 +11,23 @@ import (
 // It wraps Executor with old/new mutation context for QualifiedRef resolution.
 type TriggerExecutor struct {
 	schema   Schema
+	factory  DocumentFactory
 	userFunc func() string
 }
 
-// NewTriggerExecutor creates a TriggerExecutor.
+// NewTriggerExecutor creates a TriggerExecutor. The factory builds the blank
+// Document a template-less create action fills in, and the guard sentinel for
+// create events that lack both old and new snapshots.
 // If userFunc is nil, user() calls in trigger actions will return an error.
-func NewTriggerExecutor(schema Schema, userFunc func() string) *TriggerExecutor {
-	return &TriggerExecutor{schema: schema, userFunc: userFunc}
+func NewTriggerExecutor(schema Schema, factory DocumentFactory, userFunc func() string) *TriggerExecutor {
+	return &TriggerExecutor{schema: schema, factory: factory, userFunc: userFunc}
 }
 
 // TriggerContext holds the old/new tiki snapshots and allTikis for trigger evaluation.
 type TriggerContext struct {
-	Old      *tiki.Tiki // nil for create
-	New      *tiki.Tiki // nil for delete
-	AllTikis []*tiki.Tiki
+	Old      Document // nil for create
+	New      Document // nil for delete
+	AllTikis []Document
 }
 
 // EvalGuard evaluates a trigger's where condition against the triggering event.
@@ -45,13 +47,13 @@ func (te *TriggerExecutor) EvalGuard(trig any, tc *TriggerContext) (bool, error)
 }
 
 // ExecTimeTriggerAction executes a time trigger's action against all tikis.
-func (te *TriggerExecutor) ExecTimeTriggerAction(tt any, allTikis []*tiki.Tiki, inputs ...ExecutionInput) (*Result, error) {
+func (te *TriggerExecutor) ExecTimeTriggerAction(tt any, allTikis []Document, inputs ...ExecutionInput) (*Result, error) {
 	var input ExecutionInput
 	if len(inputs) > 0 {
 		input = inputs[0]
 	}
 
-	exec := NewExecutor(te.schema, te.userFunc, ExecutorRuntime{Mode: ExecutorRuntimeTimeTrigger})
+	exec := NewExecutor(te.schema, te.factory, te.userFunc, ExecutorRuntime{Mode: ExecutorRuntimeTimeTrigger})
 	switch t := tt.(type) {
 	case *ValidatedTimeTrigger:
 		if err := t.mustBeSealed(); err != nil {
@@ -151,14 +153,17 @@ func (te *TriggerExecutor) ExecRun(trig any, tc *TriggerContext) (string, error)
 }
 
 // guardSentinel returns the best "current tiki" for guard evaluation.
-func (te *TriggerExecutor) guardSentinel(tc *TriggerContext) *tiki.Tiki {
+func (te *TriggerExecutor) guardSentinel(tc *TriggerContext) Document {
 	if tc.New != nil {
 		return tc.New
 	}
 	if tc.Old != nil {
 		return tc.Old
 	}
-	return tiki.New()
+	if te.factory != nil {
+		return te.factory()
+	}
+	return nil
 }
 
 func validateEventTriggerInput(trig any) (*ValidatedTrigger, error) {
@@ -190,7 +195,7 @@ type triggerExecOverride struct {
 // newExecWithOverrides creates a fresh Executor with QualifiedRef interception.
 func (te *TriggerExecutor) newExecWithOverrides(tc *TriggerContext) *triggerExecOverride {
 	return &triggerExecOverride{
-		Executor: NewExecutor(te.schema, te.userFunc, ExecutorRuntime{Mode: ExecutorRuntimeEventTrigger}),
+		Executor: NewExecutor(te.schema, te.factory, te.userFunc, ExecutorRuntime{Mode: ExecutorRuntimeEventTrigger}),
 		tc:       tc,
 	}
 }
@@ -475,7 +480,7 @@ func (e *triggerExecOverride) evalHasOverride(fc *FunctionCall, ctx evalContext)
 	default:
 		return nil, fmt.Errorf("has() argument must be a field reference, e.g. has(status) or has(new.status)")
 	}
-	var target *tiki.Tiki
+	var target Document
 	switch qualifier {
 	case "":
 		target = ctx.current
@@ -499,7 +504,7 @@ func (e *triggerExecOverride) evalHasOverride(fc *FunctionCall, ctx evalContext)
 	return tikiHas(target, name), nil
 }
 
-func (e *triggerExecOverride) evalCountOverride(fc *FunctionCall, parent *tiki.Tiki, allTikis []*tiki.Tiki) (interface{}, error) {
+func (e *triggerExecOverride) evalCountOverride(fc *FunctionCall, parent Document, allTikis []Document) (interface{}, error) {
 	sq, ok := fc.Args[0].(*SubQuery)
 	if !ok {
 		return nil, fmt.Errorf("count() argument must be a select subquery")
@@ -520,7 +525,7 @@ func (e *triggerExecOverride) evalCountOverride(fc *FunctionCall, parent *tiki.T
 	return count, nil
 }
 
-func (e *triggerExecOverride) evalExistsOverride(fc *FunctionCall, parent *tiki.Tiki, allTikis []*tiki.Tiki) (interface{}, error) {
+func (e *triggerExecOverride) evalExistsOverride(fc *FunctionCall, parent Document, allTikis []Document) (interface{}, error) {
 	sq, ok := fc.Args[0].(*SubQuery)
 	if !ok {
 		return nil, fmt.Errorf("exists() argument must be a select subquery")
@@ -599,7 +604,7 @@ func (e *triggerExecOverride) evalEnumStepOverride(fc *FunctionCall, ctx evalCon
 }
 
 // Execute overrides the base Executor to use our evalExpr/evalCondition.
-func (e *triggerExecOverride) Execute(stmt any, tikis []*tiki.Tiki, inputs ...ExecutionInput) (*Result, error) {
+func (e *triggerExecOverride) Execute(stmt any, tikis []Document, inputs ...ExecutionInput) (*Result, error) {
 	var input ExecutionInput
 	if len(inputs) > 0 {
 		input = inputs[0]
@@ -661,13 +666,13 @@ func (e *triggerExecOverride) Execute(stmt any, tikis []*tiki.Tiki, inputs ...Ex
 	}
 }
 
-func (e *triggerExecOverride) executeUpdate(upd *UpdateStmt, tikis []*tiki.Tiki) (*Result, error) {
+func (e *triggerExecOverride) executeUpdate(upd *UpdateStmt, tikis []Document) (*Result, error) {
 	matched, err := e.filterTikis(upd.Where, tikis)
 	if err != nil {
 		return nil, err
 	}
 
-	clones := make([]*tiki.Tiki, len(matched))
+	clones := make([]Document, len(matched))
 	for i, t := range matched {
 		clones[i] = t.Clone()
 	}
@@ -687,15 +692,18 @@ func (e *triggerExecOverride) executeUpdate(upd *UpdateStmt, tikis []*tiki.Tiki)
 	return &Result{Update: &UpdateResult{Updated: clones}}, nil
 }
 
-func (e *triggerExecOverride) executeCreate(cr *CreateStmt, tikis []*tiki.Tiki, requireTemplate bool) (*Result, error) {
+func (e *triggerExecOverride) executeCreate(cr *CreateStmt, tikis []Document, requireTemplate bool) (*Result, error) {
 	if requireTemplate && e.currentInput.CreateTemplate == nil {
 		return nil, &MissingCreateTemplateError{}
 	}
-	var t *tiki.Tiki
+	var t Document
 	if e.currentInput.CreateTemplate != nil {
 		t = e.currentInput.CreateTemplate.Clone()
 	} else {
-		t = tiki.New()
+		if e.factory == nil {
+			return nil, fmt.Errorf("create requires a document factory")
+		}
+		t = e.factory()
 	}
 	for _, a := range cr.Assignments {
 		val, err := e.evalExpr(a.Value, evalContext{current: t, allTikis: tikis, inAssignmentRHS: true})
@@ -709,7 +717,7 @@ func (e *triggerExecOverride) executeCreate(cr *CreateStmt, tikis []*tiki.Tiki, 
 	return &Result{Create: &CreateResult{Tiki: t}}, nil
 }
 
-func (e *triggerExecOverride) executeDelete(del *DeleteStmt, tikis []*tiki.Tiki) (*Result, error) {
+func (e *triggerExecOverride) executeDelete(del *DeleteStmt, tikis []Document) (*Result, error) {
 	matched, err := e.filterTikis(del.Where, tikis)
 	if err != nil {
 		return nil, err
@@ -717,13 +725,13 @@ func (e *triggerExecOverride) executeDelete(del *DeleteStmt, tikis []*tiki.Tiki)
 	return &Result{Delete: &DeleteResult{Deleted: matched}}, nil
 }
 
-func (e *triggerExecOverride) filterTikis(where Condition, tikis []*tiki.Tiki) ([]*tiki.Tiki, error) {
+func (e *triggerExecOverride) filterTikis(where Condition, tikis []Document) ([]Document, error) {
 	if where == nil {
-		result := make([]*tiki.Tiki, len(tikis))
+		result := make([]Document, len(tikis))
 		copy(result, tikis)
 		return result, nil
 	}
-	var result []*tiki.Tiki
+	var result []Document
 	for _, t := range tikis {
 		match, err := e.evalCondition(where, evalContext{current: t, allTikis: tikis})
 		if err != nil {
@@ -737,8 +745,8 @@ func (e *triggerExecOverride) filterTikis(where Condition, tikis []*tiki.Tiki) (
 }
 
 // resolveRefTikis finds tikis by ID from a list of ref values.
-func resolveRefTikis(refs []interface{}, allTikis []*tiki.Tiki) []*tiki.Tiki {
-	result := make([]*tiki.Tiki, 0, len(refs))
+func resolveRefTikis(refs []interface{}, allTikis []Document) []Document {
+	result := make([]Document, 0, len(refs))
 	for _, ref := range refs {
 		refID := normalizeToString(ref)
 		for _, at := range allTikis {
@@ -772,11 +780,11 @@ func equalFoldID(a, b string) bool {
 }
 
 // blocksLookup finds all tiki IDs that have the given ID in their dependsOn.
-func blocksLookup(val interface{}, allTikis []*tiki.Tiki) []interface{} {
+func blocksLookup(val interface{}, allTikis []Document) []interface{} {
 	targetID := normalizeToString(val)
 	var blockers []interface{}
 	for _, at := range allTikis {
-		deps, ok := tikiStringSlice(at, tiki.FieldDependsOn)
+		deps, ok := tikiStringSlice(at, fieldDependsOn)
 		if !ok {
 			continue
 		}

@@ -3,8 +3,6 @@ package ruki
 import (
 	"reflect"
 	"testing"
-
-	"github.com/boolean-maybe/tiki/tiki"
 )
 
 // TestPhase4Carveout_ListArithmeticOnAbsentTags covers the headline
@@ -103,7 +101,7 @@ func TestPhase4Carveout_PrevEnumOnAbsentEnumProducesBoundary(t *testing.T) {
 		t.Fatalf("expected executor to apply generic assignment, got: %v", err)
 	}
 	rawTk := result.raw.Update.Updated[0]
-	got, _, _ := rawTk.StringField("priority")
+	got := docPriority(rawTk)
 	// testSchema declares priority as
 	// [high, medium-high, medium, medium-low, low]; prev_enum on absent
 	// clamps to the first value.
@@ -144,17 +142,17 @@ func TestPhase4Carveout_WhereClauseStillHardErrors(t *testing.T) {
 	e := newTestExecutor()
 	p := newTestParser()
 
-	// Truly-absent priority: Fields map holds only status.
-	sparse := tiki.New()
-	sparse.SetID("ABC123")
-	sparse.SetTitle("story")
-	sparse.Fields = map[string]interface{}{"status": "ready"}
+	// Truly-absent priority: field map holds only status.
+	sparse := newFakeDoc()
+	sparse.id = "ABC123"
+	sparse.title = "story"
+	sparse.fields = map[string]interface{}{"status": "ready"}
 
 	stmt, err := p.ParseStatement(`select where points > 0`)
 	if err != nil {
 		t.Fatalf("parse: %v", err)
 	}
-	if _, err := e.Execute(stmt, []*tiki.Tiki{sparse}); err == nil {
+	if _, err := e.Execute(stmt, []Document{sparse}); err == nil {
 		t.Fatal("expected hard-error in WHERE clause (carve-out must not apply), got nil")
 	}
 }
@@ -168,10 +166,10 @@ func TestPhase4Carveout_PlainReferenceInAssignment(t *testing.T) {
 	e := newTestExecutor()
 	p := newTestParser()
 
-	sparse := tiki.New()
-	sparse.SetID("ABC123")
-	sparse.SetTitle("story")
-	sparse.Fields = map[string]interface{}{"status": "ready"}
+	sparse := newFakeDoc()
+	sparse.id = "ABC123"
+	sparse.title = "story"
+	sparse.fields = map[string]interface{}{"status": "ready"}
 
 	// `set points = points` on an absent-points tiki: carve-out auto-
 	// zeroes RHS to 0, setField accepts 0 for points (valid range is
@@ -180,7 +178,7 @@ func TestPhase4Carveout_PlainReferenceInAssignment(t *testing.T) {
 	if err != nil {
 		t.Fatalf("parse: %v", err)
 	}
-	result, err := e.Execute(stmt, []*tiki.Tiki{sparse})
+	result, err := e.Execute(stmt, []Document{sparse})
 	if err != nil {
 		t.Fatalf("execute: %v", err)
 	}

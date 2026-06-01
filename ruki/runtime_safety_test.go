@@ -94,7 +94,7 @@ func TestExecuteValidatedCreateRequiresTemplate(t *testing.T) {
 
 func TestExecutePluginIDRequiresSelectedTikiID(t *testing.T) {
 	p := newTestParser()
-	e := NewExecutor(testSchema{}, func() string { return "alice" }, ExecutorRuntime{Mode: ExecutorRuntimePlugin})
+	e := NewExecutor(testSchema{}, testDocFactory(), func() string { return "alice" }, ExecutorRuntime{Mode: ExecutorRuntimePlugin})
 
 	validated, err := p.ParseAndValidateStatement(`select where id() = "TIKI-000001"`, ExecutorRuntimePlugin)
 	if err != nil {
@@ -112,7 +112,7 @@ func TestExecutePluginIDRequiresSelectedTikiID(t *testing.T) {
 
 func TestExecutePluginIDRejectsMultipleSelection(t *testing.T) {
 	p := newTestParser()
-	e := NewExecutor(testSchema{}, func() string { return "alice" }, ExecutorRuntime{Mode: ExecutorRuntimePlugin})
+	e := NewExecutor(testSchema{}, testDocFactory(), func() string { return "alice" }, ExecutorRuntime{Mode: ExecutorRuntimePlugin})
 
 	validated, err := p.ParseAndValidateStatement(`select where id() = "TIKI-000001"`, ExecutorRuntimePlugin)
 	if err != nil {
@@ -134,7 +134,7 @@ func TestExecutePluginIDRejectsMultipleSelection(t *testing.T) {
 
 func TestExecutePluginIDsMatchesMultipleSelection(t *testing.T) {
 	p := newTestParser()
-	e := NewExecutor(testSchema{}, func() string { return "alice" }, ExecutorRuntime{Mode: ExecutorRuntimePlugin})
+	e := NewExecutor(testSchema{}, testDocFactory(), func() string { return "alice" }, ExecutorRuntime{Mode: ExecutorRuntimePlugin})
 
 	validated, err := p.ParseAndValidateStatement(
 		`update where id in ids() set status = "done"`,
@@ -165,7 +165,7 @@ func TestExecutePluginIDsMatchesMultipleSelection(t *testing.T) {
 
 func TestExecutePluginIDsEmptySelectionReturnsEmptyList(t *testing.T) {
 	p := newTestParser()
-	e := NewExecutor(testSchema{}, func() string { return "alice" }, ExecutorRuntime{Mode: ExecutorRuntimePlugin})
+	e := NewExecutor(testSchema{}, testDocFactory(), func() string { return "alice" }, ExecutorRuntime{Mode: ExecutorRuntimePlugin})
 
 	validated, err := p.ParseAndValidateStatement(
 		`update where id in ids() set status = "done"`,
@@ -185,7 +185,7 @@ func TestExecutePluginIDsEmptySelectionReturnsEmptyList(t *testing.T) {
 
 func TestExecutePluginSelectedCountReturnsCount(t *testing.T) {
 	p := newTestParser()
-	e := NewExecutor(testSchema{}, func() string { return "alice" }, ExecutorRuntime{Mode: ExecutorRuntimePlugin})
+	e := NewExecutor(testSchema{}, testDocFactory(), func() string { return "alice" }, ExecutorRuntime{Mode: ExecutorRuntimePlugin})
 
 	validated, err := p.ParseAndValidateStatement(
 		`select where selected_count() >= 2`,

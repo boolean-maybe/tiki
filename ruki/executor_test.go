@@ -13,7 +13,7 @@ import (
 )
 
 func newTestExecutor() *Executor {
-	return NewExecutor(testSchema{}, func() string { return "alice" }, ExecutorRuntime{Mode: ExecutorRuntimeCLI})
+	return NewExecutor(testSchema{}, testDocFactory(), func() string { return "alice" }, ExecutorRuntime{Mode: ExecutorRuntimeCLI})
 }
 
 func testDate(m time.Month, d int) time.Time {
@@ -74,7 +74,7 @@ func TestExecuteNilStatement(t *testing.T) {
 }
 
 func TestNewExecutorNilUserFunc(t *testing.T) {
-	e := NewExecutor(testSchema{}, nil, ExecutorRuntime{Mode: ExecutorRuntimeCLI})
+	e := NewExecutor(testSchema{}, testDocFactory(), nil, ExecutorRuntime{Mode: ExecutorRuntimeCLI})
 	tikis := []*tikiFixture{
 		{ID: "T1", Title: "x", Status: "ready", Assignee: "present"},
 	}
@@ -856,7 +856,7 @@ func TestExecuteOuterWithSelectedTikiExclusion(t *testing.T) {
 		{ID: "TIKI-000002", Title: "dependency", Status: "ready", Type: "story"},
 		{ID: "TIKI-000003", Title: "candidate", Status: "ready", Type: "story"},
 	}
-	e := NewExecutor(testSchema{}, nil, ExecutorRuntime{Mode: ExecutorRuntimePlugin})
+	e := NewExecutor(testSchema{}, testDocFactory(), nil, ExecutorRuntime{Mode: ExecutorRuntimePlugin})
 	result, err := e.testExec(stmt, tikis, NewSingleSelectionInput("TIKI-000001"))
 	if err != nil {
 		t.Fatalf("execute: %v", err)
@@ -956,7 +956,7 @@ func TestExecuteCreateBasic(t *testing.T) {
 		t.Errorf("title = %q, want %q", tk.Title, "Fix login")
 	}
 	rawTk := result.raw.Create.Tiki
-	if got, _, _ := rawTk.StringField("priority"); got != "medium-high" {
+	if got := docPriority(rawTk); got != "medium-high" {
 		t.Errorf("priority = %q, want medium-high", got)
 	}
 	if tk.Status != "ready" {
@@ -1138,7 +1138,7 @@ func TestExecuteCreateWithTemplate(t *testing.T) {
 		t.Errorf("tags = %v, want [idea new]", tk.Tags)
 	}
 	// priority should be preserved from template (not set by assignment)
-	if got, _, _ := result.raw.Create.Tiki.StringField("priority"); got != "high" {
+	if got := docPriority(result.raw.Create.Tiki); got != "high" {
 		t.Errorf("priority = %q, want %q (template default)", got, "high")
 	}
 }
@@ -1159,7 +1159,7 @@ func TestExecuteCreateWithoutTemplate(t *testing.T) {
 	if tk.Title != "x" {
 		t.Errorf("title = %q, want %q", tk.Title, "x")
 	}
-	if got, _, _ := result.raw.Create.Tiki.StringField("priority"); got != "medium" {
+	if got := docPriority(result.raw.Create.Tiki); got != "medium" {
 		t.Errorf("priority = %q, want medium", got)
 	}
 	// unset fields should be zero-valued
@@ -2956,7 +2956,7 @@ func TestExecuteUpdateMultipleFields(t *testing.T) {
 		t.Errorf("expected status 'done', got %q", u.Status)
 	}
 	rawTk := result.raw.Update.Updated[0]
-	if got, _, _ := rawTk.StringField("priority"); got != "high" {
+	if got := docPriority(rawTk); got != "high" {
 		t.Errorf("expected priority 'high', got %q", got)
 	}
 }
@@ -3884,7 +3884,7 @@ func TestExecuteUpdatePriorityValidValues(t *testing.T) {
 		if err != nil {
 			t.Fatalf("execute priority=%q: %v", prio, err)
 		}
-		got, _, _ := result.raw.Update.Updated[0].StringField("priority")
+		got := docPriority(result.raw.Update.Updated[0])
 		if got != prio {
 			t.Errorf("expected priority %q, got %q", prio, got)
 		}
@@ -4023,7 +4023,7 @@ func TestCompareValues_BoolDispatch(t *testing.T) {
 
 func TestExecuteEvalIDPluginRuntime(t *testing.T) {
 	p := newTestParser()
-	e := NewExecutor(testSchema{}, func() string { return "alice" }, ExecutorRuntime{Mode: ExecutorRuntimePlugin})
+	e := NewExecutor(testSchema{}, testDocFactory(), func() string { return "alice" }, ExecutorRuntime{Mode: ExecutorRuntimePlugin})
 	tikis := makeTikis()
 
 	// id() returns the selected tiki ID as a constant; comparing it to a
@@ -4063,7 +4063,7 @@ func TestExecuteEvalIDPluginRuntime(t *testing.T) {
 
 func TestExecuteEvalIDPluginRuntimeNoMatch(t *testing.T) {
 	p := newTestParser()
-	e := NewExecutor(testSchema{}, func() string { return "alice" }, ExecutorRuntime{Mode: ExecutorRuntimePlugin})
+	e := NewExecutor(testSchema{}, testDocFactory(), func() string { return "alice" }, ExecutorRuntime{Mode: ExecutorRuntimePlugin})
 	tikis := makeTikis()
 
 	// id() returns "TIKI-000002", compare with literal "TIKI-000001" → always false
@@ -4138,7 +4138,7 @@ func TestExecuteUnsupportedStatementType(t *testing.T) {
 // --- custom field executor tests ---
 
 func newCustomExecutor() *Executor {
-	return NewExecutor(customTestSchema{}, func() string { return "alice" }, ExecutorRuntime{Mode: ExecutorRuntimeCLI})
+	return NewExecutor(customTestSchema{}, testDocFactory(), func() string { return "alice" }, ExecutorRuntime{Mode: ExecutorRuntimeCLI})
 }
 
 func newCustomParser2() *Parser {
@@ -4739,7 +4739,7 @@ func TestExecutor_EnumInCaseInsensitive(t *testing.T) {
 // --- target./targets. qualifier runtime semantics ---
 
 func newPluginExecutor() *Executor {
-	return NewExecutor(testSchema{}, func() string { return "alice" }, ExecutorRuntime{Mode: ExecutorRuntimePlugin})
+	return NewExecutor(testSchema{}, testDocFactory(), func() string { return "alice" }, ExecutorRuntime{Mode: ExecutorRuntimePlugin})
 }
 
 func TestExecuteTargetField_SingleSelection(t *testing.T) {

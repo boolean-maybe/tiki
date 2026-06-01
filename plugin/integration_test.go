@@ -10,7 +10,8 @@ import (
 
 func newTestExecutor() *ruki.Executor {
 	schema := rukiRuntime.NewSchema()
-	return ruki.NewExecutor(schema, func() string { return "testuser" },
+	factory := ruki.DocumentFactory(func() ruki.Document { return tikipkg.WrapDoc(tikipkg.New()) })
+	return ruki.NewExecutor(schema, factory, func() string { return "testuser" },
 		ruki.ExecutorRuntime{Mode: ruki.ExecutorRuntimePlugin})
 }
 
@@ -66,7 +67,7 @@ lanes:
 	}
 
 	executor := newTestExecutor()
-	result, err := executor.Execute(tp.Lanes[0].Filter, allTikis)
+	result, err := executor.Execute(tp.Lanes[0].Filter, tikipkg.WrapDocs(allTikis))
 	if err != nil {
 		t.Fatalf("executor error: %v", err)
 	}
@@ -122,7 +123,7 @@ lanes:
 	}
 
 	executor := newTestExecutor()
-	result, err := executor.Execute(tp.Lanes[0].Filter, allTikis)
+	result, err := executor.Execute(tp.Lanes[0].Filter, tikipkg.WrapDocs(allTikis))
 	if err != nil {
 		t.Fatalf("executor error: %v", err)
 	}
@@ -175,7 +176,7 @@ lanes:
 		t.Run(tc.name, func(t *testing.T) {
 			tikis := []*tikipkg.Tiki{newWFTiki("T00001", tc.status, nil)}
 
-			result, err := executor.Execute(tp.Lanes[0].Filter, tikis)
+			result, err := executor.Execute(tp.Lanes[0].Filter, tikipkg.WrapDocs(tikis))
 			if err != nil {
 				t.Fatalf("executor error: %v", err)
 			}

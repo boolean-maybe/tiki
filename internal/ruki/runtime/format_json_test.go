@@ -9,7 +9,6 @@ import (
 
 	"github.com/boolean-maybe/tiki/internal/teststatuses"
 	"github.com/boolean-maybe/tiki/ruki"
-	"github.com/boolean-maybe/tiki/tiki"
 	"github.com/boolean-maybe/tiki/workflow"
 )
 
@@ -18,7 +17,7 @@ func TestJSONFormatterSelectRows(t *testing.T) {
 
 	proj := &ruki.TikiProjection{
 		Fields: []string{"id", "title", "status"},
-		Tikis: []*tiki.Tiki{
+		Tikis: []ruki.Document{
 			tikiFromLegacy(legacyFields{ID: "TIKI-AAA001", Title: "Build API", Status: "ready"}),
 			tikiFromLegacy(legacyFields{ID: "TIKI-BBB002", Title: "Write Docs", Status: "done"}),
 		},
@@ -70,7 +69,7 @@ func TestJSONFormatterIntAndBool(t *testing.T) {
 
 	proj := &ruki.TikiProjection{
 		Fields: []string{"priority", "points", "active"},
-		Tikis: []*tiki.Tiki{tikiFromLegacy(legacyFields{
+		Tikis: []ruki.Document{tikiFromLegacy(legacyFields{
 			Points:       "7",
 			CustomFields: map[string]interface{}{"active": true},
 			Priority:     "medium",
@@ -104,7 +103,7 @@ func TestJSONFormatterDatesAndTimestamps(t *testing.T) {
 	ts := time.Date(2025, 6, 1, 14, 30, 0, 0, time.FixedZone("EST", -5*3600))
 	proj := &ruki.TikiProjection{
 		Fields: []string{"due", "createdAt"},
-		Tikis:  []*tiki.Tiki{tikiFromLegacy(legacyFields{Due: due, CreatedAt: ts})},
+		Tikis:  []ruki.Document{tikiFromLegacy(legacyFields{Due: due, CreatedAt: ts})},
 	}
 
 	var buf bytes.Buffer
@@ -128,7 +127,7 @@ func TestJSONFormatterUnsetDateIsNull(t *testing.T) {
 
 	proj := &ruki.TikiProjection{
 		Fields: []string{"due", "createdAt"},
-		Tikis:  []*tiki.Tiki{tikiFromLegacy(legacyFields{})},
+		Tikis:  []ruki.Document{tikiFromLegacy(legacyFields{})},
 	}
 
 	var buf bytes.Buffer
@@ -152,7 +151,7 @@ func TestJSONFormatterListFields(t *testing.T) {
 
 	proj := &ruki.TikiProjection{
 		Fields: []string{"tags", "dependsOn"},
-		Tikis: []*tiki.Tiki{
+		Tikis: []ruki.Document{
 			tikiFromLegacy(legacyFields{Tags: []string{"backend", "urgent"}, DependsOn: []string{"TIKI-AAA001"}}),
 			tikiFromLegacy(legacyFields{Tags: []string{}, DependsOn: nil}),
 		},
@@ -196,7 +195,7 @@ func TestJSONFormatterCustomFields(t *testing.T) {
 
 	proj := &ruki.TikiProjection{
 		Fields: []string{"severity", "score"},
-		Tikis: []*tiki.Tiki{
+		Tikis: []ruki.Document{
 			tikiFromLegacy(legacyFields{CustomFields: map[string]interface{}{"severity": "high", "score": 42}}),
 			tikiFromLegacy(legacyFields{}), // unset
 		},
@@ -228,7 +227,7 @@ func TestJSONFormatterCustomFields(t *testing.T) {
 func TestJSONFormatterWriteError(t *testing.T) {
 	proj := &ruki.TikiProjection{
 		Fields: []string{"id"},
-		Tikis:  []*tiki.Tiki{tikiFromLegacy(legacyFields{ID: "TIKI-ABC123"})},
+		Tikis:  []ruki.Document{tikiFromLegacy(legacyFields{ID: "TIKI-ABC123"})},
 	}
 	// fail on the first write (the JSON array itself)
 	ew := &errorWriter{failAfter: 0}

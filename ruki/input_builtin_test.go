@@ -93,7 +93,7 @@ func TestInputBuiltin_Executor_ReturnsValue(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	e := NewExecutor(testSchema{}, func() string { return "alice" }, ExecutorRuntime{Mode: ExecutorRuntimePlugin})
+	e := NewExecutor(testSchema{}, testDocFactory(), func() string { return "alice" }, ExecutorRuntime{Mode: ExecutorRuntimePlugin})
 
 	testTiki := &tikiFixture{ID: "TIKI-000001", Title: "test", Status: "ready", Type: "tiki"}
 	result, err := e.testExec(vs, []*tikiFixture{testTiki}, ExecutionInput{
@@ -127,7 +127,7 @@ func TestInputBuiltin_Executor_MissingInput(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	e := NewExecutor(testSchema{}, func() string { return "alice" }, ExecutorRuntime{Mode: ExecutorRuntimePlugin})
+	e := NewExecutor(testSchema{}, testDocFactory(), func() string { return "alice" }, ExecutorRuntime{Mode: ExecutorRuntimePlugin})
 
 	testTiki := &tikiFixture{ID: "TIKI-000001", Title: "test", Status: "ready", Type: "tiki"}
 	_, err = e.testExec(vs, []*tikiFixture{testTiki}, ExecutionInput{

@@ -4,8 +4,6 @@ import (
 	"errors"
 	"fmt"
 	"strings"
-
-	"github.com/boolean-maybe/tiki/tiki"
 )
 
 // ExecutorRuntimeMode identifies the semantic/runtime environment in which
@@ -42,7 +40,7 @@ func (r ExecutorRuntime) normalize() ExecutorRuntime {
 // and selected_count() returns len().
 type ExecutionInput struct {
 	SelectedTikiIDs []string
-	CreateTemplate  *tiki.Tiki
+	CreateTemplate  Document
 	InputValue      interface{} // value returned by input() builtin
 	HasInput        bool        // distinguishes nil from unset
 	ChooseValue     string      // tiki ID returned by choose() builtin

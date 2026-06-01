@@ -56,7 +56,7 @@ func TestPhase5_Has_TargetQualifierResolvesSelectedTiki(t *testing.T) {
 		t.Fatalf("parse/validate: %v", err)
 	}
 
-	e := NewExecutor(testSchema{}, nil, ExecutorRuntime{Mode: ExecutorRuntimePlugin})
+	e := NewExecutor(testSchema{}, testDocFactory(), nil, ExecutorRuntime{Mode: ExecutorRuntimePlugin})
 
 	// Two tikis: the selected one has an explicit status, the other
 	// doesn't. has(target.status) is evaluated once per row and is
@@ -89,7 +89,7 @@ func TestPhase5_Has_TargetQualifierFalseWhenSelectedLacksField(t *testing.T) {
 		t.Fatalf("parse/validate: %v", err)
 	}
 
-	e := NewExecutor(testSchema{}, nil, ExecutorRuntime{Mode: ExecutorRuntimePlugin})
+	e := NewExecutor(testSchema{}, testDocFactory(), nil, ExecutorRuntime{Mode: ExecutorRuntimePlugin})
 	selected := &tikiFixture{ID: "SEL01", Title: "selected, no status"}
 	other := &tikiFixture{
 		ID: "OTH01", Title: "other has status", Status: "ready",
@@ -119,7 +119,7 @@ func TestPhase5_Has_TargetsQualifierTrueWhenAnySelectedHasField(t *testing.T) {
 		t.Fatalf("parse/validate: %v", err)
 	}
 
-	e := NewExecutor(testSchema{}, nil, ExecutorRuntime{Mode: ExecutorRuntimePlugin})
+	e := NewExecutor(testSchema{}, testDocFactory(), nil, ExecutorRuntime{Mode: ExecutorRuntimePlugin})
 
 	// Two selected tikis: one has status, one doesn't. `has(targets.X)`
 	// is any-present semantics, so this evaluates true.
@@ -152,7 +152,7 @@ func TestPhase5_Has_TargetsQualifierFalseWhenNoneHaveField(t *testing.T) {
 		t.Fatalf("parse/validate: %v", err)
 	}
 
-	e := NewExecutor(testSchema{}, nil, ExecutorRuntime{Mode: ExecutorRuntimePlugin})
+	e := NewExecutor(testSchema{}, testDocFactory(), nil, ExecutorRuntime{Mode: ExecutorRuntimePlugin})
 	plain1 := &tikiFixture{ID: "PLN01", Title: "p1"}
 	plain2 := &tikiFixture{ID: "PLN02", Title: "p2"}
 	bystander := &tikiFixture{
@@ -182,7 +182,7 @@ func TestPhase5_Has_TargetsQualifierFalseWhenNothingSelected(t *testing.T) {
 		t.Fatalf("parse/validate: %v", err)
 	}
 
-	e := NewExecutor(testSchema{}, nil, ExecutorRuntime{Mode: ExecutorRuntimePlugin})
+	e := NewExecutor(testSchema{}, testDocFactory(), nil, ExecutorRuntime{Mode: ExecutorRuntimePlugin})
 	plain := &tikiFixture{ID: "PLN01", Title: "p"}
 
 	result, err := e.testExec(vs, []*tikiFixture{plain}, ExecutionInput{

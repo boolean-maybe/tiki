@@ -3,15 +3,17 @@ package runtime
 import (
 	"time"
 
+	"github.com/boolean-maybe/tiki/ruki"
 	"github.com/boolean-maybe/tiki/tiki"
 )
 
-// tikiFromLegacy builds a tiki from legacy field values for format tests.
+// tikiFromLegacy builds a tiki from legacy field values for format tests,
+// wrapped as a ruki.Document for the projection types the formatters consume.
 // Any non-zero schema field marks the tiki as workflow so formatters render
 // the expected values. Full-schema presence is applied for fields that need
 // "present empty" semantics (assignee, tags, etc.) to render as blank cells
 // rather than "<absent>".
-func tikiFromLegacy(f legacyFields) *tiki.Tiki {
+func tikiFromLegacy(f legacyFields) ruki.Document {
 	tk := tiki.New()
 	tk.SetID(f.ID)
 	tk.SetTitle(f.Title)
@@ -53,7 +55,7 @@ func tikiFromLegacy(f legacyFields) *tiki.Tiki {
 	for k, v := range f.CustomFields {
 		tk.Set(k, v)
 	}
-	return tk
+	return tiki.WrapDoc(tk)
 }
 
 // legacyFields mirrors the workflow-field shape format tests care about.

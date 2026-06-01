@@ -164,7 +164,7 @@ func (pc *PluginController) buildExecutionInput(pa *plugin.PluginAction) (ruki.E
 			slog.Error("failed to create tiki template for plugin action", "error", err)
 			return input, false
 		}
-		input.CreateTemplate = template
+		input.CreateTemplate = tikipkg.WrapDoc(template)
 	}
 
 	return input, true
@@ -224,7 +224,7 @@ func (pc *PluginController) executeAndApply(pa *plugin.PluginAction, input ruki.
 	executor := pc.newExecutor()
 	allTikis := pc.tikiStore.GetAllTikis()
 
-	result, err := executor.Execute(pa.Action, allTikis, input)
+	result, err := executor.Execute(pa.Action, tikipkg.WrapDocs(allTikis), input)
 	if err != nil {
 		args := append(logSelectionFields(input), "key", pa.KeyStr, "error", err)
 		slog.Error("failed to execute plugin action", args...)
@@ -241,7 +241,8 @@ func (pc *PluginController) executeAndApply(pa *plugin.PluginAction, input ruki.
 		slog.Info("select plugin action executed", args...)
 		return true
 	case result.Update != nil:
-		for _, tk := range result.Update.Updated {
+		for _, doc := range result.Update.Updated {
+			tk := tikipkg.UnwrapDoc(doc)
 			if err := pc.mutationGate.UpdateTiki(ctx, tk); err != nil {
 				slog.Error("failed to update tiki after plugin action", "tiki_id", tk.ID(), "key", pa.KeyStr, "error", err)
 				if pc.statusline != nil {
@@ -252,7 +253,7 @@ func (pc *PluginController) executeAndApply(pa *plugin.PluginAction, input ruki.
 			pc.ensureSearchResultIncludesTiki(tk)
 		}
 	case result.Create != nil:
-		if err := pc.mutationGate.CreateTiki(ctx, result.Create.Tiki); err != nil {
+		if err := pc.mutationGate.CreateTiki(ctx, tikipkg.UnwrapDoc(result.Create.Tiki)); err != nil {
 			slog.Error("failed to create tiki from plugin action", "key", pa.KeyStr, "error", err)
 			if pc.statusline != nil {
 				pc.statusline.SetMessage(err.Error(), model.MessageLevelError, true)
@@ -260,7 +261,8 @@ func (pc *PluginController) executeAndApply(pa *plugin.PluginAction, input ruki.
 			return false
 		}
 	case result.Delete != nil:
-		for _, tk := range result.Delete.Deleted {
+		for _, doc := range result.Delete.Deleted {
+			tk := tikipkg.UnwrapDoc(doc)
 			if err := pc.mutationGate.DeleteTiki(ctx, tk); err != nil {
 				slog.Error("failed to delete tiki from plugin action", "tiki_id", tk.ID(), "key", pa.KeyStr, "error", err)
 				if pc.statusline != nil {
@@ -465,7 +467,7 @@ func (pc *PluginController) CanStartActionChoose(actionID ActionID) (string, []*
 
 	allTikis := pc.tikiStore.GetAllTikis()
 	executor := pc.newExecutor()
-	candidateTikis, err := executor.EvalSubQueryFilter(pa.ChooseFilter, allTikis, input)
+	candidateDocs, err := executor.EvalSubQueryFilter(pa.ChooseFilter, tikipkg.WrapDocs(allTikis), input)
 	if err != nil {
 		slog.Error("failed to evaluate choose filter", "key", pa.KeyStr, "error", err)
 		if pc.statusline != nil {
@@ -473,6 +475,7 @@ func (pc *PluginController) CanStartActionChoose(actionID ActionID) (string, []*
 		}
 		return "", nil, false
 	}
+	candidateTikis := tikipkg.UnwrapDocs(candidateDocs)
 	sortTikisByPriorityTitle(candidateTikis)
 	return pa.Label, candidateTikis, true
 }
@@ -542,7 +545,7 @@ func (pc *PluginController) handleMoveTiki(offset int) bool {
 
 	allTikis := pc.tikiStore.GetAllTikis()
 	executor := pc.newExecutor()
-	result, err := executor.Execute(actionStmt, allTikis, ruki.NewSingleSelectionInput(tikiID))
+	result, err := executor.Execute(actionStmt, tikipkg.WrapDocs(allTikis), ruki.NewSingleSelectionInput(tikiID))
 	if err != nil {
 		slog.Error("failed to execute lane action", "tiki_id", tikiID, "error", err)
 		return false
@@ -552,7 +555,7 @@ func (pc *PluginController) handleMoveTiki(offset int) bool {
 		return false
 	}
 
-	movedTiki := result.Update.Updated[0]
+	movedTiki := tikipkg.UnwrapDoc(result.Update.Updated[0])
 	if err := pc.mutationGate.UpdateTiki(context.Background(), movedTiki); err != nil {
 		slog.Error("failed to update tiki after lane move", "tiki_id", tikiID, "error", err)
 		if pc.statusline != nil {
@@ -587,12 +590,12 @@ func (pc *PluginController) GetFilteredTikisForLane(lane int) []*tikipkg.Tiki {
 		needsSort = true
 	} else {
 		executor := pc.newExecutor()
-		result, err := executor.Execute(filterStmt, allTikis)
+		result, err := executor.Execute(filterStmt, tikipkg.WrapDocs(allTikis))
 		if err != nil {
 			slog.Error("failed to execute lane filter", "lane", lane, "error", err)
 			return nil
 		}
-		filtered = result.Select.Tikis
+		filtered = tikipkg.UnwrapDocs(result.Select.Tikis)
 		// only skip secondary sort when the filter statement carries its own order by
 		needsSort = !filterStmt.HasOrderBy()
 	}

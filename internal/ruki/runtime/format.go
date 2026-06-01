@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"github.com/boolean-maybe/tiki/ruki"
-	"github.com/boolean-maybe/tiki/tiki"
 	"github.com/boolean-maybe/tiki/workflow"
 )
 
@@ -95,7 +94,7 @@ func fieldNames(fields []workflow.FieldDef) []string {
 }
 
 // formatCell extracts and formats a single cell value from a tiki.
-func formatCell(t *tiki.Tiki, fd workflow.FieldDef) string {
+func formatCell(t ruki.Document, fd workflow.FieldDef) string {
 	val := extractFieldValue(t, fd.Name)
 	return renderValue(val, fd.Type)
 }
@@ -104,7 +103,7 @@ func formatCell(t *tiki.Tiki, fd workflow.FieldDef) string {
 // fields return nil so renderers can emit blanks (table) or null (JSON).
 // This mirrors the executor's hard-error policy at the presentation seam by
 // degrading gracefully: absence is a renderable state, not a query failure.
-func extractFieldValue(t *tiki.Tiki, name string) interface{} {
+func extractFieldValue(t ruki.Document, name string) interface{} {
 	if t == nil {
 		return nil
 	}
@@ -316,7 +315,7 @@ func (f *JSONFormatter) Format(w io.Writer, proj *ruki.TikiProjection) error {
 // jsonCellValue extracts a tiki field as a native JSON-marshalable value,
 // using `null` for unset/zero date-like values and empty-string for unset
 // scalar fields (matching how the executor/plugin treats "empty" elsewhere).
-func jsonCellValue(t *tiki.Tiki, fd workflow.FieldDef) interface{} {
+func jsonCellValue(t ruki.Document, fd workflow.FieldDef) interface{} {
 	val := extractFieldValue(t, fd.Name)
 	return toJSONValue(val, fd.Type)
 }
