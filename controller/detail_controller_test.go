@@ -19,7 +19,7 @@ import (
 // ApplyDetailMode tests. The draft is not persisted to any store.
 func newTestDraftTiki(id string) *tikipkg.Tiki {
 	tk := tikipkg.New()
-	tk.ID = id
+	tk.SetID(id)
 	return tk
 }
 
@@ -170,7 +170,7 @@ func TestApplyDetailMode_New_SetsDraftAndFocusesTitle(t *testing.T) {
 	if !dc.ApplyDetailMode(plugin.DetailModeNew, "", draft) {
 		t.Fatal("ApplyDetailMode returned false for new mode")
 	}
-	if got := session.GetDraftTiki(); got == nil || got.ID != "DRAFT1" {
+	if got := session.GetDraftTiki(); got == nil || got.ID() != "DRAFT1" {
 		t.Errorf("draft not set on session: got %+v", got)
 	}
 	if !view.editing {
@@ -240,8 +240,8 @@ func TestDetailController_RukiChooseActionRoundTrip(t *testing.T) {
 	tikiStore := store.NewInMemoryStore()
 	// the project that will receive the dependency
 	project := tikipkg.New()
-	project.ID = "PROJ01"
-	project.Title = "Sample Project"
+	project.SetID("PROJ01")
+	project.SetTitle("Sample Project")
 	project.Set("type", "project")
 	project.Set("status", "ready")
 	if err := tikiStore.CreateTiki(project); err != nil {
@@ -297,7 +297,7 @@ func TestDetailController_RukiChooseActionRoundTrip(t *testing.T) {
 	}
 	foundCandidate := false
 	for _, c := range candidates {
-		if c.ID == "TASK01" {
+		if c.ID() == "TASK01" {
 			foundCandidate = true
 			break
 		}

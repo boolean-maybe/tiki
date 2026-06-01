@@ -6,13 +6,13 @@ import (
 
 	nav "github.com/boolean-maybe/navidown/navidown"
 
-	"github.com/boolean-maybe/tiki/document"
+	"github.com/boolean-maybe/ruki/idfmt"
 	"github.com/boolean-maybe/tiki/store"
 )
 
 // wikilinkPattern matches `[[ID]]` where ID is a bare document id in the
 // canonical shape — exactly IDLength uppercase alphanumerics, matching
-// `document.IsValidID`. Anything else (obsidian-style `[[Some Page Title]]`,
+// `idfmt.IsValidID`. Anything else (obsidian-style `[[Some Page Title]]`,
 // `[[README]]`, `[[image.png]]`, `[[abc123]]`) is left untouched by the
 // matcher and never rewritten.
 //
@@ -21,7 +21,7 @@ import (
 // image embed — is recognized and skipped rather than rewritten into a
 // broken markdown image link.
 //
-// NOTE: the `{6}` width mirrors document.IDLength. If that constant changes,
+// NOTE: the `{6}` width mirrors idfmt.IDLength. If that constant changes,
 // this pattern must move in lockstep; there is a test that asserts an
 // IDLength-shaped bare id matches and an off-by-one shape does not.
 var wikilinkPattern = regexp.MustCompile(`\[\[([A-Z0-9]{6})\]\]`)
@@ -58,14 +58,14 @@ func (r *StoreResolver) Resolve(id string) (string, string, bool) {
 	if r == nil || r.Store == nil {
 		return "", "", false
 	}
-	if !document.IsValidID(id) {
+	if !idfmt.IsValidID(id) {
 		return "", "", false
 	}
 	tk := r.Store.GetTiki(id)
 	if tk == nil {
 		return "", "", false
 	}
-	title := tk.Title
+	title := tk.Title()
 	if title == "" {
 		title = id
 	}
@@ -78,7 +78,7 @@ func (r *StoreResolver) ResolveBody(id string) (string, bool) {
 	if r == nil || r.Store == nil {
 		return "", false
 	}
-	if !document.IsValidID(id) {
+	if !idfmt.IsValidID(id) {
 		return "", false
 	}
 	tk := r.Store.GetTiki(id)
@@ -86,10 +86,10 @@ func (r *StoreResolver) ResolveBody(id string) (string, bool) {
 		return "", false
 	}
 	var b strings.Builder
-	b.WriteString("# " + tk.Title + "\n\n")
-	b.WriteString("**" + tk.ID + "**\n\n")
-	if tk.Body != "" {
-		b.WriteString(tk.Body)
+	b.WriteString("# " + tk.Title() + "\n\n")
+	b.WriteString("**" + tk.ID() + "**\n\n")
+	if tk.Body() != "" {
+		b.WriteString(tk.Body())
 		b.WriteString("\n")
 	}
 	return b.String(), true
@@ -171,7 +171,7 @@ func NewWikilinkProvider(inner nav.ContentProvider, resolver Resolver) *Wikilink
 // store instead of hitting disk. Everything else falls through to the
 // inner provider and then has `[[ID]]` spans rewritten.
 func (p *WikilinkProvider) FetchContent(elem nav.NavElement) (string, error) {
-	if br, ok := p.resolver.(BodyResolver); ok && document.IsValidID(strings.ToUpper(elem.URL)) {
+	if br, ok := p.resolver.(BodyResolver); ok && idfmt.IsValidID(strings.ToUpper(elem.URL)) {
 		if body, ok := br.ResolveBody(strings.ToUpper(elem.URL)); ok {
 			return RewriteWikilinks(body, p.resolver), nil
 		}

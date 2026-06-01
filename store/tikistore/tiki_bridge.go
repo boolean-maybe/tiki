@@ -7,11 +7,12 @@ import (
 	"strings"
 	"time"
 
+	collectionutil "github.com/boolean-maybe/ruki/collections"
+	"github.com/boolean-maybe/ruki/idfmt"
 	"github.com/boolean-maybe/tiki/config"
 	"github.com/boolean-maybe/tiki/document"
 	"github.com/boolean-maybe/tiki/store"
 	"github.com/boolean-maybe/tiki/tiki"
-	collectionutil "github.com/boolean-maybe/tiki/util/collections"
 	"github.com/boolean-maybe/tiki/workflow"
 	valuepkg "github.com/boolean-maybe/tiki/workflow/value"
 
@@ -53,10 +54,10 @@ func loadTikiFromBytes(path string, content []byte) (*parsedTiki, error) {
 			fmt.Errorf("missing frontmatter id in %s: add an `id:` field (bare 6-char uppercase alphanumeric)", path))
 	}
 	id := document.NormalizeID(rawID)
-	if !document.IsValidID(id) {
+	if !idfmt.IsValidID(id) {
 		return nil, newLoadError(LoadReasonInvalidID,
 			fmt.Errorf("%s: invalid document id %q: expected %d uppercase alphanumeric characters",
-				path, id, document.IDLength))
+				path, id, idfmt.IDLength))
 	}
 
 	title, _ := fmMap["title"].(string)
@@ -67,11 +68,11 @@ func loadTikiFromBytes(path string, content []byte) (*parsedTiki, error) {
 	}
 
 	t := tiki.New()
-	t.ID = id
-	t.Title = title
-	t.Body = strings.TrimSpace(body)
+	t.SetID(id)
+	t.SetTitle(title)
+	t.SetBody(strings.TrimSpace(body))
 	t.Fields = fields
-	t.Path = path
+	t.SetPath(path)
 
 	return &parsedTiki{t: t, raw: fmMap, stale: stale}, nil
 }
@@ -151,15 +152,15 @@ func marshalTikiFrontmatter(t *tiki.Tiki) ([]byte, error) {
 
 	var buf strings.Builder
 
-	if t.ID != "" {
-		out, err := yaml.Marshal(map[string]interface{}{"id": t.ID})
+	if t.ID() != "" {
+		out, err := yaml.Marshal(map[string]interface{}{"id": t.ID()})
 		if err != nil {
 			return nil, err
 		}
 		buf.Write(out)
 	}
-	if t.Title != "" {
-		out, err := yaml.Marshal(map[string]interface{}{"title": t.Title})
+	if t.Title() != "" {
+		out, err := yaml.Marshal(map[string]interface{}{"title": t.Title()})
 		if err != nil {
 			return nil, err
 		}

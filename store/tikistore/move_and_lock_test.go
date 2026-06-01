@@ -64,11 +64,11 @@ func TestMoveThenReload_PreservesFieldMapAndPath(t *testing.T) {
 
 	// And the loaded path now points at the moved file — a follow-up edit
 	// must land there, not at the original location.
-	if !strings.HasSuffix(after.Path, "subdir"+string(filepath.Separator)+"renamed.md") {
-		t.Errorf("loaded Path did not track the move: %q", after.Path)
+	if !strings.HasSuffix(after.Path(), "subdir"+string(filepath.Separator)+"renamed.md") {
+		t.Errorf("loaded Path did not track the move: %q", after.Path())
 	}
 	updated := after.Clone()
-	updated.Title = "post-move title"
+	updated.SetTitle("post-move title")
 	if err := s.UpdateTiki(updated); err != nil {
 		t.Fatalf("UpdateTiki post-move: %v", err)
 	}
@@ -121,7 +121,7 @@ func TestUpdateTiki_DetectsExternalEditViaOptimisticLock(t *testing.T) {
 	}
 
 	updated := loaded.Clone()
-	updated.Title = "in-flight overwrite attempt"
+	updated.SetTitle("in-flight overwrite attempt")
 	err = s.UpdateTiki(updated)
 	if err == nil {
 		t.Fatal("UpdateTiki should have detected external edit and failed")

@@ -35,7 +35,7 @@ func TestUpdateTiki_SparseDocPreservesExistingKeys(t *testing.T) {
 		t.Fatal("GetTiki = nil")
 	}
 	updated := stored.Clone()
-	updated.Title = "v2"
+	updated.SetTitle("v2")
 	if err := s.UpdateTiki(updated); err != nil {
 		t.Fatalf("UpdateTiki: %v", err)
 	}
@@ -87,7 +87,7 @@ func TestUpdateTiki_FullDocPreservesEveryKey(t *testing.T) {
 		t.Fatal("GetTiki = nil")
 	}
 	updated := stored.Clone()
-	updated.Title = "v2"
+	updated.SetTitle("v2")
 	if err := s.UpdateTiki(updated); err != nil {
 		t.Fatalf("UpdateTiki: %v", err)
 	}
@@ -159,8 +159,8 @@ func TestUpdateTiki_OmittingAllSchemaFieldsRemovesThem(t *testing.T) {
 	}
 
 	bare := tikipkg.New()
-	bare.ID = "SHRINK"
-	bare.Title = "now bare"
+	bare.SetID("SHRINK")
+	bare.SetTitle("now bare")
 	if err := s.UpdateTiki(bare); err != nil {
 		t.Fatalf("UpdateTiki: %v", err)
 	}

@@ -109,8 +109,8 @@ func newDetailEditTestRig(t *testing.T) (*DetailController, *fakeDetailEditView,
 	tc := NewTikiEditSession(tikiStore, gate, nav, nil)
 
 	tk := tikipkg.New()
-	tk.ID = "TIKI200"
-	tk.Title = "Test"
+	tk.SetID("TIKI200")
+	tk.SetTitle("Test")
 	tk.Set(tikipkg.FieldStatus, "ready")
 	tk.Set(tikipkg.FieldType, "story")
 	tk.Set(tikipkg.FieldPriority, "medium")
@@ -120,7 +120,7 @@ func newDetailEditTestRig(t *testing.T) (*DetailController, *fakeDetailEditView,
 
 	pluginDef := newTestDetailPlugin([]string{"status", "type", "priority"}, nil)
 	dc := NewDetailController(pluginDef, nav, nil, tikiStore, gate, rukiRuntime.NewSchema(), tc)
-	dc.SetSelectedTikiID(tk.ID)
+	dc.SetSelectedTikiID(tk.ID())
 
 	view := newFakeDetailEditView()
 	dc.BindEditView(view)
@@ -141,8 +141,8 @@ func newDetailEditTestRigWithStatusline(t *testing.T) (*DetailController, *fakeD
 	tc := NewTikiEditSession(tikiStore, gate, nav, sl)
 
 	tk := tikipkg.New()
-	tk.ID = "TIKI201"
-	tk.Title = "Test"
+	tk.SetID("TIKI201")
+	tk.SetTitle("Test")
 	tk.Set(tikipkg.FieldStatus, "ready")
 	tk.Set(tikipkg.FieldType, "story")
 	tk.Set(tikipkg.FieldPriority, "medium")
@@ -152,7 +152,7 @@ func newDetailEditTestRigWithStatusline(t *testing.T) (*DetailController, *fakeD
 
 	pluginDef := newTestDetailPlugin([]string{"status", "type", "priority"}, nil)
 	dc := NewDetailController(pluginDef, nav, sl, tikiStore, gate, rukiRuntime.NewSchema(), tc)
-	dc.SetSelectedTikiID(tk.ID)
+	dc.SetSelectedTikiID(tk.ID())
 
 	view := newFakeDetailEditView()
 	dc.BindEditView(view)
@@ -352,7 +352,7 @@ func TestDetailController_TitleHandlerPersistsTypedText(t *testing.T) {
 		t.Fatal("title save handler not installed by controller")
 	}
 	saver("My new task title")
-	if got := tc.GetEditingTiki().Title; got != "My new task title" {
+	if got := tc.GetEditingTiki().Title(); got != "My new task title" {
 		t.Errorf("editing tiki title = %q, want %q", got, "My new task title")
 	}
 }

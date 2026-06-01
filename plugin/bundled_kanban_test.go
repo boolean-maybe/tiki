@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/boolean-maybe/tiki/ruki"
+	"github.com/boolean-maybe/ruki"
 	tikipkg "github.com/boolean-maybe/tiki/tiki"
 )
 
@@ -181,20 +181,20 @@ func TestBundledKanban_AddToProjectExcludesPlainDocs(t *testing.T) {
 	// the predicate type != "project"), and a plain doc with no workflow
 	// fields (must be excluded by the new has(type) guard).
 	project := tikipkg.New()
-	project.ID = "PROJ01"
-	project.Title = "Sample Project"
+	project.SetID("PROJ01")
+	project.SetTitle("Sample Project")
 	project.Set("type", "project")
 	project.Set("status", "ready")
 
 	tk := tikipkg.New()
-	tk.ID = "TASK01"
-	tk.Title = "Real Tiki"
+	tk.SetID("TASK01")
+	tk.SetTitle("Real Tiki")
 	tk.Set("type", "story")
 	tk.Set("status", "ready")
 
 	plainDoc := tikipkg.New()
-	plainDoc.ID = "DOKI01"
-	plainDoc.Title = "Section Index"
+	plainDoc.SetID("DOKI01")
+	plainDoc.SetTitle("Section Index")
 	// no workflow fields — mirrors a doki index.md with only id+title
 
 	all := []*tikipkg.Tiki{project, tk, plainDoc}
@@ -215,17 +215,19 @@ func TestBundledKanban_AddToProjectExcludesPlainDocs(t *testing.T) {
 				t.Fatalf("action %q has no ChooseFilter", c.label)
 			}
 
-			executor := ruki.NewExecutor(testSchema(), nil,
+			factory := ruki.DocumentFactory(func() ruki.Document { return tikipkg.WrapDoc(tikipkg.New()) })
+			executor := ruki.NewExecutor(testSchema(), factory, nil,
 				ruki.ExecutorRuntime{Mode: ruki.ExecutorRuntimePlugin})
-			input := ruki.NewSingleSelectionInput(project.ID)
-			candidates, err := executor.EvalSubQueryFilter(action.ChooseFilter, all, input)
+			input := ruki.NewSingleSelectionInput(project.ID())
+			candidateDocs, err := executor.EvalSubQueryFilter(action.ChooseFilter, tikipkg.WrapDocs(all), input)
 			if err != nil {
 				t.Fatalf("EvalSubQueryFilter: %v", err)
 			}
+			candidates := tikipkg.UnwrapDocs(candidateDocs)
 
 			ids := map[string]bool{}
 			for _, ct := range candidates {
-				ids[ct.ID] = true
+				ids[ct.ID()] = true
 			}
 			if !ids["TASK01"] {
 				t.Errorf("expected workflow tiki TASK01 in candidates, got %v", idList(candidates))
@@ -276,7 +278,7 @@ func findChooseAction(t *testing.T, plugins []Plugin, viewName, key string) *Plu
 func idList(tikis []*tikipkg.Tiki) []string {
 	out := make([]string, 0, len(tikis))
 	for _, t := range tikis {
-		out = append(out, t.ID)
+		out = append(out, t.ID())
 	}
 	return out
 }

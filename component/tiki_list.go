@@ -41,13 +41,13 @@ func DefaultTikiRowColors() TikiRowColors {
 // ordinary enum field — workflows that want a glyph can use the enum
 // value's emoji metadata.
 func RenderTikiRow(tk *tikipkg.Tiki, selected bool, width int, idColumnWidth int, colors TikiRowColors) string {
-	idText := colors.IDPaint.PaintString(tk.ID)
-	if padding := idColumnWidth - len(tk.ID); padding > 0 {
+	idText := colors.IDPaint.PaintString(tk.ID())
+	if padding := idColumnWidth - len(tk.ID()); padding > 0 {
 		idText += fmt.Sprintf("%*s", padding, "")
 	}
 
 	titleAvailable := max(width-1-idColumnWidth-1, 0)
-	truncatedTitle := tview.Escape(util.TruncateText(tk.Title, titleAvailable))
+	truncatedTitle := tview.Escape(util.TruncateText(tk.Title(), titleAvailable))
 
 	row := fmt.Sprintf("%s %s%s", idText, colors.TitleColor.Tag().String(), truncatedTitle)
 
@@ -67,8 +67,8 @@ func RenderTikiRow(tk *tikipkg.Tiki, selected bool, width int, idColumnWidth int
 func ComputeIDColumnWidth(tikis []*tikipkg.Tiki) int {
 	w := 0
 	for _, tk := range tikis {
-		if len(tk.ID) > w {
-			w = len(tk.ID)
+		if len(tk.ID()) > w {
+			w = len(tk.ID())
 		}
 	}
 	return w

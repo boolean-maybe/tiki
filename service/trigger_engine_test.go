@@ -10,12 +10,18 @@ import (
 	"testing"
 	"time"
 
+	"github.com/boolean-maybe/ruki"
+	"github.com/boolean-maybe/ruki/recurrence"
 	"github.com/boolean-maybe/tiki/config"
-	"github.com/boolean-maybe/tiki/ruki"
 	"github.com/boolean-maybe/tiki/store"
 	tikipkg "github.com/boolean-maybe/tiki/tiki"
-	"github.com/boolean-maybe/tiki/workflow/value"
 )
+
+// testTriggerDocFactory returns the DocumentFactory the trigger-engine tests
+// pass to NewTriggerExecutor. It wraps a fresh *Tiki, matching production.
+func testTriggerDocFactory() ruki.DocumentFactory {
+	return func() ruki.Document { return tikipkg.WrapDoc(tikipkg.New()) }
+}
 
 // testTriggerSchema implements ruki.Schema for trigger engine tests.
 type testTriggerSchema struct{}
@@ -57,7 +63,7 @@ func parseTriggerEntry(t *testing.T, desc, input string) triggerEntry {
 // translated to the canonical key via priorityRankToKey for callsite
 // compatibility, since most existing callers passed ranks (1=high, ..., 5=low).
 func newTiki(id, title, status, typ string, priorityRank int) *tikipkg.Tiki {
-	tk := &tikipkg.Tiki{ID: id, Title: title}
+	tk := func() *tikipkg.Tiki { t := tikipkg.New(); t.SetID(id); t.SetTitle(title); return t }()
 	if status != "" {
 		tk.Set(tikipkg.FieldStatus, status)
 	}
@@ -113,7 +119,7 @@ func TestTriggerEngine_BeforeCreateDenyAggregate(t *testing.T) {
 	existing2.Set(tikipkg.FieldAssignee, "alice")
 	gate, _ := newGateWithStoreAndTikis(existing1, existing2)
 
-	engine := NewTriggerEngine([]triggerEntry{entry}, nil, ruki.NewTriggerExecutor(testTriggerSchema{}, nil))
+	engine := NewTriggerEngine([]triggerEntry{entry}, nil, ruki.NewTriggerExecutor(testTriggerSchema{}, testTriggerDocFactory(), nil))
 	engine.RegisterWithGate(gate)
 
 	newTiki := newTiki("CAP003", "e3", "ready", "story", 3)
@@ -135,7 +141,7 @@ func TestTriggerEngine_BeforeCreateAllowUnderAggregate(t *testing.T) {
 	existing.Set(tikipkg.FieldAssignee, "alice")
 	gate, _ := newGateWithStoreAndTikis(existing)
 
-	engine := NewTriggerEngine([]triggerEntry{entry}, nil, ruki.NewTriggerExecutor(testTriggerSchema{}, nil))
+	engine := NewTriggerEngine([]triggerEntry{entry}, nil, ruki.NewTriggerExecutor(testTriggerSchema{}, testTriggerDocFactory(), nil))
 	engine.RegisterWithGate(gate)
 
 	newTiki := newTiki("CAP002", "e2", "ready", "story", 3)
@@ -153,7 +159,7 @@ func TestTriggerEngine_BeforeDeny(t *testing.T) {
 	main := newTiki("MAIN01", "main", "inProgress", "story", 3)
 	gate, _ := newGateWithStoreAndTikis(dep, main)
 
-	engine := NewTriggerEngine([]triggerEntry{entry}, nil, ruki.NewTriggerExecutor(testTriggerSchema{}, nil))
+	engine := NewTriggerEngine([]triggerEntry{entry}, nil, ruki.NewTriggerExecutor(testTriggerSchema{}, testTriggerDocFactory(), nil))
 	engine.RegisterWithGate(gate)
 
 	updated := main.Clone()
@@ -174,7 +180,7 @@ func TestTriggerEngine_BeforeDenyNoMatch(t *testing.T) {
 	tk := newTiki("000001", "test", "ready", "story", 3)
 	gate, _ := newGateWithStoreAndTikis(tk)
 
-	engine := NewTriggerEngine([]triggerEntry{entry}, nil, ruki.NewTriggerExecutor(testTriggerSchema{}, nil))
+	engine := NewTriggerEngine([]triggerEntry{entry}, nil, ruki.NewTriggerExecutor(testTriggerSchema{}, testTriggerDocFactory(), nil))
 	engine.RegisterWithGate(gate)
 
 	updated := tk.Clone()
@@ -197,7 +203,7 @@ func TestTriggerEngine_BeforeDenyWIPLimit(t *testing.T) {
 	target.Set(tikipkg.FieldAssignee, "alice")
 	gate, _ := newGateWithStoreAndTikis(existing1, existing2, target)
 
-	engine := NewTriggerEngine([]triggerEntry{entry}, nil, ruki.NewTriggerExecutor(testTriggerSchema{}, nil))
+	engine := NewTriggerEngine([]triggerEntry{entry}, nil, ruki.NewTriggerExecutor(testTriggerSchema{}, testTriggerDocFactory(), nil))
 	engine.RegisterWithGate(gate)
 
 	updated := target.Clone()
@@ -221,7 +227,7 @@ func TestTriggerEngine_BeforeAllowUnderWIPLimit(t *testing.T) {
 	target.Set(tikipkg.FieldAssignee, "alice")
 	gate, _ := newGateWithStoreAndTikis(existing, target)
 
-	engine := NewTriggerEngine([]triggerEntry{entry}, nil, ruki.NewTriggerExecutor(testTriggerSchema{}, nil))
+	engine := NewTriggerEngine([]triggerEntry{entry}, nil, ruki.NewTriggerExecutor(testTriggerSchema{}, testTriggerDocFactory(), nil))
 	engine.RegisterWithGate(gate)
 
 	updated := target.Clone()
@@ -238,7 +244,7 @@ func TestTriggerEngine_AfterUpdateCascade(t *testing.T) {
 		`after create where new.priority <= "medium-high" and not has(new.assignee) update where id = new.id set assignee="autobot"`)
 
 	gate, s := newGateWithStoreAndTikis()
-	engine := NewTriggerEngine([]triggerEntry{entry}, nil, ruki.NewTriggerExecutor(testTriggerSchema{}, nil))
+	engine := NewTriggerEngine([]triggerEntry{entry}, nil, ruki.NewTriggerExecutor(testTriggerSchema{}, testTriggerDocFactory(), nil))
 	engine.RegisterWithGate(gate)
 
 	tk := newTiki("URGENT", "urgent bug", "ready", "bug", 1)
@@ -262,7 +268,7 @@ func TestTriggerEngine_AfterTriggerNoMatchSkipped(t *testing.T) {
 		`after create where new.priority <= "medium-high" and new.assignee is empty update where id = new.id set assignee="autobot"`)
 
 	gate, s := newGateWithStoreAndTikis()
-	engine := NewTriggerEngine([]triggerEntry{entry}, nil, ruki.NewTriggerExecutor(testTriggerSchema{}, nil))
+	engine := NewTriggerEngine([]triggerEntry{entry}, nil, ruki.NewTriggerExecutor(testTriggerSchema{}, testTriggerDocFactory(), nil))
 	engine.RegisterWithGate(gate)
 
 	tk := newTiki("LOWPRI", "low pri", "ready", "story", 5)
@@ -287,7 +293,7 @@ func TestTriggerEngine_AfterDeleteCleanupDeps(t *testing.T) {
 	other := newTiki("OTHER1", "other", "done", "story", 3)
 	gate, s := newGateWithStoreAndTikis(dep, downstream, other)
 
-	engine := NewTriggerEngine([]triggerEntry{entry}, nil, ruki.NewTriggerExecutor(testTriggerSchema{}, nil))
+	engine := NewTriggerEngine([]triggerEntry{entry}, nil, ruki.NewTriggerExecutor(testTriggerSchema{}, testTriggerDocFactory(), nil))
 	engine.RegisterWithGate(gate)
 
 	if err := gate.DeleteTiki(context.Background(), dep); err != nil {
@@ -318,13 +324,13 @@ func TestTriggerEngine_AfterCascadePartialFailureSurfaced(t *testing.T) {
 	// register a validator that blocks updates to PEER02 specifically
 	gate.OnUpdate(func(old, new *tikipkg.Tiki, allTikis []*tikipkg.Tiki) *Rejection {
 		p, _, _ := new.StringField(tikipkg.FieldPriority)
-		if new.ID == "PEER02" && p == "high" {
+		if new.ID() == "PEER02" && p == "high" {
 			return &Rejection{Reason: "peer2 blocked"}
 		}
 		return nil
 	})
 
-	engine := NewTriggerEngine([]triggerEntry{entry}, nil, ruki.NewTriggerExecutor(testTriggerSchema{}, nil))
+	engine := NewTriggerEngine([]triggerEntry{entry}, nil, ruki.NewTriggerExecutor(testTriggerSchema{}, testTriggerDocFactory(), nil))
 	engine.RegisterWithGate(gate)
 
 	trigger := newTiki("TRIG01", "trigger", "ready", "story", 1)
@@ -355,7 +361,7 @@ func TestTriggerEngine_RecursionLimit(t *testing.T) {
 	tk := newTiki("LOOP01", "loop", "ready", "story", 3)
 	gate, _ := newGateWithStoreAndTikis(tk)
 
-	engine := NewTriggerEngine([]triggerEntry{entry}, nil, ruki.NewTriggerExecutor(testTriggerSchema{}, nil))
+	engine := NewTriggerEngine([]triggerEntry{entry}, nil, ruki.NewTriggerExecutor(testTriggerSchema{}, testTriggerDocFactory(), nil))
 	engine.RegisterWithGate(gate)
 
 	updated := tk.Clone()
@@ -400,7 +406,7 @@ func TestTriggerEngine_RunCommand(t *testing.T) {
 	tk := newTiki("RUN001", "run test", "inProgress", "story", 3)
 	gate, _ := newGateWithStoreAndTikis(tk)
 
-	engine := NewTriggerEngine([]triggerEntry{entry}, nil, ruki.NewTriggerExecutor(testTriggerSchema{}, nil))
+	engine := NewTriggerEngine([]triggerEntry{entry}, nil, ruki.NewTriggerExecutor(testTriggerSchema{}, testTriggerDocFactory(), nil))
 	engine.RegisterWithGate(gate)
 
 	updated := tk.Clone()
@@ -418,7 +424,7 @@ func TestTriggerEngine_RunCommandFailure(t *testing.T) {
 	tk := newTiki("FAIL01", "fail test", "inProgress", "story", 3)
 	gate, _ := newGateWithStoreAndTikis(tk)
 
-	engine := NewTriggerEngine([]triggerEntry{entry}, nil, ruki.NewTriggerExecutor(testTriggerSchema{}, nil))
+	engine := NewTriggerEngine([]triggerEntry{entry}, nil, ruki.NewTriggerExecutor(testTriggerSchema{}, testTriggerDocFactory(), nil))
 	engine.RegisterWithGate(gate)
 
 	updated := tk.Clone()
@@ -437,7 +443,7 @@ func TestTriggerEngine_RunCommandTimeout(t *testing.T) {
 	tk := newTiki("SLOW01", "slow", "inProgress", "story", 3)
 	gate, _ := newGateWithStoreAndTikis(tk)
 
-	engine := NewTriggerEngine([]triggerEntry{entry}, nil, ruki.NewTriggerExecutor(testTriggerSchema{}, nil))
+	engine := NewTriggerEngine([]triggerEntry{entry}, nil, ruki.NewTriggerExecutor(testTriggerSchema{}, testTriggerDocFactory(), nil))
 	engine.RegisterWithGate(gate)
 
 	ctx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
@@ -467,7 +473,7 @@ func TestTriggerEngine_AfterUpdateCreateWithNextDate(t *testing.T) {
 	tk.Set(tikipkg.FieldRecurrence, recurrenceDaily)
 	gate, s := newGateWithStoreAndTikis(tk)
 
-	engine := NewTriggerEngine([]triggerEntry{entry}, nil, ruki.NewTriggerExecutor(testTriggerSchema{}, nil))
+	engine := NewTriggerEngine([]triggerEntry{entry}, nil, ruki.NewTriggerExecutor(testTriggerSchema{}, testTriggerDocFactory(), nil))
 	engine.RegisterWithGate(gate)
 
 	before := time.Now()
@@ -485,7 +491,7 @@ func TestTriggerEngine_AfterUpdateCreateWithNextDate(t *testing.T) {
 
 	var created *tikipkg.Tiki
 	for _, at := range allTikis {
-		if at.ID != "REC001" {
+		if at.ID() != "REC001" {
 			created = at
 			break
 		}
@@ -494,15 +500,15 @@ func TestTriggerEngine_AfterUpdateCreateWithNextDate(t *testing.T) {
 		t.Fatal("trigger-created tiki not found")
 		return
 	}
-	if created.Title != "Daily standup" {
-		t.Fatalf("expected title 'Daily standup', got %q", created.Title)
+	if created.Title() != "Daily standup" {
+		t.Fatalf("expected title 'Daily standup', got %q", created.Title())
 	}
 	dueVal, ok, _ := created.TimeField(tikipkg.FieldDue)
 	if !ok || dueVal.IsZero() {
 		t.Fatal("expected non-zero due date from next_date(old.recurrence)")
 	}
-	expBefore := value.NextOccurrenceFrom(value.RecurrenceDaily, before)
-	expAfter := value.NextOccurrenceFrom(value.RecurrenceDaily, after)
+	expBefore := recurrence.NextOccurrenceFrom(recurrence.RecurrenceDaily, before)
+	expAfter := recurrence.NextOccurrenceFrom(recurrence.RecurrenceDaily, after)
 	if !dueVal.Equal(expBefore) && !dueVal.Equal(expAfter) {
 		t.Fatalf("expected due=%v or %v, got %v", expBefore, expAfter, dueVal)
 	}
@@ -517,7 +523,7 @@ func TestTriggerEngine_BeforeDeleteDeny(t *testing.T) {
 	tk := newTiki("PRIO01", "critical", "inProgress", "story", 1)
 	gate, _ := newGateWithStoreAndTikis(tk)
 
-	engine := NewTriggerEngine([]triggerEntry{entry}, nil, ruki.NewTriggerExecutor(testTriggerSchema{}, nil))
+	engine := NewTriggerEngine([]triggerEntry{entry}, nil, ruki.NewTriggerExecutor(testTriggerSchema{}, testTriggerDocFactory(), nil))
 	engine.RegisterWithGate(gate)
 
 	err := gate.DeleteTiki(context.Background(), tk)
@@ -536,7 +542,7 @@ func TestTriggerEngine_BeforeDeleteAllow(t *testing.T) {
 	tk := newTiki("LOWP01", "low priority", "ready", "story", 5)
 	gate, _ := newGateWithStoreAndTikis(tk)
 
-	engine := NewTriggerEngine([]triggerEntry{entry}, nil, ruki.NewTriggerExecutor(testTriggerSchema{}, nil))
+	engine := NewTriggerEngine([]triggerEntry{entry}, nil, ruki.NewTriggerExecutor(testTriggerSchema{}, testTriggerDocFactory(), nil))
 	engine.RegisterWithGate(gate)
 
 	if err := gate.DeleteTiki(context.Background(), tk); err != nil {
@@ -553,7 +559,7 @@ func TestTriggerEngine_AfterDeleteCascadeCreate(t *testing.T) {
 	tk := newTiki("ADEL01", "delete me", "ready", "bug", 3)
 	gate, s := newGateWithStoreAndTikis(tk)
 
-	engine := NewTriggerEngine([]triggerEntry{entry}, nil, ruki.NewTriggerExecutor(testTriggerSchema{}, nil))
+	engine := NewTriggerEngine([]triggerEntry{entry}, nil, ruki.NewTriggerExecutor(testTriggerSchema{}, testTriggerDocFactory(), nil))
 	engine.RegisterWithGate(gate)
 
 	if err := gate.DeleteTiki(context.Background(), tk); err != nil {
@@ -570,7 +576,7 @@ func TestTriggerEngine_AfterDeleteCascadeCreate(t *testing.T) {
 	}
 	found := false
 	for _, at := range allTikis {
-		if strings.Contains(at.Title, "archived: delete me") {
+		if strings.Contains(at.Title(), "archived: delete me") {
 			found = true
 			status, _, _ := at.StringField(tikipkg.FieldStatus)
 			if status != "done" {
@@ -595,7 +601,7 @@ func TestTriggerEngine_AddTriggerRouting(t *testing.T) {
 		parseTriggerEntry(t, "ad", `after delete update where old.id in dependsOn set dependsOn=dependsOn - [old.id]`),
 	}
 
-	engine := NewTriggerEngine(entries, nil, ruki.NewTriggerExecutor(testTriggerSchema{}, nil))
+	engine := NewTriggerEngine(entries, nil, ruki.NewTriggerExecutor(testTriggerSchema{}, testTriggerDocFactory(), nil))
 
 	if len(engine.beforeCreate) != 1 {
 		t.Errorf("beforeCreate: got %d, want 1", len(engine.beforeCreate))
@@ -624,7 +630,7 @@ func TestTriggerEngine_BeforeCreateUnconditionalDeny(t *testing.T) {
 		`before create deny "no new tikis allowed"`)
 
 	gate, _ := newGateWithStoreAndTikis()
-	engine := NewTriggerEngine([]triggerEntry{entry}, nil, ruki.NewTriggerExecutor(testTriggerSchema{}, nil))
+	engine := NewTriggerEngine([]triggerEntry{entry}, nil, ruki.NewTriggerExecutor(testTriggerSchema{}, testTriggerDocFactory(), nil))
 	engine.RegisterWithGate(gate)
 
 	tk := newTiki("NEW001", "new", "ready", "story", 3)
@@ -644,7 +650,7 @@ func TestTriggerEngine_BeforeDeleteUnconditionalDeny(t *testing.T) {
 	tk := newTiki("DEL001", "test", "ready", "story", 3)
 	gate, _ := newGateWithStoreAndTikis(tk)
 
-	engine := NewTriggerEngine([]triggerEntry{entry}, nil, ruki.NewTriggerExecutor(testTriggerSchema{}, nil))
+	engine := NewTriggerEngine([]triggerEntry{entry}, nil, ruki.NewTriggerExecutor(testTriggerSchema{}, testTriggerDocFactory(), nil))
 	engine.RegisterWithGate(gate)
 
 	err := gate.DeleteTiki(context.Background(), tk)
@@ -693,7 +699,7 @@ func TestTriggerEngine_BeforeGuardEvalError(t *testing.T) {
 	tk := newTiki("ERR001", "test", "ready", "story", 3)
 	gate, _ := newGateWithStoreAndTikis(tk)
 
-	engine := NewTriggerEngine([]triggerEntry{entry}, nil, ruki.NewTriggerExecutor(testTriggerSchema{}, nil))
+	engine := NewTriggerEngine([]triggerEntry{entry}, nil, ruki.NewTriggerExecutor(testTriggerSchema{}, testTriggerDocFactory(), nil))
 	engine.RegisterWithGate(gate)
 
 	updated := tk.Clone()
@@ -719,7 +725,7 @@ func TestTriggerEngine_AfterGuardEvalError(t *testing.T) {
 	tk := newTiki("ERR001", "test", "ready", "story", 3)
 	gate, s := newGateWithStoreAndTikis(tk)
 
-	engine := NewTriggerEngine([]triggerEntry{entry}, nil, ruki.NewTriggerExecutor(testTriggerSchema{}, nil))
+	engine := NewTriggerEngine([]triggerEntry{entry}, nil, ruki.NewTriggerExecutor(testTriggerSchema{}, testTriggerDocFactory(), nil))
 	engine.RegisterWithGate(gate)
 
 	updated := tk.Clone()
@@ -729,8 +735,8 @@ func TestTriggerEngine_AfterGuardEvalError(t *testing.T) {
 	}
 
 	persisted := s.GetTiki("ERR001")
-	if persisted.Title != "test" {
-		t.Errorf("title should remain unchanged, got %q", persisted.Title)
+	if persisted.Title() != "test" {
+		t.Errorf("title should remain unchanged, got %q", persisted.Title())
 	}
 }
 
@@ -742,7 +748,7 @@ func TestTriggerEngine_ExecActionError(t *testing.T) {
 	tk := newTiki("ERR002", "test", "ready", "story", 3)
 	gate, s := newGateWithStoreAndTikis(tk)
 
-	engine := NewTriggerEngine([]triggerEntry{entry}, nil, ruki.NewTriggerExecutor(testTriggerSchema{}, nil))
+	engine := NewTriggerEngine([]triggerEntry{entry}, nil, ruki.NewTriggerExecutor(testTriggerSchema{}, testTriggerDocFactory(), nil))
 	engine.RegisterWithGate(gate)
 
 	updated := tk.Clone()
@@ -756,8 +762,8 @@ func TestTriggerEngine_ExecActionError(t *testing.T) {
 	if status != "inProgress" {
 		t.Errorf("expected status inProgress, got %q", status)
 	}
-	if persisted.Title != "test" {
-		t.Errorf("title should remain unchanged since action failed, got %q", persisted.Title)
+	if persisted.Title() != "test" {
+		t.Errorf("title should remain unchanged since action failed, got %q", persisted.Title())
 	}
 }
 
@@ -771,7 +777,7 @@ func TestTriggerEngine_AfterDeleteCascadeDelete(t *testing.T) {
 	unrelated := newTiki("UNR001", "unrelated", "ready", "story", 3)
 	gate, s := newGateWithStoreAndTikis(parent, child, unrelated)
 
-	engine := NewTriggerEngine([]triggerEntry{entry}, nil, ruki.NewTriggerExecutor(testTriggerSchema{}, nil))
+	engine := NewTriggerEngine([]triggerEntry{entry}, nil, ruki.NewTriggerExecutor(testTriggerSchema{}, testTriggerDocFactory(), nil))
 	engine.RegisterWithGate(gate)
 
 	if err := gate.DeleteTiki(context.Background(), parent); err != nil {
@@ -917,7 +923,7 @@ func TestTriggerEngine_PersistCreateTemplateError(t *testing.T) {
 	// now swap to a failing template store
 	gate.SetStore(&failingTemplateWrapper{Store: s})
 
-	engine := NewTriggerEngine([]triggerEntry{entry}, nil, ruki.NewTriggerExecutor(testTriggerSchema{}, nil))
+	engine := NewTriggerEngine([]triggerEntry{entry}, nil, ruki.NewTriggerExecutor(testTriggerSchema{}, testTriggerDocFactory(), nil))
 	engine.RegisterWithGate(gate)
 
 	// delete triggers the after-hook which tries to create → template fails
@@ -941,13 +947,13 @@ func TestTriggerEngine_PersistCreateGateError(t *testing.T) {
 	gate, _ := newGateWithStoreAndTikis(tk)
 
 	gate.OnCreate(func(old, new *tikipkg.Tiki, allTikis []*tikipkg.Tiki) *Rejection {
-		if new.Title == "valid title" {
+		if new.Title() == "valid title" {
 			return &Rejection{Reason: "no trigger creates allowed"}
 		}
 		return nil
 	})
 
-	engine := NewTriggerEngine([]triggerEntry{entry}, nil, ruki.NewTriggerExecutor(testTriggerSchema{}, nil))
+	engine := NewTriggerEngine([]triggerEntry{entry}, nil, ruki.NewTriggerExecutor(testTriggerSchema{}, testTriggerDocFactory(), nil))
 	engine.RegisterWithGate(gate)
 
 	// after-hook errors are logged, not propagated
@@ -965,7 +971,7 @@ func TestTriggerEngine_PersistDeleteError(t *testing.T) {
 	gate, _ := newGateWithStoreAndTikis(tk, other)
 
 	entries := []triggerEntry{blockDelete, cascadeDelete}
-	engine := NewTriggerEngine(entries, nil, ruki.NewTriggerExecutor(testTriggerSchema{}, nil))
+	engine := NewTriggerEngine(entries, nil, ruki.NewTriggerExecutor(testTriggerSchema{}, testTriggerDocFactory(), nil))
 	engine.RegisterWithGate(gate)
 
 	updated := tk.Clone()
@@ -1015,7 +1021,7 @@ func TestTriggerEngine_ExecRunEvalError(t *testing.T) {
 	tk := newTiki("RNE001", "test", "ready", "story", 3)
 	gate, _ := newGateWithStoreAndTikis(tk)
 
-	engine := NewTriggerEngine([]triggerEntry{entry}, nil, ruki.NewTriggerExecutor(testTriggerSchema{}, nil))
+	engine := NewTriggerEngine([]triggerEntry{entry}, nil, ruki.NewTriggerExecutor(testTriggerSchema{}, testTriggerDocFactory(), nil))
 	engine.RegisterWithGate(gate)
 
 	updated := tk.Clone()
@@ -1066,7 +1072,7 @@ func TestLoadAndRegisterTriggers_TimeTriggerAccessor(t *testing.T) {
 
 	engine := NewTriggerEngine(nil, []TimeTriggerEntry{
 		{Description: "daily cleanup", Trigger: tt},
-	}, ruki.NewTriggerExecutor(testTriggerSchema{}, nil))
+	}, ruki.NewTriggerExecutor(testTriggerSchema{}, testTriggerDocFactory(), nil))
 
 	result := engine.TimeTriggers()
 	if len(result) != 1 {
@@ -1141,7 +1147,7 @@ func TestTriggerEngine_StartScheduler_TickExecutes(t *testing.T) {
 
 	engine := NewTriggerEngine(nil, []TimeTriggerEntry{
 		{Description: "cleanup", Trigger: tt},
-	}, ruki.NewTriggerExecutor(testTriggerSchema{}, nil))
+	}, ruki.NewTriggerExecutor(testTriggerSchema{}, testTriggerDocFactory(), nil))
 	engine.RegisterWithGate(gate)
 
 	ctx, cancel := context.WithCancel(context.Background())
@@ -1161,7 +1167,7 @@ func TestTriggerEngine_StartScheduler_TickExecutes(t *testing.T) {
 }
 
 func TestTriggerEngine_StartScheduler_NoTimeTriggers(t *testing.T) {
-	engine := NewTriggerEngine(nil, nil, ruki.NewTriggerExecutor(testTriggerSchema{}, nil))
+	engine := NewTriggerEngine(nil, nil, ruki.NewTriggerExecutor(testTriggerSchema{}, testTriggerDocFactory(), nil))
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	engine.StartScheduler(ctx)
@@ -1177,7 +1183,7 @@ func TestTriggerEngine_StartScheduler_ContextCancellation(t *testing.T) {
 	gate, _ := newGateWithStoreAndTikis()
 	engine := NewTriggerEngine(nil, []TimeTriggerEntry{
 		{Description: "daily cleanup", Trigger: tt},
-	}, ruki.NewTriggerExecutor(testTriggerSchema{}, nil))
+	}, ruki.NewTriggerExecutor(testTriggerSchema{}, testTriggerDocFactory(), nil))
 	engine.RegisterWithGate(gate)
 
 	ctx, cancel := context.WithCancel(context.Background())
@@ -1209,7 +1215,7 @@ func TestTriggerEngine_StartScheduler_ActionErrorContinues(t *testing.T) {
 
 	engine := NewTriggerEngine(nil, []TimeTriggerEntry{
 		{Description: "broken trigger", Trigger: tt},
-	}, ruki.NewTriggerExecutor(testTriggerSchema{}, nil))
+	}, ruki.NewTriggerExecutor(testTriggerSchema{}, testTriggerDocFactory(), nil))
 	engine.RegisterWithGate(gate)
 
 	ctx, cancel := context.WithCancel(context.Background())
@@ -1242,7 +1248,7 @@ func TestTriggerEngine_StartScheduler_ValidTriggerRuns(t *testing.T) {
 
 	engine := NewTriggerEngine(nil, []TimeTriggerEntry{
 		{Description: "scheduler-test", Trigger: tt},
-	}, ruki.NewTriggerExecutor(testTriggerSchema{}, nil))
+	}, ruki.NewTriggerExecutor(testTriggerSchema{}, testTriggerDocFactory(), nil))
 	engine.RegisterWithGate(gate)
 
 	ctx, cancel := context.WithCancel(context.Background())
@@ -1266,7 +1272,7 @@ func TestTriggerEngine_StartScheduler_InvalidIntervalSkipped(t *testing.T) {
 	gate, _ := newGateWithStoreAndTikis()
 	engine := NewTriggerEngine(nil, []TimeTriggerEntry{
 		{Description: "bad interval", Trigger: tt},
-	}, ruki.NewTriggerExecutor(testTriggerSchema{}, nil))
+	}, ruki.NewTriggerExecutor(testTriggerSchema{}, testTriggerDocFactory(), nil))
 	engine.RegisterWithGate(gate)
 
 	ctx, cancel := context.WithCancel(context.Background())
@@ -1291,7 +1297,7 @@ func TestTriggerEngine_ExecuteTimeTrigger_PersistError(t *testing.T) {
 
 	engine := NewTriggerEngine(nil, []TimeTriggerEntry{
 		{Description: "persist-fail", Trigger: tt},
-	}, ruki.NewTriggerExecutor(testTriggerSchema{}, nil))
+	}, ruki.NewTriggerExecutor(testTriggerSchema{}, testTriggerDocFactory(), nil))
 	engine.RegisterWithGate(gate)
 
 	ctx, cancel := context.WithCancel(context.Background())

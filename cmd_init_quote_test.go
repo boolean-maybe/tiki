@@ -6,6 +6,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/boolean-maybe/ruki/idfmt"
 	"github.com/boolean-maybe/tiki/config"
 	"github.com/boolean-maybe/tiki/document"
 	"github.com/boolean-maybe/tiki/store/tikistore"
@@ -67,7 +68,7 @@ func TestBootstrap_AllDigitIDSurvivesLoad(t *testing.T) {
 	if id != "000001" {
 		t.Errorf("id after round-trip = %q, want %q — leading zeros dropped", id, "000001")
 	}
-	if !document.IsValidID(id) {
+	if !idfmt.IsValidID(id) {
 		t.Errorf("round-tripped id %q fails strict validation", id)
 	}
 }

@@ -19,8 +19,8 @@ import (
 func TestRenderTitleText_ExpandsRoleMarkup(t *testing.T) {
 	roles := theme.Roles()
 	tk := tikipkg.New()
-	tk.ID = "TTL001"
-	tk.Title = "<highlight>foo"
+	tk.SetID("TTL001")
+	tk.SetTitle("<highlight>foo")
 
 	prim := RenderTitleText(tk, FieldRenderContext{Mode: RenderModeView, Roles: roles}, "", "")
 	tv, ok := prim.(*tview.TextView)
@@ -45,8 +45,8 @@ func TestRenderTitleText_ExpandsRoleMarkup(t *testing.T) {
 func TestRenderTitleText_TviewTagsRenderLiterally(t *testing.T) {
 	roles := theme.Roles()
 	tk := tikipkg.New()
-	tk.ID = "TTL002"
-	tk.Title = "[red]x[/]"
+	tk.SetID("TTL002")
+	tk.SetTitle("[red]x[/]")
 
 	prim := RenderTitleText(tk, FieldRenderContext{Mode: RenderModeView, Roles: roles}, "", "")
 	tv, ok := prim.(*tview.TextView)
@@ -74,8 +74,8 @@ func TestRenderTitleText_TviewTagsRenderLiterally(t *testing.T) {
 func TestRenderTitleText_BadMarkupFailsClosed(t *testing.T) {
 	roles := theme.Roles()
 	tk := tikipkg.New()
-	tk.ID = "TTL003"
-	tk.Title = "{dangr}x"
+	tk.SetID("TTL003")
+	tk.SetTitle("{dangr}x")
 
 	prim := RenderTitleText(tk, FieldRenderContext{Mode: RenderModeView, Roles: roles}, "", "")
 	tv, ok := prim.(*tview.TextView)
@@ -92,8 +92,8 @@ func TestRenderTitleText_BadMarkupFailsClosed(t *testing.T) {
 func TestRenderTitleText_WithRole(t *testing.T) {
 	roles := theme.Roles()
 	tk := tikipkg.New()
-	tk.ID = "TTL004"
-	tk.Title = "My Tiki"
+	tk.SetID("TTL004")
+	tk.SetTitle("My Tiki")
 
 	prim := RenderTitleText(tk, FieldRenderContext{Mode: RenderModeView, Roles: roles}, "highlight", "")
 	tv, ok := prim.(*tview.TextView)
@@ -123,8 +123,8 @@ func TestRenderTitleText_WithRole(t *testing.T) {
 func TestRenderTitleText_WithRoleAndModifier(t *testing.T) {
 	roles := theme.Roles()
 	tk := tikipkg.New()
-	tk.ID = "TTL005"
-	tk.Title = "AB"
+	tk.SetID("TTL005")
+	tk.SetTitle("AB")
 
 	gradcore.UseGradients.Store(true)
 	defer gradcore.UseGradients.Store(false)

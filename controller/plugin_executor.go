@@ -4,9 +4,9 @@ import (
 	"context"
 	"log/slog"
 
+	"github.com/boolean-maybe/ruki"
 	"github.com/boolean-maybe/tiki/model"
 	"github.com/boolean-maybe/tiki/plugin"
-	"github.com/boolean-maybe/tiki/ruki"
 	"github.com/boolean-maybe/tiki/service"
 	"github.com/boolean-maybe/tiki/store"
 	tikipkg "github.com/boolean-maybe/tiki/tiki"
@@ -77,7 +77,7 @@ func (pe *PluginExecutor) BuildExecutionInput(pa *plugin.PluginAction, selectedI
 			slog.Error("failed to create tiki template for plugin action", "error", err)
 			return input, false
 		}
-		input.CreateTemplate = template
+		input.CreateTemplate = tikipkg.WrapDoc(template)
 	}
 	return input, true
 }
@@ -98,9 +98,9 @@ func (pe *PluginExecutor) EvalChooseFilter(pa *plugin.PluginAction, input ruki.E
 		return nil, false
 	}
 	allTikis := pe.tikiStore.GetAllTikis()
-	executor := ruki.NewExecutor(pe.schema, pe.userFunc(),
+	executor := ruki.NewExecutor(pe.schema, pe.factory(), pe.userFunc(),
 		ruki.ExecutorRuntime{Mode: ruki.ExecutorRuntimePlugin})
-	candidates, err := executor.EvalSubQueryFilter(pa.ChooseFilter, allTikis, input)
+	candidateDocs, err := executor.EvalSubQueryFilter(pa.ChooseFilter, tikipkg.WrapDocs(allTikis), input)
 	if err != nil {
 		slog.Error("failed to evaluate choose filter", "key", pa.KeyStr, "error", err)
 		if pe.statusline != nil {
@@ -108,6 +108,7 @@ func (pe *PluginExecutor) EvalChooseFilter(pa *plugin.PluginAction, input ruki.E
 		}
 		return nil, false
 	}
+	candidates := tikipkg.UnwrapDocs(candidateDocs)
 	sortTikisByPriorityTitle(candidates)
 	return candidates, true
 }
@@ -120,11 +121,11 @@ func (pe *PluginExecutor) Execute(pa *plugin.PluginAction, input ruki.ExecutionI
 		return false
 	}
 
-	executor := ruki.NewExecutor(pe.schema, pe.userFunc(),
+	executor := ruki.NewExecutor(pe.schema, pe.factory(), pe.userFunc(),
 		ruki.ExecutorRuntime{Mode: ruki.ExecutorRuntimePlugin})
 	allTikis := pe.tikiStore.GetAllTikis()
 
-	result, err := executor.Execute(pa.Action, allTikis, input)
+	result, err := executor.Execute(pa.Action, tikipkg.WrapDocs(allTikis), input)
 	if err != nil {
 		args := append(logSelectionFields(input), "key", pa.KeyStr, "error", err)
 		slog.Error("failed to execute plugin action", args...)
@@ -147,9 +148,10 @@ func (pe *PluginExecutor) applyResult(pa *plugin.PluginAction, input ruki.Execut
 		slog.Info("select plugin action executed", args...)
 		return true
 	case result.Update != nil:
-		for _, tk := range result.Update.Updated {
+		for _, doc := range result.Update.Updated {
+			tk := tikipkg.UnwrapDoc(doc)
 			if err := pe.mutationGate.UpdateTiki(ctx, tk); err != nil {
-				slog.Error("failed to update tiki after plugin action", "tiki_id", tk.ID, "key", pa.KeyStr, "error", err)
+				slog.Error("failed to update tiki after plugin action", "tiki_id", tk.ID(), "key", pa.KeyStr, "error", err)
 				pe.setError(err)
 				return false
 			}
@@ -158,15 +160,16 @@ func (pe *PluginExecutor) applyResult(pa *plugin.PluginAction, input ruki.Execut
 			}
 		}
 	case result.Create != nil:
-		if err := pe.mutationGate.CreateTiki(ctx, result.Create.Tiki); err != nil {
+		if err := pe.mutationGate.CreateTiki(ctx, tikipkg.UnwrapDoc(result.Create.Tiki)); err != nil {
 			slog.Error("failed to create tiki from plugin action", "key", pa.KeyStr, "error", err)
 			pe.setError(err)
 			return false
 		}
 	case result.Delete != nil:
-		for _, tk := range result.Delete.Deleted {
+		for _, doc := range result.Delete.Deleted {
+			tk := tikipkg.UnwrapDoc(doc)
 			if err := pe.mutationGate.DeleteTiki(ctx, tk); err != nil {
-				slog.Error("failed to delete tiki from plugin action", "tiki_id", tk.ID, "key", pa.KeyStr, "error", err)
+				slog.Error("failed to delete tiki from plugin action", "tiki_id", tk.ID(), "key", pa.KeyStr, "error", err)
 				pe.setError(err)
 				return false
 			}
@@ -192,6 +195,13 @@ func (pe *PluginExecutor) applyResult(pa *plugin.PluginAction, input ruki.Execut
 	args := append(logSelectionFields(input), "key", pa.KeyStr, "label", pa.Label, "plugin", pe.pluginName)
 	slog.Info("plugin action applied", args...)
 	return true
+}
+
+// factory returns the DocumentFactory the executor's create path uses to mint
+// a blank document. It wraps a fresh *Tiki so the create path stays
+// host-agnostic at the ruki boundary.
+func (pe *PluginExecutor) factory() ruki.DocumentFactory {
+	return tikipkg.NewDoc
 }
 
 // userFunc returns a closure that resolves the current user's name for the

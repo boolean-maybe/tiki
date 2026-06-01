@@ -7,10 +7,10 @@ import (
 	"reflect"
 	"strings"
 
+	"github.com/boolean-maybe/ruki"
 	"github.com/boolean-maybe/tiki/config"
 	rukiRuntime "github.com/boolean-maybe/tiki/internal/ruki/runtime"
 	"github.com/boolean-maybe/tiki/model"
-	"github.com/boolean-maybe/tiki/ruki"
 	"github.com/boolean-maybe/tiki/service"
 	"github.com/boolean-maybe/tiki/store"
 	tikipkg "github.com/boolean-maybe/tiki/tiki"

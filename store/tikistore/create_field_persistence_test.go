@@ -21,9 +21,9 @@ func TestCreateTiki_BareTikiWritesNoSchemaKeys(t *testing.T) {
 	}
 
 	tk := tikipkg.New()
-	tk.ID = "BARE01"
-	tk.Title = "bare doc"
-	tk.Body = "hello"
+	tk.SetID("BARE01")
+	tk.SetTitle("bare doc")
+	tk.SetBody("hello")
 	if err := s.CreateTiki(tk); err != nil {
 		t.Fatalf("CreateTiki: %v", err)
 	}
@@ -66,8 +66,8 @@ func TestUpdateTiki_OmittingSchemaFieldsRemovesThem(t *testing.T) {
 
 	// Create with schema-known fields.
 	tk := tikipkg.New()
-	tk.ID = "SHRINK"
-	tk.Title = "starts with status"
+	tk.SetID("SHRINK")
+	tk.SetTitle("starts with status")
 	tk.Set(tikipkg.FieldStatus, "inbox")
 	tk.Set(tikipkg.FieldPriority, "medium-high")
 	if err := s.CreateTiki(tk); err != nil {
@@ -83,9 +83,9 @@ func TestUpdateTiki_OmittingSchemaFieldsRemovesThem(t *testing.T) {
 	// Update with a tiki that has no schema-known fields. Exact-presence
 	// removes them.
 	bare := tikipkg.New()
-	bare.ID = "SHRINK"
-	bare.Title = "starts with status"
-	bare.Path = before.Path
+	bare.SetID("SHRINK")
+	bare.SetTitle("starts with status")
+	bare.SetPath(before.Path())
 	bare.LoadedMtime = before.LoadedMtime
 	if err := s.UpdateTiki(bare); err != nil {
 		t.Fatalf("UpdateTiki: %v", err)
@@ -126,8 +126,8 @@ func TestUpdateTiki_ClonedStoredTikiPreservesFields(t *testing.T) {
 	}
 
 	tk := tikipkg.New()
-	tk.ID = "CARRY1"
-	tk.Title = "carries status"
+	tk.SetID("CARRY1")
+	tk.SetTitle("carries status")
 	tk.Set(tikipkg.FieldStatus, "inbox")
 	if err := s.CreateTiki(tk); err != nil {
 		t.Fatalf("CreateTiki: %v", err)
@@ -140,7 +140,7 @@ func TestUpdateTiki_ClonedStoredTikiPreservesFields(t *testing.T) {
 		t.Fatal("GetTiki = nil")
 	}
 	updated := stored.Clone()
-	updated.Title = "updated"
+	updated.SetTitle("updated")
 	if err := s.UpdateTiki(updated); err != nil {
 		t.Fatalf("UpdateTiki: %v", err)
 	}

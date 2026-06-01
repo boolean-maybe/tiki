@@ -7,8 +7,8 @@ import (
 	"github.com/gdamore/tcell/v2"
 	"gopkg.in/yaml.v3"
 
+	"github.com/boolean-maybe/ruki"
 	rukiRuntime "github.com/boolean-maybe/tiki/internal/ruki/runtime"
-	"github.com/boolean-maybe/tiki/ruki"
 )
 
 func testSchema() ruki.Schema {

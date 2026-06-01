@@ -6,9 +6,9 @@ import (
 	"testing"
 	"time"
 
+	collectionutil "github.com/boolean-maybe/ruki/collections"
 	"github.com/boolean-maybe/tiki/internal/teststatuses"
 	tikipkg "github.com/boolean-maybe/tiki/tiki"
-	collectionutil "github.com/boolean-maybe/tiki/util/collections"
 	"github.com/boolean-maybe/tiki/workflow"
 )
 
@@ -16,8 +16,8 @@ import (
 // Tags and dependsOn are normalized (deduped, trimmed) before storage.
 func newWorkflowTiki(id, title, status string, tags, dependsOn []string) *tikipkg.Tiki {
 	tk := tikipkg.New()
-	tk.ID = id
-	tk.Title = title
+	tk.SetID(id)
+	tk.SetTitle(title)
 	if status != "" {
 		tk.Set(tikipkg.FieldStatus, status)
 	}
@@ -45,21 +45,21 @@ func TestInMemoryStore_CreateTiki(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			s := NewInMemoryStore()
 			tk := tikipkg.New()
-			tk.ID = tt.inputID
-			tk.Title = "Test"
+			tk.SetID(tt.inputID)
+			tk.SetTitle("Test")
 			tk.Set(tikipkg.FieldType, "story")
 			tk.Set(tikipkg.FieldStatus, workflowEnumDefault("status"))
 
 			if err := s.CreateTiki(tk); err != nil {
 				t.Fatalf("CreateTiki() error = %v", err)
 			}
-			if tk.ID != tt.expected {
-				t.Errorf("tk.ID = %q, want %q", tk.ID, tt.expected)
+			if tk.ID() != tt.expected {
+				t.Errorf("tk.ID() = %q, want %q", tk.ID(), tt.expected)
 			}
-			if tk.CreatedAt.IsZero() {
+			if tk.CreatedAt().IsZero() {
 				t.Error("expected non-zero CreatedAt")
 			}
-			if tk.UpdatedAt.IsZero() {
+			if tk.UpdatedAt().IsZero() {
 				t.Error("expected non-zero UpdatedAt")
 			}
 			got := s.GetTiki(tt.expected)
@@ -73,10 +73,10 @@ func TestInMemoryStore_CreateTiki(t *testing.T) {
 func TestInMemoryStore_CreateTikiNormalizesCollections(t *testing.T) {
 	s := NewInMemoryStore()
 	// need existing tikis that dependsOn references so validation passes.
-	if err := s.CreateTiki(&tikipkg.Tiki{ID: "AAA001", Title: "dep1"}); err != nil {
+	if err := s.CreateTiki(func() *tikipkg.Tiki { t := tikipkg.New(); t.SetID("AAA001"); t.SetTitle("dep1"); return t }()); err != nil {
 		t.Fatalf("setup dep1: %v", err)
 	}
-	if err := s.CreateTiki(&tikipkg.Tiki{ID: "BBB002", Title: "dep2"}); err != nil {
+	if err := s.CreateTiki(func() *tikipkg.Tiki { t := tikipkg.New(); t.SetID("BBB002"); t.SetTitle("dep2"); return t }()); err != nil {
 		t.Fatalf("setup dep2: %v", err)
 	}
 	tk := newWorkflowTiki("NORM01", "normalize", "",
@@ -101,7 +101,7 @@ func TestInMemoryStore_CreateTikiNormalizesCollections(t *testing.T) {
 func TestInMemoryStore_UpdateTiki(t *testing.T) {
 	t.Run("error when tiki not found", func(t *testing.T) {
 		s := NewInMemoryStore()
-		tk := &tikipkg.Tiki{ID: "MISSING", Title: "Ghost"}
+		tk := func() *tikipkg.Tiki { t := tikipkg.New(); t.SetID("MISSING"); t.SetTitle("Ghost"); return t }()
 		err := s.UpdateTiki(tk)
 		if err == nil {
 			t.Error("expected error for non-existent tiki, got nil")
@@ -110,55 +110,55 @@ func TestInMemoryStore_UpdateTiki(t *testing.T) {
 
 	t.Run("normalizes ID before update", func(t *testing.T) {
 		s := NewInMemoryStore()
-		if err := s.CreateTiki(&tikipkg.Tiki{ID: "ABC123", Title: "Original"}); err != nil {
+		if err := s.CreateTiki(func() *tikipkg.Tiki { t := tikipkg.New(); t.SetID("ABC123"); t.SetTitle("Original"); return t }()); err != nil {
 			t.Fatalf("CreateTiki() error = %v", err)
 		}
 
-		updated := &tikipkg.Tiki{ID: "abc123", Title: "Updated"}
+		updated := func() *tikipkg.Tiki { t := tikipkg.New(); t.SetID("abc123"); t.SetTitle("Updated"); return t }()
 		if err := s.UpdateTiki(updated); err != nil {
 			t.Fatalf("UpdateTiki() error = %v", err)
 		}
 		got := s.GetTiki("ABC123")
-		if got == nil || got.Title != "Updated" {
+		if got == nil || got.Title() != "Updated" {
 			t.Errorf("expected title %q, got %v", "Updated", got)
 		}
 	})
 
 	t.Run("sets UpdatedAt after update", func(t *testing.T) {
 		s := NewInMemoryStore()
-		if err := s.CreateTiki(&tikipkg.Tiki{ID: "UPD001", Title: "Before"}); err != nil {
+		if err := s.CreateTiki(func() *tikipkg.Tiki { t := tikipkg.New(); t.SetID("UPD001"); t.SetTitle("Before"); return t }()); err != nil {
 			t.Fatalf("CreateTiki() error = %v", err)
 		}
 		stored := s.GetTiki("UPD001")
-		before := stored.UpdatedAt
+		before := stored.UpdatedAt()
 
 		time.Sleep(time.Millisecond)
 		updated := stored.Clone()
-		updated.Title = "After"
+		updated.SetTitle("After")
 		if err := s.UpdateTiki(updated); err != nil {
 			t.Fatalf("UpdateTiki() error = %v", err)
 		}
 		after := s.GetTiki("UPD001")
-		if !after.UpdatedAt.After(before) {
+		if !after.UpdatedAt().After(before) {
 			t.Errorf("expected UpdatedAt to advance after update")
 		}
 	})
 
 	t.Run("updates tiki fields roundtrip", func(t *testing.T) {
 		s := NewInMemoryStore()
-		if err := s.CreateTiki(&tikipkg.Tiki{ID: "RT0001", Title: "Old Title"}); err != nil {
+		if err := s.CreateTiki(func() *tikipkg.Tiki { t := tikipkg.New(); t.SetID("RT0001"); t.SetTitle("Old Title"); return t }()); err != nil {
 			t.Fatalf("CreateTiki() error = %v", err)
 		}
 
 		got := s.GetTiki("RT0001").Clone()
-		got.Title = "New Title"
+		got.SetTitle("New Title")
 		if err := s.UpdateTiki(got); err != nil {
 			t.Fatalf("UpdateTiki() error = %v", err)
 		}
 
 		reloaded := s.GetTiki("RT0001")
-		if reloaded.Title != "New Title" {
-			t.Errorf("title = %q, want %q", reloaded.Title, "New Title")
+		if reloaded.Title() != "New Title" {
+			t.Errorf("title = %q, want %q", reloaded.Title(), "New Title")
 		}
 	})
 
@@ -168,8 +168,8 @@ func TestInMemoryStore_UpdateTiki(t *testing.T) {
 	t.Run("exact-presence: absent fields are removed", func(t *testing.T) {
 		s := NewInMemoryStore()
 		wf := tikipkg.New()
-		wf.ID = "WFMEM1"
-		wf.Title = "workflow"
+		wf.SetID("WFMEM1")
+		wf.SetTitle("workflow")
 		wf.Set("status", "ready")
 		if err := s.CreateTiki(wf); err != nil {
 			t.Fatalf("CreateTiki() error = %v", err)
@@ -177,7 +177,7 @@ func TestInMemoryStore_UpdateTiki(t *testing.T) {
 
 		// Update with a tiki that carries no workflow-declared fields. Exact-
 		// presence semantics drop the previously-stored status.
-		bare := &tikipkg.Tiki{ID: "WFMEM1", Title: "updated"}
+		bare := func() *tikipkg.Tiki { t := tikipkg.New(); t.SetID("WFMEM1"); t.SetTitle("updated"); return t }()
 		if err := s.UpdateTiki(bare); err != nil {
 			t.Fatalf("UpdateTiki() error = %v", err)
 		}
@@ -190,7 +190,7 @@ func TestInMemoryStore_UpdateTiki(t *testing.T) {
 func TestInMemoryStore_DeleteTiki(t *testing.T) {
 	t.Run("removes existing tiki", func(t *testing.T) {
 		s := NewInMemoryStore()
-		if err := s.CreateTiki(&tikipkg.Tiki{ID: "DEL001", Title: "To Delete"}); err != nil {
+		if err := s.CreateTiki(func() *tikipkg.Tiki { t := tikipkg.New(); t.SetID("DEL001"); t.SetTitle("To Delete"); return t }()); err != nil {
 			t.Fatalf("CreateTiki() error = %v", err)
 		}
 
@@ -207,7 +207,7 @@ func TestInMemoryStore_DeleteTiki(t *testing.T) {
 
 	t.Run("normalizes ID for delete", func(t *testing.T) {
 		s := NewInMemoryStore()
-		if err := s.CreateTiki(&tikipkg.Tiki{ID: "LOWER1", Title: "Tiki"}); err != nil {
+		if err := s.CreateTiki(func() *tikipkg.Tiki { t := tikipkg.New(); t.SetID("LOWER1"); t.SetTitle("Tiki"); return t }()); err != nil {
 			t.Fatalf("CreateTiki() error = %v", err)
 		}
 
@@ -221,7 +221,7 @@ func TestInMemoryStore_DeleteTiki(t *testing.T) {
 func TestInMemoryStore_TikiComment(t *testing.T) {
 	t.Run("comment append and retrieve via tiki fields", func(t *testing.T) {
 		s := NewInMemoryStore()
-		if err := s.CreateTiki(&tikipkg.Tiki{ID: "CMT001", Title: "Tiki"}); err != nil {
+		if err := s.CreateTiki(func() *tikipkg.Tiki { t := tikipkg.New(); t.SetID("CMT001"); t.SetTitle("Tiki"); return t }()); err != nil {
 			t.Fatalf("CreateTiki() error = %v", err)
 		}
 
@@ -254,14 +254,14 @@ func TestInMemoryStore_Search_FilterIsCallerSupplied(t *testing.T) {
 	s := NewInMemoryStore()
 	// one tiki has a workflow-declared field set.
 	withSchema := tikipkg.New()
-	withSchema.ID = "WITH01"
-	withSchema.Title = "has status"
+	withSchema.SetID("WITH01")
+	withSchema.SetTitle("has status")
 	withSchema.Set("status", "backlog")
 	s.tikis["WITH01"] = withSchema
 	// the other has only id+title — no workflow-declared fields.
 	bare := tikipkg.New()
-	bare.ID = "BARE01"
-	bare.Title = "bare"
+	bare.SetID("BARE01")
+	bare.SetTitle("bare")
 	s.tikis["BARE01"] = bare
 
 	// SearchTikis with a presence-of-schema filter matches only the one
@@ -269,7 +269,7 @@ func TestInMemoryStore_Search_FilterIsCallerSupplied(t *testing.T) {
 	results := s.SearchTikis("", func(tk *tikipkg.Tiki) bool {
 		return hasAnyWorkflowFieldMem(tk)
 	})
-	if len(results) != 1 || results[0].ID != "WITH01" {
+	if len(results) != 1 || results[0].ID() != "WITH01" {
 		t.Errorf("schema-presence filter: got %v, want [WITH01]", results)
 	}
 
@@ -293,9 +293,9 @@ func TestInMemoryStore_SearchTikis(t *testing.T) {
 			{"S00003", "Gamma chore", "third tiki", nil},
 		} {
 			tk := tikipkg.New()
-			tk.ID = spec.id
-			tk.Title = spec.title
-			tk.Body = spec.body
+			tk.SetID(spec.id)
+			tk.SetTitle(spec.title)
+			tk.SetBody(spec.body)
 			if len(spec.tags) > 0 {
 				tk.Set(tikipkg.FieldTags, spec.tags)
 			}
@@ -336,7 +336,7 @@ func TestInMemoryStore_Listeners(t *testing.T) {
 		s := NewInMemoryStore()
 		called := 0
 		s.AddListener(func() { called++ })
-		if err := s.CreateTiki(&tikipkg.Tiki{ID: "LIS001"}); err != nil {
+		if err := s.CreateTiki(func() *tikipkg.Tiki { t := tikipkg.New(); t.SetID("LIS001"); return t }()); err != nil {
 			t.Fatalf("CreateTiki() error = %v", err)
 		}
 		if called != 1 {
@@ -346,7 +346,7 @@ func TestInMemoryStore_Listeners(t *testing.T) {
 
 	t.Run("called after UpdateTiki", func(t *testing.T) {
 		s := NewInMemoryStore()
-		if err := s.CreateTiki(&tikipkg.Tiki{ID: "LIS002", Title: "orig"}); err != nil {
+		if err := s.CreateTiki(func() *tikipkg.Tiki { t := tikipkg.New(); t.SetID("LIS002"); t.SetTitle("orig"); return t }()); err != nil {
 			t.Fatalf("CreateTiki() error = %v", err)
 		}
 		called := 0
@@ -362,7 +362,7 @@ func TestInMemoryStore_Listeners(t *testing.T) {
 
 	t.Run("called after DeleteTiki", func(t *testing.T) {
 		s := NewInMemoryStore()
-		if err := s.CreateTiki(&tikipkg.Tiki{ID: "LIS003"}); err != nil {
+		if err := s.CreateTiki(func() *tikipkg.Tiki { t := tikipkg.New(); t.SetID("LIS003"); return t }()); err != nil {
 			t.Fatalf("CreateTiki() error = %v", err)
 		}
 		called := 0
@@ -378,7 +378,7 @@ func TestInMemoryStore_Listeners(t *testing.T) {
 		called := 0
 		id := s.AddListener(func() { called++ })
 		s.RemoveListener(id)
-		if err := s.CreateTiki(&tikipkg.Tiki{ID: "LIS005"}); err != nil {
+		if err := s.CreateTiki(func() *tikipkg.Tiki { t := tikipkg.New(); t.SetID("LIS005"); return t }()); err != nil {
 			t.Fatalf("CreateTiki() error = %v", err)
 		}
 		if called != 0 {
@@ -391,7 +391,7 @@ func TestInMemoryStore_Listeners(t *testing.T) {
 		a, b := 0, 0
 		s.AddListener(func() { a++ })
 		s.AddListener(func() { b++ })
-		if err := s.CreateTiki(&tikipkg.Tiki{ID: "LIS006"}); err != nil {
+		if err := s.CreateTiki(func() *tikipkg.Tiki { t := tikipkg.New(); t.SetID("LIS006"); return t }()); err != nil {
 			t.Fatalf("CreateTiki() error = %v", err)
 		}
 		if a != 1 || b != 1 {
@@ -407,8 +407,8 @@ func TestInMemoryStore_NewTikiTemplate(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewTikiTemplate() error = %v", err)
 	}
-	if len(tmpl.ID) != 6 {
-		t.Errorf("ID = %q, want 6-character bare ID", tmpl.ID)
+	if len(tmpl.ID()) != 6 {
+		t.Errorf("ID = %q, want 6-character bare ID", tmpl.ID())
 	}
 	if p, _, _ := tmpl.StringField(tikipkg.FieldPriority); p != "medium" {
 		t.Errorf("Priority = %q, want %q", p, "medium")
@@ -458,7 +458,7 @@ func TestInMemoryStore_NewTikiTemplateCollision(t *testing.T) {
 	s := NewInMemoryStore()
 
 	// pre-populate store with a tiki that will collide on bare id
-	_ = s.CreateTiki(&tikipkg.Tiki{ID: "AAAAAA", Title: "existing"})
+	_ = s.CreateTiki(func() *tikipkg.Tiki { t := tikipkg.New(); t.SetID("AAAAAA"); t.SetTitle("existing"); return t }())
 
 	callCount := 0
 	s.idGenerator = func() string {
@@ -473,8 +473,8 @@ func TestInMemoryStore_NewTikiTemplateCollision(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewTikiTemplate() error = %v", err)
 	}
-	if tmpl.ID != "BBBBBB" {
-		t.Errorf("ID = %q, want BBBBBB (should skip collision)", tmpl.ID)
+	if tmpl.ID() != "BBBBBB" {
+		t.Errorf("ID = %q, want BBBBBB (should skip collision)", tmpl.ID())
 	}
 	if callCount != 2 {
 		t.Errorf("idGenerator called %d times, want 2 (one collision + one success)", callCount)
@@ -485,7 +485,7 @@ func TestInMemoryStore_NewTikiTemplateExhaustion(t *testing.T) {
 	s := NewInMemoryStore()
 
 	// pre-populate with the only ID the generator will ever produce
-	_ = s.CreateTiki(&tikipkg.Tiki{ID: "AAAAAA", Title: "existing"})
+	_ = s.CreateTiki(func() *tikipkg.Tiki { t := tikipkg.New(); t.SetID("AAAAAA"); t.SetTitle("existing"); return t }())
 
 	s.idGenerator = func() string { return "AAAAAA" }
 
@@ -511,7 +511,7 @@ func TestInMemoryStore_GetAllTikis(t *testing.T) {
 		s := NewInMemoryStore()
 		for _, id := range []string{"ALL001", "ALL002", "ALL003"} {
 			wf := tikipkg.New()
-			wf.ID = id
+			wf.SetID(id)
 			wf.Set("status", "ready")
 			if err := s.CreateTiki(wf); err != nil {
 				t.Fatalf("CreateTiki(%s) error = %v", id, err)
@@ -526,8 +526,8 @@ func TestInMemoryStore_GetAllTikis(t *testing.T) {
 	t.Run("returns projections not raw pointers", func(t *testing.T) {
 		s := NewInMemoryStore()
 		orig := tikipkg.New()
-		orig.ID = "PTR001"
-		orig.Title = "Pointer Tiki"
+		orig.SetID("PTR001")
+		orig.SetTitle("Pointer Tiki")
 		orig.Set("status", "ready")
 		if err := s.CreateTiki(orig); err != nil {
 			t.Fatalf("CreateTiki() error = %v", err)
@@ -537,8 +537,8 @@ func TestInMemoryStore_GetAllTikis(t *testing.T) {
 		if len(tikis) != 1 {
 			t.Fatalf("got %d tikis, want 1", len(tikis))
 		}
-		if tikis[0].Title != "Pointer Tiki" {
-			t.Errorf("title = %q, want 'Pointer Tiki'", tikis[0].Title)
+		if tikis[0].Title() != "Pointer Tiki" {
+			t.Errorf("title = %q, want 'Pointer Tiki'", tikis[0].Title())
 		}
 		// Phase 5: GetAllTikis returns pointers to stored state.
 		// Mutations on returned tikis DO affect the store (map semantics).
@@ -575,14 +575,14 @@ func TestSearchTikis_WithQueryAndFilter(t *testing.T) {
 	if len(results) != 1 {
 		t.Fatalf("expected 1 result (Bug + backend), got %d", len(results))
 	}
-	if results[0].ID != "SRC001" {
-		t.Errorf("expected SRC001, got %s", results[0].ID)
+	if results[0].ID() != "SRC001" {
+		t.Errorf("expected SRC001, got %s", results[0].ID())
 	}
 }
 
 func TestSearchTikis_FilterRejectsAll(t *testing.T) {
 	s := NewInMemoryStore()
-	if err := s.CreateTiki(&tikipkg.Tiki{ID: "REJ001", Title: "Tiki"}); err != nil {
+	if err := s.CreateTiki(func() *tikipkg.Tiki { t := tikipkg.New(); t.SetID("REJ001"); t.SetTitle("Tiki"); return t }()); err != nil {
 		t.Fatalf("failed to create tiki: %v", err)
 	}
 
@@ -597,9 +597,9 @@ func TestSearchTikis_FilterRejectsAll(t *testing.T) {
 func TestSearchTikis_MatchesTags(t *testing.T) {
 	s := NewInMemoryStore()
 	wf := tikipkg.New()
-	wf.ID = "TAG001"
-	wf.Title = "No match in title"
-	wf.Body = "No match in body either"
+	wf.SetID("TAG001")
+	wf.SetTitle("No match in title")
+	wf.SetBody("No match in body either")
 	wf.Set("tags", []string{"backend"})
 	wf.Set("status", "ready")
 	if err := s.CreateTiki(wf); err != nil {
@@ -609,16 +609,16 @@ func TestSearchTikis_MatchesTags(t *testing.T) {
 	// SearchTikis searches id, title, body, AND tags — a tag-only query
 	// must surface the tiki even when neither title nor body matches.
 	results := s.SearchTikis("backend", nil)
-	if len(results) != 1 || results[0].ID != "TAG001" {
+	if len(results) != 1 || results[0].ID() != "TAG001" {
 		ids := make([]string, len(results))
 		for i, r := range results {
-			ids[i] = r.ID
+			ids[i] = r.ID()
 		}
 		t.Fatalf("tag-only query: got %v, want [TAG001]", ids)
 	}
 
 	// Substring within a tag should also match (case-insensitive).
-	if results := s.SearchTikis("BACK", nil); len(results) != 1 || results[0].ID != "TAG001" {
+	if results := s.SearchTikis("BACK", nil); len(results) != 1 || results[0].ID() != "TAG001" {
 		t.Errorf("case-insensitive tag substring did not match: got %d results", len(results))
 	}
 
@@ -631,7 +631,7 @@ func TestSearchTikis_MatchesTags(t *testing.T) {
 func TestNewTikiTemplate_IDCollision(t *testing.T) {
 	s := NewInMemoryStore()
 	// pre-populate so the generated bare ID always collides
-	if err := s.CreateTiki(&tikipkg.Tiki{ID: "FIXED1", Title: "blocker"}); err != nil {
+	if err := s.CreateTiki(func() *tikipkg.Tiki { t := tikipkg.New(); t.SetID("FIXED1"); t.SetTitle("blocker"); return t }()); err != nil {
 		t.Fatalf("failed to create tiki: %v", err)
 	}
 

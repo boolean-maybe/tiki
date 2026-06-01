@@ -7,10 +7,10 @@ import (
 	"sync"
 	"time"
 
+	collectionutil "github.com/boolean-maybe/ruki/collections"
 	"github.com/boolean-maybe/tiki/config"
 	"github.com/boolean-maybe/tiki/store/internal/git"
 	tikipkg "github.com/boolean-maybe/tiki/tiki"
-	collectionutil "github.com/boolean-maybe/tiki/util/collections"
 	"github.com/boolean-maybe/tiki/workflow"
 )
 
@@ -91,7 +91,7 @@ func (s *InMemoryStore) GetAllTikis() []*tikipkg.Tiki {
 	for _, tk := range s.tikis {
 		out = append(out, tk)
 	}
-	sort.Slice(out, func(i, j int) bool { return out[i].ID < out[j].ID })
+	sort.Slice(out, func(i, j int) bool { return out[i].ID() < out[j].ID() })
 	return out
 }
 
@@ -133,8 +133,8 @@ func (s *InMemoryStore) NewTikiTemplate() (*tikipkg.Tiki, error) {
 	}
 
 	tk := tikipkg.New()
-	tk.ID = tikiID
-	tk.CreatedAt = time.Now()
+	tk.SetID(tikiID)
+	tk.SetCreatedAt(time.Now())
 
 	for k, v := range buildMemoryFieldDefaults() {
 		tk.Set(k, v)
@@ -159,10 +159,10 @@ func (s *InMemoryStore) NewTikiTemplate() (*tikipkg.Tiki, error) {
 func (s *InMemoryStore) storeNewTikiLocked(tk *tikipkg.Tiki) error {
 	s.mu.Lock()
 	now := time.Now()
-	tk.CreatedAt = now
-	tk.UpdatedAt = now
-	tk.ID = normalizeTikiID(tk.ID)
-	s.tikis[tk.ID] = tk
+	tk.SetCreatedAt(now)
+	tk.SetUpdatedAt(now)
+	tk.SetID(normalizeTikiID(tk.ID()))
+	s.tikis[tk.ID()] = tk
 	s.mu.Unlock()
 	s.notifyListeners()
 	return nil
@@ -176,11 +176,11 @@ func (s *InMemoryStore) storeNewTikiLocked(tk *tikipkg.Tiki) error {
 func (s *InMemoryStore) updateTikiLocked(tk *tikipkg.Tiki, carrySchemaFields bool) error {
 	s.mu.Lock()
 
-	tk.ID = normalizeTikiID(tk.ID)
-	old, exists := s.tikis[tk.ID]
+	tk.SetID(normalizeTikiID(tk.ID()))
+	old, exists := s.tikis[tk.ID()]
 	if !exists {
 		s.mu.Unlock()
-		return fmt.Errorf("tiki not found: %s", tk.ID)
+		return fmt.Errorf("tiki not found: %s", tk.ID())
 	}
 
 	// protective carry-forward: if the stored tiki carries workflow-declared
@@ -198,8 +198,8 @@ func (s *InMemoryStore) updateTikiLocked(tk *tikipkg.Tiki, carrySchemaFields boo
 		}
 	}
 
-	tk.UpdatedAt = time.Now()
-	s.tikis[tk.ID] = tk
+	tk.SetUpdatedAt(time.Now())
+	s.tikis[tk.ID()] = tk
 	s.mu.Unlock()
 	s.notifyListeners()
 	return nil
@@ -240,19 +240,19 @@ func (s *InMemoryStore) SearchTikis(query string, filter func(*tikipkg.Tiki) boo
 		results = append(results, tk)
 	}
 	sort.Slice(results, func(i, j int) bool {
-		ti, tj := strings.ToLower(results[i].Title), strings.ToLower(results[j].Title)
+		ti, tj := strings.ToLower(results[i].Title()), strings.ToLower(results[j].Title())
 		if ti != tj {
 			return ti < tj
 		}
-		return results[i].ID < results[j].ID
+		return results[i].ID() < results[j].ID()
 	})
 	return results
 }
 
 func matchesTikiQueryMem(tk *tikipkg.Tiki, queryLower string) bool {
-	if strings.Contains(strings.ToLower(tk.ID), queryLower) ||
-		strings.Contains(strings.ToLower(tk.Title), queryLower) ||
-		strings.Contains(strings.ToLower(tk.Body), queryLower) {
+	if strings.Contains(strings.ToLower(tk.ID()), queryLower) ||
+		strings.Contains(strings.ToLower(tk.Title()), queryLower) ||
+		strings.Contains(strings.ToLower(tk.Body()), queryLower) {
 		return true
 	}
 	tags, _, _ := tk.StringSliceField(tikipkg.FieldTags)
@@ -286,7 +286,7 @@ func (s *InMemoryStore) PathForID(id string) string {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 	if tk, ok := s.tikis[normalizeTikiID(id)]; ok {
-		return tk.Path
+		return tk.Path()
 	}
 	return ""
 }

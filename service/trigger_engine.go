@@ -7,10 +7,10 @@ import (
 	"log/slog"
 	"time"
 
+	"github.com/boolean-maybe/ruki"
+	"github.com/boolean-maybe/ruki/duration"
 	"github.com/boolean-maybe/tiki/config"
-	"github.com/boolean-maybe/tiki/ruki"
 	tikipkg "github.com/boolean-maybe/tiki/tiki"
-	"github.com/boolean-maybe/tiki/util/duration"
 )
 
 // maxTriggerDepth is the maximum cascade depth for triggers.
@@ -125,9 +125,9 @@ func (te *TriggerEngine) makeBeforeValidator(entry triggerEntry) MutationValidat
 	return func(old, new *tikipkg.Tiki, _ []*tikipkg.Tiki) *Rejection {
 		allTikis := candidateTikis(te.gate.ReadStore().GetAllTikis(), old, new)
 		tc := &ruki.TriggerContext{
-			Old:      old,
-			New:      new,
-			AllTikis: allTikis,
+			Old:      tikipkg.WrapDoc(old),
+			New:      tikipkg.WrapDoc(new),
+			AllTikis: tikipkg.WrapDocs(allTikis),
 		}
 		match, err := te.executor.EvalGuard(eventTriggerForExec(entry), tc)
 		if err != nil {
@@ -163,7 +163,7 @@ func candidateTikis(base []*tikipkg.Tiki, old, newTiki *tikipkg.Tiki) []*tikipkg
 		out := make([]*tikipkg.Tiki, len(base))
 		copy(out, base)
 		for i, tk := range out {
-			if tk.ID == newTiki.ID {
+			if tk.ID() == newTiki.ID() {
 				out[i] = newTiki
 				return out
 			}
@@ -188,9 +188,9 @@ func (te *TriggerEngine) makeAfterHook(entry triggerEntry) AfterHook {
 		}
 
 		tc := &ruki.TriggerContext{
-			Old:      old,
-			New:      new,
-			AllTikis: te.gate.ReadStore().GetAllTikis(),
+			Old:      tikipkg.WrapDoc(old),
+			New:      tikipkg.WrapDoc(new),
+			AllTikis: tikipkg.WrapDocs(te.gate.ReadStore().GetAllTikis()),
 		}
 
 		match, err := te.executor.EvalGuard(eventTriggerForExec(entry), tc)
@@ -222,7 +222,7 @@ func (te *TriggerEngine) execAction(ctx context.Context, entry triggerEntry, tc 
 		if tmpl == nil {
 			return fmt.Errorf("create template: store returned nil template")
 		}
-		input.CreateTemplate = tmpl
+		input.CreateTemplate = tikipkg.WrapDoc(tmpl)
 	}
 	result, err := te.executor.ExecAction(eventTriggerForExec(entry), tc, input)
 	if err != nil {
@@ -235,19 +235,21 @@ func (te *TriggerEngine) persistResult(ctx context.Context, result *ruki.Result)
 	var errs []error
 	switch {
 	case result.Update != nil:
-		for _, tk := range result.Update.Updated {
+		for _, doc := range result.Update.Updated {
+			tk := tikipkg.UnwrapDoc(doc)
 			if err := te.gate.UpdateTiki(ctx, tk); err != nil {
-				errs = append(errs, fmt.Errorf("update %s: %w", tk.ID, err))
+				errs = append(errs, fmt.Errorf("update %s: %w", tk.ID(), err))
 			}
 		}
 	case result.Create != nil:
-		if err := te.gate.CreateTiki(ctx, result.Create.Tiki); err != nil {
+		if err := te.gate.CreateTiki(ctx, tikipkg.UnwrapDoc(result.Create.Tiki)); err != nil {
 			return fmt.Errorf("trigger create failed: %w", err)
 		}
 	case result.Delete != nil:
-		for _, tk := range result.Delete.Deleted {
+		for _, doc := range result.Delete.Deleted {
+			tk := tikipkg.UnwrapDoc(doc)
 			if err := te.gate.DeleteTiki(ctx, tk); err != nil {
-				errs = append(errs, fmt.Errorf("delete %s: %w", tk.ID, err))
+				errs = append(errs, fmt.Errorf("delete %s: %w", tk.ID(), err))
 			}
 		}
 	}
@@ -282,7 +284,8 @@ func (te *TriggerEngine) execRun(ctx context.Context, entry triggerEntry, tc *ru
 // without nil-checking — it early-returns on zero time triggers.
 // Fails fast on parse errors — a bad trigger blocks startup.
 func LoadAndRegisterTriggers(gate *TikiMutationGate, schema ruki.Schema, userFunc func() string) (*TriggerEngine, int, error) {
-	executor := ruki.NewTriggerExecutor(schema, userFunc)
+	factory := ruki.DocumentFactory(tikipkg.NewDoc)
+	executor := ruki.NewTriggerExecutor(schema, factory, userFunc)
 	empty := func() *TriggerEngine { return NewTriggerEngine(nil, nil, executor) }
 
 	defs, err := config.LoadTriggerDefs()
@@ -393,9 +396,9 @@ func (te *TriggerEngine) executeTimeTrigger(ctx context.Context, entry TimeTrigg
 			slog.Error("create template failed", "trigger", entry.Description, "error", "store returned nil template")
 			return
 		}
-		input.CreateTemplate = tmpl
+		input.CreateTemplate = tikipkg.WrapDoc(tmpl)
 	}
-	result, err := te.executor.ExecTimeTriggerAction(timeTriggerForExec(entry), te.gate.ReadStore().GetAllTikis(), input)
+	result, err := te.executor.ExecTimeTriggerAction(timeTriggerForExec(entry), tikipkg.WrapDocs(te.gate.ReadStore().GetAllTikis()), input)
 	if err != nil {
 		slog.Error("time trigger action failed",
 			"trigger", entry.Description, "error", err)

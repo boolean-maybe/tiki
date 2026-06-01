@@ -14,16 +14,16 @@ import "time"
 // entries in Fields with explicit presence, so a document with only id+title
 // cannot be accidentally promoted by a body-only edit.
 type Tiki struct {
-	// ID is the bare uppercase identifier (6 alphanumeric chars). Always set
-	// for loaded tikis; generated on creation if absent.
-	ID string
+	// id is the bare uppercase identifier (6 alphanumeric chars). Always set
+	// for loaded tikis; generated on creation if absent. Read via ID().
+	id string
 
-	// Title comes from frontmatter.title, or is empty when omitted.
-	Title string
+	// title comes from frontmatter.title, or is empty when omitted. Read via Title().
+	title string
 
-	// Body is the markdown content after the closing --- delimiter. For pure
-	// markdown files without frontmatter this is the whole file.
-	Body string
+	// body is the markdown content after the closing --- delimiter. For pure
+	// markdown files without frontmatter this is the whole file. Read via Body().
+	body string
 
 	// Fields holds every frontmatter key other than id and title, in their
 	// raw or coerced form. Schema-known keys (status, type, priority, points,
@@ -31,18 +31,18 @@ type Tiki struct {
 	// unknown keys round-trip verbatim.
 	Fields map[string]interface{}
 
-	// Path is the on-disk path at load time. Authoritative file target for
-	// saves; mutable as the user moves the file around.
-	Path string
+	// path is the on-disk path at load time. Authoritative file target for
+	// saves; mutable as the user moves the file around. Read via Path().
+	path string
 
 	// LoadedMtime is the file mtime at load time; used for optimistic locking.
 	LoadedMtime time.Time
 
-	// CreatedAt is best-effort creation time (git history -> file mtime).
-	CreatedAt time.Time
+	// createdAt is best-effort creation time (git history -> file mtime). Read via CreatedAt().
+	createdAt time.Time
 
-	// UpdatedAt is max(file mtime, latest git commit time).
-	UpdatedAt time.Time
+	// updatedAt is max(file mtime, latest git commit time). Read via UpdatedAt().
+	updatedAt time.Time
 
 	// stale records the subset of Fields keys that were loaded from disk
 	// with unknown-field provenance despite matching a registered Custom
@@ -70,6 +70,22 @@ func New() *Tiki {
 	return &Tiki{Fields: map[string]interface{}{}}
 }
 
+// special read-only attribute accessors.
+func (t *Tiki) ID() string           { return t.id }
+func (t *Tiki) Title() string        { return t.title }
+func (t *Tiki) Body() string         { return t.body }
+func (t *Tiki) Path() string         { return t.path }
+func (t *Tiki) CreatedAt() time.Time { return t.createdAt }
+func (t *Tiki) UpdatedAt() time.Time { return t.updatedAt }
+
+// setters for the store/service/template construction paths.
+func (t *Tiki) SetID(v string)           { t.id = v }
+func (t *Tiki) SetTitle(v string)        { t.title = v }
+func (t *Tiki) SetBody(v string)         { t.body = v }
+func (t *Tiki) SetPath(v string)         { t.path = v }
+func (t *Tiki) SetCreatedAt(v time.Time) { t.createdAt = v }
+func (t *Tiki) SetUpdatedAt(v time.Time) { t.updatedAt = v }
+
 // Clone returns a deep copy. Slice values inside Fields are copied; maps
 // nested inside Fields are copied one level (sufficient for all current
 // workflow-declared values and the unknown-field round-trip case).
@@ -78,13 +94,13 @@ func (t *Tiki) Clone() *Tiki {
 		return nil
 	}
 	clone := &Tiki{
-		ID:          t.ID,
-		Title:       t.Title,
-		Body:        t.Body,
-		Path:        t.Path,
+		id:          t.id,
+		title:       t.title,
+		body:        t.body,
+		path:        t.path,
 		LoadedMtime: t.LoadedMtime,
-		CreatedAt:   t.CreatedAt,
-		UpdatedAt:   t.UpdatedAt,
+		createdAt:   t.createdAt,
+		updatedAt:   t.updatedAt,
 	}
 	if t.Fields != nil {
 		clone.Fields = make(map[string]interface{}, len(t.Fields))

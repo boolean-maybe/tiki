@@ -10,8 +10,8 @@ import (
 
 func tikiWithSchemaFields() *tikipkg.Tiki {
 	tk := tikipkg.New()
-	tk.ID = "CREAT1"
-	tk.Title = "created"
+	tk.SetID("CREAT1")
+	tk.SetTitle("created")
 	tk.Set("type", "story")
 	tk.Set("status", "inbox")
 	tk.Set("priority", "high")
@@ -49,7 +49,7 @@ func TestGetAllTikis_ReturnsEverything(t *testing.T) {
 
 	ids := map[string]bool{}
 	for _, tk := range all {
-		ids[tk.ID] = true
+		ids[tk.ID()] = true
 	}
 	if !ids["BARE01"] {
 		t.Error("bare tiki should appear in GetAllTikis — store does not classify")

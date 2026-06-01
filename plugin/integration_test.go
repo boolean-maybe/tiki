@@ -3,20 +3,21 @@ package plugin
 import (
 	"testing"
 
+	"github.com/boolean-maybe/ruki"
 	rukiRuntime "github.com/boolean-maybe/tiki/internal/ruki/runtime"
-	"github.com/boolean-maybe/tiki/ruki"
 	tikipkg "github.com/boolean-maybe/tiki/tiki"
 )
 
 func newTestExecutor() *ruki.Executor {
 	schema := rukiRuntime.NewSchema()
-	return ruki.NewExecutor(schema, func() string { return "testuser" },
+	factory := ruki.DocumentFactory(func() ruki.Document { return tikipkg.WrapDoc(tikipkg.New()) })
+	return ruki.NewExecutor(schema, factory, func() string { return "testuser" },
 		ruki.ExecutorRuntime{Mode: ruki.ExecutorRuntimePlugin})
 }
 
 func newWFTiki(id, status string, tags []string) *tikipkg.Tiki {
 	tk := tikipkg.New()
-	tk.ID = id
+	tk.SetID(id)
 	if status != "" {
 		tk.Set(tikipkg.FieldStatus, status)
 	}
@@ -66,7 +67,7 @@ lanes:
 	}
 
 	executor := newTestExecutor()
-	result, err := executor.Execute(tp.Lanes[0].Filter, allTikis)
+	result, err := executor.Execute(tp.Lanes[0].Filter, tikipkg.WrapDocs(allTikis))
 	if err != nil {
 		t.Fatalf("executor error: %v", err)
 	}
@@ -79,7 +80,7 @@ lanes:
 	// tiki with "ui"+"design" and tiki with "ux" should match; "backend"+"api" should not
 	ids := map[string]bool{}
 	for _, tk := range filtered {
-		ids[tk.ID] = true
+		ids[tk.ID()] = true
 	}
 	if !ids["T00001"] {
 		t.Error("expected T00001 (ui, design tags) to match")
@@ -122,7 +123,7 @@ lanes:
 	}
 
 	executor := newTestExecutor()
-	result, err := executor.Execute(tp.Lanes[0].Filter, allTikis)
+	result, err := executor.Execute(tp.Lanes[0].Filter, tikipkg.WrapDocs(allTikis))
 	if err != nil {
 		t.Fatalf("executor error: %v", err)
 	}
@@ -131,8 +132,8 @@ lanes:
 	if len(filtered) != 1 {
 		t.Fatalf("expected 1 matching tiki, got %d", len(filtered))
 	}
-	if filtered[0].ID != "T00001" {
-		t.Errorf("expected T00001, got %s", filtered[0].ID)
+	if filtered[0].ID() != "T00001" {
+		t.Errorf("expected T00001, got %s", filtered[0].ID())
 	}
 }
 
@@ -175,7 +176,7 @@ lanes:
 		t.Run(tc.name, func(t *testing.T) {
 			tikis := []*tikipkg.Tiki{newWFTiki("T00001", tc.status, nil)}
 
-			result, err := executor.Execute(tp.Lanes[0].Filter, tikis)
+			result, err := executor.Execute(tp.Lanes[0].Filter, tikipkg.WrapDocs(tikis))
 			if err != nil {
 				t.Fatalf("executor error: %v", err)
 			}

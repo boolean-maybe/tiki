@@ -29,8 +29,8 @@ func TestLegacyUpgrader_UpgradeTiki(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			tk := tikipkg.New()
-			tk.ID = "TEST01"
-			tk.Title = "test"
+			tk.SetID("TEST01")
+			tk.SetTitle("test")
 			tk.Set("status", tt.status)
 
 			upgrader.UpgradeTiki(tk)
@@ -50,8 +50,8 @@ func TestLegacyUpgrader_UpgradeTiki_LeavesAbsentStatusAlone(t *testing.T) {
 	upgrader := &LegacyUpgrader{}
 
 	tk := tikipkg.New()
-	tk.ID = "TEST02"
-	tk.Title = "no status"
+	tk.SetID("TEST02")
+	tk.SetTitle("no status")
 
 	upgrader.UpgradeTiki(tk)
 
@@ -93,7 +93,7 @@ func TestLegacyUpgrader_PriorityIntToEnum(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			tk := tikipkg.New()
-			tk.ID = "TEST"
+			tk.SetID("TEST")
 			tk.Set("priority", tt.raw)
 
 			upgrader.UpgradeTiki(tk)
@@ -114,7 +114,7 @@ func TestLegacyUpgrader_PriorityOutOfRangeFallsBackToDefault(t *testing.T) {
 	upgrader := &LegacyUpgrader{}
 
 	tk := tikipkg.New()
-	tk.ID = "TEST"
+	tk.SetID("TEST")
 	tk.Set("priority", 7) // out of range for the canonical 5-level enum
 
 	upgrader.UpgradeTiki(tk)
@@ -134,7 +134,7 @@ func TestLegacyUpgrader_PriorityFractionalFloatStaysStale(t *testing.T) {
 	upgrader := &LegacyUpgrader{}
 
 	tk := tikipkg.New()
-	tk.ID = "TEST"
+	tk.SetID("TEST")
 	tk.Set("priority", float64(2.9))
 
 	upgrader.UpgradeTiki(tk)
@@ -156,7 +156,7 @@ func TestLegacyUpgrader_PriorityWholeFloatStillMigrates(t *testing.T) {
 	upgrader := &LegacyUpgrader{}
 
 	tk := tikipkg.New()
-	tk.ID = "TEST"
+	tk.SetID("TEST")
 	tk.Set("priority", float64(2)) // whole-number float
 
 	upgrader.UpgradeTiki(tk)
@@ -195,8 +195,8 @@ func TestLegacyUpgrader_UpgradeTiki_UnknownStatusFallsBackToDefault(t *testing.T
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			tk := tikipkg.New()
-			tk.ID = "TEST01"
-			tk.Title = "test"
+			tk.SetID("TEST01")
+			tk.SetTitle("test")
 			tk.Set("status", tt.status)
 
 			upgrader.UpgradeTiki(tk)
@@ -215,7 +215,7 @@ func TestLegacyUpgrader_PriorityStringPasses(t *testing.T) {
 	upgrader := &LegacyUpgrader{}
 
 	tk := tikipkg.New()
-	tk.ID = "TEST"
+	tk.SetID("TEST")
 	tk.Set("priority", "medium-high")
 
 	upgrader.UpgradeTiki(tk)

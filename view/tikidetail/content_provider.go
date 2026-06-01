@@ -6,7 +6,7 @@ import (
 
 	"github.com/boolean-maybe/navidown/loaders"
 	nav "github.com/boolean-maybe/navidown/navidown"
-	"github.com/boolean-maybe/tiki/document"
+	"github.com/boolean-maybe/ruki/idfmt"
 	"github.com/boolean-maybe/tiki/store"
 	tikipkg "github.com/boolean-maybe/tiki/tiki"
 )
@@ -46,7 +46,7 @@ func (p *tikiDescriptionProvider) FetchContent(elem nav.NavElement) (string, err
 // format has no legacy identity to parse.
 func extractTikiID(url string) (string, bool) {
 	upper := strings.ToUpper(url)
-	if document.IsValidID(upper) {
+	if idfmt.IsValidID(upper) {
 		return upper, true
 	}
 	return "", false
@@ -55,18 +55,18 @@ func extractTikiID(url string) (string, bool) {
 // formatTikiAsMarkdown renders a tiki as a readable markdown document.
 func formatTikiAsMarkdown(tk *tikipkg.Tiki) string {
 	var b strings.Builder
-	fmt.Fprintf(&b, "# %s\n\n", tk.Title)
+	fmt.Fprintf(&b, "# %s\n\n", tk.Title())
 
 	statusStr, _, _ := tk.StringField(tikipkg.FieldStatus)
 	typeStr, _, _ := tk.StringField(tikipkg.FieldType)
-	fmt.Fprintf(&b, "**%s** · %s · %s", tk.ID, statusStr, typeStr)
+	fmt.Fprintf(&b, "**%s** · %s · %s", tk.ID(), statusStr, typeStr)
 
 	if priority, _, _ := tk.StringField(tikipkg.FieldPriority); priority != "" {
 		fmt.Fprintf(&b, " · %s", priority)
 	}
 	b.WriteString("\n\n")
-	if tk.Body != "" {
-		b.WriteString(tk.Body)
+	if tk.Body() != "" {
+		b.WriteString(tk.Body())
 		b.WriteString("\n")
 	}
 	return b.String()

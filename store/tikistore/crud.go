@@ -6,8 +6,8 @@ import (
 	"os"
 	"sort"
 
+	"github.com/boolean-maybe/ruki/idfmt"
 	"github.com/boolean-maybe/tiki/config"
-	"github.com/boolean-maybe/tiki/document"
 	tikipkg "github.com/boolean-maybe/tiki/tiki"
 )
 
@@ -23,7 +23,7 @@ func (s *TikiStore) CreateTiki(tk *tikipkg.Tiki) error {
 	if err := s.createTikiLocked(tk); err != nil {
 		return err
 	}
-	slog.Info("tiki created", "tiki_id", tk.ID)
+	slog.Info("tiki created", "tiki_id", tk.ID())
 	s.notifyListeners()
 	return nil
 }
@@ -42,11 +42,11 @@ func (s *TikiStore) storeNewDocumentLocked(tk *tikipkg.Tiki) error {
 	// in-memory index (s.tikis), not the filesystem — a tiki loaded from a
 	// renamed file occupies an id without occupying <dir>/<id>.md, so an
 	// os.Stat probe would falsely report the id free.
-	if tk.ID == "" {
+	if tk.ID() == "" {
 		for i := 0; ; i++ {
 			candidate := normalizeTikiID(config.GenerateRandomID())
 			if _, taken := s.tikis[candidate]; !taken {
-				tk.ID = candidate
+				tk.SetID(candidate)
 				break
 			}
 			if i > maxGenerateRetries {
@@ -55,17 +55,17 @@ func (s *TikiStore) storeNewDocumentLocked(tk *tikipkg.Tiki) error {
 			slog.Debug("ID collision detected in index, regenerating", "id", candidate)
 		}
 	} else {
-		tk.ID = normalizeTikiID(tk.ID)
+		tk.SetID(normalizeTikiID(tk.ID()))
 	}
 
 	if err := s.validateDependsOnLocked(tk); err != nil {
 		return err
 	}
 
-	s.tikis[tk.ID] = tk
+	s.tikis[tk.ID()] = tk
 	if err := s.saveTiki(tk); err != nil {
-		delete(s.tikis, tk.ID)
-		slog.Error("failed to save new document after creation", "tiki_id", tk.ID, "error", err)
+		delete(s.tikis, tk.ID())
+		slog.Error("failed to save new document after creation", "tiki_id", tk.ID(), "error", err)
 		return fmt.Errorf("failed to save tiki: %w", err)
 	}
 	return nil
@@ -88,7 +88,7 @@ func (s *TikiStore) GetAllTikis() []*tikipkg.Tiki {
 	for _, tk := range s.tikis {
 		out = append(out, tk)
 	}
-	sort.Slice(out, func(i, j int) bool { return out[i].ID < out[j].ID })
+	sort.Slice(out, func(i, j int) bool { return out[i].ID() < out[j].ID() })
 	return out
 }
 
@@ -104,7 +104,7 @@ func (s *TikiStore) UpdateTiki(tk *tikipkg.Tiki) error {
 	if err := s.updateTikiCore(tk, false); err != nil {
 		return err
 	}
-	slog.Info("tiki updated", "tiki_id", tk.ID)
+	slog.Info("tiki updated", "tiki_id", tk.ID())
 	s.notifyListeners()
 	return nil
 }
@@ -117,14 +117,14 @@ func (s *TikiStore) updateTikiCore(tk *tikipkg.Tiki, _ bool) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	tk.ID = normalizeTikiID(tk.ID)
-	old, exists := s.tikis[tk.ID]
+	tk.SetID(normalizeTikiID(tk.ID()))
+	old, exists := s.tikis[tk.ID()]
 	if !exists {
-		return fmt.Errorf("tiki not found: %s", tk.ID)
+		return fmt.Errorf("tiki not found: %s", tk.ID())
 	}
 
-	if tk.Path == "" {
-		tk.Path = old.Path
+	if tk.Path() == "" {
+		tk.SetPath(old.Path())
 	}
 	if tk.LoadedMtime.IsZero() {
 		tk.LoadedMtime = old.LoadedMtime
@@ -134,10 +134,10 @@ func (s *TikiStore) updateTikiCore(tk *tikipkg.Tiki, _ bool) error {
 		return err
 	}
 
-	s.tikis[tk.ID] = tk
+	s.tikis[tk.ID()] = tk
 	if err := s.saveTiki(tk); err != nil {
-		s.tikis[tk.ID] = old
-		slog.Error("failed to save updated tiki", "tiki_id", tk.ID, "error", err)
+		s.tikis[tk.ID()] = old
+		slog.Error("failed to save updated tiki", "tiki_id", tk.ID(), "error", err)
 		return fmt.Errorf("failed to save tiki: %w", err)
 	}
 	return nil
@@ -199,8 +199,8 @@ func (s *TikiStore) validateDependsOnLocked(tk *tikipkg.Tiki) error {
 	deps, _, _ := tk.StringSliceField("dependsOn")
 	for _, depID := range deps {
 		normalized := normalizeTikiID(depID)
-		if !document.IsValidID(normalized) {
-			return fmt.Errorf("dependsOn reference %q is not a bare document id (expected %d uppercase alphanumeric chars)", normalized, document.IDLength)
+		if !idfmt.IsValidID(normalized) {
+			return fmt.Errorf("dependsOn reference %q is not a bare document id (expected %d uppercase alphanumeric chars)", normalized, idfmt.IDLength)
 		}
 		if _, exists := s.tikis[normalized]; !exists {
 			return fmt.Errorf("dependsOn references non-existent document: %s", normalized)

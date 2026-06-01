@@ -16,7 +16,7 @@ import (
 // findTikiByTitle finds a tiki by its title in a slice of tikis
 func findTikiByTitle(tikis []*tikipkg.Tiki, title string) *tikipkg.Tiki {
 	for _, tk := range tikis {
-		if tk.Title == title {
+		if tk.Title() == title {
 			return tk
 		}
 	}
@@ -69,8 +69,8 @@ func TestEditSource_DuplicateCaseIDs_Repro(t *testing.T) {
 	// Create a tiki with lowercase suffix ID directly in the store.
 	tikiID := "6EQDUE"
 	tk := tikipkg.New()
-	tk.ID = tikiID
-	tk.Title = "Edit Source Duplicate"
+	tk.SetID(tikiID)
+	tk.SetTitle("Edit Source Duplicate")
 	tk.Set("type", "story")
 	tk.Set("status", "inbox")
 	tk.Set("priority", "medium")
@@ -78,8 +78,8 @@ func TestEditSource_DuplicateCaseIDs_Repro(t *testing.T) {
 	if err := ta.TikiStore.CreateTiki(tk); err != nil {
 		t.Fatalf("CreateTiki failed: %v", err)
 	}
-	if tk.ID != "6EQDUE" {
-		t.Fatalf("expected tiki ID to be normalized, got %q", tk.ID)
+	if tk.ID() != "6EQDUE" {
+		t.Fatalf("expected tiki ID to be normalized, got %q", tk.ID())
 	}
 
 	// Mock editor to modify the tiki file and return immediately.
@@ -113,7 +113,7 @@ func TestEditSource_DuplicateCaseIDs_Repro(t *testing.T) {
 
 	foundUpper := false
 	for _, tsk := range tikis {
-		switch tsk.ID {
+		switch tsk.ID() {
 		case "6EQDUE":
 			foundUpper = true
 		}

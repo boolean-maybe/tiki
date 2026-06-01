@@ -5,9 +5,9 @@ import (
 	"log/slog"
 	"time"
 
+	collectionutil "github.com/boolean-maybe/ruki/collections"
 	"github.com/boolean-maybe/tiki/config"
 	tikipkg "github.com/boolean-maybe/tiki/tiki"
-	collectionutil "github.com/boolean-maybe/tiki/util/collections"
 	"github.com/boolean-maybe/tiki/workflow"
 )
 
@@ -62,8 +62,8 @@ func (s *TikiStore) newTikiTemplateLocked() (*tikipkg.Tiki, error) {
 	}
 
 	tk := tikipkg.New()
-	tk.ID = tikiID
-	tk.CreatedAt = time.Now()
+	tk.SetID(tikiID)
+	tk.SetCreatedAt(time.Now())
 
 	for k, v := range buildCustomFieldDefaults() {
 		tk.Set(k, v)

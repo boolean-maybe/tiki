@@ -8,7 +8,7 @@ import (
 	"sync/atomic"
 	"time"
 
-	collectionutil "github.com/boolean-maybe/tiki/util/collections"
+	collectionutil "github.com/boolean-maybe/ruki/collections"
 	"github.com/boolean-maybe/tiki/workflow"
 	"gopkg.in/yaml.v3"
 )

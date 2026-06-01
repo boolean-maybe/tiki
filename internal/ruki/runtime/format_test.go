@@ -7,15 +7,14 @@ import (
 	"testing"
 	"time"
 
-	"github.com/boolean-maybe/tiki/ruki"
-	"github.com/boolean-maybe/tiki/tiki"
+	"github.com/boolean-maybe/ruki"
 	"github.com/boolean-maybe/tiki/workflow"
 )
 
 func TestTableFormatterProjectedFields(t *testing.T) {
 	proj := &ruki.TikiProjection{
 		Fields: []string{"id", "title", "status"},
-		Tikis: []*tiki.Tiki{
+		Tikis: []ruki.Document{
 			tikiFromLegacy(legacyFields{ID: "TIKI-AAA001", Title: "First", Status: "ready"}),
 			tikiFromLegacy(legacyFields{ID: "TIKI-BBB002", Title: "Second", Status: "done"}),
 		},
@@ -44,7 +43,7 @@ func TestTableFormatterProjectedFields(t *testing.T) {
 func TestTableFormatterFieldOrder(t *testing.T) {
 	proj := &ruki.TikiProjection{
 		Fields: []string{"status", "id"},
-		Tikis:  []*tiki.Tiki{tikiFromLegacy(legacyFields{ID: "TIKI-A00001", Status: "ready"})},
+		Tikis:  []ruki.Document{tikiFromLegacy(legacyFields{ID: "TIKI-A00001", Status: "ready"})},
 	}
 
 	var buf bytes.Buffer
@@ -92,7 +91,7 @@ func TestTableFormatterDateFormatting(t *testing.T) {
 	due := time.Date(2025, 3, 15, 0, 0, 0, 0, time.UTC)
 	proj := &ruki.TikiProjection{
 		Fields: []string{"due"},
-		Tikis:  []*tiki.Tiki{tikiFromLegacy(legacyFields{Due: due})},
+		Tikis:  []ruki.Document{tikiFromLegacy(legacyFields{Due: due})},
 	}
 
 	var buf bytes.Buffer
@@ -109,7 +108,7 @@ func TestTableFormatterTimestampFormatting(t *testing.T) {
 	ts := time.Date(2025, 6, 1, 14, 30, 0, 0, time.FixedZone("EST", -5*3600))
 	proj := &ruki.TikiProjection{
 		Fields: []string{"createdAt"},
-		Tikis:  []*tiki.Tiki{tikiFromLegacy(legacyFields{CreatedAt: ts})},
+		Tikis:  []ruki.Document{tikiFromLegacy(legacyFields{CreatedAt: ts})},
 	}
 
 	var buf bytes.Buffer
@@ -126,7 +125,7 @@ func TestTableFormatterTimestampFormatting(t *testing.T) {
 func TestTableFormatterZeroDate(t *testing.T) {
 	proj := &ruki.TikiProjection{
 		Fields: []string{"due"},
-		Tikis:  []*tiki.Tiki{tikiFromLegacy(legacyFields{Due: time.Time{}})},
+		Tikis:  []ruki.Document{tikiFromLegacy(legacyFields{Due: time.Time{}})},
 	}
 
 	var buf bytes.Buffer
@@ -151,7 +150,7 @@ func TestTableFormatterZeroDate(t *testing.T) {
 func TestTableFormatterZeroTimestamp(t *testing.T) {
 	proj := &ruki.TikiProjection{
 		Fields: []string{"createdAt"},
-		Tikis:  []*tiki.Tiki{tikiFromLegacy(legacyFields{CreatedAt: time.Time{}})},
+		Tikis:  []ruki.Document{tikiFromLegacy(legacyFields{CreatedAt: time.Time{}})},
 	}
 
 	var buf bytes.Buffer
@@ -171,7 +170,7 @@ func TestTableFormatterZeroTimestamp(t *testing.T) {
 func TestTableFormatterListJSON(t *testing.T) {
 	proj := &ruki.TikiProjection{
 		Fields: []string{"tags"},
-		Tikis: []*tiki.Tiki{
+		Tikis: []ruki.Document{
 			tikiFromLegacy(legacyFields{Tags: []string{"backend", "urgent"}}),
 			tikiFromLegacy(legacyFields{Tags: []string{}}),
 			tikiFromLegacy(legacyFields{Tags: nil}),
@@ -195,7 +194,7 @@ func TestTableFormatterListEscaping(t *testing.T) {
 	// list cells with special characters should use standard JSON escaping
 	proj := &ruki.TikiProjection{
 		Fields: []string{"tags"},
-		Tikis:  []*tiki.Tiki{tikiFromLegacy(legacyFields{Tags: []string{`back\slash`, "new\nline", `"quoted"`}})},
+		Tikis:  []ruki.Document{tikiFromLegacy(legacyFields{Tags: []string{`back\slash`, "new\nline", `"quoted"`}})},
 	}
 
 	var buf bytes.Buffer
@@ -219,7 +218,7 @@ func TestTableFormatterListEscaping(t *testing.T) {
 func TestTableFormatterScalarEscaping(t *testing.T) {
 	proj := &ruki.TikiProjection{
 		Fields: []string{"title"},
-		Tikis:  []*tiki.Tiki{tikiFromLegacy(legacyFields{Title: "line1\nline2\ttab\\slash"})},
+		Tikis:  []ruki.Document{tikiFromLegacy(legacyFields{Title: "line1\nline2\ttab\\slash"})},
 	}
 
 	var buf bytes.Buffer
@@ -236,7 +235,7 @@ func TestTableFormatterScalarEscaping(t *testing.T) {
 func TestTableFormatterNoRowFooter(t *testing.T) {
 	proj := &ruki.TikiProjection{
 		Fields: []string{"id"},
-		Tikis:  []*tiki.Tiki{tikiFromLegacy(legacyFields{ID: "TIKI-A00001"}), tikiFromLegacy(legacyFields{ID: "TIKI-B00002"})},
+		Tikis:  []ruki.Document{tikiFromLegacy(legacyFields{ID: "TIKI-A00001"}), tikiFromLegacy(legacyFields{ID: "TIKI-B00002"})},
 	}
 
 	var buf bytes.Buffer
@@ -255,7 +254,7 @@ func TestTableFormatterNoRowFooter(t *testing.T) {
 func TestTableFormatterBorders(t *testing.T) {
 	proj := &ruki.TikiProjection{
 		Fields: []string{"id"},
-		Tikis:  []*tiki.Tiki{tikiFromLegacy(legacyFields{ID: "TIKI-A00001"})},
+		Tikis:  []ruki.Document{tikiFromLegacy(legacyFields{ID: "TIKI-A00001"})},
 	}
 
 	var buf bytes.Buffer
@@ -283,7 +282,7 @@ func TestTableFormatterBorders(t *testing.T) {
 func TestTableFormatterEmptyString(t *testing.T) {
 	proj := &ruki.TikiProjection{
 		Fields: []string{"assignee"},
-		Tikis:  []*tiki.Tiki{tikiFromLegacy(legacyFields{Assignee: ""})},
+		Tikis:  []ruki.Document{tikiFromLegacy(legacyFields{Assignee: ""})},
 	}
 
 	var buf bytes.Buffer
@@ -304,7 +303,7 @@ func TestTableFormatterAllFieldsDefault(t *testing.T) {
 	// bare select with nil fields resolves to all canonical fields
 	proj := &ruki.TikiProjection{
 		Fields: nil,
-		Tikis:  []*tiki.Tiki{tikiFromLegacy(legacyFields{ID: "TIKI-A00001", Title: "Test", Status: "ready", Priority: "medium"})},
+		Tikis:  []ruki.Document{tikiFromLegacy(legacyFields{ID: "TIKI-A00001", Title: "Test", Status: "ready", Priority: "medium"})},
 	}
 
 	var buf bytes.Buffer
@@ -379,7 +378,7 @@ func TestTableFormatterIntField(t *testing.T) {
 	initTestRegistries()
 	proj := &ruki.TikiProjection{
 		Fields: []string{"priority", "points"},
-		Tikis:  []*tiki.Tiki{tikiFromLegacy(legacyFields{Priority: "medium", Points: "7"})},
+		Tikis:  []ruki.Document{tikiFromLegacy(legacyFields{Priority: "medium", Points: "7"})},
 	}
 
 	var buf bytes.Buffer
@@ -399,7 +398,7 @@ func TestTableFormatterIntField(t *testing.T) {
 func TestTableFormatterRecurrenceField(t *testing.T) {
 	proj := &ruki.TikiProjection{
 		Fields: []string{"recurrence"},
-		Tikis:  []*tiki.Tiki{tikiFromLegacy(legacyFields{Recurrence: "0 0 * * MON"})},
+		Tikis:  []ruki.Document{tikiFromLegacy(legacyFields{Recurrence: "0 0 * * MON"})},
 	}
 
 	var buf bytes.Buffer
@@ -426,7 +425,7 @@ func nonEmptyLines(s string) []string {
 func TestTableFormatterWriteError(t *testing.T) {
 	proj := &ruki.TikiProjection{
 		Fields: []string{"id"},
-		Tikis:  []*tiki.Tiki{tikiFromLegacy(legacyFields{ID: "TIKI-ABC123"})},
+		Tikis:  []ruki.Document{tikiFromLegacy(legacyFields{ID: "TIKI-ABC123"})},
 	}
 
 	ew := &errorWriter{failAfter: 0}
@@ -489,7 +488,7 @@ func TestRenderTimestampNonTime(t *testing.T) {
 func TestTableFormatterWriteErrorAtHeader(t *testing.T) {
 	proj := &ruki.TikiProjection{
 		Fields: []string{"id"},
-		Tikis:  []*tiki.Tiki{tikiFromLegacy(legacyFields{ID: "TIKI-ABC123"})},
+		Tikis:  []ruki.Document{tikiFromLegacy(legacyFields{ID: "TIKI-ABC123"})},
 	}
 
 	// fail on second write (header row)
@@ -503,7 +502,7 @@ func TestTableFormatterWriteErrorAtHeader(t *testing.T) {
 func TestTableFormatterWriteErrorAtSecondSep(t *testing.T) {
 	proj := &ruki.TikiProjection{
 		Fields: []string{"id"},
-		Tikis:  []*tiki.Tiki{tikiFromLegacy(legacyFields{ID: "TIKI-ABC123"})},
+		Tikis:  []ruki.Document{tikiFromLegacy(legacyFields{ID: "TIKI-ABC123"})},
 	}
 
 	// fail on third write (second separator after header)
@@ -517,7 +516,7 @@ func TestTableFormatterWriteErrorAtSecondSep(t *testing.T) {
 func TestTableFormatterWriteErrorAtDataRow(t *testing.T) {
 	proj := &ruki.TikiProjection{
 		Fields: []string{"id"},
-		Tikis:  []*tiki.Tiki{tikiFromLegacy(legacyFields{ID: "TIKI-ABC123"})},
+		Tikis:  []ruki.Document{tikiFromLegacy(legacyFields{ID: "TIKI-ABC123"})},
 	}
 
 	// fail on fourth write (data row)
@@ -531,7 +530,7 @@ func TestTableFormatterWriteErrorAtDataRow(t *testing.T) {
 func TestTableFormatterWriteErrorAtClosingSep(t *testing.T) {
 	proj := &ruki.TikiProjection{
 		Fields: []string{"id"},
-		Tikis:  []*tiki.Tiki{tikiFromLegacy(legacyFields{ID: "TIKI-ABC123"})},
+		Tikis:  []ruki.Document{tikiFromLegacy(legacyFields{ID: "TIKI-ABC123"})},
 	}
 
 	// fail on fifth write (closing separator)
@@ -574,7 +573,7 @@ func TestFormatCustomFields(t *testing.T) {
 
 	proj := &ruki.TikiProjection{
 		Fields: []string{"severity", "score", "active", "notes"},
-		Tikis: []*tiki.Tiki{
+		Tikis: []ruki.Document{
 			tikiFromLegacy(legacyFields{
 				ID: "TIKI-CF0001", Title: "Custom", Status: "ready",
 				CustomFields: map[string]interface{}{
@@ -622,7 +621,7 @@ func TestFormatMissingCustomFields(t *testing.T) {
 	// tiki with no custom fields set — should render as empty (nil → "")
 	proj := &ruki.TikiProjection{
 		Fields: []string{"score", "active"},
-		Tikis: []*tiki.Tiki{
+		Tikis: []ruki.Document{
 			tikiFromLegacy(legacyFields{ID: "TIKI-CF0002", Title: "Empty", Status: "ready"}),
 		},
 	}
@@ -662,7 +661,7 @@ func TestFormatSetToZeroVsUnset(t *testing.T) {
 
 	proj := &ruki.TikiProjection{
 		Fields: []string{"score", "active"},
-		Tikis: []*tiki.Tiki{
+		Tikis: []ruki.Document{
 			tikiFromLegacy(legacyFields{ID: "TIKI-Z00001", Title: "Explicit zero", Status: "ready",
 				CustomFields: map[string]interface{}{"score": 0, "active": false}}),
 			tikiFromLegacy(legacyFields{ID: "TIKI-Z00002", Title: "Unset", Status: "ready"}),
@@ -700,7 +699,7 @@ func TestFormatFilepath(t *testing.T) {
 
 	proj := &ruki.TikiProjection{
 		Fields: []string{"id", "filepath"},
-		Tikis: []*tiki.Tiki{
+		Tikis: []ruki.Document{
 			tikiFromLegacy(legacyFields{ID: "TIKI-FP0001", Title: "x", Status: "ready", FilePath: "/abs/path/tiki-fp0001.md"}),
 			tikiFromLegacy(legacyFields{ID: "TIKI-FP0002", Title: "y", Status: "ready"}),
 		},

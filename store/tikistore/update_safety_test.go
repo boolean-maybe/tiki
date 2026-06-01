@@ -30,8 +30,8 @@ func TestUpdateTiki_FreshTikiPreservesLoadedPath(t *testing.T) {
 	// the same id and different content — simulating an API client that
 	// didn't bother to preserve identity-bound state.
 	fresh := tikipkg.New()
-	fresh.ID = "UPD001"
-	fresh.Title = "updated by fresh value"
+	fresh.SetID("UPD001")
+	fresh.SetTitle("updated by fresh value")
 	fresh.Set("type", "story")
 	fresh.Set("status", "ready")
 	fresh.Set("priority", "high")
@@ -82,8 +82,8 @@ func TestUpdateTiki_FreshTikiPreservesLoadedMtime(t *testing.T) {
 	}
 
 	fresh := tikipkg.New()
-	fresh.ID = "LOCK01"
-	fresh.Title = "try to update"
+	fresh.SetID("LOCK01")
+	fresh.SetTitle("try to update")
 	fresh.Set("type", "story")
 	fresh.Set("status", "ready")
 	fresh.Set("priority", "high")

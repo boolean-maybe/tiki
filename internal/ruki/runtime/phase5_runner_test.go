@@ -26,17 +26,17 @@ func TestPhase5_CLISelectIncludesPlainDocs(t *testing.T) {
 	s := store.NewInMemoryStore()
 	// Seed a workflow doc and a plain doc side by side.
 	wf := tikipkg.New()
-	wf.ID = "WRKFL1"
-	wf.Title = "workflow item"
+	wf.SetID("WRKFL1")
+	wf.SetTitle("workflow item")
 	wf.Set("status", "ready")
 	wf.Set("priority", "high")
 	if err := s.CreateTiki(wf); err != nil {
 		t.Fatalf("seed workflow: %v", err)
 	}
 	plain := tikipkg.New()
-	plain.ID = "PLAIN1"
-	plain.Title = "plain note"
-	plain.Body = "just a markdown note"
+	plain.SetID("PLAIN1")
+	plain.SetTitle("plain note")
+	plain.SetBody("just a markdown note")
 	if err := s.CreateTiki(plain); err != nil {
 		t.Fatalf("seed plain: %v", err)
 	}
@@ -64,17 +64,17 @@ func TestPhase5_CLIHasStatusFiltersPlainDocs(t *testing.T) {
 
 	s := store.NewInMemoryStore()
 	wf2 := tikipkg.New()
-	wf2.ID = "WRKFL1"
-	wf2.Title = "workflow"
+	wf2.SetID("WRKFL1")
+	wf2.SetTitle("workflow")
 	wf2.Set("status", "ready")
 	wf2.Set("priority", "high")
 	if err := s.CreateTiki(wf2); err != nil {
 		t.Fatalf("seed workflow: %v", err)
 	}
 	plain2 := tikipkg.New()
-	plain2.ID = "PLAIN1"
-	plain2.Title = "plain"
-	plain2.Body = "note"
+	plain2.SetID("PLAIN1")
+	plain2.SetTitle("plain")
+	plain2.SetBody("note")
 	if err := s.CreateTiki(plain2); err != nil {
 		t.Fatalf("seed plain: %v", err)
 	}

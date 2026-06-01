@@ -9,8 +9,8 @@ import (
 
 func newTestDraftTiki(id, title string) *tikipkg.Tiki {
 	tk := tikipkg.New()
-	tk.ID = id
-	tk.Title = title
+	tk.SetID(id)
+	tk.SetTitle(title)
 	return tk
 }
 

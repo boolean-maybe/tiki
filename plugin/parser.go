@@ -8,8 +8,8 @@ import (
 	"github.com/gdamore/tcell/v2"
 	"gopkg.in/yaml.v3"
 
+	"github.com/boolean-maybe/ruki"
 	"github.com/boolean-maybe/tiki/gridlayout"
-	"github.com/boolean-maybe/tiki/ruki"
 	"github.com/boolean-maybe/tiki/theme"
 	"github.com/boolean-maybe/tiki/workflow"
 )

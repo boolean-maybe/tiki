@@ -169,7 +169,7 @@ body
 
 	// Trigger a save by editing an unrelated field (title) via tiki clone.
 	updated := loaded.Clone()
-	updated.Title = "Stale list v2"
+	updated.SetTitle("Stale list v2")
 	if err := s.UpdateTiki(updated); err != nil {
 		t.Fatalf("UpdateTiki: %v", err)
 	}
@@ -209,8 +209,8 @@ func TestPhase3_CreateTikiPreservesSchemaFieldsAcrossReload(t *testing.T) {
 	}
 
 	wf := tikipkg.New()
-	wf.ID = "WFZERO"
-	wf.Title = "carries status"
+	wf.SetID("WFZERO")
+	wf.SetTitle("carries status")
 	wf.Set("status", "ready")
 	if err := s.CreateTiki(wf); err != nil {
 		t.Fatalf("CreateTiki: %v", err)

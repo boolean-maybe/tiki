@@ -3,7 +3,7 @@ package workflow
 import (
 	"testing"
 
-	"github.com/boolean-maybe/tiki/ruki/keyword"
+	"github.com/boolean-maybe/ruki/keyword"
 )
 
 func TestSystemField(t *testing.T) {

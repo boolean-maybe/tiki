@@ -45,7 +45,7 @@ func (b *Base) build() {
 // GetTiki returns the tiki from the store or the fallback tiki.
 func (b *Base) GetTiki() *tikipkg.Tiki {
 	tk := b.tikiStore.GetTiki(b.tikiID)
-	if tk == nil && b.fallbackTiki != nil && b.fallbackTiki.ID == b.tikiID {
+	if tk == nil && b.fallbackTiki != nil && b.fallbackTiki.ID() == b.tikiID {
 		tk = b.fallbackTiki
 	}
 	return tk
@@ -96,8 +96,8 @@ func tikiSourcePathFor(tk *tikipkg.Tiki) string {
 	if tk == nil {
 		return ""
 	}
-	if tk.Path != "" {
-		return tk.Path
+	if tk.Path() != "" {
+		return tk.Path()
 	}
-	return filepath.Join(config.GetDocDir(), tk.ID+".md")
+	return filepath.Join(config.GetDocDir(), tk.ID()+".md")
 }

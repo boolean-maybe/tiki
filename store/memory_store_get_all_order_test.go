@@ -14,7 +14,7 @@ func TestInMemoryStore_GetAllTikis_DeterministicOrder(t *testing.T) {
 	store := NewInMemoryStore()
 	for _, id := range []string{"F8CGVY", "T0CVS4", "ABC123", "ZZZ999"} {
 		tk := tikipkg.New()
-		tk.ID = id
+		tk.SetID(id)
 		if err := store.CreateTiki(tk); err != nil {
 			t.Fatalf("create %s: %v", id, err)
 		}
@@ -29,13 +29,13 @@ func TestInMemoryStore_GetAllTikis_DeterministicOrder(t *testing.T) {
 			t.Fatalf("iteration %d: len = %d, want %d", i, len(got), len(want))
 		}
 		for j, tk := range got {
-			if tk.ID != want[j] {
+			if tk.ID() != want[j] {
 				ids := make([]string, len(got))
 				for k, t2 := range got {
-					ids[k] = t2.ID
+					ids[k] = t2.ID()
 				}
 				t.Fatalf("iteration %d: got[%d].ID = %q, want %q (full order: %v)",
-					i, j, tk.ID, want[j], ids)
+					i, j, tk.ID(), want[j], ids)
 			}
 		}
 	}

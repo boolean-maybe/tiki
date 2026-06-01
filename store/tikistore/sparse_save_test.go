@@ -36,7 +36,7 @@ func TestUpdateTiki_BodyEditPreservesExactFieldPresence(t *testing.T) {
 		t.Fatal("GetTiki: nil")
 	}
 	updated := tk.Clone()
-	updated.Body = "body v2\n"
+	updated.SetBody("body v2\n")
 	if err := s.UpdateTiki(updated); err != nil {
 		t.Fatalf("UpdateTiki: %v", err)
 	}
@@ -143,12 +143,12 @@ func TestCreateTiki_TemplateDerivedTikiSerializesWithDefaultedFields(t *testing.
 	if err != nil {
 		t.Fatalf("NewTikiTemplate: %v", err)
 	}
-	tk.Title = "new one"
+	tk.SetTitle("new one")
 	if err := s.CreateTiki(tk); err != nil {
 		t.Fatalf("CreateTiki: %v", err)
 	}
 
-	data, err := os.ReadFile(filepath.Join(tmp, tk.ID+".md"))
+	data, err := os.ReadFile(filepath.Join(tmp, tk.ID()+".md"))
 	if err != nil {
 		t.Fatalf("read: %v", err)
 	}

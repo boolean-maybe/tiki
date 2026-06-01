@@ -3,8 +3,8 @@ package plugin
 import (
 	"github.com/gdamore/tcell/v2"
 
+	"github.com/boolean-maybe/ruki"
 	"github.com/boolean-maybe/tiki/gridlayout"
-	"github.com/boolean-maybe/tiki/ruki"
 )
 
 // ViewKind identifies the behavior of a view declared in workflow.yaml.

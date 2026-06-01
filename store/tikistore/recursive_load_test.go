@@ -119,8 +119,8 @@ func TestRecursiveLoad_NewTikiLandsAtDocRoot(t *testing.T) {
 	}
 
 	tk := tikipkg.New()
-	tk.ID = "EEEEEE"
-	tk.Title = "new doc"
+	tk.SetID("EEEEEE")
+	tk.SetTitle("new doc")
 	tk.Set("type", "story")
 	tk.Set("status", "inbox")
 	tk.Set("priority", "medium")
@@ -162,7 +162,7 @@ func TestRecursiveLoad_NestedSavePreservesPath(t *testing.T) {
 		t.Fatal("FFFFFF missing after load")
 	}
 	updated := tk.Clone()
-	updated.Title = "updated"
+	updated.SetTitle("updated")
 	if err := store.UpdateTiki(updated); err != nil {
 		t.Fatalf("UpdateTiki: %v", err)
 	}

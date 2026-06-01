@@ -33,7 +33,7 @@ func TestSaveTiki_UsesLoadedPath(t *testing.T) {
 
 	// update — this should NOT create a new file at <id>.md.
 	updated := tk.Clone()
-	updated.Title = "Updated"
+	updated.SetTitle("Updated")
 	if err := s.UpdateTiki(updated); err != nil {
 		t.Fatalf("UpdateTiki: %v", err)
 	}
@@ -85,8 +85,8 @@ func TestCreateTiki_NewFileUsesIDDerivedPath(t *testing.T) {
 	}
 
 	wf := tikipkg.New()
-	wf.ID = "NEW001"
-	wf.Title = "fresh"
+	wf.SetID("NEW001")
+	wf.SetTitle("fresh")
 	wf.Set("type", "story")
 	wf.Set("status", "ready")
 	wf.Set("priority", "high")

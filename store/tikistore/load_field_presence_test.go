@@ -40,7 +40,7 @@ func TestLoadTiki_BareFileLoadsWithEmptyFields(t *testing.T) {
 	// A round-trip body edit must keep the file shape identical: no
 	// schema-known keys appear, since none were ever set.
 	updated := tk.Clone()
-	updated.Body = "edited body\n"
+	updated.SetBody("edited body\n")
 	if err := s.UpdateTiki(updated); err != nil {
 		t.Fatalf("UpdateTiki: %v", err)
 	}

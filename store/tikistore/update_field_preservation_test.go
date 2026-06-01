@@ -41,8 +41,8 @@ func TestUpdateTiki_FreshValueWithSchemaFieldsPersists(t *testing.T) {
 	// Construct a fresh Tiki with schema-known fields explicitly set —
 	// no path, no LoadedMtime — and call UpdateTiki.
 	fresh := tikipkg.New()
-	fresh.ID = "WF0001"
-	fresh.Title = "updated title"
+	fresh.SetID("WF0001")
+	fresh.SetTitle("updated title")
 	fresh.Set("type", "story")
 	fresh.Set("status", "inbox")
 	fresh.Set("priority", "medium")
@@ -66,7 +66,7 @@ func TestUpdateTiki_FreshValueWithSchemaFieldsPersists(t *testing.T) {
 	all := store.GetAllTikis()
 	found := false
 	for _, tk := range all {
-		if tk.ID == "WF0001" {
+		if tk.ID() == "WF0001" {
 			found = true
 			break
 		}

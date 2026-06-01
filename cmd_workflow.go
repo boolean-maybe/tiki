@@ -7,10 +7,10 @@ import (
 	"os"
 	"strings"
 
+	"github.com/boolean-maybe/ruki"
 	"github.com/boolean-maybe/tiki/config"
 	"github.com/boolean-maybe/tiki/internal/ruki/runtime"
 	"github.com/boolean-maybe/tiki/plugin"
-	"github.com/boolean-maybe/tiki/ruki"
 	"github.com/boolean-maybe/tiki/workflow"
 )
 

@@ -9,9 +9,9 @@ import "testing"
 // ruki's `has(field)` operate on the same notion of "in Fields".
 func TestIdentityFieldsAreNotInFieldsMap(t *testing.T) {
 	tk := &Tiki{
-		ID:    "ABC123",
-		Title: "hello",
-		Body:  "body content",
+		id:    "ABC123",
+		title: "hello",
+		body:  "body content",
 	}
 
 	for _, name := range []string{"id", "title", "body"} {
@@ -28,7 +28,7 @@ func TestIdentityFieldsAreNotInFieldsMap(t *testing.T) {
 
 	// And the actual struct fields are unaffected by the absence of map
 	// entries — the Tiki still carries the special values.
-	if tk.ID != "ABC123" || tk.Title != "hello" || tk.Body != "body content" {
+	if tk.ID() != "ABC123" || tk.Title() != "hello" || tk.Body() != "body content" {
 		t.Errorf("identity fields drifted: %+v", tk)
 	}
 }
@@ -60,15 +60,15 @@ func TestIsIdentityFieldRecognizesAuditAndIdentity(t *testing.T) {
 // Fields map can carry the entry but it does not promote into the special
 // struct fields.
 func TestSetIdentityNameDoesNotShadowStructField(t *testing.T) {
-	tk := &Tiki{ID: "REAL01", Title: "real title"}
+	tk := &Tiki{id: "REAL01", title: "real title"}
 	tk.Set("id", "FAKE99")
 	tk.Set("title", "fake title")
 
-	if tk.ID != "REAL01" {
-		t.Errorf("Tiki.ID got clobbered by Set(\"id\", ...): %q", tk.ID)
+	if tk.ID() != "REAL01" {
+		t.Errorf("Tiki.ID got clobbered by Set(\"id\", ...): %q", tk.ID())
 	}
-	if tk.Title != "real title" {
-		t.Errorf("Tiki.Title got clobbered by Set(\"title\", ...): %q", tk.Title)
+	if tk.Title() != "real title" {
+		t.Errorf("Tiki.Title got clobbered by Set(\"title\", ...): %q", tk.Title())
 	}
 	// The Fields-map entry is its own thing — Set is generic about names.
 	if v, ok := tk.Get("id"); !ok || v != "FAKE99" {
