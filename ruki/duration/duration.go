@@ -1,3 +1,7 @@
+// Package duration parses human-readable duration literals of the form
+// "<int><unit>" (e.g. "30min", "2days") — where unit is one of sec, min,
+// hour, day, week, month, or year with an optional plural "s" — and converts
+// them to time.Duration values via Parse and ToDuration.
 package duration
 
 import (

@@ -3,7 +3,7 @@ package component
 import (
 	"testing"
 
-	"github.com/boolean-maybe/tiki/workflow/value"
+	"github.com/boolean-maybe/tiki/ruki/recurrence"
 )
 
 func TestRecurrenceEdit_DefaultIsNone(t *testing.T) {
@@ -18,10 +18,10 @@ func TestRecurrenceEdit_DefaultIsNone(t *testing.T) {
 
 func TestRecurrenceEdit_SetInitialValue_Daily(t *testing.T) {
 	re := NewRecurrenceEdit()
-	re.SetInitialValue(string(value.RecurrenceDaily))
+	re.SetInitialValue(string(recurrence.RecurrenceDaily))
 
-	if got := re.GetValue(); got != string(value.RecurrenceDaily) {
-		t.Errorf("expected %q, got %q", value.RecurrenceDaily, got)
+	if got := re.GetValue(); got != string(recurrence.RecurrenceDaily) {
+		t.Errorf("expected %q, got %q", recurrence.RecurrenceDaily, got)
 	}
 	if got := re.GetText(); got != "Daily" {
 		t.Errorf("expected display 'Daily', got %q", got)
@@ -82,7 +82,7 @@ func TestRecurrenceEdit_FrequencySwitchResetsValue(t *testing.T) {
 
 func TestRecurrenceEdit_ChangeHandlerFires(t *testing.T) {
 	re := NewRecurrenceEdit()
-	re.SetInitialValue(string(value.RecurrenceDaily))
+	re.SetInitialValue(string(recurrence.RecurrenceDaily))
 
 	var lastValue string
 	callCount := 0

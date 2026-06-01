@@ -3,7 +3,7 @@ package ruki
 import (
 	"github.com/alecthomas/participle/v2/lexer"
 
-	"github.com/boolean-maybe/tiki/util/duration"
+	"github.com/boolean-maybe/tiki/ruki/duration"
 )
 
 // rukiLexer defines the token rules for the ruki DSL.

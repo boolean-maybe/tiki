@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"strconv"
 
+	"github.com/boolean-maybe/tiki/ruki/recurrence"
 	"github.com/boolean-maybe/tiki/theme"
-	"github.com/boolean-maybe/tiki/workflow/value"
 
 	"github.com/gdamore/tcell/v2"
 	"github.com/rivo/tview"
@@ -37,8 +37,8 @@ func NewRecurrenceEdit() *RecurrenceEdit {
 
 	re := &RecurrenceEdit{
 		InputField:  inputField,
-		frequencies: value.AllFrequencies(),
-		weekdays:    value.AllWeekdays(),
+		frequencies: recurrence.AllFrequencies(),
+		weekdays:    recurrence.AllWeekdays(),
 		freqIndex:   0, // None
 		weekdayIdx:  0, // Monday
 		day:         1,
@@ -62,8 +62,8 @@ func (re *RecurrenceEdit) SetChangeHandler(handler func(string)) *RecurrenceEdit
 
 // SetInitialValue populates both parts from a cron string.
 func (re *RecurrenceEdit) SetInitialValue(cron string) *RecurrenceEdit {
-	r := value.Recurrence(cron)
-	freq := value.FrequencyFromRecurrence(r)
+	r := recurrence.Recurrence(cron)
+	freq := recurrence.FrequencyFromRecurrence(r)
 
 	re.freqIndex = 0
 	for i, f := range re.frequencies {
@@ -74,8 +74,8 @@ func (re *RecurrenceEdit) SetInitialValue(cron string) *RecurrenceEdit {
 	}
 
 	switch freq {
-	case value.FrequencyWeekly:
-		if day, ok := value.WeekdayFromRecurrence(r); ok {
+	case recurrence.FrequencyWeekly:
+		if day, ok := recurrence.WeekdayFromRecurrence(r); ok {
 			for i, w := range re.weekdays {
 				if w == day {
 					re.weekdayIdx = i
@@ -83,8 +83,8 @@ func (re *RecurrenceEdit) SetInitialValue(cron string) *RecurrenceEdit {
 				}
 			}
 		}
-	case value.FrequencyMonthly:
-		if d, ok := value.DayOfMonthFromRecurrence(r); ok {
+	case recurrence.FrequencyMonthly:
+		if d, ok := recurrence.DayOfMonthFromRecurrence(r); ok {
 			re.day = d
 		}
 	}
@@ -96,17 +96,17 @@ func (re *RecurrenceEdit) SetInitialValue(cron string) *RecurrenceEdit {
 
 // GetValue assembles the current cron expression from the editor state.
 func (re *RecurrenceEdit) GetValue() string {
-	freq := value.RecurrenceFrequency(re.frequencies[re.freqIndex])
+	freq := recurrence.RecurrenceFrequency(re.frequencies[re.freqIndex])
 
 	switch freq {
-	case value.FrequencyDaily:
-		return string(value.RecurrenceDaily)
-	case value.FrequencyWeekly:
-		return string(value.WeeklyRecurrence(re.weekdays[re.weekdayIdx]))
-	case value.FrequencyMonthly:
-		return string(value.MonthlyRecurrence(re.day))
+	case recurrence.FrequencyDaily:
+		return string(recurrence.RecurrenceDaily)
+	case recurrence.FrequencyWeekly:
+		return string(recurrence.WeeklyRecurrence(re.weekdays[re.weekdayIdx]))
+	case recurrence.FrequencyMonthly:
+		return string(recurrence.MonthlyRecurrence(re.day))
 	default:
-		return string(value.RecurrenceNone)
+		return string(recurrence.RecurrenceNone)
 	}
 }
 
@@ -185,14 +185,14 @@ func (re *RecurrenceEdit) cycleNext() {
 }
 
 func (re *RecurrenceEdit) cycleValuePrev() {
-	freq := value.RecurrenceFrequency(re.frequencies[re.freqIndex])
+	freq := recurrence.RecurrenceFrequency(re.frequencies[re.freqIndex])
 	switch freq {
-	case value.FrequencyWeekly:
+	case recurrence.FrequencyWeekly:
 		re.weekdayIdx--
 		if re.weekdayIdx < 0 {
 			re.weekdayIdx = len(re.weekdays) - 1
 		}
-	case value.FrequencyMonthly:
+	case recurrence.FrequencyMonthly:
 		re.day--
 		if re.day < 1 {
 			re.day = 31
@@ -201,11 +201,11 @@ func (re *RecurrenceEdit) cycleValuePrev() {
 }
 
 func (re *RecurrenceEdit) cycleValueNext() {
-	freq := value.RecurrenceFrequency(re.frequencies[re.freqIndex])
+	freq := recurrence.RecurrenceFrequency(re.frequencies[re.freqIndex])
 	switch freq {
-	case value.FrequencyWeekly:
+	case recurrence.FrequencyWeekly:
 		re.weekdayIdx = (re.weekdayIdx + 1) % len(re.weekdays)
-	case value.FrequencyMonthly:
+	case recurrence.FrequencyMonthly:
 		re.day++
 		if re.day > 31 {
 			re.day = 1
@@ -222,12 +222,12 @@ func (re *RecurrenceEdit) resetValueDefaults() {
 }
 
 func (re *RecurrenceEdit) hasValuePart() bool {
-	freq := value.RecurrenceFrequency(re.frequencies[re.freqIndex])
-	return freq == value.FrequencyWeekly || freq == value.FrequencyMonthly
+	freq := recurrence.RecurrenceFrequency(re.frequencies[re.freqIndex])
+	return freq == recurrence.FrequencyWeekly || freq == recurrence.FrequencyMonthly
 }
 
 func (re *RecurrenceEdit) updateDisplay() {
-	freq := value.RecurrenceFrequency(re.frequencies[re.freqIndex])
+	freq := recurrence.RecurrenceFrequency(re.frequencies[re.freqIndex])
 	sep := " : "
 	if re.activePart == 1 {
 		sep = " > "
@@ -235,10 +235,10 @@ func (re *RecurrenceEdit) updateDisplay() {
 
 	var text string
 	switch freq {
-	case value.FrequencyWeekly:
+	case recurrence.FrequencyWeekly:
 		text = fmt.Sprintf("Weekly%s%s", sep, re.weekdays[re.weekdayIdx])
-	case value.FrequencyMonthly:
-		text = fmt.Sprintf("Monthly%s%s", sep, strconv.Itoa(re.day)+value.OrdinalSuffix(re.day))
+	case recurrence.FrequencyMonthly:
+		text = fmt.Sprintf("Monthly%s%s", sep, strconv.Itoa(re.day)+recurrence.OrdinalSuffix(re.day))
 	default:
 		text = re.frequencies[re.freqIndex]
 	}

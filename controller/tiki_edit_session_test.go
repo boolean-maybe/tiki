@@ -8,6 +8,7 @@ import (
 
 	"github.com/boolean-maybe/tiki/internal/teststatuses"
 	"github.com/boolean-maybe/tiki/model"
+	"github.com/boolean-maybe/tiki/ruki/recurrence"
 	"github.com/boolean-maybe/tiki/service"
 	"github.com/boolean-maybe/tiki/store"
 	tikipkg "github.com/boolean-maybe/tiki/tiki"
@@ -1117,7 +1118,7 @@ func TestTikiEditSession_SaveRecurrence(t *testing.T) {
 		name           string
 		setupTiki      func(*TikiEditSession, store.Store)
 		cron           string
-		wantRecurrence value.Recurrence
+		wantRecurrence recurrence.Recurrence
 		wantDueSet     bool
 		wantSuccess    bool
 	}{
@@ -1126,8 +1127,8 @@ func TestTikiEditSession_SaveRecurrence(t *testing.T) {
 			setupTiki: func(tc *TikiEditSession, s store.Store) {
 				tc.SetDraft(newTestTiki())
 			},
-			cron:           string(value.RecurrenceDaily),
-			wantRecurrence: value.RecurrenceDaily,
+			cron:           string(recurrence.RecurrenceDaily),
+			wantRecurrence: recurrence.RecurrenceDaily,
 			wantDueSet:     true,
 			wantSuccess:    true,
 		},
@@ -1136,11 +1137,11 @@ func TestTikiEditSession_SaveRecurrence(t *testing.T) {
 			setupTiki: func(tc *TikiEditSession, s store.Store) {
 				draft := newTestTiki()
 				draft.Set(tikipkg.FieldDue, time.Date(2025, 6, 15, 0, 0, 0, 0, time.UTC))
-				draft.Set(tikipkg.FieldRecurrence, string(value.RecurrenceDaily))
+				draft.Set(tikipkg.FieldRecurrence, string(recurrence.RecurrenceDaily))
 				tc.SetDraft(draft)
 			},
-			cron:           string(value.RecurrenceNone),
-			wantRecurrence: value.RecurrenceNone,
+			cron:           string(recurrence.RecurrenceNone),
+			wantRecurrence: recurrence.RecurrenceNone,
 			wantDueSet:     false,
 			wantSuccess:    true,
 		},
@@ -1157,7 +1158,7 @@ func TestTikiEditSession_SaveRecurrence(t *testing.T) {
 			setupTiki: func(tc *TikiEditSession, s store.Store) {
 				// no tiki
 			},
-			cron:        string(value.RecurrenceDaily),
+			cron:        string(recurrence.RecurrenceDaily),
 			wantSuccess: false,
 		},
 	}
@@ -1179,7 +1180,7 @@ func TestTikiEditSession_SaveRecurrence(t *testing.T) {
 
 			if tt.wantSuccess && tc.draftTiki != nil {
 				recurrenceStr, _, _ := tc.draftTiki.StringField(tikipkg.FieldRecurrence)
-				actualRecurrence := value.Recurrence(recurrenceStr)
+				actualRecurrence := recurrence.Recurrence(recurrenceStr)
 				if actualRecurrence != tt.wantRecurrence {
 					t.Errorf("Recurrence = %q, want %q", actualRecurrence, tt.wantRecurrence)
 				}

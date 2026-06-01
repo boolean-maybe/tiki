@@ -1,7 +1,7 @@
 // Package value contains reusable workflow-field value types and helpers
-// (dates, recurrence, points validation). These are workflow-field concerns —
-// they are intentionally not part of the root tiki model package, which
-// stays a generic document model.
+// (date-only values). These are workflow-field concerns — they are
+// intentionally not part of the root tiki model package, which stays a
+// generic document model.
 package value
 
 import (

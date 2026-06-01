@@ -1,8 +1,11 @@
+// Package collections holds small string-slice set helpers used by ruki and
+// by tiki's store/config layers: trimming, de-duplication, and ref
+// upper-casing.
 package collections
 
 import "strings"
 
-// normalizeStringSet trims values, drops empties, and removes duplicates.
+// NormalizeStringSet trims values, drops empties, and removes duplicates.
 func NormalizeStringSet(values []string) []string {
 	result := make([]string, 0, len(values))
 	seen := make(map[string]struct{}, len(values))
@@ -23,7 +26,7 @@ func NormalizeStringSet(values []string) []string {
 	return result
 }
 
-// normalizeRefSet trims values, uppercases refs, drops empties, and removes duplicates.
+// NormalizeRefSet trims values, uppercases refs, drops empties, and removes duplicates.
 func NormalizeRefSet(values []string) []string {
 	result := make([]string, 0, len(values))
 	seen := make(map[string]struct{}, len(values))

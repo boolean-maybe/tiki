@@ -6,7 +6,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/boolean-maybe/tiki/util/duration"
+	"github.com/boolean-maybe/tiki/ruki/duration"
 )
 
 const dateFormat = "2006-01-02"

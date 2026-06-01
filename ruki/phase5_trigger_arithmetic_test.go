@@ -3,7 +3,7 @@ package ruki
 import (
 	"testing"
 
-	"github.com/boolean-maybe/tiki/workflow/value"
+	"github.com/boolean-maybe/tiki/ruki/recurrence"
 )
 
 // --- Phase 4 + assignment-RHS carve-out: trigger arithmetic on absent list ---
@@ -104,7 +104,7 @@ func TestPhase4_Trigger_NextDatePresentRecurrenceMatches(t *testing.T) {
 	}
 
 	recurring := tikiFromFixture(&tikiFixture{
-		ID: "REC01", Recurrence: value.RecurrenceDaily,
+		ID: "REC01", Recurrence: recurrence.RecurrenceDaily,
 	})
 	tc := &TriggerContext{Old: recurring, New: recurring}
 

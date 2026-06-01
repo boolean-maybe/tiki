@@ -10,6 +10,7 @@ import (
 
 	"github.com/boolean-maybe/tiki/config"
 	"github.com/boolean-maybe/tiki/internal/teststatuses"
+	"github.com/boolean-maybe/tiki/ruki/recurrence"
 	tikipkg "github.com/boolean-maybe/tiki/tiki"
 	"github.com/boolean-maybe/tiki/workflow"
 	"github.com/boolean-maybe/tiki/workflow/value"
@@ -606,7 +607,7 @@ func TestLoadTikiFile_Recurrence(t *testing.T) {
 	tests := []struct {
 		name        string
 		fileContent string
-		expectValue value.Recurrence
+		expectValue recurrence.Recurrence
 		shouldLoad  bool
 	}{
 		{
@@ -619,7 +620,7 @@ status: inbox
 recurrence: "0 0 * * *"
 ---
 Tiki description`,
-			expectValue: value.RecurrenceDaily,
+			expectValue: recurrence.RecurrenceDaily,
 			shouldLoad:  true,
 		},
 		{
@@ -644,7 +645,7 @@ type: story
 status: inbox
 ---
 Tiki description`,
-			expectValue: value.RecurrenceNone,
+			expectValue: recurrence.RecurrenceNone,
 			shouldLoad:  true,
 		},
 		{
@@ -661,7 +662,7 @@ status: inbox
 recurrence: "every tuesday"
 ---
 Tiki description`,
-			expectValue: value.Recurrence("every tuesday"),
+			expectValue: recurrence.Recurrence("every tuesday"),
 			shouldLoad:  true,
 		},
 	}
@@ -692,7 +693,7 @@ Tiki description`,
 			}
 
 			recStr, _, _ := tk.StringField(tikipkg.FieldRecurrence)
-			if value.Recurrence(recStr) != tt.expectValue {
+			if recurrence.Recurrence(recStr) != tt.expectValue {
 				t.Errorf("recurrence got = %q, expected %q", recStr, tt.expectValue)
 			}
 
@@ -709,7 +710,7 @@ func TestSaveTiki_Recurrence(t *testing.T) {
 
 	tests := []struct {
 		name       string
-		recurrence value.Recurrence
+		recurrence recurrence.Recurrence
 		expectInFM bool
 	}{
 		{
@@ -719,7 +720,7 @@ func TestSaveTiki_Recurrence(t *testing.T) {
 		},
 		{
 			name:       "without recurrence",
-			recurrence: value.RecurrenceNone,
+			recurrence: recurrence.RecurrenceNone,
 			expectInFM: false,
 		},
 	}
@@ -733,7 +734,7 @@ func TestSaveTiki_Recurrence(t *testing.T) {
 			tk.Set("status", "inbox")
 			tk.Set("priority", "medium")
 			tk.SetBody("Test description")
-			if tt.recurrence != value.RecurrenceNone {
+			if tt.recurrence != recurrence.RecurrenceNone {
 				tk.Set(tikipkg.FieldRecurrence, string(tt.recurrence))
 			}
 
@@ -764,7 +765,7 @@ func TestSaveTiki_Recurrence(t *testing.T) {
 				return
 			}
 			recStr, _, _ := loaded.StringField(tikipkg.FieldRecurrence)
-			if value.Recurrence(recStr) != tt.recurrence {
+			if recurrence.Recurrence(recStr) != tt.recurrence {
 				t.Errorf("round-trip failed: saved %q, loaded %q", tt.recurrence, recStr)
 			}
 

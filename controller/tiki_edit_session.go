@@ -10,10 +10,11 @@ import (
 
 	"github.com/boolean-maybe/tiki/config"
 	"github.com/boolean-maybe/tiki/model"
+	collectionutil "github.com/boolean-maybe/tiki/ruki/collections"
+	"github.com/boolean-maybe/tiki/ruki/recurrence"
 	"github.com/boolean-maybe/tiki/service"
 	"github.com/boolean-maybe/tiki/store"
 	tikipkg "github.com/boolean-maybe/tiki/tiki"
-	collectionutil "github.com/boolean-maybe/tiki/util/collections"
 	"github.com/boolean-maybe/tiki/workflow"
 	"github.com/boolean-maybe/tiki/workflow/value"
 
@@ -465,18 +466,18 @@ func (tc *TikiEditSession) SaveDue(dateStr string) bool {
 // When recurrence is cleared, Due is also cleared.
 // Returns true if the recurrence was successfully updated, false otherwise.
 func (tc *TikiEditSession) SaveRecurrence(cron string) bool {
-	r := value.Recurrence(cron)
-	if !value.IsValidRecurrence(r) {
+	r := recurrence.Recurrence(cron)
+	if !recurrence.IsValidRecurrence(r) {
 		slog.Warn("invalid recurrence", "cron", cron)
 		return false
 	}
 	return tc.updateTikiField(func(tk *tikipkg.Tiki) {
-		if r == value.RecurrenceNone {
+		if r == recurrence.RecurrenceNone {
 			tk.Delete(tikipkg.FieldRecurrence)
 			tk.Delete(tikipkg.FieldDue)
 		} else {
 			tk.Set(tikipkg.FieldRecurrence, string(r))
-			tk.Set(tikipkg.FieldDue, value.NextOccurrence(r))
+			tk.Set(tikipkg.FieldDue, recurrence.NextOccurrence(r))
 		}
 	})
 }

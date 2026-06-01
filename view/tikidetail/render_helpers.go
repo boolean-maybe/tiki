@@ -7,12 +7,12 @@ import (
 	"github.com/boolean-maybe/tiki/config"
 	"github.com/boolean-maybe/tiki/gridlayout"
 	"github.com/boolean-maybe/tiki/model"
+	"github.com/boolean-maybe/tiki/ruki/recurrence"
 	"github.com/boolean-maybe/tiki/store"
 	"github.com/boolean-maybe/tiki/theme"
 	tikipkg "github.com/boolean-maybe/tiki/tiki"
 	"github.com/boolean-maybe/tiki/view/render"
 	"github.com/boolean-maybe/tiki/workflow"
-	"github.com/boolean-maybe/tiki/workflow/value"
 
 	"github.com/rivo/tview"
 )
@@ -285,7 +285,7 @@ func RenderDueText(tk *tikipkg.Tiki, roles *theme.Theme) tview.Primitive {
 // RenderRecurrenceText renders the recurrence field
 func RenderRecurrenceText(tk *tikipkg.Tiki, roles *theme.Theme) tview.Primitive {
 	recurrenceStr, _, _ := tk.StringField(tikipkg.FieldRecurrence)
-	display := value.RecurrenceDisplay(value.Recurrence(recurrenceStr))
+	display := recurrence.RecurrenceDisplay(recurrence.Recurrence(recurrenceStr))
 	text := fmt.Sprintf("%s%-12s%s%s",
 		roles.TextMuted().Tag(), "Recurrence:", roles.TextValue().Tag(), display)
 	view := tview.NewTextView().SetDynamicColors(true).SetText(text)

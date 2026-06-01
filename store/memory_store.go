@@ -8,9 +8,9 @@ import (
 	"time"
 
 	"github.com/boolean-maybe/tiki/config"
+	collectionutil "github.com/boolean-maybe/tiki/ruki/collections"
 	"github.com/boolean-maybe/tiki/store/internal/git"
 	tikipkg "github.com/boolean-maybe/tiki/tiki"
-	collectionutil "github.com/boolean-maybe/tiki/util/collections"
 	"github.com/boolean-maybe/tiki/workflow"
 )
 

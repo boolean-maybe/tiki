@@ -5,16 +5,11 @@ package document
 
 import (
 	"fmt"
-	"regexp"
 	"strings"
 
+	"github.com/boolean-maybe/tiki/ruki/idfmt"
 	gonanoid "github.com/matoous/go-nanoid/v2"
 )
-
-// IDLength is the number of characters in a bare document ID.
-// Changing it to 8 later should only require updating this constant and the
-// embedded length in idPattern below.
-const IDLength = 6
 
 // idAlphabet is the character set used to generate new bare document IDs.
 // Uppercase + digits. Visually similar characters (e.g. O/0, I/1) remain in
@@ -22,19 +17,15 @@ const IDLength = 6
 // store's unique-id retry loop.
 const idAlphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
 
-// idPattern is the single authoritative regex for bare document IDs.
-// Keep the {6} width in sync with IDLength.
-var idPattern = regexp.MustCompile(`^[A-Z0-9]{6}$`)
-
 // NewID returns a new bare document ID using the canonical alphabet and length.
 // Callers MUST NOT add any prefix; identity is the raw ID. There is no
 // TIKI- compatibility layer — legacy `TIKI-XXXXXX` values are rejected.
 func NewID() string {
-	id, err := gonanoid.Generate(idAlphabet, IDLength)
+	id, err := gonanoid.Generate(idAlphabet, idfmt.IDLength)
 	if err != nil {
 		// deterministic fallback so callers never observe an empty ID; the
 		// uniqueness loop in the store will retry until a free slot exists.
-		return strings.Repeat("0", IDLength)
+		return strings.Repeat("0", idfmt.IDLength)
 	}
 	return id
 }
@@ -44,17 +35,11 @@ func NormalizeID(id string) string {
 	return strings.ToUpper(strings.TrimSpace(id))
 }
 
-// IsValidID reports whether id matches the canonical bare document ID format.
-// Legacy TIKI-XXXXXX values are NOT valid and have no compatibility shim.
-func IsValidID(id string) bool {
-	return idPattern.MatchString(id)
-}
-
 // ValidateID returns nil when id is a bare document ID and a descriptive error
-// otherwise.
+// otherwise. The format rules live in ruki/idfmt — the single source of truth.
 func ValidateID(id string) error {
-	if !IsValidID(id) {
-		return fmt.Errorf("invalid document id %q: expected %d uppercase alphanumeric characters", id, IDLength)
+	if !idfmt.IsValidID(id) {
+		return fmt.Errorf("invalid document id %q: expected %d uppercase alphanumeric characters", id, idfmt.IDLength)
 	}
 	return nil
 }

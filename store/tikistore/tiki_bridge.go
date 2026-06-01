@@ -9,9 +9,10 @@ import (
 
 	"github.com/boolean-maybe/tiki/config"
 	"github.com/boolean-maybe/tiki/document"
+	collectionutil "github.com/boolean-maybe/tiki/ruki/collections"
+	"github.com/boolean-maybe/tiki/ruki/idfmt"
 	"github.com/boolean-maybe/tiki/store"
 	"github.com/boolean-maybe/tiki/tiki"
-	collectionutil "github.com/boolean-maybe/tiki/util/collections"
 	"github.com/boolean-maybe/tiki/workflow"
 	valuepkg "github.com/boolean-maybe/tiki/workflow/value"
 
@@ -53,10 +54,10 @@ func loadTikiFromBytes(path string, content []byte) (*parsedTiki, error) {
 			fmt.Errorf("missing frontmatter id in %s: add an `id:` field (bare 6-char uppercase alphanumeric)", path))
 	}
 	id := document.NormalizeID(rawID)
-	if !document.IsValidID(id) {
+	if !idfmt.IsValidID(id) {
 		return nil, newLoadError(LoadReasonInvalidID,
 			fmt.Errorf("%s: invalid document id %q: expected %d uppercase alphanumeric characters",
-				path, id, document.IDLength))
+				path, id, idfmt.IDLength))
 	}
 
 	title, _ := fmMap["title"].(string)

@@ -10,6 +10,7 @@ import (
 	"github.com/boolean-maybe/tiki/config"
 	"github.com/boolean-maybe/tiki/gridlayout"
 	"github.com/boolean-maybe/tiki/model"
+	"github.com/boolean-maybe/tiki/ruki/recurrence"
 	"github.com/boolean-maybe/tiki/theme"
 	tikipkg "github.com/boolean-maybe/tiki/tiki"
 	"github.com/boolean-maybe/tiki/workflow"
@@ -560,7 +561,7 @@ func textEmptyPlaceholder(name string) string {
 
 func renderRecurrenceValue(tk *tikipkg.Tiki, ctx FieldRenderContext) tview.Primitive {
 	recurrenceStr, _, _ := tk.StringField(tikipkg.FieldRecurrence)
-	display := value.RecurrenceDisplay(value.Recurrence(recurrenceStr))
+	display := recurrence.RecurrenceDisplay(recurrence.Recurrence(recurrenceStr))
 	return valueOnlyLine(display, ctx.Roles)
 }
 
@@ -753,7 +754,7 @@ func editDueValue(tk *tikipkg.Tiki, ctx FieldRenderContext, onChange func(string
 	a := &dateEditAdapter{DateEdit: editor}
 	// Read-only when the tiki has a non-empty recurrence: due is auto-computed.
 	recurrenceStr, _, _ := tk.StringField(tikipkg.FieldRecurrence)
-	if recurrenceStr != "" && value.Recurrence(recurrenceStr) != value.RecurrenceNone {
+	if recurrenceStr != "" && recurrence.Recurrence(recurrenceStr) != recurrence.RecurrenceNone {
 		a.readOnly = true
 	}
 	return a

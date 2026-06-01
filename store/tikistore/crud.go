@@ -7,7 +7,7 @@ import (
 	"sort"
 
 	"github.com/boolean-maybe/tiki/config"
-	"github.com/boolean-maybe/tiki/document"
+	"github.com/boolean-maybe/tiki/ruki/idfmt"
 	tikipkg "github.com/boolean-maybe/tiki/tiki"
 )
 
@@ -199,8 +199,8 @@ func (s *TikiStore) validateDependsOnLocked(tk *tikipkg.Tiki) error {
 	deps, _, _ := tk.StringSliceField("dependsOn")
 	for _, depID := range deps {
 		normalized := normalizeTikiID(depID)
-		if !document.IsValidID(normalized) {
-			return fmt.Errorf("dependsOn reference %q is not a bare document id (expected %d uppercase alphanumeric chars)", normalized, document.IDLength)
+		if !idfmt.IsValidID(normalized) {
+			return fmt.Errorf("dependsOn reference %q is not a bare document id (expected %d uppercase alphanumeric chars)", normalized, idfmt.IDLength)
 		}
 		if _, exists := s.tikis[normalized]; !exists {
 			return fmt.Errorf("dependsOn references non-existent document: %s", normalized)

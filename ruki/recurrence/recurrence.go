@@ -1,4 +1,8 @@
-package value
+// Package recurrence provides recurrence-pattern types and helpers for
+// workflow fields. It models daily, weekly (per-weekday), and monthly
+// recurrences as cron expressions and handles parsing, display formatting,
+// and next-occurrence calculation.
+package recurrence
 
 import (
 	"fmt"

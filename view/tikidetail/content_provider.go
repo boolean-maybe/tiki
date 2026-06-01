@@ -6,7 +6,7 @@ import (
 
 	"github.com/boolean-maybe/navidown/loaders"
 	nav "github.com/boolean-maybe/navidown/navidown"
-	"github.com/boolean-maybe/tiki/document"
+	"github.com/boolean-maybe/tiki/ruki/idfmt"
 	"github.com/boolean-maybe/tiki/store"
 	tikipkg "github.com/boolean-maybe/tiki/tiki"
 )
@@ -46,7 +46,7 @@ func (p *tikiDescriptionProvider) FetchContent(elem nav.NavElement) (string, err
 // format has no legacy identity to parse.
 func extractTikiID(url string) (string, bool) {
 	upper := strings.ToUpper(url)
-	if document.IsValidID(upper) {
+	if idfmt.IsValidID(upper) {
 		return upper, true
 	}
 	return "", false

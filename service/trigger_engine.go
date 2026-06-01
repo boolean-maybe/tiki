@@ -9,8 +9,8 @@ import (
 
 	"github.com/boolean-maybe/tiki/config"
 	"github.com/boolean-maybe/tiki/ruki"
+	"github.com/boolean-maybe/tiki/ruki/duration"
 	tikipkg "github.com/boolean-maybe/tiki/tiki"
-	"github.com/boolean-maybe/tiki/util/duration"
 )
 
 // maxTriggerDepth is the maximum cascade depth for triggers.

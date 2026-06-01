@@ -12,9 +12,9 @@ import (
 
 	"github.com/boolean-maybe/tiki/config"
 	"github.com/boolean-maybe/tiki/document"
+	collectionutil "github.com/boolean-maybe/tiki/ruki/collections"
 	"github.com/boolean-maybe/tiki/store/internal/git"
 	"github.com/boolean-maybe/tiki/tiki"
-	collectionutil "github.com/boolean-maybe/tiki/util/collections"
 	"github.com/boolean-maybe/tiki/workflow"
 )
 

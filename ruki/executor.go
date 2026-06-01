@@ -7,10 +7,10 @@ import (
 	"strings"
 	"time"
 
-	"github.com/boolean-maybe/tiki/document"
-	collectionutil "github.com/boolean-maybe/tiki/util/collections"
-	"github.com/boolean-maybe/tiki/util/duration"
-	"github.com/boolean-maybe/tiki/workflow/value"
+	collectionutil "github.com/boolean-maybe/tiki/ruki/collections"
+	"github.com/boolean-maybe/tiki/ruki/duration"
+	"github.com/boolean-maybe/tiki/ruki/idfmt"
+	"github.com/boolean-maybe/tiki/ruki/recurrence"
 )
 
 // Executor evaluates parsed ruki statements against a set of tikis.
@@ -396,13 +396,13 @@ func (e *Executor) setField(t Document, name string, val interface{}) error {
 	return nil
 }
 
-// coerceSetString converts a value.Recurrence wrapper or plain string to a
+// coerceSetString converts a recurrence.Recurrence wrapper or plain string to a
 // string before enum canonicalization.
 func coerceSetString(val interface{}) (string, bool) {
 	switch v := val.(type) {
 	case string:
 		return v, true
-	case value.Recurrence:
+	case recurrence.Recurrence:
 		return string(v), true
 	default:
 		return "", false
@@ -485,8 +485,8 @@ func coerceCustomFieldValue(fs FieldSpec, val interface{}) (interface{}, error) 
 			return nil, fmt.Errorf("expected string, got %T", val)
 		}
 		ref := strings.ToUpper(strings.TrimSpace(s))
-		if !document.IsValidID(ref) {
-			return nil, fmt.Errorf("%s reference %q is not a bare document id (expected %d uppercase alphanumeric chars)", fs.Name, ref, document.IDLength)
+		if !idfmt.IsValidID(ref) {
+			return nil, fmt.Errorf("%s reference %q is not a bare document id (expected %d uppercase alphanumeric chars)", fs.Name, ref, idfmt.IDLength)
 		}
 		return ref, nil
 	default:
@@ -523,8 +523,8 @@ func normalizeRefList(ss []string) []string {
 // validateBareRefs rejects any entry that is not a bare document ID.
 func validateBareRefs(refs []string, fieldName string) error {
 	for _, r := range refs {
-		if !document.IsValidID(r) {
-			return fmt.Errorf("%s reference %q is not a bare document id (expected %d uppercase alphanumeric chars)", fieldName, r, document.IDLength)
+		if !idfmt.IsValidID(r) {
+			return fmt.Errorf("%s reference %q is not a bare document id (expected %d uppercase alphanumeric chars)", fieldName, r, idfmt.IDLength)
 		}
 	}
 	return nil
@@ -1311,7 +1311,7 @@ func (e *Executor) evalNextDate(fc *FunctionCall, ctx evalContext) (interface{},
 	if _, isField := fc.Args[0].(*FieldRef); !isField {
 		if _, isQual := fc.Args[0].(*QualifiedRef); !isQual {
 			// Still evaluate so we can surface a typed error. Only
-			// value.Recurrence is accepted from non-field callers.
+			// recurrence.Recurrence is accepted from non-field callers.
 			val, err := e.evalExpr(fc.Args[0], ctx)
 			if err != nil {
 				return nil, err
@@ -1319,8 +1319,8 @@ func (e *Executor) evalNextDate(fc *FunctionCall, ctx evalContext) (interface{},
 			if val == nil {
 				return nil, nil
 			}
-			if rec, ok := val.(value.Recurrence); ok {
-				return value.NextOccurrence(rec), nil
+			if rec, ok := val.(recurrence.Recurrence); ok {
+				return recurrence.NextOccurrence(rec), nil
 			}
 			return nil, fmt.Errorf("next_date() argument must be a recurrence value, got %T", val)
 		}
@@ -1334,21 +1334,21 @@ func (e *Executor) evalNextDate(fc *FunctionCall, ctx evalContext) (interface{},
 		return nil, nil
 	}
 	// Accept string (from Fields map, which holds recurrence as canonical
-	// string) or value.Recurrence.
-	var rec value.Recurrence
+	// string) or recurrence.Recurrence.
+	var rec recurrence.Recurrence
 	switch v := val.(type) {
-	case value.Recurrence:
+	case recurrence.Recurrence:
 		rec = v
 	case string:
-		rec = value.Recurrence(v)
+		rec = recurrence.Recurrence(v)
 	default:
 		return nil, fmt.Errorf("next_date() argument must be a recurrence value, got %T", val)
 	}
-	return value.NextOccurrence(rec), nil
+	return recurrence.NextOccurrence(rec), nil
 }
 
 // evalEnumStep evaluates next_enum(field) / prev_enum(field) using the base
-// executor's evalExpr to read the field value. See enumStepFromValue for the
+// executor's evalExpr to read the field recurrence. See enumStepFromValue for the
 // stepping logic; this function exists so the base dispatch (CLI / select /
 // non-trigger contexts) can call into the shared computation while the
 // trigger executor can use evalEnumStepWithLookup with its qualifier-aware
@@ -1407,9 +1407,9 @@ func evalEnumStepWithLookup(schema Schema, fc *FunctionCall, direction int, look
 		return enumStepBoundary(fs, direction), nil
 	}
 	// Treat empty string as "field present-but-blank" — common when a
-	// helper initialises every workflow field to its zero value. Use the
+	// helper initialises every workflow field to its zero recurrence. Use the
 	// boundary rather than erroring so `prev_enum(priority)` on a freshly
-	// created tiki still produces a sensible value.
+	// created tiki still produces a sensible recurrence.
 	if s, ok := val.(string); ok && s == "" {
 		return enumStepBoundary(fs, direction), nil
 	}
@@ -1773,8 +1773,8 @@ func compareForSort(a, b interface{}) int {
 			return 1
 		}
 		return 0
-	case value.Recurrence:
-		bv, _ := b.(value.Recurrence)
+	case recurrence.Recurrence:
+		bv, _ := b.(recurrence.Recurrence)
 		return strings.Compare(string(av), string(bv))
 	case time.Duration:
 		bv, _ := b.(time.Duration)
@@ -1880,7 +1880,7 @@ func (e *Executor) compareValues(left, right interface{}, op string, leftExpr, r
 			return false, fmt.Errorf("cannot compare duration with %T", right)
 		}
 		return compareDurations(lv, rv, op)
-	case value.Recurrence:
+	case recurrence.Recurrence:
 		return compareStrings(string(lv), normalizeToString(right), op)
 	default:
 		return false, fmt.Errorf("unsupported comparison type %T", left)
@@ -2286,7 +2286,7 @@ func normalizeToString(v interface{}) string {
 	switch v := v.(type) {
 	case string:
 		return v
-	case value.Recurrence:
+	case recurrence.Recurrence:
 		return string(v)
 	default:
 		return fmt.Sprint(v)
@@ -2317,7 +2317,7 @@ func isZeroValue(v interface{}) bool {
 		return v == 0
 	case bool:
 		return !v
-	case value.Recurrence:
+	case recurrence.Recurrence:
 		return v == ""
 	case []interface{}:
 		return len(v) == 0

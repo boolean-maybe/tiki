@@ -3,7 +3,7 @@ package ruki
 import (
 	"time"
 
-	"github.com/boolean-maybe/tiki/workflow/value"
+	"github.com/boolean-maybe/tiki/ruki/recurrence"
 )
 
 // well-known kanban field names used by the fixture helpers. Kept as test-local
@@ -35,7 +35,7 @@ type tikiFixture struct {
 	Tags                []string
 	DependsOn           []string
 	Due                 time.Time
-	Recurrence          value.Recurrence
+	Recurrence          recurrence.Recurrence
 	Assignee            string
 	Points              int
 	CreatedBy           string
@@ -49,7 +49,7 @@ type tikiFixture struct {
 
 // docPriority returns the priority field off d as a string, or "" when absent
 // or non-string. Test-only convenience for assertions on the created/updated
-// document's priority value.
+// document's priority recurrence.
 func docPriority(d Document) string {
 	v, ok := d.Get("priority")
 	if !ok {
@@ -228,7 +228,7 @@ func tikiToFixtureForTest(tk Document) *tikiFixture {
 	if v, ok := fixtureTime(tk, fixtureFieldDue); ok {
 		f.Due = v
 	}
-	f.Recurrence = value.Recurrence(fixtureString(tk, fixtureFieldRecurrence))
+	f.Recurrence = recurrence.Recurrence(fixtureString(tk, fixtureFieldRecurrence))
 	if v, ok := fixtureStringSlice(tk, fixtureFieldTags); ok {
 		f.Tags = v
 	}

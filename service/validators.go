@@ -5,7 +5,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/boolean-maybe/tiki/document"
+	"github.com/boolean-maybe/tiki/ruki/idfmt"
 	tikipkg "github.com/boolean-maybe/tiki/tiki"
 	"github.com/boolean-maybe/tiki/workflow"
 )
@@ -120,9 +120,9 @@ func validateWorkflowFieldValue(fd workflow.FieldDef, raw interface{}) string {
 			return fmt.Sprintf("%s field has wrong type (expected list of refs)", fd.Name)
 		}
 		for _, dep := range ss {
-			if !document.IsValidID(dep) {
+			if !idfmt.IsValidID(dep) {
 				return fmt.Sprintf("invalid document ID format: %s (expected %d uppercase alphanumeric chars)",
-					dep, document.IDLength)
+					dep, idfmt.IDLength)
 			}
 		}
 
@@ -136,7 +136,7 @@ func validateWorkflowFieldValue(fd workflow.FieldDef, raw interface{}) string {
 		if !ok {
 			return fmt.Sprintf("%s field has wrong type (expected ref string)", fd.Name)
 		}
-		if s != "" && !document.IsValidID(strings.ToUpper(strings.TrimSpace(s))) {
+		if s != "" && !idfmt.IsValidID(strings.ToUpper(strings.TrimSpace(s))) {
 			return fmt.Sprintf("invalid %s reference %q", fd.Name, s)
 		}
 
